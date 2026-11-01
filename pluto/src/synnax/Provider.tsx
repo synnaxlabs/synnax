@@ -12,7 +12,7 @@ import { context } from "@synnaxlabs/lyra/context";
 import { useCombinedStateAndRef, useSyncedRef } from "@synnaxlabs/lyra/hooks";
 import { useMemoDeepEqual } from "@synnaxlabs/lyra/memo";
 import { Status } from "@synnaxlabs/lyra/status";
-import { migrate } from "@synnaxlabs/x";
+import { migrate, record } from "@synnaxlabs/x";
 import {
   type PropsWithChildren,
   type ReactElement,
@@ -148,10 +148,28 @@ export const Provider = ({
   // the cue for latched error boundaries to try again.
   const [resetKey, setResetKey] = useState(0);
 
+  // The worker joins the page client's session instead of opening its own, so ending
+  // the page's session ends the worker's access too.
+  const { client: pageClient } = state;
+  // for a moment after a switch, the page client still belongs to the previous Core
+  const current =
+    pageClient != null &&
+    connParams != null &&
+    pageClient.params.host === connParams.host &&
+    Number(pageClient.params.port) === Number(connParams.port) &&
+    pageClient.params.secure === (connParams.secure ?? false);
+  const token =
+    current && state.status.details.authenticated ? pageClient.auth.token : undefined;
+  let workerParams: SynnaxParams | null = null;
+  if (connParams != null && token != null) {
+    const shared = record.omit(connParams, "username", "password", "token");
+    workerParams =
+      token === "" ? { ...shared, sessionCookie: true } : { ...shared, token };
+  }
   const { path } = Aether.useUnidirectional({
     type: synnax.Provider.TYPE,
     schema: synnax.Provider.stateZ,
-    state: { props: connParams ?? null },
+    state: { props: workerParams },
   });
 
   const addStatus = Status.useAdder();

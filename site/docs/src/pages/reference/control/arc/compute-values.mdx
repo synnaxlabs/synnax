@@ -52,7 +52,7 @@ uses the latest value of the other channel.
 ```arc channels="tank_pt, tank_pt_rate"
 import math
 
-tank_pt -> math.derivative{} -> tank_pt_rate
+tank_pt -> math.derivative() -> tank_pt_rate
 ```
 
 `math.derivative` gives the change per second, from the timestamps of the samples. Its
@@ -65,7 +65,7 @@ first value is 0.
 An exponential moving average follows the sensor but damps its noise:
 
 ```arc channels="tank_pt, tank_pt_smooth" bodies="ema"
-func ema{alpha f64} (value f64) f64 {
+func ema(alpha f64) {value f64} f64 {
     avg $= 0.0
     first $= true
     if first {
@@ -77,12 +77,12 @@ func ema{alpha f64} (value f64) f64 {
     return avg
 }
 
-tank_pt -> ema{alpha=0.1} -> tank_pt_smooth
+tank_pt -> ema(alpha=0.1) -> tank_pt_smooth
 ```
 
 A smaller `alpha` smooths more, but follows changes more slowly. The effect of `alpha`
 depends on the sample rate of the sensor. Smooth a noisy sensor before you compute its
-rate of change: `tank_pt -> ema{alpha=0.1} -> math.derivative{} -> tank_pt_rate`.
+rate of change: `tank_pt -> ema(alpha=0.1) -> math.derivative() -> tank_pt_rate`.
 
 `math.avg` is not a moving average. It gives one average for each block of samples. See
 the [`math` module](/reference/control/arc/standard-library/math).
@@ -94,7 +94,7 @@ the [`math` module](/reference/control/arc/standard-library/math).
 With three sensors on the same tank, the middle value ignores one failed sensor:
 
 ```arc channels="tank_pt_1, tank_pt_2, tank_pt_3, tank_pt_voted" bodies="median3"
-func median3(a f64, b f64, c f64) f64 {
+func median3() {a f64, b f64, c f64} f64 {
     if (a >= b and a <= c) or (a >= c and a <= b) {
         return a
     }
@@ -104,7 +104,7 @@ func median3(a f64, b f64, c f64) f64 {
     return c
 }
 
-median3(tank_pt_1, tank_pt_2, tank_pt_3) -> tank_pt_voted
+(median3(tank_pt_1, tank_pt_2, tank_pt_3)) -> tank_pt_voted
 ```
 
 If one sensor reads 0 while the others read 500, the result is 500. The function runs

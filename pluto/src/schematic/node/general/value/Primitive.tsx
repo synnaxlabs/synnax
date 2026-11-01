@@ -10,11 +10,11 @@
 import "@/schematic/node/general/value/value.css";
 
 import { type schematic } from "@synnaxlabs/client";
-import { CSS } from "@synnaxlabs/lyra/css";
 import { Text } from "@synnaxlabs/lyra/text";
 import { color, type dimensions, type text } from "@synnaxlabs/x";
 import { type CSSProperties, type PropsWithChildren, type ReactElement } from "react";
 
+import { CSS } from "@/css";
 import { Handle } from "@/schematic/node/common/handle";
 import { Primitive } from "@/schematic/node/common/primitive";
 
@@ -53,7 +53,7 @@ export const Value = ({
     <Primitive.Div
       className={CSS.cls(
         CSS.B("value"),
-        CSS.B("symbol-colored"),
+        CSS.symbolColored,
         CSS.B("symbol-readout"),
         symbolColor != null && CSS.M("colored"),
         className,

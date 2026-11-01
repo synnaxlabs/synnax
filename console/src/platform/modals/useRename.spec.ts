@@ -42,7 +42,7 @@ describe("Rename", () => {
   it("should refuse to save an empty name until one is entered", async () => {
     const handle = await openRename({ allowEmpty: false });
     const save = await screen.findByRole("button", { name: "Save" });
-    expect(save.className).toContain("pluto--disabled");
+    expect(save.className).toContain("lyra--disabled");
     const settled = vi.fn();
     void handle.result()?.then(settled, settled);
     fireEvent.click(save);

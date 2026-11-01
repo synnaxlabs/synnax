@@ -14,8 +14,10 @@ from pydantic import ValidationError
 import synnax as sy
 from tests.driver.opcua_read import OPCUAReadArray
 
-RATE_LIMIT_SECONDS = 5
-RATE_LIMIT = RATE_LIMIT_SECONDS * sy.TimeSpan.SECOND
+WINDOW_SECONDS = 1
+# The Driver times its window on a monotonic clock but stamps statuses with its wall
+# clock, so two statuses can land a little under one window apart.
+MIN_GAP = 900 * sy.TimeSpan.MILLISECOND
 
 
 def _warnings_for_task(
@@ -40,11 +42,11 @@ class StatusRateLimit(OPCUAReadArray):
     """
     Status rate-limit integration test.
 
-    Verifies that the driver's StatusHandler rate limiter (5-second window) works
-    end-to-end. Inherits OPCUAReadArray but overrides array_size to 2 so the task
-    expects 2-element arrays while the sim serves 5, producing a persistent
-    "array too large" warning every read cycle. Asserts that no identical warning
-    message repeats within 5 seconds.
+    Verifies that the driver's StatusHandler (1-second window) works end-to-end.
+    Inherits OPCUAReadArray but overrides array_size to 2 so the task expects
+    2-element arrays while the sim serves 5, producing a persistent "array too
+    large" warning every read cycle. Asserts that no two warnings of the task come
+    within one window of each other.
     """
 
     array_size = 2
@@ -52,11 +54,10 @@ class StatusRateLimit(OPCUAReadArray):
     def run(self) -> None:
         if self.tsk is None:
             self.fail("Task not configured")
-            return
 
         task_key = self.tsk.key
         self.log(f"Listening for warnings on task key={task_key}")
-        seen: dict[str, sy.TimeStamp] = {}
+        last: sy.TimeStamp | None = None
         warning_count = 0
         with self.client.open_streamer(["sy_status_set"]) as streamer:
             with self.tsk.run():
@@ -72,27 +73,22 @@ class StatusRateLimit(OPCUAReadArray):
                     for status in _warnings_for_task(frame, task_key):
                         warning_count += 1
                         msg = f"{status.message}: {status.description}"
-                        if msg not in seen:
-                            seen[msg] = status.time
-                            continue
-                        gap = status.time - seen[msg]
-                        if gap < RATE_LIMIT:
+                        if last is not None and status.time - last < MIN_GAP:
+                            gap = status.time - last
                             self.fail(
-                                f"Duplicate warning after "
+                                f"Warning after "
                                 f"{gap / sy.TimeSpan.SECOND:.2f}s "
-                                f"(expected >= {RATE_LIMIT_SECONDS}s): "
+                                f"(expected >= {WINDOW_SECONDS}s): "
                                 f"{msg[:80]}"
                             )
-                            return
-                        seen[msg] = status.time
+                        last = status.time
         if warning_count == 0:
             self.fail(
                 "No warnings received from task in 10s. "
                 "Expected 'array too large/small' warnings due to array_size=2 "
                 "vs sim default of 5. Rate-limiter test was not exercised."
             )
-            return
         self.log(
             f"Received {warning_count} warnings, "
-            f"no duplicates within {RATE_LIMIT_SECONDS}s"
+            f"none within {WINDOW_SECONDS}s of another"
         )

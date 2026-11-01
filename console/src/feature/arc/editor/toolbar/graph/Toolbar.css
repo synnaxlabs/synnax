@@ -16,7 +16,7 @@
         padding: 1rem;
         border-bottom: var(--pluto-border);
 
-        & .pluto-input {
+        & .lyra-input {
             margin: 0 calc(-1 * var(--pluto-border-width));
         }
     }
@@ -27,7 +27,7 @@
 
         --pluto-focus-ring-offset: var(--pluto-focus-ring-inset);
 
-        & > .pluto-list__virtualizer {
+        & > .lyra-list__virtualizer {
             height: fit-content;
         }
     }
@@ -45,7 +45,7 @@
             white-space: wrap;
         }
 
-        &.pluto-list__item {
+        &.lyra-list__item {
             width: 90px;
             min-height: 100px;
             max-height: 100px;

@@ -57,6 +57,7 @@ class Client:
 
     def __init__(
         self,
+        *,
         client: UnaryClient,
         instrumentation: Instrumentation = NOOP,
     ):
@@ -101,6 +102,7 @@ class Client:
     def retrieve(
         self,
         key: UUID | None = None,
+        *,
         keys: list[UUID] | None = None,
         search_term: str | None = None,
         limit: int | None = None,
@@ -124,7 +126,7 @@ class Client:
         req = _DeleteRequest(keys=normalize(keys))
         self._client.send("/access/role/delete", req, Empty)
 
-    def assign(self, user: UUID, role: UUID) -> None:
+    def assign(self, *, user: UUID, role: UUID) -> None:
         """Assign a role to a user.
 
         Args:
@@ -134,7 +136,7 @@ class Client:
         req = _AssignRequest(user=user, role=role)
         self._client.send("/access/role/assign", req, Empty)
 
-    def unassign(self, user: UUID, role: UUID) -> None:
+    def unassign(self, *, user: UUID, role: UUID) -> None:
         """Remove a role from a user.
 
         Args:

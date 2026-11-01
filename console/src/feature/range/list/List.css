@@ -11,14 +11,14 @@
 
 @container (max-width: 500px) {
     .console-range__list-item {
-        .pluto-tags {
+        .lyra-tags {
             display: none;
         }
     }
 }
 
 /* Tightens the gutter so the reveal checkbox sits close to the row edge. */
-.pluto-list__item.console-range__list-item {
+.lyra-list__item.console-range__list-item {
     padding-left: 1rem;
 }
 

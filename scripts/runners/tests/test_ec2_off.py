@@ -46,11 +46,11 @@ class Instances:
 class TestRun:
     def test_should_stop_an_idle_runner(self) -> None:
         aws = Instances()
-        ec2_off.run(RUNNER, cast(AWS, aws), Runners(busy=False))
+        ec2_off.run(RUNNER, aws=cast(AWS, aws), github=Runners(busy=False))
         assert aws.stopped == ["i-010a6a6f95c268b59"]
 
     def test_should_not_stop_a_runner_github_lists_busy(self) -> None:
         aws = Instances()
-        line = ec2_off.run(RUNNER, cast(AWS, aws), Runners(busy=True))
+        line = ec2_off.run(RUNNER, aws=cast(AWS, aws), github=Runners(busy=True))
         assert aws.stopped == []
         assert "busy" in line

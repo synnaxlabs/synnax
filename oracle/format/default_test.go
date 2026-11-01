@@ -10,7 +10,9 @@
 package format_test
 
 import (
+	"context"
 	"os"
+	"os/exec"
 	"path/filepath"
 
 	. "github.com/onsi/ginkgo/v2"
@@ -46,10 +48,23 @@ var _ = Describe("Default Registry", func() {
 			To(MatchError(ContainSubstring("license template")))
 	})
 
+	// A chain stops at its first external tool: on the canceled context when the tool
+	// is installed, and on the lookup when it is not. A file no chain routes passes
+	// through unchanged.
+	canceled := func() context.Context {
+		ctx, cancel := context.WithCancel(context.Background())
+		cancel()
+		return ctx
+	}
+
 	DescribeTable("Should register every supported extension",
 		func(ext string) {
 			r := MustSucceed(format.Default(repoRoot))
-			Expect(r.Has(ext)).To(BeTrue(), "expected formatter chain for %q", ext)
+			Expect(r.Format(canceled(), []byte("x"), "/x/file"+ext)).Error().
+				To(SatisfyAny(
+					MatchError(context.Canceled),
+					MatchError(exec.ErrNotFound),
+				))
 		},
 		Entry("Go", ".go"),
 		Entry("C++ source", ".cpp"),
@@ -63,9 +78,14 @@ var _ = Describe("Default Registry", func() {
 		Entry("Protobuf", ".proto"),
 	)
 
-	It("Should not route unknown extensions through any formatter", func() {
-		r := MustSucceed(format.Default(repoRoot))
-		Expect(r.Has(".rs")).To(BeFalse())
-		Expect(r.Has(".md")).To(BeFalse())
-	})
+	DescribeTable(
+		"Should not route unknown extensions through any formatter",
+		func(ext string) {
+			r := MustSucceed(format.Default(repoRoot))
+			Expect(r.Format(canceled(), []byte("x"), "/x/file"+ext)).
+				To(Equal([]byte("x")))
+		},
+		Entry("Rust", ".rs"),
+		Entry("Markdown", ".md"),
+	)
 })

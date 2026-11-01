@@ -247,6 +247,8 @@ user alone; Claude's involvement is a tool detail, not an authorship claim.
 5. **Add one review tier label**: `review/human` when the change alters a user-facing
    interface, else `review/bot`. The tiers and the gate are in `CONTRIBUTING.md`. Never
    lower a tier a reviewer raised.
+6. **Add the `preview` label** only when the PR changes the Console UI or a reviewer
+   needs a live Core to check it. The label deploys a preview Core with the Console.
 
 ### 🚨 Rule 3: Cut small PRs into `main`, early and often 🚨
 

@@ -19,7 +19,7 @@ import { Button } from "@/schematic/node/general/button/Primitive";
 import { createSynnaxWrapper } from "@/testutil/Synnax";
 
 const getButton = (container: HTMLElement): HTMLElement => {
-  const el = container.querySelector<HTMLElement>(".pluto-btn");
+  const el = container.querySelector<HTMLElement>(".lyra-btn");
   if (el == null) throw new Error("expected a button element");
   return el;
 };
@@ -31,7 +31,7 @@ describe("button symbol", () => {
     const { container } = render(<Button fillColor="#ff0000" />);
     const btn = getButton(container);
     const cls = btn.getAttribute("class") ?? "";
-    expect(cls).toContain("pluto-symbol-colored");
+    expect(cls).toContain("lyra-symbol-colored");
     expect(cls).toContain("pluto-symbol-button");
     expect(btn.style.getPropertyValue("--pluto-symbol-color")).toBe("255, 0, 0, 1");
   });
@@ -40,7 +40,7 @@ describe("button symbol", () => {
     const { container } = render(<Button fillColor="#ff0000" />);
     const btn = getButton(container);
     // The color is not forwarded, so the base button never sets its own color var.
-    expect(btn.getAttribute("class")).not.toContain("pluto-btn--custom-color");
+    expect(btn.getAttribute("class")).not.toContain("lyra-btn--custom-color");
     expect(btn.style.getPropertyValue("--pluto-btn-color")).toBe("");
   });
 

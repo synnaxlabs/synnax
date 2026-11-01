@@ -17,7 +17,7 @@ ButtonMode = Literal["Fire", "Momentary", "Pulse"]
 class Button(Symbol):
     """Schematic button symbol"""
 
-    _symbol_group = "General"
+    _symbol_group: str | None = "General"
 
     def __init__(
         self,
@@ -40,7 +40,7 @@ class Button(Symbol):
             mode: Button mode - "Fire", "Momentary", or "Pulse" (optional)
             symbol_type: The type of symbol (default: "Button")
         """
-        super().__init__(label, symbol_type=symbol_type, rotatable=False)
+        super().__init__(label=label, symbol_type=symbol_type, rotatable=False)
         self.channel_name = channel_name
         self.activation_delay = activation_delay
         self.show_control_chip = show_control_chip
@@ -57,6 +57,7 @@ class Button(Symbol):
 
     def set_properties(
         self,
+        *,
         channel_name: str | None = None,
         activation_delay: float | None = None,
         show_control_chip: bool | None = None,
@@ -101,7 +102,7 @@ class Button(Symbol):
 
         return applied_properties
 
-    def get_properties(self, tab: str = "Control") -> dict[str, Any]:
+    def get_properties(self, *, tab: str = "Control") -> dict[str, Any]:
         """Get the current properties of the symbol"""
         super().get_properties(tab=tab)
 
@@ -138,7 +139,7 @@ class Button(Symbol):
                 button = self.page.get_by_text(option).first
                 if button.count() > 0:
                     class_name = button.get_attribute("class") or ""
-                    if "pluto--selected" in class_name:
+                    if "lyra--selected" in class_name:
                         props["mode"] = option
                         break
             except Exception as e:

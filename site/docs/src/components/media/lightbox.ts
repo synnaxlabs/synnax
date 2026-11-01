@@ -110,7 +110,7 @@ export const start = (): void => {
     if (!scrubber.matches(":active")) scrubber.value = String(position);
     query<HTMLElement>(
       root,
-      ".docs-lightbox__scrubber .pluto-progress-bar",
+      ".docs-lightbox__scrubber .lyra-progress-bar",
     ).style.width = `${Number(scrubber.value) * 100}%`;
     query(root, ".docs-lightbox__time").textContent =
       `${clock(video.currentTime)} / ${clock(video.duration)}`;

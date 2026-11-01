@@ -50,21 +50,11 @@ var _ = Describe("Literal", func() {
 			Expect(dest).To(Equal(1))
 		})
 	})
-	Describe("Optional Fields", func() {
-		Specify("optional field with nil value", func() {
-			var dest *string
-			Expect(zyn.Literal("a").Optional().Parse(nil, &dest)).To(Succeed())
-			Expect(dest).To(BeNil())
-		})
+	Describe("Required Fields", func() {
 		Specify("required field with nil value", func() {
 			var dest string
 			Expect(zyn.Literal("a").Parse(nil, &dest)).
 				To(MatchError(ContainSubstring("required")))
-		})
-		Specify("optional field with value", func() {
-			var dest *string
-			Expect(zyn.Literal("a").Optional().Parse("a", &dest)).To(Succeed())
-			Expect(*dest).To(Equal("a"))
 		})
 	})
 	Describe("Dump", func() {
@@ -78,9 +68,6 @@ var _ = Describe("Literal", func() {
 		Specify("nil value", func() {
 			Expect(zyn.Literal("a").Dump(nil)).Error().
 				To(MatchError(ContainSubstring("required")))
-		})
-		Specify("optional nil value", func() {
-			Expect(zyn.Literal("a").Optional().Dump(nil)).To(BeNil())
 		})
 	})
 	Describe("Custom DataTypes", func() {

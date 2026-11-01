@@ -99,7 +99,7 @@ export const TimeSpan = ({
           <Text.Text
             level="small"
             color={9}
-            overflow="ellipsis"
+            overflow="fade"
             className={CSS.BE("time-editor", "detail")}
           >
             {reading}

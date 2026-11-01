@@ -65,7 +65,11 @@ class Runner:
         self.bin_dir = bin_dir
 
     def run(
-        self, fail_output: str = "", fail_code: int = 1, args: list[str] | None = None
+        self,
+        *,
+        fail_output: str = "",
+        fail_code: int = 1,
+        args: list[str] | None = None,
     ) -> subprocess.CompletedProcess[str]:
         env = os.environ | {
             "PATH": f"{self.bin_dir}:{os.environ['PATH']}",
@@ -114,14 +118,14 @@ class TestRetries:
     """The two failures worth a second attempt, each costing one expunge."""
 
     def test_should_retry_an_unloadable_repo(self, runner: Runner) -> None:
-        result = runner.run(CORRUPT_REPO)
+        result = runner.run(fail_output=CORRUPT_REPO)
         assert result.returncode == 0, result.stderr
         assert runner.builds == 2
         assert runner.expunged
         assert not (runner.repo_cache / "contents").exists()
 
     def test_should_retry_a_stale_external_link(self, runner: Runner) -> None:
-        result = runner.run(EXTERNAL_LINK)
+        result = runner.run(fail_output=EXTERNAL_LINK)
         assert result.returncode == 0, result.stderr
         assert runner.builds == 2
         assert runner.expunged
@@ -131,17 +135,17 @@ class TestNoRetry:
     """A source defect must fail at once, with the caches left alone."""
 
     def test_should_not_retry_a_workspace_link_failure(self, runner: Runner) -> None:
-        result = runner.run(WORKSPACE_LINK)
+        result = runner.run(fail_output=WORKSPACE_LINK)
         assert result.returncode == 1
         assert runner.builds == 1
         assert not runner.expunged
         assert (runner.repo_cache / "contents").exists()
 
     def test_should_not_retry_a_compile_error(self, runner: Runner) -> None:
-        result = runner.run(COMPILE_ERROR)
+        result = runner.run(fail_output=COMPILE_ERROR)
         assert result.returncode == 1
         assert runner.builds == 1
         assert not runner.expunged
 
     def test_should_preserve_the_exit_code(self, runner: Runner) -> None:
-        assert runner.run(COMPILE_ERROR, fail_code=3).returncode == 3
+        assert runner.run(fail_output=COMPILE_ERROR, fail_code=3).returncode == 3

@@ -89,9 +89,6 @@ func (s *Server) Serve(ctx context.Context, rwc io.ReadWriteCloser) error {
 	return conn.Err()
 }
 
-// SetClient sets the LSP client for sending notifications.
-func (s *Server) SetClient(client protocol.Client) { s.client = client }
-
 // getDocument retrieves a document from the cache by URI.
 func (s *Server) getDocument(docURI uri.URI) (*document, bool) {
 	s.mu.RLock()

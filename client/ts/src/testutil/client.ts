@@ -14,10 +14,12 @@ import Synnax, { type SynnaxParams } from "@/client";
 import { TEST_CORE_ADDRESS } from "@/testutil/address";
 import { createSeverableProxy, type SeverableProxy } from "@/testutil/proxy";
 
+/** The root credentials of the test Core. */
+export const TEST_CREDENTIALS = { username: "synnax", password: "seldon" };
+
 export const TEST_CLIENT_PARAMS: SynnaxParams = {
   ...TEST_CORE_ADDRESS,
-  username: "synnax",
-  password: "seldon",
+  ...TEST_CREDENTIALS,
   retry: {
     maxRetries: 4,
     baseInterval: TimeSpan.seconds(1),

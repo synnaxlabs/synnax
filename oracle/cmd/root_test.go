@@ -13,49 +13,84 @@ import (
 	"io"
 	"os"
 	"path/filepath"
+	"strings"
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
+	"github.com/onsi/gomega/types"
 	"github.com/synnaxlabs/oracle/check"
 	"github.com/synnaxlabs/oracle/cmd"
 	. "github.com/synnaxlabs/oracle/testutil"
 	. "github.com/synnaxlabs/x/testutil"
 )
 
-// run executes oracle with args and returns everything it printed and its exit code.
-func run(args ...string) (string, int) {
+// capture returns a pipe to stand in for a standard stream and a function that
+// closes it and returns what was written to it.
+func capture() (*os.File, func() string) {
 	GinkgoHelper()
 	r, w := MustSucceed2(os.Pipe())
-	stdout, stderr := os.Stdout, os.Stderr
-	os.Stdout, os.Stderr = w, w
 	printed := make(chan []byte, 1)
 	go func() {
 		defer GinkgoRecover()
 		printed <- MustSucceed(io.ReadAll(r))
 	}()
+	return w, func() string {
+		GinkgoHelper()
+		Expect(w.Close()).To(Succeed())
+		var out []byte
+		Eventually(printed).Should(Receive(&out))
+		Expect(r.Close()).To(Succeed())
+		return string(out)
+	}
+}
+
+// run executes oracle with args and returns what it printed to stdout and stderr and
+// its exit code.
+func run(args ...string) (string, string, int) {
+	GinkgoHelper()
+	stdout, stderr := os.Stdout, os.Stderr
+	var readStdout, readStderr func() string
+	os.Stdout, readStdout = capture()
+	os.Stderr, readStderr = capture()
 	code := cmd.Execute(args)
 	os.Stdout, os.Stderr = stdout, stderr
-	Expect(w.Close()).To(Succeed())
-	var out []byte
-	Eventually(printed).Should(Receive(&out))
-	Expect(r.Close()).To(Succeed())
-	return string(out), code
+	return readStdout(), readStderr(), code
 }
 
-// succeed runs oracle with args, expects exit code 0, and returns what it printed.
+// succeed runs oracle with args, expects exit code 0, and returns what it printed to
+// stdout.
 func succeed(args ...string) string {
 	GinkgoHelper()
-	out, code := run(args...)
-	Expect(code).To(BeZero(), out)
-	return out
+	stdout, stderr, code := run(args...)
+	Expect(code).To(BeZero(), stdout+stderr)
+	return stdout
 }
 
-// fail runs oracle with args, expects exit code code, and returns what it printed.
+// fail runs oracle with args, expects exit code code, and returns what it printed to
+// stderr.
 func fail(code int, args ...string) string {
 	GinkgoHelper()
-	out, actual := run(args...)
-	Expect(actual).To(Equal(code), out)
-	return out
+	stdout, stderr, actual := run(args...)
+	Expect(actual).To(Equal(code), stdout+stderr)
+	return stderr
+}
+
+// failGate runs oracle check with args, expects the gate failure code, expects
+// nothing on stderr, and returns the report printed to stdout.
+func failGate(code int, args ...string) string {
+	GinkgoHelper()
+	stdout, stderr, actual := run(append([]string{"check"}, args...)...)
+	Expect(actual).To(Equal(code), stdout+stderr)
+	Expect(stderr).To(BeEmpty())
+	return stdout
+}
+
+// printOnce matches output that contains msg exactly once.
+func printOnce(msg string) types.GomegaMatcher {
+	return WithTransform(
+		func(out string) int { return strings.Count(out, msg) },
+		Equal(1),
+	)
 }
 
 // setupMiniRepo creates a temp directory that looks like a minimal oracle repo:
@@ -111,10 +146,18 @@ var _ = Describe("help", func() {
 		))
 	})
 
-	It("Should exit with 1 for an unknown subcommand", func() {
-		_, code := run("nonexistent")
-		Expect(code).To(Equal(1))
-	})
+	DescribeTable(
+		"Should print one error and exit with 1 for a usage error",
+		func(msg string, args ...string) {
+			Expect(fail(1, args...)).To(SatisfyAll(printOnce(msg), printOnce("✗")))
+		},
+		Entry("an unknown subcommand",
+			`unknown command "nonexistent" for "oracle"`, "nonexistent"),
+		Entry("a misspelled subcommand", "Did you mean this?\n\tsync", "sinc"),
+		Entry("an unknown flag", "unknown flag: --bogus", "sync", "--bogus"),
+		Entry("an extra argument",
+			`unknown command "extra" for "oracle surface"`, "surface", "extra"),
+	)
 })
 
 var _ = Describe("check command", Ordered, func() {
@@ -134,7 +177,7 @@ var _ = Describe("check command", Ordered, func() {
 	})
 })
 
-var _ = Describe("check command with no schemas", Ordered, func() {
+var _ = Describe("commands with no schemas", Ordered, func() {
 	var cleanup func()
 
 	BeforeAll(func() {
@@ -144,9 +187,14 @@ var _ = Describe("check command with no schemas", Ordered, func() {
 
 	AfterAll(func() { cleanup() })
 
-	It("should error when no schema files exist", func() {
-		Expect(fail(1, "check")).To(ContainSubstring("no schema files found"))
-	})
+	DescribeTable("Should print one error when no schema files exist",
+		func(command string) {
+			Expect(fail(1, command)).To(printOnce("no schema files found"))
+		},
+		Entry("check", "check"),
+		Entry("fmt", "fmt"),
+		Entry("sync", "sync"),
+	)
 })
 
 var _ = Describe("fmt command", Ordered, func() {
@@ -186,7 +234,7 @@ var _ = Describe("fmt command with nested schema folders", Ordered, func() {
 	It("discovers and flags unformatted schemas in subdirectories", func() {
 		Expect(
 			fail(1, "fmt", "--check"),
-		).To(ContainSubstring("file(s) need formatting"))
+		).To(printOnce("file(s) need formatting"))
 	})
 
 	It("formats nested schemas in place", func() {
@@ -218,7 +266,7 @@ var _ = Describe("fmt command with explicit file arguments", Ordered, func() {
 	It("leaves files not named in the arguments untouched", func() {
 		Expect(
 			fail(1, "fmt", "--check", "schemas/x/other.oracle"),
-		).To(ContainSubstring("file(s) need formatting"))
+		).To(printOnce("file(s) need formatting"))
 	})
 })
 
@@ -235,7 +283,7 @@ var _ = Describe("fmt command discovery error", Ordered, func() {
 	})
 
 	It("propagates the recursive-discovery error when no arguments are given", func() {
-		Expect(fail(1, "fmt")).To(ContainSubstring("walk schema directory"))
+		Expect(fail(1, "fmt")).To(printOnce("walk schema directory"))
 	})
 })
 
@@ -249,7 +297,7 @@ var _ = Describe("fmt command argument error", Ordered, func() {
 	})
 
 	It("propagates the glob error for a malformed pattern argument", func() {
-		Expect(fail(1, "fmt", "schemas/[")).To(ContainSubstring("invalid glob pattern"))
+		Expect(fail(1, "fmt", "schemas/[")).To(printOnce("invalid glob pattern"))
 	})
 })
 
@@ -267,9 +315,7 @@ var _ = Describe("fmt command with unformatted schemas", Ordered, func() {
 	AfterAll(func() { cleanup() })
 
 	It("should fail check mode when schemas need formatting", func() {
-		Expect(
-			fail(1, "fmt", "--check"),
-		).To(ContainSubstring("file(s) need formatting"))
+		Expect(fail(1, "fmt", "--check")).To(printOnce("1 file(s) need formatting"))
 	})
 })
 
@@ -290,7 +336,7 @@ var _ = Describe("migrate command with nested schema folders", Ordered, func() {
 
 	It("discovers schemas in subdirectories instead of failing the flat glob", func() {
 		Expect(fail(1, "migrate")).To(SatisfyAll(
-			ContainSubstring("name the resources to bump"),
+			printOnce("name the resources to bump"),
 			Not(ContainSubstring("no schema files found")),
 		))
 	})
@@ -334,7 +380,7 @@ var _ = Describe("fmt command with file patterns", func() {
 
 	It("Should fail when no file matches a pattern", func() {
 		Expect(fail(1, "fmt", "nonexistent/*.xyz")).
-			To(ContainSubstring("no schema files found"))
+			To(printOnce("no schema files found"))
 	})
 })
 
@@ -368,7 +414,11 @@ var _ = Describe("check command with bad schema", Ordered, func() {
 	AfterAll(func() { cleanup() })
 
 	It("should fail validation on invalid schemas", func() {
-		Expect(fail(check.FailureCodes["analyze"], "check")).
-			To(ContainSubstring("1 gate(s) failed"))
+		Expect(failGate(check.FailureCodes["analyze"])).
+			To(printOnce("1 gate(s) failed"))
+	})
+
+	It("should print one error when surface cannot analyze the schemas", func() {
+		Expect(fail(1, "surface")).To(printOnce("analysis failed"))
 	})
 })

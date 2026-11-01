@@ -9,15 +9,21 @@
 
 import "@/input/Input.css";
 
-import { type ReactElement, type ReactNode, useRef, useState } from "react";
+import {
+  type ReactElement,
+  type ReactNode,
+  useLayoutEffect,
+  useRef,
+  useState,
+} from "react";
 
 import { Button } from "@/button";
 import { SIZE_TEXT_LEVELS } from "@/component/text";
 import { CSS } from "@/css";
 import { Flex } from "@/flex";
 import { Generic } from "@/generic";
-import { useCombinedRefs } from "@/hooks";
-import { useLabelledBy } from "@/input/Item";
+import { useCombinedRefs, useResize } from "@/hooks";
+import { ItemBoundary, useItemStatus, useLabelledBy } from "@/input/Item";
 import { type InputProps, type Variant } from "@/input/types";
 import { type Status } from "@/status";
 import { Text as BaseText } from "@/text";
@@ -163,11 +169,30 @@ export const Text = ({
     e.stopPropagation();
   };
 
-  const combinedRef = useCombinedRefs(ref, internalRef);
+  // An input's text is no scroll container a CSS scroll timeline can watch, so the
+  // input measures itself to fade a cut value.
+  const [cut, setCut] = useState(false);
+  const measureCut = (el: HTMLElement | null): void => {
+    if (el != null && !area) setCut(el.scrollWidth > el.clientWidth);
+  };
+  const resizeRef = useResize<HTMLInputElement>((_, el) => measureCut(el));
+  useLayoutEffect(
+    () => measureCut(internalRef.current),
+    [value, tempValue, measureCut],
+  );
+
+  const combinedRef = useCombinedRefs(ref, internalRef, resizeRef);
 
   const inputStyle = { fontWeight: weight };
 
   const ariaLabelledBy = useLabelledBy(rest);
+  const itemStatus = useItemStatus({
+    status,
+    tooltip,
+    hideTooltip,
+    "aria-invalid": rest["aria-invalid"],
+    "aria-describedby": rest["aria-describedby"],
+  });
 
   const showPlaceholder =
     preview !== true &&
@@ -206,14 +231,14 @@ export const Text = ({
         flush && CSS.M("flush"),
         variant === "shadow" && CSS.M("shadow"),
         CSS.disabled(disabled),
-        status != null && CSS.M(status),
+        itemStatus.status != null && CSS.M(itemStatus.status),
         className,
       )}
       size={size}
       level={level}
       color={pColor}
       sharp={sharp}
-      status={status}
+      status={itemStatus.status}
       bordered={bordered}
       borderColor={borderColor}
       borderWidth={borderWidth}
@@ -228,9 +253,9 @@ export const Text = ({
       textVariant={textVariant}
       preventClick={preventClick}
       onClickDelay={onClickDelay}
-      tooltip={tooltip}
+      tooltip={itemStatus.tooltip}
       tooltipLocation={tooltipLocation}
-      hideTooltip={hideTooltip}
+      hideTooltip={itemStatus.hideTooltip}
       reveal={reveal}
       propagateClick={propagateClick}
       onMouseDown={handleFrameMouseDown}
@@ -268,6 +293,7 @@ export const Text = ({
         <Generic.Element<"textarea" | "input">
           el={area ? "textarea" : "input"}
           ref={combinedRef}
+          className={cut ? CSS.M("cut") : undefined}
           value={tempValue ?? value ?? ""}
           role="textbox"
           onChange={handleChange}
@@ -283,6 +309,8 @@ export const Text = ({
           placeholder={typeof placeholder === "string" ? placeholder : undefined}
           style={inputStyle}
           {...rest}
+          aria-invalid={itemStatus["aria-invalid"]}
+          aria-describedby={itemStatus["aria-describedby"]}
           aria-labelledby={ariaLabelledBy}
         />
       )}
@@ -300,7 +328,7 @@ export const Text = ({
   return (
     <Flex.Box x pack className={CSS.BE("input", "container")} {...outerProps}>
       {baseInput}
-      {children}
+      <ItemBoundary>{children}</ItemBoundary>
     </Flex.Box>
   );
 };

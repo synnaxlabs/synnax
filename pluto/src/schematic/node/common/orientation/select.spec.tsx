@@ -63,14 +63,14 @@ describe("Orientation.Select", () => {
       const { container } = render(
         <Orientation.Select value={ZERO_VALUE} onChange={() => {}} />,
       );
-      expect(buttons(container)[2].className).toContain("pluto--direction-y");
+      expect(buttons(container)[2].className).toContain("lyra--direction-y");
     });
 
     it("should mark inner bottom with the y-direction class", () => {
       const { container } = render(
         <Orientation.Select value={ZERO_VALUE} onChange={() => {}} />,
       );
-      expect(buttons(container)[5].className).toContain("pluto--direction-y");
+      expect(buttons(container)[5].className).toContain("lyra--direction-y");
     });
   });
 
@@ -83,9 +83,9 @@ describe("Orientation.Select", () => {
         />,
       );
       // outer right is index 6 in the default layout
-      expect(buttons(container)[6].className).toContain("pluto--selected");
+      expect(buttons(container)[6].className).toContain("lyra--selected");
       // outer top should not be selected
-      expect(buttons(container)[0].className).not.toContain("pluto--selected");
+      expect(buttons(container)[0].className).not.toContain("lyra--selected");
     });
 
     it("should add the selected modifier to the matching inner button", () => {
@@ -96,7 +96,7 @@ describe("Orientation.Select", () => {
         />,
       );
       // inner left is index 3 in the default layout
-      expect(buttons(container)[3].className).toContain("pluto--selected");
+      expect(buttons(container)[3].className).toContain("lyra--selected");
     });
 
     it("should highlight at most one outer and one inner button", () => {
@@ -107,7 +107,7 @@ describe("Orientation.Select", () => {
         />,
       );
       const selected = buttons(container).filter((b) =>
-        b.className.includes("pluto--selected"),
+        b.className.includes("lyra--selected"),
       );
       expect(selected).toHaveLength(2);
     });
@@ -149,11 +149,9 @@ describe("Orientation.Select", () => {
       // Pluto's Button uses a CSS class instead of the HTML disabled attribute,
       // since the rendered <button> still needs to be focus-traversable but
       // not click-actionable.
-      [2, 3, 4, 5].forEach((i) =>
-        expect(all[i].className).toContain("pluto--disabled"),
-      );
+      [2, 3, 4, 5].forEach((i) => expect(all[i].className).toContain("lyra--disabled"));
       [0, 1, 6, 7].forEach((i) =>
-        expect(all[i].className).not.toContain("pluto--disabled"),
+        expect(all[i].className).not.toContain("lyra--disabled"),
       );
     });
 
@@ -206,7 +204,7 @@ describe("Orientation.Select", () => {
           showOuterCenter
         />,
       );
-      expect(buttons(container)[2].className).toContain("pluto--selected");
+      expect(buttons(container)[2].className).toContain("lyra--selected");
     });
 
     it("should add the show-outer-center modifier to the inner wrapper", () => {

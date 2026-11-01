@@ -41,7 +41,7 @@ const removeCore = async (
 ): Promise<void> => {
   const item = coreItem(session, name);
   await item.click({ button: "right", timeout: 5000 });
-  const menu = session.page.locator(".pluto-menu-context").first();
+  const menu = session.page.locator(".lyra-menu-context").first();
   await session.waitFor(menu);
   await menu
     .getByText(/^Remove/)
@@ -105,13 +105,13 @@ export default async (session: capture.CaptureSession): Promise<void> => {
     text: true,
   });
 
-  const username = page.locator(".pluto-field__username input").first();
+  const username = page.locator(".lyra-field__username input").first();
   await session.waitFor(username);
   await session.hold(700);
   await session.click(username);
   await session.type("synnax");
   await session.hold(300);
-  await session.click(page.locator(".pluto-field__password input").first());
+  await session.click(page.locator(".lyra-field__password input").first());
   await session.type("seldon");
   await session.hold(500);
   await session.click(page.getByRole("button", { name: "Log in" }).first(), {

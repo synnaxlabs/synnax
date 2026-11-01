@@ -79,10 +79,10 @@ const marked = (input: HTMLInputElement): boolean =>
 const hoverTip = (input: HTMLInputElement): string | null => {
   vi.useFakeTimers();
   try {
-    const td = input.closest("td");
-    if (td == null) throw new Error("The input is not in a cell");
-    td.getBoundingClientRect = () => new DOMRect(0, 0, 100, 20);
-    fireEvent.pointerOver(td, { pointerType: "mouse" });
+    const frame = input.closest<HTMLElement>(".lyra-input");
+    if (frame == null) throw new Error("The input has no frame");
+    frame.getBoundingClientRect = () => new DOMRect(0, 0, 100, 20);
+    fireEvent.pointerOver(frame, { pointerType: "mouse" });
     act(() => {
       vi.advanceTimersByTime(2000);
     });
@@ -114,7 +114,7 @@ describe("Input.Table", () => {
 
   it("should show the remove button of every row at all times", () => {
     renderTable();
-    expect(removeButton(0).classList.contains("pluto--reveal")).toBe(false);
+    expect(removeButton(0).classList.contains("lyra--reveal")).toBe(false);
   });
 
   it("should name the row in the add button", () => {
@@ -124,8 +124,8 @@ describe("Input.Table", () => {
 
   it("should render every cell as a shadow input", () => {
     renderTable();
-    const chassis = cell("Raw", "1").closest(".pluto-input");
-    expect(chassis?.classList.contains("pluto--shadow")).toBe(true);
+    const chassis = cell("Raw", "1").closest(".lyra-input");
+    expect(chassis?.classList.contains("lyra--shadow")).toBe(true);
   });
 
   it("should render no row header until a labeler asks for one", () => {
@@ -579,6 +579,20 @@ describe("Input.Table", () => {
         </Input.Table>,
       );
       expect(document.activeElement).toBe(input);
+    });
+  });
+
+  describe("in an item", () => {
+    it("should not mark its cells with the item's status", () => {
+      render(
+        <Input.Item label="Coefficients" status="error" helpText="Too few">
+          <Input.Table value={[[1, 10]]} onChange={vi.fn()}>
+            {COLUMNS}
+          </Input.Table>
+        </Input.Item>,
+      );
+      expect(marked(cell("Raw", "1"))).toBe(false);
+      expect(hoverTip(cell("Raw", "1"))).toBeNull();
     });
   });
 

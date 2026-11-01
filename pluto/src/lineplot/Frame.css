@@ -10,6 +10,8 @@
  */
 
 .pluto-line-plot {
+    /* stylelint-disable-next-line declaration-no-important -- the plot sits flush
+       whatever padding its host sets */
     padding: 0 !important;
     position: relative;
     width: 100%;
@@ -17,7 +19,7 @@
     overflow: hidden;
 }
 
-.pluto-line-plot .pluto-haul-drop-region {
+.pluto-line-plot .lyra-haul-drop-region {
     background: var(--haul-background);
     border: var(--pluto-border);
     border-color: var(--haul-border-color);

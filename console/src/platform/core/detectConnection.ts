@@ -18,7 +18,7 @@ const DEV_CONNECTION: ConnectionParams = {
   key: Session.Core.SERVED_KEY,
   name: "Core",
   host: "localhost",
-  port: 9090,
+  port: CORE_PORT,
   secure: false,
 };
 

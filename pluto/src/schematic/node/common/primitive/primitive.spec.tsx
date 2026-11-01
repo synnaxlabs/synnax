@@ -148,7 +148,7 @@ describe("Primitive.SVG", () => {
       expect(svg.style.getPropertyValue("--pluto-symbol-color")).toMatch(
         /255\s*,\s*0\s*,\s*0/,
       );
-      expect(svg.getAttribute("class")).toContain("pluto-symbol-colored");
+      expect(svg.getAttribute("class")).toContain("lyra-symbol-colored");
     });
 
     it("should pass a fully transparent color through as a choice", () => {
@@ -160,7 +160,7 @@ describe("Primitive.SVG", () => {
       );
       const svg = container.querySelector("svg") as SVGSVGElement;
       expect(svg.style.getPropertyValue("--pluto-symbol-color")).toBe("0, 0, 0, 0");
-      expect(svg.getAttribute("class")).toContain("pluto-symbol-colored");
+      expect(svg.getAttribute("class")).toContain("lyra-symbol-colored");
     });
 
     it("should carry the alpha channel so transparency survives the transform", () => {
@@ -183,7 +183,7 @@ describe("Primitive.SVG", () => {
         <Primitive.SVG dimensions={{ width: 10, height: 10 }} orientation="top" />,
       );
       expect(container.querySelector("svg")?.getAttribute("class")).toContain(
-        "pluto--location-top",
+        "lyra--location-top",
       );
     });
 

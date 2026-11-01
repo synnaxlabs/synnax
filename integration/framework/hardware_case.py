@@ -29,18 +29,18 @@ class HardwareCase(TestCase):
 
     def __init__(
         self,
-        synnax_connection: SynnaxConnection = DEFAULT_CONNECTION,
         *,
+        synnax_connection: SynnaxConnection = DEFAULT_CONNECTION,
         name: str,
         **params: Any,
     ) -> None:
-        super().__init__(synnax_connection, name=name, **params)
+        super().__init__(synnax_connection=synnax_connection, name=name, **params)
         self._test_rack_keys: list[int] = []
         self._test_device_keys: list[str] = []
         self._test_task_keys: list[sy.task.Key] = []
 
     def create_test_rack(
-        self, name: str, integrations: list[str] | None = None
+        self, name: str, *, integrations: list[str] | None = None
     ) -> sy.Rack:
         """Create a rack that teardown deletes.
 

@@ -16,38 +16,17 @@ import (
 )
 
 var _ = Describe("Member", func() {
-	Describe("NodeMember", func() {
-		It("Should build a member referencing the node key", func() {
-			m := ir.NodeMember("n1")
-			Expect(m.NodeKey).To(HaveValue(Equal("n1")))
-			Expect(m.Scope).To(BeNil())
-		})
-	})
-
-	Describe("ScopeMember", func() {
-		It("Should build a member wrapping the nested scope", func() {
-			s := ir.Scope{
-				Key:      "sub",
-				Mode:     ir.ScopeModeParallel,
-				Liveness: ir.LivenessAlways,
-			}
-			m := ir.ScopeMember(s)
-			Expect(m.Scope).To(HaveValue(Equal(s)))
-			Expect(m.NodeKey).To(BeNil())
-		})
-	})
-
 	Describe("Key", func() {
 		It("Should return the node key for a node-backed member", func() {
-			Expect(ir.NodeMember("n1").Key()).To(Equal("n1"))
+			Expect(ir.Member{NodeKey: new("n1")}.Key()).To(Equal("n1"))
 		})
 
 		It("Should return the scope key for a scope-backed member", func() {
-			m := ir.ScopeMember(ir.Scope{
+			m := ir.Member{Scope: new(ir.Scope{
 				Key:      "sub",
 				Mode:     ir.ScopeModeParallel,
 				Liveness: ir.LivenessAlways,
-			})
+			})}
 			Expect(m.Key()).To(Equal("sub"))
 		})
 
@@ -59,15 +38,15 @@ var _ = Describe("Member", func() {
 
 	Describe("String", func() {
 		It("Should render the node key for a node-backed member", func() {
-			Expect(ir.NodeMember("n1").String()).To(Equal("n1\n"))
+			Expect(ir.Member{NodeKey: new("n1")}.String()).To(Equal("n1\n"))
 		})
 
 		It("Should render the nested scope for a scope-backed member", func() {
-			m := ir.ScopeMember(ir.Scope{
+			m := ir.Member{Scope: new(ir.Scope{
 				Key:      "sub",
 				Mode:     ir.ScopeModeParallel,
 				Liveness: ir.LivenessAlways,
-			})
+			})}
 			Expect(m.String()).To(ContainSubstring("sub"))
 		})
 

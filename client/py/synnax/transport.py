@@ -38,6 +38,7 @@ class Transport:
 
     def __init__(
         self,
+        *,
         url: URL,
         instrumentation: Instrumentation,
         registry: Registry,

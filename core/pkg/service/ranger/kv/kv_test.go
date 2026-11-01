@@ -18,10 +18,9 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/service/ontology"
 	"github.com/synnaxlabs/synnax/pkg/service/ranger"
 	"github.com/synnaxlabs/synnax/pkg/service/ranger/kv"
-	"github.com/synnaxlabs/x/kv/memkv"
-	"github.com/synnaxlabs/x/query"
 	"github.com/synnaxlabs/x/telem"
 	. "github.com/synnaxlabs/x/testutil"
+	"github.com/synnaxlabs/x/testutil/memkv"
 )
 
 var _ = Describe("KV", Ordered, func() {
@@ -71,7 +70,10 @@ var _ = Describe("KV", Ordered, func() {
 			},
 		}
 		Expect(rangerSvc.NewWriter(tx).Create(ctx, r)).To(Succeed())
-		Expect(kvSvc.NewWriter(tx).Set(ctx, r.Key, "key", "value")).To(Succeed())
+		Expect(
+			kvSvc.NewWriter(tx).
+				SetMany(ctx, []kv.Pair{{Range: r.Key, Key: "key", Value: "value"}}),
+		).To(Succeed())
 	})
 
 	It(
@@ -85,9 +87,12 @@ var _ = Describe("KV", Ordered, func() {
 				},
 			}
 			Expect(rangerSvc.NewWriter(tx).Create(ctx, r)).To(Succeed())
-			Expect(kvSvc.NewWriter(tx).Set(ctx, r.Key, "key", "value")).To(Succeed())
-			value := MustSucceed(kvSvc.NewReader(tx).Get(ctx, r.Key, "key"))
-			Expect(value).To(Equal("value"))
+			Expect(
+				kvSvc.NewWriter(tx).
+					SetMany(ctx, []kv.Pair{{Range: r.Key, Key: "key", Value: "value"}}),
+			).To(Succeed())
+			Expect(kvSvc.NewReader(tx).GetMany(ctx, r.Key, []string{"key"})).
+				To(Equal([]kv.Pair{{Range: r.Key, Key: "key", Value: "value"}}))
 		},
 	)
 
@@ -100,12 +105,12 @@ var _ = Describe("KV", Ordered, func() {
 			},
 		}
 		Expect(rangerSvc.NewWriter(tx).Create(ctx, r)).To(Succeed())
-		Expect(kvSvc.NewWriter(tx).Set(ctx, r.Key, "key", "value")).To(Succeed())
-		Expect(kvSvc.NewWriter(tx).Delete(ctx, r.Key, "key")).To(Succeed())
 		Expect(
-			kvSvc.NewReader(tx).Get(ctx, r.Key, "key"),
-		).Error().
-			To(MatchError(query.ErrNotFound))
+			kvSvc.NewWriter(tx).
+				SetMany(ctx, []kv.Pair{{Range: r.Key, Key: "key", Value: "value"}}),
+		).To(Succeed())
+		Expect(kvSvc.NewWriter(tx).Delete(ctx, r.Key, "key")).To(Succeed())
+		Expect(kvSvc.NewReader(tx).List(ctx, r.Key)).To(BeEmpty())
 	})
 
 	It("Should set many key-value pairs on the range", func(ctx SpecContext) {
@@ -121,11 +126,12 @@ var _ = Describe("KV", Ordered, func() {
 			{Range: r.Key, Key: "key1", Value: "value1"},
 			{Range: r.Key, Key: "key2", Value: "value2"},
 		})).To(Succeed())
-		reader := kvSvc.NewReader(tx)
-		value := MustSucceed(reader.Get(ctx, r.Key, "key1"))
-		Expect(value).To(Equal("value1"))
-		value = MustSucceed(reader.Get(ctx, r.Key, "key2"))
-		Expect(value).To(Equal("value2"))
+		Expect(
+			kvSvc.NewReader(tx).GetMany(ctx, r.Key, []string{"key1", "key2"}),
+		).To(ConsistOf(
+			kv.Pair{Range: r.Key, Key: "key1", Value: "value1"},
+			kv.Pair{Range: r.Key, Key: "key2", Value: "value2"},
+		))
 	})
 
 	It("Should be able to list all key-value pairs in a range", func(ctx SpecContext) {
@@ -138,8 +144,10 @@ var _ = Describe("KV", Ordered, func() {
 		}
 		Expect(rangerSvc.NewWriter(tx).Create(ctx, r)).To(Succeed())
 		kvW := kvSvc.NewWriter(tx)
-		Expect(kvW.Set(ctx, r.Key, "key1", "value1")).To(Succeed())
-		Expect(kvW.Set(ctx, r.Key, "key2", "value2")).To(Succeed())
+		Expect(kvW.SetMany(ctx, []kv.Pair{
+			{Range: r.Key, Key: "key1", Value: "value1"},
+			{Range: r.Key, Key: "key2", Value: "value2"},
+		})).To(Succeed())
 		pairs := MustSucceed(kvSvc.NewReader(tx).List(ctx, r.Key))
 		Expect(pairs).To(Equal([]kv.Pair{
 			{Range: r.Key, Key: "key1", Value: "value1"},

@@ -18,12 +18,15 @@ Before running this example:
    uv run python examples/opcua/connect_server.py
 
 3. The server creates array variables (my_array_0, my_array_1, etc.) that continuously
-   update with arrays of sine wave values. This example reads those arrays in array mode.
+   update with arrays of sine wave values. This example reads those arrays in array
+   mode.
 
 Use --tls to target the TLS-encrypted server instead.
 """
 
 import argparse
+
+import numpy as np
 
 import synnax as sy
 
@@ -60,8 +63,9 @@ opcua_array_time = client.channels.create(
     retrieve_if_name_exists=True,
 )
 
-# Create Synnax channels to store the my_array_0 and my_array_1 node data from the server.
-# These arrays are continuously updated with sine wave values by the OPC UA server.
+# Create Synnax channels to store the my_array_0 and my_array_1 node data from the
+# server. These arrays are continuously updated with sine wave values by the OPC UA
+# server.
 my_array_0 = client.channels.create(
     name="my_array_0",
     index=opcua_array_time.key,
@@ -111,37 +115,47 @@ print("Reading array sine wave data from the OPC UA server...")
 print("Running continuously - Press Ctrl+C to stop\n")
 
 print(
-    f"{'Sample':<8} {'Timestamp':<12} {'my_array_0 (5 values)':^35} {'my_array_1 (5 values)':^20}"
+    f"{'Sample':<8} {'Timestamp':<12} {'my_array_0 (5 values)':^35} "
+    f"{'my_array_1 (5 values)':^20}"
 )
 print("-" * 80)
 
 # Start the task and read data continuously
+sample_count = 0
 try:
     # Hide cursor for clean output
     print("\033[?25l", end="", flush=True)
 
     with tsk.run():
         with client.open_streamer(["my_array_0", "my_array_1"]) as streamer:
-            sample_count = 0
             start_time = sy.TimeStamp.now()
 
             while True:
                 frame = streamer.read()
                 # Print the latest array values from each channel
-                if frame and "my_array_0" in frame and len(frame["my_array_0"]) > 0:
+                if "my_array_0" in frame and len(frame["my_array_0"]) > 0:
                     elapsed = sy.TimeStamp.now().span(start_time).seconds
                     sample_count += 1
 
                     # Format arrays for display by iterating directly over MultiSeries
                     arr0_str = (
-                        "[" + ",".join(f"{v:5.2f}" for v in frame["my_array_0"]) + "]"
+                        "["
+                        + ",".join(
+                            f"{v:5.2f}" for v in frame["my_array_0"].as_(np.float32)
+                        )
+                        + "]"
                     )
                     arr1_str = (
-                        "[" + ",".join(f"{v:5.2f}" for v in frame["my_array_1"]) + "]"
+                        "["
+                        + ",".join(
+                            f"{v:5.2f}" for v in frame["my_array_1"].as_(np.float32)
+                        )
+                        + "]"
                     )
 
                     print(
-                        f"{sample_count:<8} {elapsed:<12.1f} {arr0_str:^35} {arr1_str:^20}",
+                        f"{sample_count:<8} {elapsed:<12.1f} {arr0_str:^35} "
+                        f"{arr1_str:^20}",
                         end="\r",
                         flush=True,
                     )

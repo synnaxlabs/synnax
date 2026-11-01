@@ -10,6 +10,7 @@
 package v4_test
 
 import (
+	"math"
 	"strings"
 	"time"
 
@@ -212,15 +213,35 @@ time.interval(1s) -> valve`),
 	)
 
 	// A document mid-edit can hold many open brackets. The rewrite must stay linear in
-	// the token count, so a broken program cannot stall the upgrade.
+	// the token count, so a broken program cannot stall the upgrade. Doubling the input
+	// doubles a linear rewrite's time and quadruples a quadratic one on any runner.
 	DescribeTable("Should stay linear on brackets that never close",
-		func(ctx SpecContext, src, want string) {
-			Expect(v4.SwapBrackets(src)).To(Equal(want))
+		func(unit, want string, n int) {
+			Expect(v4.SwapBrackets(strings.Repeat(unit, n))).
+				To(Equal(strings.Repeat(want, n)))
+			Expect(growth(unit, n)).To(BeNumerically("<", 3))
 		},
-		Entry("open braces", SpecTimeout(10*time.Second),
-			strings.Repeat("{", 100_000), strings.Repeat("{", 100_000)),
-		Entry("declarations with no body", SpecTimeout(10*time.Second),
-			strings.Repeat("func f() ", 20_000),
-			strings.Repeat("func f() {} ", 20_000)),
+		Entry("open braces", "{", "{", 25_000),
+		// Literals lex fast, so they lengthen a scan past each header at little cost.
+		Entry("declarations with no body",
+			"func f(0,0,0,0,0,0,0,0,0,0) ", "func f() {0,0,0,0,0,0,0,0,0,0} ", 2_000),
 	)
 })
+
+// growth returns how many times longer SwapBrackets takes on 2n copies of unit than on
+// n. Each size keeps its fastest of three runs, since a busy runner only adds time.
+func growth(unit string, n int) float64 {
+	small, large := strings.Repeat(unit, n), strings.Repeat(unit, 2*n)
+	fastSmall, fastLarge := time.Duration(math.MaxInt64), time.Duration(math.MaxInt64)
+	for range 3 {
+		fastSmall = min(fastSmall, elapsed(small))
+		fastLarge = min(fastLarge, elapsed(large))
+	}
+	return float64(fastLarge) / float64(fastSmall)
+}
+
+func elapsed(src string) time.Duration {
+	start := time.Now()
+	v4.SwapBrackets(src)
+	return time.Since(start)
+}

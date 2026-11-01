@@ -9,7 +9,7 @@
 
 import { fireEvent, waitFor } from "@testing-library/react";
 
-const EDITABLE_CLASS = "pluto-text--editable";
+const EDITABLE_CLASS = "lyra-text--editable";
 const EDITING_SELECTOR = `.${EDITABLE_CLASS}[contenteditable="true"]`;
 
 /** Every editable text element carrying `id`, mirroring how Text.edit resolves one. */

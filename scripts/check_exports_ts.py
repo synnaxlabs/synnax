@@ -38,7 +38,7 @@ _NODE = re.compile(
 _REFS = re.compile(r"^[│ ]*refs: \[(?P<refs>.*)\]$")
 
 
-@dataclass(frozen=True)
+@dataclass(frozen=True, kw_only=True)
 class Finding:
     """An export that only the specs of its own module use."""
 
@@ -110,7 +110,7 @@ def is_test_code(file: str) -> bool:
     return is_test_utility(file) or any(f"{s}." in name for s in TEST_SUFFIXES)
 
 
-def module_dir(repo: Path, file: str) -> Path:
+def module_dir(repo: Path, *, file: str) -> Path:
     """Returns the directory of the module that holds file."""
     path = repo / file
     for parent in path.parents:
@@ -139,7 +139,7 @@ def candidates(repo: Path) -> list[Finding]:
     out = knip(repo, "--production", "--include", "exports,types", "--reporter", "json")
     report = json.loads(out[out.index('{"issues"') :].splitlines()[0])
     return [
-        Finding(issue["file"], item["line"], item["name"])
+        Finding(path=issue["file"], line=item["line"], name=item["name"])
         for issue in report["issues"]
         for kind in ("exports", "types")
         for item in issue.get(kind, [])
@@ -154,9 +154,11 @@ def check(repo: Path) -> list[Finding]:
         used |= users(knip(repo, "--trace-export", name))
     result = []
     for f in found:
-        own = module_dir(repo, f.path)
+        own = module_dir(repo, file=f.path)
         outside = [
-            u for u in used.get((f.path, f.name), set()) if module_dir(repo, u) != own
+            u
+            for u in used.get((f.path, f.name), set())
+            if module_dir(repo, file=u) != own
         ]
         if is_test_utility(f.path) and outside:
             continue

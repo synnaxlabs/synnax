@@ -7,7 +7,12 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { type schematic } from "@synnaxlabs/client";
+import { schematic } from "@synnaxlabs/client";
+import {
+  createTestClient,
+  spyOnSend,
+  waitForStreamLive,
+} from "@synnaxlabs/client/testutil";
 import { type Status } from "@synnaxlabs/lyra/status";
 import { Schematic as PSchematic } from "@synnaxlabs/pluto";
 import { color, location, uuid } from "@synnaxlabs/x";
@@ -92,17 +97,17 @@ const setRoleColor = (label: string, hex: string): void => {
 // Picks Auto in the role control's picker.
 const clearRoleColor = (label: string): void => {
   const swatch = roleInput(label)
-    .closest(".pluto-color-input")
-    ?.querySelector<HTMLElement>(".pluto-color-swatch");
+    .closest(".lyra-color-input")
+    ?.querySelector<HTMLElement>(".lyra-color-swatch");
   assertDefined(swatch);
   fireEvent.click(swatch);
   fireEvent.click(screen.getByLabelText("Auto"));
 };
 
 const selectionSwatches = (): HTMLElement[] => {
-  const item = screen.getByText("Selection").closest(".pluto-input__item");
+  const item = screen.getByText("Selection").closest(".lyra-input__item");
   assertDefined(item);
-  return Array.from(item.querySelectorAll<HTMLElement>(".pluto-color-swatch"));
+  return Array.from(item.querySelectorAll<HTMLElement>(".lyra-color-swatch"));
 };
 
 const hexOf = (value: unknown): string | undefined =>
@@ -140,6 +145,39 @@ describe("Schematic toolbar Properties", () => {
         expect(config.label).toMatchObject({ label: "Main Valve" });
       });
       expect(await screen.findByText("Main Valve")).toBeDefined();
+    });
+
+    it("shows an edit that another client makes to the selected element", async () => {
+      const { key, result } = await renderProperties({ nodeKeys: ["n1"] });
+      fireEvent.click(await screen.findByRole("tab", { name: "Style" }));
+      await waitForStreamLive(client.connection);
+      const remote = createTestClient();
+      await remote.schematics.retrieve(key);
+      await act(async () => {
+        await remote.schematics.dispatch(
+          key,
+          schematic.set({ path: ["configs", "n1", "label", "label"], value: "Remote" }),
+        );
+      });
+      await waitFor(() =>
+        expect(getInputByItemLabel(result.container, "Label").value).toBe("Remote"),
+      );
+    });
+
+    it("prompts for a selection when another client removes the selected element", async () => {
+      const { key } = await renderProperties({ nodeKeys: ["n1"] });
+      await screen.findByRole("tab", { name: "Style" });
+      await waitForStreamLive(client.connection);
+      const remote = createTestClient();
+      await remote.schematics.retrieve(key);
+      await act(async () => {
+        await remote.schematics.dispatch(key, schematic.removeNode({ key: "n1" }));
+      });
+      expect(
+        await screen.findByText(
+          "Select a schematic element to configure its properties",
+        ),
+      ).toBeDefined();
     });
   });
 
@@ -288,6 +326,23 @@ describe("Schematic toolbar Properties", () => {
         .toEqual([RED, RED]);
     });
 
+    it("sends only the field that the edit changes", async () => {
+      await renderProperties({ nodeKeys: ["n1", "n2"] });
+      await screen.findByText("Colors");
+      const send = spyOnSend(client);
+      setRoleColor("Stroke", RED);
+      await waitFor(() =>
+        expect(
+          send.mock.calls.find(([target]) => target === "/schematic/dispatch")?.[1],
+        ).toMatchObject({
+          actions: ["n1", "n2"].map((key) => ({
+            type: "set",
+            set: { path: ["configs", key, "stroke_color"] },
+          })),
+        }),
+      );
+    });
+
     it("shows Mixed when the selected strokes differ", async () => {
       await renderProperties({
         nodeKeys: ["n1", "n2"],
@@ -337,8 +392,8 @@ describe("Schematic toolbar Properties", () => {
       await screen.findByText("Colors");
       expect(roleInput("Fill").placeholder).toBe("Auto");
       const swatch = roleInput("Fill")
-        .closest(".pluto-color-input")
-        ?.querySelector<HTMLElement>(".pluto-color-swatch");
+        .closest(".lyra-color-input")
+        ?.querySelector<HTMLElement>(".lyra-color-swatch");
       assertDefined(swatch);
       expect(swatch.style.getPropertyValue("--pluto-swatch-color")).not.toBe(
         "rgba(0, 0, 0, 0)",

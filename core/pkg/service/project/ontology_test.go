@@ -83,24 +83,6 @@ var _ = Describe("Ontology", func() {
 				`invalid project key ""`),
 		)
 	})
-	Describe("KeysFromOntologyIDs", func() {
-		It("Should round-trip keys through ontology IDs", func() {
-			a, b := uuid.New(), uuid.New()
-			Expect(project.KeysFromOntologyIDs([]ontology.ID{
-				project.OntologyID(a), project.OntologyID(b),
-			})).To(Equal([]project.Key{a, b}))
-		})
-		It("Should return an error when an ID key is not a valid UUID", func() {
-			Expect(project.KeysFromOntologyIDs([]ontology.ID{{
-				Type: ontology.ResourceTypeProject, Key: "not-a-uuid",
-			}})).Error().To(MatchError(ContainSubstring("invalid project key")))
-		})
-		It("Should return an error when an ID is not a project", func() {
-			Expect(project.KeysFromOntologyIDs([]ontology.ID{
-				{Type: ontology.ResourceTypeGroup, Key: uuid.New().String()},
-			})).Error().To(MatchError(ContainSubstring("must be a project")))
-		})
-	})
 	Describe("Type", func() {
 		It("Should return the project resource type", func() {
 			Expect(svc.Type()).To(Equal(ontology.ResourceTypeProject))

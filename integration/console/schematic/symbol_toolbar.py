@@ -94,7 +94,7 @@ class SymbolToolbar:
     def _rename_inline(self, target: Locator, new_name: str) -> None:
         """Complete an in-place rename started from a context menu."""
         self.ctx_menu.action(target, "Rename")
-        editable = self.page.locator(".pluto-text--editable[contenteditable='true']")
+        editable = self.page.locator(".lyra-text--editable[contenteditable='true']")
         editable.wait_for(state="visible", timeout=5000)
         editable.fill(new_name)
         self.page.keyboard.press("Enter")
@@ -157,7 +157,7 @@ class SymbolToolbar:
             has_text=name
         )
 
-    def symbol_exists(self, name: str, select_group: str | None = None) -> bool:
+    def symbol_exists(self, name: str, *, select_group: str | None = None) -> bool:
         """Check if a symbol exists in the current group.
 
         Args:
@@ -275,7 +275,7 @@ class SymbolToolbar:
         canvas = self.page.locator(".react-flow__pane").first
         self.layout.drag(symbol, canvas)
 
-    def add_symbol(self, symbol_type: str, group: str | None = None) -> str:
+    def add_symbol(self, symbol_type: str, *, group: str | None = None) -> str:
         """Add any symbol to the schematic and return its ID.
 
         This is the universal factory method for adding both built-in and custom
@@ -294,7 +294,8 @@ class SymbolToolbar:
         self._add_by_search(symbol_type)
 
         self.page.wait_for_function(
-            f"document.querySelectorAll('[data-testid^=\"rf__node-\"]').length > {initial_count}"
+            "document.querySelectorAll('[data-testid^=\"rf__node-\"]').length > "
+            f"{initial_count}"
         )
 
         all_symbols = self.page.locator("[data-testid^='rf__node-']").all()

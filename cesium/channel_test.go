@@ -252,7 +252,12 @@ var _ = Describe("Channel", Ordered, func() {
 							DataType: telem.StringT,
 						},
 					)).To(Succeed())
-					Expect(db.RenameChannel(ctx, data, "renamed")).To(Succeed())
+					Expect(
+						db.RenameChannels(
+							ctx,
+							map[cesium.ChannelKey]string{data: "renamed"},
+						),
+					).To(Succeed())
 					ch := MustSucceed(db.RetrieveChannel(ctx, data))
 					Expect(ch.Name).To(Equal("renamed"))
 				})
@@ -319,7 +324,12 @@ var _ = Describe("Channel", Ordered, func() {
 							),
 						)
 
-						Expect(db.RenameChannel(ctx, key, "laplace")).To(Succeed())
+						Expect(
+							db.RenameChannels(
+								ctx,
+								map[cesium.ChannelKey]string{key: "laplace"},
+							),
+						).To(Succeed())
 						series2 := telem.NewSeriesSecondsTSV(20, 21, 22)
 						MustSucceed(
 							w.Write(
@@ -422,7 +432,10 @@ var _ = Describe("Channel", Ordered, func() {
 				It("Should error if the channel is not found", func(ctx SpecContext) {
 					key := GenerateChannelKey()
 					Expect(
-						db.RenameChannel(ctx, key, "new_name"),
+						db.RenameChannels(
+							ctx,
+							map[cesium.ChannelKey]string{key: "new_name"},
+						),
 					).To(MatchError(cesium.ErrChannelNotFound))
 				})
 			})

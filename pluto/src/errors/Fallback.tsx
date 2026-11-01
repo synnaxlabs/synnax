@@ -11,7 +11,6 @@ import "@/errors/Fallback.css";
 
 import { Breadcrumb } from "@synnaxlabs/lyra/breadcrumb";
 import { Button } from "@synnaxlabs/lyra/button";
-import { CSS } from "@synnaxlabs/lyra/css";
 import { Divider } from "@synnaxlabs/lyra/divider";
 import { Flex } from "@synnaxlabs/lyra/flex";
 import { Icon } from "@synnaxlabs/lyra/icon";
@@ -22,6 +21,7 @@ import { errors, primitive, type record } from "@synnaxlabs/x";
 import { type PropsWithChildren, type ReactElement, useEffect, useState } from "react";
 import { z } from "zod";
 
+import { CSS } from "@/css";
 import { type ResolvedStack, resolveStack } from "@/errors/resolveStack";
 
 /** Props for the error fallback component. */
@@ -154,6 +154,7 @@ export const Fallback = ({
             <Text.Text
               level="h3"
               status="error"
+              overflow="fade"
               className={CSS.BE("error-fallback", "name")}
             >
               {error.name}

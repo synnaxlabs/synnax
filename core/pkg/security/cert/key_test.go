@@ -19,7 +19,7 @@ import (
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	"github.com/synnaxlabs/synnax/pkg/security/cert"
-	"github.com/synnaxlabs/synnax/pkg/security/mock"
+	"github.com/synnaxlabs/synnax/pkg/security/testutil"
 	"github.com/synnaxlabs/x/address"
 	xfs "github.com/synnaxlabs/x/io/fs"
 	. "github.com/synnaxlabs/x/testutil"
@@ -30,7 +30,7 @@ var _ = Describe("KeyAlgorithm", func() {
 	Describe("GenerateKey", func() {
 		DescribeTable("should generate a key of the algorithm's type",
 			func(algo cert.KeyAlgorithm, expected any) {
-				Expect(MustSucceed(algo.GenerateKey(mock.SmallKeySize))).
+				Expect(MustSucceed(algo.GenerateKey(testutil.SmallKeySize))).
 					To(BeAssignableToTypeOf(expected))
 			},
 			Entry("RSA", cert.KeyAlgorithmRSA, &rsa.PrivateKey{}),
@@ -41,7 +41,7 @@ var _ = Describe("KeyAlgorithm", func() {
 
 		DescribeTable("should generate the ML-DSA parameter set the name selects",
 			func(algo cert.KeyAlgorithm, expected mldsa.Parameters) {
-				key := MustSucceed(algo.GenerateKey(mock.SmallKeySize))
+				key := MustSucceed(algo.GenerateKey(testutil.SmallKeySize))
 				Expect(key.(*mldsa.PrivateKey).PublicKey().Parameters()).
 					To(Equal(expected))
 			},
@@ -59,19 +59,6 @@ var _ = Describe("KeyAlgorithm", func() {
 				))
 		})
 	})
-
-	Describe("PostQuantum", func() {
-		DescribeTable("should identify post-quantum algorithms",
-			func(algo cert.KeyAlgorithm, expected bool) {
-				Expect(algo.PostQuantum()).To(Equal(expected))
-			},
-			Entry("RSA", cert.KeyAlgorithmRSA, false),
-			Entry("unknown", cert.KeyAlgorithm("dilithium"), false),
-			Entry("ML-DSA-44", cert.KeyAlgorithmMLDSA44, true),
-			Entry("ML-DSA-65", cert.KeyAlgorithmMLDSA65, true),
-			Entry("ML-DSA-87", cert.KeyAlgorithmMLDSA87, true),
-		)
-	})
 })
 
 var _ = Describe("CreateAll", func() {
@@ -79,7 +66,7 @@ var _ = Describe("CreateAll", func() {
 		f := MustSucceed(cert.NewFactory(cert.FactoryConfig{
 			FS:      xfs.NewMem(),
 			Hosts:   []address.Address{"synnaxlabs.com"},
-			KeySize: mock.SmallKeySize,
+			KeySize: testutil.SmallKeySize,
 		}))
 		Expect(f.CreateAll()).To(Succeed())
 		node, _ := MustSucceed2(f.Loader.LoadNodePair())
@@ -90,7 +77,7 @@ var _ = Describe("CreateAll", func() {
 		f := MustSucceed(cert.NewFactory(cert.FactoryConfig{
 			FS:      xfs.NewMem(),
 			Hosts:   []address.Address{"synnaxlabs.com"},
-			KeySize: mock.SmallKeySize,
+			KeySize: testutil.SmallKeySize,
 		}))
 		Expect(f.CreateAll()).To(Succeed())
 		before, _ := MustSucceed2(f.Loader.LoadNodePair())
@@ -106,7 +93,7 @@ var _ = Describe("Factory key algorithms", func() {
 			f := MustSucceed(cert.NewFactory(cert.FactoryConfig{
 				FS:           xfs.NewMem(),
 				Hosts:        []address.Address{"synnaxlabs.com"},
-				KeySize:      mock.SmallKeySize,
+				KeySize:      testutil.SmallKeySize,
 				KeyAlgorithm: algo,
 			}))
 			Expect(f.CreateCAPair()).To(Succeed())

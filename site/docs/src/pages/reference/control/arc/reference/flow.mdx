@@ -2,8 +2,8 @@
 layout: "@/layouts/Reference.astro"
 title: "Flow"
 description:
-  "Syntax of Arc flow statements: the -> and => operators, sources, sinks, config
-  values, and routing tables."
+  "Syntax of Arc flow statements: the -> and => operators, sources, sinks, input values,
+  and routing tables."
 ---
 
 import { Divider } from "@synnaxlabs/lyra/divider";
@@ -20,11 +20,11 @@ operator = "->" | "=>"
 ```
 
 ```arc channels="tank_pt, tank_pt_kpa" bodies="scale"
-func scale{k f64} (v f64) f64 {
+func scale(k f64) {v f64} f64 {
     return v * k
 }
 
-tank_pt -> scale{k=6.895} -> tank_pt_kpa
+tank_pt -> scale(k=6.895) -> tank_pt_kpa
 ```
 
 <Divider.Divider x />
@@ -33,7 +33,7 @@ tank_pt -> scale{k=6.895} -> tank_pt_kpa
 
 | Operator | Passes                      | Example                     |
 | -------- | --------------------------- | --------------------------- |
-| `->`     | Each new value              | `tank_pt -> scale{k=6.895}` |
+| `->`     | Each new value              | `tank_pt -> scale(k=6.895)` |
 | `=>`     | Each new value that is true | `tank_pt > 500 => vent`     |
 
 A `=>` after a numeric value compiles with the warning
@@ -47,13 +47,13 @@ transition fires, see
 
 The first node of a flow is its source.
 
-| Source                              | Example                                                                     |
-| ----------------------------------- | --------------------------------------------------------------------------- |
-| Channel                             | `tank_pt -> tank_pt_copy`                                                   |
-| Expression, function calls included | `(ox_pt + fuel_pt) / 2.0 -> avg_pt`, `median3(pt_1, pt_2, pt_3) -> tank_pt` |
-| Literal                             | `1 -> press_vlv_cmd`                                                        |
-| Variable                            | `target -> setpoint_cmd`                                                    |
-| Function instance                   | `time.interval{period=1s} -> tick`                                          |
+| Source                              | Example                                                                       |
+| ----------------------------------- | ----------------------------------------------------------------------------- |
+| Channel                             | `tank_pt -> tank_pt_copy`                                                     |
+| Expression, function calls included | `(ox_pt + fuel_pt) / 2.0 -> avg_pt`, `(median3(pt_1, pt_2, pt_3)) -> tank_pt` |
+| Literal                             | `1 -> press_vlv_cmd`                                                          |
+| Variable                            | `target -> setpoint_cmd`                                                      |
+| Function instance                   | `time.interval(period=1s) -> tick`                                            |
 
 An expression source reads each channel in it. A literal source runs once when the
 automation starts, or each time its stage starts. See
@@ -70,14 +70,14 @@ flow.
 | ------------------------ | --------------------- | --------------------------------------------------------------------- |
 | Channel                  | `-> press_vlv_cmd`    | Writes the value to the channel.                                      |
 | Variable                 | `-> peak`             | Sets a variable of the enclosing sequence or stage.                   |
-| Function instance        | `-> scale{k=6.895}`   | Passes the value to the first input of the function.                  |
+| Function instance        | `-> scale(k=6.895)`   | Passes the value to the first trigger of the function.                |
 | Stage or sequence        | `=> vent`             | Starts the stage or the sequence.                                     |
 | `next`                   | `=> next`             | Moves to the next step of the enclosing sequence.                     |
 | Routing table            | `-> { ... }`          | Runs an entry for each output. See [routing tables](#routing-tables). |
 | Inline stage or sequence | `=> sequence { ... }` | Starts an anonymous stage or sequence.                                |
 
 - A top-level variable is not a sink: `cannot write to top-level variable 'peak'`.
-- A function name without braces is not a sink: `f is not a channel`. Write `f{}`.
+- A function name without parentheses is not a sink: `f is not a channel`. Write `f()`.
 - `=> name` finds a stage or sequence with that name in the enclosing sequences, from
   the innermost out, then at the top level. A stage of a different sequence is not
   found: `undefined symbol: name`.
@@ -91,11 +91,12 @@ flow.
 
 <Divider.Divider x />
 
-## Config values
+## Input values
 
-Braces after a function name set its config parameters, by name or by position. Do not
-mix the two forms in one pair of braces. Values by position fill the parameters in
-order, and skip the input that the flow feeds.
+Parentheses after a function name set its inputs, by name or by position. The opening
+parenthesis must touch the name. Do not mix the two forms in one pair of parentheses.
+Values by position fill the parameters in order, and skip the trigger that the flow
+feeds.
 
 | Parameter type | Value                                                                      |
 | -------------- | -------------------------------------------------------------------------- |
@@ -110,16 +111,16 @@ import time
 
 gain := 6.895
 
-func scale{k f64} (v f64) f64 {
+func scale(k f64) {v f64} f64 {
     return v * k
 }
 
-tank_pt -> scale{k=gain} -> tank_pt_kpa
-time.interval{1s} -> tick
+tank_pt -> scale(k=gain) -> tank_pt_kpa
+time.interval(1s) -> tick
 ```
 
 For required parameters and defaults, see
-[config parameters](/reference/control/arc/reference/functions#config-parameters).
+[inputs](/reference/control/arc/reference/functions#inputs).
 
 <Divider.Divider x />
 
@@ -133,7 +134,7 @@ alone is a parse error. Use `->` in front of the table. A `=>` fails with
 `'=>' cannot feed a routing table, use '->'`.
 
 ```arc channels="tank_pt, vent_vlv_cmd"
-tank_pt > 500.0 -> select{} -> {
+tank_pt > 500.0 -> select() -> {
     true: 1 -> vent_vlv_cmd,
     false: 0 -> vent_vlv_cmd
 }
@@ -152,10 +153,10 @@ An inline stage or sequence has no name. It cannot use `next`:
 ```arc channels="tank_pt, vent_vlv_cmd"
 import time
 
-tank_pt > 500.0 -> select{} -> {
+tank_pt > 500.0 -> select() -> {
     true: sequence {
         1 -> vent_vlv_cmd
-        time.wait{duration=2s}
+        time.wait(duration=2s)
         0 -> vent_vlv_cmd
     }
 }
@@ -168,7 +169,7 @@ function body, then route each output by name. See
 [outputs](/reference/control/arc/reference/functions#outputs).
 
 ```arc channels="tank_pt, alarm_cmd" bodies="band"
-func band{limit f64} (v f64) (low u8, high u8) {
+func band(limit f64) {v f64} (low u8, high u8) {
     if v > limit {
         high = 1
     } else {
@@ -176,7 +177,7 @@ func band{limit f64} (v f64) (low u8, high u8) {
     }
 }
 
-tank_pt -> band{limit=500.0} -> {
+tank_pt -> band(limit=500.0) -> {
     low: 0 -> alarm_cmd,
     high: 1 -> alarm_cmd
 }

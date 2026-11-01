@@ -26,6 +26,7 @@ class ChannelClient(ResourceClient):
 
     def __init__(
         self,
+        *,
         layout: LayoutClient,
         client: sy.Synnax,
     ):
@@ -74,6 +75,11 @@ class ChannelClient(ResourceClient):
         """Hide the channels pane in the sidebar if currently visible."""
         self.layout.close_left_toolbar()
 
+    def _select_kind(self, kind: str) -> None:
+        """Clicks the Data, Index, or Virtual button in the create modal."""
+        modal = self.layout.locator(self.layout.MODAL_SELECTOR)
+        modal.get_by_role("button", name=kind, exact=True).click()
+
     def create(
         self,
         *,
@@ -97,20 +103,21 @@ class ChannelClient(ResourceClient):
 
         self.open_create_modal()
         self.layout.locator("input[placeholder='Channel name']").fill(name)
-        if virtual:
-            self.layout.click_checkbox("Virtual")
         if is_index:
-            self.layout.click_checkbox("Is index")
+            self._select_kind("Index")
         else:
-            if not index:
+            if virtual:
+                self._select_kind("Virtual")
+            elif not index:
                 raise ValueError("Index must be provided if is_index is False")
             data_type_str = str(sy.DataType(data_type))
             self.layout.click_btn("Data type")
             self.layout.select_from_dropdown(
-                data_type_str, "Search Data Types", exact=True
+                data_type_str, placeholder="Search Data Types", exact=True
             )
-            self.layout.click_btn("Index")
-            self.layout.select_from_dropdown(index, "Search Channels")
+            if not virtual:
+                self.layout.get_by_text("Select channel", exact=True).click()
+                self.layout.select_from_dropdown(index, placeholder="Search Channels")
 
         self.layout.click_role("button", "Create", exact=True)
         self.layout.wait_for_selector_hidden(self.layout.MODAL_SELECTOR)
@@ -163,22 +170,25 @@ class ChannelClient(ResourceClient):
 
             self.layout.locator("input[placeholder='Channel name']").fill(name)
 
-            if virtual:
-                self.layout.click_checkbox("Virtual")
             if is_index:
-                self.layout.click_checkbox("Is index")
+                self._select_kind("Index")
             else:
-                if index == 0:
+                if virtual:
+                    self._select_kind("Virtual")
+                elif index == 0:
                     raise ValueError(
                         f"Index must be provided for non-index channel: {name}"
                     )
                 data_type_str = str(sy.DataType(data_type))
                 self.layout.click_btn("Data type")
                 self.layout.select_from_dropdown(
-                    data_type_str, "Search Data Types", exact=True
+                    data_type_str, placeholder="Search Data Types", exact=True
                 )
-                self.layout.click_btn("Index")
-                self.layout.select_from_dropdown(index_str, "Search Channels")
+                if not virtual:
+                    self.layout.get_by_text("Select channel", exact=True).click()
+                    self.layout.select_from_dropdown(
+                        index_str, placeholder="Search Channels"
+                    )
 
             is_last = i == len(channels) - 1
             if not is_last:
@@ -252,7 +262,7 @@ class ChannelClient(ResourceClient):
         finally:
             self.hide_channels()
 
-    def edit_calculated(self, name: str, new_expression: str) -> None:
+    def edit_calculated(self, name: str, *, new_expression: str) -> None:
         """Edit a calculated channel's expression via context menu.
 
         :param name: The name of the calculated channel to edit.
@@ -282,7 +292,7 @@ class ChannelClient(ResourceClient):
         self._ctx_menu_action(name, "Set alias under", exact=False)
         self.layout.type_text(alias)
         self.layout.press_enter()
-        self.layout.wait_for_selector_hidden("input.pluto-text--editable")
+        self.layout.wait_for_selector_hidden("input.lyra-text--editable")
         self.hide_channels()
 
     def clear_alias(self, name: str) -> None:
@@ -343,6 +353,7 @@ class ChannelClient(ResourceClient):
         self,
         old_name: str,
         new_name: str,
+        *,
         parent_group: str | None = None,
     ) -> None:
         """Rename a channel group via context menu.
@@ -357,7 +368,7 @@ class ChannelClient(ResourceClient):
             self.show_channels()
         self.tree.rename_group(old_name, new_name)
 
-    def delete_group(self, name: str, parent_group: str | None = None) -> None:
+    def delete_group(self, name: str, *, parent_group: str | None = None) -> None:
         """Delete a channel group via context menu.
 
         :param name: Name of the group to delete.
@@ -376,6 +387,7 @@ class ChannelClient(ResourceClient):
         self,
         channel_name: str,
         group_name: str,
+        *,
         parent_group: str | None = None,
     ) -> None:
         """Move a channel into a group via drag-and-drop.
@@ -404,7 +416,7 @@ class ChannelClient(ResourceClient):
         if not self.tree.is_expanded(group):
             self.tree.expand(group)
 
-    def group_exists(self, name: str, parent_group: str | None = None) -> bool:
+    def group_exists(self, name: str, *, parent_group: str | None = None) -> bool:
         """Check if a group exists in the channel tree.
 
         :param name: The display name of the group.
@@ -451,6 +463,7 @@ class ChannelClient(ResourceClient):
     def wait_for_channels(
         self,
         names: str | list[str] | tuple[str],
+        *,
         timeout: sy.CrudeTimeSpan = 10 * sy.TimeSpan.SECOND,
     ) -> bool:
         """Wait for one or more channels to appear in the console UI.
@@ -502,7 +515,7 @@ class ChannelClient(ResourceClient):
     def _rename_single_channel(self, *, old_name: str, new_name: str) -> None:
         """Rename a single channel via the context menu."""
         item = self._ctx_menu_action(old_name, "Rename")
-        channel_name_element = item.locator("p.pluto-text--editable")
+        channel_name_element = item.locator("p.lyra-text--editable")
         channel_name_element.click()
         channel_name_element.fill(new_name)
         self.layout.press_enter()
@@ -527,7 +540,7 @@ class ChannelClient(ResourceClient):
             message = notification.get("message", "")
             description = notification.get("description", "")
             if message == "Failed to delete Channel" and name in description:
-                self.notifications.close(i)
+                self.notifications.close(notification_index=i)
                 raise RuntimeError(f"{message} {name}, {description}")
 
         self.tree.wait_for_removal(self.ITEM_PREFIX, name, exact=True)
@@ -544,11 +557,13 @@ class ChannelClient(ResourceClient):
 
     def open_create_modal(self) -> None:
         """Open the Create Channel modal via command palette."""
-        self.layout.open_modal("Create channel", self.layout.MODAL_SELECTOR)
+        self.layout.open_modal("Create channel", selector=self.layout.MODAL_SELECTOR)
         self.layout.wait_for_selector_visible("input[placeholder='Channel name']")
 
     def open_create_calculated_modal(self) -> None:
         """Open the Create Calculated Channel modal via command palette."""
-        self.layout.open_modal("Create calculated channel", self.layout.MODAL_SELECTOR)
+        self.layout.open_modal(
+            "Create calculated channel", selector=self.layout.MODAL_SELECTOR
+        )
         self.layout.wait_for_selector_visible("input[placeholder='Channel name']")
         self.layout.wait_for_selector_visible(".monaco-editor")

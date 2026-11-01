@@ -10,14 +10,14 @@
 from playwright.sync_api import Locator, Page
 
 
-def pick(page: Page, swatch: Locator, hex_color: str) -> None:
+def pick(page: Page, swatch: Locator, *, hex_color: str) -> None:
     """Opens the color picker of a swatch, enters a color, and closes the picker.
 
     :param swatch: The swatch that opens the picker.
     :param hex_color: The color as hex digits, with or without a leading "#".
     """
     swatch.click()
-    picker = page.locator(".pluto-color-picker")
+    picker = page.locator(".lyra-color-picker")
     picker.wait_for(state="visible", timeout=2000)
     hex_input = picker.get_by_label("Hex", exact=True)
     hex_input.click(click_count=3)
@@ -36,7 +36,7 @@ def pick_auto(page: Page, swatch: Locator) -> None:
     :param swatch: The swatch that opens the picker.
     """
     swatch.click()
-    picker = page.locator(".pluto-color-picker")
+    picker = page.locator(".lyra-color-picker")
     picker.wait_for(state="visible", timeout=2000)
     picker.get_by_label("Auto", exact=True).click()
     page.keyboard.press("Escape")

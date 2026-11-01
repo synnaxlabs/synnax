@@ -11,7 +11,7 @@
 
 /* The create button sits outside the strip's scrollport so it stays reachable once
    the pills start scrolling. */
-.console-panel-selector > .pluto-btn {
+.console-panel-selector > .lyra-btn {
     flex-shrink: 0;
 }
 

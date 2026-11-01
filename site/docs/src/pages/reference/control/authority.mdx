@@ -143,7 +143,6 @@ Pass one authority for every channel, or one authority for each channel:
 
 ```python
 writer = client.open_writer(
-    start=sy.TimeStamp.now(),
     channels=["press_time", "press_vlv_cmd"],
     authorities=100,
 )
@@ -174,7 +173,6 @@ Pass one authority for every channel, or one authority for each channel:
 
 ```typescript
 const writer = await client.openWriter({
-  start: TimeStamp.now(),
   channels: ["press_time", "press_vlv_cmd"],
   authorities: 100,
 });
@@ -198,7 +196,7 @@ error.
 1. In the Arc editor, after the `import` lines, add `authority 100`. It sets the
    authority for every channel that the automation writes.
 2. In each stage that an operator must not override, add
-   `control.set_authority{value=255}`. The automation raises its authority when the
+   `control.set_authority(value=255)`. The automation raises its authority when the
    stage starts.
 3. Start the automation.
 
@@ -222,7 +220,7 @@ sequence main {
         abort_cmd == 1 => abort
     }
     stage abort {
-        control.set_authority{value=255}
+        control.set_authority(value=255)
         0 -> press_vlv_cmd
         1 -> vent_vlv_cmd
     }

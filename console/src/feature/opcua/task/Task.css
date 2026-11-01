@@ -22,7 +22,7 @@
 }
 
 .console-opc-task-header,
-.console-opc-browser > .pluto-header {
+.console-opc-browser > .lyra-header {
     height: 6rem;
     flex-shrink: 0;
     flex-grow: 0;

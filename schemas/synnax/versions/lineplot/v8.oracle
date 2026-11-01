@@ -1,0 +1,123 @@
+// Copyright 2026 Synnax Labs, Inc.
+//
+// Use of this software is governed by the Business Source License included in the file
+// licenses/BSL.txt.
+//
+// As of the Change Date specified in that file, in accordance with the Business Source
+// License, use of this software will be governed by the Apache License, Version 2.0,
+// included in the file licenses/APL.txt.
+
+import "schemas/synnax/versions/channel/v0"
+import "schemas/synnax/versions/ranger/v1"
+import "schemas/x/versions/color/v0"
+
+Key = v0.Key
+
+TickType = v5.TickType
+
+Aggregation = v7.Aggregation
+
+Detail = v7.Detail
+
+XAxisKey = v5.XAxisKey
+
+YAxisKey = v5.YAxisKey
+
+AxisKey = v5.AxisKey
+
+Title = v5.Title
+
+Legend = v5.Legend
+
+Channels = v5.Channels
+
+ManualBounds = v5.ManualBounds
+
+Axis = v5.Axis
+
+Axes = v5.Axes
+
+Line struct {
+    key          string       {
+        @doc value """
+            is the line's stable identity, a UUID string. It is a function of the plot's
+            key and the line's y-axis, y-channel, and x-channel, so the Core and the
+            Console derive the same key for the same line.
+        """
+    }
+    y_axis       YAxisKey     {
+        @doc value "is the y-axis the line is drawn against."
+    }
+    y_channel    channel.Key  {
+        @doc value "is the channel plotted on the y-axis."
+    }
+    x_channel    channel.Key = 0 {
+        @doc value "is the channel plotted on the x-axis, or 0 to plot against time."
+    }
+    label        string?      {
+        @doc value """
+            is the user-specified line label. Null means derive from the channel name at
+            render time; non-null is an override.
+        """
+    }
+    color        color.Color? {
+        @doc value """
+            is the line color. When null, the Console assigns one from the visualization
+            palette at render time.
+        """
+    }
+    stroke_width float64 = 2 {
+        @doc value "is the line stroke width in pixels."
+    }
+    aggregation  Aggregation = min_max {
+        @doc value "selects how the line reduces the samples of one pixel group."
+    }
+    detail       Detail = medium {
+        @doc value "selects how many sample groups the line draws per pixel column."
+    }
+
+    @doc value  "is the per-line styling and reduction configuration."
+    @go marshal
+}
+
+Rule = v5.Rule
+
+LinePlot struct {
+    key      Key = create {
+        @doc value "is the unique identifier for this line plot."
+        @key
+    }
+    name     string       {
+        @doc value "is a human-readable name for the line plot."
+    }
+    title    Title = {} {
+        @doc value "is the plot title configuration."
+    }
+    legend   Legend = {} {
+        @doc value "is the plot legend configuration."
+    }
+    channels Channels = {} {
+        @doc value "binds channel keys to each axis."
+    }
+    ranges   ranger.Ref[] = [] {
+        @doc value """
+            are the ranges the plot shows: ranges saved in the Core, or inline windows.
+        """
+    }
+    axes     Axes = {} {
+        @doc value "bundles per-axis configuration."
+    }
+    lines    Line[]       {
+        @doc value """
+            holds per-line styling and reduction configuration. Each entry styles one
+            y-channel across every range the plot shows.
+        """
+    }
+    rules    Rule[]       {
+        @doc value "holds annotation rules drawn over the plot."
+    }
+
+    @go imex
+    @go marshal
+    @go migrate
+}

@@ -113,7 +113,9 @@ class AccessClient(ResourceClient):
         for _ in range(20):
             sy.sleep(0.5)
 
-            error_status = self.layout.page.locator(".pluto--status-error")
+            error_status = self.layout.page.locator(
+                ".console-login__status .lyra--status-error"
+            )
             if error_status.count() > 0 and error_status.is_visible():
                 error_text = error_status.inner_text().strip()
                 raise RuntimeError(f"Login failed: {error_text}")
@@ -179,9 +181,7 @@ class AccessClient(ResourceClient):
 
         :returns: The role name, or None if the badge shows none.
         """
-        badge = self.layout.page.locator(
-            ".pluto-dialog__trigger:has(.pluto-icon--user)"
-        )
+        badge = self.layout.page.locator(".lyra-dialog__trigger:has(.lyra-icon--user)")
         if badge.count() == 0 or not badge.is_visible():
             return None
         badge.click()
@@ -322,7 +322,7 @@ class AccessClient(ResourceClient):
 
         self.ctx_menu.action(user_item, "Rename")
 
-        name_element = user_item.locator("p.pluto-text--editable")
+        name_element = user_item.locator("p.lyra-text--editable")
         name_element.click()
         name_element.fill(new_name)
         self.layout.press_enter()
@@ -384,7 +384,7 @@ class AccessClient(ResourceClient):
 
         self.ctx_menu.action(role_item, "Rename")
 
-        role_name_element = role_item.locator("p.pluto-text--editable")
+        role_name_element = role_item.locator("p.lyra-text--editable")
         role_name_element.click()
         role_name_element.fill(new_name)
         self.layout.press_enter()
@@ -435,7 +435,7 @@ class AccessClient(ResourceClient):
 
     def _show_users_panel(self) -> None:
         """Show the users panel in the navigation drawer."""
-        self.layout.show_toolbar(self.SHORTCUT_KEY, self.ROLE_ITEM_PREFIX)
+        self.layout.show_toolbar(self.SHORTCUT_KEY, item_prefix=self.ROLE_ITEM_PREFIX)
 
     def _find_user_item(self, username: str) -> Locator | None:
         """Find a user item in the users panel by username.
@@ -451,7 +451,7 @@ class AccessClient(ResourceClient):
             sy.sleep(0.2)
         return None
 
-    def ensure_user_visible(self, username: str, role_name: str) -> Locator:
+    def ensure_user_visible(self, username: str, *, role_name: str) -> Locator:
         """Find a user item, re-expanding its role if needed.
 
         After tree refreshes (e.g. login/logout, deletions), a role node
@@ -523,13 +523,13 @@ class AccessClient(ResourceClient):
         role_item = self._find_role_item(role_name)
         if role_item is None:
             raise ValueError(f"Role '{role_name}' not found")
-        return self.tree.list_nested_names(role_item, self.USER_ITEM_PREFIX)
+        return self.tree.list_nested_names(role_item, prefix=self.USER_ITEM_PREFIX)
 
     def wait_for_user_role(
         self,
         username: str,
-        role_name: str,
         *,
+        role_name: str,
         previous_role: str | None = None,
         timeout: int = 5000,
     ) -> None:

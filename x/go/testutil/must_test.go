@@ -51,3 +51,14 @@ var _ = Describe("MustOpen", func() {
 		Expect(failures).ToNot(BeEmpty())
 	})
 })
+
+var _ = Describe("MustBeOk", func() {
+	It("should return the value when ok is true", func() {
+		Expect(MustBeOk(42, true)).To(Equal(42))
+	})
+
+	It("should fail the assertion when ok is false", func() {
+		failures := InterceptGomegaFailures(func() { MustBeOk(42, false) })
+		Expect(failures).To(ConsistOf(ContainSubstring("to be true")))
+	})
+})

@@ -53,7 +53,9 @@ class RenameSynchronization(ConsoleCase):
         self.console.layout.hide_visualization_toolbar()
 
     def test_tree_to_tab(self, page_type: PageType) -> None:
-        """Tree-driven rename should propagate to the open tab + visualization toolbar."""
+        """Tree-driven rename should propagate to the open tab + visualization
+        toolbar.
+        """
         self.log(f"{page_type} tree → tab")
         original = self._create_page(page_type)
         renamed = f"{original}_tree_renamed"

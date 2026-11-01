@@ -1,7 +1,7 @@
 ---
 layout: "@/layouts/Reference.astro"
 title: "Devices"
-description: "How devices get into Synnax, device identifiers, and device statuses."
+description: "Connect a device, set its identifier, and read its status."
 ---
 
 import { Divider } from "@synnaxlabs/lyra/divider";
@@ -16,43 +16,29 @@ such as an NI module, a LabJack, a PLC, or an OPC UA server. Each
 
 <Divider.Divider x />
 
-## How devices get into Synnax
+## Connect a device
 
 To connect a device, click <Icon.Add /> (**Connect device**) in the devices toolbar, or
-run the "Connect device" command. The dialog lists the integrations in two groups:
+run the "Connect device" command. Then select the integration and follow its setup page:
 
-- **Connect by address** -> OPC UA, Modbus TCP, and HTTP servers. You enter the address
-  of the server, and **Connect from** selects the Driver that talks to it.
-- **Find hardware the Driver detects** -> NI, LabJack, and EtherCAT hardware. The dialog
-  shows each Driver with the devices that it found.
+| Integration                                                                                                                                                       | Next step                                                                                                |
+| ----------------------------------------------------------------------------------------------------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------- |
+| [OPC UA](/reference/hardware/opc-ua/connect-server), [Modbus](/reference/hardware/modbus/connect-server), [HTTP](/reference/hardware/http/connect-server)         | Enter the address or serial port of the server. Select a Driver in **Connect from**.                     |
+| [NI](/reference/hardware/ni/configure-device), [LabJack](/reference/hardware/labjack/configure-device), [EtherCAT](/reference/hardware/ethercat/configure-device) | The Driver finds the hardware. Click **Configure**, then enter a name and an [identifier](#identifiers). |
 
-If no running Driver supports an integration, the dialog shows the reason, such as "No
-running Driver has Modbus enabled", and you cannot connect that device type.
+<Video id="hardware/devices/connect-picker" />
 
-The Driver finds NI, LabJack, and EtherCAT hardware by itself. Within a few seconds of
-you plugging in a device, the Console shows the notification "New \<model\> connected"
-with a **Configure** button. A LabJack on the network can take about a minute to appear.
-The Driver also finds simulated NI devices that you create in NI MAX, so you can try
-Synnax without hardware. It skips CompactRIO controllers.
+You can also start from two other places:
 
-In the list of found hardware, click **Configure** on a device to give it a name and an
-[identifier](#identifiers). **Save and create read task** also opens a new read task for
-the device. **Scan now** makes the Drivers look again. If your device does not show,
-open **Not seeing your hardware?** for a list of checks.
+- **Notification** -> when the Driver finds new hardware, the Console shows "New
+  \<model\> connected". Click **Configure**.
+- **Task form** -> each device select ends with an item such as **Connect NI hardware**.
+  The device that you connect becomes the selected device.
 
-{/* Still to capture: hardware/devices/connect-picker -- the connect dialog and NI find view */}
-
-Each device select in a task form ends with an item that connects a new device, such as
-**Connect Modbus TCP server** or **Connect NI hardware**. The device that you connect
-there becomes the selected device.
-
-Each setup page shows the steps:
-[EtherCAT](/reference/hardware/ethercat/configure-device),
-[HTTP](/reference/hardware/http/connect-server),
-[LabJack](/reference/hardware/labjack/configure-device),
-[Modbus](/reference/hardware/modbus/connect-server),
-[National Instruments](/reference/hardware/ni/configure-device), and
-[OPC UA](/reference/hardware/opc-ua/connect-server).
+If the dialog shows "No running Driver has Modbus enabled", start a Driver that
+[supports the integration](/reference/hardware#supported-integrations). If your hardware
+does not show, see
+[Troubleshoot hardware](/reference/hardware/troubleshooting#a-device-does-not-show-in-the-devices-toolbar).
 
 <Divider.Divider x />
 

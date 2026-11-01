@@ -29,6 +29,7 @@ class Factory:
 
     def __init__(
         self,
+        *,
         readers: list[type[RowFileReader]] = _READERS,
         writers: list[type[FileWriter]] = _WRITERS,
     ):

@@ -50,7 +50,7 @@ describe("Controls.Controls", () => {
       { client, values: { snapshot: true } },
     );
     await waitFor(() => expect(screen.getByText("Task not deployed")).toBeTruthy());
-    expect(container.querySelector("[aria-label='pluto-icon--play']")).toBeNull();
+    expect(container.querySelector("[aria-label='lyra-icon--play']")).toBeNull();
   });
 
   it("should invoke onDeploy when the start button is pressed", async () => {
@@ -136,6 +136,57 @@ describe("Controls.Controls", () => {
     expect(await screen.findByText("Copy diagnostics")).toBeTruthy();
     fireEvent.click(screen.getByText("Running smoothly"));
     await waitFor(() => expect(screen.queryByText("Copy diagnostics")).toBeNull());
+  });
+
+  describe("settings", () => {
+    const SETTINGS = { channels: [], dataSavingDisabled: false, autoStart: false };
+
+    const getSetting = (name: string): HTMLButtonElement =>
+      screen.getByRole("button", { name });
+
+    it("should turn data saving off from the footer", async () => {
+      const { form } = await renderInTaskFormWithClient(
+        <Task.Controls.Controls onDeploy={vi.fn()} onStop={vi.fn()} />,
+        { client, values: { config: SETTINGS } },
+      );
+      const button = await waitFor(() => getSetting("Data saving"));
+      expect(button.textContent).toBe("On");
+      fireEvent.click(button);
+      expect(form.current?.get("config.dataSavingDisabled").value).toBe(true);
+      expect(getSetting("Data saving").textContent).toBe("Off");
+    });
+
+    it("should turn auto start on from the footer", async () => {
+      const { form } = await renderInTaskFormWithClient(
+        <Task.Controls.Controls onDeploy={vi.fn()} onStop={vi.fn()} />,
+        { client, values: { config: SETTINGS } },
+      );
+      const button = await waitFor(() => getSetting("Auto start"));
+      expect(button.textContent).toBe("Off");
+      fireEvent.click(button);
+      expect(form.current?.get("config.autoStart").value).toBe(true);
+      expect(getSetting("Auto start").textContent).toBe("On");
+    });
+
+    it("should show the settings of a snapshot without letting them change", async () => {
+      const { form } = await renderInTaskFormWithClient(
+        <Task.Controls.Controls onDeploy={vi.fn()} onStop={vi.fn()} />,
+        { client, values: { snapshot: true, config: SETTINGS }, mode: "preview" },
+      );
+      const button = await waitFor(() => getSetting("Data saving"));
+      expect(button.getAttribute("aria-disabled")).toBe("true");
+      fireEvent.click(button);
+      expect(form.current?.get("config.dataSavingDisabled").value).toBe(false);
+    });
+
+    it("should leave out a setting the config does not carry", async () => {
+      await renderInTaskFormWithClient(
+        <Task.Controls.Controls onDeploy={vi.fn()} onStop={vi.fn()} />,
+        { client, values: { config: { channels: [], autoStart: false } } },
+      );
+      await waitFor(() => getSetting("Auto start"));
+      expect(screen.queryByRole("button", { name: "Data saving" })).toBeNull();
+    });
   });
 
   describe("permission to command the task", () => {

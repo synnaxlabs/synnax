@@ -17,7 +17,7 @@
 .pluto-schematic-region-reset {
     opacity: 0;
 
-    &.pluto--visible {
+    &.lyra--visible {
         opacity: 1;
     }
 }

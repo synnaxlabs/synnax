@@ -88,9 +88,9 @@ export default async (session: capture.CaptureSession): Promise<void> => {
     await capture.control(diagram, "circle").click();
 
     await capture.openToolbar(session, "project");
-    const toolbar = page.locator(".console-nav__drawer.pluto--location-left").first();
+    const toolbar = page.locator(".console-nav__drawer.lyra--location-left").first();
     // The handle listens for pointer events, which capture.resizeToolbar does not send.
-    const handle = toolbar.locator(".pluto-resize__handle").first();
+    const handle = toolbar.locator(".lyra-resize__handle").first();
     const from = await handle.boundingBox();
     const width = (await toolbar.boundingBox())?.width;
     if (from == null || width == null)

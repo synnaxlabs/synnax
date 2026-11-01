@@ -348,46 +348,6 @@ func (ps *ProgramState) activate(key uint32) {
 	}
 }
 
-func (ps *ProgramState) WriteChannelU8(key uint32, v uint8) {
-	appendFixedWriteSample(ps, key, v)
-}
-
-func (ps *ProgramState) WriteChannelU16(key uint32, v uint16) {
-	appendFixedWriteSample(ps, key, v)
-}
-
-func (ps *ProgramState) WriteChannelU32(key, v uint32) {
-	appendFixedWriteSample(ps, key, v)
-}
-
-func (ps *ProgramState) WriteChannelU64(key uint32, v uint64) {
-	appendFixedWriteSample(ps, key, v)
-}
-
-func (ps *ProgramState) WriteChannelI8(key uint32, v int8) {
-	appendFixedWriteSample(ps, key, v)
-}
-
-func (ps *ProgramState) WriteChannelI16(key uint32, v int16) {
-	appendFixedWriteSample(ps, key, v)
-}
-
-func (ps *ProgramState) WriteChannelI32(key uint32, v int32) {
-	appendFixedWriteSample(ps, key, v)
-}
-
-func (ps *ProgramState) WriteChannelI64(key uint32, v int64) {
-	appendFixedWriteSample(ps, key, v)
-}
-
-func (ps *ProgramState) WriteChannelF32(key uint32, v float32) {
-	appendFixedWriteSample(ps, key, v)
-}
-
-func (ps *ProgramState) WriteChannelF64(key uint32, v float64) {
-	appendFixedWriteSample(ps, key, v)
-}
-
 func appendFixedWriteSample[T telem.FixedSample](
 	ps *ProgramState,
 	key uint32,

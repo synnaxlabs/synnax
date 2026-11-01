@@ -14,7 +14,7 @@
     --pluto-symbol-seed: var(--pluto-primary-z-rgb);
 }
 
-.pluto-btn.pluto-btn--filled.pluto-symbol-button {
+.lyra-btn.lyra-btn--filled.pluto-symbol-button {
     --pluto-bg: var(--pluto-symbol-display);
     --pluto-hover-bg: oklch(from var(--pluto-symbol-display) l c h / 85%);
     --pluto-active-bg: oklch(from var(--pluto-symbol-display) l c h / 60%);

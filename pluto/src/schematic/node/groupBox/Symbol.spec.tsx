@@ -151,8 +151,8 @@ describe("GroupBox.Symbol", () => {
   it("should show the open padlock while unlocked and lock on click", () => {
     const onConfigChange = vi.fn();
     const { container } = renderSymbol({ selected: true, onConfigChange });
-    expect(container.querySelector(".pluto-icon--unlock")).not.toBeNull();
-    expect(container.querySelector(".pluto-icon--lock")).toBeNull();
+    expect(container.querySelector(".lyra-icon--unlock")).not.toBeNull();
+    expect(container.querySelector(".lyra-icon--lock")).toBeNull();
     fireEvent.click(chip(container));
     expect(onConfigChange).toHaveBeenCalledWith({ locked: true });
   });
@@ -167,7 +167,7 @@ describe("GroupBox.Symbol", () => {
         locked: true,
       },
     });
-    expect(container.querySelector(".pluto-icon--lock")).not.toBeNull();
+    expect(container.querySelector(".lyra-icon--lock")).not.toBeNull();
     fireEvent.click(chip(container));
     expect(onConfigChange).toHaveBeenCalledWith({ locked: false });
   });

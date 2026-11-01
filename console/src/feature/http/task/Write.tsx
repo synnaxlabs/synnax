@@ -15,6 +15,7 @@ import { Component } from "@synnaxlabs/lyra/component";
 import { Flex } from "@synnaxlabs/lyra/flex";
 import { Form as PForm } from "@synnaxlabs/lyra/form";
 import { Icon } from "@synnaxlabs/lyra/icon";
+import { Input } from "@synnaxlabs/lyra/input";
 import { List } from "@synnaxlabs/lyra/list";
 import { Menu } from "@synnaxlabs/lyra/menu";
 import { Select } from "@synnaxlabs/lyra/select";
@@ -25,7 +26,7 @@ import { type FC, useState } from "react";
 
 import { useFromConfig } from "@/feature/http/device/queries";
 import { Select as SelectDevice } from "@/feature/http/device/Select";
-import { SCHEMAS } from "@/feature/http/device/types";
+import { MAKE, SCHEMAS } from "@/feature/http/device/types";
 import { EndpointLabel } from "@/feature/http/task/EndpointLabel";
 import { TimeFormatField } from "@/feature/http/task/TimeFormatField";
 import {
@@ -47,14 +48,7 @@ import { Form as PlatformForm } from "@/platform/form";
 import { Selector } from "@/platform/selector";
 import { Task } from "@/platform/task";
 
-const Properties = () => (
-  <>
-    <SelectDevice />
-    <Flex.Box x grow>
-      <Task.Fields.AutoStart />
-    </Flex.Box>
-  </>
-);
+const Properties = () => <SelectDevice />;
 
 const JSON_TYPE_ITEMS = (
   <>
@@ -105,7 +99,7 @@ const EndpointItem = (props: List.ItemProps<string>) => {
         level="small"
         weight={450}
         color={9}
-        overflow="ellipsis"
+        overflow="fade"
       />
     </Select.Item>
   );
@@ -272,11 +266,13 @@ const FieldListItem = ({
         />
       )}
       {fieldType === "static" && jsonType === "boolean" && (
-        <PForm.SwitchField
+        <PForm.Field<boolean>
           path={`${path}.value`}
           showLabel={false}
           showHelpText={false}
-        />
+        >
+          {(p) => <Input.Checkbox {...p} />}
+        </PForm.Field>
       )}
       {fieldType === "generated" && (
         <Select.Simple<GeneratorType | TimeFormat>
@@ -638,12 +634,12 @@ export const Write = Task.wrapForm({
   schemas: WRITE_SCHEMAS,
   deployConfigZ: deployWriteConfigZ,
   type: WRITE_TYPE,
-  getInitialValues,
   onConfigure,
 });
 
 export const useCreateWrite = Task.createUseCreate({
   getInitialValues,
+  deviceMake: MAKE,
 });
 
 export const WriteSelectable = Selector.createSelectable({

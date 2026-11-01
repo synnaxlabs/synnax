@@ -67,25 +67,6 @@ func (f *Files) Ok() bool {
 	return true
 }
 
-// Empty reports whether no diagnostics were recorded.
-func (f *Files) Empty() bool {
-	for _, ds := range f.byFile {
-		if !ds.Empty() {
-			return false
-		}
-	}
-	return true
-}
-
-// Errors returns every error-level diagnostic across all files, in file order.
-func (f *Files) Errors() []Diagnostic {
-	var out []Diagnostic
-	for _, file := range f.order {
-		out = append(out, f.byFile[file].Errors()...)
-	}
-	return out
-}
-
 // Each calls fn for every diagnostic in file order, passing its origin file.
 func (f *Files) Each(fn func(file string, d Diagnostic)) {
 	for _, file := range f.order {

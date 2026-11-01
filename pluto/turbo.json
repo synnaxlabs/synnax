@@ -1,0 +1,13 @@
+{
+  "$schema": "https://turborepo.org/schema.json",
+  "extends": ["//"],
+  "tasks": {
+    "lint": {
+      "inputs": [
+        "$TURBO_EXTENDS$",
+        "$TURBO_ROOT$/{lyra,pluto,console,site/*}/src/**",
+        "$TURBO_ROOT$/{lyra,pluto,console,site/*}/index.html"
+      ]
+    }
+  }
+}

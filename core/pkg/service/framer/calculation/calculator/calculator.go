@@ -60,6 +60,10 @@ type Calculator struct {
 	// forward stamp from it; upstream timestamps take precedence over it.
 	clock  telem.MonoClock
 	closer io.MultiCloser
+	// err is the first node error of the running Next call.
+	err error
+	// failed is true from a failed step until the next clean step with output.
+	failed bool
 }
 
 type Config struct {
@@ -68,6 +72,11 @@ type Config struct {
 	//
 	// [OPTIONAL] - Defaults to telem.Now.
 	Now func() telem.TimeStamp
+	// Failed opens the calculator with a failure still open, so Group reports a success
+	// on its first clean step with output.
+	//
+	// [OPTIONAL] - Defaults to false.
+	Failed bool
 }
 
 var _ config.Config[Config] = Config{}
@@ -76,6 +85,7 @@ var _ config.Config[Config] = Config{}
 func (c Config) Override(other Config) Config {
 	c.Module = override.Zero(c.Module, other.Module)
 	c.Now = override.Nil(c.Now, other.Now)
+	c.Failed = override.If(c.Failed, other.Failed, other.Failed)
 	return c
 }
 
@@ -212,7 +222,15 @@ func Open(ctx context.Context, cfgs ...Config) (_ *Calculator, err error) {
 		closer:    closers,
 		start:     telem.Now(),
 		clock:     telem.MonoClock{Source: cfg.Now},
+		failed:    cfg.Failed,
 	}
+	sched.SetErrorHandler(scheduler.ErrorHandlerFunc(
+		func(_ context.Context, _ string, err error) {
+			if c.err == nil {
+				c.err = err
+			}
+		},
+	))
 	closers = nil
 	return c, nil
 }
@@ -246,7 +264,7 @@ func (c *Calculator) String() string {
 // If no calculations are completed, the length of the series will be 0, and the caller
 // is free to discard the returned value.
 //
-// Any error encountered during calculations is returned as well.
+// The first error a node reports during the step is returned, with no new calculations.
 func (c *Calculator) Next(
 	ctx context.Context,
 	input,
@@ -283,6 +301,10 @@ func (c *Calculator) Next(
 	// when a required input channel never sends data, consumed series accumulate
 	// indefinitely in channel.reads.
 	c.state.channel.ClearReads()
+	if err := c.err; err != nil {
+		c.err = nil
+		return framer.Frame{}, false, err
+	}
 	if !changed {
 		return output, false, nil
 	}

@@ -10,7 +10,6 @@
 import "@/lineplot/Frame.css";
 
 import { context } from "@synnaxlabs/lyra/context";
-import { CSS } from "@synnaxlabs/lyra/css";
 import { useEffectCompare } from "@synnaxlabs/lyra/hooks";
 import { useMemoDeepEqual } from "@synnaxlabs/lyra/memo";
 import {
@@ -39,6 +38,7 @@ import {
 import { type z } from "zod";
 
 import { Aether } from "@/aether";
+import { CSS } from "@/css";
 import { lineplot } from "@/lineplot/aether";
 import { type Viewport } from "@/viewport";
 import { Canvas } from "@/vis/canvas";

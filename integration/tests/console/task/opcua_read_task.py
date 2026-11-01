@@ -27,8 +27,8 @@ class OPCUAReadTask(OPCUACase):
     def test_create_task(self) -> OPCUARead:
         """A new task is not deployed; select the server and open its Browser."""
         self.log("Testing: Create OPC UA read task")
-        page = self.create_page(OPCUARead, "OPCUA Console Read")
-        self.assert_not_deployed(page, "new task")
+        page = self.create_page(OPCUARead, prefix="OPCUA Console Read")
+        self.assert_not_deployed(page, label="new task")
         self.select_server(page)
         return page
 
@@ -48,4 +48,4 @@ class OPCUAReadTask(OPCUACase):
         )
         keys = self.channel_keys(task)
         assert len(keys) == len(FLOAT_NODES), f"Every channel needs a key, got {keys}"
-        self.assert_sample_count(page, keys)
+        self.assert_sample_count(page, keys=keys)

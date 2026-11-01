@@ -322,7 +322,7 @@ export class CaptureSession {
       "* { caret-animation: manual !important; }",
       ...(opts.hideCaret ? ["* { caret-color: transparent !important; }"] : []),
       ...(opts.hideNotifications
-        ? [".pluto-notification, .console-notifications { display: none !important; }"]
+        ? [".lyra-notification, .console-notifications { display: none !important; }"]
         : []),
     ];
     if (hideRules.length > 0)

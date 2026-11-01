@@ -292,7 +292,7 @@ describe("List", () => {
       );
 
     const rows = (result: ReturnType<typeof render>): HTMLElement[] =>
-      Array.from(result.container.querySelectorAll(".pluto-list__item"));
+      Array.from(result.container.querySelectorAll(".lyra-list__item"));
 
     it("should render only the rows near the window", () => {
       const rendered = rows(renderWindowed());
@@ -330,7 +330,7 @@ describe("List", () => {
         </List.Frame>,
       );
       const scroller =
-        result.container.querySelector<HTMLElement>(".pluto-list__scroll");
+        result.container.querySelector<HTMLElement>(".lyra-list__scroll");
       if (scroller == null) throw new Error("scroll container not found");
       const before = rows(result).map((row) => row.id);
       act(() => {
@@ -443,7 +443,7 @@ describe("List", () => {
         const onFetchMore = vi.fn();
         const result = render(<Pinned pinned={["499"]} onFetchMore={onFetchMore} />);
         const scroller =
-          result.container.querySelector<HTMLElement>(".pluto-list__scroll");
+          result.container.querySelector<HTMLElement>(".lyra-list__scroll");
         if (scroller == null) throw new Error("scroll container not found");
         const calls = onFetchMore.mock.calls.length;
         act(() => {
@@ -458,7 +458,7 @@ describe("List", () => {
     it("should keep the container tall enough to scroll the whole data set", () => {
       const result = renderWindowed();
       const virtualizer = result.container.querySelector<HTMLElement>(
-        ".pluto-list__virtualizer",
+        ".lyra-list__virtualizer",
       );
       expect(virtualizer?.style.minHeight).toBe(`${DATA.length * ITEM_HEIGHT}px`);
     });
@@ -484,7 +484,7 @@ describe("List", () => {
           </List.Scroll>
         </List.Frame>,
       );
-      const scrolls = result.container.querySelectorAll(".pluto-list__scroll");
+      const scrolls = result.container.querySelectorAll(".lyra-list__scroll");
       expect(scrolls).toHaveLength(1);
       expect(scrolls[0].textContent).toBe("fixed12");
     });
@@ -506,7 +506,7 @@ describe("List", () => {
       const offsetTop = vi
         .spyOn(HTMLElement.prototype, "offsetTop", "get")
         .mockImplementation(function (this: HTMLElement) {
-          return this.classList.contains("pluto-list__virtualizer") ? margin : 0;
+          return this.classList.contains("lyra-list__virtualizer") ? margin : 0;
         });
       try {
         const result = render(
@@ -518,7 +518,7 @@ describe("List", () => {
           </List.Frame>,
         );
         const rows = Array.from(
-          result.container.querySelectorAll<HTMLElement>(".pluto-list__item"),
+          result.container.querySelectorAll<HTMLElement>(".lyra-list__item"),
         );
         // A 100px window with 50px of content above the items fits two 27px rows.
         expect(rows).toHaveLength(2);
@@ -526,7 +526,7 @@ describe("List", () => {
           expect(row.style.top).toBe(`${index * ITEM_HEIGHT}px`),
         );
         const virtualizer = result.container.querySelector<HTMLElement>(
-          ".pluto-list__virtualizer",
+          ".lyra-list__virtualizer",
         );
         expect(virtualizer?.style.minHeight).toBe(`${DATA.length * ITEM_HEIGHT}px`);
       } finally {
@@ -538,7 +538,7 @@ describe("List", () => {
       const offsetTop = vi
         .spyOn(HTMLElement.prototype, "offsetTop", "get")
         .mockImplementation(function (this: HTMLElement) {
-          if (!this.classList.contains("pluto-list__virtualizer")) return 0;
+          if (!this.classList.contains("lyra-list__virtualizer")) return 0;
           return this.previousElementSibling == null ? 0 : 50;
         });
       let show: (visible: boolean) => void = () => {};
@@ -556,7 +556,7 @@ describe("List", () => {
             </List.Scroll>
           </List.Frame>,
         );
-        const rows = () => result.container.querySelectorAll(".pluto-list__item");
+        const rows = () => result.container.querySelectorAll(".lyra-list__item");
         // A 100px window fits four 27px rows, and two once 50px sits above them.
         expect(rows()).toHaveLength(4);
         await act(async () => show(true));
@@ -592,7 +592,7 @@ describe("List", () => {
             <Toggle />
           </List.Frame>,
         );
-        const rows = () => result.container.querySelectorAll(".pluto-list__item");
+        const rows = () => result.container.querySelectorAll(".lyra-list__item");
         expect(rows()).toHaveLength(4);
         act(() => open(false));
         act(() => removalObservers.forEach((observer) => observer.notifyRemoved()));
@@ -660,8 +660,8 @@ describe("List", () => {
           </List.Scroll>
         </List.Frame>,
       )
-        .container.querySelector(".pluto-list__scroll")
-        ?.classList.contains("pluto-list__scroll--animate-height");
+        .container.querySelector(".lyra-list__scroll")
+        ?.classList.contains("lyra-list__scroll--animate-height");
 
     it("should not animate height unless the caller opts in", () => {
       expect(hasAnimateClass()).toBe(false);

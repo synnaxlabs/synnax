@@ -19,7 +19,7 @@ import {
 } from "@synnaxlabs/client";
 import { createTestClient } from "@synnaxlabs/client/testutil";
 import { List } from "@synnaxlabs/lyra/list";
-import { fireEvent, render, screen, waitFor } from "@testing-library/react";
+import { fireEvent, screen, waitFor } from "@testing-library/react";
 import { describe, expect, it } from "vitest";
 
 import { Explorer } from "@/feature/range/explorer/Explorer";
@@ -37,6 +37,7 @@ import {
   getBySelector,
   type Grants,
   queryIconButton,
+  renderSuspended,
   resolveFocusedTab,
   selectTestProject,
   type TestStore,
@@ -55,7 +56,7 @@ const expectFocusedRange = async (store: TestStore, key: string): Promise<void> 
 const renderExplorer = async (as: Client = client): Promise<{ store: TestStore }> => {
   const { wrapper, store } = await createConsoleWrapper({ client: as });
   await selectTestProject(store, client);
-  render(
+  await renderSuspended(
     <>
       <Explorer />
       <Modals.Stack />
@@ -78,7 +79,7 @@ const revealRange = async (name: string): Promise<HTMLElement> => {
 };
 
 const rowOf = (el: HTMLElement): HTMLElement => {
-  const row = el.closest<HTMLElement>(".pluto-list__item");
+  const row = el.closest<HTMLElement>(".lyra-list__item");
   if (row == null) throw new Error("list item not found");
   return row;
 };

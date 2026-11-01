@@ -599,7 +599,7 @@ func (s *Symbol) resolve(
 		return s.Target.resolve(ctx, name, opts, origin)
 	}
 	matches := func(child *Symbol) bool { return child.Name == name }
-	if id, err := strconv.ParseUint(name, 10, 32); err == nil {
+	if id, err := strconv.ParseUint(name, 10, 31); err == nil {
 		matches = func(child *Symbol) bool { return child.ID == int(id) }
 	}
 	if child := s.findChild(matches); child != nil {

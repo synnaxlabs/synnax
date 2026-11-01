@@ -9,5 +9,10 @@
 
 import cfg from "@synnaxlabs/stylelint-config";
 
-// The showcase is a dev-only page.
-export default { ...cfg, ignoreFiles: ["src/showcase/**"] };
+export default {
+  ...cfg,
+  // A library's !important beats every app rule, !important or not.
+  rules: { ...cfg.rules, "declaration-no-important": true },
+  // The showcase is a dev-only page.
+  ignoreFiles: ["src/showcase/**"],
+};

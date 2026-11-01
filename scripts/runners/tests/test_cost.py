@@ -22,8 +22,8 @@ from log import Log
 
 RUNNER = "windows-build-bot-i-0aaa"
 OTHER = "windows-build-bot-i-0bbb"
-RATE = channel_name("cost_per_hour", RUNNER)
-EBS = channel_name("ebs_cost_per_hour", RUNNER)
+RATE = channel_name("cost_per_hour", runner=RUNNER)
+EBS = channel_name("ebs_cost_per_hour", runner=RUNNER)
 
 
 class NoAWS:
@@ -44,7 +44,7 @@ class Volumes:
 class SomePrices:
     """Prices one instance type and fails on any other."""
 
-    def instance(self, instance_type: str, region: str, windows: bool) -> float:
+    def instance(self, instance_type: str, *, region: str, windows: bool) -> float:
         if instance_type != "t3.large":
             raise LookupError(instance_type)
         return 0.5
@@ -53,14 +53,18 @@ class SomePrices:
         return 0.0
 
 
-def found(running: bool) -> dict[str, dict]:
+def found(*, running: bool) -> dict[str, dict]:
     return {"i-0aaa": {"running": running}}
 
 
 @pytest.fixture
 def cost(client: Client) -> Iterator[Cost]:
-    log = Log(core(client), Channels(core(client), False), "log")
-    c = Cost(log, cast(AWS, NoAWS()))
+    log = Log(
+        client=core(client),
+        channels=Channels(client=core(client), enabled=False),
+        channel="log",
+    )
+    c = Cost(log=log, aws=cast(AWS, NoAWS()))
     now = sy.TimeStamp.now()
     # A fetch just ran, so step() only writes the live frame.
     c.attempted = now
@@ -75,42 +79,56 @@ class TestLiveFrame:
     """Tests for the cost frame written between fetches."""
 
     def test_should_carry_every_cost_channel(self, cost: Cost) -> None:
-        frame = cost.step(sy.TimeStamp.now(), {RUNNER}, found(True))
+        frame = cost.step(sy.TimeStamp.now(), known={RUNNER}, found=found(running=True))
         assert frame.keys() == cost.channels().keys()
 
     def test_should_follow_the_instance_state(self, cost: Cost) -> None:
-        assert cost.step(sy.TimeStamp.now(), {RUNNER}, found(False))[RATE] == 0.1
+        assert (
+            cost.step(sy.TimeStamp.now(), known={RUNNER}, found=found(running=False))[
+                RATE
+            ]
+            == 0.1
+        )
 
     def test_should_keep_the_last_fetch_time(self, cost: Cost) -> None:
-        frame = cost.step(sy.TimeStamp.now(), {RUNNER}, found(True))
+        frame = cost.step(sy.TimeStamp.now(), known={RUNNER}, found=found(running=True))
         assert frame[FETCHED] == cost.latest[FETCHED]
 
     def test_should_fill_channels_without_a_value_with_nan(self, cost: Cost) -> None:
-        frame = cost.step(sy.TimeStamp.now(), {RUNNER}, found(True))
-        assert math.isnan(frame[channel_name("cost_mtd_est", RUNNER)])
+        frame = cost.step(sy.TimeStamp.now(), known={RUNNER}, found=found(running=True))
+        assert math.isnan(frame[channel_name("cost_mtd_est", runner=RUNNER)])
 
     def test_should_reprice_only_once_after_a_restart(self, cost: Cost) -> None:
         cost.priced = {}
-        cost.step(sy.TimeStamp.now(), {RUNNER}, found(True))
+        cost.step(sy.TimeStamp.now(), known={RUNNER}, found=found(running=True))
         assert cost.pending is not None
         cost.pending.exception()
-        cost.step(sy.TimeStamp.now(), {RUNNER}, found(True))
+        cost.step(sy.TimeStamp.now(), known={RUNNER}, found=found(running=True))
         assert cost.repriced
         assert cost.pending is None
 
     def test_should_write_once_per_live_interval(self, cost: Cost) -> None:
         now = sy.TimeStamp.now()
-        assert cost.step(now, {RUNNER}, found(True))
-        assert cost.step(now + LIVE_INTERVAL / 2, {RUNNER}, found(True)) == {}
-        assert cost.step(now + LIVE_INTERVAL, {RUNNER}, found(True))
+        assert cost.step(now, known={RUNNER}, found=found(running=True))
+        assert (
+            cost.step(
+                now + LIVE_INTERVAL / 2, known={RUNNER}, found=found(running=True)
+            )
+            == {}
+        )
+        assert cost.step(now + LIVE_INTERVAL, known={RUNNER}, found=found(running=True))
 
 
 class TestPriceTable:
     """Tests for the prices a restart looks up before the next fetch."""
 
     def test_should_keep_the_prices_that_resolve(self, client: Client) -> None:
-        log = Log(core(client), Channels(core(client), False), "log")
-        c = Cost(log, cast(AWS, Volumes()))
+        log = Log(
+            client=core(client),
+            channels=Channels(client=core(client), enabled=False),
+            channel="log",
+        )
+        c = Cost(log=log, aws=cast(AWS, Volumes()))
         c.prices = cast(Prices, SomePrices())
         c.known = [RUNNER, OTHER]
         instances = {

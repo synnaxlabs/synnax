@@ -9,7 +9,6 @@
 
 import "@/arc/graph/node/sink/Sink.css";
 
-import { CSS } from "@synnaxlabs/lyra/css";
 import { Flex } from "@synnaxlabs/lyra/flex";
 import { Icon } from "@synnaxlabs/lyra/icon";
 import { Text } from "@synnaxlabs/lyra/text";
@@ -19,6 +18,7 @@ import { Base } from "@/arc/graph/node/Base";
 import { type Config } from "@/arc/graph/node/sink/config";
 import { type types } from "@/arc/graph/node/types";
 import { Channel } from "@/channel";
+import { CSS } from "@/css";
 
 export interface SymbolProps extends types.SymbolProps<Config> {}
 
@@ -44,7 +44,7 @@ export const Symbol = ({ config: { channel, value } }: SymbolProps) => {
           weight={500}
           color={10}
           className={CSS.BE("arc", "sink-label")}
-          overflow="ellipsis"
+          overflow="fade"
         >
           {name}
         </Text.Text>
@@ -53,7 +53,7 @@ export const Symbol = ({ config: { channel, value } }: SymbolProps) => {
           weight={500}
           color={10}
           className={CSS.BE("arc", "sink-label")}
-          overflow="ellipsis"
+          overflow="fade"
           variant="code"
         >
           {value}

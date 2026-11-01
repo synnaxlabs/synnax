@@ -47,6 +47,7 @@ TO_READ = ["time_ch_1", "time_ch_2", "data_ch_1", "data_ch_2"]
 
 
 def interpolate(
+    *,
     data_ch_1_time_series: sy.MultiSeries,
     data_ch_1_series: sy.MultiSeries,
     data_ch_2_time_series: sy.MultiSeries,
@@ -89,13 +90,13 @@ with client.open_writer(
             # the next frame.
             if len(current_values.items()) < 4:
                 continue
-            # Interpolate the values for each channel, and get the timestamps for the average
-            # channel.
+            # Interpolate the values for each channel, and get the timestamps for the
+            # average channel.
             sensor_1, sensor_2, time = interpolate(
-                current_values["time_ch_1"],
-                current_values["data_ch_1"],
-                current_values["time_ch_2"],
-                current_values["data_ch_2"],
+                data_ch_1_time_series=current_values["time_ch_1"],
+                data_ch_1_series=current_values["data_ch_1"],
+                data_ch_2_time_series=current_values["time_ch_2"],
+                data_ch_2_series=current_values["data_ch_2"],
             )
             # This means we have no samples to write
             if len(sensor_1) == 0:

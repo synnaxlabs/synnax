@@ -12,7 +12,6 @@ import "@/schematic/node/common/custom/Overrides.css";
 import { type schematic } from "@synnaxlabs/client";
 import { Button } from "@synnaxlabs/lyra/button";
 import { Color } from "@synnaxlabs/lyra/color";
-import { CSS } from "@synnaxlabs/lyra/css";
 import { Flex } from "@synnaxlabs/lyra/flex";
 import { Form } from "@synnaxlabs/lyra/form";
 import { Icon } from "@synnaxlabs/lyra/icon";
@@ -21,6 +20,7 @@ import { Text } from "@synnaxlabs/lyra/text";
 import { caseconv, deep } from "@synnaxlabs/x";
 import { type ReactElement, useEffect, useState } from "react";
 
+import { CSS } from "@/css";
 import { Region } from "@/schematic/node/common/region";
 import { Symbol } from "@/schematic/symbol";
 
@@ -101,7 +101,7 @@ const RegionControls = ({
         level="small"
         color={9}
         className={CSS.B("schematic-region-name")}
-        overflow="ellipsis"
+        overflow="fade"
       >
         {caseconv.capitalize(name)}
       </Text.Text>

@@ -4569,57 +4569,6 @@ var _ = Describe("Frame", func() {
 		})
 	})
 
-	Describe("At", func() {
-		It("Should return the correct key and series for valid indices", func() {
-			fr := telem.MultiFrame(
-				[]int32{10, 20, 30},
-				[]telem.Series{
-					telem.NewSeriesV[int32](100),
-					telem.NewSeriesV[int32](200),
-					telem.NewSeriesV[int32](300),
-				},
-			)
-			k, s := fr.At(0)
-			Expect(k).To(Equal(int32(10)))
-			Expect(s).To(Equal(telem.NewSeriesV[int32](100)))
-
-			k, s = fr.At(2)
-			Expect(k).To(Equal(int32(30)))
-			Expect(s).To(Equal(telem.NewSeriesV[int32](300)))
-
-			// Negative index
-			k, s = fr.At(-1)
-			Expect(k).To(Equal(int32(30)))
-			Expect(s).To(Equal(telem.NewSeriesV[int32](300)))
-		})
-
-		It("Should panic for out-of-bounds indices", func() {
-			fr := telem.MultiFrame(
-				[]int32{10, 20},
-				[]telem.Series{
-					telem.NewSeriesV[int32](100),
-					telem.NewSeriesV[int32](200),
-				},
-			)
-			Expect(func() { fr.At(2) }).To(Panic())
-			Expect(func() { fr.At(-3) }).To(Panic())
-		})
-
-		It("Should return the correct values for a filtered series", func() {
-			fr := telem.MultiFrame(
-				[]int32{10, 20},
-				[]telem.Series{
-					telem.NewSeriesV[int32](100),
-					telem.NewSeriesV[int32](200),
-				},
-			)
-			filtered := fr.KeepKeys(set.New[int32](20))
-			k, s := filtered.At(0)
-			Expect(k).To(Equal(int32(20)))
-			Expect(s).To(Equal(telem.NewSeriesV[int32](200)))
-		})
-	})
-
 	Describe("RawKeyAt", func() {
 		It("Should return the correct key for valid indices", func() {
 			fr := telem.MultiFrame(

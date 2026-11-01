@@ -16,6 +16,7 @@ import (
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	"github.com/samber/lo"
+	distframer "github.com/synnaxlabs/synnax/pkg/distribution/framer"
 	"github.com/synnaxlabs/synnax/pkg/distribution/framer/frame"
 	"github.com/synnaxlabs/synnax/pkg/service/channel"
 	. "github.com/synnaxlabs/synnax/pkg/service/channel/testutil"
@@ -30,7 +31,7 @@ import (
 // openStreamer streams sy_history_change. next flushes the publisher, then reads
 // published lists until one holds a change to key and returns that change.
 func openStreamer(ctx context.Context, key channel.Key) (
-	next func() framer.HistoryChange,
+	next func() distframer.HistoryChange,
 ) {
 	GinkgoHelper()
 	var sigCh channel.Channel
@@ -52,21 +53,21 @@ func openStreamer(ctx context.Context, key channel.Key) (
 		cancel()
 	})
 	Eventually(responses.Outlet()).Should(Receive())
-	return func() framer.HistoryChange {
+	return func() distframer.HistoryChange {
 		GinkgoHelper()
 		Eventually(clock.Pending).Should(Equal(1))
 		clock.Advance(flushInterval.Duration())
-		var change framer.HistoryChange
+		var change distframer.HistoryChange
 		Eventually(func(g Gomega) {
 			var res framer.StreamerResponse
 			g.Expect(responses.Outlet()).To(Receive(&res))
 			lists := MustSucceed(
-				res.Frame.SeriesAt(0).DecodeJSON[[]framer.HistoryChange](),
+				res.Frame.SeriesAt(0).DecodeJSON[[]distframer.HistoryChange](),
 			)
 			var found bool
 			change, found = lo.Find(
 				slices.Concat(lists...),
-				func(c framer.HistoryChange) bool { return c.Key == key },
+				func(c distframer.HistoryChange) bool { return c.Key == key },
 			)
 			g.Expect(found).To(BeTrue())
 		}).Should(Succeed())
@@ -119,8 +120,11 @@ func write(ctx context.Context, key channel.Key, stamps ...telem.TimeStamp) {
 	Expect(w.Close()).To(Succeed())
 }
 
-func historyChange(key channel.Key, start, end telem.TimeStamp) framer.HistoryChange {
-	return framer.HistoryChange{Key: key, TimeRange: start.Range(end)}
+func historyChange(
+	key channel.Key,
+	start, end telem.TimeStamp,
+) distframer.HistoryChange {
+	return distframer.HistoryChange{Key: key, TimeRange: start.Range(end)}
 }
 
 var _ = Describe("History", func() {
@@ -165,7 +169,7 @@ var _ = Describe("History", func() {
 		write(ctx, key, 10, 11, 12, 13)
 		tr := (11 * telem.SecondTS).Range(13 * telem.SecondTS)
 		Expect(framerSvc.DeleteTimeRange(ctx, channel.Keys{key}, tr)).To(Succeed())
-		Expect(next()).To(Equal(framer.HistoryChange{Key: key, TimeRange: tr}))
+		Expect(next()).To(Equal(distframer.HistoryChange{Key: key, TimeRange: tr}))
 	})
 
 	DescribeTable(

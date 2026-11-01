@@ -58,7 +58,7 @@ export const start = (): void => {
 
   const drawProgress = (): void => {
     for (const video of playing) {
-      const bar = frames.get(video)?.querySelector<HTMLElement>(".pluto-progress-bar");
+      const bar = frames.get(video)?.querySelector<HTMLElement>(".lyra-progress-bar");
       if (bar != null)
         bar.style.width = `${(video.currentTime / video.duration) * 100}%`;
     }

@@ -64,7 +64,8 @@ class TestAccessClient:
 
     def test_retrieve_by_subject_not_found(self, client: sy.Synnax) -> None:
         """Should handle retrieving policies for non-existent subjects."""
-        # Retrieving by subjects that don't exist returns empty list (no policies assigned)
+        # Retrieving by subjects that don't exist returns empty list (no policies
+        # assigned)
         # But if the subject itself is invalid, it may raise an error
         # For now, just verify the call completes without crashing
         try:

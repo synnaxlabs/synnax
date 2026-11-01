@@ -15,12 +15,15 @@ import { forbidden, toResponse } from "@/server/errors";
 
 const CLERK = "https://*.clerk.accounts.dev https://clerk.synnaxlabs.com";
 
+/** POSTHOG is our own address for PostHog, which the analytics banner loads from. */
+const POSTHOG = "https://t.synnaxlabs.com";
+
 const CSP = [
   "default-src 'self'",
-  `script-src 'self' 'unsafe-inline' https://vercel.live ${CLERK} https://challenges.cloudflare.com`,
+  `script-src 'self' 'unsafe-inline' https://vercel.live ${CLERK} https://challenges.cloudflare.com ${POSTHOG}`,
   "style-src 'self' 'unsafe-inline'",
   "font-src 'self' data:",
-  `connect-src 'self' https://vercel.live ${CLERK} https://clerk-telemetry.com`,
+  `connect-src 'self' https://vercel.live ${CLERK} https://clerk-telemetry.com ${POSTHOG}`,
   "worker-src 'self' blob:",
   "img-src 'self' data: https://img.clerk.com https://vercel.com https://vercel.live",
   "frame-src https://vercel.live https://challenges.cloudflare.com",

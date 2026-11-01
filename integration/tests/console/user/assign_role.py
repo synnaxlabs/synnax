@@ -33,7 +33,7 @@ class UserAssignRole(ConsoleCase):
 
         # Verify user is under initial role
         self.console.access.expand_role(initial_role)
-        self.console.access.wait_for_user_role(username, initial_role)
+        self.console.access.wait_for_user_role(username, role_name=initial_role)
 
         # Change user's role via context menu
         self.log(f"Changing {username} role from {initial_role} to {new_role}")
@@ -42,7 +42,7 @@ class UserAssignRole(ConsoleCase):
         # Expand new role and verify user moved
         self.console.access.expand_role(new_role)
         self.console.access.wait_for_user_role(
-            username, new_role, previous_role=initial_role
+            username, role_name=new_role, previous_role=initial_role
         )
 
         self.log("User role assignment test passed")

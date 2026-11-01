@@ -41,11 +41,17 @@ import CdnPicture from "@/components/common/CdnPicture.astro";
                                 href="https://docs.synnaxlabs.com/releases/desktop/download"
                                 data-event="desktop_download_clicked"
                                 data-location="hero"
+                                className="hero-action"
                             >
                                 Download Synnax Desktop
                                 <Arrow direction="down" />
                             </Button.Button>
-                            <Button.Button size="huge" level="p" href="/#contact">
+                            <Button.Button
+                                size="huge"
+                                level="p"
+                                href="/#contact"
+                                className="hero-action"
+                            >
                                 Talk to an engineer
                                 <Arrow direction="right" />
                             </Button.Button>
@@ -135,7 +141,7 @@ import CdnPicture from "@/components/common/CdnPicture.astro";
             animation: text-reveal 0.8s cubic-bezier(0.16, 1, 0.3, 1) 0.25s both;
 
             /* The arrow carries its own blank space on the right. */
-            .pluto-btn {
+            .hero-action {
                 padding: 0 3rem 0 3.5rem;
                 font-size: 2.5rem;
                 font-weight: 550;
@@ -200,7 +206,7 @@ import CdnPicture from "@/components/common/CdnPicture.astro";
     }
 
     @media (width <= 600px) {
-        .hero .hero-actions .pluto-btn {
+        .hero .hero-actions .hero-action {
             flex-basis: 100%;
             justify-content: center;
         }

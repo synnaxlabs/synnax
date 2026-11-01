@@ -72,14 +72,14 @@ export const ActivityTable = ({
               {dateTime(e.at)}
             </Text.Text>
             {organizations && (
-              <Text.Text level="p" color={10} overflow="ellipsis">
+              <Text.Text level="p" color={10} overflow="fade">
                 {organization}
               </Text.Text>
             )}
-            <Text.Text level="p" color={10} overflow="ellipsis">
+            <Text.Text level="p" color={10} overflow="fade">
               {license}
             </Text.Text>
-            <Text.Text level="p" color={11} overflow="ellipsis">
+            <Text.Text level="p" color={11} overflow="fade">
               {describeEvent(e, { machines, actors })}
             </Text.Text>
           </Row>

@@ -17,25 +17,25 @@ export const NEW_PANEL = "New panel";
 /** pill returns the panel selector's pill for `name`. */
 export const pill = (session: capture.CaptureSession, name: string): Locator =>
   session.page
-    .locator(".console-panel-selector .pluto-tabs__tab")
+    .locator(".console-panel-selector .lyra-tabs__tab")
     .filter({ hasText: name })
     .first();
 
 /** selectedPill returns the pill for `name` when its panel is the visible one. */
 export const selectedPill = (session: capture.CaptureSession, name: string): Locator =>
   session.page
-    .locator(".console-panel-selector .pluto-tabs__tab[aria-selected='true']")
+    .locator(".console-panel-selector .lyra-tabs__tab[aria-selected='true']")
     .filter({ hasText: name })
     .first();
 
 /** addPanel returns the add button at the right of the panel selector. */
 export const addPanel = (session: capture.CaptureSession): Locator =>
-  session.page.locator(".console-panel-selector > .pluto-btn").first();
+  session.page.locator(".console-panel-selector > .lyra-btn").first();
 
 /** mosaicTab returns the visible panel's tab named `name`. */
 export const mosaicTab = (session: capture.CaptureSession, name: string): Locator =>
   session.page
-    .locator(".console-mosaic .pluto-tabs__tab:visible")
+    .locator(".console-mosaic .lyra-tabs__tab:visible")
     .filter({ hasText: name })
     .first();
 
@@ -43,7 +43,7 @@ export const mosaicTab = (session: capture.CaptureSession, name: string): Locato
 const menuItem = (session: capture.CaptureSession, prefix: string): Locator =>
   // Prefix match: the item's text carries its shortcut indicator too.
   session.page
-    .locator(".pluto-menu-context")
+    .locator(".lyra-menu-context")
     .first()
     .getByText(new RegExp(`^${prefix}`))
     .first();
@@ -64,11 +64,9 @@ export const renamePanel = async (
 ): Promise<void> => {
   const { page } = session;
   await pill(session, from).click({ button: "right", timeout: 5000 });
-  await session.waitFor(page.locator(".pluto-menu-context").first());
+  await session.waitFor(page.locator(".lyra-menu-context").first());
   await menuItem(session, "Rename").click({ timeout: 5000 });
-  const editable = page
-    .locator(".pluto-text--editable[contenteditable='true']")
-    .first();
+  const editable = page.locator(".lyra-text--editable[contenteditable='true']").first();
   await session.waitFor(editable);
   await page.keyboard.press("ControlOrMeta+a");
   await page.keyboard.type(to);
@@ -123,7 +121,7 @@ export const createStand = async (
     await session.waitFor(page.locator(".pluto-line-plot").first());
     await capture.addChannels(session, "Y1", fixture.channels, { search: "demo" });
     await capture.hideBottomToolbar(session);
-    const tabs = page.locator(".console-mosaic .pluto-tabs__tab");
+    const tabs = page.locator(".console-mosaic .lyra-tabs__tab");
     const plot = (await tabs.first().innerText()).trim();
     await capture.clickPanelCreate(session);
     await capture.createComponent(session, "Table");
@@ -167,12 +165,12 @@ export const isolateTab = async (
   name: string,
 ): Promise<void> => {
   const others = session.page
-    .locator(".console-mosaic .pluto-tabs__tab:visible")
+    .locator(".console-mosaic .lyra-tabs__tab:visible")
     .filter({ hasNotText: name });
   while ((await others.count()) > 0) {
     const tab = others.first();
     await tab.hover();
-    await session.click(tab.locator(".pluto-tabs__close").first(), { zoom: false });
+    await session.click(tab.locator(".lyra-tabs__close").first(), { zoom: false });
     await session.settle(300);
   }
 };

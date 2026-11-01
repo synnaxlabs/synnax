@@ -35,10 +35,6 @@ import (
 // outside the state chain: it is the Console's own export format, not a stored state.
 const LastVersion = v6.Version
 
-// DataVersion is the version Data carries once the chain has run. It trails
-// LastVersion because v6 is an export format rather than a chain step.
-const DataVersion = v5.Version
-
 // Data is the latest legacy snapshot; the migration chain terminates in it.
 type Data = v5.Data
 
@@ -52,8 +48,6 @@ type (
 	Edge = v3.Edge
 	// Node is a schematic node with its canvas position and stacking order.
 	Node = v0.Node
-	// Segment is one leg of an edge's routed path.
-	Segment = v3.Segment
 )
 
 // MigrateData decodes the opaque schematic data blob, dispatches on its declared

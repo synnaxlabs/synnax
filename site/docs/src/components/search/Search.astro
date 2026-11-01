@@ -26,15 +26,18 @@ import { Search as S } from "@/components/search/Search";
             font-size: var(--pluto-small-size);
             font-weight: 400;
 
+            /* The shortcut chip takes the page fill, so it stands out of the box. */
+            --pluto-keycap-bg: var(--pluto-gray-l0);
+            --pluto-keycap-border-color: var(--pluto-gray-l5);
+
             & * {
                 color: var(--pluto-gray-l8);
                 font-size: var(--pluto-small-size);
                 font-weight: 400;
             }
 
-            & .pluto-text--keyboard {
-                background: var(--pluto-gray-l0);
-                border-color: var(--pluto-gray-l5);
+            & .search-box__keys {
+                margin-left: auto;
             }
         }
     }
@@ -54,11 +57,11 @@ import { Search as S } from "@/components/search/Search";
                 padding: 0;
             }
 
-            & button > .pluto-icon {
+            & button > .lyra-icon {
                 font-size: var(--pluto-small-size);
             }
 
-            .pluto-trigger-indicator {
+            .search-box__keys {
                 display: none;
             }
         }
@@ -82,7 +85,7 @@ import { Search as S } from "@/components/search/Search";
             text-decoration: none !important;
         }
 
-        & .pluto-list__scroll {
+        & .lyra-list__scroll {
             flex: 1;
         }
     }
@@ -121,7 +124,7 @@ import { Search as S } from "@/components/search/Search";
     }
 
     /* The pointer and the arrow keys move the active result, which Enter opens. */
-    .search-result.pluto--hovered {
+    .search-result.lyra--hovered {
         --pluto-btn-bg: var(--pluto-primary-z-10);
 
         & .search-result__icon {
@@ -219,7 +222,7 @@ import { Search as S } from "@/components/search/Search";
         padding: 1.25rem 2rem;
         background: var(--pluto-gray-l1);
 
-        & .pluto-text {
+        & .lyra-text {
             color: var(--pluto-gray-l9);
         }
     }

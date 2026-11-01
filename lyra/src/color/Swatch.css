@@ -9,7 +9,7 @@
  * included in the file licenses/APL.txt.
  */
 
-.pluto-color-swatch.pluto-btn {
+.lyra-color-swatch.lyra-btn {
     --pluto-swatch-fill:
         linear-gradient(var(--pluto-swatch-color), var(--pluto-swatch-color)),
         var(--pluto-checkerboard);
@@ -19,7 +19,7 @@
 
     /* The fill is the color, so a translucent border reads on every color and
        surface. */
-    &.pluto-btn--outlined:not(.pluto-color-swatch--chip) {
+    &.lyra-btn--outlined:not(.lyra-color-swatch--chip) {
         --pluto-border-color: var(--pluto-swatch-edge);
         --pluto-hover-border-color: color-mix(
             in srgb,
@@ -32,7 +32,7 @@
     }
 
     /* Stripes, so a mixed value reads apart from the checkerboard of transparent. */
-    &.pluto--mixed {
+    &.lyra--mixed {
         --pluto-swatch-fill: repeating-linear-gradient(
             135deg,
             var(--pluto-gray-l8) 0 2px,
@@ -40,12 +40,12 @@
         );
     }
 
-    &.pluto--custom {
+    &.lyra--custom {
         --pluto-swatch-fill: conic-gradient(#f00, #ff0, #0f0, #0ff, #00f, #f0f, #f00);
     }
 
     /* A control: a button with the color as a smaller chip inside. */
-    &.pluto-color-swatch--chip {
+    &.lyra-color-swatch--chip {
         position: relative;
 
         &::before {
@@ -57,7 +57,7 @@
             box-shadow: inset 0 0 0 var(--pluto-border-width) var(--pluto-swatch-edge);
         }
 
-        & .pluto-icon {
+        & .lyra-icon {
             position: relative;
             width: 45%;
             height: 45%;
@@ -66,6 +66,6 @@
     }
 }
 
-.pluto-color-swatch__dropdown {
+.lyra-color-swatch__dropdown {
     flex-shrink: 0;
 }

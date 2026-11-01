@@ -25,7 +25,7 @@ import time
 hold i64 ns := 5s
 
 sequence fire {
-    time.wait{duration=hold} => next
+    time.wait(duration=hold) => next
     1 -> ign_cmd
 }
 
@@ -52,8 +52,8 @@ The time between two fires.
 
 </Field.List>
 
-- Input -> optional. Trigger-only: the first input value starts the timer, and later
-  values have no effect. With no input, the timer starts when its stage starts.
+- Trigger -> optional. The first trigger starts the timer, and later values have no
+  effect. With no trigger, the timer starts when its stage starts.
 - Output -> `u8` value 1 on each fire, with the time of the cycle.
 - Runs -> on the first timer cycle after the timer starts, then on a fixed schedule,
   once each `period`. A late fire does not move the next one. When a cycle takes longer
@@ -63,7 +63,7 @@ The time between two fires.
 ```arc channels="heartbeat"
 import time
 
-time.interval{period=1s} -> heartbeat
+time.interval(period=1s) -> heartbeat
 ```
 
 <Divider.Divider x />
@@ -72,8 +72,8 @@ time.interval{period=1s} -> heartbeat
 
 Gives the current time.
 
-- Input -> optional. Trigger-only: each new input value runs it, whatever the value.
-  With no input, it runs once each time its stage starts.
+- Trigger -> optional. Each new trigger runs it, whatever the value. With no trigger, it
+  runs once each time its stage starts.
 - Output -> the time as a timestamp, type `i64 ns`. Write it to a `timestamp` channel or
   an `i64` channel. Another channel type, such as `f64`, is an error.
 - Function form -> `time.now()`. All calls in the same cycle give the same time.
@@ -83,7 +83,7 @@ Gives the current time.
 ```arc channels="start_cmd, start_time"
 import time
 
-start_cmd == 1 => time.now{} -> start_time
+start_cmd == 1 => time.now() -> start_time
 ```
 
 <Divider.Divider x />
@@ -102,8 +102,8 @@ The time to wait.
 
 </Field.List>
 
-- Input -> optional. Trigger-only: the first input value starts the timer, and later
-  values have no effect. With no input, the timer starts when its stage starts.
+- Trigger -> optional. The first trigger starts the timer, and later values have no
+  effect. With no trigger, the timer starts when its stage starts.
 - Output -> `u8` value 1, once, with the time of the cycle.
 - Runs -> when `duration` has passed since the timer started. It counts from zero again
   each time its stage starts. As a sequence step, the sequence moves on when it fires.
@@ -113,7 +113,7 @@ import time
 
 sequence fire {
     1 -> ign_cmd
-    time.wait{duration=2s} => next
+    time.wait(duration=2s) => next
     1 -> press_vlv_cmd
 }
 

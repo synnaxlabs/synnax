@@ -9,9 +9,9 @@
 
 import "@/schematic/node/common/primitive/primitive.css";
 
-import { CSS } from "@synnaxlabs/lyra/css";
 import { type ComponentPropsWithRef, type ReactElement } from "react";
 
+import { CSS } from "@/css";
 import { type OrientableProps } from "@/schematic/node/common/primitive/orientable";
 
 export interface DivProps

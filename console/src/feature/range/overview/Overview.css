@@ -28,7 +28,7 @@
 }
 
 .console-range__metadata {
-    .pluto-header {
+    .lyra-header {
         margin-bottom: 2rem;
     }
 }
@@ -71,7 +71,7 @@
             height 0.1s ease,
             min-height 0.1s ease;
 
-        &.pluto--hidden {
+        &.lyra--hidden {
             height: 0;
             padding: 0;
             min-height: 0;

@@ -24,7 +24,7 @@ import argparse
 from aws import AWS
 
 
-def run(runner: str, aws: AWS) -> str:
+def run(runner: str, *, aws: AWS) -> str:
     iid, info = aws.instance(runner)
     aws.ec2[info["region"]].start_instances(InstanceIds=[iid])
     return f"{runner} ({info['region']}): start requested"
@@ -33,7 +33,7 @@ def run(runner: str, aws: AWS) -> str:
 def main() -> None:
     p = argparse.ArgumentParser(description=(__doc__ or "").split("\n", 1)[0])
     p.add_argument("runner", help="runner name, e.g. windows-build-bot-i-0f44")
-    print(run(p.parse_args().runner, AWS()))
+    print(run(p.parse_args().runner, aws=AWS()))
 
 
 if __name__ == "__main__":

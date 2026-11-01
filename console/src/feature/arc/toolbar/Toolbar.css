@@ -10,20 +10,14 @@
  */
 
 .console-arc-toolbar {
-    .pluto-list__item {
+    .lyra-list__item {
         .console-arc__metadata {
             flex-shrink: 1;
-            text-overflow: ellipsis;
             overflow: hidden;
             padding-top: 0.25rem;
 
             /* Only apply overflow hidden when the element is not being renamed */
             &:not(:has([contenteditable="true"])) {
-                overflow: hidden;
-            }
-
-            p {
-                text-overflow: ellipsis;
                 overflow: hidden;
             }
         }

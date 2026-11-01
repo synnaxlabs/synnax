@@ -31,8 +31,12 @@ import { Triggers } from "@/triggers";
 /** The elements a Button can render as. `a` makes it a link, `label` a form control. */
 export type ElementType = "button" | "a" | "div" | "label" | "textarea";
 
-/** The rest-state emphasis of the button chassis. */
-export type Variant = "filled" | "outlined" | "text";
+/**
+ * The rest-state emphasis of the button chassis. A glyph button never fills, so its
+ * icon alone shows hover and press. Use it for an action inside another control, such
+ * as a tab's close button.
+ */
+export type Variant = "filled" | "outlined" | "text" | "glyph";
 
 /** The button-specific props {@link ButtonProps} adds to its element's own props. */
 export interface ExtensionProps
@@ -60,7 +64,7 @@ export interface ExtensionProps
   /** Holds onClick until the button has been held this long, filling a progress bar
    * meanwhile. Use it to guard a destructive action. */
   onClickDelay?: number | TimeSpan;
-  /** Marks the button as a hidden action its pluto--reveals container shows. */
+  /** Marks the button as a hidden action its lyra--reveals container shows. */
   reveal?: boolean;
 }
 
@@ -258,7 +262,7 @@ export const Button = <E extends ElementType = "button">(
       style={pStyle}
       color={textColor}
       gap={size === "small" || size === "tiny" ? "small" : undefined}
-      bordered={variant !== "text"}
+      bordered={variant === "filled" || variant === "outlined"}
       level={level}
       variant={textVariant}
       square={square}

@@ -11,11 +11,14 @@ package task
 
 import (
 	"context"
+	"fmt"
 	"io"
+	"maps"
 	"slices"
 
 	"github.com/synnaxlabs/alamos"
 	"github.com/synnaxlabs/gorp"
+	"github.com/synnaxlabs/synnax/pkg/service/actions"
 	"github.com/synnaxlabs/synnax/pkg/service/channel"
 	"github.com/synnaxlabs/synnax/pkg/service/group"
 	"github.com/synnaxlabs/synnax/pkg/service/imex"
@@ -26,13 +29,14 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/service/task/config"
 	"github.com/synnaxlabs/synnax/pkg/service/task/versions"
 	xconfig "github.com/synnaxlabs/x/config"
+	"github.com/synnaxlabs/x/errors"
 	xio "github.com/synnaxlabs/x/io"
 	"github.com/synnaxlabs/x/observe"
 	"github.com/synnaxlabs/x/override"
+	"github.com/synnaxlabs/x/query"
 	"github.com/synnaxlabs/x/service"
 	"github.com/synnaxlabs/x/telem"
 	"github.com/synnaxlabs/x/validate"
-	"go.uber.org/zap"
 )
 
 // ServiceConfig is the configuration for creating a Service.
@@ -124,7 +128,9 @@ type Service struct {
 	group             group.Group
 	table             *gorp.Table[Key, Task]
 	search            *gorp.SearchIndex[Key, Task]
+	state             *actions.State[Key, Action]
 	commandChannelKey channel.Key
+	actionChannelKey  channel.Key
 }
 
 // Observe returns an observable that notifies callers of changes to task entries.
@@ -140,7 +146,11 @@ func OpenService(
 	if err != nil {
 		return nil, err
 	}
-	s = &Service{cfg: cfg, search: newSearchIndex()}
+	s = &Service{
+		cfg:    cfg,
+		search: newSearchIndex(),
+		state:  actions.NewState[Key, Action](cfg.DB),
+	}
 	cleanup, ok := service.NewOpener(ctx, &s.closer)
 	defer func() { err = cleanup(err) }()
 	if s.table, err = gorp.OpenTable(ctx, gorp.TableConfig[Key, Task]{
@@ -216,12 +226,77 @@ func OpenService(
 		if sig, err = cfg.Signals.PublishFromGorp(ctx, pubCfg); !ok(err, sig) {
 			return nil, err
 		}
+		// The Driver reads sy_task_set as task metadata, so actions take their own
+		// channel.
+		if sig, err = cfg.Signals.PublishActions(
+			ctx,
+			signals.ActionPublisherConfig[Key, Action]{
+				Observable: s.state,
+				Name:       "task_action",
+			},
+		); !ok(err, sig) {
+			return nil, err
+		}
+		var actionCh channel.Channel
+		if err = cfg.Channel.NewRetrieve().
+			Where(channel.MatchNames("sy_task_action_set")).
+			Entry(&actionCh).
+			Exec(ctx, nil); !ok(err, nil) {
+			return nil, err
+		}
+		s.actionChannelKey = actionCh.Key()
 	}
 	return s, nil
 }
 
+// OnAction subscribes the given handler to the actions that Dispatch and Writer emit.
+// The handler runs synchronously after the transaction that applied the actions
+// commits. The returned Disconnect removes the handler.
+func (s *Service) OnAction(
+	handler func(context.Context, actions.Scoped[Key, Action]),
+) observe.Disconnect {
+	return s.state.OnChange(handler)
+}
+
+// Dispatch applies the actions atomically to the task with the given key. Dispatches
+// for the same task run one at a time, each in its own transaction. After the commit,
+// Dispatch broadcasts the actions, then a set of the stored config when storing changed
+// it, such as by filling a default, then a set of the new config hash. Dispatch returns
+// the sets it added. dispatchKey is carried onto the broadcast so the sender recognizes
+// its echo. Dispatch returns an error wrapping validate.ErrValidation when an action is
+// a create, an action other than a set of the name targets a snapshot, or the result
+// fails to decode or validate, and an error wrapping query.ErrNotFound when no task has
+// the key.
+func (s *Service) Dispatch(
+	ctx context.Context,
+	key Key,
+	dispatchKey string,
+	acts []Action,
+) ([]Action, error) {
+	var added []Action
+	if err := s.state.Dispatch(
+		ctx,
+		key,
+		dispatchKey,
+		acts,
+		func(tx gorp.Tx) (_ []Action, err error) {
+			added, err = s.NewWriter(tx).apply(ctx, key, acts)
+			return added, err
+		},
+	); err != nil {
+		return nil, err
+	}
+	return added, nil
+}
+
 func (s *Service) CommandChannelKey() channel.Key {
 	return s.commandChannelKey
+}
+
+// ActionChannelKey returns the key of the channel that broadcasts task actions. Its
+// samples carry task configs, so only subjects that can read a task may receive them.
+func (s *Service) ActionChannelKey() channel.Key {
+	return s.actionChannelKey
 }
 
 func (s *Service) Close() error { return s.closer.Close() }
@@ -229,13 +304,14 @@ func (s *Service) Close() error { return s.closer.Close() }
 func (s *Service) NewWriter(tx gorp.Tx) Writer {
 	tx = gorp.OverrideTx(s.cfg.DB, tx)
 	return Writer{
-		tx:        tx,
-		otgWriter: s.cfg.Ontology.NewWriter(tx),
-		otg:       s.cfg.Ontology,
-		group:     s.group,
-		status:    s.cfg.Status.NewWriter(tx),
-		table:     s.table,
-		configs:   s.cfg.Configs,
+		tx:         tx,
+		otgWriter:  s.cfg.Ontology.NewWriter(tx),
+		otg:        s.cfg.Ontology,
+		group:      s.group,
+		status:     s.cfg.Status.NewWriter(tx),
+		table:      s.table,
+		configs:    s.cfg.Configs,
+		dispatcher: s.state.Dispatcher(),
 	}
 }
 
@@ -249,50 +325,58 @@ func (s *Service) NewRetrieve() Retrieve {
 	}
 }
 
-func (s *Service) onSuspectRack(ctx context.Context, rackStat rack.Status) {
+func (s *Service) onSuspectRack(ctx context.Context, rackStat rack.Status) error {
 	var tasks []Task
 	if err := s.NewRetrieve().Where(MatchRacks(rackStat.Details.Rack)).
 		Entries(&tasks).
 		Exec(ctx, nil); err != nil {
-		s.cfg.L.Error("failed to retrieve tasks on suspect rack", zap.Error(err))
+		return errors.Wrap(err, "failed to retrieve tasks on suspect rack")
 	}
-	statuses := make([]Status, len(tasks))
-	keys := make([]string, len(tasks))
-	for i, tsk := range tasks {
-		keys[i] = tsk.OntologyID().String()
+	if len(tasks) == 0 {
+		return nil
 	}
-	// A silent rack does not undo the deploy the Driver reported, so its config hash
-	// and rack are carried across rather than rebuilt.
+	byKey := make(map[string]Task, len(tasks))
+	for _, tsk := range tasks {
+		byKey[tsk.OntologyID().String()] = tsk
+	}
+	// A task without a status has never reported running, so it gets no copy.
 	var reported []Status
 	if err := s.cfg.Status.NewRetrieve[StatusDetails]().
-		Where(status.MatchKeys[StatusDetails](keys...)).
+		Where(status.MatchKeys[StatusDetails](slices.Collect(maps.Keys(byKey))...)).
 		Entries(&reported).
-		Exec(ctx, nil); err != nil {
-		s.cfg.L.Error("failed to retrieve statuses on suspect rack", zap.Error(err))
+		Exec(ctx, nil); errors.Skip(err, query.ErrNotFound) != nil {
+		return errors.Wrap(err, "failed to retrieve statuses on suspect rack")
 	}
-	deployed := make(map[string]StatusDetails, len(reported))
-	for _, stat := range reported {
-		deployed[stat.Key] = stat.Details
-	}
-	for i, tsk := range tasks {
-		details := StatusDetails{Task: tsk.Key, Running: false}
-		if prev, ok := deployed[keys[i]]; ok {
-			details.ConfigHash = prev.ConfigHash
-			details.Rack = prev.Rack
+	statuses := make([]Status, 0, len(reported))
+	for _, prev := range reported {
+		if !prev.Details.Running {
+			continue
 		}
-		statuses[i] = Status{
-			Key:         keys[i],
-			Time:        telem.Now(),
-			Name:        tsk.Name,
-			Variant:     rackStat.Variant,
-			Message:     rackStat.Message,
-			Description: rackStat.Description,
-			Details:     details,
-		}
+		tsk := byKey[prev.Key]
+		// A silent rack does not undo the deploy the Driver reported, so the config
+		// hash is carried across.
+		statuses = append(statuses, Status{
+			Key:     prev.Key,
+			Time:    telem.Now(),
+			Name:    tsk.Name,
+			Variant: rackStat.Variant,
+			Message: "Task stopped responding",
+			Description: fmt.Sprintf(
+				"The Core lost contact with the Driver on %s while the task was "+
+					"running.",
+				rackStat.Name,
+			),
+			Details: StatusDetails{
+				Task:       tsk.Key,
+				ConfigHash: prev.Details.ConfigHash,
+				Rack:       rackStat.Details.Rack,
+			},
+		})
 	}
-	if err := s.cfg.DB.WithTx(ctx, func(tx gorp.Tx) error {
+	if len(statuses) == 0 {
+		return nil
+	}
+	return s.cfg.DB.WithTx(ctx, func(tx gorp.Tx) error {
 		return s.cfg.Status.NewWriter(tx).SetMany(ctx, &statuses)
-	}); err != nil {
-		s.cfg.L.Error("failed to set statuses on suspect rack", zap.Error(err))
-	}
+	})
 }

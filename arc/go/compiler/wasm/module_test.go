@@ -12,18 +12,16 @@ package wasm_test
 import (
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
+	. "github.com/synnaxlabs/arc/compiler/testutil"
 	"github.com/synnaxlabs/arc/compiler/wasm"
 )
 
 var _ = Describe("WASM Module", func() {
 	Describe("Module Creation", func() {
-		It("Should create an empty module", func() {
-			mod := wasm.NewModule()
-			Expect(mod).ToNot(BeNil())
-			types, functions, exports := mod.Debug()
-			Expect(types).To(Equal(0))
-			Expect(functions).To(Equal(0))
-			Expect(exports).To(Equal(0))
+		It("Should create an empty module", func(ctx SpecContext) {
+			compiled := Compile(ctx, wasm.NewModule())
+			Expect(compiled.ImportedFunctions()).To(BeEmpty())
+			Expect(compiled.ExportedFunctions()).To(BeEmpty())
 		})
 
 		It("Should generate valid WASM magic number and version", func() {
@@ -45,8 +43,6 @@ var _ = Describe("WASM Module", func() {
 			}
 			idx := mod.AddType(ft)
 			Expect(idx).To(Equal(uint32(0)))
-			types, _, _ := mod.Debug()
-			Expect(types).To(Equal(1))
 		})
 
 		It("Should deduplicate identical function types", func() {
@@ -62,8 +58,6 @@ var _ = Describe("WASM Module", func() {
 			idx1 := mod.AddType(ft1)
 			idx2 := mod.AddType(ft2)
 			Expect(idx1).To(Equal(idx2))
-			types, _, _ := mod.Debug()
-			Expect(types).To(Equal(1)) // Should only have one type
 		})
 
 		It("Should distinguish different function types", func() {
@@ -79,8 +73,6 @@ var _ = Describe("WASM Module", func() {
 			idx1 := mod.AddType(ft1)
 			idx2 := mod.AddType(ft2)
 			Expect(idx1).ToNot(Equal(idx2))
-			types, _, _ := mod.Debug()
-			Expect(types).To(Equal(2))
 		})
 
 		It("Should handle function type with no parameters", func() {
@@ -144,8 +136,7 @@ var _ = Describe("WASM Module", func() {
 				Results: []wasm.ValueType{wasm.I64},
 			}
 			mod.AddImport("test", "func", ft)
-			types, _, _ := mod.Debug()
-			Expect(types).To(Equal(1))
+			Expect(mod.AddType(ft)).To(Equal(uint32(0)))
 		})
 	})
 
@@ -212,8 +203,6 @@ var _ = Describe("WASM Module", func() {
 			typeIdx := mod.AddType(ft)
 			funcIdx := mod.AddFunction(typeIdx, []wasm.ValueType{}, []byte{})
 			Expect(funcIdx).To(Equal(uint32(0)))
-			_, functions, _ := mod.Debug()
-			Expect(functions).To(Equal(1))
 		})
 
 		It("Should add function with locals", func() {
@@ -247,20 +236,21 @@ var _ = Describe("WASM Module", func() {
 	})
 
 	Describe("Exports", func() {
-		It("Should add a function export", func() {
+		It("Should add a function export", func(ctx SpecContext) {
 			mod := wasm.NewModule()
 			ft := wasm.FunctionType{
 				Params:  []wasm.ValueType{},
 				Results: []wasm.ValueType{wasm.I32},
 			}
 			typeIdx := mod.AddType(ft)
-			funcIdx := mod.AddFunction(typeIdx, []wasm.ValueType{}, []byte{})
+			funcIdx := mod.AddFunction(typeIdx, []wasm.ValueType{}, []byte{0x41, 0x2a})
 			mod.AddExport("exported_func", wasm.ExportKindFunc, funcIdx)
-			_, _, exports := mod.Debug()
-			Expect(exports).To(Equal(1))
+			Expect(
+				Compile(ctx, mod).ExportedFunctions(),
+			).To(HaveKey("exported_func"))
 		})
 
-		It("Should add multiple exports", func() {
+		It("Should add multiple exports", func(ctx SpecContext) {
 			mod := wasm.NewModule()
 			ft := wasm.FunctionType{
 				Params:  []wasm.ValueType{},
@@ -271,16 +261,18 @@ var _ = Describe("WASM Module", func() {
 			func2 := mod.AddFunction(typeIdx, []wasm.ValueType{}, []byte{})
 			mod.AddExport("func1", wasm.ExportKindFunc, func1)
 			mod.AddExport("func2", wasm.ExportKindFunc, func2)
-			_, _, exports := mod.Debug()
-			Expect(exports).To(Equal(2))
+			Expect(Compile(ctx, mod).ExportedFunctions()).To(SatisfyAll(
+				HaveLen(2),
+				HaveKey("func1"),
+				HaveKey("func2"),
+			))
 		})
 
-		It("Should support memory export", func() {
+		It("Should support memory export", func(ctx SpecContext) {
 			mod := wasm.NewModule()
 			mod.EnableMemory()
 			mod.AddExport("memory", wasm.ExportKindMemory, 0)
-			_, _, exports := mod.Debug()
-			Expect(exports).To(Equal(1))
+			Expect(Compile(ctx, mod).ExportedMemories()).To(HaveKey("memory"))
 		})
 	})
 
@@ -426,14 +418,12 @@ var _ = Describe("WASM Module", func() {
 			}
 			typeIdx := mod.AddType(ft)
 
-			// Add 5 functions with same type
-			for range 5 {
-				mod.AddFunction(typeIdx, []wasm.ValueType{}, []byte{0x41, 0x00})
+			for i := range uint32(5) {
+				Expect(
+					mod.AddFunction(typeIdx, []wasm.ValueType{}, []byte{0x41, 0x00}),
+				).To(Equal(i))
 			}
-
-			types, functions, _ := mod.Debug()
-			Expect(types).To(Equal(1))     // Should reuse type
-			Expect(functions).To(Equal(5)) // Should have 5 functions
+			Expect(mod.AddType(ft)).To(Equal(typeIdx))
 		})
 	})
 })

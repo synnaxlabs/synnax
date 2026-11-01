@@ -56,7 +56,7 @@ const ListItem = (props: List.ItemProps<project.Key>): ReactElement | null => {
         onChange={canRename ? handleRename : undefined}
         allowDoubleClick={false}
         className={CSS.BE("project", "name")}
-        overflow="ellipsis"
+        overflow="fade"
       />
     </Select.Item>
   );

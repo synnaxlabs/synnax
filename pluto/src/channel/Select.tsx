@@ -11,7 +11,6 @@ import "@/channel/Select.css";
 
 import { type channel } from "@synnaxlabs/client";
 import { Component } from "@synnaxlabs/lyra/component";
-import { CSS } from "@synnaxlabs/lyra/css";
 import { Icon } from "@synnaxlabs/lyra/icon";
 import { List } from "@synnaxlabs/lyra/list";
 import { Select } from "@synnaxlabs/lyra/select";
@@ -20,6 +19,7 @@ import { type ReactElement } from "react";
 import { type ListQuery, useList } from "@/channel/queries";
 import { resolveIcon } from "@/channel/resolveIcon";
 import { HAUL_TYPE } from "@/channel/types";
+import { CSS } from "@/css";
 import { type Flux } from "@/flux";
 
 const ListItem = ({

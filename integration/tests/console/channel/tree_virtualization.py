@@ -30,7 +30,7 @@ class TreeVirtualization(ConsoleCase):
         self.index = create_time_index(self.client, f"tree_virt_time_{suffix}")
         # Zero-padded so the console sort puts them in creation order, contiguously.
         self.names = [f"tree_virt_{suffix}_{i:03d}" for i in range(CHANNEL_COUNT)]
-        create_indexed_channels(self.client, self.names, self.index.key)
+        create_indexed_channels(self.client, self.names, index_key=self.index.key)
         self.log(f"Created {CHANNEL_COUNT} channels under prefix tree_virt_{suffix}")
 
     def run(self) -> None:

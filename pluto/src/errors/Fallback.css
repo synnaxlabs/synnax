@@ -38,8 +38,6 @@
         }
 
         .pluto-error-fallback__name {
-            overflow: hidden;
-            text-overflow: ellipsis;
             width: 100%;
         }
 
@@ -50,8 +48,11 @@
             white-space: pre-wrap;
             word-break: normal;
             overflow-wrap: anywhere;
+            /* stylelint-disable declaration-no-important -- outranks the Console's
+               global user-select: none !important */
             user-select: text !important;
             -webkit-user-select: text !important;
+            /* stylelint-enable declaration-no-important */
         }
 
         .pluto-error-fallback__message--multiline {
@@ -68,8 +69,11 @@
             white-space: pre-wrap;
             word-break: normal;
             overflow-wrap: anywhere;
+            /* stylelint-disable declaration-no-important -- outranks the Console's
+               global user-select: none !important */
             user-select: text !important;
             -webkit-user-select: text !important;
+            /* stylelint-enable declaration-no-important */
         }
 
         .pluto-error-fallback__stack-container {
@@ -81,8 +85,11 @@
         }
 
         .pluto-error-fallback__stack {
+            /* stylelint-disable declaration-no-important -- outranks the Console's
+               global user-select: none !important */
             user-select: text !important;
             -webkit-user-select: text !important;
+            /* stylelint-enable declaration-no-important */
             white-space: pre-wrap;
             word-break: normal;
             overflow-wrap: anywhere;
@@ -96,7 +103,7 @@
 
 @container (max-width: 400px) {
     .pluto-error-fallback__header-text,
-    .pluto-error-fallback__content .pluto-breadcrumb__separator {
+    .pluto-error-fallback__content .lyra-breadcrumb__separator {
         display: none;
     }
 }

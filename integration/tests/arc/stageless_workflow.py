@@ -70,10 +70,12 @@ class StagelessWorkflow(ArcCase):
     ]
 
     def setup(self) -> None:
-        create_virtual_channel(self.client, "sw_a", sy.DataType.UINT8)
-        create_virtual_channel(self.client, "sw_b", sy.DataType.UINT8)
-        create_virtual_channel(self.client, "sw_c", sy.DataType.UINT8)
-        create_virtual_channel(self.client, "sw_pressure", sy.DataType.FLOAT32)
+        create_virtual_channel(self.client, "sw_a", data_type=sy.DataType.UINT8)
+        create_virtual_channel(self.client, "sw_b", data_type=sy.DataType.UINT8)
+        create_virtual_channel(self.client, "sw_c", data_type=sy.DataType.UINT8)
+        create_virtual_channel(
+            self.client, "sw_pressure", data_type=sy.DataType.FLOAT32
+        )
         super().setup()
         self.set_manual_timeout(60)
 
@@ -84,7 +86,7 @@ class StagelessWorkflow(ArcCase):
         # anonymous top-level sequence on its first scheduler cycle.
         self.load_arc(
             self.arc_source,
-            self.arc_name_prefix,
+            name_prefix=self.arc_name_prefix,
             trigger=None,
         )
         self.verify_sequence_execution()
@@ -116,13 +118,11 @@ class StagelessWorkflow(ArcCase):
                 "sw_a has no buffered value; cannot verify gate held. "
                 "Streamer did not deliver any reading after trigger."
             )
-            return
         if a_value != 1:
             self.fail(
                 f"sw_a={a_value} after wait elapsed but expression gate "
                 "should still be blocking; sequence should not have advanced"
             )
-            return
         self.log("Sequence correctly held at expression gate")
 
         self.log("Driving sw_pressure=75 (above gate threshold)")

@@ -22,6 +22,8 @@ export interface ContextValue {
   delay: CrudeTimeSpan;
   /** Returns true if a tooltip closed recently enough to skip the open delay. */
   isWarm: () => boolean;
+  /** Returns true while a tooltip is open. */
+  isOpen: () => boolean;
   /** Records a tooltip close, starting the warm window. */
   markClosed: () => void;
   /**
@@ -43,6 +45,7 @@ const [Context, useConfig] = context.create<ContextValue>({
   defaultValue: {
     delay: DEFAULT_DELAY,
     isWarm: () => false,
+    isOpen: () => false,
     markClosed: () => {},
     acquire: () => () => {},
   },
@@ -71,6 +74,7 @@ export const Config = ({
     const since = TimeStamp.since(lastClosed.current);
     return since.valueOf() < new TimeSpan(skipDelayRef.current).valueOf();
   };
+  const isOpen = (): boolean => open.current != null;
   const markClosed = (): void => {
     lastClosed.current = TimeStamp.now();
   };
@@ -82,6 +86,6 @@ export const Config = ({
     };
   };
 
-  const value: ContextValue = { delay, isWarm, markClosed, acquire };
+  const value: ContextValue = { delay, isWarm, isOpen, markClosed, acquire };
   return <Context value={value}>{children}</Context>;
 };

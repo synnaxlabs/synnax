@@ -15,6 +15,7 @@ import (
 	"github.com/synnaxlabs/freighter/grpc"
 	"github.com/synnaxlabs/synnax/pkg/api"
 	"github.com/synnaxlabs/synnax/pkg/api/control"
+	distchannel "github.com/synnaxlabs/synnax/pkg/distribution/channel"
 	"github.com/synnaxlabs/synnax/pkg/service/channel"
 	grpccontrol "github.com/synnaxlabs/synnax/pkg/transport/grpc/control"
 	xcontrol "github.com/synnaxlabs/x/control"
@@ -31,12 +32,12 @@ type retrieveServer = grpc.UnaryServer[
 var states = []control.State{
 	{
 		Subject:   xcontrol.Subject{Key: "writer-1", Name: "Writer 1"},
-		Resource:  channel.NewKey(1, 2),
+		Resource:  distchannel.NewKey(1, 2),
 		Authority: xcontrol.AuthorityAbsolute,
 	},
 	{
 		Subject:   xcontrol.Subject{Key: "writer-2", Name: "Writer 2"},
-		Resource:  channel.NewKey(3, 4),
+		Resource:  distchannel.NewKey(3, 4),
 		Authority: xcontrol.AuthorityAbsolute - 5,
 	},
 }
@@ -51,7 +52,7 @@ var _ = Describe("gRPC Control Translators", func() {
 	Describe("RetrieveRequest", func() {
 		t := server.RequestTranslator
 		It("Should translate the channel keys", func(ctx SpecContext) {
-			keys := channel.Keys{channel.NewKey(1, 2), channel.NewKey(3, 4)}
+			keys := channel.Keys{distchannel.NewKey(1, 2), distchannel.NewKey(3, 4)}
 			pb := &grpccontrol.RetrieveRequest{Keys: keys.Uint32()}
 			Expect(
 				MustSucceed(t.Backward(ctx, pb)),
@@ -73,12 +74,12 @@ var _ = Describe("gRPC Control Translators", func() {
 			Expect(pb.States).To(HaveLen(2))
 			Expect(pb.States[0].Subject.Key).To(Equal("writer-1"))
 			Expect(pb.States[0].Subject.Name).To(Equal("Writer 1"))
-			Expect(pb.States[0].Resource).To(Equal(uint32(channel.NewKey(1, 2))))
+			Expect(pb.States[0].Resource).To(Equal(uint32(distchannel.NewKey(1, 2))))
 			Expect(
 				pb.States[0].Authority,
 			).To(Equal(uint32(xcontrol.AuthorityAbsolute)))
 			Expect(pb.States[1].Subject.Key).To(Equal("writer-2"))
-			Expect(pb.States[1].Resource).To(Equal(uint32(channel.NewKey(3, 4))))
+			Expect(pb.States[1].Resource).To(Equal(uint32(distchannel.NewKey(3, 4))))
 			Expect(
 				pb.States[1].Authority,
 			).To(Equal(uint32(xcontrol.AuthorityAbsolute - 5)))

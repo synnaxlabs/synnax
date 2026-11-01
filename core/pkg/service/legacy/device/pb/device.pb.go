@@ -42,7 +42,9 @@ type StatusDetails struct {
 	// rack is the key of the rack this device belongs to.
 	Rack uint32 `protobuf:"varint,1,opt,name=rack,proto3" json:"rack,omitempty"`
 	// device is the device identifier.
-	Device        string `protobuf:"bytes,2,opt,name=device,proto3" json:"device,omitempty"`
+	Device string `protobuf:"bytes,2,opt,name=device,proto3" json:"device,omitempty"`
+	// data contains device-specific status data.
+	Data          *structpb.Struct `protobuf:"bytes,3,opt,name=data,proto3,oneof" json:"data,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -89,6 +91,13 @@ func (x *StatusDetails) GetDevice() string {
 		return x.Device
 	}
 	return ""
+}
+
+func (x *StatusDetails) GetData() *structpb.Struct {
+	if x != nil {
+		return x.Data
+	}
+	return nil
 }
 
 // Device is a physical piece of hardware connected to Synnax through the Driver system.
@@ -227,10 +236,12 @@ var File_core_pkg_service_legacy_device_pb_device_proto protoreflect.FileDescrip
 
 const file_core_pkg_service_legacy_device_pb_device_proto_rawDesc = "" +
 	"\n" +
-	".core/pkg/service/legacy/device/pb/device.proto\x12\x11service.device.pb\x1a+core/pkg/service/ontology/pb/ontology.proto\x1a'core/pkg/service/status/pb/status.proto\x1a\x1cgoogle/protobuf/struct.proto\";\n" +
+	".core/pkg/service/legacy/device/pb/device.proto\x12\x11service.device.pb\x1a+core/pkg/service/ontology/pb/ontology.proto\x1a'core/pkg/service/status/pb/status.proto\x1a\x1cgoogle/protobuf/struct.proto\"v\n" +
 	"\rStatusDetails\x12\x12\n" +
 	"\x04rack\x18\x01 \x01(\rR\x04rack\x12\x16\n" +
-	"\x06device\x18\x02 \x01(\tR\x06device\"\xe5\x02\n" +
+	"\x06device\x18\x02 \x01(\tR\x06device\x120\n" +
+	"\x04data\x18\x03 \x01(\v2\x17.google.protobuf.StructH\x00R\x04data\x88\x01\x01B\a\n" +
+	"\x05_data\"\xe5\x02\n" +
 	"\x06Device\x12\x10\n" +
 	"\x03key\x18\x01 \x01(\tR\x03key\x12\x12\n" +
 	"\x04rack\x18\x02 \x01(\rR\x04rack\x12\x1a\n" +
@@ -272,14 +283,15 @@ var file_core_pkg_service_legacy_device_pb_device_proto_goTypes = []any{
 	(*pb1.ID)(nil),          // 4: service.ontology.pb.ID
 }
 var file_core_pkg_service_legacy_device_pb_device_proto_depIdxs = []int32{
-	2, // 0: service.device.pb.Device.properties:type_name -> google.protobuf.Struct
-	3, // 1: service.device.pb.Device.status:type_name -> service.status.pb.Status
-	4, // 2: service.device.pb.Device.parent:type_name -> service.ontology.pb.ID
-	3, // [3:3] is the sub-list for method output_type
-	3, // [3:3] is the sub-list for method input_type
-	3, // [3:3] is the sub-list for extension type_name
-	3, // [3:3] is the sub-list for extension extendee
-	0, // [0:3] is the sub-list for field type_name
+	2, // 0: service.device.pb.StatusDetails.data:type_name -> google.protobuf.Struct
+	2, // 1: service.device.pb.Device.properties:type_name -> google.protobuf.Struct
+	3, // 2: service.device.pb.Device.status:type_name -> service.status.pb.Status
+	4, // 3: service.device.pb.Device.parent:type_name -> service.ontology.pb.ID
+	4, // [4:4] is the sub-list for method output_type
+	4, // [4:4] is the sub-list for method input_type
+	4, // [4:4] is the sub-list for extension type_name
+	4, // [4:4] is the sub-list for extension extendee
+	0, // [0:4] is the sub-list for field type_name
 }
 
 func init() { file_core_pkg_service_legacy_device_pb_device_proto_init() }
@@ -287,6 +299,7 @@ func file_core_pkg_service_legacy_device_pb_device_proto_init() {
 	if File_core_pkg_service_legacy_device_pb_device_proto != nil {
 		return
 	}
+	file_core_pkg_service_legacy_device_pb_device_proto_msgTypes[0].OneofWrappers = []any{}
 	file_core_pkg_service_legacy_device_pb_device_proto_msgTypes[1].OneofWrappers = []any{}
 	type x struct{}
 	out := protoimpl.TypeBuilder{

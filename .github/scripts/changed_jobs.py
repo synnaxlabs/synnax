@@ -87,7 +87,9 @@ def _shared(jobs: dict[str, Any], job: str) -> Any:
     return {k: v for k, v in block.items() if not (job == "ok" and k == "needs")}
 
 
-def select(old_ci: str, new_ci: str, old_filters: str, new_filters: str) -> list[str]:
+def select(
+    old_ci: str, new_ci: str, *, old_filters: str, new_filters: str
+) -> list[str]:
     """Returns the sorted IDs of the jobs in new_ci that the edit selects."""
     (old, old_anchors), (new, new_anchors) = load(old_ci), load(new_ci)
     old_jobs, new_jobs = old.get("jobs", {}), new.get("jobs", {})
@@ -136,8 +138,8 @@ def main(argv: list[str]) -> None:
     jobs = select(
         show(base, WORKFLOW),
         Path(WORKFLOW).read_text(),
-        show(base, FILTERS),
-        Path(FILTERS).read_text(),
+        old_filters=show(base, FILTERS),
+        new_filters=Path(FILTERS).read_text(),
     )
     print(json.dumps(jobs))
 

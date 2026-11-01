@@ -54,19 +54,19 @@ class LinePlot(ConsoleCase):
 
         # General
         self.test_set_line_thickness(plot)
-        self.test_set_line_label(plot, suffix)
-        self.test_set_plot_title(plot, suffix)
+        self.test_set_line_label(plot, suffix=suffix)
+        self.test_set_plot_title(plot, suffix=suffix)
         # Track the renamed plot title
         self._shared_plot_name = plot.page_name
-        self.test_move_channel_between_axes(plot, data_name)
-        self.test_undo_redo_add_channel(plot, data_name)
+        self.test_move_channel_between_axes(plot, data_name=data_name)
+        self.test_undo_redo_add_channel(plot, data_name=data_name)
         self.test_live_data(plot)
         self.test_drag_channel_to_canvas(plot)
         self.test_drag_channel_to_toolbar(plot)
-        self.test_download_csv(plot, data_name)
-        self.test_create_range_from_selection(plot, suffix)
+        self.test_download_csv(plot, data_name=data_name)
+        self.test_create_range_from_selection(plot, suffix=suffix)
         self.test_toggle_range_annotation_visibility(plot)
-        self.test_export_json(plot, data_name)
+        self.test_export_json(plot, data_name=data_name)
 
         plot_link = self.test_copy_link(plot)
         plot_name = plot.page_name
@@ -74,15 +74,15 @@ class LinePlot(ConsoleCase):
         plot.close()
 
         # Resources Toolbar
-        self.test_open_plot_from_resources(plot_name, plot_link)
-        self.test_drag_plot_onto_mosaic(plot_name, plot_link)
+        self.test_open_plot_from_resources(plot_name, expected_link=plot_link)
+        self.test_drag_plot_onto_mosaic(plot_name, expected_link=plot_link)
 
         # Resources Toolbar > Context Menu
         self.test_ctx_operations()
         self.test_ctx_delete_multiple_plots()
         self.test_ctx_delete_plot()
 
-        self.test_open_plot_by_name(plot_name, plot_link)
+        self.test_open_plot_by_name(plot_name, expected_link=plot_link)
 
         # Delete shared plot after all tests that reference it
         self.console.pages.delete(plot_name)
@@ -118,7 +118,7 @@ class LinePlot(ConsoleCase):
 
         return index_name, data_name
 
-    def test_move_channel_between_axes(self, plot: Plot, data_name: str) -> None:
+    def test_move_channel_between_axes(self, plot: Plot, *, data_name: str) -> None:
         """Test adding a channel to Y2 axis."""
         self.log("Testing move channel between axes")
 
@@ -135,7 +135,7 @@ class LinePlot(ConsoleCase):
         value = plot.get_line_thickness()
         assert value == 5, f"Expected stroke width 5, got {value}"
 
-    def test_set_line_label(self, plot: Plot, suffix: str) -> None:
+    def test_set_line_label(self, plot: Plot, *, suffix: str) -> None:
         """Test relabeling a line via Lines tab."""
         self.log("Testing set line label")
 
@@ -146,7 +146,7 @@ class LinePlot(ConsoleCase):
             f"Expected label '{new_label}', got '{labels[0]}'"
         )
 
-    def test_set_plot_title(self, plot: Plot, suffix: str) -> None:
+    def test_set_plot_title(self, plot: Plot, *, suffix: str) -> None:
         """Test setting the plot title via Properties tab."""
         self.log("Testing set plot title")
 
@@ -155,7 +155,7 @@ class LinePlot(ConsoleCase):
         value = plot.get_title()
         assert value == new_title, f"Expected title '{new_title}', got '{value}'"
 
-    def test_undo_redo_add_channel(self, plot: Plot, data_name: str) -> None:
+    def test_undo_redo_add_channel(self, plot: Plot, *, data_name: str) -> None:
         """Test that Cmd+Z reverts an add-channel and Cmd+Shift+Z re-applies it.
 
         Reverts the add_channel(Y2) dispatch left on the undo stack by the
@@ -190,7 +190,7 @@ class LinePlot(ConsoleCase):
         self.log("Testing drag channel to canvas")
 
         channel = "line_plot_state"
-        plot.drag_channel_to_canvas(channel, self.console.channels)
+        plot.drag_channel_to_canvas(channel, channels=self.console.channels)
         assert channel in plot.data["Y1"], f"Channel {channel} should be on Y1"
 
     def test_drag_channel_to_toolbar(self, plot: Plot) -> None:
@@ -198,10 +198,10 @@ class LinePlot(ConsoleCase):
         self.log("Testing drag channel to toolbar")
 
         channel = "line_plot_time"
-        plot.drag_channel_to_toolbar(channel, self.console.channels, "Y2")
+        plot.drag_channel_to_toolbar(channel, channels=self.console.channels, axis="Y2")
         assert channel in plot.data["Y2"], f"Channel {channel} should be on Y2"
 
-    def test_download_csv(self, plot: Plot, data_name: str) -> None:
+    def test_download_csv(self, plot: Plot, *, data_name: str) -> None:
         """Test downloading the plot data as a CSV file."""
         self.log("Testing download CSV")
 
@@ -213,7 +213,7 @@ class LinePlot(ConsoleCase):
         lines = csv_content.strip().split("\n")
         assert len(lines) > 1, "CSV should have header and data rows"
 
-    def test_create_range_from_selection(self, plot: Plot, suffix: str) -> None:
+    def test_create_range_from_selection(self, plot: Plot, *, suffix: str) -> None:
         """Test creating a range from a plot selection."""
         self.log("Testing create range from selection")
 
@@ -232,13 +232,13 @@ class LinePlot(ConsoleCase):
         # test_create_range_from_selection left a range within the plot viewport,
         # so the annotation toggle should be present and on by default.
         plot.wait_for_annotation_toggle()
-        plot.expect_annotations_visible(True)
+        plot.expect_annotations_visible(visible=True)
 
         plot.toggle_annotation_visibility()
-        plot.expect_annotations_visible(False)
+        plot.expect_annotations_visible(visible=False)
 
         plot.toggle_annotation_visibility()
-        plot.expect_annotations_visible(True)
+        plot.expect_annotations_visible(visible=True)
 
     def test_copy_link(self, plot: Plot) -> str:
         """Test copying a link to the line plot via toolbar button.
@@ -250,11 +250,11 @@ class LinePlot(ConsoleCase):
 
         link = plot.copy_link()
 
-        assert_link_format(link, "lineplot")
+        assert_link_format(link, resource_type="lineplot")
 
         return link
 
-    def test_export_json(self, plot: Plot, data_name: str) -> None:
+    def test_export_json(self, plot: Plot, *, data_name: str) -> None:
         """Test exporting the plot as a JSON file via toolbar button."""
         self.log("Testing export plot as JSON")
 
@@ -272,8 +272,12 @@ class LinePlot(ConsoleCase):
             f"Y1 should contain channel key {data_channel.key}"
         )
 
-    def test_open_plot_from_resources(self, plot_name: str, expected_link: str) -> None:
-        """Test opening a plot by double-clicking it in the project resources toolbar."""
+    def test_open_plot_from_resources(
+        self, plot_name: str, *, expected_link: str
+    ) -> None:
+        """Test opening a plot by double-clicking it in the project resources
+        toolbar.
+        """
         self.log("Testing open plot from resources toolbar")
 
         plot = self.console.pages.open(Plot, plot_name)
@@ -284,12 +288,13 @@ class LinePlot(ConsoleCase):
         opened_link = plot.copy_link()
         # Verify link is the same between resources and visualization toolbars
         assert opened_link == expected_link, (
-            f"Opened plot link should match: expected {expected_link}, got {opened_link}"
+            f"Opened plot link should match: expected {expected_link}, got "
+            f"{opened_link}"
         )
 
         plot.close()
 
-    def test_drag_plot_onto_mosaic(self, plot_name: str, expected_link: str) -> None:
+    def test_drag_plot_onto_mosaic(self, plot_name: str, *, expected_link: str) -> None:
         """Test dragging a plot from the resources toolbar onto the mosaic."""
         self.log("Testing drag plot onto mosaic")
 
@@ -300,7 +305,8 @@ class LinePlot(ConsoleCase):
 
         opened_link = plot.copy_link()
         assert opened_link == expected_link, (
-            f"Opened plot link should match: expected {expected_link}, got {opened_link}"
+            f"Opened plot link should match: expected {expected_link}, got "
+            f"{opened_link}"
         )
 
         plot.close()
@@ -354,8 +360,10 @@ class LinePlot(ConsoleCase):
         for name in plot_names:
             self._cleanup_pages.remove(name)
 
-    def test_open_plot_by_name(self, plot_name: str, expected_link: str) -> None:
-        """Test opening an existing plot by searching its name in the command palette."""
+    def test_open_plot_by_name(self, plot_name: str, *, expected_link: str) -> None:
+        """Test opening an existing plot by searching its name in the command
+        palette.
+        """
         self.log("Testing open plot by name via command palette")
 
         plot = self.console.pages.open_from_search(Plot, plot_name)
@@ -365,7 +373,8 @@ class LinePlot(ConsoleCase):
 
         opened_link = plot.copy_link()
         assert opened_link == expected_link, (
-            f"Opened plot link should match: expected {expected_link}, got {opened_link}"
+            f"Opened plot link should match: expected {expected_link}, got "
+            f"{opened_link}"
         )
 
         plot.close()

@@ -25,15 +25,6 @@ var _ = Describe("Heartbeat", func() {
 		})
 	})
 
-	Describe("Decrement", func() {
-		It("should decrement version", func() {
-			h := version.Heartbeat{Generation: 1, Version: 2}
-			h = h.Decrement()
-			Expect(h.Version).To(Equal(uint32(1)))
-			Expect(h.Generation).To(Equal(uint32(1)))
-		})
-	})
-
 	Describe("Restart", func() {
 		It("should increment generation and reset version", func() {
 			h := version.Heartbeat{Generation: 1, Version: 5}

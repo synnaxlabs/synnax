@@ -11,7 +11,6 @@ import "@/telem/control/Legend.css";
 
 import { UnexpectedError } from "@synnaxlabs/client";
 import { Color } from "@synnaxlabs/lyra/color";
-import { CSS } from "@synnaxlabs/lyra/css";
 import { Flex } from "@synnaxlabs/lyra/flex";
 import { Icon } from "@synnaxlabs/lyra/icon";
 import { Text } from "@synnaxlabs/lyra/text";
@@ -19,6 +18,7 @@ import { type color, type state, unique } from "@synnaxlabs/x";
 import { type ReactElement, useEffect, useState } from "react";
 
 import { Aether } from "@/aether";
+import { CSS } from "@/css";
 import { control } from "@/telem/control/aether";
 import { useContext } from "@/telem/control/Controller";
 import { Legend as Base } from "@/vis/legend";

@@ -12,14 +12,15 @@
 .console-connection-target {
     flex-wrap: wrap;
 
-    & > .pluto-text--overflow-ellipsis {
+    & > .console-connection-target__name,
+    & > .console-connection-target__address {
         min-width: 0;
     }
 }
 
-/* .pluto-icon pins icons to 1em, so the status dot is sized here instead of
+/* .lyra-icon pins icons to 1em, so the status dot is sized here instead of
    via the size prop. */
-.console-connection-target > .pluto-icon {
+.console-connection-target > .lyra-icon {
     width: 2rem;
     height: 2rem;
 }

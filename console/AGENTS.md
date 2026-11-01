@@ -101,7 +101,7 @@ Main window only, 250ms debounce. Every slice is declared in exactly one scope i
 | `core`      | project, range, status                            |
 | `project`   | drift                                             |
 | `window`    | arc, lineplot, log, nav, panels, schematic, table |
-| `transient` | haul, persist — never written                     |
+| `transient` | analytics, haul, link, persist — never written    |
 
 `Persist.open` throws when a slice is in none of them, so a new slice forces a decision
 about its durability.
@@ -153,9 +153,9 @@ the slice keeps an entry for every window ever opened.
 
 ## Live-Core tests
 
-Live-Core specs (Core, flux query paths, user badges, ...) connect to a real Core at
-`localhost:9090` through the production query path — no store-poking. Check for a
-running Core and start one if missing per "Live-Core Tests" in `docs/claude/testing.md`.
+Live-Core specs (Core, flux query paths, user badges, ...) connect to a real Core
+through the production query path, with no store-poking. See "Live-Core tests" in
+`docs/claude/testing.md`.
 
 Window-keyed slice specs build their store with `createSliceStore` from
 `session/window/testutil.ts` — it adds the drift slice the selectors read the window

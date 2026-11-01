@@ -15,13 +15,13 @@ import { describe, expect, it } from "vitest";
 import { Nav } from "@/nav";
 
 const barOf = (c: ReturnType<typeof render>): HTMLElement => {
-  const bar = c.container.querySelector<HTMLElement>(".pluto-navbar");
+  const bar = c.container.querySelector<HTMLElement>(".lyra-navbar");
   if (bar == null) throw new Error("navbar not found");
   return bar;
 };
 
 const contentOf = (c: ReturnType<typeof render>): HTMLElement => {
-  const content = c.container.querySelector<HTMLElement>(".pluto-navbar__content");
+  const content = c.container.querySelector<HTMLElement>(".lyra-navbar__content");
   if (content == null) throw new Error("navbar content not found");
   return content;
 };
@@ -38,7 +38,7 @@ describe("Nav.Bar", () => {
 
   it("should default to the left location", () => {
     const c = render(<Nav.Bar />);
-    expect(barOf(c).className).toContain("pluto--location-left");
+    expect(barOf(c).className).toContain("lyra--location-left");
   });
 
   it("should forward an arbitrary class name", () => {
@@ -56,26 +56,26 @@ describe("Nav.Bar", () => {
     const CASES: LocationCase[] = [
       {
         location: "left",
-        locClass: "pluto--location-left",
-        dirClass: "pluto--direction-y",
+        locClass: "lyra--location-left",
+        dirClass: "lyra--direction-y",
         dimension: "width",
       },
       {
         location: "right",
-        locClass: "pluto--location-right",
-        dirClass: "pluto--direction-y",
+        locClass: "lyra--location-right",
+        dirClass: "lyra--direction-y",
         dimension: "width",
       },
       {
         location: "top",
-        locClass: "pluto--location-top",
-        dirClass: "pluto--direction-x",
+        locClass: "lyra--location-top",
+        dirClass: "lyra--direction-x",
         dimension: "height",
       },
       {
         location: "bottom",
-        locClass: "pluto--location-bottom",
-        dirClass: "pluto--direction-x",
+        locClass: "lyra--location-bottom",
+        dirClass: "lyra--direction-x",
         dimension: "height",
       },
     ];
@@ -130,10 +130,10 @@ describe("Nav.Bar", () => {
       borderClass: string;
     }
     it.each<BorderedCase>([
-      { location: "left", borderClass: "pluto--bordered-right" },
-      { location: "right", borderClass: "pluto--bordered-left" },
-      { location: "top", borderClass: "pluto--bordered-bottom" },
-      { location: "bottom", borderClass: "pluto--bordered-top" },
+      { location: "left", borderClass: "lyra--bordered-right" },
+      { location: "right", borderClass: "lyra--bordered-left" },
+      { location: "top", borderClass: "lyra--bordered-bottom" },
+      { location: "bottom", borderClass: "lyra--bordered-top" },
     ])(
       "should add a border on the swapped side for a $location bar",
       ({ location, borderClass }) => {
@@ -144,7 +144,7 @@ describe("Nav.Bar", () => {
 
     it("should not add a border class by default", () => {
       const c = render(<Nav.Bar location="left" />);
-      expect(barOf(c).className).not.toContain("pluto--bordered");
+      expect(barOf(c).className).not.toContain("lyra--bordered");
     });
   });
 
@@ -162,7 +162,7 @@ describe("Nav.Bar", () => {
             <p>x</p>
           </Nav.Bar.Start>
         ),
-        alignClass: "pluto--start",
+        alignClass: "lyra--start",
       },
       {
         name: "Center",
@@ -171,7 +171,7 @@ describe("Nav.Bar", () => {
             <p>x</p>
           </Nav.Bar.Center>
         ),
-        alignClass: "pluto--center",
+        alignClass: "lyra--center",
       },
       {
         name: "End",
@@ -180,7 +180,7 @@ describe("Nav.Bar", () => {
             <p>x</p>
           </Nav.Bar.End>
         ),
-        alignClass: "pluto--end",
+        alignClass: "lyra--end",
       },
       {
         name: "AbsoluteCenter",
@@ -189,14 +189,14 @@ describe("Nav.Bar", () => {
             <p>x</p>
           </Nav.Bar.AbsoluteCenter>
         ),
-        alignClass: "pluto--absolute-center",
+        alignClass: "lyra--absolute-center",
       },
     ])(
       "should apply the alignment class for $name content",
       ({ element, alignClass }) => {
         const c = render(element);
         const content = contentOf(c);
-        expect(content.className).toContain("pluto-navbar__content");
+        expect(content.className).toContain("lyra-navbar__content");
         expect(content.className).toContain(alignClass);
       },
     );
@@ -208,10 +208,10 @@ describe("Nav.Bar", () => {
         </Nav.Bar.Content>,
       );
       const content = contentOf(c);
-      expect(content.className).toContain("pluto-navbar__content");
-      expect(content.className).not.toContain("pluto--start");
-      expect(content.className).not.toContain("pluto--end");
-      expect(content.className).not.toContain("pluto--center");
+      expect(content.className).toContain("lyra-navbar__content");
+      expect(content.className).not.toContain("lyra--start");
+      expect(content.className).not.toContain("lyra--end");
+      expect(content.className).not.toContain("lyra--center");
     });
 
     it("should add a border on the aligned side for bordered content", () => {
@@ -220,7 +220,7 @@ describe("Nav.Bar", () => {
           <p>x</p>
         </Nav.Bar.Start>,
       );
-      expect(contentOf(c).className).toContain("pluto--bordered-start");
+      expect(contentOf(c).className).toContain("lyra--bordered-start");
     });
 
     it("should not add a border to plain bordered content", () => {
@@ -229,7 +229,7 @@ describe("Nav.Bar", () => {
           <p>x</p>
         </Nav.Bar.Content>,
       );
-      expect(contentOf(c).className).not.toContain("pluto--bordered");
+      expect(contentOf(c).className).not.toContain("lyra--bordered");
     });
 
     it("should forward a class name to content", () => {

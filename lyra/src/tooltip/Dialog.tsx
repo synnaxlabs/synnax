@@ -7,7 +7,6 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { type destructor, TimeSpan } from "@synnaxlabs/x";
 import {
   cloneElement,
   isValidElement,
@@ -16,17 +15,14 @@ import {
   type Ref,
   useEffect,
   useId,
-  useRef,
-  useState,
 } from "react";
 
 import { CSS } from "@/css";
-import { useCombinedRefs, useSyncedRef } from "@/hooks";
+import { useSyncedRef } from "@/hooks";
 import { type position } from "@/position";
 import { Text } from "@/text";
-import { useConfig } from "@/tooltip/Config";
 import { Frame } from "@/tooltip/Frame";
-import { Triggers } from "@/triggers";
+import { useVisibility } from "@/tooltip/useVisibility";
 
 interface ChildProps {
   ref?: Ref<HTMLElement>;
@@ -66,9 +62,6 @@ interface AnchorProps extends ChildProps {
 const Anchor = ({ element, ...props }: AnchorProps): ReactElement =>
   cloneElement(element, props);
 
-const CLOSE_DURATION = TimeSpan.milliseconds(150);
-const ESCAPE_TRIGGERS: Triggers.Trigger[] = [Triggers.ESCAPE];
-
 /**
  * A tooltip that appears when the user hovers or keyboard-focuses an element.
  *
@@ -86,125 +79,35 @@ export const Dialog = ({
   location: locationProp,
   hide = false,
 }: DialogProps): ReactElement => {
-  const { delay, isWarm, markClosed, acquire } = useConfig();
-  const [visible, setVisible] = useState(false);
-  const [closing, setClosing] = useState(false);
+  const { anchor, closing, hover, open, close } = useVisibility();
+  const visible = anchor != null;
   const id = useId();
-
-  const [anchor, setAnchor] = useState<HTMLElement | null>(null);
-  const anchorRef = useRef<HTMLElement | null>(null);
-  const openTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
-  const closeTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
-  const releaseRef = useRef<destructor.Destructor | null>(null);
-  const visibleRef = useSyncedRef(visible);
   const hideRef = useSyncedRef(hide);
   const hidden = (anchor: HTMLElement): boolean => {
     const h = hideRef.current;
     return typeof h === "function" ? h(anchor) : h;
   };
-  const delayRef = useSyncedRef(delay);
-
-  const clearOpenTimeout = (): void => {
-    if (openTimeoutRef.current == null) return;
-    clearTimeout(openTimeoutRef.current);
-    openTimeoutRef.current = null;
-  };
-  const clearCloseTimeout = (): void => {
-    if (closeTimeoutRef.current == null) return;
-    clearTimeout(closeTimeoutRef.current);
-    closeTimeoutRef.current = null;
-  };
-
-  const close = (immediate: boolean = false): void => {
-    clearOpenTimeout();
-    if (!visibleRef.current) return;
-    markClosed();
-    releaseRef.current?.();
-    releaseRef.current = null;
-    if (immediate) {
-      clearCloseTimeout();
-      setClosing(false);
-      setVisible(false);
-      return;
-    }
-    if (closeTimeoutRef.current != null) return;
-    setClosing(true);
-    closeTimeoutRef.current = setTimeout(() => {
-      closeTimeoutRef.current = null;
-      setClosing(false);
-      setVisible(false);
-    }, CLOSE_DURATION.milliseconds);
-  };
   const closeNow = (): void => close(true);
-
-  const open = (): void => {
-    clearCloseTimeout();
-    setClosing(false);
-    releaseRef.current?.();
-    releaseRef.current = acquire(closeNow);
-    // Set from the ref on open so mounting alone never re-renders the dialog
-    setAnchor(anchorRef.current);
-    setVisible(true);
-  };
 
   const handlePointerEnter = (e: React.PointerEvent<HTMLElement>): void => {
     if (e.pointerType === "touch" || hidden(e.currentTarget)) return;
-    clearOpenTimeout();
-    if (visibleRef.current || isWarm()) return open();
-    openTimeoutRef.current = setTimeout(
-      open,
-      new TimeSpan(delayRef.current).milliseconds,
-    );
+    hover(e.currentTarget);
   };
   const handlePointerLeave = (): void => close();
   const handleFocus = (e: React.FocusEvent<HTMLElement>): void => {
     if (!e.currentTarget.matches(":focus-visible") || hidden(e.currentTarget)) return;
-    open();
+    open(e.currentTarget);
   };
-
-  useEffect(() => {
-    if (!visible) return;
-    const handleScroll = (e: Event): void => {
-      const anchor = anchorRef.current;
-      if (
-        e.target instanceof Node &&
-        anchor != null &&
-        (e.target === anchor || e.target.contains(anchor))
-      )
-        close(true);
-    };
-    window.addEventListener("scroll", handleScroll, { capture: true, passive: true });
-    return () => window.removeEventListener("scroll", handleScroll, { capture: true });
-  }, [visible, close]);
-
-  const handleEscape = ({ stage }: Triggers.UseEvent): void => {
-    if (stage === "start" && visibleRef.current) close(true);
-  };
-  Triggers.use({
-    triggers: ESCAPE_TRIGGERS,
-    callback: handleEscape,
-    priority: 200,
-  });
 
   useEffect(() => {
     if (hide === true) close(true);
   }, [hide, close]);
 
-  useEffect(
-    () => () => {
-      clearOpenTimeout();
-      clearCloseTimeout();
-      releaseRef.current?.();
-    },
-    [clearOpenTimeout, clearCloseTimeout],
-  );
-
   const [tip, children_] = children;
-  const attachAnchor = useCombinedRefs(anchorRef, children_.props.ref);
 
   return (
     <>
-      {visible && anchor != null && (
+      {anchor != null && (
         <Frame
           id={id}
           anchor={anchor}
@@ -217,7 +120,6 @@ export const Dialog = ({
       )}
       <Anchor
         element={children_}
-        ref={attachAnchor}
         aria-describedby={visible ? id : children_.props["aria-describedby"]}
         // A string tip doubles as an icon-only anchor's accessible name. An anchor with
         // visible text keeps that text as its name: aria-label would override it,

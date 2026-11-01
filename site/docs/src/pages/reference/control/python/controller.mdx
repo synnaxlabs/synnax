@@ -26,7 +26,7 @@ that reads raises a `ValidationError` when `read` is empty.
 ### `acquire`
 
 ```python
-client.control.acquire(name, read, write, write_authorities=255) -> Controller
+client.control.acquire(name, *, read, write, write_authorities=255) -> Controller
 ```
 
 <Field.List>
@@ -128,7 +128,7 @@ valid Python names, or match a controller member such as `state` or `set`.
 
 ```python
 ctrl.set_authority(authority) -> None
-ctrl.set_authority(channel, authority) -> None
+ctrl.set_authority(channel, *, authority) -> None
 ctrl.set_authority({channel: authority, ...}) -> None
 ```
 
@@ -205,7 +205,7 @@ closure raises `UnexpectedError`.
 ### `wait_until`
 
 ```python
-ctrl.wait_until(cond, timeout=None) -> bool
+ctrl.wait_until(cond, *, timeout=None) -> bool
 ```
 
 <Field.List>
@@ -230,7 +230,7 @@ Returns `True` when `cond` returns true, or `False` when the timeout ends first.
 ### `wait_while`
 
 ```python
-ctrl.wait_while(cond, timeout=None) -> bool
+ctrl.wait_while(cond, *, timeout=None) -> bool
 ```
 
 Takes the same parameters as `wait_until`. Returns `True` when `cond` returns false, or
@@ -239,7 +239,7 @@ Takes the same parameters as `wait_until`. Returns `True` when `cond` returns fa
 ### `wait_until_defined`
 
 ```python
-ctrl.wait_until_defined(channels, timeout=None) -> bool
+ctrl.wait_until_defined(channels, *, timeout=None) -> bool
 ```
 
 Blocks until each channel in `channels` has a value. `channels` is one channel or a
@@ -250,7 +250,7 @@ if a channel does not exist.
 ### `remains_true_for`
 
 ```python
-ctrl.remains_true_for(cond, duration, percentage=1) -> bool
+ctrl.remains_true_for(cond, *, duration, percentage=1) -> bool
 ```
 
 <Field.List>
@@ -287,7 +287,7 @@ Blocks for up to `duration`. Returns `True` if `cond` returned true for at least
 ### `sleep`
 
 ```python
-ctrl.sleep(dur, precise=False) -> None
+ctrl.sleep(dur, *, precise=False) -> None
 ```
 
 Blocks for `dur`, a number of seconds or a `TimeSpan`. Set `precise=True` for
@@ -322,7 +322,7 @@ Returns a function and `True`. Call the function to run the commands in order: f
 command, it sleeps for `delay` with a precise sleep, then sets the value. `schedule`
 itself sends nothing.
 
-`ScheduledCommand(channel, value, delay)` is in `synnax.control`. Each `delay` counts
+`ScheduledCommand(*, channel, value, delay)` is in `synnax.control`. Each `delay` counts
 from the previous command. A number for `delay` is in seconds. A `TimeSpan` also works.
 
 <Divider.Divider x />

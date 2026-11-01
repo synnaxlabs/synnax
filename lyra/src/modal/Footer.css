@@ -9,53 +9,16 @@
  * included in the file licenses/APL.txt.
  */
 
-.pluto-modal__footer {
+.lyra-modal__footer {
     padding-bottom: var(--pluto-modal-inset);
 
-    .pluto-navbar__content {
-        &.pluto--start {
+    .lyra-navbar__content {
+        &.lyra--start {
             padding-left: var(--pluto-modal-inset);
         }
 
-        &.pluto--end {
+        &.lyra--end {
             padding-right: var(--pluto-modal-inset);
         }
-    }
-
-    /* A button prints its shortcut as one chip, not a cap per key. */
-    .pluto-btn:not(.pluto--square) .pluto-trigger-indicator {
-        align-items: center;
-        gap: 1px;
-        height: 3rem;
-        padding: 0 round(0.833rem, 1px);
-        border-radius: var(--pluto-border-radius-tiny);
-        background: color-mix(in srgb, var(--pluto-gray-l11) 7%, transparent);
-
-        & .pluto-text--keyboard {
-            height: 3rem;
-            min-width: round(1.667rem, 1px);
-            aspect-ratio: auto;
-            padding-inline: 0;
-            border-color: transparent;
-            background: none;
-            font-size: var(--pluto-small-size);
-            color: var(--pluto-gray-l9);
-        }
-    }
-
-    /* On a fill, the chip and its glyphs mix the label's color, so a disabled button
-       dims them with its label. */
-    .pluto-btn--filled:not(.pluto--square) .pluto-trigger-indicator {
-        background: color-mix(in srgb, currentcolor 28%, transparent);
-
-        & .pluto-text--keyboard {
-            color: color-mix(in srgb, currentcolor 88%, transparent);
-        }
-    }
-
-    .pluto-btn.pluto--disabled:not(.pluto--square, .pluto-btn--filled)
-        .pluto-trigger-indicator
-        .pluto-text--keyboard {
-        color: inherit;
     }
 }

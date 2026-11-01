@@ -26,7 +26,7 @@ from common import parameter_store, secret
 from github import GitHub
 
 
-def run(runner: str, aws: AWS, github: GitHub) -> str:
+def run(runner: str, *, aws: AWS, github: GitHub) -> str:
     # The scaler decides on a status that trails GitHub by seconds, in which time an
     # idle runner can take a job.
     if github.busy(runner):
@@ -39,8 +39,8 @@ def run(runner: str, aws: AWS, github: GitHub) -> str:
 def main() -> None:
     p = argparse.ArgumentParser(description=(__doc__ or "").split("\n", 1)[0])
     p.add_argument("runner", help="runner name, e.g. windows-build-bot-i-0f44")
-    github = GitHub(secret("GH_TOKEN", parameter_store()))
-    print(run(p.parse_args().runner, AWS(), github))
+    github = GitHub(secret("GH_TOKEN", store=parameter_store()))
+    print(run(p.parse_args().runner, aws=AWS(), github=github))
 
 
 if __name__ == "__main__":

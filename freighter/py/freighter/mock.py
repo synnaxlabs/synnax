@@ -28,6 +28,7 @@ class MockUnaryClient(Transport):
 
     def __init__(
         self,
+        *,
         responses: Sequence[BaseModel] | None = None,
         response_errors: list[Exception | None] | None = None,
     ):
@@ -74,7 +75,7 @@ class MockUnaryClient(Transport):
                     raise error
             return ctx
 
-        self._mw.exec(ctx, finalizer)
+        self._mw.exec(ctx, finalizer=finalizer)
 
         res = self.responses.pop(0)
         if not isinstance(res, res_t):

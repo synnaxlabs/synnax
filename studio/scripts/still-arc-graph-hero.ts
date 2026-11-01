@@ -126,8 +126,8 @@ export default async (session: capture.CaptureSession): Promise<void> => {
     // The Arc's task has the same name.
     await session.click(
       palette
-        .locator(".pluto-list__item")
-        .filter({ hasText: NAME, has: page.locator(".pluto-icon--arc") })
+        .locator(".lyra-list__item")
+        .filter({ hasText: NAME, has: page.locator(".lyra-icon--arc") })
         .first(),
       { text: true },
     );
@@ -138,7 +138,7 @@ export default async (session: capture.CaptureSession): Promise<void> => {
     // With the bottom toolbar open, the panel ends just above the bottom of the part
     // the hero shows, so the task controls show in it.
     const drawer = page
-      .locator(".console-nav__drawer.pluto--visible.pluto--location-bottom")
+      .locator(".console-nav__drawer.lyra--visible.lyra--location-bottom")
       .first();
     await session.click(page.locator(".console-main-nav__item").last(), {
       zoom: false,

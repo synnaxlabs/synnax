@@ -181,6 +181,7 @@ var _ = Describe("VariantTypeName", func() {
 			"Accel4WireDCVoltageScale",
 		),
 		Entry("rtd acronym", "ai_rtd", "AIRTDScale"),
+		Entry("api acronym", "api_key", "APIKeyScale"),
 		Entry("no acronym", "force_bridge_table", "ForceBridgeTableScale"),
 		Entry(
 			"word containing acronym is not mangled",

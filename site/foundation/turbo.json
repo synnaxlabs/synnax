@@ -10,6 +10,13 @@
         "tsconfig*.json",
         "package.json"
       ]
+    },
+    "lint": {
+      "inputs": [
+        "$TURBO_EXTENDS$",
+        "$TURBO_ROOT$/{lyra,pluto,console,site/*}/src/**",
+        "$TURBO_ROOT$/{lyra,pluto,console,site/*}/index.html"
+      ]
     }
   }
 }

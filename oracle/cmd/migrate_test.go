@@ -54,13 +54,13 @@ var _ = Describe("migrate command", func() {
 		It("errors when no resources are named", func() {
 			Expect(
 				fail(1, "migrate"),
-			).To(ContainSubstring("name the resources to bump"))
+			).To(printOnce("name the resources to bump"))
 		})
 
 		It("errors for an unknown resource", func() {
 			Expect(
 				fail(1, "migrate", "ghost"),
-			).To(ContainSubstring(`no version chain matches "ghost"`))
+			).To(printOnce(`no version chain matches "ghost"`))
 		})
 
 		It("refuses to overwrite an existing target file", func() {
@@ -68,7 +68,7 @@ var _ = Describe("migrate command", func() {
 			// first one just wrote.
 			Expect(
 				fail(1, "migrate", "channel", "channel"),
-			).To(ContainSubstring("already exists"))
+			).To(printOnce("already exists"))
 		})
 	})
 
@@ -83,7 +83,7 @@ var _ = Describe("migrate command", func() {
 		It("rejects an ambiguous resource name", func() {
 			Expect(
 				fail(1, "migrate", "channel"),
-			).To(ContainSubstring(`"channel" is ambiguous`))
+			).To(printOnce(`"channel" is ambiguous`))
 		})
 
 		It("accepts a live path to disambiguate", func() {
@@ -109,7 +109,7 @@ var _ = Describe("migrate command", func() {
 		It("errors when no chains exist", func() {
 			Expect(
 				fail(1, "migrate", "channel"),
-			).To(ContainSubstring("no version chains exist"))
+			).To(printOnce("no version chains exist"))
 		})
 	})
 })

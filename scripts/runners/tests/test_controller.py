@@ -22,17 +22,24 @@ class TestWaitForCmds:
     """Tests for reading the switches between polls."""
 
     def test_should_read_switches_when_no_time_remains(self, client: Client) -> None:
-        channels = Channels(core(client), False)
+        channels = Channels(client=core(client), enabled=False)
         scaler = Scaler(
-            core(client),
-            sy.TimeSpan(0),
-            sy.TimeSpan(0),
-            Log(core(client), channels, "log"),
+            client=core(client),
+            cooldown=sy.TimeSpan(0),
+            boot_grace=sy.TimeSpan(0),
+            log=Log(client=core(client), channels=channels, channel="log"),
         )
-        beat = Heartbeat(core(client), channels, "enabled", lambda: scaler.enabled)
+        beat = Heartbeat(
+            client=core(client),
+            channels=channels,
+            name="enabled",
+            value=lambda: scaler.enabled,
+        )
         toggles: dict[str, Toggle] = {SCALER_CMD: (scaler, beat, "scaler")}
         client.streamed.append({SCALER_CMD: [False]})
-        commands = Subscription(core(client), "switches", [SCALER_CMD])
-        wait_for_cmds(commands, -sy.TimeSpan.SECOND, toggles)
+        commands = Subscription(
+            client=core(client), name="switches", channels=[SCALER_CMD]
+        )
+        wait_for_cmds(commands, remaining=-sy.TimeSpan.SECOND, toggles=toggles)
         beat.stop()
         assert not scaler.enabled

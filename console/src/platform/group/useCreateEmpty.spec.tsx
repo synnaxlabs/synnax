@@ -15,8 +15,7 @@ import { describe, expect, it } from "vitest";
 
 import { Group } from "@/platform/group";
 import { Tree } from "@/platform/tree";
-import { getTreeRow } from "@/platform/tree/menuTestutil";
-import { renderOntologyTree } from "@/platform/tree/treeTestutil";
+import { getTreeRow, renderOntologyTree } from "@/platform/tree/testutil";
 import {
   awaitTextEditingElement,
   awaitTextEditingExit,
@@ -38,7 +37,7 @@ const setup = async () => {
   });
   await renderOntologyTree({ client, root: parentID });
   await screen.findByText(child.name);
-  const tree = document.querySelector(".pluto-tree");
+  const tree = document.querySelector(".lyra-tree");
   expect(tree).not.toBeNull();
   fireEvent.contextMenu(tree as Element);
   fireEvent.click(await screen.findByText("New group"));

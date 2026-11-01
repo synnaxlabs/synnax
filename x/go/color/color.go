@@ -33,15 +33,6 @@ var Schema = zyn.Object(map[string]zyn.Schema{
 // strings with or without a leading '#'.
 func FromHex(s string) (Color, error) { return versions.FromHex(s) }
 
-// MustFromHex parses a hex color string into a Color, panicking on error.
-func MustFromHex(s string) Color {
-	c, err := FromHex(s)
-	if err != nil {
-		panic(err)
-	}
-	return c
-}
-
 // rgbPattern matches an rgb()/rgba() string with three 0-255 channels and an
 // optional alpha.
 var rgbPattern = regexp.MustCompile(

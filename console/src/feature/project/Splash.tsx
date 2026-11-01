@@ -26,13 +26,14 @@ import { ContextMenu, listItem } from "@/feature/project/Selector";
 import { useOpenSample } from "@/feature/project/useOpenSample";
 import { Shell } from "@/feature/shell";
 import { Button } from "@/platform/button";
+import { Core } from "@/platform/core";
 import { CSS } from "@/platform/css";
 import { Empty } from "@/platform/empty";
 import { Project as PlatformProject } from "@/platform/project";
 import { Session } from "@/session";
 
 const LogOutAction = (): ReactElement => {
-  const logout = Session.useLogout();
+  const logout = Core.useLogout();
   return (
     <Header.Actions>
       <PButton.Button variant="text" textColor={9} size="medium" onClick={logout}>

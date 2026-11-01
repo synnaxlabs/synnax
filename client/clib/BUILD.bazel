@@ -48,6 +48,8 @@ cc_test(
     tags = ["requires-core"],
     deps = [
         ":clib",
+        "//client/cpp/testutil",
+        "//x/cpp/testutil",
         "@googletest//:gtest_main",
     ],
 )

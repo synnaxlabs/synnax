@@ -7,24 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-interface PostHog {
-  capture: (
-    event: string,
-    properties?: Record<string, string>,
-    options?: { transport: "sendBeacon" },
-  ) => void;
-}
-
-declare global {
-  interface Window {
-    /** Defined by the inline snippet in `PostHog.astro` before any page script runs. */
-    posthog: PostHog;
-  }
-}
-
-/** Sends an event to PostHog. It survives a click that leaves the page. */
-export const capture = (event: string, properties?: Record<string, string>): void =>
-  window.posthog.capture(event, properties, { transport: "sendBeacon" });
+import { capture } from "@synnaxlabs/site-common/analytics";
 
 /**
  * Captures each click on an element with a `data-event` attribute, as that event, with

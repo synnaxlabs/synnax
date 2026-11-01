@@ -9,28 +9,28 @@
  * included in the file licenses/APL.txt.
  */
 
-.pluto-modal__body {
+.lyra-modal__body {
     padding: 3rem 4.5rem 6rem;
     min-height: 0;
     overflow-y: auto;
 
     /* Centers content when the modal is taller than it, but falls back to a
     scrollable start alignment when the modal is height-constrained. A justify prop
-    on Body takes precedence via the pluto--justify-* classes. */
+    on Body takes precedence via the lyra--justify-* classes. */
     justify-content: safe center;
 }
 
-.pluto-modal__body.pluto--field-gap {
+.lyra-modal__body.lyra--field-gap {
     gap: var(--pluto-field-gap);
 
     /* A field's help text draws inside the gap below the field, so a message moves
        nothing. The min height leaves out the gap above the help text. */
-    & > .pluto-input__item:not(.pluto--direction-x),
-    & > .pluto-flex.pluto--direction-x > .pluto-input__item:not(.pluto--direction-x) {
-        &:has(> .pluto-flex > .pluto-input-help-text) {
+    & > .lyra-input__item:not(.lyra--direction-x),
+    & > .lyra-flex.lyra--direction-x > .lyra-input__item:not(.lyra--direction-x) {
+        &:has(> .lyra-flex > .lyra-input-help-text) {
             margin-bottom: calc(-1 * var(--pluto-field-gap));
 
-            & > .pluto-flex > .pluto-input-help-text {
+            & > .lyra-flex > .lyra-input-help-text {
                 min-height: calc(var(--pluto-field-gap) - 1rem / 3);
             }
         }
@@ -40,12 +40,8 @@
 /* A heading input that opens a body is its title. Its text starts on the content edge,
    and a section gap follows it. A title that shows an error sits in a field, so its
    message fills that gap. */
-.pluto-modal__body.pluto--field-gap > :first-child {
-    &.pluto-input.pluto-btn--text:is(
-            .pluto-text--h1,
-            .pluto-text--h2,
-            .pluto-text--h3
-        ) {
+.lyra-modal__body.lyra--field-gap > :first-child {
+    &.lyra-input.lyra-btn--text:is(.lyra-text--h1, .lyra-text--h2, .lyra-text--h3) {
         margin-bottom: calc(var(--pluto-section-gap) - var(--pluto-field-gap));
 
         & > input {
@@ -53,19 +49,19 @@
         }
     }
 
-    &.pluto-input__item:has(
-            > .pluto-flex
-                > .pluto-input.pluto-btn--text:is(
-                    .pluto-text--h1,
-                    .pluto-text--h2,
-                    .pluto-text--h3
+    &.lyra-input__item:has(
+            > .lyra-flex
+                > .lyra-input.lyra-btn--text:is(
+                    .lyra-text--h1,
+                    .lyra-text--h2,
+                    .lyra-text--h3
                 )
         ) {
-        & > .pluto-flex > .pluto-input > input {
+        & > .lyra-flex > .lyra-input > input {
             padding-left: 0;
         }
 
-        & > .pluto-flex > .pluto-input-help-text {
+        & > .lyra-flex > .lyra-input-help-text {
             min-height: calc(var(--pluto-section-gap) - 1rem / 3);
             margin-left: 0;
         }

@@ -23,12 +23,14 @@ class TestUptime:
     def test_should_cover_a_runner_added_before_its_first_update(
         self, client: Client
     ) -> None:
-        u = Uptime(core(client), Channels(core(client), False))
+        u = Uptime(
+            client=core(client), channels=Channels(client=core(client), enabled=False)
+        )
         now = sy.TimeStamp.now()
-        u.update({OLD: IDLE}, {}, now - sy.TimeSpan.SECOND * 30)
+        u.update({OLD: IDLE}, found={}, now=now - sy.TimeSpan.SECOND * 30)
         u.retarget({OLD, NEW})
         assert u.frame(now) == {
-            channel_name("state_uptime", OLD): 30,
-            channel_name("state_uptime", NEW): 0,
+            channel_name("state_uptime", runner=OLD): 30,
+            channel_name("state_uptime", runner=NEW): 0,
         }
         u.stop()

@@ -9,6 +9,8 @@
  * included in the file licenses/APL.txt.
  */
 
+/* stylelint-disable declaration-no-important -- Monaco styles its editor inline */
+
 :root {
     --editor-token-keyword: #cc255f;
     --editor-token-delimiter-parenthesis: #cc255f;
@@ -54,7 +56,7 @@
     /* Monaco toggles .focused on .monaco-editor alone; its overlay divs keep the class
     after blur. Focus thickens the border to a full 1px, so the padding gives back the
     difference from the theme border width to keep the text from shifting. */
-    &.pluto--bordered:has(.monaco-editor.focused) {
+    &.lyra--bordered:has(.monaco-editor.focused) {
         border-color: var(--pluto-primary-z);
         border-width: 1px;
         padding: calc(2rem - 1px + var(--pluto-border-width)) var(--pluto-border-width);

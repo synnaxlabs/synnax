@@ -20,10 +20,10 @@ describe("Pane", () => {
         <Pane.Item>T7-Pro</Pane.Item>
       </Pane.Pane>,
     );
-    const pane = screen.getByText("T4").closest(".pluto-pane");
+    const pane = screen.getByText("T4").closest(".lyra-pane");
     expect(pane).not.toBeNull();
-    expect(screen.getByText("T7-Pro").closest(".pluto-pane")).toBe(pane);
-    expect(screen.getByText("T4").classList).toContain("pluto-pane__item");
+    expect(screen.getByText("T7-Pro").closest(".lyra-pane")).toBe(pane);
+    expect(screen.getByText("T4").classList).toContain("lyra-pane__item");
   });
 
   it("should call onClick when a button is clicked", () => {
@@ -40,7 +40,7 @@ describe("Pane", () => {
   it("should end a button with a caret", () => {
     render(<Pane.Button>LabJack hardware</Pane.Button>);
     const button = screen.getByRole("button", { name: "LabJack hardware" });
-    expect(button.lastElementChild?.classList).toContain("pluto-pane__caret");
+    expect(button.lastElementChild?.classList).toContain("lyra-pane__caret");
   });
 });
 

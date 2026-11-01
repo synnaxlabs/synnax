@@ -79,22 +79,22 @@ if (groups.length === 1)
     }
 
     /* With no groups, the chips open the pane. */
-    article .pluto-tabs.channel-types__options {
+    article .lyra-tabs.channel-types__options {
         padding: var(--docs-block-padding);
 
-        & > .pluto-tabs__selector {
+        & > .lyra-tabs__selector {
             gap: 1rem;
             margin-bottom: 5rem;
         }
 
-        & > .pluto-tabs__content:not([hidden]) {
+        & > .lyra-tabs__content:not([hidden]) {
             padding: 0;
         }
     }
 
     /* In a group, the chips and the type they show share the pane of the groups, so
        their frame draws nothing of its own. */
-    article .pluto-tabs__content > .pluto-tabs.channel-types__options {
+    article .lyra-tabs__content > .lyra-tabs.channel-types__options {
         margin: 0;
         padding: 0;
         border: none;
