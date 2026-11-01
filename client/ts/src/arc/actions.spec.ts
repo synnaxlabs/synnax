@@ -622,3 +622,30 @@ describe("arc reducer inverses", () => {
     });
   });
 });
+
+describe("arc path actions", () => {
+  const set = (path: string[], value: unknown) => arc.set({ path, value });
+
+  it("should set a field of a node's inputs and keep its case", () => {
+    const state = empty({ inputs: { n1: cfg("constant", { minValue: 1 }) } });
+    const { next, targets } = arc.reduceAll(state, [
+      set(["graph", "inputs", "n1", "minValue"], 2),
+    ]);
+    expect(next.graph.inputs.n1).toEqual(cfg("constant", { minValue: 2 }));
+    expect(targets).toEqual(["n1"]);
+  });
+
+  it("should return an inverse that restores the inputs", () => {
+    const state = empty({ inputs: { n1: cfg("constant", { value: 1 }) } });
+    const { next, inverse } = arc.reduceAll(state, [
+      set(["graph", "inputs", "n1", "value"], 2),
+    ]);
+    expect(arc.reduceAll(next, inverse).next).toEqual(state);
+  });
+
+  it("should throw for a path outside the node inputs", () => {
+    expect(() => apply(empty(), set(["graph", "nodes"], []))).toThrow(
+      "graph.nodes is not inside an entry of graph.inputs",
+    );
+  });
+});

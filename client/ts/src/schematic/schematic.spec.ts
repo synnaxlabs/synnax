@@ -10,7 +10,7 @@
 import { id, uuid } from "@synnaxlabs/x";
 import { describe, expect, it, test } from "vitest";
 
-import { NotFoundError, ValidationError } from "@/errors";
+import { NotFoundError, ValidationError } from "@/index";
 import { query } from "@/query";
 import { schematic } from "@/schematic";
 import { createTestClient, expectDeleted } from "@/testutil";
@@ -369,6 +369,47 @@ describe("Schematic", () => {
         variant: "tank",
         label: { label: "Replaced" },
       });
+    });
+
+    const tank = (extra: object = {}): schematic.ElementConfig =>
+      schematic.elementConfigZ.parse({ variant: "tank", ...extra });
+
+    test("setChanged keeps a concurrent edit to another field", async () => {
+      const { schem } = await newProjectSchematic(client);
+      const base = tank({ label: { label: "Original" } });
+      await client.schematics.dispatch(schem.key, [
+        schematic.setConfig({ key: "n1", config: base }),
+      ]);
+      const red = { strokeColor: "#ff0000" };
+      const replaced = { label: { label: "Replaced" } };
+      await client.schematics.dispatch(
+        schem.key,
+        schematic.setChanged({
+          key: "n1",
+          base,
+          next: tank({ label: { label: "Original" }, ...red }),
+        }),
+      );
+      await client.schematics.dispatch(
+        schem.key,
+        schematic.setChanged({ key: "n1", base, next: tank(replaced) }),
+      );
+      const res = await client.schematics.retrieve({ key: schem.key });
+      expect(res.configs.n1).toEqual(tank({ ...replaced, ...red }));
+    });
+
+    test("setChanged removes a field that next does not hold", async () => {
+      const { schem } = await newProjectSchematic(client);
+      const base = tank({ strokeColor: "#ff0000" });
+      await client.schematics.dispatch(schem.key, [
+        schematic.setConfig({ key: "n1", config: base }),
+      ]);
+      await client.schematics.dispatch(
+        schem.key,
+        schematic.setChanged({ key: "n1", base, next: tank() }),
+      );
+      const res = await client.schematics.retrieve({ key: schem.key });
+      expect(res.configs.n1).toEqual(tank());
     });
 
     test("applies a multi-action sequence atomically", async () => {
