@@ -44,11 +44,18 @@ export interface DocumentQuery<Key extends record.Key> {
 /** How long a field holds its edits before it sends them as one dispatch. */
 const COALESCE_WINDOW = TimeSpan.milliseconds(200);
 
+/** The value that an edit writes at a path. */
+interface Write {
+  value: unknown;
+  /** Whether the value passes its field schema. */
+  valid: boolean;
+}
+
 /** The edits to one field that have not been sent. */
 interface Edit {
   tx: actions.Transaction<patch.Action>;
-  /** Whether the value at each path that the edit writes passes its field schema. */
-  valid: Map<string, boolean>;
+  /** What the edit writes at each path. */
+  writes: Map<string, Write>;
   timer?: ReturnType<typeof setTimeout>;
 }
 
@@ -219,7 +226,7 @@ class DocumentStore<
     this.write(
       target.path.join(deep.SEPARATOR),
       { type: "set", set: { path: target.path, value: whole, guards } },
-      valid,
+      { value: whole, valid },
     );
   };
 
@@ -267,6 +274,7 @@ class DocumentStore<
       fn();
     } finally {
       this.batched = null;
+      this.dropReplaced();
       void this.send(tx);
     }
   };
@@ -300,23 +308,25 @@ class DocumentStore<
     return target.path;
   }
 
-  private write(at: string, action: patch.Action, valid: boolean): void {
+  private write(at: string, action: patch.Action, write: Write): void {
     if (this.removed) return;
     const prefixed = patch.prefix(action, this.params.path);
     if (this.batched != null) {
       this.batched.add(prefixed);
       return;
     }
-    let edit = this.edits.find((e) => [...e.valid.keys()].some((p) => overlaps(p, at)));
+    let edit = this.edits.find((e) =>
+      [...e.writes.keys()].some((p) => overlaps(p, at)),
+    );
     if (edit == null) {
-      edit = { tx: this.params.domain.beginTransaction(this.key), valid: new Map() };
+      edit = { tx: this.params.domain.beginTransaction(this.key), writes: new Map() };
       this.edits.push(edit);
     }
     edit.tx.add(prefixed);
     // A write replaces every earlier write below its path.
-    for (const p of [...edit.valid.keys()])
-      if (deep.pathsMatch(p, at)) edit.valid.delete(p);
-    edit.valid.set(at, valid);
+    for (const p of [...edit.writes.keys()])
+      if (deep.pathsMatch(p, at)) edit.writes.delete(p);
+    edit.writes.set(at, write);
     clearTimeout(edit.timer);
     const scheduled = edit;
     edit.timer = setTimeout(
@@ -336,12 +346,34 @@ class DocumentStore<
     void this.takeValid();
     const tx = this.params.domain.beginTransaction(this.key);
     tx.add(prefixed);
+    this.dropReplaced();
     void this.send(tx);
   }
 
   /** Takes every valid edit out of the store and queues its send. */
   private takeValid(): Promise<boolean>[] {
-    return [...this.edits].flatMap((edit) => this.take(edit) ?? []);
+    const sends = [...this.edits].flatMap((edit) => this.take(edit) ?? []);
+    this.dropReplaced();
+    return sends;
+  }
+
+  /**
+   * Aborts each held edit whose value the document no longer shows, as when a batch
+   * replaced the value or another client removed its entry. Such an edit has nothing
+   * left to correct, and it would write over the newer value once it sends.
+   */
+  private dropReplaced(): void {
+    const values = this.get();
+    for (const edit of [...this.edits]) {
+      const shown = [...edit.writes].some(
+        ([at, { value, valid }]) =>
+          !valid && deep.equal(deep.get(values, at, { optional: true }), value),
+      );
+      if (shown && !this.removed) continue;
+      clearTimeout(edit.timer);
+      this.edits.splice(this.edits.indexOf(edit), 1);
+      edit.tx.abort();
+    }
   }
 
   /**
@@ -351,7 +383,7 @@ class DocumentStore<
    */
   private take(edit: Edit): Promise<boolean> | null {
     clearTimeout(edit.timer);
-    if (![...edit.valid.values()].every(Boolean)) return null;
+    if (![...edit.writes.values()].every(({ valid }) => valid)) return null;
     this.edits.splice(this.edits.indexOf(edit), 1);
     return this.send(edit.tx);
   }

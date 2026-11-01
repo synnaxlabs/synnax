@@ -55,6 +55,16 @@ const createForm = <S extends z.ZodType<Values>>(formSchema: S) =>
 
 const useForm = createForm(schema);
 
+const useEntryForm = createForm(
+  z.object({
+    name: z.string(),
+    config: z.object({
+      routingKey: z.string(),
+      alerts: z.object({ key: z.string(), status: z.string().min(1) }).array(),
+    }),
+  }),
+);
+
 // Remote edits come from this client. The form reads through its own client.
 const client = createTestClient();
 const formClient = createTestClient();
@@ -180,6 +190,85 @@ describe("createDocumentForm", () => {
     await act(async () => expect(await result.current.flush()).toBe(true));
     expect(countDispatches(send)).toBe(1);
     expect((await fetchStored(t.key)).config).toMatchObject({ routingKey: "" });
+  });
+
+  it("should drop a held value when a batch replaces it", async () => {
+    const t = await createTask();
+    const { result } = await renderForm(t.key);
+    act(() => result.current.form.set("config.routingKey", ""));
+    act(() =>
+      result.current.form.batch(() =>
+        result.current.form.set("config.routingKey", "cat"),
+      ),
+    );
+    await act(async () => expect(await result.current.flush()).toBe(true));
+    await waitFor(async () =>
+      expect((await fetchStored(t.key)).config).toMatchObject({ routingKey: "cat" }),
+    );
+    await waitFor(() =>
+      expect(result.current.form.get("config.routingKey").value).toBe("cat"),
+    );
+  });
+
+  describe("a held value inside a list entry", () => {
+    const renderEntryForm = async () => {
+      const t = await testRack.createTask({
+        name: `document-${id.create()}`,
+        type: "pagerduty_alert",
+        config: {
+          routingKey: "dog",
+          alerts: [
+            { key: "a", status: "st-a" },
+            { key: "b", status: "st-b" },
+          ],
+        },
+      });
+      const { result } = await renderHookSuspended(
+        ({ key }: { key: task.Key }) => useEntryForm({ query: { key } }),
+        { wrapper, initialProps: { key: t.key } },
+      );
+      act(() => result.current.form.set("config.alerts.a.status", ""));
+      await act(async () => expect(await result.current.flush()).toBe(false));
+      return { t, result };
+    };
+
+    it("should stop blocking a flush when the form removes the entry", async () => {
+      const { t, result } = await renderEntryForm();
+      act(() => result.current.form.remove("config.alerts.a"));
+      await act(async () => expect(await result.current.flush()).toBe(true));
+      expect((await fetchStored(t.key)).config).toMatchObject({
+        alerts: [{ key: "b", status: "st-b" }],
+      });
+    });
+
+    it("should stop blocking a flush when another client removes the entry", async () => {
+      const { t, result } = await renderEntryForm();
+      await act(async () => {
+        await client.tasks.dispatch(
+          t.key,
+          task.remove({ path: ["config", "alerts"], key: "a" }),
+        );
+      });
+      await waitFor(() =>
+        expect(result.current.form.value().config.alerts).toHaveLength(1),
+      );
+      await act(async () => expect(await result.current.flush()).toBe(true));
+    });
+
+    it("should keep blocking a flush when another client edits another entry", async () => {
+      const { t, result } = await renderEntryForm();
+      await act(async () => {
+        await client.tasks.dispatch(
+          t.key,
+          task.set({ path: ["config", "alerts", "b", "status"], value: "st-c" }),
+        );
+      });
+      await waitFor(() =>
+        expect(result.current.form.get("config.alerts.b.status").value).toBe("st-c"),
+      );
+      await act(async () => expect(await result.current.flush()).toBe(false));
+      expect(result.current.form.get("config.alerts.a.status").value).toBe("");
+    });
   });
 
   it("should insert, move, and remove list entries by key", async () => {
