@@ -12,10 +12,10 @@ package types_test
 import (
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
-	"github.com/samber/lo"
 	"github.com/synnaxlabs/oracle/plugin/cpp/types"
 	"github.com/synnaxlabs/oracle/resolution"
 	. "github.com/synnaxlabs/oracle/testutil"
+	. "github.com/synnaxlabs/x/testutil"
 )
 
 var _ = Describe("FieldName", func() {
@@ -29,7 +29,7 @@ var _ = Describe("FieldName", func() {
 				}
 			`, "thing", NewMockFileLoader())
 			Expect(diag.Ok()).To(BeTrue())
-			thing := lo.Must(table.Get("thing.Thing"))
+			thing := MustBeOk(table.Get("thing.Thing"))
 			form := thing.Form.(resolution.StructForm)
 			Expect(types.FieldName(form.Fields[0])).To(Equal(expected))
 		},
