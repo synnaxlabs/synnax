@@ -8,9 +8,12 @@
 // included in the file licenses/APL.txt.
 
 import { ranger } from "@synnaxlabs/client";
-import { createTestClient } from "@synnaxlabs/client/testutil";
+import {
+  createTestClient,
+  spyOnSend,
+  waitForStreamLive,
+} from "@synnaxlabs/client/testutil";
 import { color, TimeSpan, TimeStamp } from "@synnaxlabs/x";
-import { expectAlways } from "@synnaxlabs/x/testutil";
 import { act, render, renderHook, waitFor } from "@testing-library/react";
 import {
   createElement,
@@ -740,6 +743,47 @@ describe("queries", () => {
     });
   });
 
+  describe("useSetTimeRange", () => {
+    const start = TimeStamp.seconds(1_700_000_000);
+    const createRange = async (name: string) =>
+      await client.ranges.create({
+        name,
+        timeRange: start.spanRange(TimeSpan.seconds(1)),
+      });
+
+    it("should set the time range of a range", async () => {
+      const rng = await createRange("set_time_range_hook");
+      const timeRange = start.spanRange(TimeSpan.seconds(5));
+      const { result } = renderHook(() => Ranger.useSetTimeRange(), { wrapper });
+      await act(async () => {
+        expect(
+          await result.current.updateAsync({
+            key: rng.key,
+            timeRange: timeRange.numeric,
+          }),
+        ).toBe(true);
+      });
+      expect((await client.ranges.retrieve(rng.key)).timeRange).toEqual(timeRange);
+    });
+
+    it("should reject an end before the start", async () => {
+      const rng = await createRange("set_time_range_hook_reversed");
+      const { result } = renderHook(() => Ranger.useSetTimeRange(), { wrapper });
+      await act(async () => {
+        expect(
+          await result.current.updateAsync({
+            key: rng.key,
+            timeRange: { start: rng.timeRange.end.nanoseconds, end: start.nanoseconds },
+          }),
+        ).toBe(false);
+      });
+      expect(result.current.status.description).toContain(
+        "time_range.start cannot be after time_range.end",
+      );
+      expect((await client.ranges.retrieve(rng.key)).timeRange).toEqual(rng.timeRange);
+    });
+  });
+
   describe("useUpdateKV", () => {
     it("should set a pair on the range", async () => {
       const rng = await client.ranges.create({
@@ -828,11 +872,11 @@ describe("queries", () => {
     });
   });
 
-  describe("useForm", () => {
+  describe("useCreateForm", () => {
     it("should create a new range", async () => {
       const timeRange = TimeStamp.now().spanRange(TimeSpan.minutes(5));
 
-      const { result } = renderHook(() => Ranger.useForm({ query: null }), {
+      const { result } = renderHook(() => Ranger.useCreateForm({ query: null }), {
         wrapper,
       });
 
@@ -863,7 +907,7 @@ describe("queries", () => {
         color: "#0000FF",
       });
 
-      const { result } = renderHook(() => Ranger.useForm({ query: null }), {
+      const { result } = renderHook(() => Ranger.useCreateForm({ query: null }), {
         wrapper,
       });
 
@@ -888,7 +932,7 @@ describe("queries", () => {
       });
       const childTimeRange = TimeStamp.now().spanRange(TimeSpan.minutes(30));
 
-      const { result } = renderHook(() => Ranger.useForm({ query: null }), {
+      const { result } = renderHook(() => Ranger.useCreateForm({ query: null }), {
         wrapper,
       });
 
@@ -906,253 +950,8 @@ describe("queries", () => {
       });
     });
 
-    it("should retrieve and edit existing range", async () => {
-      const timeRange = TimeStamp.now().spanRange(TimeSpan.minutes(10));
-      const existingRange = await client.ranges.create({
-        name: "existingRange",
-        timeRange,
-        color: "#FFFF00",
-      });
-
-      const { result } = renderHook(
-        () => Ranger.useForm({ query: { key: existingRange.key } }),
-        { wrapper },
-      );
-      await waitFor(() => expect(result.current.variant).toEqual("success"));
-
-      expect(result.current.form.value().name).toEqual("existingRange");
-      expect(result.current.form.value().color).toEqual(color.construct("#FFFF00"));
-      expect(result.current.form.value().timeRange).toEqual(timeRange.numeric);
-
-      act(() => {
-        result.current.form.set("name", "editedRange");
-        result.current.form.set("color", "#00FFFF");
-        result.current.save({ signal: controller.signal });
-      });
-
-      await waitFor(() => {
-        expect(result.current.form.value().name).toEqual("editedRange");
-        expect(result.current.form.value().color).toEqual(color.construct("#00FFFF"));
-      });
-    });
-
-    it("should keep the form's label order after a save", async () => {
-      const [lo, hi] = (
-        await Promise.all(
-          ["orderLabel1", "orderLabel2"].map((name) =>
-            client.labels.create({ name, color: "#FF00FF" }),
-          ),
-        )
-      )
-        .map((l) => l.key)
-        .sort();
-      const rng = await client.ranges.create({
-        name: "labelOrderRange",
-        timeRange: TimeStamp.now().spanRange(TimeSpan.minutes(5)),
-      });
-      const { result } = renderHook(() => Ranger.useForm({ query: { key: rng.key } }), {
-        wrapper,
-      });
-      await waitFor(() => expect(result.current.variant).toEqual("success"));
-      for (const labels of [[hi], [hi, lo]])
-        await act(async () => {
-          result.current.form.set("labels", labels);
-          await result.current.saveAsync({ signal: controller.signal });
-        });
-      await act(async () => {
-        await client.ranges.rename(rng.key, "renamedLabelOrderRange");
-      });
-      await waitFor(() =>
-        expect(result.current.form.value().name).toEqual("renamedLabelOrderRange"),
-      );
-      expect(result.current.form.value().labels).toEqual([hi, lo]);
-    });
-
-    it("should retrieve range with existing labels", async () => {
-      const label1 = await client.labels.create({
-        name: "existingLabel1",
-        color: color.construct("#FF00FF"),
-      });
-      const label2 = await client.labels.create({
-        name: "existingLabel2",
-        color: color.construct("#FFFF00"),
-      });
-
-      const timeRange = TimeStamp.now().spanRange(TimeSpan.minutes(8));
-      const existingRange = await client.ranges.create({
-        name: "rangeWithLabels",
-        timeRange,
-      });
-
-      await act(async () => {
-        await client.labels.label(existingRange.ontologyID, [label1.key, label2.key]);
-      });
-
-      const { result } = renderHook(
-        () => Ranger.useForm({ query: { key: existingRange.key } }),
-        { wrapper },
-      );
-      await waitFor(() => expect(result.current.variant).toEqual("success"));
-
-      expect(result.current.form.value().name).toEqual("rangeWithLabels");
-      expect(result.current.form.value().labels).toEqual(
-        expect.arrayContaining([label1.key, label2.key]),
-      );
-    });
-
-    it("should retrieve range with parent relationship", async () => {
-      const parentRange = await client.ranges.create({
-        name: "parentForRetrieval",
-        timeRange: TimeStamp.now().spanRange(TimeSpan.hours(2)),
-      });
-      const childRange = await client.ranges.create({
-        name: "childForRetrieval",
-        timeRange: TimeStamp.now().spanRange(TimeSpan.minutes(15)),
-        parent: parentRange,
-      });
-
-      const { result } = renderHook(
-        () => Ranger.useForm({ query: { key: childRange.key } }),
-        { wrapper },
-      );
-      await waitFor(() => expect(result.current.variant).toEqual("success"));
-
-      expect(result.current.form.value().name).toEqual("childForRetrieval");
-      expect(result.current.form.value().parent).toEqual(parentRange.key);
-    });
-
-    it("should update form when range is updated externally", async () => {
-      const timeRange = TimeStamp.now().spanRange(TimeSpan.minutes(7));
-      const testRange = await client.ranges.create({
-        name: "externalUpdate",
-        timeRange,
-      });
-
-      const { result } = renderHook(
-        () => Ranger.useForm({ query: { key: testRange.key } }),
-        { wrapper },
-      );
-      await waitFor(() => {
-        expect(result.current.variant).toEqual("success");
-      });
-      expect(result.current.form.value().name).toEqual("externalUpdate");
-
-      await client.ranges.rename(testRange.key, "externallyUpdated");
-
-      await waitFor(() => {
-        expect(result.current.form.value().name).toEqual("externallyUpdated");
-      });
-    });
-
-    it("should update form when labels are added externally", async () => {
-      const timeRange = TimeStamp.now().spanRange(TimeSpan.minutes(4));
-      const testRange = await client.ranges.create({
-        name: "labelUpdateTest",
-        timeRange,
-      });
-
-      const { result } = renderHook(
-        () => Ranger.useForm({ query: { key: testRange.key } }),
-        { wrapper },
-      );
-      await waitFor(() => {
-        expect(result.current.variant).toEqual("success");
-      });
-
-      const initialLabels = result.current.form.value().labels;
-
-      const newLabel = await act(async () => {
-        const newLabel = await client.labels.create({
-          name: "externalLabel",
-          color: "#FF5500",
-        });
-        await client.labels.label(testRange.ontologyID, [newLabel.key]);
-        return newLabel;
-      });
-
-      await waitFor(() => {
-        expect(result.current.form.value().labels).toHaveLength(
-          initialLabels.length + 1,
-        );
-        expect(result.current.form.value().labels).toContain(newLabel.key);
-      });
-    });
-
-    it("should update form when labels are removed externally", async () => {
-      const label1 = await client.labels.create({
-        name: "labelToRemove",
-        color: "#AA0000",
-      });
-      const label2 = await client.labels.create({
-        name: "labelToKeep",
-        color: "#00AA00",
-      });
-
-      const timeRange = TimeStamp.now().spanRange(TimeSpan.minutes(6));
-      const testRange = await client.ranges.create({
-        name: "labelRemovalTest",
-        timeRange,
-      });
-
-      await client.labels.label(testRange.ontologyID, [label1.key, label2.key]);
-
-      const { result } = renderHook(
-        () => Ranger.useForm({ query: { key: testRange.key } }),
-        { wrapper },
-      );
-      await waitFor(() => {
-        expect(result.current.variant).toEqual("success");
-        const labels = result.current.form.value().labels;
-        expect(labels).toContain(label1.key);
-        expect(labels).toContain(label2.key);
-      });
-
-      await client.labels.remove(testRange.ontologyID, [label1.key]);
-
-      await waitFor(() => {
-        const labels = result.current.form.value().labels;
-        expect(labels).not.toContain(label1.key);
-        expect(labels).toContain(label2.key);
-      });
-    });
-
-    it("should update form when parent is changed externally", async () => {
-      const originalParent = await client.ranges.create({
-        name: "originalParent",
-        timeRange: TimeStamp.now().spanRange(TimeSpan.hours(1)),
-      });
-      const newParent = await client.ranges.create({
-        name: "newParent",
-        timeRange: TimeStamp.now().spanRange(TimeSpan.hours(2)),
-      });
-      const childRange = await client.ranges.create({
-        name: "childForParentChange",
-        timeRange: TimeStamp.now().spanRange(TimeSpan.minutes(30)),
-        parent: originalParent,
-      });
-
-      const { result } = renderHook(
-        () => Ranger.useForm({ query: { key: childRange.key } }),
-        { wrapper },
-      );
-      await waitFor(() => {
-        expect(result.current.variant).toEqual("success");
-      });
-      expect(result.current.form.value().parent).toEqual(originalParent.key);
-
-      await client.ontology.moveChildren(
-        originalParent.ontologyID,
-        newParent.ontologyID,
-        childRange.ontologyID,
-      );
-
-      await waitFor(() => {
-        expect(result.current.form.value().parent).toEqual(newParent.key);
-      });
-    });
-
     it("should handle form with default values", async () => {
-      const { result } = renderHook(() => Ranger.useForm({ query: null }), {
+      const { result } = renderHook(() => Ranger.useCreateForm({ query: null }), {
         wrapper,
       });
 
@@ -1174,7 +973,7 @@ describe("queries", () => {
         color: "#123456",
       });
 
-      const { result } = renderHook(() => Ranger.useForm({ query: null }), {
+      const { result } = renderHook(() => Ranger.useCreateForm({ query: null }), {
         wrapper,
       });
 
@@ -1201,7 +1000,7 @@ describe("queries", () => {
 
     it("should handle time range modifications", async () => {
       const initialTimeRange = TimeStamp.now().spanRange(TimeSpan.minutes(10));
-      const { result } = renderHook(() => Ranger.useForm({ query: null }), {
+      const { result } = renderHook(() => Ranger.useCreateForm({ query: null }), {
         wrapper,
       });
 
@@ -1238,7 +1037,7 @@ describe("queries", () => {
         timeRange: TimeStamp.now().spanRange(TimeSpan.hours(2)),
       });
 
-      const { result } = renderHook(() => Ranger.useForm({ query: null }), {
+      const { result } = renderHook(() => Ranger.useCreateForm({ query: null }), {
         wrapper,
       });
 
@@ -1266,35 +1065,26 @@ describe("queries", () => {
     });
   });
 
-  describe("useKVPairForm", () => {
-    it("should not write back a pair deleted while an autosave was pending", async () => {
+  describe("useCreateKVPairForm", () => {
+    it("should set the pair on the range when it saves", async () => {
       const rng = await client.ranges.create({
-        name: "kv_delete_race",
+        name: "kv_create",
         timeRange: TimeStamp.now().spanRange(TimeSpan.seconds(1)),
       });
-      await rng.kv.set("test_key", "initial");
-      // The metadata list warms this answer space in production.
-      await client.ranges.kv.retrieve(rng.key);
       const { result } = renderHook(
         () =>
-          Ranger.useKVPairForm({
-            query: { rangeKey: rng.key, key: "test_key" },
-            autoSave: true,
-            // Holds the save open long enough for the delete to overtake it.
-            autoSaveDebounce: TimeSpan.milliseconds(500),
-            initialValues: { key: "test_key", value: "initial", range: rng.key },
+          Ranger.useCreateKVPairForm({
+            query: null,
+            initialValues: { key: "", value: "", range: rng.key },
           }),
         { wrapper },
       );
       act(() => {
-        result.current.form.set("value", "edited");
+        result.current.form.set("key", "operator");
+        result.current.form.set("value", "Ada");
       });
-      await act(async () => {
-        await rng.kv.delete("test_key");
-      });
-      await expectAlways(async () => {
-        expect(await rng.kv.list()).not.toHaveProperty("test_key");
-      }, 800);
+      await act(async () => expect(await result.current.saveAsync()).toBe(true));
+      expect(await rng.kv.get("operator")).toBe("Ada");
     });
   });
 
@@ -1335,5 +1125,77 @@ describe("queries", () => {
       expect(utils.queryByTestId("fallback")).toBeNull();
       expect(utils.queryByTestId("name")?.textContent).toBe("cached_fastpath");
     });
+  });
+});
+
+describe("useForm", () => {
+  const formClient = createTestClient();
+  let wrapper: React.FC<PropsWithChildren>;
+  beforeEach(async () => {
+    wrapper = await createAsyncSynnaxWrapper({ client: formClient });
+    await waitForStreamLive(formClient.connection);
+  });
+  afterEach(() => {
+    vi.restoreAllMocks();
+  });
+
+  const createRange = async (): Promise<ranger.Range> =>
+    await client.ranges.create({
+      name: "Hot fire",
+      timeRange: TimeStamp.now().spanRange(TimeSpan.minutes(5)),
+    });
+
+  const renderForm = async (key: ranger.Key) =>
+    await renderHookSuspended(() => Ranger.useForm({ query: { key } }), { wrapper });
+
+  it("should show the cached range", async () => {
+    const rng = await createRange();
+    const { result } = await renderForm(rng.key);
+    expect(result.current.form.value()).toEqual({
+      name: "Hot fire",
+      timeRange: rng.timeRange.numeric,
+    });
+  });
+
+  it("should send an edit to the name as a path action", async () => {
+    const rng = await createRange();
+    const { result } = await renderForm(rng.key);
+    const send = spyOnSend(formClient);
+    act(() => result.current.form.set("name", "Cold flow"));
+    expect(result.current.form.get("name").value).toBe("Cold flow");
+    await act(async () => expect(await result.current.flush()).toBe(true));
+    expect(send.mock.calls.map(([target]) => target)).toContain("/range/dispatch");
+    expect((await createTestClient().ranges.retrieve(rng.key)).name).toBe("Cold flow");
+  });
+
+  it("should send an edit to the time range", async () => {
+    const rng = await createRange();
+    const { result } = await renderForm(rng.key);
+    const next = rng.timeRange.start.spanRange(TimeSpan.minutes(10));
+    act(() => result.current.form.set("timeRange", next.numeric));
+    await act(async () => expect(await result.current.flush()).toBe(true));
+    const stored = await createTestClient().ranges.retrieve(rng.key);
+    expect(stored.timeRange.numeric).toEqual(next.numeric);
+  });
+
+  it("should hold a time range that ends before it starts", async () => {
+    const rng = await createRange();
+    const { result } = await renderForm(rng.key);
+    const { start, end } = rng.timeRange.numeric;
+    act(() => result.current.form.set("timeRange", { start: end, end: start }));
+    await act(async () => expect(await result.current.flush()).toBe(false));
+    const stored = await createTestClient().ranges.retrieve(rng.key);
+    expect(stored.timeRange.numeric).toEqual(rng.timeRange.numeric);
+  });
+
+  it("should show a rename from another client and keep the time range", async () => {
+    const rng = await createRange();
+    const { result } = await renderForm(rng.key);
+    const timeRange = result.current.form.get("timeRange").value;
+    await act(async () => {
+      await client.ranges.rename(rng.key, "Cold flow");
+    });
+    await waitFor(() => expect(result.current.form.value().name).toBe("Cold flow"));
+    expect(result.current.form.get("timeRange").value).toBe(timeRange);
   });
 });

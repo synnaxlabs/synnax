@@ -8,12 +8,24 @@
 // included in the file licenses/APL.txt.
 
 import { label } from "@synnaxlabs/client";
-import { createTestClient } from "@synnaxlabs/client/testutil";
-import { color, TimeSpan } from "@synnaxlabs/x";
-import { expectAlways } from "@synnaxlabs/x/testutil";
+import {
+  createTestClient,
+  spyOnSend,
+  waitForStreamLive,
+} from "@synnaxlabs/client/testutil";
+import { color } from "@synnaxlabs/x";
 import { act, renderHook, waitFor } from "@testing-library/react";
 import { type FC, type PropsWithChildren } from "react";
-import { beforeAll, describe, expect, it } from "vitest";
+import {
+  afterEach,
+  assert,
+  beforeAll,
+  beforeEach,
+  describe,
+  expect,
+  it,
+  vi,
+} from "vitest";
 
 import { Flux } from "@/flux";
 import { Label } from "@/label";
@@ -420,107 +432,56 @@ describe("queries", () => {
     });
   });
 
-  describe("useForm", () => {
+  describe("useCreateForm", () => {
     it("should create a new label", async () => {
-      const { result } = renderHook(() => Label.useForm({ query: null }), {
+      const { result } = renderHook(() => Label.useCreateForm({ query: null }), {
         wrapper,
       });
-
       act(() => {
         result.current.form.set("name", "newFormLabel");
         result.current.form.set("color", "#FF00FF");
         result.current.save();
       });
-
-      await waitFor(() => {
-        expect(result.current.form.value().name).toEqual("newFormLabel");
-        expect(result.current.form.value().color).toEqual(color.construct("#FF00FF"));
-        expect(result.current.form.value().key).toBeDefined();
-      });
+      await waitFor(() => expect(result.current.form.value().key).toBeDefined());
+      const { key } = result.current.form.value();
+      assert(key != null);
+      const stored = await client.labels.retrieve(key);
+      expect(stored.name).toEqual("newFormLabel");
+      expect(stored.color).toEqual(color.construct("#FF00FF"));
     });
 
-    it("should retrieve and edit existing label", async () => {
-      const existingLabel = await client.labels.create({
-        name: "existingLabel",
-        color: "#00FFFF",
-      });
-
-      const { result } = renderHook(
-        () => Label.useForm({ query: { key: existingLabel.key } }),
-        { wrapper },
-      );
-      await waitFor(() => expect(result.current.variant).toEqual("success"));
-
-      expect(result.current.form.value().name).toEqual("existingLabel");
-      expect(result.current.form.value().color).toEqual(color.construct("#00FFFF"));
-
-      act(() => {
-        result.current.form.set("name", "editedLabel");
-        result.current.save();
-      });
-
-      await waitFor(() => {
-        expect(result.current.form.value().name).toEqual("editedLabel");
-      });
-    });
-
-    it("should update form when label is updated externally", async () => {
-      const testLabel = await client.labels.create({
-        name: "externalUpdate",
-        color: "#FF0000",
-      });
-
-      const { result } = renderHook(
-        () => Label.useForm({ query: { key: testLabel.key } }),
-        { wrapper },
-      );
-      await waitFor(() => {
-        expect(result.current.variant).toEqual("success");
-      });
-      expect(result.current.form.value().name).toEqual("externalUpdate");
-
-      await client.labels.create({
-        ...testLabel,
-        name: "externallyUpdated",
-      });
-
-      await waitFor(() => {
-        expect(result.current.form.value().name).toEqual("externallyUpdated");
-      });
-    });
-
-    it("should not write back a label deleted while an autosave was pending", async () => {
-      const toDelete = await client.labels.create({
-        name: "autosaveRace",
-        color: "#FF0000",
-      });
-      const { result } = renderHook(
-        () =>
-          Label.useForm({
-            query: { key: toDelete.key },
-            autoSave: true,
-            // Holds the save open long enough for the delete to overtake it.
-            autoSaveDebounce: TimeSpan.milliseconds(500),
-          }),
-        { wrapper },
-      );
-      await waitFor(() => expect(result.current.variant).toEqual("success"));
-      act(() => result.current.form.set("name", "edited"));
-      await act(async () => await client.labels.delete(toDelete.key));
-      await expectAlways(async () => {
-        await expect(
-          async () => await client.labels.retrieve(toDelete.key),
-        ).rejects.toThrow();
-      }, 800);
-    });
-
-    it("should handle form with default values", async () => {
-      const { result } = renderHook(() => Label.useForm({ query: null }), {
+    it("should start from a blank name and a black color", () => {
+      const { result } = renderHook(() => Label.useCreateForm({ query: null }), {
         wrapper,
       });
+      expect(result.current.form.value()).toEqual({
+        name: "",
+        color: color.construct("#000000"),
+      });
+    });
+  });
 
-      expect(result.current.form.value().name).toEqual("");
-      expect(result.current.form.value().color).toEqual(color.construct("#000000"));
+  describe("useEditFor", () => {
+    it("should add and remove labels and keep the ones it does not name", async () => {
+      const [kept, removed, added, target] = await client.labels.create([
+        { name: "kept", color: "#FF0000" },
+        { name: "removed", color: "#00FF00" },
+        { name: "added", color: "#0000FF" },
+        { name: "target", color: "#000000" },
+      ]);
+      const id = label.ontologyID(target.key);
+      await client.labels.label(id, [kept.key, removed.key]);
+      const { result } = renderHook(Label.useEditFor, { wrapper });
+      await act(async () => {
+        await result.current.updateAsync({
+          id,
+          added: [added.key],
+          removed: [removed.key],
+        });
+      });
+      expect(result.current.variant).toEqual("success");
+      const labels = await client.labels.retrieve({ for: id });
+      expect(labels.map((l) => l.key).sort()).toEqual([kept.key, added.key].sort());
     });
   });
 
@@ -600,5 +561,73 @@ describe("queries", () => {
         async () => await client.labels.retrieve(label2.key),
       ).rejects.toThrow();
     });
+  });
+});
+
+describe("useForm", () => {
+  const formClient = createTestClient();
+  let wrapper: FC<PropsWithChildren>;
+  beforeEach(async () => {
+    wrapper = await createAsyncSynnaxWrapper({ client: formClient });
+    await waitForStreamLive(formClient.connection);
+  });
+  afterEach(() => {
+    vi.restoreAllMocks();
+  });
+
+  const createLabel = async (): Promise<label.Label> =>
+    await client.labels.create({ name: "Nominal", color: "#00FF00" });
+
+  const renderForm = async (key: label.Key) =>
+    await renderHookSuspended(() => Label.useForm({ query: { key } }), { wrapper });
+
+  it("should show the cached label", async () => {
+    const lbl = await createLabel();
+    const { result } = await renderForm(lbl.key);
+    expect(result.current.form.value()).toEqual({
+      name: "Nominal",
+      color: color.construct("#00FF00"),
+    });
+  });
+
+  it("should send an edit to the name as a path action", async () => {
+    const lbl = await createLabel();
+    const { result } = await renderForm(lbl.key);
+    const send = spyOnSend(formClient);
+    act(() => result.current.form.set("name", "Anomaly"));
+    await act(async () => expect(await result.current.flush()).toBe(true));
+    expect(send.mock.calls.map(([target]) => target)).toContain("/label/dispatch");
+    expect((await createTestClient().labels.retrieve(lbl.key)).name).toBe("Anomaly");
+  });
+
+  it("should send an edit to the color", async () => {
+    const lbl = await createLabel();
+    const { result } = await renderForm(lbl.key);
+    act(() => result.current.form.set("color", color.construct("#FF0000")));
+    await act(async () => expect(await result.current.flush()).toBe(true));
+    const stored = await createTestClient().labels.retrieve(lbl.key);
+    expect(stored.color).toEqual(color.construct("#FF0000"));
+  });
+
+  it("should hold an empty name without sending it", async () => {
+    const lbl = await createLabel();
+    const { result } = await renderForm(lbl.key);
+    act(() => result.current.form.set("name", ""));
+    await act(async () => expect(await result.current.flush()).toBe(false));
+    expect((await createTestClient().labels.retrieve(lbl.key)).name).toBe("Nominal");
+  });
+
+  it("should show a rename from another client and keep the color", async () => {
+    const lbl = await createLabel();
+    const { result } = await renderForm(lbl.key);
+    const prevColor = result.current.form.get("color").value;
+    await act(async () => {
+      await client.labels.dispatch(
+        lbl.key,
+        label.set({ path: ["name"], value: "Anomaly" }),
+      );
+    });
+    await waitFor(() => expect(result.current.form.value().name).toBe("Anomaly"));
+    expect(result.current.form.get("color").value).toBe(prevColor);
   });
 });

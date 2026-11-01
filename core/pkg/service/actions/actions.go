@@ -8,20 +8,19 @@
 // included in the file licenses/APL.txt.
 
 // Package actions provides shared runtime primitives for action-based dispatch on
-// stateful services in Synnax. The schematic, table, and line plot services all
-// implement the same shape: a discriminated union of actions reduced atomically
-// against a stored entry, then notified to subscribers so the cluster signals
-// subsystem can broadcast the sequence on a free channel. This package hosts the
-// pieces of that shape that are independent of the per-service action variant
-// set: the Scoped envelope sent to subscribers, the DispatchRequest wire body
-// accepted by the API layer, the State that owns the observer, the monotonic
-// sequence counter, and the serialized dispatch execution, the Dispatcher that
-// stamps and forwards each notification, and the PublishSignals helper that
-// wires the set and delete pipelines onto signals channels.
+// stateful services in Synnax. Each such service implements the same shape: a
+// discriminated union of actions reduced atomically against a stored entry, then
+// notified to subscribers so the cluster signals subsystem can broadcast the sequence
+// on a free channel. This package hosts the pieces of that shape that are independent
+// of the per-service action variant set: the Scoped envelope sent to subscribers, the
+// DispatchRequest wire body accepted by the API layer, the State that owns the
+// observer, the monotonic sequence counter, the serialized dispatch execution, and the
+// Dispatcher that stamps and forwards each notification.
 package actions
 
 import (
 	"context"
+	"slices"
 	"sync/atomic"
 
 	"github.com/synnaxlabs/gorp"
@@ -72,9 +71,17 @@ type DispatchRequest[K comparable, A any] struct {
 	Actions []A `json:"actions" msgpack:"actions"`
 }
 
+// DispatchResponse is the wire-format response body for a dispatch endpoint whose
+// service adds actions to a dispatch, such as a set of a field that only the Core
+// computes.
+type DispatchResponse[A any] struct {
+	// Actions are the actions the Core added after the dispatched ones.
+	Actions []A `json:"actions" msgpack:"actions"`
+}
+
 // State owns the per-service observer, monotonic sequence counter, and dispatch
 // execution. Construct it once in OpenService, hand Dispatcher() to each Writer,
-// expose subscriptions via OnAction, and execute dispatches through Dispatch. The
+// expose subscriptions via OnChange, and execute dispatches through Dispatch. The
 // observer is always non-nil so writers do not need to nil-check it.
 //
 // Seq is in-memory and resets on process restart. Clients reload service state
@@ -95,31 +102,38 @@ func NewState[K comparable, A any](db *gorp.DB) *State[K, A] {
 	return &State[K, A]{observer: observe.New[Scoped[K, A]](), db: db}
 }
 
-// Dispatch runs stage serialized per key, each call in its own transaction, then
-// notifies the actions after the commit. Two concurrent dispatches on the same
-// key can never interleave their read-reduce-write cycles, so neither can
-// overwrite the other's committed actions. When stage or the commit fails,
-// nothing persists and no notification is emitted.
+// Dispatch runs stage serialized per key, each call in its own transaction. After the
+// commit, it notifies acts, then the actions that stage returns, such as a set of a
+// field that only the Core computes. Two concurrent dispatches on the same key can
+// never interleave their read-reduce-write cycles, so neither can overwrite the other's
+// committed actions. When stage or the commit fails, nothing persists and no
+// notification is emitted.
 func (s *State[K, A]) Dispatch(
 	ctx context.Context,
 	key K,
 	dispatchKey string,
-	actions []A,
-	stage func(gorp.Tx) error,
+	acts []A,
+	stage func(gorp.Tx) ([]A, error),
 ) error {
 	return s.locks.Do(key, func() error {
-		if err := s.db.WithTx(ctx, stage); err != nil {
+		var added []A
+		if err := s.db.WithTx(ctx, func(tx gorp.Tx) (err error) {
+			added, err = stage(tx)
+			return err
+		}); err != nil {
 			return err
 		}
-		s.Dispatcher().Notify(ctx, key, dispatchKey, actions)
+		s.Dispatcher().
+			WithDispatchKey(dispatchKey).
+			Notify(ctx, key, slices.Concat(acts, added)...)
 		return nil
 	})
 }
 
-// OnAction subscribes the given handler to the action stream emitted by every
+// OnChange subscribes the given handler to the action stream emitted by every
 // Dispatcher bound to this State. The handler runs synchronously inside the
 // Dispatcher.Notify call. The returned Disconnect removes the handler.
-func (s *State[K, A]) OnAction(
+func (s *State[K, A]) OnChange(
 	handler func(context.Context, Scoped[K, A]),
 ) observe.Disconnect {
 	return s.observer.OnChange(handler)
@@ -128,7 +142,7 @@ func (s *State[K, A]) OnAction(
 // Dispatcher returns a value-typed Dispatcher bound to this State. Embed the
 // returned value on a Writer; each call to Notify increments the shared
 // sequence counter and fans the resulting Scoped envelope out to every handler
-// registered via OnAction.
+// registered via OnChange.
 func (s *State[K, A]) Dispatcher() Dispatcher[K, A] {
 	return Dispatcher[K, A]{observer: s.observer, seq: &s.seq}
 }
@@ -137,24 +151,38 @@ func (s *State[K, A]) Dispatcher() Dispatcher[K, A] {
 // the resulting Scoped envelope to the State's observer. Construct via
 // State.Dispatcher; the zero value is not usable.
 type Dispatcher[K comparable, A any] struct {
-	observer observe.Observer[Scoped[K, A]]
-	seq      *atomic.Uint64
+	observer    observe.Observer[Scoped[K, A]]
+	seq         *atomic.Uint64
+	dispatchKey string
+}
+
+// WithDispatchKey returns a copy of the Dispatcher that stamps dispatchKey onto each
+// envelope it emits, so the client that sent the write recognizes its own echo.
+func (d Dispatcher[K, A]) WithDispatchKey(dispatchKey string) Dispatcher[K, A] {
+	d.dispatchKey = dispatchKey
+	return d
 }
 
 // Notify increments the bound sequence counter and emits a Scoped envelope to
 // the bound observer. Call Notify only after the underlying transaction
 // commits so subscribers never observe an action sequence whose effects are
 // not yet persisted.
-func (d Dispatcher[K, A]) Notify(
-	ctx context.Context,
-	key K,
-	dispatchKey string,
-	actions []A,
-) {
+func (d Dispatcher[K, A]) Notify(ctx context.Context, key K, actions ...A) {
 	d.observer.Notify(ctx, Scoped[K, A]{
 		Key:         key,
-		DispatchKey: dispatchKey,
+		DispatchKey: d.dispatchKey,
 		Seq:         d.seq.Add(1),
 		Actions:     actions,
 	})
+}
+
+// NotifyOnCommit calls Notify with the given actions once tx commits. It notifies
+// nothing when tx aborts, and notifies at once when tx is not a transaction.
+func (d Dispatcher[K, A]) NotifyOnCommit(
+	ctx context.Context,
+	tx gorp.Tx,
+	key K,
+	actions ...A,
+) {
+	gorp.OnCommit(tx, func() { d.Notify(ctx, key, actions...) })
 }

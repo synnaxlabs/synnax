@@ -659,13 +659,7 @@ public:
         return this->cfg.writer();
     }
 
-    x::errors::Error start() override {
-        if (const auto err = this->restart(false)) {
-            this->dev.reset();
-            return err;
-        }
-        return x::errors::NIL;
-    }
+    x::errors::Error start() override { return this->restart(false); }
 
     [[nodiscard]] std::vector<synnax::channel::Channel> channels() const override {
         return this->cfg.sy_channels();
@@ -677,14 +671,12 @@ public:
         this->stop();
         auto [d, acquire_err] = this->devs->acquire(this->cfg.device_key);
         if (acquire_err) return acquire_err;
-        this->dev = std::move(d);
-        if (const auto err = this->cfg.apply(this->dev); err && !force) return err;
         std::vector<int> temp_ports(this->cfg.channels.size());
         std::vector<const char *> physical_channels;
         physical_channels.reserve(this->cfg.channels.size());
         for (const auto &channel: this->cfg.channels)
             physical_channels.push_back(channel->port.c_str());
-        if (const auto err = this->dev->names_to_addrs(
+        if (const auto err = d->names_to_addrs(
                 this->cfg.channels.size(),
                 physical_channels.data(),
                 temp_ports.data(),
@@ -692,13 +684,18 @@ public:
             ))
             return err;
         auto scan_rate = static_cast<double>(this->cfg.sample_rate.hz());
-        if (const auto err = this->dev->e_stream_start(
+        if (const auto err = d->e_stream_start(
                 this->cfg.samples_per_chan,
                 this->cfg.channels.size(),
                 temp_ports.data(),
-                &scan_rate
+                &scan_rate,
+                [this, force, &dev = d] {
+                    const auto err = this->cfg.apply(dev);
+                    return force ? x::errors::NIL : err;
+                }
             ))
             return err;
+        this->dev = std::move(d);
         this->sample_clock.reset();
         return x::errors::NIL;
     }

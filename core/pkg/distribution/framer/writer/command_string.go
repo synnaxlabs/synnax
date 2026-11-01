@@ -21,11 +21,12 @@ func _() {
 	_ = x[CommandWrite-1]
 	_ = x[CommandCommit-2]
 	_ = x[CommandSetAuthority-3]
+	_ = x[CommandEndDomain-4]
 }
 
-const _Command_name = "CommandOpenCommandWriteCommandCommitCommandSetAuthority"
+const _Command_name = "CommandOpenCommandWriteCommandCommitCommandSetAuthorityCommandEndDomain"
 
-var _Command_index = [...]uint8{0, 11, 23, 36, 55}
+var _Command_index = [...]uint8{0, 11, 23, 36, 55, 71}
 
 func (i Command) String() string {
 	idx := int(i) - 0

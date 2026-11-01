@@ -11,10 +11,12 @@ package framer_test
 
 import (
 	"fmt"
+	"strconv"
 	"time"
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
+	"github.com/synnaxlabs/freighter"
 	freightertestutil "github.com/synnaxlabs/freighter/testutil"
 	apiframer "github.com/synnaxlabs/synnax/pkg/api/framer"
 	distchannel "github.com/synnaxlabs/synnax/pkg/distribution/channel"
@@ -23,6 +25,7 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/service/channel"
 	. "github.com/synnaxlabs/synnax/pkg/service/channel/testutil"
 	svcframer "github.com/synnaxlabs/synnax/pkg/service/framer"
+	"github.com/synnaxlabs/synnax/pkg/service/ontology"
 	. "github.com/synnaxlabs/x/io/fs/testutil"
 	"github.com/synnaxlabs/x/query"
 	"github.com/synnaxlabs/x/telem"
@@ -244,5 +247,142 @@ var _ = Describe("Framer", func() {
 				Expect(res.Indexes).To(HaveLen(1))
 			})
 		})
+	})
+
+	Describe("Stream", func() {
+		var (
+			readable = ontology.ID{Type: ontology.ResourceTypeTask, Key: "readable"}
+			denied   = ontology.ID{Type: ontology.ResourceTypeTask, Key: "denied"}
+			records  channel.Channel
+			other    channel.Channel
+			writer   *svcframer.Writer
+			client   freighter.ClientStream[
+				apiframer.StreamerRequest,
+				apiframer.StreamerResponse,
+			]
+		)
+		samples := func(ids ...ontology.ID) telem.Series {
+			series := telem.Series{DataType: telem.JSONT}
+			for _, id := range ids {
+				series.Data = append(
+					series.Data,
+					telem.MarshalVariableSample([]byte(strconv.Quote(id.String())))...,
+				)
+			}
+			return series
+		}
+		received := func() []string {
+			GinkgoHelper()
+			res := MustSucceed(client.Receive())
+			var out []string
+			for _, series := range res.Frame.Get(records.Key()).Series {
+				for sample := range series.Samples() {
+					out = append(out, MustSucceed(strconv.Unquote(string(sample))))
+				}
+			}
+			return out
+		}
+		// open runs in each spec, since a BeforeEach's context ends with the
+		// BeforeEach.
+		open := func(ctx SpecContext) {
+			GinkgoHelper()
+			records = channel.Channel{
+				Name:     UniqueChannelName(),
+				DataType: telem.JSONT,
+				Virtual:  true,
+			}
+			Expect(channelWriter.Create(ctx, &records)).To(Succeed())
+			other = channel.Channel{
+				Name:     UniqueChannelName(),
+				DataType: telem.Float32T,
+				Virtual:  true,
+			}
+			Expect(channelWriter.Create(ctx, &other)).To(Succeed())
+			keys := channel.Keys{records.Key(), other.Key()}
+			svc := MustSucceed(apiframer.NewService(apiframer.ServiceConfig{
+				Framer:  framerSvc,
+				Channel: channelSvc,
+				RBAC:    rbacSvc,
+				Records: map[channel.Key]apiframer.RecordOf{
+					records.Key(): func(sample []byte) (ontology.ID, error) {
+						id, err := strconv.Unquote(string(sample))
+						if err != nil {
+							return ontology.ID{}, err
+						}
+						return ontology.ParseID(id)
+					},
+				},
+			}))
+			u := createUserGranted(
+				ctx,
+				access.ActionRetrieve,
+				append(svcframer.OntologyIDs(keys), readable)...,
+			)
+			var server apiframer.StreamerStream
+			client, server = freightertestutil.NewStreams[
+				apiframer.StreamerRequest,
+				apiframer.StreamerResponse,
+			](ctx)
+			done := make(chan error, 1)
+			go func() { done <- svc.Stream(subjectCtx(ctx, u.OntologyID()), server) }()
+			DeferCleanup(func() {
+				Expect(client.CloseSend()).To(Succeed())
+				Eventually(done).WithTimeout(5 * time.Second).Should(Receive())
+			})
+			Expect(client.Send(apiframer.StreamerRequest{Keys: keys})).To(Succeed())
+			Expect(MustSucceed(client.Receive()).Frame.Empty()).To(BeTrue())
+			writer = MustSucceed(framerSvc.OpenWriter(ctx, svcframer.WriterConfig{
+				Start: telem.SecondTS,
+				Keys:  keys,
+			}))
+			DeferCleanup(writer.Close)
+		}
+
+		It(
+			"Should send only the samples that the subject can read",
+			func(ctx SpecContext) {
+				open(ctx)
+				Expect(writer.Write(frame.NewUnary(
+					records.Key(), samples(denied, readable, denied),
+				))).To(BeTrue())
+				Expect(received()).To(Equal([]string{readable.String()}))
+			},
+		)
+
+		It("Should send no frame when the subject can read none of its samples", func(
+			ctx SpecContext,
+		) {
+			open(ctx)
+			Expect(writer.Write(frame.NewUnary(
+				records.Key(), samples(denied),
+			))).To(BeTrue())
+			Expect(writer.Write(frame.NewUnary(
+				records.Key(), samples(readable),
+			))).To(BeTrue())
+			Expect(received()).To(Equal([]string{readable.String()}))
+		})
+
+		It("Should keep the other channels of a frame", func(ctx SpecContext) {
+			open(ctx)
+			Expect(writer.Write(frame.NewMulti(
+				channel.Keys{records.Key(), other.Key()},
+				[]telem.Series{samples(denied), telem.NewSeriesV[float32](1)},
+			))).To(BeTrue())
+			res := MustSucceed(client.Receive())
+			Expect(res.Frame.Get(records.Key()).Series).To(BeEmpty())
+			Expect(res.Frame.Get(other.Key()).Series).To(HaveLen(1))
+		})
+
+		It(
+			"Should leave a frame with no record channel as it is",
+			func(ctx SpecContext) {
+				open(ctx)
+				Expect(writer.Write(frame.NewUnary(
+					other.Key(), telem.NewSeriesV[float32](1, 2),
+				))).To(BeTrue())
+				res := MustSucceed(client.Receive())
+				Expect(res.Frame.Get(other.Key()).Series).To(HaveLen(1))
+			},
+		)
 	})
 })

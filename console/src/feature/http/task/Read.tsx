@@ -27,7 +27,7 @@ import { type FC } from "react";
 
 import { useFromConfig } from "@/feature/http/device/queries";
 import { Select as SelectDevice } from "@/feature/http/device/Select";
-import { SCHEMAS } from "@/feature/http/device/types";
+import { MAKE, SCHEMAS } from "@/feature/http/device/types";
 import { EndpointLabel } from "@/feature/http/task/EndpointLabel";
 import { TimeFormatField } from "@/feature/http/task/TimeFormatField";
 import {
@@ -58,8 +58,6 @@ const Properties = () => (
         label="Rate"
         inputProps={RATE_INPUT_PROPS}
       />
-      <Task.Fields.DataSaving />
-      <Task.Fields.AutoStart />
       <Task.Fields.NaNFill />
     </Flex.Box>
   </>
@@ -497,12 +495,12 @@ export const Read = Task.wrapForm({
   schemas: READ_SCHEMAS,
   deployConfigZ: deployReadConfigZ,
   type: "http_read",
-  getInitialValues,
   onConfigure,
 });
 
 export const useCreateRead = Task.createUseCreate({
   getInitialValues,
+  deviceMake: MAKE,
 });
 
 export const ReadSelectable = Selector.createSelectable({
