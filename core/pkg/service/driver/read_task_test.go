@@ -170,6 +170,27 @@ var _ = Describe("ReadTask", func() {
 		)}
 	}
 
+	DescribeTable("Batch.Empty",
+		func(b func() driver.Batch, expected bool) {
+			Expect(b().Empty()).To(Equal(expected))
+		},
+		Entry("no frame and no domains", func() driver.Batch {
+			return driver.Batch{}
+		}, true),
+		Entry("a frame", func() driver.Batch {
+			return driver.Batch{Frame: samples(1).frame}
+		}, false),
+		Entry("domains to end", func() driver.Batch {
+			return driver.Batch{EndDomains: channel.Keys{idxCh.Key()}}
+		}, false),
+		Entry("a frame and domains to end", func() driver.Batch {
+			return driver.Batch{
+				Frame:      samples(1).frame,
+				EndDomains: channel.Keys{idxCh.Key()},
+			}
+		}, false),
+	)
+
 	Describe("NewReadTask", func() {
 		It("Should reject a configuration with no source", func() {
 			Expect(driver.NewReadTask(driver.ReadTaskConfig{
