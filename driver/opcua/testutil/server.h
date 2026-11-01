@@ -1344,7 +1344,6 @@ private:
         UA_Server_delete(server);
     }
 
-private:
     std::mutex events_mutex;
     std::vector<Event> events;
 };
