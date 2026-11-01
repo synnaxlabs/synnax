@@ -47,6 +47,19 @@ var _ = Describe("Py Builder Plugin", func() {
 		p = builder.New(builder.DefaultOptions())
 	})
 
+	Describe("DefaultOptions", func() {
+		It("Should name the output builder_gen.py", func() {
+			Expect(builder.DefaultOptions().FileNamePattern).To(Equal("builder_gen.py"))
+		})
+	})
+
+	Describe("New", func() {
+		It("Should keep the given options", func() {
+			opts := builder.Options{FileNamePattern: "custom_gen.py"}
+			Expect(builder.New(opts).Options).To(Equal(opts))
+		})
+	})
+
 	Describe("Plugin Interface", func() {
 		It("Should have correct name", func() {
 			Expect(p.Name()).To(Equal("py/builder"))
