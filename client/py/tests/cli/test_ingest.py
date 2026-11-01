@@ -80,6 +80,43 @@ class TestRowEngine:
         ]
         assert list(frame[data.key]) == [1.5, 2.5]
 
+    def test_ingest_two_indexes(
+        self,
+        client: Synnax,
+        indexed_pair: tuple[sy.Channel, sy.Channel],
+        tmp_path: Path,
+    ) -> None:
+        """Should open each index at its own first timestamp"""
+        first_idx, first_data = indexed_pair
+        name = random_name()
+        second_idx = client.channels.create(
+            name=f"test_{name}_time", is_index=True, data_type=sy.DataType.TIMESTAMP
+        )
+        second_data = client.channels.create(
+            name=f"test_{name}",
+            index=second_idx.key,
+            data_type=sy.DataType.FLOAT64,
+        )
+        client.write(
+            1 * sy.TimeSpan.SECOND, {second_idx.key: seconds_linspace(1, count=2)}
+        )
+        path = tmp_path / "two_indexes.csv"
+        path.write_text(
+            f"{first_idx.name},{first_data.name},{second_idx.name},{second_data.name}\n"
+            "1000000000,1.5,10000000000,3.5\n"
+            "2000000000,2.5,11000000000,4.5\n"
+        )
+        engine = row.Engine(
+            client=client,
+            reader=FACTORY.new_reader(path),
+            channels=[first_idx, first_data, second_idx, second_data],
+            start=sy.TimeStamp(1 * sy.TimeSpan.SECOND),
+        )
+        engine.run()
+        assert list(client.read(sy.TimeRange.MAX, first_data.key)) == [1.5, 2.5]
+        assert list(client.read(sy.TimeRange.MAX, second_data.key)) == [3.5, 4.5]
+        assert engine.end > 11 * sy.TimeSpan.SECOND
+
     def test_ingest_without_index(
         self,
         client: Synnax,
