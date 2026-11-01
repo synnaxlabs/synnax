@@ -242,6 +242,17 @@ protected:
     }
 };
 
+/// @brief it should end the history of a value that has neither timestamp at the time
+/// now, so that a backfill still reads up to it.
+TEST(HistoryTime, testIsNowWithoutTimestamps) {
+    UA_DataValue value;
+    UA_DataValue_init(&value);
+    const auto before = UA_DateTime_now();
+    const auto time = history_time(value);
+    EXPECT_GE(time, before);
+    EXPECT_LE(time, UA_DateTime_now());
+}
+
 /// @brief it should write the current value of a node, then each change at its source
 /// time, on the index of its channel.
 TEST_F(TestOnChangeReadTask, testWritesChangesAtSourceTime) {

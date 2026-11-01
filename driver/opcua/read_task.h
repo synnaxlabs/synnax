@@ -934,9 +934,12 @@ inline x::telem::TimeStamp change_time(const UA_DataValue &value) {
     return x::telem::TimeStamp::now();
 }
 
-/// @returns the time of value that a history read compares with its span.
+/// @returns the time of value that a history read compares with its span: its source
+/// time, or its server time when it has none, or the time now when it has neither.
 inline UA_DateTime history_time(const UA_DataValue &value) {
-    return value.hasSourceTimestamp ? value.sourceTimestamp : value.serverTimestamp;
+    if (value.hasSourceTimestamp) return value.sourceTimestamp;
+    if (value.hasServerTimestamp) return value.serverTimestamp;
+    return UA_DateTime_now();
 }
 
 /// @brief reads the changes of each node from a subscription, at the time of each
