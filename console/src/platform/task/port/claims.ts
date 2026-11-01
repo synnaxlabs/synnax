@@ -33,8 +33,7 @@ export const group = <C extends Claim>(claims: C[]): Claims<C> => {
   return result;
 };
 
-/** Whether more than one enabled channel holds the port. */
-export const conflicts = (claims: Claim[]): boolean =>
+const conflicts = (claims: Claim[]): boolean =>
   claims.filter(({ disabled }) => !disabled).length > 1;
 
 /** The state of the ports with the claims: in conflict when any port is. */
