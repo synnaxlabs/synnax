@@ -29,7 +29,7 @@ to start a config that the operator did not see.
 
 Ana and Ben open the same NI analog read task. Ana sets the sample rate to 1 kHz. A
 moment later, Ben moves channel `c3` to port 4. Each form autosaves its whole config
-(`console/src/platform/task/Form.tsx:145-149`):
+(`console/src/platform/task/Form.tsx:139-143`):
 
 1. Ana's form saves a sample rate of 1 kHz, with `c3` on port 3.
 2. Ben's form saves the old sample rate, with `c3` on port 4.
@@ -242,13 +242,13 @@ by hand: `useSetTimeRange` (`pluto/src/ranger/queries.ts:299-309`).
 
 An edit changes only the stored config. Task actions broadcast on a new channel,
 `sy_task_action_set`, because the Driver parses `sy_task_set` as task metadata
-(`driver/task/manager.cpp:242`). A write never reconfigures the Driver, so a running
+(`driver/task/manager.cpp:243`). A write never reconfigures the Driver, so a running
 task keeps the config it was deployed with (RFC 0056 §4.1).
 
 ### 8.1 Deploy pins the start
 
 The play button deploys the task. It runs these steps
-(`console/src/platform/task/Form.tsx:146-194`):
+(`console/src/platform/task/Form.tsx:140-188`):
 
 1. Send every pending edit. Stop if a field holds an invalid value.
 2. Check the config against the deploy schema.
@@ -260,7 +260,7 @@ The play button deploys the task. It runs these steps
 The Driver fetches the stored config before it starts a pinned task. If the hash
 differs, another user changed the config after the operator last saw it. Both Drivers
 then refuse with the status "Config changed", which asks the operator to review the task
-and start again (`driver/task/manager.cpp:692-720`,
+and start again (`driver/task/manager.cpp:698-726`,
 `core/pkg/service/driver/driver.go:308`). A running instance keeps running.
 
 Example: Ana presses play while Ben changes the range of a channel. Without the pin, Ana
@@ -332,6 +332,10 @@ stored config when storing changed it. The broadcast and the dispatch response c
 both, so the sender's cache holds the hash of the config it shows. `Writer.Create`
 serves Python's `configure` and imports, and its broadcast `create` carries a dispatch
 key, so every client but the sender applies it.
+
+A task action can carry a secret, such as a PagerDuty routing key. The Core checks read
+access to the task for each sample of `sy_task_action_set`, and a stream receives only
+the samples its subject can read (`core/pkg/api/framer/records.go`).
 
 ### 10.3 Other forms
 

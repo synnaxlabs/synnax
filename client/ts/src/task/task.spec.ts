@@ -1740,6 +1740,7 @@ describe("Task", async () => {
           .toBe(name);
         expect(fetches).toHaveLength(0);
         expect(onError).not.toHaveBeenCalled();
+        expect(remote.tasks.getCached({ key: denied.key })).toBeUndefined();
       } finally {
         off();
       }

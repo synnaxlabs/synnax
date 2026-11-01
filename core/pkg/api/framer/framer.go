@@ -63,6 +63,12 @@ type ServiceConfig struct {
 	//
 	// [REQUIRED]
 	RBAC *rbac.Service
+	// Records maps each channel whose samples carry a record that only some subjects
+	// can read to the function that finds the record. A streamer sends such a sample
+	// only to a subject that can retrieve its record.
+	//
+	// [OPTIONAL]
+	Records map[channel.Key]RecordOf
 }
 
 var (
@@ -77,6 +83,7 @@ func (c ServiceConfig) Override(other ServiceConfig) ServiceConfig {
 	c.Framer = override.Nil(c.Framer, other.Framer)
 	c.Channel = override.Nil(c.Channel, other.Channel)
 	c.RBAC = override.Nil(c.RBAC, other.RBAC)
+	c.Records = override.Nil(c.Records, other.Records)
 	return c
 }
 
@@ -93,6 +100,7 @@ type Service struct {
 	access   *rbac.Service
 	channel  *channel.Service
 	internal *framer.Service
+	records  map[channel.Key]RecordOf
 	alamos.Instrumentation
 }
 
@@ -106,6 +114,7 @@ func NewService(cfgs ...ServiceConfig) (*Service, error) {
 		internal:        cfg.Framer,
 		channel:         cfg.Channel,
 		access:          cfg.RBAC,
+		records:         cfg.Records,
 	}, nil
 }
 
@@ -384,7 +393,8 @@ func (s *Service) Stream(ctx context.Context, stream StreamerStream) error {
 		ctx, signal.WithInstrumentation(s.Child("frame_streamer")),
 	)
 	defer cancel()
-	streamer, req, err := s.openStreamer(sCtx, auth.GetSubject(ctx), stream)
+	subject := auth.GetSubject(ctx)
+	streamer, req, err := s.openStreamer(sCtx, subject, stream)
 	if err != nil {
 		return err
 	}
@@ -392,7 +402,12 @@ func (s *Service) Stream(ctx context.Context, stream StreamerStream) error {
 		receiver = &freightfluence.Receiver[StreamerRequest]{Receiver: stream}
 		sender   = &freightfluence.Sender[StreamerResponse]{
 			Sender: freighter.SenderNopCloser[StreamerResponse]{
-				StreamSender: stream,
+				StreamSender: recordSender{
+					StreamSender: stream,
+					ctx:          sCtx,
+					subject:      subject,
+					service:      s,
+				},
 			},
 			KeepAliveInterval: req.KeepAlive.Duration(),
 			NewKeepAlive: func() StreamerResponse {
