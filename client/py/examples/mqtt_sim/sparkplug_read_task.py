@@ -84,8 +84,6 @@ try:
         with client.open_streamer(list(latest)) as streamer:
             while True:
                 frame = streamer.read()
-                if frame is None:
-                    continue
                 for name in latest:
                     if name in frame:
                         latest[name] = frame[name].to_numpy()[-1]

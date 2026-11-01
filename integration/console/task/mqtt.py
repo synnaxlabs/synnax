@@ -13,6 +13,7 @@ import re
 
 from playwright.sync_api import Locator, expect
 
+from console.page import PageType
 from console.task_page import TaskPage
 
 BROKER_FIELD_LABEL = "MQTT broker"
@@ -168,7 +169,7 @@ class MQTTRead(MQTTTask):
     """MQTT read task page. The list is a tree: a plain entry holds the fields of a
     JSON payload beneath it."""
 
-    page_type = "MQTT read task"
+    page_type: PageType = "MQTT read task"
     pluto_label: str = ".console-task-configure--mqtt_read"
     add_label = "Add data"
 
@@ -218,7 +219,7 @@ class MQTTRead(MQTTTask):
 class MQTTWrite(MQTTTask):
     """MQTT write task page. A plain target publishes one command channel."""
 
-    page_type = "MQTT write task"
+    page_type: PageType = "MQTT write task"
     pluto_label: str = ".console-task-configure--mqtt_write"
     add_label = "Add targets"
 
@@ -243,7 +244,7 @@ class MQTTEdge(TaskPage):
     """Sparkplug edge node page. Each tag is a row of channel, name, Sparkplug B type,
     and command channel."""
 
-    page_type = "Sparkplug edge node"
+    page_type: PageType = "Sparkplug edge node"
     pluto_label: str = ".console-task-configure--mqtt_sparkplug_edge"
 
     def _rows(self) -> Locator:

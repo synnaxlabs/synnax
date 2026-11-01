@@ -103,7 +103,7 @@ try:
         ) as streamer:
             while True:
                 frame = streamer.read()
-                if frame is not None and "mqtt_temperature" in frame:
+                if "mqtt_temperature" in frame:
                     temp = frame["mqtt_temperature"].as_(np.float64)[-1]
                     pres = frame["mqtt_pressure"].as_(np.float64)[-1]
                     state = frame["mqtt_running"].as_(np.uint8)[-1]
