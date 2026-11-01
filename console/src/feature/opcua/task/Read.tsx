@@ -267,7 +267,6 @@ export const Read = Task.wrapForm({
   Form: TaskForm,
   schemas: READ_SCHEMAS,
   deployConfigZ: deployReadConfigZ,
-  getInitialValues,
   onConfigure,
 });
 
