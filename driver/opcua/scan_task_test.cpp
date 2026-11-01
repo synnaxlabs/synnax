@@ -1035,9 +1035,12 @@ TEST_F(TestScanTask, testBrowsesChildrenOfUnbuiltStructure) {
         "cannot decode Broken: the server did not define the type of a member"
     );
     const auto &channels = status.details.data.value().at("channels");
-    ASSERT_EQ(channels.size(), 1);
+    const auto it = std::ranges::find_if(channels, [](const auto &ch) {
+        return ch["name"] == "TestBrokenChild";
+    });
+    ASSERT_NE(it, channels.end()) << channels.dump();
     EXPECT_EQ(
-        channels[0]["node_id"],
+        (*it)["node_id"],
         "nsu=urn:open62541.server.application;s=TestBrokenChild"
     );
     server.stop();

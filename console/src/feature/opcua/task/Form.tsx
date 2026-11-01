@@ -426,6 +426,11 @@ const ChannelList = <C extends Channel>({
           },
           schema: nodeDetailsZ,
         });
+        // The Driver leaves out the arguments of a method that it could not read.
+        if (details.inputArguments == null)
+          throw new Error(
+            `Could not read the arguments of ${method.data.name}. Check that the connection can read its InputArguments property, then add the method again.`,
+          );
         const ch = convertNodeToChannel(method.data, details);
         if (ch != null) channels.push(ch);
       }

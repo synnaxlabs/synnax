@@ -595,6 +595,44 @@ describe("Write", () => {
       });
     });
 
+    it("should add no method whose arguments the Driver could not read", async () => {
+      const { scan, device } = await createScannedDevice(client);
+      const held = createWriteChannel();
+      const draft = await createDraft(client, createWriteConfig(device.key, [held]));
+      const root = await answerNextCommand(client, scan, {
+        type: OPCUA.Task.BROWSE_COMMAND_TYPE,
+        data: { channels: [CONFIGURE] },
+      });
+      const statuses: Status.NotificationSpec[] = [];
+      await renderWrite({
+        client,
+        taskKey: draft.key,
+        onStatuses: (next) => statuses.splice(0, statuses.length, ...next),
+      });
+      await root.answered;
+      const read = await answerNextCommand(client, scan, {
+        type: OPCUA.Task.READ_NODE_COMMAND_TYPE,
+        data: { node: CONFIGURE, nodeClass: "Method", browseName: "Configure" },
+      });
+      await dragNode(CONFIGURE.name, held.nodeName);
+      await read.answered;
+      await waitFor(() =>
+        expect(statuses).toContainEqual(
+          expect.objectContaining({
+            variant: "error",
+            message: "Failed to add a method",
+            description:
+              "Could not read the arguments of Configure. Check that the connection can read its InputArguments property, then add the method again.",
+          }),
+        ),
+      );
+      const { config } = await client.tasks.retrieve({
+        key: draft.key,
+        schemas: OPCUA.Task.WRITE_SCHEMAS,
+      });
+      expect(config.channels).toEqual([held]);
+    });
+
     it("should add no method when the task moves to another server during the read", async () => {
       const first = await createScannedDevice(client);
       const second = await createScannedDevice(client);
