@@ -12,7 +12,7 @@ import { claims, terminal } from "@/feature/labjack/task/ports";
 import { type Channel } from "@/feature/labjack/task/types";
 
 // This is a bit of a confusing type, but basically it maps the port type (AI, AO, DI,
-// DO) to the actual port object (Device.AIPort, Device.AOPort, Device.DIPort, Device.DOPort).
+// DO) to the actual port object (AIPort, AOPort, DIPort, DOPort).
 export type Port<T extends Device.PortType> = T extends Device.AIPortType
   ? Device.AIPort
   : T extends Device.DIPortType
