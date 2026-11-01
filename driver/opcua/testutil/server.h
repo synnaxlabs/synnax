@@ -1562,7 +1562,6 @@ private:
         if (cfg.historizing) backend.deleteMembers(&backend);
     }
 
-private:
     std::mutex queue_mutex;
     std::vector<Event> events;
     std::vector<Change> changes;
