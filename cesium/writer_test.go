@@ -3764,7 +3764,7 @@ var _ = Describe("Writer Behavior", func() {
 						)).Error().To(And(
 							MatchError(control.ErrUnauthorized),
 							MatchError(
-								ContainSubstring("overlaps with a controlled region"),
+								ContainSubstring("cannot access time range"),
 							),
 						))
 						Expect(live.Close()).To(Succeed())

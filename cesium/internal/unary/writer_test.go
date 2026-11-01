@@ -199,7 +199,7 @@ var _ = Describe("Writer Behavior", Ordered, func() {
 							)).Error().To(And(
 								MatchError(control.ErrUnauthorized),
 								MatchError(ContainSubstring(
-									"overlaps with a controlled region",
+									"cannot access time range",
 								)),
 							))
 							w.SetDomainStart(20 * telem.SecondTS)
