@@ -10,9 +10,9 @@
 import { DataType, id, Series, TimeRange, TimeSpan, TimeStamp } from "@synnaxlabs/x";
 import { describe, expect, it, test } from "vitest";
 
-import { UnauthorizedError } from "@/errors";
+import { UnauthorizedError, ValidationError } from "@/errors";
 import { framer } from "@/framer";
-import { NotFoundError, ValidationError } from "@/index";
+import { NotFoundError } from "@/index";
 import {
   createTestClient,
   newIndexedBoolPair,
@@ -40,6 +40,29 @@ describe("Writer", () => {
         await writer.close();
       }
       expect(true).toBe(true);
+    });
+
+    test("write without a start", async () => {
+      const [index, data] = await newIndexedPair(client);
+      const writer = await client.openWriter({ channels: [index, data] });
+      try {
+        await writer.write({
+          [index.key]: secondsLinspace(1, 3),
+          [data.key]: new Series({ data: [1, 2, 3], dataType: data.dataType }),
+        });
+        await writer.commit();
+      } finally {
+        await writer.close();
+      }
+      const fr = await client.read(TimeRange.MAX, [index.key, data.key]);
+      expect(fr.get(index.key).series[0].at(0)).toEqual(TimeStamp.seconds(1).valueOf());
+      expect(Array.from(fr.get(data.key).series[0])).toEqual([1, 2, 3]);
+    });
+
+    it("should parse a bare channel list into a config with no start", () => {
+      const cfg = framer.writerConfigZ.parse([1, 2]);
+      expect(cfg.channels).toEqual([1, 2]);
+      expect(cfg).not.toHaveProperty("start");
     });
 
     test("bool write and read round-trip", async () => {
@@ -281,7 +304,7 @@ describe("Writer", () => {
       });
 
       const writer = await client.openWriter({
-        start: TimeStamp.now(),
+        start: TimeStamp.seconds(1),
         channels: [indexCh.key, dataCh.key],
       });
 
@@ -289,7 +312,7 @@ describe("Writer", () => {
         for (let i = 0; i < 10; i++) {
           await new Promise((resolve) => setTimeout(resolve, 5));
           await writer.write({
-            [indexCh.key]: new TimeStamp(i),
+            [indexCh.key]: TimeStamp.seconds(10 - i),
             [dataCh.key]: i,
           });
         }

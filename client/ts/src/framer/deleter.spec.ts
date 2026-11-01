@@ -93,8 +93,7 @@ describe("Deleter", () => {
       TimeStamp.milliseconds(i).valueOf(),
     );
 
-    await index.write(0, time);
-    await dat.write(0, data);
+    await client.write(0, { [index.key]: time, [dat.key]: data });
 
     await expect(
       client.delete(
