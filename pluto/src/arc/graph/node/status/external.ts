@@ -10,11 +10,11 @@
 import { Symbol } from "@/arc/graph/node/status/Change";
 import { type Config, defaultConfig } from "@/arc/graph/node/status/config";
 import { Form } from "@/arc/graph/node/status/Form";
-import { type Spec } from "@/arc/graph/node/types/spec";
+import { type types } from "@/arc/graph/node/types";
 
 export { configZ } from "@/arc/graph/node/status/config";
 
-const SPEC: Spec<"status.set", Config> = {
+const SPEC: types.Spec<"status.set", Config> = {
   key: "status.set",
   name: "Change status",
   zIndex: 100,

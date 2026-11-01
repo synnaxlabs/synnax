@@ -14,7 +14,7 @@ import { z } from "zod";
 import { aether } from "@/aether/aether";
 import { telem } from "@/telem/aether";
 import { theming } from "@/theming/aether";
-import { type Element } from "@/vis/diagram/aether/Diagram";
+import { type diagram } from "@/vis/diagram/aether";
 import { Draw2D } from "@/vis/draw2d";
 import { render } from "@/vis/render";
 import { staleness } from "@/vis/staleness/aether";
@@ -72,7 +72,7 @@ interface InternalState {
 
 export class Gauge
   extends aether.Leaf<typeof gaugeState, InternalState>
-  implements Element
+  implements diagram.Element
 {
   static readonly TYPE = "gauge";
   static readonly z = gaugeState;

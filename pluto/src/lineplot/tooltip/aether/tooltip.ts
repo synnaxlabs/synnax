@@ -22,7 +22,7 @@ import { z } from "zod";
 import { aether } from "@/aether/aether";
 import { theming } from "@/theming/aether";
 import { Draw2D } from "@/vis/draw2d";
-import { type FindResult } from "@/vis/line/aether/line";
+import { type line } from "@/vis/line/aether";
 import { render } from "@/vis/render";
 
 const TOOLTIP_LIST_OFFSET: xy.XY = xy.construct(12);
@@ -50,7 +50,7 @@ interface InternalState {
 }
 
 export interface TooltipProps {
-  findByXDecimal: (position: number) => FindResult[];
+  findByXDecimal: (position: number) => line.FindResult[];
   region: box.Box;
 }
 
@@ -172,7 +172,7 @@ export class Tooltip extends aether.Leaf<typeof tooltipStateZ, InternalState> {
   }
 }
 
-const formatValue = ({ value: { y }, bounds }: FindResult): string => {
+const formatValue = ({ value: { y }, bounds }: line.FindResult): string => {
   if (y === Infinity) return "∞";
   if (y === -Infinity) return "-∞";
   return math.smartRound(y, bounds).toString();

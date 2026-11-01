@@ -10,11 +10,11 @@
 import { type Config, defaultConfig } from "@/arc/graph/node/constant/config";
 import { Constant } from "@/arc/graph/node/constant/Constant";
 import { Form } from "@/arc/graph/node/constant/Form";
-import { type Spec } from "@/arc/graph/node/types/spec";
+import { type types } from "@/arc/graph/node/types";
 
 export { configZ } from "@/arc/graph/node/constant/config";
 
-const SPEC: Spec<"constant", Config> = {
+const SPEC: types.Spec<"constant", Config> = {
   key: "constant",
   name: "Constant",
   zIndex: 100,

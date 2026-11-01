@@ -37,7 +37,6 @@ import { flux } from "@/flux/aether";
 import { status } from "@/status/aether";
 import { synnax } from "@/synnax/aether";
 import { telem } from "@/telem/aether";
-import { AbstractSink } from "@/telem/aether/telem";
 import { Colors } from "@/telem/control/aether/colors";
 import { retrieveDefinition, type RetrieveQuery } from "@/telem/control/aether/queries";
 
@@ -363,7 +362,7 @@ export const setChannelValuePropsZ = z.object({
 export type SetChannelValueProps = z.infer<typeof setChannelValuePropsZ>;
 
 export class SetChannelValue
-  extends AbstractSink<typeof setChannelValuePropsZ>
+  extends telem.AbstractSink<typeof setChannelValuePropsZ>
   implements telem.NumberSink, AetherControllerTelem
 {
   static readonly TYPE = "controlled-numeric-telem-sink";
@@ -418,7 +417,7 @@ export const acquireChannelControlPropsZ = z.object({
 export type AcquireChannelControlProps = z.infer<typeof acquireChannelControlPropsZ>;
 
 export class AcquireChannelControl
-  extends AbstractSink<typeof acquireChannelControlPropsZ>
+  extends telem.AbstractSink<typeof acquireChannelControlPropsZ>
   implements telem.BooleanSink, AetherControllerTelem
 {
   static readonly TYPE = "acquire-channel-control";

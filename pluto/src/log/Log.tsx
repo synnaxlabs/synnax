@@ -13,7 +13,7 @@ import { Triggers } from "@synnaxlabs/lyra/triggers";
 import { primitive, TimeSpan } from "@synnaxlabs/x";
 import { type ReactElement } from "react";
 
-import { streamMultiChannelLog } from "@/log/aether/telem/sources";
+import { streamMultiChannelLog } from "@/log/aether";
 import { Base, type BaseProps } from "@/log/Base";
 import { use, useRedo, useUndo } from "@/log/queries";
 import { useKey } from "@/log/Suspended";

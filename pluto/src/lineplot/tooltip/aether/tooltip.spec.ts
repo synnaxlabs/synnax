@@ -16,7 +16,7 @@ import { aether } from "@/aether/aether";
 import { tooltip } from "@/lineplot/tooltip/aether";
 import { renderAether } from "@/testutil/internal";
 import { theming } from "@/theming/aether";
-import { type FindResult } from "@/vis/line/aether/line";
+import { type line } from "@/vis/line/aether";
 import { render } from "@/vis/render";
 import { canvasTest } from "@/vis/render/testutil";
 
@@ -37,7 +37,7 @@ class Requestor extends aether.Composite<typeof Requestor.stateZ> {
   }
 }
 
-const FOUND: FindResult = {
+const FOUND: line.FindResult = {
   key: "line",
   position: { x: 0.5, y: 0.5 },
   value: { x: 1, y: 2 },
@@ -76,7 +76,7 @@ const mount = (): { recorder: canvasTest.Recorder; component: tooltip.Tooltip } 
   return { recorder, component: h.child<tooltip.Tooltip>(TOOLTIP_KEY) };
 };
 
-const found = (key: string, y: number): FindResult => ({
+const found = (key: string, y: number): line.FindResult => ({
   ...FOUND,
   key,
   label: key,

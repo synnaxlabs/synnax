@@ -9,11 +9,11 @@
 
 import { type Config, defaultConfig } from "@/arc/graph/node/select/config";
 import { Symbol } from "@/arc/graph/node/select/Select";
-import { type Spec } from "@/arc/graph/node/types/spec";
+import { type types } from "@/arc/graph/node/types";
 
 export { configZ } from "@/arc/graph/node/select/config";
 
-const SPEC: Spec<"select", Config> = {
+const SPEC: types.Spec<"select", Config> = {
   key: "select",
   name: "Select",
   Form: () => null,
