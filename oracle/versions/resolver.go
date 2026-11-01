@@ -505,8 +505,11 @@ func (b *tableBuilder) addSurface(
 			return err
 		}
 	}
+	// Newest first: a union patched at a later version redeclares its variant payloads
+	// under the same names, and those must win over the base version's.
 	sortedDefiners := definers.Slice()
 	slices.Sort(sortedDefiners)
+	slices.Reverse(sortedDefiners)
 	for _, v := range sortedDefiners {
 		definer, err := b.r.file(ctx, livePath, v)
 		if err != nil {

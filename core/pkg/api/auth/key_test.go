@@ -18,6 +18,7 @@ import (
 	"github.com/synnaxlabs/gorp"
 	apiauth "github.com/synnaxlabs/synnax/pkg/api/auth"
 	"github.com/synnaxlabs/synnax/pkg/service/access"
+	"github.com/synnaxlabs/synnax/pkg/service/access/rbac/policy"
 	"github.com/synnaxlabs/synnax/pkg/service/access/rbac/role"
 	"github.com/synnaxlabs/synnax/pkg/service/auth"
 	"github.com/synnaxlabs/synnax/pkg/service/auth/apikey"
@@ -45,6 +46,28 @@ func assignBuiltin(ctx context.Context, subject ontology.ID, name string) {
 		Exec(ctx, nil)).To(Succeed())
 	Expect(rbacSvc.Role.NewWriter(nil, true).AssignRole(ctx, subject, r.Key)).
 		To(Succeed())
+}
+
+func grant(
+	ctx context.Context,
+	subject ontology.ID,
+	action access.Action,
+	object ontology.ID,
+) {
+	GinkgoHelper()
+	r := &role.Role{Name: string(action) + "-" + uuid.New().String()}
+	Expect(rbacSvc.Role.NewWriter(nil, true).Create(ctx, r)).To(Succeed())
+	p := &policy.Policy{
+		Name:    string(action) + "-policy-" + uuid.New().String(),
+		Objects: []ontology.ID{object},
+		Actions: []access.Action{action},
+	}
+	policies := rbacSvc.Policy.NewWriter(nil, true)
+	Expect(policies.Create(ctx, p)).To(Succeed())
+	Expect(policies.SetOnRole(ctx, r.Key, p.Key)).To(Succeed())
+	Expect(
+		rbacSvc.Role.NewWriter(nil, true).AssignRole(ctx, subject, r.Key),
+	).To(Succeed())
 }
 
 var _ = Describe("API keys", func() {
@@ -107,6 +130,25 @@ var _ = Describe("API keys", func() {
 		})
 		It("Should deny an Engineer a key for another user", func(ctx SpecContext) {
 			Expect(create(ctx, engToken, bob.OntologyID())).Error().
+				To(MatchError(access.ErrDenied))
+		})
+		It("Should deny a key for a user the caller may only update", func(
+			ctx SpecContext,
+		) {
+			grant(ctx, bob.OntologyID(), access.ActionUpdate, eng.OntologyID())
+			Expect(create(ctx, bobToken, eng.OntologyID())).Error().
+				To(MatchError(access.ErrDenied))
+		})
+		It("Should deny a key for a rack the caller may only update", func(
+			ctx SpecContext,
+		) {
+			grant(
+				ctx,
+				bob.OntologyID(),
+				access.ActionUpdate,
+				ontology.ID{Type: ontology.ResourceTypeRack},
+			)
+			Expect(create(ctx, bobToken, rack)).Error().
 				To(MatchError(access.ErrDenied))
 		})
 		It("Should deny a user without a role a key for a rack", func(ctx SpecContext) {

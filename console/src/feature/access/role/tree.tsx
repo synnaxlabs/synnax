@@ -62,7 +62,7 @@ const ROLE_ICONS: Record<string, Icon.ReactElement> = {
   Engineer: <Icon.Safety />,
   Operator: <Icon.Control />,
   Viewer: <Icon.Visible />,
-  Host: <Icon.TerminalOutline />,
+  Driver: <Icon.Rack />,
 };
 
 const TreeItem = Tree.createItem({

@@ -329,7 +329,7 @@ func (p *Plugin) processStruct(
 		data.AddSystem("type_traits")
 	}
 
-	if resolver.CanUseInheritance(form, data.table) {
+	if resolver.CanUseInheritance(form, "cpp", data.table) {
 		serializer.HasExtends = true
 		for _, extendsRef := range form.Extends {
 			parent, ok := extendsRef.Resolve(data.table)
@@ -1096,6 +1096,14 @@ func (p *Plugin) toJSONExprForField(
 		return fmt.Sprintf(`j["%s"] = this->%s.to_json();`, jsonName, fieldName)
 	}
 
+	if field.Optional {
+		return fmt.Sprintf(
+			`if (this->%s.has_value()) j["%s"] = *this->%s;`,
+			fieldName,
+			jsonName,
+			fieldName,
+		)
+	}
 	return fmt.Sprintf(`j["%s"] = this->%s;`, jsonName, fieldName)
 }
 

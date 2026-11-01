@@ -1,0 +1,102 @@
+// Copyright 2026 Synnax Labs, Inc.
+//
+// Use of this software is governed by the Business Source License included in the file
+// licenses/BSL.txt.
+//
+// As of the Change Date specified in that file, in accordance with the Business Source
+// License, use of this software will be governed by the Apache License, Version 2.0,
+// included in the file licenses/APL.txt.
+
+@go output "x/go/patch"
+@ts output "x/ts/src/patch"
+
+Guard struct {
+    path  string[] {
+        @doc value "is the path to a discriminator that the action's path crosses."
+    }
+    value string   {
+        @doc value "is the discriminator value that the action was written for."
+    }
+
+    @doc value """
+        holds an action to the variant of a discriminated union that it was written for.
+        An action with a guard that does not match the document does nothing.
+    """
+}
+
+Set struct {
+    path   string[] {
+        @doc value """
+            is the path to the value. A segment into a list names the key of an entry.
+        """
+    }
+    value  any      {
+        @doc value        "is the new value."
+        @ts preserve_case
+    }
+    guards Guard[] = [] {
+        @doc value "are the variant guards for the path."
+    }
+
+    @doc value """
+        replaces the value at a path. It creates the absent objects on the path, and
+        does nothing when the path goes through a missing list entry.
+    """
+}
+
+Remove struct {
+    path   string[] {
+        @doc value "is the path to the list or object."
+    }
+    key    string   {
+        @doc value "is the key of the list entry or the name of the object field."
+    }
+    guards Guard[] = [] {
+        @doc value "are the variant guards for the path."
+    }
+
+    @doc value "removes an entry from a list or a field from an object."
+}
+
+Insert struct {
+    path   string[] {
+        @doc value "is the path to the list."
+    }
+    value  any      {
+        @doc value        "is the new entry. It is an object with a string key."
+        @ts preserve_case
+    }
+    after  string?  {
+        @doc value """
+            is the key of the entry that the new entry goes after. The entry goes first
+            when absent, and last when no entry has the key.
+        """
+    }
+    guards Guard[] = [] {
+        @doc value "are the variant guards for the path."
+    }
+
+    @doc value """
+        adds an entry to a list. It does nothing when an entry with the same key exists.
+    """
+}
+
+Move struct {
+    path   string[] {
+        @doc value "is the path to the list."
+    }
+    key    string   {
+        @doc value "is the key of the entry to move."
+    }
+    after  string?  {
+        @doc value """
+            is the key of the entry that the moved entry goes after. The entry goes
+            first when absent, and last when no other entry has the key.
+        """
+    }
+    guards Guard[] = [] {
+        @doc value "are the variant guards for the path."
+    }
+
+    @doc value "moves an entry in a list. It does nothing when the entry is missing."
+}

@@ -99,7 +99,7 @@ const stripSourcesContent = (): Plugin => ({
 
 export default defineConfig({
   clearScreen: false,
-  server: { port: 5173, strictPort: true },
+  server: { port: Number(process.env.SYNNAX_CONSOLE_PORT ?? 5173), strictPort: true },
   resolve: {
     tsconfigPaths: true,
     alias: fromSource
@@ -137,7 +137,13 @@ export default defineConfig({
     // to enforce the default Vite warning threshold.
     chunkSizeWarningLimit: 10000 /* kbs */,
   },
-  define: { IS_DEV: isDev, DESKTOP: desktop, RELEASE: release, FLAGS_ON: flagsOn },
+  define: {
+    IS_DEV: isDev,
+    DESKTOP: desktop,
+    RELEASE: release,
+    FLAGS_ON: flagsOn,
+    CORE_PORT: Number(process.env.SYNNAX_PORT ?? 9090),
+  },
   worker: {
     format: "es",
     // The worker is a separate build and does not inherit `plugins`, so its frames

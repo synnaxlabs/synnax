@@ -2514,6 +2514,11 @@ wheels = [
     { url = "https://files.pythonhosted.org/packages/ee/b4/c6ccb9186b576abbbbffe865544184014fcc0563dfdff00749ca234ca0f8/pymodbus-3.16.1-py3-none-any.whl", hash = "sha256:bb433f7417280bdea1190d95495aa6fb8e1fa8e0d720c436922b270bc378024c", size = 167870, upload-time = "2026-10-11T17:38:45.39Z" },
 ]
 
+[package.optional-dependencies]
+serial = [
+    { name = "pyserial" },
+]
+
 [[package]]
 name = "pyparsing"
 version = "3.3.3"
@@ -2521,6 +2526,15 @@ source = { registry = "https://pypi.org/simple" }
 sdist = { url = "https://files.pythonhosted.org/packages/e4/11/b213bebff182584360cb8d17c72c1677fec5c5c228de439e63bcf8ab1c8f/pyparsing-3.3.3.tar.gz", hash = "sha256:928ae7e20211f3b6f3915a72f06a0cfd29ab9d24279dd6346b6b1a7146397d36", size = 1050487, upload-time = "2026-09-20T20:59:05.609Z" }
 wheels = [
     { url = "https://files.pythonhosted.org/packages/38/bb/d215ee7c73b61497b28a5503f9f53523f294fcc936762b7caf90e0c1c2b5/pyparsing-3.3.3-py3-none-any.whl", hash = "sha256:ece8c00a69cf01b45d0b1dedabb469c90d8caf996d4fda40f147627a122849a4", size = 126420, upload-time = "2026-09-20T20:59:04.025Z" },
+]
+
+[[package]]
+name = "pyserial"
+version = "3.5"
+source = { registry = "https://pypi.org/simple" }
+sdist = { url = "https://files.pythonhosted.org/packages/1e/7d/ae3f0a63f41e4d2f6cb66a5b57197850f919f59e558159a4dd3a818f5082/pyserial-3.5.tar.gz", hash = "sha256:3c77e014170dfffbd816e6ffc205e9842efb10be9f58ec16d3e8675b4925cddb", size = 159125, upload-time = "2020-11-23T03:59:15.045Z" }
+wheels = [
+    { url = "https://files.pythonhosted.org/packages/07/bc/587a445451b253b285629263eb51c2d8e9bcea4fc97826266d186f96f558/pyserial-3.5-py2.py3-none-any.whl", hash = "sha256:c4451db6ba391ca6ca299fb3ec7bae67a5c55dde170964c7a14ceefec02f2cf0", size = 90585, upload-time = "2020-11-23T03:59:13.41Z" },
 ]
 
 [[package]]
@@ -2856,7 +2870,7 @@ dev = [
     { name = "mypy" },
     { name = "nptdms" },
     { name = "pandas-stubs" },
-    { name = "pymodbus" },
+    { name = "pymodbus", extra = ["serial"] },
     { name = "pytest" },
     { name = "pytest-asyncio" },
     { name = "pytest-cov" },
@@ -2890,7 +2904,7 @@ dev = [
     { name = "mypy", specifier = ">=2.4.0,<3" },
     { name = "nptdms", specifier = ">=1.13.0,<2" },
     { name = "pandas-stubs", specifier = ">=3.0.5.260914,<4" },
-    { name = "pymodbus", specifier = ">=3.16.1,<4" },
+    { name = "pymodbus", extras = ["serial"], specifier = ">=3.16.1,<4" },
     { name = "pytest", specifier = ">=9.1.1,<10" },
     { name = "pytest-asyncio", specifier = ">=1.4.0,<2" },
     { name = "pytest-cov", specifier = ">=7.1.0,<8" },
@@ -3020,7 +3034,7 @@ dependencies = [
     { name = "pagerduty" },
     { name = "playwright" },
     { name = "psutil" },
-    { name = "pymodbus" },
+    { name = "pymodbus", extra = ["serial"] },
     { name = "synnax" },
     { name = "synnax-freighter" },
     { name = "synnax-x" },
@@ -3046,7 +3060,7 @@ requires-dist = [
     { name = "pagerduty", specifier = ">=7.0.1,<8" },
     { name = "playwright", specifier = ">=1.64.0,<2" },
     { name = "psutil", specifier = ">=7.2.2,<8" },
-    { name = "pymodbus", specifier = ">=3.16.1,<4" },
+    { name = "pymodbus", extras = ["serial"], specifier = ">=3.16.1,<4" },
     { name = "synnax", editable = "client/py" },
     { name = "synnax-freighter", editable = "freighter/py" },
     { name = "synnax-x", editable = "x/py" },

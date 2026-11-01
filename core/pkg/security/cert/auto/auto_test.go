@@ -17,7 +17,7 @@ import (
 	. "github.com/onsi/gomega"
 	"github.com/synnaxlabs/synnax/pkg/security/cert"
 	"github.com/synnaxlabs/synnax/pkg/security/cert/auto"
-	"github.com/synnaxlabs/synnax/pkg/security/mock"
+	"github.com/synnaxlabs/synnax/pkg/security/testutil"
 	xfs "github.com/synnaxlabs/x/io/fs"
 	. "github.com/synnaxlabs/x/testutil"
 )
@@ -31,7 +31,7 @@ var _ = Describe("Auto", func() {
 		fs = xfs.NewMem()
 		ca = MustSucceed(cert.NewFactory(cert.FactoryConfig{
 			FS:      fs,
-			KeySize: mock.SmallKeySize,
+			KeySize: testutil.SmallKeySize,
 		}))
 	})
 

@@ -637,7 +637,6 @@ class ReadTaskCase(TaskCase[ReadTaskT]):
         """Execute the standard read task lifecycle test."""
         if self.tsk is None:
             self.fail("Task not configured. Subclass must set self.tsk in setup()")
-            return
 
         self.test_task_exists()
         self.test_start_and_stop()
@@ -776,11 +775,14 @@ class WriteTaskCase(TaskCase[TaskT]):
         """Execute the standard write task lifecycle test."""
         if self.tsk is None:
             self.fail("Task not configured. Subclass must set self.tsk in setup()")
-            return
 
         self.test_task_exists()
         self.test_send_commands()
         self.test_reconfigure_name()
+
+    def assert_written(self) -> None:
+        """Check that the device holds the last round of commands. Runs before the task
+        stops, because a stopping task drops the commands it has not written."""
 
     def test_send_commands(self) -> None:
         """Start the write task, send commands, and verify they arrive on the stream."""
@@ -795,6 +797,7 @@ class WriteTaskCase(TaskCase[TaskT]):
                 task_key=self.tsk.key,
                 command_values=self.command_values,
             )
+            self.assert_written()
 
     def test_reconfigure_name(self) -> None:
         """Rename the task, verify it persists, then send commands again."""
@@ -822,3 +825,4 @@ class WriteTaskCase(TaskCase[TaskT]):
                 task_key=self.tsk.key,
                 command_values=self.command_values,
             )
+            self.assert_written()
