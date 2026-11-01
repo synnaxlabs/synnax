@@ -31,6 +31,7 @@ export const MenuItem = (): ReactElement => (
   <Form.Field<status.Variant[] | undefined, status.Variant[]>
     path="query.variants"
     showLabel={false}
+    showHelpText={false}
   >
     {selectVariantRenderProp}
   </Form.Field>
