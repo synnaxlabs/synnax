@@ -17,7 +17,9 @@ import { Haul } from "@synnaxlabs/lyra/haul";
 import { Header as PHeader } from "@synnaxlabs/lyra/header";
 import { Icon } from "@synnaxlabs/lyra/icon";
 import { Select } from "@synnaxlabs/lyra/select";
+import { type Status } from "@synnaxlabs/lyra/status";
 import { Text } from "@synnaxlabs/lyra/text";
+import { Tooltip } from "@synnaxlabs/lyra/tooltip";
 import { type FC, useState } from "react";
 
 import {
@@ -58,11 +60,17 @@ const ChannelListItem = <C extends Channel>({
 }: ChannelListItemProps<C>) => {
   const path = `config.channels.${rest.itemKey}`;
   const item = PForm.useFieldValue<C>(path);
+  const nodeIdState = PForm.useFieldState<string>(`${path}.nodeId`, {
+    optional: true,
+  });
   if (item == null) return null;
   const { nodeName, nodeId } = item;
   const opcNode = nodeId.length > 0 ? nodeId : "No node selected";
-  let opcNodeColor;
-  if (opcNode === "No node selected") opcNodeColor = "var(--pluto-warning-z)";
+  const issue = nodeIdState?.status;
+  const marked = issue?.variant === "error" || issue?.variant === "warning";
+  let nodeStatus: Status.Variant | undefined;
+  if (marked) nodeStatus = issue?.variant;
+  else if (nodeId.length === 0) nodeStatus = "warning";
   const { key: channel, id } = getChannelKeyAndID(item);
   return (
     <Select.Item {...rest} justify="between" align="center" rightAligned>
@@ -81,15 +89,19 @@ const ChannelListItem = <C extends Channel>({
         />
         <Flex.Box x align="center" gap="tiny">
           <Icon.Variable color={9} />
-          <Text.Text
-            level="small"
-            weight={350}
-            color={opcNodeColor ?? 9}
-            gap="small"
-            overflow="fade"
-          >
-            {nodeName} {opcNode}
-          </Text.Text>
+          <Tooltip.Dialog hide={!marked}>
+            {issue?.message}
+            <Text.Text
+              level="small"
+              weight={350}
+              color={9}
+              status={nodeStatus}
+              gap="small"
+              overflow="fade"
+            >
+              {nodeName} {opcNode}
+            </Text.Text>
+          </Tooltip.Dialog>
         </Flex.Box>
       </Flex.Box>
       <Flex.Box direction="x" align="center">

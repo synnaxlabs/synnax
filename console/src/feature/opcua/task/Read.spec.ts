@@ -9,7 +9,7 @@
 
 import { type Synnax, type task } from "@synnaxlabs/client";
 import { createTestClient } from "@synnaxlabs/client/testutil";
-import { fireEvent, screen, waitFor } from "@testing-library/react";
+import { fireEvent, screen, waitFor, within } from "@testing-library/react";
 import { describe, expect, it } from "vitest";
 import { type z } from "zod";
 
@@ -117,6 +117,30 @@ describe("Read", () => {
     expect(updated.properties.read.channels[chB.nodeId]).toBe(
       config.channels[1].channel,
     );
+  });
+
+  it("should warn at a node that two channels read, and still deploy", async () => {
+    const dev = await createOPCDevice(client);
+    const first = createReadChannel();
+    // Two channels can never share a name, even on one node.
+    const second = createReadChannel({
+      nodeId: first.nodeId,
+      nodeName: first.nodeName,
+      name: uniqueName("second"),
+    });
+    const draft = await createDraft(client, createReadConfig(dev.key, [first, second]));
+    const { container } = await renderRead({ client, taskKey: draft.key });
+    await deployAndAwaitTask(client, container, draft.key);
+    const rows = await screen.findAllByRole("option");
+    expect(rows).toHaveLength(2);
+    fireEvent.pointerOver(within(rows[1]).getByText(new RegExp(first.nodeId)), {
+      pointerType: "mouse",
+    });
+    expect(
+      await screen.findByText(
+        "This node ID has already been used elsewhere in the configuration",
+      ),
+    ).toBeTruthy();
   });
 
   it("should bind a new entry to the channel the device already maps", async () => {
