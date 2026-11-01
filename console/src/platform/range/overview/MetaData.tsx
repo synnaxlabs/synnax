@@ -146,9 +146,10 @@ const CreateItem = ({ rangeKey, visible, onClose }: CreateItemProps): ReactEleme
             weight: 500,
           }}
           showLabel={false}
+          showHelpText={false}
         />
         <Divider.Divider y />
-        <Form.Field<string> path="value" showLabel={false}>
+        <Form.Field<string> path="value" showLabel={false} showHelpText={false}>
           {(p) => <ValueInput {...p} />}
         </Form.Field>
         <Flex.Box pack>

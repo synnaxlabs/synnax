@@ -29,6 +29,7 @@
 
 #include "driver/bypass/bypass.h"
 #include "driver/control/state.h"
+#include "driver/task/status_cache.h"
 
 namespace driver::task {
 /// @brief interface for a task that can be executed by the driver. Tasks should be
@@ -94,6 +95,11 @@ public:
 
     /// @brief updates the state of the task in the Synnax cluster.
     virtual void set_status(synnax::task::Status &status) = 0;
+
+    /// @brief sends the latest status of each task again, to repair statuses lost while
+    /// the Driver could not reach the Core.
+    /// @returns the first error of the writes. Call it again on error.
+    [[nodiscard]] virtual x::errors::Error resend_statuses() = 0;
 };
 
 /// @brief a mock context that can be used for testing tasks.
@@ -112,6 +118,8 @@ public:
         mu.unlock();
     }
 
+    x::errors::Error resend_statuses() override { return x::errors::NIL; }
+
     /// @brief returns a copy of the statuses, safe to read while tasks send more.
     std::vector<synnax::task::Status> snapshot() {
         std::lock_guard lock(this->mu);
@@ -123,10 +131,12 @@ class SynnaxContext final : public Context {
     std::shared_ptr<bypass::Bus> bus_;
     std::shared_ptr<control::States> control_states_;
     synnax::rack::Key rack_key_;
+    std::shared_ptr<StatusCache> statuses;
 
 public:
-    explicit SynnaxContext(
+    SynnaxContext(
         const std::shared_ptr<synnax::Synnax> &client,
+        std::shared_ptr<StatusCache> statuses,
         const std::shared_ptr<bypass::Bus> &bus = nullptr,
         const std::shared_ptr<control::States> &control_states = nullptr,
         const synnax::rack::Key rack_key = 0
@@ -134,7 +144,8 @@ public:
         Context(client),
         bus_(bus),
         control_states_(control_states),
-        rack_key_(rack_key) {}
+        rack_key_(rack_key),
+        statuses(std::move(statuses)) {}
 
     std::shared_ptr<bypass::Bus> bus() override { return this->bus_; }
 
@@ -147,12 +158,11 @@ public:
     void set_status(synnax::task::Status &status) override {
         if (status.time == 0) status.time = x::telem::TimeStamp::now();
         status.details.rack = this->rack_key_;
-        if (const auto err = this->client->statuses.set<synnax::task::StatusDetails>(
-                status
-            );
-            err)
+        if (const auto err = this->statuses->set(status); err)
             LOG(ERROR) << "[task.context] failed to write task status update: " << err;
     }
+
+    x::errors::Error resend_statuses() override { return this->statuses->resend(); }
 };
 
 /// @brief the cmd_key given to configure_task when no command drives the configure,
@@ -283,8 +293,10 @@ public:
     ):
         rack(std::move(rack)),
         control_states_(std::make_shared<control::States>()),
+        statuses(std::make_shared<StatusCache>(client->statuses)),
         ctx(std::make_shared<SynnaxContext>(
             client,
+            this->statuses,
             std::make_shared<bypass::Bus>(),
             this->control_states_,
             this->rack.key
@@ -309,6 +321,8 @@ private:
     synnax::rack::Rack rack;
     /// @brief shared control authority states, fed by the manager's streamer.
     std::shared_ptr<control::States> control_states_;
+    /// @brief the latest status of each task on this Driver.
+    std::shared_ptr<StatusCache> statuses;
     /// @brief shared context passed to all tasks.
     std::shared_ptr<Context> ctx;
     /// @brief creates device-specific tasks.
@@ -428,9 +442,9 @@ private:
     void process_start(const synnax::task::Command &cmd);
     /// @brief returns the entry for key, creating it if absent. Callers must hold mu.
     std::shared_ptr<Entry> entry_for(const synnax::task::Key &key);
-    /// @brief drops the entry for key unless it is still relevant or claimed by a
-    /// worker. even_if_processing is for a worker's own entry. Callers must hold
-    /// mu.
+    /// @brief drops the entry for key and forgets its status, unless the entry is still
+    /// relevant or claimed by a worker. even_if_processing is for a worker's own entry.
+    /// Callers must hold mu.
     void remove(const synnax::task::Key &key, bool even_if_processing = false);
     /// @brief starts the worker pool and monitor thread.
     void start_workers();

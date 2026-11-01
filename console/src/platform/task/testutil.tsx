@@ -588,15 +588,15 @@ export interface CommandAnswer extends Omit<CreateTaskStatusOverrides, "details"
  * Answers the next command sent to the task as a Driver does, with a success status
  * unless answer overrides its fields. Specs run without a Driver, so a caller that
  * waits for the answer otherwise times out. Resolves once it listens, with a promise
- * that settles after the answer is written.
+ * that resolves with the command after the answer is written.
  */
 export const answerNextCommand = async (
   client: Client,
   tsk: task.Task,
   { type, data, ...answer }: CommandAnswer = {},
-): Promise<{ answered: Promise<void> }> => {
+): Promise<{ answered: Promise<task.Command> }> => {
   const streamer = await client.openStreamer(task.COMMAND_CHANNEL_NAME);
-  const respond = async (): Promise<void> => {
+  const respond = async (): Promise<task.Command> => {
     try {
       const cmd = await awaitCommand(streamer, tsk.key, type);
       await client.tasks.create({
@@ -606,6 +606,7 @@ export const answerNextCommand = async (
           details: { task: tsk.key, cmd: cmd.key, rack: tsk.rack, data },
         }),
       });
+      return cmd;
     } finally {
       streamer.close();
     }

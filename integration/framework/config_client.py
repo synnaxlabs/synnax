@@ -155,7 +155,13 @@ class ConfigClient:
                 with open(file_path, encoding="utf-8") as f:
                     file_data = json.load(f)
                 if "sequences" in file_data:
-                    all_sequences.extend(file_data["sequences"])
+                    for i, seq in enumerate(file_data["sequences"]):
+                        if not isinstance(seq, dict):
+                            raise ValueError(
+                                f"Sequence {i} in test file '{test_file}' is not "
+                                "an object"
+                            )
+                        all_sequences.append(seq)
             except FileNotFoundError:
                 raise FileNotFoundError(f"Test file not found: {test_file}") from None
             except json.JSONDecodeError as e:
@@ -176,9 +182,6 @@ class ConfigClient:
         sequences: list[Sequence] = []
 
         for seq_idx, seq_dict in enumerate(sequences_array):
-            if not isinstance(seq_dict, dict):
-                continue
-
             seq_name = seq_dict.get("sequence_name", f"Sequence_{seq_idx + 1}")
             seq_order: str = seq_dict.get("sequence_order", "sequential").lower()
             pool_size: int = seq_dict.get("pool_size", -1)

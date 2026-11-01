@@ -45,8 +45,8 @@ var _ = Describe("Recovery (wire)", Ordered, Serial, func() {
 				testutil.Request, *v1.Request,
 				testutil.Response, *v1.Response,
 			]{
-				RequestTranslator:  requestTranslator{},
-				ResponseTranslator: responseTranslator{},
+				RequestTranslator:  requestBackwardTranslator{},
+				ResponseTranslator: responseForwardTranslator{},
 				ServiceDesc:        &v1.TestUnaryService_ServiceDesc,
 				Internal:           true,
 			}
@@ -61,8 +61,8 @@ var _ = Describe("Recovery (wire)", Ordered, Serial, func() {
 			uServer.BindTo(reg)
 
 			sServer := &streamServer{
-				RequestTranslator:  requestTranslator{},
-				ResponseTranslator: responseTranslator{},
+				RequestTranslator:  requestBackwardTranslator{},
+				ResponseTranslator: responseForwardTranslator{},
 				ServiceDesc:        &v1.TestStreamService_ServiceDesc,
 				Internal:           true,
 			}

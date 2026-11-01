@@ -11,7 +11,6 @@ import { DataType, Series } from "@synnaxlabs/x";
 import { describe, expect, it, test } from "vitest";
 
 import { table } from "@/table";
-import { scopedActionZ } from "@/table/actions.gen";
 
 describe("table action wire decode", () => {
   test("preserves cell keys through the set-channel schema", () => {
@@ -42,7 +41,7 @@ describe("table action wire decode", () => {
     new DataView(buf).setUint32(0, raw.byteLength, true);
     new Uint8Array(buf).set(raw, 4);
     const s = new Series({ data: buf, dataType: DataType.JSON });
-    const [parsed] = s.parseJSON(scopedActionZ);
+    const [parsed] = s.parseJSON(table.scopedActionZ);
     const action = parsed.actions[0];
     expect(action.type).toEqual("create");
     if (action.type !== "create") return;

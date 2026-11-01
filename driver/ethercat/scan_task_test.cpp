@@ -409,8 +409,8 @@ TEST_F(EtherCATScanTest, ScanTaskFailsToConfigureWithoutAPacketCaptureLibrary) {
     EXPECT_EQ(this->ctx->statuses.back().message, "Failed to configure task");
     EXPECT_EQ(
         this->ctx->statuses.back().description,
-        "EtherCAT is unavailable because a required packet capture library is not "
-        "installed. Check the Driver logs for details."
+        "Npcap (packet capture for EtherCAT) library is not installed. Download here: "
+        "https://npcap.com/#download. Restart Driver after installation."
     );
 }
 

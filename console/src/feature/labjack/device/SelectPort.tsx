@@ -12,6 +12,7 @@ import "@/feature/labjack/device/SelectPort.css";
 import { Component } from "@synnaxlabs/lyra/component";
 import { Dialog } from "@synnaxlabs/lyra/dialog";
 import { Flex } from "@synnaxlabs/lyra/flex";
+import { Input } from "@synnaxlabs/lyra/input";
 import { List } from "@synnaxlabs/lyra/list";
 import { Select } from "@synnaxlabs/lyra/select";
 import { Text } from "@synnaxlabs/lyra/text";
@@ -78,6 +79,13 @@ export const SelectPort = ({
     filter,
   });
   const selected = getItem(value ?? "");
+  const itemStatus = Input.useItemStatus({
+    status: triggerProps?.status,
+    tooltip: triggerProps?.tooltip,
+    hideTooltip: triggerProps?.hideTooltip,
+    "aria-invalid": triggerProps?.["aria-invalid"],
+    "aria-describedby": triggerProps?.["aria-describedby"],
+  });
   return (
     <Dialog.Frame variant={variant} {...rest}>
       <Select.Frame
@@ -89,7 +97,15 @@ export const SelectPort = ({
         closeDialogOnSelect
       >
         <Flex.Box pack x>
-          <Dialog.Trigger preview={preview} {...triggerProps}>
+          <Dialog.Trigger
+            preview={preview}
+            {...triggerProps}
+            status={itemStatus.status}
+            aria-invalid={itemStatus["aria-invalid"]}
+            aria-describedby={itemStatus["aria-describedby"]}
+            tooltip={itemStatus.tooltip}
+            hideTooltip={itemStatus.hideTooltip}
+          >
             <Select.Label itemKey={value}>
               {selected?.alias ?? selected?.key}
             </Select.Label>

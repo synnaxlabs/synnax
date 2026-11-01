@@ -22,9 +22,9 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/service/label"
 	"github.com/synnaxlabs/synnax/pkg/service/ontology"
 	"github.com/synnaxlabs/x/color"
-	"github.com/synnaxlabs/x/kv/memkv"
 	"github.com/synnaxlabs/x/query"
 	. "github.com/synnaxlabs/x/testutil"
+	"github.com/synnaxlabs/x/testutil/memkv"
 	"github.com/synnaxlabs/x/validate"
 )
 
@@ -47,7 +47,10 @@ var _ = Describe("Dispatch", func() {
 			Ontology: otg,
 			Group:    g,
 		}))
-		nominal = label.Label{Name: "Nominal", Color: MustSucceed(color.FromHex("#00ff00"))}
+		nominal = label.Label{
+			Name:  "Nominal",
+			Color: MustSucceed(color.FromHex("#00ff00")),
+		}
 		Expect(svc.NewWriter(nil).Create(ctx, &nominal)).To(Succeed())
 	})
 	record := func() *Recorder[label.Key, label.Action] {
@@ -130,7 +133,10 @@ var _ = Describe("Dispatch", func() {
 			ctx SpecContext,
 		) {
 			rec := record()
-			l := label.Label{Name: "Anomaly", Color: MustSucceed(color.FromHex("#ff0000"))}
+			l := label.Label{
+				Name:  "Anomaly",
+				Color: MustSucceed(color.FromHex("#ff0000")),
+			}
 			tx := DeferClose(db.OpenTx())
 			w := svc.NewWriter(tx).WithDispatchKey("dk-create")
 			Expect(w.Create(ctx, &l)).To(Succeed())

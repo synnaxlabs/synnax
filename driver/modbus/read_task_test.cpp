@@ -164,9 +164,9 @@ TEST_F(ModbusReadTest, testInvalidChannelType) {
     ASSERT_OCCURRED_AS(p.error(), x::errors::VALIDATION);
 }
 
-/// @brief it should default the register data type to uint8 when the config omits
-/// it, preserving the behavior of configs written before the field existed.
-TEST(ModbusChannels, testMissingDataTypeDefaultsToUint8) {
+/// @brief it should read a whole register as uint16 when the config omits the data
+/// type.
+TEST(ModbusChannels, testMissingDataTypeDefaultsToUint16) {
     auto parser = x::json::Parser(
         x::json::json{
             {"type", "input_register"},
@@ -178,7 +178,7 @@ TEST(ModbusChannels, testMissingDataTypeDefaultsToUint8) {
     const auto cfg = ::synnax::modbus::InputRegisterReadChannel::parse(parser);
     ASSERT_NIL(parser.error());
     const channel::InputRegister ch(cfg, device::ConnectionConfig{});
-    EXPECT_EQ(ch.value_type, x::telem::UINT8_T);
+    EXPECT_EQ(ch.value_type, x::telem::UINT16_T);
 }
 
 /// @brief it should take the device's byte and word order when the channel has no
@@ -1121,5 +1121,276 @@ TEST_F(ModbusReadTest, testHoldsSampleRate) {
             rate_hz
         );
     }
+}
+
+/// @brief it should reject a Synnax channel that two channels of the task read into.
+TEST_F(ModbusReadTest, testDuplicateChannelRejected) {
+    auto ch = ASSERT_NIL_P(client->channels.create(
+        make_unique_channel_name("dup"),
+        x::telem::UINT8_T,
+        true
+    ));
+    auto cfg = create_base_config();
+    cfg["channels"].push_back(create_channel_config("coil", ch, 0));
+    cfg["channels"].push_back(create_channel_config("coil", ch, 1));
+    auto p = x::json::Parser(cfg);
+    ReadTaskConfig task_cfg(client, p);
+    ASSERT_OCCURRED_AS(p.error(), x::errors::VALIDATION);
+    const auto errors = p.error_json()["errors"];
+    ASSERT_EQ(errors.size(), 1);
+    EXPECT_EQ(errors[0]["path"], "channels.1.channel");
+    EXPECT_EQ(errors[0]["message"], "another channel in the task reads into it");
+}
+
+/// @brief it should reject a register data type the Driver cannot decode.
+TEST_F(ModbusReadTest, testUnsupportedDataTypeRejected) {
+    auto ch = ASSERT_NIL_P(client->channels.create(
+        make_unique_channel_name("ts"),
+        x::telem::FLOAT32_T,
+        true
+    ));
+    auto cfg = create_base_config();
+    cfg["channels"].push_back(create_channel_config("holding_register", ch, 0));
+    cfg["channels"][0]["data_type"] = "timestamp";
+    auto p = x::json::Parser(cfg);
+    ReadTaskConfig task_cfg(client, p);
+    ASSERT_OCCURRED_AS(p.error(), x::errors::VALIDATION);
+    const auto errors = p.error_json()["errors"];
+    ASSERT_EQ(errors.size(), 1);
+    EXPECT_EQ(errors[0]["path"], "channels.0.data_type");
+    EXPECT_EQ(errors[0]["message"], "unsupported data type: timestamp");
+}
+
+/// @brief it should reject a string with no length, a string read into a channel that
+/// is not a string, and a bit past 15.
+TEST_F(ModbusReadTest, testStringAndBitRejected) {
+    auto str = ASSERT_NIL_P(client->channels.create(
+        make_unique_channel_name("str"),
+        x::telem::STRING_T,
+        true
+    ));
+    auto num = ASSERT_NIL_P(client->channels.create(
+        make_unique_channel_name("num"),
+        x::telem::UINT16_T,
+        true
+    ));
+    auto bit = ASSERT_NIL_P(client->channels.create(
+        make_unique_channel_name("bit"),
+        x::telem::UINT8_T,
+        true
+    ));
+    auto cfg = create_base_config();
+    cfg["channels"].push_back(
+        {{"type", "input_register"},
+         {"channel", str.key},
+         {"address", 0},
+         {"data_type", "string"}}
+    );
+    cfg["channels"].push_back(
+        {{"type", "input_register"},
+         {"channel", num.key},
+         {"address", 10},
+         {"data_type", "string"},
+         {"string_length", 4}}
+    );
+    cfg["channels"].push_back(
+        {{"type", "holding_register_bit"},
+         {"channel", bit.key},
+         {"address", 0},
+         {"bit", 16}}
+    );
+    auto p = x::json::Parser(cfg);
+    ReadTaskConfig task_cfg(client, p);
+    ASSERT_OCCURRED_AS(p.error(), x::errors::VALIDATION);
+    const auto errors = p.error_json()["errors"];
+    ASSERT_EQ(errors.size(), 3);
+    EXPECT_EQ(errors[0]["path"], "channels.0.string_length");
+    EXPECT_EQ(errors[0]["message"], "must be from 1 to 250");
+    EXPECT_EQ(errors[1]["path"], "channels.2.bit");
+    EXPECT_EQ(errors[1]["message"], "must be from 0 to 15");
+    EXPECT_EQ(errors[2]["path"], "channels.1.channel");
+    EXPECT_EQ(errors[2]["message"], "a string must read into a string channel");
+}
+
+/// @brief it should read a string and the bits of a register into one frame.
+TEST_F(ModbusReadTest, testStringAndBitRead) {
+    testutil::SlaveConfig slave_cfg;
+    slave_cfg.port = 1502;
+    slave_cfg.holding_registers[0] = static_cast<uint16_t>('O' << 8 | 'K');
+    slave_cfg.holding_registers[1] = static_cast<uint16_t>(0b10);
+    auto slave = testutil::Slave(slave_cfg);
+    ASSERT_NIL(slave.start());
+    x::defer::defer stop_slave([&slave] { slave.stop(); });
+
+    auto str = ASSERT_NIL_P(client->channels.create(
+        make_unique_channel_name("str"),
+        x::telem::STRING_T,
+        index_channel.key,
+        false
+    ));
+    auto bit = ASSERT_NIL_P(client->channels.create(
+        make_unique_channel_name("bit"),
+        x::telem::UINT8_T,
+        index_channel.key,
+        false
+    ));
+    auto cfg = create_base_config();
+    cfg["channels"].push_back(
+        {{"type", "holding_register"},
+         {"channel", str.key},
+         {"address", 0},
+         {"data_type", "string"},
+         {"string_length", 2}}
+    );
+    cfg["channels"].push_back(
+        {{"type", "holding_register_bit"},
+         {"channel", bit.key},
+         {"address", 1},
+         {"bit", 1}}
+    );
+    auto p = x::json::Parser(cfg);
+    auto task_cfg = std::make_unique<ReadTaskConfig>(client, p);
+    ASSERT_NIL(p.error());
+
+    auto devs = std::make_shared<device::Manager>();
+    auto task = common::ReadTask(
+        synnax::task::Task{
+            .rack = rack.key,
+            .name = "string_bit_test",
+            .type = "modbus_read",
+        },
+        ctx,
+        x::breaker::default_config("string_bit_test"),
+        std::make_unique<ReadTaskSource>(devs, std::move(*task_cfg)),
+        mock_factory
+    );
+    task.start("start_cmd");
+    ASSERT_EVENTUALLY_GE(mock_factory->writes->size(), 2);
+    task.stop("stop_cmd", true);
+
+    for (std::size_t i = 0; i < 2; i++) {
+        const auto &fr = mock_factory->writes->at(i);
+        ASSERT_EQ(fr.length(), 1);
+        EXPECT_EQ(fr.at<uint8_t>(bit.key, 0), 1);
+        EXPECT_EQ(std::get<std::string>(fr.at(str.key, 0)), "OK");
+    }
+}
+
+/// @brief it should reject a register value wider than one request of the device.
+TEST_F(ModbusReadTest, testValueWiderThanMaxRegistersRejected) {
+    device.properties["requests"] = {{"max_registers", 1}};
+    ASSERT_NIL(client->devices.create(device));
+    auto ch = ASSERT_NIL_P(client->channels.create(
+        make_unique_channel_name("wide"),
+        x::telem::FLOAT32_T,
+        true
+    ));
+    auto cfg = create_base_config();
+    cfg["channels"].push_back(create_channel_config("holding_register", ch, 0));
+    cfg["channels"][0]["data_type"] = "float32";
+    auto p = x::json::Parser(cfg);
+    ReadTaskConfig task_cfg(client, p);
+    ASSERT_OCCURRED_AS(p.error(), x::errors::VALIDATION);
+    const auto errors = p.error_json()["errors"];
+    ASSERT_EQ(errors.size(), 1);
+    EXPECT_EQ(errors[0]["path"], "channels.0.data_type");
+    EXPECT_EQ(
+        errors[0]["message"],
+        "needs 2 registers, but the device reads at most 1 per request"
+    );
+}
+
+/// @brief it should reject a string wider than one request of the device.
+TEST_F(ModbusReadTest, testStringWiderThanMaxRegistersRejected) {
+    device.properties["requests"] = {{"max_registers", 2}};
+    ASSERT_NIL(client->devices.create(device));
+    auto ch = ASSERT_NIL_P(client->channels.create(
+        make_unique_channel_name("wide_str"),
+        x::telem::STRING_T,
+        true
+    ));
+    auto cfg = create_base_config();
+    cfg["channels"].push_back(
+        {{"type", "holding_register"},
+         {"channel", ch.key},
+         {"address", 0},
+         {"data_type", "string"},
+         {"string_length", 5}}
+    );
+    auto p = x::json::Parser(cfg);
+    ReadTaskConfig task_cfg(client, p);
+    ASSERT_OCCURRED_AS(p.error(), x::errors::VALIDATION);
+    const auto errors = p.error_json()["errors"];
+    ASSERT_EQ(errors.size(), 1);
+    EXPECT_EQ(errors[0]["path"], "channels.0.string_length");
+    EXPECT_EQ(
+        errors[0]["message"],
+        "needs 3 registers, but the device reads at most 2 per request"
+    );
+}
+
+/// @brief it should reject a Synnax channel that cannot hold a number.
+TEST_F(ModbusReadTest, testStringChannelRejected) {
+    auto ch = ASSERT_NIL_P(client->channels.create(
+        make_unique_channel_name("str"),
+        x::telem::STRING_T,
+        true
+    ));
+    auto cfg = create_base_config();
+    cfg["channels"].push_back(create_channel_config("coil", ch, 0));
+    auto p = x::json::Parser(cfg);
+    ReadTaskConfig task_cfg(client, p);
+    ASSERT_OCCURRED_AS(p.error(), x::errors::VALIDATION);
+    const auto errors = p.error_json()["errors"];
+    ASSERT_EQ(errors.size(), 1);
+    EXPECT_EQ(errors[0]["path"], "channels.0.channel");
+    EXPECT_EQ(errors[0]["message"], "must be a numeric channel, not a string channel");
+}
+
+/// @brief it should keep reading after the server drops the connection, without a
+/// restart.
+TEST_F(ModbusReadTest, testKeepsReadingAfterDroppedConnection) {
+    testutil::SlaveConfig slave_cfg;
+    slave_cfg.port = 1502;
+    slave_cfg.coils[0] = 1;
+    testutil::Slave slave(slave_cfg);
+    ASSERT_NIL(slave.start());
+    x::defer::defer stop_slave([&slave] { slave.stop(); });
+
+    auto data_ch = synnax::channel::Channel{
+        .name = make_unique_channel_name("coil"),
+        .data_type = x::telem::UINT8_T,
+        .index = index_channel.key,
+    };
+    ASSERT_NIL(client->channels.create(data_ch));
+    auto cfg = create_base_config();
+    cfg["channels"].push_back(create_channel_config("coil", data_ch, 0));
+    auto p = x::json::Parser(cfg);
+    auto task_cfg = std::make_unique<ReadTaskConfig>(client, p);
+    ASSERT_NIL(p.error());
+    task = synnax::task::Task{.rack = rack.key, .name = "drop", .type = "modbus_read"};
+
+    auto read_task = common::ReadTask(
+        task,
+        ctx,
+        x::breaker::Config{
+            .name = task.name,
+            .base_interval = 10 * x::telem::MILLISECOND,
+            .max_retries = x::breaker::RETRY_INFINITELY,
+        },
+        std::make_unique<ReadTaskSource>(
+            std::make_shared<device::Manager>(),
+            std::move(*task_cfg)
+        ),
+        mock_factory
+    );
+    read_task.start("start_cmd");
+    ASSERT_EVENTUALLY_GE(mock_factory->writes->size(), 2);
+    slave.drop_connections();
+    const auto after_drop = mock_factory->writes->size();
+    ASSERT_EVENTUALLY_GE(mock_factory->writes->size(), after_drop + 5);
+    read_task.stop("stop_cmd", true);
+    for (const auto &status: ctx->statuses)
+        EXPECT_NE(status.variant, synnax::status::VARIANT_ERROR) << status.message;
 }
 }

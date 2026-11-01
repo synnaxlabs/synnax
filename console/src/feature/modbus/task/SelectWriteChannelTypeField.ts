@@ -15,6 +15,7 @@ import { Task } from "@/platform/task";
 const NAMES = {
   coil: "Coil",
   holding_register: "Holding register",
+  holding_register_bit: "Holding register bit",
 } as const satisfies Record<WriteChannelType, string>;
 
 export const SelectWriteChannelTypeField = Form.buildSelectField<WriteChannelType>({

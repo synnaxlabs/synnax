@@ -16,17 +16,17 @@ import (
 	. "github.com/onsi/gomega"
 	"github.com/synnaxlabs/gorp"
 	. "github.com/synnaxlabs/gorp/testutil"
-	"github.com/synnaxlabs/synnax/pkg/distribution/mock"
+	"github.com/synnaxlabs/synnax/pkg/distribution/testutil"
 	"github.com/synnaxlabs/synnax/pkg/service/group"
 	"github.com/synnaxlabs/synnax/pkg/service/label"
 	"github.com/synnaxlabs/synnax/pkg/service/ontology"
 	v0 "github.com/synnaxlabs/synnax/pkg/service/rack/versions/v0"
 	"github.com/synnaxlabs/synnax/pkg/service/status"
 	"github.com/synnaxlabs/x/encoding/msgpack"
-	"github.com/synnaxlabs/x/kv/memkv"
 	"github.com/synnaxlabs/x/query"
 	"github.com/synnaxlabs/x/telem"
 	. "github.com/synnaxlabs/x/testutil"
+	"github.com/synnaxlabs/x/testutil/memkv"
 )
 
 var _ = Describe("Migration", func() {
@@ -60,7 +60,7 @@ var _ = Describe("Migration", func() {
 			DB:        db,
 			Namespace: "Rack",
 			Migrations: v0.NewMigrations(v0.MigrationConfig{
-				HostProvider: mock.NewStaticHostProvider(1),
+				HostProvider: testutil.NewStaticHostProvider(1),
 				Status:       statusSvc,
 			}),
 		})).To(Succeed())
@@ -215,7 +215,7 @@ var _ = Describe("Status backfill", func() {
 				DB:        db,
 				Namespace: "Rack",
 				Migrations: v0.NewMigrations(v0.MigrationConfig{
-					HostProvider: mock.NewStaticHostProvider(1),
+					HostProvider: testutil.NewStaticHostProvider(1),
 					Status:       statusSvc,
 				}),
 			})).To(Succeed())

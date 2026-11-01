@@ -11,7 +11,7 @@ import { Unreachable } from "@synnaxlabs/freighter";
 import { type record, sleep, TimeSpan } from "@synnaxlabs/x";
 import { describe, expect, it, vi } from "vitest";
 
-import { AccessDeniedError, NotFoundError } from "@/errors";
+import { AccessDeniedError, NotFoundError } from "@/index";
 import { query } from "@/query";
 
 const noopError = (_: Error) => {};

@@ -36,6 +36,19 @@ func MigrateRegisterValue(
 	return v, nil
 }
 
+// MigrateReadChannel lifts a v1 read channel to v2. Every v1 variant exists in v2.
+func MigrateReadChannel(ctx context.Context, old v1.ReadChannel) (ReadChannel, error) {
+	return autoMigrateReadChannel(ctx, old)
+}
+
+// MigrateWriteChannel lifts a v1 write channel to v2. Every v1 variant exists in v2.
+func MigrateWriteChannel(
+	ctx context.Context,
+	old v1.WriteChannel,
+) (WriteChannel, error) {
+	return autoMigrateWriteChannel(ctx, old)
+}
+
 // MigrateReadConfig lifts a v1 read config to v2.
 func MigrateReadConfig(ctx context.Context, old v1.ReadConfig) (ReadConfig, error) {
 	return autoMigrateReadConfig(ctx, old)

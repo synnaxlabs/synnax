@@ -28,11 +28,11 @@
 
 namespace driver::ni {
 Scanner::Scanner(
-    const std::shared_ptr<syscfg::SugaredAPI> &syscfg,
+    std::shared_ptr<x::lib::Lazy<syscfg::SugaredAPI>> lib,
     ScanTaskConfig cfg,
     synnax::task::Task task
 ):
-    cfg(cfg), task(std::move(task)), syscfg(syscfg) {}
+    cfg(cfg), task(std::move(task)), lib(std::move(lib)) {}
 
 const auto SKIP_DEVICE_ERR = x::errors::Error("ni.skip_device", "");
 const std::size_t NO_DEVICES_LOG_MULTIPLIER = 12;
@@ -170,6 +170,12 @@ Scanner::parse_device(NISysCfgResourceHandle resource) {
 
 std::pair<std::vector<synnax::device::Device>, x::errors::Error>
 Scanner::scan(const common::ScannerContext &ctx) {
+    if (this->filter == nullptr) {
+        if (const auto err = this->open()) {
+            this->close();
+            return {{}, err};
+        }
+    }
     NISysCfgEnumResourceHandle resources = nullptr;
     NISysCfgResourceHandle curr_resource = nullptr;
 
@@ -241,11 +247,13 @@ Scanner::scan(const common::ScannerContext &ctx) {
 }
 
 x::errors::Error Scanner::stop() {
-    this->syscfg->CloseHandle(this->filter);
-    return this->syscfg->CloseHandle(this->session);
+    return this->close();
 }
 
-x::errors::Error Scanner::start() {
+x::errors::Error Scanner::open() {
+    auto [syscfg, load_err] = this->lib->get();
+    if (load_err) return load_err;
+    this->syscfg = std::move(syscfg);
     if (const auto err = this->syscfg->InitializeSession(
             nullptr,
             nullptr,
@@ -281,5 +289,16 @@ x::errors::Error Scanner::start() {
         ))
         return err;
     return x::errors::NIL;
+}
+
+x::errors::Error Scanner::close() {
+    if (this->filter != nullptr) {
+        this->syscfg->CloseHandle(this->filter);
+        this->filter = nullptr;
+    }
+    if (this->session == nullptr) return x::errors::NIL;
+    const auto err = this->syscfg->CloseHandle(this->session);
+    this->session = nullptr;
+    return err;
 }
 }

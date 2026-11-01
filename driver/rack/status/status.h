@@ -28,6 +28,9 @@ const std::string LEGACY_HEARTBEAT_TYPE = "heartbeat";
 const std::string TASK_NAME = "Rack Status";
 const std::string TASK_TYPE = "rack_status";
 const auto EMISSION_RATE = x::telem::HERTZ * 1;
+/// @brief a gap between good heartbeats after which the Core may have marked the tasks
+/// of the rack as stopped.
+const auto LATE_GAP = EMISSION_RATE.period() * 3;
 
 class Source final : public driver::pipeline::Base {
     /// @brief the key of the rack the heartbeat is for.
@@ -72,6 +75,8 @@ public:
             }
         };
         this->ctx->set_status(stat);
+        bool resend_pending = false;
+        auto last_beat = x::telem::TimeStamp::now();
         while (breaker.running()) {
             this->loop.wait(breaker);
             synnax::rack::Status status{
@@ -84,11 +89,25 @@ public:
             };
             if (const auto err = this->ctx->client->statuses
                                      .set<synnax::rack::StatusDetails>(status);
-                err)
+                err) {
                 LOG(ERROR) << "[rack_status] error updating status: " << err;
-            else
-                VLOG(1) << "[rack_status] successfully set status for rack "
-                        << this->rack_key;
+                // Task status writes also fail while the Core is out of reach.
+                resend_pending = true;
+                continue;
+            }
+            VLOG(1) << "[rack_status] successfully set status for rack "
+                    << this->rack_key;
+            // A sleep or a slow write leaves a gap without a failed write.
+            const auto now = x::telem::TimeStamp::now();
+            if (now - last_beat > LATE_GAP) resend_pending = true;
+            last_beat = now;
+            if (!resend_pending) continue;
+            if (const auto resend_err = this->ctx->resend_statuses()) {
+                LOG(ERROR) << "[rack_status] failed to send task statuses again: "
+                           << resend_err;
+                continue;
+            }
+            resend_pending = false;
         }
         stat.message = "Stopped";
         stat.time = x::telem::TimeStamp::now();
