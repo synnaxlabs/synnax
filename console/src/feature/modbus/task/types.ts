@@ -31,7 +31,7 @@ export const isVariableDensityReadChannel = (
   channel: ReadChannel,
 ): channel is TypedReadChannel => VARIABLE_DENSITY_READ_CHANNEL_TYPES.has(channel.type);
 
-export const isStringChannel = (channel: ReadChannel): channel is TypedReadChannel =>
+const isStringChannel = (channel: ReadChannel): channel is TypedReadChannel =>
   isVariableDensityReadChannel(channel) &&
   new DataType(channel.dataType).equals(DataType.STRING);
 
@@ -64,6 +64,9 @@ export const readChannelName = (deviceName: string, channel: ReadChannel) => {
 export type WriteChannel = modbus.WriteChannel;
 export type WriteChannelType = modbus.WriteChannelType;
 
+/** A channel of a read or a write task. */
+export type Channel = ReadChannel | WriteChannel;
+
 export const BIT_BOUNDS = { lower: 0, upper: 15 };
 export const STRING_LENGTH_BOUNDS = { lower: 1, upper: 250 };
 
@@ -72,7 +75,7 @@ export const STRING_LENGTH_BOUNDS = { lower: 1, upper: 250 };
  * bits of its data type, a string spans one address per two characters, and every
  * other channel spans one.
  */
-const nextAddress = (channel: ReadChannel | WriteChannel): number => {
+const nextAddress = (channel: Channel): number => {
   if (!("dataType" in channel)) return channel.address + 1;
   if ("stringLength" in channel && isStringChannel(channel))
     return channel.address + Math.ceil(channel.stringLength / 2);
@@ -81,14 +84,14 @@ const nextAddress = (channel: ReadChannel | WriteChannel): number => {
 };
 
 /** @returns the first and last addresses of a channel. */
-export const addressSpan = (channel: ReadChannel | WriteChannel): [number, number] => [
+export const addressSpan = (channel: Channel): [number, number] => [
   channel.address,
   nextAddress(channel) - 1,
 ];
 
-/** Where channels of the same type read the same addresses. */
+/** Where channels of the same type use the same addresses. */
 export interface Overlaps {
-  /** The keys of the channels that read an address another channel reads. */
+  /** The keys of the channels that use an address another channel uses. */
   keys: Set<string>;
   /** For each type, the shared address ranges, in order and apart. */
   ranges: Partial<Record<ReadChannelType, [number, number][]>>;
@@ -104,19 +107,19 @@ const mergeRanges = (spans: [number, number][]): [number, number][] =>
       return merged;
     }, []);
 
-/** @returns where channels of the same type read the same addresses. */
-export const findOverlaps = (channels: ReadChannel[]): Overlaps => {
+/** @returns where channels of the same type use the same addresses. */
+export const findOverlaps = (channels: Channel[]): Overlaps => {
   const keys = new Set<string>();
   const ranges: Overlaps["ranges"] = {};
   const sharedByType = new Map<ReadChannelType, [number, number][]>();
-  // Bits of one register read apart, so only channels on the same bit can overlap.
+  // Bits of one register are apart, so only channels on the same bit can overlap.
   const groups = Map.groupBy(channels, (c) =>
     "bit" in c ? `${c.type}.${c.bit}` : c.type,
   );
   for (const typed of groups.values()) {
     const { type } = typed[0];
-    // A channel stops reading one address past its last, and a stop comes before a
-    // start at the same address, so channels that only touch do not overlap.
+    // A channel stops one address past its last, and a stop comes before a start at
+    // the same address, so channels that only touch do not overlap.
     const events = typed
       .flatMap((c): [number, number, string][] => {
         const [lo, hi] = addressSpan(c);
@@ -126,20 +129,20 @@ export const findOverlaps = (channels: ReadChannel[]): Overlaps => {
         ];
       })
       .sort((a, b) => a[0] - b[0] || a[1] - b[1]);
-    const reading = new Set<string>();
+    const active = new Set<string>();
     const shared: [number, number][] = [];
     let start = 0;
     for (const [address, step, key] of events) {
       if (step < 0) {
-        reading.delete(key);
-        if (reading.size === 1) shared.push([start, address - 1]);
+        active.delete(key);
+        if (active.size === 1) shared.push([start, address - 1]);
         continue;
       }
-      reading.add(key);
-      if (reading.size < 2) continue;
+      active.add(key);
+      if (active.size < 2) continue;
       keys.add(key);
-      if (reading.size > 2) continue;
-      reading.forEach((k) => keys.add(k));
+      if (active.size > 2) continue;
+      active.forEach((k) => keys.add(k));
       const last = shared.at(-1);
       if (last?.[1] === address - 1) {
         shared.pop();
@@ -157,7 +160,7 @@ export const findOverlaps = (channels: ReadChannel[]): Overlaps => {
  * Returns the channel to add after the given one: the next bit of a bit channel, then
  * bit 0 of the next register, or the first address after any other channel.
  */
-export const nextChannel = <C extends ReadChannel | WriteChannel>(channel: C): C => {
+export const nextChannel = <C extends Channel>(channel: C): C => {
   if (!("bit" in channel)) return { ...channel, address: nextAddress(channel) };
   if (channel.bit < BIT_BOUNDS.upper) return { ...channel, bit: channel.bit + 1 };
   return { ...channel, address: channel.address + 1, bit: 0 };
@@ -191,8 +194,8 @@ export const UNSUPPORTED_READ_DATA_TYPES = DataType.ALL.filter(
 const ADDRESS_LIMIT = 65536;
 
 const addressRangeIssue = (
-  channels: (ReadChannel | WriteChannel)[],
-  ch: ReadChannel | WriteChannel,
+  channels: Channel[],
+  ch: Channel,
   i: number,
 ): z.core.$ZodRawIssue | null => {
   if (nextAddress(ch) <= ADDRESS_LIMIT) return null;

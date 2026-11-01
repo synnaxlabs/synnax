@@ -12,11 +12,7 @@ import { Input } from "@synnaxlabs/lyra/input";
 import { type CSSProperties, type ReactElement } from "react";
 
 import { parseAddress, toModicon } from "@/feature/modbus/task/address";
-import {
-  addressSpan,
-  type ReadChannel,
-  type WriteChannel,
-} from "@/feature/modbus/task/types";
+import { addressSpan, type Channel } from "@/feature/modbus/task/types";
 import { CSS } from "@/platform/css";
 
 export interface AddressFieldProps extends Pick<Input.TextProps, "variant"> {
@@ -37,7 +33,7 @@ export const AddressField = ({
   variant,
   overlapping = false,
 }: AddressFieldProps): ReactElement => {
-  const channel = Form.useFieldValue<ReadChannel | WriteChannel>(path);
+  const channel = Form.useFieldValue<Channel>(path);
   const field = Form.useField<number>(`${path}.address`);
   const invalid = field.status.variant !== "success";
   const [lo, hi] = addressSpan(channel);

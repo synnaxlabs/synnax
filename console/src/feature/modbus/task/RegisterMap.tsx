@@ -11,7 +11,6 @@ import { context } from "@synnaxlabs/lyra/context";
 import { Form } from "@synnaxlabs/lyra/form";
 import { Menu } from "@synnaxlabs/lyra/menu";
 import { Store } from "@synnaxlabs/lyra/store";
-import { id } from "@synnaxlabs/x";
 import {
   type PointerEvent,
   type PropsWithChildren,
@@ -28,11 +27,9 @@ import {
 } from "@/feature/modbus/task/Register";
 import {
   addressSpan,
+  type Channel,
   findOverlaps,
   type Overlaps,
-  READ_CHANNEL_SCHEMAS,
-  type ReadChannel,
-  type ReadChannelType,
 } from "@/feature/modbus/task/types";
 import { CSS } from "@/platform/css";
 import { Task } from "@/platform/task";
@@ -48,13 +45,13 @@ const [SetHovered, useSetHoveredContext] = context.create<(key?: string) => void
 });
 
 const [FindOverlaps, useFindOverlaps] = context.create<
-  (channels: ReadChannel[]) => Overlaps
+  (channels: Channel[]) => Overlaps
 >({ displayName: "Modbus.FindOverlaps", providerName: "Modbus.RegisterMapProvider" });
 
 // Finds the overlaps once for each version of the channels, however many items ask.
 const createFindOverlaps = () => {
-  let last: { channels: ReadChannel[]; overlaps: Overlaps } | undefined;
-  return (channels: ReadChannel[]): Overlaps => {
+  let last: { channels: Channel[]; overlaps: Overlaps } | undefined;
+  return (channels: Channel[]): Overlaps => {
     if (last?.channels !== channels)
       last = { channels, overlaps: findOverlaps(channels) };
     return last.overlaps;
@@ -105,14 +102,14 @@ export const useHoveredRef = (key: string): RefCallback<HTMLElement> => {
 
 // Subscribes to a value derived from the channels, so a component re-renders only
 // when that value changes, not on every edit to a channel.
-const useDerived = <T,>(derive: (channels: ReadChannel[]) => T): T => {
+const useDerived = <T,>(derive: (channels: Channel[]) => T): T => {
   const { get, bind } = Form.useContext();
-  const getSnapshot = () => derive(get<ReadChannel[]>(CHANNELS_PATH).value);
+  const getSnapshot = () => derive(get<Channel[]>(CHANNELS_PATH).value);
   return useSyncExternalStore(bind, getSnapshot, getSnapshot);
 };
 
 /**
- * @returns whether another channel of the same type reads one of the channel's
+ * @returns whether another channel of the same type uses one of the channel's
  * addresses.
  */
 export const useOverlaps = (key: string): boolean => {
@@ -126,32 +123,33 @@ const MAX_TICKS = 128;
 const rangeText = ([lo, hi]: [number, number]): string =>
   lo === hi ? `${lo}` : `${lo}–${hi}`;
 
-interface Free {
-  type: ReadChannelType;
+interface Free<C extends Channel> {
+  type: C["type"];
   address: number;
 }
 
-const createChannel = ({ type, address }: Free): ReadChannel => ({
-  ...READ_CHANNEL_SCHEMAS[type].parse({ type, address }),
-  ...Task.READ_CHANNEL_OVERRIDE,
-  key: id.create(),
-});
+export interface RegisterMapProps<C extends Channel> {
+  /** Creates the channel that a click on a free address adds. */
+  createChannel: (type: C["type"], address: number) => C;
+}
 
 /**
- * The addresses that the channels read: a lane for each register type, on one address
+ * The addresses that the channels use: a lane for each register type, on one address
  * scale. Used addresses fill, and a hatched band marks an address that two channels
- * read. Pointing at a segment marks its channel in the list, and the other way around.
+ * use. Pointing at a segment marks its channel in the list, and the other way around.
  * A segment opens its channel's menu, and a click on a free address adds a channel
  * there.
  */
-export const RegisterMap = (): ReactElement | null => {
-  const channels = Form.useFieldValue<ReadChannel[]>(CHANNELS_PATH);
+export const RegisterMap = <C extends Channel>({
+  createChannel,
+}: RegisterMapProps<C>): ReactElement | null => {
+  const channels = Form.useFieldValue<C[]>(CHANNELS_PATH);
   const { set } = Form.useContext();
   const isPreview = Task.useIsPreview();
   const hovered = Hovered.usePresent();
   const setHovered = useSetHovered();
   const find = useFindOverlaps("Modbus.RegisterMap");
-  const [free, setFree] = useState<Free>();
+  const [free, setFree] = useState<Free<C>>();
   if (channels.length === 0) return null;
   const { ranges } = find(channels);
   const spans = channels.map((channel) => ({ channel, span: addressSpan(channel) }));
@@ -163,7 +161,7 @@ export const RegisterMap = (): ReactElement | null => {
   const hoveredSpan = spans.find(({ channel }) => channel.key === hovered);
   const axisSpan: [number, number] | undefined =
     hoveredSpan?.span ?? (free == null ? undefined : [free.address, free.address]);
-  const handleTrackMove = (type: ReadChannelType, e: PointerEvent<HTMLElement>) => {
+  const handleTrackMove = (type: C["type"], e: PointerEvent<HTMLElement>) => {
     if (isPreview) return;
     const box = e.currentTarget.getBoundingClientRect();
     const address = lo + Math.floor(((e.clientX - box.left) / box.width) * count);
@@ -175,7 +173,7 @@ export const RegisterMap = (): ReactElement | null => {
   };
   const handleAdd = () => {
     if (free == null) return;
-    set(CHANNELS_PATH, [...channels, createChannel(free)]);
+    set(CHANNELS_PATH, [...channels, createChannel(free.type, free.address)]);
     setFree(undefined);
   };
   return (
@@ -185,7 +183,9 @@ export const RegisterMap = (): ReactElement | null => {
         hoveredSpan != null && CSS.BEM("modbus", "map", "hovered"),
       )}
     >
-      {REGISTER_TYPES.filter((t) => channels.some((c) => c.type === t)).map((t) => {
+      {REGISTER_TYPES.filter((t): t is C["type"] =>
+        channels.some((c) => c.type === t),
+      ).map((t) => {
         const lane = spans.filter(({ channel }) => channel.type === t);
         return (
           <div

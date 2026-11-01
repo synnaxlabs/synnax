@@ -11,24 +11,28 @@ import "@/feature/modbus/task/Task.css";
 
 import { channel, type modbus, NotFoundError, type Synnax } from "@synnaxlabs/client";
 import { Component } from "@synnaxlabs/lyra/component";
-import { Flex } from "@synnaxlabs/lyra/flex";
 import { Form as PForm } from "@synnaxlabs/lyra/form";
+import { Header } from "@synnaxlabs/lyra/header";
 import { Icon } from "@synnaxlabs/lyra/icon";
-import { Menu } from "@synnaxlabs/lyra/menu";
-import { Select } from "@synnaxlabs/lyra/select";
-import { Text } from "@synnaxlabs/lyra/text";
-import { Access, Telem } from "@synnaxlabs/pluto";
-import { DataType, deep, errors, id, primitive } from "@synnaxlabs/x";
+import { List } from "@synnaxlabs/lyra/list";
+import { DataType, errors, id, primitive } from "@synnaxlabs/x";
 import { type FC } from "react";
 
 import { useFromConfig } from "@/feature/modbus/device/queries";
 import { Select as SelectDevice } from "@/feature/modbus/device/Select";
 import { MAKE, SCHEMAS } from "@/feature/modbus/device/types";
 import { AddressField } from "@/feature/modbus/task/AddressField";
-import { OrderFields } from "@/feature/modbus/task/OrderFields";
-import { SelectWriteChannelTypeField } from "@/feature/modbus/task/SelectWriteChannelTypeField";
+import { ByteOrderField } from "@/feature/modbus/task/ByteOrder";
+import { DataTypeCell } from "@/feature/modbus/task/DataTypeCell";
+import { RegisterField } from "@/feature/modbus/task/Register";
 import {
-  BIT_BOUNDS,
+  RegisterMap,
+  RegisterMapProvider,
+  useHoveredRef,
+  useIsHovered,
+  useOverlaps,
+} from "@/feature/modbus/task/RegisterMap";
+import {
   deployWriteConfigZ,
   nextChannel,
   UNSUPPORTED_WRITE_DATA_TYPES,
@@ -39,126 +43,17 @@ import {
   type WriteChannelType,
   type WriteSchemas,
 } from "@/feature/modbus/task/types";
-import { ContextMenu } from "@/platform/context-menu";
-import { CSS } from "@/platform/css";
 import { Selector } from "@/platform/selector";
 import { Task } from "@/platform/task";
 
 const Properties = () => <SelectDevice />;
 
-const ChannelListItem = (props: Task.ChannelListItemProps) => {
-  const { itemKey } = props;
-  const path = `config.channels.${itemKey}`;
-  const ch = PForm.useFieldValue<WriteChannel>(path);
-  const { type, channel } = ch;
-  return (
-    <Select.Item {...props} justify="between" align="center" x full="x">
-      <Flex.Box x pack className={CSS.B("channel-item")}>
-        <SelectWriteChannelTypeField
-          path={path}
-          onChange={(value, { get, set, path }) => {
-            const prevType = get<WriteChannelType>(path).value;
-            if (prevType === value) return;
-            const next = WRITE_CHANNEL_SCHEMAS[value].parse({ type: value });
-            const parentPath = path.slice(0, path.lastIndexOf("."));
-            const prevParent = get<WriteChannel>(parentPath).value;
-            const schema = WRITE_CHANNEL_SCHEMAS[value];
-            set(parentPath, {
-              ...deep.overrideValidItems(next, prevParent, schema),
-              type: value,
-            });
-          }}
-        />
-        <AddressField path={path} />
-        {type === "holding_register_bit" && (
-          <PForm.NumericField
-            inputProps={{
-              showDragHandle: false,
-              bounds: BIT_BOUNDS,
-              startContent: "Bit",
-              "aria-label": "Bit",
-            }}
-            showLabel={false}
-            showHelpText={false}
-            path={`${path}.bit`}
-          />
-        )}
-        {type === "holding_register" && (
-          <PForm.Field<string>
-            path={`${path}.dataType`}
-            showLabel={false}
-            showHelpText={false}
-          >
-            {renderTelemSelectDataType}
-          </PForm.Field>
-        )}
-      </Flex.Box>
-      {ch.type === "holding_register" && (
-        <OrderFields path={path} dataType={ch.dataType} />
-      )}
-      <Flex.Box x align="center" grow justify="end">
-        <Task.ChannelName
-          channel={channel}
-          namePath={`${path}.name`}
-          id={Task.getChannelNameID(itemKey)}
-        />
-        <Task.EnabledCheckbox path={`${path}.disabled`} />
-      </Flex.Box>
-    </Select.Item>
-  );
-};
-
-const renderTelemSelectDataType = Component.renderProp(
-  (props: Telem.SelectDataTypeProps) => (
-    <Telem.SelectDataType {...props} hideDataTypes={UNSUPPORTED_WRITE_DATA_TYPES} />
-  ),
-);
-
-const getOpenChannel = (channels: WriteChannel[]): WriteChannel => {
-  if (channels.length === 0)
-    return {
-      ...WRITE_CHANNEL_SCHEMAS.coil.parse({ type: "coil" }),
-      key: id.create(),
-    };
-  return { ...nextChannel(channels[channels.length - 1]), key: id.create(), name: "" };
-};
-
-const listItem = Component.renderProp(ChannelListItem);
-
-interface ContextMenuItemProps extends Task.ContextMenuItemProps<WriteChannel> {}
-
-const ContextMenuItem: React.FC<ContextMenuItemProps> = ({ channels, keys }) => {
-  const canRename = Access.useUpdateGranted(channel.TYPE_ONTOLOGY_ID);
-  if (keys.length !== 1 || !canRename) return null;
-  const key = keys[0];
-  const cmdChannel = channels.find((ch) => ch.key === key)?.channel;
-  if (cmdChannel == null) return null;
-  const handleRename = () => Text.edit(Task.getChannelNameID(key));
-  return (
-    <>
-      <ContextMenu.RenameItem onClick={handleRename} />
-      <Menu.Divider />
-    </>
-  );
-};
-
-const contextMenuItems = Component.renderProp(ContextMenuItem);
-
-const Form: FC = () => {
-  const dev = useFromConfig();
-  const resolve = (c: WriteChannel) =>
-    dev == null
-      ? null
-      : { channel: dev.properties.write.channels[writeMapKey(c)] ?? 0 };
-  return (
-    <Task.Views.List<WriteChannel>
-      createChannel={getOpenChannel}
-      listItem={listItem}
-      contextMenuItems={contextMenuItems}
-      resolve={resolve}
-    />
-  );
-};
+const COLUMNS: List.Column[] = [
+  { name: "Type", width: "30rem", field: true },
+  { name: "Address", width: "24rem", field: true },
+  { name: "Data type", width: "32rem", field: true },
+  { name: "Byte order", width: "27rem", field: true },
+];
 
 // Auto-generated channel names and device map keys keep the released type
 // spellings, so channels created before the labels were renamed keep matching.
@@ -220,6 +115,95 @@ const commandName = (deviceName: string, channel: WriteChannel) => {
 
 const commandDataType = (channel: WriteChannel): string =>
   channel.type === "holding_register" ? channel.dataType : DataType.UINT8.toString();
+
+const ChannelListItem = ({ itemKey, ...rest }: Task.ChannelListItemProps) => {
+  const path = `config.channels.${itemKey}`;
+  const ch = PForm.useFieldValue<WriteChannel>(path);
+  const dev = useFromConfig();
+  const hovered = useIsHovered(itemKey);
+  const hoveredRef = useHoveredRef(itemKey);
+  const overlapping = useOverlaps(itemKey);
+  return (
+    <Task.Views.ListChannelItem
+      {...rest}
+      itemKey={itemKey}
+      path={path}
+      channel={ch.channel}
+      defaultName={
+        dev == null ? undefined : commandName(channel.escapeInvalidName(dev.name), ch)
+      }
+      ref={hoveredRef}
+      hovered={hovered}
+    >
+      <List.Cell>
+        <RegisterField<WriteChannel> path={path} schemas={WRITE_CHANNEL_SCHEMAS} />
+      </List.Cell>
+      <List.Cell>
+        <AddressField path={path} variant="shadow" overlapping={overlapping} />
+      </List.Cell>
+      <List.Cell>
+        <DataTypeCell
+          path={path}
+          channel={ch}
+          hideDataTypes={UNSUPPORTED_WRITE_DATA_TYPES}
+        />
+      </List.Cell>
+      <List.Cell>
+        {ch.type === "holding_register" && (
+          <ByteOrderField path={path} dataType={ch.dataType} />
+        )}
+      </List.Cell>
+    </Task.Views.ListChannelItem>
+  );
+};
+
+const getOpenChannel = (channels: WriteChannel[]): WriteChannel => {
+  if (channels.length === 0)
+    return {
+      ...WRITE_CHANNEL_SCHEMAS.coil.parse({ type: "coil" }),
+      key: id.create(),
+    };
+  return { ...nextChannel(channels[channels.length - 1]), key: id.create(), name: "" };
+};
+
+const createMapChannel = (type: WriteChannelType, address: number): WriteChannel => ({
+  ...WRITE_CHANNEL_SCHEMAS[type].parse({ type, address }),
+  key: id.create(),
+});
+
+const listItem = Component.renderProp(ChannelListItem);
+
+const HEADER = (
+  <>
+    <Header.Header>
+      <Header.Title weight={500} color={10}>
+        Channels
+      </Header.Title>
+    </Header.Header>
+    <RegisterMap createChannel={createMapChannel} />
+  </>
+);
+
+const Form: FC = () => {
+  const dev = useFromConfig();
+  const resolve = (c: WriteChannel) =>
+    dev == null
+      ? null
+      : { channel: dev.properties.write.channels[writeMapKey(c)] ?? 0 };
+  return (
+    <RegisterMapProvider>
+      <Task.Views.List<WriteChannel>
+        createChannel={getOpenChannel}
+        contextMenuItems={Task.readChannelContextMenuItem}
+        listItem={listItem}
+        resolve={resolve}
+        header={HEADER}
+        columns={COLUMNS}
+        checkable
+      />
+    </RegisterMapProvider>
+  );
+};
 
 const getInitialValues: Task.GetInitialValues<WriteSchemas> = ({ deviceKey }) => {
   const config = WRITE_SCHEMAS.config.parse({});
