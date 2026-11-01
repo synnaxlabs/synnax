@@ -29,8 +29,8 @@ type engine interface {
 	StageDelete(s *scope, key int)
 	Get(s *scope, values ...string) ([]int, error)
 	Committing(values ...string) []int
-	Announce(key int, value string)
-	Withdraw(key int, value string)
+	Announce(key int, value string) uint64
+	Withdraw(handle uint64)
 }
 
 // populated returns an index loaded with key 1 -> a, 2 -> a, and 3 -> b.
@@ -192,28 +192,28 @@ var _ = Describe("Index", func() {
 				})
 
 				It("Should return an announced key until it is withdrawn", func() {
-					e.Announce(1, "c")
+					handle := e.Announce(1, "c")
 					Expect(e.Committing("c")).To(ConsistOf(1))
 					Expect(e.Committing("a")).To(BeEmpty())
 					Expect(e.Get(nil, "a")).To(ConsistOf(1, 2))
 					Expect(e.Get(nil, "c")).To(BeEmpty())
-					e.Withdraw(1, "c")
+					e.Withdraw(handle)
 					Expect(e.Committing("c")).To(BeEmpty())
 				})
 
 				It("Should withdraw one announce of a key at a time", func() {
-					e.Announce(1, "c")
-					e.Announce(1, "c")
-					e.Withdraw(1, "c")
+					first := e.Announce(1, "c")
+					second := e.Announce(1, "c")
+					e.Withdraw(first)
 					Expect(e.Committing("c")).To(ConsistOf(1))
-					e.Withdraw(1, "c")
+					e.Withdraw(second)
 					Expect(e.Committing("c")).To(BeEmpty())
 				})
 
 				It("Should keep the announce of another value of a key", func() {
 					e.Announce(1, "c")
-					e.Announce(1, "d")
-					e.Withdraw(1, "d")
+					handle := e.Announce(1, "d")
+					e.Withdraw(handle)
 					Expect(e.Committing("c")).To(ConsistOf(1))
 					Expect(e.Committing("d")).To(BeEmpty())
 				})

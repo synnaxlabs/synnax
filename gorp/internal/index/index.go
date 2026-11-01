@@ -210,8 +210,9 @@ func mergeValues[S Scope, K, V comparable](
 
 // announcement is a value that key takes when a write in progress finishes.
 type announcement[K, V comparable] struct {
-	key   K
-	value V
+	handle uint64
+	key    K
+	value  V
 }
 
 // announcements holds the writes in progress outside any transaction. Its zero value
@@ -219,22 +220,32 @@ type announcement[K, V comparable] struct {
 type announcements[K, V comparable] struct {
 	mu      sync.RWMutex
 	entries []announcement[K, V]
+	// last is the handle of the latest Announce.
+	last uint64
 }
 
-// Announce makes Committing return key for value until Withdraw. Committed state does
-// not change, so a read of the current value still finds key.
-func (a *announcements[K, V]) Announce(key K, value V) {
+// Announce makes Committing return key for value until Withdraw of the returned
+// handle. Committed state does not change, so a read of the current value still finds
+// key.
+func (a *announcements[K, V]) Announce(key K, value V) uint64 {
 	a.mu.Lock()
 	defer a.mu.Unlock()
-	a.entries = append(a.entries, announcement[K, V]{key: key, value: value})
+	a.last++
+	a.entries = append(
+		a.entries,
+		announcement[K, V]{handle: a.last, key: key, value: value},
+	)
+	return a.last
 }
 
-// Withdraw ends one Announce of key and value. Apply a finished write to committed
+// Withdraw ends the Announce that returned handle. Apply a finished write to committed
 // state first, so that a Committing call followed by Get misses no key.
-func (a *announcements[K, V]) Withdraw(key K, value V) {
+func (a *announcements[K, V]) Withdraw(handle uint64) {
 	a.mu.Lock()
 	defer a.mu.Unlock()
-	i := slices.Index(a.entries, announcement[K, V]{key: key, value: value})
+	i := slices.IndexFunc(a.entries, func(e announcement[K, V]) bool {
+		return e.handle == handle
+	})
 	a.entries = slices.Delete(a.entries, i, i+1)
 }
 

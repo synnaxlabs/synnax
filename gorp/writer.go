@@ -99,15 +99,16 @@ func (w *Writer[K, E]) setDirect(
 	v, data []byte,
 	entry E,
 ) error {
-	for _, idx := range w.indexes {
-		idx.announce(&entry)
+	handles := make([]uint64, len(w.indexes))
+	for i, idx := range w.indexes {
+		handles[i] = idx.announce(&entry)
 	}
 	err := w.tx.Set(ctx, v, data, entry.SetOptions()...)
-	for _, idx := range w.indexes {
+	for i, idx := range w.indexes {
 		if err == nil {
 			idx.stageSet(w.tx, entry)
 		}
-		idx.withdraw(&entry)
+		idx.withdraw(handles[i])
 	}
 	return err
 }

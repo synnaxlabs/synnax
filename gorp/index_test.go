@@ -12,6 +12,7 @@ package gorp_test
 import (
 	"context"
 	"iter"
+	"math"
 	"sync"
 	"sync/atomic"
 
@@ -279,6 +280,17 @@ var _ = Describe("Index", func() {
 		Expect(during).To(BeEmpty())
 		Expect(nameIdx.Get(nil, "zeta")).To(BeEmpty())
 		Expect(nameIdx.Get(nil, "alpha")).To(ConsistOf(int32(1)))
+	})
+
+	It("Should finish a write through the DB of a NaN value", func(ctx SpecContext) {
+		db := DeferClose(openHostIndexedDB(memkv.New()))
+		ratioIdx := gorp.NewSortedIndex(
+			"ratio", func(*indexedEntry) float64 { return math.NaN() },
+		)
+		table := DeferClose(openIndexedTable(ctx, db, ratioIdx))
+		Expect(table.NewCreate().
+			Entry(&indexedEntry{ID: 1, Name: "alpha"}).
+			Exec(ctx, db)).To(Succeed())
 	})
 
 	Describe("Write through the DB", func() {

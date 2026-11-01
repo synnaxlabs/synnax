@@ -66,10 +66,11 @@ type Index[K Key, E Entry[K]] interface {
 	// state immediately.
 	stageDelete(tx Tx, key K)
 	// announce shows entry to index filters while a write outside a transaction is in
-	// progress. Committed index state does not change.
-	announce(entry *E)
-	// withdraw ends one announce of entry.
-	withdraw(entry *E)
+	// progress. Committed index state does not change. Pass the returned handle to
+	// withdraw when the write ends.
+	announce(entry *E) uint64
+	// withdraw ends the announce that returned handle.
+	withdraw(handle uint64)
 }
 
 // indexStore is the read side of the engine behind an index.
@@ -183,14 +184,12 @@ func (l *LookupIndex[K, E, V]) stageDelete(tx Tx, key K) {
 }
 
 //nolint:unused
-func (l *LookupIndex[K, E, V]) announce(entry *E) {
-	l.store.Announce((*entry).GorpKey(), l.extract(entry))
+func (l *LookupIndex[K, E, V]) announce(entry *E) uint64 {
+	return l.store.Announce((*entry).GorpKey(), l.extract(entry))
 }
 
 //nolint:unused
-func (l *LookupIndex[K, E, V]) withdraw(entry *E) {
-	l.store.Withdraw((*entry).GorpKey(), l.extract(entry))
-}
+func (l *LookupIndex[K, E, V]) withdraw(handle uint64) { l.store.Withdraw(handle) }
 
 // Get returns the primary keys of entries whose indexed field matches any of the
 // provided values, merging committed index state with any per-tx delta staged against
@@ -278,14 +277,12 @@ func (s *SortedIndex[K, E, V]) stageDelete(tx Tx, key K) {
 }
 
 //nolint:unused
-func (s *SortedIndex[K, E, V]) announce(entry *E) {
-	s.store.Announce((*entry).GorpKey(), s.extract(entry))
+func (s *SortedIndex[K, E, V]) announce(entry *E) uint64 {
+	return s.store.Announce((*entry).GorpKey(), s.extract(entry))
 }
 
 //nolint:unused
-func (s *SortedIndex[K, E, V]) withdraw(entry *E) {
-	s.store.Withdraw((*entry).GorpKey(), s.extract(entry))
-}
+func (s *SortedIndex[K, E, V]) withdraw(handle uint64) { s.store.Withdraw(handle) }
 
 // Get returns the primary keys of entries whose indexed field matches any of the
 // provided values, merging committed index state with any per-tx delta staged against
