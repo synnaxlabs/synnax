@@ -627,10 +627,10 @@ describe("Read ports", () => {
       ]);
     const mux = bank("Analog inputs", "AIN48 to AIN127");
     expect(layout(mux)).toEqual(
-      Array(5).fill(["repeat(8, var(--console-port-cell))", 16]),
+      Array(5).fill(["repeat(8, var(--pluto-port-cell))", 16]),
     );
     expect(layout(bank("Digital inputs", "MIO0 to MIO2"))).toEqual([
-      ["repeat(3, var(--console-port-cell))", 3],
+      ["repeat(3, var(--pluto-port-cell))", 3],
     ]);
     const last = within(mux).getByRole("button", { name: "AIN127" });
     expect([last.style.gridRow, last.style.gridColumn]).toEqual(["2", "8"]);
