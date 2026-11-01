@@ -423,7 +423,9 @@ var _ = Describe("ScanTask", func() {
 				})).To(Succeed())
 				Eventually(func() string { return taskStatus(ctx).Details.Cmd }).
 					Should(Equal("cmd-5"))
-				Expect(writes.Load()).To(BeEquivalentTo(1))
+				// A commit shows the status before its observers run.
+				Eventually(writes.Load).Should(BeEquivalentTo(1))
+				Consistently(writes.Load).Should(BeEquivalentTo(1))
 			},
 		)
 
