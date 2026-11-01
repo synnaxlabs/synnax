@@ -320,16 +320,6 @@ describe("Form", () => {
       unmount();
       expect(ctx.get("name").status.variant).toBe("success");
     });
-    it("should check nothing for a null schema", () => {
-      const { result } = renderHook(
-        () => {
-          Form.useCheck("name", null);
-          return Form.useContext();
-        },
-        { wrapper },
-      );
-      expect(result.current.get("name").status.variant).toBe("success");
-    });
     it("should replace the check when the schema changes", () => {
       const notJane = z.string().refine((v) => v !== "John Doe", "Not Jane");
       const { result, rerender } = renderHook(

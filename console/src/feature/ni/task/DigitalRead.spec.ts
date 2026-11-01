@@ -236,6 +236,21 @@ describe("DigitalRead ports", () => {
   });
 });
 
+describe("DigitalRead conflicts", () => {
+  it("should mark a line two channels share", async () => {
+    const dev = await createNIDevice(client, {
+      properties: { hardware: createHardware() },
+    });
+    await renderDigitalRead(
+      createConfig([createChannel(0, 2), createChannel(0, 2)], dev.key),
+    );
+    const [line] = await screen.findAllByLabelText("Line");
+    await waitFor(() => expect(line.getAttribute("aria-invalid")).toBe("true"));
+    fireEvent.pointerOver(line, { pointerType: "mouse" });
+    expect(await screen.findByText("Another channel uses port0/line2")).toBeTruthy();
+  });
+});
+
 describe("DigitalRead disabled channels", () => {
   it("should show no conflict for a line a disabled channel shares, and redeploy", async () => {
     const dev = await createNIDevice(client, {

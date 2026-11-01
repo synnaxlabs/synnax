@@ -14,13 +14,9 @@ import { useContext } from "@/form/Context";
 
 /**
  * Checks the value at the path with the schema while the caller is mounted, as
- * {@link ContextValue.addCheck} does. A null schema checks nothing, and a new schema
- * replaces the last one.
+ * {@link ContextValue.addCheck} does. A new schema replaces the last one.
  */
-export const useCheck = (path: string, schema: z.ZodType | null): void => {
+export const useCheck = (path: string, schema: z.ZodType): void => {
   const { addCheck } = useContext(undefined, `useCheck(${path})`);
-  useEffect(
-    () => (schema == null ? undefined : addCheck(path, schema)),
-    [addCheck, path, schema],
-  );
+  useEffect(() => addCheck(path, schema), [addCheck, path, schema]);
 };
