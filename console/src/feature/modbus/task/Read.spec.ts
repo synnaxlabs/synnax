@@ -277,6 +277,28 @@ describe("Read", () => {
     });
   });
 
+  it("should mark an address of another table until a valid entry", async () => {
+    const dev = await createModbusDevice(client);
+    const draft = await createDraft(client, {
+      ...Modbus.Task.READ_SCHEMAS.config.parse({}),
+      device: dev.key,
+      channels: [
+        Modbus.Task.READ_CHANNEL_SCHEMAS.input_register.parse({
+          type: "input_register",
+          key: id.create(),
+        }),
+      ],
+    });
+    await renderRead({ client, taskKey: draft.key });
+    const address = await screen.findByLabelText<HTMLInputElement>("Address");
+    commitFieldInput(address, "400004");
+    await waitFor(() => expect(address.getAttribute("aria-invalid")).toBe("true"));
+    expect(screen.getByText("300001")).toBeTruthy();
+    commitFieldInput(address, "300004");
+    await screen.findByText("300004");
+    expect(address.getAttribute("aria-invalid")).toBeNull();
+  });
+
   describe("byte and word order", () => {
     const createRegisterDraft = async (dataType: string, swapWords: boolean) => {
       const dev = await createModbusDevice(client, {

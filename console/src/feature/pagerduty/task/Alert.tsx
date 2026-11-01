@@ -54,7 +54,6 @@ const Properties = () => (
     <PForm.Field<number> path="rack" label="Connect from" grow>
       {selectRackRenderProp}
     </PForm.Field>
-    <Task.Fields.AutoStart />
   </Flex.Box>
 );
 

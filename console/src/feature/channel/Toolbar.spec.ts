@@ -18,7 +18,7 @@ import {
 import { describe, expect, it } from "vitest";
 
 import { Channel } from "@/feature/channel";
-import { renderToolbar } from "@/platform/tree/menuTestutil";
+import { renderToolbar } from "@/platform/tree/testutil";
 import {
   assertDefined,
   createTestClientWithGrants,

@@ -7,8 +7,4 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { Form } from "@synnaxlabs/lyra/form";
-
-export const DataSaving = () => (
-  <Form.CheckboxField label="Data saving" path="config.dataSavingDisabled" inverted />
-);
+export { pinOS } from "@/testutil/pinOS/pinOS";

@@ -251,7 +251,12 @@ export const Connect = ({
       <Modal.Header icon={<Icon.Logo.HTTP />}>{HEADER}</Modal.Header>
       <Modal.Body gap="large" justify="start">
         <Form.Form<PDevice.FormSchema<typeof SCHEMAS>> {...form}>
-          <Form.TextField path="name" showLabel={false} inputProps={NAME_INPUT_PROPS} />
+          <Form.TextField
+            path="name"
+            showLabel={false}
+            padHelpText={false}
+            inputProps={NAME_INPUT_PROPS}
+          />
           <Form.Sections>
             <Form.Section title="Connection">
               <Form.TextField
