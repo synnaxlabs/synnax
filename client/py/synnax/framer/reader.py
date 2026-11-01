@@ -45,7 +45,7 @@ class Reader:
     _registry: Registry
 
     def __init__(
-        self, retriever: Retriever, file_transport: FileTransport, registry: Registry
+        self, *, retriever: Retriever, file_transport: FileTransport, registry: Registry
     ) -> None:
         self._retriever = retriever
         self._file = file_transport
@@ -55,6 +55,7 @@ class Reader:
         self,
         tr: TimeRange,
         channels: channel.Params,
+        *,
         reduction: Reduction | None = None,
     ) -> Frame:
         """Reads every sample the given channels hold within tr.
@@ -70,7 +71,7 @@ class Reader:
         adapter.update(channels)
         req = _Request(keys=adapter.keys, bounds=tr, reduction=reduction)
         frame = Frame()
-        with self._file.stream(_ENDPOINT, req, _FRAME_CONTENT_TYPE) as body:
+        with self._file.stream(_ENDPOINT, req, accept=_FRAME_CONTENT_TYPE) as body:
             for record in _records(body, self._registry):
                 pld = adapter.codec.decode(record)
                 frame.append(Frame(channels=pld.keys, series=pld.series))
@@ -80,6 +81,7 @@ class Reader:
         self,
         tr: TimeRange,
         channels: channel.Params,
+        *,
         dest: FilePath,
         reduction: StrideReduction | None = None,
     ) -> None:
@@ -101,6 +103,7 @@ class Reader:
         self,
         tr: TimeRange,
         channels: channel.Params,
+        *,
         dest: FilePath,
         reduction: StrideReduction | None = None,
     ) -> None:
@@ -133,7 +136,7 @@ class Reader:
             reduction=reduction,
             timestamps_included=True,
         )
-        self._file.download(_ENDPOINT, req, dest)
+        self._file.download(_ENDPOINT, req, dest=dest)
 
 
 def _records(body: Iterator[bytes], registry: Registry) -> Iterator[bytes]:

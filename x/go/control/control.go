@@ -72,12 +72,6 @@ func (t Transfer[R]) Occurred() bool {
 	return t.From != nil || t.To != nil
 }
 
-// IsTransfer returns true if the control is a transfer between two controlled states.
-func (t Transfer[R]) IsTransfer() bool {
-	t.assertValid()
-	return t.Occurred() && t.To != nil && t.From != nil
-}
-
 // IsRelease returns true if the transfer is a release to an uncontrolled state.
 func (t Transfer[R]) IsRelease() bool {
 	t.assertValid()

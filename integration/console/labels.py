@@ -39,13 +39,13 @@ class LabelClient(ResourceClient):
         ).first
 
         if color is not None:
-            color_swatch = create_form.locator(".pluto-color-swatch").first
-            pick_color(self.layout.page, color_swatch, color)
+            color_swatch = create_form.locator(".lyra-color-swatch").first
+            pick_color(self.layout.page, color_swatch, hex_color=color)
 
         name_input = create_form.locator("input[placeholder='Name']")
         name_input.fill(name)
 
-        save_button = create_form.locator("button:has(svg.pluto-icon--check)")
+        save_button = create_form.locator("button:has(svg.lyra-icon--check)")
         save_button.click()
         create_form.wait_for(state="hidden", timeout=5000)
 
@@ -54,7 +54,8 @@ class LabelClient(ResourceClient):
             items = self._find_label_items()
             all_names = self._enumerate_label_names(items)
             raise ValueError(
-                f"Label '{name}' was not created successfully. Available labels: {all_names}"
+                f"Label '{name}' was not created successfully. Available labels: "
+                f"{all_names}"
             )
 
         self._close_edit_modal()
@@ -89,7 +90,7 @@ class LabelClient(ResourceClient):
         label_item = self._wait_for_label_item(name)
         if label_item is None:
             raise ValueError(f"Label '{name}' not found")
-        color_swatch = label_item.locator(".pluto-color-swatch").first
+        color_swatch = label_item.locator(".lyra-color-swatch").first
         style = color_swatch.get_attribute("style")
         if style is None:
             raise ValueError(f"Label '{name}' has no style attribute")
@@ -127,7 +128,8 @@ class LabelClient(ResourceClient):
             all_items = self._find_label_items()
             all_names = self._enumerate_label_names(all_items)
             raise RuntimeError(
-                f"Label rename from '{old_name}' to '{new_name}' did not complete. Available labels: {all_names}"
+                f"Label rename from '{old_name}' to '{new_name}' did not complete. "
+                f"Available labels: {all_names}"
             )
 
         self._close_edit_modal()
@@ -152,7 +154,7 @@ class LabelClient(ResourceClient):
 
         label_item.hover()
 
-        delete_button = label_item.locator("button:has(svg.pluto-icon--delete)")
+        delete_button = label_item.locator("button:has(svg.lyra-icon--delete)")
         delete_button.wait_for(state="visible", timeout=5000)
 
         element_id = label_item.get_attribute("id")
@@ -196,12 +198,12 @@ class LabelClient(ResourceClient):
         if label_item is None:
             raise ValueError(f"Label '{name}' not found")
 
-        color_swatch = label_item.locator(".pluto-color-swatch").first
-        pick_color(self.layout.page, color_swatch, new_color)
+        color_swatch = label_item.locator(".lyra-color-swatch").first
+        pick_color(self.layout.page, color_swatch, hex_color=new_color)
         self._close_edit_modal()
 
     def _open_edit_modal(self) -> None:
-        self.layout.open_modal("Edit labels", _MODAL_SELECTOR)
+        self.layout.open_modal("Edit labels", selector=_MODAL_SELECTOR)
 
     def _close_edit_modal(self) -> None:
         self.layout.close_modal(_MODAL_SELECTOR)

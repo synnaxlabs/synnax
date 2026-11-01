@@ -8,7 +8,7 @@
 // included in the file licenses/APL.txt.
 
 import { type ontology } from "@synnaxlabs/client";
-import { createTestClient, TEST_CLIENT_PARAMS } from "@synnaxlabs/client/testutil";
+import { createTestClient, TEST_CREDENTIALS } from "@synnaxlabs/client/testutil";
 import { id } from "@synnaxlabs/x";
 import { act, renderHook, waitFor } from "@testing-library/react";
 import { type FC, type PropsWithChildren } from "react";
@@ -176,7 +176,7 @@ describe("User queries", () => {
       });
 
       expect(result.current).not.toBeNull();
-      const { username } = TEST_CLIENT_PARAMS;
+      const { username } = TEST_CREDENTIALS;
       const signedIn = await client.users.retrieve({ username });
       expect(result.current?.key).toEqual(signedIn.key);
     });

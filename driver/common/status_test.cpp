@@ -79,7 +79,7 @@ TEST(TestTaskStateHandler, testSendWarning) {
         .name = "task1",
         .type = "ni_analog_read",
     };
-    auto handler = StatusHandler(ctx, task);
+    auto handler = StatusHandler(ctx, task, x::telem::TimeSpan(0));
 
     handler.send_warning("Test warning message", "");
     ASSERT_GE(ctx->statuses.size(), 1);
@@ -109,7 +109,7 @@ TEST(TestTaskStateHandle, testClearWarning) {
         .name = "task1",
         .type = "ni_analog_read",
     };
-    auto handler = StatusHandler(ctx, task);
+    auto handler = StatusHandler(ctx, task, x::telem::TimeSpan(0));
 
     // First send a warning
     handler.send_warning("Test warning message", "");
@@ -248,66 +248,109 @@ TEST(TestTaskStateHandler, testAckBeforeAnySend) {
     EXPECT_EQ(first.details.running, false);
 }
 
-/// @brief identical repeated warnings should be suppressed within the rate
-/// limit window.
-TEST(TestStatusRateLimit, testSuppressesIdenticalWarnings) {
+/// @brief it should send repeated identical warnings inside the window only once.
+TEST(TestStatusWindow, testSuppressesIdenticalWarnings) {
     const auto ctx = std::make_shared<task::MockContext>(nullptr);
     const synnax::task::Task task{.name = "task1", .type = "ni_analog_read"};
-    auto handler = StatusHandler(ctx, task);
+    const auto window = 50 * x::telem::MILLISECOND;
+    auto handler = StatusHandler(ctx, task, window);
 
     handler.send_warning("skew too high", "");
     handler.send_warning("skew too high", "");
     handler.send_warning("skew too high", "");
-    EXPECT_EQ(ctx->statuses.size(), 1);
-    EXPECT_EQ(ctx->statuses[0].message, "skew too high");
-    EXPECT_EQ(ctx->statuses[0].variant, synnax::status::VARIANT_WARNING);
+    std::this_thread::sleep_for((3 * window).chrono());
+    const auto statuses = ctx->snapshot();
+    ASSERT_EQ(statuses.size(), 1);
+    EXPECT_EQ(statuses[0].message, "skew too high");
+    EXPECT_EQ(statuses[0].variant, synnax::status::VARIANT_WARNING);
 }
 
-/// @brief a different warning message should go through immediately even if
-/// another warning was recently sent.
-TEST(TestStatusRateLimit, testAllowsDifferentWarningMessages) {
+/// @brief it should send a change inside the window once the window ends.
+TEST(TestStatusWindow, testDelaysChangeUntilWindowEnds) {
     const auto ctx = std::make_shared<task::MockContext>(nullptr);
     const synnax::task::Task task{.name = "task1", .type = "ni_analog_read"};
-    auto handler = StatusHandler(ctx, task);
+    const auto window = 100 * x::telem::MILLISECOND;
+    auto handler = StatusHandler(ctx, task, window);
 
     handler.send_warning("skew too high", "");
     handler.send_warning("array mismatch", "");
-    EXPECT_EQ(ctx->statuses.size(), 2);
-    EXPECT_EQ(ctx->statuses[0].message, "skew too high");
-    EXPECT_EQ(ctx->statuses[1].message, "array mismatch");
+    EXPECT_EQ(ctx->snapshot().size(), 1);
+    ASSERT_EVENTUALLY_EQ(ctx->snapshot().size(), 2);
+    const auto statuses = ctx->snapshot();
+    EXPECT_EQ(statuses[0].message, "skew too high");
+    EXPECT_EQ(statuses[1].message, "array mismatch");
+    EXPECT_GE(statuses[1].time - statuses[0].time, 90 * x::telem::MILLISECOND);
 }
 
-/// @brief alternating A/B/A/B spam should only produce two statuses (one per
-/// distinct message) within the rate limit window.
-TEST(TestStatusRateLimit, testSuppressesAlternatingSpam) {
+/// @brief it should send the recovery from a warning without another call, as a task
+/// that recovers and then reads normally makes no further status call.
+TEST(TestStatusWindow, testSendsRecoveryWithoutAnotherCall) {
     const auto ctx = std::make_shared<task::MockContext>(nullptr);
     const synnax::task::Task task{.name = "task1", .type = "ni_analog_read"};
-    auto handler = StatusHandler(ctx, task);
+    auto handler = StatusHandler(ctx, task, 100 * x::telem::MILLISECOND);
 
-    for (int i = 0; i < 100; ++i) {
+    handler.send_warning("Failed to read data", "The device is unreachable.");
+    handler.clear_warning();
+    handler.clear_warning();
+    EXPECT_EQ(ctx->snapshot().size(), 1);
+    ASSERT_EVENTUALLY_EQ(ctx->snapshot().size(), 2);
+    const auto recovered = ctx->snapshot()[1];
+    EXPECT_EQ(recovered.variant, synnax::status::VARIANT_SUCCESS);
+    EXPECT_EQ(recovered.message, "Task running");
+    EXPECT_EQ(recovered.description, "");
+}
+
+/// @brief it should send only the latest of many changes inside the window.
+TEST(TestStatusWindow, testSendsLatestOfManyChanges) {
+    const auto ctx = std::make_shared<task::MockContext>(nullptr);
+    const synnax::task::Task task{.name = "task1", .type = "ni_analog_read"};
+    const auto window = 100 * x::telem::MILLISECOND;
+    auto handler = StatusHandler(ctx, task, window);
+
+    for (int i = 0; i < 100; ++i)
         handler.send_warning(i % 2 == 0 ? "warning A" : "warning B", "");
-    }
-    EXPECT_EQ(ctx->statuses.size(), 2);
+    ASSERT_EVENTUALLY_EQ(ctx->snapshot().size(), 2);
+    std::this_thread::sleep_for((3 * window).chrono());
+    const auto statuses = ctx->snapshot();
+    ASSERT_EQ(statuses.size(), 2);
+    EXPECT_EQ(statuses[0].message, "warning A");
+    EXPECT_EQ(statuses[1].message, "warning B");
 }
 
-/// @brief warnings with the same message but different causes should both go through.
-TEST(TestStatusRateLimit, AllowsDifferentWarningDescriptions) {
+/// @brief it should send nothing at the end of the window when the status changed and
+/// changed back to the one already sent.
+TEST(TestStatusWindow, testSkipsChangeThatReturnsToSentStatus) {
     const auto ctx = std::make_shared<task::MockContext>(nullptr);
     const synnax::task::Task task{.name = "task1", .type = "ni_analog_read"};
-    auto handler = StatusHandler(ctx, task);
+    const auto window = 50 * x::telem::MILLISECOND;
+    auto handler = StatusHandler(ctx, task, window);
+
+    handler.send_warning("warning A", "");
+    handler.send_warning("warning B", "");
+    handler.send_warning("warning A", "");
+    std::this_thread::sleep_for((3 * window).chrono());
+    ASSERT_EQ(ctx->snapshot().size(), 1);
+}
+
+/// @brief it should send two warnings with the same message and different causes.
+TEST(TestStatusWindow, testSendsDifferentWarningDescriptions) {
+    const auto ctx = std::make_shared<task::MockContext>(nullptr);
+    const synnax::task::Task task{.name = "task1", .type = "ni_analog_read"};
+    auto handler = StatusHandler(ctx, task, 50 * x::telem::MILLISECOND);
 
     handler.send_warning("Failed to read data", "The device is unreachable.");
     handler.send_warning("Failed to read data", "The channel no longer exists.");
-    ASSERT_EQ(ctx->statuses.size(), 2);
-    EXPECT_EQ(ctx->statuses[0].description, "The device is unreachable.");
-    EXPECT_EQ(ctx->statuses[1].description, "The channel no longer exists.");
+    ASSERT_EVENTUALLY_EQ(ctx->snapshot().size(), 2);
+    const auto statuses = ctx->snapshot();
+    EXPECT_EQ(statuses[0].description, "The device is unreachable.");
+    EXPECT_EQ(statuses[1].description, "The channel no longer exists.");
 }
 
 /// @brief clearing a warning should drop the description that explained it.
 TEST(TestTaskStateHandler, ClearWarningDropsDescription) {
     const auto ctx = std::make_shared<task::MockContext>(nullptr);
     const synnax::task::Task task{.name = "task1", .type = "ni_analog_read"};
-    auto handler = StatusHandler(ctx, task);
+    auto handler = StatusHandler(ctx, task, x::telem::TimeSpan(0));
 
     handler.send_warning("Failed to read data", "The device is unreachable.");
     handler.clear_warning();
@@ -316,9 +359,8 @@ TEST(TestTaskStateHandler, ClearWarningDropsDescription) {
     EXPECT_EQ(ctx->statuses[1].description, "");
 }
 
-/// @brief identical repeated errors should be suppressed within the rate limit
-/// window.
-TEST(TestStatusRateLimit, testSuppressesIdenticalErrors) {
+/// @brief it should send repeated identical errors inside the window only once.
+TEST(TestStatusWindow, testSuppressesIdenticalErrors) {
     const auto ctx = std::make_shared<task::MockContext>(nullptr);
     const synnax::task::Task task{.name = "task1", .type = "ni_analog_read"};
     auto handler = StatusHandler(ctx, task);
@@ -333,9 +375,9 @@ TEST(TestStatusRateLimit, testSuppressesIdenticalErrors) {
     EXPECT_EQ(ctx->statuses[0].description, "device disconnected");
 }
 
-/// @brief start messages should always go through (bypasses rate limiter)
-/// because the Console waits for command acknowledgments.
-TEST(TestStatusRateLimit, testStartBypassesRateLimit) {
+/// @brief it should send each start reply at once, as the Console waits for command
+/// acknowledgments.
+TEST(TestStatusWindow, testStartSkipsWindow) {
     const auto ctx = std::make_shared<task::MockContext>(nullptr);
     const synnax::task::Task task{.name = "task1", .type = "ni_analog_read"};
     auto handler = StatusHandler(ctx, task);
@@ -347,9 +389,9 @@ TEST(TestStatusRateLimit, testStartBypassesRateLimit) {
     EXPECT_EQ(ctx->statuses[1].details.cmd, "cmd2");
 }
 
-/// @brief stop messages should always go through (bypasses rate limiter)
-/// because the Console waits for command acknowledgments.
-TEST(TestStatusRateLimit, testStopBypassesRateLimit) {
+/// @brief it should send each stop reply at once, as the Console waits for command
+/// acknowledgments.
+TEST(TestStatusWindow, testStopSkipsWindow) {
     const auto ctx = std::make_shared<task::MockContext>(nullptr);
     const synnax::task::Task task{.name = "task1", .type = "ni_analog_read"};
     auto handler = StatusHandler(ctx, task);
@@ -361,136 +403,112 @@ TEST(TestStatusRateLimit, testStopBypassesRateLimit) {
     EXPECT_EQ(ctx->statuses[1].details.cmd, "cmd2");
 }
 
-/// @brief clear_warning after a warning should go through (different variant),
-/// but repeated clears should be suppressed.
-TEST(TestStatusRateLimit, testClearWarningThenSuppressRepeatedClears) {
+/// @brief it should send a reply at once inside the window and drop the pending status,
+/// as the reply carries the latest state.
+TEST(TestStatusWindow, testReplySkipsWindowAndReplacesPending) {
     const auto ctx = std::make_shared<task::MockContext>(nullptr);
     const synnax::task::Task task{.name = "task1", .type = "ni_analog_read"};
-    auto handler = StatusHandler(ctx, task);
+    const auto window = 100 * x::telem::MILLISECOND;
+    auto handler = StatusHandler(ctx, task, window);
 
     handler.send_warning("skew too high", "");
-    EXPECT_EQ(ctx->statuses.size(), 1);
-
-    handler.clear_warning();
-    EXPECT_EQ(ctx->statuses.size(), 2);
-    EXPECT_EQ(ctx->statuses[1].variant, synnax::status::VARIANT_SUCCESS);
-
-    // Sending the same warning again should be suppressed (it was sent <5s ago).
-    handler.send_warning("skew too high", "");
-    EXPECT_EQ(ctx->statuses.size(), 2);
+    handler.send_warning("array mismatch", "");
+    handler.send_stop("stop_cmd");
+    auto statuses = ctx->snapshot();
+    ASSERT_EQ(statuses.size(), 2);
+    EXPECT_EQ(statuses[1].details.cmd, "stop_cmd");
+    EXPECT_EQ(statuses[1].message, "Stopped task");
+    std::this_thread::sleep_for((3 * window).chrono());
+    EXPECT_EQ(ctx->snapshot().size(), 2);
 }
 
-/// @brief reset() should clear the rate-limit state, allowing previously
-/// suppressed messages to go through again.
-TEST(TestStatusRateLimit, testResetClearsRateLimitState) {
+/// @brief it should drop a pending status when the handler is destroyed, as a task that
+/// stops without a stop status must write nothing more.
+TEST(TestStatusWindow, testDestroyDropsPending) {
     const auto ctx = std::make_shared<task::MockContext>(nullptr);
     const synnax::task::Task task{.name = "task1", .type = "ni_analog_read"};
-    auto handler = StatusHandler(ctx, task);
-
-    handler.send_warning("skew too high", "");
-    EXPECT_EQ(ctx->statuses.size(), 1);
-
-    handler.send_warning("skew too high", "");
-    EXPECT_EQ(ctx->statuses.size(), 1);
-
-    handler.reset();
-    handler.send_warning("skew too high", "");
-    EXPECT_EQ(ctx->statuses.size(), 2);
+    const auto window = 50 * x::telem::MILLISECOND;
+    {
+        auto handler = StatusHandler(ctx, task, window);
+        handler.send_warning("skew too high", "");
+        handler.send_warning("array mismatch", "");
+    }
+    std::this_thread::sleep_for((3 * window).chrono());
+    EXPECT_EQ(ctx->snapshot().size(), 1);
 }
 
-/// @brief when the dedup map reaches MAX_RECENT_STATUSES, the single oldest
-/// entry should be evicted to make room for the new one.
-TEST(TestStatusRateLimit, testEvictsOldestOnOverflow) {
+/// @brief it should drop a pending status and later changes once closed, and still send
+/// replies.
+TEST(TestStatusWindow, testCloseDropsPending) {
     const auto ctx = std::make_shared<task::MockContext>(nullptr);
     const synnax::task::Task task{.name = "task1", .type = "ni_analog_read"};
-    auto handler = StatusHandler(ctx, task);
-
-    // Fill the map to capacity with unique warnings (0 is the oldest).
-    for (size_t i = 0; i < StatusHandler::MAX_RECENT_STATUSES; ++i)
-        handler.send_warning("warning " + std::to_string(i), "");
-    EXPECT_EQ(ctx->statuses.size(), StatusHandler::MAX_RECENT_STATUSES);
-
-    // One overflow: evicts "warning 0" (oldest), inserts the new message.
-    handler.send_warning("overflow warning", "");
-    EXPECT_EQ(ctx->statuses.size(), StatusHandler::MAX_RECENT_STATUSES + 1);
-
-    // "warning 0" was the evicted entry — it should go through again.
-    handler.send_warning("warning 0", "");
-    EXPECT_EQ(ctx->statuses.size(), StatusHandler::MAX_RECENT_STATUSES + 2);
-
-    // "warning 49" is the newest original entry and was never evicted — still
-    // suppressed.
-    handler.send_warning("warning 49", "");
-    EXPECT_EQ(ctx->statuses.size(), StatusHandler::MAX_RECENT_STATUSES + 2);
+    const auto window = 50 * x::telem::MILLISECOND;
+    auto handler = StatusHandler(ctx, task, window);
+    handler.send_warning("skew too high", "");
+    handler.send_warning("array mismatch", "");
+    handler.close();
+    std::this_thread::sleep_for((3 * window).chrono());
+    handler.send_warning("device unreachable", "");
+    EXPECT_EQ(ctx->snapshot().size(), 1);
+    handler.ack("start_cmd", false);
+    const auto statuses = ctx->snapshot();
+    ASSERT_EQ(statuses.size(), 2);
+    EXPECT_EQ(statuses[1].details.cmd, "start_cmd");
 }
 
-/// @brief N sequential overflows should evict exactly the N oldest entries and
-/// leave the rest of the map intact.
-TEST(TestStatusRateLimit, testEvictsNOldestOnNOverflows) {
+/// @brief it should keep a full window between two statuses when another thread starts
+/// a window while the flusher waits.
+TEST(TestStatusWindow, testKeepsWindowWhenAnotherThreadSends) {
     const auto ctx = std::make_shared<task::MockContext>(nullptr);
     const synnax::task::Task task{.name = "task1", .type = "ni_analog_read"};
-    auto handler = StatusHandler(ctx, task);
-
-    // Fill to capacity.
-    for (size_t i = 0; i < StatusHandler::MAX_RECENT_STATUSES; ++i)
-        handler.send_warning("warning " + std::to_string(i), "");
-
-    // 3 overflows evict the 3 oldest entries: "warning 0", "warning 1", "warning 2".
-    handler.send_warning("overflow 0", "");
-    handler.send_warning("overflow 1", "");
-    handler.send_warning("overflow 2", "");
-
-    // The 3 evicted entries should now go through.
-    handler.send_warning("warning 0", "");
-    handler.send_warning("warning 1", "");
-    handler.send_warning("warning 2", "");
-    EXPECT_EQ(ctx->statuses.size(), StatusHandler::MAX_RECENT_STATUSES + 6);
-
-    // "warning 49" is the newest original entry and was never evicted — still
-    // suppressed.
-    handler.send_warning("warning 49", "");
-    EXPECT_EQ(ctx->statuses.size(), StatusHandler::MAX_RECENT_STATUSES + 6);
+    const auto window = 20 * x::telem::MILLISECOND;
+    auto handler = StatusHandler(ctx, task, window);
+    // A tight loop of changes often takes the lock at the end of a window before the
+    // flusher does, then queues the next change.
+    const auto end = std::chrono::steady_clock::now() + std::chrono::seconds(1);
+    for (int i = 0; std::chrono::steady_clock::now() < end; i++) {
+        handler.send_warning(i % 2 == 0 ? "skew too high" : "array mismatch", "");
+        std::this_thread::yield();
+    }
+    const auto statuses = ctx->snapshot();
+    ASSERT_GE(statuses.size(), 2);
+    for (size_t i = 1; i < statuses.size(); i++)
+        EXPECT_GE(statuses[i].time - statuses[i - 1].time, window / 2) << i;
 }
 
-/// @brief the same message should be re-sent once the rate-limit window expires.
-/// This guards against the bug where contains(key) suppresses entries forever
-/// rather than for only STATUS_RATE_LIMIT.
-TEST(TestStatusRateLimit, testWindowExpires) {
+/// @brief it should send the same status again once the window ends.
+TEST(TestStatusWindow, testWindowExpires) {
     const auto ctx = std::make_shared<task::MockContext>(nullptr);
     const synnax::task::Task task{.name = "task1", .type = "ni_analog_read"};
-    // Use a 1 ms window so the test completes quickly.
     auto handler = StatusHandler(ctx, task, 1 * x::telem::MILLISECOND);
 
     handler.send_warning("array mismatch", "");
-    EXPECT_EQ(ctx->statuses.size(), 1);
+    EXPECT_EQ(ctx->snapshot().size(), 1);
 
-    // Still within the window — should be suppressed.
     handler.send_warning("array mismatch", "");
-    EXPECT_EQ(ctx->statuses.size(), 1);
+    EXPECT_EQ(ctx->snapshot().size(), 1);
 
-    // Wait for the window to expire, then re-send.
     std::this_thread::sleep_for(std::chrono::milliseconds(5));
     handler.send_warning("array mismatch", "");
-    EXPECT_EQ(ctx->statuses.size(), 2);
+    EXPECT_EQ(ctx->snapshot().size(), 2);
 }
 
-/// @brief a warning followed by an error with the same message text should go
-/// through because the variant differs.
-TEST(TestStatusRateLimit, testDifferentVariantSameMessage) {
+/// @brief it should send a warning and then an error with the same message, as the
+/// variant differs.
+TEST(TestStatusWindow, testDifferentVariantSameMessage) {
     const auto ctx = std::make_shared<task::MockContext>(nullptr);
     const synnax::task::Task task{.name = "task1", .type = "ni_analog_read"};
-    auto handler = StatusHandler(ctx, task);
+    auto handler = StatusHandler(ctx, task, 50 * x::telem::MILLISECOND);
 
     handler.send_warning("device issue", "");
-    EXPECT_EQ(ctx->statuses.size(), 1);
-    EXPECT_EQ(ctx->statuses[0].variant, synnax::status::VARIANT_WARNING);
-
     handler.send_error(
         x::errors::Error(x::errors::VALIDATION, "device issue"),
         "Failed to run Arc program"
     );
-    EXPECT_EQ(ctx->statuses.size(), 2);
-    EXPECT_EQ(ctx->statuses[1].variant, synnax::status::VARIANT_ERROR);
+    ASSERT_EVENTUALLY_EQ(ctx->snapshot().size(), 2);
+    const auto statuses = ctx->snapshot();
+    EXPECT_EQ(statuses[0].variant, synnax::status::VARIANT_WARNING);
+    EXPECT_EQ(statuses[1].variant, synnax::status::VARIANT_ERROR);
 }
 
 class RecordingTask final : public task::Task {

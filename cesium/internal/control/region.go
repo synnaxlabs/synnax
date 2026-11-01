@@ -38,6 +38,9 @@ type region[R Resource] struct {
 	// independent regions can access a resource at the same time.
 	// [not safe for unprotected concurrent access]
 	timeRange telem.TimeRange
+	// bounded is true when the region holds a single bounded gate. It does not change
+	// after the region is created.
+	bounded bool
 	// counter tracks the total number of gates opened in the region. This counter
 	// does not get decremented.
 	// [not safe for unprotected concurrent access]
@@ -56,9 +59,8 @@ func (r *region[R]) open(cfg GateConfig[R]) (g *Gate[R], t Transfer, err error) 
 	if *cfg.ErrIfControlled && r.curr != nil {
 		err = errors.Wrapf(
 			control.ErrUnauthorized,
-			"time range %v overlaps with a controlled region with bounds %v controlled by %v",
-			cfg.TimeRange,
-			r.timeRange,
+			"cannot access time range %v because writer %v holds it",
+			cfg.TimeRange.Intersection(r.timeRange),
 			r.curr.Subject(),
 		)
 		return g, t, err
@@ -105,6 +107,34 @@ func (r *region[R]) open(cfg GateConfig[R]) (g *Gate[R], t Transfer, err error) 
 	r.gates.Add(g)
 	r.counter++
 	return g, t, nil
+}
+
+// state returns the control State of the gate in control, or nil when the region is
+// empty or bounded.
+func (r *region[R]) state() *State {
+	r.RLock()
+	defer r.RUnlock()
+	if r.bounded || len(r.gates) == 0 {
+		return nil
+	}
+	return r.curr.state()
+}
+
+// overlapError returns the error for a write to tr that reaches the region.
+func (r *region[R]) overlapError(tr telem.TimeRange) error {
+	r.RLock()
+	defer r.RUnlock()
+	// A released region stays in the controller until controller.remove runs.
+	holder := "a closing writer"
+	if r.curr != nil {
+		holder = "writer " + r.curr.Subject().String()
+	}
+	return errors.Wrapf(
+		validate.ErrValidation,
+		"cannot write to time range %v because %s holds it",
+		tr.Intersection(r.timeRange),
+		holder,
+	)
 }
 
 func (r *region[R]) shouldBeInControl(candidate *Gate[R]) bool {

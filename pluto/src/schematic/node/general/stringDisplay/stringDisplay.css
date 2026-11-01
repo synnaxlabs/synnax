@@ -30,7 +30,7 @@
         instead of the box widening. */
         min-width: 0;
 
-        & .pluto-text {
+        & .lyra-text {
             min-width: 0;
         }
     }

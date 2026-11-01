@@ -62,14 +62,14 @@ def cases_dir(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> Iterator[Path]
             del sys.modules[name]
 
 
-def write_case(cases_dir: Path, case: str, source: str) -> None:
+def write_case(cases_dir: Path, *, case: str, source: str) -> None:
     path = cases_dir / f"{case}.py"
     path.parent.mkdir(parents=True, exist_ok=True)
     path.write_text(source)
 
 
 def load(
-    cases_dir: Path, sequence: dict[str, Any]
+    cases_dir: Path, *, sequence: dict[str, Any]
 ) -> tuple[list[config_client.Sequence], list[config_client.TestDefinition]]:
     (cases_dir / "spec_tests.json").write_text(json.dumps({"sequences": [sequence]}))
     return config_client.ConfigClient(tests_dir=cases_dir).load(
@@ -81,7 +81,7 @@ class TestConfigClient:
     def test_generic_model_at_import(self, cases_dir: Path) -> None:
         """Should load a case that parametrizes a generic Pydantic model."""
         case = "config_client_spec/generic"
-        write_case(cases_dir, case, GENERIC_CASE)
+        write_case(cases_dir, case=case, source=GENERIC_CASE)
         loaded = config_client.ConfigClient().load_test_class(
             config_client.TestDefinition(case=case)
         )
@@ -89,8 +89,12 @@ class TestConfigClient:
 
     def test_same_file_name_in_two_directories(self, cases_dir: Path) -> None:
         """Should keep apart cases that share a file name in different directories."""
-        write_case(cases_dir, "config_client_spec/a/case", named_case("CaseA"))
-        write_case(cases_dir, "config_client_spec/b/case", named_case("CaseB"))
+        write_case(
+            cases_dir, case="config_client_spec/a/case", source=named_case("CaseA")
+        )
+        write_case(
+            cases_dir, case="config_client_spec/b/case", source=named_case("CaseB")
+        )
         client = config_client.ConfigClient()
         a = client.load_test_class(
             config_client.TestDefinition(case="config_client_spec/a/case")
@@ -105,8 +109,10 @@ class TestConfigClient:
     def test_timeout(self, cases_dir: Path) -> None:
         """Should apply the default timeout and keep a per-test timeout through
         parameter expansion."""
-        write_case(cases_dir, "config_client_spec/plain", named_case("Plain"))
-        write_case(cases_dir, "config_client_spec/slow", named_case("Slow"))
+        write_case(
+            cases_dir, case="config_client_spec/plain", source=named_case("Plain")
+        )
+        write_case(cases_dir, case="config_client_spec/slow", source=named_case("Slow"))
         sequence = {
             "sequence_name": "timeouts",
             "tests": [
@@ -118,7 +124,7 @@ class TestConfigClient:
                 },
             ],
         }
-        _, defs = load(cases_dir, sequence)
+        _, defs = load(cases_dir, sequence=sequence)
         timeouts = {str(d): d.timeout for d in defs}
         assert timeouts == {
             "config_client_spec/plain": config_client._DEFAULT_TIMEOUT,
@@ -129,10 +135,25 @@ class TestConfigClient:
     @pytest.mark.parametrize("timeout", [None, 0, -1, "10", True, float("inf")])
     def test_invalid_timeout(self, cases_dir: Path, timeout: Any) -> None:
         """Should reject a timeout that is not a finite, positive number."""
-        write_case(cases_dir, "config_client_spec/plain", named_case("Plain"))
+        write_case(
+            cases_dir, case="config_client_spec/plain", source=named_case("Plain")
+        )
         sequence = {
             "sequence_name": "timeouts",
             "tests": [{"case": "config_client_spec/plain", "timeout": timeout}],
         }
         with pytest.raises(ValueError, match="timeout"):
-            load(cases_dir, sequence)
+            load(cases_dir, sequence=sequence)
+
+    def test_sequence_not_an_object(self, cases_dir: Path) -> None:
+        """Should fail on a sequence entry that is not an object."""
+        cases_dir.mkdir(parents=True)
+        sequences = [{"sequence_name": "ok", "tests": []}, "bad"]
+        (cases_dir / "spec_tests.json").write_text(json.dumps({"sequences": sequences}))
+        with pytest.raises(
+            ValueError,
+            match=r"^Sequence 1 in test file 'spec_tests\.json' is not an object$",
+        ):
+            config_client.ConfigClient(tests_dir=cases_dir).load(
+                TargetFilter(file_filter=["spec"])
+            )

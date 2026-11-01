@@ -41,13 +41,13 @@ const renderSingle = (props: Resize.SingleProps): ReturnType<typeof render> =>
   render(<ControlledSingle {...props} />);
 
 const paneOf = (c: ReturnType<typeof render>): HTMLElement => {
-  const pane = c.container.querySelector<HTMLElement>(".pluto-resize");
+  const pane = c.container.querySelector<HTMLElement>(".lyra-resize");
   if (pane == null) throw new Error("resize pane not found");
   return pane;
 };
 
 const handleOf = (c: ReturnType<typeof render>): HTMLElement => {
-  const handle = c.container.querySelector<HTMLElement>(".pluto-resize__handle");
+  const handle = c.container.querySelector<HTMLElement>(".lyra-resize__handle");
   if (handle == null) throw new Error("resize handle not found");
   return handle;
 };

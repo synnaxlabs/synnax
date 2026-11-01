@@ -14,18 +14,17 @@
     padding: 2px;
     width: fit-content;
     white-space: nowrap;
-    text-overflow: ellipsis;
     text-wrap: wrap;
 
     & .pluto-symbol__label {
         color: var(--pluto-symbol-display);
     }
 
-    &.pluto--location-top {
+    &.lyra--location-top {
         writing-mode: vertical-rl;
     }
 
-    &.pluto--location-bottom {
+    &.lyra--location-bottom {
         writing-mode: vertical-rl;
         transform: rotate(180deg);
     }

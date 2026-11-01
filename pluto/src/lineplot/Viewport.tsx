@@ -9,13 +9,13 @@
 
 import "@/lineplot/Viewport.css";
 
-import { CSS } from "@synnaxlabs/lyra/css";
 import { Icon } from "@synnaxlabs/lyra/icon";
 import { Status } from "@synnaxlabs/lyra/status";
 import { Text } from "@synnaxlabs/lyra/text";
 import { box, xy } from "@synnaxlabs/x";
 import { type PropsWithChildren, type ReactElement, useLayoutEffect } from "react";
 
+import { CSS } from "@/css";
 import { useContext, useFetchContext } from "@/lineplot/Frame";
 import { Viewport as Base } from "@/viewport";
 

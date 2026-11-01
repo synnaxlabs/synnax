@@ -78,7 +78,7 @@ var _ = Describe("Service", func() {
 			ctx SpecContext,
 		) {
 			key := uuid.New()
-			Expect(svc.Read.Write(ctx, nil, key, msgpack.EncodedJSON{
+			MustSucceed(svc.Read.Write(ctx, nil, key, msgpack.EncodedJSON{
 				"device": "dev-1",
 				"rate":   25,
 				"endpoints": []any{map[string]any{
@@ -86,7 +86,7 @@ var _ = Describe("Service", func() {
 					"method": "GET",
 					"path":   "/telemetry",
 				}},
-			})).To(Succeed())
+			}))
 			data := MustSucceed(svc.Read.Read(ctx, nil, key))
 			Expect(data["key"]).To(Equal(key.String()))
 			Expect(data["device"]).To(Equal("dev-1"))
@@ -97,7 +97,7 @@ var _ = Describe("Service", func() {
 			ctx SpecContext,
 		) {
 			key := uuid.New()
-			Expect(svc.Read.Write(ctx, nil, key, msgpack.EncodedJSON{})).To(Succeed())
+			MustSucceed(svc.Read.Write(ctx, nil, key, msgpack.EncodedJSON{}))
 			data := MustSucceed(svc.Read.Read(ctx, nil, key))
 			Expect(data["rate"]).To(BeNumerically("==", 1))
 		})
@@ -106,9 +106,9 @@ var _ = Describe("Service", func() {
 			ctx SpecContext,
 		) {
 			key := uuid.New()
-			Expect(svc.Write.Write(ctx, nil, key, msgpack.EncodedJSON{
+			MustSucceed(svc.Write.Write(ctx, nil, key, msgpack.EncodedJSON{
 				"endpoints": []any{map[string]any{"key": "ep-1"}},
-			})).To(Succeed())
+			}))
 			data := MustSucceed(svc.Write.Read(ctx, nil, key))
 			Expect(data["endpoints"]).To(HaveExactElements(
 				HaveKeyWithValue("method", "POST"),
@@ -119,7 +119,7 @@ var _ = Describe("Service", func() {
 			ctx SpecContext,
 		) {
 			key := uuid.New()
-			Expect(svc.Scan.Write(ctx, nil, key, msgpack.EncodedJSON{})).To(Succeed())
+			MustSucceed(svc.Scan.Write(ctx, nil, key, msgpack.EncodedJSON{}))
 			data := MustSucceed(svc.Scan.Read(ctx, nil, key))
 			Expect(data["rate"]).To(BeNumerically("==", 0.2))
 		})
@@ -129,7 +129,7 @@ var _ = Describe("Service", func() {
 		) {
 			Expect(svc.Read.Write(ctx, nil, uuid.New(), msgpack.EncodedJSON{
 				"endpoints": []any{map[string]any{"method": "BOGUS"}},
-			})).To(MatchError(ContainSubstring("invalid method: BOGUS")))
+			})).Error().To(MatchError(ContainSubstring("invalid method: BOGUS")))
 		})
 
 		It("Should return the write validation error for an invalid endpoint", func(
@@ -137,7 +137,7 @@ var _ = Describe("Service", func() {
 		) {
 			Expect(svc.Write.Write(ctx, nil, uuid.New(), msgpack.EncodedJSON{
 				"endpoints": []any{map[string]any{"method": "BOGUS"}},
-			})).To(MatchError(ContainSubstring("invalid method: BOGUS")))
+			})).Error().To(MatchError(ContainSubstring("invalid method: BOGUS")))
 		})
 	})
 })

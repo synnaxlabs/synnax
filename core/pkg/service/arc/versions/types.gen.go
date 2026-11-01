@@ -11,19 +11,19 @@
 
 package versions
 
-import "github.com/synnaxlabs/synnax/pkg/service/arc/versions/v3"
+import "github.com/synnaxlabs/synnax/pkg/service/arc/versions/v4"
 
 // Key is a unique identifier for an Arc module.
-type Key = v3.Key
+type Key = v4.Key
 
 // Mode specifies whether an Arc module uses text-based or graph-based representation.
-type Mode = v3.Mode
+type Mode = v4.Mode
 
 const (
-	ModeText  Mode = v3.ModeText
-	ModeGraph Mode = v3.ModeGraph
+	ModeText  Mode = v4.ModeText
+	ModeGraph Mode = v4.ModeGraph
 )
 
 // Arc is an Arc module combining visual graph representation and text-based source code
 // for reactive control systems. Compiles to WebAssembly for sandboxed execution.
-type Arc = v3.Arc
+type Arc = v4.Arc

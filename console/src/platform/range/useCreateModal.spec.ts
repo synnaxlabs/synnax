@@ -54,7 +54,7 @@ const clickWhenEnabled = async (text: string): Promise<void> => {
 describe("Range.useCreateModal", () => {
   it("should disable Save to Core when there is no connected client", async () => {
     await openModal();
-    expect(findButton("Save to Core").className).toContain("pluto--disabled");
+    expect(findButton("Save to Core").className).toContain("lyra--disabled");
   });
 
   it("should prefill the form from the initial params", async () => {
@@ -115,32 +115,6 @@ describe("Range.useCreateModal", () => {
     await waitFor(() =>
       expect(analytics.capture).toHaveBeenCalledWith("range_created", {}),
     );
-  });
-
-  it("should not report an edited range as created", async () => {
-    const existing = await createTestRange(client);
-    const analytics = createTestSink();
-    await openModal({ rangeKey: existing.key }, { client, analytics });
-    await waitFor(() => expect(screen.getByDisplayValue(existing.name)).toBeTruthy());
-    await clickWhenEnabled("Save to Core");
-    await waitFor(() => expect(screen.queryByText("Save locally")).toBeNull());
-    expect(analytics.capture).not.toHaveBeenCalled();
-  });
-
-  it("should prefill from and update the existing range when rangeKey is provided", async () => {
-    const existing = await createTestRange(client);
-    await openModal({ rangeKey: existing.key }, { client });
-    await waitFor(() => expect(screen.getByDisplayValue(existing.name)).toBeTruthy());
-    const renamed = uniqueRangeName("renamed");
-    fireEvent.change(screen.getByDisplayValue(existing.name), {
-      target: { value: renamed },
-    });
-    await clickWhenEnabled("Save to Core");
-    await waitFor(() => expect(screen.queryByText("Save locally")).toBeNull());
-    await waitFor(async () => {
-      const updated = await client.ranges.retrieve(existing.key);
-      expect(updated.name).toEqual(renamed);
-    });
   });
 
   it("should close on save after the prefilled parent is cleared", async () => {

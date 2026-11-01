@@ -7,31 +7,31 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { lineplot } from "@synnaxlabs/client";
 import { Input } from "@synnaxlabs/lyra/input";
-import { LinePlot } from "@synnaxlabs/pluto";
 import { TimeSpan } from "@synnaxlabs/x";
 import { type ReactElement } from "react";
 
+export interface CustomRangeInputProps {
+  value: TimeSpan;
+  onChange: (span: TimeSpan) => void;
+}
+
 // SY-4816: Static range entry, when added, should stop at 1s, which also simplifies
 // its selector and UX.
-/** Edits the rolling window the plot's "custom" range key resolves to. */
-export const CustomRangeInput = (): ReactElement => {
-  const custom = LinePlot.useCustomRange();
-  const dispatch = LinePlot.useSingleDispatch();
+/** Edits the span of a plot's custom rolling window. */
+export const CustomRangeInput = ({
+  value,
+  onChange,
+}: CustomRangeInputProps): ReactElement => {
   const handleChange = (raw: string) => {
     const span = TimeSpan.parse(raw);
     if (span == null || span.isZero) return;
-    dispatch(
-      lineplot.setCustomRange({ custom: { variant: "dynamic", span: Number(span) } }),
-    );
+    onChange(span);
   };
-  const value =
-    custom?.variant === "dynamic" ? new TimeSpan(custom.span).toString() : "";
   return (
     <Input.Item x label="Custom">
       <Input.Text
-        value={value}
+        value={value.toString()}
         onChange={handleChange}
         onlyChangeOnBlur
         resetOnBlurIfEmpty

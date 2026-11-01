@@ -10,14 +10,16 @@
 import { verifyWebhook } from "@clerk/astro/webhooks";
 import { type APIRoute } from "astro";
 
+import { isInternal } from "@/server/directory";
 import { ensurePersonal, mirrorTeams } from "@/server/organization";
 import { joined } from "@/server/slack";
 import { forget } from "@/server/user";
 
 /**
  * POST mirrors Clerk's user and organization creation into the portal: a personal
- * organization per user and a team organization per Clerk organization. A new user is
- * also posted to Slack, and a deleted user's personal organization is deleted.
+ * organization per user and a team organization per Clerk organization. A new user
+ * outside Synnax Labs is also posted to Slack, and a deleted user's personal
+ * organization is deleted.
  */
 export const POST: APIRoute = async (context) => {
   const { store, slack, directory, webhookSecret } = context.locals.portal;
@@ -48,7 +50,7 @@ export const POST: APIRoute = async (context) => {
         email ||
         id;
       await ensurePersonal(store, { userID: id, name });
-      await slack.post(joined({ userID: id, name, email }));
+      if (!isInternal(email)) await slack.post(joined({ userID: id, name, email }));
       break;
     }
     case "user.deleted": {

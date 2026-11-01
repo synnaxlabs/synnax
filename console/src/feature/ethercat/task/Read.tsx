@@ -43,8 +43,6 @@ const Properties = () => (
   <Flex.Box x grow>
     <Task.Fields.SampleRate />
     <Task.Fields.StreamRate />
-    <Task.Fields.DataSaving />
-    <Task.Fields.AutoStart />
   </Flex.Box>
 );
 
@@ -92,11 +90,11 @@ const Form: FC = () => {
   );
 };
 
-const getInitialValues: Task.GetInitialValues<ReadSchemas> = ({ config }) => ({
-  name: "EtherCAT read task",
-  type: READ_TYPE,
-  config: READ_SCHEMAS.config.parse(config ?? {}),
-});
+const getInitialValues: Task.GetInitialValues<ReadSchemas> = ({ config }) => {
+  const cfg = READ_SCHEMAS.config.parse(config ?? {});
+  if (config == null) cfg.channels = [createReadChannel([])];
+  return { name: "EtherCAT read task", type: READ_TYPE, config: cfg };
+};
 
 const READ_INDEX_OPTIONS = {
   indexProperty: "readIndex" as const,
@@ -151,7 +149,6 @@ export const Read = Task.wrapForm({
   schemas: READ_SCHEMAS,
   deployConfigZ: deployReadConfigZ,
   type: "ethercat_read",
-  getInitialValues,
   onConfigure,
 });
 

@@ -61,8 +61,8 @@ for i in range(NUM_VALVES):
                 index=cmd_index_channel.key,
                 data_type=sy.DataType.UINT8,
             ),
-            # The response channel is used to acknowledge the response from our simulated
-            # DAQ.
+            # The response channel is used to acknowledge the response from our
+            # simulated DAQ.
             sy.Channel(
                 name=f"simulation_valve_response_{i}",
                 index=sensor_time_channel.key,

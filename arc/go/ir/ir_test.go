@@ -41,7 +41,7 @@ var _ = Describe("IR", func() {
 				ir.IR{Root: ir.Scope{
 					Mode:     ir.ScopeModeParallel,
 					Liveness: ir.LivenessAlways,
-					Strata:   []ir.Members{{ir.NodeMember("n1")}},
+					Strata:   []ir.Members{{ir.Member{NodeKey: new("n1")}}},
 				}}, false),
 			Entry("symbols",
 				ir.IR{Symbols: &symbol.Symbol{}}, false),
@@ -89,8 +89,11 @@ var _ = Describe("IR", func() {
 					Mode:     ir.ScopeModeParallel,
 					Liveness: ir.LivenessAlways,
 					Strata: []ir.Members{
-						{ir.NodeMember("input_a"), ir.NodeMember("input_b")},
-						{ir.NodeMember("node1")},
+						{
+							ir.Member{NodeKey: new("input_a")},
+							ir.Member{NodeKey: new("input_b")},
+						},
+						{ir.Member{NodeKey: new("node1")}},
 					},
 				},
 			}
@@ -147,8 +150,8 @@ var _ = Describe("IR", func() {
 							Mode:     ir.ScopeModeSequential,
 							Liveness: ir.LivenessGated,
 							Steps: ir.Members{
-								ir.NodeMember("init"),
-								ir.NodeMember("run"),
+								ir.Member{NodeKey: new("init")},
+								ir.Member{NodeKey: new("run")},
 							},
 							Transitions: []ir.Transition{
 								{
@@ -221,7 +224,7 @@ var _ = Describe("IR", func() {
 				Root: ir.Scope{
 					Mode:     ir.ScopeModeParallel,
 					Liveness: ir.LivenessAlways,
-					Strata:   []ir.Members{{ir.NodeMember("node1")}},
+					Strata:   []ir.Members{{ir.Member{NodeKey: new("node1")}}},
 				},
 			}
 			out := program.String()

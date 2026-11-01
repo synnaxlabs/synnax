@@ -35,9 +35,9 @@ var _ = Describe("DecodeImExEnvelope", func() {
 		Expect(sym.Data.StrokeScaled).To(BeTrue())
 		Expect(sym.Data.States).To(HaveLen(1))
 		Expect(sym.Data.States[0].Regions[0].StrokeColor).
-			To(HaveValue(Equal(color.MustFromHex("#ff0000"))))
+			To(HaveValue(Equal(MustSucceed(color.FromHex("#ff0000")))))
 		Expect(sym.Data.States[0].Regions[0].FillColor).
-			To(HaveValue(Equal(color.MustFromHex("#00ff00"))))
+			To(HaveValue(Equal(MustSucceed(color.FromHex("#00ff00")))))
 		Expect(sym.Data.Handles).To(Equal([]versions.Handle{{
 			Key:         "h1",
 			Position:    spatial.XY{X: 0, Y: 0.5},
@@ -61,8 +61,8 @@ var _ = Describe("DecodeImExEnvelope", func() {
 				Key:         "r1",
 				Name:        "Body",
 				Selectors:   []string{"#body"},
-				StrokeColor: new(color.MustFromHex("#123456")),
-				FillColor:   new(color.MustFromHex("#654321")),
+				StrokeColor: new(MustSucceed(color.FromHex("#123456"))),
+				FillColor:   new(MustSucceed(color.FromHex("#654321"))),
 			}},
 		}}))
 		Expect(sym.Data.Handles).To(Equal([]versions.Handle{{

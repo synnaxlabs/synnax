@@ -96,16 +96,7 @@ func (db *DB) RenameChannels(
 	return nil
 }
 
-func (db *DB) RenameChannel(ctx context.Context, key ChannelKey, newName string) error {
-	if db.closed.Load() {
-		return ErrDBClosed
-	}
-	db.mu.Lock()
-	defer db.mu.Unlock()
-	return db.renameChannel(ctx, key, newName)
-}
-
-// RenameChannel renames the channel with the specified key to newName. There is a race
+// renameChannel renames the channel with the specified key to newName. There is a race
 // condition here: one could rename a channel while it is being read or streamed from or
 // written to. We choose to not address this since the name is purely decorative in
 // Cesium and not used to identify channels whereas the key is the unique identifier.

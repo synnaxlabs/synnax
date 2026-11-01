@@ -43,9 +43,6 @@ var _ = Describe("Enum", func() {
 				zyn.Enum("a", "b", "c").Validate("d"),
 			).To(MatchError(ContainSubstring("invalid enum value d")))
 		})
-		It("Should succeed when an optional enum receives nil", func() {
-			Expect(zyn.Enum("a", "b", "c").Optional().Validate(nil)).To(Succeed())
-		})
 		It("Should fail when a required enum receives nil", func() {
 			Expect(
 				zyn.Enum("a", "b", "c").Validate(nil),
@@ -89,21 +86,11 @@ var _ = Describe("Enum", func() {
 				To(MatchError(zyn.ErrInvalidDestinationType))
 		})
 	})
-	Describe("Optional Fields", func() {
-		Specify("optional field with nil value", func() {
-			var dest *string
-			Expect(zyn.Enum("a", "b", "c").Optional().Parse(nil, &dest)).To(Succeed())
-			Expect(dest).To(BeNil())
-		})
+	Describe("Required Fields", func() {
 		Specify("required field with nil value", func() {
 			var dest string
 			Expect(zyn.Enum("a", "b", "c").Parse(nil, &dest)).
 				To(MatchError(ContainSubstring("required")))
-		})
-		Specify("optional field with value", func() {
-			var dest *string
-			Expect(zyn.Enum("a", "b", "c").Optional().Parse("a", &dest)).To(Succeed())
-			Expect(*dest).To(Equal("a"))
 		})
 	})
 	Describe("Dump", func() {
@@ -118,17 +105,8 @@ var _ = Describe("Enum", func() {
 			Expect(zyn.Enum("a", "b", "c").Dump(nil)).Error().
 				To(MatchError(ContainSubstring("required")))
 		})
-		Specify("optional nil value", func() {
-			Expect(zyn.Enum("a", "b", "c").Optional().Dump(nil)).To(BeNil())
-		})
 	})
-	Describe("Values", func() {
-		Specify("add values", func() {
-			enum := zyn.Enum("a", "b").Values("c", "d")
-			var dest string
-			Expect(enum.Parse("c", &dest)).To(Succeed())
-			Expect(dest).To(Equal("c"))
-		})
+	Describe("Enum", func() {
 		It("should panic on empty", func() {
 			Expect(func() { zyn.Enum[any]() }).To(Panic())
 		})

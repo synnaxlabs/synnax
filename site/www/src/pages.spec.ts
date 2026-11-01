@@ -34,8 +34,9 @@ const all = <E extends Element>(parent: ParentNode, selector: string): E[] => [
 ];
 
 const cdnImages = (doc: Document): HTMLImageElement[] =>
-  all<HTMLImageElement>(doc, "picture img").filter((img) =>
-    decodeURIComponent(img.src).includes(CDN),
+  all<HTMLImageElement>(doc, "picture img").filter(
+    (img) =>
+      new URL(img.src, config.site).searchParams.get("href")?.startsWith(CDN) === true,
   );
 
 describe("pages", () => {
@@ -159,9 +160,13 @@ describe("pages", () => {
     });
 
     describe("analytics", () => {
-      it("should start PostHog in the head", () => {
-        const scripts = all(doc.head, "script").map((s) => s.textContent);
-        expect(scripts.some((s) => s.includes("posthog.init("))).toBe(true);
+      it("should load PostHog", () => {
+        const scripts = all(doc, "script").map((s) => s.textContent);
+        expect(scripts.some((s) => s.includes("window.posthog"))).toBe(true);
+      });
+
+      it("should link the cookie card to the privacy policy", () => {
+        expect(doc.querySelector(".consent a")?.getAttribute("href")).toBe("/privacy");
       });
 
       it("should tag each download link with its event and location", () => {

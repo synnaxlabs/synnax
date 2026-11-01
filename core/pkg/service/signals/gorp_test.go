@@ -16,9 +16,9 @@ import (
 	. "github.com/onsi/gomega"
 	"github.com/synnaxlabs/gorp"
 	"github.com/synnaxlabs/synnax/pkg/service/signals"
-	"github.com/synnaxlabs/x/kv/memkv"
 	"github.com/synnaxlabs/x/telem"
 	. "github.com/synnaxlabs/x/testutil"
+	"github.com/synnaxlabs/x/testutil/memkv"
 )
 
 type testUUIDEntry struct {
@@ -138,39 +138,6 @@ var _ = Describe("GorpPublisherConfig", func() {
 			entry := testNumericEntry{Key: 123, Value: "test-value"}
 			b := MustSucceed(cfg.MarshalSet(entry))
 			Expect(string(b)).To(ContainSubstring(`"value":"test-value"`))
-		})
-	})
-
-	Describe("GorpPublisherConfigPureNumeric", func() {
-		It("Should create a config for numeric keyed entries with numeric set", func() {
-			cfg := signals.GorpPublisherConfigPureNumeric(
-				numTable.Observe(),
-				telem.Uint32T,
-			)
-			Expect(cfg.Observable).ToNot(BeNil())
-			Expect(cfg.DeleteDataType).To(Equal(telem.Uint32T))
-			Expect(cfg.SetDataType).To(Equal(telem.Uint32T))
-			Expect(cfg.MarshalDelete).ToNot(BeNil())
-			Expect(cfg.MarshalSet).ToNot(BeNil())
-		})
-
-		It("Should correctly marshal numeric key for delete", func() {
-			cfg := signals.GorpPublisherConfigPureNumeric(
-				numTable.Observe(),
-				telem.Uint32T,
-			)
-			b := MustSucceed(cfg.MarshalDelete(42))
-			Expect(b).To(HaveLen(4)) // uint32 is 4 bytes
-		})
-
-		It("Should correctly marshal entry key for set", func() {
-			cfg := signals.GorpPublisherConfigPureNumeric(
-				numTable.Observe(),
-				telem.Uint32T,
-			)
-			entry := testNumericEntry{Key: 999, Value: "ignored"}
-			b := MustSucceed(cfg.MarshalSet(entry))
-			Expect(b).To(HaveLen(4)) // uint32 is 4 bytes
 		})
 	})
 

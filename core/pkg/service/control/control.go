@@ -14,8 +14,6 @@ package control
 import "github.com/synnaxlabs/synnax/pkg/distribution/control"
 
 type (
-	// Subject is an entity that can hold control over a channel.
-	Subject = control.Subject
 	// State is the control state of a single channel: the subject holding authority
 	// over it, and the level of that authority.
 	State = control.State

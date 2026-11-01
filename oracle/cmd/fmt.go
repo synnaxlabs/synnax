@@ -53,7 +53,6 @@ func runFmt(cmd *cobra.Command, args []string) error {
 
 	repoRoot, err := paths.RepoRoot()
 	if err != nil {
-		printError("must be run within a git repository")
 		return err
 	}
 
@@ -85,7 +84,6 @@ func runFmt(cmd *cobra.Command, args []string) error {
 	}
 
 	if len(files) == 0 {
-		printError("no schema files found")
 		return errors.New("no schema files found")
 	}
 
@@ -114,13 +112,11 @@ func runFmt(cmd *cobra.Command, args []string) error {
 	}
 
 	if failed > 0 {
-		printError(fmt.Sprintf("%d file(s) failed to format", failed))
-		return errors.New("formatting failed")
+		return errors.Newf("%d file(s) failed to format", failed)
 	}
 
 	if fmtCheck && formatted > 0 {
-		printError(fmt.Sprintf("%d file(s) need formatting", formatted))
-		return errors.New("files need formatting")
+		return errors.Newf("%d file(s) need formatting", formatted)
 	}
 
 	printFormatResult(formatted, unchanged)

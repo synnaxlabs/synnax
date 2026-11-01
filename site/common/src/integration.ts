@@ -11,7 +11,10 @@ import { type AstroIntegration, type HookParameters } from "astro";
 
 const ROUTES = ["favicon.ico", "favicon.svg", "robots.txt"];
 
-/** Serves the favicons and the robots.txt that every Synnax site shares. */
+/**
+ * Serves the favicons and the robots.txt that every Synnax site shares, and the
+ * `/consent` route that the analytics banner asks.
+ */
 export const integration = () =>
   ({
     name: "@synnaxlabs/site-common",
@@ -25,6 +28,11 @@ export const integration = () =>
             entrypoint: new URL(`./routes/${route}.ts`, import.meta.url),
             prerender: true,
           });
+        injectRoute({
+          pattern: "/consent",
+          entrypoint: new URL("./routes/consent.ts", import.meta.url),
+          prerender: false,
+        });
       },
     },
   }) satisfies AstroIntegration;

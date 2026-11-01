@@ -10,7 +10,7 @@
 
 import Root from "@/layouts/Root.astro";
 import { load } from "@/page";
-import { modeFor } from "@/server/consent";
+import { modeFor } from "@synnaxlabs/site-common/consent";
 import { Desktop } from "@/ui/desktop";
 import "@/styles/portal.css";
 
@@ -22,7 +22,7 @@ const query = Desktop.read(Astro.url.searchParams);
 const consent = modeFor(Astro.request.headers.get("x-vercel-ip-country"));
 ---
 
-<Root title="Log in to Synnax Desktop">
+<Root title="Log in to Synnax Desktop" userID={session.userID}>
     <section class="portal-auth-page">
         <Desktop.Link client:load {...query} email={session.email} consent={consent} />
     </section>

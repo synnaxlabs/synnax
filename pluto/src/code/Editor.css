@@ -9,6 +9,8 @@
  * included in the file licenses/APL.txt.
  */
 
+/* stylelint-disable declaration-no-important -- Monaco styles its editor inline */
+
 :root {
     --editor-token-keyword: #cc255f;
     --editor-token-delimiter-parenthesis: #cc255f;
@@ -50,10 +52,11 @@
     height: 100%;
     padding: 2rem 1px;
     border-color: var(--pluto-gray-l6);
+
     /* Monaco toggles .focused on .monaco-editor alone; its overlay divs keep the class
     after blur. Focus thickens the border to a full 1px, so the padding gives back the
     difference from the theme border width to keep the text from shifting. */
-    &.pluto--bordered:has(.monaco-editor.focused) {
+    &.lyra--bordered:has(.monaco-editor.focused) {
         border-color: var(--pluto-primary-z);
         border-width: 1px;
         padding: calc(2rem - 1px + var(--pluto-border-width)) var(--pluto-border-width);
@@ -72,6 +75,7 @@
 /* Hide resize sashes for cleaner look */
 .monaco-resizable-hover .monaco-sash {
     background: transparent !important;
+
     &:hover {
         background: var(--pluto-primary-z-30) !important;
         transition: background 0.15s ease !important;
@@ -112,6 +116,7 @@
     border-radius: 0 !important;
     padding: 0 1.5rem 1.5rem !important;
     border-bottom: var(--pluto-border-width) solid var(--pluto-gray-l6) !important;
+
     /* A markdown row needs top padding when nothing above it provides one:
        when it's the first row of the popup, and when it follows a marker
        row (which butts its own box up against the row boundary). We
@@ -120,13 +125,16 @@
     &:first-child:has(.markdown-hover) {
         padding-top: 1.5rem !important;
     }
+
     &:last-child {
         border-bottom: none !important;
     }
+
     &:focus {
         outline: none !important;
         background: var(--pluto-gray-l2) !important;
     }
+
     /* Remove padding and border when row contains a diagnostic marker */
     &:has(.marker.hover-contents) {
         padding: 0 !important;
@@ -242,7 +250,7 @@
     font-size: calc(var(--pluto-p-size) * 0.85) !important;
     font-weight: 500 !important;
     color: var(--pluto-gray-l9) !important;
-    margin: 0 0 1rem 0 !important;
+    margin: 0 0 1rem !important;
     line-height: 1.3 !important;
     text-transform: uppercase !important;
     letter-spacing: 0.05em !important;
@@ -259,8 +267,9 @@
 .monaco-editor .monaco-hover p {
     font-size: var(--pluto-p-size) !important;
     color: var(--pluto-gray-l10) !important;
-    margin: 0 0 1rem 0 !important;
+    margin: 0 0 1rem !important;
     line-height: 1.5 !important;
+
     &:last-child {
         margin-bottom: 0 !important;
     }
@@ -327,6 +336,7 @@
     border-bottom-left-radius: 1rem !important;
     color: var(--pluto-gray-l9) !important;
     min-width: 0 !important;
+
     & > div {
         padding: 0.5rem;
         white-space: nowrap !important;
@@ -337,11 +347,13 @@
 .monaco-editor .monaco-hover .status-bar .action-container {
     cursor: pointer !important;
     white-space: nowrap !important;
+
     & .action {
         color: var(--pluto-primary-z) !important;
         text-decoration: none !important;
         font-weight: 450 !important;
         transition: color 0.1s ease !important;
+
         &:hover {
             color: var(--pluto-primary-p1) !important;
         }
@@ -361,6 +373,7 @@
         background: var(--pluto-gray-l6) !important;
         border-radius: var(--pluto-border-radius) !important;
     }
+
     &:hover > .slider {
         background: var(--pluto-gray-l7) !important;
     }

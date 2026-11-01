@@ -17,7 +17,7 @@ import { type Variant } from "@/status/status";
 /**
  * A faint outer track around a solid core, drawn on a 13 unit grid so it lands on whole
  * pixels wherever the font size is 13px. The colour arrives through `style` because
- * `.pluto-icon` sets `color: inherit`, and a class rule outranks a presentation
+ * `.lyra-icon` sets `color: inherit`, and a class rule outranks a presentation
  * attribute.
  */
 const ConcentricSVG: Icon.SVGFC = ({ color, style, ...rest }) => (
@@ -63,7 +63,7 @@ export const Indicator = ({
   const color = variant != null ? VARIANT_COLORS[variant] : undefined;
   if (children == null) return <Concentric color={color} {...rest} />;
   const { className, style, ...others } = rest;
-  // The color rides on style because `.pluto-icon` sets `color: inherit`, and a
+  // The color rides on style because `.lyra-icon` sets `color: inherit`, and a
   // class rule outranks a presentation attribute.
   return cloneElement(children, {
     ...others,

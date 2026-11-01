@@ -7,7 +7,6 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { CSS } from "@synnaxlabs/lyra/css";
 import { stopPropagation } from "@synnaxlabs/lyra/util";
 import { type location } from "@synnaxlabs/x";
 import {
@@ -17,6 +16,7 @@ import {
 } from "@xyflow/react";
 import { type ReactElement } from "react";
 
+import { CSS } from "@/css";
 import { adjust, smart, swap } from "@/schematic/node/common/handle/position";
 
 export interface HandleProps extends Omit<RFHandleProps, "type" | "position"> {

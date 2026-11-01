@@ -27,6 +27,7 @@ class Rich:
 
     def __init__(
         self,
+        *,
         info_color: str = _SYNNAX_PRIMARY_Z,
         warn_color: str = "yellow",
         error_color: str = "red",
@@ -76,6 +77,7 @@ class Rich:
     def ask(
         self,
         question: str,
+        *,
         type_: type[R] | None = None,
         choices: list[R] | None = None,
         default: R | None = None,

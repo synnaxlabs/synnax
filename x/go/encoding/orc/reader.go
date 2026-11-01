@@ -44,8 +44,8 @@ var MaxDecodeDepth = 10_000
 
 // Reader reads primitive data types using big-endian byte order. It supports two modes:
 // direct byte-slice mode (via ResetBytes) for zero-copy decoding from in-memory data,
-// and io.Reader mode (via Reset) for streaming. Direct mode avoids intermediate buffer
-// allocations and io.ReadFull overhead.
+// and io.Reader mode (via NewReader) for streaming. Direct mode avoids intermediate
+// buffer allocations and io.ReadFull overhead.
 type Reader struct {
 	r     io.Reader
 	buf   [8]byte
@@ -56,14 +56,6 @@ type Reader struct {
 
 // NewReader creates a new Reader in io.Reader mode.
 func NewReader(r io.Reader) *Reader { return &Reader{r: r} }
-
-// Reset resets the reader to use an io.Reader and clears the recursion depth.
-func (r *Reader) Reset(reader io.Reader) {
-	r.r = reader
-	r.data = nil
-	r.pos = 0
-	r.depth = 0
-}
 
 // ResetBytes resets the reader to decode directly from a byte slice. This avoids the
 // bytes.NewReader allocation and enables zero-copy reads for fixed-size types.

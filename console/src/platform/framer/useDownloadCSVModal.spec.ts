@@ -42,7 +42,7 @@ describe("useDownloadCSVModal", () => {
     it("disables the Download button when no channels are selected", async () => {
       await openDownloadModal({ timeRange: TIME_RANGE, channels: [], name: "My Plot" });
       await waitFor(() =>
-        expect(findButton("Download").className).toContain("pluto--disabled"),
+        expect(findButton("Download").className).toContain("lyra--disabled"),
       );
     });
 
@@ -53,7 +53,7 @@ describe("useDownloadCSVModal", () => {
         name: "My Plot",
       });
       await waitFor(() =>
-        expect(findButton("Download").className).not.toContain("pluto--disabled"),
+        expect(findButton("Download").className).not.toContain("lyra--disabled"),
       );
     });
 
@@ -65,7 +65,7 @@ describe("useDownloadCSVModal", () => {
       });
       const button = await waitFor(() => {
         const btn = findButton("Download");
-        expect(btn.className).not.toContain("pluto--disabled");
+        expect(btn.className).not.toContain("lyra--disabled");
         return btn;
       });
       await act(async () => {
@@ -114,7 +114,7 @@ describe("useDownloadCSVModal", () => {
       );
       const downloadButton = await waitFor(() => {
         const btn = findButton("Download");
-        expect(btn.className).not.toContain("pluto--disabled");
+        expect(btn.className).not.toContain("lyra--disabled");
         return btn;
       });
       await act(async () => {

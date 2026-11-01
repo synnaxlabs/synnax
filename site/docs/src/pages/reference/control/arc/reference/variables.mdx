@@ -56,14 +56,14 @@ A `$=` variable keeps its value between calls of its function. A `:=` variable i
 function gets its first value again on each call.
 
 ```arc channels="tank_pt, tank_pt_delta" bodies="delta"
-func delta(p f64) f64 {
+func delta() {p f64} f64 {
     prev $= 0.0
     d := p - prev
     prev = p
     return d
 }
 
-tank_pt -> delta{} -> tank_pt_delta
+tank_pt -> delta() -> tank_pt_delta
 ```
 
 In a function, the first value of a `$=` variable can be any expression, a channel read
@@ -89,7 +89,7 @@ blocks see the variables of outer blocks. A use before the declaration fails wit
 A name cannot be declared again in an inner block:
 
 ```arc bodies="clamp"
-func clamp(x f64) f64 {
+func clamp() {x f64} f64 {
     y := x
     if y > 100.0 {
         y = 100.0
@@ -130,13 +130,13 @@ the first value. Write to a channel with `=`. A `->` in a function body is a syn
 error.
 
 ```arc channels="tank_pt, setpoint, press_vlv_cmd" bodies="regulate"
-func regulate(p f64) {
+func regulate() {p f64} {
     if p > setpoint {
         press_vlv_cmd = 0
     }
 }
 
-tank_pt -> regulate{}
+tank_pt -> regulate()
 ```
 
 A read-only variable cannot take a write: `1.0 -> kpa` fails with

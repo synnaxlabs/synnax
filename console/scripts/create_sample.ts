@@ -13,16 +13,22 @@
 // Usage: node scripts/create_sample.ts [PORT | URL], such as 9090 (localhost) or
 // https://core.example.com. The default is 9090.
 
+import { readFileSync } from "node:fs";
+
 import { Synnax } from "@synnaxlabs/client";
 
 import { create } from "../src/feature/project/sample.ts";
-import { RECENT_KEY } from "../src/session/range/slice.ts";
 import { parse } from "./coreURL.ts";
 
 const client = new Synnax({
-  ...parse(process.argv[2] ?? "9090"),
+  ...parse(process.argv[2] ?? process.env.SYNNAX_PORT ?? "9090"),
   username: "synnax",
   password: "seldon",
 });
-await create(client, RECENT_KEY);
+const read = (name: string): string =>
+  readFileSync(new URL(`../src/feature/project/${name}`, import.meta.url), "utf8");
+await create(client, {
+  simulator: read("sampleSimulator.arc"),
+  sequence: read("sampleSequence.arc"),
+});
 await client.close();

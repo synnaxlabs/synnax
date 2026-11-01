@@ -10,6 +10,6 @@
  */
 
 /* Channel names run long. */
-.pluto-dialog__frame:has(> .pluto-dialog__trigger.pluto-channel__trigger) {
+.lyra-dialog__frame:has(> .lyra-dialog__trigger.pluto-channel__trigger) {
     --pluto-control-width: 64rem;
 }

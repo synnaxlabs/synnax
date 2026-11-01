@@ -11,6 +11,7 @@ package errors
 
 import (
 	stderrors "errors"
+	"reflect"
 
 	"github.com/cockroachdb/errors"
 )
@@ -68,10 +69,50 @@ func Wrapf(err error, format string, args ...any) error {
 }
 
 // Join returns an error that wraps the given errors. Any nil error values are
-// discarded. Join returns nil if errs contains no non-nil values. The error formats as
-// the concatenation of the strings obtained by calling the Error method of each element
-// of errs, with a newline between each string. A stack trace is also retained.
-func Join(errs ...error) error { return errors.Join(errs...) }
+// discarded. Join returns nil if errs contains no non-nil values, and the error itself
+// if errs contains exactly one. The members of a joined argument are spliced into the
+// result, so err = Join(err, next) in a loop stays flat. The error formats as the
+// concatenation of the strings obtained by calling the Error method of each member,
+// with a newline between each string. A stack trace is also retained.
+func Join(errs ...error) error {
+	var sole error
+	count := 0
+	for _, err := range errs {
+		if err != nil {
+			sole = err
+			count++
+		}
+	}
+	if count <= 1 {
+		return sole
+	}
+	members := make([]error, 0, count)
+	for _, err := range errs {
+		if err != nil {
+			members = append(members, unwrapJoin(err)...)
+		}
+	}
+	return errors.Join(members...)
+}
+
+var (
+	stackType      = reflect.TypeOf(errors.WithStack(errors.New("")))
+	joinType       = reflect.TypeOf(errors.UnwrapOnce(errors.Join(errors.New(""))))
+	stdlibJoinType = reflect.TypeOf(stderrors.Join(errors.New("")))
+)
+
+// unwrapJoin returns the members of err if err is a bare join, or err alone if it is
+// not. Any other multi-cause error stays one member, so its message and type remain.
+func unwrapJoin(err error) []error {
+	bare := err
+	if reflect.TypeOf(err) == stackType {
+		bare = errors.UnwrapOnce(err)
+	}
+	if t := reflect.TypeOf(bare); t == joinType || t == stdlibJoinType {
+		return bare.(multiCause).Unwrap()
+	}
+	return []error{err}
+}
 
 // multiCause is implemented by errors that carry more than one cause, such as the
 // result of Join. It mirrors the structural convention the standard library uses for

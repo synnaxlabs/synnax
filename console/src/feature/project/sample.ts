@@ -19,6 +19,7 @@ import {
   type Synnax,
   UnexpectedError,
 } from "@synnaxlabs/client";
+import { dynamicWindow, TimeSpan } from "@synnaxlabs/x";
 
 const NAME = "Sample project";
 
@@ -41,70 +42,6 @@ const PRESS_VLV_CMD = "sample_press_vlv_cmd";
 const VENT_VLV_CMD = "sample_vent_vlv_cmd";
 const START_CMD = "sample_start_cmd";
 const ABORT_CMD = "sample_abort_cmd";
-
-const SIMULATOR = `import time
-
-// Simulates a tank that fills from a 500 psi nitrogen supply through the press valve
-// and empties through the vent valve.
-func step() {
-    pressure f64 $= 0
-    if ${PRESS_VLV_CMD} == 1 {
-        pressure += (500 - pressure) * 0.02
-    }
-    if ${VENT_VLV_CMD} == 1 {
-        pressure -= pressure * 0.05
-    }
-    pressure -= pressure * 0.0002
-    ${TANK_PT} = pressure
-    ${PRESS_VLV_STATE} = ${PRESS_VLV_CMD}
-    ${VENT_VLV_STATE} = ${VENT_VLV_CMD}
-}
-
-time.interval(period=100ms) -> step()
-`;
-
-const SEQUENCE = `import control
-import time
-
-// The sequence outranks the schematic, so a Start click does not take the valves. An
-// operator takes a valve with its control chip.
-authority 100
-
-sequence press {
-    stage idle {
-        0 -> ${PRESS_VLV_CMD}
-        0 -> ${VENT_VLV_CMD}
-        ${START_CMD} == 1 => pressurize
-    }
-    stage pressurize {
-        control.set_authority(value=100)
-        1 -> ${PRESS_VLV_CMD}
-        0 -> ${VENT_VLV_CMD}
-        ${TANK_PT} > 450 => abort
-        ${ABORT_CMD} == 1 => abort
-        ${TANK_PT} > 300 => hold
-    }
-    stage hold {
-        0 -> ${PRESS_VLV_CMD}
-        ${ABORT_CMD} == 1 => abort
-        time.wait(duration=10s) => vent
-    }
-    stage vent {
-        1 -> ${VENT_VLV_CMD}
-        ${TANK_PT} < 5 => idle
-    }
-    // Abort raises the sequence to the authority of a control chip, so its commands
-    // reach a valve an operator holds.
-    stage abort {
-        control.set_authority(value=255)
-        0 -> ${PRESS_VLV_CMD}
-        1 -> ${VENT_VLV_CMD}
-        ${START_CMD} == 1 => pressurize
-    }
-}
-
-true => press
-`;
 
 type Channels = Record<
   | typeof INDEX
@@ -225,7 +162,7 @@ const createSchematic = (ch: Channels): schematic.New => ({
   },
 });
 
-const createLinePlot = (ch: Channels, range: string): lineplot.New => ({
+const createLinePlot = (ch: Channels): lineplot.New => ({
   key: KEYS.linePlot,
   name: "Tank pressure",
   channels: {
@@ -233,7 +170,7 @@ const createLinePlot = (ch: Channels, range: string): lineplot.New => ({
     y1: [ch[TANK_PT]],
     y2: [ch[PRESS_VLV_STATE], ch[VENT_VLV_STATE]],
   },
-  ranges: { x1: [range] },
+  ranges: [{ variant: "window", window: dynamicWindow(TimeSpan.seconds(30)) }],
 });
 
 const deploy = async (client: Synnax, key: arc.Key): Promise<void> => {
@@ -262,14 +199,23 @@ export const exists = async (client: Synnax): Promise<boolean> => {
 };
 
 /**
- * Creates the sample project and starts its Arc programs, replacing any old sample. The
- * line plot shows the range with key `range`.
+ * The text of the sample's Arc programs, from `sampleSimulator.arc` and
+ * `sampleSequence.arc`.
  */
-export const create = async (client: Synnax, range: string): Promise<void> => {
+export interface Programs {
+  simulator: string;
+  sequence: string;
+}
+
+/**
+ * Creates the sample project and starts its Arc programs, replacing any old sample. The
+ * line plot shows the last 30 seconds.
+ */
+export const create = async (client: Synnax, programs: Programs): Promise<void> => {
   const ch = await createChannels(client);
   await client.projects.create({ key: KEYS.project, name: NAME });
   await client.schematics.create(KEYS.project, createSchematic(ch));
-  await client.lineplots.create(KEYS.project, createLinePlot(ch, range));
+  await client.lineplots.create(KEYS.project, createLinePlot(ch));
   // Overwriting an existing schematic or line plot does not link it to the project,
   // which matters after the user deletes the project.
   await client.ontology.addChildren(
@@ -282,13 +228,13 @@ export const create = async (client: Synnax, range: string): Promise<void> => {
       key: KEYS.simulator,
       name: "Tank simulator",
       mode: "text",
-      text: { raw: SIMULATOR },
+      text: { raw: programs.simulator },
     },
     {
       key: KEYS.sequence,
       name: "Press sequence",
       mode: "text",
-      text: { raw: SEQUENCE },
+      text: { raw: programs.sequence },
     },
   ]);
   await deploy(client, KEYS.simulator);

@@ -104,7 +104,7 @@ def log(aut: sy.Controller, msg: str) -> None:
     )
 
 
-def execute_auto(params: TPCParameters, wait_for_confirm: bool = False) -> sy.Range:
+def execute_auto(params: TPCParameters, *, wait_for_confirm: bool = False) -> sy.Range:
     def run_tpc(auto: sy.Controller) -> bool | np.bool_:
         pressure = auto[FUEL_TANK_PT]
         one_open = auto[TPC_CMD_ACK]
@@ -167,7 +167,8 @@ def execute_auto(params: TPCParameters, wait_for_confirm: bool = False) -> sy.Ra
                     break
                 log(
                     ctrl,
-                    f"Holding at {curr_target} PSI for {params.press_step_delay} seconds",
+                    f"Holding at {curr_target} PSI for {params.press_step_delay} "
+                    "seconds",
                 )
                 ctrl.sleep(params.press_step_delay)
 
@@ -199,7 +200,8 @@ def execute_auto(params: TPCParameters, wait_for_confirm: bool = False) -> sy.Ra
                     break
                 log(
                     ctrl,
-                    f"Holding at {curr_target} PSI for {params.press_step_delay} seconds",
+                    f"Holding at {curr_target} PSI for {params.press_step_delay} "
+                    "seconds",
                 )
                 ctrl.sleep(params.press_step_delay)
 

@@ -342,13 +342,13 @@ describe("Fallback", () => {
       const c = render(
         <Errors.Fallback error={mockError} resetErrorBoundary={mockReset} />,
       );
-      expect(c.container.querySelector(".pluto-icon--copy")).toBeTruthy();
-      expect(c.container.querySelector(".pluto-icon--check")).toBeFalsy();
+      expect(c.container.querySelector(".lyra-icon--copy")).toBeTruthy();
+      expect(c.container.querySelector(".lyra-icon--check")).toBeFalsy();
       fireEvent.click(c.getByText("Copy diagnostics"));
       await waitFor(() => {
-        expect(c.container.querySelector(".pluto-icon--check")).toBeTruthy();
+        expect(c.container.querySelector(".lyra-icon--check")).toBeTruthy();
       });
-      expect(c.container.querySelector(".pluto-icon--copy")).toBeFalsy();
+      expect(c.container.querySelector(".lyra-icon--copy")).toBeFalsy();
     });
   });
 

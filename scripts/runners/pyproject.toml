@@ -20,6 +20,7 @@ dev = [
     "boto3-stubs[ec2,ssm,ce,cloudwatch,pricing]>=1.43,<2",
     "mypy>=2.3.1,<3",
     "pytest>=9.1.1,<10",
+    "pytest-cov>=7.1.0,<8",
     "ruff>=0.16.8,<1"
 ]
 
@@ -36,6 +37,9 @@ src = [".", "tests"]
 
 [tool.pytest.ini_options]
 pythonpath = ["."]
+
+[tool.coverage.run]
+omit = ["tests/*"]
 
 [tool.mypy]
 check_untyped_defs = true

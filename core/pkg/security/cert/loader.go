@@ -63,11 +63,6 @@ func (lc LoaderConfig) AbsoluteCAKeyPath() string {
 	return path.Join(lc.CertsDir, lc.CAKeyPath)
 }
 
-// AbsoluteCACertPath returns the path to the CA certificate, CertsDir included.
-func (lc LoaderConfig) AbsoluteCACertPath() string {
-	return path.Join(lc.CertsDir, lc.CACertPath)
-}
-
 // AbsoluteNodeKeyPath returns the path to the node private key, CertsDir included.
 func (lc LoaderConfig) AbsoluteNodeKeyPath() string {
 	return path.Join(lc.CertsDir, lc.NodeKeyPath)
@@ -119,10 +114,6 @@ func NewLoader(configs ...LoaderConfig) (*Loader, error) {
 	}
 	return &Loader{cfg: cfg}, nil
 }
-
-// Config returns the configuration the Loader was built with. The returned copy is
-// inert: changing it does not change where the Loader reads from.
-func (l *Loader) Config() LoaderConfig { return l.cfg }
 
 // LoadCAPair loads the CA certificate and its private key. If multiple certificates are
 // found in the CA certificate file, the first one is used.

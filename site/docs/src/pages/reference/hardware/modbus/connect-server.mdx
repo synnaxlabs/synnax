@@ -1,7 +1,8 @@
 ---
 layout: "@/layouts/Reference.astro"
 title: "Connect a Modbus server"
-description: "Connect a Modbus TCP server, such as a PLC or an I/O module, to Synnax."
+description:
+  "Connect a Modbus TCP or Modbus RTU server, such as a PLC or an I/O module, to Synnax."
 ---
 
 import { Divider } from "@synnaxlabs/lyra/divider";
@@ -13,11 +14,16 @@ import { Video } from "@/components/media/Media";
 import { mdxOverrides } from "@/components/mdxOverrides";
 export const components = mdxOverrides;
 
-The Modbus integration reads and writes the coils and registers of Modbus TCP servers,
-such as PLCs and remote I/O modules. Modbus RTU and Modbus ASCII are not supported. In
-Synnax, a Modbus server is one IP address and port. The
+The Modbus integration reads and writes the coils and registers of Modbus TCP servers
+and of Modbus RTU servers on a serial port, such as PLCs and remote I/O modules. Modbus
+ASCII and Modbus RTU over TCP are not supported. In Synnax, a Modbus server is one unit
+at an IP address and port, or on a serial port. The
 [read task](/reference/hardware/modbus/read-task) and the
 [write task](/reference/hardware/modbus/write-task) add the addresses.
+
+To reach several units behind one gateway or on one serial line, connect one server for
+each unit, with the same address and a different unit ID. Servers on the same host and
+port, or on the same serial port, share one connection, and their requests take turns.
 
 <Divider.Divider x />
 
@@ -27,6 +33,8 @@ Synnax, a Modbus server is one IP address and port. The
 
 - A running Driver that can reach the server on the network. Synnax Desktop runs one for
   you.
+- For a serial device, a Driver on the computer that the serial adapter connects to. An
+  RS-485 adapter must switch its transmit direction by itself, as most USB adapters do.
 
 <Divider.Divider x />
 
@@ -36,20 +44,29 @@ Synnax, a Modbus server is one IP address and port. The
   <Fragment slot="console">
 
 1. In the [devices toolbar](/reference/hardware/devices#devices-toolbar), click
-   <Icon.Add /> (**Connect device**), then select **Modbus TCP server**. You can also
-   run the "Connect Modbus server" command.
+   <Icon.Add /> (**Connect device**), then select **Modbus server**. You can also run
+   the "Connect Modbus server" command.
 2. Enter a name for the server.
-3. In **Host**, enter the IPv4 address of the server, such as `192.168.1.20`.
-4. In **Port**, enter the port of the server. The default is `502`.
-5. In **Connect from**, select the Driver that connects to the server. If only one
+3. In **Transport**, select **TCP** for a server on the network, or **Serial** for a
+   device on a serial port.
+4. For TCP, enter the IP address or hostname of the server in **Host**, such as
+   `192.168.1.20`, and its port in **Port**. The default port is `502`.
+5. For serial, enter the port in **Serial port**, such as `/dev/ttyUSB0` on Linux or
+   `COM3` on Windows. Then select the **Baud rate**, **Parity**, and **Stop bits** of
+   the device.
+6. In **Connect from**, select the Driver that connects to the server. If only one
    running Driver has Modbus enabled, the Console selects it for you.
-6. If the device sends its bytes or words in a different order, turn on **Swap bytes**
-   or **Swap words**. See
+7. On the **Unit** tab, enter the **Unit ID**. Keep `255` for a TCP server you reach
+   directly. For a unit behind a gateway or on a serial line, enter its unit ID.
+8. In **Byte order**, select the order in which the device sends its bytes. See
    [byte and word order](/reference/hardware/modbus/read-task#byte-and-word-order).
-7. Click **Connect**.
+9. If the device is slow or limits its requests, change the settings on the **Advanced**
+   tab. See [connection options](#connection-options).
+10. Click **Connect**.
 
-The Console connects to the server before it saves it. If the connection fails, the
-dialog shows the error and keeps your entries.
+The Console asks the Driver to read holding register 0 of the unit before it saves the
+server. Any reply, an error reply included, shows that the unit answers. If the unit
+does not answer, the dialog shows the error and keeps your entries.
 
 <Video id="device-drivers/modbus/connect-server/modbus-connect" />
 
@@ -66,6 +83,24 @@ device = client.devices.create(
         host="192.168.1.20",
         port=502,
         location="192.168.1.20:502",
+        rack=rack.key,
+        configured=True,
+    )
+)
+```
+
+For a serial device, pass `transport="rtu"` and the line settings:
+
+```python
+device = client.devices.create(
+    modbus.Device(
+        name="Flow meter",
+        transport="rtu",
+        serial_port="/dev/ttyUSB0",
+        baud_rate=9600,
+        parity="none",
+        unit_id=3,
+        location="/dev/ttyUSB0",
         rack=rack.key,
         configured=True,
     )
@@ -96,49 +131,121 @@ await client.devices.create({
 });
 ```
 
+For a serial device, set `connection` to the serial fields:
+
+```typescript
+connection: {
+  transport: "rtu",
+  serialPort: "/dev/ttyUSB0",
+  baudRate: 9600,
+  parity: "none",
+  stopBits: 1,
+  unitId: 3,
+  swapBytes: false,
+  swapWords: false,
+},
+```
+
 TypeScript does not test the connection.
 
   </Fragment>
 </Client.Tabs>
 
-After you connect a server, the Driver connects to it again every few seconds and shows
-the result as the server status in the devices toolbar. See
-[device statuses](/reference/hardware/devices#statuses).
+After you connect a server, the Driver checks the unit every few seconds and shows the
+result as the server status in the devices toolbar. If a task got a reply from the unit
+since the last check, the Driver sends no request. Otherwise it reads holding
+register 0. See [device statuses](/reference/hardware/devices#statuses).
 
 <Divider.Divider x />
 
 ## Connection options
 
-| Console label | Python field | Default | Notes                                                  |
-| ------------- | ------------ | ------- | ------------------------------------------------------ |
-| Host          | `host`       |         | An IPv4 address. Hostnames, such as `localhost`, fail. |
-| Port          | `port`       | `502`   | The TCP port. Python has no default.                   |
-| Connect from  | `rack`       |         | The Driver that connects to the server.                |
-| Swap bytes    | `swap_bytes` | Off     | Swaps the two bytes in each register.                  |
-| Swap words    | `swap_words` | Off     | Puts the high word first in 32-bit and 64-bit values.  |
+| Console label     | Python field               | Default               | Notes                                                                      |
+| ----------------- | -------------------------- | --------------------- | -------------------------------------------------------------------------- |
+| Transport         | `transport`                | `tcp`                 | `tcp` for Modbus TCP, or `rtu` for Modbus RTU on a serial port.            |
+| Host              | `host`                     |                       | TCP only. An IPv4 address, an IPv6 address, or a hostname.                 |
+| Port              | `port`                     | `502`                 | TCP only. Python has no default.                                           |
+| Serial port       | `serial_port`              |                       | RTU only. Such as `/dev/ttyUSB0` or `COM3`.                                |
+| Baud rate         | `baud_rate`                | `19200`               | RTU only. See [serial devices](#serial-devices).                           |
+| Parity            | `parity`                   | `even`                | RTU only. `none`, `even`, or `odd`.                                        |
+| Stop bits         | `stop_bits`                | `1`                   | RTU only. `1` or `2`.                                                      |
+| Connect from      | `rack`                     |                       | The Driver that connects to the server.                                    |
+| Unit ID           | `unit_id`                  | `255`, or `1` for RTU | The unit that requests go to: 0 to 255 for TCP, and 1 to 247 for RTU.      |
+| Byte order        | `swap_bytes`, `swap_words` | Word swap             | See the table below.                                                       |
+| Timeout           | `timeout_ms`               | `1000`                | The time to connect, and to wait for each reply, in milliseconds.          |
+| Retries           | `retries`                  | `1`                   | How many times the Driver sends a request again at once after a fault.     |
+| Request delay     | `delay_ms`                 | `0`                   | The wait between requests on the connection, from 0 to 5000 milliseconds.  |
+| Max registers     | `max_registers`            | `125`                 | The most registers in one read, from 1 to 125.                             |
+| Max gap           | `max_gap`                  | `125`                 | The widest gap between channels that one read spans. `0` reads only yours. |
+| Write codes       | `write_codes`              | `multiple`            | `multiple` writes with function codes 15 and 16. `single` uses 05 and 06.  |
+| Mask write (FC22) | `mask_write_supported`     | `false`               | Bit writes in a holding register use function code 22, in one request.     |
 
-**Swap bytes** and **Swap words** set the default for every register channel of the
-server. A channel can override them. The Driver always sends unit ID 255. There is no
-option to change it.
+**Byte order** sets the order of every register channel of the server. A channel can
+override it. The letters show the bytes of a 32-bit value in the order the device sends
+them, with A the most significant byte.
+
+| Byte order           | `swap_bytes` | `swap_words` |
+| -------------------- | ------------ | ------------ |
+| Big-endian (ABCD)    | `False`      | `True`       |
+| Byte swap (BADC)     | `True`       | `True`       |
+| Word swap (CDAB)     | `False`      | `False`      |
+| Little-endian (DCBA) | `True`       | `False`      |
+
+A request that times out or loses its connection is sent again at once, up to
+**Retries** times. When the unit does not reply to three attempts in a row, the Driver
+stops sending requests to it for 10 seconds, so that a unit that is off does not slow
+down the other units on the connection. A connection that fails does not count toward
+the three.
+
+<Divider.Divider x />
+
+## Serial devices
+
+All servers on one serial port must use the same line settings. When a task or a check
+uses a server whose settings differ from the settings in use on the port, it fails with
+an error that names both. The Driver always uses 8 data bits, as Modbus RTU requires.
+The baud rate is one of 1200, 2400, 4800, 9600, 19200, 38400, 57600, 115200, or 230400,
+the rates that the Driver can set on Linux, macOS, and Windows. Between two requests,
+the Driver waits for the silence of 3.5 characters that Modbus RTU requires, or 1.75 ms
+above 19200 baud.
+
+On Linux, the user that runs the Driver needs access to the serial port. This usually
+means that the user is in the `dialout` group.
 
 <Divider.Divider x />
 
 ## Troubleshooting
-
-### Connect fails with a hostname
-
-The Driver accepts only IPv4 addresses. Enter the address of the server. For a server on
-the same computer as the Driver, enter `127.0.0.1`.
 
 ### Connect fails with "Connection refused" or a timeout
 
 Check the address and the port. Make sure that the server allows Modbus TCP connections
 from the computer that runs the Driver.
 
-### The server connects but does not answer requests
+### Connect fails with "Connection timed out", but the server is on
 
-The server, or the gateway in front of it, needs a unit ID other than 255. The Driver
-cannot send a different unit ID.
+The server accepts the connection, but the unit does not answer. Check the **Unit ID**.
+A gateway needs the unit ID of the device behind it. Some servers answer only unit 1 or
+unit 0.
+
+### "Gateway target device failed to respond"
+
+The gateway is on, but the unit behind it does not answer. Check the unit, its wiring,
+and the **Unit ID**.
+
+### Connect fails with "No such file or directory"
+
+The serial port does not exist on the computer that runs the Driver. Check the port name
+and that the adapter is plugged in.
+
+### Connect fails with "Permission denied"
+
+The Driver cannot open the serial port. On Linux, add the user that runs the Driver to
+the `dialout` group.
+
+### A serial device does not answer
+
+Check that the baud rate, parity, and stop bits match the device, and that the device
+uses 8 data bits. On an RS-485 line, check that the A and B wires are not swapped.
 
 For other problems, see
 [Troubleshoot hardware](/reference/hardware/troubleshooting#failed-to-reach-device-or-failed-to-reach-server).

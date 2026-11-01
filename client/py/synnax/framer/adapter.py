@@ -45,7 +45,9 @@ class ReadFrameAdapter:
         # The Core counts every update that carries keys, and both sides must agree on
         # the sequence number of each codec state.
         if len(new_keys) > 0:
-            self.codec.update(new_keys, [ch.data_type for ch in fetched])
+            self.codec.update(
+                keys=new_keys, data_types=[ch.data_type for ch in fetched]
+            )
         self._names = {ch.key: ch.name for ch in fetched}
         self._by_name = isinstance(normal, channel.NormalizedNameResult)
         if isinstance(normal, channel.NormalizedKeyResult):
@@ -94,6 +96,7 @@ class WriteFrameAdapter:
 
     def __init__(
         self,
+        *,
         retriever: ChannelRetriever,
         err_on_extra_chans: bool = True,
         strict_data_types: bool = False,
@@ -114,8 +117,8 @@ class WriteFrameAdapter:
         self._channels = {ch.key: ch for ch in results}
         self._keys = [ch.key for ch in results]
         self.codec.update(
-            self._keys,
-            [ch.data_type for ch in results],
+            keys=self._keys,
+            data_types=[ch.data_type for ch in results],
         )
 
     def adapt_dict_keys(
@@ -186,10 +189,11 @@ class WriteFrameAdapter:
         series: CrudeSeries | list[CrudeSeries] | None = None,
     ) -> Frame:
         if isinstance(channels_or_data, (str, channel.Key, channel.Payload)):
+            kind = "name" if isinstance(channels_or_data, str) else "key"
             if series is None:
                 raise ValidationError(
                     f"""
-                Received a single channel {"name" if isinstance(channels_or_data, str) else "key"}
+                Received a single channel {kind}
                 but no data.
                 """
                 )
@@ -198,7 +202,7 @@ class WriteFrameAdapter:
                 if not isinstance(first, (float, int)):
                     raise ValidationError(
                         f"""
-                    Received a single channel {"name" if isinstance(channels_or_data, str) else "key"}
+                    Received a single channel {kind}
                     but multiple series.
                     """
                     )
@@ -223,9 +227,10 @@ class WriteFrameAdapter:
             for i, ch in enumerate(channels_or_data):
                 key = self._adapt_to_key(ch)
                 if i >= len(series_list):
+                    n_channels, n_series = len(channels_or_data), len(series_list)
                     raise ValidationError(
                         f"""
-                    Received {len(channels_or_data)} channels but only {len(series_list)} series.
+                    Received {n_channels} channels but only {n_series} series.
                     """
                     )
                 channels.append(key)

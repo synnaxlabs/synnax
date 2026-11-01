@@ -7,7 +7,7 @@
 #  License, use of this software will be governed by the Apache License, Version 2.0,
 #  included in the file licenses/APL.txt.
 
-from examples.simulators import PressSimDAQ
+from examples.simulators import PressSimDAQ, SimDAQ
 
 import synnax as sy
 from tests.arc.arc import ArcCase
@@ -52,7 +52,7 @@ class AuthorityEmergency(ArcCase):
         "press_pt",
         "end_test_cmd",
     ]
-    sim_daq_class = PressSimDAQ
+    sim_daq_class: type[SimDAQ] | None = PressSimDAQ
 
     def setup(self) -> None:
         self._override_writer: sy.Writer | None = None
@@ -83,7 +83,7 @@ class AuthorityEmergency(ArcCase):
         self._override_writer = self.client.open_writer(
             sy.TimeStamp.now(),
             ["press_vlv_cmd_time", "press_vlv_cmd"],
-            200,
+            authorities=200,
         )
         self._override_writer.write(
             {

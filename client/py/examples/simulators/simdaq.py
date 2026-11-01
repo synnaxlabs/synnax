@@ -21,7 +21,7 @@ class SimDAQ(Simulator):
     description: str = "Run simulator standalone"
     end_cmd_channel: str | None = None
 
-    def __init__(self, client: sy.Synnax, verbose: bool = False):
+    def __init__(self, client: sy.Synnax, *, verbose: bool = False):
         super().__init__(verbose=verbose)
         self.client = client
         self._thread: threading.Thread | None = None

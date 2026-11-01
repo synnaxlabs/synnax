@@ -17,7 +17,11 @@ import { describe, expect, it } from "vitest";
 import { NI } from "@/feature/ni";
 import { createNIDevice, renderNITaskForm } from "@/feature/ni/task/testutil";
 import { Task } from "@/platform/task";
-import { commitFieldInput, deployAndAwaitTask } from "@/platform/task/testutil";
+import {
+  commitFieldInput,
+  createWithHook,
+  deployAndAwaitTask,
+} from "@/platform/task/testutil";
 import { awaitTextEditing, commitTextEdit, uniqueName } from "@/testutil";
 
 const client = createTestClient();
@@ -234,5 +238,36 @@ describe("DigitalWrite", () => {
         firstTask.config.channels[0].cmdChannel,
       );
     });
+  });
+
+  it("should create the task with one channel", async () => {
+    const tsk = await createWithHook(
+      NI.Task.useCreateDigitalWrite,
+      NI.Task.DIGITAL_WRITE_SCHEMAS,
+    );
+    expect(tsk.config.channels).toHaveLength(1);
+  });
+});
+
+describe("DigitalWrite disabled channels", () => {
+  it("should deploy and redeploy a disabled channel on a line another channel uses", async () => {
+    const dev = await createNIDevice(client);
+    const first = await renderDigitalWrite(
+      createConfig(
+        [createChannel(0, 2, { disabled: true }), createChannel(0, 2)],
+        dev.key,
+      ),
+    );
+    const { config } = await deployAndAwaitTask(
+      client,
+      first.container,
+      first.draft.key,
+      NI.Task.DIGITAL_WRITE_SCHEMAS,
+    );
+    expect(config.channels[1].cmdChannel).toBe(config.channels[0].cmdChannel);
+    expect(config.channels[1].stateChannel).toBe(config.channels[0].stateChannel);
+    first.unmount();
+    const second = await renderDigitalWrite(config);
+    await deployAndAwaitTask(client, second.container, second.draft.key);
   });
 });

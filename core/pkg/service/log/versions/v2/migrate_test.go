@@ -27,10 +27,10 @@ import (
 	v2 "github.com/synnaxlabs/synnax/pkg/service/log/versions/v2"
 	"github.com/synnaxlabs/x/color"
 	"github.com/synnaxlabs/x/errors"
-	"github.com/synnaxlabs/x/kv/memkv"
 	"github.com/synnaxlabs/x/notation"
 	"github.com/synnaxlabs/x/telem"
 	. "github.com/synnaxlabs/x/testutil"
+	"github.com/synnaxlabs/x/testutil/memkv"
 	"go.uber.org/zap"
 	"go.uber.org/zap/zapcore"
 	"go.uber.org/zap/zaptest/observer"
@@ -95,7 +95,7 @@ var _ = Describe("MigrateLog", func() {
 		Expect(out.ReceiptTimestampHidden).To(BeFalse())
 		Expect(out.Channels).To(HaveLen(1))
 		Expect(out.Channels[0].Channel).To(BeEquivalentTo(42))
-		Expect(out.Channels[0].Color).To(Equal(color.MustFromHex("#ff0000")))
+		Expect(out.Channels[0].Color).To(Equal(MustSucceed(color.FromHex("#ff0000"))))
 		Expect(out.Channels[0].Notation).To(Equal(notation.NotationScientific))
 		Expect(out.Channels[0].Precision).To(Equal(int32(3)))
 		Expect(out.Channels[0].Alias).To(Equal("temp"))
@@ -279,7 +279,9 @@ var _ = Describe("MigrateLog", func() {
 			Expect(out.Name).To(Equal("Test Log V1"))
 			Expect(out.Channels).To(HaveLen(2))
 			Expect(out.Channels[0].Channel).To(BeEquivalentTo(1))
-			Expect(out.Channels[0].Color).To(Equal(color.MustFromHex("#ff0000")))
+			Expect(
+				out.Channels[0].Color,
+			).To(Equal(MustSucceed(color.FromHex("#ff0000"))))
 			Expect(out.Channels[0].Notation).To(Equal(notation.NotationScientific))
 			Expect(out.Channels[0].Precision).To(Equal(int32(2)))
 			Expect(out.Channels[0].Alias).To(Equal("temp"))
@@ -374,7 +376,9 @@ var _ = Describe("MigrateLog", func() {
 				Expect(got.Name).To(Equal("chain-log"))
 				Expect(got.Channels).To(HaveLen(1))
 				Expect(got.Channels[0].Channel).To(BeEquivalentTo(42))
-				Expect(got.Channels[0].Color).To(Equal(color.MustFromHex("#ff0000")))
+				Expect(
+					got.Channels[0].Color,
+				).To(Equal(MustSucceed(color.FromHex("#ff0000"))))
 				Expect(got.ChannelNamesHidden).To(BeTrue())
 				Expect(got.ReceiptTimestampHidden).To(BeFalse())
 			},

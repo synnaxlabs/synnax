@@ -35,7 +35,7 @@ export default async (session: capture.CaptureSession): Promise<void> => {
     await session.click(value, { zoom: false });
     await session.hold(800);
 
-    const drawer = page.locator(".console-nav__drawer.pluto--location-bottom").first();
+    const drawer = page.locator(".console-nav__drawer.lyra--location-bottom").first();
     await session.click(drawer.getByText("Telemetry", { exact: true }).first(), {
       text: true,
       zoom: false,
@@ -53,7 +53,7 @@ export default async (session: capture.CaptureSession): Promise<void> => {
     await session.type(fixture.channels[0]);
     session.setSpeed(1);
     const item = page
-      .locator(".pluto-list__item:not(.pluto-tree__item)")
+      .locator(".lyra-list__item:not(.lyra-tree__item)")
       .filter({ hasText: fixture.channels[0] })
       .first();
     await session.waitFor(item);

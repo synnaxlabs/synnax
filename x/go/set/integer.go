@@ -33,13 +33,6 @@ func (r intRange[T]) size() T {
 // consecutive number of integers.
 type Integer[T constraints.Integer] []intRange[T]
 
-// NewInteger creates a new Integer set and inserts the provided nums.
-func NewInteger[T constraints.Integer](nums []T) *Integer[T] {
-	s := &Integer[T]{}
-	s.Insert(nums...)
-	return s
-}
-
 // Insert inserts the integers nums into the set s.
 func (s *Integer[T]) Insert(nums ...T) {
 	if len(nums) == 0 {
@@ -108,19 +101,6 @@ func (s Integer[T]) NumLessThan(num T) T {
 	return counter
 }
 
-// NumGreaterThan returns the total number of integers in s greater than num.
-func (s Integer[T]) NumGreaterThan(num T) T {
-	counter := T(0)
-	for i := len(s) - 1; i >= 0 && s[i].end > num; i-- {
-		if s[i].start <= num {
-			counter += s[i].end - num - 1
-		} else {
-			counter += s[i].size()
-		}
-	}
-	return counter
-}
-
 // Size returns the total unique numbers in Integer s.
 func (s Integer[T]) Size() T {
 	counter := T(0)
@@ -143,13 +123,6 @@ func (s Integer[T]) Contains(num T) bool {
 		return false
 	}
 	return true
-}
-
-// Copy returns a deep copy of s.
-func (s Integer[T]) Copy() Integer[T] {
-	newSet := make(Integer[T], len(s))
-	copy(newSet, s)
-	return newSet
 }
 
 // delete removes the element s[i] from s.

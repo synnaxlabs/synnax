@@ -111,7 +111,7 @@ const Machines = ({
     >
       {machines.map(({ activation: a, license: lic }) => (
         <Row key={a.key} columns={MACHINE_COLUMNS} href={`/licenses/${lic.key}`}>
-          <Text.Text level="p" overflow="ellipsis">
+          <Text.Text level="p" overflow="fade">
             {machineName(a)}
           </Text.Text>
           <Flex.Box>
@@ -139,7 +139,7 @@ const Teams = ({ teams }: { teams: Membership[] }): ReactElement =>
           columns={TEAM_COLUMNS}
           href={`/admin/organizations/${org.key}`}
         >
-          <Text.Text level="p" weight={500} overflow="ellipsis">
+          <Text.Text level="p" weight={500} overflow="fade">
             {org.name}
           </Text.Text>
           <Text.Text level="p" color={9}>

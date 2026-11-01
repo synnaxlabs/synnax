@@ -54,7 +54,7 @@ def get_core_fixture_path(relative: str) -> str:
 
 
 @contextmanager
-def named_envelope_copy(path: str, name: str) -> Iterator[str]:
+def named_envelope_copy(path: str, *, name: str) -> Iterator[str]:
     """Temp copy of ``path`` named ``{name}.json``.
 
     An envelope's ``name`` header wins over the filename fallback, and several
@@ -96,7 +96,7 @@ def resolve_channel_placeholders(client: sy.Synnax, text: str) -> str:
     :param client: The Synnax client to resolve names through.
     :param text: Raw fixture JSON text.
     :returns: The text with each placeholder replaced by the channel's key.
-    :raises QueryError: If a named channel does not exist.
+    :raises NotFoundError: If a named channel does not exist.
     """
 
     def key(m: re.Match[str]) -> str:
@@ -139,7 +139,7 @@ def read_latest_value(client: sy.Synnax, channel_name: str) -> float | None:
     try:
         for attempt in range(3):
             latest = client.read_latest(channel_name)
-            if latest is not None and len(latest) > 0:
+            if len(latest) > 0:
                 return to_float(latest[-1])
             now = sy.TimeStamp.now()
             recent_range = sy.TimeRange(now - sy.TimeSpan.SECOND * 3, now)
@@ -166,6 +166,7 @@ def create_time_index(client: sy.Synnax, name: str) -> sy.Channel:
 def create_virtual_channel(
     client: sy.Synnax,
     name: str,
+    *,
     data_type: sy.DataType = sy.DataType.FLOAT32,
 ) -> sy.Channel:
     """Create (or retrieve) a virtual channel."""
@@ -195,6 +196,7 @@ def create_virtual_channels(
 def create_indexed_channel(
     client: sy.Synnax,
     name: str,
+    *,
     data_type: sy.DataType,
     index_key: int,
 ) -> sy.Channel:
@@ -210,6 +212,7 @@ def create_indexed_channel(
 def create_indexed_channels(
     client: sy.Synnax,
     names: list[str],
+    *,
     index_key: int,
     data_type: sy.DataType = sy.DataType.FLOAT32,
 ) -> list[sy.Channel]:
@@ -226,6 +229,7 @@ def create_indexed_channels(
 def create_indexed_pair(
     client: sy.Synnax,
     name: str,
+    *,
     data_type: sy.DataType = sy.DataType.FLOAT64,
 ) -> sy.Channel:
     """Create a time index channel and a data channel indexed to it.
@@ -233,20 +237,21 @@ def create_indexed_pair(
     The index channel is named ``{name}_time``. Returns the data channel.
     """
     idx = create_time_index(client, f"{name}_time")
-    return create_indexed_channel(client, name, data_type, idx.key)
+    return create_indexed_channel(client, name, data_type=data_type, index_key=idx.key)
 
 
 _LINK_PATTERN = re.compile(r"^synnax://cluster/([^/]+)/([^/]+)/([^/]+)$")
 
 
 def assert_link_format(
-    link: str, resource_type: str, resource_id: str | None = None
+    link: str, *, resource_type: str, resource_id: str | None = None
 ) -> None:
     """Assert that a synnax:// link matches the expected format.
 
     :param link: The link to validate.
     :param resource_type: The resource type (e.g., "lineplot", "log", "channel").
-    :param resource_id: Optional specific resource ID to match. If None, validates as UUID.
+    :param resource_id: Optional specific resource ID to match. If None, validates as
+        UUID.
     """
     match = _LINK_PATTERN.match(link)
     assert match, f"Link should match synnax://cluster/<uuid>/<type>/<id>, got: {link}"
@@ -279,6 +284,7 @@ def assert_link_format(
 
 def assert_envelope(
     exported: dict[str, Any],
+    *,
     envelope_type: str,
     min_version: int,
     name: str | None = None,

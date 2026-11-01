@@ -24,13 +24,13 @@ describe("Icon", () => {
   describe("tint", () => {
     it("should leave the icon's color alone without a color", () => {
       const svg = renderSVG(Icon.tint());
-      expect(svg.getAttribute("class")).not.toContain(CSS.B("symbol-colored"));
+      expect(svg.getAttribute("class")).not.toContain(CSS.symbolColored);
       expect(svg.style.color).toEqual("");
     });
 
     it("should draw the icon through the icon band of the theme", () => {
       const svg = renderSVG(Icon.tint("#dc136c"));
-      expect(svg.getAttribute("class")).toContain(CSS.B("symbol-colored"));
+      expect(svg.getAttribute("class")).toContain(CSS.symbolColored);
       expect(svg.getAttribute("class")).toContain(CSS.BM("symbol-colored", "icon"));
       expect(svg.style.getPropertyValue("--pluto-symbol-color")).toEqual(
         "220, 19, 108",

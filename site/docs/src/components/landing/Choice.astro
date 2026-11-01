@@ -37,7 +37,7 @@ const { title, description, action, href, primary = false } = Astro.props;
         variant={primary ? "filled" : "outlined"}
         size="large"
         level="p"
-        weight={500}
+        className="docs-cta"
     >
         <slot name="action-icon" />
         {action}
@@ -54,26 +54,34 @@ const { title, description, action, href, primary = false } = Astro.props;
         border: var(--pluto-border);
         border-radius: 1rem;
         background: var(--pluto-gray-l1);
+
         &[data-primary="true"] {
             border-color: var(--pluto-primary-z);
         }
+
         .docs-choice__title {
             margin: 0;
         }
+
         .docs-choice__icon {
             display: flex;
             margin-bottom: 1rem;
             color: var(--pluto-gray-l9);
-            & .pluto-icon {
+
+            & .lyra-icon {
                 width: 4rem;
                 height: 4rem;
             }
         }
+
         .docs-choice__description {
             padding-bottom: 4rem;
         }
-        .pluto-btn {
+
+        .lyra-btn {
             margin-top: auto;
+            width: 100%;
+            justify-content: center;
         }
     }
 </style>

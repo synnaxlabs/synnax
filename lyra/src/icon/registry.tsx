@@ -34,7 +34,7 @@ import {
   BsBorderWidth,
   BsFillInfoSquareFill,
   BsLightbulbFill,
-  BsShiftFill,
+  BsShift,
 } from "react-icons/bs";
 import {
   FaAlignCenter,
@@ -410,7 +410,7 @@ export const Keyboard = {
   },
   Alt: wrapSVGIcon(MdKeyboardAlt, "keyboard-alt"),
   Option: wrapSVGIcon(MdKeyboardOptionKey, "keyboard-option"),
-  Shift: wrapSVGIcon(BsShiftFill, "keyboard-shift"),
+  Shift: wrapSVGIcon(BsShift, "keyboard-shift"),
 };
 export const Tooltip = wrapSVGIcon(MdInsights, "tooltip");
 export const Annotate = wrapSVGIcon(MdLabel, "annotate");

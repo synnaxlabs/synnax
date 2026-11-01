@@ -9,26 +9,26 @@
  * included in the file licenses/APL.txt.
  */
 
-@keyframes pluto-progress-fill {
+@keyframes lyra-progress-fill {
     from {
         transform: scaleX(0);
     }
 }
 
-@keyframes pluto-progress-pulse {
+@keyframes lyra-progress-pulse {
     to {
         opacity: 0.4;
     }
 }
 
-.pluto-progress {
+.lyra-progress {
     width: 100%;
     height: 1.5rem;
     overflow: hidden;
     background: var(--pluto-gray-l2);
     border-radius: var(--pluto-border-radius);
 
-    & .pluto-progress-bar {
+    & .lyra-progress-bar {
         width: 100%;
         height: 100%;
         border-radius: var(--pluto-border-radius);
@@ -37,27 +37,27 @@
         overflow: hidden;
     }
 
-    &.pluto--indeterminate .pluto-progress-bar {
+    &.lyra--indeterminate .lyra-progress-bar {
         transform-origin: left;
         animation:
-            pluto-progress-fill var(--pluto-progress-duration) linear,
-            pluto-progress-pulse 0.8s ease-in-out var(--pluto-progress-duration)
-                infinite alternate;
+            lyra-progress-fill var(--pluto-progress-duration) linear,
+            lyra-progress-pulse 0.8s ease-in-out var(--pluto-progress-duration) infinite
+                alternate;
     }
 
-    &.pluto--thin {
+    &.lyra--thin {
         height: 2px;
         background: none;
         border-radius: 0;
 
-        & .pluto-progress-bar {
+        & .lyra-progress-bar {
             border-radius: 0;
         }
     }
 }
 
 @media (prefers-reduced-motion: reduce) {
-    .pluto-progress.pluto--indeterminate .pluto-progress-bar {
+    .lyra-progress.lyra--indeterminate .lyra-progress-bar {
         animation: none;
     }
 }

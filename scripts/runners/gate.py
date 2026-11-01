@@ -33,9 +33,11 @@ class Gate:
     fan-out whose write fails is sent again on the next step."""
 
     def __init__(
-        self, client: sy.Synnax, channels: Channels, log: Log, enabled: bool = True
+        self, *, client: sy.Synnax, channels: Channels, log: Log, enabled: bool = True
     ) -> None:
-        self.commander = Commander(client, "gh_cmd", "GH Gate", log)
+        self.commander = Commander(
+            client=client, command="gh_cmd", name="GH Gate", log=log
+        )
         self.client = client
         self.channels = channels
         self.log = log
@@ -44,12 +46,16 @@ class Gate:
         # first, which applies the start state over the runners' saved ones.
         self.sent: bool | None = None
         self.known: set[str] = set()
-        self.state = Publisher(client, GATE_STATE_INDEX, [], report=log.error)
+        self.state = Publisher(
+            client=client, name=GATE_STATE_INDEX, channels=[], report=log.error
+        )
         self.published: dict[str, bool] = {}
-        self.writes = Subscription(client, "runner_gh_cmd", [], report=log.error)
+        self.writes = Subscription(
+            client=client, name="runner_gh_cmd", channels=[], report=log.error
+        )
 
     def state_channel(self, runner: str) -> str:
-        return channel_name("gh_state", runner)
+        return channel_name("gh_state", runner=runner)
 
     def step(self, known: set[str]) -> None:
         self.commander.refresh_writer(known)
@@ -65,7 +71,7 @@ class Gate:
             if (last := commanded.get(r)) is None
             or (changed and last[1] != self.enabled)
         }
-        if not commands or self.commander.command(commands, now):
+        if not commands or self.commander.command(commands, now=now):
             self.sent = self.enabled
         self.publish()
 
@@ -76,14 +82,16 @@ class Gate:
         self.known = runners
         names = [self.state_channel(r) for r in sorted(runners)]
         index = self.channels.index(GATE_STATE_INDEX)
-        self.channels.data(index, dict.fromkeys(names, sy.DataType.BOOLEAN))
+        self.channels.data(
+            index=index, channels=dict.fromkeys(names, sy.DataType.BOOLEAN)
+        )
         self.state.retarget([GATE_STATE_INDEX, *names])
         self.writes.retarget([self.commander.channel(r) for r in sorted(runners)])
         self.create_commanded(runners - set(self.commander.commanded))
 
     def follow(self, now: sy.TimeStamp) -> None:
         """Takes in every gh_cmd write since the last step."""
-        while (frame := self.writes.read(DRAIN_TIMEOUT)) is not None:
+        while (frame := self.writes.read(timeout=DRAIN_TIMEOUT)) is not None:
             for r in self.known:
                 series = frame.get(self.commander.channel(r))
                 if series is not None and len(series):
@@ -94,7 +102,9 @@ class Gate:
         if not runners:
             return
         now = sy.TimeStamp.now()
-        found = latest(self.client, [self.state_channel(r) for r in sorted(runners)])
+        found = latest(
+            self.client, names=[self.state_channel(r) for r in sorted(runners)]
+        )
         for r in runners:
             if (v := found.get(self.state_channel(r))) is not None:
                 self.commander.commanded[r] = (now, bool(v))
@@ -108,7 +118,9 @@ class Gate:
         # Stamped after every blocking call of the step, since the write may open the
         # writer. The Core rejects a sample before the writer's start.
         now = sy.TimeStamp.now()
-        frame = on_change(GATE_STATE_INDEX, self.published, current, now)
+        frame = on_change(
+            GATE_STATE_INDEX, last=self.published, current=current, now=now
+        )
         if frame is not None and self.state.write(frame):
             self.published = current
 

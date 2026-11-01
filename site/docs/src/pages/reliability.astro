@@ -375,7 +375,7 @@ const skipped = Object.entries(
         display: block;
     }
 
-    .pluto-text.reliability-hand,
+    .lyra-text.reliability-hand,
     svg.reliability-hand {
         color: var(--pluto-success-z);
     }
@@ -414,6 +414,7 @@ const skipped = Object.entries(
        left out because they mean flaky and failed. */
     .reliability-tile {
         --reliability-accent: var(--reliability-light);
+
         padding: 4rem;
         border-radius: var(--pluto-border-radius-large);
         background-image: radial-gradient(
@@ -491,7 +492,8 @@ const skipped = Object.entries(
         align-items: baseline;
         padding: 2rem 0;
         border-bottom: var(--pluto-border);
-        word-break: break-word;
+        word-break: normal;
+        overflow-wrap: anywhere;
     }
 
     .reliability-unclean-item:not(summary) > :last-child,
@@ -521,7 +523,7 @@ const skipped = Object.entries(
         border-bottom: var(--pluto-border);
     }
 
-    @media (max-width: 900px) {
+    @media (width <= 900px) {
         .reliability {
             padding: 5rem 3rem 12rem;
         }
@@ -535,7 +537,7 @@ const skipped = Object.entries(
             gap: 4rem 6rem;
         }
 
-        .reliability-stats > .pluto-divider {
+        .reliability-stats > .lyra-divider {
             display: none;
         }
 

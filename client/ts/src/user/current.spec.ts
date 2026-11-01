@@ -13,12 +13,12 @@ import { query } from "@/query";
 import {
   createTestClient,
   createTestClientWithRole,
-  TEST_CLIENT_PARAMS,
+  TEST_CREDENTIALS,
 } from "@/testutil";
 
 const client = createTestClient();
 
-const { username, password } = TEST_CLIENT_PARAMS;
+const { username, password } = TEST_CREDENTIALS;
 
 const signedInKey = async () => (await client.users.retrieve({ username })).key;
 

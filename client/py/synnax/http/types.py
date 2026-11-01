@@ -211,7 +211,12 @@ class Device(device.Device):
         {"type": "api_key", "send_as": "header", "header": "X-API-Key", "key": "abc"}
 
         # API key in query param
-        {"type": "api_key", "send_as": "query_param", "parameter": "api_key", "key": "abc"}
+        {
+            "type": "api_key",
+            "send_as": "query_param",
+            "parameter": "api_key",
+            "key": "abc",
+        }
     """
 
     def __init__(

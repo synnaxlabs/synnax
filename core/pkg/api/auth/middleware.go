@@ -24,9 +24,10 @@ import (
 )
 
 // Middleware authenticates the session token on every request and puts the session and
-// its subject on the request for handlers to read. A stream holds its
-// session open for as long as it runs, and its context is cancelled with
-// [auth.ErrSessionEnded] when the session ends, which the middleware then returns.
+// its subject on the request for handlers to read. A unary request gives a session
+// cookie it carried a fresh lifetime. A stream holds its session open for as long as
+// it runs, and its context is cancelled with [auth.ErrSessionEnded] when the session
+// ends, which the middleware then returns.
 func Middleware(svc *auth.Service) freighter.Middleware {
 	return freighter.MiddlewareFunc(func(
 		ctx freighter.Context,
@@ -43,6 +44,7 @@ func Middleware(svc *auth.Service) freighter.Middleware {
 		ctx.Set(subjectKey, session.Subject)
 		ctx.Set(sessionKey, session)
 		if ctx.Variant != freighter.VariantStream {
+			ctx.Set(SessionCookieParam, SessionCookie{Lifetime: svc.IdleTimeout()})
 			return next(ctx)
 		}
 		return holdSession(ctx, next, svc, session.Key)

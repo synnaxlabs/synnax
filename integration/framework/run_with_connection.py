@@ -41,6 +41,7 @@ def _forward(stream: IO[str], module: str, log: Callable[[str], None]) -> None:
 def run_scripts(
     conn: SynnaxConnection,
     modules: list[str],
+    *,
     log: Callable[[str], None],
 ) -> list[subprocess.Popen[str]]:
     """Launches each module as a subprocess with the Synnax connection injected.

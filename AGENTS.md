@@ -34,7 +34,7 @@ package or needing broader context:
 - `docs/claude/architecture.md` — system design, layering, data flow, gotchas
 - `docs/claude/testing.md` — cross-language testing + integration conductor (tc)
 - `docs/claude/integration-test.md` — writing integration tests (Arc gotchas)
-- `docs/claude/toolchains/{typescript,go,python,cpp}.md` — language rules
+- `docs/claude/toolchains/{typescript,go,python,cpp,css}.md` — language rules
 - `scripts/AGENTS.md` — repo scripts: formatting, copyright headers, codegen checks,
   versioning (also auto-loads)
 - `docs/tech/rfc/AGENTS.md` — RFC file names, front matter, headings, definition lists,
@@ -247,6 +247,8 @@ user alone; Claude's involvement is a tool detail, not an authorship claim.
 5. **Add one review tier label**: `review/human` when the change alters a user-facing
    interface, else `review/bot`. The tiers and the gate are in `CONTRIBUTING.md`. Never
    lower a tier a reviewer raised.
+6. **Add the `preview` label** only when the PR changes the Console UI or a reviewer
+   needs a live Core to check it. The label deploys a preview Core with the Console.
 
 ### 🚨 Rule 3: Cut small PRs into `main`, early and often 🚨
 

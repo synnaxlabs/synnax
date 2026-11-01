@@ -19,6 +19,7 @@ import {
   registerMockLogSource,
 } from "@/log/aether/telem/mock";
 import { type LogEntry } from "@/log/aether/telem/types";
+import { telem } from "@/telem/aether";
 import { renderAether } from "@/testutil/renderAether";
 import { canvasTest } from "@/vis/render/testutil";
 
@@ -129,6 +130,22 @@ describe("log/aether/Log", () => {
 
     it("should keep empty true when no entries", () => {
       const { log } = setup([]);
+      expect(log.state.empty).toBe(true);
+    });
+
+    it("should set empty to false while the source loads", () => {
+      const { log, source } = setup([]);
+      source.status = telem.LOADING_STATUS;
+      source.notify();
+      expect(log.state.empty).toBe(false);
+    });
+
+    it("should set empty to true when the source loads no entries", () => {
+      const { log, source } = setup([]);
+      source.status = telem.LOADING_STATUS;
+      source.notify();
+      source.status = telem.SUCCESS_STATUS;
+      source.notify();
       expect(log.state.empty).toBe(true);
     });
   });
@@ -285,19 +302,6 @@ describe("log/aether/Log", () => {
       expect(parsed.channels).toHaveLength(2);
       expect(parsed.channels[0].color).toEqual([255, 0, 0, 1]);
       expect(parsed.channels[0].precision).toBe(3);
-    });
-  });
-
-  describe("empty tracking", () => {
-    it("should set empty to false when entries arrive", () => {
-      const entries = Array.from({ length: 7 }, (_, i) => makeEntry(i));
-      const { log } = setup(entries);
-      expect(log.state.empty).toBe(false);
-    });
-
-    it("should keep empty true when no entries", () => {
-      const { log } = setup([]);
-      expect(log.state.empty).toBe(true);
     });
   });
 
@@ -648,6 +652,27 @@ describe("log/aether/Log", () => {
     });
   });
 
+  describe("after the 2D canvases are restored", () => {
+    it("should request a render until deleted", () => {
+      const { h, recorder } = setup([makeEntry(1)]);
+      recorder.clear();
+      recorder.restore2D();
+      expect(recorder.loopCalls).toHaveLength(1);
+      h.unmount();
+      recorder.clear();
+      recorder.restore2D();
+      expect(recorder.loopCalls).toEqual([]);
+    });
+
+    it("should not request a render while hidden", () => {
+      const { recorder, updateState } = setup([makeEntry(1)]);
+      updateState({ visible: false });
+      recorder.clear();
+      recorder.restore2D();
+      expect(recorder.loopCalls).toEqual([]);
+    });
+  });
+
   describe("render", () => {
     it("should return undefined for zero-area region", () => {
       const zeroRegion = box.construct({ x: 0, y: 0 }, { width: 0, height: 0 });
@@ -760,6 +785,23 @@ describe("log/aether/Log", () => {
       });
       log.render();
       expect(log.state.selectedText).toContain("3.14");
+    });
+
+    it("should show the value as it arrives when the precision is absent", () => {
+      const entries: LogEntry[] = [
+        {
+          channelKey: 1,
+          timestamp: TimeStamp.milliseconds(1000),
+          value: "3.14159265",
+        },
+      ];
+      const { log } = setup(entries, REGION_500, {
+        channels: [clientLog.channelEntryZ.parse({ channel: 1, color: color.ZERO })],
+        selectionStart: 0,
+        selectionEnd: 0,
+      });
+      log.render();
+      expect(log.state.selectedText).toContain("3.14159265");
     });
 
     it("should apply scientific notation when configured", () => {

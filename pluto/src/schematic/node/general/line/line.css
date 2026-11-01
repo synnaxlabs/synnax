@@ -11,6 +11,8 @@
 
 /* A line is a hollow bounding box, so only the stroke and endpoints take the pointer. */
 .pluto-schematic .react-flow__node:has(.pluto-line) {
+    /* stylelint-disable-next-line declaration-no-important -- outranks the
+       pointer-events React Flow sets inline on nodes */
     pointer-events: none !important;
 }
 

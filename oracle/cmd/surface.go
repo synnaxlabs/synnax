@@ -26,13 +26,7 @@ func newSurfaceCmd() *cobra.Command {
 Docs, annotations, and formatting are left out. Compare the output of two revisions
 to see if a pull request changes a stored shape or a wire type.`,
 		Args: cobra.NoArgs,
-		RunE: func(cmd *cobra.Command, _ []string) error {
-			err := runSurface(cmd)
-			if err != nil {
-				cmd.PrintErrln(err)
-			}
-			return err
-		},
+		RunE: func(cmd *cobra.Command, _ []string) error { return runSurface(cmd) },
 	}
 }
 

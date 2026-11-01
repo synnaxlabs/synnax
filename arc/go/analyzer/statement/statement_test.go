@@ -14,6 +14,7 @@ import (
 	. "github.com/onsi/gomega"
 	"github.com/synnaxlabs/arc/analyzer/context"
 	"github.com/synnaxlabs/arc/analyzer/statement"
+	"github.com/synnaxlabs/arc/analyzer/testutil"
 	"github.com/synnaxlabs/arc/ir"
 	"github.com/synnaxlabs/arc/parser"
 	"github.com/synnaxlabs/arc/symbol"
@@ -653,7 +654,7 @@ var _ = Describe("Statement", func() {
 				ctx := context.NewRoot(bCtx, stmt, NewRoot(nil))
 				statement.Analyze(ctx)
 				Expect(ctx.Diagnostics.Ok()).To(BeTrue(), ctx.Diagnostics.String())
-				warnings := ctx.Diagnostics.Warnings()
+				warnings := testutil.Warnings(ctx.Diagnostics)
 				Expect(warnings).To(HaveLen(warningCount))
 				for _, w := range warnings {
 					Expect(w.Message).To(Equal(
@@ -686,7 +687,7 @@ var _ = Describe("Statement", func() {
 			ctx := context.NewRoot(bCtx, block, NewRoot(nil))
 			statement.AnalyzeBlock(ctx)
 			Expect(ctx.Diagnostics.Ok()).To(BeTrue(), ctx.Diagnostics.String())
-			Expect(ctx.Diagnostics.Warnings()).To(HaveLen(1))
+			Expect(testutil.Warnings(ctx.Diagnostics)).To(HaveLen(1))
 		})
 
 		It("should not warn on a bool variable condition", func(bCtx SpecContext) {
@@ -2744,6 +2745,62 @@ var _ = Describe("Statement", func() {
 				statement.Analyze(ctx)
 				Expect(ctx.Diagnostics.Ok()).To(BeTrue(), ctx.Diagnostics.String())
 			})
+
+			DescribeTable("loop variable type",
+				func(bCtx SpecContext, code string, expected types.Type) {
+					stmt := MustSucceed(parser.ParseStatement(code))
+					ctx := context.NewRoot(bCtx, stmt, NewRoot(nil))
+					statement.Analyze(ctx)
+					Expect(ctx.Diagnostics.Ok()).To(BeTrue(), ctx.Diagnostics.String())
+					loopScope := ctx.Scope.Children()[0]
+					sym := MustSucceed(loopScope.Resolve(ctx, "i"))
+					Expect(sym.Type).To(Equal(expected))
+				},
+				Entry(
+					"all literals default to i64",
+					`for i := range(0, 10) { x := i }`,
+					types.I64(),
+				),
+				Entry(
+					"literal start takes the typed end",
+					`for i := range(0, i32(10)) { x := i }`,
+					types.I32(),
+				),
+				Entry(
+					"literals take the typed step",
+					`for i := range(0, 10, u8(2)) { x := i }`,
+					types.U8(),
+				),
+			)
+
+			DescribeTable("mixed integer types",
+				func(bCtx SpecContext, code, expected string) {
+					block := MustSucceed(parser.ParseBlock(code))
+					ctx := context.NewRoot(bCtx, block, NewRoot(nil))
+					statement.AnalyzeBlock(ctx)
+					Expect(*ctx.Diagnostics).To(HaveLen(1))
+					Expect((*ctx.Diagnostics)[0].Message).To(ContainSubstring(expected))
+				},
+				Entry("i32 start with i64 end", `{
+					lo i32 := 1
+					hi i64 := 5
+					for i := range(lo, hi) { x := i }
+				}`, "type mismatch: cannot use i32 and i64 in range()"),
+				Entry("i64 step after an i32 end", `{
+					n i32 := 3
+					s i64 := 1
+					for i := range(0, 2 * n, s) { x := i }
+				}`, "type mismatch: cannot use i32 and i64 in range()"),
+				Entry("unsigned start with signed end", `{
+					lo u16 := 1
+					hi i16 := 5
+					for i := range(lo, hi) { x := i }
+				}`, "type mismatch: cannot use u16 and i16 in range()"),
+				Entry("cast literal end wider than the start", `{
+					n i32 := 5
+					for i := range(n, i64(100)) { x := i }
+				}`, "type mismatch: cannot use i32 and i64 in range()"),
+			)
 		})
 
 		Context("series iteration", func() {
@@ -2870,232 +2927,6 @@ var _ = Describe("Statement", func() {
 					(*ctx.Diagnostics)[0].Message,
 				).To(ContainSubstring("cannot assign to loop variable"))
 			})
-		})
-	})
-
-	Describe("InferRangeType", func() {
-		lit := func() types.Type {
-			c := types.IntegerConstraint()
-			return types.Variable("lit", &c)
-		}
-
-		// Case 1: All concrete — uses widest type
-		Context("all concrete args", func() {
-			DescribeTable(
-				"should use the widest type",
-				func(args []types.Type, expected types.Type) {
-					Expect(statement.InferRangeType(args)).To(Equal(expected))
-				},
-				Entry("single i32", []types.Type{types.I32()}, types.I32()),
-				Entry("single i64", []types.Type{types.I64()}, types.I64()),
-				Entry("single u8", []types.Type{types.U8()}, types.U8()),
-				Entry("single u16", []types.Type{types.U16()}, types.U16()),
-				Entry("i32, i32", []types.Type{types.I32(), types.I32()}, types.I32()),
-				Entry("i16, i32", []types.Type{types.I16(), types.I32()}, types.I32()),
-				Entry(
-					"i8, i16, i32",
-					[]types.Type{types.I8(), types.I16(), types.I32()},
-					types.I32(),
-				),
-				Entry("i32, i64", []types.Type{types.I32(), types.I64()}, types.I64()),
-				Entry(
-					"u8, u16, u32",
-					[]types.Type{types.U8(), types.U16(), types.U32()},
-					types.U32(),
-				),
-				Entry("u8, u64", []types.Type{types.U8(), types.U64()}, types.U64()),
-			)
-		})
-
-		// Case 2: C, C, L — first two concrete, last literal
-		Context("concrete, concrete, literal", func() {
-			DescribeTable(
-				"should use widest concrete type",
-				func(args []types.Type, expected types.Type) {
-					Expect(statement.InferRangeType(args)).To(Equal(expected))
-				},
-				Entry(
-					"i32, i32, lit",
-					[]types.Type{types.I32(), types.I32(), lit()},
-					types.I32(),
-				),
-				Entry(
-					"i16, i32, lit",
-					[]types.Type{types.I16(), types.I32(), lit()},
-					types.I32(),
-				),
-				Entry(
-					"u8, u16, lit",
-					[]types.Type{types.U8(), types.U16(), lit()},
-					types.U16(),
-				),
-			)
-		})
-
-		// Case 3: C, L, C — concrete, literal, concrete
-		Context("concrete, literal, concrete", func() {
-			DescribeTable(
-				"should use widest concrete type",
-				func(args []types.Type, expected types.Type) {
-					Expect(statement.InferRangeType(args)).To(Equal(expected))
-				},
-				Entry(
-					"i32, lit, i32",
-					[]types.Type{types.I32(), lit(), types.I32()},
-					types.I32(),
-				),
-				Entry(
-					"i16, lit, i32",
-					[]types.Type{types.I16(), lit(), types.I32()},
-					types.I32(),
-				),
-				Entry(
-					"u32, lit, u8",
-					[]types.Type{types.U32(), lit(), types.U8()},
-					types.U32(),
-				),
-			)
-		})
-
-		// Case 4: C, L, L — concrete first, rest literals
-		Context("concrete, literal, literal", func() {
-			DescribeTable(
-				"should use concrete type",
-				func(args []types.Type, expected types.Type) {
-					Expect(statement.InferRangeType(args)).To(Equal(expected))
-				},
-				Entry(
-					"i32, lit, lit",
-					[]types.Type{types.I32(), lit(), lit()},
-					types.I32(),
-				),
-				Entry(
-					"i64, lit, lit",
-					[]types.Type{types.I64(), lit(), lit()},
-					types.I64(),
-				),
-				Entry(
-					"u16, lit, lit",
-					[]types.Type{types.U16(), lit(), lit()},
-					types.U16(),
-				),
-				Entry(
-					"i8, lit, lit",
-					[]types.Type{types.I8(), lit(), lit()},
-					types.I8(),
-				),
-			)
-		})
-
-		// Case 5: L, C, C — literal first, two concrete
-		Context("literal, concrete, concrete", func() {
-			DescribeTable(
-				"should use widest concrete type",
-				func(args []types.Type, expected types.Type) {
-					Expect(statement.InferRangeType(args)).To(Equal(expected))
-				},
-				Entry(
-					"lit, i32, i32",
-					[]types.Type{lit(), types.I32(), types.I32()},
-					types.I32(),
-				),
-				Entry(
-					"lit, i16, i32",
-					[]types.Type{lit(), types.I16(), types.I32()},
-					types.I32(),
-				),
-				Entry(
-					"lit, u8, u32",
-					[]types.Type{lit(), types.U8(), types.U32()},
-					types.U32(),
-				),
-			)
-		})
-
-		// Case 6: L, C, L — literal, concrete, literal
-		Context("literal, concrete, literal", func() {
-			DescribeTable(
-				"should use concrete type",
-				func(args []types.Type, expected types.Type) {
-					Expect(statement.InferRangeType(args)).To(Equal(expected))
-				},
-				Entry(
-					"lit, i32, lit",
-					[]types.Type{lit(), types.I32(), lit()},
-					types.I32(),
-				),
-				Entry(
-					"lit, i64, lit",
-					[]types.Type{lit(), types.I64(), lit()},
-					types.I64(),
-				),
-				Entry(
-					"lit, u32, lit",
-					[]types.Type{lit(), types.U32(), lit()},
-					types.U32(),
-				),
-			)
-		})
-
-		// Case 7: L, L, C — two literals, last concrete
-		Context("literal, literal, concrete", func() {
-			DescribeTable(
-				"should use concrete type",
-				func(args []types.Type, expected types.Type) {
-					Expect(statement.InferRangeType(args)).To(Equal(expected))
-				},
-				Entry(
-					"lit, lit, i32",
-					[]types.Type{lit(), lit(), types.I32()},
-					types.I32(),
-				),
-				Entry(
-					"lit, lit, i16",
-					[]types.Type{lit(), lit(), types.I16()},
-					types.I16(),
-				),
-				Entry(
-					"lit, lit, u64",
-					[]types.Type{lit(), lit(), types.U64()},
-					types.U64(),
-				),
-			)
-		})
-
-		// Case 8: All literals — defaults to i64
-		Context("all literals", func() {
-			DescribeTable("should default to i64",
-				func(args []types.Type, expected types.Type) {
-					Expect(statement.InferRangeType(args)).To(Equal(expected))
-				},
-				Entry("single lit", []types.Type{lit()}, types.I64()),
-				Entry("lit, lit", []types.Type{lit(), lit()}, types.I64()),
-				Entry("lit, lit, lit", []types.Type{lit(), lit(), lit()}, types.I64()),
-			)
-		})
-
-		// Signed/unsigned widening
-		Context("signed and unsigned mixing", func() {
-			DescribeTable(
-				"should widen to signed when any arg is signed",
-				func(args []types.Type, expected types.Type) {
-					Expect(statement.InferRangeType(args)).To(Equal(expected))
-				},
-				Entry("u16, i16", []types.Type{types.U16(), types.I16()}, types.I16()),
-				Entry("u32, i8", []types.Type{types.U32(), types.I8()}, types.I32()),
-				Entry("u8, i32", []types.Type{types.U8(), types.I32()}, types.I32()),
-				Entry(
-					"u16, i32, lit",
-					[]types.Type{types.U16(), types.I32(), lit()},
-					types.I32(),
-				),
-				Entry(
-					"lit, u32, i16",
-					[]types.Type{lit(), types.U32(), types.I16()},
-					types.I32(),
-				),
-				Entry("u64, i8", []types.Type{types.U64(), types.I8()}, types.I64()),
-			)
 		})
 	})
 })

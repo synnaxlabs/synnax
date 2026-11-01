@@ -276,4 +276,22 @@ describe("GET /api/cron/sessions", () => {
       recap(visitOf(unknown), null),
     ]);
   });
+
+  it("should not recap the visits of Synnax Labs users", async () => {
+    h.directory.people.user_em = { email: "em@synnaxlabs.com", name: "Emiliano" };
+    h.directory.people.user_blank = { email: "", name: "Blank" };
+    h.analytics.recorded.push(
+      sessionEnding("2026-09-17T11:20:00Z", "user_em"),
+      {
+        ...sessionEnding("2026-09-17T11:25:00Z", "install-1"),
+        email: "em@synnaxlabs.com",
+      },
+      {
+        ...sessionEnding("2026-09-17T11:27:00Z", "user_blank"),
+        email: "blank@synnaxlabs.com",
+      },
+    );
+    await get(`Bearer ${CRON_SECRET}`);
+    expect(h.slack.posted).toEqual([]);
+  });
 });

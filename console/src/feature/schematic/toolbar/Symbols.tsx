@@ -292,6 +292,7 @@ const GroupTab = ({ itemKey }: GroupTabProps): ReactElement | null => {
         level="small"
         value={item.name}
         allowDoubleClick={false}
+        overflow="fade"
         onChange={isRemote && canRename ? handleRename : undefined}
       />
     </Tabs.Tab>

@@ -9,373 +9,497 @@
  * included in the file licenses/APL.txt.
  */
 
-.pluto-flex {
+/* The rules behind CSS.bordered, CSS.noSelect, and CSS.inheritDims. */
+.lyra--bordered-right {
+    border-right: var(--pluto-border);
+}
+
+.lyra--bordered-left {
+    border-left: var(--pluto-border);
+}
+
+.lyra--bordered-top {
+    border-top: var(--pluto-border);
+}
+
+.lyra--bordered-bottom {
+    border-bottom: var(--pluto-border);
+}
+
+.lyra--direction-x > .lyra--bordered-start {
+    border-right: var(--pluto-border);
+}
+
+.lyra--direction-x > .lyra--bordered-end {
+    border-left: var(--pluto-border);
+}
+
+.lyra--direction-y > .lyra--bordered-start {
+    border-bottom: var(--pluto-border);
+}
+
+.lyra--direction-y > .lyra--bordered-end {
+    border-top: var(--pluto-border);
+}
+
+.lyra--no-select {
+    -webkit-user-select: none;
+    user-select: none;
+}
+
+.lyra--inherit-dims {
+    height: inherit;
+    width: inherit;
+}
+
+.lyra-flex {
     display: flex;
-    flex-wrap: nowrap;
+    flex-flow: column nowrap;
     gap: 1.5rem;
-    flex-direction: column;
 
     /* A button's states repaint its border through --pluto-btn-border-color. */
-    &.pluto--bordered {
+    &.lyra--bordered {
         border: var(--pluto-border);
         border-color: var(--pluto-btn-border-color, var(--pluto-border-color));
     }
-    &.pluto--rounded {
+
+    &.lyra--rounded {
         border-radius: var(--pluto-border-radius);
     }
-    &.pluto--rounded-tiny {
+
+    &.lyra--rounded-tiny {
         border-radius: var(--pluto-border-radius-tiny);
     }
-    &.pluto--rounded-small {
+
+    &.lyra--rounded-small {
         border-radius: var(--pluto-border-radius-small);
     }
-    &.pluto--rounded-medium {
+
+    &.lyra--rounded-medium {
         border-radius: var(--pluto-border-radius-medium);
     }
-    &.pluto--rounded-large {
+
+    &.lyra--rounded-large {
         border-radius: var(--pluto-border-radius-large);
     }
-    &.pluto--rounded-huge {
+
+    &.lyra--rounded-huge {
         border-radius: var(--pluto-border-radius-huge);
     }
-    &.pluto--sharp {
+
+    &.lyra--sharp {
         border-radius: 0;
     }
-    &.pluto--reverse {
+
+    &.lyra--reverse {
         flex-direction: column-reverse;
     }
-    &.pluto--wrap {
+
+    &.lyra--wrap {
         flex-wrap: wrap;
     }
-    &.pluto--justify-start {
+
+    &.lyra--justify-start {
         justify-content: flex-start;
     }
-    &.pluto--justify-center {
+
+    &.lyra--justify-center {
         justify-content: center;
     }
-    &.pluto--justify-end {
+
+    &.lyra--justify-end {
         justify-content: flex-end;
     }
-    &.pluto--justify-between {
+
+    &.lyra--justify-between {
         justify-content: space-between;
     }
-    &.pluto--justify-around {
+
+    &.lyra--justify-around {
         justify-content: space-around;
     }
-    &.pluto--justify-evenly {
+
+    &.lyra--justify-evenly {
         justify-content: space-evenly;
     }
-    &.pluto--align-start {
+
+    &.lyra--align-start {
         align-items: flex-start;
     }
-    &.pluto--align-center {
+
+    &.lyra--align-center {
         align-items: center;
     }
-    &.pluto--align-end {
+
+    &.lyra--align-end {
         align-items: flex-end;
     }
-    &.pluto--align-stretch {
+
+    &.lyra--align-stretch {
         align-items: stretch;
     }
-    &.pluto--align-self-start {
+
+    &.lyra--align-self-start {
         align-self: flex-start;
     }
-    &.pluto--align-self-center {
+
+    &.lyra--align-self-center {
         align-self: center;
     }
-    &.pluto--align-self-end {
+
+    &.lyra--align-self-end {
         align-self: flex-end;
     }
-    &.pluto--direction-x {
+
+    &.lyra--direction-x {
         flex-direction: row;
-        &.pluto--reverse {
+
+        &.lyra--reverse {
             flex-direction: row-reverse;
         }
     }
+
     /* Keep this class even though this is the default, because it increases
      * the specificity of the selector if the user explicitly sets the direction
      * to y */
-    &.pluto--direction-y {
+    &.lyra--direction-y {
         flex-direction: column;
-        &.pluto--reverse {
+
+        &.lyra--reverse {
             flex-direction: column-reverse;
         }
     }
-    &.pluto--grow {
+
+    &.lyra--grow {
         flex-grow: 1;
         min-width: 0;
         min-height: 0;
     }
-    &.pluto--shrink {
+
+    &.lyra--shrink {
         flex-shrink: 1;
     }
 
-    &.pluto--gap-huge {
+    &.lyra--gap-huge {
         gap: 5rem;
     }
-    &.pluto--gap-medium {
+
+    &.lyra--gap-medium {
         gap: 1.5rem;
     }
-    &.pluto--gap-large {
+
+    &.lyra--gap-large {
         gap: 4rem;
     }
-    &.pluto--gap-small {
+
+    &.lyra--gap-small {
         gap: 1rem;
     }
-    &.pluto--gap-tiny {
+
+    &.lyra--gap-tiny {
         gap: 0.5rem;
     }
-    &.pluto--empty,
-    &.pluto--pack {
+
+    &.lyra--empty,
+    &.lyra--pack {
         gap: 0;
     }
-    &.pluto--full-x {
+
+    &.lyra--full-x {
         width: 100%;
     }
-    &.pluto--full-y {
+
+    &.lyra--full-y {
         height: 100%;
     }
-    &.pluto--full {
+
+    &.lyra--full {
         width: 100%;
         height: 100%;
     }
-    &.pluto--center {
+
+    &.lyra--center {
         align-items: center;
         justify-content: center;
         width: 100%;
         height: 100%;
         flex-grow: 1;
     }
-    &.pluto--height-huge {
+
+    &.lyra--height-huge {
         --pluto-height: var(--pluto-height-huge);
+
         min-height: var(--pluto-height);
         height: fit-content;
     }
 
-    &.pluto--height-large {
+    &.lyra--height-large {
         --pluto-height: var(--pluto-height-large);
+
         min-height: var(--pluto-height);
         height: fit-content;
     }
 
-    &.pluto--height-medium {
+    &.lyra--height-medium {
         --pluto-height: var(--pluto-height-medium);
+
         min-height: var(--pluto-height);
         height: fit-content;
     }
 
-    &.pluto--height-tiny {
+    &.lyra--height-tiny {
         --pluto-height: var(--pluto-height-tiny);
+
         min-height: var(--pluto-height);
         height: fit-content;
     }
 
-    &.pluto--height-small {
+    &.lyra--height-small {
         --pluto-height: var(--pluto-height-small);
+
         min-height: var(--pluto-height);
         height: fit-content;
     }
 
     /* A definite cross size defeats stretch, so this clears the fit-content height the
        size classes above set. It sits after them to win on source order. */
-    &.pluto--align-self-stretch {
+    &.lyra--align-self-stretch {
         align-self: stretch;
         height: auto;
     }
 
-    &.pluto--border-color-0 {
+    &.lyra--border-color-0 {
         border-color: var(--pluto-gray-l0);
     }
 
-    &.pluto--border-color-1 {
+    &.lyra--border-color-1 {
         border-color: var(--pluto-gray-l1);
     }
 
-    &.pluto--border-color-2 {
+    &.lyra--border-color-2 {
         border-color: var(--pluto-gray-l2);
     }
 
-    &.pluto--border-color-3 {
+    &.lyra--border-color-3 {
         border-color: var(--pluto-gray-l3);
     }
 
-    &.pluto--border-color-4 {
+    &.lyra--border-color-4 {
         border-color: var(--pluto-gray-l4);
     }
 
-    &.pluto--border-color-5 {
+    &.lyra--border-color-5 {
         border-color: var(--pluto-gray-l5);
     }
 
-    &.pluto--border-color-6 {
+    &.lyra--border-color-6 {
         border-color: var(--pluto-gray-l6);
     }
 
-    &.pluto--border-color-7 {
+    &.lyra--border-color-7 {
         border-color: var(--pluto-gray-l7);
     }
 
-    &.pluto--border-color-8 {
+    &.lyra--border-color-8 {
         border-color: var(--pluto-gray-l8);
     }
 
-    &.pluto--border-color-9 {
+    &.lyra--border-color-9 {
         border-color: var(--pluto-gray-l9);
     }
 
-    &.pluto--border-color-10 {
+    &.lyra--border-color-10 {
         border-color: var(--pluto-gray-l10);
     }
 
-    &.pluto--border-color-11 {
+    &.lyra--border-color-11 {
         border-color: var(--pluto-gray-l11);
     }
 
-    &.pluto--bg-0 {
+    &.lyra--bg-0 {
         background-color: var(--pluto-gray-l0);
     }
-    &.pluto--bg-1 {
+
+    &.lyra--bg-1 {
         background-color: var(--pluto-gray-l1);
     }
-    &.pluto--bg-2 {
+
+    &.lyra--bg-2 {
         background-color: var(--pluto-gray-l2);
     }
-    &.pluto--bg-3 {
+
+    &.lyra--bg-3 {
         background-color: var(--pluto-gray-l3);
     }
-    &.pluto--bg-4 {
+
+    &.lyra--bg-4 {
         background-color: var(--pluto-gray-l4);
     }
-    &.pluto--bg-5 {
+
+    &.lyra--bg-5 {
         background-color: var(--pluto-gray-l5);
     }
-    &.pluto--bg-6 {
+
+    &.lyra--bg-6 {
         background-color: var(--pluto-gray-l6);
     }
-    &.pluto--bg-7 {
+
+    &.lyra--bg-7 {
         background-color: var(--pluto-gray-l7);
     }
-    &.pluto--bg-8 {
+
+    &.lyra--bg-8 {
         background-color: var(--pluto-gray-l8);
     }
-    &.pluto--bg-9 {
+
+    &.lyra--bg-9 {
         background-color: var(--pluto-gray-l9);
     }
-    &.pluto--bg-10 {
+
+    &.lyra--bg-10 {
         background-color: var(--pluto-gray-l10);
     }
-    &.pluto--bg-11 {
+
+    &.lyra--bg-11 {
         background-color: var(--pluto-gray-l11);
     }
-    &.pluto--color-0 {
+
+    &.lyra--color-0 {
         color: var(--pluto-gray-l0);
     }
-    &.pluto--color-1 {
+
+    &.lyra--color-1 {
         color: var(--pluto-gray-l1);
     }
-    &.pluto--color-2 {
+
+    &.lyra--color-2 {
         color: var(--pluto-gray-l2);
     }
-    &.pluto--color-3 {
+
+    &.lyra--color-3 {
         color: var(--pluto-gray-l3);
     }
-    &.pluto--color-4 {
+
+    &.lyra--color-4 {
         color: var(--pluto-gray-l4);
     }
-    &.pluto--color-5 {
+
+    &.lyra--color-5 {
         color: var(--pluto-gray-l5);
     }
-    &.pluto--color-6 {
+
+    &.lyra--color-6 {
         color: var(--pluto-gray-l6);
     }
-    &.pluto--color-7 {
+
+    &.lyra--color-7 {
         color: var(--pluto-gray-l7);
     }
-    &.pluto--color-8 {
+
+    &.lyra--color-8 {
         color: var(--pluto-gray-l8);
     }
-    &.pluto--color-9 {
-        color: var(--pluto-gray-l9);
-    }
-    &.pluto--color-10 {
-        color: var(--pluto-gray-l10);
-    }
-    &.pluto--color-11 {
-        color: var(--pluto-gray-l11);
-    }
-    &.pluto--status-error {
-        color: var(--pluto-error-z);
-    }
-    &.pluto--status-warning {
-        color: var(--pluto-warning-z);
-    }
-    &.pluto--status-success {
-        color: var(--pluto-primary-z);
-    }
-    &.pluto--status-disabled {
-        color: var(--pluto-text-disabled);
-    }
-    &.pluto--status-loading {
+
+    &.lyra--color-9 {
         color: var(--pluto-gray-l9);
     }
 
-    &.pluto--square {
+    &.lyra--color-10 {
+        color: var(--pluto-gray-l10);
+    }
+
+    &.lyra--color-11 {
+        color: var(--pluto-gray-l11);
+    }
+
+    &.lyra--status-error {
+        color: var(--pluto-error-z);
+    }
+
+    &.lyra--status-warning {
+        color: var(--pluto-warning-z);
+    }
+
+    &.lyra--status-success {
+        color: var(--pluto-primary-z);
+    }
+
+    &.lyra--status-disabled {
+        color: var(--pluto-text-disabled);
+    }
+
+    &.lyra--status-loading {
+        color: var(--pluto-gray-l9);
+    }
+
+    &.lyra--square {
         align-items: center;
         width: fit-content;
         justify-content: center;
         font-weight: 400;
 
-        &.pluto--height-huge {
+        &.lyra--height-huge {
             min-width: var(--pluto-height-huge);
         }
-        &.pluto--height-large {
+
+        &.lyra--height-large {
             min-width: var(--pluto-height-large);
         }
-        &.pluto--height-small {
+
+        &.lyra--height-small {
             min-width: var(--pluto-height-small);
         }
-        &.pluto--height-medium {
+
+        &.lyra--height-medium {
             min-width: var(--pluto-height-medium);
         }
-        &.pluto--height-tiny {
+
+        &.lyra--height-tiny {
             min-width: var(--pluto-height-tiny);
         }
     }
 
-    &.pluto--pack {
+    &.lyra--pack {
         & > * {
             border-radius: 0;
         }
-        &.pluto--direction-x > * {
+
+        &.lyra--direction-x > * {
             &:not(:first-child) {
                 margin-left: calc(-1 * var(--pluto-border-width));
             }
+
             &:first-child {
                 border-top-right-radius: 0;
                 border-bottom-right-radius: 0;
                 border-top-left-radius: inherit;
                 border-bottom-left-radius: inherit;
             }
+
             &:last-child {
                 border-top-left-radius: 0;
                 border-bottom-left-radius: 0;
                 border-top-right-radius: inherit;
                 border-bottom-right-radius: inherit;
             }
+
             &:only-child {
                 border-radius: inherit;
             }
         }
-        &.pluto--direction-y > * {
+
+        &.lyra--direction-y > * {
             &:not(:first-child) {
                 margin-top: calc(-1 * var(--pluto-border-width));
             }
+
             &:last-child {
                 border-top-right-radius: 0;
                 border-top-left-radius: 0;
                 border-bottom-right-radius: inherit;
                 border-bottom-left-radius: inherit;
             }
+
             &:first-child {
                 border-top-right-radius: inherit;
                 border-top-left-radius: inherit;

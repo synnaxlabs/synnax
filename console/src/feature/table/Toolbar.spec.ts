@@ -7,8 +7,13 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { type Synnax as Client } from "@synnaxlabs/client";
-import { RoleClients } from "@synnaxlabs/client/testutil";
+import { type Synnax as Client, table } from "@synnaxlabs/client";
+import {
+  createTestClient,
+  RoleClients,
+  spyOnSend,
+  waitForStreamLive,
+} from "@synnaxlabs/client/testutil";
 import { color } from "@synnaxlabs/x";
 import { act, fireEvent, screen, waitFor } from "@testing-library/react";
 import { describe, expect, it } from "vitest";
@@ -116,6 +121,41 @@ describe("table/Toolbar", () => {
     });
   });
 
+  it("shows an edit that another client makes to the selected cell", async () => {
+    const { key } = await renderToolbar({
+      tableState: { selectedCells: ["a"], lastSelected: "a" },
+    });
+    await screen.findByDisplayValue("Cell A");
+    await waitForStreamLive(client.connection);
+    const remote = createTestClient();
+    await remote.tables.retrieve(key);
+    await act(async () => {
+      await remote.tables.dispatch(
+        key,
+        table.set({ path: ["cells", "a", "value"], value: "Remote" }),
+      );
+    });
+    expect(await screen.findByDisplayValue("Remote")).toBeDefined();
+  });
+
+  it("shows the empty state when another client removes the selected cell", async () => {
+    const { key } = await renderToolbar({
+      tableState: { selectedCells: ["a"], lastSelected: "a" },
+    });
+    await screen.findByDisplayValue("Cell A");
+    await waitForStreamLive(client.connection);
+    const remote = createTestClient();
+    const { rows } = await remote.tables.retrieve(key);
+    await act(async () => {
+      await remote.tables.dispatch(key, table.removeRow({ key: rows[0].key }));
+    });
+    expect(
+      await screen.findByText(
+        "No cell selected. Select a cell to view its properties.",
+      ),
+    ).toBeDefined();
+  });
+
   it("swaps the cell variant while preserving compatible fields", async () => {
     const { key } = await renderToolbar({
       tableState: { selectedCells: ["a"], lastSelected: "a" },
@@ -194,6 +234,27 @@ describe("table/Toolbar", () => {
     });
   });
 
+  it("sends only the field that the edit changes", async () => {
+    await renderTable(Toolbar, {
+      table: { name: uniqueName("table"), ...createUncoloredGrid() },
+      preloadedState: (key) =>
+        createPreloadedState(key, { selectedCells: ["a", "b"], lastSelected: "b" }),
+    });
+    await screen.findByText("Colors");
+    const send = spyOnSend(client);
+    fireEvent.change(roleInput("Fill"), { target: { value: "0000ff" } });
+    await waitFor(() =>
+      expect(
+        send.mock.calls.find(([target]) => target === "/table/dispatch")?.[1],
+      ).toMatchObject({
+        actions: ["a", "b"].map((key) => ({
+          type: "set",
+          set: { path: ["cells", key, "fill_color"] },
+        })),
+      }),
+    );
+  });
+
   it("shows Mixed when the selected fills differ", async () => {
     await renderToolbar({
       tableState: { selectedCells: ["a", "b"], lastSelected: "b" },
@@ -208,9 +269,9 @@ describe("table/Toolbar", () => {
       tableState: { selectedCells: ["a", "b"], lastSelected: "b" },
     });
     const label = await screen.findByText("Selection");
-    const item = label.closest(".pluto-input__item");
+    const item = label.closest(".lyra-input__item");
     assertDefined(item);
-    const swatches = item.querySelectorAll<HTMLElement>(".pluto-color-swatch");
+    const swatches = item.querySelectorAll<HTMLElement>(".lyra-color-swatch");
     expect(swatches).toHaveLength(2);
     fireEvent.click(swatches[0]);
     fireEvent.change(screen.getByLabelText("Hex"), { target: { value: "0000ff" } });

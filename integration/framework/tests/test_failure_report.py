@@ -46,7 +46,7 @@ def _render(tmp_path: Path, clicks: list[tuple[str, str]], stacks: str = "") -> 
         status=models.STATUS.FAILED,
         bundle_dir=str(bundle),
     )
-    report = failure_report.safe_render(tmp_path, [test])
+    report = failure_report.safe_render(tmp_path, tests=[test])
     assert report is not None
     return report.read_text(encoding="utf-8")
 

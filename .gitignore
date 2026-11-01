@@ -14,6 +14,7 @@
 node_modules/
 dist/
 coverage/
+.vitest/
 oracle/lsp/extensions/vscode/out/
 *.log
 *.local

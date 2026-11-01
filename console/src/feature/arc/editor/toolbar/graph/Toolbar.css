@@ -16,7 +16,7 @@
         padding: 1rem;
         border-bottom: var(--pluto-border);
 
-        & .pluto-input {
+        & .lyra-input {
             margin: 0 calc(-1 * var(--pluto-border-width));
         }
     }
@@ -24,8 +24,10 @@
     .console-arc__stages-group {
         overflow: auto;
         height: 100%;
+
         --pluto-focus-ring-offset: var(--pluto-focus-ring-inset);
-        & > .pluto-list__virtualizer {
+
+        & > .lyra-list__virtualizer {
             height: fit-content;
         }
     }
@@ -33,6 +35,7 @@
     .console-arc-stages__button {
         padding: 2rem 1rem;
         align-items: stretch;
+
         & > small {
             height: calc(var(--pluto-small-line-height) * 2);
             display: block;
@@ -41,7 +44,8 @@
             text-align: center;
             white-space: wrap;
         }
-        &.pluto-list__item {
+
+        &.lyra-list__item {
             width: 90px;
             min-height: 100px;
             max-height: 100px;

@@ -21,8 +21,8 @@ import (
 	v1 "github.com/synnaxlabs/synnax/pkg/service/ethercat/versions/v1"
 	v2 "github.com/synnaxlabs/synnax/pkg/service/ethercat/versions/v2"
 	"github.com/synnaxlabs/x/errors"
-	"github.com/synnaxlabs/x/kv/memkv"
 	. "github.com/synnaxlabs/x/testutil"
+	"github.com/synnaxlabs/x/testutil/memkv"
 )
 
 // createEL1008 creates a slave with eight entries named "Input", one per PDO.

@@ -162,6 +162,47 @@ func bindMockChannelModule(
 	MustSucceed(builder.Instantiate(ctx))
 }
 
+var numericTypeNames = []string{
+	"i8", "i16", "i32", "i64", "u8", "u16", "u32", "u64", "f32", "f64",
+}
+
+// castGridEntries crosses every numeric operand type with every cast target.
+func castGridEntries() []any {
+	entries := make([]any, 0, len(numericTypeNames)*len(numericTypeNames))
+	for _, operand := range numericTypeNames {
+		for _, target := range numericTypeNames {
+			entries = append(entries, Entry(operand+" to "+target, operand, target))
+		}
+	}
+	return entries
+}
+
+// decodeNumeric reads a raw WASM return value as the given Arc numeric type.
+func decodeNumeric(typeName string, raw uint64) float64 {
+	switch typeName {
+	case "f64":
+		return math.Float64frombits(raw)
+	case "f32":
+		return float64(math.Float32frombits(uint32(raw)))
+	case "i8":
+		return float64(int8(raw))
+	case "i16":
+		return float64(int16(raw))
+	case "i32":
+		return float64(int32(raw))
+	case "i64":
+		return float64(int64(raw))
+	case "u8":
+		return float64(uint8(raw))
+	case "u16":
+		return float64(uint16(raw))
+	case "u32":
+		return float64(uint32(raw))
+	default:
+		return float64(raw)
+	}
+}
+
 var _ = Describe("Compiler", func() {
 	var r wazero.Runtime
 	BeforeEach(func(ctx SpecContext) {
@@ -2150,6 +2191,166 @@ var _ = Describe("Compiler", func() {
 				result := math.Float32frombits(uint32(results[0]))
 				Expect(result).To(BeNumerically("~", 256.0, 0.0001))
 			},
+		)
+	})
+
+	Describe("Cast of a mixed expression (SY-5167)", func() {
+		BeforeEach(func(ctx SpecContext) {
+			bindDefaultModules(ctx, r)
+		})
+
+		DescribeTable("should compile the loop variable at its own width",
+			func(ctx SpecContext, r64 float64) {
+				output := MustSucceed(compileWithHostImports(ctx, `
+			func taylor(r f64) f64 {
+				term := r
+				for n := range(1, 8) {
+					term = term * r / f64((2 * n) * (2 * n + 1))
+				}
+				return term
+			}
+			`, nil))
+				mod := MustSucceed(r.Instantiate(ctx, output.WASM))
+				taylor := mod.ExportedFunction("taylor")
+				Expect(taylor).ToNot(BeNil())
+				results := MustSucceed(taylor.Call(ctx, math.Float64bits(r64)))
+				Expect(results).To(HaveLen(1))
+				// r^8 / 15!
+				expected := math.Pow(r64, 8) / 1307674368000.0
+				result := math.Float64frombits(results[0])
+				Expect(result).To(BeNumerically("~", expected, expected*1e-9))
+			},
+			Entry("r = 1", 1.0),
+			Entry("r = 2", 2.0),
+			Entry("r = 0.5", 0.5),
+		)
+
+		castLiteralFirst := func(ctx SpecContext, operand, target string) {
+			output := MustSucceed(compileWithHostImports(ctx, fmt.Sprintf(`
+			func test() %s {
+				n %s := 7
+				return %s(2 * n + 1)
+			}
+			`, target, operand, target), nil))
+			mod := MustSucceed(r.Instantiate(ctx, output.WASM))
+			test := mod.ExportedFunction("test")
+			Expect(test).ToNot(BeNil())
+			results := MustSucceed(test.Call(ctx))
+			Expect(results).To(HaveLen(1))
+			Expect(decodeNumeric(target, results[0])).To(BeNumerically("==", 15))
+		}
+
+		DescribeTable("should cast a literal-first expression from every operand type",
+			append([]any{castLiteralFirst}, castGridEntries()...)...,
+		)
+
+		DescribeTable("should keep the operand's arithmetic inside the cast",
+			func(ctx SpecContext, target, body string, expected float64) {
+				output := MustSucceed(compileWithHostImports(ctx, fmt.Sprintf(`
+			func test() %s %s
+			`, target, body), nil))
+				mod := MustSucceed(r.Instantiate(ctx, output.WASM))
+				test := mod.ExportedFunction("test")
+				Expect(test).ToNot(BeNil())
+				results := MustSucceed(test.Call(ctx))
+				Expect(results).To(HaveLen(1))
+				Expect(decodeNumeric(target, results[0])).To(
+					BeNumerically("~", expected, 1e-9),
+				)
+			},
+			Entry("i64 literal first to f64", "f64", `{
+				n i64 := 7
+				return f64(2 * n)
+			}`, float64(14)),
+			Entry("i64 integer division survives a f64 cast", "f64", `{
+				n i64 := 7
+				return f64(15 / n)
+			}`, 2.0),
+			Entry("u8 operand adds at i32 width before a f64 cast", "f64", `{
+				n u8 := 200
+				return f64(100 + n)
+			}`, float64(300)),
+			Entry("i64 operand narrowed to i32", "i32", `{
+				n i64 := 7
+				return i32(2 * n)
+			}`, float64(14)),
+			Entry("i32 operand widened to i64", "i64", `{
+				n i32 := 7
+				return i64(3 * n + 1)
+			}`, float64(22)),
+			Entry("i16 operand to i64", "i64", `{
+				n i16 := 1000
+				return i64(40 * n)
+			}`, float64(40000)),
+			Entry("u8 operand adds at i32 width before an i32 cast", "i32", `{
+				n u8 := 200
+				return i32(100 + n)
+			}`, float64(300)),
+			Entry("u32 operand extends unsigned to i64", "i64", `{
+				n u32 := 4000000000
+				return i64(1 + n)
+			}`, float64(4000000001)),
+			Entry("f64 product truncated to i64", "i64", `{
+				n f64 := 2.5
+				return i64(3 * n)
+			}`, float64(7)),
+			Entry("f32 product truncated to i32", "i32", `{
+				n f32 := 0.5
+				return i32(9 * n)
+			}`, float64(4)),
+			Entry("u16 integer division survives a f32 cast", "f32", `{
+				n u16 := 7
+				return f32(15 / n)
+			}`, 2.0),
+			Entry("i32 subtraction then float division", "f64", `{
+				n i32 := 3
+				return f64(10 - n) / 4
+			}`, 1.75),
+			Entry("i8 modulo to u8", "u8", `{
+				n i8 := 5
+				return u8(17 % n)
+			}`, float64(2)),
+			Entry("u64 large product to f64", "f64", `{
+				n u64 := 4000000000
+				return f64(3 * n)
+			}`, float64(12000000000)),
+			Entry("f32 product promoted to f64", "f64", `{
+				n f32 := 0.5
+				return f64(3 * n)
+			}`, 1.5),
+			Entry("f64 product truncated to i16", "i16", `{
+				n f64 := 2.5
+				return i16(3 * n)
+			}`, float64(7)),
+			Entry("f32 product truncated to u32", "u32", `{
+				n f32 := 0.5
+				return u32(9 * n)
+			}`, float64(4)),
+			Entry("negative literal first to f64", "f64", `{
+				n i64 := 7
+				return f64(-2 * n)
+			}`, float64(-14)),
+			Entry("loop variable nested product to f64", "f64", `{
+				acc := 0.0
+				for n := range(1, 4) {
+					acc = acc + f64((2 * n) * (2 * n + 1))
+				}
+				return acc
+			}`, float64(6+20+42)),
+			Entry("loop variable nested product to i32", "i32", `{
+				acc i32 := 0
+				for n := range(1, 4) {
+					acc = acc + i32((2 * n) * (2 * n + 1))
+				}
+				return acc
+			}`, float64(6+20+42)),
+			Entry("loop variable nested product to i64", "i64", `{
+				acc i64 := 0
+				for n := range(1, 4) {
+					acc = acc + i64((2 * n) * (2 * n + 1))
+				}
+				return acc
+			}`, float64(6+20+42)),
 		)
 	})
 

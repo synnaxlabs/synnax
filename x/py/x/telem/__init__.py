@@ -10,6 +10,7 @@
 from x.control import Authority, CrudeAuthority, Subject
 from x.telem.clock_skew import ClockSkewCalculator
 from x.telem.series import (
+    CrudeSample,
     CrudeSeries,
     MultiSeries,
     SampleValue,
@@ -58,6 +59,7 @@ __all__ = [
     "CrudeDataType",
     "CrudeDensity",
     "CrudeRate",
+    "CrudeSample",
     "CrudeSeries",
     "CrudeSize",
     "CrudeTimeSpan",

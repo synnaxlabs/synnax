@@ -17,14 +17,14 @@ describe("Box", () => {
     const c = render(<Flex.Box>Hello</Flex.Box>);
     const el = c.getByText("Hello");
     expect(el).toBeTruthy();
-    expect(el.className).toContain("pluto-flex");
+    expect(el.className).toContain("lyra-flex");
   });
 
   it("should merge a caller-provided className with the generated classnames", () => {
     const c = render(<Flex.Box className="custom-class">Hello</Flex.Box>);
     const el = c.getByText("Hello");
     expect(el.className).toContain("custom-class");
-    expect(el.className).toContain("pluto-flex");
+    expect(el.className).toContain("lyra-flex");
   });
 
   it("should merge a caller-provided style with the computed style", () => {
@@ -37,25 +37,25 @@ describe("Box", () => {
     it("should not add a classname by default", () => {
       const c = render(<Flex.Box>Hello</Flex.Box>);
       const el = c.getByText("Hello");
-      expect(el.className).not.toContain("pluto--direction");
+      expect(el.className).not.toContain("lyra--direction");
     });
 
     it("should allow the caller change the direction via the direction prop", () => {
       const c = render(<Flex.Box direction="x">Hello</Flex.Box>);
       const el = c.getByText("Hello");
-      expect(el.className).toContain("pluto--direction-x");
+      expect(el.className).toContain("lyra--direction-x");
     });
 
     it("should allow the caller to set the direction via the x prop", () => {
       const c = render(<Flex.Box x>Hello</Flex.Box>);
       const el = c.getByText("Hello");
-      expect(el.className).toContain("pluto--direction-x");
+      expect(el.className).toContain("lyra--direction-x");
     });
 
     it("should allow the caller to set the direction via the y prop", () => {
       const c = render(<Flex.Box y>Hello</Flex.Box>);
       const el = c.getByText("Hello");
-      expect(el.className).toContain("pluto--direction-y");
+      expect(el.className).toContain("lyra--direction-y");
     });
 
     it("should prefer the x prop over the direction prop", () => {
@@ -65,7 +65,7 @@ describe("Box", () => {
         </Flex.Box>,
       );
       const el = c.getByText("Hello");
-      expect(el.className).toContain("pluto--direction-x");
+      expect(el.className).toContain("lyra--direction-x");
     });
 
     it("should prefer the y prop over the direction prop", () => {
@@ -75,7 +75,7 @@ describe("Box", () => {
         </Flex.Box>,
       );
       const el = c.getByText("Hello");
-      expect(el.className).toContain("pluto--direction-y");
+      expect(el.className).toContain("lyra--direction-y");
     });
 
     it("should prefer the x prop over the y prop", () => {
@@ -85,7 +85,7 @@ describe("Box", () => {
         </Flex.Box>,
       );
       const el = c.getByText("Hello");
-      expect(el.className).toContain("pluto--direction-x");
+      expect(el.className).toContain("lyra--direction-x");
     });
 
     it("should reverse the direction if the reverse prop is true", () => {
@@ -95,19 +95,19 @@ describe("Box", () => {
         </Flex.Box>,
       );
       const el = c.getByText("Hello");
-      expect(el.className).toContain("pluto--reverse");
+      expect(el.className).toContain("lyra--reverse");
     });
 
     it("should reverse the direction if the direction is right", () => {
       const c = render(<Flex.Box direction="right">Hello</Flex.Box>);
       const el = c.getByText("Hello");
-      expect(el.className).toContain("pluto--reverse");
+      expect(el.className).toContain("lyra--reverse");
     });
 
     it("should reverse the direction if the direction is bottom", () => {
       const c = render(<Flex.Box direction="bottom">Hello</Flex.Box>);
       const el = c.getByText("Hello");
-      expect(el.className).toContain("pluto--reverse");
+      expect(el.className).toContain("lyra--reverse");
     });
 
     it("should not reverse if reverse is explicitly false, even if the direction is right", () => {
@@ -117,37 +117,37 @@ describe("Box", () => {
         </Flex.Box>,
       );
       const el = c.getByText("Hello");
-      expect(el.className).not.toContain("pluto--reverse");
+      expect(el.className).not.toContain("lyra--reverse");
     });
 
     it("should set direction-x if the direction is left", () => {
       const c = render(<Flex.Box direction="left">Hello</Flex.Box>);
       const el = c.getByText("Hello");
-      expect(el.className).toContain("pluto--direction-x");
+      expect(el.className).toContain("lyra--direction-x");
     });
 
     it("should set direction-y if the direction is top", () => {
       const c = render(<Flex.Box direction="top">Hello</Flex.Box>);
       const el = c.getByText("Hello");
-      expect(el.className).toContain("pluto--direction-y");
+      expect(el.className).toContain("lyra--direction-y");
     });
 
     it("should set direction-x if the direction is right", () => {
       const c = render(<Flex.Box direction="right">Hello</Flex.Box>);
       const el = c.getByText("Hello");
-      expect(el.className).toContain("pluto--direction-x");
+      expect(el.className).toContain("lyra--direction-x");
     });
 
     it("should set direction-y if the direction is bottom", () => {
       const c = render(<Flex.Box direction="bottom">Hello</Flex.Box>);
       const el = c.getByText("Hello");
-      expect(el.className).toContain("pluto--direction-y");
+      expect(el.className).toContain("lyra--direction-y");
     });
 
     it("should default the direction to x when pack is true and no direction is given", () => {
       const c = render(<Flex.Box pack>Hello</Flex.Box>);
       const el = c.getByText("Hello");
-      expect(el.className).toContain("pluto--direction-x");
+      expect(el.className).toContain("lyra--direction-x");
     });
   });
 
@@ -161,37 +161,37 @@ describe("Box", () => {
     it("should set center if the justify is center", () => {
       const c = render(<Flex.Box justify="center">Hello</Flex.Box>);
       const el = c.getByText("Hello");
-      expect(el.className).toContain("pluto--justify-center");
+      expect(el.className).toContain("lyra--justify-center");
     });
 
     it("should set end if the justify is end", () => {
       const c = render(<Flex.Box justify="end">Hello</Flex.Box>);
       const el = c.getByText("Hello");
-      expect(el.className).toContain("pluto--justify-end");
+      expect(el.className).toContain("lyra--justify-end");
     });
 
     it("should set start if the justify is start", () => {
       const c = render(<Flex.Box justify="start">Hello</Flex.Box>);
       const el = c.getByText("Hello");
-      expect(el.className).toContain("pluto--justify-start");
+      expect(el.className).toContain("lyra--justify-start");
     });
 
     it("should set between if the justify is between", () => {
       const c = render(<Flex.Box justify="between">Hello</Flex.Box>);
       const el = c.getByText("Hello");
-      expect(el.className).toContain("pluto--justify-between");
+      expect(el.className).toContain("lyra--justify-between");
     });
 
     it("should set around if the justify is around", () => {
       const c = render(<Flex.Box justify="around">Hello</Flex.Box>);
       const el = c.getByText("Hello");
-      expect(el.className).toContain("pluto--justify-around");
+      expect(el.className).toContain("lyra--justify-around");
     });
 
     it("should set evenly if the justify is evenly", () => {
       const c = render(<Flex.Box justify="evenly">Hello</Flex.Box>);
       const el = c.getByText("Hello");
-      expect(el.className).toContain("pluto--justify-evenly");
+      expect(el.className).toContain("lyra--justify-evenly");
     });
   });
 
@@ -199,31 +199,31 @@ describe("Box", () => {
     it("should not add a classname by default", () => {
       const c = render(<Flex.Box>Hello</Flex.Box>);
       const el = c.getByText("Hello");
-      expect(el.className).not.toContain("pluto--align");
+      expect(el.className).not.toContain("lyra--align");
     });
 
     it("should set center if the align is center", () => {
       const c = render(<Flex.Box align="center">Hello</Flex.Box>);
       const el = c.getByText("Hello");
-      expect(el.className).toContain("pluto--align-center");
+      expect(el.className).toContain("lyra--align-center");
     });
 
     it("should set end if the align is end", () => {
       const c = render(<Flex.Box align="end">Hello</Flex.Box>);
       const el = c.getByText("Hello");
-      expect(el.className).toContain("pluto--align-end");
+      expect(el.className).toContain("lyra--align-end");
     });
 
     it("should set start if the align is start", () => {
       const c = render(<Flex.Box align="start">Hello</Flex.Box>);
       const el = c.getByText("Hello");
-      expect(el.className).toContain("pluto--align-start");
+      expect(el.className).toContain("lyra--align-start");
     });
 
     it("should set stretch if the align is stretch", () => {
       const c = render(<Flex.Box align="stretch">Hello</Flex.Box>);
       const el = c.getByText("Hello");
-      expect(el.className).toContain("pluto--align-stretch");
+      expect(el.className).toContain("lyra--align-stretch");
     });
   });
 
@@ -231,31 +231,31 @@ describe("Box", () => {
     it("should not add a classname by default", () => {
       const c = render(<Flex.Box>Hello</Flex.Box>);
       const el = c.getByText("Hello");
-      expect(el.className).not.toContain("pluto--align-self");
+      expect(el.className).not.toContain("lyra--align-self");
     });
 
     it("should set center if the alignSelf is center", () => {
       const c = render(<Flex.Box alignSelf="center">Hello</Flex.Box>);
       const el = c.getByText("Hello");
-      expect(el.className).toContain("pluto--align-self-center");
+      expect(el.className).toContain("lyra--align-self-center");
     });
 
     it("should set end if the alignSelf is end", () => {
       const c = render(<Flex.Box alignSelf="end">Hello</Flex.Box>);
       const el = c.getByText("Hello");
-      expect(el.className).toContain("pluto--align-self-end");
+      expect(el.className).toContain("lyra--align-self-end");
     });
 
     it("should set start if the alignSelf is start", () => {
       const c = render(<Flex.Box alignSelf="start">Hello</Flex.Box>);
       const el = c.getByText("Hello");
-      expect(el.className).toContain("pluto--align-self-start");
+      expect(el.className).toContain("lyra--align-self-start");
     });
 
     it("should set stretch if the alignSelf is stretch", () => {
       const c = render(<Flex.Box alignSelf="stretch">Hello</Flex.Box>);
       const el = c.getByText("Hello");
-      expect(el.className).toContain("pluto--align-self-stretch");
+      expect(el.className).toContain("lyra--align-self-stretch");
     });
   });
 
@@ -263,13 +263,13 @@ describe("Box", () => {
     it("should not add a classname by default", () => {
       const c = render(<Flex.Box>Hello</Flex.Box>);
       const el = c.getByText("Hello");
-      expect(el.className).not.toContain("pluto--grow");
+      expect(el.className).not.toContain("lyra--grow");
     });
 
     it("should set grow if the grow is true", () => {
       const c = render(<Flex.Box grow>Hello</Flex.Box>);
       const el = c.getByText("Hello");
-      expect(el.className).toContain("pluto--grow");
+      expect(el.className).toContain("lyra--grow");
     });
 
     describe("when the grow is a number", () => {
@@ -285,13 +285,13 @@ describe("Box", () => {
     it("should not add a classname by default", () => {
       const c = render(<Flex.Box>Hello</Flex.Box>);
       const el = c.getByText("Hello");
-      expect(el.className).not.toContain("pluto--shrink");
+      expect(el.className).not.toContain("lyra--shrink");
     });
 
     it("should set shrink if the shrink is true", () => {
       const c = render(<Flex.Box shrink>Hello</Flex.Box>);
       const el = c.getByText("Hello");
-      expect(el.className).toContain("pluto--shrink");
+      expect(el.className).toContain("lyra--shrink");
     });
 
     describe("when the shrink is a number", () => {
@@ -307,13 +307,13 @@ describe("Box", () => {
     it("should not add a classname by default", () => {
       const c = render(<Flex.Box>Hello</Flex.Box>);
       const el = c.getByText("Hello");
-      expect(el.className).not.toContain("pluto--bordered");
+      expect(el.className).not.toContain("lyra--bordered");
     });
 
     it("should set bordered if the bordered is true", () => {
       const c = render(<Flex.Box bordered>Hello</Flex.Box>);
       const el = c.getByText("Hello");
-      expect(el.className).toContain("pluto--bordered");
+      expect(el.className).toContain("lyra--bordered");
     });
   });
 
@@ -335,13 +335,13 @@ describe("Box", () => {
     it("should not add a classname by default", () => {
       const c = render(<Flex.Box>Hello</Flex.Box>);
       const el = c.getByText("Hello");
-      expect(el.className).not.toContain("pluto--center");
+      expect(el.className).not.toContain("lyra--center");
     });
 
     it("should set center if the center is true", () => {
       const c = render(<Flex.Box center>Hello</Flex.Box>);
       const el = c.getByText("Hello");
-      expect(el.className).toContain("pluto--center");
+      expect(el.className).toContain("lyra--center");
     });
   });
 
@@ -349,13 +349,13 @@ describe("Box", () => {
     it("should not add a classname by default", () => {
       const c = render(<Flex.Box>Hello</Flex.Box>);
       const el = c.getByText("Hello");
-      expect(el.className).not.toContain("pluto--sharp");
+      expect(el.className).not.toContain("lyra--sharp");
     });
 
     it("should set sharp if the sharp is true", () => {
       const c = render(<Flex.Box sharp>Hello</Flex.Box>);
       const el = c.getByText("Hello");
-      expect(el.className).toContain("pluto--sharp");
+      expect(el.className).toContain("lyra--sharp");
     });
   });
 
@@ -363,39 +363,39 @@ describe("Box", () => {
     it("should not add a classname by default", () => {
       const c = render(<Flex.Box>Hello</Flex.Box>);
       const el = c.getByText("Hello");
-      expect(el.className).not.toContain("pluto--rounded");
+      expect(el.className).not.toContain("lyra--rounded");
     });
 
     it("should set rounded if the rounded is true", () => {
       const c = render(<Flex.Box rounded>Hello</Flex.Box>);
       const el = c.getByText("Hello");
-      expect(el.className).toContain("pluto--rounded");
+      expect(el.className).toContain("lyra--rounded");
     });
 
     it("should set the border radius directly if the rounded is a number", () => {
       const c = render(<Flex.Box rounded={2}>Hello</Flex.Box>);
       const el = c.getByText("Hello");
       expect(el.style.borderRadius).toBe("2rem");
-      expect(el.className).not.toContain("pluto--rounded");
+      expect(el.className).not.toContain("lyra--rounded");
     });
 
     it("should not set rounded if rounded is set to false", () => {
       const c = render(<Flex.Box rounded={false}>Hello</Flex.Box>);
       const el = c.getByText("Hello");
-      expect(el.className).not.toContain("pluto--rounded");
+      expect(el.className).not.toContain("lyra--rounded");
     });
 
     it("should add a size-step class if rounded is a Component.Size", () => {
       const c = render(<Flex.Box rounded="large">Hello</Flex.Box>);
       const el = c.getByText("Hello");
-      expect(el.className).toContain("pluto--rounded-large");
+      expect(el.className).toContain("lyra--rounded-large");
       expect(el.style.borderRadius).toBe("");
     });
 
     it("should round by default when packed", () => {
       const c = render(<Flex.Box pack>Hello</Flex.Box>);
       const el = c.getByText("Hello");
-      expect(el.classList).toContain("pluto--rounded");
+      expect(el.classList).toContain("lyra--rounded");
     });
 
     it("should let an explicit rounded override the packed default", () => {
@@ -405,8 +405,8 @@ describe("Box", () => {
         </Flex.Box>,
       );
       const el = c.getByText("Hello");
-      expect(el.classList).toContain("pluto--rounded-large");
-      expect(el.classList).not.toContain("pluto--rounded");
+      expect(el.classList).toContain("lyra--rounded-large");
+      expect(el.classList).not.toContain("lyra--rounded");
     });
 
     it("should not round a packed box when rounded is false", () => {
@@ -416,7 +416,7 @@ describe("Box", () => {
         </Flex.Box>,
       );
       const el = c.getByText("Hello");
-      expect(el.className).not.toContain("pluto--rounded");
+      expect(el.className).not.toContain("lyra--rounded");
     });
   });
 
@@ -424,13 +424,13 @@ describe("Box", () => {
     it("should not add a classname by default", () => {
       const c = render(<Flex.Box>Hello</Flex.Box>);
       const el = c.getByText("Hello");
-      expect(el.className).not.toContain("pluto--empty");
+      expect(el.className).not.toContain("lyra--empty");
     });
 
     it("should set empty if the empty is true", () => {
       const c = render(<Flex.Box empty>Hello</Flex.Box>);
       const el = c.getByText("Hello");
-      expect(el.className).toContain("pluto--empty");
+      expect(el.className).toContain("lyra--empty");
     });
   });
 
@@ -438,7 +438,7 @@ describe("Box", () => {
     it("should not add a classname by default", () => {
       const c = render(<Flex.Box>Hello</Flex.Box>);
       const el = c.getByText("Hello");
-      expect(el.className).not.toContain("pluto--gap");
+      expect(el.className).not.toContain("lyra--gap");
     });
 
     it("should set gap if the gap is a number", () => {
@@ -450,31 +450,31 @@ describe("Box", () => {
     it("should set gap if the gap is small", () => {
       const c = render(<Flex.Box gap="small">Hello</Flex.Box>);
       const el = c.getByText("Hello");
-      expect(el.className).toContain("pluto--gap-small");
+      expect(el.className).toContain("lyra--gap-small");
     });
 
     it("should set gap if the gap is medium", () => {
       const c = render(<Flex.Box gap="medium">Hello</Flex.Box>);
       const el = c.getByText("Hello");
-      expect(el.className).toContain("pluto--gap-medium");
+      expect(el.className).toContain("lyra--gap-medium");
     });
 
     it("should set gap if the gap is large", () => {
       const c = render(<Flex.Box gap="large">Hello</Flex.Box>);
       const el = c.getByText("Hello");
-      expect(el.className).toContain("pluto--gap-large");
+      expect(el.className).toContain("lyra--gap-large");
     });
 
     it("should set gap if the gap is huge", () => {
       const c = render(<Flex.Box gap="huge">Hello</Flex.Box>);
       const el = c.getByText("Hello");
-      expect(el.className).toContain("pluto--gap-huge");
+      expect(el.className).toContain("lyra--gap-huge");
     });
 
     it("should set gap if the gap is tiny", () => {
       const c = render(<Flex.Box gap="tiny">Hello</Flex.Box>);
       const el = c.getByText("Hello");
-      expect(el.className).toContain("pluto--gap-tiny");
+      expect(el.className).toContain("lyra--gap-tiny");
     });
   });
 
@@ -482,25 +482,25 @@ describe("Box", () => {
     it("should not add a classname by default", () => {
       const c = render(<Flex.Box>Hello</Flex.Box>);
       const el = c.getByText("Hello");
-      expect(el.className).not.toContain("pluto--full");
+      expect(el.className).not.toContain("lyra--full");
     });
 
     it("should set full if the full is true", () => {
       const c = render(<Flex.Box full>Hello</Flex.Box>);
       const el = c.getByText("Hello");
-      expect(el.className).toContain("pluto--full");
+      expect(el.className).toContain("lyra--full");
     });
 
     it("should set full if the full is x", () => {
       const c = render(<Flex.Box full="x">Hello</Flex.Box>);
       const el = c.getByText("Hello");
-      expect(el.className).toContain("pluto--full-x");
+      expect(el.className).toContain("lyra--full-x");
     });
 
     it("should set full if the full is y", () => {
       const c = render(<Flex.Box full="y">Hello</Flex.Box>);
       const el = c.getByText("Hello");
-      expect(el.className).toContain("pluto--full-y");
+      expect(el.className).toContain("lyra--full-y");
     });
   });
 
@@ -508,13 +508,13 @@ describe("Box", () => {
     it("should not add a classname by default", () => {
       const c = render(<Flex.Box>Hello</Flex.Box>);
       const el = c.getByText("Hello");
-      expect(el.className).not.toContain("pluto--wrap");
+      expect(el.className).not.toContain("lyra--wrap");
     });
 
     it("should set wrap if the wrap is true", () => {
       const c = render(<Flex.Box wrap>Hello</Flex.Box>);
       const el = c.getByText("Hello");
-      expect(el.className).toContain("pluto--wrap");
+      expect(el.className).toContain("lyra--wrap");
     });
   });
 
@@ -522,37 +522,37 @@ describe("Box", () => {
     it("should not add a classname by default", () => {
       const c = render(<Flex.Box>Hello</Flex.Box>);
       const el = c.getByText("Hello");
-      expect(el.className).not.toContain("pluto--height");
+      expect(el.className).not.toContain("lyra--height");
     });
 
     it("should set size if the size is small", () => {
       const c = render(<Flex.Box size="small">Hello</Flex.Box>);
       const el = c.getByText("Hello");
-      expect(el.className).toContain("pluto--height-small");
+      expect(el.className).toContain("lyra--height-small");
     });
 
     it("should set size if the size is medium", () => {
       const c = render(<Flex.Box size="medium">Hello</Flex.Box>);
       const el = c.getByText("Hello");
-      expect(el.className).toContain("pluto--height-medium");
+      expect(el.className).toContain("lyra--height-medium");
     });
 
     it("should set size if the size is large", () => {
       const c = render(<Flex.Box size="large">Hello</Flex.Box>);
       const el = c.getByText("Hello");
-      expect(el.className).toContain("pluto--height-large");
+      expect(el.className).toContain("lyra--height-large");
     });
 
     it("should set size if the size is huge", () => {
       const c = render(<Flex.Box size="huge">Hello</Flex.Box>);
       const el = c.getByText("Hello");
-      expect(el.className).toContain("pluto--height-huge");
+      expect(el.className).toContain("lyra--height-huge");
     });
 
     it("should set size if the size is tiny", () => {
       const c = render(<Flex.Box size="tiny">Hello</Flex.Box>);
       const el = c.getByText("Hello");
-      expect(el.className).toContain("pluto--height-tiny");
+      expect(el.className).toContain("lyra--height-tiny");
     });
   });
 
@@ -560,13 +560,13 @@ describe("Box", () => {
     it("should not add a classname by default", () => {
       const c = render(<Flex.Box>Hello</Flex.Box>);
       const el = c.getByText("Hello");
-      expect(el.className).not.toContain("pluto--square");
+      expect(el.className).not.toContain("lyra--square");
     });
 
     it("should set square if the square is true", () => {
       const c = render(<Flex.Box square>Hello</Flex.Box>);
       const el = c.getByText("Hello");
-      expect(el.className).toContain("pluto--square");
+      expect(el.className).toContain("lyra--square");
     });
   });
 
@@ -574,13 +574,13 @@ describe("Box", () => {
     it("should not add a classname by default", () => {
       const c = render(<Flex.Box>Hello</Flex.Box>);
       const el = c.getByText("Hello");
-      expect(el.className).not.toContain("pluto--pack");
+      expect(el.className).not.toContain("lyra--pack");
     });
 
     it("should set pack if the pack is true", () => {
       const c = render(<Flex.Box pack>Hello</Flex.Box>);
       const el = c.getByText("Hello");
-      expect(el.className).toContain("pluto--pack");
+      expect(el.className).toContain("lyra--pack");
     });
   });
 
@@ -588,26 +588,26 @@ describe("Box", () => {
     it("should not add a classname by default", () => {
       const c = render(<Flex.Box>Hello</Flex.Box>);
       const el = c.getByText("Hello");
-      expect(el.className).not.toContain("pluto--color");
+      expect(el.className).not.toContain("lyra--color");
     });
 
     it("should set a color classname if the color is a shade", () => {
       const c = render(<Flex.Box color={11}>Hello</Flex.Box>);
       const el = c.getByText("Hello");
-      expect(el.className).toContain("pluto--color-11");
+      expect(el.className).toContain("lyra--color-11");
     });
 
     it("should set the color directly if the color is a color", () => {
       const c = render(<Flex.Box color="#000000">Hello</Flex.Box>);
       const el = c.getByText("Hello");
       expect(el.style.color).toBe("rgb(0, 0, 0)");
-      expect(el.className).not.toContain("pluto--color");
+      expect(el.className).not.toContain("lyra--color");
     });
 
     it("should not add a classname or style if the color is false", () => {
       const c = render(<Flex.Box color={false}>Hello</Flex.Box>);
       const el = c.getByText("Hello");
-      expect(el.className).not.toContain("pluto--color");
+      expect(el.className).not.toContain("lyra--color");
       expect(el.style.color).toBe("");
     });
   });
@@ -616,26 +616,26 @@ describe("Box", () => {
     it("should not add a classname by default", () => {
       const c = render(<Flex.Box>Hello</Flex.Box>);
       const el = c.getByText("Hello");
-      expect(el.className).not.toContain("pluto--bg");
+      expect(el.className).not.toContain("lyra--bg");
     });
 
     it("should set a background classname if the background is a shade", () => {
       const c = render(<Flex.Box background={11}>Hello</Flex.Box>);
       const el = c.getByText("Hello");
-      expect(el.className).toContain("pluto--bg-11");
+      expect(el.className).toContain("lyra--bg-11");
     });
 
     it("should set the background directly if the background is a color", () => {
       const c = render(<Flex.Box background="#000000">Hello</Flex.Box>);
       const el = c.getByText("Hello");
       expect(el.style.backgroundColor).toBe("rgb(0, 0, 0)");
-      expect(el.className).not.toContain("pluto--background");
+      expect(el.className).not.toContain("lyra--background");
     });
 
     it("should not add a classname or style if the background is false", () => {
       const c = render(<Flex.Box background={false}>Hello</Flex.Box>);
       const el = c.getByText("Hello");
-      expect(el.className).not.toContain("pluto--bg");
+      expect(el.className).not.toContain("lyra--bg");
       expect(el.style.backgroundColor).toBe("");
     });
   });
@@ -644,26 +644,26 @@ describe("Box", () => {
     it("should not add a classname by default", () => {
       const c = render(<Flex.Box>Hello</Flex.Box>);
       const el = c.getByText("Hello");
-      expect(el.className).not.toContain("pluto--border-color");
+      expect(el.className).not.toContain("lyra--border-color");
     });
 
     it("should set a border color classname if the border color is a shade", () => {
       const c = render(<Flex.Box borderColor={11}>Hello</Flex.Box>);
       const el = c.getByText("Hello");
-      expect(el.className).toContain("pluto--border-color-11");
+      expect(el.className).toContain("lyra--border-color-11");
     });
 
     it("should set the border color directly if the border color is a color", () => {
       const c = render(<Flex.Box borderColor="#000000">Hello</Flex.Box>);
       const el = c.getByText("Hello");
       expect(el.style.borderColor).toBe("rgb(0, 0, 0)");
-      expect(el.className).not.toContain("pluto--border-color");
+      expect(el.className).not.toContain("lyra--border-color");
     });
 
     it("should not add a classname or style if the border color is false", () => {
       const c = render(<Flex.Box borderColor={false}>Hello</Flex.Box>);
       const el = c.getByText("Hello");
-      expect(el.className).not.toContain("pluto--border-color");
+      expect(el.className).not.toContain("lyra--border-color");
       expect(el.style.borderColor).toBe("");
     });
   });

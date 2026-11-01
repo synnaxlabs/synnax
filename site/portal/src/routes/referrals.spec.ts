@@ -149,6 +149,15 @@ describe("referral routes", () => {
       ]);
     });
 
+    it("should not tell staff about a claim by a Synnax Labs user", async () => {
+      const ref = await createReferral(store);
+      h.directory.people[ADA].email = "ada@synnaxlabs.com";
+      h.signIn(ADA);
+      await visit(ref.key);
+      expect((await stored(ref.key)).userID).toBe(ADA);
+      expect(h.slack.posted).toEqual([]);
+    });
+
     it("should not claim a link that another user claimed", async () => {
       const ref = await createReferral(store, { userID: BOB, claimedAt: NOW });
       h.signIn(ADA);

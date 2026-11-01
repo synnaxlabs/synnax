@@ -41,17 +41,6 @@ var errUnsupportedKeyAlgorithm = errors.Wrap(
 	"unsupported key algorithm",
 )
 
-// PostQuantum reports whether the algorithm is a post-quantum signature scheme. A
-// certificate signed by a post-quantum key is rejected by clients whose TLS stack
-// predates FIPS 204, browsers included.
-func (a KeyAlgorithm) PostQuantum() bool {
-	switch a {
-	case KeyAlgorithmMLDSA44, KeyAlgorithmMLDSA65, KeyAlgorithmMLDSA87:
-		return true
-	}
-	return false
-}
-
 // validate returns validate.ErrValidation if the algorithm is not one of the constants
 // declared in this package.
 func (a KeyAlgorithm) validate() error {

@@ -157,7 +157,7 @@ describe("Schematic.Symbol.Edit.useModal", () => {
       );
       assertDefined(item);
       expect(within(item).queryAllByRole("textbox")).toHaveLength(0);
-      const swatches = item.querySelectorAll<HTMLElement>(".pluto-color-swatch");
+      const swatches = item.querySelectorAll<HTMLElement>(".lyra-color-swatch");
       expect(swatches).toHaveLength(2);
       fireEvent.click(swatches[0]);
       fireEvent.change(screen.getByLabelText("Hex"), { target: { value: "ff0000" } });

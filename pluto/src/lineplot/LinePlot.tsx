@@ -8,7 +8,6 @@
 // included in the file licenses/APL.txt.
 
 import { type channel, lineplot } from "@synnaxlabs/client";
-import { CSS } from "@synnaxlabs/lyra/css";
 import { Haul } from "@synnaxlabs/lyra/haul";
 import { Triggers } from "@synnaxlabs/lyra/triggers";
 import {
@@ -25,6 +24,7 @@ import {
 import { type ReactElement, type RefObject, useEffect, useRef } from "react";
 
 import { canDropHaulItem, filterHaulItems } from "@/channel/types";
+import { CSS } from "@/css";
 import { XAxis as BaseXAxis, YAxis as BaseYAxis } from "@/lineplot/Axis";
 import { Frame, type FrameProps } from "@/lineplot/Frame";
 import {
@@ -35,6 +35,7 @@ import { Line as BaseLine } from "@/lineplot/Line";
 import { Measure } from "@/lineplot/measure";
 import { type measure } from "@/lineplot/measure/aether";
 import {
+  type DerivedLine,
   useAxisRuleKeys,
   useDispatch,
   useLegend,
@@ -101,7 +102,7 @@ const useAxisDrop = <K extends lineplot.AxisKey>(
 interface LineProps {
   pKey: lineplot.Key;
   lineKey: string;
-  window?: Window;
+  windows?: Window[];
   visible?: boolean;
 }
 
@@ -137,32 +138,51 @@ const createTelemetry = (
   };
 };
 
+// Line draws a stored line as one trace per window the plot shows, styled alike. Only
+// the first trace has a legend entry, under the stored line's key.
 const Line = ({
   pKey,
   lineKey,
-  window,
+  windows = [],
   visible = true,
-}: LineProps): ReactElement | null => {
-  const spec = useLine({ key: pKey, lineKey });
-  const { key, aggregation, detail, ...line } = spec;
+}: LineProps): ReactElement => {
+  const line = useLine({ key: pKey, lineKey });
+  return (
+    <>
+      {windows.map((window, i) => (
+        <Trace key={i} line={line} window={window} index={i} visible={visible} />
+      ))}
+    </>
+  );
+};
+
+interface TraceProps {
+  line: DerivedLine;
+  window: Window;
+  index: number;
+  visible: boolean;
+}
+
+const Trace = ({ line, window, index, visible }: TraceProps): ReactElement => {
+  const { key, aggregation, detail, ...rest } = line;
   // JSX takes the rest object, so the compiler counts reads from it as changing later.
-  const { xChannel, yChannel } = spec;
-  const groupsPerColumn = GROUPS_PER_COLUMN[detail];
-  if (window == null) return null;
+  const { xChannel, yChannel } = line;
   const telemetry = createTelemetry(window, xChannel, yChannel, aggregation);
+  const aetherKey = index === 0 ? key : `${key}/${index}`;
   return (
     <BaseLine
-      key={key}
-      aetherKey={key}
+      key={aetherKey}
+      aetherKey={aetherKey}
       x={telemetry.x}
       y={telemetry.y}
       visible={visible}
-      groupsPerColumn={groupsPerColumn}
+      legend={index === 0}
+      groupsPerColumn={GROUPS_PER_COLUMN[detail]}
       loadingHidden={
         window.variant === "dynamic" && window.timeSpan <= LOADING_MIN_SPAN
       }
       legendGroup={line.yAxis.toUpperCase()}
-      {...line}
+      {...rest}
     />
   );
 };
@@ -227,7 +247,7 @@ const Legend = ({
 interface AxisChildrenProps {
   pKey: lineplot.Key;
   editable: boolean;
-  windows?: Map<string, Window>;
+  windows?: Window[];
   hiddenLines?: Set<string>;
   onSelectRule?: (key: string) => void;
 }
@@ -329,7 +349,7 @@ const YAxis = ({
           key={lineKey}
           pKey={key}
           lineKey={lineKey}
-          window={windows?.get(lineplot.parseLineKey(lineKey).range)}
+          windows={windows}
           visible={hiddenLines == null || !hiddenLines.has(lineKey)}
         />
       ))}
@@ -422,8 +442,8 @@ const useViewportReset = ({
 export interface LinePlotProps extends FrameProps {
   editable?: boolean;
   enableTriggers?: Triggers.Condition;
-  /** The window of each range key the plot's lines name. */
-  windows?: Map<string, Window>;
+  /** The windows of the plot's ranges, in order. */
+  windows?: Window[];
   legendVariant?: BaseLegendProps["variant"];
   enableTooltip?: boolean;
   enableMeasure?: boolean;
@@ -438,12 +458,10 @@ export interface LinePlotProps extends FrameProps {
   onLineVisibleChange?: (lineKey: string, visible: boolean) => void;
 }
 
-const fetchingMessage = (
-  windows: Map<string, Window> | undefined,
-): string | undefined => {
-  if (windows == null || windows.size === 0) return undefined;
+const fetchingMessage = (windows: Window[] | undefined): string | undefined => {
+  if (windows == null || windows.length === 0) return undefined;
   const now = TimeStamp.now();
-  const spans = [...windows.values()].map((w) => resolveWindow(w, now).span);
+  const spans = windows.map((w) => resolveWindow(w, now).span);
   const longest = spans.reduce((a, b) => (b.greaterThan(a) ? b : a));
   return `Fetching ${longest.toString()} of data`;
 };

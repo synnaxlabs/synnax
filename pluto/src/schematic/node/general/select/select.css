@@ -14,22 +14,22 @@
     align-items: center;
     gap: 0;
 
-    .pluto-input {
+    .lyra-input {
         width: min-content;
     }
 
-    .pluto-dialog__frame {
+    .lyra-dialog__frame {
         border-top-right-radius: 0;
         border-bottom-right-radius: 0;
     }
 
-    .pluto-btn.pluto-dialog__trigger {
+    .lyra-btn.lyra-dialog__trigger {
         border-top-right-radius: 0;
         border-bottom-right-radius: 0;
         border-width: 1px;
     }
 
-    svg.pluto-caret-animated {
+    svg.lyra-caret-animated {
         fill: currentcolor;
     }
 

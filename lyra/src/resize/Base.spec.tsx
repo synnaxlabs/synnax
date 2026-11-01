@@ -14,7 +14,7 @@ import { describe, expect, it } from "vitest";
 import { Resize } from "@/resize";
 
 const paneOf = (c: ReturnType<typeof render>): HTMLElement => {
-  const pane = c.container.querySelector<HTMLElement>(".pluto-resize");
+  const pane = c.container.querySelector<HTMLElement>(".lyra-resize");
   if (pane == null) throw new Error("resize pane not found");
   return pane;
 };
@@ -51,11 +51,11 @@ describe("Resize.Base", () => {
 
   it("should draw the divider on the pane's handle edge", () => {
     const c = render(<Resize.Base location="left" size={120} />);
-    expect(paneOf(c).classList).toContain("pluto--bordered-right");
+    expect(paneOf(c).classList).toContain("lyra--bordered-right");
   });
 
   it("should draw no divider on a pane without a handle", () => {
     const c = render(<Resize.Base location="left" size={120} hideHandle />);
-    expect(paneOf(c).classList).not.toContain("pluto--bordered-right");
+    expect(paneOf(c).classList).not.toContain("lyra--bordered-right");
   });
 });

@@ -20,7 +20,7 @@ parameter of `status.set`, see the
 Three rules apply to every pattern:
 
 - Use `=>` to act when a condition is true. `->` passes every value, true or false, so
-  `tank_pressure > 600.0 -> status.set{...}` sets the status on every sample.
+  `tank_pressure > 600.0 -> status.set(...)` sets the status on every sample.
 - Import the modules that you use: `import status`, `import stable`, `import time`.
 - Digital channels in Synnax are `u8`. Compare them with `== 1`, and write `1` or `0`.
 
@@ -31,11 +31,11 @@ Three rules apply to every pattern:
 ```arc channels="tank_pressure"
 import status
 
-tank_pressure > 600.0 => status.set{
+tank_pressure > 600.0 => status.set(
     key_or_name="tank-pressure",
     variant="error",
     message="Above 600 psi",
-}
+)
 ```
 
 This sets the status each time a batch of samples is above the limit, which can send
@@ -53,17 +53,17 @@ the status again and again:
 import stable
 import status
 
-tank_pressure > 600.0 -> stable.for{duration=1s} => status.set{
+tank_pressure > 600.0 -> stable.for(duration=1s) => status.set(
     key_or_name="tank-pressure",
     variant="error",
     message="Above 600 psi",
-}
+)
 
-tank_pressure < 580.0 -> stable.for{duration=1s} => status.set{
+tank_pressure < 580.0 -> stable.for(duration=1s) => status.set(
     key_or_name="tank-pressure",
     variant="success",
     message="Below 580 psi",
-}
+)
 ```
 
 Both lines use the same key, so the operator sees one status that changes from **Error**
@@ -83,10 +83,10 @@ Some alarms must stay on until an operator acknowledges them, even after the val
 back:
 
 ```arc channels="tank_pressure, alarm_ack, latched_alarm"
-func latching_alarm{
+func latching_alarm(
     limit f64,
     ack chan u8,
-} (value f64) u8 {
+) {value f64} u8 {
     latched $= u8(0)
     ack_signal := ack
     if ack_signal == 1 {
@@ -98,7 +98,7 @@ func latching_alarm{
     return latched
 }
 
-tank_pressure -> latching_alarm{limit=600.0, ack=alarm_ack} -> latched_alarm
+tank_pressure -> latching_alarm(limit=600.0, ack=alarm_ack) -> latched_alarm
 ```
 
 Connect `alarm_ack` to a button on a [schematic](/reference/visualize/schematics), and
@@ -127,9 +127,9 @@ sequence main {
     }
     stage hold {
         0 -> valve_cmd
-        tank_pressure > 600.0 -> stable.for{duration=1s} => abort
+        tank_pressure > 600.0 -> stable.for(duration=1s) => abort
         abort_btn == 1 => abort
-        time.wait{duration=30s} => complete
+        time.wait(duration=30s) => complete
     }
     stage complete {
         0 -> valve_cmd
@@ -137,11 +137,11 @@ sequence main {
     stage abort {
         0 -> valve_cmd
         1 -> vent_valve
-        status.set{
+        status.set(
             key_or_name="tank_abort",
             variant="error",
             message="Test aborted",
-        }
+        )
     }
 }
 

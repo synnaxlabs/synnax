@@ -25,7 +25,7 @@ body {
     color: var(--pluto-gray-l10);
 }
 
-#root {
+.console-root {
     height: 100%;
     width: 100%;
 }

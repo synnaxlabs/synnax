@@ -19,7 +19,7 @@ from playwright.sync_api import TimeoutError as PlaywrightTimeoutError
 _ITEM_LABELS_JS = """(els) => els.map((el) => {
     const clone = el.cloneNode(true);
     clone
-        .querySelectorAll(".pluto-trigger-indicator")
+        .querySelectorAll(".lyra-trigger-indicator")
         .forEach((badge) => badge.remove());
     return (clone.textContent ?? "").trim();
 })"""

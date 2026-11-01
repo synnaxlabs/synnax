@@ -212,7 +212,7 @@ describe("Toolbar", () => {
       const current = (
         await within(symbols).findByText("Generic", { selector: "small" })
       ).parentElement;
-      expect(current?.classList.contains("pluto--selected")).toBe(true);
+      expect(current?.classList.contains("lyra--selected")).toBe(true);
     });
 
     it("changes the symbol without adding one", async () => {

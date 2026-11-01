@@ -56,7 +56,7 @@ interface RowProps {
 const Row = ({ name, value }: RowProps): ReactElement => (
   <Description.Item>
     <Description.Label>{name}</Description.Label>
-    <Description.Value overflow="ellipsis">{value}</Description.Value>
+    <Description.Value overflow="fade">{value}</Description.Value>
   </Description.Item>
 );
 
@@ -96,7 +96,7 @@ const Account = (): ReactElement | null => {
   if (email == null) return null;
   return (
     <Flex.Box x justify="between" align="center" gap="large">
-      <Text.Text level="small" color={10} overflow="ellipsis">
+      <Text.Text level="small" color={10} overflow="fade">
         Logged in as {email}
       </Text.Text>
       <Button.Button variant="text" size="small" href={ACCOUNT_URL} target="_blank">

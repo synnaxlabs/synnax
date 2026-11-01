@@ -35,8 +35,8 @@ class Console:
     Console UI automation interface - thin orchestration layer.
 
     Composes specialized clients for interacting with the Synnax Console application.
-    Layout operations are accessed through self.layout (LayoutClient).
-    Each client imports and instantiates its own utilities (notifications, ctx_menu, tree).
+    Layout operations are accessed through self.layout (LayoutClient). Each client
+    imports and instantiates its own utilities (notifications, ctx_menu, tree).
     """
 
     access: AccessClient
@@ -57,22 +57,24 @@ class Console:
     panels: PanelsClient
     page: Page
 
-    def __init__(self, page: Page, client: sy.Synnax, results_dir: Path):
+    def __init__(self, *, page: Page, client: sy.Synnax, results_dir: Path):
         self.page = page
         self.client = client
-        self.layout = LayoutClient(page, results_dir)
+        self.layout = LayoutClient(page=page, results_dir=results_dir)
         self.notifications = self.layout.notifications
         self.docs = DocsClient(self.layout)
         self.labels = LabelClient(self.layout)
-        self.devices = DevicesClient(self.layout, self.client)
+        self.devices = DevicesClient(layout=self.layout, client=self.client)
         self.arc = ArcClient(self.layout)
         self.access = AccessClient(self.layout)
-        self.channels = ChannelClient(self.layout, self.client)
+        self.channels = ChannelClient(layout=self.layout, client=self.client)
         self.cluster = ClusterClient(self.layout)
         self.project = ProjectClient(self.layout)
-        self.pages = PagesClient(self.layout, self.client, self.project)
+        self.pages = PagesClient(
+            layout=self.layout, client=self.client, project=self.project
+        )
         self.panels = PanelsClient(self.layout)
-        self.ranges = RangesClient(self.layout, self.pages)
+        self.ranges = RangesClient(layout=self.layout, pages=self.pages)
         self.statuses = StatusesClient(self.layout)
         self.tasks = TaskClient(self.layout)
 
@@ -125,7 +127,7 @@ class Console:
                 return tab
         return None
 
-    def close_all_tabs(self, except_tabs: list[str] | None = None) -> None:
+    def close_all_tabs(self, *, except_tabs: list[str] | None = None) -> None:
         """Close all tabs except specified ones.
 
         Args:

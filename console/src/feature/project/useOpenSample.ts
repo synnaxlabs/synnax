@@ -12,6 +12,8 @@ import { Status } from "@synnaxlabs/lyra/status";
 import { Synnax as PSynnax } from "@synnaxlabs/pluto";
 
 import { create, exists, KEYS } from "@/feature/project/sample";
+import sequence from "@/feature/project/sampleSequence.arc?raw";
+import simulator from "@/feature/project/sampleSimulator.arc?raw";
 import { Modals } from "@/platform/modals";
 import { Session } from "@/session";
 
@@ -51,7 +53,7 @@ export const useOpenSample = (): (() => void) => {
         });
         if (confirmed !== true) return;
       }
-      await create(client, Session.Range.RECENT_KEY);
+      await create(client, { simulator, sequence });
       await load(store, KEYS.project);
       store.dispatch(
         Session.Schematic.setEditable({ key: KEYS.schematic, editable: false }),

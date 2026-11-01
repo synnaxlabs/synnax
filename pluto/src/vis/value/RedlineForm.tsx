@@ -11,7 +11,6 @@ import "@/vis/value/RedlineForm.css";
 
 import { Button } from "@synnaxlabs/lyra/button";
 import { Color } from "@synnaxlabs/lyra/color";
-import { CSS } from "@synnaxlabs/lyra/css";
 import { Flex } from "@synnaxlabs/lyra/flex";
 import { Form } from "@synnaxlabs/lyra/form";
 import { Icon } from "@synnaxlabs/lyra/icon";
@@ -21,6 +20,8 @@ import { Text } from "@synnaxlabs/lyra/text";
 import { Theming } from "@synnaxlabs/lyra/theming";
 import { color, type compare, id } from "@synnaxlabs/x";
 import { type CSSProperties, type ReactElement } from "react";
+
+import { CSS } from "@/css";
 
 const ascending: compare.Comparator<color.Band> = (a, b) => a.threshold - b.threshold;
 

@@ -52,7 +52,7 @@ class NIDigitalWrite(NIDigitalWriteTaskCase):
 
     task_name = "NI Digital Write"
     device_locations = ["SYMod1"]
-    command_values = [[1, 0], [0, 1]]
+    command_values: list[list[float]] | None = [[1, 0], [0, 1]]
 
     @staticmethod
     def create_channels(
@@ -335,7 +335,7 @@ class NIAnalogWriteVoltage(_NIAnalogWriteVoltageBase):
 
     task_name = "NI Analog Write Voltage"
     # port 0 (map): 25%=-5V, 75%=5V | port 1: -5V, 5V | port 2 (lin): 25%=-5V, 75%=5V
-    command_values = [[25, -5, 25], [75, 5, 75]]
+    command_values: list[list[float]] | None = [[25, -5, 25], [75, 5, 75]]
 
 
 class NIAnalogWriteCurrent(_NIAnalogWriteCurrentBase):
@@ -346,7 +346,7 @@ class NIAnalogWriteCurrent(_NIAnalogWriteCurrentBase):
 
     task_name = "NI Analog Write Current"
     # port 0 (map): 25%=8mA, 75%=16mA | port 1: 0.008A, 0.016A | port 2 (lin): 25%, 75%
-    command_values = [[25, 0.008, 25], [75, 0.016, 75]]
+    command_values: list[list[float]] | None = [[25, 0.008, 25], [75, 0.016, 75]]
 
 
 def _send_oob_and_assert_state_clamped(
@@ -416,7 +416,9 @@ def _send_oob_and_assert_state_clamped(
 
 
 class _NIAnalogWriteOOBBase(NIAnalogWriteTaskCase):
-    """Base for OOB analog write tests — sends out-of-bounds values and verifies clamping."""
+    """Base for OOB analog write tests — sends out-of-bounds values and verifies
+    clamping.
+    """
 
     _oob_values: list[float]
 
@@ -437,7 +439,7 @@ class NIAnalogWriteVoltageOOB(_NIAnalogWriteOOBBase, _NIAnalogWriteVoltageBase):
     """Send out-of-bounds voltage and verify state is clamped by hardware."""
 
     task_name = "NI Analog Write Voltage OOB"
-    command_values = [[25, -5, 25], [75, 5, 75]]
+    command_values: list[list[float]] | None = [[25, -5, 25], [75, 5, 75]]
     # port 0 (map): 200% OOB, port 1: 15V OOB, port 2 (lin): 200% OOB
     _oob_values = [200, 15, 101]
 
@@ -446,6 +448,6 @@ class NIAnalogWriteCurrentOOB(_NIAnalogWriteOOBBase, _NIAnalogWriteCurrentBase):
     """Send out-of-bounds current and verify state is clamped by hardware."""
 
     task_name = "NI Analog Write Current OOB"
-    command_values = [[25, 0.008, 25], [75, 0.016, 75]]
+    command_values: list[list[float]] | None = [[25, 0.008, 25], [75, 0.016, 75]]
     # port 0 (map): 200% OOB, port 1: 0.025A OOB, port 2 (lin): 200% OOB
     _oob_values = [200, 0.025, 101]

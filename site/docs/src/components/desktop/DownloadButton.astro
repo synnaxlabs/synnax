@@ -14,4 +14,10 @@ import Buttons from "@/components/download/Buttons.astro";
 const version = await Astro.locals.releases.latest("desktop");
 ---
 
-<Buttons product="desktop" version={version} platforms={installers(version)} />
+<Buttons
+    product="desktop"
+    version={version}
+    platforms={installers(version)}
+    label="Download Synnax Desktop"
+    prominent
+/>

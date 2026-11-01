@@ -75,7 +75,7 @@ def http_url(server_ctx: ssl.SSLContext) -> Iterator[URL]:
     server = HTTPServer(("localhost", 0), _EchoHandler)
     server.socket = server_ctx.wrap_socket(server.socket, server_side=True)
     threading.Thread(target=server.serve_forever, args=(0.01,), daemon=True).start()
-    yield URL("localhost", server.server_address[1])
+    yield URL(host="localhost", port=server.server_address[1])
     server.shutdown()
     server.server_close()
 
@@ -91,7 +91,7 @@ def ws_url(server_ctx: ssl.SSLContext) -> Iterator[URL]:
         return await serve(_open_ack, "localhost", 0, ssl=server_ctx)
 
     server = asyncio.run_coroutine_threadsafe(start(), loop).result()
-    yield URL("localhost", next(iter(server.sockets)).getsockname()[1])
+    yield URL(host="localhost", port=next(iter(server.sockets)).getsockname()[1])
 
     async def stop() -> None:
         server.close()
@@ -102,7 +102,9 @@ def ws_url(server_ctx: ssl.SSLContext) -> Iterator[URL]:
 
 
 def _send(url: URL, ctx: ssl.SSLContext) -> Message:
-    client = HTTPClient(url, JSONCodec(), create_registry(), ssl_context=ctx)
+    client = HTTPClient(
+        url=url, codec=JSONCodec(), registry=create_registry(), ssl_context=ctx
+    )
     return client.send("/echo", Message(id=1, message="hi"), Message)
 
 

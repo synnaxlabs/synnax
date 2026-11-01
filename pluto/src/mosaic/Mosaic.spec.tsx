@@ -148,7 +148,7 @@ const mask = (): HTMLElement | null => document.querySelector(".pluto-mosaic__ma
 const shield = (): HTMLElement | null =>
   document.querySelector(".pluto-mosaic__shield");
 
-const ghost = (): HTMLElement | null => document.querySelector(".pluto-tabs__ghost");
+const ghost = (): HTMLElement | null => document.querySelector(".lyra-tabs__ghost");
 
 describe("Mosaic", () => {
   afterEach(() => {
@@ -487,7 +487,7 @@ describe("Mosaic", () => {
           </Mosaic.Split>
         </Mosaic.Frame>,
       );
-      const handle = c.container.querySelector<HTMLElement>(".pluto-resize__handle");
+      const handle = c.container.querySelector<HTMLElement>(".lyra-resize__handle");
       if (handle == null) throw new Error("resize handle not found");
       fireEvent.pointerDown(handle, {
         pointerId: 1,

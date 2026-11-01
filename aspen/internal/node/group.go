@@ -11,7 +11,6 @@ package node
 
 import (
 	"github.com/samber/lo"
-	"github.com/synnaxlabs/x/address"
 )
 
 type Group map[Key]Node
@@ -29,13 +28,6 @@ func (n Group) WhereActive() Group {
 }
 
 func (n Group) Where(cond func(Key, Node) bool) Group { return lo.PickBy(n, cond) }
-
-func (n Group) Addresses() (addresses []address.Address) {
-	for _, v := range n {
-		addresses = append(addresses, v.Address)
-	}
-	return addresses
-}
 
 func (n Group) Digests() Digests {
 	dig := make(Digests, len(n))

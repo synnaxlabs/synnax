@@ -20,7 +20,7 @@ describe("User.useRegisterModal", () => {
   it("should disable the Register button when no Core is connected", async () => {
     await openModal(User.useRegisterModal);
     await screen.findByText("Username");
-    expect(findButton("Register").className).toContain("pluto--disabled");
+    expect(findButton("Register").className).toContain("lyra--disabled");
   });
 
   it("should keep the modal open and surface errors when required fields are empty", async () => {
@@ -28,7 +28,7 @@ describe("User.useRegisterModal", () => {
     await openModal(User.useRegisterModal, { client });
     await screen.findByText("Username");
     await waitFor(() =>
-      expect(findButton("Register").className).not.toContain("pluto--disabled"),
+      expect(findButton("Register").className).not.toContain("lyra--disabled"),
     );
     fireEvent.click(findButton("Register"));
     await waitFor(() => expect(screen.getByText("Name is required")).toBeTruthy());

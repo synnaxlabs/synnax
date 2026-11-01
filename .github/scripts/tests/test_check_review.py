@@ -119,6 +119,7 @@ class Harness:
 
 def commit(
     author: str = "dependabot[bot]",
+    *,
     committer: str = "web-flow",
     verified: bool = True,
 ) -> dict[str, object]:
@@ -132,7 +133,7 @@ def commit(
 
 
 def edit(
-    body: str | None, login: str = "author", kind: str = "User"
+    body: str | None, *, login: str = "author", kind: str = "User"
 ) -> dict[str, object]:
     """A description revision by an account of the given kind."""
     return {"editor": {"__typename": kind, "login": login}, "diff": body}
@@ -147,7 +148,7 @@ def greptile_body(*scores: int, sha: str = "head") -> str:
 
 def greptile_edit(*scores: int, sha: str = "head") -> dict[str, object]:
     """A description revision Greptile wrote after it scores a commit."""
-    return edit(greptile_body(*scores, sha=sha), "greptile-apps", "Bot")
+    return edit(greptile_body(*scores, sha=sha), login="greptile-apps", kind="Bot")
 
 
 @pytest.fixture
@@ -205,7 +206,7 @@ class TestScore:
         assert harness.run()[0] == "failure"
 
     def test_ignores_a_user_with_the_login_of_greptile(self, harness: Harness) -> None:
-        harness.edits(edit(greptile_body(5), "greptile-apps"))
+        harness.edits(edit(greptile_body(5), login="greptile-apps"))
         assert harness.run()[0] == "pending"
 
     def test_takes_the_latest_score(self, harness: Harness) -> None:
@@ -217,7 +218,7 @@ class TestScore:
         assert harness.run()[0] == "failure"
 
     def test_pends_on_a_deleted_revision(self, harness: Harness) -> None:
-        harness.edits(edit(None, "greptile-apps", "Bot"), greptile_edit(5))
+        harness.edits(edit(None, login="greptile-apps", kind="Bot"), greptile_edit(5))
         assert harness.run()[0] == "pending"
 
 
@@ -233,7 +234,7 @@ class TestDependabot:
         assert harness.run() == ("success", "Dependabot wrote every commit")
 
     def test_pends_on_a_commit_someone_else_wrote(self, harness: Harness) -> None:
-        harness.commits(commit(), commit("someone", "someone"))
+        harness.commits(commit(), commit("someone", committer="someone"))
         assert harness.run()[0] == "pending"
 
     def test_pends_on_a_forged_author(self, harness: Harness) -> None:

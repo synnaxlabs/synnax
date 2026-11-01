@@ -15,6 +15,7 @@ import (
 	"testing"
 
 	"github.com/synnaxlabs/freighter/http"
+	apiframer "github.com/synnaxlabs/synnax/pkg/api/framer"
 	"github.com/synnaxlabs/synnax/pkg/distribution/framer/codec"
 	"github.com/synnaxlabs/synnax/pkg/distribution/framer/frame"
 	"github.com/synnaxlabs/synnax/pkg/service/channel"
@@ -92,7 +93,7 @@ func BenchmarkHTTPCodec_WriteRequest_Encode(b *testing.B) {
 			msg := http.WSMessage[framer.WriterRequest]{
 				Type: "data",
 				Payload: framer.WriterRequest{
-					Command: framer.WriterCommandWrite,
+					Command: apiframer.WriterCommandWrite,
 					Frame:   fr,
 				},
 			}
@@ -116,7 +117,7 @@ func BenchmarkHTTPCodec_WriteRequest_Decode(b *testing.B) {
 			msg := http.WSMessage[framer.WriterRequest]{
 				Type: "data",
 				Payload: framer.WriterRequest{
-					Command: framer.WriterCommandWrite,
+					Command: apiframer.WriterCommandWrite,
 					Frame:   fr,
 				},
 			}
@@ -208,8 +209,8 @@ func BenchmarkHTTPCodec_IteratorResponse_Encode(b *testing.B) {
 			msg := http.WSMessage[framer.IteratorResponse]{
 				Type: "data",
 				Payload: framer.IteratorResponse{
-					Variant: framer.IteratorResponseVariantData,
-					Command: framer.IteratorCommandNext,
+					Variant: apiframer.IteratorResponseVariantData,
+					Command: apiframer.IteratorCommandNext,
 					Frame:   fr,
 				},
 			}
@@ -246,8 +247,8 @@ func BenchmarkHTTPCodec_IteratorResponse_Decode(b *testing.B) {
 			msg := http.WSMessage[framer.IteratorResponse]{
 				Type: "data",
 				Payload: framer.IteratorResponse{
-					Variant: framer.IteratorResponseVariantData,
-					Command: framer.IteratorCommandNext,
+					Variant: apiframer.IteratorResponseVariantData,
+					Command: apiframer.IteratorCommandNext,
 					Frame:   fr,
 				},
 			}
@@ -277,7 +278,7 @@ func BenchmarkHTTPCodec_IteratorRequest_Encode(b *testing.B) {
 	msg := http.WSMessage[framer.IteratorRequest]{
 		Type: "data",
 		Payload: framer.IteratorRequest{
-			Command: framer.IteratorCommandNext,
+			Command: apiframer.IteratorCommandNext,
 			Span:    telem.Second,
 			Keys:    keys,
 		},

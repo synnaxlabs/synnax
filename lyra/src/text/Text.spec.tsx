@@ -16,49 +16,54 @@ import { Text } from "@/text";
 
 describe("Text", () => {
   describe("levels", () => {
-    text.LEVELS.forEach((level) => {
+    text.LEVELS.filter((level) => level !== "tiny").forEach((level) => {
       it(`should render text with the correct HTML tag for ${level}`, () => {
         const c = render(<Text.Text level={level}>Hello</Text.Text>);
         expect(c.getByText("Hello").tagName.toLowerCase()).toBe(level);
       });
+    });
+
+    it("should render tiny text in a small element", () => {
+      const c = render(<Text.Text level="tiny">Hello</Text.Text>);
+      expect(c.getByText("Hello").tagName.toLowerCase()).toBe("small");
     });
   });
 
   describe("gap", () => {
     it("should render the element with a small gap by default", () => {
       const c = render(<Text.Text>Hello</Text.Text>);
-      expect(c.getByText("Hello").className).toContain("pluto--gap-small");
+      expect(c.getByText("Hello").className).toContain("lyra--gap-small");
     });
 
     it("should render the element with a different gap", () => {
       const c = render(<Text.Text gap="medium">Hello</Text.Text>);
-      expect(c.getByText("Hello").className).toContain("pluto--gap-medium");
+      expect(c.getByText("Hello").className).toContain("lyra--gap-medium");
     });
   });
 
   describe("direction", () => {
     it("should render the element with a direction of x by default", () => {
       const c = render(<Text.Text>Hello</Text.Text>);
-      expect(c.getByText("Hello").className).toContain("pluto--direction-x");
+      expect(c.getByText("Hello").className).toContain("lyra--direction-x");
     });
 
     it("should render the element with a different direction", () => {
       const c = render(<Text.Text direction="y">Hello</Text.Text>);
-      expect(c.getByText("Hello").className).toContain("pluto--direction-y");
+      expect(c.getByText("Hello").className).toContain("lyra--direction-y");
     });
 
     it("should render the element with a different direction", () => {
       const c = render(<Text.Text y>Hello</Text.Text>);
-      expect(c.getByText("Hello").className).toContain("pluto--direction-y");
+      expect(c.getByText("Hello").className).toContain("lyra--direction-y");
     });
   });
 
   describe("variants", () => {
     it("should not add a variant classname by default", () => {
       const c = render(<Text.Text>Hello</Text.Text>);
-      expect(c.getByText("Hello").className).not.toContain("pluto-text--link");
-      expect(c.getByText("Hello").className).not.toContain("pluto-text--code");
-      expect(c.getByText("Hello").className).not.toContain("pluto-text--keyboard");
+      expect(c.getByText("Hello").className).not.toContain("lyra-text--link");
+      expect(c.getByText("Hello").className).not.toContain("lyra-text--code");
+      expect(c.getByText("Hello").className).not.toContain("lyra-text--keyboard");
     });
 
     describe("link", () => {
@@ -87,14 +92,14 @@ describe("Text", () => {
     describe("code", () => {
       it("should render a code block if the variant is set to code", () => {
         const c = render(<Text.Text variant="code">Hello</Text.Text>);
-        expect(c.getByText("Hello").className).toContain("pluto-text--code");
+        expect(c.getByText("Hello").className).toContain("lyra-text--code");
       });
     });
 
     describe("keyboard", () => {
       it("should render a keyboard key if the variant is set to keyboard", () => {
         const c = render(<Text.Text variant="keyboard">Hello</Text.Text>);
-        expect(c.getByText("Hello").className).toContain("pluto-text--keyboard");
+        expect(c.getByText("Hello").className).toContain("lyra-text--keyboard");
       });
     });
   });
@@ -141,49 +146,44 @@ describe("Text", () => {
   describe("overflow", () => {
     it("should not add a overflow classname by default", () => {
       const c = render(<Text.Text>Hello</Text.Text>);
-      expect(c.getByText("Hello").className).not.toContain("pluto-text--overflow");
-    });
-
-    it("should add a overflow classname if the overflow is set to ellipsis", () => {
-      const c = render(<Text.Text overflow="ellipsis">Hello</Text.Text>);
-      expect(c.getByText("Hello").className).toContain("pluto-text--overflow-ellipsis");
+      expect(c.getByText("Hello").className).not.toContain("lyra-text--overflow");
     });
 
     it("should add a overflow classname if the overflow is set to fade", () => {
       const c = render(<Text.Text overflow="fade">Hello</Text.Text>);
-      expect(c.getByText("Hello").className).toContain("pluto-text--overflow-fade");
+      expect(c.getByText("Hello").className).toContain("lyra-text--overflow-fade");
     });
 
     it("should add a overflow classname if the overflow is set to clip", () => {
       const c = render(<Text.Text overflow="clip">Hello</Text.Text>);
-      expect(c.getByText("Hello").className).toContain("pluto-text--overflow-clip");
+      expect(c.getByText("Hello").className).toContain("lyra-text--overflow-clip");
     });
 
     it("should add a overflow classname if the overflow is set to nowrap", () => {
       const c = render(<Text.Text overflow="nowrap">Hello</Text.Text>);
-      expect(c.getByText("Hello").className).toContain("pluto-text--overflow-nowrap");
+      expect(c.getByText("Hello").className).toContain("lyra-text--overflow-nowrap");
     });
 
     it("should add a overflow classname if the overflow is set to clip", () => {
       const c = render(<Text.Text overflow="clip">Hello</Text.Text>);
-      expect(c.getByText("Hello").className).toContain("pluto-text--overflow-clip");
+      expect(c.getByText("Hello").className).toContain("lyra-text--overflow-clip");
     });
   });
 
   describe("square", () => {
     it("should not add a square classname by default", () => {
       const c = render(<Text.Text>Hello</Text.Text>);
-      expect(c.getByText("Hello").className).not.toContain("pluto-text--square");
+      expect(c.getByText("Hello").className).not.toContain("lyra-text--square");
     });
 
     it("should add a square classname if the square is true", () => {
       const c = render(<Text.Text square>Hello</Text.Text>);
-      expect(c.getByText("Hello").className).toContain("pluto--square");
+      expect(c.getByText("Hello").className).toContain("lyra--square");
     });
 
     it("should add a square classname if the child is a single string letter", () => {
       const c = render(<Text.Text>A</Text.Text>);
-      expect(c.getByText("A").className).toContain("pluto--square");
+      expect(c.getByText("A").className).toContain("lyra--square");
     });
 
     it("should add a square classname if the el an icon", () => {
@@ -194,7 +194,7 @@ describe("Text", () => {
       );
       const el = c.getByLabelText("Acquire").parentElement;
       expect(el).toBeTruthy();
-      expect(el?.className).toContain("pluto--square");
+      expect(el?.className).toContain("lyra--square");
     });
 
     it("should treat an icon with a trailing space as square", () => {
@@ -205,48 +205,48 @@ describe("Text", () => {
       );
       const el = c.getByLabelText("Acquire").parentElement;
       expect(el).toBeTruthy();
-      expect(el?.className).toContain("pluto--square");
+      expect(el?.className).toContain("lyra--square");
     });
   });
 
   describe("status", () => {
     it("should not add a status classname by default", () => {
       const c = render(<Text.Text>Hello</Text.Text>);
-      expect(c.getByText("Hello").className).not.toContain("pluto--status-error");
-      expect(c.getByText("Hello").className).not.toContain("pluto--status-warning");
-      expect(c.getByText("Hello").className).not.toContain("pluto--status-success");
+      expect(c.getByText("Hello").className).not.toContain("lyra--status-error");
+      expect(c.getByText("Hello").className).not.toContain("lyra--status-warning");
+      expect(c.getByText("Hello").className).not.toContain("lyra--status-success");
     });
 
     it("should add a status classname if the status is set to error", () => {
       const c = render(<Text.Text status="error">Hello</Text.Text>);
-      expect(c.getByText("Hello").className).toContain("pluto--status-error");
+      expect(c.getByText("Hello").className).toContain("lyra--status-error");
     });
 
     it("should add a status classname if the status is set to warning", () => {
       const c = render(<Text.Text status="warning">Hello</Text.Text>);
-      expect(c.getByText("Hello").className).toContain("pluto--status-warning");
+      expect(c.getByText("Hello").className).toContain("lyra--status-warning");
     });
 
     it("should add a status classname if the status is set to success", () => {
       const c = render(<Text.Text status="success">Hello</Text.Text>);
-      expect(c.getByText("Hello").className).toContain("pluto--status-success");
+      expect(c.getByText("Hello").className).toContain("lyra--status-success");
     });
 
     it("should add a status classname if the status is set to loading", () => {
       const c = render(<Text.Text status="loading">Hello</Text.Text>);
-      expect(c.getByText("Hello").className).toContain("pluto--status-loading");
+      expect(c.getByText("Hello").className).toContain("lyra--status-loading");
     });
   });
 
   describe("lineClamp", () => {
     it("should not add a line-clamp classname by default", () => {
       const c = render(<Text.Text>Hello</Text.Text>);
-      expect(c.getByText("Hello").className).not.toContain("pluto-text--line-clamp");
+      expect(c.getByText("Hello").className).not.toContain("lyra-text--line-clamp");
     });
 
     it("should add a line-clamp classname when lineClamp is set", () => {
       const c = render(<Text.Text lineClamp={2}>Hello</Text.Text>);
-      expect(c.getByText("Hello").className).toContain("pluto-text--line-clamp");
+      expect(c.getByText("Hello").className).toContain("lyra-text--line-clamp");
     });
 
     it("should set the WebkitLineClamp style to the provided value", () => {

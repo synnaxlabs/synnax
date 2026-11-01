@@ -28,7 +28,7 @@ type AnchorProps = ComponentPropsWithoutRef<"a">;
 /** The typeface and treatment: body prose, monospace code, a key cap, or a link. */
 export type Variant = "prose" | "code" | "keyboard" | "link";
 /** What happens to text that outruns its box. */
-export type Overflow = "ellipsis" | "fade" | "clip" | "nowrap" | "wrap";
+export type Overflow = "fade" | "clip" | "nowrap" | "wrap";
 
 /**
  * The text-specific props {@link TextProps} adds. Text is a flex box, so it also takes
@@ -51,7 +51,7 @@ export interface ExtensionProps
   overflow?: Overflow;
   /** Tints the text with a status color. */
   status?: Status.Variant;
-  /** Truncates past this many lines. Implies an ellipsis. */
+  /** Truncates past this many lines, fading the end of the last one. */
   lineClamp?: number;
 }
 
@@ -111,7 +111,8 @@ export const parseElement = <E extends Generic.ElementType = "p">(
   if (el != null) return el;
   if (href != null || variant === "link") return "a" as E;
   if (defaultEl != null) return defaultEl as E;
-  if (level != null) return level as E;
+  // HTML has no element below <small>, so tiny text renders in one too.
+  if (level != null) return (level === "tiny" ? "small" : level) as E;
   return "p" as E;
 };
 
@@ -133,7 +134,7 @@ const formatStyle = (
  * a label lay out inside one element with no wrapper.
  *
  * @example <Text.Text level="h3">Ranges</Text.Text>
- * @example <Text.Text level="p" overflow="ellipsis"><Icon.Range />{name}</Text.Text>
+ * @example <Text.Text level="p" overflow="fade"><Icon.Range />{name}</Text.Text>
  */
 export const Text = <E extends Generic.ElementType = "p">({
   level = "p",

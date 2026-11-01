@@ -13,7 +13,18 @@ load("@rules_cc//cc:cc_test.bzl", "cc_test")
 
 cc_library(
     name = "testutil",
-    hdrs = ["slave.h"],
+    srcs = select({
+        "@platforms//os:windows": ["pseudo_terminal_windows.cpp"],
+        "//conditions:default": ["pseudo_terminal_posix.cpp"],
+    }),
+    hdrs = [
+        "pseudo_terminal.h",
+        "slave.h",
+    ],
+    linkopts = select({
+        "@platforms//os:linux": ["-lutil"],
+        "//conditions:default": [],
+    }),
     visibility = ["//visibility:public"],
     deps = [
         "//driver/modbus/util",

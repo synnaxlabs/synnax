@@ -15,7 +15,7 @@ import (
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	"github.com/synnaxlabs/gorp"
-	"github.com/synnaxlabs/synnax/pkg/distribution/mock"
+	"github.com/synnaxlabs/synnax/pkg/distribution/testutil"
 	"github.com/synnaxlabs/synnax/pkg/service/arc"
 	"github.com/synnaxlabs/synnax/pkg/service/channel"
 	"github.com/synnaxlabs/synnax/pkg/service/group"
@@ -28,6 +28,7 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/service/panel"
 	"github.com/synnaxlabs/synnax/pkg/service/project"
 	"github.com/synnaxlabs/synnax/pkg/service/rack"
+	racktestutil "github.com/synnaxlabs/synnax/pkg/service/rack/testutil"
 	"github.com/synnaxlabs/synnax/pkg/service/status"
 	"github.com/synnaxlabs/synnax/pkg/service/task"
 	"github.com/synnaxlabs/synnax/pkg/service/task/config"
@@ -62,7 +63,7 @@ var (
 var (
 	_ = BeforeSuite(func(ctx SpecContext) {
 		ShouldNotLeakGoroutines()
-		node := mock.NewNode(ctx)
+		node := testutil.NewNode(ctx)
 		db = node.DB
 		otg = MustOpen(ontology.Open(ctx, ontology.Config{DB: db}))
 		groupSvc = MustOpen(group.OpenService(ctx, group.ServiceConfig{
@@ -101,6 +102,7 @@ var (
 			Group:        groupSvc,
 			Status:       statusSvc,
 			HostProvider: node.Cluster,
+			DriverRole:   MustSucceed(racktestutil.CreateDriverRole(ctx, otg)),
 		}))
 		pd := MustOpen(pagerduty.OpenService(ctx, pagerduty.ServiceConfig{DB: db}))
 		taskSvc = MustOpen(task.OpenService(ctx, task.ServiceConfig{

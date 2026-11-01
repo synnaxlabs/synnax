@@ -43,13 +43,13 @@ export default async (session: capture.CaptureSession): Promise<void> => {
 
     const bind = async (section: string, channel: string): Promise<void> => {
       const item = properties
-        .locator(".pluto-form-section")
+        .locator(".lyra-form-section")
         .filter({
           has: page
-            .locator(".pluto-form-section__header")
+            .locator(".lyra-form-section__header")
             .getByText(section, { exact: true }),
         })
-        .locator(".pluto-input__item")
+        .locator(".lyra-input__item")
         .filter({ hasText: "Channel" })
         .first();
       await session.click(item.getByText("Select channel", { exact: true }).first(), {
@@ -63,7 +63,7 @@ export default async (session: capture.CaptureSession): Promise<void> => {
       await session.type(channel);
       session.setSpeed(1);
       const option = page
-        .locator(".pluto-list__item:not(.pluto-tree__item)")
+        .locator(".lyra-list__item:not(.lyra-tree__item)")
         .filter({ has: page.getByText(channel, { exact: true }) })
         .first();
       await session.waitFor(option);

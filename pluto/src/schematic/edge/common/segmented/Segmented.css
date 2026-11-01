@@ -14,11 +14,11 @@
     height: 100%;
     z-index: 1000000000;
 
-    &.pluto--direction-x {
+    &.lyra--direction-x {
         cursor: ns-resize;
     }
 
-    &.pluto--direction-y {
+    &.lyra--direction-y {
         cursor: ew-resize;
     }
 }

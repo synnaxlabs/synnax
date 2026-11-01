@@ -11,22 +11,43 @@ package lsp_test
 
 import (
 	"context"
+	"net"
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	"github.com/synnaxlabs/oracle/lsp"
 	. "github.com/synnaxlabs/x/lsp/testutil"
 	. "github.com/synnaxlabs/x/testutil"
+	"go.lsp.dev/jsonrpc2"
 	"go.lsp.dev/protocol"
 	"go.lsp.dev/uri"
 )
 
+// serve runs an Oracle LSP server over an in-memory connection and returns a client
+// handle to it.
+func serve() protocol.Server {
+	GinkgoHelper()
+	serverSide, clientSide := net.Pipe()
+	served := make(chan error, 1)
+	go func() { served <- lsp.New().Serve(context.Background(), serverSide) }()
+	_, conn, server := protocol.NewClient(
+		context.Background(),
+		&MockClient{},
+		jsonrpc2.NewStream(clientSide),
+	)
+	DeferCleanup(func() {
+		Expect(conn.Close()).To(Succeed())
+		Eventually(conn.Done()).Should(BeClosed())
+		Eventually(served).Should(Receive())
+	})
+	return server
+}
+
 var _ = Describe("Completion", func() {
-	var server *lsp.Server
+	var server protocol.Server
 
 	BeforeEach(func(ctx SpecContext) {
-		server = lsp.New()
-		server.SetClient(&MockClient{})
+		server = serve()
 		Expect(server.DidOpen(ctx, &protocol.DidOpenTextDocumentParams{
 			TextDocument: protocol.TextDocumentItem{
 				URI:     "file:///test.oracle",
@@ -211,11 +232,10 @@ var _ = Describe("Shutdown", func() {
 })
 
 var _ = Describe("DidChange", func() {
-	var server *lsp.Server
+	var server protocol.Server
 
 	BeforeEach(func() {
-		server = lsp.New()
-		server.SetClient(&MockClient{})
+		server = serve()
 	})
 
 	It("should update document content", func(ctx SpecContext) {
@@ -267,8 +287,7 @@ var _ = Describe("DidChange", func() {
 
 var _ = Describe("DidClose", func() {
 	It("should remove document and clear diagnostics", func(ctx SpecContext) {
-		server := lsp.New()
-		server.SetClient(&MockClient{})
+		server := serve()
 		Expect(server.DidOpen(ctx, &protocol.DidOpenTextDocumentParams{
 			TextDocument: protocol.TextDocumentItem{
 				URI: "file:///close.oracle", Version: 1,
@@ -293,11 +312,10 @@ var _ = Describe("DidClose", func() {
 })
 
 var _ = Describe("Hover", func() {
-	var server *lsp.Server
+	var server protocol.Server
 
 	BeforeEach(func(ctx SpecContext) {
-		server = lsp.New()
-		server.SetClient(&MockClient{})
+		server = serve()
 		Expect(server.DidOpen(ctx, &protocol.DidOpenTextDocumentParams{
 			TextDocument: protocol.TextDocumentItem{
 				URI: "file:///hover.oracle", Version: 1,
@@ -354,11 +372,10 @@ var _ = Describe("Hover", func() {
 })
 
 var _ = Describe("SemanticTokensFull", func() {
-	var server *lsp.Server
+	var server protocol.Server
 
 	BeforeEach(func() {
-		server = lsp.New()
-		server.SetClient(&MockClient{})
+		server = serve()
 	})
 
 	openDoc := func(ctx context.Context, docURI uri.URI, text string) {
@@ -484,11 +501,10 @@ var _ = Describe("SemanticTokensFull", func() {
 })
 
 var _ = Describe("Formatting", func() {
-	var server *lsp.Server
+	var server protocol.Server
 
 	BeforeEach(func() {
-		server = lsp.New()
-		server.SetClient(&MockClient{})
+		server = serve()
 	})
 
 	openDoc := func(ctx context.Context, docURI uri.URI, text string) {
@@ -507,14 +523,17 @@ var _ = Describe("Formatting", func() {
 		}))
 	}
 
-	It("should return nil for unknown document", func(ctx SpecContext) {
-		Expect(formatDoc(ctx, "file:///unknown.oracle")).To(BeNil())
+	It("should return no edits for an unknown document", func(ctx SpecContext) {
+		Expect(formatDoc(ctx, "file:///unknown.oracle")).To(BeEmpty())
 	})
 
-	It("should return nil when content is already formatted", func(ctx SpecContext) {
-		openDoc(ctx, "file:///formatted.oracle", "User struct {}\n")
-		Expect(formatDoc(ctx, "file:///formatted.oracle")).To(BeNil())
-	})
+	It(
+		"should return no edits when content is already formatted",
+		func(ctx SpecContext) {
+			openDoc(ctx, "file:///formatted.oracle", "User struct {}\n")
+			Expect(formatDoc(ctx, "file:///formatted.oracle")).To(BeEmpty())
+		},
+	)
 
 	It(
 		"should return text edit when formatting changes content",

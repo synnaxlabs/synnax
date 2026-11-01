@@ -9,7 +9,6 @@
 
 import { type ranger } from "@synnaxlabs/client";
 import { Component } from "@synnaxlabs/lyra/component";
-import { CSS } from "@synnaxlabs/lyra/css";
 import { type Dialog } from "@synnaxlabs/lyra/dialog";
 import { Flex } from "@synnaxlabs/lyra/flex";
 import { Icon } from "@synnaxlabs/lyra/icon";
@@ -19,6 +18,7 @@ import { Tag } from "@synnaxlabs/lyra/tag";
 import { Telem } from "@synnaxlabs/lyra/telem";
 import { type ReactElement } from "react";
 
+import { CSS } from "@/css";
 import { type Flux } from "@/flux";
 import { Breadcrumb } from "@/ranger/Breadcrumb";
 import { type ListQuery, useList } from "@/ranger/queries";
@@ -110,7 +110,7 @@ const ListItem = ({
             ))}
           </>
         )}
-        <Telem.Text.TimeRange level="small">{timeRange}</Telem.Text.TimeRange>
+        <Telem.Text.TimeRange level="tiny">{timeRange}</Telem.Text.TimeRange>
       </Flex.Box>
     </Base.Item>
   );

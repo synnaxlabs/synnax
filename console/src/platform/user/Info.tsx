@@ -41,7 +41,7 @@ export const Info = (): ReactElement => {
   return (
     <Flex.Box y gap="tiny" className={CSS.B("user-info")}>
       <Flex.Box x align="center" gap="small">
-        <Text.Text weight={500} color={11} overflow="ellipsis">
+        <Text.Text weight={500} color={11} overflow="fade">
           {name}
         </Text.Text>
         <Roles />

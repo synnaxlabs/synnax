@@ -9,6 +9,7 @@
 
 from typing import Any
 
+from console.page import PageType
 from console.task.channels.counter import Counter
 from console.task.channels.counter_input import (
     AngularPosition,
@@ -44,12 +45,13 @@ _COUNTER_READ_CHANNEL_TYPES: dict[str, type[Counter]] = {
 class CounterRead(NITask):
     """NI Counter Read Task automation interface."""
 
-    page_type = "NI counter read task"
+    page_type: PageType = "NI counter read task"
     pluto_label: str = ".console-task-configure--ni_counter_read"
 
     def add_channel(
         self,
         name: str,
+        *,
         chan_type: str,
         device: str,
         dev_name: str | None = None,

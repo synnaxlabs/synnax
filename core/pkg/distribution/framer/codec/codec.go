@@ -149,8 +149,6 @@ type Codec struct {
 	// mergedSeriesResult is a reusable slice for storing merged series info, avoiding
 	// allocations on each encode operation
 	mergedSeriesResult []mergedSeriesInfo
-	// opts holds configuration options for the codec.
-	opts *options
 	// mu is non-routine safe structures that must be used carefully.
 	mu struct {
 		// states is the current backlog of encoding states. We keep multiple states to
@@ -180,41 +178,12 @@ type Codec struct {
 	encodeSorter sorter
 }
 
-type options struct {
-	// enableAlignmentCompression controls whether to merge contiguous series with the
-	// same channel key during encoding. When enabled, reduces bandwidth at the cost of
-	// some CPU overhead during encoding.
-	enableAlignmentCompression bool
-}
-
-type Option = func(*options)
-
-// DisableAlignmentCompression disables merging of contiguous series with the same
-// channel key during encoding. This can significantly increase bandwidth usage (30-70%)
-// for frames with many small contiguous series at the cost of 5-15% additional CPU
-// overhead during encoding. Defaults to true.
-func DisableAlignmentCompression() Option {
-	return func(o *options) { o.enableAlignmentCompression = false }
-}
-
-func newOptions(opts []Option) *options {
-	o := &options{enableAlignmentCompression: true}
-	for _, opt := range opts {
-		opt(o)
-	}
-	return o
-}
-
 var byteOrder = telem.ByteOrder
 
 // NewStatic creates a new codec that uses the given channel keys and data types as
-// its encoding state with default configuration (alignment compression enabled).
-// It is not safe to call Update on a codec instantiated using NewStatic.
-func NewStatic(
-	channelKeys channel.Keys,
-	dataTypes []telem.DataType,
-	opts ...Option,
-) *Codec {
+// its encoding state. It is not safe to call Update on a codec instantiated using
+// NewStatic.
+func NewStatic(channelKeys channel.Keys, dataTypes []telem.DataType) *Codec {
 	if len(dataTypes) != len(channelKeys) {
 		panic("data types and channel keys must be the same length")
 	}
@@ -222,7 +191,7 @@ func NewStatic(
 	for i, key := range channelKeys {
 		keyDataTypes[key] = dataTypes[i]
 	}
-	c := newCodec(opts...)
+	c := newCodec()
 	c.update(channelKeys, keyDataTypes)
 	return c
 }
@@ -243,21 +212,18 @@ type ChannelResolver interface {
 }
 
 // NewDynamic creates a new codec that can be dynamically updated by resolving channel
-// data types through the provided ChannelResolver with default configuration (alignment
-// compression enabled). Codec.Update must be called before the first call to
-// Codec.Encode and Codec.Decode.
-func NewDynamic(channelResolver ChannelResolver, opts ...Option) *Codec {
-	c := newCodec(opts...)
+// data types through the provided ChannelResolver. Codec.Update must be called before
+// the first call to Codec.Encode and Codec.Decode.
+func NewDynamic(channelResolver ChannelResolver) *Codec {
+	c := newCodec()
 	c.channelResolver = channelResolver
 	return c
 }
 
-func newCodec(opts ...Option) *Codec {
-	o := newOptions(opts)
+func newCodec() *Codec {
 	c := &Codec{
 		buf:    binary.NewWriter(0, byteOrder),
 		reader: binary.NewReader(nil, byteOrder),
-		opts:   o,
 	}
 	c.mu.updateAvailable.Store(false)
 	c.mu.states = make(map[uint32]state)
@@ -637,33 +603,12 @@ func (c *Codec) encodeInternal(ctx context.Context, src framer.Frame) error {
 	// Sort by (key, alignment, rawIndex) using pre-extracted data for cache efficiency
 	c.encodeSorter.sort()
 
-	// Merge contiguous series with the same key if enabled, otherwise just
-	// create series info directly. In both cases, we reuse c.mergedSeriesResult.
-	var mergedSeries []mergedSeriesInfo
-	if c.opts.enableAlignmentCompression {
-		mergedSeries = c.mergeContiguousSeries(
-			c.encodeSorter.keys,
-			c.encodeSorter.rawIndices,
-			src,
-			c.encodeSorter.offset,
-		)
-	} else {
-		// No merging - create series info directly from sorted data using reusable
-		// slice
-		count := c.encodeSorter.offset
-		if cap(c.mergedSeriesResult) < count {
-			c.mergedSeriesResult = make([]mergedSeriesInfo, 0, count)
-		}
-		c.mergedSeriesResult = c.mergedSeriesResult[:0]
-		for i := range count {
-			rawIdx := c.encodeSorter.rawIndices[i]
-			c.mergedSeriesResult = append(c.mergedSeriesResult, mergedSeriesInfo{
-				series: src.RawSeriesAt(rawIdx),
-				key:    c.encodeSorter.keys[i],
-			})
-		}
-		mergedSeries = c.mergedSeriesResult
-	}
+	mergedSeries := c.mergeContiguousSeries(
+		c.encodeSorter.keys,
+		c.encodeSorter.rawIndices,
+		src,
+		c.encodeSorter.offset,
+	)
 
 	// Calculate flags and byte size based on merged series
 	var (

@@ -48,7 +48,7 @@
                 max-width: 90px;
             }
 
-            .console-log__channel-tz .pluto-btn {
+            .console-log__channel-tz .lyra-btn {
                 /* Force alignment with Float channel "Precision" selector */
                 padding-inline: round(2.2rem, 1px);
             }

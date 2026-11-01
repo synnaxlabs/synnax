@@ -14,7 +14,7 @@ import { describe, expect, it } from "vitest";
 import { Value } from "@/schematic/node/general/value/Primitive";
 
 const getUnits = (container: HTMLElement): HTMLElement => {
-  const el = container.querySelector<HTMLElement>(".pluto-value__units .pluto-text");
+  const el = container.querySelector<HTMLElement>(".pluto-value__units .lyra-text");
   if (el == null) throw new Error("expected a units text");
   return el;
 };
@@ -31,7 +31,7 @@ describe("value symbol", () => {
         />,
       );
       const units = getUnits(container);
-      expect(units.classList.contains("pluto--color-9")).toBe(true);
+      expect(units.classList.contains("lyra--color-9")).toBe(true);
       expect(units.style.color).toBe("");
     });
 

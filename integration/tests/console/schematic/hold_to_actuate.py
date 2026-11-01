@@ -134,7 +134,7 @@ class HoldToActuate(ConsoleCase):
             f"a click shorter than the activation delay must not write, got {value}"
         )
         self.log("Holding the delayed button past its activation delay")
-        self.delay_btn.press_and_hold(HOLD)
+        self.delay_btn.press_and_hold(delay=HOLD)
         self.wait_for_eq(self.delay_ch, 1)
 
     def test_delay_valve(self) -> None:
@@ -147,5 +147,5 @@ class HoldToActuate(ConsoleCase):
             f"a click shorter than the activation delay must not actuate, got {value}"
         )
         self.log("Holding the delayed valve past its activation delay")
-        self.valve.press_and_hold(HOLD)
+        self.valve.press_and_hold(delay=HOLD)
         self.wait_for_eq(self.valve_cmd_ch, 1)

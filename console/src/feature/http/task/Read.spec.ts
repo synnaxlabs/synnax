@@ -140,7 +140,7 @@ describe("Read", () => {
   describe("folding an endpoint from its caret", () => {
     const fold = (): void => {
       const endpoint = screen.getByRole("treeitem", { name: /New endpoint/ });
-      const caret = endpoint.querySelector(".pluto-tree__expansion-indicator");
+      const caret = endpoint.querySelector(".lyra-tree__expansion-indicator");
       if (caret == null) throw new Error("no caret");
       fireEvent.click(caret);
     };
@@ -193,7 +193,7 @@ describe("Read", () => {
     await renderRead();
     await addEndpoint();
     fireEvent.contextMenu(screen.getByRole("treeitem", { name: /New endpoint/ }));
-    fireEvent.click(await screen.findByText("Add field"));
+    fireEvent.click(await screen.findByRole("menuitem", { name: "Add field" }));
     await screen.findByRole("treeitem", { name: /New field/ });
     expect(screen.getByPlaceholderText("/temperature")).toBeTruthy();
   });

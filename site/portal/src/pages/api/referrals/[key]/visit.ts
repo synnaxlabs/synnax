@@ -10,6 +10,7 @@
 import { type APIRoute } from "astro";
 
 import { handle } from "@/respond";
+import { isInternal } from "@/server/directory";
 import { referrerOf, visit } from "@/server/referral";
 import { announce, claimed } from "@/server/slack";
 
@@ -26,7 +27,7 @@ export const POST: APIRoute = async (context) =>
       session,
       now: portal.now(),
     });
-    if (ref != null && session != null)
+    if (ref != null && session != null && !isInternal(session.email))
       await announce(portal.slack, async () =>
         claimed(session, ref, await referrerOf(portal.directory, ref)),
       );

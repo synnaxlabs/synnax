@@ -1000,47 +1000,6 @@ var _ = Describe("Series", func() {
 			})
 		})
 
-		Describe("FilterGreaterThanOrEqualTo", func() {
-			It(
-				"Should remove series with alignment bounds that are less than the target threshold",
-				func() {
-					s1 := telem.NewSeriesSecondsTSV(1, 2, 3)
-					s1.Alignment = telem.NewAlignment(0, 0)
-					s2 := telem.NewSeriesSecondsTSV(4, 5, 6)
-					s2.Alignment = telem.NewAlignment(0, 3)
-					ms := telem.NewMultiSeriesV(s1, s2)
-					ms = ms.FilterGreaterThanOrEqualTo(telem.NewAlignment(0, 3))
-					Expect(ms.Len()).To(Equal(int64(3)))
-					Expect(ms.Series[0].Alignment).To(Equal(s2.Alignment))
-				},
-			)
-
-			It("Should correctly handle an empty multi-series", func() {
-				var ms telem.MultiSeries
-				Expect(ms.FilterGreaterThanOrEqualTo(0).Len()).To(Equal(int64(0)))
-			})
-
-			It("Should keep all series when alignment bounds is very low", func() {
-				s1 := telem.NewSeriesSecondsTSV(1, 2, 3)
-				s1.Alignment = 500
-				s2 := telem.NewSeriesSecondsTSV(4, 5, 6)
-				s2.Alignment = 5000
-				ms := telem.NewMultiSeriesV(s1, s2)
-				ms = ms.FilterGreaterThanOrEqualTo(5)
-				Expect(ms.Len()).To(Equal(int64(6)))
-			})
-
-			It("Should filter all series when alignment bounds is very high", func() {
-				s1 := telem.NewSeriesSecondsTSV(1, 2, 3)
-				s1.Alignment = 0
-				s2 := telem.NewSeriesSecondsTSV(4, 5, 6)
-				s2.Alignment = 3
-				ms := telem.NewMultiSeriesV(s1, s2)
-				ms = ms.FilterGreaterThanOrEqualTo(5000)
-				Expect(ms).To(Equal(telem.MultiSeries{}))
-			})
-		})
-
 		Describe("Len", func() {
 			It("Should return the accumulated length of all series", func() {
 				s1 := telem.NewSeriesSecondsTSV(1, 2, 3)
@@ -1082,54 +1041,6 @@ var _ = Describe("Series", func() {
 					Expect(ts.Data()).To(BeEmpty())
 				},
 			)
-		})
-
-		Describe("MultiSeriesAtAlignment", func() {
-			It("Should return the data at the specified alignment", func() {
-				s1 := telem.NewSeriesV[uint8](1, 2, 3)
-				s1.Alignment = telem.NewAlignment(1, 0)
-				s2 := telem.NewSeriesV[uint8](4, 5, 6)
-				s2.Alignment = telem.NewAlignment(1, 3)
-				ms := telem.NewMultiSeriesV(s1, s2)
-				Expect(
-					ms.AtAlignment[uint8](telem.NewAlignment(1, 3)),
-				).To(Equal(uint8(4)))
-			})
-
-			It(
-				"Should panic when querying a value outside of the expected alignment",
-				func() {
-					s1 := telem.NewSeriesV[uint8](1, 2, 3)
-					s1.Alignment = telem.NewAlignment(1, 0)
-					ms := telem.NewMultiSeriesV(s1)
-					Expect(func() {
-						ms.AtAlignment[uint8](5000)
-					}).To(PanicWith(ContainSubstring("no sample at alignment")))
-				},
-			)
-
-			Describe("A series with an alignment multiple", func() {
-				var ms telem.MultiSeries
-				BeforeEach(func() {
-					s := telem.NewSeriesV[uint8](1, 2, 3)
-					s.Alignment = telem.NewAlignment(1, 0)
-					s.AlignmentMultiple = 2
-					ms = telem.NewMultiSeriesV(s)
-				})
-
-				It("Should return the sample at each multiple", func() {
-					Expect(ms.AtAlignment[uint8](telem.NewAlignment(1, 2))).
-						To(Equal(uint8(2)))
-					Expect(ms.AtAlignment[uint8](telem.NewAlignment(1, 4))).
-						To(Equal(uint8(3)))
-				})
-
-				It("Should panic for an alignment between two samples", func() {
-					Expect(func() {
-						ms.AtAlignment[uint8](telem.NewAlignment(1, 3))
-					}).To(PanicWith(ContainSubstring("no sample at alignment")))
-				})
-			})
 		})
 	})
 

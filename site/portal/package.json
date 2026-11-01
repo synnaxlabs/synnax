@@ -9,16 +9,15 @@
     "check-types": "astro check",
     "preview": "astro preview",
     "astro": "astro",
-    "lint": "eslint",
-    "fix": "eslint --fix",
+    "lint": "eslint && stylelint \"src/**/*.{css,astro}\"",
+    "fix": "eslint --fix && stylelint --fix \"src/**/*.{css,astro}\"",
     "format": "prettier --write .",
     "format-check": "prettier --check .",
     "test": "vitest",
     "cov": "vitest --coverage",
     "db:generate": "drizzle-kit generate",
     "db:migrate": "drizzle-kit migrate",
-    "create-internal-organization": "node scripts/create_internal_organization.ts",
-    "stylelint": "stylelint \"src/**/*.css\""
+    "create-internal-organization": "node scripts/create_internal_organization.ts"
   },
   "dependencies": {
     "@astrojs/react": "catalog:",
@@ -28,6 +27,7 @@
     "@neondatabase/serverless": "catalog:",
     "@synnaxlabs/client": "catalog:",
     "@synnaxlabs/lyra": "catalog:",
+    "@synnaxlabs/site-common": "catalog:",
     "@synnaxlabs/x": "catalog:",
     "@vercel/oidc-aws-credentials-provider": "catalog:",
     "astro": "catalog:",

@@ -12,9 +12,11 @@
 .console-device-ontology-item {
     .console-name-location {
         width: 0;
+
         .console-name {
             flex-shrink: 1;
         }
+
         .console-location {
             margin-left: auto;
             flex-shrink: 10;

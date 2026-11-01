@@ -34,7 +34,7 @@ describe("ChannelName", () => {
       { values: { config: { name: "" } } },
     );
     await waitFor(() => expect(screen.getByText("No channel")).toBeTruthy());
-    expect(screen.getByText("No channel").closest(".pluto--status-warning")).toBeNull();
+    expect(screen.getByText("No channel").closest(".lyra--status-warning")).toBeNull();
   });
 
   it("should warn when no channel is selected and there is no default name", async () => {
@@ -43,7 +43,7 @@ describe("ChannelName", () => {
     });
     await waitFor(() =>
       expect(
-        screen.getByText("unbound_name").closest(".pluto--status-warning"),
+        screen.getByText("unbound_name").closest(".lyra--status-warning"),
       ).toBeTruthy(),
     );
   });
@@ -100,7 +100,7 @@ describe("ChannelName", () => {
       await waitFor(
         () =>
           expect(
-            screen.getByText("form_name").closest(".pluto--status-error"),
+            screen.getByText("form_name").closest(".lyra--status-error"),
           ).toBeTruthy(),
         { timeout: 15000 },
       );
@@ -132,7 +132,7 @@ describe("ChannelName", () => {
       };
 
       const isError = (text: string) =>
-        screen.getByText(text).closest(".pluto--status-error") != null;
+        screen.getByText(text).closest(".lyra--status-error") != null;
 
       it("should show the channel once the row's key changes to one that resolves", async () => {
         const deleted = await createChannel();

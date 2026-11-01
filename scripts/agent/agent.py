@@ -63,7 +63,7 @@ LINEAR_URL = "https://linear.app/synnax/issue/"
 CLAUDE_SETTINGS = '{"attribution":{"commit":"","pr":""}}'
 
 
-@dataclass
+@dataclass(kw_only=True)
 class Options:
     prompt: str
     agent: str
@@ -81,7 +81,7 @@ class Options:
     recipient: Path | None = None
 
 
-def parse(argv: Sequence[str], env: dict[str, str]) -> Options:
+def parse(argv: Sequence[str], *, env: dict[str, str]) -> Options:
     p = argparse.ArgumentParser(prog="scripts/agent/run")
     prompt = p.add_mutually_exclusive_group(required=True)
     prompt.add_argument("--prompt")
@@ -135,12 +135,12 @@ def split_labels(raw: str) -> list[str]:
     return [label.strip() for label in re.split(r"[,\n]", raw) if label.strip()]
 
 
-def slug(text: str, words: int = 6) -> str:
+def slug(text: str, *, words: int = 6) -> str:
     tokens = re.findall(r"[a-z0-9]+", text.lower())
     return "-".join(tokens[:words]) or "task"
 
 
-def branch_name(agent: str, title: str, suffix: str) -> str:
+def branch_name(*, agent: str, title: str, suffix: str) -> str:
     return f"agent/{agent}/{slug(title)}-{suffix}"
 
 
@@ -149,7 +149,7 @@ def default_title(prompt: str) -> str:
     return f"[agent] {line}"[:72]
 
 
-def skill_prompt(prompt: str, root: Path) -> str:
+def skill_prompt(prompt: str, *, root: Path) -> str:
     """Spells out a slash skill for Codex, which does not read `.claude/skills`."""
     m = re.fullmatch(r"/([\w-]+)(?:\s+(.*))?", prompt, flags=re.S)
     if m is None:
@@ -161,7 +161,7 @@ def skill_prompt(prompt: str, root: Path) -> str:
     return f"Follow the instructions in `{skill}`.{args}"
 
 
-def instructions(opts: Options, out: Path) -> str:
+def instructions(opts: Options, *, out: Path) -> str:
     lines = ["You run headless in CI. Nobody answers questions: decide and proceed."]
     if opts.dry_run:
         lines.append("This is a dry run: never push, open a PR, or comment on GitHub.")
@@ -194,7 +194,7 @@ def instructions(opts: Options, out: Path) -> str:
     return "\n".join(f"- {line}" for line in lines)
 
 
-def agent_command(opts: Options, prompt: str, out: Path) -> list[str]:
+def agent_command(opts: Options, *, prompt: str, out: Path) -> list[str]:
     if opts.agent == "claude":
         cmd = [opts.bin or "claude", "-p", "--output-format", "text"]
         cmd += ["--dangerously-skip-permissions", "--settings", CLAUDE_SETTINGS]
@@ -213,7 +213,9 @@ def agent_command(opts: Options, prompt: str, out: Path) -> list[str]:
     return [*cmd, prompt]
 
 
-def render_body(template: str, issue: str, description: str, labels: list[str]) -> str:
+def render_body(
+    template: str, *, issue: str, description: str, labels: list[str]
+) -> str:
     body = re.sub(r"<!--.*?-->\n?", "", template, flags=re.S)
     link = f"[{issue}]({LINEAR_URL}{issue})" if issue else "None"
     body = body.replace("[SY-####](<>)", link)
@@ -236,7 +238,7 @@ def read(path: Path) -> str:
     return path.read_text().strip() if path.is_file() else ""
 
 
-@dataclass
+@dataclass(kw_only=True)
 class Runner:
     """Executes commands, and only prints the ones that write to GitHub in a dry run."""
 
@@ -257,7 +259,7 @@ class Runner:
 
 
 def run_agent(
-    cmd: list[str], env: dict[str, str], seconds: float, quiet: bool = False
+    cmd: list[str], *, env: dict[str, str], seconds: float, quiet: bool = False
 ) -> str:
     """Runs the agent in its own process group and returns its stdout. quiet discards
     its stderr.
@@ -287,7 +289,7 @@ def run_agent(
     return stdout
 
 
-def private_env(env: dict[str, str], out: Path) -> dict[str, str]:
+def private_env(env: dict[str, str], *, out: Path) -> dict[str, str]:
     """Returns env with no GitHub token or step output files, and with the CLI state
     of the agent in out, so no later job on the runner can read the session."""
     codex = out / "codex"
@@ -301,7 +303,7 @@ def private_env(env: dict[str, str], out: Path) -> dict[str, str]:
     return {**kept, "CLAUDE_CONFIG_DIR": str(out / "claude"), "CODEX_HOME": str(codex)}
 
 
-def encrypt(text: str, recipient: Path) -> str:
+def encrypt(text: str, *, recipient: Path) -> str:
     """Encrypts text to the GPG public key file recipient, as ASCII armor."""
     with tempfile.TemporaryDirectory() as home:
         cmd = ["gpg", "--homedir", home, "--batch", "--armor", "--trust-model"]
@@ -313,7 +315,7 @@ def encrypt(text: str, recipient: Path) -> str:
 
 
 def upload_images(
-    r: Runner, repo: str, prefix: str, paths: list[Path]
+    r: Runner, *, repo: str, prefix: str, paths: list[Path]
 ) -> dict[str, str]:
     """Commits images to the orphan assets branch and returns raw URLs by stored name.
 
@@ -324,7 +326,7 @@ def upload_images(
     for _ in range(3):
         index = Path(tempfile.mkdtemp()) / "index"
         env = {**r.env, "GIT_INDEX_FILE": str(index)}
-        g = Runner(r.dry_run, env)
+        g = Runner(dry_run=r.dry_run, env=env)
         ref = f"refs/heads/{ASSETS_BRANCH}"
         parent: list[str] = []
         if g.ok(["git", "ls-remote", "--exit-code", "origin", ref]):
@@ -345,13 +347,13 @@ def upload_images(
     raise RuntimeError(f"failed to push images to {ASSETS_BRANCH} three times")
 
 
-def find_images(opts: Options, out: Path) -> list[Path]:
+def find_images(opts: Options, *, out: Path) -> list[Path]:
     found = sorted((out / "images").glob("*")) if (out / "images").is_dir() else []
     images = [*opts.images, *found]
     return [p for p in images if p.suffix.lower() in IMAGE_SUFFIXES]
 
 
-def write_output(env: dict[str, str], name: str, value: str) -> None:
+def write_output(env: dict[str, str], *, name: str, value: str) -> None:
     """Appends a step output, in the delimited form that allows several lines."""
     if path := env.get("GITHUB_OUTPUT"):
         delimiter = f"EOF_{secrets.token_hex(8)}"
@@ -395,7 +397,7 @@ def git_auth(env: dict[str, str]) -> dict[str, str]:
 
 def main(argv: Sequence[str]) -> int:
     env = git_identity(dict(os.environ))
-    opts = parse(argv, env)
+    opts = parse(argv, env=env)
     pushes = opts.output != "report"
     if pushes and not opts.dry_run:
         if not env.get("AGENT_GIT_NAME") or not env.get("AGENT_GIT_EMAIL"):
@@ -413,7 +415,7 @@ def main(argv: Sequence[str]) -> int:
     # The runner deletes RUNNER_TEMP after each job, even a cancelled one.
     out = Path(tempfile.mkdtemp(prefix="agent-", dir=env.get("RUNNER_TEMP")))
     (out / "images").mkdir()
-    r = Runner(opts.dry_run, git_auth(env))
+    r = Runner(dry_run=opts.dry_run, env=git_auth(env))
     repo = env.get("GITHUB_REPOSITORY", "synnaxlabs/synnax")
 
     head = ""
@@ -436,19 +438,25 @@ def main(argv: Sequence[str]) -> int:
         r.run(["gh", "pr", "checkout", str(opts.pr)])
     elif opts.output == "pr":
         topic = opts.title or opts.prompt.splitlines()[0]
-        head = branch_name(opts.agent, topic, secrets.token_hex(3))
+        head = branch_name(agent=opts.agent, title=topic, suffix=secrets.token_hex(3))
         r.run(["git", "switch", "--quiet", "-c", head])
     start = r.run(["git", "rev-parse", "HEAD"])
 
-    prompt = opts.prompt if opts.agent == "claude" else skill_prompt(opts.prompt, root)
-    prompt = f"{prompt}\n\nHow to deliver:\n{instructions(opts, out)}"
-    cmd = agent_command(opts, prompt, out)
+    prompt = (
+        opts.prompt if opts.agent == "claude" else skill_prompt(opts.prompt, root=root)
+    )
+    prompt = f"{prompt}\n\nHow to deliver:\n{instructions(opts, out=out)}"
+    cmd = agent_command(opts, prompt=prompt, out=out)
     if opts.recipient is not None:
         try:
-            env_private = {**private_env(env, out), "AGENT_OUT_DIR": str(out)}
-            stdout = run_agent(cmd, env_private, opts.timeout_minutes * 60, quiet=True)
+            env_private = {**private_env(env, out=out), "AGENT_OUT_DIR": str(out)}
+            stdout = run_agent(
+                cmd, env=env_private, seconds=opts.timeout_minutes * 60, quiet=True
+            )
             message = read(out / "last-message.md") or stdout.strip()
-            write_output(env, "report", encrypt(message, opts.recipient))
+            write_output(
+                env, name="report", value=encrypt(message, recipient=opts.recipient)
+            )
         finally:
             shutil.rmtree(out)
         return 0
@@ -456,19 +464,19 @@ def main(argv: Sequence[str]) -> int:
     report = opts.output == "report" and not opts.dry_run
     agent_env = git_auth(env) if report else env
     agent_env = {**agent_env, "AGENT_OUT_DIR": str(out)}
-    stdout = run_agent(cmd, agent_env, opts.timeout_minutes * 60)
+    stdout = run_agent(cmd, env=agent_env, seconds=opts.timeout_minutes * 60)
     message = read(out / "last-message.md") or stdout.strip()
 
-    images = find_images(opts, out)
+    images = find_images(opts, out=out)
     if opts.output == "report":
         if path := env.get("GITHUB_STEP_SUMMARY"):
             Path(path).write_text(message + "\n")
-        write_output(env, "report", message)
+        write_output(env, name="report", value=message)
         print(message)
         return 0
 
     prefix = head.replace("/", "-") if head else f"run-{secrets.token_hex(4)}"
-    urls = upload_images(r, repo, prefix, images)
+    urls = upload_images(r, repo=repo, prefix=prefix, paths=images)
     pictures = image_markdown(urls)
     footer = f"Agent: {opts.agent}. [Run]({run_url(env)})." if run_url(env) else ""
 
@@ -499,7 +507,9 @@ def main(argv: Sequence[str]) -> int:
         description = "\n\n".join(p for p in (description, pictures, footer) if p)
         labels = [*opts.labels, *split_labels(read(out / "labels.txt"))]
         issue = read(out / "issue.txt")
-        body = render_body(TEMPLATE.read_text(), issue, description, labels)
+        body = render_body(
+            TEMPLATE.read_text(), issue=issue, description=description, labels=labels
+        )
         body_file = out / "body.md"
         body_file.write_text(body)
         cmd = [
@@ -521,7 +531,7 @@ def main(argv: Sequence[str]) -> int:
         url = r.run(cmd, writes=True)
         if opts.dry_run:
             print(f"{title}\n\n{body}", file=sys.stderr)
-    write_output(env, "pr-url", url)
+    write_output(env, name="pr-url", value=url)
     print(url)
     return 0
 

@@ -27,8 +27,12 @@ class ConnectHardware(HardwareCase, ConsoleCase):
     def setup(self) -> None:
         super().setup()
         self.suffix = random.randint(1000, 9999)
-        self.rack = self.create_test_rack(f"Find rack {self.suffix}", ["ni"])
-        other_rack = self.create_test_rack(f"Other rack {self.suffix}", ["ni"])
+        self.rack = self.create_test_rack(
+            f"Find rack {self.suffix}", integrations=["ni"]
+        )
+        other_rack = self.create_test_rack(
+            f"Other rack {self.suffix}", integrations=["ni"]
+        )
         self.toolbar_dev, self.task_dev, self.footer_dev, self.other_dev = (
             self.create_test_devices(
                 [

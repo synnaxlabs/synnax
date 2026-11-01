@@ -122,11 +122,11 @@ sequence test {
         start_cmd == 1 => run
     }
     stage run {
-        ranges.create{name="Hotfire", color="#3bc454"} -> run_key
+        ranges.create(name="Hotfire", color="#3bc454") -> run_key
         stop_cmd == 1 => done
     }
     stage done {
-        ranges.end{key=run_key}
+        ranges.end(key=run_key)
         start_cmd == 1 => run
     }
 }

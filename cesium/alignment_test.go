@@ -16,6 +16,7 @@ import (
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	"github.com/synnaxlabs/cesium"
+	"github.com/synnaxlabs/cesium/internal/alignment"
 	. "github.com/synnaxlabs/cesium/internal/testutil"
 	. "github.com/synnaxlabs/x/io/fs/testutil"
 	"github.com/synnaxlabs/x/telem"
@@ -467,9 +468,9 @@ var _ = Describe("Alignment", func() {
 })
 
 var _ = Describe("NewAlignmentCounter", func() {
-	It("Should hand out leading domains after ZeroLeadingAlignment", func() {
+	It("Should hand out leading domains after the zero leading alignment", func() {
 		c := cesium.NewAlignmentCounter()
-		Expect(c.Next()).To(Equal(cesium.LeadingAlignment(1, 0)))
-		Expect(c.Next()).To(Equal(cesium.LeadingAlignment(2, 0)))
+		Expect(c.Next()).To(Equal(alignment.Leading(1, 0)))
+		Expect(c.Next()).To(Equal(alignment.Leading(2, 0)))
 	})
 })

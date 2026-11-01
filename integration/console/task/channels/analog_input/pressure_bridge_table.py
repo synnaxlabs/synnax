@@ -36,6 +36,7 @@ class PressureBridgeTable(Analog):
 
     def __init__(
         self,
+        *,
         layout: LayoutClient,
         name: str,
         device: str,

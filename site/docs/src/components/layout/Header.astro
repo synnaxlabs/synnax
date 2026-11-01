@@ -193,7 +193,8 @@ const label = version?.split(".").slice(0, -1).join(".");
                 font-weight: 400;
                 text-decoration: none;
             }
-            & .pluto-icon {
+
+            & .lyra-icon {
                 color: var(--pluto-gray-l9);
                 height: 2.5rem;
                 width: 2.5rem;
@@ -215,17 +216,10 @@ const label = version?.split(".").slice(0, -1).join(".");
         overflow-y: auto;
         padding-bottom: 2rem;
 
-        .pluto-tree {
+        .lyra-tree {
             max-height: calc(100vh - 15rem);
             padding-top: 5rem;
             mask-image: linear-gradient(
-                to bottom,
-                transparent 0,
-                black 5rem,
-                black calc(100% - 5rem),
-                transparent 100%
-            );
-            -webkit-mask-image: linear-gradient(
                 to bottom,
                 transparent 0,
                 black 5rem,
@@ -236,25 +230,26 @@ const label = version?.split(".").slice(0, -1).join(".");
     }
 
     @media (pointer: coarse) {
-        .mobile-drawer-tree .pluto-list__item {
+        .mobile-drawer-tree .lyra-list__item {
             padding-top: 1.75rem;
             padding-bottom: 1.75rem;
         }
     }
 
     /* The menu opens the page list wherever the page nav sidebar is hidden. */
-    @media (max-width: 1023px) {
+    @media (width <= 1023px) {
         .main-header {
             .mobile-menu-btn {
                 display: flex;
             }
+
             .mobile-drawer {
                 display: flex;
             }
         }
     }
 
-    @media (max-width: 800px) {
+    @media (width <= 800px) {
         :root {
             --header-inset: 3rem;
         }
@@ -263,9 +258,11 @@ const label = version?.split(".").slice(0, -1).join(".");
             .header-nav {
                 display: none;
             }
+
             .version-button {
                 display: none;
             }
+
             /* Search matches the menu button: a bare icon that fills the header
                height. */
             .search-box button {
@@ -274,14 +271,15 @@ const label = version?.split(".").slice(0, -1).join(".");
                 border-color: transparent;
                 background: none;
             }
-            .search-box button > .pluto-icon {
+
+            .search-box button > .lyra-icon {
                 font-size: 3rem;
                 color: var(--pluto-gray-l9);
             }
         }
     }
 
-    @media (max-width: 800px) and (hover: none) {
+    @media (width <= 800px) and (hover: none) {
         .main-header {
             z-index: 100;
             position: fixed;

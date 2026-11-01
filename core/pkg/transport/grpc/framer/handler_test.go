@@ -18,11 +18,13 @@ import (
 	"github.com/synnaxlabs/freighter"
 	fgrpc "github.com/synnaxlabs/freighter/grpc"
 	"github.com/synnaxlabs/synnax/pkg/api/framer"
+	distchannel "github.com/synnaxlabs/synnax/pkg/distribution/channel"
 	"github.com/synnaxlabs/synnax/pkg/distribution/framer/codec"
 	"github.com/synnaxlabs/synnax/pkg/distribution/framer/frame"
 	"github.com/synnaxlabs/synnax/pkg/service/channel"
 	. "github.com/synnaxlabs/synnax/pkg/service/channel/testutil"
 	grpcframer "github.com/synnaxlabs/synnax/pkg/transport/grpc/framer"
+	"github.com/synnaxlabs/x/query"
 	"github.com/synnaxlabs/x/telem"
 	telempb "github.com/synnaxlabs/x/telem/pb"
 	. "github.com/synnaxlabs/x/testutil"
@@ -197,6 +199,23 @@ var _ = Describe("gRPC Framer Transport", func() {
 				},
 			)
 			Eventually(errs).Should(Receive(MatchError(io.ErrUnexpectedEOF)))
+		})
+
+		It("Should fail to receive an open command for a missing channel", func(
+			ctx SpecContext,
+		) {
+			_, errs := serve(transport.FrameWriter, 1)
+			exchange(
+				MustSucceed(client.Exec(ctx)),
+				0,
+				&grpcframer.WriterRequest{
+					Command: int32(framer.WriterCommandOpen),
+					Config: &grpcframer.WriterConfig{
+						Keys: []uint32{uint32(distchannel.NewKey(1, 999999))},
+					},
+				},
+			)
+			Eventually(errs).Should(Receive(MatchError(query.ErrNotFound)))
 		})
 
 		It("Should send the command and end of a response", func(ctx SpecContext) {
@@ -420,16 +439,18 @@ var _ = Describe("gRPC Framer Transport", func() {
 	})
 
 	Describe("Delete", func() {
-		It("Should round-trip the keys, names, and bounds", func(ctx SpecContext) {
+		It("Should translate the keys, names, and bounds", func(ctx SpecContext) {
 			t := transport.FrameDelete.(*deleteServer).RequestTranslator
-			msg := framer.DeleteRequest{
+			pb := &grpcframer.DeleteRequest{
+				Keys:   []uint32{1, 2},
+				Names:  []string{"a", "b"},
+				Bounds: &telempb.TimeRange{Start: 1, End: 5},
+			}
+			Expect(MustSucceed(t.Backward(ctx, pb))).To(Equal(framer.DeleteRequest{
 				Keys:   channel.Keys{1, 2},
 				Names:  []string{"a", "b"},
 				Bounds: telem.TimeRange{Start: 1, End: 5},
-			}
-			fwd := MustSucceed(t.Forward(ctx, msg))
-			Expect(fwd.Keys).To(Equal([]uint32{1, 2}))
-			Expect(MustSucceed(t.Backward(ctx, fwd))).To(Equal(msg))
+			}))
 		})
 	})
 })

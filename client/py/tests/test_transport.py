@@ -45,7 +45,7 @@ def pinged_endpoint() -> Iterator[tuple[URL, threading.Event]]:
     with serve(handler, "localhost", 0, create_connection=Connection) as server:
         thread = threading.Thread(target=server.serve_forever)
         thread.start()
-        yield URL("localhost", server.socket.getsockname()[1]), pinged
+        yield URL(host="localhost", port=server.socket.getsockname()[1]), pinged
         server.shutdown()
         thread.join()
 
@@ -55,9 +55,9 @@ class TestTransport:
         """Should reject a CA certificate for an insecure connection."""
         with pytest.raises(ValueError, match="secure"):
             Transport(
-                URL("localhost", 9090),
-                NOOP,
-                create_registry(),
+                url=URL(host="localhost", port=9090),
+                instrumentation=NOOP,
+                registry=create_registry(),
                 ca_cert="/certs/ca.crt",
             )
 
@@ -67,7 +67,10 @@ class TestKeepAlive:
         """Should ping the Core at the keep-alive interval on a sync stream."""
         url, pinged = pinged_endpoint
         transport = Transport(
-            url, NOOP, create_registry(), keep_alive=TimeSpan.MILLISECOND * 50
+            url=url,
+            instrumentation=NOOP,
+            registry=create_registry(),
+            keep_alive=TimeSpan.MILLISECOND * 50,
         )
         stream = transport.stream.stream("/", Empty, Empty)
         assert pinged.wait(2)
@@ -78,7 +81,10 @@ class TestKeepAlive:
         """Should ping the Core at the keep-alive interval on an async stream."""
         url, pinged = pinged_endpoint
         transport = Transport(
-            url, NOOP, create_registry(), keep_alive=TimeSpan.MILLISECOND * 50
+            url=url,
+            instrumentation=NOOP,
+            registry=create_registry(),
+            keep_alive=TimeSpan.MILLISECOND * 50,
         )
         stream = await transport.stream_async.stream("/", Empty, Empty)
         assert await asyncio.to_thread(pinged.wait, 2)

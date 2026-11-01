@@ -31,7 +31,7 @@ sequence press {
     stage hold {
         abort_cmd == 1 => abort
         0 -> press_vlv_cmd
-        time.wait{duration=30s} => next
+        time.wait(duration=30s) => next
     }
     stage vent {
         1 -> vent_vlv_cmd
@@ -51,9 +51,9 @@ start_cmd == 1 => press
 
 | Item                 | Example                                    |
 | -------------------- | ------------------------------------------ |
-| Flow                 | `tank_pt -> scale{k=6.895} -> tank_pt_kpa` |
+| Flow                 | `tank_pt -> scale(k=6.895) -> tank_pt_kpa` |
 | Transition           | `tank_pt > 500 => abort`                   |
-| Function call        | `monitor{}`                                |
+| Function call        | `monitor()`                                |
 | Variable declaration | `peak $= 0.0`                              |
 | Assignment           | `target = 400.0`                           |
 | Sequence             | `sequence { ... }`                         |
@@ -94,7 +94,7 @@ func alarm() {
 }
 
 stage {
-    tank_pt > 500 => alarm{}
+    tank_pt > 500 => alarm()
 }
 ```
 

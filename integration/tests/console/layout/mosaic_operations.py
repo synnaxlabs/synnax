@@ -175,7 +175,7 @@ class MosaicOperations(ConsoleCase):
         classes: str = str(
             self.console.layout.page.evaluate("""
             Array.from(document.documentElement.classList)
-                .find(c => c.startsWith('pluto-theme-')) || ''
+                .find(c => c.startsWith('lyra-theme-')) || ''
             """)
         )
         return classes
@@ -191,12 +191,12 @@ class MosaicOperations(ConsoleCase):
         is_dark = "dark" in original_theme
         target_option = "Light" if is_dark else "Dark"
         target_theme = (
-            "pluto-theme-synnax-light" if is_dark else "pluto-theme-synnax-dark"
+            "lyra-theme-synnax-light" if is_dark else "lyra-theme-synnax-dark"
         )
 
         console.layout.command_palette("Change color theme")
         option = (
-            console.layout.page.locator(".console-theme-modal .pluto-list__item")
+            console.layout.page.locator(".console-theme-modal .lyra-list__item")
             .filter(has_text=target_option)
             .first
         )

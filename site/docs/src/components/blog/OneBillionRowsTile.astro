@@ -120,6 +120,7 @@ import { Logo } from "@synnaxlabs/lyra/logo";
         cursor: pointer;
         transition: all 0.2s;
         text-decoration: none !important;
+
         & .tile-date {
             position: absolute;
             top: 3rem;
@@ -138,27 +139,33 @@ import { Logo } from "@synnaxlabs/lyra/logo";
 
         &:hover {
             --pluto-shadow-v1:
-                0px 1px 1px rgba(0, 0, 0, 0.06), 0px 4px 8px -4px rgba(0, 0, 0, 0.1),
-                0px 16px 24px -8px rgba(0, 0, 0, 0.2);
+                0px 1px 1px rgb(0 0 0 / 6%), 0px 4px 8px -4px rgb(0 0 0 / 10%),
+                0px 16px 24px -8px rgb(0 0 0 / 20%);
+
             & h1 {
                 color: var(--pluto-gray-l5);
             }
         }
+
         *:not(h1) {
             z-index: 1;
         }
+
         & .synnax-logo {
             fill: var(--pluto-gray-l10);
             height: 80px;
         }
+
         & .influx {
             width: 80px;
             height: 80px;
         }
+
         & .timescale {
             width: 80px;
             height: 80px;
         }
+
         & h1 {
             transition: all 0.2s;
             color: var(--pluto-gray-l4);
@@ -169,6 +176,7 @@ import { Logo } from "@synnaxlabs/lyra/logo";
             transform: translateY(-50%);
             font-size: 20rem;
         }
+
         border: var(--pluto-border-l6);
         box-shadow: var(--pluto-shadow-v1);
         border-radius: 2rem;
@@ -189,7 +197,7 @@ import { Logo } from "@synnaxlabs/lyra/logo";
 
         /* On a phone, the tile stacks, with the date above the title as in the Arc
            tile. */
-        @media (max-width: 600px) {
+        @media (width <= 600px) {
             flex-direction: column;
             gap: 3rem;
             height: auto;
@@ -211,7 +219,7 @@ import { Logo } from "@synnaxlabs/lyra/logo";
                 padding-bottom: 0;
             }
 
-            & .pluto-text--h1 {
+            & .lyra-text--h1 {
                 font-size: var(--pluto-h2-size);
                 line-height: var(--pluto-h2-line-height);
             }

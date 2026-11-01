@@ -23,6 +23,7 @@
             right: 0;
             height: 5rem;
             background: linear-gradient(to bottom, transparent, var(--pluto-gray-l0));
+
             /* The fade covers Monaco's horizontal scrollbar. */
             pointer-events: none;
         }
@@ -76,7 +77,7 @@
 /* Both selects show only their icons at this width, so redeploy drops its label to keep
    the row inside the controls. */
 @container (max-width: 260px) {
-    .console-arc .console-task-redeploy .pluto-btn {
+    .console-arc .console-task-redeploy .lyra-btn {
         width: var(--pluto-height-medium);
         justify-content: center;
         padding: 0;
