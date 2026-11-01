@@ -15,6 +15,7 @@ import (
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
+	"github.com/samber/lo"
 	"github.com/synnaxlabs/oracle/analyzer"
 	"github.com/synnaxlabs/oracle/domain/doc"
 	"github.com/synnaxlabs/oracle/resolution"
@@ -756,6 +757,39 @@ Proof union on method Method {
 			)).To(Succeed())
 			form := MustBeOk(table.Get("auth@v0.Proof")).Form.(resolution.UnionForm)
 			Expect(form.Enum.Name).To(Equal("auth@v0.Method"))
+		})
+
+		It("Should take patched variant payloads from the patching version", func(
+			ctx SpecContext,
+		) {
+			r := resolverFor(map[string]string{
+				"schemas/synnax/versions/channel/v0.oracle": `
+Key = uuid
+Node union on variant {
+	box {
+		width int32 = 4
+	}
+}
+`,
+				"schemas/synnax/versions/channel/v1.oracle": `
+Key = v0.Key
+Node union on variant extends v0.Node {
+	box {
+		width int32?
+	}
+}
+`,
+			})
+			table := resolution.NewTable()
+			Expect(r.SurfaceInto(
+				ctx, table, "schemas/synnax/channel", 1, "channel@v1",
+			)).To(Succeed())
+			box := MustBeOk(table.Get("channel@v1.NodeBoxPayload"))
+			width := MustBeOk(lo.Find(
+				box.Form.(resolution.StructForm).Fields,
+				func(f resolution.Field) bool { return f.Name == "width" },
+			))
+			Expect(width.Optional).To(BeTrue())
 		})
 
 		It("Should propagate resolution failures", func(ctx SpecContext) {

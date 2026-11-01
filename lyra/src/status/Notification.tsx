@@ -70,8 +70,8 @@ export const Notification = ({
             gap="small"
             className={CSS.BE("notification", "stamp")}
           >
-            {count > 1 && <Text.Text level="small" color={9}>{`x${count}`}</Text.Text>}
-            <TelemText.TimeStamp level="small" color={9} format="time">
+            {count > 1 && <Text.Text level="tiny" color={9}>{`x${count}`}</Text.Text>}
+            <TelemText.TimeStamp level="tiny" color={9} format="time">
               {time}
             </TelemText.TimeStamp>
           </Flex.Box>

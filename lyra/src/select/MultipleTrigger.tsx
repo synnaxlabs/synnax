@@ -19,6 +19,7 @@ import { CSS } from "@/css";
 import { Dialog } from "@/dialog";
 import { Haul } from "@/haul";
 import { Icon } from "@/icon";
+import { Input } from "@/input";
 import { List } from "@/list";
 import { useContext, useItemState, useSelected } from "@/select/Context";
 import { Label } from "@/select/Label";
@@ -152,6 +153,7 @@ export const MultipleTrigger = <
   };
   const dragging = Haul.useDraggingState();
   const showAddButton = variant === "text" && value.length !== 0 && preview !== true;
+  const itemStatus = Input.useItemStatus({});
 
   if (hideTags) {
     if (preview === true) return null;
@@ -161,6 +163,7 @@ export const MultipleTrigger = <
         aria-label={ariaLabel}
         className={className}
         {...dropProps}
+        {...itemStatus}
       >
         {icon}
         {placeholder}
@@ -189,6 +192,7 @@ export const MultipleTrigger = <
       preview={preview}
       preventClick={showAddButton}
       grow
+      {...itemStatus}
     >
       {value.length === 0 && (
         <Text.Text className={CSS.B("select-multiple-trigger-placeholder")}>
