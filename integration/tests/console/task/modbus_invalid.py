@@ -25,6 +25,8 @@ BAD_ADDRESS = 65000
 class ModbusInvalidConfig(ModbusCase):
     """Verify invalid Modbus read task configurations are rejected.
 
+    The simulator's server is not configured, so a new task leaves the server empty.
+
     Tests (run sequentially on one task page):
         1. No device selected: the form blocks the deploy.
         2. Invalid rates: stream rate above sample rate, the form blocks the deploy.

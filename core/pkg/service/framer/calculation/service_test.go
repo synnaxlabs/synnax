@@ -1012,6 +1012,7 @@ var _ = Describe("Calculation", Ordered, func() {
 				mu.Lock()
 				writes = nil
 				mu.Unlock()
+				statusKey := calc.OntologyID().String()
 				DeferCleanup(statusSvc.Observe().OnChange(func(
 					_ context.Context,
 					r gorp.TxReader[status.Key, status.Status[any]],
@@ -1019,7 +1020,7 @@ var _ = Describe("Calculation", Ordered, func() {
 					mu.Lock()
 					defer mu.Unlock()
 					for ch := range r {
-						if ch.Key == calc.OntologyID().String() &&
+						if ch.Key == statusKey &&
 							ch.Variant == change.VariantSet {
 							writes = append(writes, calculation.Status{
 								Variant:     ch.Value.Variant,
@@ -1081,7 +1082,7 @@ var _ = Describe("Calculation", Ordered, func() {
 					Expect(got).To(HaveEach(failure()))
 					Expect(got[1].Description).ToNot(Equal(got[0].Description))
 					writeGood()
-					Expect(written()).To(HaveLen(3))
+					Eventually(written).Should(HaveLen(3))
 				},
 			)
 
@@ -1095,7 +1096,8 @@ var _ = Describe("Calculation", Ordered, func() {
 					Eventually(written).Should(ConsistOf(failure()))
 					writeGood()
 					writeGood()
-					Expect(written()).To(HaveExactElements(failure(), success))
+					Eventually(written).
+						Should(HaveExactElements(failure(), success))
 				},
 			)
 
@@ -1269,6 +1271,7 @@ var _ = Describe("Calculation", Ordered, func() {
 						_, err := stored()
 						return err
 					}).Should(MatchError(query.ErrNotFound))
+					flushChanges(ctx)
 					write(0)
 					Eventually(stored).Should(failure())
 				},
