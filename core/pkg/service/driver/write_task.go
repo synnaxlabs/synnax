@@ -198,6 +198,9 @@ func (t *WriteTask) run(
 			err = errors.Combine(err, sErr)
 		}
 	}()
+	// The sink's health holds until the sink reports a change: a write that succeeds
+	// says nothing about it.
+	var healthErr error
 	for {
 		select {
 		case <-ctx.Done():
@@ -217,12 +220,12 @@ func (t *WriteTask) run(
 			if wErr != nil && !errors.IsAny(wErr, ErrTemporary, ErrDegraded) {
 				return wErr
 			}
-			t.Report(ctx, "Failed to write data", wErr)
-		case hErr := <-health:
-			if hErr != nil && !errors.Is(hErr, ErrTemporary) {
-				return hErr
+			t.Report(ctx, "Failed to write data", errors.Combine(healthErr, wErr))
+		case healthErr = <-health:
+			if healthErr != nil && !errors.Is(healthErr, ErrTemporary) {
+				return healthErr
 			}
-			t.Report(ctx, "Failed to write data", hErr)
+			t.Report(ctx, "Failed to write data", healthErr)
 		}
 	}
 }
