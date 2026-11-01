@@ -113,6 +113,7 @@ var _ = Describe("Dispatch", func() {
 		u := createUser(ctx)
 		t := createDraft(ctx)
 		grant(ctx, access.ActionUpdate, u.OntologyID(), t.OntologyID())
+		grant(ctx, access.ActionRetrieve, u.OntologyID(), t.OntologyID())
 		res := MustSucceed(apiSvc.Dispatch(
 			AuthedCtx(ctx, u),
 			nil,
@@ -129,6 +130,24 @@ var _ = Describe("Dispatch", func() {
 			Path:  []string{"config_hash"},
 			Value: stored.ConfigHash,
 		})}))
+	})
+	It("Should return no actions to a subject that cannot read the task", func(
+		ctx SpecContext,
+	) {
+		u := createUser(ctx)
+		t := createDraft(ctx)
+		grant(ctx, access.ActionUpdate, u.OntologyID(), t.OntologyID())
+		res := MustSucceed(apiSvc.Dispatch(
+			AuthedCtx(ctx, u),
+			nil,
+			apitask.DispatchRequest{
+				Key:         t.Key,
+				DispatchKey: "dk",
+				Actions:     setRoutingKey,
+			},
+		))
+		Expect(res.Actions).To(BeEmpty())
+		Expect(retrieveTask(ctx, t.Key).Config["routing_key"]).To(Equal("rk-2"))
 	})
 	It("Should reject the request when update is not granted", func(ctx SpecContext) {
 		u := createUser(ctx)

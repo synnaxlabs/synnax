@@ -132,21 +132,32 @@ type DispatchRequest = actions.DispatchRequest[task.Key, task.Action]
 type DispatchResponse = actions.DispatchResponse[task.Action]
 
 // Dispatch applies the action sequence to the target task atomically. Subscribers to
-// the task action signals receive the sequence after the transaction commits.
+// the task action signals receive the sequence after the transaction commits. The
+// response holds no actions for a subject that cannot read the task, because they can
+// carry its stored config.
 func (s *Service) Dispatch(
 	ctx context.Context,
 	tx gorp.Tx,
 	req DispatchRequest,
 ) (DispatchResponse, error) {
-	if err := s.access.NewEnforcer(tx).Enforce(ctx, access.Request{
+	enforcer := s.access.NewEnforcer(tx)
+	request := access.Request{
 		Subject: auth.GetSubject(ctx),
 		Action:  access.ActionUpdate,
 		Objects: []ontology.ID{task.OntologyID(req.Key)},
-	}); err != nil {
+	}
+	if err := enforcer.Enforce(ctx, request); err != nil {
 		return DispatchResponse{}, err
 	}
 	computed, err := s.task.Dispatch(ctx, req.Key, req.DispatchKey, req.Actions)
-	return DispatchResponse{Actions: computed}, err
+	if err != nil {
+		return DispatchResponse{}, err
+	}
+	request.Action = access.ActionRetrieve
+	if err = enforcer.Enforce(ctx, request); err != nil {
+		return DispatchResponse{}, errors.Skip(err, access.ErrDenied)
+	}
+	return DispatchResponse{Actions: computed}, nil
 }
 
 type (
