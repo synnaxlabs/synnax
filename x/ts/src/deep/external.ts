@@ -17,4 +17,5 @@ export * from "@/deep/merge";
 export * from "@/deep/partial";
 export * from "@/deep/path";
 export * from "@/deep/remove";
+export * from "@/deep/reuse";
 export * from "@/deep/set";

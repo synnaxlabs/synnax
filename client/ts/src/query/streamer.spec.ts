@@ -13,11 +13,10 @@ import { describe, expect, it, type Mock, vi } from "vitest";
 import z from "zod";
 
 import { type channel } from "@/channel";
-import { DisconnectedError, NotFoundError } from "@/errors";
 import { framer } from "@/framer";
-import { type query } from "@/query";
+import { DisconnectedError, NotFoundError } from "@/index";
+import { query } from "@/query";
 import { createStreamer, type Streamer, type StreamerParams } from "@/query/streamer";
-import { createFetchListener, Table } from "@/query/table";
 
 class MockHardenedStreamer implements framer.Streamer {
   private keysI: channel.Params[];
@@ -160,12 +159,11 @@ describe("openStreamer", () => {
       const fetch = vi.fn(async (keys: string[]) =>
         keys.map((key) => ({ key, value: 1 })),
       );
-      const table = new Table<string, Entry>({ onError: vi.fn(), fetch });
+      const table = new query.Table<string, Entry>({ onError: vi.fn(), fetch });
       table.set(["k1", "k2", "k3"].map((key) => ({ key, value: 0 })));
-      const listener = createFetchListener<z.ZodString, string, Entry>(
-        "fetch_ch",
-        z.string(),
-      ).bind(table);
+      const listener = query
+        .createFetchListener<z.ZodString, string, Entry>("fetch_ch", z.string())
+        .bind(table);
       const frames = [new framer.Frame({ fetch_ch: new Series(["k1", "k2", "k3"]) })];
       const closeStreamer = await openStreamer(
         createStreamerArgs({
