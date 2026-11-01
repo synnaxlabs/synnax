@@ -62,46 +62,51 @@ export const Toolbar = (): ReactElement | null => {
     );
   };
   return (
-    <Tabs.Frame value={toolbar.selectedTab} onChange={handleTabSelect} grow>
-      <Base.Header>
-        <Breadcrumb.Breadcrumb level="h5">
-          <Breadcrumb.Segment weight={500} color={10} level="h5">
-            <Icon.Arc />
-            {name}
-          </Breadcrumb.Segment>
-          {selectedName != null && (
-            <Breadcrumb.Segment weight={400} color={9} level="p">
-              {selectedName}
-            </Breadcrumb.Segment>
-          )}
-        </Breadcrumb.Breadcrumb>
-        <Flex.Box x align="center" empty>
-          <Flex.Box x gap="small" className={CSS.BE("arc-toolbar", "actions")}>
-            <Export.ToolbarButton id={arc.ontologyID(key)} />
-            <Core.CopyLinkToolbarButton name={name} ontologyID={arc.ontologyID(key)} />
+    <Base.Content>
+      <Tabs.Frame value={toolbar.selectedTab} onChange={handleTabSelect} grow>
+        <Base.Header>
+          <Breadcrumb.Breadcrumb level="h5">
+            <Base.TitleSegment>
+              <Icon.Arc />
+              {name}
+            </Base.TitleSegment>
+            {selectedName != null && (
+              <Breadcrumb.Segment weight={400} color={9} level="p">
+                {selectedName}
+              </Breadcrumb.Segment>
+            )}
+          </Breadcrumb.Breadcrumb>
+          <Flex.Box x align="center" empty>
+            <Flex.Box x gap="small" className={CSS.BE("arc-toolbar", "actions")}>
+              <Export.ToolbarButton id={arc.ontologyID(key)} />
+              <Core.CopyLinkToolbarButton
+                name={name}
+                ontologyID={arc.ontologyID(key)}
+              />
+            </Flex.Box>
+            {canEdit && (
+              <Tabs.Selector className={CSS.BE("arc-toolbar", "tabs")}>
+                <Tabs.Tab itemKey="stages">Stages</Tabs.Tab>
+                <Tabs.Tab itemKey="properties">Properties</Tabs.Tab>
+              </Tabs.Selector>
+            )}
           </Flex.Box>
-          {canEdit && (
-            <Tabs.Selector className={CSS.BE("arc-toolbar", "tabs")}>
-              <Tabs.Tab itemKey="stages">Stages</Tabs.Tab>
-              <Tabs.Tab itemKey="properties">Properties</Tabs.Tab>
-            </Tabs.Selector>
-          )}
-        </Flex.Box>
-      </Base.Header>
-      {isCurrentlyEditable ? (
-        <>
-          <Tabs.Content itemKey="stages">
-            <Stages />
+        </Base.Header>
+        {isCurrentlyEditable ? (
+          <>
+            <Tabs.Content itemKey="stages">
+              <Stages />
+            </Tabs.Content>
+            <Tabs.Content itemKey="properties">
+              <Properties />
+            </Tabs.Content>
+          </>
+        ) : (
+          <Tabs.Content>
+            <NotEditableContent />
           </Tabs.Content>
-          <Tabs.Content itemKey="properties">
-            <Properties />
-          </Tabs.Content>
-        </>
-      ) : (
-        <Tabs.Content>
-          <NotEditableContent />
-        </Tabs.Content>
-      )}
-    </Tabs.Frame>
+        )}
+      </Tabs.Frame>
+    </Base.Content>
   );
 };

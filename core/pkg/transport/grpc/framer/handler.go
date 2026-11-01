@@ -59,38 +59,29 @@ type (
 	]
 )
 
-// The Core only serves these streams. Request Forward and response Backward exist only
-// to satisfy fgrpc.Translator.
 var (
-	_ fgrpc.Translator[framer.WriterRequest, *WriterRequest] = (*frameWriterRequestTranslator)(
+	_ fgrpc.BackwardTranslator[framer.WriterRequest, *WriterRequest] = (*frameWriterRequestTranslator)(
 		nil,
 	)
-	_ fgrpc.Translator[framer.WriterResponse, *WriterResponse] = (*frameWriterResponseTranslator)(
+	_ fgrpc.ForwardTranslator[framer.WriterResponse, *WriterResponse] = (*frameWriterResponseTranslator)(
 		nil,
 	)
-	_ fgrpc.Translator[framer.IteratorRequest, *IteratorRequest] = (*frameIteratorRequestTranslator)(
+	_ fgrpc.BackwardTranslator[framer.IteratorRequest, *IteratorRequest] = (*frameIteratorRequestTranslator)(
 		nil,
 	)
-	_ fgrpc.Translator[framer.IteratorResponse, *IteratorResponse] = (*frameIteratorResponseTranslator)(
+	_ fgrpc.ForwardTranslator[framer.IteratorResponse, *IteratorResponse] = (*frameIteratorResponseTranslator)(
 		nil,
 	)
-	_ fgrpc.Translator[framer.StreamerRequest, *StreamerRequest] = (*frameStreamerRequestTranslator)(
+	_ fgrpc.BackwardTranslator[framer.StreamerRequest, *StreamerRequest] = (*frameStreamerRequestTranslator)(
 		nil,
 	)
-	_ fgrpc.Translator[framer.StreamerResponse, *StreamerResponse] = (*frameStreamerResponseTranslator)(
+	_ fgrpc.ForwardTranslator[framer.StreamerResponse, *StreamerResponse] = (*frameStreamerResponseTranslator)(
 		nil,
 	)
-	_ fgrpc.Translator[framer.DeleteRequest, *DeleteRequest] = (*frameDeleteRequestTranslator)(
+	_ fgrpc.BackwardTranslator[framer.DeleteRequest, *DeleteRequest] = (*frameDeleteRequestTranslator)(
 		nil,
 	)
 )
-
-func (frameWriterRequestTranslator) Forward(
-	context.Context,
-	framer.WriterRequest,
-) (*WriterRequest, error) {
-	panic("unreachable")
-}
 
 func (t frameWriterRequestTranslator) Backward(
 	ctx context.Context,
@@ -147,20 +138,6 @@ func (frameWriterResponseTranslator) Forward(
 	}, nil
 }
 
-func (frameWriterResponseTranslator) Backward(
-	context.Context,
-	*WriterResponse,
-) (framer.WriterResponse, error) {
-	panic("unreachable")
-}
-
-func (frameIteratorRequestTranslator) Forward(
-	context.Context,
-	framer.IteratorRequest,
-) (*IteratorRequest, error) {
-	panic("unreachable")
-}
-
 func (t frameIteratorRequestTranslator) Backward(
 	ctx context.Context,
 	msg *IteratorRequest,
@@ -215,20 +192,6 @@ func (t frameIteratorResponseTranslator) Forward(
 	return res, nil
 }
 
-func (frameIteratorResponseTranslator) Backward(
-	context.Context,
-	*IteratorResponse,
-) (framer.IteratorResponse, error) {
-	panic("unreachable")
-}
-
-func (frameStreamerRequestTranslator) Forward(
-	context.Context,
-	framer.StreamerRequest,
-) (*StreamerRequest, error) {
-	panic("unreachable")
-}
-
 func (t frameStreamerRequestTranslator) Backward(
 	ctx context.Context,
 	msg *StreamerRequest,
@@ -264,20 +227,6 @@ func (t frameStreamerResponseTranslator) Forward(
 		return nil, err
 	}
 	return &StreamerResponse{Frame: frm, Ack: msg.Ack}, nil
-}
-
-func (frameStreamerResponseTranslator) Backward(
-	context.Context,
-	*StreamerResponse,
-) (framer.StreamerResponse, error) {
-	panic("unreachable")
-}
-
-func (frameDeleteRequestTranslator) Forward(
-	context.Context,
-	framer.DeleteRequest,
-) (*DeleteRequest, error) {
-	panic("unreachable")
 }
 
 func (frameDeleteRequestTranslator) Backward(
@@ -333,8 +282,8 @@ func New(
 		ws = &writerServer{
 			framerWriterServerCore: &framerWriterServerCore{
 				CreateTranslators: func() (
-					fgrpc.Translator[framer.WriterRequest, *WriterRequest],
-					fgrpc.Translator[framer.WriterResponse, *WriterResponse],
+					fgrpc.BackwardTranslator[framer.WriterRequest, *WriterRequest],
+					fgrpc.ForwardTranslator[framer.WriterResponse, *WriterResponse],
 				) {
 					codec := codec.NewDynamic(channelResolver)
 					return frameWriterRequestTranslator{codec: codec},
@@ -346,8 +295,8 @@ func New(
 		is = &iteratorServer{
 			frameIteratorServerCore: &frameIteratorServerCore{
 				CreateTranslators: func() (
-					fgrpc.Translator[framer.IteratorRequest, *IteratorRequest],
-					fgrpc.Translator[framer.IteratorResponse, *IteratorResponse],
+					fgrpc.BackwardTranslator[framer.IteratorRequest, *IteratorRequest],
+					fgrpc.ForwardTranslator[framer.IteratorResponse, *IteratorResponse],
 				) {
 					codec := codec.NewDynamic(channelResolver)
 					return frameIteratorRequestTranslator{codec: codec},
@@ -359,8 +308,8 @@ func New(
 		ss = &streamerServer{
 			frameStreamerServerCore: &frameStreamerServerCore{
 				CreateTranslators: func() (
-					fgrpc.Translator[framer.StreamerRequest, *StreamerRequest],
-					fgrpc.Translator[framer.StreamerResponse, *StreamerResponse],
+					fgrpc.BackwardTranslator[framer.StreamerRequest, *StreamerRequest],
+					fgrpc.ForwardTranslator[framer.StreamerResponse, *StreamerResponse],
 				) {
 					codec := codec.NewDynamic(channelResolver)
 					return frameStreamerRequestTranslator{codec: codec},

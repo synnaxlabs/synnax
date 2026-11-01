@@ -22,6 +22,7 @@ import (
 
 	"github.com/synnaxlabs/alamos"
 	"github.com/synnaxlabs/gorp"
+	v3 "github.com/synnaxlabs/synnax/pkg/service/auth/versions/v3"
 	"github.com/synnaxlabs/synnax/pkg/service/ontology"
 	"github.com/synnaxlabs/x/change"
 	"github.com/synnaxlabs/x/config"
@@ -135,6 +136,7 @@ func OpenService(ctx context.Context, cfgs ...ServiceConfig) (*Service, error) {
 	if s.table, err = gorp.OpenTable(ctx, gorp.TableConfig[SessionKey, Session]{
 		DB:              cfg.DB,
 		Indexes:         s.indexes.all(),
+		Migrations:      []gorp.Migration{v3.NewMigration(s.version)},
 		Instrumentation: cfg.Instrumentation,
 	}); err != nil {
 		return nil, err
@@ -218,8 +220,9 @@ func (s *Service) Hold(
 	return h.ended, release, nil
 }
 
-// CheckHolds ends every held session that storage no longer has. The change feed
-// normally does this as a session is deleted, but it can drop notifications under load.
+// CheckHolds ends every held session that storage no longer has, and ends and deletes
+// every one whose credential changed since login. The change feed normally ends a held
+// session as it is deleted, but it can drop notifications under load.
 func (s *Service) CheckHolds(ctx context.Context) error {
 	held := s.held()
 	if len(held) == 0 {
@@ -232,16 +235,51 @@ func (s *Service) CheckHolds(ctx context.Context) error {
 		Exec(ctx, nil); err != nil && !errors.Is(err, query.ErrNotFound) {
 		return err
 	}
-	stored := make(set.Set[SessionKey], len(sessions))
+	live := make(set.Set[SessionKey], len(sessions))
 	for _, e := range sessions {
-		stored.Add(e.Key)
+		current, err := s.check(ctx, e)
+		if err != nil {
+			return err
+		}
+		if current {
+			live.Add(e.Key)
+		}
 	}
 	for _, key := range held {
-		if !stored.Contains(key) {
+		if !live.Contains(key) {
 			s.endHold(key)
 		}
 	}
 	return nil
+}
+
+// version returns the current version of the credential, or an error wrapping
+// query.ErrNotFound when no authenticator holds it.
+func (s *Service) version(
+	ctx context.Context,
+	tx gorp.Tx,
+	credential uuid.UUID,
+) (telem.TimeStamp, error) {
+	for _, a := range s.cfg.Authenticators {
+		v, err := a.Version(ctx, tx, credential)
+		if !errors.Is(err, query.ErrNotFound) {
+			return v, err
+		}
+	}
+	return 0, errors.Wrapf(query.ErrNotFound, "credential %s", credential)
+}
+
+// check returns true when the session holds its credential's current version, or
+// deletes it and returns false. A session's version never changes after login.
+func (s *Service) check(ctx context.Context, session Session) (bool, error) {
+	v, err := s.version(ctx, nil, session.Credential)
+	if err == nil && session.CredentialVersion == v {
+		return true, nil
+	}
+	if err != nil && !errors.Is(err, query.ErrNotFound) {
+		return false, err
+	}
+	return false, s.Logout(ctx, session.Key)
 }
 
 func (s *Service) endHold(key SessionKey) {
@@ -316,27 +354,13 @@ func (s *Service) Login(
 	if err != nil {
 		return Session{}, "", err
 	}
-	session := Session{
-		Key:        uuid.New(),
-		Subject:    identity.Subject,
-		Credential: identity.Credential,
-		LastActive: s.now(),
-	}
-	token, hash, err := NewToken(tokenPrefix, session.Key)
-	if err != nil {
-		return Session{}, "", err
-	}
-	session.Hash = hash
-	if err = s.table.NewCreate().Entry(&session).Exec(ctx, s.cfg.DB); err != nil {
-		return Session{}, "", err
-	}
-	return session, token, nil
+	return s.NewWriter(nil).open(ctx, identity)
 }
 
 // Authenticate returns the session a token belongs to and counts the request as
-// activity. It returns [ErrInvalidToken] when no session matches the token and
-// [ErrExpiredToken] when the session has been idle for the idle timeout, in which case
-// the session is deleted.
+// activity. It returns [ErrInvalidToken] when no session matches the token or the
+// session's credential changed since login, and [ErrExpiredToken] when the session has
+// been idle for the idle timeout. Both of the latter delete the session.
 func (s *Service) Authenticate(ctx context.Context, token string) (Session, error) {
 	key, hash, err := ParseToken(tokenPrefix, token)
 	if err != nil {
@@ -353,6 +377,13 @@ func (s *Service) Authenticate(ctx context.Context, token string) (Session, erro
 		return Session{}, err
 	}
 	if subtle.ConstantTimeCompare(session.Hash, hash) != 1 {
+		return Session{}, ErrInvalidToken
+	}
+	current, err := s.check(ctx, session)
+	if err != nil {
+		return Session{}, err
+	}
+	if !current {
 		return Session{}, ErrInvalidToken
 	}
 	now := s.now()
@@ -487,7 +518,7 @@ func (s *Service) touch(
 	})
 }
 
-// Writer removes credentials and the sessions they opened in one transaction. It makes
+// Writer removes credentials, and ends and opens sessions, in one transaction. It makes
 // no identity check: the caller authorizes the change.
 type Writer struct {
 	svc *Service
@@ -507,19 +538,43 @@ func (w Writer) DeleteFor(ctx context.Context, subjects ...ontology.ID) error {
 		Exec(ctx, w.tx)
 }
 
-// RevokeCredential ends every session the credentials opened, except those in keep.
-func (w Writer) RevokeCredential(
-	ctx context.Context,
-	keep []SessionKey,
-	credentials ...uuid.UUID,
-) error {
-	kept := set.New(keep...)
+// RevokeCredential ends every session the credentials opened.
+func (w Writer) RevokeCredential(ctx context.Context, credentials ...uuid.UUID) error {
 	return w.svc.table.NewDelete().
-		Where(And(
-			MatchCredentials(credentials...),
-			Match(func(_ gorp.Context, _ Retrieve, e *Session) (bool, error) {
-				return !kept.Contains(e.Key), nil
-			}),
-		)(w.svc.NewRetrieve())).
+		Where(MatchCredentials(credentials...)(w.svc.NewRetrieve())).
 		Exec(ctx, w.tx)
+}
+
+// Open opens a session for the subject on the credential at its version in tx, and
+// returns the session and its token, which is shown once. It returns an error wrapping
+// query.ErrNotFound when no authenticator holds the credential.
+func (w Writer) Open(
+	ctx context.Context,
+	subject ontology.ID,
+	credential uuid.UUID,
+) (Session, string, error) {
+	v, err := w.svc.version(ctx, w.tx, credential)
+	if err != nil {
+		return Session{}, "", err
+	}
+	return w.open(ctx, Identity{Subject: subject, Credential: credential, Version: v})
+}
+
+func (w Writer) open(ctx context.Context, identity Identity) (Session, string, error) {
+	session := Session{
+		Key:               uuid.New(),
+		Subject:           identity.Subject,
+		Credential:        identity.Credential,
+		CredentialVersion: identity.Version,
+		LastActive:        w.svc.now(),
+	}
+	token, hash, err := NewToken(tokenPrefix, session.Key)
+	if err != nil {
+		return Session{}, "", err
+	}
+	session.Hash = hash
+	if err = w.svc.table.NewCreate().Entry(&session).Exec(ctx, w.tx); err != nil {
+		return Session{}, "", err
+	}
+	return session, token, nil
 }

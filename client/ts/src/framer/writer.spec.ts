@@ -11,14 +11,14 @@ import { DataType, id, Series, TimeRange, TimeSpan, TimeStamp } from "@synnaxlab
 import { describe, expect, it, test } from "vitest";
 
 import { UnauthorizedError, ValidationError } from "@/errors";
-import { ALWAYS_INDEX_PERSIST_ON_AUTO_COMMIT, WriterMode } from "@/framer/writer";
+import { framer } from "@/framer";
 import {
   createTestClient,
   newIndexedBoolPair,
   newIndexedPair,
+  randomSeries,
   secondsLinspace,
 } from "@/testutil";
-import { randomSeries } from "@/util/telem";
 
 const client = createTestClient();
 
@@ -39,6 +39,29 @@ describe("Writer", () => {
         await writer.close();
       }
       expect(true).toBe(true);
+    });
+
+    test("write without a start", async () => {
+      const [index, data] = await newIndexedPair(client);
+      const writer = await client.openWriter({ channels: [index, data] });
+      try {
+        await writer.write({
+          [index.key]: secondsLinspace(1, 3),
+          [data.key]: new Series({ data: [1, 2, 3], dataType: data.dataType }),
+        });
+        await writer.commit();
+      } finally {
+        await writer.close();
+      }
+      const fr = await client.read(TimeRange.MAX, [index.key, data.key]);
+      expect(fr.get(index.key).series[0].at(0)).toEqual(TimeStamp.seconds(1).valueOf());
+      expect(Array.from(fr.get(data.key).series[0])).toEqual([1, 2, 3]);
+    });
+
+    it("should parse a bare channel list into a config with no start", () => {
+      const cfg = framer.writerConfigZ.parse([1, 2]);
+      expect(cfg.channels).toEqual([1, 2]);
+      expect(cfg).not.toHaveProperty("start");
     });
 
     test("bool write and read round-trip", async () => {
@@ -78,7 +101,7 @@ describe("Writer", () => {
       const writer = await client.openWriter({
         start: TimeStamp.seconds(1),
         channels,
-        mode: WriterMode.Persist,
+        mode: framer.WriterMode.Persist,
       });
       const [index, data] = channels;
       try {
@@ -126,7 +149,7 @@ describe("Writer", () => {
       const writer = await client.openWriter({
         start: TimeStamp.seconds(1),
         channels,
-        autoIndexPersistInterval: ALWAYS_INDEX_PERSIST_ON_AUTO_COMMIT,
+        autoIndexPersistInterval: framer.ALWAYS_INDEX_PERSIST_ON_AUTO_COMMIT,
       });
       const [index, data] = channels;
       try {
@@ -266,7 +289,7 @@ describe("Writer", () => {
       });
 
       const writer = await client.openWriter({
-        start: TimeStamp.now(),
+        start: TimeStamp.seconds(1),
         channels: [indexCh.key, dataCh.key],
       });
 
@@ -274,7 +297,7 @@ describe("Writer", () => {
         for (let i = 0; i < 10; i++) {
           await new Promise((resolve) => setTimeout(resolve, 5));
           await writer.write({
-            [indexCh.key]: new TimeStamp(i),
+            [indexCh.key]: TimeStamp.seconds(10 - i),
             [dataCh.key]: i,
           });
         }

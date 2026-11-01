@@ -42,7 +42,7 @@ span.lyra-text {
     &.lyra-text--keyboard {
         min-width: round(1.667rem, 1px);
         justify-content: center;
-        font-size: var(--pluto-keycap-font-size, var(--pluto-small-size));
+        font-size: var(--pluto-keycap-font-size, var(--pluto-tiny-size));
         line-height: 1;
     }
 
@@ -53,7 +53,6 @@ span.lyra-text {
     &.lyra-text--overflow-fade {
         white-space: nowrap;
         overflow: hidden;
-        display: block;
         animation-name: text-fade;
         animation-timing-function: linear;
         animation-timeline: scroll(self x);
@@ -88,6 +87,11 @@ span.lyra-text {
         &.lyra-text--overflow-fade,
         &.lyra-text--line-clamp {
             text-overflow: ellipsis;
+        }
+
+        /* Ellipsis needs a block container. */
+        &.lyra-text--overflow-fade {
+            display: block;
         }
     }
 }

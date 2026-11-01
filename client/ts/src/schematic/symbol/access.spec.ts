@@ -9,8 +9,8 @@
 
 import { describe, expect, it } from "vitest";
 
-import { AccessDeniedError, NotFoundError } from "@/errors";
 import { group } from "@/group";
+import { AccessDeniedError, NotFoundError } from "@/index";
 import { ontology } from "@/ontology";
 import { symbol } from "@/schematic/symbol";
 import { createTestClient, createTestClientWithPolicy } from "@/testutil";

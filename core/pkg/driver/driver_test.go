@@ -16,6 +16,7 @@ import (
 	"io/fs"
 	"os"
 	"path/filepath"
+	"runtime"
 	"strings"
 	"sync"
 	"syscall"
@@ -24,9 +25,12 @@ import (
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
+	"github.com/samber/lo"
 	"github.com/synnaxlabs/alamos"
 	"github.com/synnaxlabs/synnax/pkg/driver"
 	"github.com/synnaxlabs/synnax/pkg/service/auth"
+	"github.com/synnaxlabs/synnax/pkg/service/auth/apikey"
+	"github.com/synnaxlabs/synnax/pkg/service/rack"
 	. "github.com/synnaxlabs/x/testutil"
 	"go.uber.org/zap"
 	"go.uber.org/zap/zapcore"
@@ -67,6 +71,8 @@ func newTestLogger() (*alamos.Logger, *syncBuffer) {
 	return logger, buffer
 }
 
+var rackKey = rack.NewKey(1, 1)
+
 func openMockDriver(
 	ctx context.Context,
 	logger *alamos.Logger,
@@ -79,6 +85,8 @@ func openMockDriver(
 		Insecure:        new(true),
 		Address:         "localhost:9090",
 		ParentDirname:   GinkgoT().TempDir(),
+		Keys:            keys,
+		RackKey:         rackKey,
 	}
 	cfgs := append([]driver.Config{base}, overrides...)
 	return MustSucceed(driver.Open(ctx, cfgs...))
@@ -105,6 +113,8 @@ var _ = Describe("Open", func() {
 					FS:              mockFS,
 					Insecure:        new(true),
 					Address:         "localhost:9090",
+					Keys:            keys,
+					RackKey:         rackKey,
 					ParentDirname:   GinkgoT().TempDir(),
 					StartTimeout:    100 * time.Millisecond,
 					StopTimeout:     500 * time.Millisecond,
@@ -148,6 +158,8 @@ var _ = Describe("Open", func() {
 					FS:              mockFS,
 					Insecure:        new(true),
 					Address:         "localhost:9090",
+					Keys:            keys,
+					RackKey:         rackKey,
 					ParentDirname:   GinkgoT().TempDir(),
 					StartTimeout:    500 * time.Millisecond,
 					StopTimeout:     500 * time.Millisecond,
@@ -187,6 +199,8 @@ var _ = Describe("Open", func() {
 					Instrumentation: alamos.New("test", alamos.WithLogger(logger)),
 					Insecure:        new(true),
 					Address:         "localhost:9090",
+					Keys:            keys,
+					RackKey:         rackKey,
 					ParentDirname:   GinkgoT().TempDir(),
 				}))
 				Expect(d.Close()).To(Succeed())
@@ -205,6 +219,8 @@ var _ = Describe("Open", func() {
 					FS:                  mockFS,
 					Insecure:            new(true),
 					Address:             "localhost:9090",
+					Keys:                keys,
+					RackKey:             rackKey,
 					ParentDirname:       GinkgoT().TempDir(),
 					RestartBaseInterval: -time.Second,
 				})).Error().To(MatchError(ContainSubstring("base_interval")))
@@ -222,6 +238,8 @@ var _ = Describe("Open", func() {
 					FS:              mockFS,
 					Insecure:        new(true),
 					Address:         "localhost:9090",
+					Keys:            keys,
+					RackKey:         rackKey,
 					ParentDirname:   GinkgoT().TempDir(),
 					StartTimeout:    2 * time.Second,
 					StopTimeout:     500 * time.Millisecond,
@@ -241,6 +259,8 @@ var _ = Describe("Open", func() {
 					FS:              fstest.MapFS{},
 					Insecure:        new(true),
 					Address:         "localhost:9090",
+					Keys:            keys,
+					RackKey:         rackKey,
 					ParentDirname:   GinkgoT().TempDir(),
 					StartTimeout:    200 * time.Millisecond,
 					StopTimeout:     200 * time.Millisecond,
@@ -259,6 +279,8 @@ var _ = Describe("Open", func() {
 					FS:              mockFS,
 					Insecure:        new(true),
 					Address:         "localhost:9090",
+					Keys:            keys,
+					RackKey:         rackKey,
 					ParentDirname:   filepath.Join(blocker, "sub"),
 					StartTimeout:    200 * time.Millisecond,
 					StopTimeout:     200 * time.Millisecond,
@@ -298,19 +320,77 @@ var _ = Describe("Open", func() {
 			Expect(d.Close()).To(Succeed())
 		})
 
-		It("Should give the Driver its credentials under the keys it reads", func(
+		It("Should give the Driver an API key for its rack", func(ctx SpecContext) {
+			logger, _ := newTestLogger()
+			dir := GinkgoT().TempDir()
+			d := openMockDriver(ctx, logger, driver.Config{ParentDirname: dir})
+			conn := readDriverConnection(dir)
+			Expect(d.Close()).To(Succeed())
+			Expect(conn).ToNot(HaveKey("username"))
+			Expect(conn).ToNot(HaveKey("password"))
+			Expect(authenticate(ctx, conn["api_key"].(string)).Subject).
+				To(Equal(rackKey.OntologyID()))
+		})
+
+		It("Should reuse its API key across Core processes", func(ctx SpecContext) {
+			logger, _ := newTestLogger()
+			keyDir := GinkgoT().TempDir()
+			start := func() string {
+				GinkgoHelper()
+				Expect(openMockDriver(ctx, logger, driver.Config{
+					ParentDirname: GinkgoT().TempDir(),
+					KeyDirname:    keyDir,
+				}).Close()).To(Succeed())
+				return readSavedKey(keyDir)
+			}
+			Expect(start()).To(Equal(start()))
+		})
+
+		It("Should create a new API key when the Core refuses the saved one", func(
 			ctx SpecContext,
 		) {
 			logger, _ := newTestLogger()
-			dir := GinkgoT().TempDir()
-			d := openMockDriver(ctx, logger, driver.Config{
-				ParentDirname: dir,
-				Credentials:   auth.Credentials{Username: "root", Password: "secret"},
-			})
-			conn := readDriverConnection(dir)
-			Expect(conn).To(HaveKeyWithValue("username", "root"))
-			Expect(conn).To(HaveKeyWithValue("password", "secret"))
-			Expect(d.Close()).To(Succeed())
+			keyDir := GinkgoT().TempDir()
+			cfg := driver.Config{KeyDirname: keyDir}
+			Expect(openMockDriver(ctx, logger, cfg).Close()).To(Succeed())
+			first := readSavedKey(keyDir)
+			id := authenticate(ctx, first)
+			Expect(keys.NewWriter(nil).Delete(ctx, id.Credential)).To(Succeed())
+			Expect(openMockDriver(ctx, logger, cfg).Close()).To(Succeed())
+			second := readSavedKey(keyDir)
+			Expect(second).ToNot(Equal(first))
+			Expect(authenticate(ctx, second).Subject).To(Equal(rackKey.OntologyID()))
+		})
+
+		It("Should delete the API key it could not save", func(ctx SpecContext) {
+			// Windows denies opening a directory for writing instead of naming it one.
+			saveDirErr := lo.Ternary[error](
+				runtime.GOOS == "windows",
+				fs.ErrPermission,
+				syscall.EISDIR,
+			)
+			logger, _ := newTestLogger()
+			keyDir := GinkgoT().TempDir()
+			Expect(os.Mkdir(filepath.Join(keyDir, "embedded-driver-key.tmp"), 0o700)).
+				To(Succeed())
+			count := func() int {
+				GinkgoHelper()
+				return MustSucceed(keys.NewRetrieve().
+					Where(apikey.MatchSubjects(rackKey.OntologyID())).
+					Count(ctx, nil))
+			}
+			before := count()
+			Expect(driver.Open(ctx, driver.Config{
+				Instrumentation: alamos.New("test", alamos.WithLogger(logger)),
+				FS:              mockFS,
+				Insecure:        new(true),
+				Address:         "localhost:9090",
+				ParentDirname:   GinkgoT().TempDir(),
+				KeyDirname:      keyDir,
+				Keys:            keys,
+				RackKey:         rackKey,
+			})).Error().To(MatchError(saveDirErr))
+			Expect(count()).To(Equal(before))
 		})
 
 		It("Should keep the Driver's state inside its working directory", func(
@@ -342,6 +422,21 @@ var _ = Describe("Open", func() {
 		})
 	})
 })
+
+// authenticate returns the identity the API key logs in as.
+func authenticate(ctx context.Context, key string) auth.Identity {
+	GinkgoHelper()
+	return MustSucceed(keys.Authenticate(ctx, auth.Proof{
+		Variant: auth.APIKeyProof{APIKeyCredentials: auth.APIKeyCredentials{Key: key}},
+	}))
+}
+
+// readSavedKey returns the API key the Driver saved in keyDir.
+func readSavedKey(keyDir string) string {
+	GinkgoHelper()
+	path := filepath.Join(keyDir, "embedded-driver-key")
+	return string(MustSucceed(os.ReadFile(path)))
+}
 
 // readDriverConnection returns the connection block of the config file the Driver was
 // started with. It must be called while the Driver is running, since the file is
@@ -386,6 +481,8 @@ var _ = Describe("restart", func() {
 			FS:              mockFS,
 			Insecure:        new(true),
 			Address:         "localhost:9090",
+			Keys:            keys,
+			RackKey:         rackKey,
 			ParentDirname:   GinkgoT().TempDir(),
 			// The Driver never starts, so Open returns as soon as the policy gives up.
 			// StartTimeout only has to outlast three subprocess launches on a loaded

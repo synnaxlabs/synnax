@@ -118,9 +118,8 @@ The output ends with the version:
 
 ## <Step step="2" level="h2">Log in to the Core</Step>
 
-Create a user for the Driver with the [Host role](/reference/enterprise/users#roles).
-Then run `login`. On Linux, run it with `sudo`. On NI Linux Real-Time, run it as `admin`
-with no `sudo`:
+You need the username and password of a user who can create racks. Run `login`. On
+Linux, run it with `sudo`. On NI Linux Real-Time, run it as `admin` with no `sudo`:
 
 ```bash
 sudo synnax-driver login
@@ -137,13 +136,16 @@ Username: driver
 Password:
 ```
 
-When the output shows `credentials saved successfully!`, the Driver is logged in.
+The command then creates a rack for the Driver and an API key for that rack. It saves
+only the API key, never the password, and the Driver logs in as its rack with the key.
+When the output shows `API key saved successfully!`, the Driver is logged in.
 
-<Note.Note variant="warning">
-  The Driver saves the password as plain text in its state file, and each user of the
-  computer can read the file. Give the Driver a user with only the Host role, not an
-  administrator.
-</Note.Note>
+An upgraded Driver that saved a username and password does this at its first start, and
+keeps its rack. If that user cannot create racks, the Driver logs the warning
+`Failed to enroll Driver`, and keeps logging in with the password. To fix it, run
+`login` as a user that can create racks, or create an API key for the rack in the
+Console and set it as `api_key` in the
+[configuration](/reference/enterprise/driver/configuration#parameters).
 
 ### Log in to a Core that uses TLS
 

@@ -15,6 +15,7 @@ package apikey
 import (
 	"context"
 	"crypto/subtle"
+	"uuid"
 
 	"github.com/synnaxlabs/alamos"
 	"github.com/synnaxlabs/gorp"
@@ -24,6 +25,7 @@ import (
 	"github.com/synnaxlabs/x/errors"
 	"github.com/synnaxlabs/x/override"
 	"github.com/synnaxlabs/x/query"
+	"github.com/synnaxlabs/x/telem"
 	"github.com/synnaxlabs/x/validate"
 )
 
@@ -130,7 +132,22 @@ func (s *Service) Authenticate(
 	if subtle.ConstantTimeCompare(k.Hash, hash) != 1 {
 		return auth.Identity{}, auth.ErrInvalidCredentials
 	}
-	return auth.Identity{Subject: k.Subject, Credential: k.Key}, nil
+	return auth.Identity{
+		Subject:    k.Subject,
+		Credential: k.Key,
+		Version:    k.Created,
+	}, nil
+}
+
+// Version implements [auth.Authenticator]. An API key keeps one version for life.
+func (s *Service) Version(
+	ctx context.Context,
+	tx gorp.Tx,
+	credential uuid.UUID,
+) (telem.TimeStamp, error) {
+	var k APIKey
+	err := s.NewRetrieve().Where(MatchKeys(credential)).Entry(&k).Exec(ctx, tx)
+	return k.Created, err
 }
 
 // DeleteFor implements [auth.Authenticator].
