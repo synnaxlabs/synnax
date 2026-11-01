@@ -12,4 +12,5 @@ export * from "@/form/Field";
 export * from "@/form/Form";
 export * from "@/form/Section";
 export * from "@/form/use";
+export * from "@/form/useCheck";
 export * from "@/form/useField";

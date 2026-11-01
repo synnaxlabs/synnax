@@ -22,59 +22,45 @@ export const propertiesZ = z.object({
   identifier: Device.identifierZ.catch(""),
   analogInput: z
     .object({
-      portCount: z.number().default(0),
       index: channel.keyZ.catch(0),
       channels: z.record(z.string(), channel.keyZ).default(() => ({})),
     })
-    .default(() => ({ portCount: 0, index: 0, channels: {} })),
+    .default(() => ({ index: 0, channels: {} })),
   analogOutput: z
     .object({
-      portCount: z.number().default(0),
       stateIndex: channel.keyZ.catch(0),
       channels: z.record(z.string(), Device.commandStatePairZ).default(() => ({})),
     })
-    .default(() => ({ portCount: 0, stateIndex: 0, channels: {} })),
+    .default(() => ({ stateIndex: 0, channels: {} })),
   counterInput: z
     .object({
-      portCount: z.number().default(0),
       index: channel.keyZ.catch(0),
       channels: z.record(z.string(), channel.keyZ).default(() => ({})),
     })
-    .default(() => ({ portCount: 0, index: 0, channels: {} })),
-  digitalInputOutput: z
-    .object({
-      portCount: z.number().default(0),
-      lineCounts: z.array(z.number()).default(() => []),
-    })
-    .default(() => ({ portCount: 0, lineCounts: [] })),
+    .default(() => ({ index: 0, channels: {} })),
   digitalInput: z
     .object({
-      portCount: z.number().default(0),
-      lineCounts: z.array(z.number()).default(() => []),
       index: channel.keyZ.catch(0),
       channels: z.record(z.string(), channel.keyZ).default(() => ({})),
     })
-    .default(() => ({ portCount: 0, lineCounts: [], index: 0, channels: {} })),
+    .default(() => ({ index: 0, channels: {} })),
   digitalOutput: z
     .object({
-      portCount: z.number().default(0),
-      lineCounts: z.array(z.number()).default(() => []),
       stateIndex: channel.keyZ.catch(0),
       channels: z.record(z.string(), Device.commandStatePairZ).default(() => ({})),
     })
-    .default(() => ({ portCount: 0, lineCounts: [], stateIndex: 0, channels: {} })),
+    .default(() => ({ stateIndex: 0, channels: {} })),
   hardware: ni.hardwareZ.optional(),
 });
 export type Properties = z.infer<typeof propertiesZ>;
 
 export const ZERO_PROPERTIES: Properties = {
   identifier: "",
-  analogInput: { portCount: 0, index: 0, channels: {} },
-  analogOutput: { portCount: 0, stateIndex: 0, channels: {} },
-  counterInput: { portCount: 0, index: 0, channels: {} },
-  digitalInputOutput: { portCount: 0, lineCounts: [] },
-  digitalInput: { portCount: 0, lineCounts: [], index: 0, channels: {} },
-  digitalOutput: { portCount: 0, lineCounts: [], stateIndex: 0, channels: {} },
+  analogInput: { index: 0, channels: {} },
+  analogOutput: { stateIndex: 0, channels: {} },
+  counterInput: { index: 0, channels: {} },
+  digitalInput: { index: 0, channels: {} },
+  digitalOutput: { stateIndex: 0, channels: {} },
 };
 
 export interface Device extends device.Device<typeof propertiesZ, typeof makeZ> {}
