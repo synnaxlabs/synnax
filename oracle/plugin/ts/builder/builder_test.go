@@ -41,6 +41,19 @@ var _ = Describe("TS Builder Plugin", func() {
 		p = builder.New(builder.DefaultOptions())
 	})
 
+	Describe("DefaultOptions", func() {
+		It("Should name the output builder.gen.ts", func() {
+			Expect(builder.DefaultOptions().FileNamePattern).To(Equal("builder.gen.ts"))
+		})
+	})
+
+	Describe("New", func() {
+		It("Should keep the given options", func() {
+			opts := builder.Options{FileNamePattern: "custom.gen.ts"}
+			Expect(builder.New(opts).Options).To(Equal(opts))
+		})
+	})
+
 	Describe("Plugin Interface", func() {
 		It("Should have correct name", func() {
 			Expect(p.Name()).To(Equal("ts/builder"))
