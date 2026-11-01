@@ -144,6 +144,16 @@ void Master::set_slave_config(const uint16_t position, slave::Config config) {
     this->startup_parameters[position] = std::move(config.startup_parameters);
 }
 
+void Master::replace_slave_configs(std::map<uint16_t, slave::Config> configs) {
+    std::lock_guard lock(this->mu);
+    this->disabled_slaves.clear();
+    this->startup_parameters.clear();
+    for (auto &[position, config]: configs) {
+        if (!config.enabled) this->disabled_slaves.insert(position);
+        this->startup_parameters[position] = std::move(config.startup_parameters);
+    }
+}
+
 void Master::write_startup_parameters(
     const uint16_t pos,
     const std::vector<slave::StartupParameter> &parameters

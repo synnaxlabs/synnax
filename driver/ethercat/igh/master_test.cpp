@@ -165,6 +165,18 @@ TEST_F(IGHMasterTest, ActivateSkipsDisabledSlave) {
     EXPECT_EQ(this->mock_api->slave_config_count(), 1u);
 }
 
+/// @brief it should disable a slave the replacement configs disable and enable one they
+/// leave out.
+TEST_F(IGHMasterTest, ReplaceSlaveConfigsSetsWhichSlavesAreDisabled) {
+    this->mock_api->add_slave(0, 0x1111, 0x2222, 1, 1, "S0");
+    this->mock_api->add_slave(1, 0x3333, 0x4444, 1, 2, "S1");
+    ASSERT_NIL(this->master_instance->initialize());
+    this->master_instance->set_slave_config(0, {.enabled = false});
+    this->master_instance->replace_slave_configs({{1, {.enabled = false}}});
+    this->activate_with_domains();
+    EXPECT_EQ(this->mock_api->slave_config_count(), 1u);
+}
+
 /// @brief it should return an activation error that names the slave when its
 /// configuration fails.
 TEST_F(IGHMasterTest, ActivateSlaveConfigFails) {
@@ -192,6 +204,16 @@ TEST_F(IGHMasterTest, ActivateWritesAndConfiguresStartupParameters) {
     const std::vector<MockAPI::SDOWrite> expected{{0, 0x8000, 0x15, {0x03, 0x00}}};
     EXPECT_EQ(this->mock_api->sdo_downloads, expected);
     EXPECT_EQ(this->mock_api->config_sdos, expected);
+}
+
+/// @brief it should write nothing to a slave left out of the replacement configs.
+TEST_F(IGHMasterTest, ActivateWritesNothingToSlaveLeftOutOfReplacement) {
+    this->initialize_with_slave();
+    this->master_instance->set_slave_config(0, {.startup_parameters = {FILTER}});
+    this->master_instance->replace_slave_configs({});
+    this->activate_with_domains();
+    EXPECT_TRUE(this->mock_api->sdo_downloads.empty());
+    EXPECT_TRUE(this->mock_api->config_sdos.empty());
 }
 
 /// @brief it should fail activation with a startup parameter error that names the

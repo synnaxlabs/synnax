@@ -11,6 +11,7 @@
 
 #include <atomic>
 #include <condition_variable>
+#include <map>
 #include <memory>
 #include <mutex>
 #include <optional>
@@ -291,5 +292,10 @@ public:
     /// @brief sets whether a slave joins cyclic exchange and the CoE objects written to
     /// it before each move to SAFE-OP. Takes effect the next time the bus starts.
     void set_slave_config(uint16_t position, slave::Config config);
+
+    /// @brief replaces the settings of every slave. A slave missing from configs goes
+    /// back to the defaults of slave::Config. Takes effect the next time the bus
+    /// starts.
+    void replace_slave_configs(std::map<uint16_t, slave::Config> configs);
 };
 }

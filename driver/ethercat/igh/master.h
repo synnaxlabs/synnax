@@ -11,6 +11,7 @@
 
 #include <cstdint>
 #include <cstring>
+#include <map>
 #include <mutex>
 #include <span>
 #include <string>
@@ -89,6 +90,8 @@ public:
     std::pair<size_t, x::errors::Error> count_slaves() override;
 
     void set_slave_config(uint16_t position, slave::Config config) override;
+
+    void replace_slave_configs(std::map<uint16_t, slave::Config> configs) override;
 
     x::errors::Error activate() override;
 

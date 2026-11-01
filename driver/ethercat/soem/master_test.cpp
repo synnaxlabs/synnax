@@ -580,6 +580,21 @@ TEST_F(SOEMMasterTest, SetSlaveDisabledThenReEnabled) {
     EXPECT_EQ(this->mock->slave_infos[0].group, 1);
 }
 
+/// @brief it should disable a slave the replacement configs disable and enable one they
+/// leave out.
+TEST_F(SOEMMasterTest, ReplaceSlaveConfigsSetsWhichSlavesAreDisabled) {
+    this->add_slave(MockSlaveInfo{});
+    this->add_slave(MockSlaveInfo{});
+    ASSERT_NIL(this->master->initialize());
+    this->master->set_slave_config(1, {.enabled = false});
+    this->master->replace_slave_configs({{2, {.enabled = false}}});
+    this->mock->obytes = 2;
+    this->mock->ibytes = 4;
+    ASSERT_NIL(this->master->activate());
+    EXPECT_EQ(this->mock->slave_infos[0].group, 1);
+    EXPECT_EQ(this->mock->slave_infos[1].group, 2);
+}
+
 ////////////////////// PDO Layout //////////////////////
 
 namespace {
@@ -863,6 +878,26 @@ TEST_F(SOEMMasterTest, ActivateWritesNothingAfterStartupParametersAreCleared) {
     this->initialize_with_slave();
     this->master->set_slave_config(1, {.startup_parameters = {FILTER}});
     this->master->set_slave_config(1, {});
+    this->activate_master();
+    EXPECT_TRUE(this->mock->sdo_writes.empty());
+}
+
+/// @brief it should write only the parameters of the configs that replace the old
+/// ones.
+TEST_F(SOEMMasterTest, ActivateWritesOnlyReplacedStartupParameters) {
+    this->initialize_with_slave();
+    this->master->set_slave_config(1, {.startup_parameters = {FILTER}});
+    this->master->replace_slave_configs({{1, {.startup_parameters = {RANGE}}}});
+    this->activate_master();
+    ASSERT_EQ(this->mock->sdo_writes.size(), 1);
+    EXPECT_EQ(this->mock->sdo_writes[0].index, RANGE.index);
+}
+
+/// @brief it should write nothing to a slave left out of the replacement configs.
+TEST_F(SOEMMasterTest, ActivateWritesNothingToSlaveLeftOutOfReplacement) {
+    this->initialize_with_slave();
+    this->master->set_slave_config(1, {.startup_parameters = {FILTER}});
+    this->master->replace_slave_configs({});
     this->activate_master();
     EXPECT_TRUE(this->mock->sdo_writes.empty());
 }

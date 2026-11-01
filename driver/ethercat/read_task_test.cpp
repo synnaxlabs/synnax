@@ -33,6 +33,27 @@ protected:
     const uint32_t SLAVE_SERIAL = 12345;
     const std::string NETWORK_INTERFACE = "eth0";
 
+    /// @brief returns a slave on the network with one startup parameter, ready to save.
+    [[nodiscard]] synnax::device::Device create_configured_slave(
+        const std::string &network,
+        const uint16_t position,
+        const int value
+    ) const {
+        auto dev = this->slave_device;
+        dev.key += "_" + network + "_" + std::to_string(position);
+        dev.make = DEVICE_MAKE;
+        dev.model = SLAVE_DEVICE_MODEL;
+        dev.properties["network"] = network;
+        dev.properties["position"] = position;
+        dev.properties["startup_parameters"] = {
+            {{"index", 0x8000},
+             {"sub_index", 0x15},
+             {"data_type", "uint16"},
+             {"value", value}}
+        };
+        return dev;
+    }
+
     void SetUp() override {
         client = std::make_shared<synnax::Synnax>(new_test_client());
 
@@ -746,24 +767,10 @@ TEST_F(EtherCATReadTest, ReadTaskRetriesFailedCyclesWithoutALimit) {
 /// network to the master, including a slave the task does not read, and ignore an
 /// invalid slave on another network.
 TEST_F(EtherCATReadTest, ConfigurePassesSavedSlaveSettingsOnTheNetworkToTheMaster) {
-    const auto save_slave =
-        [this](const std::string &network, const uint16_t position, const int value) {
-            auto dev = this->slave_device;
-            dev.key += "_" + network + "_" + std::to_string(position);
-            dev.make = DEVICE_MAKE;
-            dev.model = SLAVE_DEVICE_MODEL;
-            dev.properties["network"] = network;
-            dev.properties["position"] = position;
-            dev.properties["startup_parameters"] = {
-                {{"index", 0x8000},
-                 {"sub_index", 0x15},
-                 {"data_type", "uint16"},
-                 {"value", value}}
-            };
-            ASSERT_NIL(this->client->devices.create(dev));
-        };
-    save_slave(NETWORK_INTERFACE, 1, 3);
-    save_slave("eth1", 2, 70000);
+    auto on_network = this->create_configured_slave(NETWORK_INTERFACE, 1, 3);
+    ASSERT_NIL(this->client->devices.create(on_network));
+    auto off_network = this->create_configured_slave("eth1", 2, 70000);
+    ASSERT_NIL(this->client->devices.create(off_network));
     const auto data_ch = this->create_data_channel("analog", x::telem::INT16_T);
     auto cfg = this->create_base_config();
     cfg["channels"].push_back(
@@ -789,6 +796,32 @@ TEST_F(EtherCATReadTest, ConfigurePassesSavedSlaveSettingsOnTheNetworkToTheMaste
         }})
     );
     EXPECT_TRUE(this->mock_master->startup_parameters(2).empty());
+}
+
+/// @brief it should clear the settings of a deleted device from the cached engine, so
+/// the next bus start does not write them to the slave at that position.
+TEST_F(EtherCATReadTest, ConfigureClearsSettingsOfDeletedDevices) {
+    auto saved = this->create_configured_slave(NETWORK_INTERFACE, 1, 3);
+    ASSERT_NIL(this->client->devices.create(saved));
+    const auto data_ch = this->create_data_channel("analog", x::telem::INT16_T);
+    auto cfg = this->create_base_config();
+    cfg["channels"].push_back(
+        this->create_input_channel_config(data_ch, 0x6000, 1, "int16")
+    );
+    auto manager = std::make_unique<testutil::Manager>();
+    manager->configure(NETWORK_INTERFACE, this->mock_master);
+    Factory factory(std::move(manager));
+    const synnax::task::Task task{
+        .rack = this->rack.key,
+        .name = "read",
+        .type = READ_TASK_TYPE,
+        .config = cfg,
+    };
+    ASSERT_TRUE(factory.configure_task(this->ctx, task, "").second);
+    ASSERT_EQ(this->mock_master->startup_parameters(1).size(), 1);
+    ASSERT_NIL(this->client->devices.del(saved.key));
+    ASSERT_TRUE(factory.configure_task(this->ctx, task, "").second);
+    EXPECT_TRUE(this->mock_master->startup_parameters(1).empty());
 }
 
 /// @brief it should fail to configure, naming the slave, when a slave the task does

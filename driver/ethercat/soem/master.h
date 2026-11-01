@@ -77,6 +77,8 @@ public:
 
     void set_slave_config(uint16_t position, slave::Config config) override;
 
+    void replace_slave_configs(std::map<uint16_t, slave::Config> configs) override;
+
     x::errors::Error activate() override;
 
     void deactivate() override;

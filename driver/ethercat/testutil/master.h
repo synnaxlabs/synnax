@@ -12,6 +12,7 @@
 #include <algorithm>
 #include <condition_variable>
 #include <cstring>
+#include <map>
 #include <mutex>
 #include <set>
 #include <span>
@@ -232,6 +233,18 @@ public:
         this->startup_parameters_by_slave[position] = std::move(
             config.startup_parameters
         );
+    }
+
+    void replace_slave_configs(std::map<uint16_t, slave::Config> configs) override {
+        std::lock_guard lock(this->mu);
+        this->disabled_slaves.clear();
+        this->startup_parameters_by_slave.clear();
+        for (auto &[position, config]: configs) {
+            if (!config.enabled) this->disabled_slaves.insert(position);
+            this->startup_parameters_by_slave[position] = std::move(
+                config.startup_parameters
+            );
+        }
     }
 
     /// @brief returns the startup parameters set for a slave.

@@ -596,4 +596,8 @@ std::string Engine::interface_name() const {
 void Engine::set_slave_config(const uint16_t position, slave::Config config) {
     this->master->set_slave_config(position, std::move(config));
 }
+
+void Engine::replace_slave_configs(std::map<uint16_t, slave::Config> configs) {
+    this->master->replace_slave_configs(std::move(configs));
+}
 }

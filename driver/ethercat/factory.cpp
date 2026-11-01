@@ -7,6 +7,8 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
+#include <map>
+
 #include "absl/log/log.h"
 
 #include "x/cpp/lib/lib.h"
@@ -67,10 +69,11 @@ std::unique_ptr<master::Manager> default_manager() {
 }
 
 namespace {
-/// @brief acquires the engine for the network and passes it the settings of each slave
-/// saved on the rack for that network. A task can start the bus before the scanner
-/// first runs. Returns errors::SLAVE_CONFIG_ERROR when a slave on the network has
-/// invalid properties, since the bus starts every slave on it.
+/// @brief acquires the engine for the network and replaces its slave settings with the
+/// ones saved on the rack for that network. A task can start the bus before the scanner
+/// first runs, and a cached engine must not keep the settings of a deleted device.
+/// Returns errors::SLAVE_CONFIG_ERROR when a slave on the network has invalid
+/// properties, since the bus starts every slave on it.
 std::pair<std::shared_ptr<engine::Engine>, x::errors::Error> acquire_engine(
     engine::Pool &pool,
     const std::shared_ptr<synnax::Synnax> &client,
@@ -85,6 +88,7 @@ std::pair<std::shared_ptr<engine::Engine>, x::errors::Error> acquire_engine(
     req.racks = {rack};
     auto [devices, dev_err] = client->devices.retrieve(req);
     if (dev_err) return {nullptr, dev_err};
+    std::map<uint16_t, slave::Config> configs;
     for (const auto &dev: devices) {
         auto parser = x::json::Parser(dev.properties);
         const auto props = slave::Properties::parse(parser);
@@ -100,8 +104,9 @@ std::pair<std::shared_ptr<engine::Engine>, x::errors::Error> acquire_engine(
                         common::config_err_description(parser.error())
                 )
             };
-        eng->set_slave_config(props.position, props.config());
+        configs[props.position] = props.config();
     }
+    eng->replace_slave_configs(std::move(configs));
     return {eng, x::errors::NIL};
 }
 }
