@@ -26,13 +26,7 @@ import {
   type PortType,
 } from "@/feature/labjack/device/types";
 import { PortBanks } from "@/feature/labjack/task/PortBanks";
-import {
-  type Claims,
-  claims,
-  describer,
-  terminal,
-  usedCount,
-} from "@/feature/labjack/task/ports";
+import { claims, terminal } from "@/feature/labjack/task/ports";
 import { type Channel } from "@/feature/labjack/task/types";
 import { ContextMenu } from "@/platform/context-menu";
 import { CSS } from "@/platform/css";
@@ -50,7 +44,7 @@ const TITLES: Record<PortType, string> = {
 interface SectionProps<P extends Port> {
   type: PortType;
   ports: P[];
-  claims: Claims;
+  claims: Task.Port.Claims;
   selected: string[];
   describe: (channel: string) => string;
   editable: boolean;
@@ -88,7 +82,7 @@ const Section = <P extends Port>({
     </ContextMenu.Menu>
   );
   const open = editable ? menu.open : undefined;
-  const handleClick = (cell: Task.PortCell) => {
+  const handleClick = (cell: Task.Port.Cell) => {
     if (cell.channel != null) onSelect([cell.channel]);
     else if (editable) onAdd(portOf(cell.key));
   };
@@ -110,7 +104,7 @@ const Section = <P extends Port>({
             color={9}
             className={CSS.BE("labjack-ports", "usage")}
           >
-            {`${usedCount(ports, claims)} of ${ports.length} ports used`}
+            {`${Task.Port.usedCount(ports.map(terminal), claims)} of ${ports.length} ports used`}
           </Text.Text>
         </Flex.Box>
         <PortBanks
@@ -169,7 +163,7 @@ export const PortsView = <C extends Channel, P extends Port>({
           ports={ports.filter((p) => p.type === type)}
           claims={portClaims}
           selected={selected}
-          describe={describer(channels, name)}
+          describe={Task.Port.describer(channels, name)}
           editable={editable}
           onSelect={onSelect}
           onAdd={add}

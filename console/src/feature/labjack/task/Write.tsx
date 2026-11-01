@@ -38,7 +38,6 @@ import {
 } from "@/feature/labjack/task/convertChannelTypeToPortType";
 import { getOpenPort } from "@/feature/labjack/task/getOpenPort";
 import { PortPicker } from "@/feature/labjack/task/PortPicker";
-import { enabledFirst } from "@/feature/labjack/task/ports";
 import { PortsView } from "@/feature/labjack/task/PortsView";
 import { SelectWriteChannelType } from "@/feature/labjack/task/SelectWriteChannelType";
 import {
@@ -197,7 +196,7 @@ interface ChannelListProps {
 const ChannelList = ({ device }: ChannelListProps) => {
   const { model } = device;
   const identifier = channel.escapeInvalidName(device.properties.identifier);
-  Task.useConfigCheck(uniqueTerminalsZ(model));
+  PForm.useCheck("config", uniqueTerminalsZ(model));
   const createChannel = (channels: WriteChannel[]) =>
     createNextChannel(channels, model);
   const listItem = ({ key, ...p }: Task.ChannelListItemProps) => (
@@ -280,7 +279,7 @@ const onConfigure: Task.OnConfigure<WriteSchemas["config"]> = async (
     const stateChannelsToCreate: WriteChannel[] = [];
     // Channels on one port share its data channels, named by an enabled one if any.
     const seen = new Set<string>();
-    for (const channel of enabledFirst(config.channels)) {
+    for (const channel of Task.enabledFirst(config.channels)) {
       const key = channel.port;
       const type = convertWriteChannelTypeToPortType(channel.type);
       if (seen.has(`${type}/${key}`)) continue;
@@ -389,10 +388,6 @@ export const Write = Task.wrapForm({
   Form,
   schemas: WRITE_SCHEMAS,
   deployConfigZ: deployWriteConfigZ,
-  deviceConfigZ: async (client, config) =>
-    uniqueTerminalsZ(
-      (await client.devices.retrieve({ key: config.device, schemas: SCHEMAS })).model,
-    ),
   type: "labjack_write",
   getInitialValues,
   onConfigure,

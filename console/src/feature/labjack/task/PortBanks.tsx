@@ -22,7 +22,7 @@ import { Task } from "@/platform/task";
 
 export interface PortBanksProps extends Omit<GroupsProps, "bank"> {
   ports: Port[];
-  onClick: (cell: Task.PortCell) => void;
+  onClick: (cell: Task.Port.Cell) => void;
   /** Opens a menu over a free port. */
   onContextMenu?: (e: MouseEvent) => void;
 }
@@ -40,7 +40,7 @@ export const PortBanks = ({
         <Text.Text level="small" color={9}>
           {bank.title}
         </Text.Text>
-        <Task.PortGrid
+        <Task.Port.Grid
           label={`${terminal(bank.ports[0])} to ${terminal(bank.ports[bank.ports.length - 1])}`}
           groups={groups({ bank, ...rest })}
           onClick={onClick}

@@ -34,7 +34,7 @@ import {
 } from "@/feature/labjack/task/convertChannelTypeToPortType";
 import { getOpenPort } from "@/feature/labjack/task/getOpenPort";
 import { PortField } from "@/feature/labjack/task/PortField";
-import { enabledFirst, terminalOf } from "@/feature/labjack/task/ports";
+import { terminalOf } from "@/feature/labjack/task/ports";
 import { PortsView } from "@/feature/labjack/task/PortsView";
 import { CustomScaleForm, FORMS } from "@/feature/labjack/task/ReadChannelForms";
 import {
@@ -240,7 +240,7 @@ const ChannelsForm = ({ device }: ChannelsFormProps) => {
   const [tare, allowTare, handleTare] = Task.useTare({ isChannelTareable });
   const { model } = device;
   const identifier = channel.escapeInvalidName(device.properties.identifier);
-  Task.useConfigCheck(uniqueTerminalsZ(model));
+  PForm.useCheck("config", uniqueTerminalsZ(model));
   const createChannel = (channels: ReadChannel[], copy?: string) =>
     createNextChannel(channels, model, copy);
   const listItem = ({ key, ...p }: Task.ChannelListItemProps) => (
@@ -337,7 +337,7 @@ const onConfigure: Task.OnConfigure<ReadSchemas["config"]> = async (client, conf
     const toCreate: ReadChannel[] = [];
     // Channels on one port share its data channel, named by an enabled one if any.
     const seen = new Set<string>();
-    for (const c of enabledFirst(config.channels)) {
+    for (const c of Task.enabledFirst(config.channels)) {
       const type = convertReadChannelTypeToPortType(c.type);
       const key = `${type}/${c.port}`;
       if (seen.has(key)) continue;
@@ -383,10 +383,6 @@ export const Read = Task.wrapForm({
   Form,
   schemas: READ_SCHEMAS,
   deployConfigZ: deployReadConfigZ,
-  deviceConfigZ: async (client, config) =>
-    uniqueTerminalsZ(
-      (await client.devices.retrieve({ key: config.device, schemas: SCHEMAS })).model,
-    ),
   type: "labjack_read",
   getInitialValues,
   onConfigure,

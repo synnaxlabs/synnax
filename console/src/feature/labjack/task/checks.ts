@@ -7,28 +7,18 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { z } from "zod";
+import { type z } from "zod";
 
 import { type Model } from "@/feature/labjack/device/types";
-import { claims, conflicts, terminalOf } from "@/feature/labjack/task/ports";
+import { claims } from "@/feature/labjack/task/ports";
 import { type Channel } from "@/feature/labjack/task/types";
+import { Task } from "@/platform/task";
 
 /**
  * Checks that no two channels of a task config use one terminal of the model. On a T4,
  * a channel on AIN4 and one on DIO4 both use FIO4.
  */
 export const uniqueTerminalsZ = (model: Model): z.ZodType =>
-  z.custom<{ channels: Channel[] }>().check(({ value, issues }) => {
-    const taken = claims(value.channels, model);
-    value.channels.forEach(({ port, disabled }, i) => {
-      if (disabled) return;
-      const name = terminalOf(model, port);
-      if (!conflicts(taken.get(name) ?? [])) return;
-      issues.push({
-        code: "custom",
-        path: ["channels", i, "port"],
-        message: `Another channel uses ${name}`,
-        input: value,
-      });
-    });
-  });
+  Task.check<{ channels: Channel[] }>(({ channels }, report) =>
+    Task.Port.reportConflicts(claims(channels, model), channels, report),
+  );

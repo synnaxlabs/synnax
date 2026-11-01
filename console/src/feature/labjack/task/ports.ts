@@ -9,7 +9,7 @@
 
 import { type Model, type Port, PORTS } from "@/feature/labjack/device/types";
 import { type Channel } from "@/feature/labjack/task/types";
-import { type Task } from "@/platform/task";
+import { Task } from "@/platform/task";
 
 /** The name on the port's terminal: its alias, such as "FIO4", or else its key. */
 export const terminal = ({ key, alias }: Port): string => alias ?? key;
@@ -66,40 +66,19 @@ export const banks = (ports: Port[]): Bank[] => {
   return result;
 };
 
-/** A channel on a terminal. */
-export interface Claim {
-  channel: string;
-  /** The Driver skips a disabled channel, so its hold never conflicts. */
-  disabled: boolean;
-}
-
-/** The channels on each terminal. */
-export type Claims = Map<string, Claim[]>;
-
-export const claims = (channels: Channel[], model: Model): Claims => {
-  const result: Claims = new Map();
-  channels.forEach(({ key, port, disabled }) => {
-    const t = terminalOf(model, port);
-    result.set(t, [...(result.get(t) ?? []), { channel: key, disabled }]);
-  });
-  return result;
-};
-
-/** Whether more than one enabled channel holds the terminal. */
-export const conflicts = (list: Claim[]): boolean =>
-  list.filter((c) => !c.disabled).length > 1;
-
-/** The channels, enabled ones first, each group in its order. */
-export const enabledFirst = <C extends Channel>(channels: C[]): C[] =>
-  channels.toSorted((a, b) => Number(a.disabled) - Number(b.disabled));
-
-/** How many of the ports have a channel on their terminal. */
-export const usedCount = (ports: Port[], claims: Claims): number =>
-  ports.filter((p) => claims.has(terminal(p))).length;
+/** The channels on each terminal of the model. */
+export const claims = (channels: Channel[], model: Model): Task.Port.Claims =>
+  Task.Port.group(
+    channels.map(({ key, port, disabled }) => ({
+      port: terminalOf(model, port),
+      channel: key,
+      disabled,
+    })),
+  );
 
 export interface GroupsProps {
   bank: Bank;
-  claims: Claims;
+  claims: Task.Port.Claims;
   selected: string[];
   /** Names the channel with the key, for a tooltip. */
   describe: (channel: string) => string;
@@ -115,48 +94,27 @@ export const groups = ({
   claims,
   selected,
   describe,
-}: GroupsProps): Task.PortGroup[] => {
-  const cell = (port: Port, i: number, width: number): Task.PortCell => {
-    const name = terminal(port);
-    const list = claims.get(name) ?? [];
-    const names = list
-      .map((c) =>
-        c.disabled ? `${describe(c.channel)} (disabled)` : describe(c.channel),
-      )
-      .join(" and ");
-    let tooltip = `${name} is free`;
-    if (list.length === 1) tooltip = `${name}: ${names}`;
-    else if (list.length > 1) tooltip = `${name} is used by ${names}`;
-    return {
-      key: port.key,
-      name,
-      labels: [String(split(port)[1])],
-      row: Math.floor(i / width) + 1,
-      column: (i % width) + 1,
-      state: list.length === 0 ? "free" : conflicts(list) ? "conflict" : "used",
-      disabled: list.length > 0 && list.every((c) => c.disabled),
-      selected: list.some((c) => selected.includes(c.channel)),
-      channel: (list.find((c) => !c.disabled) ?? list[0])?.channel,
-      tooltip,
-    };
-  };
-  const result: Task.PortGroup[] = [];
+}: GroupsProps): Task.Port.Group[] => {
+  const result: Task.Port.Group[] = [];
   for (let start = 0; start < bank.ports.length; start += GROUP) {
     const chunk = bank.ports.slice(start, start + GROUP);
     const width = Math.min(WIDTH, chunk.length);
     result.push({
       key: chunk[0].key,
       columns: width,
-      cells: chunk.map((port, i) => cell(port, i, width)),
+      cells: chunk.map((port, i) =>
+        Task.Port.cell({
+          key: port.key,
+          labels: [String(split(port)[1])],
+          row: Math.floor(i / width) + 1,
+          column: (i % width) + 1,
+          ports: [terminal(port)],
+          claims,
+          selected,
+          describe,
+        }),
+      ),
     });
   }
   return result;
 };
-
-/** Names the channel with the key for a tooltip, by the name it shows by. */
-export const describer =
-  <C extends Channel>(channels: C[], name: (channel: C) => string) =>
-  (key: string): string => {
-    const channel = channels.find((c) => c.key === key);
-    return channel == null ? "" : name(channel);
-  };

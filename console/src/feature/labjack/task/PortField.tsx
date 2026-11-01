@@ -12,8 +12,9 @@ import { type ReactElement } from "react";
 
 import { type Model, PORTS, type PortType } from "@/feature/labjack/device/types";
 import { PortBanks } from "@/feature/labjack/task/PortBanks";
-import { claims, describer } from "@/feature/labjack/task/ports";
+import { claims } from "@/feature/labjack/task/ports";
 import { type Channel } from "@/feature/labjack/task/types";
+import { Task } from "@/platform/task";
 
 export interface PortFieldProps<C extends Channel> {
   /** The channel's path in the form. */
@@ -40,7 +41,7 @@ export const PortField = <C extends Channel>({
           ports={PORTS[model][type]}
           claims={claims(channels, model)}
           selected={[key]}
-          describe={describer(channels, name)}
+          describe={Task.Port.describer(channels, name)}
           onClick={(cell) => {
             if (!preview) onChange(cell.key);
           }}

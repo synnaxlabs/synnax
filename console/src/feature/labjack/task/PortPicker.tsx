@@ -22,9 +22,10 @@ import {
   type PortType,
 } from "@/feature/labjack/device/types";
 import { PortBanks } from "@/feature/labjack/task/PortBanks";
-import { claims, describer, terminal } from "@/feature/labjack/task/ports";
+import { claims, terminal } from "@/feature/labjack/task/ports";
 import { type Channel } from "@/feature/labjack/task/types";
 import { CSS } from "@/platform/css";
+import { Task } from "@/platform/task";
 
 interface GridProps<C extends Channel> {
   model: Model;
@@ -48,7 +49,7 @@ const Grid = <C extends Channel>({
       ports={ports}
       claims={claims(channels, model)}
       selected={[channel]}
-      describe={describer(channels, name)}
+      describe={Task.Port.describer(channels, name)}
       onClick={(cell) => {
         onChange(cell.key);
         close();
