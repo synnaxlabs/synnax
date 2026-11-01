@@ -24,7 +24,7 @@ import { beforeAll, describe, expect, it, vi } from "vitest";
 import { type z } from "zod";
 
 import { framer } from "@/framer";
-import { NotFoundError } from "@/index";
+import { NotFoundError, type Synnax } from "@/index";
 import { label } from "@/label";
 import { ontology } from "@/ontology";
 import { query } from "@/query";
@@ -33,8 +33,10 @@ import {
   createTestClient,
   expectDeleted,
   expectLive,
+  holdResponses,
   spyOnSend,
   TEST_CORE_ADDRESS,
+  waitForStreamLive,
 } from "@/testutil";
 
 const client = createTestClient();
@@ -636,6 +638,44 @@ describe("cached reads", () => {
       await client.ranges.retrieve(b.key);
       const res = await client.ranges.retrieve([a.key, b.key]);
       expect(res.map((r) => r.key)).toEqual([a.key, b.key]);
+    });
+  });
+
+  describe("writes during a fetch", () => {
+    const cachedName = (c: Synnax, key: ranger.Key): string | undefined => {
+      const cached = c.ranges.getCached(key);
+      return query.isLive(cached) ? cached.name : undefined;
+    };
+
+    const expectRenameKept = async (
+      fetch: (local: Synnax, rng: ranger.Range) => Promise<unknown>,
+    ) => {
+      const rng = await createRange();
+      const local = createTestClient();
+      await local.connect();
+      await waitForStreamLive(local.connection);
+      await local.ranges.retrieve(rng.key);
+      const { responded, release } = holdResponses(local, "/range/retrieve");
+      const fetching = fetch(local, rng);
+      await responded;
+      const renamed = `qry-renamed-${id.create()}`;
+      await remote.ranges.rename(rng.key, renamed);
+      await expect.poll(() => cachedName(local, rng.key)).toBe(renamed);
+      release();
+      await fetching;
+      expect(cachedName(local, rng.key)).toBe(renamed);
+    };
+
+    it("keeps a change that streams in during a search", async () => {
+      await expectRenameKept(
+        async (local, rng) => await local.ranges.retrieve({ searchTerm: rng.name }),
+      );
+    });
+
+    it("keeps a change that streams in during a retrieve by name", async () => {
+      await expectRenameKept(
+        async (local, rng) => await local.ranges.retrieve(rng.name),
+      );
     });
   });
 
