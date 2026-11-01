@@ -46,7 +46,6 @@ import {
   type New,
   ontologyID,
   type Payload,
-  payloadZ,
   retrieveRequestZ,
   retrieveResponseZ,
 } from "@/ranger/types.gen";
