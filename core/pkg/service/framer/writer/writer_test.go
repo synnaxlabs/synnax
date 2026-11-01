@@ -233,7 +233,7 @@ var _ = Describe("Writer", func() {
 			Expect(fill.Write(frameAt(keys, 1, 30))).To(BeTrue())
 			Expect(fill.EndDomain(channel.Keys{idx.Key()})).Error().To(And(
 				MatchError(validate.ErrValidation),
-				MatchError(ContainSubstring("cannot extend control region")),
+				MatchError(ContainSubstring("cannot write to time range")),
 			))
 			Expect(fill.Close()).To(MatchError(validate.ErrValidation))
 			Expect(live.Close()).To(Succeed())

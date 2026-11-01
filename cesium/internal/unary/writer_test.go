@@ -216,7 +216,7 @@ var _ = Describe("Writer Behavior", Ordered, func() {
 							Expect(backfill.Commit(ctx)).Error().To(And(
 								MatchError(validate.ErrValidation),
 								MatchError(
-									ContainSubstring("cannot extend control region"),
+									ContainSubstring("cannot write to time range"),
 								),
 							))
 							MustSucceed(backfill.Close())
