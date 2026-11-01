@@ -16,16 +16,16 @@ from console.page import PageType
 from console.task_page import TaskPage
 
 SERVER_FIELD_LABEL = "Modbus server"
-_CHANNEL_FIELDS_SELECTOR = ".console-channel-item"
+_CHANNEL_FIELDS_SELECTOR = ".lyra-list__cells"
 
 # Config channel type to the name shown in the channel type dropdown.
 READ_TYPE_NAMES = {
     "coil": "Coil",
-    "discrete_input": "Discrete",
+    "discrete_input": "Discrete input",
     "holding_register": "Holding register",
-    "input_register": "Register",
+    "input_register": "Input register",
     "holding_register_bit": "Holding register bit",
-    "input_register_bit": "Register bit",
+    "input_register_bit": "Input register bit",
 }
 WRITE_TYPE_NAMES = {
     "coil": "Coil",
@@ -66,7 +66,7 @@ class ModbusTask(TaskPage):
     ) -> None:
         """Fill in the next channel row.
 
-        :param type_name: Type as shown in the type dropdown, e.g. "Register".
+        :param type_name: Type as shown in the type dropdown, e.g. "Coil".
         :param address: Modbus address, or a six-digit Modicon address such as
             "400001".
         :param data_type: Register data type, e.g. "float32". Registers only.

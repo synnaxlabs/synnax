@@ -504,10 +504,7 @@ func (u *CJC) UnmarshalJSONFrom(dec *jsontext.Decoder) error {
 		Type CJCType `json:"source"`
 	}
 	if err := json.Unmarshal(
-		data,
-		&disc,
-		opts,
-		json.RejectUnknownMembers(false),
+		data, &disc, opts, json.RejectUnknownMembers(false),
 	); err != nil {
 		return err
 	}
@@ -833,10 +830,7 @@ func (u *Scale) UnmarshalJSONFrom(dec *jsontext.Decoder) error {
 		Type ScaleType `json:"type"`
 	}
 	if err := json.Unmarshal(
-		data,
-		&disc,
-		opts,
-		json.RejectUnknownMembers(false),
+		data, &disc, opts, json.RejectUnknownMembers(false),
 	); err != nil {
 		return err
 	}
@@ -2583,10 +2577,7 @@ func (u *AIChannel) UnmarshalJSONFrom(dec *jsontext.Decoder) error {
 		Type AIChannelType `json:"type"`
 	}
 	if err := json.Unmarshal(
-		data,
-		&disc,
-		opts,
-		json.RejectUnknownMembers(false),
+		data, &disc, opts, json.RejectUnknownMembers(false),
 	); err != nil {
 		return err
 	}
@@ -3963,10 +3954,7 @@ func (u *CIChannel) UnmarshalJSONFrom(dec *jsontext.Decoder) error {
 		Type CIChannelType `json:"type"`
 	}
 	if err := json.Unmarshal(
-		data,
-		&disc,
-		opts,
-		json.RejectUnknownMembers(false),
+		data, &disc, opts, json.RejectUnknownMembers(false),
 	); err != nil {
 		return err
 	}
@@ -4378,10 +4366,7 @@ func (u *AOChannel) UnmarshalJSONFrom(dec *jsontext.Decoder) error {
 		Type AOChannelType `json:"type"`
 	}
 	if err := json.Unmarshal(
-		data,
-		&disc,
-		opts,
-		json.RejectUnknownMembers(false),
+		data, &disc, opts, json.RejectUnknownMembers(false),
 	); err != nil {
 		return err
 	}

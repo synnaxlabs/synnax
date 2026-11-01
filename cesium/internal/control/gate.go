@@ -12,6 +12,7 @@ package control
 import (
 	"github.com/synnaxlabs/x/control"
 	"github.com/synnaxlabs/x/errors"
+	"github.com/synnaxlabs/x/telem"
 )
 
 // Gate controls access to a resource for a given region of time.
@@ -81,6 +82,19 @@ func (g *Gate[R]) Authorize() (r R, err error) {
 		g.Subject(),
 		g.region.curr.Subject(),
 	)
+}
+
+// MoveStart moves the start of the gate's region to start, which frees any time before
+// it. It fails when the region would reach another region. A bounded region only moves
+// back, and a start at or after the end of the region does nothing.
+func (g *Gate[R]) MoveStart(start telem.TimeStamp) error {
+	return g.region.controller.moveStart(g.region, start)
+}
+
+// Reach moves the end of the gate's region forward to end. It does nothing when the
+// region already holds end, and fails when the region would reach another region.
+func (g *Gate[R]) Reach(end telem.TimeStamp) error {
+	return g.region.controller.reach(g.region, end)
 }
 
 // Release releases the gate's access to the resource. If the gate is the last gate in a

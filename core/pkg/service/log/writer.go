@@ -30,6 +30,13 @@ type Writer struct {
 	dispatcher actions.Dispatcher[Key, Action]
 }
 
+// WithDispatchKey returns a copy of the writer that stamps dispatchKey onto the create
+// broadcasts it emits, so the client that sent the create recognizes its own echo.
+func (w Writer) WithDispatchKey(dispatchKey string) Writer {
+	w.dispatcher = w.dispatcher.WithDispatchKey(dispatchKey)
+	return w
+}
+
 // Create creates the given log within the project provided. If the log does not have a
 // key, a new key will be generated. If projectKey is uuid.Nil(), the log is created
 // without a project ParentOf relationship; this is used by imports that supply no
@@ -72,9 +79,11 @@ func (w Writer) Create(ctx context.Context, projectKey project.Key, l *Log) erro
 			}
 		}
 	}
-	// Notify last: a create rejected by ontology validation must not be broadcast.
-	w.dispatcher.Notify(
-		ctx, l.Key, "", []Action{NewCreateAction(CreatePayload{Log: *l})},
+	w.dispatcher.NotifyOnCommit(
+		ctx,
+		w.tx,
+		l.Key,
+		NewCreateAction(CreatePayload{Log: *l}),
 	)
 	return nil
 }
