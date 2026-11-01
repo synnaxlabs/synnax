@@ -117,6 +117,12 @@ between the Driver and the server. Set them to values that the server accepts.
   selects **Basic 256-bit with SHA-256**. Select a deprecated policy only when the
   server supports nothing newer.
 
+To see the settings that the server accepts, click **Find endpoints** in **Endpoint
+security**. The Driver asks the server for its endpoints, and the Console lists each
+mode and policy, most secure first, with the logins that each one accepts. Select one to
+set the **Mode** and the **Policy**. A policy that the Driver does not support shows as
+"not supported" and you cannot select it.
+
 The other security fields show when the mode is not **None**. In Python and TypeScript,
 set a policy other than `"None"` when the mode is not `"None"`. With the policy at
 `"None"`, the Driver does not load the certificates, even when the mode is `"Sign"`.
@@ -202,10 +208,14 @@ The Driver logs in to the server as an anonymous user, or with the **Username** 
 | Private key file            | `client_private_key`              | Empty                      | A path on the Driver computer. No password.                                             |
 | Server certificate          | `server_cert`                     | Empty                      | The trusted certificate as PEM. Empty trusts the certificate of the first connection.   |
 | Validate server certificate | `certificate_validation_disabled` | `False`                    | The switch shows the opposite value.                                                    |
+| Request timeout             | `client_timeout_ms`               | 5,000 ms                   | The wait for a reply to each request and connection attempt.                            |
+| Session timeout             | `session_timeout_ms`              | 1,200,000 ms (20 minutes)  | How long the server keeps a session that gets no requests.                              |
+| Secure channel lifetime     | `secure_channel_lifetime_ms`      | 600,000 ms (10 minutes)    | How long the keys of the connection last before the Driver renews them.                 |
 
-In TypeScript, the fields are in `properties.connection` in camel case, such as
-`securityMode`, `clientCertificate`, `serverCertificate`, and
-`certificateValidationDisabled`.
+The timeouts are in the **Advanced** section of the dialog. In TypeScript, the fields
+are in `properties.connection` in camel case, such as `securityMode`,
+`clientCertificate`, `serverCertificate`, `certificateValidationDisabled`, and
+`clientTimeoutMs`.
 
 ### Security policies
 

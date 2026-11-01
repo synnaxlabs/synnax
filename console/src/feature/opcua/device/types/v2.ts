@@ -27,13 +27,30 @@ const VERSION = "2.0.0";
 
 const PEM_CERTIFICATE_HEADER = "-----BEGIN CERTIFICATE-----";
 
+const DEFAULT_CLIENT_TIMEOUT_MS = 5000;
+const DEFAULT_SECURE_CHANNEL_LIFETIME_MS = 600_000;
+const DEFAULT_SESSION_TIMEOUT_MS = 1_200_000;
+
+const TIMEOUTS = {
+  clientTimeoutMs: DEFAULT_CLIENT_TIMEOUT_MS,
+  secureChannelLifetimeMs: DEFAULT_SECURE_CHANNEL_LIFETIME_MS,
+  sessionTimeoutMs: DEFAULT_SESSION_TIMEOUT_MS,
+};
+
 export const connectionConfigZ = baseConnectionConfigZ.extend({
   certificateValidationDisabled: z.boolean().default(false),
+  clientTimeoutMs: z.int().positive().default(DEFAULT_CLIENT_TIMEOUT_MS),
+  secureChannelLifetimeMs: z
+    .int()
+    .positive()
+    .default(DEFAULT_SECURE_CHANNEL_LIFETIME_MS),
+  sessionTimeoutMs: z.int().positive().default(DEFAULT_SESSION_TIMEOUT_MS),
 });
 export type ConnectionConfig = z.infer<typeof connectionConfigZ>;
 const ZERO_CONNECTION_CONFIG: ConnectionConfig = {
   ...BASE_ZERO_CONNECTION_CONFIG,
   certificateValidationDisabled: false,
+  ...TIMEOUTS,
 };
 
 export const propertiesZ = basePropertiesZ.extend({
@@ -62,6 +79,7 @@ export const propertiesMigration = migrate.createMigration<BaseProperties, Prope
           ? serverCertificate
           : "",
         certificateValidationDisabled: false,
+        ...TIMEOUTS,
       },
     };
   },

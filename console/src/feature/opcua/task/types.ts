@@ -183,16 +183,37 @@ const testConnectionResponseZ = z.object({
   serverCertificate: certificateInfoZ.optional(),
 });
 
-// Each command replies with its own shape, and the client drops a reply that fails
-// this schema, so the union must cover every one.
+const endpointZ = z.object({
+  url: z.string(),
+  securityMode: z.string(),
+  securityPolicy: z.string(),
+  userTokenTypes: z.array(z.string()),
+  securityLevel: z.number(),
+});
+
+/** A way that a server accepts connections, as the server describes it. */
+export interface Endpoint extends z.infer<typeof endpointZ> {}
+
+export const endpointsResponseZ = z.object({ endpoints: z.array(endpointZ) });
+
+// Each command replies with its own shape, and the client drops a reply that fails this
+// schema, so the union must cover every one. The test connection reply matches any
+// object, so it comes last.
 const scanCommandResponseZ = z
-  .union([browseResponseZ, certificatesResponseZ, testConnectionResponseZ])
+  .union([
+    browseResponseZ,
+    certificatesResponseZ,
+    endpointsResponseZ,
+    testConnectionResponseZ,
+  ])
   .nullish()
   .optional();
 
 export const TEST_CONNECTION_COMMAND_TYPE = "test_connection";
 
 export const BROWSE_COMMAND_TYPE = "browse";
+
+export const GET_ENDPOINTS_COMMAND_TYPE = "get_endpoints";
 
 export const GET_CERTIFICATE_COMMAND_TYPE = "get_certificate";
 
