@@ -30,6 +30,12 @@ func (s tagScope) String() string {
 	return "device " + s.node.String() + "/" + s.device
 }
 
+// holds reports whether the tag id belongs to s. An edge node holds the tags of its
+// devices.
+func (s tagScope) holds(id tagID) bool {
+	return id.node == s.node && (s.device == "" || id.device == s.device)
+}
+
 func (s tagScope) validate() error {
 	if err := s.node.Validate(); err != nil {
 		return err

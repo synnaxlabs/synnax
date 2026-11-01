@@ -38,14 +38,27 @@ type Source interface {
 	Open(ctx context.Context) (Reader, error)
 }
 
-// Reader produces the frames of one run of a ReadTask.
+// Batch is one result of Reader.Read.
+type Batch struct {
+	// Frame holds the samples to write.
+	Frame framer.Frame
+	// EndDomains holds index channels of the task. The task ends their domains after
+	// it writes Frame, which frees the time before their next samples for a writer in
+	// persist mode.
+	EndDomains channel.Keys
+}
+
+// Empty returns true if the batch holds nothing for the task to do.
+func (b Batch) Empty() bool { return b.Frame.Empty() && len(b.EndDomains) == 0 }
+
+// Reader produces the batches of one run of a ReadTask.
 type Reader interface {
-	// Read blocks until the next frame is ready or ctx is cancelled. An empty frame
+	// Read blocks until the next batch is ready or ctx is cancelled. An empty batch
 	// with a nil error writes nothing and reports the source as healthy. An error
 	// that matches ErrTemporary makes the task warn, back off, and call Read again.
-	// An error that matches ErrDegraded makes the task warn and write the frame that
+	// An error that matches ErrDegraded makes the task warn and write the batch that
 	// came with it. Any other error stops the task.
-	Read(ctx context.Context) (framer.Frame, error)
+	Read(ctx context.Context) (Batch, error)
 	// Close releases what Open acquired. The task calls it after the last Read returns.
 	Close() error
 }
@@ -199,8 +212,8 @@ func (t *ReadTask) run(ctx context.Context, r Reader) (err error) {
 		return err
 	}
 	for {
-		fr, err := r.Read(readCtx)
-		if fr.Empty() && readCtx.Err() != nil {
+		b, err := r.Read(readCtx)
+		if b.Empty() && readCtx.Err() != nil {
 			return stopped()
 		}
 		if errors.Is(err, ErrTemporary) {
@@ -218,10 +231,7 @@ func (t *ReadTask) run(ctx context.Context, r Reader) (err error) {
 		}
 		brk.Reset()
 		t.Report(ctx, "Failed to read some data", err)
-		if fr.Empty() {
-			continue
-		}
-		if !w.write(fr) {
+		if !w.write(b) {
 			return stopped()
 		}
 	}
@@ -277,14 +287,24 @@ func (t *ReadTask) openWriter(
 	return &frameWriter{requests: requests, sCtx: sCtx, cancel: cancel}, nil
 }
 
-// write sends fr to the writer, also during a stop, so that a stop drops no frame that
+// write sends b to the writer, also during a stop, so that a stop drops no frame that
 // the source returned. It returns false when the writer has stopped.
-func (w *frameWriter) write(fr framer.Frame) bool {
-	select {
-	case w.requests.Inlet() <- framer.WriterRequest{
+func (w *frameWriter) write(b Batch) bool {
+	if !b.Frame.Empty() && !w.send(framer.WriterRequest{
 		Command: framer.WriterCommandWrite,
-		Frame:   fr,
-	}:
+		Frame:   b.Frame,
+	}) {
+		return false
+	}
+	return len(b.EndDomains) == 0 || w.send(framer.WriterRequest{
+		Command: framer.WriterCommandEndDomain,
+		Config:  framer.WriterConfig{Keys: b.EndDomains},
+	})
+}
+
+func (w *frameWriter) send(req framer.WriterRequest) bool {
+	select {
+	case w.requests.Inlet() <- req:
 		return true
 	case <-w.sCtx.Stopped():
 		return false
