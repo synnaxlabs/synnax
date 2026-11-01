@@ -13,6 +13,8 @@ import (
 	"context"
 
 	"github.com/synnaxlabs/gorp/internal/key"
+	"github.com/synnaxlabs/x/errors"
+	"github.com/synnaxlabs/x/query"
 )
 
 // Writer wraps a key-value writer to provide a strongly typed interface for writing
@@ -79,26 +81,43 @@ func (w *Writer[K, E]) set(ctx context.Context, entry E) error {
 		return err
 	}
 	v := w.keyCodec.Encode(entry.GorpKey())
-	scope := w.tx.txIdentity()
-	if scope == nil {
-		// A DB commits inside Set, so this write is a transaction of its own.
-		scope = new(txState)
-		w.stageSet(scope, entry)
-		return scope.commit(func() error {
-			return w.tx.Set(ctx, v, data, entry.SetOptions()...)
-		})
+	if w.tx.txIdentity() == nil {
+		// A DB commits inside Set, and observers run before Set returns. The indexes
+		// take the entry first so that those observers find it.
+		for _, idx := range w.indexes {
+			idx.set(entry)
+		}
+		if err := w.tx.Set(ctx, v, data, entry.SetOptions()...); err != nil {
+			return errors.Combine(err, w.restore(ctx, entry.GorpKey()))
+		}
+		return nil
 	}
 	if err := w.tx.Set(ctx, v, data, entry.SetOptions()...); err != nil {
 		return err
 	}
-	w.stageSet(scope, entry)
+	for _, idx := range w.indexes {
+		idx.stageSet(w.tx, entry)
+	}
 	return nil
 }
 
-func (w *Writer[K, E]) stageSet(scope *txState, entry E) {
-	for _, idx := range w.indexes {
-		idx.stageSet(scope, entry)
+// restore returns the indexes to the entry that storage holds for key.
+func (w *Writer[K, E]) restore(ctx context.Context, key K) error {
+	r := Reader[K, E]{tx: w.tx, keyCodec: w.keyCodec}
+	entry, err := r.Get(ctx, key)
+	if errors.Is(err, query.ErrNotFound) {
+		for _, idx := range w.indexes {
+			idx.delete(key)
+		}
+		return nil
 	}
+	if err != nil {
+		return err
+	}
+	for _, idx := range w.indexes {
+		idx.set(entry)
+	}
+	return nil
 }
 
 func (w *Writer[K, E]) delete(ctx context.Context, key K) error {
@@ -106,7 +125,7 @@ func (w *Writer[K, E]) delete(ctx context.Context, key K) error {
 		return err
 	}
 	for _, idx := range w.indexes {
-		idx.stageDelete(w.tx.txIdentity(), key)
+		idx.stageDelete(w.tx, key)
 	}
 	return nil
 }

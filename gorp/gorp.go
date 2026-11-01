@@ -134,16 +134,6 @@ type txState struct {
 // Committing reports whether a commit attempt is in flight.
 func (s *txState) Committing() bool { return s.committing.Load() }
 
-// commit runs write, which attempts the commit, and then the cleanups. Index filters
-// see the changes staged against s while write runs. It returns the error of write.
-func (s *txState) commit(write func() error) error {
-	s.committing.Store(true)
-	err := write()
-	s.runCleanups(err == nil)
-	s.committing.Store(false)
-	return err
-}
-
 // OnCleanup registers a hook to run when the owning transaction commits
 // or closes. The hook is invoked with committed=true if the owning tx
 // reached a successful Commit, and committed=false otherwise (Close
@@ -189,7 +179,11 @@ func (t *tx) txIdentity() *txState { return &t.state }
 // run after the commit attempt completes, with committed=true on
 // success and committed=false otherwise.
 func (t *tx) Commit(ctx context.Context, opts ...any) error {
-	return t.state.commit(func() error { return t.Tx.Commit(ctx, opts...) })
+	t.state.committing.Store(true)
+	err := t.Tx.Commit(ctx, opts...)
+	t.state.runCleanups(err == nil)
+	t.state.committing.Store(false)
+	return err
 }
 
 // Close closes the transaction. Hooks registered via state.OnCleanup

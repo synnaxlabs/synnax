@@ -141,6 +141,23 @@ func (t failingCommitTx) Commit(ctx context.Context, opts ...any) error {
 	return t.db.fail
 }
 
+// failingSetDB is a kv.DB whose writes outside a transaction fail once fail is set.
+type failingSetDB struct {
+	kv.DB
+	fail error
+}
+
+func (f *failingSetDB) Set(
+	ctx context.Context,
+	key, value []byte,
+	opts ...any,
+) error {
+	if f.fail != nil {
+		return f.fail
+	}
+	return f.DB.Set(ctx, key, value, opts...)
+}
+
 // openHostIndexedDB returns a DB whose indexes take local writes only from the commit
 // that makes them, as they do on a Core.
 func openHostIndexedDB(kvDB kv.DB) *gorp.DB {
@@ -263,6 +280,37 @@ var _ = Describe("Index", func() {
 		Expect(nameIdx.Get(nil, "zeta")).To(BeEmpty())
 		Expect(nameIdx.Get(nil, "alpha")).To(ConsistOf(int32(1)))
 	})
+
+	It(
+		"Should restore the indexes when a write through the DB fails",
+		func(ctx SpecContext) {
+			failing := &failingSetDB{DB: memkv.New()}
+			db := openHostIndexedDB(failing)
+			DeferCleanup(func() { Expect(db.Close()).To(Succeed()) })
+			nameIdx := gorp.NewLookupIndex(
+				"name", func(e *indexedEntry) string { return e.Name },
+			)
+			scoreIdx := gorp.NewSortedIndex(
+				"score", func(e *indexedEntry) int64 { return e.Score },
+			)
+			table := openIndexedTable(ctx, db, nameIdx, scoreIdx)
+			DeferCleanup(func() { Expect(table.Close()).To(Succeed()) })
+			Expect(table.NewCreate().
+				Entry(&indexedEntry{ID: 1, Name: "alpha", Score: 10}).
+				Exec(ctx, db)).To(Succeed())
+			failing.fail = errors.New("set failed")
+			Expect(table.NewCreate().
+				Entry(&indexedEntry{ID: 1, Name: "zeta", Score: 99}).
+				Exec(ctx, db)).To(MatchError("set failed"))
+			Expect(table.NewCreate().
+				Entry(&indexedEntry{ID: 2, Name: "zeta", Score: 99}).
+				Exec(ctx, db)).To(MatchError("set failed"))
+			Expect(nameIdx.Get(nil, "zeta")).To(BeEmpty())
+			Expect(nameIdx.Get(nil, "alpha")).To(ConsistOf(int32(1)))
+			Expect(scoreIdx.Get(nil, int64(99))).To(BeEmpty())
+			Expect(scoreIdx.Get(nil, int64(10))).To(ConsistOf(int32(1)))
+		},
+	)
 
 	Describe("Lookup", func() {
 		Describe("Population at OpenTable", func() {
