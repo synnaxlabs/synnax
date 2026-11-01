@@ -111,6 +111,37 @@ describe("ranger.reduceAll", () => {
   });
 });
 
+describe("ranger.encode", () => {
+  const end = (action: ranger.Action): unknown =>
+    action.type === "set" ? action.set.value : undefined;
+
+  it("should send a time range that never ends with its exact end", () => {
+    const action = ranger.set({
+      path: ["timeRange"],
+      value: { start: 1, end: TimeStamp.MAX.nanoseconds },
+    });
+    expect(end(ranger.encode(createRange(), action))).toEqual({
+      start: "1",
+      end: TimeStamp.MAX.valueOf().toString(),
+    });
+  });
+
+  it("should send one bound of a time range with its exact value", () => {
+    const action = ranger.set({
+      path: ["timeRange", "end"],
+      value: TimeStamp.MAX.nanoseconds,
+    });
+    expect(end(ranger.encode(createRange(), action))).toBe(
+      TimeStamp.MAX.valueOf().toString(),
+    );
+  });
+
+  it("should keep other fields as they are", () => {
+    const action = ranger.set({ path: ["name"], value: "Cold flow" });
+    expect(end(ranger.encode(createRange(), action))).toBe("Cold flow");
+  });
+});
+
 describe("ranger.createOf", () => {
   it("should return the range that a create carries", () => {
     const range = createRange();

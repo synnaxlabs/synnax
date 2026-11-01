@@ -7,7 +7,15 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { caseconv, color, patch, type record, TimeRange, zod } from "@synnaxlabs/x";
+import {
+  caseconv,
+  color,
+  patch,
+  type record,
+  TimeRange,
+  TimeStamp,
+  zod,
+} from "@synnaxlabs/x";
 import { type Draft } from "immer";
 import { z } from "zod";
 
@@ -66,14 +74,31 @@ const handlers: Handlers = {
  */
 export const reduceAll = createReduceAll(handlers);
 
+const nanoseconds = (time: TimeStamp): string => time.valueOf().toString();
+
+// A number cannot hold a large timestamp such as TimeStamp.MAX, so a timestamp reaches
+// the Core as a string of its exact nanoseconds.
+const exactTimes = (action: patch.Action): patch.Action => {
+  if (action.type !== "set" || action.set.path[0] !== "time_range") return action;
+  const { set } = action;
+  if (set.path.length > 1)
+    return {
+      ...action,
+      set: { ...set, value: nanoseconds(TimeStamp.z.parse(set.value)) },
+    };
+  const { start, end } = TimeRange.z.parse(set.value);
+  const value = { start: nanoseconds(start), end: nanoseconds(end) };
+  return { ...action, set: { ...set, value } };
+};
+
 /**
  * Converts an action from the camelCase form of the cached range into the snake_case
- * form that the Core stores.
+ * form that the Core stores, with exact timestamps.
  */
 export const encode = (state: Payload, action: Action): Action =>
   action.type === "create"
     ? action
-    : patch.camelToSnake(action, { schema: documentZ, data: state });
+    : exactTimes(patch.camelToSnake(action, { schema: documentZ, data: state }));
 
 /** @returns the range that a create action carries, or undefined for other actions. */
 export const createOf = (action: Action): Payload | undefined =>

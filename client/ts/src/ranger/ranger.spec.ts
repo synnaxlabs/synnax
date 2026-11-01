@@ -1167,6 +1167,22 @@ describe("dispatch", () => {
     expect(expectLive(client.ranges.getCached(rng.key)).name).toBe(rng.name);
   });
 
+  it("should reopen a range with an end that a number cannot hold", async () => {
+    const rng = await createRange();
+    const { start } = rng.timeRange.numeric;
+    expect(
+      await client.ranges.dispatch(
+        rng.key,
+        ranger.set({
+          path: ["timeRange"],
+          value: { start, end: TimeStamp.MAX.nanoseconds },
+        }),
+      ),
+    ).toBe(true);
+    const stored = await createTestClient().ranges.retrieve(rng.key);
+    expect(stored.timeRange.end).toEqual(TimeStamp.MAX);
+  });
+
   it("should send a transaction as one dispatch", async () => {
     const rng = await createRange();
     const send = spyOnSend(client);
