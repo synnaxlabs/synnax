@@ -7,8 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-#include "x/cpp/lib/lib.h"
-
+#include "driver/errors/errors.h"
 #include "driver/ethercat/engine/pool.h"
 
 namespace driver::ethercat::engine {
@@ -26,11 +25,7 @@ std::vector<master::Info> Pool::enumerate() const {
 
 x::errors::Error Pool::check_available() const {
     if (this->manager != nullptr) return x::errors::NIL;
-    return x::errors::Error(
-        x::lib::LOAD_ERROR,
-        "EtherCAT is unavailable because a required packet capture library is not "
-        "installed. Check the Driver logs for details."
-    );
+    return driver::errors::missing_lib(PCAP_LIBRARY_INFO);
 }
 
 std::pair<std::shared_ptr<Engine>, x::errors::Error>

@@ -38,68 +38,12 @@ span.lyra-text {
         font-family: var(--pluto-code-font-family);
     }
 
+    /* A key is a glyph in a fixed cell, so letters and icons space evenly. */
     &.lyra-text--keyboard {
-        line-height: 1;
-
-        /* Square for a single glyph; word keys ("esc", "delete") outgrow the ratio and
-           keep the padding so they read as keycaps rather than cramped labels. */
-        aspect-ratio: 1;
-        box-sizing: border-box;
-        padding-inline: 0.4em;
+        min-width: round(1.667rem, 1px);
         justify-content: center;
-        color: var(--pluto-gray-l9);
-        background: var(--pluto-keycap-bg, var(--pluto-gray-l2));
-
-        /* Geometry off the color chain: a blank border color voids the shorthand, and
-           the zeroed width then shifts every cap in a right-aligned row. */
-        border: var(--pluto-border-width) solid;
-
-        /* A concrete gray, not the ambient --pluto-border-color: every button variant
-           rewrites that for its own chassis, and the text variant sets it to the page
-           background, which erases the cap's outline. */
-        border-color: var(--pluto-keycap-border-color, var(--pluto-gray-l7));
-        border-radius: var(--pluto-border-radius);
-
-        /* An icon already fits inside the square, so padding it moves nothing and only
-           widens the row's intrinsic size, knocking the caps off whole pixels. */
-        &:has(> .lyra-icon) {
-            padding-inline: 0;
-        }
-
-        &.lyra-text--p {
-            height: var(--pluto-p-line-height);
-            font-size: calc(var(--pluto-p-size) - 1px);
-        }
-
-        &.lyra-text--h1 {
-            height: var(--pluto-h1-line-height);
-            font-size: calc(var(--pluto-h1-size) - 1px);
-        }
-
-        &.lyra-text--h2 {
-            height: var(--pluto-h2-line-height);
-            font-size: calc(var(--pluto-h2-size) - 1px);
-        }
-
-        &.lyra-text--h3 {
-            height: var(--pluto-h3-line-height);
-            font-size: calc(var(--pluto-h3-size) - 1px);
-        }
-
-        &.lyra-text--h4 {
-            height: var(--pluto-h4-line-height);
-            font-size: calc(var(--pluto-h4-size) - 1px);
-        }
-
-        &.lyra-text--h5 {
-            height: var(--pluto-h5-line-height);
-            font-size: calc(var(--pluto-h5-size) - 1px);
-        }
-
-        &.lyra-text--small {
-            height: calc(var(--pluto-small-line-height) + 1px);
-            font-size: calc(var(--pluto-small-size) - 2px);
-        }
+        font-size: var(--pluto-keycap-font-size, var(--pluto-tiny-size));
+        line-height: 1;
     }
 
     /* Cut text fades out at its end. The self scroll timeline is inactive until the
@@ -109,7 +53,6 @@ span.lyra-text {
     &.lyra-text--overflow-fade {
         white-space: nowrap;
         overflow: hidden;
-        display: block;
         animation-name: text-fade;
         animation-timing-function: linear;
         animation-timeline: scroll(self x);
@@ -144,6 +87,11 @@ span.lyra-text {
         &.lyra-text--overflow-fade,
         &.lyra-text--line-clamp {
             text-overflow: ellipsis;
+        }
+
+        /* Ellipsis needs a block container. */
+        &.lyra-text--overflow-fade {
+            display: block;
         }
     }
 }

@@ -18,6 +18,7 @@ import (
 	apipanel "github.com/synnaxlabs/synnax/pkg/api/panel"
 	. "github.com/synnaxlabs/synnax/pkg/api/testutil"
 	"github.com/synnaxlabs/synnax/pkg/service/access"
+	. "github.com/synnaxlabs/synnax/pkg/service/actions/testutil"
 	"github.com/synnaxlabs/synnax/pkg/service/ontology"
 	"github.com/synnaxlabs/synnax/pkg/service/panel"
 	"github.com/synnaxlabs/x/query"
@@ -74,6 +75,25 @@ var _ = Describe("Service", func() {
 				Entry(&got).Exec(ctx, nil)).To(Succeed())
 			Expect(got.Name).To(Equal("with-parent"))
 			Expect(hasParent(ctx, parentID, p.Key)).To(BeTrue())
+		})
+
+		It("Should stamp the dispatch key onto the create broadcast", func(
+			ctx SpecContext,
+		) {
+			u := newUser(ctx)
+			grant(ctx, u.OntologyID(), access.ActionCreate,
+				ontology.ID{Type: ontology.ResourceTypePanel}, parentID)
+			rec := &Recorder[panel.Key, panel.Action]{}
+			DeferCleanup(panelSvc.OnAction(rec.Record))
+			p := panel.Panel{Key: uuid.New(), Name: "broadcast", Parent: &parentID}
+			MustSucceed(apiSvc.Create(AuthedCtx(ctx, u), nil, apipanel.CreateRequest{
+				Panels:      []panel.Panel{p},
+				DispatchKey: "dk-create",
+			}))
+			frames := rec.Snapshot()
+			Expect(frames).To(HaveLen(1))
+			Expect(frames[0].Key).To(Equal(p.Key))
+			Expect(frames[0].DispatchKey).To(Equal("dk-create"))
 		})
 
 		It(

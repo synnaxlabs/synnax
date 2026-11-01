@@ -15,8 +15,7 @@ import { describe, expect, it } from "vitest";
 
 import { Group } from "@/platform/group";
 import { Tree } from "@/platform/tree";
-import { getTreeRow } from "@/platform/tree/menuTestutil";
-import { renderOntologyTree } from "@/platform/tree/treeTestutil";
+import { getTreeRow, renderOntologyTree } from "@/platform/tree/testutil";
 import {
   awaitTextEditingElement,
   awaitTextEditingExit,

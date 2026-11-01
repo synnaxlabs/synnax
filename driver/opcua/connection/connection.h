@@ -19,7 +19,7 @@
 #include <utility>
 #include <vector>
 
-#include "open62541/common.h"
+#include "open62541/client.h"
 
 #include "x/cpp/errors/errors.h"
 #include "x/cpp/json/json.h"

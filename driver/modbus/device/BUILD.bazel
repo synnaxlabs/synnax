@@ -12,6 +12,16 @@ load("@rules_cc//cc:cc_test.bzl", "cc_test")
 
 cc_library(
     name = "device",
+    srcs = select({
+        "@platforms//os:windows": [
+            "error_windows.cpp",
+            "serial_windows.cpp",
+        ],
+        "//conditions:default": [
+            "error_posix.cpp",
+            "serial_posix.cpp",
+        ],
+    }),
     hdrs = ["device.h"],
     visibility = ["//visibility:public"],
     deps = [
@@ -19,7 +29,7 @@ cc_library(
         "//vendor/libmodbus",
         "//x/cpp/errors",
         "//x/cpp/json",
-        "@abseil-cpp//absl/log",
+        "//x/cpp/telem",
     ],
 )
 

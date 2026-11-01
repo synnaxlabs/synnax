@@ -37,6 +37,9 @@ export type Reason = z.infer<typeof reasonZ>;
 export const statusDetailsZ = z.object({
   error: z.instanceof(Error).optional(),
   authenticated: z.boolean(),
+  // The key of the client's session, so a new session notifies observers. Never the
+  // token: status details get logged.
+  session: z.string().optional(),
   streamLive: z.boolean(),
   // The cluster refused the change stream. Unary calls the user is allowed to
   // make still work; live updates do not arrive.
@@ -198,7 +201,7 @@ export type Event =
   | { type: "stream.live" }
   | { type: "stream.drop"; error?: Error }
   | { type: "stream.denied"; error?: Error }
-  | { type: "auth.success" }
+  | { type: "auth.success"; session: string }
   | { type: "auth.failure"; error: Error }
   | { type: "epoch.advanced"; epoch: number }
   | { type: "retry.scheduled"; attempt: number; nextAt: TimeStamp }
@@ -369,7 +372,7 @@ const reduceAuthFailure = (prev: Status, error: Error): Status =>
   enterError(
     prev,
     AUTH_FAILED,
-    { reason: "auth", error, authenticated: false, retry: null },
+    { reason: "auth", error, authenticated: false, session: undefined, retry: null },
     error.message,
   );
 
@@ -447,7 +450,7 @@ export const reduce = (prev: Status, event: Event, config: Config): Status => {
     case "stream.denied":
       return enterStreamDenied(prev);
     case "auth.success":
-      return update(prev, { authenticated: true });
+      return update(prev, { authenticated: true, session: event.session });
     case "auth.failure":
       return reduceAuthFailure(prev, event.error);
     case "epoch.advanced":
@@ -467,6 +470,7 @@ export const reduce = (prev: Status, event: Event, config: Config): Status => {
         error: undefined,
         streamDenied: false,
         authenticated: false,
+        session: undefined,
       });
     case "closed":
       return enter(prev, "disabled", "Closed", {

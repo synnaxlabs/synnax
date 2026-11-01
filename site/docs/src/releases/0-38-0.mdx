@@ -6,6 +6,7 @@ import { Divider } from "@synnaxlabs/lyra/divider";
 import { Hero } from "@/components/hero";
 import { mdxOverrides } from "@/components/mdxOverrides";
 import Release from "@/components/releases/Release.astro";
+import { Keys } from "@/components/keys/Keys";
 
 export const components = mdxOverrides;
 
@@ -80,7 +81,7 @@ sy login
 - Modals and the version info window are now no longer saved in workspaces.
 - Groups are now positioned above all other items within the resources toolbar.
 - Line plots render `uint8` data faster.
-- `Cmd + A` can now be used to group all schematic elements.
+- <Keys trigger={["Control", "A"]} /> can now be used to group all schematic elements.
 
 <Divider.Divider x />
 

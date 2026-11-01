@@ -30,7 +30,7 @@ import (
 var _ = Describe("Dashed names keep -> intact", func() {
 	root := func() *symbol.Symbol {
 		r := symbol.NewRoot(nil, stl.NewSymbols())
-		syms := []arc.Symbol{
+		syms := []symbol.Symbol{
 			{
 				Name: "ox_pt_1",
 				Kind: symbol.KindChannel,
@@ -117,7 +117,7 @@ var _ = Describe("Dashed names keep -> intact", func() {
 })
 
 var _ = Describe("Arc", func() {
-	compile := func(ctx SpecContext, code string, channels ...arc.Symbol) arc.Program {
+	compile := func(ctx SpecContext, code string, channels ...symbol.Symbol) arc.Program {
 		GinkgoHelper()
 		t := arc.Text{Raw: code}
 		Expect(t.Raw).ToNot(BeEmpty())
@@ -246,13 +246,13 @@ var _ = Describe("Arc", func() {
 }
 
 ox_pt_1 -> calc() -> ox_pt_doubled`,
-			arc.Symbol{
+			symbol.Symbol{
 				Name: "ox_pt_1",
 				Kind: symbol.KindChannel,
 				Type: types.Chan(types.F32()),
 				ID:   1,
 			},
-			arc.Symbol{
+			symbol.Symbol{
 				Name: "ox_pt_doubled",
 				Kind: symbol.KindChannel,
 				Type: types.Chan(types.F32()),
@@ -322,7 +322,7 @@ ox_pt_1 -> calc() -> ox_pt_doubled`,
         1 -> output
     }
 }`,
-			arc.Symbol{
+			symbol.Symbol{
 				Name: "output",
 				Kind: symbol.KindChannel,
 				Type: types.Chan(types.F32()),
@@ -368,13 +368,13 @@ ox_pt_1 -> calc() -> ox_pt_doubled`,
 
 	It("Should compile a WASM-only call at the head of a flow", func(ctx SpecContext) {
 		mod := compile(ctx, `len(label) -> count`,
-			arc.Symbol{
+			symbol.Symbol{
 				Name: "label",
 				Kind: symbol.KindChannel,
 				Type: types.Chan(types.String()),
 				ID:   1,
 			},
-			arc.Symbol{
+			symbol.Symbol{
 				Name: "count",
 				Kind: symbol.KindChannel,
 				Type: types.Chan(types.I64()),
@@ -399,25 +399,25 @@ sequence main {
         0 -> press_vlv_cmd
     }
 }
-`, arc.Symbol{
+`, symbol.Symbol{
 			Name: "press_vlv_cmd",
 			Kind: symbol.KindChannel,
 			Type: types.Chan(types.U8()),
 			ID:   1,
 		},
-			arc.Symbol{
+			symbol.Symbol{
 				Name: "vent_vlv_cmd",
 				Kind: symbol.KindChannel,
 				Type: types.Chan(types.U8()),
 				ID:   4,
 			},
-			arc.Symbol{
+			symbol.Symbol{
 				Name: "press_pt",
 				Kind: symbol.KindChannel,
 				Type: types.Chan(types.F32()),
 				ID:   2,
 			},
-			arc.Symbol{
+			symbol.Symbol{
 				Name: "start_seq_cmd",
 				Kind: symbol.KindChannel,
 				Type: types.Chan(types.U8()),
@@ -474,25 +474,25 @@ sequence main {
 		        press_pt -> expr2() => press
 		    }
 		}`,
-			arc.Symbol{
+			symbol.Symbol{
 				Name: "press_vlv_cmd",
 				Kind: symbol.KindChannel,
 				Type: types.Chan(types.U8()),
 				ID:   1,
 			},
-			arc.Symbol{
+			symbol.Symbol{
 				Name: "vent_vlv_cmd",
 				Kind: symbol.KindChannel,
 				Type: types.Chan(types.U8()),
 				ID:   4,
 			},
-			arc.Symbol{
+			symbol.Symbol{
 				Name: "press_pt",
 				Kind: symbol.KindChannel,
 				Type: types.Chan(types.F32()),
 				ID:   2,
 			},
-			arc.Symbol{
+			symbol.Symbol{
 				Name: "start_seq_cmd",
 				Kind: symbol.KindChannel,
 				Type: types.Chan(types.U8()),
@@ -546,7 +546,7 @@ sequence main {
 			// "state::load_i64", not bare "state::load". This mirrors the exact program
 			// used in the C++
 			// NodeTest.StatefulVariablesAreIsolatedBetweenNodeInstances.
-			channels := []arc.Symbol{
+			channels := []symbol.Symbol{
 				{
 					Name: "trigger",
 					Kind: symbol.KindChannel,
@@ -1076,7 +1076,7 @@ var _ = DescribeTable(
 	"non-positive timer span rejection",
 	func(ctx SpecContext, source, message string) {
 		root := symbol.NewRoot(nil, stl.NewSymbols())
-		out := arc.Symbol{
+		out := symbol.Symbol{
 			Name: "out",
 			Kind: symbol.KindChannel,
 			Type: types.Chan(types.U8()),
