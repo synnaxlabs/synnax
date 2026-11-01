@@ -8,7 +8,7 @@
 // included in the file licenses/APL.txt.
 
 import { deep, type record } from "@synnaxlabs/x";
-import { act, fireEvent, render, renderHook } from "@testing-library/react";
+import { act, fireEvent, render, renderHook, screen } from "@testing-library/react";
 import { type PropsWithChildren, type ReactElement } from "react";
 import { renderToString } from "react-dom/server";
 import { describe, expect, it, vi } from "vitest";
@@ -219,6 +219,118 @@ describe("Form", () => {
         );
         expect(result.current.validate()).toBe(true);
       });
+    });
+    describe("addCheck", () => {
+      const notJohn = z.string().refine((v) => v !== "John Doe", "Not John");
+      const useBasicForm = () =>
+        Form.use({ values: deep.copy(initialFormValues), schema: basicFormSchema });
+
+      it("should show a check's issue on an untouched field", () => {
+        const { result } = renderHook(useBasicForm);
+        act(() => {
+          result.current.addCheck("name", notJohn);
+        });
+        expect(result.current.get("name").status).toMatchObject({
+          variant: "error",
+          message: "Not John",
+        });
+      });
+      it("should not make the form invalid", () => {
+        const { result } = renderHook(useBasicForm);
+        act(() => {
+          result.current.addCheck("name", notJohn);
+        });
+        expect(result.current.validate()).toBe(true);
+      });
+      it("should check again on every set", () => {
+        const { result } = renderHook(useBasicForm);
+        act(() => {
+          result.current.addCheck("name", notJohn);
+        });
+        act(() => result.current.set("name", "Jane Doe"));
+        expect(result.current.get("name").status.variant).toBe("success");
+      });
+      it("should check the values a reset gives", () => {
+        const { result } = renderHook(() =>
+          Form.use({
+            values: deep.copy({ ...initialFormValues, name: "Jane Doe" }),
+            schema: basicFormSchema,
+          }),
+        );
+        act(() => {
+          result.current.addCheck("name", notJohn);
+        });
+        act(() => result.current.reset(deep.copy(initialFormValues)));
+        expect(result.current.get("name").status.message).toBe("Not John");
+      });
+      it("should check again after a remove", () => {
+        const { result } = renderHook(useBasicForm);
+        act(() => {
+          result.current.addCheck(
+            "",
+            z.object({ optionalField: z.literal("").optional() }),
+          );
+        });
+        act(() => result.current.set("optionalField", "set"));
+        expect(result.current.get("optionalField").status.variant).toBe("error");
+        act(() => result.current.remove("optionalField"));
+        expect(result.current.getStatuses()).toEqual([]);
+      });
+      it("should clear its issues once removed", () => {
+        const { result } = renderHook(useBasicForm);
+        let remove = () => {};
+        act(() => {
+          remove = result.current.addCheck("name", notJohn);
+        });
+        act(() => remove());
+        expect(result.current.get("name").status.variant).toBe("success");
+      });
+      it("should keep an error over a later warning on the same field", () => {
+        const { result } = renderHook(useBasicForm);
+        const warning = z.string().check(({ value, issues }) => {
+          issues.push({
+            code: "custom",
+            message: "Odd name",
+            input: value,
+            params: { variant: "warning" },
+          });
+        });
+        act(() => {
+          result.current.addCheck("name", notJohn);
+          result.current.addCheck("name", warning);
+        });
+        expect(result.current.get("name").status.message).toBe("Not John");
+      });
+    });
+  });
+
+  describe("useCheck", () => {
+    const notJohn = z.string().refine((v) => v !== "John Doe", "Not John");
+
+    it("should check the field while mounted", () => {
+      const { result, unmount } = renderHook(
+        () => {
+          Form.useCheck("name", notJohn);
+          return Form.useContext();
+        },
+        { wrapper },
+      );
+      expect(result.current.get("name").status.message).toBe("Not John");
+      const ctx = result.current;
+      unmount();
+      expect(ctx.get("name").status.variant).toBe("success");
+    });
+    it("should replace the check when the schema changes", () => {
+      const notJane = z.string().refine((v) => v !== "John Doe", "Not Jane");
+      const { result, rerender } = renderHook(
+        ({ schema }: { schema: z.ZodType }) => {
+          Form.useCheck("name", schema);
+          return Form.useContext();
+        },
+        { wrapper, initialProps: { schema: notJohn } },
+      );
+      rerender({ schema: notJane });
+      expect(result.current.get("name").status.message).toBe("Not Jane");
     });
   });
 
@@ -624,6 +736,84 @@ describe("Form", () => {
       fireEvent.blur(input);
       // we're executing an async parse so we need to wait for the error to show up
       expect(c.findByText("You must be at least 5 years old.")).toBeTruthy();
+    });
+  });
+
+  describe("CheckboxField", () => {
+    const flagsSchema = z.object({
+      enabled: z.boolean(),
+      disabled: z.boolean(),
+      config: z.object({ autoStart: z.boolean() }),
+    });
+
+    const flagsWrapper =
+      (field?: ReactElement) =>
+      ({ children }: PropsWithChildren): ReactElement => {
+        const methods = Form.use<typeof flagsSchema>({
+          values: { enabled: true, disabled: false, config: { autoStart: false } },
+          schema: flagsSchema,
+        });
+        return (
+          <Form.Form<typeof flagsSchema> {...methods}>
+            {field}
+            {children}
+          </Form.Form>
+        );
+      };
+
+    it("should check the box when the stored value is true", () => {
+      render(<Form.CheckboxField path="enabled" />, { wrapper: flagsWrapper() });
+      expect(
+        screen.getByRole<HTMLInputElement>("checkbox", { name: "Enabled" }).checked,
+      ).toBe(true);
+    });
+
+    it("should never show a required mark", () => {
+      const c = render(<Form.CheckboxField path="enabled" />, {
+        wrapper: flagsWrapper(),
+      });
+      expect(c.queryByText("*")).toBeNull();
+    });
+
+    it("should check the box when an inverted flag is false", () => {
+      render(<Form.CheckboxField path="disabled" label="Saving" inverted />, {
+        wrapper: flagsWrapper(),
+      });
+      expect(
+        screen.getByRole<HTMLInputElement>("checkbox", { name: "Saving" }).checked,
+      ).toBe(true);
+    });
+
+    it("should store the inverse of the box for an inverted flag", () => {
+      const { result } = renderHook(() => Form.useFieldValue<boolean>("disabled"), {
+        wrapper: flagsWrapper(
+          <Form.CheckboxField path="disabled" label="Saving" inverted />,
+        ),
+      });
+      expect(result.current).toBe(false);
+      act(() => {
+        fireEvent.click(screen.getByRole("checkbox", { name: "Saving" }));
+      });
+      expect(result.current).toBe(true);
+    });
+
+    it("should bind to the field key under the path", () => {
+      const { result } = renderHook(
+        () => Form.useFieldValue<boolean>("config.autoStart"),
+        {
+          wrapper: flagsWrapper(
+            <Form.CheckboxField
+              path="config"
+              fieldKey="autoStart"
+              label="Auto start"
+            />,
+          ),
+        },
+      );
+      act(() => {
+        fireEvent.click(screen.getByRole("checkbox", { name: "Auto start" }));
+      });
+      expect(result.current).toBe(true);
     });
   });
 

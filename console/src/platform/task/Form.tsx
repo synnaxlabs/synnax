@@ -13,7 +13,6 @@ import {
   type device,
   DisconnectedError,
   type rack,
-  type status,
   type Synnax,
   task,
 } from "@synnaxlabs/client";
@@ -22,8 +21,8 @@ import { Form as PForm } from "@synnaxlabs/lyra/form";
 import { Input } from "@synnaxlabs/lyra/input";
 import { Status } from "@synnaxlabs/lyra/status";
 import { Access, Synnax as PSynnax, Task as PTask } from "@synnaxlabs/pluto";
-import { deep, primitive, TimeSpan } from "@synnaxlabs/x";
-import { type FC } from "react";
+import { primitive, TimeSpan } from "@synnaxlabs/x";
+import { type FC, useRef } from "react";
 import { type z } from "zod";
 
 import { Analytics } from "@/platform/analytics";
@@ -65,9 +64,9 @@ export interface WrapFormParams<S extends task.Schemas = task.Schemas> {
   onConfigure: OnConfigure<S["config"]>;
   schemas: S;
   /**
-   * Validates the config when the user deploys. Failures render as field
-   * errors and block the start command; warning-variant issues render but
-   * don't block. Shape schemas stay lax so drafts persist through autosave.
+   * Checks the config from the first deploy on, as a check the form runs on every edit.
+   * Shape schemas stay lax so drafts persist through autosave. A deploy starts only
+   * when no field shows an error, so a warning never blocks one.
    */
   deployConfigZ: z.ZodType;
   getInitialValues: GetInitialValues<S>;
@@ -83,14 +82,6 @@ export const useIsSnapshot = <Schema extends z.ZodType>(
   ctx?: PForm.ContextValue<Schema>,
 ) => PForm.useFieldValue<boolean>("snapshot", { ctx });
 
-/**
- * Whether the surrounding task form renders read-only: the task is a snapshot or the
- * subject holds no update grant. Edit affordances gate on this, not on useIsSnapshot.
- */
-export const useIsPreview = <Schema extends z.ZodType>(
-  ctx?: PForm.ContextValue<Schema>,
-) => PForm.useContext<Schema>(ctx).mode === "preview";
-
 interface HeaderProps {
   isSnapshot: boolean;
 }
@@ -98,7 +89,7 @@ interface HeaderProps {
 const Header = ({ isSnapshot }: HeaderProps) => (
   <>
     <Flex.Box x justify="between">
-      <PForm.Field<string> path="name" showLabel={false}>
+      <PForm.Field<string> path="name" showLabel={false} padHelpText={false} grow>
         {(p) => (
           <Input.Text
             variant="text"
@@ -109,9 +100,11 @@ const Header = ({ isSnapshot }: HeaderProps) => (
           />
         )}
       </PForm.Field>
-      <Flex.Box align="end" gap="small">
+      <Flex.Box align="end" gap="small" className={CSS.BE("task-configure", "actions")}>
         <UtilityButtons />
-        <Rack />
+        <div className={CSS.BE("task-configure", "rack")}>
+          <Rack />
+        </div>
       </Flex.Box>
     </Flex.Box>
     {!isSnapshot && <ParentRangeButton />}
@@ -120,11 +113,6 @@ const Header = ({ isSnapshot }: HeaderProps) => (
 
 // Numeric fields have drag handles that emit a change per pixel.
 const AUTO_SAVE_DEBOUNCE = TimeSpan.milliseconds(200);
-
-const issueVariant = (issue: z.core.$ZodIssue): status.Variant =>
-  issue.code === "custom" && issue.params != null && "variant" in issue.params
-    ? (issue.params.variant as status.Variant)
-    : "error";
 
 export const wrapForm = <S extends task.Schemas = task.Schemas>({
   Properties,
@@ -152,27 +140,19 @@ export const wrapForm = <S extends task.Schemas = task.Schemas>({
     // read-only rather than fields that revert once the save is refused.
     const canEdit = Access.useUpdateGranted(task.ontologyID(taskKey));
 
+    const deployChecked = useRef(false);
+
     const handleDeploy = () => {
       handleError(async () => {
         if (client == null) throw new DisconnectedError();
         if (canEdit) {
-          const { config, name } = form.value();
-          form.clearStatuses();
-          const result = deployConfigZ.safeParse(config);
-          if (!result.success) {
-            let blocked = false;
-            result.error.issues.forEach((issue) => {
-              const variant = issueVariant(issue);
-              if (variant !== "warning") blocked = true;
-              // Fields address array items by their key, not by their index.
-              const path = deep.resolvePath(
-                ["config", ...issue.path].join("."),
-                form.value(),
-              );
-              form.setStatus(path, { key: path, variant, message: issue.message });
-            });
-            if (blocked) return;
+          if (!deployChecked.current) {
+            form.addCheck("config", deployConfigZ);
+            deployChecked.current = true;
           }
+          await form.validateAsync();
+          if (form.getStatuses().some(({ variant }) => variant === "error")) return;
+          const { config, name } = form.value();
           const [newConfig, newRack] = await onConfigure(client, config, name);
           // Tracked sets, so the result of a save still in flight cannot revert them.
           form.set("config", newConfig);

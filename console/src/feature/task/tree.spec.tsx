@@ -19,15 +19,16 @@ import { Task } from "@/feature/task";
 import { Modals } from "@/platform/modals";
 import { findLastButton } from "@/platform/modals/testutil";
 import { type Tree } from "@/platform/tree";
-import { renderTreeContextMenu } from "@/platform/tree/menuTestutil";
 import {
   createBaseProps,
   createExecutingHandleError,
   createResource,
   createSelection,
   createState,
+  findTreeRow,
+  renderOntologyTree,
+  renderTreeContextMenu,
 } from "@/platform/tree/testutil";
-import { findTreeRow, renderOntologyTree } from "@/platform/tree/treeTestutil";
 import { Session } from "@/session";
 import {
   assertDefined,
