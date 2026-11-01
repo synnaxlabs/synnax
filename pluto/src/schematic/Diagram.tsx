@@ -43,7 +43,9 @@ const useConfig = <T extends ElementConfig>(
   const handleChange = (partial: Partial<T>) => {
     const current = configRef.current;
     if (current == null) return;
-    dispatch(schematic.setConfig({ key, config: { ...current, ...partial } }));
+    dispatch(
+      schematic.setChanged({ key, base: current, next: { ...current, ...partial } }),
+    );
   };
   return [config as T | undefined, handleChange];
 };

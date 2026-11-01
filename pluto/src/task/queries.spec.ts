@@ -9,13 +9,12 @@
 
 import { group, ontology, rack, status, task } from "@synnaxlabs/client";
 import { createTestClient } from "@synnaxlabs/client/testutil";
-import { id, uuid } from "@synnaxlabs/x";
-import { act, render, renderHook, waitFor } from "@testing-library/react";
-import { type PropsWithChildren, type ReactElement } from "react";
-import { beforeEach, describe, expect, it, vi } from "vitest";
+import { id } from "@synnaxlabs/x";
+import { act, renderHook, waitFor } from "@testing-library/react";
+import { type PropsWithChildren } from "react";
+import { beforeEach, describe, expect, it } from "vitest";
 import z from "zod";
 
-import { Errors } from "@/errors";
 import { Task } from "@/task";
 import { renderHookSuspended } from "@/testutil/render";
 import { createAsyncSynnaxWrapper } from "@/testutil/Synnax";
@@ -23,7 +22,6 @@ import { createAsyncSynnaxWrapper } from "@/testutil/Synnax";
 const client = createTestClient();
 
 describe("queries", () => {
-  const abortController = new AbortController();
   let wrapper: React.FC<PropsWithChildren>;
 
   beforeEach(async () => {
@@ -293,6 +291,7 @@ describe("queries", () => {
         type: "start",
         configHash: "",
         args: {},
+        pinned: false,
       };
 
       await act(async () => {
@@ -790,385 +789,65 @@ describe("queries", () => {
     });
   });
 
-  describe("useForm", async () => {
+  describe("createForm", async () => {
     const testRack = await client.racks.create({ name: "testRack" });
-    it("should initialize a form with default values", async () => {
-      const useForm = Task.createForm({
-        schemas: {
-          type: z.literal("pagerduty_alert"),
-          config: z.object({}),
-          statusData: z.any().optional(),
-        },
-        initialValues: {
-          key: "123",
-          name: "testTask",
-          type: "pagerduty_alert",
-          config: {},
-        },
-      });
-      const { result } = renderHook(() => useForm({ query: null }), {
-        wrapper,
-      });
-      await waitFor(() => {
-        expect(result.current.variant).toEqual("success");
-      });
-      expect(result.current.form.get("key").value).toEqual("123");
-      expect(result.current.form.get("name").value).toEqual("testTask");
-      expect(result.current.form.get("type").value).toEqual("pagerduty_alert");
-      expect(result.current.form.get("config").value).toEqual({});
-      expect(result.current.form.get("rack").value).toEqual(0);
-      expect(result.current.form.get("snapshot").value).toEqual(false);
+    const statusData = z.object({ errorCode: z.number().optional() });
+    const useForm = Task.createForm({
+      schemas: {
+        type: z.literal("pagerduty_alert"),
+        config: z.object({ routingKey: z.string() }),
+        statusData: statusData.nullish(),
+      },
     });
 
-    it("should honor an initial rack when creating a new task", async () => {
-      const useForm = Task.createForm({
-        schemas: {
-          type: z.literal("pagerduty_alert"),
-          config: z.object({}),
-          statusData: z.any().optional(),
-        },
-        initialValues: {
-          name: "testTask",
-          type: "pagerduty_alert",
-          config: {},
-          rack: testRack.key,
-        },
-      });
-      const { result } = renderHook(() => useForm({ query: null }), {
-        wrapper,
-      });
-      await waitFor(() => {
-        expect(result.current.variant).toEqual("success");
-      });
-      expect(result.current.form.get("rack").value).toEqual(testRack.key);
-    });
-
-    it("should populate rack from the retrieved task", async () => {
-      const existing = await testRack.createTask({
-        name: "rackDeriveTask",
+    const createTask = async (): Promise<task.Task> =>
+      await testRack.createTask({
+        name: `form-${id.create()}`,
         type: "pagerduty_alert",
-        config: {},
+        config: { routingKey: "dog" },
       });
-      const useForm = Task.createForm({
-        schemas: {
-          type: z.literal("pagerduty_alert"),
-          config: z.object({}),
-          statusData: z.any().optional(),
-        },
-        initialValues: {
-          name: "rackDeriveTask",
-          type: "pagerduty_alert",
-          config: {},
-        },
+
+    const renderForm = async (key: task.Key) =>
+      await renderHookSuspended(() => useForm({ query: { key } }), { wrapper });
+
+    it("should show the cached task", async () => {
+      const t = await createTask();
+      const { result } = await renderForm(t.key);
+      expect(result.current.form.value()).toMatchObject({
+        key: t.key,
+        name: t.name,
+        rack: testRack.key,
+        type: "pagerduty_alert",
+        config: { routingKey: "dog" },
+        configHash: t.configHash,
+        snapshot: false,
       });
-      const { result } = renderHook(() => useForm({ query: { key: existing.key } }), {
-        wrapper,
-      });
-      await waitFor(() => {
-        expect(result.current.variant).toEqual("success");
-      });
-      expect(result.current.form.get("rack").value).toEqual(testRack.key);
     });
 
-    it("should create a draft task when no rack is set", async () => {
-      const useForm = Task.createForm({
-        schemas: {
-          type: z.literal("pagerduty_alert"),
-          config: z.object({}),
-          statusData: z.any().optional(),
-        },
-        initialValues: {
-          name: "draftTask",
-          type: "pagerduty_alert",
-          config: {},
-        },
-      });
-      const { result } = renderHook(() => useForm({ query: null }), {
-        wrapper,
-      });
-      await waitFor(() => expect(result.current.variant).toEqual("success"));
-
+    it("should show the config hash of an edit once the Core applies it", async () => {
+      const t = await createTask();
+      const { result } = await renderForm(t.key);
+      act(() => result.current.form.set("config.routingKey", "cat"));
       await act(async () => {
-        result.current.save();
+        expect(await result.current.flush()).toBe(true);
+        await client.tasks.settled(t.key);
       });
-      await waitFor(() => expect(result.current.variant).toEqual("success"));
-
-      const key = result.current.form.get<string>("key").value;
-      expect(key).not.toBeUndefined();
-      const created = await client.tasks.retrieve({ key });
-      expect(created.rack).toEqual(0);
-      expect(created.name).toEqual("draftTask");
+      const stored = await createTestClient().tasks.retrieve(t.key);
+      expect(stored.config).toMatchObject({ routingKey: "cat" });
+      expect(stored.configHash).not.toBe(t.configHash);
+      expect(result.current.form.get("configHash").value).toBe(stored.configHash);
     });
 
-    it("should retrieve and populate form with existing task", async () => {
-      const testTask = await testRack.createTask({
-        name: "existingTask",
-        type: "pagerduty_alert",
-        config: { routingKey: "rk-populate" },
-      });
-
-      const useForm = Task.createForm({
-        schemas: {
-          type: z.literal("pagerduty_alert"),
-          config: z.object({ routingKey: z.string() }),
-          statusData: z.any().nullish(),
-        },
-        initialValues: {
-          name: "",
-          type: "pagerduty_alert",
-          config: { routingKey: "" },
-        },
-      });
-
-      const { result } = renderHook(() => useForm({ query: { key: testTask.key } }), {
-        wrapper,
-      });
-
-      await waitFor(() => {
-        expect(result.current.variant).toEqual("success");
-        expect(result.current.form.get("key").value).toEqual(testTask.key);
-        expect(result.current.form.get("name").value).toEqual("existingTask");
-        expect(result.current.form.get("config").value).toMatchObject({
-          routingKey: "rk-populate",
-        });
-      });
-    });
-
-    it("should save form changes when save is called", async () => {
-      const testTask = await testRack.createTask({
-        name: "taskToUpdate",
-        type: "pagerduty_alert",
-        config: {},
-      });
-
-      const useForm = Task.createForm({
-        schemas: {
-          type: z.literal("pagerduty_alert"),
-          config: z.object({}),
-          statusData: z.any().optional(),
-        },
-        initialValues: {
-          key: testTask.key,
-          name: "taskToUpdate",
-          type: "pagerduty_alert",
-          config: {},
-        },
-      });
-
-      const { result } = renderHook(() => useForm({ query: { key: testTask.key } }), {
-        wrapper,
-      });
-
-      await waitFor(() => expect(result.current.variant).toEqual("success"));
-
-      act(() => {
-        result.current.form.set("name", "updatedTaskName");
-      });
-
-      await act(async () => {
-        result.current.save();
-      });
-
-      await waitFor(() => {
-        expect(result.current.variant).toEqual("success");
-        expect(result.current.form.get("name").value).toEqual("updatedTaskName");
-      });
-
-      const updatedTask = await client.tasks.retrieve(testTask.key);
-      expect(updatedTask.name).toEqual("updatedTaskName");
-    });
-
-    it("should validate form fields according to schema", async () => {
-      const useForm = Task.createForm({
-        schemas: {
-          type: z.literal("pagerduty_alert"),
-          config: z.object({
-            port: z.number().min(1).max(65535),
-            host: z.string().min(1),
-          }),
-          statusData: z.any().optional(),
-        },
-        initialValues: {
-          name: "test",
-          type: "pagerduty_alert",
-          config: { port: 0, host: "" },
-        },
-      });
-
-      const { result } = renderHook(() => useForm({ query: null }), {
-        wrapper,
-      });
-
-      await waitFor(() => expect(result.current.variant).toEqual("success"));
-
-      act(() => {
-        result.current.form.set("config.port", 70000);
-      });
-
-      await act(async () => {
-        const isValid = await result.current.form.validateAsync();
-        expect(isValid).toBe(false);
-      });
-
-      const portField = result.current.form.get("config.port");
-      expect(portField.status.variant).toBe("error");
-
-      act(() => {
-        result.current.form.set("config.port", 8080);
-        result.current.form.set("config.host", "localhost");
-      });
-
-      await act(async () => {
-        const isValid = await result.current.form.validateAsync();
-        expect(isValid).toBe(true);
-      });
-    });
-
-    it("should handle beforeSave callback", async () => {
-      const testTask = await testRack.createTask({
-        name: "taskWithBeforeSave",
-        type: "pagerduty_alert",
-        config: {},
-      });
-
-      const beforeSave = vi.fn().mockResolvedValue(true);
-
-      const useForm = Task.createForm({
-        schemas: {
-          type: z.literal("pagerduty_alert"),
-          config: z.object({}),
-          statusData: z.any().optional(),
-        },
-        initialValues: {
-          key: testTask.key,
-          name: "taskWithBeforeSave",
-          type: "pagerduty_alert",
-          config: {},
-        },
-      });
-
-      const { result } = renderHook(
-        () =>
-          useForm({
-            query: { key: testTask.key },
-            beforeSave,
-          }),
-        { wrapper },
-      );
-
-      await waitFor(() => expect(result.current.variant).toEqual("success"));
-
-      act(() => {
-        result.current.form.set("name", "modifiedName");
-      });
-
-      act(() => {
-        result.current.save({ signal: abortController.signal });
-      });
-
-      await waitFor(() => {
-        expect(result.current.variant).toEqual("success");
-      });
-
-      expect(beforeSave).toHaveBeenCalledWith(
-        expect.objectContaining({
-          query: expect.objectContaining({ key: testTask.key }),
-        }),
-      );
-    });
-
-    it("should handle afterSave callback", async () => {
-      const testTask = await testRack.createTask({
-        name: "taskWithAfterSave",
-        type: "pagerduty_alert",
-        config: {},
-      });
-
-      const afterSave = vi.fn();
-
-      const useForm = Task.createForm({
-        schemas: {
-          type: z.literal("pagerduty_alert"),
-          config: z.object({}),
-          statusData: z.any().optional(),
-        },
-        initialValues: {
-          key: testTask.key,
-          name: "taskWithAfterSave",
-          type: "pagerduty_alert",
-          config: {},
-        },
-      });
-
-      const { result } = renderHook(
-        () =>
-          useForm({
-            query: { key: testTask.key },
-            afterSave,
-          }),
-        { wrapper },
-      );
-
-      await waitFor(() => expect(result.current.variant).toEqual("success"));
-
-      act(() => {
-        result.current.form.set("name", "savedName");
-      });
-
-      await act(async () => {
-        result.current.save({ signal: abortController.signal });
-      });
-
-      await waitFor(() => {
-        expect(result.current.variant).toEqual("success");
-        expect(result.current.form.get("name").value).toEqual("savedName");
-      });
-
-      expect(afterSave).toHaveBeenCalledWith(
-        expect.objectContaining({
-          query: expect.objectContaining({ key: testTask.key }),
-        }),
-      );
-    });
-
-    it("should update form when task status changes", async () => {
-      const testTask = await testRack.createTask({
-        name: "statusTask",
-        type: "pagerduty_alert",
-        config: {},
-      });
-
-      const statusData = z.object({ errorCode: z.number().optional() });
-
-      const useForm = Task.createForm({
-        schemas: {
-          type: z.literal("pagerduty_alert"),
-          config: z.object({}),
-          statusData: statusData.nullish(),
-        },
-        initialValues: {
-          key: testTask.key,
-          name: "statusTask",
-          type: "pagerduty_alert",
-          config: {},
-        },
-      });
-
-      const { result } = renderHook(() => useForm({ query: { key: testTask.key } }), {
-        wrapper,
-      });
-
-      await waitFor(() => expect(result.current.variant).toEqual("success"));
-
-      const _errorStatusDetailsZ = task.statusDetailsZ(
-        z.object({ errorCode: z.number() }),
-      );
+    it("should show a status update without touching a field", async () => {
+      const t = await createTask();
+      const { result } = await renderForm(t.key);
+      const _errorStatusDetailsZ = task.statusDetailsZ(statusData);
       const taskStatus: task.Status = status.create<typeof _errorStatusDetailsZ>({
-        key: task.statusKey(testTask.key),
+        key: task.statusKey(t.key),
         variant: "error",
         message: "Task error",
         details: {
-          task: testTask.key,
+          task: t.key,
           running: false,
           cmd: "",
           configHash: "",
@@ -1176,547 +855,51 @@ describe("queries", () => {
           data: { errorCode: 500 },
         },
       });
-
       await act(async () => {
         await client.statuses.set(taskStatus);
       });
-
       await waitFor(() => {
-        const status =
+        const s =
           result.current.form.get<task.Status<typeof statusData>>("status").value;
-        expect(status?.variant).toEqual("error");
-        expect(status?.message).toEqual("Task error");
-        expect(status?.details.data?.errorCode).toEqual(500);
-      });
-    });
-
-    it("should handle field changes and mark form as touched", async () => {
-      const useForm = Task.createForm({
-        schemas: {
-          type: z.literal("pagerduty_alert"),
-          config: z.object({}),
-          statusData: z.any().optional(),
-        },
-        initialValues: {
-          key: "123",
-          name: "originalName",
-          type: "pagerduty_alert",
-          config: {},
-        },
-      });
-
-      const { result } = renderHook(() => useForm({ query: null }), {
-        wrapper,
-      });
-
-      await waitFor(() => expect(result.current.variant).toEqual("success"));
-
-      expect(result.current.form.get("name").touched).toBe(false);
-
-      act(() => {
-        result.current.form.set("name", "modifiedName");
-      });
-
-      expect(result.current.form.get("name").touched).toBe(true);
-      expect(result.current.form.get("name").value).toEqual("modifiedName");
-    });
-
-    it("should not mark form as touched after saving", async () => {
-      const testTask = await testRack.createTask({
-        name: "touchedAfterSaveTask",
-        type: "pagerduty_alert",
-        config: { routingKey: "initial" },
-      });
-
-      const useForm = Task.createForm({
-        schemas: {
-          type: z.literal("pagerduty_alert"),
-          config: z.object({ routingKey: z.string() }),
-          statusData: z.any().optional(),
-        },
-        initialValues: {
-          key: testTask.key,
-          name: "touchedAfterSaveTask",
-          type: "pagerduty_alert",
-          config: { routingKey: "initial" },
-        },
-      });
-
-      const { result } = renderHook(() => useForm({ query: { key: testTask.key } }), {
-        wrapper,
-      });
-
-      await waitFor(() => expect(result.current.variant).toEqual("success"));
-      expect(result.current.form.get("name").touched).toBe(false);
-
-      act(() => {
-        result.current.form.set("name", "updatedName");
-        result.current.form.set("config.routingKey", "updated");
-      });
-
-      expect(result.current.form.get("name").touched).toBe(true);
-      expect(result.current.form.get("config.routingKey").touched).toBe(true);
-
-      await act(async () => {
-        result.current.save();
-      });
-
-      await waitFor(() => {
-        expect(result.current.variant).toEqual("success");
-        expect(result.current.form.get("name").value).toEqual("updatedName");
-      });
-      expect(result.current.form.get("name").touched).toBe(false);
-      expect(result.current.form.get("config.routingKey").touched).toBe(false);
-    });
-
-    it("should not mark form as touched when status updates from server", async () => {
-      const testTask = await testRack.createTask({
-        name: "statusTouchedTask",
-        type: "pagerduty_alert",
-        config: {},
-      });
-
-      const statusData = z.object({ errorCode: z.number().optional() });
-
-      const useForm = Task.createForm({
-        schemas: {
-          type: z.literal("pagerduty_alert"),
-          config: z.object({}),
-          statusData: statusData.nullish(),
-        },
-        initialValues: {
-          key: testTask.key,
-          name: "statusTouchedTask",
-          type: "pagerduty_alert",
-          config: {},
-        },
-      });
-
-      const { result } = renderHook(() => useForm({ query: { key: testTask.key } }), {
-        wrapper,
-      });
-
-      await waitFor(() => expect(result.current.variant).toEqual("success"));
-      expect(result.current.form.get("name").touched).toBe(false);
-      const _errorStatusDetailsZ = task.statusDetailsZ(
-        z.object({ errorCode: z.number() }),
-      );
-      const taskStatus: task.Status = status.create<typeof _errorStatusDetailsZ>({
-        key: task.statusKey(testTask.key),
-        variant: "error",
-        message: "Task error from server",
-        details: {
-          task: testTask.key,
-          running: false,
-          cmd: "",
-          configHash: "",
-          rack: 0,
-          data: { errorCode: 500 },
-        },
-      });
-
-      await act(async () => {
-        await client.statuses.set(taskStatus);
-      });
-
-      await waitFor(() => {
-        const statusField =
-          result.current.form.get<task.Status<typeof statusData>>("status").value;
-        expect(statusField?.variant).toEqual("error");
+        expect(s?.variant).toEqual("error");
+        expect(s?.message).toEqual("Task error");
+        expect(s?.details.data?.errorCode).toEqual(500);
       });
       expect(result.current.form.get("status").touched).toBe(false);
-      expect(result.current.form.get("name").touched).toBe(false);
     });
 
-    it("should not write the status back to the core on save", async () => {
-      const testTask = await testRack.createTask({
-        name: "statusClobberTask",
-        type: "pagerduty_alert",
-        config: { routingKey: "initial" },
-      });
-      const stale = (
-        await client.tasks.retrieve({ key: testTask.key, includeStatus: true })
-      ).status;
-
-      const useForm = Task.createForm({
-        schemas: {
-          type: z.literal("pagerduty_alert"),
-          config: z.object({ routingKey: z.string() }),
-          statusData: z.any().optional(),
-        },
-        initialValues: {
-          key: testTask.key,
-          rack: testRack.key,
-          name: "statusClobberTask",
-          type: "pagerduty_alert",
-          config: { routingKey: "initial" },
-          status: stale,
-        },
-      });
-
-      // No query means no listener, so the form keeps the status it started with,
-      // the way a live form does while a newer status is still in flight to it.
-      const { result } = renderHook(() => useForm({ query: null }), { wrapper });
-      await waitFor(() => expect(result.current.variant).toEqual("success"));
-
-      const reported: task.Status = status.create<task.StatusDetailsZodObject>({
-        key: task.statusKey(testTask.key),
-        variant: "success",
-        message: "Task started successfully",
-        details: {
-          task: testTask.key,
-          running: true,
-          cmd: "",
-          configHash: "",
-          rack: testRack.key,
-        },
-      });
-      await client.statuses.set(reported);
-
-      act(() => {
-        result.current.form.set("config.routingKey", "edited");
-      });
+    it("should show a task that another client writes whole", async () => {
+      const t = await createTask();
+      const { result } = await renderForm(t.key);
       await act(async () => {
-        result.current.save();
-      });
-      await waitFor(() => expect(result.current.variant).toEqual("success"));
-
-      const saved = await client.tasks.retrieve({
-        key: testTask.key,
-        includeStatus: true,
-      });
-      expect(saved.config).toMatchObject({ routingKey: "edited" });
-      expect(saved.status?.message).toEqual("Task started successfully");
-      expect(saved.status?.details.running).toBe(true);
-    });
-
-    it("should not mark form as touched when task metadata updates from server listener", async () => {
-      const testTask = await testRack.createTask({
-        name: "serverUpdateTask",
-        type: "pagerduty_alert",
-        config: { routingKey: "original" },
-      });
-
-      const useForm = Task.createForm({
-        schemas: {
-          type: z.literal("pagerduty_alert"),
-          config: z.object({ routingKey: z.string() }),
-          statusData: z.any().optional(),
-        },
-        initialValues: {
-          key: testTask.key,
-          name: "serverUpdateTask",
-          type: "pagerduty_alert",
-          config: { routingKey: "original" },
-        },
-      });
-
-      const { result } = renderHook(() => useForm({ query: { key: testTask.key } }), {
-        wrapper,
-      });
-
-      await waitFor(() => expect(result.current.variant).toEqual("success"));
-      expect(result.current.form.get("name").touched).toBe(false);
-      expect(result.current.form.get("config.routingKey").touched).toBe(false);
-      await act(async () => {
-        await client.tasks.create({
-          ...testTask.payload,
-          name: "serverUpdatedName",
-          config: { routingKey: "serverUpdated" },
+        await createTestClient().tasks.create({
+          ...t.payload,
+          name: "written",
+          config: { routingKey: "remote" },
         });
       });
-
       await waitFor(() => {
-        expect(result.current.form.get("name").value).toEqual("serverUpdatedName");
+        expect(result.current.form.get("name").value).toEqual("written");
+        expect(result.current.form.get("config.routingKey").value).toEqual("remote");
       });
       expect(result.current.form.get("name").touched).toBe(false);
-      expect(result.current.form.get("config.routingKey").touched).toBe(false);
     });
 
-    it("should not clobber local config edits when metadata updates from server", async () => {
-      const testTask = await testRack.createTask({
-        name: "lwwTask",
-        type: "pagerduty_alert",
-        config: { routingKey: "original" },
-      });
-
-      const useForm = Task.createForm({
-        schemas: {
-          type: z.literal("pagerduty_alert"),
-          config: z.object({ routingKey: z.string() }),
-          statusData: z.any().optional(),
-        },
-        initialValues: {
-          key: testTask.key,
-          name: "lwwTask",
-          type: "pagerduty_alert",
-          config: { routingKey: "original" },
-        },
-      });
-
-      const { result } = renderHook(() => useForm({ query: { key: testTask.key } }), {
-        wrapper,
-      });
-
-      await waitFor(() => expect(result.current.variant).toEqual("success"));
-
-      act(() => {
-        result.current.form.set("config.routingKey", "localEdit");
-      });
-
+    it("should keep a local edit over a whole write from another client", async () => {
+      const t = await createTask();
+      const { result } = await renderForm(t.key);
+      act(() => result.current.form.set("config.routingKey", "local"));
       await act(async () => {
-        await client.tasks.create({ ...testTask.payload, name: "lwwRenamed" });
-      });
-
-      await waitFor(() => {
-        expect(result.current.form.get("name").value).toEqual("lwwRenamed");
-      });
-      expect(result.current.form.get("config.routingKey").value).toEqual("localEdit");
-      expect(result.current.form.get("config.routingKey").touched).toBe(true);
-    });
-
-    it("should allow new changes after save to mark form as touched again", async () => {
-      const testTask = await testRack.createTask({
-        name: "reTouchedTask",
-        type: "pagerduty_alert",
-        config: {},
-      });
-
-      const useForm = Task.createForm({
-        schemas: {
-          type: z.literal("pagerduty_alert"),
-          config: z.object({}),
-          statusData: z.any().optional(),
-        },
-        initialValues: {
-          key: testTask.key,
-          name: "reTouchedTask",
-          type: "pagerduty_alert",
-          config: {},
-        },
-      });
-
-      const { result } = renderHook(() => useForm({ query: { key: testTask.key } }), {
-        wrapper,
-      });
-
-      await waitFor(() => expect(result.current.variant).toEqual("success"));
-      act(() => {
-        result.current.form.set("name", "firstUpdate");
-      });
-      expect(result.current.form.get("name").touched).toBe(true);
-
-      await act(async () => {
-        result.current.save();
-      });
-
-      await waitFor(() => {
-        expect(result.current.variant).toEqual("success");
-        expect(result.current.form.get("name").touched).toBe(false);
-      });
-      act(() => {
-        result.current.form.set("name", "secondUpdate");
-      });
-
-      expect(result.current.form.get("name").touched).toBe(true);
-      expect(result.current.form.get("name").value).toEqual("secondUpdate");
-    });
-
-    it("should reset form to initial values", async () => {
-      const testTask = await testRack.createTask({
-        name: "resetTask",
-        type: "pagerduty_alert",
-        config: { routingKey: "initial" },
-      });
-
-      const useForm = Task.createForm({
-        schemas: {
-          type: z.literal("pagerduty_alert"),
-          config: z.object({ routingKey: z.string() }),
-          statusData: z.any().optional(),
-        },
-        initialValues: {
-          key: testTask.key,
-          name: "resetTask",
-          type: "pagerduty_alert",
-          config: { routingKey: "initial" },
-        },
-      });
-
-      const { result } = renderHook(() => useForm({ query: { key: testTask.key } }), {
-        wrapper,
-      });
-
-      await waitFor(() => expect(result.current.variant).toEqual("success"));
-
-      act(() => {
-        result.current.form.set("name", "changedName");
-        result.current.form.set("config.routingKey", "changed");
-      });
-
-      expect(result.current.form.get("name").value).toEqual("changedName");
-      expect(result.current.form.get("config.routingKey").value).toEqual("changed");
-
-      act(() => {
-        result.current.form.reset();
-      });
-
-      expect(result.current.form.get("name").value).toEqual("resetTask");
-      expect(result.current.form.get("config.routingKey").value).toEqual("initial");
-    });
-
-    it("should handle error states in form operations", async () => {
-      const missingKey = uuid.create();
-      const useForm = Task.createForm({
-        schemas: {
-          type: z.literal("pagerduty_alert"),
-          config: z.object({}),
-          statusData: z.any().optional(),
-        },
-        initialValues: {
-          key: missingKey,
-          name: "errorTask",
-          type: "pagerduty_alert",
-          config: {},
-        },
-      });
-
-      const Wrapper = wrapper;
-      const Display = (): ReactElement => {
-        useForm({ query: { key: missingKey } });
-        return <div />;
-      };
-      let utils!: ReturnType<typeof render>;
-      await act(async () => {
-        utils = render(
-          <Wrapper>
-            <Errors.SuspenseBoundary
-              loading={<div />}
-              FallbackComponent={({ error }) => (
-                <div data-testid="error">{error.message}</div>
-              )}
-            >
-              <Display />
-            </Errors.SuspenseBoundary>
-          </Wrapper>,
-          { onCaughtError: () => {} },
-        );
+        await createTestClient().tasks.create({ ...t.payload, name: "renamed" });
       });
       await waitFor(() =>
-        expect(utils.queryByTestId("error")?.textContent).toEqual(
-          "Failed to retrieve task",
-        ),
+        expect(result.current.form.get("name").value).toEqual("renamed"),
       );
-    });
-
-    it("should handle autoSave functionality", async () => {
-      const testTask = await testRack.createTask({
-        name: "autoSaveTask",
-        type: "pagerduty_alert",
-        config: {},
-      });
-
-      const useForm = Task.createForm({
-        schemas: {
-          type: z.literal("pagerduty_alert"),
-          config: z.object({}),
-          statusData: z.any().optional(),
-        },
-        initialValues: {
-          key: testTask.key,
-          name: "autoSaveTask",
-          type: "pagerduty_alert",
-          config: {},
-        },
-      });
-
-      const { result } = renderHook(
-        () =>
-          useForm({
-            query: { key: testTask.key },
-            autoSave: true,
-          }),
-        { wrapper },
-      );
-
-      await waitFor(() => expect(result.current.variant).toEqual("success"));
-
-      act(() => {
-        result.current.form.set("name", "autoSavedName");
-      });
-
-      await waitFor(
-        async () => {
-          const updatedTask = await client.tasks.retrieve(testTask.key);
-          expect(updatedTask.name).toEqual("autoSavedName");
-        },
-        { timeout: 3000 },
-      );
-    });
-
-    it("should handle complex config schemas with nested objects", async () => {
-      const complexConfig = {
-        routingKey: "rk-complex",
-        autoStart: true,
-        alerts: [{ key: "a1", status: "st1" }],
-      };
-
-      const testTask = await testRack.createTask({
-        name: "complexTask",
-        type: "pagerduty_alert",
-        config: complexConfig,
-      });
-
-      const type = z.literal("pagerduty_alert");
-      const config = z.object({
-        routingKey: z.string(),
-        autoStart: z.boolean(),
-        alerts: z.array(z.object({ key: z.string(), status: z.string() })),
-      });
-      const statusData = z.any().optional();
-      const schemas = {
-        type,
-        config,
-        statusData,
-      };
-
-      const useForm = Task.createForm({
-        schemas,
-        initialValues: {
-          key: testTask.key,
-          name: "complexTask",
-          type: "pagerduty_alert",
-          config: complexConfig,
-        },
-      });
-
-      const { result } = renderHook(() => useForm({ query: { key: testTask.key } }), {
-        wrapper,
-      });
-
-      await waitFor(() => expect(result.current.variant).toEqual("success"));
-
-      expect(result.current.form.get("config.routingKey").value).toEqual("rk-complex");
-      expect(result.current.form.get("config.alerts.0.key").value).toEqual("a1");
-
-      act(() => {
-        result.current.form.set("config.routingKey", "rk-9090");
-      });
-
-      act(() => {
-        result.current.save({ signal: abortController.signal });
-      });
-
-      await waitFor(
-        async () => {
-          const updatedTask = await client.tasks.retrieve<typeof schemas>({
-            key: testTask.key,
-            schemas,
-          });
-          expect(updatedTask.config.routingKey).toEqual("rk-9090");
-        },
-        { timeout: 3000 },
-      );
+      expect(result.current.form.get("config.routingKey").value).toEqual("local");
+      await act(async () => expect(await result.current.flush()).toBe(true));
+      const stored = await createTestClient().tasks.retrieve(t.key);
+      expect(stored.name).toEqual("renamed");
+      expect(stored.config).toMatchObject({ routingKey: "local" });
     });
   });
 

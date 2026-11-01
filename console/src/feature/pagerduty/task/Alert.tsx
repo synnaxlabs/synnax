@@ -286,7 +286,6 @@ export const Alert = Task.wrapForm({
   schemas: ALERT_SCHEMAS,
   deployConfigZ: deployAlertTaskConfigZ,
   type: ALERT_TYPE,
-  getInitialValues,
   onConfigure,
 });
 
