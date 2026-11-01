@@ -320,6 +320,36 @@ describe("CounterRead ports", () => {
     });
   });
 
+  it("should mark a counter two channels share", async () => {
+    const dev = await createNIDevice(client, {
+      properties: { hardware: createHardware() },
+    });
+    await renderCounterRead(
+      createConfig([
+        createChannel("ci_frequency", 0, { device: dev.key }),
+        createChannel("ci_frequency", 0, { device: dev.key }),
+      ]),
+    );
+    expect(await screen.findByText("Another channel uses ctr0")).toBeTruthy();
+  });
+
+  it("should not mark one counter that channels on two devices use", async () => {
+    const devA = await createNIDevice(client, {
+      properties: { hardware: createHardware() },
+    });
+    const devB = await createNIDevice(client, {
+      properties: { hardware: createHardware() },
+    });
+    await renderCounterRead(
+      createConfig([
+        createChannel("ci_frequency", 0, { device: devA.key }),
+        createChannel("ci_frequency", 0, { device: devB.key }),
+      ]),
+    );
+    await screen.findByText("Ports");
+    expect(screen.queryByText("Another channel uses ctr0")).toBeNull();
+  });
+
   it("should list PFI0 to PFI15 for a device with no port list", async () => {
     const dev = await createNIDevice(client);
     await renderCounterRead(

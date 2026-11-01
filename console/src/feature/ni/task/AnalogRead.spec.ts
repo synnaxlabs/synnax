@@ -751,6 +751,36 @@ describe("AnalogRead ports", () => {
     expect(await screen.findByText("Another channel uses ai0")).toBeTruthy();
   });
 
+  it("should mark a channel that shares its port on a device that does not load", async () => {
+    await renderWith([createChannel("ai_voltage", 0), createChannel("ai_voltage", 0)]);
+    expect(await screen.findByText("Another channel uses ai0")).toBeTruthy();
+  });
+
+  it("should not mark one port that channels on two devices use", async () => {
+    const devA = await createDevice();
+    const devB = await createDevice();
+    await renderWith([
+      createChannel("ai_voltage", 0, { device: devA.key }),
+      createChannel("ai_voltage", 0, { device: devB.key }),
+    ]);
+    await openPorts(devA);
+    fireEvent.click(screen.getByText("List"));
+    expect(screen.queryByText("Another channel uses ai0")).toBeNull();
+  });
+
+  it("should not mark two channels that take no port", async () => {
+    const dev = await createDevice();
+    const builtin = (): NI.Task.AIChannel => ({
+      ...NI.Task.createAIChannel("ai_temp_builtin"),
+      key: id.create(),
+      device: dev.key,
+    });
+    await renderWith([builtin(), builtin()]);
+    await openPorts(dev);
+    fireEvent.click(screen.getByText("List"));
+    expect(screen.queryByText(/Another channel uses/)).toBeNull();
+  });
+
   it("should list only the channel types the port takes", async () => {
     const dev = await createDevice();
     await renderWith([createChannel("ai_voltage", 8, { device: dev.key })]);

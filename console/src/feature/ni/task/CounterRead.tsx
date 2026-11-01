@@ -117,7 +117,7 @@ const hasPortList = (devices: Device[]): boolean =>
 const Form: FC = () => {
   const [tare, allowTare, handleTare] = Task.useTare<CIChannel>();
   const devices = useByKeys(Task.useChannelDeviceKeys());
-  PForm.useCheck("config", devices == null ? null : counterReadHardwareZ(devices));
+  PForm.useCheck("config", counterReadHardwareZ(devices ?? []));
   const resolve = (ch: CIChannel) => {
     const dev = devices?.find(({ key }) => key === ch.device);
     if (dev == null) return null;

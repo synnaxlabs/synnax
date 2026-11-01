@@ -129,7 +129,7 @@ const hasPortList = (devices: Device[]): boolean =>
 const Form: FC = () => {
   const [tare, allowTare, handleTare] = Task.useTare<AIChannel>();
   const devices = useByKeys(Task.useChannelDeviceKeys());
-  PForm.useCheck("config", devices == null ? null : analogReadHardwareZ(devices));
+  PForm.useCheck("config", analogReadHardwareZ(devices ?? []));
   const resolve = (ch: AIChannel) => {
     const dev = devices?.find(({ key }) => key === ch.device);
     if (dev == null) return null;
