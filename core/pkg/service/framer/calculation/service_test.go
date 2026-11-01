@@ -1012,6 +1012,7 @@ var _ = Describe("Calculation", Ordered, func() {
 				mu.Lock()
 				writes = nil
 				mu.Unlock()
+				statusKey := calc.OntologyID().String()
 				DeferCleanup(statusSvc.Observe().OnChange(func(
 					_ context.Context,
 					r gorp.TxReader[status.Key, status.Status[any]],
@@ -1019,7 +1020,7 @@ var _ = Describe("Calculation", Ordered, func() {
 					mu.Lock()
 					defer mu.Unlock()
 					for ch := range r {
-						if ch.Key == calc.OntologyID().String() &&
+						if ch.Key == statusKey &&
 							ch.Variant == change.VariantSet {
 							writes = append(writes, calculation.Status{
 								Variant:     ch.Value.Variant,
