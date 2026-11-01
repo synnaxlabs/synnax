@@ -74,76 +74,77 @@ Acquisition::Acquisition(
 
 void Acquisition::run() {
     this->writer_config.err_on_unauthorized = this->err_on_unauthorized;
-    auto [writer, writer_err] = this->factory->open_writer(this->writer_config);
-    if (writer_err) {
-        if (synnax::errors::is_temporarily_unavailable(writer_err) &&
-            this->breaker.wait(writer_err.message())) {
-            this->run();
+    while (true) {
+        auto [writer, writer_err] = this->factory->open_writer(this->writer_config);
+        if (writer_err) {
+            if (synnax::errors::is_temporarily_unavailable(writer_err) &&
+                this->breaker.wait(writer_err.message()))
+                continue;
+            LOG(ERROR) << "[acquisition] failed to open writer: "
+                       << writer_err.message();
+            this->source->stopped_with_err(writer_err);
+            this->breaker.stop();
             return;
         }
-        LOG(ERROR) << "[acquisition] failed to open writer: " << writer_err.message();
-        this->source->stopped_with_err(writer_err);
-        this->breaker.stop();
-        return;
-    }
-    x::errors::Error source_err;
-    x::telem::Frame fr(0);
-    Authorities authorities;
-    // A running breaker means the pipeline user has not called stop.
-    while (this->breaker.running()) {
-        fr.clear();
-        authorities.keys.clear();
-        authorities.authorities.clear();
-        auto source_err_i = this->source->read(this->breaker, fr, authorities);
-        if (source_err_i) {
-            source_err = source_err_i;
-            if (!source_err.matches(errors::NOMINAL_SHUTDOWN_ERROR))
-                LOG(ERROR) << "[acquisition] failed to read source: "
-                           << source_err.message();
-            // With a temporary error, we just continue the loop. With any other
-            // error we break and shut things down.
-            if (source_err.matches(errors::TEMPORARY_HARDWARE_ERROR) &&
-                this->breaker.wait(source_err.message()))
+        x::errors::Error source_err;
+        x::telem::Frame fr(0);
+        Authorities authorities;
+        // A running breaker means the pipeline user has not called stop.
+        while (this->breaker.running()) {
+            fr.clear();
+            authorities.keys.clear();
+            authorities.authorities.clear();
+            auto source_err_i = this->source->read(this->breaker, fr, authorities);
+            if (source_err_i) {
+                source_err = source_err_i;
+                if (!source_err.matches(errors::NOMINAL_SHUTDOWN_ERROR))
+                    LOG(ERROR) << "[acquisition] failed to read source: "
+                               << source_err.message();
+                // With a temporary error, we just continue the loop. With any other
+                // error we break and shut things down.
+                if (source_err.matches(errors::TEMPORARY_HARDWARE_ERROR) &&
+                    this->breaker.wait(source_err.message()))
+                    continue;
+                break;
+            }
+            if (source_err) source_err = x::errors::NIL;
+            if (fr.empty() && authorities.empty()) {
+                this->breaker.reset();
                 continue;
-            break;
-        }
-        if (source_err) source_err = x::errors::NIL;
-        if (fr.empty() && authorities.empty()) {
+            }
+            // Apply authority changes before writing the frame so the frame
+            // is sent at the correct authority level.
+            if (!authorities.empty()) {
+                if (auto err = authorities.validate()) {
+                    LOG(ERROR)
+                        << "[acquisition] invalid authorities: " << err.message();
+                    break;
+                }
+                if (auto err = writer->set_authority(authorities)) {
+                    LOG(ERROR)
+                        << "[acquisition] failed to set authority: " << err.message();
+                    break;
+                }
+            }
+            if (!fr.empty()) {
+                if (auto err = writer->write(fr)) {
+                    LOG(ERROR) << "[acquisition] failed to write frame" << err;
+                    break;
+                }
+            }
             this->breaker.reset();
+        }
+        writer_err = writer->close();
+        if (synnax::errors::is_temporarily_unavailable(writer_err) &&
+            this->breaker.wait(writer_err.message()))
             continue;
-        }
-        // Apply authority changes before writing the frame so the frame
-        // is sent at the correct authority level.
-        if (!authorities.empty()) {
-            if (auto err = authorities.validate()) {
-                LOG(ERROR) << "[acquisition] invalid authorities: " << err.message();
-                break;
-            }
-            if (auto err = writer->set_authority(authorities)) {
-                LOG(ERROR) << "[acquisition] failed to set authority: "
-                           << err.message();
-                break;
-            }
-        }
-        if (!fr.empty()) {
-            if (auto err = writer->write(fr)) {
-                LOG(ERROR) << "[acquisition] failed to write frame" << err;
-                break;
-            }
-        }
-        this->breaker.reset();
-    }
-    writer_err = writer->close();
-    if (synnax::errors::is_temporarily_unavailable(writer_err) &&
-        this->breaker.wait(writer_err.message())) {
-        this->run();
+        if (source_err && !source_err.matches(errors::NOMINAL_SHUTDOWN_ERROR))
+            this->source->stopped_with_err(source_err);
+        else if (writer_err)
+            this->source->stopped_with_err(writer_err);
+        this->breaker.stop();
+        VLOG(1) << "[acquisition] acquisition thread stopped";
         return;
     }
-    if (source_err && !source_err.matches(errors::NOMINAL_SHUTDOWN_ERROR))
-        this->source->stopped_with_err(source_err);
-    else if (writer_err)
-        this->source->stopped_with_err(writer_err);
-    this->breaker.stop();
-    VLOG(1) << "[acquisition] acquisition thread stopped";
 }
 }
