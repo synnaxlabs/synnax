@@ -109,11 +109,13 @@ const locate = (
   let i = 0;
   while (i < parts.length) {
     if (Array.isArray(node)) {
-      const entry = deep.defaultGetter(node as unknown as record.Unknown, parts[i]);
-      if (isEntry(entry)) {
+      const list = node as unknown as record.Unknown;
+      const best = deep.findBestKey(list, parts.slice(i));
+      const entry = best == null ? null : deep.defaultGetter(list, best[0]);
+      if (best != null && isEntry(entry)) {
         path.push(entry.key);
         node = entry;
-        i++;
+        i += best[1];
         continue;
       }
       if (isKeyedList(schema, parts.slice(0, i).join(deep.SEPARATOR), values))

@@ -242,6 +242,32 @@ describe("createDocumentForm", () => {
       });
     });
 
+    it("should edit an entry with a dot in its key", async () => {
+      const t = await testRack.createTask({
+        name: `document-${id.create()}`,
+        type: "pagerduty_alert",
+        config: {
+          routingKey: "dog",
+          alerts: [
+            { key: "ns=2;s=a.b", status: "st-a" },
+            { key: "ns=2;s=a", status: "st-b" },
+          ],
+        },
+      });
+      const { result } = await renderHookSuspended(
+        ({ key }: { key: task.Key }) => useEntryForm({ query: { key } }),
+        { wrapper, initialProps: { key: t.key } },
+      );
+      act(() => result.current.form.set("config.alerts.ns=2;s=a.b.status", "st-c"));
+      await act(async () => expect(await result.current.flush()).toBe(true));
+      expect((await fetchStored(t.key)).config).toMatchObject({
+        alerts: [
+          { key: "ns=2;s=a.b", status: "st-c" },
+          { key: "ns=2;s=a", status: "st-b" },
+        ],
+      });
+    });
+
     it("should remove the entry with a key that reads as an index", async () => {
       const t = await testRack.createTask({
         name: `document-${id.create()}`,
