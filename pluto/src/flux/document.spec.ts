@@ -13,6 +13,7 @@ import {
   spyOnSend,
   waitForStreamLive,
 } from "@synnaxlabs/client/testutil";
+import { Form } from "@synnaxlabs/lyra/form";
 import { Status } from "@synnaxlabs/lyra/status";
 import { id } from "@synnaxlabs/x";
 import { act, waitFor } from "@testing-library/react";
@@ -238,6 +239,31 @@ describe("createDocumentForm", () => {
       await act(async () => expect(await result.current.flush()).toBe(true));
       expect((await fetchStored(t.key)).config).toMatchObject({
         alerts: [{ key: "b", status: "st-b" }],
+      });
+    });
+
+    it("should remove the entry with a key that reads as an index", async () => {
+      const t = await testRack.createTask({
+        name: `document-${id.create()}`,
+        type: "pagerduty_alert",
+        config: {
+          routingKey: "dog",
+          alerts: [
+            { key: "1", status: "st-1" },
+            { key: "0", status: "st-0" },
+          ],
+        },
+      });
+      const { result } = await renderHookSuspended(
+        ({ key }: { key: task.Key }) => useEntryForm({ query: { key } }),
+        { wrapper, initialProps: { key: t.key } },
+      );
+      act(() => {
+        Form.fieldListUtils(result.current.form, "config.alerts").remove("1");
+      });
+      await act(async () => expect(await result.current.flush()).toBe(true));
+      expect((await fetchStored(t.key)).config).toMatchObject({
+        alerts: [{ key: "0", status: "st-0" }],
       });
     });
 

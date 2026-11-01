@@ -917,12 +917,29 @@ describe("Form", () => {
       expect(calls.set).not.toHaveBeenCalled();
     });
 
-    it("should remove each dropped entry by its key", () => {
+    it.each<[string, (utils: Form.FieldListUtils<string, record.KeyedNamed>) => void]>([
+      ["remove", (utils) => utils.remove("1")],
+      ["keepOnly", (utils) => utils.keepOnly("0")],
+    ])("should %s by key when a key reads as an index", (_, edit) => {
+      const store = createLocalStore({
+        array: [
+          { key: "1", name: "first" },
+          { key: "0", name: "second" },
+        ],
+      });
+      const { result } = renderHook(() =>
+        Form.fieldListUtils<string, record.KeyedNamed>(Form.use({ store }), "array"),
+      );
+      act(() => edit(result.current));
+      expect(store.get().array).toEqual([{ key: "0", name: "second" }]);
+    });
+
+    it("should remove each dropped entry from the end of the list", () => {
       const { utils, calls } = renderOverStore();
       act(() => {
         utils().remove(["a", "c"]);
       });
-      expect(calls.remove.mock.calls).toEqual([["array.a"], ["array.c"]]);
+      expect(calls.remove.mock.calls).toEqual([["array.2"], ["array.0"]]);
       expect(calls.set).not.toHaveBeenCalled();
     });
 
@@ -931,7 +948,7 @@ describe("Form", () => {
       act(() => {
         utils().keepOnly("b");
       });
-      expect(calls.remove.mock.calls).toEqual([["array.a"], ["array.c"]]);
+      expect(calls.remove.mock.calls).toEqual([["array.2"], ["array.0"]]);
       expect(calls.set).not.toHaveBeenCalled();
     });
   });
@@ -986,8 +1003,8 @@ describe("Form", () => {
       });
       expect(result.current.form.value().array).toEqual([]);
       expect(onChange.mock.calls.map(([{ path }]) => path)).toEqual([
-        "array.key1",
-        "array.key2",
+        "array.1",
+        "array.0",
       ]);
     });
 

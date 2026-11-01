@@ -187,12 +187,14 @@ export const fieldListUtils = <K extends string, E extends record.Keyed<K>>(
       current.splice(i, 0, key);
     });
   };
+  // A path reads a list index before a key, so an entry is removed by its index. The
+  // last entry goes first, which keeps the other indexes valid.
   const removeWhere = (drop: (key: K) => boolean) => {
-    ctx.batch(() =>
-      keys().forEach((key) => {
-        if (drop(key)) ctx.remove(`${path}.${key}`);
-      }),
-    );
+    ctx.batch(() => {
+      const current = keys();
+      for (let i = current.length - 1; i >= 0; i--)
+        if (drop(current[i])) ctx.remove(`${path}.${i}`);
+    });
     return keys();
   };
   return {
