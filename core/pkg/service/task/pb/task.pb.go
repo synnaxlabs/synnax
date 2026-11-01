@@ -628,7 +628,10 @@ type Command struct {
 	// redeploys when it differs.
 	ConfigHash string `protobuf:"bytes,4,opt,name=config_hash,json=configHash,proto3" json:"config_hash,omitempty"`
 	// args contains optional arguments for the command.
-	Args          *structpb.Struct `protobuf:"bytes,5,opt,name=args,proto3" json:"args,omitempty"`
+	Args *structpb.Struct `protobuf:"bytes,5,opt,name=args,proto3" json:"args,omitempty"`
+	// pinned is true when the Driver must refuse a start whose config_hash differs from
+	// the hash of the stored config.
+	Pinned        bool `protobuf:"varint,6,opt,name=pinned,proto3" json:"pinned,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -698,6 +701,13 @@ func (x *Command) GetArgs() *structpb.Struct {
 	return nil
 }
 
+func (x *Command) GetPinned() bool {
+	if x != nil {
+		return x.Pinned
+	}
+	return false
+}
+
 var File_core_pkg_service_task_pb_task_proto protoreflect.FileDescriptor
 
 const file_core_pkg_service_task_pb_task_proto_rawDesc = "" +
@@ -755,14 +765,15 @@ const file_core_pkg_service_task_pb_task_proto_rawDesc = "" +
 	"\x05_typeB\a\n" +
 	"\x05_rackB\v\n" +
 	"\t_internalB\v\n" +
-	"\t_snapshot\"\x91\x01\n" +
+	"\t_snapshot\"\xa9\x01\n" +
 	"\aCommand\x12\x12\n" +
 	"\x04task\x18\x01 \x01(\tR\x04task\x12\x12\n" +
 	"\x04type\x18\x02 \x01(\tR\x04type\x12\x10\n" +
 	"\x03key\x18\x03 \x01(\tR\x03key\x12\x1f\n" +
 	"\vconfig_hash\x18\x04 \x01(\tR\n" +
 	"configHash\x12+\n" +
-	"\x04args\x18\x05 \x01(\v2\x17.google.protobuf.StructR\x04argsB\xb0\x01\n" +
+	"\x04args\x18\x05 \x01(\v2\x17.google.protobuf.StructR\x04args\x12\x16\n" +
+	"\x06pinned\x18\x06 \x01(\bR\x06pinnedB\xb0\x01\n" +
 	"\x13com.service.task.pbB\tTaskProtoP\x01Z0github.com/synnaxlabs/synnax/pkg/service/task/pb\xa2\x02\x03STP\xaa\x02\x0fService.Task.Pb\xca\x02\x0fService\\Task\\Pb\xe2\x02\x1bService\\Task\\Pb\\GPBMetadata\xea\x02\x11Service::Task::Pbb\x06proto3"
 
 var (

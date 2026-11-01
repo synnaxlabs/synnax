@@ -17,13 +17,19 @@ import (
 	"github.com/synnaxlabs/arc/text"
 	"github.com/synnaxlabs/x/crdt"
 	"github.com/synnaxlabs/x/encoding/msgpack"
+	"github.com/synnaxlabs/x/errors"
+	"github.com/synnaxlabs/x/patch"
 	"github.com/synnaxlabs/x/set"
 	"github.com/synnaxlabs/x/telem"
+	"github.com/synnaxlabs/x/validate"
 )
 
-// Handle replaces the document with its created state.
-func (p CreatePayload) Handle(Arc) (Arc, error) {
-	return p.Arc, nil
+// Handle returns an error wrapping validate.ErrValidation, as only the Core creates an
+// Arc.
+func (CreatePayload) Handle(Arc) (Arc, error) {
+	return Arc{}, errors.Wrap(
+		validate.ErrValidation, "only the Core dispatches an Arc create",
+	)
 }
 
 // Handle replaces the Arc module's name.
@@ -295,4 +301,39 @@ func containsTextEdit(actions []Action) bool {
 		}
 	}
 	return false
+}
+
+// Handle applies the set to the graph's node inputs.
+func (p SetPayload) Handle(state Arc) (Arc, error) {
+	return edit(state, patch.Set(p))
+}
+
+// Handle applies the remove to the graph's node inputs.
+func (p RemovePayload) Handle(state Arc) (Arc, error) {
+	return edit(state, patch.Remove(p))
+}
+
+// Handle applies the insert to the graph's node inputs.
+func (p InsertPayload) Handle(state Arc) (Arc, error) {
+	return edit(state, patch.Insert(p))
+}
+
+// Handle applies the move to the graph's node inputs.
+func (p MovePayload) Handle(state Arc) (Arc, error) {
+	return edit(state, patch.Move(p))
+}
+
+// edit applies a path action to the inputs of the node that its path names.
+func edit(state Arc, a patch.Action) (Arc, error) {
+	inputs, err := patch.EditMap(
+		state.Graph.Inputs,
+		[]string{"graph", "inputs"},
+		a,
+		nil,
+	)
+	if err != nil {
+		return Arc{}, err
+	}
+	state.Graph.Inputs = inputs
+	return state, nil
 }
