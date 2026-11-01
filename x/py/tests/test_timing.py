@@ -7,6 +7,8 @@
 #  License, use of this software will be governed by the Apache License, Version 2.0,
 #  included in the file licenses/APL.txt.
 
+import sys
+import threading
 import time
 
 import numpy as np
@@ -70,6 +72,31 @@ class TestTiming:
         sleep(100 * Rate.HZ, precise=precise, clock=clock)
         assert clock.time == TimeSpan.MILLISECOND * 10
         assert clock.sleeps == [precise]
+
+    def test_zero_sleep_yields(self) -> None:
+        """Should let another thread run on a zero sleep."""
+        go = threading.Event()
+        done = threading.Event()
+
+        def run() -> None:
+            go.wait()
+            done.set()
+
+        thread = threading.Thread(target=run)
+        thread.start()
+        interval = sys.getswitchinterval()
+        # The thread can then only run when sleep releases the GIL.
+        sys.setswitchinterval(1000)
+        try:
+            go.set()
+            t = Timer()
+            while not done.is_set() and t.elapsed() < TimeSpan.SECOND * 10:
+                sleep(0)
+            yielded = done.is_set()
+        finally:
+            sys.setswitchinterval(interval)
+        thread.join()
+        assert yielded
 
     def test_poll_returns_value_when_condition_met(self) -> None:
         """Should return the non-None value when the condition is met."""

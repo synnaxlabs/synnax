@@ -50,8 +50,8 @@ class _SystemClock:
     def sleep_until(self, deadline: int, *, precise: bool) -> None:
         remaining = deadline - time.perf_counter_ns()
         if not precise:
-            if remaining > 0:
-                time.sleep(remaining / 1e9)
+            # A zero sleep still lets other threads run.
+            time.sleep(max(remaining, 0) / 1e9)
             return
         # macOS wakes up to 50% late, so each OS sleep covers only half of what is left.
         while remaining > 2 * _SPIN_MARGIN:
