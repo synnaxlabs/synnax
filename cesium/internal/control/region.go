@@ -119,6 +119,23 @@ func (r *region[R]) state() *State {
 	return r.curr.state()
 }
 
+// overlapError returns the error for a write to tr that reaches the region.
+func (r *region[R]) overlapError(tr telem.TimeRange) error {
+	r.RLock()
+	defer r.RUnlock()
+	// A released region stays in the controller until controller.remove runs.
+	holder := "a closing writer"
+	if r.curr != nil {
+		holder = "writer " + r.curr.Subject().String()
+	}
+	return errors.Wrapf(
+		validate.ErrValidation,
+		"cannot write to time range %v because %s holds it",
+		tr.Intersection(r.timeRange),
+		holder,
+	)
+}
+
 func (r *region[R]) shouldBeInControl(candidate *Gate[R]) bool {
 	if r.curr == nil {
 		return true

@@ -173,7 +173,7 @@ var _ = Describe("Control", func() {
 						Expect(w.Write(frame(1, 10))).Error().To(And(
 							MatchError(validate.ErrValidation),
 							MatchError(
-								ContainSubstring("cannot extend control region"),
+								ContainSubstring("cannot write to time range"),
 							),
 						))
 						Expect(w.Close()).To(MatchError(validate.ErrValidation))
@@ -237,9 +237,9 @@ var _ = Describe("Control", func() {
 						MustSucceed(operator.Commit())
 						Expect(w.Write(frame(1, 2))).Error().To(And(
 							MatchError(validate.ErrValidation),
-							MatchError(
-								ContainSubstring("cannot extend control region"),
-							),
+							MatchError(ContainSubstring(
+								"because writer [Operator]<operator> holds it",
+							)),
 						))
 						Expect(w.Close()).To(MatchError(validate.ErrValidation))
 						Expect(operator.Close()).To(Succeed())

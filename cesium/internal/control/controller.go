@@ -276,12 +276,7 @@ func (c *Controller[R]) unsafeResize(r *region[R], grown telem.TimeRange) error 
 			continue
 		}
 		if reg.timeRange.OverlapsWith(grown) {
-			return errors.Wrapf(
-				validate.ErrValidation,
-				"cannot extend control region to %v because a region holds %v",
-				grown,
-				reg.timeRange,
-			)
+			return reg.overlapError(grown)
 		}
 	}
 	r.Lock()
