@@ -735,6 +735,10 @@ export class Client extends query.Retriever<
   private hydrate(range: Range): void {
     if (this.store.status(range.key) === "tombstoned") return;
     this.store.ingest(range);
+    this.hydrateRelated(range);
+  }
+
+  private hydrateRelated(range: Range): void {
     if (range.labels != null) this.cfg.labels.store.ingest(range.labels);
     this.writeRelationships(range);
   }
@@ -766,20 +770,21 @@ export class Client extends query.Retriever<
     }
   }
 
-  // One batch per table, so each table flushes once.
-  private hydrateMany(ranges: Range[]): void {
-    this.store.batch(() =>
-      this.cfg.labels.store.batch(() =>
-        this.cfg.ontology.cache.relationships.batch(() =>
-          ranges.forEach((r) => this.hydrate(r)),
-        ),
+  // Leaves the ranges to the caller, which ingests them under a stamp taken before the
+  // fetch so that a write landing during the fetch is not reverted.
+  private hydrateRelatedMany(ranges: Range[]): void {
+    this.cfg.labels.store.batch(() =>
+      this.cfg.ontology.cache.relationships.batch(() =>
+        ranges.forEach((r) => {
+          if (this.store.status(r.key) !== "tombstoned") this.hydrateRelated(r);
+        }),
       ),
     );
   }
 
   /**
-   * Fetches the given keys with labels and parents included, writing them and
-   * their relationships through. Powers the table's fetch primitive.
+   * Fetches the given keys with labels and parents included, writing their labels and
+   * relationships through. Powers the table's fetch primitive.
    */
   private async fetchThrough(keys: Key[]): Promise<Range[]> {
     const ranges = await this.execRetrieve({
@@ -787,7 +792,7 @@ export class Client extends query.Retriever<
       keys,
       ignoreNotFoundError: true,
     });
-    this.hydrateMany(ranges);
+    this.hydrateRelatedMany(ranges);
     return ranges;
   }
 
@@ -825,7 +830,7 @@ export class Client extends query.Retriever<
   private async fetchRequest(query: RetrieveRequest): Promise<Range[]> {
     if (isKeysOnly(query)) return await this.store.retrieve(query.keys);
     const ranges = await this.execRetrieve({ ...BASE_REQUEST, ...query });
-    this.hydrateMany(ranges);
+    this.hydrateRelatedMany(ranges);
     return ranges;
   }
 
