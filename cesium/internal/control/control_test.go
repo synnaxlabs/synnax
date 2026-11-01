@@ -330,11 +330,15 @@ var _ = Describe("Control", func() {
 				expectControlled(telem.NewRangeSeconds(20, 40), false)
 			})
 			It("Should not move the region into another region", func() {
-				openAt("other", telem.NewRangeSeconds(1, 3))
+				other := openAt("other", telem.NewRangeSeconds(1, 3))
 				g := openAt("test", telem.NewRangeSeconds(10, 20))
 				Expect(g.Extend(2 * telem.SecondTS)).To(And(
 					MatchError(validate.ErrValidation),
-					MatchError(ContainSubstring("cannot extend control region")),
+					MatchError(ContainSubstring(fmt.Sprintf(
+						"cannot write to time range %v because writer %v holds it",
+						telem.NewRangeSeconds(2, 3),
+						other.Subject(),
+					))),
 				))
 				expectControlled(telem.NewRangeSeconds(5, 6), false)
 			})
@@ -366,7 +370,7 @@ var _ = Describe("Control", func() {
 				g := openAt("test", telem.NewRangeSeconds(10, 20))
 				Expect(g.Reach(35 * telem.SecondTS)).To(And(
 					MatchError(validate.ErrValidation),
-					MatchError(ContainSubstring("cannot extend control region")),
+					MatchError(ContainSubstring("cannot write to time range")),
 				))
 				expectControlled(telem.NewRangeSeconds(25, 26), false)
 			})
@@ -501,7 +505,7 @@ var _ = Describe("Control", func() {
 				openAt("live", telem.NewRangeSeconds(10, 20))
 				Expect(g.Reach(11 * telem.SecondTS)).To(And(
 					MatchError(validate.ErrValidation),
-					MatchError(ContainSubstring("cannot extend control region")),
+					MatchError(ContainSubstring("cannot write to time range")),
 				))
 			})
 			It("Should extend an unbounded region over a bounded region", func() {
@@ -510,7 +514,7 @@ var _ = Describe("Control", func() {
 				Expect(live.Extend(1 * telem.SecondTS)).To(Succeed())
 				Expect(g.Reach(7 * telem.SecondTS)).To(And(
 					MatchError(validate.ErrValidation),
-					MatchError(ContainSubstring("cannot extend control region")),
+					MatchError(ContainSubstring("cannot write to time range")),
 				))
 			})
 			It("Should prefer a bounded region in ResourceAt", func() {

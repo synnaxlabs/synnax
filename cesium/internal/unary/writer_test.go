@@ -430,7 +430,7 @@ var _ = Describe("Writer Behavior", Ordered, func() {
 							Expect(w.Commit(ctx)).Error().To(And(
 								MatchError(validate.ErrValidation),
 								MatchError(
-									ContainSubstring("cannot extend control region"),
+									ContainSubstring("cannot write to time range"),
 								),
 							))
 							MustSucceed(w.Close())
@@ -486,7 +486,7 @@ var _ = Describe("Writer Behavior", Ordered, func() {
 							Expect(w.Commit(ctx)).Error().To(And(
 								MatchError(validate.ErrValidation),
 								MatchError(
-									ContainSubstring("cannot extend control region"),
+									ContainSubstring("cannot write to time range"),
 								),
 							))
 							MustSucceed(w.Close())
@@ -607,7 +607,7 @@ var _ = Describe("Writer Behavior", Ordered, func() {
 							).Error().To(And(
 								MatchError(validate.ErrValidation),
 								MatchError(
-									ContainSubstring("cannot extend control region"),
+									ContainSubstring("cannot write to time range"),
 								),
 							))
 							MustSucceed(w2.Close())
