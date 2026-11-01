@@ -116,6 +116,15 @@ class Series {
         }
     }
 
+    /// @brief moves the data into a buffer of byte_cap bytes.
+    void reserve_bytes(const size_t byte_cap) {
+        auto data = alloc(byte_cap);
+        if (this->byte_size() > 0)
+            memcpy(data.get(), this->data_.get(), this->byte_size());
+        this->data_ = std::move(data);
+        this->cached_byte_cap = byte_cap;
+    }
+
 public:
     /// @brief an optional property that defines the time range occupied by the
     /// Series' data_. This property is guaranteed to be defined when reading data
@@ -503,6 +512,7 @@ public:
         data_type_(std::move(other.data_type_)),
         cap_(other.cap_),
         cached_byte_size(other.cached_byte_size),
+        cached_byte_cap(other.cached_byte_cap),
         size_(other.size_),
         data_(std::move(other.data_)),
         time_range(other.time_range),
@@ -516,6 +526,7 @@ public:
             data_type_ = std::move(other.data_type_);
             cap_ = other.cap_;
             cached_byte_size = other.cached_byte_size;
+            cached_byte_cap = other.cached_byte_cap;
             size_ = other.size_;
             data_ = std::move(other.data_);
             time_range = other.time_range;
@@ -860,39 +871,23 @@ public:
         this->set(d.data_(), index, d.size());
     }
 
-    /// @brief writes the given vector of numeric data to the series.
-    /// @param d the vector of numeric data to be written.
-    /// @returns the number of samples written. If the capacity of the series is
-    /// exceeded, it will only write as many samples as it can hold.
+    /// @brief writes the given vector of numbers or strings to the series. A string or
+    /// JSON series grows its buffer to fit the strings.
+    /// @param d the vector of data to be written.
+    /// @returns the number of samples written. A numeric series writes only as many
+    /// samples as its capacity holds.
     template<typename T>
     size_t write(const std::vector<T> &d) {
-        this->ensure_exclusive();
         if constexpr (std::is_same_v<T, std::string>) {
-            if (!this->data_type().matches({STRING_T, JSON_T}))
-                throw std::runtime_error(
-                    "cannot write strings to non-string/JSON series"
-                );
-            const size_t count = std::min(d.size(), this->cap() - this->size());
-            if (count == 0) return 0;
-            size_t offset = this->cached_byte_size;
-            for (size_t i = 0; i < count; i++) {
-                const auto &s = d[i];
-                write_u32_le(
-                    this->data_.get() + offset,
-                    static_cast<uint32_t>(s.size())
-                );
-                offset += 4;
-                memcpy(this->data_.get() + offset, s.data(), s.size());
-                offset += s.size();
-            }
-            this->cached_byte_size = offset;
-            this->size_ += count;
-            return count;
+            for (const auto &s: d)
+                this->write(s);
+            return d.size();
         } else {
             static_assert(
                 std::is_arithmetic_v<T>,
                 "T must be a numeric type or string"
             );
+            this->ensure_exclusive();
             const size_t count = std::min(d.size(), this->cap() - this->size());
             if (count == 0) return 0;
             memcpy(
@@ -915,9 +910,10 @@ public:
         return std::visit([this](const auto &v) { return this->write(v); }, value);
     }
 
-    /// @brief writes a single number to the series.
-    /// @param d the number to be written.
-    /// @returns 1 if the number was written, 0 if the series is at capacity and the
+    /// @brief writes a single number or string to the series. A string or JSON series
+    /// grows its buffer to fit the string.
+    /// @param d the number or string to be written.
+    /// @returns 1 if the sample was written, 0 if the series is at capacity and the
     /// sample was not written.
     template<typename T>
     size_t write(const T &d) {
@@ -930,7 +926,6 @@ public:
                 throw std::runtime_error(
                     "cannot write string to non-string/JSON series"
                 );
-            if (this->size() >= this->cap()) return 0;
 
             const char *str_data = nullptr;
             size_t str_len = 0;
@@ -942,6 +937,10 @@ public:
                 str_len = strlen(d);
             }
 
+            const auto needed = this->cached_byte_size + VARIABLE_LENGTH_PREFIX_SIZE +
+                                str_len;
+            if (needed > this->byte_cap())
+                this->reserve_bytes(std::max(needed, 2 * this->byte_cap()));
             write_u32_le(
                 this->data_.get() + this->cached_byte_size,
                 static_cast<uint32_t>(str_len)
@@ -949,6 +948,7 @@ public:
             memcpy(this->data_.get() + this->cached_byte_size + 4, str_data, str_len);
             this->cached_byte_size += str_len + VARIABLE_LENGTH_PREFIX_SIZE;
             this->size_++;
+            this->cap_ = this->size_;
             return 1;
         } else if constexpr (std::is_same_v<T, TimeStamp>) {
             if (this->size() >= this->cap()) return 0;

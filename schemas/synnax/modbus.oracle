@@ -18,7 +18,7 @@ import "schemas/x/telem"
 @ts output  "client/ts/src/modbus"
 
 RegisterValue struct {
-    data_type     telem.DataType = "uint8" {
+    data_type     telem.DataType = "uint16" {
         @doc value "is the data type the register contents are interpreted as."
         @ts type   "string"
     }
@@ -82,6 +82,12 @@ ReadChannel union on type extends BaseReadChannel {
 
         @doc value "reads a typed value from one or more input registers."
     }
+    holding_register_bit extends RegisterBit {
+        @doc value "reads one bit of a holding register."
+    }
+    input_register_bit extends RegisterBit {
+        @doc value "reads one bit of an input register."
+    }
 
     @doc value  """
         is a single Modbus read channel. The type field selects the register space the
@@ -118,6 +124,9 @@ WriteChannel union on type extends BaseWriteChannel {
     }
     holding_register extends RegisterValue {
         @doc value "writes a typed value to one or more holding registers."
+    }
+    holding_register_bit extends RegisterBit {
+        @doc value "writes one bit of a holding register."
     }
 
     @doc value  """
@@ -157,4 +166,14 @@ ScanConfig struct extends task.ScanConfig {
     @go imex    body
     @go marshal
     @go migrate
+}
+
+RegisterBit struct {
+    bit uint8 = 0 {
+        @doc value    "is the bit index, from 0 (least significant) to 15."
+        @validate max 15
+    }
+
+    @doc value  "addresses one bit of a 16-bit register."
+    @go marshal
 }

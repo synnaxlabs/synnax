@@ -32,3 +32,34 @@ class ModbusTcpClient:
         device_id: int = 1,
         no_response_expected: bool = False,
     ) -> ModbusPDU: ...
+    def read_holding_registers(
+        self,
+        address: int,
+        *,
+        count: int = 1,
+        device_id: int = 1,
+        no_response_expected: bool = False,
+    ) -> ModbusPDU: ...
+
+class ModbusSerialClient:
+    def __init__(
+        self,
+        port: str,
+        *,
+        baudrate: int = 19200,
+        bytesize: int = 8,
+        parity: str = "N",
+        stopbits: int = 1,
+        timeout: float = 3,
+        retries: int = 3,
+    ) -> None: ...
+    def connect(self) -> bool: ...
+    def close(self) -> None: ...
+    def read_holding_registers(
+        self,
+        address: int,
+        *,
+        count: int = 1,
+        device_id: int = 1,
+        no_response_expected: bool = False,
+    ) -> ModbusPDU: ...

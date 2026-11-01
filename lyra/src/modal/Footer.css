@@ -21,41 +21,4 @@
             padding-right: var(--pluto-modal-inset);
         }
     }
-
-    /* A button prints its shortcut as one chip, not a cap per key. */
-    .lyra-btn:not(.lyra--square) .lyra-trigger-indicator {
-        align-items: center;
-        gap: 1px;
-        height: 3rem;
-        padding: 0 round(0.833rem, 1px);
-        border-radius: var(--pluto-border-radius-tiny);
-        background: color-mix(in srgb, var(--pluto-gray-l11) 7%, transparent);
-
-        & .lyra-text--keyboard {
-            height: 3rem;
-            min-width: round(1.667rem, 1px);
-            aspect-ratio: auto;
-            padding-inline: 0;
-            border-color: transparent;
-            background: none;
-            font-size: var(--pluto-small-size);
-            color: var(--pluto-gray-l9);
-        }
-    }
-
-    /* On a fill, the chip and its glyphs mix the label's color, so a disabled button
-       dims them with its label. */
-    .lyra-btn--filled:not(.lyra--square) .lyra-trigger-indicator {
-        background: color-mix(in srgb, currentcolor 28%, transparent);
-
-        & .lyra-text--keyboard {
-            color: color-mix(in srgb, currentcolor 88%, transparent);
-        }
-    }
-
-    .lyra-btn.lyra--disabled:not(.lyra--square, .lyra-btn--filled)
-        .lyra-trigger-indicator
-        .lyra-text--keyboard {
-        color: inherit;
-    }
 }

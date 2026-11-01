@@ -7,8 +7,6 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-#include "absl/log/log.h"
-
 #include "driver/common/factory.h"
 #include "driver/labjack/labjack.h"
 #include "driver/labjack/read_task.h"
@@ -16,11 +14,8 @@
 #include "driver/labjack/write_task.h"
 
 namespace driver::labjack {
-const std::string NO_LIBS_DESCRIPTION = "The LabJack LJM libraries are not "
-                                        "installed on this system.";
-
 std::pair<common::ConfigureResult, x::errors::Error> configure_read(
-    const std::shared_ptr<device::Manager> &devs,
+    x::lib::Lazy<device::Manager> &devs,
     const std::shared_ptr<task::Context> &ctx,
     const synnax::task::Task &task,
     const common::TimingConfig timing_cfg
@@ -29,11 +24,13 @@ std::pair<common::ConfigureResult, x::errors::Error> configure_read(
     auto [cfg, err] = ReadTaskConfig::parse(ctx->client, task, timing_cfg);
     if (err) return {std::move(result), err};
     result.auto_start = cfg.auto_start;
+    auto [manager, manager_err] = devs.get();
+    if (manager_err) return {std::move(result), manager_err};
     std::unique_ptr<common::Source> source;
     if (cfg.has_thermocouples())
-        source = std::make_unique<UnarySource>(devs, std::move(cfg));
+        source = std::make_unique<UnarySource>(manager, std::move(cfg));
     else
-        source = std::make_unique<StreamSource>(devs, std::move(cfg));
+        source = std::make_unique<StreamSource>(manager, std::move(cfg));
     result.task = std::make_unique<common::ReadTask>(
         task,
         ctx,
@@ -44,7 +41,7 @@ std::pair<common::ConfigureResult, x::errors::Error> configure_read(
 }
 
 std::pair<common::ConfigureResult, x::errors::Error> configure_write(
-    const std::shared_ptr<device::Manager> &devs,
+    x::lib::Lazy<device::Manager> &devs,
     const std::shared_ptr<task::Context> &ctx,
     const synnax::task::Task &task
 ) {
@@ -52,17 +49,19 @@ std::pair<common::ConfigureResult, x::errors::Error> configure_write(
     auto [cfg, err] = WriteTaskConfig::parse(ctx->client, task);
     if (err) return {std::move(result), err};
     result.auto_start = cfg.auto_start;
+    auto [manager, manager_err] = devs.get();
+    if (manager_err) return {std::move(result), manager_err};
     result.task = std::make_unique<common::WriteTask>(
         task,
         ctx,
         x::breaker::default_config(task.name),
-        std::make_unique<WriteSink>(devs, std::move(cfg))
+        std::make_unique<WriteSink>(manager, std::move(cfg))
     );
     return {std::move(result), x::errors::NIL};
 }
 
 std::pair<common::ConfigureResult, x::errors::Error> configure_scan(
-    const std::shared_ptr<device::Manager> &devs,
+    const std::shared_ptr<x::lib::Lazy<device::Manager>> &devs,
     const std::shared_ptr<task::Context> &ctx,
     const synnax::task::Task &task
 ) {
@@ -81,50 +80,28 @@ std::pair<common::ConfigureResult, x::errors::Error> configure_scan(
     return {std::move(result), x::errors::NIL};
 }
 
-bool Factory::check_health(
-    const std::shared_ptr<task::Context> &ctx,
-    const synnax::task::Task &task,
-    const std::string &cmd_key
-) const {
-    if (this->dev_manager != nullptr) return true;
-    synnax::task::Status status{
-        .key = synnax::task::status_key(task),
-        .name = task.name,
-        .variant = synnax::status::VARIANT_ERROR,
-        .message = "Failed to create task",
-        .description = NO_LIBS_DESCRIPTION,
-        .details = synnax::task::StatusDetails{
-            .task = task.key,
-            .running = false,
-            .cmd = cmd_key,
-            .config_hash = task.config_hash,
-        }
-    };
-    ctx->set_status(status);
-    return false;
-}
-
 std::pair<std::unique_ptr<task::Task>, bool> Factory::configure_task(
     const std::shared_ptr<task::Context> &ctx,
     const synnax::task::Task &task,
     const std::string &cmd_key
 ) {
     if (!task.type.starts_with(INTEGRATION_NAME)) return {nullptr, false};
-    if (!this->check_health(ctx, task, cmd_key)) return {nullptr, true};
     std::pair<common::ConfigureResult, x::errors::Error> res;
     if (task.type == SCAN_TASK_TYPE) res = configure_scan(this->dev_manager, ctx, task);
     if (task.type == READ_TASK_TYPE)
-        res = configure_read(this->dev_manager, ctx, task, this->timing_cfg);
+        res = configure_read(*this->dev_manager, ctx, task, this->timing_cfg);
     if (task.type == WRITE_TASK_TYPE)
-        res = configure_write(this->dev_manager, ctx, task);
+        res = configure_write(*this->dev_manager, ctx, task);
     return common::handle_config_err(ctx, task, std::move(res), cmd_key);
 }
 
-std::unique_ptr<Factory> Factory::create(common::TimingConfig timing_cfg) {
-    auto [ljm, ljm_err] = ljm::API::load();
-    if (ljm_err) LOG(WARNING) << ljm_err;
+std::unique_ptr<Factory> Factory::create(const common::TimingConfig timing_cfg) {
     return std::make_unique<Factory>(
-        ljm != nullptr ? std::make_shared<device::LJMManager>(ljm) : nullptr,
+        []() -> std::pair<std::shared_ptr<device::Manager>, x::errors::Error> {
+            auto [ljm, err] = ljm::API::load();
+            if (err) return {nullptr, err};
+            return {std::make_shared<device::LJMManager>(ljm), x::errors::NIL};
+        },
         timing_cfg
     );
 }
