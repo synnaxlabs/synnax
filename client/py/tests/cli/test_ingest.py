@@ -53,6 +53,18 @@ class TestIngest:
             )
 
 
+@pytest.fixture
+def other_pair(client: Synnax) -> tuple[sy.Channel, sy.Channel]:
+    name = random_name()
+    idx = client.channels.create(
+        name=f"test_{name}_time", is_index=True, data_type=sy.DataType.TIMESTAMP
+    )
+    data = client.channels.create(
+        name=f"test_{name}_data", index=idx.key, data_type=sy.DataType.FLOAT64
+    )
+    return idx, data
+
+
 @pytest.mark.cli
 class TestRowEngine:
     def test_ingest_with_index(
@@ -84,19 +96,12 @@ class TestRowEngine:
         self,
         client: Synnax,
         indexed_pair: tuple[sy.Channel, sy.Channel],
+        other_pair: tuple[sy.Channel, sy.Channel],
         tmp_path: Path,
     ) -> None:
         """Should open each index at its own first timestamp"""
         first_idx, first_data = indexed_pair
-        name = random_name()
-        second_idx = client.channels.create(
-            name=f"test_{name}_time", is_index=True, data_type=sy.DataType.TIMESTAMP
-        )
-        second_data = client.channels.create(
-            name=f"test_{name}",
-            index=second_idx.key,
-            data_type=sy.DataType.FLOAT64,
-        )
+        second_idx, second_data = other_pair
         client.write(
             1 * sy.TimeSpan.SECOND, {second_idx.key: seconds_linspace(1, count=2)}
         )
@@ -116,6 +121,34 @@ class TestRowEngine:
         assert list(client.read(sy.TimeRange.MAX, first_data.key)) == [1.5, 2.5]
         assert list(client.read(sy.TimeRange.MAX, second_data.key)) == [3.5, 4.5]
         assert engine.end > 11 * sy.TimeSpan.SECOND
+
+    def test_close_writers_after_failed_ingest(
+        self,
+        client: Synnax,
+        indexed_pair: tuple[sy.Channel, sy.Channel],
+        other_pair: tuple[sy.Channel, sy.Channel],
+        tmp_path: Path,
+    ) -> None:
+        """Should release every index when the commit of one of them fails"""
+        first_idx, first_data = indexed_pair
+        second_idx, second_data = other_pair
+        client.write(
+            2 * sy.TimeSpan.SECOND, {first_idx.key: seconds_linspace(2, count=1)}
+        )
+        path = tmp_path / "failed.csv"
+        path.write_text(
+            f"{first_idx.name},{first_data.name},{second_idx.name},{second_data.name}\n"
+            "1000000000,1.5,10000000000,3.5\n"
+            "2000000000,2.5,11000000000,4.5\n"
+        )
+        with pytest.raises(sy.ValidationError, match="overlaps with existing data"):
+            row.Engine(
+                client=client,
+                reader=FACTORY.new_reader(path),
+                channels=[first_idx, first_data, second_idx, second_data],
+                start=sy.TimeStamp(1 * sy.TimeSpan.SECOND),
+            ).run()
+        client.delete([second_idx.key, second_data.key], sy.TimeRange.MAX)
 
     def test_ingest_without_index(
         self,
