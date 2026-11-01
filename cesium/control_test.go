@@ -155,7 +155,7 @@ var _ = Describe("Control", func() {
 							Error().To(And(
 							MatchError(xcontrol.ErrUnauthorized),
 							MatchError(
-								ContainSubstring("overlaps with a controlled region"),
+								ContainSubstring("cannot access time range"),
 							),
 						))
 						Expect(live.Write(frame(10))).To(BeTrue())

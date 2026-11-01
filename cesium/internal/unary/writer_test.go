@@ -219,7 +219,7 @@ var _ = Describe("Writer Behavior", Ordered, func() {
 							Expect(db.OpenWriter(ctx, cfg)).Error().To(And(
 								MatchError(control.ErrUnauthorized),
 								MatchError(ContainSubstring(
-									"overlaps with a controlled region",
+									"cannot access time range",
 								)),
 							))
 							MustSucceed(live.Write(telem.NewSeriesSecondsTSV(10)))
@@ -237,7 +237,7 @@ var _ = Describe("Writer Behavior", Ordered, func() {
 							Expect(db.OpenWriter(ctx, boundedConfig(0))).Error().To(And(
 								MatchError(control.ErrUnauthorized),
 								MatchError(ContainSubstring(
-									"overlaps with a controlled region",
+									"cannot access time range",
 								)),
 							))
 							MustSucceed(live.Close())
