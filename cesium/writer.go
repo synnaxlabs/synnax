@@ -75,6 +75,27 @@ func (w *Writer) SetAuthority(cfg WriterConfig) error {
 	return err
 }
 
+// EndDomain commits the writer, then ends the domains of the given indexes and of the
+// data channels they index. The next write to an index starts a new domain at its first
+// timestamp, which frees the time before that timestamp for another writer. Indexes the
+// writer does not write are ignored, and an index with no data keeps its domains.
+// EndDomain is synchronous. It returns false if another writer controls an index or one
+// of its data channels. The index then keeps its domain, and some of its data channels
+// may end theirs.
+func (w *Writer) EndDomain(indexes ...ChannelKey) (authorized bool, err error) {
+	res, err := w.exec(
+		WriterRequest{
+			Config:  WriterConfig{Channels: indexes},
+			Command: WriterCommandEndDomain,
+		},
+		true,
+	)
+	if err != nil {
+		return false, err
+	}
+	return res.Authorized, nil
+}
+
 func (w *Writer) exec(req WriterRequest, sync bool) (res WriterResponse, err error) {
 	if w.closeErr != nil {
 		return res, w.closeErr
