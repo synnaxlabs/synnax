@@ -144,7 +144,7 @@ type changes interface{ isEmpty() bool }
 // overlay holds the changes of every scope that has staged changes against an index.
 type overlay[S Scope, D changes] struct {
 	// mu guards deltas.
-	mu     sync.Mutex
+	mu     sync.RWMutex
 	deltas map[S]D
 	// create returns an empty set of changes.
 	create func() D
@@ -182,9 +182,9 @@ func (o *overlay[S, D]) get(scope S) (D, bool) {
 	if isNone(scope) {
 		return none, false
 	}
-	o.mu.Lock()
+	o.mu.RLock()
 	d, ok := o.deltas[scope]
-	o.mu.Unlock()
+	o.mu.RUnlock()
 	if !ok || d.isEmpty() {
 		return none, false
 	}
@@ -213,8 +213,8 @@ func committingKeys[S Scope, K, V comparable](
 	o *overlay[S, *delta[K, V]],
 	values []V,
 ) []K {
-	o.mu.Lock()
-	defer o.mu.Unlock()
+	o.mu.RLock()
+	defer o.mu.RUnlock()
 	var keys []K
 	for scope, d := range o.deltas {
 		if !scope.Committing() {
