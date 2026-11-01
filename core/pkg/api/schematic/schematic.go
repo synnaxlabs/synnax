@@ -75,6 +75,9 @@ type (
 	CreateRequest struct {
 		Schematics []schematic.Schematic `json:"schematics" msgpack:"schematics"`
 		Project    project.Key           `json:"project"    msgpack:"project"`
+		// DispatchKey is stamped onto the create broadcasts so the sender skips its
+		// echo.
+		DispatchKey string `json:"dispatch_key" msgpack:"dispatch_key"`
 	}
 	CreateResponse struct {
 		Schematics []schematic.Schematic `json:"schematics" msgpack:"schematics"`
@@ -94,6 +97,7 @@ func (s *Service) Create(
 		return CreateResponse{}, err
 	}
 	if err := s.internal.NewWriter(tx).
+		WithDispatchKey(req.DispatchKey).
 		CreateMany(ctx, req.Project, &req.Schematics); err != nil {
 		return CreateResponse{}, err
 	}

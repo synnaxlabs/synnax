@@ -25,6 +25,13 @@ type Writer struct {
 	dispatcher actions.Dispatcher[Key, Action]
 }
 
+// WithDispatchKey returns a copy of the writer that stamps dispatchKey onto the create
+// broadcasts it emits, so the client that sent the create recognizes its own echo.
+func (w Writer) WithDispatchKey(dispatchKey string) Writer {
+	w.dispatcher = w.dispatcher.WithDispatchKey(dispatchKey)
+	return w
+}
+
 // Create creates a new panel. If the panel's key is uuid.Nil(), a new key is generated.
 // The panel is registered with the ontology.
 //
@@ -66,9 +73,11 @@ func (w Writer) Create(
 			return err
 		}
 	}
-	// Notify last: a create rejected by ontology validation must not be broadcast.
-	w.dispatcher.Notify(
-		ctx, p.Key, "", []Action{NewCreateAction(CreatePayload{Panel: *p})},
+	w.dispatcher.NotifyOnCommit(
+		ctx,
+		w.tx,
+		p.Key,
+		NewCreateAction(CreatePayload{Panel: *p}),
 	)
 	return nil
 }

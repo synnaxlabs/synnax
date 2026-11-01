@@ -31,6 +31,13 @@ type Writer struct {
 	dispatcher actions.Dispatcher[Key, Action]
 }
 
+// WithDispatchKey returns a copy of the writer that stamps dispatchKey onto the create
+// broadcasts it emits, so the client that sent the create recognizes its own echo.
+func (w Writer) WithDispatchKey(dispatchKey string) Writer {
+	w.dispatcher = w.dispatcher.WithDispatchKey(dispatchKey)
+	return w
+}
+
 // Create creates the given schematic within the project provided. If the
 // schematic does not have a key, a new key will be generated.
 func (w Writer) Create(
@@ -72,9 +79,11 @@ func (w Writer) Create(
 			}
 		}
 	}
-	// Notify last: a create rejected by ontology validation must not be broadcast.
-	w.dispatcher.Notify(
-		ctx, s.Key, "", []Action{NewCreateAction(CreatePayload{Schematic: *s})},
+	w.dispatcher.NotifyOnCommit(
+		ctx,
+		w.tx,
+		s.Key,
+		NewCreateAction(CreatePayload{Schematic: *s}),
 	)
 	return nil
 }

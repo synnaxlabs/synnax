@@ -18,6 +18,7 @@ import {
 } from "zod/v4/core";
 
 import { deep } from "@/deep";
+import { narrow } from "@/narrow";
 
 export const functionOutput = <
   In extends $ZodFunctionIn,
@@ -81,64 +82,102 @@ export const unwrap = (schema: $ZodType): $ZodType => {
   }
 };
 
+/** A discriminated union that a path goes into. */
+export interface Discriminator {
+  /** The path to the discriminator field of the union. */
+  path: string[];
+  /** The discriminator value that the document holds. */
+  value: unknown;
+}
+
+/** Reads one path part off a document. A list entry is found by key, then by index. */
+const child = (values: unknown, part: string): unknown => {
+  if (Array.isArray(values)) {
+    const entry = values.find((e: unknown) => narrow.isObject(e) && e.key === part);
+    if (entry != null) return entry;
+    const i = deep.getIndex(part);
+    return i == null ? undefined : values[i];
+  }
+  return narrow.isObject(values) ? values[part] : undefined;
+};
+
+/**
+ * Finds the schema at parts[index:] below schema, where values is the document at the
+ * same place. Pushes each discriminated union that the path goes into onto found.
+ */
 const walk = (
   schema: $ZodType,
   parts: string[],
   index: number,
   values: unknown,
+  found: Discriminator[],
 ): $ZodType | NotFound => {
   if (index >= parts.length) return schema;
   schema = unwrap(schema);
   const def = schema._zod.def as $ZodTypeDef & Record<string, unknown>;
+  const part = parts[index];
   switch (def.type) {
     case "unknown":
     case "any":
       return schema;
     case "object": {
       const shape = def.shape as Record<string, $ZodType>;
-      for (let i = parts.length - index; i >= 1; i--) {
-        const key = parts.slice(index, index + i).join(deep.SEPARATOR);
-        if (key in shape) return walk(shape[key], parts, index + i, values);
+      const best = deep.findBestKey(shape, parts.slice(index));
+      if (best != null) {
+        const [key, consumed] = best;
+        return walk(shape[key], parts, index + consumed, child(values, key), found);
       }
-      if (def.catchall != null)
-        return walk(def.catchall as $ZodType, parts, index + 1, values);
-      return NOT_FOUND;
+      if (def.catchall == null) return NOT_FOUND;
+      const catchall = def.catchall as $ZodType;
+      return walk(catchall, parts, index + 1, child(values, part), found);
     }
     case "array":
-      return walk(def.element as $ZodType, parts, index + 1, values);
+      return walk(
+        def.element as $ZodType,
+        parts,
+        index + 1,
+        child(values, part),
+        found,
+      );
     case "tuple": {
-      const i = deep.getIndex(parts[index]);
+      const i = deep.getIndex(part);
       if (i == null) return NOT_FOUND;
       const items = def.items as $ZodType[];
       const item = i < items.length ? items[i] : (def.rest as $ZodType | null);
       if (item == null) return NOT_FOUND;
-      return walk(item, parts, index + 1, values);
+      const value = Array.isArray(values) ? values[i] : undefined;
+      return walk(item, parts, index + 1, value, found);
     }
     case "record":
     case "map":
-      return walk(def.valueType as $ZodType, parts, index + 1, values);
+      return walk(
+        def.valueType as $ZodType,
+        parts,
+        index + 1,
+        child(values, part),
+        found,
+      );
     case "union": {
       if (def.discriminator == null) {
         // A plain union is a migration or a loose alternative: the first member that
         // contains the path serves it.
+        const length = found.length;
         for (const option of def.options as $ZodType[]) {
-          const res = walk(option, parts, index, values);
+          const res = walk(option, parts, index, values, found);
           if (res !== NOT_FOUND) return res;
+          found.length = length;
         }
         return NOT_FOUND;
       }
-      if (values == null) return NOT_FOUND;
-      const prefix = parts.slice(0, index).join(deep.SEPARATOR);
-      const current = deep.get(values, prefix, {
-        optional: true,
-      });
-      if (current == null) return NOT_FOUND;
+      const discriminator = def.discriminator as string;
+      const value = narrow.isObject(values) ? values[discriminator] : undefined;
       const option = getDiscriminatedOption(
         schema as z.ZodDiscriminatedUnion,
-        current[def.discriminator as string] as never,
+        value as never,
       );
       if (option == null) return NOT_FOUND;
-      return walk(option, parts, index, values);
+      found.push({ path: [...parts.slice(0, index), discriminator], value });
+      return walk(option, parts, index, values, found);
     }
     default:
       return NOT_FOUND;
@@ -148,8 +187,8 @@ const walk = (
 /**
  * Finds the schema of the field at a dot-separated path.
  *
- * A segment may name an object key, an array index or element key, a tuple index, or
- * a record key. Wrappers such as optional, default, and pipe are transparent. Inside a
+ * A segment may name an object key, the key or index of an array element, a tuple
+ * index, or a record key. Wrappers such as optional, default, and pipe are transparent. Inside a
  * discriminated union the member is chosen by the discriminator `values` holds there;
  * inside a plain union, by the first member that contains the path. A `z.unknown()` or
  * `z.any()` accepts any remaining path.
@@ -163,8 +202,27 @@ export const getFieldSchema: GetFieldSchema = ((
   { optional = false, values }: GetFieldSchemaOptions = {},
 ): z.ZodType | null => {
   if (path === "") return schema;
-  const res = walk(schema, path.split(deep.SEPARATOR), 0, values);
+  const res = walk(schema, path.split(deep.SEPARATOR), 0, values, []);
   if (res !== NOT_FOUND) return res as z.ZodType;
   if (optional) return null;
   throw new Error(`Schema does not contain the path ${path}`);
 }) as GetFieldSchema;
+
+/**
+ * Lists the discriminated unions that a path goes into, from the root down, with the
+ * discriminator value that `values` holds for each. A union that the path ends at does
+ * not count. A segment into an array names the `key` of an entry, or else its index. A
+ * `z.unknown()` or `z.any()` holds no unions below it.
+ *
+ * @throws {Error} if the schema does not contain the path, or `values` holds no
+ * discriminator for a union that the path goes into.
+ */
+export const getDiscriminators = (
+  schema: z.ZodType,
+  path: string[],
+  values: unknown,
+): Discriminator[] => {
+  const found: Discriminator[] = [];
+  if (walk(schema, path, 0, values, found) !== NOT_FOUND) return found;
+  throw new Error(`Schema does not contain the path ${path.join(deep.SEPARATOR)}`);
+};
