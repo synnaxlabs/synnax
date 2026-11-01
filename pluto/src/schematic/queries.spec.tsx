@@ -8,15 +8,29 @@
 // included in the file licenses/APL.txt.
 
 import { NotFoundError, type project, query, schematic } from "@synnaxlabs/client";
-import { createTestClient } from "@synnaxlabs/client/testutil";
-import { uuid } from "@synnaxlabs/x";
+import {
+  createTestClient,
+  spyOnSend,
+  waitForStreamLive,
+} from "@synnaxlabs/client/testutil";
+import { color, uuid } from "@synnaxlabs/x";
 import { act, render, renderHook, waitFor, within } from "@testing-library/react";
 import { type FC, type PropsWithChildren, type ReactElement } from "react";
-import { afterEach, assert, beforeAll, beforeEach, describe, expect, it } from "vitest";
+import {
+  afterEach,
+  assert,
+  beforeAll,
+  beforeEach,
+  describe,
+  expect,
+  it,
+  vi,
+} from "vitest";
 
 import { Errors } from "@/errors";
 import { Flux } from "@/flux";
 import { Schematic } from "@/schematic";
+import { renderHookSuspended } from "@/testutil/render";
 import { createAsyncSynnaxWrapper } from "@/testutil/Synnax";
 
 const client = createTestClient();
@@ -701,6 +715,28 @@ describe("schematic queries", () => {
       );
     });
 
+    it("writes only the segments of a connected edge", async () => {
+      await dispatch(
+        schematic.setConfig({
+          key: "e1",
+          config: { variant: "pipe", segments: SEGMENTS },
+        }),
+      );
+      await waitFor(() => expect(getEdgeCfg()?.segments).toEqual(SEGMENTS));
+      const send = spyOnSend(client);
+      await dispatch(
+        schematic.setNodePosition({ key: "n1", position: { x: 20, y: 0 } }),
+      );
+      const [, req] =
+        send.mock.calls.find(([target]) => target === "/schematic/dispatch") ?? [];
+      expect(req).toMatchObject({
+        actions: [
+          { type: "set_node_position" },
+          { type: "set", set: { path: ["configs", "e1", "segments"] } },
+        ],
+      });
+    });
+
     it("does not synthesize a setConfig when the edge has no stored segments", async () => {
       expect(getEdgeCfg()).toBeUndefined();
 
@@ -945,6 +981,130 @@ describe("schematic queries", () => {
       });
       const freed = await call(() => result.current(["n1"]));
       expect(freed).toBeNull();
+    });
+  });
+
+  describe("useConfigForm", () => {
+    const remote = createTestClient();
+
+    beforeEach(async () => await waitForStreamLive(client.connection));
+
+    afterEach(() => {
+      vi.restoreAllMocks();
+    });
+
+    const renderForm = async (key: schematic.Key) =>
+      await renderHookSuspended(
+        ({ elKey }: { elKey: string }) => Schematic.useConfigForm({ key, elKey }),
+        { wrapper: Wrapper, initialProps: { elKey: "n1" } },
+      );
+
+    // A fresh client reads the Core. A streaming client's cache can lag a dispatch.
+    const fetchStoredConfig = async (
+      key: schematic.Key,
+      elKey: string,
+    ): Promise<schematic.ElementConfig> =>
+      (await createTestClient().schematics.retrieve({ key })).configs[elKey];
+
+    it("should show the element's config", async () => {
+      const schem = await createTestSchematic(proj.key);
+      const { result } = await renderForm(schem.key);
+      expect(result.current.form.value()).toMatchObject({
+        variant: "tank",
+        scaleVisible: false,
+      });
+    });
+
+    // Most symbol forms edit at the root of the config, as `Form.useField("")` does.
+    it("should add and remove fields with a write of the whole config", async () => {
+      const schem = await createTestSchematic(proj.key);
+      const { result } = await renderForm(schem.key);
+      const strokeColor = color.construct("#ff0000");
+      const add = { ...result.current.form.value(), strokeColor };
+      act(() => result.current.form.set("", add));
+      await act(async () => expect(await result.current.flush()).toBe(true));
+      expect(await fetchStoredConfig(schem.key, "n1")).toHaveProperty("strokeColor");
+      const remove = { ...result.current.form.value(), strokeColor: undefined };
+      act(() => result.current.form.set("", remove));
+      await act(async () => expect(await result.current.flush()).toBe(true));
+      expect(await fetchStoredConfig(schem.key, "n1")).not.toHaveProperty(
+        "strokeColor",
+      );
+    });
+
+    it("should replace the config when a whole write changes its variant", async () => {
+      const schem = await createTestSchematic(proj.key);
+      const { result } = await renderForm(schem.key);
+      const next = schematic.elementConfigZ.parse({ variant: "value" });
+      act(() => result.current.form.set("", next));
+      await act(async () => expect(await result.current.flush()).toBe(true));
+      expect(await fetchStoredConfig(schem.key, "n1")).toMatchObject({
+        variant: "value",
+      });
+    });
+
+    it("should send an edit as a path action into the element's config", async () => {
+      const schem = await createTestSchematic(proj.key);
+      const { result } = await renderForm(schem.key);
+      const send = spyOnSend(client);
+      act(() => result.current.form.set("scaleVisible", true));
+      await act(async () => expect(await result.current.flush()).toBe(true));
+      const [, req] =
+        send.mock.calls.find(([target]) => target === "/schematic/dispatch") ?? [];
+      expect(req).toMatchObject({
+        actions: [
+          {
+            type: "set",
+            set: { path: ["configs", "n1", "scale_visible"], value: true },
+          },
+        ],
+      });
+      expect(await fetchStoredConfig(schem.key, "n1")).toMatchObject({
+        scaleVisible: true,
+      });
+    });
+
+    it("should show a remote edit to the element", async () => {
+      const schem = await createTestSchematic(proj.key);
+      const { result } = await renderForm(schem.key);
+      await remote.schematics.retrieve({ key: schem.key });
+      await act(async () => {
+        await remote.schematics.dispatch(
+          schem.key,
+          schematic.set({ path: ["configs", "n1", "scaleVisible"], value: true }),
+        );
+      });
+      await waitFor(() =>
+        expect(result.current.form.get("scaleVisible").value).toBe(true),
+      );
+    });
+
+    it("should set the first entry of an empty list without keys", async () => {
+      const schem = await client.schematics.create(proj.key, {
+        name: "test_schematic",
+        nodes: [{ key: "n1", position: { x: 0, y: 0 } }],
+        configs: { n1: { variant: "string_display" } },
+      });
+      const { result } = await renderForm(schem.key);
+      act(() => result.current.form.set("tooltip.0", "line"));
+      await act(async () => expect(await result.current.flush()).toBe(true));
+      expect(await fetchStoredConfig(schem.key, "n1")).toMatchObject({
+        tooltip: ["line"],
+      });
+    });
+
+    it("should edit the new element when the element key changes", async () => {
+      const schem = await createTestSchematic(proj.key);
+      const { result, rerender } = await renderForm(schem.key);
+      rerender({ elKey: "n2" });
+      act(() => result.current.form.set("scaleVisible", true));
+      await act(async () => expect(await result.current.flush()).toBe(true));
+      expect(await fetchStoredConfig(schem.key, "n2")).toMatchObject({
+        scaleVisible: true,
+      });
+      expect(await fetchStoredConfig(schem.key, "n1")).toMatchObject({
+        scaleVisible: false,
+      });
     });
   });
 });

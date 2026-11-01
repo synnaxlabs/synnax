@@ -14,7 +14,7 @@ const INPUT_PROPS = {
 } as const;
 
 export const NaNFill = () => (
-  <Form.SwitchField
+  <Form.CheckboxField
     label="NaN fill"
     path="config.nanFillEnabled"
     inputProps={INPUT_PROPS}

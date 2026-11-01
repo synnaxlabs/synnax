@@ -167,6 +167,33 @@ describe("zod", () => {
           z.ZodNumber,
         );
       });
+      describe("of discriminated unions", () => {
+        const schema = z.object({
+          channels: z.array(
+            z.discriminatedUnion("type", [
+              z.object({ key: z.string(), type: z.literal("a"), value: z.number() }),
+              z.object({ key: z.string(), type: z.literal("b"), value: z.string() }),
+            ]),
+          ),
+        });
+        const values = {
+          channels: [
+            { key: "1", type: "b", value: "x" },
+            { key: "0", type: "a", value: 1 },
+          ],
+        };
+        it("should read the variant of the entry a key names before its index", () => {
+          expect(
+            zod.getFieldSchema(schema, "channels.0.value", { values }),
+          ).toBeInstanceOf(z.ZodNumber);
+        });
+        it("should read the variant of the entry at an index no key names", () => {
+          const values = { channels: [{ key: "x", type: "b", value: "x" }] };
+          expect(
+            zod.getFieldSchema(schema, "channels.0.value", { values }),
+          ).toBeInstanceOf(z.ZodString);
+        });
+      });
     });
 
     describe("records and delegation", () => {
@@ -190,10 +217,48 @@ describe("zod", () => {
       });
     });
 
+    describe("catchall", () => {
+      const schema = z.object({ a: z.string() }).catchall(z.number());
+      it("should serve a field the shape does not name", () => {
+        expect(zod.getFieldSchema(schema, "other")).toBeInstanceOf(z.ZodNumber);
+      });
+    });
+
+    describe("tuples", () => {
+      const schema = z.object({
+        t: z.tuple([z.string(), z.number()]),
+        r: z.tuple([z.string()], z.boolean()),
+      });
+      it("should map an index to its item", () => {
+        expect(zod.getFieldSchema(schema, "t.1")).toBeInstanceOf(z.ZodNumber);
+      });
+      it("should map an index past the items to the rest", () => {
+        expect(zod.getFieldSchema(schema, "r.4")).toBeInstanceOf(z.ZodBoolean);
+      });
+      it("should not contain an index past the items with no rest", () => {
+        expect(zod.getFieldSchema(schema, "t.2", { optional: true })).toBeNull();
+      });
+      it("should not contain a segment that is not an index", () => {
+        expect(zod.getFieldSchema(schema, "t.x", { optional: true })).toBeNull();
+      });
+    });
+
     describe("dotted keys", () => {
       const schema = z.object({ "a.b": z.object({ c: z.number() }) });
       it("should match the longest key", () => {
         expect(zod.getFieldSchema(schema, "a.b.c")).toBeInstanceOf(z.ZodNumber);
+      });
+      it("should read the values under the longest key", () => {
+        const schema = z.object({
+          "a.b": z.discriminatedUnion("type", [
+            z.object({ type: z.literal("x"), v: z.number() }),
+            z.object({ type: z.literal("y"), v: z.string() }),
+          ]),
+        });
+        const values = { "a.b": { type: "y", v: "s" } };
+        expect(zod.getFieldSchema(schema, "a.b.v", { values })).toBeInstanceOf(
+          z.ZodString,
+        );
       });
     });
 
@@ -255,6 +320,143 @@ describe("zod", () => {
         expect(v).toBeInstanceOf(z.ZodString);
         expect(z.validate(v, undefined)).toBe(false);
       });
+    });
+  });
+
+  describe("getDiscriminators", () => {
+    const channelZ = z.discriminatedUnion("type", [
+      z.object({ key: z.string(), type: z.literal("ai_voltage"), maxVal: z.number() }),
+      z.object({
+        key: z.string(),
+        type: z.literal("ai_thermocouple"),
+        units: z.string(),
+        scale: z
+          .discriminatedUnion("kind", [
+            z.object({ kind: z.literal("linear"), slope: z.number() }),
+            z.object({ kind: z.literal("none") }),
+          ])
+          .optional(),
+      }),
+    ]);
+    const schema = z.object({
+      name: z.string(),
+      config: z.object({ channels: z.array(channelZ), extra: z.unknown() }),
+    });
+    const values = {
+      name: "task",
+      config: {
+        channels: [
+          { key: "a", type: "ai_voltage", maxVal: 10 },
+          {
+            key: "b",
+            type: "ai_thermocouple",
+            units: "C",
+            scale: { kind: "linear", slope: 2 },
+          },
+        ],
+        extra: { anything: { goes: 1 } },
+      },
+    };
+
+    it("should list nothing for a path that crosses no union", () => {
+      expect(zod.getDiscriminators(schema, ["name"], values)).toEqual([]);
+    });
+
+    it("should list the union a path goes into", () => {
+      expect(
+        zod.getDiscriminators(schema, ["config", "channels", "a", "maxVal"], values),
+      ).toEqual([{ path: ["config", "channels", "a", "type"], value: "ai_voltage" }]);
+    });
+
+    it("should not list a union that the path ends at", () => {
+      expect(
+        zod.getDiscriminators(schema, ["config", "channels", "a"], values),
+      ).toEqual([]);
+    });
+
+    it("should list nested unions from the root down", () => {
+      expect(
+        zod.getDiscriminators(
+          schema,
+          ["config", "channels", "b", "scale", "slope"],
+          values,
+        ),
+      ).toEqual([
+        { path: ["config", "channels", "b", "type"], value: "ai_thermocouple" },
+        { path: ["config", "channels", "b", "scale", "kind"], value: "linear" },
+      ]);
+    });
+
+    it("should list nothing below an unknown schema", () => {
+      expect(
+        zod.getDiscriminators(schema, ["config", "extra", "anything", "goes"], values),
+      ).toEqual([]);
+    });
+
+    it("should throw for a field of a variant the values do not hold", () => {
+      expect(() =>
+        zod.getDiscriminators(schema, ["config", "channels", "a", "units"], values),
+      ).toThrow("Schema does not contain the path config.channels.a.units");
+    });
+
+    it("should throw for a path through a missing list entry", () => {
+      expect(() =>
+        zod.getDiscriminators(schema, ["config", "channels", "x", "maxVal"], values),
+      ).toThrow("Schema does not contain the path config.channels.x.maxVal");
+    });
+
+    it("should find a list entry by index when no key matches", () => {
+      expect(
+        zod.getDiscriminators(schema, ["config", "channels", "1", "units"], values),
+      ).toEqual([
+        { path: ["config", "channels", "1", "type"], value: "ai_thermocouple" },
+      ]);
+    });
+
+    describe("containers", () => {
+      const voltage = { key: "v", type: "ai_voltage", maxVal: 10 };
+      const schema = z.object({
+        pair: z.tuple([z.string(), channelZ]),
+        byName: z.record(z.string(), channelZ),
+        loose: z.object({}).catchall(channelZ),
+        "a.b": channelZ,
+        list: z.array(channelZ),
+      });
+      const values = {
+        pair: ["x", voltage],
+        byName: { v: voltage },
+        loose: { v: voltage },
+        "a.b": voltage,
+        list: [
+          { ...voltage, key: "1" },
+          { key: "0", type: "ai_thermocouple", units: "C" },
+        ],
+      };
+
+      it.each([
+        ["a tuple item", ["pair", "1", "maxVal"]],
+        ["a record value", ["byName", "v", "maxVal"]],
+        ["a catchall field", ["loose", "v", "maxVal"]],
+        ["a field whose key holds the separator", ["a.b", "maxVal"]],
+      ])("should list the union in %s", (_, path) => {
+        expect(zod.getDiscriminators(schema, path, values)).toEqual([
+          { path: [...path.slice(0, -1), "type"], value: "ai_voltage" },
+        ]);
+      });
+
+      it("should find a list entry by key before its index", () => {
+        expect(zod.getDiscriminators(schema, ["list", "0", "units"], values)).toEqual([
+          { path: ["list", "0", "type"], value: "ai_thermocouple" },
+        ]);
+      });
+    });
+
+    it("should not list a union from a plain union member that lacks the path", () => {
+      const schema = z.object({
+        u: z.union([channelZ, z.object({ units: z.string(), extra: z.number() })]),
+      });
+      const values = { u: { key: "a", type: "ai_voltage", units: "V", extra: 1 } };
+      expect(zod.getDiscriminators(schema, ["u", "extra"], values)).toEqual([]);
     });
   });
 });
