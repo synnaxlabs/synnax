@@ -28,6 +28,7 @@ type engine interface {
 	Stage(s *scope, key int, value string)
 	StageDelete(s *scope, key int)
 	Get(s *scope, values ...string) ([]int, error)
+	Committing(values ...string) []int
 }
 
 // populated returns an index loaded with key 1 -> a, 2 -> a, and 3 -> b.
@@ -174,6 +175,26 @@ var _ = Describe("Index", func() {
 					e.StageDelete(nil, 3)
 					Expect(e.Get(nil, "a")).To(ConsistOf(1, 2, 4))
 					Expect(e.Get(nil, "b")).To(BeEmpty())
+				})
+
+				It("Should return staged keys only while the scope commits", func() {
+					e.Stage(txn, 4, "a")
+					Expect(e.Committing("a")).To(BeEmpty())
+					txn.committing = true
+					Expect(e.Committing("a")).To(ConsistOf(4))
+					Expect(e.Committing("b")).To(BeEmpty())
+					Expect(e.Get(nil, "a")).To(ConsistOf(1, 2))
+					txn.end(true)
+					Expect(e.Committing("a")).To(BeEmpty())
+					Expect(e.Get(nil, "a")).To(ConsistOf(1, 2, 4))
+				})
+
+				It("Should drop committing keys when the commit fails", func() {
+					e.Stage(txn, 4, "a")
+					txn.committing = true
+					txn.end(false)
+					Expect(e.Committing("a")).To(BeEmpty())
+					Expect(e.Get(nil, "a")).To(ConsistOf(1, 2))
 				})
 			})
 		})

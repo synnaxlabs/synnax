@@ -1081,7 +1081,7 @@ var _ = Describe("Calculation", Ordered, func() {
 					Expect(got).To(HaveEach(failure()))
 					Expect(got[1].Description).ToNot(Equal(got[0].Description))
 					writeGood()
-					Expect(written()).To(HaveLen(3))
+					Eventually(written).Should(HaveLen(3))
 				},
 			)
 
@@ -1095,7 +1095,8 @@ var _ = Describe("Calculation", Ordered, func() {
 					Eventually(written).Should(ConsistOf(failure()))
 					writeGood()
 					writeGood()
-					Expect(written()).To(HaveExactElements(failure(), success))
+					Eventually(written).
+						Should(HaveExactElements(failure(), success))
 				},
 			)
 
@@ -1269,6 +1270,7 @@ var _ = Describe("Calculation", Ordered, func() {
 						_, err := stored()
 						return err
 					}).Should(MatchError(query.ErrNotFound))
+					flushChanges(ctx)
 					write(0)
 					Eventually(stored).Should(failure())
 				},

@@ -126,6 +126,12 @@ func (s *Sorted[S, K, V]) Get(scope S, values ...V) ([]K, error) {
 	return mergeValues(&s.overlay, scope, committed, values), nil
 }
 
+// Committing returns the keys that a transaction in its commit maps to any of values.
+// See Lookup.Committing for its contract.
+func (s *Sorted[S, K, V]) Committing(values ...V) []K {
+	return committingKeys(&s.overlay, values)
+}
+
 // Walk returns up to limit committed keys in ascending value order, or in descending
 // order when desc is true. A non-nil after starts the walk strictly past *after. A
 // limit of 0 means no limit. Walk does not see staged changes, blocks until the bulk

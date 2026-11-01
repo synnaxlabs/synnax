@@ -64,13 +64,13 @@ func (s *SearchIndex[K, E]) set(entry E) {
 func (s *SearchIndex[K, E]) delete(key K) { s.store.Delete(key) }
 
 //nolint:unused
-func (s *SearchIndex[K, E]) stageSet(tx Tx, entry E) {
-	s.store.Stage(tx.txIdentity(), entry.GorpKey(), s.text(&entry))
+func (s *SearchIndex[K, E]) stageSet(scope *txState, entry E) {
+	s.store.Stage(scope, entry.GorpKey(), s.text(&entry))
 }
 
 //nolint:unused
-func (s *SearchIndex[K, E]) stageDelete(tx Tx, key K) {
-	s.store.StageDelete(tx.txIdentity(), key)
+func (s *SearchIndex[K, E]) stageDelete(scope *txState, key K) {
+	s.store.StageDelete(scope, key)
 }
 
 // Search returns the keys of the entries that match term, closest match first. When no

@@ -16,6 +16,8 @@ package index
 
 import (
 	"context"
+	"maps"
+	"slices"
 	"sync"
 
 	"github.com/synnaxlabs/x/set"
@@ -29,6 +31,9 @@ type Scope interface {
 	// OnCleanup registers fn to run once when the transaction ends. committed is true
 	// when the transaction committed.
 	OnCleanup(fn func(committed bool))
+	// Committing reports whether the transaction is in its commit. Its staged changes
+	// are final from that point.
+	Committing() bool
 }
 
 func isNone[S Scope](scope S) bool {
@@ -148,7 +153,7 @@ type overlay[S Scope, D changes] struct {
 }
 
 // load returns the changes of scope, creating them on first use. New changes register
-// a cleanup on scope that drops them and flushes them if scope committed.
+// a cleanup on scope that flushes them if scope committed, and then drops them.
 func (o *overlay[S, D]) load(scope S) D {
 	o.mu.Lock()
 	defer o.mu.Unlock()
@@ -161,12 +166,12 @@ func (o *overlay[S, D]) load(scope S) D {
 	d := o.create()
 	o.deltas[scope] = d
 	scope.OnCleanup(func(committed bool) {
-		o.mu.Lock()
-		delete(o.deltas, scope)
-		o.mu.Unlock()
 		if committed && !d.isEmpty() {
 			o.flush(d)
 		}
+		o.mu.Lock()
+		delete(o.deltas, scope)
+		o.mu.Unlock()
 	})
 	return d
 }
@@ -201,4 +206,23 @@ func mergeValues[S Scope, K, V comparable](
 		return d.merge(committed, values)
 	}
 	return committed
+}
+
+// committingKeys returns the keys that committing scopes map to any of values.
+func committingKeys[S Scope, K, V comparable](
+	o *overlay[S, *delta[K, V]],
+	values []V,
+) []K {
+	o.mu.Lock()
+	defer o.mu.Unlock()
+	var keys []K
+	for scope, d := range o.deltas {
+		if !scope.Committing() {
+			continue
+		}
+		for _, v := range values {
+			keys = slices.AppendSeq(keys, maps.Keys(d.forward[v]))
+		}
+	}
+	return keys
 }

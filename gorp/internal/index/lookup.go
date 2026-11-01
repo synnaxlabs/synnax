@@ -109,6 +109,14 @@ func (l *Lookup[S, K, V]) Get(scope S, values ...V) ([]K, error) {
 	return mergeValues(&l.overlay, scope, committed, values), nil
 }
 
+// Committing returns the keys that a transaction in its commit maps to any of values.
+// Get misses them until that commit returns. The commit can fail, so a caller must
+// check each key against storage. Call Committing before Get: a scope leaves the
+// overlay only after its flush, so the two reads together miss no key.
+func (l *Lookup[S, K, V]) Committing(values ...V) []K {
+	return committingKeys(&l.overlay, values)
+}
+
 func (l *Lookup[S, K, V]) put(key K, value V) {
 	if prev, ok := l.reverse[key]; ok {
 		if prev == value {

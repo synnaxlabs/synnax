@@ -79,13 +79,26 @@ func (w *Writer[K, E]) set(ctx context.Context, entry E) error {
 		return err
 	}
 	v := w.keyCodec.Encode(entry.GorpKey())
+	scope := w.tx.txIdentity()
+	if scope == nil {
+		// A DB commits inside Set, so this write is a transaction of its own.
+		scope = new(txState)
+		w.stageSet(scope, entry)
+		return scope.commit(func() error {
+			return w.tx.Set(ctx, v, data, entry.SetOptions()...)
+		})
+	}
 	if err := w.tx.Set(ctx, v, data, entry.SetOptions()...); err != nil {
 		return err
 	}
-	for _, idx := range w.indexes {
-		idx.stageSet(w.tx, entry)
-	}
+	w.stageSet(scope, entry)
 	return nil
+}
+
+func (w *Writer[K, E]) stageSet(scope *txState, entry E) {
+	for _, idx := range w.indexes {
+		idx.stageSet(scope, entry)
+	}
 }
 
 func (w *Writer[K, E]) delete(ctx context.Context, key K) error {
@@ -93,7 +106,7 @@ func (w *Writer[K, E]) delete(ctx context.Context, key K) error {
 		return err
 	}
 	for _, idx := range w.indexes {
-		idx.stageDelete(w.tx, key)
+		idx.stageDelete(w.tx.txIdentity(), key)
 	}
 	return nil
 }
