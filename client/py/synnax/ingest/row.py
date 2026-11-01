@@ -54,8 +54,12 @@ class Engine:
         self.reader = reader
         self.client = client
         self.reader.set_chunk_size(self.get_chunk_size())
+        keys = [ch.key for ch in channels]
+        # A data channel written without its index takes its first sample at the
+        # writer's start.
+        data_only = any(ch.index != 0 and ch.index not in keys for ch in channels)
         self.writer = self.client.open_writer(
-            start, [ch.key for ch in channels], err_on_extra_chans=False
+            start if data_only else None, keys, err_on_extra_chans=False
         )
         self.end = start
 
