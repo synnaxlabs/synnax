@@ -195,28 +195,39 @@ func (u *Proof) UnmarshalJSONFrom(dec *jsontext.Decoder) error {
 	var disc struct {
 		Type Method `json:"method"`
 	}
-	if err := json.Unmarshal(data, &disc, opts); err != nil {
+	if err := json.Unmarshal(
+		data, &disc, opts, json.RejectUnknownMembers(false),
+	); err != nil {
 		return err
 	}
 	switch disc.Type {
 	case MethodPassword:
-		var v PasswordProof
+		var v struct {
+			Type Method `json:"method"`
+			PasswordProof
+		}
 		if err := json.Unmarshal(data, &v, opts); err != nil {
 			return err
 		}
-		u.Variant = v
+		u.Variant = v.PasswordProof
 	case MethodAPIKey:
-		var v APIKeyProof
+		var v struct {
+			Type Method `json:"method"`
+			APIKeyProof
+		}
 		if err := json.Unmarshal(data, &v, opts); err != nil {
 			return err
 		}
-		u.Variant = v
+		u.Variant = v.APIKeyProof
 	case MethodOIDC:
-		var v OIDCProof
+		var v struct {
+			Type Method `json:"method"`
+			OIDCProof
+		}
 		if err := json.Unmarshal(data, &v, opts); err != nil {
 			return err
 		}
-		u.Variant = v
+		u.Variant = v.OIDCProof
 	default:
 		return errors.Newf("Proof: unknown method %q", disc.Type)
 	}
