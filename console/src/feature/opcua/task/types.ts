@@ -241,6 +241,7 @@ export interface CertificatesResponse extends z.infer<typeof certificatesRespons
 
 export const testConnectionResponseZ = z.object({
   serverCertificate: certificateInfoZ.optional(),
+  clientCertificateRejected: z.boolean().optional(),
 });
 
 const endpointZ = z.object({

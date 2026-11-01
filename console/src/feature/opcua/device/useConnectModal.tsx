@@ -11,6 +11,7 @@ import "@/feature/opcua/device/Connect.css";
 
 import { type device, status } from "@synnaxlabs/client";
 import { Component } from "@synnaxlabs/lyra/component";
+import { Flex } from "@synnaxlabs/lyra/flex";
 import { Form } from "@synnaxlabs/lyra/form";
 import { Icon } from "@synnaxlabs/lyra/icon";
 import { Input } from "@synnaxlabs/lyra/input";
@@ -93,6 +94,9 @@ export const Connect = ({
   const { capture } = Analytics.use();
   const [serverCertificateOffer, setServerCertificateOffer] =
     useState<CertificateInfo | null>(null);
+  const [clientCertificateRejection, setClientCertificateRejection] = useState<
+    string | null
+  >(null);
   const [clientCertificateSource, setClientCertificateSource] =
     useState<ClientCertificateSource | null>(null);
 
@@ -105,6 +109,7 @@ export const Connect = ({
     PDevice.FormSchema<typeof SCHEMAS>
   >) => {
     setServerCertificateOffer(null);
+    setClientCertificateRejection(null);
     const connection = get(path.properties.connection).value;
     const scanStatus = await sendScanCommand(client, get(path.rack).value, {
       type: TEST_CONNECTION_COMMAND_TYPE,
@@ -115,7 +120,11 @@ export const Connect = ({
       const reply = testConnectionResponseZ.safeParse(scanStatus.details?.data);
       if (reply.success && reply.data.serverCertificate != null)
         setServerCertificateOffer(reply.data.serverCertificate);
-      throw status.toError(scanStatus);
+      else if (reply.success && reply.data.clientCertificateRejected === true)
+        setClientCertificateRejection(scanStatus.description);
+      else throw status.toError(scanStatus);
+      // The certificate fields show the details, so the footer keeps only the message.
+      throw status.toError({ ...scanStatus, description: "" });
     }
     // Since we just scanned successfully, we create a default healthy status for the
     // device that can then be overwritten by the scanner if we lose connection.
@@ -176,6 +185,7 @@ export const Connect = ({
 
   const handleSourceChange = (next: ClientCertificateSource) => {
     setClientCertificateSource(next);
+    setClientCertificateRejection(null);
     if (next !== "driver") return;
     setField(path.properties.connection.clientCertificate, "");
     setField(path.properties.connection.clientPrivateKey, "");
@@ -262,19 +272,25 @@ export const Connect = ({
                   >
                     {renderSecurityPolicy}
                   </Form.Field>
-                  <Input.Item label="Client certificate">
-                    <Select.Buttons<ClientCertificateSource>
-                      value={source}
-                      onChange={handleSourceChange}
-                    >
-                      <Select.Item<ClientCertificateSource> itemKey="driver">
-                        Driver certificate
-                      </Select.Item>
-                      <Select.Item<ClientCertificateSource> itemKey="files">
-                        Files on the Driver computer
-                      </Select.Item>
-                    </Select.Buttons>
-                    {source === "driver" && <DriverCertificate rack={rackKey} />}
+                  <Input.Item
+                    label="Client certificate"
+                    status={clientCertificateRejection == null ? undefined : "error"}
+                    helpText={clientCertificateRejection ?? undefined}
+                  >
+                    <Flex.Box y gap={2}>
+                      <Select.Buttons<ClientCertificateSource>
+                        value={source}
+                        onChange={handleSourceChange}
+                      >
+                        <Select.Item<ClientCertificateSource> itemKey="driver">
+                          Driver certificate
+                        </Select.Item>
+                        <Select.Item<ClientCertificateSource> itemKey="files">
+                          Files on the Driver computer
+                        </Select.Item>
+                      </Select.Buttons>
+                      {source === "driver" && <DriverCertificate rack={rackKey} />}
+                    </Flex.Box>
                   </Input.Item>
                   {source === "files" && (
                     <>
