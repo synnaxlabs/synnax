@@ -14,8 +14,9 @@
 
 namespace driver::ni::daqmx {
 const LibraryInfo LIBRARY_INFO = {
-    "National Instruments NI-DAQmx shared",
-    "https://www.ni.com/en/support/downloads/drivers/download.ni-daq-mx.html"
+    .name = "National Instruments NI-DAQmx shared",
+    .url = "https://www.ni.com/en/support/downloads/drivers/download.ni-daq-mx.html",
+    .lazy = true,
 };
 
 class API {

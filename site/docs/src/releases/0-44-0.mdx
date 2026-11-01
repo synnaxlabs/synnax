@@ -8,6 +8,7 @@ import Release from "@/components/releases/Release.astro";
 import { mdxOverrides } from "@/components/mdxOverrides";
 import { Divider } from "@synnaxlabs/lyra/divider";
 import { Flex } from "@synnaxlabs/lyra/flex";
+import { Keys } from "@/components/keys/Keys";
 
 export const components = mdxOverrides;
 
@@ -130,8 +131,8 @@ console.log(await client.readLatest(["daq_time", "ox_pt_1"], 1));
 - Added status indicators for devices and Drivers to selection dialogs.
 - Made a number of updates to real-time data fetching infrastructure, improving the
   reactivity and performance of the Console.
-- Added `Command + W` and `Control + W` keyboard shortcuts to close modals, and added a
-  press and hold delay to close the application on macOS.
+- Added the <Keys trigger={["Control", "W"]} /> keyboard shortcut to close modals, and
+  added a press and hold delay to close the application on macOS.
 - Fixed an issue where the Palette would not properly switch between search and command
   modes when closed and re-opened.
 - Added drag and drop importing and exporting of tasks.

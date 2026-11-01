@@ -6,6 +6,7 @@ import { Releases } from "@/components/releases";
 import { Divider } from "@synnaxlabs/lyra/divider";
 import { mdxOverrides } from "@/components/mdxOverrides";
 import { Image } from "@/components/media/Media";
+import { Keys } from "@/components/keys/Keys";
 
 export const components = mdxOverrides;
 
@@ -117,8 +118,8 @@ removes that allowance.
 
 #### Console
 
-- `Shift`-click adds a symbol or connection to the selection, and a modifier-click on a
-  symbol no longer resets the zoom.
+- <Keys trigger={["Shift", "MouseLeft"]} /> adds a symbol or connection to the
+  selection, and a modifier-click on a symbol no longer resets the zoom.
 - A vertical mouse wheel scrolls the schematic and table property toolbars sideways.
 - `Copy address` for a Core is now in its right-click menu.
 - Fixed the main window sometimes staying hidden on launch.

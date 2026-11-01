@@ -23,7 +23,7 @@ export const HARDWARE: Device.Hardware = {
   scanType: SCAN_TYPE,
   zeroProperties: ZERO_PROPERTIES,
   checks: [
-    "The LabJack LJM library is installed on that computer.",
+    "LJM is installed on that computer. LabJack hardware needs Windows or macOS.",
     "Kipling and other LabJack programs are closed, because they hold the device.",
   ],
 };

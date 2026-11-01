@@ -30,6 +30,8 @@ export type ItemProps<
 };
 
 const OFFSET_VARIABLE = CSS.variable("tree-item-offset");
+const STEP_VARIABLE = CSS.variable("tree-item-step");
+const RULES_WIDTH_VARIABLE = CSS.variable("tree-item-rules-width");
 
 export const Item = <K extends record.Key, E extends Button.ElementType = "div">({
   children,
@@ -37,7 +39,7 @@ export const Item = <K extends record.Key, E extends Button.ElementType = "div">
   className,
   loading,
   useMargin = false,
-  offsetMultiplier = 3,
+  offsetMultiplier = 2.5,
   ...rest
 }: ItemProps<K, E>) => {
   const { index } = rest;
@@ -45,6 +47,8 @@ export const Item = <K extends record.Key, E extends Button.ElementType = "div">
   const { expanded, depth, hasChildren } = nodes[index];
   const itemStyle = {
     [OFFSET_VARIABLE]: `${depth * offsetMultiplier + 1.5}rem`,
+    [STEP_VARIABLE]: `${offsetMultiplier}rem`,
+    [RULES_WIDTH_VARIABLE]: `${depth * offsetMultiplier}rem`,
     ...style,
   };
   return (

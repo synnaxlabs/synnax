@@ -13,6 +13,7 @@
 
 #include "client/cpp/labjack/json.gen.h"
 #include "client/cpp/synnax.h"
+#include "x/cpp/lib/lazy.h"
 
 #include "device/device.h"
 #include "driver/common/scan_task.h"
@@ -38,22 +39,25 @@ class Scanner final : public common::Scanner {
     /// @brief configuration for the scan task
     const ScanTaskConfig cfg;
     /// @brief the device manager for handling LabJack connections
-    std::shared_ptr<device::Manager> device_manager;
+    std::shared_ptr<x::lib::Lazy<device::Manager>> device_manager;
 
     [[nodiscard]] common::ScannerConfig config() const override {
         return common::ScannerConfig{.make = MAKE, .log_prefix = SCAN_LOG_PREFIX};
     }
 
     /// @brief scans for devices with the given type and connection
-    x::errors::Error
-    scan_for(int connection_type, std::vector<synnax::device::Device> &devices) const {
+    x::errors::Error scan_for(
+        device::Manager &manager,
+        int connection_type,
+        std::vector<synnax::device::Device> &devices
+    ) const {
         int device_types[LJM_LIST_ALL_SIZE];
         int connection_types[LJM_LIST_ALL_SIZE];
         int serial_numbers[LJM_LIST_ALL_SIZE];
         int ip_addresses[LJM_LIST_ALL_SIZE];
         int num_found = 0;
 
-        if (const auto err = device_manager->list_all(
+        if (const auto err = manager.list_all(
                 LJM_dtANY,
                 connection_type,
                 &num_found,
@@ -105,11 +109,12 @@ class Scanner final : public common::Scanner {
 
     std::pair<std::vector<synnax::device::Device>, x::errors::Error>
     scan(const common::ScannerContext &ctx) override {
+        auto [manager, err] = this->device_manager->get();
+        if (err) return {{}, err};
         std::vector<synnax::device::Device> devs;
-        x::errors::Error err;
-        if (err = this->scan_for(LJM_ctUSB, devs); err) return {devs, err};
+        if (err = this->scan_for(*manager, LJM_ctUSB, devs); err) return {devs, err};
         if (ctx.count % this->cfg.tcp_scan_multiplier == 0)
-            err = this->scan_for(LJM_ctTCP, devs);
+            err = this->scan_for(*manager, LJM_ctTCP, devs);
         return {devs, err.skip(SCAN_SKIP_ERRORS)};
     }
 
@@ -117,7 +122,7 @@ public:
     explicit Scanner(
         synnax::task::Task task,
         ScanTaskConfig cfg,
-        std::shared_ptr<device::Manager> device_manager
+        std::shared_ptr<x::lib::Lazy<device::Manager>> device_manager
     ):
         task(std::move(task)), cfg(cfg), device_manager(std::move(device_manager)) {}
 };

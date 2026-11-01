@@ -92,51 +92,12 @@ class TestIterator:
         self, client: sy.Synnax, indexed_pair: tuple[sy.Channel, sy.Channel]
     ) -> None:
         idx_ch, data_ch = indexed_pair
-        idx_ch.write(
-            0,
-            np.array(
-                [
-                    0,
-                    1 * sy.TimeSpan.SECOND,
-                    2 * sy.TimeSpan.SECOND,
-                    3 * sy.TimeSpan.SECOND,
-                    4 * sy.TimeSpan.SECOND,
-                    5 * sy.TimeSpan.SECOND,
-                ]
-            ).astype(np.int64),
-        )
-        data_ch.write(0, np.array([0, 1, 2, 3, 4, 5]).astype(np.int64))
-        idx_ch.write(
-            sy.TimeStamp(10 * sy.TimeSpan.SECOND),
-            np.array(
-                [
-                    10 * sy.TimeSpan.SECOND,
-                    11 * sy.TimeSpan.SECOND,
-                    12 * sy.TimeSpan.SECOND,
-                    13 * sy.TimeSpan.SECOND,
-                ]
-            ).astype(np.int64),
-        )
-        data_ch.write(
-            sy.TimeStamp(10 * sy.TimeSpan.SECOND),
-            np.array([10, 11, 12, 13]).astype(np.int64),
-        )
-        idx_ch.write(
-            sy.TimeStamp(15 * sy.TimeSpan.SECOND),
-            np.array(
-                [
-                    15 * sy.TimeSpan.SECOND,
-                    16 * sy.TimeSpan.SECOND,
-                    17 * sy.TimeSpan.SECOND,
-                    18 * sy.TimeSpan.SECOND,
-                    19 * sy.TimeSpan.SECOND,
-                ]
-            ).astype(np.int64),
-        )
-        data_ch.write(
-            sy.TimeStamp(15 * sy.TimeSpan.SECOND),
-            np.array([15, 16, 17, 18, 19]).astype(np.int64),
-        )
+        for block in ([0, 1, 2, 3, 4, 5], [10, 11, 12, 13], [15, 16, 17, 18, 19]):
+            seconds = np.array(block).astype(np.int64)
+            client.write(
+                sy.TimeStamp(block[0] * sy.TimeSpan.SECOND),
+                {idx_ch.key: seconds * int(sy.TimeSpan.SECOND), data_ch.key: seconds},
+            )
         with client.open_iterator(sy.TimeRange.MAX, data_ch.key) as i:
             assert i.seek_ge(sy.TimeStamp(16 * sy.TimeSpan.SECOND))
             assert i.next(4 * sy.TimeSpan.SECOND)
@@ -255,12 +216,8 @@ class TestIterator:
         idx_ch, data_ch = indexed_pair
         # Don't write any data
         frame = client.read_latest([idx_ch.key, data_ch.key], n=5)
-        data_series = frame.get(data_ch.key)
-        idx_series = frame.get(idx_ch.key)
-        assert data_series is not None
-        assert len(data_series) == 0
-        assert idx_series is not None
-        assert len(idx_series) == 0
+        assert len(frame[data_ch.key]) == 0
+        assert len(frame[idx_ch.key]) == 0
 
     def test_read_latest_single_sample(
         self, indexed_pair: tuple[sy.Channel, sy.Channel], client: sy.Synnax

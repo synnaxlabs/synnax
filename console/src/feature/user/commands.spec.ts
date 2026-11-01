@@ -16,7 +16,7 @@ import { describe, expect, it } from "vitest";
 import { renderPalette } from "@/feature/command/testutil";
 import { User } from "@/feature/user";
 import { findCommand } from "@/platform/command/testutil";
-import { findModalButton } from "@/platform/tree/menuTestutil";
+import { findModalButton } from "@/platform/tree/testutil";
 
 const client = createTestClient();
 const roles = new RoleClients(client);
