@@ -273,13 +273,12 @@ func (r *offsetResolver) tableFor(
 	return result.(*offsetTable), nil
 }
 
-// newTracker returns an offsetTracker bound to this resolver, anchored to the start
-// timestamp of its first domain. Fixed-density trackers carry the resolver's density
-// and use it to convert per-write byte counts to sample counts; cache-backed trackers
-// also track per-sample offsets within the current domain so they can publish them to
-// the cache on commit.
-func (r *offsetResolver) newTracker(start telem.TimeStamp) *offsetTracker {
-	t := &offsetTracker{resolver: r, currentStart: start}
+// newTracker returns an offsetTracker bound to this resolver. Fixed-density trackers
+// carry the resolver's density and use it to convert per-write byte counts to sample
+// counts; cache-backed trackers also track per-sample offsets within the current domain
+// so they can publish them to the cache on commit.
+func (r *offsetResolver) newTracker() *offsetTracker {
+	t := &offsetTracker{resolver: r}
 	if r.cache == nil {
 		t.density = r.density
 	}
@@ -302,9 +301,9 @@ type offsetTracker struct {
 	// density is the sample density of the channel for fixed-density trackers; zero
 	// for variable-length trackers.
 	density telem.Density
-	// currentStart is the start timestamp of the domain currently being tracked.
-	// Updated to commitEnd on rollover so subsequent publishes target the new domain.
-	// Unused for fixed-density.
+	// currentStart is the start timestamp of the domain currently being tracked. Set
+	// when the first domain starts, then updated to commitEnd on rollover so subsequent
+	// publishes target the new domain. Unused for fixed-density.
 	currentStart telem.TimeStamp
 	// domainBytes is the byte count written to the current domain since the last
 	// rollover. Used as the base offset for the next write so per-sample offsets are
@@ -367,6 +366,13 @@ func (t *offsetTracker) publish(end telem.TimeStamp) {
 		offsets:     slices.Clone(t.domainOffsets),
 		sampleCount: int64(len(t.domainOffsets)),
 	})
+}
+
+// reset clears the tracker for a new session of samples.
+func (t *offsetTracker) reset() {
+	t.domainBytes = 0
+	t.domainOffsets = nil
+	t.sessionSamples = 0
 }
 
 // rollover is the OnRollover hook the tracker installs on its underlying

@@ -30,9 +30,9 @@ inline String String::parse(x::json::Parser parser) {
 
 inline x::json::json String::to_json() const {
     x::json::json j;
-    j["eq"] = this->eq;
+    if (this->eq.has_value()) j["eq"] = *this->eq;
     if (this->in.has_value()) j["in"] = *this->in;
-    j["regex"] = this->regex;
+    if (this->regex.has_value()) j["regex"] = *this->regex;
     return j;
 }
 
@@ -44,7 +44,7 @@ inline Bool Bool::parse(x::json::Parser parser) {
 
 inline x::json::json Bool::to_json() const {
     x::json::json j;
-    j["eq"] = this->eq;
+    if (this->eq.has_value()) j["eq"] = *this->eq;
     return j;
 }
 

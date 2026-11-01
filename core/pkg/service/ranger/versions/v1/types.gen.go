@@ -143,10 +143,7 @@ func (u *Ref) UnmarshalJSONFrom(dec *jsontext.Decoder) error {
 		Type RefType `json:"variant"`
 	}
 	if err := json.Unmarshal(
-		data,
-		&disc,
-		opts,
-		json.RejectUnknownMembers(false),
+		data, &disc, opts, json.RejectUnknownMembers(false),
 	); err != nil {
 		return err
 	}
