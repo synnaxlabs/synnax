@@ -11,6 +11,14 @@ import { type UnaryClient } from "@synnaxlabs/freighter";
 import { array, zod } from "@synnaxlabs/x";
 import z from "zod";
 
+import { actions } from "@/actions";
+import { createOf, encode, reduceAll } from "@/label/actions";
+import {
+  type Action,
+  dispatchReqZ,
+  dispatchResZ,
+  scopedActionZ,
+} from "@/label/actions.gen";
 import { type Condition } from "@/label/builder.gen";
 import { LABELED_BY_ONTOLOGY_RELATIONSHIP_TYPE } from "@/label/payload";
 import { matchLabeledBy } from "@/label/store";
@@ -29,10 +37,10 @@ import { type Lines, matches, serverComputed } from "@/label/where.gen";
 import { ontology } from "@/ontology";
 import { query } from "@/query";
 
-export const SET_CHANNEL_NAME = "sy_label_set";
+export const ACTION_CHANNEL_NAME = "sy_label_action_set";
 export const DELETE_CHANNEL_NAME = "sy_label_delete";
 
-const createReqZ = z.object({ labels: labelZ.array() });
+const createReqZ = z.object({ labels: labelZ.array(), dispatchKey: z.string() });
 const createResZ = z.object({ labels: labelZ.array() });
 const deleteReqZ = z.object({ keys: keyZ.array() });
 const setReqZ = z.object({
@@ -88,6 +96,7 @@ export class Client extends query.Retriever<
   /** The label record table; injected into sibling clients at wiring. */
   readonly store: query.Table<Key, Label>;
   private readonly cfg: ClientConfig;
+  private readonly dispatcher: actions.Controller<Key, Label, Action>;
 
   constructor(cfg: ClientConfig) {
     const { cache, ontology: ontologyClient } = cfg;
@@ -95,11 +104,19 @@ export class Client extends query.Retriever<
     const store = cache.createTable<Key, Label>({
       name: "labels",
       fetch: async (keys) => await this.execRetrieve(query.keysRequest(keys)),
-      listen: [
-        query.createSetListener(SET_CHANNEL_NAME, labelZ),
-        query.createDeleteListener(DELETE_CHANNEL_NAME, keyZ),
-      ],
+      listen: [query.createDeleteListener(DELETE_CHANNEL_NAME, keyZ)],
     });
+    // Every write to a label reaches the client as actions.
+    const dispatcher = new actions.Controller<Key, Label, Action>({
+      store,
+      onError: cache.onError,
+      onEpoch: (callback) => cache.onEpoch(callback),
+      send: actions.sender(cfg.unary, "/label/dispatch", dispatchReqZ, dispatchResZ),
+      reduce: reduceAll,
+      encode,
+      createOf,
+    });
+    cache.listen(dispatcher.listener(ACTION_CHANNEL_NAME, scopedActionZ));
     super(cache, {
       name: "label",
       table: store,
@@ -126,6 +143,7 @@ export class Client extends query.Retriever<
     });
     this.cfg = cfg;
     this.store = store;
+    this.dispatcher = dispatcher;
   }
 
   async label(
@@ -193,15 +211,34 @@ export class Client extends query.Retriever<
       rollbacks: [this.store.set(optimistic)],
       onOptimistic: () => opts.onOptimistic?.(optimistic),
       commit: async () =>
-        await this.cfg.unary.send(
-          "/label/create",
-          { labels: optimistic },
-          createReqZ,
-          createResZ,
+        await this.dispatcher.create(
+          optimistic.map(({ key }) => key),
+          async (dispatchKey) =>
+            await this.cfg.unary.send(
+              "/label/create",
+              { labels: optimistic, dispatchKey },
+              createReqZ,
+              createResZ,
+            ),
         ),
     });
     this.store.set(res.labels);
     return isMany ? res.labels : res.labels[0];
+  }
+
+  /**
+   * Applies actions to the cached label and sends them to the Core. Returns false
+   * without side effects when the label is not cached.
+   * @throws {Error} if the label cannot hold an action, before any send.
+   * @throws {Error} if the send fails, after the cached label drops the actions.
+   */
+  async dispatch(key: Key, actions: Action | Action[]): Promise<boolean> {
+    return await this.dispatcher.dispatch(key, array.toArray(actions));
+  }
+
+  /** Stages actions that commit atomically as one dispatch. */
+  beginTransaction(key: Key): actions.Transaction<Action> {
+    return this.dispatcher.transaction(key);
   }
 
   async delete(keys: Key | Key[], opts: query.WriteOptions = {}): Promise<void> {

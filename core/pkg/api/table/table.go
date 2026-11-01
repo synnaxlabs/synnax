@@ -78,6 +78,9 @@ type (
 	CreateRequest struct {
 		Tables  []table.Table `json:"tables"  msgpack:"tables"`
 		Project project.Key   `json:"project" msgpack:"project"`
+		// DispatchKey is stamped onto the create broadcasts so the sender skips its
+		// echo.
+		DispatchKey string `json:"dispatch_key" msgpack:"dispatch_key"`
 	}
 	CreateResponse struct {
 		Tables []table.Table `json:"tables" msgpack:"tables"`
@@ -97,6 +100,7 @@ func (s *Service) Create(
 		return CreateResponse{}, err
 	}
 	if err := s.internal.NewWriter(tx).
+		WithDispatchKey(req.DispatchKey).
 		CreateMany(ctx, req.Project, &req.Tables); err != nil {
 		return CreateResponse{}, err
 	}

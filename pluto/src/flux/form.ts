@@ -140,7 +140,7 @@ export interface BeforeValidateParams<
 export interface UseFormParams<
   Query extends query.Params,
   Schema extends z.ZodType<query.Data>,
-> extends Pick<Form.UseParams<Schema>, "sync" | "onHasTouched" | "mode"> {
+> extends Pick<Form.UseParams<Schema>, "onHasTouched" | "mode"> {
   initialValues?: z.infer<Schema>;
   autoSave?: boolean;
   /**
@@ -305,7 +305,6 @@ export const createForm = <
     afterSave,
     beforeSave,
     beforeValidate,
-    sync,
     onHasTouched,
     mode,
   }: UseFormParams<Query, Schema>): UseFormReturn<Schema> => {
@@ -317,8 +316,7 @@ export const createForm = <
     const addStatus = Status.useAdder();
     const memoQuery = useMemoQuery(query, normalizeQuery);
 
-    // One read per query: a synced form resets when its values change identity. One
-    // call keeps the read and its promise in one memo block.
+    // One read per query. One call keeps the read and its promise in one memo block.
     const cached =
       memoQuery == null || client == null
         ? undefined
@@ -357,7 +355,6 @@ export const createForm = <
         unsaved.current.add(path);
         if (autoSave && !abandonedRef.current) debouncedSave();
       },
-      sync,
       onHasTouched,
       mode,
     });
@@ -421,9 +418,9 @@ export const createForm = <
     };
 
     // Saves of one record run one at a time. A caller that reads the form, awaits the
-    // Core, then writes back (a task deploy resolving its rack) leaves a window an
-    // autosave fires in; concurrent writes reach the Core in either order, so the
-    // pre-write values can land last and undo the save.
+    // Core, then writes back leaves a window an autosave fires in; concurrent writes
+    // reach the Core in either order, so the pre-write values can land last and undo
+    // the save.
     const pendingSave = useRef<Promise<unknown>>(null);
     // A save that has not started reads the live form when it does, so it already
     // carries what a later caller would write. Later callers join it instead of

@@ -81,7 +81,7 @@ inline x::json::json RetrieveRequest::to_json() const {
     x::json::json j;
     if (this->where.has_value()) j["where"] = this->where->to_json();
     j["search_term"] = this->search_term;
-    j["limit"] = this->limit;
+    if (this->limit.has_value()) j["limit"] = *this->limit;
     j["offset"] = this->offset;
     j["include_program"] = this->include_program;
     return j;
