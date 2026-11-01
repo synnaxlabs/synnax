@@ -14,23 +14,48 @@ in `tests/` (Python).
 
 ## Live-Core tests
 
-Client (TS/Python/C++) tests, Pluto and Console live-core specs, and Driver tests
-connect to a core at `localhost:9090` (login `synnax`/`seldon`). Before running any of
-them, check whether a core is already up:
+Client (TS/Python/C++) tests, Pluto and Console live-Core specs, and Driver tests
+connect to a Core (login `synnax`/`seldon`). They read `SYNNAX_HOST` and `SYNNAX_PORT`,
+and default to `localhost:9090`.
 
-```bash
-curl -s -X POST http://localhost:9090/api/v1/connectivity/check
-```
-
-A JSON response means a core is running — use it. No response: build and start one
-yourself (in-memory, insecure):
+Parallel sessions share this machine. Build a Core from your worktree and run it on a
+free port. Never use, stop, or replace a Core that you did not start.
 
 ```bash
 cd core && go build -o synnax . && cd ..
-./core/synnax start -mi # -m in-memory storage, -i insecure; listens on localhost:9090
+lsof -nP -iTCP:9190 -sTCP:LISTEN          # no output means the port is free
+./core/synnax start -mi -l localhost:9190 # -m in-memory storage, -i insecure
 ```
 
-Start it in the background; in-memory state is lost on restart.
+Start it in the background; in-memory state is lost on restart. Then set `SYNNAX_PORT`
+on every test run, because a directory target can include live-Core specs:
+
+```bash
+SYNNAX_PORT=9190 pnpm test:console
+cd client/py && SYNNAX_PORT=9190 uv run pytest tests/test_channel.py
+SYNNAX_PORT=9190 bazel test //client/cpp/channel:all
+```
+
+- `SYNNAX_PORT` does not move a Core. A Core reads `-l` (`--listen`) or `SYNNAX_LISTEN`.
+- A Core needs a license to answer API calls. It reads `SYNNAX_LICENSE_KEY`. Look for
+  `license active` in its log.
+- A Core older than your branch fails specs in ways that look like regressions. Rebuild
+  it after a merge.
+- `//driver/rack:config_test`, `cluster/login_forms`, and `channel/calc_type_cascade`
+  need a Core on 9090. They ignore `SYNNAX_PORT`.
+
+### Dev Console on a free port
+
+```bash
+SYNNAX_PORT=9190 SYNNAX_CONSOLE_PORT=5190 pnpm dev:console-vite
+```
+
+`SYNNAX_PORT` names the Core, and `SYNNAX_CONSOLE_PORT` names the Vite port (default
+5173). Vite exits if its port is taken. A Core that the browser already selected wins
+over `SYNNAX_PORT`, so a new `SYNNAX_CONSOLE_PORT` gives a clean start.
+
+`pnpm dev:console` stays on 5173, and its single-instance plugin blocks a second one.
+Use `pnpm dev:console-vite` for parallel work.
 
 ## Integration testing (`/integration/`)
 
@@ -61,7 +86,7 @@ The `-tags=console` build tag activates `core/pkg/console/enabled.go`
 - `tc -f modbus` — global filter across all test files
 - Options: `--headed` (Playwright headed mode), `--slow-mo <ms>` (delay per Playwright
   action), `-d <rack>` (driver rack name), `--logs` (stream case logs as they happen
-  instead of only after a failure)
+  instead of only after a failure), `--port <port>` (the Core to test, default 9090)
 
 ### Organization
 

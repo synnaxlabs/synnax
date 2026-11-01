@@ -93,11 +93,10 @@ func OpenService(
 	// is disabled because action frames carry the mutation payload, but it still
 	// emits deletes so clients prune cached panels.
 	var sig io.Closer
-	if sig, err = actions.PublishSignals(ctx, actions.SignalsConfig[Key, Action]{
-		Provider: cfg.Signals,
-		State:    s.state,
-		Name:     "panel",
-	}); !ok(err, sig) {
+	if sig, err = cfg.Signals.PublishActions(
+		ctx,
+		signals.ActionPublisherConfig[Key, Action]{Observable: s.state, Name: "panel"},
+	); !ok(err, sig) {
 		return nil, err
 	}
 	deleteCfg := signals.GorpPublisherConfigUUID(s.table.Observe())
@@ -116,7 +115,7 @@ func (s *Service) Close() error { return s.closer.Close() }
 func (s *Service) OnAction(
 	handler func(context.Context, actions.Scoped[Key, Action]),
 ) observe.Disconnect {
-	return s.state.OnAction(handler)
+	return s.state.OnChange(handler)
 }
 
 // Dispatch applies a sequence of actions atomically to the panel with the given key.
@@ -130,16 +129,22 @@ func (s *Service) Dispatch(
 	dispatchKey string,
 	acts []Action,
 ) error {
-	return s.state.Dispatch(ctx, key, dispatchKey, acts, func(tx gorp.Tx) error {
-		return s.table.NewUpdate().Where(gorp.MatchKeys[Key, Panel](key)).
-			ChangeErr(func(_ gorp.Context, p Panel) (Panel, error) {
-				reduced, err := Reduce(p, acts...)
-				if err != nil {
-					return reduced, err
-				}
-				return reduced, validateTree(reduced.Root)
-			}).Exec(ctx, tx)
-	})
+	return s.state.Dispatch(
+		ctx,
+		key,
+		dispatchKey,
+		acts,
+		func(tx gorp.Tx) ([]Action, error) {
+			return nil, s.table.NewUpdate().Where(gorp.MatchKeys[Key, Panel](key)).
+				ChangeErr(func(_ gorp.Context, p Panel) (Panel, error) {
+					reduced, err := Reduce(p, acts...)
+					if err != nil {
+						return reduced, err
+					}
+					return reduced, validateTree(reduced.Root)
+				}).Exec(ctx, tx)
+		},
+	)
 }
 
 func (s *Service) NewWriter(tx gorp.Tx) Writer {
