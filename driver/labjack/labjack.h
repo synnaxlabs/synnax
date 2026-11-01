@@ -13,23 +13,17 @@
 
 #include "driver/common/sample_clock.h"
 #include "driver/labjack/device/device.h"
+#include "driver/labjack/names.h"
 #include "driver/task/task.h"
 
 namespace driver::labjack {
 
-/// @brief make of LabJack devices.
-const std::string MAKE = "LabJack";
-/// @brief labjack integration name.
-const std::string INTEGRATION_NAME = "labjack";
 /// @brief T4 model name.
 const std::string T4 = "LJM_dtT4";
 /// @brief T7 model name.
 const std::string T7 = "LJM_dtT7";
 /// @brief T8 model name.
 const std::string T8 = "LJM_dtT8";
-const std::string SCAN_TASK_TYPE = "labjack_scan";
-const std::string READ_TASK_TYPE = "labjack_read";
-const std::string WRITE_TASK_TYPE = "labjack_write";
 
 /// @brief LJM errors that indicate the device is currently unreachable but may be
 /// reachable again in the near future.

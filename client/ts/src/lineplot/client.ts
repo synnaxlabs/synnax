@@ -16,6 +16,7 @@ import { createOf, kindOf, reduceAll } from "@/lineplot/actions";
 import {
   type Action,
   dispatchReqZ,
+  dispatchResZ,
   rename as renameAction,
   scopedActionZ,
 } from "@/lineplot/actions.gen";
@@ -54,7 +55,11 @@ interface RetrieveRequest extends z.infer<typeof retrieveReqZ> {}
 
 const retrieveResZ = z.object({ linePlots: linePlotZ.array().default(() => []) });
 
-const createReqZ = z.object({ project: project.keyZ, linePlots: linePlotZ.array() });
+const createReqZ = z.object({
+  project: project.keyZ,
+  dispatchKey: z.string(),
+  linePlots: linePlotZ.array(),
+});
 const createResZ = z.object({ linePlots: linePlotZ.array() });
 
 const emptyResZ = z.object({});
@@ -97,15 +102,9 @@ export class Client extends query.Retriever<
     const dispatcher = new actions.Controller<Key, LinePlot, Action>({
       store,
       onError: cache.onError,
+      onEpoch: (callback) => cache.onEpoch(callback),
       reduce: reduceAll,
-      send: async (key, actions, dispatchKey) => {
-        await cfg.unary.send(
-          "/lineplot/dispatch",
-          { key, dispatchKey, actions },
-          dispatchReqZ,
-          emptyResZ,
-        );
-      },
+      send: actions.sender(cfg.unary, "/lineplot/dispatch", dispatchReqZ, dispatchResZ),
       kindOf,
       createOf,
     });
@@ -147,11 +146,15 @@ export class Client extends query.Retriever<
       rollbacks: [this.store.set(optimistic)],
       onOptimistic: () => opts.onOptimistic?.(optimistic),
       commit: async () =>
-        await this.cfg.unary.send(
-          "/lineplot/create",
-          { project, linePlots: optimistic },
-          createReqZ,
-          createResZ,
+        await this.dispatcher.create(
+          optimistic.map(({ key }) => key),
+          async (dispatchKey) =>
+            await this.cfg.unary.send(
+              "/lineplot/create",
+              { project, dispatchKey, linePlots: optimistic },
+              createReqZ,
+              createResZ,
+            ),
         ),
     });
     this.store.set(res.linePlots);

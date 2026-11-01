@@ -15,7 +15,7 @@ import (
 	"github.com/synnaxlabs/alamos"
 	distchannel "github.com/synnaxlabs/synnax/pkg/distribution/channel"
 	"github.com/synnaxlabs/synnax/pkg/distribution/framer/frame"
-	"github.com/synnaxlabs/synnax/pkg/distribution/mock"
+	"github.com/synnaxlabs/synnax/pkg/distribution/testutil"
 	"github.com/synnaxlabs/synnax/pkg/service/channel"
 	. "github.com/synnaxlabs/synnax/pkg/service/channel/testutil"
 	"github.com/synnaxlabs/synnax/pkg/service/framer"
@@ -117,7 +117,7 @@ var _ = Describe("Service", func() {
 			"Should open and close a service from a valid configuration",
 			func(ctx SpecContext) {
 				Expect(MustOpen(framer.OpenService(
-					ctx, newFramerConfig(ctx, mock.NewNode(ctx)),
+					ctx, newFramerConfig(ctx, testutil.NewNode(ctx)),
 				))).ToNot(BeNil())
 			},
 		)

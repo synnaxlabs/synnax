@@ -475,6 +475,47 @@ TEST(DeviceTest, ReusesDeviceAcrossServerRestart) {
     slave->stop();
 }
 
+/// @brief it should not count a timed-out connect against the unit, since the request
+/// never reached it.
+TEST(DeviceTest, ConnectTimeoutDoesNotDemoteUnit) {
+#ifdef __APPLE__
+    GTEST_SKIP() << "macOS resets a connect to a full accept queue";
+#endif
+    // A full accept queue drops new connects, so they time out instead of failing.
+    auto *listener = modbus_new_tcp("127.0.0.1", 1690);
+    const int fd = modbus_tcp_listen(listener, 1);
+    ASSERT_NE(fd, -1);
+    modbus_set_socket(listener, fd);
+    std::vector<modbus_t *> queued;
+    for (int i = 0; i < 8; i++) {
+        auto *ctx = modbus_new_tcp("127.0.0.1", 1690);
+        modbus_set_response_timeout(ctx, 0, 100000);
+        modbus_connect(ctx);
+        queued.push_back(ctx);
+    }
+    Manager manager;
+    ConnectionConfig cfg{"127.0.0.1", 1690};
+    cfg.timeout = x::telem::MILLISECOND * 100;
+    cfg.retries = 0;
+    auto dev = ASSERT_NIL_P(manager.acquire(cfg));
+
+    uint8_t bit = 0;
+    for (std::size_t i = 0; i <= DEMOTE_AFTER; i++) {
+        const auto err = dev->read_bits(Coil, 0, 1, &bit);
+        ASSERT_OCCURRED_AS(err, UNREACHABLE);
+        EXPECT_EQ(err.data, modbus_strerror(ETIMEDOUT));
+    }
+    EXPECT_EQ(dev->stats().requests, DEMOTE_AFTER + 1);
+    EXPECT_EQ(dev->stats().timeouts, 0U);
+
+    for (auto *ctx: queued) {
+        modbus_close(ctx);
+        modbus_free(ctx);
+    }
+    modbus_close(listener);
+    modbus_free(listener);
+}
+
 /// @brief it should return a critical error for an address the server does not have,
 /// and keep the connection.
 TEST(DeviceTest, IllegalAddressIsCritical) {
@@ -646,7 +687,7 @@ TEST(ConnectionConfigTest, ParsesSerial) {
     EXPECT_EQ(config.serial.parity, 'N');
     EXPECT_EQ(config.serial.stop_bits, 2);
     EXPECT_EQ(config.unit_id, 17);
-    EXPECT_EQ(config.endpoint(), "/dev/ttyUSB0");
+    EXPECT_EQ(config.endpoint(), canonical_port("/dev/ttyUSB0"));
     const auto j = config.to_json();
     EXPECT_EQ(j["transport"], "rtu");
     EXPECT_EQ(j["serial_port"], "/dev/ttyUSB0");

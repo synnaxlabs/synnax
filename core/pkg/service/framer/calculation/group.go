@@ -40,14 +40,12 @@ func (g *group) Close() error {
 	return g.shutdown.Close()
 }
 
-type OnStatusChange = func(context.Context, ...calculator.Status)
-
 type groupConfig struct {
 	alamos.Instrumentation
-	framer         *framer.Service
-	writer         *writer.Service
-	onStatusChange OnStatusChange
-	calculators    calculator.Group
+	framer      *framer.Service
+	writer      *writer.Service
+	report      calculator.Report
+	calculators calculator.Group
 }
 
 var _ config.Config[groupConfig] = (*groupConfig)(nil)
@@ -57,7 +55,7 @@ func (c groupConfig) Override(other groupConfig) groupConfig {
 	c.framer = override.Nil(c.framer, other.framer)
 	c.writer = override.Nil(c.writer, other.writer)
 	c.calculators = override.Slice(c.calculators, other.calculators)
-	c.onStatusChange = override.Nil(c.onStatusChange, other.onStatusChange)
+	c.report = override.Nil(c.report, other.report)
 	return c
 }
 
@@ -66,7 +64,7 @@ func (c groupConfig) Validate() error {
 	v.NotNil("framer", c.framer)
 	v.NotNil("writer", c.writer)
 	v.NotEmptySlice("calculators", c.calculators)
-	v.NotNil("on_status_change", c.onStatusChange)
+	v.NotNil("report", c.report)
 	return v.Error()
 }
 
@@ -119,7 +117,7 @@ func openGroup(ctx context.Context, cfgs ...groupConfig) (*group, error) {
 	c := &transform{
 		streamerRequests: streamerRequests,
 		calculators:      cfg.calculators,
-		onStatusChange:   cfg.onStatusChange,
+		report:           cfg.report,
 		opened:           opened,
 	}
 

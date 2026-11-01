@@ -91,7 +91,7 @@ export const Status = ({
           <Flex.Box x>
             <Telem.Text.TimeStamp
               className={CSS.BE("task-status", "time-stamp")}
-              level="small"
+              level="tiny"
               color={9}
               format="time"
               displayTimeZone="local"

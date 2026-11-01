@@ -19,6 +19,7 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/service/auth"
 	"github.com/synnaxlabs/synnax/pkg/service/auth/password"
 	"github.com/synnaxlabs/synnax/pkg/service/ontology"
+	"github.com/synnaxlabs/x/query"
 	. "github.com/synnaxlabs/x/testutil"
 	"github.com/synnaxlabs/x/validate"
 	"golang.org/x/crypto/bcrypt"
@@ -131,6 +132,7 @@ var _ = Describe("Service", func() {
 			Expect(svc.NewRetrieve().Where(password.MatchSubjects(alice)).Entry(&p).
 				Exec(ctx, nil)).To(Succeed())
 			Expect(identity.Credential).To(Equal(p.Key))
+			Expect(identity.Version).To(Equal(p.Created))
 		})
 		It(
 			"Should return the same error for a wrong password and an unknown username",
@@ -238,6 +240,28 @@ var _ = Describe("Service", func() {
 			Expect(second).To(HaveLen(1))
 			Expect(first[0].Key).ToNot(Equal(second[0].Key))
 		})
+	})
+	Describe("Version", func() {
+		It("Should move each time the password is set", func(ctx SpecContext) {
+			identity := MustSucceed(svc.Authenticate(ctx, proof(username, "secret")))
+			w := svc.NewWriter(nil)
+			Expect(w.ChangePassword(ctx, alice, "changed")).To(Succeed())
+			changed := MustSucceed(svc.Version(ctx, nil, identity.Credential))
+			Expect(changed).To(BeNumerically(">", identity.Version))
+			Expect(w.Set(ctx, alice, auth.Credentials{
+				Username: username,
+				Password: "again",
+			})).To(Succeed())
+			Expect(svc.Version(ctx, nil, identity.Credential)).
+				To(BeNumerically(">", changed))
+		})
+		It(
+			"Should return a not found error for an unknown credential",
+			func(ctx SpecContext) {
+				Expect(svc.Version(ctx, nil, uuid.New())).Error().
+					To(MatchError(query.ErrNotFound))
+			},
+		)
 	})
 	Describe("DeleteFor", func() {
 		It("Should remove the subject's password", func(ctx SpecContext) {

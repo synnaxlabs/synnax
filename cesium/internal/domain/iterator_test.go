@@ -17,6 +17,7 @@ import (
 	. "github.com/synnaxlabs/alamos/testutil"
 	"github.com/synnaxlabs/cesium/internal/domain"
 	"github.com/synnaxlabs/cesium/internal/resource"
+	"github.com/synnaxlabs/cesium/internal/testutil"
 	"github.com/synnaxlabs/x/errors"
 	"github.com/synnaxlabs/x/io/fs"
 	. "github.com/synnaxlabs/x/io/fs/testutil"
@@ -53,7 +54,7 @@ var _ = Describe("Iterator Behavior", Ordered, func() {
 			Describe("SeekFirst + SeekLast", Ordered, func() {
 				BeforeEach(func(ctx SpecContext) {
 					Expect(
-						domain.Write(
+						testutil.WriteDomain(
 							ctx,
 							db,
 							(10 * telem.SecondTS).SpanRange(10*telem.Second),
@@ -61,7 +62,7 @@ var _ = Describe("Iterator Behavior", Ordered, func() {
 						),
 					).To(Succeed())
 					Expect(
-						domain.Write(
+						testutil.WriteDomain(
 							ctx,
 							db,
 							(30 * telem.SecondTS).SpanRange(10*telem.Second),
@@ -152,7 +153,7 @@ var _ = Describe("Iterator Behavior", Ordered, func() {
 			Describe("SeekGE + SeekLE", Ordered, func() {
 				BeforeEach(func(ctx SpecContext) {
 					Expect(
-						domain.Write(
+						testutil.WriteDomain(
 							ctx,
 							db,
 							(10 * telem.SecondTS).SpanRange(10*telem.Second),
@@ -160,7 +161,7 @@ var _ = Describe("Iterator Behavior", Ordered, func() {
 						),
 					).To(Succeed())
 					Expect(
-						domain.Write(
+						testutil.WriteDomain(
 							ctx,
 							db,
 							(30 * telem.SecondTS).SpanRange(10*telem.Second),
@@ -168,7 +169,7 @@ var _ = Describe("Iterator Behavior", Ordered, func() {
 						),
 					).To(Succeed())
 					Expect(
-						domain.Write(
+						testutil.WriteDomain(
 							ctx,
 							db,
 							(50 * telem.SecondTS).SpanRange(10*telem.Second),
@@ -278,7 +279,7 @@ var _ = Describe("Iterator Behavior", Ordered, func() {
 			Describe("Exhaustion", func() {
 				BeforeEach(func(ctx SpecContext) {
 					Expect(
-						domain.Write(
+						testutil.WriteDomain(
 							ctx,
 							db,
 							(50 * telem.SecondTS).SpanRange(10*telem.Second),
@@ -286,7 +287,7 @@ var _ = Describe("Iterator Behavior", Ordered, func() {
 						),
 					).To(Succeed())
 					Expect(
-						domain.Write(
+						testutil.WriteDomain(
 							ctx,
 							db,
 							(60 * telem.SecondTS).SpanRange(10*telem.Second),
@@ -294,7 +295,7 @@ var _ = Describe("Iterator Behavior", Ordered, func() {
 						),
 					).To(Succeed())
 					Expect(
-						domain.Write(
+						testutil.WriteDomain(
 							ctx,
 							db,
 							(10 * telem.SecondTS).SpanRange(10*telem.Second),
@@ -302,7 +303,7 @@ var _ = Describe("Iterator Behavior", Ordered, func() {
 						),
 					).To(Succeed())
 					Expect(
-						domain.Write(
+						testutil.WriteDomain(
 							ctx,
 							db,
 							(30 * telem.SecondTS).SpanRange(10*telem.Second),
@@ -377,7 +378,7 @@ var _ = Describe("Iterator Behavior", Ordered, func() {
 			Describe("Reader", func() {
 				BeforeEach(func(ctx SpecContext) {
 					Expect(
-						domain.Write(
+						testutil.WriteDomain(
 							ctx,
 							db,
 							(50 * telem.SecondTS).SpanRange(10*telem.Second),
@@ -385,7 +386,7 @@ var _ = Describe("Iterator Behavior", Ordered, func() {
 						),
 					).To(Succeed())
 					Expect(
-						domain.Write(
+						testutil.WriteDomain(
 							ctx,
 							db,
 							(60 * telem.SecondTS).SpanRange(10*telem.Second),
@@ -477,7 +478,7 @@ var _ = Describe("Iterator Behavior", Ordered, func() {
 					"Should give an iterator that cannot be used when the db is closed",
 					func(ctx SpecContext) {
 						Expect(
-							domain.Write(
+							testutil.WriteDomain(
 								ctx,
 								db,
 								(0 * telem.SecondTS).Range(10*telem.SecondTS),

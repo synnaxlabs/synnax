@@ -41,7 +41,7 @@ inline x::json::json StatusDetails::to_json() const {
     j["cmd"] = this->cmd;
     j["config_hash"] = this->config_hash;
     j["rack"] = this->rack;
-    j["data"] = this->data;
+    if (this->data.has_value()) j["data"] = *this->data;
     return j;
 }
 
@@ -81,6 +81,7 @@ inline Command Command::parse(x::json::Parser parser) {
         .config_hash = parser.field<std::string>("config_hash", ""),
         .args = parser
                     .field<x::json::json::object_t>("args", x::json::json::object_t{}),
+        .pinned = parser.field<bool>("pinned", false),
     };
 }
 
@@ -91,6 +92,7 @@ inline x::json::json Command::to_json() const {
     j["key"] = this->key;
     j["config_hash"] = this->config_hash;
     j["args"] = this->args;
+    j["pinned"] = this->pinned;
     return j;
 }
 

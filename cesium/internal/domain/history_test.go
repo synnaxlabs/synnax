@@ -15,6 +15,7 @@ import (
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	"github.com/synnaxlabs/cesium/internal/domain"
+	"github.com/synnaxlabs/cesium/internal/testutil"
 	"github.com/synnaxlabs/x/io/fs"
 	"github.com/synnaxlabs/x/telem"
 	. "github.com/synnaxlabs/x/testutil"
@@ -37,7 +38,7 @@ var _ = Describe("OnHistoryChange", func() {
 	write := func(ctx context.Context, start, end telem.TimeStamp) {
 		GinkgoHelper()
 		tr := (start * telem.SecondTS).Range(end * telem.SecondTS)
-		Expect(domain.Write(ctx, db, tr, []byte{1, 2, 3})).To(Succeed())
+		Expect(testutil.WriteDomain(ctx, db, tr, []byte{1, 2, 3})).To(Succeed())
 	}
 
 	It("Should not report domains written at the end", func(ctx SpecContext) {

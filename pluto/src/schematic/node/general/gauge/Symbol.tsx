@@ -28,6 +28,7 @@ const GAUGE_DIMENSIONS: Record<text.Level, dimensions.Dimensions> = {
   h5: dimensions.construct(100),
   p: dimensions.construct(85),
   small: dimensions.construct(80),
+  tiny: dimensions.construct(75),
 };
 
 const DEFAULT_DIMENSIONS = dimensions.construct(100);

@@ -11,8 +11,9 @@ import { type ReactElement } from "react";
 import { describe, expect, it } from "vitest";
 import { userEvent } from "vitest/browser";
 
+import { Icon } from "@/icon";
 import { List } from "@/list";
-import { renderThemed } from "@/styletest";
+import { height, renderThemed, resolve } from "@/styletest";
 import { Tree } from "@/tree";
 
 const NODES: Tree.Node[] = [
@@ -31,6 +32,22 @@ const Component = ({ showRules }: { showRules?: boolean }): ReactElement => {
     <Tree.Tree {...props} getItem={getItem} showRules={showRules}>
       {({ key, ...rest }) => (
         <Tree.Item key={key} {...rest}>
+          {key}
+        </Tree.Item>
+      )}
+    </Tree.Tree>
+  );
+};
+
+const LEVEL_NODES: Tree.Node[] = [{ key: "p" }, { key: "small" }];
+
+const LevelComponent = (): ReactElement => {
+  const props = Tree.use({ nodes: LEVEL_NODES });
+  return (
+    <Tree.Tree {...props} getItem={getItem}>
+      {({ key, ...rest }) => (
+        <Tree.Item key={key} {...rest} level={key === "small" ? "small" : "p"}>
+          <Icon.Add />
           {key}
         </Tree.Item>
       )}
@@ -71,6 +88,14 @@ describe("Tree", () => {
       expect(rows[i].height).toBe(rows[0].height);
       expect(rows[i].top).toBe(rows[i - 1].bottom);
     }
+  });
+
+  it("should size an item's icons by its text level", async () => {
+    await renderThemed(<LevelComponent />);
+    const icon = (key: string): number =>
+      height(document.getElementById(key)!.querySelector(".lyra-icon")!);
+    expect(icon("small")).toBeLessThan(icon("p"));
+    expect(`${icon("small")}px`).toBe(resolve("var(--pluto-small-size)", "font-size"));
   });
 
   it("should draw a rule under each ancestor's caret on hover", async () => {
