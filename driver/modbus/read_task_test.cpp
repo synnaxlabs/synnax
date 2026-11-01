@@ -267,6 +267,19 @@ TEST_F(ModbusReadTest, testUnboundDisabledChannel) {
     EXPECT_EQ(task_cfg->data_channel_count, 1);
 }
 
+/// @brief it should reject a task with no enabled channels.
+TEST_F(ModbusReadTest, testNoEnabledChannels) {
+    auto cfg = create_base_config();
+    synnax::channel::Channel unbound;
+    cfg["channels"].push_back(create_channel_config("coil", unbound, 0, true));
+
+    auto p = x::json::Parser(cfg);
+    const auto task_cfg = std::make_unique<ReadTaskConfig>(client, p);
+    const auto err = p.error();
+    ASSERT_OCCURRED_AS(err, x::errors::VALIDATION);
+    EXPECT_NE(err.data.find("at least one enabled channel"), std::string::npos);
+}
+
 /// @brief it should read coil values from Modbus device.
 TEST(ReadTask, testBasicReadTask) {
     testutil::SlaveConfig slave_cfg;

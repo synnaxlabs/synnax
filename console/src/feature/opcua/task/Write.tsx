@@ -19,6 +19,7 @@ import { type FC } from "react";
 import { Select } from "@/feature/opcua/device/Select";
 import {
   type Device,
+  MAKE,
   migrateProperties,
   type Properties as DeviceProperties,
   SCHEMAS,
@@ -36,12 +37,7 @@ import { ContextMenu } from "@/platform/context-menu";
 import { Selector } from "@/platform/selector";
 import { Task } from "@/platform/task";
 
-const Properties = () => (
-  <>
-    <Select />
-    <Task.Fields.AutoStart />
-  </>
-);
+const Properties = () => <Select />;
 
 // A write goes to a whole node, so a member of a structure is not a write channel.
 const convertNodeToChannel = (node: ScannedNode): WriteChannel | null =>
@@ -176,12 +172,12 @@ export const Write = Task.wrapForm({
   schemas: WRITE_SCHEMAS,
   deployConfigZ: deployWriteConfigZ,
   type: "opc_write",
-  getInitialValues,
   onConfigure,
 });
 
 export const useCreateWrite = Task.createUseCreate({
   getInitialValues,
+  deviceMake: MAKE,
 });
 
 export const WriteSelectable = Selector.createSelectable({

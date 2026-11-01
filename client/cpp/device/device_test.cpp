@@ -649,6 +649,44 @@ TEST(DeviceTests, testCreateMultipleDevicesWithParent) {
     ASSERT_EQ(retrieved.size(), 2);
 }
 
+/// @brief it should retrieve the parent of a device when the options ask for it.
+TEST(DeviceTests, testRetrieveIncludeParent) {
+    const auto client = new_test_client();
+    auto r = rack::Rack{.name = "test_rack"};
+    ASSERT_NIL(client.racks.create(r));
+    const auto rand = std::to_string(gen_rand_device());
+    auto chassis = Device{
+        .key = "chassis_include_" + rand,
+        .rack = r.key,
+        .location = "slot_0",
+        .make = "NI",
+        .model = "cDAQ-9178",
+        .name = "chassis_include_" + rand,
+    };
+    ASSERT_NIL(client.devices.create(chassis));
+    const auto chassis_id = synnax::ontology::ID{"device", chassis.key};
+    auto child = Device{
+        .key = "child_include_" + rand,
+        .rack = r.key,
+        .location = "slot_1",
+        .make = "NI",
+        .model = "NI-9205",
+        .name = "child_include_" + rand,
+        .parent = chassis_id,
+    };
+    ASSERT_NIL(client.devices.create(child));
+    const auto by_key = ASSERT_NIL_P(
+        client.devices.retrieve(child.key, {.include_parent = true})
+    );
+    EXPECT_EQ(by_key.parent, chassis_id);
+    const auto by_keys = ASSERT_NIL_P(client.devices.retrieve(
+        std::vector<std::string>{child.key},
+        {.include_parent = true}
+    ));
+    ASSERT_EQ(by_keys.size(), 1);
+    EXPECT_EQ(by_keys[0].parent, chassis_id);
+}
+
 TEST(DeviceTests, testCreateDeviceDefaultsParentToRack) {
     const auto client = new_test_client();
     auto r = rack::Rack{.name = "test_rack"};
