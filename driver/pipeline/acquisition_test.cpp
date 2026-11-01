@@ -9,8 +9,10 @@
 
 #include <atomic>
 
+#include "absl/log/globals.h"
 #include "gtest/gtest.h"
 
+#include "x/cpp/defer/defer.h"
 #include "x/cpp/sync/list.h"
 #include "x/cpp/testutil/testutil.h"
 
@@ -84,6 +86,70 @@ x::breaker::Config fast_breaker(const int max_retries) {
         .max_retries = max_retries,
         .scale = 0,
     };
+}
+
+/// @brief a writer factory that fails each open or each close until an outage ends.
+class OutageWriterFactory final : public WriterFactory {
+    /// @brief whether the outage fails opens instead of closes.
+    const bool on_open;
+    /// @brief the number of retries left in the outage.
+    size_t remaining;
+
+public:
+    /// @brief the frames written after the outage.
+    const std::shared_ptr<x::sync::List<x::telem::Frame>>
+        writes = std::make_shared<x::sync::List<x::telem::Frame>>();
+
+    /// @param on_open whether the outage fails opens instead of closes.
+    /// @param retries the number of retries the outage lasts.
+    OutageWriterFactory(const bool on_open, const size_t retries):
+        on_open(on_open), remaining(retries) {}
+
+    std::pair<std::unique_ptr<Writer>, x::errors::Error>
+    open_writer(const synnax::framer::WriterConfig &) override {
+        if (this->remaining == 0)
+            return {std::make_unique<testutil::Writer>(this->writes), x::errors::NIL};
+        this->remaining--;
+        if (this->on_open) return {nullptr, freighter::UNREACHABLE};
+        return {
+            std::make_unique<testutil::Writer>(this->writes, freighter::UNREACHABLE, 0),
+            x::errors::NIL
+        };
+    }
+};
+
+/// @brief expects the pipeline to write a frame after an outage that would overflow
+/// the thread's stack if each retry grew it.
+void expect_writes_after_long_outage(const bool on_open) {
+    absl::SetMinLogLevel(absl::LogSeverityAtLeast::kInfinity);
+    x::defer::defer restore([] {
+        absl::SetMinLogLevel(absl::LogSeverityAtLeast::kInfo);
+    });
+    const auto factory = std::make_shared<OutageWriterFactory>(on_open, 100'000);
+    auto pipeline = Acquisition(
+        factory,
+        synnax::framer::WriterConfig(),
+        std::make_shared<ScriptedSource>(std::vector<x::errors::Error>{}),
+        fast_breaker(x::breaker::RETRY_INFINITELY)
+    );
+    ASSERT_TRUE(pipeline.start());
+    ASSERT_EVENTUALLY_GE_WITH_TIMEOUT(
+        factory->writes->size(),
+        1,
+        std::chrono::seconds(30),
+        std::chrono::milliseconds(1)
+    );
+    ASSERT_TRUE(pipeline.stop());
+}
+
+/// @brief it should retry opening the writer through a long outage.
+TEST(AcquisitionPipeline, RetriesWriterOpenThroughLongOutage) {
+    expect_writes_after_long_outage(true);
+}
+
+/// @brief it should retry closing the writer through a long outage.
+TEST(AcquisitionPipeline, RetriesWriterCloseThroughLongOutage) {
+    expect_writes_after_long_outage(false);
 }
 
 /// @brief it should correctly retry opening the writer when an unreachable error
