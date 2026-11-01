@@ -120,10 +120,7 @@ func (u *Tab) UnmarshalJSONFrom(dec *jsontext.Decoder) error {
 		Type TabType `json:"variant"`
 	}
 	if err := json.Unmarshal(
-		data,
-		&disc,
-		opts,
-		json.RejectUnknownMembers(false),
+		data, &disc, opts, json.RejectUnknownMembers(false),
 	); err != nil {
 		return err
 	}
@@ -270,10 +267,7 @@ func (u *Node) UnmarshalJSONFrom(dec *jsontext.Decoder) error {
 		Type NodeType `json:"variant"`
 	}
 	if err := json.Unmarshal(
-		data,
-		&disc,
-		opts,
-		json.RejectUnknownMembers(false),
+		data, &disc, opts, json.RejectUnknownMembers(false),
 	); err != nil {
 		return err
 	}

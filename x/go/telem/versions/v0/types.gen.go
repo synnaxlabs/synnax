@@ -105,10 +105,7 @@ func (u *Window) UnmarshalJSONFrom(dec *jsontext.Decoder) error {
 		Type WindowType `json:"variant"`
 	}
 	if err := json.Unmarshal(
-		data,
-		&disc,
-		opts,
-		json.RejectUnknownMembers(false),
+		data, &disc, opts, json.RejectUnknownMembers(false),
 	); err != nil {
 		return err
 	}

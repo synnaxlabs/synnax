@@ -14,6 +14,7 @@ import (
 	"context"
 	"slices"
 
+	"github.com/samber/lo"
 	"github.com/synnaxlabs/gorp/internal/index"
 	"github.com/synnaxlabs/gorp/internal/keyset"
 	"github.com/synnaxlabs/x/errors"
@@ -62,12 +63,19 @@ type Index[K Key, E Entry[K]] interface {
 	// When tx has no per-tx identity, the deletion applies to committed
 	// state immediately.
 	stageDelete(tx Tx, key K)
+	// announce shows entry to index filters while a write outside a transaction is in
+	// progress. Committed index state does not change. Pass the returned handle to
+	// withdraw when the write ends.
+	announce(entry *E) uint64
+	// withdraw ends the announce that returned handle.
+	withdraw(handle uint64)
 }
 
 // indexStore is the read side of the engine behind an index.
 type indexStore[K Key, V comparable] interface {
 	Wait(ctx context.Context) error
 	Get(scope *txState, values ...V) ([]K, error)
+	Committing(values ...V) []K
 }
 
 // populateErr returns the error that every read of the index named name returns after
@@ -104,9 +112,15 @@ func indexFilter[K Key, E Entry[K], V comparable](
 			} else if err != nil {
 				return resolved[K, E]{}, err
 			}
+			// Observers run before a commit returns, so Get alone misses the entries
+			// that notified them. eval drops the keys of a commit that fails.
+			committing := store.Committing(captured...)
 			keys, err := store.Get(scopeOf(tx), captured...)
 			if err != nil {
 				return resolved[K, E]{}, err
+			}
+			if len(committing) > 0 {
+				keys = lo.Uniq(append(keys, committing...))
 			}
 			return resolved[K, E]{keys: keyset.Hashed(keys)}, nil
 		},
@@ -168,6 +182,14 @@ func (l *LookupIndex[K, E, V]) stageSet(tx Tx, entry E) {
 func (l *LookupIndex[K, E, V]) stageDelete(tx Tx, key K) {
 	l.store.StageDelete(tx.txIdentity(), key)
 }
+
+//nolint:unused
+func (l *LookupIndex[K, E, V]) announce(entry *E) uint64 {
+	return l.store.Announce((*entry).GorpKey(), l.extract(entry))
+}
+
+//nolint:unused
+func (l *LookupIndex[K, E, V]) withdraw(handle uint64) { l.store.Withdraw(handle) }
 
 // Get returns the primary keys of entries whose indexed field matches any of the
 // provided values, merging committed index state with any per-tx delta staged against
@@ -252,6 +274,14 @@ func (s *SortedIndex[K, E, V]) stageSet(tx Tx, entry E) {
 func (s *SortedIndex[K, E, V]) stageDelete(tx Tx, key K) {
 	s.store.StageDelete(tx.txIdentity(), key)
 }
+
+//nolint:unused
+func (s *SortedIndex[K, E, V]) announce(entry *E) uint64 {
+	return s.store.Announce((*entry).GorpKey(), s.extract(entry))
+}
+
+//nolint:unused
+func (s *SortedIndex[K, E, V]) withdraw(handle uint64) { s.store.Withdraw(handle) }
 
 // Get returns the primary keys of entries whose indexed field matches any of the
 // provided values, merging committed index state with any per-tx delta staged against
