@@ -399,19 +399,16 @@ var _ = Describe("ReadTask", func() {
 				for _, r := range results() {
 					src.results <- r
 				}
-				// The gap opens once the writer reaches the first frame after the end.
-				Eventually(func(g Gomega) {
-					w, err := framerSvc.OpenWriter(ctx, framer.WriterConfig{
-						Keys:              channel.Keys{idxCh.Key(), dataCh.Key()},
-						Start:             5 * telem.SecondTS,
-						Mode:              framer.WriterModePersistOnly,
-						ErrOnUnauthorized: new(true),
-					})
-					g.Expect(err).ToNot(HaveOccurred())
-					g.Expect(w.Write(samples(5).frame)).To(BeTrue())
-					g.Expect(w.Close()).To(Succeed())
-				}).Should(Succeed())
+				Eventually(src.results).Should(BeEmpty())
 				Expect(rt.Stop(false)).To(Succeed())
+				w := MustSucceed(framerSvc.OpenWriter(ctx, framer.WriterConfig{
+					Keys:              channel.Keys{idxCh.Key(), dataCh.Key()},
+					Start:             5 * telem.SecondTS,
+					Mode:              framer.WriterModePersistOnly,
+					ErrOnUnauthorized: new(true),
+				}))
+				Expect(w.Write(samples(5).frame)).To(BeTrue())
+				Expect(w.Close()).To(Succeed())
 				Expect(written(ctx, framerSvc, dataCh)).To(
 					telem.MatchWrittenSeries(telem.NewSeriesV[float32](1, 5, 10)),
 				)

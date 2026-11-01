@@ -366,6 +366,20 @@ var _ = Describe("Sparkplug B read entries", func() {
 			))
 		})
 
+		It("Should fill the time around values that it wrote", func(ctx SpecContext) {
+			data, t := startTemperature(ctx)
+			node.death()
+			node.setTags("", live(9))
+			node.birth()
+			node.data("", past(5))
+			expectStored(ctx, data, 1, 5, 9)
+			node.data("", past(2))
+			expectStored(ctx, data, 1, 2, 5, 9)
+			node.data("", past(7))
+			expectStored(ctx, data, 1, 2, 5, 7, 9)
+			Expect(taskStatus(ctx, t).Variant).To(Equal(status.VariantSuccess))
+		})
+
 		It("Should fill each outage of an edge node", func(ctx SpecContext) {
 			data, _ := startTemperature(ctx)
 			node.death()

@@ -15,6 +15,7 @@ import (
 	"slices"
 	"time"
 
+	"github.com/synnaxlabs/alamos"
 	"github.com/synnaxlabs/synnax/pkg/distribution/framer/frame"
 	"github.com/synnaxlabs/synnax/pkg/service/channel"
 	"github.com/synnaxlabs/synnax/pkg/service/framer"
@@ -78,6 +79,32 @@ func (t *tagGaps) open() *gap {
 	return nil
 }
 
+// split removes the values of gap i, and the time that a writer spans to store them.
+// The time on each side stays open to later values.
+func (t *tagGaps) split(i int) {
+	g := &t.gaps[i]
+	start := g.Start
+	first := slices.MinFunc(g.values, compareStamps).stamp
+	g.Start = slices.MaxFunc(g.values, compareStamps).stamp + 1
+	g.values = nil
+	if start < first {
+		t.gaps = slices.Insert(t.gaps, i, gap{Start: start, End: first})
+	}
+}
+
+// prune forgets the oldest gaps with no waiting values, down to gapLimit.
+func (t *tagGaps) prune() {
+	for len(t.gaps) > gapLimit {
+		i := slices.IndexFunc(t.gaps, func(g gap) bool {
+			return !g.open() && len(g.values) == 0
+		})
+		if i == -1 {
+			return
+		}
+		t.gaps = slices.Delete(t.gaps, i, i+1)
+	}
+}
+
 // fill is the values of one tag for one gap. A writer spans the time between its first
 // and last values, so that one writer cannot fill two gaps.
 type fill struct {
@@ -86,36 +113,32 @@ type fill struct {
 }
 
 // history writes the historical values of a read task. Each fill goes through its own
-// writer in persist mode, on a routine of its own, so that a slow or failed write
-// never holds back live values. One fill failing leaves the others to go on. Only the
-// reader of the task calls history, and it must call close.
+// writer in persist mode. One write runs at a time, on a routine of its own, so that a
+// slow or failed write never holds back live values. One fill failing leaves the others
+// to go on. Only the reader of the task calls history, and it must call close.
 type history struct {
-	framer  *framer.Service
-	tags    map[channel.Key]*tagGaps
-	flushed chan error
-	sCtx    signal.Context
-	cancel  context.CancelFunc
+	framer *framer.Service
+	tags   map[channel.Key]*tagGaps
+	// sCtx runs the write in progress. Nil when there is none.
+	sCtx   signal.Context
+	cancel context.CancelFunc
 	// flushAt is when the waiting values are next due to be written. Zero when none
 	// are.
 	flushAt time.Time
 	subject control.Subject
+	ins     alamos.Instrumentation
 	// count is the count of waiting values.
 	count int
-	// flushing is true from the start of a write until tick takes its result.
-	flushing bool
 }
 
 // newHistory returns a history with an open gap for each tag that s stores. A tag on a
 // virtual channel, or in a task that saves no data, has no time to fill.
 func newHistory(s *readSource) *history {
-	sCtx, cancel := signal.Isolated(signal.WithInstrumentation(s.ins))
 	h := &history{
 		framer:  s.framer,
 		subject: s.subject,
+		ins:     s.ins,
 		tags:    make(map[channel.Key]*tagGaps),
-		flushed: make(chan error, 1),
-		sCtx:    sCtx,
-		cancel:  cancel,
 	}
 	if len(s.stored) == 0 {
 		return h
@@ -137,13 +160,7 @@ func (h *history) end(index channel.Key, last telem.TimeStamp) bool {
 		return false
 	}
 	t.gaps = append(t.gaps, gap{Start: last + 1, End: telem.TimeStampMax})
-	if len(t.gaps) > gapLimit {
-		closed := t.gaps[:len(t.gaps)-1]
-		i := slices.IndexFunc(closed, func(g gap) bool { return len(g.values) == 0 })
-		if i != -1 {
-			t.gaps = slices.Delete(t.gaps, i, i+1)
-		}
-	}
+	t.prune()
 	return true
 }
 
@@ -219,7 +236,7 @@ func (h *history) add(
 
 // deadline returns the next time that tick has work to do.
 func (h *history) deadline(now time.Time) (deadline time.Time, ok bool) {
-	if h.flushing {
+	if h.sCtx != nil {
 		return now.Add(historyPoll), true
 	}
 	return h.flushAt, !h.flushAt.IsZero()
@@ -228,65 +245,68 @@ func (h *history) deadline(now time.Time) (deadline time.Time, ok bool) {
 // tick takes the result of a finished write, and starts the next one when values are
 // due. It returns the error of the finished write.
 func (h *history) tick(now time.Time) (err error) {
-	select {
-	case err = <-h.flushed:
-		h.flushing = false
-	default:
+	if h.sCtx != nil {
+		select {
+		case <-h.sCtx.Stopped():
+			err = h.finish()
+		default:
+			return nil
+		}
 	}
-	if h.flushing || h.flushAt.IsZero() || now.Before(h.flushAt) {
+	if h.flushAt.IsZero() || now.Before(h.flushAt) {
 		return err
 	}
 	h.flushAt = time.Time{}
-	fills := h.take(false)
-	if len(fills) == 0 {
-		return err
+	if fills := h.take(false); len(fills) > 0 {
+		h.start(fills)
 	}
-	h.flushing = true
-	var flushErr error
-	h.sCtx.Go(
-		func(ctx context.Context) error {
-			flushErr = h.write(ctx, fills)
-			return nil
-		},
-		signal.RecoverWithErrOnPanic(),
-		signal.Defer(func() { h.flushed <- flushErr }),
-	)
 	return err
 }
 
 // close waits for the write in progress, then writes every waiting value. The caller
 // must have closed the live writer: its claim then blocks no gap, open ones included.
 func (h *history) close() error {
-	defer h.cancel()
 	var err error
-	if h.flushing {
-		err = <-h.flushed
+	if h.sCtx != nil {
+		err = h.finish()
 	}
-	fills := h.take(true)
+	h.start(h.take(true))
+	return errors.Combine(err, h.finish())
+}
+
+// start writes fills on a signal context of its own, because a context keeps every
+// routine that it runs.
+func (h *history) start(fills []fill) {
+	h.sCtx, h.cancel = signal.Isolated(signal.WithInstrumentation(h.ins))
 	h.sCtx.Go(
 		func(ctx context.Context) error { return h.write(ctx, fills) },
 		signal.RecoverWithErrOnPanic(),
 	)
-	return errors.Combine(err, h.sCtx.Wait())
+}
+
+// finish waits for the write in progress, and returns its error.
+func (h *history) finish() error {
+	defer h.cancel()
+	err := h.sCtx.Wait()
+	h.sCtx = nil
+	return err
 }
 
 // take removes the waiting values of every closed gap, and of open gaps too if all is
-// true. A gap then starts after its last taken value, which keeps a value that an edge
-// node sends twice from reaching what the task has written.
+// true.
 func (h *history) take(all bool) []fill {
 	var fills []fill
 	for _, t := range h.tags {
-		for i := range t.gaps {
+		for i := len(t.gaps) - 1; i >= 0; i-- {
 			g := &t.gaps[i]
 			if len(g.values) == 0 || (g.open() && !all) {
 				continue
 			}
 			fills = append(fills, fill{tag: t.tag, values: g.values})
-			last := slices.MaxFunc(g.values, compareStamps)
-			g.Start = last.stamp + 1
 			h.count -= len(g.values)
-			g.values = nil
+			t.split(i)
 		}
+		t.prune()
 	}
 	return fills
 }
