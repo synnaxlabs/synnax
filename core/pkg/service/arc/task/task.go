@@ -367,8 +367,7 @@ func (t *impl) open(ctx context.Context) (err error) {
 				Name: t.prog.Name,
 				Key:  t.task.Key.String(),
 			},
-			Start: telem.Now(),
-			Keys:  writeKeys,
+			Keys: writeKeys,
 		}
 		if authorities := buildAuthorities(
 			t.prog.Program.Authorities,

@@ -7,6 +7,7 @@
 #  License, use of this software will be governed by the Apache License, Version 2.0,
 #  included in the file licenses/APL.txt.
 
+import os
 from collections.abc import Iterator
 
 import pytest
@@ -16,8 +17,8 @@ from tests.channel import RetrieveCounter
 from tests.proxy import Proxy
 from x.strings import random_name
 
-HOST = "localhost"
-PORT = 9090
+HOST = os.environ.get("SYNNAX_HOST", "localhost")
+PORT = int(os.environ.get("SYNNAX_PORT", 9090))
 USERNAME = "synnax"
 PASSWORD = "seldon"
 

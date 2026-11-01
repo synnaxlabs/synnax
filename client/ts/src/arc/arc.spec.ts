@@ -11,7 +11,7 @@ import { crdt, id, uuid } from "@synnaxlabs/x";
 import { beforeAll, describe, expect, it, vi } from "vitest";
 
 import { arc } from "@/arc";
-import { AccessDeniedError } from "@/errors";
+import { AccessDeniedError } from "@/index";
 import { query } from "@/query";
 import { status } from "@/status";
 import { task } from "@/task";

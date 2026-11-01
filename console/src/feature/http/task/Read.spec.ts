@@ -193,7 +193,7 @@ describe("Read", () => {
     await renderRead();
     await addEndpoint();
     fireEvent.contextMenu(screen.getByRole("treeitem", { name: /New endpoint/ }));
-    fireEvent.click(await screen.findByText("Add field"));
+    fireEvent.click(await screen.findByRole("menuitem", { name: "Add field" }));
     await screen.findByRole("treeitem", { name: /New field/ });
     expect(screen.getByPlaceholderText("/temperature")).toBeTruthy();
   });
