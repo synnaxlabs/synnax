@@ -638,7 +638,7 @@ var _ = Describe("Path actions", func() {
 			Expect(table.Reduce(create2x2(), set([]string{"name"}, "Other"))).
 				Error().To(SatisfyAll(
 				MatchError(validate.ErrValidation),
-				MatchError(ContainSubstring("the path is outside")),
+				MatchError(ContainSubstring("the path is not inside an entry of")),
 			))
 		})
 

@@ -113,11 +113,23 @@ var _ = Describe("EditMap", func() {
 		Expect(checked).To(BeEmpty())
 	})
 
-	It("Should check every entry when the action is at root", func() {
+	It("Should reject an action that replaces the whole map", func() {
 		Expect(patch.EditMap(ports, root, patch.Set{
 			Path:  []string{"ports"},
-			Value: map[string]port{"c": {Key: "c"}},
-		}, check)).Error().To(MatchError(ContainSubstring("c: the port is zero")))
+			Value: map[string]port{"c": {Key: "c", Port: 1}},
+		}, check)).Error().To(SatisfyAll(
+			MatchError(validate.ErrValidation),
+			MatchError(ContainSubstring(
+				"[ports]: the path is not inside an entry of [ports]",
+			)),
+		))
+	})
+
+	It("Should reject a removal of the whole map", func() {
+		Expect(patch.EditMap(ports, []string{"device", "ports"}, patch.Remove{
+			Path: []string{"device"},
+			Key:  "ports",
+		}, check)).Error().To(MatchError(validate.ErrValidation))
 	})
 
 	It("Should let a guard read another entry", func() {
@@ -156,7 +168,7 @@ var _ = Describe("EditMap", func() {
 			Value: "dev",
 		}, check)).Error().To(SatisfyAll(
 			MatchError(validate.ErrValidation),
-			MatchError(ContainSubstring("the path is outside")),
+			MatchError(ContainSubstring("the path is not inside an entry of")),
 		))
 	})
 

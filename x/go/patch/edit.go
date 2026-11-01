@@ -45,10 +45,9 @@ func (m Move) guards() []Guard { return m.Guards }
 // EditMap applies the action to m, the map at root in the JSON form of a document, and
 // returns the edited map. It may change m in place. Only the entry that the action's
 // path names is edited, decoded, and passed to check, so no other entry can fail the
-// edit. An action at root itself edits and checks every entry. A nil check accepts
-// every entry. EditMap returns the error of the action or of check, or an error
-// wrapping validate.ErrValidation when the action's path is outside root or an entry
-// does not decode.
+// edit. A nil check accepts every entry. EditMap returns the error of the action or of
+// check, or an error wrapping validate.ErrValidation when the action's path does not
+// reach an entry of the map or an entry does not decode.
 func EditMap[V any](
 	m map[string]V,
 	root []string,
@@ -59,28 +58,16 @@ func EditMap[V any](
 	if !within(path, root) {
 		return nil, errors.Wrapf(
 			validate.ErrValidation,
-			"%s: the path is outside %s",
+			"%s: the path is not inside an entry of %s",
 			format(path),
 			format(root),
 		)
-	}
-	if len(path) == len(root) {
-		next, err := editAt(m, root, a)
-		if err != nil {
-			return nil, err
-		}
-		for key, entry := range next {
-			if err = checkEntry(check, key, entry); err != nil {
-				return nil, err
-			}
-		}
-		return next, nil
 	}
 	key := path[len(root)]
 	// Guards may read other entries, so those entries go into the edit unchanged.
 	named := make(map[string]V)
 	for _, p := range append([][]string{path}, guardPaths(a)...) {
-		if len(p) > len(root) && within(p, root) {
+		if within(p, root) {
 			if entry, ok := m[p[len(root)]]; ok {
 				named[p[len(root)]] = entry
 			}
@@ -113,7 +100,7 @@ func checkEntry[V any](check func(string, V) error, key string, entry V) error {
 }
 
 func within(path, root []string) bool {
-	return len(path) >= len(root) && slices.Equal(path[:len(root)], root)
+	return len(path) > len(root) && slices.Equal(path[:len(root)], root)
 }
 
 func guardPaths(a Action) [][]string {

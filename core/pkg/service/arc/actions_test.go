@@ -413,7 +413,7 @@ var _ = Describe("Path actions", func() {
 		DescribeTable("Should reject", func(path []string, value any) {
 			Expect(arc.Reduce(state, set(path, value))).Error().To(SatisfyAll(
 				MatchError(validate.ErrValidation),
-				MatchError(ContainSubstring("the path is outside")),
+				MatchError(ContainSubstring("the path is not inside an entry of")),
 			))
 		},
 			Entry("a path outside the node inputs", []string{"name"}, "Other"),

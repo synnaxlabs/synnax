@@ -998,7 +998,7 @@ var _ = Describe("Path actions", func() {
 			Expect(schematic.Reduce(state, set([]string{"name"}, "Other"))).
 				Error().To(SatisfyAll(
 				MatchError(validate.ErrValidation),
-				MatchError(ContainSubstring("the path is outside")),
+				MatchError(ContainSubstring("the path is not inside an entry of")),
 			))
 		})
 
