@@ -49,16 +49,22 @@ bool Control::stop() {
 }
 
 void Control::run() {
+    while (this->run_once()) {}
+}
+
+void Control::stopped_with_err(const x::errors::Error &err) {
+    this->sink->stopped_with_err(err);
+}
+
+bool Control::run_once() {
     auto [s, open_err] = this->factory->open_streamer(this->config);
     this->streamer = std::move(s);
     if (open_err) {
         if (synnax::errors::is_temporarily_unavailable(open_err) &&
-            breaker.wait(open_err.message())) {
-            this->run();
-            return;
-        }
+            breaker.wait(open_err.message()))
+            return true;
         this->sink->stopped_with_err(open_err);
-        return;
+        return false;
     }
     this->sink->opened();
 
@@ -75,14 +81,13 @@ void Control::run() {
         this->breaker.reset();
     }
     const auto close_err = this->streamer->close();
-    if (synnax::errors::is_temporarily_unavailable(close_err) && breaker.wait()) {
-        this->run();
-        return;
-    }
+    if (synnax::errors::is_temporarily_unavailable(close_err) && breaker.wait())
+        return true;
     if (sink_err)
         this->sink->stopped_with_err(sink_err);
     else if (close_err)
         this->sink->stopped_with_err(close_err);
+    return false;
 }
 
 SynnaxStreamer::SynnaxStreamer(synnax::framer::Streamer internal):
