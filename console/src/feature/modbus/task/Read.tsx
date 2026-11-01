@@ -13,18 +13,26 @@ import { channel, NotFoundError } from "@synnaxlabs/client";
 import { Component } from "@synnaxlabs/lyra/component";
 import { Flex } from "@synnaxlabs/lyra/flex";
 import { Form as PForm } from "@synnaxlabs/lyra/form";
+import { Header } from "@synnaxlabs/lyra/header";
 import { Icon } from "@synnaxlabs/lyra/icon";
-import { Select } from "@synnaxlabs/lyra/select";
+import { List } from "@synnaxlabs/lyra/list";
 import { Telem } from "@synnaxlabs/pluto";
-import { DataType, deep, errors, id, primitive } from "@synnaxlabs/x";
-import { type FC } from "react";
+import { DataType, errors, id, primitive } from "@synnaxlabs/x";
+import { type FC, type ReactElement } from "react";
 
 import { useFromConfig } from "@/feature/modbus/device/queries";
 import { Select as SelectDevice } from "@/feature/modbus/device/Select";
 import { MAKE, SCHEMAS } from "@/feature/modbus/device/types";
 import { AddressField } from "@/feature/modbus/task/AddressField";
-import { OrderFields } from "@/feature/modbus/task/OrderFields";
-import { SelectReadChannelTypeField } from "@/feature/modbus/task/SelectReadChannelTypeField";
+import { ByteOrderField } from "@/feature/modbus/task/ByteOrder";
+import { RegisterField, SHADOW_TRIGGER_PROPS } from "@/feature/modbus/task/Register";
+import {
+  RegisterMap,
+  RegisterMapProvider,
+  useHoveredRef,
+  useIsHovered,
+  useOverlaps,
+} from "@/feature/modbus/task/RegisterMap";
 import {
   BIT_BOUNDS,
   deployReadConfigZ,
@@ -36,7 +44,6 @@ import {
   READ_TYPE,
   type ReadChannel,
   readChannelName,
-  type ReadChannelType,
   readMapKey,
   type ReadSchemas,
   STRING_LENGTH_BOUNDS,
@@ -57,96 +64,122 @@ const Properties = () => (
   </>
 );
 
-const ChannelListItem = (props: Task.ChannelListItemProps) => {
-  const { itemKey } = props;
-  const path = `config.channels.${itemKey}`;
-  const ch = PForm.useFieldValue<ReadChannel>(path);
-  const { channel } = ch;
+const COLUMNS: List.Column[] = [
+  { name: "Type", width: "30rem", field: true },
+  { name: "Address", width: "24rem", field: true },
+  { name: "Data type", width: "32rem", field: true },
+  { name: "Byte order", width: "27rem", field: true },
+];
+
+const DataTypeField = ({ path }: { path: string }): ReactElement | null => {
+  const field = PForm.useField<string>(`${path}.dataType`);
+  if (field == null) return null;
   return (
-    <Select.Item
-      {...props}
-      className={CSS.BE("modbus", "channel-item")}
-      justify="between"
-      align="center"
-      x
-    >
-      <Flex.Box x pack className={CSS.B("channel-item")}>
-        <SelectReadChannelTypeField
-          path={path}
-          onChange={(value, { get, set, path }) => {
-            const prevType = get<ReadChannelType>(path).value;
-            if (prevType === value) return;
-            const next = READ_CHANNEL_SCHEMAS[value].parse({ type: value });
-            const parentPath = path.slice(0, path.lastIndexOf("."));
-            const prevParent = get<ReadChannel>(parentPath).value;
-            const schema = READ_CHANNEL_SCHEMAS[value];
-            set(parentPath, {
-              ...deep.overrideValidItems(next, prevParent, schema),
-              type: value,
-            });
-          }}
-        />
-        <AddressField path={path} />
-        {"bit" in ch && (
-          <PForm.NumericField
-            inputProps={{
-              showDragHandle: false,
-              bounds: BIT_BOUNDS,
-              startContent: "Bit",
-              "aria-label": "Bit",
-            }}
-            showLabel={false}
-            showHelpText={false}
-            path={`${path}.bit`}
-          />
-        )}
-        {isVariableDensityReadChannel(ch) && (
-          <PForm.Field<string>
-            path={`${path}.dataType`}
-            showLabel={false}
-            showHelpText={false}
-          >
-            {renderTelemSelectDataType}
-          </PForm.Field>
-        )}
-        {isStringChannel(ch) && (
-          <PForm.NumericField
-            inputProps={{
-              showDragHandle: false,
-              bounds: STRING_LENGTH_BOUNDS,
-              startContent: "String length",
-              "aria-label": "String length",
-            }}
-            showLabel={false}
-            showHelpText={false}
-            path={`${path}.stringLength`}
-          />
-        )}
-      </Flex.Box>
-      {isVariableDensityReadChannel(ch) && (
-        <OrderFields path={path} dataType={ch.dataType} />
-      )}
-      <Flex.Box x align="center" grow justify="end">
-        <Task.ChannelName
-          channel={channel}
-          namePath={`${path}.name`}
-          id={Task.getChannelNameID(itemKey)}
-        />
-        <Task.EnabledCheckbox path={`${path}.disabled`} />
-      </Flex.Box>
-    </Select.Item>
+    <Telem.SelectDataType
+      value={field.value}
+      onChange={field.onChange}
+      preview={field.preview}
+      hideDataTypes={UNSUPPORTED_READ_DATA_TYPES}
+      location="bottom"
+      triggerProps={SHADOW_TRIGGER_PROPS}
+    />
   );
 };
 
-const renderTelemSelectDataType = Component.renderProp(
-  (props: Telem.SelectDataTypeProps) => (
-    <Telem.SelectDataType
-      {...props}
-      hideDataTypes={UNSUPPORTED_READ_DATA_TYPES}
-      location="bottom"
-    />
-  ),
+interface NumberFieldProps {
+  path: string;
+  label: string;
+  bounds: { lower: number; upper: number };
+  /** The shorter name in front of the number, when the cell already gives context. */
+  prefix?: string;
+}
+
+// A whole number in a cell, named by a prefix in front of it.
+const NumberField = ({
+  path,
+  label,
+  bounds,
+  prefix = label,
+}: NumberFieldProps): ReactElement => (
+  <PForm.NumericField
+    path={path}
+    showLabel={false}
+    showHelpText={false}
+    inputProps={{
+      variant: "shadow",
+      showDragHandle: false,
+      bounds,
+      startContent: prefix,
+      "aria-label": label,
+    }}
+  />
 );
+
+// A register shows its data type, and a string also its length. A register bit has no
+// data type, so the cell holds its bit.
+const DataTypeCell = ({
+  path,
+  channel,
+}: {
+  path: string;
+  channel: ReadChannel;
+}): ReactElement | null => {
+  if ("bit" in channel)
+    return <NumberField path={`${path}.bit`} label="Bit" bounds={BIT_BOUNDS} />;
+  if (!isVariableDensityReadChannel(channel)) return null;
+  return (
+    <Flex.Box x align="center" className={CSS.BE("modbus", "data-type")}>
+      <DataTypeField path={path} />
+      {isStringChannel(channel) && (
+        <NumberField
+          path={`${path}.stringLength`}
+          label="String length"
+          prefix="Length"
+          bounds={STRING_LENGTH_BOUNDS}
+        />
+      )}
+    </Flex.Box>
+  );
+};
+
+const ChannelListItem = ({ itemKey, ...rest }: Task.ChannelListItemProps) => {
+  const path = `config.channels.${itemKey}`;
+  const ch = PForm.useFieldValue<ReadChannel>(path);
+  const dev = useFromConfig();
+  const hovered = useIsHovered(itemKey);
+  const hoveredRef = useHoveredRef(itemKey);
+  const overlapping = useOverlaps(itemKey);
+  return (
+    <Task.Views.ListChannelItem
+      {...rest}
+      itemKey={itemKey}
+      path={path}
+      channel={ch.channel}
+      defaultName={
+        dev == null
+          ? undefined
+          : readChannelName(channel.escapeInvalidName(dev.name), ch)
+      }
+      ref={hoveredRef}
+      hovered={hovered}
+    >
+      <List.Cell>
+        <RegisterField path={path} />
+      </List.Cell>
+      <List.Cell>
+        <AddressField path={path} variant="shadow" overlapping={overlapping} />
+      </List.Cell>
+      <List.Cell>
+        <DataTypeCell path={path} channel={ch} />
+      </List.Cell>
+      <List.Cell>
+        {isVariableDensityReadChannel(ch) && (
+          <ByteOrderField path={path} dataType={ch.dataType} />
+        )}
+      </List.Cell>
+    </Task.Views.ListChannelItem>
+  );
+};
 
 const getOpenChannel = (channels: ReadChannel[]): ReadChannel => {
   if (channels.length === 0)
@@ -163,17 +196,33 @@ const getOpenChannel = (channels: ReadChannel[]): ReadChannel => {
 
 const listItem = Component.renderProp(ChannelListItem);
 
+const HEADER = (
+  <>
+    <Header.Header>
+      <Header.Title weight={500} color={10}>
+        Channels
+      </Header.Title>
+    </Header.Header>
+    <RegisterMap />
+  </>
+);
+
 const Form: FC = () => {
   const dev = useFromConfig();
   const resolve = (c: ReadChannel) =>
     dev == null ? null : { channel: dev.properties.read.channels[readMapKey(c)] ?? 0 };
   return (
-    <Task.Views.List<ReadChannel>
-      createChannel={getOpenChannel}
-      contextMenuItems={Task.readChannelContextMenuItem}
-      listItem={listItem}
-      resolve={resolve}
-    />
+    <RegisterMapProvider>
+      <Task.Views.List<ReadChannel>
+        createChannel={getOpenChannel}
+        contextMenuItems={Task.readChannelContextMenuItem}
+        listItem={listItem}
+        resolve={resolve}
+        header={HEADER}
+        columns={COLUMNS}
+        checkable
+      />
+    </RegisterMapProvider>
   );
 };
 

@@ -9,28 +9,38 @@
 
 import { Form } from "@synnaxlabs/lyra/form";
 import { Input } from "@synnaxlabs/lyra/input";
-import { type ReactElement } from "react";
+import { type CSSProperties, type ReactElement } from "react";
 
+import { parseAddress, toModicon } from "@/feature/modbus/task/address";
 import {
-  type ChannelType,
-  parseAddress,
-  toModicon,
-} from "@/feature/modbus/task/address";
+  addressSpan,
+  type ReadChannel,
+  type WriteChannel,
+} from "@/feature/modbus/task/types";
+import { CSS } from "@/platform/css";
 
-export interface AddressFieldProps {
+export interface AddressFieldProps extends Pick<Input.TextProps, "variant"> {
   /** The path of the channel in the form. */
   path: string;
+  /** Marks the addresses red, for a channel that shares one with another channel. */
+  overlapping?: boolean;
 }
 
 /**
  * The address of a channel. It takes a zero-based offset or a six-digit Modicon address
- * such as 400001, and shows the Modicon form after the offset. Text that does not parse
- * keeps the stored address and marks the field until a valid entry.
+ * such as 400001, and shows the Modicon form after the offset. A channel that spans
+ * several addresses shows its last one after the first. Text that does not parse keeps
+ * the stored address and marks the field until a valid entry.
  */
-export const AddressField = ({ path }: AddressFieldProps): ReactElement => {
-  const type = Form.useFieldValue<ChannelType>(`${path}.type`);
+export const AddressField = ({
+  path,
+  variant,
+  overlapping = false,
+}: AddressFieldProps): ReactElement => {
+  const channel = Form.useFieldValue<ReadChannel | WriteChannel>(path);
   const field = Form.useField<number>(`${path}.address`);
   const invalid = field.status.variant !== "success";
+  const [lo, hi] = addressSpan(channel);
   return (
     <Input.Item
       showLabel={false}
@@ -38,22 +48,32 @@ export const AddressField = ({ path }: AddressFieldProps): ReactElement => {
       status={field.status.variant}
       helpText={field.status.message}
     >
-      <Input.Text
-        value={field.value.toString()}
-        onChange={(raw) => {
-          const parsed = parseAddress(type, raw);
-          if ("error" in parsed)
-            return field.setStatus({ variant: "error", message: parsed.error });
-          // The status clears on its own only when the value changes.
-          if (invalid) field.setStatus({ variant: "success", message: "" });
-          field.onChange(parsed.address);
-        }}
-        onlyChangeOnBlur
-        selectOnFocus
-        preview={field.preview}
-        endContent={toModicon(type, field.value)}
-        aria-label="Address"
-      />
+      <div
+        className={CSS.cls(
+          CSS.BE("modbus", "address"),
+          overlapping && CSS.BEM("modbus", "address", "overlap"),
+        )}
+        style={{ "--console-modbus-digits": String(lo).length } as CSSProperties}
+      >
+        <Input.Text
+          value={field.value.toString()}
+          onChange={(raw) => {
+            const parsed = parseAddress(channel.type, raw);
+            if ("error" in parsed)
+              return field.setStatus({ variant: "error", message: parsed.error });
+            // The status clears on its own only when the value changes.
+            if (invalid) field.setStatus({ variant: "success", message: "" });
+            field.onChange(parsed.address);
+          }}
+          onlyChangeOnBlur
+          selectOnFocus
+          preview={field.preview}
+          variant={variant}
+          endContent={toModicon(channel.type, lo)}
+          aria-label="Address"
+        />
+        {hi > lo && <span className={CSS.BE("modbus", "address-end")}>{`–${hi}`}</span>}
+      </div>
     </Input.Item>
   );
 };

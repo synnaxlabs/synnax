@@ -80,6 +80,79 @@ const nextAddress = (channel: ReadChannel | WriteChannel): number => {
   return channel.address + Math.ceil(bytes / 2);
 };
 
+/** @returns the first and last addresses of a channel. */
+export const addressSpan = (channel: ReadChannel | WriteChannel): [number, number] => [
+  channel.address,
+  nextAddress(channel) - 1,
+];
+
+/** Where channels of the same type read the same addresses. */
+export interface Overlaps {
+  /** The keys of the channels that read an address another channel reads. */
+  keys: Set<string>;
+  /** For each type, the shared address ranges, in order and apart. */
+  ranges: Partial<Record<ReadChannelType, [number, number][]>>;
+}
+
+const mergeRanges = (spans: [number, number][]): [number, number][] =>
+  spans
+    .toSorted((a, b) => a[0] - b[0])
+    .reduce<[number, number][]>((merged, [lo, hi]) => {
+      const last = merged.at(-1);
+      if (last != null && lo <= last[1] + 1) last[1] = Math.max(last[1], hi);
+      else merged.push([lo, hi]);
+      return merged;
+    }, []);
+
+/** @returns where channels of the same type read the same addresses. */
+export const findOverlaps = (channels: ReadChannel[]): Overlaps => {
+  const keys = new Set<string>();
+  const ranges: Overlaps["ranges"] = {};
+  const sharedByType = new Map<ReadChannelType, [number, number][]>();
+  // Bits of one register read apart, so only channels on the same bit can overlap.
+  const groups = Map.groupBy(channels, (c) =>
+    "bit" in c ? `${c.type}.${c.bit}` : c.type,
+  );
+  for (const typed of groups.values()) {
+    const { type } = typed[0];
+    // A channel stops reading one address past its last, and a stop comes before a
+    // start at the same address, so channels that only touch do not overlap.
+    const events = typed
+      .flatMap((c): [number, number, string][] => {
+        const [lo, hi] = addressSpan(c);
+        return [
+          [lo, 1, c.key],
+          [hi + 1, -1, c.key],
+        ];
+      })
+      .sort((a, b) => a[0] - b[0] || a[1] - b[1]);
+    const reading = new Set<string>();
+    const shared: [number, number][] = [];
+    let start = 0;
+    for (const [address, step, key] of events) {
+      if (step < 0) {
+        reading.delete(key);
+        if (reading.size === 1) shared.push([start, address - 1]);
+        continue;
+      }
+      reading.add(key);
+      if (reading.size < 2) continue;
+      keys.add(key);
+      if (reading.size > 2) continue;
+      reading.forEach((k) => keys.add(k));
+      const last = shared.at(-1);
+      if (last?.[1] === address - 1) {
+        shared.pop();
+        start = last[0];
+      } else start = address;
+    }
+    if (shared.length > 0)
+      sharedByType.set(type, [...(sharedByType.get(type) ?? []), ...shared]);
+  }
+  for (const [type, spans] of sharedByType) ranges[type] = mergeRanges(spans);
+  return { keys, ranges };
+};
+
 /**
  * Returns the channel to add after the given one: the next bit of a bit channel, then
  * bit 0 of the next register, or the first address after any other channel.
