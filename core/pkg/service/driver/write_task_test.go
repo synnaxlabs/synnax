@@ -269,6 +269,26 @@ var _ = Describe("WriteTask", func() {
 			},
 		)
 
+		It("Should keep a health warning through a write that succeeds",
+			func(ctx SpecContext) {
+				wt := open()
+				Expect(wt.Start(ctx, driver.NoCommand)).To(Succeed())
+				sink.health <- errors.Mark(
+					errors.New("command blocked"), driver.ErrTemporary,
+				)
+				Eventually(func() string { return retrieve(ctx).Description }).
+					Should(Equal("command blocked"))
+				command(ctx, 1, func(g Gomega) {
+					g.Expect(sink.received()).To(ContainElement(float32(1)))
+				})
+				Consistently(func() string { return retrieve(ctx).Description }).
+					Should(Equal("command blocked"))
+				sink.health <- nil
+				Eventually(func() status.Variant { return retrieve(ctx).Variant }).
+					Should(Equal(status.VariantSuccess))
+			},
+		)
+
 		It("Should stop on a health error that is not temporary",
 			func(ctx SpecContext) {
 				wt := open()
