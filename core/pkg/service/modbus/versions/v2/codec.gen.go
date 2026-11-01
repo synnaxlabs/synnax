@@ -48,6 +48,22 @@ func (rc ReadChannel) EncodeOrc(w *orc.Writer) error {
 			return err
 		}
 		w.Int32(int32(v.StringLength))
+	case HoldingRegisterBitReadChannel:
+		w.String("holding_register_bit")
+		if err := v.BaseReadChannel.EncodeOrc(w); err != nil {
+			return err
+		}
+		if err := v.RegisterBit.EncodeOrc(w); err != nil {
+			return err
+		}
+	case InputRegisterBitReadChannel:
+		w.String("input_register_bit")
+		if err := v.BaseReadChannel.EncodeOrc(w); err != nil {
+			return err
+		}
+		if err := v.RegisterBit.EncodeOrc(w); err != nil {
+			return err
+		}
 	default:
 		return errors.Newf("ReadChannel: nil or unknown variant %T", rc.Variant)
 	}
@@ -94,6 +110,24 @@ func (rc *ReadChannel) DecodeOrc(r *orc.Reader) error {
 			return err
 		}
 		if v.StringLength, err = r.Int32(); err != nil {
+			return err
+		}
+		rc.Variant = v
+	case "holding_register_bit":
+		var v HoldingRegisterBitReadChannel
+		if err := v.BaseReadChannel.DecodeOrc(r); err != nil {
+			return err
+		}
+		if err := v.RegisterBit.DecodeOrc(r); err != nil {
+			return err
+		}
+		rc.Variant = v
+	case "input_register_bit":
+		var v InputRegisterBitReadChannel
+		if err := v.BaseReadChannel.DecodeOrc(r); err != nil {
+			return err
+		}
+		if err := v.RegisterBit.DecodeOrc(r); err != nil {
 			return err
 		}
 		rc.Variant = v
@@ -174,6 +208,21 @@ func (rc *ReadConfig) DecodeOrc(r *orc.Reader) error {
 }
 
 // EncodeOrc writes the value to w in the Orc binary format.
+func (rb RegisterBit) EncodeOrc(w *orc.Writer) error {
+	w.Uint8(uint8(rb.Bit))
+	return nil
+}
+
+// DecodeOrc reads the value from r in the Orc binary format.
+func (rb *RegisterBit) DecodeOrc(r *orc.Reader) error {
+	var err error
+	if rb.Bit, err = r.Uint8(); err != nil {
+		return err
+	}
+	return nil
+}
+
+// EncodeOrc writes the value to w in the Orc binary format.
 func (rv RegisterValue) EncodeOrc(w *orc.Writer) error {
 	w.String(string(rv.DataType))
 	if rv.BytesSwapped != nil {
@@ -245,6 +294,14 @@ func (wc WriteChannel) EncodeOrc(w *orc.Writer) error {
 		if err := v.RegisterValue.EncodeOrc(w); err != nil {
 			return err
 		}
+	case HoldingRegisterBitWriteChannel:
+		w.String("holding_register_bit")
+		if err := v.BaseWriteChannel.EncodeOrc(w); err != nil {
+			return err
+		}
+		if err := v.RegisterBit.EncodeOrc(w); err != nil {
+			return err
+		}
 	default:
 		return errors.Newf("WriteChannel: nil or unknown variant %T", wc.Variant)
 	}
@@ -270,6 +327,15 @@ func (wc *WriteChannel) DecodeOrc(r *orc.Reader) error {
 			return err
 		}
 		if err := v.RegisterValue.DecodeOrc(r); err != nil {
+			return err
+		}
+		wc.Variant = v
+	case "holding_register_bit":
+		var v HoldingRegisterBitWriteChannel
+		if err := v.BaseWriteChannel.DecodeOrc(r); err != nil {
+			return err
+		}
+		if err := v.RegisterBit.DecodeOrc(r); err != nil {
 			return err
 		}
 		wc.Variant = v

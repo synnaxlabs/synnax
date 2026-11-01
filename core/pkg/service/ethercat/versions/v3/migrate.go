@@ -16,19 +16,22 @@ import (
 	v2 "github.com/synnaxlabs/synnax/pkg/service/ethercat/versions/v2"
 )
 
-// MigrateReadConfig lifts a v2 read config to v3. Each entry channel applies no scale.
-func MigrateReadConfig(ctx context.Context, old v2.ReadConfig) (ReadConfig, error) {
-	cfg, err := autoMigrateReadConfig(ctx, old)
+// MigrateReadChannel lifts a v2 read channel to v3. An entry channel applies no scale.
+func MigrateReadChannel(ctx context.Context, old v2.ReadChannel) (ReadChannel, error) {
+	ch, err := autoMigrateReadChannel(ctx, old)
 	if err != nil {
-		return ReadConfig{}, err
+		return ReadChannel{}, err
 	}
-	for i, ch := range cfg.Channels {
-		if entry, ok := ch.Variant.(EntryReadChannel); ok {
-			entry.Scale = Scale{Variant: NoneScale{}}
-			cfg.Channels[i].Variant = entry
-		}
+	if entry, ok := ch.Variant.(EntryReadChannel); ok {
+		entry.Scale = Scale{Variant: NoneScale{}}
+		ch.Variant = entry
 	}
-	return cfg, nil
+	return ch, nil
+}
+
+// MigrateReadConfig lifts a v2 read config to v3.
+func MigrateReadConfig(ctx context.Context, old v2.ReadConfig) (ReadConfig, error) {
+	return autoMigrateReadConfig(ctx, old)
 }
 
 // ReadMigration lifts stored read configs to v3.

@@ -47,7 +47,7 @@ const createGroup = (): Omit<Group, "key"> => ({ label: "", index: "", fields: [
 
 const createField = (): Omit<Field, "key"> => field("", "");
 
-const renderTree = (groups: Group[]) =>
+const renderTree = (groups: Group[], mode?: "preview") =>
   renderInTaskForm(
     <Task.Views.GroupTree<Group, Field>
       listTitle="Groups"
@@ -59,7 +59,7 @@ const renderTree = (groups: Group[]) =>
       groupDetails={groupDetails}
       fieldDetails={fieldDetails}
     />,
-    { values: { config: { groups } } },
+    { values: { config: { groups } }, mode },
   );
 
 const GROUP: Group = {
@@ -68,6 +68,8 @@ const GROUP: Group = {
   index: "ts",
   fields: [field("ts", "/time", 1), field("v", "/value", 2)],
 };
+
+const EMPTY_GROUP: Group = { key: "e", label: "", index: "", fields: [] };
 
 describe("GroupTree", () => {
   it("should list a group's fields beneath it and hide its index field", async () => {
@@ -103,6 +105,47 @@ describe("GroupTree", () => {
     const added = form.current?.get<Field[]>("config.groups.g.fields").value[2];
     expect(added?.pointer).toBe("/value");
     expect(added?.channel).toBe(0);
+  });
+
+  it("should offer an add field item only under a group with no fields", async () => {
+    await renderTree([EMPTY_GROUP, GROUP]);
+    await screen.findAllByText("group-e");
+    expect(screen.getAllByText("Add field")).toHaveLength(1);
+  });
+
+  it("should add and select the first field when the add field item is chosen", async () => {
+    const { form } = await renderTree([EMPTY_GROUP]);
+    fireEvent.click(await screen.findByText("Add field"));
+    await waitFor(() =>
+      expect(form.current?.get("config.groups.e.fields").value).toHaveLength(1),
+    );
+    const [added] = form.current?.get<Field[]>("config.groups.e.fields").value ?? [];
+    await screen.findByText(`details-for-config.groups.e.fields.${added.key}`);
+    expect(screen.queryByText("Add field")).toBeNull();
+  });
+
+  it("should not offer an add field item in preview", async () => {
+    await renderTree([EMPTY_GROUP], "preview");
+    await screen.findAllByText("group-e");
+    expect(screen.queryByText("Add field")).toBeNull();
+  });
+
+  it("should not offer item actions on an add field item", async () => {
+    await renderTree([EMPTY_GROUP]);
+    fireEvent.contextMenu(await screen.findByText("Add field"));
+    await screen.findByText("Reload Console");
+    expect(screen.queryByText("Remove")).toBeNull();
+  });
+
+  it("should not move the selection onto an add field item after a remove", async () => {
+    await renderTree([EMPTY_GROUP, GROUP]);
+    fireEvent.click((await screen.findAllByText("group-g"))[0]);
+    fireEvent.keyDown(document.body, { code: "ControlLeft" });
+    fireEvent.click(screen.getByText("/value"));
+    fireEvent.keyUp(document.body, { code: "ControlLeft" });
+    fireEvent.contextMenu(screen.getAllByText("/value")[0]);
+    fireEvent.click(await screen.findByText("Remove"));
+    await screen.findByText("details-for-config.groups.e");
   });
 
   it("should duplicate a group with fresh fields and a remapped index", async () => {

@@ -45,8 +45,6 @@ const Properties = () => (
   <Flex.Box x grow>
     <Task.Fields.SampleRate />
     <Task.Fields.StreamRate />
-    <Task.Fields.DataSaving />
-    <Task.Fields.AutoStart />
   </Flex.Box>
 );
 
@@ -158,7 +156,6 @@ export const Read = Task.wrapForm({
   schemas: READ_SCHEMAS,
   deployConfigZ: deployReadConfigZ,
   type: "ethercat_read",
-  getInitialValues,
   onConfigure,
 });
 

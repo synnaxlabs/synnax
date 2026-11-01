@@ -1377,6 +1377,87 @@ func (p Pair[A, B]) ToAny() Pair[any, any] {
 				},
 			)
 
+			Context("parent omitted in Go", func() {
+				schema := func(parentDomain, childBody string) string {
+					return `
+				@go output "core/user"
+
+				Record struct {
+					key    uint32
+					name   string
+					secret string
+					` + parentDomain + `
+				}
+
+				Shape struct extends Record {
+					` + childBody + `
+				}
+			`
+				}
+
+				It(
+					"Should declare an inline variant's inherited fields",
+					func(ctx SpecContext) {
+						source := `
+						@go output "core/pkg/service/auth"
+						
+
+						Record struct {
+							key  uint32
+							name string
+							@go omit
+						}
+
+						Chan union on type {
+							ai extends Record {
+								rate float64
+							}
+						}
+					`
+						resp := MustGenerate(ctx, source, "auth", loader, goPlugin)
+						ExpectContent(resp, "types.gen.go").
+							ToContain("Key uint32", "Name string", "Rate float64").
+							ToNotContain("Record")
+					},
+				)
+
+				It("Should declare the inherited fields", func(ctx SpecContext) {
+					resp := MustGenerate(
+						ctx,
+						schema("@go omit", "rate float64"),
+						"user",
+						loader,
+						goPlugin,
+					)
+					ExpectContent(resp, "types.gen.go").
+						ToContain(
+							"type Shape struct {",
+							"Key uint32",
+							"Name string",
+							"Secret string",
+							"Rate float64",
+						).
+						ToNotContain("type Record struct", "\tRecord\n")
+				})
+
+				It("Should leave out a removed field", func(ctx SpecContext) {
+					resp := MustGenerate(
+						ctx, schema("@go omit", "-secret"), "user", loader, goPlugin,
+					)
+					ExpectContent(resp, "types.gen.go").
+						ToContain("type Shape struct {", "Name string").
+						ToNotContain("Secret", "type Record struct")
+				})
+
+				It("Should embed a parent that generates", func(ctx SpecContext) {
+					resp := MustGenerate(
+						ctx, schema("", "rate float64"), "user", loader, goPlugin,
+					)
+					ExpectContent(resp, "types.gen.go").
+						ToContain("type Shape struct {\n\tRecord\n")
+				})
+			})
+
 			It(
 				"Should flatten when two parents promote one name",
 				func(ctx SpecContext) {
@@ -3102,8 +3183,9 @@ var _ = Describe("Go Union Generation", func() {
 					`func (u *Scale) UnmarshalJSONFrom(dec *jsontext.Decoder) error {`,
 					`Type ScaleType `+"`"+`json:"type"`+"`",
 					`case LinearScaleType:`,
-					`var v LinearScale`,
-					`u.Variant = v`,
+					`json.RejectUnknownMembers(false)`,
+					"LinearScale\n\t\t}",
+					`u.Variant = v.LinearScale`,
 				)
 		},
 	)
@@ -3425,16 +3507,21 @@ func (u *rtScale) UnmarshalJSONFrom(dec *jsontext.Decoder) error {
 	var disc struct {
 		Type rtScaleType `json:"type"`
 	}
-	if err := json.Unmarshal(data, &disc, opts); err != nil {
+	if err := json.Unmarshal(
+		data, &disc, opts, json.RejectUnknownMembers(false),
+	); err != nil {
 		return err
 	}
 	switch disc.Type {
 	case rtLinearScaleType:
-		var v rtLinearScale
+		var v struct {
+			Type rtScaleType `json:"type"`
+			rtLinearScale
+		}
 		if err := json.Unmarshal(data, &v, opts); err != nil {
 			return err
 		}
-		u.Variant = v
+		u.Variant = v.rtLinearScale
 	default:
 		return gotesterrors.Newf("rtScale: unknown type %q", disc.Type)
 	}
@@ -3507,6 +3594,21 @@ var _ = Describe("Union codec round trip", func() {
 		Expect(got.Port).To(Equal(int32(7)))
 		Expect(got.MinVal).To(Equal(-10.0))
 		Expect(got.Scale.Variant.(rtLinearScale).Slope).To(Equal(1.5))
+	})
+
+	It("Should decode a union when unknown members are rejected", func() {
+		data := []byte(`{"type":"linear","slope":2}`)
+		var out rtScale
+		Expect(json.Unmarshal(data, &out, json.RejectUnknownMembers(true))).
+			To(Succeed())
+		Expect(out.Variant.(rtLinearScale).Slope).To(Equal(2.0))
+	})
+
+	It("Should reject an unknown member of a union variant", func() {
+		data := []byte(`{"type":"linear","slope":2,"offset":1}`)
+		var out rtScale
+		Expect(json.Unmarshal(data, &out, json.RejectUnknownMembers(true))).
+			To(MatchError(ContainSubstring(`unknown object member name "offset"`)))
 	})
 })
 

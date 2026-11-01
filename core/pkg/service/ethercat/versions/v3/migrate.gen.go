@@ -21,7 +21,7 @@ import (
 
 func autoMigrateReadConfig(ctx context.Context, old v2.ReadConfig) (ReadConfig, error) {
 	channels, err := lo.MapErr(old.Channels, func(v v2.ReadChannel, _ int) (ReadChannel, error) {
-		return autoMigrateReadChannel(ctx, v)
+		return MigrateReadChannel(ctx, v)
 	})
 	if err != nil {
 		return ReadConfig{}, err

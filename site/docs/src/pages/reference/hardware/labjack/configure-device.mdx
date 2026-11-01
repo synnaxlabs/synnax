@@ -26,8 +26,8 @@ device, you configure it. The T8 is not supported yet.
 
 - Install the
   [LJM library](https://support.labjack.com/docs/ljm-software-installer-downloads-t4-t7-t8-digit)
-  on the computer that runs the Driver, then
-  [restart the Driver](/reference/hardware/troubleshooting#restart-the-driver).
+  on the computer that runs the Driver. The Driver loads it on its next scan, so you do
+  not need to restart the Driver.
 - Connect the device to that computer by USB, or to the same network.
 
 <Divider.Divider x />
@@ -106,8 +106,8 @@ The Driver cannot load the LJM library, or it runs on Linux.
 </Problem.Cause>
 <Problem.Fix>
 
-- **LJM is not installed** -> install the LJM library and
-  [restart the Driver](/reference/hardware/troubleshooting#restart-the-driver).
+- **LJM is not installed** -> install the LJM library. The device shows after the next
+  scan.
 - **The Driver runs on Linux** -> LabJack devices do not work on Linux. Run the Driver
   on Windows or macOS.
 

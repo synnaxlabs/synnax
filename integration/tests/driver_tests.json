@@ -9,6 +9,7 @@
         { "case": "driver/modbus_read" },
         { "case": "driver/modbus_write" },
         { "case": "driver/modbus_invalid" },
+        { "case": "driver/modbus_units" },
         { "case": "driver/opcua_read" },
         { "case": "driver/opcua_write" },
         { "case": "driver/opcua_invalid" },
@@ -34,6 +35,8 @@
         { "case": "console/task/modbus_write_task" },
         { "case": "console/task/modbus_invalid" },
         { "case": "console/device/connect_network" },
+        { "case": "console/device/connect_gateway" },
+        { "case": "console/device/connect_serial" },
         { "case": "console/device/connect_opcua" },
         { "case": "console/device/http_legacy_device" }
       ]

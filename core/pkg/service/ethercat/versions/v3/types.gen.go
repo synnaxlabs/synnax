@@ -109,22 +109,30 @@ func (u *ReadChannel) UnmarshalJSONFrom(dec *jsontext.Decoder) error {
 	var disc struct {
 		Type ReadChannelType `json:"type"`
 	}
-	if err := json.Unmarshal(data, &disc, opts); err != nil {
+	if err := json.Unmarshal(
+		data, &disc, opts, json.RejectUnknownMembers(false),
+	); err != nil {
 		return err
 	}
 	switch disc.Type {
 	case EntryReadChannelType:
-		var v EntryReadChannel
+		var v struct {
+			Type ReadChannelType `json:"type"`
+			EntryReadChannel
+		}
 		if err := json.Unmarshal(data, &v, opts); err != nil {
 			return err
 		}
-		u.Variant = v
+		u.Variant = v.EntryReadChannel
 	case UnresolvedReadChannelType:
-		var v UnresolvedReadChannel
+		var v struct {
+			Type ReadChannelType `json:"type"`
+			UnresolvedReadChannel
+		}
 		if err := json.Unmarshal(data, &v, opts); err != nil {
 			return err
 		}
-		u.Variant = v
+		u.Variant = v.UnresolvedReadChannel
 	default:
 		return errors.Newf("ReadChannel: unknown type %q", disc.Type)
 	}
@@ -291,28 +299,39 @@ func (u *Scale) UnmarshalJSONFrom(dec *jsontext.Decoder) error {
 	var disc struct {
 		Type ScaleType `json:"type"`
 	}
-	if err := json.Unmarshal(data, &disc, opts); err != nil {
+	if err := json.Unmarshal(
+		data, &disc, opts, json.RejectUnknownMembers(false),
+	); err != nil {
 		return err
 	}
 	switch disc.Type {
 	case LinearScaleType:
-		var v LinearScale
+		var v struct {
+			Type ScaleType `json:"type"`
+			LinearScale
+		}
 		if err := json.Unmarshal(data, &v, opts); err != nil {
 			return err
 		}
-		u.Variant = v
+		u.Variant = v.LinearScale
 	case MapScaleType:
-		var v MapScale
+		var v struct {
+			Type ScaleType `json:"type"`
+			MapScale
+		}
 		if err := json.Unmarshal(data, &v, opts); err != nil {
 			return err
 		}
-		u.Variant = v
+		u.Variant = v.MapScale
 	case NoneScaleType:
-		var v NoneScale
+		var v struct {
+			Type ScaleType `json:"type"`
+			NoneScale
+		}
 		if err := json.Unmarshal(data, &v, opts); err != nil {
 			return err
 		}
-		u.Variant = v
+		u.Variant = v.NoneScale
 	default:
 		return errors.Newf("Scale: unknown type %q", disc.Type)
 	}

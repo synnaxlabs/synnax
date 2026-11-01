@@ -14,13 +14,13 @@ from playwright.sync_api import TimeoutError as PlaywrightTimeoutError
 
 import synnax as sy
 from console.layout import LayoutClient
-from console.page import ConsolePage
+from console.page import ConsolePage, PageType
 
 
 class Log(ConsolePage):
     """Log page management interface"""
 
-    page_type = "Log"
+    page_type: PageType = "Log"
     pluto_label: str = ".pluto-log"
 
     def __init__(

@@ -10,6 +10,8 @@
 #pragma once
 
 #include <cmath>
+#include <cstring>
+#include <string>
 
 #include "x/cpp/errors/errors.h"
 #include "x/cpp/telem/telem.h"
@@ -142,6 +144,25 @@ inline std::pair<x::telem::SampleValue, x::errors::Error> parse_register_value(
             )
         };
     }
+}
+
+/// @brief parses a string packed two characters to a register, high byte first. A NUL
+/// character ends the string.
+/// @param data the registers to parse, at least (length + 1) / 2 long.
+/// @param length the most characters to read.
+/// @param swap_bytes whether each register holds its low byte first.
+inline std::string
+parse_string(const uint16_t *data, const std::size_t length, const bool swap_bytes) {
+    std::string result;
+    result.reserve(length);
+    for (std::size_t i = 0; i < length; i++) {
+        const uint16_t reg = data[i / 2];
+        const bool high = (i % 2 == 0) != swap_bytes;
+        const auto c = static_cast<char>(high ? reg >> 8 : reg & 0xFF);
+        if (c == '\0') break;
+        result.push_back(c);
+    }
+    return result;
 }
 
 /// @brief formats a x::telem::SampleValue into a destination buffer of uint16_t values

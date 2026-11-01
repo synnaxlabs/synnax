@@ -15,14 +15,16 @@ import (
 	"github.com/synnaxlabs/arc/analyzer/testutil"
 	"github.com/synnaxlabs/arc/analyzer/units"
 	"github.com/synnaxlabs/arc/types"
+	. "github.com/synnaxlabs/x/testutil"
 )
 
 // makeTyped creates a types.Type with the given kind and optional unit.
 func makeTyped(kind types.Kind, unitName string) types.Type {
+	GinkgoHelper()
 	if unitName == "" {
 		return types.Type{Kind: kind}
 	}
-	return types.Type{Kind: kind, Unit: units.MustResolve(unitName)}
+	return types.Type{Kind: kind, Unit: MustBeOk(units.Resolve(unitName))}
 }
 
 var _ = Describe("Magnitude Safety", func() {

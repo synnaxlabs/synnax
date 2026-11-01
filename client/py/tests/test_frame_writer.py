@@ -47,6 +47,25 @@ class TestWriter:
             )
             w.commit()
 
+    def test_write_without_start(
+        self, indexed_pair: tuple[sy.Channel, sy.Channel], client: sy.Synnax
+    ) -> None:
+        """Should start the index at its first timestamp when the writer has no start"""
+        idx_ch, data_ch = indexed_pair
+        with client.open_writer(channels=indexed_pair) as w:
+            w.write(
+                {idx_ch.key: seconds_linspace(1, count=3), data_ch.key: [1.0, 2.0, 3.0]}
+            )
+            w.commit()
+        frame = client.read(sy.TimeRange.MAX, [idx_ch.key, data_ch.key])
+        assert frame[idx_ch.key].to_numpy()[0] == 1 * sy.TimeSpan.SECOND
+        assert list(frame[data_ch.key]) == [1.0, 2.0, 3.0]
+
+    def test_open_writer_without_channels(self, client: sy.Synnax) -> None:
+        """Should fail to open a writer with no channels"""
+        with pytest.raises(sy.ValidationError, match="open_writer requires channels"):
+            client.open_writer()
+
     def test_write_by_name(
         self, indexed_pair: tuple[sy.Channel, sy.Channel], client: sy.Synnax
     ) -> None:
@@ -339,20 +358,6 @@ class TestWriter:
 
         w1.close()
 
-    def test_write_err_first_timestamp_before_start(
-        self, client: sy.Synnax, indexed_pair: tuple[sy.Channel, sy.Channel]
-    ) -> None:
-        """Should raise a validation error when the first timestamp written to an index
-        channel is before the start time of the writer."""
-        time_ch, data_ch = indexed_pair
-        with pytest.raises(sy.ValidationError, match="commit timestamp"):
-            with client.open_writer(
-                start=sy.TimeStamp.now(),
-                channels=[time_ch.key, data_ch.key],
-            ) as w:
-                for i in range(100):
-                    w.write({time_ch.key: [i], data_ch.key: [i]})
-
     def test_write_out_of_order_timestamps(
         self, client: sy.Synnax, indexed_pair: tuple[sy.Channel, sy.Channel]
     ) -> None:
@@ -409,6 +414,50 @@ class TestWriter:
                 with pytest.raises(TimeoutError):
                     async with asyncio.timeout(0.2):
                         await s.read()
+
+    def test_write_persist_behind_live_writer(
+        self,
+        indexed_pair: tuple[sy.Channel, sy.Channel],
+        client: sy.Synnax,
+    ) -> None:
+        """Should fill a gap before the session of a live writer"""
+        idx_ch, data_ch = indexed_pair
+        channels = [idx_ch.key, data_ch.key]
+        start = 10 * sy.TimeSpan.SECOND
+        with client.open_writer(start=start, channels=channels) as live:
+            live.write(
+                {idx_ch.key: seconds_linspace(10, count=2), data_ch.key: [10.0, 11.0]}
+            )
+            live.commit()
+            client.write(
+                1 * sy.TimeSpan.SECOND,
+                {idx_ch.key: seconds_linspace(1, count=2), data_ch.key: [1.0, 2.0]},
+            )
+            live.write({idx_ch.key: seconds_linspace(12, count=1), data_ch.key: [12.0]})
+            live.commit()
+        assert list(client.read(sy.TimeRange.MAX, data_ch.key)) == [
+            1.0,
+            2.0,
+            10.0,
+            11.0,
+            12.0,
+        ]
+
+    def test_write_persist_inside_live_writer(
+        self,
+        indexed_pair: tuple[sy.Channel, sy.Channel],
+        client: sy.Synnax,
+    ) -> None:
+        """Should fail to open a persist writer in the session of a live writer"""
+        idx_ch, data_ch = indexed_pair
+        channels = [idx_ch.key, data_ch.key]
+        with client.open_writer(start=10 * sy.TimeSpan.SECOND, channels=channels):
+            with pytest.raises(sy.UnauthorizedError, match="cannot access time range"):
+                client.open_writer(
+                    start=15 * sy.TimeSpan.SECOND,
+                    channels=channels,
+                    mode=sy.WriterMode.PERSIST,
+                )
 
     def test_write_persist_stream_regression(self, client: sy.Synnax) -> None:
         """Should work"""

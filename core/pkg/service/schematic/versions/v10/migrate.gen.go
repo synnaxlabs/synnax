@@ -21,7 +21,7 @@ import (
 func autoMigrateSchematic(ctx context.Context, old v9.Schematic) (Schematic, error) {
 	configs := make(map[string]ElementConfig, len(old.Configs))
 	for k, v := range old.Configs {
-		nv, err := autoMigrateElementConfig(ctx, v)
+		nv, err := MigrateElementConfig(ctx, v)
 		if err != nil {
 			return Schematic{}, err
 		}

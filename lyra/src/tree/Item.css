@@ -11,28 +11,40 @@
 
 .lyra-tree {
     &.lyra--show-rules .lyra-tree__item::after {
+        /* One rule per ancestor, starting under the depth 0 caret. */
         content: "";
         position: absolute;
-        left: calc(var(--pluto-tree-item-offset) - 2.25rem);
+        left: calc(2.25rem - 0.5px);
         top: 0;
         bottom: 0;
-        width: 2px;
-        background-color: var(--pluto-gray-l6);
+        width: var(--pluto-tree-item-rules-width);
+        background: repeating-linear-gradient(
+            to right,
+            var(--pluto-gray-l6) 0 1px,
+            transparent 1px var(--pluto-tree-item-step)
+        );
         opacity: 0;
         transition: opacity 0.2s ease-in-out;
     }
 
     .lyra-tree__item {
+        /* Icons size by the item's text level. */
+        --pluto-tree-item-icon-size: 2.5rem;
+
         min-height: 4.5rem;
         padding-right: 1.5rem;
+
+        &.lyra-text--small {
+            --pluto-tree-item-icon-size: 2rem;
+        }
 
         &:is(a) {
             text-decoration: none;
         }
 
         & .lyra-icon {
-            width: calc(var(--pluto-icon-aspect, 1) * 2.5rem);
-            height: 2.5rem;
+            width: calc(var(--pluto-icon-aspect, 1) * var(--pluto-tree-item-icon-size));
+            height: var(--pluto-tree-item-icon-size);
         }
 
         & .lyra-icon:not(.lyra-tree__expansion-indicator) {
@@ -46,6 +58,10 @@
 
         &.lyra--margin {
             margin-left: var(--pluto-tree-item-offset);
+
+            &::after {
+                left: calc(2.25rem - 0.5px - var(--pluto-tree-item-offset));
+            }
         }
 
         &:not(.lyra--margin) {

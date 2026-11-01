@@ -20,8 +20,8 @@ import (
 	v1 "github.com/synnaxlabs/synnax/pkg/service/modbus/versions/v1"
 	"github.com/synnaxlabs/synnax/pkg/service/task/config"
 	"github.com/synnaxlabs/x/encoding/msgpack"
-	"github.com/synnaxlabs/x/kv/memkv"
 	. "github.com/synnaxlabs/x/testutil"
+	"github.com/synnaxlabs/x/testutil/memkv"
 )
 
 // register returns a holding register read channel carrying the given extra fields.
@@ -73,7 +73,7 @@ var _ = Describe("Service", func() {
 			ctx SpecContext,
 		) {
 			key := uuid.New()
-			Expect(svc.Read.Write(ctx, nil, key, msgpack.EncodedJSON{
+			MustSucceed(svc.Read.Write(ctx, nil, key, msgpack.EncodedJSON{
 				"device":      "dev-1",
 				"sample_rate": 25,
 				"channels": []any{map[string]any{
@@ -82,7 +82,7 @@ var _ = Describe("Service", func() {
 					"address": 3,
 					"channel": 42,
 				}},
-			})).To(Succeed())
+			}))
 			data := MustSucceed(svc.Read.Read(ctx, nil, key))
 			Expect(data["key"]).To(Equal(key.String()))
 			Expect(data["device"]).To(Equal("dev-1"))
@@ -93,7 +93,7 @@ var _ = Describe("Service", func() {
 			ctx SpecContext,
 		) {
 			key := uuid.New()
-			Expect(svc.Read.Write(ctx, nil, key, msgpack.EncodedJSON{})).To(Succeed())
+			MustSucceed(svc.Read.Write(ctx, nil, key, msgpack.EncodedJSON{}))
 			data := MustSucceed(svc.Read.Read(ctx, nil, key))
 			Expect(data["sample_rate"]).To(BeNumerically("==", 10))
 			Expect(data["stream_rate"]).To(BeNumerically("==", 5))
@@ -103,15 +103,15 @@ var _ = Describe("Service", func() {
 			ctx SpecContext,
 		) {
 			key := uuid.New()
-			Expect(svc.Write.Write(ctx, nil, key, msgpack.EncodedJSON{
+			MustSucceed(svc.Write.Write(ctx, nil, key, msgpack.EncodedJSON{
 				"channels": []any{map[string]any{
 					"type": "holding_register",
 					"key":  "chan-1",
 				}},
-			})).To(Succeed())
+			}))
 			data := MustSucceed(svc.Write.Read(ctx, nil, key))
 			Expect(data["channels"]).To(HaveExactElements(
-				HaveKeyWithValue("data_type", "uint8"),
+				HaveKeyWithValue("data_type", "uint16"),
 			))
 		})
 
@@ -119,10 +119,51 @@ var _ = Describe("Service", func() {
 			ctx SpecContext,
 		) {
 			key := uuid.New()
-			Expect(svc.Scan.Write(ctx, nil, key, msgpack.EncodedJSON{})).To(Succeed())
+			MustSucceed(svc.Scan.Write(ctx, nil, key, msgpack.EncodedJSON{}))
 			data := MustSucceed(svc.Scan.Read(ctx, nil, key))
 			Expect(data["rate"]).To(BeNumerically("==", 0.2))
 		})
+
+		DescribeTable(
+			"Should reject a register bit past 15",
+			func(
+				ctx SpecContext,
+				store func() config.Store,
+				channelType string,
+			) {
+				key := uuid.New()
+				write := func(bit int) error {
+					_, err := store().Write(ctx, nil, key, msgpack.EncodedJSON{
+						"channels": []any{map[string]any{
+							"type":    channelType,
+							"key":     "chan-1",
+							"address": 4,
+							"bit":     bit,
+						}},
+					})
+					return err
+				}
+				Expect(write(15)).To(Succeed())
+				Expect(write(16)).To(MatchError(ContainSubstring(
+					"channels.0.bit: must be less than or equal to 15",
+				)))
+			},
+			Entry(
+				"holding register bit read",
+				func() config.Store { return svc.Read },
+				"holding_register_bit",
+			),
+			Entry(
+				"input register bit read",
+				func() config.Store { return svc.Read },
+				"input_register_bit",
+			),
+			Entry(
+				"holding register bit write",
+				func() config.Store { return svc.Write },
+				"holding_register_bit",
+			),
+		)
 	})
 
 	Describe("Byte and word order", func() {
@@ -135,9 +176,9 @@ var _ = Describe("Service", func() {
 			ctx SpecContext,
 		) {
 			key := uuid.New()
-			Expect(svc.Read.Write(ctx, nil, key, msgpack.EncodedJSON{
+			MustSucceed(svc.Read.Write(ctx, nil, key, msgpack.EncodedJSON{
 				"channels": []any{register(nil)},
-			})).To(Succeed())
+			}))
 			ch := channel(MustSucceed(svc.Read.Read(ctx, nil, key)))
 			Expect(ch).ToNot(HaveKey("bytes_swapped"))
 			Expect(ch).ToNot(HaveKey("words_swapped"))
@@ -145,12 +186,12 @@ var _ = Describe("Service", func() {
 
 		It("Should keep an explicit override, false included", func(ctx SpecContext) {
 			key := uuid.New()
-			Expect(svc.Write.Write(ctx, nil, key, msgpack.EncodedJSON{
+			MustSucceed(svc.Write.Write(ctx, nil, key, msgpack.EncodedJSON{
 				"channels": []any{register(map[string]any{
 					"bytes_swapped": false,
 					"words_swapped": true,
 				})},
-			})).To(Succeed())
+			}))
 			ch := channel(MustSucceed(svc.Write.Read(ctx, nil, key)))
 			Expect(ch).To(HaveKeyWithValue("bytes_swapped", false))
 			Expect(ch).To(HaveKeyWithValue("words_swapped", true))

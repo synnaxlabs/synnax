@@ -79,6 +79,9 @@ func (w *Writer[K, E]) set(ctx context.Context, entry E) error {
 		return err
 	}
 	v := w.keyCodec.Encode(entry.GorpKey())
+	if w.tx.txIdentity() == nil {
+		return w.setDirect(ctx, v, data, entry)
+	}
 	if err := w.tx.Set(ctx, v, data, entry.SetOptions()...); err != nil {
 		return err
 	}
@@ -86,6 +89,28 @@ func (w *Writer[K, E]) set(ctx context.Context, entry E) error {
 		idx.stageSet(w.tx, entry)
 	}
 	return nil
+}
+
+// setDirect writes entry through a DB, which commits inside Set. Observers run before
+// Set returns, so announcing entry lets their filters find it while the stored value
+// stays visible to others.
+func (w *Writer[K, E]) setDirect(
+	ctx context.Context,
+	v, data []byte,
+	entry E,
+) error {
+	handles := make([]uint64, len(w.indexes))
+	for i, idx := range w.indexes {
+		handles[i] = idx.announce(&entry)
+	}
+	err := w.tx.Set(ctx, v, data, entry.SetOptions()...)
+	for i, idx := range w.indexes {
+		if err == nil {
+			idx.stageSet(w.tx, entry)
+		}
+		idx.withdraw(handles[i])
+	}
+	return err
 }
 
 func (w *Writer[K, E]) delete(ctx context.Context, key K) error {

@@ -500,9 +500,6 @@ func (i *Iterator) Prev(ctx context.Context, span telem.TimeSpan) (ok bool) {
 	return ok
 }
 
-// Len returns the number of samples in the iterator's frame.
-func (i *Iterator) Len() int64 { return i.frame.Len() }
-
 // Error returns the error that caused the iterator to stop moving. If the iterator is
 // still moving, Error returns nil.
 func (i *Iterator) Error() error {
