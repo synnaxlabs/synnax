@@ -33,7 +33,8 @@ addresses. For example, an EL2004 names all four outputs `Output`, at `0x7000:01
 `0x7010:01`, `0x7020:01`, and `0x7030:01`.
 
 The data type of a channel must be a number type of the same size as its entry, in whole
-bytes. Each EL2004 output is 1 bit, so it takes `uint8` or `int8`.
+bytes. Each EL2004 output is 1 bit, so it takes `uint8` or `int8`. An entry under 8 bits
+holds an unsigned value with either type, so its stop value on an EL2004 is 0 or 1.
 
 All modules in a task must be on the same port. The network cycles at least as fast as
 the **Execution rate**, so a higher rate sends new commands to the modules sooner.

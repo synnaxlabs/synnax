@@ -501,6 +501,35 @@ TEST(Output, AcceptsTheLargestExactInt64StopValue) {
     ASSERT_EQ(ch->stop_value, -9007199254740991.0);
 }
 
+/// @brief it should accept a high stop value on a 1-bit int8 entry, which reads back
+/// unsigned.
+TEST(Output, AcceptsAHighStopValueOnASubByteSignedEntry) {
+    const auto slave = repeated_name_slave();
+    auto j = write_entry(0x7000, 1, "int8");
+    j["stop_value"] = 1;
+    auto parser = x::json::Parser(j);
+    const auto ch = output(slave, parser);
+    ASSERT_TRUE(parser.ok()) << parser.error_json().dump();
+    ASSERT_EQ(ch->stop_value, 1.0);
+}
+
+/// @brief it should reject a negative stop value on a 1-bit int8 entry, which reads
+/// back unsigned.
+TEST(Output, RejectsANegativeStopValueOnASubByteSignedEntry) {
+    const auto slave = repeated_name_slave();
+    auto j = write_entry(0x7000, 1, "int8");
+    j["stop_value"] = -1;
+    auto parser = x::json::Parser(j);
+    output(slave, parser);
+    const auto [path, message] = only_error(parser);
+    ASSERT_EQ(path, "stop_value");
+    ASSERT_EQ(
+        message,
+        "stop value -1 does not fit entry 0x7000:01 on slave EL1008. Pick a whole "
+        "number from 0 to 1."
+    );
+}
+
 /// @brief it should skip the stop value check on a disabled channel.
 TEST(Output, SkipsTheStopValueCheckOnADisabledChannel) {
     auto j = write_entry(0x7000, 2, "float32");

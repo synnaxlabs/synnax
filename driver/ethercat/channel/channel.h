@@ -266,8 +266,12 @@ private:
             x::telem::UINT16_T,
             x::telem::UINT8_T,
         };
-        const bool is_signed = this->data_type.matches(SIGNED_TYPES);
-        if (!is_signed && !this->data_type.matches(UNSIGNED_TYPES)) return;
+        if (!this->data_type.matches(SIGNED_TYPES) &&
+            !this->data_type.matches(UNSIGNED_TYPES))
+            return;
+        // An entry under 8 bits reads back unsigned, whatever its data type.
+        const bool is_signed = this->bit_length >= 8 &&
+                               this->data_type.matches(SIGNED_TYPES);
         // A double rounds whole numbers of magnitude 2^53 and above, so a larger stop
         // value may not be the one the user entered.
         constexpr int DIGITS = std::numeric_limits<double>::digits;
