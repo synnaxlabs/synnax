@@ -157,8 +157,7 @@ export const watch = <
  *    refetches to fill the slot.
  * 3. server-computed — any other field named in `serverFields` is set on the
  *    query, `serverComputed` holds, or neither `keyOf` nor `matches` applies:
- *    debounced wholesale refetch. An empty string or a zero `offset` asks the server
- *    for nothing, so it counts as unset.
+ *    debounced wholesale refetch.
  */
 export interface SpaceConfig<
   P extends Params,
@@ -716,8 +715,6 @@ export class Space<
     return Object.entries(params).some(
       ([field, value]) =>
         value != null &&
-        value !== "" &&
-        !(field === "offset" && value === 0) &&
         serverFields.includes(field) &&
         !(limited && field === "limit"),
     );
