@@ -19,7 +19,6 @@ const NAMES = {
 } as const satisfies Record<WriteChannelType, string>;
 
 export const SelectWriteChannelTypeField = Form.buildSelectField<WriteChannelType>({
-  fieldKey: "type",
   fieldProps: {
     label: "Channel type",
     showLabel: false,

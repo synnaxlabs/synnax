@@ -8,7 +8,7 @@
 // included in the file licenses/APL.txt.
 
 import { device, ontology, query as clientQuery, type query } from "@synnaxlabs/client";
-import { primitive, type record, uuid, verbs, zod } from "@synnaxlabs/x";
+import { deep, primitive, type record, uuid, verbs, zod } from "@synnaxlabs/x";
 import { useEffect } from "react";
 import { type z } from "zod";
 
@@ -266,6 +266,8 @@ export const { useUpdate: useRename } = Flux.createUpdate<RenameParams>({
 
 export const formSchema = device.deviceZ();
 
+const path = deep.path<z.infer<typeof formSchema>>();
+
 /** The schema a form built by {@link createForm} validates against. */
 export type FormSchema<S> =
   S extends device.DeviceSchemas<infer P, infer Ma, infer Mo>
@@ -329,7 +331,7 @@ export const createForm: CreateForm = (
       const data = value();
       if (primitive.isZero(data.key)) {
         data.key = uuid.create();
-        set("key", data.key);
+        set(path.key, data.key);
       }
       await client.devices.create(data as device.New, schemas);
     },
@@ -343,7 +345,10 @@ export const createForm: CreateForm = (
         }),
         client.statuses.onSet((changed) => {
           if (changed.key !== device.statusKey(key)) return;
-          set("status", zod.parse(device.statusZ, changed, { label: "device status" }));
+          set(
+            path.status,
+            zod.parse(device.statusZ, changed, { label: "device status" }),
+          );
         }),
       ];
     },

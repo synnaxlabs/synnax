@@ -21,14 +21,17 @@ import { Select } from "@synnaxlabs/lyra/select";
 import { Status } from "@synnaxlabs/lyra/status";
 import { Text } from "@synnaxlabs/lyra/text";
 import { Arc, Channel, Code } from "@synnaxlabs/pluto";
-import { primitive } from "@synnaxlabs/x";
+import { deep, primitive } from "@synnaxlabs/x";
 import { useState } from "react";
+import { type z } from "zod";
 
 import { Analytics } from "@/platform/analytics";
 import { ContextMenu } from "@/platform/context-menu";
 import { CSS } from "@/platform/css";
 import { Modals } from "@/platform/modals";
 import { Triggers } from "@/platform/triggers";
+
+const path = deep.path<z.infer<typeof Channel.calculatedFormSchema>>();
 
 export interface CalculatedModalParams {
   channelKey?: channel.Key;
@@ -68,18 +71,11 @@ const Calculated = ({
     },
   });
   const [createMore, setCreateMore] = useState(false);
-  const operationType = Form.useFieldValue<
-    channel.OperationType,
-    channel.OperationType,
-    typeof Channel.calculatedFormSchema
-  >("operations.0.type", {
+  const operationType = Form.useFieldValue(path.operations[0].type, {
     optional: true,
     ctx: form,
   });
-  const name = Form.useFieldValue<string, string, typeof Channel.calculatedFormSchema>(
-    "name",
-    { ctx: form },
-  );
+  const name = Form.useFieldValue(path.name, { ctx: form });
   return (
     <Modal.Frame className={CSS.B("channel", "edit", "calculated")}>
       <Modal.Header icon={<Icon.Channel />}>
@@ -88,12 +84,12 @@ const Calculated = ({
       <Modal.Body justify="start">
         <Form.Form<typeof Channel.calculatedFormSchema> {...form}>
           <Form.TextField
-            path="name"
+            path={path.name}
             showLabel={false}
             padHelpText={false}
             inputProps={NAME_INPUT_PROPS}
           />
-          <Form.Field<string> path="expression" grow>
+          <Form.Field path={path.expression} grow>
             {({ value, onChange }) => (
               <Flex.Box grow className={CSS.B("calculated", "editor")}>
                 <Code.Editor
@@ -109,10 +105,7 @@ const Calculated = ({
             )}
           </Form.Field>
           <Flex.Box x className={CSS.B("operations")} align="start">
-            <Form.Field<channel.OperationType>
-              path="operations.0.type"
-              label="Operation"
-            >
+            <Form.Field path={path.operations[0].type} label="Operation">
               {(p) => (
                 <Select.Buttons {...p}>
                   <Select.Item itemKey="none">None</Select.Item>
@@ -125,8 +118,8 @@ const Calculated = ({
             </Form.Field>
             {operationType !== "derivative" && operationType !== "none" && (
               <>
-                <Form.Field<TimeSpan>
-                  path="operations.0.duration"
+                <Form.Field
+                  path={path.operations[0].duration}
                   label="Window"
                   helpText="Resets the value after this duration. Zero disables the reset."
                   className={CSS.BE("operations", "window")}
@@ -139,8 +132,8 @@ const Calculated = ({
                     />
                   )}
                 </Form.Field>
-                <Form.Field<channel.Key>
-                  path="operations.0.resetChannel"
+                <Form.Field
+                  path={path.operations[0].resetChannel}
                   label="Reset channel"
                   helpText="Resets the calculation when this boolean channel is triggered."
                   grow

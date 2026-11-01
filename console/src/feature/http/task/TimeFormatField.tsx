@@ -10,6 +10,7 @@
 import { Component } from "@synnaxlabs/lyra/component";
 import { Form as PForm } from "@synnaxlabs/lyra/form";
 import { Select } from "@synnaxlabs/lyra/select";
+import { deep } from "@synnaxlabs/x";
 import { type FC } from "react";
 
 import { type TimeFormat } from "@/feature/http/task/types";
@@ -27,7 +28,7 @@ const renderSelect = Component.renderProp(
 );
 
 export interface TimeFormatFieldProps {
-  path: string;
+  path: deep.Target<TimeFormat | undefined>;
   label: string;
 }
 
@@ -37,7 +38,7 @@ export interface TimeFormatFieldProps {
  * as ISO 8601.
  */
 export const TimeFormatField: FC<TimeFormatFieldProps> = ({ path, label }) => (
-  <PForm.Field<TimeFormat> path={path} label={label}>
+  <PForm.Field path={deep.present(path)} label={label}>
     {renderSelect}
   </PForm.Field>
 );

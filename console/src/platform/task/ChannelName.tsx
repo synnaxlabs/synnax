@@ -18,7 +18,7 @@ import { Form } from "@synnaxlabs/lyra/form";
 import { Text } from "@synnaxlabs/lyra/text";
 import { Tooltip } from "@synnaxlabs/lyra/tooltip";
 import { Access, Channel, Flux } from "@synnaxlabs/pluto";
-import { type optional, primitive } from "@synnaxlabs/x";
+import { type deep, type optional, primitive } from "@synnaxlabs/x";
 import { type ReactElement } from "react";
 
 import { CSS } from "@/platform/css";
@@ -32,7 +32,7 @@ export interface ChannelNameProps extends optional.Optional<
   channel: channel.Key;
   /** The name configure will give the channel; shown as a preview while it is 0. */
   defaultName?: string;
-  namePath: string;
+  namePath: deep.Target<string | undefined>;
 }
 
 interface NameProps extends Omit<ChannelNameProps, "defaultName"> {
@@ -41,9 +41,8 @@ interface NameProps extends Omit<ChannelNameProps, "defaultName"> {
 
 const Name = ({ channel, namePath, name, className, ...rest }: NameProps) => {
   // Use optional values here because for some reason, the namePath is not always
-  // populated. Eventually we should strongly type the Form so we don't need to worry
-  // about this.
-  const onChange = Form.useField<string>(namePath, { optional: true })?.onChange;
+  // populated.
+  const onChange = Form.useField(namePath, { optional: true })?.onChange;
   const canRename = Access.useUpdateGranted(clientChannel.TYPE_ONTOLOGY_ID);
   const isPreview = useIsPreview();
   const { update } = Channel.useRename();
@@ -71,7 +70,7 @@ const Unresolved = ({
   namePath,
   ...rest
 }: ChannelNameProps) => {
-  const formName = Form.useFieldValue<string>(namePath, { optional: true });
+  const formName = Form.useFieldValue(namePath, { optional: true });
   const name = primitive.isNonZero(formName) ? formName : defaultName;
   return <Name namePath={namePath} name={name} {...rest} />;
 };

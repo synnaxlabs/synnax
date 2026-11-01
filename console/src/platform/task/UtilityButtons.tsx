@@ -13,17 +13,19 @@ import { Divider } from "@synnaxlabs/lyra/divider";
 import { Flex } from "@synnaxlabs/lyra/flex";
 import { Form } from "@synnaxlabs/lyra/form";
 import { Icon } from "@synnaxlabs/lyra/icon";
-import { binary, primitive } from "@synnaxlabs/x";
+import { binary, deep, primitive } from "@synnaxlabs/x";
 
 import { Core } from "@/platform/core";
 import { Export } from "@/platform/export";
 import { useKey } from "@/platform/task/useKey";
 import { Session } from "@/session";
 
+const path = deep.path<{ name: string; config: unknown }>();
+
 export const UtilityButtons = () => {
   const ctx = Form.useContext();
   const taskKey = useKey();
-  const getName = () => ctx.get<string>("name").value;
+  const getName = () => ctx.get(path.name).value;
   const export_ = Export.useResource();
   const handleExport = () => taskKey != null && export_(task.ontologyID(taskKey));
   const getTypeScriptCode = () =>
@@ -37,7 +39,7 @@ export const UtilityButtons = () => {
       task = client.tasks.retrieve("${taskKey}")
       `;
   const getJSONConfig = () => {
-    const config = ctx.get("config").value;
+    const config = ctx.get(path.config).value;
     return binary.JSON_CODEC.encodeString(config);
   };
   const copyLink = Core.useCopyLinkToClipboard();

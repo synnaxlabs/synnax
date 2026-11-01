@@ -20,7 +20,7 @@ import { type PortsProps, type View, ViewSwitch } from "@/platform/task/views/Po
 
 export interface ListProps<C extends Channel> extends Pick<
   ChannelListProps<C>,
-  "createChannel" | "listItem" | "contextMenuItems" | "resolve"
+  "createChannel" | "listItem" | "contextMenuItems" | "path" | "resolve"
 > {
   /** The channels by port. A "List" and "Ports" switch in the header shows it. */
   ports?: Component.RenderProp<PortsProps>;

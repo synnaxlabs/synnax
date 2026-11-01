@@ -13,7 +13,7 @@ import {
   createTestClientWithRole,
 } from "@synnaxlabs/client/testutil";
 import { Form as PForm } from "@synnaxlabs/lyra/form";
-import { TimeStamp } from "@synnaxlabs/x";
+import { deep, TimeStamp } from "@synnaxlabs/x";
 import { act, fireEvent, screen, waitFor } from "@testing-library/react";
 import { type FC } from "react";
 import { describe, expect, it, vi } from "vitest";
@@ -30,6 +30,8 @@ import {
 } from "@/platform/task/testutil";
 import { uniqueName } from "@/testutil";
 
+const path = deep.path<Task.Values<typeof schemas>>();
+
 const schemas = {
   type: z.literal("opc_read"),
   config: z.object({
@@ -42,11 +44,11 @@ const schemas = {
 const ChildForm: FC = () => <div>child-form-body</div>;
 ChildForm.displayName = "TestChildForm";
 
-const RackProbe: FC = () => <div>{`rack:${PForm.useFieldValue<number>("rack")}`}</div>;
+const RackProbe: FC = () => <div>{`rack:${PForm.useFieldValue(path.rack)}`}</div>;
 RackProbe.displayName = "RackProbe";
 
 const DeviceProbe: FC = () => (
-  <div>{`device:${PForm.useFieldValue<string>("config.device")}`}</div>
+  <div>{`device:${PForm.useFieldValue(path.config.device)}`}</div>
 );
 DeviceProbe.displayName = "DeviceProbe";
 
@@ -170,7 +172,7 @@ describe("wrapForm", () => {
 
   describe("deploy validation gate", () => {
     const DeviceStatusProbe: FC = () => {
-      const { status, onChange } = PForm.useField<string>("config.device");
+      const { status, onChange } = PForm.useField(path.config.device);
       return (
         <button
           onClick={() => onChange("dev")}
@@ -188,7 +190,7 @@ describe("wrapForm", () => {
     });
 
     const PortCheckProbe: FC = () => {
-      PForm.useCheck("config", noPortZ);
+      PForm.useCheck(path.config, noPortZ);
       return <DeviceStatusProbe />;
     };
     PortCheckProbe.displayName = "PortCheckProbe";
@@ -301,8 +303,8 @@ describe("wrapForm", () => {
         const { set } = PForm.useContext();
         return (
           <>
-            <button onClick={() => set("config.device", 5)}>invalid</button>
-            <button onClick={() => set("config.device", "valid")}>valid</button>
+            <button onClick={() => set<unknown>(path.config.device, 5)}>invalid</button>
+            <button onClick={() => set(path.config.device, "valid")}>valid</button>
           </>
         );
       };
@@ -441,7 +443,7 @@ describe("wrapForm", () => {
       let renders = 0;
       const CountingForm: FC = () => {
         renders++;
-        return <div>{`rack:${PForm.useFieldValue<number>("rack")}`}</div>;
+        return <div>{`rack:${PForm.useFieldValue(path.rack)}`}</div>;
       };
       CountingForm.displayName = "CountingForm";
       const Renderer = createRenderer({ Form: CountingForm });

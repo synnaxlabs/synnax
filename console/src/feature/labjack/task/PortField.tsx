@@ -8,6 +8,7 @@
 // included in the file licenses/APL.txt.
 
 import { Form } from "@synnaxlabs/lyra/form";
+import { deep } from "@synnaxlabs/x";
 import { type ReactElement } from "react";
 
 import { type Model, PORTS, type PortType } from "@/feature/labjack/device/types";
@@ -18,7 +19,9 @@ import { Task } from "@/platform/task";
 
 export interface PortFieldProps<C extends Channel> {
   /** The channel's path in the form. */
-  path: string;
+  path: deep.Target<C>;
+  /** The path of the task's channels. */
+  channelsPath: deep.Target<C[]>;
   model: Model;
   type: PortType;
   /** The name a channel shows by. */
@@ -28,14 +31,16 @@ export interface PortFieldProps<C extends Channel> {
 /** The port of a channel, picked from the grid of the device's ports of its type. */
 export const PortField = <C extends Channel>({
   path,
+  channelsPath,
   model,
   type,
   name,
 }: PortFieldProps<C>): ReactElement => {
-  const key = Form.useFieldValue<string>(`${path}.key`);
-  const channels = Form.useFieldValue<C[]>("config.channels");
+  const { key: keyPath, port } = deep.widen<Channel>(path);
+  const key = Form.useFieldValue(keyPath);
+  const channels = Form.useFieldValue(channelsPath);
   return (
-    <Form.Field<string> path={`${path}.port`} label="Port">
+    <Form.Field path={port} label="Port">
       {({ onChange, preview }) => (
         <PortBanks
           ports={PORTS[model][type]}

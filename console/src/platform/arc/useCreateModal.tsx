@@ -19,11 +19,14 @@ import { Nav } from "@synnaxlabs/lyra/nav";
 import { Select } from "@synnaxlabs/lyra/select";
 import { Text } from "@synnaxlabs/lyra/text";
 import { Arc, type Flux } from "@synnaxlabs/pluto";
+import { deep } from "@synnaxlabs/x";
 import { type z } from "zod";
 
 import { CSS } from "@/platform/css";
 import { Modals } from "@/platform/modals";
 import { Triggers } from "@/platform/triggers";
+
+const path = deep.path<z.infer<typeof Arc.formSchema>>();
 
 export interface CreateModalResult {
   key: arc.Key;
@@ -63,8 +66,12 @@ const Create = ({
       <Modal.Header icon={<Icon.Arc />}>Arc.Create</Modal.Header>
       <Modal.Body>
         <Form.Form<typeof Arc.formSchema> {...form}>
-          <Form.TextField path="name" showLabel={false} inputProps={NAME_INPUT_PROPS} />
-          <Form.Field<arc.Mode> path="mode" label="Editor mode" full="x">
+          <Form.TextField
+            path={path.name}
+            showLabel={false}
+            inputProps={NAME_INPUT_PROPS}
+          />
+          <Form.Field path={path.mode} label="Editor mode" full="x">
             {({ value, onChange }) => (
               <Select.Buttons value={value} onChange={onChange} variant="card" full="x">
                 <Select.Item itemKey="text">

@@ -9,9 +9,12 @@
 
 import { type rack, task } from "@synnaxlabs/client";
 import { Form } from "@synnaxlabs/lyra/form";
+import { deep } from "@synnaxlabs/x";
 import { type z } from "zod";
 
 import { useStatus } from "@/platform/task/useStatus";
+
+const path = deep.path<{ configHash: string; rack: rack.Key }>();
 
 /**
  * {@link task.drifted} against the values the form holds. Both hashes are
@@ -20,8 +23,8 @@ import { useStatus } from "@/platform/task/useStatus";
 export const useDrifted = <Schema extends z.ZodType>(
   ctx?: Form.ContextValue<Schema>,
 ): boolean => {
-  const configHash = Form.useFieldValue<string>("configHash", { ctx });
-  const rack = Form.useFieldValue<rack.Key>("rack", { ctx });
+  const configHash = Form.useFieldValue(path.configHash, { ctx });
+  const rack = Form.useFieldValue(path.rack, { ctx });
   const status = useStatus(ctx);
   return task.drifted({ configHash, rack, status });
 };

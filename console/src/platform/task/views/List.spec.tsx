@@ -8,6 +8,7 @@
 // included in the file licenses/APL.txt.
 
 import { Component } from "@synnaxlabs/lyra/component";
+import { deep } from "@synnaxlabs/x";
 import { fireEvent, screen, waitFor } from "@testing-library/react";
 import { describe, expect, it, vi } from "vitest";
 
@@ -15,6 +16,8 @@ import { Task } from "@/platform/task";
 import { renderInTaskForm } from "@/platform/task/testutil";
 import { type Channel } from "@/platform/task/types";
 import { getIconButton, queryIconButton } from "@/testutil";
+
+const path = deep.path<{ config: { channels: Channel[] } }>();
 
 const listItem = Component.renderProp(({ itemKey }: { itemKey: string }) => (
   <span>item-{itemKey}</span>
@@ -26,6 +29,7 @@ describe("layouts.List", () => {
   it("should render an item for each seeded channel", async () => {
     await renderInTaskForm(
       <Task.Views.List<Channel>
+        path={path.config.channels}
         createChannel={() => null}
         listItem={listItem}
         resolve={resolve}
@@ -49,6 +53,7 @@ describe("layouts.List", () => {
     const createChannel = vi.fn((): Channel => ({ key: "new", disabled: false }));
     const { container, form } = await renderInTaskForm(
       <Task.Views.List<Channel>
+        path={path.config.channels}
         createChannel={createChannel}
         listItem={listItem}
         resolve={resolve}
@@ -58,7 +63,7 @@ describe("layouts.List", () => {
     fireEvent.click(getIconButton(container, "add"));
     expect(createChannel).toHaveBeenCalledWith([]);
     await waitFor(() =>
-      expect(form.current?.get("config.channels").value).toHaveLength(1),
+      expect(form.current?.get(path.config.channels).value).toHaveLength(1),
     );
     await waitFor(() => expect(screen.getByText("item-new")).toBeTruthy());
   });
@@ -67,6 +72,7 @@ describe("layouts.List", () => {
     const createChannel = vi.fn((): Channel => ({ key: "new", disabled: false }));
     const { form } = await renderInTaskForm(
       <Task.Views.List<Channel>
+        path={path.config.channels}
         createChannel={createChannel}
         listItem={listItem}
         resolve={resolve}
@@ -76,13 +82,14 @@ describe("layouts.List", () => {
     await waitFor(() => expect(screen.getByText("No channels in task")).toBeTruthy());
     fireEvent.click(screen.getByRole("button", { name: "Add channel" }));
     await waitFor(() =>
-      expect(form.current?.get("config.channels").value).toHaveLength(1),
+      expect(form.current?.get(path.config.channels).value).toHaveLength(1),
     );
   });
 
   it("should append nothing when createChannel returns null", async () => {
     const { container, form } = await renderInTaskForm(
       <Task.Views.List<Channel>
+        path={path.config.channels}
         createChannel={() => null}
         listItem={listItem}
         resolve={resolve}
@@ -90,13 +97,14 @@ describe("layouts.List", () => {
       { values: { config: { channels: [] } } },
     );
     fireEvent.click(getIconButton(container, "add"));
-    expect(form.current?.get("config.channels").value).toHaveLength(0);
+    expect(form.current?.get(path.config.channels).value).toHaveLength(0);
     expect(screen.getByText("No channels in task")).toBeTruthy();
   });
 
   it("should hide the add button when the form is in preview", async () => {
     const { container } = await renderInTaskForm(
       <Task.Views.List<Channel>
+        path={path.config.channels}
         createChannel={() => null}
         listItem={listItem}
         resolve={resolve}

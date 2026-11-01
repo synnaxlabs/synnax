@@ -34,6 +34,13 @@ import { Rack } from "@/platform/task/Rack";
 import { useStatus } from "@/platform/task/useStatus";
 import { UtilityButtons } from "@/platform/task/UtilityButtons";
 
+/** The values of a form over a task with the schemas S. */
+export type Values<S extends task.Schemas = task.Schemas> = z.infer<
+  PTask.FormSchema<S>
+>;
+
+const path = deep.path<Values>();
+
 export interface OnConfigure<Config extends z.ZodType = z.ZodType> {
   (
     client: Synnax,
@@ -79,7 +86,7 @@ export const useIsRunning = <Schema extends z.ZodType>(
 
 export const useIsSnapshot = <Schema extends z.ZodType>(
   ctx?: PForm.ContextValue<Schema>,
-) => PForm.useFieldValue<boolean>("snapshot", { ctx });
+) => PForm.useFieldValue(path.snapshot, { ctx });
 
 interface HeaderProps {
   isSnapshot: boolean;
@@ -88,7 +95,7 @@ interface HeaderProps {
 const Header = ({ isSnapshot }: HeaderProps) => (
   <>
     <Flex.Box x justify="between">
-      <PForm.Field<string> path="name" showLabel={false} padHelpText={false} grow>
+      <PForm.Field path={path.name} showLabel={false} padHelpText={false} grow>
         {(p) => (
           <Input.Text
             variant="text"
@@ -139,7 +146,7 @@ export const wrapForm = <S extends task.Schemas = task.Schemas>({
         if (canEdit) {
           if (!(await flush())) return;
           if (!deployChecked.current) {
-            form.addCheck("config", deployConfigZ);
+            form.addCheck(path.config, deployConfigZ);
             deployChecked.current = true;
           }
           await form.validateAsync();
@@ -154,9 +161,9 @@ export const wrapForm = <S extends task.Schemas = task.Schemas>({
           // Another client can edit the task while onConfigure runs, so only the
           // values onConfigure changed are written.
           form.batch(() => {
-            PForm.setChanged(form, "config", config, newConfig);
+            PForm.setChanged(form, path.config, config, newConfig);
             if (primitive.isNonZero(newRack))
-              PForm.setChanged(form, "rack", rack, newRack);
+              PForm.setChanged(form, path.rack, rack, newRack);
           });
           if (!(await flush())) return;
           await client.tasks.settled(taskKey);

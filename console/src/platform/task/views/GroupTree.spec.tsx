@@ -8,6 +8,7 @@
 // included in the file licenses/APL.txt.
 
 import { Component } from "@synnaxlabs/lyra/component";
+import { deep } from "@synnaxlabs/x";
 import { fireEvent, screen, waitFor } from "@testing-library/react";
 import { describe, expect, it } from "vitest";
 
@@ -31,16 +32,18 @@ const field = (key: string, pointer: string, channel = 0): Field => ({
   disabled: false,
 });
 
-const groupLabel = Component.renderProp(({ groupKey }: Task.Views.GroupProps) => (
-  <span>group-{groupKey}</span>
+const path = deep.path<{ config: { groups: Group[] } }>();
+
+const groupLabel = Component.renderProp(
+  ({ groupKey }: Task.Views.GroupProps<Group>) => <span>group-{groupKey}</span>,
+);
+
+const groupDetails = Component.renderProp(({ path }: Task.Views.GroupProps<Group>) => (
+  <span>details-for-{String(path)}</span>
 ));
 
-const groupDetails = Component.renderProp(({ path }: Task.Views.GroupProps) => (
-  <span>details-for-{path}</span>
-));
-
-const fieldDetails = Component.renderProp(({ path }: Task.Views.FieldProps) => (
-  <span>details-for-{path}</span>
+const fieldDetails = Component.renderProp(({ path }: Task.Views.FieldProps<Field>) => (
+  <span>details-for-{String(path)}</span>
 ));
 
 const createGroup = (): Omit<Group, "key"> => ({ label: "", index: "", fields: [] });
@@ -50,6 +53,7 @@ const createField = (): Omit<Field, "key"> => field("", "");
 const renderTree = (groups: Group[]) =>
   renderInTaskForm(
     <Task.Views.GroupTree<Group, Field>
+      path={path.config.groups}
       listTitle="Groups"
       groupName="group"
       placeholder="Select a group or field"
@@ -87,9 +91,9 @@ describe("GroupTree", () => {
     const { form } = await renderTree([]);
     fireEvent.click(await screen.findByRole("button", { name: "Add group" }));
     await waitFor(() =>
-      expect(form.current?.get("config.groups").value).toHaveLength(1),
+      expect(form.current?.get(path.config.groups).value).toHaveLength(1),
     );
-    const [added] = form.current?.get<Group[]>("config.groups").value ?? [];
+    const [added] = form.current?.get(path.config.groups).value ?? [];
     await screen.findByText(`details-for-config.groups.${added.key}`);
   });
 
@@ -98,9 +102,9 @@ describe("GroupTree", () => {
     await screen.findAllByText("group-g");
     fireEvent.click(screen.getByRole("button", { name: "Add field" }));
     await waitFor(() =>
-      expect(form.current?.get("config.groups.g.fields").value).toHaveLength(3),
+      expect(form.current?.get(path.config.groups.g.fields).value).toHaveLength(3),
     );
-    const added = form.current?.get<Field[]>("config.groups.g.fields").value[2];
+    const added = form.current?.get(path.config.groups.g.fields).value[2];
     expect(added?.pointer).toBe("/value");
     expect(added?.channel).toBe(0);
   });
@@ -111,9 +115,9 @@ describe("GroupTree", () => {
     fireEvent.contextMenu((await screen.findAllByText("group-g"))[0]);
     fireEvent.click(await screen.findByText("Duplicate"));
     await waitFor(() =>
-      expect(form.current?.get("config.groups").value).toHaveLength(2),
+      expect(form.current?.get(path.config.groups).value).toHaveLength(2),
     );
-    const copy = form.current?.get<Group[]>("config.groups").value[1];
+    const copy = form.current?.get(path.config.groups).value[1];
     expect(copy?.key).not.toBe("g");
     expect(copy?.fields.map((f) => f.channel)).toEqual([0, 0]);
     expect(copy?.index).toBe(copy?.fields[0].key);
@@ -125,7 +129,7 @@ describe("GroupTree", () => {
     fireEvent.contextMenu(await screen.findByText("/value"));
     fireEvent.click(await screen.findByText("Remove"));
     await waitFor(() =>
-      expect(form.current?.get("config.groups.g.fields").value).toHaveLength(1),
+      expect(form.current?.get(path.config.groups.g.fields).value).toHaveLength(1),
     );
   });
 });

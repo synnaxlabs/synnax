@@ -12,10 +12,13 @@ import { Form as PForm } from "@synnaxlabs/lyra/form";
 import { List } from "@synnaxlabs/lyra/list";
 import { Select } from "@synnaxlabs/lyra/select";
 import { type Flux, View as PView } from "@synnaxlabs/pluto";
-import { type record } from "@synnaxlabs/x";
+import { deep, type record } from "@synnaxlabs/x";
 import { type PropsWithChildren, type ReactElement, useState } from "react";
+import { type z } from "zod";
 
 import { FormContext, useContext } from "@/platform/view/context";
+
+const path = deep.path<z.infer<typeof PView.formSchema>>();
 
 export type Query = List.PagerParams;
 
@@ -62,7 +65,7 @@ export const Form = <K extends record.Key, E extends record.Keyed<K>, Q extends 
   });
   const { get: getField } = form;
   const handleSet = (view: view.View) => {
-    if (view.key !== getField<string>("key").value) return;
+    if (view.key !== getField(path.key).value) return;
     updateQuery(view.query);
   };
   PView.useSetSynchronizer(handleSet);

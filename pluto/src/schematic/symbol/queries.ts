@@ -14,7 +14,7 @@ import {
   query,
   schematic,
 } from "@synnaxlabs/client";
-import { verbs } from "@synnaxlabs/x";
+import { deep, verbs } from "@synnaxlabs/x";
 import type z from "zod";
 
 import { Flux } from "@/flux";
@@ -90,6 +90,8 @@ export const formSchema = schematic.symbol.symbolZ
   .partial({ key: true })
   .extend({ parent: ontology.idZ });
 
+const path = deep.path<z.infer<typeof formSchema>>();
+
 const toFormValues = (
   symbol: schematic.symbol.Symbol,
   parents: ontology.Resource[],
@@ -144,8 +146,7 @@ export const useForm = Flux.createForm<FormQuery, typeof formSchema>({
       if (!query.isLive(result)) return;
       reset({
         ...result,
-        parent:
-          get<ontology.ID>("parent", { optional: true })?.value ?? ontology.ROOT_ID,
+        parent: get(path.parent, { optional: true })?.value ?? ontology.ROOT_ID,
       });
     }),
 });

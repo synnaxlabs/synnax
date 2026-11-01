@@ -9,7 +9,7 @@
 
 import { access, ontology } from "@synnaxlabs/client";
 import { type List } from "@synnaxlabs/lyra/list";
-import { array, verbs } from "@synnaxlabs/x";
+import { array, deep, verbs } from "@synnaxlabs/x";
 import { z } from "zod";
 
 import { Flux } from "@/flux";
@@ -23,6 +23,8 @@ export const formSchema = z.object({
   objects: ontology.idZ.array(),
   actions: access.actionZ.array(),
 });
+
+const path = deep.path<z.infer<typeof formSchema>>();
 
 export type RetrieveQuery = {
   key: access.policy.Key;
@@ -97,6 +99,6 @@ export const useForm = Flux.createForm<RetrieveQuery, typeof formSchema>({
     await client.access.policies.retrieve(key),
   update: async ({ client, value, set }) => {
     const p = await client.access.policies.create(value());
-    set("key", p.key);
+    set(path.key, p.key);
   },
 });

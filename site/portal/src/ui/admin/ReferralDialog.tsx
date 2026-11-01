@@ -10,12 +10,15 @@
 import { Dialog } from "@synnaxlabs/lyra/dialog";
 import { Form } from "@synnaxlabs/lyra/form";
 import { Icon } from "@synnaxlabs/lyra/icon";
+import { deep } from "@synnaxlabs/x";
 import { type ReactElement } from "react";
 import { z } from "zod";
 
 import { MAX_NAME_LENGTH } from "@/server/license/limits";
 import { navigate, post } from "@/ui/api";
 import { Modal } from "@/ui/modal";
+
+const path = deep.path<z.infer<typeof schema>>();
 
 const schema = z.object({
   recipient: z
@@ -53,7 +56,7 @@ const Content = (): ReactElement => {
       }}
     >
       <Form.TextField
-        path="recipient"
+        path={path.recipient}
         label="For"
         helpText="Only staff see this name."
         inputProps={{ autoFocus: true, placeholder: "Ada Lovelace" }}

@@ -16,8 +16,11 @@ import { Icon } from "@synnaxlabs/lyra/icon";
 import { Input } from "@synnaxlabs/lyra/input";
 import { Nav } from "@synnaxlabs/lyra/nav";
 import { Text } from "@synnaxlabs/lyra/text";
+import { deep } from "@synnaxlabs/x";
 import { type ReactElement, type SubmitEvent, useEffect, useState } from "react";
 import { z } from "zod";
+
+const path = deep.path<z.infer<typeof formSchema>>();
 
 const formSchema = z.object({
   name: z.string().min(1, "Enter your name"),
@@ -33,9 +36,9 @@ interface SendButtonProps {
 
 const SendButton = ({ loading, success, onClick }: SendButtonProps): ReactElement => {
   const values = [
-    Base.useFieldValue<string>("name"),
-    Base.useFieldValue<string>("email"),
-    Base.useFieldValue<string>("description"),
+    Base.useFieldValue(path.name),
+    Base.useFieldValue(path.email),
+    Base.useFieldValue(path.description),
   ];
   const incomplete = values.some((v) => v == null || v.trim().length === 0);
   return (
@@ -142,7 +145,7 @@ export const Form = (): ReactElement => {
         >
           <Base.Field<string>
             style={{ width: "100%" }}
-            path="description"
+            path={path.description}
             showLabel={false}
             showHelpText={false}
             grow
@@ -170,10 +173,10 @@ export const Form = (): ReactElement => {
             )}
           </Base.Field>
           <Flex.Box direction="y" empty>
-            <Base.Field<string> path="name" label="Name" align="stretch">
+            <Base.Field path={path.name} label="Name" align="stretch">
               {(p) => <Input.Text {...p} size="medium" placeholder="Gaal Dornik" />}
             </Base.Field>
-            <Base.Field<string> path="email" label="Email">
+            <Base.Field path={path.email} label="Email">
               {(p) => (
                 <Input.Text {...p} size="medium" placeholder="gaal@streeling.edu" />
               )}

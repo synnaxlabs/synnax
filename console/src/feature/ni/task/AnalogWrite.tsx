@@ -12,7 +12,7 @@ import { Component } from "@synnaxlabs/lyra/component";
 import { Flex } from "@synnaxlabs/lyra/flex";
 import { Form as PForm } from "@synnaxlabs/lyra/form";
 import { Icon } from "@synnaxlabs/lyra/icon";
-import { errors, primitive } from "@synnaxlabs/x";
+import { deep, errors, primitive } from "@synnaxlabs/x";
 import { type FC } from "react";
 
 import { useFromConfig } from "@/feature/ni/device/queries";
@@ -36,12 +36,13 @@ import {
   AO_CHANNEL_TYPE_ICONS,
   AO_CHANNEL_TYPE_NAMES,
   type AOChannel,
-  type AOChannelType,
   deployAnalogWriteConfigZ,
 } from "@/feature/ni/task/types";
 import { Device as PlatformDevice } from "@/platform/device";
 import { Selector } from "@/platform/selector";
 import { Task } from "@/platform/task";
+
+const root = deep.path<Task.Values<AnalogWriteSchemas>>();
 
 const Properties = () => (
   <>
@@ -54,8 +55,8 @@ const Properties = () => (
 
 const ChannelListItem = (props: Task.ChannelListItemProps) => {
   const { itemKey } = props;
-  const path = `config.channels.${itemKey}`;
-  const item = PForm.useFieldValue<AOChannel>(path);
+  const entry = root.config.channels[itemKey];
+  const item = PForm.useFieldValue(entry);
   const device = useFromConfig();
   if (item == null) return null;
   const { port, cmdChannel, stateChannel, type } = item;
@@ -73,22 +74,22 @@ const ChannelListItem = (props: Task.ChannelListItemProps) => {
       }
       portMaxChars={2}
       canTare={false}
-      path={path}
+      path={entry}
       icon={{ icon: <Icon />, name: AO_CHANNEL_TYPE_NAMES[type] }}
     />
   );
 };
 
-const ChannelDetails = ({ path }: Task.Views.DetailsProps) => {
-  const type = PForm.useFieldValue<AOChannelType>(`${path}.type`);
+const ChannelDetails = ({ path }: Task.Views.DetailsProps<AOChannel>) => {
+  const type = PForm.useFieldValue(path.type);
   return <AOChannelForm type={type} path={path} />;
 };
 
 const channelDetails = Component.renderProp(ChannelDetails);
 
-const DetailsTitle = ({ path }: Task.Views.DetailsProps) => {
-  const value = PForm.useFieldValue<AOChannel>(path);
-  const channels = PForm.useFieldValue<AOChannel[]>("config.channels");
+const DetailsTitle = ({ path }: Task.Views.DetailsProps<AOChannel>) => {
+  const value = PForm.useFieldValue(path);
+  const channels = PForm.useFieldValue(root.config.channels);
   const device = useFromConfig();
   const Icon = AO_CHANNEL_TYPE_ICONS[value.type];
   return (
@@ -100,7 +101,7 @@ const DetailsTitle = ({ path }: Task.Views.DetailsProps) => {
       }}
       type={{ icon: <Icon />, name: AO_CHANNEL_TYPE_NAMES[value.type] }}
       channel={value.cmdChannel}
-      namePath={`${path}.cmdChannelName`}
+      namePath={path.cmdChannelName}
       defaultName={device == null ? undefined : ANALOG_OUTPUT.name(value, device)}
       model={device?.model}
     />
@@ -112,7 +113,7 @@ const channelListItem = Component.renderProp(ChannelListItem);
 
 const Form: FC = () => {
   const dev = useFromConfig();
-  PForm.useCheck("config", analogWriteHardwareZ(dev));
+  PForm.useCheck(root.config, analogWriteHardwareZ(dev));
   const resolve = (ch: AOChannel) => {
     if (dev == null) return null;
     const pair =
@@ -126,6 +127,7 @@ const Form: FC = () => {
       : (props: Task.Views.PortsProps) => (
           <PortsView<AOChannel>
             {...props}
+            path={root.config.channels}
             kind={ANALOG_OUTPUT}
             devices={[dev]}
             deviceOf={() => dev.key}
@@ -134,6 +136,7 @@ const Form: FC = () => {
         );
   return (
     <Task.Views.ListAndDetails<AOChannel>
+      path={root.config.channels}
       listItem={channelListItem}
       details={channelDetails}
       detailsTitle={detailsTitle}

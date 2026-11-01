@@ -7,16 +7,20 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { type access, status } from "@synnaxlabs/client";
+import { status } from "@synnaxlabs/client";
 import { Button } from "@synnaxlabs/lyra/button";
 import { Form } from "@synnaxlabs/lyra/form";
 import { Icon } from "@synnaxlabs/lyra/icon";
 import { Modal } from "@synnaxlabs/lyra/modal";
 import { Nav } from "@synnaxlabs/lyra/nav";
 import { Access, Synnax } from "@synnaxlabs/pluto";
+import { deep } from "@synnaxlabs/x";
+import { type z } from "zod";
 
 import { Modals } from "@/platform/modals";
 import { Triggers } from "@/platform/triggers";
+
+const path = deep.path<z.infer<typeof Access.Role.changeRoleFormSchema>>();
 
 export interface AssignRoleModalParams {
   /** Key of the user whose role is being assigned. */
@@ -39,7 +43,7 @@ const AssignRole = ({
       <Modal.Frame>
         <Modal.Header icon={<Icon.User />}>{title ?? "Role.Assign"}</Modal.Header>
         <Modal.Body>
-          <Form.Field<access.role.Key> path="role" label="Role">
+          <Form.Field path={path.role} label="Role">
             {(props) => <Access.Role.Select {...props} />}
           </Form.Field>
         </Modal.Body>

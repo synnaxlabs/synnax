@@ -22,7 +22,6 @@ const NAMES = {
 } as const satisfies Record<ReadChannelType, string>;
 
 export const SelectReadChannelTypeField = Form.buildSelectField<ReadChannelType>({
-  fieldKey: "type",
   fieldProps: {
     label: "Channel type",
     showLabel: false,

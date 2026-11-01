@@ -13,7 +13,7 @@ import {
   spyOnSend,
   waitForStreamLive,
 } from "@synnaxlabs/client/testutil";
-import { color } from "@synnaxlabs/x";
+import { color, deep } from "@synnaxlabs/x";
 import { act, renderHook, waitFor } from "@testing-library/react";
 import { type FC, type PropsWithChildren } from "react";
 import {
@@ -26,11 +26,14 @@ import {
   it,
   vi,
 } from "vitest";
+import { type z } from "zod";
 
 import { Flux } from "@/flux";
 import { Label } from "@/label";
 import { renderHookSuspended } from "@/testutil/render";
 import { createAsyncSynnaxWrapper } from "@/testutil/Synnax";
+
+const path = deep.path<z.infer<typeof Label.createFormSchema>>();
 
 const client = createTestClient();
 
@@ -438,8 +441,8 @@ describe("queries", () => {
         wrapper,
       });
       act(() => {
-        result.current.form.set("name", "newFormLabel");
-        result.current.form.set("color", "#FF00FF");
+        result.current.form.set(path.name, "newFormLabel");
+        result.current.form.set(path.color, color.construct("#FF00FF"));
         result.current.save();
       });
       await waitFor(() => expect(result.current.form.value().key).toBeDefined());
@@ -594,7 +597,7 @@ describe("useForm", () => {
     const lbl = await createLabel();
     const { result } = await renderForm(lbl.key);
     const send = spyOnSend(formClient);
-    act(() => result.current.form.set("name", "Anomaly"));
+    act(() => result.current.form.set(path.name, "Anomaly"));
     await act(async () => expect(await result.current.flush()).toBe(true));
     expect(send.mock.calls.map(([target]) => target)).toContain("/label/dispatch");
     expect((await createTestClient().labels.retrieve(lbl.key)).name).toBe("Anomaly");
@@ -603,7 +606,7 @@ describe("useForm", () => {
   it("should send an edit to the color", async () => {
     const lbl = await createLabel();
     const { result } = await renderForm(lbl.key);
-    act(() => result.current.form.set("color", color.construct("#FF0000")));
+    act(() => result.current.form.set(path.color, color.construct("#FF0000")));
     await act(async () => expect(await result.current.flush()).toBe(true));
     const stored = await createTestClient().labels.retrieve(lbl.key);
     expect(stored.color).toEqual(color.construct("#FF0000"));
@@ -612,7 +615,7 @@ describe("useForm", () => {
   it("should hold an empty name without sending it", async () => {
     const lbl = await createLabel();
     const { result } = await renderForm(lbl.key);
-    act(() => result.current.form.set("name", ""));
+    act(() => result.current.form.set(path.name, ""));
     await act(async () => expect(await result.current.flush()).toBe(false));
     expect((await createTestClient().labels.retrieve(lbl.key)).name).toBe("Nominal");
   });
@@ -620,7 +623,7 @@ describe("useForm", () => {
   it("should show a rename from another client and keep the color", async () => {
     const lbl = await createLabel();
     const { result } = await renderForm(lbl.key);
-    const prevColor = result.current.form.get("color").value;
+    const prevColor = result.current.form.get(path.color).value;
     await act(async () => {
       await client.labels.dispatch(
         lbl.key,
@@ -628,6 +631,6 @@ describe("useForm", () => {
       );
     });
     await waitFor(() => expect(result.current.form.value().name).toBe("Anomaly"));
-    expect(result.current.form.get("color").value).toBe(prevColor);
+    expect(result.current.form.get(path.color).value).toBe(prevColor);
   });
 });

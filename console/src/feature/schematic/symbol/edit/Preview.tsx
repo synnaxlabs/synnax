@@ -9,7 +9,6 @@
 
 import "@/feature/schematic/symbol/edit/Edit.css";
 
-import { type schematic } from "@synnaxlabs/client";
 import { Button } from "@synnaxlabs/lyra/button";
 import { Flex } from "@synnaxlabs/lyra/flex";
 import { Form } from "@synnaxlabs/lyra/form";
@@ -18,8 +17,9 @@ import { Text } from "@synnaxlabs/lyra/text";
 import { Theming as Base } from "@synnaxlabs/lyra/theming";
 import { Triggers } from "@synnaxlabs/lyra/triggers";
 import { Schematic, Theming, TimeSpan } from "@synnaxlabs/pluto";
-import { id, type xy } from "@synnaxlabs/x";
+import { deep, id } from "@synnaxlabs/x";
 import { type ReactElement, useEffect, useRef, useState } from "react";
+import { type z } from "zod";
 
 import { FileDrop } from "@/feature/schematic/symbol/edit/FileDrop";
 import { HandleOverlay } from "@/feature/schematic/symbol/edit/Handles";
@@ -28,6 +28,8 @@ import {
   ZOOM_TRIGGERS,
 } from "@/feature/schematic/symbol/edit/triggers";
 import { CSS } from "@/platform/css";
+
+const path = deep.path<z.infer<typeof Schematic.Symbol.formSchema>>();
 
 const ZOOM_OUT_TOOLTIP = (
   <Triggers.Text trigger={ZOOM_TRIGGERS.modes.out[0]} level="small">
@@ -52,7 +54,8 @@ const MAX_ZOOM = 5;
 const ZOOM_STEP = 1.2;
 const ZOOM_REPEAT = TimeSpan.milliseconds(70);
 
-const ZOOM_PATH = "data.previewViewport.zoom";
+const VIEWPORT_PATH = deep.present(path.data.previewViewport);
+const ZOOM_PATH = VIEWPORT_PATH.zoom;
 
 interface PreviewProps {
   selectedState: string;
@@ -76,9 +79,9 @@ export const Preview = ({
   // State, not a ref: the theme provider takes the element as a prop, and a ref filled
   // after the first render would never re-render it into place.
   const [themeContainer, setThemeContainer] = useState<HTMLDivElement | null>(null);
-  const spec = Form.useFieldValue<schematic.symbol.Spec>("data");
-  const pan = Form.useField<xy.XY>("data.previewViewport.position");
-  const zoom = Form.useField<number>(ZOOM_PATH);
+  const spec = Form.useFieldValue(path.data);
+  const pan = Form.useField(VIEWPORT_PATH.position);
+  const zoom = Form.useField(ZOOM_PATH);
   const [isDragging, setIsDragging] = useState(false);
   const [dragStart, setDragStart] = useState({ x: 0, y: 0 });
   const isDark = Base.use().key === "synnaxDark";
@@ -233,15 +236,16 @@ export const Preview = ({
     if (containerRef.current == null) return;
     onContentsChange(processedSVG);
 
-    if (filename != null && form.get("name").value === "") form.set("name", filename);
+    if (filename != null && form.get(path.name).value === "")
+      form.set(path.name, filename);
 
     const parser = new DOMParser();
     const svgDoc = parser.parseFromString(processedSVG, "image/svg+xml");
     const svgElement = svgDoc.documentElement as unknown as SVGElement;
     const extractedRegions = Schematic.Node.Region.extract(svgElement);
-    const states = form.get<schematic.symbol.State[]>("data.states").value;
+    const states = form.get(path.data.states).value;
     states.forEach((state) =>
-      form.set(`data.states.${state.key}.regions`, extractedRegions),
+      form.set(path.data.states[state.key].regions, extractedRegions),
     );
   };
 

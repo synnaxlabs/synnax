@@ -44,32 +44,33 @@ import { CSS } from "@/platform/css";
 import { Selector } from "@/platform/selector";
 import { Task } from "@/platform/task";
 
+const path = deep.path<Task.Values<WriteSchemas>>();
+
 const Properties = () => <SelectDevice />;
 
 const ChannelListItem = (props: Task.ChannelListItemProps) => {
   const { itemKey } = props;
-  const path = `config.channels.${itemKey}`;
-  const ch = PForm.useFieldValue<WriteChannel>(path);
+  const entry = path.config.channels[itemKey];
+  const ch = PForm.useFieldValue(entry);
   const { type, channel } = ch;
   return (
     <Select.Item {...props} justify="between" align="center" x full="x">
       <Flex.Box x pack className={CSS.B("channel-item")}>
         <SelectWriteChannelTypeField
-          path={path}
-          onChange={(value, { get, set, path }) => {
-            const prevType = get<WriteChannelType>(path).value;
+          path={entry.type}
+          onChange={(value, { get, set }) => {
+            const prevType = get(entry.type).value;
             if (prevType === value) return;
             const next = WRITE_CHANNEL_SCHEMAS[value].parse({ type: value });
-            const parentPath = path.slice(0, path.lastIndexOf("."));
-            const prevParent = get<WriteChannel>(parentPath).value;
+            const prevParent = get(entry).value;
             const schema = WRITE_CHANNEL_SCHEMAS[value];
-            set(parentPath, {
+            set(entry, {
               ...deep.overrideValidItems(next, prevParent, schema),
               type: value,
-            });
+            } as WriteChannel);
           }}
         />
-        <AddressField path={path} />
+        <AddressField path={entry} />
         {type === "holding_register_bit" && (
           <PForm.NumericField
             inputProps={{
@@ -80,12 +81,12 @@ const ChannelListItem = (props: Task.ChannelListItemProps) => {
             }}
             showLabel={false}
             showHelpText={false}
-            path={`${path}.bit`}
+            path={deep.variant(entry, "type", "holding_register_bit").bit}
           />
         )}
         {type === "holding_register" && (
-          <PForm.Field<string>
-            path={`${path}.dataType`}
+          <PForm.Field
+            path={deep.variant(entry, "type", "holding_register").dataType}
             showLabel={false}
             showHelpText={false}
           >
@@ -94,15 +95,18 @@ const ChannelListItem = (props: Task.ChannelListItemProps) => {
         )}
       </Flex.Box>
       {ch.type === "holding_register" && (
-        <OrderFields path={path} dataType={ch.dataType} />
+        <OrderFields
+          path={deep.variant(entry, "type", "holding_register")}
+          dataType={ch.dataType}
+        />
       )}
       <Flex.Box x align="center" grow justify="end">
         <Task.ChannelName
           channel={channel}
-          namePath={`${path}.name`}
+          namePath={entry.name}
           id={Task.getChannelNameID(itemKey)}
         />
-        <Task.EnabledCheckbox path={`${path}.disabled`} />
+        <Task.EnabledCheckbox path={entry.disabled} />
       </Flex.Box>
     </Select.Item>
   );
@@ -152,6 +156,7 @@ const Form: FC = () => {
       : { channel: dev.properties.write.channels[writeMapKey(c)] ?? 0 };
   return (
     <Task.Views.List<WriteChannel>
+      path={path.config.channels}
       createChannel={getOpenChannel}
       listItem={listItem}
       contextMenuItems={contextMenuItems}

@@ -8,9 +8,14 @@
 // included in the file licenses/APL.txt.
 
 import { Form as PForm } from "@synnaxlabs/lyra/form";
+import { deep } from "@synnaxlabs/x";
 
 import { type ReadMethod, type WriteMethod } from "@/feature/http/task/types";
 import { Task } from "@/platform/task";
+
+const root = deep.path<{
+  config: { endpoints: { method: ReadMethod | WriteMethod; path: string }[] };
+}>();
 
 export interface EndpointLabelProps {
   epKey: string;
@@ -26,9 +31,9 @@ const METHOD_COLORS: Record<ReadMethod | WriteMethod, string> = {
 
 /** Names an endpoint by its method and path; an empty path reads as a new endpoint. */
 export const EndpointLabel = ({ epKey }: EndpointLabelProps) => {
-  const path = `config.endpoints.${epKey}`;
-  const method = PForm.useFieldValue<ReadMethod | WriteMethod>(`${path}.method`);
-  const epPath = PForm.useFieldValue<string>(`${path}.path`);
+  const endpoint = root.config.endpoints[epKey];
+  const method = PForm.useFieldValue(endpoint.method);
+  const epPath = PForm.useFieldValue(endpoint.path);
   return (
     <Task.Views.ItemLabel
       kind={method}

@@ -9,6 +9,7 @@
 
 import { Form } from "@synnaxlabs/lyra/form";
 import { Input } from "@synnaxlabs/lyra/input";
+import { deep } from "@synnaxlabs/x";
 import { type ReactElement } from "react";
 
 import {
@@ -19,7 +20,7 @@ import {
 
 export interface AddressFieldProps {
   /** The path of the channel in the form. */
-  path: string;
+  path: deep.Target<{ type: ChannelType; address: number }>;
 }
 
 /**
@@ -28,8 +29,9 @@ export interface AddressFieldProps {
  * keeps the stored address and marks the field until a valid entry.
  */
 export const AddressField = ({ path }: AddressFieldProps): ReactElement => {
-  const type = Form.useFieldValue<ChannelType>(`${path}.type`);
-  const field = Form.useField<number>(`${path}.address`);
+  const channel = deep.widen(path);
+  const type = Form.useFieldValue(channel.type);
+  const field = Form.useField(channel.address);
   const invalid = field.status.variant !== "success";
   return (
     <Input.Item

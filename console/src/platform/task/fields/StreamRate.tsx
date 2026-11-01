@@ -9,13 +9,17 @@
 
 import "@/platform/task/fields/StreamRate.css";
 
+import { deep } from "@synnaxlabs/x";
+
 import { CSS } from "@/platform/css";
 import { Rate } from "@/platform/task/fields/Rate";
+
+const path = deep.path<{ config: { streamRate: number } }>();
 
 export const StreamRate = () => (
   <Rate
     label="Stream rate"
-    path="config.streamRate"
+    path={path.config.streamRate}
     className={CSS.B("task-rate-field")}
   />
 );

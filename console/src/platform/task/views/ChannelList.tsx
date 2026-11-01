@@ -9,6 +9,7 @@
 
 import { Form } from "@synnaxlabs/lyra/form";
 import { Header as PHeader } from "@synnaxlabs/lyra/header";
+import { deep } from "@synnaxlabs/x";
 import { type ReactNode, useEffect } from "react";
 
 import { Button } from "@/platform/button";
@@ -34,6 +35,8 @@ export const Header = ({ actions }: HeaderProps) => (
   </PHeader.Header>
 );
 
+const root = deep.path<{ config: unknown }>();
+
 const HEADER = <Header />;
 
 const EMPTY_CONTENT = <Empty.Action message="No channels in task" />;
@@ -54,14 +57,13 @@ const Footer = ({ onAdd }: FooterProps) => {
 
 export interface ChannelListProps<C extends Channel> extends Omit<
   BaseProps<C>,
-  "data" | "header" | "emptyContent" | "path" | "remove" | "onDuplicate" | "resolve"
+  "data" | "header" | "emptyContent" | "remove" | "onDuplicate" | "resolve"
 > {
   /** Defaults to a "Channels" title; null when the enclosing frame titles the list. */
   header?: ReactNode;
   resolve: BindChannelsProps<C>["resolve"];
   createChannel: (channels: C[]) => C | null;
   createChannels?: (channels: C[], keys: string[]) => C[];
-  path?: string;
   /** Shown in place of the items and the "Add channel" footer. */
   ports?: ReactNode;
 }
@@ -69,7 +71,7 @@ export interface ChannelListProps<C extends Channel> extends Omit<
 export const ChannelList = <C extends Channel>({
   createChannel,
   createChannels,
-  path = "config.channels",
+  path,
   header = HEADER,
   ports,
   ...rest
@@ -81,8 +83,8 @@ export const ChannelList = <C extends Channel>({
   // prod and it's more important to make sure that we don't break anything in prod then
   // have pretty code.
   useEffect(() => {
-    if (path === "config.channels") {
-      const cfg = ctx.get("config").value;
+    if (String(path) === "config.channels") {
+      const cfg = ctx.get(root.config).value;
       if (
         typeof cfg !== "object" ||
         cfg == null ||
@@ -93,10 +95,10 @@ export const ChannelList = <C extends Channel>({
     }
   }, [path, ctx]);
 
-  const { data, push, remove } = Form.useFieldList<C["key"], C>(path);
+  const { data, push, remove } = Form.useFieldList(path);
   const { onSelect } = rest;
   const handleAdd = () => {
-    const channels = ctx.get<C[]>(path).value;
+    const channels = ctx.get(path).value;
     const channel = createChannel(channels);
     if (channel == null) return;
     push(channel);

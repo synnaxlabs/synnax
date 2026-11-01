@@ -36,7 +36,6 @@ import {
   READ_TYPE,
   type ReadChannel,
   readChannelName,
-  type ReadChannelType,
   readMapKey,
   type ReadSchemas,
   STRING_LENGTH_BOUNDS,
@@ -46,6 +45,8 @@ import {
 import { CSS } from "@/platform/css";
 import { Selector } from "@/platform/selector";
 import { Task } from "@/platform/task";
+
+const path = deep.path<Task.Values<ReadSchemas>>();
 
 const Properties = () => (
   <>
@@ -59,8 +60,8 @@ const Properties = () => (
 
 const ChannelListItem = (props: Task.ChannelListItemProps) => {
   const { itemKey } = props;
-  const path = `config.channels.${itemKey}`;
-  const ch = PForm.useFieldValue<ReadChannel>(path);
+  const entry = path.config.channels[itemKey];
+  const ch = PForm.useFieldValue(entry);
   const { channel } = ch;
   return (
     <Select.Item
@@ -72,21 +73,20 @@ const ChannelListItem = (props: Task.ChannelListItemProps) => {
     >
       <Flex.Box x pack className={CSS.B("channel-item")}>
         <SelectReadChannelTypeField
-          path={path}
-          onChange={(value, { get, set, path }) => {
-            const prevType = get<ReadChannelType>(path).value;
+          path={entry.type}
+          onChange={(value, { get, set }) => {
+            const prevType = get(entry.type).value;
             if (prevType === value) return;
             const next = READ_CHANNEL_SCHEMAS[value].parse({ type: value });
-            const parentPath = path.slice(0, path.lastIndexOf("."));
-            const prevParent = get<ReadChannel>(parentPath).value;
+            const prevParent = get(entry).value;
             const schema = READ_CHANNEL_SCHEMAS[value];
-            set(parentPath, {
+            set(entry, {
               ...deep.overrideValidItems(next, prevParent, schema),
               type: value,
-            });
+            } as ReadChannel);
           }}
         />
-        <AddressField path={path} />
+        <AddressField path={entry} />
         {"bit" in ch && (
           <PForm.NumericField
             inputProps={{
@@ -97,12 +97,12 @@ const ChannelListItem = (props: Task.ChannelListItemProps) => {
             }}
             showLabel={false}
             showHelpText={false}
-            path={`${path}.bit`}
+            path={deep.variant(entry, "type", ch.type).bit}
           />
         )}
         {isVariableDensityReadChannel(ch) && (
-          <PForm.Field<string>
-            path={`${path}.dataType`}
+          <PForm.Field
+            path={deep.variant(entry, "type", ch.type).dataType}
             showLabel={false}
             showHelpText={false}
           >
@@ -119,20 +119,23 @@ const ChannelListItem = (props: Task.ChannelListItemProps) => {
             }}
             showLabel={false}
             showHelpText={false}
-            path={`${path}.stringLength`}
+            path={deep.variant(entry, "type", ch.type).stringLength}
           />
         )}
       </Flex.Box>
       {isVariableDensityReadChannel(ch) && (
-        <OrderFields path={path} dataType={ch.dataType} />
+        <OrderFields
+          path={deep.variant(entry, "type", ch.type)}
+          dataType={ch.dataType}
+        />
       )}
       <Flex.Box x align="center" grow justify="end">
         <Task.ChannelName
           channel={channel}
-          namePath={`${path}.name`}
+          namePath={entry.name}
           id={Task.getChannelNameID(itemKey)}
         />
-        <Task.EnabledCheckbox path={`${path}.disabled`} />
+        <Task.EnabledCheckbox path={entry.disabled} />
       </Flex.Box>
     </Select.Item>
   );
@@ -169,6 +172,7 @@ const Form: FC = () => {
     dev == null ? null : { channel: dev.properties.read.channels[readMapKey(c)] ?? 0 };
   return (
     <Task.Views.List<ReadChannel>
+      path={path.config.channels}
       createChannel={getOpenChannel}
       contextMenuItems={Task.readChannelContextMenuItem}
       listItem={listItem}

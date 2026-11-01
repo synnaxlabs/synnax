@@ -13,11 +13,13 @@ import { Icon } from "@synnaxlabs/lyra/icon";
 import { Text } from "@synnaxlabs/lyra/text";
 import { Tooltip } from "@synnaxlabs/lyra/tooltip";
 import { Rack as PRack } from "@synnaxlabs/pluto";
-import { primitive } from "@synnaxlabs/x";
+import { deep, primitive } from "@synnaxlabs/x";
 import { type ReactElement } from "react";
 
 import { CSS } from "@/platform/css";
 import { Errors } from "@/platform/errors";
+
+const path = deep.path<{ rack: rack.Key }>();
 
 interface ContentProps {
   rackKey: rack.Key;
@@ -41,7 +43,7 @@ const Content = ({ rackKey }: ContentProps): ReactElement => {
 };
 
 export const Rack = (): ReactElement | null => {
-  const rackKey = PForm.useFieldValue<rack.Key>("rack", { optional: true }) ?? 0;
+  const rackKey = PForm.useFieldValue(path.rack, { optional: true }) ?? 0;
   if (primitive.isZero(rackKey)) return null;
   return (
     <Errors.SuspenseBoundary>

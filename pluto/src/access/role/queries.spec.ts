@@ -9,14 +9,17 @@
 
 import { NotFoundError, user } from "@synnaxlabs/client";
 import { createTestClient } from "@synnaxlabs/client/testutil";
-import { id } from "@synnaxlabs/x";
+import { deep, id } from "@synnaxlabs/x";
 import { act, renderHook, waitFor } from "@testing-library/react";
 import { type PropsWithChildren } from "react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
+import { type z } from "zod";
 
 import { Role } from "@/access/role";
 import { renderHookSuspended } from "@/testutil/render";
 import { createAsyncSynnaxWrapper } from "@/testutil/Synnax";
+
+const path = deep.path<z.infer<typeof Role.changeRoleFormSchema>>();
 
 const client = createTestClient();
 
@@ -428,7 +431,7 @@ describe("queries", () => {
       expect(result.current.form.value().role).toEqual(role1.key);
 
       act(() => {
-        result.current.form.set("role", role2.key);
+        result.current.form.set(path.role, role2.key);
       });
 
       await act(async () => {
@@ -465,7 +468,7 @@ describe("queries", () => {
       await waitFor(() => expect(result.current.variant).toEqual("success"));
 
       act(() => {
-        result.current.form.set("role", role.key);
+        result.current.form.set(path.role, role.key);
       });
 
       await act(async () => {

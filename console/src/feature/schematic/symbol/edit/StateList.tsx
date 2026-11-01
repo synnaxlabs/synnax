@@ -9,21 +9,25 @@
 
 import "@/feature/schematic/symbol/edit/Edit.css";
 
-import { type schematic } from "@synnaxlabs/client";
 import { Button } from "@synnaxlabs/lyra/button";
 import { Component } from "@synnaxlabs/lyra/component";
 import { Form } from "@synnaxlabs/lyra/form";
 import { type Input } from "@synnaxlabs/lyra/input";
 import { List } from "@synnaxlabs/lyra/list";
 import { Select } from "@synnaxlabs/lyra/select";
+import { type Schematic } from "@synnaxlabs/pluto";
+import { deep } from "@synnaxlabs/x";
+import { type z } from "zod";
 
 import { CSS } from "@/platform/css";
+
+const path = deep.path<z.infer<typeof Schematic.Symbol.formSchema>>();
 
 interface StateListProps extends Input.Control<string> {}
 
 const StateListItem = (props: List.ItemRenderProps<string>) => {
   const { itemKey } = props;
-  const state = Form.useFieldValue<schematic.symbol.State>(`data.states.${itemKey}`);
+  const state = Form.useFieldValue(path.data.states[itemKey]);
   const { selected, onSelect } = Select.useItemState(itemKey);
   if (state == null) return null;
   return (
@@ -42,7 +46,7 @@ const StateListItem = (props: List.ItemRenderProps<string>) => {
 const stateListItem = Component.renderProp(StateListItem);
 
 export const StateList = ({ value, onChange }: StateListProps) => {
-  const { data } = Form.useFieldList<string, schematic.symbol.State>("data.states");
+  const { data } = Form.useFieldList(path.data.states);
   if (data.length === 1) return null;
   return (
     <Select.Frame

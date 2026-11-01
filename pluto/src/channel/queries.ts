@@ -11,6 +11,7 @@ import { channel, DataType, type group, query, type ranger } from "@synnaxlabs/c
 import {
   array,
   control,
+  deep,
   type optional,
   primitive,
   TimeSpan,
@@ -46,6 +47,8 @@ export const formSchema = channel.payloadZ
     message: "Data channel must have an index",
     path: ["index"],
   });
+
+const path = deep.path<z.infer<typeof formSchema>>();
 
 export const calculatedFormSchema = formSchema.safeExtend({
   expression: z
@@ -154,7 +157,7 @@ const updateForm = async ({
   const values = value();
   if (values.requires != null) delete values.requires;
   const ch = await client.channels.create(values);
-  set("key", ch.key);
+  set(path.key, ch.key);
 };
 
 export type FormQuery = RetrieveQuery;

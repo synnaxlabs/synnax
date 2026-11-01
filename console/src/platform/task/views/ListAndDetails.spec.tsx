@@ -9,6 +9,7 @@
 
 import { Component } from "@synnaxlabs/lyra/component";
 import { Select } from "@synnaxlabs/lyra/select";
+import { deep } from "@synnaxlabs/x";
 import { fireEvent, screen, waitFor } from "@testing-library/react";
 import { describe, expect, it, vi } from "vitest";
 
@@ -16,6 +17,8 @@ import { Task } from "@/platform/task";
 import { renderInTaskForm } from "@/platform/task/testutil";
 import { type Channel } from "@/platform/task/types";
 import { getIconButton } from "@/testutil";
+
+const path = deep.path<{ config: { channels: Channel[] } }>();
 
 const listItem = Component.renderProp(
   ({ itemKey, ...p }: Task.ChannelListItemProps) => (
@@ -25,8 +28,8 @@ const listItem = Component.renderProp(
   ),
 );
 
-const details = Component.renderProp(({ path }: { path: string }) => (
-  <span>details-for-{path}</span>
+const details = Component.renderProp(({ path }: Task.Views.DetailsProps<Channel>) => (
+  <span>details-for-{String(path)}</span>
 ));
 
 const resolve = () => null;
@@ -45,6 +48,7 @@ const renderListAndDetails = (
 ) =>
   renderInTaskForm(
     <Task.Views.ListAndDetails<Channel>
+      path={path.config.channels}
       createChannel={createChannel}
       listItem={listItem}
       details={details}
@@ -130,7 +134,7 @@ describe("layouts.ListAndDetails", () => {
     await waitFor(() => expect(createChannel).toHaveBeenCalled());
     expect(createChannel.mock.calls[0][1]).toBe("a");
     await waitFor(() =>
-      expect(form.current?.get("config.channels").value).toHaveLength(2),
+      expect(form.current?.get(path.config.channels).value).toHaveLength(2),
     );
     expect(screen.getByText("item-new_a")).toBeTruthy();
   });
@@ -148,7 +152,7 @@ describe("layouts.ListAndDetails", () => {
     fireEvent.contextMenu(await screen.findByText("item-a"));
     fireEvent.click(await screen.findByText("Duplicate"));
     await waitFor(() =>
-      expect(form.current?.get("config.channels").value).toHaveLength(2),
+      expect(form.current?.get(path.config.channels).value).toHaveLength(2),
     );
     expect(screen.getByText("item-dup_a_0")).toBeTruthy();
   });
@@ -162,7 +166,7 @@ describe("layouts.ListAndDetails", () => {
     fireEvent.contextMenu(screen.getByText("item-a"));
     fireEvent.click(await screen.findByText("Remove"));
     await waitFor(() =>
-      expect(form.current?.get("config.channels").value).toHaveLength(0),
+      expect(form.current?.get(path.config.channels).value).toHaveLength(0),
     );
     await waitFor(() => expect(screen.queryByText(/details-for-/)).toBeNull());
   });

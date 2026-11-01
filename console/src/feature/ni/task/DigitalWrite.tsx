@@ -12,7 +12,7 @@ import { Component } from "@synnaxlabs/lyra/component";
 import { Flex } from "@synnaxlabs/lyra/flex";
 import { Form as PForm } from "@synnaxlabs/lyra/form";
 import { Icon } from "@synnaxlabs/lyra/icon";
-import { errors, type optional, primitive } from "@synnaxlabs/x";
+import { deep, errors, type optional, primitive } from "@synnaxlabs/x";
 import { type FC } from "react";
 
 import { useFromConfig } from "@/feature/ni/device/queries";
@@ -39,6 +39,8 @@ import { Device as PlatformDevice } from "@/platform/device";
 import { Selector } from "@/platform/selector";
 import { Task } from "@/platform/task";
 
+const root = deep.path<Task.Values<DigitalWriteSchemas>>();
+
 const Properties = () => (
   <>
     <Select />
@@ -60,8 +62,8 @@ const NameComponent = ({ path, ...rest }: NameComponentProps) => {
   return (
     <Task.WriteChannelNames
       {...rest}
-      cmdNamePath={`${path}.cmdChannelName`}
-      stateNamePath={`${path}.stateChannelName`}
+      cmdNamePath={path.cmdChannelName}
+      stateNamePath={path.stateChannelName}
     />
   );
 };
@@ -70,7 +72,7 @@ const name = Component.renderProp(NameComponent);
 
 const Form: FC = () => {
   const dev = useFromConfig();
-  PForm.useCheck("config", digitalHardwareZ(dev, "output"));
+  PForm.useCheck(root.config, digitalHardwareZ(dev, "output"));
   const resolve = (ch: DOChannel) => {
     if (dev == null) return null;
     const pair =
@@ -79,7 +81,8 @@ const Form: FC = () => {
     return { cmdChannel: pair.command, stateChannel: pair.state };
   };
   return (
-    <DigitalChannelList
+    <DigitalChannelList<DOChannel>
+      path={root.config.channels}
       createChannel={(channels) => createNextDOChannel(channels, {}, dev)}
       name={name}
       contextMenuItems={Task.writeChannelContextMenuItems}
@@ -90,6 +93,7 @@ const Form: FC = () => {
           : (props) => (
               <LinesView<DOChannel>
                 {...props}
+                path={root.config.channels}
                 device={dev}
                 direction="output"
                 create={(channels, placement) =>

@@ -14,8 +14,11 @@ import { Icon } from "@synnaxlabs/lyra/icon";
 import { Input } from "@synnaxlabs/lyra/input";
 import { Text } from "@synnaxlabs/lyra/text";
 import { capture } from "@synnaxlabs/site-common/analytics";
+import { deep } from "@synnaxlabs/x";
 import { type ReactElement, useState } from "react";
 import { z } from "zod";
+
+const path = deep.path<z.infer<typeof formSchema>>();
 
 const formSchema = z.object({
   name: z.string().min(1, "Please enter your name"),
@@ -74,20 +77,20 @@ export const ContactForm = (): ReactElement => {
           gap="large"
         >
           <div className="contact-form-row">
-            <Form.Field<string> path="name" label="Name" align="stretch">
+            <Form.Field path={path.name} label="Name" align="stretch">
               {(p) => <Input.Text {...p} size="medium" placeholder="Gaal Dornik" />}
             </Form.Field>
-            <Form.Field<string> path="email" label="Email" align="stretch">
+            <Form.Field path={path.email} label="Email" align="stretch">
               {(p) => (
                 <Input.Text {...p} size="medium" placeholder="gaal@streeling.edu" />
               )}
             </Form.Field>
           </div>
-          <Form.Field<string> path="phone" label="Phone" align="stretch">
+          <Form.Field path={path.phone} label="Phone" align="stretch">
             {(p) => <Input.Text {...p} size="medium" placeholder="555-555-5555" />}
           </Form.Field>
           <Form.Field<string>
-            path="message"
+            path={path.message}
             label="Tell us about your project"
             align="stretch"
           >

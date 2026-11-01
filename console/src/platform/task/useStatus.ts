@@ -9,7 +9,10 @@
 
 import { type task } from "@synnaxlabs/client";
 import { Form } from "@synnaxlabs/lyra/form";
+import { deep } from "@synnaxlabs/x";
 import { type z } from "zod";
 
+const path = deep.path<{ status: task.Status }>();
+
 export const useStatus = <Schema extends z.ZodType>(ctx?: Form.ContextValue<Schema>) =>
-  Form.useFieldValue<task.Status>("status", { ctx });
+  Form.useFieldValue(path.status, { ctx });

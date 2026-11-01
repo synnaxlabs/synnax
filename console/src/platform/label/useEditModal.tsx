@@ -24,12 +24,15 @@ import { List } from "@synnaxlabs/lyra/list";
 import { Modal } from "@synnaxlabs/lyra/modal";
 import { Text } from "@synnaxlabs/lyra/text";
 import { Access, type Flux, Label } from "@synnaxlabs/pluto";
-import { color } from "@synnaxlabs/x";
+import { color, deep } from "@synnaxlabs/x";
 import { useEffect, useRef, useState } from "react";
+import { type z } from "zod";
 
 import { Button as PlatformButton } from "@/platform/button";
 import { CSS } from "@/platform/css";
 import { Modals } from "@/platform/modals";
+
+const path = deep.path<z.infer<typeof Label.createFormSchema>>();
 
 interface FieldsProps {
   inputProps?: Pick<Input.TextProps, "ref" | "onlyChangeOnBlur">;
@@ -37,12 +40,12 @@ interface FieldsProps {
 
 const Fields = ({ inputProps }: FieldsProps) => (
   <Flex.Box x gap="small" align="center">
-    <Form.Field<color.Color> path="color" padHelpText={false} showLabel={false}>
+    <Form.Field path={path.color} padHelpText={false} showLabel={false}>
       {(p) => <Color.Swatch onlyChangeOnBlur variant="text" {...p} />}
     </Form.Field>
     <Form.TextField
       showLabel={false}
-      path="name"
+      path={path.name}
       showHelpText={false}
       padHelpText={false}
       inputProps={{

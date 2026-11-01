@@ -10,6 +10,7 @@
 import { Form } from "@synnaxlabs/lyra/form";
 import { Select } from "@synnaxlabs/lyra/select";
 import { deep, record } from "@synnaxlabs/x";
+import { type ComponentProps } from "react";
 
 import {
   AI_CHANNEL_SCHEMAS,
@@ -32,26 +33,38 @@ export const channelTypeItems = (types: readonly AIChannelType[]) =>
     );
   });
 
-export const SelectAIChannelTypeField = Form.buildSelectField<AIChannelType>({
-  fieldKey: "type",
-  fieldProps: {
-    label: "Channel type",
-    onChange: (value, { get, set, path }) => {
-      const prevType = get<AIChannelType>(path).value;
-      if (prevType === value) return;
-      const next = createAIChannel(value);
-      const parentPath = path.slice(0, path.lastIndexOf("."));
-      const prevParent = get<AIChannel>(parentPath).value;
-      const schema = AI_CHANNEL_SCHEMAS[value];
-      const nextValue = {
-        ...deep.overrideValidItems(next, prevParent, schema),
-        type: next.type,
-      };
-      set(parentPath, nextValue);
-    },
-  },
+const SelectType = Form.buildSelectField<AIChannelType>({
+  fieldProps: { label: "Channel type" },
   inputProps: {
     resourceName: "channel type",
     children: channelTypeItems(record.keys(AI_CHANNEL_TYPE_NAMES)),
   },
 });
+
+export interface SelectAIChannelTypeFieldProps extends Pick<
+  ComponentProps<typeof SelectType>,
+  "inputProps"
+> {
+  path: deep.Path<AIChannel>;
+}
+
+export const SelectAIChannelTypeField = ({
+  path,
+  inputProps,
+}: SelectAIChannelTypeFieldProps) => (
+  <SelectType
+    path={path.type}
+    inputProps={inputProps}
+    onChange={(value, { get, set }) => {
+      const prevType = get(path.type).value;
+      if (prevType === value) return;
+      const next = createAIChannel(value);
+      const prevParent = get(path).value;
+      const schema = AI_CHANNEL_SCHEMAS[value];
+      set(path, {
+        ...deep.overrideValidItems(next, prevParent, schema),
+        type: next.type,
+      } as AIChannel);
+    }}
+  />
+);

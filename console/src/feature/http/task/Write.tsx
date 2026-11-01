@@ -9,7 +9,7 @@
 
 import "@/feature/http/task/Form.css";
 
-import { channel, type Synnax as Client } from "@synnaxlabs/client";
+import { channel, type http, type Synnax as Client } from "@synnaxlabs/client";
 import { Button } from "@synnaxlabs/lyra/button";
 import { Component } from "@synnaxlabs/lyra/component";
 import { Flex } from "@synnaxlabs/lyra/flex";
@@ -21,7 +21,7 @@ import { Menu } from "@synnaxlabs/lyra/menu";
 import { Select } from "@synnaxlabs/lyra/select";
 import { Text } from "@synnaxlabs/lyra/text";
 import { Channel as PChannel, Telem } from "@synnaxlabs/pluto";
-import { DataType, id, json, primitive } from "@synnaxlabs/x";
+import { DataType, deep, id, json, primitive } from "@synnaxlabs/x";
 import { type FC, useState } from "react";
 
 import { useFromConfig } from "@/feature/http/device/queries";
@@ -38,7 +38,6 @@ import {
   type WriteEndpoint,
   writeEndpointZ,
   type WriteField,
-  type WriteMethod,
   type WriteSchemas,
 } from "@/feature/http/task/types";
 import { Button as PlatformButton } from "@/platform/button";
@@ -47,6 +46,8 @@ import { Empty } from "@/platform/empty";
 import { Form as PlatformForm } from "@/platform/form";
 import { Selector } from "@/platform/selector";
 import { Task } from "@/platform/task";
+
+const root = deep.path<Task.Values<WriteSchemas>>();
 
 const Properties = () => <SelectDevice />;
 
@@ -58,18 +59,18 @@ const JSON_TYPE_ITEMS = (
   </>
 );
 
-const MethodSelect: FC<{ path: string }> = ({ path }) => (
-  <PForm.Field<WriteMethod> path={path} label="Method">
+const MethodSelect: FC<{ path: deep.Target<http.Method> }> = ({ path }) => (
+  <PForm.Field path={path} label="Method">
     {renderMethodSelect}
   </PForm.Field>
 );
 
 const renderMethodSelect = Component.renderProp(
-  (p: Select.ButtonsProps<WriteMethod>) => (
-    <Select.Buttons<WriteMethod> {...p}>
-      <Select.Item<WriteMethod> itemKey="POST">POST</Select.Item>
-      <Select.Item<WriteMethod> itemKey="PUT">PUT</Select.Item>
-      <Select.Item<WriteMethod> itemKey="PATCH">PATCH</Select.Item>
+  (p: Select.ButtonsProps<http.Method>) => (
+    <Select.Buttons<http.Method> {...p}>
+      <Select.Item<http.Method> itemKey="POST">POST</Select.Item>
+      <Select.Item<http.Method> itemKey="PUT">PUT</Select.Item>
+      <Select.Item<http.Method> itemKey="PATCH">PATCH</Select.Item>
     </Select.Buttons>
   ),
 );
@@ -78,9 +79,7 @@ const getEndpointChannelNameID = (epKey: string) => `write-ep-ch-${epKey}`;
 
 const EndpointItem = (props: List.ItemProps<string>) => {
   const { itemKey } = props;
-  const channel = PForm.useFieldValue<number>(
-    `config.endpoints.${itemKey}.channel.channel`,
-  );
+  const channel = PForm.useFieldValue(root.config.endpoints[itemKey].channel.channel);
   return (
     <Select.Item
       {...props}
@@ -94,7 +93,7 @@ const EndpointItem = (props: List.ItemProps<string>) => {
       </Flex.Box>
       <Task.ChannelName
         channel={channel}
-        namePath={`config.endpoints.${itemKey}.channel.name`}
+        namePath={root.config.endpoints[itemKey].channel.name}
         id={getEndpointChannelNameID(itemKey)}
         level="small"
         weight={450}
@@ -109,10 +108,12 @@ const endpointItem = Component.renderProp(EndpointItem);
 
 const EMPTY_ENDPOINTS = <Empty.Action message="No endpoints" />;
 
-const EnumValuesEditor: FC<{ channelPath: string }> = ({ channelPath }) => (
+const EnumValuesEditor: FC<{ path: deep.Path<WriteEndpoint["channel"]> }> = ({
+  path,
+}) => (
   <PForm.Section title="Enum mapping">
     <PlatformForm.KeyValueEditor
-      path={`${channelPath}.enumValues`}
+      path={path.enumValues}
       resourceName="mapping"
       keyField="label"
       keyPlaceholder="String (e.g. ON)"
@@ -122,10 +123,11 @@ const EnumValuesEditor: FC<{ channelPath: string }> = ({ channelPath }) => (
   </PForm.Section>
 );
 
-const ChannelFieldSection: FC<{ epPath: string }> = ({ epPath }) => {
-  const channelPath = `${epPath}.channel`;
-  const channelKey = PForm.useFieldValue<number>(`${channelPath}.channel`);
-  const jsonType = PForm.useFieldValue<string>(`${channelPath}.jsonType`);
+const ChannelFieldSection: FC<{ path: deep.Path<WriteEndpoint["channel"]> }> = ({
+  path: channelPath,
+}) => {
+  const channelKey = PForm.useFieldValue(channelPath.channel);
+  const jsonType = PForm.useFieldValue(channelPath.jsonType);
   const channelQuery = primitive.isNonZero(channelKey) ? { key: channelKey } : null;
   const { data: dataType } = PChannel.useResultDataType(channelQuery);
 
@@ -133,21 +135,17 @@ const ChannelFieldSection: FC<{ epPath: string }> = ({ epPath }) => {
     <>
       <PForm.Section title="Channel">
         <PForm.TextField
-          path={`${channelPath}.pointer`}
+          path={channelPath.pointer}
           label="Pointer"
           padHelpText={false}
           inputProps={JSON_POINTER_INPUT_PROPS}
         />
-        <PForm.Field<string>
-          path={`${channelPath}.jsonType`}
-          label="JSON type"
-          padHelpText={false}
-        >
+        <PForm.Field path={channelPath.jsonType} label="JSON type" padHelpText={false}>
           {renderSelectJSONType}
         </PForm.Field>
         {channelKey === 0 && (
-          <PForm.Field<string>
-            path={`${channelPath}.dataType`}
+          <PForm.Field
+            path={channelPath.dataType}
             label="Data type"
             padHelpText={false}
           >
@@ -155,10 +153,10 @@ const ChannelFieldSection: FC<{ epPath: string }> = ({ epPath }) => {
           </PForm.Field>
         )}
         {dataType != null && DataType.TIMESTAMP.equals(dataType) && (
-          <TimeFormatField path={`${channelPath}.timeFormat`} label="Time format" />
+          <TimeFormatField path={channelPath.timeFormat} label="Time format" />
         )}
       </PForm.Section>
-      {jsonType === "string" && <EnumValuesEditor channelPath={channelPath} />}
+      {jsonType === "string" && <EnumValuesEditor path={channelPath} />}
     </>
   );
 };
@@ -189,10 +187,12 @@ const HIDDEN_DATA_TYPES = [
   DataType.UUID,
 ];
 
+type GeneratorKey = "uuid" | TimeFormat;
+
 const generatorDisplayKey = (
   generator: GeneratorType | null | undefined,
   timeFormat: TimeFormat | null | undefined,
-): GeneratorType | TimeFormat => {
+): GeneratorKey => {
   if (generator === "timestamp") return timeFormat ?? "iso8601";
   return "uuid";
 };
@@ -202,46 +202,42 @@ const FieldListItem = ({
   ...props
 }: List.ItemProps<string> & { epKey: string }) => {
   const { itemKey } = props;
-  const path = `config.endpoints.${epKey}.fields.${itemKey}`;
-  const fieldType = PForm.useFieldValue<string>(`${path}.type`);
-  const jsonType = PForm.useFieldValue<json.PrimitiveType | undefined>(
-    `${path}.jsonType`,
-    { optional: true },
-  );
-  const generator = PForm.useFieldValue<GeneratorType | undefined>(
-    `${path}.generator`,
-    { optional: true },
-  );
-  const timeFormat = PForm.useFieldValue<TimeFormat | undefined>(`${path}.timeFormat`, {
+  const field = root.config.endpoints[epKey].fields[itemKey];
+  const staticField = deep.variant(field, "type", "static");
+  const generatedField = deep.variant(field, "type", "generated");
+  const fieldType = PForm.useFieldValue(field.type);
+  const jsonType = PForm.useFieldValue(staticField.jsonType, { optional: true });
+  const generator = PForm.useFieldValue(generatedField.generator, { optional: true });
+  const timeFormat = PForm.useFieldValue(generatedField.timeFormat, {
     optional: true,
   });
   const { set } = PForm.useContext();
 
-  const handleJSONTypeChange = (value: json.PrimitiveType) => {
-    set(`${path}.jsonType`, value);
-    set(`${path}.value`, json.ZERO_PRIMITIVES[value]);
+  const handleJSONTypeChange = (value: http.JSONType) => {
+    set(staticField.jsonType, value);
+    set(staticField.value, json.ZERO_PRIMITIVES[value]);
   };
 
-  const handleGeneratorChange = (key: GeneratorType | TimeFormat) => {
+  const handleGeneratorChange = (key: GeneratorKey) => {
     if (key === "uuid") {
-      set(`${path}.generator`, "uuid");
-      set(`${path}.timeFormat`, undefined);
+      set(generatedField.generator, "uuid");
+      set(generatedField.timeFormat, undefined);
     } else {
-      set(`${path}.generator`, "timestamp");
-      set(`${path}.timeFormat`, key);
+      set(generatedField.generator, "timestamp");
+      set(generatedField.timeFormat, key);
     }
   };
 
   return (
     <Select.Item {...props} justify="between" align="center" x>
       <PForm.TextField
-        path={`${path}.pointer`}
+        path={field.pointer}
         showLabel={false}
         showHelpText={false}
         inputProps={POINTER_INPUT_PROPS}
       />
       {fieldType === "static" && (
-        <Select.Simple<json.PrimitiveType>
+        <Select.Simple<http.JSONType>
           value={jsonType ?? "string"}
           onChange={handleJSONTypeChange}
           resourceName="type"
@@ -251,7 +247,7 @@ const FieldListItem = ({
       )}
       {fieldType === "static" && jsonType === "string" && (
         <PForm.TextField
-          path={`${path}.value`}
+          path={staticField.value as deep.Target<string>}
           showLabel={false}
           showHelpText={false}
           inputProps={STRING_INPUT_PROPS}
@@ -259,15 +255,15 @@ const FieldListItem = ({
       )}
       {fieldType === "static" && jsonType === "number" && (
         <PForm.NumericField
-          path={`${path}.value`}
+          path={staticField.value as deep.Target<number>}
           showLabel={false}
           showHelpText={false}
           inputProps={NUMBER_INPUT_PROPS}
         />
       )}
       {fieldType === "static" && jsonType === "boolean" && (
-        <PForm.Field<boolean>
-          path={`${path}.value`}
+        <PForm.Field
+          path={staticField.value as deep.Target<boolean>}
           showLabel={false}
           showHelpText={false}
         >
@@ -275,7 +271,7 @@ const FieldListItem = ({
         </PForm.Field>
       )}
       {fieldType === "generated" && (
-        <Select.Simple<GeneratorType | TimeFormat>
+        <Select.Simple<GeneratorKey>
           value={generatorDisplayKey(generator, timeFormat)}
           onChange={handleGeneratorChange}
           resourceName="generator"
@@ -307,8 +303,9 @@ const STRING_INPUT_PROPS = {
 const NUMBER_INPUT_PROPS = { className: CSS.B("static-field-value") } as const;
 
 const AdditionalFields: FC<{ epKey: string }> = ({ epKey }) => {
-  const path = `config.endpoints.${epKey}.fields`;
-  const { data, push, remove } = PForm.useFieldList<string, WriteField>(path);
+  const { data, push, remove } = PForm.useFieldList(
+    root.config.endpoints[epKey].fields,
+  );
   const [selected, setSelected] = useState<string[]>([]);
   const isPreview = Task.useIsPreview();
 
@@ -398,20 +395,20 @@ const AdditionalFields: FC<{ epKey: string }> = ({ epKey }) => {
 const EMPTY_CONTENT = <Empty.Action message="No additional fields" />;
 
 const EndpointDetails: FC<{ epKey: string }> = ({ epKey }) => {
-  const path = `config.endpoints.${epKey}`;
+  const endpoint = root.config.endpoints[epKey];
   return (
     <Flex.Box y grow empty className={CSS.B("endpoint-details")}>
       <PForm.Sections className={CSS.B("endpoint-form")}>
         <PForm.Section title="Request">
-          <MethodSelect path={`${path}.method`} />
+          <MethodSelect path={endpoint.method} />
           <PForm.TextField
-            path={`${path}.path`}
+            path={endpoint.path}
             label="Path"
             padHelpText={false}
             inputProps={PATH_INPUT_PROPS}
           />
           <PlatformForm.KeyValueEditor
-            path={`${path}.queryParams`}
+            path={endpoint.queryParams}
             resourceName="parameter"
             label="Query parameters"
             keyField="parameter"
@@ -419,7 +416,7 @@ const EndpointDetails: FC<{ epKey: string }> = ({ epKey }) => {
             valuePlaceholder="100"
           />
           <PlatformForm.KeyValueEditor
-            path={`${path}.headers`}
+            path={endpoint.headers}
             resourceName="header"
             label="Headers"
             keyField="name"
@@ -427,7 +424,7 @@ const EndpointDetails: FC<{ epKey: string }> = ({ epKey }) => {
             valuePlaceholder="application/json"
           />
         </PForm.Section>
-        <ChannelFieldSection epPath={path} />
+        <ChannelFieldSection path={endpoint.channel} />
         <AdditionalFields key={epKey} epKey={epKey} />
       </PForm.Sections>
     </Flex.Box>
@@ -438,9 +435,7 @@ const PATH_INPUT_PROPS = { placeholder: "/api/control" } as const;
 
 const Form: FC = () => {
   const [selectedEndpoints, setSelectedEndpoints] = useState<string[]>([]);
-  const { data, push, remove } = PForm.useFieldList<string, WriteEndpoint>(
-    "config.endpoints",
-  );
+  const { data, push, remove } = PForm.useFieldList(root.config.endpoints);
   const dev = useFromConfig();
   const resolve = (ep: WriteEndpoint) =>
     dev == null
@@ -461,7 +456,7 @@ const Form: FC = () => {
   };
 
   const handleDuplicateEndpoints = (keys: string[]) => {
-    const allEndpoints = ctx.get<WriteEndpoint[]>("config.endpoints").value;
+    const allEndpoints = ctx.get(root.config.endpoints).value;
     const duplicated = allEndpoints
       .filter(({ key }) => keys.includes(key))
       .map((ep) => ({
@@ -521,7 +516,7 @@ const Form: FC = () => {
             )}
           </>
         }
-        detailsPath={selected != null ? `config.endpoints.${selected}` : null}
+        detailsPath={selected != null ? root.config.endpoints[selected] : null}
         title={selected != null && <EndpointLabel epKey={selected} />}
       >
         {selected != null ? (
@@ -532,7 +527,10 @@ const Form: FC = () => {
           </Flex.Box>
         )}
       </Task.Views.Panes>
-      <Task.BindChannels<WriteEndpoint> path="config.endpoints" resolve={resolve} />
+      <Task.BindChannels<WriteEndpoint>
+        path={root.config.endpoints}
+        resolve={resolve}
+      />
     </>
   );
 };

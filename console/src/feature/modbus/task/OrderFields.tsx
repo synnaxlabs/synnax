@@ -10,7 +10,7 @@
 import { Flex } from "@synnaxlabs/lyra/flex";
 import { Form } from "@synnaxlabs/lyra/form";
 import { Select } from "@synnaxlabs/lyra/select";
-import { DataType, Density } from "@synnaxlabs/x";
+import { DataType, deep, Density } from "@synnaxlabs/x";
 import { type ReactElement } from "react";
 
 import { useFromConfig } from "@/feature/modbus/device/queries";
@@ -20,8 +20,10 @@ type Order = "device" | "swapped" | "not_swapped";
 
 const LABELS = { bytesSwapped: "Bytes", wordsSwapped: "Words" } as const;
 
+type Swapped = Partial<Record<keyof typeof LABELS, boolean>>;
+
 interface SelectOrderProps {
-  path: string;
+  path: deep.Target<Swapped>;
   field: keyof typeof LABELS;
   deviceSwapped?: boolean;
 }
@@ -34,9 +36,9 @@ const SelectOrder = ({
   deviceSwapped,
 }: SelectOrderProps): ReactElement => {
   const label = LABELS[field];
-  const fieldPath = `${path}.${field}`;
+  const fieldPath = deep.widen(path)[field];
   const ctx = Form.useContext();
-  const value = Form.useFieldValue<boolean | undefined>(fieldPath, { optional: true });
+  const value = Form.useFieldValue(fieldPath, { optional: true });
   const order: Order = value == null ? "device" : value ? "swapped" : "not_swapped";
   const deviceOption =
     deviceSwapped == null ? "device" : `device (${describe(deviceSwapped)})`;
@@ -61,7 +63,7 @@ const SelectOrder = ({
 
 export interface OrderFieldsProps {
   /** The path of the register channel in the form. */
-  path: string;
+  path: deep.Target<Swapped>;
   /** The channel's data type. */
   dataType: string;
 }

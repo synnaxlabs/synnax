@@ -18,8 +18,9 @@ import { Icon } from "@synnaxlabs/lyra/icon";
 import { Status } from "@synnaxlabs/lyra/status";
 import { Text } from "@synnaxlabs/lyra/text";
 import { Access, Label as PLabel, Ranger } from "@synnaxlabs/pluto";
-import { type NumericTimeRange } from "@synnaxlabs/x";
+import { deep } from "@synnaxlabs/x";
 import { type FC, type ReactElement } from "react";
+import { type z } from "zod";
 
 import { Core } from "@/platform/core";
 import { CSS } from "@/platform/css";
@@ -28,6 +29,8 @@ import { Framer } from "@/platform/framer";
 import { Label } from "@/platform/label";
 import { Panel } from "@/platform/panel";
 import { FavoriteButton } from "@/platform/range/FavoriteButton";
+
+const path = deep.path<z.infer<typeof Ranger.formSchema>>();
 
 interface ParentRangeButtonProps {
   rangeKey: string;
@@ -107,7 +110,7 @@ export const Details: FC<DetailsProps> = ({ rangeKey }) => {
   });
 
   const handleError = Status.useErrorHandler();
-  const name = Form.useFieldValue<string, string, typeof Ranger.formSchema>("name", {
+  const name = Form.useFieldValue(path.name, {
     ctx: form,
   });
 
@@ -130,7 +133,7 @@ export const Details: FC<DetailsProps> = ({ rangeKey }) => {
         <Flex.Box x justify="between" className={CSS.B("header")}>
           <Flex.Box y grow>
             <Form.TextField
-              path="name"
+              path={path.name}
               showLabel={false}
               inputProps={{
                 variant: "text",
@@ -173,7 +176,7 @@ export const Details: FC<DetailsProps> = ({ rangeKey }) => {
               onClick={() =>
                 handleError(async () => {
                   await promptDownloadCSVModal({
-                    timeRange: form.get<NumericTimeRange>("timeRange").value,
+                    timeRange: form.get(path.timeRange).value,
                     name,
                     channels: [],
                     icon: <Icon.Range />,
@@ -194,11 +197,7 @@ export const Details: FC<DetailsProps> = ({ rangeKey }) => {
             <FavoriteButton range={range} size="medium" />
           </Flex.Box>
         </Flex.Box>
-        <Form.Field<NumericTimeRange>
-          path="timeRange"
-          padHelpText={false}
-          showLabel={false}
-        >
+        <Form.Field path={path.timeRange} padHelpText={false} showLabel={false}>
           {(p) => (
             <Ranger.Timeline
               level="h4"

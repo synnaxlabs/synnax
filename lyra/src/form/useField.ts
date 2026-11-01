@@ -9,7 +9,6 @@
 
 import { array, compare, deep, type record, state } from "@synnaxlabs/x";
 import { useRef, useSyncExternalStore } from "react";
-import { type z } from "zod";
 
 import { type ContextValue, useContext } from "@/form/Context";
 import {
@@ -19,16 +18,12 @@ import {
 } from "@/form/state";
 import { type Status } from "@/status";
 
-export type ContextOptions<Z extends z.ZodType = z.ZodType> = {
-  ctx?: ContextValue<Z>;
+export type ContextOptions = {
+  ctx?: ContextValue<any>;
 };
 
-export type UseFieldOptions<
-  I,
-  O = I,
-  Z extends z.ZodType = z.ZodType,
-> = ContextOptions<Z> & {
-  onChange?: (value: O, extra: ContextValue<Z> & { path: string }) => void;
+export type UseFieldOptions<I, O = I> = ContextOptions & {
+  onChange?: (value: O, ctx: ContextValue) => void;
 };
 
 /** Return value for {@link useField}. Spread it onto an input. */
@@ -41,11 +36,11 @@ export interface UseFieldReturn<I, O = I> extends FieldState<I> {
 
 interface UseField {
   <I, O = I>(
-    path: string,
+    path: deep.Target<I>,
     opts?: RequiredGetOptions & UseFieldOptions<I, O>,
   ): UseFieldReturn<I, O>;
   <I, O = I>(
-    path: string,
+    path: deep.Target<I>,
     opts?: GetOptions & UseFieldOptions<I, O>,
   ): UseFieldReturn<I, O> | null;
 }
@@ -55,28 +50,28 @@ interface UseField {
  * changes. The return value satisfies {@link Input.Control}, so it spreads onto any
  * input.
  *
- * @example const { value, onChange } = Form.useField<string>("name");
+ * @example const { value, onChange } = Form.useField(path.name);
  * @throws {Error} if the path holds no value and `optional` is not set.
  */
 export const useField = (<I, O = I>(
-  path: string,
+  path: deep.Target<I>,
   opts: UseFieldOptions<I, O> & GetOptions = {},
 ): UseFieldReturn<I, O> | null => {
   const { optional = false, onChange } = opts;
-  const ctx = useContext(opts?.ctx, `useField(${path})`);
+  const ctx = useContext(opts?.ctx, `useField(${String(path)})`);
   const { get, bind, set, setStatus } = ctx;
 
   const handleChange = (value: O) => {
-    onChange?.(value, { ...ctx, path });
-    set(path, value);
+    onChange?.(value, ctx);
+    set(path, value as unknown as I);
   };
 
   const handleSetStatus = (status: Status.Crude) => setStatus(path, status);
   // The form state lives in memory, so a server render reads it like the client does.
-  const getSnapshot = () => get<I>(path, { optional });
+  const getSnapshot = () => get(path, { optional });
   const state = useSyncExternalStore(bind, getSnapshot, getSnapshot);
   if (state == null) {
-    if (!optional) throw new Error(`Field state is null: ${path}`);
+    if (!optional) throw new Error(`Field state is null: ${String(path)}`);
     return null;
   }
   const preview = ctx.mode === "preview" ? true : undefined;
@@ -84,56 +79,45 @@ export const useField = (<I, O = I>(
 }) as UseField;
 
 export interface UseFieldValue {
-  <I, O = I, Z extends z.ZodType = z.ZodType>(
-    path: string,
-    opts?: RequiredGetOptions & ContextOptions<Z>,
-  ): O;
-  <I, O = I, Z extends z.ZodType = z.ZodType>(
-    path: string,
-    opts?: GetOptions & ContextOptions<Z>,
-  ): O | null;
+  <I>(path: deep.Target<I>, opts?: RequiredGetOptions & ContextOptions): I;
+  <I>(path: deep.Target<I>, opts?: GetOptions & ContextOptions): I | null;
 }
 
 export interface UseFieldState {
-  <I, O = I, Z extends z.ZodType = z.ZodType>(
-    path: string,
-    opts?: RequiredGetOptions & ContextOptions<Z>,
-  ): FieldState<O>;
-  <I, O = I, Z extends z.ZodType = z.ZodType>(
-    path: string,
-    opts?: GetOptions & ContextOptions<Z>,
-  ): FieldState<O> | null;
+  <I>(path: deep.Target<I>, opts?: RequiredGetOptions & ContextOptions): FieldState<I>;
+  <I>(path: deep.Target<I>, opts?: GetOptions & ContextOptions): FieldState<I> | null;
 }
 
 /** Reads a field's value together with its status and required flag. */
-export const useFieldState = (<I, O = I, Z extends z.ZodType = z.ZodType>(
-  path: string,
-  opts?: GetOptions & ContextOptions<Z>,
-): FieldState<O> | null => {
+export const useFieldState = (<I>(
+  path: deep.Target<I>,
+  opts?: GetOptions & ContextOptions,
+): FieldState<I> | null => {
   const { get, bind } = useContext(opts?.ctx);
-  const getSnapshot = () => get<O>(path, opts);
+  const getSnapshot = () => get(path, opts);
   return useSyncExternalStore(bind, getSnapshot, getSnapshot);
 }) as UseFieldState;
 
 /** Reads just a field's value. Use it to render from a field the caller does not edit. */
-export const useFieldValue = (<I, O = I, Z extends z.ZodType = z.ZodType>(
-  path: string,
-  opts?: GetOptions & ContextOptions<Z>,
-): O | null => useFieldState<I, O, Z>(path, opts)?.value ?? null) as UseFieldValue;
+export const useFieldValue = (<I>(
+  path: deep.Target<I>,
+  opts?: GetOptions & ContextOptions,
+): I | null => useFieldState(path, opts)?.value ?? null) as UseFieldValue;
 
 /** @returns whether the field at the path passed its last validation. */
-export const useFieldValid = (path: string): boolean =>
+export const useFieldValid = (path: deep.Target<unknown>): boolean =>
   useFieldState(path, { optional: true })?.status?.variant === "success";
 
 /**
  * Reads the statuses other than success at and under a path, each keyed by its path.
  * Re-renders the caller only when one of them changes.
  */
-export const useStatuses = <Z extends z.ZodType = z.ZodType>(
-  path: string,
-  opts?: ContextOptions<Z>,
+export const useStatuses = (
+  target: deep.Target<unknown>,
+  opts?: ContextOptions,
 ): Status.Crude[] => {
   const { bind, getStatuses } = useContext(opts?.ctx);
+  const path = String(target);
   const cached = useRef<Status.Crude[]>([]);
   const getSnapshot = () => {
     const next = getStatuses().filter(
@@ -166,11 +150,12 @@ export interface FieldListUtils<K extends string, E extends record.Keyed<K>> {
 }
 
 /** Builds {@link FieldListUtils} over a form context, outside of a React render. */
-export const fieldListUtils = <K extends string, E extends record.Keyed<K>>(
+export const fieldListUtils = <E extends record.Keyed<string>>(
   ctx: ContextValue<any>,
-  path: string,
-): FieldListUtils<K, E> => {
-  const value = () => ctx.get<E[]>(path).value;
+  path: deep.Target<E[]>,
+): FieldListUtils<E["key"], E> => {
+  type K = E["key"];
+  const value = () => ctx.get(path).value;
   const keys = () => value().map(({ key }) => key);
   const insert = (entries: E[], after: K | undefined) =>
     entries.forEach((entry) => {
@@ -190,10 +175,11 @@ export const fieldListUtils = <K extends string, E extends record.Keyed<K>>(
   // A path reads a list index before a key, so an entry is removed by its index. The
   // last entry goes first, which keeps the other indexes valid.
   const removeWhere = (drop: (key: K) => boolean) => {
+    const entries = deep.widen<unknown[]>(path);
     ctx.batch(() => {
       const current = keys();
       for (let i = current.length - 1; i >= 0; i--)
-        if (drop(current[i])) ctx.remove(`${path}.${i}`);
+        if (drop(current[i])) ctx.remove(entries[i]);
     });
     return keys();
   };
@@ -224,10 +210,10 @@ export const fieldListUtils = <K extends string, E extends record.Keyed<K>>(
 };
 
 /** @returns edits for an array field, without subscribing to its contents. */
-export const useFieldListUtils = <K extends string, E extends record.Keyed<K>>(
-  path: string,
-  opts?: ContextOptions<z.ZodType>,
-): FieldListUtils<K, E> => fieldListUtils<K, E>(useContext(opts?.ctx), path);
+export const useFieldListUtils = <E extends record.Keyed<string>>(
+  path: deep.Target<E[]>,
+  opts?: ContextOptions,
+): FieldListUtils<E["key"], E> => fieldListUtils(useContext(opts?.ctx), path);
 
 export interface UseFieldListReturn<
   K extends string,
@@ -240,15 +226,11 @@ export interface UseFieldListReturn<
  * Binds an array field, returning its keys alongside the edits. Feed `data` straight
  * into a {@link List.Frame}.
  */
-export const useFieldList = <
-  K extends string,
-  E extends record.Keyed<K>,
-  Z extends z.ZodType = z.ZodType,
->(
-  path: string,
-  opts: ContextOptions<Z> = {},
-): UseFieldListReturn<K, E> => {
+export const useFieldList = <E extends record.Keyed<string>>(
+  path: deep.Target<E[]>,
+  opts: ContextOptions = {},
+): UseFieldListReturn<E["key"], E> => {
   const ctx = useContext(opts?.ctx);
-  const value = useFieldValue<E[]>(path, opts);
-  return { data: value.map(({ key }) => key), ...fieldListUtils<K, E>(ctx, path) };
+  const value = useFieldValue(path, opts);
+  return { data: value.map(({ key }) => key), ...fieldListUtils(ctx, path) };
 };

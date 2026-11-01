@@ -9,7 +9,7 @@
 
 import { type ontology } from "@synnaxlabs/client";
 import { createTestClient, TEST_CREDENTIALS } from "@synnaxlabs/client/testutil";
-import { id } from "@synnaxlabs/x";
+import { deep, id } from "@synnaxlabs/x";
 import { act, renderHook, waitFor } from "@testing-library/react";
 import { type FC, type PropsWithChildren } from "react";
 import {
@@ -22,10 +22,13 @@ import {
   it,
   vi,
 } from "vitest";
+import { type z } from "zod";
 
 import { renderHookSuspended } from "@/testutil/render";
 import { createAsyncSynnaxWrapper, createSynnaxWrapper } from "@/testutil/Synnax";
 import { User } from "@/user";
+
+const path = deep.path<z.infer<typeof User.formSchema>>();
 
 describe("User queries", () => {
   let controller: AbortController;
@@ -246,9 +249,9 @@ describe("User queries", () => {
 
         const timestamp = Date.now();
         act(() => {
-          result.current.form.set("username", `test-form-${timestamp}`);
-          result.current.form.set("name", "Form Test");
-          result.current.form.set("password", "password123");
+          result.current.form.set(path.username, `test-form-${timestamp}`);
+          result.current.form.set(path.name, "Form Test");
+          result.current.form.set(path.password, "password123");
         });
 
         await act(async () => {
@@ -271,9 +274,9 @@ describe("User queries", () => {
           result.current.save();
         });
 
-        const usernameField = result.current.form.get("username");
-        const passwordField = result.current.form.get("password");
-        const nameField = result.current.form.get("name");
+        const usernameField = result.current.form.get(path.username);
+        const passwordField = result.current.form.get(path.password);
+        const nameField = result.current.form.get(path.name);
 
         expect(usernameField.status.variant).toBe("error");
         expect(passwordField.status.variant).toBe("error");
@@ -290,13 +293,13 @@ describe("User queries", () => {
         await waitFor(() => expect(result.current.variant).toBe("success"));
 
         act(() => {
-          result.current.form.set("username", "");
+          result.current.form.set(path.username, "");
         });
 
-        const isValid = result.current.form.validate("username");
+        const isValid = result.current.form.validate(path.username);
         expect(isValid).toBe(false);
 
-        const usernameField = result.current.form.get("username");
+        const usernameField = result.current.form.get(path.username);
         expect(usernameField.status.variant).toBe("error");
         expect(usernameField.status.message).toContain("username is required");
       });
@@ -311,9 +314,9 @@ describe("User queries", () => {
         const isValid = result.current.form.validate();
         expect(isValid).toBe(false);
 
-        expect(result.current.form.get("username").status.variant).toBe("error");
-        expect(result.current.form.get("password").status.variant).toBe("error");
-        expect(result.current.form.get("name").status.variant).toBe("error");
+        expect(result.current.form.get(path.username).status.variant).toBe("error");
+        expect(result.current.form.get(path.password).status.variant).toBe("error");
+        expect(result.current.form.get(path.name).status.variant).toBe("error");
       });
     });
   });

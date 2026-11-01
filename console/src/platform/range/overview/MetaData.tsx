@@ -21,10 +21,13 @@ import { Input } from "@synnaxlabs/lyra/input";
 import { List } from "@synnaxlabs/lyra/list";
 import { Text } from "@synnaxlabs/lyra/text";
 import { type Flux, Ranger } from "@synnaxlabs/pluto";
-import { type kv, link } from "@synnaxlabs/x";
+import { deep, type kv, link } from "@synnaxlabs/x";
 import { type ReactElement, useEffect, useRef, useState } from "react";
+import { type z } from "zod";
 
 import { CSS } from "@/platform/css";
+
+const path = deep.path<z.infer<typeof Ranger.kvPairFormSchema>>();
 
 interface ValueInputProps extends Input.TextProps {}
 
@@ -136,7 +139,7 @@ const CreateItem = ({ rangeKey, visible, onClose }: CreateItemProps): ReactEleme
       <Form.Form<typeof Ranger.kvPairFormSchema> {...form}>
         <Form.TextField
           className={CSS.BE("range-metadata", "key-cell")}
-          path="key"
+          path={path.key}
           inputProps={{
             ref: inputRef,
             selectOnFocus: true,
@@ -149,7 +152,7 @@ const CreateItem = ({ rangeKey, visible, onClose }: CreateItemProps): ReactEleme
           showHelpText={false}
         />
         <Divider.Divider y />
-        <Form.Field<string> path="value" showLabel={false} showHelpText={false}>
+        <Form.Field path={path.value} showLabel={false} showHelpText={false}>
           {(p) => <ValueInput {...p} />}
         </Form.Field>
         <Flex.Box pack>

@@ -9,6 +9,7 @@
 
 import { type device } from "@synnaxlabs/client";
 import { Form } from "@synnaxlabs/lyra/form";
+import { deep } from "@synnaxlabs/x";
 import { type ReactElement } from "react";
 
 import { HARDWARE } from "@/feature/ethercat/device/hardware";
@@ -21,11 +22,13 @@ import {
 import { type Channel } from "@/feature/ethercat/task/types";
 import { Device } from "@/platform/device";
 
+const root = deep.path<{ config: { channels: Channel[] } }>();
+
 export interface SelectSlaveProps {
   /** Path to the slave device field in the form. */
-  path: string;
+  path: deep.Target<device.Key>;
   /** Path to the channels array to get already-selected slaves. */
-  channelsPath?: string;
+  channelsPath?: deep.Target<Channel[]>;
 }
 
 const filterByNetwork = (d: device.Device, network: string) =>
@@ -33,9 +36,9 @@ const filterByNetwork = (d: device.Device, network: string) =>
 
 export const SelectSlave = ({
   path,
-  channelsPath = "config.channels",
+  channelsPath = root.config.channels,
 }: SelectSlaveProps): ReactElement => {
-  const channels = Form.useFieldValue<Channel[]>(channelsPath) ?? [];
+  const channels = Form.useFieldValue(channelsPath) ?? [];
   const network = useCommonNetwork(channels);
   const configure = Device.useConfigureModal();
   const find = Device.useFindModal();

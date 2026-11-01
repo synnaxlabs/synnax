@@ -10,7 +10,7 @@
 import { group, ontology, schematic } from "@synnaxlabs/client";
 import { createTestClient } from "@synnaxlabs/client/testutil";
 import { Form } from "@synnaxlabs/lyra/form";
-import { color } from "@synnaxlabs/x";
+import { color, deep } from "@synnaxlabs/x";
 import { act, fireEvent, render, waitFor } from "@testing-library/react";
 import { type FC, type PropsWithChildren, type ReactElement } from "react";
 import { beforeAll, describe, expect, it } from "vitest";
@@ -23,6 +23,8 @@ const formSchema = z.object({
   specKey: z.string(),
   stateOverrides: schematic.symbol.stateZ.array(),
 });
+
+const path = deep.path<z.infer<typeof formSchema>>();
 
 const createState = (key: string, name: string): schematic.symbol.State => ({
   key,
@@ -100,7 +102,7 @@ describe("StateOverrideForm", () => {
     await waitFor(() => expect(getByText("Active Region")).toBeTruthy());
     // Swapping the overrides beneath the held selection must not crash the
     // region list; it falls back to the first remaining state.
-    act(() => form().set("stateOverrides", [createState("base", "Base")]));
+    act(() => form().set(path.stateOverrides, [createState("base", "Base")]));
     await waitFor(() => expect(getByText("Base Region")).toBeTruthy());
     expect(queryByText("Active Region")).toBeNull();
   });

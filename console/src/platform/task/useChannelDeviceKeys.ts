@@ -9,15 +9,19 @@
 
 import { type device } from "@synnaxlabs/client";
 import { Form } from "@synnaxlabs/lyra/form";
-import { primitive, unique } from "@synnaxlabs/x";
+import { deep, primitive, unique } from "@synnaxlabs/x";
 
 interface DeviceEntry {
   device: device.Key;
 }
 
+const root = deep.path<{ config: { channels: DeviceEntry[] } }>();
+
 /** The distinct device keys the form's channel entries name, sorted. */
-export const useChannelDeviceKeys = (path = "config.channels"): device.Key[] => {
-  const state = Form.useFieldState<DeviceEntry[]>(path, { optional: true });
+export const useChannelDeviceKeys = (
+  path: deep.Target<DeviceEntry[]> = root.config.channels,
+): device.Key[] => {
+  const state = Form.useFieldState(path, { optional: true });
   return unique
     .unique((state?.value ?? []).map(({ device }) => device))
     .filter(primitive.isNonZero)

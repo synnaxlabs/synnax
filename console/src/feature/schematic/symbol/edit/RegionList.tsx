@@ -9,7 +9,6 @@
 
 import "@/feature/schematic/symbol/edit/Edit.css";
 
-import { type schematic } from "@synnaxlabs/client";
 import { Button } from "@synnaxlabs/lyra/button";
 import { Color } from "@synnaxlabs/lyra/color";
 import { Flex } from "@synnaxlabs/lyra/flex";
@@ -22,8 +21,12 @@ import { Select } from "@synnaxlabs/lyra/select";
 import { Text } from "@synnaxlabs/lyra/text";
 import { Tooltip } from "@synnaxlabs/lyra/tooltip";
 import { Schematic } from "@synnaxlabs/pluto";
+import { deep } from "@synnaxlabs/x";
+import { type z } from "zod";
 
 import { CSS } from "@/platform/css";
+
+const path = deep.path<z.infer<typeof Schematic.Symbol.formSchema>>();
 
 export interface RegionListProps extends Input.Control<string | undefined> {
   selectedState: string;
@@ -37,13 +40,12 @@ export interface RegionListItemProps extends List.ItemRenderProps<string> {
 
 const RegionListItem = ({ selectedState, svg, ...props }: RegionListItemProps) => {
   const { itemKey } = props;
-  const path = `data.states.${selectedState}.regions.${itemKey}`;
-  const region = Form.useFieldValue<schematic.symbol.Region>(path, { optional: true });
+  const regions = path.data.states[selectedState].regions;
+  const entry = regions[itemKey];
+  const region = Form.useFieldValue(entry, { optional: true });
   const { set } = Form.useContext();
   const paint = Schematic.Node.Region.paint(svg, region?.selectors ?? []);
-  const { remove } = Form.useFieldListUtils<string, schematic.symbol.Region>(
-    `data.states.${selectedState}.regions`,
-  );
+  const { remove } = Form.useFieldListUtils(path.data.states[selectedState].regions);
   if (region == null) return null;
   return (
     <Select.Item
@@ -52,7 +54,7 @@ const RegionListItem = ({ selectedState, svg, ...props }: RegionListItemProps) =
       className={CSS.B("schematic-region-list-item")}
     >
       <Flex.Box x align="center" gap={1}>
-        <Form.Field<string> path={`${path}.name`} showLabel={false} padHelpText={false}>
+        <Form.Field path={entry.name} showLabel={false} padHelpText={false}>
           {({ onChange, value }) => (
             <Text.MaybeEditable
               level="small"
@@ -70,13 +72,13 @@ const RegionListItem = ({ selectedState, svg, ...props }: RegionListItemProps) =
         <Color.Swatch
           value={region.strokeColor}
           fallback={paint.stroke}
-          onChange={(c) => set(`${path}.strokeColor`, c)}
+          onChange={(c) => set(entry.strokeColor, c)}
           size="small"
         />
         <Color.Swatch
           value={region.fillColor}
           fallback={paint.fill}
-          onChange={(c) => set(`${path}.fillColor`, c)}
+          onChange={(c) => set(entry.fillColor, c)}
           size="small"
         />
         <Button.Button
@@ -98,10 +100,8 @@ export const RegionList = ({
   selectedState,
   onAddRegion,
 }: RegionListProps) => {
-  const { data } = Form.useFieldList<string, schematic.symbol.Region>(
-    `data.states.${selectedState}.regions`,
-  );
-  const svg = Form.useFieldValue<string>("data.svg");
+  const { data } = Form.useFieldList(path.data.states[selectedState].regions);
+  const svg = Form.useFieldValue(path.data.svg);
   return (
     <Flex.Box y gap={1} className={CSS.B("schematic-region-list")}>
       <Header.Header level="p" bordered={false}>

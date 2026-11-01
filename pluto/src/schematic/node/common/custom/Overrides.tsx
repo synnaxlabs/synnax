@@ -24,11 +24,18 @@ import { CSS } from "@/css";
 import { Region } from "@/schematic/node/common/region";
 import { Symbol } from "@/schematic/symbol";
 
+const path = deep.path<{
+  specKey: string;
+  stateOverrides: schematic.symbol.State[];
+}>();
+
+type RegionPath = deep.Path<schematic.symbol.Region>;
+
 interface RegionControlsProps {
-  path: string;
+  path: RegionPath;
   svg: string;
-  onReset: (path: string) => void;
-  getOriginalRegion: (path: string) => schematic.symbol.Region | null;
+  onReset: (path: RegionPath) => void;
+  getOriginalRegion: (path: RegionPath) => schematic.symbol.Region | null;
 }
 
 const syncStateOverrides = (
@@ -89,8 +96,8 @@ const RegionControls = ({
   onReset,
   getOriginalRegion,
 }: RegionControlsProps): ReactElement => {
-  const name = Form.useFieldValue<string>(`${path}.name`);
-  const region = Form.useFieldValue<schematic.symbol.Region>(path);
+  const name = Form.useFieldValue(path.name);
+  const region = Form.useFieldValue(path);
   const { set } = Form.useContext();
   const paint = Region.paint(svg, region.selectors);
   const originalRegion = getOriginalRegion(path);
@@ -105,16 +112,16 @@ const RegionControls = ({
       >
         {caseconv.capitalize(name)}
       </Text.Text>
-      <Flex.Box x align="stretch" key={path}>
+      <Flex.Box x align="stretch" key={String(path)}>
         <Color.Swatch
           value={region.strokeColor}
           fallback={paint.stroke}
-          onChange={(c) => set(`${path}.strokeColor`, c)}
+          onChange={(c) => set(path.strokeColor, c)}
         />
         <Color.Swatch
           value={region.fillColor}
           fallback={paint.fill}
-          onChange={(c) => set(`${path}.fillColor`, c)}
+          onChange={(c) => set(path.fillColor, c)}
         />
         <Button.Button
           onClick={() => onReset(path)}
@@ -131,8 +138,8 @@ const RegionControls = ({
 
 interface RegionListProps {
   svg: string;
-  onReset: (path: string) => void;
-  getOriginalRegion: (path: string) => schematic.symbol.Region | null;
+  onReset: (path: RegionPath) => void;
+  getOriginalRegion: (path: RegionPath) => schematic.symbol.Region | null;
   selectedState: string;
 }
 
@@ -142,9 +149,8 @@ const RegionList = ({
   onReset,
   getOriginalRegion,
 }: RegionListProps) => {
-  const { data: regions } = Form.useFieldList<string, schematic.symbol.Region>(
-    `stateOverrides.${selectedState}.regions`,
-  );
+  const list = path.stateOverrides[selectedState].regions;
+  const { data: regions } = Form.useFieldList(list);
   return (
     <Flex.Box y align="stretch">
       {regions.map((region) => (
@@ -152,7 +158,7 @@ const RegionList = ({
           key={region}
           svg={svg}
           onReset={onReset}
-          path={`stateOverrides.${selectedState}.regions.${region}`}
+          path={list[region]}
           getOriginalRegion={getOriginalRegion}
         />
       ))}
@@ -161,28 +167,26 @@ const RegionList = ({
 };
 
 export const StateOverrideForm = (): ReactElement => {
-  const specKey = Form.useFieldValue<string>("specKey");
+  const specKey = Form.useFieldValue(path.specKey);
   const form = Form.useContext();
   const [originalStates, setOriginalStates] = useState<schematic.symbol.State[]>([]);
-  const { data: states } = Form.useFieldList<string, schematic.symbol.State>(
-    "stateOverrides",
-  );
+  const { data: states } = Form.useFieldList(path.stateOverrides);
   const [selectedState, setSelectedState] = useState<string | undefined>(states?.[0]);
 
   const applySymbol = (symbol: schematic.symbol.Symbol) => {
     if (symbol.data == null) return;
     const symbolSpec = symbol.data;
     setOriginalStates(deep.copy(symbolSpec.states));
-    const currentOverrides = form.get<schematic.symbol.State[]>("stateOverrides");
+    const currentOverrides = form.get(path.stateOverrides);
     if (currentOverrides.value?.length === 0) {
-      form.set("stateOverrides", deep.copy(symbolSpec.states));
+      form.set(path.stateOverrides, deep.copy(symbolSpec.states));
       setSelectedState(symbolSpec.states[0].key);
     } else {
       const syncedStates = syncStateOverrides(
         currentOverrides.value,
         symbolSpec.states,
       );
-      form.set("stateOverrides", syncedStates);
+      form.set(path.stateOverrides, syncedStates);
     }
   };
   // A dangling spec key must not throw here: the owner renders a repair form for it.
@@ -192,16 +196,15 @@ export const StateOverrideForm = (): ReactElement => {
     applySymbol(symbol);
   }, [symbol, applySymbol]);
 
-  const resetRegion = (path: string) => {
-    const parsedPath = path.split(".").slice(1).join(".");
-    const prev = deep.get(originalStates, parsedPath, { optional: true });
-    if (prev == null) return;
-    form.set(path, deep.copy(prev));
+  const getOriginalRegion = (path: RegionPath): schematic.symbol.Region | null => {
+    const parsedPath = String(path).split(".").slice(1).join(".");
+    return deep.get(originalStates, parsedPath, { optional: true }) ?? null;
   };
 
-  const getOriginalRegion = (path: string): schematic.symbol.Region | null => {
-    const parsedPath = path.split(".").slice(1).join(".");
-    return deep.get(originalStates, parsedPath, { optional: true }) ?? null;
+  const resetRegion = (path: RegionPath) => {
+    const prev = getOriginalRegion(path);
+    if (prev == null) return;
+    form.set(path, deep.copy(prev));
   };
 
   // The form can swap to a different symbol's overrides beneath the locally

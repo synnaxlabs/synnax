@@ -10,6 +10,7 @@
 import { Form } from "@synnaxlabs/lyra/form";
 import { Select } from "@synnaxlabs/lyra/select";
 import { deep, record } from "@synnaxlabs/x";
+import { type ComponentProps } from "react";
 
 import {
   CI_CHANNEL_SCHEMAS,
@@ -32,28 +33,40 @@ export const channelTypeItems = (types: readonly CIChannelType[]) =>
     );
   });
 
-export const SelectCIChannelTypeField = Form.buildSelectField<CIChannelType>({
-  fieldKey: "type",
-  fieldProps: {
-    label: "Channel type",
-    onChange: (value, { get, set, path }) => {
-      const prevType = get<CIChannelType>(path).value;
-      if (prevType === value) return;
-      const next = createCIChannel(value);
-      const parentPath = path.slice(0, path.lastIndexOf("."));
-      const prevParent = get<CIChannel>(parentPath).value;
-      const schema = CI_CHANNEL_SCHEMAS[value];
-      const nextValue = {
-        ...deep.overrideValidItems(next, prevParent, schema),
-        type: next.type,
-        ...("minVal" in next && { minVal: next.minVal }),
-        ...("maxVal" in next && { maxVal: next.maxVal }),
-      };
-      set(parentPath, nextValue);
-    },
-  },
+const SelectType = Form.buildSelectField<CIChannelType>({
+  fieldProps: { label: "Channel type" },
   inputProps: {
     resourceName: "channel type",
     children: channelTypeItems(record.keys(CI_CHANNEL_TYPE_NAMES)),
   },
 });
+
+export interface SelectCIChannelTypeFieldProps extends Pick<
+  ComponentProps<typeof SelectType>,
+  "inputProps"
+> {
+  path: deep.Path<CIChannel>;
+}
+
+export const SelectCIChannelTypeField = ({
+  path,
+  inputProps,
+}: SelectCIChannelTypeFieldProps) => (
+  <SelectType
+    path={path.type}
+    inputProps={inputProps}
+    onChange={(value, { get, set }) => {
+      const prevType = get(path.type).value;
+      if (prevType === value) return;
+      const next = createCIChannel(value);
+      const prevParent = get(path).value;
+      const schema = CI_CHANNEL_SCHEMAS[value];
+      set(path, {
+        ...deep.overrideValidItems(next, prevParent, schema),
+        type: next.type,
+        ...("minVal" in next && { minVal: next.minVal }),
+        ...("maxVal" in next && { maxVal: next.maxVal }),
+      } as CIChannel);
+    }}
+  />
+);

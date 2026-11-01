@@ -12,13 +12,13 @@ import { Flex } from "@synnaxlabs/lyra/flex";
 import { Form } from "@synnaxlabs/lyra/form";
 import { Header } from "@synnaxlabs/lyra/header";
 import { Icon } from "@synnaxlabs/lyra/icon";
-import { binary } from "@synnaxlabs/x";
+import { binary, type deep } from "@synnaxlabs/x";
 import { type ReactNode } from "react";
 
 import { CSS } from "@/platform/css";
 
 export interface DetailsHeaderProps {
-  path: string;
+  path: deep.Target<unknown>;
   disabled?: boolean;
   /** Names the selected item; shown in place of "Details" while one is selected. */
   children?: ReactNode;
