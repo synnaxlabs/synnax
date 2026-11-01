@@ -30,7 +30,11 @@ export interface HeaderProps extends Omit<
   closeDisabled?: boolean;
 }
 
-const CLOSE_TOOLTIP = <Triggers.Text trigger={Triggers.ESCAPE} level="small" />;
+const CLOSE_TOOLTIP = (
+  <Triggers.Text trigger={Triggers.ESCAPE} level="small">
+    Close
+  </Triggers.Text>
+);
 
 /**
  * Header renders a modal's top title bar: a breadcrumb of the given name, an optional

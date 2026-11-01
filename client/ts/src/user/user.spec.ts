@@ -9,7 +9,7 @@
 
 import { beforeAll, describe, expect, test, vi } from "vitest";
 
-import { NotFoundError, ValidationError } from "@/errors";
+import { NotFoundError, ValidationError } from "@/index";
 import { query } from "@/query";
 import { createTestClient, expectDeleted } from "@/testutil";
 import { type user } from "@/user";

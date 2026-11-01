@@ -64,4 +64,56 @@ describe("List", () => {
     expect(radius(row("3"), "top-left")).toBe("0px");
     expect(radius(row("3"), "bottom-left")).toBe(rounded);
   });
+
+  describe("Columns", () => {
+    const COLUMNS: List.Column[] = [
+      { name: "Type", width: "60rem" },
+      { name: "Channel", width: "minmax(20rem, 1fr)" },
+    ];
+
+    const renderColumns = async (): Promise<(text: string) => Element> => {
+      const { getByText } = await renderThemed(
+        <div style={{ width: "40rem" }}>
+          <List.Columns columns={COLUMNS}>
+            <List.Headings />
+            <List.Frame data={["1"]}>
+              <List.Scroll>
+                <List.Items>
+                  {({ key, ...rest }: List.ItemProps<string>) => (
+                    <List.Item key={key} {...rest}>
+                      <List.Cells>
+                        <List.Cell>type-{key}</List.Cell>
+                        <List.Cell>channel-{key}</List.Cell>
+                      </List.Cells>
+                    </List.Item>
+                  )}
+                </List.Items>
+              </List.Scroll>
+            </List.Frame>
+          </List.Columns>
+        </div>,
+      );
+      return (text) => getByText(text, { exact: true }).element();
+    };
+
+    const left = (el: Element): number => el.getBoundingClientRect().left;
+
+    it("should keep each heading over its column when scrolled to the end", async () => {
+      const find = await renderColumns();
+      const scroll = find("channel-1").closest(".lyra-list__scroll")!;
+      const headings = find("Channel").closest(".lyra-list__headings")!;
+      scroll.scrollLeft = scroll.scrollWidth;
+      headings.scrollLeft = scroll.scrollLeft;
+      expect(scroll.scrollLeft).toBeGreaterThan(0);
+      expect(left(find("Channel"))).toBeCloseTo(left(find("channel-1")), 0);
+    });
+
+    it("should grow an item to hold every column", async () => {
+      const item = (await renderColumns())("type-1").closest(".lyra-list__item")!;
+      const cells = item.querySelector(".lyra-list__cells")!;
+      expect(cells.getBoundingClientRect().right).toBeLessThanOrEqual(
+        item.getBoundingClientRect().right,
+      );
+    });
+  });
 });

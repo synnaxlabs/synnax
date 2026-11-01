@@ -16,7 +16,7 @@ from console.schematic.symbol import Symbol
 class Value(Symbol):
     """Schematic value/telemetry symbol"""
 
-    _symbol_group = "General"
+    _symbol_group: str | None = "General"
 
     def __init__(
         self,
