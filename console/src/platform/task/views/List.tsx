@@ -7,12 +7,18 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
+import { type Component } from "@synnaxlabs/lyra/component";
 import { type List as PList } from "@synnaxlabs/lyra/list";
 import { useState } from "react";
 
 import { type Channel } from "@/platform/task/types";
-import { ChannelList, type ChannelListProps } from "@/platform/task/views/ChannelList";
+import {
+  ChannelList,
+  type ChannelListProps,
+  Header,
+} from "@/platform/task/views/ChannelList";
 import { LIST_CHANNEL_COLUMNS } from "@/platform/task/views/ListChannelItem";
+import { type PortsProps, type View, ViewSwitch } from "@/platform/task/views/Ports";
 
 export interface ListProps<C extends Channel> extends Pick<
   ChannelListProps<C>,
@@ -23,14 +29,37 @@ export interface ListProps<C extends Channel> extends Pick<
    * channel columns follow them.
    */
   columns?: PList.Column[];
+  /**
+   * The channels by port. The header becomes a "Channels" title with a "List" and
+   * "Ports" switch that shows it.
+   */
+  ports?: Component.RenderProp<PortsProps>;
 }
 
-export const List = <C extends Channel>({ columns, ...rest }: ListProps<C>) => {
+export const List = <C extends Channel>({
+  columns,
+  ports,
+  header,
+  ...rest
+}: ListProps<C>) => {
   const [selected, setSelected] = useState<string[]>([]);
+  const [view, setView] = useState<View>("list");
   return (
     <ChannelList<C>
       {...rest}
+      header={
+        ports == null ? (
+          header
+        ) : (
+          <Header actions={<ViewSwitch value={view} onChange={setView} />} />
+        )
+      }
       columns={columns && [...columns, ...LIST_CHANNEL_COLUMNS]}
+      ports={
+        ports != null && view === "ports"
+          ? ports({ selected, onSelect: setSelected })
+          : undefined
+      }
       selected={selected}
       onSelect={setSelected}
     />

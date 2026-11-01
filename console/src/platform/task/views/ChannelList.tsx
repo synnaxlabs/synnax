@@ -21,11 +21,16 @@ import {
 import { type Channel } from "@/platform/task/types";
 import { useIsPreview } from "@/platform/task/useIsPreview";
 
-const Header = () => (
+interface HeaderProps {
+  actions?: ReactNode;
+}
+
+export const Header = ({ actions }: HeaderProps) => (
   <PHeader.Header>
     <PHeader.Title weight={500} color={10}>
       Channels
     </PHeader.Title>
+    {actions != null && <PHeader.Actions>{actions}</PHeader.Actions>}
   </PHeader.Header>
 );
 
@@ -57,6 +62,8 @@ export interface ChannelListProps<C extends Channel> extends Omit<
   createChannel: (channels: C[]) => C | null;
   createChannels?: (channels: C[], keys: string[]) => C[];
   path?: string;
+  /** Shown in place of the items and the "Add channel" footer. */
+  ports?: ReactNode;
 }
 
 export const ChannelList = <C extends Channel>({
@@ -64,6 +71,7 @@ export const ChannelList = <C extends Channel>({
   createChannels,
   path = "config.channels",
   header = HEADER,
+  ports,
   ...rest
 }: ChannelListProps<C>) => {
   const ctx = Form.useContext();
@@ -106,7 +114,8 @@ export const ChannelList = <C extends Channel>({
       data={data}
       header={header}
       emptyContent={EMPTY_CONTENT}
-      footer={<Footer onAdd={handleAdd} />}
+      footer={ports == null && <Footer onAdd={handleAdd} />}
+      ports={ports}
       path={path}
       remove={remove}
       onDuplicate={handleDuplicate}

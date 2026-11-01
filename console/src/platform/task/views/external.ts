@@ -16,3 +16,4 @@ export * from "@/platform/task/views/ListAndDetails";
 export * from "@/platform/task/views/ListAndDetailsChannelItem";
 export * from "@/platform/task/views/ListChannelItem";
 export * from "@/platform/task/views/Panes";
+export type { PortsProps } from "@/platform/task/views/Ports";
