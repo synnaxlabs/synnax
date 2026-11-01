@@ -65,6 +65,7 @@ before the start, as for any writer. Live writers do not change.
 | A commit reaches another claim                           | The commit fails, and the other writer goes on |
 | A live writer moves back over uncommitted time           | The live writer wins, and the commit fails     |
 | A delete reaches committed time while the writer is open | Fails with `ErrUnauthorized`                   |
+| The writer opens on a virtual channel                    | Holds no control, and its samples there drop   |
 
 A failed open replaces two old outcomes: frames dropped with no error, and control taken
 from a task (§1). Python and TypeScript `write` already use `persist`, so they gain the

@@ -41,7 +41,8 @@ const (
 	// WriterModePersistOnly stores samples without streaming them. The writer commands
 	// nothing, so it holds only the time it has committed and can write behind a live
 	// writer. It fails to open when another writer holds its Start, and a commit fails
-	// when it reaches another writer's region. It is absent from control state.
+	// when it reaches another writer's region. It is absent from control state and
+	// ignores virtual channels.
 	WriterModePersistOnly
 	WriterModeStreamOnly
 )
@@ -263,6 +264,9 @@ func (db *DB) newStreamWriter(
 		}
 		var transfer control.Transfer
 		if isVirtual {
+			if !cfg.Mode.Stream() {
+				continue
+			}
 			if virtualWriters == nil {
 				virtualWriters = make(map[ChannelKey]*virtual.Writer)
 			}

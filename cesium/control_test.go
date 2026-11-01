@@ -265,6 +265,41 @@ var _ = Describe("Control", func() {
 						Expect(f.Get(dataCh).Series).To(BeEmpty())
 					},
 				)
+				It(
+					"Should leave a virtual channel to the live writer that holds it",
+					func(ctx SpecContext) {
+						cmd := GenerateChannelKey()
+						Expect(
+							db.CreateChannel(ctx, virtualChannel(cmd, "Command")),
+						).To(Succeed())
+						live := MustSucceed(db.OpenWriter(ctx, cesium.WriterConfig{
+							ControlSubject: xcontrol.Subject{Key: "live", Name: "Live"},
+							Start:          1 * telem.SecondTS,
+							Channels:       []cesium.ChannelKey{cmd},
+							Authorities:    []xcontrol.Authority{1},
+							Sync:           new(true),
+						}))
+						cfg := persistConfig(1 * telem.SecondTS)
+						cfg.Channels = append(keys, cmd)
+						w := MustSucceed(db.OpenWriter(ctx, cfg))
+						Expect(w.Write(telem.MultiFrame(cfg.Channels, []telem.Series{
+							telem.NewSeriesV(1 * telem.SecondTS),
+							telem.NewSeriesV[int16](1),
+							telem.NewSeriesV[int64](2),
+						}))).To(BeTrue())
+						MustSucceed(w.Commit())
+						Expect(live.Write(telem.UnaryFrame(
+							cmd,
+							telem.NewSeriesV[int64](3),
+						))).To(BeTrue())
+						Expect(w.Close()).To(Succeed())
+						Expect(live.Close()).To(Succeed())
+						f := MustSucceed(db.Read(ctx, telem.TimeRangeMax, dataCh))
+						Expect(f.Get(dataCh).Series).To(HaveLen(1))
+						Expect(f.Get(dataCh).Series[0]).
+							To(telem.MatchSeriesDataV[int16](1))
+					},
+				)
 			})
 
 			Describe("Nominal", func() {
