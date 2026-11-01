@@ -377,6 +377,11 @@ class TestChannel:
         with pytest.raises(sy.MultipleFoundError):
             client.channels.retrieve(sy.channel.name.starts_with(prefix), one=True)
 
+    def test_retrieve_one_empty_selector(self, client: sy.Synnax) -> None:
+        """Should raise a not found error when one has an empty selector"""
+        with pytest.raises(sy.NotFoundError, match=r"Channel matching \[\] not found"):
+            client.channels.retrieve([], one=True)  # type: ignore[call-overload]
+
     def test_retrieve_conditions_and_filters(self, client: sy.Synnax) -> None:
         """Should keep the channels that every condition and filter select"""
         prefix = channel_name()
