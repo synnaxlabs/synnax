@@ -732,11 +732,6 @@ export class Client extends query.Retriever<
     this.writeRelationships(range);
   }
 
-  private hydrateRelated(range: Range): void {
-    if (range.labels != null) this.cfg.labels.store.ingest(range.labels);
-    this.writeRelationships(range);
-  }
-
   private writeRelationships(range: Range): void {
     const id = ontologyID(range.key);
     if (range.labels != null)
@@ -764,29 +759,36 @@ export class Client extends query.Retriever<
     }
   }
 
-  // Leaves the ranges to the caller, which ingests them under a stamp taken before the
-  // fetch so that a write landing during the fetch is not reverted.
-  private hydrateRelatedMany(ranges: Range[]): void {
-    this.cfg.labels.store.batch(() =>
-      this.cfg.ontology.cache.relationships.batch(() =>
-        ranges.forEach((r) => {
-          if (this.store.status(r.key) !== "tombstoned") this.hydrateRelated(r);
+  // One batch per table, so each table flushes once. The ranges go first, so the
+  // relationship backfill finds parents in this response. A range written after since
+  // keeps that write, since the fetch predates it.
+  private hydrateMany(ranges: Range[], since: query.Stamp): void {
+    this.store.batch(() =>
+      this.cfg.labels.store.batch(() =>
+        this.cfg.ontology.cache.relationships.batch(() => {
+          this.store.ingest(ranges, { since });
+          ranges.forEach((r) => {
+            if (this.store.status(r.key) === "tombstoned") return;
+            if (r.labels != null) this.cfg.labels.store.ingest(r.labels);
+            this.writeRelationships(r);
+          });
         }),
       ),
     );
   }
 
   /**
-   * Fetches the given keys with labels and parents included, writing their labels and
-   * relationships through. Powers the table's fetch primitive.
+   * Fetches the given keys with labels and parents included, writing them and
+   * their relationships through. Powers the table's fetch primitive.
    */
   private async fetchThrough(keys: Key[]): Promise<Range[]> {
+    const since = this.store.stamp();
     const ranges = await this.execRetrieve({
       ...BASE_REQUEST,
       keys,
       ignoreNotFoundError: true,
     });
-    this.hydrateRelatedMany(ranges);
+    this.hydrateMany(ranges, since);
     return ranges;
   }
 
@@ -801,8 +803,7 @@ export class Client extends query.Retriever<
     const since = this.store.stamp();
     const ranges = await this.execRetrieve({ ...BASE_REQUEST, names: [query] });
     checkForMultipleOrNoResults("Range", query, ranges, true);
-    this.hydrateRelatedMany(ranges);
-    this.store.ingest(ranges, { since });
+    this.hydrateMany(ranges, since);
     return ranges[0];
   }
 
@@ -825,8 +826,9 @@ export class Client extends query.Retriever<
 
   private async fetchRequest(query: RetrieveRequest): Promise<Range[]> {
     if (isKeysOnly(query)) return await this.store.retrieve(query.keys);
+    const since = this.store.stamp();
     const ranges = await this.execRetrieve({ ...BASE_REQUEST, ...query });
-    this.hydrateRelatedMany(ranges);
+    this.hydrateMany(ranges, since);
     return ranges;
   }
 
