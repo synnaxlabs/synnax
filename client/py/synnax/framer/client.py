@@ -96,8 +96,8 @@ class Client:
 
     def open_writer(
         self,
-        start: CrudeTimeStamp,
-        channels: channel.Params,
+        start: CrudeTimeStamp | None = None,
+        channels: channel.Params | None = None,
         *,
         authorities: CrudeAuthority | list[CrudeAuthority] = Authority.ABSOLUTE,
         name: str = "",
@@ -113,9 +113,10 @@ class Client:
     ) -> Writer:
         """Opens a new writer on the given channels.
 
-        :param start: Sets the starting timestamp for the first sample in the writer. If
-        this timestamp overlaps with existing data for ANY of the provided channels, the
-        writer will fail to open.
+        :param start: Sets where the writer's control region begins. Defaults to the
+        time the writer opens on the Core. A writer fails to open when stored data on
+        any of its channels holds start. A writer that writes data channels without
+        their index needs a start, and it must be a sample of that index.
         :param channels: The channels to write to. This can be a single channel name, a
         list of channel names, a single channel key, or a list of channel keys. :param
         authorities: The control authority to set for each channel on the writer.
@@ -146,6 +147,8 @@ class Client:
         channels whose index channels are not included, those index channels are added
         to the writer implicitly.
         """
+        if channels is None:
+            raise ValidationError("open_writer requires channels")
         adapter = WriteFrameAdapter(
             retriever=self._channels,
             err_on_extra_chans=err_on_extra_chans,

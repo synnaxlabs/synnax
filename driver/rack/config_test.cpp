@@ -24,7 +24,7 @@ namespace driver::rack {
 const std::string STATE_PATH = "/tmp/rack-config-test/state.json";
 
 synnax::Config key_conn(const std::string &key) {
-    auto conn = test_client_config;
+    auto conn = test_client_config();
     conn.api_key = key;
     return conn;
 }
@@ -151,7 +151,7 @@ TEST_F(RackConfigTest, EnrollKeepsSavedRackWhenKeyDenied) {
     const auto cluster_key = ASSERT_NIL_P(
         x::uuid::UUID::parse(client.connectivity->check().cluster_key)
     );
-    auto conn = test_client_config;
+    auto conn = test_client_config();
     conn.api_key = caller_key.token;
     Config cfg{
         .remote_info = {.rack_key = saved.key, .cluster_key = cluster_key},
