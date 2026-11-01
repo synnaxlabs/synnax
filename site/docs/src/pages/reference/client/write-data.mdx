@@ -306,7 +306,10 @@ warning, it can lose the samples of the last interval.
 Set <Client.Var py="mode" ts="mode" /> when you open the writer:
 
 - `persist` -> the Core stores the samples, but does not send them to streamers. Use it
-  for historical data.
+  for historical data. A `persist` writer can fill a gap before a live writer's session
+  while that writer runs: set <Client.Var py="start" ts="start" /> to the first
+  timestamp of the gap. It fails to open when another writer holds that time, and it
+  never takes control from another writer.
 - `stream` -> the Core sends the samples to streamers, but does not store them. `commit`
   has no effect. Use it for data that you need only live.
 - <Client.Var py="persist_stream" ts="persistStream" /> -> the Core stores the samples
