@@ -84,16 +84,11 @@ func (g *Gate[R]) Authorize() (r R, err error) {
 	)
 }
 
-// Extend moves the start of the gate's region back to start. It does nothing when the
-// region already holds start, and fails when the region would reach another region.
-func (g *Gate[R]) Extend(start telem.TimeStamp) error {
-	return g.region.controller.extend(g.region, start)
-}
-
-// Advance moves the start of the gate's region forward to start, which frees the time
-// before it. It does nothing when the region is bounded, or does not hold start.
-func (g *Gate[R]) Advance(start telem.TimeStamp) {
-	g.region.controller.advance(g.region, start)
+// MoveStart moves the start of the gate's region to start, which frees any time before
+// it. It fails when the region would reach another region. A bounded region only moves
+// back, and a start at or after the end of the region does nothing.
+func (g *Gate[R]) MoveStart(start telem.TimeStamp) error {
+	return g.region.controller.moveStart(g.region, start)
 }
 
 // Reach moves the end of the gate's region forward to end. It does nothing when the

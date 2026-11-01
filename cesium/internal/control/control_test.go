@@ -314,25 +314,18 @@ var _ = Describe("Control", func() {
 			g.Release()
 		}
 
-		Describe("Extend", func() {
+		Describe("MoveStart", func() {
 			It("Should move the start of the region back", func() {
 				g := openAt("test", telem.NewRangeSeconds(10, 20))
 				expectControlled(telem.NewRangeSeconds(5, 6), false)
-				Expect(g.Extend(5 * telem.SecondTS)).To(Succeed())
+				Expect(g.MoveStart(5 * telem.SecondTS)).To(Succeed())
 				expectControlled(telem.NewRangeSeconds(5, 6), true)
 				expectControlled(telem.NewRangeSeconds(1, 5), false)
-			})
-			It("Should do nothing when the region already holds the start", func() {
-				g := openAt("test", telem.NewRangeSeconds(10, 20))
-				Expect(g.Extend(15 * telem.SecondTS)).To(Succeed())
-				Expect(g.Extend(30 * telem.SecondTS)).To(Succeed())
-				expectControlled(telem.NewRangeSeconds(5, 6), false)
-				expectControlled(telem.NewRangeSeconds(20, 40), false)
 			})
 			It("Should not move the region into another region", func() {
 				other := openAt("other", telem.NewRangeSeconds(1, 3))
 				g := openAt("test", telem.NewRangeSeconds(10, 20))
-				Expect(g.Extend(2 * telem.SecondTS)).To(And(
+				Expect(g.MoveStart(2 * telem.SecondTS)).To(And(
 					MatchError(validate.ErrValidation),
 					MatchError(ContainSubstring(fmt.Sprintf(
 						"cannot write to time range %v because writer %v holds it",
@@ -345,8 +338,55 @@ var _ = Describe("Control", func() {
 			It("Should move the region up to the end of another region", func() {
 				openAt("other", telem.NewRangeSeconds(1, 3))
 				g := openAt("test", telem.NewRangeSeconds(10, 20))
-				Expect(g.Extend(3 * telem.SecondTS)).To(Succeed())
+				Expect(g.MoveStart(3 * telem.SecondTS)).To(Succeed())
 				expectControlled(telem.NewRangeSeconds(3, 4), true)
+			})
+			It("Should free the time before the new start", func() {
+				g := openAt("live", telem.NewRangeSeconds(1, 20))
+				Expect(g.MoveStart(10 * telem.SecondTS)).To(Succeed())
+				expectControlled(telem.NewRangeSeconds(1, 10), false)
+				expectControlled(telem.NewRangeSeconds(10, 11), true)
+			})
+			It("Should do nothing for a start at the end of the region", func() {
+				g := openAt("live", telem.NewRangeSeconds(1, 20))
+				Expect(g.MoveStart(20 * telem.SecondTS)).To(Succeed())
+				expectControlled(telem.NewRangeSeconds(1, 2), true)
+			})
+			It("Should not move the start of a bounded region forward", func() {
+				cfg, _ := baseConfig(1)
+				cfg.Subject.Key = "backfill"
+				cfg.TimeRange = telem.NewRangeSeconds(1, 20)
+				cfg.Bounded = new(true)
+				g, _ := MustSucceed2(c.OpenGate(cfg))
+				Expect(g.MoveStart(10 * telem.SecondTS)).To(Succeed())
+				expectControlled(telem.NewRangeSeconds(1, 2), true)
+			})
+			It("Should let a bounded gate open in the time it frees", func() {
+				g := openAt("live", telem.NewRangeSeconds(1, 20))
+				Expect(g.MoveStart(10 * telem.SecondTS)).To(Succeed())
+				cfg, _ := baseConfig(2)
+				cfg.Subject.Key = "backfill"
+				cfg.TimeRange = telem.NewRangeSeconds(5, 6)
+				cfg.Bounded = new(true)
+				backfill, _ := MustSucceed2(c.OpenGate(cfg))
+				MustSucceed(backfill.Authorize())
+				MustSucceed(g.Authorize())
+			})
+			It("Should not race with a concurrent lookup", func() {
+				g := openAt("live", telem.NewRangeSeconds(1, 2000))
+				var wg sync.WaitGroup
+				wg.Go(func() {
+					defer GinkgoRecover()
+					for i := range telem.TimeStamp(500) {
+						Expect(g.MoveStart(telem.SecondTS * (2 + i))).To(Succeed())
+					}
+				})
+				wg.Go(func() {
+					for range 500 {
+						c.ResourceAt(telem.NewRangeSeconds(1, 2))
+					}
+				})
+				wg.Wait()
 			})
 		})
 
@@ -379,61 +419,6 @@ var _ = Describe("Control", func() {
 				g := openAt("test", telem.NewRangeSeconds(10, 20))
 				Expect(g.Reach(30 * telem.SecondTS)).To(Succeed())
 				expectControlled(telem.NewRangeSeconds(29, 30), true)
-			})
-		})
-
-		Describe("Advance", func() {
-			It("Should free the time before the new start", func() {
-				g := openAt("live", telem.NewRangeSeconds(1, 20))
-				g.Advance(10 * telem.SecondTS)
-				expectControlled(telem.NewRangeSeconds(1, 10), false)
-				expectControlled(telem.NewRangeSeconds(10, 11), true)
-			})
-			It("Should do nothing for a start before the region", func() {
-				g := openAt("live", telem.NewRangeSeconds(10, 20))
-				g.Advance(1 * telem.SecondTS)
-				expectControlled(telem.NewRangeSeconds(1, 10), false)
-				expectControlled(telem.NewRangeSeconds(10, 11), true)
-			})
-			It("Should do nothing for a start at the end of the region", func() {
-				g := openAt("live", telem.NewRangeSeconds(1, 20))
-				g.Advance(20 * telem.SecondTS)
-				expectControlled(telem.NewRangeSeconds(1, 2), true)
-			})
-			It("Should do nothing to a bounded region", func() {
-				cfg, _ := baseConfig(1)
-				cfg.Subject.Key = "backfill"
-				cfg.TimeRange = telem.NewRangeSeconds(1, 20)
-				cfg.Bounded = new(true)
-				g, _ := MustSucceed2(c.OpenGate(cfg))
-				g.Advance(10 * telem.SecondTS)
-				expectControlled(telem.NewRangeSeconds(1, 2), true)
-			})
-			It("Should let a bounded gate open in the time it frees", func() {
-				g := openAt("live", telem.NewRangeSeconds(1, 20))
-				g.Advance(10 * telem.SecondTS)
-				cfg, _ := baseConfig(2)
-				cfg.Subject.Key = "backfill"
-				cfg.TimeRange = telem.NewRangeSeconds(5, 6)
-				cfg.Bounded = new(true)
-				backfill, _ := MustSucceed2(c.OpenGate(cfg))
-				MustSucceed(backfill.Authorize())
-				MustSucceed(g.Authorize())
-			})
-			It("Should not race with a concurrent lookup", func() {
-				g := openAt("live", telem.NewRangeSeconds(1, 2000))
-				var wg sync.WaitGroup
-				wg.Go(func() {
-					for i := range telem.TimeStamp(500) {
-						g.Advance(telem.SecondTS * (2 + i))
-					}
-				})
-				wg.Go(func() {
-					for range 500 {
-						c.ResourceAt(telem.NewRangeSeconds(1, 2))
-					}
-				})
-				wg.Wait()
 			})
 		})
 
@@ -511,7 +496,7 @@ var _ = Describe("Control", func() {
 			It("Should extend an unbounded region over a bounded region", func() {
 				g := openBounded("backfill", telem.NewRangeSeconds(5, 6))
 				live := openAt("live", telem.NewRangeSeconds(10, 20))
-				Expect(live.Extend(1 * telem.SecondTS)).To(Succeed())
+				Expect(live.MoveStart(1 * telem.SecondTS)).To(Succeed())
 				Expect(g.Reach(7 * telem.SecondTS)).To(And(
 					MatchError(validate.ErrValidation),
 					MatchError(ContainSubstring("cannot write to time range")),
@@ -527,7 +512,7 @@ var _ = Describe("Control", func() {
 				cfg.Subject.Key = "live"
 				cfg.TimeRange = telem.NewRangeSeconds(10, 20)
 				live, _ := MustSucceed2(c.OpenGate(cfg))
-				Expect(live.Extend(1 * telem.SecondTS)).To(Succeed())
+				Expect(live.MoveStart(1 * telem.SecondTS)).To(Succeed())
 				res, ok := c.ResourceAt(telem.NewRangeSeconds(5, 6))
 				Expect(ok).To(BeTrue())
 				Expect(res.value).To(Equal(2))

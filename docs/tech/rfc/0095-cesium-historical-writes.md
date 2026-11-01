@@ -52,7 +52,7 @@ commit fails. Three things need to write old data next to a live writer:
 
 A persist writer claims one nanosecond at its start
 (`cesium/internal/unary/writer.go:133`). Each commit moves the end of the claim forward
-to the end of the commit (`:482`). The first sample moves the start back if it comes
+to the end of the commit (`:481`). The first sample moves the start back if it comes
 before the start, as for any writer. Live writers do not change.
 
 | Case                                                     | Result                                         |

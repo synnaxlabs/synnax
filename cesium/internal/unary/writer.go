@@ -345,11 +345,10 @@ func (w *Writer) write(
 		return 0, w.wrapError(err)
 	}
 	if *w.cfg.Persist && dw.Len() == 0 {
-		// Extend first, so that no delete can reach the domain setStart checks.
-		if err = w.control.Extend(w.domainStart); err != nil {
+		// Move first, so that no delete can reach the domain setStart checks.
+		if err = w.control.MoveStart(w.domainStart); err != nil {
 			return 0, w.wrapError(err)
 		}
-		w.control.Advance(w.domainStart)
 		if err = dw.setStart(w.domainStart); err != nil {
 			return 0, w.wrapError(err)
 		}
