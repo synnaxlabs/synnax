@@ -67,9 +67,12 @@ func (s *synchronizer) sync(_ context.Context, res Response) (Response, bool, er
 	if res.Command == CommandCommit && res.End > s.cycle.res.End {
 		s.cycle.res.End = res.End
 	}
+	if s.cycle.res.Err == nil {
+		s.cycle.res.Err = res.Err
+	}
 	fulfilled := s.cycle.counter == s.nodeCount
 	if fulfilled {
 		s.cycle.counter = 0
 	}
-	return res, fulfilled, nil
+	return s.cycle.res, fulfilled, nil
 }

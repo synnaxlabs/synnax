@@ -146,10 +146,10 @@ class Writer:
     https://docs.synnaxlabs.com/reference/client/write-data. A rough summary of the
     write process is detailed below:
 
-    1. The writer is opened with a starting timestamp and a list of channel keys (or
-    names). The writer will fail to open if the starting timestamp overlaps with any
-    existing telemetry for any of the channels specified. If the writer is opened
-    successfully, the caller is then free to write frames to the writer.
+    1. The writer is opened with a list of channel keys (or names). Each index starts
+    at the first timestamp written to it, and a write fails if it overlaps existing
+    telemetry. If the writer is opened successfully, the caller is then free to write
+    frames to the writer.
 
     2. To write a frame, the caller can use the write method and follow the validation
     rules described in the method's documentation. This process is asynchronous, meaning
@@ -178,12 +178,12 @@ class Writer:
     _registry: Registry
     _close_exc: Exception | None = None
 
-    start: CrudeTimeStamp
+    start: CrudeTimeStamp | None
 
     def __init__(
         self,
         *,
-        start: CrudeTimeStamp,
+        start: CrudeTimeStamp | None,
         client: WebsocketClient,
         registry: Registry,
         adapter: WriteFrameAdapter,
@@ -204,7 +204,7 @@ class Writer:
         config = WriterConfig(
             control_subject=Subject(name=name, key=str(uuid4()), group=group),
             keys=self._adapter.keys,
-            start=TimeStamp(self.start),
+            start=None if self.start is None else TimeStamp(self.start),
             authorities=normalize(authorities),
             mode=_parse_writer_mode(mode),
             err_on_unauthorized=err_on_unauthorized,

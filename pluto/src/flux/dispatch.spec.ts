@@ -9,7 +9,7 @@
 
 import { actions, query, schematic } from "@synnaxlabs/client";
 import { createTestClient } from "@synnaxlabs/client/testutil";
-import { array, uuid } from "@synnaxlabs/x";
+import { array, destructor, uuid } from "@synnaxlabs/x";
 import { act, renderHook, waitFor } from "@testing-library/react";
 import { describe, expect, it, type Mock, vi } from "vitest";
 
@@ -47,9 +47,13 @@ const createHarness = (send: SendFn): Harness => {
   >({
     store: docs,
     onError,
+    onEpoch: () => destructor.NOOP,
     reduce: schematic.reduceAll,
     kindOf: schematic.kindOf,
-    send: async (_, actions) => await send(actions),
+    send: async (_, actions) => {
+      await send(actions);
+      return [];
+    },
   });
   const domain: Domain = {
     dispatch: async (key, actions, opts) =>
