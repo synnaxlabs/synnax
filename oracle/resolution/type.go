@@ -70,8 +70,15 @@ var operatorMembers = map[string][]string{
 	OperatorSet:      {"eq", "in"},
 	OperatorOrdered:  {"eq", "in", "gt", "gte", "lt", "lte"},
 	OperatorContains: {"any"},
-	OperatorString:   {"eq", "in", "regex"},
-	OperatorBool:     {"eq"},
+	OperatorString: {
+		"eq",
+		"in",
+		"contains",
+		"starts_with",
+		"regex",
+		"case_insensitive",
+	},
+	OperatorBool: {"eq"},
 }
 
 // OperatorMembers returns the members that the interpreters of the operator type op
