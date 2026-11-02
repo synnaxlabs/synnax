@@ -344,6 +344,14 @@ func bareLineOperator(
 		)
 	}
 	if ref.Name == "Array" && len(ref.TypeArgs) == 1 {
+		if ref.ArraySize != nil {
+			return report(
+				"%s.%s is a fixed-size array, which bare lines do not support; give "+
+					"the line a type to make it a typed line",
+				target.Name,
+				field.Name,
+			)
+		}
 		if !isComparable(ref.TypeArgs[0], c.table) {
 			return report(
 				"%s.%s has elements that cannot be compared; give the line a type to "+
