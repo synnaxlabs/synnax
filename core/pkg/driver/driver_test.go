@@ -30,6 +30,8 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/service/auth"
 	"github.com/synnaxlabs/synnax/pkg/service/auth/apikey"
 	"github.com/synnaxlabs/synnax/pkg/service/rack"
+	xfs "github.com/synnaxlabs/x/io/fs"
+	fstestutil "github.com/synnaxlabs/x/io/fs/testutil"
 	. "github.com/synnaxlabs/x/testutil"
 	"go.uber.org/zap"
 	"go.uber.org/zap/zapcore"
@@ -72,13 +74,9 @@ func newTestLogger() (*alamos.Logger, *syncBuffer) {
 
 var rackKey = rack.NewKey(1, 1)
 
-func openMockDriver(
-	ctx context.Context,
-	logger *alamos.Logger,
-	overrides ...driver.Config,
-) *driver.Driver {
-	GinkgoHelper()
-	base := driver.Config{
+// mockConfig returns a config that starts the mock Driver in new directories.
+func mockConfig(logger *alamos.Logger) driver.Config {
+	return driver.Config{
 		Instrumentation: alamos.New("test", alamos.WithLogger(logger)),
 		FS:              mockFS,
 		Insecure:        new(true),
@@ -88,8 +86,32 @@ func openMockDriver(
 		Keys:            keys,
 		RackKey:         rackKey,
 	}
-	cfgs := append([]driver.Config{base}, overrides...)
+}
+
+func openMockDriver(
+	ctx context.Context,
+	logger *alamos.Logger,
+	overrides ...driver.Config,
+) *driver.Driver {
+	GinkgoHelper()
+	cfgs := append([]driver.Config{mockConfig(logger)}, overrides...)
 	return MustSucceed(driver.Open(ctx, cfgs...))
+}
+
+// racingFS reports a failed rename after it renames, as when another Core writes the
+// same binary first and the rename onto it fails.
+type racingFS struct{ xfs.FS }
+
+func (r racingFS) Sub(name string) (xfs.FS, error) {
+	sub, err := r.FS.Sub(name)
+	return racingFS{FS: sub}, err
+}
+
+func (r racingFS) Rename(oldPath, newPath string) error {
+	if err := r.FS.Rename(oldPath, newPath); err != nil {
+		return err
+	}
+	return fstestutil.ErrFault
 }
 
 var _ = Describe("Open", func() {
@@ -255,6 +277,25 @@ var _ = Describe("Open", func() {
 	})
 
 	Describe("startup failures", func() {
+		DescribeTable(
+			"Should fail to start when the binary cannot be extracted",
+			func(ctx SpecContext, opt fstestutil.FaultyFSOption) {
+				logger, _ := newTestLogger()
+				binDir := GinkgoT().TempDir()
+				binFS := fstestutil.WrapFaultyFS(xfs.Default, opt)
+				Expect(driver.Open(ctx, mockConfig(logger), driver.Config{
+					BinaryDirname: binDir,
+					BinaryFS:      binFS,
+				})).Error().To(MatchError(fstestutil.ErrFault))
+				Expect(binFS.OpenFiles()).To(BeZero())
+				Expect(os.ReadDir(binDir)).To(BeEmpty())
+			},
+			Entry("stat", fstestutil.WithFailStat()),
+			Entry("create", fstestutil.WithFailOpen()),
+			Entry("write", fstestutil.WithFailWrite()),
+			Entry("rename", fstestutil.WithFailRename()),
+		)
+
 		It(
 			"Should fail to start when the binary is missing from the filesystem",
 			func(ctx SpecContext) {
@@ -476,20 +517,43 @@ var _ = Describe("Open", func() {
 			Expect(extractedBinary(binDir)).To(BeAnExistingFile())
 		})
 
-		It("Should start when an old binary cannot be removed", func(
+		DescribeTable(
+			"Should start when old binaries cannot be cleaned up",
+			func(ctx SpecContext, opt fstestutil.FaultyFSOption, message string) {
+				logger, buffer := newTestLogger()
+				binDir := GinkgoT().TempDir()
+				stale := filepath.Join(binDir, oldBinaryName())
+				Expect(os.WriteFile(stale, []byte("old"), 0o700)).To(Succeed())
+				Expect(openMockDriver(ctx, logger, driver.Config{
+					BinaryDirname: binDir,
+					BinaryFS:      fstestutil.WrapFaultyFS(xfs.Default, opt),
+				}).Close()).To(Succeed())
+				Expect(stale).To(BeAnExistingFile())
+				Expect(buffer.String()).To(ContainSubstring(message))
+			},
+			Entry(
+				"list",
+				fstestutil.WithFailList(),
+				"failed to list old Driver binaries",
+			),
+			Entry(
+				"remove",
+				fstestutil.WithFailRemove(),
+				"failed to remove old Driver binary",
+			),
+		)
+
+		It("Should use a binary that another Core wrote first", func(
 			ctx SpecContext,
 		) {
-			logger, buffer := newTestLogger()
+			logger, _ := newTestLogger()
 			binDir := GinkgoT().TempDir()
-			// A non-empty directory cannot be removed with os.Remove.
-			stuck := filepath.Join(binDir, oldBinaryName())
-			Expect(os.MkdirAll(filepath.Join(stuck, "child"), 0o700)).To(Succeed())
-			Expect(openMockDriver(ctx, logger, driver.Config{BinaryDirname: binDir}).
-				Close()).To(Succeed())
-			Expect(stuck).To(BeADirectory())
-			Expect(buffer.String()).To(ContainSubstring(
-				"failed to remove old Driver binary",
-			))
+			Expect(openMockDriver(ctx, logger, driver.Config{
+				BinaryDirname: binDir,
+				BinaryFS:      racingFS{FS: xfs.Default},
+			}).Close()).To(Succeed())
+			Expect(os.ReadDir(binDir)).To(HaveLen(1))
+			Expect(extractedBinary(binDir)).To(BeAnExistingFile())
 		})
 
 		It("Should write no trust anchors in insecure mode", func(ctx SpecContext) {

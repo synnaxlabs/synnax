@@ -11,6 +11,7 @@ package driver
 
 import (
 	"context"
+	"crypto/rand"
 	"crypto/sha256"
 	"encoding/hex"
 	"encoding/json/v2"
@@ -93,6 +94,8 @@ type Config struct {
 	// BinaryDirname is the directory that keeps extracted Driver binaries between
 	// starts. Several Cores on one host may share it.
 	BinaryDirname string `json:"-"`
+	// BinaryFS is the file system that holds BinaryDirname.
+	BinaryFS xfs.FS `json:"-"`
 	// Integrations define which device integrations are enabled.
 	Integrations []string `json:"integrations"`
 	// StartTimeout sets the maximum acceptable time to wait for the Driver to bootup
@@ -165,6 +168,7 @@ var (
 	}
 	DefaultConfig = Config{
 		Integrations:         []string{},
+		BinaryFS:             xfs.Default,
 		Enabled:              new(true),
 		Detached:             new(false),
 		Debug:                new(false),
@@ -197,6 +201,7 @@ func (c Config) Override(other Config) Config {
 	c.ParentDirname = override.String(c.ParentDirname, other.ParentDirname)
 	c.FS = override.Nil(c.FS, other.FS)
 	c.BinaryDirname = override.String(c.BinaryDirname, other.BinaryDirname)
+	c.BinaryFS = override.Nil(c.BinaryFS, other.BinaryFS)
 	c.TaskOpTimeout = override.Numeric(c.TaskOpTimeout, other.TaskOpTimeout)
 	c.TaskPollInterval = override.Numeric(c.TaskPollInterval, other.TaskPollInterval)
 	c.TaskShutdownTimeout = override.Numeric(
@@ -232,6 +237,7 @@ func (c Config) Validate() error {
 	v.NotNil("debug", c.Debug)
 	v.NotEmptyString("parent_dirname", c.ParentDirname)
 	v.NotEmptyString("binary_dirname", c.BinaryDirname)
+	v.NotNil("binary_fs", c.BinaryFS)
 	v.InBounds("task_worker_count", c.TaskWorkerCount, 1, 64)
 	return v.Error()
 }
@@ -630,8 +636,8 @@ const binaryHashLen = 16
 // extracted, so each launch runs the same file. It removes the other Driver binaries in
 // BinaryDirname.
 func (d *Driver) extractBinary() (string, error) {
-	dir := d.cfg.BinaryDirname
-	if err := os.MkdirAll(dir, xfs.UserRWX); err != nil {
+	binFS, err := d.cfg.BinaryFS.Sub(d.cfg.BinaryDirname)
+	if err != nil {
 		return "", err
 	}
 	data, err := fs.ReadFile(d.cfg.FS, driverName)
@@ -641,51 +647,49 @@ func (d *Driver) extractBinary() (string, error) {
 	sum := sha256.Sum256(data)
 	name := binaryPrefix + hex.EncodeToString(sum[:])[:binaryHashLen] +
 		filepath.Ext(driverName)
-	path := filepath.Join(dir, name)
-	if _, err = os.Stat(path); errors.Is(err, fs.ErrNotExist) {
-		err = writeBinary(path, data)
+	if _, err = binFS.Stat(name); errors.Is(err, fs.ErrNotExist) {
+		err = writeBinary(binFS, name, data)
 	}
 	if err != nil {
 		return "", err
 	}
-	d.removeOldBinaries(dir, name)
-	return path, nil
+	d.removeOldBinaries(binFS, name)
+	return filepath.Join(d.cfg.BinaryDirname, name), nil
 }
 
-// writeBinary writes data to path through a uniquely named temp file, so concurrent
-// writers never share a temp file and path never holds a partial binary. A path that
+// writeBinary writes data to name through a uniquely named temp file, so concurrent
+// writers never share a temp file and name never holds a partial binary. A name that
 // exists after a failed rename was written by another Core with the same content.
-func writeBinary(path string, data []byte) error {
-	f, err := os.CreateTemp(filepath.Dir(path), filepath.Base(path)+".*.tmp")
+func writeBinary(binFS xfs.FS, name string, data []byte) error {
+	tmp := name + "." + rand.Text() + ".tmp"
+	f, err := binFS.Open(tmp, os.O_CREATE|os.O_EXCL|os.O_WRONLY)
 	if err != nil {
 		return err
 	}
 	_, err = f.Write(data)
-	err = errors.Combine(err, f.Chmod(xfs.UserRWX))
-	err = errors.Combine(err, f.Close())
-	if err == nil {
-		if err = os.Rename(f.Name(), path); err == nil {
+	if err = errors.Combine(err, f.Close()); err == nil {
+		if err = binFS.Rename(tmp, name); err == nil {
 			return nil
 		}
 		// On Windows, a rename onto a binary that another Core runs fails.
-		if _, statErr := os.Stat(path); statErr == nil {
+		if _, statErr := binFS.Stat(name); statErr == nil {
 			err = nil
 		}
 	}
-	return errors.Combine(err, os.Remove(f.Name()))
+	return errors.Combine(err, binFS.Remove(tmp))
 }
 
-// removeOldBinaries removes the Driver binaries in dir other than keep. It leaves temp
-// files alone, since another Core may be writing them.
-func (d *Driver) removeOldBinaries(dir, keep string) {
-	entries, err := os.ReadDir(dir)
+// removeOldBinaries removes the Driver binaries in binFS other than keep. It leaves
+// temp files alone, since another Core may be writing them.
+func (d *Driver) removeOldBinaries(binFS xfs.FS, keep string) {
+	infos, err := binFS.List("")
 	if err != nil {
 		d.cfg.L.Warn("failed to list old Driver binaries", zap.Error(err))
 		return
 	}
 	ext := filepath.Ext(driverName)
-	for _, e := range entries {
-		name := e.Name()
+	for _, info := range infos {
+		name := info.Name()
 		if name == keep ||
 			!strings.HasPrefix(name, binaryPrefix) ||
 			!strings.HasSuffix(name, ext) ||
@@ -693,10 +697,10 @@ func (d *Driver) removeOldBinaries(dir, keep string) {
 			continue
 		}
 		// A binary that another Core runs cannot be removed on Windows.
-		if err = os.Remove(filepath.Join(dir, name)); err != nil {
+		if err = binFS.Remove(name); err != nil {
 			d.cfg.L.Warn(
 				"failed to remove old Driver binary",
-				zap.String("path", filepath.Join(dir, name)),
+				zap.String("path", filepath.Join(d.cfg.BinaryDirname, name)),
 				zap.Error(err),
 			)
 		}
