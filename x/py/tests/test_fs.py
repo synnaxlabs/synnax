@@ -7,12 +7,26 @@
 #  License, use of this software will be governed by the Apache License, Version 2.0,
 #  included in the file licenses/APL.txt.
 
+import os
+import stat
+import sys
 from collections.abc import Iterator
 from pathlib import Path
 
 import pytest
 
 from x.fs import stream_to_file
+
+
+@pytest.fixture
+def umask() -> Iterator[None]:
+    previous = os.umask(0o027)
+    yield
+    os.umask(previous)
+
+
+def _mode(path: Path) -> int:
+    return stat.S_IMODE(path.stat().st_mode)
 
 
 class TestStreamToFile:
@@ -71,3 +85,22 @@ class TestStreamToFile:
             stream_to_file(chunks(), dest)
         assert dest.read_bytes() == b'{"old": true}'
         assert list(tmp_path.glob("*.part")) == []
+
+    @pytest.mark.skipif(sys.platform == "win32", reason="POSIX file modes")
+    @pytest.mark.usefixtures("umask")
+    def test_new_dest_mode_follows_umask(self, tmp_path: Path) -> None:
+        """Should create dest with the mode that open() gives a new file."""
+        dest = tmp_path / "out.json"
+        stream_to_file([b"{}"], dest)
+        expected = tmp_path / "expected.json"
+        expected.write_bytes(b"{}")
+        assert _mode(dest) == _mode(expected) == 0o640
+
+    @pytest.mark.skipif(sys.platform == "win32", reason="POSIX file modes")
+    def test_keeps_existing_dest_mode(self, tmp_path: Path) -> None:
+        """Should keep the mode of the dest that it replaces."""
+        dest = tmp_path / "out.json"
+        dest.write_bytes(b'{"old": true}')
+        dest.chmod(0o604)
+        stream_to_file([b'{"new": true}'], dest)
+        assert _mode(dest) == 0o604
