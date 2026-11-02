@@ -11,7 +11,7 @@
 
 from __future__ import annotations
 
-from typing import Annotated, Literal, TypeAlias
+from typing import Annotated, Literal, TypeAlias, override
 from uuid import UUID, uuid4
 
 from pydantic import BaseModel, Field
@@ -55,6 +55,7 @@ class Base(BaseModel):
     key: Key = Field(default_factory=uuid4)
     name: str
 
+    @override
     def __hash__(self) -> int:
         return hash(self.key)
 

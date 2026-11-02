@@ -11,7 +11,7 @@
 
 from __future__ import annotations
 
-from typing import Annotated, Literal
+from typing import Annotated, Literal, override
 from uuid import uuid4
 
 from pydantic import BaseModel, Field, JsonValue
@@ -122,6 +122,7 @@ class BaseWriteField(BaseModel):
     key: str = Field(default_factory=lambda: str(uuid4()))
     pointer: str = ""
 
+    @override
     def __hash__(self) -> int:
         return hash(self.key)
 
@@ -129,6 +130,7 @@ class BaseWriteField(BaseModel):
 class ScanConfig(task.ScanConfig):
     """Configures an HTTP scan task."""
 
+    @override
     def __hash__(self) -> int:
         return hash(self.key)
 
@@ -157,6 +159,7 @@ class ReadField(BaseModel):
     time_format: TimeFormat | None = None
     enum_values: list[EnumEntry] = Field(default_factory=list)
 
+    @override
     def __hash__(self) -> int:
         return hash(self.key)
 
@@ -235,6 +238,7 @@ class ReadEndpoint(BaseModel):
     fields: list[ReadField] = Field(default_factory=list)
     index: str = ""
 
+    @override
     def __hash__(self) -> int:
         return hash(self.key)
 
@@ -262,6 +266,7 @@ class WriteEndpoint(BaseModel):
     channel: ChannelField = Field(default_factory=lambda: ChannelField())
     fields: list[WriteField] = Field(default_factory=list)
 
+    @override
     def __hash__(self) -> int:
         return hash(self.key)
 
@@ -284,6 +289,7 @@ class ReadConfig(task.PersistConfig):
     endpoints: list[ReadEndpoint] = Field(default_factory=list)
     nan_fill_enabled: bool = False
 
+    @override
     def __hash__(self) -> int:
         return hash(self.key)
 
@@ -300,5 +306,6 @@ class WriteConfig(task.StartConfig):
     device: device_.Key = ""
     endpoints: list[WriteEndpoint] = Field(default_factory=list)
 
+    @override
     def __hash__(self) -> int:
         return hash(self.key)

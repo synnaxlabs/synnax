@@ -11,7 +11,7 @@
 
 from __future__ import annotations
 
-from typing import Annotated, Literal
+from typing import Annotated, Literal, override
 from uuid import uuid4
 
 from pydantic import BaseModel, Field
@@ -69,6 +69,7 @@ class BaseReadChannel(BaseModel):
     channel: channel_.Key = Field(default=channel_.Key(0), ge=0, le=4294967295)
     port: str = ""
 
+    @override
     def __hash__(self) -> int:
         return hash(self.key)
 
@@ -94,6 +95,7 @@ class BaseWriteChannel(BaseModel):
     state_channel_name: str = ""
     port: str = ""
 
+    @override
     def __hash__(self) -> int:
         return hash(self.key)
 
@@ -108,6 +110,7 @@ class ScanConfig(task.ScanConfig):
 
     tcp_scan_multiplier: int = Field(default=10, ge=-2147483648, le=2147483647)
 
+    @override
     def __hash__(self) -> int:
         return hash(self.key)
 
@@ -214,6 +217,7 @@ class WriteConfig(task.WriteConfig):
     state_rate: telem.Rate = telem.Rate(10)
     channels: list[WriteChannel] = Field(default_factory=list)
 
+    @override
     def __hash__(self) -> int:
         return hash(self.key)
 
@@ -236,5 +240,6 @@ class ReadConfig(task.ReadConfig):
     device_scan_backlog_warn_on_count: int = Field(default=0, ge=0, le=4294967295)
     ljm_scan_backlog_warn_on_count: int = Field(default=0, ge=0, le=4294967295)
 
+    @override
     def __hash__(self) -> int:
         return hash(self.key)

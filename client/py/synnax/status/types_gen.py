@@ -11,7 +11,7 @@
 
 from __future__ import annotations
 
-from typing import Generic, Literal, TypeAlias
+from typing import Generic, Literal, TypeAlias, override
 from uuid import uuid4
 
 from pydantic import BaseModel, Field, JsonValue
@@ -76,5 +76,6 @@ class Status(BaseModel, Generic[Details]):
     details: Details | None = None
     labels: list[label.Label] | None = None
 
+    @override
     def __hash__(self) -> int:
         return hash(self.key)

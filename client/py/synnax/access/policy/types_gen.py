@@ -11,7 +11,7 @@
 
 from __future__ import annotations
 
-from typing import TypeAlias
+from typing import TypeAlias, override
 from uuid import UUID, uuid4
 
 from pydantic import BaseModel, Field
@@ -42,6 +42,7 @@ class Policy(BaseModel):
     actions: list[action.Action] = Field(default_factory=list)
     internal: bool = False
 
+    @override
     def __hash__(self) -> int:
         return hash(self.key)
 

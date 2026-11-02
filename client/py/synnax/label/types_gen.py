@@ -11,7 +11,7 @@
 
 from __future__ import annotations
 
-from typing import TypeAlias
+from typing import TypeAlias, override
 from uuid import UUID, uuid4
 
 from pydantic import BaseModel, Field
@@ -35,5 +35,6 @@ class Label(BaseModel):
     name: str = Field(min_length=1)
     color: color_.Color
 
+    @override
     def __hash__(self) -> int:
         return hash(self.key)

@@ -11,6 +11,7 @@
 
 from __future__ import annotations
 
+from typing import override
 from uuid import uuid4
 
 from pydantic import BaseModel, ConfigDict, Field
@@ -42,6 +43,7 @@ class Alert(BaseModel):
     class_: str = Field(default="", alias="class")
     disabled: bool = False
 
+    @override
     def __hash__(self) -> int:
         return hash(self.key)
 
@@ -58,5 +60,6 @@ class TaskConfig(task.StartConfig):
     routing_key: str = ""
     alerts: list[Alert] = Field(default_factory=list)
 
+    @override
     def __hash__(self) -> int:
         return hash(self.key)

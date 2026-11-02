@@ -11,7 +11,7 @@
 
 from __future__ import annotations
 
-from typing import TypeAlias
+from typing import TypeAlias, override
 
 from pydantic import BaseModel, Field, JsonValue
 
@@ -74,6 +74,7 @@ class Device(BaseModel):
     status: Status | None = None
     parent: ontology.ID | None = None
 
+    @override
     def __hash__(self) -> int:
         return hash(self.key)
 

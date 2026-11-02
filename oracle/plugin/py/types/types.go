@@ -219,6 +219,9 @@ func generatePyFile(
 			if err != nil {
 				return nil, err
 			}
+			if sd.KeyField != "" && !sd.Skip && !sd.IsAlias {
+				data.imports.addTyping("override")
+			}
 			for _, f := range sd.Fields {
 				if f.Alias != "" {
 					sd.HasKeywordAlias = true
@@ -2264,6 +2267,7 @@ class {{ .PyName }}({{ range $i, $n := .ExtendsNames }}{{ if $i }}, {{ end }}{{ 
 {{- end }}
 {{- if .KeyField }}
 
+    @override
     def __hash__(self) -> int:
         return hash(self.{{ .KeyField }})
 {{- end }}
@@ -2285,6 +2289,7 @@ class {{ .PyName }}(BaseModel, Generic[{{ range $i, $p := .TypeParams }}{{ if $i
 {{- end }}
 {{- if .KeyField }}
 
+    @override
     def __hash__(self) -> int:
         return hash(self.{{ .KeyField }})
 {{- end }}
@@ -2303,6 +2308,7 @@ class {{ .PyName }}(BaseModel):
 {{- end }}
 {{- if .KeyField }}
 
+    @override
     def __hash__(self) -> int:
         return hash(self.{{ .KeyField }})
 {{- end }}
