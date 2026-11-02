@@ -182,39 +182,20 @@ interface PasswordProps extends Pick<ModalParams, "subject"> {
 }
 
 const Password = ({ subject, onChanged }: PasswordProps): ReactElement => {
-  const client = Synnax.use();
-  const own = client?.auth.subject?.key === subject.key;
   const [password, setPassword] = useState("");
-  const [currentPassword, setCurrentPassword] = useState("");
   const set = Credential.useSetPassword({
     afterSuccess: () => {
       setPassword("");
-      setCurrentPassword("");
       onChanged(true);
     },
   });
-  const handleCurrentPassword = (value: string) => {
-    setCurrentPassword(value);
-    onChanged(false);
-  };
   const handlePassword = (value: string) => {
     setPassword(value);
     onChanged(false);
   };
-  const handleSet = () =>
-    set.update(own ? { password, currentPassword } : { subject, password });
   return (
     <Flex.Box y>
       <Text.Text level="h5">Password</Text.Text>
-      {own && (
-        <Input.Text
-          value={currentPassword}
-          onChange={handleCurrentPassword}
-          placeholder="Current password"
-          type="password"
-          full="x"
-        />
-      )}
       <Flex.Box x>
         <Input.Text
           value={password}
@@ -228,7 +209,7 @@ const Password = ({ subject, onChanged }: PasswordProps): ReactElement => {
           variant="filled"
           status={status.keepVariants(set.variant, "loading")}
           disabled={password === ""}
-          onClick={handleSet}
+          onClick={() => set.update({ subject, password })}
         >
           Set password
         </Button.Button>
