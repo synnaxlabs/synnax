@@ -16,12 +16,35 @@ import { NotFoundError } from "@/index";
 import { ontology } from "@/ontology";
 import { query } from "@/query";
 import { status } from "@/status";
-import { createTestClient, expectLive, spyOnSend, waitForStreamLive } from "@/testutil";
+import {
+  createTestClient,
+  expectLive,
+  holdResponses,
+  spyOnSend,
+  waitForStreamLive,
+} from "@/testutil";
 
 const client = createTestClient();
 
 describe("Status", () => {
   describe("set", () => {
+    it("should keep a set that lands before an older fetch", async () => {
+      const s = await client.statuses.set({ variant: "info", message: "before" });
+      const local = createTestClient();
+      await local.connect();
+      await waitForStreamLive(local.connection);
+      await local.statuses.retrieve(s.key);
+      const { responded, release } = holdResponses(local, "/status/retrieve");
+      const fetching = local.statuses.retrieve({ where: { key: { eq: s.key } } });
+      await responded;
+      await client.statuses.set({ ...s, message: "after" });
+      await expect
+        .poll(() => expectLive(local.statuses.getCached(s.key)).message)
+        .toBe("after");
+      release();
+      await fetching;
+      expect(expectLive(local.statuses.getCached(s.key)).message).toBe("after");
+    });
     it("should create a new status", async () => {
       const s = await client.statuses.set({
         name: "Test Status",

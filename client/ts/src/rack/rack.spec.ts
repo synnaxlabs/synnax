@@ -14,7 +14,13 @@ import { NotFoundError } from "@/index";
 import { query } from "@/query";
 import { rack } from "@/rack";
 import { status } from "@/status";
-import { createTestClient, spyOnSend, waitForStreamLive } from "@/testutil";
+import {
+  createTestClient,
+  expectLive,
+  holdResponses,
+  spyOnSend,
+  waitForStreamLive,
+} from "@/testutil";
 
 const client = createTestClient();
 
@@ -108,6 +114,22 @@ describe("Rack", () => {
       await expect
         .poll(async () => (await client.racks.retrieve(r.key)).name)
         .toBe(name);
+    });
+    it("should keep a rename that lands before an older fetch", async () => {
+      const r = await client.racks.create({ name: `rack-${id.create()}` });
+      const local = createTestClient();
+      await local.connect();
+      await waitForStreamLive(local.connection);
+      await local.racks.retrieve(r.key);
+      const { responded, release } = holdResponses(local, "/rack/retrieve");
+      const fetching = local.racks.retrieve({ where: { name: { eq: r.name } } });
+      await responded;
+      const name = `rack-renamed-${id.create()}`;
+      await client.racks.rename(r.key, name);
+      await expect.poll(() => expectLive(local.racks.getCached(r.key)).name).toBe(name);
+      release();
+      await fetching;
+      expect(expectLive(local.racks.getCached(r.key)).name).toBe(name);
     });
     it("should reject an empty name", async () => {
       const r = await client.racks.create({ name: "rack-rename-empty" });

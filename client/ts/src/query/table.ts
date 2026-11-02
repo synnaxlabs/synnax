@@ -353,7 +353,11 @@ export class Table<
     return () => this.batch(() => rollbacks.reverse().forEach((r) => r()));
   }
 
-  private stampWrite(key: Key): void {
+  /**
+   * Counts a write that left the key's value as it was, so a fetch that started before
+   * this call cannot overwrite the key.
+   */
+  stampWrite(key: Key): void {
     if (this.entries.has(key)) this.writeStamps.set(key, ++this.writeSeq);
   }
 
