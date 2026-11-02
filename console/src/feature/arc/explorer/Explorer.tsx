@@ -13,22 +13,33 @@ import { Menu } from "@synnaxlabs/lyra/menu";
 import { Access, Ontology } from "@synnaxlabs/pluto";
 
 import { Arc } from "@/platform/arc";
+import { ContextMenu } from "@/platform/context-menu";
 import { Empty } from "@/platform/empty";
 import { type Panel } from "@/platform/panel";
 import { Tree } from "@/platform/tree";
 
-const RootContextMenu = (props: Tree.DefaultContextMenuProps) => {
+const RootContextMenu = ({ root, state }: Tree.DefaultContextMenuProps) => {
   const createArc = Arc.useCreate();
-  const canCreate = Access.useCreateGranted(arc.TYPE_ONTOLOGY_ID);
+  const createDirectory = Arc.useCreateDirectory({ parent: root, state, root });
+  const canCreateArc = Access.useCreateGranted(arc.TYPE_ONTOLOGY_ID);
+  const canCreateDirectory = Access.useCreateGranted(arc.directory.TYPE_ONTOLOGY_ID);
   return (
-    <Tree.DefaultContextMenu {...props}>
-      {canCreate && (
+    <ContextMenu.Menu>
+      {canCreateArc && (
         <Menu.Item itemKey="createArc" onClick={createArc}>
           <Icon.Add />
           Create arc
         </Menu.Item>
       )}
-    </Tree.DefaultContextMenu>
+      {canCreateDirectory && (
+        <Menu.Item itemKey="newDirectory" onClick={createDirectory}>
+          <Icon.Group />
+          New directory
+        </Menu.Item>
+      )}
+      <Menu.Divider />
+      <ContextMenu.ReloadConsoleItem />
+    </ContextMenu.Menu>
   );
 };
 

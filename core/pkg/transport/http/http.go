@@ -576,6 +576,19 @@ func Bind(layer *api.Layer, router *http.Router) {
 			router,
 			"/api/v1/arc/update-task",
 		),
+		ArcCreateDirectory: unary[arc.CreateDirectoryRequest, arc.CreateDirectoryResponse](
+			router,
+			"/api/v1/arc/directory/create",
+		),
+		ArcRenameDirectory: unary[arc.RenameDirectoryRequest, struct{}](
+			router,
+			"/api/v1/arc/directory/rename",
+		),
+		ArcDeleteDirectory: unary[arc.DeleteDirectoryRequest, struct{}](
+			router,
+			"/api/v1/arc/directory/delete",
+		),
+		ArcMove: unary[arc.MoveRequest, struct{}](router, "/api/v1/arc/move"),
 		ArcLSP: stream[arc.LSPMessage, arc.LSPMessage](
 			router,
 			"/api/v1/arc/lsp",

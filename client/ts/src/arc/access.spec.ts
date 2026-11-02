@@ -7,6 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
+import { id } from "@synnaxlabs/x";
 import { describe, expect, it } from "vitest";
 
 import { arc } from "@/arc";
@@ -24,7 +25,7 @@ describe("arc", () => {
         actions: [],
       });
       const a: arc.New = {
-        name: "test",
+        name: id.create(),
         mode: "text",
       };
       const randomArc = await client.arcs.create(a);
@@ -40,7 +41,7 @@ describe("arc", () => {
         actions: ["retrieve"],
       });
       const randomArc = await client.arcs.create({
-        name: "test",
+        name: id.create(),
         mode: "text",
       });
       const retrieved = await userClient.arcs.retrieve(randomArc.key);
@@ -55,7 +56,7 @@ describe("arc", () => {
         actions: ["create"],
       });
       await userClient.arcs.create({
-        name: "test",
+        name: id.create(),
         mode: "text",
       });
     });
@@ -68,7 +69,7 @@ describe("arc", () => {
       });
       await expect(
         userClient.arcs.create({
-          name: "test",
+          name: id.create(),
           mode: "text",
         }),
       ).rejects.toSatisfy(AccessDeniedError.matches);
@@ -81,7 +82,7 @@ describe("arc", () => {
         actions: ["delete", "retrieve"],
       });
       const randomArc = await client.arcs.create({
-        name: "test",
+        name: id.create(),
         mode: "text",
       });
       await userClient.arcs.delete(randomArc.key);
@@ -97,7 +98,7 @@ describe("arc", () => {
         actions: [],
       });
       const randomArc = await client.arcs.create({
-        name: "test",
+        name: id.create(),
         mode: "text",
       });
       await expect(userClient.arcs.delete(randomArc.key)).rejects.toSatisfy(

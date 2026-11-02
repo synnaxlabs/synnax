@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { arc as clientArc, group, NotFoundError } from "@synnaxlabs/client";
+import { arc as clientArc, NotFoundError } from "@synnaxlabs/client";
 import { createTestClient } from "@synnaxlabs/client/testutil";
 import { fireEvent, screen, waitFor } from "@testing-library/react";
 import { describe, expect, it } from "vitest";
@@ -33,29 +33,26 @@ import {
 
 const client = createTestClient();
 
-const createArcInGroup = async () => {
+const createArcInDirectory = async () => {
   const arcsID = await retrieveArcsGroupID(client);
+  const dir = await client.arcs.directories.create({
+    parent: arcsID.key,
+    name: uniqueName("dir"),
+  });
+  const root = clientArc.directory.ontologyID(dir.key);
   const arc = await client.arcs.create({
     name: uniqueName("arc"),
     mode: "graph",
     graph: { nodes: [], edges: [] },
   });
-  const grp = await client.groups.create({
-    parent: arcsID,
-    name: uniqueName("arcgrp"),
-  });
-  await client.ontology.moveChildren(
-    arcsID,
-    group.ontologyID(grp.key),
-    clientArc.ontologyID(arc.key),
-  );
-  return { arc, root: group.ontologyID(grp.key), arcsID };
+  await client.arcs.directories.move(arcsID, root, clientArc.ontologyID(arc.key));
+  return { arc, root, arcsID };
 };
 
 describe("arc/ontology", () => {
   describe("onSelect", () => {
     it("should open the Arc as a tab when the row is double-clicked", async () => {
-      const { arc, root } = await createArcInGroup();
+      const { arc, root } = await createArcInDirectory();
       const { store } = await renderOntologyTree({
         client,
         root,
@@ -68,16 +65,37 @@ describe("arc/ontology", () => {
     });
   });
 
+  describe("drop", () => {
+    it("moves an Arc into a directory when dropped onto it", async () => {
+      const { arc, root } = await createArcInDirectory();
+      const sub = await client.arcs.directories.create({
+        parent: root.key,
+        name: uniqueName("sub"),
+      });
+      const subID = clientArc.directory.ontologyID(sub.key);
+      await renderOntologyTree({ client, root, items: Arc.TREE_ITEMS });
+      await findTreeRow(sub.name);
+      fireEvent.dragStart(await findTreeRow(arc.name));
+      fireEvent.drop(getTreeRow(sub.name));
+      await waitFor(async () => {
+        const parents = await client.ontology.parents.retrieve({
+          ids: clientArc.ontologyID(arc.key),
+        });
+        expect(parents.map((p) => p.id)).toEqual([subID]);
+      });
+    });
+  });
+
   describe("context menu", () => {
     it("should offer Reload Console", async () => {
-      const { arc, root } = await createArcInGroup();
+      const { arc, root } = await createArcInDirectory();
       await renderOntologyTree({ client, root, items: Arc.TREE_ITEMS });
       await openTreeRowContextMenu(arc.name);
       expect(await screen.findByText("Reload Console")).toBeTruthy();
     });
 
     it("opens the Arc as a tab from Edit", async () => {
-      const { arc, root } = await createArcInGroup();
+      const { arc, root } = await createArcInDirectory();
       const { store } = await renderOntologyTree({
         client,
         root,
@@ -91,13 +109,13 @@ describe("arc/ontology", () => {
     });
 
     it("offers only the shared actions when several Arcs are selected", async () => {
-      const { arc, root, arcsID } = await createArcInGroup();
+      const { arc, root, arcsID } = await createArcInDirectory();
       const other = await client.arcs.create({
         name: uniqueName("mod"),
         mode: "text",
         type: "module",
       });
-      await client.ontology.moveChildren(arcsID, root, clientArc.ontologyID(other.key));
+      await client.arcs.directories.move(arcsID, root, clientArc.ontologyID(other.key));
       await renderOntologyTree({ client, root, items: Arc.TREE_ITEMS });
       fireEvent.click(await findTreeRow(arc.name));
       withControlHeld(() => fireEvent.click(getTreeRow(other.name)));
@@ -109,7 +127,7 @@ describe("arc/ontology", () => {
     });
 
     it("renames the Arc in place without a confirmation prompt", async () => {
-      const { arc, root } = await createArcInGroup();
+      const { arc, root } = await createArcInDirectory();
       await renderOntologyTree({ client, root, items: Arc.TREE_ITEMS });
       await openTreeRowContextMenu(arc.name);
       fireEvent.click(await screen.findByText("Rename"));
@@ -123,7 +141,7 @@ describe("arc/ontology", () => {
     });
 
     it("drops the editor state when the Arc is deleted", async () => {
-      const { arc, root } = await createArcInGroup();
+      const { arc, root } = await createArcInDirectory();
       const { store } = await renderOntologyTree({
         client,
         root,

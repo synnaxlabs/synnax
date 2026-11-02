@@ -8,6 +8,7 @@
 // included in the file licenses/APL.txt.
 
 import {
+  DisconnectedError,
   NotFoundError,
   ontology,
   query,
@@ -53,6 +54,9 @@ import {
 } from "@/platform/tree/types";
 import { useResources } from "@/platform/tree/useResource";
 import { type Action, type State } from "@/session/store";
+
+/** FOLDER_TYPES are the resource types the tree sorts ahead of all others. */
+const FOLDER_TYPES = new Set<ontology.ResourceType>(["group", "arc_directory"]);
 
 interface InternalProps {
   root: ontology.ID;
@@ -374,8 +378,9 @@ const Internal = ({
     if (aResource == null && bResource == null) return 0;
     if (aResource == null) return 1;
     if (bResource == null) return -1;
-    if (aResource.id.type === "group" && bResource.id.type !== "group") return -1;
-    if (aResource.id.type !== "group" && bResource.id.type === "group") return 1;
+    const aFolder = FOLDER_TYPES.has(aResource.id.type);
+    const bFolder = FOLDER_TYPES.has(bResource.id.type);
+    if (aFolder !== bFolder) return aFolder ? -1 : 1;
     return aResource.name.localeCompare(bResource.name);
   };
 
@@ -446,13 +451,15 @@ const Internal = ({
       bySource.set(sourceKey, ids);
     });
     contract(...moved.map(({ key }) => key));
-    bySource.forEach((ids, sourceKey) =>
-      moveChildren({
-        source: ontology.parseID(sourceKey),
-        destination,
-        ids,
-      }),
-    );
+    bySource.forEach((ids, sourceKey) => {
+      const params = { source: ontology.parseID(sourceKey), destination, ids };
+      const { move } = svc;
+      if (move == null) return moveChildren(params);
+      handleError(async () => {
+        if (client == null) throw new DisconnectedError();
+        await move(client, params);
+      }, "Failed to move resources");
+    });
     return moved;
   };
 

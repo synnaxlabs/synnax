@@ -24,6 +24,7 @@ import {
   rename as renameAction,
   scopedActionZ,
 } from "@/arc/actions.gen";
+import { directory } from "@/arc/directory";
 import { type Performance, performanceZ } from "@/arc/task/types.gen";
 import { type Arc, arcZ, type Key, keyZ, type New, ontologyID } from "@/arc/types.gen";
 import { NotFoundError } from "@/errors";
@@ -139,6 +140,8 @@ export class Client extends query.Retriever<
   SingleRetrieveParams,
   SingleRetrieveParams
 > {
+  /** directories creates, renames, deletes, and moves the directories of Arcs. */
+  readonly directories: directory.Client;
   private readonly cfg: ClientConfig;
   private readonly dispatcher: actions.Controller<Key, Arc, Action>;
   private readonly store: query.Table<Key, Arc>;
@@ -189,6 +192,10 @@ export class Client extends query.Retriever<
       single: { schema: singleQueryZ, space: single },
     });
     this.cfg = cfg;
+    this.directories = new directory.Client({
+      unary: cfg.unary,
+      ontology: cfg.ontology,
+    });
     this.store = store;
     this.dispatcher = dispatcher;
     const composedTasks = cache.derive<task.Key, Omit<task.Task, "status">, task.Task>({

@@ -7,14 +7,13 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { arc as clientArc, group, type ontology } from "@synnaxlabs/client";
+import { arc as clientArc, type ontology } from "@synnaxlabs/client";
 import { createTestClient } from "@synnaxlabs/client/testutil";
 import { act, fireEvent, screen, waitFor } from "@testing-library/react";
 import { describe, expect, it } from "vitest";
 
 import { Arc } from "@/feature/arc";
 import { Explorer } from "@/feature/arc/explorer/Explorer";
-import { Group } from "@/feature/group";
 import { retrieveArcsGroupID } from "@/platform/arc/testutil";
 import {
   expandTreeRow,
@@ -38,30 +37,27 @@ const createArc = async () =>
 const createModule = async () =>
   await client.arcs.create({ name: uniqueName("mod"), mode: "text", type: "module" });
 
-const createGroup = async (parent: ontology.ID) =>
-  await client.groups.create({ parent, name: uniqueName("dir") });
+const createDirectory = async (parent: ontology.ID) =>
+  await client.arcs.directories.create({ parent: parent.key, name: uniqueName("dir") });
 
 const renderExplorer = async (): Promise<void> => {
-  await renderToolbar(<Explorer />, {
-    client,
-    items: { ...Arc.TREE_ITEMS, ...Group.TREE_ITEMS },
-  });
+  await renderToolbar(<Explorer />, { client, items: Arc.TREE_ITEMS });
 };
 
 describe("arc/Explorer", () => {
-  it("shows an Arc the Core placed under the Arcs group", async () => {
+  it("shows an Arc the Core placed in the Arcs directory", async () => {
     const arc = await createArc();
     await renderExplorer();
     expect(await findTreeRow(arc.name)).toBeTruthy();
   });
 
-  it("creates a new group under the Arcs group from the root context menu", async () => {
+  it("creates a directory in the Arcs directory from the root context menu", async () => {
     const arc = await createArc();
     const arcsID = await retrieveArcsGroupID(client);
     await renderExplorer();
     await findTreeRow(arc.name);
     await openTreeRootContextMenu();
-    fireEvent.click(await screen.findByText("New group"));
+    fireEvent.click(await screen.findByText("New directory"));
     const name = uniqueName("dir");
     commitTextEdit(await awaitTextEditingElement(), name);
     await waitFor(async () => {
@@ -78,14 +74,14 @@ describe("arc/Explorer", () => {
     expect(await findTreeRowIcon(automation.name, "arc")).not.toBeNull();
   });
 
-  it("shows an Arc inside nested groups once each parent is expanded", async () => {
+  it("shows an Arc inside nested directories once each parent is expanded", async () => {
     const arcsID = await retrieveArcsGroupID(client);
-    const dir = await createGroup(arcsID);
-    const sub = await createGroup(group.ontologyID(dir.key));
+    const dir = await createDirectory(arcsID);
+    const sub = await createDirectory(clientArc.directory.ontologyID(dir.key));
     const module = await createModule();
-    await client.ontology.moveChildren(
+    await client.arcs.directories.move(
       arcsID,
-      group.ontologyID(sub.key),
+      clientArc.directory.ontologyID(sub.key),
       clientArc.ontologyID(module.key),
     );
     await renderExplorer();
@@ -96,30 +92,30 @@ describe("arc/Explorer", () => {
     expect(await findTreeRow(module.name)).toBeTruthy();
   });
 
-  it("creates a group inside a group from the group's context menu", async () => {
-    const dir = await createGroup(await retrieveArcsGroupID(client));
+  it("creates a directory inside a directory from its context menu", async () => {
+    const dir = await createDirectory(await retrieveArcsGroupID(client));
     await renderExplorer();
     await openTreeRowContextMenu(dir.name);
-    fireEvent.click(await screen.findByText("New group"));
+    fireEvent.click(await screen.findByText("New directory"));
     const name = uniqueName("sub");
     commitTextEdit(await awaitTextEditingElement(), name);
     await waitFor(async () => {
       const children = await client.ontology.children.retrieve({
-        ids: group.ontologyID(dir.key),
+        ids: clientArc.directory.ontologyID(dir.key),
       });
       expect(children.some((r) => r.name === name)).toBe(true);
     });
   });
 
-  it("opens the create modal from Create arc, listed above New group", async () => {
+  it("opens the create modal from Create arc, listed above New directory", async () => {
     const arc = await createArc();
     await renderExplorer();
     await findTreeRow(arc.name);
     await openTreeRootContextMenu();
     const createArcItem = await screen.findByText("Create arc");
-    const newGroupItem = await screen.findByText("New group");
+    const newDirectoryItem = await screen.findByText("New directory");
     expect(
-      createArcItem.compareDocumentPosition(newGroupItem) &
+      createArcItem.compareDocumentPosition(newDirectoryItem) &
         Node.DOCUMENT_POSITION_FOLLOWING,
     ).toBeTruthy();
     await act(async () => {

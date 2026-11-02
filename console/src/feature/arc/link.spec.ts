@@ -23,7 +23,7 @@ describe("Arc.useLink", () => {
       name: id.create(),
     });
     const created = await client.arcs.create({
-      name: "Control Sequence",
+      name: id.create(),
       mode: "graph",
       graph: { nodes: [], edges: [] },
     });
@@ -34,6 +34,6 @@ describe("Arc.useLink", () => {
     if (tab.variant !== "resource") throw new Error("expected a resource tab");
     expect(tab.resource.type).toBe("arc");
     const retrieved = await client.arcs.retrieve(tab.resource.key);
-    expect(retrieved.name).toBe("Control Sequence");
+    expect(retrieved.name).toBe(created.name);
   });
 });

@@ -623,6 +623,39 @@ describe("Tree.Tree", () => {
     });
   });
 
+  it("should use the destination type's move in place of the generic move", async () => {
+    const container = await client.groups.create({
+      parent: ontology.ROOT_ID,
+      name: uniqueName("container"),
+    });
+    const containerID = group.ontologyID(container.key);
+    const destination = await client.groups.create({
+      parent: containerID,
+      name: uniqueName("dest"),
+    });
+    const moved = await client.groups.create({
+      parent: containerID,
+      name: uniqueName("moved"),
+    });
+    const move = vi.fn<Tree.Move>(async () => {});
+    const items: Tree.Items = {
+      group: Tree.createItem({ type: "group", canDrop: () => true, move }),
+    };
+    await renderTree(containerID, items);
+    await screen.findByText(destination.name);
+    fireEvent.dragStart(getTreeRow(moved.name));
+    fireEvent.drop(getTreeRow(destination.name));
+    await waitFor(() =>
+      expect(move).toHaveBeenCalledWith(expect.anything(), {
+        source: containerID,
+        destination: group.ontologyID(destination.key),
+        ids: [group.ontologyID(moved.key)],
+      }),
+    );
+    const children = await client.ontology.children.retrieve({ ids: containerID });
+    expect(children.map((c) => c.id.key)).toContain(moved.key);
+  });
+
   describe("dragging a multiple selection", () => {
     const DROPPABLE: Tree.Items = {
       group: Tree.createItem({ type: "group", canDrop: () => true }),
