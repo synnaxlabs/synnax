@@ -24,7 +24,7 @@ from freighter import (
     async_instrumentation_middleware,
     instrumentation_middleware,
 )
-from synnax.telem import Size, TimeSpan
+from synnax.telem import CrudeTimeSpan, Size, TimeSpan
 from x.codec import JSONCodec
 from x.exceptions import Registry
 
@@ -43,9 +43,9 @@ class Transport:
         instrumentation: Instrumentation,
         registry: Registry,
         secure: bool = False,
-        open_timeout: TimeSpan = TimeSpan.SECOND * 5,
-        read_timeout: TimeSpan = TimeSpan.SECOND * 5,
-        keep_alive: TimeSpan = TimeSpan.SECOND * 30,
+        open_timeout: CrudeTimeSpan = TimeSpan.SECOND * 5,
+        read_timeout: CrudeTimeSpan = TimeSpan.SECOND * 5,
+        keep_alive: CrudeTimeSpan = TimeSpan.SECOND * 30,
         max_retries: int = 3,
         ca_cert: str | None = None,
     ) -> None:
@@ -59,6 +59,9 @@ class Transport:
         """
         if ca_cert is not None and not secure:
             raise ValueError("ca_cert requires secure=True")
+        open_timeout = TimeSpan.from_seconds(open_timeout)
+        read_timeout = TimeSpan.from_seconds(read_timeout)
+        keep_alive = TimeSpan.from_seconds(keep_alive)
         ssl_context = ssl.create_default_context(cafile=ca_cert) if secure else None
         self.url = url.child("/api/v1/")
         codec = JSONCodec()

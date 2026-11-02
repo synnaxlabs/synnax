@@ -107,7 +107,7 @@ class Client:
         mode: CrudeWriterMode = WriterMode.PERSIST_STREAM,
         err_on_unauthorized: bool = False,
         enable_auto_commit: bool = True,
-        auto_index_persist_interval: TimeSpan = TimeSpan.SECOND,
+        auto_index_persist_interval: CrudeTimeSpan = TimeSpan.SECOND,
         auto_index: bool = False,
         err_on_extra_chans: bool = True,
     ) -> Writer:
@@ -138,7 +138,7 @@ class Client:
         will flush that commit to index after the specified auto_index_persist_interval.
         :param auto_index_persist_interval: interval at which commits to the index will
         be persisted. To persist every commit to guarantee minimal loss of data, set
-        auto_index_persist_interval to AlwaysAutoIndexPersist.
+        auto_index_persist_interval to AlwaysAutoIndexPersist. Numbers are seconds.
         :param auto_index: when True, Synnax automatically generates timestamps for any
         index channel that is not included in a write call. The first sample in each
         write is stamped at the time the write is received, and subsequent samples are

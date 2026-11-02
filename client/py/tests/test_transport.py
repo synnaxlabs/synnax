@@ -76,6 +76,19 @@ class TestKeepAlive:
         assert pinged.wait(2)
         stream.close_send()
 
+    def test_seconds(self, pinged_endpoint: tuple[URL, threading.Event]) -> None:
+        """Should read a bare number keep-alive as seconds."""
+        url, pinged = pinged_endpoint
+        transport = Transport(
+            url=url,
+            instrumentation=NOOP,
+            registry=create_registry(),
+            keep_alive=0.05,
+        )
+        stream = transport.stream.stream("/", Empty, Empty)
+        assert pinged.wait(2)
+        stream.close_send()
+
     @pytest.mark.asyncio
     async def test_async(self, pinged_endpoint: tuple[URL, threading.Event]) -> None:
         """Should ping the Core at the keep-alive interval on an async stream."""

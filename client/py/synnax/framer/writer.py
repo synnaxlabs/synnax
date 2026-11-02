@@ -32,7 +32,7 @@ from synnax.framer.codec import (
     WSCodec,
 )
 from synnax.framer.frame import CrudeFrame, FramePayload, K
-from synnax.telem import CrudeSeries, CrudeTimeStamp, TimeSpan, TimeStamp
+from synnax.telem import CrudeSeries, CrudeTimeSpan, CrudeTimeStamp, TimeSpan, TimeStamp
 from x.control import Authority, CrudeAuthority, Subject
 from x.exceptions import Error, Registry
 from x.lists import normalize
@@ -192,7 +192,7 @@ class Writer:
         mode: CrudeWriterMode = WriterMode.PERSIST_STREAM,
         err_on_unauthorized: bool = False,
         enable_auto_commit: bool = True,
-        auto_index_persist_interval: TimeSpan = TimeSpan.SECOND,
+        auto_index_persist_interval: CrudeTimeSpan = TimeSpan.SECOND,
         auto_index: bool = False,
         group: int = 0,
     ) -> None:
@@ -209,7 +209,9 @@ class Writer:
             mode=_parse_writer_mode(mode),
             err_on_unauthorized=err_on_unauthorized,
             enable_auto_commit=enable_auto_commit,
-            auto_index_persist_interval=auto_index_persist_interval,
+            auto_index_persist_interval=TimeSpan.from_seconds(
+                auto_index_persist_interval
+            ),
             auto_index=auto_index,
         )
         self._stream.send(WriterRequest(command=WriterCommand.OPEN, config=config))
