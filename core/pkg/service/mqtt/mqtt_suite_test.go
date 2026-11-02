@@ -10,15 +10,18 @@
 package mqtt_test
 
 import (
+	"context"
 	"crypto/tls"
 	"io"
 	"log/slog"
 	"net"
 	"slices"
 	"strconv"
+	"strings"
 	"sync"
 	"sync/atomic"
 	"testing"
+	"time"
 
 	mochi "github.com/mochi-mqtt/server/v2"
 	"github.com/mochi-mqtt/server/v2/hooks/auth"
@@ -26,6 +29,7 @@ import (
 	"github.com/mochi-mqtt/server/v2/packets"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
+	"github.com/onsi/gomega/gleak"
 	"github.com/synnaxlabs/gorp"
 	"github.com/synnaxlabs/synnax/pkg/distribution/node"
 	"github.com/synnaxlabs/synnax/pkg/distribution/testutil"
@@ -39,6 +43,8 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/service/rack"
 	racktestutil "github.com/synnaxlabs/synnax/pkg/service/rack/testutil"
 	"github.com/synnaxlabs/synnax/pkg/service/status"
+	"github.com/synnaxlabs/x/errors"
+	"github.com/synnaxlabs/x/set"
 	. "github.com/synnaxlabs/x/testutil"
 )
 
@@ -127,9 +133,10 @@ type received struct {
 
 // testBroker is an MQTT broker embedded in the test process.
 type testBroker struct {
-	server *mochi.Server
-	port   int
-	mu     sync.Mutex
+	server   *mochi.Server
+	listener *tcpListener
+	port     int
+	mu       sync.Mutex
 	// messages holds what the collector of the broker received.
 	messages []received
 	// clientIDs holds the client ID of each connection, in order.
@@ -185,14 +192,16 @@ type tcpListener struct {
 	mu struct {
 		sync.Mutex
 		closed bool
-		conns  map[net.Conn]struct{}
+		conns  set.Set[net.Conn]
 	}
 	serving sync.WaitGroup
+	// closeErr holds the errors of the connections that Close closed.
+	closeErr error
 }
 
 func newTCPListener(cfg listeners.Config) *tcpListener {
 	l := &tcpListener{TCP: listeners.NewTCP(cfg)}
-	l.mu.conns = make(map[net.Conn]struct{})
+	l.mu.conns = set.New[net.Conn]()
 	return l
 }
 
@@ -203,12 +212,12 @@ func (l *tcpListener) Serve(establish listeners.EstablishFn) {
 			l.mu.Unlock()
 			return c.Close()
 		}
-		l.mu.conns[c] = struct{}{}
+		l.mu.conns.Add(c)
 		l.serving.Add(1)
 		l.mu.Unlock()
 		defer func() {
 			l.mu.Lock()
-			delete(l.mu.conns, c)
+			l.mu.conns.Remove(c)
 			l.mu.Unlock()
 			l.serving.Done()
 		}()
@@ -223,8 +232,9 @@ func (l *tcpListener) Close(closeClients listeners.CloseFn) {
 	l.TCP.Close(closeClients)
 	l.mu.Lock()
 	// A connection that has not sent its CONNECT packet yet has no client to close.
+	// Mochi closes the connection of each client it disconnected.
 	for c := range l.mu.conns {
-		_ = c.Close()
+		l.closeErr = errors.Combine(l.closeErr, errors.Skip(c.Close(), net.ErrClosed))
 	}
 	l.mu.Unlock()
 	l.serving.Wait()
@@ -272,6 +282,7 @@ func startBrokerWith(opts brokerOptions) *testBroker {
 		Address:   net.JoinHostPort("127.0.0.1", strconv.Itoa(opts.port)),
 		TLSConfig: opts.tls,
 	})
+	b.listener = tcp
 	Expect(b.server.AddListener(tcp)).To(Succeed())
 	Expect(b.server.Serve()).To(Succeed())
 	_, portText := MustSucceed2(net.SplitHostPort(tcp.Address()))
@@ -287,8 +298,82 @@ func (b *testBroker) stop() {
 		return
 	}
 	Expect(b.server.Close()).To(Succeed())
+	Expect(b.listener.closeErr).ToNot(HaveOccurred())
 	b.server = nil
 }
+
+var _ = Describe("Test broker", func() {
+	It("Should stop while clients keep dialing", func(ctx SpecContext) {
+		for range 50 {
+			b := startBroker(0)
+			addr := net.JoinHostPort("127.0.0.1", strconv.Itoa(b.port))
+			dialCtx, stopDialing := context.WithCancel(ctx)
+			var connected sync.Once
+			dialing, dialed := make(chan struct{}), make(chan struct{})
+			go func() {
+				defer GinkgoRecover()
+				defer close(dialed)
+				var d net.Dialer
+				for dialCtx.Err() == nil {
+					c, err := d.DialContext(dialCtx, "tcp", addr)
+					if err != nil {
+						continue
+					}
+					connected.Do(func() { close(dialing) })
+					// Mochi leaves open a connection that it accepts during Close, so
+					// ending the dialing ends the read.
+					unblocked := make(chan struct{})
+					unblock := context.AfterFunc(dialCtx, func() {
+						defer GinkgoRecover()
+						defer close(unblocked)
+						Expect(c.SetReadDeadline(time.Now())).To(Succeed())
+					})
+					// The broker drops a connection whose first packet is not CONNECT.
+					// Closing second leaves no local port in TIME_WAIT.
+					_, err = c.Write([]byte{0xE0, 0})
+					for buf := make([]byte, 1); err == nil; {
+						_, err = c.Read(buf)
+					}
+					if !unblock() {
+						<-unblocked
+					}
+					Expect(c.Close()).To(Succeed())
+				}
+			}()
+			Eventually(dialing).Should(BeClosed())
+			b.stop()
+			stopDialing()
+			Eventually(dialed).Should(BeClosed())
+		}
+	})
+
+	It("Should stop with a connection that never sends CONNECT", func() {
+		b := startBroker(0)
+		c := MustSucceed(net.Dial(
+			"tcp",
+			net.JoinHostPort("127.0.0.1", strconv.Itoa(b.port)),
+		))
+		DeferCleanup(c.Close)
+		Eventually(func() bool {
+			return slices.ContainsFunc(
+				gleak.Goroutines(),
+				func(g gleak.Goroutine) bool {
+					return strings.Contains(
+						g.Backtrace,
+						"(*Server).readConnectionPacket",
+					)
+				},
+			)
+		}).Should(BeTrue())
+		stopped := make(chan struct{})
+		go func() {
+			defer GinkgoRecover()
+			defer close(stopped)
+			b.stop()
+		}()
+		Eventually(stopped).Should(BeClosed())
+	})
+})
 
 func (b *testBroker) publish(topic, payload string, retained bool) {
 	GinkgoHelper()
