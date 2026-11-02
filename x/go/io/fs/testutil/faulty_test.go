@@ -79,28 +79,44 @@ var _ = Describe("FaultyFS", func() {
 				return err
 			},
 		),
-		Entry(
-			"open",
-			WithFailOpen("a.bin"),
-			func(fs *FaultyFS, _ xfs.File) error {
-				_, err := fs.Open("a.bin", os.O_RDONLY)
-				return err
-			},
-		),
-		Entry(
-			"remove",
-			WithFailRemove("a.bin"),
-			func(fs *FaultyFS, _ xfs.File) error { return fs.Remove("a.bin") },
-		),
-		Entry(
-			"list",
-			WithFailList(""),
-			func(fs *FaultyFS, _ xfs.File) error {
-				_, err := fs.List("")
-				return err
-			},
-		),
 	)
+
+	It("Should fail Open on the paths it names, or on every path", func() {
+		fs, f := openWrapped()
+		Expect(f.Close()).To(Succeed())
+		Expect(MustSucceed(fs.Open("b.bin", os.O_CREATE|os.O_RDWR)).Close()).
+			To(Succeed())
+		fs.SetOptions(WithFailOpen("a.bin"))
+		Expect(fs.Open("a.bin", os.O_RDONLY)).Error().To(MatchError(ErrFault))
+		Expect(MustSucceed(fs.Open("b.bin", os.O_RDONLY)).Close()).To(Succeed())
+		fs.SetOptions(WithFailOpen())
+		Expect(fs.Open("b.bin", os.O_RDONLY)).Error().To(MatchError(ErrFault))
+		Expect(fs.OpenFiles()).To(BeZero())
+	})
+
+	It("Should fail Remove on the paths it names, or on every path", func() {
+		fs, f := openWrapped()
+		Expect(f.Close()).To(Succeed())
+		Expect(MustSucceed(fs.Open("b.bin", os.O_CREATE|os.O_RDWR)).Close()).
+			To(Succeed())
+		fs.SetOptions(WithFailRemove("a.bin"))
+		Expect(fs.Remove("a.bin")).To(MatchError(ErrFault))
+		Expect(fs.Remove("b.bin")).To(Succeed())
+		fs.SetOptions(WithFailRemove())
+		Expect(fs.Remove("a.bin")).To(MatchError(ErrFault))
+		Expect(fs.Exists("a.bin")).To(BeTrue())
+	})
+
+	It("Should fail List on the paths it names, or on every path", func() {
+		fs, f := openWrapped()
+		DeferClose(f)
+		Expect(fs.Sub("nested")).ToNot(BeNil())
+		fs.SetOptions(WithFailList(""))
+		Expect(fs.List("")).Error().To(MatchError(ErrFault))
+		Expect(fs.List("nested")).To(BeEmpty())
+		fs.SetOptions(WithFailList())
+		Expect(fs.List("nested")).Error().To(MatchError(ErrFault))
+	})
 
 	It("Should fail an operation on every path when the failure names none", func() {
 		fs, f := openWrapped()
