@@ -311,7 +311,7 @@ int64_t nanoseconds_per_unit(const TimeFormat time_format) {
 
 telem::SampleValue number_to_timestamp(const double v, TimeFormat time_format) {
     const double ns = v * static_cast<double>(nanoseconds_per_unit(time_format));
-    if (!(ns >= -std::ldexp(1.0, 63) && ns < std::ldexp(1.0, 63)))
+    if (std::isnan(ns) || ns < -std::ldexp(1.0, 63) || ns >= std::ldexp(1.0, 63))
         throw std::runtime_error("value is out of bounds");
     return telem::SampleValue(telem::TimeStamp(static_cast<int64_t>(ns)));
 }
