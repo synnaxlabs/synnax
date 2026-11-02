@@ -12,7 +12,7 @@ import { Button } from "@synnaxlabs/lyra/button";
 import { Flex } from "@synnaxlabs/lyra/flex";
 import { Input } from "@synnaxlabs/lyra/input";
 import { Text } from "@synnaxlabs/lyra/text";
-import { Credential, Synnax } from "@synnaxlabs/pluto";
+import { Credential } from "@synnaxlabs/pluto";
 import { type ReactElement, useState } from "react";
 
 import { CSS } from "@/platform/css";
@@ -24,41 +24,22 @@ export interface SectionProps {
   onChanged: (changed: boolean) => void;
 }
 
-/** Sets a user's password. The caller's own password needs the current one. */
+/** Sets a user's password. */
 export const Section = ({ subject, onChanged }: SectionProps): ReactElement => {
-  const client = Synnax.use();
-  const own = client?.auth.subject?.key === subject.key;
   const [password, setPassword] = useState("");
-  const [currentPassword, setCurrentPassword] = useState("");
   const set = Credential.Password.useSet({
     afterSuccess: () => {
       setPassword("");
-      setCurrentPassword("");
       onChanged(true);
     },
   });
-  const handleCurrentPassword = (value: string) => {
-    setCurrentPassword(value);
-    onChanged(false);
-  };
   const handlePassword = (value: string) => {
     setPassword(value);
     onChanged(false);
   };
-  const handleSet = () =>
-    set.update(own ? { password, currentPassword } : { subject, password });
   return (
     <Flex.Box y>
       <Text.Text level="h5">Password</Text.Text>
-      {own && (
-        <Input.Text
-          value={currentPassword}
-          onChange={handleCurrentPassword}
-          placeholder="Current password"
-          type="password"
-          full="x"
-        />
-      )}
       <Flex.Box x>
         <Input.Text
           value={password}
@@ -72,7 +53,7 @@ export const Section = ({ subject, onChanged }: SectionProps): ReactElement => {
           variant="filled"
           status={status.keepVariants(set.variant, "loading")}
           disabled={password === ""}
-          onClick={handleSet}
+          onClick={() => set.update({ subject, password })}
         >
           Set password
         </Button.Button>

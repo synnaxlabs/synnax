@@ -127,7 +127,7 @@ describe("Core.Badge", () => {
     clickCoreBadge(container);
     const dialog = await screen.findByRole("dialog");
     fireEvent.click(await within(dialog).findByText("Manage credentials"));
-    expect(await screen.findByPlaceholderText("Current password")).toBeTruthy();
+    expect(await screen.findByPlaceholderText("New password")).toBeTruthy();
   });
 
   it("should close the dialog and open the connect modal from the name row", async () => {
