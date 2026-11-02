@@ -21,7 +21,7 @@ class Color(BaseModel):
     r: int = Field(default=0, ge=0, le=255)
     g: int = Field(default=0, ge=0, le=255)
     b: int = Field(default=0, ge=0, le=255)
-    a: float = 1
+    a: float = Field(default=1, ge=0, le=1)
 
     def __init__(self, __value: object = None, /, **kwargs: object):
         if __value is not None:
