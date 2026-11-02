@@ -9,7 +9,7 @@
 
 import re
 from collections.abc import Callable
-from typing import cast
+from typing import cast, override
 from uuid import uuid4
 
 import numpy as np
@@ -18,12 +18,31 @@ import pytest
 
 import synnax as sy
 from synnax import label
-from synnax.ontology import ID
 from synnax.state import Latest, State
 from tests.channel import RetrieveCounter
 from x.params import RequiresNamedParams
 from x.strings import random_name
 from x.testutil import assert_eventually
+
+
+class TestRangeColor:
+    def test_no_color(self) -> None:
+        """Should leave the color as None when none is given."""
+        rng = sy.Range(
+            name=random_name(),
+            time_range=sy.TimeStamp.now().span_range(sy.TimeSpan.SECOND),
+        )
+        assert rng.color is None
+        assert rng.to_payload().color is None
+
+    def test_hex_color(self) -> None:
+        """Should convert a hex string into a Color."""
+        rng = sy.Range(
+            name=random_name(),
+            time_range=sy.TimeStamp.now().span_range(sy.TimeSpan.SECOND),
+            color="#00ff00",
+        )
+        assert rng.color == sy.Color(r=0, g=255, b=0)
 
 
 class TestRangeNotCreated:
@@ -36,6 +55,16 @@ class TestRangeNotCreated:
         )
         with pytest.raises(sy.ConfigurationError):
             rng.meta_data.get("key")
+
+    def test_retrieve_labels(self) -> None:
+        """Should raise a ConfigurationError when retrieving the labels of a range
+        that was never created"""
+        rng = sy.Range(
+            name=random_name(),
+            time_range=sy.TimeStamp.now().span_range(sy.TimeSpan.SECOND),
+        )
+        with pytest.raises(sy.ConfigurationError):
+            rng.retrieve_labels()
 
 
 @pytest.mark.ranger
@@ -77,6 +106,38 @@ class TestRangeClient:
             )
         )
         assert rng.color is None
+        assert client.ranges.retrieve(key=rng.key).color is None
+
+    def test_create_kwargs_without_color(self, client: sy.Synnax) -> None:
+        """Should store no color when create receives no color argument."""
+        rng = client.ranges.create(
+            name=random_name(),
+            time_range=sy.TimeStamp.now().span_range(10 * sy.TimeSpan.SECOND),
+        )
+        assert rng.color is None
+        assert client.ranges.retrieve(key=rng.key).color is None
+
+    def test_create_child_range_without_color(self, client: sy.Synnax) -> None:
+        """Should store no color on a child range created without a color."""
+        parent = client.ranges.create(
+            name=random_name(),
+            time_range=sy.TimeStamp.now().span_range(10 * sy.TimeSpan.SECOND),
+        )
+        child = parent.create_child_range(
+            name=random_name(),
+            time_range=sy.TimeStamp.now().span_range(10 * sy.TimeSpan.SECOND),
+        )
+        assert child.color is None
+        assert client.ranges.retrieve(key=child.key).color is None
+
+    def test_update_color(self, client: sy.Synnax) -> None:
+        """Should replace the color on a re-create, and clear it when none is given."""
+        tr = sy.TimeStamp.now().span_range(10 * sy.TimeSpan.SECOND)
+        rng = client.ranges.create(name=random_name(), time_range=tr, color="#FF0000")
+        client.ranges.create(key=rng.key, name=rng.name, time_range=tr, color="#0000FF")
+        retrieved = client.ranges.retrieve(key=rng.key)
+        assert retrieved.color == sy.Color(r=0, g=0, b=255)
+        client.ranges.create(key=rng.key, name=rng.name, time_range=tr)
         assert client.ranges.retrieve(key=rng.key).color is None
 
     def test_create_multiple(self, two_ranges: list[sy.Range]) -> None:
@@ -393,6 +454,7 @@ class TestRangeClient:
             )
 
             class Test:
+                @override
                 def __str__(self) -> str:
                     return "test"
 
@@ -539,25 +601,9 @@ class TestRangeClient:
             assert names[1] in child_names
 
 
-class _LabelCreateRequest(pydantic.BaseModel):
-    labels: list[label.Label]
-
-
-class _LabelSetRequest(pydantic.BaseModel):
-    id: ID
-    labels: list[label.Key]
-
-
-class _Empty(pydantic.BaseModel):
-    pass
-
-
 def _create_label(client: sy.Synnax, rng: sy.Range) -> label.Label:
-    lbl = label.Label(name=random_name(), color=sy.Color(r=255, g=0, b=0))
-    unary = client._transport.unary
-    unary.send("/label/create", _LabelCreateRequest(labels=[lbl]), _Empty)
-    req = _LabelSetRequest(id=rng.ontology_id, labels=[lbl.key])
-    unary.send("/label/set", req, _Empty)
+    lbl = client.labels.create(name=random_name(), color="#FF0000")
+    rng.add_label(lbl.key)
     return lbl
 
 
@@ -680,6 +726,43 @@ class TestRangeRetrieveFilters:
         """Should return a list when given include_parent without a key or name"""
         res = client.ranges.retrieve(include_parent=True)
         assert {r.key for r in window_ranges} <= {r.key for r in res}
+
+
+@pytest.mark.ranger
+class TestRangeLabels:
+    """Tests the label methods of a range."""
+
+    @pytest.fixture
+    def rng(self, client: sy.Synnax) -> sy.Range:
+        return client.ranges.create(
+            name=random_name(),
+            time_range=sy.TimeStamp.now().span_range(10 * sy.TimeSpan.SECOND),
+        )
+
+    def test_add_label(self, client: sy.Synnax, rng: sy.Range) -> None:
+        """Should add labels to the range"""
+        a = client.labels.create(name=random_name(), color="#FF0000")
+        b = client.labels.create(name=random_name(), color="#00FF00")
+        rng.add_label(a.key, b.key)
+        assert {lb.key for lb in rng.retrieve_labels()} == {a.key, b.key}
+
+    def test_retrieve_labels_empty(self, rng: sy.Range) -> None:
+        """Should retrieve no labels for a range without labels"""
+        assert rng.retrieve_labels() == []
+
+    def test_remove_label(self, client: sy.Synnax, rng: sy.Range) -> None:
+        """Should remove labels from the range"""
+        a = client.labels.create(name=random_name(), color="#FF0000")
+        b = client.labels.create(name=random_name(), color="#00FF00")
+        rng.add_label(a.key, b.key)
+        rng.remove_label(a.key)
+        assert [lb.key for lb in rng.retrieve_labels()] == [b.key]
+
+    def test_retrieved_range(self, client: sy.Synnax, rng: sy.Range) -> None:
+        """Should label a range returned by retrieve"""
+        lbl = client.labels.create(name=random_name(), color="#FF0000")
+        client.ranges.retrieve(key=rng.key).add_label(lbl.key)
+        assert rng.retrieve_labels() == [lbl]
 
 
 @pytest.mark.ranger

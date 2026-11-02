@@ -125,8 +125,6 @@ def _legacy_alpha(a: float) -> int:
 
 def _from_hex(s: str) -> dict[str, int]:
     s = s.lstrip("#")
-    if len(s) == 0:
-        return {"r": 0, "g": 0, "b": 0, "a": 0}
     if len(s) not in (6, 8):
         raise ValueError(f"Invalid hex color: #{s}")
     try:

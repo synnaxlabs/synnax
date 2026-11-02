@@ -22,7 +22,6 @@ class TestColor:
             ("00ff00", (0, 255, 0, 255)),
             ("#ff000080", (255, 0, 0, 128)),
             ("#00000000", (0, 0, 0, 0)),
-            ("", (0, 0, 0, 0)),
             ({}, (0, 0, 0, 0)),
             ([255, 0, 0], (255, 0, 0, 255)),
             ([255, 0, 0, 0], (255, 0, 0, 0)),
@@ -109,6 +108,11 @@ class TestColor:
 
     @pytest.mark.parametrize("value", ["#xyz", "#12345", "#gggggg"])
     def test_invalid_hex(self, value: str) -> None:
+        with pytest.raises(ValueError, match="Invalid hex color"):
+            Color(value)
+
+    @pytest.mark.parametrize("value", ["", "#"])
+    def test_empty_hex(self, value: str) -> None:
         with pytest.raises(ValueError, match="Invalid hex color"):
             Color(value)
 
