@@ -7,6 +7,8 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
+import "@/platform/credential/useModal.css";
+
 import { type auth, type ontology, status, TimeStamp } from "@synnaxlabs/client";
 import { Button } from "@synnaxlabs/lyra/button";
 import { Flex } from "@synnaxlabs/lyra/flex";
@@ -19,6 +21,7 @@ import { Access, Credential, Synnax } from "@synnaxlabs/pluto";
 import { type ReactElement, useEffect, useRef, useState } from "react";
 
 import { Token } from "@/platform/credential/Token";
+import { CSS } from "@/platform/css";
 import { Modals } from "@/platform/modals";
 
 export interface ModalParams {
@@ -148,20 +151,22 @@ const APIKeys = ({ subject }: Pick<ModalParams, "subject">): ReactElement => {
   return (
     <Flex.Box y>
       <Text.Text level="h5">API keys</Text.Text>
-      <APIKeyList
-        key={generation}
-        subject={subject}
-        onDelete={canDelete ? (k) => del.update(k) : undefined}
-      />
+      <Flex.Box y className={CSS.BE("credential", "keys")}>
+        <APIKeyList
+          key={generation}
+          subject={subject}
+          onDelete={canDelete ? (k) => del.update(k) : undefined}
+        />
+      </Flex.Box>
       {canCreate && (
         <Flex.Box x>
           <Input.Text value={name} onChange={setName} placeholder="Key name" full="x" />
           <Button.Button
+            className={CSS.BE("credential", "action")}
             variant="filled"
             status={status.keepVariants(create.variant, "loading")}
             onClick={() => create.update({ subject, name })}
           >
-            <Icon.Add />
             Create key
           </Button.Button>
         </Flex.Box>
@@ -171,7 +176,11 @@ const APIKeys = ({ subject }: Pick<ModalParams, "subject">): ReactElement => {
   );
 };
 
-const Password = ({ subject }: Pick<ModalParams, "subject">): ReactElement => {
+interface PasswordProps extends Pick<ModalParams, "subject"> {
+  onChanged: (changed: boolean) => void;
+}
+
+const Password = ({ subject, onChanged }: PasswordProps): ReactElement => {
   const client = Synnax.use();
   const own = client?.auth.subject?.key === subject.key;
   const [password, setPassword] = useState("");
@@ -180,8 +189,17 @@ const Password = ({ subject }: Pick<ModalParams, "subject">): ReactElement => {
     afterSuccess: () => {
       setPassword("");
       setCurrentPassword("");
+      onChanged(true);
     },
   });
+  const handleCurrentPassword = (value: string) => {
+    setCurrentPassword(value);
+    onChanged(false);
+  };
+  const handlePassword = (value: string) => {
+    setPassword(value);
+    onChanged(false);
+  };
   const handleSet = () =>
     set.update(own ? { password, currentPassword } : { subject, password });
   return (
@@ -190,7 +208,7 @@ const Password = ({ subject }: Pick<ModalParams, "subject">): ReactElement => {
       {own && (
         <Input.Text
           value={currentPassword}
-          onChange={setCurrentPassword}
+          onChange={handleCurrentPassword}
           placeholder="Current password"
           type="password"
           full="x"
@@ -199,12 +217,13 @@ const Password = ({ subject }: Pick<ModalParams, "subject">): ReactElement => {
       <Flex.Box x>
         <Input.Text
           value={password}
-          onChange={setPassword}
+          onChange={handlePassword}
           placeholder="New password"
           type="password"
           full="x"
         />
         <Button.Button
+          className={CSS.BE("credential", "action")}
           variant="filled"
           status={status.keepVariants(set.variant, "loading")}
           disabled={password === ""}
@@ -220,16 +239,26 @@ const Password = ({ subject }: Pick<ModalParams, "subject">): ReactElement => {
 const Credentials = ({
   subject,
   title,
-}: Modals.ContentProps<ModalParams, void>): ReactElement => (
-  <Modal.Frame>
-    <Modal.Header icon={<Icon.Lock />}>{title ?? "Credentials"}</Modal.Header>
-    <Modal.Body>
-      <Flex.Box y gap="large">
-        <APIKeys subject={subject} />
-        {subject.type === "user" && <Password subject={subject} />}
-      </Flex.Box>
-    </Modal.Body>
-  </Modal.Frame>
-);
+}: Modals.ContentProps<ModalParams, void>): ReactElement => {
+  const [passwordChanged, setPasswordChanged] = useState(false);
+  return (
+    <Modal.Frame className={CSS.B("credential")}>
+      <Modal.Header icon={<Icon.Lock />}>{title ?? "Credentials"}</Modal.Header>
+      <Modal.Body>
+        <Flex.Box y gap="large">
+          <APIKeys subject={subject} />
+          {subject.type === "user" && (
+            <Password subject={subject} onChanged={setPasswordChanged} />
+          )}
+        </Flex.Box>
+      </Modal.Body>
+      {passwordChanged && (
+        <Modal.Footer>
+          <Status.Summary variant="success" message="Successfully changed password" />
+        </Modal.Footer>
+      )}
+    </Modal.Frame>
+  );
+};
 
 export const useModal = Modals.create<ModalParams>(Credentials);
