@@ -23,19 +23,30 @@ const elements = (node: Root | Element): Element[] =>
     child.type === "element" ? [child, ...elements(child)] : [],
   );
 
+const text = (node: Element): string =>
+  node.children
+    .map((child) =>
+      child.type === "text" ? child.value : child.type === "element" ? text(child) : "",
+    )
+    .join("")
+    .trim();
+
 const RELEASES: Release[] = [
   { tag_name: "core/v0.60.0", prerelease: false, draft: false },
   { tag_name: "desktop/v1.0.0", prerelease: false, draft: false },
 ];
 
-const renderPost = async (path: string): Promise<Element[]> => {
+const listing = async (): Promise<Response> => new Response(JSON.stringify(RELEASES));
+
+const renderPost = async (
+  path: string,
+  fetch: typeof globalThis.fetch = listing,
+): Promise<Element[]> => {
   const container = await experimental_AstroContainer.create({
     astroConfig: { site: "https://docs.synnaxlabs.com" },
   });
   container.addServerRenderer({ name: "@astrojs/react", renderer: reactRenderer });
-  const releases = new Releases({
-    fetch: async () => new Response(JSON.stringify(RELEASES)),
-  });
+  const releases = new Releases({ fetch });
   const html = await container.renderToString(Blog, {
     locals: { releases },
     request: new Request(new URL(path, "https://docs.synnaxlabs.com")),
@@ -71,5 +82,20 @@ describe("Blog", () => {
       "blog",
       "blog",
     ]);
+  });
+
+  it("should give the outline no heading for the download", async () => {
+    const headings = (await renderPost("/blog/a-post")).filter(({ tagName }) =>
+      ["h1", "h2", "h3"].includes(tagName),
+    );
+    expect(headings.map(text)).not.toContain("Try Synnax Desktop");
+  });
+
+  it("should render the post without the download when GitHub is down", async () => {
+    const post = await renderPost("/blog/a-post", async () => {
+      throw new Error("GitHub is down");
+    });
+    expect(post.some(({ tagName }) => tagName === "article")).toBe(true);
+    expect(post.filter(({ properties }) => properties.dataEvent != null)).toEqual([]);
   });
 });

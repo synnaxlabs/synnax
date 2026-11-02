@@ -22,6 +22,8 @@ const { headings, frontmatter } = Astro.props;
 const { title, heading, description, published, author, authorImage, authorLink } =
     frontmatter;
 const route = normalizeRoute(Astro.url.pathname);
+// Flagged posts render on request, so a post stays readable when GitHub is down.
+const desktop = await Astro.locals.releases.latest("desktop").catch(() => null);
 const shown = outlined(headings);
 const organization = {
     "@type": "Organization",
@@ -67,14 +69,18 @@ const posting = {
             authorLink={authorLink}
         >
             <slot />
-            <aside class="blog-download">
-                <Text.Text level="h3">Try Synnax Desktop</Text.Text>
-                <Text.Text level="p" color={9}>
-                    Free for any use, including commercial use, up to 50 channels. On
-                    macOS and Windows.
-                </Text.Text>
-                <DownloadButton location="blog" />
-            </aside>
+            {desktop != null && (
+                <aside class="blog-download">
+                    <Text.Text level="h3" el="p">
+                        Try Synnax Desktop
+                    </Text.Text>
+                    <Text.Text level="p" color={9}>
+                        Free for any use, including commercial use, up to 50 channels.
+                        On macOS and Windows.
+                    </Text.Text>
+                    <DownloadButton location="blog" />
+                </aside>
+            )}
         </Article>
         <OnThisPage headings={shown} outline={frontmatter.outline} hideFeedback>
             <div class="blog-human-note">
