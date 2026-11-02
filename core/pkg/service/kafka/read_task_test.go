@@ -627,10 +627,10 @@ var _ = Describe("Read task", func() {
 		start(ctx, dt, t)
 		doc := map[string]any{"mode": "auto", "limits": []any{1, 2.5}}
 		produceJSON(ctx, producer, topic, "", map[string]any{"ts": 10e9, "v": doc})
-		want := MustSucceed(telem.NewJSONSeriesV(map[string]any{
-			"mode": "auto", "limits": []any{int64(1), 2.5},
-		}))
-		Expect(expectStored(ctx, data.Key(), 1).Data).To(Equal(want.Data))
+		// Members of a marshaled map come in no fixed order.
+		got := jsontext.Value(expectStored(ctx, data.Key(), 1).At(0))
+		Expect(got.Canonicalize()).To(Succeed())
+		Expect(string(got)).To(Equal(`{"limits":[1,2.5],"mode":"auto"}`))
 	})
 
 	It("Should skip a record with data after its JSON value", func(ctx SpecContext) {
