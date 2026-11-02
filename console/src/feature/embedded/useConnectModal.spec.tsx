@@ -10,6 +10,7 @@
 import { AuthError } from "@synnaxlabs/client";
 import { createTestClient, TEST_CLIENT_PARAMS } from "@synnaxlabs/client/testutil";
 import { type Status as LyraStatus } from "@synnaxlabs/lyra/status";
+import { stubClipboardWriteText } from "@synnaxlabs/lyra/testutil";
 import { act, fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { afterEach, describe, expect, it } from "vitest";
 
@@ -106,14 +107,16 @@ describe("Embedded connect from code dialog", () => {
     expect(code).not.toContain(savedKey(file));
   });
 
-  it("should show the API key only on request", async () => {
+  it("should copy the TypeScript code with the API key", async () => {
     await deleteKeysCreatedByTest(client);
+    const writeText = stubClipboardWriteText();
     const { file } = await openConnect();
-    fireEvent.click(screen.getByRole("tab", { name: "Other" }));
-    const value = await screen.findByLabelText("API key");
-    expect(value.textContent).not.toBe(savedKey(file));
-    fireEvent.click(screen.getByRole("button", { name: "Show API key" }));
-    expect(value.textContent).toBe(savedKey(file));
+    fireEvent.click(screen.getByRole("tab", { name: "TypeScript" }));
+    fireEvent.click(
+      await screen.findByRole("button", { name: "Copy TypeScript code" }),
+    );
+    await waitFor(() => expect(writeText).toHaveBeenCalled());
+    expect(writeText.mock.calls[0][0]).toContain(`apiKey: "${savedKey(file)}"`);
   });
 
   it("should count the sessions of the key", async () => {
@@ -143,15 +146,20 @@ describe("Embedded connect from code dialog", () => {
     const { token, key } = await client.auth.createKey({ name: "replaced" });
     const { token: other } = await client.auth.createKey({ name: "other window" });
     const before = (await retrieveKeyIDs(client)).filter((k) => k !== key.key);
-    const { file } = await openConnect(token, (f, apiKey) => {
+    const writeText = stubClipboardWriteText();
+    const { file, statuses } = await openConnect(token, (f, apiKey) => {
       if (apiKey !== token && f.apiKey === token) f.apiKey = other;
     });
     await resetKey();
-    fireEvent.click(screen.getByRole("tab", { name: "Other" }));
-    fireEvent.click(screen.getByRole("button", { name: "Show API key" }));
     await waitFor(() =>
-      expect(screen.getByLabelText("API key").textContent).toBe(other),
+      expect(statuses().map((s) => s.message)).toContain("Reset API key"),
     );
+    fireEvent.click(screen.getByRole("tab", { name: "TypeScript" }));
+    fireEvent.click(
+      await screen.findByRole("button", { name: "Copy TypeScript code" }),
+    );
+    await waitFor(() => expect(writeText).toHaveBeenCalled());
+    expect(writeText.mock.calls[0][0]).toContain(`apiKey: "${other}"`);
     expect(file.apiKey).toBe(other);
     await expect.poll(async () => await retrieveKeyIDs(client)).toEqual(before);
   });

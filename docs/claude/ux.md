@@ -213,6 +213,14 @@ outlined button) has fill l2 and border l4, and its caret has the disabled text 
 Follow the status text rule in `AGENTS.md`. The name holds the object. The description
 says why in a sentence, then gives the raw error.
 
+### Code blocks
+
+- Code to copy uses the colors of the docs site: keywords `--editor-token-keyword`,
+  strings `--pluto-secondary-m1`, functions `--pluto-primary-z`, and comments
+  `--pluto-gray-l7`.
+- The copy button sits at the top right, centered on the first line. A one-line block
+  centers its line in the box.
+
 ## Interaction
 
 - Respond to every input in less than 100 ms. Show a spinner only after 150 to 300 ms,

@@ -11,16 +11,16 @@ import "@/feature/embedded/useConnectModal.css";
 
 import { type ontology } from "@synnaxlabs/client";
 import { Button } from "@synnaxlabs/lyra/button";
-import { Description } from "@synnaxlabs/lyra/description";
 import { Flex } from "@synnaxlabs/lyra/flex";
 import { useAsyncEffect } from "@synnaxlabs/lyra/hooks";
 import { Icon } from "@synnaxlabs/lyra/icon";
 import { Modal } from "@synnaxlabs/lyra/modal";
+import { Nav } from "@synnaxlabs/lyra/nav";
 import { Status } from "@synnaxlabs/lyra/status";
 import { Tabs } from "@synnaxlabs/lyra/tabs";
 import { Text } from "@synnaxlabs/lyra/text";
 import { Credential, Synnax } from "@synnaxlabs/pluto";
-import { type ReactElement, useState } from "react";
+import { Fragment, type PropsWithChildren, type ReactElement, useState } from "react";
 
 import { countSessions, ensure, replace } from "@/feature/embedded/apiKey";
 import { useStatus } from "@/feature/embedded/Provider";
@@ -31,9 +31,29 @@ const CLIENT_DOCS_URL = "https://docs.synnaxlabs.com/reference/client";
 
 const MASK = "•".repeat(16);
 
-const PYTHON_CODE = `import synnax as sy
+/** A run of code, colored by its kind when it has one. */
+type Token =
+  string | { kind: "keyword" | "string" | "function" | "comment"; text: string };
 
-client = sy.Synnax()`;
+/** Lines of tokens. One source gives both the colored code and the copied text. */
+type Code = Token[][];
+
+const keyword = (text: string): Token => ({ kind: "keyword", text });
+const quoted = (text: string): Token => ({ kind: "string", text: `"${text}"` });
+const call = (text: string): Token => ({ kind: "function", text });
+const comment = (text: string): Token => ({ kind: "comment", text });
+
+const toText = (code: Code): string =>
+  code
+    .map((line) => line.map((t) => (typeof t === "string" ? t : t.text)).join(""))
+    .join("\n");
+
+const PYTHON_CODE: Code = [
+  [keyword("import"), " synnax ", keyword("as"), " sy"],
+  [],
+  [comment("# Finds Synnax Desktop on this computer.")],
+  ["client = sy.", call("Synnax"), "()"],
+];
 
 /**
  * @returns The client release that matches the given Core version, or null for a
@@ -45,41 +65,79 @@ const matchingRelease = (version: string | undefined): string | null => {
   return `${major}.${minor}.0`;
 };
 
-const typeScriptCode = (host: string, port: number, apiKey: string): string =>
-  `import { Synnax } from "@synnaxlabs/client";
+const pythonInstall = (release: string | null): Code => [
+  [call("pip"), " install ", release == null ? "synnax" : quoted(`synnax~=${release}`)],
+];
 
-const client = new Synnax({
-  host: "${host}",
-  port: ${port},
-  apiKey: "${apiKey}",
-});`;
+const typeScriptInstall = (release: string | null): Code => [
+  [call("npm"), " install @synnaxlabs/client", release == null ? "" : `@~${release}`],
+];
+
+const typeScriptCode = (host: string, port: number, apiKey: string): Code => [
+  [
+    keyword("import"),
+    " { Synnax } ",
+    keyword("from"),
+    " ",
+    quoted("@synnaxlabs/client"),
+    ";",
+  ],
+  [],
+  [keyword("const"), " client = ", keyword("new"), " ", call("Synnax"), "({"],
+  ["  host: ", quoted(host), ","],
+  [`  port: ${port},`],
+  ["  apiKey: ", quoted(apiKey), ","],
+  ["});"],
+];
 
 interface SnippetProps {
-  /** What the snippet is, as the copy button names it. */
+  /** What the snippet holds, as assistive technology names it. */
   label: string;
-  code: string;
-  /** The text to copy, when it differs from what the snippet shows. */
-  copy?: string;
+  code: Code;
+  /** The code to copy, when it differs from what the snippet shows. */
+  copy?: Code;
 }
 
 const Snippet = ({ label, code, copy = code }: SnippetProps): ReactElement => (
   <Flex.Box x align="start" className={CSS.BE("connect", "snippet")}>
-    <pre aria-label={label}>{code}</pre>
+    <pre aria-label={label}>
+      {code.map((line, i) => (
+        <Fragment key={i}>
+          {i > 0 && "\n"}
+          {line.map((token, j) =>
+            typeof token === "string" ? (
+              token
+            ) : (
+              <span key={j} className={CSS.BEM("connect", "token", token.kind)}>
+                {token.text}
+              </span>
+            ),
+          )}
+        </Fragment>
+      ))}
+    </pre>
     <Button.Copy
-      text={copy}
+      text={toText(copy)}
       variant="text"
       size="small"
-      tooltip={`Copy ${label.toLowerCase()}`}
       textColor={9}
+      aria-label={`Copy ${label}`}
     />
   </Flex.Box>
 );
 
-interface Params {
-  host: string;
-  port: number;
-  apiKey: string;
+interface StepProps extends PropsWithChildren {
+  title: string;
 }
+
+const Step = ({ title, children }: StepProps): ReactElement => (
+  <Flex.Box y gap="small">
+    <Text.Text level="small" color={9}>
+      {title}
+    </Text.Text>
+    {children}
+  </Flex.Box>
+);
 
 interface TabProps {
   /** The client release that matches the Core, or null for any release. */
@@ -87,19 +145,21 @@ interface TabProps {
 }
 
 const PythonTab = ({ release }: TabProps): ReactElement => (
-  <Flex.Box y gap="medium">
-    <Text.Text color={9}>
-      Install the client, then connect. The client finds Synnax Desktop by itself.
-    </Text.Text>
-    <Snippet
-      label="Install command"
-      code={release == null ? "pip install synnax" : `pip install "synnax~=${release}"`}
-    />
-    <Snippet label="Python code" code={PYTHON_CODE} />
+  <Flex.Box y gap="large">
+    <Step title="Install">
+      <Snippet label="Python install command" code={pythonInstall(release)} />
+    </Step>
+    <Step title="Connect">
+      <Snippet label="Python code" code={PYTHON_CODE} />
+    </Step>
   </Flex.Box>
 );
 
-interface TypeScriptTabProps extends TabProps, Params {}
+interface TypeScriptTabProps extends TabProps {
+  host: string;
+  port: number;
+  apiKey: string;
+}
 
 const TypeScriptTab = ({
   release,
@@ -107,82 +167,22 @@ const TypeScriptTab = ({
   port,
   apiKey,
 }: TypeScriptTabProps): ReactElement => (
-  <Flex.Box y gap="medium">
-    <Text.Text color={9}>
-      Install the client, then connect with this code. It holds the API key, so keep it
-      private.
-    </Text.Text>
-    <Snippet
-      label="Install command"
-      code={
-        release == null
-          ? "npm install @synnaxlabs/client"
-          : `npm install @synnaxlabs/client@~${release}`
-      }
-    />
-    <Snippet
-      label="TypeScript code"
-      code={typeScriptCode(host, port, `${apiKey.slice(0, 4)}${MASK}`)}
-      copy={typeScriptCode(host, port, apiKey)}
-    />
+  <Flex.Box y gap="large">
+    <Step title="Install">
+      <Snippet label="TypeScript install command" code={typeScriptInstall(release)} />
+    </Step>
+    <Step title="Connect">
+      <Snippet
+        label="TypeScript code"
+        code={typeScriptCode(host, port, `${apiKey.slice(0, 4)}${MASK}`)}
+        copy={typeScriptCode(host, port, apiKey)}
+      />
+      <Text.Text level="small" color={9}>
+        The code holds the API key, so keep it private.
+      </Text.Text>
+    </Step>
   </Flex.Box>
 );
-
-interface ValueProps {
-  label: string;
-  value: string;
-  /** What the value shows in place of the real one. */
-  display?: string;
-}
-
-const Value = ({ label, value, display = value }: ValueProps): ReactElement => (
-  <Description.Item>
-    <Description.Label>{label}</Description.Label>
-    <Description.Value>
-      <Flex.Box x align="center" gap="small">
-        <span className={CSS.BE("connect", "value")} aria-label={label}>
-          {display}
-        </span>
-        <Button.Copy
-          text={value}
-          variant="text"
-          size="small"
-          tooltip={`Copy ${label.toLowerCase()}`}
-          textColor={9}
-        />
-      </Flex.Box>
-    </Description.Value>
-  </Description.Item>
-);
-
-const OtherTab = ({ host, port, apiKey }: Params): ReactElement => {
-  const [revealed, setRevealed] = useState(false);
-  return (
-    <Flex.Box y gap="medium">
-      <Text.Text color={9}>
-        Give these values to the C++ client, LabVIEW, or any other client.
-      </Text.Text>
-      <Description.List>
-        <Value label="Host" value={host} />
-        <Value label="Port" value={port.toString()} />
-        <Value
-          label="API key"
-          value={apiKey}
-          display={revealed ? apiKey : `${apiKey.slice(0, 4)}${MASK}`}
-        />
-      </Description.List>
-      <Button.Button
-        variant="text"
-        size="small"
-        onClick={() => setRevealed((r) => !r)}
-        className={CSS.BE("connect", "reveal")}
-      >
-        {revealed ? <Icon.Hidden /> : <Icon.Visible />}
-        {revealed ? "Hide API key" : "Show API key"}
-      </Button.Button>
-    </Flex.Box>
-  );
-};
 
 const formatSessions = (count: number): string =>
   `${count} ${count === 1 ? "session" : "sessions"}`;
@@ -197,7 +197,7 @@ const SessionCount = ({ apiKey, subject }: SessionCountProps): ReactElement | nu
   const sessions = Credential.useResultSessions({ subject });
   if (sessions.variant !== "success" && sessions.variant !== "error") return null;
   return (
-    <Text.Text level="small" color={9} className={CSS.BE("connect", "sessions")}>
+    <Text.Text color={9}>
       {sessions.variant === "success"
         ? formatSessions(countSessions(sessions.data, apiKey))
         : "Sessions unknown"}
@@ -260,18 +260,20 @@ const ConnectModal = (): ReactElement => {
     body = (
       <Tabs.Frame initialValue="python" empty={false} gap="large">
         <Tabs.Selector variant="chip">
-          <Tabs.Tab itemKey="python">Python</Tabs.Tab>
-          <Tabs.Tab itemKey="typescript">TypeScript</Tabs.Tab>
-          <Tabs.Tab itemKey="other">Other</Tabs.Tab>
+          <Tabs.Tab itemKey="python">
+            <Icon.Python />
+            Python
+          </Tabs.Tab>
+          <Tabs.Tab itemKey="typescript">
+            <Icon.TypeScript />
+            TypeScript
+          </Tabs.Tab>
         </Tabs.Selector>
         <Tabs.Content itemKey="python">
           <PythonTab release={release} />
         </Tabs.Content>
         <Tabs.Content itemKey="typescript">
           <TypeScriptTab release={release} host={host} port={port} apiKey={apiKey} />
-        </Tabs.Content>
-        <Tabs.Content itemKey="other">
-          <OtherTab host={host} port={port} apiKey={apiKey} />
         </Tabs.Content>
       </Tabs.Frame>
     );
@@ -283,10 +285,12 @@ const ConnectModal = (): ReactElement => {
         {body}
       </Modal.Body>
       <Modal.Footer>
-        <Flex.Box x gap="small" align="center" className={CSS.BE("connect", "actions")}>
+        <Nav.Bar.Start>
           {apiKey != null && subject != null && (
             <SessionCount key={apiKey} apiKey={apiKey} subject={subject} />
           )}
+        </Nav.Bar.Start>
+        <Nav.Bar.End align="center" gap="small">
           <Button.Button variant="text" href={CLIENT_DOCS_URL} target="_blank">
             <Icon.OpenExternal />
             Client docs
@@ -300,7 +304,7 @@ const ConnectModal = (): ReactElement => {
             <Icon.Refresh />
             Reset key
           </Button.Button>
-        </Flex.Box>
+        </Nav.Bar.End>
       </Modal.Footer>
     </Modal.Frame>
   );

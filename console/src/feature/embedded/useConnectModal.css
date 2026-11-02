@@ -30,28 +30,27 @@
             font-family: var(--pluto-code-font-family);
             font-size: var(--pluto-small-size);
             line-height: 1.6;
+
+            /* Centers the first line on the copy button. */
+            padding-block: calc((var(--pluto-height-small) - 1.6em) / 2);
             user-select: text;
         }
     }
 
-    .console-connect__value {
-        font-family: var(--pluto-code-font-family);
-        font-size: var(--pluto-small-size);
-        overflow-wrap: anywhere;
-        user-select: text;
+    /* The colors of the code blocks of the docs site. */
+    .console-connect__token--keyword {
+        color: var(--editor-token-keyword);
     }
 
-    .console-connect__reveal {
-        align-self: flex-start;
+    .console-connect__token--string {
+        color: var(--pluto-secondary-m1);
     }
 
-    .console-connect__sessions {
-        margin-right: auto;
+    .console-connect__token--function {
+        color: var(--pluto-primary-z);
     }
 
-    .console-connect__actions {
-        width: 100%;
-        justify-content: flex-end;
-        padding: 0 2rem;
+    .console-connect__token--comment {
+        color: var(--pluto-gray-l7);
     }
 }
