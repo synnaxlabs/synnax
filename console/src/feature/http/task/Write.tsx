@@ -89,7 +89,7 @@ const EndpointItem = (props: List.ItemProps<string>) => {
       className={CSS.B("endpoint-item")}
     >
       <Flex.Box x align="center" gap="small" full="x">
-        <EndpointLabel epKey={itemKey} />
+        <EndpointLabel path={root.config.endpoints[itemKey]} />
       </Flex.Box>
       <Task.ChannelName
         channel={channel}
@@ -124,10 +124,10 @@ const EnumValuesEditor: FC<{ path: deep.Path<WriteEndpoint["channel"]> }> = ({
 );
 
 const ChannelFieldSection: FC<{ path: deep.Path<WriteEndpoint["channel"]> }> = ({
-  path: channelPath,
+  path,
 }) => {
-  const channelKey = PForm.useFieldValue(channelPath.channel);
-  const jsonType = PForm.useFieldValue(channelPath.jsonType);
+  const channelKey = PForm.useFieldValue(path.channel);
+  const jsonType = PForm.useFieldValue(path.jsonType);
   const channelQuery = primitive.isNonZero(channelKey) ? { key: channelKey } : null;
   const { data: dataType } = PChannel.useResultDataType(channelQuery);
 
@@ -135,28 +135,24 @@ const ChannelFieldSection: FC<{ path: deep.Path<WriteEndpoint["channel"]> }> = (
     <>
       <PForm.Section title="Channel">
         <PForm.TextField
-          path={channelPath.pointer}
+          path={path.pointer}
           label="Pointer"
           padHelpText={false}
           inputProps={JSON_POINTER_INPUT_PROPS}
         />
-        <PForm.Field path={channelPath.jsonType} label="JSON type" padHelpText={false}>
+        <PForm.Field path={path.jsonType} label="JSON type" padHelpText={false}>
           {renderSelectJSONType}
         </PForm.Field>
         {channelKey === 0 && (
-          <PForm.Field
-            path={channelPath.dataType}
-            label="Data type"
-            padHelpText={false}
-          >
+          <PForm.Field path={path.dataType} label="Data type" padHelpText={false}>
             {renderSelectDataType}
           </PForm.Field>
         )}
         {dataType != null && DataType.TIMESTAMP.equals(dataType) && (
-          <TimeFormatField path={channelPath.timeFormat} label="Time format" />
+          <TimeFormatField path={path.timeFormat} label="Time format" />
         )}
       </PForm.Section>
-      {jsonType === "string" && <EnumValuesEditor path={channelPath} />}
+      {jsonType === "string" && <EnumValuesEditor path={path} />}
     </>
   );
 };
@@ -517,7 +513,9 @@ const Form: FC = () => {
           </>
         }
         detailsPath={selected != null ? root.config.endpoints[selected] : null}
-        title={selected != null && <EndpointLabel epKey={selected} />}
+        title={
+          selected != null && <EndpointLabel path={root.config.endpoints[selected]} />
+        }
       >
         {selected != null ? (
           <EndpointDetails epKey={selected} />

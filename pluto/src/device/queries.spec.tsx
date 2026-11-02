@@ -9,7 +9,7 @@
 
 import { device, NotFoundError, query, status } from "@synnaxlabs/client";
 import { createTestClient } from "@synnaxlabs/client/testutil";
-import { deep, id, type record } from "@synnaxlabs/x";
+import { id, type record } from "@synnaxlabs/x";
 import { act, render, renderHook, waitFor } from "@testing-library/react";
 import { type PropsWithChildren, type ReactElement } from "react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
@@ -22,7 +22,7 @@ import { Status } from "@/status";
 import { renderHookSuspended } from "@/testutil/render";
 import { createAsyncSynnaxWrapper } from "@/testutil/Synnax";
 
-const path = deep.path<z.infer<typeof Device.formSchema>>();
+const path = Device.formPath;
 
 const client = createTestClient();
 

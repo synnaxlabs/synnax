@@ -41,25 +41,35 @@ type Children<V> = unknown extends V
  */
 export type Path<V> = Target<V> & Children<V>;
 
-const node = (path: string, nodes: Map<string, unknown>): unknown =>
-  new Proxy(
-    {},
-    {
-      get: (_, key) => {
-        if (key === Symbol.toPrimitive) return () => path;
-        if (typeof key === "symbol") return undefined;
-        const child = path === "" ? key : `${path}.${key}`;
-        if (!nodes.has(child)) nodes.set(child, node(child, nodes));
-        return nodes.get(child);
-      },
-    },
-  );
+interface Node {
+  path: string;
+  children: Map<string, unknown> | null;
+}
+
+const HANDLER: ProxyHandler<Node> = {
+  // A path shows no fields, so a walker such as `JSON.stringify` stops at it.
+  ownKeys: () => [],
+  get: (node, key) => {
+    if (key === Symbol.toPrimitive) return () => node.path;
+    if (typeof key === "symbol") return undefined;
+    node.children ??= new Map();
+    let child = node.children.get(key);
+    if (child == null) {
+      child = create(node.path === "" ? key : `${node.path}.${key}`);
+      node.children.set(key, child);
+    }
+    return child;
+  },
+};
+
+const create = (path: string): unknown =>
+  new Proxy<Node>({ path, children: null }, HANDLER);
 
 /**
  * Creates a root path for values of type V. A root returns the same object for the same
  * field, so a path is safe to compare and to memoize on.
  */
-export const path = <V>(): Path<V> => node("", new Map()) as Path<V>;
+export const path = <V>(): Path<V> => create("") as Path<V>;
 
 /**
  * Narrows a path to a union to the members with the discriminator value. Nothing checks

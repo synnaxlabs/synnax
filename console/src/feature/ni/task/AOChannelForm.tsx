@@ -11,10 +11,11 @@ import { Component } from "@synnaxlabs/lyra/component";
 import { Form } from "@synnaxlabs/lyra/form";
 import { Icon } from "@synnaxlabs/lyra/icon";
 import { Select } from "@synnaxlabs/lyra/select";
-import { deep } from "@synnaxlabs/x";
+import { type deep } from "@synnaxlabs/x";
 import { type FC } from "react";
 
 import { useFromConfig } from "@/feature/ni/device/queries";
+import { createTypeFields } from "@/feature/ni/task/createTypeFields";
 import { CustomScaleSection } from "@/feature/ni/task/CustomScaleForm";
 import { MinMaxValueFields } from "@/feature/ni/task/MinMaxValueFields";
 import { PortField } from "@/feature/ni/task/PortField";
@@ -57,8 +58,6 @@ const SelectWaveType = (props: SelectWaveTypeProps) => (
   </Select.Buttons>
 );
 
-const CHANNELS = deep.path<{ config: { channels: AOChannel[] } }>().config.channels;
-
 type Variant<K extends AOChannelType> = Extract<AOChannel, { type: K }>;
 
 interface FormProps<K extends AOChannelType = AOChannelType> {
@@ -69,7 +68,7 @@ const CHANNEL_FORMS: { [K in AOChannelType]: FC<FormProps<K>> } = {
   [AO_CURRENT_CHAN_TYPE]: ({ path }) => <MinMaxValueFields path={path} />,
   [AO_FUNC_GEN_CHAN_TYPE]: ({ path }) => (
     <>
-      <Form.Field<WaveType> path={path.waveType} label="Wave">
+      <Form.Field path={path.waveType} label="Wave">
         {selectWaveType}
       </Form.Field>
       <Form.NumericField
@@ -101,20 +100,13 @@ const selectWaveType = Component.renderProp(SelectWaveType);
 export interface AOChannelFormProps {
   type: AOChannelType;
   path: deep.Path<AOChannel>;
+  /** The path of the task's channels. */
+  channelsPath: deep.Target<AOChannel[]>;
 }
 
-const TypeFields = <K extends AOChannelType>({
-  type,
-  path,
-}: {
-  type: K;
-  path: deep.Path<AOChannel>;
-}) => {
-  const TypeForm: FC<FormProps<K>> = CHANNEL_FORMS[type];
-  return <TypeForm path={deep.variant(path, "type", type)} />;
-};
+const TypeFields = createTypeFields<AOChannel>(CHANNEL_FORMS);
 
-export const AOChannelForm = ({ type, path }: AOChannelFormProps) => {
+export const AOChannelForm = ({ type, path, channelsPath }: AOChannelFormProps) => {
   const device = useFromConfig();
   const port = Form.useFieldValue(path.port);
   const entry = device?.properties.hardware?.analogOutputs.find((p) => p.port === port);
@@ -124,7 +116,7 @@ export const AOChannelForm = ({ type, path }: AOChannelFormProps) => {
       <Form.Section title="Source">
         <PortField
           path={path}
-          channelsPath={CHANNELS}
+          channelsPath={channelsPath}
           device={device}
           kind={ANALOG_OUTPUT}
           deviceOf={() => device?.key ?? ""}

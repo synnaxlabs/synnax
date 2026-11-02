@@ -18,9 +18,7 @@ import { Icon } from "@synnaxlabs/lyra/icon";
 import { Status } from "@synnaxlabs/lyra/status";
 import { Text } from "@synnaxlabs/lyra/text";
 import { Access, Label as PLabel, Ranger } from "@synnaxlabs/pluto";
-import { deep } from "@synnaxlabs/x";
 import { type FC, type ReactElement } from "react";
-import { type z } from "zod";
 
 import { Core } from "@/platform/core";
 import { CSS } from "@/platform/css";
@@ -30,7 +28,7 @@ import { Label } from "@/platform/label";
 import { Panel } from "@/platform/panel";
 import { FavoriteButton } from "@/platform/range/FavoriteButton";
 
-const path = deep.path<z.infer<typeof Ranger.formSchema>>();
+const path = Ranger.formPath;
 
 interface ParentRangeButtonProps {
   rangeKey: string;

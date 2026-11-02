@@ -8,14 +8,16 @@
 // included in the file licenses/APL.txt.
 
 import { Component } from "@synnaxlabs/lyra/component";
+import { Form } from "@synnaxlabs/lyra/form";
 import { deep } from "@synnaxlabs/x";
-import { fireEvent, screen, waitFor } from "@testing-library/react";
+import { fireEvent, renderHook, screen, waitFor } from "@testing-library/react";
 import { describe, expect, it, vi } from "vitest";
+import { z } from "zod";
 
 import { Task } from "@/platform/task";
 import { renderInTaskForm } from "@/platform/task/testutil";
 import { type Channel } from "@/platform/task/types";
-import { getIconButton, queryIconButton } from "@/testutil";
+import { getIconButton, queryIconButton, renderWithConsole } from "@/testutil";
 
 const path = deep.path<{ config: { channels: Channel[] } }>();
 
@@ -84,6 +86,37 @@ describe("layouts.List", () => {
     await waitFor(() =>
       expect(form.current?.get(path.config.channels).value).toHaveLength(1),
     );
+  });
+
+  it("should read a config without channels as an empty list and write nothing", async () => {
+    const schema = z.object({
+      config: z.object({
+        channels: z
+          .array(z.object({ key: z.string(), disabled: z.boolean() }))
+          .default([]),
+      }),
+    });
+    const onChange = vi.fn();
+    const { result: form } = renderHook(() =>
+      Form.use<z.ZodType>({ schema, values: { config: {} }, onChange }),
+    );
+    await renderWithConsole(
+      <Form.Form {...form.current}>
+        <Task.Views.List<Channel>
+          path={path.config.channels}
+          createChannel={() => ({ key: "new", disabled: false })}
+          listItem={listItem}
+          resolve={resolve}
+        />
+      </Form.Form>,
+    );
+    await waitFor(() => expect(screen.getByText("No channels in task")).toBeTruthy());
+    expect(onChange).not.toHaveBeenCalled();
+    fireEvent.click(screen.getByRole("button", { name: "Add channel" }));
+    await waitFor(() => expect(screen.getByText("item-new")).toBeTruthy());
+    expect(form.current.get(path.config.channels).value).toEqual([
+      { key: "new", disabled: false },
+    ]);
   });
 
   it("should append nothing when createChannel returns null", async () => {

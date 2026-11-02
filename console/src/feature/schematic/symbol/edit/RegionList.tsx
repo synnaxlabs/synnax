@@ -21,14 +21,12 @@ import { Select } from "@synnaxlabs/lyra/select";
 import { Text } from "@synnaxlabs/lyra/text";
 import { Tooltip } from "@synnaxlabs/lyra/tooltip";
 import { Schematic } from "@synnaxlabs/pluto";
-import { deep } from "@synnaxlabs/x";
-import { type z } from "zod";
 
 import { CSS } from "@/platform/css";
 
-const path = deep.path<z.infer<typeof Schematic.Symbol.formSchema>>();
+const path = Schematic.Symbol.formPath;
 
-export interface RegionListProps extends Input.Control<string | undefined> {
+export interface RegionListProps extends Input.Control<string> {
   selectedState: string;
   onAddRegion: () => void;
 }
@@ -45,7 +43,7 @@ const RegionListItem = ({ selectedState, svg, ...props }: RegionListItemProps) =
   const region = Form.useFieldValue(entry, { optional: true });
   const { set } = Form.useContext();
   const paint = Schematic.Node.Region.paint(svg, region?.selectors ?? []);
-  const { remove } = Form.useFieldListUtils(path.data.states[selectedState].regions);
+  const { remove } = Form.useFieldListUtils(regions);
   if (region == null) return null;
   return (
     <Select.Item

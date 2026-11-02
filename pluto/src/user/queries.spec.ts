@@ -9,7 +9,7 @@
 
 import { type ontology } from "@synnaxlabs/client";
 import { createTestClient, TEST_CREDENTIALS } from "@synnaxlabs/client/testutil";
-import { deep, id } from "@synnaxlabs/x";
+import { id } from "@synnaxlabs/x";
 import { act, renderHook, waitFor } from "@testing-library/react";
 import { type FC, type PropsWithChildren } from "react";
 import {
@@ -22,13 +22,12 @@ import {
   it,
   vi,
 } from "vitest";
-import { type z } from "zod";
 
 import { renderHookSuspended } from "@/testutil/render";
 import { createAsyncSynnaxWrapper, createSynnaxWrapper } from "@/testutil/Synnax";
 import { User } from "@/user";
 
-const path = deep.path<z.infer<typeof User.formSchema>>();
+const path = User.formPath;
 
 describe("User queries", () => {
   let controller: AbortController;

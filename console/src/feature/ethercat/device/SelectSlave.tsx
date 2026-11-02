@@ -27,18 +27,13 @@ const root = deep.path<{ config: { channels: Channel[] } }>();
 export interface SelectSlaveProps {
   /** Path to the slave device field in the form. */
   path: deep.Target<device.Key>;
-  /** Path to the channels array to get already-selected slaves. */
-  channelsPath?: deep.Target<Channel[]>;
 }
 
 const filterByNetwork = (d: device.Device, network: string) =>
   network === "" || (d.properties as SlaveProperties | undefined)?.network === network;
 
-export const SelectSlave = ({
-  path,
-  channelsPath = root.config.channels,
-}: SelectSlaveProps): ReactElement => {
-  const channels = Form.useFieldValue(channelsPath) ?? [];
+export const SelectSlave = ({ path }: SelectSlaveProps): ReactElement => {
+  const channels = Form.useFieldValue(root.config.channels) ?? [];
   const network = useCommonNetwork(channels);
   const configure = Device.useConfigureModal();
   const find = Device.useFindModal();

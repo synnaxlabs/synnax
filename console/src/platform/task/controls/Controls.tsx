@@ -17,15 +17,17 @@ import { type ReactElement } from "react";
 
 import { Framer } from "@/platform/framer";
 import { Bar } from "@/platform/task/controls/Bar";
+import { type Values } from "@/platform/task/types";
 import { useDrifted } from "@/platform/task/useDrifted";
 import { useIsPreview } from "@/platform/task/useIsPreview";
 import { useKey } from "@/platform/task/useKey";
 import { useStatus } from "@/platform/task/useStatus";
 
-const path = deep.path<{
-  snapshot: boolean;
-  config: { dataSavingDisabled: boolean; autoStart: boolean };
-}>();
+const path = deep.path<
+  Pick<Values, "snapshot"> & {
+    config: { dataSavingDisabled: boolean; autoStart: boolean };
+  }
+>();
 
 interface SettingProps {
   label: string;

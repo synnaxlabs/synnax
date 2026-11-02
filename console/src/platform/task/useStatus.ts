@@ -7,12 +7,11 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { type task } from "@synnaxlabs/client";
 import { Form } from "@synnaxlabs/lyra/form";
 import { deep } from "@synnaxlabs/x";
 import { type z } from "zod";
 
-const path = deep.path<{ status: task.Status }>();
+import { formPath } from "@/platform/task/types";
 
 export const useStatus = <Schema extends z.ZodType>(ctx?: Form.ContextValue<Schema>) =>
-  Form.useFieldValue(path.status, { ctx });
+  Form.useFieldValue(deep.present(formPath.status), { ctx });

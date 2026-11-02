@@ -48,11 +48,9 @@ const apiKey = deep.variant(auth, "type", "api_key");
 const bearer = deep.variant(auth, "type", "bearer");
 const basic = deep.variant(auth, "type", "basic");
 const healthBody = deep.variant(healthCheck, "method", "POST").body;
-const response = deep.widen<{
-  validateResponse: boolean;
-  response?: Response;
-}>(healthCheck).response;
-const responseFields = deep.present(response);
+const response = deep.variant(healthCheck, "validateResponse", true).response;
+const apiKeyHeader = deep.variant(apiKey, "sendAs", "header").header;
+const apiKeyParameter = deep.variant(apiKey, "sendAs", "query_param").parameter;
 
 const INITIAL_VALUES: Device = {
   key: "",
@@ -154,7 +152,7 @@ export const Connect = ({
     ctx: form,
   });
 
-  const expectedValueType = Form.useFieldValue(responseFields.expectedValueType, {
+  const expectedValueType = Form.useFieldValue(response.expectedValueType, {
     ctx: form,
     optional: true,
   });
@@ -165,7 +163,10 @@ export const Connect = ({
 
   const handleValidateResponseChange = (value: boolean) => {
     setField(healthCheck.validateResponse, value);
-    setField(response, value ? ZERO_RESPONSE : undefined);
+    setField(
+      deep.widen<Response | undefined>(response),
+      value ? ZERO_RESPONSE : undefined,
+    );
   };
 
   const renderExpectedValueType = ({
@@ -175,7 +176,7 @@ export const Connect = ({
     onChange: (v: json.PrimitiveType) => void;
   }) => {
     const handleChange = (value: json.PrimitiveType) => {
-      setField(responseFields.expectedValue, json.ZERO_PRIMITIVES[value]);
+      setField(response.expectedValue, json.ZERO_PRIMITIVES[value]);
       onChange(value);
     };
     return <SelectExpectedValueType {...rest} onChange={handleChange} />;
@@ -210,9 +211,8 @@ export const Connect = ({
     ...rest
   }: SelectSendAsProps & { onChange: (v: APIKeyAuthConfigSendAs) => void }) => {
     const handleChange = (value: APIKeyAuthConfigSendAs) => {
-      if (value === "header")
-        setField(deep.variant(apiKey, "sendAs", "header").header, "");
-      else setField(deep.variant(apiKey, "sendAs", "query_param").parameter, "");
+      if (value === "header") setField(apiKeyHeader, "");
+      else setField(apiKeyParameter, "");
       onChange(value);
     };
     return <SelectSendAs {...rest} onChange={handleChange} />;
@@ -302,14 +302,14 @@ export const Connect = ({
                       </Form.Field>
                       {sendAs === "query_param" ? (
                         <Form.TextField
-                          path={deep.variant(apiKey, "sendAs", "query_param").parameter}
+                          path={apiKeyParameter}
                           label="Parameter"
                           padHelpText={false}
                           inputProps={AUTH_PARAM_INPUT_PROPS}
                         />
                       ) : (
                         <Form.TextField
-                          path={deep.variant(apiKey, "sendAs", "header").header}
+                          path={apiKeyHeader}
                           label="Header"
                           padHelpText={false}
                           inputProps={AUTH_HEADER_INPUT_PROPS}
@@ -393,13 +393,13 @@ export const Connect = ({
                   {validateResponse && (
                     <>
                       <Form.TextField
-                        path={responseFields.pointer}
+                        path={response.pointer}
                         label="JSON pointer"
                         padHelpText={false}
                         inputProps={HEALTH_POINTER_INPUT_PROPS}
                       />
                       <Form.Field
-                        path={responseFields.expectedValueType}
+                        path={response.expectedValueType}
                         label="Value type"
                         padHelpText={false}
                       >
@@ -408,7 +408,7 @@ export const Connect = ({
                       {expectedValueType === "string" && (
                         <Form.TextField
                           path={
-                            deep.variant(responseFields, "expectedValueType", "string")
+                            deep.variant(response, "expectedValueType", "string")
                               .expectedValue
                           }
                           label="Expected value"
@@ -419,7 +419,7 @@ export const Connect = ({
                       {expectedValueType === "number" && (
                         <Form.NumericField
                           path={
-                            deep.variant(responseFields, "expectedValueType", "number")
+                            deep.variant(response, "expectedValueType", "number")
                               .expectedValue
                           }
                           label="Expected value"
@@ -429,7 +429,7 @@ export const Connect = ({
                       {expectedValueType === "boolean" && (
                         <Form.CheckboxField
                           path={
-                            deep.variant(responseFields, "expectedValueType", "boolean")
+                            deep.variant(response, "expectedValueType", "boolean")
                               .expectedValue
                           }
                           label="Expected value"

@@ -89,7 +89,7 @@ export const ContactForm = (): ReactElement => {
           <Form.Field path={path.phone} label="Phone" align="stretch">
             {(p) => <Input.Text {...p} size="medium" placeholder="555-555-5555" />}
           </Form.Field>
-          <Form.Field<string>
+          <Form.Field
             path={path.message}
             label="Tell us about your project"
             align="stretch"

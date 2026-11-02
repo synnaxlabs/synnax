@@ -26,7 +26,6 @@ import {
   it,
   vi,
 } from "vitest";
-import { type z } from "zod";
 
 import { Arc } from "@/arc";
 import { Errors } from "@/errors";
@@ -34,7 +33,7 @@ import { Flux } from "@/flux";
 import { renderHookSuspended } from "@/testutil/render";
 import { createAsyncSynnaxWrapper } from "@/testutil/Synnax";
 
-const path = deep.path<z.infer<typeof Arc.formSchema>>();
+const path = Arc.formPath;
 
 describe("Arc queries", () => {
   let controller: AbortController;

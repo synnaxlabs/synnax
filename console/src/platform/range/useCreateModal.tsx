@@ -18,7 +18,7 @@ import { Input } from "@synnaxlabs/lyra/input";
 import { Modal } from "@synnaxlabs/lyra/modal";
 import { Nav } from "@synnaxlabs/lyra/nav";
 import { Ranger, Synnax } from "@synnaxlabs/pluto";
-import { deep, primitive, TimeRange, uuid } from "@synnaxlabs/x";
+import { primitive, TimeRange, uuid } from "@synnaxlabs/x";
 import { type ReactElement, useState } from "react";
 import { type z } from "zod";
 
@@ -29,7 +29,7 @@ import { Modals } from "@/platform/modals";
 import { Triggers } from "@/platform/triggers";
 import { Session } from "@/session";
 
-const path = deep.path<z.infer<typeof Ranger.createFormSchema>>();
+const path = Ranger.createFormPath;
 
 export type CreateModalParams = Omit<
   Partial<z.infer<typeof Ranger.createFormSchema>>,

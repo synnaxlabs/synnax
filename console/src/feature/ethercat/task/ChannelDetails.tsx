@@ -40,18 +40,17 @@ const renderSelectDataType = Component.renderProp(
 );
 
 export interface ChannelDetailsProps {
-  path: deep.Target<Channel>;
+  path: deep.Path<Channel>;
   pdoType: PDOType;
   schema: z.ZodType<EntryChannel>;
 }
 
 const ChannelDetails: FC<ChannelDetailsProps> = ({ path, pdoType, schema }) => {
   const ch = PForm.useFieldValue(path);
-  const channel = deep.widen(path);
   return (
     <PForm.Sections>
       <PForm.Section title="Source">
-        <SelectSlave path={channel.device} />
+        <SelectSlave path={path.device} />
       </PForm.Section>
       <PForm.Section title="Entry">
         <SelectEntryField path={path} pdoType={pdoType} schema={schema} />

@@ -249,8 +249,7 @@ const TimestampFields: FC<{ path: deep.Path<ReadEndpoint> }> = ({ path }) => {
 
 const TIMESTAMP_POINTER_INPUT_PROPS = { placeholder: "/timestamp" } as const;
 
-const EndpointDetails: FC<{ epKey: string }> = ({ epKey }) => {
-  const endpoint = root.config.endpoints[epKey];
+const EndpointDetails: FC<{ endpoint: deep.Path<ReadEndpoint> }> = ({ endpoint }) => {
   const method = PForm.useFieldValue(endpoint.method);
   return (
     <Flex.Box y grow empty className={CSS.B("endpoint-details")}>
@@ -296,8 +295,10 @@ const EndpointDetails: FC<{ epKey: string }> = ({ epKey }) => {
   );
 };
 
-const FieldPane: FC<{ epKey: string; fieldKey: string }> = ({ epKey, fieldKey }) => {
-  const field = root.config.endpoints[epKey].fields[fieldKey];
+const FieldPane: FC<{ epKey: string; field: deep.Path<ReadField> }> = ({
+  epKey,
+  field,
+}) => {
   const { channel: fieldChannel, pointer } = PForm.useFieldValue(field);
   const defaultName = useDefaultChannelName(epKey, pointer);
   const bound = fieldChannel !== 0;
@@ -352,20 +353,18 @@ const createEndpoint = (): Omit<ReadEndpoint, "key"> => http.readEndpointZ.parse
 const createField = (): Omit<ReadField, "key"> => http.readFieldZ.parse({});
 
 const endpointLabel = Component.renderProp(
-  ({ groupKey }: Task.Views.GroupProps<ReadEndpoint>) => (
-    <EndpointLabel epKey={groupKey} />
-  ),
+  ({ path }: Task.Views.GroupProps<ReadEndpoint>) => <EndpointLabel path={path} />,
 );
 
 const endpointDetails = Component.renderProp(
-  ({ groupKey }: Task.Views.GroupProps<ReadEndpoint>) => (
-    <EndpointDetails epKey={groupKey} />
+  ({ path }: Task.Views.GroupProps<ReadEndpoint>) => (
+    <EndpointDetails endpoint={path} />
   ),
 );
 
 const fieldDetails = Component.renderProp(
-  ({ groupKey, fieldKey }: Task.Views.FieldProps<ReadField>) => (
-    <FieldPane epKey={groupKey} fieldKey={fieldKey} />
+  ({ groupKey, path }: Task.Views.FieldProps<ReadField>) => (
+    <FieldPane epKey={groupKey} field={path} />
   ),
 );
 

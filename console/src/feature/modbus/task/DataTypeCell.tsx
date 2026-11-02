@@ -98,16 +98,21 @@ export const DataTypeCell = ({
   channel,
   hideDataTypes,
 }: DataTypeCellProps): ReactElement | null => {
-  const { bit, dataType, stringLength } = deep.widen(path);
+  const fields = deep.widen(path);
   if ("bit" in channel)
-    return <NumberField path={deep.present(bit)} label="Bit" bounds={BIT_BOUNDS} />;
+    return (
+      <NumberField path={deep.present(fields.bit)} label="Bit" bounds={BIT_BOUNDS} />
+    );
   if (!("dataType" in channel)) return null;
   return (
     <Flex.Box x align="center" className={CSS.BE("modbus", "data-type")}>
-      <DataTypeField path={deep.present(dataType)} hideDataTypes={hideDataTypes} />
+      <DataTypeField
+        path={deep.present(fields.dataType)}
+        hideDataTypes={hideDataTypes}
+      />
       {new DataType(channel.dataType).equals(DataType.STRING) && (
         <NumberField
-          path={deep.present(stringLength)}
+          path={deep.present(fields.stringLength)}
           label="String length"
           prefix="Length"
           bounds={STRING_LENGTH_BOUNDS}

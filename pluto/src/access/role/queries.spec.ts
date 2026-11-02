@@ -9,17 +9,16 @@
 
 import { NotFoundError, user } from "@synnaxlabs/client";
 import { createTestClient } from "@synnaxlabs/client/testutil";
-import { deep, id } from "@synnaxlabs/x";
+import { id } from "@synnaxlabs/x";
 import { act, renderHook, waitFor } from "@testing-library/react";
 import { type PropsWithChildren } from "react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
-import { type z } from "zod";
 
 import { Role } from "@/access/role";
 import { renderHookSuspended } from "@/testutil/render";
 import { createAsyncSynnaxWrapper } from "@/testutil/Synnax";
 
-const path = deep.path<z.infer<typeof Role.changeRoleFormSchema>>();
+const path = Role.changeRoleFormPath;
 
 const client = createTestClient();
 

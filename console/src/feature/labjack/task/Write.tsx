@@ -205,10 +205,9 @@ const ChannelList = ({ device }: ChannelListProps) => {
   const listItem = ({ key, ...p }: Task.ChannelListItemProps) => (
     <ChannelListItem key={key} {...p} device={device} />
   );
-  const ports = (p: Task.Views.PortsProps) => (
+  const ports = (p: Task.Views.PortsProps<WriteChannel>) => (
     <PortsView<WriteChannel, AOPort | DOPort>
       {...p}
-      path={path.config.channels}
       model={model}
       ports={[...PORTS[model][AO_PORT_TYPE], ...PORTS[model][DO_PORT_TYPE]]}
       create={(_, port) => createChannelOn(port)}

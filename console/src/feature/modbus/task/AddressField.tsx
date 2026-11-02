@@ -9,7 +9,7 @@
 
 import { Form } from "@synnaxlabs/lyra/form";
 import { Input } from "@synnaxlabs/lyra/input";
-import { deep } from "@synnaxlabs/x";
+import { type deep } from "@synnaxlabs/x";
 import { type CSSProperties, type ReactElement } from "react";
 
 import { parseAddress, toModicon } from "@/feature/modbus/task/address";
@@ -18,7 +18,7 @@ import { CSS } from "@/platform/css";
 
 export interface AddressFieldProps extends Pick<Input.TextProps, "variant"> {
   /** The path of the channel in the form. */
-  path: deep.Target<Channel>;
+  path: deep.Path<Channel>;
   /** Marks the addresses red, for a channel that shares one with another channel. */
   overlapping?: boolean;
 }
@@ -35,7 +35,7 @@ export const AddressField = ({
   overlapping = false,
 }: AddressFieldProps): ReactElement => {
   const channel = Form.useFieldValue(path);
-  const field = Form.useField(deep.widen(path).address);
+  const field = Form.useField(path.address);
   const invalid = field.status.variant !== "success";
   const [lo, hi] = addressSpan(channel);
   return (

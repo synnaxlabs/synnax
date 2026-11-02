@@ -82,7 +82,7 @@ const ChannelListItem = (props: Task.ChannelListItemProps) => {
 
 const ChannelDetails = ({ path }: Task.Views.DetailsProps<AOChannel>) => {
   const type = PForm.useFieldValue(path.type);
-  return <AOChannelForm type={type} path={path} />;
+  return <AOChannelForm type={type} path={path} channelsPath={root.config.channels} />;
 };
 
 const channelDetails = Component.renderProp(ChannelDetails);
@@ -124,10 +124,9 @@ const Form: FC = () => {
   const ports =
     dev?.properties.hardware == null
       ? undefined
-      : (props: Task.Views.PortsProps) => (
+      : (props: Task.Views.PortsProps<AOChannel>) => (
           <PortsView<AOChannel>
             {...props}
-            path={root.config.channels}
             kind={ANALOG_OUTPUT}
             devices={[dev]}
             deviceOf={() => dev.key}

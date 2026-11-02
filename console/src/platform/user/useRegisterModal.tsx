@@ -16,13 +16,11 @@ import { type Input } from "@synnaxlabs/lyra/input";
 import { Modal } from "@synnaxlabs/lyra/modal";
 import { Nav } from "@synnaxlabs/lyra/nav";
 import { Access, Synnax, User } from "@synnaxlabs/pluto";
-import { deep } from "@synnaxlabs/x";
-import { type z } from "zod";
 
 import { Modals } from "@/platform/modals";
 import { Triggers } from "@/platform/triggers";
 
-const path = deep.path<z.infer<typeof User.formSchema>>();
+const path = User.formPath;
 
 const NAME_INPUT_PROPS: Partial<Input.TextProps> = {
   variant: "text",

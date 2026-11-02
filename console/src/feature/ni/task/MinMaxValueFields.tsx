@@ -12,16 +12,6 @@ import { Form } from "@synnaxlabs/lyra/form";
 import { Input } from "@synnaxlabs/lyra/input";
 import { type deep } from "@synnaxlabs/x";
 
-const MinValueField = Form.buildNumericField({
-  fieldProps: { label: "Minimum value" },
-  inputProps: {},
-});
-
-const MaxValueField = Form.buildNumericField({
-  fieldProps: { label: "Maximum value" },
-  inputProps: {},
-});
-
 export interface MinMaxValueFieldsProps {
   path: deep.Path<{ minVal: number; maxVal: number }>;
   units?: string;
@@ -30,14 +20,16 @@ export interface MinMaxValueFieldsProps {
 export const MinMaxValueFields = ({ path, units }: MinMaxValueFieldsProps) => (
   <Input.Item label="Range">
     <Flex.Box x gap="small">
-      <MinValueField
+      <Form.NumericField
         path={path.minVal}
+        label="Minimum value"
         showLabel={false}
         showHelpText={false}
         inputProps={{ endContent: units, grow: true, "aria-label": "Minimum value" }}
       />
-      <MaxValueField
+      <Form.NumericField
         path={path.maxVal}
+        label="Maximum value"
         showLabel={false}
         showHelpText={false}
         inputProps={{ endContent: units, grow: true, "aria-label": "Maximum value" }}

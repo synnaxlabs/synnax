@@ -14,6 +14,7 @@ import { deep } from "@synnaxlabs/x";
 import { type FC } from "react";
 
 import { CoefficientsField } from "@/feature/ni/task/CoefficientsField";
+import { createTypeFields } from "@/feature/ni/task/createTypeFields";
 import { TableScaleForm } from "@/feature/ni/task/TableScaleForm";
 import {
   createScale,
@@ -98,9 +99,9 @@ const UnitsField = Form.buildSelectField<Units>({
 export interface CustomScaleSectionProps {
   path: deep.Target<{ key: string; customScale?: Scale }>;
 }
-type ScaleOf<K extends Scale["type"]> = Extract<Scale, { type: K }>;
-interface ScaleProps<K extends Scale["type"]> {
-  path: deep.Path<ScaleOf<K>>;
+type Variant<K extends ScaleType> = Extract<Scale, { type: K }>;
+interface ScaleProps<K extends ScaleType> {
+  path: deep.Path<Variant<K>>;
 }
 
 const CustomScaleUnitsFields = ({
@@ -147,16 +148,7 @@ const SCALE_FORMS: { [K in ScaleType]: FC<ScaleProps<K>> } = {
   none: () => null,
 };
 
-const ScaleFields = <K extends ScaleType>({
-  type,
-  path,
-}: {
-  type: K;
-  path: deep.Path<Scale>;
-}) => {
-  const FormComponent: FC<ScaleProps<K>> = SCALE_FORMS[type];
-  return <FormComponent path={deep.variant(path, "type", type)} />;
-};
+const ScaleFields = createTypeFields<Scale>(SCALE_FORMS);
 
 const CustomScaleForm = ({ path }: { path: deep.Path<Scale> }) => {
   const type = Form.useFieldValue(path.type);

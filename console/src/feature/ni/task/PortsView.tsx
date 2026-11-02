@@ -16,7 +16,6 @@ import { Icon } from "@synnaxlabs/lyra/icon";
 import { Menu } from "@synnaxlabs/lyra/menu";
 import { Text } from "@synnaxlabs/lyra/text";
 import { Device as PDevice } from "@synnaxlabs/pluto";
-import { type deep } from "@synnaxlabs/x";
 import { type MouseEvent, type ReactElement, type ReactNode } from "react";
 
 import { type Device, MAKE } from "@/feature/ni/device/types";
@@ -107,7 +106,10 @@ const DeviceSection = ({
   );
 };
 
-interface DevicePortsProps<C extends Task.Channel> extends Task.Views.PortsProps {
+interface DevicePortsProps<C extends Task.Channel> extends Omit<
+  Task.Views.PortsProps<C>,
+  "path"
+> {
   device: Device;
   kind: PortKind<C>;
   channels: C[];
@@ -196,9 +198,8 @@ const AddDevice = ({ rack, exclude, onAdd }: AddDeviceProps): ReactElement => (
   />
 );
 
-export interface PortsViewProps<C extends Task.Channel> extends Task.Views.PortsProps {
-  /** The path of the task's channels. */
-  path: deep.Path<C[]>;
+export interface PortsViewProps<C extends Task.Channel> extends Task.Views
+  .PortsProps<C> {
   kind: PortKind<C>;
   /** The devices the task uses. They show in the order of their first channels. */
   devices: Device[];
@@ -270,10 +271,8 @@ export const PortsView = <C extends Task.Channel>({
   );
 };
 
-export interface LinesViewProps<C extends DigitalChannel>
-  extends Task.Views.PortsProps {
-  /** The path of the task's channels. */
-  path: deep.Path<C[]>;
+export interface LinesViewProps<C extends DigitalChannel> extends Task.Views
+  .PortsProps<C> {
   device: Device;
   direction: "input" | "output";
   /** Creates a channel on the line, or on the lowest free line. */

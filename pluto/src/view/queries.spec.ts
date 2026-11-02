@@ -13,12 +13,11 @@ import { deep, uuid } from "@synnaxlabs/x";
 import { act, renderHook, waitFor } from "@testing-library/react";
 import { type FC, type PropsWithChildren } from "react";
 import { beforeAll, describe, expect, it } from "vitest";
-import { type z } from "zod";
 
 import { createAsyncSynnaxWrapper } from "@/testutil/Synnax";
 import { View } from "@/view";
 
-const path = deep.path<z.infer<typeof View.formSchema>>();
+const path = View.formPath;
 
 const client = createTestClient();
 const label = uuid.create();

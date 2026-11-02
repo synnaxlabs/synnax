@@ -9,19 +9,18 @@
 
 import { group, NotFoundError, ontology, query, status } from "@synnaxlabs/client";
 import { createTestClient } from "@synnaxlabs/client/testutil";
-import { deep, id, TimeSpan, TimeStamp, uuid } from "@synnaxlabs/x";
+import { id, TimeSpan, TimeStamp, uuid } from "@synnaxlabs/x";
 import { expectAlways } from "@synnaxlabs/x/testutil";
 import { act, renderHook, waitFor } from "@testing-library/react";
 import { type FC, type PropsWithChildren } from "react";
 import { beforeAll, describe, expect, it } from "vitest";
-import { type z } from "zod";
 
 import { Flux } from "@/flux";
 import { Status } from "@/status";
 import { renderHookSuspended } from "@/testutil/render";
 import { createAsyncSynnaxWrapper } from "@/testutil/Synnax";
 
-const path = deep.path<z.infer<typeof Status.formSchema>>();
+const path = Status.formPath;
 
 const client = createTestClient();
 

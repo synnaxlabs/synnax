@@ -7,14 +7,12 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { type rack, task } from "@synnaxlabs/client";
+import { task } from "@synnaxlabs/client";
 import { Form } from "@synnaxlabs/lyra/form";
-import { deep } from "@synnaxlabs/x";
 import { type z } from "zod";
 
+import { formPath } from "@/platform/task/types";
 import { useStatus } from "@/platform/task/useStatus";
-
-const path = deep.path<{ configHash: string; rack: rack.Key }>();
 
 /**
  * {@link task.drifted} against the values the form holds. Both hashes are
@@ -23,8 +21,8 @@ const path = deep.path<{ configHash: string; rack: rack.Key }>();
 export const useDrifted = <Schema extends z.ZodType>(
   ctx?: Form.ContextValue<Schema>,
 ): boolean => {
-  const configHash = Form.useFieldValue(path.configHash, { ctx });
-  const rack = Form.useFieldValue(path.rack, { ctx });
+  const configHash = Form.useFieldValue(formPath.configHash, { ctx });
+  const rack = Form.useFieldValue(formPath.rack, { ctx });
   const status = useStatus(ctx);
   return task.drifted({ configHash, rack, status });
 };

@@ -266,7 +266,7 @@ export const { useUpdate: useRename } = Flux.createUpdate<RenameParams>({
 
 export const formSchema = device.deviceZ();
 
-const path = deep.path<z.infer<typeof formSchema>>();
+export const formPath = deep.path<z.infer<typeof formSchema>>();
 
 /** The schema a form built by {@link createForm} validates against. */
 export type FormSchema<S> =
@@ -331,7 +331,7 @@ export const createForm: CreateForm = (
       const data = value();
       if (primitive.isZero(data.key)) {
         data.key = uuid.create();
-        set(path.key, data.key);
+        set(formPath.key, data.key);
       }
       await client.devices.create(data as device.New, schemas);
     },
@@ -346,7 +346,7 @@ export const createForm: CreateForm = (
         client.statuses.onSet((changed) => {
           if (changed.key !== device.statusKey(key)) return;
           set(
-            path.status,
+            formPath.status,
             zod.parse(device.statusZ, changed, { label: "device status" }),
           );
         }),

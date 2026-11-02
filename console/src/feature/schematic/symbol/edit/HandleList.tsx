@@ -18,13 +18,12 @@ import { type Input } from "@synnaxlabs/lyra/input";
 import { List } from "@synnaxlabs/lyra/list";
 import { Select } from "@synnaxlabs/lyra/select";
 import { Text } from "@synnaxlabs/lyra/text";
-import { type Schematic } from "@synnaxlabs/pluto";
-import { deep, type location, xy } from "@synnaxlabs/x";
-import { type z } from "zod";
+import { Schematic } from "@synnaxlabs/pluto";
+import { type location, xy } from "@synnaxlabs/x";
 
 import { CSS } from "@/platform/css";
 
-const path = deep.path<z.infer<typeof Schematic.Symbol.formSchema>>();
+const path = Schematic.Symbol.formPath;
 
 const SelectHandleOrientation = (props: Select.ButtonsProps<location.Outer>) => (
   <Select.Buttons size="small" {...props}>

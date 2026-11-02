@@ -241,9 +241,9 @@ describe("useContext", () => {
 
       it("should throw error with complex Field path when used outside Form context", () => {
         expect(() => {
-          render(<Form.Field path={path.settings.appearance.theme["colors[0]"]} />);
+          render(<Form.Field path={path.settings.appearance.theme.colors[0]} />);
         }).toThrow(
-          "Field(settings.appearance.theme.colors[0]) must be used within a Form context value",
+          "Field(settings.appearance.theme.colors.0) must be used within a Form context value",
         );
       });
     });
@@ -257,9 +257,9 @@ describe("useContext", () => {
 
       it("should throw error with complex useField path when used outside Form context", () => {
         expect(() => {
-          renderHook(() => Form.useField(path.data.metrics["performance[0]"].value));
+          renderHook(() => Form.useField(path.data.metrics.performance[0].value));
         }).toThrow(
-          "useField(data.metrics.performance[0].value) must be used within a Form context value",
+          "useField(data.metrics.performance.0.value) must be used within a Form context value",
         );
       });
     });

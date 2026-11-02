@@ -18,15 +18,13 @@ import { Nav } from "@synnaxlabs/lyra/nav";
 import { Select } from "@synnaxlabs/lyra/select";
 import { Text } from "@synnaxlabs/lyra/text";
 import { Channel, Telem } from "@synnaxlabs/pluto";
-import { deep } from "@synnaxlabs/x";
 import { useState } from "react";
-import { type z } from "zod";
 
 import { Analytics } from "@/platform/analytics";
 import { Modals } from "@/platform/modals";
 import { Triggers } from "@/platform/triggers";
 
-const path = deep.path<z.infer<typeof Channel.formSchema>>();
+const path = Channel.formPath;
 
 const INDEX_QUERY: Partial<Channel.RetrieveMultipleQuery> = { isIndex: true };
 

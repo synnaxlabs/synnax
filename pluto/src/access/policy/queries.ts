@@ -24,7 +24,7 @@ export const formSchema = z.object({
   actions: access.actionZ.array(),
 });
 
-const path = deep.path<z.infer<typeof formSchema>>();
+export const formPath = deep.path<z.infer<typeof formSchema>>();
 
 export type RetrieveQuery = {
   key: access.policy.Key;
@@ -99,6 +99,6 @@ export const useForm = Flux.createForm<RetrieveQuery, typeof formSchema>({
     await client.access.policies.retrieve(key),
   update: async ({ client, value, set }) => {
     const p = await client.access.policies.create(value());
-    set(path.key, p.key);
+    set(formPath.key, p.key);
   },
 });

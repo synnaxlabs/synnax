@@ -157,7 +157,7 @@ export const TermsFields = (): ReactElement => {
           {TERM_DESCRIPTIONS[term]}
         </Text.Text>
       </Flex.Box>
-      <Form.Field<string>
+      <Form.Field
         path={path.expiresAt}
         label={term === "updates" ? "Updates until (UTC)" : "Expires (UTC)"}
         visible={term !== "perpetual"}

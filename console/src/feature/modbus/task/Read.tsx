@@ -75,7 +75,7 @@ const ChannelListItem = ({ itemKey, ...rest }: Task.ChannelListItemProps) => {
   const dev = useFromConfig();
   const hovered = useIsHovered(itemKey);
   const hoveredRef = useHoveredRef(itemKey);
-  const overlapping = useOverlaps(itemKey);
+  const overlapping = useOverlaps(path.config.channels, itemKey);
   return (
     <Task.Views.ListChannelItem
       {...rest}

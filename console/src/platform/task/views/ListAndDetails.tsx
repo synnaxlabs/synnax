@@ -35,7 +35,7 @@ export interface ListAndDetailsProps<C extends Channel> extends Pick<
   detailsTitle?: Component.RenderProp<DetailsProps<C>>;
   createChannel: CreateChannel<C>;
   /** The channels by port. A "List" and "Ports" switch in the header shows it. */
-  ports?: Component.RenderProp<PortsProps>;
+  ports?: Component.RenderProp<PortsProps<C>>;
 }
 
 export const ListAndDetails = <C extends Channel>({
@@ -71,7 +71,7 @@ export const ListAndDetails = <C extends Channel>({
           header={null}
           ports={
             ports != null && view === "ports"
-              ? ports({ selected, onSelect: setSelected })
+              ? ports({ path, selected, onSelect: setSelected })
               : undefined
           }
           selected={selected}

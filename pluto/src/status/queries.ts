@@ -123,7 +123,7 @@ export const formSchema = status.statusZ().omit({ labels: true }).safeExtend({
   labels: label.keyZ.array().optional(),
 });
 
-const path = deep.path<z.infer<typeof formSchema>>();
+export const formPath = deep.path<z.infer<typeof formSchema>>();
 
 const INITIAL_VALUES: z.infer<typeof formSchema> = {
   key: "",
@@ -148,7 +148,7 @@ export const useForm = Flux.createForm<RetrieveQuery, typeof formSchema>({
     return { ...stat, labels: labels.map((l) => l.key) };
   },
   update: async ({ client, value, set }) => {
-    set(path.time, TimeStamp.now());
+    set(formPath.time, TimeStamp.now());
     const v = value();
     if (primitive.isZero(v.key)) v.key = uuid.create();
     const { labels: labelKeys, ...rest } = v;
@@ -158,7 +158,7 @@ export const useForm = Flux.createForm<RetrieveQuery, typeof formSchema>({
         client,
         data: { id: status.ontologyID(res.key), labels: labelKeys },
       });
-    set(path.key, res.key);
+    set(formPath.key, res.key);
   },
   mountListeners: ({ client, query: { key }, reset, abandon }) =>
     client.statuses.onChange(key, (result) => {

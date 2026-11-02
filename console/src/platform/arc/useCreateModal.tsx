@@ -19,14 +19,13 @@ import { Nav } from "@synnaxlabs/lyra/nav";
 import { Select } from "@synnaxlabs/lyra/select";
 import { Text } from "@synnaxlabs/lyra/text";
 import { Arc, type Flux } from "@synnaxlabs/pluto";
-import { deep } from "@synnaxlabs/x";
 import { type z } from "zod";
 
 import { CSS } from "@/platform/css";
 import { Modals } from "@/platform/modals";
 import { Triggers } from "@/platform/triggers";
 
-const path = deep.path<z.infer<typeof Arc.formSchema>>();
+const path = Arc.formPath;
 
 export interface CreateModalResult {
   key: arc.Key;

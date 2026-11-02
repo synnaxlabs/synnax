@@ -30,7 +30,7 @@ export interface ContextMenuItemProps<C extends Channel> {
 }
 
 interface ContextMenuProps<C extends Channel> extends Pick<
-  Form.UseFieldListReturn<C["key"], C>,
+  Form.UseFieldListReturn<C>,
   "data" | "remove"
 > {
   keys: string[];

@@ -83,7 +83,7 @@ const detailsTitle = Component.renderProp(WriteDetailsTitle);
 const listItem = Component.renderProp(ChannelListItem);
 
 const Form: FC = () => {
-  const slaves = useSlavesByKeys(Task.useChannelDeviceKeys());
+  const slaves = useSlavesByKeys(Task.useChannelDeviceKeys(path.config.channels));
   const resolve = (ch: WriteChannel) => {
     const slave = slaves?.find(({ key }) => key === ch.device);
     if (slave == null || !hasEntry(ch)) return null;

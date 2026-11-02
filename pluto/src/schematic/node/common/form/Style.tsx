@@ -20,10 +20,10 @@ import { Label } from "@/schematic/node/common/label";
 import { Orientation } from "@/schematic/node/common/orientation";
 import { type FormProps } from "@/schematic/node/spec";
 
-const path = deep.path<StyleFormValues>();
+const path = deep.path<StyleValues>();
 
 /** The fields of a symbol that {@link StyleForm} edits. */
-export interface StyleFormValues extends schematic.LabeledConfig {
+export interface StyleValues extends schematic.LabeledConfig {
   strokeColor?: color.Color;
   scale: number;
   normallyOpen?: boolean;

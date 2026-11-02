@@ -52,7 +52,7 @@ export const PortField = <C extends Task.Channel>({
     describe: Task.Port.describer(own, (c) => kind.name(c, device)),
   });
   return (
-    <Form.Field<number> path={port} label="Port">
+    <Form.Field path={port} label="Port">
       {({ onChange, preview }) => (
         <Task.Port.Grid
           label="Port"

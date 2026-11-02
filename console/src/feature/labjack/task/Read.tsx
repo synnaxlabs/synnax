@@ -267,10 +267,9 @@ const ChannelsForm = ({ device }: ChannelsFormProps) => {
   const detailsTitle = (p: Task.Views.DetailsProps<ReadChannel>) => (
     <DetailsTitle {...p} model={model} />
   );
-  const ports = (p: Task.Views.PortsProps) => (
+  const ports = (p: Task.Views.PortsProps<ReadChannel>) => (
     <PortsView<ReadChannel, AIPort | DIPort>
       {...p}
-      path={root.config.channels}
       model={model}
       ports={[...PORTS[model][AI_PORT_TYPE], ...PORTS[model][DI_PORT_TYPE]]}
       create={(channels, port) =>

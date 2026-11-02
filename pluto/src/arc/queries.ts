@@ -194,7 +194,7 @@ export const formSchema = z.object({
   mode: arc.modeZ,
 });
 
-const path = deep.path<z.infer<typeof formSchema>>();
+export const formPath = deep.path<z.infer<typeof formSchema>>();
 
 export const ZERO_FORM_VALUES: z.infer<typeof formSchema> = {
   name: "",
@@ -209,7 +209,7 @@ export const useForm = Flux.createForm<FormQuery, typeof formSchema>({
   initialValues: ZERO_FORM_VALUES,
   update: async ({ client, value, set }) => {
     const res = await client.arcs.create(value());
-    set(path.key, res.key);
+    set(formPath.key, res.key);
   },
 });
 

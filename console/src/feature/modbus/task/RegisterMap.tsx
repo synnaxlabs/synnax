@@ -11,7 +11,7 @@ import { context } from "@synnaxlabs/lyra/context";
 import { Form } from "@synnaxlabs/lyra/form";
 import { Menu } from "@synnaxlabs/lyra/menu";
 import { Store } from "@synnaxlabs/lyra/store";
-import { deep } from "@synnaxlabs/x";
+import { type deep } from "@synnaxlabs/x";
 import {
   type PointerEvent,
   type PropsWithChildren,
@@ -34,8 +34,6 @@ import {
 } from "@/feature/modbus/task/types";
 import { CSS } from "@/platform/css";
 import { Task } from "@/platform/task";
-
-const CHANNELS = deep.path<{ config: { channels: Channel[] } }>().config.channels;
 
 // The channel under the pointer, in the list or in the map. Both mark it, so each
 // points at the other.
@@ -103,9 +101,12 @@ export const useHoveredRef = (key: string): RefCallback<HTMLElement> => {
 
 // Subscribes to a value derived from the channels, so a component re-renders only
 // when that value changes, not on every edit to a channel.
-const useDerived = <T,>(derive: (channels: Channel[]) => T): T => {
+const useDerived = <T,>(
+  path: deep.Target<Channel[]>,
+  derive: (channels: Channel[]) => T,
+): T => {
   const { get, bind } = Form.useContext();
-  const getSnapshot = () => derive(get(CHANNELS).value);
+  const getSnapshot = () => derive(get(path).value);
   return useSyncExternalStore(bind, getSnapshot, getSnapshot);
 };
 
@@ -113,9 +114,9 @@ const useDerived = <T,>(derive: (channels: Channel[]) => T): T => {
  * @returns whether another channel of the same type uses one of the channel's
  * addresses.
  */
-export const useOverlaps = (key: string): boolean => {
+export const useOverlaps = (path: deep.Target<Channel[]>, key: string): boolean => {
   const find = useFindOverlaps("Modbus.useOverlaps");
-  return useDerived((channels) => find(channels).keys.has(key));
+  return useDerived(path, (channels) => find(channels).keys.has(key));
 };
 
 // Past this many addresses, the ticks would merge into one fill.

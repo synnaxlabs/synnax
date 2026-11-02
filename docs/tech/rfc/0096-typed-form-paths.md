@@ -135,8 +135,9 @@ export const path = <V>(): Path<V> => node("", new Map()) as Path<V>;
   as `hashes` at `client/ts/src/query/query.ts:31`.
 - **Field names**: The whole API is a symbol key or a free function, so a schema field
   can have any name. A `then` field reads as an object, so `await` stays safe.
-- **Cost**: 30 to 80 ns per path, and about 1 KB per keyed list entry that a form reads.
-  1,000 paths in one render add about 0.08 ms.
+- **Cost**: About 100 ns to read a four-step path, and about 1.1 KB for each keyed list
+  entry of five fields that a form reads. A root keeps its cache for the session. 1,000
+  fields in one render add about 0.2 ms.
 
 ### 3.2 Narrowing
 
@@ -171,9 +172,11 @@ A built field accepts an optional value because inputs render unset (RFC 0065).
 
 ### 3.4 Roots and reusable components
 
-A module that owns a form declares one root: `const path = deep.path<Values>()`. A task
-form takes its values from `Task.Values<S>`. A component that several forms host takes
-`path: deep.Path<Shape>`, which replaces the `path` and `prefix` strings in 51 files.
+A form has one root, exported next to its schema:
+`export const formPath = deep.path<z.infer<typeof formSchema>>()`. Every file that binds
+the form imports it. A task form takes its values from `Task.Values<S>`. A component
+that several forms host takes `path: deep.Path<Shape>`, which replaces the `path` and
+`prefix` strings in 51 files.
 
 The task list views, `Task.BindChannels`, and `Task.Views.GroupTree` take the list as a
 required `path`, so each form names its list and the entry type follows from it.
@@ -224,7 +227,7 @@ channel types.
 
 - **A root is a claim**: React context is untyped, so the compiler cannot check
   `deep.path<V>()` against the enclosing form. A wrong root throws on the first render,
-  as a wrong string does today. One claim per module replaces 360.
+  as a wrong string does today. One claim per form replaces 360.
 - **List keys are open**: `path.channels[key]` takes any string, so
   `path.channels.lenght` compiles. The fields under it stay typed.
 - **Writes are covariant**: A component typed `Path<{ mode: string }>` can write a value
@@ -257,7 +260,7 @@ change reaches no outside caller. `deep.Key` and `deep.Join` leave `@synnaxlabs/
 2. **A branded string with `deep.at`**: `deep.at(prefix, "slope")` catches the same
    mistakes at 1.8% with no `Proxy`, as Conform's `FieldName` does. Rejected because
    every path gains a function call, and a string gets completion but no
-   go-to-definition or rename. The trade is real: `path.slope` is 10 to 30 times slower
+   go-to-definition or rename. The trade is real: `path.slope` is about 10 times slower
    per path and is the first production `Proxy` in the TypeScript packages. Angular's
    `FieldTree` chose the same property form.
 3. **Plain templates over a brand**: `` `${path}.slope` `` changes the least code.
@@ -280,3 +283,6 @@ change reaches no outside caller. `deep.Key` and `deep.Join` leave `@synnaxlabs/
    conversion, and the NI analog input run needed 21 of them. The trade is real: Phase 2
    changes about 1,700 sites, so the compiler and the specs carry its review, and open
    PRs that touch form code must convert.
+10. **A root in each module**: Adds no exports. Rejected because one form then has many
+    roots: 7 for the symbol form and 6 for `Task.Values`. The trade is real: Pluto
+    exports 15 more roots.

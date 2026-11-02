@@ -16,6 +16,7 @@ import { type FC } from "react";
 
 import { Select } from "@/feature/ni/device/Select";
 import { CoefficientsField } from "@/feature/ni/task/CoefficientsField";
+import { createTypeFields } from "@/feature/ni/task/createTypeFields";
 import { CustomScaleSection } from "@/feature/ni/task/CustomScaleForm";
 import { MinMaxValueFields } from "@/feature/ni/task/MinMaxValueFields";
 import { PortField } from "@/feature/ni/task/PortField";
@@ -59,8 +60,6 @@ import {
   useChannelDevice,
 } from "@/feature/ni/task/usePort";
 import { Task } from "@/platform/task";
-
-const CHANNELS = deep.path<{ config: { channels: AIChannel[] } }>().config.channels;
 
 type Variant<K extends AIChannelType> = Extract<AIChannel, { type: K }>;
 interface FormProps<K extends AIChannelType = AIChannelType> {
@@ -982,20 +981,13 @@ const deviceOf = (c: AIChannel) => c.device;
 export interface AIChannelFormProps {
   type: AIChannelType;
   path: deep.Path<AIChannel>;
+  /** The path of the task's channels. */
+  channelsPath: deep.Target<AIChannel[]>;
 }
 
-const TypeFields = <K extends AIChannelType>({
-  type,
-  path,
-}: {
-  type: K;
-  path: deep.Path<AIChannel>;
-}) => {
-  const TypeForm: FC<FormProps<K>> = CHANNEL_FORMS[type];
-  return <TypeForm path={deep.variant(path, "type", type)} />;
-};
+const TypeFields = createTypeFields<AIChannel>(CHANNEL_FORMS);
 
-export const AIChannelForm = ({ type, path }: AIChannelFormProps) => {
+export const AIChannelForm = ({ type, path, channelsPath }: AIChannelFormProps) => {
   const device = useChannelDevice(path);
   const port = useAnalogInputPort(path);
   const types = allowedTypes(AI_CHANNEL_TYPES, type, port, PORTLESS_TYPES);
@@ -1006,7 +998,7 @@ export const AIChannelForm = ({ type, path }: AIChannelFormProps) => {
         {type !== "ai_temp_builtin" && (
           <PortField
             path={deep.variant(path, "type", type)}
-            channelsPath={CHANNELS}
+            channelsPath={channelsPath}
             device={device}
             kind={ANALOG_INPUT}
             deviceOf={deviceOf}

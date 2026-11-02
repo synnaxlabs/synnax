@@ -9,17 +9,15 @@
 
 import { group, ontology, schematic } from "@synnaxlabs/client";
 import { createTestClient } from "@synnaxlabs/client/testutil";
-import { deep } from "@synnaxlabs/x";
 import { act, renderHook, waitFor } from "@testing-library/react";
 import { type FC, type PropsWithChildren } from "react";
 import { afterEach, beforeAll, beforeEach, describe, expect, it, vi } from "vitest";
-import { type z } from "zod";
 
 import { Symbol } from "@/schematic/symbol";
 import { renderHookSuspended } from "@/testutil/render";
 import { createAsyncSynnaxWrapper } from "@/testutil/Synnax";
 
-const path = deep.path<z.infer<typeof Symbol.formSchema>>();
+const path = Symbol.formPath;
 
 describe("Symbol queries", () => {
   let controller: AbortController;

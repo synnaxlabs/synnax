@@ -98,7 +98,7 @@ export const useFieldState = (<I>(
   return useSyncExternalStore(bind, getSnapshot, getSnapshot);
 }) as UseFieldState;
 
-/** Reads just a field's value. Use it to render from a field the caller does not edit. */
+/** Reads a field's value, for rendering a field the caller does not edit. */
 export const useFieldValue = (<I>(
   path: deep.Target<I>,
   opts?: GetOptions & ContextOptions,
@@ -134,15 +134,15 @@ export const useStatuses = (
  * Edits for a form field holding an array of keyed entries. Each edit names entries by
  * key, so it merges with a concurrent edit to another entry.
  */
-export interface FieldListUtils<K extends string, E extends record.Keyed<K>> {
+export interface FieldListUtils<E extends record.Keyed<string>> {
   /** Appends entries, optionally re-sorting after. */
   push: (value: E | E[], sort?: compare.Comparator<E>) => void;
   /** Inserts entries at an index. */
   add: (value: E | E[], start: number) => void;
   /** Drops the named entries. @returns the keys that remain. */
-  remove: (keys: K | K[]) => K[];
+  remove: (keys: E["key"] | E["key"][]) => E["key"][];
   /** Drops everything but the named entries. @returns the keys that remain. */
-  keepOnly: (keys: K | K[]) => K[];
+  keepOnly: (keys: E["key"] | E["key"][]) => E["key"][];
   /** Replaces the whole array. */
   set: (values: state.SetArg<E[]>) => void;
   value(): E[];
@@ -153,7 +153,7 @@ export interface FieldListUtils<K extends string, E extends record.Keyed<K>> {
 export const fieldListUtils = <E extends record.Keyed<string>>(
   ctx: ContextValue<any>,
   path: deep.Target<E[]>,
-): FieldListUtils<E["key"], E> => {
+): FieldListUtils<E> => {
   type K = E["key"];
   const value = () => ctx.get(path).value;
   const keys = () => value().map(({ key }) => key);
@@ -213,13 +213,12 @@ export const fieldListUtils = <E extends record.Keyed<string>>(
 export const useFieldListUtils = <E extends record.Keyed<string>>(
   path: deep.Target<E[]>,
   opts?: ContextOptions,
-): FieldListUtils<E["key"], E> => fieldListUtils(useContext(opts?.ctx), path);
+): FieldListUtils<E> => fieldListUtils(useContext(opts?.ctx), path);
 
 export interface UseFieldListReturn<
-  K extends string,
-  E extends record.Keyed<K>,
-> extends FieldListUtils<K, E> {
-  data: K[];
+  E extends record.Keyed<string>,
+> extends FieldListUtils<E> {
+  data: E["key"][];
 }
 
 /**
@@ -229,7 +228,7 @@ export interface UseFieldListReturn<
 export const useFieldList = <E extends record.Keyed<string>>(
   path: deep.Target<E[]>,
   opts: ContextOptions = {},
-): UseFieldListReturn<E["key"], E> => {
+): UseFieldListReturn<E> => {
   const ctx = useContext(opts?.ctx);
   const value = useFieldValue(path, opts);
   return { data: value.map(({ key }) => key), ...fieldListUtils(ctx, path) };

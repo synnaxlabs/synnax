@@ -17,7 +17,7 @@ import { ScaleField } from "@/schematic/node/common/form/Scale";
 import {
   StyleForm,
   type StyleFormProps,
-  type StyleFormValues,
+  type StyleValues,
 } from "@/schematic/node/common/form/Style";
 import { Label } from "@/schematic/node/common/label";
 import { Orientation } from "@/schematic/node/common/orientation";
@@ -25,7 +25,7 @@ import { Toggle } from "@/schematic/node/common/toggle";
 import { type FormProps } from "@/schematic/node/spec";
 import { Properties } from "@/vis/properties";
 
-const path = deep.path<StyleFormValues & { clickable?: boolean }>();
+const path = deep.path<StyleValues & { clickable?: boolean }>();
 
 export interface ToggleFormProps
   extends FormProps, Pick<StyleFormProps, "showNormallyOpen"> {

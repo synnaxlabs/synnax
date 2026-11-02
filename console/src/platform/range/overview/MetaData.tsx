@@ -21,13 +21,12 @@ import { Input } from "@synnaxlabs/lyra/input";
 import { List } from "@synnaxlabs/lyra/list";
 import { Text } from "@synnaxlabs/lyra/text";
 import { type Flux, Ranger } from "@synnaxlabs/pluto";
-import { deep, type kv, link } from "@synnaxlabs/x";
+import { type kv, link } from "@synnaxlabs/x";
 import { type ReactElement, useEffect, useRef, useState } from "react";
-import { type z } from "zod";
 
 import { CSS } from "@/platform/css";
 
-const path = deep.path<z.infer<typeof Ranger.kvPairFormSchema>>();
+const path = Ranger.kvPairFormPath;
 
 interface ValueInputProps extends Input.TextProps {}
 

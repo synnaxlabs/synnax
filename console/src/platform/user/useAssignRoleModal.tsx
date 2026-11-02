@@ -14,13 +14,11 @@ import { Icon } from "@synnaxlabs/lyra/icon";
 import { Modal } from "@synnaxlabs/lyra/modal";
 import { Nav } from "@synnaxlabs/lyra/nav";
 import { Access, Synnax } from "@synnaxlabs/pluto";
-import { deep } from "@synnaxlabs/x";
-import { type z } from "zod";
 
 import { Modals } from "@/platform/modals";
 import { Triggers } from "@/platform/triggers";
 
-const path = deep.path<z.infer<typeof Access.Role.changeRoleFormSchema>>();
+const path = Access.Role.changeRoleFormPath;
 
 export interface AssignRoleModalParams {
   /** Key of the user whose role is being assigned. */

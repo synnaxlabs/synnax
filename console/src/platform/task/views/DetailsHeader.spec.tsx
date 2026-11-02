@@ -42,10 +42,10 @@ describe("layouts.DetailsHeader", () => {
     expect(container.querySelector("p p, p div")).toBeNull();
   });
 
-  it("should not copy anything when disabled", async () => {
+  it("should not copy anything without a path", async () => {
     const writeText = stubClipboardWriteText();
     const { container } = await renderInTaskForm(
-      <Task.Views.DetailsHeader path={path.config} disabled />,
+      <Task.Views.DetailsHeader path={null} />,
       { values: { config: { channels: [] } } },
     );
     const button = getIconButton(container, "json");

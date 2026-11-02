@@ -62,7 +62,7 @@ const Content = (): ReactElement => {
         label="Name"
         inputProps={{ autoFocus: true, placeholder: "Acme Rockets" }}
       />
-      <Form.Field<string>
+      <Form.Field
         path={path.email}
         label="Admin email"
         helpText="They get a link to join, then invite the rest of the team."

@@ -11,11 +11,10 @@ import { Form } from "@synnaxlabs/lyra/form";
 import { Icon } from "@synnaxlabs/lyra/icon";
 import { type Input } from "@synnaxlabs/lyra/input";
 import { Select } from "@synnaxlabs/lyra/select";
-import { type Schematic } from "@synnaxlabs/pluto";
+import { Schematic } from "@synnaxlabs/pluto";
 import { deep } from "@synnaxlabs/x";
-import { type z } from "zod";
 
-const path = deep.path<z.infer<typeof Schematic.Symbol.formSchema>>();
+const path = Schematic.Symbol.formPath;
 
 export interface SelectVariantProps extends Input.Control<string> {}
 

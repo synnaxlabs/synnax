@@ -87,7 +87,7 @@ const ChannelListItem = ({ onTare, ...rest }: ChannelListItemProps) => {
 
 const ChannelDetails = ({ path }: Task.Views.DetailsProps<AIChannel>) => {
   const type = PForm.useFieldValue(path.type);
-  return <AIChannelForm type={type} path={path} />;
+  return <AIChannelForm type={type} path={path} channelsPath={root.config.channels} />;
 };
 
 const channelDetails = Component.renderProp(ChannelDetails);
@@ -129,7 +129,7 @@ const hasPortList = (devices: Device[]): boolean =>
 
 const Form: FC = () => {
   const [tare, allowTare, handleTare] = Task.useTare<AIChannel>();
-  const devices = useByKeys(Task.useChannelDeviceKeys());
+  const devices = useByKeys(Task.useChannelDeviceKeys(root.config.channels));
   PForm.useCheck(root.config, analogReadHardwareZ(devices ?? []));
   const resolve = (ch: AIChannel) => {
     const dev = devices?.find(({ key }) => key === ch.device);
@@ -143,10 +143,9 @@ const Form: FC = () => {
   );
   const ports =
     devices != null && hasPortList(devices)
-      ? (props: Task.Views.PortsProps) => (
+      ? (props: Task.Views.PortsProps<AIChannel>) => (
           <PortsView<AIChannel>
             {...props}
-            path={root.config.channels}
             kind={ANALOG_INPUT}
             devices={devices}
             deviceOf={deviceOf}

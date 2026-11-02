@@ -10,7 +10,6 @@
 import { Form } from "@synnaxlabs/lyra/form";
 import { Select } from "@synnaxlabs/lyra/select";
 import { deep } from "@synnaxlabs/x";
-import { type ComponentProps } from "react";
 
 import {
   AO_CHANNEL_SCHEMAS,
@@ -43,8 +42,8 @@ const SelectType = Form.buildSelectField<AOChannelType>({
   },
 });
 
-export interface SelectAOChannelTypeFieldProps extends Pick<
-  ComponentProps<typeof SelectType>,
+interface SelectAOChannelTypeFieldProps extends Pick<
+  Form.SelectFieldProps<AOChannelType>,
   "inputProps"
 > {
   path: deep.Path<AOChannel>;

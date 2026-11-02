@@ -60,7 +60,7 @@ const ChannelListItem = <C extends Channel>({
   ...rest
 }: ChannelListItemProps<C>) => {
   const item = PForm.useFieldValue(path);
-  const { disabled, name } = deep.widen<Channel>(path);
+  const fields = deep.widen<Channel>(path);
   if (item == null) return null;
   const { nodeName, nodeId } = item;
   const opcNode = nodeId.length > 0 ? nodeId : "No node selected";
@@ -80,7 +80,7 @@ const ChannelListItem = <C extends Channel>({
           level="p"
           channel={channel}
           id={id}
-          namePath={name}
+          namePath={fields.name}
         />
         <Flex.Box x align="center" gap="tiny">
           <Icon.Variable color={9} />
@@ -97,7 +97,7 @@ const ChannelListItem = <C extends Channel>({
       </Flex.Box>
       <Flex.Box direction="x" align="center">
         {children({ path })}
-        <Task.EnabledCheckbox path={disabled} />
+        <Task.EnabledCheckbox path={fields.disabled} />
       </Flex.Box>
     </Select.Item>
   );

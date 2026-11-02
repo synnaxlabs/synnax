@@ -87,7 +87,6 @@ const Form: FC = () => {
           : (props) => (
               <LinesView<DIChannel>
                 {...props}
-                path={root.config.channels}
                 device={dev}
                 direction="input"
                 create={(channels, placement) =>

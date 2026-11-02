@@ -143,7 +143,7 @@ export const Form = (): ReactElement => {
           style={{ width: "100%", padding: "4rem 3rem 2rem 3rem" }}
           gap="small"
         >
-          <Base.Field<string>
+          <Base.Field
             style={{ width: "100%" }}
             path={path.description}
             showLabel={false}

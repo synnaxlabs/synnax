@@ -16,13 +16,12 @@ import { Nav } from "@synnaxlabs/lyra/nav";
 import { Status } from "@synnaxlabs/pluto";
 import { deep, TimeStamp } from "@synnaxlabs/x";
 import { useState } from "react";
-import { type z } from "zod";
 
 import { Label } from "@/platform/label";
 import { Modals } from "@/platform/modals";
 import { Triggers } from "@/platform/triggers";
 
-const path = deep.path<z.infer<typeof Status.formSchema>>();
+const path = Status.formPath;
 
 export interface CreateModalParams {
   /** When provided, the modal edits the existing status with this key. */

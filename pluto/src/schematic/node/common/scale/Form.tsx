@@ -30,7 +30,7 @@ import { type ColorFallbacks } from "@/schematic/node/spec";
 import { Scale as VisScale } from "@/vis/scale";
 import { Staleness } from "@/vis/staleness";
 
-const path = deep.path<Config>();
+const root = deep.path<Config>();
 
 export const colorFallbacks = {
   textColor: VisScale.textColorFallback,
@@ -84,10 +84,10 @@ export interface TelemFormProps {
 /** TelemForm renders telemetry sections; place it inside `Form.Sections`. */
 export const TelemForm = ({ allowNone = false }: TelemFormProps): ReactElement => {
   const { set } = Base.useContext();
-  const channel = Base.useFieldValue(path.channel, { optional: true });
+  const channel = Base.useFieldValue(root.channel, { optional: true });
   const handleChannelChange = (key: channel.Key | null): void => {
-    if (allowNone && !primitive.isNonZero(key)) return set(path.channel, undefined);
-    set(path.channel, key ?? 0);
+    if (allowNone && !primitive.isNonZero(key)) return set(root.channel, undefined);
+    set(root.channel, key ?? 0);
   };
   return (
     <>
@@ -100,26 +100,26 @@ export const TelemForm = ({ allowNone = false }: TelemFormProps): ReactElement =
           />
         </Input.Item>
         <Base.NumericField
-          path={path.rollingAverage}
+          path={root.rollingAverage}
           label="Averaging window"
           padHelpText={false}
           inputProps={WINDOW_SIZE_INPUT_PROPS}
         />
       </Base.Section>
       <Base.Section title="Range">
-        <NodeForm.BoundsFields path={path.bounds} padHelpText={false} />
+        <NodeForm.BoundsFields path={root.bounds} padHelpText={false} />
       </Base.Section>
       <Base.Section title="Format">
-        <Base.Field path={path.notation} label="Notation" padHelpText={false}>
+        <Base.Field path={root.notation} label="Notation" padHelpText={false}>
           {NotationSelect}
         </Base.Field>
         <Base.NumericField
-          path={path.precision}
+          path={root.precision}
           label="Precision"
           padHelpText={false}
           inputProps={PRECISION_INPUT_PROPS}
         />
-        <NodeForm.UnitsField path={path.units} />
+        <NodeForm.UnitsField path={root.units} />
       </Base.Section>
       <Base.Section title="Staleness">
         <Staleness.Fields />
@@ -143,14 +143,14 @@ export const DisplayFields = ({
 }: DisplayFieldsProps): ReactElement => (
   <>
     <NodeForm.NegatedSwitchField
-      path={path.levelHidden}
+      path={root.levelHidden}
       label="Fill"
       padHelpText={false}
     />
     {children}
-    <SideField path={path.caretSide} label="Value side" sides={SIDES} />
+    <SideField path={root.caretSide} label="Value side" sides={SIDES} />
     <SideField
-      path={path.side}
+      path={root.side}
       label="Scale side"
       sides={axis === "y" ? location.X_LOCATIONS : location.Y_LOCATIONS}
     />
@@ -161,21 +161,21 @@ export const DisplayFields = ({
 export const StyleFields = (): ReactElement => (
   <>
     <NodeForm.ColorField
-      path={path.levelColor}
+      path={root.levelColor}
       label="Level"
       fallback={VisScale.levelColorFallback}
     />
     <NodeForm.ColorField
-      path={path.axisColor}
+      path={root.axisColor}
       label="Axis"
       fallback={VisScale.axisColorFallback}
     />
     <NodeForm.ColorField
-      path={path.textColor}
+      path={root.textColor}
       label="Text"
       fallback={colorFallbacks.textColor}
     />
-    <Base.Field path={path.level} label="Text size" padHelpText={false}>
+    <Base.Field path={root.level} label="Text size" padHelpText={false}>
       {(p) => <NodeForm.SelectTextLevel {...p} />}
     </Base.Field>
   </>

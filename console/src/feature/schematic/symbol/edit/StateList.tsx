@@ -15,13 +15,11 @@ import { Form } from "@synnaxlabs/lyra/form";
 import { type Input } from "@synnaxlabs/lyra/input";
 import { List } from "@synnaxlabs/lyra/list";
 import { Select } from "@synnaxlabs/lyra/select";
-import { type Schematic } from "@synnaxlabs/pluto";
-import { deep } from "@synnaxlabs/x";
-import { type z } from "zod";
+import { Schematic } from "@synnaxlabs/pluto";
 
 import { CSS } from "@/platform/css";
 
-const path = deep.path<z.infer<typeof Schematic.Symbol.formSchema>>();
+const path = Schematic.Symbol.formPath;
 
 interface StateListProps extends Input.Control<string> {}
 

@@ -51,8 +51,9 @@ import { CSS } from "@/platform/css";
 import { Device as PlatformDevice } from "@/platform/device";
 
 const path = deep.path<Device>();
-const { connection } = path.properties;
-const serial = deep.variant(connection, "transport", "rtu");
+const connectionPath = path.properties.connection;
+const tcp = deep.variant(connectionPath, "transport", "tcp");
+const serial = deep.variant(connectionPath, "transport", "rtu");
 
 // Matches PROBE_WAIT in the Driver: how long a probe waits for its turn on a connection
 // that other units' requests keep busy.
@@ -93,7 +94,7 @@ const beforeValidate = ({
   PDevice.RetrieveQuery,
   PDevice.FormSchema<typeof SCHEMAS>
 >) => {
-  const connection = get(path.properties.connection).value;
+  const connection = get(connectionPath).value;
   set(
     path.location,
     connection.transport === "rtu"
@@ -116,7 +117,7 @@ const beforeSave = async ({
     includeStatus: true,
     schemas: SCAN_SCHEMAS,
   });
-  const connection = get(path.properties.connection).value;
+  const connection = get(connectionPath).value;
   const requests = get(path.properties.requests).value;
   const state = await scanTask.executeCommandSync({
     type: TEST_CONNECTION_COMMAND_TYPE,
@@ -167,7 +168,7 @@ export const Connect = ({
     name: "Modbus",
     rack: rackKey,
   });
-  const transport = Form.useFieldValue(path.properties.connection.transport, {
+  const transport = Form.useFieldValue(connectionPath.transport, {
     ctx: form,
   });
   const [tab, setTab] = useState("unit");
@@ -175,10 +176,9 @@ export const Connect = ({
   // The transports share no address fields, so a switch starts the address over.
   const renderTransport = ({ value, onChange }: Input.Control<Transport>) => {
     const handleChange = (value: Transport) => {
-      const { swapBytes, swapWords, timeoutMs, retries } = form.get(
-        path.properties.connection,
-      ).value;
-      form.set(path.properties.connection, {
+      const { swapBytes, swapWords, timeoutMs, retries } =
+        form.get(connectionPath).value;
+      form.set(connectionPath, {
         ...INITIAL_CONNECTIONS[value],
         swapBytes,
         swapWords,
@@ -204,7 +204,7 @@ export const Connect = ({
           <Form.Sections className={SECTIONS_CLASS}>
             <Form.Section title="Connection">
               <Form.Field
-                path={path.properties.connection.transport}
+                path={connectionPath.transport}
                 label="Transport"
                 padHelpText={false}
               >
@@ -213,13 +213,13 @@ export const Connect = ({
               {transport === "tcp" ? (
                 <>
                   <Form.TextField
-                    path={deep.variant(connection, "transport", "tcp").host}
+                    path={tcp.host}
                     label="Host"
                     padHelpText={false}
                     inputProps={HOST_INPUT_PROPS}
                   />
                   <Form.NumericField
-                    path={deep.variant(connection, "transport", "tcp").port}
+                    path={tcp.port}
                     label="Port"
                     padHelpText={false}
                     inputProps={PORT_INPUT_PROPS}
@@ -253,7 +253,7 @@ export const Connect = ({
               <Form.Sections className={SECTIONS_CLASS}>
                 <Form.Section>
                   <Form.NumericField
-                    path={path.properties.connection.unitId}
+                    path={connectionPath.unitId}
                     label="Unit ID"
                     padHelpText={false}
                     inputProps={UNIT_ID_INPUT_PROPS[transport]}
@@ -266,13 +266,13 @@ export const Connect = ({
               <Form.Sections className={SECTIONS_CLASS}>
                 <Form.Section title="Timing">
                   <Form.NumericField
-                    path={path.properties.connection.timeoutMs}
+                    path={connectionPath.timeoutMs}
                     label="Timeout"
                     padHelpText={false}
                     inputProps={TIMEOUT_INPUT_PROPS}
                   />
                   <Form.NumericField
-                    path={path.properties.connection.retries}
+                    path={connectionPath.retries}
                     label="Retries"
                     padHelpText={false}
                     inputProps={RETRIES_INPUT_PROPS}
@@ -421,8 +421,8 @@ const Diagnostics = (): ReactElement => {
   );
 };
 
-const SWAP_BYTES_PATH = path.properties.connection.swapBytes;
-const SWAP_WORDS_PATH = path.properties.connection.swapWords;
+const SWAP_BYTES_PATH = connectionPath.swapBytes;
+const SWAP_WORDS_PATH = connectionPath.swapWords;
 
 const BYTE_ORDER_NAMES: Record<ByteOrder, string> = {
   ABCD: "Big-endian",

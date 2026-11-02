@@ -15,7 +15,7 @@ import { Flex } from "@synnaxlabs/lyra/flex";
 import { Header } from "@synnaxlabs/lyra/header";
 import { useResize } from "@synnaxlabs/lyra/hooks";
 import { Icon } from "@synnaxlabs/lyra/icon";
-import { box, deep } from "@synnaxlabs/x";
+import { box, type deep } from "@synnaxlabs/x";
 import { type MouseEvent, type ReactNode, useEffect, useRef, useState } from "react";
 
 import { CSS } from "@/platform/css";
@@ -35,8 +35,6 @@ export interface PanesProps {
   /** The details body, or a placeholder when nothing is selected. */
   children: ReactNode;
 }
-
-const root = deep.path<unknown>();
 
 /** Below this width the list leaves the layout and opens as a drawer instead. */
 const NARROW_WIDTH = 560;
@@ -148,11 +146,7 @@ export const Panes = ({
         className={CSS.BE("panes", "details")}
         onClickCapture={backdrop ? handleDetailsClickCapture : undefined}
       >
-        <DetailsHeader
-          path={detailsPath ?? root}
-          disabled={detailsPath == null}
-          start={visible ? undefined : toggle}
-        >
+        <DetailsHeader path={detailsPath} start={visible ? undefined : toggle}>
           {title}
         </DetailsHeader>
         {children}

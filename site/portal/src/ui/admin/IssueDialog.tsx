@@ -72,7 +72,7 @@ const Content = ({ teams }: IssueDialogProps): ReactElement => {
         The team's admins get an email with its terms and a link to it.
       </Text.Text>
       {teams.length !== 1 && (
-        <Form.Field<string>
+        <Form.Field
           path={path.organization}
           label="Organization"
           helpText="Register an organization under Organizations first."

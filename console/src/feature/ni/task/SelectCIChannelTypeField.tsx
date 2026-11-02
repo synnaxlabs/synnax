@@ -10,7 +10,6 @@
 import { Form } from "@synnaxlabs/lyra/form";
 import { Select } from "@synnaxlabs/lyra/select";
 import { deep, record } from "@synnaxlabs/x";
-import { type ComponentProps } from "react";
 
 import {
   CI_CHANNEL_SCHEMAS,
@@ -41,8 +40,8 @@ const SelectType = Form.buildSelectField<CIChannelType>({
   },
 });
 
-export interface SelectCIChannelTypeFieldProps extends Pick<
-  ComponentProps<typeof SelectType>,
+interface SelectCIChannelTypeFieldProps extends Pick<
+  Form.SelectFieldProps<CIChannelType>,
   "inputProps"
 > {
   path: deep.Path<CIChannel>;

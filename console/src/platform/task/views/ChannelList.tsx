@@ -9,8 +9,7 @@
 
 import { Form } from "@synnaxlabs/lyra/form";
 import { Header as PHeader } from "@synnaxlabs/lyra/header";
-import { deep } from "@synnaxlabs/x";
-import { type ReactNode, useEffect } from "react";
+import { type ReactNode } from "react";
 
 import { Button } from "@/platform/button";
 import { Empty } from "@/platform/empty";
@@ -34,8 +33,6 @@ export const Header = ({ actions }: HeaderProps) => (
     {actions != null && <PHeader.Actions>{actions}</PHeader.Actions>}
   </PHeader.Header>
 );
-
-const root = deep.path<{ config: unknown }>();
 
 const HEADER = <Header />;
 
@@ -77,24 +74,6 @@ export const ChannelList = <C extends Channel>({
   ...rest
 }: ChannelListProps<C>) => {
   const ctx = Form.useContext();
-
-  // Hotfix for an issue we have been having with the "path config.channels" issue.
-  // Would like to remove this but it's just something that comes up consistently in
-  // prod and it's more important to make sure that we don't break anything in prod then
-  // have pretty code.
-  useEffect(() => {
-    if (String(path) === "config.channels") {
-      const cfg = ctx.get(root.config).value;
-      if (
-        typeof cfg !== "object" ||
-        cfg == null ||
-        !("channels" in cfg) ||
-        !Array.isArray(cfg.channels)
-      )
-        ctx.set(path, []);
-    }
-  }, [path, ctx]);
-
   const { data, push, remove } = Form.useFieldList(path);
   const { onSelect, checkable = false } = rest;
   const handleAdd = () => {

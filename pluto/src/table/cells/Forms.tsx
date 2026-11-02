@@ -14,7 +14,7 @@ import { Input } from "@synnaxlabs/lyra/input";
 import { Select } from "@synnaxlabs/lyra/select";
 import { Tabs } from "@synnaxlabs/lyra/tabs";
 import { Theming } from "@synnaxlabs/lyra/theming";
-import { color, deep, type notation, type text } from "@synnaxlabs/x";
+import { color, deep, type notation } from "@synnaxlabs/x";
 import { type ReactElement } from "react";
 
 import { Channel } from "@/channel";
@@ -129,11 +129,7 @@ export const TextForm = (): ReactElement => {
         <Form.Field path={textPath.level} label="Size" padHelpText={false}>
           {(p) => <Select.Text.Level {...p} />}
         </Form.Field>
-        <Form.Field<number, text.Weight>
-          path={textPath.weight}
-          label="Weight"
-          padHelpText={false}
-        >
+        <Form.Field path={textPath.weight} label="Weight" padHelpText={false}>
           {(p) => <Select.Text.Weight {...p} />}
         </Form.Field>
         <Form.Field path={textPath.align} label="Alignment" padHelpText={false}>

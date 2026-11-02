@@ -24,15 +24,14 @@ import { List } from "@synnaxlabs/lyra/list";
 import { Modal } from "@synnaxlabs/lyra/modal";
 import { Text } from "@synnaxlabs/lyra/text";
 import { Access, type Flux, Label } from "@synnaxlabs/pluto";
-import { color, deep } from "@synnaxlabs/x";
+import { color } from "@synnaxlabs/x";
 import { useEffect, useRef, useState } from "react";
-import { type z } from "zod";
 
 import { Button as PlatformButton } from "@/platform/button";
 import { CSS } from "@/platform/css";
 import { Modals } from "@/platform/modals";
 
-const path = deep.path<z.infer<typeof Label.createFormSchema>>();
+const path = Label.createFormPath;
 
 interface FieldsProps {
   inputProps?: Pick<Input.TextProps, "ref" | "onlyChangeOnBlur">;

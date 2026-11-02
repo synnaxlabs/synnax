@@ -19,7 +19,6 @@ import { Triggers } from "@synnaxlabs/lyra/triggers";
 import { Schematic, Theming, TimeSpan } from "@synnaxlabs/pluto";
 import { deep, id } from "@synnaxlabs/x";
 import { type ReactElement, useEffect, useRef, useState } from "react";
-import { type z } from "zod";
 
 import { FileDrop } from "@/feature/schematic/symbol/edit/FileDrop";
 import { HandleOverlay } from "@/feature/schematic/symbol/edit/Handles";
@@ -29,7 +28,7 @@ import {
 } from "@/feature/schematic/symbol/edit/triggers";
 import { CSS } from "@/platform/css";
 
-const path = deep.path<z.infer<typeof Schematic.Symbol.formSchema>>();
+const path = Schematic.Symbol.formPath;
 
 const ZOOM_OUT_TOOLTIP = (
   <Triggers.Text trigger={ZOOM_TRIGGERS.modes.out[0]} level="small">

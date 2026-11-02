@@ -74,6 +74,7 @@ const verdictWrapper = ({ children }: PropsWithChildren): ReactElement => (
 );
 
 const path = deep.path<z.infer<typeof basicFormSchema>>();
+const verdict = deep.path<z.infer<typeof verdictSchema>>();
 // Reaches fields that the schema does not declare.
 const loose = deep.path<unknown>();
 
@@ -110,7 +111,9 @@ describe("Form", () => {
             schema: basicFormSchema,
           }),
         );
-        expect(() => result.current.get(loose.ssn)).toThrow();
+        expect(() => result.current.get(loose.ssn)).toThrow(
+          "Field ssn is not in the form",
+        );
       });
 
       it("should return null if optional is true and the field is null", () => {
@@ -414,7 +417,7 @@ describe("Form", () => {
     it("should show the schema default for an absent field without writing it", () => {
       const { result } = renderHook(
         () => {
-          const field = Form.useField(loose.defaulted);
+          const field = Form.useField(verdict.defaulted);
           const { value } = Form.useContext();
           return { field, stored: "defaulted" in (value() as object) };
         },
@@ -425,7 +428,7 @@ describe("Form", () => {
     });
 
     it("should read an absent optional field as undefined", () => {
-      const { result } = renderHook(() => Form.useField(path.optionalField), {
+      const { result } = renderHook(() => Form.useField(verdict.optionalField), {
         wrapper: verdictWrapper,
       });
       expect(result.current.value).toBeUndefined();
@@ -462,7 +465,7 @@ describe("Form", () => {
     });
 
     it("should use the schema default when the field is absent", () => {
-      const { result } = renderHook(() => Form.useFieldState(loose.defaulted), {
+      const { result } = renderHook(() => Form.useFieldState(verdict.defaulted), {
         wrapper: verdictWrapper,
       });
       expect(result.current?.value).toBe("cat");
@@ -507,7 +510,7 @@ describe("Form", () => {
     });
 
     it("should use the schema default when the field is absent", () => {
-      const { result } = renderHook(() => Form.useFieldValue(loose.defaulted), {
+      const { result } = renderHook(() => Form.useFieldValue(verdict.defaulted), {
         wrapper: verdictWrapper,
       });
       expect(result.current).toBe("cat");
@@ -683,9 +686,7 @@ describe("Form", () => {
     });
     it("should render help text if validation on the field fails", () => {
       const c = render(
-        <Form.Field<number> path={path.age}>
-          {(p) => <Input.Numeric {...p} />}
-        </Form.Field>,
+        <Form.Field path={path.age}>{(p) => <Input.Numeric {...p} />}</Form.Field>,
         { wrapper },
       );
       const input = c.getByDisplayValue("42");
@@ -701,16 +702,14 @@ describe("Form", () => {
       });
       it("should not mark a custom input", () => {
         const c = render(
-          <Form.Field<string> path={path.name}>
-            {(p) => <Input.Text {...p} />}
-          </Form.Field>,
+          <Form.Field path={path.name}>{(p) => <Input.Text {...p} />}</Form.Field>,
           { wrapper },
         );
         expect(c.queryByText("*")).toBeNull();
       });
       it("should mark a custom input that is emptiable", () => {
         const c = render(
-          <Form.Field<string> path={path.name} emptiable>
+          <Form.Field path={path.name} emptiable>
             {(p) => <Input.Text {...p} />}
           </Form.Field>,
           { wrapper },
@@ -781,7 +780,6 @@ describe("Form", () => {
     const flagsSchema = z.object({
       enabled: z.boolean(),
       disabled: z.boolean(),
-      config: z.object({ autoStart: z.boolean() }),
     });
 
     const flags = deep.path<z.infer<typeof flagsSchema>>();
@@ -790,7 +788,7 @@ describe("Form", () => {
       (field?: ReactElement) =>
       ({ children }: PropsWithChildren): ReactElement => {
         const methods = Form.use<typeof flagsSchema>({
-          values: { enabled: true, disabled: false, config: { autoStart: false } },
+          values: { enabled: true, disabled: false },
           schema: flagsSchema,
         });
         return (
@@ -1042,7 +1040,7 @@ describe("Form", () => {
       expect(calls.set).not.toHaveBeenCalled();
     });
 
-    it.each<[string, (utils: Form.FieldListUtils<string, record.KeyedNamed>) => void]>([
+    it.each<[string, (utils: Form.FieldListUtils<record.KeyedNamed>) => void]>([
       ["remove", (utils) => utils.remove("1")],
       ["keepOnly", (utils) => utils.keepOnly("0")],
     ])("should %s by key when a key reads as an index", (_, edit) => {
@@ -1752,35 +1750,6 @@ describe("Form", () => {
 });
 
 describe("typed paths", () => {
-  it("should read and write through useField", () => {
-    const { result } = renderHook(() => Form.useField(path.name), { wrapper });
-    expect(result.current.value).toEqual("John Doe");
-    act(() => result.current.onChange("Jane"));
-    expect(result.current.value).toEqual("Jane");
-  });
-
-  it("should read through useFieldValue and useFieldState", () => {
-    const { result } = renderHook(
-      () => ({
-        value: Form.useFieldValue(path.nested.ssn),
-        state: Form.useFieldState(path.age),
-      }),
-      { wrapper },
-    );
-    expect(result.current.value).toEqual("123-45-6789");
-    expect(result.current.state.value).toEqual(42);
-  });
-
-  it("should edit a keyed list through useFieldList", () => {
-    const { result } = renderHook(() => Form.useFieldList(path.array), { wrapper });
-    act(() => result.current.push({ key: "key2", name: "Jane" }));
-    expect(result.current.data).toEqual(["key1", "key2"]);
-    act(() => {
-      result.current.remove("key1");
-    });
-    expect(result.current.data).toEqual(["key2"]);
-  });
-
   it("should read and edit through the context", () => {
     const { result } = renderHook(() => Form.useContext<typeof basicFormSchema>(), {
       wrapper,
@@ -1808,6 +1777,10 @@ describe("typed paths", () => {
       valid = result.current.validate(path.name);
     });
     expect(valid).toBe(false);
+    act(() => {
+      valid = result.current.validate(path.age);
+    });
+    expect(valid).toBe(true);
     act(() =>
       result.current.setStatus(path.age, { variant: "warning", message: "Odd" }),
     );
@@ -1825,31 +1798,46 @@ describe("typed paths", () => {
     expect(screen.getByText("Optional field")).toBeTruthy();
   });
 
-  it("should write only the changed values with setChanged", () => {
+  it("should validate only the path it gets when validating async", async () => {
     const { result } = renderHook(() => Form.useContext<typeof basicFormSchema>(), {
       wrapper,
     });
-    const base = result.current.value().nested;
-    act(() =>
-      Form.setChanged(result.current, path.nested, base, { ...base, ssn: "000" }),
-    );
-    expect(result.current.get(path.nested.ssn).value).toEqual("000");
+    act(() => result.current.set(path.name, ""));
+    let valid = true;
+    await act(async () => {
+      valid = await result.current.validateAsync(path.name);
+    });
+    expect(valid).toBe(false);
+    await act(async () => {
+      valid = await result.current.validateAsync(path.age);
+    });
+    expect(valid).toBe(true);
   });
 
-  it("should refuse a path of the wrong value type", () => {
+  it("should flag a value that does not fit its path", () => {
     const { result } = renderHook(() => Form.useContext<typeof basicFormSchema>(), {
       wrapper,
     });
     // @ts-expect-error age is a number.
     act(() => result.current.set(path.age, "42"));
-    expect(result.current.get(path.age).value).toEqual("42");
+    expect(result.current.get(path.age).status.variant).toEqual("error");
   });
 
   // Nothing here runs. `check-types` fails if any line compiles.
   it("should refuse a plain string path at every entry point", () => {
-    const useRefused = (ctx: Form.ContextValue) => {
+    const _useRefused = (ctx: Form.ContextValue) => {
       // @ts-expect-error a path is not a string.
       Form.useField("name");
+      // @ts-expect-error a path is not a string.
+      Form.useFieldValid("name");
+      // @ts-expect-error a path is not a string.
+      Form.useStatuses("name");
+      // @ts-expect-error a path is not a string.
+      Form.useCheck("name", z.string());
+      // @ts-expect-error a path is not a string.
+      Form.fieldListUtils(ctx, "array");
+      // @ts-expect-error a path is not a string.
+      Form.setChanged(ctx, "nested", {}, {});
       // @ts-expect-error a path is not a string.
       Form.useFieldValue("name");
       // @ts-expect-error a path is not a string.
@@ -1865,7 +1853,7 @@ describe("typed paths", () => {
       // @ts-expect-error a path is not a string.
       ctx.remove("array.a");
       // @ts-expect-error a path is not a string.
-      ctx.insert("array", { key: "a", name: "b" });
+      ctx.insert("array", { key: "a" });
       // @ts-expect-error a path is not a string.
       ctx.move("array", "a");
       // @ts-expect-error a path is not a string.
@@ -1873,16 +1861,20 @@ describe("typed paths", () => {
       // @ts-expect-error a path is not a string.
       ctx.validate("name");
       // @ts-expect-error a path is not a string.
+      void ctx.validateAsync("name");
+      // @ts-expect-error a path is not a string.
       ctx.setStatus("name", { variant: "error", message: "" });
       // @ts-expect-error a path is not a string.
       ctx.addCheck("name", z.string());
     };
-    const Refused = (): ReactElement => (
+    const _Refused = (): ReactElement => (
       <>
         {/* @ts-expect-error a path is not a string. */}
         <Form.TextField path="name" />
         {/* @ts-expect-error a path is not a string. */}
         <Form.NumericField path="age" />
+        {/* @ts-expect-error a path is not a string. */}
+        <Form.CheckboxField path="enabled" />
         <Form.Field<string>
           // @ts-expect-error a path is not a string.
           path="name"
@@ -1891,7 +1883,5 @@ describe("typed paths", () => {
         </Form.Field>
       </>
     );
-    expect(useRefused).toBeInstanceOf(Function);
-    expect(Refused).toBeInstanceOf(Function);
   });
 });

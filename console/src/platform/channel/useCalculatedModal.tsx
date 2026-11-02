@@ -21,9 +21,8 @@ import { Select } from "@synnaxlabs/lyra/select";
 import { Status } from "@synnaxlabs/lyra/status";
 import { Text } from "@synnaxlabs/lyra/text";
 import { Arc, Channel, Code } from "@synnaxlabs/pluto";
-import { deep, primitive } from "@synnaxlabs/x";
+import { primitive } from "@synnaxlabs/x";
 import { useState } from "react";
-import { type z } from "zod";
 
 import { Analytics } from "@/platform/analytics";
 import { ContextMenu } from "@/platform/context-menu";
@@ -31,7 +30,7 @@ import { CSS } from "@/platform/css";
 import { Modals } from "@/platform/modals";
 import { Triggers } from "@/platform/triggers";
 
-const path = deep.path<z.infer<typeof Channel.calculatedFormSchema>>();
+const path = Channel.calculatedFormPath;
 
 export interface CalculatedModalParams {
   channelKey?: channel.Key;

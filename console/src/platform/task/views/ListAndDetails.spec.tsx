@@ -18,7 +18,7 @@ import { renderInTaskForm } from "@/platform/task/testutil";
 import { type Channel } from "@/platform/task/types";
 import { getIconButton } from "@/testutil";
 
-const path = deep.path<{ config: { channels: Channel[] } }>();
+const path = deep.path<{ config: { channels: Channel[]; endpoints: Channel[] } }>();
 
 const listItem = Component.renderProp(
   ({ itemKey, ...p }: Task.ChannelListItemProps) => (
@@ -35,11 +35,13 @@ const details = Component.renderProp(({ path }: Task.Views.DetailsProps<Channel>
 const resolve = () => null;
 
 // Picks channel b, and names the channels it shows as selected.
-const ports = Component.renderProp(({ selected, onSelect }: Task.Views.PortsProps) => (
-  <button type="button" onClick={() => onSelect(["b"])}>
-    ports-{selected.join(",")}
-  </button>
-));
+const ports = Component.renderProp(
+  ({ selected, onSelect }: Task.Views.PortsProps<Channel>) => (
+    <button type="button" onClick={() => onSelect(["b"])}>
+      ports-{selected.join(",")}
+    </button>
+  ),
+);
 
 const renderListAndDetails = (
   channels: Channel[],
@@ -91,6 +93,34 @@ describe("layouts.ListAndDetails", () => {
       expect(screen.getByText("details-for-config.channels.b")).toBeTruthy(),
     );
     expect(screen.queryByText("details-for-config.channels.a")).toBeNull();
+  });
+
+  it("should read the channels at the path it gets", async () => {
+    await renderInTaskForm(
+      <Task.Views.ListAndDetails<Channel>
+        path={path.config.endpoints}
+        createChannel={() => null}
+        listItem={listItem}
+        details={details}
+        resolve={resolve}
+      />,
+      { values: { config: { endpoints: [{ key: "a", disabled: false }] } } },
+    );
+    await waitFor(() =>
+      expect(screen.getByText("details-for-config.endpoints.a")).toBeTruthy(),
+    );
+  });
+
+  it("should hand the channel path to the ports view", async () => {
+    await renderListAndDetails(
+      [{ key: "a", disabled: false }],
+      undefined,
+      Component.renderProp(({ path }: Task.Views.PortsProps<Channel>) => (
+        <span>ports-at-{String(path)}</span>
+      )),
+    );
+    fireEvent.click(await screen.findByText("Ports"));
+    expect(await screen.findByText("ports-at-config.channels")).toBeTruthy();
   });
 
   it("should offer no view switch without a ports view", async () => {

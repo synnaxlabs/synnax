@@ -9,10 +9,11 @@
 
 import { Form } from "@synnaxlabs/lyra/form";
 import { Select } from "@synnaxlabs/lyra/select";
-import { deep, record } from "@synnaxlabs/x";
+import { type deep, record } from "@synnaxlabs/x";
 import { type FC } from "react";
 
 import { Select as SelectDevice } from "@/feature/ni/device/Select";
+import { createTypeFields } from "@/feature/ni/task/createTypeFields";
 import { CustomScaleSection } from "@/feature/ni/task/CustomScaleForm";
 import { MinMaxValueFields } from "@/feature/ni/task/MinMaxValueFields";
 import { PortField } from "@/feature/ni/task/PortField";
@@ -42,8 +43,6 @@ import {
 } from "@/feature/ni/task/types";
 import { allowedTypes, useChannelDevice } from "@/feature/ni/task/usePort";
 import { Task } from "@/platform/task";
-
-const CHANNELS = deep.path<{ config: { channels: CIChannel[] } }>().config.channels;
 
 const CI_TIME_UNITS_NAMES = {
   Seconds: "Seconds",
@@ -147,11 +146,6 @@ const CountDirectionField = Form.buildSelectField<CICountDirection>({
   },
 });
 
-const InitialCountField = Form.buildNumericField({
-  fieldProps: { label: "Initial count" },
-  inputProps: {},
-});
-
 const CI_MEAS_METHOD_NAMES = {
   LowFreq1Ctr: "One counter (low frequency)",
   HighFreq2Ctr: "Two counters (high frequency)",
@@ -198,16 +192,16 @@ const useTerminalItems = (path: deep.Target<{ device: string }>, current: string
 
 interface TerminalFieldProps {
   path: deep.Target<string>;
-  channel: deep.Target<{ device: string }>;
+  channelPath: deep.Target<{ device: string }>;
   label: string;
   disabled?: boolean;
 }
 
-const TerminalField = ({ path, channel, label, disabled }: TerminalFieldProps) => {
+const TerminalField = ({ path, channelPath, label, disabled }: TerminalFieldProps) => {
   const value = Form.useFieldValue(path);
-  const items = useTerminalItems(channel, value);
+  const items = useTerminalItems(channelPath, value);
   return (
-    <Form.Field<string> path={path} label={label}>
+    <Form.Field path={path} label={label}>
       {({ value, onChange, preview }) => (
         <Select.Simple<string>
           value={value}
@@ -229,19 +223,23 @@ const InputTerminalField = ({
   path,
 }: {
   path: deep.Path<{ device: string; terminal: string }>;
-}) => <TerminalField path={path.terminal} channel={path} label="Input terminal" />;
+}) => <TerminalField path={path.terminal} channelPath={path} label="Input terminal" />;
 
 const TerminalAField = ({
   path,
 }: {
   path: deep.Path<{ device: string; terminalA: string }>;
-}) => <TerminalField path={path.terminalA} channel={path} label="Input terminal A" />;
+}) => (
+  <TerminalField path={path.terminalA} channelPath={path} label="Input terminal A" />
+);
 
 const TerminalBField = ({
   path,
 }: {
   path: deep.Path<{ device: string; terminalB: string }>;
-}) => <TerminalField path={path.terminalB} channel={path} label="Input terminal B" />;
+}) => (
+  <TerminalField path={path.terminalB} channelPath={path} label="Input terminal B" />
+);
 
 const FirstEdgeField = Form.buildSelectField<CIEdge>({
   fieldProps: { label: "Edge 1" },
@@ -312,16 +310,6 @@ const PulsesPerRevField = Form.buildNumericField({
   inputProps: {},
 });
 
-const InitialPosField = Form.buildNumericField({
-  fieldProps: { label: "Initial position" },
-  inputProps: {},
-});
-
-const InitialAngleField = Form.buildNumericField({
-  fieldProps: { label: "Initial angle" },
-  inputProps: {},
-});
-
 const ZIndexEnabledField: FC<{ path: deep.Target<boolean> }> = ({ path }) => (
   <Form.CheckboxField path={path} label="Z index enable" />
 );
@@ -335,7 +323,7 @@ const ZIndexPhaseField: FC<{ path: deep.Target<string>; disabled?: boolean }> = 
   path,
   disabled,
 }) => (
-  <Form.Field<string> path={path} label="Z index phase">
+  <Form.Field path={path} label="Z index phase">
     {({ value, onChange, preview }) => (
       <Select.Simple<string>
         value={value}
@@ -362,7 +350,7 @@ const TerminalZField = ({
 }) => (
   <TerminalField
     path={path.terminalZ}
-    channel={path}
+    channelPath={path}
     label="Input terminal Z"
     disabled={disabled}
   />
@@ -443,7 +431,7 @@ const LinearPositionForm: FC<FormProps<"ci_position_linear">> = ({ path }) => {
   const zIndexFieldsDisabled = useZIndexFieldsDisabled(path);
   return (
     <>
-      <InitialPosField path={path.initialPos} />
+      <Form.NumericField path={path.initialPos} label="Initial position" />
       <DistPerPulseField path={path.distPerPulse} />
       <LinearPositionUnitsField path={path.units} />
       <TerminalAField path={path} />
@@ -462,7 +450,7 @@ const AngularPositionForm: FC<FormProps<"ci_position_angular">> = ({ path }) => 
   return (
     <>
       <PulsesPerRevField path={path.pulsesPerRev} />
-      <InitialAngleField path={path.initialAngle} />
+      <Form.NumericField path={path.initialAngle} label="Initial angle" />
       <AngularPositionUnitsField path={path.units} />
       <TerminalAField path={path} />
       <TerminalBField path={path} />
@@ -482,7 +470,7 @@ const CHANNEL_FORMS: { [K in CIChannelType]: FC<FormProps<K>> } = {
       <ActiveEdgeField path={path.activeEdge} />
       <CountDirectionField path={path.countDirection} />
       <InputTerminalField path={path} />
-      <InitialCountField path={path.initialCount} />
+      <Form.NumericField path={path.initialCount} label="Initial count" />
     </>
   ),
   ci_period: PeriodForm,
@@ -542,24 +530,17 @@ const CHANNEL_FORMS: { [K in CIChannelType]: FC<FormProps<K>> } = {
 export interface CIChannelFormProps {
   type: CIChannelType;
   path: deep.Path<CIChannel>;
+  /** The path of the task's channels. */
+  channelsPath: deep.Target<CIChannel[]>;
 }
 
 const CI_CHANNEL_TYPES = record.keys(CI_CHANNEL_TYPE_NAMES);
 
 const deviceOf = (c: CIChannel) => c.device;
 
-const TypeFields = <K extends CIChannelType>({
-  type,
-  path,
-}: {
-  type: K;
-  path: deep.Path<CIChannel>;
-}) => {
-  const TypeForm: FC<FormProps<K>> = CHANNEL_FORMS[type];
-  return <TypeForm path={deep.variant(path, "type", type)} />;
-};
+const TypeFields = createTypeFields<CIChannel>(CHANNEL_FORMS);
 
-export const CIChannelForm = ({ type, path }: CIChannelFormProps) => {
+export const CIChannelForm = ({ type, path, channelsPath }: CIChannelFormProps) => {
   const device = useChannelDevice(path);
   const port = Form.useFieldValue(path.port);
   const counter = device?.properties.hardware?.counterInputs.find(
@@ -572,7 +553,7 @@ export const CIChannelForm = ({ type, path }: CIChannelFormProps) => {
         <SelectDevice path={path.device} />
         <PortField
           path={path}
-          channelsPath={CHANNELS}
+          channelsPath={channelsPath}
           device={device}
           kind={COUNTER_INPUT}
           deviceOf={deviceOf}

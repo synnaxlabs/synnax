@@ -101,6 +101,20 @@ describe("typed paths", () => {
       const scale: deep.Path<Scale> = path;
       expect(String(scale)).toEqual("");
     });
+
+    it("should refuse a plain string", () => {
+      // @ts-expect-error a path is not a string.
+      read("name");
+    });
+
+    it("should show no fields to a walker", () => {
+      expect(Object.keys(path.channels)).toEqual([]);
+      expect(JSON.stringify(path.name)).toEqual("{}");
+    });
+
+    it("should read nothing at a symbol key", () => {
+      expect(Reflect.get(path, Symbol.iterator)).toBeUndefined();
+    });
   });
 
   describe("variant", () => {
@@ -114,6 +128,15 @@ describe("typed paths", () => {
       const type = "voltage" as "voltage" | "builtin";
       const channel = deep.variant(path.channels.abc, "type", type);
       expectTypeOf(read(channel.key)).toEqualTypeOf<string>();
+      // @ts-expect-error only a voltage channel has a port.
+      expect(String(channel.port)).toEqual("channels.abc.port");
+    });
+
+    it("should refuse a value that no member holds", () => {
+      // @ts-expect-error no channel has this type.
+      expect(String(deep.variant(path.channels.abc, "type", "x"))).toEqual(
+        "channels.abc",
+      );
     });
 
     it("should return the same object", () => {
@@ -128,6 +151,10 @@ describe("typed paths", () => {
       expect(String(scale.slope)).toEqual("scale.slope");
       expectTypeOf(read(scale.slope)).toEqualTypeOf<number>();
     });
+
+    it("should return the same object", () => {
+      expect(deep.present(path.scale)).toBe(path.scale);
+    });
   });
 
   describe("widen", () => {
@@ -138,9 +165,8 @@ describe("typed paths", () => {
       expect(String(keys(path.channels, "abc"))).toEqual("channels.abc.key");
     });
 
-    it("should refuse a plain string", () => {
-      // @ts-expect-error a path is not a string.
-      expect(read("name")).toBeUndefined();
+    it("should return the same object", () => {
+      expect(deep.widen(path.name)).toBe(path.name);
     });
 
     it("should refuse a shape that the value does not hold", () => {

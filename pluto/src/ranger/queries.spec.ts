@@ -13,7 +13,7 @@ import {
   spyOnSend,
   waitForStreamLive,
 } from "@synnaxlabs/client/testutil";
-import { color, deep, TimeSpan, TimeStamp } from "@synnaxlabs/x";
+import { color, TimeSpan, TimeStamp } from "@synnaxlabs/x";
 import { act, render, renderHook, waitFor } from "@testing-library/react";
 import {
   createElement,
@@ -22,16 +22,15 @@ import {
   Suspense,
 } from "react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { type z } from "zod";
 
 import { Flux } from "@/flux";
 import { Ranger } from "@/ranger";
 import { renderHookSuspended } from "@/testutil/render";
 import { createAsyncSynnaxWrapper } from "@/testutil/Synnax";
 
-const path = deep.path<z.infer<typeof Ranger.formSchema>>();
-const created = deep.path<z.infer<typeof Ranger.createFormSchema>>();
-const pair = deep.path<z.infer<typeof Ranger.kvPairFormSchema>>();
+const path = Ranger.formPath;
+const created = Ranger.createFormPath;
+const pair = Ranger.kvPairFormPath;
 
 const client = createTestClient();
 
@@ -886,8 +885,8 @@ describe("queries", () => {
       });
 
       act(() => {
-        result.current.form.set(path.name, "newFormRange");
-        result.current.form.set(path.timeRange, timeRange.numeric);
+        result.current.form.set(created.name, "newFormRange");
+        result.current.form.set(created.timeRange, timeRange.numeric);
         result.current.form.set(created.color, color.construct("#FF0000"));
         result.current.save({ signal: controller.signal });
       });
@@ -917,8 +916,8 @@ describe("queries", () => {
       });
 
       act(() => {
-        result.current.form.set(path.name, "labeledRange");
-        result.current.form.set(path.timeRange, timeRange.numeric);
+        result.current.form.set(created.name, "labeledRange");
+        result.current.form.set(created.timeRange, timeRange.numeric);
         result.current.form.set(created.labels, [label1.key, label2.key]);
         result.current.save({ signal: controller.signal });
       });
@@ -942,8 +941,8 @@ describe("queries", () => {
       });
 
       act(() => {
-        result.current.form.set(path.name, "childRange");
-        result.current.form.set(path.timeRange, childTimeRange.numeric);
+        result.current.form.set(created.name, "childRange");
+        result.current.form.set(created.timeRange, childTimeRange.numeric);
         result.current.form.set(created.parent, parentRange.key);
         result.current.save({ signal: controller.signal });
       });
@@ -985,8 +984,8 @@ describe("queries", () => {
       const complexTimeRange = TimeStamp.now().spanRange(TimeSpan.minutes(45));
 
       act(() => {
-        result.current.form.set(path.name, "complexRange");
-        result.current.form.set(path.timeRange, complexTimeRange.numeric);
+        result.current.form.set(created.name, "complexRange");
+        result.current.form.set(created.timeRange, complexTimeRange.numeric);
         result.current.form.set(created.parent, parentRange.key);
         result.current.form.set(created.labels, [label.key]);
         result.current.form.set(created.color, color.construct("#654321"));
@@ -1010,8 +1009,8 @@ describe("queries", () => {
       });
 
       act(() => {
-        result.current.form.set(path.name, "timeRangeTest");
-        result.current.form.set(path.timeRange, initialTimeRange.numeric);
+        result.current.form.set(created.name, "timeRangeTest");
+        result.current.form.set(created.timeRange, initialTimeRange.numeric);
         result.current.save({ signal: controller.signal });
       });
 
@@ -1021,7 +1020,7 @@ describe("queries", () => {
 
       const modifiedTimeRange = TimeStamp.now().spanRange(TimeSpan.minutes(20));
       act(() => {
-        result.current.form.set(path.timeRange, modifiedTimeRange.numeric);
+        result.current.form.set(created.timeRange, modifiedTimeRange.numeric);
         result.current.save({ signal: controller.signal });
       });
 
@@ -1049,8 +1048,8 @@ describe("queries", () => {
       const timeRange = TimeStamp.now().spanRange(TimeSpan.minutes(30));
 
       act(() => {
-        result.current.form.set(path.name, "parentChangeTest");
-        result.current.form.set(path.timeRange, timeRange.numeric);
+        result.current.form.set(created.name, "parentChangeTest");
+        result.current.form.set(created.timeRange, timeRange.numeric);
         result.current.form.set(created.parent, parent1.key);
         result.current.save({ signal: controller.signal });
       });

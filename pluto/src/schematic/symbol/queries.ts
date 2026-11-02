@@ -90,7 +90,7 @@ export const formSchema = schematic.symbol.symbolZ
   .partial({ key: true })
   .extend({ parent: ontology.idZ });
 
-const path = deep.path<z.infer<typeof formSchema>>();
+export const formPath = deep.path<z.infer<typeof formSchema>>();
 
 const toFormValues = (
   symbol: schematic.symbol.Symbol,
@@ -146,7 +146,7 @@ export const useForm = Flux.createForm<FormQuery, typeof formSchema>({
       if (!query.isLive(result)) return;
       reset({
         ...result,
-        parent: get(path.parent, { optional: true })?.value ?? ontology.ROOT_ID,
+        parent: get(formPath.parent, { optional: true })?.value ?? ontology.ROOT_ID,
       });
     }),
 });

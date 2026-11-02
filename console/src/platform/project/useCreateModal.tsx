@@ -15,15 +15,13 @@ import { Input } from "@synnaxlabs/lyra/input";
 import { Modal } from "@synnaxlabs/lyra/modal";
 import { Nav } from "@synnaxlabs/lyra/nav";
 import { type Flux, Panel, Project, Synnax } from "@synnaxlabs/pluto";
-import { deep } from "@synnaxlabs/x";
-import { type z } from "zod";
 
 import { Modals } from "@/platform/modals";
 import { Selector } from "@/platform/selector";
 import { Triggers } from "@/platform/triggers";
 import { Session } from "@/session";
 
-const path = deep.path<z.infer<typeof Project.formSchema>>();
+const path = Project.formPath;
 
 const Create = ({ close }: Modals.ContentProps<Record<never, never>, void>) => {
   const client = Synnax.use();

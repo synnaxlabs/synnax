@@ -22,9 +22,8 @@ import { Modal } from "@synnaxlabs/lyra/modal";
 import { Nav } from "@synnaxlabs/lyra/nav";
 import { Theming } from "@synnaxlabs/lyra/theming";
 import { Schematic } from "@synnaxlabs/pluto";
-import { type bounds, color, deep, id, type xy } from "@synnaxlabs/x";
+import { type bounds, color, id, type xy } from "@synnaxlabs/x";
 import { type ReactElement, useState } from "react";
-import { type z } from "zod";
 
 import { HandleList } from "@/feature/schematic/symbol/edit/HandleList";
 import { Preview } from "@/feature/schematic/symbol/edit/Preview";
@@ -35,7 +34,7 @@ import { CSS } from "@/platform/css";
 import { Modals } from "@/platform/modals";
 import { Triggers } from "@/platform/triggers";
 
-const path = deep.path<z.infer<typeof Schematic.Symbol.formSchema>>();
+const path = Schematic.Symbol.formPath;
 
 export interface ModalParams {
   /** When provided, the modal edits the existing symbol with this key. */
@@ -81,9 +80,8 @@ const Editor = ({
   });
   const [selectedState, setSelectedState, selectedStateRef] =
     useCombinedStateAndRef<string>("base");
-  const [selectedRegion, setSelectedRegion, selectedRegionRef] = useCombinedStateAndRef<
-    string | undefined
-  >(DEFAULT_REGION_KEY);
+  const [selectedRegion, setSelectedRegion, selectedRegionRef] =
+    useCombinedStateAndRef<string>(DEFAULT_REGION_KEY);
   const [selectedHandle, setSelectedHandle] = useState<string | undefined>(undefined);
 
   const addNewRegion = () => {
@@ -128,7 +126,6 @@ const Editor = ({
   const handleElementClick = (selector: string) => {
     const currentState = selectedStateRef.current;
     const currentRegion = selectedRegionRef.current;
-    if (currentRegion == null) return;
     const regions = path.data.states[currentState].regions;
     const regionPath = regions[currentRegion];
     const region = form.get(regionPath).value;

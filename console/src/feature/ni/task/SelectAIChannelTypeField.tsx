@@ -10,7 +10,6 @@
 import { Form } from "@synnaxlabs/lyra/form";
 import { Select } from "@synnaxlabs/lyra/select";
 import { deep, record } from "@synnaxlabs/x";
-import { type ComponentProps } from "react";
 
 import {
   AI_CHANNEL_SCHEMAS,
@@ -41,8 +40,8 @@ const SelectType = Form.buildSelectField<AIChannelType>({
   },
 });
 
-export interface SelectAIChannelTypeFieldProps extends Pick<
-  ComponentProps<typeof SelectType>,
+interface SelectAIChannelTypeFieldProps extends Pick<
+  Form.SelectFieldProps<AIChannelType>,
   "inputProps"
 > {
   path: deep.Path<AIChannel>;

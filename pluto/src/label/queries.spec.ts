@@ -13,7 +13,7 @@ import {
   spyOnSend,
   waitForStreamLive,
 } from "@synnaxlabs/client/testutil";
-import { color, deep } from "@synnaxlabs/x";
+import { color } from "@synnaxlabs/x";
 import { act, renderHook, waitFor } from "@testing-library/react";
 import { type FC, type PropsWithChildren } from "react";
 import {
@@ -26,14 +26,13 @@ import {
   it,
   vi,
 } from "vitest";
-import { type z } from "zod";
 
 import { Flux } from "@/flux";
 import { Label } from "@/label";
 import { renderHookSuspended } from "@/testutil/render";
 import { createAsyncSynnaxWrapper } from "@/testutil/Synnax";
 
-const path = deep.path<z.infer<typeof Label.createFormSchema>>();
+const path = Label.createFormPath;
 
 const client = createTestClient();
 

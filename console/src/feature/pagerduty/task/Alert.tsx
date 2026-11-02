@@ -24,10 +24,9 @@ import { Menu as PMenu } from "@synnaxlabs/lyra/menu";
 import { Select } from "@synnaxlabs/lyra/select";
 import { Status as Base } from "@synnaxlabs/lyra/status";
 import { Text } from "@synnaxlabs/lyra/text";
-import { Rack, Status, type Task as PTask } from "@synnaxlabs/pluto";
+import { Rack, Status } from "@synnaxlabs/pluto";
 import { deep, id } from "@synnaxlabs/x";
 import { type FC, useState } from "react";
-import { type z } from "zod";
 
 import {
   ALERT_SCHEMAS,
@@ -43,7 +42,7 @@ import { Empty } from "@/platform/empty";
 import { Selector } from "@/platform/selector";
 import { Task } from "@/platform/task";
 
-const path = deep.path<z.infer<PTask.FormSchema<AlertSchemas>>>();
+const path = deep.path<Task.Values<AlertSchemas>>();
 
 const Properties = () => (
   <Flex.Box x grow>

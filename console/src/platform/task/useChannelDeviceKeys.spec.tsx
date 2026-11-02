@@ -25,7 +25,7 @@ interface KeysProps {
   path?: deep.Target<Entry[]>;
 }
 
-const Keys = ({ path }: KeysProps) => (
+const Keys = ({ path = root.config.channels }: KeysProps) => (
   <span>{Task.useChannelDeviceKeys(path).join(",") || "none"}</span>
 );
 

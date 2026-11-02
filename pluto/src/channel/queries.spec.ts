@@ -9,18 +9,17 @@
 
 import { channel, DataType } from "@synnaxlabs/client";
 import { createTestClient } from "@synnaxlabs/client/testutil";
-import { deep, id, sleep, TimeRange, TimeSpan, TimeStamp } from "@synnaxlabs/x";
+import { id, sleep, TimeRange, TimeSpan, TimeStamp } from "@synnaxlabs/x";
 import { act, renderHook, waitFor } from "@testing-library/react";
 import { type FC, type PropsWithChildren } from "react";
 import { afterEach, beforeAll, beforeEach, describe, expect, it } from "vitest";
-import { type z } from "zod";
 
 import { Channel } from "@/channel";
 import { Flux } from "@/flux";
 import { renderHookSuspended } from "@/testutil/render";
 import { createAsyncSynnaxWrapper } from "@/testutil/Synnax";
 
-const path = deep.path<z.infer<typeof Channel.formSchema>>();
+const path = Channel.formPath;
 
 describe("queries", () => {
   let controller: AbortController;

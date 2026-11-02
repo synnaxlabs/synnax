@@ -9,17 +9,15 @@
 
 import { NotFoundError } from "@synnaxlabs/client";
 import { createTestClient } from "@synnaxlabs/client/testutil";
-import { deep } from "@synnaxlabs/x";
 import { act, renderHook, waitFor } from "@testing-library/react";
 import { type PropsWithChildren } from "react";
-import { beforeEach, describe, expect, it } from "vitest";
-import { type z } from "zod";
+import { assert, beforeEach, describe, expect, it } from "vitest";
 
 import { Policy } from "@/access/policy";
 import { renderHookSuspended } from "@/testutil/render";
 import { createAsyncSynnaxWrapper } from "@/testutil/Synnax";
 
-const path = deep.path<z.infer<typeof Policy.formSchema>>();
+const path = Policy.formPath;
 
 const client = createTestClient();
 
@@ -268,7 +266,8 @@ describe("queries", () => {
       });
 
       const createdKey = result.current.form.get(path.key).value;
-      const retrieved = await client.access.policies.retrieve(createdKey!);
+      assert(createdKey != null);
+      const retrieved = await client.access.policies.retrieve(createdKey);
       expect(retrieved.name).toEqual("formPolicy");
     });
 

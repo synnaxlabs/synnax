@@ -13,7 +13,7 @@ import { Form } from "@synnaxlabs/lyra/form";
 import { color, deep } from "@synnaxlabs/x";
 import { act, fireEvent, render, waitFor } from "@testing-library/react";
 import { type FC, type PropsWithChildren, type ReactElement } from "react";
-import { beforeAll, describe, expect, it } from "vitest";
+import { assert, beforeAll, describe, expect, it } from "vitest";
 import { z } from "zod";
 
 import { Custom } from "@/schematic/node/common/custom";
@@ -135,6 +135,20 @@ describe("StateOverrideForm", () => {
       fireEvent.change(getByLabelText("Hex"), { target: { value: "ff0000" } });
       await waitFor(() =>
         expect(baseRegion(form())?.strokeColor).toEqual(color.construct("#ff0000")),
+      );
+    });
+
+    it("should reset a changed region to the symbol's definition", async () => {
+      const { container, form } = await renderRegion();
+      const stroke = path.stateOverrides.base.regions.main.strokeColor;
+      act(() => form().set(stroke, color.construct("#ff0000")));
+      const reset = container.querySelector<HTMLElement>(
+        ".pluto-schematic-region-reset",
+      );
+      assert(reset != null);
+      fireEvent.click(reset);
+      await waitFor(() =>
+        expect(baseRegion(form())?.strokeColor).toEqual(color.construct("#333333")),
       );
     });
 

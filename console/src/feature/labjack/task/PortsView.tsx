@@ -14,7 +14,6 @@ import { Form } from "@synnaxlabs/lyra/form";
 import { Icon } from "@synnaxlabs/lyra/icon";
 import { Menu } from "@synnaxlabs/lyra/menu";
 import { Text } from "@synnaxlabs/lyra/text";
-import { type deep } from "@synnaxlabs/x";
 import { type ReactElement } from "react";
 
 import {
@@ -119,10 +118,8 @@ const Section = <P extends Port>({
   );
 };
 
-export interface PortsViewProps<C extends Channel, P extends Port>
-  extends Task.Views.PortsProps {
-  /** The path of the task's channels. */
-  path: deep.Path<C[]>;
+export interface PortsViewProps<C extends Channel, P extends Port> extends Task.Views
+  .PortsProps<C> {
   model: Model;
   /** The ports the task's channels can use. Each type shows in a section of its own. */
   ports: P[];

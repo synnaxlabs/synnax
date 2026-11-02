@@ -87,7 +87,7 @@ export const { use: useGroupID } = Flux.createRetrieve<
 
 export const formSchema = project.projectZ.partial({ key: true });
 
-const path = deep.path<z.infer<typeof formSchema>>();
+export const formPath = deep.path<z.infer<typeof formSchema>>();
 
 const INITIAL_VALUES: z.infer<typeof formSchema> = {
   name: "",
@@ -104,7 +104,7 @@ export const useForm = Flux.createForm<RetrieveQuery, typeof formSchema>({
   },
   update: async ({ client, value, set }) => {
     const res = await client.projects.create(value());
-    set(path.key, res.key);
+    set(formPath.key, res.key);
   },
 });
 
