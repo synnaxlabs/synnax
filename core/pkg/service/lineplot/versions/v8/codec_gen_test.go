@@ -19,8 +19,8 @@ import (
 	. "github.com/onsi/gomega"
 	channel "github.com/synnaxlabs/synnax/pkg/service/channel/versions/v0"
 	"github.com/synnaxlabs/synnax/pkg/service/lineplot/versions/v8"
-	ranger "github.com/synnaxlabs/synnax/pkg/service/ranger/versions/v1"
-	color "github.com/synnaxlabs/x/color/versions/v0"
+	ranger "github.com/synnaxlabs/synnax/pkg/service/ranger/versions/v2"
+	color "github.com/synnaxlabs/x/color/versions/v2"
 	"github.com/synnaxlabs/x/encoding/orc"
 	spatial "github.com/synnaxlabs/x/spatial/versions/v0"
 	"github.com/synnaxlabs/x/testutil"
@@ -49,7 +49,7 @@ var _ = Describe("Codec", func() {
 					R: 8,
 					G: 9,
 					B: 10,
-					A: 10.5,
+					A: 11,
 				}),
 				StrokeWidth: 11.5,
 				Aggregation: v8.Aggregation("min_max"),
@@ -177,7 +177,7 @@ var _ = Describe("Codec", func() {
 							R: 113,
 							G: 114,
 							B: 115,
-							A: 115.5,
+							A: 116,
 						}),
 						StrokeWidth: 116.5,
 						Aggregation: v8.Aggregation("min_max"),
@@ -192,7 +192,7 @@ var _ = Describe("Codec", func() {
 							R: 124,
 							G: 125,
 							B: 126,
-							A: 126.5,
+							A: 127,
 						}),
 						Axis:      v8.AxisKey("x1"),
 						LineWidth: 128.5,
@@ -381,6 +381,44 @@ var _ = Describe("Codec", func() {
 			}),
 		)
 	})
+	Describe("Rule", func() {
+		DescribeTable("should round-trip encode and decode",
+			func(original v8.Rule) {
+				w := orc.NewWriter(0)
+				Expect(original.EncodeOrc(w)).To(Succeed())
+				var decoded v8.Rule
+				r := orc.NewReader(nil)
+				r.ResetBytes(w.Bytes())
+				Expect(decoded.DecodeOrc(r)).To(Succeed())
+				Expect(decoded).To(Equal(original))
+			},
+			Entry("fully populated", v8.Rule{
+				Key:   "test_1",
+				Label: "test_2",
+				Color: new(color.Color{
+					R: 5,
+					G: 6,
+					B: 7,
+					A: 8,
+				}),
+				Axis:      v8.AxisKey("x1"),
+				LineWidth: 9.5,
+				LineDash:  10.5,
+				Units:     "test_11",
+				Position:  12.5,
+			}),
+			Entry("zero values", v8.Rule{
+				Key:       "",
+				Label:     "",
+				Color:     nil,
+				Axis:      v8.AxisKey(""),
+				LineWidth: 0,
+				LineDash:  0,
+				Units:     "",
+				Position:  0,
+			}),
+		)
+	})
 })
 
 func BenchmarkEncodeDecodeLine(b *testing.B) {
@@ -394,7 +432,7 @@ func BenchmarkEncodeDecodeLine(b *testing.B) {
 			R: 8,
 			G: 9,
 			B: 10,
-			A: 10.5,
+			A: 11,
 		}),
 		StrokeWidth: 11.5,
 		Aggregation: v8.Aggregation("min_max"),
@@ -514,7 +552,7 @@ func BenchmarkEncodeDecodeLinePlot(b *testing.B) {
 					R: 113,
 					G: 114,
 					B: 115,
-					A: 115.5,
+					A: 116,
 				}),
 				StrokeWidth: 116.5,
 				Aggregation: v8.Aggregation("min_max"),
@@ -529,7 +567,7 @@ func BenchmarkEncodeDecodeLinePlot(b *testing.B) {
 					R: 124,
 					G: 125,
 					B: 126,
-					A: 126.5,
+					A: 127,
 				}),
 				Axis:      v8.AxisKey("x1"),
 				LineWidth: 128.5,
@@ -554,6 +592,37 @@ func BenchmarkEncodeDecodeLinePlot(b *testing.B) {
 	}
 }
 
+func BenchmarkEncodeDecodeRule(b *testing.B) {
+	seed := v8.Rule{
+		Key:   "test_1",
+		Label: "test_2",
+		Color: new(color.Color{
+			R: 5,
+			G: 6,
+			B: 7,
+			A: 8,
+		}),
+		Axis:      v8.AxisKey("x1"),
+		LineWidth: 9.5,
+		LineDash:  10.5,
+		Units:     "test_11",
+		Position:  12.5,
+	}
+	w := orc.NewWriter(0)
+	r := orc.NewReader(nil)
+	for b.Loop() {
+		w.Reset()
+		if err := seed.EncodeOrc(w); err != nil {
+			b.Fatal(err)
+		}
+		var decoded v8.Rule
+		r.ResetBytes(w.Bytes())
+		if err := decoded.DecodeOrc(r); err != nil {
+			b.Fatal(err)
+		}
+	}
+}
+
 func FuzzDecodeLine(f *testing.F) {
 	{
 		seed := v8.Line{
@@ -566,7 +635,7 @@ func FuzzDecodeLine(f *testing.F) {
 				R: 8,
 				G: 9,
 				B: 10,
-				A: 10.5,
+				A: 11,
 			}),
 			StrokeWidth: 11.5,
 			Aggregation: v8.Aggregation("min_max"),
@@ -718,7 +787,7 @@ func FuzzDecodeLinePlot(f *testing.F) {
 						R: 113,
 						G: 114,
 						B: 115,
-						A: 115.5,
+						A: 116,
 					}),
 					StrokeWidth: 116.5,
 					Aggregation: v8.Aggregation("min_max"),
@@ -733,7 +802,7 @@ func FuzzDecodeLinePlot(f *testing.F) {
 						R: 124,
 						G: 125,
 						B: 126,
-						A: 126.5,
+						A: 127,
 					}),
 					Axis:      v8.AxisKey("x1"),
 					LineWidth: 128.5,
@@ -952,6 +1021,68 @@ func FuzzDecodeLinePlot(f *testing.F) {
 			t.Fatalf("encode after successful decode failed: %v", err)
 		}
 		var redecoded v8.LinePlot
+		r.ResetBytes(w1.Bytes())
+		if err := redecoded.DecodeOrc(r); err != nil {
+			t.Fatalf("re-decode failed: %v", err)
+		}
+		if !testutil.DeepEqual(decoded, redecoded) {
+			t.Fatal("round-trip mismatch: decoded value changed after an encode/decode cycle")
+		}
+	})
+}
+
+func FuzzDecodeRule(f *testing.F) {
+	{
+		seed := v8.Rule{
+			Key:   "test_1",
+			Label: "test_2",
+			Color: new(color.Color{
+				R: 5,
+				G: 6,
+				B: 7,
+				A: 8,
+			}),
+			Axis:      v8.AxisKey("x1"),
+			LineWidth: 9.5,
+			LineDash:  10.5,
+			Units:     "test_11",
+			Position:  12.5,
+		}
+		w := orc.NewWriter(0)
+		if err := seed.EncodeOrc(w); err != nil {
+			f.Fatal(err)
+		}
+		f.Add(w.Bytes())
+	}
+	{
+		seed := v8.Rule{
+			Key:       "",
+			Label:     "",
+			Color:     nil,
+			Axis:      v8.AxisKey(""),
+			LineWidth: 0,
+			LineDash:  0,
+			Units:     "",
+			Position:  0,
+		}
+		w := orc.NewWriter(0)
+		if err := seed.EncodeOrc(w); err != nil {
+			f.Fatal(err)
+		}
+		f.Add(w.Bytes())
+	}
+	f.Fuzz(func(t *testing.T, data []byte) {
+		var decoded v8.Rule
+		r := orc.NewReader(nil)
+		r.ResetBytes(data)
+		if err := decoded.DecodeOrc(r); err != nil {
+			return
+		}
+		w1 := orc.NewWriter(len(data))
+		if err := decoded.EncodeOrc(w1); err != nil {
+			t.Fatalf("encode after successful decode failed: %v", err)
+		}
+		var redecoded v8.Rule
 		r.ResetBytes(w1.Bytes())
 		if err := redecoded.DecodeOrc(r); err != nil {
 			t.Fatalf("re-decode failed: %v", err)

@@ -97,8 +97,6 @@ func (t TextCellConfig) Validate() error {
 	v := validate.New("TextCellConfig")
 	v.Ternaryf("level", !t.Level.IsValid(), "invalid level: %v", t.Level)
 	v.Ternaryf("align", !t.Align.IsValid(), "invalid align: %v", t.Align)
-	v.GreaterThanEq("weight", t.Weight, 1)
-	v.LessThanEq("weight", t.Weight, 1000)
 	return v.Error()
 }
 
@@ -157,8 +155,6 @@ func (va ValueCellConfig) Validate() error {
 	v := validate.New("ValueCellConfig")
 	v.Ternaryf("notation", !va.Notation.IsValid(), "invalid notation: %v", va.Notation)
 	v.Ternaryf("level", !va.Level.IsValid(), "invalid level: %v", va.Level)
-	v.GreaterThanEq("rolling_average", va.RollingAverage, 1)
-	v.GreaterThanEq("staleness_timeout", va.StalenessTimeout, 1)
 	return v.Error()
 }
 

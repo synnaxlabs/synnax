@@ -14,6 +14,7 @@ package v1
 import (
 	"encoding/json/jsontext"
 	"encoding/json/v2"
+	"strconv"
 
 	"github.com/synnaxlabs/synnax/pkg/service/label"
 	v0 "github.com/synnaxlabs/synnax/pkg/service/ranger/versions/v0"
@@ -51,7 +52,12 @@ type Range struct {
 // schema constraints.
 func (r Range) Validate() error {
 	v := validate.New("Range")
-	v.NotEmptyString("name", r.Name)
+	for i := range r.Labels {
+		v.Exec(func() error { return validate.PathedError(r.Labels[i].Validate(), "labels", strconv.Itoa(i)) })
+	}
+	if r.Parent != nil {
+		v.Exec(func() error { return validate.PathedError(r.Parent.Validate(), "parent") })
+	}
 	return v.Error()
 }
 
