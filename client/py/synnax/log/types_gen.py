@@ -54,7 +54,7 @@ class ChannelEntry(BaseModel):
     channel: channel_.Key = Field(ge=0, le=4294967295)
     color: color_.Color
     notation: notation_.Notation = "standard"
-    precision: int | None = Field(default=None, ge=0, le=17)
+    precision: int | None = Field(default=None, le=17, ge=0)
     alias: str = ""
     timestamp: TimestampConfig = Field(
         default_factory=lambda: TimestampConfig(format="preciseDate", tz="local")
@@ -77,7 +77,7 @@ class Log(BaseModel):
     key: Key = Field(default_factory=uuid4)
     name: str
     channels: list[ChannelEntry] = Field(default_factory=list)
-    timestamp_precision: int = Field(ge=0, le=3, default=0)
+    timestamp_precision: int = Field(le=3, default=0, ge=0)
     channel_names_hidden: bool = False
     timestamps_hidden: bool = False
 
