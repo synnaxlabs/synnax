@@ -367,7 +367,11 @@ class Client:
     @overload
     def retrieve(
         self,
-        channel: list[Key] | tuple[Key] | list[str] | tuple[str] | None = None,
+        channel: list[Key]
+        | tuple[Key, ...]
+        | list[str]
+        | tuple[str, ...]
+        | None = None,
         *,
         search_term: str | None = None,
         data_types: list[CrudeDataType] | None = None,
@@ -466,7 +470,7 @@ class Client:
 
     @overload
     def rename(
-        self, keys: list[Key] | tuple[Key], names: list[str] | tuple[str]
+        self, keys: list[Key] | tuple[Key, ...], names: list[str] | tuple[str, ...]
     ) -> None:
         """Renames one or more channels in the cluster.
 
@@ -477,8 +481,8 @@ class Client:
 
     def rename(
         self,
-        keys: Key | list[Key] | tuple[Key],
-        names: str | list[str] | tuple[str],
+        keys: Key | list[Key] | tuple[Key, ...],
+        names: str | list[str] | tuple[str, ...],
     ) -> None:
         """Renames one or more channels in the cluster.
 
