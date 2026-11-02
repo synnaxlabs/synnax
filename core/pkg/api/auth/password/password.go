@@ -192,8 +192,6 @@ type SetRequest struct {
 	Subject ontology.ID `json:"subject" msgpack:"subject"`
 	// Password is the new password.
 	Password string `json:"password" msgpack:"password"`
-	// CurrentPassword is required when the caller changes its own password.
-	CurrentPassword string `json:"current_password" msgpack:"current_password"`
 	// Cookie asks for the new token in a cookie, as session.CreateRequest does.
 	Cookie bool `json:"cookie" msgpack:"cookie"`
 }
@@ -208,12 +206,10 @@ type SetResponse struct {
 }
 
 // Set sets the password of the caller, or of another user when the caller may update
-// that user, and ends every session the old password opened. A caller setting its own
-// password must send the current one. When the change ends the caller's session, Set
-// opens a new one on the new password and returns it. It returns
-// [svcauth.ErrInvalidCredentials] for a wrong current password, a validation error when
-// the password method is off or the subject is not a user, and an error wrapping
-// query.ErrNotFound when the user has no password.
+// that user, and ends every session the old password opened. When the change ends the
+// caller's session, Set opens a new one on the new password and returns it. It returns
+// a validation error when the password method is off or the subject is not a user, and
+// an error wrapping query.ErrNotFound when the user has no password.
 func (s *Service) Set(
 	ctx context.Context,
 	tx gorp.Tx,
@@ -246,14 +242,6 @@ func (s *Service) Set(
 		Entry(&current).
 		Exec(ctx, tx); err != nil {
 		return SetResponse{}, err
-	}
-	if subject == caller {
-		if _, err := s.password.Authenticate(ctx, proofOf(svcauth.Credentials{
-			Username: current.Username,
-			Password: req.CurrentPassword,
-		})); err != nil {
-			return SetResponse{}, err
-		}
 	}
 	if err := s.password.NewWriter(tx).
 		ChangePassword(ctx, subject, req.Password); err != nil {
