@@ -9,6 +9,7 @@
 
 from __future__ import annotations
 
+import copy
 import json
 import uuid
 from collections.abc import Callable, Iterator
@@ -68,6 +69,11 @@ def _encode_samples(samples: list[Any], data_type: DataType) -> bytes:
         if len(uuids) != len(samples):
             raise TypeError("[Series] - a UUID series accepts only UUIDs")
         return b"".join(d.bytes for d in uuids)
+    if data_type == DataType.BYTES:
+        parts = [d for d in samples if isinstance(d, bytes)]
+        if len(parts) != len(samples):
+            raise TypeError("[Series] - a bytes series accepts only bytes")
+        return _encode_variable(parts)
     return np.array(samples, dtype=data_type.np).tobytes()
 
 
@@ -456,10 +462,40 @@ class Series(ArrayOperators, Generic[T]):
         """
         return self.__array__(dtype=dtype, copy=copy)
 
-    def __getitem__(self, index: int) -> T:
+    @overload
+    def __getitem__(self, index: int) -> T: ...
+
+    @overload
+    def __getitem__(self, index: slice) -> Series[T]: ...
+
+    def __getitem__(self, index: int | slice) -> T | Series[T]:
+        if isinstance(index, slice):
+            return self._slice(index)
         if index < 0 and self.data_type.is_variable:
             index += len(self)
         return self._codec.get(self.data, index)
+
+    def _slice(self, index: slice) -> Series[T]:
+        start, stop, step = index.indices(len(self))
+        if step != 1:
+            raise ValueError("[Series] - a slice step must be 1")
+        stop = max(start, stop)
+        if self.data_type.is_variable:
+            offsets = [
+                s - _VARIABLE_LENGTH_PREFIX_SIZE for s, _ in _variable_spans(self.data)
+            ]
+            offsets.append(len(self.data))
+            data = self.data[offsets[start] : offsets[stop]]
+        else:
+            density = self.data_type.density
+            data = self.data[start * density : stop * density]
+        sliced = copy.copy(self)
+        sliced.data = data
+        sliced.alignment = Alignment(
+            int(self.alignment) + start * self.alignment_multiple
+        )
+        sliced._len_cache = None
+        return sliced
 
     def __iter__(self) -> Iterator[T]:
         return self._codec.iter(self.data)
@@ -541,6 +577,7 @@ CrudeSeries: TypeAlias = (
     | list[int]
     | list[bool]
     | list[str]
+    | list[bytes]
     | list[dict[str, Any]]
     | list[uuid.UUID]
     | list[TimeStamp]

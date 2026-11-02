@@ -1170,6 +1170,8 @@ class DataType(str):
     def _from_sample(value: Any) -> DataType:
         if isinstance(value, str):
             return DataType.STRING
+        if isinstance(value, bytes):
+            return DataType.BYTES
         if isinstance(value, dict):
             return DataType.JSON
         if isinstance(value, TimeStamp):

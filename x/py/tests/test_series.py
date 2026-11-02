@@ -559,6 +559,71 @@ class TestVariableLengthSeries:
         encoded = json.dumps({"a": 1}).encode("utf-8")
         assert s.size == 4 + len(encoded)
 
+    def test_bytes_from_list(self) -> None:
+        """Should build a bytes series from a list of bytes"""
+        values = [b"ab", b"", b"\x00\xff"]
+        s = telem.Series(values)
+        assert s.data_type == telem.DataType.BYTES
+        assert len(s) == 3
+        assert s[0] == b"ab"
+        assert s[-1] == b"\x00\xff"
+        assert list(s) == values
+
+    def test_bytes_rejects_non_bytes(self) -> None:
+        """Should reject a sample that is not bytes in a bytes series"""
+        with pytest.raises(TypeError, match="accepts only bytes"):
+            telem.Series(["a"], data_type=telem.DataType.BYTES)
+
+
+@pytest.mark.telem
+@pytest.mark.series
+class TestSeriesSlice:
+    @pytest.mark.parametrize(
+        "values",
+        [
+            [1.0, 2.0, 3.0, 4.0],
+            ["a", "bc", "", "def"],
+            [b"a", b"bc", b"", b"def"],
+            [{"a": 1}, {"b": 2}, {}, {"c": [3]}],
+            [uuid.UUID(int=i) for i in range(4)],
+        ],
+    )
+    @pytest.mark.parametrize(
+        "index",
+        [
+            slice(None),
+            slice(1, 3),
+            slice(-2, None),
+            slice(None, -1),
+            slice(3, 1),
+            slice(10, 20),
+        ],
+    )
+    def test_slice_matches_list(self, values: list[Any], index: slice) -> None:
+        """Should hold the samples that the same slice of a list holds"""
+        s = telem.Series(values)
+        sliced = s[index]
+        assert isinstance(sliced, telem.Series)
+        assert sliced.data_type == s.data_type
+        assert list(sliced) == values[index]
+        assert len(sliced) == len(values[index])
+
+    def test_slice_offsets_alignment(self) -> None:
+        """Should offset the alignment by the start times the alignment multiple"""
+        tr = telem.TimeRange(0, 10)
+        s = telem.Series(
+            ["a", "b", "c"], time_range=tr, alignment=(1, 10), alignment_multiple=2
+        )
+        sliced = s[1:]
+        assert sliced.alignment == telem.Alignment(1, 12)
+        assert sliced.alignment_multiple == 2
+        assert sliced.time_range == tr
+
+    def test_slice_rejects_step(self) -> None:
+        """Should reject a slice with a step other than one"""
+        with pytest.raises(ValueError, match="step"):
+            telem.Series([1, 2, 3])[::2]
+
 
 @pytest.mark.telem
 @pytest.mark.series
