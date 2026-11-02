@@ -28,7 +28,7 @@ from synnax.ontology.payload import ID
 from synnax.rack import Client as RackClient
 from synnax.rack import Rack
 from synnax.task.types_gen import Command, Key, Payload, Status, ontology_id
-from synnax.telem import TimeSpan, TimeStamp
+from synnax.telem import TimeSpan
 from x.lists import all_none, override
 from x.timing import Timer
 
@@ -190,7 +190,7 @@ class Task:
         :param args: The arguments to pass to the command.
         :return: The unique key assigned to the command.
         """
-        w = self._frame_client.open_writer(TimeStamp.now(), _TASK_CMD_CHANNEL)
+        w = self._frame_client.open_writer(channels=_TASK_CMD_CHANNEL)
         cmd = Command(
             task=self.key,
             type=type_,
@@ -341,7 +341,7 @@ class Client:
     _frame_client: FrameClient
     _default_rack: Rack | None
     _racks: RackClient
-    _device_client: DeviceClient | None
+    _device_client: DeviceClient
     instrumentation: Instrumentation = NOOP
 
     def __init__(
@@ -350,7 +350,7 @@ class Client:
         client: UnaryClient,
         frame_client: FrameClient,
         rack_client: RackClient,
-        device_client: DeviceClient | None = None,
+        device_client: DeviceClient,
         instrumentation: Instrumentation = NOOP,
     ) -> None:
         self._client = client
@@ -427,15 +427,20 @@ class Client:
 
     def configure(self, task: P) -> P:
         """Saves the task's configuration to the cluster. The config is deployed
-        to the driver on the next start command.
+        to the driver on the next start command. A task with no rack goes on the rack
+        of the device that its config names, or on the embedded rack when it names no
+        device.
 
         :param task: The task to save.
         :returns: The saved task with its key and rack populated.
+        :raises NotFoundError: If the config names a device that does not exist.
         """
-        # Call task-specific device property update (e.g., for Modbus, OPC UA, LabJack)
-        if self._device_client is not None:
-            task.update_device_properties(self._device_client)
-        pld = self.maybe_assign_def_rack(task.to_payload())
+        task.update_device_properties(self._device_client)
+        pld = task.to_payload()
+        device = pld.config.get("device")
+        if pld.rack == 0 and isinstance(device, str) and device:
+            pld.rack = self._device_client.retrieve(key=device).rack
+        pld = self.maybe_assign_def_rack(pld)
         req = _CreateRequest(tasks=[pld])
         tasks = self._exec_create(req)
         task.set_internal(self.sugar(tasks)[0])
