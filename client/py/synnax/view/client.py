@@ -100,8 +100,6 @@ class Client:
         keys: list[Key] | None = None,
         types: list[Type] | None = None,
         search_term: str = "",
-        limit: int | None = None,
-        offset: int = 0,
     ) -> View: ...
 
     @overload
@@ -142,7 +140,9 @@ class Client:
         :raises NotFoundError: If no view matches a key, a name, or one.
         :raises MultipleFoundError: If more than one view matches a name or one.
         :raises TypeError: If args are neither view conditions nor a shortcut.
+        :raises ValueError: If one is combined with limit or offset.
         """
+        util.reject_page(one, limit, offset)
         conditions, query = util.shortcut(
             "View", args, Condition, Key, builder_gen.key, builder_gen.name
         )

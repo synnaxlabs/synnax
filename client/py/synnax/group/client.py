@@ -69,8 +69,6 @@ class Client:
         one: Literal[True],
         keys: list[UUID] | None = None,
         search_term: str = "",
-        limit: int | None = None,
-        offset: int = 0,
     ) -> Group: ...
 
     @overload
@@ -103,7 +101,9 @@ class Client:
         :raises NotFoundError: If no group matches a key or one.
         :raises MultipleFoundError: If one is True and more than one group matches.
         :raises TypeError: If args are neither group conditions nor a shortcut.
+        :raises ValueError: If one is combined with limit or offset.
         """
+        util.reject_page(one, limit, offset)
         conditions, query = util.shortcut(
             "Group", args, Condition, UUID, builder_gen.key
         )

@@ -98,8 +98,6 @@ class Client:
         one: Literal[True],
         keys: list[UUID] | None = None,
         search_term: str = "",
-        limit: int | None = None,
-        offset: int = 0,
         internal: bool | None = None,
     ) -> Role: ...
 
@@ -135,7 +133,9 @@ class Client:
         :raises NotFoundError: If no role matches a key, a name, or one.
         :raises MultipleFoundError: If more than one role matches a name or one.
         :raises TypeError: If args are neither role conditions nor a shortcut.
+        :raises ValueError: If one is combined with limit or offset.
         """
+        util.reject_page(one, limit, offset)
         conditions, query = util.shortcut(
             "Role", args, Condition, UUID, builder_gen.key, builder_gen.name
         )
