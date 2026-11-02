@@ -24,6 +24,7 @@ import { type ReactElement } from "react";
 import { Clipboard } from "@/platform/clipboard";
 import { Connection } from "@/platform/connection";
 import { Core } from "@/platform/core";
+import { Credential } from "@/platform/credential";
 import { CSS } from "@/platform/css";
 import { License } from "@/platform/license";
 import { User } from "@/platform/user";
@@ -52,6 +53,7 @@ const Summary = ({
 );
 
 const Content = (): ReactElement => {
+  const client = Synnax.use();
   const status = Synnax.useConnectionStatus();
   const { variant, details } = status;
   const activeKey = Session.Core.useSelectSelectedKey();
@@ -59,6 +61,8 @@ const Content = (): ReactElement => {
   const copy = Clipboard.useCopy();
   const openConnect = Core.useConnectModal();
   const handleLogout = Core.useLogout();
+  const openCredentials = Credential.useModal();
+  const subject = client?.auth.subject;
   const { close } = Dialog.useContext();
   const degraded =
     variant === "loading" || variant === "warning" || variant === "error";
@@ -151,6 +155,21 @@ const Content = (): ReactElement => {
         <Flex.Box x gap="small" className={CSS.BE("core-badge", "actions")}>
           {degraded && (
             <Connection.Retry variant="filled" size="small" grow justify="center" />
+          )}
+          {activeKey != null && subject != null && (
+            <Button.Button
+              onClick={() => {
+                close();
+                openCredentials({ subject });
+              }}
+              variant="outlined"
+              size="small"
+              grow
+              justify="center"
+            >
+              <Icon.Lock />
+              Manage credentials
+            </Button.Button>
           )}
           {activeKey != null && (
             <Button.Button
