@@ -693,6 +693,10 @@ class TestRate:
         [
             (sy.TimeSpan.MILLISECOND, sy.Rate(1000)),
             (1000, sy.Rate(1000.0)),
+            (np.float64(10), sy.Rate(10)),
+            (np.float32(10), sy.Rate(10)),
+            (np.int64(10), sy.Rate(10)),
+            (np.uint8(10), sy.Rate(10)),
         ],
     )
     def test_construction(self, crude: sy.CrudeRate, expected: sy.Rate) -> None:
@@ -788,6 +792,16 @@ class TestRate:
         """Should reject a bare int or float before a rate"""
         with pytest.raises(TypeError):
             op(number, sy.Rate(10))
+
+
+@pytest.mark.telem
+class TestDensity:
+    @pytest.mark.parametrize("crude", [8, np.int64(8), np.uint8(8), sy.Density(8)])
+    def test_construction(self, crude: sy.CrudeDensity) -> None:
+        """Should build a density from an int or a NumPy integer"""
+        density = sy.Density(crude)
+        assert density == 8
+        assert type(density) is sy.Density
 
 
 @pytest.mark.telem
