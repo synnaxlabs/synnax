@@ -42,7 +42,7 @@ class MQTTCase(ConsoleTaskCase):
     inside the Core, which has its own rack."""
 
     sim_classes = [MQTTSim]
-    RACK_NAME = CORE_RACK_NAME
+    rack_name = CORE_RACK_NAME
     # The rate at which the simulator publishes each topic.
     SAMPLE_RATE = 10 * sy.Rate.HZ
     STREAM_RATE = 10 * sy.Rate.HZ

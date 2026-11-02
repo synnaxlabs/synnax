@@ -27,7 +27,7 @@ class MQTTEdgeNode(SimulatorCase, WriteTaskCase[mqtt.EdgeTask]):
     for a tag, so plain read and write tasks can check both directions."""
 
     sim_classes = [MQTTSim]
-    RACK_NAME = CORE_RACK_NAME
+    rack_name = CORE_RACK_NAME
     task_name = "MQTT Sparkplug Edge Node"
 
     def create(
