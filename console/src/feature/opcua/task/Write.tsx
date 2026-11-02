@@ -13,7 +13,7 @@ import { Icon } from "@synnaxlabs/lyra/icon";
 import { Menu } from "@synnaxlabs/lyra/menu";
 import { Text } from "@synnaxlabs/lyra/text";
 import { Access } from "@synnaxlabs/pluto";
-import { caseconv, errors, primitive } from "@synnaxlabs/x";
+import { caseconv, deep, errors, primitive } from "@synnaxlabs/x";
 import { type FC } from "react";
 
 import { Device } from "@/feature/opcua/device";
@@ -28,6 +28,8 @@ import {
 import { ContextMenu } from "@/platform/context-menu";
 import { Selector } from "@/platform/selector";
 import { Task } from "@/platform/task";
+
+const path = deep.path<Task.Values<WriteSchemas>>();
 
 const Properties = () => <Device.Select />;
 
@@ -76,6 +78,7 @@ const resolve = (device: Device.Device, { nodeId }: WriteChannel) => ({
 });
 
 const TaskForm: FC = createForm<WriteChannel>({
+  path: path.config.channels,
   convertHaulItemToChannel,
   getChannelKeyAndID,
   contextMenuItems,

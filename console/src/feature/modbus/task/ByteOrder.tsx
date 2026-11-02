@@ -9,7 +9,7 @@
 
 import { Form } from "@synnaxlabs/lyra/form";
 import { Select } from "@synnaxlabs/lyra/select";
-import { DataType, Density } from "@synnaxlabs/x";
+import { DataType, deep, Density } from "@synnaxlabs/x";
 import { type CSSProperties, type ReactElement } from "react";
 
 import { Device } from "@/feature/modbus/device";
@@ -91,9 +91,14 @@ const Glyph = ({ order, device = false }: GlyphProps): ReactElement => {
   );
 };
 
+interface Swapped {
+  bytesSwapped?: boolean;
+  wordsSwapped?: boolean;
+}
+
 export interface ByteOrderFieldProps {
   /** The register channel's form path. */
-  path: string;
+  path: deep.Target<Swapped>;
   /** The channel's data type. */
   dataType: string;
 }
@@ -109,14 +114,9 @@ export const ByteOrderField = ({
 }: ByteOrderFieldProps): ReactElement => {
   const connection = Device.useFromConfig()?.properties.connection;
   const ctx = Form.useContext();
-  const bytesPath = `${path}.bytesSwapped`;
-  const wordsPath = `${path}.wordsSwapped`;
-  const bytesSwapped = Form.useFieldValue<boolean | undefined>(bytesPath, {
-    optional: true,
-  });
-  const wordsSwapped = Form.useFieldValue<boolean | undefined>(wordsPath, {
-    optional: true,
-  });
+  const { bytesSwapped: bytesPath, wordsSwapped: wordsPath } = deep.widen(path);
+  const bytesSwapped = Form.useFieldValue(bytesPath, { optional: true });
+  const wordsSwapped = Form.useFieldValue(wordsPath, { optional: true });
   const size = new DataType(dataType).density.valueOf();
   const multiWord = size > Density.BIT16.valueOf();
   const deviceBytes = connection?.swapBytes ?? false;

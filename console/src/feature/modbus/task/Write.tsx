@@ -15,7 +15,7 @@ import { Form as PForm } from "@synnaxlabs/lyra/form";
 import { Header } from "@synnaxlabs/lyra/header";
 import { Icon } from "@synnaxlabs/lyra/icon";
 import { List } from "@synnaxlabs/lyra/list";
-import { DataType, errors, id, primitive } from "@synnaxlabs/x";
+import { DataType, deep, errors, id, primitive } from "@synnaxlabs/x";
 import { type FC } from "react";
 
 import { Device } from "@/feature/modbus/device";
@@ -43,6 +43,8 @@ import {
 } from "@/feature/modbus/task/types";
 import { Selector } from "@/platform/selector";
 import { Task } from "@/platform/task";
+
+const path = deep.path<Task.Values<WriteSchemas>>();
 
 const Properties = () => <Device.Select />;
 
@@ -115,17 +117,17 @@ const commandDataType = (channel: WriteChannel): string =>
   channel.type === "holding_register" ? channel.dataType : DataType.UINT8.toString();
 
 const ChannelListItem = ({ itemKey, ...rest }: Task.ChannelListItemProps) => {
-  const path = `config.channels.${itemKey}`;
-  const ch = PForm.useFieldValue<WriteChannel>(path);
+  const entry = path.config.channels[itemKey];
+  const ch = PForm.useFieldValue(entry);
   const dev = Device.useFromConfig();
   const hovered = useIsHovered(itemKey);
   const hoveredRef = useHoveredRef(itemKey);
-  const overlapping = useOverlaps(itemKey);
+  const overlapping = useOverlaps(path.config.channels, itemKey);
   return (
     <Task.Views.ListChannelItem
       {...rest}
       itemKey={itemKey}
-      path={path}
+      path={entry}
       channel={ch.channel}
       defaultName={
         dev == null ? undefined : commandName(channel.escapeInvalidName(dev.name), ch)
@@ -134,21 +136,24 @@ const ChannelListItem = ({ itemKey, ...rest }: Task.ChannelListItemProps) => {
       hovered={hovered}
     >
       <List.Cell>
-        <RegisterField<WriteChannel> path={path} schemas={WRITE_CHANNEL_SCHEMAS} />
+        <RegisterField path={entry} schemas={WRITE_CHANNEL_SCHEMAS} />
       </List.Cell>
       <List.Cell>
-        <AddressField path={path} variant="shadow" overlapping={overlapping} />
+        <AddressField path={entry} variant="shadow" overlapping={overlapping} />
       </List.Cell>
       <List.Cell>
         <DataTypeCell
-          path={path}
+          path={entry}
           channel={ch}
           hideDataTypes={UNSUPPORTED_WRITE_DATA_TYPES}
         />
       </List.Cell>
       <List.Cell>
         {ch.type === "holding_register" && (
-          <ByteOrderField path={path} dataType={ch.dataType} />
+          <ByteOrderField
+            path={deep.variant(entry, "type", ch.type)}
+            dataType={ch.dataType}
+          />
         )}
       </List.Cell>
     </Task.Views.ListChannelItem>
@@ -178,7 +183,7 @@ const HEADER = (
         Channels
       </Header.Title>
     </Header.Header>
-    <RegisterMap createChannel={createMapChannel} />
+    <RegisterMap path={path.config.channels} createChannel={createMapChannel} />
   </>
 );
 
@@ -190,7 +195,8 @@ const Form: FC = () => {
       : { channel: dev.properties.write.channels[writeMapKey(c)] ?? 0 };
   return (
     <RegisterMapProvider>
-      <Task.Views.List<WriteChannel>
+      <Task.Views.List
+        path={path.config.channels}
         createChannel={getOpenChannel}
         contextMenuItems={Task.readChannelContextMenuItem}
         listItem={listItem}

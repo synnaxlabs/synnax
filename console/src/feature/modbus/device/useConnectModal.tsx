@@ -9,7 +9,7 @@
 
 import "@/feature/modbus/device/Connect.css";
 
-import { type device, type rack, status, TimeSpan } from "@synnaxlabs/client";
+import { type device, status, TimeSpan } from "@synnaxlabs/client";
 import { Description } from "@synnaxlabs/lyra/description";
 import { Form } from "@synnaxlabs/lyra/form";
 import { Icon } from "@synnaxlabs/lyra/icon";
@@ -19,6 +19,7 @@ import { Select } from "@synnaxlabs/lyra/select";
 import { Status } from "@synnaxlabs/lyra/status";
 import { Tabs } from "@synnaxlabs/lyra/tabs";
 import { Device as PDevice, type Flux } from "@synnaxlabs/pluto";
+import { deep } from "@synnaxlabs/x";
 import { type ReactElement, useState } from "react";
 
 import {
@@ -36,7 +37,6 @@ import {
   INTEGRATION,
   PARITIES,
   type Parity,
-  type Requests,
   SCHEMAS,
   statsOf,
   STOP_BITS,
@@ -49,6 +49,11 @@ import {
 import { Analytics } from "@/platform/analytics";
 import { CSS } from "@/platform/css";
 import { Device as PlatformDevice } from "@/platform/device";
+
+const path = deep.path<Device>();
+const connectionPath = path.properties.connection;
+const tcp = deep.variant(connectionPath, "transport", "tcp");
+const serial = deep.variant(connectionPath, "transport", "rtu");
 
 // Matches PROBE_WAIT in the Driver: how long a probe waits for its turn on a connection
 // that other units' requests keep busy.
@@ -89,9 +94,9 @@ const beforeValidate = ({
   PDevice.RetrieveQuery,
   PDevice.FormSchema<typeof SCHEMAS>
 >) => {
-  const connection = get<Connection>("properties.connection").value;
+  const connection = get(connectionPath).value;
   set(
-    "location",
+    path.location,
     connection.transport === "rtu"
       ? connection.serialPort
       : `${connection.host}:${connection.port}`,
@@ -108,12 +113,12 @@ const beforeSave = async ({
 >) => {
   const scanTask = await client.tasks.retrieve({
     type: SCAN_TYPE,
-    rack: get<rack.Key>("rack").value,
+    rack: get(path.rack).value,
     includeStatus: true,
     schemas: SCAN_SCHEMAS,
   });
-  const connection = get<Connection>("properties.connection").value;
-  const requests = get<Requests>("properties.requests").value;
+  const connection = get(connectionPath).value;
+  const requests = get(path.properties.requests).value;
   const state = await scanTask.executeCommandSync({
     type: TEST_CONNECTION_COMMAND_TYPE,
     timeout: testConnectionTimeout(connection, requests.delayMs),
@@ -123,15 +128,15 @@ const beforeSave = async ({
   // Since we just scanned successfully, we create a default healthy status for the
   // device that can then be overwritten by the scanner if we lose connection.
   const devStatus: device.Status = status.create<typeof device.statusDetailsZ>({
-    name: get<string>("name").value,
+    name: get(path.name).value,
     message: "Device connected",
     variant: "success",
     details: {
-      rack: get<rack.Key>("rack").value,
-      device: get<device.Key>("key").value,
+      rack: get(path.rack).value,
+      device: get(path.key).value,
     },
   });
-  set("status", devStatus, { notifyOnChange: false, markTouched: false });
+  set(path.status, devStatus, { notifyOnChange: false, markTouched: false });
   return true;
 };
 
@@ -154,33 +159,26 @@ export const Connect = ({
     beforeSave,
     afterSave: ({ get }) => {
       if (deviceKey == null) capture("device_connected", { integration: "modbus" });
-      close(get<device.Key>("key").value);
+      close(get(path.key).value);
     },
   });
-  const rackKey = Form.useFieldValue<
-    rack.Key,
-    rack.Key,
-    PDevice.FormSchema<typeof SCHEMAS>
-  >("rack", { ctx: form });
+  const rackKey = Form.useFieldValue(path.rack, { ctx: form });
   const reason = PlatformDevice.useBlockedReason({
     integration: INTEGRATION,
     name: "Modbus",
     rack: rackKey,
   });
-  const transport = Form.useFieldValue<
-    Transport,
-    Transport,
-    PDevice.FormSchema<typeof SCHEMAS>
-  >("properties.connection.transport", { ctx: form });
+  const transport = Form.useFieldValue(connectionPath.transport, {
+    ctx: form,
+  });
   const [tab, setTab] = useState("unit");
 
   // The transports share no address fields, so a switch starts the address over.
   const renderTransport = ({ value, onChange }: Input.Control<Transport>) => {
     const handleChange = (value: Transport) => {
-      const { swapBytes, swapWords, timeoutMs, retries } = form.get<Connection>(
-        "properties.connection",
-      ).value;
-      form.set("properties.connection", {
+      const { swapBytes, swapWords, timeoutMs, retries } =
+        form.get(connectionPath).value;
+      form.set(connectionPath, {
         ...INITIAL_CONNECTIONS[value],
         swapBytes,
         swapWords,
@@ -198,15 +196,15 @@ export const Connect = ({
       <Modal.Body gap="large">
         <Form.Form<PDevice.FormSchema<typeof SCHEMAS>> {...form}>
           <Form.TextField
-            path="name"
+            path={path.name}
             showLabel={false}
             padHelpText={false}
             inputProps={NAME_INPUT_PROPS}
           />
           <Form.Sections className={SECTIONS_CLASS}>
             <Form.Section title="Connection">
-              <Form.Field<Transport>
-                path="properties.connection.transport"
+              <Form.Field
+                path={connectionPath.transport}
                 label="Transport"
                 padHelpText={false}
               >
@@ -215,13 +213,13 @@ export const Connect = ({
               {transport === "tcp" ? (
                 <>
                   <Form.TextField
-                    path="properties.connection.host"
+                    path={tcp.host}
                     label="Host"
                     padHelpText={false}
                     inputProps={HOST_INPUT_PROPS}
                   />
                   <Form.NumericField
-                    path="properties.connection.port"
+                    path={tcp.port}
                     label="Port"
                     padHelpText={false}
                     inputProps={PORT_INPUT_PROPS}
@@ -230,14 +228,14 @@ export const Connect = ({
               ) : (
                 <>
                   <Form.TextField
-                    path="properties.connection.serialPort"
+                    path={serial.serialPort}
                     label="Serial port"
                     padHelpText={false}
                     inputProps={SERIAL_PORT_INPUT_PROPS}
                   />
-                  <BaudRateField path="properties.connection.baudRate" />
-                  <ParityField path="properties.connection.parity" />
-                  <StopBitsField path="properties.connection.stopBits" />
+                  <BaudRateField path={serial.baudRate} />
+                  <ParityField path={serial.parity} />
+                  <StopBitsField path={serial.stopBits} />
                 </>
               )}
               <PlatformDevice.RackField integration={INTEGRATION} />
@@ -255,7 +253,7 @@ export const Connect = ({
               <Form.Sections className={SECTIONS_CLASS}>
                 <Form.Section>
                   <Form.NumericField
-                    path="properties.connection.unitId"
+                    path={connectionPath.unitId}
                     label="Unit ID"
                     padHelpText={false}
                     inputProps={UNIT_ID_INPUT_PROPS[transport]}
@@ -268,19 +266,19 @@ export const Connect = ({
               <Form.Sections className={SECTIONS_CLASS}>
                 <Form.Section title="Timing">
                   <Form.NumericField
-                    path="properties.connection.timeoutMs"
+                    path={connectionPath.timeoutMs}
                     label="Timeout"
                     padHelpText={false}
                     inputProps={TIMEOUT_INPUT_PROPS}
                   />
                   <Form.NumericField
-                    path="properties.connection.retries"
+                    path={connectionPath.retries}
                     label="Retries"
                     padHelpText={false}
                     inputProps={RETRIES_INPUT_PROPS}
                   />
                   <Form.NumericField
-                    path="properties.requests.delayMs"
+                    path={path.properties.requests.delayMs}
                     label="Request delay"
                     padHelpText={false}
                     inputProps={DELAY_INPUT_PROPS}
@@ -288,26 +286,26 @@ export const Connect = ({
                 </Form.Section>
                 <Form.Section title="Requests">
                   <Form.NumericField
-                    path="properties.requests.maxRegisters"
+                    path={path.properties.requests.maxRegisters}
                     label="Max registers"
                     padHelpText={false}
                     inputProps={MAX_REGISTERS_INPUT_PROPS}
                   />
                   <Form.NumericField
-                    path="properties.requests.maxGap"
+                    path={path.properties.requests.maxGap}
                     label="Max gap"
                     padHelpText={false}
                     inputProps={MAX_GAP_INPUT_PROPS}
                   />
-                  <Form.Field<WriteCodes>
-                    path="properties.requests.writeCodes"
+                  <Form.Field
+                    path={path.properties.requests.writeCodes}
                     label="Write codes"
                     padHelpText={false}
                   >
                     {(props) => <SelectWriteCodes {...props} />}
                   </Form.Field>
                   <Form.CheckboxField
-                    path="properties.requests.maskWriteSupported"
+                    path={path.properties.requests.maskWriteSupported}
                     label="Mask write (FC22)"
                     padHelpText={false}
                   />
@@ -406,9 +404,7 @@ const Stat = ({ name, value }: StatProps): ReactElement => (
 
 // The request counters the Driver reports in the device status.
 const Diagnostics = (): ReactElement => {
-  const stats = statsOf(
-    Form.useFieldValue<device.Status | undefined>("status", { optional: true }),
-  );
+  const stats = statsOf(Form.useFieldValue(path.status, { optional: true }));
   if (stats == null)
     return (
       <Status.Summary variant="info" level="small" message="No requests counted yet" />
@@ -425,8 +421,8 @@ const Diagnostics = (): ReactElement => {
   );
 };
 
-const SWAP_BYTES_PATH = "properties.connection.swapBytes";
-const SWAP_WORDS_PATH = "properties.connection.swapWords";
+const SWAP_BYTES_PATH = connectionPath.swapBytes;
+const SWAP_WORDS_PATH = connectionPath.swapWords;
 
 const BYTE_ORDER_NAMES: Record<ByteOrder, string> = {
   ABCD: "Big-endian",
@@ -438,8 +434,8 @@ const BYTE_ORDER_NAMES: Record<ByteOrder, string> = {
 // One select over the two stored swap settings.
 const ByteOrderField = (): ReactElement => {
   const ctx = Form.useContext();
-  const swapBytes = Form.useFieldValue<boolean>(SWAP_BYTES_PATH);
-  const swapWords = Form.useFieldValue<boolean>(SWAP_WORDS_PATH);
+  const swapBytes = Form.useFieldValue(SWAP_BYTES_PATH);
+  const swapWords = Form.useFieldValue(SWAP_WORDS_PATH);
   const handleChange = (order: ByteOrder) => {
     const swaps = swapsOf(order);
     ctx.set(SWAP_BYTES_PATH, swaps.swapBytes);

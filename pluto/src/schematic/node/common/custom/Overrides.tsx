@@ -24,11 +24,17 @@ import { CSS } from "@/css";
 import { Region } from "@/schematic/node/common/region";
 import { Symbol } from "@/schematic/symbol";
 
+const root = deep.path<{
+  specKey: string;
+  stateOverrides: schematic.symbol.State[];
+}>();
+
+type RegionPath = deep.Path<schematic.symbol.Region>;
+
 interface RegionControlsProps {
-  path: string;
+  path: RegionPath;
   svg: string;
-  onReset: (path: string) => void;
-  getOriginalRegion: (path: string) => schematic.symbol.Region | null;
+  original?: schematic.symbol.Region;
 }
 
 const syncStateOverrides = (
@@ -83,18 +89,12 @@ const syncStateOverrides = (
   return finalStates;
 };
 
-const RegionControls = ({
-  path,
-  svg,
-  onReset,
-  getOriginalRegion,
-}: RegionControlsProps): ReactElement => {
-  const name = Form.useFieldValue<string>(`${path}.name`);
-  const region = Form.useFieldValue<schematic.symbol.Region>(path);
+const RegionControls = ({ path, svg, original }: RegionControlsProps): ReactElement => {
+  const name = Form.useFieldValue(path.name);
+  const region = Form.useFieldValue(path);
   const { set } = Form.useContext();
   const paint = Region.paint(svg, region.selectors);
-  const originalRegion = getOriginalRegion(path);
-  const canBeReset = !deep.equal(region, originalRegion);
+  const canBeReset = !deep.equal(region, original);
   return (
     <Flex.Box x align="center">
       <Text.Text
@@ -105,19 +105,21 @@ const RegionControls = ({
       >
         {caseconv.capitalize(name)}
       </Text.Text>
-      <Flex.Box x align="stretch" key={path}>
+      <Flex.Box x align="stretch" key={String(path)}>
         <Color.Swatch
           value={region.strokeColor}
           fallback={paint.stroke}
-          onChange={(c) => set(`${path}.strokeColor`, c)}
+          onChange={(c) => set(path.strokeColor, c)}
         />
         <Color.Swatch
           value={region.fillColor}
           fallback={paint.fill}
-          onChange={(c) => set(`${path}.fillColor`, c)}
+          onChange={(c) => set(path.fillColor, c)}
         />
         <Button.Button
-          onClick={() => onReset(path)}
+          onClick={() => {
+            if (original != null) set(path, deep.copy(original));
+          }}
           variant="text"
           size="tiny"
           className={CSS.cls(CSS.B("schematic-region-reset"), CSS.visible(canBeReset))}
@@ -131,29 +133,21 @@ const RegionControls = ({
 
 interface RegionListProps {
   svg: string;
-  onReset: (path: string) => void;
-  getOriginalRegion: (path: string) => schematic.symbol.Region | null;
   selectedState: string;
+  originalRegions?: schematic.symbol.Region[];
 }
 
-const RegionList = ({
-  svg,
-  selectedState,
-  onReset,
-  getOriginalRegion,
-}: RegionListProps) => {
-  const { data: regions } = Form.useFieldList<string, schematic.symbol.Region>(
-    `stateOverrides.${selectedState}.regions`,
-  );
+const RegionList = ({ svg, selectedState, originalRegions }: RegionListProps) => {
+  const list = root.stateOverrides[selectedState].regions;
+  const { data: regions } = Form.useFieldList(list);
   return (
     <Flex.Box y align="stretch">
       {regions.map((region) => (
         <RegionControls
           key={region}
           svg={svg}
-          onReset={onReset}
-          path={`stateOverrides.${selectedState}.regions.${region}`}
-          getOriginalRegion={getOriginalRegion}
+          path={list[region]}
+          original={originalRegions?.find(({ key }) => key === region)}
         />
       ))}
     </Flex.Box>
@@ -161,28 +155,26 @@ const RegionList = ({
 };
 
 export const StateOverrideForm = (): ReactElement => {
-  const specKey = Form.useFieldValue<string>("specKey");
+  const specKey = Form.useFieldValue(root.specKey);
   const form = Form.useContext();
   const [originalStates, setOriginalStates] = useState<schematic.symbol.State[]>([]);
-  const { data: states } = Form.useFieldList<string, schematic.symbol.State>(
-    "stateOverrides",
-  );
+  const { data: states } = Form.useFieldList(root.stateOverrides);
   const [selectedState, setSelectedState] = useState<string | undefined>(states?.[0]);
 
   const applySymbol = (symbol: schematic.symbol.Symbol) => {
     if (symbol.data == null) return;
     const symbolSpec = symbol.data;
     setOriginalStates(deep.copy(symbolSpec.states));
-    const currentOverrides = form.get<schematic.symbol.State[]>("stateOverrides");
+    const currentOverrides = form.get(root.stateOverrides);
     if (currentOverrides.value?.length === 0) {
-      form.set("stateOverrides", deep.copy(symbolSpec.states));
+      form.set(root.stateOverrides, deep.copy(symbolSpec.states));
       setSelectedState(symbolSpec.states[0].key);
     } else {
       const syncedStates = syncStateOverrides(
         currentOverrides.value,
         symbolSpec.states,
       );
-      form.set("stateOverrides", syncedStates);
+      form.set(root.stateOverrides, syncedStates);
     }
   };
   // A dangling spec key must not throw here: the owner renders a repair form for it.
@@ -191,18 +183,6 @@ export const StateOverrideForm = (): ReactElement => {
     if (symbol == null) return;
     applySymbol(symbol);
   }, [symbol, applySymbol]);
-
-  const resetRegion = (path: string) => {
-    const parsedPath = path.split(".").slice(1).join(".");
-    const prev = deep.get(originalStates, parsedPath, { optional: true });
-    if (prev == null) return;
-    form.set(path, deep.copy(prev));
-  };
-
-  const getOriginalRegion = (path: string): schematic.symbol.Region | null => {
-    const parsedPath = path.split(".").slice(1).join(".");
-    return deep.get(originalStates, parsedPath, { optional: true }) ?? null;
-  };
 
   // The form can swap to a different symbol's overrides beneath the locally
   // held selection, so fall back to the first state when the key disappears.
@@ -224,8 +204,9 @@ export const StateOverrideForm = (): ReactElement => {
         <RegionList
           svg={symbol?.data?.svg ?? ""}
           selectedState={shownState}
-          onReset={resetRegion}
-          getOriginalRegion={getOriginalRegion}
+          originalRegions={
+            originalStates.find(({ key }) => key === shownState)?.regions
+          }
         />
       )}
     </Flex.Box>
