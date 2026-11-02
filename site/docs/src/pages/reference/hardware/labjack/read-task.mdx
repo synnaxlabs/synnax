@@ -32,13 +32,16 @@ A read task has three types of channels:
 - **Thermocouple** -> a temperature from a thermocouple on an `AIN` port. Thermocouples
   work on the T7 and the T8.
 
-With no thermocouple channels, the device samples the inputs on its own clock. With one
-or more thermocouple channels, the Driver reads one sample of each channel at a time, on
-its own clock. See [timing](/reference/hardware/tasks#timing).
+A task streams: the device samples the inputs on its own clock. A T7 task with
+thermocouple channels polls instead: the Driver reads one sample of each channel at a
+time, on its own clock. See [timing](/reference/hardware/tasks#timing).
+
+A T8 task with thermocouple channels samples at 250 Hz or less. It needs T8 firmware
+1.0038 or later and LJM 1.2304 or later.
 
 A LabJack runs one stream at a time and cannot read `AIN` ports during a stream, so a
-task without thermocouples must be the only read task on its device. Add more channels
-to that task instead of starting a second one.
+streaming task must be the only read task on its device. Add more channels to that task
+instead of starting a second one.
 
 <Divider.Divider x />
 
@@ -203,7 +206,9 @@ Reads the state of a digital line as 0 or 1, as `uint8`.
   python="ThermocoupleReadChannel"
 >
 
-Reads a temperature from a thermocouple.
+Reads a temperature from a thermocouple. The Driver reads the voltage of the
+thermocouple and the temperature of its cold junction, then converts the two to a
+temperature.
 
 | Setting                                              | Default                | Notes                                                                                         |
 | ---------------------------------------------------- | ---------------------- | --------------------------------------------------------------------------------------------- |
@@ -249,6 +254,64 @@ value for a skipped sample.
 <Problem.Fix>
 
 Lower the **Sample rate**, or check the USB cable or the network.
+
+</Problem.Fix>
+</Problem.Item>
+
+<Problem.Item message={"Thermocouple out of range"}>
+<Problem.Cause>
+
+The voltage of the thermocouple is outside the range of its **Thermocouple type**. The
+thermocouple is open, a wire is loose, or the type is wrong. The Driver writes NaN until
+the voltage is in range.
+
+</Problem.Cause>
+<Problem.Fix>
+
+Check the wires of the thermocouple and its **Thermocouple type**.
+
+</Problem.Fix>
+</Problem.Item>
+
+<Problem.Item message={"A T8 task with thermocouples samples at 250 Hz or less"}>
+<Problem.Cause>
+
+Above 250 Hz, the T8 cannot read the temperature at its terminals, which the Driver
+needs to convert thermocouples.
+
+</Problem.Cause>
+<Problem.Fix>
+
+Set the **Sample rate** to 250 Hz or less.
+
+</Problem.Fix>
+</Problem.Item>
+
+<Problem.Item message={"Thermocouples on a T8 need firmware ... or later"}>
+<Problem.Cause>
+
+The firmware of the T8 cannot stream the temperature at its terminals.
+
+</Problem.Cause>
+<Problem.Fix>
+
+Update the firmware of the T8 with [Kipling](https://support.labjack.com/docs/kipling).
+
+</Problem.Fix>
+</Problem.Item>
+
+<Problem.Item message={"Thermocouples on a T8 need LJM ... or later"}>
+<Problem.Cause>
+
+The LJM library on the computer that runs the Driver cannot stream the temperature at
+the terminals of a T8.
+
+</Problem.Cause>
+<Problem.Fix>
+
+Install the latest
+[LJM](https://support.labjack.com/docs/ljm-software-installer-downloads-t4-t7-t8-digit),
+then restart the Driver.
 
 </Problem.Fix>
 </Problem.Item>

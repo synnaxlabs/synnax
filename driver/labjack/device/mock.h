@@ -43,8 +43,15 @@ public:
     mutable std::deque<x::errors::Error> write_errors;
     /// @brief the interleaved scans that each e_stream_read copies into its buffer.
     std::vector<double> stream_data;
-    /// @brief the value that e_read_names returns for each name. Other names read 0.
+    /// @brief the value that e_read_name and e_read_names return for each name. Other
+    /// names read 0.
     std::map<std::string, double> read_values;
+    /// @brief the errors that tc_volts_to_temp returns.
+    mutable std::deque<x::errors::Error> tc_errors;
+    /// @brief the slope of the thermocouple conversion of the mock.
+    double kelvin_per_volt = 25000;
+    /// @brief the version that ljm_version returns.
+    double library_version = 1.2305;
     /// @brief the values of each successful e_write_names call, by name.
     mutable std::vector<std::map<std::string, double>> name_write_calls;
 
@@ -91,7 +98,25 @@ public:
     [[nodiscard]] x::errors::Error
     e_read_name(const char *name, double *value) const override {
         if (should_fail_) return x::errors::Error("mock failure");
-        *value = 0;
+        const auto it = this->read_values.find(name);
+        *value = it == this->read_values.end() ? 0 : it->second;
+        return x::errors::NIL;
+    }
+
+    /// @brief converts linearly, at kelvin_per_volt.
+    [[nodiscard]] x::errors::Error tc_volts_to_temp(
+        int type,
+        const double volts,
+        const double cjc_k,
+        double *temp_k
+    ) const override {
+        if (auto err = next(this->tc_errors)) return err;
+        *temp_k = cjc_k + volts * this->kelvin_per_volt;
+        return x::errors::NIL;
+    }
+
+    [[nodiscard]] x::errors::Error ljm_version(double *version) const override {
+        *version = this->library_version;
         return x::errors::NIL;
     }
 

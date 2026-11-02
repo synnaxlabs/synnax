@@ -73,6 +73,17 @@ public:
     [[nodiscard]] virtual x::errors::Error
     e_read_name(const char *name, double *value) const = 0;
 
+    /// @brief converts a thermocouple voltage to a temperature in Kelvin.
+    /// @param type the LJM thermocouple type, such as LJM_ttK.
+    /// @param cjc_k the temperature of the cold junction in Kelvin.
+    /// @returns ljm::VOLTAGE_OUT_OF_RANGE or ljm::TEMPERATURE_OUT_OF_RANGE when the
+    /// voltage is outside the range of the thermocouple type.
+    [[nodiscard]] virtual x::errors::Error
+    tc_volts_to_temp(int type, double volts, double cjc_k, double *temp_k) const = 0;
+
+    /// @brief reads the version of the LJM library, such as 1.2304.
+    [[nodiscard]] virtual x::errors::Error ljm_version(double *version) const = 0;
+
     /// @brief starts a stream.
     /// @param configure writes the settings of the stream. It runs only when no other
     /// stream holds the device, so a refused start leaves the device untouched.
@@ -212,6 +223,25 @@ public:
         return parse_error(
             this->ljm,
             this->ljm->e_read_name(this->dev_handle, name, value)
+        );
+    }
+
+    [[nodiscard]] x::errors::Error tc_volts_to_temp(
+        const int type,
+        const double volts,
+        const double cjc_k,
+        double *temp_k
+    ) const override {
+        return parse_error(
+            this->ljm,
+            this->ljm->tc_volts_to_temp(type, volts, cjc_k, temp_k)
+        );
+    }
+
+    [[nodiscard]] x::errors::Error ljm_version(double *version) const override {
+        return parse_error(
+            this->ljm,
+            this->ljm->read_library_config(LJM_LIBRARY_VERSION, version)
         );
     }
 

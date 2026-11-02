@@ -29,7 +29,7 @@ import {
   PORTS,
   SCHEMAS,
 } from "@/feature/labjack/device/types";
-import { uniqueTerminalsZ } from "@/feature/labjack/task/checks";
+import { thermocoupleRateZ, uniqueTerminalsZ } from "@/feature/labjack/task/checks";
 import {
   convertPortTypeToReadChannelType,
   convertReadChannelTypeToPortType,
@@ -249,6 +249,7 @@ const ChannelsForm = ({ device }: ChannelsFormProps) => {
   const { model } = device;
   const identifier = channel.escapeInvalidName(device.properties.identifier);
   PForm.useCheck("config", uniqueTerminalsZ(model));
+  PForm.useCheck("config", thermocoupleRateZ(model));
   const createChannel = (channels: ReadChannel[], copy?: string) =>
     createNextChannel(channels, model, copy);
   const listItem = ({ key, ...p }: Task.ChannelListItemProps) => (
