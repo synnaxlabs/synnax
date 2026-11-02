@@ -50,10 +50,9 @@ type readGroup struct {
 	stamp int
 	// index is the group's index channel, zero when its channels are virtual.
 	index channel.Key
-	// keys are the writer's channels: the index first when it is not a field.
+	// keys are the group's channels in the writer: the index first when it is not a
+	// field.
 	keys channel.Keys
-	// writer opens at the first write, so its start is the first timestamp written.
-	writer *framer.Writer
 	// last is the last timestamp written, seeded with the last stored one at start.
 	last telem.TimeStamp
 	// replaying is true until the first record past last arrives.
@@ -75,6 +74,8 @@ type readTask struct {
 	// status is the authority on this instance's current status.
 	status *driver.StatusHandler
 	groups map[string]*readGroup
+	// writer writes every group's channels, nil while stopped.
+	writer *framer.Writer
 	// client is the consumer, nil while stopped.
 	client *kgo.Client
 	// closer releases the consumer, nil once released.
@@ -371,7 +372,6 @@ func (t *readTask) open(ctx context.Context) (err error) {
 		}
 	}
 	for _, g := range t.groups {
-		g.writer = nil
 		g.last = 0
 		g.replaying = false
 		if g.index == 0 || g.stamp == -1 {
@@ -381,6 +381,9 @@ func (t *readTask) open(ctx context.Context) (err error) {
 			return err
 		}
 		g.replaying = true
+	}
+	if t.writer, err = t.openWriter(ctx); err != nil {
+		return err
 	}
 	sCtx, cancel := signal.Isolated(
 		signal.WithInstrumentation(t.factoryCfg.Instrumentation),
@@ -432,13 +435,34 @@ func (t *readTask) closeClient() (err error) {
 	defer cancel()
 	err = t.client.CommitMarkedOffsets(ctx)
 	t.client.Close()
-	for _, g := range t.groups {
-		if g.writer != nil {
-			err = errors.Join(err, g.writer.Close())
-			g.writer = nil
-		}
-	}
+	err = errors.Join(err, t.writer.Close())
+	t.writer = nil
 	return err
+}
+
+// openWriter opens one writer over the channels of every group.
+func (t *readTask) openWriter(ctx context.Context) (*framer.Writer, error) {
+	var keys channel.Keys
+	for _, g := range t.groups {
+		keys = append(keys, g.keys...)
+	}
+	mode := ts.WriterModePersistStream
+	if t.cfg.DataSavingDisabled {
+		mode = ts.WriterModeStreamOnly
+	}
+	return t.factoryCfg.Framer.OpenWriter(ctx, framer.WriterConfig{
+		ControlSubject: control.Subject{
+			Name: t.task.Name,
+			Key:  t.task.Key.String(),
+		},
+		Keys:              keys,
+		Sync:              new(true),
+		ErrOnUnauthorized: new(true),
+		Mode:              mode,
+		// The offsets commit once Write returns, so the index must persist every
+		// commit before then or a crash loses samples Kafka will not replay.
+		AutoIndexPersistInterval: ts.AlwaysIndexPersistOnAutoCommit,
+	})
 }
 
 // lastStored returns the last timestamp stored in index, or zero when it is empty.
@@ -520,9 +544,15 @@ func (t *readTask) process(ctx context.Context, fetches kgo.Fetches) error {
 			rows[g] = append(rows[g], r)
 		}
 	})
+	var fr frame.Frame
 	for g, rs := range rows {
-		if err := t.write(ctx, g, rs); err != nil {
-			return err
+		if kept := t.keep(ctx, g, rs); len(kept) > 0 {
+			fr = g.appendFrame(fr, kept)
+		}
+	}
+	if !fr.Empty() {
+		if _, err := t.writer.Write(fr); err != nil {
+			return errors.Wrap(err, "writing records")
 		}
 	}
 	t.client.MarkCommitRecords(fetches.Records()...)
@@ -572,9 +602,8 @@ func (t *readTask) convert(
 	return g, r, true
 }
 
-// write sorts rows by timestamp, drops the replay and any regression, and writes the
-// rest as one frame.
-func (t *readTask) write(ctx context.Context, g *readGroup, rows []row) error {
+// keep sorts rows by timestamp and drops the replay and any regression.
+func (t *readTask) keep(ctx context.Context, g *readGroup, rows []row) []row {
 	slices.SortStableFunc(rows, func(a, b row) int { return cmp.Compare(a.ts, b.ts) })
 	kept := rows[:0]
 	for _, r := range rows {
@@ -593,41 +622,11 @@ func (t *readTask) write(ctx context.Context, g *readGroup, rows []row) error {
 		g.last = r.ts
 		kept = append(kept, r)
 	}
-	if len(kept) == 0 {
-		return nil
-	}
-	if g.writer == nil {
-		mode := ts.WriterModePersistStream
-		if t.cfg.DataSavingDisabled {
-			mode = ts.WriterModeStreamOnly
-		}
-		w, err := t.factoryCfg.Framer.OpenWriter(ctx, framer.WriterConfig{
-			ControlSubject: control.Subject{
-				Name: t.task.Name,
-				Key:  t.task.Key.String(),
-			},
-			Start:             kept[0].ts,
-			Keys:              g.keys,
-			Sync:              new(true),
-			ErrOnUnauthorized: new(true),
-			Mode:              mode,
-			// The offsets commit once Write returns, so the index must persist every
-			// commit before then or a crash loses samples Kafka will not replay.
-			AutoIndexPersistInterval: ts.AlwaysIndexPersistOnAutoCommit,
-		})
-		if err != nil {
-			return errors.Wrapf(err, "opening writer for key %q", g.key)
-		}
-		g.writer = w
-	}
-	if _, err := g.writer.Write(g.frame(kept)); err != nil {
-		return errors.Wrapf(err, "writing records for key %q", g.key)
-	}
-	return nil
+	return kept
 }
 
-// frame builds the even frame rows make for the group's writer keys.
-func (g *readGroup) frame(rows []row) frame.Frame {
+// appendFrame appends the series rows make for the group's keys to fr.
+func (g *readGroup) appendFrame(fr frame.Frame, rows []row) frame.Frame {
 	series := make([]telem.Series, 0, len(g.keys))
 	if g.index != 0 && g.stamp == -1 {
 		stamps := make([]telem.TimeStamp, len(rows))
@@ -644,7 +643,7 @@ func (g *readGroup) frame(rows []row) frame.Frame {
 		}
 		series = append(series, s)
 	}
-	return frame.NewMulti(g.keys, series)
+	return fr.Extend(frame.NewMulti(g.keys, series))
 }
 
 // skip reports a skipped record and why. A repeat of the last report is not rewritten.
