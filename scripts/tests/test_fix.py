@@ -99,6 +99,18 @@ def clang_format(repo: Repo, *, body: str) -> None:
     repo.env["PATH"] = f"{bin}:{repo.env['PATH']}"
 
 
+def uv(repo: Repo) -> Path:
+    """Puts a uv on PATH that logs its arguments and returns the log."""
+    bin = repo.path.parent / "bin"
+    bin.mkdir(exist_ok=True)
+    log = repo.path.parent / "uv.log"
+    exe = bin / "uv"
+    exe.write_text(f'#!/bin/bash\necho "$*" >> {log}\n')
+    exe.chmod(0o755)
+    repo.env["PATH"] = f"{bin}:{repo.env['PATH']}"
+    return log
+
+
 class TestFix:
     """Runs fix.sh in each of its modes."""
 
@@ -229,3 +241,11 @@ class TestPreCommitHook:
         assert "Copyright" in committed
         assert "echo b" not in committed
         assert repo.git("diff", "-U0", "a.sh").splitlines()[-1] == "+echo b"
+
+    def test_should_keep_ruff_excludes_for_given_files(self, repo: Repo) -> None:
+        log = uv(repo)
+        repo.write("a_pb2.py", "x=1\n")
+        assert repo.fix("a_pb2.py").returncode == 0
+        calls = log.read_text().splitlines()
+        assert len(calls) == 2
+        assert all("--force-exclude" in call for call in calls)

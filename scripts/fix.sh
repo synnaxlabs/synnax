@@ -87,8 +87,10 @@ fix() {
     if [ ${#py[@]} -gt 0 ]; then
         if command -v uv > /dev/null; then
             local ruff=(uv run --quiet --frozen --package synnax-scripts ruff)
-            "${ruff[@]}" check --quiet --select I --fix --exit-zero -- "${py[@]}"
-            "${ruff[@]}" format --quiet -- "${py[@]}"
+            # Ruff skips its configured excludes for files it is given unless forced.
+            "${ruff[@]}" check --quiet --force-exclude --select I --fix --exit-zero \
+                -- "${py[@]}"
+            "${ruff[@]}" format --quiet --force-exclude -- "${py[@]}"
         else
             skip "uv" "Python"
         fi
