@@ -12,6 +12,7 @@
 
 #pragma once
 
+#include <array>
 #include <atomic>
 #include <chrono>
 #include <condition_variable>
@@ -119,6 +120,167 @@ struct TestNode {
     }
 };
 
+/// @brief a value of the Point structure type of the mock server.
+struct Point {
+    UA_Float x;
+    UA_Float y;
+};
+
+/// @brief a value of the Motor structure type of the mock server.
+struct Motor {
+    UA_Double speed;
+    UA_Boolean running;
+    Point position;
+};
+
+/// @brief a value of the Hidden structure type of the mock server, which has no
+/// DataType node.
+struct Hidden {
+    UA_Float x;
+};
+
+/// @brief a value of the Broken structure type of the mock server, whose member is a
+/// Hidden.
+struct Broken {
+    Hidden inner;
+};
+
+/// @brief the numeric IDs, in namespace 1, of the structure data types and of their
+/// binary encodings. Opaque is a DataType node without a definition.
+constexpr UA_UInt32 POINT_TYPE_ID = 4242;
+constexpr UA_UInt32 POINT_ENCODING_ID = 4243;
+constexpr UA_UInt32 MOTOR_TYPE_ID = 4244;
+constexpr UA_UInt32 MOTOR_ENCODING_ID = 4245;
+constexpr UA_UInt32 HIDDEN_TYPE_ID = 4246;
+constexpr UA_UInt32 HIDDEN_ENCODING_ID = 4247;
+constexpr UA_UInt32 BROKEN_TYPE_ID = 4248;
+constexpr UA_UInt32 BROKEN_ENCODING_ID = 4249;
+constexpr UA_UInt32 OPAQUE_TYPE_ID = 4250;
+
+/// @brief the open62541 descriptions of the structure types. Types point at the types
+/// of their members, so the descriptions never move.
+class StructureTypes {
+    std::array<UA_DataTypeMember, 2> point_members{};
+    std::array<UA_DataTypeMember, 3> motor_members{};
+    std::array<UA_DataTypeMember, 1> hidden_members{};
+    std::array<UA_DataTypeMember, 1> broken_members{};
+    std::array<UA_DataType, 4> types{};
+
+    static void set_member(
+        UA_DataTypeMember &m,
+        const char *name,
+        const UA_DataType *type,
+        const std::size_t padding
+    ) {
+        m.memberName = name;
+        m.memberType = type;
+        m.padding = static_cast<UA_Byte>(padding);
+    }
+
+    static void set_type(
+        UA_DataType &t,
+        const char *name,
+        const UA_UInt32 id,
+        const UA_UInt32 encoding_id,
+        const std::size_t size,
+        UA_DataTypeMember *members,
+        const std::size_t members_size
+    ) {
+        t.typeName = name;
+        t.typeId = UA_NODEID_NUMERIC(1, id);
+        t.binaryEncodingId = UA_NODEID_NUMERIC(1, encoding_id);
+        t.xmlEncodingId = UA_NODEID_NULL;
+        t.memSize = static_cast<UA_UInt32>(size);
+        t.typeKind = UA_DATATYPEKIND_STRUCTURE;
+        t.pointerFree = true;
+        t.overlayable = false;
+        t.membersSize = static_cast<UA_UInt32>(members_size);
+        t.members = members;
+    }
+
+public:
+    /// @brief the list to set as the customDataTypes of a server.
+    UA_DataTypeArray array{};
+
+    StructureTypes() {
+        const auto *f = &UA_TYPES[UA_TYPES_FLOAT];
+        set_member(this->point_members[0], "X", f, 0);
+        set_member(
+            this->point_members[1],
+            "Y",
+            f,
+            offsetof(Point, y) - offsetof(Point, x) - sizeof(UA_Float)
+        );
+        set_type(
+            this->types[0],
+            "Point",
+            POINT_TYPE_ID,
+            POINT_ENCODING_ID,
+            sizeof(Point),
+            this->point_members.data(),
+            this->point_members.size()
+        );
+        set_member(this->motor_members[0], "Speed", &UA_TYPES[UA_TYPES_DOUBLE], 0);
+        set_member(
+            this->motor_members[1],
+            "Running",
+            &UA_TYPES[UA_TYPES_BOOLEAN],
+            offsetof(Motor, running) - offsetof(Motor, speed) - sizeof(UA_Double)
+        );
+        set_member(
+            this->motor_members[2],
+            "Position",
+            &this->point(),
+            offsetof(Motor, position) - offsetof(Motor, running) - sizeof(UA_Boolean)
+        );
+        set_type(
+            this->types[1],
+            "Motor",
+            MOTOR_TYPE_ID,
+            MOTOR_ENCODING_ID,
+            sizeof(Motor),
+            this->motor_members.data(),
+            this->motor_members.size()
+        );
+        set_member(this->hidden_members[0], "X", f, 0);
+        set_type(
+            this->types[2],
+            "Hidden",
+            HIDDEN_TYPE_ID,
+            HIDDEN_ENCODING_ID,
+            sizeof(Hidden),
+            this->hidden_members.data(),
+            this->hidden_members.size()
+        );
+        set_member(this->broken_members[0], "Inner", &this->types[2], 0);
+        set_type(
+            this->types[3],
+            "Broken",
+            BROKEN_TYPE_ID,
+            BROKEN_ENCODING_ID,
+            sizeof(Broken),
+            this->broken_members.data(),
+            this->broken_members.size()
+        );
+        this->array = {
+            .next = nullptr,
+            .typesSize = this->types.size(),
+            .types = this->types.data(),
+            .cleanup = false,
+        };
+    }
+
+    StructureTypes(const StructureTypes &) = delete;
+    StructureTypes &operator=(const StructureTypes &) = delete;
+    StructureTypes(StructureTypes &&) = delete;
+    StructureTypes &operator=(StructureTypes &&) = delete;
+    ~StructureTypes() = default;
+
+    [[nodiscard]] const UA_DataType &point() const { return this->types[0]; }
+    [[nodiscard]] const UA_DataType &motor() const { return this->types[1]; }
+    [[nodiscard]] const UA_DataType &broken() const { return this->types[3]; }
+};
+
 /// @brief the ApplicationUri of the mock server, which its certificate must carry.
 const std::string SERVER_APPLICATION_URI = "urn:open62541.server.application";
 
@@ -150,6 +312,13 @@ struct ServerConfig {
     std::uint32_t max_nodes_per_read = 0;
     /// @brief the most nodes that one Write request can name. 0 means no limit.
     std::uint32_t max_nodes_per_write = 0;
+    /// @brief the value of the NS=1;S=TestMotor node, of the Motor data type. The
+    /// server adds the node only when it is set.
+    std::optional<Motor> motor;
+    /// @brief the value of the NS=1;S=TestBroken node, of the Broken data type, which
+    /// does not build. The server adds the node, with its child NS=1;S=TestBrokenChild,
+    /// only when it is set.
+    std::optional<Broken> broken;
     /// @brief the usernames and passwords that the server accepts besides anonymous
     /// logins. The server accepts a password only on an encrypted channel.
     std::vector<std::pair<std::string, std::string>> users;
@@ -374,6 +543,16 @@ public:
         });
     }
 
+    /// @brief adds the NS=1;S=TestMotor node with value to the running server, as a
+    /// server that loads a model while it runs does. Blocks until the server adds it.
+    void add_motor(const Motor &value) {
+        std::unique_lock lock(this->added_mu);
+        this->added_motor = value;
+        this->added_cv.wait(lock, [this] {
+            return !this->added_motor.has_value() || !this->ready;
+        });
+    }
+
     void start() {
         running = true;
         exited = false;
@@ -418,12 +597,22 @@ private:
     std::mutex added_mu;
     std::condition_variable added_cv;
     std::vector<std::pair<std::string, std::vector<TestNode>>> added;
+    std::optional<Motor> added_motor;
 
     static void add_node(UA_Server *server, const TestNode &node) {
         UA_VariableAttributes attr = UA_VariableAttributes_default;
 
         // Set the variant as the value to be exposed by the server
         attr.value = node.initial_value;
+        if (node.data_type != nullptr) attr.dataType = node.data_type->typeId;
+        auto length = static_cast<UA_UInt32>(node.initial_value.arrayLength);
+        if (UA_Variant_isScalar(&node.initial_value))
+            attr.valueRank = UA_VALUERANK_SCALAR;
+        else if (node.initial_value.data != nullptr) {
+            attr.valueRank = UA_VALUERANK_ONE_DIMENSION;
+            attr.arrayDimensionsSize = 1;
+            attr.arrayDimensions = &length;
+        }
 
         // Set access level to allow reading and writing
         attr.accessLevel = UA_ACCESSLEVELMASK_READ | UA_ACCESSLEVELMASK_WRITE;
@@ -461,7 +650,8 @@ private:
         UA_NodeId_clear(&raw_node_id);
     }
 
-    void add_namespaces(UA_Server *server) {
+    /// @brief adds what add_namespace and add_motor asked for.
+    void add_requested(UA_Server *server, const UA_DataType &motor_type) {
         std::lock_guard lock(this->added_mu);
         for (auto &[uri, nodes]: this->added) {
             const auto ns = UA_Server_addNamespace(server, uri.c_str());
@@ -471,7 +661,79 @@ private:
             }
         }
         this->added.clear();
+        if (this->added_motor.has_value()) {
+            add_motor_node(server, motor_type, *this->added_motor);
+            this->added_motor.reset();
+        }
         this->added_cv.notify_all();
+    }
+
+    static void
+    add_motor_node(UA_Server *server, const UA_DataType &type, Motor &value) {
+        UA_VariableAttributes attr = UA_VariableAttributes_default;
+        attr.dataType = type.typeId;
+        attr.valueRank = UA_VALUERANK_SCALAR;
+        attr.accessLevel = UA_ACCESSLEVELMASK_READ;
+        attr.displayName = UA_LOCALIZEDTEXT(
+            const_cast<char *>("en-US"),
+            const_cast<char *>("TestMotor")
+        );
+        UA_Variant_setScalar(&attr.value, &value, &type);
+        UA_Server_addVariableNode(
+            server,
+            UA_NODEID_STRING(1, const_cast<char *>("TestMotor")),
+            UA_NS0ID(OBJECTSFOLDER),
+            UA_NS0ID(ORGANIZES),
+            UA_QUALIFIEDNAME(1, const_cast<char *>("TestMotor")),
+            UA_NODEID_NULL,
+            attr,
+            nullptr,
+            nullptr
+        );
+    }
+
+    static void
+    add_broken_node(UA_Server *server, const UA_DataType &type, Broken &value) {
+        UA_VariableAttributes attr = UA_VariableAttributes_default;
+        attr.dataType = type.typeId;
+        attr.valueRank = UA_VALUERANK_SCALAR;
+        attr.accessLevel = UA_ACCESSLEVELMASK_READ;
+        attr.displayName = UA_LOCALIZEDTEXT(
+            const_cast<char *>("en-US"),
+            const_cast<char *>("TestBroken")
+        );
+        UA_Variant_setScalar(&attr.value, &value, &type);
+        const auto id = UA_NODEID_STRING(1, const_cast<char *>("TestBroken"));
+        UA_Server_addVariableNode(
+            server,
+            id,
+            UA_NS0ID(OBJECTSFOLDER),
+            UA_NS0ID(ORGANIZES),
+            UA_QUALIFIEDNAME(1, const_cast<char *>("TestBroken")),
+            UA_NODEID_NULL,
+            attr,
+            nullptr,
+            nullptr
+        );
+        UA_VariableAttributes child = UA_VariableAttributes_default;
+        UA_Double child_value = 0;
+        UA_Variant_setScalar(&child.value, &child_value, &UA_TYPES[UA_TYPES_DOUBLE]);
+        child.dataType = UA_TYPES[UA_TYPES_DOUBLE].typeId;
+        child.displayName = UA_LOCALIZEDTEXT(
+            const_cast<char *>("en-US"),
+            const_cast<char *>("TestBrokenChild")
+        );
+        UA_Server_addVariableNode(
+            server,
+            UA_NODEID_STRING(1, const_cast<char *>("TestBrokenChild")),
+            id,
+            UA_NS0ID(HASCOMPONENT),
+            UA_QUALIFIEDNAME(1, const_cast<char *>("TestBrokenChild")),
+            UA_NODEID_NULL,
+            child,
+            nullptr,
+            nullptr
+        );
     }
 
 public:
@@ -537,6 +799,37 @@ private:
         server_config->maxNodesPerWrite = cfg.max_nodes_per_write;
         for (const auto &uri: cfg.namespaces)
             UA_Server_addNamespace(server, uri.c_str());
+        const StructureTypes structures;
+        server_config->customDataTypes = const_cast<UA_DataTypeArray *>(
+            &structures.array
+        );
+        const std::array<std::pair<UA_NodeId, const char *>, 4> data_types{{
+            {structures.point().typeId, "Point"},
+            {structures.motor().typeId, "Motor"},
+            {structures.broken().typeId, "Broken"},
+            {UA_NODEID_NUMERIC(1, OPAQUE_TYPE_ID), "Opaque"},
+        }};
+        for (const auto &[id, name]: data_types) {
+            UA_DataTypeAttributes attr = UA_DataTypeAttributes_default;
+            attr.displayName = UA_LOCALIZEDTEXT(
+                const_cast<char *>("en-US"),
+                const_cast<char *>(name)
+            );
+            UA_Server_addDataTypeNode(
+                server,
+                id,
+                UA_NS0ID(STRUCTURE),
+                UA_NS0ID(HASSUBTYPE),
+                UA_QUALIFIEDNAME(1, const_cast<char *>(name)),
+                attr,
+                nullptr,
+                nullptr
+            );
+        }
+        if (cfg.motor.has_value())
+            add_motor_node(server, structures.motor(), *cfg.motor);
+        if (cfg.broken.has_value())
+            add_broken_node(server, structures.broken(), *cfg.broken);
         if (!cfg.users.empty()) {
             std::vector<UA_UsernamePasswordLogin> logins;
             logins.reserve(cfg.users.size());
@@ -577,7 +870,7 @@ private:
                     std::chrono::nanoseconds(delay.nanoseconds())
                 );
             UA_Server_run_iterate(server, true);
-            this->add_namespaces(server);
+            this->add_requested(server, structures.motor());
             const auto stats = UA_Server_getStatistics(server);
             this->channels = stats.scs.currentChannelCount;
             this->sessions_created = stats.ss.cumulatedSessionCount;
@@ -587,6 +880,7 @@ private:
         {
             std::lock_guard lock(this->added_mu);
             this->added.clear();
+            this->added_motor.reset();
         }
         this->added_cv.notify_all();
         UA_Server_run_shutdown(server);

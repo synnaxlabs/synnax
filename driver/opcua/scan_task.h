@@ -26,6 +26,7 @@
 #include "driver/opcua/certificate/store.h"
 #include "driver/opcua/connection/connection.h"
 #include "driver/opcua/opcua.h"
+#include "driver/opcua/structure/structure.h"
 #include "driver/opcua/types/types.h"
 #include "driver/task/task.h"
 
@@ -43,6 +44,9 @@ struct ScanCommandArgs {
     connection::Config connection;
     std::string node_id;
     types::NodeId node;
+    /// @brief the member of the node's structure value whose members to list, or empty
+    /// to list the children of the node.
+    structure::Path field;
 
     explicit ScanCommandArgs(x::json::Parser &parser):
         connection(opcua::connection::Config(parser.child("connection"))),
@@ -51,6 +55,11 @@ struct ScanCommandArgs {
             node = types::NodeId(UA_NODEID_NUMERIC(0, UA_NS0ID_OBJECTSFOLDER));
         else
             node = types::NodeId::parse("node_id", parser);
+        const auto field = parser.field<std::string>("field", "");
+        if (field.empty()) return;
+        auto [path, err] = structure::parse(field);
+        if (err) parser.field_err("field", err.data);
+        this->field = std::move(path);
     }
 };
 

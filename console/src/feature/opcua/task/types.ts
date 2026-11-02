@@ -19,18 +19,31 @@ export interface ReadChannel extends opcua.ReadChannel {}
 export interface WriteChannel extends opcua.WriteChannel {}
 export type Channel = ReadChannel | WriteChannel;
 
+/**
+ * @returns a key for what a channel reads or writes: its node, and the member of the
+ * node's structure value when it has a field.
+ */
+export const nodeIdentity = (ch: Pick<ReadChannel, "nodeId"> & { field?: string }) =>
+  JSON.stringify([ch.nodeId, ch.field ?? ""]);
+
 const validateNodeIDs = ({
   value: channels,
   issues,
 }: z.core.ParsePayload<Channel[]>) => {
-  const nodeIds = new Map<string, number>();
-  channels.forEach(({ nodeId }) => nodeIds.set(nodeId, (nodeIds.get(nodeId) ?? 0) + 1));
-  channels.forEach(({ nodeId }, i) => {
-    if (nodeId.length === 0 || (nodeIds.get(nodeId) ?? 0) < 2) return;
+  const counts = new Map<string, number>();
+  channels.forEach((ch) => {
+    const id = nodeIdentity(ch);
+    counts.set(id, (counts.get(id) ?? 0) + 1);
+  });
+  channels.forEach((ch, i) => {
+    if (ch.nodeId.length === 0 || (counts.get(nodeIdentity(ch)) ?? 0) < 2) return;
     issues.push({
       code: "custom",
       path: [i, "nodeId"],
-      message: "This node ID has already been used elsewhere in the configuration",
+      message:
+        "field" in ch && ch.field !== ""
+          ? "This field has already been used elsewhere in the configuration"
+          : "This node ID has already been used elsewhere in the configuration",
       params: { variant: "warning" },
       input: channels,
     });
@@ -156,6 +169,7 @@ const scannedNodeZ = z
     name: z.string(),
     nodeClass: z.string(),
     nodeId: z.string(),
+    field: z.string().default(""),
   })
   .transform(({ key, ...rest }) => ({ ...rest, key: key ?? rest.nodeId }));
 

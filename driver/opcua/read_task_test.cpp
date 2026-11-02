@@ -12,7 +12,9 @@
 #include <cmath>
 #include <iomanip>
 #include <iostream>
+#include <string>
 #include <thread>
+#include <vector>
 
 #include "gtest/gtest.h"
 #include "nlohmann/json.hpp"
@@ -152,6 +154,11 @@ protected:
 
         // Use the comprehensive default server configuration
         auto server_cfg = testutil::ServerConfig::create_default();
+        server_cfg.motor = testutil::Motor{
+            .speed = 1500.0,
+            .running = true,
+            .position = {.x = 1.5F, .y = 2.5F},
+        };
 
         x::json::json task_cfg{
             {"data_saving_disabled", false},
@@ -306,6 +313,32 @@ protected:
         };
     }
 
+    /// @returns the config of a task that reads members of TestMotor at fields into the
+    /// double, float, and bool channels.
+    [[nodiscard]] x::json::json
+    motor_cfg(const std::vector<std::string> &fields) const {
+        const std::vector<synnax::channel::Key> keys{
+            this->double_channel.key,
+            this->float_channel.key,
+            this->bool_channel.key,
+        };
+        auto channels = x::json::json::array();
+        for (std::size_t i = 0; i < fields.size(); ++i)
+            channels.push_back({
+                {"node_id", "NS=1;S=TestMotor"},
+                {"field", fields[i]},
+                {"channel", keys[i]},
+                {"disabled", false},
+            });
+        return {
+            {"data_saving_disabled", false},
+            {"device", "opc_read_task_test_server_key"},
+            {"channels", channels},
+            {"sample_rate", 50},
+            {"stream_rate", 25},
+        };
+    }
+
     std::unique_ptr<common::ReadTask> create_task() {
         auto p = x::json::Parser(task_cfg_json);
         auto cfg = std::make_unique<ReadTaskConfig>(ctx->client, p);
@@ -397,6 +430,101 @@ TEST_F(TestReadTask, testMissingNodeSkipsIndex) {
     );
     EXPECT_TRUE(fr.empty());
     ASSERT_NIL(source->stop());
+}
+
+/// @brief it should read members of a structure node into their channels.
+TEST_F(TestReadTask, testReadsStructureFields) {
+    const auto source = this->create_source(
+        this->motor_cfg({"Speed", "Position.Y", "Running"})
+    );
+    ASSERT_NIL(source->start());
+    x::breaker::Breaker breaker;
+    x::telem::Frame fr;
+    const auto res = source->read(breaker, fr);
+    ASSERT_NIL(res.error);
+    EXPECT_EQ(res.warning.message, "");
+    ASSERT_EQ(fr.size(), 4);
+    EXPECT_EQ(fr.at<double>(this->double_channel.key, 0), 1500.0);
+    EXPECT_EQ(fr.at<float>(this->float_channel.key, 0), 2.5F);
+    EXPECT_EQ(fr.at<std::uint8_t>(this->bool_channel.key, 0), 1);
+    ASSERT_NIL(source->stop());
+}
+
+/// @brief it should skip the index of a field that the structure lacks, and name the
+/// field's channel in a warning.
+TEST_F(TestReadTask, testUnknownFieldSkipsIndex) {
+    const auto source = this->create_source(this->motor_cfg({"Speed", "Torque"}));
+    ASSERT_NIL(source->start());
+    x::breaker::Breaker breaker;
+    x::telem::Frame fr;
+    const auto res = source->read(breaker, fr);
+    ASSERT_NIL(res.error);
+    EXPECT_EQ(res.warning.message, "Received bad values");
+    EXPECT_EQ(
+        res.warning.description,
+        this->float_channel.name + ": Motor has no member Torque. " +
+            this->float_channel.name + ": Motor has no member Torque."
+    );
+    EXPECT_TRUE(fr.empty());
+    ASSERT_NIL(source->stop());
+}
+
+/// @brief it should read a structure field once the server adds its node, on the same
+/// connection.
+TEST_F(TestReadTask, testReadsFieldOfAddedNode) {
+    server->stop();
+    server->cfg.motor.reset();
+    server->start();
+    ASSERT_TRUE(server->wait_until_ready());
+    const auto source = this->create_source(this->motor_cfg({"Speed"}));
+    ASSERT_NIL(source->start());
+    x::breaker::Breaker breaker;
+    x::telem::Frame fr;
+    const auto missing = source->read(breaker, fr);
+    ASSERT_NIL(missing.error);
+    EXPECT_EQ(missing.warning.message, "Received bad values");
+    EXPECT_TRUE(fr.empty());
+    const auto sessions = server->sessions_created.load();
+    server->add_motor({
+        .speed = 1500.0,
+        .running = true,
+        .position = {.x = 1.5F, .y = 2.5F},
+    });
+    ASSERT_EVENTUALLY_TRUE_WITH_TIMEOUT(
+        [&] {
+            fr.clear();
+            return !source->read(breaker, fr).error && !fr.empty();
+        }(),
+        std::chrono::seconds(20),
+        std::chrono::milliseconds(100)
+    );
+    EXPECT_EQ(fr.at<double>(this->double_channel.key, 0), 1500.0);
+    EXPECT_EQ(server->sessions_created.load(), sessions);
+    ASSERT_NIL(source->stop());
+}
+
+/// @brief it should reject a structure field in array mode.
+TEST_F(TestReadTask, testRejectsFieldInArrayMode) {
+    auto cfg_json = this->motor_cfg({"Speed"});
+    cfg_json["array_mode"] = true;
+    cfg_json["array_size"] = 5;
+    auto p = x::json::Parser(cfg_json);
+    const ReadTaskConfig cfg(ctx->client, p);
+    ASSERT_OCCURRED_AS(p.error(), x::errors::VALIDATION);
+    const auto errs = p.error_json()["errors"];
+    ASSERT_EQ(errs.size(), 1);
+    EXPECT_EQ(errs[0]["path"], "channels.0.field");
+    EXPECT_EQ(errs[0]["message"], "array mode cannot read structure fields");
+}
+
+/// @brief it should reject a field with an empty member name.
+TEST_F(TestReadTask, testRejectsInvalidField) {
+    auto p = x::json::Parser(this->motor_cfg({"Position..Y"}));
+    const ReadTaskConfig cfg(ctx->client, p);
+    const auto errs = p.error_json()["errors"];
+    ASSERT_EQ(errs.size(), 1);
+    EXPECT_EQ(errs[0]["path"], "channels.0.field");
+    EXPECT_EQ(errs[0]["message"], "the field Position..Y has an empty name");
 }
 
 /// @brief it should write NaN for a missing float node when NaN fill is on, and keep

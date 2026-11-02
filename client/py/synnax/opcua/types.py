@@ -96,7 +96,13 @@ class ReadTask(
             props["read"] = {"index": 0, "channels": {}}
         channels = device.ensure_object(props, "read", "channels")
         for ch in self.config.channels:
-            if ch.node_id:
+            if not ch.node_id:
+                continue
+            if ch.field:
+                device.ensure_object(props, "read", "fields", ch.node_id)[ch.field] = (
+                    ch.channel
+                )
+            else:
                 channels[ch.node_id] = ch.channel
         dev.properties = props
         return device_client.create(dev)
@@ -232,7 +238,7 @@ class Device(device.Device):
         props: dict[str, JsonValue] = {
             "version": "2.0.0",
             "connection": connection,
-            "read": {"indexes": [], "channels": {}},
+            "read": {"indexes": [], "channels": {}, "fields": {}},
             "write": {"channels": {}},
         }
         super().__init__(

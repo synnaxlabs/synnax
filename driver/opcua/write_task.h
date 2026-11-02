@@ -107,14 +107,54 @@ class WriteTaskSink final : public common::Sink {
     const WriteTaskConfig cfg;
     device::Connector connector;
     connection::Pool::Connection connection;
+    /// @brief the data type of each channel's node on the current connection, or
+    /// nothing for a node whose type the server has not reported.
+    std::unordered_map<synnax::channel::Key, const UA_DataType *> targets;
     types::WriteRequestBuilder builder;
     std::vector<synnax::channel::Key> written_keys;
+
+    /// @brief writes on conn from now on.
+    /// @returns the error of reading the types of the nodes, after which the sink has
+    /// no connection.
+    x::errors::Error use(connection::Pool::Connection conn) {
+        this->connection = std::move(conn);
+        this->targets.clear();
+        const auto err = this->read_targets(this->cfg.cmd_keys());
+        if (err) this->connection = connection::Pool::Connection(nullptr, nullptr, "");
+        return err;
+    }
+
+    /// @brief reads the DataType of the node of each channel in keys, so commands
+    /// convert to it. A node of a type the client does not know converts by the type of
+    /// its channel.
+    x::errors::Error read_targets(const std::vector<synnax::channel::Key> &keys) {
+        const auto &namespaces = this->connection.server().namespaces;
+        types::ReadRequestBuilder req;
+        std::vector<synnax::channel::Key> read;
+        for (const auto key: keys) {
+            const auto it = this->cfg.channels.find(key);
+            if (it == this->cfg.channels.end()) continue;
+            const auto id = it->second->node.resolve(namespaces);
+            if (!id.has_value()) continue;
+            req.add_node(id.value(), UA_ATTRIBUTEID_DATATYPE);
+            read.push_back(key);
+        }
+        if (req.empty()) return x::errors::NIL;
+        auto [res, err] = this->connection.read(req.build());
+        if (err) return err;
+        for (std::size_t i = 0; i < read.size(); ++i)
+            if (const auto &value = res.get().results[i].value;
+                UA_Variant_hasScalarType(&value, &UA_TYPES[UA_TYPES_NODEID]))
+                this->targets[read[i]] = UA_findDataType(
+                    static_cast<const UA_NodeId *>(value.data)
+                );
+        return x::errors::NIL;
+    }
 
     x::errors::Error connect() {
         auto [conn, err] = this->connector.connect();
         if (err) return err;
-        this->connection = std::move(conn);
-        return x::errors::NIL;
+        return this->use(std::move(conn));
     }
 
 public:
@@ -133,11 +173,10 @@ public:
     /// start, since each command connects again.
     x::errors::Error start() override {
         auto [c, err] = this->connector.start();
+        if (!err) err = this->use(std::move(c));
         if (err.matches(driver::errors::TEMPORARY_HARDWARE_ERROR))
             return x::errors::NIL;
-        if (err) return err;
-        this->connection = std::move(c);
-        return x::errors::NIL;
+        return err;
     }
 
     x::errors::Error stop() override {
@@ -161,8 +200,8 @@ public:
     }
 
 private:
-    /// @brief fills builder with the frame's values, with the namespace indexes of the
-    /// current connection.
+    /// @brief fills builder with the frame's values, converted to the types of their
+    /// nodes, with the namespace indexes of the current connection.
     /// @returns a problem for each value that the Driver cannot convert or whose
     /// namespace the server lacks.
     std::vector<std::string> build(const ::x::telem::Frame &frame) {
@@ -182,7 +221,12 @@ private:
                 );
                 continue;
             }
-            if (auto err = this->builder.add_value(id.value(), s)) {
+            const auto target = this->targets.find(key);
+            if (auto err = this->builder.add_value(
+                    id.value(),
+                    s,
+                    target == this->targets.end() ? nullptr : target->second
+                )) {
                 problems.push_back(ch.ch.name + ": " + err.data + ".");
                 continue;
             }
@@ -193,7 +237,7 @@ private:
 
     /// @brief reads the server's namespaces again when the frame names a channel whose
     /// namespace the connection lacks, since the server can add a namespace while it
-    /// runs.
+    /// runs. Forgets the types of the nodes when a namespace is new.
     x::errors::Error read_namespaces(const ::x::telem::Frame &frame) {
         const auto &namespaces = this->connection.server().namespaces;
         for (const auto &[key, _]: frame) {
@@ -205,9 +249,22 @@ private:
             req.add_node(UA_NODEID_NUMERIC(0, UA_NS0ID_SERVER_NAMESPACEARRAY));
             auto [res, err] = this->connection.read(req.build());
             if (err) return err;
-            return this->connection.update_namespaces(res.get().results[0]).second;
+            auto [changed, ns_err] = this->connection.update_namespaces(
+                res.get().results[0]
+            );
+            if (!ns_err && changed) this->targets.clear();
+            return ns_err;
         }
         return x::errors::NIL;
+    }
+
+    /// @brief reads the type of each node in the frame whose type the sink lacks, since
+    /// the server can add a node while it runs.
+    x::errors::Error read_untyped(const ::x::telem::Frame &frame) {
+        std::vector<synnax::channel::Key> untyped;
+        for (const auto &[key, _]: frame)
+            if (!this->targets.contains(key)) untyped.push_back(key);
+        return this->read_targets(untyped);
     }
 
     /// @brief writes the frame's values and sets problems from build. When the server
@@ -219,6 +276,8 @@ private:
             [&]() -> std::pair<types::WriteResponse, x::errors::Error> {
             if (auto err = this->read_namespaces(frame))
                 return {types::WriteResponse(), err};
+            if (auto err = this->read_untyped(frame))
+                return {types::WriteResponse(), err};
             problems = this->build(frame);
             if (this->builder.empty()) return {types::WriteResponse(), x::errors::NIL};
             return this->connection.write(this->builder.build());
@@ -228,7 +287,8 @@ private:
         auto [next, refresh_err] = this->connector.refresh(this->connection);
         if (refresh_err) return {std::move(res), refresh_err};
         if (!next) return {std::move(res), err};
-        this->connection = std::move(next);
+        if (const auto use_err = this->use(std::move(next)))
+            return {types::WriteResponse(), use_err};
         return attempt();
     }
 

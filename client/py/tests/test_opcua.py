@@ -175,6 +175,35 @@ class TestOPCReadTask:
         retrieved = client.tasks.retrieve(key=created.key)
         assert sy.opcua.ReadTask(retrieved).config.nan_fill_enabled is True
 
+    def test_update_device_properties_maps_fields(self, client: sy.Synnax) -> None:
+        """Should map a field channel by node and field, apart from node channels."""
+        rack = client.racks.retrieve_embedded_rack()
+        dev = sy.opcua.Device(
+            endpoint="opc.tcp://localhost:4840",
+            name="Test OPC UA Device",
+            location="opc.tcp://localhost:4840",
+            rack=rack.key,
+        )
+        client.devices.create(dev)
+        task = sy.opcua.ReadTask(
+            name="test-task",
+            device=dev.key,
+            channels=[
+                sy.opcua.ReadChannel(
+                    node_id="NS=1;S=TestMotor", field="Speed", channel=11
+                ),
+                sy.opcua.ReadChannel(
+                    node_id="NS=1;S=TestMotor", field="Position.Y", channel=12
+                ),
+                sy.opcua.ReadChannel(node_id="NS=1;S=TestDouble", channel=13),
+            ],
+        )
+        task.update_device_properties(client.devices)
+        read = client.devices.retrieve(key=dev.key).properties["read"]
+        assert isinstance(read, dict)
+        assert read["fields"] == {"NS=1;S=TestMotor": {"Speed": 11, "Position.Y": 12}}
+        assert read["channels"] == {"NS=1;S=TestDouble": 13}
+
 
 @pytest.mark.opcua
 class TestOPCWriteTask:
