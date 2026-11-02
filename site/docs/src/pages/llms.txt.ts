@@ -23,8 +23,9 @@ const INTRO = `# Synnax
 
 Synnax has a Core (a time-series database and server), the Console (a desktop app for
 live plots, schematics, and tables), the Driver (data acquisition and control for
-National Instruments, LabJack, Modbus, OPC UA, EtherCAT, and HTTP devices), Arc (a
-reactive language for control sequences, alarms, and calculated channels), and Python
+National Instruments, LabJack, EtherCAT, and HTTP devices, and OPC UA and Modbus
+servers), Arc (a reactive language for control sequences, alarms, and calculated
+channels), and Python
 and TypeScript client libraries.
 
 Synnax Desktop is free for any use, including commercial use, up to 50 channels. It

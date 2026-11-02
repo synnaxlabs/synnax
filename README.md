@@ -14,8 +14,8 @@ through our client libraries and visually through our Console application.
 
 [Synnax Desktop](https://docs.synnaxlabs.com/reference/get-started/install-desktop) is
 free for any use, including commercial use, up to 50 channels. It runs on macOS (Apple
-silicon) and Windows, and connects to NI, LabJack, EtherCAT, Modbus TCP, OPC UA, and
-HTTP devices. Teams that share one system use
+silicon) and Windows. It connects to LabJack, EtherCAT, and HTTP devices, OPC UA and
+Modbus TCP servers, and NI hardware on Windows. Teams that share one system use
 [Synnax Enterprise](https://docs.synnaxlabs.com/reference/get-started/editions).
 
 ## Documentation
@@ -61,8 +61,9 @@ monorepo. The following is a summary of each:
   contribution guides.
 - [Drift](drift) - Redux state synchronization and declarative window management for
   building multi-window Tauri applications.
-- [Driver](driver) - An application that connects to NI, LabJack, EtherCAT, Modbus, OPC
-  UA, and HTTP devices and runs control sequences on real-time operating systems.
+- [Driver](driver) - An application that connects to NI, LabJack, EtherCAT, and HTTP
+  devices and OPC UA and Modbus servers, and runs control sequences on real-time
+  operating systems.
 - [Freighter](freighter) - A protocol-agnostic network transport for cross-language
   unary and streaming communication with implementations in several languages (C++, Go,
   Python, and TypeScript) and protocols (GRPC, HTTP, and WebSockets).
