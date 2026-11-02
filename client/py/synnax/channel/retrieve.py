@@ -44,6 +44,16 @@ def params_where(channels: Params) -> Where:
     return Where(key=filter.Set[Key](in_=normal.channels))
 
 
+def single_where(param: Key | str) -> Where:
+    """Returns a filter that selects the channel that param names by key, or by a name
+    that the Core reads as a pattern. A numeric string is a key.
+    """
+    normal = normalize_params(param)
+    if isinstance(normal, NormalizedNameResult):
+        return Where(name_patterns=normal.channels)
+    return Where(key=filter.Set[Key](eq=normal.channels[0]))
+
+
 class Retriever:
     """Retrieves channel payloads from the Core."""
 
@@ -72,7 +82,7 @@ class Retriever:
         :raises NotFoundError: If no channel matches param.
         :raises MultipleFoundError: If more than one channel matches param.
         """
-        return one("Channel", param, self.retrieve(param))
+        return one("channel", single_where(param), self.retrieve(param))
 
     @trace("debug")
     def filter(

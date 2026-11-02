@@ -42,6 +42,11 @@ class Other(filter.Condition):
     pass
 
 
+class Span(BaseModel):
+    start: int
+    end: int
+
+
 class ThingWhere(BaseModel):
     model_config = ConfigDict(populate_by_name=True, extra="forbid")
 
@@ -54,6 +59,8 @@ class ThingWhere(BaseModel):
     tags: filter.Contains[str] | None = None
     virtual: bool | None = None
     labels: list[str] | None = None
+    active: filter.Bool | None = None
+    span: Span | None = None
 
 
 key: filter.SetLine[Thing, int] = filter.SetLine(Thing, "key")
@@ -154,3 +161,130 @@ class TestJoin:
         assert filter.join(ThingWhere, [Thing(tree), labels.has("a")]) == ThingWhere(
             and_=[tree, ThingWhere(labels=["a"])]
         )
+
+
+def _name(op: filter.String) -> ThingWhere:
+    return ThingWhere(name=op)
+
+
+class TestDescribe:
+    def test_operators(self) -> None:
+        """Should describe each operator."""
+        assert filter.describe(_name(filter.String(eq="press"))) == 'name = "press"'
+        where = ThingWhere(key=filter.Set[int](in_=[12, 14]))
+        assert filter.describe(where) == "key in [12, 14]"
+        assert (
+            filter.describe(_name(filter.String(contains="a"))) == 'name contains "a"'
+        )
+        where = _name(filter.String(starts_with="a"))
+        assert filter.describe(where) == 'name starts with "a"'
+        where = _name(filter.String(regex="pre.*"))
+        assert filter.describe(where) == "name matches /pre.*/"
+        where = ThingWhere(count=filter.Ordered[int](gt=3))
+        assert filter.describe(where) == "count > 3"
+        where = ThingWhere(count=filter.Ordered[int](lte=3))
+        assert filter.describe(where) == "count <= 3"
+        where = ThingWhere(count=filter.Ordered[int](gte=3, lt=10))
+        assert filter.describe(where) == "count >= 3 and count < 10"
+        where = ThingWhere(tags=filter.Contains[str](any=["a", "b"]))
+        assert filter.describe(where) == 'tags has any of ["a", "b"]'
+        where = ThingWhere(active=filter.Bool(eq=True))
+        assert filter.describe(where) == "active = true"
+
+    def test_case_insensitive(self) -> None:
+        """Should mark each operator of a case-insensitive condition."""
+        where = _name(filter.String(eq="Press", case_insensitive=True))
+        assert filter.describe(where) == 'name = "Press" (ignoring case)'
+        where = _name(
+            filter.String(contains="a", starts_with="b", case_insensitive=True)
+        )
+        assert filter.describe(where) == (
+            'name contains "a" (ignoring case) and name starts with "b" (ignoring case)'
+        )
+
+    def test_value(self) -> None:
+        """Should describe a value that is not an operator object."""
+        assert filter.describe(ThingWhere(virtual=True)) == "virtual = true"
+        assert filter.describe(ThingWhere(labels=["a", "b"])) == 'labels = ["a", "b"]'
+        where = ThingWhere(span=Span(start=1, end=2))
+        assert filter.describe(where) == 'span = {"end":2,"start":1}'
+
+    def test_escape(self) -> None:
+        """Should escape a string."""
+        assert filter.describe(_name(filter.String(eq='a"b'))) == 'name = "a\\"b"'
+
+    def test_sort(self) -> None:
+        """Should sort the fields of a node by name."""
+        where = ThingWhere(
+            name=filter.String(eq="a"),
+            active=filter.Bool(eq=True),
+            key=filter.Set[int](eq=1),
+        )
+        assert filter.describe(where) == 'active = true and key = 1 and name = "a"'
+
+    def test_and(self) -> None:
+        """Should join the children of and."""
+        where = ThingWhere(
+            and_=[_name(filter.String(eq="a")), ThingWhere(key=filter.Set[int](eq=1))]
+        )
+        assert filter.describe(where) == 'name = "a" and key = 1'
+
+    def test_or(self) -> None:
+        """Should join the children of or."""
+        where = ThingWhere(
+            or_=[
+                _name(filter.String(eq="a")),
+                ThingWhere(not_=ThingWhere(active=filter.Bool(eq=True))),
+            ]
+        )
+        assert filter.describe(where) == 'name = "a" or not (active = true)'
+
+    def test_or_beside_terms(self) -> None:
+        """Should wrap an or in parentheses beside other terms."""
+        where = ThingWhere(
+            key=filter.Set[int](eq=1),
+            or_=[_name(filter.String(eq="a")), _name(filter.String(eq="b"))],
+        )
+        assert filter.describe(where) == 'key = 1 and (name = "a" or name = "b")'
+
+    def test_single_or_child_grouping(self) -> None:
+        """Should keep the grouping of a child of a single-child or."""
+        inner = ThingWhere(
+            or_=[_name(filter.String(eq="a")), _name(filter.String(eq="b"))]
+        )
+        where = ThingWhere(key=filter.Set[int](eq=1), or_=[inner])
+        assert filter.describe(where) == 'key = 1 and (name = "a" or name = "b")'
+
+    def test_or_child_terms(self) -> None:
+        """Should wrap a child of or that has more than one term."""
+        where = ThingWhere(
+            or_=[
+                ThingWhere(key=filter.Set[int](eq=1), name=filter.String(eq="a")),
+                ThingWhere(key=filter.Set[int](eq=2)),
+            ]
+        )
+        assert filter.describe(where) == '(key = 1 and name = "a") or key = 2'
+
+    def test_not(self) -> None:
+        """Should describe not."""
+        where = ThingWhere(
+            not_=ThingWhere(key=filter.Set[int](eq=1), name=filter.String(eq="a"))
+        )
+        assert filter.describe(where) == 'not (key = 1 and name = "a")'
+
+    def test_empty(self) -> None:
+        """Should describe an empty tree as an empty string."""
+        assert filter.describe(None) == ""
+        assert filter.describe(ThingWhere()) == ""
+        assert filter.describe(ThingWhere(and_=[])) == ""
+        assert filter.describe(_name(filter.String())) == ""
+
+    def test_nested_empty(self) -> None:
+        """Should describe nested empty trees."""
+        one = ThingWhere(key=filter.Set[int](eq=1))
+        assert filter.describe(ThingWhere(or_=[ThingWhere(), one])) == "true or key = 1"
+        where = ThingWhere(or_=[ThingWhere(and_=[]), one])
+        assert filter.describe(where) == "true or key = 1"
+        assert filter.describe(ThingWhere(or_=[])) == "false"
+        assert filter.describe(ThingWhere(or_=[ThingWhere()])) == ""
+        assert filter.describe(ThingWhere(not_=ThingWhere())) == "not (true)"

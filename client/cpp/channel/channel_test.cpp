@@ -154,9 +154,11 @@ TEST(TestChannel, testRetrieveByName) {
 /// @brief it should return the correct error when a channel cannot be found by name.
 TEST(TestChannel, testRetrieveByNameNotFound) {
     const auto client = new_test_client();
-    ASSERT_OCCURRED_AS_P(
-        client.channels.retrieve("my_definitely_not_found"),
-        x::errors::NOT_FOUND
+    const auto [ch, err] = client.channels.retrieve("my_definitely_not_found");
+    ASSERT_MATCHES(err, x::errors::NOT_FOUND);
+    ASSERT_EQ(
+        err.data,
+        R"(Found no channel where name_patterns = ["my_definitely_not_found"])"
     );
 }
 
@@ -228,7 +230,7 @@ TEST(TestChannel, testRetrieveManyNotFound) {
         std::vector<Key>{1, ch.key, 3}
     );
     ASSERT_MATCHES(err, x::errors::NOT_FOUND);
-    ASSERT_EQ(err.data, "channels matching keys 1, 3 not found.");
+    ASSERT_EQ(err.data, "Found no channel where key in [1, 3]");
     ASSERT_TRUE(channels.empty());
 }
 
@@ -347,8 +349,7 @@ TEST(TestChannel, testRetrieveOneNotFound) {
     ASSERT_MATCHES(err, x::errors::NOT_FOUND);
     ASSERT_EQ(
         err.data,
-        R"(channel matching filter {"name":{"case_insensitive":false,)"
-        R"("eq":"not_a_channel_name_in_any_cluster"}} not found.)"
+        R"(Found no channel where name = "not_a_channel_name_in_any_cluster")"
     );
 }
 

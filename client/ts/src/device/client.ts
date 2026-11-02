@@ -249,7 +249,12 @@ export class Client extends query.Retriever<
     // cache and hit the network, still writing records through.
     if (schemas != null) {
       const devices = await this.fetchThrough(rest, schemas);
-      checkForMultipleOrNoResults("Device", rest, devices, isSingle);
+      checkForMultipleOrNoResults(
+        "device",
+        "key" in rest ? { key: { eq: rest.key } } : rest.where,
+        devices,
+        isSingle,
+      );
       return isSingle ? devices[0] : devices;
     }
     if (isSingle) return await super.retrieve(rest);
@@ -408,11 +413,11 @@ export class Client extends query.Retriever<
     // Status-bearing queries bypass the table, which never holds status.
     if (q.includeStatus !== true) {
       const devices = await this.store.retrieve([q.key]);
-      checkForMultipleOrNoResults("Device", q, devices, true);
+      checkForMultipleOrNoResults("device", { key: { eq: q.key } }, devices, true);
       return devices[0];
     }
     const devices = await this.fetchThrough(q);
-    checkForMultipleOrNoResults("Device", q, devices, true);
+    checkForMultipleOrNoResults("device", { key: { eq: q.key } }, devices, true);
     return devices[0];
   }
 }

@@ -244,7 +244,7 @@ class Client:
         arcs = self._sugar(res.arcs)
         if query is None and not one:
             return arcs
-        return util.one("Arc", where if query is None else query, arcs)
+        return util.one("Arc", where, arcs)
 
     def delete(self, keys: Key | list[Key]) -> None:
         self._client.send("/arc/delete", _DeleteRequest(keys=normalize(keys)), Empty)

@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { array, type primitive } from "@synnaxlabs/x";
+import { array, filter, type primitive } from "@synnaxlabs/x";
 
 import { MultipleFoundError, NotFoundError } from "@/errors";
 
@@ -77,17 +77,27 @@ export const analyzeParams = <
   } as ParamAnalysisResult<T, K>;
 };
 
-export const checkForMultipleOrNoResults = <T, R>(
+/**
+ * Checks that a retrieve for one record found exactly one.
+ * @param name - The name of the record type, such as "range".
+ * @param where - The filter that selected the results, for the error message.
+ * @param results - The records the retrieve found.
+ * @param isSingle - Whether the retrieve was for one record. If false, nothing is
+ * checked.
+ * @throws {NotFoundError} if results is empty.
+ * @throws {MultipleFoundError} if results holds more than one record.
+ */
+export const checkForMultipleOrNoResults = <R>(
   name: string,
-  params: T | T[],
+  where: object | undefined,
   results: R[],
   isSingle: boolean,
 ): void => {
-  if (!isSingle) return;
-  if (results.length === 0)
-    throw new NotFoundError(`${name} not found matching ${JSON.stringify(params)}`);
-  if (results.length > 1)
-    throw new MultipleFoundError(
-      `Expected one ${name} matching ${JSON.stringify(params)}, but found ${results.length}`,
-    );
+  if (!isSingle || results.length === 1) return;
+  const description = where == null ? "" : filter.describe(where);
+  const clause = description === "" ? "" : ` where ${description}`;
+  if (results.length === 0) throw new NotFoundError(`Found no ${name}${clause}`);
+  throw new MultipleFoundError(
+    `Expected one ${name}${clause}, but found ${results.length}`,
+  );
 };

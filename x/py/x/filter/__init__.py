@@ -19,6 +19,7 @@ from x.filter.builder import (
     ValueLine,
     join,
 )
+from x.filter.describe import describe
 from x.filter.merge import merge
 from x.filter.types_gen import Bool, Contains, Ordered, Set, String
 
@@ -37,6 +38,7 @@ __all__ = [
     "String",
     "StringLine",
     "ValueLine",
+    "describe",
     "join",
     "merge",
 ]

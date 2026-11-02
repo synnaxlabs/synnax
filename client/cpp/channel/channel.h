@@ -117,8 +117,7 @@ public:
             x::filter::request<Where, RetrieveRequest>(
                 channel::key.eq(key),
                 includes...
-            ),
-            "key " + std::to_string(key)
+            )
         );
     }
 
@@ -135,8 +134,7 @@ public:
             x::filter::request<Where, RetrieveRequest>(
                 channel::name_patterns.has(name),
                 includes...
-            ),
-            "name " + name
+            )
         );
     }
 
@@ -186,14 +184,14 @@ public:
             std::move(parts)...
         );
         if constexpr (x::filter::returns_one<Parts...>)
-            return this->retrieve_one(req, x::filter::describe(req.where));
+            return this->retrieve_one(req);
         else
             return this->retrieve(req);
     }
 
 private:
     [[nodiscard]] std::pair<Channel, x::errors::Error>
-    retrieve_one(const RetrieveRequest &req, const std::string &query) const;
+    retrieve_one(const RetrieveRequest &req) const;
 
     [[nodiscard]] std::pair<std::vector<Channel>, x::errors::Error>
     retrieve_keys(const RetrieveRequest &req, const std::vector<Key> &keys) const;

@@ -7,6 +7,7 @@
 #  License, use of this software will be governed by the Apache License, Version 2.0,
 #  included in the file licenses/APL.txt.
 
+import re
 import threading
 from collections.abc import Callable
 from typing import Any, assert_type, cast
@@ -127,7 +128,7 @@ class TestTaskClient:
             client.tasks.create(name=name, type="pagerduty_alert")
         with pytest.raises(
             sy.MultipleFoundError,
-            match=f"Expected one Task matching {name}, but found 2",
+            match=re.escape(f'Expected one task where name in ["{name}"], but found 2'),
         ):
             client.tasks.retrieve(name=name)
         with pytest.raises(sy.MultipleFoundError):

@@ -40,12 +40,8 @@ Client::retrieve(const RetrieveRequest &req) const {
 }
 
 std::pair<Rack, x::errors::Error>
-Client::retrieve_one(const RetrieveRequest &req, const std::string &query) const {
-    auto [racks, err] = this->retrieve(req);
-    if (err) return {Rack{}, err};
-    if (racks.empty()) return {Rack{}, errors::not_found_error("Rack", query)};
-    if (racks.size() > 1) return {Rack{}, errors::multiple_found_error("racks", query)};
-    return {std::move(racks[0]), x::errors::NIL};
+Client::retrieve_one(const RetrieveRequest &req) const {
+    return errors::exactly_one("rack", req.where, this->retrieve(req));
 }
 
 x::errors::Error Client::create(Rack &rack) const {

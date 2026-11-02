@@ -86,12 +86,8 @@ Client::retrieve(const RetrieveRequest &req) const {
 }
 
 std::pair<Arc, x::errors::Error>
-Client::retrieve_one(const RetrieveRequest &req, const std::string &query) const {
-    auto [arcs, err] = this->retrieve(req);
-    if (err) return {Arc{}, err};
-    if (arcs.empty()) return {Arc{}, errors::not_found_error("Arc", query)};
-    if (arcs.size() > 1) return {Arc{}, errors::multiple_found_error("arcs", query)};
-    return {std::move(arcs[0]), x::errors::NIL};
+Client::retrieve_one(const RetrieveRequest &req) const {
+    return errors::exactly_one("Arc", req.where, this->retrieve(req));
 }
 
 x::errors::Error Client::del(const x::uuid::UUID &key) const {

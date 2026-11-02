@@ -15,6 +15,7 @@
 #include "client/clib/channel/channel.h"
 #include "client/clib/internal.h"
 #include "client/cpp/errors/errors.h"
+#include "x/cpp/filter/describe.h"
 
 using namespace synnax::clib;
 
@@ -62,7 +63,7 @@ int32_t synnax_channel_retrieve_keys(
 
         // retrieve omits unmatched names, so map by name and collect every miss to
         // report them together (missing names get key 0 and an empty data type).
-        std::string missing;
+        std::vector<std::string> missing;
         std::string types;
         for (size_t i = 0; i < name_count; i++) {
             if (i > 0) types += '\n';
@@ -70,8 +71,7 @@ int32_t synnax_channel_retrieve_keys(
             if (it == by_name.end()) {
                 out_keys[i] = 0;
                 if (out_index_keys != nullptr) out_index_keys[i] = 0;
-                if (!missing.empty()) missing += ", ";
-                missing += "\"" + req[i] + "\"";
+                missing.push_back(req[i]);
             } else {
                 out_keys[i] = it->second->key;
                 if (out_index_keys != nullptr) out_index_keys[i] = it->second->index;
@@ -92,7 +92,13 @@ int32_t synnax_channel_retrieve_keys(
             copy_str(out_dtypes, out_dtypes_size, types);
         }
         if (!missing.empty()) {
-            const auto nf = synnax::errors::not_found_error("channels", missing);
+            const auto nf = synnax::errors::not_found_error(
+                "channel",
+                x::filter::describe(
+                    synnax::channel::name_patterns.has_any(std::move(missing))
+                        .tree.to_json()
+                )
+            );
             set_err(err, CODE_ERROR, nf.type, nf.data);
             return CODE_ERROR;
         }

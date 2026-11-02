@@ -7,6 +7,7 @@
 #  License, use of this software will be governed by the Apache License, Version 2.0,
 #  included in the file licenses/APL.txt.
 
+import re
 from collections.abc import Callable
 from typing import cast
 from uuid import uuid4 as uuid
@@ -114,7 +115,9 @@ class TestUserClient:
     def test_retrieve_not_found(self, client: sy.Synnax) -> None:
         """Should raise NotFoundError for a single user that does not exist."""
         key = uuid()
-        with pytest.raises(sy.NotFoundError, match=f"User matching {key} not found"):
+        with pytest.raises(
+            sy.NotFoundError, match=re.escape(f'Found no user where key in ["{key}"]')
+        ):
             client.users.retrieve(key=key)
 
     def test_retrieve_missing_keys(

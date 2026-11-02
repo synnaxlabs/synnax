@@ -7,6 +7,7 @@
 #  License, use of this software will be governed by the Apache License, Version 2.0,
 #  included in the file licenses/APL.txt.
 
+import re
 from collections.abc import Callable
 from typing import assert_type, cast
 from uuid import uuid4
@@ -296,7 +297,9 @@ class TestDevice:
             client.devices.create(dev)
         with pytest.raises(
             sy.MultipleFoundError,
-            match=f"Expected one Device matching {make}, but found 2",
+            match=re.escape(
+                f'Expected one device where make in ["{make}"], but found 2'
+            ),
         ):
             client.devices.retrieve(make=make, ignore_not_found=True)
 

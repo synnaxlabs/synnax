@@ -8,5 +8,6 @@
 // included in the file licenses/APL.txt.
 
 export * from "@/filter/builder";
+export * from "@/filter/describe";
 export * from "@/filter/match";
 export * from "@/filter/types.gen";

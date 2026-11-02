@@ -167,4 +167,4 @@ class Client:
         views = res.views
         if query is None and not one:
             return views
-        return util.one("View", where if query is None else query, views)
+        return util.one("view", where, views)

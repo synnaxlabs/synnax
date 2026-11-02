@@ -148,7 +148,7 @@ class Client:
         )
         if query is None and not one:
             return res.policies
-        return util.one("Policy", where if query is None else query, res.policies)
+        return util.one("policy", where, res.policies)
 
     def delete(self, keys: UUID | list[UUID]) -> None:
         req = _DeleteRequest(keys=normalize(keys))

@@ -7,6 +7,7 @@
 #  License, use of this software will be governed by the Apache License, Version 2.0,
 #  included in the file licenses/APL.txt.
 
+import re
 from collections.abc import Callable
 from typing import assert_type, cast
 from uuid import uuid4
@@ -82,7 +83,7 @@ class TestRackClient:
         client.racks.create([rack.Rack(name=name), rack.Rack(name=name)])
         with pytest.raises(
             sy.MultipleFoundError,
-            match=f"Expected one Rack matching {name}, but found 2",
+            match=re.escape(f'Expected one rack where name in ["{name}"], but found 2'),
         ):
             client.racks.retrieve(name=name)
 

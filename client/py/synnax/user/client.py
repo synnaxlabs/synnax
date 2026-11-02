@@ -199,7 +199,7 @@ class Client:
         users = res.users
         if query is None and not one:
             return users
-        return util.one("User", where if query is None else query, users)
+        return util.one("user", where, users)
 
     def delete(self, keys: UUID | list[UUID] | None = None) -> None:
         self.client.send("/user/delete", _DeleteRequest(keys=normalize(keys)), Empty)
