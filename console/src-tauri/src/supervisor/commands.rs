@@ -15,7 +15,7 @@ use std::path::{Path, PathBuf};
 use serde::Serialize;
 use tauri::{AppHandle, Emitter, Manager, Runtime, State};
 
-use super::{Config, History, Status, Supervisor, diagnostics};
+use super::{Config, History, Status, Supervisor, diagnostics, discovery};
 use crate::install;
 
 /// The event every window receives on each status change.
@@ -33,6 +33,7 @@ pub struct Paths {
     version: String,
     data_dir: PathBuf,
     log_dir: PathBuf,
+    discovery_file: PathBuf,
 }
 
 /// What the diagnostics dialog shows beside the status.
@@ -59,6 +60,7 @@ pub fn init<R: Runtime>(app: &AppHandle<R>) -> Result<(), Box<dyn std::error::Er
     let log_dir = app.path().app_log_dir()?;
     let version = app.package_info().version.to_string();
     let data_dir = local.join("core");
+    let discovery_file = discovery::path(&app.path().home_dir()?);
     let cfg = Config::new(
         program,
         version.clone(),
@@ -83,6 +85,7 @@ pub fn init<R: Runtime>(app: &AppHandle<R>) -> Result<(), Box<dyn std::error::Er
         version,
         data_dir,
         log_dir,
+        discovery_file,
     });
     Ok(())
 }
@@ -140,7 +143,38 @@ pub async fn supervisor_reset<R: Runtime>(
         eprintln!("failed to record the reset: {err}");
     }
     supervisor.reset().await.map_err(|err| err.to_string())?;
+    // The erased Core took the key of the discovery file with it.
+    let discovery_file = paths.discovery_file.clone();
+    blocking(move || discovery::remove(&discovery_file)).await?;
     app.restart()
+}
+
+/// Returns the API key in the discovery file, or `None` when there is no file.
+#[tauri::command]
+pub async fn supervisor_api_key(paths: State<'_, Paths>) -> Result<Option<String>, String> {
+    let discovery_file = paths.discovery_file.clone();
+    let file = blocking(move || discovery::read(&discovery_file)).await?;
+    Ok(file.map(|file| file.api_key))
+}
+
+/// Writes the discovery file with the address of the running Core and `api_key`.
+#[tauri::command]
+pub async fn supervisor_save_api_key(
+    api_key: String,
+    supervisor: State<'_, Supervisor>,
+    paths: State<'_, Paths>,
+) -> Result<(), String> {
+    let Status::Running { connection } = supervisor.status() else {
+        return Err("Synnax is not running".to_string());
+    };
+    let file = discovery::File {
+        host: connection.host,
+        port: connection.port,
+        secure: false,
+        api_key,
+    };
+    let discovery_file = paths.discovery_file.clone();
+    blocking(move || discovery::write(&discovery_file, &file)).await
 }
 
 /// Stores the size of the data a reset is about to erase, for the next launch to report.

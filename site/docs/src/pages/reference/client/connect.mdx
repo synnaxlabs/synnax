@@ -2,8 +2,8 @@
 layout: "@/layouts/Reference.astro"
 title: "Connect to a Core"
 description:
-  "Connect and authenticate a Python or TypeScript client with a Synnax Core: log in
-  with arguments or sy login, use TLS, and close the client."
+  "Connect and authenticate a Python or TypeScript client with a Synnax Core: connect to
+  Synnax Desktop, log in with arguments or sy login, use TLS, and close the client."
 clients: ["python", "typescript"]
 ---
 
@@ -16,6 +16,35 @@ export const components = mdxOverrides;
 
 Create a client to connect your code to a Synnax Core. The client logs in with the
 username and password of a [user](/reference/enterprise/users) on the Core.
+
+<Divider.Divider x />
+
+## Connect to Synnax Desktop
+
+Scripts on the same computer as Synnax Desktop can connect to its Core while it runs.
+Synnax Desktop saves the address of its Core and an API key in `~/.synnax/desktop.json`,
+which only your user can read. The Python client reads this file when you give no
+arguments:
+
+```python
+import synnax as sy
+
+client = sy.Synnax()
+```
+
+To get the code for each client, click the code button in the top bar of Synnax Desktop,
+or run the **Connect from code** command. The dialog shows the install command that
+matches the version of Synnax Desktop, and code that you can copy. The **TypeScript**
+tab gives code with the address and the API key filled in. The **Other** tab shows the
+host, the port, and the API key for the C++ client, LabVIEW, and other clients.
+
+When you close Synnax Desktop, its Core stops, and the connected scripts lose their
+connection. The API key stays the same the next time you open it. The port also stays
+the same, unless another program uses it.
+
+To stop every script that uses the key, click **Reset key** in the dialog. Python
+scripts that call `sy.Synnax()` use the new key the next time they start. Code that
+holds the old key needs the new one. **Erase all data** also deletes the key.
 
 <Divider.Divider x />
 
@@ -108,8 +137,10 @@ The command stores the host, port, username, TLS setting, and CA certificate pat
 system, under the name `synnax`. When the login fails, the command saves nothing. Run
 `sy login` again to change the values.
 
-With no saved login, `sy.Synnax()` raises `sy.ValidationError`. When you give no host,
-the client ignores the other arguments and uses the saved login.
+With no saved login, `sy.Synnax()` connects to
+[Synnax Desktop](#connect-to-synnax-desktop). When neither is saved, it raises
+`sy.ValidationError`. When you give no host, the client ignores the other arguments and
+uses the saved login.
 
 <Divider.Divider x />
 

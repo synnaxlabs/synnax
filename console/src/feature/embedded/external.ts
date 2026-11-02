@@ -8,9 +8,11 @@
 // included in the file licenses/APL.txt.
 
 export * from "@/feature/embedded/commands";
+export * from "@/feature/embedded/ConnectButton";
 export * from "@/feature/embedded/Guard";
 export * from "@/feature/embedded/Indicator";
 export * from "@/feature/embedded/install";
 export { Provider } from "@/feature/embedded/Provider";
 export { onStatusChange, retrieveHistory } from "@/feature/embedded/supervisor";
+export { useConnectModal } from "@/feature/embedded/useConnectModal";
 export { useConnParams } from "@/feature/embedded/useConnParams";

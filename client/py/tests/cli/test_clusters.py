@@ -7,6 +7,8 @@
 #  License, use of this software will be governed by the Apache License, Version 2.0,
 #  included in the file licenses/APL.txt.
 
+import json
+import socket
 from pathlib import Path
 from uuid import UUID, uuid4
 
@@ -18,7 +20,7 @@ import synnax as sy
 from synnax.cli import connect, console
 from synnax.cli.flow import Context
 from synnax.cli.login import run as login
-from synnax.config import Cluster, Clusters, File
+from synnax.config import DESKTOP_NOT_RUNNING_MSG, Cluster, Clusters, File
 from synnax.options import Options
 
 
@@ -249,13 +251,59 @@ class TestLogin:
 @pytest.mark.cli
 class TestFromClusters:
     def test_prompts_without_saved_options(
-        self, clusters: Clusters, login_info: tuple[str, int, str, str]
+        self,
+        clusters: Clusters,
+        tmp_path: Path,
+        login_info: tuple[str, int, str, str],
     ) -> None:
         """Should prompt for options and save nothing when none are saved."""
         host, port, username, password = login_info
         mock = console.Mock(responses=[host, port, username, password, False])
-        assert connect.from_clusters(Context(console=mock), clusters) is not None
+        desktop = tmp_path / "desktop.json"
+        assert (
+            connect.from_clusters(Context(console=mock), clusters, desktop) is not None
+        )
         assert clusters.get() is None
+
+    def test_connects_to_desktop_without_saved_options(
+        self,
+        clusters: Clusters,
+        tmp_path: Path,
+        login_info: tuple[str, int, str, str],
+        client: sy.Synnax,
+    ) -> None:
+        """Should connect with the key Synnax Desktop saved, without a prompt."""
+        host, port, _, _ = login_info
+        token, key = client.auth.create_key(name="Desktop file test")
+        desktop = tmp_path / "desktop.json"
+        desktop.write_text(
+            json.dumps({"host": host, "port": port, "secure": False, "api_key": token})
+        )
+        mock = console.Mock()
+        connected = connect.from_clusters(Context(console=mock), clusters, desktop)
+        assert connected is not None
+        assert connected.auth.session is not None
+        assert connected.auth.session.credential == key.key
+        assert mock.output.entries[0].message == "Using Synnax Desktop."
+        assert clusters.get() is None
+        client.auth.delete_keys(key.key)
+
+    def test_reports_desktop_not_running(
+        self, clusters: Clusters, tmp_path: Path
+    ) -> None:
+        """Should say that Synnax Desktop is not running when its Core is gone."""
+        with socket.socket() as s:
+            s.bind(("127.0.0.1", 0))
+            port = s.getsockname()[1]
+        desktop = tmp_path / "desktop.json"
+        desktop.write_text(
+            json.dumps(
+                {"host": "127.0.0.1", "port": port, "secure": False, "api_key": "k"}
+            )
+        )
+        mock = console.Mock()
+        assert connect.from_clusters(Context(console=mock), clusters, desktop) is None
+        assert mock.output.entries[-1].message == DESKTOP_NOT_RUNNING_MSG
 
     def test_replaces_saved_password(
         self,

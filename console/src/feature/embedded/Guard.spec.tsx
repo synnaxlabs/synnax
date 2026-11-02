@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { TEST_CLIENT_PARAMS, TEST_CREDENTIALS } from "@synnaxlabs/client/testutil";
+import { createTestClient, TEST_CLIENT_PARAMS } from "@synnaxlabs/client/testutil";
 import { act, fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { afterEach, describe, expect, it } from "vitest";
 
@@ -15,19 +15,17 @@ import { Embedded } from "@/feature/embedded";
 import {
   clearSupervisor,
   createDesktopWrapper,
+  createDiscoveryFile,
+  createScriptClient,
+  deleteKeysCreatedByTest,
+  LIVE,
   mockSupervisor,
-  type Status,
 } from "@/feature/embedded/testutil";
 import { Session } from "@/session";
 
-const { host, port } = TEST_CLIENT_PARAMS;
-const { username, password } = TEST_CREDENTIALS;
+const { port } = TEST_CLIENT_PARAMS;
 
-// The Core that the specs run against stands in for the embedded one.
-const LIVE: Status = {
-  state: "running",
-  connection: { host, port: Number(port), username, password },
-};
+const client = createTestClient();
 
 const renderGuard = async (): ReturnType<typeof createDesktopWrapper> => {
   const result = await createDesktopWrapper();
@@ -87,5 +85,65 @@ describe("Embedded.Guard", () => {
       fireEvent.click(screen.getByRole("button", { name: "Diagnostics" }));
     });
     expect(await screen.findByText("Stopped unexpectedly")).toBeTruthy();
+  });
+});
+
+describe("Embedded.Guard API key for scripts", () => {
+  afterEach(clearSupervisor);
+
+  it("should save an API key that logs in as the user of the workspace", async () => {
+    await deleteKeysCreatedByTest(client);
+    const { file, handlers } = createDiscoveryFile();
+    mockSupervisor(() => LIVE, handlers);
+    await renderGuard();
+    const apiKey = await waitFor(() => {
+      if (file.apiKey == null) throw new Error("no API key saved");
+      return file.apiKey;
+    });
+    const script = createScriptClient(apiKey);
+    await script.auth.retrieveSessions();
+    expect(script.auth.subject).toEqual(client.auth.subject);
+  });
+
+  it("should keep a saved key that the Core accepts", async () => {
+    await deleteKeysCreatedByTest(client);
+    const { token } = await client.auth.createKey({ name: "saved" });
+    const keys = (await client.auth.retrieveKeys()).length;
+    const { file, handlers } = createDiscoveryFile(token);
+    const { commands } = mockSupervisor(() => LIVE, handlers);
+    await renderGuard();
+    await waitFor(() =>
+      expect(commands).toHaveBeenCalledWith("supervisor_save_api_key"),
+    );
+    expect(file.apiKey).toBe(token);
+    expect(await client.auth.retrieveKeys()).toHaveLength(keys);
+  });
+
+  it("should replace a saved key that the Core no longer accepts", async () => {
+    await deleteKeysCreatedByTest(client);
+    const { token, key } = await client.auth.createKey({ name: "deleted" });
+    await client.auth.deleteKeys(key.key);
+    const { file, handlers } = createDiscoveryFile(token);
+    mockSupervisor(() => LIVE, handlers);
+    await renderGuard();
+    const apiKey = await waitFor(() => {
+      if (file.apiKey == null || file.apiKey === token)
+        throw new Error("saved key not replaced");
+      return file.apiKey;
+    });
+    await createScriptClient(apiKey).auth.retrieveSessions();
+  });
+
+  it("should replace a saved key that is not an API key", async () => {
+    await deleteKeysCreatedByTest(client);
+    const { file, handlers } = createDiscoveryFile("edited by hand");
+    mockSupervisor(() => LIVE, handlers);
+    await renderGuard();
+    const apiKey = await waitFor(() => {
+      if (file.apiKey == null || file.apiKey === "edited by hand")
+        throw new Error("saved key not replaced");
+      return file.apiKey;
+    });
+    await createScriptClient(apiKey).auth.retrieveSessions();
   });
 });
