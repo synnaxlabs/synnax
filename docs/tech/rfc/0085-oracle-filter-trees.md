@@ -314,7 +314,7 @@ client.tasks.retrieve(
   never methods on a condition, so a limit cannot sit inside an `or`. Python takes
   options as keywords (`limit=20`, `one=True`), as its `retrieve` does today.
 - **One record**: `one()` comes last. It makes `retrieve` return one record by the rule
-  of §2.6.
+  of §2.6. It rejects a limit or an offset, since a page could hide a second match.
 - **Shortcuts**: A key or a name returns one record by the same rule, and a list of
   either returns a list. A shortcut also takes include options. Python keeps its shipped
   `key=` and `name=` keywords. In TypeScript and C++, a device takes only a key: a
