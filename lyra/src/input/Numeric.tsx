@@ -54,6 +54,8 @@ export interface NumericProps
    * works as the sentinel.
    */
   emptyValue?: number;
+  /** Called when the user commits an empty input. Without it, an empty input reverts. */
+  onClear?: () => void;
 }
 
 /**
@@ -83,6 +85,7 @@ export const Numeric = ({
   size,
   color,
   emptyValue,
+  onClear,
   ...rest
 }: NumericProps): ReactElement => {
   // An absent value renders empty, so the placeholder reads as the unset state.
@@ -111,6 +114,10 @@ export const Numeric = ({
       return;
     }
     if (raw === "" && valueRef.current == null) return;
+    if (raw === "" && onClear != null) {
+      onClear();
+      return;
+    }
     const commit = (v: number | null): void => {
       if (v != null) onChange?.(bounds.clamp(boundsRef.current, v));
       else
