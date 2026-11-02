@@ -18,6 +18,7 @@ import { Access, Credential, Synnax } from "@synnaxlabs/pluto";
 import { type ReactElement, useEffect, useRef, useState } from "react";
 
 import { Token } from "@/platform/credential/apikey/Token";
+import { CSS } from "@/platform/css";
 
 const sessionsLabel = (sessions: number | null): string => {
   if (sessions == null) return "sessions unknown";
@@ -147,20 +148,22 @@ export const Section = ({ subject }: SectionProps): ReactElement => {
   return (
     <Flex.Box y>
       <Text.Text level="h5">API keys</Text.Text>
-      <List
-        key={generation}
-        subject={subject}
-        onDelete={canDelete ? (k) => del.update(k) : undefined}
-      />
+      <Flex.Box y className={CSS.BE("credential", "keys")}>
+        <List
+          key={generation}
+          subject={subject}
+          onDelete={canDelete ? (k) => del.update(k) : undefined}
+        />
+      </Flex.Box>
       {canCreate && (
         <Flex.Box x>
           <Input.Text value={name} onChange={setName} placeholder="Key name" full="x" />
           <Button.Button
+            className={CSS.BE("credential", "action")}
             variant="filled"
             status={status.keepVariants(create.variant, "loading")}
             onClick={() => create.update({ subject, name })}
           >
-            <Icon.Add />
             Create key
           </Button.Button>
         </Flex.Box>

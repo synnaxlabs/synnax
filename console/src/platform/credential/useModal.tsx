@@ -7,14 +7,18 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
+import "@/platform/credential/useModal.css";
+
 import { type ontology } from "@synnaxlabs/client";
 import { Flex } from "@synnaxlabs/lyra/flex";
 import { Icon } from "@synnaxlabs/lyra/icon";
 import { Modal } from "@synnaxlabs/lyra/modal";
-import { type ReactElement } from "react";
+import { Status } from "@synnaxlabs/lyra/status";
+import { type ReactElement, useState } from "react";
 
 import { APIKey } from "@/platform/credential/apikey";
 import { Password } from "@/platform/credential/password";
+import { CSS } from "@/platform/css";
 import { Modals } from "@/platform/modals";
 
 export interface ModalParams {
@@ -26,16 +30,26 @@ export interface ModalParams {
 const Credentials = ({
   subject,
   title,
-}: Modals.ContentProps<ModalParams, void>): ReactElement => (
-  <Modal.Frame>
-    <Modal.Header icon={<Icon.Lock />}>{title ?? "Credentials"}</Modal.Header>
-    <Modal.Body>
-      <Flex.Box y gap="large">
-        <APIKey.Section subject={subject} />
-        {subject.type === "user" && <Password.Section subject={subject} />}
-      </Flex.Box>
-    </Modal.Body>
-  </Modal.Frame>
-);
+}: Modals.ContentProps<ModalParams, void>): ReactElement => {
+  const [passwordChanged, setPasswordChanged] = useState(false);
+  return (
+    <Modal.Frame className={CSS.B("credential")}>
+      <Modal.Header icon={<Icon.Lock />}>{title ?? "Credentials"}</Modal.Header>
+      <Modal.Body>
+        <Flex.Box y gap="large">
+          <APIKey.Section subject={subject} />
+          {subject.type === "user" && (
+            <Password.Section subject={subject} onChanged={setPasswordChanged} />
+          )}
+        </Flex.Box>
+      </Modal.Body>
+      {passwordChanged && (
+        <Modal.Footer>
+          <Status.Summary variant="success" message="Successfully changed password" />
+        </Modal.Footer>
+      )}
+    </Modal.Frame>
+  );
+};
 
 export const useModal = Modals.create<ModalParams>(Credentials);
