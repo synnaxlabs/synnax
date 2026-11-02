@@ -10,6 +10,7 @@
 import operator
 import uuid
 from collections.abc import Callable
+from datetime import timedelta, timezone
 from typing import Any, Literal, assert_type
 
 import numpy as np
@@ -411,7 +412,9 @@ class TestSeries:
         self, data_type: telem.DataType | None
     ) -> None:
         """Should convert a time zone aware pandas series to UTC nanoseconds"""
-        times = pd.to_datetime([1, 2], unit="s", utc=True).tz_convert("US/Eastern")
+        times = pd.to_datetime([1, 2], unit="s", utc=True).tz_convert(
+            timezone(timedelta(hours=-5))
+        )
         s = telem.Series(pd.Series(times), data_type=data_type)
         assert s.data_type == telem.DataType.TIMESTAMP
         assert list(s) == [telem.TimeStamp(10**9), telem.TimeStamp(2 * 10**9)]
