@@ -12,6 +12,7 @@
 from __future__ import annotations
 
 from typing import Literal, TypeAlias
+from typing import override as _override
 from uuid import UUID, uuid4
 
 from pydantic import BaseModel, Field
@@ -283,6 +284,7 @@ class LinePlot(BaseModel):
     lines: list[Line] = Field(default_factory=list)
     rules: list[Rule] = Field(default_factory=list)
 
+    @_override
     def __hash__(self) -> int:
         return hash(self.key)
 

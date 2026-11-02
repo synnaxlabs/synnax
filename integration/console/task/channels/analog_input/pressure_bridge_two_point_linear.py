@@ -7,10 +7,10 @@
 #  License, use of this software will be governed by the Apache License, Version 2.0,
 #  included in the file licenses/APL.txt.
 
-from typing import Any, Literal
+from typing import Literal, Unpack
 
 from console.layout import LayoutClient
-from console.task.channels.analog import Analog
+from console.task.channels.analog import Analog, Options
 
 
 class PressureBridgeTwoPointLinear(Analog):
@@ -57,7 +57,7 @@ class PressureBridgeTwoPointLinear(Analog):
         physical_value_two: float | None = None,
         electrical_value_one: float | None = None,
         electrical_value_two: float | None = None,
-        **kwargs: Any,
+        **kwargs: Unpack[Options],
     ) -> None:
         super().__init__(
             layout=layout,
