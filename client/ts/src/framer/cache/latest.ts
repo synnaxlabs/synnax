@@ -379,6 +379,7 @@ export class Latest {
         written,
         data.map((s) => s.alignmentBounds),
       );
+      this.notify();
     });
     return stamps;
   }
