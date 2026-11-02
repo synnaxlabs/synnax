@@ -675,6 +675,24 @@ class TestReadFrameAdapter:
         assert adapter.keys == []
         assert adapter.codec is not None
 
+    def test_update_virtual_without_index(
+        self, client: sy.Synnax, channels: tuple[sy.Channel, sy.Channel, sy.Channel]
+    ) -> None:
+        """Should not read an index for a virtual channel."""
+        ch1, _, _ = channels
+        adapter = ReadFrameAdapter(client.channels._retriever, timestamps_included=True)
+        adapter.update([ch1.key])
+        assert adapter.keys == [ch1.key]
+
+    def test_update_includes_index(
+        self, client: sy.Synnax, indexed_pair: tuple[sy.Channel, sy.Channel]
+    ) -> None:
+        """Should add the index of a channel after the requested channels."""
+        idx_ch, data_ch = indexed_pair
+        adapter = ReadFrameAdapter(client.channels._retriever, timestamps_included=True)
+        adapter.update([data_ch.name])
+        assert adapter.keys == [data_ch.key, idx_ch.key]
+
     def test_update_with_keys(
         self, client: sy.Synnax, channels: tuple[sy.Channel, sy.Channel, sy.Channel]
     ) -> None:

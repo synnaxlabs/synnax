@@ -179,22 +179,61 @@ class TestReader:
     def test_read_one_key_list(
         self, written_pair: tuple[sy.Channel, sy.Channel], client: sy.Synnax
     ) -> None:
-        """Should return a Frame for a list with one key"""
-        _, data_ch = written_pair
+        """Should return a Frame for a list with one key, with its index after it"""
+        idx_ch, data_ch = written_pair
         f = client.read(sy.TimeRange.MAX, [data_ch.key])
         assert isinstance(f, sy.Frame)
-        assert f.channels == [data_ch.key]
+        assert f.channels == [data_ch.key, idx_ch.key]
         assert np.array_equal(f[data_ch.key], np.arange(10, dtype=np.float64))
 
     def test_read_one_name_tuple(
         self, written_pair: tuple[sy.Channel, sy.Channel], client: sy.Synnax
     ) -> None:
-        """Should return a Frame for a tuple with one name"""
-        _, data_ch = written_pair
+        """Should return a Frame for a tuple with one name, with its index after it"""
+        idx_ch, data_ch = written_pair
         f = client.read(sy.TimeRange.MAX, (data_ch.name,))
         assert isinstance(f, sy.Frame)
-        assert f.channels == [data_ch.name]
+        assert f.channels == [data_ch.name, idx_ch.name]
         assert np.array_equal(f[data_ch.name], np.arange(10, dtype=np.float64))
+
+    @pytest.mark.parametrize("by_name", [True, False])
+    def test_read_without_index_to_df(
+        self,
+        written_pair: tuple[sy.Channel, sy.Channel],
+        client: sy.Synnax,
+        by_name: bool,
+    ) -> None:
+        """Should index the DataFrame by time when the read leaves out the index"""
+        idx_ch, data_ch = written_pair
+        if by_name:
+            fr = client.read(sy.TimeRange.MAX, [data_ch.name])
+        else:
+            fr = client.read(sy.TimeRange.MAX, [data_ch.key])
+        df = fr.to_df()
+        assert list(df.columns) == [data_ch.name]
+        assert df.index.name == idx_ch.name
+        stamps = np.array(seconds_linspace(1, count=10), dtype=np.int64)
+        assert list(df.index) == list(pd.to_datetime(stamps, unit="ns", utc=True))
+
+    def test_read_requested_index_once(
+        self, written_pair: tuple[sy.Channel, sy.Channel], client: sy.Synnax
+    ) -> None:
+        """Should not read an index again when the read already holds it"""
+        idx_ch, data_ch = written_pair
+        f = client.read(sy.TimeRange.MAX, [idx_ch.key, data_ch.key])
+        assert f.channels == [idx_ch.key, data_ch.key]
+
+    def test_read_min_max_leaves_out_index(
+        self, written_pair: tuple[sy.Channel, sy.Channel], client: sy.Synnax
+    ) -> None:
+        """Should not read the index under a min_max reduction"""
+        _, data_ch = written_pair
+        f = client.read(
+            sy.TimeRange.MAX,
+            [data_ch.key],
+            reduction=sy.LimitReduction(aggregation="min_max", point_limit=4),
+        )
+        assert f.channels == [data_ch.key]
 
     def test_read_strided(
         self, written_pair: tuple[sy.Channel, sy.Channel], client: sy.Synnax
