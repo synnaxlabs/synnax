@@ -31,18 +31,20 @@ import { Button as PlatformButton } from "@/platform/button";
 import { CSS } from "@/platform/css";
 import { Modals } from "@/platform/modals";
 
+const path = Label.createFormPath;
+
 interface FieldsProps {
   inputProps?: Pick<Input.TextProps, "ref" | "onlyChangeOnBlur">;
 }
 
 const Fields = ({ inputProps }: FieldsProps) => (
   <Flex.Box x gap="small" align="center">
-    <Form.Field<color.Color> path="color" padHelpText={false} showLabel={false}>
+    <Form.Field path={path.color} padHelpText={false} showLabel={false}>
       {(p) => <Color.Swatch onlyChangeOnBlur variant="text" {...p} />}
     </Form.Field>
     <Form.TextField
       showLabel={false}
-      path="name"
+      path={path.name}
       showHelpText={false}
       padHelpText={false}
       inputProps={{

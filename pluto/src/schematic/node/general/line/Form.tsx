@@ -7,11 +7,15 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
+import { type schematic } from "@synnaxlabs/client";
 import { Form as Base } from "@synnaxlabs/lyra/form";
 import { type Input } from "@synnaxlabs/lyra/input";
+import { deep } from "@synnaxlabs/x";
 import { type ReactElement } from "react";
 
 import { Form } from "@/schematic/node/common/form";
+
+const path = deep.path<schematic.LineNodeConfig>();
 
 const WIDTH_INPUT_PROPS: Partial<Input.NumericProps> = {
   ...Form.STROKE_WIDTH_INPUT_PROPS,
@@ -21,9 +25,9 @@ const WIDTH_INPUT_PROPS: Partial<Input.NumericProps> = {
 export const LineForm = (): ReactElement => (
   <Base.Sections x>
     <Base.Section title="Appearance">
-      <Form.ColorField path="strokeColor" label="Stroke" />
+      <Form.ColorField path={path.strokeColor} label="Stroke" />
       <Form.NumericField
-        path="strokeWidth"
+        path={path.strokeWidth}
         fallback={Form.DEFAULT_STROKE_WIDTH}
         label="Stroke width"
         padHelpText={false}

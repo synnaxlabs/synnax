@@ -8,7 +8,7 @@
 // included in the file licenses/APL.txt.
 
 import { Form as Base } from "@synnaxlabs/lyra/form";
-import { type bounds } from "@synnaxlabs/x";
+import { type bounds, deep } from "@synnaxlabs/x";
 import { fireEvent, render } from "@testing-library/react";
 import { type ReactElement, useImperativeHandle } from "react";
 import { assert, describe, expect, it } from "vitest";
@@ -21,6 +21,7 @@ const schema = z.object({
 });
 
 const FALLBACK: bounds.Bounds = { lower: 0, upper: 100 };
+const path = deep.path<z.infer<typeof schema>>();
 
 interface Handle {
   get: () => bounds.Bounds | undefined;
@@ -34,11 +35,11 @@ interface HostProps {
 const Host = ({ initial, ref }: HostProps): ReactElement => {
   const methods = Base.use({ values: { bounds: initial }, schema });
   useImperativeHandle(ref, () => ({
-    get: () => methods.get<bounds.Bounds | undefined>("bounds").value,
+    get: () => methods.get(path.bounds).value,
   }));
   return (
     <Base.Form<typeof schema> {...methods}>
-      <Form.BoundsFields path="bounds" fallback={FALLBACK} />
+      <Form.BoundsFields path={path.bounds} fallback={FALLBACK} />
     </Base.Form>
   );
 };

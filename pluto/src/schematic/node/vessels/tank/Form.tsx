@@ -7,8 +7,10 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
+import { type schematic } from "@synnaxlabs/client";
 import { Form as Base } from "@synnaxlabs/lyra/form";
 import { Tabs } from "@synnaxlabs/lyra/tabs";
+import { deep } from "@synnaxlabs/x";
 import { type ReactElement } from "react";
 
 import { Border } from "@/schematic/node/common/border";
@@ -19,6 +21,9 @@ import { Scale } from "@/schematic/node/common/scale";
 import { type FormProps as NodeFormProps } from "@/schematic/node/spec";
 import { Properties } from "@/vis/properties";
 
+const path = deep.path<schematic.TankNodeConfig>();
+const boxPath = deep.path<schematic.BoxNodeConfig>();
+
 export interface TankFormProps extends NodeFormProps {
   showBorderRadius?: boolean;
   showStrokeWidth?: boolean;
@@ -26,7 +31,7 @@ export interface TankFormProps extends NodeFormProps {
 }
 
 const FillForm = (): ReactElement => {
-  const channel = Base.useFieldValue<Scale.Config["channel"]>("channel", {
+  const channel = Base.useFieldValue(path.channel, {
     optional: true,
   });
   return (
@@ -36,8 +41,16 @@ const FillForm = (): ReactElement => {
         <>
           <Base.Section title="Display">
             <Scale.DisplayFields>
-              <Base.SwitchField path="caretVisible" label="Value" padHelpText={false} />
-              <Base.SwitchField path="scaleVisible" label="Scale" padHelpText={false} />
+              <Base.SwitchField
+                path={path.caretVisible}
+                label="Value"
+                padHelpText={false}
+              />
+              <Base.SwitchField
+                path={path.scaleVisible}
+                label="Scale"
+                padHelpText={false}
+              />
             </Scale.DisplayFields>
           </Base.Section>
           <Base.Section title="Appearance">
@@ -59,25 +72,28 @@ export const TankForm = ({
   const style = (
     <Base.Sections x>
       <Base.Section title="Label">
-        <Label.Form path="label" />
-        <Orientation.Field path="" hideInner showOuterCenter label="Location" />
+        <Label.Form path={path.label} />
+        <Orientation.Field path={path} hideInner showOuterCenter label="Location" />
       </Base.Section>
       <Base.Section title="Appearance">
-        <Form.ColorField path="strokeColor" label="Stroke" />
+        <Form.ColorField path={path.strokeColor} label="Stroke" />
         <Form.FillField />
         {showBorderRadius ? (
           <Form.NumericField
-            path="borderRadius"
+            path={boxPath.borderRadius}
             label="Border radius"
             fallback={Form.DEFAULT_BOX_BORDER_RADIUS}
             inputProps={Form.DIMENSIONS_INPUT_PROPS}
           />
         ) : (
-          <Form.RadiusFields path="borderRadius" fallback={Border.DEFAULT_RADIUS} />
+          <Form.RadiusFields
+            path={path.borderRadius}
+            fallback={Border.DEFAULT_RADIUS}
+          />
         )}
         {showStrokeWidth && (
           <Form.NumericField
-            path="strokeWidth"
+            path={boxPath.strokeWidth}
             label="Border width"
             fallback={Form.DEFAULT_STROKE_WIDTH}
             inputProps={Form.STROKE_WIDTH_INPUT_PROPS}
@@ -86,12 +102,12 @@ export const TankForm = ({
       </Base.Section>
       <Base.Section title="Dimensions">
         <Base.NumericField
-          path="dimensions.width"
+          path={path.dimensions.width}
           label="Width"
           inputProps={Form.DIMENSIONS_INPUT_PROPS}
         />
         <Base.NumericField
-          path="dimensions.height"
+          path={path.dimensions.height}
           label="Height"
           inputProps={Form.DIMENSIONS_INPUT_PROPS}
         />

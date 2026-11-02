@@ -34,8 +34,12 @@ jobs:
       - name: Set up pnpm and Node.js
         uses: ./.github/actions/setup-pnpm
 
-      # Builds the workspace packages the site imports before the check.
+      # Builds the workspace packages the site imports before the check. Prerendered
+      # pages read the latest releases from the GitHub API, which rate limits
+      # unauthenticated requests.
       - name: Build
+        env:
+          DOCS_GITHUB_TOKEN: ${{ github.token }}
         run: pnpm build:docs
 
       # The Console and Desktop updaters poll these feeds, so each must redirect per

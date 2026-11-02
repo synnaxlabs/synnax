@@ -8,6 +8,7 @@
 // included in the file licenses/APL.txt.
 
 import { Form as Base } from "@synnaxlabs/lyra/form";
+import { deep } from "@synnaxlabs/x";
 import { fireEvent, render } from "@testing-library/react";
 import { type ReactElement, useImperativeHandle } from "react";
 import { assert, describe, expect, it } from "vitest";
@@ -16,6 +17,7 @@ import { z } from "zod";
 import { Form } from "@/schematic/node/common/form";
 
 const schema = z.object({ strokeWidth: z.number().optional() });
+const path = deep.path<z.infer<typeof schema>>();
 
 interface Handle {
   get: () => number | undefined;
@@ -29,11 +31,11 @@ interface HostProps {
 const Host = ({ initial, ref }: HostProps): ReactElement => {
   const methods = Base.use({ values: { strokeWidth: initial }, schema });
   useImperativeHandle(ref, () => ({
-    get: () => methods.get<number | undefined>("strokeWidth").value,
+    get: () => methods.get(path.strokeWidth).value,
   }));
   return (
     <Base.Form<typeof schema> {...methods}>
-      <Form.NumericField path="strokeWidth" label="Stroke width" fallback={2} />
+      <Form.NumericField path={path.strokeWidth} label="Stroke width" fallback={2} />
     </Base.Form>
   );
 };

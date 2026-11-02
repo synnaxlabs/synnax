@@ -8,7 +8,7 @@
 // included in the file licenses/APL.txt.
 
 import { Form as Base } from "@synnaxlabs/lyra/form";
-import { type border } from "@synnaxlabs/x";
+import { type border, deep } from "@synnaxlabs/x";
 import { fireEvent, render } from "@testing-library/react";
 import { type ReactElement, useImperativeHandle } from "react";
 import { assert, describe, expect, it } from "vitest";
@@ -22,6 +22,8 @@ const schema = z.object({
     .object({ topLeft: xyZ, topRight: xyZ, bottomLeft: xyZ, bottomRight: xyZ })
     .optional(),
 });
+
+const path = deep.path<z.infer<typeof schema>>();
 
 const corners = (x: number, y: number): border.Radius => ({
   topLeft: { x, y },
@@ -44,11 +46,11 @@ interface HostProps {
 const Host = ({ initial, ref }: HostProps): ReactElement => {
   const methods = Base.use({ values: { borderRadius: initial }, schema });
   useImperativeHandle(ref, () => ({
-    get: () => methods.get<border.Radius | undefined>("borderRadius").value,
+    get: () => methods.get(path.borderRadius).value,
   }));
   return (
     <Base.Form<typeof schema> {...methods}>
-      <Form.RadiusFields path="borderRadius" fallback={FALLBACK} />
+      <Form.RadiusFields path={path.borderRadius} fallback={FALLBACK} />
     </Base.Form>
   );
 };

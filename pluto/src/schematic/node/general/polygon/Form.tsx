@@ -7,14 +7,18 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
+import { type schematic } from "@synnaxlabs/client";
 import { Form as Base } from "@synnaxlabs/lyra/form";
 import { type Input } from "@synnaxlabs/lyra/input";
+import { deep } from "@synnaxlabs/x";
 import { type ReactElement } from "react";
 
 import { Form } from "@/schematic/node/common/form";
 import { Label } from "@/schematic/node/common/label";
 import { fillFallback } from "@/schematic/node/general/polygon/Primitive";
 import { type ColorFallbacks } from "@/schematic/node/spec";
+
+const path = deep.path<schematic.PolygonNodeConfig>();
 
 export const colorFallbacks = { fillColor: fillFallback } satisfies ColorFallbacks;
 
@@ -44,35 +48,35 @@ const CORNER_ROUNDING_INPUT_PROPS: Partial<Input.NumericProps> = {
 export const PolygonForm = (): ReactElement => (
   <Base.Sections x>
     <Base.Section title="Label">
-      <Label.Form path="label" />
+      <Label.Form path={path.label} />
     </Base.Section>
     <Base.Section title="Shape">
       <Base.NumericField
-        path="numSides"
+        path={path.numSides}
         label="Sides"
         inputProps={NUM_SIDES_INPUT_PROPS}
       />
       <Base.NumericField
-        path="sideLength"
+        path={path.sideLength}
         label="Side length"
         inputProps={SIDE_LENGTH_INPUT_PROPS}
       />
       <Base.NumericField
-        path="rotation"
+        path={path.rotation}
         label="Rotation"
         inputProps={ROTATION_INPUT_PROPS}
       />
       <Base.NumericField
-        path="cornerRounding"
+        path={path.cornerRounding}
         label="Corner rounding"
         inputProps={CORNER_ROUNDING_INPUT_PROPS}
       />
     </Base.Section>
     <Base.Section title="Appearance">
-      <Form.ColorField path="strokeColor" label="Stroke" />
+      <Form.ColorField path={path.strokeColor} label="Stroke" />
       <Form.FillField fallback={colorFallbacks.fillColor} />
       <Form.NumericField
-        path="strokeWidth"
+        path={path.strokeWidth}
         fallback={Form.DEFAULT_STROKE_WIDTH}
         label="Border width"
         inputProps={Form.STROKE_WIDTH_INPUT_PROPS}

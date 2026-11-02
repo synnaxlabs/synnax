@@ -30,11 +30,11 @@ import (
 // zeroBounds is a range whose upper bound is 0.
 var zeroBounds = spatial.Bounds{Lower: -10}
 
-// zeroConfigs returns one config per symbol with a field that accepts 0, with every
-// such field set to 0.
+// zeroConfigs returns one valid config per symbol with a field that accepts 0, with
+// every such field set to 0.
 func zeroConfigs() map[string]schematic.ElementConfig {
 	precision := schematic.NumericTelemConfig{Precision: new(0.0)}
-	return map[string]schematic.ElementConfig{
+	configs := map[string]schematic.ElementConfig{
 		"box": {Variant: schematic.BoxElementConfig{
 			BorderRadius: new(0.0),
 			StrokeWidth:  new(0.0),
@@ -62,6 +62,11 @@ func zeroConfigs() map[string]schematic.ElementConfig {
 		}},
 		"value": {Variant: schematic.ValueElementConfig{NumericTelemConfig: precision}},
 	}
+	for key, cfg := range configs {
+		cfg.ApplyDefaults()
+		configs[key] = cfg
+	}
+	return configs
 }
 
 // expectZeros asserts that configs keep every 0 that zeroConfigs sets.
@@ -106,7 +111,9 @@ func tankCfg(label, hex string) schematic.ElementConfig {
 	if hex != "" {
 		cfg.StrokeColor = new(MustSucceed(color.FromHex(hex)))
 	}
-	return schematic.ElementConfig{Variant: cfg}
+	ec := schematic.ElementConfig{Variant: cfg}
+	ec.ApplyDefaults()
+	return ec
 }
 
 // pipeCfg constructs a typed pipe edge config. hex is optional.

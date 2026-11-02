@@ -9,14 +9,14 @@
 
 import { Form } from "@synnaxlabs/lyra/form";
 import { Input } from "@synnaxlabs/lyra/input";
-import { bounds } from "@synnaxlabs/x";
+import { bounds, type deep } from "@synnaxlabs/x";
 import { type ReactElement } from "react";
 
 const STEP = 10;
 
 export interface BoundsFieldsProps extends Pick<Input.ItemProps, "padHelpText"> {
   /** Path to the bounds within the symbol's config. */
-  path: string;
+  path: deep.Target<bounds.Bounds | undefined>;
   /** The range the symbol maps while the field is absent. */
   fallback: bounds.Bounds;
 }
@@ -30,7 +30,7 @@ export const BoundsFields = ({
   fallback,
   padHelpText,
 }: BoundsFieldsProps): ReactElement | null => {
-  const field = Form.useField<bounds.Bounds | undefined>(path, { optional: true });
+  const field = Form.useField(path, { optional: true });
   if (field == null) return null;
   const value = field.value ?? fallback;
   return (
