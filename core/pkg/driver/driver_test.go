@@ -104,7 +104,10 @@ type racingFS struct{ xfs.FS }
 
 func (r racingFS) Sub(name string) (xfs.FS, error) {
 	sub, err := r.FS.Sub(name)
-	return racingFS{FS: sub}, err
+	if err != nil {
+		return nil, err
+	}
+	return racingFS{FS: sub}, nil
 }
 
 func (r racingFS) Rename(oldPath, newPath string) error {
