@@ -14,6 +14,7 @@ vendor/soem/SOEM/**
 
 # IgH EtherCAT Master
 driver/ethercat/igh/ecrt.h
+core/pkg/service/mqtt/sparkplug/pb/**
 
 # Generated lockfiles
 pnpm-lock.yaml
