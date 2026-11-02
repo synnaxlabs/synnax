@@ -177,6 +177,59 @@ func (h *openHook) OnACLCheck(_ *mochi.Client, topic string, write bool) bool {
 	return write || !slices.Contains(h.refused, topic)
 }
 
+// tcpListener returns from Close only after every connection it accepted is done. Mochi
+// counts a connection in Listeners.ClientsWg from the goroutine that serves it, so a
+// connection accepted during Server.Close races the Wait of that group.
+type tcpListener struct {
+	*listeners.TCP
+	mu struct {
+		sync.Mutex
+		closed bool
+		conns  map[net.Conn]struct{}
+	}
+	serving sync.WaitGroup
+}
+
+func newTCPListener(cfg listeners.Config) *tcpListener {
+	l := &tcpListener{TCP: listeners.NewTCP(cfg)}
+	l.mu.conns = make(map[net.Conn]struct{})
+	return l
+}
+
+func (l *tcpListener) Serve(establish listeners.EstablishFn) {
+	l.TCP.Serve(func(id string, c net.Conn) error {
+		l.mu.Lock()
+		if l.mu.closed {
+			l.mu.Unlock()
+			return c.Close()
+		}
+		l.mu.conns[c] = struct{}{}
+		l.serving.Add(1)
+		l.mu.Unlock()
+		defer func() {
+			l.mu.Lock()
+			delete(l.mu.conns, c)
+			l.mu.Unlock()
+			l.serving.Done()
+		}()
+		return establish(id, c)
+	})
+}
+
+func (l *tcpListener) Close(closeClients listeners.CloseFn) {
+	l.mu.Lock()
+	l.mu.closed = true
+	l.mu.Unlock()
+	l.TCP.Close(closeClients)
+	l.mu.Lock()
+	// A connection that has not sent its CONNECT packet yet has no client to close.
+	for c := range l.mu.conns {
+		_ = c.Close()
+	}
+	l.mu.Unlock()
+	l.serving.Wait()
+}
+
 // brokerOptions selects what a test broker requires of its clients.
 type brokerOptions struct {
 	// tls makes the listener serve TLS.
@@ -214,7 +267,7 @@ func startBrokerWith(opts brokerOptions) *testBroker {
 		})).To(Succeed())
 	}
 	Expect(b.server.AddHook(&connectHook{broker: b}, nil)).To(Succeed())
-	tcp := listeners.NewTCP(listeners.Config{
+	tcp := newTCPListener(listeners.Config{
 		ID:        "tcp",
 		Address:   net.JoinHostPort("127.0.0.1", strconv.Itoa(opts.port)),
 		TLSConfig: opts.tls,
