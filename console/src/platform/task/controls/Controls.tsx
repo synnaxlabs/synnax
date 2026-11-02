@@ -19,7 +19,7 @@ import { Bar } from "@/platform/task/controls/Bar";
 import { useDrifted } from "@/platform/task/useDrifted";
 import { useIsPreview } from "@/platform/task/useIsPreview";
 import { useKey } from "@/platform/task/useKey";
-import { useStatus } from "@/platform/task/useStatus";
+import { useIsRunning, useStatus } from "@/platform/task/useStatus";
 
 interface SettingProps {
   label: string;
@@ -85,6 +85,7 @@ export interface ControlsProps extends Flex.BoxProps {
 /** Task controls bar wired to the surrounding task Form context. */
 export const Controls = ({ onDeploy, onStop, ...props }: ControlsProps) => {
   const taskStatus = useStatus();
+  const running = useIsRunning();
   const isSnapshot = Form.useFieldValue<boolean>("snapshot");
   const key = useKey();
   const drifted = useDrifted();
@@ -102,10 +103,10 @@ export const Controls = ({ onDeploy, onStop, ...props }: ControlsProps) => {
   return (
     <Bar
       status={taskStatus}
-      running={taskStatus.details.running}
+      running={running}
       drifted={drifted}
       hideActions={isSnapshot || !canControl}
-      startStopVariant={status.keepVariants(taskStatus.variant, "loading")}
+      startStopVariant={status.keepVariants(taskStatus?.variant, "loading")}
       settings={<Settings />}
       onDeploy={handleDeploy}
       onStop={handleStop}

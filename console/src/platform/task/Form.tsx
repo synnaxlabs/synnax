@@ -31,7 +31,6 @@ import { Errors } from "@/platform/errors";
 import { Controls } from "@/platform/task/controls";
 import { ParentRangeButton } from "@/platform/task/ParentRangeButton";
 import { Rack } from "@/platform/task/Rack";
-import { useStatus } from "@/platform/task/useStatus";
 import { UtilityButtons } from "@/platform/task/UtilityButtons";
 
 export interface OnConfigure<Config extends z.ZodType = z.ZodType> {
@@ -72,10 +71,6 @@ export interface WrapFormParams<S extends task.Schemas = task.Schemas> {
   showHeader?: boolean;
   showControls?: boolean;
 }
-
-export const useIsRunning = <Schema extends z.ZodType>(
-  ctx?: PForm.ContextValue<Schema>,
-) => useStatus(ctx).details.running;
 
 export const useIsSnapshot = <Schema extends z.ZodType>(
   ctx?: PForm.ContextValue<Schema>,
