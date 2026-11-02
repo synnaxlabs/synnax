@@ -342,6 +342,10 @@ class Series(ArrayOperators, Generic[T]):
                 )
             data_type = data_type or data.data_type
         elif isinstance(data, (pd.Series, np.ndarray)):
+            if isinstance(data, pd.Series) and isinstance(
+                data.dtype, pd.DatetimeTZDtype
+            ):
+                data = data.dt.tz_convert(None)
             if data_type is None and not isinstance(data.dtype, np.dtype):
                 raise TypeError(f"Cannot convert {data.dtype} to DataType")
             arr = data.to_numpy() if isinstance(data, pd.Series) else data
@@ -558,6 +562,7 @@ CrudeSeries: TypeAlias = (
     | list[dict[str, Any]]
     | list[uuid.UUID]
     | list[TimeStamp]
+    | list[np.datetime64]
     | CrudeSample
 )
 

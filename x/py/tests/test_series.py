@@ -406,6 +406,26 @@ class TestSeries:
         assert s.data_type == telem.DataType.TIMESTAMP
         assert list(s) == [telem.TimeStamp(10**9), telem.TimeStamp(2 * 10**9)]
 
+    @pytest.mark.parametrize("data_type", [None, telem.DataType.TIMESTAMP])
+    def test_construction_from_tz_aware_pd_series(
+        self, data_type: telem.DataType | None
+    ) -> None:
+        """Should convert a time zone aware pandas series to UTC nanoseconds"""
+        times = pd.to_datetime([1, 2], unit="s", utc=True).tz_convert("US/Eastern")
+        s = telem.Series(pd.Series(times), data_type=data_type)
+        assert s.data_type == telem.DataType.TIMESTAMP
+        assert list(s) == [telem.TimeStamp(10**9), telem.TimeStamp(2 * 10**9)]
+
+    def test_construction_from_datetime64_out_of_range(self) -> None:
+        """Should reject a datetime64 that does not fit in nanoseconds"""
+        with pytest.raises(OverflowError):
+            telem.Series(np.array(["3000-01-01"], dtype="datetime64[s]"))
+
+    def test_construction_from_datetime64_list(self) -> None:
+        """Should build a timestamp series from a list of datetime64"""
+        s = telem.Series([np.datetime64(1, "s")])
+        assert s[0] == telem.TimeStamp(10**9)
+
     def test_construction_from_datetime64_scalar(self) -> None:
         """Should build a timestamp series from one datetime64"""
         s = telem.Series(np.datetime64(1, "ms"))
