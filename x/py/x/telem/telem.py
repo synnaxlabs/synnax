@@ -1210,11 +1210,18 @@ class DataType(str):
                 return types.pop()
             return DataType._promote(types, value)
 
-        result = DataType._FROM_NUMPY.get(np.dtype(value), None)
-        if result is not None:
-            return result
+        return DataType._from_dtype(np.dtype(value))
 
-        raise TypeError(f"Cannot convert {type(value)} to DataType")
+    @staticmethod
+    def _from_dtype(dtype: np.dtype) -> DataType:
+        if dtype.kind == "M":
+            return DataType.TIMESTAMP
+        if dtype.kind == "U":
+            return DataType.STRING
+        result = DataType._FROM_NUMPY.get(dtype, None)
+        if result is None:
+            raise TypeError(f"Synnax has no data type for the NumPy type {dtype}")
+        return result
 
     @staticmethod
     def _from_sample(value: Any) -> DataType:
@@ -1232,10 +1239,8 @@ class DataType(str):
             return DataType.INT64
         if isinstance(value, uuid.UUID):
             return DataType.UUID
-        if isinstance(value, np.number):
-            result = DataType._FROM_NUMPY.get(np.dtype(value), None)
-            if result is not None:
-                return result
+        if isinstance(value, (np.number, np.datetime64)):
+            return DataType._from_dtype(value.dtype)
         raise TypeError(f"Cannot convert {type(value)} to DataType")
 
     @staticmethod
@@ -1418,9 +1423,6 @@ DataType._FROM_NUMPY = {
     np.dtype(np.uint16): DataType.UINT16,
     np.dtype(np.uint8): DataType.UINT8,
     np.dtype(np.bool_): DataType.BOOLEAN,
-    np.dtype(np.datetime64): DataType.TIMESTAMP,
-    np.dtype("datetime64[ns]"): DataType.TIMESTAMP,
-    np.dtype(np.str_): DataType.STRING,
 }
 
 DataType._DENSITIES = {

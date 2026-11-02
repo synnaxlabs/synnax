@@ -198,8 +198,11 @@ class TaskLifecycle(SimulatorCase, ConsoleCase):
         self.log(f"Testing: Export task '{t.name}'")
         exported = self.console.tasks.export(t.name)
         assert_envelope(exported, envelope_type=t.type, min_version=1, name=t.name)
-        assert "channels" in exported, "Exported JSON should contain 'channels'"
-        assert len(exported["channels"]) > 0, "Exported channels should not be empty"
+        channels = exported.get("channels")
+        assert isinstance(channels, (list, dict)), (
+            "Exported JSON should contain 'channels'"
+        )
+        assert len(channels) > 0, "Exported channels should not be empty"
 
     def test_open_task_config(self) -> None:
         """Open each task config via context menu and verify contents."""
