@@ -33,14 +33,11 @@ export interface SetParams {
   subject?: ontology.ID;
   /** The new password. */
   password: string;
-  /** The caller's current password. Required when the caller sets its own. */
-  currentPassword?: string;
 }
 
 const setReqZ = z.object({
   subject: ontology.idZ.optional(),
   password: z.string(),
-  currentPassword: z.string().optional(),
   cookie: z.boolean().optional(),
 });
 const setResZ = z.object({ token: z.string(), session: sessionZ.optional() });
@@ -132,10 +129,8 @@ export class Client {
    * Sets the caller's password, or another user's when the caller may update that
    * user, and ends every session the old password opened. When that ends the client's
    * own session, the client switches to the session the Core opens in its place.
-   * @throws {AuthError} when the caller sets its own password with a wrong current one.
    * @throws {AccessDeniedError} when the caller may not update the user.
-   * @throws {ValidationError} when the password is empty, or the caller sets its own
-   * without the current one.
+   * @throws {ValidationError} when the password is empty.
    */
   async set(params: SetParams): Promise<void> {
     const generation = this.config.generation();
