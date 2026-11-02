@@ -17,6 +17,7 @@
 #include "x/cpp/json/json.h"
 
 #include "driver/common/write_task.h"
+#include "driver/errors/errors.h"
 #include "driver/labjack/device/device.h"
 #include "driver/labjack/labjack.h"
 
@@ -133,9 +134,19 @@ class WriteSink final : public common::Sink {
     std::vector<const char *> ports_buf;
     /// @brief the buffer of values to use for the next write.
     std::vector<double> values_buf;
-    /// @brief the most recent error accumulated from writing to the device.
-    /// Primarily used to track when the device has recovered from an error.
-    x::errors::Error curr_dev_err = x::errors::NIL;
+
+    /// @brief acquires the device and writes the current state of every output. A
+    /// device that lost power also lost its outputs, so every connect writes them.
+    x::errors::Error connect() {
+        auto [d, err] = this->devs->acquire(this->cfg.device);
+        if (err) return err;
+        this->dev = std::move(d);
+        if (const auto write_err = this->write_curr_state_to_dev()) {
+            this->dev.reset();
+            return write_err;
+        }
+        return x::errors::NIL;
+    }
 
 public:
     explicit WriteSink(
@@ -155,18 +166,13 @@ public:
         this->values_buf.reserve(alloc);
     }
 
-    /// @brief claims the device and pulls values to their initial state. Claiming
-    /// on every start means a device that disconnects and returns between runs
-    /// gets a fresh LJM handle on the next start.
+    /// @brief claims the device and pulls values to their initial state. After a
+    /// temporary error, the next write claims it, so a task starts while its device is
+    /// away.
     x::errors::Error start() override {
-        auto [d, err] = this->devs->acquire(this->cfg.device);
-        if (err) return err;
-        this->dev = std::move(d);
-        if (const auto write_err = this->write_curr_state_to_dev()) {
-            this->dev.reset();
-            return write_err;
-        }
-        return x::errors::NIL;
+        const auto err = this->connect();
+        if (err.matches(errors::TEMPORARY_HARDWARE_ERROR)) return x::errors::NIL;
+        return err;
     }
 
     /// @brief releases the claim on the device.
@@ -200,8 +206,11 @@ public:
         );
     }
 
-    /// @brief implements pipeline::Sink to write to the LabJack device.
+    /// @brief writes the commands in the frame. After a temporary error, the sink
+    /// releases the device, and the next write claims it again.
     x::errors::Error write(x::telem::Frame &frame) override {
+        if (this->dev == nullptr)
+            if (const auto err = this->connect()) return err;
         this->reset_buffer(this->cfg.outputs.size());
         for (const auto &[cmd_key, s]: frame)
             if (const auto it = this->cfg.outputs.find(cmd_key);
@@ -210,16 +219,12 @@ public:
                 this->ports_buf.push_back(ch->cfg.port.c_str());
                 this->values_buf.push_back(x::telem::cast<double>(s.at(-1)));
             }
-        const auto prev_flush_err = this->curr_dev_err;
-        this->curr_dev_err = translate_error(this->write_buf_to_dev());
-        if (this->curr_dev_err) return this->curr_dev_err;
+        if (const auto err = this->write_buf_to_dev()) {
+            if (err.matches(errors::TEMPORARY_HARDWARE_ERROR)) this->dev.reset();
+            return err;
+        }
         this->set_state(frame);
-        // This means we just recovered from a temporary error, in which case
-        // we should flush the entirety of the current state to the device so that
-        // it matches our internal state again.
-        if (prev_flush_err)
-            this->curr_dev_err = translate_error(this->write_curr_state_to_dev());
-        return this->curr_dev_err;
+        return x::errors::NIL;
     }
 };
 }

@@ -33,8 +33,8 @@ A read task has three types of channels:
   work on the T7 and the T8.
 
 With no thermocouple channels, the device samples the inputs on its own clock. With one
-or more thermocouple channels, the Driver reads one sample of each channel at a time,
-and the **Stream rate** has no effect. See [timing](/reference/hardware/tasks#timing).
+or more thermocouple channels, the Driver reads one sample of each channel at a time, on
+its own clock. See [timing](/reference/hardware/tasks#timing).
 
 A LabJack runs one stream at a time and cannot read `AIN` ports during a stream, so a
 task without thermocouples must be the only read task on its device. Add more channels
@@ -235,6 +235,20 @@ The Driver cannot send the samples as fast as the device makes them.
 <Problem.Fix>
 
 Lower the **Stream rate**, or lower the **Sample rate**.
+
+</Problem.Fix>
+</Problem.Item>
+
+<Problem.Item message={"Skipped samples"}>
+<Problem.Cause>
+
+The buffer of the device filled, so the device skipped samples. The Driver writes no
+value for a skipped sample.
+
+</Problem.Cause>
+<Problem.Fix>
+
+Lower the **Sample rate**, or check the USB cable or the network.
 
 </Problem.Fix>
 </Problem.Item>

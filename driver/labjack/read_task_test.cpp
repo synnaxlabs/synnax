@@ -661,7 +661,7 @@ TEST_F(SourceClaimTest, testStreamSourceRestartReclaimsDevice) {
     StreamSource source(devs, std::move(*cfg));
     ASSERT_NIL(source.start());
     EXPECT_EQ(devs->acquire_call_count, 1);
-    ASSERT_NIL(source.restart(false));
+    ASSERT_NIL(source.restart());
     EXPECT_EQ(devs->acquire_call_count, 2);
     EXPECT_EQ(devs->dev.use_count(), 2);
     ASSERT_NIL(source.stop());
@@ -681,7 +681,7 @@ TEST_F(SourceClaimTest, testStreamSourceRestartOpensAFreshHandle) {
     StreamSource source(devs, std::move(*cfg));
     ASSERT_NIL(source.start());
     EXPECT_EQ(opens, 1);
-    ASSERT_NIL(source.restart(true));
+    ASSERT_NIL(source.restart());
     EXPECT_EQ(opens, 2);
     ASSERT_NIL(source.stop());
 }
@@ -696,7 +696,7 @@ TEST_F(SourceClaimTest, testStreamSourceReadReclaimsAfterFailedRestart) {
     };
     StreamSource source(devs, std::move(*cfg));
     ASSERT_NIL(source.start());
-    ASSERT_OCCURRED_AS(source.restart(true), ljm::CRITICAL_ERROR);
+    ASSERT_OCCURRED_AS(source.restart(), ljm::CRITICAL_ERROR);
 
     x::breaker::Breaker breaker(x::breaker::default_config("read"));
     breaker.start();
@@ -718,7 +718,7 @@ TEST_F(SourceClaimTest, testStreamSourceFailedRestartHoldsNoDevice) {
     ASSERT_NIL(source.start());
     EXPECT_EQ(mock.use_count(), 3);
     mock->set_should_fail(true);
-    ASSERT_OCCURRED_AS(source.restart(true), x::errors::Error("mock failure"));
+    ASSERT_OCCURRED_AS(source.restart(), x::errors::Error("mock failure"));
     EXPECT_EQ(mock.use_count(), 2);
 }
 
@@ -742,5 +742,145 @@ TEST_F(SourceClaimTest, testStreamSourceSecondStartLeavesFirstStreamRunning) {
     ASSERT_NIL(first.stop());
     ASSERT_NIL(second.start());
     ASSERT_NIL(second.stop());
+}
+
+/// @brief the error LJM returns while the device is unplugged.
+const auto UNREACHABLE = x::errors::Error(
+    ljm::UNREACHABLE.sub("LJME_DEVICE_NOT_FOUND"),
+    ljm::UNREACHABLE_MESSAGE
+);
+
+/// @brief reads once from the source with a running breaker.
+common::ReadResult read_once(common::Source &source, x::telem::Frame &fr) {
+    x::breaker::Breaker breaker(x::breaker::default_config("read"));
+    breaker.start();
+    auto res = source.read(breaker, fr);
+    breaker.stop();
+    return res;
+}
+
+/// @brief it should release the device after a temporary read error, then claim it and
+/// apply the channel settings again on the next read.
+TEST_F(SourceClaimTest, testUnarySourceReconnectsAfterTemporaryError) {
+    parse_config(false);
+    const auto mock = std::make_shared<device::Mock>();
+    devs->dev = mock;
+    mock->read_errors = {UNREACHABLE};
+    UnarySource source(devs, std::move(*cfg));
+    ASSERT_NIL(source.start());
+    const auto writes = mock->write_count();
+    x::telem::Frame fr(0);
+    ASSERT_OCCURRED_AS(read_once(source, fr).error, ljm::UNREACHABLE);
+    EXPECT_EQ(mock.use_count(), 2);
+    ASSERT_NIL(read_once(source, fr).error);
+    EXPECT_EQ(devs->acquire_call_count, 2);
+    EXPECT_EQ(mock->write_count(), 2 * writes);
+    ASSERT_NIL(source.stop());
+}
+
+/// @brief it should start while the device is away and claim it on the first read.
+TEST_F(SourceClaimTest, testUnarySourceStartsWhileDeviceIsAway) {
+    parse_config(true);
+    devs->acquire_errors = {UNREACHABLE};
+    UnarySource source(devs, std::move(*cfg));
+    ASSERT_NIL(source.start());
+    EXPECT_EQ(devs->dev.use_count(), 1);
+    x::telem::Frame fr(0);
+    ASSERT_NIL(read_once(source, fr).error);
+    EXPECT_EQ(devs->acquire_call_count, 2);
+    EXPECT_EQ(devs->dev.use_count(), 2);
+    ASSERT_NIL(source.stop());
+}
+
+/// @brief it should read one value of each channel per sample, for the samples of
+/// one stream period.
+TEST_F(SourceClaimTest, testUnarySourceReadsSamplesPerChan) {
+    parse_config(false);
+    const auto mock = std::make_shared<device::Mock>();
+    mock->read_values = {{"AIN0", 1.5}};
+    devs->dev = mock;
+    UnarySource source(devs, std::move(*cfg));
+    ASSERT_NIL(source.start());
+    x::telem::Frame fr(0);
+    ASSERT_NIL(read_once(source, fr).error);
+    ASSERT_EQ(fr.size(), 1);
+    const auto &s = fr.series->at(0);
+    ASSERT_EQ(s.size(), 2);
+    EXPECT_EQ(s.at<double>(0), 1.5);
+    EXPECT_EQ(s.at<double>(1), 1.5);
+    ASSERT_NIL(source.stop());
+}
+
+/// @brief it should stop the stream after a temporary read error, then start it again
+/// on the next read.
+TEST_F(SourceClaimTest, testStreamSourceRestartsAfterTemporaryError) {
+    parse_config(false);
+    const auto mock = std::make_shared<device::Mock>();
+    mock->stream_data = {1, 2};
+    mock->stream_read_errors = {UNREACHABLE};
+    devs->dev = mock;
+    StreamSource source(devs, std::move(*cfg));
+    ASSERT_NIL(source.start());
+    x::telem::Frame fr(0);
+    ASSERT_OCCURRED_AS(read_once(source, fr).error, ljm::UNREACHABLE);
+    EXPECT_FALSE(mock->is_streaming());
+    EXPECT_EQ(mock.use_count(), 2);
+    ASSERT_NIL(read_once(source, fr).error);
+    EXPECT_EQ(mock->stream_start_count(), 2);
+    EXPECT_TRUE(mock->is_streaming());
+    ASSERT_NIL(source.stop());
+}
+
+/// @brief it should start while the device is away and start the stream on the first
+/// read.
+TEST_F(SourceClaimTest, testStreamSourceStartsWhileDeviceIsAway) {
+    parse_config(false);
+    const auto mock = std::make_shared<device::Mock>();
+    mock->stream_data = {1, 2};
+    devs->dev = mock;
+    devs->acquire_errors = {UNREACHABLE};
+    StreamSource source(devs, std::move(*cfg));
+    ASSERT_NIL(source.start());
+    EXPECT_FALSE(mock->is_streaming());
+    x::telem::Frame fr(0);
+    ASSERT_NIL(read_once(source, fr).error);
+    EXPECT_TRUE(mock->is_streaming());
+    ASSERT_NIL(source.stop());
+}
+
+/// @brief it should drop the scans that LJM fills with its dummy value and warn that
+/// the device skipped samples.
+TEST_F(SourceClaimTest, testStreamSourceDropsSkippedScans) {
+    parse_config(false);
+    const auto mock = std::make_shared<device::Mock>();
+    mock->stream_data = {LJM_DUMMY_VALUE, 2};
+    devs->dev = mock;
+    StreamSource source(devs, std::move(*cfg));
+    ASSERT_NIL(source.start());
+    x::telem::Frame fr(0);
+    const auto res = read_once(source, fr);
+    ASSERT_NIL(res.error);
+    EXPECT_EQ(res.warning.message, "Skipped samples");
+    ASSERT_EQ(fr.size(), 1);
+    const auto &s = fr.series->at(0);
+    ASSERT_EQ(s.size(), 1);
+    EXPECT_EQ(s.at<double>(0), 2);
+    ASSERT_NIL(source.stop());
+}
+
+/// @brief it should write no frame when the device skipped every scan of a read.
+TEST_F(SourceClaimTest, testStreamSourceWritesNothingWhenEveryScanSkipped) {
+    parse_config(false);
+    const auto mock = std::make_shared<device::Mock>();
+    mock->stream_data = {LJM_DUMMY_VALUE, LJM_DUMMY_VALUE};
+    devs->dev = mock;
+    StreamSource source(devs, std::move(*cfg));
+    ASSERT_NIL(source.start());
+    x::telem::Frame fr(0);
+    const auto res = read_once(source, fr);
+    ASSERT_NIL(res.error);
+    EXPECT_EQ(res.warning.message, "Skipped samples");
+    EXPECT_TRUE(fr.empty());
+    ASSERT_NIL(source.stop());
 }
 }

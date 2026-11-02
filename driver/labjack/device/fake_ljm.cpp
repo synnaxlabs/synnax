@@ -29,8 +29,11 @@ int LJM_Close(int) {
     return 0;
 }
 
-void LJM_ErrorToString(int, char *err_string) {
-    std::strcpy(err_string, "FAKE_FAILURE");
+void LJM_ErrorToString(const int err, char *err_string) {
+    if (err == driver::labjack::device::STREAM_BUFFER_FULL_CODE)
+        std::strcpy(err_string, "STREAM_BUFFER_FULL");
+    else
+        std::strcpy(err_string, "FAKE_FAILURE");
 }
 }
 #pragma GCC visibility pop

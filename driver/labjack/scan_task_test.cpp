@@ -23,11 +23,16 @@ class ScannerTest : public ::testing::Test {
 protected:
     std::shared_ptr<device::MockManager>
         manager = std::make_shared<device::MockManager>();
+    std::unique_ptr<Scanner> scanner;
 
-    /// @brief runs one scan over the devices the manager lists.
-    std::vector<synnax::device::Device> scan() {
-        auto parser = x::json::Parser(x::json::json::object());
-        Scanner scanner(
+    void SetUp() override { this->create(10); }
+
+    /// @brief replaces the scanner with one that scans TCP every multiplier scans.
+    void create(const int multiplier) {
+        auto parser = x::json::Parser(
+            x::json::json{{"tcp_scan_multiplier", multiplier}}
+        );
+        this->scanner = std::make_unique<Scanner>(
             synnax::task::Task{.rack = 1},
             ScanTaskConfig(parser),
             std::make_shared<x::lib::Lazy<device::Manager>>(
@@ -37,8 +42,12 @@ protected:
                 }
             )
         );
-        common::Scanner &base = scanner;
-        return ASSERT_NIL_P(base.scan(common::ScannerContext{}));
+    }
+
+    /// @brief runs the scan after count earlier scans.
+    std::vector<synnax::device::Device> scan(const std::size_t count = 0) {
+        common::Scanner &base = *this->scanner;
+        return ASSERT_NIL_P(base.scan(common::ScannerContext{.count = count}));
     }
 };
 
@@ -70,5 +79,45 @@ TEST_F(ScannerTest, SkipsUnsupportedDeviceTypes) {
     const auto devices = this->scan();
     ASSERT_EQ(devices.size(), 1);
     EXPECT_EQ(devices[0].model, T8);
+}
+
+/// @brief it should keep reporting a network device between TCP scans, and drop it
+/// after a TCP scan that does not find it.
+TEST_F(ScannerTest, KeepsNetworkDevicesBetweenTcpScans) {
+    this->create(2);
+    this->manager->listed = {
+        {.device_type = LJM_dtT7, .connection_type = LJM_ctTCP, .serial_number = 7},
+    };
+    ASSERT_EQ(this->scan(0).size(), 1);
+    this->manager->listed.clear();
+    const auto between = this->scan(1);
+    ASSERT_EQ(between.size(), 1);
+    EXPECT_EQ(between[0].key, "7");
+    EXPECT_TRUE(this->scan(2).empty());
+}
+
+/// @brief it should report a device on two connections once, by its USB connection.
+TEST_F(ScannerTest, ListsADeviceOnTwoConnectionsOnce) {
+    this->manager->listed = {
+        {.device_type = LJM_dtT7, .connection_type = LJM_ctUSB, .serial_number = 7},
+        {.device_type = LJM_dtT7, .connection_type = LJM_ctTCP, .serial_number = 7},
+    };
+    const auto devices = this->scan();
+    ASSERT_EQ(devices.size(), 1);
+    EXPECT_EQ(devices[0].location, "LJM_ctUSB");
+}
+
+/// @brief it should reject a TCP scan multiplier that is not positive.
+TEST(ScanTaskConfigTest, RejectsNonPositiveTcpScanMultiplier) {
+    for (const auto multiplier: {0, -1}) {
+        auto parser = x::json::Parser(
+            x::json::json{{"tcp_scan_multiplier", multiplier}}
+        );
+        ScanTaskConfig cfg(parser);
+        ASSERT_OCCURRED_AS(parser.error(), x::errors::VALIDATION);
+        const auto err = parser.error_json()["errors"][0];
+        EXPECT_EQ(err["path"], "tcp_scan_multiplier");
+        EXPECT_EQ(err["message"], "must be greater than 0");
+    }
 }
 }

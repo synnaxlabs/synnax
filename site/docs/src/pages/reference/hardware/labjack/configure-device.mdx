@@ -121,30 +121,23 @@ For more causes, see
 </Problem.Fix>
 </Problem.Item>
 
-<Problem.Item message={"A device matching the requested device parameters could not be found"}>
-<Problem.Cause>
-
-Another program holds the device. A USB device works with one program at a time.
-
-</Problem.Cause>
-<Problem.Fix>
-
-1. Close [Kipling](https://support.labjack.com/docs/kipling) and other LabJack software.
-2. Start the task again.
-
-</Problem.Fix>
-</Problem.Item>
-
 <Problem.Item message={"The device is temporarily unreachable. The Driver will keep trying to reach it."}>
 <Problem.Cause>
 
-The Driver lost the connection to the device. The task shows "Failed to read data" or
-"Failed to write commands", with this text in the description.
+The Driver cannot reach the device. The task shows "Failed to read data" or "Failed to
+write commands", with this text in the description. Causes:
+
+- The USB cable or the network connection is lost, or the device has no power.
+- Another program holds the device. A USB device works with one program at a time.
 
 </Problem.Cause>
 <Problem.Fix>
 
-Check the USB cable or the network. The task continues when the device comes back.
+1. Check the USB cable, the network, and the power to the device.
+2. Close [Kipling](https://support.labjack.com/docs/kipling) and other LabJack software.
+
+The task continues when the Driver reaches the device, and the Driver sets up the
+channels of the device again.
 
 </Problem.Fix>
 </Problem.Item>

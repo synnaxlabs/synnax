@@ -47,12 +47,6 @@ public:
     ) const = 0;
 
     [[nodiscard]] virtual x::errors::Error
-    start_interval(int interval_handle, int microseconds) const = 0;
-
-    [[nodiscard]] virtual x::errors::Error
-    clean_interval(int interval_handle) const = 0;
-
-    [[nodiscard]] virtual x::errors::Error
     e_write_name(const char *Name, double value) const = 0;
 
     [[nodiscard]] virtual x::errors::Error e_write_names(
@@ -68,9 +62,6 @@ public:
         int *addrs,
         int *types
     ) const = 0;
-
-    [[nodiscard]] virtual x::errors::Error
-    wait_for_next_interval(int interval_handle, int *skipped_intervals) const = 0;
 
     [[nodiscard]] virtual x::errors::Error e_read_names(
         size_t num_frames,
@@ -164,19 +155,6 @@ public:
     }
 
     [[nodiscard]] x::errors::Error
-    start_interval(const int interval_handle, const int microseconds) const override {
-        return parse_error(
-            this->ljm,
-            this->ljm->start_interval(interval_handle, microseconds)
-        );
-    }
-
-    [[nodiscard]] x::errors::Error
-    clean_interval(const int interval_handle) const override {
-        return parse_error(this->ljm, this->ljm->clean_interval(interval_handle));
-    }
-
-    [[nodiscard]] x::errors::Error
     e_write_name(const char *name, const double vlaue) const override {
         return parse_error(ljm, ljm->e_write_name(dev_handle, name, vlaue));
     }
@@ -208,16 +186,6 @@ public:
         return parse_error(
             this->ljm,
             this->ljm->names_to_addrs(static_cast<int>(num_frames), names, addrs, types)
-        );
-    }
-
-    [[nodiscard]] x::errors::Error wait_for_next_interval(
-        const int interval_handle,
-        int *skipped_intervals
-    ) const override {
-        return parse_error(
-            this->ljm,
-            this->ljm->wait_for_next_interval(interval_handle, skipped_intervals)
         );
     }
 

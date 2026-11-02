@@ -60,7 +60,7 @@ protected:
             {"channels",
              x::json::json::array(
                  {{{"type", "analog"},
-                   {"key", "hCzuNC9glqc"},
+                   {"key", "dac0"},
                    {"port", "DAC0"},
                    {"disabled", false},
                    {"cmd_channel", cmd_ch.key},
@@ -122,5 +122,50 @@ TEST_F(SinkClaimTest, testSinkReleasesClaimOnFailedInitialWrite) {
     EXPECT_EQ(devs->dev.use_count(), 3);
     ASSERT_NIL(sink.stop());
     EXPECT_EQ(devs->dev.use_count(), 2);
+}
+
+/// @brief the error LJM returns while the device is unplugged.
+const auto UNREACHABLE = x::errors::Error(
+    ljm::UNREACHABLE.sub("LJME_DEVICE_NOT_FOUND"),
+    ljm::UNREACHABLE_MESSAGE
+);
+
+/// @brief it should release the device after a temporary write error, then claim it
+/// and write the current state of every output before the next command.
+TEST_F(SinkClaimTest, testSinkWritesStateAfterReconnect) {
+    parse_config();
+    const auto mock = std::make_shared<device::Mock>();
+    devs = std::make_shared<device::MockManager>(mock);
+    WriteSink sink(devs, std::move(*cfg));
+    ASSERT_NIL(sink.start());
+    auto command = [this](const double value) {
+        return x::telem::Frame(this->cmd_ch.key, x::telem::Series(value));
+    };
+    auto first = command(3);
+    ASSERT_NIL(sink.write(first));
+    mock->write_errors = {UNREACHABLE};
+    auto lost = command(4);
+    ASSERT_OCCURRED_AS(sink.write(lost), ljm::UNREACHABLE);
+    EXPECT_EQ(mock.use_count(), 2);
+    auto next = command(5);
+    ASSERT_NIL(sink.write(next));
+    EXPECT_EQ(devs->acquire_call_count, 2);
+    ASSERT_EQ(mock->name_write_calls.size(), 4);
+    EXPECT_EQ(mock->name_write_calls[2].at("DAC0"), 3);
+    EXPECT_EQ(mock->name_write_calls[3].at("DAC0"), 5);
+    ASSERT_NIL(sink.stop());
+}
+
+/// @brief it should start while the device is away and claim it on the first write.
+TEST_F(SinkClaimTest, testSinkStartsWhileDeviceIsAway) {
+    parse_config();
+    devs->acquire_errors = {UNREACHABLE};
+    WriteSink sink(devs, std::move(*cfg));
+    ASSERT_NIL(sink.start());
+    EXPECT_EQ(devs->dev.use_count(), 1);
+    auto fr = x::telem::Frame(this->cmd_ch.key, x::telem::Series(1.0));
+    ASSERT_NIL(sink.write(fr));
+    EXPECT_EQ(devs->acquire_call_count, 2);
+    ASSERT_NIL(sink.stop());
 }
 }

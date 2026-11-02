@@ -24,10 +24,12 @@
 #include "client/cpp/synnax.h"
 #include "x/cpp/breaker/breaker.h"
 #include "x/cpp/json/json.h"
+#include "x/cpp/loop/loop.h"
 
 #include "device/device.h"
 #include "driver/common/read_task.h"
 #include "driver/common/sample_clock.h"
+#include "driver/errors/errors.h"
 #include "driver/labjack/labjack.h"
 #include "driver/labjack/ljm/LJM_Utilities.h"
 #include "driver/labjack/ljm/LabJackM.h"
@@ -554,42 +556,55 @@ struct ReadTaskConfig : common::BaseReadTaskConfig {
     }
 };
 
-/// @brief a source implementation that reads from LabJack devices via a unary
-/// request-response cycle on each acquisition. This source is only used when the
-/// task has thermocouples, as LJM does not support streaming of thermocouple data.
+/// @brief the warning a stream reports when the device skipped scans.
+const common::Warning SKIPPED_SCANS_WARNING{
+    .message = "Skipped samples",
+    .description = "The buffer of the device filled, so the device skipped samples. "
+                   "Lower the sample rate, or check the connection to the device.",
+};
+
+/// @brief a source that polls the device with one request per sample, on a software
+/// clock. Tasks with thermocouples use it, because the device converts thermocouples
+/// only outside a stream.
 class UnarySource final : public common::Source {
     /// @brief the configuration for the read task.
     ReadTaskConfig cfg;
-    /// @brief acquires the device on each start.
+    /// @brief acquires the device.
     const std::shared_ptr<device::Manager> devs;
-    /// @brief the API of the device we're reading from. Populated on start and
-    /// released on stop.
+    /// @brief the device, or null while the source holds none.
     std::shared_ptr<device::Device> dev;
-    /// @brief a handle to the interval that is regulating the sample clock.
-    const int interval_handle{0};
+    /// @brief regulates the rate of the requests.
+    x::loop::Timer timer;
+    /// @brief the ports of the channels, in channel order.
+    std::vector<const char *> ports;
+    /// @brief the values of one request, in channel order.
+    std::vector<double> values;
+
+    /// @brief acquires the device and applies the channel settings. A device that lost
+    /// power also lost its settings, so every connect applies them.
+    x::errors::Error connect() {
+        auto [d, err] = this->devs->acquire(this->cfg.device_key);
+        if (err) return err;
+        if (const auto apply_err = this->cfg.apply(d)) return apply_err;
+        this->dev = std::move(d);
+        this->timer = x::loop::Timer(this->cfg.sample_rate);
+        return x::errors::NIL;
+    }
 
 public:
     UnarySource(const std::shared_ptr<device::Manager> &devs, ReadTaskConfig cfg):
-        cfg(std::move(cfg)), devs(devs) {}
+        cfg(std::move(cfg)), devs(devs), values(this->cfg.channels.size()) {
+        this->ports.reserve(this->cfg.channels.size());
+        for (const auto &ch: this->cfg.channels)
+            this->ports.push_back(ch->port.c_str());
+    }
 
-    /// @brief claims the device on every start so a device that disconnects and
-    /// returns between runs gets a fresh LJM handle on the next start.
+    /// @brief claims the device. After a temporary error, the first read claims it, so
+    /// a task starts while its device is away.
     x::errors::Error start() override {
-        auto [d, err] = this->devs->acquire(this->cfg.device_key);
-        if (err) return err;
-        this->dev = std::move(d);
-        if (const auto apply_err = this->cfg.apply(this->dev)) {
-            this->dev.reset();
-            return apply_err;
-        }
-        if (const auto interval_err = this->dev->start_interval(
-                this->interval_handle,
-                static_cast<int>(this->cfg.sample_rate.period().microseconds())
-            )) {
-            this->dev.reset();
-            return interval_err;
-        }
-        return x::errors::NIL;
+        const auto err = this->connect();
+        if (err.matches(errors::TEMPORARY_HARDWARE_ERROR)) return x::errors::NIL;
+        return err;
     }
 
     [[nodiscard]] std::vector<synnax::channel::Channel> channels() const override {
@@ -597,54 +612,49 @@ public:
     }
 
     x::errors::Error stop() override {
-        if (this->dev == nullptr) return x::errors::NIL;
-        const auto err = this->dev->clean_interval(this->interval_handle);
         this->dev.reset();
-        return err;
+        return x::errors::NIL;
     }
 
+    /// @brief reads samples_per_chan samples. After a temporary error, the source
+    /// releases the device, and the next read claims it again.
     common::ReadResult
-    read(x::breaker::Breaker &breaker, x::telem::Frame &data) override {
+    read(x::breaker::Breaker &breaker, x::telem::Frame &fr) override {
         common::ReadResult res;
-        common::initialize_frame(data, this->cfg.channels, this->cfg.indexes, 1);
-        int err_addr = 0;
-        std::vector<const char *> locations;
-        std::vector<double> values;
-        for (const auto &channel: this->cfg.channels)
-            if (channel->enabled) locations.push_back(channel->port.c_str());
-        int skipped_intervals = 0;
-        if (res.error = this->dev->wait_for_next_interval(
-                this->interval_handle,
-                &skipped_intervals
-            );
-            res.error)
-            return res;
-
-        values.resize(locations.size());
-        if (res.error = this->dev->e_read_names(
-                locations.size(),
-                locations.data(),
-                values.data(),
-                &err_addr
-            );
-            res.error)
-            return res;
-        for (size_t i = 0; i < this->cfg.channels.size(); ++i) {
-            auto &s = data.series->at(i);
-            s.clear();
-            s.write_casted(&values[i], 1);
-        }
-        const auto start = x::telem::TimeStamp::now();
-        const auto end = start;
-        common::generate_index_data(
-            data,
+        if (this->dev == nullptr)
+            if (res.error = this->connect(); res.error) return res;
+        const auto n_channels = this->values.size();
+        common::initialize_frame(
+            fr,
+            this->cfg.channels,
             this->cfg.indexes,
-            start,
-            end,
-            1,
-            this->cfg.channels.size()
+            this->cfg.samples_per_chan
         );
-        res.error = this->cfg.transform.transform(data);
+        for (auto &s: *fr.series)
+            s.clear();
+        for (size_t i = 0; i < this->cfg.samples_per_chan && breaker.running(); ++i) {
+            if (!this->timer.wait(breaker).second) res.warning = common::SKEW_WARNING;
+            const auto start = x::telem::TimeStamp::now();
+            int err_addr = 0;
+            if (res.error = this->dev->e_read_names(
+                    n_channels,
+                    this->ports.data(),
+                    this->values.data(),
+                    &err_addr
+                );
+                res.error) {
+                if (res.error.matches(errors::TEMPORARY_HARDWARE_ERROR))
+                    this->dev.reset();
+                return res;
+            }
+            const auto end = x::telem::TimeStamp::now();
+            for (size_t j = 0; j < n_channels; ++j)
+                fr.series->at(j).write_casted(&this->values[j], 1);
+            const auto time = x::telem::TimeStamp(end - (end - start) / 2);
+            for (size_t j = n_channels; j < fr.size(); ++j)
+                fr.series->at(j).write(time);
+        }
+        res.error = this->cfg.transform.transform(fr);
         return res;
     }
 
@@ -653,17 +663,14 @@ public:
     }
 };
 
-/// @brief a source implementation that reads from LabJack devices via the LJM
-/// streaming protocol. This is much higher performance than unary request/response
-/// cycles, and is preferred in cases where we don't acquire data from
-/// thermocouples.
+/// @brief a source that reads from the device through an LJM stream. It is much
+/// faster than polling, and tasks without thermocouples use it.
 class StreamSource final : public common::Source {
     /// @brief the configuration for the read task.
     ReadTaskConfig cfg;
-    /// @brief acquires the device on each start.
+    /// @brief acquires the device.
     const std::shared_ptr<device::Manager> devs;
-    /// @brief the API to the device we're reading from. Populated on start and
-    /// released on stop.
+    /// @brief the device, or null while the source holds none.
     std::shared_ptr<device::Device> dev;
     /// @brief sample clock used to get timestamp information for the task.
     common::HardwareTimedSampleClock sample_clock;
@@ -671,18 +678,102 @@ class StreamSource final : public common::Source {
     std::vector<double> interleaved_buf;
     /// @brief buffer containing channel-grouped data after deinterleaving
     std::vector<double> channel_grouped_buf;
+    /// @brief the indices of the scans that the last read kept.
+    std::vector<size_t> kept_scans;
 
-    /// @brief Deinterleaves data from interleaved_buf into channel_grouped_buf
-    std::vector<double> &deinterleave() {
+    /// @brief moves the scans that LJM filled with LJM_DUMMY_VALUE out of
+    /// interleaved_buf, keeping the order of the rest. The device skips scans when its
+    /// buffer fills.
+    /// @returns the number of scans kept.
+    size_t drop_skipped_scans() {
+        const size_t n_channels = this->cfg.channels.size();
+        this->kept_scans.clear();
+        for (size_t scan = 0; scan < this->cfg.samples_per_chan; ++scan) {
+            const auto begin = this->interleaved_buf.begin() +
+                               static_cast<std::ptrdiff_t>(scan * n_channels);
+            const auto end = begin + static_cast<std::ptrdiff_t>(n_channels);
+            if (std::find(begin, end, LJM_DUMMY_VALUE) != end) continue;
+            std::copy(
+                begin,
+                end,
+                this->interleaved_buf.begin() +
+                    static_cast<std::ptrdiff_t>(this->kept_scans.size() * n_channels)
+            );
+            this->kept_scans.push_back(scan);
+        }
+        return this->kept_scans.size();
+    }
+
+    /// @brief deinterleaves the first n_scans scans of interleaved_buf into
+    /// channel_grouped_buf.
+    std::vector<double> &deinterleave(const size_t n_scans) {
         const size_t n_channels = this->cfg.channels.size();
         if (n_channels <= 1) return this->interleaved_buf;
-        const size_t n_samples = this->cfg.samples_per_chan;
         for (size_t ch = 0; ch < n_channels; ch++)
-            for (size_t sample = 0; sample < n_samples; sample++)
+            for (size_t scan = 0; scan < n_scans; scan++)
                 this->channel_grouped_buf
-                    [ch * n_samples +
-                     sample] = this->interleaved_buf[ch + sample * n_channels];
+                    [ch * n_scans +
+                     scan] = this->interleaved_buf[ch + scan * n_channels];
         return this->channel_grouped_buf;
+    }
+
+    /// @brief writes the timestamps of the kept scans of a read from start to end.
+    void write_index(
+        x::telem::Frame &fr,
+        const x::telem::TimeStamp &start,
+        const x::telem::TimeStamp &end
+    ) const {
+        const auto n_scans = this->cfg.samples_per_chan;
+        const auto n_channels = this->cfg.channels.size();
+        if (this->kept_scans.size() == n_scans) {
+            common::generate_index_data(
+                fr,
+                this->cfg.indexes,
+                start,
+                end,
+                n_scans,
+                n_channels
+            );
+            return;
+        }
+        const auto step = (end - start) / static_cast<int64_t>(n_scans);
+        for (size_t i = n_channels; i < fr.size(); ++i) {
+            auto &s = fr.series->at(i);
+            s.clear();
+            for (const auto scan: this->kept_scans)
+                s.write(start + step * static_cast<int64_t>(scan));
+        }
+    }
+
+    /// @brief claims the device and starts the stream. A device that lost power also
+    /// lost its settings, so every connect applies them.
+    x::errors::Error connect() {
+        auto [d, acquire_err] = this->devs->acquire(this->cfg.device_key);
+        if (acquire_err) return acquire_err;
+        std::vector<int> addrs(this->cfg.channels.size());
+        std::vector<const char *> ports;
+        ports.reserve(this->cfg.channels.size());
+        for (const auto &channel: this->cfg.channels)
+            ports.push_back(channel->port.c_str());
+        if (const auto err = d->names_to_addrs(
+                ports.size(),
+                ports.data(),
+                addrs.data(),
+                nullptr
+            ))
+            return err;
+        auto scan_rate = static_cast<double>(this->cfg.sample_rate.hz());
+        if (const auto err = d->e_stream_start(
+                this->cfg.samples_per_chan,
+                addrs.size(),
+                addrs.data(),
+                &scan_rate,
+                [this, &d] { return this->cfg.apply(d); }
+            ))
+            return err;
+        this->dev = std::move(d);
+        this->sample_clock.reset();
+        return x::errors::NIL;
     }
 
 public:
@@ -697,52 +788,33 @@ public:
             )
         ),
         interleaved_buf(this->cfg.samples_per_chan * this->cfg.channels.size()),
-        channel_grouped_buf(this->cfg.samples_per_chan * this->cfg.channels.size()) {}
+        channel_grouped_buf(this->cfg.samples_per_chan * this->cfg.channels.size()) {
+        this->kept_scans.reserve(this->cfg.samples_per_chan);
+    }
 
     /// @brief returns the configuration for opening the synnax writer.
     [[nodiscard]] synnax::framer::WriterConfig writer_config() const override {
         return this->cfg.writer();
     }
 
-    x::errors::Error start() override { return this->restart(false); }
+    /// @brief starts the stream. After a temporary error, the first read starts it, so
+    /// a task starts while its device is away.
+    x::errors::Error start() override {
+        const auto err = this->restart();
+        if (err.matches(errors::TEMPORARY_HARDWARE_ERROR)) return x::errors::NIL;
+        return err;
+    }
 
     [[nodiscard]] std::vector<synnax::channel::Channel> channels() const override {
         return this->cfg.sy_channels();
     }
 
-    /// @brief restarts the source. The claim is released before the acquire so a
-    /// device that reconnects gets a fresh LJM handle instead of the cached one.
-    x::errors::Error restart(const bool force) {
+    /// @brief stops the stream, releases the device, and starts the stream again. The
+    /// claim is released before the acquire, so the device gets a fresh LJM handle
+    /// when no other task holds it.
+    x::errors::Error restart() {
         this->stop();
-        auto [d, acquire_err] = this->devs->acquire(this->cfg.device_key);
-        if (acquire_err) return acquire_err;
-        std::vector<int> temp_ports(this->cfg.channels.size());
-        std::vector<const char *> physical_channels;
-        physical_channels.reserve(this->cfg.channels.size());
-        for (const auto &channel: this->cfg.channels)
-            physical_channels.push_back(channel->port.c_str());
-        if (const auto err = d->names_to_addrs(
-                this->cfg.channels.size(),
-                physical_channels.data(),
-                temp_ports.data(),
-                nullptr
-            ))
-            return err;
-        auto scan_rate = static_cast<double>(this->cfg.sample_rate.hz());
-        if (const auto err = d->e_stream_start(
-                this->cfg.samples_per_chan,
-                this->cfg.channels.size(),
-                temp_ports.data(),
-                &scan_rate,
-                [this, force, &dev = d] {
-                    const auto err = this->cfg.apply(dev);
-                    return force ? x::errors::NIL : err;
-                }
-            ))
-            return err;
-        this->dev = std::move(d);
-        this->sample_clock.reset();
-        return x::errors::NIL;
+        return this->connect();
     }
 
     x::errors::Error stop() override {
@@ -752,29 +824,30 @@ public:
         return err;
     }
 
+    /// @brief reads samples_per_chan scans. After a temporary error, the source stops
+    /// the stream, and the next read starts it again.
     common::ReadResult
     read(x::breaker::Breaker &breaker, x::telem::Frame &fr) override {
         common::ReadResult res;
-        // A failed restart leaves no device. The pipeline retries temporary errors,
-        // giving recovery a chance on every attempt.
-        if (this->dev == nullptr) {
-            res.error = translate_error(this->restart(true));
-            if (res.error) return res;
-        }
+        if (this->dev == nullptr)
+            if (res.error = this->restart(); res.error) return res;
         const auto n_channels = this->cfg.channels.size();
-        const auto n_samples = this->cfg.samples_per_chan;
-        common::initialize_frame(fr, this->cfg.channels, this->cfg.indexes, n_samples);
-
+        common::initialize_frame(
+            fr,
+            this->cfg.channels,
+            this->cfg.indexes,
+            this->cfg.samples_per_chan
+        );
         const auto start = this->sample_clock.wait(breaker);
         int device_scan_backlog = 0;
         int ljm_scan_backlog = 0;
-        if (res.error = translate_error(this->dev->e_stream_read(
+        if (res.error = this->dev->e_stream_read(
                 this->interleaved_buf.data(),
                 &device_scan_backlog,
                 &ljm_scan_backlog
-            ));
+            );
             res.error) {
-            if (res.error.matches(ljm::TEMPORARILY_UNREACHABLE)) this->restart(true);
+            if (res.error.matches(errors::TEMPORARY_HARDWARE_ERROR)) this->stop();
             return res;
         }
         if (std::cmp_greater(
@@ -787,15 +860,14 @@ public:
             ))
             res.warning = common::SKEW_WARNING;
         const auto end = this->sample_clock.end();
-        common::transfer_buf(this->deinterleave(), fr, n_channels, n_samples);
-        common::generate_index_data(
-            fr,
-            this->cfg.indexes,
-            start,
-            end,
-            n_samples,
-            n_channels
-        );
+        const auto n_scans = this->drop_skipped_scans();
+        if (n_scans < this->cfg.samples_per_chan) res.warning = SKIPPED_SCANS_WARNING;
+        if (n_scans == 0) {
+            fr.clear();
+            return res;
+        }
+        common::transfer_buf(this->deinterleave(n_scans), fr, n_channels, n_scans);
+        this->write_index(fr, start, end);
         res.error = this->cfg.transform.transform(fr);
         return res;
     }

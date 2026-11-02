@@ -14,4 +14,6 @@ namespace driver::labjack::device {
 constexpr int FAILING_START_HANDLE = 1;
 /// @brief a device handle whose stream stops fail in the fake LJM library.
 constexpr int FAILING_STOP_HANDLE = 2;
+/// @brief an error code that the fake library names STREAM_BUFFER_FULL, a device error.
+constexpr int STREAM_BUFFER_FULL_CODE = 2900;
 }

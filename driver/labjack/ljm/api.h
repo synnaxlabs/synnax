@@ -39,8 +39,6 @@ class API {
         decltype(&LJM_eStreamStop) eStreamStop;
         decltype(&LJM_eWriteAddress) eWriteAddress;
         decltype(&LJM_eWriteAddresses) eWriteAddresses;
-        decltype(&LJM_StartInterval) StartInterval;
-        decltype(&LJM_CleanInterval) CleanInterval;
         decltype(&LJM_eWriteName) eWriteName;
         decltype(&LJM_NamesToAddresses) NamesToAddresses;
         decltype(&LJM_ErrorToString) ErrorToString;
@@ -50,7 +48,6 @@ class API {
         decltype(&LJM_Close) Close;
         decltype(&LJM_eReadNames) eReadNames;
         decltype(&LJM_eReadName) eReadName;
-        decltype(&LJM_WaitForNextInterval) WaitForNextInterval;
         decltype(&LJM_eStreamStart) eStreamStart;
     };
 
@@ -72,12 +69,6 @@ public:
         );
         func_ptrs.eWriteAddresses = reinterpret_cast<decltype(&LJM_eWriteAddresses)>(
             const_cast<void *>(lib->get_func_ptr("LJM_eWriteAddresses"))
-        );
-        func_ptrs.StartInterval = reinterpret_cast<decltype(&LJM_StartInterval)>(
-            const_cast<void *>(lib->get_func_ptr("LJM_StartInterval"))
-        );
-        func_ptrs.CleanInterval = reinterpret_cast<decltype(&LJM_CleanInterval)>(
-            const_cast<void *>(lib->get_func_ptr("LJM_CleanInterval"))
         );
         func_ptrs.eWriteName = reinterpret_cast<decltype(&LJM_eWriteName)>(
             const_cast<void *>(lib->get_func_ptr("LJM_eWriteName"))
@@ -105,10 +96,6 @@ public:
         );
         func_ptrs.eReadNames = reinterpret_cast<decltype(&LJM_eReadNames)>(
             const_cast<void *>(lib->get_func_ptr("LJM_eReadNames"))
-        );
-        func_ptrs
-            .WaitForNextInterval = reinterpret_cast<decltype(&LJM_WaitForNextInterval)>(
-            const_cast<void *>(lib->get_func_ptr("LJM_WaitForNextInterval"))
         );
         func_ptrs.eReadName = reinterpret_cast<decltype(&LJM_eReadName)>(
             const_cast<void *>(lib->get_func_ptr("LJM_eReadName"))
@@ -157,15 +144,6 @@ public:
     ) const {
         return this->func_ptrs
             .eWriteAddresses(dev_handle, num_frames, addrs, types, values, error_addr);
-    }
-
-    [[nodiscard]] LJM_ERROR_RETURN
-    start_interval(const int interval_handle, const int microseconds) const {
-        return this->func_ptrs.StartInterval(interval_handle, microseconds);
-    }
-
-    [[nodiscard]] LJM_ERROR_RETURN clean_interval(const int interval_handle) const {
-        return this->func_ptrs.CleanInterval(interval_handle);
     }
 
     [[nodiscard]] LJM_ERROR_RETURN
@@ -244,11 +222,6 @@ public:
     [[nodiscard]] LJM_ERROR_RETURN
     e_read_name(const int dev_handle, const char *name, double *value) const {
         return this->func_ptrs.eReadName(dev_handle, name, value);
-    }
-
-    [[nodiscard]] LJM_ERROR_RETURN
-    wait_for_next_interval(const int interval_handle, int *skipped_intervals) const {
-        return this->func_ptrs.WaitForNextInterval(interval_handle, skipped_intervals);
     }
 
     [[nodiscard]] LJM_ERROR_RETURN e_stream_start(
