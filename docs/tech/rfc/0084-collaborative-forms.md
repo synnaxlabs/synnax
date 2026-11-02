@@ -29,7 +29,7 @@ to start a config that the operator did not see.
 
 Ana and Ben open the same NI analog read task. Ana sets the sample rate to 1 kHz. A
 moment later, Ben moves channel `c3` to port 4. Each form autosaves its whole config
-(`console/src/platform/task/Form.tsx:145-149`):
+(`console/src/platform/task/Form.tsx:133-137`):
 
 1. Ana's form saves a sample rate of 1 kHz, with `c3` on port 3.
 2. Ben's form saves the old sample rate, with `c3` on port 4.
@@ -216,7 +216,7 @@ the stored value again, and a notification shows the error with the path.
 ### 7.1 What the compiler does not check
 
 A path is an array of strings at compile time, so a typo such as
-`["config", "sampel_rate"]` compiles. It fails at run time, before anything is stored.
+`["config", "sampel_rate"]` compiles. It fails at run time, before the client sends it.
 The client throws when it computes guards for a path that the schema does not hold, and
 the Core refuses a member that the record does not declare.
 
@@ -242,13 +242,13 @@ by hand: `useSetTimeRange` (`pluto/src/ranger/queries.ts:299-309`).
 
 An edit changes only the stored config. Task actions broadcast on a new channel,
 `sy_task_action_set`, because the Driver parses `sy_task_set` as task metadata
-(`driver/task/manager.cpp:242`). A write never reconfigures the Driver, so a running
+(`driver/task/manager.cpp:243`). A write never reconfigures the Driver, so a running
 task keeps the config it was deployed with (RFC 0056 §4.1).
 
 ### 8.1 Deploy pins the start
 
 The play button deploys the task. It runs these steps
-(`console/src/platform/task/Form.tsx:146-194`):
+(`console/src/platform/task/Form.tsx:136-174`):
 
 1. Send every pending edit. Stop if a field holds an invalid value.
 2. Check the config against the deploy schema.
@@ -260,7 +260,7 @@ The play button deploys the task. It runs these steps
 The Driver fetches the stored config before it starts a pinned task. If the hash
 differs, another user changed the config after the operator last saw it. Both Drivers
 then refuse with the status "Config changed", which asks the operator to review the task
-and start again (`driver/task/manager.cpp:692-720`,
+and start again (`driver/task/manager.cpp:698-726`,
 `core/pkg/service/driver/driver.go:308`). A running instance keeps running.
 
 Example: Ana presses play while Ben changes the range of a channel. Without the pin, Ana
@@ -333,6 +333,10 @@ both, so the sender's cache holds the hash of the config it shows. `Writer.Creat
 serves Python's `configure` and imports, and its broadcast `create` carries a dispatch
 key, so every client but the sender applies it.
 
+A task action can carry a secret, such as a PagerDuty routing key. The Core checks read
+access to the task for each sample of `sy_task_action_set`, and a stream receives only
+the samples its subject can read (`core/pkg/api/framer/records.go`).
+
 ### 10.3 Other forms
 
 - **Ranges and labels**: These forms use the same binding, each with its own dispatch
@@ -342,6 +346,10 @@ key, so every client but the sender applies it.
   config in the cached document, instead of copying it, writing it back whole, and
   setting `sync: true` (`console/src/feature/schematic/toolbar/Properties.tsx:81-87`).
   Lyra deletes the `sync` option. A form whose element is removed keeps its last values.
+- **Canvas edits**: A resize, a label edit, a toggle, a multi-selection edit, or a table
+  cell edit sends one path action for each field it changes. A whole config write stays
+  only for what replaces an element: a paste, a new edge, and a symbol or cell type
+  swap.
 - **Forms that stay local**: Create forms, the device connect modals, and the status
   create modal keep a local copy and one save.
 
@@ -380,11 +388,17 @@ One pull request delivers the whole design, with no flag. No stored format chang
    8, Kubernetes) stops lost edits but makes the second user enter the edit again. Locks
    (AVEVA, TIA Portal) stick, and Ignition removed them in version 8. Figma, Linear, and
    Sanity Studio resolve each field on its own. The trade is real (§9).
-2. **13.1 Generic path actions, not typed actions per field.** Sixteen task types and
-   about 30 NI channel types would need hundreds of action variants. Sanity Studio
-   patches forms with key-addressed paths too.
+2. **13.1 Generic path actions, not typed actions per field.** Typed actions give each
+   integration its own controller and editor, and the compiler checks more of an edit.
+   The 24 task types and about 30 NI channel types would need hundreds of action
+   variants, and the task API would change. This RFC keeps that API. The trade is real:
+   a typo in a path compiles (§7.1). Sanity Studio patches forms with key-addressed
+   paths too.
 3. **13.2 The Core applies actions to JSON and decodes once.** The strict decode is the
-   type check. Reflection setters and generated per-field setters add code for no gain.
+   type check. Generated per-field setters skip the JSON step, but each task type needs
+   its own. The trade is real: on a LabJack read task, a path action costs about twice
+   the Core time of a whole write, 0.29 ms against 0.15 ms at 20 channels, and 2.5 ms
+   against 1.0 ms at 200.
 4. **13.3 A stale variant edit does nothing.** A refusal shows an error the user cannot
    explain, and a Core-side rule to keep shared fields needs a Go copy of
    `overrideValidItems`. The trade is real (§9).
