@@ -296,8 +296,6 @@ class Client:
         locations: list[str] | None = None,
         racks: list[int] | None = None,
         search_term: str = "",
-        limit: int | None = None,
-        offset: int = 0,
         include_status: bool = False,
         include_parent: bool = False,
         ignore_not_found: Literal[True],
