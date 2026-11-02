@@ -15,6 +15,7 @@ import { Flex } from "@synnaxlabs/lyra/flex";
 import { Icon } from "@synnaxlabs/lyra/icon";
 import { Input } from "@synnaxlabs/lyra/input";
 import { Modal } from "@synnaxlabs/lyra/modal";
+import { Nav } from "@synnaxlabs/lyra/nav";
 import { Status } from "@synnaxlabs/lyra/status";
 import { Text } from "@synnaxlabs/lyra/text";
 import { Access, Credential, Synnax } from "@synnaxlabs/pluto";
@@ -254,7 +255,9 @@ const Credentials = ({
       </Modal.Body>
       {passwordChanged && (
         <Modal.Footer>
-          <Status.Summary variant="success" message="Successfully changed password" />
+          <Nav.Bar.Start>
+            <Status.Summary variant="success" message="Successfully changed password" />
+          </Nav.Bar.Start>
         </Modal.Footer>
       )}
     </Modal.Frame>
