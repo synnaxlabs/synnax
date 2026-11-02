@@ -48,20 +48,29 @@ const path = deep.path<Task.Values<ReadSchemas>>();
 
 type ChannelSource = Pick<ReadChannel, "nodeId" | "field">;
 
-const getChannel = (props: DeviceProperties, { nodeId, field }: ChannelSource) =>
-  field === ""
-    ? (props.read.channels[nodeId] ??
-      props.read.channels[caseconv.snakeToCamel(nodeId)] ??
+const findField = (props: DeviceProperties, { nodeId, field }: ChannelSource) =>
+  props.read.fields.find((f) => f.nodeId === nodeId && f.field === field);
+
+const getChannel = (props: DeviceProperties, source: ChannelSource) =>
+  source.field === ""
+    ? (props.read.channels[source.nodeId] ??
+      props.read.channels[caseconv.snakeToCamel(source.nodeId)] ??
       0)
-    : (props.read.fields[nodeId]?.[field] ?? 0);
+    : (findField(props, source)?.channel ?? 0);
 
 const setChannel = (
   props: DeviceProperties,
-  { nodeId, field }: ChannelSource,
+  source: ChannelSource,
   key: channel.Key,
 ) => {
-  if (field === "") props.read.channels[nodeId] = key;
-  else (props.read.fields[nodeId] ??= {})[field] = key;
+  const { nodeId, field } = source;
+  if (field === "") {
+    props.read.channels[nodeId] = key;
+    return;
+  }
+  const existing = findField(props, source);
+  if (existing != null) existing.channel = key;
+  else props.read.fields.push({ nodeId, field, channel: key });
 };
 
 const IsIndexItem = ({ path }: ExtraItemProps<ReadChannel>): ReactElement => {

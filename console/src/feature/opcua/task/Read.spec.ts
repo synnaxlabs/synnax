@@ -129,19 +129,20 @@ describe("Read", () => {
 
   it("should map structure field channels by node and field on deploy", async () => {
     const dev = await createOPCDevice(client);
-    // Underscores pin that the field map keeps its keys' case on the wire.
-    const nodeId = `ns=1;s=${uniqueName("motor")}`;
+    // An underscore and a capital pin that the device keeps the case of each field.
+    const motor = uniqueName("motor");
+    const nodeId = `ns=1;s=${motor}`;
     const speed = createReadChannel({
       key: `${nodeId}/motor_speed`,
       nodeId,
       field: "motor_speed",
-      nodeName: "Motor.motor_speed",
+      nodeName: `${motor}.motor_speed`,
     });
     const y = createReadChannel({
       key: `${nodeId}/Position.Y`,
       nodeId,
       field: "Position.Y",
-      nodeName: "Motor.Position.Y",
+      nodeName: `${motor}.Position.Y`,
     });
     const draft = await createDraft(client, createReadConfig(dev.key, [speed, y]));
     const { container } = await renderRead({ client, taskKey: draft.key });
@@ -161,12 +162,11 @@ describe("Read", () => {
       key: dev.key,
       schemas: OPCUA.Device.SCHEMAS,
     });
-    expect(updated.properties.read.fields).toEqual({
-      [nodeId]: {
-        motor_speed: config.channels[0].channel,
-        "Position.Y": config.channels[1].channel,
-      },
-    });
+    expect(config.channels.every(({ channel }) => channel !== 0)).toBe(true);
+    expect(updated.properties.read.fields).toEqual([
+      { nodeId, field: "motor_speed", channel: config.channels[0].channel },
+      { nodeId, field: "Position.Y", channel: config.channels[1].channel },
+    ]);
     expect(updated.properties.read.channels).toEqual({});
   });
 
