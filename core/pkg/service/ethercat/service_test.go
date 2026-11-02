@@ -26,6 +26,7 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/service/legacy/device"
 	"github.com/synnaxlabs/synnax/pkg/service/ontology"
 	"github.com/synnaxlabs/synnax/pkg/service/rack"
+	racktestutil "github.com/synnaxlabs/synnax/pkg/service/rack/testutil"
 	"github.com/synnaxlabs/synnax/pkg/service/status"
 	"github.com/synnaxlabs/x/encoding/msgpack"
 	. "github.com/synnaxlabs/x/testutil"
@@ -59,6 +60,7 @@ func openDevices(ctx SpecContext, db *gorp.DB) *device.Service {
 		Group:        groupSvc,
 		HostProvider: testutil.NewStaticHostProvider(1),
 		Status:       statusSvc,
+		DriverRole:   MustSucceed(racktestutil.CreateDriverRole(ctx, otg)),
 	}))
 	devices := MustOpen(device.OpenService(ctx, device.ServiceConfig{
 		DB:       db,
@@ -294,9 +296,9 @@ var _ = Describe("Service", func() {
 		readChannels := func(ctx SpecContext, channels ...any) []any {
 			GinkgoHelper()
 			key := uuid.New()
-			Expect(svc.Read.Write(ctx, nil, key, msgpack.EncodedJSON{
+			MustSucceed(svc.Read.Write(ctx, nil, key, msgpack.EncodedJSON{
 				"channels": channels,
-			})).To(Succeed())
+			}))
 			return MustSucceed(svc.Read.Read(ctx, nil, key))["channels"].([]any)
 		}
 
@@ -304,7 +306,7 @@ var _ = Describe("Service", func() {
 			ctx SpecContext,
 		) {
 			key := uuid.New()
-			Expect(svc.Read.Write(ctx, nil, key, msgpack.EncodedJSON{
+			MustSucceed(svc.Read.Write(ctx, nil, key, msgpack.EncodedJSON{
 				"sample_rate": 25,
 				"channels": []any{map[string]any{
 					"type":      "entry",
@@ -315,7 +317,7 @@ var _ = Describe("Service", func() {
 					"sub_index": 1,
 					"data_type": "int16",
 				}},
-			})).To(Succeed())
+			}))
 			data := MustSucceed(svc.Read.Read(ctx, nil, key))
 			Expect(data["key"]).To(Equal(key.String()))
 			Expect(data["sample_rate"]).To(BeNumerically("==", 25))
@@ -360,7 +362,7 @@ var _ = Describe("Service", func() {
 					"device": "malformed",
 					"pdo":    "Value",
 				}},
-			})).To(SatisfyAll(
+			})).Error().To(SatisfyAll(
 				MatchError(ContainSubstring("device malformed properties: json: ")),
 				MatchError(ContainSubstring(`within "/pdos"`)),
 			))
@@ -370,14 +372,14 @@ var _ = Describe("Service", func() {
 			ctx SpecContext,
 		) {
 			key := uuid.New()
-			Expect(svc.Write.Write(ctx, nil, key, msgpack.EncodedJSON{
+			MustSucceed(svc.Write.Write(ctx, nil, key, msgpack.EncodedJSON{
 				"channels": []any{map[string]any{
 					"type":   "unresolved",
 					"key":    "c",
 					"device": "slave",
 					"pdo":    "Output",
 				}},
-			})).To(Succeed())
+			}))
 			channels := MustSucceed(svc.Write.Read(ctx, nil, key))["channels"].([]any)
 			Expect(channels[0]).To(HaveKeyWithValue("type", "entry"))
 			Expect(channels[0]).To(HaveKeyWithValue("index", float64(0x7000)))
@@ -387,7 +389,7 @@ var _ = Describe("Service", func() {
 			ctx SpecContext,
 		) {
 			key := uuid.New()
-			Expect(svc.Read.Write(ctx, nil, key, msgpack.EncodedJSON{})).To(Succeed())
+			MustSucceed(svc.Read.Write(ctx, nil, key, msgpack.EncodedJSON{}))
 			data := MustSucceed(svc.Read.Read(ctx, nil, key))
 			Expect(data["sample_rate"]).To(BeNumerically("==", 10))
 			Expect(data["stream_rate"]).To(BeNumerically("==", 5))
@@ -397,7 +399,7 @@ var _ = Describe("Service", func() {
 			ctx SpecContext,
 		) {
 			key := uuid.New()
-			Expect(svc.Write.Write(ctx, nil, key, msgpack.EncodedJSON{})).To(Succeed())
+			MustSucceed(svc.Write.Write(ctx, nil, key, msgpack.EncodedJSON{}))
 			data := MustSucceed(svc.Write.Read(ctx, nil, key))
 			Expect(data["state_rate"]).To(BeNumerically("==", 25))
 			Expect(data["execution_rate"]).To(BeNumerically("==", 1000))
@@ -407,7 +409,7 @@ var _ = Describe("Service", func() {
 			ctx SpecContext,
 		) {
 			key := uuid.New()
-			Expect(svc.Scan.Write(ctx, nil, key, msgpack.EncodedJSON{})).To(Succeed())
+			MustSucceed(svc.Scan.Write(ctx, nil, key, msgpack.EncodedJSON{}))
 			data := MustSucceed(svc.Scan.Read(ctx, nil, key))
 			Expect(data["rate"]).To(BeNumerically("==", 0.2))
 		})

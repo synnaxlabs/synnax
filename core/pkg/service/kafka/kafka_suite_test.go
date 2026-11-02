@@ -30,6 +30,7 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/service/legacy/device"
 	"github.com/synnaxlabs/synnax/pkg/service/ontology"
 	"github.com/synnaxlabs/synnax/pkg/service/rack"
+	racktestutil "github.com/synnaxlabs/synnax/pkg/service/rack/testutil"
 	"github.com/synnaxlabs/synnax/pkg/service/status"
 	"github.com/synnaxlabs/synnax/pkg/service/task"
 	"github.com/synnaxlabs/x/encoding/msgpack"
@@ -80,6 +81,7 @@ var _ = BeforeSuite(func(ctx SpecContext) {
 		Group:        groupSvc,
 		HostProvider: testutil.NewStaticHostProvider(1),
 		Status:       statusSvc,
+		DriverRole:   MustSucceed(racktestutil.CreateDriverRole(ctx, otg)),
 	}))
 	deviceSvc = MustOpen(device.OpenService(ctx, device.ServiceConfig{
 		DB:       db,

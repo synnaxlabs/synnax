@@ -8,12 +8,12 @@
 // included in the file licenses/APL.txt.
 
 import { id, TimeSpan, TimeStamp, uuid } from "@synnaxlabs/x";
-import { assert, beforeAll, describe, expect, it, onTestFinished, vi } from "vitest";
+import { beforeAll, describe, expect, it, onTestFinished, vi } from "vitest";
 import { z } from "zod";
 
 import { channel } from "@/channel";
-import { AccessDeniedError, NotFoundError } from "@/errors";
 import { framer } from "@/framer";
+import { NotFoundError } from "@/index";
 import { ontology } from "@/ontology";
 import { query } from "@/query";
 import { rack } from "@/rack";
@@ -516,6 +516,103 @@ describe("Task", async () => {
     });
   });
 
+  describe("dispatch", () => {
+    const routingKey = (value: string) =>
+      task.set({ path: ["config", "routingKey"], value });
+
+    it("should store the actions and settle the cached task on the echo", async () => {
+      await waitForStreamLive(client.connection);
+      const t = await testRack.createTask({
+        name: `dispatch-${id.create()}`,
+        config: { routingKey: "dog" },
+        type: "pagerduty_alert",
+      });
+      expect(await client.tasks.dispatch(t.key, routingKey("cat"))).toBe(true);
+      const stored = await createTestClient().tasks.retrieve(t.key);
+      expect(stored.config).toMatchObject({ routingKey: "cat" });
+      expect(stored.configHash).not.toBe(t.configHash);
+      await client.tasks.settled(t.key);
+      const cached = await client.tasks.retrieve(t.key);
+      expect(cached.config).toEqual(stored.config);
+      expect(cached.configHash).toBe(stored.configHash);
+    });
+
+    it("should apply list actions to the config", async () => {
+      const t = await testRack.createTask({
+        name: `dispatch-list-${id.create()}`,
+        config: { routingKey: "dog" },
+        type: "pagerduty_alert",
+      });
+      await client.tasks.dispatch(t.key, [
+        task.insert({
+          path: ["config", "alerts"],
+          value: { key: "a", status: "st-a", errors_critical: true },
+        }),
+        task.insert({
+          path: ["config", "alerts"],
+          value: { key: "b", status: "st-b" },
+        }),
+        task.move({ path: ["config", "alerts"], key: "b" }),
+      ]);
+      const stored = await createTestClient().tasks.retrieve(t.key);
+      expect(stored.config.alerts).toEqual([
+        expect.objectContaining({ key: "b", status: "st-b" }),
+        expect.objectContaining({
+          key: "a",
+          status: "st-a",
+          errorsCritical: true,
+        }),
+      ]);
+    });
+
+    it("should return false without a send when the task is not cached", async () => {
+      const t = await testRack.createTask({
+        name: `dispatch-uncached-${id.create()}`,
+        config: { routingKey: "dog" },
+        type: "pagerduty_alert",
+      });
+      const fresh = createTestClient();
+      const send = spyOnSend(fresh);
+      expect(await fresh.tasks.dispatch(t.key, routingKey("cat"))).toBe(false);
+      expect(send).not.toHaveBeenCalled();
+    });
+
+    it("should adopt the config the Core stores when it fills a default", async () => {
+      await waitForStreamLive(client.connection);
+      const t = await testRack.createTask({
+        name: `dispatch-default-${id.create()}`,
+        config: { arcKey: uuid.create(), performance: "high" },
+        type: "arc",
+      });
+      expect(
+        await client.tasks.dispatch(
+          t.key,
+          task.set({ path: ["config", "performance"], value: "" }),
+        ),
+      ).toBe(true);
+      await client.tasks.settled(t.key);
+      const stored = await createTestClient().tasks.retrieve(t.key);
+      expect(stored.config).toMatchObject({ performance: "auto" });
+      const cached = await client.tasks.retrieve(t.key);
+      expect(cached.config).toEqual(stored.config);
+      expect(cached.configHash).toBe(stored.configHash);
+    });
+
+    it("should drop actions the Core refuses from the cached task", async () => {
+      const t = await testRack.createTask({
+        name: `dispatch-refused-${id.create()}`,
+        config: { routingKey: "dog" },
+        type: "pagerduty_alert",
+      });
+      await expect(
+        client.tasks.dispatch(t.key, task.set({ path: ["type"], value: "arc" })),
+      ).rejects.toThrow('unknown object member name "type"');
+      const cached = await client.tasks.retrieve(t.key);
+      expect(cached.type).toBe("pagerduty_alert");
+      await client.tasks.settled(t.key);
+    });
+  });
+
   describe("lifecycle methods", () => {
     it("should start a task", async () => {
       const t = await testRack.createTask({
@@ -684,6 +781,28 @@ describe("Task", async () => {
           return task.commandZ.parse(sample);
         })
         .toMatchObject({ key, task: t.key, configHash: t.configHash });
+      streamer.close();
+    });
+    it("should send a pinned start with the given hash", async () => {
+      const t = await testRack.createTask({
+        name: "test",
+        config: { routingKey: "dog" },
+        type: "pagerduty_alert",
+      });
+      const streamer = await client.openStreamer(task.COMMAND_CHANNEL_NAME);
+      const key = await client.tasks.executeCommand({
+        task: t.key,
+        type: "start",
+        configHash: "seen",
+        pinned: true,
+      });
+      await expect
+        .poll<Promise<task.Command>>(async () => {
+          const fr = await streamer.read();
+          const sample = fr.at(-1)[task.COMMAND_CHANNEL_NAME];
+          return task.commandZ.parse(sample);
+        })
+        .toMatchObject({ key, task: t.key, configHash: "seen", pinned: true });
       streamer.close();
     });
     it("should timeout on a synchronously executed command", async () => {
@@ -1234,6 +1353,94 @@ describe("Task", async () => {
       }
     });
 
+    it("hands the rack's stand-in reply to write handlers", async () => {
+      const down = await client.racks.create({ name: `down-${id.create()}` });
+      const t = await down.createTask({
+        name: `down-${id.create()}`,
+        config: {},
+        type: "pagerduty_alert",
+      });
+      const key = task.statusKey(t.key);
+      await client.tasks.retrieve({ key: t.key });
+      await setRackStatus(down.key, "warning", "no Driver here");
+      let seeWrite = (_: status.Status): void => {};
+      const written = new Promise<status.Status>((resolve) => (seeWrite = resolve));
+      const off = client.statuses.onWrite((s) => {
+        if (s.key === key && s.variant === "warning") seeWrite(s);
+      });
+      try {
+        const cmd = await client.tasks.executeCommand({ task: t.key, type: "start" });
+        expect(await written).toMatchObject({
+          message: "no Driver here",
+          details: { cmd, running: false },
+        });
+      } finally {
+        off();
+      }
+    });
+
+    it("hands the loading status of a command to write handlers", async () => {
+      const alive = await client.racks.create({ name: `alive-${id.create()}` });
+      const t = await alive.createTask({
+        name: `loading-${id.create()}`,
+        config: {},
+        type: "pagerduty_alert",
+      });
+      const key = task.statusKey(t.key);
+      let seeWrite = (_: status.Status): void => {};
+      const written = new Promise<status.Status>((resolve) => (seeWrite = resolve));
+      const off = client.statuses.onWrite((s) => {
+        if (s.key === key && s.variant === "loading") seeWrite(s);
+      });
+      try {
+        await client.tasks.retrieve({ key: t.key });
+        await setRackAliveAfterEcho(alive.key);
+        await client.tasks.executeCommand({ task: t.key, type: "start" });
+        expect(await written).toMatchObject({ message: "Sending start command" });
+      } finally {
+        off();
+      }
+    });
+
+    it("hands the no-response warning to write handlers as the reply", async () => {
+      const alive = await client.racks.create({ name: `alive-${id.create()}` });
+      const t = await alive.createTask({
+        name: `deadline-${id.create()}`,
+        config: {},
+        type: "pagerduty_alert",
+      });
+      const key = task.statusKey(t.key);
+      let seeLoading = (): void => {};
+      const loading = new Promise<void>((resolve) => (seeLoading = resolve));
+      const offLoading = client.statuses.store.subscribe((event) => {
+        if (event.variant === "set" && event.value.variant === "loading") seeLoading();
+      }, key);
+      const written: status.Status[] = [];
+      const offWrite = client.statuses.onWrite((s) => {
+        if (s.key === key) written.push(s);
+      });
+      try {
+        await client.tasks.retrieve({ key: t.key });
+        await setRackAliveAfterEcho(alive.key);
+        vi.useFakeTimers({
+          toFake: ["setTimeout", "clearTimeout"],
+          shouldAdvanceTime: true,
+        });
+        const cmd = await client.tasks.executeCommand({ task: t.key, type: "start" });
+        await loading;
+        await vi.advanceTimersByTimeAsync(COMMAND_DEADLINE.milliseconds);
+        expect(written.at(-1)).toMatchObject({
+          variant: "warning",
+          message: "No response to the start command",
+          details: { cmd, running: false },
+        });
+      } finally {
+        vi.useRealTimers();
+        offLoading();
+        offWrite();
+      }
+    });
+
     it("keeps a reply stamped by a Driver clock behind this client's", async () => {
       const alive = await client.racks.create({ name: `alive-${id.create()}` });
       const t = await alive.createTask({
@@ -1398,15 +1605,15 @@ describe("Task", async () => {
       });
     });
 
-    it("refetches a cached task whose config was changed by another client", async () => {
+    it("applies another client's overwrite to a cached task", async () => {
       const t = await testRack.createTask({
         name: `set-config-${id.create()}`,
         config: { routingKey: "dog" },
         type: "pagerduty_alert",
       });
       const remote = createTestClient();
-      // The set signal is the only thing that refreshes a reading client's cache, so a
-      // write before its stream goes live is never seen.
+      // Actions are the only thing that refreshes a reading client's cache, so a write
+      // before its stream goes live is never seen.
       await waitForStreamLive(remote.connection);
       const params = { key: t.key };
       const off = remote.tasks.onChange(params, vi.fn());
@@ -1429,11 +1636,11 @@ describe("Task", async () => {
       }
     });
 
-    it("merges a metadata-only set signal into a cached task", async () => {
+    it("applies another client's dispatch to a cached task with its hash", async () => {
       const remote = createTestClient();
       await waitForStreamLive(remote.connection);
       const t = await testRack.createTask({
-        name: `set-merge-${id.create()}`,
+        name: `dispatch-remote-${id.create()}`,
         config: { routingKey: "dog" },
         type: "pagerduty_alert",
       });
@@ -1441,23 +1648,26 @@ describe("Task", async () => {
       const off = remote.tasks.onChange(params, vi.fn());
       try {
         await remote.tasks.retrieve(params);
-        const name = `set-merge-renamed-${id.create()}`;
-        await client.tasks.create({ ...t.payload, name });
+        expect(
+          await client.tasks.dispatch(
+            t.key,
+            task.set({ path: ["config", "routingKey"], value: "cat" }),
+          ),
+        ).toBe(true);
+        const stored = await createTestClient().tasks.retrieve(t.key);
         await expect
           .poll(() => {
             const cached = remote.tasks.getCached(params);
-            return query.isLive(cached) ? cached.name : undefined;
+            if (!query.isLive(cached)) return undefined;
+            return { config: cached.config, configHash: cached.configHash };
           })
-          .toBe(name);
-        const cached = remote.tasks.getCached(params);
-        assert(query.isLive(cached));
-        expect(cached.config).toMatchObject({ routingKey: "dog" });
+          .toEqual({ config: stored.config, configHash: stored.configHash });
       } finally {
         off();
       }
     });
 
-    it("fetches an uncached task moved onto a subscribed rack", async () => {
+    it("ingests an uncached task moved onto a subscribed rack", async () => {
       const remote = createTestClient();
       await waitForStreamLive(remote.connection);
       const source = await client.racks.create({ name: `set-move-src-${id.create()}` });
@@ -1484,7 +1694,7 @@ describe("Task", async () => {
       }
     });
 
-    it("fetches only the uncached tasks the user can read", async () => {
+    it("takes a change to a task the user cannot read with no fetch or error", async () => {
       const readable = await testRack.createTask({
         name: `set-readable-${id.create()}`,
         config: { routingKey: "dog" },
@@ -1495,61 +1705,45 @@ describe("Task", async () => {
         config: { routingKey: "cat" },
         type: "pagerduty_alert",
       });
-      const remote = await createTestClientWithPolicy(client, {
-        name: "set-readable",
-        objects: [
-          channel.TYPE_ONTOLOGY_ID,
-          framer.TYPE_ONTOLOGY_ID,
-          task.ontologyID(readable.key),
-        ],
-        actions: ["retrieve"],
-      });
+      const onError = vi.fn();
+      const remote = await createTestClientWithPolicy(
+        client,
+        {
+          name: "set-readable",
+          objects: [
+            channel.TYPE_ONTOLOGY_ID,
+            framer.TYPE_ONTOLOGY_ID,
+            task.ontologyID(readable.key),
+          ],
+          actions: ["retrieve"],
+        },
+        onError,
+      );
       await waitForStreamLive(remote.connection);
       const params = { key: readable.key };
       const off = remote.tasks.onChange(params, vi.fn());
       try {
+        await remote.tasks.retrieve(params);
+        const fetches = recordResponses(remote, "/task/retrieve");
+        await client.tasks.create({
+          ...denied.payload,
+          name: `${denied.name}-renamed`,
+        });
+        // Both changes stream on one channel, so the readable rename lands last.
         const name = `set-readable-renamed-${id.create()}`;
-        await Promise.all([
-          client.tasks.create({ ...denied.payload, name: `${denied.name}-renamed` }),
-          client.tasks.create({ ...readable.payload, name }),
-        ]);
+        await client.tasks.create({ ...readable.payload, name });
         await expect
           .poll(() => {
             const cached = remote.tasks.getCached(params);
             return query.isLive(cached) ? cached.name : undefined;
           })
           .toBe(name);
-        expect(remote.tasks.store.get(denied.key)).toBeUndefined();
+        expect(fetches).toHaveLength(0);
+        expect(onError).not.toHaveBeenCalled();
+        expect(remote.tasks.getCached({ key: denied.key })).toBeUndefined();
       } finally {
         off();
       }
-    });
-
-    it("reports no error for a set signal of a task the user cannot read", async () => {
-      const denied = await testRack.createTask({
-        name: `set-denied-${id.create()}`,
-        config: { routingKey: "cat" },
-        type: "pagerduty_alert",
-      });
-      const onError = vi.fn();
-      const remote = await createTestClientWithPolicy(
-        client,
-        {
-          name: "set-denied",
-          objects: [channel.TYPE_ONTOLOGY_ID, framer.TYPE_ONTOLOGY_ID],
-          actions: ["retrieve"],
-        },
-        onError,
-      );
-      await waitForStreamLive(remote.connection);
-      const fetches = recordResponses(remote, "/task/retrieve");
-      await client.tasks.create({ ...denied.payload, name: `${denied.name}-renamed` });
-      await expect.poll(() => fetches.length).toBe(1);
-      await expect(fetches[0]).rejects.toSatisfy(AccessDeniedError.matches);
-      // Lets the listener's rejection reach the error handler.
-      await new Promise((resolve) => setTimeout(resolve, 0));
-      expect(onError).not.toHaveBeenCalled();
-      expect(remote.tasks.store.get(denied.key)).toBeUndefined();
     });
   });
 });

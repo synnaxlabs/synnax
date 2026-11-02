@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { NIL, stringify, v4 as uuid } from "uuid";
+import { NIL, stringify, v4 as uuid, v5 } from "uuid";
 
 /**
  * Creates a new random UUID (Universally Unique Identifier) version 4.
@@ -21,6 +21,17 @@ import { NIL, stringify, v4 as uuid } from "uuid";
  * const id = create(); // Returns something like "123e4567-e89b-12d3-a456-426614174000"
  */
 export const create = (): string => uuid();
+
+/**
+ * Derives a name-based UUID (version 5) from a name within a namespace. The same name
+ * and namespace always produce the same UUID.
+ *
+ * @param name - The name to derive the UUID from.
+ * @param namespace - The namespace UUID the name belongs to.
+ * @returns {string} A UUID v5 string.
+ */
+export const fromName = (name: string, namespace: string): string =>
+  v5(name, namespace);
 
 /**
  * Parses a UUID from a byte array. This function converts a 16-byte array into a

@@ -51,7 +51,7 @@ const Content: Panel.Content = () => {
   return <Form taskKey={key} />;
 };
 
-const Name: Panel.TabName = ({ allowRename = true }) => {
+const Name: Panel.TabName = ({ allowRename = true, ...rest }) => {
   const tabKey = PPanel.useTabKey();
   const resource = PPanel.useTabResource();
   const { key } = resource;
@@ -68,6 +68,7 @@ const Name: Panel.TabName = ({ allowRename = true }) => {
         value={name}
         disabled={!allowRename || !canRename}
         onChange={(name) => rename({ key, name })}
+        {...rest}
       />
     </>
   );

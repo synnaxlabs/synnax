@@ -19,6 +19,7 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/service/legacy/device"
 	"github.com/synnaxlabs/synnax/pkg/service/ontology"
 	"github.com/synnaxlabs/synnax/pkg/service/rack"
+	racktestutil "github.com/synnaxlabs/synnax/pkg/service/rack/testutil"
 	"github.com/synnaxlabs/synnax/pkg/service/status"
 	"github.com/synnaxlabs/x/encoding/msgpack"
 	"github.com/synnaxlabs/x/query"
@@ -60,6 +61,7 @@ var _ = Describe("Device", func() {
 			Group:        groupSvc,
 			HostProvider: testutil.NewStaticHostProvider(1),
 			Status:       stat,
+			DriverRole:   MustSucceed(racktestutil.CreateDriverRole(ctx, otg)),
 		}))
 		svc = MustOpen(device.OpenService(ctx, device.ServiceConfig{
 			DB:       db,
@@ -1025,6 +1027,9 @@ var _ = Describe("Device", func() {
 					HostProvider:        testutil.NewStaticHostProvider(1),
 					Status:              stat,
 					HealthCheckInterval: 10 * telem.Millisecond,
+					DriverRole: MustSucceed(
+						racktestutil.CreateDriverRole(ctx, otg),
+					),
 				}))
 				svc := MustOpen(device.OpenService(ctx, device.ServiceConfig{
 					DB:       db,

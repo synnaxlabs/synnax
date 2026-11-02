@@ -613,6 +613,92 @@ Node union on variant {
 		)
 
 		It(
+			"Should allow a struct to extend a parent omitted in its language",
+			func(ctx SpecContext) {
+				source := `
+				@go output "out"
+				@ts output "ts/out"
+				Record struct {
+					key    uint32
+					secret string
+					@ts omit
+				}
+				Shape struct extends Record {
+					-secret
+				}
+			`
+				_, diag := Analyze(ctx, source, "test", loader)
+				Expect(diag.Ok()).To(BeTrue(), diag.String())
+			},
+		)
+
+		It(
+			"Should allow a struct to extend a parent with no output in its language",
+			func(ctx SpecContext) {
+				source := `
+				Record struct {
+					key uint32
+					@go output "out"
+				}
+				Shape struct extends Record {
+					@py output "py/out"
+				}
+			`
+				_, diag := Analyze(ctx, source, "test", loader)
+				Expect(diag.Ok()).To(BeTrue(), diag.String())
+			},
+		)
+
+		It(
+			"Should reject an inherited field whose type is omitted in the language",
+			func(ctx SpecContext) {
+				source := `
+				@go output "out"
+				@ts output "ts/out"
+				Hash struct {
+					value string
+					@ts omit
+				}
+				Record struct {
+					key  uint32
+					hash Hash
+					@ts omit
+				}
+				Shape struct extends Record {}
+			`
+				_, diag := Analyze(ctx, source, "test", loader)
+				Expect(diag.String()).To(ContainSubstring(
+					"test.Shape generates for ts but field hash references " +
+						"test.Hash, which is omitted in ts",
+				))
+			},
+		)
+
+		It(
+			"Should allow removing an inherited field whose type is omitted",
+			func(ctx SpecContext) {
+				source := `
+				@go output "out"
+				@ts output "ts/out"
+				Hash struct {
+					value string
+					@ts omit
+				}
+				Record struct {
+					key  uint32
+					hash Hash
+					@ts omit
+				}
+				Shape struct extends Record {
+					-hash
+				}
+			`
+				_, diag := Analyze(ctx, source, "test", loader)
+				Expect(diag.Ok()).To(BeTrue(), diag.String())
+			},
+		)
+
+		It(
 			"Should allow an enum placed beside a same-file struct's output",
 			func(ctx SpecContext) {
 				source := `

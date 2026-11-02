@@ -15,6 +15,7 @@ import (
 
 	"github.com/synnaxlabs/gorp"
 	"github.com/synnaxlabs/synnax/pkg/service/actions"
+	v8 "github.com/synnaxlabs/synnax/pkg/service/lineplot/versions/v8"
 	"github.com/synnaxlabs/synnax/pkg/service/ontology"
 	"github.com/synnaxlabs/synnax/pkg/service/project"
 )
@@ -24,6 +25,13 @@ type Writer struct {
 	otg        ontology.Writer
 	table      *gorp.Table[Key, LinePlot]
 	dispatcher actions.Dispatcher[Key, Action]
+}
+
+// WithDispatchKey returns a copy of the writer that stamps dispatchKey onto the create
+// broadcasts it emits, so the client that sent the create recognizes its own echo.
+func (w Writer) WithDispatchKey(dispatchKey string) Writer {
+	w.dispatcher = w.dispatcher.WithDispatchKey(dispatchKey)
+	return w
 }
 
 func (w Writer) Create(
@@ -47,7 +55,7 @@ func (w Writer) Create(
 	}
 	// Materialize lines for any channel/range bindings supplied at creation so a plot
 	// created with channels and ranges but no lines is fully populated.
-	lp.Lines = reconcileLines(*lp)
+	lp.Lines = v8.ReconcileLines(lp.Key, lp.Channels, lp.Lines)
 	lp.ApplyDefaults()
 	if err := lp.Validate(); err != nil {
 		return err
@@ -71,9 +79,11 @@ func (w Writer) Create(
 			}
 		}
 	}
-	// Notify last: a create rejected by ontology validation must not be broadcast.
-	w.dispatcher.Notify(
-		ctx, lp.Key, "", []Action{NewCreateAction(CreatePayload{LinePlot: *lp})},
+	w.dispatcher.NotifyOnCommit(
+		ctx,
+		w.tx,
+		lp.Key,
+		NewCreateAction(CreatePayload{LinePlot: *lp}),
 	)
 	return nil
 }

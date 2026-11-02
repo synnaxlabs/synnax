@@ -9,8 +9,9 @@
 
 import { Icon } from "@synnaxlabs/lyra/icon";
 
-import { INTEGRATION } from "@/feature/kafka/device/types";
+import { INTEGRATION, MAKE } from "@/feature/kafka/device/types";
 import { Connect } from "@/feature/kafka/device/useConnectModal";
+import { SCAN_TYPE } from "@/feature/kafka/task/types";
 import { type Device } from "@/platform/device";
 
 export const NETWORK: Device.Network = {
@@ -19,5 +20,7 @@ export const NETWORK: Device.Network = {
   title: "Kafka cluster",
   description: "Consume and produce JSON messages on Kafka topics.",
   icon: <Icon.Logo.Kafka />,
+  make: MAKE,
+  scanType: SCAN_TYPE,
   Connect,
 };

@@ -28,7 +28,7 @@ import { type FC } from "react";
 
 import { useFromConfig } from "@/feature/kafka/device/queries";
 import { Select as SelectDevice } from "@/feature/kafka/device/Select";
-import { SCHEMAS } from "@/feature/kafka/device/types";
+import { MAKE, SCHEMAS } from "@/feature/kafka/device/types";
 import { TimeFormatField } from "@/feature/kafka/task/TimeFormatField";
 import {
   deployReadConfigZ,
@@ -87,8 +87,6 @@ const Properties = () => (
       <PForm.Field<StartOffset> path="config.startOffset" label="Start from">
         {renderStartOffsetSelect}
       </PForm.Field>
-      <Task.Fields.DataSaving />
-      <Task.Fields.AutoStart />
     </Flex.Box>
   </>
 );
@@ -398,11 +396,13 @@ export const Read = Task.wrapForm({
   schemas: READ_SCHEMAS,
   deployConfigZ: deployReadConfigZ,
   type: READ_TYPE,
-  getInitialValues,
   onConfigure,
 });
 
-export const useCreateRead = Task.createUseCreate({ getInitialValues });
+export const useCreateRead = Task.createUseCreate({
+  getInitialValues,
+  deviceMake: MAKE,
+});
 
 export const ReadSelectable = Selector.createSelectable({
   type: READ_TYPE,

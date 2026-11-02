@@ -13,14 +13,15 @@ import { useState } from "react";
 
 import { CSS } from "@/platform/css";
 import { Empty } from "@/platform/empty";
-import { useIsPreview } from "@/platform/task/Form";
 import { type Channel } from "@/platform/task/types";
+import { useIsPreview } from "@/platform/task/useIsPreview";
 import {
   ChannelList,
   type ChannelListProps,
   useAdd,
 } from "@/platform/task/views/ChannelList";
 import { Panes } from "@/platform/task/views/Panes";
+import { type PortsProps, type View, ViewSwitch } from "@/platform/task/views/Ports";
 
 export interface CreateChannel<C extends Channel> {
   (channels: C[], channelKeyToCopy?: string): C | null;
@@ -38,6 +39,8 @@ export interface ListAndDetailsProps<C extends Channel> extends Pick<
   /** Names the selected channel in the details header, typically by its port. */
   detailsTitle?: Component.RenderProp<DetailsProps>;
   createChannel: CreateChannel<C>;
+  /** The channels by port. A "List" and "Ports" switch in the header shows it. */
+  ports?: Component.RenderProp<PortsProps>;
 }
 
 export const ListAndDetails = <C extends Channel>({
@@ -45,9 +48,11 @@ export const ListAndDetails = <C extends Channel>({
   detailsTitle,
   createChannel,
   path = "config.channels",
+  ports,
   ...rest
 }: ListAndDetailsProps<C>) => {
   const [selected, setSelected] = useState<string[]>([]);
+  const [view, setView] = useState<View>("list");
   const handleCreateChannel = (channels: C[]) => createChannel(channels, selected[0]);
   const handleDuplicateChannels = (allChannels: C[], keys: string[]) => {
     const newlyMade: C[] = [];
@@ -67,12 +72,20 @@ export const ListAndDetails = <C extends Channel>({
   return (
     <Panes
       listTitle="Channels"
+      listActions={
+        ports == null ? undefined : <ViewSwitch value={view} onChange={setView} />
+      }
       list={
         <ChannelList<C>
           {...rest}
           path={path}
           grow
           header={null}
+          ports={
+            ports != null && view === "ports"
+              ? ports({ selected, onSelect: setSelected })
+              : undefined
+          }
           selected={selected}
           onSelect={setSelected}
           createChannel={handleCreateChannel}

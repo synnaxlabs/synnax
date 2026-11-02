@@ -32,6 +32,10 @@
         opacity: 1;
     }
 
+    .console-adder-item .lyra-icon {
+        color: var(--pluto-gray-l9);
+    }
+
     .console-field-item.console--off .console-field-pointer {
         color: var(--pluto-gray-l8);
         text-decoration: line-through;

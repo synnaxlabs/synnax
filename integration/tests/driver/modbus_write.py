@@ -26,7 +26,7 @@ from tests.driver.task import create_channel, create_index
 
 class ModbusWriteCoil(ModbusWriteTaskCase):
     task_name = "Modbus Write Coil"
-    command_values = [[1, 0, 1], [0, 1, 0]]
+    command_values: list[list[float]] | None = [[1, 0, 1], [0, 1, 0]]
 
     def assert_written(self) -> None:
         assert_sim_coils(10, [False, True, False])
@@ -50,7 +50,7 @@ class ModbusWriteCoil(ModbusWriteTaskCase):
 
 class ModbusWriteHoldingRegister(ModbusWriteTaskCase):
     task_name = "Modbus Write Holding Register"
-    command_values = [[1.5, 2.5, 3.5], [100, 101, 102]]
+    command_values: list[list[float]] | None = [[1.5, 2.5, 3.5], [100, 101, 102]]
 
     def assert_written(self) -> None:
         words = [w for v in (100, 101, 102) for w in float32_words(v)]
@@ -76,7 +76,7 @@ class ModbusWriteHoldingRegister(ModbusWriteTaskCase):
 
 class ModbusWriteMixed(ModbusWriteTaskCase):
     task_name = "Modbus Write Mixed"
-    command_values = [[1, 0, 1.5, 2.5], [0, 1, 100, 101]]
+    command_values: list[list[float]] | None = [[1, 0, 1.5, 2.5], [0, 1, 100, 101]]
 
     def assert_written(self) -> None:
         assert_sim_coils(20, [False, True])
@@ -118,7 +118,7 @@ class ModbusWriteWordOrder(ModbusWriteTaskCase):
     follows the device, and the second overrides it."""
 
     task_name = "Modbus Write Word Order"
-    command_values = [[1.5, 1.5], [1.5, 1.5]]
+    command_values: list[list[float]] | None = [[1.5, 1.5], [1.5, 1.5]]
 
     def create(self, *, device: sy.Device, **kwargs: Any) -> sy.modbus.WriteTask:
         sy.device.ensure_object(device.properties, "connection")["swap_words"] = True
@@ -199,7 +199,7 @@ class ModbusWriteCoilFloat(ModbusWriteTaskCase):
     """Drives a coil from a float32 command channel."""
 
     task_name = "Modbus Write Coil Float"
-    command_values = [[0.0], [1.0]]
+    command_values: list[list[float]] | None = [[0.0], [1.0]]
 
     @staticmethod
     def create_channels(client: sy.Synnax) -> list[sy.modbus.WriteChannel]:

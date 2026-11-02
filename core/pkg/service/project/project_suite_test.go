@@ -28,6 +28,7 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/service/panel"
 	"github.com/synnaxlabs/synnax/pkg/service/project"
 	"github.com/synnaxlabs/synnax/pkg/service/rack"
+	racktestutil "github.com/synnaxlabs/synnax/pkg/service/rack/testutil"
 	"github.com/synnaxlabs/synnax/pkg/service/status"
 	"github.com/synnaxlabs/synnax/pkg/service/task"
 	"github.com/synnaxlabs/synnax/pkg/service/task/config"
@@ -101,6 +102,7 @@ var (
 			Group:        groupSvc,
 			Status:       statusSvc,
 			HostProvider: node.Cluster,
+			DriverRole:   MustSucceed(racktestutil.CreateDriverRole(ctx, otg)),
 		}))
 		pd := MustOpen(pagerduty.OpenService(ctx, pagerduty.ServiceConfig{DB: db}))
 		taskSvc = MustOpen(task.OpenService(ctx, task.ServiceConfig{

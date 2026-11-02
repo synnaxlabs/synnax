@@ -21,7 +21,7 @@ import { DataType, id, primitive } from "@synnaxlabs/x";
 import { type FC } from "react";
 
 import { Select as SelectDevice } from "@/feature/kafka/device/Select";
-import { SCHEMAS } from "@/feature/kafka/device/types";
+import { MAKE, SCHEMAS } from "@/feature/kafka/device/types";
 import {
   TIME_FORMAT_ITEMS,
   TimeFormatField,
@@ -88,7 +88,6 @@ const Properties = () => (
       <PForm.Field<RecordKey> path="config.recordKey" label="Record key">
         {renderRecordKeySelect}
       </PForm.Field>
-      <Task.Fields.AutoStart />
     </Flex.Box>
     <Flex.Box x grow wrap>
       <PForm.TextField
@@ -312,11 +311,13 @@ export const Write = Task.wrapForm({
   schemas: WRITE_SCHEMAS,
   deployConfigZ: deployWriteConfigZ,
   type: WRITE_TYPE,
-  getInitialValues,
   onConfigure,
 });
 
-export const useCreateWrite = Task.createUseCreate({ getInitialValues });
+export const useCreateWrite = Task.createUseCreate({
+  getInitialValues,
+  deviceMake: MAKE,
+});
 
 export const WriteSelectable = Selector.createSelectable({
   type: WRITE_TYPE,

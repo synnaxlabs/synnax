@@ -18,14 +18,19 @@ import {
   ChannelList as Base,
   type ChannelListProps as BaseProps,
 } from "@/platform/task/ChannelList";
-import { useIsPreview } from "@/platform/task/Form";
 import { type Channel } from "@/platform/task/types";
+import { useIsPreview } from "@/platform/task/useIsPreview";
 
-const Header = () => (
+interface HeaderProps {
+  actions?: ReactNode;
+}
+
+export const Header = ({ actions }: HeaderProps) => (
   <PHeader.Header>
     <PHeader.Title weight={500} color={10}>
       Channels
     </PHeader.Title>
+    {actions != null && <PHeader.Actions>{actions}</PHeader.Actions>}
   </PHeader.Header>
 );
 
@@ -51,6 +56,8 @@ export interface UseAddProps<C extends Channel> {
   path: string;
   createChannel: (channels: C[]) => C | null;
   onSelect: (keys: string[]) => void;
+  /** Skips selecting the new channel, since checkable lists select by checkbox. */
+  checkable?: boolean;
 }
 
 /** @returns a callback that appends a new channel to the list and selects it. */
@@ -58,6 +65,7 @@ export const useAdd = <C extends Channel>({
   path,
   createChannel,
   onSelect,
+  checkable = false,
 }: UseAddProps<C>): (() => void) => {
   const ctx = Form.useContext();
   const { push } = Form.useFieldList<C["key"], C>(path);
@@ -65,7 +73,7 @@ export const useAdd = <C extends Channel>({
     const channel = createChannel(ctx.get<C[]>(path).value);
     if (channel == null) return;
     push(channel);
-    onSelect([channel.key]);
+    if (!checkable) onSelect([channel.key]);
   };
 };
 
@@ -79,6 +87,8 @@ export interface ChannelListProps<C extends Channel> extends Omit<
   createChannel: (channels: C[]) => C | null;
   createChannels?: (channels: C[], keys: string[]) => C[];
   path?: string;
+  /** Shown in place of the items and the "Add channel" footer. */
+  ports?: ReactNode;
 }
 
 export const ChannelList = <C extends Channel>({
@@ -86,6 +96,7 @@ export const ChannelList = <C extends Channel>({
   createChannels,
   path = "config.channels",
   header = HEADER,
+  ports,
   ...rest
 }: ChannelListProps<C>) => {
   const ctx = Form.useContext();
@@ -108,8 +119,8 @@ export const ChannelList = <C extends Channel>({
   }, [path, ctx]);
 
   const { data, push, remove } = Form.useFieldList<C["key"], C>(path);
-  const { onSelect } = rest;
-  const handleAdd = useAdd({ path, createChannel, onSelect });
+  const { onSelect, checkable = false } = rest;
+  const handleAdd = useAdd({ path, createChannel, onSelect, checkable });
   const handleDuplicate = (chs: C[], keys: string[]) => {
     if (createChannels == null) return;
     const duplicated = createChannels(chs, keys);
@@ -122,7 +133,8 @@ export const ChannelList = <C extends Channel>({
       data={data}
       header={header}
       emptyContent={EMPTY_CONTENT}
-      footer={<Footer onAdd={handleAdd} />}
+      footer={ports == null && <Footer onAdd={handleAdd} />}
+      ports={ports}
       path={path}
       remove={remove}
       onDuplicate={handleDuplicate}

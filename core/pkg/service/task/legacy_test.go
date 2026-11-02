@@ -38,6 +38,7 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/service/pagerduty"
 	"github.com/synnaxlabs/synnax/pkg/service/rack"
 	racktask "github.com/synnaxlabs/synnax/pkg/service/rack/task"
+	racktestutil "github.com/synnaxlabs/synnax/pkg/service/rack/testutil"
 	"github.com/synnaxlabs/synnax/pkg/service/status"
 	"github.com/synnaxlabs/synnax/pkg/service/task"
 	"github.com/synnaxlabs/synnax/pkg/service/task/config"
@@ -334,6 +335,7 @@ var _ = Describe("Legacy file import", Ordered, ContinueOnFailure, func() {
 			HostProvider:        testutil.NewStaticHostProvider(1),
 			Status:              statusSvc,
 			HealthCheckInterval: 10 * telem.Millisecond,
+			DriverRole:          MustSucceed(racktestutil.CreateDriverRole(ctx, otg)),
 		}))
 		deviceSvc := MustOpen(device.OpenService(ctx, device.ServiceConfig{
 			DB:       db,

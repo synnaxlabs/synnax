@@ -51,7 +51,7 @@ var _ = Describe("Service", func() {
 			ctx SpecContext,
 		) {
 			key := uuid.New()
-			Expect(svc.Read.Write(ctx, nil, key, msgpack.EncodedJSON{
+			MustSucceed(svc.Read.Write(ctx, nil, key, msgpack.EncodedJSON{
 				"device": "dev-1",
 				"topic":  "telemetry",
 				"records": []any{map[string]any{
@@ -62,7 +62,7 @@ var _ = Describe("Service", func() {
 						"pointer": "/value",
 					}},
 				}},
-			})).To(Succeed())
+			}))
 			data := MustSucceed(svc.Read.Read(ctx, nil, key))
 			Expect(data["key"]).To(Equal(key.String()))
 			Expect(data["device"]).To(Equal("dev-1"))
@@ -79,12 +79,12 @@ var _ = Describe("Service", func() {
 			ctx SpecContext,
 		) {
 			key := uuid.New()
-			Expect(svc.Read.Write(ctx, nil, key, msgpack.EncodedJSON{
+			MustSucceed(svc.Read.Write(ctx, nil, key, msgpack.EncodedJSON{
 				"records": []any{map[string]any{
 					"key":    "r-1",
 					"fields": []any{map[string]any{"key": "f-1"}},
 				}},
-			})).To(Succeed())
+			}))
 			data := MustSucceed(svc.Read.Read(ctx, nil, key))
 			Expect(data["start_offset"]).To(Equal("latest"))
 			Expect(data["records"]).To(HaveExactElements(SatisfyAll(
@@ -99,9 +99,9 @@ var _ = Describe("Service", func() {
 			ctx SpecContext,
 		) {
 			key := uuid.New()
-			Expect(svc.Write.Write(ctx, nil, key, msgpack.EncodedJSON{
+			MustSucceed(svc.Write.Write(ctx, nil, key, msgpack.EncodedJSON{
 				"channels": []any{map[string]any{"key": "ch-1"}},
-			})).To(Succeed())
+			}))
 			data := MustSucceed(svc.Write.Read(ctx, nil, key))
 			Expect(data["record_key"]).To(Equal("channel_name"))
 			Expect(data["record"]).To(And(
@@ -117,12 +117,12 @@ var _ = Describe("Service", func() {
 
 		It("Should keep the record pointers the caller sets", func(ctx SpecContext) {
 			key := uuid.New()
-			Expect(svc.Write.Write(ctx, nil, key, msgpack.EncodedJSON{
+			MustSucceed(svc.Write.Write(ctx, nil, key, msgpack.EncodedJSON{
 				"record": map[string]any{
 					"channel_pointer":   "/name",
 					"timestamp_pointer": "/time",
 				},
-			})).To(Succeed())
+			}))
 			data := MustSucceed(svc.Write.Read(ctx, nil, key))
 			Expect(data["record"]).To(And(
 				HaveKeyWithValue("channel_pointer", "/name"),
@@ -134,7 +134,7 @@ var _ = Describe("Service", func() {
 			ctx SpecContext,
 		) {
 			key := uuid.New()
-			Expect(svc.Scan.Write(ctx, nil, key, msgpack.EncodedJSON{})).To(Succeed())
+			MustSucceed(svc.Scan.Write(ctx, nil, key, msgpack.EncodedJSON{}))
 			data := MustSucceed(svc.Scan.Read(ctx, nil, key))
 			Expect(data["rate"]).To(BeNumerically("==", 0.2))
 		})
@@ -143,7 +143,7 @@ var _ = Describe("Service", func() {
 			func(ctx SpecContext) {
 				Expect(svc.Read.Write(ctx, nil, uuid.New(), msgpack.EncodedJSON{
 					"start_offset": "bogus",
-				})).To(MatchError(ContainSubstring("invalid start_offset: bogus")))
+				})).Error().To(MatchError(ContainSubstring("invalid start_offset: bogus")))
 			},
 		)
 
@@ -151,7 +151,7 @@ var _ = Describe("Service", func() {
 			func(ctx SpecContext) {
 				Expect(svc.Write.Write(ctx, nil, uuid.New(), msgpack.EncodedJSON{
 					"record_key": "bogus",
-				})).To(MatchError(ContainSubstring("invalid record_key: bogus")))
+				})).Error().To(MatchError(ContainSubstring("invalid record_key: bogus")))
 			},
 		)
 	})
