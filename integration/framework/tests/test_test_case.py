@@ -16,6 +16,8 @@ from framework.test_case import param
 
 
 class TestParam:
+    """Reads a test definition parameter with param."""
+
     def test_should_return_the_default_for_a_missing_key(self) -> None:
         assert param({}, "rate", 10) == 10
 
