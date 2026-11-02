@@ -177,6 +177,8 @@ struct ThermocoupleChan final : InputChan {
     const LJM_TemperatureUnits units;
     /// @brief the scale applied to the temperature after conversion.
     const ::synnax::labjack::Scale scale_cfg;
+    /// @brief the warning for a voltage outside the range of the thermocouple type.
+    const common::Warning out_of_range;
     /// @brief the position of the CJC register in the registers of the task.
     size_t cjc_index = 0;
 
@@ -192,7 +194,14 @@ struct ThermocoupleChan final : InputChan {
         cjc_slope(cfg.cjc_slope),
         cjc_offset(cfg.cjc_offset),
         units(resolve_temperature_units(parser, cfg.units)),
-        scale_cfg(cfg.scale) {}
+        scale_cfg(cfg.scale),
+        out_of_range{
+            .message = "Thermocouple out of range",
+            .description = cfg.port + " reads a voltage outside the range of its "
+                                      "thermocouple type. Check for an open "
+                                      "thermocouple or a loose wire. The Driver writes "
+                                      "NaN until the voltage is in range.",
+        } {}
 
     [[nodiscard]] const ::synnax::labjack::Scale *scale() const override {
         return &this->scale_cfg;
@@ -411,16 +420,6 @@ inline bool version_below(const double version, const double minimum) {
     return version < minimum - 0.00005;
 }
 
-/// @brief returns the warning for a thermocouple whose voltage is out of range.
-inline common::Warning out_of_range_warning(const std::string &port) {
-    return {
-        .message = "Thermocouple out of range",
-        .description = port + " reads a voltage outside the range of its thermocouple "
-                              "type. Check for an open thermocouple or a loose wire. "
-                              "The Driver writes NaN until the voltage is in range.",
-    };
-}
-
 /// @brief configuration for a LabJack read task.
 struct ReadTaskConfig : common::BaseReadTaskConfig {
     const std::string device_key;
@@ -598,8 +597,11 @@ struct ReadTaskConfig : common::BaseReadTaskConfig {
     /// @brief converts the thermocouple voltages of one read to temperatures, in place.
     /// @param values one value per register, in the order of registers.
     /// @param warning set when a thermocouple is out of range.
-    [[nodiscard]] x::errors::Error
-    convert(const device::Device &dev, double *values, common::Warning &warning) const {
+    [[nodiscard]] x::errors::Error convert_thermocouples(
+        const device::Device &dev,
+        double *values,
+        common::Warning &warning
+    ) const {
         for (const auto &[i, tc]: this->thermocouples) {
             const auto [temp, err] = tc->temperature(
                 dev,
@@ -607,7 +609,7 @@ struct ReadTaskConfig : common::BaseReadTaskConfig {
                 values[tc->cjc_index]
             );
             if (err) return err;
-            if (std::isnan(temp)) warning = out_of_range_warning(tc->port);
+            if (std::isnan(temp)) warning = tc->out_of_range;
             values[i] = temp;
         }
         return x::errors::NIL;
@@ -737,8 +739,11 @@ public:
                 return res;
             }
             const auto end = x::telem::TimeStamp::now();
-            if (res.error = this->cfg
-                                .convert(*this->dev, this->values.data(), res.warning);
+            if (res.error = this->cfg.convert_thermocouples(
+                    *this->dev,
+                    this->values.data(),
+                    res.warning
+                );
                 res.error)
                 return res;
             for (size_t j = 0; j < n_channels; ++j)
@@ -800,11 +805,12 @@ class StreamSource final : public common::Source {
 
     /// @brief converts the thermocouple voltages of the first n_scans scans of
     /// interleaved_buf to temperatures.
-    x::errors::Error convert(const size_t n_scans, common::Warning &warning) {
+    x::errors::Error
+    convert_thermocouples(const size_t n_scans, common::Warning &warning) {
         if (this->cfg.thermocouples.empty()) return x::errors::NIL;
         const size_t n_registers = this->cfg.registers.size();
         for (size_t scan = 0; scan < n_scans; ++scan)
-            if (const auto err = this->cfg.convert(
+            if (const auto err = this->cfg.convert_thermocouples(
                     *this->dev,
                     this->interleaved_buf.data() + scan * n_registers,
                     warning
@@ -975,7 +981,8 @@ public:
             fr.clear();
             return res;
         }
-        if (res.error = this->convert(n_scans, res.warning); res.error) return res;
+        if (res.error = this->convert_thermocouples(n_scans, res.warning); res.error)
+            return res;
         common::transfer_buf(this->deinterleave(n_scans), fr, n_channels, n_scans);
         this->write_index(fr, start, end);
         res.error = this->cfg.transform.transform(fr);

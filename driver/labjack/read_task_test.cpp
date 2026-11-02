@@ -271,6 +271,25 @@ TEST(TestThermocoupleTemperature, testConvertsToUnits) {
     EXPECT_NEAR(ASSERT_NIL_P(temperature(fahrenheit, dev, 0.001, 300)), 125.33, 1e-9);
 }
 
+/// @brief it should convert the CJC reading to Kelvin with the CJC slope and offset.
+TEST(TestThermocoupleTemperature, testAppliesCJCSlopeAndOffset) {
+    const x::json::json cfg{
+        {"port", "AIN0"},
+        {"channel", 1},
+        {"type", "thermocouple"},
+        {"thermocouple_type", "K"},
+        {"units", "K"},
+        {"cjc_source", "AIN2"},
+        {"cjc_slope", 100},
+        {"cjc_offset", 250},
+    };
+    auto p = x::json::Parser(cfg);
+    const auto chan = parse_input_chan(p);
+    ASSERT_NIL(p.error());
+    const device::Mock dev;
+    EXPECT_DOUBLE_EQ(ASSERT_NIL_P(temperature(chan, dev, 0.001, 0.5)), 325);
+}
+
 /// @brief it should return NaN for a voltage above the range of every thermocouple
 /// type, without a call to LJM.
 TEST(TestThermocoupleTemperature, testVoltageAboveEveryTypeIsNaN) {
@@ -943,7 +962,7 @@ TEST_F(SourceClaimTest, testStreamSourceWritesNothingWhenEveryScanSkipped) {
     ASSERT_NIL(source.stop());
 }
 
-class ThermocoupleTaskTest : public ::testing::Test {
+class ReadTaskTest : public ::testing::Test {
 protected:
     std::shared_ptr<synnax::Synnax> client = std::make_shared<synnax::Synnax>(
         new_test_client()
@@ -995,11 +1014,12 @@ protected:
         };
     }
 
-    /// @brief parses a task on a new device of the model, with two samples per read.
+    /// @brief parses a task on a new device of the model.
     std::pair<ReadTaskConfig, x::errors::Error> parse(
         const std::string &model,
         const x::json::json &channels,
-        const int sample_rate = 10
+        const int sample_rate = 10,
+        const int stream_rate = 5
     ) {
         const auto rack = ASSERT_NIL_P(this->client->racks.create("tc"));
         synnax::device::Device device{
@@ -1016,7 +1036,7 @@ protected:
         j["device"] = device.key;
         j["channels"] = channels;
         j["sample_rate"] = sample_rate;
-        j["stream_rate"] = sample_rate / 2;
+        j["stream_rate"] = stream_rate;
         auto p = x::json::Parser(j);
         ReadTaskConfig cfg(this->client, p);
         return {std::move(cfg), p.error()};
@@ -1024,7 +1044,7 @@ protected:
 };
 
 /// @brief it should read the device CJC sensor after the channels on a T7, and poll.
-TEST_F(ThermocoupleTaskTest, testT7ReadsDeviceSensor) {
+TEST_F(ReadTaskTest, testT7ReadsDeviceSensor) {
     const auto cfg = ASSERT_NIL_P(
         this->parse(T7, x::json::json::array({thermocouple("AIN0"), analog("AIN1")}))
     );
@@ -1037,7 +1057,7 @@ TEST_F(ThermocoupleTaskTest, testT7ReadsDeviceSensor) {
 
 /// @brief it should read the sensor at the terminal of each thermocouple on a T8, and
 /// stream.
-TEST_F(ThermocoupleTaskTest, testT8ReadsTerminalSensors) {
+TEST_F(ReadTaskTest, testT8ReadsTerminalSensors) {
     const auto cfg = ASSERT_NIL_P(this->parse(
         T8,
         x::json::json::array({thermocouple("AIN3"), thermocouple("AIN5")})
@@ -1053,7 +1073,7 @@ TEST_F(ThermocoupleTaskTest, testT8ReadsTerminalSensors) {
 }
 
 /// @brief it should read a CJC port once when a channel of the task also reads it.
-TEST_F(ThermocoupleTaskTest, testSharesCJCPortWithChannel) {
+TEST_F(ReadTaskTest, testSharesCJCPortWithChannel) {
     const auto cfg = ASSERT_NIL_P(this->parse(
         T7,
         x::json::json::array({thermocouple("AIN0", "AIN2"), analog("AIN2")})
@@ -1065,7 +1085,7 @@ TEST_F(ThermocoupleTaskTest, testSharesCJCPortWithChannel) {
 
 /// @brief it should reject a T8 task with thermocouples above 250 Hz, and allow the
 /// same rate on a T7.
-TEST_F(ThermocoupleTaskTest, testT8RateLimit) {
+TEST_F(ReadTaskTest, testT8RateLimit) {
     auto [t8, t8_err] = this->parse(
         T8,
         x::json::json::array({thermocouple("AIN0")}),
@@ -1081,7 +1101,7 @@ TEST_F(ThermocoupleTaskTest, testT8RateLimit) {
 
 /// @brief it should convert each polled thermocouple voltage with the CJC reading of
 /// the same request.
-TEST_F(ThermocoupleTaskTest, testUnarySourceConverts) {
+TEST_F(ReadTaskTest, testUnarySourceConverts) {
     auto cfg = ASSERT_NIL_P(
         this->parse(T7, x::json::json::array({thermocouple("AIN0")}))
     );
@@ -1100,7 +1120,7 @@ TEST_F(ThermocoupleTaskTest, testUnarySourceConverts) {
 }
 
 /// @brief it should write NaN and warn for a thermocouple out of range.
-TEST_F(ThermocoupleTaskTest, testUnarySourceWarnsOutOfRange) {
+TEST_F(ReadTaskTest, testUnarySourceWarnsOutOfRange) {
     auto cfg = ASSERT_NIL_P(
         this->parse(T7, x::json::json::array({thermocouple("AIN0")}))
     );
@@ -1123,7 +1143,7 @@ TEST_F(ThermocoupleTaskTest, testUnarySourceWarnsOutOfRange) {
 
 /// @brief it should stream each thermocouple with its terminal sensor on a T8, and
 /// write only the channels to the frame.
-TEST_F(ThermocoupleTaskTest, testStreamSourceConverts) {
+TEST_F(ReadTaskTest, testStreamSourceConverts) {
     auto cfg = ASSERT_NIL_P(
         this->parse(T8, x::json::json::array({thermocouple("AIN3")}))
     );
@@ -1141,7 +1161,7 @@ TEST_F(ThermocoupleTaskTest, testStreamSourceConverts) {
 }
 
 /// @brief it should refuse to stream thermocouples from a T8 with old firmware.
-TEST_F(ThermocoupleTaskTest, testT8OldFirmware) {
+TEST_F(ReadTaskTest, testT8OldFirmware) {
     auto cfg = ASSERT_NIL_P(
         this->parse(T8, x::json::json::array({thermocouple("AIN0")}))
     );
@@ -1158,7 +1178,7 @@ TEST_F(ThermocoupleTaskTest, testT8OldFirmware) {
 }
 
 /// @brief it should refuse to stream thermocouples from a T8 with an old LJM.
-TEST_F(ThermocoupleTaskTest, testT8OldLJM) {
+TEST_F(ReadTaskTest, testT8OldLJM) {
     auto cfg = ASSERT_NIL_P(
         this->parse(T8, x::json::json::array({thermocouple("AIN0")}))
     );
@@ -1171,5 +1191,35 @@ TEST_F(ThermocoupleTaskTest, testT8OldLJM) {
         "Thermocouples on a T8 need LJM 1.2304 or later, but the Driver loaded LJM "
         "1.2302. Install the latest LJM."
     );
+}
+
+/// @brief it should keep the timestamps of the scans after a skipped scan in place, so
+/// the gap of the skipped scan stays in the index.
+TEST_F(ReadTaskTest, testStreamSourceKeepsGapOfSkippedScan) {
+    const auto index = ASSERT_NIL_P(
+        this->client->channels
+            .create(make_unique_channel_name("time"), x::telem::TIMESTAMP_T, 0, true)
+    );
+    const auto data = ASSERT_NIL_P(this->client->channels.create(
+        make_unique_channel_name("ai"),
+        x::telem::FLOAT64_T,
+        index.key
+    ));
+    auto channel = analog("AIN0");
+    channel["channel"] = data.key;
+    auto cfg = ASSERT_NIL_P(this->parse(T7, x::json::json::array({channel}), 20, 5));
+    this->dev->stream_data = {1, LJM_DUMMY_VALUE, 3, 4};
+    StreamSource source(this->devs, std::move(cfg));
+    ASSERT_NIL(source.start());
+    x::telem::Frame fr(0);
+    ASSERT_NIL(read_once(source, fr).error);
+    ASSERT_EQ(fr.size(), 2);
+    ASSERT_EQ(fr.series->at(0).size(), 3);
+    EXPECT_EQ(fr.at<double>(data.key, 1), 3);
+    const auto t0 = fr.at<x::telem::TimeStamp>(index.key, 0);
+    const auto t2 = fr.at<x::telem::TimeStamp>(index.key, 1);
+    const auto t3 = fr.at<x::telem::TimeStamp>(index.key, 2);
+    EXPECT_EQ(t2 - t0, (t3 - t2) * 2);
+    ASSERT_NIL(source.stop());
 }
 }

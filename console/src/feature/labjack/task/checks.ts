@@ -24,7 +24,7 @@ export const uniqueTerminalsZ = (model: Model): z.ZodType =>
   );
 
 /** The highest sample rate of a T8 task with thermocouples. */
-export const T8_MAX_THERMOCOUPLE_RATE = 250;
+const T8_MAX_THERMOCOUPLE_RATE = 250;
 
 /**
  * Checks that a T8 task with an enabled thermocouple samples at 250 Hz or less. Above
