@@ -81,7 +81,8 @@ const beforeSave = async ({
     timeout: TEST_CONNECTION_TIMEOUT,
     args: { connection: get("properties").value },
   });
-  if (state.variant === "error") throw new Error(state.message);
+  if (state.variant === "error")
+    throw new Error([state.message, state.description].filter(Boolean).join(": "));
   // The scan just succeeded, so the device starts healthy. The scanner overwrites
   // this status when the cluster goes away.
   const devStatus: device.Status = status.create<typeof device.statusDetailsZ>({

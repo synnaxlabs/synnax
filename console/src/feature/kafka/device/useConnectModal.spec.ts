@@ -119,6 +119,36 @@ describe("Kafka.Device.useConnectModal", () => {
     );
   });
 
+  it("should show why the connection test failed", async () => {
+    const rack = await createRunningRack(client, "kafka");
+    const scan = await rack.createTask({
+      name: uniqueName("kafka_scan"),
+      type: Kafka.Task.SCAN_TYPE,
+      config: {},
+    });
+    await renderModalOpener(Kafka.Device.useConnectModal, [{ rack: rack.key }], {
+      client,
+    });
+    fireEvent.change(screen.getByPlaceholderText("Kafka cluster"), {
+      target: { value: uniqueName("kafka_cluster") },
+    });
+    fireEvent.change(screen.getByPlaceholderText("localhost:9092"), {
+      target: { value: "localhost:9092" },
+    });
+    const { answered } = await answerNextCommand(client, scan, {
+      variant: "error",
+      message: "Failed to connect",
+      description: "dial tcp 127.0.0.1:9092: connection refused",
+    });
+    pressSaveTrigger();
+    await answered;
+    expect(
+      await screen.findByText(
+        "Failed to connect: dial tcp 127.0.0.1:9092: connection refused",
+      ),
+    ).toBeTruthy();
+  });
+
   // A running rack keeps Connect enabled while none is chosen, so the save fails
   // validation. That error proves the keys reached the Connect button's save path.
   it("should submit on the shortcut its footer advertises", async () => {
