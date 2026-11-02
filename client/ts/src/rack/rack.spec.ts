@@ -14,7 +14,12 @@ import { NotFoundError } from "@/index";
 import { query } from "@/query";
 import { rack } from "@/rack";
 import { status } from "@/status";
-import { createTestClient, spyOnSend, waitForStreamLive } from "@/testutil";
+import {
+  createTestClient,
+  holdResponses,
+  spyOnSend,
+  waitForStreamLive,
+} from "@/testutil";
 
 const client = createTestClient();
 
@@ -108,6 +113,26 @@ describe("Rack", () => {
       await expect
         .poll(async () => (await client.racks.retrieve(r.key)).name)
         .toBe(name);
+    });
+    it("should keep a rename that streams in during a retrieve", async () => {
+      const r = await client.racks.create({ name: "rack-rename-in-flight" });
+      const local = createTestClient();
+      await local.connect();
+      await waitForStreamLive(local.connection);
+      await local.racks.retrieve(r.key);
+      const cachedName = () => {
+        const cached = local.racks.getCached(r.key);
+        return query.isLive(cached) ? cached.name : undefined;
+      };
+      const { responded, release } = holdResponses(local, "/rack/retrieve");
+      const fetching = local.racks.retrieve({ key: r.key, includeStatus: true });
+      await responded;
+      const name = `rack-renamed-${id.create()}`;
+      await client.racks.rename(r.key, name);
+      await expect.poll(cachedName).toBe(name);
+      release();
+      await fetching;
+      expect(cachedName()).toBe(name);
     });
     it("should reject an empty name", async () => {
       const r = await client.racks.create({ name: "rack-rename-empty" });
