@@ -88,14 +88,42 @@ var _ = Describe("Factory", func() {
 		)
 	})
 
+	// readConfig and writeConfig build a minimal task config on dev.
+	readConfig := func(ctx context.Context, dev device.Key, autoStart bool) any {
+		GinkgoHelper()
+		_, data := createIndexed(ctx, telem.Float64T)
+		return kafka.ReadConfig{
+			AutoStart:   autoStart,
+			Device:      dev,
+			Topic:       uniqueTopic(),
+			StartOffset: kafka.StartOffsetEarliest,
+			Records: []kafka.ReadRecord{{
+				Key: "r",
+				Fields: []kafka.ReadField{{
+					Key:      "v",
+					Channel:  data.Key(),
+					Pointer:  "/v",
+					DataType: telem.Float64T,
+				}},
+			}},
+		}
+	}
+	writeConfig := func(ctx context.Context, dev device.Key, autoStart bool) any {
+		GinkgoHelper()
+		_, data := createIndexed(ctx, telem.Float64T)
+		return kafka.WriteConfig{
+			AutoStart: autoStart,
+			Device:    dev,
+			Topic:     uniqueTopic(),
+			Channels:  []kafka.WriteChannel{{Key: "c1", Channel: data.Key()}},
+		}
+	}
+	type buildConfig = func(ctx context.Context, dev device.Key, autoStart bool) any
+
 	DescribeTable("Should answer the command when an auto-started task fails to start",
-		func(
-			ctx SpecContext,
-			typ string,
-			build func(ctx context.Context, dev device.Key) any,
-		) {
+		func(ctx SpecContext, typ string, build buildConfig) {
 			dev := createDevice(ctx, kafka.Properties{Brokers: []string{"127.0.0.1:1"}})
-			t := newTask(typ, build(ctx, dev.Key))
+			t := newTask(typ, build(ctx, dev.Key, true))
 			Expect(f.ConfigureTask(ctx, t, "cmd-1")).Error().
 				To(MatchError(ContainSubstring("connecting to cluster")))
 			stat := taskStatus(ctx, t)
@@ -103,35 +131,46 @@ var _ = Describe("Factory", func() {
 			Expect(stat.Details.Running).To(BeFalse())
 			Expect(stat.Details.Cmd).To(Equal("cmd-1"))
 		},
-		Entry("read", kafka.ReadTaskType,
-			func(ctx context.Context, dev device.Key) any {
-				_, data := createIndexed(ctx, telem.Float64T)
-				return kafka.ReadConfig{
-					AutoStart:   true,
-					Device:      dev,
-					Topic:       "t",
-					StartOffset: kafka.StartOffsetEarliest,
-					Records: []kafka.ReadRecord{{
-						Key: "r",
-						Fields: []kafka.ReadField{{
-							Key:      "v",
-							Channel:  data.Key(),
-							Pointer:  "/v",
-							DataType: telem.Float64T,
-						}},
-					}},
-				}
-			}),
-		Entry("write", kafka.WriteTaskType,
-			func(ctx context.Context, dev device.Key) any {
-				_, data := createIndexed(ctx, telem.Float64T)
-				return kafka.WriteConfig{
-					AutoStart: true,
-					Device:    dev,
-					Topic:     "t",
-					Channels:  []kafka.WriteChannel{{Key: "c1", Channel: data.Key()}},
-				}
-			}),
+		Entry("read", kafka.ReadTaskType, readConfig),
+		Entry("write", kafka.WriteTaskType, writeConfig),
+	)
+
+	DescribeTable("Should answer a command that needs no work with the current state",
+		func(ctx SpecContext, typ string, build buildConfig) {
+			dev := createDevice(ctx, clusterProperties())
+			t := newTask(typ, build(ctx, dev.Key, false))
+			dt := MustSucceed(f.ConfigureTask(ctx, t, "cmd-1"))
+			DeferCleanup(func() { Expect(dt.Stop(false)).To(Succeed()) })
+			exec := func(cmd, key string) task.Status {
+				GinkgoHelper()
+				Expect(dt.Exec(ctx, task.Command{Task: t.Key, Type: cmd, Key: key})).
+					To(Succeed())
+				return taskStatus(ctx, t)
+			}
+			stat := exec("stop", "cmd-2")
+			Expect(stat.Details.Cmd).To(Equal("cmd-2"))
+			Expect(stat.Details.Running).To(BeFalse())
+			Expect(exec("start", "cmd-3").Details.Running).To(BeTrue())
+			stat = exec("start", "cmd-4")
+			Expect(stat.Details.Cmd).To(Equal("cmd-4"))
+			Expect(stat.Details.Running).To(BeTrue())
+			Expect(stat.Variant).To(Equal(status.VariantSuccess))
+		},
+		Entry("read", kafka.ReadTaskType, readConfig),
+		Entry("write", kafka.WriteTaskType, writeConfig),
+	)
+
+	DescribeTable("Should reject an unknown command",
+		func(ctx SpecContext, typ string, build buildConfig) {
+			dev := createDevice(ctx, clusterProperties())
+			t := newTask(typ, build(ctx, dev.Key, false))
+			dt := MustSucceed(f.ConfigureTask(ctx, t, "cmd-1"))
+			DeferCleanup(func() { Expect(dt.Stop(false)).To(Succeed()) })
+			Expect(dt.Exec(ctx, task.Command{Task: t.Key, Type: "bogus"})).
+				To(MatchError(driver.ErrUnsupportedCommand))
+		},
+		Entry("read", kafka.ReadTaskType, readConfig),
+		Entry("write", kafka.WriteTaskType, writeConfig),
 	)
 
 	Describe("Scan task", func() {
@@ -144,6 +183,18 @@ var _ = Describe("Factory", func() {
 			dt = MustSucceed(f.ConfigureTask(ctx, t, driver.NoCommand))
 			DeferCleanup(func() { Expect(dt.Stop(false)).To(Succeed()) })
 		})
+
+		// testConnection runs test_connection against props and returns the answer.
+		testConnection := func(ctx SpecContext, props kafka.Properties) task.Status {
+			GinkgoHelper()
+			Expect(dt.Exec(ctx, task.Command{
+				Task: t.Key,
+				Type: "test_connection",
+				Key:  "cmd-conn",
+				Args: toJSON(map[string]any{"connection": props}),
+			})).To(Succeed())
+			return taskStatus(ctx, t)
+		}
 
 		It("Should answer test_connection with success for a live cluster",
 			func(ctx SpecContext) {
@@ -217,17 +268,6 @@ var _ = Describe("Factory", func() {
 				brokers = tlsCluster.ListenAddrs()
 			})
 
-			testConnection := func(ctx SpecContext, props kafka.Properties) task.Status {
-				GinkgoHelper()
-				Expect(dt.Exec(ctx, task.Command{
-					Task: t.Key,
-					Type: "test_connection",
-					Key:  "cmd-tls",
-					Args: toJSON(map[string]any{"connection": props}),
-				})).To(Succeed())
-				return taskStatus(ctx, t)
-			}
-
 			It(
 				"Should connect to a broker signed by the given CA",
 				func(ctx SpecContext) {
@@ -268,6 +308,64 @@ var _ = Describe("Factory", func() {
 				})
 				Expect(stat.Variant).To(Equal(status.VariantError))
 				Expect(stat.Description).To(ContainSubstring("PEM-encoded certificate"))
+			})
+		})
+
+		Describe("SASL", func() {
+			var brokers []string
+			BeforeEach(func() {
+				saslCluster := MustSucceed(kfake.NewCluster(
+					kfake.NumBrokers(1),
+					kfake.EnableSASL(),
+					kfake.Superuser("PLAIN", "plain-user", "plain-pass"),
+					kfake.Superuser("SCRAM-SHA-256", "scram256-user", "scram256-pass"),
+					kfake.Superuser("SCRAM-SHA-512", "scram512-user", "scram512-pass"),
+				))
+				DeferCleanup(saslCluster.Close)
+				brokers = saslCluster.ListenAddrs()
+			})
+
+			DescribeTable(
+				"Should authenticate with each mechanism",
+				func(ctx SpecContext, variant kafka.SASLVariant) {
+					stat := testConnection(ctx, kafka.Properties{
+						Brokers: brokers,
+						Sasl:    kafka.SASL{Variant: variant},
+					})
+					Expect(stat.Variant).To(Equal(status.VariantSuccess))
+				},
+				Entry(
+					"plain",
+					kafka.PlainSASL{Username: "plain-user", Password: "plain-pass"},
+				),
+				Entry(
+					"SCRAM-SHA-256",
+					kafka.ScramSha256SASL{
+						Username: "scram256-user",
+						Password: "scram256-pass",
+					},
+				),
+				Entry(
+					"SCRAM-SHA-512",
+					kafka.ScramSha512SASL{
+						Username: "scram512-user",
+						Password: "scram512-pass",
+					},
+				),
+			)
+
+			It("Should fail to connect with a wrong password", func(ctx SpecContext) {
+				stat := testConnection(ctx, kafka.Properties{
+					Brokers: brokers,
+					Sasl: kafka.SASL{
+						Variant: kafka.ScramSha256SASL{
+							Username: "scram256-user",
+							Password: "wrong",
+						},
+					},
+				})
+				Expect(stat.Variant).To(Equal(status.VariantError))
+				Expect(stat.Message).To(Equal("Failed to connect"))
 			})
 		})
 

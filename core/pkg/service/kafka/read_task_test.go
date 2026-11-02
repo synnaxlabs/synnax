@@ -580,6 +580,78 @@ var _ = Describe("Read task", func() {
 		},
 	)
 
+	It("Should read one array element into fields that spell its index differently",
+		func(ctx SpecContext) {
+			index, data := createIndexed(ctx, telem.Float64T)
+			other := channel.Channel{
+				Name:       "other_" + uuid.New().String()[:8],
+				DataType:   telem.Float64T,
+				LocalIndex: index.LocalKey,
+			}
+			Expect(channelSvc.NewWriter(nil).Create(ctx, &other)).To(Succeed())
+			dev := createDevice(ctx, clusterProperties())
+			topic := newTopic()
+			fields := stampedFields(index, data)
+			fields[1].Pointer = "/vals/1"
+			fields = append(fields, kafka.ReadField{
+				Key:      "w",
+				Channel:  other.Key(),
+				Pointer:  "/vals/01",
+				DataType: telem.Float64T,
+			})
+			dt, t := configure(ctx, kafka.ReadConfig{
+				Device:  dev.Key,
+				Topic:   topic,
+				Records: single(fields),
+			})
+			start(ctx, dt, t)
+			produceJSON(ctx, producer, topic, "", map[string]any{
+				"ts": 10e9, "vals": []any{1.0, 2.5},
+			})
+			Expect(floats(expectStored(ctx, data.Key(), 1))).To(Equal([]float64{2.5}))
+			Expect(floats(expectStored(ctx, other.Key(), 1))).To(Equal([]float64{2.5}))
+		},
+	)
+
+	It("Should store a nested JSON value in a JSON channel", func(ctx SpecContext) {
+		index, data := createIndexed(ctx, telem.JSONT)
+		dev := createDevice(ctx, clusterProperties())
+		topic := newTopic()
+		fields := stampedFields(index, data)
+		fields[1].DataType = telem.JSONT
+		dt, t := configure(ctx, kafka.ReadConfig{
+			Device:  dev.Key,
+			Topic:   topic,
+			Records: single(fields),
+		})
+		start(ctx, dt, t)
+		doc := map[string]any{"mode": "auto", "limits": []any{1, 2.5}}
+		produceJSON(ctx, producer, topic, "", map[string]any{"ts": 10e9, "v": doc})
+		want := MustSucceed(telem.NewJSONSeriesV(map[string]any{
+			"mode": "auto", "limits": []any{int64(1), 2.5},
+		}))
+		Expect(expectStored(ctx, data.Key(), 1).Data).To(Equal(want.Data))
+	})
+
+	It("Should skip a record with data after its JSON value", func(ctx SpecContext) {
+		index, data := createIndexed(ctx, telem.Float64T)
+		dev := createDevice(ctx, clusterProperties())
+		topic := newTopic()
+		dt, t := configure(ctx, kafka.ReadConfig{
+			Device:  dev.Key,
+			Topic:   topic,
+			Records: single(stampedFields(index, data)),
+		})
+		start(ctx, dt, t)
+		rec := &kgo.Record{Topic: topic, Value: []byte(`{"ts":10e9,"v":1} {}`)}
+		Expect(producer.ProduceSync(ctx, rec).FirstErr()).To(Succeed())
+		Eventually(func() string { return taskStatus(ctx, t).Description }).
+			WithTimeout(15 * time.Second).
+			Should(ContainSubstring("Record is not JSON"))
+		produceJSON(ctx, producer, topic, "", map[string]any{"ts": 11e9, "v": 2.0})
+		Expect(floats(expectStored(ctx, data.Key(), 1))).To(Equal([]float64{2}))
+	})
+
 	It("Should skip a record when a pointer lacks its leading slash",
 		func(ctx SpecContext) {
 			index, data := createIndexed(ctx, telem.Float64T)
@@ -754,6 +826,9 @@ var _ = Describe("Read task", func() {
 			telem.Float64T, http.TimeFormatUnixNs, nil,
 			map[string]any{"ts": 10e9, "v": map[string]any{"x": 1}},
 			"expected a number or boolean"),
+		Entry("a null where a number is expected",
+			telem.Float64T, http.TimeFormatUnixNs, nil,
+			map[string]any{"ts": 10e9, "v": nil}, "expected a number or boolean"),
 		Entry("a number where a string is expected",
 			telem.StringT, http.TimeFormatUnixNs, nil,
 			map[string]any{"ts": 10e9, "v": 1}, "expected a string"),
