@@ -9,11 +9,11 @@
 
 import json
 import sys
-from collections.abc import Iterator
+from collections.abc import Iterator, Mapping
 from pathlib import Path
-from typing import Any
 
 import pytest
+from pydantic import JsonValue
 
 from framework import config_client
 from framework.target_filter import TargetFilter
@@ -69,7 +69,7 @@ def write_case(cases_dir: Path, *, case: str, source: str) -> None:
 
 
 def load(
-    cases_dir: Path, *, sequence: dict[str, Any]
+    cases_dir: Path, *, sequence: Mapping[str, object]
 ) -> tuple[list[config_client.Sequence], list[config_client.TestDefinition]]:
     (cases_dir / "spec_tests.json").write_text(json.dumps({"sequences": [sequence]}))
     return config_client.ConfigClient(tests_dir=cases_dir).load(
@@ -133,7 +133,7 @@ class TestConfigClient:
         }
 
     @pytest.mark.parametrize("timeout", [None, 0, -1, "10", True, float("inf")])
-    def test_invalid_timeout(self, cases_dir: Path, timeout: Any) -> None:
+    def test_invalid_timeout(self, cases_dir: Path, timeout: JsonValue) -> None:
         """Should reject a timeout that is not a finite, positive number."""
         write_case(
             cases_dir, case="config_client_spec/plain", source=named_case("Plain")
