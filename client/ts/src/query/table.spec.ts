@@ -1910,8 +1910,8 @@ describe("Tombstones", () => {
 
     it("should keep a key whose delete repeats after the stamp", () => {
       const table = newRevivable();
-      const since = table.stamp();
       table.delete("k1");
+      const since = table.stamp();
       table.delete("k1");
       table.ingest(fetched, { since });
       expect(table.status("k1")).toBe("tombstoned");
