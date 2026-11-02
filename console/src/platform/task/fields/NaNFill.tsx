@@ -8,15 +8,18 @@
 // included in the file licenses/APL.txt.
 
 import { Form } from "@synnaxlabs/lyra/form";
+import { deep } from "@synnaxlabs/x";
 
 const INPUT_PROPS = {
   tooltip: "Write NaN for bad float values instead of skipping the sample",
 } as const;
 
+const path = deep.path<{ config: { nanFillEnabled: boolean } }>();
+
 export const NaNFill = () => (
   <Form.CheckboxField
     label="NaN fill"
-    path="config.nanFillEnabled"
+    path={path.config.nanFillEnabled}
     inputProps={INPUT_PROPS}
   />
 );

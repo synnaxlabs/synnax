@@ -50,7 +50,7 @@ export const Personal = ({
   invitations,
   now,
 }: PersonalProps): ReactElement => (
-  <Page title="Synnax Desktop" subtitle="Free for personal use">
+  <Page title="Synnax Desktop" subtitle="Free for any use, including commercial use">
     <Invitations.Section invitations={invitations} />
     {machines.length === 0 ? (
       <GetStarted />
