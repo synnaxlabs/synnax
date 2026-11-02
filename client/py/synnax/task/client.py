@@ -28,7 +28,7 @@ from synnax.ontology.payload import ID
 from synnax.rack import Client as RackClient
 from synnax.rack import Rack
 from synnax.task.types_gen import Command, Key, Payload, Status, ontology_id
-from synnax.telem import TimeSpan
+from synnax.telem import CrudeTimeSpan, TimeSpan
 from x.lists import all_none, override
 from x.timing import Timer
 
@@ -207,7 +207,7 @@ class Task:
         type_: str,
         *,
         args: Mapping[str, object] | None = None,
-        timeout: float | TimeSpan = 5,
+        timeout: CrudeTimeSpan = 5,
     ) -> Status:
         """Executes a command on the task and waits for the driver to acknowledge the
         command with a state.
@@ -279,7 +279,7 @@ P = TypeVar("P", bound=Protocol)
 class StarterStopperMixin:
     _internal: Task
 
-    def start(self, *, timeout: float | TimeSpan = 5) -> None:
+    def start(self, *, timeout: CrudeTimeSpan = 5) -> None:
         """Starts the task and blocks until the Synnax cluster has acknowledged the
         command or the specified timeout has elapsed.
 
@@ -289,7 +289,7 @@ class StarterStopperMixin:
         """
         self._internal.execute_command_sync("start", timeout=timeout)
 
-    def stop(self, *, timeout: float | TimeSpan = 5) -> None:
+    def stop(self, *, timeout: CrudeTimeSpan = 5) -> None:
         """Stops the task and blocks until the Synnax cluster has acknowledged the
         command or the specified timeout has elapsed.
 
@@ -300,7 +300,7 @@ class StarterStopperMixin:
         self._internal.execute_command_sync("stop", timeout=timeout)
 
     @contextmanager
-    def run(self, *, timeout: float | TimeSpan = 5) -> Generator[None, None, None]:
+    def run(self, *, timeout: CrudeTimeSpan = 5) -> Generator[None, None, None]:
         """Context manager that starts the task before entering the block and stops the
         task after exiting the block. This is useful for ensuring that the task is
         properly stopped even if an exception occurs during execution.
