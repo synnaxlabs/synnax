@@ -13,6 +13,7 @@ import { beforeAll, describe, expect, it, test, vi } from "vitest";
 import { channel } from "@/channel";
 import { NotFoundError } from "@/index";
 import { query } from "@/query";
+import { type ranger } from "@/ranger";
 import {
   createProxiedTestClient,
   createTestClient,
@@ -856,6 +857,41 @@ describe("cached reads", () => {
       const bare = await client.channels.retrieve(ch.key);
       expect(bare.alias).toBeUndefined();
     });
+
+    it.each([
+      {
+        name: "single",
+        retrieve: async (key: channel.Key, rangeKey: ranger.Key) =>
+          await client.channels.retrieve(key, { rangeKey }),
+      },
+      {
+        name: "where",
+        retrieve: async (key: channel.Key, rangeKey: ranger.Key) => {
+          const res = await client.channels.retrieve({
+            where: { key: { in: [key] } },
+            rangeKey,
+          });
+          return res[0];
+        },
+      },
+    ])(
+      "falls back to the parent alias on a $name query once the child's is deleted",
+      async ({ retrieve }) => {
+        const ch = await createVirtual();
+        const parent = await createRange();
+        const start = TimeStamp.now();
+        const child = await client.ranges.create({
+          name: `qry-${id.create()}`,
+          timeRange: new TimeRange(start, start.add(TimeStamp.seconds(1))),
+          parent,
+        });
+        const inherited = `qry_alias_${id.create()}`;
+        await client.ranges.setAlias(parent.key, ch.key, inherited);
+        await client.ranges.setAlias(child.key, ch.key, `qry_alias_${id.create()}`);
+        await client.ranges.deleteAlias(child.key, ch.key);
+        expect((await retrieve(ch.key, child.key)).alias).toEqual(inherited);
+      },
+    );
 
     it("delivers remote alias changes to a subscribed single query", async () => {
       const ch = await createVirtual();
