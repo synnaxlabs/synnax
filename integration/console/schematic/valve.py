@@ -15,7 +15,7 @@ from console.schematic.symbol import Symbol
 class Valve(Symbol):
     """Schematic valve symbol"""
 
-    _symbol_group = "Valves"
+    _symbol_group: str | None = "Valves"
 
     def __init__(
         self,

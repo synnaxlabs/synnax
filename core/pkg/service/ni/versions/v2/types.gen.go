@@ -503,28 +503,39 @@ func (u *CJC) UnmarshalJSONFrom(dec *jsontext.Decoder) error {
 	var disc struct {
 		Type CJCType `json:"source"`
 	}
-	if err := json.Unmarshal(data, &disc, opts); err != nil {
+	if err := json.Unmarshal(
+		data, &disc, opts, json.RejectUnknownMembers(false),
+	); err != nil {
 		return err
 	}
 	switch disc.Type {
 	case BuiltInCJCType:
-		var v BuiltInCJC
+		var v struct {
+			Type CJCType `json:"source"`
+			BuiltInCJC
+		}
 		if err := json.Unmarshal(data, &v, opts); err != nil {
 			return err
 		}
-		u.Variant = v
+		u.Variant = v.BuiltInCJC
 	case ConstValCJCType:
-		var v ConstValCJC
+		var v struct {
+			Type CJCType `json:"source"`
+			ConstValCJC
+		}
 		if err := json.Unmarshal(data, &v, opts); err != nil {
 			return err
 		}
-		u.Variant = v
+		u.Variant = v.ConstValCJC
 	case ChanCJCType:
-		var v ChanCJC
+		var v struct {
+			Type CJCType `json:"source"`
+			ChanCJC
+		}
 		if err := json.Unmarshal(data, &v, opts); err != nil {
 			return err
 		}
-		u.Variant = v
+		u.Variant = v.ChanCJC
 	default:
 		return errors.Newf("CJC: unknown source %q", disc.Type)
 	}
@@ -804,40 +815,57 @@ func (u *Scale) UnmarshalJSONFrom(dec *jsontext.Decoder) error {
 	var disc struct {
 		Type ScaleType `json:"type"`
 	}
-	if err := json.Unmarshal(data, &disc, opts); err != nil {
+	if err := json.Unmarshal(
+		data, &disc, opts, json.RejectUnknownMembers(false),
+	); err != nil {
 		return err
 	}
 	switch disc.Type {
 	case LinearScaleType:
-		var v LinearScale
+		var v struct {
+			Type ScaleType `json:"type"`
+			LinearScale
+		}
 		if err := json.Unmarshal(data, &v, opts); err != nil {
 			return err
 		}
-		u.Variant = v
+		u.Variant = v.LinearScale
 	case MapScaleType:
-		var v MapScale
+		var v struct {
+			Type ScaleType `json:"type"`
+			MapScale
+		}
 		if err := json.Unmarshal(data, &v, opts); err != nil {
 			return err
 		}
-		u.Variant = v
+		u.Variant = v.MapScale
 	case TableScaleType:
-		var v TableScale
+		var v struct {
+			Type ScaleType `json:"type"`
+			TableScale
+		}
 		if err := json.Unmarshal(data, &v, opts); err != nil {
 			return err
 		}
-		u.Variant = v
+		u.Variant = v.TableScale
 	case PolynomialScaleType:
-		var v PolynomialScale
+		var v struct {
+			Type ScaleType `json:"type"`
+			PolynomialScale
+		}
 		if err := json.Unmarshal(data, &v, opts); err != nil {
 			return err
 		}
-		u.Variant = v
+		u.Variant = v.PolynomialScale
 	case NoneScaleType:
-		var v NoneScale
+		var v struct {
+			Type ScaleType `json:"type"`
+			NoneScale
+		}
 		if err := json.Unmarshal(data, &v, opts); err != nil {
 			return err
 		}
-		u.Variant = v
+		u.Variant = v.NoneScale
 	default:
 		return errors.Newf("Scale: unknown type %q", disc.Type)
 	}
@@ -2517,190 +2545,282 @@ func (u *AIChannel) UnmarshalJSONFrom(dec *jsontext.Decoder) error {
 	var disc struct {
 		Type AIChannelType `json:"type"`
 	}
-	if err := json.Unmarshal(data, &disc, opts); err != nil {
+	if err := json.Unmarshal(
+		data, &disc, opts, json.RejectUnknownMembers(false),
+	); err != nil {
 		return err
 	}
 	switch disc.Type {
 	case AIVoltageChannelType:
-		var v AIVoltageChannel
+		var v struct {
+			Type AIChannelType `json:"type"`
+			AIVoltageChannel
+		}
 		if err := json.Unmarshal(data, &v, opts); err != nil {
 			return err
 		}
-		u.Variant = v
+		u.Variant = v.AIVoltageChannel
 	case AIAccelChannelType:
-		var v AIAccelChannel
+		var v struct {
+			Type AIChannelType `json:"type"`
+			AIAccelChannel
+		}
 		if err := json.Unmarshal(data, &v, opts); err != nil {
 			return err
 		}
-		u.Variant = v
+		u.Variant = v.AIAccelChannel
 	case AIBridgeChannelType:
-		var v AIBridgeChannel
+		var v struct {
+			Type AIChannelType `json:"type"`
+			AIBridgeChannel
+		}
 		if err := json.Unmarshal(data, &v, opts); err != nil {
 			return err
 		}
-		u.Variant = v
+		u.Variant = v.AIBridgeChannel
 	case AICurrentChannelType:
-		var v AICurrentChannel
+		var v struct {
+			Type AIChannelType `json:"type"`
+			AICurrentChannel
+		}
 		if err := json.Unmarshal(data, &v, opts); err != nil {
 			return err
 		}
-		u.Variant = v
+		u.Variant = v.AICurrentChannel
 	case AIForceBridgeTableChannelType:
-		var v AIForceBridgeTableChannel
+		var v struct {
+			Type AIChannelType `json:"type"`
+			AIForceBridgeTableChannel
+		}
 		if err := json.Unmarshal(data, &v, opts); err != nil {
 			return err
 		}
-		u.Variant = v
+		u.Variant = v.AIForceBridgeTableChannel
 	case AIForceBridgeTwoPointLinChannelType:
-		var v AIForceBridgeTwoPointLinChannel
+		var v struct {
+			Type AIChannelType `json:"type"`
+			AIForceBridgeTwoPointLinChannel
+		}
 		if err := json.Unmarshal(data, &v, opts); err != nil {
 			return err
 		}
-		u.Variant = v
+		u.Variant = v.AIForceBridgeTwoPointLinChannel
 	case AIForceIEPEChannelType:
-		var v AIForceIEPEChannel
+		var v struct {
+			Type AIChannelType `json:"type"`
+			AIForceIEPEChannel
+		}
 		if err := json.Unmarshal(data, &v, opts); err != nil {
 			return err
 		}
-		u.Variant = v
+		u.Variant = v.AIForceIEPEChannel
 	case AIMicrophoneChannelType:
-		var v AIMicrophoneChannel
+		var v struct {
+			Type AIChannelType `json:"type"`
+			AIMicrophoneChannel
+		}
 		if err := json.Unmarshal(data, &v, opts); err != nil {
 			return err
 		}
-		u.Variant = v
+		u.Variant = v.AIMicrophoneChannel
 	case AIPressureBridgeTableChannelType:
-		var v AIPressureBridgeTableChannel
+		var v struct {
+			Type AIChannelType `json:"type"`
+			AIPressureBridgeTableChannel
+		}
 		if err := json.Unmarshal(data, &v, opts); err != nil {
 			return err
 		}
-		u.Variant = v
+		u.Variant = v.AIPressureBridgeTableChannel
 	case AIPressureBridgeTwoPointLinChannelType:
-		var v AIPressureBridgeTwoPointLinChannel
+		var v struct {
+			Type AIChannelType `json:"type"`
+			AIPressureBridgeTwoPointLinChannel
+		}
 		if err := json.Unmarshal(data, &v, opts); err != nil {
 			return err
 		}
-		u.Variant = v
+		u.Variant = v.AIPressureBridgeTwoPointLinChannel
 	case AIResistanceChannelType:
-		var v AIResistanceChannel
+		var v struct {
+			Type AIChannelType `json:"type"`
+			AIResistanceChannel
+		}
 		if err := json.Unmarshal(data, &v, opts); err != nil {
 			return err
 		}
-		u.Variant = v
+		u.Variant = v.AIResistanceChannel
 	case AIRTDChannelType:
-		var v AIRTDChannel
+		var v struct {
+			Type AIChannelType `json:"type"`
+			AIRTDChannel
+		}
 		if err := json.Unmarshal(data, &v, opts); err != nil {
 			return err
 		}
-		u.Variant = v
+		u.Variant = v.AIRTDChannel
 	case AIStrainGaugeChannelType:
-		var v AIStrainGaugeChannel
+		var v struct {
+			Type AIChannelType `json:"type"`
+			AIStrainGaugeChannel
+		}
 		if err := json.Unmarshal(data, &v, opts); err != nil {
 			return err
 		}
-		u.Variant = v
+		u.Variant = v.AIStrainGaugeChannel
 	case AITempBuiltinChannelType:
-		var v AITempBuiltinChannel
+		var v struct {
+			Type AIChannelType `json:"type"`
+			AITempBuiltinChannel
+		}
 		if err := json.Unmarshal(data, &v, opts); err != nil {
 			return err
 		}
-		u.Variant = v
+		u.Variant = v.AITempBuiltinChannel
 	case AIThermocoupleChannelType:
-		var v AIThermocoupleChannel
+		var v struct {
+			Type AIChannelType `json:"type"`
+			AIThermocoupleChannel
+		}
 		if err := json.Unmarshal(data, &v, opts); err != nil {
 			return err
 		}
-		u.Variant = v
+		u.Variant = v.AIThermocoupleChannel
 	case AITorqueBridgeTableChannelType:
-		var v AITorqueBridgeTableChannel
+		var v struct {
+			Type AIChannelType `json:"type"`
+			AITorqueBridgeTableChannel
+		}
 		if err := json.Unmarshal(data, &v, opts); err != nil {
 			return err
 		}
-		u.Variant = v
+		u.Variant = v.AITorqueBridgeTableChannel
 	case AITorqueBridgeTwoPointLinChannelType:
-		var v AITorqueBridgeTwoPointLinChannel
+		var v struct {
+			Type AIChannelType `json:"type"`
+			AITorqueBridgeTwoPointLinChannel
+		}
 		if err := json.Unmarshal(data, &v, opts); err != nil {
 			return err
 		}
-		u.Variant = v
+		u.Variant = v.AITorqueBridgeTwoPointLinChannel
 	case AIVelocityIEPEChannelType:
-		var v AIVelocityIEPEChannel
+		var v struct {
+			Type AIChannelType `json:"type"`
+			AIVelocityIEPEChannel
+		}
 		if err := json.Unmarshal(data, &v, opts); err != nil {
 			return err
 		}
-		u.Variant = v
+		u.Variant = v.AIVelocityIEPEChannel
 	case AIAccel4WireDCVoltageChannelType:
-		var v AIAccel4WireDCVoltageChannel
+		var v struct {
+			Type AIChannelType `json:"type"`
+			AIAccel4WireDCVoltageChannel
+		}
 		if err := json.Unmarshal(data, &v, opts); err != nil {
 			return err
 		}
-		u.Variant = v
+		u.Variant = v.AIAccel4WireDCVoltageChannel
 	case AIAccelChargeChannelType:
-		var v AIAccelChargeChannel
+		var v struct {
+			Type AIChannelType `json:"type"`
+			AIAccelChargeChannel
+		}
 		if err := json.Unmarshal(data, &v, opts); err != nil {
 			return err
 		}
-		u.Variant = v
+		u.Variant = v.AIAccelChargeChannel
 	case AIChargeChannelType:
-		var v AIChargeChannel
+		var v struct {
+			Type AIChannelType `json:"type"`
+			AIChargeChannel
+		}
 		if err := json.Unmarshal(data, &v, opts); err != nil {
 			return err
 		}
-		u.Variant = v
+		u.Variant = v.AIChargeChannel
 	case AICurrentRMSChannelType:
-		var v AICurrentRMSChannel
+		var v struct {
+			Type AIChannelType `json:"type"`
+			AICurrentRMSChannel
+		}
 		if err := json.Unmarshal(data, &v, opts); err != nil {
 			return err
 		}
-		u.Variant = v
+		u.Variant = v.AICurrentRMSChannel
 	case AIForceBridgePolynomialChannelType:
-		var v AIForceBridgePolynomialChannel
+		var v struct {
+			Type AIChannelType `json:"type"`
+			AIForceBridgePolynomialChannel
+		}
 		if err := json.Unmarshal(data, &v, opts); err != nil {
 			return err
 		}
-		u.Variant = v
+		u.Variant = v.AIForceBridgePolynomialChannel
 	case AIFreqVoltageChannelType:
-		var v AIFreqVoltageChannel
+		var v struct {
+			Type AIChannelType `json:"type"`
+			AIFreqVoltageChannel
+		}
 		if err := json.Unmarshal(data, &v, opts); err != nil {
 			return err
 		}
-		u.Variant = v
+		u.Variant = v.AIFreqVoltageChannel
 	case AIPressureBridgePolynomialChannelType:
-		var v AIPressureBridgePolynomialChannel
+		var v struct {
+			Type AIChannelType `json:"type"`
+			AIPressureBridgePolynomialChannel
+		}
 		if err := json.Unmarshal(data, &v, opts); err != nil {
 			return err
 		}
-		u.Variant = v
+		u.Variant = v.AIPressureBridgePolynomialChannel
 	case AIThermistorIexChannelType:
-		var v AIThermistorIexChannel
+		var v struct {
+			Type AIChannelType `json:"type"`
+			AIThermistorIexChannel
+		}
 		if err := json.Unmarshal(data, &v, opts); err != nil {
 			return err
 		}
-		u.Variant = v
+		u.Variant = v.AIThermistorIexChannel
 	case AIThermistorVexChannelType:
-		var v AIThermistorVexChannel
+		var v struct {
+			Type AIChannelType `json:"type"`
+			AIThermistorVexChannel
+		}
 		if err := json.Unmarshal(data, &v, opts); err != nil {
 			return err
 		}
-		u.Variant = v
+		u.Variant = v.AIThermistorVexChannel
 	case AITorqueBridgePolynomialChannelType:
-		var v AITorqueBridgePolynomialChannel
+		var v struct {
+			Type AIChannelType `json:"type"`
+			AITorqueBridgePolynomialChannel
+		}
 		if err := json.Unmarshal(data, &v, opts); err != nil {
 			return err
 		}
-		u.Variant = v
+		u.Variant = v.AITorqueBridgePolynomialChannel
 	case AIVoltageRMSChannelType:
-		var v AIVoltageRMSChannel
+		var v struct {
+			Type AIChannelType `json:"type"`
+			AIVoltageRMSChannel
+		}
 		if err := json.Unmarshal(data, &v, opts); err != nil {
 			return err
 		}
-		u.Variant = v
+		u.Variant = v.AIVoltageRMSChannel
 	case AIVoltageWithExcitChannelType:
-		var v AIVoltageWithExcitChannel
+		var v struct {
+			Type AIChannelType `json:"type"`
+			AIVoltageWithExcitChannel
+		}
 		if err := json.Unmarshal(data, &v, opts); err != nil {
 			return err
 		}
-		u.Variant = v
+		u.Variant = v.AIVoltageWithExcitChannel
 	default:
 		return errors.Newf("AIChannel: unknown type %q", disc.Type)
 	}
@@ -3735,76 +3855,111 @@ func (u *CIChannel) UnmarshalJSONFrom(dec *jsontext.Decoder) error {
 	var disc struct {
 		Type CIChannelType `json:"type"`
 	}
-	if err := json.Unmarshal(data, &disc, opts); err != nil {
+	if err := json.Unmarshal(
+		data, &disc, opts, json.RejectUnknownMembers(false),
+	); err != nil {
 		return err
 	}
 	switch disc.Type {
 	case CIFrequencyChannelType:
-		var v CIFrequencyChannel
+		var v struct {
+			Type CIChannelType `json:"type"`
+			CIFrequencyChannel
+		}
 		if err := json.Unmarshal(data, &v, opts); err != nil {
 			return err
 		}
-		u.Variant = v
+		u.Variant = v.CIFrequencyChannel
 	case CIEdgeCountChannelType:
-		var v CIEdgeCountChannel
+		var v struct {
+			Type CIChannelType `json:"type"`
+			CIEdgeCountChannel
+		}
 		if err := json.Unmarshal(data, &v, opts); err != nil {
 			return err
 		}
-		u.Variant = v
+		u.Variant = v.CIEdgeCountChannel
 	case CIPeriodChannelType:
-		var v CIPeriodChannel
+		var v struct {
+			Type CIChannelType `json:"type"`
+			CIPeriodChannel
+		}
 		if err := json.Unmarshal(data, &v, opts); err != nil {
 			return err
 		}
-		u.Variant = v
+		u.Variant = v.CIPeriodChannel
 	case CIPulseWidthChannelType:
-		var v CIPulseWidthChannel
+		var v struct {
+			Type CIChannelType `json:"type"`
+			CIPulseWidthChannel
+		}
 		if err := json.Unmarshal(data, &v, opts); err != nil {
 			return err
 		}
-		u.Variant = v
+		u.Variant = v.CIPulseWidthChannel
 	case CISemiPeriodChannelType:
-		var v CISemiPeriodChannel
+		var v struct {
+			Type CIChannelType `json:"type"`
+			CISemiPeriodChannel
+		}
 		if err := json.Unmarshal(data, &v, opts); err != nil {
 			return err
 		}
-		u.Variant = v
+		u.Variant = v.CISemiPeriodChannel
 	case CITwoEdgeSepChannelType:
-		var v CITwoEdgeSepChannel
+		var v struct {
+			Type CIChannelType `json:"type"`
+			CITwoEdgeSepChannel
+		}
 		if err := json.Unmarshal(data, &v, opts); err != nil {
 			return err
 		}
-		u.Variant = v
+		u.Variant = v.CITwoEdgeSepChannel
 	case CIVelocityLinearChannelType:
-		var v CIVelocityLinearChannel
+		var v struct {
+			Type CIChannelType `json:"type"`
+			CIVelocityLinearChannel
+		}
 		if err := json.Unmarshal(data, &v, opts); err != nil {
 			return err
 		}
-		u.Variant = v
+		u.Variant = v.CIVelocityLinearChannel
 	case CIVelocityAngularChannelType:
-		var v CIVelocityAngularChannel
+		var v struct {
+			Type CIChannelType `json:"type"`
+			CIVelocityAngularChannel
+		}
 		if err := json.Unmarshal(data, &v, opts); err != nil {
 			return err
 		}
-		u.Variant = v
+		u.Variant = v.CIVelocityAngularChannel
 	case CIPositionLinearChannelType:
-		var v CIPositionLinearChannel
+		var v struct {
+			Type CIChannelType `json:"type"`
+			CIPositionLinearChannel
+		}
 		if err := json.Unmarshal(data, &v, opts); err != nil {
 			return err
 		}
-		u.Variant = v
+		u.Variant = v.CIPositionLinearChannel
 	case CIPositionAngularChannelType:
-		var v CIPositionAngularChannel
+		var v struct {
+			Type CIChannelType `json:"type"`
+			CIPositionAngularChannel
+		}
 		if err := json.Unmarshal(data, &v, opts); err != nil {
 			return err
 		}
-		u.Variant = v
+		u.Variant = v.CIPositionAngularChannel
 	case CIDutyCycleChannelType:
-		var v CIDutyCycleChannel
+		var v struct {
+			Type CIChannelType `json:"type"`
+			CIDutyCycleChannel
+		}
 		if err := json.Unmarshal(data, &v, opts); err != nil {
 			return err
 		}
-		u.Variant = v
+		u.Variant = v.CIDutyCycleChannel
 	default:
 		return errors.Newf("CIChannel: unknown type %q", disc.Type)
 	}
@@ -4053,28 +4208,39 @@ func (u *AOChannel) UnmarshalJSONFrom(dec *jsontext.Decoder) error {
 	var disc struct {
 		Type AOChannelType `json:"type"`
 	}
-	if err := json.Unmarshal(data, &disc, opts); err != nil {
+	if err := json.Unmarshal(
+		data, &disc, opts, json.RejectUnknownMembers(false),
+	); err != nil {
 		return err
 	}
 	switch disc.Type {
 	case AOCurrentChannelType:
-		var v AOCurrentChannel
+		var v struct {
+			Type AOChannelType `json:"type"`
+			AOCurrentChannel
+		}
 		if err := json.Unmarshal(data, &v, opts); err != nil {
 			return err
 		}
-		u.Variant = v
+		u.Variant = v.AOCurrentChannel
 	case AOFuncGenChannelType:
-		var v AOFuncGenChannel
+		var v struct {
+			Type AOChannelType `json:"type"`
+			AOFuncGenChannel
+		}
 		if err := json.Unmarshal(data, &v, opts); err != nil {
 			return err
 		}
-		u.Variant = v
+		u.Variant = v.AOFuncGenChannel
 	case AOVoltageChannelType:
-		var v AOVoltageChannel
+		var v struct {
+			Type AOChannelType `json:"type"`
+			AOVoltageChannel
+		}
 		if err := json.Unmarshal(data, &v, opts); err != nil {
 			return err
 		}
-		u.Variant = v
+		u.Variant = v.AOVoltageChannel
 	default:
 		return errors.Newf("AOChannel: unknown type %q", disc.Type)
 	}
