@@ -13,7 +13,7 @@ import {
   spyOnSend,
   waitForStreamLive,
 } from "@synnaxlabs/client/testutil";
-import { color, uuid } from "@synnaxlabs/x";
+import { color, deep, uuid } from "@synnaxlabs/x";
 import { act, render, renderHook, waitFor, within } from "@testing-library/react";
 import { type FC, type PropsWithChildren, type ReactElement } from "react";
 import {
@@ -26,12 +26,17 @@ import {
   it,
   vi,
 } from "vitest";
+import { type z } from "zod";
 
 import { Errors } from "@/errors";
 import { Flux } from "@/flux";
 import { Schematic } from "@/schematic";
 import { renderHookSuspended } from "@/testutil/render";
 import { createAsyncSynnaxWrapper } from "@/testutil/Synnax";
+
+const path = deep.path<schematic.TankNodeConfig>();
+const display = deep.path<schematic.StringDisplayNodeConfig>();
+const element = deep.path<z.infer<typeof schematic.elementConfigZ>>();
 
 const client = createTestClient();
 
@@ -1015,17 +1020,17 @@ describe("schematic queries", () => {
       });
     });
 
-    // Most symbol forms edit at the root of the config, as `Form.useField("")` does.
+    // Most symbol forms edit at the root of the config.
     it("should add and remove fields with a write of the whole config", async () => {
       const schem = await createTestSchematic(proj.key);
       const { result } = await renderForm(schem.key);
       const strokeColor = color.construct("#ff0000");
       const add = { ...result.current.form.value(), strokeColor };
-      act(() => result.current.form.set("", add));
+      act(() => result.current.form.set(element, add));
       await act(async () => expect(await result.current.flush()).toBe(true));
       expect(await fetchStoredConfig(schem.key, "n1")).toHaveProperty("strokeColor");
       const remove = { ...result.current.form.value(), strokeColor: undefined };
-      act(() => result.current.form.set("", remove));
+      act(() => result.current.form.set(element, remove));
       await act(async () => expect(await result.current.flush()).toBe(true));
       expect(await fetchStoredConfig(schem.key, "n1")).not.toHaveProperty(
         "strokeColor",
@@ -1036,7 +1041,7 @@ describe("schematic queries", () => {
       const schem = await createTestSchematic(proj.key);
       const { result } = await renderForm(schem.key);
       const next = schematic.elementConfigZ.parse({ variant: "value" });
-      act(() => result.current.form.set("", next));
+      act(() => result.current.form.set(element, next));
       await act(async () => expect(await result.current.flush()).toBe(true));
       expect(await fetchStoredConfig(schem.key, "n1")).toMatchObject({
         variant: "value",
@@ -1047,7 +1052,7 @@ describe("schematic queries", () => {
       const schem = await createTestSchematic(proj.key);
       const { result } = await renderForm(schem.key);
       const send = spyOnSend(client);
-      act(() => result.current.form.set("scaleVisible", true));
+      act(() => result.current.form.set(path.scaleVisible, true));
       await act(async () => expect(await result.current.flush()).toBe(true));
       const [, req] =
         send.mock.calls.find(([target]) => target === "/schematic/dispatch") ?? [];
@@ -1075,7 +1080,7 @@ describe("schematic queries", () => {
         );
       });
       await waitFor(() =>
-        expect(result.current.form.get("scaleVisible").value).toBe(true),
+        expect(result.current.form.get(path.scaleVisible).value).toBe(true),
       );
     });
 
@@ -1086,7 +1091,7 @@ describe("schematic queries", () => {
         configs: { n1: { variant: "string_display" } },
       });
       const { result } = await renderForm(schem.key);
-      act(() => result.current.form.set("tooltip.0", "line"));
+      act(() => result.current.form.set(display.tooltip[0], "line"));
       await act(async () => expect(await result.current.flush()).toBe(true));
       expect(await fetchStoredConfig(schem.key, "n1")).toMatchObject({
         tooltip: ["line"],
@@ -1097,7 +1102,7 @@ describe("schematic queries", () => {
       const schem = await createTestSchematic(proj.key);
       const { result, rerender } = await renderForm(schem.key);
       rerender({ elKey: "n2" });
-      act(() => result.current.form.set("scaleVisible", true));
+      act(() => result.current.form.set(path.scaleVisible, true));
       await act(async () => expect(await result.current.flush()).toBe(true));
       expect(await fetchStoredConfig(schem.key, "n2")).toMatchObject({
         scaleVisible: true,

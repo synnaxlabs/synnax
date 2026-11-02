@@ -9,12 +9,15 @@
 
 import { table } from "@synnaxlabs/client";
 import { Form } from "@synnaxlabs/lyra/form";
+import { deep } from "@synnaxlabs/x";
 import { act, fireEvent, render } from "@testing-library/react";
 import { type PropsWithChildren, type ReactElement } from "react";
 import { describe, expect, it } from "vitest";
 
 import { TextForm, ValueForm } from "@/table/cells/Forms";
 import { createSynnaxWrapper } from "@/testutil/Synnax";
+
+const path = deep.path<table.ValueCellConfig>();
 
 const SynnaxWrapper = createSynnaxWrapper({ client: null });
 
@@ -71,7 +74,7 @@ describe("ValueForm", () => {
       expect(input).not.toBeNull();
       fireEvent.change(input!, { target: { value: "7" } });
       fireEvent.blur(input!);
-      expect(methods.get<number>("rollingAverage").value).toBe(7);
+      expect(methods.get(path.rollingAverage).value).toBe(7);
     });
   });
 
@@ -196,14 +199,14 @@ describe("ValueForm", () => {
       ).not.toContain("lyra--square");
       expect(container.querySelector(".pluto-redline-form__floor input")).toBeNull();
       expect(getByText("No fill")).toBeDefined();
-      act(() => methods.set("units", "psi"));
+      act(() => methods.set(path.units, "psi"));
       expect(floor()).toBe("0 psi");
     });
 
     it("should show the fill below the lowest band once one is set", () => {
       const { getByText } = renderTab("Redline");
       fireEvent.click(getByText("Add band"));
-      act(() => methods.set("fillColor", [0, 255, 0, 255]));
+      act(() => methods.set(path.fillColor, [0, 255, 0, 255]));
       expect(getByText("Fill")).toBeDefined();
     });
   });
