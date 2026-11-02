@@ -162,7 +162,7 @@ class Streamer:
             pass
 
     @overload
-    def read(self, *, timeout: float | int | TimeSpan) -> Frame | None:
+    def read(self, *, timeout: CrudeTimeSpan) -> Frame | None:
         """Reads the next frame of telemetry from the streamer with a timeout. If no
         frame is received within the timeout, this method will return None. If an error
         occurs while reading the frame, an exception will be raised.
@@ -181,7 +181,7 @@ class Streamer:
         raised.
         """
 
-    def read(self, *, timeout: float | None = None) -> Frame | None:
+    def read(self, *, timeout: CrudeTimeSpan | None = None) -> Frame | None:
         """Reads the next frame of telemetry from the streamer. If a timeout is
         provided, this method will wait for the specified amount of time for a frame to
         be received. If no frame is received within the timeout, this method will return
@@ -236,7 +236,7 @@ class Streamer:
             )
         )
 
-    def close(self, *, timeout: float | int | TimeSpan | None = None) -> None:
+    def close(self, *, timeout: CrudeTimeSpan | None = None) -> None:
         """Closes the streamer and frees all network resources.
 
         :param timeout: The maximum amount of time to wait for the server to acknowledge
