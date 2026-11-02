@@ -9,6 +9,7 @@
 
 import json
 import os
+import shlex
 import shutil
 import subprocess
 from pathlib import Path
@@ -105,7 +106,7 @@ def uv(repo: Repo) -> Path:
     bin.mkdir(exist_ok=True)
     log = repo.path.parent / "uv.log"
     exe = bin / "uv"
-    exe.write_text(f'#!/bin/bash\necho "$*" >> {log}\n')
+    exe.write_text(f'#!/bin/bash\necho "$*" >> {shlex.quote(str(log))}\n')
     exe.chmod(0o755)
     repo.env["PATH"] = f"{bin}:{repo.env['PATH']}"
     return log
