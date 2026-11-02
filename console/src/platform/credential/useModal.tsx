@@ -7,16 +7,21 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
+import "@/platform/credential/useModal.css";
+
 import { type ontology } from "@synnaxlabs/client";
 import { Flex } from "@synnaxlabs/lyra/flex";
 import { Icon } from "@synnaxlabs/lyra/icon";
 import { Modal } from "@synnaxlabs/lyra/modal";
+import { Nav } from "@synnaxlabs/lyra/nav";
+import { Status } from "@synnaxlabs/lyra/status";
 import { Synnax } from "@synnaxlabs/pluto";
-import { type ReactElement } from "react";
+import { type ReactElement, useState } from "react";
 
 import { Core } from "@/platform/core";
 import { APIKey } from "@/platform/credential/apikey";
 import { Password } from "@/platform/credential/password";
+import { CSS } from "@/platform/css";
 import { Modals } from "@/platform/modals";
 
 export interface ModalParams {
@@ -31,17 +36,25 @@ const Credentials = ({
 }: Modals.ContentProps<ModalParams, void>): ReactElement => {
   const client = Synnax.use();
   const { password } = Core.useAcceptedMethods(client?.params);
+  const [message, setMessage] = useState<string | null>(null);
   return (
-    <Modal.Frame>
+    <Modal.Frame className={CSS.B("credential")}>
       <Modal.Header icon={<Icon.Lock />}>{title ?? "Credentials"}</Modal.Header>
       <Modal.Body>
         <Flex.Box y gap="large">
           <APIKey.Section subject={subject} />
           {subject.type === "user" && password && (
-            <Password.Section subject={subject} />
+            <Password.Section subject={subject} onMessage={setMessage} />
           )}
         </Flex.Box>
       </Modal.Body>
+      {message != null && (
+        <Modal.Footer>
+          <Nav.Bar.Start>
+            <Status.Summary variant="success" message={message} />
+          </Nav.Bar.Start>
+        </Modal.Footer>
+      )}
     </Modal.Frame>
   );
 };

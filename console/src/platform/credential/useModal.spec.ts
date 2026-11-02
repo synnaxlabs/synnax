@@ -184,15 +184,16 @@ describe("useModal", () => {
     const { user: subject, username } = await createTestUser(client, {
       username: uniqueName("user"),
     });
-    let statuses: Status.NotificationSpec[] = [];
     await openModal(Credential.useModal, {
       client,
       params: { subject: user.ontologyID(subject.key) },
-      extra: createElement(CaptureStatuses, { onStatuses: (s) => (statuses = s) }),
     });
     await type("New password", "changed123");
     expect(screen.queryByPlaceholderText("Current password")).toBeNull();
     fireEvent.click(findButton("Set password"));
+    expect(await screen.findByText("Successfully changed password")).toBeTruthy();
+    await type("New password", "again");
+    expect(screen.queryByText("Successfully changed password")).toBeNull();
     await expect
       .poll(async () => {
         try {
@@ -206,9 +207,6 @@ describe("useModal", () => {
         }
       })
       .toBe(true);
-    await waitFor(() =>
-      expect(statuses.map((s) => s.message)).toContain("Successfully changed password"),
-    );
   });
 
   it("should change another user's username", async () => {
@@ -239,11 +237,9 @@ describe("useModal", () => {
     const client = createTestClient();
     const subject = await client.users.create({ name: uniqueName("user") });
     const id = user.ontologyID(subject.key);
-    let statuses: Status.NotificationSpec[] = [];
     await openModal(Credential.useModal, {
       client,
       params: { subject: id },
-      extra: createElement(CaptureStatuses, { onStatuses: (s) => (statuses = s) }),
     });
     const username = uniqueName("user");
     await type("Username", username);
@@ -251,7 +247,7 @@ describe("useModal", () => {
     fireEvent.click(findButton("Create password"));
     await screen.findByPlaceholderText("New password");
     expect(screen.queryByText("Create password")).toBeNull();
-    expect(statuses.map((s) => s.message)).toContain("Successfully created password");
+    expect(await screen.findByText("Successfully created password")).toBeTruthy();
     const [created] = await client.auth.passwords.retrieve({ subjects: [id] });
     expect(created.username).toEqual(username);
     await createTestClient({
