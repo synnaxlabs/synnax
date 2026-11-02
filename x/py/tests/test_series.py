@@ -597,6 +597,10 @@ class TestSeriesSlice:
             slice(None, -1),
             slice(3, 1),
             slice(10, 20),
+            slice(None, None, 2),
+            slice(1, None, 3),
+            slice(1, 3, 2),
+            slice(3, 1, 2),
         ],
     )
     def test_slice_matches_list(self, values: list[Any], index: slice) -> None:
@@ -619,10 +623,29 @@ class TestSeriesSlice:
         assert sliced.alignment_multiple == 2
         assert sliced.time_range == tr
 
-    def test_slice_rejects_step(self) -> None:
-        """Should reject a slice with a step other than one"""
-        with pytest.raises(ValueError, match="step"):
-            telem.Series([1, 2, 3])[::2]
+    @pytest.mark.parametrize("values", [[1, 2, 3, 4, 5, 6, 7], list("abcdefg")])
+    def test_slice_step_scales_alignment_multiple(self, values: list[Any]) -> None:
+        """Should multiply the alignment multiple by the step"""
+        s = telem.Series(values, alignment=(1, 10), alignment_multiple=2)
+        sliced = s[1::3]
+        assert list(sliced) == values[1::3]
+        assert sliced.alignment == telem.Alignment(1, 12)
+        assert sliced.alignment_multiple == 6
+        assert sliced.alignment_bounds.upper == int(telem.Alignment(1, 12)) + 2 * 6
+
+    def test_slice_step_survives_payload_round_trip(self) -> None:
+        """Should keep the alignment multiple of a stepped slice in a payload"""
+        adapter = TypeAdapter(telem.Series)
+        sliced = telem.Series([1.0, 2.0, 3.0, 4.0], alignment_multiple=2)[::2]
+        decoded = adapter.validate_python(adapter.dump_python(sliced))
+        assert list(decoded) == [1.0, 3.0]
+        assert decoded.alignment_multiple == 4
+
+    @pytest.mark.parametrize("step", [-1, -2])
+    def test_slice_rejects_negative_step(self, step: int) -> None:
+        """Should reject a negative slice step"""
+        with pytest.raises(ValueError, match="increasing alignments"):
+            telem.Series([1, 2, 3])[::step]
 
 
 @pytest.mark.telem

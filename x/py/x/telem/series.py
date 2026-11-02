@@ -477,23 +477,26 @@ class Series(ArrayOperators, Generic[T]):
 
     def _slice(self, index: slice) -> Series[T]:
         start, stop, step = index.indices(len(self))
-        if step != 1:
-            raise ValueError("[Series] - a slice step must be 1")
-        stop = max(start, stop)
+        if step < 1:
+            raise ValueError(
+                "[Series] - a slice step must be positive, as a Series needs "
+                "increasing alignments"
+            )
         if self.data_type.is_variable:
-            offsets = [
-                s - _VARIABLE_LENGTH_PREFIX_SIZE for s, _ in _variable_spans(self.data)
-            ]
-            offsets.append(len(self.data))
-            data = self.data[offsets[start] : offsets[stop]]
+            spans = list(_variable_spans(self.data))
+            data = b"".join(
+                self.data[spans[i][0] - _VARIABLE_LENGTH_PREFIX_SIZE : spans[i][1]]
+                for i in range(start, stop, step)
+            )
         else:
-            density = self.data_type.density
-            data = self.data[start * density : stop * density]
+            samples = np.frombuffer(self.data, np.uint8).reshape(len(self), -1)
+            data = samples[start:stop:step].tobytes()
         sliced = copy.copy(self)
         sliced.data = data
         sliced.alignment = Alignment(
             int(self.alignment) + start * self.alignment_multiple
         )
+        sliced.alignment_multiple = self.alignment_multiple * step
         sliced._len_cache = None
         return sliced
 
