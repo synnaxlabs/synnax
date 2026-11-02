@@ -25,6 +25,26 @@ from x.strings import random_name
 from x.testutil import assert_eventually
 
 
+class TestRangeColor:
+    def test_no_color(self) -> None:
+        """Should leave the color as None when none is given."""
+        rng = sy.Range(
+            name=random_name(),
+            time_range=sy.TimeStamp.now().span_range(sy.TimeSpan.SECOND),
+        )
+        assert rng.color is None
+        assert rng.to_payload().color is None
+
+    def test_hex_color(self) -> None:
+        """Should convert a hex string into a Color."""
+        rng = sy.Range(
+            name=random_name(),
+            time_range=sy.TimeStamp.now().span_range(sy.TimeSpan.SECOND),
+            color="#00ff00",
+        )
+        assert rng.color == sy.Color(r=0, g=255, b=0, a=1.0)
+
+
 class TestRangeNotCreated:
     def test_meta_data(self) -> None:
         """Should raise a ConfigurationError when reading from a range that was
@@ -86,6 +106,38 @@ class TestRangeClient:
             )
         )
         assert rng.color is None
+        assert client.ranges.retrieve(key=rng.key).color is None
+
+    def test_create_kwargs_without_color(self, client: sy.Synnax) -> None:
+        """Should store no color when create receives no color argument."""
+        rng = client.ranges.create(
+            name=random_name(),
+            time_range=sy.TimeStamp.now().span_range(10 * sy.TimeSpan.SECOND),
+        )
+        assert rng.color is None
+        assert client.ranges.retrieve(key=rng.key).color is None
+
+    def test_create_child_range_without_color(self, client: sy.Synnax) -> None:
+        """Should store no color on a child range created without a color."""
+        parent = client.ranges.create(
+            name=random_name(),
+            time_range=sy.TimeStamp.now().span_range(10 * sy.TimeSpan.SECOND),
+        )
+        child = parent.create_child_range(
+            name=random_name(),
+            time_range=sy.TimeStamp.now().span_range(10 * sy.TimeSpan.SECOND),
+        )
+        assert child.color is None
+        assert client.ranges.retrieve(key=child.key).color is None
+
+    def test_update_color(self, client: sy.Synnax) -> None:
+        """Should replace the color on a re-create, and clear it when none is given."""
+        tr = sy.TimeStamp.now().span_range(10 * sy.TimeSpan.SECOND)
+        rng = client.ranges.create(name=random_name(), time_range=tr, color="#FF0000")
+        client.ranges.create(key=rng.key, name=rng.name, time_range=tr, color="#0000FF")
+        retrieved = client.ranges.retrieve(key=rng.key)
+        assert retrieved.color == sy.Color(r=0, g=0, b=255, a=1.0)
+        client.ranges.create(key=rng.key, name=rng.name, time_range=tr)
         assert client.ranges.retrieve(key=rng.key).color is None
 
     def test_create_multiple(self, two_ranges: list[sy.Range]) -> None:
