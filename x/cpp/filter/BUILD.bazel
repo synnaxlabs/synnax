@@ -8,10 +8,12 @@
 # included in the file licenses/APL.txt.
 
 load("@rules_cc//cc:cc_library.bzl", "cc_library")
+load("@rules_cc//cc:cc_test.bzl", "cc_test")
 
 cc_library(
     name = "filter",
     hdrs = [
+        "builder.h",
         "json.gen.h",
         "proto.gen.h",
         "types.gen.h",
@@ -20,7 +22,20 @@ cc_library(
     deps = [
         "//x/cpp/errors",
         "//x/cpp/json",
+        "//x/cpp/mem",
         "//x/cpp/pb",
         "//x/go/filter:filter_grpc",
+    ],
+)
+
+cc_test(
+    name = "filter_test",
+    size = "small",
+    srcs = ["builder_test.cpp"],
+    deps = [
+        ":filter",
+        "//x/cpp/json",
+        "//x/cpp/mem",
+        "@googletest//:gtest_main",
     ],
 )

@@ -11,6 +11,7 @@ package cmd
 
 import (
 	"github.com/synnaxlabs/oracle/plugin"
+	cppbuilder "github.com/synnaxlabs/oracle/plugin/cpp/builder"
 	cppjson "github.com/synnaxlabs/oracle/plugin/cpp/json"
 	cpppb "github.com/synnaxlabs/oracle/plugin/cpp/pb"
 	cpptypes "github.com/synnaxlabs/oracle/plugin/cpp/types"
@@ -59,6 +60,7 @@ func buildPluginRegistry() (*plugin.Registry, error) {
 		tsfilter.New(tsfilter.DefaultOptions()),
 		tsbuilder.New(tsbuilder.DefaultOptions()),
 		pybuilder.New(pybuilder.DefaultOptions()),
+		cppbuilder.New(cppbuilder.DefaultOptions()),
 	} {
 		if err := registry.Register(p); err != nil {
 			return nil, err
