@@ -258,3 +258,9 @@ typeface, and the icon set.
 
 The `docs-refine` skill owns the forms and rhythm of docs pages, in its
 `design-system.md`. The rules here cover what the docs share with the Console.
+
+- A picture of the product shows the current Console: a Studio still from
+  `site/docs/src/components/hero/stills`, never the screenshot on the www landing page.
+- Gradient blooms stay quiet. The Desktop band at the end of a blog post has a 30% blue
+  bloom over `#181b27` in dark mode. A 70% bloom over `#282c41` was too intense, and a
+  7% tint over the page surface was too flat.
