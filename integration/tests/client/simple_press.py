@@ -28,7 +28,7 @@ class SimplePress(SimDaqCase):
     sim_daq_class: type[SimDAQ] | None = PressSimDAQ
 
     def setup(self) -> None:
-        self.set_manual_timeout(30)
+        self.set_manual_timeout(sy.TimeSpan.SECOND * 30)
         self.subscribe(
             [
                 "end_test_cmd",
@@ -92,7 +92,7 @@ class SimplePress(SimDaqCase):
                         timeout=3 * sy.TimeSpan.SECOND,
                     )
                     target_pressure += 30
-                    sy.sleep(1)  # Give "Bad Actor" time to run
+                    sy.sleep(sy.TimeSpan.SECOND)  # Give "Bad Actor" time to run
                 else:
                     self.fail(f"{ctrl[PRESSURE]:.2f} < {target_pressure}")
 

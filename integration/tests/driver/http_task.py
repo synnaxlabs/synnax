@@ -75,12 +75,12 @@ class HTTPReadTaskCase(SimulatorCase, ReadTaskCase[sy.http.ReadTask]):
 
         def collect() -> sy.TimeStamp:
             with self.client.open_streamer(channel_keys) as streamer:
-                frame = streamer.read(timeout=30)
+                frame = streamer.read(timeout=sy.TimeSpan.SECOND * 30)
                 if frame is None:
                     raise AssertionError("Task did not start — no data received")
-            sy.sleep(1)
+            sy.sleep(sy.TimeSpan.SECOND)
             start = sy.TimeStamp.now()
-            sy.sleep(duration.seconds * 1.25)
+            sy.sleep(duration * 1.25)
             return start
 
         with task.run():

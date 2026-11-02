@@ -147,7 +147,7 @@ def read_latest_value(client: sy.Synnax, channel_name: str) -> float | None:
             if len(frame) > 0:
                 return to_float(frame[-1])
             if attempt < 2:
-                sy.sleep(0.2)
+                sy.sleep(sy.TimeSpan.SECOND * 0.2)
         return None
     except Exception as e:
         raise RuntimeError(f'Could not get value for channel "{channel_name}"') from e

@@ -17,7 +17,7 @@ class SetpointPressAuto(TestCase):
     """
 
     def setup(self) -> None:
-        self.set_manual_timeout(60)
+        self.set_manual_timeout(sy.TimeSpan.SECOND * 60)
         self.control_authority = self.params.get("control_authority", 101)
 
         self.subscribe(
@@ -55,7 +55,7 @@ class SetpointPressAuto(TestCase):
         with client.open_streamer(["test_flag_cmd"]) as streamer:
             # Wait for test_flag_cmd == 1 (user starts Test 1)
             while self.should_continue:
-                frame = streamer.read(timeout=0.1)
+                frame = streamer.read(timeout=sy.TimeSpan.SECOND * 0.1)
                 if (
                     frame is not None
                     and "test_flag_cmd" in frame
@@ -64,7 +64,7 @@ class SetpointPressAuto(TestCase):
                     break
             # Wait for test_flag_cmd == 0 (user completes Test 1)
             while self.should_continue:
-                frame = streamer.read(timeout=0.1)
+                frame = streamer.read(timeout=sy.TimeSpan.SECOND * 0.1)
                 if (
                     frame is not None
                     and "test_flag_cmd" in frame
@@ -85,12 +85,14 @@ class SetpointPressAuto(TestCase):
             def test_active() -> bool:
                 return not self.should_stop
 
-            ctrl.wait_until(lambda c: c.get("test_flag_cmd", 0) == 1, timeout=3)
+            ctrl.wait_until(
+                lambda c: c.get("test_flag_cmd", 0) == 1, timeout=sy.TimeSpan.SECOND * 3
+            )
 
             # Initialize valves to closed
             ctrl.set({"press_vlv_cmd": 0, "vent_vlv_cmd": 0})
             if not ctrl.wait_until_defined(
-                ["press_pt", "press_setpoint_cmd"], timeout=10
+                ["press_pt", "press_setpoint_cmd"], timeout=sy.TimeSpan.SECOND * 10
             ):
                 self.fail("Timeout (60s) for press_pt and press_setpoint_cmd")
 

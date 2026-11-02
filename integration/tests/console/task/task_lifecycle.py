@@ -147,7 +147,7 @@ class TaskLifecycle(SimulatorCase, ConsoleCase):
             actual = None if disabled is None else not disabled
             if actual == expected:
                 return
-            sy.sleep(0.5)
+            sy.sleep(sy.TimeSpan.SECOND * 0.5)
         assert actual == expected, (
             f"Task '{name}' data saving should be {expected}, got {actual}"
         )

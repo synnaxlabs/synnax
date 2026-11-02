@@ -55,7 +55,7 @@ class TPCParameters:
     scuba_press_target: int
     press_1_step: int
     press_2_step: int
-    press_step_delay: float
+    press_step_delay: sy.TimeSpan
     tpc_upper_bound: int
     tpc_lower_bound: int
 
@@ -144,7 +144,7 @@ def execute_auto(params: TPCParameters, *, wait_for_confirm: bool = False) -> sy
                 }
             )
 
-            ctrl.sleep(2)
+            ctrl.sleep(sy.TimeSpan.SECOND * 2)
 
             log(ctrl, "Pressing SCUBA and L-Stand to 50 PSI")
 
@@ -167,8 +167,7 @@ def execute_auto(params: TPCParameters, *, wait_for_confirm: bool = False) -> sy
                     break
                 log(
                     ctrl,
-                    f"Holding at {curr_target} PSI for {params.press_step_delay} "
-                    "seconds",
+                    f"Holding at {curr_target} PSI for {params.press_step_delay}",
                 )
                 ctrl.sleep(params.press_step_delay)
 
@@ -200,13 +199,12 @@ def execute_auto(params: TPCParameters, *, wait_for_confirm: bool = False) -> sy
                     break
                 log(
                     ctrl,
-                    f"Holding at {curr_target} PSI for {params.press_step_delay} "
-                    "seconds",
+                    f"Holding at {curr_target} PSI for {params.press_step_delay}",
                 )
                 ctrl.sleep(params.press_step_delay)
 
             log(ctrl, "Pressurized. Waiting for five seconds")
-            ctrl.sleep(2)
+            ctrl.sleep(sy.TimeSpan.SECOND * 2)
 
             press_tank_end = sy.TimeStamp.now()
             parent_rng.create_child_range(
@@ -290,7 +288,7 @@ if __name__ == "__main__":
         scuba_press_target=275,
         press_1_step=20,
         press_2_step=50,
-        press_step_delay=1,
+        press_step_delay=sy.TimeSpan.SECOND,
         tpc_upper_bound=50,
         tpc_lower_bound=45,
     )

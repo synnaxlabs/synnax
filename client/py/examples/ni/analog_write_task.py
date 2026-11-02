@@ -123,9 +123,9 @@ with (
         lambda c: (
             abs(c["ao_0_state"] - 5.0) < 0.01 and abs(c["ao_1_state"] - 3.0) < 0.01
         ),
-        timeout=1,
+        timeout=sy.TimeSpan.SECOND,
     )
-    ctrl.sleep(0.5)
+    ctrl.sleep(sy.TimeSpan.SECOND * 0.5)
 
     ctrl["ao_0_cmd"] = -2.5
     ctrl["ao_1_cmd"] = 7.5
@@ -133,9 +133,9 @@ with (
         lambda c: (
             abs(c["ao_0_state"] - (-2.5)) < 0.01 and abs(c["ao_1_state"] - 7.5) < 0.01
         ),
-        timeout=1,
+        timeout=sy.TimeSpan.SECOND,
     )
-    ctrl.sleep(0.5)
+    ctrl.sleep(sy.TimeSpan.SECOND * 0.5)
 
     ctrl["ao_0_cmd"] = 0.0
     ctrl["ao_1_cmd"] = 0.0
@@ -143,7 +143,7 @@ with (
         lambda c: (
             abs(float(c["ao_0_state"])) < 0.01 and abs(float(c["ao_1_state"])) < 0.01
         ),
-        timeout=1,
+        timeout=sy.TimeSpan.SECOND,
     )
 
 client.tasks.delete(tsk.key)

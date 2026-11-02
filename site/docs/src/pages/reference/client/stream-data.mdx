@@ -105,12 +105,13 @@ for await (const frame of streamer) {
 in time:
 
 ```python
-frame = streamer.read(timeout=5)
+frame = streamer.read(timeout=sy.TimeSpan.SECOND * 5)
 if frame is None:
     print("No data in 5 seconds")
 ```
 
-The timeout is a number of seconds or a `TimeSpan`.
+The timeout is a `TimeSpan` or a `datetime.timedelta`. A bare integer is a number of
+nanoseconds.
 
   </Fragment>
 

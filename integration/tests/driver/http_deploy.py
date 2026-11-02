@@ -75,7 +75,9 @@ class HTTPDeployOnStart(SimulatorCase):
 
     def _start(self, task: sy.http.ReadTask) -> sy.task.Status:
         """Start the task and return the driver's acknowledgment status."""
-        status = task._internal.execute_command_sync("start", timeout=15)
+        status = task._internal.execute_command_sync(
+            "start", timeout=sy.TimeSpan.SECOND * 15
+        )
         if status.variant == "error":
             self.fail(f"start failed: {status.message}")
         return status
@@ -90,7 +92,7 @@ class HTTPDeployOnStart(SimulatorCase):
 
     def _assert_streaming(self, task: sy.http.ReadTask, label: str) -> None:
         with self.client.open_streamer(self._channel_keys(task)) as streamer:
-            frame = streamer.read(timeout=10)
+            frame = streamer.read(timeout=sy.TimeSpan.SECOND * 10)
             assert frame is not None, f"task is not streaming data {label}"
 
     def test_start_deploys_latest_config(self) -> None:

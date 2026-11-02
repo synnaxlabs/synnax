@@ -77,7 +77,7 @@ class StagelessWorkflow(ArcCase):
             self.client, "sw_pressure", data_type=sy.DataType.FLOAT32
         )
         super().setup()
-        self.set_manual_timeout(60)
+        self.set_manual_timeout(sy.TimeSpan.SECOND * 60)
 
     def run(self) -> None:
         self._retrieve_rack()
@@ -111,7 +111,7 @@ class StagelessWorkflow(ArcCase):
             "wait{500ms} to elapse without advancing"
         )
         self.writer.write("sw_pressure", 10.0)
-        sy.sleep(1)
+        sy.sleep(sy.TimeSpan.SECOND)
         a_value = self.read_tlm("sw_a")
         if a_value is None:
             self.fail(

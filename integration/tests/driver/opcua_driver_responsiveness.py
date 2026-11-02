@@ -134,14 +134,14 @@ class OPCUADriverResponsiveness(OPCUAReadTaskCase):
         self.log("Priming task connection pool")
         for task in tasks:
             try:
-                task.start(timeout=5)
+                task.start(timeout=sy.TimeSpan.SECOND * 5)
                 self.log(f"  Started {task.name}")
             except (TimeoutError, sy.UnexpectedError) as e:
                 self.fail(f"Phase 1: failed to start {task.name}: {e}")
 
         for task in tasks:
             try:
-                task.stop(timeout=5)
+                task.stop(timeout=sy.TimeSpan.SECOND * 5)
             except (TimeoutError, sy.UnexpectedError) as e:
                 self.fail(f"Phase 1: failed to stop {task.name}: {e}")
 
@@ -157,7 +157,7 @@ class OPCUADriverResponsiveness(OPCUAReadTaskCase):
             psutil.Process(pid).suspend()
         else:
             os.kill(pid, signal.SIGSTOP)
-        sy.sleep(0.5)
+        sy.sleep(sy.TimeSpan.SECOND * 0.5)
 
     def _check_driver_responsive(self) -> None:
         """Start a Modbus read task and verify it streams data.
@@ -173,21 +173,21 @@ class OPCUADriverResponsiveness(OPCUAReadTaskCase):
 
         def probe() -> None:
             try:
-                modbus_task.start(timeout=HEALTH_TIMEOUT.seconds)
+                modbus_task.start(timeout=HEALTH_TIMEOUT)
                 keys = [ch.channel for ch in modbus_task.config.channels]
                 with self.client.open_streamer(keys) as streamer:
-                    frame = streamer.read(timeout=HEALTH_TIMEOUT.seconds)
+                    frame = streamer.read(timeout=HEALTH_TIMEOUT)
                     if frame is None:
                         result.append("Modbus task not streaming data")
                         return
-                modbus_task.stop(timeout=HEALTH_TIMEOUT.seconds)
+                modbus_task.stop(timeout=HEALTH_TIMEOUT)
                 result.append("ok")
             except Exception as e:
                 result.append(str(e))
 
         t = threading.Thread(target=probe, daemon=True)
         t.start()
-        t.join(timeout=HEALTH_TIMEOUT.seconds)
+        t.join(timeout=HEALTH_TIMEOUT)
 
         if t.is_alive():
             self.fail(

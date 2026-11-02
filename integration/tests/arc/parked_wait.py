@@ -67,7 +67,7 @@ class ParkedWait(ArcCase):
                 self.fail(f"the task reports an error: {status.message}")
             if timer.elapsed() > 5 * sy.TimeSpan.SECOND:
                 self.fail("the task reports no warning for the zero wait duration")
-            sy.sleep(0.05)
+            sy.sleep(sy.TimeSpan.SECOND * 0.05)
         if status.message != "Node failed":
             self.fail(f"the warning message is {status.message!r}, not 'Node failed'")
         if WARNING_MESSAGE not in status.description:

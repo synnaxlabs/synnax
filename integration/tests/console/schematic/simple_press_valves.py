@@ -9,6 +9,7 @@
 
 from examples.simulators import PressSimDAQ, SimDAQ
 
+import synnax as sy
 from console.case import ConsoleCase
 from console.schematic import Button, Schematic, Valve
 from tests.driver.sim_daq_case import SimDaqCase
@@ -22,7 +23,7 @@ class SimplePressValves(SimDaqCase, ConsoleCase):
     sim_daq_class: type[SimDAQ] | None = PressSimDAQ
 
     def setup(self) -> None:
-        self.set_manual_timeout(90)
+        self.set_manual_timeout(sy.TimeSpan.SECOND * 90)
         self.subscribe(
             [
                 "end_test_cmd",
@@ -84,7 +85,7 @@ class SimplePressValves(SimDaqCase, ConsoleCase):
             press_valve.press()
             self.wait_for_eq("press_vlv_state", 1)
             self.wait_for_eq("vent_vlv_state", 0)
-            self.wait_for_ge(PRESSURE, target_Pressure, timeout=10)
+            self.wait_for_ge(PRESSURE, target_Pressure, timeout=sy.TimeSpan.SECOND * 10)
 
             # Configure next cycle
             self.log("Closing press valve")
@@ -98,7 +99,7 @@ class SimplePressValves(SimDaqCase, ConsoleCase):
         vent_valve.press()
         self.wait_for_eq("press_vlv_state", 0)
         self.wait_for_eq("vent_vlv_state", 1)
-        self.wait_for_le(PRESSURE, 5, timeout=10)
+        self.wait_for_le(PRESSURE, 5, timeout=sy.TimeSpan.SECOND * 10)
         self.log("Closing vent valve")
         vent_valve.press()
         self.wait_for_eq("press_vlv_state", 0)

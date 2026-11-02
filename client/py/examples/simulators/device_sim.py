@@ -90,7 +90,7 @@ class DeviceSim(Simulator):
                     self.log(f"Server ready on {self.host}:{self.port}")
                     return
             except OSError:
-                sy.sleep(0.1)
+                sy.sleep(sy.TimeSpan.SECOND * 0.1)
         raise RuntimeError(
             f"Server not ready on {self.host}:{self.port} after {self.startup_timeout}"
         )
@@ -129,7 +129,7 @@ class DeviceSim(Simulator):
                     pass
             except OSError:
                 return
-            sy.sleep(0.05)
+            sy.sleep(sy.TimeSpan.SECOND * 0.05)
         raise RuntimeError(
             f"Port {self.port} still accepts connections after {timeout}"
         )

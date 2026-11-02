@@ -123,7 +123,7 @@ class BangBangAuthority(ArcCase):
         self._vent_writer: sy.Writer | None = None
         create_virtual_channel(self.client, "bb_stop_cmd", data_type=sy.DataType.UINT8)
         super().setup()
-        self.set_manual_timeout(60)
+        self.set_manual_timeout(sy.TimeSpan.SECOND * 60)
 
     def verify_sequence_execution(self) -> None:
         try:
@@ -153,8 +153,8 @@ class BangBangAuthority(ArcCase):
         # Wait beyond the stop wait{250ms} to ensure yield is active, then assert
         # the valve has not returned to 1 (which would indicate spurious re-entry).
         self.log("Phase 3: Asserting no re-entry from stale start signal...")
-        sy.sleep(0.4)
-        self.wait_for_eq("press_vlv_state", 0, timeout=0)
+        sy.sleep(sy.TimeSpan.SECOND * 0.4)
+        self.wait_for_eq("press_vlv_state", 0, timeout=sy.TimeSpan.ZERO)
         self.log("Sequence correctly remains in yield")
 
         # Phase 4: During yield, an external writer at authority 50 must be able
@@ -181,8 +181,8 @@ class BangBangAuthority(ArcCase):
                     "vent_vlv_cmd": 1,
                 }
             )
-            self.wait_for_eq("press_vlv_state", 1, timeout=5)
-            self.wait_for_eq("vent_vlv_state", 1, timeout=5)
+            self.wait_for_eq("press_vlv_state", 1, timeout=sy.TimeSpan.SECOND * 5)
+            self.wait_for_eq("vent_vlv_state", 1, timeout=sy.TimeSpan.SECOND * 5)
             self.log("External writer commanded both valves during yield")
             yield_writer.write(
                 {
@@ -192,8 +192,8 @@ class BangBangAuthority(ArcCase):
                     "vent_vlv_cmd": 0,
                 }
             )
-            self.wait_for_eq("press_vlv_state", 0, timeout=5)
-            self.wait_for_eq("vent_vlv_state", 0, timeout=5)
+            self.wait_for_eq("press_vlv_state", 0, timeout=sy.TimeSpan.SECOND * 5)
+            self.wait_for_eq("vent_vlv_state", 0, timeout=sy.TimeSpan.SECOND * 5)
         finally:
             with self._try_to("close yield control writer"):
                 yield_writer.close()
@@ -220,7 +220,7 @@ class BangBangAuthority(ArcCase):
                 "press_vlv_cmd": 0,
             }
         )
-        self.wait_for_eq("press_vlv_state", 1, timeout=5)
+        self.wait_for_eq("press_vlv_state", 1, timeout=sy.TimeSpan.SECOND * 5)
         self.log("press_vlv_cmd correctly reclaimed by ARC")
 
         self.log("Verifying vent_vlv_cmd reclaimed by ARC...")
@@ -242,7 +242,7 @@ class BangBangAuthority(ArcCase):
             f"After external write attempt: press_vlv_state={press_state}, "
             f"vent_vlv_state={vent_state}"
         )
-        self.wait_for_eq("press_vlv_state", 1, timeout=5)
+        self.wait_for_eq("press_vlv_state", 1, timeout=sy.TimeSpan.SECOND * 5)
         self.log("Both channels symmetrically reclaimed by ARC after re-entry")
 
     def teardown(self) -> None:

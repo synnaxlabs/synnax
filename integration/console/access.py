@@ -54,17 +54,17 @@ class AccessClient(ResourceClient):
         After logout, the login screen will be displayed.
         """
         self.layout.press_key("ControlOrMeta+Shift+p")
-        sy.sleep(0.3)
+        sy.sleep(sy.TimeSpan.SECOND * 0.3)
 
         palette_input = self.layout.page.locator(
             ".console-palette__input input[role='textbox']"
         )
         palette_input.fill(">Log out", timeout=2000)
-        sy.sleep(0.2)
+        sy.sleep(sy.TimeSpan.SECOND * 0.2)
 
         logout_option = self.layout.page.get_by_text("Log out", exact=True).first
         logout_option.click(timeout=2000)
-        sy.sleep(0.5)
+        sy.sleep(sy.TimeSpan.SECOND * 0.5)
 
         self.layout.page.get_by_label("Username", exact=True).wait_for(
             state="visible", timeout=5000
@@ -80,11 +80,11 @@ class AccessClient(ResourceClient):
             "button", name="Core menu", exact=True
         )
         user_badge.click()
-        sy.sleep(0.3)
+        sy.sleep(sy.TimeSpan.SECOND * 0.3)
 
         logout_btn = self.layout.page.get_by_role("button", name="Log out")
         logout_btn.click()
-        sy.sleep(0.5)
+        sy.sleep(sy.TimeSpan.SECOND * 0.5)
 
         self.layout.page.get_by_label("Username", exact=True).wait_for(
             state="visible", timeout=5000
@@ -111,7 +111,7 @@ class AccessClient(ResourceClient):
         self.layout.page.get_by_role("button", name="Log in").click()
 
         for _ in range(20):
-            sy.sleep(0.5)
+            sy.sleep(sy.TimeSpan.SECOND * 0.5)
 
             error_status = self.layout.page.locator(
                 ".console-login__status .lyra--status-error"
@@ -239,7 +239,7 @@ class AccessClient(ResourceClient):
 
         self.layout.command_palette("Register user")
 
-        sy.sleep(0.3)
+        sy.sleep(sy.TimeSpan.SECOND * 0.3)
 
         self.layout.fill_input_field("Name", name if name is not None else username)
         self.layout.fill_input_field("Username", username)
@@ -250,7 +250,7 @@ class AccessClient(ResourceClient):
 
         self.layout.page.get_by_role("button", name="Register", exact=True).click()
 
-        sy.sleep(0.5)
+        sy.sleep(sy.TimeSpan.SECOND * 0.5)
 
         if self.layout.check_for_errors("user"):
             raise AssertionError(f"Failed to register user {username!r}")
@@ -285,7 +285,7 @@ class AccessClient(ResourceClient):
         self.layout.select_from_dropdown(role_name, placeholder="Search")
 
         self.layout.page.get_by_role("button", name="Assign", exact=True).click()
-        sy.sleep(0.3)
+        sy.sleep(sy.TimeSpan.SECOND * 0.3)
 
     def drag_user_to_role(self, username: str, role_name: str) -> None:
         """Assign a role to a user via drag-drop in the ontology tree.
@@ -304,7 +304,7 @@ class AccessClient(ResourceClient):
             raise ValueError(f"Role '{role_name}' not found")
 
         self.layout.drag(user_item, role_item)
-        sy.sleep(0.3)
+        sy.sleep(sy.TimeSpan.SECOND * 0.3)
 
     # -------------------------------------------------------------------------
     # User Rename/Delete
@@ -326,7 +326,7 @@ class AccessClient(ResourceClient):
         name_element.click()
         name_element.fill(new_name)
         self.layout.press_enter()
-        sy.sleep(1)
+        sy.sleep(sy.TimeSpan.SECOND)
 
     def delete_user(self, username: str) -> None:
         """Delete a user via context menu with confirmation.
@@ -388,7 +388,7 @@ class AccessClient(ResourceClient):
         role_name_element.click()
         role_name_element.fill(new_name)
         self.layout.press_enter()
-        sy.sleep(0.2)
+        sy.sleep(sy.TimeSpan.SECOND * 0.2)
 
     def delete_role(self, name: str) -> None:
         """Delete a role via context menu.
@@ -408,7 +408,7 @@ class AccessClient(ResourceClient):
             self.layout.page.get_by_role(
                 "button", name="Delete", exact=True
             ).first.click()
-            sy.sleep(0.3)
+            sy.sleep(sy.TimeSpan.SECOND * 0.3)
 
         if self.layout.check_for_errors("delete"):
             raise AssertionError(f"Failed to delete role {name!r}")
@@ -448,7 +448,7 @@ class AccessClient(ResourceClient):
             item = self.tree.find_by_name(self.USER_ITEM_PREFIX, username)
             if item is not None:
                 return item
-            sy.sleep(0.2)
+            sy.sleep(sy.TimeSpan.SECOND * 0.2)
         return None
 
     def ensure_user_visible(self, username: str, *, role_name: str) -> Locator:
@@ -477,7 +477,7 @@ class AccessClient(ResourceClient):
         role_item = self._find_role_item(role_name)
         if role_item is not None:
             role_item.click()
-            sy.sleep(1)
+            sy.sleep(sy.TimeSpan.SECOND)
 
         self.layout.page.screenshot(path="/tmp/ensure_user_visible_after.png")
 

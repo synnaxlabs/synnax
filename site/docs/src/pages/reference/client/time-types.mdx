@@ -160,7 +160,7 @@ from datetime import timedelta
 timeout = sy.TimeSpan.MILLISECOND * 250
 print(timeout)  # 250ms
 print(timeout.seconds)  # 0.25
-print(sy.TimeSpan.from_seconds(1.5))  # 1s 500ms
+print(sy.TimeSpan.SECOND * 1.5)  # 1s 500ms
 print(sy.TimeSpan(timedelta(minutes=2)))  # 2m
 print(timeout / 2)  # 125ms
 print(sy.TimeSpan.MINUTE / sy.TimeSpan.SECOND)  # 60.0

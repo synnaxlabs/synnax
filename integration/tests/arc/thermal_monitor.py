@@ -131,10 +131,10 @@ class ThermalMonitor(ArcCase):
     def _verify_stateful_variables(self) -> None:
         self.log("Verifying stateful variable behavior...")
 
-        self.wait_for_ge("cycle_count", 2, timeout=0)
+        self.wait_for_ge("cycle_count", 2, timeout=sy.TimeSpan.ZERO)
         self.log(f"Cycle count: {self.read_tlm('cycle_count')}")
 
-        self.wait_for_gt("peak_temp", 55, timeout=0)
+        self.wait_for_gt("peak_temp", 55, timeout=sy.TimeSpan.ZERO)
         self.log(f"Peak temperature tracked: {self.read_tlm('peak_temp'):.1f}")
 
         raw_error = self.read_tlm("temp_error")

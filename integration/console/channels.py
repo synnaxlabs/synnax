@@ -230,7 +230,7 @@ class ChannelClient(ResourceClient):
         editor = self.layout.locator(".monaco-editor")
         editor.click()
         self.layout.wait_for_selector_visible(".monaco-editor.focused")
-        sy.sleep(0.2)
+        sy.sleep(sy.TimeSpan.SECOND * 0.2)
         self.layout.type_text(expression)
 
         self.notifications.close_all()
@@ -473,7 +473,7 @@ class ChannelClient(ResourceClient):
         :returns: True if all channels exist, False if timeout reached.
         """
         normalized_names = sy.channel.normalize_params(names)
-        timeout_ms = int(sy.TimeSpan.from_seconds(timeout) / sy.TimeSpan.MILLISECOND)
+        timeout_ms = int(sy.TimeSpan(timeout) / sy.TimeSpan.MILLISECOND)
 
         self.show_channels()
         try:

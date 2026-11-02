@@ -59,7 +59,7 @@ with (
     ) as writer,
 ):
     while True:
-        frame = streamer.read(timeout=0)
+        frame = streamer.read(timeout=sy.TimeSpan.ZERO)
         if frame is not None:
             command = str(frame["arduino_command"][0])
             ser.write(command.encode("utf-8"))

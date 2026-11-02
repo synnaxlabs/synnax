@@ -469,7 +469,7 @@ class Schematic(ConsolePage):
             self.page.get_by_role(
                 "button", name="Release control", exact=True
             ).wait_for(state="visible", timeout=2000)
-            sy.sleep(0.1)  # Wait for Core update
+            sy.sleep(sy.TimeSpan.SECOND * 0.1)  # Wait for Core update
 
     def release_control(self) -> None:
         """Release control of the schematic if currently acquired."""
@@ -479,7 +479,7 @@ class Schematic(ConsolePage):
             self.page.get_by_role(
                 "button", name="Acquire control", exact=True
             ).wait_for(state="visible", timeout=5000)
-            sy.sleep(0.1)  # Wait for Core update
+            sy.sleep(sy.TimeSpan.SECOND * 0.1)  # Wait for Core update
 
     def fit_view(self) -> None:
         """Fit the schematic view to its contents."""
@@ -500,7 +500,7 @@ class Schematic(ConsolePage):
             self.page.get_by_role(
                 "button", name="Disable editing", exact=True
             ).wait_for(state="visible", timeout=2000)
-        sy.sleep(0.1)
+        sy.sleep(sy.TimeSpan.SECOND * 0.1)
 
     def disable_edit(self) -> None:
         """Disable edit for the schematic if currently enabled."""
@@ -510,7 +510,7 @@ class Schematic(ConsolePage):
             self.page.get_by_role("button", name="Enable editing", exact=True).wait_for(
                 state="visible", timeout=2000
             )
-        sy.sleep(0.1)
+        sy.sleep(sy.TimeSpan.SECOND * 0.1)
 
     def get_properties(self) -> SchematicProperties:
         """Get the current properties of the schematic.

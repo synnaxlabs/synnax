@@ -159,7 +159,7 @@ with tsk.run():
                 }
             )
             writer.commit()
-            sy.sleep(1)
+            sy.sleep(sy.TimeSpan.SECOND)
 
 print("-" * 70)
 print("✓ Write task completed successfully!")

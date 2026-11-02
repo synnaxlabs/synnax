@@ -60,7 +60,7 @@ class AuthoritySchematicOverride(ArcCase, ConsoleCase):
             self.client, "seq_close_cmd", data_type=sy.DataType.UINT8
         )
         super().setup()
-        self.set_manual_timeout(120)
+        self.set_manual_timeout(sy.TimeSpan.SECOND * 120)
 
     def verify_sequence_execution(self) -> None:
         # Phase 1: Arc in control - valve should open
@@ -90,14 +90,14 @@ class AuthoritySchematicOverride(ArcCase, ConsoleCase):
 
         self.log("Commanding sequence to close valve while schematic holds")
         self.writer.write("seq_close_cmd", 1)
-        self.wait_for_eq("press_vlv_state", 0, timeout=10)
+        self.wait_for_eq("press_vlv_state", 0, timeout=sy.TimeSpan.SECOND * 10)
         self.log("Arc commanded the valve without a schematic release")
 
         # Phase 3: Releasing at authority 1 must not disturb the sequence.
         self.log("Releasing schematic control")
         schematic.release_control()
         self._schematic_controlled = False
-        self.wait_for_eq("press_vlv_state", 0, timeout=5)
+        self.wait_for_eq("press_vlv_state", 0, timeout=sy.TimeSpan.SECOND * 5)
 
         # Phase 4: Schematic override - set authority 255 and acquire control.
         # The Control Authority input only attaches in edit mode.

@@ -601,7 +601,7 @@ class InlineBodies(ArcCase):
 
         self.log("Holding race_cond high; first stage must keep blocking")
         self.writer.write("race_cond", 100.0)
-        sy.sleep(0.5)
+        sy.sleep(sy.TimeSpan.SECOND * 0.5)
         blocked = self.read_tlm("race_first_out")
         if blocked != 1:
             self.fail(
@@ -641,7 +641,7 @@ class InlineBodies(ArcCase):
 
         self.log("Exit stage must be deactivated; its write must not re-apply")
         self.writer.write("reentry_exit_out", 0)
-        sy.sleep(0.5)
+        sy.sleep(sy.TimeSpan.SECOND * 0.5)
         exit_out = self.read_tlm("reentry_exit_out")
         if exit_out != 0:
             self.fail(

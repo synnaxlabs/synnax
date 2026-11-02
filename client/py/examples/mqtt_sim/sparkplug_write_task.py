@@ -74,6 +74,6 @@ try:
                 writer.write({cmd_time.key: sy.TimeStamp.now(), cmd.key: setpoint})
                 print(f"setpoint={setpoint:.0f}", end="\r", flush=True)
                 setpoint = (setpoint + 100) % 2000
-                sy.sleep(1)
+                sy.sleep(sy.TimeSpan.SECOND)
 except KeyboardInterrupt:
     print("\nStopped.")

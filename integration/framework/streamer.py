@@ -67,7 +67,7 @@ class Streamer:
         log: Callable[[str], None],
     ) -> None:
         self._client = client
-        self._read_timeout = sy.TimeSpan.from_seconds(read_timeout)
+        self._read_timeout = sy.TimeSpan(read_timeout)
         self._log = log
         self._error: Exception | None = None
         self._channels: set[str] = set()
@@ -82,7 +82,7 @@ class Streamer:
 
     @read_timeout.setter
     def read_timeout(self, value: sy.CrudeTimeSpan) -> None:
-        self._read_timeout = sy.TimeSpan.from_seconds(value)
+        self._read_timeout = sy.TimeSpan(value)
 
     def subscribe(
         self,
@@ -90,7 +90,7 @@ class Streamer:
         *,
         timeout: sy.CrudeTimeSpan = 10 * sy.TimeSpan.SECOND,
     ) -> None:
-        timeout_span = sy.TimeSpan.from_seconds(timeout)
+        timeout_span = sy.TimeSpan(timeout)
         self._log(f"Subscribing to channels: {channels} ({timeout_span} timeout)")
         names = [channels] if isinstance(channels, str) else channels
 
@@ -143,7 +143,7 @@ class Streamer:
 
         :raises RuntimeError: If the stream failed.
         """
-        deadline = sy.TimeSpan.from_seconds(timeout).seconds
+        deadline = sy.TimeSpan(timeout).seconds
         timer = sy.Timer()
         with self._cond:
             while True:

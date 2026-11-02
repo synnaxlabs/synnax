@@ -476,41 +476,6 @@ class TestTimeSpan:
         """Should correctly display the sy.TimeSpan as a human-readable string"""
         assert str(span) == expected
 
-    @pytest.mark.parametrize(
-        ("span", "expected"),
-        [
-            (
-                1.0,
-                1 * sy.TimeSpan.SECOND,
-            ),
-            (
-                1,
-                1 * sy.TimeSpan.SECOND,
-            ),
-            (
-                1 * sy.TimeSpan.SECOND,
-                1 * sy.TimeSpan.SECOND,
-            ),
-        ],
-    )
-    def test_from_seconds(self, span: object, expected: sy.TimeSpan) -> None:
-        """It should evaluate pure floats or integers as seconds"""
-        abc = sy.TimeSpan.from_seconds(1.0)
-        assert abc == sy.TimeSpan(1 * sy.TimeSpan.SECOND)
-
-    @pytest.mark.parametrize(
-        ("span", "expected"),
-        [
-            (1.0, 1.0),
-            (1, 1),
-            (1 * sy.TimeSpan.MILLISECOND, 0.001),
-        ],
-    )
-    def test_to_seconds(self, span: sy.CrudeTimeSpan, expected: float) -> None:
-        """It should evaluate pure floats or integers as seconds"""
-        abc = sy.TimeSpan.to_seconds(span)
-        assert abc == expected
-
 
 @pytest.mark.telem
 class TestTimeSpanPrecision:

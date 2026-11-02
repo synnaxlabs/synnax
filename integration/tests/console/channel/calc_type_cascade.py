@@ -53,7 +53,9 @@ class CalcTypeCascade(ConsoleCase):
             is_index=True,
         )
         self.ts_key = ts.key
-        self.console.channels.wait_for_channels(ts.name, timeout=5.0)
+        self.console.channels.wait_for_channels(
+            ts.name, timeout=sy.TimeSpan.SECOND * 5.0
+        )
 
         self.writer_keys = [ts.key]
         for label, dt in [
@@ -65,7 +67,9 @@ class CalcTypeCascade(ConsoleCase):
             self.raw[label] = name
             ch = self.client.channels.create(name=name, data_type=dt, index=ts.key)
             self.writer_keys.append(ch.key)
-            self.console.channels.wait_for_channels(name, timeout=5.0)
+            self.console.channels.wait_for_channels(
+                name, timeout=sy.TimeSpan.SECOND * 5.0
+            )
 
         chain = [
             ("scaled", f"return {self.raw['sensor']} * 2"),
@@ -101,7 +105,7 @@ class CalcTypeCascade(ConsoleCase):
         self, streamer: sy.Streamer, calc_label: str, timeout: float = 5
     ) -> float | None:
         calc_ch = self.client.channels.retrieve(self.calcs[calc_label])
-        result = streamer.read(timeout=timeout)
+        result = streamer.read(timeout=sy.TimeSpan.SECOND * timeout)
         if result is not None and len(result[calc_ch.key]) > 0:
             return to_float(result[calc_ch.key][0])
         return None
@@ -143,7 +147,7 @@ class CalcTypeCascade(ConsoleCase):
                 self._write_raw(writer)
 
             for _ in range(3):
-                result = streamer.read(timeout=5)
+                result = streamer.read(timeout=sy.TimeSpan.SECOND * 5)
                 if result is None:
                     continue
                 scaled_ch = self.client.channels.retrieve(self.calcs["scaled"])
@@ -167,7 +171,7 @@ class CalcTypeCascade(ConsoleCase):
             dt = self._get_data_type("scaled")
             if dt == sy.DataType.FLOAT64:
                 break
-            sy.sleep(0.25)
+            sy.sleep(sy.TimeSpan.SECOND * 0.25)
 
         assert self._get_data_type("scaled") == sy.DataType.FLOAT64, (
             f"scaled should be f64 after edit, got {self._get_data_type('scaled')}"
@@ -188,7 +192,7 @@ class CalcTypeCascade(ConsoleCase):
             with self.client.open_writer(start, self.writer_keys) as writer:
                 for _ in range(5):
                     self._write_raw(writer)
-                    result = streamer.read(timeout=5)
+                    result = streamer.read(timeout=sy.TimeSpan.SECOND * 5)
                     if result is not None and len(result[monitor_ch.key]) > 0:
                         val = to_float(result[monitor_ch.key][0])
                         if val != 0.0:
@@ -196,7 +200,7 @@ class CalcTypeCascade(ConsoleCase):
                                 f"monitor: expected 3000, got {val}"
                             )
                             break
-                    sy.sleep(0.5)
+                    sy.sleep(sy.TimeSpan.SECOND * 0.5)
 
         self.log("Phase 3: Compatible cascade verified")
 
@@ -228,7 +232,7 @@ class CalcTypeCascade(ConsoleCase):
             f"return f32({self.calcs['scaled']}) + {self.raw['reference']}"
         )
         self.client.channels.create(combined_ch)
-        sy.sleep(2)
+        sy.sleep(sy.TimeSpan.SECOND * 2)
 
         notifs = self.console.notifications.check()
         error_notifs = [

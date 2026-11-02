@@ -138,7 +138,7 @@ class ModbusUnits(SimulatorCase):
                 assert res.registers == [2], (
                     f"The gateway should have 2 connections, got {res.registers[0]}"
                 )
-                sy.sleep(0.2)
+                sy.sleep(sy.TimeSpan.SECOND * 0.2)
 
     def test_silent_unit(self) -> None:
         self.log("Testing: A silent unit is demoted, and the others keep reading")
@@ -183,7 +183,7 @@ class ModbusUnits(SimulatorCase):
                 stats = Stats.model_validate(data["stats"])
                 if done(stats):
                     return stats
-            sy.sleep(0.5)
+            sy.sleep(sy.TimeSpan.SECOND * 0.5)
         raise AssertionError(f"Unit {unit} counters did not arrive, got {stats}")
 
     @staticmethod
@@ -296,7 +296,7 @@ class ModbusSerialUnits(ModbusUnits):
         timer = sy.Timer()
         with self.client.open_streamer([key]) as streamer:
             while timer.elapsed() < 5 * sy.TimeSpan.SECOND:
-                frame = streamer.read(timeout=1)
+                frame = streamer.read(timeout=sy.TimeSpan.SECOND)
                 if frame is None or key not in frame or len(frame[key]) == 0:
                     continue
                 last = to_float(frame[key][-1])

@@ -249,7 +249,7 @@ class Conversion(ArcCase):
     subscribe_channels = ALL_CHANNELS
 
     def setup(self) -> None:
-        self.set_manual_timeout(300)
+        self.set_manual_timeout(sy.TimeSpan.SECOND * 300)
         for name, dtype in INPUT_CHANNELS:
             create_virtual_channel(self.client, name, data_type=dtype)
         for name, dtype in OUTPUT_CHANNELS:

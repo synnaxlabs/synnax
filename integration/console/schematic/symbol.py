@@ -221,7 +221,7 @@ class Symbol(ABC):
         self.page.mouse.down()
         self.page.mouse.move(target_x, target_y, steps=10)
         self.page.mouse.up()
-        sy.sleep(0.1)  # CI flakiness
+        sy.sleep(sy.TimeSpan.SECOND * 0.1)  # CI flakiness
 
     @property
     def position(self) -> FloatRect:

@@ -63,7 +63,7 @@ class BackwardJump(ArcCase):
             self.client, "bj_pressure", data_type=sy.DataType.FLOAT32
         )
         super().setup()
-        self.set_manual_timeout(60)
+        self.set_manual_timeout(sy.TimeSpan.SECOND * 60)
 
     def verify_sequence_execution(self) -> None:
         self.log("Waiting for bj_press_cmd=1 (pressurize entered)...")
@@ -91,7 +91,7 @@ class BackwardJump(ArcCase):
             "bj_press_cmd would flip back to 1."
         )
         self.writer.write("bj_start_cmd", 1)
-        sy.sleep(2.0)
+        sy.sleep(sy.TimeSpan.SECOND * 2.0)
         held_value = self.read_tlm("bj_press_cmd")
         if held_value is None:
             self.fail(

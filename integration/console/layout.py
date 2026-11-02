@@ -217,7 +217,7 @@ class LayoutClient:
                 no_results = self.page.get_by_text(empty_message).is_visible()
                 if no_results and attempt < retries - 1:
                     self.page.keyboard.press("Escape")
-                    sy.sleep(2)
+                    sy.sleep(sy.TimeSpan.SECOND * 2)
                     continue
 
                 input_value = palette_input.input_value()
@@ -355,7 +355,7 @@ class LayoutClient:
             except PlaywrightTimeoutError:
                 # Retry
                 active_nav_btn.click()
-                sy.sleep(0.2)
+                sy.sleep(sy.TimeSpan.SECOND * 0.2)
 
             anchored_drawer = self.page.locator(
                 ".console-nav__drawer.lyra--visible:not(.lyra--expanded):not(.lyra--location-bottom)"
@@ -527,7 +527,7 @@ class LayoutClient:
                 search_input.fill("")
             if search_input.input_value() != text:
                 search_input.fill(text)
-            sy.sleep(0.1)
+            sy.sleep(sy.TimeSpan.SECOND * 0.1)
 
         try:
             apply_search()
@@ -553,7 +553,7 @@ class LayoutClient:
                 except Exception as e:
                     # A failed recovery consumes this retry instead of aborting.
                     last_recovery_error = e
-                    sy.sleep(1)
+                    sy.sleep(sy.TimeSpan.SECOND)
                 continue
 
         items = self.dialog.get_by_role("option").all_text_contents()
@@ -575,7 +575,7 @@ class LayoutClient:
             with self._bring_to_front(selector) as el:
                 el.click(timeout=5000, force=True)
 
-        sy.sleep(0.1)
+        sy.sleep(sy.TimeSpan.SECOND * 0.1)
 
     def meta_click(self, selector: str | Locator) -> None:
         """Click an element with platform-appropriate modifier key held.
@@ -590,7 +590,7 @@ class LayoutClient:
             with self._bring_to_front(selector) as el:
                 el.click(timeout=5000, modifiers=["ControlOrMeta"])
 
-        sy.sleep(0.1)
+        sy.sleep(sy.TimeSpan.SECOND * 0.1)
 
     @contextmanager
     def _bring_to_front(self, element: Locator) -> Generator[Locator, None, None]:
@@ -813,7 +813,7 @@ class LayoutClient:
         self.select_all_and_type(new_name)
         self.press_enter()
 
-        sy.sleep(0.3)
+        sy.sleep(sy.TimeSpan.SECOND * 0.3)
         self.get_tab(new_name).wait_for(state="visible", timeout=10000)
 
     def split_horizontal(self, tab_name: str) -> None:
@@ -926,13 +926,13 @@ class LayoutClient:
 
     def select_all(self) -> None:
         """Select all text in the focused element."""
-        sy.sleep(0.1)
+        sy.sleep(sy.TimeSpan.SECOND * 0.1)
         self.page.keyboard.press("ControlOrMeta+a")
 
     def select_all_and_type(self, text: str) -> None:
         """Select all text in the focused element and type new text."""
         self.select_all()
-        sy.sleep(0.1)
+        sy.sleep(sy.TimeSpan.SECOND * 0.1)
         self.page.keyboard.type(text)
 
     def type_text(self, text: str) -> None:

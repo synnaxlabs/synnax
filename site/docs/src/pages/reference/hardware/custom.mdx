@@ -398,7 +398,7 @@ with client.open_streamer(["arduino_command"]) as streamer, client.open_writer(
     channels=["arduino_time", "arduino_state", "arduino_value"],
 ) as writer:
     while True:
-        frame = streamer.read(timeout=0)
+        frame = streamer.read(timeout=sy.TimeSpan.ZERO)
         if frame is not None:
             command = int(frame["arduino_command"][-1])
             device.write(str(command).encode("utf-8"))
@@ -411,8 +411,8 @@ with client.open_streamer(["arduino_command"]) as streamer, client.open_writer(
         writer.write({"arduino_time": sy.TimeStamp.now(), **sample})
 ```
 
-`streamer.read(timeout=0)` returns `None` at once when no command is waiting, so the
-loop does not stop at the streamer.
+`streamer.read(timeout=sy.TimeSpan.ZERO)` returns `None` at once when no command is
+waiting, so the loop does not stop at the streamer.
 
   </Fragment>
 

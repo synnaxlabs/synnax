@@ -24,7 +24,7 @@ class SetpointPressUser(SimDaqCase, ConsoleCase):
     sim_daq_class: type[SimDAQ] | None = PressSimDAQ
 
     def setup(self) -> None:
-        self.set_manual_timeout(60)
+        self.set_manual_timeout(sy.TimeSpan.SECOND * 60)
         self.subscribe(
             [
                 "test_flag_cmd",  # virtual channel
@@ -116,7 +116,7 @@ class SetpointPressUser(SimDaqCase, ConsoleCase):
             self.wait_for_eq("press_setpoint_cmd", target)
             self.wait_for_near("press_pt", target, tolerance=3.0)
             self.log("Target pressure reached")
-            sy.sleep(1)
+            sy.sleep(sy.TimeSpan.SECOND)
 
         end_cmd.press()
         self.console.screenshot("setpoint_press_user_passed")

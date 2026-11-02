@@ -401,7 +401,7 @@ class OPCUASim(DeviceSim):
                         f"Server on {self.endpoint} not answering discovery after "
                         f"{self.startup_timeout}"
                     ) from e
-                sy.sleep(0.1)
+                sy.sleep(sy.TimeSpan.SECOND * 0.1)
 
     async def _run_server(self) -> None:
         await run_server(

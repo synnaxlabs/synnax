@@ -16,7 +16,7 @@ from framework.streamer import Streamer
 from framework.tests.fake import Client
 
 CHANNEL = "value"
-WAIT = 5.0
+WAIT = sy.TimeSpan.SECOND * 5
 
 
 @pytest.fixture
@@ -26,7 +26,9 @@ def client() -> Client:
 
 @pytest.fixture
 def streamer(client: Client) -> Streamer:
-    streamer = Streamer(client=client, read_timeout=0.01, log=lambda _: None)
+    streamer = Streamer(
+        client=client, read_timeout=sy.TimeSpan.SECOND * 0.01, log=lambda _: None
+    )
     streamer.subscribe(CHANNEL)
     return streamer
 
@@ -43,7 +45,9 @@ class TestStreamer:
         """Should read None and not satisfy a wait for 0 before any sample."""
         streamer.start()
         assert streamer.read(CHANNEL) is None
-        assert not streamer.wait_for(CHANNEL, predicate=lambda v: v == 0, timeout=0.1)
+        assert not streamer.wait_for(
+            CHANNEL, predicate=lambda v: v == 0, timeout=sy.TimeSpan.SECOND * 0.1
+        )
         client.stream.push(sy.Frame({CHANNEL: sy.Series([0.0])}))
         assert streamer.wait_for(CHANNEL, predicate=lambda v: v == 0, timeout=WAIT)
         stop(streamer)

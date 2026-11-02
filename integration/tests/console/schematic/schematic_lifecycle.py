@@ -193,14 +193,14 @@ class SchematicLifecycle(ConsoleCase):
 
         schematic._click_canvas()
         self.console.layout.press_key("ControlOrMeta+Z")
-        sy.sleep(0.3)
+        sy.sleep(sy.TimeSpan.SECOND * 0.3)
         after_undo = schematic.get_symbol_count()
         assert after_undo == baseline, (
             f"Expected {baseline} symbols after undo of delete, got {after_undo}"
         )
 
         self.console.layout.press_key("ControlOrMeta+Shift+Z")
-        sy.sleep(0.3)
+        sy.sleep(sy.TimeSpan.SECOND * 0.3)
         after_redo = schematic.get_symbol_count()
         assert after_redo == baseline - 1, (
             f"Expected {baseline - 1} symbols after redo of delete, got {after_redo}"
@@ -208,7 +208,7 @@ class SchematicLifecycle(ConsoleCase):
 
         schematic._click_canvas()
         self.console.layout.press_key("ControlOrMeta+Z")
-        sy.sleep(0.3)
+        sy.sleep(sy.TimeSpan.SECOND * 0.3)
         final = schematic.get_symbol_count()
         assert final == baseline, (
             f"Expected {baseline} symbols after restoring undo, got {final}"

@@ -57,7 +57,7 @@ class AuthorityEmergency(ArcCase):
     def setup(self) -> None:
         self._override_writer: sy.Writer | None = None
         super().setup()
-        self.set_manual_timeout(120)
+        self.set_manual_timeout(sy.TimeSpan.SECOND * 120)
 
     def verify_sequence_execution(self) -> None:
         try:

@@ -156,7 +156,7 @@ class RoleViewerPermissions(RoleCase):
             Setpoint(label=F64_CHANNEL, channel_name=F64_CHANNEL)
         )
         setpoint.set_value(4.56)
-        self.wait_for_eq(F64_CHANNEL, 1.23, timeout=0)
+        self.wait_for_eq(F64_CHANNEL, 1.23, timeout=sy.TimeSpan.ZERO)
 
         self.log("Testing: Viewer tries to open valve")
         valve = schematic.find_symbol(
@@ -167,4 +167,4 @@ class RoleViewerPermissions(RoleCase):
             )
         )
         valve.press()
-        self.wait_for_eq(VALVE_CHANNEL, 0, timeout=0)
+        self.wait_for_eq(VALVE_CHANNEL, 0, timeout=sy.TimeSpan.ZERO)

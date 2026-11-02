@@ -62,7 +62,7 @@ class LoadCurrent(ArcCase):
     def setup(self) -> None:
         create_indexed_pair(self.client, "lc_tick_count", data_type=sy.DataType.UINT8)
         super().setup()
-        self.set_manual_timeout(30)
+        self.set_manual_timeout(sy.TimeSpan.SECOND * 30)
 
     def verify_sequence_execution(self) -> None:
         self.log("Phase 1: Waiting for flag == 1 (stage first entered)...")
@@ -76,7 +76,7 @@ class LoadCurrent(ArcCase):
 
         self.log("Phase 3: Asserting flag is still 1 (wait has not elapsed yet)...")
         sy.sleep(500 * sy.TimeSpan.MILLISECOND)
-        self.wait_for_eq("flag", 1, timeout=0)
+        self.wait_for_eq("flag", 1, timeout=sy.TimeSpan.ZERO)
         self.log("flag remains 1 during wait period")
 
         self.log("Phase 3b: Verifying conditional edge re-fires while truthy...")

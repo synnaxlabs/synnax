@@ -285,7 +285,7 @@ def latest(client: sy.Synnax, *, names: list[str]) -> dict[str, np.generic]:
 
 
 def seconds(raw: str) -> sy.TimeSpan:
-    return sy.TimeSpan.from_seconds(float(raw))
+    return sy.TimeSpan.SECOND * float(raw)
 
 
 class ParameterStore(Protocol):

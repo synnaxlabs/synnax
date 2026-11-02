@@ -129,7 +129,7 @@ class CalcChannelStress(ConsoleCase):
         ]
 
         def write_loop() -> None:
-            loop = sy.Loop(sy.Rate.HZ * self.rate)
+            loop = sy.Loop((sy.Rate.HZ * self.rate).period)
             with client.open_writer(
                 sy.TimeStamp.now(),
                 channels=[ch.key for ch in all_channels],
@@ -188,7 +188,9 @@ class CalcChannelStress(ConsoleCase):
         console = self.console
 
         self.log("Waiting for calculated channels to appear in console")
-        channels_exist = console.channels.wait_for_channels(CALC_CHANNELS, timeout=15.0)
+        channels_exist = console.channels.wait_for_channels(
+            CALC_CHANNELS, timeout=sy.TimeSpan.SECOND * 15.0
+        )
         if not channels_exist:
             available = console.channels.list_all()
             raise RuntimeError(
@@ -204,7 +206,7 @@ class CalcChannelStress(ConsoleCase):
         for ch in CALC_CHANNELS:
             assert ch in plot.data["Y1"], f"Channel {ch} should be on Y1"
 
-        sy.sleep(1)
+        sy.sleep(sy.TimeSpan.SECOND)
 
         csv_content = plot.download_csv()
 

@@ -155,7 +155,7 @@ class TaskPage(ConsolePage):
                     f"Task status level stayed '{status['level']}' "
                     f"('{status['msg']}'), expected one of {levels}"
                 )
-            sy.sleep(0.25)
+            sy.sleep(sy.TimeSpan.SECOND * 0.25)
 
     def field_help_text(self, label: str) -> str:
         """Return the help text shown under a form field, such as a validation error

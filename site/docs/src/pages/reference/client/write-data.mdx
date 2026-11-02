@@ -88,7 +88,7 @@ with client.open_writer(
 ) as writer:
     for i in range(100):
         writer.write({"time": sy.TimeStamp.now(), "temperature": 20 + i * 0.1})
-        sy.sleep(0.1)
+        sy.sleep(sy.TimeSpan.MILLISECOND * 100)
 ```
 
 The `with` block closes the writer, also when the code raises an error.

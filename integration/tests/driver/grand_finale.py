@@ -202,7 +202,7 @@ class GrandFinale(SimulatorCase):
         for task in self.read_tasks:
             keys = self._read_channel_keys(task)
             with self.client.open_streamer(keys) as streamer:
-                frame = streamer.read(timeout=30)
+                frame = streamer.read(timeout=sy.TimeSpan.SECOND * 30)
                 if frame is None:
                     raise AssertionError(f"{task.name}: no data received within 30s")
             self.log(f"  {task.name}")
@@ -222,7 +222,7 @@ class GrandFinale(SimulatorCase):
         self.log("Test 5 - Verify read sample counts")
 
         start_time = sy.TimeStamp.now()
-        sy.sleep(self.TASK_DURATION.seconds * 1.25)
+        sy.sleep(self.TASK_DURATION * 1.25)
         stack.close()
         end_time = sy.TimeStamp.now()
 

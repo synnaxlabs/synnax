@@ -170,7 +170,7 @@ class StlTime(ArcCase):
     def _test_interval_rate(self) -> None:
         self.log("=== time.interval ===")
         baselines = {ch: self.read_tlm(ch, 0) for ch, _ in INTERVAL_CHANNELS}
-        sy.sleep(1.0)
+        sy.sleep(sy.TimeSpan.SECOND * 1.0)
         for ch, label in INTERVAL_CHANNELS:
             delta = self.read_tlm(ch, 0) - baselines[ch]
             self.log(f"[{label}] {ch} fired {delta} times in 1s (expected ~10)")

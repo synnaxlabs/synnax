@@ -216,7 +216,7 @@ def send_and_verify_commands(
                 ">>> Retrying command send and verify... "
                 f"({attempt + 1}/{max_attempts})"
             )
-            sy.sleep(2)
+            sy.sleep(sy.TimeSpan.SECOND * 2)
     raise AssertionError(
         f"{prefix}Failed to send and verify commands after "
         f"{max_attempts} attempts: {last_err}"
@@ -310,7 +310,7 @@ def _buffered_task_errors(statuses: sy.Streamer, task_key: sy.task.Key) -> list[
     """Return the warning and error statuses for ``task_key`` that a status streamer
     has received so far, without waiting for more."""
     errors: list[str] = []
-    while (frame := statuses.read(timeout=0)) is not None:
+    while (frame := statuses.read(timeout=sy.TimeSpan.ZERO)) is not None:
         if _STATUS_CHANNEL not in frame:
             continue
         for raw in frame[_STATUS_CHANNEL]:
@@ -423,7 +423,7 @@ def collect_samples(
     full_frames = 0
     with client.open_streamer(channel_keys) as streamer:
         while full_frames < 2:
-            frame = streamer.read(timeout=15)
+            frame = streamer.read(timeout=sy.TimeSpan.SECOND * 15)
             if frame is None:
                 raise AssertionError("Task did not start — no data received")
             batch = min((len(frame[k]) for k in channel_keys if k in frame), default=0)
@@ -434,7 +434,7 @@ def collect_samples(
                     f"samples, last frame had {batch}"
                 )
     start = sy.TimeStamp.now()
-    sy.sleep(duration.seconds)
+    sy.sleep(duration)
     return start
 
 
@@ -693,7 +693,7 @@ class ReadTaskCase(TaskCase[ReadTaskT]):
 
         with self.tsk.run():
             with self.client.open_streamer(channel_keys) as streamer:
-                frame = streamer.read(timeout=30)
+                frame = streamer.read(timeout=sy.TimeSpan.SECOND * 30)
                 if frame is None:
                     raise AssertionError(
                         "Task is not streaming data — cannot test channel deletion"
@@ -754,13 +754,13 @@ class ReadTaskCase(TaskCase[ReadTaskT]):
 
         with task.run():
             with self.client.open_streamer(channel_keys) as streamer:
-                frame = streamer.read(timeout=30)
+                frame = streamer.read(timeout=sy.TimeSpan.SECOND * 30)
                 if frame is None:
                     raise AssertionError(
                         "Task is not streaming data with data_saving disabled"
                     )
             start_time = sy.TimeStamp.now()
-            sy.sleep(duration.seconds * 1.25)
+            sy.sleep(duration * 1.25)
 
         end_time = sy.TimeStamp.now()
         time_range = sy.TimeRange(start_time, end_time)

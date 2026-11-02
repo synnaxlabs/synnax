@@ -80,11 +80,11 @@ class Console:
 
     def check_for_error_screen(self) -> None:
         """Checks for 'Something went wrong' text and clicks 'Try again' if found"""
-        sy.sleep(0.3)
+        sy.sleep(sy.TimeSpan.SECOND * 0.3)
         if self.page.get_by_text("Something went wrong").is_visible():
-            sy.sleep(0.2)
+            sy.sleep(sy.TimeSpan.SECOND * 0.2)
             self.page.get_by_text("Try again").click()
-            sy.sleep(0.2)
+            sy.sleep(sy.TimeSpan.SECOND * 0.2)
 
     def screenshot(self, name: str | None = None) -> None:
         """Take a screenshot of the entire console page."""

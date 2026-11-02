@@ -218,8 +218,8 @@ The condition.
 
 <Field.Item name="timeout" type="CrudeTimeSpan or None" default="None" id="wait_until-timeout">
 
-A number of seconds, a `datetime.timedelta`, or a `TimeSpan`. `None` or `0` waits
-forever.
+A `TimeSpan`, a `datetime.timedelta`, or an integer number of nanoseconds. `None` or
+`0` waits forever.
 
 </Field.Item>
 
@@ -268,8 +268,8 @@ The condition.
 
 <Field.Item name="duration" type="CrudeTimeSpan" required id="remains_true_for-duration">
 
-How long to check: a number of seconds, a `TimeSpan`, or a `datetime.timedelta`. For
-example, `10` and `10 * sy.TimeSpan.SECOND` both mean ten seconds.
+How long to check: a `TimeSpan`, a `datetime.timedelta`, or an integer number of
+nanoseconds. For example, `sy.TimeSpan.SECOND * 10` means ten seconds.
 
 </Field.Item>
 
@@ -290,7 +290,7 @@ Blocks for up to `duration`. Returns `True` if `cond` returned true for at least
 ctrl.sleep(dur, *, precise=False) -> None
 ```
 
-Blocks for `dur`, a number of seconds or a `TimeSpan`. Set `precise=True` for
+Blocks for `dur`, a `TimeSpan` or a `datetime.timedelta`. Set `precise=True` for
 millisecond accuracy. A precise sleep uses more CPU.
 
 <Divider.Divider x />
@@ -323,7 +323,7 @@ command, it sleeps for `delay` with a precise sleep, then sets the value. `sched
 itself sends nothing.
 
 `ScheduledCommand(*, channel, value, delay)` is in `synnax.control`. Each `delay` counts
-from the previous command. A number for `delay` is in seconds. A `TimeSpan` also works.
+from the previous command. Pass `delay` as a `TimeSpan` or a `datetime.timedelta`.
 
 <Divider.Divider x />
 

@@ -102,7 +102,7 @@ write_to = [
 read_from = [v.key for v in valve_commands]
 
 # Define a rate at which we'll write data.
-loop = sy.Loop(sy.Rate.HZ * 100)
+loop = sy.Loop((sy.Rate.HZ * 100).period)
 
 # Set up the initial state of the valves to 0 (closed).
 sensor_states: dict[int, CrudeSeries] = {
@@ -117,7 +117,7 @@ with client.open_streamer([channel.key for channel in valve_commands]) as stream
         start = sy.TimeStamp.now()
         while loop.wait():
             # If we've received a command, update the state of the corresponding valve.
-            frame = streamer.read(timeout=0)
+            frame = streamer.read(timeout=sy.TimeSpan.ZERO)
             if frame is not None:
                 for cmd in valve_commands:
                     data = frame[cmd.key]

@@ -110,7 +110,7 @@ class ModbusSim(DeviceSim):
                     f"Modbus server on {self.host}:{self.port} not answering after "
                     f"{self.startup_timeout}"
                 )
-            sy.sleep(0.1)
+            sy.sleep(sy.TimeSpan.SECOND * 0.1)
 
     @staticmethod
     def create_device(rack_key: int) -> modbus.Device:
@@ -293,7 +293,7 @@ class ModbusSerialSim(DeviceSim):
                     pass
                 finally:
                     client.close()
-            sy.sleep(0.1)
+            sy.sleep(sy.TimeSpan.SECOND * 0.1)
         raise RuntimeError(
             f"Modbus RTU server on {self.serial_port} not answering after "
             f"{self.startup_timeout}"

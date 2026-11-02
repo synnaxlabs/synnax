@@ -96,7 +96,7 @@ try:
                 t = 0.0
                 current_setpoint = 50.0
                 while True:
-                    frame = streamer.read(timeout=0.5)
+                    frame = streamer.read(timeout=sy.TimeSpan.SECOND * 0.5)
                     if frame is not None and setpoint_cmd.key in frame:
                         current_setpoint = frame[setpoint_cmd.key].to_numpy()[-1]
                     writer.write(

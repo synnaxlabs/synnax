@@ -66,7 +66,7 @@ class LoadCurrentSimDAQ(SimDAQ):
 
     def _run_loop(self) -> None:
         self.log("Starting simulation loop...")
-        loop = sy.Loop(sy.Rate.HZ * self.SIM_RATE)
+        loop = sy.Loop((sy.Rate.HZ * self.SIM_RATE).period)
         loop_count = 0
         dt = 1.0 / self.SIM_RATE
         load_current = 0.0

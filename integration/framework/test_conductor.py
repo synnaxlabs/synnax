@@ -162,7 +162,7 @@ class _TestConductor:
         signal.signal(signal.SIGTERM, self._signal_handler)
 
         self.telemetry_client.start()
-        sy.sleep(1)
+        sy.sleep(sy.TimeSpan.SECOND)
 
     def log(self, message: str, *, use_name: bool = True) -> None:
         """Log message with real-time output."""
@@ -395,7 +395,7 @@ def _monitor_test_execution(conductor: _TestConductor) -> None:
                 conductor.log(
                     f"Running: {test['name']} (elapsed: {test['elapsed_time']:.1f}s)"
                 )
-        sy.sleep(1)
+        sy.sleep(sy.TimeSpan.SECOND)
 
 
 def main() -> None:

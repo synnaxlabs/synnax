@@ -90,7 +90,7 @@ class HTTPLegacyDevice(SimulatorCase, ConsoleCase):
                 break
             if timer.elapsed() > STATUS_TIMEOUT:
                 self.fail(f"Legacy device never connected, last status {statuses}")
-            sy.sleep(1)
+            sy.sleep(sy.TimeSpan.SECOND)
 
     def test_read_task_reads(self) -> None:
         """A read task on the legacy device delivers data with the default cap."""
@@ -123,7 +123,7 @@ class HTTPLegacyDevice(SimulatorCase, ConsoleCase):
         )
         self.client.tasks.configure(self.tsk)
         with self.tsk.run(), self.client.open_streamer([key]) as streamer:
-            frame = streamer.read(timeout=10)
+            frame = streamer.read(timeout=sy.TimeSpan.SECOND * 10)
         if frame is None or key not in frame:
             self.fail("Read task delivered no data")
 

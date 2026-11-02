@@ -85,7 +85,7 @@ def write_until(
         ) as writer:
             while timer.elapsed() < WRITE_TIMEOUT:
                 writer.write({channel.index: sy.TimeStamp.now(), channel.key: value})
-                frame = streamer.read(timeout=1)
+                frame = streamer.read(timeout=sy.TimeSpan.SECOND)
                 if frame is None or watched.key not in frame:
                     continue
                 last = frame[watched.key][-1]

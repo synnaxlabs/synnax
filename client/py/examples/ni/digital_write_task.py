@@ -84,9 +84,9 @@ with (
     ) as ctrl,
 ):
     ctrl["do_1_cmd"] = 1
-    ctrl.wait_until(lambda c: c["do_1_state"] == 1, timeout=1)
-    ctrl.sleep(0.1)
+    ctrl.wait_until(lambda c: c["do_1_state"] == 1, timeout=sy.TimeSpan.SECOND)
+    ctrl.sleep(sy.TimeSpan.SECOND * 0.1)
     ctrl["do_1_cmd"] = 0
-    ctrl.wait_until(lambda c: c["do_1_state"] == 0, timeout=1)
+    ctrl.wait_until(lambda c: c["do_1_state"] == 0, timeout=sy.TimeSpan.SECOND)
 
 client.tasks.delete(tsk.key)

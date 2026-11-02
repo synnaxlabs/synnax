@@ -313,7 +313,7 @@ class StlMath(ArcCase):
         for i, val in enumerate(values):
             self.writer.write(channel, val)
             if i < len(values) - 1:
-                sy.sleep(dt_ms / 1000.0)
+                sy.sleep(sy.TimeSpan.MILLISECOND * dt_ms)
 
     def verify_sequence_execution(self) -> None:
         self._verify_pow_const_const()
@@ -441,7 +441,7 @@ class StlMath(ArcCase):
         self._write_many("stat_dur_in", [1.0, 2.0, 3.0, 4.0, 5.0])
         self.wait_for_eq("stat_max_dur_out", 5.0)
 
-        sy.sleep(0.6)
+        sy.sleep(sy.TimeSpan.SECOND * 0.6)
 
         self._write_many("stat_dur_in", [100.0, 200.0, 300.0])
 

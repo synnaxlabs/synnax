@@ -66,7 +66,7 @@ class AuthorityArcVsArc(ArcCase):
             self.client, "start_high_cmd", data_type=sy.DataType.UINT8
         )
         super().setup()
-        self.set_manual_timeout(60)
+        self.set_manual_timeout(sy.TimeSpan.SECOND * 60)
 
     def verify_sequence_execution(self) -> None:
         self.log("Waiting for Arc A to control (press_vlv_state == 0)...")
@@ -81,4 +81,4 @@ class AuthorityArcVsArc(ArcCase):
         self.wait_for_eq("press_vlv_state", 1)
 
         self.log("Waiting for Arc B done stage, Arc A should resume...")
-        self.wait_for_eq("press_vlv_state", 0, timeout=10)
+        self.wait_for_eq("press_vlv_state", 0, timeout=sy.TimeSpan.SECOND * 10)

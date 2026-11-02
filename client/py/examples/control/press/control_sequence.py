@@ -83,7 +83,7 @@ with client.control.acquire(
             # Close the pressurization valve
             ctrl[PRESS_VALVE] = False
             # Wait for 2 seconds
-            ctrl.sleep(2)
+            ctrl.sleep(sy.TimeSpan.SECOND * 2)
             # Increment the target
             target_pressure += 20
         else:

@@ -401,7 +401,7 @@ class SimDAQ:
         )
         print("  ✓ Data writer opened")
 
-        loop = sy.Loop(sy.Rate.HZ * 100)
+        loop = sy.Loop((sy.Rate.HZ * 100).period)
         iteration = 0
         last_status = sy.TimeStamp.now()
 
@@ -416,7 +416,7 @@ class SimDAQ:
                 # Read commands
                 if streamer:
                     try:
-                        frame = streamer.read(timeout=0)
+                        frame = streamer.read(timeout=sy.TimeSpan.ZERO)
                         if frame is not None:
                             # Process valve commands
                             for cmd_name, state_name in self.valve_pairs:

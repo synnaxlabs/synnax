@@ -84,7 +84,7 @@ class ArcCase(SimDaqCase, TestCase):
                     f"{self.__class__.__name__} must define class attribute '{attr}'"
                 )
         self.rack = None
-        self.set_manual_timeout(180)
+        self.set_manual_timeout(sy.TimeSpan.SECOND * 180)
         create_virtual_channel(
             self.client, self.start_cmd_channel, data_type=sy.DataType.UINT8
         )
@@ -144,7 +144,9 @@ class ArcCase(SimDaqCase, TestCase):
             task.execute_command("start")
             timer = sy.Timer()
             while timer.elapsed() < START_TIMEOUT_SECONDS * sy.TimeSpan.SECOND:
-                frame = streamer.read(timeout=float(START_TIMEOUT_SECONDS))
+                frame = streamer.read(
+                    timeout=sy.TimeSpan.SECOND * START_TIMEOUT_SECONDS
+                )
                 if frame is None:
                     break
                 if "sy_status_set" not in frame:

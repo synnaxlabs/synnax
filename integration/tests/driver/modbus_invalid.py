@@ -272,7 +272,7 @@ class ModbusInvalidConfig(SimulatorCase):
                 self.log("  Task A running")
                 # A task takes the channel when its first sample arrives, not when it
                 # starts. Wait for that, or Task B can take the channel first.
-                if streamer.read(timeout=5) is None:
+                if streamer.read(timeout=sy.TimeSpan.SECOND * 5) is None:
                     self.fail("Task A should write to the shared channel")
                 self.log("  Task A writing")
                 self.client.tasks.configure(task_b)

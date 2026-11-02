@@ -35,4 +35,4 @@ class NIRackCase(HardwareCase, ConsoleCase):
                 )
             ]
         )
-        sy.sleep(1)
+        sy.sleep(sy.TimeSpan.SECOND)

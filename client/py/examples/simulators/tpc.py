@@ -131,7 +131,7 @@ class TPCSimDAQ(SimDAQ):
 
     def _run_loop(self) -> None:
         self.log("Starting simulation loop...")
-        loop = sy.Loop(sy.Rate.HZ * 50, precise=False)
+        loop = sy.Loop((sy.Rate.HZ * 50).period, precise=False)
         loop_count = 0
 
         daq_state = dict(INITIAL_DAQ_STATE)
@@ -172,7 +172,7 @@ class TPCSimDAQ(SimDAQ):
                 while self._running and loop.wait():
                     # Drain all pending frames
                     while True:
-                        frame = streamer.read(timeout=0)
+                        frame = streamer.read(timeout=sy.TimeSpan.ZERO)
                         if frame is None:
                             break
                         for ch, series in frame.items():

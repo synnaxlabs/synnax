@@ -210,7 +210,7 @@ class TestCase(ABC):
         self, timeout: sy.CrudeTimeSpan = 5 * sy.TimeSpan.SECOND
     ) -> None:
         """Wait for client threads to complete."""
-        timeout_secs = sy.TimeSpan.from_seconds(timeout).seconds
+        timeout_secs = sy.TimeSpan(timeout).seconds
         self.streamer.join(timeout=timeout_secs)
         if self._telemetry_writer is not None:
             self._telemetry_writer.stop(timeout=timeout_secs)
@@ -350,7 +350,7 @@ class TestCase(ABC):
         Subscribed channels block on the streamer; unsubscribed channels fall
         back to polling the database.
         """
-        timeout_span = sy.TimeSpan.from_seconds(timeout)
+        timeout_span = sy.TimeSpan(timeout)
 
         if self.streamer.is_subscribed(channel_name):
             if self.streamer.wait_for(
@@ -553,7 +553,7 @@ class TestCase(ABC):
         self.loop.wait()  # Rate limit checks to avoid busy loops
         timed_out = self._manual_timeout is not None and sy.TimeStamp.since(
             self.start_time
-        ) > sy.TimeSpan.from_seconds(self._manual_timeout)
+        ) > sy.TimeSpan(self._manual_timeout)
         return timed_out or self._should_stop
 
     @property
@@ -563,7 +563,7 @@ class TestCase(ABC):
     def set_manual_timeout(self, value: sy.CrudeTimeSpan) -> None:
         """Set the manual timeout of the test case."""
         self._manual_timeout = value
-        self.log(f"Manual timeout set ({sy.TimeSpan.from_seconds(value)})")
+        self.log(f"Manual timeout set ({sy.TimeSpan(value)})")
 
     def configure(
         self,
@@ -583,7 +583,7 @@ class TestCase(ABC):
             self.streamer.read_timeout = read_timeout
             log_parts.append(f"read_timeout={read_timeout}")
         if loop_rate is not None:
-            self.loop = sy.Loop(sy.TimeSpan.from_seconds(loop_rate))
+            self.loop = sy.Loop(sy.TimeSpan(loop_rate))
             log_parts.append(f"loop_rate={loop_rate}")
         if manual_timeout is not None:
             self._manual_timeout = manual_timeout

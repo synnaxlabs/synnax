@@ -45,7 +45,7 @@ class SimDAQ(Simulator):
         """Watch for end command and stop the simulator."""
         with self.client.open_streamer([end_cmd_channel]) as streamer:
             while self._running:
-                frame = streamer.read(timeout=1)
+                frame = streamer.read(timeout=sy.TimeSpan.SECOND)
                 if frame is not None:
                     data = frame[end_cmd_channel]
                     if len(data) > 0 and data.to_numpy()[-1] != 0:
@@ -97,7 +97,7 @@ class SimDAQ(Simulator):
 
         try:
             while sim._running:
-                sy.sleep(1)
+                sy.sleep(sy.TimeSpan.SECOND)
         except KeyboardInterrupt:
             print("\nStopping simulator...")
         finally:

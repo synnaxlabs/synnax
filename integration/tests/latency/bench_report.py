@@ -25,7 +25,7 @@ from x import get_machine_info, get_memory_info
 class BenchReport(Latency):
     def setup(self) -> None:
         super().setup()
-        self.set_manual_timeout(10)
+        self.set_manual_timeout(sy.TimeSpan.SECOND * 10)
 
         self.report_client = self.synnax_connection.create_client()
 

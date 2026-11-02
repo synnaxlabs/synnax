@@ -176,10 +176,10 @@ class NIAnalogReadScaled(NIAnalogReadTaskCase):
         # Collect samples for 2 seconds
         with self.tsk.run():
             with self.client.open_streamer(channel_keys) as streamer:
-                streamer.read(timeout=30)  # wait for first frame
-            sy.sleep(0.5)
+                streamer.read(timeout=sy.TimeSpan.SECOND * 30)  # wait for first frame
+            sy.sleep(sy.TimeSpan.SECOND * 0.5)
             start = sy.TimeStamp.now()
-            sy.sleep(1)
+            sy.sleep(sy.TimeSpan.SECOND)
 
         end = sy.TimeStamp.now()
         tr = sy.TimeRange(start, end)
@@ -217,11 +217,11 @@ class NIAnalogReadScaled(NIAnalogReadTaskCase):
 
         with self.tsk.run():
             with self.client.open_streamer(channel_keys) as streamer:
-                streamer.read(timeout=30)
+                streamer.read(timeout=sy.TimeSpan.SECOND * 30)
 
             # Capture pre-tare averages
             pre_start = sy.TimeStamp.now()
-            sy.sleep(0.5)
+            sy.sleep(sy.TimeSpan.SECOND * 0.5)
             pre_end = sy.TimeStamp.now()
             pre_tr = sy.TimeRange(pre_start, pre_end)
 
@@ -244,9 +244,9 @@ class NIAnalogReadScaled(NIAnalogReadTaskCase):
             self.log("  Tare command sent")
 
             # Capture post-tare values
-            sy.sleep(0.5)
+            sy.sleep(sy.TimeSpan.SECOND * 0.5)
             post_start = sy.TimeStamp.now()
-            sy.sleep(0.5)
+            sy.sleep(sy.TimeSpan.SECOND * 0.5)
             post_end = sy.TimeStamp.now()
 
         post_tr = sy.TimeRange(post_start, post_end)

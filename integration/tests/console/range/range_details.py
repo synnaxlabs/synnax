@@ -65,7 +65,7 @@ class RangeDetails(HardwareCase, ConsoleCase):
             config=NI_ANALOG_READ_CONFIG,
         )
         self.track_test_tasks([task])
-        sy.sleep(1)  # SY not?
+        sy.sleep(sy.TimeSpan.SECOND)  # SY not?
 
         self.console.ranges.favorite(self.parent_range_name)
         self.console.ranges.set_active(self.parent_range_name)

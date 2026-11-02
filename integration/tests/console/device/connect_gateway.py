@@ -107,5 +107,5 @@ class ConnectGateway(ModbusCase):
             details = None if dev.status is None else dev.status.details
             if details is not None and details.data is not None:
                 return
-            sy.sleep(0.5)
+            sy.sleep(sy.TimeSpan.SECOND * 0.5)
         raise AssertionError(f"'{name}' should report its request counters")

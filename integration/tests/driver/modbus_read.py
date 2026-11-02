@@ -260,7 +260,7 @@ class ModbusReadString(ModbusReadTaskCase):
                 assert timer.elapsed() < 10 * sy.TimeSpan.SECOND, (
                     f"Strings should stream within 10s, got {received}"
                 )
-                frame = streamer.read(timeout=1)
+                frame = streamer.read(timeout=sy.TimeSpan.SECOND)
                 if frame is None:
                     continue
                 for key in expected:

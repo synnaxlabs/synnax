@@ -105,7 +105,7 @@ class ThermalSimDAQ(SimDAQ):
 
     def _run_loop(self) -> None:
         self.log("Starting simulation loop...")
-        loop = sy.Loop(sy.Rate.HZ * 50)
+        loop = sy.Loop((sy.Rate.HZ * 50).period)
         loop_count = 0
 
         temp_sensor = self.AMBIENT_TEMP
@@ -123,7 +123,7 @@ class ThermalSimDAQ(SimDAQ):
 
                 while self._running and loop.wait():
                     while True:
-                        frame = streamer.read(timeout=0)
+                        frame = streamer.read(timeout=sy.TimeSpan.ZERO)
                         if frame is not None:
                             heater_cmd_data = frame["heater_cmd"]
                             if len(heater_cmd_data) > 0:

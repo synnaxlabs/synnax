@@ -124,7 +124,7 @@ class DriverNIDigitalWrite(Latency):
                     # Wait for state to match command
                     ctrl.wait_until(
                         _equals(do_1_state.key, int(cmd_state)),
-                        timeout=1,
+                        timeout=sy.TimeSpan.SECOND,
                     )
                     state_timestamp_loop = sy.TimeStamp.now()
 
@@ -146,7 +146,9 @@ class DriverNIDigitalWrite(Latency):
 
                 # Set back to 0
                 ctrl[do_1_cmd.key] = int(False)
-                ctrl.wait_until(lambda c: c[do_1_state.key] == 0, timeout=1)
+                ctrl.wait_until(
+                    lambda c: c[do_1_state.key] == 0, timeout=sy.TimeSpan.SECOND
+                )
 
         self.log(f"Total samples: {len(latencies_core)}")
 

@@ -121,7 +121,7 @@ class NITask(TaskPage):
         if dev_name is None:
             dev_name = name[:12]
         # Handle device creation modal if it appears
-        sy.sleep(0.2)  # Give modal time to appear
+        sy.sleep(sy.TimeSpan.SECOND * 0.2)  # Give modal time to appear
         configured = layout.is_modal_open()
         if configured:
             modal = layout.page.locator(layout.MODAL_SELECTOR)
@@ -157,5 +157,5 @@ class NITask(TaskPage):
             idx = self.channels_by_name.index(channel_name)
             self.layout.page.locator(".lyra-list__item").nth(idx).click()
             channel = self.channels[idx]
-            sy.sleep(0.3)
+            sy.sleep(sy.TimeSpan.SECOND * 0.3)
             channel.assert_form()

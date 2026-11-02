@@ -53,7 +53,9 @@ class Abcd(Latency):
         Setup the test case.
         """
         self.log("WARNING (⚠️): This test does not have any reporting.")
-        self.configure(loop_rate=0.01, manual_timeout=15)
+        self.configure(
+            loop_rate=sy.TimeSpan.SECOND * 0.01, manual_timeout=sy.TimeSpan.SECOND * 15
+        )
 
         # Get mode from matrix parameters
         self.mode = self.params.get("mode")
@@ -128,7 +130,7 @@ class Abcd(Latency):
         elif self.mode == "d":
             # 100Hz for the manual timeout duration
             timeout_secs = (
-                int(sy.TimeSpan.from_seconds(self._manual_timeout).seconds)
+                int(sy.TimeSpan(self._manual_timeout).seconds)
                 if self._manual_timeout is not None
                 else 20
             )

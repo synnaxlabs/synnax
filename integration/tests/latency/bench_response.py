@@ -14,7 +14,7 @@ from tests.latency.latency import Latency
 class BenchResponse(Latency):
     def setup(self) -> None:
         super().setup()
-        self.set_manual_timeout(10)
+        self.set_manual_timeout(sy.TimeSpan.SECOND * 10)
 
         self.bench_client = self.synnax_connection.create_client()
 
@@ -48,7 +48,7 @@ class BenchResponse(Latency):
         cmd_channel: str = self.cmd_channel
 
         timeout = (
-            sy.TimeSpan.from_seconds(self._manual_timeout)
+            sy.TimeSpan(self._manual_timeout)
             if self._manual_timeout is not None
             else 10 * sy.TimeSpan.SECOND
         )
@@ -59,6 +59,6 @@ class BenchResponse(Latency):
                 sy.TimeStamp.now(), state_channel
             ) as writer:
                 while sy.TimeStamp.since(start) < timeout and not self._should_stop:
-                    frame = stream.read(timeout=3)
+                    frame = stream.read(timeout=sy.TimeSpan.SECOND * 3)
                     if frame is not None:
                         writer.write(state_channel, frame[cmd_channel].to_numpy())

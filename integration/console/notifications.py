@@ -55,7 +55,7 @@ class NotificationsClient:
         :returns: List of notification dictionaries with details.
         """
         timer = sy.Timer()
-        timeout_span = sy.TimeSpan.from_seconds(timeout)
+        timeout_span = sy.TimeSpan(timeout)
         poll_interval = 50 * sy.TimeSpan.MILLISECOND
 
         while timer.elapsed() < timeout_span:

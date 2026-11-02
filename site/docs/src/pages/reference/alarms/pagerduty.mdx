@@ -123,7 +123,7 @@ with alert_task.run():
             description="The connection to the controller is lost.",
         )
     )
-    sy.sleep(5)
+    sy.sleep(sy.TimeSpan.SECOND * 5)
     # Resolves the incident
     client.statuses.set(
         sy.Status(
@@ -133,7 +133,7 @@ with alert_task.run():
             message="Running",
         )
     )
-    sy.sleep(3)
+    sy.sleep(sy.TimeSpan.SECOND * 3)
 ```
 
 </Details>

@@ -118,7 +118,7 @@ number is seconds. `wait_until` returns `False` if the timeout ends first:
 ```python
     reached = ctrl.wait_until(
         lambda c: c["press_pt"] > 300,
-        timeout=30 * sy.TimeSpan.SECOND,
+        timeout=sy.TimeSpan.SECOND * 30,
     )
     ctrl["press_vlv_cmd"] = False
 ```
@@ -134,11 +134,11 @@ condition stays true for the full `duration`:
     if reached:
         held = ctrl.remains_true_for(
             lambda c: c["press_pt"] > 280,
-            duration=10 * sy.TimeSpan.SECOND,
+            duration=sy.TimeSpan.SECOND * 10,
         )
 ```
 
-Pass `duration` as a number of seconds, a `TimeSpan`, or a `datetime.timedelta`.
+Pass `duration` as a `TimeSpan` or a `datetime.timedelta`.
 
 <Divider.Divider x />
 
@@ -184,13 +184,13 @@ with client.control.acquire(
         ctrl.set({"press_vlv_cmd": True, "vent_vlv_cmd": False})
         reached = ctrl.wait_until(
             lambda c: c["press_pt"] > 300,
-            timeout=30 * sy.TimeSpan.SECOND,
+            timeout=sy.TimeSpan.SECOND * 30,
         )
         ctrl["press_vlv_cmd"] = False
         if reached:
             held = ctrl.remains_true_for(
                 lambda c: c["press_pt"] > 280,
-                duration=10 * sy.TimeSpan.SECOND,
+                duration=sy.TimeSpan.SECOND * 10,
             )
             print("Pressure held" if held else "Pressure dropped")
         ctrl["vent_vlv_cmd"] = True

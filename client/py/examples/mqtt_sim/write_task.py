@@ -82,6 +82,6 @@ try:
                 writer.write({cmd_time.key: sy.TimeStamp.now(), cmd.key: position})
                 print(f"position={position:.0f}", end="\r", flush=True)
                 position = (position + 10) % 100
-                sy.sleep(1)
+                sy.sleep(sy.TimeSpan.SECOND)
 except KeyboardInterrupt:
     print("\nStopped.")

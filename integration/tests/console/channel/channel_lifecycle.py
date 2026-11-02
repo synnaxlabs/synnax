@@ -37,7 +37,9 @@ class ChannelLifecycle(ConsoleCase):
             data_type=sy.DataType.TIMESTAMP,
             is_index=True,
         )
-        self.console.channels.wait_for_channels(self.shared_index, timeout=5.0)
+        self.console.channels.wait_for_channels(
+            self.shared_index, timeout=sy.TimeSpan.SECOND * 5.0
+        )
         self.console.channels.create(
             name=self.shared_data,
             data_type=sy.DataType.FLOAT32,

@@ -29,7 +29,7 @@ class PagerDutyAlert(TestCase):
     rest: pagerduty.RestApiV2Client
 
     def setup(self) -> None:
-        self.set_manual_timeout(60)
+        self.set_manual_timeout(sy.TimeSpan.SECOND * 60)
         self.suffix = random_name()
         self.status_key = f"test-pd-status-{self.suffix}"
         if ROUTING_KEY is None:
@@ -103,7 +103,7 @@ class PagerDutyAlert(TestCase):
         timer = sy.Timer()
         configured = False
         while timer.elapsed() < 10 * sy.TimeSpan.SECOND:
-            frame = streamer.read(timeout=1)
+            frame = streamer.read(timeout=sy.TimeSpan.SECOND)
             if frame is None or "sy_status_set" not in frame:
                 continue
             for val in frame["sy_status_set"]:

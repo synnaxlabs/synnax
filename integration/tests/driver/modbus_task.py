@@ -39,7 +39,7 @@ def _wait_for_sim[T](
         while (got := read(sim)) != expected:
             if timer.elapsed() > 2 * sy.TimeSpan.SECOND:
                 raise AssertionError(f"{what} should be {expected}, got {got}")
-            sy.sleep(0.05)
+            sy.sleep(sy.TimeSpan.SECOND * 0.05)
 
 
 def assert_sim_registers(address: int, expected: list[int]) -> None:

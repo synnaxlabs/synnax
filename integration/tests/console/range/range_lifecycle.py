@@ -292,7 +292,7 @@ class RangeLifecycle(ConsoleCase):
         for _ in range(9):
             if sy.TimeStamp(rng.time_range.end).datetime(UTC).day == 2:
                 break
-            sy.sleep(0.5)
+            sy.sleep(sy.TimeSpan.SECOND * 0.5)
             rng = self.client.ranges.retrieve(name=self.labeled_range_name)
         start_utc = sy.TimeStamp(rng.time_range.start).datetime(UTC)
         end_utc = sy.TimeStamp(rng.time_range.end).datetime(UTC)
@@ -332,7 +332,7 @@ class RangeLifecycle(ConsoleCase):
             try:
                 return self.client.ranges.retrieve(name=name)
             except sy.NotFoundError:
-                sy.sleep(0.5)
+                sy.sleep(sy.TimeSpan.SECOND * 0.5)
         return self.client.ranges.retrieve(name=name)
 
     def assert_range_spans_now(self, name: str) -> None:
@@ -345,7 +345,7 @@ class RangeLifecycle(ConsoleCase):
         for _ in range(9):
             if rng.time_range.start < now < rng.time_range.end:
                 break
-            sy.sleep(0.5)
+            sy.sleep(sy.TimeSpan.SECOND * 0.5)
             rng = self.client.ranges.retrieve(name=name)
             now = int(sy.TimeStamp.now())
         assert rng.time_range.start < now, f"'{name}' start should be in the past"
@@ -371,7 +371,7 @@ class RangeLifecycle(ConsoleCase):
         for _ in range(10):
             if done(rng):
                 break
-            sy.sleep(0.5)
+            sy.sleep(sy.TimeSpan.SECOND * 0.5)
             rng = self.client.ranges.retrieve(name=name)
         return rng
 
@@ -517,7 +517,9 @@ class RangeLifecycle(ConsoleCase):
         self.console.ranges.overview.wait_for(self.labeled_range_name)
 
         self.console.ranges.overview.copy_python_code()
-        notifications = self.console.notifications.check(timeout=10)
+        notifications = self.console.notifications.check(
+            timeout=sy.TimeSpan.SECOND * 10
+        )
         messages = [n.get("message", "") for n in notifications]
         assert "Copied Python code to clipboard" in messages, (
             "Should show Python code copied notification"
@@ -533,7 +535,7 @@ class RangeLifecycle(ConsoleCase):
         self.console.ranges.overview.wait_for(self.labeled_range_name)
 
         self.console.ranges.overview.copy_typescript_code()
-        notifications = self.console.notifications.check(timeout=2)
+        notifications = self.console.notifications.check(timeout=sy.TimeSpan.SECOND * 2)
         messages = [n.get("message", "") for n in notifications]
         assert "Copied TypeScript code to clipboard" in messages, (
             "Should show TypeScript code copied notification"
@@ -549,7 +551,7 @@ class RangeLifecycle(ConsoleCase):
         self.console.ranges.overview.wait_for(self.labeled_range_name)
 
         self.console.ranges.overview.copy_link()
-        notifications = self.console.notifications.check(timeout=2)
+        notifications = self.console.notifications.check(timeout=sy.TimeSpan.SECOND * 2)
         messages = [n.get("message", "") for n in notifications]
         assert "Copied link to clipboard" in messages, (
             "Should show link copied notification"

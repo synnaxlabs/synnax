@@ -29,7 +29,7 @@ class TelemetryWriter:
         channels: sy.channel.Params,
         update: Callable[[dict[str, object], sy.TimeStamp, float], None],
         should_stop: Callable[[], bool],
-        rate: sy.Rate | sy.TimeSpan = 200 * sy.TimeSpan.MILLISECOND,
+        rate: sy.TimeSpan = 200 * sy.TimeSpan.MILLISECOND,
         name: str | None = None,
         on_error: Callable[[Exception], None] | None = None,
     ) -> None:
@@ -160,7 +160,7 @@ class TelemetryClient:
             channels=[time_ch, uptime_ch, state_ch, count_ch, ran_ch],
             update=self._update_tlm,
             should_stop=get_should_stop,
-            rate=sy.Rate.HZ * 5,
+            rate=(sy.Rate.HZ * 5).period,
             name=name,
         )
 

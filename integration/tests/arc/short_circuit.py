@@ -98,7 +98,7 @@ class ChannelCollector:
         while timer.elapsed() < timeout * sy.TimeSpan.SECOND:
             if len(self.data.get(channel, [])) >= count:
                 return
-            sy.sleep(0.05)
+            sy.sleep(sy.TimeSpan.SECOND * 0.05)
         raise TimeoutError(
             f"Timed out after {timeout}s waiting for {count} entries on '{channel}'; "
             f"got {len(self.data.get(channel, []))}"
@@ -216,11 +216,11 @@ class ShortCircuit(ArcCase):
         self.log("Phase 2: Setting ss_temp_a=400")
         # Wait for the sequence to loop back into the on stage after the 3rd
         # pause before writing the trigger sensors.
-        sy.sleep(1)
+        sy.sleep(sy.TimeSpan.SECOND)
         self._ss_temp_a = 400.0
         self._write_sensors()
-        self.wait_for_eq("ss_stage_str", "off", timeout=10.0)
-        self.wait_for_eq("ss_sim_stage", 3, timeout=5.0)
+        self.wait_for_eq("ss_stage_str", "off", timeout=sy.TimeSpan.SECOND * 10.0)
+        self.wait_for_eq("ss_sim_stage", 3, timeout=sy.TimeSpan.SECOND * 5.0)
         self.log("Phase 2 complete: first transition won, later statements skipped")
 
     def _assert_loop_writes(self, collected: dict[str, list[SampleValue]]) -> None:

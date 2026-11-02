@@ -59,7 +59,7 @@ start = sy.TimeStamp.now()
 
 # Set a data rate of 30 Hz. This won't be an exact loop and could drift over long
 # periods of time, but it works well for a demonstration.
-rough_rate = sy.Loop(sy.Rate.HZ * 30)
+rough_rate = sy.Loop((sy.Rate.HZ * 30).period)
 
 # Open the writer as a context manager. Using a context manager is recommended as the
 # context manager will automatically close the writer when we are done writing. We will
