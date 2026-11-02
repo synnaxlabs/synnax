@@ -24,6 +24,7 @@ from typing import (
     get_args,
     get_origin,
     overload,
+    override,
 )
 
 import numpy as np
@@ -418,6 +419,7 @@ class Series(ArrayOperators, Generic[T]):
             f"{sample_type.__name__}"
         )
 
+    @override
     def __array__(
         self, dtype: np.dtype | None = None, copy: bool | None = None
     ) -> np.ndarray:
@@ -464,9 +466,11 @@ class Series(ArrayOperators, Generic[T]):
     def __iter__(self) -> Iterator[T]:
         return self._codec.iter(self.data)
 
+    @override
     def __str__(self) -> str:
         return str(list(self))
 
+    @override
     def __repr__(self) -> str:
         return (
             f"Series(data_type={self.data_type!r}, len={len(self)}, "
@@ -584,6 +588,7 @@ class MultiSeries(ArrayOperators, Generic[T]):
         """
         return MultiSeries([s.as_(sample_type) for s in self.series])
 
+    @override
     def __array__(
         self, dtype: np.dtype | None = None, copy: bool | None = None
     ) -> np.ndarray:
@@ -664,6 +669,7 @@ class MultiSeries(ArrayOperators, Generic[T]):
         for s in self.series:
             yield from s
 
+    @override
     def __str__(self) -> str:
         return str(list(self))
 
