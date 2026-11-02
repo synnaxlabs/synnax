@@ -98,12 +98,15 @@ export type ListParts<C extends filter.Condition<string>, Z extends z.ZodType> =
   ? [never]
   : Array<Part<C, Z>>;
 
-/** The parts of a retrieve that returns one record: parts that end with `one()`. */
+/**
+ * The parts of a retrieve that returns one record: parts that end with `one()`. A page
+ * could hide a second match, so they take no limit or offset.
+ */
 export type OneParts<C extends filter.Condition<string>, Z extends z.ZodType> = [
   C,
 ] extends [never]
   ? [never]
-  : [...Array<Part<C, Z>>, filter.One];
+  : [...Array<filter.Part<C, Exclude<OptionField<Z>, "limit" | "offset">>>, filter.One];
 
 /** True for params that are a bare record key rather than a query object. */
 const isBareKey = (params: unknown): params is record.Key =>
