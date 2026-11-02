@@ -181,6 +181,22 @@ class TestColor:
         with pytest.raises(ValidationError):
             Color(value)
 
+    @pytest.mark.parametrize(
+        "value",
+        [
+            [0, 0, 0, -0.5],
+            {"r": 0, "g": 0, "b": 0, "a": -1},
+            {"rgba255": [0, 0, 0, -1]},
+        ],
+    )
+    def test_negative_alpha_rejected(self, value: object) -> None:
+        with pytest.raises(ValidationError):
+            Color(value)
+
+    def test_negative_alpha_rejected_on_construction(self) -> None:
+        with pytest.raises(ValidationError):
+            Color(r=0, g=0, b=0, a=-0.1)
+
     def test_channel_outside_range_rejected_on_construction(self) -> None:
         with pytest.raises(ValidationError):
             Color(r=300, g=0, b=0)

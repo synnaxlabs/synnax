@@ -12,6 +12,7 @@
 from __future__ import annotations
 
 from typing import Annotated, Literal, TypeAlias
+from typing import override as _override
 from uuid import UUID, uuid4
 
 from pydantic import BaseModel, Field
@@ -1915,6 +1916,7 @@ class Schematic(BaseModel):
     edges: list[Edge] = Field(default_factory=list)
     configs: dict[str, ElementConfig] = Field(default_factory=dict)
 
+    @_override
     def __hash__(self) -> int:
         return hash(self.key)
 
