@@ -21,6 +21,11 @@ const PRESERVE_CASE_SYMBOL = "synnax.caseconv.preserveCase";
  */
 const PRESERVE_KEYS_SYMBOL = "synnax.caseconv.preserveKeys";
 
+/** Holds the function that camelToSnake writes a schema's values through. */
+const ENCODE_SYMBOL = "synnax.caseconv.encode";
+
+type Encoder = (value: never) => unknown;
+
 interface ZodDef extends z.core.$ZodTypeDef {
   innerType?: z.core.SomeType;
   valueType?: z.core.SomeType;
@@ -38,6 +43,7 @@ interface ZodInternals extends z.core.$ZodTypeInternals {
 interface ZodSchema extends z.core.$ZodType {
   [PRESERVE_CASE_SYMBOL]?: boolean;
   [PRESERVE_KEYS_SYMBOL]?: boolean;
+  [ENCODE_SYMBOL]?: Encoder;
   _zod: ZodInternals;
   shape?: Record<string, z.ZodType>;
   sourceType?: () => { shape?: Record<string, z.ZodType> } | undefined;
@@ -68,6 +74,30 @@ export const preserveCase = <T extends z.ZodType>(schema: T): T => {
 export const preserveKeys = <T extends z.ZodType>(schema: T): T => {
   (schema as ZodSchema)[PRESERVE_KEYS_SYMBOL] = true;
   return schema;
+};
+
+/**
+ * Marks a Zod schema so camelToSnake writes each array value it parses through encode,
+ * as a color tuple is written as a hex string. snakeToCamel leaves the value as it is.
+ * The mark carries through optional, nullable, and default wrappers.
+ */
+export const encodeWith = <T extends z.ZodType>(
+  schema: T,
+  encode: (value: z.output<T>) => unknown,
+): T => {
+  (schema as unknown as ZodSchema)[ENCODE_SYMBOL] = encode;
+  return schema;
+};
+
+const getEncoder = (
+  schema: z.ZodType | z.core.SomeType | undefined,
+): ((value: unknown) => unknown) | undefined => {
+  if (schema == null) return undefined;
+  const s = schema as ZodSchema;
+  const encode = s[ENCODE_SYMBOL];
+  if (encode != null) return encode as (value: unknown) => unknown;
+  const inner = s._zod?.def?.innerType;
+  return inner == null ? undefined : getEncoder(inner);
 };
 
 const hasPreserveKeysMarker = (schema: unknown): boolean =>
@@ -184,10 +214,28 @@ const snakeToCamelStr = (str: string): string => {
 
 const createConverter = (
   f: (v: string) => string,
+  encodes: boolean = false,
 ): (<V>(obj: V, opt?: Options) => V) => {
+  const encoderOf = (schema: z.ZodType | undefined) =>
+    encodes ? getEncoder(schema) : undefined;
+  const mapArray = (arr: unknown[], elemOpt: Options): unknown[] => {
+    const encode = encoderOf(elemOpt.schema);
+    return arr.map((v) => {
+      if (isValidObject(v)) {
+        if (!isPreservedType(v)) return converter(v, elemOpt);
+      } else if (Array.isArray(v)) {
+        if (encode != null) return encode(v);
+        const temp: record.Unknown = converter({ key: v }, elemOpt);
+        return temp.key;
+      }
+      return v;
+    });
+  };
   const converter = <V>(obj: V, opt: Options = defaultOptions): V => {
     if (typeof obj === "string") return f(obj) as V;
     if (Array.isArray(obj)) {
+      const encode = encoderOf(opt.schema);
+      if (encode != null) return encode(obj) as V;
       const elementSchema = getArrayElementSchema(opt.schema);
       const elemOpt: Options = {
         recursive: opt.recursive,
@@ -214,14 +262,18 @@ const createConverter = (
         if (isValidObject(value)) {
           if (!isPreservedType(value)) value = converter(value, childOpt);
         } else if (Array.isArray(value)) {
-          const elemOpt: Options = {
-            recursive: opt.recursive,
-            recursiveInArray: opt.recursiveInArray,
-            schema: getArrayElementSchema(valueSchema),
-          };
-          value = (value as unknown[]).map((v) =>
-            isValidObject(v) && !isPreservedType(v) ? converter(v, elemOpt) : v,
-          );
+          const encode = encoderOf(valueSchema);
+          if (encode != null) value = encode(value);
+          else {
+            const elemOpt: Options = {
+              recursive: opt.recursive,
+              recursiveInArray: opt.recursiveInArray,
+              schema: getArrayElementSchema(valueSchema),
+            };
+            value = (value as unknown[]).map((v) =>
+              isValidObject(v) && !isPreservedType(v) ? converter(v, elemOpt) : v,
+            );
+          }
         }
         res[key] = value;
       }
@@ -257,17 +309,12 @@ const createConverter = (
             value = converter(value, childOpt);
           }
         } else if (recursiveInArray && Array.isArray(value)) {
-          const elementSchema = getArrayElementSchema(propSchema);
-          childOpt.schema = elementSchema;
-          value = (value as unknown[]).map((v) => {
-            if (isValidObject(v)) {
-              if (!isPreservedType(v)) return converter(v, childOpt);
-            } else if (Array.isArray(v)) {
-              const temp: record.Unknown = converter({ key: v }, childOpt);
-              return temp.key;
-            }
-            return v;
-          });
+          const encode = encoderOf(propSchema);
+          if (encode != null) value = encode(value);
+          else {
+            childOpt.schema = getArrayElementSchema(propSchema);
+            value = mapArray(value as unknown[], childOpt);
+          }
         }
 
       res[nkey] = value;
@@ -332,7 +379,7 @@ const camelToSnakeStr = (str: string): string => {
 };
 
 /** Converts a camelCase string to snake_case. */
-export const camelToSnake = createConverter(camelToSnakeStr);
+export const camelToSnake = createConverter(camelToSnakeStr, true);
 
 /** Options for {@link snakeToCamelPath} and {@link camelToSnakePath}. */
 export interface PathOptions {
@@ -352,7 +399,7 @@ export interface ConvertedPath {
 type Converter = ReturnType<typeof createConverter>;
 
 const createPathConverter =
-  (f: (v: string) => string, converter: Converter) =>
+  (f: (v: string) => string, converter: Converter, encodes: boolean = false) =>
   (path: string[], { schema, data }: PathOptions = {}): ConvertedPath => {
     const out: string[] = [];
     let s = schema;
@@ -384,7 +431,7 @@ const createPathConverter =
       d = obj?.[seg] ?? obj?.[next];
     }
     const convert = <V>(value: V): V =>
-      preserved ? value : convertChild(value, s, converter);
+      preserved ? value : convertChild(value, s, converter, encodes);
     return { path: out, convert };
   };
 
@@ -393,10 +440,13 @@ const convertChild = <V>(
   value: V,
   schema: z.ZodType | undefined,
   converter: Converter,
+  encodes: boolean,
 ): V => {
   if (isValidObject(value))
     return isPreservedType(value) ? value : converter(value, { schema });
   if (!Array.isArray(value)) return value;
+  const encode = encodes ? getEncoder(schema) : undefined;
+  if (encode != null) return encode(value) as V;
   const opt: Options = { schema: getArrayElementSchema(schema) };
   return value.map((v: unknown) => {
     if (isValidObject(v)) return isPreservedType(v) ? v : converter(v, opt);
@@ -416,7 +466,11 @@ export const snakeToCamelPath = createPathConverter(snakeToCamelStr, snakeToCame
  * Converts a camelCase path into a document the way {@link camelToSnake} converts the
  * keys of the whole document with the same schema.
  */
-export const camelToSnakePath = createPathConverter(camelToSnakeStr, camelToSnake);
+export const camelToSnakePath = createPathConverter(
+  camelToSnakeStr,
+  camelToSnake,
+  true,
+);
 
 /** Capitalizes the first character of the given string. */
 export const capitalize = (str: string): string => {

@@ -20,7 +20,8 @@
 
 namespace x::color {
 
-/// @brief Color is an RGBA color with RGB as 0-255 and alpha as 0-1.
+/// @brief Color is an RGBA color with every component 0-255. The zero Color means no
+/// color.
 struct Color {
     /// @brief r is the red component (0-255).
     std::uint8_t r = 0;
@@ -28,18 +29,27 @@ struct Color {
     std::uint8_t g = 0;
     /// @brief b is the blue component (0-255).
     std::uint8_t b = 0;
-    /// @brief a is the alpha component (0-1).
-    double a = 0;
+    /// @brief a is the alpha component (0-255).
+    std::uint8_t a = 0;
 
     /// @brief parses a color from a JSON parser. Accepts a hex string ("#ff0000" or
-    /// "#ff000080"), an [R, G, B] or [R, G, B, A] array, an {r, g, b, a} object, or a
-    /// legacy {"rgba255": [R, G, B, A]} object. An alpha above 1 is lifted from the
-    /// legacy 0-255 scale onto 0-1. JSON null and the empty string both parse to the
-    /// zero Color. Mirrors the Go color.Color decoders.
+    /// "#ff000080") or a legacy form: an [R, G, B, A] array, an {r, g, b, a} object,
+    /// or an {"rgba255": [R, G, B, A]} object. A legacy alpha is on the 0-1 scale, and
+    /// an absent alpha is 255. JSON null, the empty string, and the empty object parse
+    /// to the zero Color. Mirrors the Go color.Color decoders.
     static Color parse(x::json::Parser parser);
 
-    /// @brief serializes the color to its {r, g, b, a} JSON representation.
+    /// @brief serializes the color to its "#rrggbbaa" JSON string.
     [[nodiscard]] x::json::json to_json() const;
+
+    /// @brief returns the color as an 8 digit "#rrggbbaa" string.
+    [[nodiscard]] std::string hex() const;
+
+    /// @brief returns the color packed as 0xRRGGBBAA.
+    [[nodiscard]] std::uint32_t rgba() const;
+
+    /// @brief unpacks a color from its 0xRRGGBBAA form.
+    static Color from_rgba(std::uint32_t v);
 
     using proto_type = ::x::color::pb::Color;
 

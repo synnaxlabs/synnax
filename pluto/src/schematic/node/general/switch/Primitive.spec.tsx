@@ -39,9 +39,9 @@ describe("switch symbol", () => {
     });
 
     it("should carry the alpha channel so a translucent color stays translucent", () => {
-      const { container } = render(<Switch strokeColor={[255, 0, 0, 0.5]} />);
+      const { container } = render(<Switch strokeColor={[255, 0, 0, 51]} />);
       expect(getRoot(container).style.getPropertyValue("--pluto-symbol-color")).toBe(
-        "255, 0, 0, 0.5",
+        "255, 0, 0, 0.2",
       );
     });
 

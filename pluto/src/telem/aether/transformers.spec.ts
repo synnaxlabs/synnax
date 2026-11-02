@@ -237,14 +237,14 @@ describe("BandColor", () => {
       const [t] = create(
         {
           bands: [
-            { key: "e", threshold: 0, color: [0, 0, 0, 1] },
-            { key: "f", threshold: 100, color: [200, 100, 0, 1] },
+            { key: "e", threshold: 0, color: [0, 0, 0, 255] },
+            { key: "f", threshold: 100, color: [200, 100, 0, 255] },
           ],
           smooth: true,
         },
         25,
       );
-      expect(t.value().data).toEqual([50, 25, 0, 1]);
+      expect(t.value().data).toEqual([50, 25, 0, 255]);
     });
 
     it("should hold the highest band's color above its threshold", () => {

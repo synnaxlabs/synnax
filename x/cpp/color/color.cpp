@@ -7,6 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
+#include <cmath>
 #include <cstdint>
 #include <regex>
 
@@ -36,7 +37,7 @@ std::pair<Color, x::errors::Error> from_hex(const std::string &input) {
                 Color{},
                 x::errors::Error(x::errors::VALIDATION, "invalid hex color: " + input)
             };
-        return {Color{.r = r, .g = g, .b = b, .a = 1}, x::errors::NIL};
+        return {Color{.r = r, .g = g, .b = b, .a = 255}, x::errors::NIL};
     }
     if (s.size() == 8) {
         if (!byte(s.substr(0, 2), r) || !byte(s.substr(2, 2), g) ||
@@ -45,10 +46,7 @@ std::pair<Color, x::errors::Error> from_hex(const std::string &input) {
                 Color{},
                 x::errors::Error(x::errors::VALIDATION, "invalid hex color: " + input)
             };
-        return {
-            Color{.r = r, .g = g, .b = b, .a = static_cast<double>(a) / 255.0},
-            x::errors::NIL
-        };
+        return {Color{.r = r, .g = g, .b = b, .a = a}, x::errors::NIL};
     }
     return {
         Color{},
@@ -56,24 +54,23 @@ std::pair<Color, x::errors::Error> from_hex(const std::string &input) {
     };
 }
 
-/// @brief normalize_alpha lifts a legacy 0-255 alpha onto the current 0-1 scale.
-/// Values in (1, 2] clamp to 1 instead of dividing: a legacy alpha that small means a
-/// sub-1% opacity no user sets, while a current-scale value nudged past 1 by float
-/// error means opaque. An alpha above 255 fits neither scale and accumulates a
-/// validation error on the parser. Mirrors the rule in the Go color decoders.
-double normalize_alpha(const double a, const x::json::Parser &parser) {
-    if (a <= 1) return a;
-    if (a <= 2) return 1;
-    if (a > 255) {
-        parser.field_err("a", "alpha is above the 0-255 scale");
+/// @brief legacy_alpha converts an alpha from a legacy tuple or object, written on the
+/// 0-1 scale, to a byte. Old Consoles wrote a 0-255 alpha into the same slot, so a
+/// value above 2 is taken as a byte. A value in (1, 2] is a 0-1 alpha nudged past 1 by
+/// float error and means opaque. Mirrors the rule in the Go color decoders.
+std::uint8_t legacy_alpha(const double a, const x::json::Parser &parser) {
+    if (!(a >= 0 && a <= 255)) {
+        parser.field_err("a", "alpha is outside the 0-255 range");
         return 0;
     }
-    return a / 255.0;
+    if (a <= 1) return static_cast<std::uint8_t>(std::lround(a * 255));
+    if (a <= 2) return 255;
+    return static_cast<std::uint8_t>(std::lround(a));
 }
 
-/// @brief from_array parses an [R, G, B] or [R, G, B, A] JSON array, lifting a legacy
-/// 0-255 alpha onto 0-1. Accumulates an error on the parser and returns the zero
-/// Color when the array is not a color tuple.
+/// @brief from_array parses a legacy [R, G, B] or [R, G, B, A] JSON array. Accumulates
+/// an error on the parser and returns the zero Color when the array is not a color
+/// tuple.
 Color from_array(const x::json::json &arr, const x::json::Parser &parser) {
     if (arr.size() != 3 && arr.size() != 4) {
         parser.field_err(
@@ -98,9 +95,9 @@ Color from_array(const x::json::json &arr, const x::json::Parser &parser) {
         .r = static_cast<std::uint8_t>(arr[0].get<double>()),
         .g = static_cast<std::uint8_t>(arr[1].get<double>()),
         .b = static_cast<std::uint8_t>(arr[2].get<double>()),
-        .a = 1.0,
+        .a = 255,
     };
-    if (arr.size() == 4) c.a = normalize_alpha(arr[3].get<double>(), parser);
+    if (arr.size() == 4) c.a = legacy_alpha(arr[3].get<double>(), parser);
     return c;
 }
 
@@ -151,7 +148,7 @@ from_rgb_match(const std::smatch &m, const std::string &input) {
             .r = static_cast<std::uint8_t>(r),
             .g = static_cast<std::uint8_t>(g),
             .b = static_cast<std::uint8_t>(b),
-            .a = a
+            .a = static_cast<std::uint8_t>(std::lround(a * 255)),
         },
         x::errors::NIL
     };
@@ -202,41 +199,56 @@ Color Color::parse(x::json::Parser parser) {
     if (j.is_object()) {
         if (const auto it = j.find("rgba255"); it != j.end() && it->is_array())
             return from_array(*it, parser);
+        if (j.empty()) return Color{};
         return Color{
-            .r = parser.field<std::uint8_t>("r"),
-            .g = parser.field<std::uint8_t>("g"),
-            .b = parser.field<std::uint8_t>("b"),
-            .a = normalize_alpha(parser.field<double>("a"), parser),
+            .r = parser.field<std::uint8_t>("r", 0),
+            .g = parser.field<std::uint8_t>("g", 0),
+            .b = parser.field<std::uint8_t>("b", 0),
+            .a = parser.has("a") ? legacy_alpha(parser.field<double>("a"), parser)
+                                 : std::uint8_t{255},
         };
     }
     parser.field_err("", "cannot parse color from: " + j.dump());
     return Color{};
 }
 
+std::uint32_t Color::rgba() const {
+    return static_cast<std::uint32_t>(this->r) << 24 |
+           static_cast<std::uint32_t>(this->g) << 16 |
+           static_cast<std::uint32_t>(this->b) << 8 |
+           static_cast<std::uint32_t>(this->a);
+}
+
+Color Color::from_rgba(const std::uint32_t v) {
+    return Color{
+        .r = static_cast<std::uint8_t>(v >> 24),
+        .g = static_cast<std::uint8_t>(v >> 16),
+        .b = static_cast<std::uint8_t>(v >> 8),
+        .a = static_cast<std::uint8_t>(v),
+    };
+}
+
+std::string Color::hex() const {
+    static constexpr char digits[] = "0123456789abcdef";
+    std::string out = "#";
+    for (const std::uint8_t c: {this->r, this->g, this->b, this->a}) {
+        out += digits[c >> 4];
+        out += digits[c & 0xf];
+    }
+    return out;
+}
+
 x::json::json Color::to_json() const {
-    x::json::json j;
-    j["r"] = this->r;
-    j["g"] = this->g;
-    j["b"] = this->b;
-    j["a"] = this->a;
-    return j;
+    return this->hex();
 }
 
 std::pair<::x::color::pb::Color, x::errors::Error> Color::to_proto() const {
     ::x::color::pb::Color pb;
-    pb.set_r(this->r);
-    pb.set_g(this->g);
-    pb.set_b(this->b);
-    pb.set_a(this->a);
+    pb.set_rgba(this->rgba());
     return {pb, x::errors::NIL};
 }
 
 std::pair<Color, x::errors::Error> Color::from_proto(const ::x::color::pb::Color &pb) {
-    Color cpp;
-    cpp.r = pb.r();
-    cpp.g = pb.g();
-    cpp.b = pb.b();
-    cpp.a = pb.a();
-    return {cpp, x::errors::NIL};
+    return {from_rgba(pb.rgba()), x::errors::NIL};
 }
 }

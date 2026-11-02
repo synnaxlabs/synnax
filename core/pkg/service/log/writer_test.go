@@ -330,7 +330,7 @@ var _ = Describe("Writer", func() {
 						Channels: []log.ChannelEntry{{Channel: 5}},
 					}
 					Expect(svc.NewWriter(nil).Create(ctx, proj.Key, &l)).To(Succeed())
-					red := color.Color{R: 255, G: 0, B: 0, A: 1}
+					red := color.Color{R: 255, G: 0, B: 0, A: 255}
 					Expect(svc.Dispatch(ctx, l.Key, "d1", []log.Action{
 						log.NewSetChannelColorAction(
 							log.SetChannelColorPayload{Channel: 5, Color: red},

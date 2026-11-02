@@ -21,14 +21,14 @@ void expect_css(
     std::uint8_t r,
     std::uint8_t g,
     std::uint8_t b,
-    double a
+    std::uint8_t a
 ) {
     auto [c, err] = from_css(input);
     ASSERT_FALSE(err) << input << ": " << err.message();
     EXPECT_EQ(c.r, r) << input;
     EXPECT_EQ(c.g, g) << input;
     EXPECT_EQ(c.b, b) << input;
-    EXPECT_DOUBLE_EQ(c.a, a) << input;
+    EXPECT_EQ(c.a, a) << input;
 }
 
 void expect_css_error(const std::string &input, const std::string &msg) {
@@ -50,24 +50,25 @@ void expect_parsed(
     std::uint8_t r,
     std::uint8_t g,
     std::uint8_t b,
-    double a
+    std::uint8_t a
 ) {
     const auto c = parse_json(j);
     EXPECT_EQ(c.r, r) << j.dump();
     EXPECT_EQ(c.g, g) << j.dump();
     EXPECT_EQ(c.b, b) << j.dump();
-    EXPECT_DOUBLE_EQ(c.a, a) << j.dump();
+    EXPECT_EQ(c.a, a) << j.dump();
 }
 }
 
 TEST(ColorFromCSS, ParsesValidStrings) {
-    expect_css("#ff0000", 255, 0, 0, 1.0);
-    expect_css("#ff000080", 255, 0, 0, 128.0 / 255.0);
-    expect_css("rgb(59,196,84)", 59, 196, 84, 1.0);
-    expect_css("rgb(255, 0, 0)", 255, 0, 0, 1.0);
-    expect_css("rgba(59,196,84,0.5)", 59, 196, 84, 0.5);
-    expect_css("rgba(0,0,0,1)", 0, 0, 0, 1.0);
-    expect_css("  rgb(1,2,3)  ", 1, 2, 3, 1.0);
+    expect_css("#ff0000", 255, 0, 0, 255);
+    expect_css("#ff000080", 255, 0, 0, 128);
+    expect_css("rgb(59,196,84)", 59, 196, 84, 255);
+    expect_css("rgb(255, 0, 0)", 255, 0, 0, 255);
+    expect_css("rgba(59,196,84,0.5)", 59, 196, 84, 128);
+    expect_css("rgba(0,0,0,1)", 0, 0, 0, 255);
+    expect_css("rgba(0,0,0,0)", 0, 0, 0, 0);
+    expect_css("  rgb(1,2,3)  ", 1, 2, 3, 255);
 }
 
 TEST(ColorFromCSS, RejectsInvalidStrings) {
@@ -84,38 +85,44 @@ TEST(ColorFromCSS, RejectsInvalidStrings) {
     expect_css_error("", "must be a hex value");
 }
 
-TEST(ColorParse, ParsesStructForm) {
-    expect_parsed({{"r", 255}, {"g", 128}, {"b", 0}, {"a", 0.5}}, 255, 128, 0, 0.5);
-}
-
 TEST(ColorParse, ParsesHexString) {
-    expect_parsed("#ff8000", 255, 128, 0, 1.0);
-    expect_parsed("#ff000080", 255, 0, 0, 128.0 / 255.0);
+    expect_parsed("#ff8000", 255, 128, 0, 255);
+    expect_parsed("#ff000080", 255, 0, 0, 128);
+    expect_parsed("#00000000", 0, 0, 0, 0);
 }
 
-TEST(ColorParse, ParsesArrays) {
-    expect_parsed(x::json::json::array({122, 44, 38}), 122, 44, 38, 1.0);
-    expect_parsed(x::json::json::array({122, 44, 38, 0.5}), 122, 44, 38, 0.5);
+TEST(ColorParse, ParsesLegacyStructForm) {
+    expect_parsed({{"r", 255}, {"g", 128}, {"b", 0}, {"a", 0.5}}, 255, 128, 0, 128);
+    expect_parsed({{"r", 255}, {"g", 128}, {"b", 0}}, 255, 128, 0, 255);
+}
+
+TEST(ColorParse, ParsesLegacyArrays) {
+    expect_parsed(x::json::json::array({122, 44, 38}), 122, 44, 38, 255);
+    expect_parsed(x::json::json::array({122, 44, 38, 0.5}), 122, 44, 38, 128);
 }
 
 TEST(ColorParse, ParsesLegacyRGBA255Object) {
-    expect_parsed({{"rgba255", {122, 44, 38, 0.5}}}, 122, 44, 38, 0.5);
+    expect_parsed({{"rgba255", {122, 44, 38, 0.5}}}, 122, 44, 38, 128);
+    expect_parsed({{"rgba255", {122, 44, 38}}}, 122, 44, 38, 255);
 }
 
-TEST(ColorParse, ParsesNullAndEmptyStringAsZero) {
-    expect_parsed(nullptr, 0, 0, 0, 0.0);
-    expect_parsed("", 0, 0, 0, 0.0);
+TEST(ColorParse, ParsesNullEmptyStringAndEmptyObjectAsZero) {
+    expect_parsed(nullptr, 0, 0, 0, 0);
+    expect_parsed("", 0, 0, 0, 0);
+    expect_parsed(x::json::json::object(), 0, 0, 0, 0);
 }
 
-TEST(ColorParse, LiftsLegacyAlphaOntoUnitScale) {
-    expect_parsed(x::json::json::array({28, 28, 28, 255}), 28, 28, 28, 1.0);
-    expect_parsed(x::json::json::array({255, 0, 0, 128}), 255, 0, 0, 128.0 / 255.0);
-    expect_parsed(x::json::json::array({255, 0, 0, 1.5}), 255, 0, 0, 1.0);
-    expect_parsed(x::json::json::array({255, 0, 0, 2}), 255, 0, 0, 1.0);
-    expect_parsed(x::json::json::array({255, 0, 0, 2.01}), 255, 0, 0, 2.01 / 255.0);
-    expect_parsed(x::json::json::array({255, 0, 0, 1}), 255, 0, 0, 1.0);
-    expect_parsed({{"r", 5}, {"g", 5}, {"b", 5}, {"a", 255}}, 5, 5, 5, 1.0);
-    expect_parsed({{"rgba255", {5, 5, 5, 255}}}, 5, 5, 5, 1.0);
+TEST(ColorParse, ConvertsLegacyAlphaToAByte) {
+    expect_parsed(x::json::json::array({255, 0, 0, 0}), 255, 0, 0, 0);
+    expect_parsed(x::json::json::array({255, 0, 0, 0.003}), 255, 0, 0, 1);
+    expect_parsed(x::json::json::array({255, 0, 0, 1}), 255, 0, 0, 255);
+    expect_parsed(x::json::json::array({255, 0, 0, 1.5}), 255, 0, 0, 255);
+    expect_parsed(x::json::json::array({255, 0, 0, 2}), 255, 0, 0, 255);
+    expect_parsed(x::json::json::array({255, 0, 0, 2.4}), 255, 0, 0, 2);
+    expect_parsed(x::json::json::array({255, 0, 0, 128}), 255, 0, 0, 128);
+    expect_parsed(x::json::json::array({28, 28, 28, 255}), 28, 28, 28, 255);
+    expect_parsed({{"r", 5}, {"g", 5}, {"b", 5}, {"a", 255}}, 5, 5, 5, 255);
+    expect_parsed({{"rgba255", {5, 5, 5, 255}}}, 5, 5, 5, 255);
 }
 
 TEST(ColorParse, AccumulatesErrorOnBadInput) {
@@ -143,7 +150,7 @@ TEST(ColorParse, AccumulatesErrorOnBadInput) {
     EXPECT_EQ(alpha_above_scale.errors->at(0)["path"], "a");
     EXPECT_EQ(
         alpha_above_scale.errors->at(0)["message"],
-        "alpha is above the 0-255 scale"
+        "alpha is outside the 0-255 range"
     );
     x::json::Parser bad_hex(x::json::json("#xyz"));
     Color::parse(bad_hex);
@@ -151,8 +158,36 @@ TEST(ColorParse, AccumulatesErrorOnBadInput) {
     EXPECT_EQ(bad_hex.errors->at(0)["message"], "invalid hex color length: #xyz");
 }
 
-TEST(ColorParse, RoundTripsToJSON) {
-    const Color original{.r = 100, .g = 200, .b = 50, .a = 0.75};
-    expect_parsed(original.to_json(), 100, 200, 50, 0.75);
+TEST(ColorJSON, WritesAnEightDigitHexString) {
+    const Color c{.r = 255, .g = 128, .b = 1, .a = 64};
+    EXPECT_EQ(c.to_json(), x::json::json("#ff800140"));
+    EXPECT_EQ(Color{}.to_json(), x::json::json("#00000000"));
+}
+
+TEST(ColorJSON, RoundTripsEveryAlpha) {
+    for (int a = 0; a < 256; a++) {
+        const Color c{.r = 100, .g = 200, .b = 50, .a = static_cast<std::uint8_t>(a)};
+        expect_parsed(c.to_json(), 100, 200, 50, static_cast<std::uint8_t>(a));
+    }
+}
+
+TEST(ColorProto, PacksTheColorIntoOneField) {
+    const Color c{.r = 0x12, .g = 0x34, .b = 0x56, .a = 0x78};
+    auto [pb, err] = c.to_proto();
+    ASSERT_FALSE(err);
+    EXPECT_EQ(pb.rgba(), 0x12345678u);
+}
+
+TEST(ColorProto, RoundTripsEveryAlphaThroughTheWire) {
+    for (int a = 0; a < 256; a++) {
+        const Color c{.r = 10, .g = 20, .b = 30, .a = static_cast<std::uint8_t>(a)};
+        auto [pb, err] = c.to_proto();
+        ASSERT_FALSE(err);
+        ::x::color::pb::Color decoded_pb;
+        ASSERT_TRUE(decoded_pb.ParseFromString(pb.SerializeAsString()));
+        auto [decoded, decode_err] = Color::from_proto(decoded_pb);
+        ASSERT_FALSE(decode_err);
+        EXPECT_EQ(decoded.rgba(), c.rgba());
+    }
 }
 }

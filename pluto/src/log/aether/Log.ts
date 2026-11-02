@@ -210,7 +210,7 @@ export class Log extends aether.Leaf<typeof logStateZ, InternalState> {
     }
     i.configs = configs;
 
-    i.selectionColor = color.setAlpha(i.theme.colors.primary.z, 0.25);
+    i.selectionColor = color.setOpacity(i.theme.colors.primary.z, 0.25);
 
     i.telem = telem.useSource(ctx, this.state.telem, i.telem);
 

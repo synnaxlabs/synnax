@@ -456,12 +456,12 @@ export class Measure extends aether.Leaf<typeof measureStateZ, InternalState> {
   private drawPointMarker(position: xy.XY, pointColor: color.Color): void {
     const { draw } = this.internal;
     draw.circle({
-      fill: color.setAlpha(pointColor, POINT_CIRCLE_ALPHA_OUTER),
+      fill: color.setOpacity(pointColor, POINT_CIRCLE_ALPHA_OUTER),
       radius: POINT_CIRCLE_RADIUS_OUTER,
       position,
     });
     draw.circle({
-      fill: color.setAlpha(pointColor, POINT_CIRCLE_ALPHA_MID),
+      fill: color.setOpacity(pointColor, POINT_CIRCLE_ALPHA_MID),
       radius: POINT_CIRCLE_RADIUS_MID,
       position,
     });
@@ -528,7 +528,7 @@ export class Measure extends aether.Leaf<typeof measureStateZ, InternalState> {
 
     const position = s.reverse().pos(v.position);
     draw.circle({
-      stroke: color.setAlpha(v.color, 1),
+      stroke: color.setOpacity(v.color, 1),
       strokeWidth: HOVER_CIRCLE_STROKE_WIDTH,
       lineDash: HOVER_CIRCLE_LINE_DASH,
       radius: HOVER_CIRCLE_OUTER_RADIUS,

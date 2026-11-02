@@ -14,6 +14,7 @@ package migrate
 import (
 	"bytes"
 	"fmt"
+	"path"
 	"path/filepath"
 	"slices"
 	"sort"
@@ -301,6 +302,7 @@ func (c *collector) collect(types []resolution.Type) fileData {
 	if c.usesLo {
 		c.imports["github.com/samber/lo"] = importEntry{Path: "github.com/samber/lo"}
 	}
+	c.renameShadowingVars()
 	// context renders as its own standard-library group in the template;
 	// every function signature includes context.Context.
 	imps := make([]importEntry, 0, len(c.imports))
@@ -309,6 +311,39 @@ func (c *collector) collect(types []resolution.Type) fileData {
 	}
 	sort.Slice(imps, func(i, j int) bool { return imps[i].Path < imps[j].Path })
 	return fileData{Package: c.pkg, Imports: imps, Funcs: c.funcs}
+}
+
+// renameShadowingVars renames each preamble variable that takes the name of an
+// imported package, since the variable would shadow the package its own call reads.
+func (c *collector) renameShadowingVars() {
+	aliases := make(set.Set[string], len(c.imports))
+	for _, imp := range c.imports {
+		alias := imp.Alias
+		if alias == "" {
+			alias = path.Base(imp.Path)
+		}
+		aliases.Add(alias)
+	}
+	rename := func(steps []step, fields []field) {
+		for i := range steps {
+			if !aliases.Contains(steps[i].VarName) {
+				continue
+			}
+			old := steps[i].VarName
+			steps[i].VarName += "Val"
+			for j := range fields {
+				if fields[j].Value == old {
+					fields[j].Value = steps[i].VarName
+				}
+			}
+		}
+	}
+	for i := range c.funcs {
+		rename(c.funcs[i].Preamble, c.funcs[i].Fields)
+		for j := range c.funcs[i].Cases {
+			rename(c.funcs[i].Cases[j].Preamble, c.funcs[i].Cases[j].Fields)
+		}
+	}
 }
 
 func (c *collector) ensureFunc(typ resolution.Type) {

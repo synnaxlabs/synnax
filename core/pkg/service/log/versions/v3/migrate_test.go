@@ -17,6 +17,8 @@ import (
 	"github.com/synnaxlabs/gorp"
 	v2 "github.com/synnaxlabs/synnax/pkg/service/log/versions/v2"
 	v3 "github.com/synnaxlabs/synnax/pkg/service/log/versions/v3"
+	color "github.com/synnaxlabs/x/color/versions/v0"
+	colorv2 "github.com/synnaxlabs/x/color/versions/v2"
 	"github.com/synnaxlabs/x/notation"
 	"github.com/synnaxlabs/x/telem"
 	. "github.com/synnaxlabs/x/testutil"
@@ -33,6 +35,18 @@ var _ = Describe("Migration", func() {
 		Entry("Should drop the auto precision sentinel", int32(-1), nil),
 		Entry("Should keep a zero precision", int32(0), new(int32(0))),
 		Entry("Should keep a set precision", int32(4), new(int32(4))),
+	)
+
+	DescribeTable("Should store the channel color alpha as a byte",
+		func(ctx SpecContext, a float64, expected uint8) {
+			old := v2.ChannelEntry{Channel: 1, Color: color.Color{R: 1, G: 2, A: a}}
+			Expect(MustSucceed(v3.MigrateChannelEntry(ctx, old)).Color).
+				To(Equal(colorv2.Color{R: 1, G: 2, A: expected}))
+		},
+		Entry("a transparent alpha", 0.0, uint8(0)),
+		Entry("a faint alpha", 0.003, uint8(1)),
+		Entry("a half alpha", 0.5, uint8(128)),
+		Entry("an opaque alpha", 1.0, uint8(255)),
 	)
 
 	It("Should lift every channel entry of a log", func(ctx SpecContext) {

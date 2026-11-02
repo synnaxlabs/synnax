@@ -12,16 +12,17 @@ from __future__ import annotations
 import re
 from typing import override
 
-from pydantic import BaseModel, Field, model_validator
+from pydantic import BaseModel, Field, StrictInt, model_serializer, model_validator
 
 
 class Color(BaseModel):
-    """An RGBA color with 8-bit RGB channels and a float alpha."""
+    """An RGBA color with every channel an integer from 0 to 255. A color serializes
+    to an 8 digit "#rrggbbaa" hex string."""
 
     r: int = Field(default=0, ge=0, le=255)
     g: int = Field(default=0, ge=0, le=255)
     b: int = Field(default=0, ge=0, le=255)
-    a: float = 1
+    a: StrictInt = Field(default=255, ge=0, le=255)
 
     def __init__(self, __value: object = None, /, **kwargs: object):
         if __value is not None:
@@ -35,12 +36,16 @@ class Color(BaseModel):
     def _parse(cls, v: object) -> object:
         return _coerce(v)
 
+    @model_serializer
+    def _serialize(self) -> str:
+        return f"#{self.r:02x}{self.g:02x}{self.b:02x}{self.a:02x}"
+
     def hex(self) -> str:
-        """Return the hex string representation of the color."""
-        alpha_byte = round(self.a * 255)
-        if alpha_byte == 255:
+        """Return the hex string of the color, without alpha digits when the color is
+        opaque."""
+        if self.a == 255:
             return f"#{self.r:02x}{self.g:02x}{self.b:02x}"
-        return f"#{self.r:02x}{self.g:02x}{self.b:02x}{alpha_byte:02x}"
+        return f"#{self.r:02x}{self.g:02x}{self.b:02x}{self.a:02x}"
 
     @override
     def __eq__(self, other: object) -> bool:
@@ -64,30 +69,34 @@ def _coerce(v: object) -> object:
             return _from_rgb(v)
         return _from_hex(v)
     if isinstance(v, (list, tuple)):
-        if len(v) == 3:
-            return {
-                "r": _parse_channel(v[0]),
-                "g": _parse_channel(v[1]),
-                "b": _parse_channel(v[2]),
-                "a": 1.0,
-            }
-        if len(v) == 4:
-            return {
-                "r": _parse_channel(v[0]),
-                "g": _parse_channel(v[1]),
-                "b": _parse_channel(v[2]),
-                "a": _normalize_alpha(float(v[3])),
-            }
-        raise ValueError(f"Invalid color array length: {len(v)}")
+        return _from_tuple(v)
     if isinstance(v, dict):
         rgba255 = v.get("rgba255")
         if isinstance(rgba255, (list, tuple)):
-            return _coerce(list(rgba255))
-        a = v.get("a")
-        if isinstance(a, (int, float)) and a > 1:
-            return {**v, "a": _normalize_alpha(float(a))}
+            return _from_tuple(rgba255)
+        if len(v) == 0:
+            return {"r": 0, "g": 0, "b": 0, "a": 0}
         return v
     raise ValueError(f"Cannot parse color from: {v!r}")
+
+
+def _from_tuple(v: list[object] | tuple[object, ...]) -> dict[str, int]:
+    """Parse a legacy [r, g, b] or [r, g, b, a] tuple, whose alpha is on the 0-1
+    scale."""
+    if len(v) not in (3, 4):
+        raise ValueError(f"Invalid color array length: {len(v)}")
+    c = {
+        "r": _parse_channel(v[0]),
+        "g": _parse_channel(v[1]),
+        "b": _parse_channel(v[2]),
+        "a": 255,
+    }
+    if len(v) == 4:
+        a = v[3]
+        if isinstance(a, bool) or not isinstance(a, (int, float)):
+            raise ValueError(f"Invalid color alpha: {a!r}")
+        c["a"] = _legacy_alpha(float(a))
+    return c
 
 
 def _parse_channel(v: object) -> int:
@@ -100,50 +109,43 @@ def _parse_channel(v: object) -> int:
     return int(v)
 
 
-def _normalize_alpha(a: float) -> float:
-    """Lift a legacy 0-255 alpha onto the current 0-1 scale. Old Consoles persisted
-    alpha as a fourth 0-255 channel; the current format caps alpha at 1, so any larger
-    value is legacy. Values in (1, 2] clamp to 1 instead of dividing: a legacy alpha
-    that small means a sub-1% opacity no user sets, while a current-scale value nudged
-    past 1 by float error means opaque. An alpha above 255 fits neither scale and
-    fails validation. Mirrors the rule in the Go color decoders."""
+def _legacy_alpha(a: float) -> int:
+    """Convert a legacy alpha, written on the 0-1 scale, to a byte. Old Consoles wrote
+    a 0-255 alpha into the same slot, so a value above 2 is taken as a byte. A value in
+    (1, 2] is a 0-1 alpha nudged past 1 by float error and means opaque. Mirrors the
+    rule in the Go color decoders."""
+    if not 0 <= a <= 255:
+        raise ValueError(f"alpha {a} is outside the 0-255 range")
     if a <= 1:
-        return a
+        return round(a * 255)
     if a <= 2:
-        return 1.0
-    if a > 255:
-        raise ValueError(f"alpha {a} is above the 0-255 scale")
-    return a / 255
+        return 255
+    return round(a)
 
 
-def _from_hex(s: str) -> dict[str, int | float]:
+def _from_hex(s: str) -> dict[str, int]:
     s = s.lstrip("#")
     if len(s) == 0:
         return {"r": 0, "g": 0, "b": 0, "a": 0}
-    if len(s) == 6:
-        return {
-            "r": int(s[0:2], 16),
-            "g": int(s[2:4], 16),
-            "b": int(s[4:6], 16),
-            "a": 1.0,
-        }
-    if len(s) == 8:
-        return {
-            "r": int(s[0:2], 16),
-            "g": int(s[2:4], 16),
-            "b": int(s[4:6], 16),
-            "a": int(s[6:8], 16) / 255.0,
-        }
-    raise ValueError(f"Invalid hex color: #{s}")
+    if len(s) not in (6, 8):
+        raise ValueError(f"Invalid hex color: #{s}")
+    try:
+        channels = [int(s[i : i + 2], 16) for i in range(0, len(s), 2)]
+    except ValueError as e:
+        raise ValueError(f"Invalid hex color: #{s}") from e
+    a = channels[3] if len(channels) == 4 else 255
+    return {"r": channels[0], "g": channels[1], "b": channels[2], "a": a}
 
 
-def _from_rgb(s: str) -> dict[str, int | float]:
+def _from_rgb(s: str) -> dict[str, int]:
     vals = re.findall(r"[\d.]+", s)
     if len(vals) < 3:
         raise ValueError(f"Invalid rgb color: {s}")
     r, g, b = int(float(vals[0])), int(float(vals[1])), int(float(vals[2]))
     a = float(vals[3]) if len(vals) >= 4 else 1.0
-    return {"r": r, "g": g, "b": b, "a": a}
+    if not 0 <= a <= 1:
+        raise ValueError(f"rgba alpha must be 0-1: {s}")
+    return {"r": r, "g": g, "b": b, "a": round(a * 255)}
 
 
 Crude = Color | str | list[int] | tuple[int, ...]

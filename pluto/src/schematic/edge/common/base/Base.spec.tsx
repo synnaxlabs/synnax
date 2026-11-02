@@ -50,10 +50,10 @@ describe("edge Base", () => {
 
   it("should carry the alpha channel so a translucent edge stays translucent", () => {
     const { container } = renderEdge(
-      <Base.Base path="M0 0 L10 10" color={[255, 0, 0, 0.5]} />,
+      <Base.Base path="M0 0 L10 10" color={[255, 0, 0, 51]} />,
     );
     expect(queryPath(container).style.getPropertyValue("--pluto-symbol-color")).toBe(
-      "255, 0, 0, 0.5",
+      "255, 0, 0, 0.2",
     );
   });
 

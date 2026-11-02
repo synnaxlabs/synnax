@@ -141,8 +141,8 @@ var _ = Describe("Log", func() {
 			return w.Bytes()
 		}
 
-		It("Should encode the truncation fixture in 89 bytes", func() {
-			Expect(encode()).To(HaveLen(89))
+		It("Should encode the truncation fixture in 82 bytes", func() {
+			Expect(encode()).To(HaveLen(82))
 		})
 
 		DescribeTable("Should reject a log truncated inside a field",
@@ -161,14 +161,14 @@ var _ = Describe("Log", func() {
 			Entry("channel count", 24),
 			Entry("channel key", 28),
 			Entry("channel color", 32),
-			Entry("channel notation", 43),
-			Entry("channel precision presence", 55),
-			Entry("channel precision", 56),
-			Entry("channel alias", 60),
-			Entry("channel timestamp", 69),
-			Entry("timestamp precision", 83),
-			Entry("channel names hidden", 87),
-			Entry("receipt timestamp hidden", 88),
+			Entry("channel notation", 36),
+			Entry("channel precision presence", 48),
+			Entry("channel precision", 49),
+			Entry("channel alias", 53),
+			Entry("channel timestamp", 62),
+			Entry("timestamp precision", 76),
+			Entry("channel names hidden", 80),
+			Entry("receipt timestamp hidden", 81),
 		)
 	})
 })

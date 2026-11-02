@@ -65,7 +65,7 @@ class TestRangeClient:
         )
         assert rng.name == "test"
         assert rng.key != ""
-        assert rng.color == sy.Color(r=255, g=0, b=0, a=1.0)
+        assert rng.color == sy.Color(r=255, g=0, b=0)
 
     def test_create_retrieve_without_color(self, client: sy.Synnax) -> None:
         """Should keep a missing color as None instead of coercing it to black."""
@@ -553,7 +553,7 @@ class _Empty(pydantic.BaseModel):
 
 
 def _create_label(client: sy.Synnax, rng: sy.Range) -> label.Label:
-    lbl = label.Label(name=random_name(), color=sy.Color(r=255, g=0, b=0, a=1.0))
+    lbl = label.Label(name=random_name(), color=sy.Color(r=255, g=0, b=0))
     unary = client._transport.unary
     unary.send("/label/create", _LabelCreateRequest(labels=[lbl]), _Empty)
     req = _LabelSetRequest(id=rng.ontology_id, labels=[lbl.key])

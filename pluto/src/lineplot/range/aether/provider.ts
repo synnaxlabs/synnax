@@ -168,7 +168,7 @@ export class Provider extends aether.Leaf<typeof providerStateZ, InternalState> 
           { x: startPos, y: box.top(region) - 1 },
           { x: endPos, y: box.bottom(region) - 1 },
         ),
-        backgroundColor: color.setAlpha(c, 0.1),
+        backgroundColor: color.setOpacity(c, 0.1),
         bordered: false,
       });
       const titleRegion = box.construct(
@@ -179,12 +179,12 @@ export class Provider extends aether.Leaf<typeof providerStateZ, InternalState> 
         region: titleRegion,
         backgroundColor:
           box.width(titleRegion) < 20
-            ? color.setAlpha(c, 0.4)
+            ? color.setOpacity(c, 0.4)
             : (t) => (hovered ? t.colors.gray.l2 : t.colors.gray.l0),
         bordered: true,
         borderWidth: 1,
         borderRadius: 2,
-        borderColor: color.setAlpha(c, 0.8),
+        borderColor: color.setOpacity(c, 0.8),
       });
       draw.text({
         text: r.name,

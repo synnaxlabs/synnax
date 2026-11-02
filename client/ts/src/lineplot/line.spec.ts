@@ -80,7 +80,7 @@ describe("line", () => {
         yChannel: 1,
         xChannel: 10,
         label: "custom",
-        color: [255, 0, 0, 1],
+        color: [255, 0, 0, 255],
         strokeWidth: 5,
         aggregation: "average",
         detail: "high",

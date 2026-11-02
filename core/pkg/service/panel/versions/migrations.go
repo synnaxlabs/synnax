@@ -16,6 +16,7 @@ import (
 	v0 "github.com/synnaxlabs/synnax/pkg/service/panel/versions/v0"
 	v1 "github.com/synnaxlabs/synnax/pkg/service/panel/versions/v1"
 	v2 "github.com/synnaxlabs/synnax/pkg/service/panel/versions/v2"
+	v3 "github.com/synnaxlabs/synnax/pkg/service/panel/versions/v3"
 )
 
 // Migrations is the ordered migration chain for stored panels.
@@ -27,11 +28,11 @@ var Migrations = []gorp.Migration{v0.Migration}
 // v0 panels.
 var CompositionMigrations = slices.Concat(
 	v0.CompositionMigrations,
-	[]gorp.Migration{v1.Migration, v2.Migration},
+	[]gorp.Migration{v1.Migration, v2.Migration, v3.Migration},
 )
 
 // Latest is the portable schema version stamped on a panel bundle member and the
 // highest version an import accepts. It tracks the stored schema version, which the
 // bundle body mirrors: the same fields, with each resource reference in the tree
 // rewritten to a bundle path.
-const Latest = v2.Version
+const Latest = v3.Version

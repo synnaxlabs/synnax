@@ -21,18 +21,18 @@ var _ = Describe("Color", func() {
 	Describe("FromHex", func() {
 		It("Should parse a 6-character hex string", func() {
 			c := MustSucceed(color.FromHex("#ff0000"))
-			Expect(c).To(Equal(color.Color{R: 255, G: 0, B: 0, A: 1}))
+			Expect(c).To(Equal(color.Color{R: 255, G: 0, B: 0, A: 255}))
 		})
 		It("Should parse a 6-character hex string without hash", func() {
 			c := MustSucceed(color.FromHex("00ff00"))
-			Expect(c).To(Equal(color.Color{R: 0, G: 255, B: 0, A: 1}))
+			Expect(c).To(Equal(color.Color{R: 0, G: 255, B: 0, A: 255}))
 		})
 		It("Should parse an 8-character hex string with alpha", func() {
 			c := MustSucceed(color.FromHex("#ff000080"))
 			Expect(c.R).To(Equal(uint8(255)))
 			Expect(c.G).To(Equal(uint8(0)))
 			Expect(c.B).To(Equal(uint8(0)))
-			Expect(c.A).To(BeNumerically("~", 128.0/255.0, 0.01))
+			Expect(c.A).To(Equal(uint8(128)))
 		})
 		It("Should return an error for an invalid hex string", func() {
 			Expect(color.FromHex("#xyz")).Error().To(MatchError(validate.ErrValidation))
@@ -51,73 +51,73 @@ var _ = Describe("Color", func() {
 			func(input string, expected color.Color) {
 				Expect(color.FromCSS(input)).To(Equal(expected))
 			},
-			Entry("hex", "#ff0000", color.Color{R: 255, G: 0, B: 0, A: 1}),
-			Entry("rgb", "rgb(59,196,84)", color.Color{R: 59, G: 196, B: 84, A: 1}),
+			Entry("hex", "#ff0000", color.Color{R: 255, G: 0, B: 0, A: 255}),
+			Entry("rgb", "rgb(59,196,84)", color.Color{R: 59, G: 196, B: 84, A: 255}),
 			Entry(
 				"rgb with spaces",
 				"rgb(255, 0, 0)",
-				color.Color{R: 255, G: 0, B: 0, A: 1},
+				color.Color{R: 255, G: 0, B: 0, A: 255},
 			),
 			Entry(
 				"rgba",
 				"rgba(59,196,84,0.5)",
-				color.Color{R: 59, G: 196, B: 84, A: 0.5},
+				color.Color{R: 59, G: 196, B: 84, A: 128},
 			),
 			Entry(
 				"rgba full alpha",
 				"rgba(0,0,0,1)",
-				color.Color{R: 0, G: 0, B: 0, A: 1},
+				color.Color{R: 0, G: 0, B: 0, A: 255},
 			),
 			Entry(
 				"surrounding whitespace",
 				"  rgb(1,2,3)  ",
-				color.Color{R: 1, G: 2, B: 3, A: 1},
+				color.Color{R: 1, G: 2, B: 3, A: 255},
 			),
 			Entry(
 				"hsl red",
 				"hsl(0, 100%, 50%)",
-				color.Color{R: 255, G: 0, B: 0, A: 1},
+				color.Color{R: 255, G: 0, B: 0, A: 255},
 			),
 			Entry(
 				"hsl green",
 				"hsl(120,100%,50%)",
-				color.Color{R: 0, G: 255, B: 0, A: 1},
+				color.Color{R: 0, G: 255, B: 0, A: 255},
 			),
 			Entry(
 				"hsl yellow",
 				"hsl(60,100%,50%)",
-				color.Color{R: 255, G: 255, B: 0, A: 1},
+				color.Color{R: 255, G: 255, B: 0, A: 255},
 			),
 			Entry(
 				"hsl cyan",
 				"hsl(180,100%,50%)",
-				color.Color{R: 0, G: 255, B: 255, A: 1},
+				color.Color{R: 0, G: 255, B: 255, A: 255},
 			),
 			Entry(
 				"hsl blue",
 				"hsl(240,100%,50%)",
-				color.Color{R: 0, G: 0, B: 255, A: 1},
+				color.Color{R: 0, G: 0, B: 255, A: 255},
 			),
 			Entry(
 				"hsl magenta",
 				"hsl(300,100%,50%)",
-				color.Color{R: 255, G: 0, B: 255, A: 1},
+				color.Color{R: 255, G: 0, B: 255, A: 255},
 			),
-			Entry("hsl black", "hsl(0, 0%, 0%)", color.Color{R: 0, G: 0, B: 0, A: 1}),
+			Entry("hsl black", "hsl(0, 0%, 0%)", color.Color{R: 0, G: 0, B: 0, A: 255}),
 			Entry(
 				"hsl white",
 				"hsl(0, 0%, 100%)",
-				color.Color{R: 255, G: 255, B: 255, A: 1},
+				color.Color{R: 255, G: 255, B: 255, A: 255},
 			),
 			Entry(
 				"hsl wraps hue",
 				"hsl(480, 100%, 50%)",
-				color.Color{R: 0, G: 255, B: 0, A: 1},
+				color.Color{R: 0, G: 255, B: 0, A: 255},
 			),
 			Entry(
 				"hsl wraps negative hue",
 				"hsl(-120, 100%, 50%)",
-				color.Color{R: 0, G: 0, B: 255, A: 1},
+				color.Color{R: 0, G: 0, B: 255, A: 255},
 			),
 			Entry(
 				"hsla",

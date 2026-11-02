@@ -61,7 +61,9 @@ export const fromGradient = (gradient: Gradient, position: number): Color => {
     const b = Math.round(
       bValue(startColor) + t * (bValue(endColor) - bValue(startColor)),
     );
-    const a = aValue(startColor) + t * (aValue(endColor) - aValue(startColor));
+    const a = Math.round(
+      aValue(startColor) + t * (aValue(endColor) - aValue(startColor)),
+    );
 
     return construct([r, g, b, a]);
   }

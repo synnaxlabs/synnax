@@ -34,9 +34,9 @@ describe("line symbol", () => {
     });
 
     it("should carry the alpha channel of a translucent color", () => {
-      const { container } = render(<Line strokeColor={[255, 0, 0, 0.5]} />);
+      const { container } = render(<Line strokeColor={[255, 0, 0, 51]} />);
       expect(getRoot(container).style.getPropertyValue("--pluto-symbol-color")).toBe(
-        "255, 0, 0, 0.5",
+        "255, 0, 0, 0.2",
       );
     });
 

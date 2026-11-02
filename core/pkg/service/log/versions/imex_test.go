@@ -34,7 +34,7 @@ var _ = Describe("DecodeImExEnvelope", func() {
 		Expect(l.Channels[0].Channel).To(Equal(channel.Key(1)))
 		Expect(l.Channels[0].Alias).To(Equal("temp"))
 		Expect(l.Channels[0].Notation).To(Equal(notation.NotationScientific))
-		Expect(l.Channels[0].Color).To(Equal(color.Color{R: 127, G: 29, B: 29, A: 1}))
+		Expect(l.Channels[0].Color).To(Equal(color.Color{R: 127, G: 29, B: 29, A: 255}))
 		Expect(l.Channels[0].Precision).To(Equal(new(int32(2))))
 		Expect(l.Channels[1].Precision).To(BeNil())
 		Expect(l.TimestampPrecision).To(Equal(int32(1)))

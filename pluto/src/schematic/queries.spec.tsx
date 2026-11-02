@@ -597,7 +597,7 @@ describe("schematic queries", () => {
       await waitFor(() =>
         expect(getEdgeCfg()).toMatchObject({
           variant: "pipe",
-          strokeColor: [0, 255, 0, 1],
+          strokeColor: [0, 255, 0, 255],
         }),
       );
     });
@@ -619,7 +619,7 @@ describe("schematic queries", () => {
       await waitFor(() =>
         expect(getEdgeCfg()).toMatchObject({
           variant: "pipe",
-          strokeColor: [0, 0, 255, 1],
+          strokeColor: [0, 0, 255, 255],
         }),
       );
     });
@@ -778,7 +778,7 @@ describe("schematic queries", () => {
       await waitFor(() =>
         expect(getEdgeCfg()).toMatchObject({
           variant: "pipe",
-          strokeColor: [255, 0, 255, 1],
+          strokeColor: [255, 0, 255, 255],
           segments: SEGMENTS,
         }),
       );
@@ -789,7 +789,7 @@ describe("schematic queries", () => {
       await waitFor(() => {
         const cfg = getEdgeCfg();
         expect(cfg?.variant).toBe("pipe");
-        expect(cfg?.strokeColor).toEqual([255, 0, 255, 1]);
+        expect(cfg?.strokeColor).toEqual([255, 0, 255, 255]);
         expect(cfg?.segments?.[0]).toEqual({ direction: "x", length: 30 });
       });
     });

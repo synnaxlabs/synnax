@@ -349,8 +349,10 @@ Node struct {
 			}
 		}
 		Expect(content).ToNot(BeEmpty())
-		Expect(content).To(ContainSubstring(".MigrateBase(ctx, old.Base)"))
-		Expect(content).To(ContainSubstring("Base: base"))
+		Expect(content).To(ContainSubstring(
+			"baseVal, err := base.MigrateBase(ctx, old.Base)",
+		))
+		Expect(content).To(ContainSubstring("Base: baseVal"))
 		Expect(content).To(ContainSubstring("core/pkg/service/base/versions/v1"))
 	})
 

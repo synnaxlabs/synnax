@@ -107,8 +107,8 @@ export class Tooltip extends aether.Leaf<typeof tooltipStateZ, InternalState> {
     validValues.forEach((r) => {
       if (!Number.isFinite(r.value.y)) return;
       const position = scale_.pos(r.position);
-      draw.circle({ fill: color.setAlpha(r.color, 0.5), radius: 8, position });
-      draw.circle({ fill: color.setAlpha(r.color, 0.8), radius: 5, position });
+      draw.circle({ fill: color.setOpacity(r.color, 0.5), radius: 8, position });
+      draw.circle({ fill: color.setOpacity(r.color, 0.8), radius: 5, position });
       draw.circle({
         fill: color.pickByContrast(
           r.color,

@@ -8,7 +8,7 @@
 // included in the file licenses/APL.txt.
 
 import "schemas/synnax/versions/channel/v0"
-import "schemas/x/versions/color/v0"
+import "schemas/x/versions/color/v2"
 import "schemas/x/versions/notation/v0"
 
 Key = v0.Key
