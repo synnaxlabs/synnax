@@ -1,0 +1,422 @@
+---
+// Copyright 2026 Synnax Labs, Inc.
+//
+// Use of this software is governed by the Business Source License included in the file
+// licenses/BSL.txt.
+//
+// As of the Change Date specified in that file, in accordance with the Business Source
+// License, use of this software will be governed by the Apache License, Version 2.0,
+// included in the file licenses/APL.txt.
+
+// Original, schematic illustration. The geometry does not depict a particular device.
+interface Props {
+    id: string;
+    compact?: boolean;
+}
+
+const { id, compact = false } = Astro.props;
+const ref = (name: string) => `url(#${id}-${name})`;
+const stages = [
+    { y: 230, radius: 162, rise: 35, thickness: 12 },
+    { y: 322, radius: 143, rise: 31, thickness: 11 },
+    { y: 411, radius: 123, rise: 27, thickness: 10 },
+    { y: 496, radius: 102, rise: 23, thickness: 10 },
+    { y: 574, radius: 80, rise: 19, thickness: 11 },
+];
+const edge = (y: number, radius: number, rise: number, thickness: number) =>
+    `M ${310 - radius} ${y} a ${radius} ${rise} 0 0 0 ${radius * 2} 0 v ${thickness} a ${radius} ${rise} 0 0 1 ${-radius * 2} 0 Z`;
+const bolts = (radius: number, rise: number, y: number, count: number) =>
+    Array.from({ length: count }, (_, i) => {
+        const a = (i / count) * Math.PI * 2 + Math.PI / count;
+        return { x: 310 + Math.cos(a) * radius, y: y + Math.sin(a) * rise };
+    });
+const cables = Array.from({ length: compact ? 8 : 12 }, (_, i) => {
+    const n = compact ? 8 : 12;
+    const side = i < n / 2 ? -1 : 1;
+    const t = i % (n / 2);
+    const x = side * (68 + t * 13);
+    const start = 310 + x;
+    // Individual service bends at each stage; the bundle contracts toward the sample.
+    let d = `M ${start} 143 L ${start} 186`;
+    stages.forEach(({ y }, j) => {
+        const next = 310 + x * (1 - j * 0.14);
+        const previous = j === 0 ? start : 310 + x * (1 - (j - 1) * 0.14);
+        const bend = 8 + t * 1.6;
+        d += ` C ${previous} ${y - 26}, ${next} ${y - 27}, ${next} ${y - 9}`;
+        d += ` v ${26 + t * 1.1} c 0 ${bend}, ${side * -9} ${bend}, ${side * -9} 0`;
+        if (j < stages.length - 1)
+            d += ` C ${next - side * 9} ${y + 12}, ${next} ${y + 30}, ${next} ${y + 46}`;
+    });
+    return { d, i, side, x };
+});
+---
+
+<svg
+    class="cryostat"
+    viewBox="0 0 620 720"
+    fill="none"
+    xmlns="http://www.w3.org/2000/svg"
+    aria-hidden="true"
+    focusable="false"
+>
+    <defs>
+        <linearGradient id={`${id}-face`} x1="0" y1="0" x2="0.75" y2="1">
+            <stop stop-color="var(--metal-top)" />
+            <stop offset="0.46" stop-color="var(--metal-mid)" />
+            <stop offset="1" stop-color="var(--metal-top)" />
+        </linearGradient>
+        <linearGradient id={`${id}-edge`} x1="0" y1="0" x2="1" y2="0">
+            <stop stop-color="var(--metal-side)" />
+            <stop offset="0.22" stop-color="var(--metal-mid)" />
+            <stop offset="0.49" stop-color="var(--metal-side)" />
+            <stop offset="0.81" stop-color="var(--metal-mid)" />
+            <stop offset="1" stop-color="var(--metal-side)" />
+        </linearGradient>
+        <linearGradient id={`${id}-rod`} x1="0" y1="0" x2="1" y2="0">
+            <stop stop-color="var(--metal-side)" />
+            <stop offset="0.42" stop-color="var(--metal-top)" />
+            <stop offset="0.68" stop-color="var(--metal-mid)" />
+            <stop offset="1" stop-color="var(--metal-side)" />
+        </linearGradient>
+        <linearGradient id={`${id}-signal`} x1="0" y1="0" x2="0" y2="1">
+            <stop stop-color="#3774d0" />
+            <stop offset="1" stop-color="#00b5ad" />
+        </linearGradient>
+    </defs>
+
+    <!-- Construction marks lightly suggest the removed outer jacket. -->
+    <g class="construction" stroke-width="0.8">
+        <path d="M 81 128 V 608 A 229 49 0 0 0 539 608 V 128" />
+        <ellipse cx="310" cy="128" rx="229" ry="49" stroke-dasharray="3 5" />
+        <path d="M 81 608 A 229 49 0 0 1 539 608" stroke-dasharray="3 5" />
+        <path d="M 310 46 V 674" stroke-dasharray="4 8" />
+        <path d="M 69 128 H 93 M 81 116 V 140 M 527 128 H 551 M 539 116 V 140 M 298 657 H 322 M 310 645 V 669" />
+    </g>
+
+    <!-- Back suspension rods and the central services are behind the plates. -->
+    <g stroke="var(--metal-line)" stroke-width="0.8">
+        {[198, 422].map((x) => (
+            <g>
+                <rect x={x - 3} y="132" width="6" height="282" fill={ref("rod")} />
+                {[179, 269, 361].map((y) => (
+                    <rect
+                        x={x - 5}
+                        y={y}
+                        width="10"
+                        height="12"
+                        rx="1.5"
+                        fill={ref("edge")}
+                    />
+                ))}
+            </g>
+        ))}
+        {[242, 378].map((x) => (
+            <g>
+                <rect x={x - 2.5} y="412" width="5" height="161" fill={ref("rod")} />
+                <rect
+                    x={x - 4.5}
+                    y="450"
+                    width="9"
+                    height="9"
+                    rx="1"
+                    fill={ref("edge")}
+                />
+                <rect
+                    x={x - 4.5}
+                    y="533"
+                    width="9"
+                    height="9"
+                    rx="1"
+                    fill={ref("edge")}
+                />
+            </g>
+        ))}
+        <path
+            d="M 290 136 V 358 Q 290 381 310 381 H 329 V 543"
+            stroke="var(--metal-side)"
+            stroke-width="16"
+        />
+        <path
+            d="M 287 136 V 358 Q 287 385 310 385 H 326 V 543"
+            stroke="var(--metal-top)"
+            stroke-width="3"
+        />
+        {!compact &&
+            Array.from({ length: 14 }, (_, i) => (
+                <path
+                    d={`M 281 ${156 + i * 9} h 18`}
+                    stroke="var(--metal-line)"
+                    stroke-width="1.4"
+                />
+            ))}
+    </g>
+
+    <!-- The room-temperature flange, with individually drawn feedthroughs. -->
+    <path d={edge(128, 203, 44, 17)} fill={ref("edge")} stroke="var(--metal-line)" />
+    <ellipse
+        cx="310"
+        cy="128"
+        rx="203"
+        ry="44"
+        fill={ref("face")}
+        stroke="var(--metal-line)"
+    />
+    <ellipse
+        cx="310"
+        cy="128"
+        rx="191"
+        ry="37"
+        stroke="var(--metal-line)"
+        stroke-width="0.65"
+    />
+    {bolts(184, 35, 128, compact ? 12 : 24).map(({ x, y }) => (
+        <g>
+            <ellipse cx={x} cy={y} rx="3" ry="1.6" fill="var(--hole)" />
+            <path
+                d={`M ${x - 1.3} ${y} h 2.6`}
+                stroke="var(--metal-mid)"
+                stroke-width="0.6"
+            />
+        </g>
+    ))}
+    <path
+        d="M 107 137 A 203 44 0 0 0 513 137"
+        stroke="var(--metal-top)"
+        stroke-width="0.8"
+    />
+    <g stroke="var(--metal-line)" stroke-width="0.8">
+        {[
+            { x: 265, y: 96, r: 22, h: 41 },
+            { x: 354, y: 111, r: 15, h: 27 },
+        ].map(({ x, y, r, h }) => (
+            <g>
+                <ellipse
+                    cx={x}
+                    cy={y + 3}
+                    rx={r + 6}
+                    ry={(r + 6) * 0.27}
+                    fill={ref("edge")}
+                />
+                <path
+                    d={`M ${x - r} ${y - h} v ${h} a ${r} ${r * 0.27} 0 0 0 ${r * 2} 0 v ${-h} Z`}
+                    fill={ref("rod")}
+                />
+                <ellipse cx={x} cy={y - h} rx={r} ry={r * 0.27} fill={ref("face")} />
+                <ellipse
+                    cx={x}
+                    cy={y - h}
+                    rx={r - 5}
+                    ry={(r - 5) * 0.27}
+                    fill="var(--hole)"
+                />
+                <path
+                    d={`M ${x - r} ${y - h + 7} a ${r} ${r * 0.27} 0 0 0 ${r * 2} 0`}
+                />
+                <path d={`M ${x - r} ${y - 7} a ${r} ${r * 0.27} 0 0 0 ${r * 2} 0`} />
+            </g>
+        ))}
+        {[-2, -1, 0, 1, 2].map((i) => (
+            <g transform={`translate(${310 + i * 20} ${132 + Math.abs(i) * -1.8})`}>
+                <ellipse rx="6.5" ry="2.5" fill={ref("edge")} />
+                <path
+                    d="M -4 0 v -12 a 4 1.6 0 0 1 8 0 v 12 a 4 1.6 0 0 1 -8 0"
+                    fill={ref("rod")}
+                />
+                <ellipse cy="-12" rx="4" ry="1.6" fill="var(--hole)" />
+            </g>
+        ))}
+    </g>
+
+    <!-- Five thermal stages. Machining rings and bolt holes give the object scale. -->
+    {stages.map(({ y, radius, rise, thickness }, index) => (
+        <g>
+            <path
+                d={edge(y, radius, rise, thickness)}
+                fill={ref("edge")}
+                stroke="var(--metal-line)"
+                stroke-width="0.9"
+            />
+            <ellipse
+                cx="310"
+                cy={y}
+                rx={radius}
+                ry={rise}
+                fill={ref("face")}
+                stroke="var(--metal-line)"
+                stroke-width="0.9"
+            />
+            <ellipse
+                cx="310"
+                cy={y}
+                rx={radius - 9}
+                ry={rise - 4}
+                stroke="var(--metal-line)"
+                stroke-width="0.55"
+                opacity="0.7"
+            />
+            {!compact && (
+                <ellipse
+                    cx="310"
+                    cy={y}
+                    rx={radius - 13}
+                    ry={rise - 6}
+                    stroke="var(--metal-line)"
+                    stroke-width="0.4"
+                    opacity="0.35"
+                />
+            )}
+            <path
+                d={`M ${310 - radius} ${y + thickness - 3} a ${radius} ${rise} 0 0 0 ${radius * 2} 0`}
+                stroke="var(--metal-top)"
+                stroke-width="0.75"
+            />
+            {bolts(radius - 20, rise - 9, y, compact ? 8 : 16).map(
+                ({ x, y: boltY }) => (
+                    <ellipse
+                        cx={x}
+                        cy={boltY}
+                        rx={index < 3 ? 2.5 : 2}
+                        ry="1.3"
+                        fill="var(--hole)"
+                        opacity="0.8"
+                    />
+                ),
+            )}
+            <ellipse
+                cx="310"
+                cy={y - 2}
+                rx="16"
+                ry="4"
+                fill="var(--metal-side)"
+                stroke="var(--metal-line)"
+                stroke-width="0.65"
+            />
+            <path d={`M 302 ${y - 1} h 16`} stroke="var(--metal-mid)" />
+        </g>
+    ))}
+
+    <!-- Four articulated front supports, each attached to the face of a stage. -->
+    {stages.slice(0, -1).map((stage, index) => {
+        const next = stages[index + 1];
+        const distance = stage.radius * 0.69;
+        const nextDistance = next.radius * 0.69;
+        return [-1, 1].map((side) => (
+            <g stroke="var(--metal-line)" stroke-width="0.7">
+                <path
+                    d={`M ${310 + side * distance} ${stage.y + 25} L ${310 + side * nextDistance} ${next.y + 18}`}
+                    stroke="var(--metal-side)"
+                    stroke-width="5"
+                />
+                <path
+                    d={`M ${309 + side * distance} ${stage.y + 25} L ${309 + side * nextDistance} ${next.y + 18}`}
+                    stroke="var(--metal-top)"
+                    stroke-width="1.6"
+                />
+                <rect
+                    x={306 + side * distance}
+                    y={stage.y + 22}
+                    width="8"
+                    height="8"
+                    rx="1"
+                    fill={ref("edge")}
+                />
+                <rect
+                    x={306 + side * nextDistance}
+                    y={next.y + 14}
+                    width="8"
+                    height="9"
+                    rx="1"
+                    fill={ref("edge")}
+                />
+            </g>
+        ));
+    })}
+
+    <!-- Cable routes are deliberately visible, with restrained blue/teal accents. -->
+    <g stroke-linecap="round" stroke-linejoin="round">
+        {cables.map(({ d, i }) => (
+            <g>
+                <path d={d} stroke="var(--cable-outline)" stroke-width="3.1" />
+                <path
+                    d={d}
+                    stroke={
+                        i === 1 || i === cables.length - 2
+                            ? ref("signal")
+                            : "var(--cable)"
+                    }
+                    stroke-width="1.35"
+                />
+            </g>
+        ))}
+        {stages.map(({ y }, j) =>
+            cables
+                .filter((_, i) => i % 2 === 0)
+                .map(({ x }) => (
+                    <g transform={`translate(${310 + x * (1 - j * 0.14)} ${y + 4})`}>
+                        <rect
+                            x="-3.2"
+                            y="-2"
+                            width="6.4"
+                            height="11"
+                            rx="1"
+                            fill={ref("rod")}
+                            stroke="var(--metal-line)"
+                            stroke-width="0.7"
+                        />
+                        <path
+                            d="M -2.8 1 h 5.6 M -2.8 6 h 5.6"
+                            stroke="var(--metal-line)"
+                            stroke-width="0.7"
+                        />
+                    </g>
+                )),
+        )}
+    </g>
+
+    <!-- Small sample enclosure beneath the final stage. -->
+    <g stroke="var(--metal-line)" stroke-width="0.8">
+        <path
+            d="M 290 591 V 607 M 330 591 V 607"
+            stroke="var(--metal-side)"
+            stroke-width="4"
+        />
+        <path d="M 276 608 L 310 599 L 344 608 L 310 618 Z" fill={ref("face")} />
+        <path d="M 276 608 V 629 L 310 639 V 618 Z" fill="var(--metal-side)" />
+        <path d="M 344 608 V 629 L 310 639 V 618 Z" fill={ref("edge")} />
+        <path
+            d="M 284 612 V 625 L 303 631 V 618 Z"
+            fill="var(--hole)"
+            stroke="var(--metal-mid)"
+        />
+        <path
+            d="M 317 621 L 337 615 M 317 625 L 337 619 M 317 629 L 337 623"
+            stroke="var(--metal-line)"
+        />
+        <path
+            d="M 285 635 L 295 638 M 325 638 L 335 635"
+            stroke="#00b5ad"
+            stroke-width="1.4"
+        />
+    </g>
+</svg>
+
+<style>
+    .cryostat {
+        --metal-top: var(--art-metal-top, light-dark(#f4f8fd, #53667c));
+        --metal-mid: var(--art-metal-mid, light-dark(#dce6f1, #2c3d50));
+        --metal-side: var(--art-metal-side, light-dark(#9fb2c7, #172b3d));
+        --metal-line: var(--art-metal-edge, light-dark(#7d93ad, #788da4));
+        --hole: light-dark(#6a8099, #101d2b);
+        --cable: light-dark(#5b7c9f, #b0c6d9);
+        --cable-outline: light-dark(#ecf2f9, #233345);
+        display: block;
+        width: 100%;
+        height: auto;
+        overflow: visible;
+    }
+
+    .construction {
+        stroke: light-dark(#8093ac, #8295af);
+        opacity: 0.23;
+    }
+</style>
