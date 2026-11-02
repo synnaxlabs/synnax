@@ -9,6 +9,7 @@
 
 import { ranger } from "@synnaxlabs/client";
 import { Flex } from "@synnaxlabs/lyra/flex";
+import { Haul } from "@synnaxlabs/lyra/haul";
 import { List } from "@synnaxlabs/lyra/list";
 import { Select } from "@synnaxlabs/lyra/select";
 import { Tag } from "@synnaxlabs/lyra/tag";
@@ -39,6 +40,7 @@ const Base = ({
   const openTab = Panel.useOpenTab();
   const item = List.useItem<ranger.Key, ranger.Range>(itemKey);
   const canEdit = Access.useUpdateGranted(ranger.ontologyID(itemKey));
+  const { startDrag, onDragEnd } = Haul.useDrag({ type: "range_list", key: itemKey });
   const { update: rename } = Session.Range.useRename();
   const { update: setTimeRange } = Ranger.useSetTimeRange();
   if (item == null) return null;
@@ -54,6 +56,9 @@ const Base = ({
       aria-label={name}
       checkable
       onActivate={handleActivate}
+      draggable
+      onDragStart={() => startDrag([Ranger.createHaulItem(item.payload)])}
+      onDragEnd={onDragEnd}
       justify="between"
       {...props}
     >
