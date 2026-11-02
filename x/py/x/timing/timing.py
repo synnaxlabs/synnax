@@ -27,18 +27,15 @@ _SPIN_MARGIN = (
 
 
 class Clock(Protocol):
-    """Clock tells the time and waits for it. Loop and sleep run on one."""
+    """Clock tells the time and blocks the thread. Loop, sleep, and poll run on one."""
 
     def now(self) -> int:
         """Returns the current time in nanoseconds on a monotonic scale."""
         ...
 
-    def sleep_until(self, deadline: int, *, precise: bool) -> None:
-        """Blocks until the clock reaches the deadline. Returns at once if the deadline
-        has passed.
-
-        :param deadline: The time to wake at, on the scale of now.
-        :param precise: Whether to wake within microseconds of the deadline.
+    def sleep(self, span: int) -> None:
+        """Blocks the thread for span nanoseconds. The thread can wake late, and a zero
+        span still lets other threads run.
         """
         ...
 
@@ -47,21 +44,24 @@ class _SystemClock:
     def now(self) -> int:
         return time.perf_counter_ns()
 
-    def sleep_until(self, deadline: int, *, precise: bool) -> None:
-        remaining = deadline - time.perf_counter_ns()
-        if not precise:
-            # A zero sleep still lets other threads run.
-            time.sleep(max(remaining, 0) / 1e9)
-            return
-        # macOS wakes up to 50% late, so each OS sleep covers only half of what is left.
-        while remaining > 2 * _SPIN_MARGIN:
-            time.sleep((remaining - _SPIN_MARGIN) / 2e9)
-            remaining = deadline - time.perf_counter_ns()
-        while time.perf_counter_ns() < deadline:
-            pass
+    def sleep(self, span: int) -> None:
+        time.sleep(span / 1e9)
 
 
 _SYSTEM_CLOCK = _SystemClock()
+
+
+def _sleep_until(clock: Clock, deadline: int, *, precise: bool) -> None:
+    remaining = deadline - clock.now()
+    if not precise:
+        clock.sleep(max(remaining, 0))
+        return
+    # macOS wakes up to 50% late, so each OS sleep covers only half of what is left.
+    while remaining > 2 * _SPIN_MARGIN:
+        clock.sleep((remaining - _SPIN_MARGIN) // 2)
+        remaining = deadline - clock.now()
+    while clock.now() < deadline:
+        pass
 
 
 def sleep(
@@ -80,7 +80,7 @@ def sleep(
     :param clock: The clock to sleep on. Defaults to the host's performance counter.
     """
     span = TimeSpan.from_seconds(dur)
-    clock.sleep_until(clock.now() + span.nanoseconds, precise=precise)
+    _sleep_until(clock, clock.now() + span.nanoseconds, precise=precise)
 
 
 class Timer:
@@ -176,7 +176,7 @@ class Loop:
     def __next__(self) -> None:
         interval = self.interval.nanoseconds
         if self._clock.now() < self._deadline:
-            self._clock.sleep_until(self._deadline, precise=self.precise)
+            _sleep_until(self._clock, self._deadline, precise=self.precise)
         now = self._clock.now()
         if now - self._deadline >= interval:
             self._deadline = now
@@ -201,6 +201,7 @@ def poll(
     *,
     timeout: CrudeTimeSpan,
     interval: CrudeTimeSpan = TimeSpan.SECOND,
+    clock: Clock = _SYSTEM_CLOCK,
 ) -> T | None:
     """Repeatedly calls func until it returns a non-None value or the timeout expires.
 
@@ -209,14 +210,16 @@ def poll(
     :param timeout: Maximum time to poll for. A float or int is a number of seconds.
     :param interval: Time to sleep between calls to func. A float or int is a number of
     seconds.
+    :param clock: The clock to time out and sleep on. Defaults to the host's performance
+    counter.
     :returns: The first non-None return value from func, or None if the timeout expired.
     """
     timeout = TimeSpan.from_seconds(timeout)
     interval = TimeSpan.from_seconds(interval)
-    timer = Timer()
-    while timer.elapsed() < timeout:
+    deadline = clock.now() + timeout.nanoseconds
+    while clock.now() < deadline:
         result = func()
         if result is not None:
             return result
-        sleep(interval)
+        sleep(interval, clock=clock)
     return None
