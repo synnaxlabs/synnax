@@ -423,7 +423,7 @@ describe("StreamMultiChannelLog", () => {
     it("should evict entries older than keepFor", async () => {
       const core = createCore();
       const [a] = core.data.map((c) => c.key);
-      const log = open(core, connect(core, { onRetry: quiet }), {
+      const log = open(core, connect(core), {
         channels: [a],
         keepFor: TimeSpan.seconds(2),
       });
@@ -438,7 +438,7 @@ describe("StreamMultiChannelLog", () => {
     it("should notify when a pull evicts entries and adds none", async () => {
       const core = createCore();
       const [a] = core.data.map((c) => c.key);
-      const log = open(core, connect(core), {
+      const log = open(core, connect(core, { onRetry: quiet }), {
         channels: [a],
         keepFor: TimeSpan.seconds(2),
       });
