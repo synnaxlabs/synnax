@@ -133,8 +133,6 @@ class Client:
         keys: list[UUID] | None = None,
         usernames: list[str] | None = None,
         search_term: str = "",
-        limit: int | None = None,
-        offset: int = 0,
     ) -> User: ...
 
     @overload
@@ -171,7 +169,9 @@ class Client:
         :raises NotFoundError: If a single user is requested and none matches.
         :raises MultipleFoundError: If one is True and more than one user matches.
         :raises TypeError: If args are neither user conditions nor a shortcut.
+        :raises ValueError: If one is combined with limit or offset.
         """
+        util.reject_page(one, limit, offset)
         conditions, query = util.shortcut(
             "User", args, Condition, UUID, builder_gen.key, builder_gen.usernames
         )

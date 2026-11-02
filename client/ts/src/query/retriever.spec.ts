@@ -845,5 +845,20 @@ describe("Retriever", () => {
         'Expected one thing matching "a-name", but found 2',
       );
     });
+
+    it("should reject a page on a retrieve of one record", () => {
+      interface Paged {
+        where?: Where;
+        limit?: number;
+        offset?: number;
+      }
+      type Parts = query.OneParts<Condition, z.ZodType<Paged, Paged>>;
+      // @ts-expect-error a limit could hide a second match
+      const limited: Parts = [filter.limit(1), filter.one()];
+      // @ts-expect-error an offset could hide a second match
+      const skipped: Parts = [filter.offset(1), filter.one()];
+      const unpaged: Parts = [name.eq("a"), filter.one()];
+      expect([limited, skipped, unpaged]).toHaveLength(3);
+    });
   });
 });
