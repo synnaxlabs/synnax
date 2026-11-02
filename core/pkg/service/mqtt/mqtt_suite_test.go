@@ -335,7 +335,7 @@ var _ = Describe("Test broker", func() {
 						_, err = c.Read(buf)
 					}
 					if !unblock() {
-						<-unblocked
+						Eventually(unblocked).Should(BeClosed())
 					}
 					Expect(c.Close()).To(Succeed())
 				}
