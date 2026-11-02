@@ -197,6 +197,9 @@ describe("useModal", () => {
     expect(screen.queryByPlaceholderText("Current password")).toBeNull();
     await type("New password", "changed123");
     fireEvent.click(findButton("Set password"));
+    expect(await screen.findByText("Successfully changed password")).toBeTruthy();
+    await type("New password", "again");
+    expect(screen.queryByText("Successfully changed password")).toBeNull();
     await expect
       .poll(async () => {
         try {
