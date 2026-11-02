@@ -166,14 +166,8 @@ public:
         this->values_buf.reserve(alloc);
     }
 
-    /// @brief claims the device and pulls values to their initial state. After a
-    /// temporary error, the next write claims it, so a task starts while its device is
-    /// away.
-    x::errors::Error start() override {
-        const auto err = this->connect();
-        if (err.matches(errors::TEMPORARY_HARDWARE_ERROR)) return x::errors::NIL;
-        return err;
-    }
+    /// @brief claims the device and pulls values to their initial state.
+    x::errors::Error start() override { return this->connect(); }
 
     /// @brief releases the claim on the device.
     x::errors::Error stop() override {

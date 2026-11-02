@@ -696,8 +696,10 @@ const x::errors::Error LJME_AUTO_IPS_FILE_NOT_FOUND = CRITICAL_ERROR.sub(
 );
 
 /// @brief the message of every UNREACHABLE error.
-const std::string UNREACHABLE_MESSAGE = "The device is temporarily unreachable. The "
-                                        "Driver will keep trying to reach it.";
+const std::string
+    UNREACHABLE_MESSAGE = "The Driver cannot reach the device. Check the "
+                          "USB cable or the network, and close other "
+                          "programs that use the device, such as Kipling.";
 
 /// @brief the LJM error codes of a lost connection.
 const std::set<int> UNREACHABLE_CODES = {

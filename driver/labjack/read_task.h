@@ -599,13 +599,8 @@ public:
             this->ports.push_back(ch->port.c_str());
     }
 
-    /// @brief claims the device. After a temporary error, the first read claims it, so
-    /// a task starts while its device is away.
-    x::errors::Error start() override {
-        const auto err = this->connect();
-        if (err.matches(errors::TEMPORARY_HARDWARE_ERROR)) return x::errors::NIL;
-        return err;
-    }
+    /// @brief claims the device and applies the channel settings.
+    x::errors::Error start() override { return this->connect(); }
 
     [[nodiscard]] std::vector<synnax::channel::Channel> channels() const override {
         return this->cfg.sy_channels();
@@ -797,13 +792,8 @@ public:
         return this->cfg.writer();
     }
 
-    /// @brief starts the stream. After a temporary error, the first read starts it, so
-    /// a task starts while its device is away.
-    x::errors::Error start() override {
-        const auto err = this->restart();
-        if (err.matches(errors::TEMPORARY_HARDWARE_ERROR)) return x::errors::NIL;
-        return err;
-    }
+    /// @brief claims the device and starts the stream.
+    x::errors::Error start() override { return this->restart(); }
 
     [[nodiscard]] std::vector<synnax::channel::Channel> channels() const override {
         return this->cfg.sy_channels();
