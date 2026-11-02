@@ -32,7 +32,8 @@ const recorder = (consent: "granted" | "denied" | "pending" = "pending") => {
       config = c;
       calls.push("init");
     },
-    capture: (event) => calls.push(`capture ${event}`),
+    capture: (event, properties) =>
+      calls.push(`capture ${event} at ${properties?.location}`),
     identify: (id) => calls.push(`identify ${id}`),
     opt_in_capturing: (options) =>
       calls.push(options == null ? "opt_in" : "opt_in silent"),
@@ -183,6 +184,40 @@ describe("analytics", () => {
         click("[data-consent=reject]");
         expect(calls).toEqual(["init", "opt_out"]);
         expect(card().hidden).toBe(true);
+      });
+    });
+
+    describe("a tracked element", () => {
+      beforeEach(() => {
+        document.body.insertAdjacentHTML(
+          "beforeend",
+          `<a class="tracked" data-event="desktop_download_clicked" data-location="hero">
+            <span class="label">Download</span>
+          </a>
+          <a class="plain">Docs</a>`,
+        );
+      });
+
+      it("should send its event and location on a click", async () => {
+        const { calls } = await begin({ mode: "notice" });
+        click(".tracked");
+        expect(calls).toEqual([
+          "init",
+          "opt_in silent",
+          "capture desktop_download_clicked at hero",
+        ]);
+      });
+
+      it("should send its event on a click inside it", async () => {
+        const { calls } = await begin({ mode: "notice" });
+        click(".label");
+        expect(calls).toContain("capture desktop_download_clicked at hero");
+      });
+
+      it("should send nothing for an untracked element", async () => {
+        const { calls } = await begin({ mode: "notice" });
+        click(".plain");
+        expect(calls).toEqual(["init", "opt_in silent"]);
       });
     });
 

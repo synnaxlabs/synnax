@@ -592,6 +592,57 @@ var _ = Describe("Graph", func() {
 		})
 	})
 
+	Describe("Contains", func() {
+		It("Should hold an added calculation and its dependencies", func(
+			ctx SpecContext,
+		) {
+			base := channel.Channel{
+				Name:     "contains_base",
+				DataType: telem.Int64T,
+				Virtual:  true,
+			}
+			Expect(channelWriter.Create(ctx, &base)).To(Succeed())
+			calcs := []channel.Channel{
+				{
+					Name:       "contains_calc_a",
+					DataType:   telem.Int64T,
+					Virtual:    true,
+					Expression: "return contains_base",
+				},
+				{
+					Name:       "contains_calc_b",
+					DataType:   telem.Int64T,
+					Virtual:    true,
+					Expression: "return contains_calc_a * 2",
+				},
+			}
+			Expect(channelWriter.CreateMany(ctx, &calcs)).To(Succeed())
+			Expect(g.Add(ctx, calcs[1])).To(Succeed())
+			Expect(g.Contains(calcs[0].Key())).To(BeTrue())
+			Expect(g.Contains(calcs[1].Key())).To(BeTrue())
+			Expect(g.Contains(base.Key())).To(BeFalse())
+		})
+
+		It("Should not hold a removed calculation", func(ctx SpecContext) {
+			base := channel.Channel{
+				Name:     "contains_removed_base",
+				DataType: telem.Int64T,
+				Virtual:  true,
+			}
+			Expect(channelWriter.Create(ctx, &base)).To(Succeed())
+			calc := channel.Channel{
+				Name:       "contains_removed_calc",
+				DataType:   telem.Int64T,
+				Virtual:    true,
+				Expression: "return contains_removed_base",
+			}
+			Expect(channelWriter.Create(ctx, &calc)).To(Succeed())
+			Expect(g.Add(ctx, calc)).To(Succeed())
+			Expect(MustSucceed(g.Remove(calc.Key()))).To(BeTrue())
+			Expect(g.Contains(calc.Key())).To(BeFalse())
+		})
+	})
+
 	Describe("BaseKeys", func() {
 		It("Should return the concrete channels of one calculation", func(
 			ctx SpecContext,

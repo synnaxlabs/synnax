@@ -1,0 +1,230 @@
+---
+// Copyright 2026 Synnax Labs, Inc.
+//
+// Use of this software is governed by the Business Source License included in the file
+// licenses/BSL.txt.
+//
+// As of the Change Date specified in that file, in accordance with the Business Source
+// License, use of this software will be governed by the Apache License, Version 2.0,
+// included in the file licenses/APL.txt.
+
+const branches = [
+    "M 154 191 L 171 213 169 225 196 239 211 261 244 271 261 294",
+    "M 205 151 L 210 128 197 113 203 86 189 79 174 55 146 39 137 18",
+    "M 249 116 L 270 88 286 69 308 73 322 54 350 49 366 28 398 22",
+    "M 397 132 L 403 105 425 94 438 70 458 66 463 46 488 33 494 9",
+    "M 451 153 L 466 187 490 199 484 221 513 232 521 252 551 260 568 279 594 282",
+    "M 121 180 L 113 199 97 206 102 221 82 238 71 260 43 273",
+    "M 318 172 L 330 196 352 205 358 226 376 236 377 254 397 270",
+];
+const filaments = [
+    "M 203 86 L 226 77 234 61 258 55 262 39",
+    "M 196 239 L 183 250 188 268 179 284 189 301",
+    "M 308 73 L 302 55 314 44 307 22 318 7",
+    "M 438 70 L 418 58 411 42 388 36",
+    "M 490 199 L 519 195 531 211 556 214 573 231",
+    "M 358 226 L 341 241 339 257 323 266",
+    "M 102 221 L 120 237 138 240 148 259",
+    "M 506 147 L 521 124 543 117 550 96 577 91 590 75",
+];
+---
+
+<svg class="arc-art" viewBox="0 0 600 320" fill="none" aria-hidden="true">
+    <defs>
+        <path
+            id="arc-art-discharge"
+            pathLength="100"
+            d="M -30 168 L 14 166 25 157 42 161 67 153 84 164 96 160 121 180 133 177 154 191 143 164 175 170 189 144 205 151 210 138 232 146 249 116 244 144 263 137 278 153 294 146 318 172 334 164 344 170 364 145 378 153 397 132 412 141 437 112 429 145 451 153 466 139 483 151 506 147 527 166 546 160 563 170 585 158 617 166"
+        />
+        <linearGradient
+            id="arc-art-blue"
+            x1="0"
+            y1="160"
+            x2="600"
+            y2="160"
+            gradientUnits="userSpaceOnUse"
+        >
+            <stop class="blue-edge" stop-opacity="0" />
+            <stop offset="0.15" class="blue-edge" stop-opacity="0.75" />
+            <stop offset="0.52" class="blue-center" />
+            <stop offset="0.84" class="blue-edge" stop-opacity="0.85" />
+            <stop offset="1" class="blue-edge" stop-opacity="0" />
+        </linearGradient>
+        <linearGradient
+            id="arc-art-white"
+            x1="0"
+            y1="160"
+            x2="600"
+            y2="160"
+            gradientUnits="userSpaceOnUse"
+        >
+            <stop class="white-core" stop-opacity="0" />
+            <stop offset="0.25" class="white-core" stop-opacity="0.6" />
+            <stop offset="0.55" class="white-core" />
+            <stop offset="0.8" class="white-core" stop-opacity="0.7" />
+            <stop offset="1" class="white-core" stop-opacity="0" />
+        </linearGradient>
+        <linearGradient id="arc-art-branch" x1="0" y1="0" x2="0" y2="1">
+            <stop class="branch-color" stop-opacity="0.15" />
+            <stop offset="0.45" class="branch-color" stop-opacity="0.65" />
+            <stop offset="1" class="branch-color" stop-opacity="0.06" />
+        </linearGradient>
+        <filter id="arc-art-halo" x="-10%" y="-10%" width="120%" height="120%">
+            <feGaussianBlur stdDeviation="2.2" />
+        </filter>
+    </defs>
+    <g class="filaments">
+        {filaments.map((d) => (
+            <path d={d} />
+        ))}
+    </g>
+    <g class="branches">
+        {branches.map((d) => (
+            <path d={d} />
+        ))}
+    </g>
+    <use href="#arc-art-discharge" class="halo" filter="url(#arc-art-halo)" />
+    <use href="#arc-art-discharge" class="channel" />
+    <use href="#arc-art-discharge" class="core" />
+    <use href="#arc-art-discharge" class="current" />
+</svg>
+
+<style>
+    .arc-art {
+        display: block;
+        width: 100%;
+        height: 100%;
+        overflow: visible;
+        stroke-linecap: round;
+        stroke-linejoin: round;
+    }
+
+    .channel {
+        stroke: url("#arc-art-blue");
+        stroke-width: 2.6;
+    }
+
+    .core {
+        stroke: url("#arc-art-white");
+        stroke-width: 1.05;
+    }
+
+    .halo {
+        stroke: var(--pluto-primary-z);
+        stroke-width: 5;
+        opacity: 0.21;
+    }
+
+    .current {
+        stroke: url("#arc-art-white");
+        stroke-width: 1.4;
+        stroke-dasharray: 3 97;
+        opacity: 0;
+    }
+
+    .branches {
+        stroke: url("#arc-art-branch");
+        stroke-width: 1.15;
+    }
+
+    .filaments {
+        stroke: light-dark(#4c7db7, #6d9cce);
+        stroke-width: 0.65;
+        opacity: 0.28;
+    }
+
+    .blue-edge {
+        stop-color: light-dark(#376bb0, #548cce);
+    }
+
+    .blue-center {
+        stop-color: light-dark(#4d8cd8, #82b4ec);
+    }
+
+    .white-core {
+        stop-color: light-dark(#e3efff, #eaf4ff);
+    }
+
+    .branch-color {
+        stop-color: light-dark(#487caf, #80a9d5);
+    }
+
+    @media (prefers-reduced-motion: no-preference) {
+        .core {
+            animation: arc-current-pulse 7.6s ease-in-out infinite;
+        }
+
+        .current {
+            animation: arc-current-flow 8.4s linear infinite;
+        }
+
+        .branches path,
+        .filaments path {
+            animation: arc-branch-pulse 6.8s ease-in-out infinite;
+        }
+
+        .branches path:nth-child(2n),
+        .filaments path:nth-child(2n) {
+            animation-delay: -3.1s;
+            animation-duration: 8.2s;
+        }
+
+        .branches path:nth-child(3n),
+        .filaments path:nth-child(3n) {
+            animation-delay: -1.7s;
+            animation-duration: 9.4s;
+        }
+    }
+
+    @keyframes arc-current-pulse {
+        0%,
+        100% {
+            opacity: 0.82;
+        }
+
+        18%,
+        48%,
+        79% {
+            opacity: 1;
+        }
+
+        25%,
+        58% {
+            opacity: 0.72;
+        }
+    }
+
+    @keyframes arc-current-flow {
+        0% {
+            stroke-dashoffset: 100;
+            opacity: 0;
+        }
+
+        15%,
+        80% {
+            opacity: 0.65;
+        }
+
+        100% {
+            stroke-dashoffset: 0;
+            opacity: 0;
+        }
+    }
+
+    @keyframes arc-branch-pulse {
+        0%,
+        100% {
+            opacity: 0.55;
+        }
+
+        29%,
+        63% {
+            opacity: 0.95;
+        }
+
+        43%,
+        81% {
+            opacity: 0.4;
+        }
+    }
+</style>

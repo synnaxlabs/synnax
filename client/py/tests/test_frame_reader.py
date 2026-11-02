@@ -13,6 +13,7 @@ import pathlib
 import uuid
 
 import numpy as np
+import pandas as pd
 import pytest
 from nptdms import TdmsChannel, TdmsFile, TdmsGroup, types
 
@@ -134,8 +135,7 @@ class TestReader:
         client: sy.Synnax,
         by_name: bool,
     ) -> None:
-        """Should convert the frame to a DataFrame with channel name columns in the
-        requested order"""
+        """Should convert the frame to a DataFrame indexed by the index channel"""
         idx_ch, data_ch = written_pair
         requested = [data_ch, idx_ch]
         if by_name:
@@ -143,8 +143,12 @@ class TestReader:
         else:
             fr = client.read(sy.TimeRange.MAX, [ch.key for ch in requested])
         df = fr.to_df()
-        assert list(df.columns) == [data_ch.name, idx_ch.name]
+        assert list(df.columns) == [data_ch.name]
+        assert df.index.name == idx_ch.name
         assert np.array_equal(df[data_ch.name], np.arange(10, dtype=np.float64))
+        stamps = np.array(seconds_linspace(1, count=10), dtype=np.int64)
+        times = pd.to_datetime(stamps, unit="ns", utc=True)
+        assert list(df.index) == list(times)
 
     def test_read_by_name(
         self, written_pair: tuple[sy.Channel, sy.Channel], client: sy.Synnax
@@ -215,6 +219,32 @@ class TestReader:
         )
         assert np.array_equal(series, np.arange(0, 10, 2, dtype=np.float64))
         assert series.series[0].alignment_multiple == 2
+
+    def test_read_min_max_to_df(
+        self, written_pair: tuple[sy.Channel, sy.Channel], client: sy.Synnax
+    ) -> None:
+        """Should not index a min_max read by time, because the extremes of a channel
+        do not keep the times of the index samples"""
+        idx_ch, data_ch = written_pair
+        fr = client.read(
+            sy.TimeRange.MAX,
+            [idx_ch.key, data_ch.key],
+            reduction=sy.LimitReduction(aggregation="min_max", point_limit=4),
+        )
+        assert fr.indexes == {}
+        assert isinstance(fr.to_df().index, pd.RangeIndex)
+
+    def test_read_decimated_to_df(
+        self, written_pair: tuple[sy.Channel, sy.Channel], client: sy.Synnax
+    ) -> None:
+        """Should index a decimated read by time"""
+        idx_ch, data_ch = written_pair
+        fr = client.read(
+            sy.TimeRange.MAX,
+            [idx_ch.key, data_ch.key],
+            reduction=sy.LimitReduction(aggregation="decimate", point_limit=5),
+        )
+        assert isinstance(fr.to_df().index, pd.DatetimeIndex)
 
     def test_read_csv_strided(
         self,

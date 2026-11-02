@@ -8,12 +8,34 @@
 #  included in the file licenses/APL.txt.
 
 import threading
-from typing import Any
+from typing import TypedDict
 
 import synnax as sy
 from framework.config_client import TestDefinition
 from framework.models import STATUS, SYMBOLS, Log, Test
 from framework.test_case import TestCase
+
+
+class ActiveTest(TypedDict):
+    name: str
+    elapsed_time: float
+
+
+class Result(TypedDict):
+    name: str
+    status: int
+    duration: float | None
+    error: str | None
+
+
+class Progress(TypedDict):
+    """The progress of a test run."""
+
+    is_running: bool
+    total_tests: int
+    completed_tests: int
+    active_tests: list[ActiveTest]
+    results: list[Result]
 
 
 class ReportClient:
@@ -72,10 +94,10 @@ class ReportClient:
                 "total_failed": total_failed,
             }
 
-    def get_current_status(self, *, is_running: bool) -> dict[str, Any]:
+    def get_current_status(self, *, is_running: bool) -> Progress:
         """Get the current status of test execution."""
         with self._active_tests_lock:
-            active_snapshot = [
+            active_snapshot: list[ActiveTest] = [
                 {
                     "name": test_instance.__class__.__name__,
                     "elapsed_time": (
@@ -90,7 +112,7 @@ class ReportClient:
 
         with self._tests_lock:
             completed = len(self._tests)
-            results = [
+            results: list[Result] = [
                 {
                     "name": result.test_name,
                     "status": result.status.value,

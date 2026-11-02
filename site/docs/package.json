@@ -17,7 +17,8 @@
     "format": "prettier --write .",
     "format-check": "prettier --check .",
     "test": "vitest",
-    "cov": "vitest --coverage"
+    "cov": "vitest --coverage --project jsdom --project chromium",
+    "install-browsers": "playwright install chromium webkit"
   },
   "dependencies": {
     "@astrojs/markdown-satteri": "catalog:",
@@ -49,12 +50,14 @@
     "@types/offscreencanvas": "catalog:",
     "@types/react": "catalog:",
     "@types/react-dom": "catalog:",
+    "@vitest/browser-playwright": "catalog:",
     "@vitest/coverage-v8": "catalog:",
     "algoliasearch": "catalog:",
     "eslint": "catalog:",
     "gray-matter": "catalog:",
     "html-escaper": "catalog:",
     "jsdom": "catalog:",
+    "playwright": "catalog:",
     "remark": "catalog:",
     "remark-gfm": "catalog:",
     "satteri": "catalog:",
@@ -62,6 +65,7 @@
     "stylelint": "catalog:",
     "tsx": "catalog:",
     "typescript": "catalog:ts6",
-    "vitest": "catalog:"
+    "vitest": "catalog:",
+    "vitest-browser-react": "catalog:"
   }
 }

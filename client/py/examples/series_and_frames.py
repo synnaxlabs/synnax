@@ -121,6 +121,7 @@ frame = sy.Frame(
 # Index a name-keyed frame by channel name, then index the samples.
 print(frame["channel1"][3])  # 4
 
-# Convert the frame to a pandas DataFrame. All series must have the same length.
+# Convert the frame to a pandas DataFrame. Without index channels in the frame, all
+# series must have the same length.
 df = frame.to_df()
 print(df)

@@ -21,7 +21,9 @@ from collections.abc import Callable
 from datetime import UTC, datetime
 from enum import Enum, auto
 from pathlib import Path
-from typing import Any
+from types import FrameType
+
+from pydantic import JsonValue
 
 import synnax as sy
 from framework import failure_report, run_dir, server_log
@@ -29,7 +31,7 @@ from framework.config_client import ConfigClient, Sequence, TestDefinition
 from framework.execution_client import ExecutionClient
 from framework.log_client import LogClient, LogMode, SynnaxChannelSink
 from framework.models import DEFAULT_OPTIONS, RunOptions, SynnaxConnection, Test
-from framework.report_client import ReportClient
+from framework.report_client import Progress, ReportClient
 from framework.target_filter import TargetFilter, parse_target, split_csv
 from framework.telemetry import TelemetryClient
 from framework.test_case import TestCase
@@ -117,7 +119,7 @@ class _TestConductor:
         self.test_definitions: list[TestDefinition] = []
         self.sequences: list[Sequence] = []
         self.should_stop = False
-        self.status_callbacks: list[Any] = []
+        self.status_callbacks: list[Callable[[Test], None]] = []
         self.tests: list[Test] = []
         self.tests_lock = threading.Lock()
         self.active_tests: list[
@@ -234,7 +236,7 @@ class _TestConductor:
     def is_running(self) -> bool:
         return self.execution_client.is_running
 
-    def get_current_status(self) -> dict[str, Any]:
+    def get_current_status(self) -> Progress:
         return self.report_client.get_current_status(
             is_running=self.execution_client.is_running
         )
@@ -245,7 +247,7 @@ class _TestConductor:
     def _print_summary(self) -> None:
         self.report_client.print_summary(self.range)
 
-    def _signal_handler(self, signal_num: int, frame: Any = None) -> None:
+    def _signal_handler(self, signal_num: int, frame: FrameType | None = None) -> None:
         """Handle system signals for graceful shutdown."""
         self.log(f"Received signal {signal_num}. Stopping test execution...")
         self.shutdown()
@@ -280,7 +282,7 @@ class _TestConductor:
     def _write_summary(self) -> None:
         ended_at = time.time()
         stats = self.report_client.get_statistics() if self.tests else {}
-        tests_json: list[dict[str, Any]] = [
+        tests_json: list[JsonValue] = [
             {
                 "case": t.test_name,
                 "name": t.name,

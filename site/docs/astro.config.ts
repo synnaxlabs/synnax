@@ -219,7 +219,7 @@ export default defineConfig({
     "/reference/concepts/streams": "/reference/client/stream-data",
     "/reference/concepts/writes": "/reference/client/write-data",
     "/reference/console": "/reference/visualize",
-    "/reference/console/get-started": "/reference/enterprise/console",
+    "/reference/console/get-started": "/reference/get-started/install-desktop",
     "/reference/console/line-plots": "/reference/visualize/line-plots",
     "/reference/console/logs": "/reference/visualize/logs",
     "/reference/console/projects": "/reference/visualize/projects",

@@ -11,6 +11,7 @@ import { type ReactElement } from "react";
 import { describe, expect, it } from "vitest";
 import { userEvent } from "vitest/browser";
 
+import { Button } from "@/button";
 import { Icon } from "@/icon";
 import { List } from "@/list";
 import { height, renderThemed, resolve } from "@/styletest";
@@ -55,6 +56,30 @@ const LevelComponent = (): ReactElement => {
   );
 };
 
+const BUTTON_NODES: Tree.Node[] = [{ key: "row" }];
+
+const ButtonComponent = (): ReactElement => {
+  const props = Tree.use({ nodes: BUTTON_NODES });
+  return (
+    <>
+      <Tree.Tree {...props} getItem={getItem}>
+        {({ key, ...rest }) => (
+          <Tree.Item key={key} {...rest}>
+            <Icon.Add id="row-icon" />
+            {key}
+            <Button.Button size="tiny" variant="text">
+              <Icon.Add id="nested-icon" />
+            </Button.Button>
+          </Tree.Item>
+        )}
+      </Tree.Tree>
+      <Button.Button size="tiny" variant="text">
+        <Icon.Add id="outside-icon" />
+      </Button.Button>
+    </>
+  );
+};
+
 const renderTree = async (): Promise<(key: string) => DOMRect> => {
   const { getByText } = await renderThemed(<Component />);
   return (key) => {
@@ -96,6 +121,13 @@ describe("Tree", () => {
       height(document.getElementById(key)!.querySelector(".lyra-icon")!);
     expect(icon("small")).toBeLessThan(icon("p"));
     expect(`${icon("small")}px`).toBe(resolve("var(--pluto-small-size)", "font-size"));
+  });
+
+  it("should let a button in a row size its own icon", async () => {
+    await renderThemed(<ButtonComponent />);
+    const icon = (id: string): number => height(document.getElementById(id)!);
+    expect(icon("nested-icon")).toBe(icon("outside-icon"));
+    expect(icon("row-icon")).toBeGreaterThan(icon("nested-icon"));
   });
 
   it("should draw a rule under each ancestor's caret on hover", async () => {

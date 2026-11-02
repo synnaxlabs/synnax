@@ -118,8 +118,6 @@ def _normalize_alpha(a: float) -> float:
 
 def _from_hex(s: str) -> dict[str, int | float]:
     s = s.lstrip("#")
-    if len(s) == 0:
-        return {"r": 0, "g": 0, "b": 0, "a": 0}
     if len(s) == 6:
         return {
             "r": int(s[0:2], 16),

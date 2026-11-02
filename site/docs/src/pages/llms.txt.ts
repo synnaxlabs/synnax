@@ -18,14 +18,18 @@ export const prerender = true;
 
 const INTRO = `# Synnax
 
-> Synnax is an observability and control platform for hardware operations: one platform
-> for real-time data acquisition, hardware control, visualization, and analysis.
+> Synnax is mission control and data review for hardware operations: one platform for
+> real-time data acquisition, hardware control, visualization, and analysis.
 
 Synnax has a Core (a time-series database and server), the Console (a desktop app for
 live plots, schematics, and tables), the Driver (data acquisition and control for
-National Instruments, LabJack, Modbus, OPC UA, EtherCAT, and HTTP devices), Arc (a
-reactive language for control sequences, alarms, and calculated channels), and Python
-and TypeScript client libraries.
+National Instruments, LabJack, EtherCAT, and HTTP devices, and OPC UA and Modbus
+servers), Arc (a reactive language for control sequences, alarms, and calculated
+channels), and Python and TypeScript client libraries.
+
+Synnax Desktop is free for any use, including commercial use, up to 50 channels. It
+runs on macOS (Apple silicon) and Windows, and includes a Console, a Core, and a Driver
+in one app.
 
 Every docs page is also served as Markdown at its URL plus \`.md\`.`;
 
@@ -75,7 +79,7 @@ export const GET: APIRoute = ({ site }) => {
   if (rest.length > 0) sections.push(["Other pages", rest.map((page) => ({ page }))]);
   const optional = [
     ...(releases == null ? [] : [item({ page: releases })]),
-    "- [Website](https://www.synnaxlabs.com): Product overview and demo booking.",
+    "- [Website](https://www.synnaxlabs.com): Product overview and the free download.",
   ];
   const body = [
     ...sections.map(([name, list]) => `## ${name}\n\n${list.map(item).join("\n")}`),

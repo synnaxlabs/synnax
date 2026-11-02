@@ -10,6 +10,7 @@
 import operator
 import uuid
 from collections.abc import Callable
+from datetime import timedelta, timezone
 from typing import Any, Literal, assert_type
 
 import numpy as np
@@ -385,6 +386,54 @@ class TestSeries:
     def test_infer_timestamp_scalar(self) -> None:
         """Should infer a timestamp series from a single TimeStamp"""
         assert telem.Series(telem.TimeStamp(5)).data_type == telem.DataType.TIMESTAMP
+
+    def test_construction_from_np_strings(self) -> None:
+        """Should build a string series from a NumPy string array"""
+        s = telem.Series(np.array(["a", "bc", ""]))
+        assert s.data_type == telem.DataType.STRING
+        assert list(s) == ["a", "bc", ""]
+
+    @pytest.mark.parametrize(
+        "crude",
+        [
+            np.array([1, 2], dtype="datetime64[s]"),
+            pd.Series(np.array([1, 2], dtype="datetime64[s]")),
+            [np.datetime64(1, "s"), np.datetime64(2, "s")],
+        ],
+    )
+    def test_construction_from_datetime64_unit(self, crude: telem.CrudeSeries) -> None:
+        """Should convert datetime64 samples of any unit to nanoseconds"""
+        s = telem.Series(crude)
+        assert s.data_type == telem.DataType.TIMESTAMP
+        assert list(s) == [telem.TimeStamp(10**9), telem.TimeStamp(2 * 10**9)]
+
+    @pytest.mark.parametrize("data_type", [None, telem.DataType.TIMESTAMP])
+    def test_construction_from_tz_aware_pd_series(
+        self, data_type: telem.DataType | None
+    ) -> None:
+        """Should convert a time zone aware pandas series to UTC nanoseconds"""
+        times = pd.to_datetime([1, 2], unit="s", utc=True).tz_convert(
+            timezone(timedelta(hours=-5))
+        )
+        s = telem.Series(pd.Series(times), data_type=data_type)
+        assert s.data_type == telem.DataType.TIMESTAMP
+        assert list(s) == [telem.TimeStamp(10**9), telem.TimeStamp(2 * 10**9)]
+
+    def test_construction_from_datetime64_out_of_range(self) -> None:
+        """Should reject a datetime64 that does not fit in nanoseconds"""
+        with pytest.raises(OverflowError):
+            telem.Series(np.array(["3000-01-01"], dtype="datetime64[s]"))
+
+    def test_construction_from_datetime64_list(self) -> None:
+        """Should build a timestamp series from a list of datetime64"""
+        s = telem.Series([np.datetime64(1, "s")])
+        assert s[0] == telem.TimeStamp(10**9)
+
+    def test_construction_from_datetime64_scalar(self) -> None:
+        """Should build a timestamp series from one datetime64"""
+        s = telem.Series(np.datetime64(1, "ms"))
+        assert s.data_type == telem.DataType.TIMESTAMP
+        assert s[0] == telem.TimeStamp(10**6)
 
     def test_uuid_list_rejects_non_uuid(self) -> None:
         """Should reject a value that is not a UUID instead of dropping it"""

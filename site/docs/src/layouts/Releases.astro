@@ -13,8 +13,8 @@ import type { MarkdownHeading } from "astro";
 import OutlineBar from "@/components/nav/OutlineBar.astro";
 import Root from "@/layouts/Root.astro";
 import { Flex } from "@synnaxlabs/lyra/flex";
-import { Icon } from "@synnaxlabs/lyra/icon";
-import { Text } from "@synnaxlabs/lyra/text";
+import IndexHero from "@/components/hero/Index.astro";
+import ReleasesArtwork from "@/components/hero/ReleasesArtwork.astro";
 import { Releases as ReleasesComponents } from "@/components/releases";
 const { headings, frontmatter } = Astro.props;
 ---
@@ -27,31 +27,18 @@ const { headings, frontmatter } = Astro.props;
     />
     <section>
         <Flex.Box direction="y" className="releases" el="article" grow>
-            <Flex.Box direction="x" className="header" justify="between" align="center">
-                <Flex.Box direction="y" justify="center" gap="large">
-                    <Text.Text level="h1">Releases</Text.Text>
-                    <Flex.Box direction="y" gap="small">
-                        <Text.Text color={8}>
-                            Latest updates and improvements to Synnax.
-                        </Text.Text>
-                        <Flex.Box direction="x" align="center" wrap>
-                            <Text.Text href="https://www.linkedin.com/company/synnaxlabs/">
-                                Follow us on LinkedIn
-                            </Text.Text>
-                            <Icon.Circle style={{ color: "var(--pluto-gray-l6)" }} />
-                            <Text.Text href="https://github.com/synnaxlabs/synnax/releases">
-                                View releases on GitHub
-                            </Text.Text>
-                        </Flex.Box>
-                    </Flex.Box>
-                </Flex.Box>
-                <Text.Text
-                    level="h1"
-                    el="div"
-                    className="latest version full"
-                    transition:persist
-                />
-            </Flex.Box>
+            <IndexHero
+                title="Releases"
+                description="Latest updates and improvements to Synnax."
+            >
+                <ReleasesArtwork slot="art" />
+                <a href="https://www.linkedin.com/company/synnaxlabs/">
+                    Follow us on LinkedIn
+                </a>
+                <a href="https://github.com/synnaxlabs/synnax/releases">
+                    View releases on GitHub
+                </a>
+            </IndexHero>
             <slot />
         </Flex.Box>
         <ReleasesComponents.List headings={headings} />
@@ -59,8 +46,13 @@ const { headings, frontmatter } = Astro.props;
 </Root>
 
 <style is:global>
+    main:has(.releases) {
+        overflow-x: clip;
+    }
+
     main > section:has(.releases) {
         max-width: 1400px;
+        overflow: visible;
     }
 
     .releases {
@@ -78,37 +70,6 @@ const { headings, frontmatter } = Astro.props;
             height: 100%;
             opacity: 0;
             margin: 0 !important;
-        }
-
-        .header {
-            min-height: 260px;
-            height: 35vh;
-            margin: 0 -8rem;
-            padding-left: 8rem;
-            padding-right: 8rem;
-            width: calc(100% + 16rem);
-            background-size: 2rem 2rem;
-            background-image: radial-gradient(
-                var(--pluto-gray-l4) 0.5px,
-                transparent 0.5px
-            );
-            position: relative;
-            mask-image: radial-gradient(circle, black 90%, transparent);
-
-            & .latest {
-                position: absolute;
-                right: 8rem;
-                z-index: -1;
-                font-size: 34rem;
-                font-weight: 700;
-                color: var(--pluto-gray-l3-45);
-            }
-
-            @media (width <= 1100px) {
-                .latest {
-                    display: none;
-                }
-            }
         }
 
         & video:not(.docs-hero video),

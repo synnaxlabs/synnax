@@ -7,15 +7,15 @@
 #  License, use of this software will be governed by the Apache License, Version 2.0,
 #  included in the file licenses/APL.txt.
 
-import json
 import os
 import random
 import re
 import tempfile
-from typing import Any, TypeVar
+from typing import TypeVar
 
 from playwright.sync_api import Locator
 from playwright.sync_api import TimeoutError as PlaywrightTimeoutError
+from pydantic import JsonValue
 
 import synnax as sy
 from console.base import ResourceClient
@@ -24,7 +24,7 @@ from console.layout import LayoutClient
 from console.page import ConsolePage, PageType
 from console.plot import Plot
 from console.project import ProjectClient
-from framework.utils import resolve_channel_placeholders
+from framework.utils import read_json_object, resolve_channel_placeholders
 
 T = TypeVar("T", bound=ConsolePage)
 
@@ -538,7 +538,7 @@ class PagesClient(ResourceClient):
         self.tree.move_to_group(self.get(item_name), group_name)
         self.layout.close_left_toolbar()
 
-    def export(self, name: str) -> dict[str, Any]:
+    def export(self, name: str) -> dict[str, JsonValue]:
         """Export a page via context menu.
 
         The file is saved to the tests/results directory.
@@ -557,9 +557,7 @@ class PagesClient(ResourceClient):
         download.save_as(save_path)
         self.layout.close_left_toolbar()
 
-        with open(save_path, encoding="utf-8") as f:
-            result: dict[str, Any] = json.load(f)
-            return result
+        return read_json_object(save_path)
 
     def import_file(self, json_path: str, *, name: str) -> None:
         """Import a component via the "Import components" command palette flow.

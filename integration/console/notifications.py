@@ -7,10 +7,11 @@
 #  License, use of this software will be governed by the Apache License, Version 2.0,
 #  included in the file licenses/APL.txt.
 
-from typing import Any
+from typing import Literal, NotRequired, TypedDict
 
 from playwright.sync_api import Locator, Page, expect
 from playwright.sync_api import TimeoutError as PlaywrightTimeoutError
+from pydantic import TypeAdapter
 
 import synnax as sy
 
@@ -34,6 +35,19 @@ _READ_JS = """(elements) => elements.map((el) => {
 })"""
 
 
+class Notification(TypedDict):
+    """A notification as the Console renders it."""
+
+    type: Literal["info", "error"]
+    count: NotRequired[str]
+    timestamp: NotRequired[str]
+    message: NotRequired[str]
+    description: NotRequired[str]
+
+
+_NOTIFICATIONS: TypeAdapter[list[Notification]] = TypeAdapter(list[Notification])
+
+
 class NotificationsClient:
     """Notifications management for Console UI automation."""
 
@@ -46,7 +60,7 @@ class NotificationsClient:
 
     def check(
         self, *, timeout: sy.CrudeTimeSpan = 200 * sy.TimeSpan.MILLISECOND
-    ) -> list[dict[str, Any]]:
+    ) -> list[Notification]:
         """Check for notifications in the bottom right corner.
 
         Polls every 50ms until notifications are found or timeout is reached.
@@ -61,7 +75,9 @@ class NotificationsClient:
         while timer.elapsed() < timeout_span:
             # One call reads every notification, so a toast that arrives mid-read cannot
             # shift the others.
-            notifications: list[dict[str, Any]] = self._all().evaluate_all(_READ_JS)
+            notifications = _NOTIFICATIONS.validate_python(
+                self._all().evaluate_all(_READ_JS)
+            )
             if len(notifications) > 0:
                 return notifications
             sy.sleep(poll_interval)
