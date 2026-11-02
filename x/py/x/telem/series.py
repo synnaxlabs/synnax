@@ -14,6 +14,7 @@ import json
 import uuid
 from collections.abc import Callable, Iterator
 from datetime import datetime
+from itertools import islice
 from types import UnionType
 from typing import (
     Any,
@@ -483,10 +484,10 @@ class Series(ArrayOperators, Generic[T]):
                 "increasing alignments"
             )
         if self.data_type.is_variable:
-            spans = list(_variable_spans(self.data))
+            view = memoryview(self.data)
             data = b"".join(
-                self.data[spans[i][0] - _VARIABLE_LENGTH_PREFIX_SIZE : spans[i][1]]
-                for i in range(start, stop, step)
+                view[s - _VARIABLE_LENGTH_PREFIX_SIZE : e]
+                for s, e in islice(_variable_spans(self.data), start, stop, step)
             )
         else:
             density = int(self.data_type.density)
