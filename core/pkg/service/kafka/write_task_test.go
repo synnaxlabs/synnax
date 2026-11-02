@@ -13,6 +13,7 @@ import (
 	"context"
 	"encoding/json/v2"
 	"time"
+	"uuid"
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
@@ -29,7 +30,6 @@ import (
 	. "github.com/synnaxlabs/x/testutil"
 	"github.com/synnaxlabs/x/validate"
 	"github.com/twmb/franz-go/pkg/kgo"
-	"uuid"
 )
 
 var _ = Describe("Write task", func() {

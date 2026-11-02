@@ -16,12 +16,12 @@ import (
 	"strconv"
 	"strings"
 	"time"
+	"uuid"
 
 	"github.com/synnaxlabs/synnax/pkg/service/http"
 	"github.com/synnaxlabs/x/errors"
 	"github.com/synnaxlabs/x/telem"
 	"github.com/synnaxlabs/x/validate"
-	"uuid"
 )
 
 // preciseNumbers decodes a JSON integer into an int64 or uint64, so large integers
