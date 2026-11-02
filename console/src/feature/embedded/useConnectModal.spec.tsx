@@ -61,6 +61,14 @@ const openConnect = async (
   return { file, statuses: () => statuses };
 };
 
+/** Clicks "Reset key", then confirms the reset. */
+const resetKey = async (): Promise<void> => {
+  fireEvent.click(screen.getByRole("button", { name: "Reset key" }));
+  await screen.findByText(/want to reset the API key/);
+  const buttons = screen.getAllByRole("button", { name: "Reset key" });
+  fireEvent.click(buttons[buttons.length - 1]);
+};
+
 const savedKey = (file: DiscoveryFile): string => {
   if (file.apiKey == null) throw new Error("no API key saved");
   return file.apiKey;
@@ -132,16 +140,13 @@ describe("Embedded connect from code dialog", () => {
 
   it("should show the key of a reset that another window saved first", async () => {
     await deleteKeysCreatedByTest(client);
-    const { token } = await client.auth.createKey({ name: "replaced" });
+    const { token, key } = await client.auth.createKey({ name: "replaced" });
     const { token: other } = await client.auth.createKey({ name: "other window" });
-    const before = await retrieveKeyIDs(client);
+    const before = (await retrieveKeyIDs(client)).filter((k) => k !== key.key);
     const { file } = await openConnect(token, (f, apiKey) => {
       if (apiKey !== token && f.apiKey === token) f.apiKey = other;
     });
-    fireEvent.click(screen.getByRole("button", { name: "Reset key" }));
-    await screen.findByText(/want to reset the API key/);
-    const buttons = screen.getAllByRole("button", { name: "Reset key" });
-    fireEvent.click(buttons[buttons.length - 1]);
+    await resetKey();
     fireEvent.click(screen.getByRole("tab", { name: "Other" }));
     fireEvent.click(screen.getByRole("button", { name: "Show API key" }));
     await waitFor(() =>
@@ -151,6 +156,19 @@ describe("Embedded connect from code dialog", () => {
     await expect.poll(async () => await retrieveKeyIDs(client)).toEqual(before);
   });
 
+  it("should end the old key before it saves the new one", async () => {
+    await deleteKeysCreatedByTest(client);
+    const { token, key } = await client.auth.createKey({ name: "replaced" });
+    let oldKeyAtSave: boolean | null = null;
+    const { file } = await openConnect(token, async (_, apiKey) => {
+      if (apiKey === token) return;
+      oldKeyAtSave = (await retrieveKeyIDs(client)).includes(key.key);
+    });
+    await resetKey();
+    await waitFor(() => expect(file.apiKey).not.toBe(token));
+    expect(oldKeyAtSave).toBe(false);
+  });
+
   it("should replace the key after asking and end the sessions of the old one", async () => {
     await deleteKeysCreatedByTest(client);
     const { token } = await client.auth.createKey({ name: "replaced" });
@@ -158,10 +176,7 @@ describe("Embedded connect from code dialog", () => {
     await script.auth.retrieveSessions();
     const { file, statuses } = await openConnect(token);
     await screen.findByText("1 session");
-    fireEvent.click(screen.getByRole("button", { name: "Reset key" }));
-    await screen.findByText(/want to reset the API key/);
-    const buttons = screen.getAllByRole("button", { name: "Reset key" });
-    fireEvent.click(buttons[buttons.length - 1]);
+    await resetKey();
     await waitFor(() => expect(file.apiKey).not.toBe(token));
     await waitFor(() =>
       expect(statuses().map((s) => s.message)).toContain("Reset API key"),

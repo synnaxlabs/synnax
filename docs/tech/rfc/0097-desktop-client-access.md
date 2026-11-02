@@ -71,14 +71,14 @@ code" open the dialog. It has three tabs:
 - **Other**: The host, the port, and the key, for the C++ client and LabVIEW.
 
 The footer shows the number of sessions of the key, a link to the client docs, and
-"Reset key". A reset asks first, saves a new key, then deletes the old one, which ends
-its sessions.
+"Reset key". A reset asks first, deletes the old key, which ends its sessions, then
+saves a new key. A reset that fails never leaves the old key working.
 
 ### 3.4 Python client errors
 
-When the file is the source and the Core does not answer, the client raises "Synnax
-Desktop is not running". A version mismatch names Desktop and gives the `pip` command
-that matches the Core.
+When the options are the ones in the file, from the file or from the caller, and the
+Core does not answer, the client raises "Synnax Desktop is not running". A version
+mismatch names Desktop and gives the `pip` command that matches the Core.
 
 ## 4 Implementation phases
 

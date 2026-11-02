@@ -66,12 +66,42 @@ class TestLoadDesktopOptions:
 
 class TestTryLoadOptions:
     def test_given_options(self, clusters: Clusters, desktop_file: Path) -> None:
-        """Should use the given options and not read the Desktop file."""
+        """Should use the given options, which Synnax Desktop did not save."""
         write_desktop_file(desktop_file, port=4321)
         opts, embedded = try_load_options_if_none_provided(
             host="h", port=1, clusters=clusters, desktop_file=desktop_file
         )
         assert (opts.host, opts.port, embedded) == ("h", 1, False)
+
+    def test_given_desktop_options(
+        self, clusters: Clusters, desktop_file: Path
+    ) -> None:
+        """Should know the options that Synnax Desktop saved when a caller gives them,
+        as the CLI does.
+        """
+        write_desktop_file(desktop_file, port=4321)
+        _, embedded = try_load_options_if_none_provided(
+            host="127.0.0.1",
+            port=4321,
+            api_key="syk_k_s",
+            clusters=clusters,
+            desktop_file=desktop_file,
+        )
+        assert embedded
+
+    def test_given_options_with_a_broken_desktop_file(
+        self, clusters: Clusters, desktop_file: Path
+    ) -> None:
+        """Should connect with the given options when the Desktop file is broken."""
+        desktop_file.write_text("not json")
+        opts, embedded = try_load_options_if_none_provided(
+            host="h",
+            port=1,
+            api_key="syk_k_s",
+            clusters=clusters,
+            desktop_file=desktop_file,
+        )
+        assert (opts.host, embedded) == ("h", False)
 
     def test_saved_login_before_desktop(
         self, clusters: Clusters, desktop_file: Path

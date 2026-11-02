@@ -68,18 +68,16 @@ export const ensure = async (client: Synnax): Promise<string> => {
 };
 
 /**
- * Saves a new API key and deletes the old one, which ends every session the old key
- * opened.
+ * Deletes the saved API key, which ends every session it opened, then saves a new one.
  * @returns The new API key.
  */
 export const replace = async (client: Synnax): Promise<string> => {
   const saved = await retrieveAPIKey();
-  const token = await create(client, saved);
-  // Another window reset the key first, so its new key is the one to use.
-  if (token == null) return await ensure(client);
   const old = saved == null ? null : recordKey(saved);
+  // The delete comes first, so a reset that fails never leaves the old key working.
   if (old != null) await client.auth.deleteKeys(old);
-  return token;
+  // Another window reset the key first, so its new key is the one to use.
+  return (await create(client, saved)) ?? (await ensure(client));
 };
 
 /** @returns The number of the given sessions that the given API key opened. */

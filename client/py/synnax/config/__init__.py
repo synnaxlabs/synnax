@@ -48,6 +48,17 @@ def load_desktop_options(path: Path = DESKTOP_FILE_PATH) -> Options | None:
     return Options.model_validate(raw)
 
 
+def _saved_by_desktop(opts: Options, path: Path) -> bool:
+    if not opts.api_key:
+        return False
+    try:
+        return opts == load_desktop_options(path)
+    except ValueError:
+        # The file changes only the advice of errors, so a broken one must not break
+        # a connection that names its Core.
+        return False
+
+
 NO_OPTIONS_MSG = (
     "No connection parameters were given and none are saved. Open Synnax Desktop, "
     "log in with `sy login`, or give a host and a port."
@@ -76,7 +87,7 @@ def try_load_options_if_none_provided(
 
     :param clusters: The saved logins. Defaults to those of the current user.
     :param desktop_file: The file where Synnax Desktop saves its options.
-    :returns: The options, and whether Synnax Desktop saved them.
+    :returns: The options, and whether they are the options Synnax Desktop saved.
     :raises ValidationError: If an API key has no host, or nothing is saved.
     """
     if len(host) == 0:
@@ -91,15 +102,13 @@ def try_load_options_if_none_provided(
         if opts is None:
             raise ValidationError(NO_OPTIONS_MSG)
         return opts, True
-    return (
-        Options(
-            host=host,
-            port=port,
-            username=username,
-            password=password,
-            api_key=api_key,
-            secure=secure,
-            ca_cert=ca_cert,
-        ),
-        False,
+    opts = Options(
+        host=host,
+        port=port,
+        username=username,
+        password=password,
+        api_key=api_key,
+        secure=secure,
+        ca_cert=ca_cert,
     )
+    return opts, _saved_by_desktop(opts, desktop_file)

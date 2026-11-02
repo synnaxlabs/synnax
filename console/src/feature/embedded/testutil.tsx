@@ -133,16 +133,16 @@ const saveArgsZ = z.object({ apiKey: z.string(), replaces: z.string().nullable()
  */
 export const createDiscoveryFile = (
   apiKey: string | null = null,
-  beforeSave?: (file: DiscoveryFile, apiKey: string) => void,
+  beforeSave?: (file: DiscoveryFile, apiKey: string) => void | Promise<void>,
 ): { file: DiscoveryFile; handlers: Record<string, CommandHandler> } => {
   const file: DiscoveryFile = { apiKey };
   return {
     file,
     handlers: {
       supervisor_api_key: () => file.apiKey,
-      supervisor_save_api_key: (args) => {
+      supervisor_save_api_key: async (args) => {
         const { apiKey, replaces } = saveArgsZ.parse(args);
-        beforeSave?.(file, apiKey);
+        await beforeSave?.(file, apiKey);
         if (file.apiKey !== replaces) return false;
         file.apiKey = apiKey;
         return true;
