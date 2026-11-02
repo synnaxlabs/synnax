@@ -386,6 +386,32 @@ class TestSeries:
         """Should infer a timestamp series from a single TimeStamp"""
         assert telem.Series(telem.TimeStamp(5)).data_type == telem.DataType.TIMESTAMP
 
+    def test_construction_from_np_strings(self) -> None:
+        """Should build a string series from a NumPy string array"""
+        s = telem.Series(np.array(["a", "bc", ""]))
+        assert s.data_type == telem.DataType.STRING
+        assert list(s) == ["a", "bc", ""]
+
+    @pytest.mark.parametrize(
+        "crude",
+        [
+            np.array([1, 2], dtype="datetime64[s]"),
+            pd.Series(np.array([1, 2], dtype="datetime64[s]")),
+            [np.datetime64(1, "s"), np.datetime64(2, "s")],
+        ],
+    )
+    def test_construction_from_datetime64_unit(self, crude: telem.CrudeSeries) -> None:
+        """Should convert datetime64 samples of any unit to nanoseconds"""
+        s = telem.Series(crude)
+        assert s.data_type == telem.DataType.TIMESTAMP
+        assert list(s) == [telem.TimeStamp(10**9), telem.TimeStamp(2 * 10**9)]
+
+    def test_construction_from_datetime64_scalar(self) -> None:
+        """Should build a timestamp series from one datetime64"""
+        s = telem.Series(np.datetime64(1, "ms"))
+        assert s.data_type == telem.DataType.TIMESTAMP
+        assert s[0] == telem.TimeStamp(10**6)
+
     def test_uuid_list_rejects_non_uuid(self) -> None:
         """Should reject a value that is not a UUID instead of dropping it"""
         values: list[Any] = [uuid.uuid4(), "not-a-uuid"]
