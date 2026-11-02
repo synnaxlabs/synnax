@@ -12,6 +12,7 @@ package kafka_test
 import (
 	"context"
 	"encoding/json/jsontext"
+	"encoding/json/v2"
 	"math"
 	"time"
 	"uuid"
@@ -170,29 +171,93 @@ var _ = Describe("Read task", func() {
 		Expect(stat.Details.Cmd).To(Equal("cmd-3"))
 	})
 
-	It("Should stamp a group without a timestamp field with the receive time",
+	// unstampedFields reads /v into data and no timestamp field.
+	unstampedFields := func(data channel.Channel) []kafka.ReadField {
+		return []kafka.ReadField{{
+			Key:      "v",
+			Channel:  data.Key(),
+			Pointer:  "/v",
+			DataType: telem.Float64T,
+		}}
+	}
+
+	// produceAt produces a JSON record whose Kafka timestamp is ms milliseconds.
+	produceAt := func(ctx context.Context, topic string, ms int64, doc any) {
+		GinkgoHelper()
+		rec := &kgo.Record{
+			Topic:     topic,
+			Value:     MustSucceed(json.Marshal(doc)),
+			Timestamp: time.UnixMilli(ms),
+		}
+		Expect(producer.ProduceSync(ctx, rec).FirstErr()).To(Succeed())
+	}
+
+	It("Should stamp a group without a timestamp field with the Kafka timestamp",
 		func(ctx SpecContext) {
 			index, data := createIndexed(ctx, telem.Float64T)
 			dev := createDevice(ctx, clusterProperties())
 			topic := newTopic()
 			dt, t := configure(ctx, kafka.ReadConfig{
-				Device: dev.Key,
-				Topic:  topic,
-				Records: single([]kafka.ReadField{{
-					Key:      "v",
-					Channel:  data.Key(),
-					Pointer:  "/v",
-					DataType: telem.Float64T,
-				}}),
+				Device:  dev.Key,
+				Topic:   topic,
+				Records: single(unstampedFields(data)),
 			})
-			before := telem.Now()
 			start(ctx, dt, t)
-			produceJSON(ctx, producer, topic, "", map[string]any{"v": 1.0})
-			produceJSON(ctx, producer, topic, "", map[string]any{"v": 2.0})
+			produceAt(ctx, topic, 10_000, map[string]any{"v": 1.0})
+			produceAt(ctx, topic, 11_000, map[string]any{"v": 2.0})
 			Expect(floats(expectStored(ctx, data.Key(), 2))).To(Equal([]float64{1, 2}))
-			stamps := timestamps(stored(ctx, index.Key()))
-			Expect(stamps[0]).To(BeNumerically(">", before))
-			Expect(stamps[1]).To(BeNumerically(">", stamps[0]))
+			Expect(timestamps(stored(ctx, index.Key()))).
+				To(Equal([]telem.TimeStamp{10 * telem.SecondTS, 11 * telem.SecondTS}))
+		},
+	)
+
+	It("Should move a record that repeats a Kafka timestamp past the last stamp",
+		func(ctx SpecContext) {
+			index, data := createIndexed(ctx, telem.Float64T)
+			dev := createDevice(ctx, clusterProperties())
+			topic := newTopic()
+			dt, t := configure(ctx, kafka.ReadConfig{
+				Device:  dev.Key,
+				Topic:   topic,
+				Records: single(unstampedFields(data)),
+			})
+			start(ctx, dt, t)
+			produceAt(ctx, topic, 10_000, map[string]any{"v": 1.0})
+			produceAt(ctx, topic, 10_000, map[string]any{"v": 2.0})
+			Expect(floats(expectStored(ctx, data.Key(), 2))).To(Equal([]float64{1, 2}))
+			Expect(timestamps(stored(ctx, index.Key()))).
+				To(Equal([]telem.TimeStamp{10 * telem.SecondTS, 10*telem.SecondTS + 1}))
+			Expect(taskStatus(ctx, t).Variant).To(Equal(status.VariantSuccess))
+		},
+	)
+
+	It("Should silently skip the replay of records stamped by Kafka",
+		func(ctx SpecContext) {
+			index, data := createIndexed(ctx, telem.Float64T)
+			dev := createDevice(ctx, clusterProperties())
+			topic := newTopic()
+			cfg := kafka.ReadConfig{
+				Device:  dev.Key,
+				Topic:   topic,
+				Records: single(unstampedFields(data)),
+			}
+			dt, t := configure(ctx, cfg)
+			start(ctx, dt, t)
+			produceAt(ctx, topic, 10_000, map[string]any{"v": 1.0})
+			produceAt(ctx, topic, 11_000, map[string]any{"v": 2.0})
+			expectStored(ctx, data.Key(), 2)
+			Expect(dt.Stop(true)).To(Succeed())
+
+			cfg.Group = "fresh-" + t.Key.String()
+			dt2, t2 := configure(ctx, cfg)
+			start(ctx, dt2, t2)
+			produceAt(ctx, topic, 12_000, map[string]any{"v": 3.0})
+			Expect(floats(expectStored(ctx, data.Key(), 3))).
+				To(Equal([]float64{1, 2, 3}))
+			Expect(timestamps(stored(ctx, index.Key()))).To(Equal([]telem.TimeStamp{
+				10 * telem.SecondTS, 11 * telem.SecondTS, 12 * telem.SecondTS,
+			}))
+			Expect(taskStatus(ctx, t2).Variant).To(Equal(status.VariantSuccess))
 		},
 	)
 

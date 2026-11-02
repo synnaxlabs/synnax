@@ -58,8 +58,8 @@ type benchScenario struct {
 	channels int
 	rate     int
 	duration time.Duration
-	// receiveTime stamps samples with the receive time instead of a body field.
-	receiveTime bool
+	// kafkaTime stamps samples with the Kafka timestamp instead of a body field.
+	kafkaTime bool
 	// backlog produces every record before the task starts, so the run measures how
 	// fast the task drains a backlog with no producer competing for CPU.
 	backlog bool
@@ -67,8 +67,8 @@ type benchScenario struct {
 
 func (s benchScenario) name() string {
 	stamp := "body"
-	if s.receiveTime {
-		stamp = "recv"
+	if s.kafkaTime {
+		stamp = "kafka"
 	}
 	name := fmt.Sprintf("%s-%dch-%dhz-%s", s.shape, s.channels, s.rate, stamp)
 	if s.backlog {
@@ -152,7 +152,7 @@ var _ = Describe("Read task benchmark", Serial, func() {
 			Expect(res.Missing).To(BeZero())
 			Expect(res.Extra).To(BeZero())
 			Expect(res.ValueMismatches).To(BeZero())
-			if !sc.receiveTime {
+			if !sc.kafkaTime {
 				Expect(res.StampMismatches).To(BeZero())
 			}
 		},
@@ -178,20 +178,20 @@ func benchEntries() []TableEntry {
 	}
 	add(
 		benchScenario{
-			shape:       wide,
-			channels:    200,
-			rate:        200,
-			duration:    d,
-			receiveTime: true,
+			shape:     wide,
+			channels:  200,
+			rate:      200,
+			duration:  d,
+			kafkaTime: true,
 		},
 	)
 	add(
 		benchScenario{
-			shape:       narrow,
-			channels:    200,
-			rate:        200,
-			duration:    d,
-			receiveTime: true,
+			shape:     narrow,
+			channels:  200,
+			rate:      200,
+			duration:  d,
+			kafkaTime: true,
 		},
 	)
 	for _, sc := range []benchScenario{
@@ -268,7 +268,7 @@ func benchRecords(groups []benchGroup, sc benchScenario) []kafka.ReadRecord {
 	recs := make([]kafka.ReadRecord, len(groups))
 	for gi, g := range groups {
 		rec := kafka.ReadRecord{Key: fmt.Sprintf("r%d", gi), RecordKey: g.key}
-		if !sc.receiveTime {
+		if !sc.kafkaTime {
 			rec.Index = "ts"
 			rec.Fields = append(rec.Fields, kafka.ReadField{
 				Key:        "ts",
@@ -361,10 +361,8 @@ func runBench(ctx SpecContext, sc benchScenario) benchResult {
 				}
 				for i := range int(s.Len()) {
 					ts := s.ValueAt[telem.TimeStamp](i)
-					if !sc.receiveTime {
-						ll.lat = append(ll.lat, float64(now-ts)/1e6)
-						ll.seen = append(ll.seen, since)
-					}
+					ll.lat = append(ll.lat, float64(now-ts)/1e6)
+					ll.seen = append(ll.seen, since)
 				}
 				received.Add(s.Len())
 			}
@@ -432,9 +430,10 @@ func runBench(ctx SpecContext, sc benchScenario) benchResult {
 			}
 			b := MustSucceed(json.Marshal(body))
 			producer.Produce(ctx, &kgo.Record{
-				Topic: topic,
-				Key:   []byte("tick"),
-				Value: b,
+				Topic:     topic,
+				Key:       []byte("tick"),
+				Timestamp: time.Unix(0, int64(ts)),
+				Value:     b,
 			}, promise)
 			produced[0] = append(produced[0], ts)
 			continue
@@ -445,9 +444,10 @@ func runBench(ctx SpecContext, sc benchScenario) benchResult {
 				"value": benchValue(gi, k),
 			}))
 			producer.Produce(ctx, &kgo.Record{
-				Topic: topic,
-				Key:   []byte(g.key),
-				Value: b,
+				Topic:     topic,
+				Key:       []byte(g.key),
+				Timestamp: time.Unix(0, int64(ts)),
+				Value:     b,
 			}, promise)
 			produced[gi] = append(produced[gi], ts)
 		}

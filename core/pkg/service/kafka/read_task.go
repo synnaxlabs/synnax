@@ -49,7 +49,7 @@ type readGroup struct {
 	// found[i] is scratch space for whether a record holds fields[i].
 	found []bool
 	// stamp is the position in fields of the field targeting the index channel, or
-	// -1 when records are stamped with their receive time.
+	// -1 when records are stamped with their Kafka timestamp.
 	stamp int
 	// index is the group's index channel, zero when its channels are virtual.
 	index channel.Key
@@ -383,7 +383,7 @@ func (t *readTask) open(ctx context.Context) (err error) {
 	for _, g := range t.groups {
 		g.last = 0
 		g.replaying = false
-		if g.index == 0 || g.stamp == -1 {
+		if g.index == 0 {
 			continue
 		}
 		if g.last, err = t.lastStored(ctx, g.index); err != nil {
@@ -604,28 +604,32 @@ func (t *readTask) convert(
 		r.values[i] = v
 	}
 	if g.stamp == -1 {
-		r.ts = telem.Now()
+		r.ts = telem.NewTimeStamp(rec.Timestamp)
 	} else {
 		r.ts = r.values[g.stamp].(telem.TimeStamp)
 	}
 	return g, r, true
 }
 
-// keep sorts rows by timestamp and drops the replay and any regression.
+// keep sorts rows by timestamp and drops the replay. A body-stamped regression is
+// dropped with a status. Kafka timestamps only count milliseconds, so a regression of
+// one moves to a nanosecond past the last written stamp.
 func (t *readTask) keep(ctx context.Context, g *readGroup, rows []row) []row {
 	slices.SortStableFunc(rows, func(a, b row) int { return cmp.Compare(a.ts, b.ts) })
 	kept := rows[:0]
 	for _, r := range rows {
-		if g.stamp == -1 {
-			r.ts = max(r.ts, g.last+1)
-		} else if r.ts <= g.last {
-			if !g.replaying {
+		if r.ts <= g.last {
+			if g.replaying {
+				continue
+			}
+			if g.stamp != -1 {
 				t.skip(ctx, fmt.Sprintf(
 					"Record stamped %s is not after the last written %s for key %q",
 					r.ts, g.last, g.key,
 				))
+				continue
 			}
-			continue
+			r.ts = g.last + 1
 		}
 		g.replaying = false
 		g.last = r.ts
