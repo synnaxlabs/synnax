@@ -62,6 +62,18 @@ def conditions[C: filter.Condition](
     return conds
 
 
+def reject_page(one: bool, limit: int | None, offset: int) -> None:
+    """Rejects a page on a retrieve of one record: it could hide a second match.
+
+    :param one: Whether the retrieve returns one record.
+    :param limit: The limit of the retrieve.
+    :param offset: The offset of the retrieve.
+    :raises ValueError: If one is combined with limit or offset.
+    """
+    if one and (limit is not None or offset):
+        raise ValueError("one cannot be combined with limit or offset")
+
+
 def shortcut[C: filter.Condition, K](
     kind: str,
     args: Sequence[object],

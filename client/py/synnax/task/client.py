@@ -480,8 +480,6 @@ class Client:
         rack: int | None = None,
         internal: bool | None = None,
         snapshot: bool | None = None,
-        limit: int | None = None,
-        offset: int = 0,
         include_status: bool = False,
     ) -> Task: ...
 
@@ -543,7 +541,9 @@ class Client:
         :raises MultipleFoundError: If more than one task matches a single name, a type,
             or one.
         :raises TypeError: If args are neither task conditions nor a shortcut.
+        :raises ValueError: If one is combined with limit or offset.
         """
+        util.reject_page(one, limit, offset)
         conditions, query = util.shortcut(
             "Task", args, Condition, UUID, builder_gen.key, builder_gen.name
         )
