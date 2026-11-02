@@ -16,6 +16,7 @@ import (
 	"io/fs"
 	"os"
 	"path/filepath"
+	"runtime"
 	"strings"
 	"sync"
 	"syscall"
@@ -395,6 +396,40 @@ var _ = Describe("Open", func() {
 			Expect(d.Close()).To(Succeed())
 		})
 
+		It("Should reuse the extracted binary across Core processes", func(
+			ctx SpecContext,
+		) {
+			logger, _ := newTestLogger()
+			dir := GinkgoT().TempDir()
+			cfg := driver.Config{ParentDirname: dir}
+			Expect(openMockDriver(ctx, logger, cfg).Close()).To(Succeed())
+			first := MustSucceed(os.Stat(extractedBinary(dir)))
+			Expect(openMockDriver(ctx, logger, cfg).Close()).To(Succeed())
+			Expect(os.SameFile(first, MustSucceed(os.Stat(extractedBinary(dir))))).
+				To(BeTrue())
+		})
+
+		It("Should replace the extracted binary when the binary changes", func(
+			ctx SpecContext,
+		) {
+			logger, _ := newTestLogger()
+			dir := GinkgoT().TempDir()
+			Expect(openMockDriver(ctx, logger, driver.Config{ParentDirname: dir}).
+				Close()).To(Succeed())
+			old := extractedBinary(dir)
+			changed := append(
+				MustSucceed(fs.ReadFile(mockFS, driverName())),
+				[]byte("changed")...,
+			)
+			d := openMockDriver(ctx, logger, driver.Config{
+				ParentDirname: dir,
+				FS:            fstest.MapFS{driverName(): {Data: changed}},
+			})
+			Expect(d.Close()).To(Succeed())
+			Expect(old).ToNot(BeAnExistingFile())
+			Expect(os.ReadFile(extractedBinary(dir))).To(Equal(changed))
+		})
+
 		It("Should write no trust anchors in insecure mode", func(ctx SpecContext) {
 			logger, _ := newTestLogger()
 			dir := GinkgoT().TempDir()
@@ -414,6 +449,22 @@ var _ = Describe("Open", func() {
 		})
 	})
 })
+
+func driverName() string {
+	if runtime.GOOS == "windows" {
+		return "driver.exe"
+	}
+	return "driver"
+}
+
+// extractedBinary returns the path of the only Driver binary in the working directory.
+func extractedBinary(parentDirname string) string {
+	GinkgoHelper()
+	pattern := filepath.Join(parentDirname, "driver", "driver*")
+	binaries := MustSucceed(filepath.Glob(pattern))
+	Expect(binaries).To(HaveLen(1))
+	return binaries[0]
+}
 
 // authenticate returns the identity the API key logs in as.
 func authenticate(ctx context.Context, key string) auth.Identity {
@@ -487,6 +538,25 @@ var _ = Describe("restart", func() {
 		Expect(err).To(MatchError(ContainSubstring("exceeded restart limit")))
 		Expect(d).To(BeNil())
 		Expect(buffer.String()).To(ContainSubstring("exceeded restart limit"))
+	})
+
+	It("Should launch the same binary after a restart", func(ctx SpecContext) {
+		Expect(os.Setenv("MOCK_EXIT_AFTER_MS", "100")).To(Succeed())
+		defer func() { Expect(os.Unsetenv("MOCK_EXIT_AFTER_MS")).To(Succeed()) }()
+		logger, buffer := newTestLogger()
+		dir := GinkgoT().TempDir()
+		d := openMockDriver(ctx, logger, driver.Config{
+			ParentDirname:       dir,
+			StartTimeout:        5 * time.Second,
+			RestartBaseInterval: time.Millisecond,
+		})
+		first := MustSucceed(os.Stat(extractedBinary(dir)))
+		Eventually(func() int {
+			return strings.Count(buffer.String(), "started successfully")
+		}, 5*time.Second).Should(BeNumerically(">=", 2))
+		Expect(d.Close()).To(Succeed())
+		Expect(os.SameFile(first, MustSucceed(os.Stat(extractedBinary(dir))))).
+			To(BeTrue())
 	})
 
 	It("Should not restart after a graceful stop", func(ctx SpecContext) {

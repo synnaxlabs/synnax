@@ -11,12 +11,15 @@ package driver
 
 import (
 	"context"
+	"crypto/sha256"
+	"encoding/hex"
 	"encoding/json/v2"
 	"io"
 	"io/fs"
 	"os"
 	"os/exec"
 	"path/filepath"
+	"strings"
 	"sync"
 	"time"
 
@@ -397,7 +400,7 @@ func (d *Driver) runOnce(
 	policy *restart.Policy,
 	startedOnce *sync.Once,
 ) (restart.Action, error) {
-	cmd, tempFiles, extractedBinary, err := d.setupCmd(ctx)
+	cmd, tempFiles, err := d.setupCmd(ctx)
 	for _, f := range tempFiles {
 		defer func() {
 			if rmErr := os.Remove(f); rmErr != nil {
@@ -406,13 +409,6 @@ func (d *Driver) runOnce(
 					zap.String("path", f),
 					zap.Error(rmErr),
 				)
-			}
-		}()
-	}
-	if extractedBinary != "" {
-		defer func() {
-			if rmErr := os.Remove(extractedBinary); rmErr != nil {
-				d.cfg.L.Error("failed to remove extracted binary", zap.Error(rmErr))
 			}
 		}()
 	}
@@ -500,7 +496,7 @@ func (d *Driver) resolveKey(ctx context.Context) (string, error) {
 		return token, nil
 	}
 	// A key that was never saved cannot be used again, so it must not stay stored.
-	if err = writeFileAtomic(d.keyPath(), []byte(token)); err != nil {
+	if err = writeFileAtomic(d.keyPath(), []byte(token), xfs.UserRW); err != nil {
 		return "", errors.Combine(
 			err,
 			d.cfg.Keys.NewWriter(nil).Delete(ctx, created.Key),
@@ -525,9 +521,9 @@ func (d *Driver) savedKey() (string, error) {
 
 // writeFileAtomic replaces the file at path with data, so an interrupted write leaves
 // the old file in place.
-func writeFileAtomic(path string, data []byte) error {
+func writeFileAtomic(path string, data []byte, perm os.FileMode) error {
 	tmp := path + ".tmp"
-	if err := os.WriteFile(tmp, data, xfs.UserRW); err != nil {
+	if err := os.WriteFile(tmp, data, perm); err != nil {
 		return err
 	}
 	return os.Rename(tmp, path)
@@ -561,10 +557,10 @@ func (d *Driver) close() error {
 // the caller can defer their cleanup.
 func (d *Driver) setupCmd(
 	ctx context.Context,
-) (_ *exec.Cmd, tempFiles []string, extractedBinary string, _ error) {
+) (_ *exec.Cmd, tempFiles []string, _ error) {
 	workDir := d.workDir()
 	if err := os.MkdirAll(workDir, xfs.UserRWX); err != nil {
-		return nil, tempFiles, "", err
+		return nil, tempFiles, err
 	}
 	var trustAnchorFile string
 	if len(d.cfg.TrustAnchorsPEM) > 0 && !*d.cfg.Insecure {
@@ -574,26 +570,22 @@ func (d *Driver) setupCmd(
 			d.cfg.TrustAnchorsPEM,
 			xfs.UserRW,
 		); err != nil {
-			return nil, tempFiles, "", err
+			return nil, tempFiles, err
 		}
 		tempFiles = append(tempFiles, trustAnchorFile)
 	}
 	b, err := json.Marshal(d.cfg.format(d.apiKey))
 	if err != nil {
-		return nil, tempFiles, "", err
+		return nil, tempFiles, err
 	}
 	cfgFile := filepath.Join(workDir, configFileName)
 	if err = os.WriteFile(cfgFile, b, xfs.UserRW); err != nil {
-		return nil, tempFiles, "", err
+		return nil, tempFiles, err
 	}
 	tempFiles = append(tempFiles, cfgFile)
-	data, err := fs.ReadFile(d.cfg.FS, driverName)
+	binary, err := d.extractBinary(workDir)
 	if err != nil {
-		return nil, tempFiles, "", err
-	}
-	extractedBinary = filepath.Join(workDir, driverName)
-	if err = os.WriteFile(extractedBinary, data, xfs.UserRWX); err != nil {
-		return nil, tempFiles, "", err
+		return nil, tempFiles, err
 	}
 	flags := []string{"start", "--standalone", "--disable-sig-stop", "--no-color"}
 	if *d.cfg.Debug {
@@ -604,19 +596,57 @@ func (d *Driver) setupCmd(
 		"--config", cfgFile,
 		"--state-file", filepath.Join(workDir, stateFileName),
 	)
-	cmd := exec.CommandContext(ctx, extractedBinary, flags...)
+	cmd := exec.CommandContext(ctx, binary, flags...)
 	if trustAnchorFile != "" {
 		cmd.Env = append(os.Environ(), grpcRootsEnv+"="+trustAnchorFile)
 	}
 	configureSysProcAttr(cmd)
 	stdin, err := cmd.StdinPipe()
 	if err != nil {
-		return nil, tempFiles, extractedBinary, err
+		return nil, tempFiles, err
 	}
 	// On ctx cancellation, ask the Driver to stop gracefully via STOP instead of the
 	// default SIGKILL; WaitDelay then escalates to a kill if it does not exit in time
 	// and guarantees the stdin pipe is closed so cmd.Wait cannot block indefinitely.
 	cmd.Cancel = func() error { _, err := io.WriteString(stdin, "STOP\n"); return err }
 	cmd.WaitDelay = d.cfg.StopTimeout
-	return cmd, tempFiles, extractedBinary, nil
+	return cmd, tempFiles, nil
+}
+
+// extractBinary writes the Driver binary to workDir under a name derived from its
+// content and returns its path. A binary that an earlier run extracted is reused, so
+// each launch runs the same file. It removes all other Driver binaries in workDir.
+func (d *Driver) extractBinary(workDir string) (string, error) {
+	data, err := fs.ReadFile(d.cfg.FS, driverName)
+	if err != nil {
+		return "", err
+	}
+	sum := sha256.Sum256(data)
+	ext := filepath.Ext(driverName)
+	base := strings.TrimSuffix(driverName, ext)
+	path := filepath.Join(workDir, base+"-"+hex.EncodeToString(sum[:8])+ext)
+	if _, err = os.Stat(path); errors.Is(err, fs.ErrNotExist) {
+		err = writeFileAtomic(path, data, xfs.UserRWX)
+	}
+	if err != nil {
+		return "", err
+	}
+	stale, err := filepath.Glob(filepath.Join(workDir, base+"*"))
+	if err != nil {
+		return "", err
+	}
+	for _, f := range stale {
+		if f == path {
+			continue
+		}
+		// A binary that another process still runs cannot be removed on Windows.
+		if err = os.Remove(f); err != nil {
+			d.cfg.L.Warn(
+				"failed to remove old Driver binary",
+				zap.String("path", f),
+				zap.Error(err),
+			)
+		}
+	}
+	return path, nil
 }
