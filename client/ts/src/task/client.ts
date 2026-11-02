@@ -827,9 +827,10 @@ export class Client extends query.Retriever<
     if (task.status != null) this.cfg.statuses.store.set(task.status);
   }
 
-  private hydrate(task: Task): void {
-    this.store.ingest(task);
-    if (task.status != null) this.cfg.statuses.store.ingest(task.status);
+  private hydrate(task: Task, since: query.Stamp, statusSince: query.Stamp): void {
+    this.store.ingest(task, { since });
+    if (task.status != null)
+      this.cfg.statuses.store.ingest(task.status, { since: statusSince });
   }
 
   private async fetchThrough(req: RetrieveRequest): Promise<Task[]> {
@@ -855,12 +856,14 @@ export class Client extends query.Retriever<
       checkForMultipleOrNoResults("Task", q, tasks, true);
       return this.compose(tasks[0]);
     }
+    const since = this.store.stamp();
+    const statusSince = this.cfg.statuses.store.stamp();
     const tasks = await this.execRetrieve({
       where: singleWhere(q),
       includeStatus: true,
     });
     checkForMultipleOrNoResults("Task", q, tasks, true);
-    this.hydrate(tasks[0]);
+    this.hydrate(tasks[0], since, statusSince);
     return tasks[0];
   }
 

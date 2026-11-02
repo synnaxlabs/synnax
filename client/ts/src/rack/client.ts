@@ -249,13 +249,6 @@ export class Client extends query.Retriever<
     return parsed.success ? parsed.data : undefined;
   }
 
-  private writeThrough(racks: Payload[]): void {
-    this.store.ingest(racks.map(stripStatus));
-    racks.forEach(({ status: st }) => {
-      if (st != null) this.cfg.statusStore.ingest(st);
-    });
-  }
-
   private async execRetrieve(params: RetrieveParams): Promise<Payload[]> {
     const res = await this.cfg.unary.send(
       "/rack/retrieve",
@@ -266,9 +259,14 @@ export class Client extends query.Retriever<
     return res.racks;
   }
 
-  private async fetchThrough(req: RetrieveRequest): Promise<Payload[]> {
+  private async fetchThrough(req: RetrieveParams): Promise<Payload[]> {
+    const since = this.store.stamp();
+    const statusSince = this.cfg.statusStore.stamp();
     const racks = await this.execRetrieve(req);
-    this.writeThrough(racks);
+    this.store.ingest(racks.map(stripStatus), { since });
+    racks.forEach(({ status: st }) => {
+      if (st != null) this.cfg.statusStore.ingest(st, { since: statusSince });
+    });
     return racks;
   }
 
@@ -280,9 +278,8 @@ export class Client extends query.Retriever<
       checkForMultipleOrNoResults("Rack", q, racks, true);
       return this.sugar(racks[0]);
     }
-    const racks = await this.execRetrieve(q);
+    const racks = await this.fetchThrough(q);
     checkForMultipleOrNoResults("Rack", q, racks, true);
-    this.writeThrough(racks);
     return this.sugar(racks[0]);
   }
 }

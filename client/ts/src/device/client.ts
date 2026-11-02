@@ -248,9 +248,8 @@ export class Client extends query.Retriever<
     // Schemas are not hashable, so schema-typed retrieves bypass the query
     // cache and hit the network, still writing records through.
     if (schemas != null) {
-      const devices = await this.execRetrieve(rest, schemas);
+      const devices = await this.fetchThrough(rest, schemas);
       checkForMultipleOrNoResults("Device", rest, devices, isSingle);
-      this.writeThrough(devices);
       return isSingle ? devices[0] : devices;
     }
     if (isSingle) return await super.retrieve(rest);
@@ -378,13 +377,6 @@ export class Client extends query.Retriever<
     return { ...cached, status: parsed.data };
   }
 
-  private writeThrough(devices: Device[]): void {
-    this.store.ingest(devices.map(stripStatus));
-    devices.forEach(({ status: st }) => {
-      if (st != null) this.cfg.statusStore.ingest(st);
-    });
-  }
-
   private async execRetrieve(
     params: RetrieveParams,
     schemas?: DeviceSchemas,
@@ -398,9 +390,17 @@ export class Client extends query.Retriever<
     return res.devices;
   }
 
-  private async fetchThrough(req: RetrieveRequest): Promise<Device[]> {
-    const devices = await this.execRetrieve(req);
-    this.writeThrough(devices);
+  private async fetchThrough(
+    req: RetrieveParams,
+    schemas?: DeviceSchemas,
+  ): Promise<Device[]> {
+    const since = this.store.stamp();
+    const statusSince = this.cfg.statusStore.stamp();
+    const devices = await this.execRetrieve(req, schemas);
+    this.store.ingest(devices.map(stripStatus), { since });
+    devices.forEach(({ status: st }) => {
+      if (st != null) this.cfg.statusStore.ingest(st, { since: statusSince });
+    });
     return devices;
   }
 
@@ -411,9 +411,8 @@ export class Client extends query.Retriever<
       checkForMultipleOrNoResults("Device", q, devices, true);
       return devices[0];
     }
-    const devices = await this.execRetrieve(q);
+    const devices = await this.fetchThrough(q);
     checkForMultipleOrNoResults("Device", q, devices, true);
-    this.writeThrough(devices);
     return devices[0];
   }
 }
