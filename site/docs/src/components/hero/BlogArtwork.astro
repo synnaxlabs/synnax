@@ -1,0 +1,209 @@
+---
+// Copyright 2026 Synnax Labs, Inc.
+//
+// Use of this software is governed by the Business Source License included in the file
+// licenses/BSL.txt.
+//
+// As of the Change Date specified in that file, in accordance with the Business Source
+// License, use of this software will be governed by the Apache License, Version 2.0,
+// included in the file licenses/APL.txt.
+
+const curve = (points: number[]): string =>
+    `M ${points.slice(0, 2).join(" ")} C ${points.slice(2).join(" ")}`;
+const reverse = (points: number[]): number[] => {
+    const result = points.slice(-2);
+    for (let i = points.length - 8; i >= 0; i -= 6)
+        result.push(
+            ...points.slice(i + 4, i + 6),
+            ...points.slice(i + 2, i + 4),
+            ...points.slice(i, i + 2),
+        );
+    return result;
+};
+const bands = [
+    {
+        upper: [
+            -100, 850, 130, 780, 285, 825, 510, 750, 730, 675, 780, 610, 1000, 620,
+            1240, 635, 1410, 780, 1700, 690,
+        ],
+        lower: [
+            -100, 918, 130, 848, 285, 893, 510, 818, 730, 743, 780, 678, 1000, 688,
+            1240, 703, 1410, 848, 1700, 758,
+        ],
+    },
+    {
+        upper: [
+            845, 530, 1000, 570, 1140, 655, 1120, 790, 1100, 920, 990, 980, 1020, 1120,
+        ],
+        lower: [
+            795, 572, 950, 612, 1070, 665, 1050, 800, 1030, 930, 920, 990, 950, 1120,
+        ],
+    },
+    {
+        upper: [
+            1100, -120, 1070, 60, 1290, 150, 1150, 315, 1000, 490, 810, 480, 590, 530,
+            330, 590, 140, 525, -120, 620,
+        ],
+        lower: [
+            1170, -120, 1140, 90, 1360, 220, 1220, 385, 1040, 560, 810, 550, 590, 600,
+            330, 660, 140, 595, -120, 690,
+        ],
+    },
+    {
+        upper: [1210, 206, 1330, 240, 1370, 250, 1700, 110],
+        lower: [1236, 273, 1356, 307, 1396, 317, 1700, 182],
+    },
+].map(({ upper, lower }) => ({
+    outline: `${curve(upper)} L ${reverse(lower)
+        .join(" ")
+        .replace(/^(\S+ \S+) /, "$1 C ")} Z`,
+    lower: curve(lower),
+    contours: Array.from({ length: 12 }, (_, i) => {
+        const t = (i + 1) / 13;
+        return curve(
+            upper.map((value, j) => +(value + (lower[j] - value) * t).toFixed(2)),
+        );
+    }),
+}));
+const headingContours = Array.from({ length: 12 }, (_, i) =>
+    curve([
+        -160,
+        170 + i * 10,
+        80,
+        110 + i * 10,
+        260,
+        290 + i * 6,
+        520,
+        220 + i * 8,
+        780,
+        150 + i * 10,
+        840,
+        85 + i * 10,
+        1130,
+        205 + i * 8,
+        1420,
+        325 + i * 6,
+        1450,
+        370 + i * 12,
+        1720,
+        280 + i * 9,
+    ]),
+);
+---
+
+<svg class="blog-art" viewBox="0 0 1600 1000" fill="none" aria-hidden="true">
+    <defs>
+        <linearGradient
+            id="blog-art-face"
+            x1="160"
+            y1="760"
+            x2="1280"
+            y2="120"
+            gradientUnits="userSpaceOnUse"
+        >
+            <stop class="face-start" />
+            <stop offset="0.28" class="face-light" />
+            <stop offset="0.6" class="face-middle" />
+            <stop offset="1" class="face-end" />
+        </linearGradient>
+        <linearGradient id="blog-art-edge" x1="0" y1="0" x2="0" y2="1">
+            <stop class="edge-start" />
+            <stop offset="1" class="edge-end" />
+        </linearGradient>
+    </defs>
+    <g class="heading-contours">
+        {headingContours.map((d) => (
+            <path d={d} />
+        ))}
+    </g>
+    {bands.map(({ outline, lower, contours }) => (
+        <g>
+            <path class="depth" d={outline} transform="translate(0 14)" />
+            <path class="face" d={outline} />
+            <g class="contours">
+                {contours.map((d) => (
+                    <path d={d} />
+                ))}
+            </g>
+            <path class="rim" d={lower} />
+            <path class="foot" d={lower} transform="translate(0 14)" />
+        </g>
+    ))}
+</svg>
+
+<style>
+    .blog-art {
+        display: block;
+        width: 100%;
+        height: 100%;
+        overflow: visible;
+        opacity: 0.25;
+        mask-image: linear-gradient(to bottom, black 250px, transparent 380px);
+
+        @media (prefers-color-scheme: dark) {
+            opacity: 0.34;
+        }
+
+        @container (width < 480px) {
+            opacity: 0.22;
+        }
+    }
+
+    .depth {
+        fill: url("#blog-art-edge");
+        stroke: light-dark(#a9bfdc, #1f3556);
+        stroke-width: 0.8;
+    }
+
+    .face {
+        fill: url("#blog-art-face");
+        stroke: light-dark(#9db7da, #2d4f80);
+        stroke-width: 0.8;
+    }
+
+    .contours {
+        stroke: light-dark(#5e8fd6, #4a7fd0);
+        stroke-opacity: 0.45;
+        stroke-width: 0.65;
+    }
+
+    .heading-contours {
+        stroke: light-dark(#4f86d6, #5e94ee);
+        stroke-opacity: 0.6;
+        stroke-width: 0.75;
+    }
+
+    .rim {
+        stroke: light-dark(#3774d0, #6a9ef0);
+        stroke-width: 0.85;
+    }
+
+    .foot {
+        stroke: light-dark(#a9bfdc, #1f3556);
+        stroke-width: 0.8;
+    }
+
+    .face-start {
+        stop-color: light-dark(#dfe9f7, #0c1b31);
+    }
+
+    .face-light {
+        stop-color: light-dark(#f2f6fc, #17325a);
+    }
+
+    .face-middle {
+        stop-color: light-dark(#d5e3f6, #0f2445);
+    }
+
+    .face-end {
+        stop-color: light-dark(#e9f0fa, #1a3760);
+    }
+
+    .edge-start {
+        stop-color: light-dark(#bed0e9, #0d1d35);
+    }
+
+    .edge-end {
+        stop-color: light-dark(#dae5f4, #081426);
+    }
+</style>
