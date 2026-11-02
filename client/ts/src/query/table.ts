@@ -256,7 +256,7 @@ export class Table<
 
   private applyDelete(key: Key): void {
     this.entries.delete(key);
-    if (!this.tombstones.has(key)) this.writeStamps.delete(key);
+    this.writeStamps.delete(key);
     for (const index of this.indexes) index.delete(key);
   }
 
@@ -555,10 +555,11 @@ export class Table<
     this.batch(() =>
       toDelete.forEach(({ key: k, value }) => {
         this.applyDelete(k);
-        if (tombstone && value != null) {
+        if (tombstone && value != null)
           this.tombstones.set(k, new Deleted(value, TimeStamp.now()));
+        // A repeat marks the delete as committed, so it also counts as a write.
+        if (tombstone && this.tombstones.has(k))
           this.writeStamps.set(k, ++this.writeSeq);
-        }
         this.notify({ variant: "delete", key: k });
       }),
     );

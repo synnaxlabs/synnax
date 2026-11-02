@@ -179,8 +179,6 @@ class Client:
         one: Literal[True],
         keys: list[Key] | None = None,
         search_term: str = "",
-        limit: int | None = None,
-        offset: int = 0,
     ) -> Project: ...
 
     @overload
@@ -220,7 +218,9 @@ class Client:
         :raises NotFoundError: If no project matches a key or one.
         :raises MultipleFoundError: If one is True and more than one project matches.
         :raises TypeError: If args are neither project conditions nor a shortcut.
+        :raises ValueError: If one is combined with limit or offset.
         """
+        util.reject_page(one, limit, offset)
         conditions, query = util.shortcut(
             "Project", args, Condition, Key, builder_gen.key
         )
