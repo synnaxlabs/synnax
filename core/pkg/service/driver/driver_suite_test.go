@@ -24,8 +24,8 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/service/framer"
 	"github.com/synnaxlabs/synnax/pkg/service/group"
 	"github.com/synnaxlabs/synnax/pkg/service/imex"
-	"github.com/synnaxlabs/synnax/pkg/service/kafka"
 	"github.com/synnaxlabs/synnax/pkg/service/label"
+	"github.com/synnaxlabs/synnax/pkg/service/legacy/device"
 	"github.com/synnaxlabs/synnax/pkg/service/ontology"
 	"github.com/synnaxlabs/synnax/pkg/service/pagerduty"
 	"github.com/synnaxlabs/synnax/pkg/service/rack"
@@ -34,6 +34,7 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/service/task"
 	taskconfig "github.com/synnaxlabs/synnax/pkg/service/task/config"
 	"github.com/synnaxlabs/x/errors"
+	"github.com/synnaxlabs/x/query"
 	"github.com/synnaxlabs/x/telem"
 	. "github.com/synnaxlabs/x/testutil"
 )
@@ -42,6 +43,7 @@ var (
 	node         testutil.Node
 	db           *gorp.DB
 	rackService  *rack.Service
+	deviceSvc    *device.Service
 	taskService  *task.Service
 	taskWriter   task.Writer
 	channelSvc   *channel.Service
@@ -85,6 +87,13 @@ var _ = BeforeSuite(func(ctx SpecContext) {
 		Status:       statusSvc,
 		DriverRole:   MustSucceed(racktestutil.CreateDriverRole(ctx, otg)),
 	}))
+	deviceSvc = MustOpen(device.OpenService(ctx, device.ServiceConfig{
+		DB:       node.DB,
+		Ontology: otg,
+		Group:    groupSvc,
+		Status:   statusSvc,
+		Rack:     rackService,
+	}))
 	channelSvc = MustOpen(channel.OpenService(ctx, channel.ServiceConfig{
 		Channel:      node.Channel,
 		DB:           node.DB,
@@ -105,10 +114,7 @@ var _ = BeforeSuite(func(ctx SpecContext) {
 		ChannelGraph: channelGraph,
 	}))
 	pd := MustOpen(pagerduty.OpenService(ctx, pagerduty.ServiceConfig{DB: node.DB}))
-	kafkaSvc := MustOpen(kafka.OpenService(ctx, kafka.ServiceConfig{DB: node.DB}))
-	configs := MustSucceed(taskconfig.NewRegistry(
-		append(pd.Stores(), kafkaSvc.Stores()...)...,
-	))
+	configs := MustSucceed(taskconfig.NewRegistry(pd.Stores()...))
 	taskService = MustOpen(task.OpenService(ctx, task.ServiceConfig{
 		DB:       node.DB,
 		Ontology: otg,
@@ -122,14 +128,27 @@ var _ = BeforeSuite(func(ctx SpecContext) {
 	taskWriter = taskService.NewWriter(nil)
 })
 
+// retrieveStatus returns the status stored under key, or the zero status when none is
+// stored.
+func retrieveStatus[D any](ctx context.Context, key status.Key) status.Status[D] {
+	GinkgoHelper()
+	var stat status.Status[D]
+	Expect(errors.Skip(
+		statusSvc.NewRetrieve[D]().
+			Where(status.MatchKeys[D](key)).
+			Entry(&stat).
+			Exec(ctx, nil),
+		query.ErrNotFound,
+	)).To(Succeed())
+	return stat
+}
+
 // mockFactory is a test implementation of driver.Factory.
 type mockFactory struct {
 	configureFunc func(context.Context, task.Task) (driver.Task, error)
 	name          string
-	// initialTasks are returned from InitialTasks.
+	// initialTasks are the tasks returned by InitialTasks.
 	initialTasks []task.Task
-	// initialErr is returned from InitialTasks when set.
-	initialErr error
 	// cmdKey records the cmdKey passed to ConfigureTask per task.
 	cmdKey sync.Map
 }
@@ -176,14 +195,9 @@ func writeConfigFailure(ctx context.Context, t task.Task, cmdKey string, err err
 	})).To(Succeed())
 }
 
-func (f *mockFactory) Name() string { return f.name }
+func (f *mockFactory) InitialTasks() []task.Task { return f.initialTasks }
 
-func (f *mockFactory) InitialTasks(context.Context, rack.Key) ([]task.Task, error) {
-	if f.initialErr != nil {
-		return nil, f.initialErr
-	}
-	return f.initialTasks, nil
-}
+func (f *mockFactory) Name() string { return f.name }
 
 // mockTask is a test implementation of driver.Task.
 type mockTask struct {

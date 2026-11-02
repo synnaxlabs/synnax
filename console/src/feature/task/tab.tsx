@@ -18,6 +18,7 @@ import { HTTP } from "@/feature/http";
 import { Kafka } from "@/feature/kafka";
 import { LabJack } from "@/feature/labjack";
 import { Modbus } from "@/feature/modbus";
+import { MQTT } from "@/feature/mqtt";
 import { NI } from "@/feature/ni";
 import { OPCUA } from "@/feature/opcua";
 import { PagerDuty } from "@/feature/pagerduty";
@@ -31,6 +32,7 @@ const FORMS: Task.Forms = {
   ...Kafka.Task.FORMS,
   ...LabJack.Task.FORMS,
   ...Modbus.Task.FORMS,
+  ...MQTT.Task.FORMS,
   ...NI.Task.FORMS,
   ...OPCUA.Task.FORMS,
   ...PagerDuty.Task.FORMS,

@@ -18,8 +18,10 @@ import { HTTP } from "@/feature/http";
 import { Kafka } from "@/feature/kafka";
 import { LabJack } from "@/feature/labjack";
 import { Modbus } from "@/feature/modbus";
+import { MQTT } from "@/feature/mqtt";
 import { NI } from "@/feature/ni";
 import { OPCUA } from "@/feature/opcua";
+import { FLAGS } from "@/flags";
 import { type Device as PlatformDevice } from "@/platform/device";
 import { type Tree } from "@/platform/tree";
 
@@ -29,13 +31,17 @@ export const makeZ = z.enum([
   Kafka.Device.MAKE,
   LabJack.Device.MAKE,
   Modbus.Device.MAKE,
+  MQTT.Device.MAKE,
   NI.Device.MAKE,
   OPCUA.Device.MAKE,
 ]);
 export type Make = z.infer<typeof makeZ>;
 
-export const getMake = (make: unknown): Make | null =>
-  makeZ.safeParse(make).data ?? null;
+// A build with the MQTT flag off handles an MQTT device as a device of an unknown make.
+export const getMake = (make: unknown): Make | null => {
+  const parsed = makeZ.safeParse(make).data ?? null;
+  return parsed === MQTT.Device.MAKE && !FLAGS.mqtt ? null : parsed;
+};
 
 const MAKE_ICONS: Record<Make, Icon.ReactElement> = {
   [EtherCAT.Device.MAKE]: <Icon.Logo.EtherCAT />,
@@ -43,6 +49,7 @@ const MAKE_ICONS: Record<Make, Icon.ReactElement> = {
   [Kafka.Device.MAKE]: <Icon.Logo.Kafka />,
   [LabJack.Device.MAKE]: <Icon.Logo.LabJack />,
   [Modbus.Device.MAKE]: <Icon.Logo.Modbus />,
+  [MQTT.Device.MAKE]: <Icon.Logo.MQTT />,
   [NI.Device.MAKE]: <Icon.Logo.NI />,
   [OPCUA.Device.MAKE]: <Icon.Logo.OPCUA />,
 };
@@ -61,6 +68,7 @@ export const useConfigureModal = (): ((make: Make, deviceKey: device.Key) => voi
   const http = HTTP.Device.useConnectModal();
   const kafka = Kafka.Device.useConnectModal();
   const modbus = Modbus.Device.useConnectModal();
+  const mqtt = MQTT.Device.useConnectModal();
   const opcua = OPCUA.Device.useConnectModal();
   return (make, deviceKey) => {
     const openers: Record<Make, (args: { deviceKey: device.Key }) => void> = {
@@ -71,6 +79,7 @@ export const useConfigureModal = (): ((make: Make, deviceKey: device.Key) => voi
       [LabJack.Device.MAKE]: ({ deviceKey }) =>
         configure({ deviceKey, integration: LabJack.Device.INTEGRATION }),
       [Modbus.Device.MAKE]: ({ deviceKey }) => void modbus({ deviceKey }),
+      [MQTT.Device.MAKE]: ({ deviceKey }) => void mqtt({ deviceKey }),
       [NI.Device.MAKE]: ({ deviceKey }) =>
         configure({ deviceKey, integration: NI.Device.INTEGRATION }),
       [OPCUA.Device.MAKE]: ({ deviceKey }) => void opcua({ deviceKey }),
@@ -88,6 +97,7 @@ const CONTEXT_MENU_ITEMS: Record<
   [Kafka.Device.MAKE]: Kafka.Device.ContextMenuItems,
   [LabJack.Device.MAKE]: LabJack.Device.ContextMenuItems,
   [Modbus.Device.MAKE]: Modbus.Device.ContextMenuItems,
+  [MQTT.Device.MAKE]: MQTT.Device.ContextMenuItems,
   [NI.Device.MAKE]: NI.Device.ContextMenuItems,
   [OPCUA.Device.MAKE]: OPCUA.Device.ContextMenuItems,
 };

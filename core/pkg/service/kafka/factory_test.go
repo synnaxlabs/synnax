@@ -53,7 +53,7 @@ var _ = Describe("Factory", func() {
 
 	Describe("InitialTasks", func() {
 		It("Should return the scan task", func(ctx SpecContext) {
-			tasks := MustSucceed(f.InitialTasks(ctx, rackSvc.EmbeddedKey))
+			tasks := f.InitialTasks()
 			Expect(tasks).To(HaveLen(1))
 			Expect(tasks[0].Type).To(Equal(kafka.ScanTaskType))
 			Expect(tasks[0].Name).To(Equal("Kafka Scanner"))

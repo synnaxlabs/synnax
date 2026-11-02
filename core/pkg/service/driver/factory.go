@@ -12,7 +12,6 @@ package driver
 import (
 	"context"
 
-	"github.com/synnaxlabs/synnax/pkg/service/rack"
 	"github.com/synnaxlabs/synnax/pkg/service/task"
 	"github.com/synnaxlabs/x/errors"
 )
@@ -30,13 +29,14 @@ type Factory interface {
 	// status is what answers the caller waiting on the command. Given NoCommand
 	// there is no caller, so failures on tasks that do not auto-start are logged.
 	ConfigureTask(ctx context.Context, t task.Task, cmdKey string) (Task, error)
+	// InitialTasks returns the internal tasks this factory needs on the driver's
+	// rack, such as a scan task. The driver creates each task whose type the rack
+	// does not yet hold, then configures it like any stored task. The driver sets
+	// the rack and the internal flag.
+	InitialTasks() []task.Task
 	// Name returns the integration name of this factory. This is used to identify the
 	// integrations allowed on the rack.
 	Name() string
-	// InitialTasks returns the internal tasks the factory owns on rack, such as a
-	// scan task. The driver creates the ones whose type is missing from the rack at
-	// boot, before configuring tasks. A factory with none returns nil, nil.
-	InitialTasks(ctx context.Context, rack rack.Key) ([]task.Task, error)
 }
 
 // ErrTaskNotHandled is returned when a task is not handled by a factory.

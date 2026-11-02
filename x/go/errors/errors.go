@@ -30,8 +30,8 @@ const (
 	TypeRoach = "roach"
 )
 
-// ErrUnsupported is the standard library's sentinel for an operation a value does not
-// support, such as a custom JSON unmarshaler declining a value.
+// ErrUnsupported is the errors.ErrUnsupported value of the standard library, so Is
+// matches it against either name.
 var ErrUnsupported = stderrors.ErrUnsupported
 
 // Is determines whether one of the causes of the given error or any of its causes is
@@ -64,6 +64,11 @@ func IsAny(err error, refs ...error) bool {
 
 // Wrap wraps an error with a message prefix. A stack trace is retained
 func Wrap(err error, msg string) error { return errors.Wrap(err, msg) }
+
+// Mark returns err marked so that Is matches it against reference, with the message of
+// err unchanged. Is still matches err against its own causes. Mark returns nil for a
+// nil err.
+func Mark(err, reference error) error { return errors.Mark(err, reference) }
 
 // Wrapf wraps an error with a formatted message prefix. A stack trace is also retained.
 // If the format is empty, no prefix is added, but the extra arguments are still

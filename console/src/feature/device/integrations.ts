@@ -12,6 +12,7 @@ import { HTTP } from "@/feature/http";
 import { Kafka } from "@/feature/kafka";
 import { LabJack } from "@/feature/labjack";
 import { Modbus } from "@/feature/modbus";
+import { MQTT } from "@/feature/mqtt";
 import { NI } from "@/feature/ni";
 import { OPCUA } from "@/feature/opcua";
 import { FLAGS } from "@/flags";
@@ -27,6 +28,7 @@ export const NETWORK: PlatformDevice.Network[] = [
   Modbus.Device.NETWORK,
   HTTP.Device.NETWORK,
   ...(FLAGS.kafka ? [Kafka.Device.NETWORK] : []),
+  ...(FLAGS.mqtt ? [MQTT.Device.NETWORK] : []),
 ];
 
 export const HARDWARE: Hardware[] = [

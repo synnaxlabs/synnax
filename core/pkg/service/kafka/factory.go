@@ -18,7 +18,6 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/service/driver"
 	"github.com/synnaxlabs/synnax/pkg/service/framer"
 	"github.com/synnaxlabs/synnax/pkg/service/legacy/device"
-	"github.com/synnaxlabs/synnax/pkg/service/rack"
 	"github.com/synnaxlabs/synnax/pkg/service/status"
 	"github.com/synnaxlabs/synnax/pkg/service/task"
 	"github.com/synnaxlabs/x/config"
@@ -118,12 +117,12 @@ func NewFactory(cfgs ...FactoryConfig) (driver.Factory, error) {
 func (f *factory) Name() string { return Make }
 
 // InitialTasks implements driver.Factory, returning the rack's scan task.
-func (f *factory) InitialTasks(context.Context, rack.Key) ([]task.Task, error) {
+func (f *factory) InitialTasks() []task.Task {
 	return []task.Task{{
 		Name:   scanTaskName,
 		Type:   ScanTaskType,
 		Config: msgpack.EncodedJSON{},
-	}}, nil
+	}}
 }
 
 // ConfigureTask implements driver.Factory.

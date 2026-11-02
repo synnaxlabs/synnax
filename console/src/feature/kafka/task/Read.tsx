@@ -298,7 +298,7 @@ const recordDetails = Component.renderProp(RecordDetails);
 
 const fieldDetails = Component.renderProp(FieldDetails);
 
-const createRecord = (): Omit<ReadRecord, "key"> => kafka.readRecordZ.parse({});
+const createRecords = async (): Promise<ReadRecord[]> => [kafka.readRecordZ.parse({})];
 
 const createField = (): Omit<ReadField, "key"> => kafka.readFieldZ.parse({});
 
@@ -306,9 +306,10 @@ const Form: FC = () => (
   <Task.Views.GroupTree<ReadRecord, ReadField>
     path="config.records"
     listTitle="Records"
-    groupName="record"
+    emptyMessage="No records"
     placeholder="Select a record or field to configure"
-    createGroup={createRecord}
+    addLabel="Add record"
+    createGroups={createRecords}
     createField={createField}
     groupLabel={recordLabel}
     groupDetails={recordDetails}

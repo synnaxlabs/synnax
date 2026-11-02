@@ -24,7 +24,6 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/service/channel"
 	"github.com/synnaxlabs/synnax/pkg/service/driver"
 	"github.com/synnaxlabs/synnax/pkg/service/framer"
-	"github.com/synnaxlabs/synnax/pkg/service/rack"
 	"github.com/synnaxlabs/synnax/pkg/service/ranger"
 	"github.com/synnaxlabs/synnax/pkg/service/status"
 	"github.com/synnaxlabs/synnax/pkg/service/task"
@@ -32,7 +31,6 @@ import (
 	"github.com/synnaxlabs/x/override"
 	"github.com/synnaxlabs/x/telem"
 	"github.com/synnaxlabs/x/validate"
-	"go.uber.org/zap"
 )
 
 // Type is the type identifier for Arc tasks.
@@ -104,7 +102,10 @@ func (c FactoryConfig) Validate() error {
 	return v.Error()
 }
 
-type factory struct{ cfg FactoryConfig }
+type factory struct {
+	cfg      FactoryConfig
+	reporter driver.ConfigReporter
+}
 
 var _ driver.Factory = (*factory)(nil)
 
@@ -114,7 +115,14 @@ func NewFactory(cfgs ...FactoryConfig) (driver.Factory, error) {
 	if err != nil {
 		return nil, err
 	}
-	return &factory{cfg: cfg}, nil
+	return &factory{
+		cfg: cfg,
+		reporter: driver.ConfigReporter{
+			DB:              cfg.DB,
+			Status:          cfg.Status,
+			Instrumentation: cfg.Instrumentation,
+		},
+	}, nil
 }
 
 func (f *factory) ConfigureTask(
@@ -127,26 +135,12 @@ func (f *factory) ConfigureTask(
 	}
 	var cfg Config
 	if err := t.Config.Unmarshal(&cfg); err != nil {
-		if cmdKey == driver.NoCommand {
-			f.cfg.L.Warn("failed to configure task",
-				zap.Stringer("task", t),
-				zap.Error(err),
-			)
-		} else {
-			f.setConfigError(ctx, t, cmdKey, err)
-		}
+		f.reporter.Report(ctx, t, cmdKey, false, err)
 		return nil, err
 	}
 	prog, err := f.cfg.GetProgram(ctx, cfg.ArcKey)
 	if err != nil {
-		if cmdKey == driver.NoCommand && !cfg.AutoStart {
-			f.cfg.L.Warn("failed to configure task",
-				zap.Stringer("task", t),
-				zap.Error(err),
-			)
-		} else {
-			f.setConfigError(ctx, t, cmdKey, err)
-		}
+		f.reporter.Report(ctx, t, cmdKey, cfg.AutoStart, err)
 		return nil, err
 	}
 	arcTask := &impl{
@@ -166,32 +160,6 @@ func (f *factory) ConfigureTask(
 	return arcTask, nil
 }
 
-func (f *factory) setConfigError(
-	ctx context.Context,
-	t task.Task,
-	cmdKey string,
-	err error,
-) {
-	if sErr := driver.NewStatusHandler(f.cfg.DB, f.cfg.Status, t).Send(
-		ctx,
-		cmdKey,
-		status.VariantError,
-		false,
-		"Failed to configure task",
-		err.Error(),
-	); sErr != nil {
-		f.cfg.L.Error(
-			"failed to set configuration status for task",
-			zap.Stringer("key", t.Key),
-			zap.String("name", t.Name),
-			zap.Error(sErr),
-		)
-	}
-}
+func (f *factory) InitialTasks() []task.Task { return nil }
 
 func (f *factory) Name() string { return "arc" }
-
-// InitialTasks implements driver.Factory. The Arc integration owns no internal tasks.
-func (f *factory) InitialTasks(context.Context, rack.Key) ([]task.Task, error) {
-	return nil, nil
-}

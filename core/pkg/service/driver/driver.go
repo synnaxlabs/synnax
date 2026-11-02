@@ -101,6 +101,31 @@ func Open(ctx context.Context, cfgs ...Config) (d *Driver, err error) {
 	return d, nil
 }
 
+func (d *Driver) createInitialTasks(ctx context.Context) error {
+	return d.cfg.DB.WithTx(ctx, func(tx gorp.Tx) error {
+		w := d.cfg.Task.NewWriter(tx)
+		for _, f := range d.cfg.Factories {
+			for _, t := range f.InitialTasks() {
+				exists, err := d.cfg.Task.NewRetrieve().
+					Where(task.And(task.MatchRacks(d.rack.Key), task.MatchTypes(t.Type))).
+					Exists(ctx, tx)
+				if err != nil {
+					return err
+				}
+				if exists {
+					continue
+				}
+				t.Rack = d.rack.Key
+				t.Internal = true
+				if err = w.Create(ctx, &t); err != nil {
+					return errors.Wrapf(err, "failed to create initial %s task", t.Type)
+				}
+			}
+		}
+		return nil
+	})
+}
+
 func (d *Driver) startHeartbeat() {
 	sCtx, cancel := signal.Isolated(signal.WithInstrumentation(d.cfg.Instrumentation))
 	d.closer = append(d.closer, signal.NewHardShutdown(sCtx, cancel))
@@ -214,8 +239,11 @@ func (d *Driver) processCommand(ctx context.Context, frame framer.Frame) {
 	}
 }
 
-// startCommandType deploys the stored task row before running it.
-const startCommandType = "start"
+const (
+	// startCommandType deploys the stored task row before running it.
+	startCommandType = "start"
+	stopCommandType  = "stop"
+)
 
 // handleStart deploys the latest stored config before running the task: when no live
 // instance exists or the stored config differs from the one the instance was built
@@ -375,42 +403,6 @@ func (d *Driver) handleTaskChange(
 			d.delete(ch.Key)
 		}
 	}
-}
-
-// createInitialTasks creates the internal tasks the factories own on the rack. A
-// task whose type the rack already has is left as it is, so a restart never
-// duplicates one.
-func (d *Driver) createInitialTasks(ctx context.Context) error {
-	for _, f := range d.cfg.Factories {
-		tasks, err := f.InitialTasks(ctx, d.rack.Key)
-		if err != nil {
-			return errors.Wrapf(err, "listing initial tasks of %s", f.Name())
-		}
-		for _, t := range tasks {
-			exists, err := d.cfg.Task.NewRetrieve().
-				Where(task.And(
-					task.MatchRacks(d.rack.Key),
-					task.MatchTypes(t.Type),
-					task.MatchSnapshot(false),
-				)).
-				Exists(ctx, nil)
-			if err != nil {
-				return err
-			}
-			if exists {
-				continue
-			}
-			t.Rack = d.rack.Key
-			t.Internal = true
-			if err := d.cfg.DB.WithTx(ctx, func(tx gorp.Tx) error {
-				return d.cfg.Task.NewWriter(tx).Create(ctx, &t)
-			}); err != nil {
-				return errors.Wrapf(err, "creating initial task %s", t.Name)
-			}
-			d.cfg.L.Info("created initial task", zap.Stringer("task", t))
-		}
-	}
-	return nil
 }
 
 func (d *Driver) configureExistingTasks(ctx context.Context) {

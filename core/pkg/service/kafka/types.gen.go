@@ -156,34 +156,48 @@ func (u *SASL) UnmarshalJSONFrom(dec *jsontext.Decoder) error {
 	var disc struct {
 		Type SASLType `json:"mechanism"`
 	}
-	if err := json.Unmarshal(data, &disc, opts); err != nil {
+	if err := json.Unmarshal(
+		data, &disc, opts, json.RejectUnknownMembers(false),
+	); err != nil {
 		return err
 	}
 	switch disc.Type {
 	case NoneSASLType:
-		var v NoneSASL
+		var v struct {
+			Type SASLType `json:"mechanism"`
+			NoneSASL
+		}
 		if err := json.Unmarshal(data, &v, opts); err != nil {
 			return err
 		}
-		u.Variant = v
+		u.Variant = v.NoneSASL
 	case PlainSASLType:
-		var v PlainSASL
+		var v struct {
+			Type SASLType `json:"mechanism"`
+			PlainSASL
+		}
 		if err := json.Unmarshal(data, &v, opts); err != nil {
 			return err
 		}
-		u.Variant = v
+		u.Variant = v.PlainSASL
 	case ScramSha256SASLType:
-		var v ScramSha256SASL
+		var v struct {
+			Type SASLType `json:"mechanism"`
+			ScramSha256SASL
+		}
 		if err := json.Unmarshal(data, &v, opts); err != nil {
 			return err
 		}
-		u.Variant = v
+		u.Variant = v.ScramSha256SASL
 	case ScramSha512SASLType:
-		var v ScramSha512SASL
+		var v struct {
+			Type SASLType `json:"mechanism"`
+			ScramSha512SASL
+		}
 		if err := json.Unmarshal(data, &v, opts); err != nil {
 			return err
 		}
-		u.Variant = v
+		u.Variant = v.ScramSha512SASL
 	default:
 		return errors.Newf("SASL: unknown mechanism %q", disc.Type)
 	}
