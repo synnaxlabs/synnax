@@ -222,9 +222,9 @@ class TestFrameToDF:
         f.indexes = {1: 1, 2: 1}
         df = f.to_df()
         assert list(df.index) == [start.datetime(UTC), end.datetime(UTC)]
-        assert list(df.columns) == ["time", "pressure"]
+        assert df.index.name == "time"
+        assert list(df.columns) == ["pressure"]
         assert list(df["pressure"]) == [1.5, 2.5]
-        assert df["time"].dtype == np.int64
 
     def test_name_keyed_frame(self) -> None:
         """Should find the indexes of a frame keyed by channel name."""
@@ -253,7 +253,7 @@ class TestFrameToDF:
                 sy.Series([2.0, 3.0], data_type=sy.DataType.FLOAT32),
             ],
         )
-        f.names = {1: "a_time", 2: "a", 3: "b_time", 4: "b"}
+        f.names = {1: "time", 2: "a", 3: "b_time", 4: "b"}
         f.indexes = {1: 1, 2: 1, 3: 3, 4: 3}
         df = f.to_df()
         assert list(df.index) == list(pd.to_datetime([10, 20, 30], unit="ns", utc=True))
@@ -261,8 +261,18 @@ class TestFrameToDF:
         assert np.isnan(df["a"].iloc[1])
         assert np.isnan(df["b"].iloc[0])
         assert df["b"].iloc[2] == 3.0
-        assert df["a_time"].dtype == pd.Int64Dtype()
-        assert df["a_time"].isna().tolist() == [False, True, False]
+        assert df.index.name == "time"
+        assert list(df.columns) == ["a", "b"]
+
+    def test_index_only_frame(self) -> None:
+        """Should give no columns for a frame that holds only an index channel."""
+        f = sy.Frame([1], [sy.Series([10, 20], data_type=sy.DataType.TIMESTAMP)])
+        f.names = {1: "stamps"}
+        f.indexes = {1: 1}
+        df = f.to_df()
+        assert list(df.columns) == []
+        assert df.index.name == "stamps"
+        assert len(df) == 2
 
     def test_large_integers_with_blanks(self) -> None:
         """Should keep integers above 2^53 exact in a column with blanks."""
@@ -301,6 +311,47 @@ class TestFrameToDF:
         assert df[2].tolist()[2] == "off"
         assert pd.isna(df[2].iloc[1])
         assert df[4].iloc[1] == {"k": 1}
+
+    def test_empty_string_column(self) -> None:
+        """Should convert an empty string channel to an empty column."""
+        f = sy.Frame(
+            [1, 2],
+            [
+                sy.Series([], data_type=sy.DataType.TIMESTAMP),
+                sy.Series([], data_type=sy.DataType.STRING),
+            ],
+        )
+        f.indexes = {1: 1, 2: 1}
+        assert list(f.to_df()[2]) == []
+        assert list(sy.Frame([2], [f.series[1]]).to_df()[2]) == []
+
+    def test_mask_on_one_index(self) -> None:
+        """Should select rows with a mask built from a channel on one index."""
+        f = sy.Frame(
+            [1, 2],
+            [
+                sy.Series([10, 20], data_type=sy.DataType.TIMESTAMP),
+                sy.Series([1.5, 2.5]),
+            ],
+        )
+        f.indexes = {1: 1, 2: 1}
+        assert list(f[f[2] > 2][2]) == [2.5]
+
+    def test_mask_on_joined_rows(self) -> None:
+        """Should take a mask with one value for each joined row."""
+        f = sy.Frame(
+            [1, 2, 3, 4],
+            [
+                sy.Series([10, 30], data_type=sy.DataType.TIMESTAMP),
+                sy.Series([1.5, 3.5]),
+                sy.Series([20, 30], data_type=sy.DataType.TIMESTAMP),
+                sy.Series([2.0, 3.0]),
+            ],
+        )
+        f.indexes = {1: 1, 2: 1, 3: 3, 4: 3}
+        assert list(f[f.to_df()[4].to_numpy() > 2.5][2]) == [3.5]
+        with pytest.raises(ValueError, match="wrong length"):
+            f[f[2] > 2]
 
     def test_string_columns_without_indexes(self) -> None:
         """Should convert string channels when the frame does not hold indexes."""

@@ -189,7 +189,9 @@ class Frame:
 
     @overload
     def __getitem__(self, key: npt.NDArray[np.bool_]) -> DataFrame:
-        """Selects the rows where the boolean mask is true, through pandas."""
+        """Selects the rows of to_df() where the boolean mask is true. The mask has one
+        value for each row of to_df().
+        """
 
     def __getitem__(
         self, key: channel.Key | str | npt.NDArray[np.bool_]
@@ -258,10 +260,12 @@ class Frame:
         or when two channels in the frame share the name.
 
         When the frame holds the index channel of every channel, the DataFrame index is
-        a UTC DatetimeIndex. Channels on different index channels are joined on time,
-        and a cell is blank when its channel has no sample at that time. Integer
-        columns with blanks use pandas nullable dtypes, such as Int64. When the frame
-        does not hold an index channel, the DataFrame index is a RangeIndex.
+        a UTC DatetimeIndex and the index channels are not columns. The DatetimeIndex
+        has the name of the index channel, or "time" when the frame holds more than
+        one. Channels on different index channels are joined on time, and a cell is
+        blank when its channel has no sample at that time. Integer columns with blanks
+        use pandas nullable dtypes, such as Int64. When the frame does not hold an
+        index channel, the DataFrame index is a RangeIndex.
         """
         cols = {
             k: self.names.get(k, k) if isinstance(k, channel.Key) else k
@@ -277,10 +281,16 @@ class Frame:
             if idx is None or idx not in self:
                 return DataFrame({names[k]: _column_values(self[k]) for k in cols})
             indexes[k] = idx
+        index_cols = {idx: k for k, idx in indexes.items() if self._key(k) == idx}
         times = {idx: self[idx].to_numpy() for idx in set(indexes.values())}
         merged = _time_index(np.unique(np.concatenate(list(times.values()))))
+        merged.name = (
+            names[index_cols[next(iter(times))]] if len(times) == 1 else "time"
+        )
         data: dict[channel.Key | str, pd.Series] = {}
         for k in cols:
+            if k in index_cols.values():
+                continue
             t = _time_index(times[indexes[k]])
             values = _column_values(self[k])
             if len(t) == len(merged):
@@ -290,20 +300,22 @@ class Frame:
                 data[names[k]] = col.reindex(merged)
         return DataFrame(data, index=merged)
 
-    def _index(self, key: channel.Key | str) -> channel.Key | None:
+    def _key(self, key: channel.Key | str) -> channel.Key | None:
         if isinstance(key, channel.Key):
-            return self.indexes.get(key)
+            return key
         keys = [k for k, name in self.names.items() if name == key]
-        if len(keys) != 1:
-            return None
-        return self.indexes.get(keys[0])
+        return keys[0] if len(keys) == 1 else None
+
+    def _index(self, key: channel.Key | str) -> channel.Key | None:
+        k = self._key(key)
+        return None if k is None else self.indexes.get(k)
 
     def __contains__(self, key: channel.Key | str) -> bool:
         return not self._columns(key).isdisjoint(self.channels)
 
 
 def _column_values(series: MultiSeries) -> npt.NDArray[np.generic] | list[object]:
-    if series.data_type.has_np or len(series) == 0:
+    if series.data_type.has_np:
         return series.to_numpy()
     return list(series)
 

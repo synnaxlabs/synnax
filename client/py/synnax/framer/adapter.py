@@ -19,10 +19,11 @@ from synnax.channel.retrieve import retrieve_required as retrieve_required_chann
 from synnax.exceptions import PathError, ValidationError
 from synnax.framer.codec import Codec
 from synnax.framer.frame import CrudeFrame, Frame, FramePayload, K
-from synnax.telem import CrudeSeries, DataType, Series
+from synnax.telem import CrudeSeries, DataType, LimitReduction, Reduction, Series
 
 
 class ReadFrameAdapter:
+    _aligned: bool
     _by_name: bool
     _names: dict[channel.Key, str]
     _indexes: dict[channel.Key, channel.Key]
@@ -31,8 +32,15 @@ class ReadFrameAdapter:
     keys: list[channel.Key]
     codec: Codec
 
-    def __init__(self, retriever: ChannelRetriever):
+    def __init__(
+        self, retriever: ChannelRetriever, *, reduction: Reduction | None = None
+    ):
         self.retriever = retriever
+        # A min_max reduction picks the extremes of each channel on its own, so a data
+        # sample does not keep the time of the index sample at its position.
+        self._aligned = not (
+            isinstance(reduction, LimitReduction) and reduction.aggregation == "min_max"
+        )
         self._by_name = False
         self._names = {}
         self._indexes = {}
@@ -54,7 +62,7 @@ class ReadFrameAdapter:
         self._indexes = {
             ch.key: ch.key if ch.is_index else ch.index
             for ch in fetched
-            if ch.is_index or ch.index != 0
+            if self._aligned and (ch.is_index or ch.index != 0)
         }
         self._by_name = isinstance(normal, channel.NormalizedNameResult)
         if isinstance(normal, channel.NormalizedKeyResult):
