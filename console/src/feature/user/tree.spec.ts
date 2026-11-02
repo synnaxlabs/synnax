@@ -65,12 +65,12 @@ describe("user ontology service", () => {
     expect(await screen.findByText("Reload Console")).toBeTruthy();
   });
 
-  it("should not offer rename or role changes for the logged-in user", async () => {
+  it("should offer the same actions for the logged-in user", async () => {
     const current = await client.users.current.retrieve();
     await renderMenu([userResource(current.key, current.name)]);
-    expect(await screen.findByText("Delete")).toBeTruthy();
-    await waitFor(() => expect(screen.queryByText("Rename")).toBeNull());
-    expect(screen.queryByText("Change role")).toBeNull();
+    expect(await screen.findByText("Rename")).toBeTruthy();
+    expect(screen.getByText("Change role")).toBeTruthy();
+    expect(screen.getByText("Manage credentials")).toBeTruthy();
   });
 
   it("should not offer a role change for the root user", async () => {

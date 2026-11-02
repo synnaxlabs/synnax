@@ -118,14 +118,11 @@ export interface SetPasswordParams {
   subject?: ontology.ID;
   /** The new password. */
   password: string;
-  /** The caller's current password. Required when the caller sets its own. */
-  currentPassword?: string;
 }
 
 const passwordSetReqZ = z.object({
   subject: ontology.idZ.optional(),
   password: z.string(),
-  currentPassword: z.string().optional(),
   cookie: z.boolean().optional(),
 });
 const passwordSetResZ = z.object({ token: z.string(), session: sessionZ.optional() });
