@@ -15,13 +15,17 @@ import { Text } from "@synnaxlabs/lyra/text";
 import { Credential, Synnax } from "@synnaxlabs/pluto";
 import { type ReactElement, useState } from "react";
 
+import { CSS } from "@/platform/css";
+
 export interface SectionProps {
   /** The user whose password to set. */
   subject: ontology.ID;
+  /** Called with true after a change, and with false once the user types again. */
+  onChanged: (changed: boolean) => void;
 }
 
 /** Sets a user's password. The caller's own password needs the current one. */
-export const Section = ({ subject }: SectionProps): ReactElement => {
+export const Section = ({ subject, onChanged }: SectionProps): ReactElement => {
   const client = Synnax.use();
   const own = client?.auth.subject?.key === subject.key;
   const [password, setPassword] = useState("");
@@ -30,8 +34,17 @@ export const Section = ({ subject }: SectionProps): ReactElement => {
     afterSuccess: () => {
       setPassword("");
       setCurrentPassword("");
+      onChanged(true);
     },
   });
+  const handleCurrentPassword = (value: string) => {
+    setCurrentPassword(value);
+    onChanged(false);
+  };
+  const handlePassword = (value: string) => {
+    setPassword(value);
+    onChanged(false);
+  };
   const handleSet = () =>
     set.update(own ? { password, currentPassword } : { subject, password });
   return (
@@ -40,7 +53,7 @@ export const Section = ({ subject }: SectionProps): ReactElement => {
       {own && (
         <Input.Text
           value={currentPassword}
-          onChange={setCurrentPassword}
+          onChange={handleCurrentPassword}
           placeholder="Current password"
           type="password"
           full="x"
@@ -49,12 +62,13 @@ export const Section = ({ subject }: SectionProps): ReactElement => {
       <Flex.Box x>
         <Input.Text
           value={password}
-          onChange={setPassword}
+          onChange={handlePassword}
           placeholder="New password"
           type="password"
           full="x"
         />
         <Button.Button
+          className={CSS.BE("credential", "action")}
           variant="filled"
           status={status.keepVariants(set.variant, "loading")}
           disabled={password === ""}
