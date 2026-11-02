@@ -64,13 +64,11 @@ const TreeContextMenu: Tree.ContextMenu = (props) => {
   const openCredentials = Credential.useModal();
   const singleResource = ids.length === 1;
   const first = Tree.useResource(state, ids[0]);
-  const { data: currentKey } = User.useResultKey({});
-  const isNotCurrentUser = first != null && first.id.key !== currentKey;
   const isRootUser = first?.data?.root_user === true;
 
   return (
     <ContextMenu.Menu>
-      {hasUpdatePermission && singleResource && isNotCurrentUser && (
+      {hasUpdatePermission && singleResource && first != null && (
         <>
           <Menu.Item itemKey="rename" onClick={rename}>
             <Icon.Rename />

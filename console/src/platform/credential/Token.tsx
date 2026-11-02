@@ -27,7 +27,7 @@ export const Token = ({ token }: TokenProps): ReactElement => {
   return (
     <Flex.Box y gap="tiny">
       <Text.Text level="small" status="warning">
-        Copy this key now. The Core does not show it again.
+        Copy this key now. You won't see it again.
       </Text.Text>
       <Flex.Box x align="center">
         <Input.Text value={token} onChange={() => {}} full="x" disabled />
