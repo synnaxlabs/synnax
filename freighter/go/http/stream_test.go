@@ -20,7 +20,7 @@ import (
 	. "github.com/onsi/gomega"
 	"github.com/synnaxlabs/freighter"
 	fhttp "github.com/synnaxlabs/freighter/http"
-	"github.com/synnaxlabs/freighter/test"
+	"github.com/synnaxlabs/freighter/testutil"
 	"github.com/synnaxlabs/x/address"
 	"github.com/synnaxlabs/x/encoding/json"
 	. "github.com/synnaxlabs/x/testutil"
@@ -42,26 +42,26 @@ func serveRouter(router *fhttp.Router) (*fiber.App, address.Address) {
 
 var _ = Describe("Stream", Ordered, Serial, func() {
 	var (
-		server freighter.StreamServer[test.Request, test.Response]
-		client freighter.StreamClient[test.Request, test.Response]
+		server freighter.StreamServer[testutil.Request, testutil.Response]
+		client freighter.StreamClient[testutil.Request, testutil.Response]
 		addr   address.Address
 	)
 
 	BeforeAll(func() {
 		ShouldNotLeakGoroutines()
 		router := MustSucceed(fhttp.NewRouter(fhttp.RouterConfig{
-			StreamWriteDeadline: test.WriteDeadline,
+			StreamWriteDeadline: testutil.WriteDeadline,
 		}))
-		server = router.NewStreamServer[test.Request, test.Response]("/")
-		client = MustSucceed(fhttp.NewStreamClient[test.Request, test.Response](
+		server = router.NewStreamServer[testutil.Request, testutil.Response]("/")
+		client = MustSucceed(fhttp.NewStreamClient[testutil.Request, testutil.Response](
 			fhttp.StreamClientConfig{Codec: json.Codec},
 		))
 		_, addr = serveRouter(router)
 	})
 
-	test.StreamSuite(func() (
-		freighter.StreamServer[test.Request, test.Response],
-		freighter.StreamClient[test.Request, test.Response],
+	testutil.StreamSuite(func() (
+		freighter.StreamServer[testutil.Request, testutil.Response],
+		freighter.StreamClient[testutil.Request, testutil.Response],
 		address.Address,
 	) {
 		return server, client, addr
@@ -114,13 +114,15 @@ var _ = Describe("Stream", Ordered, Serial, func() {
 			"should stop serving a stream whose peer never answers the close message",
 			func(ctx SpecContext) {
 				router := MustSucceed(fhttp.NewRouter(fhttp.RouterConfig{
-					StreamWriteDeadline: test.WriteDeadline,
+					StreamWriteDeadline: testutil.WriteDeadline,
 				}))
-				ownServer := router.NewStreamServer[test.Request, test.Response]("/")
+				ownServer := router.NewStreamServer[testutil.Request, testutil.Response](
+					"/",
+				)
 				serving := make(chan struct{})
 				ownServer.BindHandler(func(
 					_ context.Context,
-					stream freighter.ServerStream[test.Request, test.Response],
+					stream freighter.ServerStream[testutil.Request, testutil.Response],
 				) error {
 					close(serving)
 					_, err := stream.Receive()

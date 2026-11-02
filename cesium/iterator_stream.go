@@ -13,6 +13,7 @@ import (
 	"context"
 
 	"github.com/synnaxlabs/cesium/internal/channel"
+	"github.com/synnaxlabs/cesium/internal/unary"
 	"github.com/synnaxlabs/x/confluence"
 	"github.com/synnaxlabs/x/errors"
 	"github.com/synnaxlabs/x/set"
@@ -81,9 +82,6 @@ var validateIteratorCommand = validate.NewInclusiveBoundsChecker(
 	IteratorCommandSetBounds,
 )
 
-// HasOps returns true if the IteratorCommand has any associated on disk operations.
-func (i IteratorCommand) HasOps() bool { return i <= IteratorCommandPrev }
-
 // IteratorRequest is issued to an StreamIterator asking it to read data from a DB.
 //
 //go:generate stringer -type=IteratorCommand
@@ -124,31 +122,10 @@ type IteratorResponse struct {
 	Ack bool
 }
 
-// channelIterator is the per-channel iterator a streamIterator drives.
-type channelIterator interface {
-	SetBounds(tr telem.TimeRange)
-	Bounds() telem.TimeRange
-	View() telem.TimeRange
-	SeekFirst(ctx context.Context) bool
-	SeekLast(ctx context.Context) bool
-	SeekLE(ctx context.Context, ts telem.TimeStamp) bool
-	SeekGE(ctx context.Context, ts telem.TimeStamp) bool
-	Next(ctx context.Context, span telem.TimeSpan) bool
-	Prev(ctx context.Context, span telem.TimeSpan) bool
-	MoveTo(ctx context.Context, ts telem.TimeStamp)
-	Continue(ctx context.Context, end telem.TimeStamp) bool
-	EndAfter(ctx context.Context, n int64) (telem.TimeStamp, error)
-	IndexKey() channel.Key
-	Valid() bool
-	Value() channel.Frame
-	Error() error
-	Close() error
-}
-
 type streamIterator struct {
 	confluence.UnarySink[IteratorRequest]
 	confluence.AbstractUnarySource[IteratorResponse]
-	internal []channelIterator
+	internal []*unary.Iterator
 	// limited is true when the read has a limit reduction. A limited read is never
 	// chunked, because a chunk edge would cut its groups.
 	limited   bool
@@ -211,7 +188,7 @@ func (s *streamIterator) exec(
 		if s.limited || req.Span == AutoSpan {
 			ok = s.execWithResponse(
 				req.SeqNum,
-				func(i channelIterator) bool { return i.Next(ctx, req.Span) },
+				func(i *unary.Iterator) bool { return i.Next(ctx, req.Span) },
 			)
 		} else {
 			ok, err = s.readInChunks(ctx, req)
@@ -220,34 +197,34 @@ func (s *streamIterator) exec(
 		if s.limited || req.Span == AutoSpan {
 			ok = s.execWithResponse(
 				req.SeqNum,
-				func(i channelIterator) bool { return i.Prev(ctx, req.Span) },
+				func(i *unary.Iterator) bool { return i.Prev(ctx, req.Span) },
 			)
 		} else {
 			ok, err = s.readInChunks(ctx, req)
 		}
 	case IteratorCommandSeekFirst:
 		ok = s.execWithoutResponse(
-			func(i channelIterator) bool { return i.SeekFirst(ctx) },
+			func(i *unary.Iterator) bool { return i.SeekFirst(ctx) },
 		)
 	case IteratorCommandSeekLast:
 		ok = s.execWithoutResponse(
-			func(i channelIterator) bool { return i.SeekLast(ctx) },
+			func(i *unary.Iterator) bool { return i.SeekLast(ctx) },
 		)
 	case IterCommandSeekLE:
 		ok = s.execWithoutResponse(
-			func(i channelIterator) bool { return i.SeekLE(ctx, req.Stamp) },
+			func(i *unary.Iterator) bool { return i.SeekLE(ctx, req.Stamp) },
 		)
 	case IteratorCommandSeekGE:
 		ok = s.execWithoutResponse(
-			func(i channelIterator) bool { return i.SeekGE(ctx, req.Stamp) },
+			func(i *unary.Iterator) bool { return i.SeekGE(ctx, req.Stamp) },
 		)
 	case IteratorCommandValid:
-		ok = s.execWithoutResponse(func(i channelIterator) bool { return i.Valid() })
+		ok = s.execWithoutResponse(func(i *unary.Iterator) bool { return i.Valid() })
 	case IteratorCommandError:
 		err = s.error()
 	case IteratorCommandSetBounds:
 		ok = s.execWithoutResponse(
-			func(i channelIterator) bool { i.SetBounds(req.Bounds); return true },
+			func(i *unary.Iterator) bool { i.SetBounds(req.Bounds); return true },
 		)
 	}
 	return ok, err
@@ -257,7 +234,7 @@ func (s *streamIterator) exec(
 // moves as one response.
 func (s *streamIterator) execWithResponse(
 	seqNum int,
-	f func(i channelIterator) bool,
+	f func(i *unary.Iterator) bool,
 ) (ok bool) {
 	var fr Frame
 	for _, i := range s.internal {
@@ -297,7 +274,10 @@ func (s *streamIterator) readInChunks(
 		end := last
 		probed := make(set.Set[channel.Key], len(s.internal))
 		for j, i := range s.internal {
-			idx := i.IndexKey()
+			idx := i.Channel.Index
+			if i.Channel.IsIndex {
+				idx = i.Channel.Key
+			}
 			if i.View().End >= ends[j] || probed.Contains(idx) {
 				continue
 			}
@@ -336,7 +316,7 @@ func (s *streamIterator) send(seqNum int, fr Frame) {
 	}
 }
 
-func (s *streamIterator) execWithoutResponse(f func(i channelIterator) bool) (ok bool) {
+func (s *streamIterator) execWithoutResponse(f func(i *unary.Iterator) bool) (ok bool) {
 	for _, i := range s.internal {
 		if f(i) {
 			ok = true

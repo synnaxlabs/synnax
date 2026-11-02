@@ -20,9 +20,3 @@
     text-align: center;
     text-wrap: balance;
 }
-
-/* Holds a message and one description line, so an error does not move the form. */
-.console-license-activate__status {
-    height: 7rem;
-    flex-shrink: 0;
-}

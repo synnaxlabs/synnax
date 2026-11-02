@@ -9,50 +9,47 @@
 
 import { type APIRoute } from "astro";
 
+import { preflight, readSecret, withCORS } from "@/bearer";
 import { handle } from "@/respond";
-import { unauthorized } from "@/server/errors";
+import { isInternal } from "@/server/directory";
 import { renew, resolve } from "@/server/license/desktop";
 import { check } from "@/server/ratelimit";
+import { active, announce } from "@/server/slack";
+import { arrival } from "@/server/user";
 
-const BEARER = /^Bearer\s+(\S+)$/i;
-
-// The Desktop app calls from its own origin, so the route answers preflights and
-// marks every response, refusals included, for any origin. The secret is the guard.
-const CORS_HEADERS = {
-  "access-control-allow-origin": "*",
-  "access-control-allow-methods": "POST, OPTIONS",
-  "access-control-allow-headers": "authorization",
-};
-
-const withCORS = (res: Response): Response => {
-  for (const [name, value] of Object.entries(CORS_HEADERS))
-    res.headers.set(name, value);
-  return res;
-};
-
-export const OPTIONS: APIRoute = () =>
-  new Response(null, { status: 204, headers: CORS_HEADERS });
+export const OPTIONS = preflight;
 
 /**
  * POST renews the desktop license of the machine whose renewal secret is the bearer
- * token, and answers `{ key }`. No portal session is involved.
+ * token, and answers `{ key }`. No portal session is involved. The first Desktop use of
+ * a day is posted to Slack, unless the user is from Synnax Labs.
  */
 export const POST: APIRoute = async (context) =>
   withCORS(
     await handle(async () => {
-      const secret = BEARER.exec(
-        context.request.headers.get("authorization") ?? "",
-      )?.[1];
-      if (secret == null) throw unauthorized();
       const { portal } = context.locals;
       const now = portal.now();
-      const machine = await resolve(portal.store, secret);
+      const machine = await resolve(portal.store, readSecret(context.request));
       await check(portal.store, {
         actor: machine.activation.key,
         organization: machine.license.organization,
         now,
       });
-      const { key } = await renew(portal.store, portal.signer, { machine, now });
+      const { key, owner, previous } = await renew(portal.store, portal.signer, {
+        machine,
+        now,
+      });
+      await announce(portal.slack, async () => {
+        const arrived = await arrival(portal.store, portal.directory, {
+          userID: owner,
+          machine: machine.activation.name ?? "Unnamed machine",
+          previous,
+          now,
+        });
+        return arrived == null || isInternal(arrived.account.email)
+          ? null
+          : active(arrived);
+      });
       return Response.json({ key });
     }),
   );

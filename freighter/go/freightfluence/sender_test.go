@@ -17,7 +17,7 @@ import (
 	. "github.com/onsi/gomega"
 	"github.com/synnaxlabs/freighter"
 	"github.com/synnaxlabs/freighter/freightfluence"
-	"github.com/synnaxlabs/freighter/mock"
+	"github.com/synnaxlabs/freighter/testutil"
 	"github.com/synnaxlabs/x/address"
 	"github.com/synnaxlabs/x/confluence"
 	"github.com/synnaxlabs/x/errors"
@@ -33,9 +33,9 @@ func (e *errSenderCloser) Send(_ int) error { return e.sendErr }
 func (e *errSenderCloser) CloseSend() error { return nil }
 
 var _ = Describe("Sender", func() {
-	var net *mock.Network[int, int]
+	var net *testutil.Network[int, int]
 	BeforeEach(func() {
-		net = mock.NewNetwork[int, int]()
+		net = testutil.NewNetwork[int, int]()
 	})
 	Context("Single Stream", func() {
 		var (

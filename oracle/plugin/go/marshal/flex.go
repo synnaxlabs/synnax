@@ -16,12 +16,12 @@ import (
 	"github.com/synnaxlabs/x/errors"
 )
 
-// FlexCodec describes a distinct scalar type (e.g., Key uint64) for which
+// flexCodec describes a distinct scalar type (e.g., Key uint64) for which
 // flexible DecodeMsgpack and UnmarshalJSON methods should be generated. These
 // methods handle type coercion (float64 -> uint64, string -> uint64, etc.) so
 // the type decodes correctly when used inside generic containers that fall back
 // to MessagePack/JSON reflection-based decoding.
-type FlexCodec struct {
+type flexCodec struct {
 	GoName   string
 	Receiver string
 	BaseType string
@@ -54,7 +54,7 @@ type flexTemplateData struct {
 	CastType      string
 }
 
-func generateFlexMethods(fc FlexCodec) (string, error) {
+func generateFlexMethods(fc flexCodec) (string, error) {
 	cfg, ok := flexConfigMap[fc.BaseType]
 	if !ok {
 		return "", errors.Newf(

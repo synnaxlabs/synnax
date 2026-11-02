@@ -10,33 +10,38 @@
 from typing import Any
 
 import pytest
-from opentelemetry.propagate import get_global_textmap
 from opentelemetry.sdk.trace import TracerProvider
-from opentelemetry.sdk.trace.export import BatchSpanProcessor, ConsoleSpanExporter
+from opentelemetry.sdk.trace.export.in_memory_span_exporter import (
+    InMemorySpanExporter,
+)
+from opentelemetry.trace.propagation.tracecontext import TraceContextTextMapPropagator
 
 from alamos import Instrumentation, Tracer, trace
 from alamos.instrumentation import Traceable
 
-provider = TracerProvider()
-processor = BatchSpanProcessor(ConsoleSpanExporter())
-provider.add_span_processor(processor)
-
 
 class TestTrace:
-    def test_initialize(self) -> None:
+    def test_initialize(self, provider: TracerProvider) -> None:
         """
         Should initialize the tracer.
         """
-        tracer = Tracer(otel_provider=provider, otel_propagator=get_global_textmap())
-        assert tracer is not None
+        tracer = Tracer(
+            otel_provider=provider, otel_propagator=TraceContextTextMapPropagator()
+        )
+        assert not tracer.noop
 
-    def test_trace(self, instrumentation: Instrumentation) -> None:
-        """Should not raise an exception."""
+    def test_trace(
+        self, instrumentation: Instrumentation, exporter: InMemorySpanExporter
+    ) -> None:
+        """Should export a span with the instrumentation path as its key."""
         with instrumentation.T.prod("test") as span:
             assert span.key == "dev.test"
+        assert len(exporter.get_finished_spans()) == 1
 
-    def test_trace_decorator(self, instrumentation: Instrumentation) -> None:
-        """Should not raise an exception"""
+    def test_trace_decorator(
+        self, instrumentation: Instrumentation, exporter: InMemorySpanExporter
+    ) -> None:
+        """Should export a span for the decorated method."""
 
         class Foo:
             instrumentation: Instrumentation
@@ -45,13 +50,14 @@ class TestTrace:
                 return self
 
             def __init__(self, ins: Instrumentation):
-                self.instrumentation = instrumentation
+                self.instrumentation = ins
 
             @trace("prod")
             def decorated(self) -> str:
                 return "hello"
 
-        Foo(instrumentation).decorated()
+        assert Foo(instrumentation).decorated() == "hello"
+        assert len(exporter.get_finished_spans()) == 1
 
 
 class TestPropagate:

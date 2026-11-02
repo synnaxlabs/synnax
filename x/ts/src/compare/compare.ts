@@ -34,7 +34,10 @@ export const newF = <T>(v: T, reverse: boolean = false): Comparator<T> => {
       f = (a: T, b: T) => Number(a) - Number(b);
       break;
     case "bigint":
-      f = (a: T, b: T) => (BigInt(a as number) - BigInt(b as number) > 0n ? 1 : -1);
+      f = (a: T, b: T) => {
+        const d = BigInt(a as number) - BigInt(b as number);
+        return d > 0n ? 1 : d < 0n ? -1 : 0;
+      };
       break;
     case "boolean":
       f = (a: T, b: T) => Number(a) - Number(b);

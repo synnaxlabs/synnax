@@ -26,7 +26,7 @@ import {
   type MountedProviders,
   type ProviderOptions,
 } from "@/testutil/providers";
-import { type canvasTest } from "@/vis/render/test";
+import { type canvasTest } from "@/vis/render/testutil";
 
 /** Options for {@link render}: provider toggles plus standard RTL render options
  * (minus `wrapper`, which the harness owns). */

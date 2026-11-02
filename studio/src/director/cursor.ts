@@ -58,7 +58,7 @@ interface RawSampleArgs {
  * rawPosition returns the un-smoothed cursor position at a tick: piecewise
  * minimum-jerk travel between move waypoints, holds elsewhere.
  */
-export const rawPosition = ({ tl, tick }: RawSampleArgs): Point => {
+const rawPosition = ({ tl, tick }: RawSampleArgs): Point => {
   let prev: Point = tl.origin;
   for (const e of tl.events) {
     if (e.type !== "move") continue;

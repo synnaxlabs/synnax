@@ -27,7 +27,7 @@ cc_test(
         "//client/cpp/errors",
         "//freighter/cpp:freighter",
         "//x/cpp/errors",
-        "//x/cpp/test",
+        "//x/cpp/testutil",
         "@googletest//:gtest_main",
     ],
 )

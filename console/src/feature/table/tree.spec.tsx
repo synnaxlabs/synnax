@@ -30,8 +30,9 @@ import {
   createResource,
   createSelection,
   createState,
+  findTreeRow,
+  renderOntologyTree,
 } from "@/platform/tree/testutil";
-import { findTreeRow, renderOntologyTree } from "@/platform/tree/treeTestutil";
 import { Session } from "@/session";
 import { createCore, createCoreState } from "@/session/core/testutil";
 import { documentIn } from "@/session/window/testutil";
@@ -128,7 +129,7 @@ describe("table/ontology", () => {
         );
       });
       expect(
-        documentIn(Session.Table.selectSliceState(store.getState()), t.key),
+        documentIn(store.getState()[Session.Table.SLICE_NAME], t.key),
       ).toBeUndefined();
     });
 

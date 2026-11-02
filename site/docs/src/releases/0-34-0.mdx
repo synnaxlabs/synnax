@@ -18,12 +18,12 @@ export const components = mdxOverrides;
 
 <LabJack />
 
-Synnax version 0.34 introduces a built-in [LabJack driver](/reference/driver/labjack)
+Synnax version 0.34 introduces a built-in [LabJack driver](/reference/hardware/labjack)
 supporting all T-Series devices.
 
-You can use a [write task](/reference/driver/labjack/write-task) to control digital and
-analog outputs on the device, and a [read task](/reference/driver/labjack/read-task) to
-acquire data from inputs.
+You can use a [write task](/reference/hardware/labjack/write-task) to control digital
+and analog outputs on the device, and a
+[read task](/reference/hardware/labjack/read-task) to acquire data from inputs.
 
 Synnax currently only supports LabJack devices on Windows, although we plan to add
 support for other operating systems soon.
@@ -32,8 +32,8 @@ support for other operating systems soon.
 
 ### Taring functionality
 
-Both [National Instruments](/reference/driver/ni) and
-[LabJack](/reference/driver/labjack) read tasks now support taring functionality. This
+Both [National Instruments](/reference/hardware/ni) and
+[LabJack](/reference/hardware/labjack) read tasks now support taring functionality. This
 feature allows you to zero out the current value of a read task.
 
 <Divider.Divider x />
@@ -42,9 +42,10 @@ feature allows you to zero out the current value of a read task.
 
 - Improved schematic connection line pathing.
 - Implemented [Python client](/reference/python-client) support for configuring and
-  running [OPC UA read tasks](/reference/driver/opc-ua/read-task).
-- Font sizes on a [schematic](/reference/console/schematics) value are now configurable.
-- [Schematic](/reference/console/schematics) values can now be displayed in scientific
+  running [OPC UA read tasks](/reference/hardware/opc-ua/read-task).
+- Font sizes on a [schematic](/reference/visualize/schematics) value are now
+  configurable.
+- [Schematic](/reference/visualize/schematics) values can now be displayed in scientific
   notation.
 
 <Divider.Divider x />

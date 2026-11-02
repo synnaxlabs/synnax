@@ -7,8 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { type Store } from "@reduxjs/toolkit";
-import { lineplot, ranger, type Synnax as Client } from "@synnaxlabs/client";
+import { lineplot, ranger } from "@synnaxlabs/client";
 import { Icon } from "@synnaxlabs/lyra/icon";
 import { Menu } from "@synnaxlabs/lyra/menu";
 import { Text } from "@synnaxlabs/lyra/text";
@@ -23,20 +22,6 @@ import { Modals } from "@/platform/modals";
 import { Panel } from "@/platform/panel";
 import { Range } from "@/platform/range";
 import { Session } from "@/session";
-
-export const fetchIfNotInState = async (
-  store: Store<Session.Range.StoreState>,
-  client: Client,
-  key: string,
-): Promise<Session.Range.State> => {
-  const existing = Session.Range.selectState(store.getState(), key);
-  if (existing == null) {
-    const ranges = Session.Range.fromClient(await client.ranges.retrieve(key));
-    store.dispatch(Session.Range.add(ranges));
-    return ranges[0];
-  }
-  return existing;
-};
 
 const AddToNewPlotIcon = Icon.createComposite(Icon.LinePlot, {
   topRight: Icon.Add,

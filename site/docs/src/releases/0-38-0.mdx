@@ -2,11 +2,11 @@
 title: "Version 0.38 release notes"
 ---
 
-import { Image } from "@/components/media/Media";
 import { Divider } from "@synnaxlabs/lyra/divider";
+import { Hero } from "@/components/hero";
 import { mdxOverrides } from "@/components/mdxOverrides";
 import Release from "@/components/releases/Release.astro";
-import Diagram from "@/components/diagram/Diagram.astro";
+import { Keys } from "@/components/keys/Keys";
 
 export const components = mdxOverrides;
 
@@ -16,9 +16,14 @@ export const components = mdxOverrides;
     title="Calculated channels"
 >
 
-<Diagram style="height: 300px" preview>
-  <Image id="console/calculated-channels/thumbnail" themed={false} />
-</Diagram>
+<Hero.Hero
+  image="console/calculated-channels/thumbnail"
+  extension="webp"
+  themed={false}
+  layout="bleed"
+  tone="soft"
+  palette="teal-violet"
+/>
 
 Synnax v0.38.0 is our first release of 2025, and contains a large number of new features
 including beta calculated channels, workspace importing, and more.
@@ -27,10 +32,10 @@ including beta calculated channels, workspace importing, and more.
 
 ### Calculated channels
 
-[Calculated channels](/reference/client/calculated-channels) are a new feature that
-allows for server-side calculations to be performed on channels in real-time. Calculated
-channels work by taking a Lua script that describes the calculation to be performed on
-the channel, including what channels the calculated channel takes data from.
+[Calculated channels](/reference/channels/calculated) are a new feature that allows for
+server-side calculations to be performed on channels in real-time. Calculated channels
+work by taking a Lua script that describes the calculation to be performed on the
+channel, including what channels the calculated channel takes data from.
 
 Calculated channels are currently in beta, and you may run into stability issues and
 unexpected behavior while using them. If you run into any issues, please report it to
@@ -41,9 +46,8 @@ the Synnax team.
 ### Workspace importing and exporting
 
 The Synnax Console now supports sharing workspaces via a directory configuration.
-Workspaces can be shared by
-[importing and exporting](/reference/console/workspaces#sharing-via-file) workspaces
-into directories to be stored on your desktop.
+Workspaces can be shared by [importing and exporting](/reference/visualize/projects)
+workspaces into directories to be stored on your desktop.
 
 <Divider.Divider x />
 
@@ -51,7 +55,7 @@ into directories to be stored on your desktop.
 
 The Windows version of the Core can now be installed by an installer. This means you
 only need to download a single installer file, and then run it to install the Core. More
-information can be found on our [Core installation page](/reference/core/installation).
+information can be found on our [Core installation page](/reference/enterprise).
 
 <Divider.Divider x />
 
@@ -77,7 +81,7 @@ sy login
 - Modals and the version info window are now no longer saved in workspaces.
 - Groups are now positioned above all other items within the resources toolbar.
 - Line plots render `uint8` data faster.
-- `Cmd + A` can now be used to group all schematic elements.
+- <Keys trigger={["Control", "A"]} /> can now be used to group all schematic elements.
 
 <Divider.Divider x />
 

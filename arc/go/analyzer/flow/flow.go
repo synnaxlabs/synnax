@@ -41,11 +41,12 @@ func AnalyzeSingleFunction(ctx context.Context[parser.IFunctionContext]) {
 	if funcType == nil {
 		return
 	}
-	if rejectWASMFlowNode(ctx, funcType, name) {
+	if funcType.Exec == symbol.ExecWASM {
+		analyzeWASMCall(ctx, funcType, name)
 		return
 	}
 	freshType := types.Freshen(funcType.Type, freshenKey(ctx.AST, name))
-	args := inputArguments(ctx, ctx.AST.InputValues())
+	args := inputArguments(ctx, ctx.AST)
 	expression.AnalyzeCall(
 		ctx,
 		name,
@@ -75,7 +76,7 @@ func Analyze(ctx context.Context[parser.IFlowStatementContext]) {
 	warnNumericTransitions(ctx)
 }
 
-// rejectTransitionIntoBranch blocks a `=>` feeding a routing table or select{}.
+// rejectTransitionIntoBranch blocks a `=>` feeding a routing table or select().
 func rejectTransitionIntoBranch[T antlr.ParserRuleContext](ctx context.Context[T]) {
 	children := ctx.AST.GetChildren()
 	for i, child := range children {
@@ -94,7 +95,7 @@ func rejectTransitionIntoBranch[T antlr.ParserRuleContext](ctx context.Context[T
 				continue
 			}
 			ctx.Diagnostics.Add(diagnostics.Errorf(op,
-				"'=>' cannot feed select{}, use '->'",
+				"'=>' cannot feed select(), use '->'",
 			))
 		}
 	}
@@ -154,12 +155,13 @@ func parseFunction(
 	if funcType == nil {
 		return
 	}
-	if rejectWASMFlowNode(ctx, funcType, name) {
+	if funcType.Exec == symbol.ExecWASM {
+		analyzeWASMCall(ctx, funcType, name)
 		return
 	}
 
 	freshType := types.Freshen(funcType.Type, freshenKey(ctx.AST, name))
-	args := inputArguments(ctx, ctx.AST.InputValues())
+	args := inputArguments(ctx, ctx.AST)
 
 	var externallySatisfied []string
 	if prevNode != nil && funcType.Trigger.Target != "" {
@@ -364,7 +366,7 @@ func analyzeIdentifier(
 		if !validTarget {
 			d := diagnostics.Errorf(ctx.AST, "%s is not a channel", name)
 			if sym.Kind == symbol.KindFunction {
-				d = d.WithNote("use " + name + "{} to instantiate the function")
+				d = d.WithNote("use " + name + "() to instantiate the function")
 			}
 			ctx.Diagnostics.Add(d)
 			return
@@ -472,25 +474,6 @@ func resolveFunc[T antlr.ParserRuleContext](
 	return sym, name
 }
 
-// rejectWASMFlowNode reports an error and returns true when fn is a WASM-only
-// function, which is callable inside a func block but cannot be a flow node.
-func rejectWASMFlowNode(
-	ctx context.Context[parser.IFunctionContext],
-	fn *symbol.Symbol,
-	name string,
-) bool {
-	if fn.Exec != symbol.ExecWASM {
-		return false
-	}
-	ctx.Diagnostics.Add(diagnostics.Errorf(
-		ctx.AST,
-		"function '%s' cannot be used as a flow statement. Call it inside a func block instead: %s()",
-		name,
-		name,
-	))
-	return true
-}
-
 // resolveFuncOutput returns fn's default output type for chained use, emitting
 // a diagnostic when fn has named outputs or no return value. downstreamDesc
 // is embedded in the no-return message to describe the unsatisfied consumer.
@@ -515,40 +498,14 @@ func resolveFuncOutput[T antlr.ParserRuleContext](
 	return types.Type{}
 }
 
-// inputArguments adapts the arguments in a call's brace `{...}` form into the
-// unified []symbol.Argument shape, analyzing each value expression as it goes.
+// inputArguments analyzes each argument of a flow function node and returns them.
 func inputArguments[T antlr.ParserRuleContext](
 	ctx context.Context[T],
-	braceBlock parser.IInputValuesContext,
+	fn parser.IFunctionContext,
 ) []symbol.Argument {
-	if braceBlock == nil {
-		return nil
-	}
-	var args []symbol.Argument
-	if namedVals := braceBlock.NamedInputValues(); namedVals != nil {
-		for _, val := range namedVals.AllNamedInputValue() {
-			expr := val.Expression()
-			if expr == nil {
-				continue
-			}
-			expression.Analyze(ctx.Child(expr))
-			args = append(args, symbol.Argument{
-				Name: val.IDENTIFIER().GetText(),
-				Expr: expr,
-				AST:  val,
-			})
-		}
-		return args
-	}
-	if anonVals := braceBlock.AnonymousInputValues(); anonVals != nil {
-		for i, expr := range anonVals.AllExpression() {
-			expression.Analyze(ctx.Child(expr))
-			args = append(args, symbol.Argument{
-				Index: i,
-				Expr:  expr,
-				AST:   expr,
-			})
-		}
+	args := symbol.FunctionArguments(fn)
+	for _, arg := range args {
+		expression.Analyze(ctx.Child(arg.Expr))
 	}
 	return args
 }
@@ -894,8 +851,12 @@ func analyzeRoutingTargetWithParam(
 		if fnType == nil {
 			return
 		}
+		if fnType.Exec == symbol.ExecWASM {
+			analyzeWASMCall(ctx.Child(fn), fnType, fnName)
+			return
+		}
 
-		args := inputArguments(ctx, fn.InputValues())
+		args := inputArguments(ctx, fn)
 		var externallySatisfied []string
 		if fnType.Trigger.Target != "" {
 			externallySatisfied = append(externallySatisfied, fnType.Trigger.Target)

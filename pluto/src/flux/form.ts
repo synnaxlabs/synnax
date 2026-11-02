@@ -15,7 +15,14 @@ import {
   useSyncedRef,
 } from "@synnaxlabs/lyra/hooks";
 import { Status } from "@synnaxlabs/lyra/status";
-import { type CrudeTimeSpan, type destructor, state, TimeSpan } from "@synnaxlabs/x";
+import {
+  type CrudeTimeSpan,
+  deep,
+  type destructor,
+  type record,
+  state,
+  TimeSpan,
+} from "@synnaxlabs/x";
 import {
   type Dispatch,
   type SetStateAction,
@@ -133,7 +140,7 @@ export interface BeforeValidateParams<
 export interface UseFormParams<
   Query extends query.Params,
   Schema extends z.ZodType<query.Data>,
-> extends Pick<Form.UseParams<Schema>, "sync" | "onHasTouched" | "mode"> {
+> extends Pick<Form.UseParams<Schema>, "onHasTouched" | "mode"> {
   initialValues?: z.infer<Schema>;
   autoSave?: boolean;
   /**
@@ -162,6 +169,43 @@ const DEFAULT_SET_OPTIONS: Form.SetOptions = {
 };
 
 const DEFAULT_AUTO_SAVE_DEBOUNCE = TimeSpan.milliseconds(200);
+
+const covers = (pending: Set<string>, path: string): boolean =>
+  [...pending].some((p) => deep.pathsMatch(path, p));
+
+const ABSENT = Symbol("absent");
+
+/**
+ * @returns the live value at the path, null and undefined included, or ABSENT when the
+ * value that holds it is gone.
+ */
+const readLive = (live: unknown, path: string): unknown => {
+  if (deep.has(live, path)) return deep.get(live, path);
+  const split = path.lastIndexOf(deep.SEPARATOR);
+  const parentPath = split === -1 ? "" : path.slice(0, split);
+  const parent = deep.get<record.Unknown, unknown>(live, parentPath, {
+    optional: true,
+  });
+  return parent == null ? ABSENT : deep.defaultGetter(parent, path.slice(split + 1));
+};
+
+/** @returns the value to write at the path, with live values kept at pending paths. */
+const keepPending = <V>(
+  live: unknown,
+  path: string,
+  value: V,
+  pending: Set<string>,
+): V => {
+  let kept = value;
+  for (const p of pending) {
+    if (!deep.pathsMatch(p, path)) continue;
+    const current = readLive(live, p);
+    if (current === ABSENT) continue;
+    if (kept === value) kept = deep.copy(value);
+    deep.set(kept, path === "" ? p : p.slice(path.length + 1), current);
+  }
+  return kept;
+};
 
 /** A save waiting on the one before it, and the signal its callers issued it under. */
 interface QueuedSave {
@@ -261,7 +305,6 @@ export const createForm = <
     afterSave,
     beforeSave,
     beforeValidate,
-    sync,
     onHasTouched,
     mode,
   }: UseFormParams<Query, Schema>): UseFormReturn<Schema> => {
@@ -273,8 +316,7 @@ export const createForm = <
     const addStatus = Status.useAdder();
     const memoQuery = useMemoQuery(query, normalizeQuery);
 
-    // One read per query: a synced form resets when its values change identity. One
-    // call keeps the read and its promise in one memo block.
+    // One read per query. One call keeps the read and its promise in one memo block.
     const cached =
       memoQuery == null || client == null
         ? undefined
@@ -298,27 +340,34 @@ export const createForm = <
     const abandonedRef = useRef(false);
     const [initialAbort] = useState(() => new AbortController());
     const abortRef = useRef(initialAbort);
+    // Paths edited since the running save read the form, and the paths that save
+    // carries. The Core holds neither yet, so a listener or a save writing back what it
+    // sent would revert them, and the next save would store the reverted value.
+    const unsaved = useRef(new Set<string>());
+    const sending = useRef(new Set<string>());
     const values = retrieved ?? initialValues ?? baseInitialValues;
     const form = Form.use<Schema>({
       schema,
       values,
       onChange: ({ path }) => {
-        // Don't save if the path is empty to prevent infinite save loops.
-        if (autoSave && path !== "" && !abandonedRef.current) debouncedSave();
+        // A reset reports an empty path. Saving on it would loop.
+        if (path === "") return;
+        unsaved.current.add(path);
+        if (autoSave && !abandonedRef.current) debouncedSave();
       },
-      sync,
       onHasTouched,
       mode,
     });
     const noNotifySet = (path: string, value: unknown, options?: Form.SetOptions) =>
       form.set(path, value, { ...options, ...DEFAULT_SET_OPTIONS });
-    // A listener carries what the Core holds, which an edit waiting on its autosave has
-    // already moved past. Writing it back would revert the edit, and the save that
-    // follows would persist the pre-edit value.
+    const pendingPaths = () => new Set([...unsaved.current, ...sending.current]);
     const listenerSet = (path: string, value: unknown, options?: Form.SetOptions) => {
-      if (form.get(path, { optional: true })?.touched === true) return;
-      noNotifySet(path, value, options);
+      const pending = pendingPaths();
+      if (covers(pending, path)) return;
+      noNotifySet(path, keepPending(form.value(), path, value, pending), options);
     };
+    const resetKeeping = (pending: () => Set<string>) => (next?: z.infer<Schema>) =>
+      form.reset(next == null ? next : keepPending(form.value(), "", next, pending()));
 
     // Form state is built once, so a query pointing at a different record has
     // to replace it.
@@ -329,6 +378,8 @@ export const createForm = <
       readQuery.current = memoQuery;
       abandonedRef.current = false;
       abortRef.current = new AbortController();
+      unsaved.current = new Set();
+      sending.current = new Set();
       form.reset(valuesRef.current);
     }, [memoQuery, form]);
 
@@ -338,9 +389,19 @@ export const createForm = <
         setResult(nullClientResult<undefined>(`update ${name}`));
         return false;
       }
-      return await persist({
+      const issuedFor = readQuery.current;
+      const sent = unsaved.current;
+      sending.current = sent;
+      unsaved.current = new Set();
+      const saved = await persist({
         name,
-        params: { client, query: memoQuery, ...form, set: noNotifySet },
+        params: {
+          client,
+          query: memoQuery,
+          ...form,
+          set: noNotifySet,
+          reset: resetKeeping(() => unsaved.current),
+        },
         update,
         beforeValidate,
         beforeSave,
@@ -349,12 +410,17 @@ export const createForm = <
         addStatus,
         signal,
       });
+      // The form re-pointed at another record while this save ran.
+      if (readQuery.current !== issuedFor) return saved;
+      if (!saved) sent.forEach((path) => unsaved.current.add(path));
+      sending.current = new Set();
+      return saved;
     };
 
     // Saves of one record run one at a time. A caller that reads the form, awaits the
-    // Core, then writes back (a task deploy resolving its rack) leaves a window an
-    // autosave fires in; concurrent writes reach the Core in either order, so the
-    // pre-write values can land last and undo the save.
+    // Core, then writes back leaves a window an autosave fires in; concurrent writes
+    // reach the Core in either order, so the pre-write values can land last and undo
+    // the save.
     const pendingSave = useRef<Promise<unknown>>(null);
     // A save that has not started reads the live form when it does, so it already
     // carries what a later caller would write. Later callers join it instead of
@@ -378,8 +444,11 @@ export const createForm = <
     const save = (opts?: query.FetchOptions) => void saveAsync(opts);
 
     const saveRef = useSyncedRef(save);
+    // An explicit save that ran before the timer fired already sent every edit.
     const debouncedSave = useDebouncedCallback(
-      () => saveRef.current(),
+      () => {
+        if (unsaved.current.size > 0) saveRef.current();
+      },
       autoSaveDebounce,
       [],
     );
@@ -400,11 +469,12 @@ export const createForm = <
           query: memoQuery,
           ...form,
           set: listenerSet,
+          reset: resetKeeping(pendingPaths),
           abandon,
         }),
       );
       return () => listeners.cleanup();
-    }, [client, memoQuery, form, listenerSet, abandon]);
+    }, [client, memoQuery, form, listenerSet, resetKeeping, pendingPaths, abandon]);
 
     return { form, save, saveAsync, ...result };
   };

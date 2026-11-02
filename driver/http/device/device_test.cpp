@@ -16,7 +16,7 @@
 #include "x/cpp/base64/base64.h"
 #include "x/cpp/errors/errors.h"
 #include "x/cpp/telem/telem.h"
-#include "x/cpp/test/test.h"
+#include "x/cpp/testutil/testutil.h"
 
 #include "driver/http/device/device.h"
 

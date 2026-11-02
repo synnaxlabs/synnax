@@ -69,27 +69,10 @@ const (
 )
 
 var (
-	StringTypeSchema  = Literal(StringT)
-	BoolTypeSchema    = Literal(BoolT)
-	NumberTypeSchema  = Literal(NumberT)
-	ObjectTypeSchema  = Literal(ObjectT)
-	UUIDTypeSchema    = Literal(UUIDT)
-	IntTypeSchema     = Literal(IntT)
-	Int8TypeSchema    = Literal(Int8T)
-	Int16TypeSchema   = Literal(Int16T)
-	Int32TypeSchema   = Literal(Int32T)
-	Int64TypeSchema   = Literal(Int64T)
-	UintTypeSchema    = Literal(UintT)
-	Uint8TypeSchema   = Literal(Uint8T)
-	Uint16TypeSchema  = Literal(Uint16T)
-	Uint32TypeSchema  = Literal(Uint32T)
-	Uint64TypeSchema  = Literal(Uint64T)
-	Float32TypeSchema = Literal(Float32T)
-	Float64TypeSchema = Literal(Float64T)
-	ArrayTypeSchema   = Literal(ArrayT)
-	MapTypeSchema     = Literal(MapT)
-	UnionTypeSchema   = Literal(UnionT)
-	IntegerTypes      = []DataType{
+	ArrayTypeSchema = Literal(ArrayT)
+	MapTypeSchema   = Literal(MapT)
+	UnionTypeSchema = Literal(UnionT)
+	IntegerTypes    = []DataType{
 		IntT,
 		Int8T,
 		Int16T,
@@ -101,22 +84,17 @@ var (
 		Uint32T,
 		Uint64T,
 	}
-	IntegerTypeSchema       = Enum(IntegerTypes...)
-	FloatingPointTypes      = []DataType{Float32T, Float64T}
-	FloatingPointTypeSchema = Enum(FloatingPointTypes...)
-	NumericTypes            = slices.Concat(
+	FloatingPointTypes = []DataType{Float32T, Float64T}
+	NumericTypes       = slices.Concat(
 		[]DataType{NumberT},
 		IntegerTypes,
 		FloatingPointTypes,
 	)
-	NumericTypeSchema   = Enum(NumericTypes...)
-	PrimitiveTypes      = slices.Concat([]DataType{StringT, BoolT, UUIDT}, NumericTypes)
-	PrimitiveTypeSchema = Enum(PrimitiveTypes...)
-	DataTypes           = slices.Concat(
+	PrimitiveTypes = slices.Concat([]DataType{StringT, BoolT, UUIDT}, NumericTypes)
+	DataTypes      = slices.Concat(
 		[]DataType{ObjectT, ArrayT, MapT, UnionT, DiscriminatedUnionT},
 		PrimitiveTypes,
 	)
-	AnyDataTypeSchema = Enum(DataTypes...)
 )
 
 // Schema is a schema that provides methods for validating and converting data.

@@ -12,26 +12,19 @@ import { type PageNavNode } from "@/components/nav/tree";
 export const CLIENT_NAV: PageNavNode = {
   key: "client",
   name: "Client libraries",
+  edition: "enterprise",
   children: [
+    {
+      href: "/reference/client",
+      name: "Overview",
+    },
     {
       href: "/reference/client/quick-start",
       name: "Quick start",
     },
     {
-      href: "/reference/client/authentication",
-      name: "Authentication",
-    },
-    {
-      href: "/reference/client/channels",
-      name: "Channels",
-    },
-    {
-      href: "/reference/client/calculated-channels",
-      name: "Calculated channels",
-    },
-    {
-      href: "/reference/client/ranges",
-      name: "Ranges",
+      href: "/reference/client/connect",
+      name: "Connect",
     },
     {
       href: "/reference/client/series-and-frames",
@@ -42,42 +35,20 @@ export const CLIENT_NAV: PageNavNode = {
       name: "Time types",
     },
     {
-      href: "/reference/client/read-data",
-      name: "Reading data",
-    },
-    {
       href: "/reference/client/write-data",
-      name: "Writing data",
+      name: "Write data",
     },
     {
-      key: "advanced",
-      name: "Advanced topics",
-      children: [
-        {
-          href: "/reference/client/advanced/auto-commit",
-          name: "Auto-commit",
-        },
-        {
-          href: "/reference/client/advanced/auto-index",
-          name: "Auto-index",
-        },
-        {
-          href: "/reference/client/advanced/write-authorities",
-          name: "Write authorities",
-        },
-        {
-          href: "/reference/client/advanced/iterators",
-          name: "Iterators",
-        },
-        {
-          href: "/reference/client/advanced/delete-data",
-          name: "Delete data",
-        },
-        {
-          href: "/reference/client/advanced/build-device-driver",
-          name: "Build a device driver",
-        },
-      ],
+      href: "/reference/client/read-data",
+      name: "Read data",
+    },
+    {
+      href: "/reference/client/stream-data",
+      name: "Stream data",
+    },
+    {
+      href: "/reference/client/delete-data",
+      name: "Delete data",
     },
     {
       href: "/reference/client/examples",

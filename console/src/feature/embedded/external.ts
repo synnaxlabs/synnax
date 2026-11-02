@@ -12,11 +12,5 @@ export * from "@/feature/embedded/Guard";
 export * from "@/feature/embedded/Indicator";
 export * from "@/feature/embedded/install";
 export { Provider } from "@/feature/embedded/Provider";
-export {
-  type History,
-  onStatusChange,
-  retrieveHistory,
-  type Status,
-} from "@/feature/embedded/supervisor";
+export { onStatusChange, retrieveHistory } from "@/feature/embedded/supervisor";
 export { useConnParams } from "@/feature/embedded/useConnParams";
-export { useDiagnosticsModal } from "@/feature/embedded/useDiagnosticsModal";

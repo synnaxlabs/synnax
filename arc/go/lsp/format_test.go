@@ -31,7 +31,7 @@ var _ = Describe("Formatting", func() {
 
 	Describe("Full Document Formatting", func() {
 		It("should format a simple function", func(ctx SpecContext) {
-			content := "func add(x i32,y i32)i32{return x+y}"
+			content := "func add() {x i32,y i32}i32{return x+y}"
 			OpenArcDocument(server, ctx, uri, content)
 
 			edits := MustSucceed(
@@ -43,12 +43,14 @@ var _ = Describe("Formatting", func() {
 
 			Expect(edits).ToNot(BeNil())
 			Expect(edits).To(HaveLen(1))
-			Expect(edits[0].NewText).To(ContainSubstring("func add(x i32, y i32) i32"))
+			Expect(
+				edits[0].NewText,
+			).To(ContainSubstring("func add() {x i32, y i32} i32"))
 			Expect(edits[0].NewText).To(ContainSubstring("return x + y"))
 		})
 
 		It("should return nil for already-formatted code", func(ctx SpecContext) {
-			content := "func add(x i32, y i32) i32 {\n    return x + y\n}\n"
+			content := "func add() {x i32, y i32} i32 {\n    return x + y\n}\n"
 			OpenArcDocument(server, ctx, uri, content)
 
 			Expect(server.Formatting(ctx, &protocol.DocumentFormattingParams{

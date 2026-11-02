@@ -18,8 +18,7 @@ import {
 import { describe, expect, it } from "vitest";
 
 import { Channel } from "@/feature/channel";
-import { getSwitch } from "@/platform/modals/testutil";
-import { renderToolbar } from "@/platform/tree/menuTestutil";
+import { renderToolbar } from "@/platform/tree/testutil";
 import {
   assertDefined,
   createTestClientWithGrants,
@@ -55,8 +54,8 @@ describe("channel/Toolbar", () => {
       return btn;
     });
     fireEvent.click(create);
-    expect(await screen.findByPlaceholderText("Name")).toBeTruthy();
-    expect(getSwitch("Is index")).toBeTruthy();
+    expect(await screen.findByPlaceholderText("Channel name")).toBeTruthy();
+    expect(screen.getByRole("button", { name: "Index" })).toBeTruthy();
   });
 
   it("opens the create calculated channel modal from the toolbar action", async () => {
@@ -64,7 +63,7 @@ describe("channel/Toolbar", () => {
     await renderChannelToolbar(() => {});
     const button = await waitFor(() => getIconButton(document.body, "calculation"));
     await act(async () => fireEvent.click(button));
-    expect(await screen.findByPlaceholderText("Name")).toBeTruthy();
+    expect(await screen.findByPlaceholderText("Channel name")).toBeTruthy();
     expect(await screen.findByText("Derivative")).toBeTruthy();
   });
 });

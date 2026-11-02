@@ -24,7 +24,7 @@ var _ = Describe("Math Flow Chains", func() {
 				"my_sensor":     {types.F64(), 100},
 				"output_sensor": {types.F64(), 200},
 			})
-			h := newRuntimeHarness(ctx, `my_sensor -> avg{} -> output_sensor`, resolver,
+			h := newRuntimeHarness(ctx, `my_sensor -> avg() -> output_sensor`, resolver,
 				channels.Digest{Key: 100, DataType: telem.Float64T},
 				channels.Digest{Key: 200, DataType: telem.Float64T},
 			)
@@ -56,7 +56,7 @@ var _ = Describe("Math Flow Chains", func() {
 				"sensor":  {types.I32(), 100},
 				"avg_out": {types.I32(), 200},
 			})
-			h := newRuntimeHarness(ctx, `sensor -> avg{} -> avg_out`, resolver,
+			h := newRuntimeHarness(ctx, `sensor -> avg() -> avg_out`, resolver,
 				channels.Digest{Key: 100, DataType: telem.Int32T},
 				channels.Digest{Key: 200, DataType: telem.Int32T},
 			)
@@ -87,7 +87,7 @@ var _ = Describe("Math Flow Chains", func() {
 					"output_sensor": {types.F64(), 200},
 				})
 				h := newRuntimeHarness(ctx, `import math
-my_sensor -> math.avg{} -> output_sensor`, resolver,
+my_sensor -> math.avg() -> output_sensor`, resolver,
 					channels.Digest{Key: 100, DataType: telem.Float64T},
 					channels.Digest{Key: 200, DataType: telem.Float64T},
 				)
@@ -106,7 +106,7 @@ my_sensor -> math.avg{} -> output_sensor`, resolver,
 		)
 
 		It(
-			"avg{count=N} resets the window when sampleCount reaches N",
+			"avg(count=N) resets the window when sampleCount reaches N",
 			func(ctx SpecContext) {
 				resolver := channelSymbols(map[string]channelDef{
 					"sensor":  {types.F64(), 100},
@@ -114,7 +114,7 @@ my_sensor -> math.avg{} -> output_sensor`, resolver,
 				})
 				h := newRuntimeHarness(
 					ctx,
-					`sensor -> avg{count=3} -> avg_out`,
+					`sensor -> avg(count=3) -> avg_out`,
 					resolver,
 					channels.Digest{Key: 100, DataType: telem.Float64T},
 					channels.Digest{Key: 200, DataType: telem.Float64T},
@@ -153,13 +153,13 @@ my_sensor -> math.avg{} -> output_sensor`, resolver,
 		)
 
 		It(
-			"avg{} with no window input accumulates indefinitely",
+			"avg() with no window input accumulates indefinitely",
 			func(ctx SpecContext) {
 				resolver := channelSymbols(map[string]channelDef{
 					"sensor":  {types.F64(), 100},
 					"avg_out": {types.F64(), 200},
 				})
-				h := newRuntimeHarness(ctx, `sensor -> avg{} -> avg_out`, resolver,
+				h := newRuntimeHarness(ctx, `sensor -> avg() -> avg_out`, resolver,
 					channels.Digest{Key: 100, DataType: telem.Float64T},
 					channels.Digest{Key: 200, DataType: telem.Float64T},
 				)
@@ -197,7 +197,7 @@ my_sensor -> math.avg{} -> output_sensor`, resolver,
 				"my_sensor":     {types.F64(), 100},
 				"output_sensor": {types.F64(), 200},
 			})
-			h := newRuntimeHarness(ctx, `my_sensor -> min{} -> output_sensor`, resolver,
+			h := newRuntimeHarness(ctx, `my_sensor -> min() -> output_sensor`, resolver,
 				channels.Digest{Key: 100, DataType: telem.Float64T},
 				channels.Digest{Key: 200, DataType: telem.Float64T},
 			)
@@ -229,7 +229,7 @@ my_sensor -> math.avg{} -> output_sensor`, resolver,
 					"output_sensor": {types.F64(), 200},
 				})
 				h := newRuntimeHarness(ctx, `import math
-my_sensor -> math.min{} -> output_sensor`, resolver,
+my_sensor -> math.min() -> output_sensor`, resolver,
 					channels.Digest{Key: 100, DataType: telem.Float64T},
 					channels.Digest{Key: 200, DataType: telem.Float64T},
 				)
@@ -254,7 +254,7 @@ my_sensor -> math.min{} -> output_sensor`, resolver,
 				"my_sensor":     {types.F64(), 100},
 				"output_sensor": {types.F64(), 200},
 			})
-			h := newRuntimeHarness(ctx, `my_sensor -> max{} -> output_sensor`, resolver,
+			h := newRuntimeHarness(ctx, `my_sensor -> max() -> output_sensor`, resolver,
 				channels.Digest{Key: 100, DataType: telem.Float64T},
 				channels.Digest{Key: 200, DataType: telem.Float64T},
 			)
@@ -286,7 +286,7 @@ my_sensor -> math.min{} -> output_sensor`, resolver,
 					"output_sensor": {types.F64(), 200},
 				})
 				h := newRuntimeHarness(ctx, `import math
-my_sensor -> math.max{} -> output_sensor`, resolver,
+my_sensor -> math.max() -> output_sensor`, resolver,
 					channels.Digest{Key: 100, DataType: telem.Float64T},
 					channels.Digest{Key: 200, DataType: telem.Float64T},
 				)
@@ -315,7 +315,7 @@ my_sensor -> math.max{} -> output_sensor`, resolver,
 				})
 				h := newRuntimeHarness(
 					ctx,
-					`my_sensor -> derivative{} -> rate_out`,
+					`my_sensor -> derivative() -> rate_out`,
 					resolver,
 					channels.Digest{Key: 99, DataType: telem.TimestampT},
 					channels.Digest{Key: 100, DataType: telem.Float64T, Index: 99},
@@ -354,7 +354,7 @@ my_sensor -> math.max{} -> output_sensor`, resolver,
 					"rate_out":  {types.F64(), 200},
 				})
 				h := newRuntimeHarness(ctx, `import math
-my_sensor -> math.derivative{} -> rate_out`, resolver,
+my_sensor -> math.derivative() -> rate_out`, resolver,
 					channels.Digest{Key: 99, DataType: telem.TimestampT},
 					channels.Digest{Key: 100, DataType: telem.Float64T, Index: 99},
 					channels.Digest{Key: 200, DataType: telem.Float64T},

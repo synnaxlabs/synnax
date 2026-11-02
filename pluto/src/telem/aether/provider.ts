@@ -17,7 +17,6 @@ import { alamos } from "@/alamos/aether";
 import { status } from "@/status/aether";
 import { synnax } from "@/synnax/aether";
 import { Context, CONTEXT_KEY, setContext } from "@/telem/aether/context";
-import { GL_TRANSFORM } from "@/telem/aether/convertSeries";
 import {
   type CompoundFactory,
   createFactory,
@@ -61,9 +60,7 @@ export const createProvider = (
         const { connection } = core;
         const now = (): TimeStamp =>
           TimeStamp.now().sub(connection.status.details.clockSkew);
-        // The feed caches series in the representation this thread renders.
         this.feed = core.openFeed({
-          transform: GL_TRANSFORM,
           instrumentation: i.instrumentation,
           now,
         });

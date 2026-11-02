@@ -9,8 +9,7 @@
 
 import { type CrudeSeries, Series } from "@synnaxlabs/x";
 
-import { type channel } from "@/channel";
-import { analyzeParams, paramsZ } from "@/channel/payload";
+import { channel } from "@/channel";
 import { QueryError, ValidationError } from "@/errors";
 import { Codec } from "@/framer/codec";
 import { type CrudeFrame, Frame } from "@/framer/frame";
@@ -23,7 +22,7 @@ const retrieveRequired = async (
   retrieve: ChannelRetriever,
   channels: channel.Params,
 ): Promise<channel.Payload[]> => {
-  const { normalized } = analyzeParams(channels);
+  const { normalized } = channel.analyzeParams(channels);
   const results = await retrieve(normalized);
   const notFound: (channel.Key | channel.Name)[] = [];
   normalized.forEach((v) => {
@@ -39,6 +38,7 @@ export class ReadAdapter {
   private readonly retrieveChannels: ChannelRetriever;
   keys: Set<channel.Key>;
   codec: Codec;
+  private fetched: channel.Payload[] = [];
 
   private constructor(retrieveChannels: ChannelRetriever) {
     this.retrieveChannels = retrieveChannels;
@@ -53,20 +53,22 @@ export class ReadAdapter {
   ): Promise<ReadAdapter> {
     const adapter = new ReadAdapter(retrieveChannels);
     await adapter.update(channels);
+    adapter.advance();
     return adapter;
   }
 
+  /**
+   * Resolves the channels into the keys of the next request.
+   * @returns true when the keys changed.
+   */
   async update(channels: channel.Params): Promise<boolean> {
-    const { variant, normalized } = analyzeParams(channels);
+    const { variant, normalized } = channel.analyzeParams(channels);
     const fetched = await this.retrieveChannels(normalized);
     const newKeys = fetched.map((c) => c.key);
     const newKeySet = new Set(newKeys);
     if (newKeySet.size === this.keys.size && newKeySet.isSubsetOf(this.keys))
       return false;
-    this.codec.update(
-      newKeys,
-      fetched.map((c) => c.dataType),
-    );
+    this.fetched = fetched;
     if (variant === "keys") {
       this.adapter = null;
       this.keys = new Set(normalized);
@@ -81,6 +83,21 @@ export class ReadAdapter {
     });
     this.keys = new Set(this.adapter.keys());
     return true;
+  }
+
+  /**
+   * Advances the codec to the keys, as the Core does for every request that names
+   * channels. Call it once before each such request, or frames after it decode as
+   * empty.
+   */
+  advance(): void {
+    // The Core skips an update that carries no keys, and both sides must agree on the
+    // sequence number of each codec state.
+    if (this.fetched.length === 0) return;
+    this.codec.update(
+      this.fetched.map((c) => c.key),
+      this.fetched.map((c) => c.dataType),
+    );
   }
 
   adapt(frm: Frame): Frame {
@@ -129,7 +146,7 @@ export class WriteAdapter {
   }
 
   async adaptParams(data: channel.Params): Promise<channel.Key[]> {
-    const arrParams = paramsZ.parse(data);
+    const arrParams = channel.paramsZ.parse(data);
     const keys = await Promise.all(
       arrParams.map(async (p) => await this.adaptToKey(p)),
     );

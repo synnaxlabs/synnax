@@ -16,7 +16,7 @@
 #include "client/cpp/synnax.h"
 #include "client/cpp/testutil/testutil.h"
 #include "x/cpp/telem/telem.h"
-#include "x/cpp/test/test.h"
+#include "x/cpp/testutil/testutil.h"
 
 #include "arc/cpp/runtime/testutil/compile.h"
 #include "arc/cpp/runtime/wasm/module.h"
@@ -63,10 +63,10 @@ TEST(ModuleOpenTest, SucceedsWithValidModule) {
     );
 
     const std::string source = R"(
-func double(val f32) f32 {
+func double() {val f32} f32 {
     return val * 2
 }
-)" + ch.name + " -> double{}";
+)" + ch.name + " -> double()";
 
     const auto mod = testutil::compile_text(client, source);
     ASSERT_FALSE(mod.wasm.empty());
@@ -84,10 +84,10 @@ TEST(ModuleFuncTest, ReturnsNotFoundForMissingExport) {
     );
 
     const std::string source = R"(
-func double(val f32) f32 {
+func double() {val f32} f32 {
     return val * 2
 }
-)" + ch.name + " -> double{}";
+)" + ch.name + " -> double()";
 
     const auto prog = testutil::compile_text(client, source);
     const ModuleConfig cfg{.program = prog};
@@ -105,10 +105,10 @@ TEST(ModuleFuncTest, ReturnsValidFunctionForExistingExport) {
     );
 
     const std::string source = R"(
-func double(val f32) f32 {
+func double() {val f32} f32 {
     return val * 2
 }
-)" + ch.name + " -> double{}";
+)" + ch.name + " -> double()";
 
     const auto program = testutil::compile_text(client, source);
     const ModuleConfig cfg{.program = program};
@@ -124,10 +124,10 @@ TEST(FunctionCallTest, ExecutesFunctionAndReturnsResults) {
     );
 
     const std::string source = R"(
-func double(val f32) f32 {
+func double() {val f32} f32 {
     return val * 2
 }
-)" + ch.name + " -> double{}";
+)" + ch.name + " -> double()";
 
     const auto program = testutil::compile_text(client, source);
     const ModuleConfig cfg{.program = program};

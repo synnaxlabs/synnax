@@ -1,0 +1,95 @@
+# Copyright 2026 Synnax Labs, Inc.
+#
+# Use of this software is governed by the Business Source License included in the file
+# licenses/BSL.txt.
+#
+# As of the Change Date specified in that file, in accordance with the Business Source
+# License, use of this software will be governed by the Apache License, Version 2.0,
+# included in the file licenses/APL.txt.
+
+# Calls an agent each week to turn written conventions into lint rules. The prompt in
+# .github/agents/lint.md says what it does. Its report goes to Slack.
+
+name: Agent - Lint
+
+on:
+  schedule:
+    - cron: "0 8 * * 1" # Mondays, 8am UTC
+  workflow_dispatch:
+    inputs:
+      agent:
+        description: "Agent. default uses the AGENT_DEFAULT variable."
+        type: choice
+        options: [default, claude, codex]
+        default: default
+
+permissions: {}
+
+concurrency:
+  group: agent-lint
+  cancel-in-progress: false
+
+jobs:
+  prompt:
+    name: Write the prompt
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    outputs:
+      prompt: ${{ steps.prompt.outputs.prompt }}
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v7
+        with:
+          sparse-checkout: .github/agents
+
+      - name: Write the prompt
+        id: prompt
+        run: |
+          EOF=$(openssl rand -hex 16)
+          {
+            echo "prompt<<$EOF"
+            cat .github/agents/lint.md
+            printf '\nToday is %s.\n' "$(date -u +%F)"
+            echo "$EOF"
+          } >> "$GITHUB_OUTPUT"
+
+  agent:
+    name: Agent
+    needs: prompt
+    permissions:
+      actions: read
+      contents: write
+      id-token: write
+      issues: write
+      pull-requests: write
+    uses: ./.github/workflows/agent.yaml
+    with:
+      prompt: ${{ needs.prompt.outputs.prompt }}
+      agent: ${{ inputs.agent != 'default' && inputs.agent || '' }}
+      output: report
+      timeout-minutes: 180
+    secrets: inherit
+
+  report:
+    name: Post the report
+    needs: agent
+    if: ${{ always() && needs.agent.result != 'skipped' }}
+    runs-on: ubuntu-latest
+    permissions: {}
+    steps:
+      - name: Post the report to Slack
+        env:
+          REPORT: ${{ needs.agent.outputs.report }}
+          RESULT: ${{ needs.agent.result }}
+          SLACK_WEBHOOK_URL: ${{ secrets.SLACK_AGENT_REPORT_WEBHOOK_URL }}
+        run: |
+          if [ "$RESULT" != success ] || [ -z "$REPORT" ]; then
+            REPORT="The weekly lint pass did not finish ($RESULT)."
+          fi
+          printf '*Weekly lint pass*\n%s\n<%s|Run>\n' "$REPORT" \
+            "$GITHUB_SERVER_URL/$GITHUB_REPOSITORY/actions/runs/$GITHUB_RUN_ID" |
+            jq --raw-input --slurp '{text: .}' |
+            curl --fail --silent --show-error \
+              --header "Content-Type: application/json" \
+              --data @- "$SLACK_WEBHOOK_URL"

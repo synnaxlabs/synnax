@@ -12,6 +12,9 @@ package msgpack_test
 import (
 	"bytes"
 	"encoding/hex"
+	"encoding/json/jsontext"
+	"encoding/json/v2"
+	"reflect"
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
@@ -55,7 +58,7 @@ var _ = Describe("Codec", func() {
 	})
 	It("Should include a stack trace on encoding errors", func(ctx SpecContext) {
 		_, err := xmsgpack.Codec.Encode(ctx, make(chan int))
-		Expect(err).To(HaveOccurred())
+		Expect(err).To(MatchError(ContainSubstring("failed to encode value")))
 		stack := errors.GetStackTrace(err)
 		Expect(stack.String()).ToNot(BeEmpty())
 		Expect(stack.String()).To(ContainSubstring(".go"))
@@ -63,7 +66,7 @@ var _ = Describe("Codec", func() {
 	It("Should include a stack trace on decoding errors", func(ctx SpecContext) {
 		var d toEncode
 		err := xmsgpack.Codec.Decode(ctx, []byte("invalid"), &d)
-		Expect(err).To(HaveOccurred())
+		Expect(err).To(MatchError(ContainSubstring("failed to decode")))
 		stack := errors.GetStackTrace(err)
 		Expect(stack.String()).ToNot(BeEmpty())
 		Expect(stack.String()).To(ContainSubstring(".go"))
@@ -249,7 +252,10 @@ var _ = Describe("EncodedJSON", func() {
 			type config struct {
 				Count int `json:"count"`
 			}
-			Expect(m.Unmarshal(&config{})).ToNot(Succeed())
+			var semErr *json.SemanticError
+			Expect(errors.As(m.Unmarshal(&config{}), &semErr)).To(BeTrue())
+			Expect(semErr.JSONPointer).To(Equal(jsontext.Pointer("/count")))
+			Expect(semErr.GoType).To(Equal(reflect.TypeFor[int]()))
 		})
 	})
 	It("Should work with Codec", func(ctx SpecContext) {

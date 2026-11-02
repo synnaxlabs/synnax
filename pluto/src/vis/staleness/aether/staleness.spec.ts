@@ -8,17 +8,24 @@
 // included in the file licenses/APL.txt.
 
 import { Theming } from "@synnaxlabs/lyra/theming";
-import { color, type CrudeTimeSpan, TimeSpan, TimeStamp } from "@synnaxlabs/x";
+import {
+  color,
+  type CrudeTimeSpan,
+  type state,
+  TimeSpan,
+  TimeStamp,
+} from "@synnaxlabs/x";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import { type z } from "zod";
 
 import { aether } from "@/aether/aether";
-import { aetherTest } from "@/aether/test";
-import { type telem } from "@/telem/aether";
+import { aetherTest } from "@/aether/testutil";
+import { telem } from "@/telem/aether";
 import { buildStack } from "@/testutil/providers";
 import { staleness } from "@/vis/staleness/aether";
 
 const createSource = (): telem.Source<unknown> => ({
-  value: () => null,
+  value: () => telem.success(null),
   onChange: () => () => {},
 });
 
@@ -39,19 +46,18 @@ class Leaf extends aether.Leaf<
 
   afterUpdate(ctx: aether.Context): void {
     const { internal: i } = this;
-    i.registration = staleness.useRegistration(
+    i.registration = staleness.useStateRegistration(
       ctx,
       i.registration,
-      {
-        timeout: () => this.state.stalenessTimeout,
-        stale: () => this.state.stale,
-        onChange: (stale) => {
-          this.transitions.push(stale);
-          this.setState((p) => ({ ...p, stale }));
-        },
-      },
+      this,
       this.source,
     );
+  }
+
+  setState(next: state.SetArg<z.infer<typeof staleness.stateZ>>): void {
+    const prev = this.state.stale;
+    super.setState(next);
+    if (this.state.stale !== prev) this.transitions.push(this.state.stale);
   }
 
   received(): void {
@@ -66,7 +72,7 @@ class Leaf extends aether.Leaf<
 // Registers but never releases, so specs can reach the Provider's cleanup backstop.
 class LeakyLeaf extends aether.Leaf<
   typeof staleness.stateZ,
-  { registration: staleness.Registration }
+  { registration: staleness.Registration; stale: boolean }
 > {
   static readonly TYPE = "stalenessLeakyTestLeaf";
   static readonly z = staleness.stateZ;
@@ -76,15 +82,12 @@ class LeakyLeaf extends aether.Leaf<
 
   afterUpdate(ctx: aether.Context): void {
     const { internal: i } = this;
-    i.registration = staleness.useRegistration(
+    i.registration = staleness.useInternalRegistration(
       ctx,
       i.registration,
-      {
-        timeout: () => this.state.stalenessTimeout,
-        stale: () => this.state.stale,
-        onChange: () => {},
-      },
+      this,
       this.source,
+      () => {},
     );
   }
 }
@@ -386,7 +389,7 @@ describe("staleness", () => {
 
   describe("sample time", () => {
     const stamp = (leaf: Leaf, offset: CrudeTimeSpan): void => {
-      leaf.source.sampleTime = () => TimeStamp.now().add(offset);
+      leaf.source.value = () => telem.success(null, TimeStamp.now().add(offset));
     };
 
     it("should date the sample from its sample time", () => {
@@ -417,7 +420,7 @@ describe("staleness", () => {
 
     it("should read a sample without a time as arriving now", () => {
       const { leaf } = mount({ timeouts: [5] });
-      leaf.source.sampleTime = () => null;
+      leaf.source.value = () => telem.success(null);
       leaf.received();
       vi.advanceTimersByTime(4750);
       expect(leaf.transitions).toEqual([]);
@@ -435,14 +438,56 @@ describe("staleness", () => {
       expect(leaf.transitions).toEqual([true]);
     });
 
-    it("should clear staleness when a live sample follows an old one", () => {
+    it("should read every arrival after the first as live", () => {
       const { leaf } = mount({ timeouts: [5] });
       stamp(leaf, TimeSpan.seconds(-10));
       leaf.received();
-      leaf.source.sampleTime = () => null;
+      stamp(leaf, TimeSpan.seconds(-9));
       leaf.received();
       expect(leaf.transitions).toEqual([true, false]);
       expect(leaf.state.stale).toBe(false);
+    });
+  });
+
+  describe("appended", () => {
+    const append = (leaf: Leaf, appended: number, time: TimeStamp): void => {
+      leaf.source.value = () => ({ ...telem.success(null, time), appended });
+    };
+
+    it("should not count a change that keeps the appended count", () => {
+      const { leaf } = mount({ timeouts: [5] });
+      append(leaf, 1, TimeStamp.now());
+      leaf.received();
+      vi.advanceTimersByTime(4000);
+      leaf.received();
+      vi.advanceTimersByTime(1250);
+      expect(leaf.transitions).toEqual([true]);
+    });
+
+    it("should count a change that grows the appended count while its time holds", () => {
+      const { leaf } = mount({ timeouts: [5] });
+      const time = TimeStamp.now();
+      append(leaf, 1, time);
+      leaf.received();
+      vi.advanceTimersByTime(4000);
+      append(leaf, 2, time);
+      leaf.received();
+      vi.advanceTimersByTime(4000);
+      expect(leaf.transitions).toEqual([]);
+    });
+
+    it("should not count a count that falls and returns to its greatest", () => {
+      const { leaf } = mount({ timeouts: [5] });
+      const time = TimeStamp.now();
+      append(leaf, 3, time);
+      leaf.received();
+      vi.advanceTimersByTime(4000);
+      append(leaf, 2, time);
+      leaf.received();
+      append(leaf, 3, time);
+      leaf.received();
+      vi.advanceTimersByTime(1250);
+      expect(leaf.transitions).toEqual([true]);
     });
   });
 

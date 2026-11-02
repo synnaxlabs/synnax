@@ -11,8 +11,7 @@ package keywords
 
 import "github.com/synnaxlabs/x/set"
 
-// Reserved contains all C++ reserved keywords.
-var Reserved = set.New(
+var reserved = set.New(
 	"alignas", "alignof", "and", "and_eq", "asm",
 	"auto", "bitand", "bitor", "bool", "break",
 	"case", "catch", "char", "char16_t", "char32_t",
@@ -35,7 +34,7 @@ var Reserved = set.New(
 
 // Escape appends an underscore suffix to names that collide with C++ reserved keywords.
 func Escape(name string) string {
-	if Reserved.Contains(name) {
+	if reserved.Contains(name) {
 		return name + "_"
 	}
 	return name

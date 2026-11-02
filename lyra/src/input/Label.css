@@ -10,7 +10,7 @@
  */
 
 /* Help text shares the label's size, so weight tells them apart. */
-.pluto-input-label {
+.lyra-input-label {
     color: var(--pluto-gray-l9);
     font-size: var(--pluto-small-size);
     font-weight: 500;
@@ -18,7 +18,7 @@
     width: fit-content;
     white-space: nowrap;
 
-    & .pluto-required-indicator {
+    & .lyra-required-indicator {
         color: var(--pluto-error-z);
     }
 }

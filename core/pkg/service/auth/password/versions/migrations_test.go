@@ -22,17 +22,19 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/service/auth/password/versions"
 	authv0 "github.com/synnaxlabs/synnax/pkg/service/auth/versions/v0"
 	authv1 "github.com/synnaxlabs/synnax/pkg/service/auth/versions/v1"
+	userversions "github.com/synnaxlabs/synnax/pkg/service/user/versions"
 	userv0 "github.com/synnaxlabs/synnax/pkg/service/user/versions/v0"
 	"github.com/synnaxlabs/x/encoding/msgpack"
-	"github.com/synnaxlabs/x/kv/memkv"
 	. "github.com/synnaxlabs/x/testutil"
+	"github.com/synnaxlabs/x/testutil/memkv"
 	"golang.org/x/crypto/bcrypt"
 )
 
 var _ = Describe("MoveLegacy", func() {
 	var (
-		db    *gorp.DB
-		users []userv0.User
+		db       *gorp.DB
+		legacyDB *gorp.DB
+		users    []userv0.User
 	)
 	login := func(
 		ctx context.Context,
@@ -54,7 +56,7 @@ var _ = Describe("MoveLegacy", func() {
 			To(Succeed())
 		hash := MustSucceed(bcrypt.GenerateFromPassword([]byte("p"), bcrypt.MinCost))
 		// the untagged MessagePack shape a Core before 0.59 stored
-		legacyDB := gorp.Wrap(kvDB, gorp.WithCodec(msgpack.Codec))
+		legacyDB = gorp.Wrap(kvDB, gorp.WithCodec(msgpack.Codec))
 		Expect(gorp.WrapWriter[string, authv0.SecureCredentials](legacyDB).Set(ctx,
 			authv0.SecureCredentials{Username: "alice", Password: hash},
 			authv0.SecureCredentials{Username: "bob", Password: hash},
@@ -72,6 +74,29 @@ var _ = Describe("MoveLegacy", func() {
 			To(MatchError(auth.ErrInvalidCredentials))
 		Expect(gorp.NewRetrieve[string, authv1.SecureCredentials]().Exists(ctx, db)).
 			To(BeFalse())
+	})
+	It("Should move credentials for users a Core before 0.59 stored", func(
+		ctx SpecContext,
+	) {
+		Expect(gorp.WrapWriter[userv0.Key, userv0.User](legacyDB).Set(ctx, users...)).
+			To(Succeed())
+		Expect(versions.MoveLegacy(ctx, db, alamos.Instrumentation{})).To(Succeed())
+		Expect(gorp.Migrate(ctx, gorp.MigrateConfig{
+			DB:         db,
+			Namespace:  "User",
+			Migrations: userversions.Migrations,
+		})).To(Succeed())
+		svc := MustOpen(password.OpenService(ctx, password.ServiceConfig{DB: db}))
+		for _, u := range users {
+			Expect(MustSucceed(login(ctx, svc, u.Username)).Subject).
+				To(Equal(u.OntologyID()))
+			var migrated userversions.User
+			Expect(gorp.NewRetrieve[userversions.Key, userversions.User]().
+				Where(gorp.MatchKeys[userversions.Key, userversions.User](u.Key)).
+				Entry(&migrated).
+				Exec(ctx, db)).To(Succeed())
+			Expect(migrated.Name).To(Equal(u.Username))
+		}
 	})
 	It("Should run once", func(ctx SpecContext) {
 		Expect(versions.MoveLegacy(ctx, db, alamos.Instrumentation{})).To(Succeed())

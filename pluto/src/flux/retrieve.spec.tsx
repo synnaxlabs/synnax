@@ -60,6 +60,8 @@ const createLiveWrapper = (port: number): FC<PropsWithChildren> => {
   });
   const connParams = {
     ...TEST_CLIENT_PARAMS,
+    // The proxy listens on this machine, even when the Core runs on another.
+    host: "localhost",
     port,
     // Unbounded retries: a capped breaker stops the streamer from ever reopening.
     retry: {

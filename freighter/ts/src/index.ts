@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-export { EOF, StreamClosed, Unreachable } from "@/errors";
+export { EOF, FreighterError, StreamClosed, Unreachable } from "@/errors";
 export {
   type FileEncoding,
   type FileOptions,

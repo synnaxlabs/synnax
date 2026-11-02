@@ -8,15 +8,7 @@
 // included in the file licenses/APL.txt.
 
 import { type Action, type UnknownAction } from "@reduxjs/toolkit";
-import {
-  box,
-  debounce as xDebounce,
-  deep,
-  dimensions,
-  runtime,
-  TimeSpan,
-  xy,
-} from "@synnaxlabs/x";
+import { box, deep, dimensions, runtime, scheduler, TimeSpan, xy } from "@synnaxlabs/x";
 import {
   emit,
   type Event as TauriEvent,
@@ -181,7 +173,7 @@ export class TauriRuntime<
     for (const { key, handler, debounce } of propsHandlers)
       this.unsubscribe[key] = await this.win.listen(
         key,
-        xDebounce.debounce(() => {
+        scheduler.debounce(() => {
           this.applyPropChange(handler).catch((err: unknown) =>
             console.error(
               `failed to handle window prop change "${key}" for ${this.win.label}`,

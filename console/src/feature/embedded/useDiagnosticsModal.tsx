@@ -37,6 +37,7 @@ import { useRestart } from "@/feature/embedded/useRestart";
 import { useReveal } from "@/feature/embedded/useReveal";
 import { CSS } from "@/platform/css";
 import { Modals } from "@/platform/modals";
+import { Session } from "@/session";
 
 const LOG_REFRESH_INTERVAL = TimeSpan.seconds(2);
 
@@ -195,15 +196,17 @@ const DiagnosticsModal = () => {
           align="center"
           className={CSS.BE("diagnostics", "actions")}
         >
-          <Button.Button
-            className={CSS.BE("diagnostics", "erase")}
-            variant="text"
-            status="error"
-            onClick={reset}
-          >
-            <Icon.Delete />
-            Erase all data
-          </Button.Button>
+          {Session.Runtime.isMainWindow() && (
+            <Button.Button
+              className={CSS.BE("diagnostics", "erase")}
+              variant="text"
+              status="error"
+              onClick={reset}
+            >
+              <Icon.Delete />
+              Erase all data
+            </Button.Button>
+          )}
           <Button.Button variant="outlined" onClick={revealData}>
             <Icon.Explore />
             Show data folder

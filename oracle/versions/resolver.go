@@ -212,7 +212,7 @@ func (r *Resolver) file(ctx context.Context, livePath string, n int) (*File, err
 	var live, livePaths []string
 	for _, imp := range ast.AllImportStmt() {
 		p := strings.Trim(imp.STRING_LIT().GetText(), `"`)
-		depLive, err := LiveFromFilePath(p)
+		depLive, err := liveFromFilePath(p)
 		if err != nil {
 			live = append(live, resourceOf(p))
 			livePaths = append(livePaths, p)
@@ -505,8 +505,11 @@ func (b *tableBuilder) addSurface(
 			return err
 		}
 	}
+	// Newest first: a union patched at a later version redeclares its variant payloads
+	// under the same names, and those must win over the base version's.
 	sortedDefiners := definers.Slice()
 	slices.Sort(sortedDefiners)
+	slices.Reverse(sortedDefiners)
 	for _, v := range sortedDefiners {
 		definer, err := b.r.file(ctx, livePath, v)
 		if err != nil {

@@ -14,10 +14,8 @@
 package aspen
 
 import (
-	"net"
 	"time"
 
-	"github.com/cockroachdb/pebble/v2/vfs"
 	"github.com/synnaxlabs/alamos"
 	"github.com/synnaxlabs/aspen/internal/cluster"
 	"github.com/synnaxlabs/aspen/internal/kv"
@@ -35,9 +33,6 @@ type Option func(*options)
 
 type options struct {
 	alamos.Instrumentation
-	// fs sets the filesystem to be used for storing data. This option is ignored if a
-	// custom kv.ServiceConfig.Engine is set.
-	fs vfs.FS
 	// transport is the transport package for the messages that aspen exchanges. This
 	// setting overrides all other transport settings in sub-configs.
 	transport struct {
@@ -57,9 +52,6 @@ type options struct {
 	dirname string
 	// addr sets the address for the host node.
 	addr address.Address
-	// lis is a pre-bound listener to serve the owned transport on. When nil, Open binds
-	// addr itself.
-	lis net.Listener
 	// kv gives the configuration for key-value options.
 	kv kv.Config
 	// peerAddresses sets the addresses for the peers of the host node.
@@ -69,24 +61,17 @@ type options struct {
 	// externalKV is a boolean flag indicating whether the caller provided an external
 	// key-value engine. If so, Aspen will not close the engine when it shuts down.
 	externalKV bool
-	// bootstrap is a boolean used to indicate whether to bootstrap a new cluster.
-	bootstrap bool
 }
 
 func (o *options) Report() alamos.Report {
 	// The key-value store and cluster state services will attach their own reports to
 	// the instrumentation, so we only need to report values that they won't.
 	return alamos.Report{
-		"dirname":   o.dirname,
-		"addr":      o.addr,
-		"peers":     o.peerAddresses,
-		"bootstrap": o.bootstrap,
+		"dirname": o.dirname,
+		"addr":    o.addr,
+		"peers":   o.peerAddresses,
 	}
 }
-
-// Bootstrap tells Aspen to bootstrap a new cluster. This option automatically assigns
-// the host node and NodeID of 1.
-func Bootstrap() Option { return func(o *options) { o.bootstrap = true } }
 
 // WithEngine sets the underlying KV engine that Aspen uses to store its data. When
 // using this option, the caller should transfer all responsibility for executing
@@ -101,24 +86,9 @@ func WithTransport(transport Transport) Option {
 	return func(o *options) { o.transport.Transport = transport }
 }
 
-// WithListener sets a pre-bound listener to serve on, letting the caller learn the
-// address before Open returns. Aspen takes ownership once it starts serving, and closes
-// the listener on shutdown or on a failure after that point. A caller can always close
-// the listener after a failed Open: a second close returns net.ErrClosed. The host
-// address keeps its configured host with the listener's port substituted. Open returns
-// a validation error if the listener is not bound to a TCP address, or if the caller
-// also passes a transport with WithTransport.
-func WithListener(lis net.Listener) Option { return func(o *options) { o.lis = lis } }
-
 // WithInstrumentation sets the instrumentation for Aspen.
 func WithInstrumentation(i alamos.Instrumentation) Option {
 	return func(o *options) { o.Instrumentation = i }
-}
-
-// InMemory sets Aspen to use a memory-backed key-value engine. This option is ignored
-// if a custom key-value engine is set (using WithEngine).
-func InMemory() Option {
-	return func(o *options) { o.dirname = ""; o.fs = vfs.NewMem() }
 }
 
 // PropagationConfig is a set of configurable values that tune how quickly state
@@ -208,9 +178,4 @@ func mergeDefaultOptions(o *options) {
 	o.kv.Instrumentation = o.Child("kv")
 	o.cluster.HostAddress = o.addr
 	o.cluster.Pledge.Peers = o.peerAddresses
-	// If we're bootstrapping these options are ignored.
-	if o.bootstrap {
-		o.peerAddresses = []address.Address{}
-		o.cluster.Pledge.Peers = []address.Address{}
-	}
 }

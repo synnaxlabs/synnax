@@ -8,22 +8,22 @@
 // included in the file licenses/APL.txt.
 
 import { alamos } from "@synnaxlabs/alamos";
-import {
-  DataType,
-  type MultiSeries,
-  Series,
-  sleep,
-  TimeSpan,
-  TimeStamp,
-} from "@synnaxlabs/x";
+import { DataType, Series, sleep, TimeSpan, TimeStamp } from "@synnaxlabs/x";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
-import { channel } from "@/channel";
-import { AccessDeniedError, NotFoundError, UnexpectedError } from "@/errors";
-import { type framer } from "@/framer";
-import { Cache } from "@/framer/cache/cache";
+import { type channel } from "@/channel";
+import { framer } from "@/framer";
+import { Joins } from "@/framer/cache/join";
+import { Store } from "@/framer/cache/store";
 import { MultiplexedStreamer, type StreamHooks } from "@/framer/cache/streamer";
-import { Frame } from "@/framer/frame";
+import { NotFoundError, UnexpectedError } from "@/index";
+
+// Returns the stores a streamer writes into, with no join that can wait.
+const createCache = (store: Store = new Store()) => ({
+  store,
+  joins: new Joins(store),
+  onWait: () => {},
+});
 
 const createErrorSpy = () => {
   const instrumentation = new alamos.Instrumentation({
@@ -172,7 +172,7 @@ describe("MultiplexedStreamer", () => {
     it("should stream every other key when the open rejects one", async () => {
       const opened: channel.Key[][] = [];
       const streamer = new MultiplexedStreamer({
-        cache: new Cache(),
+        ...createCache(),
         openStreamer: async (config) => {
           const keys = channelsOf(config);
           opened.push(keys);
@@ -181,7 +181,7 @@ describe("MultiplexedStreamer", () => {
         },
         instrumentation: createErrorSpy().instrumentation,
       });
-      const sub = streamer.stream(() => {}, [1, 2, BAD]);
+      const sub = streamer.demand([1, 2, BAD], () => {});
       await vi.advanceTimersByTimeAsync(1000);
       expect(sub.status(1).variant).toEqual("success");
       expect(sub.status(2).variant).toEqual("success");
@@ -194,7 +194,7 @@ describe("MultiplexedStreamer", () => {
 
     it("should stream a key opened after a rejected one", async () => {
       const streamer = new MultiplexedStreamer({
-        cache: new Cache(),
+        ...createCache(),
         openStreamer: async (config) => {
           const keys = channelsOf(config);
           if (keys.includes(BAD)) throw new NotFoundError(`channel ${BAD} not found`);
@@ -202,7 +202,7 @@ describe("MultiplexedStreamer", () => {
         },
         instrumentation: createErrorSpy().instrumentation,
       });
-      const sub = streamer.stream(() => {}, [BAD, 1]);
+      const sub = streamer.demand([BAD, 1], () => {});
       await vi.advanceTimersByTimeAsync(1000);
       expect(sub.status(1).variant).toEqual("success");
       expect(sub.status(BAD).variant).toEqual("error");
@@ -211,13 +211,13 @@ describe("MultiplexedStreamer", () => {
 
     it("should keep a rejected key's error when no other key is demanded", async () => {
       const streamer = new MultiplexedStreamer({
-        cache: new Cache(),
+        ...createCache(),
         openStreamer: async () => {
           throw new NotFoundError(`channel ${BAD} not found`);
         },
         instrumentation: createErrorSpy().instrumentation,
       });
-      const sub = streamer.stream(() => {}, [BAD]);
+      const sub = streamer.demand([BAD], () => {});
       await vi.advanceTimersByTimeAsync(1000);
       expect(sub.status(BAD).variant).toEqual("error");
       await streamer.close();
@@ -226,18 +226,18 @@ describe("MultiplexedStreamer", () => {
     it("should give each opened stream its own abort signal", async () => {
       const hooks: StreamHooks[] = [];
       const streamer = new MultiplexedStreamer({
-        cache: new Cache(),
+        ...createCache(),
         openStreamer: createStreamOpener(
           [pendingStreamer([1]), pendingStreamer([1])],
           hooks,
         ),
         removalDelay: TimeSpan.milliseconds(10),
       });
-      const first = streamer.stream(() => {}, [1]);
+      const first = streamer.demand([1], () => {});
       await vi.advanceTimersByTimeAsync(200);
       first.close();
       await vi.advanceTimersByTimeAsync(500);
-      streamer.stream(() => {}, [1]);
+      streamer.demand([1], () => {});
       await vi.advanceTimersByTimeAsync(200);
       expect(hooks).toHaveLength(2);
       expect(hooks[0].signal).not.toBe(hooks[1].signal);
@@ -249,18 +249,36 @@ describe("MultiplexedStreamer", () => {
     it("should keep streaming when an update adds a rejected key", async () => {
       const ms = rejectingStreamer([1]);
       const streamer = new MultiplexedStreamer({
-        cache: new Cache(),
+        ...createCache(),
         openStreamer: createStreamOpener([ms]),
         instrumentation: createErrorSpy().instrumentation,
       });
-      const first = streamer.stream(() => {}, [1]);
+      const first = streamer.demand([1], () => {});
       await vi.advanceTimersByTimeAsync(200);
-      const second = streamer.stream(() => {}, [2, BAD]);
+      const second = streamer.demand([2, BAD], () => {});
       await vi.advanceTimersByTimeAsync(1000);
       expect(first.status(1).variant).toEqual("success");
       expect(second.status(2).variant).toEqual("success");
       expect(second.status(BAD).variant).toEqual("error");
       expect(ms.updateVi).toHaveBeenLastCalledWith([1, 2]);
+      await streamer.close();
+    });
+
+    it("should narrow a rejected key without waiting between attempts", async () => {
+      const ms = rejectingStreamer([1]);
+      const streamer = new MultiplexedStreamer({
+        ...createCache(),
+        openStreamer: createStreamOpener([ms]),
+        instrumentation: createErrorSpy().instrumentation,
+      });
+      streamer.demand([1], () => {});
+      await vi.advanceTimersByTimeAsync(1);
+      const sub = streamer.demand([2, 4, 5, BAD], () => {});
+      await vi.advanceTimersByTimeAsync(100);
+      expect(sub.status(2).variant).toEqual("success");
+      expect(sub.status(4).variant).toEqual("success");
+      expect(sub.status(5).variant).toEqual("success");
+      expect(sub.status(BAD).variant).toEqual("error");
       await streamer.close();
     });
 
@@ -273,19 +291,19 @@ describe("MultiplexedStreamer", () => {
         await update(next);
       };
       const streamer = new MultiplexedStreamer({
-        cache: new Cache(),
+        ...createCache(),
         openStreamer: createStreamOpener([ms]),
         removalDelay: TimeSpan.milliseconds(10),
         instrumentation: createErrorSpy().instrumentation,
       });
-      streamer.stream(() => {}, [1]);
+      streamer.demand([1], () => {});
       await vi.advanceTimersByTimeAsync(200);
-      const bad = streamer.stream(() => {}, [BAD]);
+      const bad = streamer.demand([BAD], () => {});
       await vi.advanceTimersByTimeAsync(1000);
       expect(attempts).toBe(1);
       bad.close();
       await vi.advanceTimersByTimeAsync(1000);
-      const again = streamer.stream(() => {}, [BAD]);
+      const again = streamer.demand([BAD], () => {});
       await vi.advanceTimersByTimeAsync(1000);
       expect(attempts).toBe(2);
       expect(again.status(BAD).variant).toEqual("error");
@@ -296,7 +314,7 @@ describe("MultiplexedStreamer", () => {
   describe("construction", () => {
     it("should correctly construct a new streamer that operates", () => {
       const streamer = new MultiplexedStreamer({
-        cache: new Cache(),
+        ...createCache(),
         openStreamer: createStreamOpener([new MockStreamer([])]),
       });
       expect(streamer).toBeDefined();
@@ -307,14 +325,14 @@ describe("MultiplexedStreamer", () => {
     it("should allow the caller to subscribe to changes from a channel", async () => {
       let i = 0;
       const streamer = new MultiplexedStreamer({
-        cache: new Cache(),
+        ...createCache(),
         openStreamer: createStreamOpener([
           new MockStreamer([1], async () => {
             await sleep.sleep(TimeSpan.milliseconds(5));
             i++;
             return {
               done: false,
-              value: new Frame({
+              value: new framer.Frame({
                 1: new Series({
                   data: new Float32Array([1]),
                   alignment: BigInt(i),
@@ -325,30 +343,20 @@ describe("MultiplexedStreamer", () => {
         ]),
       });
 
-      const responses: Map<channel.Key, MultiSeries>[] = [];
-      const sub = streamer.stream((d) => responses.push(d), [1]);
-      // The initial buffers land synchronously, before any stream is opened.
-      expect(responses).toHaveLength(1);
-      expect(responses[0].get(1)?.series.length).toEqual(0);
+      const frames: Map<channel.Key, Series[]>[] = [];
+      const sub = streamer.demand([1], (frame) => frames.push(frame));
       expect(sub.status(1).variant).toEqual("loading");
-      // Advance past the 100ms reconcile delay plus enough 5ms read cycles to get
-      // well over 5 responses.
+      // Advance through enough 5ms read cycles to get well over 5 frames.
       await vi.advanceTimersByTimeAsync(200);
       sub.close();
 
-      expect(responses.length).toBeGreaterThan(5);
-      // We should only ever get data for that particular channel.
-      expect(responses.filter((r) => r.get(1)?.series.length === 0)).toHaveLength(
-        responses.length - 1,
-      );
-      // Only one response carries the allocated buffer; subsequent frames land in it
-      // and the handler re-reads it.
-      expect(responses.filter((r) => r.get(1)?.series.length === 1)).toHaveLength(1);
+      expect(frames.length).toBeGreaterThan(5);
+      frames.forEach((f) => expect([...f.keys()]).toEqual([1]));
       expect(sub.status(1).variant).toEqual("success");
     });
 
-    it("should deliver the allocated buffer when a frame repeats a key", async () => {
-      const frame = new Frame(
+    it("should deliver the series of a key a frame repeats together", async () => {
+      const frame = new framer.Frame(
         [1, 1],
         [
           new Series({ data: new Float32Array([1]), alignment: 0n }),
@@ -373,23 +381,20 @@ describe("MultiplexedStreamer", () => {
         origClose();
       };
       const streamer = new MultiplexedStreamer({
-        cache: new Cache(),
+        ...createCache(),
         openStreamer: createStreamOpener([ms]),
       });
-      const responses: Map<channel.Key, MultiSeries>[] = [];
-      streamer.stream((d) => responses.push(d), [1]);
+      const frames: Map<channel.Key, Series[]>[] = [];
+      streamer.demand([1], (f) => frames.push(f));
       await vi.advanceTimersByTimeAsync(200);
-      // Both series land in one write, so the handler sees the allocated buffer
-      // holding both samples instead of an empty result from a second write.
-      const delivered = responses.filter((r) => (r.get(1)?.series.length ?? 0) > 0);
-      expect(delivered).toHaveLength(1);
-      expect(delivered[0].get(1)?.length).toEqual(2);
+      expect(frames).toHaveLength(1);
+      expect(frames[0].get(1)).toEqual(frame.series);
       await streamer.close();
     });
   });
 
   describe("reconcile race", () => {
-    it("should not open two concurrent streamers when stream() is called twice during a slow open", async () => {
+    it("should not open two concurrent streamers when demand() is called twice during a slow open", async () => {
       const ms1 = pendingStreamer([1]);
       const ms2 = pendingStreamer([1, 2]);
       const queue = [ms1, ms2];
@@ -403,14 +408,14 @@ describe("MultiplexedStreamer", () => {
       };
 
       const streamer = new MultiplexedStreamer({
-        cache: new Cache(),
+        ...createCache(),
         openStreamer: slowOpener,
       });
 
-      const sub1 = streamer.stream(() => {}, [1]);
-      // Advance so reconcile #1 is mid-open (sleep ends at T=400).
+      const sub1 = streamer.demand([1], () => {});
+      // Advance so reconcile #1 is mid-open (sleep ends at T=300).
       await vi.advanceTimersByTimeAsync(150);
-      const sub2 = streamer.stream(() => {}, [2]);
+      const sub2 = streamer.demand([2], () => {});
       await vi.advanceTimersByTimeAsync(700);
 
       expect(openCalls).toBe(1);
@@ -425,6 +430,59 @@ describe("MultiplexedStreamer", () => {
     });
   });
 
+  describe("update timing", () => {
+    it("should open the stream on the next task after the first subscription", async () => {
+      const open = vi.fn(createStreamOpener([pendingStreamer([1])]));
+      const streamer = new MultiplexedStreamer({
+        ...createCache(),
+        openStreamer: open,
+      });
+      streamer.demand([1], () => {});
+      expect(open).not.toHaveBeenCalled();
+      await vi.advanceTimersByTimeAsync(1);
+      expect(open).toHaveBeenCalledOnce();
+      await streamer.close();
+    });
+
+    it("should open one stream with every key subscribed in the same task", async () => {
+      const open = vi.fn(createStreamOpener([pendingStreamer([1, 2, 3])]));
+      const streamer = new MultiplexedStreamer({
+        ...createCache(),
+        openStreamer: open,
+      });
+      streamer.demand([1], () => {});
+      streamer.demand([2], () => {});
+      streamer.demand([3], () => {});
+      await vi.advanceTimersByTimeAsync(1);
+      expect(open).toHaveBeenCalledOnce();
+      expect(open).toHaveBeenCalledWith(
+        expect.objectContaining({ channels: [1, 2, 3] }),
+        expect.anything(),
+      );
+      await streamer.close();
+    });
+
+    it("should update the stream at most once per 100 ms while demand keeps changing", async () => {
+      const ms = pendingStreamer([1]);
+      const streamer = new MultiplexedStreamer({
+        ...createCache(),
+        openStreamer: createStreamOpener([ms]),
+      });
+      streamer.demand([1], () => {});
+      await vi.advanceTimersByTimeAsync(1);
+      for (let key = 2; key <= 31; key++) {
+        streamer.demand([key], () => {});
+        await vi.advanceTimersByTimeAsync(10);
+      }
+      await vi.advanceTimersByTimeAsync(100);
+      expect(ms.updateVi).toHaveBeenCalledTimes(3);
+      expect(ms.updateVi).toHaveBeenLastCalledWith(
+        Array.from({ length: 31 }, (_, i) => i + 1),
+      );
+      await streamer.close();
+    });
+  });
+
   describe("closed guard", () => {
     it("should not open a streamer if close() is called before the reconcile fires", async () => {
       let openCalls = 0;
@@ -433,11 +491,11 @@ describe("MultiplexedStreamer", () => {
         return pendingStreamer([1]);
       };
       const streamer = new MultiplexedStreamer({
-        cache: new Cache(),
+        ...createCache(),
         openStreamer: opener,
       });
 
-      streamer.stream(() => {}, [1]);
+      streamer.demand([1], () => {});
       await streamer.close();
       await vi.advanceTimersByTimeAsync(500);
 
@@ -453,11 +511,11 @@ describe("MultiplexedStreamer", () => {
         return ms1;
       };
       const streamer = new MultiplexedStreamer({
-        cache: new Cache(),
+        ...createCache(),
         openStreamer: slowOpener,
       });
 
-      streamer.stream(() => {}, [1]);
+      streamer.demand([1], () => {});
       await vi.advanceTimersByTimeAsync(150);
       // close() must wait for the in-flight reconcile to finish so that it can
       // observe the newly-assigned streamer and tear it down.
@@ -472,63 +530,47 @@ describe("MultiplexedStreamer", () => {
     it("should close the underlying streamer when the last listener disconnects", async () => {
       const ms1 = pendingStreamer([1]);
       const streamer = new MultiplexedStreamer({
-        cache: new Cache(),
+        ...createCache(),
         openStreamer: createStreamOpener([ms1]),
         removalDelay: TimeSpan.milliseconds(50),
       });
 
-      const sub = streamer.stream(() => {}, [1]);
+      const sub = streamer.demand([1], () => {});
       await vi.advanceTimersByTimeAsync(200);
       expect(ms1.closeVi).not.toHaveBeenCalled();
 
       sub.close();
-      // removalDelay (50ms) + reconcile delay (100ms) + slack so the no-keys branch
-      // tears down the streamer.
+      // removalDelay (50ms) + slack so the no-keys branch tears down the streamer.
       await vi.advanceTimersByTimeAsync(300);
 
       expect(ms1.closeVi).toHaveBeenCalled();
     });
 
-    it("should throw when stream() is called after close()", async () => {
+    it("should release a subscription closed twice", async () => {
+      const ms1 = pendingStreamer([1]);
       const streamer = new MultiplexedStreamer({
-        cache: new Cache(),
+        ...createCache(),
+        openStreamer: createStreamOpener([ms1]),
+        removalDelay: TimeSpan.milliseconds(50),
+      });
+
+      const sub = streamer.demand([1], () => {});
+      await vi.advanceTimersByTimeAsync(200);
+      sub.close();
+      sub.close();
+      await vi.advanceTimersByTimeAsync(300);
+
+      expect(ms1.closeVi).toHaveBeenCalled();
+      await streamer.close();
+    });
+
+    it("should throw when demand() is called after close()", async () => {
+      const streamer = new MultiplexedStreamer({
+        ...createCache(),
         openStreamer: createStreamOpener([]),
       });
       await streamer.close();
-      expect(() => streamer.stream(() => {}, [1])).toThrow(UnexpectedError);
-    });
-  });
-
-  describe("registration atomicity", () => {
-    it("should register no demand when the handler throws on its initial call", async () => {
-      const openedWith: unknown[] = [];
-      const opener = async (
-        config: framer.StreamerConfig,
-      ): Promise<framer.Streamer> => {
-        if (typeof config === "object" && "channels" in config)
-          openedWith.push(config.channels);
-        return pendingStreamer([2]);
-      };
-      const streamer = new MultiplexedStreamer({
-        cache: new Cache(),
-        openStreamer: opener,
-      });
-
-      expect(() =>
-        streamer.stream(() => {
-          throw new Error("broken handler");
-        }, [1]),
-      ).toThrow("broken handler");
-      await vi.advanceTimersByTimeAsync(500);
-      expect(openedWith).toHaveLength(0);
-
-      // A later subscriber must not drag the failed registration's keys onto the
-      // stream.
-      const responses: Map<channel.Key, MultiSeries>[] = [];
-      streamer.stream((d) => responses.push(d), [2]);
-      await vi.advanceTimersByTimeAsync(200);
-      expect(openedWith).toEqual([[2]]);
-      expect(responses).toHaveLength(1);
+      expect(() => streamer.demand([1], () => {})).toThrow(UnexpectedError);
     });
   });
 
@@ -536,17 +578,17 @@ describe("MultiplexedStreamer", () => {
     it("should not call update again when the merged key set is unchanged", async () => {
       const ms1 = pendingStreamer([1]);
       const streamer = new MultiplexedStreamer({
-        cache: new Cache(),
+        ...createCache(),
         openStreamer: createStreamOpener([ms1]),
       });
 
-      const sub1 = streamer.stream(() => {}, [1]);
+      const sub1 = streamer.demand([1], () => {});
       await vi.advanceTimersByTimeAsync(200);
       expect(ms1.updateVi).not.toHaveBeenCalled();
 
       // Second subscriber on the same key: the merged set is still [1], so no
       // update round trip is issued.
-      const sub2 = streamer.stream(() => {}, [1]);
+      const sub2 = streamer.demand([1], () => {});
       await vi.advanceTimersByTimeAsync(200);
 
       expect(ms1.updateVi).not.toHaveBeenCalled();
@@ -569,15 +611,15 @@ describe("MultiplexedStreamer", () => {
       process.on("unhandledRejection", onRejection);
 
       const streamer = new MultiplexedStreamer({
-        cache: new Cache(),
+        ...createCache(),
         openStreamer: createStreamOpener([ms1]),
         instrumentation,
       });
 
       try {
-        const sub1 = streamer.stream(() => {}, [1]);
+        const sub1 = streamer.demand([1], () => {});
         await vi.advanceTimersByTimeAsync(200);
-        const sub2 = streamer.stream(() => {}, [2]);
+        const sub2 = streamer.demand([2], () => {});
         // First update throws; the streamer must back off and retry on its own.
         await vi.advanceTimersByTimeAsync(2000);
         expect(updateCalls).toBeGreaterThanOrEqual(2);
@@ -598,17 +640,17 @@ describe("MultiplexedStreamer", () => {
 
   describe("repair", () => {
     it("should reopen the stream when the run loop ends while demand remains", async () => {
-      const frame = new Frame({ 1: new Series(new Float32Array([1])) });
+      const frame = new framer.Frame({ 1: new Series(new Float32Array([1])) });
       // The first streamer delivers one frame and then reports done, simulating a
       // stream that dies. The streamer must detect the dead loop and reopen.
       const dying = new MockStreamer([1], undefined, [frame]);
       const replacement = pendingStreamer([1]);
       const streamer = new MultiplexedStreamer({
-        cache: new Cache(),
+        ...createCache(),
         openStreamer: createStreamOpener([dying, replacement]),
       });
 
-      const sub = streamer.stream(() => {}, [1]);
+      const sub = streamer.demand([1], () => {});
       await vi.advanceTimersByTimeAsync(1000);
 
       expect(replacement.iteratorVi).toHaveBeenCalled();
@@ -623,13 +665,13 @@ describe("MultiplexedStreamer", () => {
         Promise.withResolvers<void>();
       dying.update = async () => await updateGate;
       const streamer = new MultiplexedStreamer({
-        cache: new Cache(),
+        ...createCache(),
         openStreamer: createStreamOpener([dying, replacement]),
       });
 
-      const sub1 = streamer.stream(() => {}, [1]);
+      const sub1 = streamer.demand([1], () => {});
       await vi.advanceTimersByTimeAsync(200);
-      const sub2 = streamer.stream(() => {}, [2]);
+      const sub2 = streamer.demand([2], () => {});
       await vi.advanceTimersByTimeAsync(200);
 
       // The loop dies mid-update, so its repair clears the sent keys before the
@@ -656,7 +698,7 @@ describe("MultiplexedStreamer", () => {
           i++;
           return {
             done: false,
-            value: new Frame({
+            value: new framer.Frame({
               1: new Series({ data: new Float32Array([1]), alignment: BigInt(i) }),
             }),
           };
@@ -664,26 +706,24 @@ describe("MultiplexedStreamer", () => {
       };
       const { instrumentation, errorSpy } = createErrorSpy();
       const streamer = new MultiplexedStreamer({
-        cache: new Cache(),
+        ...createCache(),
         openStreamer: opener,
         instrumentation,
       });
 
       let brokenCalls = 0;
-      const broken = streamer.stream(() => {
+      const broken = streamer.demand([1], () => {
         brokenCalls++;
-        // Survive the initial synchronous call so registration completes, then
-        // throw on every live delivery.
-        if (brokenCalls > 1) throw new Error("broken live handler");
-      }, [1]);
-      const responses: Map<channel.Key, MultiSeries>[] = [];
-      const good = streamer.stream((d) => responses.push(d), [1]);
+        throw new Error("broken live handler");
+      });
+      const frames: Map<channel.Key, Series[]>[] = [];
+      const good = streamer.demand([1], (f) => frames.push(f));
       await vi.advanceTimersByTimeAsync(300);
       broken.close();
       good.close();
 
       expect(brokenCalls).toBeGreaterThan(5);
-      expect(responses.length).toBeGreaterThan(5);
+      expect(frames.length).toBeGreaterThan(5);
       expect(openCalls).toBe(1);
       expect(errorSpy).toHaveBeenCalledWith(
         "stream handler failed",
@@ -695,16 +735,16 @@ describe("MultiplexedStreamer", () => {
     it("should notify remaining status handlers when one throws", async () => {
       const { instrumentation, errorSpy } = createErrorSpy();
       const streamer = new MultiplexedStreamer({
-        cache: new Cache(),
+        ...createCache(),
         openStreamer: createStreamOpener([pendingStreamer([1])]),
         instrumentation,
       });
 
-      const broken = streamer.stream(() => {}, [1]);
+      const broken = streamer.demand([1], () => {});
       broken.onStatusChange(() => {
         throw new Error("broken status handler");
       });
-      const good = streamer.stream(() => {}, [1]);
+      const good = streamer.demand([1], () => {});
       const statuses: string[] = [];
       good.onStatusChange((_, s) => statuses.push(s.variant));
       await vi.advanceTimersByTimeAsync(300);
@@ -720,49 +760,15 @@ describe("MultiplexedStreamer", () => {
     });
   });
 
-  describe("per-key isolation", () => {
-    it("should keep streaming healthy channels when one channel's write fails", async () => {
-      const cache = new Cache();
-      let emitted = false;
-      const ms = new MockStreamer([1, 2], async () => {
-        if (emitted) return await new Promise(() => {});
-        emitted = true;
-        return {
-          done: false,
-          value: new Frame({
-            1: new Series(new Float32Array([1])),
-            2: new Series(new Float32Array([2])),
-          }),
-        };
-      });
-      const streamer = new MultiplexedStreamer({
-        cache,
-        openStreamer: createStreamOpener([ms]),
-      });
-
-      const received: Map<channel.Key, MultiSeries>[] = [];
-      const sub = streamer.stream((d) => received.push(d), [1, 2]);
-      // Kill channel 1's cache entry so its write throws.
-      cache.get(1).close();
-      await vi.advanceTimersByTimeAsync(300);
-
-      const withData = received.filter((r) => r.size > 0 && r.has(2));
-      expect(withData.length).toBeGreaterThan(0);
-      expect(sub.status(1).variant).toEqual("error");
-      expect(sub.status(2).variant).toEqual("success");
-      sub.close();
-    });
-  });
-
   describe("connection health", () => {
     it("should report reconnecting on drop and streaming on reopen", async () => {
       const hooks: StreamHooks[] = [];
       const streamer = new MultiplexedStreamer({
-        cache: new Cache(),
+        ...createCache(),
         openStreamer: createStreamOpener([pendingStreamer([1])], hooks),
       });
       const transitions: string[] = [];
-      const sub = streamer.stream(() => {}, [1]);
+      const sub = streamer.demand([1], () => {});
       sub.onStatusChange((_, s) => transitions.push(s.variant));
       await vi.advanceTimersByTimeAsync(200);
       expect(sub.status(1).variant).toEqual("success");
@@ -774,133 +780,247 @@ describe("MultiplexedStreamer", () => {
       expect(transitions).toEqual(["success", "warning", "success"]);
       sub.close();
     });
+
+    it("should run the drop handlers of open demands when the stream drops", async () => {
+      const hooks: StreamHooks[] = [];
+      const streamer = new MultiplexedStreamer({
+        ...createCache(),
+        openStreamer: createStreamOpener([pendingStreamer([1])], hooks),
+      });
+      const sub = streamer.demand([1], () => {});
+      let drops = 0;
+      sub.onDrop(() => drops++);
+      await vi.advanceTimersByTimeAsync(200);
+      hooks[0].onDrop(new Error("conn lost"));
+      expect(drops).toBe(1);
+      sub.close();
+      hooks[0].onDrop(new Error("conn lost"));
+      expect(drops).toBe(1);
+      await streamer.close();
+    });
+
+    it("should run the drop handlers when the run loop dies", async () => {
+      const frame = new framer.Frame({ 1: new Series(new Float32Array([1])) });
+      const dying = new MockStreamer([1], undefined, [frame]);
+      const streamer = new MultiplexedStreamer({
+        ...createCache(),
+        openStreamer: createStreamOpener([dying, pendingStreamer([1])]),
+      });
+      const sub = streamer.demand([1], () => {});
+      let drops = 0;
+      sub.onDrop(() => drops++);
+      await vi.advanceTimersByTimeAsync(1000);
+      expect(drops).toBe(1);
+      sub.close();
+      await streamer.close();
+    });
+  });
+
+  describe("acks", () => {
+    it("should resolve a wait once the stream acks every key", async () => {
+      const ms = pendingStreamer([1]);
+      const streamer = new MultiplexedStreamer({
+        ...createCache(),
+        openStreamer: createStreamOpener([ms]),
+      });
+      const first = streamer.demand([1], () => {});
+      const waited = vi.fn();
+      void streamer.waitAcked([1, 2]).then(waited);
+      await vi.advanceTimersByTimeAsync(200);
+      expect(waited).not.toHaveBeenCalled();
+      const second = streamer.demand([2], () => {});
+      await vi.advanceTimersByTimeAsync(200);
+      expect(ms.updateVi).toHaveBeenCalledWith([1, 2]);
+      expect(waited).toHaveBeenCalled();
+      first.close();
+      second.close();
+      await streamer.close();
+    });
+
+    it("should wait again after a drop until the stream reopens", async () => {
+      const hooks: StreamHooks[] = [];
+      const streamer = new MultiplexedStreamer({
+        ...createCache(),
+        openStreamer: createStreamOpener([pendingStreamer([1])], hooks),
+      });
+      const sub = streamer.demand([1], () => {});
+      await vi.advanceTimersByTimeAsync(200);
+      hooks[0].onDrop(new Error("conn lost"));
+      const waited = vi.fn();
+      void streamer.waitAcked([1]).then(waited);
+      await vi.advanceTimersByTimeAsync(200);
+      expect(waited).not.toHaveBeenCalled();
+      hooks[0].onReopen();
+      await vi.advanceTimersByTimeAsync(0);
+      expect(waited).toHaveBeenCalled();
+      sub.close();
+      await streamer.close();
+    });
+
+    it("should reject a wait with the Core's rejection of a key", async () => {
+      const streamer = new MultiplexedStreamer({
+        ...createCache(),
+        openStreamer: async () => {
+          throw new NotFoundError("channel 3 not found");
+        },
+        instrumentation: createErrorSpy().instrumentation,
+      });
+      const sub = streamer.demand([3], () => {});
+      const waited = streamer.waitAcked([3]);
+      const rejected = expect(waited).rejects.toThrow("channel 3 not found");
+      await vi.advanceTimersByTimeAsync(200);
+      await rejected;
+      sub.close();
+      await streamer.close();
+    });
+
+    it("should remove a wait's abort listener when the wait settles", async () => {
+      const streamer = new MultiplexedStreamer({
+        ...createCache(),
+        openStreamer: createStreamOpener([pendingStreamer([1])]),
+      });
+      const sub = streamer.demand([1], () => {});
+      const { signal } = new AbortController();
+      const added = vi.spyOn(signal, "addEventListener");
+      const removed = vi.spyOn(signal, "removeEventListener");
+      const waited = streamer.waitAcked([1], signal);
+      await vi.advanceTimersByTimeAsync(200);
+      await waited;
+      expect(removed).toHaveBeenCalledWith("abort", added.mock.calls[0][1]);
+      sub.close();
+      await streamer.close();
+    });
+
+    it("should reject a wait when its signal aborts or the streamer closes", async () => {
+      const streamer = new MultiplexedStreamer({
+        ...createCache(),
+        openStreamer: createStreamOpener([pendingStreamer([1])]),
+      });
+      const abort = new AbortController();
+      const aborted = streamer.waitAcked([1], abort.signal);
+      abort.abort(new UnexpectedError("join left"));
+      await expect(aborted).rejects.toThrow("join left");
+      const closed = streamer.waitAcked([1]);
+      await streamer.close();
+      await expect(closed).rejects.toThrow(
+        new UnexpectedError("telemetry streamer is closed"),
+      );
+    });
   });
 
   describe("buffer flushing", () => {
-    const stampedSeries = (): Series =>
+    const TIMES = [10, 11, 12].map((s) => TimeStamp.seconds(s).valueOf());
+
+    const createTimestamps = (): Series =>
       new Series({
-        data: new Float32Array([1, 2, 3]),
+        data: new BigInt64Array(TIMES),
+        dataType: DataType.TIMESTAMP,
         alignment: 0n,
         timeRange: TimeStamp.seconds(10).range(TimeStamp.seconds(13)),
       });
 
-    it("should flush a channel's buffer when its demand ends", async () => {
-      const cache = new Cache();
+    // Returns the stores a streamer writes into, with a caught-up join of each index
+    // channel, so the stream writes their samples into open blocks.
+    const createJoined = (...indexes: channel.Key[]) => {
+      const cache = createCache();
+      indexes.forEach((k) => {
+        cache.joins.join(k, k);
+        cache.joins.landed(k, cache.joins.waiting(k));
+      });
+      return cache;
+    };
+
+    it("should close a channel's open block when its demand ends", async () => {
+      const cache = createJoined(1);
+      const { store } = cache;
       const streamer = new MultiplexedStreamer({
-        cache,
+        ...cache,
         openStreamer: createStreamOpener([
-          oneFrameStreamer([1], new Frame({ 1: stampedSeries() })),
+          oneFrameStreamer([1], new framer.Frame({ 1: createTimestamps() })),
         ]),
         removalDelay: TimeSpan.milliseconds(50),
       });
-      const sub = streamer.stream(() => {}, [1]);
+      const sub = streamer.demand([1], () => {});
       await vi.advanceTimersByTimeAsync(200);
-      expect(cache.get(1).leadingBuffer).not.toBeNull();
+      expect(store.open(1)).not.toBeNull();
 
       sub.close();
       await vi.advanceTimersByTimeAsync(300);
 
-      expect(cache.get(1).leadingBuffer).toBeNull();
-      // The flushed samples stay readable but claim no coverage, so the whole
-      // range remains a gap to fetch.
-      const { series, gaps } = cache
-        .get(1)
-        .read(TimeStamp.seconds(10).range(TimeStamp.seconds(20)));
-      expect(Array.from(series)).toEqual([1, 2, 3]);
-      expect(gaps).toHaveLength(1);
-      expect(gaps[0].equals(TimeStamp.seconds(10).range(TimeStamp.seconds(20)))).toBe(
-        true,
-      );
+      expect(store.open(1)).toBeNull();
+      const block = store.raw(1, 0);
+      expect(block.buffer).toBeNull();
+      expect(block.fetched.flatMap((s) => Array.from(s))).toEqual(TIMES);
       await streamer.close();
     });
 
-    it("should flush only the keys that left the stream", async () => {
-      const cache = new Cache();
+    it("should close only the blocks of the keys that left the stream", async () => {
+      const cache = createJoined(1, 2);
+      const { store } = cache;
       const streamer = new MultiplexedStreamer({
-        cache,
+        ...cache,
         openStreamer: createStreamOpener([
           oneFrameStreamer(
             [1, 2],
-            new Frame([1, 2], [stampedSeries(), stampedSeries()]),
+            new framer.Frame([1, 2], [createTimestamps(), createTimestamps()]),
           ),
         ]),
         removalDelay: TimeSpan.milliseconds(50),
       });
-      const sub1 = streamer.stream(() => {}, [1]);
-      const sub2 = streamer.stream(() => {}, [2]);
+      const sub1 = streamer.demand([1], () => {});
+      const sub2 = streamer.demand([2], () => {});
       await vi.advanceTimersByTimeAsync(200);
-      expect(cache.get(1).leadingBuffer).not.toBeNull();
-      expect(cache.get(2).leadingBuffer).not.toBeNull();
+      expect(store.open(1)).not.toBeNull();
+      expect(store.open(2)).not.toBeNull();
 
       sub2.close();
       await vi.advanceTimersByTimeAsync(300);
 
-      expect(cache.get(1).leadingBuffer).not.toBeNull();
-      expect(cache.get(2).leadingBuffer).toBeNull();
+      expect(store.open(1)).not.toBeNull();
+      expect(store.open(2)).toBeNull();
       sub1.close();
       await streamer.close();
     });
 
-    it("should flush buffers when the stream drops", async () => {
-      const cache = new Cache();
+    it("should close open blocks when the stream drops", async () => {
+      const cache = createJoined(1);
+      const { store } = cache;
       const hooks: StreamHooks[] = [];
       const streamer = new MultiplexedStreamer({
-        cache,
+        ...cache,
         openStreamer: createStreamOpener(
-          [oneFrameStreamer([1], new Frame({ 1: stampedSeries() }))],
+          [oneFrameStreamer([1], new framer.Frame({ 1: createTimestamps() }))],
           hooks,
         ),
       });
-      const sub = streamer.stream(() => {}, [1]);
+      const sub = streamer.demand([1], () => {});
       await vi.advanceTimersByTimeAsync(200);
-      expect(cache.get(1).leadingBuffer).not.toBeNull();
+      expect(store.open(1)).not.toBeNull();
 
       hooks[0].onDrop(new Error("conn lost"));
 
-      expect(cache.get(1).leadingBuffer).toBeNull();
+      expect(store.open(1)).toBeNull();
       sub.close();
       await streamer.close();
     });
 
-    it("should flush buffers when the run loop dies", async () => {
-      const cache = new Cache();
+    it("should close open blocks when the run loop dies", async () => {
+      const cache = createJoined(1);
+      const { store } = cache;
       const dying = new MockStreamer([1], undefined, [
-        new Frame({ 1: stampedSeries() }),
+        new framer.Frame({ 1: createTimestamps() }),
       ]);
       const replacement = pendingStreamer([1]);
       const streamer = new MultiplexedStreamer({
-        cache,
+        ...cache,
         openStreamer: createStreamOpener([dying, replacement]),
       });
-      const sub = streamer.stream(() => {}, [1]);
+      const sub = streamer.demand([1], () => {});
       await vi.advanceTimersByTimeAsync(1000);
 
       expect(replacement.iteratorVi).toHaveBeenCalled();
-      expect(cache.get(1).leadingBuffer).toBeNull();
-      const { series } = cache
-        .get(1)
-        .read(TimeStamp.seconds(10).range(TimeStamp.seconds(13)));
-      expect(Array.from(series)).toEqual([1, 2, 3]);
-      sub.close();
-      await streamer.close();
-    });
-
-    it("should flush a frame for a key with no demand", async () => {
-      const cache = new Cache();
-      const streamer = new MultiplexedStreamer({
-        cache,
-        openStreamer: createStreamOpener([
-          oneFrameStreamer([1], new Frame({ 2: stampedSeries() })),
-        ]),
-      });
-      const sub = streamer.stream(() => {}, [1]);
-      await vi.advanceTimersByTimeAsync(200);
-
-      expect(cache.get(2).leadingBuffer).toBeNull();
-      const { series } = cache
-        .get(2)
-        .read(TimeStamp.seconds(10).range(TimeStamp.seconds(13)));
-      expect(Array.from(series)).toEqual([1, 2, 3]);
+      expect(store.open(1)).toBeNull();
+      expect(store.raw(1, 0).buffer).toBeNull();
       sub.close();
       await streamer.close();
     });
@@ -915,7 +1035,7 @@ describe("MultiplexedStreamer", () => {
           await sleep.sleep(TimeSpan.milliseconds(5));
           return {
             done: false,
-            value: new Frame({ 1: new Series(new Float32Array([1])) }),
+            value: new framer.Frame({ 1: new Series(new Float32Array([1])) }),
           };
         }
         // A streamer whose read never returns: the run loop can never drain, so the
@@ -923,12 +1043,12 @@ describe("MultiplexedStreamer", () => {
         return await new Promise<IteratorResult<framer.Frame>>(() => {});
       });
       const streamer = new MultiplexedStreamer({
-        cache: new Cache(),
+        ...createCache(),
         openStreamer: createStreamOpener([stuck, pendingStreamer([2])]),
         removalDelay: TimeSpan.milliseconds(50),
       });
 
-      const sub1 = streamer.stream(() => {}, [1]);
+      const sub1 = streamer.demand([1], () => {});
       await vi.advanceTimersByTimeAsync(200);
 
       // Last listener leaves: the no-keys teardown closes the streamer and awaits
@@ -938,7 +1058,7 @@ describe("MultiplexedStreamer", () => {
 
       // A fresh subscription must still register even though the connection lock is
       // held by the stuck teardown.
-      const sub2 = streamer.stream(() => {}, [2]);
+      const sub2 = streamer.demand([2], () => {});
       expect(sub2.status(2).variant).toEqual("loading");
       sub2.close();
     });
@@ -948,14 +1068,26 @@ describe("MultiplexedStreamer", () => {
     it("should cancel a pending removal timer on close", async () => {
       const ms1 = pendingStreamer([1]);
       const streamer = new MultiplexedStreamer({
-        cache: new Cache(),
+        ...createCache(),
         openStreamer: createStreamOpener([ms1]),
         removalDelay: TimeSpan.seconds(5),
       });
       const baseline = vi.getTimerCount();
-      const sub = streamer.stream(() => {}, [1]);
+      const sub = streamer.demand([1], () => {});
       await vi.advanceTimersByTimeAsync(200);
       sub.close();
+      expect(vi.getTimerCount()).toBeGreaterThan(baseline);
+      await streamer.close();
+      expect(vi.getTimerCount()).toEqual(baseline);
+    });
+
+    it("should cancel a pending stream update on close", async () => {
+      const streamer = new MultiplexedStreamer({
+        ...createCache(),
+        openStreamer: createStreamOpener([pendingStreamer([1])]),
+      });
+      const baseline = vi.getTimerCount();
+      streamer.demand([1], () => {});
       expect(vi.getTimerCount()).toBeGreaterThan(baseline);
       await streamer.close();
       expect(vi.getTimerCount()).toEqual(baseline);
@@ -975,12 +1107,12 @@ describe("MultiplexedStreamer", () => {
         return ms1;
       };
       const streamer = new MultiplexedStreamer({
-        cache: new Cache(),
+        ...createCache(),
         openStreamer: opener,
         instrumentation,
       });
 
-      streamer.stream(() => {}, [1]);
+      streamer.demand([1], () => {});
       await vi.advanceTimersByTimeAsync(200);
       expect(openCalls).toBe(1);
 
@@ -989,312 +1121,7 @@ describe("MultiplexedStreamer", () => {
       expect(errorSpy).toHaveBeenCalledWith("failed to close streamer", {
         error: closeErr,
       });
-      expect(() => streamer.stream(() => {}, [2])).toThrow(UnexpectedError);
-    });
-  });
-
-  describe("index demand", () => {
-    const payload = (
-      p: Partial<channel.Payload> & Pick<channel.Payload, "key">,
-    ): channel.Payload =>
-      channel.payloadZ.parse({ name: `ch-${p.key}`, dataType: DataType.FLOAT32, ...p });
-    const CHANNELS = [
-      payload({ key: 1, index: 1, dataType: DataType.TIMESTAMP, isIndex: true }),
-      payload({ key: 2, index: 1 }),
-      payload({ key: 3, index: 1 }),
-      payload({ key: 4, index: 4, dataType: DataType.TIMESTAMP, isIndex: true }),
-      payload({ key: 5, index: 4 }),
-    ];
-    const createCache = (): Cache =>
-      new Cache({
-        retrieveChannels: async (keys) =>
-          CHANNELS.filter((ch) => (keys as channel.Key[]).includes(ch.key)),
-      });
-
-    it("should stream a channel's index alongside it", async () => {
-      const opened: channel.Key[][] = [];
-      const ms = pendingStreamer([1, 2]);
-      const streamer = new MultiplexedStreamer({
-        cache: createCache(),
-        openStreamer: async (config) => {
-          const { channels } = config as { channels: channel.Key[] };
-          opened.push([...channels].sort());
-          return ms;
-        },
-      });
-      streamer.stream(() => {}, [2]);
-      await vi.advanceTimersByTimeAsync(200);
-      expect(opened).toEqual([[1, 2]]);
-      await streamer.close();
-    });
-
-    it("should keep an index another channel still needs", async () => {
-      const ms = pendingStreamer([1, 2, 3]);
-      const streamer = new MultiplexedStreamer({
-        cache: createCache(),
-        openStreamer: createStreamOpener([ms]),
-        removalDelay: TimeSpan.milliseconds(50),
-      });
-      const two = streamer.stream(() => {}, [2]);
-      streamer.stream(() => {}, [3]);
-      await vi.advanceTimersByTimeAsync(200);
-      two.close();
-      await vi.advanceTimersByTimeAsync(300);
-      expect(ms.keys.slice().sort()).toEqual([1, 3]);
-      await streamer.close();
-    });
-
-    it("should drop an index when its last channel leaves", async () => {
-      const ms = pendingStreamer([1, 2, 4, 5]);
-      const streamer = new MultiplexedStreamer({
-        cache: createCache(),
-        openStreamer: createStreamOpener([ms]),
-        removalDelay: TimeSpan.milliseconds(50),
-      });
-      const two = streamer.stream(() => {}, [2]);
-      streamer.stream(() => {}, [5]);
-      await vi.advanceTimersByTimeAsync(200);
-      two.close();
-      await vi.advanceTimersByTimeAsync(300);
-      expect(ms.keys.slice().sort()).toEqual([4, 5]);
-      await streamer.close();
-    });
-
-    it("should keep the index's buffer live between frames", async () => {
-      const cache = createCache();
-      const frame = new Frame({
-        1: new Series({
-          data: new BigInt64Array([TimeStamp.seconds(10).valueOf()]),
-          dataType: DataType.TIMESTAMP,
-          timeRange: TimeStamp.seconds(10).range(TimeStamp.seconds(11)),
-          alignment: 0n,
-        }),
-      });
-      const streamer = new MultiplexedStreamer({
-        cache,
-        openStreamer: createStreamOpener([oneFrameStreamer([1, 2], frame)]),
-      });
-      streamer.stream(() => {}, [2]);
-      await vi.advanceTimersByTimeAsync(200);
-      expect(cache.get(1).leadingBuffer).not.toBeNull();
-      await streamer.close();
-    });
-
-    it("should stream an allowed channel when the lookup denies another", async () => {
-      const DENIED = 6;
-      const cache = new Cache({
-        retrieveChannels: async (keys) => {
-          if ((keys as channel.Key[]).includes(DENIED))
-            throw new AccessDeniedError(`cannot retrieve channel ${DENIED}`);
-          return CHANNELS.filter((ch) => (keys as channel.Key[]).includes(ch.key));
-        },
-      });
-      const streamer = new MultiplexedStreamer({
-        cache,
-        openStreamer: createStreamOpener([pendingStreamer([1, 2])]),
-        instrumentation: createErrorSpy().instrumentation,
-      });
-      const sub = streamer.stream(() => {}, [2, DENIED]);
-      await vi.advanceTimersByTimeAsync(1000);
-      expect(sub.status(2).variant).toBe("success");
-      expect(sub.status(DENIED).variant).toBe("error");
-      await streamer.close();
-    });
-
-    it("should stream every allowed channel when the lookup denies one", async () => {
-      const DENIED = 6;
-      const opened: MockStreamer[] = [];
-      const cache = new Cache({
-        retrieveChannels: async (keys) => {
-          if ((keys as channel.Key[]).includes(DENIED))
-            throw new AccessDeniedError(`cannot retrieve channel ${DENIED}`);
-          return CHANNELS.filter((ch) => (keys as channel.Key[]).includes(ch.key));
-        },
-      });
-      const streamer = new MultiplexedStreamer({
-        cache,
-        openStreamer: async (config) => {
-          const { channels } = config as { channels: channel.Key[] };
-          const ms = pendingStreamer(channels);
-          opened.push(ms);
-          return ms;
-        },
-        instrumentation: createErrorSpy().instrumentation,
-      });
-      const sub = streamer.stream(() => {}, [2, DENIED, 5]);
-      await vi.advanceTimersByTimeAsync(1000);
-      expect(sub.status(2).variant).toBe("success");
-      expect(sub.status(5).variant).toBe("success");
-      expect(sub.status(DENIED).variant).toBe("error");
-      expect(opened.at(-1)?.keys.slice().sort()).toEqual([1, 2, 4, 5]);
-      await streamer.close();
-    });
-
-    it("should stop looking up a denied channel once it is rejected", async () => {
-      const DENIED = 6;
-      const lookups: channel.Key[][] = [];
-      const cache = new Cache({
-        retrieveChannels: async (keys) => {
-          lookups.push([...(keys as channel.Key[])].sort());
-          if ((keys as channel.Key[]).includes(DENIED))
-            throw new AccessDeniedError(`cannot retrieve channel ${DENIED}`);
-          return CHANNELS.filter((ch) => (keys as channel.Key[]).includes(ch.key));
-        },
-      });
-      const streamer = new MultiplexedStreamer({
-        cache,
-        openStreamer: createStreamOpener([pendingStreamer([1, 2])]),
-        instrumentation: createErrorSpy().instrumentation,
-      });
-      const sub = streamer.stream(() => {}, [2, DENIED]);
-      await vi.advanceTimersByTimeAsync(1000);
-      expect(sub.status(DENIED).variant).toBe("error");
-      const count = lookups.length;
-      await vi.advanceTimersByTimeAsync(10_000);
-      expect(lookups).toHaveLength(count);
-      expect(lookups.at(-1)).toEqual([DENIED]);
-      await streamer.close();
-    });
-
-    it("should keep streaming when a later subscription adds a denied channel", async () => {
-      const DENIED = 6;
-      const ms = pendingStreamer([1, 2]);
-      const cache = new Cache({
-        retrieveChannels: async (keys) => {
-          if ((keys as channel.Key[]).includes(DENIED))
-            throw new AccessDeniedError(`cannot retrieve channel ${DENIED}`);
-          return CHANNELS.filter((ch) => (keys as channel.Key[]).includes(ch.key));
-        },
-      });
-      const streamer = new MultiplexedStreamer({
-        cache,
-        openStreamer: createStreamOpener([ms]),
-        instrumentation: createErrorSpy().instrumentation,
-      });
-      const first = streamer.stream(() => {}, [2]);
-      await vi.advanceTimersByTimeAsync(200);
-      const second = streamer.stream(() => {}, [DENIED]);
-      await vi.advanceTimersByTimeAsync(1000);
-      expect(first.status(2).variant).toBe("success");
-      expect(second.status(DENIED).variant).toBe("error");
-      expect(ms.closeVi).not.toHaveBeenCalled();
-      expect(ms.keys.slice().sort()).toEqual([1, 2]);
-      await streamer.close();
-    });
-
-    it("should close while a lookup hangs", async () => {
-      const cache = new Cache({
-        retrieveChannels: async () => await new Promise(() => {}),
-      });
-      const streamer = new MultiplexedStreamer({
-        cache,
-        openStreamer: createStreamOpener([pendingStreamer([1, 2])]),
-      });
-      streamer.stream(() => {}, [2]);
-      await vi.advanceTimersByTimeAsync(200);
-      let closed = false;
-      void streamer.close().then(() => {
-        closed = true;
-      });
-      await vi.advanceTimersByTimeAsync(100);
-      expect(closed).toBe(true);
-    });
-
-    it("should not open a stream when a lookup lands after close", async () => {
-      let finish: (channels: channel.Payload[]) => void = () => {};
-      const cache = new Cache({
-        retrieveChannels: async () =>
-          await new Promise<channel.Payload[]>((resolve) => {
-            finish = resolve;
-          }),
-      });
-      const open = vi.fn(async () => pendingStreamer([1, 2]));
-      const streamer = new MultiplexedStreamer({ cache, openStreamer: open });
-      streamer.stream(() => {}, [2]);
-      await vi.advanceTimersByTimeAsync(200);
-      await streamer.close();
-      finish(CHANNELS);
-      await vi.advanceTimersByTimeAsync(200);
-      expect(open).not.toHaveBeenCalled();
-    });
-
-    it("should report a failed index lookup on the channel's status", async () => {
-      const cache = new Cache({
-        retrieveChannels: async () => {
-          throw new Error("lookup failed");
-        },
-      });
-      const streamer = new MultiplexedStreamer({
-        cache,
-        openStreamer: createStreamOpener([pendingStreamer([2])]),
-      });
-      const sub = streamer.stream(() => {}, [2]);
-      await vi.advanceTimersByTimeAsync(200);
-      expect(sub.status(2).variant).toBe("error");
-      await streamer.close();
-    });
-
-    it("should run one lookup at a time", async () => {
-      let inFlight = 0;
-      let peak = 0;
-      const cache = new Cache({
-        retrieveChannels: async (keys) => {
-          inFlight++;
-          peak = Math.max(peak, inFlight);
-          await new Promise((resolve) => setTimeout(resolve, 300));
-          inFlight--;
-          return CHANNELS.filter((ch) => (keys as channel.Key[]).includes(ch.key));
-        },
-      });
-      const streamer = new MultiplexedStreamer({
-        cache,
-        openStreamer: async (config) =>
-          pendingStreamer((config as { channels: channel.Key[] }).channels),
-      });
-      const first = streamer.stream(() => {}, [2]);
-      await vi.advanceTimersByTimeAsync(150);
-      const second = streamer.stream(() => {}, [5]);
-      await vi.advanceTimersByTimeAsync(2000);
-      expect(peak).toBe(1);
-      expect(first.status(2).variant).toBe("success");
-      expect(second.status(5).variant).toBe("success");
-      await streamer.close();
-    });
-
-    it("should not blame an allowed channel for a lookup that overlapped", async () => {
-      const DENIED = 6;
-      const opened: MockStreamer[] = [];
-      const cache = new Cache({
-        retrieveChannels: async (keys) => {
-          if ((keys as channel.Key[]).includes(DENIED)) {
-            await new Promise((resolve) => setTimeout(resolve, 300));
-            throw new AccessDeniedError(`cannot retrieve channel ${DENIED}`);
-          }
-          return CHANNELS.filter((ch) => (keys as channel.Key[]).includes(ch.key));
-        },
-      });
-      const streamer = new MultiplexedStreamer({
-        cache,
-        // A slow open keeps the allowed key off the stream while the stale lookup
-        // fails, which is when a second reconcile would blame it.
-        openStreamer: async (config) => {
-          await new Promise((resolve) => setTimeout(resolve, 500));
-          const { channels } = config as { channels: channel.Key[] };
-          const ms = pendingStreamer(channels);
-          opened.push(ms);
-          return ms;
-        },
-        instrumentation: createErrorSpy().instrumentation,
-      });
-      const first = streamer.stream(() => {}, [4, DENIED]);
-      await vi.advanceTimersByTimeAsync(150);
-      const second = streamer.stream(() => {}, [3]);
-      await vi.advanceTimersByTimeAsync(3000);
-      expect(first.status(4).variant).toBe("success");
-      expect(second.status(3).variant).toBe("success");
-      expect(first.status(DENIED).variant).toBe("error");
-      expect(opened.at(-1)?.keys.slice().sort()).toEqual([1, 3, 4]);
-      await streamer.close();
+      expect(() => streamer.demand([2], () => {})).toThrow(UnexpectedError);
     });
   });
 });

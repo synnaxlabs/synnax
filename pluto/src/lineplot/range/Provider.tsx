@@ -10,7 +10,6 @@
 import "@/lineplot/range/Provider.css";
 
 import { type Component } from "@synnaxlabs/lyra/component";
-import { CSS } from "@synnaxlabs/lyra/css";
 import { Flex } from "@synnaxlabs/lyra/flex";
 import { useSyncedRef, useUniqueKey } from "@synnaxlabs/lyra/hooks";
 import { Menu } from "@synnaxlabs/lyra/menu";
@@ -18,6 +17,7 @@ import { box, xy } from "@synnaxlabs/x";
 import { type ReactElement, useEffect } from "react";
 
 import { Aether } from "@/aether";
+import { CSS } from "@/css";
 import { useContext, useGridEntry } from "@/lineplot/Frame";
 import { range } from "@/lineplot/range/aether";
 

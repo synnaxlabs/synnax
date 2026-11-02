@@ -11,6 +11,7 @@ package cesium
 
 import (
 	"context"
+	"slices"
 
 	"github.com/synnaxlabs/cesium/internal/channel"
 	"github.com/synnaxlabs/cesium/internal/control"
@@ -39,19 +40,22 @@ const (
 	WriterCommandCommit
 	// WriterCommandSetAuthority represents a call to Writer.SetAuthority.
 	WriterCommandSetAuthority
+	// WriterCommandEndDomain represents a call to Writer.EndDomain.
+	WriterCommandEndDomain
 )
 
 var validateWriterCommand = validate.NewInclusiveBoundsChecker(
 	WriterCommandWrite,
-	WriterCommandSetAuthority,
+	WriterCommandEndDomain,
 )
 
 // WriterRequest is a request containing a frame to write to the DB.
 type WriterRequest struct {
-	// Config is used for updating the parameters in WriterCommandSetAuthority. Once
-	// the request has been sent, ownership of Config (including the underlying arrays
-	// of Config.Channels and Config.Authorities) transfers to the streamWriter, which
-	// may mutate them in place; callers must not retain or share those slices.
+	// Config is used for updating the parameters in WriterCommandSetAuthority, and its
+	// Channels name the indexes in WriterCommandEndDomain. Once the request has been
+	// sent, ownership of Config (including the underlying arrays of Config.Channels and
+	// Config.Authorities) transfers to the streamWriter, which may mutate them in
+	// place; callers must not retain or share those slices.
 	Config WriterConfig
 	// Frame is the arrow record to write to the DB.
 	Frame Frame
@@ -75,8 +79,8 @@ type WriterResponse struct {
 	End telem.TimeStamp
 	// Command is the command that is being responded to.
 	Command WriterCommand
-	// Authorized flags whether the write or commit operation was authorized. It is only
-	// valid during calls to WriterWrite and WriterCommit.
+	// Authorized flags whether the operation was authorized. It is only valid during
+	// calls to WriterCommandWrite, WriterCommandCommit, and WriterCommandEndDomain.
 	Authorized bool
 }
 
@@ -108,12 +112,13 @@ type StreamWriter = confluence.Segment[WriterRequest, WriterResponse]
 type streamWriter struct {
 	confluence.UnarySink[WriterRequest]
 	confluence.AbstractUnarySource[WriterResponse]
-	relay           confluence.Inlet[relayResponse]
-	accumulatedErr  error
-	errSent         bool
-	virtual         *virtualWriter
-	updateDBControl func(ctx context.Context, u ControlUpdate)
-	internal        []*idxWriter
+	relay              confluence.Inlet[relayResponse]
+	accumulatedErr     error
+	errSent            bool
+	virtual            *virtualWriter
+	updateDBControl    func(ctx context.Context, u ControlUpdate)
+	authorizeEndDomain func(index ChannelKey, own map[ChannelKey]*unaryWriterState) error
+	internal           []*idxWriter
 	// keyToIdx maps every channel key the writer is responsible for to its owning
 	// idxWriter.
 	keyToIdx map[ChannelKey]*idxWriter
@@ -170,6 +175,10 @@ func (w *streamWriter) process(
 	}
 	if req.Command == WriterCommandCommit {
 		commitEnd, err = w.commit(ctx)
+		return commitEnd, err
+	}
+	if req.Command == WriterCommandEndDomain {
+		err = w.endDomain(ctx, req.Config.Channels)
 		return commitEnd, err
 	}
 	err = w.write(ctx, req)
@@ -413,6 +422,22 @@ func (w *streamWriter) commit(ctx context.Context) (telem.TimeStamp, error) {
 	return maxTS, nil
 }
 
+func (w *streamWriter) endDomain(ctx context.Context, indexes []ChannelKey) error {
+	var unauthorized error
+	for _, idx := range w.internal {
+		if !idx.writingToIdx || !slices.Contains(indexes, idx.idx.ch.Key) {
+			continue
+		}
+		if err := idx.endDomain(ctx, w.authorizeEndDomain); err != nil {
+			if !errors.Is(err, xcontrol.ErrUnauthorized) {
+				return err
+			}
+			unauthorized = err
+		}
+	}
+	return unauthorized
+}
+
 func (w *streamWriter) close(ctx context.Context) error {
 	var err error
 	parentUpdate := ControlUpdate{
@@ -574,15 +599,19 @@ func (w *idxWriter) maxDataAuth() xcontrol.Authority {
 // directly. A group that does not anchors on the cursor covering its start timestamp,
 // resolved once, and offsets by the number of samples it has written since, so the
 // index is consulted once per writer rather than once per write.
-func (w *idxWriter) resolveAlignment() telem.Alignment {
+func (w *idxWriter) resolveAlignment() (telem.Alignment, error) {
 	if w.writingToIdx {
 		return w.idx.db.WriteCursor(w.start)
 	}
 	if !w.anchorSet {
-		w.anchor = w.idx.db.WriteCursor(w.start)
+		anchor, err := w.idx.db.WriteCursor(w.start)
+		if err != nil {
+			return 0, err
+		}
+		w.anchor = anchor
 		w.anchorSet = true
 	}
-	return w.anchor.AddSamples(uint32(w.sampleCount))
+	return w.anchor.AddSamples(uint32(w.sampleCount)), nil
 }
 
 func (w *idxWriter) write(
@@ -619,6 +648,8 @@ func (w *idxWriter) write(
 			if err = w.updateHighWater(series); err != nil {
 				return fr, err
 			}
+			first := series.ValueAt[telem.TimeStamp](0)
+			uWriter.SetDomainStart(first)
 			if alignment, err = uWriter.Write(series); err != nil {
 				accumulatedErr = err
 				if !errors.Is(accumulatedErr, xcontrol.ErrUnauthorized) {
@@ -636,10 +667,7 @@ func (w *idxWriter) write(
 			// The index series carries the timestamps for the whole group, so data
 			// series can be stamped with a real time range without consulting the
 			// index on disk.
-			idxTimeRange = telem.TimeRange{
-				Start: series.ValueAt[telem.TimeStamp](0),
-				End:   w.idx.highWaterMark + 1,
-			}
+			idxTimeRange = telem.TimeRange{Start: first, End: w.idx.highWaterMark + 1}
 			idxTimeRangeSet = true
 			series.TimeRange = idxTimeRange
 			fr.SetRawSeriesAt(i, series)
@@ -669,8 +697,13 @@ func (w *idxWriter) write(
 			continue
 		}
 		if !alignmentSet {
-			alignment = w.resolveAlignment()
+			if alignment, err = w.resolveAlignment(); err != nil {
+				return fr, err
+			}
 			alignmentSet = true
+		}
+		if idxTimeRangeSet {
+			uWriter.SetDomainStart(idxTimeRange.Start)
 		}
 		if _, err := uWriter.WriteAt(series, alignment); err != nil {
 			accumulatedErr = err
@@ -714,8 +747,11 @@ func (w *idxWriter) Commit(ctx context.Context) (telem.TimeStamp, error) {
 	}
 	// because the range is exclusive, we need to add 1 nanosecond to the end
 	end.Lower++
+	// Every channel shares the same end, so their errors repeat. Keep the first.
 	for _, chW := range w.internal {
-		err = errors.Join(err, chW.CommitWithEnd(ctx, end.Lower))
+		if cErr := chW.CommitWithEnd(ctx, end.Lower); err == nil {
+			err = cErr
+		}
 	}
 	if err == nil {
 		w.lastCommitEnd = end.Lower
@@ -727,6 +763,29 @@ func (w *idxWriter) Commit(ctx context.Context) (telem.TimeStamp, error) {
 		w.hasUncommittedData = false
 	}
 	return end.Lower, err
+}
+
+func (w *idxWriter) endDomain(
+	ctx context.Context,
+	authorize func(index ChannelKey, own map[ChannelKey]*unaryWriterState) error,
+) error {
+	if _, err := w.Commit(ctx); err != nil {
+		return err
+	}
+	if err := authorize(w.idx.ch.Key, w.internal); err != nil {
+		return err
+	}
+	// A data domain that outlives its index domain cannot resolve its samples, so the
+	// index ends last, and only if every data domain ended.
+	for key, chW := range w.internal {
+		if key == w.idx.ch.Key {
+			continue
+		}
+		if err := chW.EndDomain(ctx); err != nil {
+			return err
+		}
+	}
+	return w.internal[w.idx.ch.Key].EndDomain(ctx)
 }
 
 func (w *idxWriter) Close() (ControlUpdate, error) {
@@ -772,7 +831,7 @@ func sameLengthForAllSeriesError(
 		validate.ErrValidation,
 		`
 frame must have the same length for all series. Rest of the series in the frame have
-length %d, while series for channel %v has length %d. See https://docs.synnaxlabs.com/reference/concepts/writes#rule-1
+length %d, while series for channel %v has length %d. See https://docs.synnaxlabs.com/reference/client/write-data#rule-1
 `,
 		lengthOfFrame,
 		expectedCh,
@@ -809,7 +868,7 @@ func incorrectNumberOfSeriesError(
 		validate.ErrValidation,
 		`frame must have exactly one series for each data channel associated with an index. Expected
 			%d series, got %d.
-			See https://docs.synnaxlabs.com/reference/concepts/writes#the-rules-of-writes
+			See https://docs.synnaxlabs.com/reference/client/write-data#the-rules-of-writes
 			`,
 		expected,
 		received,

@@ -19,7 +19,7 @@ import { task } from "@/task";
 /** RegisterValue interprets one or more 16-bit registers as a single typed value. */
 export const registerValueZ = z.object({
   /** dataType is the data type the register contents are interpreted as. */
-  dataType: z.string().default("uint8"),
+  dataType: z.string().default("uint16"),
   /**
    * bytesSwapped is true when the byte order within each 16-bit word is swapped. When
    * absent, the device's byte order applies.
@@ -66,6 +66,13 @@ export interface BaseWriteChannel extends z.infer<typeof baseWriteChannelZ> {}
 export const scanConfigZ = task.scanConfigZ;
 export interface ScanConfig extends z.infer<typeof scanConfigZ> {}
 
+/** RegisterBit addresses one bit of a 16-bit register. */
+export const registerBitZ = z.object({
+  /** bit is the bit index, from 0 (least significant) to 15. */
+  bit: zod.uint8.max(15).default(0),
+});
+export interface RegisterBit extends z.infer<typeof registerBitZ> {}
+
 /** CoilReadChannel reads a single bit from a coil. */
 export const coilReadChannelZ = baseReadChannelZ.extend({
   type: z.literal("coil"),
@@ -106,11 +113,33 @@ export interface InputRegisterReadChannel extends z.infer<
   typeof inputRegisterReadChannelZ
 > {}
 
+/** HoldingRegisterBitReadChannel reads one bit of a holding register. */
+export const holdingRegisterBitReadChannelZ = baseReadChannelZ
+  .extend(registerBitZ.shape)
+  .extend({
+    type: z.literal("holding_register_bit"),
+  });
+export interface HoldingRegisterBitReadChannel extends z.infer<
+  typeof holdingRegisterBitReadChannelZ
+> {}
+
+/** InputRegisterBitReadChannel reads one bit of an input register. */
+export const inputRegisterBitReadChannelZ = baseReadChannelZ
+  .extend(registerBitZ.shape)
+  .extend({
+    type: z.literal("input_register_bit"),
+  });
+export interface InputRegisterBitReadChannel extends z.infer<
+  typeof inputRegisterBitReadChannelZ
+> {}
+
 export const READ_CHANNEL_TYPES = [
   "coil",
   "discrete_input",
   "holding_register",
   "input_register",
+  "holding_register_bit",
+  "input_register_bit",
 ] as const;
 export const readChannelTypeZ = z.enum(READ_CHANNEL_TYPES);
 export type ReadChannelType = z.infer<typeof readChannelTypeZ>;
@@ -124,12 +153,16 @@ export const readChannelZ = z.discriminatedUnion("type", [
   discreteInputReadChannelZ,
   holdingRegisterReadChannelZ,
   inputRegisterReadChannelZ,
+  holdingRegisterBitReadChannelZ,
+  inputRegisterBitReadChannelZ,
 ]);
 export type ReadChannel =
   | CoilReadChannel
   | DiscreteInputReadChannel
   | HoldingRegisterReadChannel
-  | InputRegisterReadChannel;
+  | InputRegisterReadChannel
+  | HoldingRegisterBitReadChannel
+  | InputRegisterBitReadChannel;
 
 export const READ_CHANNEL_SCHEMAS: {
   [K in ReadChannelType]: z.ZodType<Extract<ReadChannel, { type: K }>>;
@@ -138,6 +171,8 @@ export const READ_CHANNEL_SCHEMAS: {
   discrete_input: discreteInputReadChannelZ,
   holding_register: holdingRegisterReadChannelZ,
   input_register: inputRegisterReadChannelZ,
+  holding_register_bit: holdingRegisterBitReadChannelZ,
+  input_register_bit: inputRegisterBitReadChannelZ,
 };
 
 /** CoilWriteChannel writes a single bit to a coil. */
@@ -158,7 +193,21 @@ export interface HoldingRegisterWriteChannel extends z.infer<
   typeof holdingRegisterWriteChannelZ
 > {}
 
-export const WRITE_CHANNEL_TYPES = ["coil", "holding_register"] as const;
+/** HoldingRegisterBitWriteChannel writes one bit of a holding register. */
+export const holdingRegisterBitWriteChannelZ = baseWriteChannelZ
+  .extend(registerBitZ.shape)
+  .extend({
+    type: z.literal("holding_register_bit"),
+  });
+export interface HoldingRegisterBitWriteChannel extends z.infer<
+  typeof holdingRegisterBitWriteChannelZ
+> {}
+
+export const WRITE_CHANNEL_TYPES = [
+  "coil",
+  "holding_register",
+  "holding_register_bit",
+] as const;
 export const writeChannelTypeZ = z.enum(WRITE_CHANNEL_TYPES);
 export type WriteChannelType = z.infer<typeof writeChannelTypeZ>;
 
@@ -169,14 +218,17 @@ export type WriteChannelType = z.infer<typeof writeChannelTypeZ>;
 export const writeChannelZ = z.discriminatedUnion("type", [
   coilWriteChannelZ,
   holdingRegisterWriteChannelZ,
+  holdingRegisterBitWriteChannelZ,
 ]);
-export type WriteChannel = CoilWriteChannel | HoldingRegisterWriteChannel;
+export type WriteChannel =
+  CoilWriteChannel | HoldingRegisterWriteChannel | HoldingRegisterBitWriteChannel;
 
 export const WRITE_CHANNEL_SCHEMAS: {
   [K in WriteChannelType]: z.ZodType<Extract<WriteChannel, { type: K }>>;
 } = {
   coil: coilWriteChannelZ,
   holding_register: holdingRegisterWriteChannelZ,
+  holding_register_bit: holdingRegisterBitWriteChannelZ,
 };
 
 export const readConfigZ = task.readConfigZ.extend({

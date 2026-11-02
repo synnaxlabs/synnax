@@ -13,7 +13,7 @@ import { afterEach } from "vitest";
 import { type z } from "zod";
 
 import { type aether } from "@/aether/aether";
-import { aetherTest } from "@/aether/test";
+import { aetherTest } from "@/aether/testutil";
 import {
   buildStack,
   type MountedProviders,

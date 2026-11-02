@@ -21,11 +21,6 @@ export const selectOptionalSelected = (state: StoreState): project.Key | undefin
 export const useSelectOptionalSelected = (): project.Key | undefined =>
   Select.useMemo(selectOptionalSelected, []);
 
-export const useGetOptionalSelected = (): (() => project.Key | undefined) => {
-  const store = useStore<StoreState>();
-  return () => selectOptionalSelected(store.getState());
-};
-
 export const selectSelected = (state: StoreState): project.Key => {
   const selected = selectOptionalSelected(state);
   if (selected == null)
@@ -45,8 +40,3 @@ const selectIsAnySelected = (state: StoreState): boolean =>
 
 export const useSelectIsAnySelected = (): boolean =>
   Select.useMemo(selectIsAnySelected, []);
-
-export const useGetIsAnySelected = (): (() => boolean) => {
-  const store = useStore<StoreState>();
-  return () => selectIsAnySelected(store.getState());
-};

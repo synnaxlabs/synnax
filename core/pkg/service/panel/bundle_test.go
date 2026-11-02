@@ -199,7 +199,7 @@ var _ = Describe("DecodeBundle", func() {
 	})
 
 	It("Should keep the panel's icon and color", func(ctx SpecContext) {
-		c := color.MustFromHex("#dc136c")
+		c := MustSucceed(color.FromHex("#dc136c"))
 		p := panel.Panel{
 			Name: "Controls", Root: leafNode(), Icon: new("valve"), Color: &c,
 		}

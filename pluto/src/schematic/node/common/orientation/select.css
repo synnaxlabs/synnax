@@ -30,12 +30,13 @@
         border: var(--pluto-border);
         border-radius: var(--pluto-border-radius);
         padding: 0.5rem;
+
         &.pluto--show-outer-center {
             padding: 1.5rem;
         }
     }
 
-    & button.pluto-btn.pluto-select-orientation__btn {
+    & button.lyra-btn.pluto-select-orientation__btn {
         min-width: 3rem;
         max-width: 3rem;
         min-height: 2.5rem;
@@ -43,15 +44,17 @@
         display: flex;
         align-items: center;
         justify-content: center;
-        &.pluto--selected .pluto-select-orientation__bar {
+
+        &.lyra--selected .pluto-select-orientation__bar {
             background-color: var(--pluto-selected-color);
         }
+
         & .pluto-select-orientation__bar {
             top: unset;
             left: unset;
         }
 
-        &.pluto--direction-y {
+        &.lyra--direction-y {
             transform: rotate(90deg);
         }
 
@@ -65,15 +68,15 @@
 }
 
 /* The square widget would otherwise stretch to the column width. */
-.pluto-form-sections .pluto-select-orientation {
+.lyra-form-sections .pluto-select-orientation {
     justify-self: start;
 }
 
 /* The orientation square is taller than a row, so it takes a column of its own, with
    its label on top. */
-.pluto-form-sections.pluto--direction-x
-    .pluto-form-section__body
-    > .pluto-input__item:has(.pluto-select-orientation) {
+.lyra-form-sections.lyra--direction-x
+    .lyra-form-section__body
+    > .lyra-input__item:has(.pluto-select-orientation) {
     grid-row: 1 / -1;
     grid-column: span 1;
     display: flex;

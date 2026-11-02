@@ -9,10 +9,10 @@
 
 import { connection, Synnax, type SynnaxParams } from "@synnaxlabs/client";
 import { context } from "@synnaxlabs/lyra/context";
-import { useCombinedStateAndRef } from "@synnaxlabs/lyra/hooks";
+import { useCombinedStateAndRef, useSyncedRef } from "@synnaxlabs/lyra/hooks";
 import { useMemoDeepEqual } from "@synnaxlabs/lyra/memo";
 import { Status } from "@synnaxlabs/lyra/status";
-import { migrate } from "@synnaxlabs/x";
+import { migrate, record } from "@synnaxlabs/x";
 import {
   type PropsWithChildren,
   type ReactElement,
@@ -148,10 +148,28 @@ export const Provider = ({
   // the cue for latched error boundaries to try again.
   const [resetKey, setResetKey] = useState(0);
 
+  // The worker joins the page client's session instead of opening its own, so ending
+  // the page's session ends the worker's access too.
+  const { client: pageClient } = state;
+  // for a moment after a switch, the page client still belongs to the previous Core
+  const current =
+    pageClient != null &&
+    connParams != null &&
+    pageClient.params.host === connParams.host &&
+    Number(pageClient.params.port) === Number(connParams.port) &&
+    pageClient.params.secure === (connParams.secure ?? false);
+  const token =
+    current && state.status.details.authenticated ? pageClient.auth.token : undefined;
+  let workerParams: SynnaxParams | null = null;
+  if (connParams != null && token != null) {
+    const shared = record.omit(connParams, "username", "password", "token");
+    workerParams =
+      token === "" ? { ...shared, sessionCookie: true } : { ...shared, token };
+  }
   const { path } = Aether.useUnidirectional({
     type: synnax.Provider.TYPE,
     schema: synnax.Provider.stateZ,
-    state: { props: connParams ?? null },
+    state: { props: workerParams },
   });
 
   const addStatus = Status.useAdder();
@@ -177,6 +195,9 @@ export const Provider = ({
     if (connStatus.details.epoch !== prev.details.epoch) setResetKey((key) => key + 1);
     setState((prev) => ({ ...prev, status: connStatus }));
   };
+  // Read through refs, so a new callback does not rebuild the client.
+  const handleChangeRef = useSyncedRef(handleChange);
+  const handleErrorRef = useSyncedRef(handleError);
 
   useEffect(() => {
     if (connParams == null) {
@@ -190,11 +211,13 @@ export const Provider = ({
     };
     const client = new Synnax({
       ...connParams,
-      onInternalError: (e) => handleError(e, heading),
+      onInternalError: (e) => handleErrorRef.current(e, heading),
     });
     setState({ client, status: client.connection.status });
     setResetKey((key) => key + 1);
-    const detach = client.connection.onChange(handleChange);
+    const detach = client.connection.onChange((connStatus) =>
+      handleChangeRef.current(connStatus),
+    );
     return () => {
       detach();
       // Effect cleanup cannot await. The failure is logged rather than pushed
@@ -202,7 +225,7 @@ export const Provider = ({
       client.close().catch((e: unknown) => console.error("failed to close client", e));
       setState(ZERO_CONTEXT_VALUE);
     };
-  }, [connParams, handleChange, handleError]);
+  }, [connParams]);
 
   return (
     <Context value={state}>

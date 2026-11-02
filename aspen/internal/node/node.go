@@ -26,11 +26,6 @@ const (
 	KeyFree             = Key(math.MaxUint12)
 )
 
-func (k Key) Parse(str string) (Key, error) {
-	key, err := strconv.Atoi(str)
-	return Key(key), err
-}
-
 func (k Key) IsFree() bool { return k == KeyFree }
 
 func (k Key) IsBootstrapper() bool { return k == KeyBootstrapper }
@@ -45,7 +40,7 @@ type Node struct {
 	Key       Key
 }
 
-func (n Node) Digest() Digest { return Digest{Key: n.Key, Heartbeat: n.Heartbeat} }
+func (n Node) digest() Digest { return Digest{Key: n.Key, Heartbeat: n.Heartbeat} }
 
 type Change = change.Change[Key, Node]
 

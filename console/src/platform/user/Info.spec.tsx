@@ -24,22 +24,11 @@ const createStateWithUser = (username: string) =>
   createCoreState([createCore("Local", { key: CORE_KEY, username })], CORE_KEY);
 
 describe("User.Info", () => {
-  it("should fall back to the Core username when no user is loaded", async () => {
+  it("should never show the Core username", async () => {
     await renderWithConsole(<User.Info />, {
       preloadedState: createStateWithUser("Core-user"),
     });
-    expect(screen.getByText("Core-user")).toBeTruthy();
-  });
-
-  it("should prefer the retrieved user's identity over the Core fallback", async () => {
-    const client = createTestClient();
-    const { wrapper } = await createConsoleWrapper({
-      client,
-      preloadedState: createStateWithUser("fallback_user"),
-    });
-    render(<User.Info />, { wrapper });
-    expect(await screen.findByText("synnax")).toBeTruthy();
-    expect(screen.queryByText("fallback_user")).toBeNull();
+    expect(screen.queryByText("Core-user")).toBeNull();
   });
 
   it("should name the subject's role", async () => {
@@ -53,16 +42,15 @@ describe("User.Info", () => {
     expect(await screen.findByText("Viewer")).toBeTruthy();
   });
 
-  it("should show the subject's full name and username", async () => {
+  it("should show the subject's name and not the Core username", async () => {
     const root = createTestClient();
     const other = await createTestClientWithRole(root, "Viewer");
     const { wrapper } = await createConsoleWrapper({
       client: other,
-      preloadedState: createStateWithUser("fallback_user"),
+      preloadedState: createStateWithUser("core_user"),
     });
     render(<User.Info />, { wrapper });
-    expect(await screen.findByText("test test")).toBeTruthy();
-    const { username } = await other.users.current.retrieve();
-    expect(await screen.findByText(username)).toBeTruthy();
+    expect(await screen.findByText("test")).toBeTruthy();
+    expect(screen.queryByText("core_user")).toBeNull();
   });
 });

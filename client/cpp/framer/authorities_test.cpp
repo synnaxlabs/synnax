@@ -10,7 +10,7 @@
 #include "gtest/gtest.h"
 
 #include "client/cpp/framer/framer.h"
-#include "x/cpp/test/test.h"
+#include "x/cpp/testutil/testutil.h"
 
 namespace synnax::framer {
 /// @brief validate_authorities should return nil for empty authorities.

@@ -2,11 +2,11 @@
 title: "Version 0.49 release notes"
 ---
 
+import { Hero } from "@/components/hero";
 import { Image } from "@/components/media/Media";
 import { Divider } from "@synnaxlabs/lyra/divider";
 import { Flex } from "@synnaxlabs/lyra/flex";
 import Release from "@/components/releases/Release.astro";
-import Diagram from "@/components/diagram/Diagram.astro";
 import { mdxOverrides } from "@/components/mdxOverrides";
 
 export const components = mdxOverrides;
@@ -18,16 +18,23 @@ export const components = mdxOverrides;
     breakingChanges
 >
 
-<Image id="releases/0-49-0/thumbnail" themed={false} />
+<Hero.Hero
+  image="releases/0-49-0/thumbnail"
+  extension="webp"
+  themed={false}
+  layout="framed"
+  tone="soft"
+  palette="teal-violet"
+/>
 
 <Divider.Divider x />
 
 ### Role-based access control
 
 Instead of setting individual permissions for each user, you can now
-[assign users to one of four built-in roles](/reference/console/users): Owner, Engineer,
-Operator, and Viewer. Each role has a set of permissions that determine what actions the
-user can perform.
+[assign users to one of four built-in roles](/reference/enterprise/users): Owner,
+Engineer, Operator, and Viewer. Each role has a set of permissions that determine what
+actions the user can perform.
 
 <Divider.Divider x />
 
@@ -36,20 +43,14 @@ user can perform.
 Statuses for all Drivers, devices, and tasks are now displayed in the status explorer,
 providing a unified view of your entire system's health.
 
-<Diagram preview style={{ height: "350px", padding: "3rem" }}>
-  <Image
-    id="releases/0-49-0/status-handling"
-    style={{
-      borderRadius: "2rem",
-      width: "110%",
-      border: "1px solid var(--pluto-gray-l5)",
-      position: "relative",
-      left: "25%",
-      top: "5rem",
-    }}
-    themed={false}
-  />
-</Diagram>
+<Hero.Hero
+  image="releases/0-49-0/status-handling"
+  extension="webp"
+  themed={false}
+  layout="bleed"
+  inset
+  palette="red-orange"
+/>
 
 #### OPC UA and Modbus status checking
 
@@ -79,7 +80,12 @@ The schematic editor toolbar now includes buttons for aligning, distributing, an
 rotating selected elements.
 
 <Flex.Box x justify="center">
-  <Image style={{ width: 400 }} id="releases/0-49-0/spacing" themed={false} />
+  <Image
+    style={{ width: 400 }}
+    id="releases/0-49-0/spacing"
+    extension="webp"
+    themed={false}
+  />
 </Flex.Box>
 
 <Divider.Divider x />

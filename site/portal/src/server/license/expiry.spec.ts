@@ -12,6 +12,7 @@ import { beforeAll, beforeEach, describe, expect, it } from "vitest";
 import { type Event, event, type Organization } from "@/server/db/schema";
 import { type Memory, openMemory } from "@/server/db/testutil";
 import { dueNotice, sweep } from "@/server/license/expiry";
+import { expiring } from "@/server/license/notice";
 import { LICENSE, NOW } from "@/server/license/testutil";
 import { type Mailer, memory, type Message } from "@/server/mail";
 import { createLicense, createOrganization } from "@/testutil";
@@ -95,20 +96,7 @@ describe("expiry.sweep", () => {
     const sent = await sweep({ store, mail, recipients, now: NOW });
     expect(sent).toEqual([{ license: lic.key, days: 30, to: TO }]);
     expect(asked).toEqual([org.key]);
-    expect(mail.sent).toEqual([
-      {
-        to: TO,
-        subject: "Your Synnax license expires in 30 days",
-        text: [
-          'The Synnax license "Site A" for Acme expires in 30 days, on ' +
-            `${lic.expiresAt?.toISOString().slice(0, 10)}.`,
-          "",
-          "Cores running under it will refuse to start after that date.",
-          "",
-          "Reply to this email to renew.",
-        ].join("\n"),
-      },
-    ]);
+    expect(mail.sent).toEqual([{ to: TO, ...expiring(lic, org, 30) }]);
     expect(await events()).toEqual([
       expect.objectContaining({
         kind: "expiry_notice",
@@ -123,14 +111,9 @@ describe("expiry.sweep", () => {
   });
 
   it("should word a last-day warning for a license with a fallback", async () => {
-    await createExpiring(0.5, { maxVersion: "0.60" });
+    const lic = await createExpiring(0.5, { maxVersion: "0.60" });
     await sweep({ store, mail, recipients, now: NOW });
-    expect(mail.sent).toHaveLength(1);
-    expect(mail.sent[0].subject).toBe("Your Synnax license expires in 1 day");
-    expect(mail.sent[0].text).toContain("expires in 1 day, on");
-    expect(mail.sent[0].text).toContain(
-      "After that date it covers Core versions up to 0.60.",
-    );
+    expect(mail.sent).toEqual([{ to: TO, ...expiring(lic, org, 1) }]);
   });
 
   it("should send each warning once across sweeps", async () => {

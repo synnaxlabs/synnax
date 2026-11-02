@@ -27,7 +27,7 @@ describe("Range.useLink", () => {
     await selectTestProject(store, client);
     await handler({ client, key: range.key });
     const state = store.getState();
-    expect(Session.Range.selectSelectedKey(state)).toBe(range.key);
+    expect(state[Session.Range.SLICE_NAME].selected).toBe(range.key);
     expect(Session.Range.selectState(state, range.key)?.variant).toBe("persisted");
   });
 });

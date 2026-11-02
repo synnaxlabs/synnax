@@ -971,8 +971,8 @@ var _ = Describe("Channel", func() {
 				},
 				Entry("committed low domain", uint32(0)),
 				Entry("committed mid domain", uint32(500)),
-				Entry("leading (ZeroLeading) domain", uint32(4293967295)),
-				Entry("leading domain + offset", uint32(4293967300)),
+				Entry("leading (ZeroLeading) domain", uint32(1<<31)),
+				Entry("leading domain + offset", uint32(1<<31+5)),
 			)
 		})
 

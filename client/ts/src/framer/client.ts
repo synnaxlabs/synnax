@@ -21,8 +21,7 @@ import {
   TimeSpan,
 } from "@synnaxlabs/x";
 
-import { type channel } from "@/channel";
-import { analyzeParams } from "@/channel/payload";
+import { channel } from "@/channel";
 import { type ChannelRetriever } from "@/framer/adapter";
 import { Deleter } from "@/framer/deleter";
 import { Feed, type FeedOptions } from "@/framer/feed";
@@ -44,6 +43,8 @@ export interface ClientConfig {
   retrieveChannels: ChannelRetriever;
   /** Receives each failed reconnect attempt of a feed's stream. */
   onRetry?: (error: Error) => void;
+  /** The key of the Core node the client connects to, once known. */
+  node?: () => number | undefined;
 }
 
 /**
@@ -113,11 +114,13 @@ export class Client {
     return new Feed({
       ...options,
       onRetry: this.cfg.onRetry,
+      node: this.cfg.node,
       readRemote: async (tr, keys, reduction) =>
         await this.read(tr, keys, { reduction }),
-      openStreamer: async (config) => await this.openStreamer(config),
-      readLatest: async (keys) => await this.readLatest(keys, 1),
       retrieveChannels: this.cfg.retrieveChannels,
+      openStreamer: async (config) => await this.openStreamer(config),
+      readLatest: async (keys, count, tr) =>
+        await this.readLatestNFrame(keys, count, tr),
     });
   }
 
@@ -204,7 +207,7 @@ export class Client {
     channels: channel.Params,
     opts?: ReadOptions,
   ): Promise<MultiSeries | Frame> {
-    const { single } = analyzeParams(channels);
+    const { single } = channel.analyzeParams(channels);
     const fr = await this.reader.read(tr, channels, opts);
     if (single) return fr.get(channels as channel.Key | channel.Name);
     return fr;
@@ -270,14 +273,18 @@ export class Client {
     channels: channel.Params,
     n: number = 1,
   ): Promise<MultiSeries | Frame> {
-    const { single } = analyzeParams(channels);
+    const { single } = channel.analyzeParams(channels);
     const fr = await this.readLatestNFrame(channels, n);
     if (single) return fr.get(channels as channel.Key | channel.Name);
     return fr;
   }
 
-  private async readLatestNFrame(channels: channel.Params, n: number): Promise<Frame> {
-    const i = await this.openIterator(TimeRange.MAX, channels, { chunkSize: n });
+  private async readLatestNFrame(
+    channels: channel.Params,
+    n: number,
+    tr: TimeRange = TimeRange.MAX,
+  ): Promise<Frame> {
+    const i = await this.openIterator(tr, channels, { chunkSize: n });
     const frame = new Frame();
     if (n > 0)
       try {
@@ -295,7 +302,7 @@ export class Client {
    * permanent.
    */
   async delete(channels: channel.Params, timeRange: CrudeTimeRange): Promise<void> {
-    const { normalized, variant } = analyzeParams(channels);
+    const { normalized, variant } = channel.analyzeParams(channels);
     const bounds = new TimeRange(timeRange);
     if (variant === "keys")
       return await this.deleter.delete({ keys: normalized, bounds });

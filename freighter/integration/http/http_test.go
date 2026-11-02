@@ -11,7 +11,6 @@ package http_test
 
 import (
 	"bytes"
-	"context"
 	"encoding/json/v2"
 	"io"
 	"net/http"
@@ -24,6 +23,11 @@ import (
 	"github.com/synnaxlabs/x/set"
 	. "github.com/synnaxlabs/x/testutil"
 )
+
+type message struct {
+	Message string `json:"message"`
+	ID      int    `json:"id"`
+}
 
 var _ = Describe("BindTo", func() {
 	It("Should register every integration endpoint on the provided Fiber app", func() {
@@ -62,7 +66,7 @@ var _ = Describe("BindTo", func() {
 			app := fiber.New(fiber.Config{})
 			Expect(ihttp.BindTo(app)).To(Succeed())
 
-			body := MustSucceed(json.Marshal(ihttp.Message{Message: "hello", ID: 1}))
+			body := MustSucceed(json.Marshal(message{Message: "hello", ID: 1}))
 			req := MustSucceed(
 				http.NewRequest(
 					http.MethodPost,
@@ -77,9 +81,9 @@ var _ = Describe("BindTo", func() {
 			DeferCleanup(func() { Expect(resp.Body.Close()).To(Succeed()) })
 			Expect(resp.StatusCode).To(Equal(http.StatusOK))
 
-			var msg ihttp.Message
+			var msg message
 			Expect(json.UnmarshalRead(resp.Body, &msg)).To(Succeed())
-			Expect(msg).To(Equal(ihttp.Message{Message: "hello", ID: 2}))
+			Expect(msg).To(Equal(message{Message: "hello", ID: 2}))
 		},
 	)
 
@@ -87,7 +91,7 @@ var _ = Describe("BindTo", func() {
 		app := fiber.New(fiber.Config{})
 		Expect(ihttp.BindTo(app)).To(Succeed())
 
-		body := MustSucceed(json.Marshal(ihttp.Message{Message: "hello", ID: 1}))
+		body := MustSucceed(json.Marshal(message{Message: "hello", ID: 1}))
 		req := MustSucceed(
 			http.NewRequest(
 				http.MethodPost,
@@ -109,7 +113,7 @@ var _ = Describe("BindTo", func() {
 			app := fiber.New(fiber.Config{})
 			Expect(ihttp.BindTo(app)).To(Succeed())
 
-			body := MustSucceed(json.Marshal(ihttp.Message{Message: "hello", ID: 7}))
+			body := MustSucceed(json.Marshal(message{Message: "hello", ID: 7}))
 			req := MustSucceed(
 				http.NewRequest(
 					http.MethodPost,
@@ -125,7 +129,7 @@ var _ = Describe("BindTo", func() {
 			DeferCleanup(func() { Expect(resp.Body.Close()).To(Succeed()) })
 			Expect(resp.StatusCode).To(Equal(http.StatusOK))
 
-			var msg ihttp.Message
+			var msg message
 			Expect(json.UnmarshalRead(resp.Body, &msg)).To(Succeed())
 			Expect(msg.ID).To(Equal(8))
 		},
@@ -133,7 +137,7 @@ var _ = Describe("BindTo", func() {
 })
 
 var _ = Describe("unaryParamEcho", func() {
-	postParamEcho := func(query, message string) ihttp.Message {
+	postParamEcho := func(query, text string) message {
 		GinkgoHelper()
 		app := fiber.New(fiber.Config{})
 		Expect(ihttp.BindTo(app)).To(Succeed())
@@ -142,7 +146,7 @@ var _ = Describe("unaryParamEcho", func() {
 		if query != "" {
 			target += "?" + query
 		}
-		body := MustSucceed(json.Marshal(ihttp.Message{Message: message}))
+		body := MustSucceed(json.Marshal(message{Message: text}))
 		req := MustSucceed(
 			http.NewRequest(http.MethodPost, target, bytes.NewReader(body)),
 		)
@@ -153,14 +157,14 @@ var _ = Describe("unaryParamEcho", func() {
 		DeferCleanup(func() { Expect(resp.Body.Close()).To(Succeed()) })
 		Expect(resp.StatusCode).To(Equal(http.StatusOK))
 
-		var msg ihttp.Message
+		var msg message
 		Expect(json.UnmarshalRead(resp.Body, &msg)).To(Succeed())
 		return msg
 	}
 
 	DescribeTable("echoes the requested params sorted and joined by '|'",
-		func(query, message, expected string) {
-			Expect(postParamEcho(query, message).Message).To(Equal(expected))
+		func(query, text, expected string) {
+			Expect(postParamEcho(query, text).Message).To(Equal(expected))
 		},
 		Entry(
 			"freighterctx-prefixed query params reach the handler with the prefix stripped",
@@ -190,7 +194,7 @@ var _ = Describe("unaryParamEcho", func() {
 })
 
 var _ = Describe("flakyUnavailable", func() {
-	post := func(app *fiber.App, msg ihttp.Message) *http.Response {
+	post := func(app *fiber.App, msg message) *http.Response {
 		GinkgoHelper()
 		body := MustSucceed(json.Marshal(msg))
 		req := MustSucceed(
@@ -211,7 +215,7 @@ var _ = Describe("flakyUnavailable", func() {
 		app := fiber.New(fiber.Config{})
 		Expect(ihttp.BindTo(app)).To(Succeed())
 
-		resp := post(app, ihttp.Message{Message: "flaky-first-503", ID: 1})
+		resp := post(app, message{Message: "flaky-first-503", ID: 1})
 		Expect(resp.StatusCode).To(Equal(http.StatusServiceUnavailable))
 
 		var pld errors.Payload
@@ -225,14 +229,14 @@ var _ = Describe("flakyUnavailable", func() {
 			app := fiber.New(fiber.Config{})
 			Expect(ihttp.BindTo(app)).To(Succeed())
 
-			first := post(app, ihttp.Message{Message: "flaky-recovers", ID: 1})
+			first := post(app, message{Message: "flaky-recovers", ID: 1})
 			Expect(first.StatusCode).To(Equal(http.StatusServiceUnavailable))
 
-			second := post(app, ihttp.Message{Message: "flaky-recovers", ID: 1})
+			second := post(app, message{Message: "flaky-recovers", ID: 1})
 			Expect(second.StatusCode).To(Equal(http.StatusOK))
-			var msg ihttp.Message
+			var msg message
 			Expect(json.UnmarshalRead(second.Body, &msg)).To(Succeed())
-			Expect(msg).To(Equal(ihttp.Message{Message: "flaky-recovers", ID: 2}))
+			Expect(msg).To(Equal(message{Message: "flaky-recovers", ID: 2}))
 		},
 	)
 
@@ -240,11 +244,11 @@ var _ = Describe("flakyUnavailable", func() {
 		app := fiber.New(fiber.Config{})
 		Expect(ihttp.BindTo(app)).To(Succeed())
 
-		Expect(post(app, ihttp.Message{Message: "flaky-a", ID: 1}).StatusCode).
+		Expect(post(app, message{Message: "flaky-a", ID: 1}).StatusCode).
 			To(Equal(http.StatusServiceUnavailable))
-		Expect(post(app, ihttp.Message{Message: "flaky-b", ID: 1}).StatusCode).
+		Expect(post(app, message{Message: "flaky-b", ID: 1}).StatusCode).
 			To(Equal(http.StatusServiceUnavailable))
-		Expect(post(app, ihttp.Message{Message: "flaky-a", ID: 1}).StatusCode).
+		Expect(post(app, message{Message: "flaky-a", ID: 1}).StatusCode).
 			To(Equal(http.StatusOK))
 	})
 })
@@ -254,7 +258,7 @@ var _ = Describe("emptyResponse", func() {
 		app := fiber.New(fiber.Config{})
 		Expect(ihttp.BindTo(app)).To(Succeed())
 
-		body := MustSucceed(json.Marshal(ihttp.Message{Message: "x", ID: 1}))
+		body := MustSucceed(json.Marshal(message{Message: "x", ID: 1}))
 		req := MustSucceed(
 			http.NewRequest(
 				http.MethodPost,
@@ -272,20 +276,14 @@ var _ = Describe("emptyResponse", func() {
 	})
 })
 
-var _ = Describe("TestError", func() {
-	It("Should expose its message via Error", func() {
-		err := ihttp.TestError{Code: 42, Message: "something broke"}
-		Expect(err.Error()).To(Equal("something broke"))
-	})
-
-	It("Should round-trip through the freighter errors registry", func() {
-		original := ihttp.TestError{Code: 7, Message: "boom"}
-		payload := errors.Encode(context.Background(), original, false)
-		Expect(payload.Type).To(Equal("integration.error"))
-
-		decoded := errors.Decode(context.Background(), payload)
-		var got ihttp.TestError
-		Expect(errors.As(decoded, &got)).To(BeTrue())
-		Expect(got).To(Equal(original))
-	})
+var _ = Describe("Test error", func() {
+	It(
+		"Should round-trip through the freighter errors registry",
+		func(ctx SpecContext) {
+			payload := errors.Payload{Type: "integration.error", Data: "7,boom"}
+			decoded := errors.Decode(ctx, payload)
+			Expect(decoded).To(MatchError("boom"))
+			Expect(errors.Encode(ctx, decoded, false)).To(Equal(payload))
+		},
+	)
 })

@@ -150,10 +150,28 @@ func (s *streamer) Flow(ctx signal.Context, opts ...confluence.Option) {
 				return err
 			}
 		}
+		// pendingAcks holds the ack channels of key updates the tapper has not applied
+		// yet. The tapper applies demands in order, so the head always closes first.
+		// Waiting here instead of blocking on the send keeps frames for live keys
+		// flowing while an update propagates.
+		var pendingAcks []chan struct{}
 		for {
+			var nextAck chan struct{}
+			if len(pendingAcks) > 0 {
+				nextAck = pendingAcks[0]
+			}
 			select {
 			case <-ctx.Done():
 				return ctx.Err()
+			case <-nextAck:
+				pendingAcks = pendingAcks[1:]
+				if err := signal.SendUnderContext(
+					ctx,
+					s.Out.Inlet(),
+					Response{Ack: true},
+				); err != nil {
+					return err
+				}
 			case req, ok := <-s.In.Outlet():
 				if !ok {
 					return nil
@@ -161,6 +179,10 @@ func (s *streamer) Flow(ctx signal.Context, opts ...confluence.Option) {
 				req.Keys = lo.Uniq(req.Keys)
 				s.keys = set.New(req.Keys...)
 				d := demand{Variant: change.VariantSet, Key: s.addr, Value: req}
+				if req.AckRequested {
+					d.ack = make(chan struct{})
+					pendingAcks = append(pendingAcks, d.ack)
+				}
 				if err := signal.SendUnderContext(
 					ctx,
 					s.demands.Inlet(),

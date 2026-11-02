@@ -20,7 +20,7 @@ import (
 	"github.com/synnaxlabs/arc/symbol"
 	symtestutil "github.com/synnaxlabs/arc/symbol/testutil"
 	"github.com/synnaxlabs/arc/types"
-	"github.com/synnaxlabs/freighter/mock"
+	freightertestutil "github.com/synnaxlabs/freighter/testutil"
 )
 
 // benchProgram is a representative arc sequence exercising variables, channel
@@ -52,7 +52,7 @@ func benchChannels() []symbol.Symbol {
 // handler and back.
 type benchHarness struct {
 	b      *testing.B
-	stream *mock.ClientStream[transport.JSONRPCMessage, transport.JSONRPCMessage]
+	stream *freightertestutil.ClientStream[transport.JSONRPCMessage, transport.JSONRPCMessage]
 	nextID int
 }
 
@@ -71,7 +71,7 @@ func newHarness(b *testing.B) *benchHarness {
 	if err != nil {
 		b.Fatal(err)
 	}
-	clientStream, serverStream := mock.NewStreams[transport.JSONRPCMessage, transport.JSONRPCMessage](
+	clientStream, serverStream := freightertestutil.NewStreams[transport.JSONRPCMessage, transport.JSONRPCMessage](
 		ctx,
 		64,
 		64,

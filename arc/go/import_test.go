@@ -71,8 +71,8 @@ var _ = Describe("Imports", func() {
 	Describe("required for qualified module access", func() {
 		It("Should reject time.now without an import", func() {
 			d := analyze(`
-trig -> get_now{} -> now_out
-func get_now(t u8) i64 {
+trig -> get_now() -> now_out
+func get_now() {t u8} i64 {
     return time.now()
 }
 `, chans)
@@ -85,8 +85,8 @@ func get_now(t u8) i64 {
 			d := analyze(`
 import time
 
-trig -> get_now{} -> now_out
-func get_now(t u8) i64 {
+trig -> get_now() -> now_out
+func get_now() {t u8} i64 {
     return time.now()
 }
 `, chans)
@@ -97,7 +97,7 @@ func get_now(t u8) i64 {
 			d := analyze(`
 import time
 
-trig -> time.now{} -> now_out
+trig -> time.now() -> now_out
 `, chans)
 			Expect(d.Ok()).To(BeTrue(), messages(d))
 		})
@@ -106,7 +106,7 @@ trig -> time.now{} -> now_out
 			d := analyze(`
 import ( time control )
 
-trig -> control.set_authority{value=200, channel=valve_cmd}
+trig -> control.set_authority(value=200, channel=valve_cmd)
 func get_now() i64 { return time.now() }
 `, chans)
 			Expect(d.Ok()).To(BeTrue(), messages(d))
@@ -116,7 +116,7 @@ func get_now() i64 { return time.now() }
 			d := analyze(`
 import control
 
-trig -> control.set_authority{value=200, channel=valve_cmd}
+trig -> control.set_authority(value=200, channel=valve_cmd)
 `, chans)
 			Expect(d.Ok()).To(BeTrue(), messages(d))
 		})
@@ -127,7 +127,7 @@ trig -> control.set_authority{value=200, channel=valve_cmd}
 			d := analyze(`
 import time as t
 
-trig -> t.now{} -> now_out
+trig -> t.now() -> now_out
 `, chans)
 			Expect(d.Ok()).To(BeTrue(), messages(d))
 		})
@@ -136,7 +136,7 @@ trig -> t.now{} -> now_out
 			d := analyze(`
 import time as t
 
-trig -> time.now{} -> now_out
+trig -> time.now() -> now_out
 `, chans)
 			Expect(d.Ok()).To(BeFalse())
 			Expect(messages(d)).To(ContainSubstring(`module "time" is not imported`))
@@ -146,7 +146,7 @@ trig -> time.now{} -> now_out
 			t, parseDiag := text.Parse(text.Text{Raw: `
 import time as t
 
-trig -> t.now{} -> now_out
+trig -> t.now() -> now_out
 `})
 			if parseDiag != nil {
 				Expect(parseDiag.Ok()).To(BeTrue())
@@ -180,7 +180,7 @@ trig -> t.now{} -> now_out
 			d := analyze(`
 import math.trig
 
-sensor -> trig.sin{} -> output
+sensor -> trig.sin() -> output
 `, chans)
 			Expect(d.Ok()).To(BeFalse())
 			Expect(messages(d)).To(ContainSubstring(`unknown module "math.trig"`))
@@ -192,7 +192,7 @@ sensor -> trig.sin{} -> output
 			d := analyze(`
 import time
 
-trig -> set_authority{value=200, channel=valve_cmd}
+trig -> set_authority(value=200, channel=valve_cmd)
 `, chans)
 			Expect(d.Ok()).To(BeFalse())
 			Expect(messages(d)).To(ContainSubstring(`imported module "time" is unused`))
@@ -202,8 +202,8 @@ trig -> set_authority{value=200, channel=valve_cmd}
 			d := analyze(`
 import ( time time )
 
-trig -> get_now{} -> now_out
-func get_now(t u8) i64 {
+trig -> get_now() -> now_out
+func get_now() {t u8} i64 {
     return time.now()
 }
 `, chans)
@@ -215,7 +215,7 @@ func get_now(t u8) i64 {
 			d := analyze(`
 import banana
 
-sensor -> avg{} -> output
+sensor -> avg() -> output
 `, chans)
 			Expect(d.Ok()).To(BeFalse())
 			Expect(messages(d)).To(ContainSubstring(`unknown module "banana"`))
@@ -225,7 +225,7 @@ sensor -> avg{} -> output
 			d := analyze(`
 import banana
 
-sensor -> avg{} -> output
+sensor -> avg() -> output
 `, chans)
 			Expect(
 				messages(d),
@@ -236,7 +236,7 @@ sensor -> avg{} -> output
 			d := analyze(`
 import time
 
-trig -> time.doesnotexist{} -> now_out
+trig -> time.doesnotexist() -> now_out
 `, chans)
 			Expect(d.Ok()).To(BeFalse())
 			Expect(
@@ -252,7 +252,7 @@ func get_now() i64 { return 0 }
 
 import time
 
-trig -> get_now{} -> now_out
+trig -> get_now() -> now_out
 `, chans)
 			Expect(d.Ok()).To(BeFalse())
 			Expect(messages(d)).To(ContainSubstring(
@@ -278,7 +278,7 @@ authority 100
 
 import control
 
-trig -> control.set_authority{value=200, channel=valve_cmd}
+trig -> control.set_authority(value=200, channel=valve_cmd)
 `, chans)
 			Expect(d.Ok()).To(BeFalse())
 			Expect(messages(d)).To(ContainSubstring(
@@ -291,7 +291,7 @@ trig -> control.set_authority{value=200, channel=valve_cmd}
 import time
 import control
 
-trig -> control.set_authority{value=200, channel=valve_cmd}
+trig -> control.set_authority(value=200, channel=valve_cmd)
 func get_now() i64 { return time.now() }
 `, chans)
 			Expect(d.Ok()).To(BeTrue(), messages(d))
@@ -309,7 +309,7 @@ func get_now() i64 { return time.now() }
 				h := newRuntimeHarness(ctx, `
 				import control
 				authority 100
-				trigger_cmd -> control.set_authority{value=200, channel=valve_cmd}
+				trigger_cmd -> control.set_authority(value=200, channel=valve_cmd)
 			`, resolver,
 					channels.Digest{Key: 100, DataType: telem.Uint8T},
 					channels.Digest{Key: 101, DataType: telem.Uint8T},

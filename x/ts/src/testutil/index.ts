@@ -8,4 +8,5 @@
 // included in the file licenses/APL.txt.
 
 export * from "@/testutil/console";
+export * from "@/testutil/gl";
 export * from "@/testutil/testutil";

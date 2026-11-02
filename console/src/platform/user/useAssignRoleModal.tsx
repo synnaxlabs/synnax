@@ -44,7 +44,6 @@ const AssignRole = ({
           </Form.Field>
         </Modal.Body>
         <Modal.Footer>
-          <Triggers.SaveHelpText action="Assign" />
           <Nav.Bar.End>
             <Button.Button
               onClick={() => save()}
@@ -54,6 +53,7 @@ const AssignRole = ({
               tooltip={client == null ? "No Core connected" : undefined}
               tooltipLocation="bottom"
               trigger={Triggers.SAVE}
+              triggerIndicator
             >
               Assign
             </Button.Button>

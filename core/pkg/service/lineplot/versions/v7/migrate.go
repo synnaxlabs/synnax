@@ -21,15 +21,15 @@ func MigrateLinePlot(ctx context.Context, old v6.LinePlot) (LinePlot, error) {
 	return autoMigrateLinePlot(ctx, old)
 }
 
-// MigrateLine maps the average downsample mode to the average aggregation. The
-// downsample factor has no mapping to a detail level, so every line takes the default
-// detail.
+// MigrateLine maps the average downsample mode to the average aggregation. A window of
+// one sample or less drew raw samples, so it keeps min-max. The downsample factor has
+// no mapping to a detail level, so every line takes the default detail.
 func MigrateLine(ctx context.Context, old v6.Line) (Line, error) {
 	l, err := autoMigrateLine(ctx, old)
 	if err != nil {
 		return Line{}, err
 	}
-	if old.DownsampleMode == v6.DownsampleModeAverage {
+	if old.DownsampleMode == v6.DownsampleModeAverage && old.Downsample > 1 {
 		l.Aggregation = AggregationAverage
 	}
 	l.ApplyDefaults()

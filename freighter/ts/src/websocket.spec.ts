@@ -11,9 +11,7 @@ import { binary, errors, url } from "@synnaxlabs/x";
 import { describe, expect, test } from "vitest";
 import { z } from "zod";
 
-import { EOF } from "@/errors";
-import { type Context } from "@/middleware";
-import { WebSocketClient } from "@/websocket";
+import { type Context, EOF, WebSocketClient } from "@/index";
 
 const endpoint = new url.URL({ host: "127.0.0.1", port: 8080 });
 

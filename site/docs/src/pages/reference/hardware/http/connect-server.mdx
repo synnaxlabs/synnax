@@ -1,0 +1,222 @@
+---
+layout: "@/layouts/Reference.astro"
+title: "Connect an HTTP server"
+description: "Connect a web API to Synnax, with its authentication and health check."
+---
+
+import { Divider } from "@synnaxlabs/lyra/divider";
+import { Icon } from "@synnaxlabs/lyra/icon";
+import { Fragment } from "react";
+import { Client } from "@/components/client";
+import Platforms from "@/components/hardware/Platforms.astro";
+import { Video } from "@/components/media/Media";
+import { Problem } from "@/components/problem";
+import { mdxOverrides } from "@/components/mdxOverrides";
+export const components = mdxOverrides;
+
+The HTTP integration reads values from a web API and sends commands to it as JSON. In
+Synnax, an HTTP server is one base address with its authentication and health check. The
+[read task](/reference/hardware/http/read-task) and the
+[write task](/reference/hardware/http/write-task) add the requests.
+
+<Divider.Divider x />
+
+## Prerequisites
+
+<Platforms integration="http" />
+
+- A running Driver that can reach the server on the network. Synnax Desktop runs one for
+  you.
+
+<Divider.Divider x />
+
+## Connect a server
+
+<Client.Tabs>
+  <Fragment slot="console">
+
+1. In the [devices toolbar](/reference/hardware/devices#devices-toolbar), click
+   <Icon.Add /> (**Connect device**), then select **HTTP server**. You can also run the
+   "Connect HTTP server" command.
+2. Enter a name for the server.
+3. In **Host**, enter the address and port without `http://` or `https://`, for example
+   `192.168.1.40:8080`. You can add a base path, such as `api.example.com/v2`.
+4. Turn **HTTPS** off if the server uses plain HTTP. Most devices on a local network do.
+5. In **Connect from**, select the Driver that connects to the server. If only one
+   running Driver has HTTP enabled, the Console selects it for you.
+6. On the **Authentication** and **Health check** tabs, set the
+   [authentication](#authentication) and the [health check](#health-check).
+7. Click **Connect**.
+
+The Console sends a test request before it saves the server. If the test fails, the
+dialog shows the error and keeps your entries.
+
+<Video id="device-drivers/http/connect-server/connect-server" />
+
+  </Fragment>
+  <Fragment slot="python">
+
+```python
+from synnax import http
+
+rack = client.racks.retrieve_embedded_rack()
+device = client.devices.create(
+    http.Device(
+        name="Weather station",
+        host="192.168.1.40:8080",
+        secure=False,
+        rack=rack.key,
+        health_check=http.HealthCheck(path="/health"),
+    )
+)
+```
+
+Python does not send a test request. Pass the key of a rack, or the device has no
+Driver.
+
+  </Fragment>
+  <Fragment slot="typescript">
+
+```typescript
+const rack = await client.racks.retrieve({ name: "Node 1 Embedded Driver" });
+await client.devices.create({
+  key: crypto.randomUUID(),
+  name: "Weather station",
+  rack: rack.key,
+  location: "192.168.1.40:8080",
+  make: "http",
+  model: "HTTP server",
+  configured: true,
+  properties: {
+    secure: false,
+    verifySsl: true,
+    timeoutMs: 100,
+    maxConcurrentRequests: 6,
+    auth: { type: "none" },
+    healthCheck: { method: "GET", path: "/health", headers: [], queryParams: [] },
+    read: {},
+    write: {},
+    version: 1,
+  },
+});
+```
+
+TypeScript does not send a test request.
+
+  </Fragment>
+</Client.Tabs>
+
+<Divider.Divider x />
+
+## Health check
+
+The Driver sends the health check request to each server again and again, and shows the
+result as the server status in the devices toolbar. For the messages, see
+[device statuses](/reference/hardware/devices#statuses).
+
+- **Method** -> GET or POST.
+- **Path** -> the path of the request. In the Console it is empty by default, so the
+  check asks for the base address. In Python it is `/health` by default. If the server
+  answers the check path with an error such as 404, **Connect** fails.
+- **Validate body** -> also checks one value in the JSON response. Set a **JSON
+  pointer**, such as `/status`, the **Value type**, and the **Expected value**, such as
+  `ok`. The status is "Health check failed" when the value is different.
+
+<Divider.Divider x />
+
+## Connection options
+
+| Console label       | Python field              | Default | Notes                                                                                  |
+| ------------------- | ------------------------- | ------- | -------------------------------------------------------------------------------------- |
+| Host                | `host`                    |         | Address and port, with no scheme.                                                      |
+| HTTPS               | `secure`                  | On      | Off for plain HTTP.                                                                    |
+| Verify certificate  | `verify_ssl`              | On      | Shows when **HTTPS** is on. Turn off for a server with a self-signed certificate.      |
+| Timeout             | `timeout_ms`              | 100 ms  | On the **Advanced** tab. The time the Driver waits for each response. Must be above 0. |
+| Concurrent requests | `max_concurrent_requests` | 6       | On the **Advanced** tab. The most requests open to the server at one time.             |
+| Authentication      | `auth`                    | None    | See [authentication](#authentication).                                                 |
+| Health check        | `health_check`            |         | See [health check](#health-check).                                                     |
+
+TypeScript uses the same fields in camel case, such as `verifySsl`.
+
+<Divider.Divider x />
+
+## Authentication
+
+On the **Authentication** tab, select the **Type**.
+
+| Console option | Sends                                                                                              |
+| -------------- | -------------------------------------------------------------------------------------------------- |
+| None           | No credentials.                                                                                    |
+| Bearer token   | The **Token** in the header `Authorization: Bearer <token>`.                                       |
+| API key        | The **Key** in the **Header** or the query **Parameter** that you name. Select one in **Send as**. |
+| Basic          | The **Username** and **Password** in the `Authorization` header.                                   |
+
+In code, `auth` is a dictionary:
+
+```python
+{"type": "bearer", "token": "my-token"}
+{"type": "basic", "username": "user", "password": "pass"}
+{"type": "api_key", "send_as": "header", "header": "X-API-Key", "key": "abc"}
+{
+    "type": "api_key",
+    "send_as": "query_param",
+    "parameter": "api_key",
+    "key": "abc",
+}
+```
+
+<Divider.Divider x />
+
+## Troubleshooting
+
+<Problem.List>
+
+<Problem.Item message={"Failed to reach server"}>
+<Problem.Cause>
+
+The server passed the test in the **Connect** dialog, but the health check or a task
+cannot reach it in time. The test request in the **Connect** dialog waits up to 5
+seconds. The health check and the tasks wait only for the **Timeout**, which is 100 ms
+by default.
+
+</Problem.Cause>
+<Problem.Fix>
+
+1. Right-click the server and select **Edit connection**.
+2. On the **Advanced** tab, increase **Timeout**.
+
+</Problem.Fix>
+</Problem.Item>
+
+<Problem.Item message={"Failed to connect to server"}>
+<Problem.Cause>
+
+The Driver could not reach the address. The description shows the reason.
+
+</Problem.Cause>
+<Problem.Fix>
+
+1. Make sure that **Host** has no `http://` or `https://`.
+2. Match **HTTPS** to the server. A local device often needs **HTTPS** off.
+3. For a server with a self-signed certificate, turn off **Verify certificate**.
+
+</Problem.Fix>
+</Problem.Item>
+
+<Problem.Item message={["HTTP 401", "HTTP 403"]}>
+<Problem.Cause>
+
+The server rejected the credentials. The status shows "Health check failed", or "Failed
+to connect to server" in the **Connect** dialog, with the code in the description.
+
+</Problem.Cause>
+<Problem.Fix>
+
+Check the [authentication](#authentication) settings.
+
+</Problem.Fix>
+</Problem.Item>
+
+</Problem.List>
+
+For other problems, see [Troubleshoot hardware](/reference/hardware/troubleshooting).

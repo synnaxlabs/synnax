@@ -1,0 +1,241 @@
+---
+layout: "@/layouts/Reference.astro"
+title: "Channels"
+description: "Learn what channels are, what they are for, and how to choose a kind."
+---
+
+import { Divider } from "@synnaxlabs/lyra/divider";
+import { Icon } from "@synnaxlabs/lyra/icon";
+import { Diagram } from "@/components/diagram";
+import { Video } from "@/components/media/Media";
+import { mdxOverrides } from "@/components/mdxOverrides";
+export const components = mdxOverrides;
+
+A channel is a named stream of time-ordered values from one source. Each value is a
+**sample**: one value at one point in time. A channel holds sensor readings, actuator
+commands, states, calculated values, or text. All data that you plot, record, or control
+in Synnax goes through a channel.
+
+Synnax stores the samples of a channel and streams them live at the same time. A line
+plot shows each sample when it arrives, and you can read the same samples again later.
+
+<Diagram.Block
+  title="A read task, a script, and a schematic button write to a channel. The channel streams values live to plots and Arc, and stores them for ranges and reads."
+  nodes={[
+    { key: "task", label: "Read task", icon: Icon.Task, column: 0 },
+    { key: "script", label: "Script", icon: Icon.Python, column: 0 },
+    { key: "button", label: "Schematic button", icon: Icon.Schematic, column: 0 },
+    { key: "channel", label: "Channel", icon: Icon.Channel, column: 1 },
+    {
+      key: "live",
+      label: "Streamed live",
+      caption: "plots, schematics, Arc",
+      icon: Icon.LinePlot,
+      column: 2,
+    },
+    {
+      key: "stored",
+      label: "Stored",
+      caption: "ranges, reads, exports",
+      icon: Icon.Range,
+      column: 2,
+    },
+  ]}
+  edges={[
+    { from: "task", to: "channel" },
+    { from: "script", to: "channel" },
+    { from: "button", to: "channel" },
+    { from: "channel", to: "live" },
+    { from: "channel", to: "stored" },
+  ]}
+/>
+
+Channels are almost the same as **tags** in a SCADA system such as
+[Ignition](https://inductiveautomation.com/), or **points** in a historian such as AVEVA
+PI. A system can have thousands of channels, one for each data source.
+
+<Divider.Divider x />
+
+## What channels are for
+
+### Record sensor data
+
+A [read task](/reference/hardware/tasks#read-tasks) samples the inputs of a device and
+writes each input to a data channel. The task also creates the index channel that holds
+the timestamps. You plot the channels live, and later you find the same data by
+[range](/reference/ranges).
+
+### Command an actuator
+
+A [write task](/reference/hardware/tasks#write-tasks) listens on a command channel, such
+as `valve_1_cmd`, and sends each value to the hardware. A valve on a
+[schematic](/reference/control/manual) writes to that channel when you click it. A state
+channel, such as `valve_1_state`, shows what the hardware did.
+
+### Start an automation from a button
+
+A schematic button writes 1 to a virtual channel, such as `start_cmd`. An
+[Arc sequence](/reference/control/arc/start-from-schematic) starts when `start_cmd`
+receives 1. Nothing stores the button press, because only the live value is necessary.
+
+### Store data from a script
+
+A script can create its own index and data channels, then
+[write data](/reference/client/write-data) to them. Use this for data from equipment
+that Synnax has no task for, or for results of an analysis.
+
+### Compute a value from other channels
+
+A [calculated channel](/reference/channels/calculated) computes its values from other
+channels. For example, `return inlet_pressure - outlet_pressure` gives the pressure drop
+across a filter. Synnax computes the values when you read the channel, so you do not
+store them.
+
+### Record events and notes
+
+A data channel with the `string` or `json` data type stores text, such as operator notes
+or state changes. A [log](/reference/visualize/logs) shows each value when it arrives.
+
+<Divider.Divider x />
+
+## Channel kinds
+
+Each channel has one of four kinds. You select the kind when you create the channel, and
+you cannot change it later.
+
+| Kind                               | Stores samples | Index                    | Values come from   | Use it to                                                                                                           |
+| ---------------------------------- | -------------- | ------------------------ | ------------------ | ------------------------------------------------------------------------------------------------------------------- |
+| [Index](#index-channels)           | Yes            | Is an index              | A task or a script | Hold the timestamps of data channels.                                                                               |
+| [Data](#data-channels)             | Yes            | One index channel        | A task or a script | [Record sensor data](#record-sensor-data), [commands](#command-an-actuator), or [events](#record-events-and-notes). |
+| [Virtual](#virtual-channels)       | No             | None                     | A task or a script | [Send a live signal](#start-an-automation-from-a-button) that you do not need later.                                |
+| [Calculated](#calculated-channels) | No             | One, that Synnax creates | Synnax             | [Compute a value](#compute-a-value-from-other-channels) from other channels.                                        |
+
+### Index channels
+
+An index channel holds the timestamps for one or more data channels. Its data type is
+always `timestamp`: nanoseconds since the Unix epoch, in UTC.
+
+An index channel works like the index of a book. To find the samples of a data channel
+in a time range, Synnax finds the timestamps in the index channel. Then it gets the
+samples at the same positions in the data channel. Here, one index channel holds the
+timestamps of two data channels:
+
+| `tank_time` (index)           | `tank_pressure` (data) | `tank_temperature` (data) |
+| ----------------------------- | ---------------------- | ------------------------- |
+| `2026-09-29T14:00:00.000000Z` | 101.2                  | 21.4                      |
+| `2026-09-29T14:00:00.040000Z` | 101.5                  | 21.4                      |
+| `2026-09-29T14:00:00.080000Z` | 102.1                  | 21.5                      |
+
+Data channels that share an index share their timestamps. Each write gives one timestamp
+for each sample of all of these channels. Sensors that you sample at the same times can
+share an index. A command channel almost always needs its own index, because commands do
+not arrive at the same times as sensor samples.
+
+### Data channels
+
+A data channel stores values, such as sensor readings, commands, or text. Each data
+channel has one [data type](/reference/channels/reference#data-types) and one index
+channel. You set both when you create the channel, and you cannot change them later.
+
+### Virtual channels
+
+A virtual channel streams values live, and Synnax does not store them. A virtual channel
+has no index, and it cannot be an index. When you read a virtual channel over a past
+time range, you get no data. Use a virtual channel for a signal that only live views and
+automations use, such as a button press or a test value.
+
+### Calculated channels
+
+A calculated channel computes its values from other channels with an
+[Arc](/reference/control/arc) expression. Synnax does not store the values. It computes
+them when you stream or read the channel, for live data and for past time ranges. Synnax
+gives each calculated channel an index named `<name>_time`. See
+[calculated channels](/reference/channels/calculated).
+
+<Divider.Divider x />
+
+## Names
+
+A channel name contains only letters, digits, and underscores, and it cannot start with
+a digit. Each name is unique, and names are case-sensitive. Arc automations and
+calculated channels use names to refer to channels, so a name must also be a valid Arc
+identifier.
+
+These rules give names that are easy to find:
+
+- Use lowercase letters and underscores.
+- Put the system first, then the measurement: `ox_tank_pressure`, not
+  `pressure_ox_tank`. Channels of one system then sort together.
+- Put the unit last when the channel has one: `ox_tank_pressure_psi`. Channels have no
+  unit field.
+- Keep test and run facts out of names. Put them in [ranges](/reference/ranges) and
+  their metadata.
+
+| Do not use       | Use                    | Why                                                     |
+| ---------------- | ---------------------- | ------------------------------------------------------- |
+| `ai_0`           | `ox_tank_pressure_psi` | The name tells what the channel measures.               |
+| `pressure`       | `fuel_inlet_pressure`  | A system usually has many pressure sensors.             |
+| `OxTankPressure` | `ox_tank_pressure`     | One style makes names easy to type and match.           |
+| `tc_3_hotfire_7` | `tc_3_degc`            | One channel holds data from all runs. Ranges mark runs. |
+
+To show a different name for a channel during one test, give the channel an
+[alias](/reference/ranges/aliases) in a range.
+
+<Divider.Divider x />
+
+## Channels that tasks create
+
+When you configure a task in the Console, the task creates its channels. The names start
+with the device identifier, such as `dev1`:
+
+| Task       | Channels                                                                                            | Example names                           |
+| ---------- | --------------------------------------------------------------------------------------------------- | --------------------------------------- |
+| Read task  | One index for each device, and one data channel for each input.                                     | `dev1_ai_time`, `dev1_ai_0`             |
+| Write task | For each output, a command channel with its own index.                                              | `dev1_ao_0_cmd`, `dev1_ao_0_cmd_time`   |
+| Write task | For each output that reports back, a state channel. All state channels of a device share one index. | `dev1_ao_0_state`, `dev1_ao_state_time` |
+
+To use a different name, set the channel name in the task configuration. Modbus, OPC UA,
+and HTTP write tasks have no state channels. When you configure a task from Python or
+TypeScript, you create its channels yourself.
+
+<Divider.Divider x />
+
+## Channels in the Console
+
+The <Icon.Channel /> channels toolbar shows all of the channels in Synnax. To open it,
+click its icon or press **C**.
+
+- Double-click a channel to add it to the open line plot, or to a new line plot. A
+  virtual channel opens in a log.
+- Drag a channel onto a Y axis of a line plot, or onto a schematic.
+- Right-click a channel to rename it, delete it, or move it into a group. Groups only
+  arrange the toolbar. They do not change the channel.
+- A calculated channel with an error shows a status icon. Hover over the icon to see the
+  error.
+
+<Video id="client/channels/toolbar" />
+
+The toolbar has buttons to [create a channel](/reference/channels/create) and to
+[create a calculated channel](/reference/channels/calculated).
+
+<Divider.Divider x />
+
+## Frequently asked questions
+
+### Can I change the data type of a channel?
+
+No. The data type, the kind, and the index of a channel stay the same for all of its
+life. Create a new channel with the correct settings, and send new data to it. The old
+channel keeps its data.
+
+### What happens when I rename a channel?
+
+Plots, schematics, and tasks refer to channels by key, so they continue to work.
+Calculated channels and Arc automations refer to channels by name. Update them to use
+the new name. See
+[rename channels](/reference/channels/rename-and-delete#rename-channels).
+
+### Should I use a virtual channel or a calculated channel?
+
+Use a virtual channel when a task, a script, or a button writes the values. Use a
+calculated channel when Synnax can compute the values from other channels.

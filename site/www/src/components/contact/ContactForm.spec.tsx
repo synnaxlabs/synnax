@@ -22,17 +22,20 @@ const FIELDS = {
   message: "We fire engines on a test stand.",
 };
 
-// Answers the form with the given response and records alerts, then renders it.
+// Answers the form with the given response and records alerts and PostHog events, then
+// renders it.
 const setup = (
   respond: (url: string, init: RequestInit) => Promise<Response> = async () =>
     new Response("{}", { status: 200 }),
 ) => {
   const fetch = vi.fn(respond);
   const alert = vi.fn();
+  const capture = vi.fn();
   vi.stubGlobal("fetch", fetch);
   vi.stubGlobal("alert", alert);
+  vi.stubGlobal("posthog", { capture });
   render(<ContactForm />);
-  return { fetch, alert };
+  return { fetch, alert, capture };
 };
 
 const fill = (values: Partial<typeof FIELDS> = FIELDS): void => {
@@ -129,6 +132,17 @@ describe("ContactForm", () => {
       expect(container().classList).toContain("success");
     });
 
+    it("should capture the submission in PostHog after a success", async () => {
+      const { capture } = setup();
+      fill();
+      await send();
+      expect(capture).toHaveBeenCalledExactlyOnceWith(
+        "contact_form_submitted",
+        undefined,
+        { transport: "sendBeacon" },
+      );
+    });
+
     it("should return to the form on back", async () => {
       setup();
       fill();
@@ -141,10 +155,11 @@ describe("ContactForm", () => {
 
   describe("failure", () => {
     it("should alert and allow a retry when Formspree refuses the form", async () => {
-      const { alert } = setup(async () => new Response("{}", { status: 422 }));
+      const { alert, capture } = setup(async () => new Response("{}", { status: 422 }));
       fill();
       await send();
       expect(alert).toHaveBeenCalledExactlyOnceWith(FAILURE);
+      expect(capture).not.toHaveBeenCalled();
       expect(disabled()).toBe(false);
       expect(container().classList).not.toContain("success");
     });

@@ -44,16 +44,16 @@ export default async (session: capture.CaptureSession): Promise<void> => {
     await session.doubleClick(pressure, { zoom: false, text: true });
     await session.hold(1800);
     // The plot takes drops on its Y axis, not on the canvas.
-    const axis = plot.locator(".pluto-axis.pluto--location-left").first();
+    const axis = plot.locator(".pluto-axis.lyra--location-left").first();
     await session.drag(temperature, axis, { zoom: false });
     await session.hold(2000);
 
     await session.rightClick(temperature, { text: true, zoom: false });
-    const menu = page.locator(".pluto-menu-context").first();
+    const menu = page.locator(".lyra-menu-context").first();
     await session.waitFor(menu);
     await session.zoom([temperature, menu]);
     await session.hold(500);
-    for (const item of await menu.locator(".pluto-menu-item").all()) {
+    for (const item of await menu.locator(".lyra-menu-item").all()) {
       await session.moveTo(item);
       await session.hold(350);
     }
@@ -70,7 +70,7 @@ export default async (session: capture.CaptureSession): Promise<void> => {
     await session.hold(400);
     await capture.contextMenu(session, temperature, "Group selection");
     const editable = page
-      .locator(".pluto-text--editable[contenteditable='true']")
+      .locator(".lyra-text--editable[contenteditable='true']")
       .first();
     await session.waitFor(editable);
     await session.hold(400);

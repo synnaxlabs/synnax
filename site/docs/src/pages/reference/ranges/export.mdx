@@ -1,0 +1,88 @@
+---
+layout: "@/layouts/Reference.astro"
+title: "Export data"
+heading: "Export data"
+description: "Download channel data from a range or a line plot as a CSV file."
+---
+
+import { Divider } from "@synnaxlabs/lyra/divider";
+import { Icon } from "@synnaxlabs/lyra/icon";
+import { Edition } from "@/components/edition";
+import { mdxOverrides } from "@/components/mdxOverrides";
+export const components = mdxOverrides;
+
+The Console exports channel data as a CSV file. You can export the data of a
+[range](/reference/ranges), of a [line plot](/reference/visualize/line-plots), or of a
+region that you select on a line plot. Each way opens the same download dialog.
+
+<Divider.Divider x />
+
+## Export a range
+
+1. Open the [range overview](/reference/ranges/find#range-overview).
+2. Click <Icon.CSV /> (**Download data for** followed by the range name **as CSV**) at
+   the top of the overview.
+3. In the dialog, select the channels to export.
+4. Click **Download**, then choose where to save the file.
+
+The dialog uses the start and end of the range. It has no channels selected, because a
+range does not hold a list of channels.
+
+<Divider.Divider x />
+
+## Export from a line plot
+
+When you export from a line plot, the dialog selects the channels of the plot for you.
+
+### Whole line plot
+
+Open the component toolbar of the line plot and click <Icon.CSV />. The dialog selects
+the X and Y channels of the plot. Its time span covers all the ranges on the plot, and a
+rolling span ends at the current time.
+
+### Selected region
+
+1. [Select a region](/reference/visualize/line-plots#select-a-region) of the line plot.
+2. Right-click the selection and select **Download region as CSV**.
+
+The dialog uses the start and end of the selection.
+
+### Range annotation
+
+Right-click a range annotation on the line plot and select **Download as CSV**. The
+dialog uses the start and end of that range.
+
+<Divider.Divider x />
+
+## Download dialog
+
+The download dialog has these fields:
+
+- **From** and **To**: The start and end of the data to export. Change them to export a
+  shorter or longer period.
+- **Channels**: The channels to export. Virtual channels are not in the list.
+- **Downsample factor**: Keeps one sample of every N samples. It is a whole number, 1 or
+  more. The default is 1, which keeps all samples.
+
+**Download** is disabled until you select at least one channel. The end time cannot be
+before the start time. Press **Ctrl+Enter** (**Cmd+Enter** on macOS) to download.
+
+<Divider.Divider x />
+
+## CSV format
+
+- The first line is a header with the name of each channel.
+- Synnax adds the index channel of each channel that you select. Index channels hold the
+  timestamps.
+- Timestamps are integers in nanoseconds since the Unix epoch (UTC).
+- Each line holds the samples that share one timestamp. Lines are in time order.
+- Channels with different index channels have different timestamp columns. A cell is
+  empty when a channel has no sample at the timestamp of that line.
+
+<Edition.Enterprise>
+
+To export data in code, read it with the Python or TypeScript client. See
+[read data](/reference/client/read-data). In Python, `frame.to_df()` converts the data
+to a `pandas.DataFrame`, which you can save with `to_csv`.
+
+</Edition.Enterprise>

@@ -15,7 +15,7 @@ from console.schematic.symbol import Symbol
 class OffPageReference(Symbol):
     """Schematic off-page reference symbol for cross-schematic navigation."""
 
-    _symbol_group = "General"
+    _symbol_group: str | None = "General"
 
     def __init__(
         self,
@@ -29,7 +29,7 @@ class OffPageReference(Symbol):
             label: Display label for the symbol
             page_name: Name of the target schematic page to navigate to
         """
-        super().__init__(label, symbol_type="Off page", rotatable=False)
+        super().__init__(label=label, symbol_type="Off page", rotatable=False)
         self._page_name = page_name
 
     def set_label(self, label: str) -> None:
@@ -51,6 +51,7 @@ class OffPageReference(Symbol):
 
     def set_properties(
         self,
+        *,
         channel_name: str | None = None,
         page_name: str | None = None,
         **kwargs: Any,
@@ -72,7 +73,7 @@ class OffPageReference(Symbol):
         if page_name is not None:
             page_trigger = (
                 self.layout.form_section("Navigation")
-                .locator(".pluto-dialog__trigger")
+                .locator(".lyra-dialog__trigger")
                 .first
             )
             page_trigger.wait_for(state="visible", timeout=5000)

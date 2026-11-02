@@ -23,7 +23,7 @@ from freighter.transport import (
 
 
 def _context() -> Context:
-    return Context("http", "/test", "client")
+    return Context(protocol="http", target="/test", role="client")
 
 
 def _recorder(calls: list[str], name: str) -> Middleware:
@@ -57,7 +57,7 @@ class TestMiddlewareCollector:
         collector = MiddlewareCollector()
         collector.use(_recorder(calls, "a"), _recorder(calls, "b"))
         collector.use(_recorder(calls, "c"))
-        collector.exec(_context(), _finalizer(calls))
+        collector.exec(_context(), finalizer=_finalizer(calls))
         assert calls == ["a", "b", "c", "finalizer"]
 
     def test_repeat_exec(self) -> None:
@@ -65,8 +65,8 @@ class TestMiddlewareCollector:
         calls: list[str] = []
         collector = MiddlewareCollector()
         collector.use(_recorder(calls, "a"))
-        collector.exec(_context(), _finalizer(calls))
-        collector.exec(_context(), _finalizer(calls))
+        collector.exec(_context(), finalizer=_finalizer(calls))
+        collector.exec(_context(), finalizer=_finalizer(calls))
         assert calls == ["a", "finalizer", "a", "finalizer"]
 
 
@@ -83,5 +83,5 @@ class TestAsyncMiddlewareCollector:
             calls.append("finalizer")
             return ctx
 
-        await collector.exec(_context(), finalizer)
+        await collector.exec(_context(), finalizer=finalizer)
         assert calls == ["a", "b", "c", "finalizer"]

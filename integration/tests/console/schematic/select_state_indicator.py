@@ -69,7 +69,12 @@ class SelectStateIndicator(ConsoleCase):
         schematic.create_symbol(indicator)
         indicator.move(delta_x=200, delta_y=0)
 
-        schematic.connect_symbols(select, "right", indicator, "left")
+        schematic.connect_symbols(
+            source_symbol=select,
+            source_handle="right",
+            target_symbol=indicator,
+            target_handle="left",
+        )
 
         self.log("Sending 'Open' via Select")
         select.send("Open")

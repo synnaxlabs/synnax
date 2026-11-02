@@ -63,14 +63,14 @@ class _Response(BaseModel):
     frame: FramePayload
 
 
-class WSIteratorCodec(WSCodec):
+class _WSIteratorCodec(WSCodec):
     def encode(self, data: BaseModel) -> bytes:
         return self.lower_perf_codec.encode(data)
 
     def decode(self, data: bytes, pld_t: type[P]) -> P:
         if data[0] == LOW_PERF_SPECIAL_CHAR:
             return self.lower_perf_codec.decode(data[1:], pld_t)
-        frame = self.codec.decode(data, 1)
+        frame = self.codec.decode(data, offset=1)
         return cast(
             P,
             Message(
@@ -107,6 +107,7 @@ class Iterator:
 
     def __init__(
         self,
+        *,
         tr: TimeRange,
         client: WebsocketClient,
         adapter: ReadFrameAdapter,
@@ -117,7 +118,7 @@ class Iterator:
         self.tr = tr
         self.instrumentation = instrumentation
         self._adapter = adapter
-        client = client.with_codec(WSIteratorCodec(self._adapter.codec))
+        client = client.with_codec(_WSIteratorCodec(self._adapter.codec))
         self._stream = client.stream("/frame/iterate", _Request, _Response)
         self._chunk_size = chunk_size
         self._reduction = reduction
@@ -146,8 +147,8 @@ class Iterator:
 
         :param span: The span of time to read. A negative span is equivalent to calling
         prev with the absolute value of the span. If AUTO_SPAN is provided, the iterator
-        will automatically determine the span of time to read. This is useful for iterating
-        quickly over an entire time range.
+        will automatically determine the span of time to read. This is useful for
+        iterating quickly over an entire time range.
 
         :returns: False if a segment satisfying the request can't be found for a
         particular channel or the iterator has accumulated an error.
@@ -159,11 +160,11 @@ class Iterator:
 
         :param span: The span of time to read. A negative span is equivalent to calling
         next with the absolute value of the span. If AUTO_SPAN is provided, the iterator
-        will automatically determine the span of time to read. This is useful for iterating
-        quickly over an entire time range.
+        will automatically determine the span of time to read. This is useful for
+        iterating quickly over an entire time range.
 
-        :returns: False if a segment satisfying the request can't be found for a particular
-        channel or the iterator has accumulated an error.
+        :returns: False if a segment satisfying the request can't be found for a
+        particular channel or the iterator has accumulated an error.
         """
         return self._exec(_Request(command=_Command.PREV, span=span))
 
@@ -172,52 +173,54 @@ class Iterator:
         it. Also invalidates the iterator. The iterator will not be considered valid
         until a call to first, last, next, prev, prev_span, next_span, or next_range.
 
-        :returns: False if the iterator is not pointing to a valid segment for a particular
-        channel or has accumulated an error.
+        :returns: False if the iterator is not pointing to a valid segment for a
+        particular channel or has accumulated an error.
         """
         return self._exec(_Request(command=_Command.SEEK_FIRST))
 
     def seek_last(self) -> bool:
-        """Seeks the iterator to the last segment in the time range, but does not read it.
-        Also invalidates the iterator. The iterator will not be considered valid
+        """Seeks the iterator to the last segment in the time range, but does not read
+        it. Also invalidates the iterator. The iterator will not be considered valid
         until a call to first, last, next, prev, prev_span, next_span, or next_range.
 
-        :returns: False if the iterator is not pointing to a valid segment for a particular
-        channel or has accumulated an error.
+        :returns: False if the iterator is not pointing to a valid segment for a
+        particular channel or has accumulated an error.
         """
         return self._exec(_Request(command=_Command.SEEK_LAST))
 
     def seek_le(self, stamp: TimeStamp) -> bool:
         """Seeks the iterator to the first segment whose start is less than or equal to
         the provided timestamp. Also invalidates the iterator. The iterator will not be
-        considered valid until a call to first, last, next, prev, prev_span, next_span, or next_range.
+        considered valid until a call to first, last, next, prev, prev_span, next_span,
+        or next_range.
 
-        :returns: False if the iterator is not pointing to a valid segment for a particular
-        channel or has accumulated an error.
+        :returns: False if the iterator is not pointing to a valid segment for a
+        particular channel or has accumulated an error.
         """
         return self._exec(_Request(command=_Command.SEEK_LE, stamp=stamp))
 
     def seek_ge(self, stamp: TimeStamp) -> bool:
-        """Seeks the iterator to the first segment whose start is greater than or equal to
-        the provided timestamp. Also invalidates the iterator. The iterator will not be
-        considered valid until a call to first, last, next, prev, prev_span, next_span, or next_range.
+        """Seeks the iterator to the first segment whose start is greater than or equal
+        to the provided timestamp. Also invalidates the iterator. The iterator will not
+        be considered valid until a call to first, last, next, prev, prev_span,
+        next_span, or next_range.
 
-        :returns: False if the iterator is not pointing to a valid segment for a particular
-        channel or has accumulated an error.
+        :returns: False if the iterator is not pointing to a valid segment for a
+        particular channel or has accumulated an error.
         """
         return self._exec(_Request(command=_Command.SEEK_GE, stamp=stamp))
 
     def valid(self) -> bool:
-        """Returns true if the iterator value contains a valid segment, and False otherwise.
-        valid most commonly returns false when the iterator is exhausted or has accumulated
-        an error.
+        """Returns true if the iterator value contains a valid segment, and False
+        otherwise. valid most commonly returns false when the iterator is exhausted or
+        has accumulated an error.
         """
         return self._exec(_Request(command=_Command.VALID))
 
     def close(self) -> None:
-        """Close closes the iterator. An iterator MUST be closed after use, and this method
-        should probably be placed in a 'finally' block. If the iterator is not closed, it may
-        leak resources and threads.
+        """Close closes the iterator. An iterator MUST be closed after use, and this
+        method should probably be placed in a 'finally' block. If the iterator is not
+        closed, it may leak resources and threads.
 
         :raises Exception: the error that stopped the iterator, if a read failed.
         """

@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { TEST_CLIENT_PARAMS } from "@synnaxlabs/client/testutil";
+import { TEST_CLIENT_PARAMS, TEST_CREDENTIALS } from "@synnaxlabs/client/testutil";
 import { act, fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { afterEach, describe, expect, it } from "vitest";
 
@@ -16,13 +16,15 @@ import {
   clearSupervisor,
   createDesktopWrapper,
   mockSupervisor,
+  type Status,
 } from "@/feature/embedded/testutil";
 import { Session } from "@/session";
 
-const { host, port, username, password } = TEST_CLIENT_PARAMS;
+const { host, port } = TEST_CLIENT_PARAMS;
+const { username, password } = TEST_CREDENTIALS;
 
 // The Core that the specs run against stands in for the embedded one.
-const LIVE: Embedded.Status = {
+const LIVE: Status = {
   state: "running",
   connection: { host, port: Number(port), username, password },
 };

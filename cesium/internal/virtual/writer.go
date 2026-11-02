@@ -11,7 +11,6 @@ package virtual
 
 import (
 	"context"
-	"sync/atomic"
 
 	"github.com/samber/lo"
 	"github.com/synnaxlabs/cesium/internal/channel"
@@ -36,7 +35,7 @@ type WriterConfig struct {
 
 var (
 	_                   config.Config[WriterConfig] = WriterConfig{}
-	DefaultWriterConfig                             = WriterConfig{
+	defaultWriterConfig                             = WriterConfig{
 		ErrOnUnauthorizedOpen: new(false),
 	}
 )
@@ -76,8 +75,6 @@ type Writer struct {
 	// wrapError is a function that wraps any error originating from this writer to
 	// provide context including the writer's channel key and name.
 	wrapError func(error) error
-	// lastSample is the DB's retained sample, replaced by every non-empty write.
-	lastSample *atomic.Pointer[telem.Series]
 	// Channel stores information about the channel being written to, most importantly
 	// the density and index.
 	Channel channel.Channel
@@ -95,7 +92,7 @@ func (db *DB) OpenWriter(
 		err = ErrDBClosed
 		return nil, transfer, db.wrapError(err)
 	}
-	cfg, err := config.New(DefaultWriterConfig, cfgs...)
+	cfg, err := config.New(defaultWriterConfig, cfgs...)
 	if err != nil {
 		return nil, transfer, db.wrapError(err)
 	}
@@ -103,7 +100,6 @@ func (db *DB) OpenWriter(
 		WriterConfig: cfg,
 		Channel:      db.cfg.Channel,
 		wrapError:    db.wrapError,
-		lastSample:   db.lastSample,
 	}
 	if w.control, transfer, err = db.controller.OpenGate(
 		control.GateConfig[*controlResource]{
@@ -112,8 +108,12 @@ func (db *DB) OpenWriter(
 			Authority:             cfg.Authority,
 			Subject:               cfg.Subject,
 			OpenResource: func() (*controlResource, error) {
+				a, err := db.leadingAlignment.Next()
+				if err != nil {
+					return nil, err
+				}
 				cr := &controlResource{ck: db.cfg.Channel.Key}
-				cr.storeAlignment(telem.NewAlignment(db.leadingAlignment.Add(1), 0))
+				cr.storeAlignment(a)
 				return cr, nil
 			},
 		},
@@ -142,12 +142,6 @@ func (w *Writer) Write(series telem.Series) (telem.Alignment, error) {
 	// sample, not the last.
 	a := e.loadAlignment()
 	e.storeAlignment(a.AddSamples(uint32(series.Len())))
-	if series.Len() > 0 {
-		series.Alignment = a
-		// The copy keeps the sample from pinning the whole written buffer.
-		last := series.Last().DeepCopy()
-		w.lastSample.Store(&last)
-	}
 	return a, nil
 }
 

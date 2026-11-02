@@ -11,7 +11,7 @@ import { addChannel, choose, TANK_PRESSURES, taskScript } from "./common/task";
 
 /**
  * Docs `reference/hardware/ethercat/read-task` (Create a read task): set the rates, add
- * a channel, select the module and its first channel PDO, and start the task.
+ * a channel, select the module and its first Value entry, and start the task.
  */
 export default taskScript({
   device: TANK_PRESSURES,
@@ -20,6 +20,6 @@ export default taskScript({
   channels: async (session, form) => {
     await addChannel(session, form);
     await choose(session, form, "Slave device", TANK_PRESSURES.name);
-    await choose(session, form, "PDO", "Channel 1", { search: true });
+    await choose(session, form, "Entry", "Value");
   },
 });

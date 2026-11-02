@@ -9,7 +9,7 @@
 
 import { mockBoundingClientRect } from "@synnaxlabs/lyra/testutil";
 import { TimeSpan, TimeStamp } from "@synnaxlabs/x";
-import { act, fireEvent, render, screen, waitFor } from "@testing-library/react";
+import { act, fireEvent, render, screen } from "@testing-library/react";
 import { beforeAll, describe, expect, it, vi } from "vitest";
 
 import { Ranger } from "@/ranger";
@@ -25,7 +25,7 @@ const MILLISECOND = Number(TimeSpan.MILLISECOND.valueOf());
 const SECOND = Number(TimeSpan.SECOND.valueOf());
 
 const triggers = (container: HTMLElement): NodeListOf<HTMLElement> =>
-  container.querySelectorAll(".pluto-time-editor__trigger");
+  container.querySelectorAll(".lyra-time-editor__trigger");
 
 const startLabel = (): string =>
   screen.getByLabelText(/^Start, /).getAttribute("aria-label") ?? "";
@@ -100,28 +100,44 @@ describe("Ranger.Timeline", () => {
     });
   });
 
-  it("should move to in progress when the planned start passes", async () => {
-    const now = TimeStamp.now().nanoseconds;
-    render(
-      <Ranger.Timeline
-        value={{ start: now + 50 * MILLISECOND, end: now + HOUR }}
-        onChange={() => {}}
-      />,
-    );
-    expect(screen.getByText("To do")).toBeTruthy();
-    await waitFor(() => expect(screen.getByText("In progress")).toBeTruthy());
+  it("should move to in progress when the planned start passes", () => {
+    vi.useFakeTimers({ now: EXACT });
+    try {
+      const now = TimeStamp.now().nanoseconds;
+      render(
+        <Ranger.Timeline
+          value={{ start: now + 50 * MILLISECOND, end: now + HOUR }}
+          onChange={() => {}}
+        />,
+      );
+      expect(screen.getByText("To do")).toBeTruthy();
+      act(() => {
+        vi.advanceTimersByTime(50);
+      });
+      expect(screen.getByText("In progress")).toBeTruthy();
+    } finally {
+      vi.useRealTimers();
+    }
   });
 
-  it("should move to completed when the planned end passes", async () => {
-    const now = TimeStamp.now().nanoseconds;
-    render(
-      <Ranger.Timeline
-        value={{ start: now - HOUR, end: now + 50 * MILLISECOND }}
-        onChange={() => {}}
-      />,
-    );
-    expect(screen.getByText("In progress")).toBeTruthy();
-    await waitFor(() => expect(screen.getByText("Completed")).toBeTruthy());
+  it("should move to completed when the planned end passes", () => {
+    vi.useFakeTimers({ now: EXACT });
+    try {
+      const now = TimeStamp.now().nanoseconds;
+      render(
+        <Ranger.Timeline
+          value={{ start: now - HOUR, end: now + 50 * MILLISECOND }}
+          onChange={() => {}}
+        />,
+      );
+      expect(screen.getByText("In progress")).toBeTruthy();
+      act(() => {
+        vi.advanceTimersByTime(50);
+      });
+      expect(screen.getByText("Completed")).toBeTruthy();
+    } finally {
+      vi.useRealTimers();
+    }
   });
 
   it("should read in progress at the planned start", () => {
@@ -203,7 +219,7 @@ describe("Ranger.Timeline", () => {
         onChange={() => {}}
       />,
     );
-    expect(container.querySelector(".pluto-timespan__label")?.textContent).toBe("48s");
+    expect(container.querySelector(".lyra-timespan__label")?.textContent).toBe("48s");
   });
 
   it("should offer a planned end once a range is scheduled", () => {
@@ -306,7 +322,7 @@ describe("Ranger.Timeline", () => {
     const precedes = (a: Element, b: Element): boolean =>
       (a.compareDocumentPosition(b) & Node.DOCUMENT_POSITION_FOLLOWING) !== 0;
     const span = (container: HTMLElement): Element =>
-      container.querySelector(".pluto-timespan") as Element;
+      container.querySelector(".lyra-timespan") as Element;
     const dot = (container: HTMLElement): Element =>
       container.querySelector(".pluto-range-timeline__dot") as Element;
 

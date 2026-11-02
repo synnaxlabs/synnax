@@ -18,25 +18,25 @@ import (
 	"github.com/synnaxlabs/aspen/internal/cluster/gossip"
 	"github.com/synnaxlabs/aspen/internal/cluster/pledge"
 	"github.com/synnaxlabs/aspen/internal/node"
-	"github.com/synnaxlabs/freighter/mock"
+	freightertestutil "github.com/synnaxlabs/freighter/testutil"
 	"github.com/synnaxlabs/x/address"
 	"github.com/synnaxlabs/x/encoding/gob"
 	"github.com/synnaxlabs/x/encoding/msgpack"
-	"github.com/synnaxlabs/x/kv/memkv"
 	"github.com/synnaxlabs/x/signal"
 	. "github.com/synnaxlabs/x/testutil"
+	"github.com/synnaxlabs/x/testutil/memkv"
 )
 
 var _ = Describe("Open", func() {
 	Context("Valid Properties", func() {
 		var (
-			gossipNet *mock.Network[gossip.Message, gossip.Message]
-			pledgeNet *mock.Network[pledge.Request, pledge.Response]
+			gossipNet *freightertestutil.Network[gossip.Message, gossip.Message]
+			pledgeNet *freightertestutil.Network[pledge.Request, pledge.Response]
 		)
 
 		BeforeEach(func() {
-			gossipNet = mock.NewNetwork[gossip.Message, gossip.Message]()
-			pledgeNet = mock.NewNetwork[pledge.Request, pledge.Response]()
+			gossipNet = freightertestutil.NewNetwork[gossip.Message, gossip.Message]()
+			pledgeNet = freightertestutil.NewNetwork[pledge.Request, pledge.Response]()
 		})
 
 		Context("Name Cluster", func() {
@@ -133,7 +133,7 @@ var _ = Describe("Open", func() {
 						},
 						StorageKey:           []byte("Cluster-join-test-storage"),
 						Storage:              kvDB,
-						StorageFlushInterval: cluster.FlushOnEvery,
+						StorageFlushInterval: -1 * time.Second,
 						Codec:                msgpack.Codec,
 					}
 					clusterTwo := MustSucceed(cluster.Open(ctx, clusterTwoConfig))
@@ -220,7 +220,7 @@ var _ = Describe("Open", func() {
 						},
 						StorageKey:           storageKey,
 						Storage:              kvDB,
-						StorageFlushInterval: cluster.FlushOnEvery,
+						StorageFlushInterval: -1 * time.Second,
 						Codec:                msgpack.Codec,
 					}
 					clusterTwo := MustSucceed(cluster.Open(ctx, oldConfig))
@@ -245,7 +245,7 @@ var _ = Describe("Open", func() {
 						},
 						StorageKey:           storageKey,
 						Storage:              kvDB,
-						StorageFlushInterval: cluster.FlushOnEvery,
+						StorageFlushInterval: -1 * time.Second,
 					}
 					clusterTwoAgain := MustSucceed(cluster.Open(ctx, upgradedConfig))
 					Expect(clusterTwoAgain.Host().Key).To(Equal(node.Key(2)))
@@ -299,7 +299,7 @@ var _ = Describe("Open", func() {
 						},
 						StorageKey:           storageKey,
 						Storage:              kvDB,
-						StorageFlushInterval: cluster.FlushOnEvery,
+						StorageFlushInterval: -1 * time.Second,
 						Codec:                gob.Codec,
 					}
 					clusterTwo := MustSucceed(cluster.Open(ctx, oldConfig))
@@ -323,7 +323,7 @@ var _ = Describe("Open", func() {
 						},
 						StorageKey:           storageKey,
 						Storage:              kvDB,
-						StorageFlushInterval: cluster.FlushOnEvery,
+						StorageFlushInterval: -1 * time.Second,
 					}
 					clusterTwoAgain := MustSucceed(cluster.Open(ctx, upgradedConfig))
 					Expect(clusterTwoAgain.Host().Key).To(Equal(node.Key(2)))
@@ -342,8 +342,8 @@ var _ = Describe("Open", func() {
 			cfg := cluster.Config{}
 			ctx, cancel := signal.Isolated()
 			defer cancel()
-			_, err := cluster.Open(ctx, cfg)
-			Expect(err).To(HaveOccurred())
+			Expect(cluster.Open(ctx, cfg)).Error().
+				To(MatchError(ContainSubstring("host_address: required")))
 		})
 	})
 })

@@ -10,14 +10,16 @@
 package testutil_test
 
 import (
-	stderrors "errors"
-
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	"github.com/onsi/gomega/format"
 	"github.com/synnaxlabs/x/errors"
 	_ "github.com/synnaxlabs/x/testutil" // registers the custom formatter
 )
+
+type plainError struct{}
+
+func (plainError) Error() string { return "standard error" }
 
 var _ = Describe("Format", func() {
 	Describe("formatErrorWithStack", func() {
@@ -41,7 +43,7 @@ var _ = Describe("Format", func() {
 		})
 
 		It("should handle errors without stack traces gracefully", func() {
-			err := stderrors.New("standard error")
+			var err error = plainError{}
 			formatted := format.Object(err, 1)
 			Expect(formatted).To(ContainSubstring("standard error"))
 			// Should not contain stack trace header since std errors don't have stack

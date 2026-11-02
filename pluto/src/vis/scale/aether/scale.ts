@@ -300,7 +300,7 @@ export class Scale
     const draw = new Draw2D(i.render.upper2d.applyScale(viewportScale), i.theme);
 
     const bar = this.barRegion;
-    const value = i.telem.value();
+    const value = i.telem.value().data;
     const { lower, upper } = this.state.bounds;
     const range = upper - lower;
     const ratio =

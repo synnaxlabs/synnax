@@ -1,0 +1,377 @@
+---
+layout: "@/layouts/Reference.astro"
+title: "Schematics"
+description:
+  "Draw your system with symbols, show live values on it, and connect valves to
+  hardware."
+---
+
+import { Divider } from "@synnaxlabs/lyra/divider";
+import { Icon } from "@synnaxlabs/lyra/icon";
+import { Note } from "@/components/note";
+import { Video } from "@/components/media/Media";
+import { Hero } from "@/components/hero";
+import { Problem } from "@/components/problem";
+import { mdxOverrides } from "@/components/mdxOverrides";
+export const components = mdxOverrides;
+
+<Hero.Hero
+  still="console/schematics/hero"
+  layout="bleed"
+  tone="deep"
+  palette="violet-pink"
+/>
+
+A schematic draws your system with symbols for tanks, valves, pumps, and sensors. Each
+symbol can show the latest value of a channel, and an operator can click a valve or a
+button to command hardware. Use a schematic as the operator view of a test stand.
+
+To try one, download the
+[example schematic](https://github.com/synnaxlabs/synnax/blob/main/client/py/examples/control/tpc/schematic.json)
+and drop it on the panels area of the Console.
+
+<Divider.Divider x />
+
+## Create a schematic
+
+1. Click <Icon.Add /> in the tab bar, or press **Ctrl+T** (**Cmd+T** on macOS).
+2. Select **Schematic**.
+
+You can also run the "Create schematic" command from the
+[command palette](/reference/get-started/ui-overview#search-and-command-palette). The
+new schematic opens with editing on.
+
+<Video id="console/schematics/create" />
+
+<Divider.Divider x />
+
+## Turn editing on and off
+
+Move the pointer over the schematic to show its controls in the top right. Click
+
+<Icon.Edit /> (**Enable editing**) to add, move, and configure symbols. Click
+<Icon.EditOff /> (**Disable editing**) to stop.
+
+A schematic opens with editing on the first time you open it in a window. Turn editing
+off before an operator uses it. While editing is on, a click selects a symbol and does
+not command hardware.
+
+You cannot turn on editing while you have control of the schematic. Open the component
+toolbar and click **Release control and enable editing**.
+
+<Divider.Divider x />
+
+## Add symbols
+
+1. Turn on editing.
+2. Press **V** to open the component toolbar, then select the **Symbols** tab.
+3. Search for a symbol, or select a group: **General**, **Vessels**, **Valves**,
+   **Pumps**, **Flowmeters**, **Process**, **Safety**, or **Fittings**.
+4. Click a symbol to add it at the center of the schematic, or drag it to a position.
+
+To draw your own symbol, see [custom symbols](/reference/visualize/custom-symbols).
+
+<Divider.Divider x />
+
+## Connect symbols
+
+Move the pointer over a symbol to show its handles. Drag from one handle to a handle of
+a different symbol to draw a connection line.
+
+<Video id="console/schematics/connections" />
+
+<Divider.Divider x />
+
+## Show a live value
+
+1. Add a **Value** symbol from the **General** group.
+2. Select it, then open the **Properties** tab of the component toolbar.
+3. On the **Telemetry** tab, select the **Channel**.
+
+The symbol shows the latest value of the channel. To set the number format and when the
+value shows as stale, see the [Telemetry tab](#telemetry-tab).
+
+<Video id="console/schematics/value" />
+
+<Divider.Divider x />
+
+## Connect a valve to hardware
+
+1. Add a valve, a switch, or a button.
+2. Select it, then open the **Control** tab of its properties.
+3. Under **Command**, select the **Channel** that the Console writes to when an operator
+   clicks the symbol.
+4. Under **State**, select the **Channel** that reports the position of the valve.
+
+<Video id="console/schematics/control-tab" />
+
+To command the valve, turn off editing and click the valve. To take and release control,
+and to see what each symbol writes, see [manual control](/reference/control/manual).
+
+<Divider.Divider x />
+
+## Show the device state on a setpoint
+
+A **Setpoint**, **Text input**, or **Select** symbol shows the last value written to its
+command channel. To also show the value that the device reports, give the symbol a state
+channel:
+
+1. Select the symbol, then open the **Control** tab of its properties.
+2. Under **Command**, select the **Channel** that the Console writes to when an operator
+   clicks **Set**.
+3. Under **State**, select the **Channel** that reports the value of the device.
+
+The reported value shows under the field. For a text input, the **State** list shows
+only `string`, `json`, and `bytes` channels. To send a value, see
+[manual control](/reference/control/manual#set-a-value-and-read-back-the-device-state).
+
+<Divider.Divider x />
+
+## Select and arrange symbols
+
+While editing is on, the controls have two modes: **Select** and **Pan**. In **Select**
+mode, drag a box to select every symbol inside it. Hold **Ctrl** (**Cmd** on macOS) or
+**Shift** and click to add a symbol to the selection or remove it.
+
+With two or more symbols selected, the **Properties** tab shows:
+
+- **Arrange** -> align, rotate, and, with three or more symbols, space them evenly.
+- **Colors** -> the **Stroke**, **Fill**, and **Text** colors. The **Selection**
+  swatches list each color in use. Change a swatch to recolor every symbol that uses it.
+- Each settings group that a selected symbol has, such as **Label**, **Staleness**, or
+  **Number format**. A change applies only to the symbols that have the group.
+
+To group symbols, select them and press **Ctrl+G**. Double-click a symbol in a group to
+select it alone.
+
+<Video id="console/schematics/align-items" />
+
+<Video id="console/schematics/edit-several-elements" />
+
+<Divider.Divider x />
+
+## Change the type of a symbol
+
+1. Turn on editing and select one or more symbols.
+2. In the header of the component toolbar, click **Change** next to the symbol name.
+3. On the **Symbols** tab, click the new symbol.
+
+The new symbol keeps the label, channels, and colors that it accepts. A label that still
+shows the default name of the old symbol changes to the name of the new symbol. One undo
+reverses the change for the whole selection. To stop without a change, click **Cancel**.
+
+You cannot change a group, or a symbol in a locked group.
+
+<Divider.Divider x />
+
+## Link to other views
+
+Use an **Off page** symbol from the **General** group to open a different schematic,
+line plot, log, or table of the same project.
+
+1. Add an **Off page** symbol and select it.
+2. Under **Navigation**, select the **Page** to open.
+3. Set **Click mode** to **Single** or **Double**.
+
+When editing is off, a click or double-click on the symbol opens the page in a tab.
+
+<Divider.Divider x />
+
+## Reference
+
+### Component toolbar
+
+Press **V** or double-click the schematic to open the component toolbar. The header has
+
+<Icon.Export /> (**Export layout**) and <Icon.Link /> (**Copy link**). See
+[share](/reference/visualize/share).
+
+Only users with permission to edit the schematic see the tabs **Symbols**,
+**Properties**, and **Control**.
+
+### Navigate the canvas
+
+| Action      | Editing off | Select mode     | Pan mode        |
+| ----------- | ----------- | --------------- | --------------- |
+| Drag        | Nothing     | Select a region | Pan             |
+| Shift+drag  | Pan         | Pan             | Pan             |
+| Middle-drag | Pan         | Pan             | Pan             |
+| Alt+drag    | Nothing     | Zoom to the box | Select a region |
+| Scroll      | Zoom        | Zoom            | Zoom            |
+
+Click <Icon.Expand /> (**Fit view to contents**) to show every symbol. Hold **Ctrl**
+(**Cmd** on macOS) and click an empty part of the schematic to do the same.
+
+### Properties tabs
+
+The **Properties** tab shows different tabs for each kind of symbol.
+
+| Tabs                      | Symbols                                                                    |
+| ------------------------- | -------------------------------------------------------------------------- |
+| Telemetry, Style, Redline | Value                                                                      |
+| Telemetry, Style          | Gauge, light, text display, scale                                          |
+| Telemetry, Style, Options | State indicator                                                            |
+| Control, Style            | Valves, switches, pumps, buttons, setpoints, text inputs, custom actuators |
+| Control, Style, Options   | Select                                                                     |
+| Style, Fill               | Tanks                                                                      |
+| No tabs                   | Static symbols, such as fittings, flowmeters, lines, and text boxes        |
+
+### Style tab
+
+| Group      | Fields                                                                                                    |
+| ---------- | --------------------------------------------------------------------------------------------------------- |
+| Label      | **Label**, **Wrap width**, **Size**, **Alignment**, **Direction**                                         |
+| Appearance | **Stroke** and **Scale**. A value symbol also has **Fill**, **Text**, **Size**, **Units**, and **Width**. |
+| Layout     | The direction of the symbol and the side of its label.                                                    |
+
+A solenoid valve also has **Normally open**, which swaps its open and closed look. A
+custom symbol has **State overrides**. See
+[custom symbols](/reference/visualize/custom-symbols).
+
+### Telemetry tab
+
+| Group     | Field            | Description                                                                           |
+| --------- | ---------------- | ------------------------------------------------------------------------------------- |
+| Source    | Channel          | The channel to show.                                                                  |
+| Source    | Averaging window | Shows the mean of the last N samples, from 1 to 100. The stored data does not change. |
+| Format    | Notation         | Standard, scientific, or engineering.                                                 |
+| Format    | Precision        | The number of decimal places, from 0 to 10. Default 2.                                |
+| Staleness | Color            | The color of the symbol when its data is stale.                                       |
+| Staleness | Timeout          | The time with no new sample before the symbol is stale. Default 5 s, minimum 1 s.     |
+
+<Note.Note variant="info">
+  A symbol is stale only after data arrives and then stops. A channel that writes only
+  when its value changes can pass the timeout while it is healthy. Give it a timeout
+  longer than the longest gap you expect between changes.
+</Note.Note>
+
+### Control tab
+
+Valves, pumps, switches, setpoints, text inputs, selects, and other actuators have these
+fields:
+
+| Section   | Field          | Description                                                                   |
+| --------- | -------------- | ----------------------------------------------------------------------------- |
+| State     | Channel        | The channel that sets how the symbol looks, such as open or closed.           |
+| Command   | Channel        | The channel that the Console writes to when an operator clicks the symbol.    |
+| Command   | Delay          | The time in ms that an operator must press and hold before the symbol writes. |
+| Command   | Control chip   | Shows the chip that tells who has control of the channel.                     |
+| Staleness | Color, Timeout | The same as on the [Telemetry tab](#telemetry-tab).                           |
+
+On a setpoint, text input, or select, the state channel sets the value under the field.
+
+A button has these fields:
+
+| Section   | Field        | Description                                                                                         |
+| --------- | ------------ | --------------------------------------------------------------------------------------------------- |
+| Command   | Channel      | The channel that the Console writes to when an operator clicks the button.                          |
+| Command   | Control chip | Shows the chip that tells who has control of the channel.                                           |
+| Actuation | Mode         | **Fire** (the default), **Momentary**, or **Pulse**.                                                |
+| Actuation | Delay        | The time in ms that an operator must press and hold before the button writes. Not on **Momentary**. |
+
+A button has no label at first. Set one under **Label** on the **Style** tab. For what
+each mode writes, see [manual control](/reference/control/manual).
+
+### Options tab
+
+A state indicator shows the option that matches the value of its channel. Click **Add
+option** to add one, then give it a name, a value, and a color. The value must match
+exactly. When no option matches, the symbol shows **Unknown**. Two options cannot have
+the same value.
+
+### Redline tab
+
+A value symbol can change its background color when the value passes a threshold. See
+[redlines](/reference/alarms/redlines).
+
+### Schematic control settings
+
+The **Control** tab of the component toolbar applies to the whole schematic, in this
+Console window only.
+
+| Field                     | Default | Description                                                       |
+| ------------------------- | ------- | ----------------------------------------------------------------- |
+| Control authority         | 1       | The authority of this schematic over its channels, from 0 to 255. |
+| Show control state legend | On      | Shows the legend of who has control of each channel.              |
+
+### Keyboard shortcuts
+
+These work while editing is on. On macOS, use **Cmd** for **Ctrl**.
+
+| Shortcut          | Action                |
+| ----------------- | --------------------- |
+| Ctrl+A            | Select all.           |
+| Esc               | Clear the selection.  |
+| Ctrl+C, Ctrl+V    | Copy and paste.       |
+| Ctrl+X            | Cut.                  |
+| Ctrl+Z            | Undo.                 |
+| Ctrl+Shift+Z      | Redo.                 |
+| Ctrl+G            | Group the selection.  |
+| Ctrl+U            | Ungroup.              |
+| Delete, Backspace | Delete the selection. |
+
+Right-click the schematic for the same actions in a menu.
+
+<Divider.Divider x />
+
+## Troubleshooting
+
+### A valve does nothing when I click it
+
+<Problem.Body>
+<Problem.Fix>
+
+See
+[Control troubleshooting](/reference/control/troubleshooting#a-click-on-a-valve-does-nothing)
+for the causes and their fixes.
+
+</Problem.Fix>
+</Problem.Body>
+
+### I cannot turn on editing
+
+<Problem.Body>
+<Problem.Cause>
+
+You have control of the schematic.
+
+</Problem.Cause>
+<Problem.Fix>
+
+1. Open the component toolbar.
+2. Click **Release control and enable editing**.
+
+</Problem.Fix>
+</Problem.Body>
+
+### The component toolbar has no Symbols tab
+
+<Problem.Body>
+<Problem.Cause>
+
+You cannot edit the schematic.
+
+</Problem.Cause>
+<Problem.Fix>
+
+- **You do not have permission** -> ask an administrator for access.
+- **The schematic is a snapshot** -> a snapshot cannot change. Open the schematic that
+  the snapshot came from.
+
+</Problem.Fix>
+</Problem.Body>
+
+### A value shows the stale color
+
+<Problem.Body>
+<Problem.Cause>
+
+No new sample arrived within the **Timeout** on the [Telemetry tab](#telemetry-tab).
+
+</Problem.Cause>
+<Problem.Fix>
+
+Check that a task or a script writes to the channel.
+
+</Problem.Fix>
+</Problem.Body>

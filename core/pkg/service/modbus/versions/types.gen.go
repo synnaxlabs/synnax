@@ -36,6 +36,10 @@ const (
 	// InputRegisterReadChannelType reads a typed value from one or more input
 	// registers.
 	InputRegisterReadChannelType ReadChannelType = v2.InputRegisterReadChannelType
+	// HoldingRegisterBitReadChannelType reads one bit of a holding register.
+	HoldingRegisterBitReadChannelType ReadChannelType = v2.HoldingRegisterBitReadChannelType
+	// InputRegisterBitReadChannelType reads one bit of an input register.
+	InputRegisterBitReadChannelType ReadChannelType = v2.InputRegisterBitReadChannelType
 )
 
 // CoilReadChannel reads a single bit from a coil.
@@ -49,6 +53,12 @@ type HoldingRegisterReadChannel = v2.HoldingRegisterReadChannel
 
 // InputRegisterReadChannel reads a typed value from one or more input registers.
 type InputRegisterReadChannel = v2.InputRegisterReadChannel
+
+// HoldingRegisterBitReadChannel reads one bit of a holding register.
+type HoldingRegisterBitReadChannel = v2.HoldingRegisterBitReadChannel
+
+// InputRegisterBitReadChannel reads one bit of an input register.
+type InputRegisterBitReadChannel = v2.InputRegisterBitReadChannel
 
 // BaseWriteChannel carries the fields every Modbus write channel shares.
 type BaseWriteChannel = v2.BaseWriteChannel
@@ -65,6 +75,8 @@ const (
 	// HoldingRegisterWriteChannelType writes a typed value to one or more holding
 	// registers.
 	HoldingRegisterWriteChannelType WriteChannelType = v2.HoldingRegisterWriteChannelType
+	// HoldingRegisterBitWriteChannelType writes one bit of a holding register.
+	HoldingRegisterBitWriteChannelType WriteChannelType = v2.HoldingRegisterBitWriteChannelType
 )
 
 // CoilWriteChannel writes a single bit to a coil.
@@ -72,6 +84,9 @@ type CoilWriteChannel = v2.CoilWriteChannel
 
 // HoldingRegisterWriteChannel writes a typed value to one or more holding registers.
 type HoldingRegisterWriteChannel = v2.HoldingRegisterWriteChannel
+
+// HoldingRegisterBitWriteChannel writes one bit of a holding register.
+type HoldingRegisterBitWriteChannel = v2.HoldingRegisterBitWriteChannel
 
 // ReadConfig configures a Modbus read task.
 type ReadConfig = v2.ReadConfig
@@ -81,3 +96,6 @@ type WriteConfig = v2.WriteConfig
 
 // ScanConfig configures a Modbus scan task.
 type ScanConfig = v2.ScanConfig
+
+// RegisterBit addresses one bit of a 16-bit register.
+type RegisterBit = v2.RegisterBit

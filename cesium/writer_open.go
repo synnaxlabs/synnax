@@ -31,14 +31,18 @@ import (
 // persistence and streaming.
 type WriterMode uint8
 
-// Persist returns true if the current mode should persist data.
-func (mode WriterMode) Persist() bool { return mode != WriterModeStreamOnly }
+func (mode WriterMode) persist() bool { return mode != WriterModeStreamOnly }
 
 // Stream returns true if the current mode should stream data.
 func (mode WriterMode) Stream() bool { return mode != WriterModePersistOnly }
 
 const (
 	WriterModePersistStream WriterMode = iota + 1
+	// WriterModePersistOnly stores samples without streaming them. The writer commands
+	// nothing, so it holds only the time it has committed and can write behind a live
+	// writer. It fails to open when another writer holds its Start, and a commit fails
+	// when it reaches another writer's region. It is absent from control state and
+	// ignores virtual channels.
 	WriterModePersistOnly
 	WriterModeStreamOnly
 )
@@ -81,9 +85,16 @@ type WriterConfig struct {
 	//
 	// [OPTIONAL] - Defaults to control.AuthorityAbsolute on all channels.
 	Authorities []xcontrol.Authority
-	// Start marks the starting timestamp of the first sample to be written by the
-	// writer. If a sample exists for any channel at this timestamp, the writer will
-	// fail to open.
+	// Start marks the start of the writer's control region. When Start is zero, the
+	// region starts at the time the writer opens. If a sample exists for any channel at
+	// a non-zero Start, the writer fails to open. The domains of each index start at
+	// the first timestamp written to that index, not at Start. The region moves back to
+	// a domain that starts before it.
+	//
+	// A writer that writes data channels without their index needs a Start that is a
+	// sample of that index.
+	//
+	// [OPTIONAL]
 	Start telem.TimeStamp
 	// AutoIndexPersistInterval is the interval at which commits to the index will be
 	// persisted. To persist every commit to guarantee minimal loss of data, set
@@ -105,11 +116,6 @@ type WriterConfig struct {
 	//
 	// When AutoIndex is true, any index channel referenced by a data channel in
 	// Channels but not present in Channels itself is implicitly opened for writing.
-	//
-	// When AutoIndex is true and Start is left as its zero value, Start is defaulted to
-	// telem.Now() at open time so the writer's domain aligns with the auto-stamped
-	// timestamps. Callers who pass an explicit index series whose timestamps fall
-	// before this defaulted Start will have that write rejected.
 	//
 	// [OPTIONAL] - Defaults to false.
 	AutoIndex *bool
@@ -205,9 +211,6 @@ func (db *DB) newStreamWriter(
 		return nil, err
 	}
 	if *cfg.AutoIndex {
-		if cfg.Start.IsZero() {
-			cfg.Start = telem.Now()
-		}
 		cfg = db.expandKeysForAutoIndex(cfg)
 	}
 	var (
@@ -237,7 +240,8 @@ func (db *DB) newStreamWriter(
 			EnableAutoCommit:         cfg.EnableAutoCommit,
 			AutoIndexPersistInterval: cfg.AutoIndexPersistInterval,
 			Start:                    cfg.Start,
-			Persist:                  new(cfg.Mode.Persist()),
+			Persist:                  new(cfg.Mode.persist()),
+			Bounded:                  new(!cfg.Mode.Stream()),
 			Authority:                cfg.authority(i),
 		}
 	}
@@ -260,6 +264,9 @@ func (db *DB) newStreamWriter(
 		}
 		var transfer control.Transfer
 		if isVirtual {
+			if !cfg.Mode.Stream() {
+				continue
+			}
 			if virtualWriters == nil {
 				virtualWriters = make(map[ChannelKey]*virtual.Writer)
 			}
@@ -308,6 +315,14 @@ func (db *DB) newStreamWriter(
 			if err != nil {
 				return nil, err
 			}
+			if cfg.Start.IsZero() {
+				return nil, errors.Wrapf(
+					validate.ErrValidation,
+					"writer needs a start to write channel %v without its index %v",
+					u.Channel(),
+					idxW.idx.ch,
+				)
+			}
 			idxW.writingToIdx = false
 			domainWriters[idxKey] = idxW
 		}
@@ -334,11 +349,12 @@ func (db *DB) newStreamWriter(
 	}
 
 	w = &streamWriter{
-		WriterConfig: cfg,
-		internal:     make([]*idxWriter, 0, len(domainWriters)),
-		relay:        db.relay.inlet,
-		virtual:      &virtualWriter{internal: virtualWriters},
-		keyToIdx:     keyToIdx,
+		WriterConfig:       cfg,
+		internal:           make([]*idxWriter, 0, len(domainWriters)),
+		relay:              db.relay.inlet,
+		virtual:            &virtualWriter{internal: virtualWriters},
+		keyToIdx:           keyToIdx,
+		authorizeEndDomain: db.authorizeEndDomain,
 		updateDBControl: func(ctx context.Context, update ControlUpdate) {
 			db.mu.RLock()
 			defer db.mu.RUnlock()

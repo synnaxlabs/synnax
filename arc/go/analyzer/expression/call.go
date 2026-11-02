@@ -37,23 +37,9 @@ func AnalyzeCall[T antlr.ParserRuleContext](
 ) {
 	signature := ir.FormatFunctionSignature(fnName, fnType)
 	supplied := set.New[string]()
-	for _, arg := range args {
-		param, ok := matchParam(ctx, fnName, fnType, arg, signature, trigger)
-		if !ok {
-			continue
-		}
-		if supplied.Contains(param.Name) {
-			ctx.Diagnostics.Add(diagnostics.Errorf(
-				arg.AST,
-				"duplicate argument for parameter '%s' of func '%s'",
-				param.Name,
-				fnName,
-			).
-				WithNote("signature: " + signature))
-			continue
-		}
-		supplied.Add(param.Name)
-		checkArgType(ctx, fnName, param, arg, signature)
+	for _, b := range bindArguments(ctx, fnName, fnType, args, signature, trigger) {
+		supplied.Add(b.param.Name)
+		checkArgType(ctx, fnName, b.param, b.arg, signature)
 	}
 	satisfied := set.New(externallySatisfied...)
 	for _, param := range fnType.Inputs {
@@ -71,6 +57,45 @@ func AnalyzeCall[T antlr.ParserRuleContext](
 	if hook != nil {
 		hook(ctx.Diagnostics, args)
 	}
+}
+
+// boundArgument pairs a call argument with the param it binds.
+type boundArgument struct {
+	arg   symbol.Argument
+	param types.Param
+}
+
+// bindArguments matches each arg to its param by name or position and reports unknown
+// names, out-of-range positions, and duplicates. Type checks are the caller's.
+func bindArguments[T antlr.ParserRuleContext](
+	ctx acontext.Context[T],
+	fnName string,
+	fnType types.Type,
+	args []symbol.Argument,
+	signature string,
+	trigger string,
+) []boundArgument {
+	supplied := set.New[string]()
+	var bound []boundArgument
+	for _, arg := range args {
+		param, ok := matchParam(ctx, fnName, fnType, arg, signature, trigger)
+		if !ok {
+			continue
+		}
+		if supplied.Contains(param.Name) {
+			ctx.Diagnostics.Add(diagnostics.Errorf(
+				arg.AST,
+				"duplicate argument for parameter '%s' of func '%s'",
+				param.Name,
+				fnName,
+			).
+				WithNote("signature: " + signature))
+			continue
+		}
+		supplied.Add(param.Name)
+		bound = append(bound, boundArgument{arg: arg, param: param})
+	}
+	return bound
 }
 
 // matchParam resolves arg to its param by name or position, accounting for the

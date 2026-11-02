@@ -12,7 +12,7 @@
 #include "gtest/gtest.h"
 
 #include "x/cpp/telem/frame.h"
-#include "x/cpp/test/test.h"
+#include "x/cpp/testutil/testutil.h"
 
 namespace x::telem {
 /// @brief it should construct a frame with a pre-allocated size.

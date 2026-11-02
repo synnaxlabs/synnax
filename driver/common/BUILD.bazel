@@ -51,9 +51,24 @@ cc_test(
     deps = [
         "//client/cpp/testutil",
         "//driver/common",
-        "//driver/pipeline/mock",
+        "//driver/pipeline/testutil",
+        "//x/cpp/defer",
         "//x/cpp/sync",
-        "//x/cpp/test",
+        "//x/cpp/testutil",
+        "//x/cpp/uuid",
+        "@googletest//:gtest_main",
+    ],
+)
+
+cc_test(
+    name = "scan_task_core_test",
+    srcs = ["scan_task_core_test.cpp"],
+    tags = ["requires-core"],
+    deps = [
+        "//client/cpp/testutil",
+        "//driver/common",
+        "//driver/task",
+        "//x/cpp/testutil",
         "//x/cpp/uuid",
         "@googletest//:gtest_main",
     ],
@@ -66,9 +81,9 @@ cc_test(
     deps = [
         "//client/cpp/testutil",
         "//driver/common",
-        "//driver/pipeline/mock",
+        "//driver/pipeline/testutil",
         "//x/cpp/sync",
-        "//x/cpp/test",
+        "//x/cpp/testutil",
         "//x/cpp/uuid",
         "@googletest//:gtest_main",
     ],

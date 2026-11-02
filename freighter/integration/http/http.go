@@ -35,64 +35,64 @@ func BindTo(f *fiber.App) error {
 	if err != nil {
 		return err
 	}
-	echoServer := router.NewStreamServer[Message, Message]("/stream/echo")
+	echoServer := router.NewStreamServer[message, message]("/stream/echo")
 	echoServer.BindHandler(streamEcho)
 
-	streamSendMessageAfterClientCloseServer := router.NewStreamServer[Message, Message](
+	streamSendMessageAfterClientCloseServer := router.NewStreamServer[message, message](
 		"/stream/sendMessageAfterClientClose",
 	)
 	streamSendMessageAfterClientCloseServer.BindHandler(
 		streamSendMessageAfterClientClose,
 	)
 
-	streamReceiveAndExitWithErrServer := router.NewStreamServer[Message, Message](
+	streamReceiveAndExitWithErrServer := router.NewStreamServer[message, message](
 		"/stream/receiveAndExitWithErr",
 	)
 	streamReceiveAndExitWithErrServer.BindHandler(streamReceiveAndExitWithErr)
 
-	streamImmediatelyExitWithErrServer := router.NewStreamServer[Message, Message](
+	streamImmediatelyExitWithErrServer := router.NewStreamServer[message, message](
 		"/stream/immediatelyExitWithErr",
 	)
 	streamImmediatelyExitWithErrServer.BindHandler(streamImmediatelyExitWithErr)
 
-	streamImmediatelyExitNominallyServer := router.NewStreamServer[Message, Message](
+	streamImmediatelyExitNominallyServer := router.NewStreamServer[message, message](
 		"/stream/immediatelyExitNominally",
 	)
 	streamImmediatelyExitNominallyServer.BindHandler(streamImmediatelyExitNominally)
 
-	streamRespondWithTenMessagesServer := router.NewStreamServer[Message, Message](
+	streamRespondWithTenMessagesServer := router.NewStreamServer[message, message](
 		"/stream/respondWithTenMessages",
 	)
 	streamRespondWithTenMessagesServer.BindHandler(streamRespondWithTenMessages)
 
-	unaryGetEchoServer := router.NewUnaryServer[Message, Message]("/unary/echo")
+	unaryGetEchoServer := router.NewUnaryServer[message, message]("/unary/echo")
 	unaryGetEchoServer.BindHandler(unaryEcho)
 
-	unaryParamEchoServer := router.NewUnaryServer[Message, Message]("/unary/paramEcho")
+	unaryParamEchoServer := router.NewUnaryServer[message, message]("/unary/paramEcho")
 	unaryParamEchoServer.BindHandler(unaryParamEcho)
 
-	unaryMiddlewareCheckServer := router.NewUnaryServer[Message, Message](
+	unaryMiddlewareCheckServer := router.NewUnaryServer[message, message](
 		"/unary/middlewareCheck",
 	)
 	unaryMiddlewareCheckServer.BindHandler(unaryEcho)
 	unaryMiddlewareCheckServer.Use(freighter.MiddlewareFunc(checkMiddleware))
 
-	streamMiddlewareCheckServer := router.NewStreamServer[Message, Message](
+	streamMiddlewareCheckServer := router.NewStreamServer[message, message](
 		"/stream/middlewareCheck",
 	)
 	streamMiddlewareCheckServer.BindHandler(streamEcho)
 	streamMiddlewareCheckServer.Use(freighter.MiddlewareFunc(checkMiddleware))
 
-	streamSlamMessagesServer := router.NewStreamServer[Message, Message](
+	streamSlamMessagesServer := router.NewStreamServer[message, message](
 		"/stream/slamMessages",
 	)
 	streamSlamMessagesServer.BindHandler(streamSlamMessages)
-	slamMessagesTimeoutCheck := router.NewUnaryServer[Message, Message](
+	slamMessagesTimeoutCheck := router.NewUnaryServer[message, message](
 		"/unary/slamMessagesTimeoutCheck",
 	)
 	slamMessagesTimeoutCheck.BindHandler(slamMessagesTimeoutCheckHandler)
 
-	streamEventuallyResponseWithMessageServer := router.NewStreamServer[Message, Message](
+	streamEventuallyResponseWithMessageServer := router.NewStreamServer[message, message](
 		"/stream/eventuallyResponseWithMessage",
 	)
 	streamEventuallyResponseWithMessageServer.BindHandler(
@@ -100,13 +100,13 @@ func BindTo(f *fiber.App) error {
 	)
 
 	// Uncompressed, so the body leaves the server before the encoder fails.
-	unaryTruncatedServer := router.NewUnaryServer[Message, Message](
+	unaryTruncatedServer := router.NewUnaryServer[message, message](
 		"/unary/truncated",
 		http.WithResponseEncoders(truncatingEncoder{}),
 		http.WithStreamingResponse(),
 	)
 	unaryTruncatedServer.BindHandler(
-		func(_ context.Context, req Message) (Message, error) { return req, nil },
+		func(_ context.Context, req message) (message, error) { return req, nil },
 	)
 
 	router.BindTo(f)
@@ -139,7 +139,7 @@ func (truncatingEncoder) Encode(context.Context, any) ([]byte, error) {
 }
 
 func (truncatingEncoder) EncodeStream(_ context.Context, w io.Writer, v any) error {
-	msg, ok := v.(Message)
+	msg, ok := v.(message)
 	if !ok {
 		return errors.Newf("truncating encoder cannot encode %T", v)
 	}
@@ -156,12 +156,12 @@ func checkMiddleware(
 	next freighter.Next,
 ) (freighter.Context, error) {
 	if ctx.Params["Test"] != "test" {
-		return ctx, TestError{Message: "test param not found", Code: 1}
+		return ctx, testError{Message: "test param not found", Code: 1}
 	}
 	return next(ctx)
 }
 
-func unaryEcho(_ context.Context, req Message) (Message, error) {
+func unaryEcho(_ context.Context, req message) (message, error) {
 	req.ID++
 	return req, nil
 }
@@ -171,7 +171,7 @@ func unaryEcho(_ context.Context, req Message) (Message, error) {
 // sorted so the response is deterministic regardless of the order the keys are
 // requested in. Lets clients verify which out-of-band request params reached the
 // handler and with what values.
-func unaryParamEcho(ctx context.Context, req Message) (Message, error) {
+func unaryParamEcho(ctx context.Context, req message) (message, error) {
 	keys := strings.Split(req.Message, ",")
 	values := make([]string, len(keys))
 	for i, k := range keys {
@@ -180,7 +180,7 @@ func unaryParamEcho(ctx context.Context, req Message) (Message, error) {
 		}
 	}
 	slices.Sort(values)
-	return Message{Message: strings.Join(values, "|")}, nil
+	return message{Message: strings.Join(values, "|")}, nil
 }
 
 var (
@@ -195,7 +195,7 @@ var (
 // deterministically: a caller that retries recovers on the second attempt, while a
 // caller that does not retry surfaces the 503.
 func flakyUnavailable(c fiber.Ctx) error {
-	var req Message
+	var req message
 	if err := json.Unmarshal(c.Body(), &req); err != nil {
 		return err
 	}
@@ -217,7 +217,7 @@ func flakyUnavailable(c fiber.Ctx) error {
 	return c.Send(body)
 }
 
-func streamEcho(_ context.Context, stream ServerStream) error {
+func streamEcho(_ context.Context, stream serverStream) error {
 	for {
 		msg, err := stream.Receive()
 		if err != nil {
@@ -230,9 +230,9 @@ func streamEcho(_ context.Context, stream ServerStream) error {
 	}
 }
 
-func streamRespondWithTenMessages(_ context.Context, stream ServerStream) error {
+func streamRespondWithTenMessages(_ context.Context, stream serverStream) error {
 	for i := range 10 {
-		if err := stream.Send(Message{Message: "hello", ID: i}); err != nil {
+		if err := stream.Send(message{Message: "hello", ID: i}); err != nil {
 			return err
 		}
 	}
@@ -244,13 +244,13 @@ var (
 	timeouts  = set.New[string]()
 )
 
-func streamSlamMessages(_ context.Context, stream ServerStream) error {
+func streamSlamMessages(_ context.Context, stream serverStream) error {
 	msg, err := stream.Receive()
 	if err != nil {
 		return err
 	}
 	for i := range 1_000_000 {
-		if err := stream.Send(Message{Message: "hello", ID: i}); err != nil {
+		if err := stream.Send(message{Message: "hello", ID: i}); err != nil {
 			timeoutMu.Lock()
 			timeouts.Add(msg.Message)
 			timeoutMu.Unlock()
@@ -260,29 +260,29 @@ func streamSlamMessages(_ context.Context, stream ServerStream) error {
 	return nil
 }
 
-func streamEventuallyResponseWithMessage(_ context.Context, stream ServerStream) error {
+func streamEventuallyResponseWithMessage(_ context.Context, stream serverStream) error {
 	_, err := stream.Receive()
 	if err != nil {
 		return err
 	}
 	time.Sleep(250 * time.Millisecond)
-	return stream.Send(Message{Message: "hello", ID: 1})
+	return stream.Send(message{Message: "hello", ID: 1})
 }
 
-func slamMessagesTimeoutCheckHandler(_ context.Context, msg Message) (Message, error) {
+func slamMessagesTimeoutCheckHandler(_ context.Context, msg message) (message, error) {
 	timeoutMu.Lock()
 	defer timeoutMu.Unlock()
 	if timeouts.Contains(msg.Message) {
-		return Message{Message: "timeout"}, nil
+		return message{Message: "timeout"}, nil
 	}
-	return Message{Message: "success"}, nil
+	return message{Message: "success"}, nil
 }
 
-func streamSendMessageAfterClientClose(_ context.Context, stream ServerStream) error {
+func streamSendMessageAfterClientClose(_ context.Context, stream serverStream) error {
 	for {
 		msg, err := stream.Receive()
 		if errors.Is(err, freighter.EOF) {
-			return stream.Send(Message{Message: "Close Acknowledged"})
+			return stream.Send(message{Message: "Close Acknowledged"})
 		}
 		if err != nil {
 			return err
@@ -291,16 +291,16 @@ func streamSendMessageAfterClientClose(_ context.Context, stream ServerStream) e
 	}
 }
 
-func streamReceiveAndExitWithErr(_ context.Context, stream ServerStream) error {
+func streamReceiveAndExitWithErr(_ context.Context, stream serverStream) error {
 	_, err := stream.Receive()
 	if err != nil {
 		return err
 	}
-	return TestError{Code: 1, Message: "unexpected error"}
+	return testError{Code: 1, Message: "unexpected error"}
 }
 
-func streamImmediatelyExitWithErr(context.Context, ServerStream) error {
-	return TestError{Code: 1, Message: "unexpected error"}
+func streamImmediatelyExitWithErr(context.Context, serverStream) error {
+	return testError{Code: 1, Message: "unexpected error"}
 }
 
-func streamImmediatelyExitNominally(context.Context, ServerStream) error { return nil }
+func streamImmediatelyExitNominally(context.Context, serverStream) error { return nil }

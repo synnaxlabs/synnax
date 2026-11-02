@@ -1,0 +1,130 @@
+---
+// Copyright 2026 Synnax Labs, Inc.
+//
+// Use of this software is governed by the Business Source License included in the file
+// licenses/BSL.txt.
+//
+// As of the Change Date specified in that file, in accordance with the Business Source
+// License, use of this software will be governed by the Apache License, Version 2.0,
+// included in the file licenses/APL.txt.
+
+import Body from "@/components/problem/Body.astro";
+import { InlineCode } from "@/components/text/InlineCode";
+import { toAnchor } from "@/util/anchor";
+
+interface Props {
+    /** The exact text the reader sees, in the status message or description, or each
+        text that has the same cause. Give this or `symptom`. */
+    message?: string | string[];
+    /** What the reader sees, in words, when there is no message. Backticks mark
+        code. */
+    symptom?: string;
+    /** The diagnostic code, for example `ARC3001`. */
+    code?: string;
+    severity?: "error" | "warning";
+    /** The anchor of the entry. Defaults to the code, then to the title in kebab
+        case. */
+    id?: string;
+}
+
+const { message, symptom, code, severity } = Astro.props;
+if ((message == null) === (symptom == null))
+    throw new Error("Problem.Item needs exactly one of message or symptom");
+const titles = message == null ? [symptom as string] : [message].flat();
+const id = Astro.props.id ?? toAnchor(code ?? titles[0]).slice(0, 64);
+const SEVERITIES = { error: "Error", warning: "Warning" };
+---
+
+<li class="problem" id={id}>
+    {(code != null || severity != null) && (
+        <p class="problem__meta">
+            {code != null && <code class="problem__code">{code}</code>}
+            {severity != null && (
+                <span class={`problem__severity problem__severity--${severity}`}>
+                    {SEVERITIES[severity]}
+                </span>
+            )}
+        </p>
+    )}
+    {titles.map((title) => (
+        <a
+            class:list={[
+                "problem__title",
+                { "problem__title--message": message != null },
+            ]}
+            href={`#${id}`}
+        >
+            {message != null ? title : <InlineCode text={title} />}
+        </a>
+    ))}
+    <Body>
+        <slot />
+    </Body>
+</li>
+
+<style is:global>
+    .problem__meta {
+        display: flex;
+        align-items: baseline;
+        gap: 2rem;
+        margin: 0 0 0.5rem;
+        font-size: var(--pluto-small-size);
+        line-height: 20px;
+    }
+
+    article .problem__meta .problem__code {
+        padding: 0;
+        border: none;
+        background: none;
+        font-size: 12px;
+        color: var(--pluto-gray-l9);
+    }
+
+    .problem__severity {
+        display: inline-flex;
+        align-items: center;
+        gap: 1rem;
+        font-weight: 500;
+        color: var(--pluto-gray-l8);
+
+        &::before {
+            content: "";
+            width: 6px;
+            height: 6px;
+            border-radius: 50%;
+        }
+    }
+
+    .problem__severity--error::before {
+        background: var(--pluto-error-z);
+    }
+
+    .problem__severity--warning::before {
+        background: var(--pluto-warning-z);
+    }
+
+    .problem__title {
+        display: block;
+        font-size: var(--pluto-p-size);
+        font-weight: 550;
+        line-height: var(--pluto-p-line-height);
+        color: var(--pluto-gray-l11);
+        text-decoration: none;
+        overflow-wrap: anywhere;
+
+        &:hover {
+            text-decoration: underline;
+            text-decoration-color: var(--pluto-gray-l6);
+        }
+    }
+
+    .problem__title--message {
+        font-family: "Geist Mono", monospace;
+        font-size: var(--pluto-small-size);
+        font-weight: 500;
+    }
+
+    .problem > .problem__body {
+        margin: 1.5rem 0 0;
+    }
+</style>

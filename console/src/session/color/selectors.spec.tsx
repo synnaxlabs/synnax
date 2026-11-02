@@ -35,27 +35,6 @@ const withFrequent: PColor.ContextState = {
 };
 
 describe("color selectors", () => {
-  describe("useSelectContext", () => {
-    it("should return the zero context by default", () => {
-      const store = createStore();
-      const { result } = renderHook(() => Color.useSelectContext(), {
-        wrapper: createWrapper(store),
-      });
-      expect(result.current).toEqual(PColor.ZERO_CONTEXT_STATE);
-    });
-
-    it("should reflect a dispatched context change", () => {
-      const store = createStore();
-      const { result } = renderHook(() => Color.useSelectContext(), {
-        wrapper: createWrapper(store),
-      });
-      act(() => {
-        store.dispatch(Color.setContext(withFrequent));
-      });
-      expect(result.current).toEqual(withFrequent);
-    });
-  });
-
   describe("useProviderProps", () => {
     const renderProps = (store: ReturnType<typeof createStore>) =>
       renderHook(() => Color.useProviderProps(), { wrapper: createWrapper(store) });

@@ -15,6 +15,7 @@ import { useReset } from "@/feature/embedded/useReset";
 import { useRestart } from "@/feature/embedded/useRestart";
 import { useReveal } from "@/feature/embedded/useReveal";
 import { Command } from "@/platform/command";
+import { Session } from "@/session";
 
 const OpenDiagnosticsCommand = Command.create({
   key: "open-diagnostics",
@@ -49,6 +50,7 @@ const EraseDataCommand = Command.create({
   name: "Erase all data",
   icon: <Icon.Delete />,
   useOnSelect: useReset,
+  useVisible: () => Session.Runtime.isMainWindow(),
 });
 
 export const COMMANDS = [

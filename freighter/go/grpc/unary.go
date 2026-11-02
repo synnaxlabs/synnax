@@ -52,11 +52,11 @@ type UnaryClient[RQ, RQT, RS, RST freighter.Payload] struct {
 
 type UnaryServer[RQ, RQT, RS, RST freighter.Payload] struct {
 	// RequestTranslator translates the given GRPC request into a go type.
-	// See Translator for more information.
-	RequestTranslator Translator[RQ, RQT]
+	// See BackwardTranslator for more information.
+	RequestTranslator BackwardTranslator[RQ, RQT]
 	// ResponseTranslator translates the given go response into a GRPC payload.
-	// See Translator for more information.
-	ResponseTranslator Translator[RS, RST]
+	// See ForwardTranslator for more information.
+	ResponseTranslator ForwardTranslator[RS, RST]
 	// ServiceDesc is the gRPC service description that the transport will use to bind
 	// to a gRPC service registrar.
 	ServiceDesc *grpc.ServiceDesc

@@ -39,7 +39,7 @@ Client::open_streamer(const StreamerConfig &config) const {
 Streamer::Streamer(std::unique_ptr<StreamerStream> stream, StreamerConfig config):
     cfg(std::move(config)), stream(std::move(stream)) {}
 
-std::pair<x::telem::Frame, x::errors::Error> Streamer::read() const {
+std::pair<x::telem::Frame, x::errors::Error> Streamer::read() {
     this->assert_open();
     auto [fr, exc] = this->stream->receive();
     if (!fr.buffer().empty())

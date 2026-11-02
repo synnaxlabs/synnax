@@ -9,17 +9,7 @@
 
 package freighter
 
-import (
-	"github.com/synnaxlabs/alamos"
-	"github.com/synnaxlabs/x/errors"
-)
-
-var (
-	// ErrUnreachable is returned when a target cannot be reached.
-	ErrUnreachable = errors.New("[freighter] - target unreachable")
-	// ErrSecurity is returned  when a security error occurs.
-	ErrSecurity = errors.New("[freighter] - security error")
-)
+import "github.com/synnaxlabs/alamos"
 
 // Payload represents a piece of data that can be sent over the freighter.
 type Payload = any

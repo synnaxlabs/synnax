@@ -47,15 +47,11 @@ func (StructForm) typeForm() {}
 
 func (f StructForm) IsGeneric() bool { return len(f.TypeParams) > 0 }
 
-func (f StructForm) TypeParam(name string) (TypeParam, bool) {
-	return lo.Find(f.TypeParams, func(tp TypeParam) bool { return tp.Name == name })
-}
-
 func (f StructForm) Field(name string) (Field, bool) {
 	return lo.Find(f.Fields, func(fld Field) bool { return fld.Name == name })
 }
 
-func (f StructForm) IsFieldOmitted(name string) bool {
+func (f StructForm) isFieldOmitted(name string) bool {
 	return lo.Contains(f.OmittedFields, name)
 }
 
@@ -76,9 +72,6 @@ type EnumForm struct {
 }
 
 func (EnumForm) typeForm() {}
-
-// IsExtension reports whether the enum extends one or more other enums.
-func (f EnumForm) IsExtension() bool { return len(f.Extends) > 0 }
 
 // UnionForm describes a discriminated union: a closed set of struct variants
 // distinguished by the string value of a single shared discriminator field.
@@ -146,10 +139,6 @@ type AliasForm struct {
 func (AliasForm) typeForm() {}
 
 func (f AliasForm) IsGeneric() bool { return len(f.TypeParams) > 0 }
-
-func (f AliasForm) TypeParam(name string) (TypeParam, bool) {
-	return lo.Find(f.TypeParams, func(tp TypeParam) bool { return tp.Name == name })
-}
 
 type PrimitiveForm struct {
 	Name string
@@ -504,7 +493,7 @@ func UnifiedFields(typ Type, table *Table) []Field {
 		// Copy parent fields before modifying to avoid mutating the table
 		parentFieldsOrig := UnifiedFields(parent, table)
 		for _, pf := range parentFieldsOrig {
-			if form.IsFieldOmitted(pf.Name) {
+			if form.isFieldOmitted(pf.Name) {
 				continue
 			}
 			if seenFields.Contains(pf.Name) {

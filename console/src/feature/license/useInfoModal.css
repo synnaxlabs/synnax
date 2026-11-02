@@ -29,7 +29,7 @@
         background: var(--pluto-gray-l1);
     }
 
-    .console-license-info__support .pluto-text--code {
+    .console-license-info__support .lyra-text--code {
         overflow-wrap: anywhere;
         user-select: text;
     }

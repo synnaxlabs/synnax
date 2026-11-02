@@ -10,7 +10,7 @@
 #include <filesystem>
 
 #include "x/cpp/kv/kv.h"
-#include "x/cpp/test/test.h"
+#include "x/cpp/testutil/testutil.h"
 
 namespace x::kv {
 class JSONTest : public ::testing::Test {
@@ -93,5 +93,26 @@ TEST_F(JSONTest, Persistence) {
         ASSERT_NIL(kv->get("persistent", value));
         ASSERT_EQ(value, "data");
     }
+}
+
+/// @brief it should set an existing file to the configured mode.
+TEST_F(JSONTest, ExistingFileMode) {
+#ifdef _WIN32
+    GTEST_SKIP() << "Windows files have no POSIX mode";
+#endif
+    JSONFileConfig config;
+    config.path = temp_path;
+    config.dir_mode = std::filesystem::perms::owner_all;
+    config.file_mode = std::filesystem::perms::owner_read |
+                       std::filesystem::perms::owner_write |
+                       std::filesystem::perms::others_read;
+    ASSERT_NIL_P(JSONFile::open_file(config));
+    config.file_mode = std::filesystem::perms::owner_read |
+                       std::filesystem::perms::owner_write;
+    ASSERT_NIL_P(JSONFile::open_file(config));
+    ASSERT_EQ(
+        std::filesystem::status(temp_path).permissions() & std::filesystem::perms::all,
+        config.file_mode
+    );
 }
 }

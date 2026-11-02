@@ -370,7 +370,7 @@ describe("Arc LSP", () => {
       }),
     });
 
-    const arcCode = "func add(x i32, y i32) i32 {\n  return x + y\n}";
+    const arcCode = "func add() {x i32, y i32} i32 {\n  return x + y\n}";
     stream.send({
       content: JSON.stringify({
         jsonrpc: "2.0",

@@ -13,12 +13,11 @@ import random
 import shutil
 import zipfile
 
-from playwright.sync_api import Locator
+from playwright.sync_api import Locator, expect
 from playwright.sync_api import TimeoutError as PlaywrightTimeoutError
 
 from console.base import ResourceClient
 from console.layout import LayoutClient
-from framework.run_dir import resolve_results_path
 
 
 class ProjectClient(ResourceClient):
@@ -123,14 +122,14 @@ class ProjectClient(ResourceClient):
         project_item.wait_for(state="visible", timeout=5000)
         with self.layout.page.expect_download(timeout=10000) as download_info:
             self.ctx_menu.action(project_item, "Export")
-        zip_path = resolve_results_path(f"{name}_export.zip")
+        zip_path = str(self.layout.results_dir / f"{name}_export.zip")
         download_info.value.save_as(zip_path)
 
         if not self.notifications.wait_for("Downloaded file", name=name):
             raise AssertionError(
                 f"Export of project {name!r} did not emit a success notification"
             )
-        export_dir = resolve_results_path(f"{name}_export")
+        export_dir = str(self.layout.results_dir / f"{name}_export")
         if os.path.isdir(export_dir):
             shutil.rmtree(export_dir)
         os.makedirs(export_dir)
@@ -164,7 +163,9 @@ class ProjectClient(ResourceClient):
                 has_text="New project"
             ).click(timeout=5000)
 
-        name_input = self.layout.page.locator(".pluto-modal input[placeholder='Name']")
+        name_input = self.layout.page.locator(
+            ".lyra-modal input[placeholder='Project name']"
+        )
         name_input.wait_for(state="visible", timeout=5000)
         name_input.fill(name)
         self.layout.page.get_by_role("button", name="Create", exact=True).click(
@@ -305,6 +306,13 @@ class ProjectClient(ResourceClient):
         except PlaywrightTimeoutError:
             return
         search.fill(name)
+        # The Core filters the list. A click before the result lands can miss the row.
+        others = (
+            self.layout.page.locator(".console-project-splash__list")
+            .get_by_role("option")
+            .filter(has_not_text=name)
+        )
+        expect(others).to_have_count(0, timeout=5000)
 
     def on_splash(self) -> bool:
         """Report whether the project Splash screen is showing.
@@ -354,7 +362,9 @@ class ProjectClient(ResourceClient):
         self.layout.page.locator(
             ".console-project-splash button.console-create-list-item"
         ).click(timeout=5000)
-        name_input = self.layout.page.locator(".pluto-modal input[placeholder='Name']")
+        name_input = self.layout.page.locator(
+            ".lyra-modal input[placeholder='Project name']"
+        )
         name_input.wait_for(state="visible", timeout=5000)
         name_input.fill(name)
         self.layout.page.get_by_role("button", name="Create", exact=True).click(

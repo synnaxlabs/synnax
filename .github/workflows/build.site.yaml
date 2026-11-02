@@ -1,0 +1,48 @@
+# Copyright 2026 Synnax Labs, Inc.
+#
+# Use of this software is governed by the Business Source License included in the file
+# licenses/BSL.txt.
+#
+# As of the Change Date specified in that file, in accordance with the Business Source
+# License, use of this software will be governed by the Apache License, Version 2.0,
+# included in the file licenses/APL.txt.
+
+# Runs the build that Vercel runs for a site, so a change that Vercel cannot deploy
+# fails CI. The Astro Vercel adapter writes the deployment to .vercel/output.
+
+name: Build - Site
+
+on:
+  workflow_call:
+    inputs:
+      site:
+        description: The directory under site/ that holds the Vercel project
+        required: true
+        type: string
+
+permissions:
+  contents: read
+
+jobs:
+  build:
+    name: Build ${{ inputs.site }}
+    runs-on: ubuntu-latest
+    env:
+      TURBO_TOKEN: ${{ secrets.TURBO_TOKEN }}
+      TURBO_TEAM: ${{ vars.TURBO_TEAM }}
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v7
+
+      - name: Set up pnpm and Node.js
+        uses: ./.github/actions/setup-pnpm
+
+      - name: Build
+        run: pnpm "build:$SITE"
+        env:
+          SITE: ${{ inputs.site }}
+
+      - name: Check the deployment output
+        run: test -f "site/$SITE/.vercel/output/config.json"
+        env:
+          SITE: ${{ inputs.site }}

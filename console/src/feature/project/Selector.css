@@ -12,7 +12,7 @@
 .console-project-selector__trigger {
     padding: 0;
 
-    .pluto-avatar {
+    .lyra-avatar {
         --pluto-avatar-size: round(5.6667rem, 1px);
     }
 }
@@ -22,12 +22,13 @@
     flex-grow: 1;
 }
 
-.pluto-dialog__dialog.console-project-selector-dialog {
+.lyra-dialog__dialog.console-project-selector-dialog {
     min-height: 200px;
     width: 400px;
+
     --pluto-dialog-max-height: 412px;
 
-    .pluto-list__scroll > .pluto-list__virtualizer {
+    .lyra-list__scroll > .lyra-list__virtualizer {
         display: flex;
         flex-direction: column;
         gap: 1rem;

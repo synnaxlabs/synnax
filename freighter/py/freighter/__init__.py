@@ -14,7 +14,7 @@ from freighter.alamos import (
     instrumentation_middleware,
 )
 from freighter.context import Context, Role
-from freighter.exceptions import EOF, StreamClosed, Unreachable
+from freighter.exceptions import EOF, EXCEPTION_PROVIDER, StreamClosed, Unreachable
 from freighter.file import FileTransport
 from freighter.http import HTTPClient
 from freighter.stream import AsyncStream, AsyncStreamClient, Stream, StreamClient
@@ -36,15 +36,11 @@ from freighter.websocket import (
     AsyncWebsocketStream,
     WebsocketClient,
 )
-from x.exceptions import (
-    ExceptionPayload,
-    decode_exception,
-    encode_exception,
-    register_exception,
-)
+from x.exceptions import ExceptionPayload
 
 __all__ = [
     "EOF",
+    "EXCEPTION_PROVIDER",
     "URL",
     "AsyncFinalizer",
     "AsyncMiddleware",
@@ -72,8 +68,5 @@ __all__ = [
     "Unreachable",
     "WebsocketClient",
     "async_instrumentation_middleware",
-    "decode_exception",
-    "encode_exception",
     "instrumentation_middleware",
-    "register_exception",
 ]

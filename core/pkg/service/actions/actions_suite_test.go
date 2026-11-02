@@ -14,15 +14,6 @@ import (
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
-	"github.com/synnaxlabs/synnax/pkg/distribution/mock"
-	"github.com/synnaxlabs/synnax/pkg/service/channel"
-	calcgraph "github.com/synnaxlabs/synnax/pkg/service/channel/calculation/graph"
-	"github.com/synnaxlabs/synnax/pkg/service/framer"
-	"github.com/synnaxlabs/synnax/pkg/service/group"
-	"github.com/synnaxlabs/synnax/pkg/service/label"
-	"github.com/synnaxlabs/synnax/pkg/service/ontology"
-	"github.com/synnaxlabs/synnax/pkg/service/signals"
-	"github.com/synnaxlabs/synnax/pkg/service/status"
 	. "github.com/synnaxlabs/x/testutil"
 )
 
@@ -32,57 +23,6 @@ func TestActions(t *testing.T) {
 }
 
 var _ = ShouldNotLeakGoroutinesPerSpec()
-
-var (
-	sigs       *signals.Provider
-	framerSvc  *framer.Service
-	channelSvc *channel.Service
-)
-
-var _ = BeforeSuite(func(ctx SpecContext) {
-	ShouldNotLeakGoroutines()
-	node := mock.NewNode(ctx)
-	otg := MustOpen(ontology.Open(ctx, ontology.Config{DB: node.DB}))
-	groupSvc := MustOpen(group.OpenService(ctx, group.ServiceConfig{
-		DB:       node.DB,
-		Ontology: otg,
-	}))
-	labelSvc := MustOpen(label.OpenService(ctx, label.ServiceConfig{
-		DB:       node.DB,
-		Ontology: otg,
-		Group:    groupSvc,
-	}))
-	statusSvc := MustOpen(status.OpenService(ctx, status.ServiceConfig{
-		DB:       node.DB,
-		Ontology: otg,
-		Group:    groupSvc,
-		Label:    labelSvc,
-	}))
-	channelSvc = MustOpen(channel.OpenService(ctx, channel.ServiceConfig{
-		Channel:      node.Channel,
-		DB:           node.DB,
-		HostProvider: node.Cluster,
-		Ontology:     otg,
-		Group:        groupSvc,
-		Status:       statusSvc,
-	}))
-	channelGraph := MustOpen(calcgraph.Open(ctx, calcgraph.Config{
-		DB:      node.DB,
-		Channel: channelSvc,
-		Status:  statusSvc,
-	}))
-	framerSvc = MustOpen(framer.OpenService(ctx, framer.ServiceConfig{
-		DB:           node.DB,
-		Framer:       node.Framer,
-		Channel:      channelSvc,
-		ChannelGraph: channelGraph,
-	}))
-	sigs = MustSucceed(signals.New(signals.Config{
-		DB:      node.DB,
-		Channel: channelSvc,
-		Framer:  framerSvc,
-	}))
-})
 
 // testAction is a small concrete action type used to instantiate the generic
 // types under test. Its shape mirrors the per-service Action union (a

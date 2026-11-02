@@ -33,6 +33,7 @@ import {
 import { Toolbar } from "@/feature/schematic/toolbar/Toolbar";
 import { findButton } from "@/platform/modals/testutil";
 import { Session } from "@/session";
+import { documentIn } from "@/session/window/testutil";
 import {
   captureBrowserDownloads,
   countEditableText,
@@ -93,10 +94,8 @@ describe("Schematic toolbar Symbols", () => {
     fireEvent.click(screen.getByText("Valves"));
     await waitFor(() =>
       expect(
-        Session.Schematic.selectSelectedSymbolGroup({
-          state: store.getState(),
-          key,
-        }),
+        documentIn(store.getState()[Session.Schematic.SLICE_NAME], key)?.toolbar
+          .selectedSymbolGroup,
       ).toBe("valves"),
     );
     expect(await screen.findByText("Ball")).toBeDefined();

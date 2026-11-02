@@ -29,7 +29,11 @@ export interface HeaderProps extends Omit<
   closeHidden?: boolean;
 }
 
-const CLOSE_TOOLTIP = <Triggers.Text trigger={Triggers.ESCAPE} level="small" />;
+const CLOSE_TOOLTIP = (
+  <Triggers.Text trigger={Triggers.ESCAPE} level="small">
+    Close
+  </Triggers.Text>
+);
 
 /**
  * Header renders a modal's top title bar: a breadcrumb of the given name, an optional
@@ -47,16 +51,19 @@ export const Header = ({
   return (
     <Nav.Bar
       location="top"
-      size="6rem"
-      bordered
+      size="auto"
       className={CSS.cls(CSS.BE("modal", "header"), className)}
       {...rest}
     >
-      <Nav.Bar.Start>
+      <Nav.Bar.Start gap="medium">
+        {icon != null && <Icon.Tile size="medium">{icon}</Icon.Tile>}
         <Breadcrumb.Breadcrumb gap="tiny">
-          {icon != null && <Breadcrumb.Segment color={9}>{icon}</Breadcrumb.Segment>}
-          {segments.map((segment) => (
-            <Breadcrumb.Segment color={9} key={segment} weight={400}>
+          {segments.map((segment, i) => (
+            <Breadcrumb.Segment
+              color={i === segments.length - 1 ? 11 : 9}
+              key={segment}
+              weight={400}
+            >
               {segment}
             </Breadcrumb.Segment>
           ))}
@@ -67,9 +74,9 @@ export const Header = ({
           <Button.Button
             aria-label="Close"
             onClick={close}
-            size="small"
+            size="medium"
             variant="text"
-            textColor={9}
+            textColor={8}
             tooltip={CLOSE_TOOLTIP}
           >
             <Icon.Close />

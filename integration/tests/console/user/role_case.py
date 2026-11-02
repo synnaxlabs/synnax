@@ -33,9 +33,8 @@ class RoleCase(ConsoleCase):
         self.log(f"Registering {self.role_name} user: {username}")
         self.console.access.register_user(
             username=username,
+            name=self.role_name,
             password=PASSWORD,
-            first_name=self.role_name,
-            last_name="Test",
             role_name=self.role_name,
         )
 

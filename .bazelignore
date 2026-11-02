@@ -27,3 +27,6 @@ site/portal/node_modules
 site/www/node_modules
 studio/node_modules
 x/ts/node_modules
+
+# A Bazel registry, not part of the root build graph.
+vendor/registry

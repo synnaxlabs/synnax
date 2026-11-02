@@ -16,6 +16,7 @@ import { afterEach, describe, expect, it, vi } from "vitest";
 
 import { renderPalette } from "@/feature/command/testutil";
 import { License } from "@/feature/license";
+import { findPortalLink, HANDOFF_CODE } from "@/feature/license/testutil";
 import { findCommand } from "@/platform/command/testutil";
 import { License as PlatformLicense } from "@/platform/license";
 import { findButton } from "@/platform/modals/testutil";
@@ -81,8 +82,22 @@ describe("License Commands", () => {
       ),
     );
     await waitFor(() =>
-      expect(button.querySelector(".pluto-icon--check")).not.toBeNull(),
+      expect(button.querySelector(".lyra-icon--check")).not.toBeNull(),
     );
+  });
+
+  it("should offer a new license key from the portal", async () => {
+    const client = createTestClient();
+    const { fingerprint } = await client.license.retrieve();
+    const { openCommandPalette, selectCommand } = await renderPalette({
+      commands: License.COMMANDS,
+      client,
+    });
+    await openCommandPalette();
+    await selectCommand("Show license info");
+    const url = new URL(await findPortalLink("Get a new key on the portal"));
+    expect(url.searchParams.get("fingerprint")).toBe(fingerprint.join(","));
+    expect(url.searchParams.get("handoff")).toMatch(HANDOFF_CODE);
   });
 
   it("should hide the license info command without a Core", async () => {

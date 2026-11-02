@@ -35,6 +35,7 @@ type (
 	ControlUpdate    = cesium.ControlUpdate
 	ControlState     = cesium.ControlState
 	ControlTransfer  = cesium.ControlTransfer
+	HistoryChange    = cesium.HistoryChange
 	IteratorConfig   = cesium.IteratorConfig
 	Iterator         = cesium.Iterator
 	StreamIterator   = cesium.StreamIterator

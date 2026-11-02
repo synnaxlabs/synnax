@@ -41,7 +41,10 @@ var _ = Describe("storage", func() {
 				"Should return an error if the lock is already acquired",
 				func(ctx SpecContext) {
 					MustOpen(storage.OpenLayer(ctx, cfg))
-					Expect(storage.OpenLayer(ctx, cfg)).Error().To(HaveOccurred())
+					Expect(
+						storage.OpenLayer(ctx, cfg),
+					).Error().
+						To(MatchError(ContainSubstring("Failed to acquire lock on storage directory")))
 				},
 			)
 		})
@@ -77,7 +80,9 @@ var _ = Describe("storage", func() {
 							Expect(
 								storage.OpenLayer(ctx, cfg),
 							).Error().
-								To(HaveOccurred())
+								To(MatchError(ContainSubstring(
+									"requires the storage directory to have at least",
+								)))
 						},
 					)
 				})

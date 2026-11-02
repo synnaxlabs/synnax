@@ -1,0 +1,59 @@
+# Copyright 2026 Synnax Labs, Inc.
+#
+# Use of this software is governed by the Business Source License included in the file
+# licenses/BSL.txt.
+#
+# As of the Change Date specified in that file, in accordance with the Business Source
+# License, use of this software will be governed by the Apache License, Version 2.0,
+# included in the file licenses/APL.txt.
+
+# Starts an agent on a task. Send a repository_dispatch with event type `agent-task`
+# and a client_payload of {prompt, agent?, output?, issue?}, or run it by hand.
+name: Agent - Task
+run-name: >-
+  agent-task ${{ github.event.client_payload.issue || inputs.issue }}
+
+on:
+  repository_dispatch:
+    types: [agent-task]
+  workflow_dispatch:
+    inputs:
+      prompt:
+        description: "Task for the agent"
+        type: string
+        required: true
+      agent:
+        description: "Agent. default uses the AGENT_DEFAULT variable."
+        type: choice
+        options: [default, claude, codex]
+        default: default
+      output:
+        description: "Output"
+        type: choice
+        options: [pr, report]
+        default: pr
+      issue:
+        description: "Linear issue (SY-####)"
+        type: string
+        default: ""
+
+permissions:
+  contents: read
+  id-token: write
+
+jobs:
+  task:
+    name: Task
+    uses: ./.github/workflows/agent.yaml
+    with:
+      prompt: |
+        ${{ github.event.client_payload.prompt || inputs.prompt }}
+
+        ${{ (github.event.client_payload.issue || inputs.issue) &&
+        format('The Linear issue is {0}.',
+        github.event.client_payload.issue || inputs.issue) || '' }}
+      agent:
+        ${{ github.event.client_payload.agent || inputs.agent != 'default' &&
+        inputs.agent || '' }}
+      output: ${{ github.event.client_payload.output || inputs.output || 'pr' }}
+    secrets: inherit

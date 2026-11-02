@@ -11,25 +11,21 @@ import {
   arc,
   type channel,
   DataType,
-  DisconnectedError,
   lineplot,
   NotFoundError,
   project,
   schematic,
+  status,
   type Synnax,
   UnexpectedError,
 } from "@synnaxlabs/client";
-import { Status } from "@synnaxlabs/lyra/status";
-import { Synnax as PSynnax } from "@synnaxlabs/pluto";
-
-import { Modals } from "@/platform/modals";
-import { Session } from "@/session";
+import { dynamicWindow, TimeSpan } from "@synnaxlabs/x";
 
 const NAME = "Sample project";
 
 // Fixed keys make each new sample overwrite the last one, even after a rename, so only
 // one copy of the Arc programs drives the sample channels.
-const KEYS = {
+export const KEYS = {
   project: "adacd22e-b3a6-4b20-a587-136795288889",
   schematic: "07ba9c3b-d84e-4e85-934d-e2c750355791",
   linePlot: "7a17bb62-2916-496d-9b4a-55e95c91bca4",
@@ -46,70 +42,6 @@ const PRESS_VLV_CMD = "sample_press_vlv_cmd";
 const VENT_VLV_CMD = "sample_vent_vlv_cmd";
 const START_CMD = "sample_start_cmd";
 const ABORT_CMD = "sample_abort_cmd";
-
-const SIMULATOR = `import time
-
-// Simulates a tank that fills from a 500 psi nitrogen supply through the press valve
-// and empties through the vent valve.
-func step() {
-    pressure f64 $= 0
-    if ${PRESS_VLV_CMD} == 1 {
-        pressure += (500 - pressure) * 0.02
-    }
-    if ${VENT_VLV_CMD} == 1 {
-        pressure -= pressure * 0.05
-    }
-    pressure -= pressure * 0.0002
-    ${TANK_PT} = pressure
-    ${PRESS_VLV_STATE} = ${PRESS_VLV_CMD}
-    ${VENT_VLV_STATE} = ${VENT_VLV_CMD}
-}
-
-time.interval{period=100ms} -> step{}
-`;
-
-const SEQUENCE = `import control
-import time
-
-// The sequence outranks the schematic, so a Start click does not take the valves. An
-// operator takes a valve with its control chip.
-authority 100
-
-sequence press {
-    stage idle {
-        0 -> ${PRESS_VLV_CMD}
-        0 -> ${VENT_VLV_CMD}
-        ${START_CMD} == 1 => pressurize
-    }
-    stage pressurize {
-        control.set_authority{value=100}
-        1 -> ${PRESS_VLV_CMD}
-        0 -> ${VENT_VLV_CMD}
-        ${TANK_PT} > 450 => abort
-        ${ABORT_CMD} == 1 => abort
-        ${TANK_PT} > 300 => hold
-    }
-    stage hold {
-        0 -> ${PRESS_VLV_CMD}
-        ${ABORT_CMD} == 1 => abort
-        time.wait{duration=10s} => vent
-    }
-    stage vent {
-        1 -> ${VENT_VLV_CMD}
-        ${TANK_PT} < 5 => idle
-    }
-    // Abort raises the sequence to the authority of a control chip, so its commands
-    // reach a valve an operator holds.
-    stage abort {
-        control.set_authority{value=255}
-        0 -> ${PRESS_VLV_CMD}
-        1 -> ${VENT_VLV_CMD}
-        ${START_CMD} == 1 => pressurize
-    }
-}
-
-true => press
-`;
 
 type Channels = Record<
   | typeof INDEX
@@ -238,7 +170,7 @@ const createLinePlot = (ch: Channels): lineplot.New => ({
     y1: [ch[TANK_PT]],
     y2: [ch[PRESS_VLV_STATE], ch[VENT_VLV_STATE]],
   },
-  ranges: { x1: [Session.Range.RECENT_KEY] },
+  ranges: [{ variant: "window", window: dynamicWindow(TimeSpan.seconds(30)) }],
 });
 
 const deploy = async (client: Synnax, key: arc.Key): Promise<void> => {
@@ -250,12 +182,15 @@ const deploy = async (client: Synnax, key: arc.Key): Promise<void> => {
   if (racks.length === 0) throw new NotFoundError("No rack can run Arc programs");
   const task = await client.arcs.updateTask(key, { rack: racks[0].key });
   if (task == null) throw new UnexpectedError(`Arc ${key} has no task`);
-  // A start leaves a running Arc alone, so the stop resets its stage and state.
+  // A start leaves a running Arc alone, so the stop resets its stage and state. The
+  // Driver does not answer a stop for a new task, but it runs commands in order, so the
+  // start's status also means the stop ran.
   await task.stop();
-  await task.start();
+  const state = await task.executeCommandSync({ type: "start" });
+  if (state.variant === "error") throw status.toError(state);
 };
 
-const exists = async (client: Synnax): Promise<boolean> => {
+export const exists = async (client: Synnax): Promise<boolean> => {
   const found = await client.projects.retrieve({
     keys: [KEYS.project],
     ignoreNotFoundError: true,
@@ -263,8 +198,20 @@ const exists = async (client: Synnax): Promise<boolean> => {
   return found.length > 0;
 };
 
-/** Creates the sample project and starts its Arc programs, replacing any old sample. */
-const createSample = async (client: Synnax): Promise<void> => {
+/**
+ * The text of the sample's Arc programs, from `sampleSimulator.arc` and
+ * `sampleSequence.arc`.
+ */
+export interface Programs {
+  simulator: string;
+  sequence: string;
+}
+
+/**
+ * Creates the sample project and starts its Arc programs, replacing any old sample. The
+ * line plot shows the last 30 seconds.
+ */
+export const create = async (client: Synnax, programs: Programs): Promise<void> => {
   const ch = await createChannels(client);
   await client.projects.create({ key: KEYS.project, name: NAME });
   await client.schematics.create(KEYS.project, createSchematic(ch));
@@ -281,13 +228,13 @@ const createSample = async (client: Synnax): Promise<void> => {
       key: KEYS.simulator,
       name: "Tank simulator",
       mode: "text",
-      text: { raw: SIMULATOR },
+      text: { raw: programs.simulator },
     },
     {
       key: KEYS.sequence,
       name: "Press sequence",
       mode: "text",
-      text: { raw: SEQUENCE },
+      text: { raw: programs.sequence },
     },
   ]);
   await deploy(client, KEYS.simulator);
@@ -324,48 +271,4 @@ const createSample = async (client: Synnax): Promise<void> => {
       },
     },
   });
-};
-
-// Selecting a project loads its stored view state over the store's, so view state set
-// before the load lands is lost.
-const load = async (store: Session.Store, key: project.Key): Promise<void> => {
-  store.dispatch(Session.Project.select(key));
-  const loaded = (): boolean => !Session.Persist.selectSwapping(store.getState());
-  if (loaded()) return;
-  await new Promise<void>((resolve) => {
-    const unsubscribe = store.subscribe(() => {
-      if (!loaded()) return;
-      unsubscribe();
-      resolve();
-    });
-  });
-};
-
-/**
- * Returns a callback that creates the sample project and opens it. When a sample
- * exists, the callback asks before it resets the sample.
- */
-export const useOpenSample = (): (() => void) => {
-  const client = PSynnax.use();
-  const store = Session.useStore();
-  const confirm = Modals.useConfirm();
-  const handleError = Status.useErrorHandler();
-  return () =>
-    handleError(async () => {
-      if (client == null) throw new DisconnectedError();
-      if (await exists(client)) {
-        const confirmed = await confirm({
-          message: "Are you sure you want to reset the sample project?",
-          description:
-            "Your changes to the sample project and its Arc programs are lost.",
-          confirm: { label: "Reset", variant: "warning" },
-        });
-        if (confirmed !== true) return;
-      }
-      await createSample(client);
-      await load(store, KEYS.project);
-      store.dispatch(
-        Session.Schematic.setEditable({ key: KEYS.schematic, editable: false }),
-      );
-    }, "Failed to open the sample project");
 };

@@ -1,0 +1,49 @@
+---
+// Copyright 2026 Synnax Labs, Inc.
+//
+// Use of this software is governed by the Business Source License included in the file
+// licenses/BSL.txt.
+//
+// As of the Change Date specified in that file, in accordance with the Business Source
+// License, use of this software will be governed by the Apache License, Version 2.0,
+// included in the file licenses/APL.txt.
+
+interface Props {
+    columns?: 2 | 3;
+}
+
+const { columns = 3 } = Astro.props;
+---
+
+<div class="docs-card-grid" data-columns={columns}>
+    <slot />
+</div>
+
+<style is:global>
+    .docs-card-grid {
+        display: grid;
+        grid-template-columns: repeat(var(--docs-card-columns), minmax(0, 1fr));
+        gap: 3rem;
+        margin: 2.5rem 0;
+
+        &[data-columns="2"] {
+            --docs-card-columns: 2;
+        }
+
+        &[data-columns="3"] {
+            --docs-card-columns: 3;
+        }
+
+        @media (width <= 900px) {
+            &[data-columns] {
+                --docs-card-columns: 2;
+            }
+        }
+
+        @media (width <= 600px) {
+            &[data-columns] {
+                --docs-card-columns: 1;
+            }
+        }
+    }
+</style>

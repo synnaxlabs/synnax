@@ -26,7 +26,6 @@ import (
 	xkv "github.com/synnaxlabs/x/kv"
 	"github.com/synnaxlabs/x/kv/pebblekv"
 	"github.com/synnaxlabs/x/service"
-	"github.com/synnaxlabs/x/validate"
 )
 
 func Open(
@@ -42,12 +41,6 @@ func Open(
 		cleanup, ok = service.NewOpener(ctx, &db.closer)
 	)
 	defer func() { err = cleanup(err) }()
-	if o.transport.owned == nil && o.lis != nil {
-		return nil, errors.Wrap(
-			validate.ErrValidation,
-			"cannot serve a transport provided with WithTransport on a listener",
-		)
-	}
 	// Register the owned gRPC client pool first so it closes LAST. The transport (added
 	// below) and any cluster goroutines that hold it must stop using the pool before
 	// pool.Close runs.
@@ -68,16 +61,10 @@ func Open(
 		// The listener is the first point at which an operating system assigned port is
 		// known, so bind before the cluster advertises the host address.
 		lis, o.cluster.HostAddress, err = openListener(o)
-		// Release only a listener Open bound itself: one from WithListener stays the
-		// caller's. Serve releases it when it stops, so tolerate an already closed
-		// listener.
-		lisCloser := io.NopCloser
-		if o.lis == nil {
-			lisCloser = io.CloserFunc(func() error {
-				return errors.Skip(lis.Close(), net.ErrClosed)
-			})
-		}
-		if !ok(err, lisCloser) {
+		// Serve releases the listener when it stops, so tolerate an already closed one.
+		if !ok(err, io.CloserFunc(func() error {
+			return errors.Skip(lis.Close(), net.ErrClosed)
+		})) {
 			return nil, err
 		}
 		if err = o.transport.owned.Configure(
@@ -102,26 +89,15 @@ func Open(
 	return db, err
 }
 
-// openListener opens the listener the owned transport serves on, and returns it with
-// the address the host advertises. A listener from WithListener is used as is, and
-// stays the caller's to close when it is not bound to a TCP address.
+// openListener binds the listener the owned transport serves on, and returns it with
+// the address the host advertises: the configured host with the bound port.
 func openListener(o *options) (net.Listener, address.Address, error) {
-	lis := o.lis
-	if lis == nil {
-		var err error
-		if lis, err = net.Listen("tcp", o.addr.String()); err != nil {
-			return nil, "", err
-		}
+	lis, err := net.Listen("tcp", o.addr.String())
+	if err != nil {
+		return nil, "", err
 	}
-	tcp, ok := lis.Addr().(*net.TCPAddr)
-	if !ok {
-		return nil, "", errors.Wrapf(
-			validate.ErrValidation,
-			"listener address %q is not a TCP address",
-			lis.Addr(),
-		)
-	}
-	return lis, address.Newf("%s:%d", o.addr.Host(), tcp.Port), nil
+	port := lis.Addr().(*net.TCPAddr).Port
+	return lis, address.Newf("%s:%d", o.addr.Host(), port), nil
 }
 
 func wireTransport(o *options) {
@@ -143,7 +119,7 @@ func openKV(o *options) (xkv.DB, error) {
 	var (
 		log           = pebblekv.NewLogger(o.Child("kv"))
 		ev            = pebble.MakeLoggingEventListener(log)
-		opts          = &pebble.Options{FS: o.fs, Logger: log, EventListener: &ev}
+		opts          = &pebble.Options{Logger: log, EventListener: &ev}
 		pebbleDB, err = pebble.Open(o.dirname, opts)
 	)
 	if err != nil {

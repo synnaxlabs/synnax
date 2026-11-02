@@ -24,7 +24,7 @@ from synnax.util.send_required import send_required
 from x.telem import CrudeTimeSpan, TimeSpan, TimeStamp
 from x.telem.clock_skew import ClockSkewCalculator
 
-logger = logging.getLogger(__name__)
+_logger = logging.getLogger(__name__)
 
 Status = Literal["disconnected", "connecting", "connected", "failed"]
 
@@ -43,7 +43,7 @@ class State:
     license: LicenseState | None = None
 
 
-class CheckResponse(BaseModel):
+class _CheckResponse(BaseModel):
     cluster_key: str = ""
     node_version: str = ""
     node_time: TimeStamp = TimeStamp(0)
@@ -76,14 +76,13 @@ def _client_is_newer(client_version: str, node_version: str) -> bool:
     )
 
 
-_TROUBLESHOOTING_URL = (
-    "https://docs.synnaxlabs.com/reference/client/resources/troubleshooting"
-)
+_TROUBLESHOOTING_URL = "https://docs.synnaxlabs.com/reference/client/troubleshooting"
 
 
 def _create_version_warning(
     node_version: str | None,
     client_version: str,
+    *,
     client_is_newer: bool,
 ) -> str:
     to_upgrade = "Core" if client_is_newer else "client"
@@ -102,6 +101,7 @@ class Checker:
 
     def __init__(
         self,
+        *,
         client: UnaryClient,
         poll_freq: CrudeTimeSpan = TimeSpan.SECOND * 30,
         client_version: str = "",
@@ -139,7 +139,7 @@ class Checker:
         self._skew_calc.start()
         try:
             res = send_required(
-                self._client, "/connectivity/check", Empty(), CheckResponse
+                self._client, "/connectivity/check", Empty(), _CheckResponse
             )
         except Exception as e:
             with self._lock:
@@ -158,7 +158,7 @@ class Checker:
                     direction = (
                         "ahead of" if int(self._skew_calc.skew) > 0 else "behind"
                     )
-                    logger.warning(
+                    _logger.warning(
                         "Measured excessive clock skew between this host and "
                         "the Synnax Core. This host is %s the Synnax Core "
                         "by approximately %s.",
@@ -169,18 +169,22 @@ class Checker:
                 if not node_version:
                     self._state.client_server_compatible = False
                     if not self._version_warned:
-                        logger.warning(
-                            _create_version_warning(None, self._client_version, True)
+                        _logger.warning(
+                            _create_version_warning(
+                                None, self._client_version, client_is_newer=True
+                            )
                         )
                         self._version_warned = True
                 elif not _versions_compatible(self._client_version, node_version):
                     self._state.client_server_compatible = False
                     if not self._version_warned:
-                        logger.warning(
+                        _logger.warning(
                             _create_version_warning(
                                 node_version,
                                 self._client_version,
-                                _client_is_newer(self._client_version, node_version),
+                                client_is_newer=_client_is_newer(
+                                    self._client_version, node_version
+                                ),
                             )
                         )
                         self._version_warned = True

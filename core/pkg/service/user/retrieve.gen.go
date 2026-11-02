@@ -30,8 +30,7 @@ type Retrieve struct {
 // onto the Retrieve so filter functions can resolve them off r.indexes
 // instead of relying on package-level state.
 type indexes struct {
-	username *gorp.LookupIndex[Key, User, string]
-	search   *gorp.SearchIndex[Key, User]
+	search *gorp.SearchIndex[Key, User]
 }
 
 // newIndexes constructs a fresh indexes value, allocating one instance of each
@@ -39,14 +38,10 @@ type indexes struct {
 // Service struct.
 func newIndexes() indexes {
 	return indexes{
-		username: gorp.NewLookupIndex[Key, User, string](
-			"username",
-			func(e *User) string { return e.Username },
-		),
 		search: gorp.NewSearchIndex[Key, User](
 			"search",
 			func(e *User) []string {
-				return []string{e.Username, e.FirstName, e.LastName}
+				return []string{e.Name}
 			},
 		),
 	}
@@ -56,7 +51,6 @@ func newIndexes() indexes {
 // via gorp.TableConfig.Indexes when opening the underlying table.
 func (i indexes) all() []gorp.Index[Key, User] {
 	return []gorp.Index[Key, User]{
-		i.username,
 		i.search,
 	}
 }
@@ -111,15 +105,6 @@ func (r Retrieve) Search(term string) Retrieve {
 func MatchKeys(keys ...Key) Filter {
 	return func(Retrieve) gorp.Filter[Key, User] {
 		return gorp.MatchKeys[Key, User](keys...)
-	}
-}
-
-// MatchUsernames returns a filter for
-// users whose Username matches any of the
-// provided values.
-func MatchUsernames(vals ...string) Filter {
-	return func(r Retrieve) gorp.Filter[Key, User] {
-		return r.indexes.username.Filter(vals...)
 	}
 }
 

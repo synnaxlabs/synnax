@@ -25,6 +25,7 @@ from uuid import UUID
 from pydantic import ValidationError
 
 import synnax as sy
+from framework.models import DEFAULT_CONNECTION, SynnaxConnection
 from framework.test_case import TestCase
 from framework.utils import create_virtual_channel
 from tests.driver.sim_daq_case import SimDaqCase
@@ -60,6 +61,16 @@ class ArcCase(SimDaqCase, TestCase):
     arc_name: str
     _arcs: list[ArcTaskHandle]
 
+    def __init__(
+        self,
+        *,
+        synnax_connection: SynnaxConnection = DEFAULT_CONNECTION,
+        name: str,
+        **params: object,
+    ) -> None:
+        super().__init__(synnax_connection=synnax_connection, name=name, **params)
+        self._arcs = []
+
     def setup(self) -> None:
         required = [
             "arc_source",
@@ -73,9 +84,10 @@ class ArcCase(SimDaqCase, TestCase):
                     f"{self.__class__.__name__} must define class attribute '{attr}'"
                 )
         self.rack = None
-        self._arcs = []
         self.set_manual_timeout(180)
-        create_virtual_channel(self.client, self.start_cmd_channel, sy.DataType.UINT8)
+        create_virtual_channel(
+            self.client, self.start_cmd_channel, data_type=sy.DataType.UINT8
+        )
         self.subscribe(self.subscribe_channels)
         super().setup()
 
@@ -91,8 +103,8 @@ class ArcCase(SimDaqCase, TestCase):
     def load_arc(
         self,
         source: str,
-        name_prefix: str,
         *,
+        name_prefix: str,
         start: bool = True,
         trigger: str | None = None,
     ) -> str:
@@ -169,7 +181,7 @@ class ArcCase(SimDaqCase, TestCase):
         self._retrieve_rack()
         self.arc_name = self.load_arc(
             self.arc_source,
-            self.arc_name_prefix,
+            name_prefix=self.arc_name_prefix,
             trigger=self.start_cmd_channel,
         )
         self.verify_sequence_execution()

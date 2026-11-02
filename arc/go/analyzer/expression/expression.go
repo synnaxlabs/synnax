@@ -64,13 +64,13 @@ func isAny(basetypes.Type) bool { return true }
 // getSignedIntegerLiteral extracts a signed integer value from a node.
 // Supports both plain integer literals (2) and negated ones (-2).
 // Returns (value, true) if successful, (0, false) otherwise.
-func getSignedIntegerLiteral(node antlr.ParserRuleContext) (int, bool) {
+func getSignedIntegerLiteral(node antlr.ParserRuleContext) (int64, bool) {
 	if node == nil {
 		return 0, false
 	}
 	var (
-		sign    = 1
-		current = node
+		sign    int64 = 1
+		current       = node
 	)
 	if unary, ok := current.(parser.IUnaryExpressionContext); ok {
 		if unary.MINUS() != nil {
@@ -113,7 +113,7 @@ func getSignedIntegerLiteral(node antlr.ParserRuleContext) (int, bool) {
 	if !ok {
 		return 0, false
 	}
-	return sign * int(intVal), true
+	return sign * intVal, true
 }
 
 // Analyze validates type correctness of an expression and accumulates constraints.
@@ -433,86 +433,94 @@ func analyzePostfix(ctx context.Context[parser.IPostfixExpressionContext]) {
 	primary := ctx.AST.PrimaryExpression()
 	head, tail := parser.PrimaryNameParts(primary)
 	funcName := parser.PrimaryName(primary)
-	if funcName != "" {
-		scope, err := ctx.ResolveQualified(head, tail)
-		if err != nil {
-			ctx.Diagnostics.Add(diagnostics.Error(err, primary))
-			return
-		}
-		if scope.Kind == symbol.KindFunction {
-			callerFn, fnErr := ctx.Scope.ClosestAncestorOfKind(symbol.KindFunction)
-			if fnErr != nil && !errors.Is(fnErr, query.ErrNotFound) {
-				ctx.Diagnostics.Add(diagnostics.Error(fnErr, ctx.AST))
-				return
-			}
-			if callerFn != nil && scope.Exec == symbol.ExecFlow {
-				ctx.Diagnostics.Add(diagnostics.Errorf(
-					ctx.AST,
-					"function '%s' cannot be called inside a func block. Use it as a flow statement instead: %s{}",
-					funcName,
-					funcName,
-				))
-				return
-			}
-			if funcName != "len" && funcName != "series.len" {
-				if hasMultipleNamedOutputs(scope.Type) {
-					ctx.Diagnostics.Add(diagnostics.Errorf(
-						funcCalls[0],
-						"cannot call function %s: functions with multiple named outputs are not callable",
-						funcName,
-					))
-				} else {
-					AnalyzeCall(
-						ctx,
-						funcName,
-						scope.Type,
-						inputArguments(funcCalls[0]),
-						scope.AnalyzeArguments,
-						funcCalls[0],
-						"",
-					)
-				}
-			}
-			if callerFn != nil {
-				argChannels := buildArgChannels(ctx, scope, funcCalls[0])
-				propagateChannelsWithArgMap(callerFn, scope, argChannels)
-				*ctx.CallEdges = append(*ctx.CallEdges, context.CallEdge{
-					Caller:      callerFn,
-					Callee:      scope,
-					CallSite:    ctx.AST,
-					ArgChannels: argChannels,
-				})
-			}
-		} else {
-			ctx.Diagnostics.Add(diagnostics.Errorf(
-				funcCalls[0],
-				"cannot call non-function %s of type %s",
-				funcName,
-				scope.Type,
-			))
-		}
+	if funcName == "" {
+		return
 	}
+	scope, err := ctx.ResolveQualified(head, tail)
+	if err != nil {
+		ctx.Diagnostics.Add(diagnostics.Error(err, primary))
+		return
+	}
+	if scope.Kind != symbol.KindFunction {
+		ctx.Diagnostics.Add(diagnostics.Errorf(
+			funcCalls[0],
+			"cannot call non-function %s of type %s",
+			funcName,
+			scope.Type,
+		))
+		return
+	}
+	AnalyzeCallSite(
+		ctx,
+		scope,
+		funcName,
+		scope.Type,
+		symbol.CallArguments(funcCalls[0]),
+		funcCalls[0],
+	)
+}
+
+// AnalyzeCallSite checks a call to callee and records the call edge. fnType may be a
+// freshened copy of callee.Type.
+func AnalyzeCallSite[T antlr.ParserRuleContext](
+	ctx context.Context[T],
+	callee *symbol.Symbol,
+	funcName string,
+	fnType basetypes.Type,
+	args []symbol.Argument,
+	site antlr.ParserRuleContext,
+) {
+	callerFn, err := ctx.Scope.ClosestAncestorOfKind(symbol.KindFunction)
+	if err != nil && !errors.Is(err, query.ErrNotFound) {
+		ctx.Diagnostics.Add(diagnostics.Error(err, ctx.AST))
+		return
+	}
+	if callerFn != nil && callee.Exec == symbol.ExecFlow {
+		ctx.Diagnostics.Add(diagnostics.Errorf(
+			ctx.AST,
+			"function '%s' cannot be called inside a func block. Use it as a flow statement instead: %s()",
+			funcName,
+			funcName,
+		))
+		return
+	}
+	if funcName == "len" || funcName == "series.len" {
+		// len dispatches on its argument type at compile time, so only the names
+		// and arity are checked here.
+		bindArguments(
+			ctx,
+			funcName,
+			fnType,
+			args,
+			ir.FormatFunctionSignature(funcName, fnType),
+			"",
+		)
+	} else if hasMultipleNamedOutputs(fnType) {
+		ctx.Diagnostics.Add(diagnostics.Errorf(
+			site,
+			"cannot call function %s: functions with multiple named outputs are not callable",
+			funcName,
+		))
+	} else {
+		AnalyzeCall(ctx, funcName, fnType, args, callee.AnalyzeArguments, site, "")
+	}
+	if callerFn == nil {
+		return
+	}
+	argChannels := buildArgChannels(ctx, callee, args)
+	propagateChannelsWithArgMap(callerFn, callee, argChannels)
+	*ctx.CallEdges = append(*ctx.CallEdges, context.CallEdge{
+		Caller:      callerFn,
+		Callee:      callee,
+		CallSite:    ctx.AST,
+		ArgChannels: argChannels,
+	})
 }
 
 // hasMultipleNamedOutputs reports whether t has multiple or non-default named outputs.
 func hasMultipleNamedOutputs(t basetypes.Type) bool {
 	_, hasDefault := t.Outputs.Get(ir.DefaultOutputParam)
 	return len(t.Outputs) > 1 || (len(t.Outputs) == 1 && !hasDefault)
-}
-
-// inputArguments adapts the arguments in a call's parens `(...)` form into the
-// unified []symbol.Argument shape.
-func inputArguments(funcCall parser.IFunctionCallSuffixContext) []symbol.Argument {
-	argList := funcCall.ArgumentList()
-	if argList == nil {
-		return nil
-	}
-	exprs := argList.AllExpression()
-	args := make([]symbol.Argument, len(exprs))
-	for i, expr := range exprs {
-		args[i] = symbol.Argument{Index: i, Expr: expr, AST: expr}
-	}
-	return args
 }
 
 func analyzePrimary(ctx context.Context[parser.IPrimaryExpressionContext]) {
@@ -599,22 +607,22 @@ func analyzePrimary(ctx context.Context[parser.IPrimaryExpressionContext]) {
 // input list) so the mapping is valid even when the callee hasn't been fully analyzed
 // yet (forward references). The param index is resolved to a symbol ID during
 // propagation, when all scopes are guaranteed to exist.
-func buildArgChannels(
-	ctx context.Context[parser.IPostfixExpressionContext],
+func buildArgChannels[T antlr.ParserRuleContext](
+	ctx context.Context[T],
 	callee *symbol.Symbol,
-	funcCall parser.IFunctionCallSuffixContext,
+	args []symbol.Argument,
 ) map[int]context.ChannelMapping {
-	argList := funcCall.ArgumentList()
-	if argList == nil {
-		return nil
-	}
-	args := argList.AllExpression()
 	var argChannels map[int]context.ChannelMapping
-	for i, param := range callee.Type.Inputs {
-		if param.Type.Kind != basetypes.KindChan || i >= len(args) {
+	for _, arg := range args {
+		i := arg.Index
+		if arg.Name != "" {
+			i = callee.Type.Inputs.GetIndex(arg.Name)
+		}
+		if i < 0 || i >= len(callee.Type.Inputs) ||
+			callee.Type.Inputs[i].Type.Kind != basetypes.KindChan {
 			continue
 		}
-		channelID, channelName, ok := resolveChannelArg(ctx, args[i])
+		channelID, channelName, ok := resolveChannelArg(ctx, arg.Expr)
 		if !ok {
 			continue
 		}
@@ -630,8 +638,8 @@ func buildArgChannels(
 }
 
 // resolveChannelArg extracts the channel ID and name from an argument expression.
-func resolveChannelArg(
-	ctx context.Context[parser.IPostfixExpressionContext],
+func resolveChannelArg[T antlr.ParserRuleContext](
+	ctx context.Context[T],
 	expr parser.IExpressionContext,
 ) (uint32, string, bool) {
 	primary := parser.GetPrimaryExpression(expr)

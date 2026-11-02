@@ -14,7 +14,7 @@ import { scoped } from "@/shell";
 import { Overview } from "@/ui/overview";
 import { machinesFor } from "@/server/license/desktop";
 import { listForOrganization } from "@/server/license/list";
-import { invitationsFor } from "@/server/organization";
+import { addressedTo } from "@/server/invitation";
 
 const loaded = await loadScoped(Astro);
 if (loaded instanceof Response) return loaded;
@@ -22,10 +22,10 @@ const { portal, session, organizations, scope } = loaded;
 const team = scope.kind === "team";
 const licenses = team ? await listForOrganization(portal.store.query, scope.key) : [];
 const machines = team ? [] : await machinesFor(portal.store.query, scope.key);
-const invitations = await invitationsFor(
-    portal.store,
-    portal.directory,
-    session.userID,
+const invitations = await addressedTo(
+    portal.store.query,
+    await portal.directory.addresses(session.userID),
+    portal.now(),
 );
 ---
 

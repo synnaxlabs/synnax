@@ -11,17 +11,18 @@ import { type Component } from "@synnaxlabs/lyra/component";
 import { Flex } from "@synnaxlabs/lyra/flex";
 import { Form } from "@synnaxlabs/lyra/form";
 import { Icon } from "@synnaxlabs/lyra/icon";
+import { Input } from "@synnaxlabs/lyra/input";
 import { List } from "@synnaxlabs/lyra/list";
 import { Menu } from "@synnaxlabs/lyra/menu";
 import { Select } from "@synnaxlabs/lyra/select";
 import { array } from "@synnaxlabs/x";
-import { type ReactElement, type ReactNode } from "react";
+import { type ReactElement, type ReactNode, type UIEvent, useRef } from "react";
 
 import { ContextMenu as PlatformContextMenu } from "@/platform/context-menu";
 import { CSS } from "@/platform/css";
 import { BindChannels, type BindChannelsProps } from "@/platform/task/BindChannels";
-import { useIsPreview } from "@/platform/task/Form";
 import { type Channel } from "@/platform/task/types";
+import { useIsPreview } from "@/platform/task/useIsPreview";
 
 export interface ContextMenuItemProps<C extends Channel> {
   keys: string[];
@@ -131,6 +132,19 @@ export interface ChannelListProps<C extends Channel>
   isDragging?: boolean;
   listItem: Component.RenderProp<ChannelListItemProps>;
   selected: string[];
+  /**
+   * Whether items select only through their checkbox or a modifier click. The selection
+   * can then be empty.
+   */
+  checkable?: boolean;
+  /** The columns items line up on. The list then shows their headings. */
+  columns?: List.Column[];
+  /**
+   * Shown in place of the items, such as the channels by port. A right click on an
+   * element with `Menu.CONTEXT_TARGET` and a channel key in `data-menu-key` opens that
+   * channel's menu.
+   */
+  ports?: ReactNode;
 }
 
 export const ChannelList = <C extends Channel>({
@@ -145,42 +159,85 @@ export const ChannelList = <C extends Channel>({
   grow,
   style,
   resolve,
+  checkable = false,
+  columns,
+  ports,
   ...rest
 }: ChannelListProps<C>) => {
   const { onSelect, path, data } = rest;
+  const { status } = Form.useFieldState(path);
   const handleChange = (keys: string[]) => onSelect(keys);
   const menuProps = Menu.useContextMenu();
-  return (
+  const headingsRef = useRef<HTMLDivElement>(null);
+  const handleScroll = (e: UIEvent<HTMLDivElement>) => {
+    if (headingsRef.current != null)
+      headingsRef.current.scrollLeft = e.currentTarget.scrollLeft;
+  };
+  const content = (
     <Flex.Box className={CSS.B("channel-list")} empty grow={grow} style={style}>
       {resolve != null && <BindChannels<C> path={path} resolve={resolve} />}
-      {header}
       <Menu.ContextMenu
         {...menuProps}
         menu={(p) => <ContextMenu {...p} {...rest} />}
         onDragOver={onDragOver}
         onDrop={onDrop}
       >
-        <Select.Frame<string, C>
-          multiple
-          data={data}
-          value={selected}
-          onChange={handleChange}
-          replaceOnSingle
-          allowNone={false}
-          autoSelectOnNone
+        {/* A header element that names a channel by data-menu-key opens its menu. */}
+        <Flex.Box
+          y
+          empty
+          className={menuProps.className}
+          onContextMenu={menuProps.open}
         >
-          <List.Scroll
-            full="y"
-            onDragOver={onDragOver}
-            onDrop={onDrop}
+          {header}
+          {ports == null && columns != null && (
+            <List.Headings ref={headingsRef} checkable={checkable} />
+          )}
+        </Flex.Box>
+        {ports != null ? (
+          <Flex.Box
+            y
+            grow
+            empty
             className={menuProps.className}
             onContextMenu={menuProps.open}
           >
-            <List.Items<string, C> emptyContent={emptyContent}>{listItem}</List.Items>
-          </List.Scroll>
-        </Select.Frame>
+            {ports}
+          </Flex.Box>
+        ) : (
+          <Select.Frame<string, C>
+            multiple
+            data={data}
+            value={selected}
+            onChange={handleChange}
+            replaceOnSingle={!checkable}
+            allowNone={checkable}
+            autoSelectOnNone={!checkable}
+          >
+            <List.Scroll
+              full="y"
+              onDragOver={onDragOver}
+              onDrop={onDrop}
+              className={menuProps.className}
+              onContextMenu={menuProps.open}
+              onScroll={handleScroll}
+            >
+              <List.Items<string, C> emptyContent={emptyContent}>{listItem}</List.Items>
+            </List.Scroll>
+          </Select.Frame>
+        )}
       </Menu.ContextMenu>
+      {status.variant !== "success" && (
+        <Input.HelpText
+          variant={status.variant}
+          className={CSS.BE("channel-list", "status")}
+        >
+          {status.message}
+        </Input.HelpText>
+      )}
       {footer}
     </Flex.Box>
   );
+  if (columns == null) return content;
+  return <List.Columns columns={columns}>{content}</List.Columns>;
 };

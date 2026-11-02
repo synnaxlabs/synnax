@@ -16,7 +16,7 @@ import { Icon } from "@synnaxlabs/lyra/icon";
 import { Input } from "@synnaxlabs/lyra/input";
 import { Nav } from "@synnaxlabs/lyra/nav";
 import { Text } from "@synnaxlabs/lyra/text";
-import { type ReactElement, type SubmitEvent, useState } from "react";
+import { type ReactElement, type SubmitEvent, useEffect, useState } from "react";
 import { z } from "zod";
 
 const formSchema = z.object({
@@ -58,6 +58,12 @@ export const Form = (): ReactElement => {
   const [loading, setLoading] = useState(false);
   const [softSuccess, setSuccess] = useState(false);
 
+  useEffect(() => {
+    if (!softSuccess) return;
+    const timeout = setTimeout(close, 300);
+    return () => clearTimeout(timeout);
+  }, [softSuccess, close]);
+
   const methods = Base.use<typeof formSchema>({
     schema: formSchema,
     values: {
@@ -87,12 +93,8 @@ export const Form = (): ReactElement => {
         headers: { Accept: "application/json" },
       });
       setLoading(false);
-      if (res.ok) {
-        setSuccess(true);
-        setTimeout(() => {
-          close();
-        }, 300);
-      } else {
+      if (res.ok) setSuccess(true);
+      else {
         console.error(res);
         window.alert("Something went wrong. Please try again later");
       }

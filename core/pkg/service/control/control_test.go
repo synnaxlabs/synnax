@@ -117,7 +117,7 @@ var _ = Describe("Control", func() {
 			w := openWriter(ctx, "philadelphia", ch.Key())
 			Expect(MustSucceed(controlSvc.Retrieve(ctx, ch.Key()))).To(ConsistOf(
 				control.State{
-					Subject: control.Subject{
+					Subject: xcontrol.Subject{
 						Key:  "philadelphia",
 						Name: "philadelphia",
 					},

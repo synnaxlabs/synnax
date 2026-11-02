@@ -24,7 +24,6 @@ from console.layout import LayoutClient
 from console.page import ConsolePage, PageType
 from console.plot import Plot
 from console.project import ProjectClient
-from framework.run_dir import resolve_results_path
 from framework.utils import resolve_channel_placeholders
 
 T = TypeVar("T", bound=ConsolePage)
@@ -36,6 +35,7 @@ class PagesClient(ResourceClient):
 
     def __init__(
         self,
+        *,
         layout: LayoutClient,
         client: sy.Synnax,
         project: ProjectClient,
@@ -52,7 +52,12 @@ class PagesClient(ResourceClient):
         :returns: Instance of ``page_class`` wrapping the created UI page.
         """
         pane, tab, actual_name = self.create_by_type(page_class.page_type, name)
-        page = page_class(self.layout, self.client, actual_name, pane_locator=pane)
+        page = page_class(
+            layout=self.layout,
+            client=self.client,
+            page_name=actual_name,
+            pane_locator=pane,
+        )
         page._initialize_from_project(tab, actual_name)
         return page
 
@@ -64,7 +69,9 @@ class PagesClient(ResourceClient):
         :returns: Instance of ``page_class`` wrapping the opened page.
         """
         self.open_by_name(name)
-        return page_class.from_open_page(self.layout, self.client, name)
+        return page_class.from_open_page(
+            layout=self.layout, client=self.client, name=name
+        )
 
     def open_by_name(self, name: str) -> None:
         """Open a page by double-clicking it in the project resources toolbar,
@@ -83,19 +90,14 @@ class PagesClient(ResourceClient):
         :param name: Name of the page to drag.
         :returns: Instance of ``page_class`` wrapping the opened page.
         """
-        for attempt in range(2):
-            self.layout.show_resource_toolbar("Projects")
-            page_item = self._find(name)
-            mosaic = self.layout.page.locator(".console-mosaic").first
-            page_item.drag_to(mosaic)
-            self.layout.close_left_toolbar()
-            try:
-                self.layout.wait_for_tab(name)
-                break
-            except PlaywrightTimeoutError:
-                if attempt == 1:
-                    raise
-        return page_class.from_open_page(self.layout, self.client, name)
+        self.layout.show_resource_toolbar("Projects")
+        page_item = self._find(name)
+        self.layout.drag(page_item, self.layout.page.locator(".console-mosaic").first)
+        self.layout.close_left_toolbar()
+        self.layout.wait_for_tab(name)
+        return page_class.from_open_page(
+            layout=self.layout, client=self.client, name=name
+        )
 
     def bind_open(self, page_class: type[T], name: str) -> T:
         """Bind a wrapper to a tab that is already open, without opening one.
@@ -112,7 +114,12 @@ class PagesClient(ResourceClient):
         self.layout.focus(name)
         pane = self.layout.page.locator(page_class.pluto_label)
         pane.first.wait_for(state="visible", timeout=5000)
-        return page_class(self.layout, self.client, name, pane_locator=pane.first)
+        return page_class(
+            layout=self.layout,
+            client=self.client,
+            page_name=name,
+            pane_locator=pane.first,
+        )
 
     def open_from_search(self, page_class: type[T], name: str) -> T:
         """Open an existing page by searching its name in the command palette.
@@ -134,10 +141,15 @@ class PagesClient(ResourceClient):
         actual_name = active_tab.inner_text().strip()
 
         return page_class(
-            self.layout, self.client, actual_name, pane_locator=pane.first
+            layout=self.layout,
+            client=self.client,
+            page_name=actual_name,
+            pane_locator=pane.first,
         )
 
-    def open_plot_from_click(self, channel_name: str, channels: ChannelClient) -> Plot:
+    def open_plot_from_click(
+        self, channel_name: str, *, channels: ChannelClient
+    ) -> Plot:
         """Open a plot by double-clicking a channel in the channels sidebar.
 
         :param channel_name: Name of the channel to double-click.
@@ -164,7 +176,9 @@ class PagesClient(ResourceClient):
             last_tab = tabs.nth(tab_count - 1)
             actual_tab_name = last_tab.inner_text().strip()
 
-        plot = Plot.from_open_page(self.layout, self.client, actual_tab_name)
+        plot = Plot.from_open_page(
+            layout=self.layout, client=self.client, name=actual_tab_name
+        )
 
         channels.hide_channels()
         return plot
@@ -191,7 +205,7 @@ class PagesClient(ResourceClient):
         """
         self.layout.close_left_toolbar()
         add_btn = self.layout.page.locator(
-            f"{LayoutClient.TAB_STRIP_SELECTOR} button:has(.pluto-icon--add)"
+            f"{LayoutClient.TAB_STRIP_SELECTOR} button:has(.lyra-icon--add)"
         ).first
         add_btn.wait_for(state="visible", timeout=5000)
         add_btn.dispatch_event("click")
@@ -401,7 +415,7 @@ class PagesClient(ResourceClient):
         self.wait_for_removed(name)
         self.layout.close_left_toolbar()
 
-    def delete_group(self, name: str, child_names: list[str] | None = None) -> None:
+    def delete_group(self, name: str, *, child_names: list[str] | None = None) -> None:
         """Delete a group via context menu.
 
         :param name: Name of the group to delete.
@@ -539,7 +553,7 @@ class PagesClient(ResourceClient):
             self.ctx_menu.click_option("Export")
 
         download = download_info.value
-        save_path = resolve_results_path(f"{name}_export.json")
+        save_path = str(self.layout.results_dir / f"{name}_export.json")
         download.save_as(save_path)
         self.layout.close_left_toolbar()
 
@@ -547,7 +561,7 @@ class PagesClient(ResourceClient):
             result: dict[str, Any] = json.load(f)
             return result
 
-    def import_file(self, json_path: str, name: str) -> None:
+    def import_file(self, json_path: str, *, name: str) -> None:
         """Import a component via the "Import components" command palette flow.
 
         The import pipeline derives the tab name from the chosen filename (via
@@ -575,7 +589,7 @@ class PagesClient(ResourceClient):
                 )
             self.layout.close_left_toolbar()
 
-    def import_file_expect_error(self, json_path: str, error_text: str) -> None:
+    def import_file_expect_error(self, json_path: str, *, error_text: str) -> None:
         """Import a file the Core must reject, and assert the error surfaces.
 
         The import pipeline reports a per-file failure as a "Failed to import"
@@ -596,7 +610,7 @@ class PagesClient(ResourceClient):
             )
         self.notifications.close_all()
 
-    def snapshot_to_active_range(self, names: list[str], range_name: str) -> None:
+    def snapshot_to_active_range(self, names: list[str], *, range_name: str) -> None:
         """Snapshot multiple pages to the active range via context menu.
 
         :param names: List of page names to snapshot.
@@ -605,7 +619,7 @@ class PagesClient(ResourceClient):
         if not names:
             return
         self.expand_active()
-        last = self.layout.ctrl_select_items(names, self.get)
+        last = self.layout.ctrl_select_items(names, get_item_fn=self.get)
         self.ctx_menu.action(last, f"Snapshot to {range_name}")
         self.layout.close_left_toolbar()
 
@@ -635,7 +649,7 @@ class PagesClient(ResourceClient):
         if not names:
             return
         self.expand_active()
-        last = self.layout.ctrl_select_items(names, self.get)
+        last = self.layout.ctrl_select_items(names, get_item_fn=self.get)
         self.ctx_menu.action(last, "Copy")
         for name in names:
             copy_name = f"{name} (copy)"

@@ -16,13 +16,10 @@ cc_library(
     ],
     visibility = ["//visibility:public"],
     deps = [
+        "//client/cpp:synnax",
         "//driver/opcua/connection",
-        "//driver/opcua/errors",
-        "//driver/opcua/telem",
         "//driver/opcua/types",
-        "//vendor/open62541",
         "//x/cpp/errors",
-        "//x/cpp/telem",
-        "@abseil-cpp//absl/log",
+        "//x/cpp/json",
     ],
 )

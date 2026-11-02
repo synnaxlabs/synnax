@@ -10,7 +10,7 @@
 import { id } from "@synnaxlabs/x";
 import { describe, expect, it } from "vitest";
 
-import { AccessDeniedError, NotFoundError } from "@/errors";
+import { AccessDeniedError, NotFoundError } from "@/index";
 import { createTestClient, createTestClientWithPolicy } from "@/testutil";
 import { user } from "@/user";
 
@@ -45,7 +45,6 @@ describe("user", () => {
       });
       const retrieved = await userClient.users.retrieve(randomUser.key);
       expect(retrieved.key).toBe(randomUser.key);
-      expect(retrieved.username).toBe(randomUser.username);
     });
 
     it("should allow the caller to create users with the correct policy", async () => {

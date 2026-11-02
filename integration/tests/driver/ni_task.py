@@ -59,9 +59,8 @@ def _ensure_ni_max_config(log: Callable[[str], None]) -> None:
 class _NITaskMixin(TaskCase[TaskT]):
     """Shared setup for all NI task tests.
 
-    Auto-passes on non-Windows platforms. The NI driver scanner
-    automatically discovers devices and registers them with
-    location = NI MAX alias (e.g. "E101Mod1").
+    Skips on non-Windows platforms. The NI driver scanner discovers devices and
+    registers them with location = NI MAX alias (e.g. "E101Mod1").
 
     Subclasses must set:
         device_locations: list[str]  — NI MAX identifiers (e.g. ["E101Mod1"])
@@ -80,8 +79,7 @@ class _NITaskMixin(TaskCase[TaskT]):
 
     def setup(self) -> None:
         if platform.system().lower() != "windows":
-            self.auto_pass(msg="Windows DAQmx drivers required")
-            return
+            self.skip("Windows DAQmx drivers required")
         _ensure_ni_max_config(self.log)
         # The NI scanner registers devices with location = NI MAX alias.
         # Resolve all locations upfront so concrete tests can use
@@ -163,7 +161,7 @@ class _NIWriteTaskBase(_NITaskMixin[TaskT], WriteTaskCase[TaskT]):
 class NIAnalogReadTaskCase(_NIReadTaskBase[sy.ni.AnalogReadTask]):
     """Base class for NI analog read task tests."""
 
-    _task_class = sy.ni.AnalogReadTask
+    _task_class: Callable[..., sy.ni.AnalogReadTask] = sy.ni.AnalogReadTask
 
     @staticmethod
     @abstractmethod
@@ -178,7 +176,7 @@ class NIAnalogReadTaskCase(_NIReadTaskBase[sy.ni.AnalogReadTask]):
 class NIDigitalReadTaskCase(_NIReadTaskBase[sy.ni.DigitalReadTask]):
     """Base class for NI digital read task tests."""
 
-    _task_class = sy.ni.DigitalReadTask
+    _task_class: Callable[..., sy.ni.DigitalReadTask] = sy.ni.DigitalReadTask
 
     @staticmethod
     @abstractmethod
@@ -193,7 +191,7 @@ class NIDigitalReadTaskCase(_NIReadTaskBase[sy.ni.DigitalReadTask]):
 class NICounterReadTaskCase(_NIReadTaskBase[sy.ni.CounterReadTask]):
     """Base class for NI counter read task tests."""
 
-    _task_class = sy.ni.CounterReadTask
+    _task_class: Callable[..., sy.ni.CounterReadTask] = sy.ni.CounterReadTask
 
     @staticmethod
     @abstractmethod
@@ -208,7 +206,7 @@ class NICounterReadTaskCase(_NIReadTaskBase[sy.ni.CounterReadTask]):
 class NIAnalogWriteTaskCase(_NIWriteTaskBase[sy.ni.AnalogWriteTask]):
     """Base class for NI analog write task tests."""
 
-    _task_class = sy.ni.AnalogWriteTask
+    _task_class: Callable[..., sy.ni.AnalogWriteTask] = sy.ni.AnalogWriteTask
 
     @staticmethod
     @abstractmethod
@@ -223,7 +221,7 @@ class NIAnalogWriteTaskCase(_NIWriteTaskBase[sy.ni.AnalogWriteTask]):
 class NIDigitalWriteTaskCase(_NIWriteTaskBase[sy.ni.DigitalWriteTask]):
     """Base class for NI digital write task tests."""
 
-    _task_class = sy.ni.DigitalWriteTask
+    _task_class: Callable[..., sy.ni.DigitalWriteTask] = sy.ni.DigitalWriteTask
 
     @staticmethod
     @abstractmethod

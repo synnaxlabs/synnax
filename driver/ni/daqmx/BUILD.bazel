@@ -27,7 +27,6 @@ cc_library(
         "//driver/ni/daqmx:nidaqmx_official",
         "//driver/ni/errors",
         "//x/cpp/lib",
-        "//x/cpp/os",
     ],
 )
 
@@ -57,6 +56,16 @@ cc_test(
     srcs = ["mock_test.cpp"],
     deps = [
         ":mock",
+        "@googletest//:gtest_main",
+    ],
+)
+
+cc_test(
+    name = "sugared_test",
+    srcs = ["sugared_test.cpp"],
+    deps = [
+        ":mock",
+        "//x/cpp/testutil",
         "@googletest//:gtest_main",
     ],
 )

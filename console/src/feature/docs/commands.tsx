@@ -12,7 +12,7 @@ import { Icon } from "@synnaxlabs/lyra/icon";
 import { Command } from "@/platform/command";
 import { Docs } from "@/platform/docs";
 
-export const ReadCommand = Command.create({
+const ReadCommand = Command.create({
   key: "read_the_docs",
   name: "Read documentation",
   icon: <Icon.QuestionMark />,

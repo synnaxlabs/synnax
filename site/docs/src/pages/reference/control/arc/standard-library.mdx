@@ -1,0 +1,77 @@
+---
+layout: "@/layouts/Reference.astro"
+title: "Standard library"
+description:
+  "Find the modules and built-in functions that every Arc automation can use."
+---
+
+import { Divider } from "@synnaxlabs/lyra/divider";
+import { mdxOverrides } from "@/components/mdxOverrides";
+export const components = mdxOverrides;
+
+The Arc standard library has modules and built-in functions. To use a module, import it
+at the top of the file, then call its functions by their qualified name. A qualified
+name without an `import` is an error.
+
+```arc channels="heartbeat"
+import time
+
+time.interval(period=1s) -> heartbeat
+```
+
+<Divider.Divider x />
+
+## Modules
+
+| Module                                                       | Functions                         | Use                                         |
+| ------------------------------------------------------------ | --------------------------------- | ------------------------------------------- |
+| [`control`](/reference/control/arc/standard-library/control) | `set_authority`                   | Change control authority while it runs.     |
+| [`math`](/reference/control/arc/standard-library/math)       | `avg`, `min`, `max`, `derivative` | Get running statistics and rates of change. |
+| [`ranges`](/reference/control/arc/standard-library/ranges)   | `create`, `end`                   | Mark a period of time as a range.           |
+| [`stable`](/reference/control/arc/standard-library/stable)   | `for`                             | Pass a value only after it holds steady.    |
+| [`status`](/reference/control/arc/standard-library/status)   | `set`                             | Set an alarm, a warning, or a state.        |
+| [`time`](/reference/control/arc/standard-library/time)       | `interval`, `wait`, `now`         | Fire timers and read the time.              |
+
+<Divider.Divider x />
+
+## Built-in functions
+
+Built-in functions need no `import`.
+
+| Function                                                   | Signature                           | Use                                                                         |
+| ---------------------------------------------------------- | ----------------------------------- | --------------------------------------------------------------------------- |
+| [`select`](/reference/control/arc/standard-library/select) | `bool -> select() -> (true, false)` | Send each value to a `true` or a `false` routing entry.                     |
+| `on`                                                       | `on(channel) -> T`                  | Read a channel. Same as a channel name at the start of a flow.              |
+| `write`                                                    | `T -> write(channel) -> u8`         | Write a channel. Same as a channel name at the end of a flow.               |
+| `ge`, `gt`, `le`, `lt`, `eq`, `ne`                         | `T -> gt(b) -> bool`                | Compare the trigger `a` with `b`. Same as `>=`, `>`, `<=`, `<`, `==`, `!=`. |
+| [`len`](/reference/control/arc/reference/functions#len)    | `len(x) -> i64`                     | Get the length of a series or a string. Only in a function body.            |
+
+`on` and `write` are the nodes that the graph editor shows as **Telemetry source** and
+**Telemetry sink**. In text, a channel name does the same work:
+
+```arc channels="tank_pt, tank_pt_copy"
+on(channel=tank_pt) -> tank_pt_copy
+tank_pt -> write(channel=tank_pt_copy)
+```
+
+`on` and `write` cannot be in the same flow. The compiler cannot find a type for them
+and stops with `on_0_T: unresolved type variable: constraints`.
+
+The comparison functions take two numeric values, `a` and `b`, of the same type. A flow
+value fills the trigger `a`, and `()` sets `b`:
+
+```arc channels="tank_pt, tank_high"
+tank_pt -> gt(b=300.0) -> tank_high
+```
+
+`and`, `or`, and `not` are keywords, so text code cannot call them as functions. Use the
+operators.
+
+<Divider.Divider x />
+
+## Deprecated names
+
+The names `avg`, `min`, `max`, `derivative`, `interval`, `wait`, `now`, `set_authority`,
+and `stable_for` without a module still compile, with warning
+[ARC4003](/reference/control/arc/reference/errors#diagnostic-codes). Use the qualified
+names, such as `math.avg` and `stable.for`.

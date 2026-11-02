@@ -9,10 +9,16 @@
 
 #pragma once
 
+#include <memory>
+#include <string>
+#include <utility>
+#include <vector>
+
 #include "open62541/types.h"
 
 #include "x/cpp/json/json.h"
 
+#include "driver/opcua/certificate/store.h"
 #include "driver/opcua/connection/connection.h"
 #include "driver/task/task.h"
 
@@ -23,7 +29,10 @@ const std::string WRITE_TASK_TYPE = "opc_write";
 const std::string READ_TASK_TYPE = "opc_read";
 
 struct Factory final : task::Factory {
-    Factory(): conn_pool_(std::make_shared<connection::Pool>()) {}
+    /// @param store keeps the certificate that the Driver presents to servers.
+    explicit Factory(std::shared_ptr<certificate::Store> store):
+        store_(store),
+        conn_pool_(std::make_shared<connection::Pool>(std::move(store))) {}
 
     std::pair<std::unique_ptr<task::Task>, bool> configure_task(
         const std::shared_ptr<task::Context> &ctx,
@@ -44,6 +53,7 @@ struct Factory final : task::Factory {
     }
 
 private:
+    std::shared_ptr<certificate::Store> store_;
     std::shared_ptr<connection::Pool> conn_pool_;
 };
 }

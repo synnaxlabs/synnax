@@ -28,14 +28,23 @@ flag_management:
     carryforward: true
 
 ignore:
+  # Oracle
+  - "**/*.gen.go"
+  - "**/*.gen.ts"
+  - "**/*.gen.h"
+  - "**/types_gen.py"
+  # protoc
   - "**/*.pb.go"
-  - "**/*_generated.go"
+  # stringer and go generate
   - "**/*_string.go"
-  - "arc/go/parser/arc_lexer.go"
-  - "arc/go/parser/arc_parser.go"
-  - "arc/go/parser/arcparser_base_listener.go"
-  - "arc/go/parser/arcparser_base_visitor.go"
-  - "arc/go/parser/arcparser_listener.go"
-  - "arc/go/parser/arcparser_visitor.go"
+  - "**/*_generated.go"
+  - "arc/go/parser/token_literals.go"
+  # ANTLR
+  - "**/parser/*_lexer.go"
+  - "**/parser/*_parser.go"
+  - "**/parser/*parser_*listener.go"
+  - "**/parser/*parser_*visitor.go"
+  # generate_mock.py
+  - "driver/ni/daqmx/mock.h"
   - "**/examples/**"
   - "stylelint.config.js"

@@ -1,0 +1,120 @@
+---
+layout: "@/layouts/Reference.astro"
+title: "Alarms"
+description: "Learn how statuses, redlines, Arc, and PagerDuty work together as alarms."
+---
+
+import { Divider } from "@synnaxlabs/lyra/divider";
+import { Icon } from "@synnaxlabs/lyra/icon";
+import { Diagram } from "@/components/diagram";
+import { Hero } from "@/components/hero";
+import { mdxOverrides } from "@/components/mdxOverrides";
+export const components = mdxOverrides;
+
+<Hero.Hero
+  still="console/alarms/hero"
+  layout="centered"
+  tone="soft"
+  palette="red-orange"
+/>
+
+An alarm tells an operator that a value is outside its limits, or that a part of the
+system has a problem. In Synnax, an alarm is a [status](/reference/alarms/statuses): a
+named record of a condition, with a variant such as **Error** and a message. Anything
+can set a status: an Arc automation, a script, a task, or a person. The Synnax Console
+shows each change as a notification, and a PagerDuty alert task can send it to an
+on-call team.
+
+<Diagram.Block
+  title="Arc automations, scripts, tasks, and people set statuses in the Synnax Core. The Console shows them, and a PagerDuty alert task sends them on."
+  nodes={[
+    { key: "arc", label: "Arc automation", icon: Icon.Arc, column: 0 },
+    {
+      key: "code",
+      label: "Script",
+      caption: "Python or TypeScript",
+      icon: Icon.Python,
+      column: 0,
+    },
+    { key: "task", label: "Task", icon: Icon.Task, column: 0 },
+    {
+      key: "status",
+      label: "Status",
+      caption: "Synnax Core",
+      icon: Icon.Status,
+      column: 1,
+    },
+    {
+      key: "console",
+      label: "Console",
+      caption: "notifications",
+      icon: Icon.Visualize,
+      column: 2,
+    },
+    {
+      key: "pagerduty",
+      label: "PagerDuty alert task",
+      icon: Icon.Logo.PagerDuty,
+      column: 2,
+    },
+  ]}
+  edges={[
+    { from: "arc", to: "status" },
+    { from: "code", to: "status" },
+    { from: "task", to: "status" },
+    { from: "status", to: "console" },
+    { from: "status", to: "pagerduty" },
+  ]}
+/>
+
+A [redline](/reference/alarms/redlines) is different. It colors a value on a schematic
+or a table when the value passes a threshold, but it does not set a status and notifies
+no one.
+
+<Divider.Divider x />
+
+## What alarms are for
+
+### Warn about a limit
+
+An [Arc automation](/reference/alarms/arc) watches a channel and sets an **Error**
+status when the value stays above a limit, then a **Success** status when it comes back.
+The operator sees one notification for each change.
+
+### Stop a test safely
+
+An Arc sequence moves to an abort stage when a value passes a limit. The abort stage
+closes valves and sets a status that tells the operator why the test stopped.
+
+### Report a hardware fault
+
+Tasks and Drivers set statuses when a device disconnects or a task fails. The Console
+shows their warnings and errors as notifications, with no setup.
+
+### Wake the on-call team
+
+A [PagerDuty alert task](/reference/alarms/pagerduty) sends the statuses that you choose
+to PagerDuty. An **Error** triggers an alert, and a **Success** resolves it.
+
+### Show limits on the operator view
+
+A redline turns a value red on a schematic or a table, so an operator sees at a glance
+which value is out of limits.
+
+<Divider.Divider x />
+
+## Choose a tool
+
+| Tool                                           | Notifies        | Use it to                                              |
+| ---------------------------------------------- | --------------- | ------------------------------------------------------ |
+| [Redline](/reference/alarms/redlines)          | No one          | Color a value on a schematic or a table.               |
+| [Arc alarm](/reference/alarms/arc)             | The Console     | Set a status when a condition is true, or stop a test. |
+| [Status from code](/reference/alarms/statuses) | The Console     | Set a status from a Python or TypeScript script.       |
+| [PagerDuty](/reference/alarms/pagerduty)       | An on-call team | Send statuses outside the Console.                     |
+
+<Divider.Divider x />
+
+## Statuses
+
+Every alarm in Synnax is a status. To create, set, find, and delete statuses, and to see
+how the Console shows them, go to [statuses](/reference/alarms/statuses).

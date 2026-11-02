@@ -83,7 +83,7 @@ class CustomSymbols(ConsoleCase):
 
         self.test_styled_symbol_applies_to_preview(toolbar)
 
-        self.test_create_symbol(schematic, toolbar)
+        self.test_create_symbol(schematic, toolbar=toolbar)
         self.test_rename_symbol(toolbar)
         self.test_rename_symbol_via_editor(toolbar)
 
@@ -168,7 +168,9 @@ class CustomSymbols(ConsoleCase):
         editor.save()
         toolbar.delete_symbol(styled_name)
 
-    def test_create_symbol(self, schematic: Schematic, toolbar: SymbolToolbar) -> None:
+    def test_create_symbol(
+        self, schematic: Schematic, *, toolbar: SymbolToolbar
+    ) -> None:
         """Test creating a custom symbol with all properties set in the editor."""
         self.log("Testing create symbol")
         toolbar.select_group(self.test_group_name)

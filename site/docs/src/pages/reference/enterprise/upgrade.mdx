@@ -1,0 +1,175 @@
+---
+layout: "@/layouts/Reference.astro"
+title: "Upgrade the Core"
+description:
+  "Move a Synnax Core to a newer version, then update the Console and standalone
+  Drivers."
+platforms: ["Linux", "Windows", "macOS", "Docker"]
+---
+
+import { Divider } from "@synnaxlabs/lyra/divider";
+import { Note } from "@/components/note";
+
+import { Platform } from "@/components/platform";
+import DownloadURL from "@/components/core/DownloadURL.astro";
+import MoveCommand from "@/components/core/MoveCommand.astro";
+import WindowsDownloadButton from "@/components/core/WindowsDownloadButton.astro";
+import { mdxOverrides } from "@/components/mdxOverrides";
+
+export const components = mdxOverrides;
+
+Upgrade a Synnax Core to get new features and fixes. When the Console finds a Core that
+is older than the Console, it shows **Incompatible Core version** with an **Update
+Core** button.
+
+<Divider.Divider x />
+
+## Before you upgrade
+
+1. Check the version of your Core with `synnax --version`. You can upgrade in one step
+   from v0.47.0 or later to the current release. Upgrades from v0.46 or earlier are not
+   supported.
+2. Read the [release notes](/releases) of each version after yours.
+3. Check that your license covers the new version. Core 0.60 and later accept only
+   signed license keys from the portal, so get one before you upgrade from 0.59. See
+   [numeric license keys](/reference/enterprise/license#numeric-license-keys). After the
+   license term ends, a license with a version cap covers only versions up to the cap.
+   See [expiry](/reference/enterprise/license#expiry).
+4. Stop the Core. Press **Ctrl+C** in its terminal, or stop its service.
+5. Copy the data folder of the Core to a safe place. The data folder holds all data,
+   metadata, and the stored license key. See
+   [Back up the Core](/reference/enterprise/production-checklist#back-up-the-core).
+
+The new Core changes the data folder when it first starts. An older Core cannot always
+read it after that, so the copy is the only way back.
+
+<Divider.Divider x />
+
+## Upgrade
+
+<Platform.Tabs>
+
+<Fragment slot="Linux">
+
+Download the new binary:
+
+<DownloadURL os="linux" />
+
+Replace the binary that the Core runs from. For a Core in `/usr/local/bin`:
+
+<MoveCommand os="linux" />
+
+Make the binary executable:
+
+```bash
+sudo chmod +x /usr/local/bin/synnax
+```
+
+Start the Core with the same flags and from the same folder as before, so it uses the
+same data folder. For a service, start the service.
+
+</Fragment>
+
+<Fragment slot="macOS">
+
+Download the new binary:
+
+<DownloadURL os="macos" />
+
+Replace the binary that the Core runs from. For a Core in `/usr/local/bin`:
+
+<MoveCommand os="macos" />
+
+Make the binary executable:
+
+```bash
+sudo chmod +x /usr/local/bin/synnax
+```
+
+Start the Core with the same flags and from the same folder as before, so it uses the
+same data folder.
+
+</Fragment>
+
+<Fragment slot="Windows">
+
+1. If the Core runs as a service, stop it and wait until it stops:
+
+   ```powershell
+   synnax service stop
+   synnax service status
+   ```
+
+2. Download and run the new installer:
+
+   <WindowsDownloadButton />
+
+The installer replaces the Core and installs the service again. The service keeps its
+settings in `C:\ProgramData\Synnax\config.yaml`, which the installer does not change. If
+you clear **Install Synnax as a Windows Service**, the installer removes the service.
+
+</Fragment>
+
+<Fragment slot="Docker">
+
+1. Pull the new image. Use a version tag, such as `synnaxlabs/synnax:0.59.0`, so you can
+   go back to the old image:
+
+   ```bash
+   docker pull synnaxlabs/synnax:<version>
+   ```
+
+2. Remove the old container. The data and the certificates stay in their volumes:
+
+   ```bash
+   docker stop synnax && docker rm synnax
+   ```
+
+3. Start a new container with the same options, volumes, and flags as the old one. The
+   license is bound to the `--mac-address`, so keep the same address. Keep the
+   certificate volume, or `--auto-cert` makes a new CA that your clients do not trust:
+
+   ```bash
+   docker run -d --name synnax --mac-address 02:5a:00:00:00:01 \
+     -p 9090:9090 -v synnax-data:/synnax/synnax-data \
+     -v synnax-certs:/usr/local/synnax/certs \
+     synnaxlabs/synnax:<version> <the same flags as before>
+   ```
+
+</Fragment>
+
+</Platform.Tabs>
+
+On its first start, the new Core logs `running migrations` and one `migration completed`
+line for each change to stored data. Wait for
+`Synnax is running and available at <address>`. If the Core stops during a migration,
+the migration rolls back, and the next start runs it again.
+
+To check the version, run `synnax --version`.
+
+<Divider.Divider x />
+
+## Update the Console and Drivers
+
+- **Console app** -> the Console checks for updates and shows **Update available**.
+  Click it to update.
+- **Console in a browser** -> updates with the Core.
+- **Standalone Drivers** -> install the new release on each computer. See
+  [Install a standalone Driver](/reference/enterprise/driver/install).
+
+The Console, the client libraries, and the Driver warn when their major or minor version
+differs from the Core. They still connect. Upgrade the Core first, then the Console and
+Drivers. A Console older than 0.60 shows errors instead of the activation screen when a
+Core 0.60 has no license, so upgrade the Console with the Core.
+
+<Note.Note variant="info">
+  Synnax Desktop has its own Core, which updates with the app. Synnax Desktop backs up
+  its metadata before each update.
+</Note.Note>
+
+<Divider.Divider x />
+
+## Go back to an earlier version
+
+Synnax does not support a downgrade. To go back, stop the Core, replace the data folder
+with the copy you made before the upgrade, then start the earlier version.

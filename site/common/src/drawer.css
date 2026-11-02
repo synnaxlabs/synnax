@@ -14,7 +14,7 @@
 .mobile-close-btn {
     margin-right: calc((3rem - var(--pluto-height-large)) / 2);
 
-    & .pluto-icon {
+    & .lyra-icon {
         width: 3rem;
         height: 3rem;
     }
@@ -47,6 +47,7 @@
     background: var(--pluto-gray-l1);
     z-index: 50;
     transform: translateX(100%);
+
     /* Hidden once closed, so its links leave the tab order and the accessibility
        tree. */
     visibility: hidden;

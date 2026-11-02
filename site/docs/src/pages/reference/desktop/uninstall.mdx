@@ -1,0 +1,46 @@
+---
+layout: "@/layouts/Reference.astro"
+title: "Uninstall Synnax Desktop"
+description: "Remove Synnax Desktop from your computer, and delete its data."
+---
+
+import { Note } from "@/components/note";
+import { Platform } from "@/components/platform";
+import { mdxOverrides } from "@/components/mdxOverrides";
+export const components = mdxOverrides;
+
+When you uninstall Synnax Desktop, your data stays on the computer unless you delete it.
+
+<Note.Note variant="warning">
+  Deleting the data cannot be undone. Before you delete it, [export the
+  data](/reference/ranges/export) and projects that you want to keep.
+</Note.Note>
+
+<Platform.Tabs exclude={["Linux", "Docker"]}>
+
+<Fragment slot="Windows">
+
+1. Quit Synnax Desktop.
+2. Open **Settings**, then **Apps**, then **Installed apps**.
+3. Find Synnax Desktop, select the menu next to it, and select **Uninstall**.
+4. To delete your data too, select **Delete the application data** in the uninstaller.
+
+If you did not select it, delete the folders `%LOCALAPPDATA%\com.synnaxlabs.desktop` and
+`%APPDATA%\com.synnaxlabs.desktop`.
+
+</Fragment>
+
+<Fragment slot="macOS">
+
+1. Quit Synnax Desktop.
+2. In the Applications folder, drag Synnax Desktop to the Trash.
+3. To delete your data too, delete these folders and files:
+   - `~/Library/Application Support/com.synnaxlabs.desktop`
+   - `~/Library/Logs/com.synnaxlabs.desktop`
+   - `~/Library/Caches/com.synnaxlabs.desktop`
+   - `~/Library/WebKit/com.synnaxlabs.desktop`
+   - `~/Library/Preferences/com.synnaxlabs.desktop.plist`
+
+</Fragment>
+
+</Platform.Tabs>

@@ -21,8 +21,6 @@ import (
 	"github.com/synnaxlabs/x/errors"
 	xio "github.com/synnaxlabs/x/io"
 	"github.com/synnaxlabs/x/kv"
-	"github.com/synnaxlabs/x/query"
-	"github.com/synnaxlabs/x/types"
 )
 
 // Reader wraps a key-value reader to provide a strongly typed interface for reading
@@ -74,37 +72,6 @@ func (r *Reader[K, E]) get(
 		return nil, nil, errors.Combine(err, closer.Close())
 	}
 	return b, closer, nil
-}
-
-// GetMany retrieves isMultiple entries from the database. Entries that are not
-// found are simply omitted from the returned slice.
-func (r *Reader[K, E]) GetMany(ctx context.Context, keys []K) ([]E, error) {
-	var (
-		entries  = make([]E, 0, len(keys))
-		notFound []K
-	)
-	for i := range keys {
-		e, err := r.Get(ctx, keys[i])
-		if err != nil {
-			if errors.Is(err, query.ErrNotFound) {
-				notFound = append(notFound, keys[i])
-				continue
-			} else {
-				return entries, err
-			}
-		} else {
-			entries = append(entries, e)
-		}
-	}
-	if len(notFound) > 0 {
-		return entries, errors.Wrapf(
-			query.ErrNotFound,
-			"%s with keys %v not found",
-			types.PluralName[E](),
-			notFound,
-		)
-	}
-	return entries, nil
 }
 
 // IterOptions configures a Reader iterator.

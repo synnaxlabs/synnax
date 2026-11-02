@@ -16,15 +16,15 @@ describe("Form.Sections", () => {
   it("should stack its sections by default", () => {
     const c = render(<Form.Sections data-testid="sections" />);
     const classes = c.getByTestId("sections").classList;
-    expect(classes).toContain("pluto-form-sections");
-    expect(classes).toContain("pluto--direction-y");
+    expect(classes).toContain("lyra-form-sections");
+    expect(classes).toContain("lyra--direction-y");
   });
 
   it("should lay its sections side by side when x is set", () => {
     const c = render(<Form.Sections x data-testid="sections" />);
     const classes = c.getByTestId("sections").classList;
-    expect(classes).toContain("pluto--direction-x");
-    expect(classes).not.toContain("pluto--direction-y");
+    expect(classes).toContain("lyra--direction-x");
+    expect(classes).not.toContain("lyra--direction-y");
   });
 
   describe("wheel scrolling", () => {
@@ -127,8 +127,8 @@ describe("Form.Section", () => {
         <input aria-label="Host" />
       </Form.Section>,
     );
-    const header = c.getByText("Connection").closest(".pluto-form-section__header");
-    const body = c.getByLabelText("Host").closest(".pluto-form-section__body");
+    const header = c.getByText("Connection").closest(".lyra-form-section__header");
+    const body = c.getByLabelText("Host").closest(".lyra-form-section__body");
     expect(header).not.toBeNull();
     expect(body).not.toBeNull();
     expect(header?.parentElement).toBe(body?.parentElement);
@@ -140,10 +140,8 @@ describe("Form.Section", () => {
         <input aria-label="Host" />
       </Form.Section>,
     );
-    expect(c.container.querySelector(".pluto-form-section__header")).toBeNull();
-    expect(
-      c.getByLabelText("Host").closest(".pluto-form-section__body"),
-    ).not.toBeNull();
+    expect(c.container.querySelector(".lyra-form-section__header")).toBeNull();
+    expect(c.getByLabelText("Host").closest(".lyra-form-section__body")).not.toBeNull();
   });
 
   it("should render its actions in the header", () => {
@@ -153,7 +151,7 @@ describe("Form.Section", () => {
       </Form.Section>,
     );
     expect(
-      c.getByRole("button", { name: "Add" }).closest(".pluto-form-section__header"),
+      c.getByRole("button", { name: "Add" }).closest(".lyra-form-section__header"),
     ).not.toBeNull();
   });
 });

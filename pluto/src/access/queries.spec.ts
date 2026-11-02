@@ -121,11 +121,11 @@ describe("Access Queries", () => {
     });
 
     it("should re-evaluate the grant when a policy is removed, without a remount", async () => {
+      const username = id.create();
       const u = await client.users.create({
-        username: id.create(),
+        username,
         password: "test",
-        firstName: "test",
-        lastName: "test",
+        name: "test test",
       });
       const p = await client.access.policies.create({
         name: id.create(),
@@ -141,7 +141,7 @@ describe("Access Queries", () => {
         access.policy.ontologyID(p.key),
       );
       await client.access.roles.assign({ user: u.key, role: r.key });
-      const userClient = createTestClient({ username: u.username, password: "test" });
+      const userClient = createTestClient({ username, password: "test" });
       const { result } = renderHook(
         () =>
           Access.useGranted({ objects: ranger.TYPE_ONTOLOGY_ID, action: "retrieve" }),
@@ -161,13 +161,12 @@ describe("Access Queries", () => {
       let role: access.role.Role;
       let rangePolicy: access.policy.Policy;
       beforeEach(async () => {
+        username = id.create();
         const u = await client.users.create({
-          username: id.create(),
+          username,
           password: "test",
-          firstName: "test",
-          lastName: "test",
+          name: "test test",
         });
-        username = u.username;
         const base = await client.access.policies.create({
           name: id.create(),
           objects: baseObjects,

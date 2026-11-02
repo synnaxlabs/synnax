@@ -69,19 +69,25 @@ class CalculatedChannels(ConsoleCase):
         updated_multiplier = 30
         updated_expr = f"return {self._ch_uptime} * {updated_multiplier}"
 
-        console.channels.edit_calculated(self.calc_editable, updated_expr)
-        for _ in range(5):
-            sy.sleep(0.5)
-            frame = client.read_latest([self.calc_editable, self._ch_uptime], n=1)
+        console.channels.edit_calculated(
+            self.calc_editable, new_expression=updated_expr
+        )
+        sy.sleep(0.5)
+        frame = client.read_latest([self.calc_editable, self._ch_uptime], n=1)
+        for _ in range(4):
             if len(frame[self._ch_uptime]) > 0:
                 break
+            sy.sleep(0.5)
+            frame = client.read_latest([self.calc_editable, self._ch_uptime], n=1)
         uptime_val = int(to_float(frame[self._ch_uptime][-1]))
         calc_val = int(to_float(frame[self.calc_editable][-1]))
         expected_val = uptime_val * updated_multiplier
         assert expected_val == calc_val, f"expected {expected_val}, got {calc_val}"
 
     def test_plot_calculated_channel(self) -> None:
-        """Test plotting a nested calculated channel (calc channel referencing another calc channel)."""
+        """Test plotting a nested calculated channel (calc channel referencing another
+        calc channel).
+        """
         self.log("Testing plot nested calculated channel")
 
         plot = self.console.pages.create(Plot, f"Nested Calc Plot {self.suffix}")

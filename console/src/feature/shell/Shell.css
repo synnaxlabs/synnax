@@ -23,6 +23,7 @@
 .console-shell__content {
     cursor: default;
     position: relative;
+
     /* Stacking context holds the nebula's negative z-index above this fill. */
     z-index: 0;
 }
@@ -74,6 +75,7 @@
     from {
         opacity: 0;
     }
+
     to {
         opacity: 1;
     }

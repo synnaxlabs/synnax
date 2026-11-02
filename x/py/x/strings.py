@@ -13,7 +13,9 @@ import string
 
 
 def validate_and_sanitize_name(name: str) -> str:
-    """Sanitize name to contain only alphanumeric characters, hyphens, and underscores."""
+    """Sanitize name to contain only alphanumeric characters, hyphens, and
+    underscores.
+    """
     sanitized = re.sub(r"[^a-zA-Z0-9_-]", "", name)
 
     if not sanitized:

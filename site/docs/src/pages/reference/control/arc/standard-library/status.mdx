@@ -1,0 +1,69 @@
+---
+layout: "@/layouts/Reference.astro"
+title: "`status`"
+description:
+  "Look up status.set, which sets an alarm, a warning, or a state from an Arc
+  automation."
+---
+
+import { Divider } from "@synnaxlabs/lyra/divider";
+import { Field } from "@/components/field";
+import { mdxOverrides } from "@/components/mdxOverrides";
+export const components = mdxOverrides;
+
+The `status` module sets statuses, such as alarms and warnings, that the Console shows.
+Import it with `import status`.
+
+<Divider.Divider x />
+
+## `set`
+
+Updates the status with a matching key or name. When no status matches, `status.set`
+creates one with that name.
+
+<Field.List>
+
+<Field.Item name="key_or_name" type="str" default='""' id="set-key_or_name">
+
+The key or the name of the status. An empty value fails when it runs.
+
+</Field.Item>
+
+<Field.Item name="message" type="str" default='""' id="set-message">
+
+The message that the status shows.
+
+</Field.Item>
+
+<Field.Item name="variant" type="str" default='""' id="set-variant">
+
+`success`, `info`, `warning`, `error`, `loading`, or `disabled`. An empty value fails
+when it runs.
+
+</Field.Item>
+
+</Field.List>
+
+- Trigger -> optional. Each new trigger runs it, whatever the value. To run it only when
+  a condition is true, use `=>`. With no trigger, it runs once each time its stage
+  starts.
+- Output -> the key of the status, as a `str`. A failed call gives an empty key.
+- Function form -> `status.set(key_or_name, message, variant) str`.
+
+Synnax looks for a status with the key first, then for one with the name. When more than
+one status has the name, it updates the first one and shows a warning. A new status gets
+a new key. The compiler checks a literal `variant`. A call that fails at run time shows
+a warning, and the automation keeps running.
+
+```arc channels="tank_pt"
+import status
+
+tank_pt > 500 => status.set(
+    key_or_name="tank_overpressure",
+    message="Tank pressure above 500 psi",
+    variant="error",
+)
+```
+
+The example sets the status on each `tank_pt` value above 500. `status.set` works the
+same on the Core and on a Driver.

@@ -11,6 +11,7 @@ import { type Synnax, type task } from "@synnaxlabs/client";
 import { createTestClient } from "@synnaxlabs/client/testutil";
 import { fireEvent, screen, waitFor } from "@testing-library/react";
 import { describe, expect, it } from "vitest";
+import { type z } from "zod";
 
 import { OPCUA } from "@/feature/opcua";
 import { createOPCDevice } from "@/feature/opcua/testutil";
@@ -57,7 +58,7 @@ const createReadChannel = (
 const createReadConfig = (
   device: string,
   channels: OPCUA.Task.ReadChannel[],
-): OPCUA.Task.ReadPayload["config"] => ({
+): z.infer<OPCUA.Task.ReadSchemas["config"]> => ({
   ...OPCUA.Task.READ_SCHEMAS.config.parse({}),
   device,
   channels,
@@ -70,8 +71,10 @@ const ZERO_DRAFT: task.New<OPCUA.Task.ReadSchemas> = {
   config: OPCUA.Task.READ_SCHEMAS.config.parse({}),
 };
 
-const createDraft = async (client: Synnax, config: OPCUA.Task.ReadPayload["config"]) =>
-  await client.tasks.create({ ...ZERO_DRAFT, config }, OPCUA.Task.READ_SCHEMAS);
+const createDraft = async (
+  client: Synnax,
+  config: z.infer<OPCUA.Task.ReadSchemas["config"]>,
+) => await client.tasks.create({ ...ZERO_DRAFT, config }, OPCUA.Task.READ_SCHEMAS);
 
 describe("Read", () => {
   it("should create channels under a new index on deploy", async () => {

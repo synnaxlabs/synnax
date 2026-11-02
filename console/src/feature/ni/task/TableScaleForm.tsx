@@ -181,6 +181,7 @@ export const TableScaleForm = ({ prefix }: TableScaleFormProps): ReactElement =>
           createRow={createRow}
           preview={preview}
           rowLabel={(index) => (index + 1).toString()}
+          resourceName="point"
         >
           <Input.TableColumn name="Pre-scaled" />
           <Input.TableColumn name="Scaled" />

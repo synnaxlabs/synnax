@@ -11,7 +11,7 @@ import { describe, expect, it } from "vitest";
 
 import { Program } from "@/vis/render/clear/program";
 import { type Context } from "@/vis/render/context";
-import { canvasTest } from "@/vis/render/test";
+import { canvasTest } from "@/vis/render/testutil";
 
 const { GL_ENUMS } = canvasTest;
 const PROG = { name: "program" };

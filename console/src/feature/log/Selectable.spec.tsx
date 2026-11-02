@@ -46,9 +46,7 @@ describe("log/Selectable", () => {
     const created = await client.logs.retrieve(key);
     expect(created.name).toBe("Log");
     await waitFor(() =>
-      expect(
-        documentIn(Session.Log.selectSliceState(store.getState()), key),
-      ).toBeDefined(),
+      expect(documentIn(store.getState()[Session.Log.SLICE_NAME], key)).toBeDefined(),
     );
   });
 });

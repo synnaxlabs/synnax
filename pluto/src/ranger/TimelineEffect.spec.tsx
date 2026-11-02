@@ -21,7 +21,7 @@ const UNSET = TimeStamp.MAX.nanoseconds;
 
 /** Opens the `index`th time cell of a rendered timeline. */
 const openCell = (container: HTMLElement, index: number): HTMLInputElement => {
-  const triggers = container.querySelectorAll(".pluto-time-editor__trigger");
+  const triggers = container.querySelectorAll(".lyra-time-editor__trigger");
   fireEvent.click(triggers[index]);
   return screen.getByRole<HTMLInputElement>("textbox");
 };
@@ -30,14 +30,14 @@ const hover = (text: string): void => {
   fireEvent.mouseEnter(screen.getByRole("menuitem", { name: text }));
 };
 
-const EDITOR_EFFECT = ".pluto-time-effect";
+const EDITOR_EFFECT = ".lyra-time-effect";
 const STAGE_EFFECT = ".pluto-stage-button__effect";
 
 /** The text the effect footer shows, or null while it is collapsed. */
 const effectText = (selector = EDITOR_EFFECT): string | null => {
   const effect = document.querySelector(selector);
   if (effect == null) throw new Error(`no ${selector}`);
-  return effect.classList.contains("pluto-time-effect--visible")
+  return effect.classList.contains("lyra-time-effect--visible")
     ? effect.textContent
     : null;
 };

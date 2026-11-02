@@ -31,7 +31,7 @@ export const useGetSliceState = (): (() => SliceState) => {
   return () => selectSliceState(store.getState());
 };
 
-export const selectSelectedKey = (state: StoreState): string | undefined =>
+const selectSelectedKey = (state: StoreState): string | undefined =>
   selectSliceState(state).selected;
 
 export const useSelectSelectedKey = (): string | undefined =>
@@ -55,7 +55,7 @@ export const useGetState = (): ((key?: string) => State | undefined) => {
   return (key?: string) => selectState(store.getState(), key);
 };
 
-export const selectMultiple = (state: StoreState, keys?: string[]): State[] => {
+const selectMultiple = (state: StoreState, keys?: string[]): State[] => {
   const all = selectAll(state);
   if (keys == null) return all;
   return all.filter((range) => keys.includes(range.key));
@@ -64,8 +64,7 @@ export const selectMultiple = (state: StoreState, keys?: string[]): State[] => {
 export const useSelectMultiple = (keys?: string[]): State[] =>
   Select.useMemo((state: StoreState) => selectMultiple(state, keys), [keys]);
 
-export const selectKeys = (state: StoreState): string[] =>
-  selectAll(state).map((r) => r.key);
+const selectKeys = (state: StoreState): string[] => selectAll(state).map((r) => r.key);
 
 export const useSelectKeys = (): string[] =>
   Select.useMemo((state: StoreState) => selectKeys(state), []);

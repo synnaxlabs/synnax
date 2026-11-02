@@ -73,11 +73,11 @@ func (c Chain) LivePath() string {
 	return path.Join("schemas", c.Domain, c.Resource)
 }
 
-// LiveFromFilePath converts a version file's import path
+// liveFromFilePath converts a version file's import path
 // ("schemas/x/versions/telem/v0") to its resource's live import path
 // ("schemas/x/telem"). It errors when the path does not have the
 // schemas/<domain>/versions/<resource>/vN shape.
-func LiveFromFilePath(p string) (string, error) {
+func liveFromFilePath(p string) (string, error) {
 	parts := strings.Split(strings.TrimSuffix(p, ".oracle"), "/")
 	if len(parts) != 5 || parts[0] != "schemas" ||
 		parts[2] != paths.VersionsDirName {

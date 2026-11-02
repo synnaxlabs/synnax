@@ -26,8 +26,8 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/service/ontology"
 	"github.com/synnaxlabs/synnax/pkg/service/status"
 	"github.com/synnaxlabs/synnax/pkg/service/user"
-	"github.com/synnaxlabs/x/kv/memkv"
 	. "github.com/synnaxlabs/x/testutil"
+	"github.com/synnaxlabs/x/testutil/memkv"
 )
 
 func TestAPIStatus(t *testing.T) {
@@ -73,7 +73,7 @@ var _ = BeforeSuite(func(ctx SpecContext) {
 		RBAC:   rbacSvc,
 	}))
 	author = MustSucceed(
-		userSvc.NewWriter(nil).Create(ctx, user.User{Username: "test"}),
+		userSvc.NewWriter(nil).Create(ctx, user.User{Name: "test"}),
 	)
 })
 
@@ -83,7 +83,7 @@ func freshUser(ctx SpecContext) user.User {
 	GinkgoHelper()
 	return MustSucceed(
 		userSvc.NewWriter(nil).
-			Create(ctx, user.User{Username: "anon-" + uuid.New().String()}),
+			Create(ctx, user.User{Name: "anon-" + uuid.New().String()}),
 	)
 }
 

@@ -9,7 +9,10 @@
 
 #pragma once
 
+#include <mutex>
 #include <optional>
+#include <string>
+#include <vector>
 
 #include "client/cpp/task/json.gen.h"
 
@@ -152,8 +155,22 @@ class WriteTask final : public driver::task::Task {
 
         /// @brief implements pipeline::Sink, and pipeline:Source
         void stopped_with_err(const x::errors::Error &err) override {
-            this->p.state.error(err, "Failed to write commands");
+            {
+                std::lock_guard lock(this->p.state_mu);
+                if (this->p.opening) {
+                    this->p.state.error(err, "Failed to start task");
+                    this->p.answer_pending_starts();
+                } else
+                    this->p.state.error(err, "Failed to write commands");
+            }
             this->p.stop("", true);
+        }
+
+        // The start status waits for the streamer, so a client that waits for it can
+        // send commands at once.
+        void opened() override {
+            std::lock_guard lock(this->p.state_mu);
+            if (this->p.opening) this->p.answer_pending_starts();
         }
 
         x::errors::Error read(
@@ -183,8 +200,15 @@ class WriteTask final : public driver::task::Task {
         }
     };
 
+    /// @brief guards state, opening, and pending_starts, which the command and
+    /// pipeline threads both touch.
+    std::mutex state_mu;
     /// @brief used to manage and communicate the task's state.
     StatusHandler state;
+    /// @brief true from a start until the command streamer opens or fails to open.
+    bool opening = false;
+    /// @brief the start commands to answer once the command streamer opens.
+    std::vector<std::string> pending_starts;
     /// @brief the hardware interface for writing data
     std::shared_ptr<WrappedSink> sink;
     /// @brief the pipeline used to receive commands from Synnax and write them to
@@ -193,6 +217,14 @@ class WriteTask final : public driver::task::Task {
     /// @brief the pipeline used to receive state changes from the device and write
     /// to Synnax.
     driver::pipeline::Acquisition state_write_pipe;
+
+    /// @brief answers every pending start with the current status. Requires state_mu.
+    void answer_pending_starts() {
+        for (const auto &key: this->pending_starts)
+            this->state.send_start(key);
+        this->pending_starts.clear();
+        this->opening = false;
+    }
 
 public:
     /// @brief base constructor that takes in pipeline factories to allow the
@@ -250,6 +282,7 @@ public:
 
     /// @brief implements driver::task::Task to stop the task.
     void stop(const bool will_reconfigure) override {
+        if (will_reconfigure) this->state.close();
         this->stop("", !will_reconfigure);
     }
 
@@ -263,8 +296,14 @@ public:
         // pipe records whether the sink holds hardware.
         const auto stopped = this->cmd_write_pipe.stop();
         this->state_write_pipe.stop();
+        std::lock_guard lock(this->state_mu);
         if (stopped)
             this->state.error(this->sink->internal->stop(), "Failed to stop task");
+        // A start the streamer never answered still needs its reply.
+        for (const auto &key: this->pending_starts)
+            this->state.ack(key, false);
+        this->pending_starts.clear();
+        this->opening = false;
         if (propagate_state) this->state.send_stop(cmd_key);
         return stopped;
     }
@@ -273,24 +312,31 @@ public:
     /// @param cmd_key - A reference to the command key used to execute the start.
     /// Will be used internally to communicate the task state. A task that is
     /// already running is not restarted: the command is answered with the current
-    /// status.
+    /// status. The start is answered once the command streamer opens, so commands
+    /// written after the answer reach the sink.
     bool start(const std::string &cmd_key) {
-        if (this->cmd_write_pipe.running()) {
-            this->state.ack(cmd_key, true);
-            return false;
+        {
+            std::lock_guard lock(this->state_mu);
+            if (this->cmd_write_pipe.running()) {
+                if (this->opening)
+                    this->pending_starts.push_back(cmd_key);
+                else
+                    this->state.ack(cmd_key, true);
+                return false;
+            }
+            this->state.reset();
+            if (this->state
+                    .error(this->sink->internal->start(), "Failed to start task")) {
+                this->state.send_start(cmd_key);
+                return false;
+            }
+            this->opening = true;
+            this->pending_starts = {cmd_key};
         }
-        this->state.reset();
-        const auto sink_started = !this->state.error(
-            this->sink->internal->start(),
-            "Failed to start task"
-        );
-        if (sink_started) {
-            this->cmd_write_pipe.start();
-            if (!this->sink->internal->writer_config().channels.empty())
-                this->state_write_pipe.start();
-        }
-        this->state.send_start(cmd_key);
-        return sink_started;
+        this->cmd_write_pipe.start();
+        if (!this->sink->internal->writer_config().channels.empty())
+            this->state_write_pipe.start();
+        return true;
     }
 
     /// @brief implements driver::task::Task to return the task's name.

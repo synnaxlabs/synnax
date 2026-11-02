@@ -8,19 +8,27 @@
 // included in the file licenses/APL.txt.
 
 import { SyntheticCore } from "@synnaxlabs/client/testutil";
-import { box, sleep, TimeRange, TimeSpan, TimeStamp } from "@synnaxlabs/x";
+import {
+  box,
+  dynamicWindow,
+  sleep,
+  staticWindow,
+  TimeRange,
+  TimeSpan,
+  TimeStamp,
+} from "@synnaxlabs/x";
 import { type Bench, test } from "vitest";
 
-import { aetherTest } from "@/aether/test";
+import { aetherTest } from "@/aether/testutil";
 import { LinePlot } from "@/lineplot/aether/LinePlot";
 import { XAxis } from "@/lineplot/aether/XAxis";
 import { YAxis } from "@/lineplot/aether/YAxis";
 import { telem } from "@/telem/aether";
-import { telemTest } from "@/telem/aether/test";
+import { telemTest } from "@/telem/aether/testutil";
 import { buildStack } from "@/testutil/providers";
 import { line } from "@/vis/line/aether";
-import { lineTest } from "@/vis/line/aether/test";
-import { canvasTest } from "@/vis/render/test";
+import { lineTest } from "@/vis/line/aether/testutil";
+import { canvasTest } from "@/vis/render/testutil";
 
 // Times one frame of a 1000 by 500 pixel plot of 1 kHz channels, with every tile it
 // draws cached. The frame runs through a recording GL context, so the timings cover the
@@ -61,10 +69,11 @@ const yieldTask = async (): Promise<void> =>
 
 const mount = async (
   lines: number,
-  props: Omit<telem.TiledChannelDataProps, "channel">,
+  props: Omit<telem.ChannelDataProps, "channel">,
   viewport: box.Box,
 ): Promise<Plot> => {
-  const now = props.timeRange == null ? WEEK.start.add(TimeSpan.hours(1)) : WEEK.end;
+  const now =
+    props.window.variant === "dynamic" ? WEEK.start.add(TimeSpan.hours(1)) : WEEK.end;
   const core = new SyntheticCore({ rate: 1000, start: START, now, channels: lines });
   const client = telemTest.createClient(core);
   const recorder = canvasTest.record();
@@ -96,8 +105,8 @@ const mount = async (
   const linePaths = core.data.map((ch) => {
     const path = [...yAxis, `l${ch.key}`];
     stack.driver.update(path, line.Line.TYPE, {
-      x: telem.tiledChannelData({ ...props, channel: ch.key, useIndexOfChannel: true }),
-      y: telem.tiledChannelData({ ...props, channel: ch.key }),
+      x: telem.channelData({ ...props, channel: ch.key, useIndexOfChannel: true }),
+      y: telem.channelData({ ...props, channel: ch.key }),
       color: "#ff0000",
     });
     return path;
@@ -156,7 +165,7 @@ const closeAll = async (): Promise<void> => {
 };
 
 const createStatic = (viewport: box.Box) => async (lines: number) => {
-  const plot = await mount(lines, { timeRange: WEEK }, viewport);
+  const plot = await mount(lines, { window: staticWindow(WEEK) }, viewport);
   plots.push(plot);
   return plot.frame;
 };
@@ -175,7 +184,7 @@ test("static week, hour view", async ({ bench }) => {
 // it. The yield that lands them costs about 15 µs.
 test("live 10 minutes", async ({ bench }) => {
   await compareLineCounts(bench, async (lines) => {
-    const plot = await mount(lines, { timeSpan: LIVE_SPAN }, box.DECIMAL);
+    const plot = await mount(lines, { window: dynamicWindow(LIVE_SPAN) }, box.DECIMAL);
     plots.push(plot);
     return async () => {
       plot.core.advance(FRAME);
@@ -202,7 +211,7 @@ test("pan an hour view", async ({ bench }) => {
       const offset = (phase < steps ? phase : 2 * steps - phase) * step;
       return box.translate(start, { x: offset, y: 0 });
     };
-    const plot = await mount(lines, { timeRange: WEEK }, start);
+    const plot = await mount(lines, { window: staticWindow(WEEK) }, start);
     plots.push(plot);
     const pan = async (): Promise<void> => {
       plot.setViewport(next());

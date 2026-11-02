@@ -15,12 +15,15 @@ import { Task } from "@/platform/task";
 describe("Hardware Task Types", () => {
   describe("Channel Validation", () => {
     const channelZ = z.object({ disabled: z.boolean(), key: z.string() });
-    const readChannelZ = channelZ.extend({ channel: z.number(), name: Task.nameZ });
+    const readChannelZ = channelZ.extend({
+      channel: z.number(),
+      name: z.string().default(""),
+    });
     const writeChannelZ = channelZ.extend({
       cmdChannel: z.number(),
       stateChannel: z.number(),
-      cmdChannelName: Task.nameZ,
-      stateChannelName: Task.nameZ,
+      cmdChannelName: z.string().default(""),
+      stateChannelName: z.string().default(""),
     });
     const ZERO_CHANNEL = { disabled: false, key: "" };
     const ZERO_READ_CHANNEL = { ...ZERO_CHANNEL, ...Task.READ_CHANNEL_OVERRIDE };
@@ -61,6 +64,38 @@ describe("Hardware Task Types", () => {
         const result = channelsArrayZ.safeParse(channels);
 
         expect(result.success).toBe(true);
+      });
+    });
+
+    describe("validateEnabledChannel", () => {
+      const enabledArrayZ = z.array(channelZ).check(Task.validateEnabledChannel);
+
+      it("should reject an empty list", () => {
+        const issues = enabledArrayZ.safeParse([]).error?.issues;
+        expect(issues).toEqual([
+          expect.objectContaining({
+            path: [],
+            message: "At least one enabled channel is required",
+          }),
+        ]);
+      });
+
+      it("should reject a list whose channels are all disabled", () => {
+        const issues = enabledArrayZ.safeParse([{ ...ZERO_CHANNEL, disabled: true }])
+          .error?.issues;
+        expect(issues).toEqual([
+          expect.objectContaining({
+            message: "At least one enabled channel is required",
+          }),
+        ]);
+      });
+
+      it("should accept a list with one enabled channel", () => {
+        const channels = [
+          { disabled: true, key: "a" },
+          { disabled: false, key: "b" },
+        ];
+        expect(enabledArrayZ.safeParse(channels).success).toBe(true);
       });
     });
 

@@ -12,6 +12,7 @@
 #include <algorithm>
 #include <mutex>
 #include <ranges>
+#include <set>
 #include <thread>
 #include <unordered_set>
 
@@ -152,6 +153,7 @@ struct SynnaxClusterAPI final : ClusterAPI {
         req.makes = {make};
         req.racks = {rack};
         req.include_status = true;
+        req.include_parent = true;
         return this->client->devices.retrieve(req);
     }
 
@@ -161,6 +163,7 @@ struct SynnaxClusterAPI final : ClusterAPI {
             key,
             synnax::device::RetrieveOptions{
                 .include_status = true,
+                .include_parent = true,
             }
         );
     }
@@ -201,6 +204,9 @@ class ScanTask final : public task::Task, public pipeline::Base {
     ScannerContext scanner_ctx;
     std::unique_ptr<ClusterAPI> client;
     std::unordered_map<std::string, synnax::device::Device> dev_states;
+    /// @brief the keys of devices that the last save failed to write. dev_states
+    /// already holds their changes, so the next scan saves them again.
+    std::set<std::string> unsaved;
     std::string log_prefix;
 
     // Signal monitoring infrastructure
@@ -522,7 +528,7 @@ public:
                     continue;
                 }
                 const auto &remote_dev = iter->second;
-                bool needs_update = false;
+                bool needs_update = this->unsaved.contains(dev.key);
 
                 if (dev.location != remote_dev.location) {
                     LOG(INFO) << this->log_prefix << "device location changed from "
@@ -536,12 +542,12 @@ public:
                     needs_update = true;
                 }
 
-                if (dev.parent != remote_dev.parent) {
+                // The Core keeps the parent of a device written without one.
+                if (dev.parent.has_value() && dev.parent != remote_dev.parent) {
                     VLOG(1) << this->log_prefix << "device parent changed for "
                             << dev.key << " from '"
                             << (remote_dev.parent ? remote_dev.parent->string() : "")
-                            << "' to '" << (dev.parent ? dev.parent->string() : "")
-                            << "'";
+                            << "' to '" << dev.parent->string() << "'";
                     needs_update = true;
                 }
 
@@ -588,7 +594,16 @@ public:
 
         if (to_create.empty()) return scan_err;
 
-        if (const auto err = this->client->create_devices(to_create)) {
+        const auto err = this->client->create_devices(to_create);
+        {
+            std::lock_guard lock(this->mu);
+            for (const auto &dev: to_create)
+                if (err)
+                    this->unsaved.insert(dev.key);
+                else
+                    this->unsaved.erase(dev.key);
+        }
+        if (err) {
             LOG(WARNING) << this->log_prefix << "failed to create devices: " << err;
             return err;
         }

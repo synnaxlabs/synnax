@@ -10,8 +10,8 @@
 import { renderHook, waitFor } from "@testing-library/react";
 import { describe, expect, it, vi } from "vitest";
 
-import { telemTest } from "@/telem/aether/test";
-import { TelemTest } from "@/telem/test";
+import { telemTest } from "@/telem/aether/testutil";
+import { TelemTest } from "@/telem/testutil";
 import { renderAether } from "@/testutil/renderAether";
 import { Setpoint } from "@/vis/setpoint";
 import { setpoint } from "@/vis/setpoint/aether";

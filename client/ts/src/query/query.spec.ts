@@ -15,17 +15,16 @@ import {
   ExpiredLicenseError,
   MissingLicenseError,
   NotFoundError,
-} from "@/errors";
+} from "@/index";
 import { query } from "@/query";
-import { Deleted } from "@/query/deleted";
 import { Space, type SpaceHooks } from "@/query/query";
 
 const wait = (ms: number) => new Promise<void>((resolve) => setTimeout(resolve, ms));
 
 const expectDeleted = <D extends query.Data>(
   value: query.Cached<D> | undefined,
-): Deleted<D> => {
-  if (!Deleted.matches<D>(value)) throw new Error("expected a deleted answer");
+): query.Deleted<D> => {
+  if (!query.Deleted.matches<D>(value)) throw new Error("expected a deleted answer");
   return value;
 };
 
@@ -143,7 +142,7 @@ describe("isLive", () => {
   });
 
   it("rejects a deletion", () => {
-    expect(query.isLive(new Deleted(rec("a", 7), TimeStamp.now()))).toBe(false);
+    expect(query.isLive(new query.Deleted(rec("a", 7), TimeStamp.now()))).toBe(false);
   });
 
   it("accepts falsy answers", () => {
@@ -157,7 +156,9 @@ describe("isLive", () => {
 describe("requireCorpse", () => {
   it("returns the corpse of a deletion", () => {
     const corpse = rec("a", 7);
-    expect(query.requireCorpse(new Deleted(corpse, TimeStamp.now()))).toEqual(corpse);
+    expect(query.requireCorpse(new query.Deleted(corpse, TimeStamp.now()))).toEqual(
+      corpse,
+    );
   });
 
   it("throws when the answer is live", () => {
@@ -1590,16 +1591,70 @@ describe("Answers", () => {
       await expect
         .poll(() => {
           const cached = answers.getCached({ tag: "t" });
-          return cached != null && !Deleted.matches(cached) ? cached : [];
+          return cached != null && !query.Deleted.matches(cached) ? cached : [];
         })
         .toEqual([rec("a", 1), rec("b", 10)]);
       foreign.delete("a");
       await expect
         .poll(() => {
           const cached = answers.getCached({ tag: "t" });
-          return cached != null && !Deleted.matches(cached) ? cached : [];
+          return cached != null && !query.Deleted.matches(cached) ? cached : [];
         })
         .toEqual([rec("b", 10)]);
+    });
+
+    it.each([
+      {
+        failure: "deletion",
+        error: new NotFoundError("gone"),
+        reports: 0,
+        records: [rec("b", 10)],
+      },
+      {
+        failure: "access denial",
+        error: new AccessDeniedError("gone"),
+        reports: 1,
+        records: [rec("b", 10)],
+      },
+      {
+        failure: "transport error",
+        error: new Error("unreachable"),
+        reports: 2,
+        records: [],
+      },
+    ])("handles $failure during backfill", async ({ error, reports, records }) => {
+      const primary = new query.Table<string, Rec>({
+        onError: () => {},
+        fetch: async (keys) => {
+          if (keys.includes("gone")) throw error;
+          return keys.map((k) => rec(k, 10));
+        },
+      });
+      const foreign = new query.Table<string, Rel>({ onError: () => {} });
+      const onError = vi.fn();
+      const answers = new Space<{ tag: string }, Rec[], string, Rec>(
+        {
+          name: "things",
+          table: primary,
+          fetch: async () => [],
+          compose: (records) => records,
+          matches: (r) => foreign.has(r.key),
+          watch: [query.watch(foreign, (event) => [event.key, "gone"])],
+        },
+        { onError },
+      );
+      answers.onChange({ tag: "t" }, vi.fn());
+      await answers.retrieve({ tag: "t" });
+      foreign.set("b", { key: "b" });
+      await expect
+        .poll(() => {
+          const cached = answers.getCached({ tag: "t" });
+          return cached != null && !query.Deleted.matches(cached) ? cached : [];
+        })
+        .toEqual(records);
+      await expect.poll(() => onError.mock.calls.length).toBe(reports);
+      if (reports > 0)
+        expect(onError).toHaveBeenCalledWith(expect.objectContaining({ cause: error }));
     });
 
     it("schedules a wholesale refetch when a watch projects refetch", async () => {
@@ -1876,8 +1931,8 @@ describe("referential stability", () => {
     const entry = doc("a", "one");
     table.set("a", entry);
     const answers = identitySpace(table, async () => ["a"]);
-    expect(Deleted.matches(answers.getCached(qA))).toBe(false);
+    expect(query.Deleted.matches(answers.getCached(qA))).toBe(false);
     table.delete("a");
-    expect(Deleted.matches(answers.getCached(qA))).toBe(true);
+    expect(query.Deleted.matches(answers.getCached(qA))).toBe(true);
   });
 });

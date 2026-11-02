@@ -12,11 +12,11 @@
 .pluto-state-mapping-list {
     padding: 1rem 0;
 
-    & > .pluto-btn {
+    & > .lyra-btn {
         margin-left: 1rem;
     }
 
-    .pluto-list__item {
+    .lyra-list__item {
         min-height: unset;
         padding: 1rem 2rem;
     }

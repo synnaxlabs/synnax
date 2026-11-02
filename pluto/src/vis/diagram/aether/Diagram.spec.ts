@@ -10,10 +10,10 @@
 import { box, xy } from "@synnaxlabs/x";
 import { describe, expect, it } from "vitest";
 
-import { aetherTest } from "@/aether/test";
+import { aetherTest } from "@/aether/testutil";
 import { renderAether } from "@/testutil/renderAether";
 import { Diagram } from "@/vis/diagram/aether/Diagram";
-import { canvasTest } from "@/vis/render/test";
+import { canvasTest } from "@/vis/render/testutil";
 
 const REGION = box.construct({ x: 0, y: 0 }, { x: 100, y: 100 });
 

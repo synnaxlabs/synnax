@@ -1,0 +1,54 @@
+# Copyright 2026 Synnax Labs, Inc.
+#
+# Use of this software is governed by the Business Source License included in the file
+# licenses/BSL.txt.
+#
+# As of the Change Date specified in that file, in accordance with the Business Source
+# License, use of this software will be governed by the Apache License, Version 2.0,
+# included in the file licenses/APL.txt.
+
+# Lints every workflow with actionlint, which also runs ShellCheck on each run script.
+# .github/actionlint.yaml lists the self-hosted runner labels and config variables.
+
+name: Lint - Actionlint
+
+on:
+  workflow_call:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  lint:
+    name: Lint
+    runs-on: ubuntu-latest
+    env:
+      ACTIONLINT_VERSION: 1.7.12
+      ACTIONLINT_SHA256: 8aca8db96f1b94770f1b0d72b6dddcb1ebb8123cb3712530b08cc387b349a3d8
+      SHELLCHECK_VERSION: 0.11.0
+      SHELLCHECK_SHA256: 8c3be12b05d5c177a04c29e3c78ce89ac86f1595681cab149b65b97c4e227198
+    steps:
+      - uses: actions/checkout@v7
+
+      - name: Install actionlint and ShellCheck
+        run: |
+          base=https://github.com
+          actionlint="actionlint_${ACTIONLINT_VERSION}_linux_amd64.tar.gz"
+          curl -fsSLo "$RUNNER_TEMP/actionlint.tar.gz" \
+            "$base/rhysd/actionlint/releases/download/v$ACTIONLINT_VERSION/$actionlint"
+          shellcheck="shellcheck-v$SHELLCHECK_VERSION.linux.x86_64.tar.xz"
+          curl -fsSLo "$RUNNER_TEMP/shellcheck.tar.xz" \
+            "$base/koalaman/shellcheck/releases/download/v$SHELLCHECK_VERSION/$shellcheck"
+          sha256sum -c - <<EOF
+          $ACTIONLINT_SHA256  $RUNNER_TEMP/actionlint.tar.gz
+          $SHELLCHECK_SHA256  $RUNNER_TEMP/shellcheck.tar.xz
+          EOF
+          mkdir -p "$RUNNER_TEMP/bin"
+          tar -xzf "$RUNNER_TEMP/actionlint.tar.gz" -C "$RUNNER_TEMP/bin" actionlint
+          tar -xJf "$RUNNER_TEMP/shellcheck.tar.xz" -C "$RUNNER_TEMP/bin" \
+            --strip-components=1 "shellcheck-v$SHELLCHECK_VERSION/shellcheck"
+          echo "$RUNNER_TEMP/bin" >> "$GITHUB_PATH"
+
+      - name: Run actionlint
+        run: actionlint -color

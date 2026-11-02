@@ -13,7 +13,7 @@ import uuid
 from datetime import UTC, datetime, timedelta, tzinfo
 from fractions import Fraction
 from math import trunc
-from typing import Any, ClassVar, Literal, TypeAlias
+from typing import Any, ClassVar, Literal, NoReturn, TypeAlias, overload
 
 import numpy as np
 import pandas as pd
@@ -91,6 +91,21 @@ def _span_nanoseconds(value: CrudeTimeSpan) -> int:
     raise TypeError(f"Cannot convert {type(value)} to TimeSpan")
 
 
+def _operand_error(op: str, lhs: object, rhs: object) -> TypeError:
+    return TypeError(
+        f"unsupported operand type(s) for {op}: '{type(lhs).__name__}' and "
+        f"'{type(rhs).__name__}'"
+    )
+
+
+def _reject_number(op: str, lhs: object, rhs: object) -> None:
+    """Raises for a bare number, as int and float would otherwise take it as their
+    own.
+    """
+    if isinstance(rhs, (int, float, np.number)):
+        raise _operand_error(op, lhs, rhs)
+
+
 class TimeStamp(int):
     """TimeStamp represents a 64 bit nanosecond-precision UTC timestamp. The TimeStamp
     constructor accepts a variety of types and will attempt to convert them to a
@@ -105,6 +120,7 @@ class TimeStamp(int):
     * timedelta - Treats the timedelta as a duration since the Unix epoch in UTC.
     * np.datetime64 - Treats the datetime64 as a duration since the Unix epoch in UTC.
     * int - Treats the int as a nanosecond duration since the Unix epoch in UTC.
+    * str - Parses a decimal string of nanoseconds since the Unix epoch in UTC.
     """
 
     def __new__(cls, value: CrudeTimeStamp) -> TimeStamp:
@@ -201,11 +217,47 @@ class TimeStamp(int):
         """
         return TimeRange(self, TimeStamp(ts)).make_valid()
 
-    def __add__(self, rhs: CrudeTimeStamp) -> TimeStamp:
-        return TimeStamp(super().__add__(TimeStamp(rhs)))
+    # The int overloads keep the int signature, but a bare number raises TypeError.
+    @overload
+    def __add__(self, rhs: TimeStamp) -> NoReturn: ...
+    @overload
+    def __add__(self, rhs: TimeSpan) -> TimeStamp: ...
+    @overload
+    def __add__(self, rhs: int) -> int: ...
+    def __add__(self, rhs: object) -> int:
+        if isinstance(rhs, TimeSpan):
+            return TimeStamp(int(self) + int(rhs))
+        _reject_number("+", self, rhs)
+        return NotImplemented
 
-    def __sub__(self, rhs: CrudeTimeStamp) -> TimeStamp:
-        return TimeStamp(super().__sub__(TimeStamp(rhs)))
+    def __radd__(self, lhs: int) -> NoReturn:
+        raise _operand_error("+", lhs, self)
+
+    @overload
+    def __sub__(self, rhs: TimeStamp) -> TimeSpan: ...
+    @overload
+    def __sub__(self, rhs: TimeSpan) -> TimeStamp: ...
+    @overload
+    def __sub__(self, rhs: int) -> int: ...
+    def __sub__(self, rhs: object) -> int:
+        if isinstance(rhs, TimeStamp):
+            return TimeSpan(int(self) - int(rhs))
+        if isinstance(rhs, TimeSpan):
+            return TimeStamp(int(self) - int(rhs))
+        _reject_number("-", self, rhs)
+        return NotImplemented
+
+    def __rsub__(self, lhs: int) -> NoReturn:
+        raise _operand_error("-", lhs, self)
+
+    def __mul__(self, rhs: int) -> NoReturn:
+        raise _operand_error("*", self, rhs)
+
+    def __rmul__(self, lhs: int) -> NoReturn:
+        raise _operand_error("*", lhs, self)
+
+    def __neg__(self) -> NoReturn:
+        raise TypeError("bad operand type for unary -: 'TimeStamp'")
 
     def __lt__(self, rhs: CrudeTimeStamp) -> bool:
         return self.before(rhs)
@@ -251,6 +303,7 @@ class TimeSpan(int):
     * timedelta - The duration of the timedelta.
     * pands.timedelta - The duration of the timedelta.
     * np.timedelta64 - The duration of the timedelta64.
+    * str - Parses a decimal string of nanoseconds.
     """
 
     def __new__(cls, value: CrudeTimeSpan) -> TimeSpan:
@@ -346,7 +399,7 @@ class TimeSpan(int):
         """:returns:  The integer number of days in the TimeSpan, NOT including
         fractional days.
         """
-        return int(self / TimeSpan.DAY)
+        return _div_toward_zero(int(self), int(TimeSpan.DAY))
 
     @property
     def hours(self) -> float:
@@ -360,7 +413,7 @@ class TimeSpan(int):
         """:returns: The integer number of hours in the TimeSpan, NOT including
         fractional hours.
         """
-        return int(self / TimeSpan.HOUR)
+        return _div_toward_zero(int(self), int(TimeSpan.HOUR))
 
     @property
     def minutes(self) -> float:
@@ -374,7 +427,7 @@ class TimeSpan(int):
         """:returns: The integer number of minutes in the TimeSpan, NOT including
         fractional minutes.
         """
-        return int(self / TimeSpan.MINUTE)
+        return _div_toward_zero(int(self), int(TimeSpan.MINUTE))
 
     @property
     def seconds(self) -> float:
@@ -388,7 +441,7 @@ class TimeSpan(int):
         """:returns: The integer number of seconds in the TimeSpan, NOT including
         fractional seconds.
         """
-        return int(self / TimeSpan.SECOND)
+        return _div_toward_zero(int(self), int(TimeSpan.SECOND))
 
     @property
     def milliseconds(self) -> float:
@@ -402,7 +455,7 @@ class TimeSpan(int):
         """:returns: The integer number of milliseconds in the TimeSpan, NOT including
         fractional milliseconds.
         """
-        return int(self / TimeSpan.MILLISECOND)
+        return _div_toward_zero(int(self), int(TimeSpan.MILLISECOND))
 
     @property
     def microseconds(self) -> float:
@@ -416,7 +469,7 @@ class TimeSpan(int):
         """:returns: The integer number of microseconds in the TimeSpan, NOT including
         fractional microseconds.
         """
-        return int(self / TimeSpan.MICROSECOND)
+        return _div_toward_zero(int(self), int(TimeSpan.MICROSECOND))
 
     @property
     def nanoseconds(self) -> int:
@@ -444,29 +497,85 @@ class TimeSpan(int):
         """:returns: The TimeSpan represented as a datetime.timedelta."""
         return timedelta(seconds=self.seconds)
 
-    def __add__(self, rhs: CrudeTimeSpan) -> TimeSpan:
-        return TimeSpan(super().__add__(TimeSpan(rhs)))
+    # The int overloads keep the int signature, but a bare number raises TypeError.
+    @overload
+    def __add__(self, rhs: TimeStamp) -> TimeStamp: ...
+    @overload
+    def __add__(self, rhs: TimeSpan) -> TimeSpan: ...
+    @overload
+    def __add__(self, rhs: int) -> int: ...
+    def __add__(self, rhs: object) -> int:
+        if isinstance(rhs, TimeStamp):
+            return TimeStamp(int(self) + int(rhs))
+        if isinstance(rhs, TimeSpan):
+            return TimeSpan(int(self) + int(rhs))
+        _reject_number("+", self, rhs)
+        return NotImplemented
 
-    def __sub__(self, rhs: CrudeTimeSpan) -> TimeSpan:
-        return TimeSpan(super().__sub__(TimeSpan(rhs)))
+    def __radd__(self, lhs: int) -> NoReturn:
+        raise _operand_error("+", lhs, self)
 
-    def __mul__(self, rhs: CrudeTimeSpan | np.integer) -> TimeSpan:
-        if isinstance(rhs, np.integer):
-            rhs = int(rhs)
-        return TimeSpan(int(self) * rhs)
+    @overload
+    def __sub__(self, rhs: TimeStamp) -> NoReturn: ...
+    @overload
+    def __sub__(self, rhs: TimeSpan) -> TimeSpan: ...
+    @overload
+    def __sub__(self, rhs: int) -> int: ...
+    def __sub__(self, rhs: object) -> int:
+        if isinstance(rhs, TimeSpan):
+            return TimeSpan(int(self) - int(rhs))
+        _reject_number("-", self, rhs)
+        return NotImplemented
 
-    def __truediv__(self, rhs: CrudeTimeSpan) -> TimeSpan:
-        return TimeSpan(_div_toward_zero(int(self), int(TimeSpan(rhs))))
+    def __rsub__(self, lhs: int) -> NoReturn:
+        raise _operand_error("-", lhs, self)
 
-    def __mod__(self, rhs: CrudeTimeSpan) -> TimeSpan:
-        return TimeSpan(super().__mod__(TimeSpan(rhs)))
+    def __mul__(self, rhs: float | np.integer | np.floating) -> TimeSpan:
+        if isinstance(rhs, TimeStamp):
+            raise _operand_error("*", self, rhs)
+        if isinstance(rhs, (int, np.integer)):
+            return TimeSpan(int(self) * int(rhs))
+        return TimeSpan(int(self) * float(rhs))
 
     # Pyright has no reflected-operand priority, so it types int * TimeSpan as int.
-    def __rmul__(self, rhs: int) -> TimeSpan:
-        return self.__mul__(rhs)
+    def __rmul__(self, lhs: int | np.integer) -> TimeSpan:
+        return self.__mul__(lhs)
+
+    # Mypy and Pyright reject overloads that make TimeSpan / TimeSpan a float and
+    # TimeSpan / number a TimeSpan, as TimeSpan is an int. These annotations follow int.
+    def __truediv__(self, rhs: float | np.integer | np.floating) -> float:
+        if isinstance(rhs, TimeSpan):
+            return float(Fraction(int(self), int(rhs)))
+        if isinstance(rhs, TimeStamp):
+            raise _operand_error("/", self, rhs)
+        if isinstance(rhs, (int, np.integer)):
+            return TimeSpan(_div_toward_zero(int(self), int(rhs)))
+        return TimeSpan(int(Fraction(int(self)) / Fraction(float(rhs))))
+
+    def __floordiv__(self, rhs: int | np.integer) -> int:
+        if isinstance(rhs, TimeSpan):
+            return int(self) // int(rhs)
+        if isinstance(rhs, TimeStamp):
+            raise _operand_error("//", self, rhs)
+        if isinstance(rhs, (int, np.integer)):
+            return TimeSpan(int(self) // int(rhs))
+        return NotImplemented
+
+    @overload
+    def __mod__(self, rhs: TimeSpan) -> TimeSpan: ...
+    @overload
+    def __mod__(self, rhs: int) -> int: ...
+    def __mod__(self, rhs: object) -> int:
+        if isinstance(rhs, TimeSpan):
+            return TimeSpan(int(self) % int(rhs))
+        _reject_number("%", self, rhs)
+        return NotImplemented
+
+    def __neg__(self) -> TimeSpan:
+        return TimeSpan(-int(self))
 
     def __abs__(self) -> TimeSpan:
-        return TimeSpan(super().__abs__())
+        return TimeSpan(abs(int(self)))
 
     # Omits np.timedelta64: its reflected comparisons return np.bool, not bool.
     def __gt__(self, rhs: _ComparableTimeSpan) -> bool:
@@ -569,7 +678,7 @@ TimeSpanUnits = Literal["ns", "us", "ms", "s", "m", "h", "d", "iso"]
 
 
 def convert_time_units(
-    data: np.ndarray, _from: TimeSpanUnits, to: TimeSpanUnits
+    data: np.ndarray, *, _from: TimeSpanUnits, to: TimeSpanUnits
 ) -> np.ndarray:
     """Converts the data from one time unit to another.
 
@@ -634,7 +743,7 @@ class Rate(float):
         """:returns: the number of samples in the given TimeSpan at this rate"""
         return int(TimeSpan(time_span).seconds * self)
 
-    def byte_size(self, time_span: CrudeTimeSpan, density: Density) -> Size:
+    def byte_size(self, time_span: CrudeTimeSpan, *, density: Density) -> Size:
         """:returns: the amount of bytes occupied by the given TimeSpan at this rate
         and the given sample density.
 
@@ -652,7 +761,7 @@ class Rate(float):
         rate = Fraction(repr(float(self)))
         return TimeSpan(int(Fraction(sample_count * int(TimeSpan.SECOND)) / rate))
 
-    def size_span(self, size: Size, density: Density) -> TimeSpan:
+    def size_span(self, size: Size, *, density: Density) -> TimeSpan:
         """:returns: the TimeSpan that corresponds to the given number of bytes at this
         rate and the given sample density."""
         if size % density != 0:
@@ -667,11 +776,38 @@ class Rate(float):
     def __repr__(self) -> str:
         return f"Rate({super().__repr__()} Hz)"
 
+    # The float overloads keep the float signature, but a bare number raises TypeError.
+    @overload
+    def __add__(self, rhs: Rate) -> Rate: ...
+    @overload
+    def __add__(self, rhs: float) -> float: ...
+    def __add__(self, rhs: object) -> float:
+        if isinstance(rhs, Rate):
+            return Rate(float(self) + float(rhs))
+        _reject_number("+", self, rhs)
+        return NotImplemented
+
+    def __radd__(self, lhs: float) -> NoReturn:
+        raise _operand_error("+", lhs, self)
+
+    @overload
+    def __sub__(self, rhs: Rate) -> Rate: ...
+    @overload
+    def __sub__(self, rhs: float) -> float: ...
+    def __sub__(self, rhs: object) -> float:
+        if isinstance(rhs, Rate):
+            return Rate(float(self) - float(rhs))
+        _reject_number("-", self, rhs)
+        return NotImplemented
+
+    def __rsub__(self, lhs: float) -> NoReturn:
+        raise _operand_error("-", lhs, self)
+
     def __mul__(self, rhs: CrudeRate) -> Rate:
         return Rate(super().__mul__(Rate(rhs)))
 
-    def __rmul__(self, other: CrudeRate) -> Rate:
-        return self.__mul__(other)
+    def __rmul__(self, lhs: float) -> Rate:
+        return Rate(float(lhs) * float(self))
 
     HZ: Rate
     """One Hz."""
@@ -725,7 +861,9 @@ class TimeRange(BaseModel):
 
     @property
     def span(self) -> TimeSpan:
-        """:returns: the TimeSpan between the start and end TimeStamps of the TimeRange."""
+        """:returns: the TimeSpan between the start and end TimeStamps of the
+        TimeRange.
+        """
         return TimeSpan(self.end - self.start)
 
     def make_valid(self) -> TimeRange:
@@ -770,7 +908,7 @@ class TimeRange(BaseModel):
         pv = TimeStamp(value)
         return pv.after_eq(self.start) and pv.before(self.end)
 
-    def overlaps_with(self, tr: TimeRange, delta: CrudeTimeSpan = 0) -> bool:
+    def overlaps_with(self, tr: TimeRange, *, delta: CrudeTimeSpan = 0) -> bool:
         """:returns: True if the time ranges share at least delta of time. Ranges that
         only touch at a boundary do not overlap.
         :param tr: The time range to compare against.
@@ -995,7 +1133,7 @@ Size.MB_UNITS = "mb"
 Size.GB = Size(1024) * Size.MB
 Size.GB_UNITS = "gb"
 
-SizeUnits = ["gb", "mb", "kb", "b"]
+_SizeUnits = ["gb", "mb", "kb", "b"]
 
 
 class DataType(str):
@@ -1190,10 +1328,10 @@ DataType.ALL = (
 )
 
 CrudeTimeStamp: TypeAlias = (
-    int | TimeStamp | TimeSpan | datetime | timedelta | np.datetime64 | np.int64
+    int | TimeStamp | TimeSpan | datetime | timedelta | np.datetime64 | np.int64 | str
 )
 CrudeTimeSpan: TypeAlias = (
-    int | float | TimeSpan | TimeStamp | timedelta | np.timedelta64
+    int | float | TimeSpan | TimeStamp | timedelta | np.timedelta64 | str
 )
 _ComparableTimeSpan: TypeAlias = int | float | timedelta
 CrudeRate: TypeAlias = int | float | TimeSpan | Rate
@@ -1273,20 +1411,21 @@ def _pack_alignment(domain_idx: int, sample_idx: int) -> int:
 
 
 class Alignment(int):
-    """Alignment is two array index values that can be used to represent
-    the location of a sample within an array of arrays. For example, if you have two arrays
-    that have 50 elements each, and you want the 15th element of the second array, you would
-    use Alignment(1, 15). The first index is called the 'domain index' and the second
-    index is called the 'sample index'. The domain index is the index of the array, and the
+    """Alignment is two array index values that can be used to represent the location of
+    a sample within an array of arrays. For example, if you have two arrays that have 50
+    elements each, and you want the 15th element of the second array, you would use
+    Alignment(1, 15). The first index is called the 'domain index' and the second index
+    is called the 'sample index'. The domain index is the index of the array, and the
     sample index is the index of the sample within that array.
 
-    You may think a better design is to just use a single number that overflows the arrays
-    before it, i.e., the value of our previous example would be 50 + 14 = 64. However, this
-    requires us to know the size of all arrays, which is not always possible.
+    You may think a better design is to just use a single number that overflows the
+    arrays before it, i.e., the value of our previous example would be 50 + 14 = 64.
+    However, this requires us to know the size of all arrays, which is not always
+    possible.
 
     While not as meaningful as a single number, Alignment is a uint64 that guarantees
-    that a larger value is, in fact, 'positionally' after a smaller value. This is useful
-    for ordering samples correctly.
+    that a larger value is, in fact, 'positionally' after a smaller value. This is
+    useful for ordering samples correctly.
 
     The Alignment constructor accepts various types:
 
@@ -1302,8 +1441,9 @@ class Alignment(int):
     ) -> Alignment:
         """Creates a new Alignment from various input types.
 
-        :param value: Either a packed int value, a tuple of (domain_idx, sample_idx),
-                      or an existing Alignment. Can also be a domain_idx if sample_idx is provided.
+        :param value: Either a packed int value, a tuple of (domain_idx, sample_idx), or
+                      an existing Alignment. Can also be a domain_idx if sample_idx is
+                      provided.
         :param sample_idx: Optional sample index if value is provided as domain index.
         :returns: A new Alignment.
         """
@@ -1316,7 +1456,8 @@ class Alignment(int):
         if isinstance(value, tuple):
             if len(value) != 2:
                 raise ValueError(
-                    f"Alignment tuple must have exactly 2 elements (domain_idx, sample_idx), got {len(value)}"
+                    "Alignment tuple must have exactly 2 elements (domain_idx, "
+                    f"sample_idx), got {len(value)}"
                 )
             domain_idx, sample_idx = value
             packed_value = _pack_alignment(int(domain_idx), int(sample_idx))
@@ -1381,7 +1522,8 @@ class Alignment(int):
         )
 
     def __str__(self) -> str:
-        """Returns a string representation of the Alignment in the format 'domain-sample'.
+        """Returns a string representation of the Alignment in the format
+        'domain-sample'.
 
         :returns: A string representation of the Alignment.
         """
@@ -1398,7 +1540,7 @@ class Alignment(int):
 CrudeAlignment: TypeAlias = int | tuple[int, int] | Alignment | str
 
 
-def seconds_linspace(start: int, count: int) -> list[TimeStamp]:
+def seconds_linspace(start: int, *, count: int) -> list[TimeStamp]:
     """Generates count TimeStamps one second apart, starting start seconds after the
     Unix epoch."""
     return [TimeStamp(TimeSpan.SECOND * (start + i)) for i in range(count)]

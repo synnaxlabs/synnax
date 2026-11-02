@@ -16,14 +16,14 @@ from console.task.modbus import SERVER_FIELD_LABEL, ModbusRead
 from tests.console.task.modbus_case import ModbusCase
 from x import random_name
 
-NETWORK = "Modbus TCP server"
+NETWORK = "Modbus server"
 # Nothing listens here, so the Driver's connection check fails.
 CLOSED_PORT = ModbusSim.port + 1
 
 
 class ConnectNetwork(ModbusCase):
-    """Connect Modbus TCP servers through the connect picker and a task form. The
-    Driver checks each connection before the Console saves the device."""
+    """Connect Modbus servers through the connect picker and a task form. The Driver
+    checks each connection before the Console saves the device."""
 
     def run(self) -> None:
         self.test_connect_from_toolbar()
@@ -48,8 +48,9 @@ class ConnectNetwork(ModbusCase):
         devices.open_connect()
         devices.pick_integration(NETWORK)
         connect_from = self.console.layout.get_dropdown_value("Connect from")
-        assert connect_from == self.RACK_NAME, (
-            f"The form should connect from '{self.RACK_NAME}', got '{connect_from}'"
+        rack_name = self.options.driver_rack
+        assert connect_from == rack_name, (
+            f"The form should connect from '{rack_name}', got '{connect_from}'"
         )
 
         name = f"Toolbar server {random_name()}"
@@ -65,14 +66,16 @@ class ConnectNetwork(ModbusCase):
         devices.modal.wait_for(state="hidden", timeout=15000)
         devices.get(name)
         dev = self._retrieve_connected(name)
-        rack = self.client.racks.retrieve(name=self.RACK_NAME)
-        assert dev.rack == rack.key, f"'{name}' should be on '{self.RACK_NAME}'"
+        rack = self.client.racks.retrieve(name=self.options.driver_rack)
+        assert dev.rack == rack.key, (
+            f"'{name}' should be on '{self.options.driver_rack}'"
+        )
 
     def test_connect_from_task_form(self) -> None:
-        """The "Connect Modbus TCP server" action of the server dropdown opens the
-        form, and the connected server becomes the selected server."""
+        """The "Connect Modbus server" action of the server dropdown opens the form,
+        and the connected server becomes the selected server."""
         self.log("Testing: Connect a server from a task form")
-        self.create_page(ModbusRead, "Connect Read")
+        self.create_page(ModbusRead, prefix="Connect Read")
         layout = self.console.layout
         layout.click_btn(SERVER_FIELD_LABEL)
         layout.dialog.get_by_text(f"Connect {NETWORK}", exact=True).click(timeout=5000)

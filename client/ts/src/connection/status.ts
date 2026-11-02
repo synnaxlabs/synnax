@@ -37,6 +37,9 @@ export type Reason = z.infer<typeof reasonZ>;
 export const statusDetailsZ = z.object({
   error: z.instanceof(Error).optional(),
   authenticated: z.boolean(),
+  // The key of the client's session, so a new session notifies observers. Never the
+  // token: status details get logged.
+  session: z.string().optional(),
   streamLive: z.boolean(),
   // The cluster refused the change stream. Unary calls the user is allowed to
   // make still work; live updates do not arrive.
@@ -45,6 +48,8 @@ export const statusDetailsZ = z.object({
   clusterKey: z.string(),
   clientVersion: z.string(),
   nodeVersion: z.string().optional(),
+  // The key of the node the client connects to. Absent until the first check.
+  nodeKey: z.number().optional(),
   clientServerCompatible: z.boolean(),
   clockSkew: TimeSpan.z,
   clockSkewExceeded: z.boolean(),
@@ -175,8 +180,12 @@ export const awaitConnected = async (
 export interface Info {
   clusterKey: string;
   nodeVersion: string;
+  /** The key of the node that answered the check. */
+  nodeKey: number;
   /** Skew measured across the check's round trip. */
   clockSkew: TimeSpan;
+  /** The check's round trip. The skew is off by at most half of it. */
+  roundTrip: TimeSpan;
   license: license.State;
 }
 
@@ -192,7 +201,7 @@ export type Event =
   | { type: "stream.live" }
   | { type: "stream.drop"; error?: Error }
   | { type: "stream.denied"; error?: Error }
-  | { type: "auth.success" }
+  | { type: "auth.success"; session: string }
   | { type: "auth.failure"; error: Error }
   | { type: "epoch.advanced"; epoch: number }
   | { type: "retry.scheduled"; attempt: number; nextAt: TimeStamp }
@@ -280,10 +289,14 @@ const isCompatible = (nodeVersion: string, clientVersion: string): boolean =>
 const checkFacts = (info: Info, config: Config): Partial<StatusDetails> => ({
   clusterKey: info.clusterKey,
   nodeVersion: info.nodeVersion,
+  nodeKey: info.nodeKey,
   // the check traverses the auth middleware, so a response is proof of auth
   authenticated: true,
   clockSkew: info.clockSkew,
-  clockSkewExceeded: info.clockSkew.abs().greaterThan(config.clockSkewThreshold),
+  // A slow round trip is not skew, so only skew beyond its error bound counts.
+  clockSkewExceeded: info.clockSkew
+    .abs()
+    .greaterThan(config.clockSkewThreshold.add(info.roundTrip.div(2))),
   clientServerCompatible: isCompatible(info.nodeVersion, config.clientVersion),
   license: info.license,
 });
@@ -359,7 +372,7 @@ const reduceAuthFailure = (prev: Status, error: Error): Status =>
   enterError(
     prev,
     AUTH_FAILED,
-    { reason: "auth", error, authenticated: false, retry: null },
+    { reason: "auth", error, authenticated: false, session: undefined, retry: null },
     error.message,
   );
 
@@ -437,7 +450,7 @@ export const reduce = (prev: Status, event: Event, config: Config): Status => {
     case "stream.denied":
       return enterStreamDenied(prev);
     case "auth.success":
-      return update(prev, { authenticated: true });
+      return update(prev, { authenticated: true, session: event.session });
     case "auth.failure":
       return reduceAuthFailure(prev, event.error);
     case "epoch.advanced":
@@ -457,6 +470,7 @@ export const reduce = (prev: Status, event: Event, config: Config): Status => {
         error: undefined,
         streamDenied: false,
         authenticated: false,
+        session: undefined,
       });
     case "closed":
       return enter(prev, "disabled", "Closed", {
@@ -475,8 +489,7 @@ const comparable = ({ time: _, ...rest }: Status): unknown => ({
   details: { ...rest.details, clockSkew: undefined },
 });
 
-/** Whether the change is worth notifying observers about. */
-export const materialChange = (prev: Status, next: Status): boolean =>
+const materialChange = (prev: Status, next: Status): boolean =>
   !deep.equal(comparable(prev), comparable(next));
 
 /**

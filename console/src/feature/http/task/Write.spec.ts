@@ -11,6 +11,7 @@ import { http, type Synnax, type task } from "@synnaxlabs/client";
 import { createTestClient } from "@synnaxlabs/client/testutil";
 import { fireEvent, screen, waitFor } from "@testing-library/react";
 import { describe, expect, it } from "vitest";
+import { type z } from "zod";
 
 import { HTTP } from "@/feature/http";
 import { createHTTPDevice } from "@/feature/http/testutil";
@@ -49,8 +50,10 @@ const ZERO_DRAFT: task.New<HTTP.Task.WriteSchemas> = {
   config: HTTP.Task.WRITE_SCHEMAS.config.parse({}),
 };
 
-const createDraft = async (client: Synnax, config: HTTP.Task.WritePayload["config"]) =>
-  await client.tasks.create({ ...ZERO_DRAFT, config }, HTTP.Task.WRITE_SCHEMAS);
+const createDraft = async (
+  client: Synnax,
+  config: z.infer<HTTP.Task.WriteSchemas["config"]>,
+) => await client.tasks.create({ ...ZERO_DRAFT, config }, HTTP.Task.WRITE_SCHEMAS);
 
 const addEndpoint = async (): Promise<void> => {
   fireEvent.click(await screen.findByRole("button", { name: "Add endpoint" }));
@@ -71,7 +74,7 @@ const createWriteEndpoint = (
 const createWriteConfig = (
   device: string,
   endpoints: HTTP.Task.WriteEndpoint[],
-): HTTP.Task.WritePayload["config"] => ({
+): z.infer<HTTP.Task.WriteSchemas["config"]> => ({
   ...HTTP.Task.WRITE_SCHEMAS.config.parse({}),
   device,
   endpoints,

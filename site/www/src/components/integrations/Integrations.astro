@@ -140,7 +140,7 @@ import CdnPicture from "@/components/common/CdnPicture.astro";
             </div>
             <div
                 class="integration-cell"
-                style="--logo-w: 29rem; --logo-h: 11rem; --brand-color: #009999;"
+                style="--logo-w: 29rem; --logo-h: 11rem; --brand-color: #099;"
                 data-vendor="Siemens"
             >
                 <Siemens />
@@ -307,7 +307,7 @@ import CdnPicture from "@/components/common/CdnPicture.astro";
         justify-content: center;
         padding: clamp(3rem, 2rem + 1.5vw, 5rem) clamp(1.5rem, 1rem + 1vw, 3rem);
         background: var(--pluto-gray-l1);
-        filter: url(#dither);
+        filter: url("#dither");
         transition: filter 0.3s ease;
 
         &:hover {
@@ -358,14 +358,9 @@ import CdnPicture from "@/components/common/CdnPicture.astro";
             position: absolute;
             inset: -16px;
             border-radius: 2.5rem;
-            border: 1px solid rgba(255, 255, 255, 0.2);
+            border: 1px solid rgb(255 255 255 / 20%);
             pointer-events: none;
-            mask-image: linear-gradient(135deg, rgba(0, 0, 0, 1) 0%, transparent 50%);
-            -webkit-mask-image: linear-gradient(
-                135deg,
-                rgba(0, 0, 0, 1) 0%,
-                transparent 50%
-            );
+            mask-image: linear-gradient(135deg, rgb(0 0 0 / 100%) 0%, transparent 50%);
         }
     }
 
@@ -425,13 +420,13 @@ import CdnPicture from "@/components/common/CdnPicture.astro";
         width: clamp(5rem, 3.5rem + 2vw, 7rem);
         height: clamp(5rem, 3.5rem + 2vw, 7rem);
         border-radius: clamp(1rem, 0.5rem + 0.5vw, 1.5rem);
-        border: 1px solid rgba(80, 160, 240, 0.08);
-        background: rgba(55, 116, 208, 0.1);
+        border: 1px solid rgb(80 160 240 / 8%);
+        background: rgb(55 116 208 / 10%);
         backdrop-filter: blur(16px);
         -webkit-backdrop-filter: blur(16px);
         box-shadow:
-            inset 0 1px 0 rgba(80, 160, 240, 0.06),
-            0 0 24px rgba(55, 116, 208, 0.08);
+            inset 0 1px 0 rgb(80 160 240 / 6%),
+            0 0 24px rgb(55 116 208 / 8%);
         flex-shrink: 0;
 
         &::before {
@@ -439,8 +434,8 @@ import CdnPicture from "@/components/common/CdnPicture.astro";
             position: absolute;
             inset: 4px;
             border-radius: 1rem;
-            border: 1px solid rgba(80, 160, 240, 0.15);
-            background: rgba(255, 255, 255, 0.02);
+            border: 1px solid rgb(80 160 240 / 15%);
+            background: rgb(255 255 255 / 2%);
             pointer-events: none;
         }
     }
@@ -499,7 +494,7 @@ import CdnPicture from "@/components/common/CdnPicture.astro";
             linear-gradient(to right, transparent 70%, var(--pluto-gray-l1) 100%);
     }
 
-    @media (max-width: 900px) {
+    @media (width <= 900px) {
         .integrations-hardware {
             grid-template-columns: 1fr;
         }
@@ -530,11 +525,11 @@ import CdnPicture from "@/components/common/CdnPicture.astro";
         .workflow-panel img {
             width: 95% !important;
             margin: 3rem auto 0 !important;
-            border-radius: 1rem 0.6rem 0.6rem 0.6rem !important;
+            border-radius: 1rem 0.6rem 0.6rem !important;
         }
     }
 
-    @media (max-width: 600px) {
+    @media (width <= 600px) {
         .integrations-grid {
             grid-template-columns: repeat(2, 1fr);
         }

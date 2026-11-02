@@ -24,6 +24,8 @@ Before running this example:
 This example reads from two analog input channels at 100 Hz.
 """
 
+import numpy as np
+
 import synnax as sy
 
 # We've logged in via the command-line interface, so there's no need to provide
@@ -100,26 +102,27 @@ print(f"{'Sample':<10} {'Time (s)':<10} {'AIN0 (V)':>12} {'AIN1 (V)':>12}")
 print("-" * 70)
 
 # Start the task and read data continuously
+sample_count = 0
 try:
     # Hide cursor for clean output
     print("\033[?25l", end="", flush=True)
 
     with tsk.run():
         with client.open_streamer(["labjack_ain0", "labjack_ain1"]) as streamer:
-            sample_count = 0
             start_time = sy.TimeStamp.now()
 
             while True:
                 frame = streamer.read()
                 # Print the latest values from both channels
-                if frame and "labjack_ain0" in frame and len(frame["labjack_ain0"]) > 0:
-                    val0 = frame["labjack_ain0"][-1]
-                    val1 = frame["labjack_ain1"][-1]
+                if "labjack_ain0" in frame and len(frame["labjack_ain0"]) > 0:
+                    val0 = frame["labjack_ain0"].as_(np.float32)[-1]
+                    val1 = frame["labjack_ain1"].as_(np.float32)[-1]
                     elapsed = sy.TimeStamp.now().span(start_time).seconds
 
                     sample_count += 1
                     print(
-                        f"{sample_count:<10} {elapsed:<10.1f} {val0:>12.3f} {val1:>12.3f}",
+                        f"{sample_count:<10} {elapsed:<10.1f} {val0:>12.3f} "
+                        f"{val1:>12.3f}",
                         end="\r",
                         flush=True,
                     )

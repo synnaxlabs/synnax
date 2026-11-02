@@ -16,6 +16,13 @@ concurrency:
   group: buildifier-${{ github.workflow }}-${{ github.ref }}
   cancel-in-progress: true
 
+permissions:
+  contents: read
+
+# The proxy drops streams at times, so a failed fetch falls back to the source.
+env:
+  GOPROXY: https://proxy.golang.org|direct
+
 jobs:
   lint:
     name: Lint

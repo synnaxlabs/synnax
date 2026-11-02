@@ -42,7 +42,7 @@ def get_machine_info() -> str:
         )
 
     if system == "Linux":
-        return get_linux_distribution()
+        return _get_linux_distribution()
 
     if system == "Windows":
         result = subprocess.run(
@@ -65,7 +65,7 @@ def get_machine_info() -> str:
     return system
 
 
-def get_linux_distribution(
+def _get_linux_distribution(
     lsb_release: str = "lsb_release", os_release: Path = Path("/etc/os-release")
 ) -> str:
     """Returns the Linux distribution name. Reads os_release when lsb_release fails

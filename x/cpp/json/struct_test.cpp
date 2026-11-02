@@ -12,7 +12,7 @@
 
 #include "x/cpp/json/struct.h"
 #include "x/cpp/json/testutil/testutil.h"
-#include "x/cpp/test/test.h"
+#include "x/cpp/testutil/testutil.h"
 
 namespace x::json {
 /// @brief it should convert an empty protobuf Struct to an empty JSON object.

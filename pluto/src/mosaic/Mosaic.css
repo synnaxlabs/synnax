@@ -15,15 +15,15 @@
     overflow: hidden;
     box-shadow: var(--pluto-shadow-lift);
 
-    .pluto-resize-split {
+    .lyra-resize-split {
         height: 100%;
     }
 }
 
 /* Single-child pass-through: block spares WebKit a level of per-frame flex
-   re-measurement while a pane or drawer resizes. Paired with .pluto-flex to
+   re-measurement while a pane or drawer resizes. Paired with .lyra-flex to
    outrank it regardless of bundle order. */
-.pluto-flex.pluto-mosaic,
+.lyra-flex.pluto-mosaic,
 .pluto-mosaic .pluto-mosaic__leaf {
     display: block;
 }
@@ -32,12 +32,12 @@
    is layout-identical and stops WebKit re-measuring the whole subtree at every
    nesting level. Stacked (y) split containers de-flex too; x containers stay
    flex to lay panes in a row. */
-.pluto-mosaic .pluto-resize-split.pluto--direction-y {
+.pluto-mosaic .lyra-resize-split.lyra--direction-y {
     display: block;
 }
 
-.pluto-mosaic .pluto-resize {
-    > .pluto-resize-split {
+.pluto-mosaic .lyra-resize {
+    > .lyra-resize-split {
         width: 100%;
         height: 100%;
     }
@@ -49,7 +49,7 @@
     height: 100%;
     overflow: hidden;
 
-    > .pluto-tabs {
+    > .lyra-tabs {
         width: 100%;
         height: 100%;
     }

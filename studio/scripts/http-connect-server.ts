@@ -7,9 +7,10 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { connectServerScript, HTTP } from "./common/server";
+import { connectServerScript, HTTP, INTEGRATIONS } from "./common/server";
 
 export const driver = true;
+export const integrations = INTEGRATIONS;
 
 /**
  * Docs `reference/hardware/http/connect-server` (Connect an HTTP server): connect a

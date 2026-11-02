@@ -1,0 +1,136 @@
+// Copyright 2026 Synnax Labs, Inc.
+//
+// Use of this software is governed by the Business Source License included in the file
+// licenses/BSL.txt.
+//
+// As of the Change Date specified in that file, in accordance with the Business Source
+// License, use of this software will be governed by the Apache License, Version 2.0,
+// included in the file licenses/APL.txt.
+
+import "schemas/synnax/versions/task/v2"
+
+Units = v2.Units
+
+AccelSensitivityUnits = v2.AccelSensitivityUnits
+
+AccelChargeSensitivityUnits = v2.AccelChargeSensitivityUnits
+
+AccelUnits = v2.AccelUnits
+
+ForceUnits = v2.ForceUnits
+
+ElectricalUnits = v2.ElectricalUnits
+
+ExcitationSource = v2.ExcitationSource
+
+TerminalConfig = v2.TerminalConfig
+
+BridgeConfig = v2.BridgeConfig
+
+ShuntResistorLocation = v2.ShuntResistorLocation
+
+ForceSensitivityUnits = v2.ForceSensitivityUnits
+
+PressureUnits = v2.PressureUnits
+
+TorqueUnits = v2.TorqueUnits
+
+ResistanceConfig = v2.ResistanceConfig
+
+TemperatureUnits = v2.TemperatureUnits
+
+RTDType = v2.RTDType
+
+StrainConfig = v2.StrainConfig
+
+ThermocoupleType = v2.ThermocoupleType
+
+CJC = v2.CJC
+
+VelocityUnits = v2.VelocityUnits
+
+VelocitySensitivityUnits = v2.VelocitySensitivityUnits
+
+ChargeUnits = v2.ChargeUnits
+
+Scale = v2.Scale
+
+MinMaxVal = v2.MinMaxVal
+
+Terminal = v2.Terminal
+
+Sensitivity = v2.Sensitivity
+
+CurrentExcitation = v2.CurrentExcitation
+
+VoltageExcitation = v2.VoltageExcitation
+
+Bridge = v2.Bridge
+
+BridgePolynomial = v2.BridgePolynomial
+
+Resistance = v2.Resistance
+
+Table = v2.Table
+
+TwoPointLin = v2.TwoPointLin
+
+CustomScale = v2.CustomScale
+
+BaseAIChannel = v2.BaseAIChannel
+
+AIChannel = v2.AIChannel
+
+CIEdge = v2.CIEdge
+
+CIMeasMethod = v2.CIMeasMethod
+
+CIFreqUnits = v2.CIFreqUnits
+
+CITimeUnits = v2.CITimeUnits
+
+CICountDirection = v2.CICountDirection
+
+CIDecodingType = v2.CIDecodingType
+
+CILinearVelocityUnits = v2.CILinearVelocityUnits
+
+CIAngularVelocityUnits = v2.CIAngularVelocityUnits
+
+CILinearPositionUnits = v2.CILinearPositionUnits
+
+CIAngularPositionUnits = v2.CIAngularPositionUnits
+
+ZIndexPhase = v2.ZIndexPhase
+
+ZIndex = v2.ZIndex
+
+BaseCIChannel = v2.BaseCIChannel
+
+CIChannel = v2.CIChannel
+
+WaveType = v2.WaveType
+
+BaseAOChannel = v2.BaseAOChannel
+
+AOChannel = v2.AOChannel
+
+DIChannel = v2.DIChannel
+
+DOChannel = v2.DOChannel
+
+AnalogReadConfig = v2.AnalogReadConfig
+
+CounterReadConfig = v2.CounterReadConfig
+
+WriteConfig = v2.WriteConfig
+
+AnalogWriteConfig = v2.AnalogWriteConfig
+
+DigitalReadConfig = v2.DigitalReadConfig
+
+DigitalWriteConfig = v2.DigitalWriteConfig
+
+ScanConfig struct extends v2.ScanConfig {
+    -ignored_models
+}

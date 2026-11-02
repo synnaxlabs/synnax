@@ -83,7 +83,7 @@ cc_test(
         "//arc/cpp/runtime/testutil",
         "//arc/cpp/types",
         "//x/cpp/telem",
-        "//x/cpp/test",
+        "//x/cpp/testutil",
         "@googletest//:gtest_main",
     ],
 )
@@ -96,7 +96,7 @@ cc_test(
         "//arc/cpp/ir/testutil",
         "//arc/cpp/runtime/testutil",
         "//x/cpp/telem",
-        "//x/cpp/test",
+        "//x/cpp/testutil",
         "@googletest//:gtest_main",
     ],
 )

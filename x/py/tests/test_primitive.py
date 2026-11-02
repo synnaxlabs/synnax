@@ -7,7 +7,7 @@
 #  License, use of this software will be governed by the Apache License, Version 2.0,
 #  included in the file licenses/APL.txt.
 
-from x.primitive import Primitive, is_primitive
+from x.primitive import _Primitive, is_primitive
 
 
 class TestIsPrimitive:
@@ -35,9 +35,9 @@ class TestIsPrimitive:
 
 class TestPrimitiveType:
     def test_accepts_str(self) -> None:
-        v: Primitive = "hello"
+        v: _Primitive = "hello"
         assert v == "hello"
 
     def test_accepts_none(self) -> None:
-        v: Primitive = None
+        v: _Primitive = None
         assert v is None

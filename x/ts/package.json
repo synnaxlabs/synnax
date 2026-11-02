@@ -1,6 +1,6 @@
 {
   "name": "@synnaxlabs/x",
-  "version": "0.59.0",
+  "version": "0.60.0",
   "type": "module",
   "sideEffects": [
     "./dist/zod/parse.js"
@@ -54,7 +54,6 @@
     "src",
     "!**/*.spec.*",
     "!**/*.bench.*",
-    "!**/mock/**",
     "!dist/eslint.config.*"
   ],
   "exports": {

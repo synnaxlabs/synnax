@@ -8,28 +8,42 @@
 // included in the file licenses/APL.txt.
 
 #include <algorithm>
+// Disable GCC 13 false positive warning in <regex> header
+#if defined(__GNUC__) && !defined(__clang__)
+#pragma GCC diagnostic push
+#pragma GCC diagnostic ignored "-Wmaybe-uninitialized"
+#endif
+#include <regex>
+#if defined(__GNUC__) && !defined(__clang__)
+#pragma GCC diagnostic pop
+#endif
+#include <sstream>
 #include <string>
 #include <unordered_map>
 
 #include "absl/log/log.h"
 
 #include "driver/common/scan_task.h"
+#include "driver/ni/probe.h"
 #include "driver/ni/scan_task.h"
 #include "errors/errors.h"
 
 namespace driver::ni {
 Scanner::Scanner(
-    const std::shared_ptr<syscfg::SugaredAPI> &syscfg,
+    std::shared_ptr<x::lib::Lazy<syscfg::SugaredAPI>> lib,
+    std::shared_ptr<x::lib::Lazy<daqmx::SugaredAPI>> dmx,
     ScanTaskConfig cfg,
     synnax::task::Task task
 ):
-    cfg(std::move(cfg)), task(std::move(task)), syscfg(syscfg) {}
+    cfg(cfg), task(std::move(task)), lib(std::move(lib)), dmx(std::move(dmx)) {}
 
 const auto SKIP_DEVICE_ERR = x::errors::Error("ni.skip_device", "");
 const std::size_t NO_DEVICES_LOG_MULTIPLIER = 12;
+const std::string MODEL_PREFIX = MAKE + " ";
+const std::regex IGNORED_MODEL("(cRIO|Unknown).*");
 
 std::pair<Device, x::errors::Error>
-Scanner::parse_device(NISysCfgResourceHandle resource) const {
+Scanner::parse_device(NISysCfgResourceHandle resource) {
     char property_value_buf[1024];
     Device dev;
     dev.make = MAKE;
@@ -73,7 +87,8 @@ Scanner::parse_device(NISysCfgResourceHandle resource) const {
         return {Device(), SKIP_DEVICE_ERR};
     }
     dev.model = property_value_buf;
-    if (dev.model.size() > 3) dev.model = dev.model.substr(3);
+    if (dev.model.starts_with(MODEL_PREFIX))
+        dev.model = dev.model.substr(MODEL_PREFIX.size());
     dev.name = MAKE + " " + dev.model;
 
     if (const auto err = this->syscfg->GetResourceIndexedProperty(
@@ -144,9 +159,10 @@ Scanner::parse_device(NISysCfgResourceHandle resource) const {
             << " provides=" << dev.provides_link_name;
 
     auto err = x::errors::NIL;
-    if (this->cfg.should_ignore(dev.model)) {
-        LOG(WARNING) << SCAN_LOG_PREFIX << "device ignored by filter: " << dev.key
-                     << " (model: " << dev.model << ")";
+    if (std::regex_match(dev.model, IGNORED_MODEL)) {
+        if (this->ignored_keys.insert(dev.key).second)
+            VLOG(1) << SCAN_LOG_PREFIX << "skipping " << dev.model << " (" << dev.key
+                    << "): model matches an ignored pattern";
         err = SKIP_DEVICE_ERR;
     } else {
         VLOG(1) << SCAN_LOG_PREFIX << "device validated successfully: " << dev.key
@@ -157,6 +173,12 @@ Scanner::parse_device(NISysCfgResourceHandle resource) const {
 
 std::pair<std::vector<synnax::device::Device>, x::errors::Error>
 Scanner::scan(const common::ScannerContext &ctx) {
+    if (this->filter == nullptr) {
+        if (const auto err = this->open()) {
+            this->close();
+            return {{}, err};
+        }
+    }
     NISysCfgEnumResourceHandle resources = nullptr;
     NISysCfgResourceHandle curr_resource = nullptr;
 
@@ -219,6 +241,7 @@ Scanner::scan(const common::ScannerContext &ctx) {
     std::vector<synnax::device::Device> devices;
     devices.reserve(ni_devices.size());
     for (auto &dev: ni_devices) {
+        this->read_hardware(dev, ctx);
         auto sy_dev = dev.to_synnax();
         if (auto it = parent_keys.find(dev.key); it != parent_keys.end())
             sy_dev.parent = synnax::device::ontology_id(it->second);
@@ -227,12 +250,56 @@ Scanner::scan(const common::ScannerContext &ctx) {
     return {devices, close_err};
 }
 
-x::errors::Error Scanner::stop() {
-    this->syscfg->CloseHandle(this->filter);
-    return this->syscfg->CloseHandle(this->session);
+namespace {
+/// @brief false when the stored hardware is absent, does not parse, or is incomplete.
+bool has_complete_hardware(const x::json::json::object_t &properties) {
+    const auto it = properties.find(HARDWARE_KEY);
+    if (it == properties.end()) return false;
+    x::json::Parser parser(it->second);
+    const auto hardware = ::synnax::ni::Hardware::parse(parser);
+    return parser.ok() && is_complete(hardware);
+}
 }
 
-x::errors::Error Scanner::start() {
+void Scanner::read_hardware(ni::Device &dev, const common::ScannerContext &ctx) {
+    if (ctx.devices != nullptr)
+        if (const auto it = ctx.devices->find(dev.key);
+            it != ctx.devices->end() && has_complete_hardware(it->second.properties))
+            return;
+    auto [dmx, err] = this->dmx->get();
+    if (!err) {
+        auto [hardware, probe_err] = probe(*dmx, dev.location);
+        err = probe_err;
+        if (!err) {
+            const bool complete = is_complete(hardware);
+            dev.hardware = std::move(hardware);
+            if (complete) {
+                this->unread_keys.erase(dev.key);
+                return;
+            }
+        }
+    }
+    std::ostringstream msg;
+    msg << SCAN_LOG_PREFIX << "failed to read the ";
+    if (err)
+        msg << "hardware of " << dev.location << ": " << err;
+    else
+        msg << "default terminal configuration of some ports of " << dev.location
+            << ". The next scan reads it again";
+    if (this->unread_keys.insert(dev.key).second)
+        LOG(WARNING) << msg.str();
+    else
+        VLOG(1) << msg.str();
+}
+
+x::errors::Error Scanner::stop() {
+    return this->close();
+}
+
+x::errors::Error Scanner::open() {
+    auto [syscfg, load_err] = this->lib->get();
+    if (load_err) return load_err;
+    this->syscfg = std::move(syscfg);
     if (const auto err = this->syscfg->InitializeSession(
             nullptr,
             nullptr,
@@ -268,5 +335,16 @@ x::errors::Error Scanner::start() {
         ))
         return err;
     return x::errors::NIL;
+}
+
+x::errors::Error Scanner::close() {
+    if (this->filter != nullptr) {
+        this->syscfg->CloseHandle(this->filter);
+        this->filter = nullptr;
+    }
+    if (this->session == nullptr) return x::errors::NIL;
+    const auto err = this->syscfg->CloseHandle(this->session);
+    this->session = nullptr;
+    return err;
 }
 }

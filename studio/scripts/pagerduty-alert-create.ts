@@ -9,8 +9,6 @@
 
 import { capture, fixtures } from "@/index";
 
-/** The form's own placeholder: 32 characters, never sent anywhere. */
-const ROUTING_KEY = "R022XIJR9M266DX570EVE6EXP1AFBN6D";
 const STATUS = "Engine 1";
 
 /**
@@ -35,9 +33,13 @@ export default async (session: capture.CaptureSession): Promise<void> => {
   // The form fills most of the panel, so zoom on a point at its center.
   await capture.zoomCenter(session, form, 1.4);
 
-  await session.click(form.getByPlaceholder(ROUTING_KEY).first());
+  // The key typed is the field's own placeholder, which is never sent anywhere.
+  const routingKey = form.locator("input[type=password]").first();
+  const key = await routingKey.getAttribute("placeholder");
+  if (key == null) throw new Error("The routing key field has no placeholder");
+  await session.click(routingKey);
   session.setSpeed(3);
-  await session.type(ROUTING_KEY, 60);
+  await session.type(key, 60);
   session.setSpeed(1);
   await session.hold(500);
 
@@ -47,12 +49,12 @@ export default async (session: capture.CaptureSession): Promise<void> => {
   await session.hold(600);
 
   await session.click(trigger, { text: true });
-  const search = page.locator(".pluto-select__dialog:visible input").first();
+  const search = page.locator(".lyra-select__dialog:visible input").first();
   await session.waitFor(search);
   await session.hold(400);
   await session.type(STATUS);
   const option = page
-    .locator(".pluto-select__dialog:visible .pluto-list__item")
+    .locator(".lyra-select__dialog:visible .lyra-list__item")
     .filter({ hasText: STATUS })
     .first();
   await session.waitFor(option);
@@ -63,9 +65,9 @@ export default async (session: capture.CaptureSession): Promise<void> => {
   await session.hold(600);
 
   const critical = form
-    .locator(".pluto-input__item")
+    .locator(".lyra-input__item")
     .filter({ has: page.getByText("Treat error as critical", { exact: true }) })
-    .locator(".pluto-input__switch")
+    .getByRole("checkbox")
     .first();
   await session.click(critical);
   await session.hold(600);

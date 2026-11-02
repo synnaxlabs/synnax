@@ -80,7 +80,9 @@ var _ = Describe("Reader", func() {
 					}
 				}
 				Expect(found).To(BeTrue())
-				Expect(iter2.Error()).To(HaveOccurred())
+				Expect(
+					iter2.Error(),
+				).To(MatchError(ContainSubstring("failed to decode")))
 				Expect(iter2.Close()).To(Succeed())
 
 				cleanupTx := kvDB.OpenTx()

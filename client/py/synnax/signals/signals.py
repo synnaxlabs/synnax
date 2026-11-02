@@ -13,14 +13,14 @@ from collections.abc import Callable
 from dataclasses import dataclass
 
 from synnax import channel, framer
-from synnax.state import LatestState, State
+from synnax.state import Latest, State
 
 
 @dataclass
 class _Handler:
     channels: set[channel.Key]
-    filter: Callable[[LatestState], bool]
-    f: Callable[[LatestState], None]
+    filter: Callable[[Latest], bool]
+    f: Callable[[Latest], None]
 
 
 class Registry:
@@ -29,7 +29,7 @@ class Registry:
     _frame_client: framer.Client
     _channel_retriever: channel.Retriever
 
-    def __init__(self, frame_client: framer.Client, channels: channel.Retriever):
+    def __init__(self, *, frame_client: framer.Client, channels: channel.Retriever):
         self._handlers = []
         self._channels = []
         self._frame_client = frame_client
@@ -38,8 +38,9 @@ class Registry:
     def on(
         self,
         channels: channel.Params,
-        filter_f: Callable[[LatestState], bool],
-    ) -> Callable[[Callable[[LatestState], None]], Callable[[LatestState], None]]:
+        *,
+        filter_f: Callable[[Latest], bool],
+    ) -> Callable[[Callable[[Latest], None]], Callable[[Latest], None]]:
         """Registers the decorated function to run when filter_f passes.
 
         filter_f runs on each frame that holds one of the channels, once every channel
@@ -57,8 +58,8 @@ class Registry:
         self._channels.extend(keys)
 
         def decorator(
-            f: Callable[[LatestState], None],
-        ) -> Callable[[LatestState], None]:
+            f: Callable[[Latest], None],
+        ) -> Callable[[Latest], None]:
             self._handlers.append(_Handler(channels=keys, filter=filter_f, f=f))
             return f
 
@@ -74,7 +75,7 @@ class Registry:
         ) as streamer:
             async for frame in streamer:
                 state.update(frame)
-                latest = LatestState(state)
+                latest = Latest(state)
                 for h in self._handlers:
                     if (
                         any(key in frame for key in h.channels)

@@ -1,0 +1,256 @@
+---
+layout: "@/layouts/Reference.astro"
+title: "Install a standalone Driver"
+description:
+  "Install the Synnax Driver on a computer other than the Core, log it in to the Core,
+  and start it."
+---
+
+import { Divider } from "@synnaxlabs/lyra/divider";
+import { Note } from "@/components/note";
+import { Driver } from "@/components/driver";
+import Step from "@/components/text/Step.astro";
+import { mdxOverrides } from "@/components/mdxOverrides";
+export const components = mdxOverrides;
+
+Each Core includes the [Driver](/reference/hardware), which connects the devices on the
+Core's computer. To connect devices on a different computer, install a standalone Driver
+on that computer. It connects to one Core over the network.
+
+<Divider.Divider x />
+
+## <Step step="1" level="h2">Install the Driver</Step>
+
+<Driver.Tabs>
+<Fragment slot="ni-linux-rt">
+
+Before you install:
+
+- Set the data acquisition modules of the controller to the NI-DAQmx real-time
+  programming mode in NI MAX. See the
+  [NI CompactRIO user manual](https://www.ni.com/docs/en-US/bundle/ni-compactrio/page/programming-modes.html).
+- Turn on SSH on the controller. You can turn it off after you install the Driver.
+
+Open an SSH connection to the controller and log in as `admin`. On NI Linux Real-Time,
+`admin` is root, so the commands on this page need no `sudo` there. Run:
+
+<Driver.DownloadURL os="ni-linux-rt" />
+
+The script installs the Driver as a service and starts it. The service also starts each
+time the controller starts. The Driver runs as root.
+
+</Fragment>
+<Fragment slot="Linux">
+
+<Note.Note variant="info">
+  The Driver needs a recent glibc. See
+  [Requirements](/reference/enterprise/requirements) for the supported Linux versions.
+</Note.Note>
+
+Download the Driver:
+
+<Driver.DownloadURL os="linux" />
+
+Move it into a folder on your `PATH`, and make it executable:
+
+<Driver.MoveCommand os="linux" />
+
+```bash
+sudo chmod +x /usr/local/bin/synnax-driver
+```
+
+Install the systemd service:
+
+```bash
+sudo synnax-driver install
+```
+
+The `install` command creates a `synnax` system user, the empty environment file
+`/etc/synnax/driver.env`, and the `synnax-driver` service. It does not start the
+service. It gives the service real-time permission and writes the udev rule
+`/etc/udev/rules.d/99-synnax-driver-latency.rules`, so Arc automations can run with
+[precise timing](/reference/control/arc/timing?platform=Linux#get-the-best-timing-from-a-computer).
+For [EtherCAT](/reference/hardware/ethercat/configure-device#network-interface-access),
+it gives the service raw Ethernet access and writes the udev rule
+`/etc/udev/rules.d/99-synnax-driver-ethercat.rules`. After you upgrade the Driver, run
+`sudo synnax-driver install` again.
+
+</Fragment>
+<Fragment slot="Windows">
+
+Download the Driver:
+
+<Driver.DownloadURL os="windows" />
+
+Move `synnax-driver.exe` to a permanent folder, such as `C:\Program Files\Synnax\`. Then
+add that folder to the `Path` system environment variable, so that each terminal can run
+`synnax-driver`. Then open a new terminal.
+
+</Fragment>
+<Fragment slot="macOS">
+
+Download the Driver:
+
+<Driver.DownloadURL os="macos" />
+
+Move it into a folder on your `PATH`, and make it executable:
+
+<Driver.MoveCommand os="macos" />
+
+```bash
+sudo chmod +x /usr/local/bin/synnax-driver
+```
+
+</Fragment>
+</Driver.Tabs>
+
+Check the installation:
+
+```bash
+synnax-driver version
+```
+
+The output ends with the version:
+
+<Driver.VersionOutput />
+
+<Divider.Divider x />
+
+## <Step step="2" level="h2">Log in to the Core</Step>
+
+You need the username and password of a user who can create racks. Run `login`. On
+Linux, run it with `sudo`. On NI Linux Real-Time, run it as `admin` with no `sudo`:
+
+```bash
+sudo synnax-driver login
+```
+
+The command asks for the address of the Core, and checks that it can reach the Core.
+Then it asks for the username and the password:
+
+```
+Host [localhost]: 10.0.0.45
+Port [9090]:
+Secure (Y/N) [N]:
+Username: driver
+Password:
+```
+
+The command then creates a rack for the Driver and an API key for that rack. It saves
+only the API key, never the password, and the Driver logs in as its rack with the key.
+When the output shows `API key saved successfully!`, the Driver is logged in.
+
+An upgraded Driver that saved a username and password does this at its first start, and
+keeps its rack. If that user cannot create racks, the Driver logs the warning
+`Failed to enroll Driver`, and keeps logging in with the password. To fix it, run
+`login` as a user that can create racks, or create an API key for the rack in the
+Console and set it as `api_key` in the
+[configuration](/reference/enterprise/driver/configuration#parameters).
+
+### Log in to a Core that uses TLS
+
+Answer `Y` to `Secure` when the Core uses TLS, and give the host name of the
+certificate, not an IP address. A certificate from a public authority, such as Let's
+Encrypt, needs no more setup.
+
+For a certificate from your own authority, or from a Core that runs with `--auto-cert`:
+
+- **Linux, NI Linux Real-Time, and Windows** -> add the CA certificate to the trust
+  store of the operating system. See
+  [Install certificates](/reference/enterprise/certificates).
+- **macOS** -> the Driver does not read the macOS keychain. See the macOS tab of
+  [Install the certificate](/reference/enterprise/certificates?platform=macOS#install-the-certificate).
+  Set `GRPC_DEFAULT_SSL_ROOTS_FILE_PATH` in the shell that runs `login` and `start`.
+
+On Linux and NI Linux Real-Time, you can instead set the same variable in
+`/etc/synnax/driver.env`, before you run `login`. See
+[Environment file](/reference/enterprise/driver/configuration#environment-file). The
+Driver then trusts only the certificates in that file.
+
+<Divider.Divider x />
+
+## <Step step="3" level="h2">Start the Driver</Step>
+
+<Driver.Tabs>
+<Fragment slot="ni-linux-rt">
+
+The Driver started before you logged in, so restart it:
+
+```bash
+synnax-driver restart
+```
+
+</Fragment>
+<Fragment slot="Linux">
+
+Set the service to start when the computer starts, then start it:
+
+```bash
+sudo systemctl enable synnax-driver
+sudo synnax-driver start
+```
+
+</Fragment>
+<Fragment slot="Windows">
+
+The Driver has no service on Windows. Run it in a terminal, and keep the terminal open:
+
+```powershell
+synnax-driver start --standalone
+```
+
+</Fragment>
+<Fragment slot="macOS">
+
+The Driver has no service on macOS. Run it in a terminal, and keep the terminal open:
+
+```bash
+synnax-driver start --standalone
+```
+
+</Fragment>
+</Driver.Tabs>
+
+<Divider.Divider x />
+
+## <Step step="4" level="h2">Check the Driver</Step>
+
+<Driver.Tabs>
+<Fragment slot="ni-linux-rt">
+
+Check the service:
+
+```bash
+synnax-driver status
+```
+
+A running Driver prints:
+
+```
+Synnax Driver is running (PID: 28191)
+```
+
+</Fragment>
+<Fragment slot="Linux">
+
+Check the service:
+
+```bash
+synnax-driver status
+```
+
+</Fragment>
+<Fragment slot="Windows">
+
+The terminal that runs the Driver shows its logs.
+
+</Fragment>
+<Fragment slot="macOS">
+
+The terminal that runs the Driver shows its logs.
+
+</Fragment>
+</Driver.Tabs>
+
+The Driver shows in the devices toolbar under the host name of its computer. To connect
+devices to it, see [Devices](/reference/hardware/devices).

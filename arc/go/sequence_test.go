@@ -122,7 +122,7 @@ var _ = Describe("Sequence", func() {
 	// steps maps every native function without outputs to a call that runs it.
 	Describe("Native steps without outputs", func() {
 		steps := map[string]string{
-			"control.set_authority": "control.set_authority{value=200}",
+			"control.set_authority": "control.set_authority(value=200)",
 		}
 		names := slices.Sorted(maps.Keys(steps))
 
@@ -302,7 +302,7 @@ var _ = Describe("Sequence", func() {
 				h := newRuntimeHarness(ctx, `import time
 				sequence main {
 				    sequence pause {
-				        time.wait{100ms}
+				        time.wait(100ms)
 				    }
 				    "done" -> log
 				}
@@ -335,7 +335,7 @@ var _ = Describe("Sequence", func() {
 				    stage monitor {
 				        sequence {
 				            "ramp start" -> log
-				            time.wait{100ms}
+				            time.wait(100ms)
 				            "ramp done" -> log
 				        }
 				        trigger == 1 => next
@@ -408,11 +408,11 @@ var _ = Describe("Sequence", func() {
 				    }
 				    stage hold {
 				        "hold" -> log
-				        time.wait{100ms} -> 50 > 40 => next
+				        time.wait(100ms) -> 50 > 40 => next
 				    }
 				    stage {
 				        "inline" -> log
-				        time.wait{100ms} => pressurize
+				        time.wait(100ms) => pressurize
 				    }
 				}
 				1 => main`, resolver,
@@ -444,7 +444,7 @@ var _ = Describe("Sequence", func() {
 				sequence main {
 				    stage a {
 				        "a" -> log
-				        time.interval{50ms} => next
+				        time.interval(50ms) => next
 				    }
 				    stage b {
 				        "b" -> log
@@ -560,11 +560,11 @@ var _ = Describe("Sequence", func() {
 				h := newRuntimeHarness(ctx, `import time
 				sequence main {
 				    sequence s1 {
-				        time.wait{100ms}
+				        time.wait(100ms)
 				        "tick" -> log
 				    }
 				    stage s2 {
-				        time.wait{100ms} => s1
+				        time.wait(100ms) => s1
 				    }
 				}
 				1 => main`, resolver,
@@ -596,7 +596,7 @@ var _ = Describe("Sequence", func() {
 				})
 				h := newRuntimeHarness(ctx, `
 				sequence main {
-				    trigger -> select{} -> {
+				    trigger -> select() -> {
 				        true: sequence {
 				            "case" -> log
 				        }
@@ -625,7 +625,7 @@ var _ = Describe("Sequence", func() {
 				})
 				h := newRuntimeHarness(ctx, `
 				sequence main {
-				    trigger -> select{} -> {
+				    trigger -> select() -> {
 				        true: stage {
 				            "case" -> log
 				        }
@@ -1166,7 +1166,7 @@ var _ = Describe("Sequence", func() {
 				h := newRuntimeHarness(ctx, `
 				sequence main {
 				    1 -> valve_cmd
-				    wait{500ms}
+				    wait(500ms)
 				    0 -> valve_cmd
 				}
 				start_cmd => main`, resolver,
@@ -1225,9 +1225,9 @@ var _ = Describe("Sequence", func() {
 				    return "ox_alarm"
 				}
 				sequence main {
-				    make_key{}
-				    make_key{}
-				    make_key{}
+				    make_key()
+				    make_key()
+				    make_key()
 				    1 -> done
 				}
 				start_cmd => main`, resolver,
@@ -1326,7 +1326,7 @@ var _ = Describe("Sequence", func() {
 					"press_pt":      {types.F32(), 103},
 				})
 				h := newRuntimeHarness(ctx, `
-				func bang{ sensor chan f32, set_point f32 } () u8 {
+				func bang( sensor chan f32, set_point f32 ) u8 {
 				    state u8 $= 0
 				    if sensor < set_point {
 				        state = 1
@@ -1337,7 +1337,7 @@ var _ = Describe("Sequence", func() {
 				}
 				sequence main {
 				    stage start {
-				        interval{200ms} -> bang{sensor=press_pt, set_point=50} -> press_vlv_cmd
+				        interval(200ms) -> bang(sensor=press_pt, set_point=50) -> press_vlv_cmd
 				        stop_cmd => yield
 				    }
 				    stage yield {
@@ -1390,7 +1390,7 @@ var _ = Describe("Sequence", func() {
 				sequence main {
 				    stage on {
 				        1 -> toggle_cmd
-				        wait{500ms} => off
+				        wait(500ms) => off
 				    }
 				    stage off {
 				        0 -> toggle_cmd
@@ -2258,14 +2258,14 @@ var _ = Describe("Sequence", func() {
 				})
 				h := newRuntimeHarness(ctx, `
 				sequence {
-				    wait{2s}
+				    wait(2s)
 				    sequence {
 				        1 -> press_vlv_cmd
-				        wait{250ms}
+				        wait(250ms)
 				        0 -> press_vlv_cmd
-				        wait{250ms}
+				        wait(250ms)
 				        1 -> vent_vlv_cmd
-				        wait{250ms}
+				        wait(250ms)
 				        0 -> vent_vlv_cmd
 				    }
 				}`, resolver,
@@ -2349,10 +2349,10 @@ var _ = Describe("Sequence", func() {
 				h := newRuntimeHarness(ctx, `
 				sequence {
 				    stage cat {
-				        wait{2s} => next
+				        wait(2s) => next
 				    }
 				    sequence puff {
-				        wait{2s}
+				        wait(2s)
 				        1 -> ox_mpv_cmd
 				    }
 				}`, resolver,
@@ -2416,7 +2416,7 @@ var _ = Describe("Sequence", func() {
 				sequence {
 				    stage cat {
 				        sequence {
-				            wait{1s} => after
+				            wait(1s) => after
 				        }
 				    }
 				    sequence after {
@@ -2458,7 +2458,7 @@ var _ = Describe("Sequence", func() {
 				sequence main {
 				    stage a {
 				        sequence {
-				            wait{500ms} => b
+				            wait(500ms) => b
 				        }
 				    }
 				    stage b {
@@ -2564,7 +2564,7 @@ var _ = Describe("Sequence", func() {
 	})
 
 	Describe("Inline routing case body lifetime", func() {
-		// mk builds `trigger -> select{} -> { true: <body> }` inside a stage,
+		// mk builds `trigger -> select() -> { true: <body> }` inside a stage,
 		// so <body> is entered once when trigger fires select's true output.
 		mk := func(ctx SpecContext, body string) *runtimeHarness {
 			GinkgoHelper()
@@ -2574,7 +2574,7 @@ var _ = Describe("Sequence", func() {
 				"cpu":       {types.F64(), 102},
 				"out":       {types.Bool(), 103},
 			})
-			prog := "\nsequence WU {\n stage watcher {\n trigger -> select{} -> {\n true: " + body + "\n }\n }\n}\nstart_cmd => WU"
+			prog := "\nsequence WU {\n stage watcher {\n trigger -> select() -> {\n true: " + body + "\n }\n }\n}\nstart_cmd => WU"
 			return newRuntimeHarness(ctx, prog, resolver,
 				channels.Digest{Key: 100, DataType: telem.Uint8T},
 				channels.Digest{Key: 101, DataType: telem.BooleanT},
@@ -2660,11 +2660,11 @@ var _ = Describe("Sequence", func() {
 	})
 
 	Describe("Routing table => transitions", func() {
-		// select{} routes flag to one of two sibling stages via `=>`.
+		// select() routes flag to one of two sibling stages via `=>`.
 		selectProg := `
 			sequence WU {
 			    stage router {
-			        flag -> select{} -> {
+			        flag -> select() -> {
 			            true: 1 => high_stage,
 			            false: 1 => low_stage
 			        }
@@ -2706,7 +2706,7 @@ var _ = Describe("Sequence", func() {
 
 		// A custom 3-output router jumps to one of three sibling stages.
 		routerProg := `
-			func route{} (v f64) (lo u8, mid u8, hi u8) {
+			func route() {v f64} (lo u8, mid u8, hi u8) {
 			    if v < 10.0 {
 			        lo = 1
 			    } else if v < 20.0 {
@@ -2717,7 +2717,7 @@ var _ = Describe("Sequence", func() {
 			}
 			sequence WU {
 			    stage router {
-			        signal -> route{} -> {
+			        signal -> route() -> {
 			            lo: 1 => lo_stage,
 			            mid: 1 => mid_stage,
 			            hi: 1 => hi_stage
@@ -2777,7 +2777,7 @@ var _ = Describe("Sequence", func() {
 				})
 				h := newRuntimeHarness(ctx, `
 				stage {
-				    flag -> select{} -> {
+				    flag -> select() -> {
 				        true: stage { 1 -> true_out },
 				        false: stage { 1 -> false_out }
 				    }
@@ -2810,7 +2810,7 @@ var _ = Describe("Sequence", func() {
 				start_cmd => main
 
 				stage main {
-				    flag -> select{} -> {
+				    flag -> select() -> {
 				        true: stage { 1 -> true_out }
 				    }
 				}`, resolver,
@@ -2846,7 +2846,7 @@ var _ = Describe("Sequence", func() {
 				})
 				h := newRuntimeHarness(ctx, `
 				stage {
-				    flag -> select{} -> {
+				    flag -> select() -> {
 				        true: sequence {
 				            1 -> out_a
 				            2 -> out_b
@@ -2881,7 +2881,7 @@ var _ = Describe("Sequence", func() {
 				start_cmd => main
 
 				sequence main {
-				    flag -> select{} -> {
+				    flag -> select() -> {
 				        true: stage { 1 -> true_out }
 				    }
 				}`, resolver,
@@ -2915,7 +2915,7 @@ var _ = Describe("Sequence", func() {
 
 				sequence main {
 				    stage first_stage {
-				        flag -> select{} -> {
+				        flag -> select() -> {
 				            true: stage {
 				                1 -> first_out,
 				                1 -> second_stage
@@ -2959,7 +2959,7 @@ var _ = Describe("Sequence", func() {
 
 				sequence main {
 				    stage first {
-				        flag -> select{} -> {
+				        flag -> select() -> {
 				            true: stage { 1 -> following_stage }
 				        }
 				    }
@@ -2998,7 +2998,7 @@ var _ = Describe("Sequence", func() {
 
 				sequence main {
 				    stage first {
-				        flag -> select{} -> {
+				        flag -> select() -> {
 				            true: stage { 1 -> inline_out }
 				        }
 				    }
@@ -3039,9 +3039,9 @@ var _ = Describe("Sequence", func() {
 
 				sequence main {
 				    stage hold {
-				        true -> select{} -> {
+				        true -> select() -> {
 				            true: stage {
-				                true -> select{} -> {
+				                true -> select() -> {
 				                    true: stage { 1 -> inner_out }
 				                }
 				            }
@@ -3073,11 +3073,11 @@ var _ = Describe("Sequence", func() {
 
 				sequence main {
 				    stage hold {
-				        true -> select{} -> {
+				        true -> select() -> {
 				            true: stage {
-				                true -> select{} -> {
+				                true -> select() -> {
 				                    true: stage {
-				                        true -> select{} -> {
+				                        true -> select() -> {
 				                            true: stage { 1 -> innermost_out }
 				                        }
 				                    }
@@ -3111,13 +3111,13 @@ var _ = Describe("Sequence", func() {
 
 				sequence main {
 				    stage hold {
-				        true -> select{} -> {
+				        true -> select() -> {
 				            true: stage {
-				                true -> select{} -> {
+				                true -> select() -> {
 				                    true: stage {
-				                        true -> select{} -> {
+				                        true -> select() -> {
 				                            true: stage {
-				                                true -> select{} -> {
+				                                true -> select() -> {
 				                                    true: stage { 1 -> innermost_out }
 				                                }
 				                            }
@@ -3495,7 +3495,7 @@ var _ = Describe("Sequence", func() {
 				sequence main {
 				    stage hold {
 				        1 -> stage {
-				            true -> select{} -> {
+				            true -> select() -> {
 				                true: stage { 1 -> inner_out }
 				            }
 				        }
@@ -3526,7 +3526,7 @@ var _ = Describe("Sequence", func() {
 
 				sequence main {
 				    stage hold {
-				        true -> select{} -> {
+				        true -> select() -> {
 				            true: stage {
 				                1 -> stage { 1 -> inner_out }
 				            }
@@ -3559,7 +3559,7 @@ var _ = Describe("Sequence", func() {
 				sequence main {
 				    stage hold {
 				        1 -> stage {
-				            true -> select{} -> {
+				            true -> select() -> {
 				                true: stage {
 				                    1 -> stage { 1 -> innermost_out }
 				                }
@@ -3882,7 +3882,7 @@ var _ = Describe("Sequence", func() {
 				func emit() {
 				    out = 7
 				}
-				interval{50ms} -> emit{}`, resolver,
+				interval(50ms) -> emit()`, resolver,
 					channels.Digest{Key: 100, DataType: telem.Float32T},
 				)
 				defer h.Close(ctx)
@@ -3901,10 +3901,10 @@ var _ = Describe("Sequence", func() {
 					"out":    {types.F32(), 101},
 				})
 				h := newRuntimeHarness(ctx, `
-				func dbl(v f32) f32 {
+				func dbl() {v f32} f32 {
 				    return v * 2
 				}
-				sensor -> dbl{} -> out`, resolver,
+				sensor -> dbl() -> out`, resolver,
 					channels.Digest{Key: 100, DataType: telem.Float32T},
 					channels.Digest{Key: 101, DataType: telem.Float32T},
 				)
@@ -3977,7 +3977,7 @@ var _ = Describe("Sequence", func() {
 				    n = n + 1
 				    count = n
 				}
-				trigger -> bump{}`, resolver,
+				trigger -> bump()`, resolver,
 				channels.Digest{Key: 100, DataType: telem.Uint8T},
 				channels.Digest{Key: 101, DataType: telem.Uint8T},
 				channels.Digest{Key: 102, DataType: telem.Uint8T},
@@ -4015,15 +4015,15 @@ var _ = Describe("Sequence", func() {
 				    nested_2(sensor)
 				}
 
-				func nested_3(val f32) {
+				func nested_3() {val f32} {
 				    out = val
 				}
 
-				func nested_2(val f32) {
+				func nested_2() {val f32} {
 				    nested_3(val)
 				}
 
-				interval{20ms} -> nested_1{}`, resolver,
+				interval(20ms) -> nested_1()`, resolver,
 					channels.Digest{Key: 100, DataType: telem.Float32T},
 					channels.Digest{Key: 101, DataType: telem.Float32T},
 				)
@@ -4044,13 +4044,13 @@ var _ = Describe("Sequence", func() {
 					"log":       {types.String(), 101},
 				})
 				h := newRuntimeHarness(ctx, `
-				func event_log{msg str} () {
+				func event_log(msg str) {
 				    log = msg
 				}
 
 				sequence main {
 				    stage a {
-				        event_log{"pressurizing"}
+				        event_log("pressurizing")
 				    }
 				}
 				start_cmd => main`, resolver,
@@ -4222,14 +4222,14 @@ var _ = Describe("Sequence", func() {
 					"count":     {types.U8(), 104},
 				})
 				h := newRuntimeHarness(ctx, `
-				func bump(v u8) u8 {
+				func bump() {v u8} u8 {
 				    n u8 $= 0
 				    n = n + 1
 				    return n
 				}
 				sequence main {
 				    stage a {
-				        tick -> bump{} -> count
+				        tick -> bump() -> count
 				        go_b => b
 				    }
 				    stage b {
@@ -4283,14 +4283,14 @@ var _ = Describe("Sequence", func() {
 					"count":     {types.U8(), 102},
 				})
 				h := newRuntimeHarness(ctx, `
-				func bump(v u8) u8 {
+				func bump() {v u8} u8 {
 				    n u8 $= 0
 				    n = n + 1
 				    return n
 				}
 				sequence main {
 				    stage a {
-				        tick -> bump{} -> count
+				        tick -> bump() -> count
 				    }
 				}
 				start_cmd => main`, resolver,
@@ -4323,14 +4323,14 @@ var _ = Describe("Sequence", func() {
 					"count":     {types.U8(), 104},
 				})
 				h := newRuntimeHarness(ctx, `
-				func bump(v u8) u8 {
+				func bump() {v u8} u8 {
 				    n u8 $= 0
 				    n = n + 1
 				    return n
 				}
 				sequence main {
 				    stage a {
-				        tick -> bump{} -> count
+				        tick -> bump() -> count
 				        go_b => b
 				    }
 				    stage b {
@@ -4385,7 +4385,7 @@ var _ = Describe("Sequence", func() {
 					"sum_out":   {types.F32(), 104},
 				})
 				h := newRuntimeHarness(ctx, `
-				func accumulate(v u8) f32 {
+				func accumulate() {v u8} f32 {
 				    count u8 $= 0
 				    total f32 $= 0.0
 				    scale i64 $= 10
@@ -4395,7 +4395,7 @@ var _ = Describe("Sequence", func() {
 				}
 				sequence main {
 				    stage a {
-				        tick -> accumulate{} -> sum_out
+				        tick -> accumulate() -> sum_out
 				        go_b => b
 				    }
 				    stage b {
@@ -4450,14 +4450,14 @@ var _ = Describe("Sequence", func() {
 					"log":       {types.String(), 104},
 				})
 				h := newRuntimeHarness(ctx, `
-				func trail(v u8) str {
+				func trail() {v u8} str {
 				    acc str $= "x"
 				    acc = acc + "x"
 				    return acc
 				}
 				sequence main {
 				    stage a {
-				        tick -> trail{} -> log
+				        tick -> trail() -> log
 				        go_b => b
 				    }
 				    stage b {
@@ -4513,21 +4513,21 @@ var _ = Describe("Sequence", func() {
 					"free_out":   {types.U8(), 105},
 				})
 				h := newRuntimeHarness(ctx, `
-				func bump(v u8) u8 {
+				func bump() {v u8} u8 {
 				    n u8 $= 0
 				    n = n + 1
 				    return n
 				}
 				sequence main {
 				    stage a {
-				        tick -> bump{} -> staged_out
+				        tick -> bump() -> staged_out
 				        go_b => b
 				    }
 				    stage b {
 				        go_a => a
 				    }
 				}
-				tick -> bump{} -> free_out
+				tick -> bump() -> free_out
 				start_cmd => main`, resolver,
 					channels.Digest{Key: 100, DataType: telem.Uint8T},
 					channels.Digest{Key: 101, DataType: telem.Uint8T},
@@ -4575,7 +4575,7 @@ var _ = Describe("Sequence", func() {
 					"count":     {types.U8(), 104},
 				})
 				h := newRuntimeHarness(ctx, `
-				func bump(v u8) u8 {
+				func bump() {v u8} u8 {
 				    n u8 $= 0
 				    n = n + 1
 				    return n
@@ -4584,7 +4584,7 @@ var _ = Describe("Sequence", func() {
 				    stage outer {
 				        sequence {
 				            stage inner1 {
-				                tick -> bump{} -> count
+				                tick -> bump() -> count
 				                go_inner2 => inner2
 				            }
 				            stage inner2 {
@@ -4636,7 +4636,7 @@ var _ = Describe("Sequence", func() {
 		// at 102ms. At 550ms a stale startTime (1ms) fires the wait, and a reset one
 		// (102ms) does not. A reset wait fires at 602ms.
 		It(
-			"wait{} countdown restarts when its stage is re-entered",
+			"wait() countdown restarts when its stage is re-entered",
 			func(ctx SpecContext) {
 				resolver := channelSymbols(map[string]channelDef{
 					"start_cmd":  {types.U8(), 100},
@@ -4649,7 +4649,7 @@ var _ = Describe("Sequence", func() {
 				sequence main {
 				    stage a {
 				        1 -> heartbeat
-				        wait{500ms} => done
+				        wait(500ms) => done
 				        abort_cmd => parked
 				    }
 				    stage parked {
@@ -4738,7 +4738,7 @@ var _ = Describe("Sequence", func() {
 		//   - lastFired = 10ms < 100ms, no fire.
 		// The assertion on the re-entry tick distinguishes the two cases.
 		It(
-			"interval{} cadence restarts when its stage is re-entered",
+			"interval() cadence restarts when its stage is re-entered",
 			func(ctx SpecContext) {
 				resolver := channelSymbols(map[string]channelDef{
 					"start_cmd":  {types.U8(), 100},
@@ -4749,7 +4749,7 @@ var _ = Describe("Sequence", func() {
 				h := newRuntimeHarness(ctx, `
 				sequence main {
 				    stage a {
-				        interval{100ms} -> pulse
+				        interval(100ms) -> pulse
 				        abort_cmd => parked
 				    }
 				    stage parked {
@@ -5221,7 +5221,7 @@ var _ = Describe("Sequence", func() {
 				        counter $= 0
 				        1 => counter + 1 => counter
 				        str(counter) => log
-				        time.wait{100ms} => next
+				        time.wait(100ms) => next
 				    }
 				    stage s2 {
 				        1 => s1
@@ -6379,7 +6379,7 @@ var _ = Describe("Sequence", func() {
 				        counter := 0
 				        1 => counter + 1 => counter
 				        str(counter) => log
-				        time.wait{100ms} => next
+				        time.wait(100ms) => next
 				    }
 				    stage s2 {
 				        1 => s1
@@ -6410,7 +6410,7 @@ var _ = Describe("Sequence", func() {
 				        counter $= 0
 				        1 => counter + 1 => counter
 				        str(counter) => log
-				        time.wait{100ms} => next
+				        time.wait(100ms) => next
 				    }
 				    stage s2 {
 				        1 => s1
@@ -6443,7 +6443,7 @@ var _ = Describe("Sequence", func() {
 				        str(counter) => log
 				    }
 				    stage s2 {
-				        time.wait{100ms} => s1
+				        time.wait(100ms) => s1
 				    }
 				}
 				1 => main`, resolver,
@@ -6475,7 +6475,7 @@ var _ = Describe("Sequence", func() {
 				        1 => counter_s + 1 => counter_s
 				        str(counter_c) => log_c
 				        str(counter_s) => log_s
-				        time.wait{100ms} => next
+				        time.wait(100ms) => next
 				    }
 				    stage s2 {
 				        1 => s1
@@ -6886,7 +6886,7 @@ var _ = Describe("Sequence", func() {
     stage main {
         x u8 := 3
         set_ch -> x
-        time.interval{50ms} -> `+`f"v={x}"`+` -> out
+        time.interval(50ms) -> `+`f"v={x}"`+` -> out
     }
     1 -> main`)
 			defer h.Close(ctx)
@@ -6907,14 +6907,14 @@ var _ = Describe("Sequence", func() {
 	// each fire; the node fires only on its own trigger.
 	Describe("Variable brace inputs", func() {
 		src := `
-    func echo{tag str} (n u8) str {
+    func echo(tag str) {n u8} str {
         return tag
     }
     sequence main {
         v str := "initial"
         stage s1 {
             tag_ch -> v
-            go_ch -> echo{tag=v} -> echo_out
+            go_ch -> echo(tag=v) -> echo_out
         }
     }
     start_cmd => main`
@@ -6986,14 +6986,14 @@ var _ = Describe("Sequence", func() {
 
 	Describe("Stateful variable brace inputs", func() {
 		src := `
-    func echo{tag str} (n u8) str {
+    func echo(tag str) {n u8} str {
         return tag
     }
     sequence main {
         stage s1 {
             acc str $= "initial"
             tag_ch -> acc
-            go_ch -> echo{tag=acc} -> echo_out
+            go_ch -> echo(tag=acc) -> echo_out
             hop_ch >= 1 => s2
         }
         stage s2 {
@@ -7131,12 +7131,12 @@ var _ = Describe("Sequence", func() {
 
 		It("reads the latest channel data at each fire", func(ctx SpecContext) {
 			run(ctx, `
-    func reader{channel chan f32} (n u8) f32 {
+    func reader(channel chan f32) {n u8} f32 {
         return channel
     }
     sequence main {
         stage s1 {
-            go_ch -> reader{channel=data_ch} -> reader_out
+            go_ch -> reader(channel=data_ch) -> reader_out
         }
     }
     start_cmd => main`)
@@ -7144,13 +7144,13 @@ var _ = Describe("Sequence", func() {
 
 		It("reads the latest data through a channel alias", func(ctx SpecContext) {
 			run(ctx, `
-    func reader{channel chan f32} (n u8) f32 {
+    func reader(channel chan f32) {n u8} f32 {
         return channel
     }
     sequence main {
         a := data_ch
         stage s1 {
-            go_ch -> reader{channel=a} -> reader_out
+            go_ch -> reader(channel=a) -> reader_out
         }
     }
     start_cmd => main`)
@@ -7171,12 +7171,12 @@ var _ = Describe("Sequence", func() {
 
 		It("writes each value to the channel", func(ctx SpecContext) {
 			runWrite(ctx, `
-    func writer{channel chan f32} (value f32) {
+    func writer(channel chan f32) {value f32} {
         channel = value
     }
     sequence main {
         stage s1 {
-            data_ch -> writer{channel=sink_ch}
+            data_ch -> writer(channel=sink_ch)
         }
     }
     start_cmd => main`)
@@ -7184,13 +7184,13 @@ var _ = Describe("Sequence", func() {
 
 		It("writes each value through a channel alias", func(ctx SpecContext) {
 			runWrite(ctx, `
-    func writer{channel chan f32} (value f32) {
+    func writer(channel chan f32) {value f32} {
         channel = value
     }
     sequence main {
         w := sink_ch
         stage s1 {
-            data_ch -> writer{channel=w}
+            data_ch -> writer(channel=w)
         }
     }
     start_cmd => main`)
@@ -7207,18 +7207,18 @@ var _ = Describe("Sequence", func() {
 					"hop_ch":    {types.U8(), 334},
 				})
 				h := newRuntimeHarness(ctx, `
-    func writer{channel chan f32} (value f32) {
+    func writer(channel chan f32) {value f32} {
         channel = value
     }
     sequence main {
         w := sink_a
         stage s1 {
-            data_ch -> writer{channel=w}
+            data_ch -> writer(channel=w)
             hop_ch >= 1 => s2
         }
         stage s2 {
             w = sink_b
-            data_ch -> writer{channel=w}
+            data_ch -> writer(channel=w)
         }
     }
     start_cmd => main`, resolver,
@@ -7250,14 +7250,14 @@ var _ = Describe("Sequence", func() {
 			"reads through the rebound channel, not the declared one",
 			func(ctx SpecContext) {
 				h := newH(ctx, `
-    func reader{channel chan f32} (n u8) f32 {
+    func reader(channel chan f32) {n u8} f32 {
         return channel
     }
     sequence main {
         a := data_ch
         stage s1 {
             a = data2_ch
-            go_ch -> reader{channel=a} -> reader_out
+            go_ch -> reader(channel=a) -> reader_out
         }
     }
     start_cmd => main`)
@@ -7286,8 +7286,8 @@ var _ = Describe("Sequence", func() {
     sequence main {
         rate := i64 ns(100ms)
         stage s1 {
-            interval{rate} -> tick_ch
-            wait{1s} -> sequence {
+            interval(rate) -> tick_ch
+            wait(1s) -> sequence {
                 rate = i64 ns(2s)
             }
         }
@@ -7338,10 +7338,10 @@ var _ = Describe("Sequence", func() {
     sequence main {
         hold := i64 ns(5s)
         stage s1 {
-            wait{300ms} -> sequence {
+            wait(300ms) -> sequence {
                 hold = i64 ns(1s)
             }
-            wait{duration=hold} -> done_ch
+            wait(duration=hold) -> done_ch
         }
     }
     start_cmd => main`, resolver,
@@ -7375,10 +7375,10 @@ var _ = Describe("Sequence", func() {
     sequence main {
         hold := i64 ns(500ms)
         stage s1 {
-            wait{200ms} -> sequence {
+            wait(200ms) -> sequence {
                 hold = i64 ns(3s)
             }
-            wait{duration=hold} -> done_ch
+            wait(duration=hold) -> done_ch
         }
     }
     start_cmd => main`, resolver,
@@ -7416,8 +7416,8 @@ var _ = Describe("Sequence", func() {
     sequence main {
         text := "hello"
         stage s1 {
-            interval{300ms} -> text -> log_ch
-            wait{100ms} -> sequence {
+            interval(300ms) -> text -> log_ch
+            wait(100ms) -> sequence {
                 text = "goodbye"
             }
         }
@@ -7460,8 +7460,8 @@ var _ = Describe("Sequence", func() {
     sequence main {
         k u8 := 5
         stage s1 {
-            interval{300ms} -> k -> out_ch
-            wait{100ms} -> sequence {
+            interval(300ms) -> k -> out_ch
+            wait(100ms) -> sequence {
                 k = 9
             }
         }
@@ -7497,9 +7497,9 @@ var _ = Describe("Sequence", func() {
     sequence main {
         k u8 := 5
         stage s1 {
-            interval{10s} -> k -> slow_out
+            interval(10s) -> k -> slow_out
             k -> live_out
-            wait{100ms} -> sequence {
+            wait(100ms) -> sequence {
                 k = 9
             }
         }
@@ -7541,8 +7541,8 @@ var _ = Describe("Sequence", func() {
     sequence main {
         k u8 $= 5
         stage s1 {
-            interval{300ms} -> k -> out_ch
-            wait{100ms} -> sequence {
+            interval(300ms) -> k -> out_ch
+            wait(100ms) -> sequence {
                 k = 9
             }
         }
@@ -7616,7 +7616,7 @@ var _ = Describe("Sequence", func() {
 				h := newRuntimeHarness(ctx, `
     v := src_ch - f32(1)
     v -> "tick" -> out_str
-    interval{50ms} -> beat_ch`, resolver,
+    interval(50ms) -> beat_ch`, resolver,
 					channels.Digest{Key: 362, DataType: telem.Float32T},
 					channels.Digest{Key: 363, DataType: telem.StringT},
 					channels.Digest{Key: 364, DataType: telem.Uint8T},
@@ -7735,13 +7735,13 @@ var _ = Describe("Sequence", func() {
 	// the loopback must not re-fire the chain.
 	Describe("Variable capture dispatch", func() {
 		src := `
-    func stamp{tag str} (n u8) str {
+    func stamp(tag str) {n u8} str {
         return tag
     }
     sequence main {
         fp str := ""
         stage s1 {
-            1 -> stamp{tag="parent"} -> fp
+            1 -> stamp(tag="parent") -> fp
             fp -> fp_out
         }
     }
@@ -7781,16 +7781,16 @@ var _ = Describe("Sequence", func() {
 					"out_str":   {types.String(), 405},
 				})
 				h := newRuntimeHarness(ctx, `
-    func event_log{msg str} () {
+    func event_log(msg str) {
         log = msg
     }
-    func seen(v f32) str {
+    func seen() {v f32} str {
         return "seen"
     }
     sequence main {
         stage s1 {
-            event_log{"armed"}
-            data -> seen{} -> out_str
+            event_log("armed")
+            data -> seen() -> out_str
         }
     }
     start_cmd => main`, resolver,
@@ -7827,12 +7827,12 @@ var _ = Describe("Sequence", func() {
 					"log":       {types.String(), 409},
 				})
 				h := newRuntimeHarness(ctx, `
-    func event_log{msg str} () {
+    func event_log(msg str) {
         log = msg
     }
     sequence main {
         stage a {
-            event_log{"a"}
+            event_log("a")
             go_b => b
         }
         stage b {
@@ -7865,7 +7865,7 @@ var _ = Describe("Sequence", func() {
 				h := newRuntimeHarness(ctx, `import time
     sequence main {
         stage s1 {
-            time.now{} -> ts_out
+            time.now() -> ts_out
         }
     }
     start_cmd => main`, resolver,
@@ -7903,13 +7903,13 @@ var _ = Describe("Sequence", func() {
 					"log":       {types.String(), 414},
 				})
 				h := newRuntimeHarness(ctx, `
-    func event_log{msg str} () {
+    func event_log(msg str) {
         log = msg
     }
     sequence main {
         stage s1 {
-            interval{50ms} -> tick_ch
-            event_log{"once"}
+            interval(50ms) -> tick_ch
+            event_log("once")
         }
     }
     start_cmd => main`, resolver,
@@ -7949,7 +7949,7 @@ var _ = Describe("Sequence", func() {
 				h := newRuntimeHarness(ctx, `
     sequence main {
         stage s1 {
-            wait{100ms} -> done_ch
+            wait(100ms) -> done_ch
         }
     }
     start_cmd => main`, resolver,

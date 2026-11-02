@@ -42,7 +42,7 @@ var _ = Describe("Authority", func() {
 				"valve_cmd":   {types.U8(), 101},
 			})
 			h := newRuntimeHarness(ctx, `
-			trigger_cmd -> set_authority{value=200, channel=valve_cmd}`, resolver,
+			trigger_cmd -> set_authority(value=200, channel=valve_cmd)`, resolver,
 				channels.Digest{Key: 100, DataType: telem.Uint8T},
 				channels.Digest{Key: 101, DataType: telem.Uint8T},
 			)

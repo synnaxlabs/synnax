@@ -490,6 +490,19 @@ var _ = Describe("Type Inference", func() {
 					Expect(t.Unwrap().Kind).To(Equal(types.KindI64))
 				},
 			)
+
+			It(
+				"should stop at a series operand with an invalid element type",
+				func(bCtx SpecContext) {
+					t := inferExprType(
+						bCtx,
+						testResolver,
+						"data_series + [undefined_var]",
+					)
+					Expect(t.Kind).To(Equal(types.KindSeries))
+					Expect(t.Unwrap().Kind).To(Equal(types.KindInvalid))
+				},
+			)
 		})
 
 		Context("series in multiplicative expressions", func() {

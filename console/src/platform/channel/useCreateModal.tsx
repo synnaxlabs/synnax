@@ -15,6 +15,7 @@ import { Icon } from "@synnaxlabs/lyra/icon";
 import { Input } from "@synnaxlabs/lyra/input";
 import { Modal } from "@synnaxlabs/lyra/modal";
 import { Nav } from "@synnaxlabs/lyra/nav";
+import { Select } from "@synnaxlabs/lyra/select";
 import { Text } from "@synnaxlabs/lyra/text";
 import { Channel, Telem } from "@synnaxlabs/pluto";
 import { useState } from "react";
@@ -24,6 +25,8 @@ import { Modals } from "@/platform/modals";
 import { Triggers } from "@/platform/triggers";
 
 const INDEX_QUERY: Partial<Channel.RetrieveMultipleQuery> = { isIndex: true };
+
+type Kind = "data" | "index" | "virtual";
 
 const Create = ({ close }: Modals.ContentProps<Record<never, never>, void>) => {
   const [createMore, setCreateMore] = useState(false);
@@ -44,56 +47,60 @@ const Create = ({ close }: Modals.ContentProps<Record<never, never>, void>) => {
     "virtual",
     { ctx: form },
   );
+  const kind: Kind = isIndex ? "index" : isVirtual ? "virtual" : "data";
+  const handleKindChange = (next: Kind) => {
+    form.set("isIndex", next === "index");
+    form.set("virtual", next === "virtual");
+    if (next !== "data") form.set("index", 0);
+    if (next === "index") form.set("dataType", DataType.TIMESTAMP.toString());
+    else if (isIndex) form.set("dataType", Channel.ZERO_FORM_VALUES.dataType);
+  };
   return (
     <Modal.Frame>
       <Modal.Header icon={<Icon.Channel />}>Channel.Create</Modal.Header>
       <Modal.Body>
         <Form.Form<typeof Channel.formSchema> {...form}>
-          <Form.Field<string> path="name" label="Name">
+          <Form.Field<string> path="name" showLabel={false} padHelpText={false}>
             {(p) => (
               <Input.Text
                 autoFocus
                 level="h2"
                 variant="text"
-                placeholder="Name"
+                placeholder="Channel name"
+                aria-label="Channel name"
                 {...p}
               />
             )}
           </Form.Field>
           <Flex.Box x gap="large">
-            <Form.SwitchField
-              path="virtual"
-              label="Virtual"
-              inputProps={{ disabled: isIndex }}
-              onChange={(v, ctx) => {
-                if (!v) return;
-                ctx.set("isIndex", false);
-                ctx.set("index", 0);
-              }}
-            />
-            <Form.SwitchField
-              path="isIndex"
-              label="Is index"
-              inputProps={{ disabled: isVirtual }}
-              onChange={(v, ctx) => {
-                if (!v) return;
-                ctx.set("dataType", DataType.TIMESTAMP.toString());
-                if (ctx.get("index").value !== 0) ctx.set("index", 0);
-              }}
-            />
+            <Input.Item label="Kind">
+              <Select.Buttons<Kind> value={kind} onChange={handleKindChange}>
+                <Select.Item itemKey="data">
+                  <Icon.Channel />
+                  Data
+                </Select.Item>
+                <Select.Item itemKey="index">
+                  <Icon.Time />
+                  Index
+                </Select.Item>
+                <Select.Item itemKey="virtual">
+                  <Icon.Virtual />
+                  Virtual
+                </Select.Item>
+              </Select.Buttons>
+            </Input.Item>
             <Form.Field<string> path="dataType" label="Data type" grow>
               {(p) => (
                 <Telem.SelectDataType {...p} disabled={isIndex} zIndex={100} full="x" />
               )}
             </Form.Field>
           </Flex.Box>
-          <Form.Field<channel.Key> path="index" label="Index">
+          <Form.Field<channel.Key> path="index" label="Index" visible={kind === "data"}>
             {({ value, onChange }) => (
               <Channel.SelectSingle
                 value={value}
                 onChange={onChange}
                 initialQuery={INDEX_QUERY}
-                disabled={isIndex || isVirtual}
                 allowNone={false}
                 zIndex={100}
               />
@@ -102,7 +109,6 @@ const Create = ({ close }: Modals.ContentProps<Record<never, never>, void>) => {
         </Form.Form>
       </Modal.Body>
       <Modal.Footer>
-        <Triggers.SaveHelpText />
         <Nav.Bar.End align="center" gap="large">
           <Flex.Box x align="center" gap="small">
             <Input.Switch value={createMore} onChange={setCreateMore} />
@@ -113,6 +119,7 @@ const Create = ({ close }: Modals.ContentProps<Record<never, never>, void>) => {
             variant="filled"
             onClick={() => save()}
             trigger={Triggers.SAVE}
+            triggerIndicator
           >
             Create
           </Button.Button>

@@ -16,7 +16,7 @@ import {
 } from "@synnaxlabs/x";
 import { describe, expect, it } from "vitest";
 
-import { type DrawOperation } from "@/vis/line/aether/line";
+import { type DrawOperation } from "@/vis/line/aether/draw";
 import { groupSize, Reducer } from "@/vis/line/aether/reduce";
 
 const alignment = (domain: number, sample: number): bigint =>
@@ -41,8 +41,14 @@ const op = (x: Series, y: Series): DrawOperation => {
     xOffset,
     yOffset,
     count: Math.min(x.length - xOffset, y.length - yOffset),
+    span: x.timeRange,
   };
 };
+
+const spanned = (o: DrawOperation, start: number, end: number): DrawOperation => ({
+  ...o,
+  span: new TimeRange(TimeStamp.seconds(start), TimeStamp.seconds(end)),
+});
 
 const reduceOne = (o: DrawOperation, aggregation: Aggregation, size: number) =>
   new Reducer().reduce([o], aggregation, size)[0];
@@ -183,29 +189,30 @@ describe("Reducer", () => {
       ]);
     });
 
-    it("should average float32 series by the integer types their channels store", () => {
-      const y = new Series(new Float32Array([0, 1, 0, 1]));
-      const [r] = new Reducer().reduce([op(ramp(4), y)], "average", 4, {
-        x: DataType.TIMESTAMP,
-        y: DataType.INT16,
+    it("should round down the average of integer series", () => {
+      const x = new Series({
+        data: new BigInt64Array([0n, 1n, 2n, 3n]),
+        dataType: DataType.TIMESTAMP,
       });
-      expect(Array.from(r.x)).toEqual([1]);
+      const y = new Series(new Int16Array([0, 1, 0, 1]));
+      const r = reduceOne(op(x, y), "average", 4);
+      expect(Array.from(r.x.glData)).toEqual([1]);
       expect(Array.from(r.y)).toEqual([0]);
     });
 
     it("should scale the mean of a partial group to its count", () => {
       const y = new Series(new Float64Array([0.1, 0.2, 2.3]));
       const r = reduceOne(op(ramp(3), y), "average", 4);
-      expect(Array.from(r.y)).toEqual([0.8666666666666665]);
+      expect(Array.from(r.y)).toEqual(f32(0.8666666666666665));
     });
 
-    it("should keep an integer mean exact when the sum passes 2^53", () => {
+    it("should average an integer group whose sum passes 2^53", () => {
       const n = 2 ** 22;
       const data = new Uint32Array(n)
         .fill(2 ** 32 - 3, 0, 3 * 2 ** 20)
         .fill(1, 3 * 2 ** 20);
       const r = reduceOne(op(ramp(n), new Series(data)), "average", n);
-      expect(Array.from(r.y)).toEqual([3221225470]);
+      expect(Array.from(r.y)).toEqual(f32(3221225470));
     });
 
     it("should propagate a NaN in a group", () => {
@@ -287,6 +294,20 @@ describe("Reducer", () => {
     expect(r.x.sampleOffset).toBe(100n);
     expect(r.y.sampleOffset).toBe(5);
     expect(r.x.timeRange).toBe(xRange);
+  });
+
+  it("should reduce a bigint series to float32 off its first sample", () => {
+    const first = TimeStamp.seconds(1_750_000_000).valueOf();
+    const x = new Series({
+      data: new BigInt64Array([first, first + 10n, first + 20n, first + 30n]),
+      dataType: DataType.TIMESTAMP,
+    });
+    const y = new Series(new Float64Array([1, 5, 2, 0]));
+    const r = reduceOne(op(x, y), "min_max", 4);
+    expect(r.x.dataType).toEqual(DataType.FLOAT32);
+    expect(r.y.dataType).toEqual(DataType.FLOAT32);
+    expect(Array.from(r.x)).toEqual([first + 10n, first + 30n]);
+    expect(Array.from(r.y)).toEqual([5, 0]);
   });
 
   it("should return ops of reduced series unchanged", () => {
@@ -380,6 +401,46 @@ describe("Reducer", () => {
       expect(ops).toHaveLength(1);
     });
 
+    it("should give the span of an op that draws no group to the op before it", () => {
+      const [a, b, c] = cut([3, 6]);
+      const [first, last] = new Reducer().reduce(
+        [spanned(a, 0, 3), spanned(b, 3, 6), spanned(c, 6, 20)],
+        "min_max",
+        8,
+      );
+      expect(first.span.end).toEqual(last.span.start);
+    });
+
+    it("should leave the span of an op it passes through unchanged", () => {
+      const [a, b, c] = cut([3, 6]);
+      const reduced = new Series({
+        data: new Float32Array(2),
+        alignment: 0n,
+        alignmentMultiple: 8n,
+      });
+      const passed = spanned(op(reduced, reduced), 0, 3);
+      new Reducer().reduce(
+        [spanned(a, 0, 3), passed, spanned(b, 3, 6), spanned(c, 6, 20)],
+        "min_max",
+        8,
+      );
+      expect(passed.span.end).toEqual(TimeStamp.seconds(3));
+    });
+
+    it.each<Aggregation>(["min_max", "average", "decimate"])(
+      "should keep %s groups apart across ops with time between them",
+      (aggregation) => {
+        const [a, b] = cut([10]);
+        const before = spanned(a, 0, 10);
+        const after = spanned(b, 20, 30);
+        const parts = new Reducer().reduce([before, after], aggregation, 8);
+        const alone = [before, after].flatMap((o) =>
+          Array.from(reduceOne(o, aggregation, 8).y),
+        );
+        expect(values(parts, "y")).toEqual(alone);
+      },
+    );
+
     it("should keep a group complete once the ops after it hold its samples", () => {
       const [a] = cut([6]);
       const createGrowing = (): Series =>
@@ -400,7 +461,7 @@ describe("Reducer", () => {
         Array.from(whole("min_max").y).slice(0, 2),
       );
       write(9);
-      expect(reducer.reduce([a, op(x, y)], "min_max", 8)[0]).toBe(complete);
+      expect(reducer.reduce([a, op(x, y)], "min_max", 8)[0].y).toBe(complete.y);
     });
   });
 
@@ -437,7 +498,7 @@ describe("Reducer", () => {
       write(y, 0, 1, 2);
       const reducer = new Reducer();
       const first = reducer.reduce([op(x, y)], "min_max", 4)[0];
-      expect(reducer.reduce([op(x, y)], "min_max", 4)[0]).toBe(first);
+      expect(reducer.reduce([op(x, y)], "min_max", 4)[0].y).toBe(first.y);
     });
   });
 
@@ -449,7 +510,7 @@ describe("Reducer", () => {
       const b = op(ramp(8, 8n), ramp(8, 8n));
       const reducer = new Reducer();
       const [ra, rb] = reducer.reduce([a, b], "min_max", 4);
-      expect(reducer.reduce([b], "min_max", 4)[0]).toBe(rb);
+      expect(reducer.reduce([b], "min_max", 4)[0].y).toBe(rb.y);
       expect(refCounts(ra)).toEqual([0, 0]);
       expect(refCounts(rb)).toEqual([1, 1]);
     });

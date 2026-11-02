@@ -20,8 +20,8 @@ export const Controller = memo(({ children }: ControllerProps): ReactElement => 
   const { isCurrentlyEditable } = Session.Schematic.useSelectEditable();
   const name = Schematic.useName();
   const dispatch = Session.useDispatch();
-  const username = User.useResultUsername({}).data ?? "";
-  const controlName = username.length > 0 ? `${name} (${username})` : name;
+  const { data: userName } = User.useResultName({});
+  const controlName = userName != null ? `${name} (${userName})` : name;
   const handleStatusChange = (status: Control.Status) =>
     dispatch(Session.Schematic.setControlStatus({ key, status }));
   return (

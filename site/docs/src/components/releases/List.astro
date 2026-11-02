@@ -42,11 +42,12 @@ const releases = headings.filter(({ depth }) => depth === 6);
         align-self: flex-start;
         width: 80px;
 
-        @media (max-width: 900px) {
+        @media (width <= 900px) {
             display: none;
         }
 
         flex-shrink: 0;
+
         & h5 {
             font-weight: 500;
         }

@@ -41,6 +41,7 @@ class Client:
 
     def __init__(
         self,
+        *,
         framer: FrameClient,
         channels: channel.Retriever,
         client: UnaryClient,
@@ -105,6 +106,7 @@ class Client:
     def acquire(
         self,
         name: str,
+        *,
         read: channel.Params | None,
         write: channel.Params | None,
         write_authorities: CrudeAuthority | list[CrudeAuthority] = Authority.ABSOLUTE,

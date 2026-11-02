@@ -28,7 +28,7 @@ import (
 // discontinuity or the general validation shape.
 var ErrDiscontinuous = errors.Wrap(validate.ErrValidation, "discontinuous")
 
-func NewDiscontinuousTRError(tr telem.TimeRange) error {
+func newDiscontinuousTRError(tr telem.TimeRange) error {
 	return errors.Wrapf(
 		ErrDiscontinuous,
 		"the time range %s is not continuous in the index",
@@ -36,7 +36,7 @@ func NewDiscontinuousTRError(tr telem.TimeRange) error {
 	)
 }
 
-func NewDiscontinuousOffsetError(offset, domainLen int64) error {
+func newDiscontinuousOffsetError(offset, domainLen int64) error {
 	return errors.Wrapf(
 		ErrDiscontinuous,
 		"failed to resolve position %d in continuous index of length %d",
@@ -56,17 +56,17 @@ func NewDiscontinuousStampError(stamp telem.TimeStamp) error {
 	)
 }
 
-// ContinuousPolicy is a type alias for a boolean that indicates whether a domain
+// continuousPolicy is a type alias for a boolean that indicates whether a domain
 // Distance or Stamp lookup must require a continuous set of samples. Used to improve
 // readability.
-type ContinuousPolicy = bool
+type continuousPolicy = bool
 
 const (
 	// AllowDiscontinuous allows a lookup to span across multiple domains that
 	// do not contain continuous samples i.e. at some point in the future a caller
 	// can insert samples between the two domains without needing to delete first.
-	AllowDiscontinuous ContinuousPolicy = false
+	AllowDiscontinuous continuousPolicy = false
 	// MustBeContinuous requires that a lookup span only continuous domains i.e. there
 	// is a guarantee that new samples cannot be inserted between the domains.
-	MustBeContinuous ContinuousPolicy = true
+	MustBeContinuous continuousPolicy = true
 )

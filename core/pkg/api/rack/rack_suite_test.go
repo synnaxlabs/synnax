@@ -16,13 +16,13 @@ import (
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	apirack "github.com/synnaxlabs/synnax/pkg/api/rack"
-	"github.com/synnaxlabs/synnax/pkg/distribution/mock"
+	"github.com/synnaxlabs/synnax/pkg/distribution/testutil"
 	"github.com/synnaxlabs/synnax/pkg/service"
 	"github.com/synnaxlabs/synnax/pkg/service/access"
 	"github.com/synnaxlabs/synnax/pkg/service/access/rbac/policy"
 	"github.com/synnaxlabs/synnax/pkg/service/access/rbac/role"
-	svcmock "github.com/synnaxlabs/synnax/pkg/service/mock"
 	"github.com/synnaxlabs/synnax/pkg/service/ontology"
+	svctestutil "github.com/synnaxlabs/synnax/pkg/service/testutil"
 	"github.com/synnaxlabs/synnax/pkg/service/user"
 	. "github.com/synnaxlabs/x/testutil"
 )
@@ -41,14 +41,15 @@ var (
 
 var _ = BeforeSuite(func(ctx SpecContext) {
 	ShouldNotLeakGoroutines()
-	node := mock.NewNode(ctx)
-	svc = MustOpen(svcmock.OpenLayer(ctx, node))
+	node := testutil.NewNode(ctx)
+	svc = MustOpen(svctestutil.OpenLayer(ctx, node))
 	apiSvc = MustSucceed(apirack.NewService(apirack.ServiceConfig{
 		Rack:   svc.Rack,
 		Device: svc.Device,
 		Task:   svc.Task,
 		Status: svc.Status,
 		RBAC:   svc.RBAC,
+		Auth:   svc.Auth,
 	}))
 })
 
@@ -56,7 +57,7 @@ var _ = BeforeSuite(func(ctx SpecContext) {
 func createUser(ctx SpecContext) user.User {
 	GinkgoHelper()
 	return MustSucceed(svc.User.NewWriter(nil).Create(ctx, user.User{
-		Username: "user-" + uuid.New().String(),
+		Name: "user-" + uuid.New().String(),
 	}))
 }
 

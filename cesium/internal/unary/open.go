@@ -29,9 +29,9 @@ import (
 	"github.com/synnaxlabs/x/validate"
 )
 
-// ErrVirtual is returned when the caller tried to open a unary database on a virtual
+// errVirtual is returned when the caller tried to open a unary database on a virtual
 // channel.
-var ErrVirtual = errors.New("cannot open a unary database on a virtual channel")
+var errVirtual = errors.New("cannot open a unary database on a virtual channel")
 
 // Config is the configuration for opening a DB.
 type Config struct {
@@ -59,12 +59,19 @@ type Config struct {
 	// instead, set it to a very small number greater than 0.
 	// [OPTIONAL] Default: 0.2
 	GCThreshold float32
+	// OnHistoryChange receives the time range of each delete and of each write before
+	// the channel's newest data. It runs inline under the DB's locks, so it must not
+	// block or call back into the DB.
+	// [OPTIONAL]
+	OnHistoryChange func(context.Context, telem.TimeRange)
 }
 
 var (
-	_ config.Config[Config] = Config{}
-	// DefaultConfig is the default configuration for a DB.
-	DefaultConfig = Config{FileSize: 1 * telem.Gigabyte, GCThreshold: 0.2}
+	_             config.Config[Config] = Config{}
+	defaultConfig                       = Config{
+		FileSize:    1 * telem.Gigabyte,
+		GCThreshold: 0.2,
+	}
 )
 
 // Validate implements config.GateConfig.
@@ -85,11 +92,12 @@ func (cfg Config) Override(other Config) Config {
 	cfg.FileSize = override.Numeric(cfg.FileSize, other.FileSize)
 	cfg.GCThreshold = override.Numeric(cfg.GCThreshold, other.GCThreshold)
 	cfg.MetaCodec = override.Nil(cfg.MetaCodec, other.MetaCodec)
+	cfg.OnHistoryChange = override.Nil(cfg.OnHistoryChange, other.OnHistoryChange)
 	return cfg
 }
 
 func Open(ctx context.Context, configs ...Config) (*DB, error) {
-	cfg, err := config.New(DefaultConfig, configs...)
+	cfg, err := config.New(defaultConfig, configs...)
 	if err != nil {
 		return nil, err
 	}
@@ -99,13 +107,14 @@ func Open(ctx context.Context, configs ...Config) (*DB, error) {
 	}
 	wrapError := channel.NewErrorWrapper(cfg.Channel)
 	if cfg.Channel.Virtual {
-		return nil, wrapError(ErrVirtual)
+		return nil, wrapError(errVirtual)
 	}
 	domainDB, err := domain.Open(domain.Config{
 		FS:              cfg.FS,
 		Instrumentation: cfg.Instrumentation,
 		FileSize:        cfg.FileSize,
 		GCThreshold:     cfg.GCThreshold,
+		OnHistoryChange: cfg.OnHistoryChange,
 	})
 	if err != nil {
 		return nil, err
@@ -123,10 +132,9 @@ func Open(ctx context.Context, configs ...Config) (*DB, error) {
 		controller:       c,
 		wrapError:        wrapError,
 		closed:           &atomic.Bool{},
-		leadingAlignment: &atomic.Uint32{},
+		leadingAlignment: alignment.NewCounter(alignment.ZeroLeading),
 		resolver:         newOffsetResolver(cfg.Channel.DataType, cfg.Instrumentation),
 	}
-	db.leadingAlignment.Store(alignment.ZeroLeading)
 	if cfg.Channel.IsIndex {
 		db.idx = &index.Domain{
 			DB:              domainDB,

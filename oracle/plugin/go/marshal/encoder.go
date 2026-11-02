@@ -80,8 +80,8 @@ type encoderFileOutput struct {
 func generateEncoderCodecFile(
 	packageName string,
 	parentPath string,
-	entries []CodecEntry,
-	flex []FlexCodec,
+	entries []codecEntry,
+	flex []flexCodec,
 	table *resolution.Table,
 	repoRoot string,
 	pins versioning.Pins,
@@ -113,8 +113,8 @@ func generateEncoderCodecFile(
 func renderEncoderCodecFile(
 	packageName string,
 	parentPath string,
-	entries []CodecEntry,
-	flex []FlexCodec,
+	entries []codecEntry,
+	flex []flexCodec,
 	table *resolution.Table,
 	repoRoot string,
 	pins versioning.Pins,
@@ -190,7 +190,7 @@ func renderEncoderCodecFile(
 			}
 		}
 
-		recv := ReceiverName(e.GoName)
+		recv := receiverName(e.GoName)
 		if len(typeParams) > 0 {
 			// Generic type with non-defaulted params: generate method with type
 			// assertion + JSON fallback for type parameter fields.
@@ -260,11 +260,11 @@ var reservedNames = set.New(
 	"err", "ok", // error/bool variables in method bodies
 )
 
-// ReceiverName derives a Go-idiomatic short receiver name from a type name. It takes
+// receiverName derives a Go-idiomatic short receiver name from a type name. It takes
 // the lowercase initials of each word in the PascalCase name (e.g., "TimeRange" ->
 // "tr", "XY" -> "xy", "Status" -> "s"). Names that conflict with generated local
 // variables get a "v" suffix.
-func ReceiverName(goName string) string {
+func receiverName(goName string) string {
 	var initials []byte
 	for i, c := range goName {
 		if i == 0 || (c >= 'A' && c <= 'Z') {
@@ -623,7 +623,7 @@ func buildUnionCodec(
 ) (concreteCodec, error) {
 	table := b.table
 	goName := naming.GetGoName(entry)
-	recv := ReceiverName(goName)
+	recv := receiverName(goName)
 	if recv == "tag" {
 		recv += "v"
 	}
@@ -659,7 +659,7 @@ func buildUnionCodec(
 		var inlineFields []resolution.Field
 		if v.Inline {
 			pform := payload.Form.(resolution.StructForm)
-			inherited, declared := resolver.VariantBases(form, v, table)
+			inherited, declared := resolver.VariantBases(form, v, "go", table)
 			for _, ext := range inherited {
 				parent, ok := ext.Resolve(table)
 				if !ok {

@@ -59,9 +59,7 @@ describe("light symbol", () => {
 
     it("should mark the lamp as a colored part", () => {
       const { container } = render(<Light onColor={color.construct("#ff0000")} />);
-      expect(getLamp(container).getAttribute("class")).toContain(
-        "pluto-symbol-colored",
-      );
+      expect(getLamp(container).getAttribute("class")).toContain("lyra-symbol-colored");
     });
   });
 
@@ -100,7 +98,7 @@ describe("light symbol", () => {
     it("should show the stroke as the on color's auto fallback", () => {
       const { container } = renderStyle(color.construct("#00ff00"));
       const swatches = container.querySelectorAll<HTMLElement>(
-        ".pluto-color-swatch.pluto--auto",
+        ".lyra-color-swatch.lyra--auto",
       );
       expect(swatches).toHaveLength(1);
       expect(swatches[0].style.getPropertyValue("--pluto-swatch-color")).toBe(

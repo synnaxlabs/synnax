@@ -13,8 +13,7 @@ package primitives
 
 import "github.com/synnaxlabs/oracle/plugin/primitives"
 
-// Mappings contains C++-specific primitive type mappings.
-var Mappings = map[string]primitives.Mapping{
+var mappings = map[string]primitives.Mapping{
 	"uuid": {
 		TargetType: "x::uuid::UUID",
 		Imports: []primitives.Import{
@@ -95,5 +94,5 @@ var Mappings = map[string]primitives.Mapping{
 
 // Mapper returns a primitives.Mapper for C++ code generation.
 func Mapper() primitives.Mapper {
-	return primitives.NewMapper(Mappings, "void")
+	return primitives.NewMapper(mappings, "void")
 }

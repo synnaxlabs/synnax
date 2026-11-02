@@ -35,7 +35,7 @@ cc_test(
     deps = [
         ":ir",
         "//arc/go/ir:ir_grpc",
-        "//x/cpp/test",
+        "//x/cpp/testutil",
         "@googletest//:gtest_main",
     ],
 )

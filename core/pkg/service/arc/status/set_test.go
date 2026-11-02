@@ -570,7 +570,7 @@ var _ = Describe("Analyzer hooks", func() {
 		It("Should flag an invalid variant in a named argument", func(ctx SpecContext) {
 			expectInvalidVariantError(
 				ctx,
-				"import status\nsensor -> status.set{key_or_name=\"alarm\", message=\"bad\", variant=\"bogus\"}",
+				"import status\nsensor -> status.set(key_or_name=\"alarm\", message=\"bad\", variant=\"bogus\")",
 				"bogus",
 			)
 		})
@@ -580,7 +580,7 @@ var _ = Describe("Analyzer hooks", func() {
 			func(ctx SpecContext) {
 				expectInvalidVariantError(
 					ctx,
-					"import status\nsensor -> status.set{key_or_name=\"alarm\", message=\"bad\", variant=\"SUCCESS\"}",
+					"import status\nsensor -> status.set(key_or_name=\"alarm\", message=\"bad\", variant=\"SUCCESS\")",
 					"SUCCESS",
 				)
 			},
@@ -592,7 +592,7 @@ var _ = Describe("Analyzer hooks", func() {
 			parsed := MustSucceed(
 				text.Parse(
 					text.Text{
-						Raw: "import status\nsensor -> status.set{key_or_name=\"alarm\", message=\"ok\", variant=\"success\"}",
+						Raw: "import status\nsensor -> status.set(key_or_name=\"alarm\", message=\"ok\", variant=\"success\")",
 					},
 				),
 			)
@@ -608,7 +608,7 @@ var _ = Describe("Analyzer hooks", func() {
 			parsed := MustSucceed(
 				text.Parse(
 					text.Text{
-						Raw: "import status\nsensor -> status.set{key_or_name=\"a\", message=\"b\"}",
+						Raw: "import status\nsensor -> status.set(key_or_name=\"a\", message=\"b\")",
 					},
 				),
 			)
@@ -623,7 +623,7 @@ var _ = Describe("Analyzer hooks", func() {
 			func(ctx SpecContext) {
 				expectInvalidVariantError(
 					ctx,
-					"import status\nsensor -> status.set{\"alarm\", \"bad\", \"bogus\"}",
+					"import status\nsensor -> status.set(\"alarm\", \"bad\", \"bogus\")",
 					"bogus",
 				)
 			},
@@ -635,7 +635,7 @@ var _ = Describe("Analyzer hooks", func() {
 				parsed := MustSucceed(
 					text.Parse(
 						text.Text{
-							Raw: "import status\nsensor -> status.set{\"alarm\", \"ok\", \"success\"}",
+							Raw: "import status\nsensor -> status.set(\"alarm\", \"ok\", \"success\")",
 						},
 					),
 				)
@@ -654,7 +654,7 @@ var _ = Describe("Analyzer hooks", func() {
 				parsed := MustSucceed(
 					text.Parse(
 						text.Text{
-							Raw: "import status\nsensor -> status.set{\"a\", \"b\"}",
+							Raw: "import status\nsensor -> status.set(\"a\", \"b\")",
 						},
 					),
 				)
@@ -704,7 +704,7 @@ var _ = Describe("Analyzer hooks", func() {
 			parsed := MustSucceed(
 				text.Parse(
 					text.Text{
-						Raw: "import status\nsensor -> status.set{key_or_name=\"a\", message=\"b\", variant=42}",
+						Raw: "import status\nsensor -> status.set(key_or_name=\"a\", message=\"b\", variant=42)",
 					},
 				),
 			)

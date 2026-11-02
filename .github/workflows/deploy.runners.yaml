@@ -1,0 +1,89 @@
+# Copyright 2026 Synnax Labs, Inc.
+#
+# Use of this software is governed by the Business Source License included in the file
+# licenses/BSL.txt.
+#
+# As of the Change Date specified in that file, in accordance with the Business Source
+# License, use of this software will be governed by the Apache License, Version 2.0,
+# included in the file licenses/APL.txt.
+
+name: Deploy - Runners
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  id-token: write
+
+concurrency: deploy-runners
+
+env:
+  INSTANCE: i-0daf42c1631de819a
+
+jobs:
+  deploy:
+    name: Deploy to Sandbox-Windows
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v7
+
+      - name: Configure AWS credentials
+        uses: aws-actions/configure-aws-credentials@v6
+        with:
+          role-to-assume: arn:aws:iam::004704223095:role/github-runners-deploy
+          aws-region: us-east-1
+
+      - name: Store secrets
+        env:
+          GH_TOKEN_VALUE: ${{ secrets.RUNNERS_GH_TOKEN }}
+          GH_WEBHOOK_SECRET_VALUE: ${{ secrets.RUNNERS_GH_WEBHOOK_SECRET }}
+          SYNNAX_PASSWORD_VALUE: ${{ secrets.RUNNERS_SYNNAX_PASSWORD }}
+        run: |
+          put() {
+            aws ssm put-parameter --name "/runners/$1" --type SecureString \
+              --overwrite --value "$2" > /dev/null
+          }
+          put gh-token "$GH_TOKEN_VALUE"
+          put gh-webhook-secret "$GH_WEBHOOK_SECRET_VALUE"
+          put synnax-password "$SYNNAX_PASSWORD_VALUE"
+
+      - name: Deploy
+        working-directory: scripts/runners
+        run: |
+          files=$(for f in *.py; do printf "'%s'\n" "$f"; done | paste -sd, -)
+          script=$(printf "\$Sha = %s\n\$Files = @(%s)\n" "'$GITHUB_SHA'" "$files"
+            cat deploy.ps1)
+          encoded=$(printf '%s' "$script" | iconv -t UTF-16LE | base64 -w0)
+          command="powershell -NoProfile -EncodedCommand $encoded"
+          id=$(aws ssm send-command --instance-ids "$INSTANCE" \
+            --document-name AWS-RunPowerShellScript \
+            --comment "Deploy runners at $GITHUB_SHA" \
+            --parameters "{\"commands\":[\"$command\"]}" \
+            --query Command.CommandId --output text)
+          deadline=$((SECONDS + 900))
+          while :; do
+            if out=$(aws ssm get-command-invocation --command-id "$id" \
+              --instance-id "$INSTANCE" --query Status --output text 2>&1); then
+              status=$out
+            # SSM answers this until the invocation reaches the instance.
+            elif [[ $out == *InvocationDoesNotExist* ]]; then
+              status=Pending
+            else
+              echo "$out" >&2
+              exit 1
+            fi
+            case $status in
+              Pending | InProgress | Delayed) ;;
+              *) break ;;
+            esac
+            if ((SECONDS >= deadline)); then
+              echo "Command $id is still $status after 15 minutes" >&2
+              exit 1
+            fi
+            sleep 10
+          done
+          aws ssm get-command-invocation --command-id "$id" --instance-id "$INSTANCE" \
+            --query '[StandardOutputContent,StandardErrorContent]' --output text
+          [[ $status == Success ]]

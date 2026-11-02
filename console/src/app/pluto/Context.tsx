@@ -12,6 +12,7 @@ import { memo } from "react";
 
 import { Triggers } from "@/app/triggers";
 import { Embedded } from "@/feature/embedded";
+import { Core } from "@/platform/core";
 import { Session } from "@/session";
 
 export interface ContextProps extends Pick<
@@ -21,7 +22,7 @@ export interface ContextProps extends Pick<
 
 const ALAMOS_PROPS: Alamos.ProviderProps = { level: "info" };
 
-const useConnParams = DESKTOP ? Embedded.useConnParams : Session.Core.useSelectSelected;
+const useConnParams = DESKTOP ? Embedded.useConnParams : Core.useConnParams;
 
 export const Context = memo((props: ContextProps) => {
   const connParams = useConnParams();

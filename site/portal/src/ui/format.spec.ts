@@ -149,4 +149,27 @@ describe("format.describeEvent", () => {
       "Machine logged out: Test stand by Ada (logged in again)",
     );
   });
+
+  it("should name the person a member event concerns", () => {
+    const e = eventOf({
+      kind: "remove_member",
+      license: null,
+      detail: { member: "user_bob", email: "bob@acme.com" },
+    });
+    expect(describeEvent(e, NAMES)).toBe("Member removed: bob@acme.com by Ada");
+  });
+
+  it("should name the role a member was given", () => {
+    const e = eventOf({
+      kind: "change_role",
+      license: null,
+      detail: { email: "bob@acme.com", from: "org:member", to: "org:admin" },
+    });
+    expect(describeEvent(e, NAMES)).toBe("Role changed: bob@acme.com to Admin by Ada");
+  });
+
+  it("should name the organization an organization event concerns", () => {
+    const e = eventOf({ kind: "register", license: null, detail: { name: "Acme" } });
+    expect(describeEvent(e, NAMES)).toBe("Organization registered: Acme by Ada");
+  });
 });

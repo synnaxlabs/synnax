@@ -86,19 +86,17 @@ const FormStep = ({ onNext }: FormStepProps): ReactElement => {
     if (validate()) onNext();
   };
   const footer = (
-    <>
-      <Triggers.SaveHelpText action="Next" />
-      <Nav.Bar.End>
-        <Button.Button
-          variant="filled"
-          disabled={channelKeys.length === 0}
-          onClick={handleNext}
-          trigger={Triggers.SAVE}
-        >
-          Next
-        </Button.Button>
-      </Nav.Bar.End>
-    </>
+    <Nav.Bar.End>
+      <Button.Button
+        variant="filled"
+        disabled={channelKeys.length === 0}
+        onClick={handleNext}
+        trigger={Triggers.SAVE}
+        triggerIndicator
+      >
+        Next
+      </Button.Button>
+    </Nav.Bar.End>
   );
   return (
     <>

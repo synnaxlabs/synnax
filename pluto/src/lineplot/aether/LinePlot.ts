@@ -8,7 +8,7 @@
 // included in the file licenses/APL.txt.
 
 import { type Instrumentation } from "@synnaxlabs/alamos";
-import { type bounds, box, xy } from "@synnaxlabs/x";
+import { type bounds, box, type destructor, xy } from "@synnaxlabs/x";
 import { z } from "zod";
 
 import { aether } from "@/aether/aether";
@@ -49,6 +49,7 @@ interface InternalState {
   instrumentation: Instrumentation;
   handleError: status.ErrorHandler;
   renderCtx: render.Context;
+  stopListeningRestore?: destructor.Destructor;
 }
 
 type Children = XAxis | tooltip.Tooltip | measure.Measure;
@@ -78,11 +79,16 @@ export class LinePlot
       if (!this.state.visible) return;
       this.requestRender("low", r);
     });
+    this.internal.stopListeningRestore?.();
+    this.internal.stopListeningRestore = this.internal.renderCtx.onRestore(() => {
+      if (this.state.visible) this.requestRender("high", "layout");
+    });
     if (!this.state.visible && !this.prevState.visible) return;
     this.requestRender("high", "layout");
   }
 
   afterDelete(ctx: aether.Context): void {
+    this.internal.stopListeningRestore?.();
     this.internal.renderCtx = render.Context.use(ctx);
     this.requestRender("high", "layout");
   }
@@ -115,6 +121,13 @@ export class LinePlot
 
   private get fetching(): boolean {
     return this.axes.some((a) => a.fetching);
+  }
+
+  // Lines record their loading state as they render, so it syncs after a render.
+  private syncLoading(): void {
+    const { loading, fetching } = this;
+    if (loading !== this.state.loading || fetching !== this.state.fetching)
+      this.setState((p) => ({ ...p, loading, fetching }));
   }
 
   private renderAxes(plot: box.Box, canvases: render.CanvasVariant[]): void {
@@ -160,10 +173,9 @@ export class LinePlot
       ins.L.debug("deleted, skipping render", { key: this.key });
       return;
     }
-    const loading = this.loading;
-    if (loading !== this.state.loading) this.setState((p) => ({ ...p, loading }));
     if (!this.state.visible) {
       ins.L.debug("not visible, skipping render", { key: this.key });
+      this.syncLoading();
       return ({ canvases }) =>
         renderCtx.erase(this.state.container, this.state.clearOverScan, ...canvases);
     }
@@ -202,9 +214,7 @@ export class LinePlot
       removeCanvasScissor();
       removeGLScissor();
     }
-    // Lines start fetches while they render, so the state is read after it.
-    const fetching = this.fetching;
-    if (fetching !== this.state.fetching) this.setState((p) => ({ ...p, fetching }));
+    this.syncLoading();
     ins.L.debug("rendered", { key: this.key });
     const eraseRegion = box.copy(this.state.container);
 

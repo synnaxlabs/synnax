@@ -59,7 +59,7 @@ func GroupStart(a Alignment, groupSize uint32) Alignment {
 	return NewAlignment(a.DomainIndex(), a.SampleIndex()-a.SampleIndex()%groupSize)
 }
 
-// Reduce collapses the series into groups of groupSize samples and keeps the points
+// ReduceCut collapses the series into groups of groupSize samples and keeps the points
 // that agg selects from each group. Group k of a domain holds the samples whose
 // alignment sample index lies in [k*groupSize, (k+1)*groupSize), so every series on the
 // same index reduces over the same groups. A group only partly inside the series
@@ -69,29 +69,17 @@ func GroupStart(a Alignment, groupSize uint32) Alignment {
 // otherwise, and its Alignment is the start of the first group. Each min/max group
 // therefore occupies the alignments of its sample 0 and sample groupSize/2.
 //
-// Reduce returns the series unchanged when groupSize is below 2 or when the data type
-// is not numeric. It panics if the series is already reduced.
-func (s Series) Reduce(agg Aggregation, groupSize uint32) Series {
-	reduced, _, _ := s.reduce(agg, groupSize, false)
-	return reduced
-}
-
-// ReduceCut reduces s as Reduce does. It also summarizes the first and last groups of
-// s when s holds only part of them: head is nil when s starts at the start of a group,
-// and tail is nil when s ends at the end of one. AbsorbNext and AbsorbPrev use the
-// summaries to reduce a group cut between two series once.
+// ReduceCut also summarizes the first and last groups of s when s holds only part of
+// them: head is nil when s starts at the start of a group, and tail is nil when s ends
+// at the end of one. AbsorbNext and AbsorbPrev use the summaries to reduce a group cut
+// between two series once.
+//
+// ReduceCut returns the series unchanged when groupSize is below 2 or when the data
+// type is not numeric. It panics if the series is already reduced.
 func (s Series) ReduceCut(
 	agg Aggregation,
 	groupSize uint32,
 ) (reduced Series, head, tail *Group) {
-	return s.reduce(agg, groupSize, true)
-}
-
-func (s Series) reduce(
-	agg Aggregation,
-	groupSize uint32,
-	cut bool,
-) (Series, *Group, *Group) {
 	if groupSize < 2 || s.Len() == 0 || !Reducible(s.DataType) {
 		return s, nil, nil
 	}
@@ -102,7 +90,7 @@ func (s Series) reduce(
 	if agg == AggregationMinMax {
 		multiple = groupSize / 2
 	}
-	data, head, tail := reducerFor(s.DataType).reduce(s, agg, groupSize, cut)
+	data, head, tail := reducerFor(s.DataType).reduce(s, agg, groupSize)
 	return Series{
 		TimeRange:         s.TimeRange,
 		DataType:          s.DataType,
@@ -367,14 +355,9 @@ func importGroup[T types.SizedNumeric](g Group) summary[T] {
 
 // numericReducer reduces the samples of one data type.
 type numericReducer interface {
-	// reduce returns the reduced data of s. When cut is true, it also returns the
-	// summaries of the groups s holds only part of. See Series.ReduceCut.
-	reduce(
-		s Series,
-		agg Aggregation,
-		groupSize uint32,
-		cut bool,
-	) ([]byte, *Group, *Group)
+	// reduce returns the reduced data of s and the summaries of the groups s holds only
+	// part of. See Series.ReduceCut.
+	reduce(s Series, agg Aggregation, groupSize uint32) ([]byte, *Group, *Group)
 	merge(a, b Group) Group
 	data(g Group) []byte
 }
@@ -388,7 +371,6 @@ func (r typedReducer[T]) reduce(
 	s Series,
 	agg Aggregation,
 	groupSize uint32,
-	cut bool,
 ) (data []byte, head, tail *Group) {
 	var (
 		in    = xunsafe.CastSlice[byte, T](s.Data)
@@ -404,7 +386,7 @@ func (r typedReducer[T]) reduce(
 	for start := -first; start < len(in); start += size {
 		lo, hi := max(start, 0), min(start+size, len(in))
 		group := in[lo:hi]
-		if cut && hi-lo < size {
+		if hi-lo < size {
 			sum := summarize(group, at+uint32(lo), agg, groupSize, r.float)
 			out = sum.appendPoints(out, agg, groupSize, r.float)
 			g := sum.export(

@@ -1,0 +1,49 @@
+# Copyright 2026 Synnax Labs, Inc.
+#
+# Use of this software is governed by the Business Source License included in the file
+# licenses/BSL.txt.
+#
+# As of the Change Date specified in that file, in accordance with the Business Source
+# License, use of this software will be governed by the Apache License, Version 2.0,
+# included in the file licenses/APL.txt.
+
+[project]
+name = "synnax-runners"
+version = "0.0.0"
+description = "Self-hosted CI runner fleet controller"
+requires-python = ">=3.12,<4"
+classifiers = ["Private :: Do Not Upload"]
+dependencies = ["boto3>=1.43,<2", "certifi>=2026.10.19,<2027", "synnax>=0.59,<0.60"]
+
+[dependency-groups]
+dev = [
+    "boto3-stubs[ec2,ssm,ce,cloudwatch,pricing]>=1.43,<2",
+    "mypy>=2.3.1,<3",
+    "pytest>=9.1.1,<10",
+    "pytest-cov>=7.1.0,<8",
+    "ruff>=0.16.8,<1"
+]
+
+[tool.uv]
+package = false
+
+[tool.ruff]
+extend = "../pyproject.toml"
+src = [".", "tests"]
+
+[tool.ruff.lint.per-file-ignores]
+# Log.error(context, exception) is this package's logger, not the stdlib's.
+"*.py" = ["PLE1205"]
+
+[tool.pytest.ini_options]
+pythonpath = ["."]
+
+[tool.coverage.run]
+omit = ["tests/*"]
+
+[tool.mypy]
+check_untyped_defs = true
+
+[[tool.mypy.overrides]]
+module = "synnax.*"
+ignore_missing_imports = true

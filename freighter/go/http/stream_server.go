@@ -69,10 +69,7 @@ func WithAdditionalCodec(
 	}
 }
 
-// WithCodec registers a stateless stream-server codec. The same instance is reused
-// across every connection that negotiates the codec's content type. For codecs that
-// hold per-stream state, use WithAdditionalCodec instead.
-func WithCodec(c http.Codec) StreamServerOption {
+func withCodec(c http.Codec) StreamServerOption {
 	return WithAdditionalCodec(
 		c.ContentType(),
 		func() encoding.Codec { return c },
@@ -82,7 +79,7 @@ func WithCodec(c http.Codec) StreamServerOption {
 func newStreamServerOptions(opts []StreamServerOption) streamServerOptions {
 	so := streamServerOptions{}
 	for _, c := range defaultCodecs {
-		WithCodec(c)(&so)
+		withCodec(c)(&so)
 	}
 	for _, opt := range opts {
 		opt(&so)

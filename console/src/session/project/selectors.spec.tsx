@@ -68,30 +68,5 @@ describe("project selectors", () => {
       });
       expect(get()).toEqual(other);
     });
-
-    it("should read the optional selected project without throwing when unset", () => {
-      const store = createStore();
-      const { result } = renderHook(() => Project.useGetOptionalSelected(), {
-        wrapper: createWrapper(store),
-      });
-      expect(result.current()).toBeUndefined();
-      act(() => {
-        store.dispatch(Project.select(selected));
-      });
-      expect(result.current()).toEqual(selected);
-    });
-
-    it("should report whether any project is selected on demand", () => {
-      const store = createStore();
-      const { result } = renderHook(() => Project.useGetIsAnySelected(), {
-        wrapper: createWrapper(store),
-      });
-      const get = result.current;
-      expect(get()).toBe(false);
-      act(() => {
-        store.dispatch(Project.select(selected));
-      });
-      expect(get()).toBe(true);
-    });
   });
 });

@@ -1,0 +1,122 @@
+---
+layout: "@/layouts/Reference.astro"
+title: "Production checklist"
+description: "Check a Synnax Core before you use it for real tests and operations."
+platforms: ["Linux", "Windows", "Docker"]
+---
+
+import { Divider } from "@synnaxlabs/lyra/divider";
+
+import { Platform } from "@/components/platform";
+import { mdxOverrides } from "@/components/mdxOverrides";
+export const components = mdxOverrides;
+
+Before you use a Synnax Core for real tests, check each item below. Each item links to
+the page with the steps.
+
+<Divider.Divider x />
+
+## Checklist
+
+1. **Hardware and network** -> the computer meets the
+   [requirements](/reference/enterprise/requirements) for your channels and sample
+   rates. The firewall opens only the Core port, because the Core binds it on every
+   network interface.
+2. **License** -> the license is active, and you know how to renew it. If you start the
+   Core with a key file, replace the file when you renew. See
+   [Activate a license](/reference/enterprise/license#renew-or-replace-a-license).
+3. **TLS** -> the Core serves a certificate for the name that clients use, and every
+   client trusts it. See [Set up TLS](/reference/enterprise/tls).
+4. **Root password** -> the Core starts with a `--password` that is not `seldon`. See
+   [the root user](/reference/enterprise/users#the-root-user).
+5. **Users** -> each person has their own user, with the role that has the fewest
+   permissions they need. See [Users](/reference/enterprise/users).
+6. **Service** -> the Core runs as a service that starts at boot, stops with `SIGINT`,
+   and uses absolute paths for its data and logs. See
+   [Run the Core as a service](/reference/enterprise/service).
+7. **Monitoring** -> a monitor polls the health check, and an alert fires before the
+   data disk fills. The Core does not start with `--debug`. See
+   [Monitor the Core](/reference/enterprise/service#monitor-the-core).
+8. **Backups** -> you copy the data folder on a schedule while the Core is stopped, and
+   before each upgrade. See [Back up the Core](#back-up-the-core).
+9. **Clock** -> the computer syncs its clock with NTP. A clock that moves back more than
+   24 hours stops a license with an expiry date from applying.
+
+<Divider.Divider x />
+
+## Back up the Core
+
+A backup is a copy of the whole data folder, made while the Core is stopped. The Core is
+down during the copy, so clients cannot read or write data. The Core has no online
+backup.
+
+To restore, stop the Core, replace the data folder with the copy, and start the Core.
+
+### The data folder
+
+The data folder holds everything the Core stores: metadata, users, and the license key
+in `kv/`, telemetry in `cesium/`, and a `LOCK` file. The `--data` flag (`-d`), the
+`SYNNAX_DATA` environment variable, or the `data` key of the config file sets it. The
+defaults are:
+
+| How the Core runs                                                | Data folder                                                              |
+| ---------------------------------------------------------------- | ------------------------------------------------------------------------ |
+| `synnax start` in a terminal                                     | `synnax-data`, in the folder where you ran the command                   |
+| Docker                                                           | `/synnax/synnax-data` in the container, usually the `synnax-data` volume |
+| Windows service                                                  | `C:\ProgramData\Synnax\data`                                             |
+| systemd, as in [Run as a service](/reference/enterprise/service) | `/var/lib/synnax/data`                                                   |
+| Synnax Desktop                                                   | See [Synnax Desktop data](/reference/desktop/data)                       |
+
+To find the data folder of a running Core, look for this line near the start of its log.
+A relative path is relative to the folder where the Core started:
+
+```
+storage/layer.go:205  starting in directory  {"dirname": "synnax-data"}
+```
+
+On Windows, `synnax service status` also prints the data folder.
+
+### Copy the data folder
+
+For a Core that runs in a terminal, press **Ctrl+C**, copy the data folder, then start
+the Core again with the same flags. For a service:
+
+<Platform.Tabs exclude={["macOS"]}>
+<Fragment slot="Linux">
+
+For a Core that runs as a [systemd service](/reference/enterprise/service), the data
+folder is `/var/lib/synnax/data`:
+
+```bash
+sudo systemctl stop synnax
+sudo cp -a /var/lib/synnax/data /backups/synnax-data-$(date +%F)
+sudo systemctl start synnax
+```
+
+</Fragment>
+<Fragment slot="Windows">
+
+For a Core that runs as a [Windows service](/reference/enterprise/service), the data
+folder is `C:\ProgramData\Synnax\data`. Run in an administrator terminal:
+
+```powershell
+synnax service stop
+robocopy C:\ProgramData\Synnax\data D:\Backups\synnax-data /E
+synnax service start
+```
+
+</Fragment>
+<Fragment slot="Docker">
+
+The data folder is the `synnax-data` volume. This copies it into an archive in the
+current folder:
+
+```bash
+docker stop synnax
+docker run --rm -v synnax-data:/data -v "$PWD":/backup alpine \
+  tar czf /backup/synnax-data.tar.gz -C /data .
+docker start synnax
+```
+
+</Fragment>
+</Platform.Tabs>

@@ -49,21 +49,21 @@ def async_instrumentation_middleware(
     :param instrumentation: the instrumentation to use for logging and tracing.
     """
 
-    async def _middleware(context: Context, next_: AsyncNext) -> Context:
-        if context.role == "client":
-            instrumentation.T.propagate(context)
+    async def _middleware(ctx: Context, next_: AsyncNext) -> Context:
         exc: Exception | None = None
         try:
-            with instrumentation.T.trace(context.target, "debug") as span:
+            with instrumentation.T.debug(ctx.target) as span:
+                if ctx.role == "client":
+                    instrumentation.T.propagate(ctx)
                 try:
-                    return await next_(context)
+                    return await next_(ctx)
                 except Exception as e:
                     exc = e
                     raise
                 finally:
                     span.record_exception(exc)
         finally:
-            _log(context, instrumentation, exc)
+            _log(ctx, instrumentation, exc)
 
     return _middleware
 

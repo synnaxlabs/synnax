@@ -15,7 +15,7 @@ import { Flex } from "@synnaxlabs/lyra/flex";
 import { Icon } from "@synnaxlabs/lyra/icon";
 import { Status } from "@synnaxlabs/lyra/status";
 import { Text } from "@synnaxlabs/lyra/text";
-import { Errors, Synnax } from "@synnaxlabs/pluto";
+import { Errors, Synnax, User } from "@synnaxlabs/pluto";
 import {
   type PropsWithChildren,
   type ReactElement,
@@ -60,7 +60,7 @@ const PermissionsFallback = ({
   ...props
 }: Access.PermissionsFallbackProps): ReactElement => {
   const { error } = props;
-  const logout = Session.useLogout();
+  const logout = Core.useLogout();
   // A denial is an expected state, not a crash, so it gets a calm surface.
   if (AccessDeniedError.matches(error) || AccessDeniedError.matches(error.cause))
     return <Denied retry={retry} />;
@@ -83,10 +83,10 @@ interface DeniedProps {
 }
 
 const Denied = ({ retry }: DeniedProps): ReactElement => {
-  const logout = Session.useLogout();
+  const logout = Core.useLogout();
   const target = Session.Core.useSelectSelected();
-  const subject =
-    target != null && target.username !== "" ? ` for ${target.username}` : "";
+  const { data: name } = User.useResultName({});
+  const subject = name != null ? ` for ${name}` : "";
   return (
     <Shell.Frame className={CSS.B("connection")} connection={target}>
       <Flex.Box
@@ -185,7 +185,7 @@ const Splash = ({ status }: SplashProps): ReactElement => {
 
 const Trouble = (): ReactElement => {
   const activeKey = Session.Core.useSelectSelectedKey();
-  const logout = Session.useLogout();
+  const logout = Core.useLogout();
   const openConnect = Core.useConnectModal();
   return (
     <Flex.Box y gap="large" full="x">

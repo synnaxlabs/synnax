@@ -11,6 +11,7 @@ import { pagerduty, type task } from "@synnaxlabs/client";
 import { createTestClient } from "@synnaxlabs/client/testutil";
 import { fireEvent, screen, waitFor } from "@testing-library/react";
 import { describe, expect, it } from "vitest";
+import { type z } from "zod";
 
 import { PagerDuty } from "@/feature/pagerduty";
 import {
@@ -50,8 +51,8 @@ const addAlert = async (): Promise<void> => {
 };
 
 const createAlertConfig = (
-  overrides: Partial<PagerDuty.Task.AlertTaskConfig> = {},
-): PagerDuty.Task.AlertTaskConfig => ({
+  overrides: Partial<z.infer<PagerDuty.Task.AlertSchemas["config"]>> = {},
+): z.infer<PagerDuty.Task.AlertSchemas["config"]> => ({
   ...PagerDuty.Task.ALERT_SCHEMAS.config.parse({}),
   routingKey: "R".repeat(32),
   alerts: [{ ...pagerduty.alertZ.parse({}), key: "a1", status: uniqueName("status") }],

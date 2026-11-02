@@ -17,6 +17,11 @@ import (
 )
 
 var _ = Describe("Instrumentation", func() {
+	It("Should attach a tracer when tracing is enabled", func() {
+		ins := Instrumentation("test", InstrumentationConfig{Trace: new(true)})
+		Expect(ins.T).ToNot(BeNil())
+	})
+
 	Describe("ObservedInstrumentation", func() {
 		It("Should capture log entries at the configured level", func() {
 			ins, logs := ObservedInstrumentation(zapcore.InfoLevel)

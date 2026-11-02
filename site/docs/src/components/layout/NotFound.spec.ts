@@ -51,9 +51,9 @@ describe("NotFound", () => {
   });
 
   it("should link the likely page by its name in the sidebar", async () => {
-    const find = await render("/reference/concepts/channles");
+    const find = await render("/reference/channles");
     const [page] = find("not-found__page");
-    expect(page.properties.href).toBe("/reference/concepts/channels");
+    expect(page.properties.href).toBe("/reference/channels");
     expect(text(find("not-found__name")[0])).toBe("Channels");
   });
 

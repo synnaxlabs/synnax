@@ -23,7 +23,7 @@ import { Status } from "@synnaxlabs/lyra/status";
 import { Triggers } from "@synnaxlabs/lyra/triggers";
 import { Access, Synnax } from "@synnaxlabs/pluto";
 import { type aether, eraser } from "@synnaxlabs/pluto/ether";
-import { deep, id } from "@synnaxlabs/x";
+import { deep, id, uuid } from "@synnaxlabs/x";
 import {
   act,
   render,
@@ -54,6 +54,14 @@ export const uniqueName = (prefix: string = "test"): string =>
   `${prefix}_${id.create().replace(/-/g, "_")}`;
 
 /**
+ * Creates a UUID whose last six bytes repeat the given hex nibble. Gorp lists
+ * UUID-keyed records ordered by the trailing bytes of the key, so a key ending in zeros
+ * sorts first and one ending in f sorts last.
+ */
+export const createKeyEndingIn = (nibble: string): string =>
+  `${uuid.create().slice(0, 24)}${nibble.repeat(12)}`;
+
+/**
  * Throws when value is null or undefined, narrowing it for subsequent use.
  * Excludes void as well as null and undefined: NonNullable leaves `void & {}`
  * behind, which drops every property off a `T | void` return.
@@ -71,7 +79,7 @@ export function assertDefined<T>(
  */
 export const findDialogTrigger = async (): Promise<HTMLElement> =>
   await waitFor(() => {
-    const el = document.querySelector<HTMLElement>(".pluto-dialog__trigger");
+    const el = document.querySelector<HTMLElement>(".lyra-dialog__trigger");
     assertDefined(el, "dialog trigger not found");
     return el;
   });
@@ -80,8 +88,8 @@ export const findDialogTrigger = async (): Promise<HTMLElement> =>
 export const findTagCloseButton = (name: string): HTMLElement => {
   const btn = screen
     .getByText(name)
-    .closest(".pluto-tag")
-    ?.querySelector<HTMLElement>(".pluto-tag__close");
+    .closest(".lyra-tag")
+    ?.querySelector<HTMLElement>(".lyra-tag__close");
   assertDefined(btn, `close button for tag ${name} not found`);
   return btn;
 };
@@ -417,15 +425,15 @@ export const createStatusConsoleWrapper = async ({
 };
 
 const SessionSynnaxProvider = ({ children }: PropsWithChildren): ReactElement => {
-  const core = Session.Core.useSelectSelected();
-  return <Synnax.Provider connParams={core}>{children}</Synnax.Provider>;
+  const connParams = Session.Core.useSelectConnParams();
+  return <Synnax.Provider connParams={connParams}>{children}</Synnax.Provider>;
 };
 SessionSynnaxProvider.displayName = "SessionSynnaxProvider";
 
 /**
  * Like createConnectedConsoleWrapper, but derives the provider's connection params from
- * the store's selected Core, exactly as the production Pluto.Context does. Use for
- * tests that exercise the login -> select -> connect flow.
+ * the store's selected Core and logs in with its credentials. Use for tests that
+ * exercise the login -> select -> connect flow.
  */
 export const createSessionConsoleWrapper = async (
   args: CreateConsoleWrapperParams,

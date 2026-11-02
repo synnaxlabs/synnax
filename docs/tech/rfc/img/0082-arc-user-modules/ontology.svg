@@ -1,0 +1,120 @@
+<!--
+  Copyright 2026 Synnax Labs, Inc.
+
+  Use of this software is governed by the Business Source License included in the file
+  licenses/BSL.txt.
+
+  As of the Change Date specified in that file, in accordance with the Business Source
+  License, use of this software will be governed by the Apache License, Version 2.0,
+  included in the file licenses/APL.txt.
+  -->
+<svg
+    xmlns="http://www.w3.org/2000/svg"
+    viewBox="0 0 840 300"
+    font-family="Helvetica, Arial, sans-serif"
+    font-size="14"
+>
+  <style>
+    .ink { fill: #1f2328; }
+    .muted { fill: #656d76; }
+    .edge { stroke: #8c959f; }
+    .box { fill: #f6f8fa; stroke: #8c959f; }
+    .group { fill: #f6f8fa; stroke: #8250df; }
+    .new { stroke: #bf3989; stroke-width: 2; }
+    @media (prefers-color-scheme: dark) {
+      .ink { fill: #e6edf3; }
+      .muted { fill: #8b949e; }
+      .edge { stroke: #8b949e; }
+      .box { fill: #161b22; stroke: #484f58; }
+      .group { fill: #1c1730; stroke: #a371f7; }
+      .new { stroke: #f778ba; }
+    }
+  </style>
+  <defs>
+    <marker
+            id="arrow"
+            viewBox="0 0 10 10"
+            refX="9"
+            refY="5"
+            markerWidth="7"
+            markerHeight="7"
+            orient="auto"
+        >
+      <path d="M0,0 L10,5 L0,10 z" fill="#8c959f" />
+    </marker>
+    <marker
+            id="arrow-new"
+            viewBox="0 0 10 10"
+            refX="9"
+            refY="5"
+            markerWidth="7"
+            markerHeight="7"
+            orient="auto"
+        >
+      <path d="M0,0 L10,5 L0,10 z" fill="#bf3989" />
+    </marker>
+  </defs>
+
+  <!-- root -->
+  <rect class="box" x="20" y="52" width="120" height="40" rx="6" />
+
+  <!-- groups below the root -->
+  <rect class="group" x="200" y="20" width="170" height="40" rx="6" />
+  <rect class="group new" x="200" y="84" width="170" height="40" rx="6" />
+
+  <!-- resources -->
+  <rect class="box" x="430" y="20" width="170" height="40" rx="6" />
+  <rect class="box" x="430" y="84" width="170" height="40" rx="6" />
+
+  <g class="ink" text-anchor="middle">
+    <text x="80" y="77">root</text>
+    <text x="285" y="45">Tasks</text>
+    <text x="285" y="109">Arcs</text>
+    <text x="515" y="45">task</text>
+    <text x="515" y="109">arc</text>
+  </g>
+  <g class="muted" font-size="11">
+    <text x="430" y="142">• An Arc automation is a parent to a task</text>
+    <text
+            x="430"
+            y="158"
+        >• An Arc module does not parent a task and cannot be executed on its own</text>
+    <text x="430" y="174">• All Arcs can import modules</text>
+  </g>
+
+  <!-- parent-of edges -->
+  <g fill="none" class="edge" stroke-width="1.5" marker-end="url(#arrow)">
+    <path d="M140,72 H170 V40 H198" />
+    <path d="M370,40 H428" />
+    <path d="M515,84 V62" />
+  </g>
+
+  <!-- new parent-of edges -->
+  <g fill="none" class="new" marker-end="url(#arrow-new)">
+    <path d="M140,72 H170 V104 H198" />
+    <path d="M370,104 H428" />
+  </g>
+
+  <!-- legend -->
+  <rect
+        x="20"
+        y="200"
+        width="800"
+        height="84"
+        rx="8"
+        fill="none"
+        class="edge"
+        stroke-width="1"
+        stroke-dasharray="3 4"
+    />
+  <g font-size="13">
+    <line x1="40" y1="226" x2="80" y2="226" class="edge" stroke-width="1.5" />
+    <text x="92" y="231" class="ink">"parent of" relationship</text>
+    <rect x="400" y="217" width="40" height="18" rx="4" class="group" />
+    <text x="454" y="231" class="ink">group</text>
+    <rect x="400" y="251" width="40" height="18" rx="4" class="box" />
+    <text x="454" y="265" class="ink">resource</text>
+    <rect x="560" y="217" width="40" height="18" rx="4" class="box new" />
+    <text x="614" y="231" class="ink">new in this RFC</text>
+  </g>
+</svg>

@@ -19,7 +19,7 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/distribution"
 	"github.com/synnaxlabs/synnax/pkg/distribution/framer"
 	"github.com/synnaxlabs/synnax/pkg/distribution/framer/frame"
-	"github.com/synnaxlabs/synnax/pkg/distribution/mock"
+	"github.com/synnaxlabs/synnax/pkg/distribution/testutil"
 	"github.com/synnaxlabs/synnax/pkg/service/channel"
 	"github.com/synnaxlabs/synnax/pkg/service/framer/iterator"
 	"github.com/synnaxlabs/synnax/pkg/service/group"
@@ -30,14 +30,15 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/storage/ts"
 	xfs "github.com/synnaxlabs/x/io/fs"
 	. "github.com/synnaxlabs/x/io/fs/testutil"
-	"github.com/synnaxlabs/x/kv/memkv"
+	"github.com/synnaxlabs/x/query"
 	"github.com/synnaxlabs/x/telem"
 	. "github.com/synnaxlabs/x/testutil"
+	"github.com/synnaxlabs/x/testutil/memkv"
 )
 
 // openServices opens the iterator service and the services it depends on over node.
 func openServices(
-	ctx context.Context, node mock.Node,
+	ctx context.Context, node testutil.Node,
 ) (*iterator.Service, *channel.Service) {
 	GinkgoHelper()
 	otg := MustOpen(ontology.Open(ctx, ontology.Config{DB: node.DB}))
@@ -79,14 +80,14 @@ func merged(series []telem.Series) telem.Series {
 
 var _ = Describe("StreamIterator", Ordered, func() {
 	var (
-		node          mock.Node
+		node          testutil.Node
 		iteratorSvc   *iterator.Service
 		channelSvc    *channel.Service
 		channelWriter channel.Writer
 	)
 	BeforeAll(func(ctx SpecContext) {
 		ShouldNotLeakGoroutines()
-		node = mock.NewNode(ctx)
+		node = testutil.NewNode(ctx)
 		iteratorSvc, channelSvc = openServices(ctx, node)
 		channelWriter = channelSvc.NewWriter(nil)
 	})
@@ -1714,77 +1715,43 @@ var _ = Describe("StreamIterator", Ordered, func() {
 			})
 
 			Describe("Virtual Upstream Reads", func() {
+				virtualErr := SatisfyAll(
+					MatchError(query.ErrUnsupported),
+					MatchError(
+						ContainSubstring("cannot open iterator on virtual channel"),
+					),
+				)
 				create := func(ctx SpecContext, chs ...*channel.Channel) {
 					GinkgoHelper()
 					for _, ch := range chs {
 						Expect(channelWriter.Create(ctx, ch)).To(Succeed())
 					}
 				}
-				open := func(ctx SpecContext, keys ...channel.Key) *iterator.Iterator {
-					GinkgoHelper()
-					return MustSucceed(iteratorSvc.Open(ctx, iterator.Config{
-						Keys:   keys,
-						Bounds: telem.TimeRangeMax,
-					}))
-				}
 
-				It("Should compute over a virtual channel's retained sample", func(
+				It("Should reject a calculation over a virtual channel alone", func(
 					ctx SpecContext,
 				) {
-					virt := &channel.Channel{
-						Name:     "virt_only",
-						DataType: telem.Float32T,
-						Virtual:  true,
-					}
 					calc := &channel.Channel{
 						Name:       "virt_only_calc",
 						DataType:   telem.Float32T,
 						Expression: "return virt_only * 2",
 					}
-					create(ctx, virt, calc)
-					w := MustSucceed(node.Framer.OpenWriter(ctx, framer.WriterConfig{
-						Start: telem.SecondTS,
-						Keys:  []channel.Key{virt.Key()},
-					}))
-					Expect(w.Write(
-						frame.NewUnary(virt.Key(), telem.NewSeriesV[float32](3)),
-					)).To(BeTrue())
-					Expect(w.Close()).To(Succeed())
-					iter := open(ctx, calc.Key(), calc.Index())
-					Expect(iter.SeekFirst()).To(BeTrue())
-					Expect(iter.Next(iterator.AutoSpan)).To(BeTrue())
-					v := iter.Value().Get(calc.Key())
-					Expect(v.Series).To(HaveLen(1))
-					Expect(v.Series[0]).To(telem.MatchSeriesDataV[float32](6))
-					Expect(iter.Value().Get(calc.Index()).Series).To(HaveLen(1))
-					Expect(iter.Next(iterator.AutoSpan)).To(BeFalse())
-					Expect(iter.Close()).To(Succeed())
-				})
-
-				It("Should read nothing before the virtual channel's first write", func(
-					ctx SpecContext,
-				) {
-					calc := &channel.Channel{
-						Name:       "virt_unwritten_calc",
-						DataType:   telem.Float32T,
-						Expression: "return virt_unwritten * 2",
-					}
 					create(
 						ctx,
 						&channel.Channel{
-							Name:     "virt_unwritten",
+							Name:     "virt_only",
 							DataType: telem.Float32T,
 							Virtual:  true,
 						},
 						calc,
 					)
-					iter := open(ctx, calc.Key(), calc.Index())
-					Expect(iter.SeekFirst()).To(BeFalse())
-					Expect(iter.Next(iterator.AutoSpan)).To(BeFalse())
-					Expect(iter.Close()).To(Succeed())
+					Expect(iteratorSvc.Open(ctx, iterator.Config{
+						Keys:   []channel.Key{calc.Key(), calc.Index()},
+						Bounds: telem.TimeRangeMax,
+					})).Error().To(virtualErr)
 				})
 
-				It("Should open a calculation mixing virtual and stored inputs", func(
+				It("Should reject a calculation mixing virtual and stored inputs", func(
 					ctx SpecContext,
 				) {
 					calc := &channel.Channel{
@@ -1801,10 +1768,13 @@ var _ = Describe("StreamIterator", Ordered, func() {
 						},
 						calc,
 					)
-					Expect(open(ctx, calc.Key(), calc.Index()).Close()).To(Succeed())
+					Expect(iteratorSvc.Open(ctx, iterator.Config{
+						Keys:   []channel.Key{calc.Key(), calc.Index()},
+						Bounds: telem.TimeRangeMax,
+					})).Error().To(virtualErr)
 				})
 
-				It("Should open a nested chain whose leaf is virtual", func(
+				It("Should reject a nested chain whose leaf is virtual", func(
 					ctx SpecContext,
 				) {
 					outer := &channel.Channel{
@@ -1826,10 +1796,13 @@ var _ = Describe("StreamIterator", Ordered, func() {
 						},
 						outer,
 					)
-					Expect(open(ctx, outer.Key(), outer.Index()).Close()).To(Succeed())
+					Expect(iteratorSvc.Open(ctx, iterator.Config{
+						Keys:   []channel.Key{outer.Key(), outer.Index()},
+						Bounds: telem.TimeRangeMax,
+					})).Error().To(virtualErr)
 				})
 
-				It("Should open an index-only read of a virtual-backed chain", func(
+				It("Should reject an index-only read of a virtual-backed chain", func(
 					ctx SpecContext,
 				) {
 					calc := &channel.Channel{
@@ -1846,7 +1819,10 @@ var _ = Describe("StreamIterator", Ordered, func() {
 						},
 						calc,
 					)
-					Expect(open(ctx, calc.Index()).Close()).To(Succeed())
+					Expect(iteratorSvc.Open(ctx, iterator.Config{
+						Keys:   []channel.Key{calc.Index()},
+						Bounds: telem.TimeRangeMax,
+					})).Error().To(virtualErr)
 				})
 			})
 		})
@@ -2289,7 +2265,7 @@ var _ = Describe("StreamIterator", Ordered, func() {
 		// channel on node, and writes the values 1 through 100 to them.
 		createSensor := func(
 			ctx SpecContext,
-			node mock.Node,
+			node testutil.Node,
 			w channel.Writer,
 		) (index, sensor *channel.Channel) {
 			GinkgoHelper()
@@ -2609,13 +2585,13 @@ var _ = Describe("StreamIterator", Ordered, func() {
 			// Chunks reads from its own Core, whose storage sends a fixed-span read in
 			// chunks of 7 samples per channel.
 			var (
-				node          mock.Node
+				node          testutil.Node
 				iteratorSvc   *iterator.Service
 				channelWriter channel.Writer
 			)
 			BeforeAll(func(ctx SpecContext) {
 				ShouldNotLeakGoroutines()
-				cluster := mock.OpenCluster(ctx, 0)
+				cluster := testutil.OpenCluster(ctx, 0)
 				store := &storage.Layer{
 					KV: DeferClose(memkv.New()),
 					TS: DeferClose(MustSucceed(cesium.Open(
@@ -2841,7 +2817,7 @@ var _ = Describe("StreamIterator", Ordered, func() {
 
 var _ = Describe("Close", func() {
 	It("Should reject every call after Close", func(ctx SpecContext) {
-		node := mock.NewNode(ctx)
+		node := testutil.NewNode(ctx)
 		iteratorSvc, channelSvc := openServices(ctx, node)
 		ch := &channel.Channel{
 			Name:     "Scott",
@@ -2867,10 +2843,10 @@ var _ = Describe("Read failure", func() {
 		faulty      *FaultyFS
 		iteratorSvc *iterator.Service
 		channelSvc  *channel.Service
-		node        mock.Node
+		node        testutil.Node
 	)
 	BeforeEach(func(ctx SpecContext) {
-		cluster := mock.OpenCluster(ctx, 0)
+		cluster := testutil.OpenCluster(ctx, 0)
 		faulty = WrapFaultyFS(xfs.NewMem())
 		store := &storage.Layer{
 			KV: DeferClose(memkv.New()),
@@ -2959,8 +2935,8 @@ var _ = Describe("Calculations across Cores", func() {
 	It("Should calculate the inputs of one read from two Cores together", func(
 		ctx SpecContext,
 	) {
-		cluster := mock.NewCluster(ctx, 0)
-		nodes := []mock.Node{cluster.Provision(ctx), cluster.Provision(ctx)}
+		cluster := testutil.NewCluster(ctx, 0)
+		nodes := []testutil.Node{cluster.Provision(ctx), cluster.Provision(ctx)}
 		iteratorSvc, channelSvc := openServices(ctx, nodes[0])
 		writer := channelSvc.NewWriter(nil)
 		for k, n := range nodes {

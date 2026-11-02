@@ -41,7 +41,7 @@ var _ = Describe("Batch wrapper", func() {
 
 	It("Should compute a whole series in one call", func(ctx SpecContext) {
 		mod, batch := instantiate(ctx, `
-		func scale(x f64, k f64) f64 {
+		func scale() {x f64, k f64} f64 {
 			return x * k
 		}
 		`, "scale")
@@ -67,7 +67,7 @@ var _ = Describe("Batch wrapper", func() {
 
 	It("Should write nothing when the count is zero", func(ctx SpecContext) {
 		mod, batch := instantiate(ctx, `
-		func double(x i64) i64 {
+		func double() {x i64} i64 {
 			return x * 2
 		}
 		`, "double")
@@ -80,7 +80,7 @@ var _ = Describe("Batch wrapper", func() {
 
 	It("Should truncate narrow samples to their own width", func(ctx SpecContext) {
 		mod, batch := instantiate(ctx, `
-		func offset(x u8) u8 {
+		func offset() {x u8} u8 {
 			return x + 1
 		}
 		`, "offset")
@@ -93,7 +93,7 @@ var _ = Describe("Batch wrapper", func() {
 
 	It("Should sign-extend narrow signed samples", func(ctx SpecContext) {
 		mod, batch := instantiate(ctx, `
-		func half(x i8) i8 {
+		func half() {x i8} i8 {
 			return x / 2
 		}
 		`, "half")
@@ -113,17 +113,17 @@ var _ = Describe("Batch wrapper", func() {
 				ToNot(HaveKey(key + compiler.BatchSuffix))
 		},
 		Entry("string return", `
-		func label(x i64) str {
+		func label() {x i64} str {
 			return "hello"
 		}
 		`, "label"),
 		Entry("string parameter", `
-		func size(s str) i64 {
+		func size() {s str} i64 {
 			return 1
 		}
 		`, "size"),
 		Entry("series parameter", `
-		func total(s series i64) i64 {
+		func total() {s series i64} i64 {
 			return len(s)
 		}
 		`, "total"),

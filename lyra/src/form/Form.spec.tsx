@@ -8,13 +8,14 @@
 // included in the file licenses/APL.txt.
 
 import { deep, type record } from "@synnaxlabs/x";
-import { act, fireEvent, render, renderHook } from "@testing-library/react";
+import { act, fireEvent, render, renderHook, screen } from "@testing-library/react";
 import { type PropsWithChildren, type ReactElement } from "react";
 import { renderToString } from "react-dom/server";
 import { describe, expect, it, vi } from "vitest";
 import { z } from "zod";
 
 import { Form } from "@/form";
+import { createLocalStore } from "@/form/store";
 import { Input } from "@/input";
 
 const basicFormSchema = z
@@ -22,8 +23,8 @@ const basicFormSchema = z
     name: z.string().min(1, "You must enter a name."),
     optionalField: z.string().optional(),
     age: z.number().min(5, "You must be at least 5 years old."),
-    nested: z.object({ ssn: z.string(), ein: z.string().optional() }),
-    array: z.array(z.object({ key: z.string(), name: z.string() })),
+    nested: z.object({ ssn: z.string().min(1), ein: z.string().optional() }),
+    array: z.array(z.object({ key: z.string(), name: z.string().min(1) })),
   })
   .check((ctx) => {
     if (ctx.value.name === "Billy Bob")
@@ -119,15 +120,24 @@ describe("Form", () => {
         expect(field).toBeNull();
       });
 
-      it("should return true if a field is required in the schema", () => {
+      it("should return true if the schema refuses the field empty", () => {
         const { result } = renderHook(() =>
           Form.use({
             values: deep.copy(initialFormValues),
             schema: basicFormSchema,
           }),
         );
-        const field = result.current.get("age");
-        expect(field.required).toBe(true);
+        expect(result.current.get("name").required).toBe(true);
+      });
+
+      it("should return false for a number, which no input can empty", () => {
+        const { result } = renderHook(() =>
+          Form.use({
+            values: deep.copy(initialFormValues),
+            schema: basicFormSchema,
+          }),
+        );
+        expect(result.current.get("age").required).toBe(false);
       });
     });
 
@@ -210,6 +220,147 @@ describe("Form", () => {
         );
         expect(result.current.validate()).toBe(true);
       });
+    });
+    describe("addCheck", () => {
+      const notJohn = z.string().refine((v) => v !== "John Doe", "Not John");
+      const useBasicForm = () =>
+        Form.use({ values: deep.copy(initialFormValues), schema: basicFormSchema });
+
+      it("should show a check's issue on an untouched field", () => {
+        const { result } = renderHook(useBasicForm);
+        act(() => {
+          result.current.addCheck("name", notJohn);
+        });
+        expect(result.current.get("name").status).toMatchObject({
+          variant: "error",
+          message: "Not John",
+        });
+      });
+      it("should not make the form invalid", () => {
+        const { result } = renderHook(useBasicForm);
+        act(() => {
+          result.current.addCheck("name", notJohn);
+        });
+        expect(result.current.validate()).toBe(true);
+      });
+      it("should check again on every set", () => {
+        const { result } = renderHook(useBasicForm);
+        act(() => {
+          result.current.addCheck("name", notJohn);
+        });
+        act(() => result.current.set("name", "Jane Doe"));
+        expect(result.current.get("name").status.variant).toBe("success");
+      });
+      it("should check again when another client changes the value", () => {
+        const store = createLocalStore(deep.copy(initialFormValues));
+        const { result } = renderHook(() =>
+          Form.use({ store, schema: basicFormSchema }),
+        );
+        act(() => {
+          result.current.addCheck("name", notJohn);
+        });
+        act(() => store.set("name", "Jane Doe"));
+        expect(result.current.get("name").status.variant).toBe("success");
+        act(() => store.set("name", "John Doe"));
+        expect(result.current.get("name").status.message).toBe("Not John");
+      });
+      it("should check the values of a new store", () => {
+        const first = createLocalStore(
+          deep.copy({ ...initialFormValues, name: "Jane Doe" }),
+        );
+        const second = createLocalStore(deep.copy(initialFormValues));
+        const { result, rerender } = renderHook(
+          ({ store }) => Form.use({ store, schema: basicFormSchema }),
+          { initialProps: { store: first } },
+        );
+        act(() => {
+          result.current.addCheck("name", notJohn);
+        });
+        expect(result.current.get("name").status.variant).toBe("success");
+        rerender({ store: second });
+        expect(result.current.get("name").status.message).toBe("Not John");
+      });
+      it("should check the values a reset gives", () => {
+        const { result } = renderHook(() =>
+          Form.use({
+            values: deep.copy({ ...initialFormValues, name: "Jane Doe" }),
+            schema: basicFormSchema,
+          }),
+        );
+        act(() => {
+          result.current.addCheck("name", notJohn);
+        });
+        act(() => result.current.reset(deep.copy(initialFormValues)));
+        expect(result.current.get("name").status.message).toBe("Not John");
+      });
+      it("should check again after a remove", () => {
+        const { result } = renderHook(useBasicForm);
+        act(() => {
+          result.current.addCheck(
+            "",
+            z.object({ optionalField: z.literal("").optional() }),
+          );
+        });
+        act(() => result.current.set("optionalField", "set"));
+        expect(result.current.get("optionalField").status.variant).toBe("error");
+        act(() => result.current.remove("optionalField"));
+        expect(result.current.getStatuses()).toEqual([]);
+      });
+      it("should clear its issues once removed", () => {
+        const { result } = renderHook(useBasicForm);
+        let remove = () => {};
+        act(() => {
+          remove = result.current.addCheck("name", notJohn);
+        });
+        act(() => remove());
+        expect(result.current.get("name").status.variant).toBe("success");
+      });
+      it("should keep an error over a later warning on the same field", () => {
+        const { result } = renderHook(useBasicForm);
+        const warning = z.string().check(({ value, issues }) => {
+          issues.push({
+            code: "custom",
+            message: "Odd name",
+            input: value,
+            params: { variant: "warning" },
+          });
+        });
+        act(() => {
+          result.current.addCheck("name", notJohn);
+          result.current.addCheck("name", warning);
+        });
+        expect(result.current.get("name").status.message).toBe("Not John");
+      });
+    });
+  });
+
+  describe("useCheck", () => {
+    const notJohn = z.string().refine((v) => v !== "John Doe", "Not John");
+
+    it("should check the field while mounted", () => {
+      const { result, unmount } = renderHook(
+        () => {
+          Form.useCheck("name", notJohn);
+          return Form.useContext();
+        },
+        { wrapper },
+      );
+      expect(result.current.get("name").status.message).toBe("Not John");
+      const ctx = result.current;
+      unmount();
+      expect(ctx.get("name").status.variant).toBe("success");
+    });
+    it("should replace the check when the schema changes", () => {
+      const notJane = z.string().refine((v) => v !== "John Doe", "Not Jane");
+      const { result, rerender } = renderHook(
+        ({ schema }: { schema: z.ZodType }) => {
+          Form.useCheck("name", schema);
+          return Form.useContext();
+        },
+        { wrapper, initialProps: { schema: notJohn } },
+      );
+      rerender({ schema: notJane });
+      expect(result.current.get("name").status.message).toBe("Not Jane");
     });
   });
 
@@ -440,6 +591,53 @@ describe("Form", () => {
     });
   });
 
+  describe("useStatuses", () => {
+    const renderStatuses = (path: string) =>
+      renderHook(() => ({ ctx: Form.useContext(), statuses: Form.useStatuses(path) }), {
+        wrapper,
+      });
+
+    it("should read the statuses at and under the path", () => {
+      const { result } = renderStatuses("nested");
+      act(() => {
+        result.current.ctx.setStatus("nested.ssn", {
+          variant: "error",
+          message: "SSN is taken",
+        });
+        result.current.ctx.setStatus("name", { variant: "error", message: "Taken" });
+      });
+      expect(result.current.statuses).toEqual([
+        { key: "nested.ssn", variant: "error", message: "SSN is taken" },
+      ]);
+    });
+
+    it("should leave out success statuses", () => {
+      const { result } = renderHook(
+        () => {
+          Form.useFieldState("nested.ssn");
+          return Form.useStatuses("nested");
+        },
+        { wrapper },
+      );
+      expect(result.current).toEqual([]);
+    });
+
+    it("should keep its result when a status outside the path changes", () => {
+      const { result } = renderStatuses("nested");
+      act(() =>
+        result.current.ctx.setStatus("nested.ssn", {
+          variant: "error",
+          message: "Bad",
+        }),
+      );
+      const before = result.current.statuses;
+      act(() =>
+        result.current.ctx.setStatus("name", { variant: "error", message: "" }),
+      );
+      expect(result.current.statuses).toBe(before);
+    });
+  });
+
   describe("Field", () => {
     it("should render its value on the server", () => {
       const html = renderToString(
@@ -490,6 +688,36 @@ describe("Form", () => {
       // we're executing an async parse so we need to wait for the error to show up
       expect(c.findByText("You must be at least 5 years old.")).toBeTruthy();
     });
+    describe("required mark", () => {
+      it("should mark the default text input when the schema refuses it empty", () => {
+        const c = render(<Form.Field path="name" />, { wrapper });
+        expect(c.getByText("*")).toBeTruthy();
+      });
+      it("should not mark a custom input", () => {
+        const c = render(
+          <Form.Field<string> path="name">{(p) => <Input.Text {...p} />}</Form.Field>,
+          { wrapper },
+        );
+        expect(c.queryByText("*")).toBeNull();
+      });
+      it("should mark a custom input that is emptiable", () => {
+        const c = render(
+          <Form.Field<string> path="name" emptiable>
+            {(p) => <Input.Text {...p} />}
+          </Form.Field>,
+          { wrapper },
+        );
+        expect(c.getByText("*")).toBeTruthy();
+      });
+      it("should mark a text field", () => {
+        const c = render(<Form.TextField path="name" />, { wrapper });
+        expect(c.getByText("*")).toBeTruthy();
+      });
+      it("should not mark a numeric field", () => {
+        const c = render(<Form.NumericField path="age" />, { wrapper });
+        expect(c.queryByText("*")).toBeNull();
+      });
+    });
     describe("Nested Field", () => {
       it("should return a text field with the correct value", () => {
         const c = render(<Form.Field path="nested.ssn" />, { wrapper });
@@ -514,8 +742,8 @@ describe("Form", () => {
         expect(c.getByText("*")).toBeTruthy();
       });
       it("should not mark the array field as required if it is not required in the schema", () => {
-        const c = render(<Form.Field path="array.0.name" />, { wrapper });
-        expect(c.getByText("*")).toBeTruthy();
+        const c = render(<Form.Field path="array.0.key" />, { wrapper });
+        expect(c.queryByText("*")).toBeNull();
       });
     });
   });
@@ -538,6 +766,84 @@ describe("Form", () => {
       fireEvent.blur(input);
       // we're executing an async parse so we need to wait for the error to show up
       expect(c.findByText("You must be at least 5 years old.")).toBeTruthy();
+    });
+  });
+
+  describe("CheckboxField", () => {
+    const flagsSchema = z.object({
+      enabled: z.boolean(),
+      disabled: z.boolean(),
+      config: z.object({ autoStart: z.boolean() }),
+    });
+
+    const flagsWrapper =
+      (field?: ReactElement) =>
+      ({ children }: PropsWithChildren): ReactElement => {
+        const methods = Form.use<typeof flagsSchema>({
+          values: { enabled: true, disabled: false, config: { autoStart: false } },
+          schema: flagsSchema,
+        });
+        return (
+          <Form.Form<typeof flagsSchema> {...methods}>
+            {field}
+            {children}
+          </Form.Form>
+        );
+      };
+
+    it("should check the box when the stored value is true", () => {
+      render(<Form.CheckboxField path="enabled" />, { wrapper: flagsWrapper() });
+      expect(
+        screen.getByRole<HTMLInputElement>("checkbox", { name: "Enabled" }).checked,
+      ).toBe(true);
+    });
+
+    it("should never show a required mark", () => {
+      const c = render(<Form.CheckboxField path="enabled" />, {
+        wrapper: flagsWrapper(),
+      });
+      expect(c.queryByText("*")).toBeNull();
+    });
+
+    it("should check the box when an inverted flag is false", () => {
+      render(<Form.CheckboxField path="disabled" label="Saving" inverted />, {
+        wrapper: flagsWrapper(),
+      });
+      expect(
+        screen.getByRole<HTMLInputElement>("checkbox", { name: "Saving" }).checked,
+      ).toBe(true);
+    });
+
+    it("should store the inverse of the box for an inverted flag", () => {
+      const { result } = renderHook(() => Form.useFieldValue<boolean>("disabled"), {
+        wrapper: flagsWrapper(
+          <Form.CheckboxField path="disabled" label="Saving" inverted />,
+        ),
+      });
+      expect(result.current).toBe(false);
+      act(() => {
+        fireEvent.click(screen.getByRole("checkbox", { name: "Saving" }));
+      });
+      expect(result.current).toBe(true);
+    });
+
+    it("should bind to the field key under the path", () => {
+      const { result } = renderHook(
+        () => Form.useFieldValue<boolean>("config.autoStart"),
+        {
+          wrapper: flagsWrapper(
+            <Form.CheckboxField
+              path="config"
+              fieldKey="autoStart"
+              label="Auto start"
+            />,
+          ),
+        },
+      );
+      act(() => {
+        fireEvent.click(screen.getByRole("checkbox", { name: "Auto start" }));
+      });
+      expect(result.current).toBe(true);
     });
   });
 
@@ -683,6 +989,282 @@ describe("Form", () => {
       expect(result.current.field?.[0].name).toBe("Alice");
       expect(result.current.field?.[1].name).toBe("John Doe");
       expect(result.current.field?.[2].name).toBe("Zara");
+    });
+  });
+
+  describe("fieldListUtils over a store", () => {
+    const byName = (a: record.KeyedNamed, b: record.KeyedNamed) =>
+      a.name.localeCompare(b.name);
+    const renderOverStore = () => {
+      const store = createLocalStore({
+        ...deep.copy(initialFormValues),
+        array: [
+          { key: "a", name: "A" },
+          { key: "b", name: "B" },
+          { key: "c", name: "C" },
+        ],
+      });
+      const calls = {
+        insert: vi.spyOn(store, "insert"),
+        move: vi.spyOn(store, "move"),
+        remove: vi.spyOn(store, "remove"),
+        set: vi.spyOn(store, "set"),
+      };
+      const { result } = renderHook(() =>
+        Form.fieldListUtils<string, record.KeyedNamed>(Form.use({ store }), "array"),
+      );
+      return { utils: () => result.current, calls };
+    };
+
+    it("should insert a pushed entry after the last entry", () => {
+      const { utils, calls } = renderOverStore();
+      const d = { key: "d", name: "D" };
+      act(() => utils().push(d));
+      expect(calls.insert.mock.calls).toEqual([["array", d, "c"]]);
+      expect(calls.set).not.toHaveBeenCalled();
+    });
+
+    it("should insert an added entry after the entry before its index", () => {
+      const { utils, calls } = renderOverStore();
+      const d = { key: "d", name: "D" };
+      const e = { key: "e", name: "E" };
+      act(() => utils().add(d, 1));
+      act(() => utils().add(e, 0));
+      expect(calls.insert.mock.calls).toEqual([
+        ["array", d, "a"],
+        ["array", e, undefined],
+      ]);
+      expect(calls.set).not.toHaveBeenCalled();
+    });
+
+    it("should move only the entries that a sort puts out of place", () => {
+      const { utils, calls } = renderOverStore();
+      act(() => utils().sort?.(byName));
+      expect(calls.move).not.toHaveBeenCalled();
+      act(() => utils().sort?.((a, b) => byName(b, a)));
+      expect(calls.move.mock.calls).toEqual([
+        ["array", "c", undefined],
+        ["array", "b", "c"],
+      ]);
+      expect(calls.set).not.toHaveBeenCalled();
+    });
+
+    it("should move a pushed entry into place when the push sorts", () => {
+      const { utils, calls } = renderOverStore();
+      const first = { key: "0", name: "0" };
+      act(() => utils().push(first, byName));
+      expect(calls.insert.mock.calls).toEqual([["array", first, "c"]]);
+      expect(calls.move.mock.calls).toEqual([["array", "0", undefined]]);
+      expect(calls.set).not.toHaveBeenCalled();
+    });
+
+    it.each<[string, (utils: Form.FieldListUtils<string, record.KeyedNamed>) => void]>([
+      ["remove", (utils) => utils.remove("1")],
+      ["keepOnly", (utils) => utils.keepOnly("0")],
+    ])("should %s by key when a key reads as an index", (_, edit) => {
+      const store = createLocalStore({
+        array: [
+          { key: "1", name: "first" },
+          { key: "0", name: "second" },
+        ],
+      });
+      const { result } = renderHook(() =>
+        Form.fieldListUtils<string, record.KeyedNamed>(Form.use({ store }), "array"),
+      );
+      act(() => edit(result.current));
+      expect(store.get().array).toEqual([{ key: "0", name: "second" }]);
+    });
+
+    it("should remove each dropped entry from the end of the list", () => {
+      const { utils, calls } = renderOverStore();
+      act(() => {
+        utils().remove(["a", "c"]);
+      });
+      expect(calls.remove.mock.calls).toEqual([["array.2"], ["array.0"]]);
+      expect(calls.set).not.toHaveBeenCalled();
+    });
+
+    it("should remove each entry that keepOnly does not keep", () => {
+      const { utils, calls } = renderOverStore();
+      act(() => {
+        utils().keepOnly("b");
+      });
+      expect(calls.remove.mock.calls).toEqual([["array.2"], ["array.0"]]);
+      expect(calls.set).not.toHaveBeenCalled();
+    });
+  });
+
+  describe("keyed list edits", () => {
+    it("should call onChange with the list path for an insert", () => {
+      const onChange = vi.fn();
+      const { result } = renderHook(() =>
+        Form.use<typeof basicFormSchema>({
+          values: deep.copy(initialFormValues),
+          onChange,
+        }),
+      );
+      act(() => result.current.insert("array", { key: "key2", name: "Jane" }, "key1"));
+      expect(result.current.value().array.map(({ key }) => key)).toEqual([
+        "key1",
+        "key2",
+      ]);
+      expect(onChange).toHaveBeenCalledWith(
+        expect.objectContaining({ path: "array", prev: initialFormValues.array }),
+      );
+    });
+
+    it("should move an entry", () => {
+      const { result } = renderHook(() =>
+        Form.use<typeof basicFormSchema>({ values: deep.copy(initialFormValues) }),
+      );
+      act(() => {
+        result.current.insert("array", { key: "key2", name: "Jane" });
+        result.current.move("array", "key1");
+      });
+      expect(result.current.value().array.map(({ key }) => key)).toEqual([
+        "key1",
+        "key2",
+      ]);
+    });
+
+    it("should call onChange once for each entry that a list remove drops", () => {
+      const onChange = vi.fn();
+      const { result } = renderHook(() => {
+        const form = Form.use<typeof basicFormSchema>({
+          values: deep.copy(initialFormValues),
+          onChange,
+        });
+        const utils = Form.fieldListUtils<string, record.KeyedNamed>(form, "array");
+        return { form, utils };
+      });
+      act(() => result.current.utils.push({ key: "key2", name: "Jane" }));
+      onChange.mockClear();
+      act(() => {
+        result.current.utils.remove(["key1", "key2"]);
+      });
+      expect(result.current.form.value().array).toEqual([]);
+      expect(onChange.mock.calls.map(([{ path }]) => path)).toEqual([
+        "array.1",
+        "array.0",
+      ]);
+    });
+
+    it("should validate once for all the edits in a batch", () => {
+      let validations = 0;
+      const schema = basicFormSchema.check(() => {
+        validations++;
+      });
+      const { result } = renderHook(() =>
+        Form.use({ values: deep.copy(initialFormValues), schema }),
+      );
+      validations = 0;
+      act(() =>
+        result.current.batch(() => {
+          result.current.set("name", "Jane Doe");
+          result.current.set("age", 50);
+        }),
+      );
+      expect(validations).toBe(1);
+      expect(result.current.get("age").value).toBe(50);
+    });
+
+    it("should notify once for a batch", () => {
+      const { result } = renderHook(() =>
+        Form.use({ values: deep.copy(initialFormValues) }),
+      );
+      const listener = vi.fn();
+      result.current.bind(listener);
+      act(() =>
+        result.current.batch(() => {
+          result.current.set("name", "Jane Doe");
+          result.current.set("age", 50);
+          result.current.remove("array.key1");
+        }),
+      );
+      expect(listener).toHaveBeenCalledTimes(1);
+    });
+
+    it("should neither validate nor notify for a batch that changes nothing", () => {
+      let validations = 0;
+      const schema = basicFormSchema.check(() => {
+        validations++;
+      });
+      const { result } = renderHook(() =>
+        Form.use({ values: deep.copy(initialFormValues), schema }),
+      );
+      const listener = vi.fn();
+      result.current.bind(listener);
+      validations = 0;
+      act(() => result.current.batch(() => {}));
+      expect(validations).toBe(0);
+      expect(listener).not.toHaveBeenCalled();
+    });
+  });
+
+  describe("store", () => {
+    const renderWithStore = () => {
+      const store = createLocalStore(deep.copy(initialFormValues));
+      let renders = 0;
+      const res = renderHook(() => {
+        renders++;
+        const form = Form.use({ store, schema: basicFormSchema });
+        const age = Form.useFieldValue<number, number, typeof basicFormSchema>("age", {
+          ctx: form,
+        });
+        return { form, age };
+      });
+      return { store, res, renders: () => renders };
+    };
+
+    it("should read the values that the store holds", () => {
+      const { res } = renderWithStore();
+      expect(res.result.current.age).toBe(42);
+    });
+
+    it("should write edits to the store", () => {
+      const { store, res } = renderWithStore();
+      act(() => res.result.current.form.set("age", 50));
+      expect(store.get().age).toBe(50);
+    });
+
+    it("should re-render a field that another writer changes", () => {
+      const { store, res } = renderWithStore();
+      act(() => store.set("age", 50));
+      expect(res.result.current.age).toBe(50);
+    });
+
+    it("should read another store that replaces the first", () => {
+      const first = createLocalStore(deep.copy(initialFormValues));
+      const second = createLocalStore({ ...deep.copy(initialFormValues), age: 7 });
+      const onHasTouched = vi.fn();
+      const { result, rerender } = renderHook(
+        ({ store }) => {
+          const form = Form.use({ store, schema: basicFormSchema, onHasTouched });
+          const age = Form.useFieldValue<number, number, typeof basicFormSchema>(
+            "age",
+            {
+              ctx: form,
+            },
+          );
+          return { form, age };
+        },
+        { initialProps: { store: first } },
+      );
+      act(() => result.current.form.set("name", "Jane Doe"));
+      rerender({ store: second });
+      expect(result.current.age).toBe(7);
+      expect(onHasTouched).toHaveBeenLastCalledWith(false);
+      act(() => second.set("age", 8));
+      expect(result.current.age).toBe(8);
+      act(() => first.set("age", 9));
+      expect(result.current.age).toBe(8);
+    });
+
+    it("should not re-render for a change that no read field reaches", () => {
+      const { store, renders } = renderWithStore();
+      const before = renders();
+      act(() => store.set("nested.ssn", "000-00-0000"));
+      expect(renders()).toBe(before);
     });
   });
 

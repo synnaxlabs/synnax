@@ -17,7 +17,27 @@ linters:
     - set
     - goroutineleak
     - suiteconfig
+    - errmatch
+    - depguard
+    - forbidigo
   settings:
+    depguard:
+      rules:
+        errors:
+          files:
+            - "$all"
+            - "!**/x/go/errors/*.go"
+          deny:
+            - pkg: "errors"
+              desc: use github.com/synnaxlabs/x/errors
+            - pkg: "github.com/cockroachdb/errors"
+              desc: use github.com/synnaxlabs/x/errors
+            - pkg: "github.com/pkg/errors"
+              desc: use github.com/synnaxlabs/x/errors
+    forbidigo:
+      forbid:
+        - pattern: ^fmt\.Errorf$
+          msg: use errors.Newf or errors.Wrapf from github.com/synnaxlabs/x/errors
     ginkgolinter:
       forbid-focus-container: true
       force-expect-to: true
@@ -60,6 +80,11 @@ linters:
         description: >
           Enforces the shared Ginkgo configuration in Ginkgo suites: every RunSpecs call
           must pass SuiteConfig().
+      errmatch:
+        type: "module"
+        description: >
+          Forbids error assertions that do not identify the error: HaveOccurred(),
+          Not(Succeed()), and Not(BeNil()) on an error.
 formatters:
   enable:
     - gci

@@ -11,11 +11,11 @@ import "@/schematic/node/general/button/button.css";
 
 import { type schematic } from "@synnaxlabs/client";
 import { Button as Base } from "@synnaxlabs/lyra/button";
-import { CSS } from "@synnaxlabs/lyra/css";
 import { Triggers } from "@synnaxlabs/lyra/triggers";
 import { color } from "@synnaxlabs/x";
 import { type CSSProperties, type MouseEventHandler, type ReactElement } from "react";
 
+import { CSS } from "@/css";
 import { Handle } from "@/schematic/node/common/handle";
 import { Primitive } from "@/schematic/node/common/primitive";
 
@@ -77,7 +77,7 @@ export const Button = ({
     <Primitive.Div orientation={orientation}>
       <Base.Button
         variant="filled"
-        className={CSS.cls(CSS.B("symbol-colored"), CSS.B("symbol-button"))}
+        className={CSS.cls(CSS.symbolColored, CSS.B("symbol-button"))}
         style={style}
         {...handlers}
         size={size}

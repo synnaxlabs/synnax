@@ -9,7 +9,6 @@
 
 import "@/arc/graph/node/source/Source.css";
 
-import { CSS } from "@synnaxlabs/lyra/css";
 import { Icon } from "@synnaxlabs/lyra/icon";
 import { Text } from "@synnaxlabs/lyra/text";
 
@@ -17,6 +16,7 @@ import { Base } from "@/arc/graph/node/Base";
 import { type Config } from "@/arc/graph/node/source/config";
 import { type types } from "@/arc/graph/node/types";
 import { Channel } from "@/channel";
+import { CSS } from "@/css";
 
 export interface SymbolProps extends types.SymbolProps<Config> {}
 
@@ -37,7 +37,7 @@ export const Symbol = ({ config: { channel } }: SymbolProps) => {
         weight={500}
         color={10}
         className={CSS.BE("arc", "source-label")}
-        overflow="ellipsis"
+        overflow="fade"
       >
         {name}
       </Text.Text>

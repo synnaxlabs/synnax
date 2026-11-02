@@ -16,7 +16,7 @@ const dashed = (): boolean =>
   screen
     .getByRole("checkbox")
     .closest("label")
-    ?.classList.contains("pluto--indeterminate") ?? false;
+    ?.classList.contains("lyra--indeterminate") ?? false;
 
 describe("Input.Checkbox", () => {
   it("should draw a dash for a partly made choice", () => {

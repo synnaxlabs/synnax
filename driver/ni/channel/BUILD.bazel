@@ -38,7 +38,7 @@ cc_test(
         "//client/cpp/testutil",
         "//driver/ni/channel",
         "//driver/ni/daqmx:mock",
-        "//x/cpp/test",
+        "//x/cpp/testutil",
         "@googletest//:gtest_main",
     ],
 )

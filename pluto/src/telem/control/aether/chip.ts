@@ -52,7 +52,7 @@ export class Chip extends aether.Leaf<typeof chipStateZ, InternalState> {
   }
 
   private updateEnabledState(): void {
-    const nextStatus = this.internal.source.value();
+    const nextStatus = this.internal.source.value().data;
     if (!deep.equal(nextStatus, this.state.status))
       this.setState((p) => ({ ...p, status: nextStatus, triggered: false }));
   }

@@ -37,7 +37,7 @@ const nameInput = (): HTMLInputElement =>
 // The port field carries its default rather than a placeholder, so it is reached by
 // the field class instead.
 const portInput = (): HTMLInputElement =>
-  getBySelector<HTMLInputElement>(document.body, ".pluto-field__port input");
+  getBySelector<HTMLInputElement>(document.body, ".lyra-field__port input");
 
 const fillForm = (name: string, host: string, port: string): void => {
   fireEvent.change(nameInput(), { target: { value: name } });
@@ -45,6 +45,8 @@ const fillForm = (name: string, host: string, port: string): void => {
     target: { value: host },
   });
   fireEvent.change(portInput(), { target: { value: port } });
+  // A numeric input commits on blur, not per keystroke.
+  fireEvent.blur(portInput());
 };
 
 describe("useConnectModal", () => {
@@ -67,7 +69,9 @@ describe("useConnectModal", () => {
       await waitFor(() => expect(screen.getByText("Host is required")).toBeTruthy());
       expect(screen.getByText("Name is required")).toBeTruthy();
       expect(screen.getByPlaceholderText("Synnax Core")).toBeTruthy();
-      expect(Session.Core.selectMany(store.getState())).toHaveLength(0);
+      expect(
+        Object.values(store.getState()[Session.Core.SLICE_NAME].cores),
+      ).toHaveLength(0);
     });
 
     // A name is a label, not an identity, so two Cores may share one.
@@ -79,7 +83,9 @@ describe("useConnectModal", () => {
       fillForm("Existing", "localhost", "9090");
       fireEvent.click(findButton("Connect"));
       await waitFor(() =>
-        expect(Session.Core.selectMany(store.getState())).toHaveLength(2),
+        expect(
+          Object.values(store.getState()[Session.Core.SLICE_NAME].cores),
+        ).toHaveLength(2),
       );
     });
   });
@@ -87,15 +93,15 @@ describe("useConnectModal", () => {
   describe("submission", () => {
     it("should add the Core and close the modal after connecting", async () => {
       const { store } = await openConnect([]);
-      fillForm("SubmitTest", "localhost", "9090");
+      fillForm("SubmitTest", "localhost", "9091");
       fireEvent.click(findButton("Connect"));
       await waitFor(() => {
-        const created = Session.Core.selectMany(store.getState()).find(
-          (c) => c.name === "SubmitTest",
-        );
+        const created = Object.values(
+          store.getState()[Session.Core.SLICE_NAME].cores,
+        ).find((c) => c.name === "SubmitTest");
         expect(created).toBeDefined();
         expect(created?.host).toEqual("localhost");
-        expect(created?.port).toEqual(9090);
+        expect(created?.port).toEqual(9091);
       });
       await waitFor(() =>
         expect(screen.queryByPlaceholderText("Synnax Core")).toBeNull(),

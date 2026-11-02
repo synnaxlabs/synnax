@@ -26,32 +26,17 @@ const NODE: OPCUA.Task.ScannedNode = {
   isArray: false,
 };
 
+const ITEM: Haul.Item = { type: OPCUA.Device.HAUL_TYPE, key: NODE.nodeId, data: NODE };
+
 const OTHER: Haul.Item = { type: "other_type", key: "other" };
 
 describe("opc device haul utilities", () => {
-  describe("createHaulItem", () => {
-    it("builds an item keyed by node ID carrying the full scanned node", () => {
-      expect(OPCUA.Device.createHaulItem(NODE)).toEqual({
-        type: OPCUA.Device.HAUL_TYPE,
-        key: NODE.nodeId,
-        data: NODE,
-      });
-    });
-  });
-
-  describe("filterHaulItems", () => {
-    it("keeps opc items and drops items of other kinds", () => {
-      const item = OPCUA.Device.createHaulItem(NODE);
-      expect(OPCUA.Device.filterHaulItems([item, OTHER])).toEqual([item]);
-    });
-  });
-
   describe("canDropHaulItem", () => {
     it("returns true when at least one item is an opc item", () => {
       expect(
         OPCUA.Device.canDropHaulItem({
           source: OTHER,
-          items: [OPCUA.Device.createHaulItem(NODE), OTHER],
+          items: [ITEM, OTHER],
         }),
       ).toBe(true);
     });

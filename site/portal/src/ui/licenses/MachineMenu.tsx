@@ -32,7 +32,7 @@ export const MachineMenu = ({ activation, label }: MachineMenuProps): ReactEleme
   const [renaming, setRenaming] = useState(false);
   const download = useAction(async () => {
     const blob = await postFile(`/api/activations/${activation.key}/download`);
-    save(blob, filename(label));
+    save(blob, filename(label, activation.name));
   });
   const release = (): void => setReleasing(true);
   const rename = (): void => setRenaming(true);
@@ -84,8 +84,9 @@ export const MachineMenu = ({ activation, label }: MachineMenuProps): ReactEleme
             reload();
           }}
         >
-          The Core on that machine loses its license at its next check. Activate it
-          again to give it a new license key.
+          Another machine can take the seat. A Core checks its license offline, so the
+          Core on that machine keeps running as its license key allows. Activate it
+          again to give it a seat.
         </Modal.Confirm>
       </Modal.Frame>
       <RenameDialog

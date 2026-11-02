@@ -9,13 +9,14 @@
  * included in the file licenses/APL.txt.
  */
 
-.pluto-resize {
+.lyra-resize {
     /* Fixed rather than a multiple of the border width, which halves on retina and
        would leave a 2.5px drag target. */
     --resize-panel-handle-size: 6px;
+
     position: relative;
 
-    &.pluto--location-left > .pluto-resize__handle {
+    &.lyra--location-left > .lyra-resize__handle {
         right: 0;
         top: 0;
 
@@ -24,7 +25,7 @@
         }
     }
 
-    &.pluto--location-right > .pluto-resize__handle {
+    &.lyra--location-right > .lyra-resize__handle {
         left: 0;
         top: 0;
 
@@ -33,7 +34,7 @@
         }
     }
 
-    &.pluto--location-top > .pluto-resize__handle {
+    &.lyra--location-top > .lyra-resize__handle {
         left: 0;
         bottom: 0;
 
@@ -42,7 +43,7 @@
         }
     }
 
-    &.pluto--location-bottom > .pluto-resize__handle {
+    &.lyra--location-bottom > .lyra-resize__handle {
         left: 0;
         top: 0;
 
@@ -51,7 +52,7 @@
         }
     }
 
-    &.pluto--direction-x > .pluto-resize__handle {
+    &.lyra--direction-x > .lyra-resize__handle {
         width: var(--resize-panel-handle-size);
         height: 100%;
         cursor: col-resize;
@@ -63,7 +64,7 @@
         }
     }
 
-    &.pluto--direction-y > .pluto-resize__handle {
+    &.lyra--direction-y > .lyra-resize__handle {
         height: var(--resize-panel-handle-size);
         width: 100%;
         cursor: row-resize;
@@ -77,15 +78,15 @@
 }
 
 /* Single in-flow child, since the handle is absolute, and that child carries its own
-   100%/100%. Block spares WebKit a flex pass per drag frame. Paired with .pluto-flex
+   100%/100%. Block spares WebKit a flex pass per drag frame. Paired with .lyra-flex
    to outrank it regardless of bundle order. */
-.pluto-flex.pluto-resize {
+.lyra-flex.lyra-resize {
     display: block;
 }
 
 /* The divider is the container's own border. The handle stays transparent and paints
    the bar only while hovered or dragged, so the edge never doubles up. */
-.pluto-resize__handle {
+.lyra-resize__handle {
     position: absolute;
     z-index: 4;
 

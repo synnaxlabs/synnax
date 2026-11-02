@@ -57,7 +57,7 @@ export interface ProviderProps {
  * limited query in key order, so drawing a truncated answer would show an arbitrary
  * subset that changes as the viewport moves.
  */
-export const MAX_ANNOTATIONS = 100;
+const MAX_ANNOTATIONS = 100;
 
 // The fetch window is the viewport padded by its span on each side, so a pan or a live
 // plot's slide requeries at most once per viewport span.

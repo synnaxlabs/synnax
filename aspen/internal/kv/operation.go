@@ -40,7 +40,7 @@ type Operation struct {
 	state       gossipState
 }
 
-func (o Operation) Digest() Digest {
+func (o Operation) digest() Digest {
 	return Digest{
 		Key:         o.Key,
 		Version:     o.Version,
@@ -80,7 +80,7 @@ type Digests []Digest
 func (d Digests) toRequest(ctx context.Context) TxRequest {
 	txr := TxRequest{Context: ctx, Operations: make([]Operation, len(d))}
 	for i, d := range d {
-		txr.Operations[i] = d.Operation()
+		txr.Operations[i] = d.operation()
 	}
 	return txr
 }
@@ -91,7 +91,7 @@ type (
 	sink    = confluence.Sink[TxRequest]
 )
 
-func (d Digest) Operation() Operation {
+func (d Digest) operation() Operation {
 	return Operation{
 		Key:         d.Key,
 		Variant:     d.Variant,

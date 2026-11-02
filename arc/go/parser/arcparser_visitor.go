@@ -58,9 +58,6 @@ type ArcParserVisitor interface {
 	// Visit a parse tree produced by ArcParser#namedOutput.
 	VisitNamedOutput(ctx *NamedOutputContext) interface{}
 
-	// Visit a parse tree produced by ArcParser#inputBlock.
-	VisitInputBlock(ctx *InputBlockContext) interface{}
-
 	// Visit a parse tree produced by ArcParser#inputList.
 	VisitInputList(ctx *InputListContext) interface{}
 
@@ -123,9 +120,6 @@ type ArcParserVisitor interface {
 
 	// Visit a parse tree produced by ArcParser#anonymousInputValues.
 	VisitAnonymousInputValues(ctx *AnonymousInputValuesContext) interface{}
-
-	// Visit a parse tree produced by ArcParser#arguments.
-	VisitArguments(ctx *ArgumentsContext) interface{}
 
 	// Visit a parse tree produced by ArcParser#argumentList.
 	VisitArgumentList(ctx *ArgumentListContext) interface{}

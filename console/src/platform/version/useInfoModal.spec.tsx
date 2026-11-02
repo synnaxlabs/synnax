@@ -163,7 +163,7 @@ describe("version useInfoModal", () => {
     openModal();
     await clickUpdate();
     await waitFor(() => expect(screen.getByText("Downloading update")).toBeTruthy());
-    const bar = document.querySelector<HTMLElement>(".pluto-progress-bar");
+    const bar = document.querySelector<HTMLElement>(".lyra-progress-bar");
     expect(bar?.style.width).toEqual("0%");
   });
 

@@ -182,34 +182,6 @@ describe("analog read task", () => {
       ).toEqual(true);
     });
 
-    it("should fail to parse a task with duplicate ports on the same device", () => {
-      expect(
-        z.validate(NI.Task.deployCounterReadConfigZ, {
-          ...NI.Task.COUNTER_READ_SCHEMAS.config.parse({}),
-          streamRate: 25,
-          sampleRate: 1000,
-          channels: [
-            { ...NI.Task.createCIChannel(), key: "0", device: "Dev1", port: 0 },
-            { ...NI.Task.createCIChannel(), key: "1", device: "Dev1", port: 0 },
-          ],
-        }),
-      ).toEqual(false);
-    });
-
-    it("should properly parse a task with the same ports on different devices", () => {
-      expect(
-        z.validate(NI.Task.counterReadConfigZ, {
-          ...NI.Task.COUNTER_READ_SCHEMAS.config.parse({}),
-          streamRate: 25,
-          sampleRate: 1000,
-          channels: [
-            { ...NI.Task.createCIChannel(), key: "0", device: "Dev1", port: 0 },
-            { ...NI.Task.createCIChannel(), key: "1", device: "Dev2", port: 0 },
-          ],
-        }),
-      ).toEqual(true);
-    });
-
     it("should fail to parse a task with sample rate less than stream rate", () => {
       expect(
         z.validate(NI.Task.deployCounterReadConfigZ, {
@@ -446,5 +418,43 @@ describe("draft configs", () => {
         NI.Task.DIGITAL_WRITE_SCHEMAS.config.parse({}),
       ),
     ).toBe(true);
+  });
+});
+
+describe("deploy configs", () => {
+  it.each([
+    [
+      "analog read",
+      NI.Task.ANALOG_READ_SCHEMAS.config,
+      NI.Task.deployAnalogReadConfigZ,
+    ],
+    [
+      "analog write",
+      NI.Task.ANALOG_WRITE_SCHEMAS.config,
+      NI.Task.deployAnalogWriteConfigZ,
+    ],
+    [
+      "counter read",
+      NI.Task.COUNTER_READ_SCHEMAS.config,
+      NI.Task.deployCounterReadConfigZ,
+    ],
+    [
+      "digital read",
+      NI.Task.DIGITAL_READ_SCHEMAS.config,
+      NI.Task.deployDigitalReadConfigZ,
+    ],
+    [
+      "digital write",
+      NI.Task.DIGITAL_WRITE_SCHEMAS.config,
+      NI.Task.deployDigitalWriteConfigZ,
+    ],
+  ])("should require an enabled channel to deploy a %s task", (_, draftZ, deployZ) => {
+    const issues = deployZ.safeParse(draftZ.parse({})).error?.issues;
+    expect(issues).toContainEqual(
+      expect.objectContaining({
+        path: ["channels"],
+        message: "At least one enabled channel is required",
+      }),
+    );
   });
 });

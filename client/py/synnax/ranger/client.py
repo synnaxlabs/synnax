@@ -22,7 +22,7 @@ import synnax.channel.payload as channel
 from freighter import UnaryClient
 from synnax import framer, label
 from synnax.channel.retrieve import Retriever as ChannelRetriever
-from synnax.exceptions import QueryError
+from synnax.exceptions import ConfigurationError, MultipleFoundError, NotFoundError
 from synnax.framer.frame import K
 from synnax.ontology import Client as OntologyClient
 from synnax.ontology.payload import ID
@@ -36,7 +36,7 @@ from synnax.ranger.types_gen import (
 )
 from synnax.ranger.writer import Writer
 from synnax.signals.signals import Registry
-from synnax.state import LatestState
+from synnax.state import Latest
 from synnax.task import Client as TaskClient
 from synnax.task import Task
 from synnax.telem import (
@@ -52,7 +52,7 @@ from x.lists import all_none, normalize, override
 from x.params import require_named_params
 from x.uuid import NIL
 
-RANGE_SET_CHANNEL = "sy_range_set"
+_RANGE_SET_CHANNEL = "sy_range_set"
 
 # Pydantic declares BaseModel.__getattr__ only at runtime.
 _model_getattr: Callable[[BaseModel, str], object] = vars(BaseModel)["__getattr__"]
@@ -130,7 +130,8 @@ class _InternalScopedChannel(ArrayOperators, channel.Payload):
         self._range.set_alias(self.key, alias)
 
     def __str__(self) -> str:
-        return f"{super().__str__()} between {self.time_range.start} and {self.time_range.end}"
+        tr = self.time_range
+        return f"{super().__str__()} between {tr.start} and {tr.end}"
 
     def __len__(self) -> int:
         return len(self.read())
@@ -154,6 +155,7 @@ class ScopedChannel(ArrayOperators):
 
     def __init__(
         self,
+        *,
         query: str,
         internal: list[_InternalScopedChannel],
     ):
@@ -162,7 +164,7 @@ class ScopedChannel(ArrayOperators):
 
     def _guard(self) -> None:
         if len(self._internal) > 1:
-            raise QueryError(
+            raise MultipleFoundError(
                 f"""Multiple channels found for query '{self._query}':
             {[str(ch) for ch in self._internal]}
             """
@@ -226,7 +228,7 @@ class ScopedChannel(ArrayOperators):
         return sum(len(ch) for ch in self._internal)
 
 
-_RANGE_NOT_CREATED = QueryError(
+_RANGE_NOT_CREATED = ConfigurationError(
     """Cannot read from a range that has not been created.
 Please call client.ranges.create(range) before attempting to read from a range."""
 )
@@ -235,8 +237,8 @@ Please call client.ranges.create(range) before attempting to read from a range."
 class Range(Payload):
     """A range is a user-defined region of a cluster's data. It's identified by a name,
     time range, and uniquely generated key. See
-    https://docs.synnaxlabs.com/reference/concepts/ranges for an introduction to ranges
-    and how they work.
+    https://docs.synnaxlabs.com/reference/ranges for an introduction to ranges and how
+    they work.
     """
 
     _cached_frame_client: framer.Client | None = PrivateAttr(None)
@@ -257,12 +259,12 @@ class Range(Payload):
 
     def __init__(
         self,
+        *,
         name: str,
         time_range: TimeRange,
         key: UUID = NIL,
         color: str | None = "",
         parent: Range | Payload | None = None,
-        *,
         _frame_client: framer.Client | None = None,
         _channel_retriever: ChannelRetriever | None = None,
         _kv: kv.Client | None = None,
@@ -321,8 +323,8 @@ class Range(Payload):
         self, channels: list[channel.Payload], query: str
     ) -> ScopedChannel:
         if len(channels) == 0:
-            raise QueryError(f"Channel matching {query} not found")
-        return ScopedChannel(query, self._splice_cached(channels))
+            raise NotFoundError(f"Channel matching {query} not found")
+        return ScopedChannel(query=query, internal=self._splice_cached(channels))
 
     def __getattr__(self, query: str) -> ScopedChannel:
         try:
@@ -434,7 +436,7 @@ class Range(Payload):
             if isinstance(ch, str):
                 res = self._channel_retriever.retrieve(ch)
                 if len(res) == 0:
-                    raise QueryError(f"Channel {ch} not found")
+                    raise NotFoundError(f"Channel {ch} not found")
                 corrected[res[0].key] = alias
             else:
                 corrected[ch] = alias
@@ -517,6 +519,7 @@ class Client:
 
     def __init__(
         self,
+        *,
         unary_client: UnaryClient,
         frame_client: framer.Client,
         writer: Writer,
@@ -625,7 +628,7 @@ class Client:
             if is_single and len(res) > 1:
                 filtered = [r for r in res if r.time_range == time_range]
                 if len(filtered) == 0:
-                    raise QueryError(
+                    raise NotFoundError(
                         f"""
                         retrieve_if_name_exists was set to true, but {len(res)} ranges
                         were found matching {name} but none had the same time range as
@@ -633,7 +636,7 @@ class Client:
                         """
                     )
                 if len(filtered) > 1:
-                    raise QueryError(
+                    raise MultipleFoundError(
                         f"""
                     retrieve_if_name_exists was set to true, but {len(res)} ranges were
                     found that matched {name} and had time range {time_range}. Synnax
@@ -711,7 +714,8 @@ class Client:
         :param include_labels: Attaches the labels of each range.
         :param include_parent: Attaches the parent of each range.
         :returns: The range for a key or name, else a list of the matching ranges.
-        :raises QueryError: If a single range is not found, or more than one matches.
+        :raises NotFoundError: If no range matches a key or name.
+        :raises MultipleFoundError: If more than one range matches a key or name.
         :raises ValueError: If key and name are both given, or either is combined with
             a list filter.
         """
@@ -739,9 +743,9 @@ class Client:
         if not is_single:
             return sug
         if len(sug) == 0:
-            raise QueryError(f"Range {key or name} not found")
+            raise NotFoundError(f"Range {key or name} not found")
         if len(sug) > 1:
-            raise QueryError(f"Multiple ranges matching {key or name} found")
+            raise MultipleFoundError(f"Multiple ranges matching {key or name} found")
         return sug[0]
 
     def delete(
@@ -771,8 +775,8 @@ class Client:
                 **r.model_dump(exclude={"labels", "parent"}),
                 _frame_client=self._frame_client,
                 _channel_retriever=self._channels,
-                _kv=kv.Client(r.key, self._unary_client),
-                _aliaser=alias_.Client(r.key, self._unary_client),
+                _kv=kv.Client(rng=r.key, client=self._unary_client),
+                _aliaser=alias_.Client(rng=r.key, client=self._unary_client),
                 _client=self,
                 _ontology=self._ontology,
                 _tasks=self._tasks,
@@ -783,25 +787,9 @@ class Client:
             result.append(rng)
         return result
 
-    def on_create(self, f: Callable[[Range], None]) -> Callable[[LatestState], None]:
+    def on_create(self, f: Callable[[Range], None]) -> Callable[[Latest], None]:
         @functools.wraps(f)
-        def wrapper(state: LatestState) -> None:
-            d = state[RANGE_SET_CHANNEL]
-            if not isinstance(d, dict):
-                raise TypeError(f"expected a JSON object on {RANGE_SET_CHANNEL}")
-            f(
-                Range(
-                    name=d["name"],
-                    key=d["key"],
-                    time_range=TimeRange(
-                        start=d["time_range"]["start"],
-                        end=d["time_range"]["end"],
-                    ),
-                    _frame_client=self._frame_client,
-                    _channel_retriever=self._channels,
-                    _kv=kv.Client(d["key"], self._unary_client),
-                    _aliaser=alias_.Client(d["key"], self._unary_client),
-                )
-            )
+        def wrapper(state: Latest) -> None:
+            f(self._sugar([Payload.model_validate(state[_RANGE_SET_CHANNEL])])[0])
 
-        return self._signals.on([RANGE_SET_CHANNEL], lambda s: True)(wrapper)
+        return self._signals.on([_RANGE_SET_CHANNEL], filter_f=lambda s: True)(wrapper)

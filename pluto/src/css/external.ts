@@ -1,0 +1,30 @@
+// Copyright 2026 Synnax Labs, Inc.
+//
+// Use of this software is governed by the Business Source License included in the file
+// licenses/BSL.txt.
+//
+// As of the Change Date specified in that file, in accordance with the Business Source
+// License, use of this software will be governed by the Apache License, Version 2.0,
+// included in the file licenses/APL.txt.
+
+import { CSS as Base } from "@synnaxlabs/lyra/css";
+
+export const { B, M, BE, BM, BEM } = Base.newBEM("pluto");
+
+// Lyra's helpers emit Lyra's modifiers, which Lyra's stylesheets style.
+export const {
+  cls,
+  dir,
+  dropRegion,
+  editable,
+  inheritDims,
+  loc,
+  newGridBuilder,
+  noSelect,
+  selected,
+  symbolColored,
+  variable,
+  visible,
+} = Base;
+
+export type VarProperties = Base.VarProperties;

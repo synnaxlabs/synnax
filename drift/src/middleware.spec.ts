@@ -9,19 +9,21 @@
 
 import { describe, expect, it, vi } from "vitest";
 
-import { MockRuntime } from "@/mock/runtime";
 import { setWindowStage, type StoreState, ZERO_SLICE_STATE } from "@/state";
+import { MockRuntime } from "@/testutil";
 import { INITIAL_WINDOW_STATE, type WindowState } from "@/window";
 
-import {
-  configureMiddleware,
-  type GetDefaultMiddleware,
-  middleware,
-} from "./middleware";
+import { configureMiddleware, type GetDefaultMiddleware } from "./middleware";
 
 const state = {
   drift: ZERO_SLICE_STATE,
 };
+
+const driftMiddleware = (runtime: MockRuntime<StoreState>) =>
+  configureMiddleware<StoreState>(
+    [],
+    runtime,
+  )([] as unknown as GetDefaultMiddleware<StoreState>)[0];
 
 describe("middleware", () => {
   describe("middleware", () => {
@@ -29,7 +31,7 @@ describe("middleware", () => {
       it("should emit an action if it hasn't already been emited", async () => {
         const store = { getState: () => state, dispatch: vi.fn() };
         const runtime = new MockRuntime(false);
-        const mw = middleware(runtime)(store);
+        const mw = driftMiddleware(runtime)(store);
         mw((action) => action)({ type: "test" });
         await expect
           .poll(() => runtime.emissions)
@@ -43,14 +45,14 @@ describe("middleware", () => {
       it("should not emit an action if it has already been emited", () => {
         const store = { getState: () => state, dispatch: vi.fn() };
         const runtime = new MockRuntime(false);
-        const mw = middleware(runtime)(store);
+        const mw = driftMiddleware(runtime)(store);
         mw((action) => action)({ type: "DA@test://test" });
         expect(runtime.emissions).toEqual([]);
       });
       it("should not emit an action an inner middleware swallowed", async () => {
         const store = { getState: () => state, dispatch: vi.fn() };
         const runtime = new MockRuntime(false);
-        const mw = middleware(runtime)(store);
+        const mw = driftMiddleware(runtime)(store);
         const next = (action: unknown) =>
           (action as { type: string }).type === "dropped" ? undefined : action;
         mw(next)({ type: "dropped" });
@@ -63,7 +65,7 @@ describe("middleware", () => {
       it("should next an action if it has not been emitted by 'self' ", () => {
         const store = { getState: () => state, dispatch: vi.fn() };
         const runtime = new MockRuntime(false);
-        const mw = middleware(runtime)(store);
+        const mw = driftMiddleware(runtime)(store);
         const next = vi.fn();
         mw(next)({ type: "test" });
         expect(next).toHaveBeenCalledWith({ type: "test" });
@@ -71,7 +73,7 @@ describe("middleware", () => {
       it("should not next an action if it has been emitted by 'self' ", () => {
         const store = { getState: () => state, dispatch: vi.fn() };
         const runtime = new MockRuntime(false);
-        const mw = middleware(runtime)(store);
+        const mw = driftMiddleware(runtime)(store);
         const next = vi.fn();
         mw(next)({ type: "DA@mock://test" });
         expect(next).not.toHaveBeenCalled();
@@ -88,7 +90,7 @@ describe("middleware", () => {
         let current: StoreState = { drift: ZERO_SLICE_STATE };
         const store = { getState: () => current, dispatch: vi.fn() };
         const runtime = new MockRuntime<StoreState>(true);
-        const mw = middleware(runtime)(store);
+        const mw = driftMiddleware(runtime)(store);
         mw((action) => {
           current = {
             drift: {
@@ -104,7 +106,7 @@ describe("middleware", () => {
       it("should not sync when the slice is untouched", async () => {
         const store = { getState: () => state, dispatch: vi.fn() };
         const runtime = new MockRuntime<StoreState>(true);
-        const mw = middleware(runtime)(store);
+        const mw = driftMiddleware(runtime)(store);
         mw((action) => action)({ type: "persist/hydrate" });
         await expect.poll(() => runtime.emissions.length).toEqual(1);
         expect(runtime.hasCreated).toEqual({});
@@ -114,7 +116,7 @@ describe("middleware", () => {
       it("should auto-assign a label to a drift action when it isn't present", () => {
         const store = { getState: () => state, dispatch: vi.fn() };
         const runtime = new MockRuntime(false);
-        const mw = middleware(runtime)(store);
+        const mw = driftMiddleware(runtime)(store);
         const next = vi.fn();
         mw(next)(setWindowStage({ stage: "created" }));
         expect(next).toHaveBeenCalledWith({
@@ -128,7 +130,7 @@ describe("middleware", () => {
       it("should not auto-assign a label to a drift action if it has been emitted", () => {
         const store = { getState: () => state, dispatch: vi.fn() };
         const runtime = new MockRuntime(false);
-        const mw = middleware(runtime)(store);
+        const mw = driftMiddleware(runtime)(store);
         const next = vi.fn();
         mw(next)({
           type: "DA@test://drift/setWindowStage",

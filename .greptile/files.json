@@ -5,7 +5,7 @@
       "description": "Review tiers, pull request rules, and the dark-launch lane"
     },
     {
-      "path": "CLAUDE.md",
+      "path": "AGENTS.md",
       "description": "Code style and architectural principles for every language"
     },
     {

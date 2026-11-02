@@ -59,18 +59,6 @@ const createWrapper = (
 
 describe("range selectors", () => {
   describe("raw selectors", () => {
-    describe("selectSelectedKey", () => {
-      it("should return the selected key", () => {
-        expect(Range.selectSelectedKey(storeWith([STATIC], STATIC.key))).toEqual(
-          STATIC.key,
-        );
-      });
-
-      it("should return undefined when no range is selected", () => {
-        expect(Range.selectSelectedKey(storeWith([STATIC]))).toBeUndefined();
-      });
-    });
-
     describe("selectState", () => {
       it("should resolve a range by explicit key", () => {
         expect(Range.selectState(storeWith([STATIC, DYNAMIC]), STATIC.key)).toEqual(

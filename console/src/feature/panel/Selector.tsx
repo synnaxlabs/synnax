@@ -205,6 +205,7 @@ const TabContent = ({ tabKey, dwell, onAnchorChange }: TabProps): ReactElement =
       <Text.MaybeEditable
         id={PCSS.B(`tab-${tabKey}`)}
         value={name}
+        overflow="fade"
         onChange={handleChange}
         disabled={!canEdit}
       />

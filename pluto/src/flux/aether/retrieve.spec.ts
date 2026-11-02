@@ -8,6 +8,7 @@
 // included in the file licenses/APL.txt.
 
 import { NotFoundError, query, Synnax } from "@synnaxlabs/client";
+import { TEST_CLIENT_PARAMS } from "@synnaxlabs/client/testutil";
 import { type destructor, TimeStamp } from "@synnaxlabs/x";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
@@ -22,13 +23,7 @@ type Data = {
   name: string;
 };
 
-const CLIENT = new Synnax({
-  host: "localhost",
-  port: 9090,
-  username: "synnax",
-  password: "seldon",
-  cache: false,
-});
+const CLIENT = new Synnax({ ...TEST_CLIENT_PARAMS, cache: false });
 
 type RetrieveMock = ReturnType<
   typeof vi.fn<(params: flux.RetrieveParams<Query>) => Promise<Data>>

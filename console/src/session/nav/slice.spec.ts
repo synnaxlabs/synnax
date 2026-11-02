@@ -9,7 +9,7 @@
 
 import { combineReducers, configureStore } from "@reduxjs/toolkit";
 import { UnexpectedError } from "@synnaxlabs/client";
-import { Drift } from "@synnaxlabs/drift";
+import { Drift, MAIN_WINDOW } from "@synnaxlabs/drift";
 import { describe, expect, it } from "vitest";
 
 import { Nav } from "@/session/nav";
@@ -20,17 +20,20 @@ const rootReducer = combineReducers({
 });
 
 // run dispatches the actions through a store wired with the inject-key middleware, so
-// actions without an explicit windowKey resolve to the active window (MAIN_WINDOW). The
-// resulting state is read back through selectWindowState, exercising the slice,
-// middleware, and Drift-coupled selectors together.
+// actions without an explicit windowKey resolve to the active window (MAIN_WINDOW).
 const run = (...actions: Nav.Action[]) => {
   const store = configureStore({
     reducer: rootReducer,
     middleware: (getDefault) => getDefault().concat(Nav.MIDDLEWARE),
   });
   actions.forEach((action) => store.dispatch(action));
-  const windowState = () => Nav.selectWindowState(store.getState());
+  const windowState = () => {
+    const win = store.getState()[Nav.SLICE_NAME].windows[MAIN_WINDOW];
+    if (win == null) throw new Error("no main window state");
+    return win;
+  };
   return {
+    windows: () => store.getState()[Nav.SLICE_NAME].windows,
     left: () => windowState().left,
     leftSelected: () => windowState().left.selected,
     bottom: () => windowState().bottom,
@@ -41,7 +44,7 @@ const run = (...actions: Nav.Action[]) => {
 describe("Nav Slice", () => {
   describe("schemas", () => {
     it("should default the left state to collapsed with no selection", () => {
-      expect(Nav.leftStateZ.parse({})).toEqual({
+      expect(Nav.ZERO_WINDOW_STATE.left).toEqual({
         hover: false,
         selected: undefined,
         size: undefined,
@@ -49,15 +52,11 @@ describe("Nav Slice", () => {
     });
 
     it("should default the bottom state to hidden", () => {
-      expect(Nav.bottomStateZ.parse({})).toEqual({
+      expect(Nav.ZERO_WINDOW_STATE.bottom).toEqual({
         hover: false,
         visible: false,
         size: undefined,
       });
-    });
-
-    it("should prefault the window state with zero left and bottom states", () => {
-      expect(Nav.windowStateZ.parse({})).toEqual(Nav.ZERO_WINDOW_STATE);
     });
 
     it("should default the slice state to an empty window map", () => {
@@ -346,7 +345,8 @@ describe("Nav Slice", () => {
 
     it("should leave an explicit foreign window key untouched", () => {
       const s = run(Nav.selectLeft({ windowKey: "explicit", key: "a" }));
-      expect(s.leftSelected()).toBeUndefined();
+      expect(s.windows()[MAIN_WINDOW]).toBeUndefined();
+      expect(s.windows().explicit?.left.selected).toBe("a");
     });
   });
 });

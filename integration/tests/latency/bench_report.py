@@ -196,6 +196,7 @@ class BenchReport(Latency):
         os.makedirs("tests/results", exist_ok=True)
         plt.savefig("tests/results/bench_load.png", dpi=300, bbox_inches="tight")
         self.log(
-            f"Saved benchmark plot to: {os.path.abspath('tests/results/bench_load.png')}"
+            "Saved benchmark plot to: "
+            f"{os.path.abspath('tests/results/bench_load.png')}"
         )
         plt.close(fig)

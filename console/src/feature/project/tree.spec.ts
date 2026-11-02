@@ -13,9 +13,13 @@ import { fireEvent, screen, waitFor } from "@testing-library/react";
 import { afterEach, describe, expect, it, vi } from "vitest";
 
 import { Project } from "@/feature/project";
-import { findModalButton, renderTreeContextMenu } from "@/platform/tree/menuTestutil";
-import { createResource } from "@/platform/tree/testutil";
-import { findTreeRow, renderOntologyTree } from "@/platform/tree/treeTestutil";
+import {
+  createResource,
+  findModalButton,
+  findTreeRow,
+  renderOntologyTree,
+  renderTreeContextMenu,
+} from "@/platform/tree/testutil";
 import { Session } from "@/session";
 import {
   assertDefined,

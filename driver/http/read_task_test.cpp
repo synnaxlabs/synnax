@@ -16,12 +16,12 @@
 
 #include "client/cpp/testutil/testutil.h"
 #include "x/cpp/defer/defer.h"
-#include "x/cpp/test/test.h"
+#include "x/cpp/testutil/testutil.h"
 
 #include "driver/http/device/device.h"
 #include "driver/http/errors/errors.h"
-#include "driver/http/mock/server.h"
 #include "driver/http/read_task.h"
+#include "driver/http/testutil/server.h"
 
 namespace driver::http {
 using ::synnax::http::ReadEndpoint;
@@ -491,8 +491,8 @@ TEST(HTTPReadTask, ParseConfigDuplicateEnumLabelErrors) {
 
 /// @brief it should extract a numeric field from a single GET endpoint.
 TEST(HTTPReadTask, SingleEndpointGETNumericField) {
-    mock::Server server(
-        mock::ServerConfig{
+    testutil::Server server(
+        testutil::ServerConfig{
             .routes = {{
                 .method = Method::GET,
                 .path = "/api/data",
@@ -549,8 +549,8 @@ TEST(HTTPReadTask, SingleEndpointGETNumericField) {
 
 /// @brief it should extract nested JSON fields using JSON Pointer paths.
 TEST(HTTPReadTask, NestedJSONPointerPaths) {
-    mock::Server server(
-        mock::ServerConfig{
+    testutil::Server server(
+        testutil::ServerConfig{
             .routes = {{
                 .method = Method::GET,
                 .path = "/api/sensors",
@@ -597,8 +597,8 @@ TEST(HTTPReadTask, NestedJSONPointerPaths) {
 
 /// @brief a missing JSON pointer should produce a warning, not a hard error.
 TEST(HTTPReadTask, MissingJSONFieldWarning) {
-    mock::Server server(
-        mock::ServerConfig{
+    testutil::Server server(
+        testutil::ServerConfig{
             .routes = {{
                 .method = Method::GET,
                 .path = "/api/data",
@@ -644,8 +644,8 @@ TEST(HTTPReadTask, MissingJSONFieldWarning) {
 
 /// @brief it should convert JSON types correctly (bool to uint8, string to string).
 TEST(HTTPReadTask, TypeConversions) {
-    mock::Server server(
-        mock::ServerConfig{
+    testutil::Server server(
+        testutil::ServerConfig{
             .routes = {{
                 .method = Method::GET,
                 .path = "/api/data",
@@ -703,8 +703,8 @@ TEST(HTTPReadTask, TypeConversions) {
 
 /// @brief it should extract a string field from a JSON response.
 TEST(HTTPReadTask, StringField) {
-    mock::Server server(
-        mock::ServerConfig{
+    testutil::Server server(
+        testutil::ServerConfig{
             .routes = {{
                 .method = Method::GET,
                 .path = "/api/data",
@@ -764,8 +764,8 @@ TEST(HTTPReadTask, StringField) {
 /// @brief decimal values for integer channels should produce a warning, not a
 /// hard error.
 TEST(HTTPReadTask, DecimalToIntegerWarns) {
-    mock::Server server(
-        mock::ServerConfig{
+    testutil::Server server(
+        testutil::ServerConfig{
             .routes = {{
                 .method = Method::GET,
                 .path = "/api/data",
@@ -811,8 +811,8 @@ TEST(HTTPReadTask, DecimalToIntegerWarns) {
 /// @brief negative values for unsigned integer channels should produce a
 /// warning, not a hard error.
 TEST(HTTPReadTask, NegativeForUnsignedWarns) {
-    mock::Server server(
-        mock::ServerConfig{
+    testutil::Server server(
+        testutil::ServerConfig{
             .routes = {{
                 .method = Method::GET,
                 .path = "/api/data",
@@ -858,8 +858,8 @@ TEST(HTTPReadTask, NegativeForUnsignedWarns) {
 /// @brief it should use software timing (midpoint) for index channels when the
 /// index channel is not listed as a field.
 TEST(HTTPReadTask, SoftwareTimingIndex) {
-    mock::Server server(
-        mock::ServerConfig{
+    testutil::Server server(
+        testutil::ServerConfig{
             .routes = {{
                 .method = Method::GET,
                 .path = "/api/data",
@@ -910,8 +910,8 @@ TEST(HTTPReadTask, SoftwareTimingIndex) {
 /// @brief it should extract timestamps from the JSON response when the index
 /// channel is listed as an explicit field with a time_format.
 TEST(HTTPReadTask, ExplicitIndexFieldTimestamp) {
-    mock::Server server(
-        mock::ServerConfig{
+    testutil::Server server(
+        testutil::ServerConfig{
             .routes = {{
                 .method = Method::GET,
                 .path = "/api/data",
@@ -972,8 +972,8 @@ TEST(HTTPReadTask, ExplicitIndexFieldTimestamp) {
 
 /// @brief it should poll multiple endpoints in parallel.
 TEST(HTTPReadTask, MultipleEndpoints) {
-    mock::Server server(
-        mock::ServerConfig{
+    testutil::Server server(
+        testutil::ServerConfig{
             .routes = {
                 {
                     .method = Method::GET,
@@ -1039,8 +1039,8 @@ TEST(HTTPReadTask, MultipleEndpoints) {
 
 /// @brief it should send POST body and extract response fields.
 TEST(HTTPReadTask, POSTWithBody) {
-    mock::Server server(
-        mock::ServerConfig{
+    testutil::Server server(
+        testutil::ServerConfig{
             .routes = {{
                 .method = Method::POST,
                 .path = "/api/query",
@@ -1377,8 +1377,8 @@ TEST_F(HTTPReadTaskParseTest, DisabledEndpointFilteredOut) {
 
 /// @brief it should successfully read 10 times in succession from the same endpoint.
 TEST(HTTPReadTask, RepeatedReads) {
-    mock::Server server(
-        mock::ServerConfig{
+    testutil::Server server(
+        testutil::ServerConfig{
             .routes = {{
                 .method = Method::GET,
                 .path = "/api/data",
@@ -1455,7 +1455,7 @@ ReadTaskConfig make_multi_endpoint_cfg(
     return cfg;
 }
 
-mock::Route value_route(const std::string &path, const x::telem::TimeSpan &delay) {
+testutil::Route value_route(const std::string &path, const x::telem::TimeSpan &delay) {
     return {
         .method = Method::GET,
         .path = path,
@@ -1470,7 +1470,7 @@ mock::Route value_route(const std::string &path, const x::telem::TimeSpan &delay
 /// @param status_code the HTTP status code to answer with.
 /// @param body the response body to answer with.
 /// @returns the route.
-mock::Route
+testutil::Route
 status_route(const std::string &path, const int status_code, const std::string &body) {
     return {
         .method = Method::GET,
@@ -1482,7 +1482,7 @@ status_route(const std::string &path, const int status_code, const std::string &
 
 /// @brief polls the config once against the server.
 common::ReadResult
-read_once(ReadTaskConfig &cfg, const mock::Server &server, x::telem::Frame &fr) {
+read_once(ReadTaskConfig &cfg, const testutil::Server &server, x::telem::Frame &fr) {
     auto [source, processor] = make_source(cfg, server.base_url());
     auto breaker = x::breaker::Breaker(x::breaker::Config{.name = "test"});
     breaker.start();
@@ -1495,8 +1495,8 @@ read_once(ReadTaskConfig &cfg, const mock::Server &server, x::telem::Frame &fr) 
 /// @brief every endpoint rejected with a 4xx status should return a temporary error
 /// naming each status, so the pipeline backs off instead of stopping the task.
 TEST(HTTPReadTask, AllEndpoints4xxBacksOff) {
-    mock::Server server(
-        mock::ServerConfig{
+    testutil::Server server(
+        testutil::ServerConfig{
             .routes = {
                 status_route("/a", 401, "unauthorized"),
                 status_route("/b", 403, "forbidden"),
@@ -1521,8 +1521,8 @@ TEST(HTTPReadTask, AllEndpoints4xxBacksOff) {
 /// @brief every endpoint rejected with a 5xx status should return a temporary error,
 /// so the pipeline breaker backs off.
 TEST(HTTPReadTask, AllEndpoints5xxBacksOff) {
-    mock::Server server(
-        mock::ServerConfig{
+    testutil::Server server(
+        testutil::ServerConfig{
             .routes = {
                 status_route("/a", 503, "unavailable"),
                 status_route("/b", 503, "unavailable"),
@@ -1545,8 +1545,8 @@ TEST(HTTPReadTask, AllEndpoints5xxBacksOff) {
 /// @brief a mix of 4xx and 5xx rejections on every endpoint should return a temporary
 /// error carrying each code.
 TEST(HTTPReadTask, MixedStatusFailuresBackOff) {
-    mock::Server server(
-        mock::ServerConfig{
+    testutil::Server server(
+        testutil::ServerConfig{
             .routes = {
                 status_route("/a", 401, "unauthorized"),
                 status_route("/b", 503, "unavailable"),
@@ -1573,8 +1573,8 @@ TEST(HTTPReadTask, PartialStatusFailureWarnsWithOneLineBody) {
     for (int i = 0; i < 40; i++)
         body += "    <p>line " + std::to_string(i) + "</p>\n";
     body += "  </body>\n</html>";
-    mock::Server server(
-        mock::ServerConfig{
+    testutil::Server server(
+        testutil::ServerConfig{
             .routes = {
                 status_route("/a", 401, body),
                 value_route("/b", x::telem::TimeSpan::ZERO()),
@@ -1604,8 +1604,8 @@ TEST(HTTPReadTask, PartialStatusFailureWarnsWithOneLineBody) {
 /// @brief endpoints not sent because the device was unreachable should collapse into
 /// one line of the unreachable error.
 TEST(HTTPReadTask, SkippedEndpointsCollapseIntoOneLine) {
-    mock::Server server(
-        mock::ServerConfig{
+    testutil::Server server(
+        testutil::ServerConfig{
             .routes = {
                 value_route("/slow", 2 * x::telem::SECOND),
                 value_route("/a", x::telem::TimeSpan::ZERO()),
@@ -1640,8 +1640,8 @@ TEST(HTTPReadTask, SkippedEndpointsCollapseIntoOneLine) {
 /// cap.
 TEST(HTTPReadTask, CapWarningWhenPollOverrunsPeriod) {
     const auto delay = 30 * x::telem::MILLISECOND;
-    mock::Server server(
-        mock::ServerConfig{
+    testutil::Server server(
+        testutil::ServerConfig{
             .routes = {
                 value_route("/a", delay),
                 value_route("/b", delay),
@@ -1677,8 +1677,8 @@ TEST(HTTPReadTask, CapWarningWhenPollOverrunsPeriod) {
 /// @brief more endpoints than slots finishing within the period should not warn.
 TEST(HTTPReadTask, NoCapWarningWithinPeriod) {
     const auto delay = 30 * x::telem::MILLISECOND;
-    mock::Server server(
-        mock::ServerConfig{
+    testutil::Server server(
+        testutil::ServerConfig{
             .routes = {
                 value_route("/a", delay),
                 value_route("/b", delay),
@@ -1708,8 +1708,8 @@ TEST(HTTPReadTask, NoCapWarningWithinPeriod) {
 
 /// @brief it should skip disabled fields and only return enabled ones.
 TEST(HTTPReadTask, DisabledFieldsSkipped) {
-    mock::Server server(
-        mock::ServerConfig{
+    testutil::Server server(
+        testutil::ServerConfig{
             .routes = {{
                 .method = Method::GET,
                 .path = "/api/data",
@@ -1902,8 +1902,8 @@ TEST(HTTPReadTask, ParseConfigAllEndpointsAllFieldsDisabled) {
 /// @brief when only the second of three endpoints has all fields disabled, the
 /// disabled endpoint should be skipped and the other two should be requested.
 TEST(HTTPReadTask, MiddleEndpointAllFieldsDisabledSkipped) {
-    mock::Server server(
-        mock::ServerConfig{
+    testutil::Server server(
+        testutil::ServerConfig{
             .routes = {
                 {
                     .method = Method::GET,
@@ -1974,8 +1974,8 @@ TEST(HTTPReadTask, MiddleEndpointAllFieldsDisabledSkipped) {
 /// @brief disabled fields should not cause a missing-field error even if the
 /// JSON pointer would not match the response.
 TEST(HTTPReadTask, DisabledFieldMissingPointerNoError) {
-    mock::Server server(
-        mock::ServerConfig{
+    testutil::Server server(
+        testutil::ServerConfig{
             .routes = {{
                 .method = Method::GET,
                 .path = "/api/data",
@@ -2031,8 +2031,8 @@ TEST(HTTPReadTask, DisabledFieldMissingPointerNoError) {
 
 /// @brief it should read from an HTTPS server with SSL verification disabled.
 TEST(HTTPReadTask, HTTPSReadSingleEndpoint) {
-    mock::Server server(
-        mock::ServerConfig{
+    testutil::Server server(
+        testutil::ServerConfig{
             .routes = {{
                 .method = Method::GET,
                 .path = "/api/data",
@@ -2040,8 +2040,8 @@ TEST(HTTPReadTask, HTTPSReadSingleEndpoint) {
                 .response_body = R"({"value": 77.7})",
             }},
             .secure = true,
-            .cert_path = "driver/http/mock/test_cert.pem",
-            .key_path = "driver/http/mock/test_key.pem",
+            .cert_path = "driver/http/testutil/test_cert.pem",
+            .key_path = "driver/http/testutil/test_key.pem",
         }
     );
     ASSERT_NIL(server.start());
@@ -2080,8 +2080,8 @@ TEST(HTTPReadTask, HTTPSReadSingleEndpoint) {
 
 /// @brief it should read multiple endpoints over HTTPS.
 TEST(HTTPReadTask, HTTPSMultipleEndpoints) {
-    mock::Server server(
-        mock::ServerConfig{
+    testutil::Server server(
+        testutil::ServerConfig{
             .routes =
                 {
                     {
@@ -2098,8 +2098,8 @@ TEST(HTTPReadTask, HTTPSMultipleEndpoints) {
                     },
                 },
             .secure = true,
-            .cert_path = "driver/http/mock/test_cert.pem",
-            .key_path = "driver/http/mock/test_key.pem",
+            .cert_path = "driver/http/testutil/test_cert.pem",
+            .key_path = "driver/http/testutil/test_key.pem",
         }
     );
     ASSERT_NIL(server.start());
@@ -2150,8 +2150,8 @@ TEST(HTTPReadTask, HTTPSMultipleEndpoints) {
 
 /// @brief it should read repeated times from HTTPS endpoints.
 TEST(HTTPReadTask, HTTPSRepeatedReads) {
-    mock::Server server(
-        mock::ServerConfig{
+    testutil::Server server(
+        testutil::ServerConfig{
             .routes = {{
                 .method = Method::GET,
                 .path = "/api/data",
@@ -2159,8 +2159,8 @@ TEST(HTTPReadTask, HTTPSRepeatedReads) {
                 .response_body = R"({"value": 55.5})",
             }},
             .secure = true,
-            .cert_path = "driver/http/mock/test_cert.pem",
-            .key_path = "driver/http/mock/test_key.pem",
+            .cert_path = "driver/http/testutil/test_cert.pem",
+            .key_path = "driver/http/testutil/test_key.pem",
         }
     );
     ASSERT_NIL(server.start());
@@ -2201,8 +2201,8 @@ TEST(HTTPReadTask, HTTPSRepeatedReads) {
 
 /// @brief it should POST to an HTTPS endpoint and extract response fields.
 TEST(HTTPReadTask, HTTPSPOSTWithBody) {
-    mock::Server server(
-        mock::ServerConfig{
+    testutil::Server server(
+        testutil::ServerConfig{
             .routes = {{
                 .method = Method::POST,
                 .path = "/api/query",
@@ -2210,8 +2210,8 @@ TEST(HTTPReadTask, HTTPSPOSTWithBody) {
                 .response_body = R"({"result": 88.8})",
             }},
             .secure = true,
-            .cert_path = "driver/http/mock/test_cert.pem",
-            .key_path = "driver/http/mock/test_key.pem",
+            .cert_path = "driver/http/testutil/test_cert.pem",
+            .key_path = "driver/http/testutil/test_key.pem",
         }
     );
     ASSERT_NIL(server.start());
@@ -2251,8 +2251,8 @@ TEST(HTTPReadTask, HTTPSPOSTWithBody) {
 /// @brief a timeout on every endpoint should return an unreachable error with the full
 /// URL, so the pipeline backs off.
 TEST(HTTPReadTask, TransportErrorTimeoutUnreachable) {
-    mock::Server server(
-        mock::ServerConfig{
+    testutil::Server server(
+        testutil::ServerConfig{
             .routes = {{
                 .method = Method::GET,
                 .path = "/api/slow",
@@ -2305,8 +2305,8 @@ TEST(HTTPReadTask, TransportErrorTimeoutUnreachable) {
 /// @brief when one endpoint times out but another responds, the successful endpoint's
 /// data should come through with a warning for the timeout.
 TEST(HTTPReadTask, TransportErrorPartialTimeout) {
-    mock::Server server(
-        mock::ServerConfig{
+    testutil::Server server(
+        testutil::ServerConfig{
             .routes = {
                 {
                     .method = Method::GET,
@@ -2379,8 +2379,8 @@ TEST(HTTPReadTask, TransportErrorPartialTimeout) {
 /// @brief when the first endpoint returns 5xx, its groups should be skipped but the
 /// second endpoint's data should still come through.
 TEST(HTTPReadTask, PartialFailureFirstEndpoint5xx) {
-    mock::Server server(
-        mock::ServerConfig{
+    testutil::Server server(
+        testutil::ServerConfig{
             .routes = {
                 {
                     .method = Method::GET,
@@ -2454,8 +2454,8 @@ TEST(HTTPReadTask, PartialFailureFirstEndpoint5xx) {
 /// @brief when the second endpoint returns 4xx, its groups should be skipped but the
 /// first endpoint's data should still come through.
 TEST(HTTPReadTask, PartialFailureSecondEndpointCritical4xx) {
-    mock::Server server(
-        mock::ServerConfig{
+    testutil::Server server(
+        testutil::ServerConfig{
             .routes = {
                 {
                     .method = Method::GET,
@@ -2528,8 +2528,8 @@ TEST(HTTPReadTask, PartialFailureSecondEndpointCritical4xx) {
 /// @brief when one endpoint has a missing field pointer, the other endpoint's
 /// data should still come through with a warning.
 TEST(HTTPReadTask, PartialFailureMissingFieldInSecondEndpoint) {
-    mock::Server server(
-        mock::ServerConfig{
+    testutil::Server server(
+        testutil::ServerConfig{
             .routes = {
                 {
                     .method = Method::GET,
@@ -2597,8 +2597,8 @@ TEST(HTTPReadTask, PartialFailureMissingFieldInSecondEndpoint) {
 /// @brief when one endpoint returns invalid JSON, the other endpoint's data
 /// should still come through with a warning.
 TEST(HTTPReadTask, PartialFailureInvalidJSONInOneEndpoint) {
-    mock::Server server(
-        mock::ServerConfig{
+    testutil::Server server(
+        testutil::ServerConfig{
             .routes = {
                 {
                     .method = Method::GET,
@@ -2665,8 +2665,8 @@ TEST(HTTPReadTask, PartialFailureInvalidJSONInOneEndpoint) {
 /// @brief when one endpoint has a type conversion error, the other endpoint's
 /// data should still come through with a warning.
 TEST(HTTPReadTask, PartialFailureTypeConversionError) {
-    mock::Server server(
-        mock::ServerConfig{
+    testutil::Server server(
+        testutil::ServerConfig{
             .routes = {
                 {
                     .method = Method::GET,
@@ -2734,8 +2734,8 @@ TEST(HTTPReadTask, PartialFailureTypeConversionError) {
 /// @brief the sample clock should regulate the read rate so that multiple reads
 /// take at least the expected duration.
 TEST(HTTPReadTask, SampleClockRegulatesRate) {
-    mock::Server server(
-        mock::ServerConfig{
+    testutil::Server server(
+        testutil::ServerConfig{
             .routes = {{
                 .method = Method::GET,
                 .path = "/api/data",
@@ -2787,8 +2787,8 @@ TEST(HTTPReadTask, SampleClockRegulatesRate) {
 
 /// @brief the sample clock should not prevent data from being read correctly.
 TEST(HTTPReadTask, SampleClockDoesNotAffectData) {
-    mock::Server server(
-        mock::ServerConfig{
+    testutil::Server server(
+        testutil::ServerConfig{
             .routes = {{
                 .method = Method::GET,
                 .path = "/api/data",
@@ -2835,8 +2835,8 @@ TEST(HTTPReadTask, SampleClockDoesNotAffectData) {
 
 /// @brief it should pass connection-level query parameters to every request.
 TEST(HTTPReadTask, EndpointQueryParams) {
-    mock::Server server(
-        mock::ServerConfig{
+    testutil::Server server(
+        testutil::ServerConfig{
             .routes = {{
                 .method = Method::GET,
                 .path = "/api/data",
@@ -2891,8 +2891,8 @@ TEST(HTTPReadTask, EndpointQueryParams) {
 
 /// @brief string values should be converted to numbers using the enum map.
 TEST(HTTPReadTask, EnumValuesMapStringsToNumbers) {
-    mock::Server server(
-        mock::ServerConfig{
+    testutil::Server server(
+        testutil::ServerConfig{
             .routes = {{
                 .method = Method::GET,
                 .path = "/api/device",
@@ -2973,8 +2973,8 @@ TEST(HTTPReadTask, EnumValuesMapStringsToNumbers) {
 
 /// @brief a string not in the enum map and not numeric should produce a warning.
 TEST(HTTPReadTask, EnumValuesMissingKeyWarns) {
-    mock::Server server(
-        mock::ServerConfig{
+    testutil::Server server(
+        testutil::ServerConfig{
             .routes = {{
                 .method = Method::GET,
                 .path = "/api/device",
@@ -3028,8 +3028,8 @@ TEST(HTTPReadTask, EnumValuesMissingKeyWarns) {
 
 /// @brief fields without enum_values should still parse numeric strings normally.
 TEST(HTTPReadTask, EnumValuesEmptyMapFallsBackToNumericParsing) {
-    mock::Server server(
-        mock::ServerConfig{
+    testutil::Server server(
+        testutil::ServerConfig{
             .routes = {{
                 .method = Method::GET,
                 .path = "/api/data",
@@ -3082,8 +3082,8 @@ TEST(HTTPReadTask, EnumValuesEmptyMapFallsBackToNumericParsing) {
 /// @brief when two fields share the same index channel (same sampling group)
 /// and one field has a missing pointer, neither field should be written.
 TEST(HTTPReadTask, SamplingGroupAtomicityMissingPointer) {
-    mock::Server server(
-        mock::ServerConfig{
+    testutil::Server server(
+        testutil::ServerConfig{
             .routes = {{
                 .method = Method::GET,
                 .path = "/api/data",
@@ -3143,8 +3143,8 @@ TEST(HTTPReadTask, SamplingGroupAtomicityMissingPointer) {
 /// @brief when two fields share an index and one has a type conversion error, the
 /// entire sampling group should be skipped.
 TEST(HTTPReadTask, SamplingGroupAtomicityConversionError) {
-    mock::Server server(
-        mock::ServerConfig{
+    testutil::Server server(
+        testutil::ServerConfig{
             .routes = {{
                 .method = Method::GET,
                 .path = "/api/data",
@@ -3200,8 +3200,8 @@ TEST(HTTPReadTask, SamplingGroupAtomicityConversionError) {
 /// @brief two sampling groups on the same endpoint: if one group fails, the other
 /// should still succeed independently.
 TEST(HTTPReadTask, SamplingGroupIndependentOnSameEndpoint) {
-    mock::Server server(
-        mock::ServerConfig{
+    testutil::Server server(
+        testutil::ServerConfig{
             .routes = {{
                 .method = Method::GET,
                 .path = "/api/data",
@@ -3277,8 +3277,8 @@ TEST(HTTPReadTask, SamplingGroupIndependentOnSameEndpoint) {
 /// @brief two sampling groups on different endpoints: if one endpoint's group fails,
 /// the other endpoint's group should still succeed.
 TEST(HTTPReadTask, SamplingGroupIndependentAcrossEndpoints) {
-    mock::Server server(
-        mock::ServerConfig{
+    testutil::Server server(
+        testutil::ServerConfig{
             .routes = {
                 {
                     .method = Method::GET,
@@ -3346,8 +3346,8 @@ TEST(HTTPReadTask, SamplingGroupIndependentAcrossEndpoints) {
 /// @brief when a sampling group fails, its software-timed index timestamp should NOT be
 /// written to the frame.
 TEST(HTTPReadTask, SamplingGroupFailureNoIndexTimestamp) {
-    mock::Server server(
-        mock::ServerConfig{
+    testutil::Server server(
+        testutil::ServerConfig{
             .routes = {{
                 .method = Method::GET,
                 .path = "/api/data",
@@ -3396,8 +3396,8 @@ TEST(HTTPReadTask, SamplingGroupFailureNoIndexTimestamp) {
 /// @brief when one sampling group succeeds and another fails on the same endpoint, only
 /// the successful group's software-timed index should be written.
 TEST(HTTPReadTask, SamplingGroupPartialIndexTimestamp) {
-    mock::Server server(
-        mock::ServerConfig{
+    testutil::Server server(
+        testutil::ServerConfig{
             .routes = {{
                 .method = Method::GET,
                 .path = "/api/data",
@@ -3457,8 +3457,8 @@ TEST(HTTPReadTask, SamplingGroupPartialIndexTimestamp) {
 
 /// @brief POST requests should include Content-Type: application/json.
 TEST(HTTPReadTask, POSTSetsContentTypeJSON) {
-    mock::Server server(
-        mock::ServerConfig{
+    testutil::Server server(
+        testutil::ServerConfig{
             .routes = {{
                 .method = Method::POST,
                 .path = "/api/query",
@@ -3508,8 +3508,8 @@ TEST(HTTPReadTask, POSTSetsContentTypeJSON) {
 /// @brief it should drop a body stored on a GET endpoint rather than send it or
 /// set a content type for it.
 TEST(HTTPReadTask, GETDropsStoredBody) {
-    mock::Server server(
-        mock::ServerConfig{
+    testutil::Server server(
+        testutil::ServerConfig{
             .routes = {{
                 .method = Method::GET,
                 .path = "/api/data",
@@ -3557,8 +3557,8 @@ TEST(HTTPReadTask, GETDropsStoredBody) {
 
 /// @brief it should include per-endpoint headers in the HTTP request.
 TEST(HTTPReadTask, EndpointHeaders) {
-    mock::Server server(
-        mock::ServerConfig{
+    testutil::Server server(
+        testutil::ServerConfig{
             .routes = {{
                 .method = Method::GET,
                 .path = "/api/data",
@@ -3617,8 +3617,8 @@ std::pair<x::telem::Frame, common::ReadResult> read_shared_index_group(
     const x::telem::DataType &p2_type,
     const bool filled
 ) {
-    mock::Server server(
-        mock::ServerConfig{
+    testutil::Server server(
+        testutil::ServerConfig{
             .routes = {{
                 .method = Method::GET,
                 .path = "/api/pressures",

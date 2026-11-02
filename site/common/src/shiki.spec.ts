@@ -34,6 +34,30 @@ describe("shiki", () => {
       expect(html).toContain(`color:${color(tokens.edgeContinuous)}`);
     });
 
+    it("should color a declaration's name, inputs, and triggers", async () => {
+      const render = await highlighter([grammar]);
+      const html = render("func scale(factor f64) {value f64} f64 {}", "arc");
+      expect(html).toContain(`color:${color(tokens.function)}"> scale</span>`);
+      expect(html).toContain(`color:${color(tokens.variable)}">factor</span>`);
+      expect(html).toContain(`color:${color(tokens.variable)}">value</span>`);
+      expect(html).toContain(`color:${color(tokens.type)}"> f64</span>`);
+    });
+
+    it("should color a flow call and its named input", async () => {
+      const render = await highlighter([grammar]);
+      const html = render("sensor -> scale(factor=2.0) -> out", "arc");
+      expect(html).toContain(`color:${color(tokens.function)}"> scale</span>`);
+      expect(html).toContain(`color:${color(tokens.variable)}">factor=</span>`);
+      expect(html).toContain(`color:${color(tokens.number)}">2.0</span>`);
+    });
+
+    it("should color a builtin call", async () => {
+      const render = await highlighter([grammar]);
+      const html = render("time.wait(2s)", "arc");
+      expect(html).toContain(`color:${color(tokens.namespace)}">time</span>`);
+      expect(html).toContain(`color:${color(tokens.function)}">wait</span>`);
+    });
+
     it("should leave other languages on the CSS variable theme", async () => {
       const render = await highlighter(["python"]);
       const html = render("def f():\n    return 1", "python");

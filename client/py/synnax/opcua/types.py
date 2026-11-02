@@ -33,7 +33,7 @@ class ReadTask(
 ):
     """A read task for sampling data from OPC UA devices and writing the data to a
     Synnax cluster. For detailed information on configuring and operating an OPC UA
-    read task, see https://docs.synnaxlabs.com/reference/driver/opc-ua/read-task
+    read task, see https://docs.synnaxlabs.com/reference/hardware/opc-ua/read-task
 
     :param device: The key of the Synnax OPC UA device to read from.
     :param name: A human-readable name for the task.
@@ -103,7 +103,7 @@ class WriteTask(
 ):
     """A write task for sending commands to OPC UA devices. For detailed information on
     configuring and operating an OPC UA write task, see
-    https://docs.synnaxlabs.com/reference/driver/opc-ua/write-task
+    https://docs.synnaxlabs.com/reference/hardware/opc-ua/write-task
 
     :param device: The key of the Synnax OPC UA device to write to.
     :param name: A human-readable name for the task.
@@ -160,9 +160,15 @@ class Device(device.Device):
     :param password: Password for authentication.
     :param security_mode: Security mode: "None", "Sign", or "SignAndEncrypt".
     :param security_policy: Security policy name.
-    :param client_cert: Client certificate for secure connections.
-    :param client_private_key: Client private key for secure connections.
-    :param server_cert: Trusted server certificate for secure connections.
+    :param client_cert: Path to the client certificate on the Driver's computer. Leave
+        it and client_private_key empty to use the certificate the Driver generates.
+    :param client_private_key: Path to the client private key on the Driver's
+        computer.
+    :param server_cert: The PEM contents of the server certificate to trust. When
+        empty, the Driver trusts the certificate the server presents on its first
+        connection.
+    :param certificate_validation_disabled: Whether the Driver accepts any server
+        certificate. Use only to troubleshoot a connection.
     :param name: Human-readable name for the device.
     :param location: Physical location or description.
     :param rack: Rack key this device belongs to.
@@ -181,6 +187,7 @@ class Device(device.Device):
         client_cert: str = "",
         client_private_key: str = "",
         server_cert: str = "",
+        certificate_validation_disabled: bool = False,
         name: str = "",
         location: str = "",
         rack: int = 0,
@@ -194,6 +201,7 @@ class Device(device.Device):
             "endpoint": endpoint,
             "security_mode": security_mode,
             "security_policy": security_policy,
+            "certificate_validation_disabled": certificate_validation_disabled,
         }
         if username:
             connection["username"] = username
@@ -206,7 +214,7 @@ class Device(device.Device):
         if server_cert:
             connection["server_certificate"] = server_cert
         props: dict[str, JsonValue] = {
-            "version": "1.0.0",
+            "version": "2.0.0",
             "connection": connection,
             "read": {"indexes": [], "channels": {}},
             "write": {"channels": {}},

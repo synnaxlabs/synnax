@@ -28,7 +28,7 @@ sequences.
 Our refactor of the Driver in Synnax v0.39 made several major improvements, and,
 unfortunately, introduced a few performance issues related to task timing. In this
 release, we've introduced a new
-[clock skew detection algorithm](/reference/driver/timing) that automatically corrects
+[clock skew detection algorithm](/reference/hardware/tasks) that automatically corrects
 for timing offsets in hardware timed tasks.
 
 <Divider.Divider x />
@@ -70,7 +70,7 @@ on new Drivers.
 - Fixed an issue where dragging and dropping windows outside of the Console would be
   slow to open.
 - Added the
-  [`control.set_authority`](/reference/control/arc/reference/standard-library/control#set_authority)
+  [`control.set_authority`](/reference/control/arc/standard-library/control#set_authority)
   method to the embedded control sequence editor code completion.
 
 </Release>

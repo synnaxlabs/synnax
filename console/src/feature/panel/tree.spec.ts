@@ -13,7 +13,7 @@ import { waitFor } from "@testing-library/react";
 import { describe, expect, it } from "vitest";
 
 import { Panel } from "@/feature/panel";
-import { findTreeRow, renderOntologyTree } from "@/platform/tree/treeTestutil";
+import { findTreeRow, renderOntologyTree } from "@/platform/tree/testutil";
 import { uniqueName } from "@/testutil";
 
 const client = createTestClient();
@@ -39,7 +39,7 @@ const findRowIcon = async (
   pan: panel.Panel,
   icon: string,
 ): Promise<SVGElement | null> =>
-  (await findTreeRow(pan.name)).querySelector<SVGElement>(`.pluto-icon--${icon}`);
+  (await findTreeRow(pan.name)).querySelector<SVGElement>(`.lyra-icon--${icon}`);
 
 describe("panel ontology", () => {
   it("should draw the default panel icon for a panel with none", async () => {

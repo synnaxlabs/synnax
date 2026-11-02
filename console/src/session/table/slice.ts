@@ -15,7 +15,7 @@ import z from "zod";
 
 import { Window } from "@/session/window";
 
-export const stateZ = z.object({
+const stateZ = z.object({
   editable: z.boolean().default(true),
   selectedCells: z.array(z.string()).default([]),
   lastSelected: z.string().nullable().default(null),
@@ -134,7 +134,7 @@ export const {
 
 export type Action = ReturnType<(typeof actions)[keyof typeof actions]>;
 
-export const purgeState = (state: State): State => {
+const purgeState = (state: State): State => {
   state.selectedCells = [];
   state.lastSelected = null;
   return state;

@@ -11,6 +11,7 @@ import { type UnaryClient } from "@synnaxlabs/freighter";
 import { array, type destructor, primitive } from "@synnaxlabs/x";
 import z from "zod";
 
+import { AccessDeniedError } from "@/errors";
 import { label } from "@/label";
 import { ontology } from "@/ontology";
 import { query } from "@/query";
@@ -88,6 +89,7 @@ export class Client extends query.Retriever<
   readonly type: string = "status";
   readonly store: query.Table<Key, Status>;
   private readonly cfg: ClientConfig;
+  private readonly writeHandlers = new Set<(status: Status) => void>();
 
   constructor(cfg: ClientConfig) {
     const { cache, ontology: ontologyClient, labels } = cfg;
@@ -151,6 +153,12 @@ export class Client extends query.Retriever<
     });
     this.cfg = cfg;
     this.store = store;
+    cache.listen({
+      channel: SET_CHANNEL_NAME,
+      schema: statusZ(),
+      onChange: (written) =>
+        written.forEach((status) => this.writeHandlers.forEach((h) => h(status))),
+    });
   }
 
   async retrieve<DetailsSchema extends z.ZodType>(
@@ -263,6 +271,25 @@ export class Client extends query.Retriever<
     });
   }
 
+  /**
+   * Subscribes to each status write that the Core streams to this client, from any
+   * writer, and to each {@link setLocal} status. Unlike {@link onSet}, it skips a
+   * status that reaches the cache another way, such as through a retrieve.
+   */
+  onWrite(handler: (status: Status) => void): destructor.Destructor {
+    this.writeHandlers.add(handler);
+    return () => this.writeHandlers.delete(handler);
+  }
+
+  /**
+   * Sets a status that this client makes and the Core never holds, such as a stand-in
+   * reply to a command. The status reaches the cache and the {@link onWrite} handlers.
+   */
+  setLocal(status: Status): void {
+    this.store.set(status);
+    this.writeHandlers.forEach((h) => h(status));
+  }
+
   /** Subscribes to every status delete delivered to the cache. */
   onDelete(handler: (key: Key) => void): destructor.Destructor {
     return this.store.subscribe((event) => {
@@ -337,13 +364,11 @@ export class Client extends query.Retriever<
    */
   private ensureLabel(rel: ontology.Relationship): void {
     if (rel.to.type !== "label" || this.cfg.labels.store.has(rel.to.key)) return;
-    this.cfg.labels
-      .retrieve(rel.to.key)
-      .catch((exc: unknown) =>
-        this.cfg.cache.onError(
-          new Error("failed to fetch status label", { cause: exc }),
-        ),
-      );
+    this.cfg.labels.retrieve(rel.to.key).catch((exc: unknown) => {
+      // The relationship reaches callers who cannot read the label.
+      if (AccessDeniedError.matches(exc)) return;
+      this.cfg.cache.onError(new Error("failed to fetch status label", { cause: exc }));
+    });
   }
 
   /** Reports whether the status is labeled by the given label. */

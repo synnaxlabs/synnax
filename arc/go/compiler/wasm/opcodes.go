@@ -22,12 +22,6 @@ type Opcode byte
 
 type OPCodes []Opcode
 
-func OPCodesFromBytes(data []byte) OPCodes {
-	return lo.Map(data, func(b byte, _ int) Opcode {
-		return Opcode(b)
-	})
-}
-
 func (o OPCodes) String() string {
 	return strings.Join(lo.Map(o, func(op Opcode, _ int) string {
 		return op.String()

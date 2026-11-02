@@ -216,36 +216,4 @@ describe("Runtime files", () => {
       await expect(p).resolves.toBeNull();
     });
   });
-
-  describe("pickPath", () => {
-    it("should reject in the browser without opening a dialog", async () => {
-      await expect(Runtime.pickPath({ title: "Pick" })).rejects.toThrow(
-        "File paths can only be selected in the Synnax desktop app.",
-      );
-      expect(openMock).not.toHaveBeenCalled();
-    });
-
-    describe("tauri engine", () => {
-      beforeEach(() => {
-        mocks.engine = "tauri";
-      });
-
-      it("should return the chosen absolute path", async () => {
-        openMock.mockResolvedValue("/tmp/cert.pem");
-        await expect(Runtime.pickPath({ title: "Pick" })).resolves.toBe(
-          "/tmp/cert.pem",
-        );
-        expect(openMock).toHaveBeenCalledWith({
-          title: "Pick",
-          directory: false,
-          multiple: false,
-        });
-      });
-
-      it("should return null when cancelled", async () => {
-        openMock.mockResolvedValue(null);
-        await expect(Runtime.pickPath({ title: "Pick" })).resolves.toBeNull();
-      });
-    });
-  });
 });

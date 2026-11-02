@@ -14,7 +14,7 @@ import { type z } from "zod";
 import { type Cell, Table, type tableStateZ } from "@/table/aether/Table";
 import { type MountChild, renderAether } from "@/testutil/renderAether";
 import { type render } from "@/vis/render";
-import { canvasTest } from "@/vis/render/test";
+import { canvasTest } from "@/vis/render/testutil";
 import { value } from "@/vis/value/aether";
 
 const REGION = box.construct({ x: 100, y: 50 }, { width: 400, height: 300 });

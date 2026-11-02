@@ -1,0 +1,120 @@
+---
+layout: "@/layouts/Reference.astro"
+title: "Compute values from channels"
+description:
+  "Convert units, combine sensors, smooth noise, and vote between sensors with Arc."
+---
+
+import { Divider } from "@synnaxlabs/lyra/divider";
+import { mdxOverrides } from "@/components/mdxOverrides";
+export const components = mdxOverrides;
+
+An Arc automation can compute values from channels and write them to a new channel.
+Synnax stores the result, and the automation computes it whether or not anything reads
+the channel. A [calculated channel](/reference/channels/calculated) stores nothing and
+computes only while something streams or reads it. See
+[Arc, calculated channels, or Python](/reference/control/arc#arc-calculated-channels-or-python).
+
+Before you start, [create](/reference/channels/create) each output channel, such as
+`tank_pt_kpa`. To store it, give it its own new index channel. The automation writes the
+index too. If the output channel does not exist, the code does not compile.
+
+Each recipe below is a complete program. To run one,
+[create an Arc automation](/reference/control/arc/automations#create-an-arc-automation),
+copy the code, choose a Driver, and click **Start**.
+
+<Divider.Divider x />
+
+## Convert units
+
+```arc channels="tank_pt, tank_pt_kpa"
+tank_pt * 6.89476 -> tank_pt_kpa
+```
+
+The flow runs for each new `tank_pt` value. Each result has the timestamp of the value
+it came from.
+
+<Divider.Divider x />
+
+## Combine two sensors
+
+```arc channels="inlet_pt, outlet_pt, filter_dp"
+inlet_pt - outlet_pt -> filter_dp
+```
+
+The flow runs when either channel gets a new value, after both have a first value. It
+uses the latest value of the other channel.
+
+<Divider.Divider x />
+
+## Compute a rate of change
+
+```arc channels="tank_pt, tank_pt_rate"
+import math
+
+tank_pt -> math.derivative() -> tank_pt_rate
+```
+
+`math.derivative` gives the change per second, from the timestamps of the samples. Its
+first value is 0.
+
+<Divider.Divider x />
+
+## Smooth a noisy sensor
+
+An exponential moving average follows the sensor but damps its noise:
+
+```arc channels="tank_pt, tank_pt_smooth" bodies="ema"
+func ema(alpha f64) {value f64} f64 {
+    avg $= 0.0
+    first $= true
+    if first {
+        avg = value
+        first = false
+    } else {
+        avg = alpha * value + (1.0 - alpha) * avg
+    }
+    return avg
+}
+
+tank_pt -> ema(alpha=0.1) -> tank_pt_smooth
+```
+
+A smaller `alpha` smooths more, but follows changes more slowly. The effect of `alpha`
+depends on the sample rate of the sensor. Smooth a noisy sensor before you compute its
+rate of change: `tank_pt -> ema(alpha=0.1) -> math.derivative() -> tank_pt_rate`.
+
+`math.avg` is not a moving average. It gives one average for each block of samples. See
+the [`math` module](/reference/control/arc/standard-library/math).
+
+<Divider.Divider x />
+
+## Vote between redundant sensors
+
+With three sensors on the same tank, the middle value ignores one failed sensor:
+
+```arc channels="tank_pt_1, tank_pt_2, tank_pt_3, tank_pt_voted" bodies="median3"
+func median3() {a f64, b f64, c f64} f64 {
+    if (a >= b and a <= c) or (a >= c and a <= b) {
+        return a
+    }
+    if (b >= a and b <= c) or (b >= c and b <= a) {
+        return b
+    }
+    return c
+}
+
+(median3(tank_pt_1, tank_pt_2, tank_pt_3)) -> tank_pt_voted
+```
+
+If one sensor reads 0 while the others read 500, the result is 500. The function runs
+when any of the three sensors gets a new value, after each has a first value.
+
+<Divider.Divider x />
+
+## Next steps
+
+- To set a status when a computed value goes out of limits, see
+  [alarms in Arc](/reference/alarms/arc).
+- For every function you can use, see the
+  [standard library](/reference/control/arc/standard-library).

@@ -15,12 +15,13 @@ import (
 	"context"
 
 	"github.com/synnaxlabs/synnax/pkg/service/arc/versions/v3"
+	"github.com/synnaxlabs/synnax/pkg/service/arc/versions/v4"
 	"github.com/synnaxlabs/synnax/pkg/service/imex"
 )
 
 // Latest is the portable schema version stamped on exported Arc envelopes and the
 // highest version import accepts. It equals the resource's current schema version.
-const Latest = v3.Version
+const Latest = v4.Version
 
 // autoDecodeEnvelope decodes a server-exported envelope as its version's Arc
 // shape and lifts it through the per-version migration chain to the current shape. A
@@ -28,6 +29,16 @@ const Latest = v3.Version
 func autoDecodeEnvelope(ctx context.Context, env imex.Envelope) (Arc, error) {
 	switch env.Version {
 	case v3.Version:
+		t3, err := env.Decode[v3.Arc](ctx)
+		if err != nil {
+			return Arc{}, err
+		}
+		t4, err := v4.MigrateArc(ctx, t3)
+		if err != nil {
+			return Arc{}, err
+		}
+		return t4, nil
+	case v4.Version:
 		return env.Decode[Arc](ctx)
 	}
 	return Arc{}, imex.NewErrUnsupportedVersion(env.Type, env.Version, Latest)
@@ -36,5 +47,9 @@ func autoDecodeEnvelope(ctx context.Context, env imex.Envelope) (Arc, error) {
 // liftFirst lifts the first exported Arc shape to the current shape. A decoder
 // of an older shape builds the first exported shape and enters the ladder here.
 func liftFirst(ctx context.Context, t3 v3.Arc) (Arc, error) {
-	return t3, nil
+	t4, err := v4.MigrateArc(ctx, t3)
+	if err != nil {
+		return Arc{}, err
+	}
+	return t4, nil
 }

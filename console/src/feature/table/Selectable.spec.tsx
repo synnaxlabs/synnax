@@ -16,6 +16,7 @@ import { Table } from "@/feature/table";
 import { client, project } from "@/feature/table/testutil";
 import { createActiveState } from "@/platform/project/testutil";
 import { Session } from "@/session";
+import { documentIn } from "@/session/window/testutil";
 import { assertDefined, createConsoleWrapper, resolveFocusedTab } from "@/testutil";
 
 const roles = new RoleClients(client);
@@ -38,7 +39,9 @@ describe("table/Selectable", () => {
     const created = await client.tables.retrieve(key);
     expect(created.name).toBe("Table");
     await waitFor(() =>
-      expect(Session.Table.selectEditable({ state: store.getState(), key })).toBe(true),
+      expect(
+        documentIn(store.getState()[Session.Table.SLICE_NAME], key)?.editable,
+      ).toBe(true),
     );
   });
 });

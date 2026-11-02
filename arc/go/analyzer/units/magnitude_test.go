@@ -12,16 +12,19 @@ package units_test
 import (
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
+	"github.com/synnaxlabs/arc/analyzer/testutil"
 	"github.com/synnaxlabs/arc/analyzer/units"
 	"github.com/synnaxlabs/arc/types"
+	. "github.com/synnaxlabs/x/testutil"
 )
 
 // makeTyped creates a types.Type with the given kind and optional unit.
 func makeTyped(kind types.Kind, unitName string) types.Type {
+	GinkgoHelper()
 	if unitName == "" {
 		return types.Type{Kind: kind}
 	}
-	return types.Type{Kind: kind, Unit: units.MustResolve(unitName)}
+	return types.Type{Kind: kind, Unit: MustBeOk(units.Resolve(unitName))}
 }
 
 var _ = Describe("Magnitude Safety", func() {
@@ -32,7 +35,7 @@ var _ = Describe("Magnitude Safety", func() {
 				ctx := testCtx()
 				left, right := makeTyped(kind, leftUnit), makeTyped(kind, rightUnit)
 				Expect(units.ValidateBinaryOp(ctx, "+", left, right)).To(BeTrue())
-				warnings := ctx.Diagnostics.Warnings()
+				warnings := testutil.Warnings(ctx.Diagnostics)
 				Expect(warnings).To(HaveLen(1))
 				Expect(warnings[0].Message).To(ContainSubstring(expectedMagnitude))
 				Expect(warnings[0].Message).To(ContainSubstring("orders of magnitude"))
@@ -53,7 +56,7 @@ var _ = Describe("Magnitude Safety", func() {
 			left := makeTyped(types.KindF64, "K")
 			right := makeTyped(types.KindF64, "fK")
 			Expect(units.ValidateBinaryOp(ctx, "+", left, right)).To(BeTrue())
-			warnings := ctx.Diagnostics.Warnings()
+			warnings := testutil.Warnings(ctx.Diagnostics)
 			Expect(warnings).To(HaveLen(1))
 			Expect(warnings[0].Message).To(SatisfyAny(
 				ContainSubstring("14"),
@@ -66,7 +69,7 @@ var _ = Describe("Magnitude Safety", func() {
 				ctx := testCtx()
 				left, right := makeType(leftUnit), makeType(rightUnit)
 				Expect(units.ValidateBinaryOp(ctx, "+", left, right)).To(BeTrue())
-				Expect(ctx.Diagnostics.Warnings()).To(BeEmpty())
+				Expect(testutil.Warnings(ctx.Diagnostics)).To(BeEmpty())
 			},
 			Entry("m and km (3 orders)", "m", "km"),
 			Entry("ms and s (3 orders)", "ms", "s"),
@@ -77,7 +80,7 @@ var _ = Describe("Magnitude Safety", func() {
 				ctx := testCtx()
 				left, right := makeType(leftUnit), makeType(rightUnit)
 				Expect(units.ValidateBinaryOp(ctx, "+", left, right)).To(BeTrue())
-				Expect(ctx.Diagnostics.Warnings()).To(BeEmpty())
+				Expect(testutil.Warnings(ctx.Diagnostics)).To(BeEmpty())
 			},
 			Entry("left nil", "", "m"),
 			Entry("right nil", "m", ""),
@@ -90,7 +93,7 @@ var _ = Describe("Magnitude Safety", func() {
 				units.ValidateBinaryOp(ctx, "+", makeType("m"), makeType("s")),
 			).To(BeFalse())
 			Expect(ctx.Diagnostics.Errors()).To(HaveLen(1))
-			Expect(ctx.Diagnostics.Warnings()).To(BeEmpty())
+			Expect(testutil.Warnings(ctx.Diagnostics)).To(BeEmpty())
 		})
 
 		It("should not check magnitude for non-additive operations", func() {
@@ -98,7 +101,7 @@ var _ = Describe("Magnitude Safety", func() {
 			Expect(
 				units.ValidateBinaryOp(ctx, "*", makeType("K"), makeType("pK")),
 			).To(BeTrue())
-			Expect(ctx.Diagnostics.Warnings()).To(BeEmpty())
+			Expect(testutil.Warnings(ctx.Diagnostics)).To(BeEmpty())
 		})
 	})
 
@@ -109,7 +112,7 @@ var _ = Describe("Magnitude Safety", func() {
 				src := makeTyped(types.KindF64, srcUnit)
 				dst := makeTyped(dstKind, dstUnit)
 				units.CheckAssignmentScaleSafety(ctx, src, dst, nil)
-				warnings := ctx.Diagnostics.Warnings()
+				warnings := testutil.Warnings(ctx.Diagnostics)
 				Expect(warnings).To(HaveLen(1))
 				Expect(warnings[0].Message).To(ContainSubstring("truncate to zero"))
 			},
@@ -123,7 +126,7 @@ var _ = Describe("Magnitude Safety", func() {
 				src := makeTyped(types.KindF64, srcUnit)
 				dst := makeTyped(dstKind, dstUnit)
 				units.CheckAssignmentScaleSafety(ctx, src, dst, nil)
-				warnings := ctx.Diagnostics.Warnings()
+				warnings := testutil.Warnings(ctx.Diagnostics)
 				Expect(warnings).To(HaveLen(1))
 				Expect(warnings[0].Message).To(ContainSubstring("overflow"))
 			},
@@ -138,7 +141,7 @@ var _ = Describe("Magnitude Safety", func() {
 				src := makeTyped(srcKind, srcUnit)
 				dst := makeTyped(dstKind, dstUnit)
 				units.CheckAssignmentScaleSafety(ctx, src, dst, nil)
-				Expect(ctx.Diagnostics.Warnings()).To(BeEmpty())
+				Expect(testutil.Warnings(ctx.Diagnostics)).To(BeEmpty())
 			},
 			Entry("km to i32 m (scale up)", types.KindF64, "km", types.KindI32, "m"),
 			Entry(
@@ -162,15 +165,15 @@ var _ = Describe("Magnitude Safety", func() {
 			ctx1 := testCtx()
 			smallVal := 1000.0
 			units.CheckAssignmentScaleSafety(ctx1, src, dst, &smallVal)
-			Expect(ctx1.Diagnostics.Warnings()).To(BeEmpty())
+			Expect(testutil.Warnings(ctx1.Diagnostics)).To(BeEmpty())
 
 			// 1e7 K -> 1e10 mK overflows i32
 			ctx2 := testCtx()
 			largeVal := 1e7
 			units.CheckAssignmentScaleSafety(ctx2, src, dst, &largeVal)
-			Expect(ctx2.Diagnostics.Warnings()).To(HaveLen(1))
+			Expect(testutil.Warnings(ctx2.Diagnostics)).To(HaveLen(1))
 			Expect(
-				ctx2.Diagnostics.Warnings()[0].Message,
+				testutil.Warnings(ctx2.Diagnostics)[0].Message,
 			).To(ContainSubstring("overflows"))
 		})
 	})

@@ -45,6 +45,7 @@ from synnax.exceptions import (
     ExpiredToken,
     InvalidLicense,
     InvalidToken,
+    LicenseEditionMismatch,
     LicenseError,
     LicenseFingerprintMismatch,
     LicenseLimitExceeded,
@@ -54,6 +55,7 @@ from synnax.exceptions import (
     PathError,
     QueryError,
     RouteError,
+    SessionEnded,
     UnauthorizedError,
     UnexpectedError,
     ValidationError,
@@ -64,6 +66,7 @@ from synnax.framer import (
     Iterator,
     Streamer,
     Writer,
+    WriterClosed,
     WriterMode,
 )
 from synnax.options import Options
@@ -106,7 +109,7 @@ from synnax.user.payload import User
 from synnax.view import View
 from x import color
 from x.color import Color
-from x.exceptions import ContiguityError
+from x.exceptions import ContiguityError, Error
 
 __version__ = _version("synnax")
 
@@ -137,6 +140,7 @@ __all__ = [
     "Density",
     "Device",
     "Edge",
+    "Error",
     "ExpiredLicense",
     "ExpiredToken",
     "Frame",
@@ -147,6 +151,7 @@ __all__ = [
     "InvalidLicense",
     "InvalidToken",
     "Iterator",
+    "LicenseEditionMismatch",
     "LicenseError",
     "LicenseFingerprintMismatch",
     "LicenseLimitExceeded",
@@ -169,6 +174,7 @@ __all__ = [
     "Role",
     "RouteError",
     "Series",
+    "SessionEnded",
     "Size",
     "Status",
     "Streamer",
@@ -187,6 +193,7 @@ __all__ = [
     "ValidationError",
     "View",
     "Writer",
+    "WriterClosed",
     "WriterMode",
     "color",
     "convert_time_units",

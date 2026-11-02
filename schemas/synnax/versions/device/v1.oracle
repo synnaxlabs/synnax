@@ -13,7 +13,22 @@ import "schemas/synnax/versions/rack/v1"
 
 Key = v0.Key
 
-StatusDetails = v0.StatusDetails
+StatusDetails struct {
+    rack   rack.Key {
+        @doc value "is the key of the rack this device belongs to."
+    }
+    device Key      {
+        @doc value "is the device identifier."
+    }
+    data   record?  {
+        @doc value "contains device-specific status data."
+    }
+
+    @doc value """
+        contains device-specific status details identifying the device and its
+        associated rack.
+    """
+}
 
 Status = status.Status<StatusDetails>
 

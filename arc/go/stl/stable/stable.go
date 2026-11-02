@@ -34,7 +34,7 @@ var (
 			"Debounces a signal: emits a value only after it stays stable for the given duration, suppressing transient fluctuations.",
 		),
 		doc.Divider(),
-		doc.Code("arc", "sensor -> stable.for{duration=5s} -> output"),
+		doc.Code("arc", "sensor -> stable.for(duration=5s) -> output"),
 	)
 	moduleDoc = doc.New(
 		doc.Paragraph(

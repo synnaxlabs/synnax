@@ -7,13 +7,20 @@
 #  License, use of this software will be governed by the Apache License, Version 2.0,
 #  included in the file licenses/APL.txt.
 
+from pathlib import Path
+
 import pytest
 
-from synnax.cli.console import MockConsole
+import synnax as sy
+from synnax.cli import console
 from synnax.cli.flow import Context
-from synnax.cli.ingest import pure_ingest
+from synnax.cli.ingest import _pure_ingest
+from synnax.ingest import row
+from synnax.io import FACTORY
+from synnax.io.csv import CSVReader
 from synnax.synnax import Synnax
 from x.strings import random_name
+from x.telem import seconds_linspace
 
 from .data import DATA_DIR
 
@@ -22,7 +29,7 @@ from .data import DATA_DIR
 class TestIngest:
     def test_valid_ingest(self, client: Synnax) -> None:
         try:
-            c = MockConsole(
+            c = console.Mock(
                 responses=[
                     True,  # Ingest all channels?
                     True,  # Channels not found, create them?
@@ -35,7 +42,7 @@ class TestIngest:
                     random_name(),
                 ]
             )
-            pure_ingest(
+            _pure_ingest(
                 path_=DATA_DIR / "ingest_valid_1.csv",
                 client=client,
                 ctx=Context(console=c),
@@ -44,3 +51,123 @@ class TestIngest:
             client.channels.delete(
                 ["ingest_valid_idx", "ingest_valid_1", "ingest_valid_2"]
             )
+
+
+@pytest.fixture
+def other_pair(client: Synnax) -> tuple[sy.Channel, sy.Channel]:
+    name = random_name()
+    idx = client.channels.create(
+        name=f"test_{name}_time", is_index=True, data_type=sy.DataType.TIMESTAMP
+    )
+    data = client.channels.create(
+        name=f"test_{name}_data", index=idx.key, data_type=sy.DataType.FLOAT64
+    )
+    return idx, data
+
+
+@pytest.mark.cli
+class TestRowEngine:
+    def test_ingest_with_index(
+        self,
+        client: Synnax,
+        indexed_pair: tuple[sy.Channel, sy.Channel],
+        tmp_path: Path,
+    ) -> None:
+        """Should write a file after data that its channels already hold"""
+        idx, data = indexed_pair
+        client.write(1 * sy.TimeSpan.SECOND, {idx.key: seconds_linspace(1, count=1)})
+        path = tmp_path / "with_index.csv"
+        path.write_text(f"{idx.name},{data.name}\n10000000000,1.5\n11000000000,2.5\n")
+        row.Engine(
+            client=client,
+            reader=FACTORY.new_reader(path),
+            channels=[idx, data],
+            start=sy.TimeStamp(10 * sy.TimeSpan.SECOND),
+        ).run()
+        frame = client.read(sy.TimeRange.MAX, [idx.key, data.key])
+        assert list(frame[idx.key]) == [
+            1 * sy.TimeSpan.SECOND,
+            10 * sy.TimeSpan.SECOND,
+            11 * sy.TimeSpan.SECOND,
+        ]
+        assert list(frame[data.key]) == [1.5, 2.5]
+
+    def test_ingest_two_indexes(
+        self,
+        client: Synnax,
+        indexed_pair: tuple[sy.Channel, sy.Channel],
+        other_pair: tuple[sy.Channel, sy.Channel],
+        tmp_path: Path,
+    ) -> None:
+        """Should open each index at its own first timestamp"""
+        first_idx, first_data = indexed_pair
+        second_idx, second_data = other_pair
+        client.write(
+            1 * sy.TimeSpan.SECOND, {second_idx.key: seconds_linspace(1, count=2)}
+        )
+        path = tmp_path / "two_indexes.csv"
+        path.write_text(
+            f"{first_idx.name},{first_data.name},{second_idx.name},{second_data.name}\n"
+            "1000000000,1.5,10000000000,3.5\n"
+            "2000000000,2.5,11000000000,4.5\n"
+        )
+        engine = row.Engine(
+            client=client,
+            reader=FACTORY.new_reader(path),
+            channels=[first_idx, first_data, second_idx, second_data],
+            start=sy.TimeStamp(1 * sy.TimeSpan.SECOND),
+        )
+        engine.run()
+        assert list(client.read(sy.TimeRange.MAX, first_data.key)) == [1.5, 2.5]
+        assert list(client.read(sy.TimeRange.MAX, second_data.key)) == [3.5, 4.5]
+        assert engine.end > 11 * sy.TimeSpan.SECOND
+
+    def test_close_writers_after_failed_ingest(
+        self,
+        client: Synnax,
+        indexed_pair: tuple[sy.Channel, sy.Channel],
+        other_pair: tuple[sy.Channel, sy.Channel],
+        tmp_path: Path,
+    ) -> None:
+        """Should release every index when the commit of one of them fails"""
+        first_idx, first_data = indexed_pair
+        second_idx, second_data = other_pair
+        client.write(
+            2 * sy.TimeSpan.SECOND, {first_idx.key: seconds_linspace(2, count=1)}
+        )
+        path = tmp_path / "failed.csv"
+        path.write_text(
+            f"{first_idx.name},{first_data.name},{second_idx.name},{second_data.name}\n"
+            "1000000000,1.5,10000000000,3.5\n"
+            "2000000000,2.5,11000000000,4.5\n"
+        )
+        with pytest.raises(sy.ValidationError, match="overlaps with existing data"):
+            row.Engine(
+                client=client,
+                reader=FACTORY.new_reader(path),
+                channels=[first_idx, first_data, second_idx, second_data],
+                start=sy.TimeStamp(1 * sy.TimeSpan.SECOND),
+            ).run()
+        client.delete([second_idx.key, second_data.key], sy.TimeRange.MAX)
+
+    def test_ingest_without_index(
+        self,
+        client: Synnax,
+        indexed_pair: tuple[sy.Channel, sy.Channel],
+        tmp_path: Path,
+    ) -> None:
+        """Should align a file without its index to an index written before it"""
+        idx, data = indexed_pair
+        client.write(5 * sy.TimeSpan.SECOND, {idx.key: seconds_linspace(5, count=2)})
+        path = tmp_path / "without_index.csv"
+        path.write_text(f"{idx.name},{data.name}\n5000000000,1.5\n6000000000,2.5\n")
+        row.Engine(
+            client=client,
+            reader=CSVReader(path, keys=[data.name]),
+            channels=[data],
+            start=sy.TimeStamp(5 * sy.TimeSpan.SECOND),
+        ).run()
+        frame = client.read(
+            sy.TimeRange(5 * sy.TimeSpan.SECOND, 7 * sy.TimeSpan.SECOND), data.key
+        )
+        assert list(frame) == [1.5, 2.5]

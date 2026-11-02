@@ -16,7 +16,6 @@ import (
 	. "github.com/onsi/gomega"
 	"github.com/synnaxlabs/gorp"
 	"github.com/synnaxlabs/synnax/pkg/service/user"
-	"github.com/synnaxlabs/x/query"
 	. "github.com/synnaxlabs/x/testutil"
 )
 
@@ -98,7 +97,7 @@ var _ = Describe("Service", func() {
 		})
 		It("Should retrieve a user by its key", func(ctx SpecContext) {
 			created := MustSucceed(
-				w.Create(ctx, user.User{Username: uuid.New().String()}),
+				w.Create(ctx, user.User{Name: uuid.New().String()}),
 			)
 			var u user.User
 			Expect(svc.NewRetrieve().Where(user.MatchKeys(created.Key)).Entry(&u).
@@ -106,28 +105,12 @@ var _ = Describe("Service", func() {
 			Expect(u).To(Equal(created))
 		})
 		It("Should retrieve multiple users by keys", func(ctx SpecContext) {
-			a := MustSucceed(w.Create(ctx, user.User{Username: uuid.New().String()}))
-			b := MustSucceed(w.Create(ctx, user.User{Username: uuid.New().String()}))
+			a := MustSucceed(w.Create(ctx, user.User{Name: uuid.New().String()}))
+			b := MustSucceed(w.Create(ctx, user.User{Name: uuid.New().String()}))
 			var ret []user.User
 			Expect(svc.NewRetrieve().Where(user.MatchKeys(a.Key, b.Key)).Entries(&ret).
 				Exec(ctx, tx)).To(Succeed())
 			Expect(ret).To(ConsistOf(a, b))
 		})
-		It("Should retrieve a user by its username", func(ctx SpecContext) {
-			created := MustSucceed(
-				w.Create(ctx, user.User{Username: uuid.New().String()}),
-			)
-			var u user.User
-			Expect(svc.NewRetrieve().Where(user.MatchUsernames(created.Username)).
-				Entry(&u).Exec(ctx, tx)).To(Succeed())
-			Expect(u).To(Equal(created))
-		})
-		It(
-			"Should return an error if the username does not exist",
-			func(ctx SpecContext) {
-				Expect(svc.NewRetrieve().Where(user.MatchUsernames("does-not-exist")).
-					Entry(&user.User{}).Exec(ctx, tx)).To(MatchError(query.ErrNotFound))
-			},
-		)
 	})
 })

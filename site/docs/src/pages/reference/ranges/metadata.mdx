@@ -1,0 +1,226 @@
+---
+layout: "@/layouts/Reference.astro"
+title: "Metadata and labels"
+description: "Add metadata and labels to ranges in the Console or in code."
+clients: ["console", "python", "typescript"]
+---
+
+import { Divider } from "@synnaxlabs/lyra/divider";
+import { Icon } from "@synnaxlabs/lyra/icon";
+import { Fragment } from "react";
+import { Client } from "@/components/client";
+import { Video } from "@/components/media/Media";
+import { mdxOverrides } from "@/components/mdxOverrides";
+export const components = mdxOverrides;
+
+[Metadata](/reference/ranges#metadata) stores key and value pairs on a range, such as a
+part number or a test configuration. Keys and values are text. In code, cast each value
+to the type that you need. [Labels](/reference/ranges#labels) sort ranges into groups
+that you can filter by.
+
+<Divider.Divider x />
+
+## Set metadata
+
+<Client.Tabs>
+
+  <Fragment slot="console">
+
+1. On the [range overview](/reference/ranges/find#range-overview), click <Icon.Add /> in
+   the **Metadata** section.
+2. Enter a key and a value.
+3. Press **Enter**, or click <Icon.Check />.
+
+To change a value, click it and type the new value. The Console saves it when you click
+away. You cannot change a key; delete the pair and add a new one. A value that is a link
+shows a button that opens it.
+
+<Video id="client/ranges/set-metadata" />
+
+  </Fragment>
+
+  <Fragment slot="python">
+
+```python
+my_range = client.ranges.retrieve(name="My Range")
+
+# Set a single key/value pair
+my_range.meta_data.set("part_number", "12345")
+
+# Another way to set a single key/value pair
+my_range.meta_data["part_number"] = "12345"
+
+# Set multiple key/value pairs
+my_range.meta_data.set({
+    "part_number": "12345",
+    "test_configuration": "Test 1",
+    "test_result": "123.45",
+})
+```
+
+  </Fragment>
+
+  <Fragment slot="typescript">
+
+```typescript
+const myRange = await client.ranges.retrieve("My Range");
+
+// Set a single key/value pair
+await myRange.kv.set("part_number", "12345");
+
+// Set multiple key/value pairs
+await myRange.kv.set({
+  part_number: "12345",
+  test_configuration: "Test 1",
+  test_result: "123.45",
+});
+```
+
+  </Fragment>
+</Client.Tabs>
+
+<Divider.Divider x />
+
+## Get metadata
+
+<Client.Tabs>
+
+  <Fragment slot="console">
+
+The metadata section of the [range overview](/reference/ranges/find#range-overview)
+lists every key and value. Click the copy button beside a value to copy it.
+
+  </Fragment>
+
+  <Fragment slot="python">
+
+```python
+my_range = client.ranges.retrieve(name="My Range")
+
+# Retrieve a single key
+part_number = my_range.meta_data["part_number"] # Or use .get("key")
+
+# Retrieve multiple keys
+metadata = my_range.meta_data.get(["part_number", "test_configuration"])
+
+# List all metadata
+all_metadata = my_range.meta_data.get([])
+```
+
+  </Fragment>
+
+  <Fragment slot="typescript">
+
+```typescript
+const myRange = await client.ranges.retrieve("My Range");
+
+// Retrieve a single key
+const partNumber = await myRange.kv.get("part_number");
+
+// Retrieve multiple keys
+const metadata = await myRange.kv.get(["part_number", "test_configuration"]);
+
+// List all metadata
+const allMetadata = await myRange.kv.list();
+```
+
+  </Fragment>
+</Client.Tabs>
+
+<Divider.Divider x />
+
+## Delete metadata
+
+<Client.Tabs>
+
+  <Fragment slot="console">
+
+On the [range overview](/reference/ranges/find#range-overview), click <Icon.Delete />
+beside the key in the **Metadata** section. The Console deletes it with no confirm step.
+
+  </Fragment>
+
+  <Fragment slot="python">
+
+```python
+my_range = client.ranges.retrieve(name="My Range")
+
+# Delete a single key
+del my_range.meta_data["part_number"] # Or use .delete("key")
+
+# Delete multiple keys
+my_range.meta_data.delete(["part_number", "test_configuration"])
+```
+
+  </Fragment>
+
+  <Fragment slot="typescript">
+
+```typescript
+const myRange = await client.ranges.retrieve("My Range");
+
+// Delete a single key
+await myRange.kv.delete("part_number");
+
+// Delete multiple keys
+await myRange.kv.delete(["part_number", "test_configuration"]);
+```
+
+  </Fragment>
+</Client.Tabs>
+
+<Divider.Divider x />
+
+## Labels
+
+<Client.Tabs>
+
+  <Fragment slot="console">
+
+Select labels in the create dialog or on the
+[range overview](/reference/ranges/find#range-overview). To make a new label, type its
+name in the label list and select **New label**. To rename, recolor, or delete labels,
+run the "Edit labels" command from the
+[command palette](/reference/get-started/ui-overview#search-and-command-palette).
+
+<Video id="client/ranges/labels" />
+
+  </Fragment>
+
+  <Fragment slot="python">
+
+The Python client can read the labels of a range, but cannot set them:
+
+```python
+my_range = client.ranges.retrieve(name="My Range", include_labels=True)
+
+# labels is None when the range has no labels
+for label in my_range.labels or []:
+    print(label.name)
+```
+
+  </Fragment>
+
+  <Fragment slot="typescript">
+
+```typescript
+const myRange = await client.ranges.retrieve("My Range");
+
+// Create a label
+const label = await client.labels.create({ name: "Hotfire", color: "#FF0000" });
+
+// Add the label to the range
+await myRange.addLabel(label.key);
+
+// List the labels on the range
+const labels = await myRange.retrieveLabels();
+
+// Remove the label from the range
+await myRange.removeLabel(label.key);
+
+// Retrieve every range with the label
+const hotfires = await client.ranges.retrieve({ hasLabels: [label.key] });
+```
+
+  </Fragment>
+</Client.Tabs>

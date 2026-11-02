@@ -19,6 +19,7 @@ import path from "path";
 import tseslint from "typescript-eslint";
 
 import { isWorker } from "./compiler";
+import { barrelImports } from "./rules/barrelImports";
 import { jsxFilenameExtension } from "./rules/jsxFilenameExtension";
 import { namedHookCallers } from "./rules/namedHookCallers";
 import { namedHookValues } from "./rules/namedHookValues";
@@ -32,6 +33,7 @@ const skipWorkers = (rule: Rule.RuleModule): Rule.RuleModule => ({
 
 const synnax: ESLint.Plugin = {
   rules: {
+    "barrel-imports": barrelImports,
     "jsx-filename-extension": jsxFilenameExtension,
     "named-hook-callers": skipWorkers(namedHookCallers),
     "named-hook-values": skipWorkers(namedHookValues),
@@ -68,11 +70,18 @@ const COMPILER_RULES: Linter.RulesRecord = {
   "synnax/named-hook-values": "error",
 };
 
+const NAMESPACE_IMPORT = {
+  selector: "ImportDeclaration[source.value=/^(@\\/|\\.)/] > ImportNamespaceSpecifier",
+  message:
+    "Import a local module's namespace from its barrel, which forms it with `export * as`.",
+};
+
 const RESTRICTED_SYNTAX = [
   {
     selector: "JSXAttribute > JSXExpressionContainer > Literal.expression[value=true]",
     message: "Write a true boolean attribute without a value.",
   },
+  NAMESPACE_IMPORT,
 ];
 
 const MEMO_MESSAGE =
@@ -138,6 +147,7 @@ const config: Linter.Config[] = [
       synnax,
     },
     rules: {
+      "synnax/barrel-imports": "error",
       "synnax/jsx-filename-extension": "error",
       "new-cap": ["error", { capIsNew: false }],
       "no-constant-condition": ["error", { checkLoops: false }],
@@ -285,6 +295,16 @@ const config: Linter.Config[] = [
         typescript: {}, // this loads <rootdir>/tsconfig.json to eslint
         node: { extensions: [".js", ".jsx", ".ts", ".tsx"] },
       },
+    },
+  },
+  {
+    // Oracle imports one generated module into another as a namespace.
+    files: ["**/*.gen.ts"],
+    rules: {
+      "no-restricted-syntax": [
+        "error",
+        ...RESTRICTED_SYNTAX.filter((r) => r !== NAMESPACE_IMPORT),
+      ],
     },
   },
   {

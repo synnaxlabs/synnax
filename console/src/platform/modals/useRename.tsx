@@ -64,7 +64,6 @@ const Rename = ({
         </Input.Item>
       </Modal.Body>
       <Modal.Footer>
-        <Triggers.SaveHelpText action="Save" trigger={Triggers.SAVE} />
         <Nav.Bar.End x align="center">
           <Button.Button
             status="success"
@@ -72,6 +71,7 @@ const Rename = ({
             variant="filled"
             onClick={handleClick}
             trigger={Triggers.SAVE}
+            triggerIndicator
           >
             Save
           </Button.Button>

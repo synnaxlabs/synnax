@@ -7,22 +7,20 @@
 #  License, use of this software will be governed by the Apache License, Version 2.0,
 #  included in the file licenses/APL.txt.
 
-from typing import cast
 
 import click
 import matplotlib.pyplot as plt
 import numpy as np
 
 import synnax as sy
-from synnax.cli import channel, default
-from synnax.cli.connect import connect_client
-from x.telem import to_int
+from synnax.cli import channel, connect, default
+from synnax.config import default_clusters
 
 
 @click.command()
 def check_timing() -> None:
     """Check the timing characteristics of a time channel."""
-    client = connect_client(default.context())
+    client = connect.from_clusters(default.context(), default_clusters())
     if client is None:
         return
 
@@ -49,15 +47,15 @@ def check_timing() -> None:
     span = sy.TimeSpan.SECOND * duration
 
     # Collect samples
-    offsets, diffs, times, local_start, local_end = collect_samples(
+    offsets, diffs, times, local_start, local_end = _collect_samples(
         client, time_channel.key, span
     )
 
     # Replace the individual report calls with the combined report
-    create_timing_report(times, offsets, diffs, local_start, local_end)
+    _create_timing_report(times, offsets, diffs, local_start, local_end)
 
 
-def collect_samples(
+def _collect_samples(
     client: sy.Synnax,
     time_channel: sy.channel.Key,
     span: sy.TimeSpan,
@@ -78,20 +76,16 @@ def collect_samples(
         end = now + span
         while now < end:
             now = sy.TimeStamp.now()
-            data = streamer.read()[time_channel]
-            last = cast(int, data[-1])
-            second_last = cast(int, data[-2])
-            offset = sy.TimeSpan(sy.TimeStamp.now() - sy.TimeStamp(last))
-            offsets.append(offset)
-            diff = sy.TimeSpan(last - second_last)
-            diffs.append(diff)
-            times.extend(sy.TimeStamp(to_int(t)) for t in data)
+            data = streamer.read()[time_channel].as_(sy.TimeStamp)
+            offsets.append(sy.TimeStamp.now() - data[-1])
+            diffs.append(data[-1] - data[-2])
+            times.extend(data)
 
     local_end = sy.TimeStamp.now()
     return offsets, diffs, times, local_start, local_end
 
 
-def create_timing_report(
+def _create_timing_report(
     times: list[sy.TimeStamp],
     offsets: list[sy.TimeSpan],
     diffs: list[sy.TimeSpan],
@@ -153,7 +147,8 @@ def create_timing_report(
     ax2.plot(x_offset, gaussian_offset, "magenta", lw=2, label="Gaussian fit")
 
     ax2.set_title(
-        "Distribution of Clock Offsets\nDifference between time channel and local machine reception time"
+        "Distribution of Clock Offsets\nDifference between time channel and local "
+        "machine reception time"
     )
     ax2.set_xlabel("Offset (microseconds)")
     ax2.set_ylabel("Count")

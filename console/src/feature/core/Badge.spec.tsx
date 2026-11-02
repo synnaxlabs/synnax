@@ -83,11 +83,11 @@ describe("Core.Badge", () => {
     expect(await screen.findByText("synnax")).toBeTruthy();
   });
 
-  it("should fall back to the Core username in the trigger when no user is loaded", async () => {
+  it("should never show the Core username in the trigger", async () => {
     await renderWithConsole(<Core.Badge />, {
       preloadedState: createStateWithUser("Core-user"),
     });
-    expect(screen.getByText("Core-user")).toBeTruthy();
+    expect(screen.queryByText("Core-user")).toBeNull();
   });
 
   it("should open the diagnostics dialog on click", async () => {
@@ -106,7 +106,8 @@ describe("Core.Badge", () => {
     clickCoreBadge(container);
     const dialog = await screen.findByRole("dialog");
     await within(dialog).findByText("Connected");
-    expect(within(dialog).getByText(/^Core v/)).toBeTruthy();
+    // The stream can report the connection before the check reports the version.
+    expect(await within(dialog).findByText(/^Core v/)).toBeTruthy();
   });
 
   it("should close the dialog and open the connect modal from the name row", async () => {

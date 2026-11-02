@@ -10,7 +10,7 @@
 import { describe, expect, it } from "vitest";
 
 import { CLICK_SHRINK_SCALE } from "@/director/constants";
-import { minimumJerk, rawPosition, synthesize } from "@/director/cursor";
+import { minimumJerk, synthesize } from "@/director/cursor";
 import { type Event, type Timeline } from "@/timeline";
 
 const FPS = 60;
@@ -43,26 +43,27 @@ describe("minimumJerk", () => {
   });
 });
 
-describe("rawPosition", () => {
-  const tl = timeline([{ type: "move", tick: 120, x: 500, y: 300, duration: 60 }]);
-
-  it("should hold the origin before travel begins", () => {
-    expect(rawPosition({ tl, tick: 30 })).toEqual({ x: 100, y: 100 });
-  });
-
-  it("should arrive exactly at the waypoint", () => {
-    expect(rawPosition({ tl, tick: 120 })).toEqual({ x: 500, y: 300 });
-    expect(rawPosition({ tl, tick: 400 })).toEqual({ x: 500, y: 300 });
-  });
-
-  it("should be mid-travel between departure and arrival", () => {
-    const mid = rawPosition({ tl, tick: 90 });
-    expect(mid.x).toBeGreaterThan(100);
-    expect(mid.x).toBeLessThan(500);
-  });
-});
-
 describe("synthesize", () => {
+  describe("travel", () => {
+    const track = synthesize(
+      timeline([{ type: "move", tick: 120, x: 500, y: 300, duration: 60 }]),
+    );
+
+    it("should hold the origin before travel begins", () => {
+      expect(track[30]).toMatchObject({ x: 100, y: 100 });
+    });
+
+    it("should settle on the waypoint after arrival", () => {
+      expect(track[400].x).toBeCloseTo(500, 1);
+      expect(track[400].y).toBeCloseTo(300, 1);
+    });
+
+    it("should be mid-travel between departure and arrival", () => {
+      expect(track[90].x).toBeGreaterThan(100);
+      expect(track[90].x).toBeLessThan(500);
+    });
+  });
+
   const events: Event[] = [
     { type: "move", tick: 120, x: 800, y: 600, duration: 40 },
     { type: "pointerdown", tick: 150, x: 800, y: 600, button: "left" },

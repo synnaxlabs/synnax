@@ -35,12 +35,7 @@ export const Field = ({
 }: FieldProps): ReactElement | null => {
   if (hideInner && hideOuter) return null;
   return (
-    <Form.Field<SymbolOrientation>
-      label="Layout"
-      padHelpText={false}
-      required={false}
-      {...rest}
-    >
+    <Form.Field<SymbolOrientation> label="Layout" padHelpText={false} {...rest}>
       {({ value, onChange }) => (
         <Select
           value={{
@@ -68,7 +63,7 @@ export const Section = (props: FieldProps): ReactElement | null => {
   if (props.hideInner && props.hideOuter) return null;
   return (
     <Form.Section title="Layout">
-      <Field showLabel={false} {...props} />
+      <Field showLabel={false} showHelpText={false} {...props} />
     </Form.Section>
   );
 };

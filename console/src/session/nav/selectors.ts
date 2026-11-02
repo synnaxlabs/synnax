@@ -21,7 +21,7 @@ import { Select } from "@/session/select";
 
 const selectSliceState = (state: StoreState): SliceState => state[SLICE_NAME];
 
-export const selectWindowState = (state: StoreState) => {
+const selectWindowState = (state: StoreState) => {
   const windowKey = Drift.selectWindowKey(state);
   if (windowKey == null) return ZERO_WINDOW_STATE;
   return selectSliceState(state).windows[windowKey] ?? ZERO_WINDOW_STATE;
@@ -31,7 +31,7 @@ const selectLeft = (state: StoreState): LeftState => selectWindowState(state).le
 
 export const useSelectLeft = (): LeftState => Select.useMemo(selectLeft, []);
 
-export const selectLeftSelected = (state: StoreState): string | undefined =>
+const selectLeftSelected = (state: StoreState): string | undefined =>
   selectLeft(state).selected;
 
 export const useSelectLeftSelected = (): string | undefined =>

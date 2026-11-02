@@ -1,0 +1,48 @@
+# Copyright 2026 Synnax Labs, Inc.
+#
+# Use of this software is governed by the Business Source License included in the file
+# licenses/BSL.txt.
+#
+# As of the Change Date specified in that file, in accordance with the Business Source
+# License, use of this software will be governed by the Apache License, Version 2.0,
+# included in the file licenses/APL.txt.
+
+name: Report - Agents
+
+on:
+  schedule:
+    - cron: "0 14 * * 1" # Mondays, 2pm UTC
+  workflow_dispatch:
+
+permissions:
+  actions: read
+  contents: read
+  pull-requests: read
+
+jobs:
+  report:
+    name: Report
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v7
+        with:
+          sparse-checkout: .github/scripts
+
+      - name: Build the report
+        env:
+          GH_TOKEN: ${{ github.token }}
+          AGENTS: ${{ vars.AGENT_LOGINS }}
+        run: |
+          python3 -I .github/scripts/agent_metrics.py ${AGENTS:+--agents "$AGENTS"} \
+            > "$RUNNER_TEMP/report.txt"
+          cat "$RUNNER_TEMP/report.txt" >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Post the report to Slack
+        env:
+          SLACK_WEBHOOK_URL: ${{ secrets.SLACK_AGENT_REPORT_WEBHOOK_URL }}
+        run: |
+          jq --null-input --rawfile text "$RUNNER_TEMP/report.txt" '{text: $text}' |
+            curl --fail --silent --show-error \
+              --header "Content-Type: application/json" \
+              --data @- "$SLACK_WEBHOOK_URL"

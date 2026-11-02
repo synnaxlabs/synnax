@@ -42,6 +42,7 @@ var _ = Describe("Set", func() {
 		},
 		Entry("Of", keyset.Of[int]),
 		Entry("Hashed", keyset.Hashed[int]),
+		Entry("Ranked", keyset.Ranked[int]),
 	)
 
 	It("Should answer concurrent probes of a hashed set", func() {
@@ -74,6 +75,45 @@ var _ = Describe("Set", func() {
 				keyset.Of([]int{3, 2}),
 			)
 			Expect(s.Keys()).To(ConsistOf(2, 3))
+		})
+
+		DescribeTable("Should keep the order of a ranked set",
+			func(sets []keyset.Set[int], expected []int) {
+				Expect(keyset.Intersect(sets...).Keys()).To(Equal(expected))
+			},
+			Entry(
+				"that is not the largest",
+				[]keyset.Set[int]{
+					keyset.Of([]int{5, 4, 3, 2, 1}),
+					keyset.Ranked([]int{2, 9, 4}),
+				},
+				[]int{2, 4},
+			),
+			Entry(
+				"that is the largest",
+				[]keyset.Set[int]{
+					keyset.Ranked([]int{3, 1, 2}),
+					keyset.Of([]int{2, 3}),
+				},
+				[]int{3, 2},
+			),
+			Entry(
+				"that is the shortest of two ranked sets",
+				[]keyset.Set[int]{
+					keyset.Ranked([]int{1, 2, 3, 4}),
+					keyset.Ranked([]int{3, 1}),
+				},
+				[]int{3, 1},
+			),
+		)
+
+		It("Should rank the result, so an outer intersection keeps the order", func() {
+			inner := keyset.Intersect(
+				keyset.Ranked([]int{2, 4}),
+				keyset.Of([]int{4, 2, 1}),
+			)
+			s := keyset.Intersect(keyset.Of([]int{4, 3, 2, 1}), inner)
+			Expect(s.Keys()).To(Equal([]int{2, 4}))
 		})
 
 		It("Should be bounded and empty when the sets do not overlap", func() {

@@ -18,10 +18,8 @@ import (
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
-	"github.com/synnaxlabs/x/breaker"
 	"github.com/synnaxlabs/x/errors"
 	"github.com/synnaxlabs/x/signal"
-	. "github.com/synnaxlabs/x/testutil"
 )
 
 var errRoutineFailed = errors.New("routine failed")
@@ -257,38 +255,6 @@ var _ = Describe("Signal", func() {
 		)
 	})
 
-	Describe("RecvUnderContext", func() {
-		It("Should receive a value from the channel", func() {
-			v := make(chan int, 1)
-			v <- 1
-			val := MustSucceed(signal.RecvUnderContext(context.Background(), v))
-			Expect(val).To(Equal(1))
-		})
-
-		It(
-			"Should return context error if context is cancelled before receive",
-			func(specCtx SpecContext) {
-				ctx, cancel := signal.WithCancel(specCtx)
-				v := make(chan int)
-				cancel()
-				Expect(signal.RecvUnderContext(ctx, v)).Error().
-					To(MatchError(context.Canceled))
-			},
-		)
-
-		It(
-			"Should receive value even if context is cancelled after value is available",
-			func(specCtx SpecContext) {
-				ctx, cancel := signal.WithCancel(specCtx)
-				v := make(chan int, 1)
-				v <- 1
-				val := MustSucceed(signal.RecvUnderContext(ctx, v))
-				cancel()
-				Expect(val).To(Equal(1))
-			},
-		)
-	})
-
 	Describe("Panic recovery", func() {
 		// We cannot test with a test case that a goroutine indeed panics when it is
 		// instructed to propagate its panic since there is no way to capture a panic
@@ -351,13 +317,9 @@ var _ = Describe("Signal", func() {
 			ctx, _ := signal.Isolated()
 			ctx.Go(
 				inc1,
-				signal.WithBreaker(
-					breaker.Config{
-						MaxRetries:   100,
-						BaseInterval: 1 * time.Millisecond,
-						Scale:        1.01,
-					},
-				),
+				signal.WithRetryOnPanic(100),
+				signal.WithBaseRetryInterval(1*time.Millisecond),
+				signal.WithRetryScale(1.01),
 				signal.RecoverWithErrOnPanic(),
 			)
 
@@ -379,13 +341,9 @@ var _ = Describe("Signal", func() {
 				ctx, _ := signal.Isolated()
 				ctx.Go(
 					inc1,
-					signal.WithBreaker(
-						breaker.Config{
-							MaxRetries:   100,
-							BaseInterval: 1 * time.Millisecond,
-							Scale:        1.01,
-						},
-					),
+					signal.WithRetryOnPanic(100),
+					signal.WithBaseRetryInterval(1*time.Millisecond),
+					signal.WithRetryScale(1.01),
 					signal.RecoverWithoutErrOnPanic(),
 				)
 
@@ -411,13 +369,9 @@ var _ = Describe("Signal", func() {
 			ctx, cancel := signal.Isolated()
 			ctx.Go(
 				f,
-				signal.WithBreaker(
-					breaker.Config{
-						MaxRetries:   breaker.InfiniteRetries,
-						BaseInterval: 1 * time.Millisecond,
-						Scale:        1.01,
-					},
-				),
+				signal.WithRetryOnPanic(),
+				signal.WithBaseRetryInterval(1*time.Millisecond),
+				signal.WithRetryScale(1.01),
 			)
 
 			wg.Go(func() {
@@ -447,13 +401,9 @@ var _ = Describe("Signal", func() {
 			start := time.Now()
 			ctx.Go(
 				succeedInTen,
-				signal.WithBreaker(
-					breaker.Config{
-						MaxRetries:   breaker.InfiniteRetries,
-						BaseInterval: 1 * time.Millisecond,
-						Scale:        2,
-					},
-				),
+				signal.WithRetryOnPanic(),
+				signal.WithBaseRetryInterval(1*time.Millisecond),
+				signal.WithRetryScale(2),
 				signal.RecoverWithErrOnPanic(),
 			)
 

@@ -1,0 +1,9 @@
+{
+  "integrity": "sha256-RKtC4Wkm6V92QdKGvJDXOascFohhFNfMW8ep+QXF7fg=",
+  "strip_prefix": "cpp-httplib-0.63.0",
+  "url": "https://github.com/yhirose/cpp-httplib/archive/refs/tags/v0.63.0.tar.gz",
+  "overlay": {
+    "BUILD.bazel": "sha256-z7R56Sxwa5pcRmr1NhnYkTqe4ucd15jnocTll7/oJXk=",
+    "MODULE.bazel": "sha256-zJP/ExYcbrk1m+1ddEsA1jbiDJez7zunlS/zHcKU+qU="
+  }
+}

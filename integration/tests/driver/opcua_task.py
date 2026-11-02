@@ -9,6 +9,7 @@
 
 """OPC UA-specific task test cases."""
 
+import ssl
 from abc import abstractmethod
 
 from examples.opcua import OPCUASim
@@ -55,6 +56,14 @@ class OPCUAReadTaskCase(SimulatorCase, ReadTaskCase[sy.opcua.ReadTask]):
         )
 
 
+class OPCUASecuredReadTaskCase(OPCUAReadTaskCase):
+    """Checks only that a secured read task connects and reads. The unsecured cases
+    cover the rest of the task lifecycle."""
+
+    def run(self) -> None:
+        self.test_start_and_stop()
+
+
 class OPCUAWriteTaskCase(SimulatorCase, WriteTaskCase[sy.opcua.WriteTask]):
     """Base class for OPC UA write task tests."""
 
@@ -83,3 +92,22 @@ class OPCUAWriteTaskCase(SimulatorCase, WriteTaskCase[sy.opcua.WriteTask]):
             device=device.key,
             channels=channels,
         )
+
+
+class OPCUASecuredWriteTaskCase(OPCUAWriteTaskCase):
+    """Checks only that a secured write task connects and writes. The unsecured case
+    covers the rest of the task lifecycle."""
+
+    def run(self) -> None:
+        self.test_send_commands()
+
+
+def pinned_certificate(dev: sy.Device) -> bytes | None:
+    """Return the DER bytes of the server certificate that the device trusts, if any."""
+    connection = dev.properties.get("connection")
+    if not isinstance(connection, dict):
+        return None
+    pem = connection.get("server_certificate")
+    if not isinstance(pem, str) or pem == "":
+        return None
+    return ssl.PEM_cert_to_DER_cert(pem)

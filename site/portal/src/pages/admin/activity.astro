@@ -1,0 +1,54 @@
+---
+// Copyright 2026 Synnax Labs, Inc.
+//
+// Use of this software is governed by the Business Source License included in the file
+// licenses/BSL.txt.
+//
+// As of the Change Date specified in that file, in accordance with the Business Source
+// License, use of this software will be governed by the Apache License, Version 2.0,
+// included in the file licenses/APL.txt.
+
+import Admin from "@/layouts/Admin.astro";
+import { requireStaff } from "@/access";
+import { type Activity, failure, loadScoped, readActivity } from "@/page";
+import { Page } from "@/ui/Page";
+import { Admin as Console } from "@/ui/admin";
+import { isCategory } from "@/server/event";
+
+const loaded = await loadScoped(Astro);
+if (loaded instanceof Response) return loaded;
+const { portal, session, organizations, scope } = loaded;
+
+let error: string | undefined;
+let activity: Activity | undefined;
+try {
+    requireStaff(session);
+    activity = await readActivity(portal, Astro.url);
+} catch (err) {
+    const f = failure(err);
+    Astro.response.status = f.status;
+    error = f.message;
+}
+const category = Astro.url.searchParams.get("category") ?? "";
+---
+
+<Admin
+    title="Activity"
+    session={session}
+    organizations={organizations}
+    scope={scope}
+    section="activity"
+>
+    {activity == null ? (
+        <Page title="Activity" error={error} />
+    ) : (
+        <Console.Activity
+            client:load
+            {...activity}
+            filter={{
+                category: isCategory(category) ? category : null,
+                staff: Astro.url.searchParams.get("staff") != null,
+            }}
+        />
+    )}
+</Admin>

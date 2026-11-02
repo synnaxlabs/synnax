@@ -20,6 +20,7 @@ import (
 	grpc "google.golang.org/grpc"
 	codes "google.golang.org/grpc/codes"
 	status "google.golang.org/grpc/status"
+	emptypb "google.golang.org/protobuf/types/known/emptypb"
 )
 
 // This is a compile-time assertion to ensure that this generated file
@@ -121,6 +122,706 @@ var AuthLoginService_ServiceDesc = grpc.ServiceDesc{
 		{
 			MethodName: "Exec",
 			Handler:    _AuthLoginService_Exec_Handler,
+		},
+	},
+	Streams:  []grpc.StreamDesc{},
+	Metadata: "core/pkg/transport/grpc/auth/auth.proto",
+}
+
+const (
+	AuthSessionCreateService_Exec_FullMethodName = "/grpc.auth.AuthSessionCreateService/Exec"
+)
+
+// AuthSessionCreateServiceClient is the client API for AuthSessionCreateService service.
+//
+// For semantics around ctx use and closing/ending streaming RPCs, please refer to https://pkg.go.dev/google.golang.org/grpc/?tab=doc#ClientConn.NewStream.
+type AuthSessionCreateServiceClient interface {
+	Exec(ctx context.Context, in *SessionCreateRequest, opts ...grpc.CallOption) (*SessionCreateResponse, error)
+}
+
+type authSessionCreateServiceClient struct {
+	cc grpc.ClientConnInterface
+}
+
+func NewAuthSessionCreateServiceClient(cc grpc.ClientConnInterface) AuthSessionCreateServiceClient {
+	return &authSessionCreateServiceClient{cc}
+}
+
+func (c *authSessionCreateServiceClient) Exec(ctx context.Context, in *SessionCreateRequest, opts ...grpc.CallOption) (*SessionCreateResponse, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(SessionCreateResponse)
+	err := c.cc.Invoke(ctx, AuthSessionCreateService_Exec_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+// AuthSessionCreateServiceServer is the server API for AuthSessionCreateService service.
+// All implementations should embed UnimplementedAuthSessionCreateServiceServer
+// for forward compatibility.
+type AuthSessionCreateServiceServer interface {
+	Exec(context.Context, *SessionCreateRequest) (*SessionCreateResponse, error)
+}
+
+// UnimplementedAuthSessionCreateServiceServer should be embedded to have
+// forward compatible implementations.
+//
+// NOTE: this should be embedded by value instead of pointer to avoid a nil
+// pointer dereference when methods are called.
+type UnimplementedAuthSessionCreateServiceServer struct{}
+
+func (UnimplementedAuthSessionCreateServiceServer) Exec(context.Context, *SessionCreateRequest) (*SessionCreateResponse, error) {
+	return nil, status.Error(codes.Unimplemented, "method Exec not implemented")
+}
+func (UnimplementedAuthSessionCreateServiceServer) testEmbeddedByValue() {}
+
+// UnsafeAuthSessionCreateServiceServer may be embedded to opt out of forward compatibility for this service.
+// Use of this interface is not recommended, as added methods to AuthSessionCreateServiceServer will
+// result in compilation errors.
+type UnsafeAuthSessionCreateServiceServer interface {
+	mustEmbedUnimplementedAuthSessionCreateServiceServer()
+}
+
+func RegisterAuthSessionCreateServiceServer(s grpc.ServiceRegistrar, srv AuthSessionCreateServiceServer) {
+	// If the following call panics, it indicates UnimplementedAuthSessionCreateServiceServer was
+	// embedded by pointer and is nil.  This will cause panics if an
+	// unimplemented method is ever invoked, so we test this at initialization
+	// time to prevent it from happening at runtime later due to I/O.
+	if t, ok := srv.(interface{ testEmbeddedByValue() }); ok {
+		t.testEmbeddedByValue()
+	}
+	s.RegisterService(&AuthSessionCreateService_ServiceDesc, srv)
+}
+
+func _AuthSessionCreateService_Exec_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(SessionCreateRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(AuthSessionCreateServiceServer).Exec(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: AuthSessionCreateService_Exec_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(AuthSessionCreateServiceServer).Exec(ctx, req.(*SessionCreateRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+// AuthSessionCreateService_ServiceDesc is the grpc.ServiceDesc for AuthSessionCreateService service.
+// It's only intended for direct use with grpc.RegisterService,
+// and not to be introspected or modified (even as a copy)
+var AuthSessionCreateService_ServiceDesc = grpc.ServiceDesc{
+	ServiceName: "grpc.auth.AuthSessionCreateService",
+	HandlerType: (*AuthSessionCreateServiceServer)(nil),
+	Methods: []grpc.MethodDesc{
+		{
+			MethodName: "Exec",
+			Handler:    _AuthSessionCreateService_Exec_Handler,
+		},
+	},
+	Streams:  []grpc.StreamDesc{},
+	Metadata: "core/pkg/transport/grpc/auth/auth.proto",
+}
+
+const (
+	AuthSessionRenewService_Exec_FullMethodName = "/grpc.auth.AuthSessionRenewService/Exec"
+)
+
+// AuthSessionRenewServiceClient is the client API for AuthSessionRenewService service.
+//
+// For semantics around ctx use and closing/ending streaming RPCs, please refer to https://pkg.go.dev/google.golang.org/grpc/?tab=doc#ClientConn.NewStream.
+type AuthSessionRenewServiceClient interface {
+	Exec(ctx context.Context, in *emptypb.Empty, opts ...grpc.CallOption) (*SessionRenewResponse, error)
+}
+
+type authSessionRenewServiceClient struct {
+	cc grpc.ClientConnInterface
+}
+
+func NewAuthSessionRenewServiceClient(cc grpc.ClientConnInterface) AuthSessionRenewServiceClient {
+	return &authSessionRenewServiceClient{cc}
+}
+
+func (c *authSessionRenewServiceClient) Exec(ctx context.Context, in *emptypb.Empty, opts ...grpc.CallOption) (*SessionRenewResponse, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(SessionRenewResponse)
+	err := c.cc.Invoke(ctx, AuthSessionRenewService_Exec_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+// AuthSessionRenewServiceServer is the server API for AuthSessionRenewService service.
+// All implementations should embed UnimplementedAuthSessionRenewServiceServer
+// for forward compatibility.
+type AuthSessionRenewServiceServer interface {
+	Exec(context.Context, *emptypb.Empty) (*SessionRenewResponse, error)
+}
+
+// UnimplementedAuthSessionRenewServiceServer should be embedded to have
+// forward compatible implementations.
+//
+// NOTE: this should be embedded by value instead of pointer to avoid a nil
+// pointer dereference when methods are called.
+type UnimplementedAuthSessionRenewServiceServer struct{}
+
+func (UnimplementedAuthSessionRenewServiceServer) Exec(context.Context, *emptypb.Empty) (*SessionRenewResponse, error) {
+	return nil, status.Error(codes.Unimplemented, "method Exec not implemented")
+}
+func (UnimplementedAuthSessionRenewServiceServer) testEmbeddedByValue() {}
+
+// UnsafeAuthSessionRenewServiceServer may be embedded to opt out of forward compatibility for this service.
+// Use of this interface is not recommended, as added methods to AuthSessionRenewServiceServer will
+// result in compilation errors.
+type UnsafeAuthSessionRenewServiceServer interface {
+	mustEmbedUnimplementedAuthSessionRenewServiceServer()
+}
+
+func RegisterAuthSessionRenewServiceServer(s grpc.ServiceRegistrar, srv AuthSessionRenewServiceServer) {
+	// If the following call panics, it indicates UnimplementedAuthSessionRenewServiceServer was
+	// embedded by pointer and is nil.  This will cause panics if an
+	// unimplemented method is ever invoked, so we test this at initialization
+	// time to prevent it from happening at runtime later due to I/O.
+	if t, ok := srv.(interface{ testEmbeddedByValue() }); ok {
+		t.testEmbeddedByValue()
+	}
+	s.RegisterService(&AuthSessionRenewService_ServiceDesc, srv)
+}
+
+func _AuthSessionRenewService_Exec_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(emptypb.Empty)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(AuthSessionRenewServiceServer).Exec(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: AuthSessionRenewService_Exec_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(AuthSessionRenewServiceServer).Exec(ctx, req.(*emptypb.Empty))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+// AuthSessionRenewService_ServiceDesc is the grpc.ServiceDesc for AuthSessionRenewService service.
+// It's only intended for direct use with grpc.RegisterService,
+// and not to be introspected or modified (even as a copy)
+var AuthSessionRenewService_ServiceDesc = grpc.ServiceDesc{
+	ServiceName: "grpc.auth.AuthSessionRenewService",
+	HandlerType: (*AuthSessionRenewServiceServer)(nil),
+	Methods: []grpc.MethodDesc{
+		{
+			MethodName: "Exec",
+			Handler:    _AuthSessionRenewService_Exec_Handler,
+		},
+	},
+	Streams:  []grpc.StreamDesc{},
+	Metadata: "core/pkg/transport/grpc/auth/auth.proto",
+}
+
+const (
+	AuthSessionRetrieveService_Exec_FullMethodName = "/grpc.auth.AuthSessionRetrieveService/Exec"
+)
+
+// AuthSessionRetrieveServiceClient is the client API for AuthSessionRetrieveService service.
+//
+// For semantics around ctx use and closing/ending streaming RPCs, please refer to https://pkg.go.dev/google.golang.org/grpc/?tab=doc#ClientConn.NewStream.
+type AuthSessionRetrieveServiceClient interface {
+	Exec(ctx context.Context, in *SessionRetrieveRequest, opts ...grpc.CallOption) (*SessionRetrieveResponse, error)
+}
+
+type authSessionRetrieveServiceClient struct {
+	cc grpc.ClientConnInterface
+}
+
+func NewAuthSessionRetrieveServiceClient(cc grpc.ClientConnInterface) AuthSessionRetrieveServiceClient {
+	return &authSessionRetrieveServiceClient{cc}
+}
+
+func (c *authSessionRetrieveServiceClient) Exec(ctx context.Context, in *SessionRetrieveRequest, opts ...grpc.CallOption) (*SessionRetrieveResponse, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(SessionRetrieveResponse)
+	err := c.cc.Invoke(ctx, AuthSessionRetrieveService_Exec_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+// AuthSessionRetrieveServiceServer is the server API for AuthSessionRetrieveService service.
+// All implementations should embed UnimplementedAuthSessionRetrieveServiceServer
+// for forward compatibility.
+type AuthSessionRetrieveServiceServer interface {
+	Exec(context.Context, *SessionRetrieveRequest) (*SessionRetrieveResponse, error)
+}
+
+// UnimplementedAuthSessionRetrieveServiceServer should be embedded to have
+// forward compatible implementations.
+//
+// NOTE: this should be embedded by value instead of pointer to avoid a nil
+// pointer dereference when methods are called.
+type UnimplementedAuthSessionRetrieveServiceServer struct{}
+
+func (UnimplementedAuthSessionRetrieveServiceServer) Exec(context.Context, *SessionRetrieveRequest) (*SessionRetrieveResponse, error) {
+	return nil, status.Error(codes.Unimplemented, "method Exec not implemented")
+}
+func (UnimplementedAuthSessionRetrieveServiceServer) testEmbeddedByValue() {}
+
+// UnsafeAuthSessionRetrieveServiceServer may be embedded to opt out of forward compatibility for this service.
+// Use of this interface is not recommended, as added methods to AuthSessionRetrieveServiceServer will
+// result in compilation errors.
+type UnsafeAuthSessionRetrieveServiceServer interface {
+	mustEmbedUnimplementedAuthSessionRetrieveServiceServer()
+}
+
+func RegisterAuthSessionRetrieveServiceServer(s grpc.ServiceRegistrar, srv AuthSessionRetrieveServiceServer) {
+	// If the following call panics, it indicates UnimplementedAuthSessionRetrieveServiceServer was
+	// embedded by pointer and is nil.  This will cause panics if an
+	// unimplemented method is ever invoked, so we test this at initialization
+	// time to prevent it from happening at runtime later due to I/O.
+	if t, ok := srv.(interface{ testEmbeddedByValue() }); ok {
+		t.testEmbeddedByValue()
+	}
+	s.RegisterService(&AuthSessionRetrieveService_ServiceDesc, srv)
+}
+
+func _AuthSessionRetrieveService_Exec_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(SessionRetrieveRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(AuthSessionRetrieveServiceServer).Exec(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: AuthSessionRetrieveService_Exec_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(AuthSessionRetrieveServiceServer).Exec(ctx, req.(*SessionRetrieveRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+// AuthSessionRetrieveService_ServiceDesc is the grpc.ServiceDesc for AuthSessionRetrieveService service.
+// It's only intended for direct use with grpc.RegisterService,
+// and not to be introspected or modified (even as a copy)
+var AuthSessionRetrieveService_ServiceDesc = grpc.ServiceDesc{
+	ServiceName: "grpc.auth.AuthSessionRetrieveService",
+	HandlerType: (*AuthSessionRetrieveServiceServer)(nil),
+	Methods: []grpc.MethodDesc{
+		{
+			MethodName: "Exec",
+			Handler:    _AuthSessionRetrieveService_Exec_Handler,
+		},
+	},
+	Streams:  []grpc.StreamDesc{},
+	Metadata: "core/pkg/transport/grpc/auth/auth.proto",
+}
+
+const (
+	AuthSessionDeleteService_Exec_FullMethodName = "/grpc.auth.AuthSessionDeleteService/Exec"
+)
+
+// AuthSessionDeleteServiceClient is the client API for AuthSessionDeleteService service.
+//
+// For semantics around ctx use and closing/ending streaming RPCs, please refer to https://pkg.go.dev/google.golang.org/grpc/?tab=doc#ClientConn.NewStream.
+type AuthSessionDeleteServiceClient interface {
+	Exec(ctx context.Context, in *SessionDeleteRequest, opts ...grpc.CallOption) (*emptypb.Empty, error)
+}
+
+type authSessionDeleteServiceClient struct {
+	cc grpc.ClientConnInterface
+}
+
+func NewAuthSessionDeleteServiceClient(cc grpc.ClientConnInterface) AuthSessionDeleteServiceClient {
+	return &authSessionDeleteServiceClient{cc}
+}
+
+func (c *authSessionDeleteServiceClient) Exec(ctx context.Context, in *SessionDeleteRequest, opts ...grpc.CallOption) (*emptypb.Empty, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(emptypb.Empty)
+	err := c.cc.Invoke(ctx, AuthSessionDeleteService_Exec_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+// AuthSessionDeleteServiceServer is the server API for AuthSessionDeleteService service.
+// All implementations should embed UnimplementedAuthSessionDeleteServiceServer
+// for forward compatibility.
+type AuthSessionDeleteServiceServer interface {
+	Exec(context.Context, *SessionDeleteRequest) (*emptypb.Empty, error)
+}
+
+// UnimplementedAuthSessionDeleteServiceServer should be embedded to have
+// forward compatible implementations.
+//
+// NOTE: this should be embedded by value instead of pointer to avoid a nil
+// pointer dereference when methods are called.
+type UnimplementedAuthSessionDeleteServiceServer struct{}
+
+func (UnimplementedAuthSessionDeleteServiceServer) Exec(context.Context, *SessionDeleteRequest) (*emptypb.Empty, error) {
+	return nil, status.Error(codes.Unimplemented, "method Exec not implemented")
+}
+func (UnimplementedAuthSessionDeleteServiceServer) testEmbeddedByValue() {}
+
+// UnsafeAuthSessionDeleteServiceServer may be embedded to opt out of forward compatibility for this service.
+// Use of this interface is not recommended, as added methods to AuthSessionDeleteServiceServer will
+// result in compilation errors.
+type UnsafeAuthSessionDeleteServiceServer interface {
+	mustEmbedUnimplementedAuthSessionDeleteServiceServer()
+}
+
+func RegisterAuthSessionDeleteServiceServer(s grpc.ServiceRegistrar, srv AuthSessionDeleteServiceServer) {
+	// If the following call panics, it indicates UnimplementedAuthSessionDeleteServiceServer was
+	// embedded by pointer and is nil.  This will cause panics if an
+	// unimplemented method is ever invoked, so we test this at initialization
+	// time to prevent it from happening at runtime later due to I/O.
+	if t, ok := srv.(interface{ testEmbeddedByValue() }); ok {
+		t.testEmbeddedByValue()
+	}
+	s.RegisterService(&AuthSessionDeleteService_ServiceDesc, srv)
+}
+
+func _AuthSessionDeleteService_Exec_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(SessionDeleteRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(AuthSessionDeleteServiceServer).Exec(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: AuthSessionDeleteService_Exec_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(AuthSessionDeleteServiceServer).Exec(ctx, req.(*SessionDeleteRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+// AuthSessionDeleteService_ServiceDesc is the grpc.ServiceDesc for AuthSessionDeleteService service.
+// It's only intended for direct use with grpc.RegisterService,
+// and not to be introspected or modified (even as a copy)
+var AuthSessionDeleteService_ServiceDesc = grpc.ServiceDesc{
+	ServiceName: "grpc.auth.AuthSessionDeleteService",
+	HandlerType: (*AuthSessionDeleteServiceServer)(nil),
+	Methods: []grpc.MethodDesc{
+		{
+			MethodName: "Exec",
+			Handler:    _AuthSessionDeleteService_Exec_Handler,
+		},
+	},
+	Streams:  []grpc.StreamDesc{},
+	Metadata: "core/pkg/transport/grpc/auth/auth.proto",
+}
+
+const (
+	AuthKeyCreateService_Exec_FullMethodName = "/grpc.auth.AuthKeyCreateService/Exec"
+)
+
+// AuthKeyCreateServiceClient is the client API for AuthKeyCreateService service.
+//
+// For semantics around ctx use and closing/ending streaming RPCs, please refer to https://pkg.go.dev/google.golang.org/grpc/?tab=doc#ClientConn.NewStream.
+type AuthKeyCreateServiceClient interface {
+	Exec(ctx context.Context, in *KeyCreateRequest, opts ...grpc.CallOption) (*KeyCreateResponse, error)
+}
+
+type authKeyCreateServiceClient struct {
+	cc grpc.ClientConnInterface
+}
+
+func NewAuthKeyCreateServiceClient(cc grpc.ClientConnInterface) AuthKeyCreateServiceClient {
+	return &authKeyCreateServiceClient{cc}
+}
+
+func (c *authKeyCreateServiceClient) Exec(ctx context.Context, in *KeyCreateRequest, opts ...grpc.CallOption) (*KeyCreateResponse, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(KeyCreateResponse)
+	err := c.cc.Invoke(ctx, AuthKeyCreateService_Exec_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+// AuthKeyCreateServiceServer is the server API for AuthKeyCreateService service.
+// All implementations should embed UnimplementedAuthKeyCreateServiceServer
+// for forward compatibility.
+type AuthKeyCreateServiceServer interface {
+	Exec(context.Context, *KeyCreateRequest) (*KeyCreateResponse, error)
+}
+
+// UnimplementedAuthKeyCreateServiceServer should be embedded to have
+// forward compatible implementations.
+//
+// NOTE: this should be embedded by value instead of pointer to avoid a nil
+// pointer dereference when methods are called.
+type UnimplementedAuthKeyCreateServiceServer struct{}
+
+func (UnimplementedAuthKeyCreateServiceServer) Exec(context.Context, *KeyCreateRequest) (*KeyCreateResponse, error) {
+	return nil, status.Error(codes.Unimplemented, "method Exec not implemented")
+}
+func (UnimplementedAuthKeyCreateServiceServer) testEmbeddedByValue() {}
+
+// UnsafeAuthKeyCreateServiceServer may be embedded to opt out of forward compatibility for this service.
+// Use of this interface is not recommended, as added methods to AuthKeyCreateServiceServer will
+// result in compilation errors.
+type UnsafeAuthKeyCreateServiceServer interface {
+	mustEmbedUnimplementedAuthKeyCreateServiceServer()
+}
+
+func RegisterAuthKeyCreateServiceServer(s grpc.ServiceRegistrar, srv AuthKeyCreateServiceServer) {
+	// If the following call panics, it indicates UnimplementedAuthKeyCreateServiceServer was
+	// embedded by pointer and is nil.  This will cause panics if an
+	// unimplemented method is ever invoked, so we test this at initialization
+	// time to prevent it from happening at runtime later due to I/O.
+	if t, ok := srv.(interface{ testEmbeddedByValue() }); ok {
+		t.testEmbeddedByValue()
+	}
+	s.RegisterService(&AuthKeyCreateService_ServiceDesc, srv)
+}
+
+func _AuthKeyCreateService_Exec_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(KeyCreateRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(AuthKeyCreateServiceServer).Exec(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: AuthKeyCreateService_Exec_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(AuthKeyCreateServiceServer).Exec(ctx, req.(*KeyCreateRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+// AuthKeyCreateService_ServiceDesc is the grpc.ServiceDesc for AuthKeyCreateService service.
+// It's only intended for direct use with grpc.RegisterService,
+// and not to be introspected or modified (even as a copy)
+var AuthKeyCreateService_ServiceDesc = grpc.ServiceDesc{
+	ServiceName: "grpc.auth.AuthKeyCreateService",
+	HandlerType: (*AuthKeyCreateServiceServer)(nil),
+	Methods: []grpc.MethodDesc{
+		{
+			MethodName: "Exec",
+			Handler:    _AuthKeyCreateService_Exec_Handler,
+		},
+	},
+	Streams:  []grpc.StreamDesc{},
+	Metadata: "core/pkg/transport/grpc/auth/auth.proto",
+}
+
+const (
+	AuthKeyRetrieveService_Exec_FullMethodName = "/grpc.auth.AuthKeyRetrieveService/Exec"
+)
+
+// AuthKeyRetrieveServiceClient is the client API for AuthKeyRetrieveService service.
+//
+// For semantics around ctx use and closing/ending streaming RPCs, please refer to https://pkg.go.dev/google.golang.org/grpc/?tab=doc#ClientConn.NewStream.
+type AuthKeyRetrieveServiceClient interface {
+	Exec(ctx context.Context, in *KeyRetrieveRequest, opts ...grpc.CallOption) (*KeyRetrieveResponse, error)
+}
+
+type authKeyRetrieveServiceClient struct {
+	cc grpc.ClientConnInterface
+}
+
+func NewAuthKeyRetrieveServiceClient(cc grpc.ClientConnInterface) AuthKeyRetrieveServiceClient {
+	return &authKeyRetrieveServiceClient{cc}
+}
+
+func (c *authKeyRetrieveServiceClient) Exec(ctx context.Context, in *KeyRetrieveRequest, opts ...grpc.CallOption) (*KeyRetrieveResponse, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(KeyRetrieveResponse)
+	err := c.cc.Invoke(ctx, AuthKeyRetrieveService_Exec_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+// AuthKeyRetrieveServiceServer is the server API for AuthKeyRetrieveService service.
+// All implementations should embed UnimplementedAuthKeyRetrieveServiceServer
+// for forward compatibility.
+type AuthKeyRetrieveServiceServer interface {
+	Exec(context.Context, *KeyRetrieveRequest) (*KeyRetrieveResponse, error)
+}
+
+// UnimplementedAuthKeyRetrieveServiceServer should be embedded to have
+// forward compatible implementations.
+//
+// NOTE: this should be embedded by value instead of pointer to avoid a nil
+// pointer dereference when methods are called.
+type UnimplementedAuthKeyRetrieveServiceServer struct{}
+
+func (UnimplementedAuthKeyRetrieveServiceServer) Exec(context.Context, *KeyRetrieveRequest) (*KeyRetrieveResponse, error) {
+	return nil, status.Error(codes.Unimplemented, "method Exec not implemented")
+}
+func (UnimplementedAuthKeyRetrieveServiceServer) testEmbeddedByValue() {}
+
+// UnsafeAuthKeyRetrieveServiceServer may be embedded to opt out of forward compatibility for this service.
+// Use of this interface is not recommended, as added methods to AuthKeyRetrieveServiceServer will
+// result in compilation errors.
+type UnsafeAuthKeyRetrieveServiceServer interface {
+	mustEmbedUnimplementedAuthKeyRetrieveServiceServer()
+}
+
+func RegisterAuthKeyRetrieveServiceServer(s grpc.ServiceRegistrar, srv AuthKeyRetrieveServiceServer) {
+	// If the following call panics, it indicates UnimplementedAuthKeyRetrieveServiceServer was
+	// embedded by pointer and is nil.  This will cause panics if an
+	// unimplemented method is ever invoked, so we test this at initialization
+	// time to prevent it from happening at runtime later due to I/O.
+	if t, ok := srv.(interface{ testEmbeddedByValue() }); ok {
+		t.testEmbeddedByValue()
+	}
+	s.RegisterService(&AuthKeyRetrieveService_ServiceDesc, srv)
+}
+
+func _AuthKeyRetrieveService_Exec_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(KeyRetrieveRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(AuthKeyRetrieveServiceServer).Exec(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: AuthKeyRetrieveService_Exec_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(AuthKeyRetrieveServiceServer).Exec(ctx, req.(*KeyRetrieveRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+// AuthKeyRetrieveService_ServiceDesc is the grpc.ServiceDesc for AuthKeyRetrieveService service.
+// It's only intended for direct use with grpc.RegisterService,
+// and not to be introspected or modified (even as a copy)
+var AuthKeyRetrieveService_ServiceDesc = grpc.ServiceDesc{
+	ServiceName: "grpc.auth.AuthKeyRetrieveService",
+	HandlerType: (*AuthKeyRetrieveServiceServer)(nil),
+	Methods: []grpc.MethodDesc{
+		{
+			MethodName: "Exec",
+			Handler:    _AuthKeyRetrieveService_Exec_Handler,
+		},
+	},
+	Streams:  []grpc.StreamDesc{},
+	Metadata: "core/pkg/transport/grpc/auth/auth.proto",
+}
+
+const (
+	AuthKeyDeleteService_Exec_FullMethodName = "/grpc.auth.AuthKeyDeleteService/Exec"
+)
+
+// AuthKeyDeleteServiceClient is the client API for AuthKeyDeleteService service.
+//
+// For semantics around ctx use and closing/ending streaming RPCs, please refer to https://pkg.go.dev/google.golang.org/grpc/?tab=doc#ClientConn.NewStream.
+type AuthKeyDeleteServiceClient interface {
+	Exec(ctx context.Context, in *KeyDeleteRequest, opts ...grpc.CallOption) (*emptypb.Empty, error)
+}
+
+type authKeyDeleteServiceClient struct {
+	cc grpc.ClientConnInterface
+}
+
+func NewAuthKeyDeleteServiceClient(cc grpc.ClientConnInterface) AuthKeyDeleteServiceClient {
+	return &authKeyDeleteServiceClient{cc}
+}
+
+func (c *authKeyDeleteServiceClient) Exec(ctx context.Context, in *KeyDeleteRequest, opts ...grpc.CallOption) (*emptypb.Empty, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(emptypb.Empty)
+	err := c.cc.Invoke(ctx, AuthKeyDeleteService_Exec_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+// AuthKeyDeleteServiceServer is the server API for AuthKeyDeleteService service.
+// All implementations should embed UnimplementedAuthKeyDeleteServiceServer
+// for forward compatibility.
+type AuthKeyDeleteServiceServer interface {
+	Exec(context.Context, *KeyDeleteRequest) (*emptypb.Empty, error)
+}
+
+// UnimplementedAuthKeyDeleteServiceServer should be embedded to have
+// forward compatible implementations.
+//
+// NOTE: this should be embedded by value instead of pointer to avoid a nil
+// pointer dereference when methods are called.
+type UnimplementedAuthKeyDeleteServiceServer struct{}
+
+func (UnimplementedAuthKeyDeleteServiceServer) Exec(context.Context, *KeyDeleteRequest) (*emptypb.Empty, error) {
+	return nil, status.Error(codes.Unimplemented, "method Exec not implemented")
+}
+func (UnimplementedAuthKeyDeleteServiceServer) testEmbeddedByValue() {}
+
+// UnsafeAuthKeyDeleteServiceServer may be embedded to opt out of forward compatibility for this service.
+// Use of this interface is not recommended, as added methods to AuthKeyDeleteServiceServer will
+// result in compilation errors.
+type UnsafeAuthKeyDeleteServiceServer interface {
+	mustEmbedUnimplementedAuthKeyDeleteServiceServer()
+}
+
+func RegisterAuthKeyDeleteServiceServer(s grpc.ServiceRegistrar, srv AuthKeyDeleteServiceServer) {
+	// If the following call panics, it indicates UnimplementedAuthKeyDeleteServiceServer was
+	// embedded by pointer and is nil.  This will cause panics if an
+	// unimplemented method is ever invoked, so we test this at initialization
+	// time to prevent it from happening at runtime later due to I/O.
+	if t, ok := srv.(interface{ testEmbeddedByValue() }); ok {
+		t.testEmbeddedByValue()
+	}
+	s.RegisterService(&AuthKeyDeleteService_ServiceDesc, srv)
+}
+
+func _AuthKeyDeleteService_Exec_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(KeyDeleteRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(AuthKeyDeleteServiceServer).Exec(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: AuthKeyDeleteService_Exec_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(AuthKeyDeleteServiceServer).Exec(ctx, req.(*KeyDeleteRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+// AuthKeyDeleteService_ServiceDesc is the grpc.ServiceDesc for AuthKeyDeleteService service.
+// It's only intended for direct use with grpc.RegisterService,
+// and not to be introspected or modified (even as a copy)
+var AuthKeyDeleteService_ServiceDesc = grpc.ServiceDesc{
+	ServiceName: "grpc.auth.AuthKeyDeleteService",
+	HandlerType: (*AuthKeyDeleteServiceServer)(nil),
+	Methods: []grpc.MethodDesc{
+		{
+			MethodName: "Exec",
+			Handler:    _AuthKeyDeleteService_Exec_Handler,
 		},
 	},
 	Streams:  []grpc.StreamDesc{},

@@ -37,7 +37,10 @@ func (t *calculationUpdaterTransform) transform(
 	if err := t.calcManager.Set(ctx, req.Keys); err != nil {
 		t.L.Error("failed to update calculated channels", zap.Error(err))
 	}
-	return framer.StreamerRequest{Keys: req.Keys}, true, nil
+	return framer.StreamerRequest{
+		Keys:         req.Keys,
+		AckRequested: req.AckRequested,
+	}, true, nil
 }
 
 func (t *calculationUpdaterTransform) Flow(

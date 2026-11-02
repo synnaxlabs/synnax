@@ -74,7 +74,7 @@ var _ = Describe("Opener", Ordered, func() {
 			}
 			return nil
 		}
-		Expect(open(ctx)).To(HaveOccurred())
+		Expect(open(ctx)).To(MatchError("cat"))
 		Expect(multiCloserCalls).To(Equal(1))
 	})
 	It("Should call the closer if the context is cancelled", func(ctx SpecContext) {
@@ -136,7 +136,7 @@ var _ = Describe("Opener", Ordered, func() {
 			}
 			return nil
 		}
-		Expect(open(ctx)).To(HaveOccurred())
+		Expect(open(ctx)).To(MatchError("cat"))
 		Expect(multiCloserCalls).To(Equal(1))
 		Expect(secondaryCloserCalls).To(Equal(1))
 		Expect(tertiaryCloserCalls).To(Equal(0))
@@ -163,7 +163,6 @@ var _ = Describe("Opener", Ordered, func() {
 			}
 			return nil
 		}
-		Expect(open(ctx)).To(HaveOccurred())
 		Expect(open(ctx)).To(MatchError("opener error"))
 	})
 })

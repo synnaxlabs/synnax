@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-package testutil
+package testutil_test
 
 import (
 	"sync"
@@ -16,6 +16,7 @@ import (
 	. "github.com/onsi/gomega"
 	"github.com/samber/lo"
 	"github.com/synnaxlabs/cesium"
+	"github.com/synnaxlabs/cesium/internal/testutil"
 )
 
 var _ = Describe("Test Util Test", func() {
@@ -29,7 +30,7 @@ var _ = Describe("Test Util Test", func() {
 			for i := range 1000 {
 				go func() {
 					defer wg.Done()
-					keys[i] = GenerateChannelKey()
+					keys[i] = testutil.GenerateChannelKey()
 				}()
 			}
 
@@ -39,32 +40,4 @@ var _ = Describe("Test Util Test", func() {
 			Expect(lo.Uniq(keys)).To(HaveLen(1000))
 		})
 	})
-
-	DescribeTable(
-		"GenerateFrameAndChannels",
-		func(numIndex, numData, samplesPerDomain int) {
-			data, chs, keys := GenerateDataAndChannels(
-				numIndex,
-				numData,
-				samplesPerDomain,
-			)
-
-			Expect(chs).To(HaveLen(numIndex + numData))
-			for i := range numIndex {
-				Expect(chs[i].IsIndex).To(BeTrue())
-				Expect(keys[i]).To(Equal(cesium.ChannelKey(i + 1)))
-			}
-			for i := numIndex; i < numIndex+numData; i++ {
-				Expect(chs[i].Index).To(Equal(cesium.ChannelKey((i+1)%numIndex + 1)))
-				Expect(keys[i]).To(Equal(cesium.ChannelKey(i + 1)))
-			}
-
-			// Assert that the data channel has the right length
-			Expect(data.Len()).To(Equal(int64(samplesPerDomain)))
-		},
-		Entry("normal", 1, 2, 2),
-		Entry("many indices", 3, 5, 3),
-		Entry("more indices than data", 10, 5, 15),
-		Entry("big", 10, 2342, 400),
-	)
 })

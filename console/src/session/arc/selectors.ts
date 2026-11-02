@@ -10,7 +10,6 @@
 import { arc } from "@synnaxlabs/client";
 import { Access, Arc, type Diagram, type Viewport } from "@synnaxlabs/pluto";
 import { type record } from "@synnaxlabs/x";
-import { useStore } from "react-redux";
 
 import {
   type GraphState,
@@ -36,20 +35,7 @@ const createSelector = <R>(selector: (params: KeyedSelectorParams) => R) => {
   return Arc.Scope.bindHook(useSelector);
 };
 
-const createGetter = <R>(selector: (params: KeyedSelectorParams) => R) => {
-  const useGetter = (): ((args?: { key?: arc.Key }) => R) => {
-    const store = useStore<StoreState>();
-    const scopeKey = Arc.Scope.useOptional();
-    return (args) =>
-      selector({
-        state: store.getState(),
-        key: Arc.Scope.require(args?.key ?? scopeKey),
-      });
-  };
-  return useGetter;
-};
-
-export const selectState = ({ state, key }: KeyedSelectorParams): State =>
+const selectState = ({ state, key }: KeyedSelectorParams): State =>
   Window.selectDocument(state, selectSliceState(state), key) ?? ZERO_STATE;
 
 const selectGraph = (params: KeyedSelectorParams): GraphState =>
@@ -73,19 +59,11 @@ const selectViewportMode = (state: KeyedSelectorParams): Viewport.Mode =>
 const selectFitViewOnResize = (state: KeyedSelectorParams): boolean =>
   selectGraph(state).fitViewOnResize;
 
-export const useSelect = createSelector(selectState);
-export const useGet = createGetter(selectState);
 export const useSelectSelected = createSelector(selectSelected);
-export const useGetSelected = createGetter(selectSelected);
 export const useSelectViewport = createSelector(selectViewport);
-export const useGetViewport = createGetter(selectViewport);
 export const useSelectViewportMode = createSelector(selectViewportMode);
-export const useGetViewportMode = createGetter(selectViewportMode);
 export const useSelectToolbar = createSelector(selectToolbar);
-export const useGetToolbar = createGetter(selectToolbar);
 export const useSelectFitViewOnResize = createSelector(selectFitViewOnResize);
-export const useGetFitViewOnResize = createGetter(selectFitViewOnResize);
-export const useGetEditable = createGetter(selectEditable);
 
 export interface UseSelectEditableReturn {
   isCurrentlyEditable: boolean;

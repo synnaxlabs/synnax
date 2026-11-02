@@ -19,12 +19,15 @@ import { lineplot } from "@/lineplot/aether";
 import { range } from "@/lineplot/range/aether";
 import { renderHookSuspended } from "@/testutil/render";
 import { createAsyncSynnaxWrapper } from "@/testutil/Synnax";
-import { canvasTest } from "@/vis/render/test";
+import { canvasTest } from "@/vis/render/testutil";
 
 const client = createTestClient();
 
 const LINE: lineplotClient.Line = {
   key: "line",
+  yAxis: "y1",
+  yChannel: 1,
+  xChannel: 0,
   color: color.construct("#00aaff"),
   strokeWidth: 2,
   aggregation: "min_max",

@@ -86,11 +86,13 @@ describe("Range.useAddToActivePlot", () => {
     const result = await renderAddToActivePlot(wrapper, doc.key);
     act(() => result.current.add([range.key]));
     await waitFor(() =>
-      expect(Session.Range.selectKeys(store.getState())).toContain(range.key),
+      expect(
+        store.getState()[Session.Range.SLICE_NAME].ranges.map(({ key }) => key),
+      ).toContain(range.key),
     );
     await waitFor(async () => {
       const { ranges } = await client.lineplots.retrieve(plot.key);
-      expect(ranges.x1).toContain(range.key);
+      expect(ranges).toContainEqual({ variant: "key", key: range.key });
     });
   });
 
@@ -118,17 +120,19 @@ describe("Range.useAddToActivePlot", () => {
     const addedResult = await renderAddToActivePlot(active.wrapper, activeDoc.key);
     act(() => addedResult.current.add([added.key]));
     await waitFor(() =>
-      expect(Session.Range.selectKeys(active.store.getState())).toContain(added.key),
+      expect(
+        active.store.getState()[Session.Range.SLICE_NAME].ranges.map(({ key }) => key),
+      ).toContain(added.key),
     );
     await waitFor(async () => {
       const { ranges } = await client.lineplots.retrieve(plot.key);
-      expect(ranges.x1).toContain(added.key);
+      expect(ranges).toContainEqual({ variant: "key", key: added.key });
     });
 
-    expect(Session.Range.selectKeys(inactive.store.getState())).not.toContain(
-      skipped.key,
-    );
+    expect(
+      inactive.store.getState()[Session.Range.SLICE_NAME].ranges.map(({ key }) => key),
+    ).not.toContain(skipped.key);
     const { ranges } = await client.lineplots.retrieve(otherPlot.key);
-    expect(ranges.x1).not.toContain(skipped.key);
+    expect(ranges).not.toContainEqual({ variant: "key", key: skipped.key });
   });
 });

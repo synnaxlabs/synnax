@@ -8,9 +8,9 @@
 // included in the file licenses/APL.txt.
 
 import { type schematic } from "@synnaxlabs/client";
-import { CSS } from "@synnaxlabs/lyra/css";
 import { type ReactElement } from "react";
 
+import { CSS } from "@/css";
 import { colorFallbacks, InputForm } from "@/schematic/node/general/input/Form";
 import { Input } from "@/schematic/node/general/input/Primitive";
 import { Symbol } from "@/schematic/node/general/input/Symbol";
@@ -39,4 +39,5 @@ export const spec: Spec<"input", schematic.InputNodeConfig> = {
   Preview,
   zIndex: 4,
   colorFallbacks,
+  needsPosition: true,
 };

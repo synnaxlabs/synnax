@@ -222,18 +222,7 @@ var _ = Describe("Reader", func() {
 
 		It("Should return error on truncated data", func() {
 			r := orc.NewReader(bytesReader([]byte{0, 0}))
-			Expect(r.CollectionLen()).Error().To(HaveOccurred())
-		})
-	})
-
-	Describe("Reset", func() {
-		It("Should reset to use a new reader", func() {
-			r := orc.NewReader(bytesReader([]byte{1}))
-			Expect(r.Uint8()).To(Equal(uint8(1)))
-			Expect(r.Uint8()).Error().To(MatchError(io.EOF))
-			r.Reset(bytesReader([]byte{42, 0, 0, 1, 0}))
-			Expect(r.Uint8()).To(Equal(uint8(42)))
-			Expect(r.Uint32()).To(Equal(uint32(256)))
+			Expect(r.CollectionLen()).Error().To(MatchError(io.ErrUnexpectedEOF))
 		})
 	})
 
@@ -248,11 +237,11 @@ var _ = Describe("Reader", func() {
 			Expect(r.PushDepth(3)).To(Succeed())
 		})
 
-		It("Should reset depth on Reset", func() {
+		It("Should reset depth on ResetBytes", func() {
 			r := orc.NewReader(bytesReader(nil))
 			Expect(r.PushDepth(2)).To(Succeed())
 			Expect(r.PushDepth(2)).To(Succeed())
-			r.Reset(bytesReader(nil))
+			r.ResetBytes(nil)
 			Expect(r.PushDepth(2)).To(Succeed())
 			Expect(r.PushDepth(2)).To(Succeed())
 			Expect(r.PushDepth(2)).To(MatchError(orc.ErrRecursionDepth))

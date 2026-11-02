@@ -25,7 +25,7 @@ const { step, level, name = "Step", ...rest } = Astro.props;
 <style is:global>
     /* A step heading carries its number as an eyebrow, so the numbered lists inside the
        step keep the only step markers. */
-    .pluto-text:has(> .step-label) {
+    .lyra-text:has(> .step-label) {
         flex-wrap: wrap;
         color: inherit;
     }
@@ -34,7 +34,7 @@ const { step, level, name = "Step", ...rest } = Astro.props;
         flex-basis: 100%;
         margin-bottom: 0.5rem;
         font:
-            500 12px/16px "Geist Mono",
+            500 14px/20px "Geist Mono",
             monospace;
         letter-spacing: 0.06em;
         text-transform: uppercase;

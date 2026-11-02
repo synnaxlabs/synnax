@@ -11,7 +11,6 @@ package gorp
 
 import (
 	"github.com/synnaxlabs/x/types"
-	"go.uber.org/zap"
 )
 
 // Key is a unique key for an entry of a particular type.
@@ -31,14 +30,6 @@ type Entry[K Key] interface {
 	SetOptions() []any
 }
 
-func entryKeys[K Key, E Entry[K]](entries []E) []K {
-	keys := make([]K, len(entries))
-	for i, entry := range entries {
-		keys[i] = entry.GorpKey()
-	}
-	return keys
-}
-
 // Entries is a query option used to bind entities from a retrieve query or
 // write values to a create query.
 type Entries[K Key, E Entry[K]] struct {
@@ -55,10 +46,7 @@ type Entries[K Key, E Entry[K]] struct {
 	isMultiple bool
 }
 
-// Add adds the provided entry to the query. If the client expects a single result,
-// sets the entry to the provided value. If the client expects a slice of entries,
-// appends the provided value to the slice.
-func (e *Entries[K, E]) Add(entry E) {
+func (e *Entries[K, E]) add(entry E) {
 	if e.isMultiple {
 		*e.entries = append(*e.entries, entry)
 	} else if e.entry != nil {
@@ -67,9 +55,7 @@ func (e *Entries[K, E]) Add(entry E) {
 	e.changes++
 }
 
-// Replace replaces the entries in the query with the provided entries. If Entries
-// holds a single entry, the first entry in the slice will be used.
-func (e *Entries[K, E]) Replace(entries []E) {
+func (e *Entries[K, E]) replace(entries []E) {
 	if e.isMultiple {
 		*e.entries = entries
 		e.changes += len(entries)
@@ -77,22 +63,6 @@ func (e *Entries[K, E]) Replace(entries []E) {
 	}
 	if len(entries) != 0 && e.entry != nil {
 		*e.entry = entries[0]
-		e.changes++
-	}
-}
-
-// Set sets the entry at the provided index to the provided value. If the query expects
-// a single entry, the index must be 0.
-func (e *Entries[K, E]) Set(i int, entry E) {
-	if e.isMultiple {
-		if len(*e.entries) <= i {
-			zap.S().DPanic("[gorp.Entries.Set] - index out of range")
-			return
-		}
-		(*e.entries)[i] = entry
-		e.changes++
-	} else if i == 0 && e.entry != nil {
-		*e.entry = entry
 		e.changes++
 	}
 }
@@ -146,11 +116,6 @@ func (e *Entries[K, E]) All() []E {
 		return nil
 	}
 	return []E{*e.entry}
-}
-
-// Keys returns the keys of all entries currently bound to the query.
-func (e *Entries[K, E]) Keys() []K {
-	return entryKeys(e.All())
 }
 
 // Bound returns true if entries binding was set on the query.

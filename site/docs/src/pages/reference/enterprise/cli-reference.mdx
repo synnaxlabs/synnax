@@ -1,0 +1,568 @@
+---
+title: "CLI reference"
+layout: "@/layouts/Reference.astro"
+description: "Commands and flags of the Synnax Core CLI."
+---
+
+import { Divider } from "@synnaxlabs/lyra/divider";
+import { Field } from "@/components/field";
+import { Tabs } from "@/components/tabs/Tabs";
+import VersionOutput from "@/components/core/VersionOutput.astro";
+import { mdxOverrides } from "@/components/mdxOverrides";
+export const components = mdxOverrides;
+
+The `synnax` command starts and manages a Synnax Core. This page lists its commands,
+flags, environment variables, and configuration file keys.
+
+<Divider.Divider x />
+
+## Start
+
+The `start` command starts the Synnax Core.
+
+### Example
+
+Use the `-i` and `-m` flags to start a Core in insecure mode with an in-memory data
+store:
+
+```cmd
+synnax start -l localhost:9090 -im
+```
+
+### Flags
+
+You can also set each flag with its environment variable. A flag on the command line
+takes precedence over its environment variable. In an environment variable, separate
+list values with spaces, not commas.
+
+<Field.List>
+
+<Field.Item name="--listen" short="-l" type="address" default='"localhost:9090"' env="SYNNAX_LISTEN">
+
+The address that clients and other Cores use to reach this Core. The host must be a name
+or address they can reach, and the TLS certificate must cover it. The Core binds the
+port on every network interface. To bind more than one address, each with its own
+certificate, give a list of listeners in a [configuration file](#configuration-files).
+See [Serve multiple listeners](/reference/enterprise/listeners).
+
+</Field.Item>
+
+<Field.Item name="--data" short="-d" type="path" default='"synnax-data"' env="SYNNAX_DATA">
+
+The folder where the Core keeps its data.
+
+</Field.Item>
+
+<Field.Item name="--verbose" short="-v" env="SYNNAX_VERBOSE">
+
+Sets the log level to debug.
+
+</Field.Item>
+
+<Field.Item name="--insecure" short="-i" env="SYNNAX_INSECURE">
+
+Turns off TLS. Users still log in. Do not use it in production.
+
+</Field.Item>
+
+<Field.Item name="--fips" env="SYNNAX_FIPS">
+
+Restricts password hashing to PBKDF2. The Core refuses passwords stored with another
+algorithm until an administrator sets them again.
+
+</Field.Item>
+
+<Field.Item name="--mem" short="-m" env="SYNNAX_MEM">
+
+Keeps all data in memory. The Core writes nothing to disk, and loses all data when it
+stops. Use it for tests and development, not for production.
+
+</Field.Item>
+
+<Field.Item name="--help" short="-h">
+
+Prints the help message for the `start` command.
+
+</Field.Item>
+
+<Field.Item name="--config" short="-c" type="path" default='"/usr/local/synnax/config.yaml"'>
+
+A JSON, YAML, or TOML file that sets the Core's configuration in place of flags or
+environment variables. See [Configuration files](#configuration-files). The Core ignores
+a file that is missing or cannot be read, with no message.
+
+</Field.Item>
+
+<Field.Item name="--auto-cert" env="SYNNAX_AUTO_CERT">
+
+Creates a CA and a certificate for the `--listen` host in `--certs-dir`, and replaces
+the certificate when the host changes. See
+[Set up TLS](/reference/enterprise/tls#use-a-self-signed-certificate).
+
+</Field.Item>
+
+<Field.Item name="--certs-dir" type="path" default='"/usr/local/synnax/certs"' env="SYNNAX_CERTS_DIR">
+
+The folder that holds the TLS certificates of the Core.
+
+</Field.Item>
+
+<Field.Item name="--ca-cert" type="path" default='"ca.crt"' env="SYNNAX_CA_CERT">
+
+The CA certificate file, relative to `--certs-dir`. Optional: the Core starts without
+it.
+
+</Field.Item>
+
+<Field.Item name="--ca-key" type="path" default='"ca.key"' env="SYNNAX_CA_KEY">
+
+The CA key file, relative to `--certs-dir`. `--auto-cert` uses it to sign the
+certificate of the Core.
+
+</Field.Item>
+
+<Field.Item name="--node-cert" type="path" default='"node.crt"' env="SYNNAX_NODE_CERT">
+
+The certificate file of the Core, relative to `--certs-dir`.
+
+</Field.Item>
+
+<Field.Item name="--node-key" type="path" default='"node.key"' env="SYNNAX_NODE_KEY">
+
+The key file of the Core, relative to `--certs-dir`.
+
+</Field.Item>
+
+<Field.Item name="--username" type="string" default='"synnax"' env="SYNNAX_USERNAME">
+
+The username of the root user. The Core applies it at every start. See
+[the root user](/reference/enterprise/users#the-root-user).
+
+</Field.Item>
+
+<Field.Item name="--password" type="string" default='"seldon"' env="SYNNAX_PASSWORD">
+
+The password of the root user. At every start, the Core sets the root password to this
+value. See [the root user](/reference/enterprise/users#the-root-user).
+
+</Field.Item>
+
+<Field.Item name="--license-key" type="string" env="SYNNAX_LICENSE_KEY">
+
+The license key to activate at start. It shows in the process list, so prefer
+`--license-file` or the environment variable. See
+[Activate a license](/reference/enterprise/license).
+
+</Field.Item>
+
+<Field.Item name="--license-file" type="path" env="SYNNAX_LICENSE_FILE">
+
+A file that holds the license key to activate at start, such as the `.lic` file from the
+portal. When `--license-key` is also set, the key wins. See
+[activate at start](/reference/enterprise/license#activate-at-start).
+
+</Field.Item>
+
+<Field.Item name="--debug" env="SYNNAX_DEBUG">
+
+Serves a metrics page and profiling routes to every network with no login, and turns on
+development logging. Do not use it in production. For debug logs, use `--verbose`.
+
+</Field.Item>
+
+<Field.Item name="--session-idle-timeout" type="duration" default='"168h"' env="SYNNAX_SESSION_IDLE_TIMEOUT">
+
+Ends a login session after this long with no request from its client.
+
+</Field.Item>
+
+<Field.Item name="--slow-consumer-timeout" type="duration" default='"2.5s"' env="SYNNAX_SLOW_CONSUMER_TIMEOUT">
+
+The time after which the Core closes a telemetry streamer that stops receiving messages.
+You rarely need to change it.
+
+</Field.Item>
+
+<Field.Item name="--no-driver" env="SYNNAX_NO_DRIVER">
+
+Disables the Driver embedded in the Core. Use it to run Synnax without device
+integrations.
+
+</Field.Item>
+
+<Field.Item name="--stop-on-stdin-close" env="SYNNAX_STOP_ON_STDIN_CLOSE">
+
+Stops the Core when its standard input closes. A line `stop` on standard input always
+stops the Core. Use it when a parent process starts the Core and holds its standard
+input, so that the Core stops if the parent exits. Do not set it for a Core that runs as
+a service, because a service has no standard input.
+
+</Field.Item>
+
+<Field.Item name="--disable-integrations" type="list" env="SYNNAX_DISABLE_INTEGRATIONS">
+
+The device integrations to disable. All integrations are enabled by default. The options
+are `arc`, `ethercat`, `http`, `labjack`, `modbus`, `ni`, and `opc`.
+
+</Field.Item>
+
+<Field.Item name="--enable-integrations" type="list" env="SYNNAX_ENABLE_INTEGRATIONS">
+
+The device integrations to enable, when you want only some of them. All integrations are
+enabled by default. The options are `arc`, `ethercat`, `http`, `labjack`, `modbus`,
+`ni`, and `opc`.
+
+</Field.Item>
+
+<Field.Item name="--task-op-timeout" type="duration" default='"60s"' env="SYNNAX_TASK_OP_TIMEOUT">
+
+The time after which the embedded Driver reports a task operation as stuck. Use it to
+debug tasks that block.
+
+</Field.Item>
+
+<Field.Item name="--task-poll-interval" type="duration" default='"1s"' env="SYNNAX_TASK_POLL_INTERVAL">
+
+The time between task timeout checks in the embedded Driver.
+
+</Field.Item>
+
+<Field.Item name="--task-shutdown-timeout" type="duration" default='"30s"' env="SYNNAX_TASK_SHUTDOWN_TIMEOUT">
+
+The longest time the embedded Driver waits for task workers when it shuts down. After
+this time, it detaches workers that are stuck.
+
+</Field.Item>
+
+<Field.Item name="--task-worker-count" type="int" default="4" env="SYNNAX_TASK_WORKER_COUNT">
+
+The number of worker threads for task operations in the embedded Driver, from 1 to 64.
+
+</Field.Item>
+
+<Field.Item name="--log-file-path" type="path" default='"./synnax-logs/synnax.log"' env="SYNNAX_LOG_FILE_PATH">
+
+The file where the Core writes its logs.
+
+</Field.Item>
+
+<Field.Item name="--log-file-max-size" type="int" default="50" env="SYNNAX_LOG_FILE_MAX_SIZE">
+
+The largest size of a log file, in MB, before the Core starts a new one.
+
+</Field.Item>
+
+<Field.Item name="--log-file-max-backups" type="int" default="5" env="SYNNAX_LOG_FILE_MAX_BACKUPS">
+
+The number of old log files to keep before the Core deletes them.
+
+</Field.Item>
+
+<Field.Item name="--log-file-max-age" type="int" default="30" env="SYNNAX_LOG_FILE_MAX_AGE">
+
+The number of days to keep old log files before the Core deletes them.
+
+</Field.Item>
+
+<Field.Item name="--log-file-compress" env="SYNNAX_LOG_FILE_COMPRESS">
+
+Compresses old log files on disk.
+
+</Field.Item>
+
+<Field.Item name="--disable-channel-name-validation" env="SYNNAX_DISABLE_CHANNEL_NAME_VALIDATION">
+
+Lets channels have any name, including special characters and spaces. By default, a
+channel name can contain only letters, digits, and underscores, and cannot start with a
+digit.
+
+</Field.Item>
+
+</Field.List>
+
+### Configuration files
+
+The Core also reads a configuration file in JSON, YAML, or TOML. Each key has the name
+of its flag. Environment variables and flags take precedence over the file.
+
+By default, the Core reads `/usr/local/synnax/config.yaml`. To use a different file, set
+`--config`. The `SYNNAX_CONFIG` environment variable has no effect.
+
+Example files:
+
+<Tabs
+  tabs={[
+    { name: "JSON", tabKey: "json" },
+    { name: "YAML", tabKey: "yaml" },
+    { name: "TOML", tabKey: "toml" },
+]}
+>
+<Fragment slot="json">
+
+```json
+{
+  "listen": "localhost:9090",
+  "data": "/usr/local/synnax/data",
+  "verbose": true,
+  "insecure": false,
+  "mem": false,
+  "certs-dir": "/usr/local/synnax/certs",
+  "ca-cert": "ca.crt",
+  "node-cert": "node.crt",
+  "node-key": "node.key",
+  "username": "synnax",
+  "password": "seldon",
+  "license-file": "/usr/local/synnax/synnax.lic",
+  "debug": false,
+  "session-idle-timeout": "168h",
+  "slow-consumer-timeout": "2.5s",
+  "no-driver": false,
+  "disable-integrations": [],
+  "enable-integrations": [],
+  "task-op-timeout": "60s",
+  "task-poll-interval": "1s",
+  "task-shutdown-timeout": "30s",
+  "task-worker-count": 4,
+  "log-file-path": "./synnax-logs/synnax.log",
+  "log-file-max-size": 50,
+  "log-file-max-backups": 5,
+  "log-file-max-age": 30,
+  "log-file-compress": true,
+  "disable-channel-name-validation": false
+}
+```
+
+</Fragment>
+<Fragment slot="yaml">
+
+```yaml
+listen: localhost:9090
+data: /usr/local/synnax/data
+verbose: true
+insecure: false
+mem: false
+certs-dir: /usr/local/synnax/certs
+ca-cert: ca.crt
+node-cert: node.crt
+node-key: node.key
+username: synnax
+password: seldon
+license-file: /usr/local/synnax/synnax.lic
+no-driver: false
+disable-integrations: []
+enable-integrations: []
+task-op-timeout: 60s
+task-poll-interval: 1s
+task-shutdown-timeout: 30s
+task-worker-count: 4
+log-file-path: ./synnax-logs/synnax.log
+log-file-max-size: 50
+log-file-max-backups: 5
+log-file-max-age: 30
+log-file-compress: true
+disable-channel-name-validation: false
+```
+
+</Fragment>
+<Fragment slot="toml">
+
+```toml
+listen = "localhost:9090"
+data = "/usr/local/synnax/data"
+verbose = true
+insecure = false
+mem = false
+certs-dir = "/usr/local/synnax/certs"
+ca-cert = "ca.crt"
+node-cert = "node.crt"
+node-key = "node.key"
+username = "synnax"
+password = "seldon"
+license-file = "/usr/local/synnax/synnax.lic"
+no-driver = false
+disable-integrations = []
+enable-integrations = []
+task-op-timeout = "60s"
+task-poll-interval = "1s"
+task-shutdown-timeout = "30s"
+task-worker-count = 4
+log-file-path = "./synnax-logs/synnax.log"
+log-file-max-size = 50
+log-file-max-backups = 5
+log-file-max-age = 30
+log-file-compress = true
+disable-channel-name-validation = false
+```
+
+</Fragment>
+</Tabs>
+
+### Multiple listeners
+
+The `listen` key takes a single address, as above, or a list of listeners, each with its
+own address and certificate. The list works only in a configuration file, and cannot be
+combined with `--auto-cert`, `--node-cert`, or `--node-key`. See
+[Serve multiple listeners](/reference/enterprise/listeners).
+
+```yaml
+listen:
+  - address: core01.example.com:9090
+    cert:
+      source: auto
+    advertise: true
+  - address: node01.example-tailnet.ts.net:9091
+    cert:
+      source: tailscale
+    name: console
+```
+
+Fields of a listener:
+
+<Field.List>
+
+<Field.Item name="address" id="listener-address" required>
+  The `host:port` the listener binds to. Unique across listeners.
+</Field.Item>
+
+<Field.Item name="cert.source" id="listener-cert-source">
+  The certificate source: `file`, `auto`, or `tailscale`. Required unless the Core
+  starts with `--insecure`. See [Certificate
+  sources](/reference/enterprise/listeners#certificate-sources).
+</Field.Item>
+
+<Field.Item name="cert.cert" id="listener-cert-cert">
+  For a `file` source, the path to the PEM certificate. If `cert` and `key` are both
+  empty, the listener uses the node certificate.
+</Field.Item>
+
+<Field.Item name="cert.key" id="listener-cert-key">
+  For a `file` source, the path to the PEM private key.
+</Field.Item>
+
+<Field.Item name="advertise" id="listener-advertise">
+  Marks this listener's address as the one the embedded Driver connects to. At most one
+  listener may set it; the first listener is advertised if none do.
+</Field.Item>
+
+<Field.Item name="name" id="listener-name">
+  An optional label. The Core does not use it.
+</Field.Item>
+
+<Field.Item name="loopback" id="listener-loopback">
+  Binds the listener to the loopback interface only, so no other machine can reach it.
+  The address host must be `localhost` or `127.0.0.1`. By default, a listener binds its
+  port on every network interface.
+</Field.Item>
+
+</Field.List>
+
+<Divider.Divider x />
+
+## Cert
+
+The `cert` commands create the files that `--auto-cert` creates, without starting the
+Core. They take `--certs-dir`, `--ca-cert`, `--ca-key`, `--node-cert`, and `--node-key`
+with the same defaults as `start`, and also:
+
+- `--key-size` -> the key size in bits. Default 2048.
+- `--allow-key-reuse` -> lets the CA key sign more than one certificate. Default false.
+
+### cert ca
+
+Creates `ca.crt` and `ca.key`.
+
+```bash
+synnax cert ca
+```
+
+### cert node
+
+Creates `node.crt` and `node.key` for one or more hosts, signed by the CA. It needs the
+CA files and does not replace node files that exist.
+
+```bash
+synnax cert node synnax.example.com
+```
+
+<Divider.Divider x />
+
+## Version
+
+The `version` command, or `synnax --version`, prints the version of the Core:
+
+```bash
+synnax version
+```
+
+<VersionOutput />
+
+<Divider.Divider x />
+
+## Service (Windows only)
+
+The `service` commands run the Core as a Windows service named `SynnaxCore`. Run them in
+a terminal as an administrator. For the steps, see
+[Run the Core as a service](/reference/enterprise/service).
+
+The service starts when Windows starts, unless installed with `--auto-start=false`. When
+the Core crashes, Windows restarts it after 5 seconds, then 30 seconds, then 60 seconds.
+The count resets each day. The service writes its log to the log file, not to the
+Windows Event Log.
+
+### service install
+
+Installs the service. It takes every `start` flag and writes them to
+`C:\ProgramData\Synnax\config.yaml`. The service reads only that file, and ignores
+`SYNNAX_*` environment variables. When the file exists, `install` does not change it.
+
+```bash
+synnax service install --listen=synnax.example.com:9090 --auto-cert
+```
+
+On Windows, these flags have different defaults:
+
+- `--data` -> `C:\ProgramData\Synnax\data`
+- `--certs-dir` -> `C:\ProgramData\Synnax\certs`
+- `--log-file-path` -> `C:\ProgramData\Synnax\logs\synnax.log`
+
+Two flags are only for `install`:
+
+- `--auto-start` -> start the service when Windows starts. Default true.
+- `--delayed-start` -> start the service after Windows finishes starting. Default false.
+  With `--delayed-start`, the service starts automatically even with
+  `--auto-start=false`.
+
+### service uninstall
+
+Removes the service. It does not stop a running service, and it does not delete
+`config.yaml`. Run `synnax service stop` first.
+
+```bash
+synnax service uninstall
+```
+
+### service start
+
+Starts the service.
+
+```bash
+synnax service start
+```
+
+### service stop
+
+Stops the service.
+
+```bash
+synnax service stop
+```
+
+### service status
+
+Shows whether the service is installed and running, its version, its data folder, log
+file, certificate folder, listen address, and whether it runs with `--insecure`. When
+the service is stopped, it also shows the last 10 warnings and errors.
+
+```bash
+synnax service status
+```

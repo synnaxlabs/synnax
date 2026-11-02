@@ -64,11 +64,6 @@ func (cfg Config) Report() alamos.Report {
 	}
 }
 
-var (
-	DefaultConfig = Config{
-		Interval: 1 * time.Second,
-	}
-	FastConfig = DefaultConfig.Override(Config{
-		Interval: 50 * time.Millisecond,
-	})
-)
+var DefaultConfig = Config{
+	Interval: 1 * time.Second,
+}

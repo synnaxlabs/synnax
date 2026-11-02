@@ -11,7 +11,7 @@ import { connect, createServer, type Socket } from "node:net";
 
 import { type breaker, TimeSpan } from "@synnaxlabs/x";
 
-const DEFAULT_TARGET = { host: "localhost", port: 9090 };
+import { TEST_CORE_ADDRESS } from "@/testutil/address";
 
 /**
  * Retry policy for a client pointed at a severable proxy. A spec drives its own
@@ -64,7 +64,7 @@ interface ProxiedPair {
 export const createSeverableProxy = async (
   target: SeverableProxyTarget = {},
 ): Promise<SeverableProxy> => {
-  const { host, port } = { ...DEFAULT_TARGET, ...target };
+  const { host, port } = { ...TEST_CORE_ADDRESS, ...target };
   const pairs = new Set<ProxiedPair>();
   // Client-side sockets of blackholed connections: held open, silent, until the proxy
   // is severed or closed.

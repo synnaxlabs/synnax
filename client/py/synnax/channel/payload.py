@@ -19,15 +19,14 @@ from synnax.channel.types_gen import Operation as Operation
 from synnax.channel.types_gen import Payload as Payload
 from x.lists import normalize
 
-ONTOLOGY_TYPE = ontology.ID(type="channel")
+_ONTOLOGY_TYPE = ontology.ID(type="channel")
 
 
-def ontology_id(key: Key) -> ontology.ID:
-    """Returns the ontology ID for the Channel entity."""
-    return ontology.ID(type=ONTOLOGY_TYPE.type, key=str(key))
+def _ontology_id(key: Key) -> ontology.ID:
+    return ontology.ID(type=_ONTOLOGY_TYPE.type, key=str(key))
 
 
-OPERATION_TYPES = Literal["min", "max", "avg", "none"]
+_OPERATION_TYPES = Literal["min", "max", "avg", "none"]
 
 
 @dataclass

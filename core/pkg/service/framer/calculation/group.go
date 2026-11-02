@@ -21,6 +21,7 @@ import (
 	"github.com/synnaxlabs/x/config"
 	"github.com/synnaxlabs/x/confluence"
 	"github.com/synnaxlabs/x/confluence/plumber"
+	"github.com/synnaxlabs/x/errors"
 	"github.com/synnaxlabs/x/override"
 	"github.com/synnaxlabs/x/signal"
 	"github.com/synnaxlabs/x/telem"
@@ -39,14 +40,12 @@ func (g *group) Close() error {
 	return g.shutdown.Close()
 }
 
-type OnStatusChange = func(context.Context, ...calculator.Status)
-
 type groupConfig struct {
 	alamos.Instrumentation
-	framer         *framer.Service
-	writer         *writer.Service
-	onStatusChange OnStatusChange
-	calculators    calculator.Group
+	framer      *framer.Service
+	writer      *writer.Service
+	report      calculator.Report
+	calculators calculator.Group
 }
 
 var _ config.Config[groupConfig] = (*groupConfig)(nil)
@@ -56,7 +55,7 @@ func (c groupConfig) Override(other groupConfig) groupConfig {
 	c.framer = override.Nil(c.framer, other.framer)
 	c.writer = override.Nil(c.writer, other.writer)
 	c.calculators = override.Slice(c.calculators, other.calculators)
-	c.onStatusChange = override.Nil(c.onStatusChange, other.onStatusChange)
+	c.report = override.Nil(c.report, other.report)
 	return c
 }
 
@@ -65,7 +64,7 @@ func (c groupConfig) Validate() error {
 	v.NotNil("framer", c.framer)
 	v.NotNil("writer", c.writer)
 	v.NotEmptySlice("calculators", c.calculators)
-	v.NotNil("on_status_change", c.onStatusChange)
+	v.NotNil("report", c.report)
 	return v.Error()
 }
 
@@ -92,7 +91,10 @@ func openGroup(ctx context.Context, cfgs ...groupConfig) (*group, error) {
 		zap.Int("write_channel_count", len(writeKeys)),
 	)
 
-	strm, err := cfg.framer.NewStreamer(framer.StreamerConfig{Keys: readKeys})
+	strm, err := cfg.framer.NewStreamer(framer.StreamerConfig{
+		Keys:        readKeys,
+		SendOpenAck: new(true),
+	})
 	if err != nil {
 		return nil, err
 	}
@@ -111,10 +113,12 @@ func openGroup(ctx context.Context, cfgs ...groupConfig) (*group, error) {
 
 	streamerRequests := confluence.NewStream[framer.StreamerRequest](10)
 	strm.InFrom(streamerRequests)
+	opened := make(chan struct{})
 	c := &transform{
 		streamerRequests: streamerRequests,
 		calculators:      cfg.calculators,
-		onStatusChange:   cfg.onStatusChange,
+		report:           cfg.report,
+		opened:           opened,
 	}
 
 	p.SetSegment[framer.StreamerResponse, framer.WriterRequest](calculatorAddr, c)
@@ -141,13 +145,20 @@ func openGroup(ctx context.Context, cfgs ...groupConfig) (*group, error) {
 	sCtx, cancel := signal.Isolated(signal.WithInstrumentation(cfg.Instrumentation))
 	p.Flow(sCtx, confluence.CloseOutputInletsOnExit(), confluence.WithRetryOnPanic())
 
-	cfg.L.Debug("group pipeline opened successfully",
-		zap.Int("calculator_count", len(cfg.calculators)),
-	)
-
-	return &group{
+	g := &group{
 		shutdown:         signal.NewGracefulShutdown(sCtx, cancel),
 		streamerRequests: streamerRequests,
 		Calculators:      cfg.calculators,
-	}, nil
+	}
+	// Waiting for the source streamer's open ack means a source write issued after
+	// openGroup returns reaches the calculators.
+	select {
+	case <-opened:
+	case <-ctx.Done():
+		return nil, errors.Join(ctx.Err(), g.Close())
+	}
+	cfg.L.Debug("group pipeline opened successfully",
+		zap.Int("calculator_count", len(cfg.calculators)),
+	)
+	return g, nil
 }

@@ -21,9 +21,6 @@ export interface LogEntry {
 }
 
 export interface LogSource extends Source<LogEntry[]> {
-  // Required on the interface (not just StreamMultiChannelLog) because the aether
-  // Log class uses it to adjust scroll offset and selection after GC.
-  readonly evictedCount: number;
   setChannels?: (channels: channel.Key[]) => void;
 }
 

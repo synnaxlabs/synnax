@@ -13,6 +13,7 @@
     & p:first-child {
         min-width: 120px;
     }
+
     & p:last-child {
         flex-shrink: 0;
     }

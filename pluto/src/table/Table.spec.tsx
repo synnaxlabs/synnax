@@ -8,7 +8,7 @@
 // included in the file licenses/APL.txt.
 
 import { table } from "@synnaxlabs/client";
-import { createTestClient } from "@synnaxlabs/client/testutil";
+import { createTestClient, spyOnSend } from "@synnaxlabs/client/testutil";
 import { mockBoundingClientRect } from "@synnaxlabs/lyra/testutil";
 import { Theming } from "@synnaxlabs/lyra/theming";
 import { Triggers } from "@synnaxlabs/lyra/triggers";
@@ -22,7 +22,7 @@ import { Table } from "@/table";
 import { table as aetherTable } from "@/table/aether";
 import { INDICATOR_SIZE } from "@/table/Indicator";
 import { createAsyncSynnaxWrapper } from "@/testutil/Synnax";
-import { canvasTest } from "@/vis/render/test";
+import { canvasTest } from "@/vis/render/testutil";
 import { value } from "@/vis/value/aether";
 
 const client = createTestClient();
@@ -296,6 +296,35 @@ describe("Table", () => {
       await loadTable(wrapper, created.key);
       return created.key;
     };
+
+    it("should send a text edit as a path action into the cell", async () => {
+      const textKey = await createTextTable();
+      const c = render(
+        <Table.Suspended tableKey={textKey}>
+          <Table.Table editable visible />
+        </Table.Suspended>,
+        { wrapper },
+      );
+      const text = await c.findByText("before");
+      const send = spyOnSend(client);
+      fireEvent.dblClick(text);
+      text.innerText = "after";
+      fireEvent.keyDown(text, { key: "Enter" });
+      await waitFor(() =>
+        expect(
+          send.mock.calls.find(([target]) => target === "/table/dispatch")?.[1],
+        ).toMatchObject({
+          actions: [
+            { type: "set", set: { path: ["cells", "a", "value"], value: "after" } },
+          ],
+        }),
+      );
+      await waitFor(async () =>
+        expect((await client.tables.retrieve(textKey)).cells.a).toMatchObject({
+          value: "after",
+        }),
+      );
+    });
 
     it("should undo an edit while the pointer sits outside the table", async () => {
       const textKey = await createTextTable();

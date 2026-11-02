@@ -24,7 +24,13 @@ import {
   type TestStore,
 } from "@/testutil";
 
-export const RUNNING: Embedded.Status = {
+/** The state of the embedded Core that the Desktop shell reports. */
+export type Status = Parameters<Parameters<typeof Embedded.onStatusChange>[0]>[0];
+
+/** The run history of the embedded Core that the Desktop shell keeps. */
+export type History = Awaited<ReturnType<typeof Embedded.retrieveHistory>>;
+
+export const RUNNING: Status = {
   state: "running",
   connection: {
     host: "127.0.0.1",
@@ -40,7 +46,7 @@ export interface MockedSupervisor {
   /**
    * Delivers a status change as the Desktop shell does, once the app listens for it.
    */
-  emitStatus: (status: Embedded.Status) => Promise<void>;
+  emitStatus: (status: Status) => Promise<void>;
 }
 
 /** Answers one supervisor command from the arguments the app sent with it. */
@@ -53,7 +59,7 @@ export type CommandHandler = (args: unknown) => unknown;
  * handler resolves with nothing.
  */
 export const mockSupervisor = (
-  retrieveStatus: () => Embedded.Status | Promise<Embedded.Status>,
+  retrieveStatus: () => Status | Promise<Status>,
   handlers: Record<string, CommandHandler> = {},
 ): MockedSupervisor => {
   const commands = vi.fn<(cmd: string) => void>();

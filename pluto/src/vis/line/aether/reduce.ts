@@ -10,21 +10,21 @@
 import {
   type Aggregation,
   bounds,
-  type DataType,
   math,
+  type NumberArray,
   Series,
-  type TypedArray,
+  TimeRange,
 } from "@synnaxlabs/x";
 
-import { type telem } from "@/telem/aether";
-import { type DrawOperation } from "@/vis/line/aether/line";
-
-type NumberArray = Exclude<TypedArray, BigInt64Array | BigUint64Array>;
+import { type DrawOperation, touching } from "@/vis/line/aether/draw";
 
 interface Points {
   xs: number[];
   ys: number[];
 }
+
+// The series a pair draws. Its span moves as a live series closes, so it never caches.
+type Drawn = Omit<DrawOperation, "span">;
 
 const SAMPLE_INDEX_MASK = 0xffffffffn;
 
@@ -36,6 +36,12 @@ const startOf = ({ x, xOffset }: DrawOperation): bigint =>
 
 const endOf = (op: DrawOperation): bigint => startOf(op) + BigInt(op.count);
 
+/** The span of x a line shows, and its width in pixels. */
+export interface View {
+  bounds: bounds.Bounds;
+  width: number;
+}
+
 /**
  * @returns the samples per group that draws the full-resolution ops at groupsPerColumn
  * groups per pixel column of the view: their samples per x unit times the x units per
@@ -44,7 +50,7 @@ const endOf = (op: DrawOperation): bigint => startOf(op) + BigInt(op.count);
  */
 export const groupSize = (
   ops: DrawOperation[],
-  view: telem.View,
+  view: View,
   groupsPerColumn: number,
 ): number => {
   let count = 0;
@@ -64,7 +70,7 @@ export const groupSize = (
 };
 
 // The x or y data of one op in a chain, and the shift that moves its values onto the
-// sample offset of the chain's first op.
+// GL offset of the chain's first op.
 interface Axis {
   data: NumberArray;
   offset: number;
@@ -79,9 +85,9 @@ interface Link {
 }
 
 const axis = (s: Series, offset: number, first: Series): Axis => ({
-  data: s.data as NumberArray,
+  data: s.glData,
   offset,
-  shift: Number(math.sub(s.sampleOffset, first.sampleOffset)),
+  shift: Number(math.sub(s.glOffset, first.glOffset)),
 });
 
 const link = (op: DrawOperation, first: DrawOperation): Link => ({
@@ -148,15 +154,13 @@ class Pair {
   private complete: Points = { xs: [], ys: [] };
   private count = 0;
   private available = 0;
-  private drawn: DrawOperation | null = null;
+  private drawn: Drawn | null = null;
 
   constructor(
     op: DrawOperation,
     private readonly aggregation: Aggregation,
     private readonly groupSize: number,
     preceded: boolean,
-    // Whether the channels of x and y store floats, which average without rounding.
-    private readonly float: { x: boolean; y: boolean },
   ) {
     this.x = op.x;
     this.y = op.y;
@@ -169,9 +173,9 @@ class Pair {
   /**
    * @param chain - The op, then the ops that continue it, up to groupSize samples past
    * its end where they exist.
-   * @param preceded - Whether an op ends where this op starts.
+   * @param preceded - Whether an op that the op continues ends where it starts.
    */
-  update(chain: DrawOperation[], preceded: boolean): DrawOperation {
+  update(chain: DrawOperation[], preceded: boolean): Drawn {
     const { groupSize } = this;
     const { count } = chain[0];
     const origin = this.originOf(preceded);
@@ -272,8 +276,8 @@ class Pair {
         break;
       }
       case "average":
-        out.xs.push(mean(chain, "x", lo, hi, this.groupSize, this.float.x));
-        out.ys.push(mean(chain, "y", lo, hi, this.groupSize, this.float.y));
+        out.xs.push(mean(chain, "x", lo, hi, this.groupSize, this.x.dataType.isFloat));
+        out.ys.push(mean(chain, "y", lo, hi, this.groupSize, this.y.dataType.isFloat));
         break;
       case "decimate": {
         const { x, y } = chain[0];
@@ -285,17 +289,16 @@ class Pair {
   }
 
   private series(source: Series, complete: number[], partial: number[]): Series {
-    const data = new source.dataType.Array(
-      complete.length + partial.length,
-    ) as NumberArray;
+    const { glDataType } = source;
+    const data = new glDataType.Array(complete.length + partial.length) as NumberArray;
     data.set(complete);
     data.set(partial, complete.length);
     const { aggregation, groupSize } = this;
     const s = new Series({
       data,
-      dataType: source.dataType,
+      dataType: glDataType,
       timeRange: source.timeRange,
-      sampleOffset: source.sampleOffset,
+      sampleOffset: source.glOffset,
       alignment: this.start + BigInt(this.origin),
       alignmentMultiple: BigInt(aggregation === "min_max" ? groupSize / 2 : groupSize),
     });
@@ -305,7 +308,8 @@ class Pair {
 }
 
 // Returns the op, then the ops that continue it, until they hold groupSize samples past
-// its end.
+// its end. The chain stops where the ops stop touching in time, since block alignment
+// goes on across a restart.
 const chainOf = (
   op: DrawOperation,
   after: Map<bigint, DrawOperation>,
@@ -313,31 +317,34 @@ const chainOf = (
 ): DrawOperation[] => {
   const chain = [op];
   let samples = op.count;
-  let next = after.get(endOf(op));
-  while (next != null && samples < op.count + groupSize) {
+  let last = op;
+  let next = after.get(endOf(last));
+  while (next != null && touching(last, next) && samples < op.count + groupSize) {
     chain.push(next);
     samples += next.count;
-    next = after.get(endOf(next));
+    last = next;
+    next = after.get(endOf(last));
   }
   return chain;
 };
 
 /**
- * Reduces the full-resolution ops of a line with the rules the Core uses for tiles.
+ * Reduces the full-resolution ops of a line with the rules of the Core's reduced reads.
  * Groups of groupSize samples sit at sample index multiples of groupSize within each
  * alignment domain. The x and y series of an op reduce as a pair: min_max keeps the
  * samples where y is lowest and highest in a group, in time order, decimate keeps the
  * first sample of a group, and average keeps the mean of x and the mean of y. A group
  * only partly inside the ops reduces the samples it holds.
  *
- * Ops whose alignments continue one another reduce as one run of samples. The op a
- * group starts in draws it, and the first op of a run also draws the group it starts
- * inside.
+ * Ops that continue one another in alignment and touch in time reduce as one run of
+ * samples. The op a group starts in draws it, and the first op of a run also draws the
+ * group it starts inside. An op that draws no group gives its span to the op before it,
+ * so the two ops around it still touch.
  *
  * A reduced pair starts at the alignment of its first group and steps groupSize / 2 per
- * point for min_max, or groupSize otherwise. It keeps the time range and sample offset
- * of its source series. Pairs are cached until they leave the ops, or until the
- * aggregation or group size changes.
+ * point for min_max, or groupSize otherwise. It holds the GL data type, and keeps the
+ * time range and GL offset, of its source series. Pairs are cached until they leave the
+ * ops, or until the aggregation or group size changes.
  */
 export class Reducer {
   private aggregation?: Aggregation;
@@ -345,10 +352,8 @@ export class Reducer {
   private readonly pairs = new Map<Series, Map<Series, Pair>>();
 
   /**
-   * @param groupSize - The samples per group. It must be even for min_max.
-   * @param dataTypes - The data types the channels of x and y store, when their series
-   * hold another. An average of an integer channel rounds down, as the Core does. A
-   * null data type averages by the type of the series.
+   * @param groupSize - The samples per group. It must be even for min_max. An average
+   * of an integer series rounds down, as the Core does.
    * @returns the ops with each full-resolution op replaced by its reduced pair, or left
    * out when it draws no group. Ops of reduced series stay the same, and so does every
    * op when groupSize is below 2. The pairs of ops not in the list are released.
@@ -357,7 +362,6 @@ export class Reducer {
     ops: DrawOperation[],
     aggregation: Aggregation,
     groupSize: number,
-    dataTypes: { x: DataType | null; y: DataType | null } = { x: null, y: null },
   ): DrawOperation[] {
     if (aggregation !== this.aggregation || groupSize !== this.groupSize) {
       this.release();
@@ -366,11 +370,11 @@ export class Reducer {
     }
     if (groupSize < 2) return ops;
     const after = new Map<bigint, DrawOperation>();
-    const ends = new Set<bigint>();
+    const before = new Map<bigint, DrawOperation>();
     for (const op of ops) {
       if (!isFullResolution(op)) continue;
       if (!after.has(startOf(op))) after.set(startOf(op), op);
-      ends.add(endOf(op));
+      before.set(endOf(op), op);
     }
     const drawn = new Set<Pair>();
     const out: DrawOperation[] = [];
@@ -379,7 +383,8 @@ export class Reducer {
         out.push(op);
         continue;
       }
-      const preceded = ends.has(startOf(op));
+      const prev = before.get(startOf(op));
+      const preceded = prev != null && touching(prev, op);
       let byY = this.pairs.get(op.x);
       if (byY == null) {
         byY = new Map();
@@ -387,15 +392,18 @@ export class Reducer {
       }
       let pair = byY.get(op.y);
       if (pair == null) {
-        pair = new Pair(op, aggregation, groupSize, preceded, {
-          x: (dataTypes.x ?? op.x.dataType).isFloat,
-          y: (dataTypes.y ?? op.y.dataType).isFloat,
-        });
+        pair = new Pair(op, aggregation, groupSize, preceded);
         byY.set(op.y, pair);
       }
       drawn.add(pair);
       const reduced = pair.update(chainOf(op, after, groupSize), preceded);
-      if (reduced.count > 0) out.push(reduced);
+      const last = out.at(-1);
+      if (reduced.count > 0) out.push({ ...reduced, span: op.span });
+      else if (last != null && touching(last, op))
+        out[out.length - 1] = {
+          ...last,
+          span: new TimeRange(last.span.start, op.span.end),
+        };
     }
     for (const [x, byY] of this.pairs) {
       for (const [y, pair] of byY)

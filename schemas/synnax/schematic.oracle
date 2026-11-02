@@ -12,6 +12,7 @@ import "schemas/synnax/symbol"
 import "schemas/x/border"
 import "schemas/x/color"
 import "schemas/x/notation"
+import "schemas/x/patch"
 import "schemas/x/spatial"
 import "schemas/x/text"
 
@@ -964,6 +965,25 @@ Schematic struct {
         @doc value """
             replaces the config entry stored under the given node or edge key.
         """
+    }
+
+    action Set extends patch.Set {
+        @doc value "replaces the value at a path in the schematic's element configs."
+    }
+
+    action Remove extends patch.Remove {
+        @doc value """
+            removes an entry from a list or a field from an object in the schematic's
+            element configs.
+        """
+    }
+
+    action Insert extends patch.Insert {
+        @doc value "adds an entry to a list in the schematic's element configs."
+    }
+
+    action Move extends patch.Move {
+        @doc value "moves an entry in a list in the schematic's element configs."
     }
 
     @create

@@ -15,6 +15,7 @@ import { beforeEach, describe, expect, it } from "vitest";
 
 import { Table } from "@/platform/table";
 import { Session } from "@/session";
+import { documentIn } from "@/session/window/testutil";
 import { createConsoleWrapper } from "@/testutil";
 
 const client: Synnax = createTestClient();
@@ -93,7 +94,7 @@ describe("useCreate", () => {
       });
       await waitFor(() =>
         expect(
-          Session.Table.selectEditable({ state: harness.store.getState(), key }),
+          documentIn(harness.store.getState()[Session.Table.SLICE_NAME], key)?.editable,
         ).toBe(true),
       );
     });

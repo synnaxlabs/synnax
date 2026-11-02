@@ -16,7 +16,7 @@
 
 #include "x/cpp/mem/indirect.h"
 #include "x/cpp/mem/local_shared.h"
-#include "x/cpp/test/test.h"
+#include "x/cpp/testutil/testutil.h"
 
 #include "arc/cpp/ir/ir.h"
 #include "arc/cpp/runtime/errors/errors.h"

@@ -9,7 +9,7 @@
 
 import { describe, expect, it } from "vitest";
 
-import { ADMIN_ROLE, clerk, memory } from "@/server/directory";
+import { ADMIN_ROLE, clerk, isInternal, memory } from "@/server/directory";
 
 interface FakeUser {
   id: string;
@@ -17,9 +17,14 @@ interface FakeUser {
   lastName: string | null;
   username: string | null;
   primaryEmailAddressId: string | null;
-  emailAddresses: { id: string; emailAddress: string }[];
+  emailAddresses: {
+    id: string;
+    emailAddress: string;
+    verification?: { status: string } | null;
+  }[];
   hasImage: boolean;
   imageUrl: string;
+  createdAt: number;
 }
 
 const user = (overrides: Partial<FakeUser> = {}): FakeUser => ({
@@ -34,6 +39,7 @@ const user = (overrides: Partial<FakeUser> = {}): FakeUser => ({
   ],
   hasImage: false,
   imageUrl: "https://img.clerk.com/default",
+  createdAt: Date.parse("2026-09-01T00:00:00Z"),
   ...overrides,
 });
 
@@ -61,17 +67,12 @@ interface FakeArgs {
       lastName: string | null;
     } | null;
   }[];
-  organizations?: { id: string; name: string }[];
+  organizations?: { id: string; name: string; membersCount?: number }[];
   listed?: { id: string; fullName: string | null; primaryEmailAddress: unknown }[];
-  /** unavailable are organization ids Clerk fails to read with a 500. */
+  /** unavailable are organization and user ids Clerk fails to read with a 500. */
   unavailable?: string[];
-  /** refusal is what Clerk throws when it creates an invitation. */
+  /** refusal is what Clerk throws on every write. */
   refusal?: Error;
-  pending?: {
-    id: string;
-    organizationId: string;
-    publicOrganizationData: { name: string } | null;
-  }[];
 }
 
 const createClient = ({
@@ -82,33 +83,35 @@ const createClient = ({
   listed = [],
   unavailable = [],
   refusal,
-  pending = [],
 }: FakeArgs = {}) => {
   const calls: Record<string, unknown[]> = {};
   const record = (name: string, args: unknown): void => {
     (calls[name] ??= []).push(args);
   };
+  const write = async (name: string, args: unknown): Promise<void> => {
+    if (refusal != null) throw refusal;
+    record(name, args);
+  };
   const client = {
     users: {
-      getUser: async (id: string) => {
-        const found = users.find((u) => u.id === id);
-        if (found == null) throw new Error("Not Found");
-        return found;
-      },
       getOrganizationMembershipList: async (args: Paged & { userId: string }) => {
         record("memberships", args);
         return page(memberships, args);
       },
-      getOrganizationInvitationList: async (
-        args: Paged & { userId: string; status: string },
-      ) => {
-        record("pending", args);
-        return page(pending, args);
+      getUser: async (id: string) => {
+        if (unavailable.includes(id))
+          throw Object.assign(new Error("Down"), { status: 500 });
+        const found = users.find((u) => u.id === id);
+        if (found == null) throw Object.assign(new Error("Not Found"), { status: 404 });
+        return found;
       },
-      getUserList: async (args: { userId: string[]; limit: number }) => {
+      deleteUser: async (id: string) => await write("deletedUsers", id),
+      getUserList: async (args: Paged & { userId?: string[] }) => {
         record("userList", args);
+        if (args.userId == null) return page(users, args);
+        const { userId } = args;
         return {
-          data: listed.filter((u) => args.userId.includes(u.id)).slice(0, args.limit),
+          data: listed.filter((u) => userId.includes(u.id)).slice(0, args.limit),
         };
       },
     },
@@ -130,17 +133,37 @@ const createClient = ({
         if (found == null) throw Object.assign(new Error("Not Found"), { status: 404 });
         return found;
       },
-      createOrganizationInvitation: async (args: unknown) => {
-        if (refusal != null) throw refusal;
-        record("invitations", args);
-        return {};
+      createOrganizationMembership: async (args: unknown) => await write("added", args),
+      updateOrganizationMembership: async (args: unknown) => await write("roles", args),
+      deleteOrganizationMembership: async (args: unknown) =>
+        await write("removed", args),
+      createOrganization: async (args: { name: string }) => {
+        await write("created", args);
+        return { id: "org_new", name: args.name };
       },
+      updateOrganization: async (id: string, args: unknown) =>
+        await write("renamed", [id, args]),
+      deleteOrganization: async (id: string) => await write("deleted", id),
     },
   };
   return { directory: clerk(client as unknown as Parameters<typeof clerk>[0]), calls };
 };
 
 describe("directory", () => {
+  describe("isInternal", () => {
+    it("should accept a Synnax Labs address in any case", () => {
+      expect(isInternal("em@synnaxlabs.com")).toBe(true);
+      expect(isInternal("Em@SynnaxLabs.com")).toBe(true);
+    });
+
+    it("should refuse an address on another domain", () => {
+      expect(isInternal("ada@example.com")).toBe(false);
+      expect(isInternal("ada@notsynnaxlabs.com")).toBe(false);
+      expect(isInternal("ada@synnaxlabs.com.example.com")).toBe(false);
+      expect(isInternal("")).toBe(false);
+    });
+  });
+
   describe("memory", () => {
     const directory = memory({
       people: {
@@ -154,11 +177,6 @@ describe("directory", () => {
         user_c: [{ clerkOrgID: "org_acme", name: "Acme", role: ADMIN_ROLE }],
       },
       organizations: [{ clerkOrgID: "org_acme", name: "Acme" }],
-      invited: {
-        user_b: [
-          { invitationID: "orginv_1", clerkOrgID: "org_globex", name: "Globex" },
-        ],
-      },
     });
 
     it("should return a known person", async () => {
@@ -188,9 +206,39 @@ describe("directory", () => {
       expect(await directory.roster("org_other")).toEqual([]);
     });
 
+    it("should list and find users, newest first", async () => {
+      const dir = memory({
+        people: {
+          user_a: { email: "ada@example.com", name: "Ada", joinedAt: new Date(1) },
+          user_b: { email: "bob@example.com", name: "Bob", joinedAt: new Date(2) },
+        },
+      });
+      expect(await dir.users()).toEqual([
+        {
+          userID: "user_b",
+          name: "Bob",
+          email: "bob@example.com",
+          joinedAt: new Date(2),
+        },
+        {
+          userID: "user_a",
+          name: "Ada",
+          email: "ada@example.com",
+          joinedAt: new Date(1),
+        },
+      ]);
+      expect(await directory.account("user_c")).toEqual({
+        userID: "user_c",
+        name: "Cy",
+        email: "",
+        joinedAt: new Date(0),
+      });
+      expect(await directory.account("user_x")).toBeNull();
+    });
+
     it("should list and find organizations", async () => {
       expect(await directory.teams()).toEqual([
-        { clerkOrgID: "org_acme", name: "Acme" },
+        { clerkOrgID: "org_acme", name: "Acme", members: 3 },
       ]);
       expect(await directory.team("org_acme")).toEqual({
         clerkOrgID: "org_acme",
@@ -203,11 +251,46 @@ describe("directory", () => {
       expect(await directory.names(["user_a", "user_x"])).toEqual({ user_a: "Ada" });
     });
 
-    it("should return a user's pending invitations, or none", async () => {
-      expect(await directory.pending("user_b")).toEqual([
-        { invitationID: "orginv_1", clerkOrgID: "org_globex", name: "Globex" },
+    it("should read a person's address as their one verified address", async () => {
+      expect(await directory.addresses("user_a")).toEqual(["ada@example.com"]);
+      expect(await directory.addresses("user_c")).toEqual([]);
+      expect(await directory.addresses("user_x")).toEqual([]);
+    });
+
+    it("should add a user to a team it knows", async () => {
+      const dir = memory({ organizations: [{ clerkOrgID: "org_acme", name: "Acme" }] });
+      await dir.add("org_acme", "user_z", "org:member");
+      expect(await dir.memberships("user_z")).toEqual([
+        { clerkOrgID: "org_acme", name: "Acme", role: "org:member" },
       ]);
-      expect(await directory.pending("user_a")).toEqual([]);
+      await expect(dir.add("org_x", "user_z", "org:member")).rejects.toThrow(
+        "no Clerk organization org_x",
+      );
+    });
+
+    it("should change roles, remove members, and create and rename teams", async () => {
+      const dir = memory({
+        members: {
+          user_a: [{ clerkOrgID: "org_acme", name: "Acme", role: "org:member" }],
+        },
+        organizations: [{ clerkOrgID: "org_acme", name: "Acme" }],
+      });
+      await dir.setRole("org_acme", "user_a", ADMIN_ROLE);
+      expect(await dir.memberships("user_a")).toEqual([
+        { clerkOrgID: "org_acme", name: "Acme", role: ADMIN_ROLE },
+      ]);
+      await dir.rename("org_acme", "Acme Rockets");
+      expect(await dir.team("org_acme")).toEqual({
+        clerkOrgID: "org_acme",
+        name: "Acme Rockets",
+      });
+      expect((await dir.memberships("user_a"))[0].name).toBe("Acme Rockets");
+      await dir.remove("org_acme", "user_a");
+      expect(await dir.memberships("user_a")).toEqual([]);
+      const created = await dir.create("Globex");
+      expect((await dir.teams())[0]).toEqual({ ...created, members: 0 });
+      await dir.delete(created.clerkOrgID);
+      expect((await dir.teams()).map((t) => t.clerkOrgID)).toEqual(["org_acme"]);
     });
 
     it("should serve records added after it was created", async () => {
@@ -280,6 +363,86 @@ describe("directory", () => {
       it("should throw when Clerk does not know the user", async () => {
         const { directory } = createClient();
         await expect(directory.person("user_x")).rejects.toThrow("Not Found");
+      });
+    });
+
+    describe("users", () => {
+      it("should list every user across every page, newest first", async () => {
+        const { directory, calls } = createClient({
+          users: range(101, (i) => user({ id: `user_${i}`, createdAt: i })),
+        });
+        const users = await directory.users();
+        expect(users).toHaveLength(101);
+        expect(users[3]).toEqual({
+          userID: "user_3",
+          name: "Ada Lovelace",
+          email: "ada@example.com",
+          joinedAt: new Date(3),
+        });
+        expect(calls.userList).toEqual([
+          { limit: 100, offset: 0, orderBy: "-created_at" },
+          { limit: 100, offset: 100, orderBy: "-created_at" },
+        ]);
+      });
+
+      it("should name a user without a name by username, then address", async () => {
+        const { directory } = createClient({
+          users: [
+            user({ id: "user_a", firstName: null, lastName: null }),
+            user({ id: "user_b", firstName: null, lastName: null, username: null }),
+          ],
+        });
+        expect((await directory.users()).map((u) => u.name)).toEqual([
+          "ada",
+          "ada@example.com",
+        ]);
+      });
+    });
+
+    describe("account", () => {
+      it("should read one user", async () => {
+        const { directory } = createClient();
+        expect(await directory.account("user_a")).toEqual({
+          userID: "user_a",
+          name: "Ada Lovelace",
+          email: "ada@example.com",
+          joinedAt: new Date("2026-09-01T00:00:00Z"),
+        });
+      });
+
+      it("should answer null for a user Clerk does not know", async () => {
+        const { directory } = createClient();
+        expect(await directory.account("user_x")).toBeNull();
+      });
+
+      it("should throw any other Clerk failure", async () => {
+        const { directory } = createClient({ unavailable: ["user_down"] });
+        await expect(directory.account("user_down")).rejects.toThrow("Down");
+      });
+    });
+
+    describe("addresses", () => {
+      it("should return only the verified addresses, in lowercase", async () => {
+        const { directory } = createClient({
+          users: [
+            user({
+              emailAddresses: [
+                {
+                  id: "email_1",
+                  emailAddress: "Ada@Example.com",
+                  verification: { status: "verified" },
+                },
+                {
+                  id: "email_2",
+                  emailAddress: "old@example.com",
+                  verification: { status: "unverified" },
+                },
+                { id: "email_3", emailAddress: "new@example.com", verification: null },
+              ],
+            }),
+          ],
+        });
+        expect(await directory.addresses("user_a")).toEqual(["ada@example.com"]);
       });
     });
 
@@ -380,12 +543,28 @@ describe("directory", () => {
     describe("teams", () => {
       it("should list every organization across every page", async () => {
         const { directory, calls } = createClient({
-          organizations: range(101, (i) => ({ id: `org_${i}`, name: `Org ${i}` })),
+          organizations: range(101, (i) => ({
+            id: `org_${i}`,
+            name: `Org ${i}`,
+            membersCount: i,
+          })),
         });
         const teams = await directory.teams();
         expect(teams).toHaveLength(101);
-        expect(teams[0]).toEqual({ clerkOrgID: "org_0", name: "Org 0" });
-        expect(calls.organizations).toHaveLength(2);
+        expect(teams[3]).toEqual({ clerkOrgID: "org_3", name: "Org 3", members: 3 });
+        expect(calls.organizations).toEqual([
+          { limit: 100, offset: 0, includeMembersCount: true },
+          { limit: 100, offset: 100, includeMembersCount: true },
+        ]);
+      });
+
+      it("should throw when Clerk leaves out a member count", async () => {
+        const { directory } = createClient({
+          organizations: [{ id: "org_acme", name: "Acme" }],
+        });
+        await expect(directory.teams()).rejects.toThrow(
+          "Clerk listed organization org_acme without its member count",
+        );
       });
     });
 
@@ -451,81 +630,86 @@ describe("directory", () => {
       });
     });
 
-    describe("invite", () => {
-      const INVITATION = {
-        clerkOrgID: "org_acme",
-        email: "cy@acme.com",
-        role: "org:member",
-        inviterUserID: "user_a",
-        redirectURL: "https://portal.synnaxlabs.com/sign-up",
-      };
-
-      it("should send the invitation with its redirect URL", async () => {
+    describe("member and team changes", () => {
+      it("should add a member without an email", async () => {
         const { directory, calls } = createClient();
-        await directory.invite(INVITATION);
-        expect(calls.invitations).toEqual([
-          {
-            organizationId: "org_acme",
-            emailAddress: "cy@acme.com",
-            role: "org:member",
-            inviterUserId: "user_a",
-            redirectUrl: "https://portal.synnaxlabs.com/sign-up",
-          },
+        await directory.add("org_acme", "user_b", "org:member");
+        expect(calls.added).toEqual([
+          { organizationId: "org_acme", userId: "user_b", role: "org:member" },
         ]);
       });
 
-      it("should answer Clerk's refusal as a 400 with its reason", async () => {
-        const refusal = Object.assign(new Error("Bad Request"), {
-          status: 400,
-          errors: [{ message: "duplicate", longMessage: "Already invited." }],
+      it("should change a member's role", async () => {
+        const { directory, calls } = createClient();
+        await directory.setRole("org_acme", "user_b", ADMIN_ROLE);
+        expect(calls.roles).toEqual([
+          { organizationId: "org_acme", userId: "user_b", role: ADMIN_ROLE },
+        ]);
+      });
+
+      it("should remove a member", async () => {
+        const { directory, calls } = createClient();
+        await directory.remove("org_acme", "user_b");
+        expect(calls.removed).toEqual([
+          { organizationId: "org_acme", userId: "user_b" },
+        ]);
+      });
+
+      it("should create a team with no members", async () => {
+        const { directory, calls } = createClient();
+        expect(await directory.create("Acme")).toEqual({
+          clerkOrgID: "org_new",
+          name: "Acme",
+        });
+        expect(calls.created).toEqual([{ name: "Acme" }]);
+      });
+
+      it("should delete a team", async () => {
+        const { directory, calls } = createClient();
+        await directory.delete("org_acme");
+        expect(calls.deleted).toEqual(["org_acme"]);
+      });
+
+      it("should delete an account", async () => {
+        const { directory, calls } = createClient();
+        await directory.deleteAccount("user_a");
+        expect(calls.deletedUsers).toEqual(["user_a"]);
+      });
+
+      it("should treat an account Clerk does not know as deleted", async () => {
+        const refusal = Object.assign(new Error("Not Found"), { status: 404 });
+        const { directory } = createClient({ refusal });
+        await expect(directory.deleteAccount("user_a")).resolves.toBeUndefined();
+      });
+
+      it("should treat a team Clerk does not know as deleted", async () => {
+        const refusal = Object.assign(new Error("Not Found"), { status: 404 });
+        const { directory } = createClient({ refusal });
+        await expect(directory.delete("org_acme")).resolves.toBeUndefined();
+      });
+
+      it("should rename a team", async () => {
+        const { directory, calls } = createClient();
+        await directory.rename("org_acme", "Acme Rockets");
+        expect(calls.renamed).toEqual([["org_acme", { name: "Acme Rockets" }]]);
+      });
+
+      it("should answer a refused change as a 400 with its reason", async () => {
+        const refusal = Object.assign(new Error("Unprocessable"), {
+          status: 422,
+          errors: [{ message: "last admin", longMessage: "Keep one admin." }],
         });
         const { directory } = createClient({ refusal });
-        await expect(directory.invite(INVITATION)).rejects.toMatchObject({
-          status: 400,
-          message: "Already invited.",
-          cause: refusal,
-        });
-      });
-
-      it("should pass on any other failure", async () => {
-        const { directory } = createClient({
-          refusal: Object.assign(new Error("Down"), { status: 500 }),
-        });
-        await expect(directory.invite(INVITATION)).rejects.toThrow("Down");
-      });
-    });
-
-    describe("pending", () => {
-      it("should read every page of the user's pending invitations", async () => {
-        const { directory, calls } = createClient({
-          pending: range(150, (i) => ({
-            id: `orginv_${i}`,
-            organizationId: `org_${i}`,
-            publicOrganizationData: { name: `Org ${i}` },
-          })),
-        });
-        const invited = await directory.pending("user_a");
-        expect(invited).toHaveLength(150);
-        expect(invited[149]).toEqual({
-          invitationID: "orginv_149",
-          clerkOrgID: "org_149",
-          name: "Org 149",
-        });
-        expect(calls.pending).toEqual([
-          { userId: "user_a", status: "pending", limit: 100, offset: 0 },
-          { userId: "user_a", status: "pending", limit: 100, offset: 100 },
-        ]);
-      });
-
-      it("should throw for an invitation without its team", async () => {
-        const { directory } = createClient({
-          pending: [
-            { id: "orginv_1", organizationId: "org_1", publicOrganizationData: null },
-          ],
-        });
-        await expect(directory.pending("user_a")).rejects.toThrow(
-          "Clerk sent invitation orginv_1 without its team",
-        );
+        for (const change of [
+          directory.add("org_acme", "user_b", "org:member"),
+          directory.setRole("org_acme", "user_b", ADMIN_ROLE),
+          directory.remove("org_acme", "user_b"),
+          directory.rename("org_acme", "Acme Rockets"),
+        ])
+          await expect(change).rejects.toMatchObject({
+            status: 400,
+            message: "Keep one admin.",
+          });
       });
     });
   });

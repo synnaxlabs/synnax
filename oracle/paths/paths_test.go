@@ -224,28 +224,9 @@ var _ = Describe("Paths", func() {
 				Expect(ok).To(BeFalse())
 			},
 			Entry("version file", "schemas/synnax/versions/channel/v0.oracle"),
+			Entry("too shallow", "schemas/channel.oracle"),
 			Entry("nested path", "schemas/synnax/nested/channel.oracle"),
 			Entry("outside schemas", "client/ts/channel.oracle"),
-		)
-	})
-
-	Describe("LiveSchema", func() {
-		It("Should return the domain and resource for a live schema", func() {
-			domain, resource, ok := paths.LiveSchema("schemas/x/telem.oracle")
-			Expect(ok).To(BeTrue())
-			Expect(domain).To(Equal("x"))
-			Expect(resource).To(Equal("telem"))
-		})
-
-		DescribeTable("Should report false for non-live paths",
-			func(path string) {
-				_, _, ok := paths.LiveSchema(path)
-				Expect(ok).To(BeFalse())
-			},
-			Entry("version file", "schemas/x/versions/telem/v0.oracle"),
-			Entry("too shallow", "schemas/telem.oracle"),
-			Entry("too deep", "schemas/x/nested/telem.oracle"),
-			Entry("outside schemas", "client/x/telem.oracle"),
 		)
 	})
 

@@ -48,6 +48,13 @@ worktree that serves the Console: a core from another branch can return schema t
 Console fails to parse, and permission retrieves failing silently drop every palette
 command.
 
+A script that exports `desktop = true` shows the Console as Synnax Desktop, so it needs
+a second dev server built for Desktop:
+`cd console && VITE_DESKTOP=true pnpm dev-vite --port 5175`. Pass `--desktop-url` when
+it is not on localhost:5175. The page stands in for the Desktop shell and reports the
+capture core as the embedded one. A capture fails if the Console asks the shell for
+anything else.
+
 The studio manages the core itself. Each capture spawns a fresh in-memory one
 (`--no-driver`, logging to `<out>/core.log`) on the studio's port 9095, points the
 Console at it through the override, and stops it when the capture ends. Fixtures pick
@@ -97,7 +104,10 @@ Batch captures both themes, skips the render, and writes the stills to
 `out/stills/<id>/<version>/<name>-<theme>.webp`, where `<version>` hashes their content.
 It writes the version and the regions to the entry's `regions` path, and fails when the
 two themes disagree. Upload serves each still at
-`docs/<id>/<version>/<name>-<theme>.webp`, so the CDN never serves a cached old still.
+`docs/<id>/<version>/<name>-<theme>.webp`, so the CDN never serves a cached old still. A
+page or release hero is an entry made with `hero(id, script)` in `videos.ts`. It writes
+its regions to `site/docs/src/components/hero/stills/<id>.json`, where the docs `Hero`
+component finds the still by its id.
 
 ## One-off production
 

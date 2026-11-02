@@ -38,10 +38,12 @@ export class YAxis extends BaseAxis<typeof baseAxisStateZ, Children> {
   static readonly TYPE = "YAxis";
   schema = baseAxisStateZ;
 
-  xBounds(): bounds.Bounds {
-    return bounds.max(
-      this.visibleLines.map((el) => el.xBounds()).filter((b) => bounds.isFinite(b)),
-    );
+  xBounds(): line.DataBounds {
+    const all = this.visibleLines.map((el) => el.xBounds());
+    return {
+      bounds: bounds.max(all.map((b) => b.bounds).filter((b) => bounds.isFinite(b))),
+      loading: all.some((b) => b.loading),
+    };
   }
 
   bounds(hold: boolean, xBounds: bounds.Bounds): bounds.Bounds {
@@ -130,7 +132,7 @@ export class YAxis extends BaseAxis<typeof baseAxisStateZ, Children> {
     return this.lines.some((el) => el.fetching);
   }
 
-  private dataBounds(xBounds: bounds.Bounds): bounds.Bounds[] {
+  private dataBounds(xBounds: bounds.Bounds): line.DataBounds[] {
     return this.visibleLines.map((el) => el.yBounds(xBounds));
   }
 

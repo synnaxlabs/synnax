@@ -39,7 +39,7 @@ from tests.arc.arc import ArcCase
 from x.telem import to_int
 
 SHORT_CIRCUIT_SOURCE = """
-func noop{} (input bool) bool {
+func noop() {input bool} bool {
     return input
 }
 
@@ -52,15 +52,15 @@ sequence main {
         0 -> ss_sim_stage
         1 -> ss_heater_cmd
         // Priority is declaration order, not statement size.
-        interval{1s} -> (ss_temp_a > 290 and ss_temp_b > 290) -> noop{} -> noop{} -> noop{} => off
-        interval{1s} -> ss_temp_b > 300 => pause
+        interval(1s) -> (ss_temp_a > 290 and ss_temp_b > 290) -> noop() -> noop() -> noop() => off
+        interval(1s) -> ss_temp_b > 300 => pause
     }
     stage pause {
         "pause" -> ss_stage_str
         1 -> ss_pause_tick
         2 -> ss_sim_stage
         0 -> ss_heater_cmd
-        wait{1s} => on
+        wait(1s) => on
     }
     stage off {
         "off" -> ss_stage_str
@@ -69,13 +69,13 @@ sequence main {
         ss_start_cmd => on
     }
 }
-"""
+"""  # noqa: E501
 
 
 class ChannelCollector:
     """Accumulates streamed values for a set of channels."""
 
-    def __init__(self, client: sy.Synnax, channels: list[str]) -> None:
+    def __init__(self, *, client: sy.Synnax, channels: list[str]) -> None:
         self._client = client
         self._channels = channels
         self._stop = threading.Event()
@@ -90,6 +90,7 @@ class ChannelCollector:
         self,
         channel: str,
         count: int,
+        *,
         timeout: float = 5.0,
     ) -> None:
         """Wait until the collector has at least `count` entries for `channel`."""
@@ -137,14 +138,14 @@ class ShortCircuit(ArcCase):
     def setup(self) -> None:
         client = self.client
 
-        create_virtual_channel(client, "ss_stage_str", sy.DataType.STRING)
-        create_virtual_channel(client, "ss_sim_stage", sy.DataType.UINT8)
-        create_virtual_channel(client, "ss_start_cmd", sy.DataType.UINT8)
+        create_virtual_channel(client, "ss_stage_str", data_type=sy.DataType.STRING)
+        create_virtual_channel(client, "ss_sim_stage", data_type=sy.DataType.UINT8)
+        create_virtual_channel(client, "ss_start_cmd", data_type=sy.DataType.UINT8)
 
-        create_indexed_pair(client, "ss_on_tick", sy.DataType.UINT8)
-        create_indexed_pair(client, "ss_pause_tick", sy.DataType.UINT8)
+        create_indexed_pair(client, "ss_on_tick", data_type=sy.DataType.UINT8)
+        create_indexed_pair(client, "ss_pause_tick", data_type=sy.DataType.UINT8)
 
-        create_virtual_channel(client, "ss_heater_cmd", sy.DataType.UINT8)
+        create_virtual_channel(client, "ss_heater_cmd", data_type=sy.DataType.UINT8)
 
         self.ss_sensor_time = client.channels.create(
             name="ss_sensor_time",
@@ -175,7 +176,7 @@ class ShortCircuit(ArcCase):
             "ss_on_tick_time",
             "ss_pause_tick_time",
         ]
-        collector = ChannelCollector(self.client, stream_channels)
+        collector = ChannelCollector(client=self.client, channels=stream_channels)
         with collector as collected:
             with self.client.open_writer(
                 start=sy.TimeStamp.now(),

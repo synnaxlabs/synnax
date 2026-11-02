@@ -13,8 +13,8 @@ import { describe, expect, it, vi } from "vitest";
 import z from "zod";
 
 import { type channel } from "@/channel";
-import { AccessDeniedError, DisconnectedError, NotFoundError } from "@/errors";
 import { framer } from "@/framer";
+import { AccessDeniedError, DisconnectedError, NotFoundError } from "@/index";
 import { query } from "@/query";
 
 interface Doc extends record.Keyed<string> {
@@ -533,6 +533,24 @@ describe("Cache", () => {
       await cache.ensureStreaming();
       await expect.poll(() => table.status("gone")).toBe("tombstoned");
       expect(table.get("kept")).toEqual({ key: "kept", name: "kept-fresh" });
+      await cache.close();
+    });
+
+    it("narrows a rejected batch in halves instead of probing every key", async () => {
+      const keys = Array.from({ length: 64 }, (_, i) => `k${i}`);
+      const fetch = vi.fn(async (batch: string[]) => {
+        if (batch.includes("k17"))
+          throw new NotFoundError("Docs with keys [k17] not found");
+        return batch.map((k) => ({ key: k, name: `${k}-fresh` }));
+      });
+      const cache = makeReopeningEngine();
+      const table = cache.createTable<string, Doc>({ name: "docs", fetch });
+      table.set(keys.map((k) => ({ key: k, name: "stale" })));
+      await cache.ensureStreaming();
+      await expect.poll(() => table.status("k17")).toBe("tombstoned");
+      expect(table.get("k63")).toEqual({ key: "k63", name: "k63-fresh" });
+      // One batch, then two halves at each of six levels.
+      expect(fetch).toHaveBeenCalledTimes(13);
       await cache.close();
     });
 

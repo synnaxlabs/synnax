@@ -9,7 +9,9 @@
 
 #pragma once
 
+#include <chrono>
 #include <memory>
+#include <optional>
 #include <string>
 
 #include "x/cpp/errors/errors.h"
@@ -41,6 +43,9 @@ public:
     /// @brief The transport variant that the context is associated with. Can either
     /// be a streaming (STREAM) or unary (UNARY) transport.
     TransportVariant variant;
+    /// @brief The time after which the transport gives up on the request. Unset means
+    /// the request waits as long as the transport allows.
+    std::optional<std::chrono::system_clock::time_point> deadline;
 
     /// @brief Constructs the context with an empty set of parameters.
     Context(std::string protocol, x::url::URL target, const TransportVariant variant):
@@ -53,7 +58,8 @@ public:
         id(other.id),
         protocol(other.protocol),
         target(other.target),
-        variant(other.variant) {
+        variant(other.variant),
+        deadline(other.deadline) {
         for (const auto &[k, v]: other.params)
             params[k] = v;
     }
@@ -64,6 +70,7 @@ public:
         target = other.target;
         id = other.id;
         variant = other.variant;
+        deadline = other.deadline;
         for (const auto &[k, v]: other.params)
             params[k] = v;
         return *this;

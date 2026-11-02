@@ -12,14 +12,14 @@
     "dev-vite": "VITE_IS_DEV=true vite --force",
     "build-vite": "vite build",
     "preview": "vite preview",
-    "lint": "eslint",
-    "fix": "eslint --fix",
-    "stylelint": "stylelint \"src/**/*.css\"",
+    "lint": "eslint && stylelint \"src/**/*.css\"",
+    "fix": "eslint --fix && stylelint --fix \"src/**/*.css\"",
     "test": "vitest",
     "cov": "vitest --coverage",
     "devtools": "pnpm dlx react-devtools"
   },
   "dependencies": {
+    "@noble/hashes": "catalog:",
     "@reduxjs/toolkit": "catalog:",
     "@synnaxlabs/client": "catalog:",
     "@synnaxlabs/drift": "catalog:",
@@ -43,6 +43,7 @@
     "react": "catalog:",
     "react-dom": "catalog:",
     "react-redux": "catalog:",
+    "uuid": "catalog:",
     "zod": "catalog:"
   },
   "devDependencies": {

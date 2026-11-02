@@ -418,7 +418,7 @@ var _ = Describe("Service", func() {
 		)
 	})
 
-	Describe("RetrievePoliciesForSubject", func() {
+	Describe("Role policies", func() {
 		var (
 			policyWriter policy.Writer
 			roleWriter   role.Writer
@@ -431,7 +431,7 @@ var _ = Describe("Service", func() {
 			Expect(otg.NewWriter(tx).DefineResources(ctx, subject)).To(Succeed())
 		})
 
-		It("Should retrieve policies from assigned roles", func(ctx SpecContext) {
+		It("Should enforce the policies of an assigned role", func(ctx SpecContext) {
 			r := &role.Role{
 				Name:        "admin",
 				Description: "Administrator role",
@@ -455,19 +455,30 @@ var _ = Describe("Service", func() {
 			Expect(policyWriter.SetOnRole(ctx, r.Key, p1.Key, p2.Key)).To(Succeed())
 			Expect(roleWriter.AssignRole(ctx, subject, r.Key)).To(Succeed())
 
-			policies := MustSucceed(
-				rbacSvc.RetrievePoliciesForSubject(ctx, subject, tx),
-			)
-			Expect(policies).To(HaveLen(2))
-			policyKeys := []uuid.UUID{policies[0].Key, policies[1].Key}
-			Expect(policyKeys).To(ContainElements(p1.Key, p2.Key))
+			enforcer := rbacSvc.NewEnforcer(tx)
+			Expect(enforcer.Enforce(ctx, access.Request{
+				Subject: subject,
+				Objects: []ontology.ID{{Type: "channel", Key: "ch1"}},
+				Action:  access.ActionDelete,
+			})).To(Succeed())
+			Expect(enforcer.Enforce(ctx, access.Request{
+				Subject: subject,
+				Objects: []ontology.ID{{Type: "project", Key: "p1"}},
+				Action:  access.ActionRetrieve,
+			})).To(Succeed())
+			Expect(enforcer.Enforce(ctx, access.Request{
+				Subject: subject,
+				Objects: []ontology.ID{{Type: "project", Key: "p1"}},
+				Action:  access.ActionUpdate,
+			})).To(MatchError(access.ErrDenied))
 		})
 
-		It("Should return empty list when no roles assigned", func(ctx SpecContext) {
-			policies := MustSucceed(
-				rbacSvc.RetrievePoliciesForSubject(ctx, subject, tx),
-			)
-			Expect(policies).To(BeEmpty())
+		It("Should deny a subject with no assigned roles", func(ctx SpecContext) {
+			Expect(rbacSvc.NewEnforcer(tx).Enforce(ctx, access.Request{
+				Subject: subject,
+				Objects: []ontology.ID{{Type: "channel", Key: "ch1"}},
+				Action:  access.ActionRetrieve,
+			})).To(MatchError(access.ErrDenied))
 		})
 	})
 

@@ -8,6 +8,7 @@
 // included in the file licenses/APL.txt.
 
 import { Menu as PMenu } from "@synnaxlabs/lyra/menu";
+import { TimeRange } from "@synnaxlabs/x";
 import { fireEvent, screen, waitFor } from "@testing-library/react";
 import { describe, expect, it, vi } from "vitest";
 
@@ -18,7 +19,7 @@ const PERSISTED: Range.Resolved = {
   variant: "persisted",
   key: "r1",
   name: "Alpha",
-  timeRange: { start: 0, end: 1 },
+  timeRange: new TimeRange(0, 1),
 };
 
 const LOCAL: Range.Resolved = {

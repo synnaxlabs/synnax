@@ -62,9 +62,9 @@ func NewPointWriteConflictError(ts telem.TimeStamp, existingTr telem.TimeRange) 
 	)
 }
 
-// NewRangeNotFoundError is returned when a resource for a specified time range is not
+// newRangeNotFoundError is returned when a resource for a specified time range is not
 // found in the DB.
-func NewRangeNotFoundError(tr telem.TimeRange) error {
+func newRangeNotFoundError(tr telem.TimeRange) error {
 	return errors.Wrapf(ErrRangeNotFound, "time range %s cannot be found", tr)
 }
 

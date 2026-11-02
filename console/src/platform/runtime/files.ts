@@ -137,24 +137,6 @@ export const pickFiles = (async (
   return params.multiple === true ? files : files[0];
 }) as PickFiles;
 
-/** Options for pickPath. */
-export interface PickPathParams {
-  /** Titles the native dialog. */
-  title: string;
-}
-
-/**
- * Opens a native file picker and returns the chosen file's absolute path, or null if
- * the user cancels. Only the desktop app can produce a path, so this rejects in the
- * browser; callers that need contents instead of a path use pickFiles, which works in
- * both runtimes.
- */
-export const pickPath = async ({ title }: PickPathParams): Promise<string | null> => {
-  if (Session.Runtime.ENGINE !== "tauri")
-    throw new Error("File paths can only be selected in the Synnax desktop app.");
-  return await open({ title, directory: false, multiple: false });
-};
-
 /** A directory chosen through a picker, with its files read lazily. */
 export interface PickedDirectory {
   /** The picked directory's basename. */

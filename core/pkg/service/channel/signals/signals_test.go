@@ -11,12 +11,9 @@ package signals_test
 
 import (
 	"context"
-	"io"
-	"time"
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
-	"github.com/samber/lo"
 	"github.com/synnaxlabs/synnax/pkg/service/channel"
 	. "github.com/synnaxlabs/synnax/pkg/service/channel/testutil"
 	"github.com/synnaxlabs/synnax/pkg/service/framer"
@@ -30,10 +27,12 @@ type channelPayload struct {
 	Name string `json:"name"`
 }
 
-func openStreamer(ctx context.Context, name string) (
-	confluence.Inlet[framer.StreamerRequest],
-	confluence.Outlet[framer.StreamerResponse], io.Closer,
-) {
+// openStreamer opens a streamer on the signal channel with the given name and returns
+// once the streamer is subscribed. The streamer closes when the spec ends.
+func openStreamer(
+	ctx context.Context,
+	name string,
+) confluence.Outlet[framer.StreamerResponse] {
 	GinkgoHelper()
 	var sigCh channel.Channel
 	Expect(channelSvc.NewRetrieve().
@@ -42,55 +41,64 @@ func openStreamer(ctx context.Context, name string) (
 		Exec(ctx, nil),
 	).To(Succeed())
 	streamer := MustSucceed(framerSvc.NewStreamer(ctx, framer.StreamerConfig{
-		Keys: channel.Keys{sigCh.Key()},
+		Keys:        channel.Keys{sigCh.Key()},
+		SendOpenAck: true,
 	}))
 	requests, responses := confluence.Attach(streamer, 2)
 	sCtx, cancel := signal.Isolated()
 	streamer.Flow(sCtx, confluence.CloseOutputInletsOnExit())
-	// A slight delay guarantees the streamer has started up and is subscribed before
-	// the change that should propagate to it is made.
-	time.Sleep(5 * time.Millisecond)
-	return requests, responses, signal.NewHardShutdown(sCtx, cancel)
+	DeferClose(signal.NewHardShutdown(sCtx, cancel))
+	DeferCleanup(func() {
+		requests.Close()
+		Eventually(responses.Outlet()).Should(BeClosed())
+	})
+	Eventually(responses.Outlet()).Should(Receive())
+	return responses
+}
+
+// receiveSeries receives frames until the first series of one passes check. Earlier
+// frames can carry changes that other specs made.
+func receiveSeries(
+	responses confluence.Outlet[framer.StreamerResponse],
+	check func(g Gomega, series telem.Series),
+) {
+	GinkgoHelper()
+	Eventually(func(g Gomega) {
+		var res framer.StreamerResponse
+		g.Expect(responses.Outlet()).To(Receive(&res))
+		check(g, res.Frame.SeriesAt(0))
+	}).Should(Succeed())
 }
 
 var _ = Describe("Signals", func() {
 	It("Should propagate a channel creation to the set channel", func(ctx SpecContext) {
-		requests, responses, closeStreamer := openStreamer(ctx, "sy_channel_set")
+		responses := openStreamer(ctx, "sy_channel_set")
 		ch := channel.Channel{
 			Name: UniqueChannelName(), DataType: telem.TimestampT, IsIndex: true,
 		}
 		Expect(channelSvc.NewWriter(nil).Create(ctx, &ch)).To(Succeed())
-		var res framer.StreamerResponse
-		Eventually(responses.Outlet()).Should(Receive(&res))
-		payloads := MustSucceed(res.Frame.SeriesAt(0).DecodeJSON[channelPayload]())
-		names := make([]string, len(payloads))
-		for i, p := range payloads {
-			names[i] = p.Name
-		}
-		Expect(names).To(ContainElement(ch.Name))
-		requests.Close()
-		Eventually(responses.Outlet()).Should(BeClosed())
-		Expect(closeStreamer.Close()).To(Succeed())
+		receiveSeries(responses, func(g Gomega, s telem.Series) {
+			g.Expect(s.DecodeJSON[channelPayload]()).
+				To(ContainElement(HaveField("Name", ch.Name)))
+		})
 	})
 
 	It(
 		"Should not marshal zero-length operations to the set channel",
 		func(ctx SpecContext) {
-			requests, responses, closeStreamer := openStreamer(ctx, "sy_channel_set")
+			responses := openStreamer(ctx, "sy_channel_set")
 			ch := channel.Channel{
 				Name: UniqueChannelName(), DataType: telem.TimestampT, IsIndex: true,
 			}
 			Expect(channelSvc.NewWriter(nil).Create(ctx, &ch)).To(Succeed())
-			var res framer.StreamerResponse
-			Eventually(responses.Outlet()).Should(Receive(&res))
-			payloads := MustSucceed(res.Frame.SeriesAt(0).DecodeJSON[map[string]any]())
-			payload := MustBeOk(lo.Find(payloads, func(p map[string]any) bool {
-				return p["name"] == ch.Name
-			}))
-			Expect(payload).ToNot(HaveKey("operations"))
-			requests.Close()
-			Eventually(responses.Outlet()).Should(BeClosed())
-			Expect(closeStreamer.Close()).To(Succeed())
+			var payloads []map[string]any
+			receiveSeries(responses, func(g Gomega, s telem.Series) {
+				g.Expect(s.DecodeJSON[map[string]any]()).To(ContainElement(
+					HaveKeyWithValue("name", ch.Name),
+					&payloads,
+				))
+			})
+			Expect(payloads).To(ConsistOf(Not(HaveKey("operations"))))
 		},
 	)
 
@@ -101,15 +109,11 @@ var _ = Describe("Signals", func() {
 				Name: UniqueChannelName(), DataType: telem.TimestampT, IsIndex: true,
 			}
 			Expect(channelSvc.NewWriter(nil).Create(ctx, &ch)).To(Succeed())
-			requests, responses, closeStreamer := openStreamer(ctx, "sy_channel_delete")
+			responses := openStreamer(ctx, "sy_channel_delete")
 			Expect(channelSvc.NewWriter(nil).Delete(ctx, ch.Key(), false)).To(Succeed())
-			var res framer.StreamerResponse
-			Eventually(responses.Outlet()).Should(Receive(&res))
-			keys := res.Frame.SeriesAt(0).Unmarshal[uint32]()
-			Expect(keys).To(ContainElement(uint32(ch.Key())))
-			requests.Close()
-			Eventually(responses.Outlet()).Should(BeClosed())
-			Expect(closeStreamer.Close()).To(Succeed())
+			receiveSeries(responses, func(g Gomega, s telem.Series) {
+				g.Expect(s.Unmarshal[uint32]()).To(ContainElement(uint32(ch.Key())))
+			})
 		},
 	)
 })

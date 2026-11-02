@@ -23,8 +23,7 @@ import (
 // DefaultModulePrefix is the fallback import path when go.mod resolution fails.
 const DefaultModulePrefix = "github.com/synnaxlabs/synnax/"
 
-// ParseModuleName extracts the module name from a go.mod file.
-func ParseModuleName(modPath string) (string, error) {
+func parseModuleName(modPath string) (string, error) {
 	file, err := os.Open(modPath)
 	if err != nil {
 		return "", err
@@ -62,7 +61,7 @@ func ResolveImportPath(outputPath, repoRoot, fallbackPrefix string) string {
 	for {
 		modPath := filepath.Join(dir, "go.mod")
 		if info, err := os.Stat(modPath); err == nil && !info.IsDir() {
-			moduleName, err := ParseModuleName(modPath)
+			moduleName, err := parseModuleName(modPath)
 			if err != nil {
 				break
 			}

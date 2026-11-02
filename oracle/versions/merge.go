@@ -58,7 +58,7 @@ func MergeLive(
 	}
 	opts := RenderOptions{
 		KeepExpression: func(domain string, expr resolution.Expression) bool {
-			return VersionOwned(domain, expr.Name)
+			return versionOwned(domain, expr.Name)
 		},
 		Qualifier: func(ns string) string {
 			if versionNS.MatchString(ns) || ns == chain.Resource {
@@ -393,20 +393,20 @@ func extractLive(source string) (*liveContent, error) {
 		name := d.IDENT().GetText()
 		content := d.DomainContent()
 		if content == nil {
-			if !VersionOwned(name, "") {
+			if !versionOwned(name, "") {
 				add("@" + name)
 			}
 			return
 		}
 		if e := content.Expression(); e != nil {
-			if !VersionOwned(name, e.IDENT().GetText()) {
+			if !versionOwned(name, e.IDENT().GetText()) {
 				add("@" + name + " " + text(e))
 			}
 			return
 		}
 		if blk := content.DomainBlock(); blk != nil {
 			for _, e := range blk.AllExpression() {
-				if !VersionOwned(name, e.IDENT().GetText()) {
+				if !versionOwned(name, e.IDENT().GetText()) {
 					add("@" + name + " " + text(e))
 				}
 			}

@@ -1,5 +1,9 @@
 {
   "extends": "@synnaxlabs/tsconfig/base.json",
-  "compilerOptions": { "composite": true, "types": [] },
-  "include": ["index.ts", "eslint.config.ts"]
+  "compilerOptions": {
+    "composite": true,
+    "types": ["node"],
+    "allowImportingTsExtensions": true
+  },
+  "include": ["*.ts"]
 }

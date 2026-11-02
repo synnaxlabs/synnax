@@ -348,7 +348,7 @@ var _ = Describe("CodeAction", func() {
 		It(
 			"should add an import when a qualified call references an unimported ambient module",
 			func(ctx SpecContext) {
-				content := "sequence main {\n    math.avg{}\n}\n"
+				content := "sequence main {\n    math.avg()\n}\n"
 				OpenArcDocument(server, ctx, uri, content)
 
 				diags := client.Diagnostics()
@@ -376,7 +376,7 @@ var _ = Describe("CodeAction", func() {
 		It(
 			"should not offer the fix when the module is already imported",
 			func(ctx SpecContext) {
-				content := "import math\n\nsequence main {\n    math.avg{}\n}\n"
+				content := "import math\n\nsequence main {\n    math.avg()\n}\n"
 				OpenArcDocument(server, ctx, uri, content)
 
 				diags := client.Diagnostics()
@@ -412,7 +412,7 @@ var _ = Describe("CodeAction", func() {
 					server,
 					ctx,
 					uri,
-					"sequence main {\n    math.avg{}\n}\n",
+					"sequence main {\n    math.avg()\n}\n",
 				)
 
 				actions := asCodeActions(

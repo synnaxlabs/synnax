@@ -7,8 +7,8 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { array, type compare, type record, shallow, state } from "@synnaxlabs/x";
-import { useSyncExternalStore } from "react";
+import { array, compare, deep, type record, state } from "@synnaxlabs/x";
+import { useRef, useSyncExternalStore } from "react";
 import { type z } from "zod";
 
 import { type ContextValue, useContext } from "@/form/Context";
@@ -125,8 +125,32 @@ export const useFieldValue = (<I, O = I, Z extends z.ZodType = z.ZodType>(
 export const useFieldValid = (path: string): boolean =>
   useFieldState(path, { optional: true })?.status?.variant === "success";
 
-/** Edits for a form field holding an array of keyed entries. */
-export interface FieldListUtils<K extends record.Key, E extends record.Keyed<K>> {
+/**
+ * Reads the statuses other than success at and under a path, each keyed by its path.
+ * Re-renders the caller only when one of them changes.
+ */
+export const useStatuses = <Z extends z.ZodType = z.ZodType>(
+  path: string,
+  opts?: ContextOptions<Z>,
+): Status.Crude[] => {
+  const { bind, getStatuses } = useContext(opts?.ctx);
+  const cached = useRef<Status.Crude[]>([]);
+  const getSnapshot = () => {
+    const next = getStatuses().filter(
+      ({ key }) => key != null && deep.pathsMatch(key, path),
+    );
+    if (compare.arraysEqual(next, cached.current)) return cached.current;
+    cached.current = next;
+    return next;
+  };
+  return useSyncExternalStore(bind, getSnapshot, getSnapshot);
+};
+
+/**
+ * Edits for a form field holding an array of keyed entries. Each edit names entries by
+ * key, so it merges with a concurrent edit to another entry.
+ */
+export interface FieldListUtils<K extends string, E extends record.Keyed<K>> {
   /** Appends entries, optionally re-sorting after. */
   push: (value: E | E[], sort?: compare.Comparator<E>) => void;
   /** Inserts entries at an index. */
@@ -135,58 +159,78 @@ export interface FieldListUtils<K extends record.Key, E extends record.Keyed<K>>
   remove: (keys: K | K[]) => K[];
   /** Drops everything but the named entries. @returns the keys that remain. */
   keepOnly: (keys: K | K[]) => K[];
+  /** Replaces the whole array. */
   set: (values: state.SetArg<E[]>) => void;
   value(): E[];
   sort?: (compareFn: compare.Comparator<E>) => void;
 }
 
 /** Builds {@link FieldListUtils} over a form context, outside of a React render. */
-export const fieldListUtils = <K extends record.Key, E extends record.Keyed<K>>(
+export const fieldListUtils = <K extends string, E extends record.Keyed<K>>(
   ctx: ContextValue<any>,
   path: string,
-): FieldListUtils<K, E> => ({
-  value: () => ctx.get<E[]>(path).value,
-  add: (value, start) => {
-    const copy = shallow.copy(ctx.get<E[]>(path).value);
-    copy.splice(start, 0, ...array.toArray(value));
-    ctx.set(path, copy);
-  },
-  push: (value, sort) => {
-    const copy = shallow.copy(ctx.get<E[]>(path).value);
-    copy.push(...array.toArray(value));
-    if (sort != null) copy.sort(sort);
-    ctx.set(path, copy);
-  },
-  remove: (key) => {
-    const val = ctx.get<E[]>(path).value;
-    const keys = new Set(array.toArray(key));
-    const next = val.filter(({ key }) => !keys.has(key));
-    ctx.set(path, next);
-    return next.map(({ key }) => key);
-  },
-  keepOnly: (key) => {
-    const val = ctx.get<E[]>(path).value;
-    const keys = new Set(array.toArray(key));
-    const next = val.filter(({ key }) => keys.has(key));
-    ctx.set(path, next);
-    return next.map(({ key }) => key);
-  },
-  set: (values) => ctx.set(path, state.executeSetter(values, ctx.get<E[]>(path).value)),
-  sort: (compareFn) => {
-    const copy = shallow.copy(ctx.get<E[]>(path).value);
-    copy.sort(compareFn);
-    ctx.set(path, copy);
-  },
-});
+): FieldListUtils<K, E> => {
+  const value = () => ctx.get<E[]>(path).value;
+  const keys = () => value().map(({ key }) => key);
+  const insert = (entries: E[], after: K | undefined) =>
+    entries.forEach((entry) => {
+      ctx.insert(path, entry, after);
+      after = entry.key;
+    });
+  // Moves each entry that is out of place, so an entry already in place is untouched.
+  const reorder = (target: E[]) => {
+    const current = keys();
+    target.forEach(({ key }, i) => {
+      if (current[i] === key) return;
+      ctx.move(path, key, i === 0 ? undefined : target[i - 1].key);
+      current.splice(current.indexOf(key), 1);
+      current.splice(i, 0, key);
+    });
+  };
+  // A path reads a list index before a key, so an entry is removed by its index. The
+  // last entry goes first, which keeps the other indexes valid.
+  const removeWhere = (drop: (key: K) => boolean) => {
+    ctx.batch(() => {
+      const current = keys();
+      for (let i = current.length - 1; i >= 0; i--)
+        if (drop(current[i])) ctx.remove(`${path}.${i}`);
+    });
+    return keys();
+  };
+  return {
+    value,
+    add: (entries, start) =>
+      ctx.batch(() => {
+        const current = keys();
+        const at = Math.min(start, current.length);
+        insert(array.toArray(entries), at > 0 ? current[at - 1] : undefined);
+      }),
+    push: (entries, sort) =>
+      ctx.batch(() => {
+        insert(array.toArray(entries), keys().at(-1));
+        if (sort != null) reorder(value().toSorted(sort));
+      }),
+    remove: (key) => {
+      const dropped = new Set(array.toArray(key));
+      return removeWhere((k) => dropped.has(k));
+    },
+    keepOnly: (key) => {
+      const kept = new Set(array.toArray(key));
+      return removeWhere((k) => !kept.has(k));
+    },
+    set: (values) => ctx.set(path, state.executeSetter(values, value())),
+    sort: (compareFn) => ctx.batch(() => reorder(value().toSorted(compareFn))),
+  };
+};
 
 /** @returns edits for an array field, without subscribing to its contents. */
-export const useFieldListUtils = <K extends record.Key, E extends record.Keyed<K>>(
+export const useFieldListUtils = <K extends string, E extends record.Keyed<K>>(
   path: string,
   opts?: ContextOptions<z.ZodType>,
 ): FieldListUtils<K, E> => fieldListUtils<K, E>(useContext(opts?.ctx), path);
 
 export interface UseFieldListReturn<
-  K extends record.Key,
+  K extends string,
   E extends record.Keyed<K>,
 > extends FieldListUtils<K, E> {
   data: K[];
@@ -197,7 +241,7 @@ export interface UseFieldListReturn<
  * into a {@link List.Frame}.
  */
 export const useFieldList = <
-  K extends record.Key,
+  K extends string,
   E extends record.Keyed<K>,
   Z extends z.ZodType = z.ZodType,
 >(

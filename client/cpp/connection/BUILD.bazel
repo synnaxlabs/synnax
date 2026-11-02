@@ -30,7 +30,7 @@ cc_test(
     srcs = ["checker_test.cpp"],
     deps = [
         ":connection",
-        "//freighter/cpp/mock",
+        "//freighter/cpp/testutil",
         "@googletest//:gtest_main",
     ],
 )

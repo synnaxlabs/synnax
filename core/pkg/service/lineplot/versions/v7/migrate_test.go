@@ -22,8 +22,8 @@ import (
 	v6 "github.com/synnaxlabs/synnax/pkg/service/lineplot/versions/v6"
 	v7 "github.com/synnaxlabs/synnax/pkg/service/lineplot/versions/v7"
 	"github.com/synnaxlabs/x/encoding/orc"
-	"github.com/synnaxlabs/x/kv/memkv"
 	. "github.com/synnaxlabs/x/testutil"
+	"github.com/synnaxlabs/x/testutil/memkv"
 )
 
 //go:embed testdata/*.hex
@@ -95,6 +95,13 @@ var _ = Describe("MigrateLine", func() {
 			Downsample:     8,
 			DownsampleMode: v6.DownsampleModeAverage,
 		}, v7.AggregationAverage),
+		Entry("a line averaged over one sample", v6.Line{
+			Downsample:     1,
+			DownsampleMode: v6.DownsampleModeAverage,
+		}, v7.AggregationMinMax),
+		Entry("an averaged line with no window", v6.Line{
+			DownsampleMode: v6.DownsampleModeAverage,
+		}, v7.AggregationMinMax),
 	)
 
 	It("Should keep the line's style", func(ctx SpecContext) {

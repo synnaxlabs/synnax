@@ -484,4 +484,106 @@ describe("Region.normalizeSVG", () => {
     expect(out).not.toContain("<style");
     expect(out).toContain("data-region-id");
   });
+
+  it("should remove event handlers and scripts from the output", () => {
+    const out = Region.normalizeSVG(
+      '<svg xmlns="http://www.w3.org/2000/svg" onload="alert(1)"><rect onclick="alert(1)" /><script>alert(1)</script></svg>',
+    );
+    expect(out).not.toContain("onload");
+    expect(out).not.toContain("onclick");
+    expect(out).not.toContain("<script");
+  });
+});
+
+describe("Region.parseSVG", () => {
+  const NS =
+    'xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink"';
+  const wrap = (content: string): string => `<svg ${NS}>${content}</svg>`;
+  const allElements = (root: Element): Element[] => [
+    root,
+    ...Array.from(root.querySelectorAll("*")),
+  ];
+
+  it("should return the root of valid markup", () => {
+    const root = Region.parseSVG(wrap('<rect width="5" height="5" />'));
+    expect(root?.tagName).toBe("svg");
+    expect(root?.querySelector("rect")?.getAttribute("width")).toBe("5");
+  });
+
+  it.each([
+    ["empty", ""],
+    ["malformed", `<svg ${NS}><rect></svg>`],
+    ["not rooted in svg", "<div><svg /></div>"],
+    ["outside the SVG namespace", '<svg viewBox="0 0 10 10"><rect /></svg>'],
+  ])("should return null for %s markup", (_, svg) => {
+    expect(Region.parseSVG(svg)).toBeNull();
+  });
+
+  it.each([
+    ["an onload handler on the root", `<svg ${NS} onload="alert(1)"><rect /></svg>`],
+    ["an onclick handler on a shape", wrap('<rect onclick="alert(1)" />')],
+    ["an upper case handler", wrap('<rect ONCLICK="alert(1)" />')],
+    ["a script element", wrap("<script>alert(1)</script><rect />")],
+    [
+      "a foreignObject element",
+      wrap(
+        '<foreignObject><img xmlns="http://www.w3.org/1999/xhtml" src="x" onerror="alert(1)" /></foreignObject>',
+      ),
+    ],
+    [
+      "an animation that sets an href",
+      wrap(
+        '<a><animate attributeName="href" to="javascript:alert(1)" /><set attributeName="href" to="javascript:alert(1)" /><rect /></a>',
+      ),
+    ],
+  ])("should remove %s", (_, svg) => {
+    const root = Region.parseSVG(svg);
+    expect(root).not.toBeNull();
+    allElements(root as Element).forEach((el) => {
+      expect(["script", "foreignObject", "animate", "set", "img"]).not.toContain(
+        el.localName,
+      );
+      Array.from(el.attributes).forEach((attr) =>
+        expect(attr.name.toLowerCase().startsWith("on")).toBe(false),
+      );
+    });
+  });
+
+  it.each([
+    ["a javascript href", '<a href="javascript:alert(1)"><rect /></a>'],
+    ["a javascript xlink:href", '<a xlink:href="javascript:alert(1)"><rect /></a>'],
+    ["a data href", '<image href="data:image/svg+xml;base64,PHN2Zz48L3N2Zz4=" />'],
+    ["an external href", '<image href="https://example.com/a.png" />'],
+    ["a use pointing outside the markup", '<use href="https://example.com/a.svg#a" />'],
+  ])("should remove %s", (_, content) => {
+    const root = Region.parseSVG(wrap(content));
+    expect(root).not.toBeNull();
+    allElements(root as Element).forEach((el) => {
+      expect(el.getAttribute("href")).toBeNull();
+      expect(el.getAttributeNS("http://www.w3.org/1999/xlink", "href")).toBeNull();
+    });
+  });
+
+  it("should keep ids that name document properties", () => {
+    const root = Region.parseSVG(wrap('<rect id="body" /><rect id="title" />'));
+    expect(root?.querySelector("#body")).not.toBeNull();
+    expect(root?.querySelector("#title")).not.toBeNull();
+  });
+
+  it("should keep a use that points into the markup", () => {
+    const root = Region.parseSVG(
+      wrap('<defs><rect id="a" width="5" /></defs><use href="#a" />'),
+    );
+    expect(root?.querySelector("use")?.getAttribute("href")).toBe("#a");
+  });
+
+  it("should keep a gradient fill that points into the markup", () => {
+    const root = Region.parseSVG(
+      wrap(
+        '<defs><linearGradient id="g"><stop offset="0" stop-color="red" /></linearGradient></defs><rect fill="url(#g)" />',
+      ),
+    );
+    expect(root?.querySelector("linearGradient")).not.toBeNull();
+    expect(root?.querySelector("rect")?.getAttribute("fill")).toBe("url(#g)");
+  });
 });

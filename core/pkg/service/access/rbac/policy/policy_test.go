@@ -602,13 +602,17 @@ var _ = Describe("Ontology Integration", func() {
 		})
 
 		It("Should return error for invalid UUID", func(ctx SpecContext) {
-			_, err := svc.RetrieveResource(ctx, "invalid-uuid", tx)
-			Expect(err).To(HaveOccurred())
+			Expect(
+				svc.RetrieveResource(ctx, "invalid-uuid", tx),
+			).Error().
+				To(MatchError("invalid uuid"))
 		})
 
 		It("Should return error for non-existent policy", func(ctx SpecContext) {
-			_, err := svc.RetrieveResource(ctx, uuid.New().String(), tx)
-			Expect(err).To(HaveOccurred())
+			Expect(
+				svc.RetrieveResource(ctx, uuid.New().String(), tx),
+			).Error().
+				To(MatchError(query.ErrNotFound))
 		})
 	})
 

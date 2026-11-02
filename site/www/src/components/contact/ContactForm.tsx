@@ -13,6 +13,7 @@ import { Form } from "@synnaxlabs/lyra/form";
 import { Icon } from "@synnaxlabs/lyra/icon";
 import { Input } from "@synnaxlabs/lyra/input";
 import { Text } from "@synnaxlabs/lyra/text";
+import { capture } from "@synnaxlabs/site-common/analytics";
 import { type ReactElement, useState } from "react";
 import { z } from "zod";
 
@@ -51,8 +52,10 @@ export const ContactForm = (): ReactElement => {
           body: data,
           headers: { Accept: "application/json" },
         });
-        if (res.ok) setSuccess(true);
-        else window.alert("Something went wrong. Please try again later.");
+        if (res.ok) {
+          setSuccess(true);
+          capture("contact_form_submitted");
+        } else window.alert("Something went wrong. Please try again later.");
       } catch {
         window.alert("Something went wrong. Please try again later.");
       }

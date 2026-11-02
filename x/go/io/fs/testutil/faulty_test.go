@@ -22,7 +22,7 @@ import (
 // openWrapped returns a faultless FS holding one file, "a.bin", containing "hello".
 func openWrapped() (*FaultyFS, xfs.File) {
 	GinkgoHelper()
-	fs := WrapFaultyFS(OpenMem())
+	fs := WrapFaultyFS(FileSystems["memFS"]())
 	f := MustSucceed(fs.Open("a.bin", os.O_CREATE|os.O_RDWR))
 	Expect(f.Write([]byte("hello"))).To(Equal(5))
 	return fs, f
@@ -51,14 +51,6 @@ var _ = Describe("FaultyFS", func() {
 			Expect(run(fs, f)).To(MatchError(ErrFault))
 		},
 		Entry(
-			"open",
-			WithFailOpen("a.bin"),
-			func(fs *FaultyFS, _ xfs.File) error {
-				_, err := fs.Open("a.bin", os.O_RDONLY)
-				return err
-			},
-		),
-		Entry(
 			"read at",
 			WithFailReadAt("a.bin"),
 			func(_ *FaultyFS, f xfs.File) error {
@@ -86,11 +78,6 @@ var _ = Describe("FaultyFS", func() {
 				_, err := fs.Stat("a.bin")
 				return err
 			},
-		),
-		Entry(
-			"remove",
-			WithFailRemove("a.bin"),
-			func(fs *FaultyFS, _ xfs.File) error { return fs.Remove("a.bin") },
 		),
 	)
 
@@ -127,11 +114,11 @@ var _ = Describe("FaultyFS", func() {
 	})
 
 	It("Should carry its failures and handle count into a sub FS", func() {
-		fs := WrapFaultyFS(OpenMem(), WithFailOpen("a.bin"))
+		fs := WrapFaultyFS(FileSystems["memFS"](), WithFailStat("a.bin"))
 		sub := MustSucceed(fs.Sub("nested"))
 		f := MustSucceed(sub.Open("b.bin", os.O_CREATE|os.O_RDWR))
 		Expect(fs.OpenFiles()).To(Equal(1))
 		Expect(f.Close()).To(Succeed())
-		Expect(sub.Open("a.bin", os.O_CREATE)).Error().To(MatchError(ErrFault))
+		Expect(sub.Stat("a.bin")).Error().To(MatchError(ErrFault))
 	})
 })

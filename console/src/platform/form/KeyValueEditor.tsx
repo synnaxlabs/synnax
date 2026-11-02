@@ -9,7 +9,7 @@
 
 import { Form } from "@synnaxlabs/lyra/form";
 import { Input } from "@synnaxlabs/lyra/input";
-import { caseconv } from "@synnaxlabs/x";
+import { caseconv, type xy } from "@synnaxlabs/x";
 import { useEffect } from "react";
 
 export type Entry<K extends string, V extends string | number> = {
@@ -24,6 +24,8 @@ export interface KeyValueEditorProps<K extends string, V extends string | number
   valuePlaceholder?: string;
   valueType?: V extends number ? "number" : "string";
   valueFirst?: boolean;
+  /** Names one entry in the add and remove buttons ("header"). */
+  resourceName?: string;
 }
 
 export const KeyValueEditor = <K extends string, V extends string | number>({
@@ -33,12 +35,14 @@ export const KeyValueEditor = <K extends string, V extends string | number>({
   valuePlaceholder = "Value",
   valueType,
   valueFirst = false,
+  resourceName,
   ...rest
 }: KeyValueEditorProps<K, V>): React.ReactElement => {
   const vt = valueType ?? "string";
   const { set, mode } = Form.useContext();
   const preview = mode === "preview" ? true : undefined;
   const value = Form.useFieldValue<Entry<K, V>[]>(path);
+  const statuses = Form.useStatuses(path);
 
   useEffect(() => {
     // weird stuff we have to do to deal with migrations where the previous value is an
@@ -63,6 +67,12 @@ export const KeyValueEditor = <K extends string, V extends string | number>({
     row[valueIndex] = entry.value;
     return row;
   });
+
+  const fields: string[] = [];
+  fields[keyIndex] = keyField;
+  fields[valueIndex] = "value";
+  const cellStatus = ({ x, y }: xy.XY) =>
+    statuses.find(({ key }) => key === `${path}.${y}.${fields[x]}`);
 
   const handleRowsChange = (next: Input.TableCell[][]) =>
     set(
@@ -95,7 +105,13 @@ export const KeyValueEditor = <K extends string, V extends string | number>({
 
   return (
     <Input.Item padHelpText={false} {...rest}>
-      <Input.Table value={rows} onChange={handleRowsChange} preview={preview}>
+      <Input.Table
+        value={rows}
+        onChange={handleRowsChange}
+        preview={preview}
+        resourceName={resourceName}
+        cellStatus={cellStatus}
+      >
         {columns}
       </Input.Table>
     </Input.Item>

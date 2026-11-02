@@ -113,12 +113,6 @@ func (s *BaseArcParserListener) EnterNamedOutput(ctx *NamedOutputContext) {}
 // ExitNamedOutput is called when production namedOutput is exited.
 func (s *BaseArcParserListener) ExitNamedOutput(ctx *NamedOutputContext) {}
 
-// EnterInputBlock is called when production inputBlock is entered.
-func (s *BaseArcParserListener) EnterInputBlock(ctx *InputBlockContext) {}
-
-// ExitInputBlock is called when production inputBlock is exited.
-func (s *BaseArcParserListener) ExitInputBlock(ctx *InputBlockContext) {}
-
 // EnterInputList is called when production inputList is entered.
 func (s *BaseArcParserListener) EnterInputList(ctx *InputListContext) {}
 
@@ -244,12 +238,6 @@ func (s *BaseArcParserListener) EnterAnonymousInputValues(ctx *AnonymousInputVal
 
 // ExitAnonymousInputValues is called when production anonymousInputValues is exited.
 func (s *BaseArcParserListener) ExitAnonymousInputValues(ctx *AnonymousInputValuesContext) {}
-
-// EnterArguments is called when production arguments is entered.
-func (s *BaseArcParserListener) EnterArguments(ctx *ArgumentsContext) {}
-
-// ExitArguments is called when production arguments is exited.
-func (s *BaseArcParserListener) ExitArguments(ctx *ArgumentsContext) {}
 
 // EnterArgumentList is called when production argumentList is entered.
 func (s *BaseArcParserListener) EnterArgumentList(ctx *ArgumentListContext) {}

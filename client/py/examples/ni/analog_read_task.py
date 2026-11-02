@@ -17,7 +17,7 @@ another, and temperature (thermocouple) from a third — all in a single task.
 
 To run this example, you'll need to have your Synnax cluster properly configured to
 detect National Instruments devices:
-https://docs.synnaxlabs.com/reference/driver/ni/get-started
+https://docs.synnaxlabs.com/reference/hardware/ni/configure-device
 
 You'll also need physical NI devices or simulated devices via NI-MAX.
 """

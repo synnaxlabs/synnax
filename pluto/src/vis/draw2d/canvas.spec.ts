@@ -44,6 +44,11 @@ interface Write {
   value: unknown;
 }
 
+interface FakeGradient {
+  stops: [offset: number, color: string][];
+  addColorStop: (offset: number, color: string) => void;
+}
+
 /**
  * The slice of the canvas surface the wrapper touches. Declared as plain properties
  * rather than extending the DOM interface so the spies stay unbound function values.
@@ -68,6 +73,9 @@ interface FakeContext {
   restore: Mock<() => void>;
   translate: Mock<(x: number, y: number) => void>;
   scale: Mock<(x: number, y: number) => void>;
+  createLinearGradient: Mock<
+    (x0: number, y0: number, x1: number, y1: number) => FakeGradient
+  >;
   font: string;
   fillStyle: string | CanvasGradient | CanvasPattern;
   strokeStyle: string | CanvasGradient | CanvasPattern;
@@ -139,6 +147,10 @@ const createFakeContext = (): FakeContext => {
     }),
     translate: vi.fn(),
     scale: vi.fn(),
+    createLinearGradient: vi.fn((): FakeGradient => {
+      const stops: FakeGradient["stops"] = [];
+      return { stops, addColorStop: (offset, color) => stops.push([offset, color]) };
+    }),
   } as unknown as FakeContext;
   Object.keys(values).forEach((prop) =>
     Object.defineProperty(ctx, prop, {
@@ -445,6 +457,68 @@ describe("SugaredOffscreenCanvasRenderingContext2D", () => {
     it("should derive text dimensions from the ink bounding box", () => {
       const [ctx] = create();
       expect(ctx.textDimensions("hello")).toEqual({ width: 24, height: 10 });
+    });
+
+    describe("fade", () => {
+      const fade = { end: 20, width: 5 };
+
+      const gradientOf = (fake: FakeContext): FakeGradient =>
+        fake.createLinearGradient.mock.results[0].value;
+
+      it("should fade text from its fill color to transparent", () => {
+        const [ctx, fake] = create();
+        ctx.fillStyle = "#ff0000";
+        let atFill: unknown;
+        fake.fillText.mockImplementation(() => {
+          atFill = fake.fillStyle;
+        });
+        ctx.fillText("hello", 1, 2, undefined, { fade });
+        expect(fake.translate).toHaveBeenCalledWith(1, 2);
+        expect(fake.createLinearGradient).toHaveBeenCalledWith(15, 0, 20, 0);
+        expect(gradientOf(fake).stops).toEqual([
+          [0, "#ff0000"],
+          [1, "#ff000000"],
+        ]);
+        expect(atFill).toBe(gradientOf(fake));
+        expect(fake.fillText).toHaveBeenCalledWith("hello", 0, 0, undefined);
+      });
+
+      it("should keep the fill color's alpha at the start of the fade", () => {
+        const [ctx, fake] = create();
+        ctx.fillStyle = "#ff000080";
+        ctx.fillText("hello", 1, 2, undefined, { fade });
+        expect(gradientOf(fake).stops[0]).toEqual([0, "#ff000080"]);
+      });
+
+      // The transform would scale a fade in canvas units a second time.
+      it("should fade in glyph units under a magnification", () => {
+        const [ctx, fake] = create();
+        ctx.applyScale(doubled).fillText("hello", 1, 2, undefined, { fade });
+        expect(fake.scale).toHaveBeenCalledWith(2, 3);
+        expect(fake.createLinearGradient).toHaveBeenCalledWith(15, 0, 20, 0);
+      });
+
+      it("should restore the fill style after faded text", () => {
+        const [ctx, fake] = create();
+        ctx.fillStyle = "#ff0000";
+        ctx.fillText("hello", 1, 2, undefined, { fade });
+        expect(fake.fillStyle).toBe("#ff0000");
+      });
+
+      it("should throw when the atlas would draw a fade", () => {
+        const [ctx] = create();
+        expect(() =>
+          ctx.fillText("hello", 1, 2, undefined, { useAtlas: true, fade }),
+        ).toThrow("A text atlas cannot fade text");
+      });
+
+      it("should throw when the fill is not a solid color", () => {
+        const [ctx] = create();
+        ctx.fillStyle = {} as CanvasGradient;
+        expect(() => ctx.fillText("hello", 1, 2, undefined, { fade })).toThrow(
+          "Text can fade only from a solid fill color",
+        );
+      });
     });
 
     describe("atlas fallback", () => {

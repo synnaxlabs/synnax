@@ -22,15 +22,7 @@ import {
   Viewport,
 } from "@synnaxlabs/pluto";
 import { type lineplot as pLineplot } from "@synnaxlabs/pluto/ether";
-import {
-  box,
-  location,
-  scale,
-  TimeRange,
-  TimeSpan,
-  unique,
-  type xy,
-} from "@synnaxlabs/x";
+import { box, location, scale, TimeRange, TimeSpan, type xy } from "@synnaxlabs/x";
 import { type ReactElement, type RefObject, useRef, useState } from "react";
 
 import { Controls } from "@/feature/lineplot/Controls";
@@ -190,31 +182,7 @@ const Internal = (): ReactElement => {
   const vis = Session.LinePlot.useSelect();
   const dispatch = Session.useDispatch();
   const hasUpdatePermission = Access.useUpdateGranted(lineplot.ontologyID(key));
-  const ranges = Base.useRanges();
-  const rangeKeys = unique.unique([...ranges.x1, ...ranges.x2]);
-  const resolved = Range.useResolveMultiple(rangeKeys);
-  const { custom } = ranges;
-  const m = new Map<string, Base.ResolvedRange>();
-  for (const r of resolved)
-    m.set(
-      r.key,
-      r.variant === "dynamic"
-        ? { variant: "dynamic", span: new TimeSpan(r.span) }
-        : { variant: "static", timeRange: new TimeRange(r.timeRange) },
-    );
-  if (custom != null && rangeKeys.includes(Range.CUSTOM_KEY))
-    m.set(
-      Range.CUSTOM_KEY,
-      custom.variant === "dynamic"
-        ? { variant: "dynamic", span: new TimeSpan(custom.span) }
-        : {
-            variant: "static",
-            // BigInt, not the constructor: TimeStamp parses a bare string as a
-            // date-time, not a decimal int64.
-            timeRange: new TimeRange(BigInt(custom.start), BigInt(custom.end)),
-          },
-    );
-  const resolvedRanges = m;
+  const windows = Session.Range.useResolveWindows(Base.useRanges());
 
   const hiddenLineKeys = Session.LinePlot.useSelectHiddenLines();
   const hiddenLines = new Set(hiddenLineKeys);
@@ -295,7 +263,7 @@ const Internal = (): ReactElement => {
           aetherKey={key}
           editable={hasUpdatePermission}
           enableTriggers={hasUpdatePermission}
-          resolvedRanges={resolvedRanges}
+          windows={windows}
           enableTooltip={enableTooltip}
           enableMeasure={clickMode === "measure"}
           measureMode={vis.measure.mode}

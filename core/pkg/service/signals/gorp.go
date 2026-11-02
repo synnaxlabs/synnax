@@ -140,21 +140,6 @@ func GorpPublisherConfigUUID[E gorp.Entry[uuid.UUID]](
 	}
 }
 
-func GorpPublisherConfigPureNumeric[K types.SizedNumeric, E gorp.Entry[K]](
-	obs observe.Observable[gorp.TxReader[K, E]],
-	dt telem.DataType,
-) GorpPublisherConfig[K, E] {
-	return GorpPublisherConfig[K, E]{
-		Observable:     obs,
-		DeleteDataType: dt,
-		SetDataType:    dt,
-		MarshalDelete:  func(k K) ([]byte, error) { return unsafe.CastToBytes(k), nil },
-		MarshalSet: func(e E) ([]byte, error) {
-			return unsafe.CastToBytes(e.GorpKey()), nil
-		},
-	}
-}
-
 func GorpPublisherConfigNumeric[K types.SizedNumeric, E gorp.Entry[K]](
 	obs observe.Observable[gorp.TxReader[K, E]],
 	dt telem.DataType,

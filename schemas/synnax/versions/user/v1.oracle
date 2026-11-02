@@ -1,0 +1,33 @@
+// Copyright 2026 Synnax Labs, Inc.
+//
+// Use of this software is governed by the Business Source License included in the file
+// licenses/BSL.txt.
+//
+// As of the Change Date specified in that file, in accordance with the Business Source
+// License, use of this software will be governed by the Apache License, Version 2.0,
+// included in the file licenses/APL.txt.
+
+Key = v0.Key
+
+User struct {
+    key       Key    {
+        @doc value "is the unique identifier for this user."
+        @key
+    }
+    name      string {
+        @doc value "is the user's display name."
+    }
+    root_user bool = false {
+        @doc value """
+            is true if this is a root/admin user with full system access. Root users
+            cannot be deleted.
+        """
+    }
+
+    @doc value  """
+        is an account entity representing a person accessing the Synnax system. Users
+        can have roles assigned for permission management.
+    """
+    @go marshal
+    @go migrate
+}

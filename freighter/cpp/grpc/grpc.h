@@ -135,6 +135,7 @@ public:
         ::grpc::ClientContext grpc_ctx;
         for (const auto &[k, v]: req_ctx.params)
             grpc_ctx.AddMetadata(k, v);
+        if (req_ctx.deadline) grpc_ctx.set_deadline(*req_ctx.deadline);
 
         // Execute request.
         auto channel = this->pool->get_channel(req_ctx.target);

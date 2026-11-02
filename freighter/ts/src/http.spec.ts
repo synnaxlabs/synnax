@@ -11,8 +11,7 @@ import { binary, url, zod } from "@synnaxlabs/x";
 import { describe, expect, test } from "vitest";
 import { z } from "zod";
 
-import { Unreachable } from "@/errors";
-import { HTTPClient } from "@/http";
+import { HTTPClient, Unreachable } from "@/index";
 
 const ENDPOINT = new url.URL({
   host: "127.0.0.1",
@@ -55,6 +54,19 @@ describe("http", () => {
     await expect(
       client.send("/echo", { id: 1, message: "hello" }, messageZ, mismatchedZ),
     ).rejects.toThrow("Failed to parse /echo response");
+  });
+
+  test("request params", async () => {
+    const c = new HTTPClient(ENDPOINT, new binary.JSONCodec());
+    const response = await c.send("/middlewareCheck", {}, messageZ, messageZ, {
+      Test: "test",
+    });
+    expect(response.message).toEqual("");
+  });
+
+  test("request params missing", async () => {
+    const c = new HTTPClient(ENDPOINT, new binary.JSONCodec());
+    await expect(c.send("/middlewareCheck", {}, messageZ, messageZ)).rejects.toThrow();
   });
 
   test("middleware", async () => {

@@ -19,7 +19,9 @@ import (
 	. "github.com/onsi/gomega"
 	"github.com/samber/lo"
 	. "github.com/synnaxlabs/alamos/testutil"
+	"github.com/synnaxlabs/cesium"
 	"github.com/synnaxlabs/cesium/internal/domain"
+	"github.com/synnaxlabs/cesium/internal/testutil"
 	xfs "github.com/synnaxlabs/x/io/fs"
 	. "github.com/synnaxlabs/x/io/fs/testutil"
 	"github.com/synnaxlabs/x/telem"
@@ -140,6 +142,211 @@ var _ = Describe("Writer Behavior", Ordered, func() {
 						})
 						Expect(err).To(MatchError(domain.ErrWriteConflict))
 					})
+				})
+			})
+			Describe("SetStart", func() {
+				firstDomain := func(ctx SpecContext) telem.TimeRange {
+					GinkgoHelper()
+					i := db.OpenIterator(domain.IterRange(telem.TimeRangeMax))
+					Expect(i.SeekFirst(ctx)).To(BeTrue())
+					tr := i.TimeRange()
+					Expect(i.Close()).To(Succeed())
+					return tr
+				}
+				It(
+					"Should not write until a writer opened without a start has one",
+					func(ctx SpecContext) {
+						w := MustSucceed(db.OpenWriter(ctx, domain.WriterConfig{}))
+						Expect(w.Write([]byte{1, 2, 3})).Error().
+							To(MatchError(domain.ErrNoStart))
+						Expect(w.SetStart(10 * telem.SecondTS)).To(Succeed())
+						MustSucceed(w.Write([]byte{1, 2, 3}))
+						Expect(w.Commit(ctx, 13*telem.SecondTS)).To(Succeed())
+						Expect(w.Close()).To(Succeed())
+						Expect(firstDomain(ctx)).To(Equal(
+							(10 * telem.SecondTS).Range(13 * telem.SecondTS),
+						))
+					},
+				)
+				It(
+					"Should move the start before the first write",
+					func(ctx SpecContext) {
+						w := MustSucceed(db.OpenWriter(ctx, domain.WriterConfig{
+							Start: 10 * telem.SecondTS,
+						}))
+						Expect(w.SetStart(5 * telem.SecondTS)).To(Succeed())
+						MustSucceed(w.Write([]byte{1, 2, 3}))
+						Expect(w.Commit(ctx, 8*telem.SecondTS)).To(Succeed())
+						Expect(w.Close()).To(Succeed())
+						Expect(firstDomain(ctx)).To(Equal(
+							(5 * telem.SecondTS).Range(8 * telem.SecondTS),
+						))
+					},
+				)
+				It(
+					"Should check stored data at the start instead of at open",
+					func(ctx SpecContext) {
+						Expect(testutil.WriteDomain(
+							ctx,
+							db,
+							(10 * telem.SecondTS).Range(20*telem.SecondTS),
+							[]byte{1, 2, 3},
+						)).To(Succeed())
+						w := MustSucceed(db.OpenWriter(ctx, domain.WriterConfig{}))
+						Expect(w.SetStart(15 * telem.SecondTS)).To(And(
+							MatchError(domain.ErrWriteConflict),
+							MatchError(ContainSubstring(
+								"cannot start writer because there is already data",
+							)),
+						))
+						Expect(w.SetStart(20 * telem.SecondTS)).To(Succeed())
+						Expect(w.Close()).To(Succeed())
+					},
+				)
+				It("Should not set the start after a write", func(ctx SpecContext) {
+					w := MustSucceed(db.OpenWriter(ctx, domain.WriterConfig{
+						Start: 10 * telem.SecondTS,
+					}))
+					MustSucceed(w.Write([]byte{1, 2, 3}))
+					Expect(
+						w.SetStart(5 * telem.SecondTS),
+					).To(MatchError(domain.ErrStartAfterWrite))
+					Expect(w.Close()).To(Succeed())
+				})
+				It("Should not set a start after a preset end", func(ctx SpecContext) {
+					w := MustSucceed(db.OpenWriter(ctx, domain.WriterConfig{
+						End: 10 * telem.SecondTS,
+					}))
+					Expect(w.SetStart(15 * telem.SecondTS)).To(And(
+						MatchError(validate.ErrValidation),
+						MatchError(ContainSubstring(
+							"must not be after the preset end timestamp",
+						)),
+					))
+					Expect(w.Close()).To(Succeed())
+				})
+			})
+			Describe("Finish", func() {
+				domains := func(ctx SpecContext) []telem.TimeRange {
+					GinkgoHelper()
+					i := db.OpenIterator(domain.IterRange(telem.TimeRangeMax))
+					defer func() { Expect(i.Close()).To(Succeed()) }()
+					var ranges []telem.TimeRange
+					for ok := i.SeekFirst(ctx); ok; ok = i.Next() {
+						ranges = append(ranges, i.TimeRange())
+					}
+					return ranges
+				}
+				openWithDomain := func(ctx SpecContext) *domain.Writer {
+					GinkgoHelper()
+					w := MustSucceed(db.OpenWriter(ctx, domain.WriterConfig{
+						Start: 10 * telem.SecondTS,
+					}))
+					MustSucceed(w.Write([]byte{1, 2, 3}))
+					Expect(w.Commit(ctx, 13*telem.SecondTS)).To(Succeed())
+					return w
+				}
+				It(
+					"Should store the next writes in a new domain",
+					func(ctx SpecContext) {
+						w := openWithDomain(ctx)
+						Expect(w.Finish(ctx)).To(Succeed())
+						Expect(w.Len()).To(BeZero())
+						Expect(w.SetStart(20 * telem.SecondTS)).To(Succeed())
+						MustSucceed(w.Write([]byte{4, 5}))
+						Expect(w.Commit(ctx, 22*telem.SecondTS)).To(Succeed())
+						Expect(w.Close()).To(Succeed())
+						Expect(domains(ctx)).To(Equal([]telem.TimeRange{
+							(10 * telem.SecondTS).Range(13 * telem.SecondTS),
+							(20 * telem.SecondTS).Range(22 * telem.SecondTS),
+						}))
+						i := db.OpenIterator(domain.IterRange(telem.TimeRangeMax))
+						Expect(i.SeekLast(ctx)).To(BeTrue())
+						r := MustSucceed(i.OpenReader(ctx))
+						buf := make([]byte, 2)
+						Expect(r.ReadAt(buf, 0)).To(Equal(2))
+						Expect(buf).To(Equal([]byte{4, 5}))
+						Expect(r.Close()).To(Succeed())
+						Expect(i.Close()).To(Succeed())
+					},
+				)
+				It(
+					"Should not write until the next domain has a start",
+					func(ctx SpecContext) {
+						w := openWithDomain(ctx)
+						Expect(w.Finish(ctx)).To(Succeed())
+						Expect(
+							w.Write([]byte{4}),
+						).Error().
+							To(MatchError(domain.ErrNoStart))
+						Expect(w.Close()).To(Succeed())
+					},
+				)
+				It("Should discard uncommitted data", func(ctx SpecContext) {
+					w := openWithDomain(ctx)
+					MustSucceed(w.Write([]byte{4, 5}))
+					Expect(w.Finish(ctx)).To(Succeed())
+					Expect(w.Close()).To(Succeed())
+					i := db.OpenIterator(domain.IterRange(telem.TimeRangeMax))
+					Expect(i.SeekFirst(ctx)).To(BeTrue())
+					Expect(i.Size()).To(Equal(telem.Size(3)))
+					Expect(i.Close()).To(Succeed())
+				})
+				It(
+					"Should let another writer fill the time between two domains",
+					func(ctx SpecContext) {
+						w := openWithDomain(ctx)
+						Expect(w.Finish(ctx)).To(Succeed())
+						Expect(w.SetStart(20 * telem.SecondTS)).To(Succeed())
+						MustSucceed(w.Write([]byte{4, 5}))
+						Expect(w.Commit(ctx, 22*telem.SecondTS)).To(Succeed())
+						fill := MustSucceed(db.OpenWriter(ctx, domain.WriterConfig{
+							Start: 15 * telem.SecondTS,
+						}))
+						MustSucceed(fill.Write([]byte{6}))
+						Expect(fill.Commit(ctx, 16*telem.SecondTS)).To(Succeed())
+						Expect(fill.Close()).To(Succeed())
+						Expect(w.Close()).To(Succeed())
+						Expect(domains(ctx)).To(HaveLen(3))
+					},
+				)
+				It(
+					"Should fail to start a domain over the one it ended",
+					func(ctx SpecContext) {
+						w := openWithDomain(ctx)
+						Expect(w.Finish(ctx)).To(Succeed())
+						Expect(w.SetStart(12 * telem.SecondTS)).To(And(
+							MatchError(domain.ErrWriteConflict),
+							MatchError(ContainSubstring(
+								"cannot start writer because there is already data",
+							)),
+						))
+						Expect(w.Close()).To(Succeed())
+					},
+				)
+				It("Should fail on a closed writer", func(ctx SpecContext) {
+					w := openWithDomain(ctx)
+					Expect(w.Close()).To(Succeed())
+					Expect(w.Finish(ctx)).To(MatchError(domain.ErrWriterClosed))
+				})
+				It("Should keep both domains across a restart", func(ctx SpecContext) {
+					w := MustSucceed(db.OpenWriter(ctx, domain.WriterConfig{
+						Start:                    10 * telem.SecondTS,
+						AutoIndexPersistInterval: 1 * telem.Hour,
+					}))
+					MustSucceed(w.Write([]byte{1, 2, 3}))
+					Expect(w.Commit(ctx, 13*telem.SecondTS)).To(Succeed())
+					Expect(w.Finish(ctx)).To(Succeed())
+					Expect(w.SetStart(20 * telem.SecondTS)).To(Succeed())
+					MustSucceed(w.Write([]byte{4, 5}))
+					Expect(w.Commit(ctx, 22*telem.SecondTS)).To(Succeed())
+					Expect(w.Close()).To(Succeed())
+					Expect(db.Close()).To(Succeed())
+					db = MustSucceed(domain.Open(domain.Config{
+						FS:              fs,
+						Instrumentation: PanicLogger(),
+					}))
+					Expect(domains(ctx)).To(HaveLen(2))
 				})
 			})
 			Describe("CheckFileSizeAndMaybeSwitchFile", func() {
@@ -551,7 +758,7 @@ var _ = Describe("Writer Behavior", Ordered, func() {
 					func(ctx SpecContext) {
 						By("Replacing the DB with a recorder-wrapped FS")
 						Expect(db.Close()).To(Succeed())
-						rec := xfs.NewRecorder(fs)
+						rec := NewRecorder(fs)
 						db = MustSucceed(domain.Open(domain.Config{
 							FS:              rec,
 							Instrumentation: PanicLogger(),
@@ -581,8 +788,8 @@ var _ = Describe("Writer Behavior", Ordered, func() {
 						)
 						Expect(
 							rec.Count(
-								xfs.MatchOp(xfs.OpWrite, xfs.OpWriteAt),
-								xfs.MatchName("index.domain"),
+								MatchOp(OpWrite, OpWriteAt),
+								MatchName("index.domain"),
 							),
 						).
 							To(BeZero())
@@ -596,8 +803,8 @@ var _ = Describe("Writer Behavior", Ordered, func() {
 						By("Asserting the post-interval commit wrote the index file")
 						Expect(
 							rec.Count(
-								xfs.MatchOp(xfs.OpWrite, xfs.OpWriteAt),
-								xfs.MatchName("index.domain"),
+								MatchOp(OpWrite, OpWriteAt),
+								MatchName("index.domain"),
 							),
 						).
 							To(BeNumerically(">", 0))
@@ -621,7 +828,7 @@ var _ = Describe("Writer Behavior", Ordered, func() {
 								ctx,
 								domain.WriterConfig{
 									Start:                    10 * telem.SecondTS,
-									AutoIndexPersistInterval: domain.AlwaysIndexPersistOnAutoCommit,
+									AutoIndexPersistInterval: cesium.AlwaysIndexPersistOnAutoCommit,
 								},
 							),
 						)
@@ -739,7 +946,7 @@ var _ = Describe("Writer Behavior", Ordered, func() {
 					"Should not write the index file on commits within the persist interval",
 					func(ctx SpecContext) {
 						Expect(db.Close()).To(Succeed())
-						rec := xfs.NewRecorder(fs)
+						rec := NewRecorder(fs)
 						db = MustSucceed(domain.Open(domain.Config{
 							FS:              rec,
 							FileSize:        1 * telem.Megabyte,
@@ -760,8 +967,8 @@ var _ = Describe("Writer Behavior", Ordered, func() {
 						// touched by commits. Snapshot the count before Close since
 						// Close itself flushes any unpersisted state.
 						indexWrites := rec.Count(
-							xfs.MatchOp(xfs.OpWrite, xfs.OpWriteAt),
-							xfs.MatchName("index.domain"),
+							MatchOp(OpWrite, OpWriteAt),
+							MatchName("index.domain"),
 						)
 						Expect(w.Close()).To(Succeed())
 						Expect(indexWrites).To(BeZero())
@@ -806,7 +1013,7 @@ var _ = Describe("Writer Behavior", Ordered, func() {
 				It("Should not write on a closed database", func(ctx SpecContext) {
 					Expect(db.Close()).To(Succeed())
 					Expect(
-						domain.Write(
+						testutil.WriteDomain(
 							ctx,
 							db,
 							telem.TimeStamp(0).Range(telem.TimeStamp(1)),

@@ -11,7 +11,7 @@
 
 #include "x/cpp/json/any.h"
 #include "x/cpp/json/testutil/testutil.h"
-#include "x/cpp/test/test.h"
+#include "x/cpp/testutil/testutil.h"
 
 namespace x::json {
 TEST(ToAny, ObjectRoundTrip) {

@@ -78,6 +78,8 @@ const hashedAssetDir = "assets"
 
 // BindTo binds the console UI service to the provided Fiber app.
 func (c *Console) BindTo(app *fiber.App) {
+	// Routes bound before the Console answer without reaching this middleware.
+	app.Use(setSecurityHeaders)
 	sendFile := fiber.SendFile{FS: c.fs, Compress: true, CacheDuration: -1}
 	if !c.enabled() {
 		app.Get("/", func(ctx fiber.Ctx) error {
@@ -111,6 +113,33 @@ func (c *Console) BindTo(app *fiber.App) {
 		ctx.Set(fiber.HeaderCacheControl, noStoreCacheControl)
 		return nil
 	})
+}
+
+// contentSecurityPolicy allows connections to any host so the Console can reach a Core
+// at any address.
+const contentSecurityPolicy = "default-src 'self'; " +
+	"script-src 'self' 'unsafe-eval' 'wasm-unsafe-eval'; " +
+	"style-src 'self' 'unsafe-inline'; " +
+	"img-src 'self' data: blob:; " +
+	"font-src 'self' data:; " +
+	"connect-src 'self' data: http: https: ws: wss:; " +
+	"worker-src 'self'; " +
+	"object-src 'none'; " +
+	"base-uri 'none'; " +
+	"form-action 'none'; " +
+	"frame-src 'none'; " +
+	"frame-ancestors 'none'"
+
+func setSecurityHeaders(ctx fiber.Ctx) error {
+	if err := ctx.Next(); err != nil {
+		return err
+	}
+	ctx.Set(fiber.HeaderXContentTypeOptions, "nosniff")
+	contentType := string(ctx.Response().Header.ContentType())
+	if strings.HasPrefix(contentType, fiber.MIMETextHTML) {
+		ctx.Set(fiber.HeaderContentSecurityPolicy, contentSecurityPolicy)
+	}
+	return nil
 }
 
 // cacheControl returns the cache policy for the file served at the given request path.

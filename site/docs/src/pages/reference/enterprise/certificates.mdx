@@ -1,0 +1,111 @@
+---
+layout: "@/layouts/Reference.astro"
+title: "Install certificates"
+description: "Make a computer trust the self-signed CA certificate of a Synnax Core."
+platforms: ["Linux", "Windows", "macOS"]
+---
+
+import { Divider } from "@synnaxlabs/lyra/divider";
+import { Note } from "@/components/note";
+import { Platform } from "@/components/platform";
+import { mdxOverrides } from "@/components/mdxOverrides";
+
+export const components = mdxOverrides;
+
+A computer must trust the CA certificate of a Synnax Core that uses a
+[self-signed certificate](/reference/enterprise/tls#use-a-self-signed-certificate).
+Install the CA certificate on each computer that runs the Console, a browser, a
+standalone Driver, or a TypeScript client in Node.js. A Core with a certificate from a
+public CA, or from a CA that your computers already trust, needs none of this.
+
+<Divider.Divider x />
+
+## Copy the CA certificate
+
+The CA certificate is `ca.crt` in the certificate folder of the Core:
+
+- **Linux and macOS** -> `/usr/local/synnax/certs/ca.crt`
+- **Windows service** -> `C:\ProgramData\Synnax\certs\ca.crt`
+- **Docker** -> `/usr/local/synnax/certs/ca.crt` in the container. Copy it out with
+  `docker cp synnax:/usr/local/synnax/certs/ca.crt ./synnax-ca.crt`.
+
+If the Core started with `--certs-dir`, the file is in that folder. Copy only `ca.crt`.
+Never copy `ca.key` to another computer.
+
+<Divider.Divider x />
+
+## Install the certificate
+
+<Platform.Tabs exclude={["Docker"]}>
+
+<Fragment slot="Linux">
+
+On Debian and Ubuntu:
+
+```bash
+sudo cp synnax-ca.crt /usr/local/share/ca-certificates/synnax-ca.crt
+sudo update-ca-certificates
+```
+
+On RHEL and Fedora:
+
+```bash
+sudo cp synnax-ca.crt /etc/pki/ca-trust/source/anchors/synnax-ca.crt
+sudo update-ca-trust
+```
+
+The Console, Chrome, and a standalone Driver use this store. Firefox on Linux does not:
+in Firefox, open **Settings**, search for "certificates", click **View Certificates**,
+and import the file on the **Authorities** tab.
+
+</Fragment>
+
+<Fragment slot="Windows">
+
+In PowerShell as an administrator:
+
+```powershell
+Import-Certificate -FilePath synnax-ca.crt `
+  -CertStoreLocation Cert:\LocalMachine\Root
+```
+
+The Console, browsers, and a standalone Driver use this store.
+
+</Fragment>
+
+<Fragment slot="macOS">
+
+```bash
+sudo security add-trusted-cert -d -r trustRoot \
+  -k /Library/Keychains/System.keychain synnax-ca.crt
+```
+
+The Console and browsers use the Keychain. A standalone Driver does not. In the shell
+that runs `synnax-driver`, point it at the file:
+
+```bash
+export GRPC_DEFAULT_SSL_ROOTS_FILE_PATH=/path/to/synnax-ca.crt
+```
+
+</Fragment>
+
+</Platform.Tabs>
+
+<Note.Note variant="warning">
+  `GRPC_DEFAULT_SSL_ROOTS_FILE_PATH` replaces every certificate the Driver trusts. Set
+  it only for a Core with a self-signed certificate.
+</Note.Note>
+
+<Divider.Divider x />
+
+## Node.js
+
+Node.js does not read the operating system store. Start the TypeScript client with the
+CA certificate in `NODE_EXTRA_CA_CERTS`:
+
+```bash
+NODE_EXTRA_CA_CERTS=/path/to/synnax-ca.crt node app.js
+```
+
+To make the Python client trust the CA certificate, give it the path in
+[`ca_cert`](/reference/client/connect#connect-with-tls).

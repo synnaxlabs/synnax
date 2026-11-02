@@ -28,7 +28,7 @@ cc_test(
     srcs = ["types_test.cpp"],
     deps = [
         ":types",
-        "//x/cpp/test",
+        "//x/cpp/testutil",
         "@googletest//:gtest_main",
     ],
 )

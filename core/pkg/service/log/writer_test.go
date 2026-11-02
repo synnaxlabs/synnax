@@ -23,6 +23,7 @@ import (
 	"github.com/synnaxlabs/x/notation"
 	"github.com/synnaxlabs/x/query"
 	"github.com/synnaxlabs/x/telem"
+	. "github.com/synnaxlabs/x/testutil"
 	"github.com/synnaxlabs/x/validate"
 )
 
@@ -32,7 +33,10 @@ var _ = Describe("Writer", func() {
 			l := log.Log{
 				Name: "test",
 				Channels: []log.ChannelEntry{
-					{Channel: channel.Key(1), Color: color.MustFromHex("#ff0000")},
+					{
+						Channel: channel.Key(1),
+						Color:   MustSucceed(color.FromHex("#ff0000")),
+					},
 				},
 			}
 			Expect(svc.NewWriter(tx).Create(ctx, proj.Key, &l)).To(Succeed())
@@ -46,6 +50,19 @@ var _ = Describe("Writer", func() {
 				Expect(svc.NewWriter(tx).Create(ctx, proj.Key, &l)).
 					To(MatchError(ContainSubstring("name: required")))
 			},
+		)
+
+		DescribeTable("Should return a validation error for an out-of-range precision",
+			func(ctx SpecContext, precision int32, msg string) {
+				l := log.Log{
+					Name:     "test",
+					Channels: []log.ChannelEntry{{Channel: 5, Precision: &precision}},
+				}
+				Expect(svc.NewWriter(tx).Create(ctx, proj.Key, &l)).
+					To(MatchError(ContainSubstring(msg)))
+			},
+			Entry("below minimum", int32(-1), "channels.0.precision: must be greater"),
+			Entry("above maximum", int32(18), "channels.0.precision: must be less"),
 		)
 
 		It(
@@ -102,6 +119,41 @@ var _ = Describe("Writer", func() {
 					Entry(&res).
 					Exec(ctx, tx)).To(Succeed())
 				Expect(res.Name).To(Equal("second"))
+			},
+		)
+
+		It(
+			"Should broadcast the create with the writer's dispatch key after commit",
+			func(ctx SpecContext) {
+				rec := &Recorder[log.Key, log.Action]{}
+				DeferCleanup(svc.OnAction(rec.Record))
+				v := log.Log{Name: "broadcast"}
+				Expect(
+					svc.NewWriter(tx).WithDispatchKey("dk-1").Create(ctx, proj.Key, &v),
+				).To(Succeed())
+				Expect(rec.Snapshot()).To(BeEmpty())
+				Expect(tx.Commit(ctx)).To(Succeed())
+				seen := rec.Snapshot()
+				Expect(seen).To(HaveLen(1))
+				Expect(seen[0].Key).To(Equal(v.Key))
+				Expect(seen[0].DispatchKey).To(Equal("dk-1"))
+				Expect(seen[0].Actions).To(HaveLen(1))
+				Expect(seen[0].Actions[0].Type).To(Equal(log.ActionTypeCreate))
+			},
+		)
+
+		It(
+			"Should not broadcast a create whose transaction closes uncommitted",
+			func(ctx SpecContext) {
+				rec := &Recorder[log.Key, log.Action]{}
+				DeferCleanup(svc.OnAction(rec.Record))
+				uncommitted := db.OpenTx()
+				v := log.Log{Name: "discarded"}
+				Expect(
+					svc.NewWriter(uncommitted).Create(ctx, proj.Key, &v),
+				).To(Succeed())
+				Expect(uncommitted.Close()).To(Succeed())
+				Expect(rec.Snapshot()).To(BeEmpty())
 			},
 		)
 	})
@@ -164,6 +216,27 @@ var _ = Describe("Writer", func() {
 				To(Succeed())
 			return res
 		}
+		It(
+			"Should reject a create without changing the log it names",
+			func(ctx SpecContext) {
+				target := log.Log{Name: "target"}
+				Expect(svc.NewWriter(nil).Create(ctx, proj.Key, &target)).To(Succeed())
+				other := log.Log{Name: "other"}
+				Expect(svc.NewWriter(nil).Create(ctx, proj.Key, &other)).To(Succeed())
+				Expect(svc.Dispatch(ctx, target.Key, "d1", []log.Action{
+					log.NewCreateAction(log.CreatePayload{
+						Log: log.Log{Key: other.Key, Name: "overwritten"},
+					}),
+				})).To(SatisfyAll(
+					MatchError(validate.ErrValidation),
+					MatchError(
+						ContainSubstring("only the Core dispatches a log create"),
+					),
+				))
+				Expect(retrieve(ctx, other.Key).Name).To(Equal("other"))
+			},
+		)
+
 		Describe("per-action semantics", func() {
 			It("Should apply Rename", func(ctx SpecContext) {
 				l := log.Log{Name: "original"}
@@ -187,7 +260,7 @@ var _ = Describe("Writer", func() {
 					entry := res.Channels[0]
 					Expect(entry.Channel).To(Equal(channel.Key(42)))
 					Expect(entry.Notation).To(Equal(notation.NotationStandard))
-					Expect(entry.Precision).To(Equal(int32(-1)))
+					Expect(entry.Precision).To(BeNil())
 					Expect(
 						entry.Timestamp.Format,
 					).To(Equal(telem.TimestampFormatPreciseDate))
@@ -257,7 +330,10 @@ var _ = Describe("Writer", func() {
 							},
 						),
 						log.NewSetChannelPrecisionAction(
-							log.SetChannelPrecisionPayload{Channel: 5, Precision: 4},
+							log.SetChannelPrecisionPayload{
+								Channel:   5,
+								Precision: new(int32(4)),
+							},
 						),
 						log.NewSetChannelAliasAction(
 							log.SetChannelAliasPayload{Channel: 5, Alias: "volts"},
@@ -278,7 +354,7 @@ var _ = Describe("Writer", func() {
 					entry := retrieve(ctx, l.Key).Channels[0]
 					Expect(entry.Color).To(Equal(red))
 					Expect(entry.Notation).To(Equal(notation.NotationScientific))
-					Expect(entry.Precision).To(Equal(int32(4)))
+					Expect(entry.Precision).To(Equal(new(int32(4))))
 					Expect(entry.Alias).To(Equal("volts"))
 					Expect(entry.Timestamp.Format).To(Equal(telem.TimestampFormatTime))
 					Expect(entry.Timestamp.Tz).To(Equal(telem.TimeZoneUTC))
@@ -304,6 +380,22 @@ var _ = Describe("Writer", func() {
 				},
 			)
 
+			It("Should clear a channel precision", func(ctx SpecContext) {
+				l := log.Log{
+					Name: "test",
+					Channels: []log.ChannelEntry{
+						{Channel: 5, Precision: new(int32(2))},
+					},
+				}
+				Expect(svc.NewWriter(nil).Create(ctx, proj.Key, &l)).To(Succeed())
+				Expect(svc.Dispatch(ctx, l.Key, "d1", []log.Action{
+					log.NewSetChannelPrecisionAction(
+						log.SetChannelPrecisionPayload{Channel: 5},
+					),
+				})).To(Succeed())
+				Expect(retrieve(ctx, l.Key).Channels[0].Precision).To(BeNil())
+			})
+
 			DescribeTable("Should reject an out-of-range channel precision",
 				func(ctx SpecContext, precision int32) {
 					l := log.Log{
@@ -314,11 +406,11 @@ var _ = Describe("Writer", func() {
 					Expect(svc.Dispatch(ctx, l.Key, "d1", []log.Action{
 						log.NewSetChannelPrecisionAction(log.SetChannelPrecisionPayload{
 							Channel:   5,
-							Precision: precision,
+							Precision: &precision,
 						}),
 					})).Error().To(MatchError(validate.ErrValidation))
 				},
-				Entry("below minimum", int32(-2)),
+				Entry("below minimum", int32(-1)),
 				Entry("above maximum", int32(18)),
 			)
 
@@ -343,7 +435,7 @@ var _ = Describe("Writer", func() {
 						Name: "test",
 						Channels: []log.ChannelEntry{
 							{Channel: 1},
-							{Channel: 2, Alias: "kept", Precision: 3},
+							{Channel: 2, Alias: "kept", Precision: new(int32(3))},
 							{Channel: 4},
 						},
 					}
@@ -357,7 +449,7 @@ var _ = Describe("Writer", func() {
 					Expect(res.Channels).To(HaveLen(3))
 					Expect(res.Channels[1].Channel).To(Equal(channel.Key(5)))
 					Expect(res.Channels[1].Alias).To(Equal("kept"))
-					Expect(res.Channels[1].Precision).To(Equal(int32(3)))
+					Expect(res.Channels[1].Precision).To(Equal(new(int32(3))))
 				},
 			)
 

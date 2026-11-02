@@ -14,7 +14,8 @@ This example demonstrates how to configure and start a Counter Read Task on a Na
 Instruments USB-6289 device to measure frequency and count edges.
 
 To run this example, you'll need to have your Synnax cluster properly configured to
-detect National Instruments devices: https://docs.synnaxlabs.com/reference/driver/ni/get-started
+detect National Instruments devices:
+https://docs.synnaxlabs.com/reference/hardware/ni/configure-device
 
 You'll also need to have either a Counter Input module or create a simulated device
 via the NI-MAX software.

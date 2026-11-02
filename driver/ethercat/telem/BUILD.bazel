@@ -25,7 +25,7 @@ cc_test(
     srcs = ["telem_test.cpp"],
     deps = [
         ":telem",
-        "//x/cpp/test",
+        "//x/cpp/testutil",
         "@googletest//:gtest_main",
     ],
 )

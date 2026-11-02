@@ -85,15 +85,6 @@ func (r Retrieve[K, E]) HasOffset() bool { return r.offset > 0 }
 // HasFilters returns true if any Where filters were added to the query.
 func (r Retrieve[K, E]) HasFilters() bool { return r.filter.present() }
 
-// HasNonKeyFilters returns true if any Where filter that requires running
-// the query (an eval or raw filter) was added. A query whose only filter
-// is MatchKeys returns false — its key set already determines the result
-// without consulting gorp, which lets routing layers (e.g. ontology
-// traversal) skip the lookup entirely.
-func (r Retrieve[K, E]) HasNonKeyFilters() bool {
-	return r.filter.eval != nil || r.filter.raw != nil
-}
-
 // HasFilterKeys returns true if the resolved filter is bounded by a primary
 // key set — either set directly via Where(MatchKeys(...)) or carried by an
 // indexed filter (LookupIndex.Filter / SortedIndex.Filter) whose keys have
@@ -425,7 +416,7 @@ func (r *Retrieve[K, E]) execKeys(ctx context.Context, tx Tx) ([]K, error) {
 				validCount++
 				if validCount > r.offset &&
 					(r.limit == 0 || validCount <= r.limit+r.offset) {
-					r.entries.Add(e)
+					r.entries.add(e)
 				}
 			}
 		}
@@ -475,7 +466,7 @@ func (r *Retrieve[K, E]) execFilter(ctx context.Context, tx Tx) error {
 			validCount += 1
 			if (validCount > r.offset) &&
 				(r.limit == 0 || validCount <= r.limit+r.offset) {
-				r.entries.Add(*v)
+				r.entries.add(*v)
 			}
 		}
 	}
@@ -505,7 +496,7 @@ func (r *Retrieve[K, E]) execOrdered(ctx context.Context, tx Tx) error {
 	keys := r.orderBy.walkOrder(r.limit)
 	if len(keys) == 0 {
 		if r.entries.isMultiple {
-			r.entries.Replace(nil)
+			r.entries.replace(nil)
 			return nil
 		}
 		if !r.entries.Bound() {
@@ -544,7 +535,7 @@ func (r *Retrieve[K, E]) execOrdered(ctx context.Context, tx Tx) error {
 			return cErr
 		}
 	}
-	r.entries.Replace(filtered)
+	r.entries.replace(filtered)
 	if vErr := r.runValidators(gorpCtx, r.entries.All()); vErr != nil {
 		return vErr
 	}

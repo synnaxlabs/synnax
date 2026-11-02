@@ -26,6 +26,26 @@ describe("Editable", () => {
       expect(text.getAttribute("contenteditable")).toBe("false");
     });
 
+    it("should render markup in the value as literal text", () => {
+      const value = "<img src=x onerror=alert(1)>";
+      const c = render(<Editable value={value} onChange={vi.fn()} />);
+      const text = c.getByText(value);
+      expect(text.textContent).toBe(value);
+      expect(text.querySelector("img")).toBeNull();
+    });
+
+    it("should render committed markup as literal text", () => {
+      const value = "<img src=x onerror=alert(1)>";
+      const c = render(<Editable value="Hello" onChange={vi.fn()} />);
+      const text = c.getByText("Hello");
+      fireEvent.dblClick(text);
+      text.innerText = value;
+      fireEvent.keyDown(text, { key: "Enter" });
+      c.rerender(<Editable value="Hello" onChange={vi.fn()} />);
+      expect(text.textContent).toBe(value);
+      expect(text.querySelector("img")).toBeNull();
+    });
+
     it("should forward refs to the underlying element", () => {
       const ref = createRef<HTMLParagraphElement>();
       const c = render(<Editable ref={ref} value="Hello" onChange={vi.fn()} />);

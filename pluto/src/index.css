@@ -15,15 +15,18 @@ body {
     width: 100%;
 }
 
-#root {
+.pluto-root {
     height: 100%;
     width: 100%;
 }
 
 * {
-    *:not(:is(.pluto-text, input, label)) {
+    *:not(:is(.lyra-text, input, label)) {
+        /* stylelint-disable declaration-no-important -- matches the Console's global
+           rule in console/src/app/App.css */
         user-select: none !important;
         -webkit-user-select: none !important;
+        /* stylelint-enable declaration-no-important */
     }
 
     box-sizing: border-box;

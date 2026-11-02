@@ -1,0 +1,91 @@
+# Copyright 2026 Synnax Labs, Inc.
+#
+# Use of this software is governed by the Business Source License included in the file
+# licenses/BSL.txt.
+#
+# As of the Change Date specified in that file, in accordance with the Business Source
+# License, use of this software will be governed by the Apache License, Version 2.0,
+# included in the file licenses/APL.txt.
+
+# Starts an agent on each agent-ready Linear issue whose blockers are done, at most the
+# cap of open agent issues per Linear project. A push to main runs it because a merged
+# PR can unblock the next phase. Runs queue instead of overlapping, so an issue the last
+# run moved to In Progress is never dispatched twice.
+
+name: Dispatch - Agents
+
+on:
+  schedule:
+    - cron: "17 * * * *"
+  push:
+    branches:
+      - main
+  workflow_dispatch:
+    inputs:
+      dry-run:
+        description: Print the issues to dispatch without starting agents
+        type: boolean
+        default: true
+      cap:
+        description: Most open agent issues per Linear project
+        type: number
+        default: 3
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ${{ github.workflow }}
+  cancel-in-progress: false
+
+jobs:
+  select:
+    name: Select issues
+    if: github.repository == 'synnaxlabs/synnax'
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      pull-requests: read
+    outputs:
+      count: ${{ steps.select.outputs.count }}
+      matrix: ${{ steps.select.outputs.matrix }}
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v7
+
+      - name: Install uv
+        uses: astral-sh/setup-uv@v10.3.0
+
+      - name: Select issues
+        id: select
+        working-directory: .github/scripts
+        env:
+          GH_TOKEN: ${{ github.token }}
+          LINEAR_CLIENT_ID: ${{ secrets.LINEAR_CLIENT_ID }}
+          LINEAR_CLIENT_SECRET: ${{ secrets.LINEAR_CLIENT_SECRET }}
+          CAP: ${{ inputs.cap || 3 }}
+          DRY_RUN: ${{ inputs.dry-run && '--dry-run' || '' }}
+        run: |
+          # shellcheck disable=SC2086
+          uv run dispatch_agents.py --cap "$CAP" --output "$GITHUB_OUTPUT" $DRY_RUN
+
+  agent:
+    name: Agent for ${{ matrix.issue }}
+    needs: select
+    # A failed select step still hands off the issues it moved to In Progress.
+    if: ${{ !cancelled() && needs.select.outputs.count > 0 }}
+    strategy:
+      fail-fast: false
+      matrix: ${{ fromJSON(needs.select.outputs.matrix) }}
+    permissions:
+      contents: write
+      pull-requests: write
+      id-token: write
+    uses: ./.github/workflows/agent.yaml
+    with:
+      prompt: ${{ matrix.prompt }}
+      agent: claude
+      output: pr
+      title: ${{ matrix.title }}
+      timeout-minutes: 90
+    secrets: inherit

@@ -28,10 +28,12 @@ import {
   type ColorSourceSpec,
   type NumberSource,
   type NumberSourceSpec,
+  type Result,
   type SeriesSource,
   type SeriesSourceSpec,
   type Spec,
   type StringSourceSpec,
+  success,
   type Telem,
 } from "@/telem/aether/telem";
 
@@ -86,9 +88,9 @@ class FixedSeries
     );
   }
 
-  value(): [bounds.Bounds, MultiSeries] {
+  value(): Result<[bounds.Bounds, MultiSeries]> {
     const b = bounds.max(this.data.map((x) => x.bounds));
-    return [b, new MultiSeries(this.data)];
+    return success([b, new MultiSeries(this.data)]);
   }
 }
 
@@ -128,7 +130,7 @@ export class IterativeSeries
     );
   }
 
-  value(): [bounds.Bounds, MultiSeries] {
+  value(): Result<[bounds.Bounds, MultiSeries]> {
     const d = this.data.map((x) => x.slice(0, this.position));
     if (this.props.scrollBounds) {
       const lower =
@@ -140,10 +142,10 @@ export class IterativeSeries
         lower: Number(lower),
         upper: Number(upper),
       };
-      return [b, new MultiSeries(d)];
+      return success([b, new MultiSeries(d)]);
     }
     const b = bounds.max(d.map((x) => x.bounds));
-    return [b, new MultiSeries(d)];
+    return success([b, new MultiSeries(d)]);
   }
 
   start(rate: Rate): void {
@@ -170,8 +172,8 @@ export class FixedNumber
   static readonly TYPE = "static-numeric";
   schema = fixedNumberPropsZ;
 
-  value(): number {
-    return this.props;
+  value(): Result<number> {
+    return success(this.props);
   }
 }
 
@@ -183,8 +185,8 @@ export class FixedString extends AbstractSource<typeof fixedStringPropsZ> {
   static readonly TYPE = "static-string";
   schema = fixedStringPropsZ;
 
-  value(): string {
-    return this.props;
+  value(): Result<string> {
+    return success(this.props);
   }
 }
 
@@ -207,8 +209,10 @@ export class Clock extends AbstractSource<typeof clockPropsZ> implements NumberS
     this.schedule();
   }
 
-  value(): number {
-    return Math.floor(TimeStamp.now().milliseconds / this.props.period.milliseconds);
+  value(): Result<number> {
+    return success(
+      Math.floor(TimeStamp.now().milliseconds / this.props.period.milliseconds),
+    );
   }
 
   cleanup(): void {
@@ -236,8 +240,8 @@ export class FixedColorSource
   static readonly TYPE = "static-color";
   schema = fixedColorSourcePropsZ;
 
-  value(): color.Color {
-    return color.construct(this.props);
+  value(): Result<color.Color> {
+    return success(color.construct(this.props));
   }
 }
 

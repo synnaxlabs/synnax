@@ -8,11 +8,11 @@
 // included in the file licenses/APL.txt.
 
 import { schematic } from "@synnaxlabs/client";
-import { CSS } from "@synnaxlabs/lyra/css";
 import { Text } from "@synnaxlabs/lyra/text";
 import { type dimensions } from "@synnaxlabs/x";
 import { type CSSProperties, type FC, memo, type ReactElement } from "react";
 
+import { CSS } from "@/css";
 import { Grid } from "@/schematic/node/common/grid";
 import { type Primitive } from "@/schematic/node/common/primitive";
 import { type NodeProps } from "@/schematic/node/spec";

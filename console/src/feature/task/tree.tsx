@@ -33,7 +33,7 @@ const useDelete = Tree.createUseDelete({
   convertKey: String,
 });
 
-export const useRename = Tree.createUseRename({
+const useRename = Tree.createUseRename({
   useUpdate: Base.useRename,
   ontologyID: task.ontologyID,
   convertKey: String,

@@ -18,6 +18,8 @@ const usage = `usage: pnpm produce --script <path> --out <dir> [options]
   --script <path>   video script module (default export: async (session) => {})
   --out <dir>       output directory for frames, timeline, and video
   --url <url>       Console URL (default http://localhost:5173)
+  --desktop-url <url>  Console URL of a Desktop build (VITE_DESKTOP=true), for
+                    scripts that export desktop (default http://localhost:5175)
   --core <mode>     ephemeral | external (default ephemeral): ephemeral starts a
                     fresh in-memory core for the capture; external uses whatever
                     is already listening on --port
@@ -49,6 +51,7 @@ const main = async (): Promise<void> => {
       script: { type: "string" },
       out: { type: "string" },
       url: { type: "string", default: "http://localhost:5173" },
+      "desktop-url": { type: "string" },
       core: { type: "string", default: "ephemeral" },
       "core-bin": { type: "string" },
       port: { type: "string" },
@@ -82,6 +85,7 @@ const main = async (): Promise<void> => {
       scriptPath: values.script,
       outDir,
       url: values.url,
+      desktopUrl: values["desktop-url"],
       theme,
       headed: values.headed,
       insecure: values.insecure,

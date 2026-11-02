@@ -1,0 +1,151 @@
+# Copyright 2026 Synnax Labs, Inc.
+#
+# Use of this software is governed by the Business Source License included in the file
+# licenses/BSL.txt.
+#
+# As of the Change Date specified in that file, in accordance with the Business Source
+# License, use of this software will be governed by the Apache License, Version 2.0,
+# included in the file licenses/APL.txt.
+
+# Compares each user-facing surface of a pull request between its merge base and its
+# head, and uploads the results for label.classify.yaml. This runs the pull request's
+# code, so it has no secrets and a read-only token. A surface whose inputs the pull
+# request does not touch cannot change, so its job reports same without a build.
+
+name: Check - Classify
+
+on:
+  pull_request:
+    types:
+      - opened
+      - reopened
+      - synchronize
+      - ready_for_review
+
+permissions:
+  contents: read
+
+concurrency:
+  group: classify-${{ github.event.pull_request.number }}
+  cancel-in-progress: true
+
+jobs:
+  pr:
+    name: Record the pull request
+    runs-on: ubuntu-latest
+    steps:
+      - name: Write the number
+        env:
+          NUMBER: ${{ github.event.pull_request.number }}
+        run: mkdir pr && echo "$NUMBER" > pr/number
+
+      - name: Upload the number
+        uses: actions/upload-artifact@v7
+        with:
+          name: pr
+          path: pr
+
+  surface:
+    name: Compare ${{ matrix.surface }}
+    runs-on: ubuntu-latest
+    # The proxy drops streams at times, so a failed fetch falls back to the source.
+    env:
+      GOPROXY: https://proxy.golang.org|direct
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - surface: oracle
+            paths: schemas oracle x/go licenses
+            go: oracle/go.mod
+          - surface: client-ts
+            paths: client/ts x/ts freighter/ts alamos/ts configs pnpm-lock.yaml
+            node: true
+          - surface: client-py
+            paths: client/py scripts/surface_py.py scripts/pyproject.toml uv.lock
+            uv: true
+          - surface: core
+            paths: core x/go
+            go: core/go.mod
+          - surface: driver
+            paths: driver client/cpp scripts/surface_driver.py
+            uv: true
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v7
+        with:
+          ref: ${{ github.event.pull_request.head.sha }}
+          fetch-depth: 0
+
+      - name: Find the merge base and changed inputs
+        id: base
+        env:
+          BASE: ${{ github.event.pull_request.base.sha }}
+          PATHS: ${{ matrix.paths }} .github/scripts/surface.sh
+        run: |
+          base=$(git merge-base "$BASE" HEAD)
+          echo "sha=$base" >> "$GITHUB_OUTPUT"
+          # shellcheck disable=SC2086
+          if git diff --quiet "$base" HEAD -- $PATHS; then
+            echo "touched=false" >> "$GITHUB_OUTPUT"
+          else
+            echo "touched=true" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Set up Go
+        if: steps.base.outputs.touched == 'true' && matrix.go
+        uses: actions/setup-go@v7
+        with:
+          go-version-file: ${{ matrix.go }}
+          cache-dependency-path: ${{ matrix.go }}
+
+      - name: Download the Go modules
+        if: steps.base.outputs.touched == 'true' && matrix.go
+        env:
+          GO_MOD: ${{ matrix.go }}
+        run: .github/scripts/go_mod_download.sh "$(dirname "$GO_MOD")"
+
+      - name: Set up pnpm and Node
+        if: steps.base.outputs.touched == 'true' && matrix.node
+        uses: ./.github/actions/setup-pnpm
+
+      - name: Set up uv
+        if: steps.base.outputs.touched == 'true' && matrix.uv
+        uses: astral-sh/setup-uv@v10.3.0
+        with:
+          version: latest-known
+          enable-cache: true
+
+      - name: Compare the reports
+        if: steps.base.outputs.touched == 'true'
+        env:
+          BASE: ${{ steps.base.outputs.sha }}
+          SURFACE: ${{ matrix.surface }}
+        run: |
+          # A branch older than the surface reports cannot be compared, so a human
+          # reviews it.
+          if [ ! -x .github/scripts/surface.sh ]; then
+            mkdir -p "out/surface-$SURFACE"
+            echo error > "out/surface-$SURFACE/status"
+            exit 0
+          fi
+          git worktree add --detach ../base "$BASE"
+          .github/scripts/surface.sh "$SURFACE" ../base . "out/surface-$SURFACE"
+
+      - name: Report no change
+        if: steps.base.outputs.touched == 'false'
+        env:
+          SURFACE: ${{ matrix.surface }}
+        run: |
+          mkdir -p "out/surface-$SURFACE"
+          echo same > "out/surface-$SURFACE/status"
+
+      - name: Upload the result
+        if: always()
+        uses: actions/upload-artifact@v7
+        with:
+          name: surface-${{ matrix.surface }}
+          path: |
+            out/surface-${{ matrix.surface }}/status
+            out/surface-${{ matrix.surface }}/diff
+          if-no-files-found: ignore

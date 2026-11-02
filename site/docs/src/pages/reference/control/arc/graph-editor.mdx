@@ -1,0 +1,117 @@
+---
+layout: "@/layouts/Reference.astro"
+title: "Graph editor"
+description:
+  "Build an Arc automation from blocks in the Console, such as an alarm on a channel."
+---
+
+import { Divider } from "@synnaxlabs/lyra/divider";
+import { Video } from "@/components/media/Media";
+import { Hero } from "@/components/hero";
+import { mdxOverrides } from "@/components/mdxOverrides";
+export const components = mdxOverrides;
+
+<Hero.Hero
+  still="control/arc/graph-editor/hero"
+  layout="bleed"
+  tone="soft"
+  palette="green-blue"
+/>
+
+In the graph editor, you build an Arc automation from blocks instead of code. Each block
+reads a channel, holds a value, compares values, or sets a status. You connect the
+blocks with lines, and values move along the lines from left to right. Use the graph
+editor for simple automations, such as alarms. For sequences and functions, use the text
+editor. See [text and graph editors](/reference/control/arc#text-and-graph-editors).
+
+<Divider.Divider x />
+
+## Build an alarm
+
+This alarm sets a status to a warning when `tank_pt` goes above 450, and back to success
+when it goes below. Before you start,
+[create a status](/reference/alarms/statuses#set-a-status), such as `Tank pressure`.
+
+1. [Create an Arc automation](/reference/control/arc/automations#create-an-arc-automation)
+   with **Graph** as the **Editor mode**.
+2. In the **Stages** tab of the toolbar, drag these blocks onto the graph:
+   - **Telemetry source**, from **Telemetry**.
+   - **Constant**, from **Basic**.
+   - **Greater than**, from **Operators**.
+   - **Select**, from **Flow control**.
+   - Two **Change status** blocks, from **Basic**.
+3. Click each block and set its fields in the **Properties** tab:
+   - For **Telemetry source**, set **Channel** to `tank_pt`.
+   - For **Constant**, set **Value** to `450`.
+   - For the first **Change status**, set **Status** to `Tank pressure`, **Variant** to
+     **Warning**, and **Message** to `Tank pressure is above 450 psi`.
+   - For the second **Change status**, set **Status** to `Tank pressure`, **Variant** to
+     **Success**, and **Message** to `Tank pressure is normal`.
+4. Connect the blocks. Drag from the handle on the right of a block to a handle on the
+   left of the next block:
+   - **Telemetry source** to the top input of **Greater than**.
+   - **Constant** to the bottom input of **Greater than**.
+   - **Greater than** to **Select**.
+   - The `true` output of **Select** to the warning **Change status**.
+   - The `false` output of **Select** to the success **Change status**.
+5. [Choose where it runs](/reference/control/arc/automations#choose-where-it-runs), then
+   click **Start**.
+
+When `tank_pt` goes above 450, the status changes to a warning. When it goes back to 450
+or below, the status changes to success. See [alarms](/reference/alarms) for how
+operators see statuses.
+
+<Video id="control/arc/graph-editor/build-alarm" />
+
+The top input of an operator block decides when the block runs. Connect the channel to
+the top input, and the constant to the bottom input. If the channel goes to the bottom
+input, the block runs only once.
+
+<Divider.Divider x />
+
+## Edit the graph
+
+- **Add a block** -> drag it from the **Stages** tab to where you want it. A click adds
+  it at the top left of the graph.
+- **Select blocks** -> click a block. Hold **Shift** to select more than one, or press
+  **Ctrl+A** (**Cmd+A** on macOS) to select all. Press **Esc** to clear the selection.
+- **Align blocks** -> select two or more blocks, then use the **Align** buttons in the
+  **Properties** tab.
+- **Delete** -> select blocks or lines, then press **Backspace** or **Delete**.
+- **Copy and paste** -> press **Ctrl+C** and **Ctrl+V** (**Cmd+C** and **Cmd+V** on
+  macOS), or right-click the graph.
+- **Stop editing** -> right-click the graph and select **Disable editing**. The
+  **Stages** and **Properties** tabs show only while editing is on.
+
+The editor lets you connect any two handles. The compiler reports a connection that does
+not fit when you start the automation.
+
+<Divider.Divider x />
+
+## Blocks
+
+| Group        | Block                                                                                                        | What it does                                                                                | In text mode                     |
+| ------------ | ------------------------------------------------------------------------------------------------------------ | ------------------------------------------------------------------------------------------- | -------------------------------- |
+| Basic        | **Constant**                                                                                                 | Sends its **Value**.                                                                        | A number, such as `450`          |
+| Basic        | **Change status**                                                                                            | Sets the **Status** to its **Variant** and **Message** each time a value arrives.           | `status.set(...)`                |
+| Telemetry    | **Telemetry source**                                                                                         | Sends each new value of its **Channel**.                                                    | A channel name                   |
+| Telemetry    | **Telemetry sink**                                                                                           | Writes each value that arrives to its **Channel**.                                          | `-> channel`                     |
+| Operators    | **Greater than**, **Less than**, **Equal**, **Not equal**, **Greater than or equal**, **Less than or equal** | Compares the top input with the bottom input, and sends true or false.                      | `>`, `<`, `==`, `!=`, `>=`, `<=` |
+| Operators    | **And**, **Or**                                                                                              | Sends true or false from two true or false inputs.                                          | `and`, `or`                      |
+| Flow control | **Select**                                                                                                   | Sends each true value from its `true` output, and each false value from its `false` output. | `select()`                       |
+| Flow control | **Stable for**                                                                                               | Sends a value only after the value stays the same for its **Duration**, in seconds.         | `stable.for(duration=...)`       |
+
+See the [standard library](/reference/control/arc/standard-library) for
+[`status`](/reference/control/arc/standard-library/status),
+[`select`](/reference/control/arc/standard-library/select), and
+[`stable`](/reference/control/arc/standard-library/stable).
+
+<Divider.Divider x />
+
+## Limits
+
+- A graph has no sequences or stages. All of its blocks run at the same time.
+- A graph cannot set control authority, keep variables, or call functions.
+- The **Add**, **Subtract**, **Multiply**, **Divide**, and **Not** blocks cause a
+  compile error. Use the text editor for math.
+- You cannot change a graph automation into a text automation.

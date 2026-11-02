@@ -7,4 +7,10 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-export * from "@/ui/admin/Admin";
+export * from "@/ui/admin/Activity";
+export * from "@/ui/admin/Licenses";
+export * from "@/ui/admin/Organization";
+export * from "@/ui/admin/Organizations";
+export * from "@/ui/admin/Referrals";
+export * from "@/ui/admin/User";
+export * from "@/ui/admin/Users";

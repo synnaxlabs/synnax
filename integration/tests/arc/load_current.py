@@ -7,14 +7,14 @@
 #  License, use of this software will be governed by the Apache License, Version 2.0,
 #  included in the file licenses/APL.txt.
 
-from examples.simulators import LoadCurrentSimDAQ
+from examples.simulators import LoadCurrentSimDAQ, SimDAQ
 
 import synnax as sy
 from framework.utils import create_indexed_pair
 from tests.arc.arc import ArcCase
 
 ARC_LOAD_CURRENT_SOURCE = """
-func count{c_chan chan u8} () {
+func count(c_chan chan u8) {
     n u8 $= 0
     n = n + 1
     c_chan = n
@@ -25,8 +25,8 @@ start_load_current_cmd => main
 sequence main {
     stage first {
         1 -> flag
-        load_current > 25 => count{c_chan=lc_tick_count}
-        load_current > 25 => wait{2s} => next
+        load_current > 25 => count(c_chan=lc_tick_count)
+        load_current > 25 => wait(2s) => next
     }
     stage last {
         0 -> flag
@@ -57,10 +57,10 @@ class LoadCurrent(ArcCase):
     start_cmd_channel = "start_load_current_cmd"
     end_cmd_channel = "end_test_cmd"
     subscribe_channels = ["load_current", "flag", "lc_tick_count"]
-    sim_daq_class = LoadCurrentSimDAQ
+    sim_daq_class: type[SimDAQ] | None = LoadCurrentSimDAQ
 
     def setup(self) -> None:
-        create_indexed_pair(self.client, "lc_tick_count", sy.DataType.UINT8)
+        create_indexed_pair(self.client, "lc_tick_count", data_type=sy.DataType.UINT8)
         super().setup()
         self.set_manual_timeout(30)
 

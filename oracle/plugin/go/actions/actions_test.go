@@ -124,6 +124,7 @@ var _ = Describe("Go Actions Plugin", func() {
 					"func Reduce(state Counter, actions ...Action) (Counter, error) {",
 					"case ActionTypeSetValue:",
 					`return state, union.MissingPayload(a.Type)`,
+					`return state, union.UnknownVariant(a.Type)`,
 					"state, err = a.SetValue.Handle(state)",
 					"case ActionTypeIncrement:",
 					"state, err = a.Increment.Handle(state)",
@@ -131,6 +132,7 @@ var _ = Describe("Go Actions Plugin", func() {
 					"func NewIncrementAction(p IncrementPayload) Action {",
 				)
 				content.ToNotContain(
+					"continue",
 					"func ReduceAll",
 					"func (a Action) Reduce",
 					"type SetValue struct",

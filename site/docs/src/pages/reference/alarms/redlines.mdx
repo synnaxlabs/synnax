@@ -1,0 +1,69 @@
+---
+layout: "@/layouts/Reference.astro"
+title: "Redlines"
+description: "Color a value on a table or a schematic when it passes a threshold."
+---
+
+import { Divider } from "@synnaxlabs/lyra/divider";
+import { Icon } from "@synnaxlabs/lyra/icon";
+import { Image } from "@/components/media/Media";
+import { mdxOverrides } from "@/components/mdxOverrides";
+export const components = mdxOverrides;
+
+A redline changes the background color of a value when the value passes a threshold. Use
+redlines to show an operator which values are near or outside their limits.
+
+Redlines are available on [value cells](/reference/visualize/tables#value-cells) in
+tables and on value symbols in [schematics](/reference/visualize/schematics). A redline
+only changes the color of the value and notifies no one. To alert an operator, use an
+[Arc alarm](/reference/alarms/arc).
+
+<Image id="console/tables/redline" />
+
+<Divider.Divider x />
+
+## Add a redline
+
+1. Turn on editing for the table or the schematic.
+2. Select the value cell or the value symbol, then press **V** to open the component
+   toolbar.
+3. Open the **Redline** tab. On a schematic, it is inside the **Properties** tab, next
+   to **Telemetry** and **Style**.
+4. Under **Bands**, click **Add band**.
+5. Set the threshold and the color of the band.
+
+Each new band starts one step above the highest band, in the warning color, then the
+error color.
+
+<Divider.Divider x />
+
+## Bands
+
+Each band has a threshold and a color. A band paints the values at or above its
+threshold (**≥**) and below the next higher threshold. Values below every threshold show
+the item at the bottom of the list: **No fill**, or **Fill** when you set a background
+on the **Style** tab.
+
+For example, a pressure value has two bands: yellow at 500 and red at 600.
+
+| Value | Color  |
+| ----- | ------ |
+| 450   | Fill   |
+| 550   | Yellow |
+| 650   | Red    |
+
+Two bands cannot have the same threshold; the Console marks them **Duplicate
+threshold**. To remove a band, click <Icon.Close /> on the band.
+
+To make a band blink between its color and the fill while the value is in it, click the
+flash button <Icon.Bolt /> on the band.
+
+<Divider.Divider x />
+
+## Transition
+
+Under **Options**, **Transition** sets how the color changes between bands:
+
+- **Steps** -> the color changes at each threshold.
+- **Smooth** -> the color blends from the color of a band at its threshold to the color
+  of the next band at the next threshold. The highest band is a solid color.

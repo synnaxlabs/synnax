@@ -18,7 +18,7 @@ import { renderAether } from "@/testutil/renderAether";
 import { theming } from "@/theming/aether";
 import { type FindResult } from "@/vis/line/aether/line";
 import { render } from "@/vis/render";
-import { canvasTest } from "@/vis/render/test";
+import { canvasTest } from "@/vis/render/testutil";
 
 const DARK = theme.themeZ.parse(theme.SYNNAX_DARK);
 const LIGHT = theme.themeZ.parse(theme.SYNNAX_LIGHT);

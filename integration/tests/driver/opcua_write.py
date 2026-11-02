@@ -10,7 +10,7 @@
 from examples.opcua import OPCUATLSAuthSim, OPCUATLSSim
 
 import synnax as sy
-from tests.driver.opcua_task import OPCUAWriteTaskCase
+from tests.driver.opcua_task import OPCUASecuredWriteTaskCase, OPCUAWriteTaskCase
 from tests.driver.task import create_channel, create_index
 
 
@@ -34,7 +34,7 @@ class OPCUAWriteFloat(OPCUAWriteTaskCase):
         ]
 
 
-class OPCUATLSWriteFloat(OPCUAWriteTaskCase):
+class OPCUATLSWriteFloat(OPCUASecuredWriteTaskCase):
     task_name = "OPCUA TLS Write Float"
     sim_classes = [OPCUATLSSim]
 
@@ -55,7 +55,7 @@ class OPCUATLSWriteFloat(OPCUAWriteTaskCase):
         ]
 
 
-class OPCUATLSAuthWriteFloat(OPCUAWriteTaskCase):
+class OPCUATLSAuthWriteFloat(OPCUASecuredWriteTaskCase):
     task_name = "OPCUA TLS Auth Write Float"
     sim_classes = [OPCUATLSAuthSim]
 

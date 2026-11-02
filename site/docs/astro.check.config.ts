@@ -7,10 +7,25 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
+import { type AstroIntegration } from "astro";
+
 import config from "./astro.config.ts";
 
-// The Vercel adapter cannot serve `astro preview`, so check-site builds and crawls
-// the site statically. Everything else matches the deployed config.
-const checkConfig: typeof config = { ...config, output: "static", adapter: undefined };
+// The Vercel adapter cannot serve `astro preview`, so check-site builds and crawls the
+// site with no adapter. With no adapter, every route must prerender.
+const prerenderAll: AstroIntegration = {
+  name: "prerender-all",
+  hooks: {
+    "astro:route:setup": ({ route }) => {
+      route.prerender = true;
+    },
+  },
+};
+
+const checkConfig: typeof config = {
+  ...config,
+  adapter: undefined,
+  integrations: [...(config.integrations ?? []), prerenderAll],
+};
 
 export default checkConfig;

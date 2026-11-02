@@ -10,8 +10,7 @@
 import { beforeAll, describe, expect, it } from "vitest";
 
 import { instrumentation } from "@/dev";
-import { type Instrumentation } from "@/instrumentation";
-import { Tracer } from "@/trace";
+import { type Instrumentation, Tracer } from "@/index";
 
 describe("Trace", () => {
   let ins: Instrumentation;

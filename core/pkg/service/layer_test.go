@@ -16,32 +16,37 @@ import (
 	. "github.com/onsi/gomega"
 	"github.com/samber/lo"
 	"github.com/synnaxlabs/gorp"
-	"github.com/synnaxlabs/synnax/pkg/distribution/mock"
+	"github.com/synnaxlabs/synnax/pkg/distribution/testutil"
 	"github.com/synnaxlabs/synnax/pkg/service"
 	"github.com/synnaxlabs/synnax/pkg/service/auth"
+	authv0 "github.com/synnaxlabs/synnax/pkg/service/auth/versions/v0"
 	"github.com/synnaxlabs/synnax/pkg/service/channel"
 	. "github.com/synnaxlabs/synnax/pkg/service/channel/testutil"
 	"github.com/synnaxlabs/synnax/pkg/service/license"
-	svcmock "github.com/synnaxlabs/synnax/pkg/service/mock"
 	"github.com/synnaxlabs/synnax/pkg/service/ontology"
 	panelversions "github.com/synnaxlabs/synnax/pkg/service/panel/versions"
 	projectv0 "github.com/synnaxlabs/synnax/pkg/service/project/versions/v0"
+	svctestutil "github.com/synnaxlabs/synnax/pkg/service/testutil"
+	userv0 "github.com/synnaxlabs/synnax/pkg/service/user/versions/v0"
 	"github.com/synnaxlabs/x/encoding/msgpack"
 	"github.com/synnaxlabs/x/telem"
 	. "github.com/synnaxlabs/x/testutil"
+	"golang.org/x/crypto/bcrypt"
 )
 
 var _ = Describe("Layer", func() {
 	It("Should cap external channels at the license's limit", func(ctx SpecContext) {
-		signer := svcmock.NewSigner()
-		lic := svcmock.NewLicense()
+		signer := svctestutil.NewSigner()
+		lic := svctestutil.NewLicense()
 		lic.Channels = 50
-		layer := MustOpen(svcmock.OpenLayer(ctx, mock.NewNode(ctx), service.LayerConfig{
-			License: license.ServiceConfig{
-				Key:     signer.Sign(lic),
-				Anchors: signer.Anchors,
-			},
-		}))
+		layer := MustOpen(
+			svctestutil.OpenLayer(ctx, testutil.NewNode(ctx), service.LayerConfig{
+				License: license.ServiceConfig{
+					Key:     signer.Sign(lic),
+					Anchors: signer.Anchors,
+				},
+			}),
+		)
 		var existing []channel.Channel
 		Expect(layer.Channel.NewRetrieve().Entries(&existing).Exec(ctx, nil)).
 			To(Succeed())
@@ -69,10 +74,10 @@ var _ = Describe("Layer", func() {
 	It(
 		"Should end root sessions only when the root password changes",
 		func(ctx SpecContext) {
-			node := mock.NewNode(ctx)
+			node := testutil.NewNode(ctx)
 			open := func(pwd string) *service.Layer {
 				GinkgoHelper()
-				return MustSucceed(svcmock.OpenLayer(ctx, node, service.LayerConfig{
+				return MustSucceed(svctestutil.OpenLayer(ctx, node, service.LayerConfig{
 					RootCredentials: auth.Credentials{Username: "root", Password: pwd},
 				}))
 			}
@@ -93,6 +98,33 @@ var _ = Describe("Layer", func() {
 		},
 	)
 
+	It(
+		"Should log in a user whose password a Core before 0.59 stored",
+		func(ctx SpecContext) {
+			node := testutil.NewNode(ctx)
+			alice := userv0.User{Key: uuid.New(), Username: "alice"}
+			hash := MustSucceed(
+				bcrypt.GenerateFromPassword([]byte("p"), bcrypt.MinCost),
+			)
+			Expect(gorp.WrapWriter[string, ontology.Resource](node.DB).
+				Set(ctx, ontology.Resource{ID: alice.OntologyID()})).To(Succeed())
+			legacyDB := gorp.Wrap(node.DB.KV(), gorp.WithCodec(msgpack.Codec))
+			Expect(gorp.WrapWriter[userv0.Key, userv0.User](legacyDB).Set(ctx, alice)).
+				To(Succeed())
+			Expect(gorp.WrapWriter[string, authv0.SecureCredentials](legacyDB).Set(
+				ctx,
+				authv0.SecureCredentials{Username: "alice", Password: hash},
+			)).To(Succeed())
+			layer := MustOpen(svctestutil.OpenLayer(ctx, node))
+			session, _ := MustSucceed2(layer.Auth.Login(ctx, auth.Proof{
+				Variant: auth.PasswordProof{
+					Credentials: auth.Credentials{Username: "alice", Password: "p"},
+				},
+			}))
+			Expect(session.Subject).To(Equal(alice.OntologyID()))
+		},
+	)
+
 	// Regression: the composition pass converts data staged by services that open
 	// after the panel table (project layouts, task re-key mapping). Running the
 	// conversion inside the panel table's own chain silently produced zero panels,
@@ -100,7 +132,7 @@ var _ = Describe("Layer", func() {
 	It(
 		"Should adopt a legacy workspace layout as a panel after all tables open",
 		func(ctx SpecContext) {
-			node := mock.NewNode(ctx)
+			node := testutil.NewNode(ctx)
 			db := node.DB
 			lpKey := uuid.New().String()
 			lpID := ontology.ID{Type: ontology.ResourceTypeLineplot, Key: lpKey}
@@ -139,7 +171,7 @@ var _ = Describe("Layer", func() {
 			Expect(gorp.WrapWriter[projectv0.Key, projectv0.Workspace](db).
 				Set(ctx, ws)).To(Succeed())
 
-			MustOpen(svcmock.OpenLayer(ctx, node))
+			MustOpen(svctestutil.OpenLayer(ctx, node))
 
 			seq, closer := MustSucceed2(gorp.
 				WrapReader[panelversions.Key, panelversions.Panel](db).

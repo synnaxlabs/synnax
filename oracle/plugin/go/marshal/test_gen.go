@@ -80,7 +80,7 @@ const (
 func generateTestCodecFile(
 	packageName string,
 	parentPath string,
-	entries []CodecEntry,
+	entries []codecEntry,
 	table *resolution.Table,
 	repoRoot string,
 	pins versioning.Pins,
@@ -113,7 +113,7 @@ func renderTestCodecFile(
 	packageName string,
 	parentPath string,
 	pkgImport string,
-	entries []CodecEntry,
+	entries []codecEntry,
 	table *resolution.Table,
 	repoRoot string,
 	pins versioning.Pins,
@@ -208,7 +208,7 @@ func renderTestCodecFile(
 	}
 
 	for _, e := range entries {
-		recv := ReceiverName(e.GoName)
+		recv := receiverName(e.GoName)
 		// In test files the receiver is used as a local variable, so it must
 		// not shadow the package import alias.
 		if recv == packageName {
@@ -900,7 +900,7 @@ func (b *testValueBuilder) unionExpr(
 	b.depth++
 	defer func() { b.depth-- }()
 
-	inherited, declared := resolver.VariantBases(form, v, b.table)
+	inherited, declared := resolver.VariantBases(form, v, "go", b.table)
 
 	var embeds []string
 	for _, ext := range inherited {

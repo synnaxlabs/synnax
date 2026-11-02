@@ -13,10 +13,12 @@ import (
 	"bytes"
 	"encoding/json/jsontext"
 	jsonv2 "encoding/json/v2"
+	"strconv"
 	"strings"
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
+	"github.com/onsi/gomega/types"
 	"github.com/synnaxlabs/x/encoding/json"
 	"github.com/synnaxlabs/x/errors"
 	. "github.com/synnaxlabs/x/testutil"
@@ -91,14 +93,14 @@ var _ = Describe("Codec", func() {
 	})
 	It("Should include a stack trace on encoding errors", func(ctx SpecContext) {
 		_, err := json.Codec.Encode(ctx, make(chan int))
-		Expect(err).To(HaveOccurred())
+		Expect(err).To(MatchError(ContainSubstring("failed to encode value")))
 		stack := errors.GetStackTrace(err)
 		Expect(stack.String()).ToNot(BeEmpty())
 		Expect(stack.String()).To(ContainSubstring(".go"))
 	})
 	It("Should include a stack trace on decoding errors", func(ctx SpecContext) {
 		err := json.Codec.Decode(ctx, []byte("invalid"), &toEncode{})
-		Expect(err).To(HaveOccurred())
+		Expect(err).To(MatchError(ContainSubstring("failed to decode")))
 		stack := errors.GetStackTrace(err)
 		Expect(stack.String()).ToNot(BeEmpty())
 		Expect(stack.String()).To(ContainSubstring(".go"))
@@ -275,62 +277,73 @@ var _ = Describe("MarshalStringUint64To", func() {
 	})
 })
 
-var _ = DescribeTable("UnmarshalStringInt64From",
-	func(input string, expected int64, shouldError bool) {
+var _ = DescribeTable(
+	"UnmarshalStringInt64From",
+	func(input string, expected int64, errMatcher types.GomegaMatcher) {
 		val, err := json.UnmarshalStringInt64From(decoderOf(input))
-		if shouldError {
-			Expect(err).To(HaveOccurred())
-		} else {
-			Expect(err).ToNot(HaveOccurred())
-			Expect(val).To(Equal(expected))
-		}
+		Expect(err).To(errMatcher)
+		Expect(val).To(Equal(expected))
 	},
-	Entry("direct number", `123`, int64(123), false),
-	Entry("string number", `"123"`, int64(123), false),
-	Entry("negative number", `-123`, int64(-123), false),
-	Entry("negative string", `"-123"`, int64(-123), false),
-	Entry("max int64", `9223372036854775807`, int64(9223372036854775807), false),
-	Entry("invalid string", `"abc"`, int64(0), true),
-	Entry("invalid json", `{invalid}`, int64(0), true),
-	Entry("boolean", `true`, int64(0), true),
+	Entry("direct number", `123`, int64(123), Succeed()),
+	Entry("string number", `"123"`, int64(123), Succeed()),
+	Entry("negative number", `-123`, int64(-123), Succeed()),
+	Entry("negative string", `"-123"`, int64(-123), Succeed()),
+	Entry("max int64", `9223372036854775807`, int64(9223372036854775807), Succeed()),
+	Entry("invalid string", `"abc"`, int64(0), MatchError(strconv.ErrSyntax)),
+	Entry(
+		"invalid json",
+		`{invalid}`,
+		int64(0),
+		MatchError(ContainSubstring("cannot decode")),
+	),
+	Entry("boolean", `true`, int64(0), MatchError(ContainSubstring("cannot decode"))),
 )
 
-var _ = DescribeTable("UnmarshalStringUint32From",
-	func(input string, expected uint32, shouldError bool) {
+var _ = DescribeTable(
+	"UnmarshalStringUint32From",
+	func(input string, expected uint32, errMatcher types.GomegaMatcher) {
 		val, err := json.UnmarshalStringUint32From(decoderOf(input))
-		if shouldError {
-			Expect(err).To(HaveOccurred())
-		} else {
-			Expect(err).ToNot(HaveOccurred())
-			Expect(val).To(Equal(expected))
-		}
+		Expect(err).To(errMatcher)
+		Expect(val).To(Equal(expected))
 	},
-	Entry("direct number", `123`, uint32(123), false),
-	Entry("string number", `"123"`, uint32(123), false),
-	Entry("max uint32", `4294967295`, uint32(4294967295), false),
-	Entry("negative number", `-123`, uint32(0), true),
-	Entry("negative string", `"-123"`, uint32(0), true),
-	Entry("invalid string", `"abc"`, uint32(0), true),
-	Entry("invalid json", `{invalid}`, uint32(0), true),
-	Entry("null", `null`, uint32(0), true),
+	Entry("direct number", `123`, uint32(123), Succeed()),
+	Entry("string number", `"123"`, uint32(123), Succeed()),
+	Entry("max uint32", `4294967295`, uint32(4294967295), Succeed()),
+	Entry("negative number", `-123`, uint32(0), MatchError(strconv.ErrSyntax)),
+	Entry("negative string", `"-123"`, uint32(0), MatchError(strconv.ErrSyntax)),
+	Entry("invalid string", `"abc"`, uint32(0), MatchError(strconv.ErrSyntax)),
+	Entry(
+		"invalid json",
+		`{invalid}`,
+		uint32(0),
+		MatchError(ContainSubstring("cannot decode")),
+	),
+	Entry("null", `null`, uint32(0), MatchError(ContainSubstring("cannot decode"))),
 )
 
-var _ = DescribeTable("UnmarshalStringUint64From",
-	func(input string, expected uint64, shouldError bool) {
+var _ = DescribeTable(
+	"UnmarshalStringUint64From",
+	func(input string, expected uint64, errMatcher types.GomegaMatcher) {
 		val, err := json.UnmarshalStringUint64From(decoderOf(input))
-		if shouldError {
-			Expect(err).To(HaveOccurred())
-		} else {
-			Expect(err).ToNot(HaveOccurred())
-			Expect(val).To(Equal(expected))
-		}
+		Expect(err).To(errMatcher)
+		Expect(val).To(Equal(expected))
 	},
-	Entry("direct number", `123`, uint64(123), false),
-	Entry("string number", `"123"`, uint64(123), false),
-	Entry("max uint64", `18446744073709551615`, uint64(18446744073709551615), false),
-	Entry("negative number", `-123`, uint64(0), true),
-	Entry("negative string", `"-123"`, uint64(0), true),
-	Entry("invalid string", `"abc"`, uint64(0), true),
-	Entry("invalid json", `{invalid}`, uint64(0), true),
-	Entry("array", `[1]`, uint64(0), true),
+	Entry("direct number", `123`, uint64(123), Succeed()),
+	Entry("string number", `"123"`, uint64(123), Succeed()),
+	Entry(
+		"max uint64",
+		`18446744073709551615`,
+		uint64(18446744073709551615),
+		Succeed(),
+	),
+	Entry("negative number", `-123`, uint64(0), MatchError(strconv.ErrSyntax)),
+	Entry("negative string", `"-123"`, uint64(0), MatchError(strconv.ErrSyntax)),
+	Entry("invalid string", `"abc"`, uint64(0), MatchError(strconv.ErrSyntax)),
+	Entry(
+		"invalid json",
+		`{invalid}`,
+		uint64(0),
+		MatchError(ContainSubstring("cannot decode")),
+	),
+	Entry("array", `[1]`, uint64(0), MatchError(ContainSubstring("cannot decode"))),
 )

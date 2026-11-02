@@ -123,7 +123,7 @@ const Internal = <
           </Flex.Box>
         </Modal.Body>
       </Form.Form>
-      <Nav.Bar location="bottom" size={48} bordered>
+      <Modal.Footer>
         <Nav.Bar.Start gap="small">
           {onBack != null && (
             <Button.Button variant="text" onClick={onBack}>
@@ -131,7 +131,6 @@ const Internal = <
               Back
             </Button.Button>
           )}
-          <Triggers.SaveHelpText action="Save" noBar />
         </Nav.Bar.Start>
         <Nav.Bar.End gap="small">
           {onCreateTask != null && (
@@ -147,12 +146,13 @@ const Internal = <
             onClick={() => void save(false)}
             variant="filled"
             trigger={Triggers.SAVE}
+            triggerIndicator
             type="submit"
           >
             Save
           </Button.Button>
         </Nav.Bar.End>
-      </Nav.Bar>
+      </Modal.Footer>
     </Modal.Frame>
   );
 };

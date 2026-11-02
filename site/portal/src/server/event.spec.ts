@@ -9,11 +9,16 @@
 
 import { beforeAll, beforeEach, describe, expect, it } from "vitest";
 
-import { event, type License } from "@/server/db/schema";
+import {
+  event,
+  type EventKind,
+  type License,
+  type Organization,
+} from "@/server/db/schema";
 import { type Memory, openMemory } from "@/server/db/testutil";
-import { listForLicense } from "@/server/event";
-import { NOW } from "@/server/license/testutil";
-import { createLicense, createOrganization } from "@/testutil";
+import { list, listForLicense } from "@/server/event";
+import { HASH_A, NOW } from "@/server/license/testutil";
+import { createActivation, createLicense, createOrganization } from "@/testutil";
 
 const MINUTE = 60 * 1000;
 
@@ -67,5 +72,112 @@ describe("event.listForLicense", () => {
 
   it("should list nothing for a license without events", async () => {
     expect(await listForLicense(store, lic.key)).toEqual([]);
+  });
+});
+
+describe("event.list", () => {
+  let store: Memory;
+  let acme: Organization;
+  let globex: Organization;
+  let lic: License;
+  beforeAll(async () => {
+    store = await openMemory();
+  });
+  beforeEach(async () => {
+    await store.clear();
+    acme = await createOrganization(store, {
+      kind: "team",
+      name: "Acme",
+      clerkOrgID: "org_a",
+    });
+    globex = await createOrganization(store, {
+      kind: "team",
+      name: "Globex",
+      clerkOrgID: "org_b",
+    });
+    lic = await createLicense(store, { organization: acme.key, label: "Test stand" });
+  });
+
+  const record = async (
+    kind: EventKind,
+    organization: string,
+    actor = "user_a",
+    extra: { license?: string; activation?: string } = {},
+  ) => {
+    const [row] = await store.query
+      .insert(event)
+      .values({ kind, actor, organization, at: NOW, ...extra })
+      .returning();
+    return row;
+  };
+
+  it("should name the organization, license, and machine of each event", async () => {
+    const machine = await createActivation(store, {
+      license: lic.key,
+      fingerprint: [HASH_A],
+      name: "Rig 1",
+    });
+    const e = await record("activate", acme.key, "user_a", {
+      license: lic.key,
+      activation: machine.key,
+    });
+    expect(await list(store, {})).toEqual({
+      entries: [
+        {
+          event: e,
+          organization: "Acme",
+          license: "Test stand",
+          machine: { name: "Rig 1", fingerprint: [HASH_A] },
+        },
+      ],
+      next: null,
+    });
+  });
+
+  it("should leave out what an event does not concern", async () => {
+    await record("register", acme.key);
+    expect((await list(store, {})).entries[0]).toMatchObject({
+      organization: "Acme",
+      license: null,
+      machine: null,
+    });
+  });
+
+  it("should keep only one organization's events", async () => {
+    const mine = await record("invite", acme.key);
+    await record("invite", globex.key);
+    const { entries } = await list(store, { organization: acme.key });
+    expect(entries.map((e) => e.event)).toEqual([mine]);
+  });
+
+  it("should keep only the events of a category", async () => {
+    await record("issue", acme.key);
+    const member = await record("change_role", acme.key);
+    const { entries } = await list(store, { category: "members" });
+    expect(entries.map((e) => e.event)).toEqual([member]);
+  });
+
+  it("should keep only the events of the given actors", async () => {
+    const staff = await record("issue", acme.key, "user_staff");
+    await record("activate", acme.key, "user_member");
+    const { entries } = await list(store, { actors: ["user_staff"] });
+    expect(entries.map((e) => e.event)).toEqual([staff]);
+  });
+
+  it("should keep nothing for no actors", async () => {
+    await record("issue", acme.key);
+    expect((await list(store, { actors: [] })).entries).toEqual([]);
+  });
+
+  it("should page from newest to oldest", async () => {
+    const recorded = [];
+    for (let i = 0; i < 5; i++) recorded.push(await record("download", acme.key));
+    const first = await list(store, { limit: 2 });
+    expect(first.entries.map((e) => e.event)).toEqual([recorded[4], recorded[3]]);
+    expect(first.next).toBe(recorded[3].key);
+    const second = await list(store, { limit: 2, before: first.next ?? 0 });
+    expect(second.entries.map((e) => e.event)).toEqual([recorded[2], recorded[1]]);
+    const last = await list(store, { limit: 2, before: second.next ?? 0 });
+    expect(last).toEqual({ entries: [expect.anything()], next: null });
   });
 });

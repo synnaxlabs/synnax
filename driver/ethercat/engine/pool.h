@@ -16,9 +16,15 @@
 
 #include "x/cpp/errors/errors.h"
 
+#include "driver/errors/errors.h"
 #include "driver/ethercat/engine/engine.h"
 
 namespace driver::ethercat::engine {
+/// @brief library info for the packet capture dependency required by SOEM.
+const LibraryInfo PCAP_LIBRARY_INFO = {
+    "Npcap (packet capture for EtherCAT)",
+    "https://npcap.com/#download"
+};
 
 /// @brief manages a pool of EtherCAT engines keyed by master identifier.
 class Pool {
@@ -38,6 +44,7 @@ public:
     [[nodiscard]] std::vector<master::Info> enumerate() const;
 
     /// @brief returns why no master can be created, or NIL when masters are available.
+    /// A pool built without a manager reports the missing packet capture library.
     [[nodiscard]] x::errors::Error check_available() const;
 
     /// @brief acquires or creates an engine for the specified master key.

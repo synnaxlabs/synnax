@@ -1,0 +1,35 @@
+---
+// Copyright 2026 Synnax Labs, Inc.
+//
+// Use of this software is governed by the Business Source License included in the file
+// licenses/BSL.txt.
+//
+// As of the Change Date specified in that file, in accordance with the Business Source
+// License, use of this software will be governed by the Apache License, Version 2.0,
+// included in the file licenses/APL.txt.
+
+import Guest from "@/layouts/Guest.astro";
+import { retrieve } from "@/server/invitation";
+import { Invitations } from "@/ui/invitations";
+
+const { portal } = Astro.locals;
+const invited = await retrieve(portal.store.query, Astro.params.key ?? "");
+if (invited == null) Astro.response.status = 404;
+const userID = Astro.locals.auth().userId;
+const viewer =
+    invited == null || userID == null
+        ? null
+        : {
+              email: (await portal.directory.person(userID)).email,
+              addresses: await portal.directory.addresses(userID),
+          };
+---
+
+<Guest title={invited == null ? "Invitation" : `Join ${invited.team.name}`}>
+    <Invitations.Accept
+        client:load
+        invited={invited}
+        viewer={viewer}
+        now={portal.now()}
+    />
+</Guest>

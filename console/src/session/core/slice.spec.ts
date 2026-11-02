@@ -126,7 +126,7 @@ describe("setClusterKey", () => {
 describe("defaults", () => {
   it("should start with the local and demo Cores under their own keys", () => {
     expect(Object.keys(Core.ZERO_SLICE_STATE.cores).sort()).toEqual(
-      [Core.DEMO_KEY, Core.LOCAL_KEY].sort(),
+      ["DEMO", "LOCAL"].sort(),
     );
   });
 });
@@ -162,12 +162,12 @@ describe("remove", () => {
 
 describe("select / clearSelected", () => {
   it("should set the selected key", () => {
-    const state = reduce(Core.ZERO_SLICE_STATE, Core.select(Core.DEMO_KEY));
-    expect(state.selected).toBe(Core.DEMO_KEY);
+    const state = reduce(Core.ZERO_SLICE_STATE, Core.select("DEMO"));
+    expect(state.selected).toBe("DEMO");
   });
 
   it("should clear the selected key", () => {
-    let state = reduce(Core.ZERO_SLICE_STATE, Core.select(Core.DEMO_KEY));
+    let state = reduce(Core.ZERO_SLICE_STATE, Core.select("DEMO"));
     state = reduce(state, Core.clearSelected());
     expect(state.selected).toBeUndefined();
   });
@@ -201,6 +201,23 @@ describe("coreZ", () => {
       "secure",
       "username",
     ]);
+  });
+});
+
+describe("PERSIST_EXCLUDE", () => {
+  it("should keep every password out of the stored state", () => {
+    const state = {
+      [Core.SLICE_NAME]: withCores(
+        { ...ALPHA, password: "secret" },
+        { ...BRAVO, password: "other" },
+      ),
+    };
+    const [purgePasswords] = Core.PERSIST_EXCLUDE;
+    const purged = purgePasswords(state);
+    const cores = Object.values(purged[Core.SLICE_NAME].cores);
+    expect(cores.map((c) => c.password)).toEqual(["", ""]);
+    expect(cores.map((c) => c.name)).toEqual([ALPHA.name, BRAVO.name]);
+    expect(state[Core.SLICE_NAME].cores.alpha.password).toBe("secret");
   });
 });
 

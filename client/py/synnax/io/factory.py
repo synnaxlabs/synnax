@@ -12,11 +12,11 @@ from pathlib import Path
 from synnax.io.csv import CSVReader, CSVWriter
 from synnax.io.protocol import FileWriter, RowFileReader
 
-READERS: list[type[RowFileReader]] = [
+_READERS: list[type[RowFileReader]] = [
     CSVReader,
 ]
 
-WRITERS: list[type[FileWriter]] = [
+_WRITERS: list[type[FileWriter]] = [
     CSVWriter,
 ]
 
@@ -29,8 +29,9 @@ class Factory:
 
     def __init__(
         self,
-        readers: list[type[RowFileReader]] = READERS,
-        writers: list[type[FileWriter]] = WRITERS,
+        *,
+        readers: list[type[RowFileReader]] = _READERS,
+        writers: list[type[FileWriter]] = _WRITERS,
     ):
         self.reader = readers
         self.writers = writers

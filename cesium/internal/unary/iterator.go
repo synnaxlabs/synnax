@@ -63,7 +63,7 @@ func (i IteratorConfig) Validate() error {
 
 var (
 	_                     config.Config[IteratorConfig] = IteratorConfig{}
-	DefaultIteratorConfig                               = IteratorConfig{
+	defaultIteratorConfig                               = IteratorConfig{
 		AutoChunkSize: 1e5,
 	}
 )
@@ -108,7 +108,7 @@ func (db *DB) OpenIterator(cfgs ...IteratorConfig) (*Iterator, error) {
 	if db.closed.Load() {
 		return nil, db.wrapError(ErrDBClosed)
 	}
-	cfg, err := config.New(DefaultIteratorConfig, cfgs...)
+	cfg, err := config.New(defaultIteratorConfig, cfgs...)
 	if err != nil {
 		return nil, err
 	}
@@ -131,8 +131,7 @@ func (db *DB) OpenIterator(cfgs ...IteratorConfig) (*Iterator, error) {
 	return i, nil
 }
 
-// AutoSpan tells Next or Prev to pick the span of each step itself.
-const AutoSpan = channel.AutoSpan
+const AutoSpan telem.TimeSpan = -1
 
 // SetBounds sets the iterator's bounds. The iterator is invalidated, and will not be
 // valid until a seeking call is made.
@@ -175,14 +174,6 @@ func (i *Iterator) EndAfter(ctx context.Context, n int64) (telem.TimeStamp, erro
 func (i *Iterator) Value() channel.Frame { return i.frame }
 
 func (i *Iterator) View() telem.TimeRange { return i.view }
-
-// IndexKey returns the key of the channel's index, which is its own key for an index.
-func (i *Iterator) IndexKey() channel.Key {
-	if i.Channel.IsIndex {
-		return i.Channel.Key
-	}
-	return i.Channel.Index
-}
 
 func (i *Iterator) SeekFirst(ctx context.Context) bool {
 	if i.closed {
@@ -508,9 +499,6 @@ func (i *Iterator) Prev(ctx context.Context, span telem.TimeSpan) (ok bool) {
 	}
 	return ok
 }
-
-// Len returns the number of samples in the iterator's frame.
-func (i *Iterator) Len() int64 { return i.frame.Len() }
 
 // Error returns the error that caused the iterator to stop moving. If the iterator is
 // still moving, Error returns nil.

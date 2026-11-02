@@ -9,7 +9,6 @@
 
 import { Button } from "@synnaxlabs/lyra/button";
 import { Color } from "@synnaxlabs/lyra/color";
-import { CSS } from "@synnaxlabs/lyra/css";
 import { Flex } from "@synnaxlabs/lyra/flex";
 import { Icon } from "@synnaxlabs/lyra/icon";
 import { Text } from "@synnaxlabs/lyra/text";
@@ -17,6 +16,8 @@ import { type Theming } from "@synnaxlabs/lyra/theming";
 import { stopPropagation } from "@synnaxlabs/lyra/util";
 import { type color, type optional, type state } from "@synnaxlabs/x";
 import { memo, type ReactElement } from "react";
+
+import { CSS } from "@/css";
 
 export interface EntryData {
   color: color.Crude;
@@ -110,11 +111,11 @@ const Entry = ({
       </Flex.Box>
       {allowVisibleChange && onVisibleChange != null && (
         <Button.Button
-          className={CSS.cls(CSS.B("visible-toggle"), CSS.BM("btn", "glyph"))}
+          className={CSS.B("visible-toggle")}
           onClick={() => onVisibleChange(key, !visible)}
           onDoubleClick={stopPropagation}
           size="tiny"
-          variant="text"
+          variant="glyph"
         >
           {visible ? <Icon.Visible /> : <Icon.Hidden />}
         </Button.Button>

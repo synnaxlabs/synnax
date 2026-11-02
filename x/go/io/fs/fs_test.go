@@ -469,6 +469,15 @@ var _ = Describe("FS", func() {
 					Expect(fs.Exists("a")).To(BeFalse())
 					Expect(fs.Exists("b")).To(BeTrue())
 				})
+				DescribeTable("Should return a not-exist error for a missing source",
+					func(oldName string) {
+						Expect(
+							fs.Rename(oldName, "b.json"),
+						).To(MatchError(os.ErrNotExist))
+					},
+					Entry("missing file", "missing.json"),
+					Entry("missing parent directory", "missing/a.json"),
+				)
 			})
 			Describe("Truncate", func() {
 				It(

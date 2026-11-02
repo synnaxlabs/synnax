@@ -13,6 +13,7 @@
 .console-arc__redeploy-item {
     color: var(--pluto-primary-z);
     background: var(--pluto-primary-z-10);
+
     &:hover {
         background: var(--pluto-primary-z-20);
     }

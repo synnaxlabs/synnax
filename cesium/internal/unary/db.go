@@ -14,6 +14,7 @@ import (
 	"fmt"
 	"sync/atomic"
 
+	"github.com/synnaxlabs/cesium/internal/alignment"
 	"github.com/synnaxlabs/cesium/internal/channel"
 	"github.com/synnaxlabs/cesium/internal/control"
 	"github.com/synnaxlabs/cesium/internal/domain"
@@ -36,7 +37,7 @@ type DB struct {
 	idx              *index.Domain
 	wrapError        func(error) error
 	closed           *atomic.Bool
-	leadingAlignment *atomic.Uint32
+	leadingAlignment *alignment.Counter
 	// resolver handles sample-to-byte offset translation. Fixed-density channels
 	// carry a zero cache; variable-length channels carry a per-domain offset cache.
 	resolver *offsetResolver
@@ -74,12 +75,13 @@ func (db *DB) SetIndex(idx *index.Domain) { db.idx = idx }
 // starting at ts with. When a writer holds the region covering ts, the cursor is that
 // writer's next write position, so the indexed channel lands in the same sample space
 // as the timestamps it is being written against. Otherwise a fresh leading domain is
-// reserved, keeping the data ordered after everything already persisted.
-func (db *DB) WriteCursor(ts telem.TimeStamp) telem.Alignment {
+// reserved, keeping the data ordered after everything already persisted. It returns
+// alignment.ErrExhausted when no leading domain is left.
+func (db *DB) WriteCursor(ts telem.TimeStamp) (telem.Alignment, error) {
 	if cw, ok := db.controller.ResourceAt(ts.Range(ts + 1)); ok {
-		return cw.loadAlignment()
+		return cw.loadAlignment(), nil
 	}
-	return telem.NewAlignment(db.leadingAlignment.Add(1), 0)
+	return db.leadingAlignment.Next()
 }
 
 // LeadingControlState returns the first chronological gate in this unary database.
@@ -101,25 +103,6 @@ func (db *DB) HasDataFor(ctx context.Context, tr telem.TimeRange) (bool, error) 
 	defer release()
 	hasData, err := db.domain.HasDataFor(ctx, tr)
 	return hasData, db.wrapError(err)
-}
-
-// Read reads a Time Range of data at the unary level.
-func (db *DB) Read(
-	ctx context.Context,
-	tr telem.TimeRange,
-) (frame channel.Frame, err error) {
-	var iter *Iterator
-	if iter, err = db.OpenIterator(IterRange(tr)); err != nil {
-		return frame, err
-	}
-	defer func() { err = errors.Combine(err, iter.Close()) }()
-	if !iter.SeekFirst(ctx) {
-		return frame, err
-	}
-	for iter.Next(ctx, telem.TimeSpanMax) {
-		frame = frame.Extend(iter.Value())
-	}
-	return frame, err
 }
 
 // Size returns the total size of all data stored in the database.

@@ -44,14 +44,14 @@ var _ = Describe("Codec", func() {
 	})
 	It("Should include a stack trace on encoding errors", func(ctx SpecContext) {
 		_, err := gob.Codec.Encode(ctx, make(chan int))
-		Expect(err).To(HaveOccurred())
+		Expect(err).To(MatchError(ContainSubstring("failed to encode value")))
 		stack := errors.GetStackTrace(err)
 		Expect(stack.String()).ToNot(BeEmpty())
 		Expect(stack.String()).To(ContainSubstring(".go"))
 	})
 	It("Should include a stack trace on decoding errors", func(ctx SpecContext) {
 		err := gob.Codec.Decode(ctx, []byte("invalid"), &toEncode{})
-		Expect(err).To(HaveOccurred())
+		Expect(err).To(MatchError(ContainSubstring("failed to decode")))
 		stack := errors.GetStackTrace(err)
 		Expect(stack.String()).ToNot(BeEmpty())
 		Expect(stack.String()).To(ContainSubstring(".go"))

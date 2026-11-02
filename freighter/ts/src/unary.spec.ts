@@ -11,8 +11,7 @@ import { type breaker } from "@synnaxlabs/x";
 import { describe, expect, it, vi } from "vitest";
 import { z } from "zod";
 
-import { Unreachable } from "@/errors";
-import { type UnaryClient, unaryWithBreaker } from "@/unary";
+import { type UnaryClient, unaryWithBreaker, Unreachable } from "@/index";
 
 const NO_SLEEP: breaker.Config = { sleepFn: async () => {} };
 const UNREACHABLE_MESSAGE = "server down";
