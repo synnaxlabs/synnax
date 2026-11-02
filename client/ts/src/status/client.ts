@@ -341,9 +341,9 @@ export class Client extends query.Retriever<
     return { ...cached, labels };
   }
 
-  private writeThrough(status: Status): void {
+  private writeThrough(status: Status, since: query.Stamp): void {
     if (this.store.status(status.key) === "tombstoned") return;
-    this.store.ingest(status);
+    this.store.ingest(status, { since });
     if (status.labels == null) return;
     this.cfg.labels.store.ingest(status.labels);
     const id = ontologyID(status.key);
@@ -362,12 +362,13 @@ export class Client extends query.Retriever<
 
   /** Fetches statuses and writes their included labels through the caches. */
   private async fetchThrough(req: RetrieveMultipleParams): Promise<Status[]> {
+    const since = this.store.stamp();
     const statuses = await this.execRetrieve(req);
     // One batch per table, so each table flushes once for the whole response.
     this.store.batch(() =>
       this.cfg.labels.store.batch(() =>
         this.cfg.ontology.cache.relationships.batch(() =>
-          statuses.forEach((s) => this.writeThrough(s)),
+          statuses.forEach((s) => this.writeThrough(s, since)),
         ),
       ),
     );
