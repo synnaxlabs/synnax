@@ -45,6 +45,42 @@ var _ = Describe("C++ JSON Plugin", func() {
 	})
 
 	Describe("Generate", func() {
+		It("Should generate the recursive Where of a filter", func(ctx SpecContext) {
+			AddFilterSchema(loader)
+			resp := MustGenerate(ctx, ThingFilter, "thing", loader, jsonPlugin)
+			ExpectContent(resp, "thing/json.gen.h").ToContain(
+				`.and_ = parser.field<std::optional<std::vector<Where>>>("and"),`,
+				`.not_ = parser.field<x::mem::indirect<Where>>("not"),`,
+				`if (this->and_.has_value()) j["and"] = x::json::to_array(*this->and_);`,
+				`if (this->not_.has_value()) j["not"] = this->not_->to_json();`,
+			)
+		})
+
+		It(
+			"Should serialize type parameter fields through x::json",
+			func(ctx SpecContext) {
+				source := `
+					@cpp output "x/cpp/thing"
+
+					Set struct<T> {
+						value T
+						eq    T?
+						in    T[]?
+						all   T[]
+					}
+				`
+				resp := MustGenerate(ctx, source, "thing", loader, jsonPlugin)
+				ExpectContent(resp, "json.gen.h").
+					ToContain(
+						`j["value"] = x::json::to_json(this->value);`,
+						`if (this->eq.has_value()) j["eq"] = x::json::to_json(*this->eq);`,
+						`if (this->in.has_value()) j["in"] = x::json::to_array(*this->in);`,
+						`j["all"] = x::json::to_array(this->all);`,
+					).
+					ToNotContain("is_same_v")
+			},
+		)
+
 		Context("field-level omit", func() {
 			It("Should leave out a field omitted in cpp", func(ctx SpecContext) {
 				source := `

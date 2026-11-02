@@ -29,6 +29,7 @@ import (
 	"github.com/synnaxlabs/oracle/plugin/enum"
 	"github.com/synnaxlabs/oracle/plugin/internal/arrays"
 	"github.com/synnaxlabs/oracle/plugin/output"
+	"github.com/synnaxlabs/oracle/plugin/pb/instance"
 	"github.com/synnaxlabs/oracle/plugin/resolver"
 	"github.com/synnaxlabs/oracle/resolution"
 	"github.com/synnaxlabs/x/errors"
@@ -247,6 +248,13 @@ func (p *Plugin) generateProto(
 		protoPaths:       protoPaths,
 		rawNs:            namespace,
 		processedEnums:   make(set.Set[string]),
+		instances:        make(set.Set[string]),
+	}
+	if len(structs) > 0 {
+		data.pbNamespace = naming.PBNamespace(
+			output.GetPBPath(structs[0]),
+			structs[0].Namespace,
+		)
 	}
 
 	data.AddSystem("utility")
@@ -484,6 +492,15 @@ func (p *Plugin) generateUnionConversion(
 	cppFieldName, pbAccessorName string,
 ) (forward, backward string) {
 	toProto, fromProto := p.unionTranslatorNames(resolved, data)
+	return freeConversion(toProto, fromProto, isOptional, cppFieldName, pbAccessorName)
+}
+
+// freeConversion converts a field through the free functions toProto and fromProto.
+func freeConversion(
+	toProto, fromProto string,
+	isOptional bool,
+	cppFieldName, pbAccessorName string,
+) (forward, backward string) {
 	if isOptional {
 		forward = fmt.Sprintf(`if (this->%s.has_value()) {
         auto [v, err] = %s(*this->%s);
@@ -690,6 +707,7 @@ func (p *Plugin) generateFieldConversion(
 		return p.generateEnumConversion(
 			resolved,
 			form,
+			field.Optional,
 			cppFieldName,
 			pbAccessorName,
 			pbSetter,
@@ -906,6 +924,16 @@ func (p *Plugin) generateStructConversion(
 	data *templateData,
 	cppFieldName, pbAccessorName string,
 ) (forward, backward string) {
+	if inst, ok := instance.Of(typeRef, data.rawNs, data.table); ok {
+		name := p.addInstance(inst, data)
+		return freeConversion(
+			name+"_to_proto",
+			name+"_from_proto",
+			isOptional,
+			cppFieldName,
+			pbAccessorName,
+		)
+	}
 	if resolved.Namespace != data.rawNs {
 		targetOutputPath := output.GetPath(resolved, "cpp")
 		if targetOutputPath != "" {
@@ -941,6 +969,31 @@ func (p *Plugin) generateStructConversion(
 	return forward, backward
 }
 
+// addInstance adds the translators for inst once and returns their name prefix. They
+// are snake-named free functions, not to_proto overloads: Set<Key> and Set<uint32> are
+// the same C++ type when Key is a distinct uint32.
+func (p *Plugin) addInstance(inst instance.Instance, data *templateData) string {
+	name := casing.FieldSnake(inst.Name)
+	if data.instances.Contains(inst.Name) {
+		return name
+	}
+	data.instances.Add(inst.Name)
+	t := instanceTranslatorData{
+		Name:    name,
+		CppType: p.typeRefToCppForTranslator(inst.Ref, data),
+		PBType:  fmt.Sprintf("%s::%s", data.pbNamespace, inst.Name),
+	}
+	for _, field := range inst.Fields {
+		f := p.processFieldForTranslation(field, data)
+		// Field conversions read the struct through this->. An instance translator
+		// is a free function, so it reads its self argument.
+		f.ForwardExpr = strings.ReplaceAll(f.ForwardExpr, "this->", "self.")
+		t.Fields = append(t.Fields, f)
+	}
+	data.InstanceTranslators = append(data.InstanceTranslators, t)
+	return name
+}
+
 func (p *Plugin) typeRefToCppForTranslator(
 	typeRef resolution.TypeRef,
 	data *templateData,
@@ -968,6 +1021,9 @@ func (p *Plugin) typeRefToCppForTranslator(
 	resolved, ok := typeRef.Resolve(data.table)
 	if !ok {
 		return typeRef.Name
+	}
+	if form, ok := resolved.Form.(resolution.EnumForm); ok && !form.IsIntEnum {
+		return "std::string"
 	}
 
 	name := resolved.Name
@@ -1074,6 +1130,7 @@ func (p *Plugin) generateTypeParamConversion(
 func (p *Plugin) generateEnumConversion(
 	resolved resolution.Type,
 	form resolution.EnumForm,
+	isOptional bool,
 	cppFieldName, pbAccessorName, pbSetter string,
 	data *templateData,
 ) (forward, backward string) {
@@ -1093,13 +1150,17 @@ func (p *Plugin) generateEnumConversion(
 	pbOutputPath := enum.FindPBOutputPath(resolved, data.table)
 	pbNamespace := naming.PBNamespace(pbOutputPath, resolved.Namespace)
 
+	value := "this->" + cppFieldName
+	if isOptional {
+		value = "*" + value
+	}
 	if form.IsIntEnum {
 		forward = fmt.Sprintf(
-			"%s(static_cast<%s::%s>(this->%s))",
+			"%s(static_cast<%s::%s>(%s))",
 			pbSetter,
 			pbNamespace,
 			enumName,
-			cppFieldName,
+			value,
 		)
 		backward = fmt.Sprintf(
 			"cpp.%s = static_cast<%s>(pb.%s());",
@@ -1107,20 +1168,27 @@ func (p *Plugin) generateEnumConversion(
 			cppEnumType,
 			pbAccessorName,
 		)
-	} else {
-		funcName := funcNamespace + casing.TypeSnake(enumName)
-		forward = fmt.Sprintf(`{
-        auto [v, err] = %s_to_pb(this->%s);
+		if isOptional {
+			forward = fmt.Sprintf("if (this->%s.has_value()) %s", cppFieldName, forward)
+			backward = fmt.Sprintf("if (pb.has_%s()) %s", pbAccessorName, backward)
+		}
+		return forward, backward
+	}
+	funcName := funcNamespace + casing.TypeSnake(enumName)
+	forward = fmt.Sprintf(`{
+        auto [v, err] = %s_to_pb(%s);
         if (err) return {{}, err};
         %s(v);
-    }`, funcName, cppFieldName, pbSetter)
-		backward = fmt.Sprintf(`{
+    }`, funcName, value, pbSetter)
+	backward = fmt.Sprintf(`{
         auto [v, err] = %s_from_pb(pb.%s());
         if (err) return {{}, err};
         cpp.%s = v;
     }`, funcName, pbAccessorName, cppFieldName)
+	if isOptional {
+		forward = fmt.Sprintf("if (this->%s.has_value()) %s", cppFieldName, forward)
+		backward = fmt.Sprintf("if (pb.has_%s()) %s", pbAccessorName, backward)
 	}
-
 	return forward, backward
 }
 
@@ -1132,14 +1200,7 @@ func (p *Plugin) generateHandWrittenConversion(
 	cppFieldName, pbAccessorName, pbSetter string,
 	data *templateData,
 ) (forward, backward string) {
-	cppName := domain.GetName(resolved, "cpp")
-	if resolved.Namespace != data.rawNs {
-		targetOutputPath := output.GetPath(resolved, "cpp")
-		if targetOutputPath != "" {
-			ns := naming.Namespace(targetOutputPath)
-			cppName = fmt.Sprintf("::%s::%s", ns, cppName)
-		}
-	}
+	cppName := handWrittenName(resolved, data)
 	if isOptional {
 		return fmt.Sprintf(
 				"if (this->%s.has_value()) %s(this->%s->to_proto())",
@@ -1162,6 +1223,19 @@ func (p *Plugin) generateHandWrittenConversion(
 			cppName,
 			pbAccessorName,
 		)
+}
+
+// handWrittenName returns the C++ name of a type hand-written in C++, qualified when
+// it lives in another namespace.
+func handWrittenName(resolved resolution.Type, data *templateData) string {
+	cppName := domain.GetName(resolved, "cpp")
+	if resolved.Namespace == data.rawNs {
+		return cppName
+	}
+	if target := output.GetPath(resolved, "cpp"); target != "" {
+		return fmt.Sprintf("::%s::%s", naming.Namespace(target), cppName)
+	}
+	return cppName
 }
 
 func (p *Plugin) generateArrayConversion(
@@ -1196,6 +1270,45 @@ func (p *Plugin) generateArrayConversion(
 	)
 }
 
+// instanceArrayConversion converts each element of an array of a generic struct
+// instance through the instance's free functions.
+func instanceArrayConversion(
+	name string,
+	isOptional bool,
+	cppFieldName, pbAccessorName string,
+) (forward, backward string) {
+	if isOptional {
+		forward = fmt.Sprintf(`if (this->%s.has_value()) {
+        auto* wrapper = pb.mutable_%s();
+        for (const auto& item : *this->%s) {
+            auto [v, err] = %s_to_proto(item);
+            if (err) return {{}, err};
+            *wrapper->add_values() = v;
+        }
+    }`, cppFieldName, pbAccessorName, cppFieldName, name)
+		backward = fmt.Sprintf(`if (pb.has_%s()) {
+        cpp.%s.emplace();
+        for (const auto& item : pb.%s().values()) {
+            auto [v, err] = %s_from_proto(item);
+            if (err) return {{}, err};
+            cpp.%s->push_back(std::move(v));
+        }
+    }`, pbAccessorName, cppFieldName, pbAccessorName, name, cppFieldName)
+		return forward, backward
+	}
+	forward = fmt.Sprintf(`for (const auto& item : this->%s) {
+        auto [v, err] = %s_to_proto(item);
+        if (err) return {{}, err};
+        *pb.add_%s() = v;
+    }`, cppFieldName, name, pbAccessorName)
+	backward = fmt.Sprintf(`for (const auto& item : pb.%s()) {
+        auto [v, err] = %s_from_proto(item);
+        if (err) return {{}, err};
+        cpp.%s.push_back(std::move(v));
+    }`, pbAccessorName, name, cppFieldName)
+	return forward, backward
+}
+
 // generateArrayElementConversion renders the proto conversion for an array field.
 // A nullable array maps to a wrapper message (a list message whose repeated field
 // is named values) so absence is distinguishable from emptiness; the generated
@@ -1207,6 +1320,14 @@ func (p *Plugin) generateArrayElementConversion(
 	isOptional bool,
 	data *templateData,
 ) (forward, backward string) {
+	if inst, ok := instance.Of(elemType, data.rawNs, data.table); ok {
+		return instanceArrayConversion(
+			p.addInstance(inst, data),
+			isOptional,
+			cppFieldName,
+			pbAccessorName,
+		)
+	}
 	if !resolution.IsPrimitive(elemType.Name) {
 		if resolved, _, ok := resolution.Dealias(elemType, data.table); ok {
 			if _, isStruct := resolved.Form.(resolution.StructForm); isStruct {
@@ -1309,9 +1430,10 @@ func (p *Plugin) generateArrayElementConversion(
 }
 
 // elementConversion returns the per-item statements that translate an array element
-// that proto cannot hold as is: a uuid (directly or through aliases and distinct types)
-// or an enum. toPB takes the proto adder and fromPB takes the C++ container prefix
-// ("cpp.field." or "cpp.field->"). Both read the loop variable item.
+// that proto cannot hold as is: a uuid (directly or through aliases and distinct
+// types), a type hand-written in C++, or an enum. toPB takes the proto adder and fromPB
+// takes the C++ container prefix ("cpp.field." or "cpp.field->"). Both read the loop
+// variable item.
 func (p *Plugin) elementConversion(
 	elemType resolution.TypeRef,
 	data *templateData,
@@ -1330,6 +1452,17 @@ func (p *Plugin) elementConversion(
 	resolved, _, ok := resolution.Dealias(elemType, data.table)
 	if !ok {
 		return nil, nil, false
+	}
+	if _, isDistinct := resolved.Form.(resolution.DistinctForm); isDistinct &&
+		omit.IsSkipped(resolved, "cpp") {
+		cppName := handWrittenName(resolved, data)
+		toPB = func(add string) string {
+			return fmt.Sprintf("%s(item.to_proto());", add)
+		}
+		fromPB = func(dst string) string {
+			return fmt.Sprintf("%spush_back(%s::from_proto(item));", dst, cppName)
+		}
+		return toPB, fromPB, true
 	}
 	form, ok := resolved.Form.(resolution.EnumForm)
 	if !ok {
@@ -1660,16 +1793,31 @@ func deriveProtoInclude(pbOutputPath, namespace string) string {
 
 type templateData struct {
 	processedEnums set.Set[string]
+	instances      set.Set[string]
 	*includes.Manager
-	table            *resolution.Table
-	jsonPaths        set.Set[string]
-	protoPaths       set.Set[string]
-	Namespace        string
-	rawNs            string
-	Translators      []translatorData
-	UnionTranslators []unionTranslatorData
-	EnumTranslators  []enumTranslatorData
-	ArrayWrappers    []arrayWrapperTranslatorData
+	table               *resolution.Table
+	jsonPaths           set.Set[string]
+	protoPaths          set.Set[string]
+	Namespace           string
+	rawNs               string
+	pbNamespace         string
+	Translators         []translatorData
+	InstanceTranslators []instanceTranslatorData
+	UnionTranslators    []unionTranslatorData
+	EnumTranslators     []enumTranslatorData
+	ArrayWrappers       []arrayWrapperTranslatorData
+}
+
+// instanceTranslatorData is the template view of the free functions that move a use of
+// a generic struct between its C++ type and its own protobuf message.
+type instanceTranslatorData struct {
+	// Name prefixes the functions (e.g. key_set_to_proto).
+	Name string
+	// CppType is the qualified use of the generic struct (e.g. ::x::filter::Set<Key>).
+	CppType string
+	// PBType is the qualified protobuf message.
+	PBType string
+	Fields []fieldTranslatorData
 }
 
 // unionTranslatorData is the template view of the free functions that move a

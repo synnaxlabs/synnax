@@ -16,29 +16,6 @@ import (
 
 var _ gorp.Entry[Key] = View{}
 
-// Base returns the fields shared by every variant of the view. A view with no variant
-// has a zero Base.
-func (v View) Base() Base {
-	switch variant := v.Variant.(type) {
-	case RangeView:
-		return variant.Base
-	case StatusView:
-		return variant.Base
-	}
-	return Base{}
-}
-
-// Type returns the type of the view's variant, or an empty type if it has none.
-func (v View) Type() ViewType {
-	switch v.Variant.(type) {
-	case RangeView:
-		return RangeViewType
-	case StatusView:
-		return StatusViewType
-	}
-	return ""
-}
-
 // WithKey returns a copy of the view with its key set to key.
 func (v View) WithKey(key Key) View {
 	switch variant := v.Variant.(type) {

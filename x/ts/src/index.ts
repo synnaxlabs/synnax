@@ -22,6 +22,7 @@ export * from "@/deep";
 export * from "@/destructor";
 export * from "@/errors";
 export * from "@/filename";
+export * from "@/filter";
 export * from "@/fmt";
 export * from "@/grid";
 export * from "@/id";

@@ -862,18 +862,29 @@ func isIntEnum(typeRef resolution.TypeRef, table *resolution.Table) bool {
 	return ok && form.IsIntEnum
 }
 
+// Indirect reports whether field is an x::mem::indirect: an optional field whose value
+// holds parent, which std::optional cannot hold before parent is complete. A
+// std::vector accepts an incomplete element, so a list field is never indirect.
+func Indirect(
+	field resolution.Field,
+	parent resolution.Type,
+	table *resolution.Table,
+) bool {
+	return field.Optional && field.Type.Name != "Array" &&
+		resolution.RefersTo(field.Type, parent.QualifiedName, table)
+}
+
 func (p *Plugin) processField(
 	field resolution.Field,
 	entry resolution.Type,
 	data *templateData,
 ) fieldData {
 	cppType := p.typeRefToCpp(field.Type, data)
-	isSelfRef := resolution.RefersTo(field.Type, entry.QualifiedName, data.table)
 
 	var defaultValue string
 	if !field.Optional {
 		defaultValue = p.zeroValue(field.Type, data)
-	} else if isSelfRef {
+	} else if Indirect(field, entry, data.table) {
 		data.AddInternal("x/cpp/mem/indirect.h")
 		cppType = fmt.Sprintf("x::mem::indirect<%s>", cppType)
 	} else {
@@ -897,7 +908,6 @@ func (p *Plugin) processField(
 		Name:         cppFieldName,
 		CppType:      cppType,
 		Doc:          doc.Get(field.Domains),
-		IsSelfRef:    isSelfRef,
 		DefaultValue: defaultValue,
 	}
 }
@@ -1436,7 +1446,6 @@ type fieldData struct {
 	DefaultValue string
 	CppType      string
 	Doc          string
-	IsSelfRef    bool
 }
 
 type enumData struct {

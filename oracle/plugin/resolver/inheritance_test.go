@@ -381,6 +381,37 @@ var _ = Describe("Inheritance", func() {
 		})
 	})
 
+	Describe("SharedBases", func() {
+		It("Should return the bases that every variant inherits", func(
+			ctx SpecContext,
+		) {
+			form, _, table := analyzeUnion(ctx, `
+				@go output "pkg/test"
+
+				Base struct {
+					port string = ""
+					name string = ""
+				}
+
+				Extra struct {
+					scale float64 = 1
+				}
+
+				Chan union on type extends Base, Extra {
+					builtin {
+						units string = "c"
+					}
+					custom {
+						-port
+					}
+				}
+			`, "Chan", "builtin")
+			Expect(resolver.SharedBases(form, "go", table)).To(ConsistOf(
+				HaveField("Name", "test.Extra"),
+			))
+		})
+	})
+
 	Describe("VariantBases", func() {
 		It("Should inherit every base when the variant drops nothing", func(
 			ctx SpecContext,

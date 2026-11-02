@@ -610,7 +610,10 @@ func renderGoFile(
 			}
 			data.Decls = append(data.Decls, declData{Struct: &s})
 		case declUnion:
-			u := processUnion(d.typ, procData)
+			u, err := processUnion(d.typ, procData)
+			if err != nil {
+				return nil, nil, err
+			}
 			data.Decls = append(data.Decls, declData{Union: &u})
 		}
 	}
@@ -1683,6 +1686,32 @@ func (u *{{.Name}}) UnmarshalJSONFrom(dec *jsontext.Decoder) error {
 	}
 	return nil
 }
+{{- range $b := .Bases}}
+
+{{formatDoc $b.Method (printf "returns the %s of the active variant, or a zero %s when there is none." $b.Method $b.Method)}}
+func (u {{$u.Name}}) {{$b.Method}}() {{$b.Type}} {
+	switch v := u.Variant.(type) {
+{{- range $u.Variants}}
+	case {{.TypeName}}:
+		return v.{{$b.Method}}
+{{- end}}
+	}
+	return {{$b.Type}}{}
+}
+{{- end}}
+{{- if .TagMethod}}
+
+{{formatDoc .TagMethod (printf "returns the %s of the active variant, or an empty %s when there is none." .DiscJSONName .DiscJSONName)}}
+func (u {{.Name}}) {{.TagMethod}}() {{.DiscType}} {
+	switch u.Variant.(type) {
+{{- range .Variants}}
+	case {{.TypeName}}:
+		return {{.ConstName}}
+{{- end}}
+	}
+	return ""
+}
+{{- end}}
 {{- if .NeedsApplyDefaults}}
 
 // ApplyDefaults fills the active variant's zero-valued fields with their

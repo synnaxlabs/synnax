@@ -219,12 +219,16 @@ func generatePyFile(
 			if err != nil {
 				return nil, err
 			}
-			for _, f := range sd.Fields {
-				if f.Alias != "" {
-					sd.HasKeywordAlias = true
-					data.imports.addPydantic("ConfigDict")
-					break
-				}
+			hasAlias := lo.SomeBy(
+				sd.Fields,
+				func(f fieldData) bool { return f.Alias != "" },
+			)
+			sd.ModelConfig = modelConfig(
+				hasAlias,
+				resolution.InFilterRequest(typ, table),
+			)
+			if sd.ModelConfig != "" {
+				data.imports.addPydantic("ConfigDict")
 			}
 			data.SortedDecls = append(data.SortedDecls, sortedDeclData{
 				IsStruct: true,
@@ -2018,19 +2022,36 @@ type typeVarData struct {
 }
 
 type structData struct {
-	Name            string
-	Doc             string
-	PyName          string
-	AliasOf         string
-	KeyField        string
-	Fields          []fieldData
-	TypeParams      []typeParamData
-	ExtendsNames    []string
-	Skip            bool
-	IsAlias         bool
-	IsGeneric       bool
-	HasExtends      bool
-	HasKeywordAlias bool
+	Name         string
+	Doc          string
+	PyName       string
+	AliasOf      string
+	KeyField     string
+	Fields       []fieldData
+	TypeParams   []typeParamData
+	ExtendsNames []string
+	Skip         bool
+	IsAlias      bool
+	IsGeneric    bool
+	HasExtends   bool
+	// ModelConfig is the pydantic model_config of the class, or empty for none.
+	ModelConfig string
+}
+
+// modelConfig returns the model_config of a class whose fields have keyword aliases and
+// that decodes strictly.
+func modelConfig(hasAlias, strict bool) string {
+	var opts []string
+	if hasAlias {
+		opts = append(opts, "populate_by_name=True")
+	}
+	if strict {
+		opts = append(opts, `extra="forbid"`)
+	}
+	if len(opts) == 0 {
+		return ""
+	}
+	return "ConfigDict(" + strings.Join(opts, ", ") + ")"
 }
 
 type fieldData struct {
@@ -2255,8 +2276,8 @@ class {{ .PyName }}({{ range $i, $n := .ExtendsNames }}{{ if $i }}, {{ end }}{{ 
 {{- if hasDocumentation . }}
 {{ formatGoogleDocstring . }}
 {{- end }}
-{{- if .HasKeywordAlias }}
-    model_config = ConfigDict(populate_by_name=True)
+{{- if .ModelConfig }}
+    model_config = {{ .ModelConfig }}
 {{ end }}
 {{- if or .Fields .KeyField }}
 {{- range .Fields }}
@@ -2277,8 +2298,8 @@ class {{ .PyName }}(BaseModel, Generic[{{ range $i, $p := .TypeParams }}{{ if $i
 {{- if hasDocumentation . }}
 {{ formatGoogleDocstring . }}
 {{- end }}
-{{- if .HasKeywordAlias }}
-    model_config = ConfigDict(populate_by_name=True)
+{{- if .ModelConfig }}
+    model_config = {{ .ModelConfig }}
 {{ end }}
 {{- range .Fields }}
     {{ .Name }}: {{ .PyType }}{{ .Default }}
@@ -2295,8 +2316,8 @@ class {{ .PyName }}(BaseModel):
 {{- if hasDocumentation . }}
 {{ formatGoogleDocstring . }}
 {{- end }}
-{{- if .HasKeywordAlias }}
-    model_config = ConfigDict(populate_by_name=True)
+{{- if .ModelConfig }}
+    model_config = {{ .ModelConfig }}
 {{ end }}
 {{- range .Fields }}
     {{ .Name }}: {{ .PyType }}{{ .Default }}
@@ -2306,7 +2327,7 @@ class {{ .PyName }}(BaseModel):
     def __hash__(self) -> int:
         return hash(self.{{ .KeyField }})
 {{- end }}
-{{- if and (not .Fields) (not .KeyField) (not (hasDocumentation .)) (not .HasKeywordAlias) }}
+{{- if and (not .Fields) (not .KeyField) (not (hasDocumentation .)) (not .ModelConfig) }}
     pass
 {{- end }}
 {{- end }}

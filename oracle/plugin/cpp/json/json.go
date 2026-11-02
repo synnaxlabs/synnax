@@ -22,6 +22,7 @@ import (
 	"github.com/synnaxlabs/oracle/plugin/cpp/keywords"
 	cppnaming "github.com/synnaxlabs/oracle/plugin/cpp/naming"
 	cppprimitives "github.com/synnaxlabs/oracle/plugin/cpp/primitives"
+	cpptypes "github.com/synnaxlabs/oracle/plugin/cpp/types"
 	"github.com/synnaxlabs/oracle/plugin/domain"
 	"github.com/synnaxlabs/oracle/plugin/framework"
 	"github.com/synnaxlabs/oracle/plugin/internal/arrays"
@@ -355,17 +356,6 @@ func (p *Plugin) processStruct(
 	return serializer, nil
 }
 
-// isSelfReference reports whether t directly or transitively references parent.
-// Stays consistent with the cpp types plugin's decision on optional
-// fields by sharing resolution.RefersTo.
-func isSelfReference(
-	t resolution.TypeRef,
-	parent resolution.Type,
-	table *resolution.Table,
-) bool {
-	return resolution.RefersTo(t, parent.QualifiedName, table)
-}
-
 func (p *Plugin) processField(
 	field resolution.Field,
 	parent resolution.Type,
@@ -378,7 +368,7 @@ func (p *Plugin) processField(
 	}
 	cppFieldName = keywords.Escape(cppFieldName)
 
-	isSelfRef := field.Optional && isSelfReference(field.Type, parent, data.table)
+	indirect := cpptypes.Indirect(field, parent, data.table)
 
 	// A string minted by the create sentinel needs the UUID header, which the
 	// std::string mapping does not bring in.
@@ -387,8 +377,8 @@ func (p *Plugin) processField(
 		data.AddInternal("x/cpp/uuid/uuid.h")
 	}
 
-	parseExpr := p.parseExprForField(field, cppType, data, isSelfRef)
-	toJSONExpr := p.toJSONExprForField(field, data, isSelfRef)
+	parseExpr := p.parseExprForField(field, cppType, data, indirect)
+	toJSONExpr := p.toJSONExprForField(field, data, indirect)
 
 	return fieldData{
 		Name:       cppFieldName,
@@ -522,7 +512,7 @@ func (p *Plugin) parseExprForField(
 	field resolution.Field,
 	cppType string,
 	data *templateData,
-	isSelfRef bool,
+	indirect bool,
 ) string {
 	typeRef := field.Type
 	jsonName := casing.FieldSnake(field.Name)
@@ -707,7 +697,7 @@ func (p *Plugin) parseExprForField(
 			}
 			structType += p.typeArgsToCpp(structForm.TypeParams, typeRef.TypeArgs, data)
 			if field.Optional {
-				if isSelfRef {
+				if indirect {
 					return fmt.Sprintf(
 						`parser.field<x::mem::indirect<%s>>("%s")`,
 						structType,
@@ -823,7 +813,7 @@ func (p *Plugin) parseExprForField(
 	}
 
 	if field.Optional {
-		if isSelfRef {
+		if indirect {
 			return fmt.Sprintf(
 				`parser.field<x::mem::indirect<%s>>("%s")`,
 				cppType,
@@ -855,7 +845,7 @@ func (p *Plugin) parseExprForField(
 func (p *Plugin) toJSONExprForField(
 	field resolution.Field,
 	data *templateData,
-	isSelfRef bool,
+	indirect bool,
 ) string {
 	typeRef := field.Type
 	jsonName := casing.FieldSnake(field.Name)
@@ -867,22 +857,22 @@ func (p *Plugin) toJSONExprForField(
 	fieldName = keywords.Escape(fieldName)
 
 	if typeRef.TypeParam != nil && !typeRef.TypeParam.HasDefault() {
-		typeName := typeRef.TypeParam.Name
-		return fmt.Sprintf(`if constexpr (std::is_same_v<%s, x::json::json::object_t>)
-        j["%s"] = this->%s;
-    else if constexpr (std::is_same_v<%s, std::monostate>)
-        j["%s"] = nullptr;
-    else
-        j["%s"] = this->%s.to_json();`, typeName, jsonName, fieldName, typeName, jsonName, jsonName, fieldName)
+		if field.Optional {
+			return fmt.Sprintf(
+				`if (this->%s.has_value()) j["%s"] = x::json::to_json(*this->%s);`,
+				fieldName,
+				jsonName,
+				fieldName,
+			)
+		}
+		return fmt.Sprintf(`j["%s"] = x::json::to_json(this->%s);`, jsonName, fieldName)
 	}
 
-	// Self-referential optional fields are wrapped as x::mem::indirect<T>
-	// by the types plugin. indirect<T> has the same has_value() + -> interface
-	// as std::optional<T>, and the underlying T (struct, or a distinct/alias
-	// resolving to one) always has to_json(). Emit the unwrap pattern here so
-	// the cycle-through-distinct case doesn't fall through to the default
-	// assignment below, which would be ill-typed against indirect<T>.
-	if isSelfRef {
+	// An indirect<T> has the same has_value() and -> interface as std::optional<T>,
+	// and its T (a struct, or a distinct or alias of one) always has to_json().
+	// Without this case, a cycle through a distinct falls through to the default
+	// assignment below, which is ill-typed against indirect<T>.
+	if indirect {
 		return fmt.Sprintf(
 			`if (this->%s.has_value()) j["%s"] = this->%s->to_json();`,
 			fieldName,
@@ -909,18 +899,19 @@ func (p *Plugin) toJSONExprForField(
 
 	if elemType, isArray := arrays.ElementType(typeRef, data.table); isArray {
 		if elemType.TypeParam != nil {
-			typeName := elemType.TypeParam.Name
-			return fmt.Sprintf(`{
-        auto arr = x::json::json::array();
-        for (const auto& item : this->%s)
-            if constexpr (std::is_same_v<%s, x::json::json::object_t>)
-                arr.push_back(item);
-            else if constexpr (std::is_same_v<%s, std::monostate>)
-                arr.push_back(nullptr);
-            else
-                arr.push_back(item.to_json());
-        j["%s"] = arr;
-    }`, fieldName, typeName, typeName, jsonName)
+			if field.Optional {
+				return fmt.Sprintf(
+					`if (this->%s.has_value()) j["%s"] = x::json::to_array(*this->%s);`,
+					fieldName,
+					jsonName,
+					fieldName,
+				)
+			}
+			return fmt.Sprintf(
+				`j["%s"] = x::json::to_array(this->%s);`,
+				jsonName,
+				fieldName,
+			)
 		}
 
 		// UUIDs serialize through their to_json member, which nlohmann_json cannot
@@ -1005,7 +996,7 @@ func (p *Plugin) toJSONExprForField(
 	resolved, resolvedOk := typeRef.Resolve(data.table)
 	if resolvedOk {
 		if _, isStruct := resolved.Form.(resolution.StructForm); isStruct {
-			if isSelfRef {
+			if indirect {
 				return fmt.Sprintf(
 					`if (this->%s.has_value()) j["%s"] = this->%s->to_json();`,
 					fieldName,
