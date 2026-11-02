@@ -66,9 +66,9 @@ class Frame:
         self,
         channels: (
             list[channel.Key]
-            | tuple[channel.Key]
+            | tuple[channel.Key, ...]
             | list[str]
-            | tuple[str]
+            | tuple[str, ...]
             | DataFrame
             | Frame
             | FramePayload
@@ -84,9 +84,9 @@ class Frame:
         channels: (
             list[channel.Key | str]
             | list[channel.Key]
-            | tuple[channel.Key]
+            | tuple[channel.Key, ...]
             | list[str]
-            | tuple[str]
+            | tuple[str, ...]
             | DataFrame
             | Frame
             | FramePayload
@@ -110,9 +110,7 @@ class Frame:
         elif isinstance(channels, Mapping):
             self.channels = list(channels.keys())
             self.series = [Series(d) for d in channels.values()]
-        elif (series is None or isinstance(series, list)) and (
-            channels is None or isinstance(channels, list)
-        ):
+        elif channels is None or isinstance(channels, (list, tuple)):
             self.series = [] if series is None else [Series(d) for d in series]
             self.channels = list(channels) if channels else []
         else:
