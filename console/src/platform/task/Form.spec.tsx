@@ -13,7 +13,7 @@ import {
   createTestClientWithRole,
 } from "@synnaxlabs/client/testutil";
 import { Form as PForm } from "@synnaxlabs/lyra/form";
-import { TimeStamp } from "@synnaxlabs/x";
+import { deep, TimeStamp } from "@synnaxlabs/x";
 import { act, fireEvent, screen, waitFor } from "@testing-library/react";
 import { type FC } from "react";
 import { describe, expect, it, vi } from "vitest";
@@ -30,11 +30,13 @@ import {
 } from "@/platform/task/testutil";
 import { uniqueName } from "@/testutil";
 
+const path = deep.path<Task.Values<typeof schemas>>();
+
 const schemas = {
   type: z.literal("opc_read"),
   config: z.object({
     device: z.string().default(""),
-    channels: z.array(z.object({ key: z.string(), enabled: z.boolean() })).default([]),
+    channels: z.array(z.object({ key: z.string(), disabled: z.boolean() })).default([]),
   }),
   statusData: z.object({ running: z.boolean() }).nullish(),
 };
@@ -42,11 +44,11 @@ const schemas = {
 const ChildForm: FC = () => <div>child-form-body</div>;
 ChildForm.displayName = "TestChildForm";
 
-const RackProbe: FC = () => <div>{`rack:${PForm.useFieldValue<number>("rack")}`}</div>;
+const RackProbe: FC = () => <div>{`rack:${PForm.useFieldValue(path.rack)}`}</div>;
 RackProbe.displayName = "RackProbe";
 
 const DeviceProbe: FC = () => (
-  <div>{`device:${PForm.useFieldValue<string>("config.device")}`}</div>
+  <div>{`device:${PForm.useFieldValue(path.config.device)}`}</div>
 );
 DeviceProbe.displayName = "DeviceProbe";
 
@@ -170,7 +172,7 @@ describe("wrapForm", () => {
 
   describe("deploy validation gate", () => {
     const DeviceStatusProbe: FC = () => {
-      const { status, onChange } = PForm.useField<string>("config.device");
+      const { status, onChange } = PForm.useField(path.config.device);
       return (
         <button
           onClick={() => onChange("dev")}
@@ -188,7 +190,7 @@ describe("wrapForm", () => {
     });
 
     const PortCheckProbe: FC = () => {
-      PForm.useCheck("config", noPortZ);
+      PForm.useCheck(path.config, noPortZ);
       return <DeviceStatusProbe />;
     };
     PortCheckProbe.displayName = "PortCheckProbe";
@@ -214,6 +216,40 @@ describe("wrapForm", () => {
         expect(screen.getByText("device-status:Device is required")).toBeTruthy(),
       );
       expect(configured).toBe(false);
+    });
+
+    it("should put an error of a keyed list entry on the field of that entry", async () => {
+      const ChannelStatus: FC = () => {
+        const { status } = PForm.useField(path.config.channels.ch1.key);
+        return <div>{`channel-status:${status.message}`}</div>;
+      };
+      ChannelStatus.displayName = "ChannelStatus";
+      // The form mounts with its initial values, before the task loads.
+      const ChannelStatusProbe: FC = () => {
+        const channels = PForm.useFieldValue(path.config.channels);
+        return channels.length > 0 ? <ChannelStatus /> : null;
+      };
+      ChannelStatusProbe.displayName = "ChannelStatusProbe";
+      const client = createTestClient();
+      const draft = await client.tasks.create({
+        ...getInitialValues({}),
+        config: { device: "dev", channels: [{ key: "ch1", disabled: false }] },
+        rack: 0,
+      });
+      const Renderer = createRenderer({
+        Form: ChannelStatusProbe,
+        deployConfigZ: schemas.config.extend({
+          channels: z.array(z.object({ key: z.string().min(4, "Key is too short") })),
+        }),
+      });
+      const { container } = await renderTaskFormTab(Renderer, {
+        client,
+        taskKey: draft.key,
+      });
+      await clickDeploy(container);
+      await waitFor(() =>
+        expect(screen.getByText("channel-status:Key is too short")).toBeTruthy(),
+      );
     });
 
     it("should block deploy on an error from a check the form runs", async () => {
@@ -301,8 +337,8 @@ describe("wrapForm", () => {
         const { set } = PForm.useContext();
         return (
           <>
-            <button onClick={() => set("config.device", 5)}>invalid</button>
-            <button onClick={() => set("config.device", "valid")}>valid</button>
+            <button onClick={() => set<unknown>(path.config.device, 5)}>invalid</button>
+            <button onClick={() => set(path.config.device, "valid")}>valid</button>
           </>
         );
       };
@@ -441,7 +477,7 @@ describe("wrapForm", () => {
       let renders = 0;
       const CountingForm: FC = () => {
         renders++;
-        return <div>{`rack:${PForm.useFieldValue<number>("rack")}`}</div>;
+        return <div>{`rack:${PForm.useFieldValue(path.rack)}`}</div>;
       };
       CountingForm.displayName = "CountingForm";
       const Renderer = createRenderer({ Form: CountingForm });

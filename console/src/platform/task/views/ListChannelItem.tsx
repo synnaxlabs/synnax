@@ -15,12 +15,14 @@ import { Form } from "@synnaxlabs/lyra/form";
 import { Icon } from "@synnaxlabs/lyra/icon";
 import { List } from "@synnaxlabs/lyra/list";
 import { Select } from "@synnaxlabs/lyra/select";
+import { deep } from "@synnaxlabs/x";
 import { type ReactElement, type ReactNode } from "react";
 
 import { CSS } from "@/platform/css";
 import { ChannelName } from "@/platform/task/ChannelName";
 import { EnabledCheckbox } from "@/platform/task/EnabledCheckbox";
 import { getChannelNameID } from "@/platform/task/getChannelNameID";
+import { type Channel } from "@/platform/task/types";
 
 /** The arrow and channel columns that follow a task's own columns. */
 export const LIST_CHANNEL_COLUMNS: List.Column[] = [
@@ -28,9 +30,13 @@ export const LIST_CHANNEL_COLUMNS: List.Column[] = [
   { name: "Channel", width: "minmax(24rem, 1fr)" },
 ];
 
+interface ItemChannel extends Channel {
+  name?: string;
+}
+
 export interface ListChannelItemProps extends List.ItemProps<string> {
   /** The channel's form path. */
-  path: string;
+  path: deep.Target<ItemChannel>;
   /** The bound channel, or 0 when none exists yet. */
   channel: channel.Key;
   /** The name a new channel takes when the task first runs. */
@@ -52,7 +58,8 @@ export const ListChannelItem = ({
   className,
   ...rest
 }: ListChannelItemProps): ReactElement => {
-  const disabled = Form.useFieldValue<boolean>(`${path}.disabled`, { optional: true });
+  const item = deep.widen(path);
+  const disabled = Form.useFieldValue(item.disabled, { optional: true });
   return (
     <Select.Item
       {...rest}
@@ -76,11 +83,11 @@ export const ListChannelItem = ({
         >
           <ChannelName
             channel={channel}
-            namePath={`${path}.name`}
+            namePath={item.name}
             defaultName={defaultName}
             id={getChannelNameID(rest.itemKey)}
           />
-          <EnabledCheckbox path={`${path}.disabled`} />
+          <EnabledCheckbox path={item.disabled} />
         </Flex.Box>
       </List.Cells>
     </Select.Item>

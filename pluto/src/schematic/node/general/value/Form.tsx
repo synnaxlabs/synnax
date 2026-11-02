@@ -7,8 +7,10 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
+import { type schematic } from "@synnaxlabs/client";
 import { Form as Base } from "@synnaxlabs/lyra/form";
 import { Tabs } from "@synnaxlabs/lyra/tabs";
+import { deep } from "@synnaxlabs/x";
 import { type ReactElement } from "react";
 
 import { Form } from "@/schematic/node/common/form";
@@ -17,6 +19,8 @@ import { Orientation } from "@/schematic/node/common/orientation";
 import { type FormProps } from "@/schematic/node/spec";
 import { Properties } from "@/vis/properties";
 import { Value } from "@/vis/value";
+
+const path = deep.path<schematic.ValueNodeConfig>();
 
 export const ValueForm = ({ tab, onTabChange }: FormProps): ReactElement => (
   <Properties.Tabs
@@ -27,22 +31,22 @@ export const ValueForm = ({ tab, onTabChange }: FormProps): ReactElement => (
     <Tabs.Content itemKey="style">
       <Base.Sections x>
         <Base.Section title="Label">
-          <Label.Form path="label" />
+          <Label.Form path={path.label} />
         </Base.Section>
         <Base.Section title="Appearance">
-          <Form.ColorField path="strokeColor" label="Stroke" />
+          <Form.ColorField path={path.strokeColor} label="Stroke" />
           <Form.FillField />
-          <Form.ColorField path="textColor" label="Text" />
+          <Form.ColorField path={path.textColor} label="Text" />
           <Form.LevelSizeField />
           <Form.UnitsField />
           <Base.NumericField
-            path="inlineSize"
+            path={path.inlineSize}
             label="Width"
             padHelpText={false}
             inputProps={Form.VALUE_WIDTH_INPUT_PROPS}
           />
         </Base.Section>
-        <Orientation.Section path="" hideInner />
+        <Orientation.Section path={path} hideInner />
       </Base.Sections>
     </Tabs.Content>
     <Tabs.Content itemKey="telemetry">
@@ -51,7 +55,7 @@ export const ValueForm = ({ tab, onTabChange }: FormProps): ReactElement => (
       </Base.Sections>
     </Tabs.Content>
     <Tabs.Content itemKey="redline">
-      <Value.RedlineForm path="redline" />
+      <Value.RedlineForm path={path.redline} />
     </Tabs.Content>
   </Properties.Tabs>
 );
