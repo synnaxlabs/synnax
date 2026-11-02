@@ -65,7 +65,7 @@ func (w Writer) Set(
 		Change(func(_ gorp.Context, p Password) Password {
 			p.Username = creds.Username
 			p.Hash = hash
-			p.Created = telem.Now()
+			p.Created = next(p.Created)
 			return p
 		}).
 		Exec(ctx, w.tx)
@@ -94,7 +94,7 @@ func (w Writer) ChangePassword(
 		Where(gorp.MatchKeys[Key, Password](p.Key)).
 		Change(func(_ gorp.Context, p Password) Password {
 			p.Hash = hash
-			p.Created = telem.Now()
+			p.Created = next(p.Created)
 			return p
 		}).
 		Exec(ctx, w.tx)
@@ -130,6 +130,9 @@ func (w Writer) DeleteFor(ctx context.Context, subjects ...ontology.ID) error {
 		Where(MatchSubjects(subjects...)(w.svc.NewRetrieve())).
 		Exec(ctx, w.tx)
 }
+
+// next always moves past prev, since sessions treat Created as the password's version.
+func next(prev telem.TimeStamp) telem.TimeStamp { return max(telem.Now(), prev+1) }
 
 func (w Writer) retrieve(ctx context.Context, subject ontology.ID) (Password, error) {
 	var p Password

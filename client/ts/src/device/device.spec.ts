@@ -12,7 +12,7 @@ import { beforeAll, describe, expect, it, vi } from "vitest";
 import { z } from "zod";
 
 import { device } from "@/device";
-import { NotFoundError } from "@/errors";
+import { NotFoundError } from "@/index";
 import { query } from "@/query";
 import { createTestClient, expectLive, spyOnSend, waitForStreamLive } from "@/testutil";
 

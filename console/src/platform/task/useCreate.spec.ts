@@ -14,6 +14,7 @@ import { act, renderHook } from "@testing-library/react";
 import { describe, expect, it } from "vitest";
 import { z } from "zod";
 
+import { createTestDevice } from "@/platform/device/testutil";
 import { Task } from "@/platform/task";
 import { awaitTaskResourceTab, createSelectedPanel } from "@/platform/task/testutil";
 import { createConsoleWrapper, createTestStore, uniqueName } from "@/testutil";
@@ -36,12 +37,21 @@ const getInitialValues: Task.GetInitialValues<typeof schemas> = ({ deviceKey }) 
 
 const useCreateTest = Task.createUseCreate({ getInitialValues });
 
-const setup = async () => {
+const setup = async (useCreate: Task.UseCreate = useCreateTest) => {
   const store = await createTestStore();
   const { wrapper } = await createConsoleWrapper({ client, store });
   const created = await createSelectedPanel(store, client);
-  const { result } = renderHook(() => useCreateTest(), { wrapper });
+  const { result } = renderHook(() => useCreate(), { wrapper });
   return { created, result };
+};
+
+const createForMake = async (deviceMake: string, deviceKey?: string) => {
+  const { created, result } = await setup(
+    Task.createUseCreate({ getInitialValues, deviceMake }),
+  );
+  act(() => result.current({ deviceKey }));
+  const key = await awaitTaskResourceTab(created);
+  return await client.tasks.retrieve({ key, schemas });
 };
 
 describe("createUseCreate", () => {
@@ -53,6 +63,35 @@ describe("createUseCreate", () => {
     expect(tsk.rack).toBe(0);
     expect(tsk.type).toBe(TYPE);
     expect(tsk.name).toBe("New Create Task");
+    expect(tsk.config.device).toBe("dev-1");
+  });
+
+  it("should start on the only device of its make when no device is given", async () => {
+    const make = uniqueName("make");
+    const dev = await createTestDevice(client, { make });
+    const tsk = await createForMake(make);
+    expect(tsk.config.device).toBe(dev.key);
+  });
+
+  it("should leave the device empty when several devices share its make", async () => {
+    const make = uniqueName("make");
+    await createTestDevice(client, { make });
+    await createTestDevice(client, { make });
+    const tsk = await createForMake(make);
+    expect(tsk.config.device).toBe("");
+  });
+
+  it("should leave the device empty when the only device of its make is not configured", async () => {
+    const make = uniqueName("make");
+    await createTestDevice(client, { make, configured: false });
+    const tsk = await createForMake(make);
+    expect(tsk.config.device).toBe("");
+  });
+
+  it("should keep a given device over the only device of its make", async () => {
+    const make = uniqueName("make");
+    await createTestDevice(client, { make });
+    const tsk = await createForMake(make, "dev-1");
     expect(tsk.config.device).toBe("dev-1");
   });
 

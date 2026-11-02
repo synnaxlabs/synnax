@@ -97,7 +97,7 @@ const stripSourcesContent = (): Plugin => ({
 
 export default defineConfig({
   clearScreen: false,
-  server: { port: 5173, strictPort: true },
+  server: { port: Number(process.env.SYNNAX_CONSOLE_PORT ?? 5173), strictPort: true },
   resolve: {
     tsconfigPaths: true,
     alias: fromSource
@@ -135,7 +135,12 @@ export default defineConfig({
     // to enforce the default Vite warning threshold.
     chunkSizeWarningLimit: 10000 /* kbs */,
   },
-  define: { IS_DEV: isDev, DESKTOP: desktop, RELEASE: release },
+  define: {
+    IS_DEV: isDev,
+    DESKTOP: desktop,
+    RELEASE: release,
+    CORE_PORT: Number(process.env.SYNNAX_PORT ?? 9090),
+  },
   worker: {
     format: "es",
     // The worker is a separate build and does not inherit `plugins`, so its frames
@@ -147,6 +152,8 @@ export default defineConfig({
     environment: "jsdom",
     setupFiles: ["src/testutil/setuptests.ts"],
     testTimeout: 15_000,
+    // Specs cover the work that flags hide, as the integration build does.
+    env: { VITE_FLAGS_ENABLED: "true" },
     // DESKTOP is a build constant, so the specs of each build run as their own project.
     projects: [
       {

@@ -20,6 +20,7 @@ import {
 } from "@/errors";
 import { createTestClient, TEST_CLIENT_PARAMS, TEST_CREDENTIALS } from "@/testutil";
 import { Transport } from "@/transport";
+import { user } from "@/user";
 
 const DUMMY_CTX: Context = {
   target: "test",
@@ -509,6 +510,100 @@ describe("auth", () => {
           errors.decode({ type: "sy.auth.session_ended", data: "ended" }),
         ),
       ).toBe(true);
+    });
+  });
+
+  describe("setPassword", () => {
+    const makeClient = (authority: auth.Authority, observer?: auth.Observer) => {
+      const transport = new Transport(
+        new url.URL({
+          host: TEST_CLIENT_PARAMS.host,
+          port: Number(TEST_CLIENT_PARAMS.port),
+        }),
+      );
+      const client = new auth.Client(transport.unary, authority, observer);
+      transport.use(client.middleware());
+      return client;
+    };
+    const createUser = async () => {
+      const username = `set-password-${id.create()}`;
+      const u = await createTestClient().users.create({
+        username,
+        password: "old",
+        name: "Set Password",
+      });
+      return { username, subject: user.ontologyID(u.key) };
+    };
+
+    it("should let an owner set another user's password", async () => {
+      const { username, subject } = await createUser();
+      const owner = makeClient({ credentials: TEST_CREDENTIALS });
+      await owner.setPassword({ subject, password: "new" });
+      await makeClient({
+        credentials: { username, password: "new" },
+      }).retrieveSessions();
+      await expect(
+        makeClient({ credentials: { username, password: "old" } }).retrieveSessions(),
+      ).rejects.toThrow(AuthError);
+    });
+
+    it("should switch to a new session when setting its own password", async () => {
+      const { username } = await createUser();
+      const successes: string[] = [];
+      const self = makeClient(
+        { credentials: { username, password: "old" } },
+        { onSuccess: (key) => successes.push(key) },
+      );
+      await expect(self.setPassword({ password: "new" })).rejects.toThrow();
+      await self.retrieveSessions();
+      const old = self.session?.key;
+      const before = successes.length;
+      await self.setPassword({ password: "new", currentPassword: "old" });
+      expect(successes).toHaveLength(before + 1);
+      expect(self.session?.key).toBeDefined();
+      expect(successes.at(-1)).toEqual(self.session?.key);
+      expect(self.session?.key).not.toEqual(old);
+      const sessions = await self.retrieveSessions();
+      expect(sessions.map((s) => s.key)).not.toContain(old);
+      await makeClient({
+        credentials: { username, password: "new" },
+      }).retrieveSessions();
+    });
+
+    it("should keep new credentials set while a password change runs", async () => {
+      const first = await createUser();
+      const second = await createUser();
+      const client = makeClient({
+        credentials: { username: first.username, password: "old" },
+      });
+      await client.retrieveSessions();
+      const change = client.setPassword({ password: "new", currentPassword: "old" });
+      client.setCredentials({ username: second.username, password: "old" });
+      await change;
+      await client.retrieveSessions();
+      expect(client.subject?.key).toEqual(second.subject.key);
+    });
+
+    it("should keep working after a resumed client sets its own password", async () => {
+      const { username } = await createUser();
+      const opener = makeClient({ credentials: { username, password: "old" } });
+      await opener.retrieveSessions();
+      const token = opener.token;
+      if (token == null) throw new Error("no token");
+      const resumed = makeClient({ token });
+      await resumed.setPassword({ password: "new", currentPassword: "old" });
+      expect(resumed.token).not.toEqual(token);
+      await resumed.retrieveSessions();
+      await expect(opener.retrieveSessions()).rejects.toThrow(AuthError);
+    });
+
+    it("should keep the owner's session when setting another's password", async () => {
+      const { subject } = await createUser();
+      const owner = makeClient({ credentials: TEST_CREDENTIALS });
+      await owner.retrieveSessions();
+      const before = owner.session?.key;
+      await owner.setPassword({ subject, password: "new" });
+      expect(owner.session?.key).toEqual(before);
     });
   });
 

@@ -22,6 +22,7 @@ import {
 import { createPanelParent, createTestClient } from "@synnaxlabs/client/testutil";
 import { Drift } from "@synnaxlabs/drift";
 import { Form as PForm } from "@synnaxlabs/lyra/form";
+import { Haul } from "@synnaxlabs/lyra/haul";
 import { type Status } from "@synnaxlabs/lyra/status";
 import { Panel as PlutoPanel } from "@synnaxlabs/pluto";
 import { id, sync, TimeSpan, TimeStamp, uuid } from "@synnaxlabs/x";
@@ -44,6 +45,7 @@ import { onTestFinished } from "vitest";
 import { type z } from "zod";
 
 import { Analytics } from "@/platform/analytics";
+import { Modals } from "@/platform/modals";
 import { type FormTabProps } from "@/platform/task/Form";
 import { type CreateParams, type UseCreate } from "@/platform/task/useCreate";
 import { Session } from "@/session";
@@ -400,7 +402,8 @@ export interface RenderTaskFormTabResult extends RenderResult, CreatedPanel {
 /**
  * Renders a Task.wrapForm tab the way the task panel entry does: seeds a panel doc
  * whose single leaf holds a resource tab for the task, then mounts the form inside
- * the panel and tab scopes within the full console provider stack.
+ * the panel and tab scopes within the full console provider stack. A modal stack
+ * renders beside the panel, as in a window, so dialogs the form opens mount.
  */
 export const renderTaskFormTab = async (
   Form: FC<FormTabProps>,
@@ -428,10 +431,13 @@ export const renderTaskFormTab = async (
   }
   const result = await renderSuspended(
     <Analytics.Provider sink={analytics}>
-      <PanelScopes panelKey={created.panelKey} tabKey={tab.key}>
-        <Form taskKey={taskKey} />
-        {onStatuses != null && <CaptureStatuses onStatuses={onStatuses} />}
-      </PanelScopes>
+      <Haul.Provider>
+        <Modals.Stack />
+        <PanelScopes panelKey={created.panelKey} tabKey={tab.key}>
+          <Form taskKey={taskKey} />
+          {onStatuses != null && <CaptureStatuses onStatuses={onStatuses} />}
+        </PanelScopes>
+      </Haul.Provider>
     </Analytics.Provider>,
     { wrapper, onCaughtError },
   );
@@ -465,15 +471,16 @@ export const clickDeploy = async (container: HTMLElement): Promise<void> => {
 };
 
 /**
- * Finds the channel list row showing the given port. The details form for the selected
- * channel shows the same port, so a plain text query is ambiguous.
+ * Finds the channel list row showing the text, such as a port or a channel name. The
+ * details header for the selected channel shows the same text, so a plain text query is
+ * ambiguous.
  */
-export const findChannelListItem = async (port: string): Promise<HTMLElement> =>
+export const findChannelListItem = async (text: string): Promise<HTMLElement> =>
   await waitFor(() => {
     const match = screen
       .getAllByRole("option")
-      .find((row) => within(row).queryByText(port) != null);
-    assertDefined(match, `channel list item for port "${port}" not found`);
+      .find((row) => within(row).queryByText(text) != null);
+    assertDefined(match, `channel list item showing "${text}" not found`);
     return match;
   });
 
