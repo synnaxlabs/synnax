@@ -27,7 +27,7 @@ from uuid import UUID
 from pydantic import ValidationError
 
 import synnax as sy
-from framework.test_case import Config, TestCase
+from framework.test_case import Config, TestCase, param
 from framework.utils import create_virtual_channel
 from tests.driver.sim_daq_case import SimDaqCase
 from x import random_name
@@ -87,7 +87,7 @@ class ArcCase(SimDaqCase, TestCase):
         super().setup()
 
     def _retrieve_rack(self) -> None:
-        rack_key = self.param("rack_key", 0)
+        rack_key = param(self.params, "rack_key", 0)
         if rack_key:
             self.rack = self.client.racks.retrieve(rack_key)
         else:

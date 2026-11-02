@@ -25,7 +25,7 @@ from playwright.sync_api import TimeoutError as PlaywrightTimeoutError
 import synnax as sy
 from console.console import Console
 from framework.models import STATUS
-from framework.test_case import Config, TestCase
+from framework.test_case import Config, TestCase, param
 
 
 class ConsoleCase(TestCase):
@@ -68,10 +68,10 @@ class ConsoleCase(TestCase):
         self._bootstrap_project()
 
     def _launch_browser(self) -> None:
-        headed = self.param("headed", self.options.headed)
-        slow_mo = self.param("slow_mo", self.options.slow_mo)
-        default_timeout = self.param("default_timeout", 15000)  # 15s
-        default_nav_timeout = self.param("default_nav_timeout", 15000)  # 15s
+        headed = param(self.params, "headed", self.options.headed)
+        slow_mo = param(self.params, "slow_mo", self.options.slow_mo)
+        default_timeout = param(self.params, "default_timeout", 15000)  # 15s
+        default_nav_timeout = param(self.params, "default_nav_timeout", 15000)  # 15s
 
         # Open page
         self.log(f"Opening browser in {'headed' if headed else 'headless'} mode")

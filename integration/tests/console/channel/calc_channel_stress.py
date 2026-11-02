@@ -15,7 +15,7 @@ import numpy as np
 import synnax as sy
 from console.case import ConsoleCase
 from console.plot import Plot
-from framework.test_case import Config
+from framework.test_case import Config, param
 from framework.utils import create_indexed_channels
 
 CrudeFrame = dict[int, sy.TimeStamp | float | np.floating]
@@ -38,9 +38,7 @@ class CalcChannelStress(ConsoleCase):
     _stop_event: threading.Event
 
     def __init__(self, **kwargs: Unpack[Config]) -> None:
-        rate = kwargs.get("params", {}).get("rate", 10)
-        if not isinstance(rate, int):
-            raise TypeError(f"Parameter 'rate' is {rate!r}; expected int")
+        rate = param(kwargs.get("params", {}), "rate", 10)
         kwargs["name"] = f"calc_stress_{rate}hz"
         super().__init__(**kwargs)
         self.rate = rate

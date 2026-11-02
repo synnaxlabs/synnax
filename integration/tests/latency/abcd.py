@@ -11,6 +11,7 @@
 import numpy as np
 
 import synnax as sy
+from framework.test_case import param
 from tests.latency.latency import Latency
 
 
@@ -56,7 +57,7 @@ class Abcd(Latency):
         self.configure(loop_rate=0.01, manual_timeout=15)
 
         # Get mode from matrix parameters
-        self.mode = self.param("mode", "")
+        self.mode = param(self.params, "mode", "")
         if not self.mode:
             raise ValueError("Missing required parameter 'mode' from matrix")
 
