@@ -60,6 +60,50 @@ TEST(RackTests, testRetrieveRackByName) {
     ASSERT_EQ(r.key, r2.key);
 }
 
+/// @brief it should retrieve the racks with the given keys and their statuses, leaving
+/// out a key that no rack has.
+TEST(RackTests, testRetrieveRacksByKeys) {
+    const auto client = new_test_client();
+    auto a = Rack{
+        .name = "test_rack_by_keys",
+        .status = Status{
+            .key = "rack-by-keys-status",
+            .variant = synnax::status::VARIANT_SUCCESS,
+            .message = "Rack is healthy",
+            .time = x::telem::TimeStamp::now(),
+        }
+    };
+    auto b = Rack{.name = "test_rack_by_keys"};
+    ASSERT_NIL(client.racks.create(a));
+    ASSERT_NIL(client.racks.create(b));
+    const auto racks = ASSERT_NIL_P(
+        client.racks.retrieve(std::vector<Key>{a.key, b.key, 0}, rack::include_status())
+    );
+    ASSERT_EQ(racks.size(), 2);
+    for (const auto &r: racks) {
+        ASSERT_TRUE(r.status.has_value());
+        if (r.key == a.key) { ASSERT_EQ(r.status.value().message, "Rack is healthy"); }
+    }
+}
+
+/// @brief it should retrieve the racks with the given names, leaving out a name that no
+/// rack has.
+TEST(RackTests, testRetrieveRacksByNames) {
+    const auto client = new_test_client();
+    const auto prefix = "test_rack_by_names_" + std::to_string(gen_rand());
+    auto a = Rack{.name = prefix + "_a"};
+    auto b = Rack{.name = prefix + "_b"};
+    ASSERT_NIL(client.racks.create(a));
+    ASSERT_NIL(client.racks.create(b));
+    const auto racks = ASSERT_NIL_P(client.racks.retrieve(
+        std::vector<std::string>{a.name, b.name, prefix + "_missing"}
+    ));
+    std::set<Key> keys;
+    for (const auto &r: racks)
+        keys.insert(r.key);
+    ASSERT_EQ(keys, (std::set{a.key, b.key}));
+}
+
 TEST(RackTests, testCreateTaskOnCreatedRack) {
     const auto client = new_test_client();
     auto r = Rack{.name = "test_rack"};
@@ -124,9 +168,7 @@ TEST(RackTests, testCreateRackWithStatusIncluded) {
         }
     };
     ASSERT_NIL(client.racks.create(r));
-    const auto r2 = ASSERT_NIL_P(
-        client.racks.retrieve(r.key, {.include_status = true})
-    );
+    const auto r2 = ASSERT_NIL_P(client.racks.retrieve(r.key, rack::include_status()));
     ASSERT_EQ(r2.name, "test_rack_with_status");
     ASSERT_TRUE(r2.status.has_value());
     ASSERT_EQ(r2.status.value().variant, synnax::status::VARIANT_SUCCESS);

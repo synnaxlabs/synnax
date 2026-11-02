@@ -46,7 +46,7 @@ TEST(RangerTests, testRetrieveByKey) {
         "test",
         x::telem::TimeRange(x::telem::TimeStamp(30), x::telem::TimeStamp(100))
     ));
-    const auto got = ASSERT_NIL_P(client.ranges.retrieve_by_key(range.key));
+    const auto got = ASSERT_NIL_P(client.ranges.retrieve(range.key));
     ASSERT_EQ(got.name, "test");
     ASSERT_FALSE(got.key.is_nil());
     ASSERT_EQ(got.time_range.start, x::telem::TimeStamp(30));
@@ -61,7 +61,7 @@ TEST(RangerTests, testSetEnd) {
         x::telem::TimeRange(x::telem::TimeStamp(30), x::telem::TimeStamp(100))
     ));
     ASSERT_NIL(client.ranges.set_end(range.key, x::telem::TimeStamp(500)));
-    const auto got = ASSERT_NIL_P(client.ranges.retrieve_by_key(range.key));
+    const auto got = ASSERT_NIL_P(client.ranges.retrieve(range.key));
     ASSERT_EQ(got.name, "test");
     ASSERT_EQ(got.time_range.start, x::telem::TimeStamp(30));
     ASSERT_EQ(got.time_range.end, x::telem::TimeStamp(500));
@@ -84,7 +84,7 @@ TEST(RangerTests, testRetrieveByName) {
         rand_name,
         x::telem::TimeRange(x::telem::TimeStamp(10), x::telem::TimeStamp(100))
     ));
-    const auto got = ASSERT_NIL_P(client.ranges.retrieve_by_name(rand_name));
+    const auto got = ASSERT_NIL_P(client.ranges.retrieve(rand_name));
     ASSERT_EQ(got.name, rand_name);
     ASSERT_FALSE(got.key.is_nil());
     ASSERT_EQ(got.time_range.start, x::telem::TimeStamp(10));
@@ -94,10 +94,7 @@ TEST(RangerTests, testRetrieveByName) {
 /// @brief it should return a not found error when retrieving by non-existent name.
 TEST(RangerTests, testRetrieveByNameNotFound) {
     const auto client = new_test_client();
-    ASSERT_OCCURRED_AS_P(
-        client.ranges.retrieve_by_name("not_found"),
-        x::errors::NOT_FOUND
-    );
+    ASSERT_OCCURRED_AS_P(client.ranges.retrieve("not_found"), x::errors::NOT_FOUND);
 }
 
 /// @brief it should reject a name that more than one range has.
@@ -110,7 +107,7 @@ TEST(RangerTests, testRetrieveByNameMultipleFound) {
             x::telem::TimeRange(x::telem::TimeStamp(10), x::telem::TimeStamp(100))
         ));
     ASSERT_OCCURRED_AS_P(
-        client.ranges.retrieve_by_name(rand_name),
+        client.ranges.retrieve(rand_name),
         x::errors::MULTIPLE_RESULTS
     );
 }
@@ -127,9 +124,7 @@ TEST(RangerTests, testRetrieveMultipleByName) {
         rand_name,
         x::telem::TimeRange(x::telem::TimeStamp(30), x::telem::TimeStamp(100))
     ));
-    const auto got = ASSERT_NIL_P(
-        client.ranges.retrieve_by_name(std::vector{rand_name})
-    );
+    const auto got = ASSERT_NIL_P(client.ranges.retrieve(std::vector{rand_name}));
     ASSERT_EQ(got.size(), 2);
     ASSERT_EQ(got[0].name, rand_name);
     ASSERT_FALSE(got[0].key.is_nil());
@@ -150,9 +145,7 @@ TEST(RangerTests, testRetrieveMultipleByKey) {
     );
     const auto range = ASSERT_NIL_P(client.ranges.create("test", tr));
     const auto range2 = ASSERT_NIL_P(client.ranges.create("test2", tr));
-    const auto got = ASSERT_NIL_P(
-        client.ranges.retrieve_by_key({range.key, range2.key})
-    );
+    const auto got = ASSERT_NIL_P(client.ranges.retrieve({range.key, range2.key}));
     ASSERT_EQ(got.size(), 2);
     ASSERT_EQ(got[0].name, "test");
     ASSERT_FALSE(got[0].key.is_nil());
@@ -280,7 +273,7 @@ TEST(RangerTests, testGetFromRetrieved) {
         x::telem::TimeRange(x::telem::TimeStamp(30), x::telem::TimeStamp(100))
     ));
     ASSERT_NIL(range.kv.set("test", "test"));
-    const auto got = ASSERT_NIL_P(client.ranges.retrieve_by_key(range.key));
+    const auto got = ASSERT_NIL_P(client.ranges.retrieve(range.key));
     const auto val = ASSERT_NIL_P(got.kv.get("test"));
     ASSERT_EQ(val, "test");
 }
