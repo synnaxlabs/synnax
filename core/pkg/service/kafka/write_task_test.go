@@ -13,7 +13,6 @@ import (
 	"context"
 	"encoding/json/v2"
 	"time"
-	"uuid"
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
@@ -30,6 +29,7 @@ import (
 	. "github.com/synnaxlabs/x/testutil"
 	"github.com/synnaxlabs/x/validate"
 	"github.com/twmb/franz-go/pkg/kgo"
+	"uuid"
 )
 
 var _ = Describe("Write task", func() {
@@ -263,6 +263,48 @@ var _ = Describe("Write task", func() {
 		Expect(f.ConfigureTask(ctx, newTask(kafka.WriteTaskType, cfg), "cmd-1")).
 			Error().To(MatchError(query.ErrNotFound))
 	})
+
+	DescribeTable("Should reject output pointers that collide",
+		func(ctx SpecContext, rec kafka.Record, msg string) {
+			_, data := createIndexed(ctx, telem.Float64T)
+			dev := createDevice(ctx, clusterProperties())
+			cfg := kafka.WriteConfig{
+				Device:   dev.Key,
+				Topic:    "t",
+				Record:   rec,
+				Channels: []kafka.WriteChannel{{Key: "c1", Channel: data.Key()}},
+			}
+			Expect(f.ConfigureTask(ctx, newTask(kafka.WriteTaskType, cfg), "cmd-1")).
+				Error().To(SatisfyAll(
+				MatchError(validate.ErrValidation),
+				MatchError(ContainSubstring(msg)),
+			))
+		},
+		Entry(
+			"a channel pointer equal to the value pointer",
+			kafka.Record{ValuePointer: "/value", ChannelPointer: new("/value")},
+			`record.value_pointer "/value" and record.channel_pointer "/value" overlap`,
+		),
+		Entry("a channel pointer nested inside the value pointer",
+			kafka.Record{ValuePointer: "/value", ChannelPointer: new("/value/name")},
+			`record.channel_pointer "/value/name" overlap`),
+		Entry("a timestamp pointer lacking its leading slash",
+			kafka.Record{TimestampPointer: new("timestamp")},
+			`record.timestamp_pointer: pointer "timestamp" must start with '/'`),
+		Entry("a field pointer that contains the value pointer",
+			kafka.Record{
+				ValuePointer: "/meta/value",
+				Fields: []http.WriteField{{Variant: http.StaticWriteField{
+					BaseWriteField: http.BaseWriteField{
+						Key:     "source",
+						Pointer: "/meta",
+					},
+					JSONType: http.JSONTypeString,
+					Value:    "synnax",
+				}}},
+			},
+			`record.value_pointer "/meta/value" and field "source" "/meta" overlap`),
+	)
 
 	// startOne configures and starts a write task producing one channel of dt.
 	startOne := func(

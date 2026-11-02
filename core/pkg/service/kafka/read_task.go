@@ -218,6 +218,7 @@ func buildReadGroups(
 		}
 		groups[rec.RecordKey] = g
 	}
+	indexes := make(map[channel.Key]string, len(groups))
 	for _, g := range groups {
 		for i, ch := range g.channels {
 			index := ch.Index()
@@ -234,6 +235,16 @@ func buildReadGroups(
 				)
 			}
 		}
+		// The writer wants every data channel on an index in each frame, so one
+		// index cannot be split across records that arrive independently.
+		if other, ok := indexes[g.index]; ok && g.index != 0 {
+			return nil, errors.Wrapf(
+				validate.ErrValidation,
+				"record keys %q and %q: channels on one index belong in one record",
+				other, g.key,
+			)
+		}
+		indexes[g.index] = g.key
 		if g.index != 0 && g.stamp == -1 {
 			g.keys = append(g.keys, g.index)
 		}

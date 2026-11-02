@@ -163,9 +163,9 @@ const RecordLabel = ({ path }: Task.Views.GroupProps) => {
   );
 };
 
-type TimingMode = "arrival" | "value";
+type TimingMode = "kafka" | "value";
 
-/** Picks how a record's samples are stamped: on arrival, or by a value it carries. */
+/** Picks how a record's samples are stamped: by Kafka, or by a value it carries. */
 const TimestampFields = ({ path }: { path: string }) => {
   const { set } = PForm.useContext();
   const { index, fields, recordKey } = PForm.useFieldValue<ReadRecord>(path);
@@ -182,7 +182,7 @@ const TimestampFields = ({ path }: { path: string }) => {
       };
       set(`${path}.fields`, [...fields, field]);
       set(`${path}.index`, field.key);
-    } else if (mode === "arrival" && indexField != null) {
+    } else if (mode === "kafka" && indexField != null) {
       set(
         `${path}.fields`,
         fields.filter((f) => f.key !== index),
@@ -195,10 +195,10 @@ const TimestampFields = ({ path }: { path: string }) => {
     <>
       <Input.Item label="Source" padHelpText={false}>
         <Select.Buttons<TimingMode>
-          value={indexField == null ? "arrival" : "value"}
+          value={indexField == null ? "kafka" : "value"}
           onChange={handleChange}
         >
-          <Select.Item<TimingMode> itemKey="arrival">Arrival time</Select.Item>
+          <Select.Item<TimingMode> itemKey="kafka">Kafka timestamp</Select.Item>
           <Select.Item<TimingMode> itemKey="value">Record value</Select.Item>
         </Select.Buttons>
       </Input.Item>
@@ -340,7 +340,7 @@ const retrieveChannel = async (
 
 /**
  * Creates the channels the enabled fields lack. Each record writes against one index:
- * its index field's channel when it has one, else an index stamped on arrival.
+ * its index field's channel when it has one, else an index stamped by Kafka.
  */
 const onConfigure: Task.OnConfigure<ReadSchemas["config"]> = async (client, config) => {
   const dev = await client.devices.retrieve({

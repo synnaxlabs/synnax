@@ -16,12 +16,12 @@ import (
 	"strconv"
 	"strings"
 	"time"
-	"uuid"
 
 	"github.com/synnaxlabs/synnax/pkg/service/http"
 	"github.com/synnaxlabs/x/errors"
 	"github.com/synnaxlabs/x/telem"
 	"github.com/synnaxlabs/x/validate"
+	"uuid"
 )
 
 // preciseNumbers decodes a JSON integer into an int64 or uint64, so large integers
@@ -97,14 +97,31 @@ func parseTimestamp(raw any, format http.TimeFormat) (telem.TimeStamp, error) {
 	}
 	switch n := raw.(type) {
 	case int64:
+		if n > math.MaxInt64/int64(unit) || n < math.MinInt64/int64(unit) {
+			return 0, timestampOutOfRange(n, format)
+		}
 		return telem.TimeStamp(n) * telem.TimeStamp(unit), nil
 	case uint64:
+		if n > math.MaxInt64/uint64(unit) {
+			return 0, timestampOutOfRange(n, format)
+		}
 		return telem.TimeStamp(n) * telem.TimeStamp(unit), nil
 	case float64:
-		return telem.TimeStamp(n * float64(unit)), nil
+		// math.MaxInt64 rounds up to 2^63 as a float64, so the bound is exclusive.
+		ns := n * float64(unit)
+		if math.IsNaN(ns) || ns < math.MinInt64 || ns >= math.MaxInt64 {
+			return 0, timestampOutOfRange(n, format)
+		}
+		return telem.TimeStamp(ns), nil
 	default:
 		return 0, errors.Wrapf(validate.ErrValidation, "expected a number, got %T", raw)
 	}
+}
+
+func timestampOutOfRange(n any, format http.TimeFormat) error {
+	return errors.Wrapf(
+		validate.ErrValidation, "%v is out of range for a %s timestamp", n, format,
+	)
 }
 
 // formatTimestamp encodes ts as a JSON value in format. Nanoseconds stay integral so
@@ -171,11 +188,17 @@ func readSample(
 	case bool:
 		return v, nil
 	case float64, int64, uint64:
-		return v, checkFits(v, dt)
+		if err := checkFits(v, dt); err != nil {
+			return nil, err
+		}
+		return v, nil
 	case string:
 		for _, e := range enums {
 			if e.Label == v {
-				return e.Value, checkFits(e.Value, dt)
+				if err := checkFits(e.Value, dt); err != nil {
+					return nil, err
+				}
+				return e.Value, nil
 			}
 		}
 		return nil, errors.Wrapf(validate.ErrValidation, "unknown enum label %q", v)

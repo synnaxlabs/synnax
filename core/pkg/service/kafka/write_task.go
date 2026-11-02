@@ -12,6 +12,7 @@ package kafka
 import (
 	"context"
 	"encoding/json/v2"
+	"fmt"
 	"io"
 	"sync"
 
@@ -19,6 +20,7 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/service/channel"
 	"github.com/synnaxlabs/synnax/pkg/service/driver"
 	"github.com/synnaxlabs/synnax/pkg/service/framer"
+	"github.com/synnaxlabs/synnax/pkg/service/http"
 	"github.com/synnaxlabs/synnax/pkg/service/status"
 	"github.com/synnaxlabs/synnax/pkg/service/task"
 	"github.com/synnaxlabs/x/confluence"
@@ -77,10 +79,8 @@ func (f *factory) configureWrite(
 	if cfg.Topic == "" {
 		return nil, errors.Wrap(validate.ErrValidation, "topic: must not be empty")
 	}
-	if cfg.Record.ValuePointer == "" {
-		return nil, errors.Wrap(
-			validate.ErrValidation, "record.value_pointer: must not be empty",
-		)
+	if err := validateDisjoint(outputPointers(cfg.Record)); err != nil {
+		return nil, err
 	}
 	if _, err := resolveProperties(ctx, f.cfg.Device, cfg.Device); err != nil {
 		return nil, err
@@ -135,6 +135,30 @@ func (f *factory) configureWrite(
 		}
 	}
 	return wt, nil
+}
+
+// outputPointers lists every pointer a record of rec sets, labeled by its config entry.
+func outputPointers(rec Record) []labeledPointer {
+	pointers := []labeledPointer{{"record.value_pointer", rec.ValuePointer}}
+	if p := rec.ChannelPointer; p != nil {
+		pointers = append(pointers, labeledPointer{"record.channel_pointer", *p})
+	}
+	if p := rec.TimestampPointer; p != nil {
+		pointers = append(pointers, labeledPointer{"record.timestamp_pointer", *p})
+	}
+	for _, f := range rec.Fields {
+		var base http.BaseWriteField
+		switch v := f.Variant.(type) {
+		case http.StaticWriteField:
+			base = v.BaseWriteField
+		case http.GeneratedWriteField:
+			base = v.BaseWriteField
+		}
+		pointers = append(pointers, labeledPointer{
+			fmt.Sprintf("field %q", base.Key), base.Pointer,
+		})
+	}
+	return pointers
 }
 
 // Exec implements driver.Task. Every command it handles ends in a status carrying the

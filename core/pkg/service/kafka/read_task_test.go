@@ -15,7 +15,6 @@ import (
 	"encoding/json/v2"
 	"math"
 	"time"
-	"uuid"
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
@@ -33,6 +32,7 @@ import (
 	"github.com/twmb/franz-go/pkg/kerr"
 	"github.com/twmb/franz-go/pkg/kgo"
 	"github.com/twmb/franz-go/pkg/kmsg"
+	"uuid"
 )
 
 var _ = Describe("Read task", func() {
@@ -769,6 +769,14 @@ var _ = Describe("Read task", func() {
 			telem.Int8T, http.TimeFormatUnixNs,
 			[]http.EnumEntry{{Label: "BIG", Value: 200}},
 			map[string]any{"ts": 10e9, "v": "BIG"}, "200 is out of range for int8"),
+		Entry("an integer timestamp beyond the nanosecond range",
+			telem.Float64T, http.TimeFormatUnixMs, nil,
+			map[string]any{"ts": int64(1_000_000_000_000_000_000), "v": 1.5},
+			"1000000000000000000 is out of range for a unix_ms timestamp"),
+		Entry("a floating-point timestamp beyond the nanosecond range",
+			telem.Float64T, http.TimeFormatUnixSec, nil,
+			map[string]any{"ts": jsontext.Value("1e13"), "v": 1.5},
+			"1e+13 is out of range for a unix_sec timestamp"),
 	)
 
 	DescribeTable("Should reject an invalid config",
@@ -870,6 +878,40 @@ var _ = Describe("Read task", func() {
 					DataType: telem.TimestampT, TimeFormat: &unixNs,
 				}}
 			}, "only the record's index field"),
+	)
+
+	It("Should reject two records whose channels share one index",
+		func(ctx SpecContext) {
+			index, data := createIndexed(ctx, telem.Float64T)
+			other := channel.Channel{
+				Name:       "other_" + data.Name,
+				DataType:   telem.Float64T,
+				LocalIndex: index.LocalKey,
+			}
+			Expect(channelSvc.NewWriter(nil).Create(ctx, &other)).To(Succeed())
+			dev := createDevice(ctx, clusterProperties())
+			field := func(key string, ch channel.Channel) []kafka.ReadField {
+				return []kafka.ReadField{{
+					Key: key, Channel: ch.Key(), Pointer: "/" + key,
+					DataType: telem.Float64T,
+				}}
+			}
+			cfg := kafka.ReadConfig{
+				Device: dev.Key,
+				Topic:  "t",
+				Records: []kafka.ReadRecord{
+					{Key: "r1", RecordKey: "a", Fields: field("v", data)},
+					{Key: "r2", RecordKey: "b", Fields: field("w", other)},
+				},
+			}
+			Expect(f.ConfigureTask(ctx, newTask(kafka.ReadTaskType, cfg), "cmd-1")).
+				Error().To(SatisfyAll(
+				MatchError(validate.ErrValidation),
+				MatchError(
+					ContainSubstring("channels on one index belong in one record"),
+				),
+			))
+		},
 	)
 
 	It("Should reject two records claiming one record key", func(ctx SpecContext) {

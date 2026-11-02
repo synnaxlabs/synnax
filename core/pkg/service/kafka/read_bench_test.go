@@ -122,6 +122,7 @@ func percentile(sorted []float64, p float64) float64 {
 }
 
 func cpuTime() time.Duration {
+	GinkgoHelper()
 	var ru syscall.Rusage
 	Expect(syscall.Getrusage(syscall.RUSAGE_SELF, &ru)).To(Succeed())
 	return time.Duration(ru.Utime.Nano() + ru.Stime.Nano())
@@ -223,11 +224,13 @@ func createBenchGroups(ctx context.Context, sc benchScenario) []benchGroup {
 	GinkgoHelper()
 	suffix := strconv.Itoa(int(time.Now().UnixNano() % 1e9))
 	newIndex := func(name string) channel.Channel {
+		GinkgoHelper()
 		ch := channel.Channel{Name: name, DataType: telem.TimestampT, IsIndex: true}
 		Expect(channelSvc.NewWriter(nil).Create(ctx, &ch)).To(Succeed())
 		return ch
 	}
 	newData := func(name string, idx channel.Channel) channel.Channel {
+		GinkgoHelper()
 		ch := channel.Channel{
 			Name:       name,
 			DataType:   telem.Float64T,
@@ -336,6 +339,7 @@ func runBench(ctx SpecContext, sc benchScenario) benchResult {
 	dt := MustSucceed(f.ConfigureTask(ctx, t, "cmd-1"))
 	DeferCleanup(func() { Expect(dt.Stop(false)).To(Succeed()) })
 	startTask := func() {
+		GinkgoHelper()
 		Expect(dt.Exec(ctx, task.Command{Task: t.Key, Type: "start", Key: "cmd-2"})).
 			To(Succeed())
 	}

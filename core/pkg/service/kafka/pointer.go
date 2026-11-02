@@ -10,6 +10,7 @@
 package kafka
 
 import (
+	"slices"
 	"strings"
 
 	"github.com/synnaxlabs/x/errors"
@@ -56,4 +57,44 @@ func pointerSet(doc map[string]any, pointer string, v any) error {
 	}
 	cur[tokens[len(tokens)-1]] = v
 	return nil
+}
+
+// labeledPointer is a pointer named after the config entry that set it.
+type labeledPointer struct{ label, pointer string }
+
+// validateDisjoint returns an error wrapping validate.ErrValidation when a pointer is
+// malformed or empty, or when two pointers are equal or nested, since setting both
+// would overwrite one.
+func validateDisjoint(pointers []labeledPointer) error {
+	tokens := make([][]string, len(pointers))
+	for i, p := range pointers {
+		t, err := pointerTokens(p.pointer)
+		if err != nil {
+			return errors.Wrapf(err, "%s", p.label)
+		}
+		if len(t) == 0 {
+			return errors.Wrapf(
+				validate.ErrValidation,
+				"%s: must not be empty",
+				p.label,
+			)
+		}
+		tokens[i] = t
+	}
+	for i, p := range pointers {
+		for j, q := range pointers[:i] {
+			if hasPrefix(tokens[i], tokens[j]) || hasPrefix(tokens[j], tokens[i]) {
+				return errors.Wrapf(
+					validate.ErrValidation,
+					"%s %q and %s %q overlap",
+					q.label, q.pointer, p.label, p.pointer,
+				)
+			}
+		}
+	}
+	return nil
+}
+
+func hasPrefix(tokens, prefix []string) bool {
+	return len(tokens) >= len(prefix) && slices.Equal(tokens[:len(prefix)], prefix)
 }

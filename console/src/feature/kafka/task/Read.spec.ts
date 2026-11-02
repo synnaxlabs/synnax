@@ -135,7 +135,7 @@ describe("Read", () => {
     // The index field is edited here, never listed as a field of the record.
     expect(screen.queryByText("New field")).toBeNull();
     expect(screen.queryByText("/timestamp")).toBeNull();
-    fireEvent.click(screen.getByText("Arrival time"));
+    fireEvent.click(screen.getByText("Kafka timestamp"));
     await waitFor(() => expect(screen.queryByPlaceholderText("/timestamp")).toBeNull());
   });
 
