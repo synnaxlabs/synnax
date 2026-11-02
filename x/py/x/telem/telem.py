@@ -323,6 +323,7 @@ class TimeStamp(int):
             return False
         return int(self) == _stamp_operand(rhs)
 
+    @override
     def __ne__(self, rhs: object) -> bool:
         return not self == rhs
 
@@ -665,6 +666,7 @@ class TimeSpan(int):
             return NotImplemented
         return int(self) == _span_operand(rhs)
 
+    @override
     def __ne__(self, rhs: object) -> bool:
         eq = self.__eq__(rhs)
         return eq if eq is NotImplemented else not eq
