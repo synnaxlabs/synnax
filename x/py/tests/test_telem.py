@@ -1263,6 +1263,11 @@ class TestTimeProperties:
         assert sy.TimeSpan(1000) == np.timedelta64(1, "us")
         assert sy.TimeSpan(1) != np.timedelta64(1, "us")
 
+    def test_stamp_compare_with_timedelta64(self) -> None:
+        """Should convert a timedelta64 by its unit before it compares a timestamp"""
+        assert sy.TimeStamp(1000) == np.timedelta64(1, "us")
+        assert sy.TimeStamp(1) != np.timedelta64(1, "us")
+
     def test_ne_with_datetime(self) -> None:
         """Should not differ from a datetime that it equals"""
         d = datetime(2020, 1, 1, tzinfo=UTC)

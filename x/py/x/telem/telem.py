@@ -101,10 +101,13 @@ def _exact_float(value: float | np.floating) -> float | Fraction:
 
 
 def _stamp_operand(
-    value: CrudeTimeStamp | float | np.integer | np.floating,
+    value: CrudeTimeStamp | float | np.integer | np.floating | np.timedelta64,
 ) -> int | float | Fraction:
     if isinstance(value, (float, np.floating)):
         return _exact_float(value)
+    # np.timedelta64 is an np.integer, so it must convert by its unit first.
+    if isinstance(value, np.timedelta64):
+        return _timedelta64_nanoseconds(value)
     if isinstance(value, np.integer):
         return int(value)
     return _stamp_nanoseconds(value)
