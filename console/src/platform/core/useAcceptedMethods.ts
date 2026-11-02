@@ -20,6 +20,11 @@ export interface AcceptedMethods {
 
 const DEFAULT_ACCEPTED: AcceptedMethods = { password: true, oidc: false };
 
+interface Read {
+  address: string;
+  methods: AcceptedMethods;
+}
+
 /**
  * Reads the login methods a Core accepts, without a session.
  * @param core - The address of the Core. Undefined reports the default methods.
@@ -31,20 +36,23 @@ export const useAcceptedMethods = (core?: auth.TokenlessParams): AcceptedMethods
   const host = core?.host;
   const port = core?.port;
   const secure = core?.secure;
-  const [accepted, setAccepted] = useState<AcceptedMethods>(DEFAULT_ACCEPTED);
+  const address = `${host}:${port}:${secure}`;
+  const [read, setRead] = useState<Read | null>(null);
   useAsyncEffect(
     async (signal) => {
-      setAccepted(DEFAULT_ACCEPTED);
       if (host == null || port == null) return;
       const tokenless = auth.createTokenlessClient({ host, port, secure });
       const methods = await auth.retrieveMethods(tokenless).catch(() => null);
       if (methods == null || signal.aborted) return;
-      setAccepted({
-        password: methods.includes("password"),
-        oidc: methods.includes("oidc"),
+      setRead({
+        address,
+        methods: {
+          password: methods.includes("password"),
+          oidc: methods.includes("oidc"),
+        },
       });
     },
     [host, port, secure],
   );
-  return accepted;
+  return read?.address === address ? read.methods : DEFAULT_ACCEPTED;
 };

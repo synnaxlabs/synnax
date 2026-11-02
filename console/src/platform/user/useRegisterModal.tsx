@@ -16,6 +16,7 @@ import { type Input } from "@synnaxlabs/lyra/input";
 import { Modal } from "@synnaxlabs/lyra/modal";
 import { Nav } from "@synnaxlabs/lyra/nav";
 import { Access, Synnax, User } from "@synnaxlabs/pluto";
+import { useEffect, useRef } from "react";
 
 import { Core } from "@/platform/core";
 import { Credential } from "@/platform/credential";
@@ -45,9 +46,17 @@ const Register = ({ close }: Modals.ContentProps<Record<never, never>, void>) =>
   const client = Synnax.use();
   const { password: passwordAccepted } = Core.useAcceptedMethods(client?.params);
   const openCredentials = Credential.useModal();
+  const open = useRef(true);
+  useEffect(() => {
+    open.current = true;
+    return () => {
+      open.current = false;
+    };
+  }, []);
   const { form, save, variant } = User.useForm({
     query: null,
     afterSave: ({ value }) => {
+      if (!open.current) return;
       const { key, name } = value();
       if (key == null) throw new UnexpectedError("User key is null");
       close();
@@ -57,6 +66,12 @@ const Register = ({ close }: Modals.ContentProps<Record<never, never>, void>) =>
       });
     },
   });
+  // Hidden fields must not fail validation.
+  useEffect(() => {
+    if (passwordAccepted) return;
+    form.set("username", "");
+    form.set("password", "");
+  }, [passwordAccepted]);
 
   return (
     <Modal.Frame>
