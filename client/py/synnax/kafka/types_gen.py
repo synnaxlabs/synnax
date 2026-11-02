@@ -12,6 +12,7 @@
 from __future__ import annotations
 
 from typing import Annotated, Literal
+from typing import override as _override
 from uuid import uuid4
 
 from pydantic import BaseModel, Field
@@ -53,6 +54,7 @@ class Credentials(BaseModel):
 class ScanConfig(task.ScanConfig):
     """Configures a Kafka scan task."""
 
+    @_override
     def __hash__(self) -> int:
         return hash(self.key)
 
@@ -82,6 +84,7 @@ class ReadField(BaseModel):
     time_format: http.TimeFormat | None = None
     enum_values: list[http.EnumEntry] = Field(default_factory=list)
 
+    @_override
     def __hash__(self) -> int:
         return hash(self.key)
 
@@ -107,6 +110,7 @@ class WriteChannel(BaseModel):
     time_format: http.TimeFormat | None = None
     enum_values: list[http.EnumEntry] = Field(default_factory=list)
 
+    @_override
     def __hash__(self) -> int:
         return hash(self.key)
 
@@ -179,6 +183,7 @@ class ReadRecord(BaseModel):
     index: str = ""
     fields: list[ReadField] = Field(default_factory=list)
 
+    @_override
     def __hash__(self) -> int:
         return hash(self.key)
 
@@ -201,6 +206,7 @@ class WriteConfig(task.StartConfig):
     record: Record = Field(default_factory=lambda: Record())
     channels: list[WriteChannel] = Field(default_factory=list)
 
+    @_override
     def __hash__(self) -> int:
         return hash(self.key)
 
@@ -241,5 +247,6 @@ class ReadConfig(task.PersistConfig):
     start_offset: StartOffset = "latest"
     records: list[ReadRecord] = Field(default_factory=list)
 
+    @_override
     def __hash__(self) -> int:
         return hash(self.key)
