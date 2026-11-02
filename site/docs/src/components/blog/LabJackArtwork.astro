@@ -1,0 +1,174 @@
+---
+// Copyright 2026 Synnax Labs, Inc.
+//
+// Use of this software is governed by the Business Source License included in the file
+// licenses/BSL.txt.
+//
+// As of the Change Date specified in that file, in accordance with the Business Source
+// License, use of this software will be governed by the Apache License, Version 2.0,
+// included in the file licenses/APL.txt.
+
+/** Where a hand closes on the thermocouple, and the newest sample. */
+const GRIP = 210;
+const NOW = 520;
+
+/** A thermocouple at room temperature that warms in a hand, with a little noise. */
+const y = (x: number): number => {
+    const warmth = x < GRIP ? 0 : 1 - Math.exp(-(x - GRIP) / 58);
+    const noise = 1.4 * Math.sin(x * 0.9) + 0.9 * Math.sin(x * 2.7 + 1);
+    return 232 - 150 * warmth + noise;
+};
+
+const points = Array.from({ length: NOW / 5 + 1 }, (_, i) => {
+    const x = i * 5;
+    return `${x} ${y(x).toFixed(1)}`;
+});
+const curve = `M ${points.join(" L ")}`;
+const area = `${curve} L ${NOW} 320 L 0 320 Z`;
+const now = { x: NOW, y: y(NOW) };
+const grid = [70, 130, 190, 250];
+---
+
+<svg
+    class="labjack-art"
+    viewBox="0 0 600 320"
+    fill="none"
+    aria-hidden="true"
+    focusable="false"
+>
+    <defs>
+        <linearGradient
+            id="labjack-art-heat"
+            x1="0"
+            y1="0"
+            x2={NOW}
+            y2="0"
+            gradientUnits="userSpaceOnUse"
+        >
+            <stop class="cool" stop-opacity="0" />
+            <stop class="cool" offset="0.18" />
+            <stop class="violet" offset="0.42" />
+            <stop class="pink" offset="0.6" />
+            <stop class="orange" offset="0.95" />
+        </linearGradient>
+        <linearGradient id="labjack-art-glow" x1="0" y1="0" x2="0" y2="1">
+            <stop class="pink" stop-opacity="0.2" />
+            <stop class="pink" offset="0.7" stop-opacity="0" />
+        </linearGradient>
+        <linearGradient id="labjack-art-fade" x1="0" y1="0" x2="1" y2="0">
+            <stop stop-color="white" offset="0.3" stop-opacity="0" />
+            <stop stop-color="white" offset="0.65" />
+            <stop stop-color="white" offset="0.87" stop-opacity="0" />
+        </linearGradient>
+        <mask id="labjack-art-mask">
+            <rect width="600" height="320" fill="url(#labjack-art-fade)"></rect>
+        </mask>
+        <filter id="labjack-art-halo" x="-10%" y="-30%" width="120%" height="160%">
+            <feGaussianBlur stdDeviation="4"></feGaussianBlur>
+        </filter>
+    </defs>
+    <g class="grid">
+        {grid.map((at) => (
+            <path d={`M 24 ${at} H 576`} />
+        ))}
+    </g>
+    <path class="area" d={area} mask="url(#labjack-art-mask)"></path>
+    <path class="halo" d={curve} filter="url(#labjack-art-halo)"></path>
+    <path class="line" d={curve}></path>
+    <circle class="pulse" cx={now.x} cy={now.y} r="5"></circle>
+    <circle class="dot" cx={now.x} cy={now.y} r="5"></circle>
+    <text class="reading start" x="120" y="262">
+        21.4 °C
+    </text>
+    <text class="reading" x={now.x} y={now.y - 20} text-anchor="middle">
+        31.8 °C
+    </text>
+</svg>
+
+<style>
+    .labjack-art {
+        display: block;
+        width: 100%;
+        height: 100%;
+        overflow: visible;
+        stroke-linecap: round;
+        stroke-linejoin: round;
+    }
+
+    .grid {
+        stroke: var(--pluto-gray-l4);
+        stroke-width: 1;
+        stroke-dasharray: 2 6;
+    }
+
+    .area {
+        fill: url("#labjack-art-glow");
+    }
+
+    .halo {
+        stroke: url("#labjack-art-heat");
+        stroke-width: 7;
+        opacity: 0.35;
+    }
+
+    .line {
+        stroke: url("#labjack-art-heat");
+        stroke-width: 2.6;
+    }
+
+    .dot,
+    .pulse {
+        fill: light-dark(#f08a2c, #ff9b42);
+    }
+
+    .pulse {
+        transform-box: fill-box;
+        transform-origin: center;
+        opacity: 0;
+    }
+
+    .reading {
+        fill: var(--pluto-gray-l9);
+        font-family: var(--pluto-code-font-family);
+        font-size: 13px;
+        letter-spacing: 0.04em;
+    }
+
+    .start {
+        fill: var(--pluto-gray-l7);
+    }
+
+    .cool {
+        stop-color: light-dark(#376bb0, #548cce);
+    }
+
+    .violet {
+        stop-color: #a855f7;
+    }
+
+    .pink {
+        stop-color: light-dark(#e6006f, #ff2d8f);
+    }
+
+    .orange {
+        stop-color: light-dark(#f08a2c, #ff9b42);
+    }
+
+    @media (prefers-reduced-motion: no-preference) {
+        .pulse {
+            animation: labjack-art-pulse 2.4s ease-out infinite;
+        }
+    }
+
+    @keyframes labjack-art-pulse {
+        from {
+            transform: scale(1);
+            opacity: 0.55;
+        }
+
+        to {
+            transform: scale(3.6);
+            opacity: 0;
+        }
+    }
+</style>
