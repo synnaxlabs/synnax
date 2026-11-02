@@ -218,6 +218,33 @@ using BrowseResponse = Response<UA_BrowseResponse, UA_TYPES_BROWSERESPONSE>;
 using BrowseNextResponse = Response<UA_BrowseNextResponse, UA_TYPES_BROWSENEXTRESPONSE>;
 using CallResponse = Response<UA_CallResponse, UA_TYPES_CALLRESPONSE>;
 
+class HistoryReadResponse {
+    UA_HistoryReadResponse res_{};
+
+public:
+    HistoryReadResponse() { UA_HistoryReadResponse_init(&res_); }
+    explicit HistoryReadResponse(const UA_HistoryReadResponse &res): res_(res) {}
+    ~HistoryReadResponse() { UA_HistoryReadResponse_clear(&res_); }
+
+    HistoryReadResponse(const HistoryReadResponse &) = delete;
+    HistoryReadResponse &operator=(const HistoryReadResponse &) = delete;
+
+    HistoryReadResponse(HistoryReadResponse &&other) noexcept: res_(other.res_) {
+        UA_HistoryReadResponse_init(&other.res_);
+    }
+    HistoryReadResponse &operator=(HistoryReadResponse &&other) noexcept {
+        if (this != &other) {
+            UA_HistoryReadResponse_clear(&res_);
+            res_ = other.res_;
+            UA_HistoryReadResponse_init(&other.res_);
+        }
+        return *this;
+    }
+
+    [[nodiscard]] const UA_HistoryReadResponse &get() const { return res_; }
+    UA_HistoryReadResponse *ptr() { return &res_; }
+};
+
 class WriteRequestBuilder {
     std::vector<UA_Variant> owned_variants_;
     std::vector<UA_WriteValue> values_;

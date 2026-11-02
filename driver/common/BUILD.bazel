@@ -23,6 +23,7 @@ cc_library(
     ],
     visibility = ["//visibility:public"],
     deps = [
+        "//client/cpp:synnax",
         "//client/cpp/status",
         "//client/cpp/task",
         "//driver/bypass/pipeline",

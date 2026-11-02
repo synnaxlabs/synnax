@@ -48,6 +48,7 @@ cc_test(
         ":connection",
         "//driver/opcua/certificate",
         "//driver/opcua/errors",
+        "//driver/opcua/telem",
         "//driver/opcua/testutil",
         "//driver/opcua/types",
         "//vendor/open62541",

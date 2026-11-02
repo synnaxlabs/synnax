@@ -34,6 +34,9 @@ struct EventConfig;
 struct ReadConfig;
 struct WriteConfig;
 
+constexpr const char *READ_MODE_SAMPLED = "sampled";
+constexpr const char *READ_MODE_ON_CHANGE = "on_change";
+
 constexpr const char *WRITE_TYPE_NODE = "node";
 constexpr const char *WRITE_TYPE_METHOD = "method";
 
@@ -178,6 +181,11 @@ struct ReadConfig : public ::synnax::task::ReadConfig {
     /// as NaN. When false, a bad value skips the read for every channel that shares its
     /// index.
     bool nan_fill_enabled = false;
+    /// @brief mode is how the task gets the values of its nodes.
+    std::string mode = READ_MODE_SAMPLED;
+    /// @brief history_backfill_enabled is true when an on_change task reads the history
+    /// of its nodes from the last stored value to the start of its subscription.
+    bool history_backfill_enabled = false;
 
     ReadConfig() {
         this->sample_rate = ::x::telem::Rate(50);

@@ -54,9 +54,6 @@ constexpr std::size_t TIME_FIELD = 3;
 
 /// @brief how long a read waits for events.
 const auto EVENT_WAIT = 100 * x::telem::MILLISECOND;
-/// @brief how often a task checks that the server still answers, since a server that
-/// stops answering sends no notice to a subscription.
-const auto LIVENESS_INTERVAL = 5 * x::telem::SECOND;
 
 /// @brief the configuration of an OPC UA event task.
 struct EventTaskConfig {
@@ -204,8 +201,6 @@ class EventTaskSource final : public common::Source {
     /// @brief the latest event time that the task had when the replay in progress
     /// began.
     x::telem::TimeStamp replay_cutoff{};
-    /// @brief when the task last checked that the server answers.
-    x::telem::TimeStamp checked{};
     /// @brief when the task last tried again to record what failed.
     x::telem::TimeStamp retried{};
     /// @brief the problems with what the task fails to record.
@@ -369,8 +364,7 @@ class EventTaskSource final : public common::Source {
             if (results[i]) this->unmonitored.emplace_back(notifiers[i], results[i]);
         this->warn();
         this->connection = std::move(conn);
-        this->checked = x::telem::TimeStamp::now();
-        this->retried = this->checked;
+        this->retried = x::telem::TimeStamp::now();
         if (const auto err = this->replay()) {
             this->connection = connection::Pool::Connection(nullptr, nullptr, "");
             return err;
@@ -416,26 +410,14 @@ class EventTaskSource final : public common::Source {
             notifiers.push_back(id);
         auto [results, err] = this->connection.monitor(notifiers, this->filter->get());
         if (err.matches(errors::UNREACHABLE)) return err;
-        if (err) return x::errors::NIL;
+        // A failed request leaves its notifiers and the ones after it unmonitored.
         this->unmonitored.clear();
-        for (std::size_t i = 0; i < results.size(); ++i)
-            if (results[i]) this->unmonitored.emplace_back(notifiers[i], results[i]);
+        for (std::size_t i = 0; i < notifiers.size(); ++i)
+            if (const auto &result = i < results.size() ? results[i] : err; result)
+                this->unmonitored.emplace_back(notifiers[i], result);
         this->warn();
         if (this->unmonitored.size() < notifiers.size()) return this->replay();
         return x::errors::NIL;
-    }
-
-    /// @brief reads the server's clock when LIVENESS_INTERVAL has passed since the last
-    /// check.
-    x::errors::Error check() {
-        const auto now = x::telem::TimeStamp::now();
-        if (now - this->checked < LIVENESS_INTERVAL) return x::errors::NIL;
-        this->checked = now;
-        types::ReadRequestBuilder builder;
-        builder.add_node(
-            UA_NODEID_NUMERIC(0, UA_NS0ID_SERVER_SERVERSTATUS_CURRENTTIME)
-        );
-        return this->connection.read(builder.build()).second;
     }
 
     /// @returns the latest time of the events that the task wrote or holds to write.
@@ -461,29 +443,6 @@ class EventTaskSource final : public common::Source {
         if (samples.empty()) return;
         fr.emplace(this->cfg.channel.key, x::telem::Series(samples));
         fr.emplace(this->cfg.channel.index, x::telem::Series(stamps));
-    }
-
-    /// @returns the last time stored on the index of the channel, or the minimum
-    /// timestamp when it stores none after 1970.
-    [[nodiscard]] std::pair<x::telem::TimeStamp, x::errors::Error> last_stored() const {
-        // The Core finds nothing in bounds whose span overflows a TimeSpan.
-        auto [iter, err] = this->client->telem.open_iterator({
-            .channels = {this->cfg.channel.index},
-            .bounds = {x::telem::TimeStamp(0), x::telem::TimeStamp::max()},
-            .chunk_size = 1,
-        });
-        if (err) return {x::telem::TimeStamp(), err};
-        auto latest = x::telem::TimeStamp::min();
-        auto [found, seek_err] = iter.seek_last();
-        if (!seek_err && found)
-            std::tie(found, seek_err) = iter.prev(synnax::framer::AUTO_SPAN);
-        if (!seek_err && found)
-            for (const auto &s: *iter.value.series)
-                if (!s.empty())
-                    latest = std::max(latest, s.at<x::telem::TimeStamp>(-1));
-        const auto close_err = iter.close();
-        if (seek_err) return {x::telem::TimeStamp(), seek_err};
-        return {latest, close_err};
     }
 
 public:
@@ -513,9 +472,12 @@ public:
     /// @brief finds the last stored event, then subscribes. A server that is off or
     /// refuses Sessions does not stop the start, since the reads connect again.
     x::errors::Error start() override {
-        auto [last, last_err] = this->last_stored();
+        auto [last, last_err] = common::last_stamps(
+            *this->client,
+            {this->cfg.channel.index}
+        );
         if (last_err) return last_err;
-        this->last = last;
+        this->last = last[this->cfg.channel.index];
         this->events.clear();
         auto [c, err] = this->connector.start();
         if (!err) err = this->subscribe(std::move(c));
@@ -548,7 +510,6 @@ public:
         }
         res.error = this->connection.iterate(EVENT_WAIT);
         if (!res.error && this->replay_required) res.error = this->replay();
-        if (!res.error) res.error = this->check();
         if (!res.error) res.error = this->retry();
         if (res.error) {
             this->connection = connection::Pool::Connection(nullptr, nullptr, "");

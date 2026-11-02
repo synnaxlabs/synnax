@@ -114,10 +114,16 @@ struct StatusHandler {
         this->maybe_set_status();
     }
 
-    void clear_warning() {
-        if (this->status.variant != synnax::status::VARIANT_WARNING) return;
+    /// @brief replaces a warning, or a running status with another description, with a
+    /// running status with description.
+    void clear_warning(const std::string &description = "") {
+        const auto &variant = this->status.variant;
+        if (variant != synnax::status::VARIANT_WARNING &&
+            (variant != synnax::status::VARIANT_SUCCESS ||
+             this->status.description == description))
+            return;
         this->status.variant = synnax::status::VARIANT_SUCCESS;
-        this->set_text("Task running");
+        this->set_text("Task running", description);
         this->maybe_set_status();
     }
 

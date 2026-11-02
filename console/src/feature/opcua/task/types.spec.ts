@@ -141,6 +141,27 @@ describe("OPC UA Read Task Config Validation", () => {
     );
   });
 
+  it("should reject an index channel in On change mode", () => {
+    const result = OPCUA.Task.deployReadConfigZ.safeParse({
+      ...createConfig([{}, { isIndex: true, dataType: "timestamp" }]),
+      mode: "on_change",
+    });
+    expect(result.success).toBe(false);
+    expect(result.error?.issues).toEqual([
+      expect.objectContaining({
+        path: ["channels", 1, "isIndex"],
+        message: "On change mode cannot read an index channel",
+      }),
+    ]);
+  });
+
+  it("should accept an index channel in sampled mode", () => {
+    const result = OPCUA.Task.deployReadConfigZ.safeParse(
+      createConfig([{}, { isIndex: true, dataType: "timestamp" }]),
+    );
+    expect(result.success).toBe(true);
+  });
+
   it("should reject an array size larger than the sample rate", () => {
     const config = {
       ...createConfig([{}]),

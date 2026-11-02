@@ -369,6 +369,8 @@ func (rc ReadConfig) EncodeOrc(w *orc.Writer) error {
 		}
 	}
 	w.Bool(rc.NanFillEnabled)
+	w.String(string(rc.Mode))
+	w.Bool(rc.HistoryBackfillEnabled)
 	return nil
 }
 
@@ -426,6 +428,16 @@ func (rc *ReadConfig) DecodeOrc(r *orc.Reader) error {
 		}
 	}
 	if rc.NanFillEnabled, err = r.Bool(); err != nil {
+		return err
+	}
+	{
+		rawV, err := r.String()
+		if err != nil {
+			return err
+		}
+		rc.Mode = ReadMode(rawV)
+	}
+	if rc.HistoryBackfillEnabled, err = r.Bool(); err != nil {
 		return err
 	}
 	return nil

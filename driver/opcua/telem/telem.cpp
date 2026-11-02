@@ -192,6 +192,10 @@ std::pair<x::telem::TimeStamp, x::errors::Error> to_timestamp(const UA_DateTime 
     return {x::telem::TimeStamp((t - UA_DATETIME_UNIX_EPOCH) * 100), x::errors::NIL};
 }
 
+UA_DateTime to_date_time(const x::telem::TimeStamp ts) {
+    return ts.nanoseconds() / 100 + UA_DATETIME_UNIX_EPOCH;
+}
+
 namespace {
 const std::vector NUMERIC_TYPES = {
     x::telem::FLOAT64_T,
@@ -368,9 +372,7 @@ std::pair<UA_Variant, x::errors::Error> series_to_variant(const x::telem::Series
         status = UA_Variant_setScalarCopy(&v, &ua, &UA_TYPES[UA_TYPES_BYTESTRING]);
     } else if (dt == x::telem::TIMESTAMP_T) {
         const auto sample = s.at(-1);
-        const UA_DateTime t = std::get<x::telem::TimeStamp>(sample).nanoseconds() /
-                                  100 +
-                              UA_DATETIME_UNIX_EPOCH;
+        const UA_DateTime t = to_date_time(std::get<x::telem::TimeStamp>(sample));
         status = UA_Variant_setScalarCopy(&v, &t, &UA_TYPES[UA_TYPES_DATETIME]);
     } else if (dt.is_variable()) {
         const auto str = std::get<std::string>(s.at(-1));

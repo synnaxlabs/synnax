@@ -95,7 +95,17 @@ export const deployReadConfigZ = opcua.readConfigZ
   })
   .check((ctx) => {
     const { value, issues } = ctx;
-    const { arrayMode, arraySize, sampleRate, streamRate } = value;
+    const { arrayMode, arraySize, channels, mode, sampleRate, streamRate } = value;
+    if (mode === "on_change")
+      channels.forEach(({ isIndex }, i) => {
+        if (isIndex)
+          issues.push({
+            code: "custom",
+            message: "On change mode cannot read an index channel",
+            path: ["channels", i, "isIndex"],
+            input: value,
+          });
+      });
     if (arrayMode) {
       if (!Number.isInteger(arraySize) || arraySize <= 0)
         issues.push({

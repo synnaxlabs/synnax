@@ -259,31 +259,37 @@ var _ = Describe("Codec", func() {
 						DataType: telem.DataType("test_18"),
 					},
 				},
-				NanFillEnabled: true,
+				NanFillEnabled:         true,
+				Mode:                   v2.ReadMode("sampled"),
+				HistoryBackfillEnabled: true,
 			}),
 			Entry("zero values", v2.ReadConfig{
-				Key:                uuid.Nil(),
-				AutoStart:          false,
-				DataSavingDisabled: false,
-				SampleRate:         telem.Rate(0),
-				StreamRate:         telem.Rate(0),
-				Device:             "",
-				ArrayMode:          false,
-				ArraySize:          0,
-				Channels:           []v2.ReadChannel{},
-				NanFillEnabled:     false,
+				Key:                    uuid.Nil(),
+				AutoStart:              false,
+				DataSavingDisabled:     false,
+				SampleRate:             telem.Rate(0),
+				StreamRate:             telem.Rate(0),
+				Device:                 "",
+				ArrayMode:              false,
+				ArraySize:              0,
+				Channels:               []v2.ReadChannel{},
+				NanFillEnabled:         false,
+				Mode:                   v2.ReadMode(""),
+				HistoryBackfillEnabled: false,
 			}),
 			Entry("empty collections", v2.ReadConfig{
-				Key:                uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef1234567801"),
-				AutoStart:          false,
-				DataSavingDisabled: true,
-				SampleRate:         telem.Rate(4.5),
-				StreamRate:         telem.Rate(5.5),
-				Device:             "test_6",
-				ArrayMode:          true,
-				ArraySize:          9,
-				Channels:           []v2.ReadChannel{},
-				NanFillEnabled:     false,
+				Key:                    uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef1234567801"),
+				AutoStart:              false,
+				DataSavingDisabled:     true,
+				SampleRate:             telem.Rate(4.5),
+				StreamRate:             telem.Rate(5.5),
+				Device:                 "test_6",
+				ArrayMode:              true,
+				ArraySize:              9,
+				Channels:               []v2.ReadChannel{},
+				NanFillEnabled:         false,
+				Mode:                   v2.ReadMode("sampled"),
+				HistoryBackfillEnabled: false,
 			}),
 		)
 	})
@@ -535,7 +541,9 @@ func BenchmarkEncodeDecodeReadConfig(b *testing.B) {
 				DataType: telem.DataType("test_18"),
 			},
 		},
-		NanFillEnabled: true,
+		NanFillEnabled:         true,
+		Mode:                   v2.ReadMode("sampled"),
+		HistoryBackfillEnabled: true,
 	}
 	w := orc.NewWriter(0)
 	r := orc.NewReader(nil)
@@ -988,7 +996,9 @@ func FuzzDecodeReadConfig(f *testing.F) {
 					DataType: telem.DataType("test_18"),
 				},
 			},
-			NanFillEnabled: true,
+			NanFillEnabled:         true,
+			Mode:                   v2.ReadMode("sampled"),
+			HistoryBackfillEnabled: true,
 		}
 		w := orc.NewWriter(0)
 		if err := seed.EncodeOrc(w); err != nil {
@@ -998,16 +1008,18 @@ func FuzzDecodeReadConfig(f *testing.F) {
 	}
 	{
 		seed := v2.ReadConfig{
-			Key:                uuid.Nil(),
-			AutoStart:          false,
-			DataSavingDisabled: false,
-			SampleRate:         telem.Rate(0),
-			StreamRate:         telem.Rate(0),
-			Device:             "",
-			ArrayMode:          false,
-			ArraySize:          0,
-			Channels:           []v2.ReadChannel{},
-			NanFillEnabled:     false,
+			Key:                    uuid.Nil(),
+			AutoStart:              false,
+			DataSavingDisabled:     false,
+			SampleRate:             telem.Rate(0),
+			StreamRate:             telem.Rate(0),
+			Device:                 "",
+			ArrayMode:              false,
+			ArraySize:              0,
+			Channels:               []v2.ReadChannel{},
+			NanFillEnabled:         false,
+			Mode:                   v2.ReadMode(""),
+			HistoryBackfillEnabled: false,
 		}
 		w := orc.NewWriter(0)
 		if err := seed.EncodeOrc(w); err != nil {
@@ -1017,16 +1029,18 @@ func FuzzDecodeReadConfig(f *testing.F) {
 	}
 	{
 		seed := v2.ReadConfig{
-			Key:                uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef1234567801"),
-			AutoStart:          false,
-			DataSavingDisabled: true,
-			SampleRate:         telem.Rate(4.5),
-			StreamRate:         telem.Rate(5.5),
-			Device:             "test_6",
-			ArrayMode:          true,
-			ArraySize:          9,
-			Channels:           []v2.ReadChannel{},
-			NanFillEnabled:     false,
+			Key:                    uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef1234567801"),
+			AutoStart:              false,
+			DataSavingDisabled:     true,
+			SampleRate:             telem.Rate(4.5),
+			StreamRate:             telem.Rate(5.5),
+			Device:                 "test_6",
+			ArrayMode:              true,
+			ArraySize:              9,
+			Channels:               []v2.ReadChannel{},
+			NanFillEnabled:         false,
+			Mode:                   v2.ReadMode("sampled"),
+			HistoryBackfillEnabled: false,
 		}
 		w := orc.NewWriter(0)
 		if err := seed.EncodeOrc(w); err != nil {

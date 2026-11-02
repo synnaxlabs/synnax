@@ -24,7 +24,7 @@ import (
 
 var _ = Describe("Migration", func() {
 	It(
-		"Should keep every read config field, read whole node values, and leave NaN fill disabled",
+		"Should keep every read config field, sample, read whole node values, and leave NaN fill disabled",
 		func(ctx SpecContext) {
 			stored := v1.ReadConfig{
 				Key:        uuid.MustParse("1a2b3c4d-0000-0000-0000-000000000000"),
@@ -68,6 +68,8 @@ var _ = Describe("Migration", func() {
 			Expect(got.ArrayMode).To(BeTrue())
 			Expect(got.ArraySize).To(Equal(stored.ArraySize))
 			Expect(got.NanFillEnabled).To(BeFalse())
+			Expect(got.Mode).To(Equal(v2.ReadModeSampled))
+			Expect(got.HistoryBackfillEnabled).To(BeFalse())
 			Expect(got.Channels).To(HaveLen(1))
 			Expect(got.Channels[0].BaseChannel).To(Equal(v2.BaseChannel{
 				Key:    "ch",

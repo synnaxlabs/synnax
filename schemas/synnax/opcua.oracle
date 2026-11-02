@@ -98,30 +98,39 @@ WriteChannel union on type WriteType extends BaseWriteChannel {
 }
 
 ReadConfig struct extends task.ReadConfig {
-    sample_rate      telem.Rate = 50 {
+    sample_rate              telem.Rate = 50 {
         @doc value "is the per-channel hardware sample rate, in Hertz."
         @ts type   "number"
     }
-    stream_rate      telem.Rate = 25 {
+    stream_rate              telem.Rate = 25 {
         @doc value "is the rate at which samples are streamed to Synnax, in Hertz."
         @ts type   "number"
     }
-    device           device.Key = "" {
+    device                   device.Key = "" {
         @doc value "is the key of the device representing the OPC UA server."
     }
-    array_mode       bool = false {
+    array_mode               bool = false {
         @doc value "is true when each read returns an array of samples per node."
     }
-    array_size       int32 = 1 {
+    array_size               int32 = 1 {
         @doc value "is the number of samples in each array when array_mode is true."
     }
-    channels         ReadChannel[] {
+    channels                 ReadChannel[] {
         @doc value "are the OPC UA nodes the task acquires."
     }
-    nan_fill_enabled bool = false {
+    nan_fill_enabled         bool = false {
         @doc value """
             is true when a bad value of a float channel is written as NaN. When false, a
             bad value skips the read for every channel that shares its index.
+        """
+    }
+    mode                     ReadMode = sampled {
+        @doc value "is how the task gets the values of its nodes."
+    }
+    history_backfill_enabled bool = false {
+        @doc value """
+            is true when an on_change task reads the history of its nodes from the last
+            stored value to the start of its subscription.
         """
     }
 
@@ -147,6 +156,16 @@ ScanConfig struct extends task.ScanConfig {
     @go imex    body
     @go marshal
     @go migrate
+}
+
+ReadMode enum {
+    sampled   = "sampled"
+    on_change = "on_change"
+
+    @doc value """
+        is how a read task gets values: sampled polls each node at the sample rate, and
+        on_change subscribes to the changes of each node.
+    """
 }
 
 WriteType enum {

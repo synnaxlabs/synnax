@@ -10,6 +10,7 @@
 #include <chrono>
 #include <functional>
 #include <optional>
+#include <set>
 #include <string>
 #include <thread>
 #include <vector>
@@ -21,6 +22,7 @@
 
 #include "driver/opcua/connection/connection.h"
 #include "driver/opcua/errors/errors.h"
+#include "driver/opcua/telem/telem.h"
 #include "driver/opcua/testutil/server.h"
 #include "driver/opcua/testutil/testutil.h"
 
@@ -572,6 +574,8 @@ TEST_F(ConnectionPoolTest, ReadsServerFacts) {
     server_cfg_.max_nodes_per_read = 7;
     server_cfg_.max_nodes_per_write = 3;
     server_cfg_.max_nodes_per_browse = 5;
+    server_cfg_.max_monitored_items_per_call = 4;
+    server_cfg_.max_nodes_per_history_read_data = 6;
     restart_server();
     Pool pool(testutil::create_store());
     const auto conn = ASSERT_NIL_P(pool.acquire(conn_cfg_, "[test] "));
@@ -587,6 +591,8 @@ TEST_F(ConnectionPoolTest, ReadsServerFacts) {
     EXPECT_EQ(server.max_nodes_per_read, 7);
     EXPECT_EQ(server.max_nodes_per_write, 3);
     EXPECT_EQ(server.max_nodes_per_browse, 5);
+    EXPECT_EQ(server.max_monitored_items_per_call, 4);
+    EXPECT_EQ(server.max_nodes_per_history_read_data, 6);
 }
 
 /// @brief it should read the server facts from a server that allows one node per Read
@@ -846,10 +852,11 @@ bool holds(UA_Client *client, const UA_UInt32 id) {
            UA_STATUSCODE_GOOD;
 }
 
-/// @brief iterates conn until received holds count events, or 5 seconds pass.
+/// @brief iterates conn until received holds count items, or 5 seconds pass.
+template<typename T>
 void iterate_until(
     const Pool::Connection &conn,
-    const std::vector<Received> &received,
+    const std::vector<T> &received,
     const size_t count
 ) {
     const auto deadline = std::chrono::steady_clock::now() + std::chrono::seconds(5);
@@ -1540,4 +1547,278 @@ TEST_F(SessionLimitPoolTest, ConcurrentChurnExhaustsSessions) {
         << "At least 2 threads should succeed (session limit is 2)";
 }
 
+/// @brief a change that a subscription delivered.
+struct Changed {
+    std::size_t node = 0;
+    std::optional<UA_Double> value;
+    UA_DateTime source_time = 0;
+    UA_StatusCode status = UA_STATUSCODE_GOOD;
+};
+
+/// @returns a handler that adds each change to changes.
+ChangeHandler collect(std::vector<Changed> &changes) {
+    return [&changes](const std::size_t node, const UA_DataValue &value) {
+        Changed c{.node = node, .source_time = value.sourceTimestamp};
+        if (value.hasStatus) c.status = value.status;
+        if (UA_Variant_hasScalarType(&value.value, &UA_TYPES[UA_TYPES_DOUBLE]))
+            c.value = *static_cast<const UA_Double *>(value.value.data);
+        changes.push_back(c);
+    };
+}
+
+const auto TEST_DOUBLE = UA_NODEID_STRING(1, const_cast<char *>("TestDouble"));
+const Intervals FAST{
+    .sampling = 50 * x::telem::MILLISECOND,
+    .publishing = 100 * x::telem::MILLISECOND,
+};
+
+/// @brief it should deliver the current value of a node, then each change with its
+/// source time.
+TEST_F(ConnectionPoolTest, SubscribeDeliversChanges) {
+    Pool pool(testutil::create_store());
+    auto conn = ASSERT_NIL_P(pool.acquire(conn_cfg_, "[test] "));
+    std::vector<Changed> changes;
+    const auto monitored = ASSERT_NIL_P(
+        conn.subscribe({TEST_DOUBLE}, FAST, collect(changes))
+    );
+    ASSERT_EQ(monitored.errors.size(), 1);
+    ASSERT_NIL(monitored.errors[0]);
+    iterate_until(conn, changes, 1);
+    EXPECT_EQ(changes[0].node, 0);
+    const auto time = x::telem::TimeStamp::now() - x::telem::MINUTE;
+    server_->change({.node = "TestDouble", .value = 7.5, .time = time});
+    iterate_until(conn, changes, 2);
+    EXPECT_EQ(changes[1].value, 7.5);
+    EXPECT_EQ(changes[1].source_time, telem::to_date_time(time));
+}
+
+/// @brief it should return the intervals that the server chose when it revises the
+/// requested ones.
+TEST_F(ConnectionPoolTest, SubscribeReturnsRevisedIntervals) {
+    Pool pool(testutil::create_store());
+    auto conn = ASSERT_NIL_P(pool.acquire(conn_cfg_, "[test] "));
+    std::vector<Changed> changes;
+    const auto monitored = ASSERT_NIL_P(conn.subscribe(
+        {TEST_DOUBLE},
+        {.sampling = x::telem::MILLISECOND, .publishing = 2 * x::telem::MILLISECOND},
+        collect(changes)
+    ));
+    EXPECT_EQ(monitored.intervals.sampling, 50 * x::telem::MILLISECOND);
+    EXPECT_EQ(monitored.intervals.publishing, 100 * x::telem::MILLISECOND);
+}
+
+/// @brief it should monitor the nodes that exist, and return the error of each node
+/// that the server does not monitor.
+TEST_F(ConnectionPoolTest, SubscribeReportsEachNode) {
+    Pool pool(testutil::create_store());
+    auto conn = ASSERT_NIL_P(pool.acquire(conn_cfg_, "[test] "));
+    std::vector<Changed> changes;
+    const auto monitored = ASSERT_NIL_P(conn.subscribe(
+        {UA_NODEID_STRING(1, const_cast<char *>("Missing")), TEST_DOUBLE},
+        FAST,
+        collect(changes)
+    ));
+    ASSERT_EQ(monitored.errors.size(), 2);
+    ASSERT_OCCURRED_AS(monitored.errors[0], errors::CRITICAL.sub("BadNodeIdUnknown"));
+    ASSERT_NIL(monitored.errors[1]);
+    iterate_until(conn, changes, 1);
+    EXPECT_EQ(changes[0].node, 1);
+}
+
+/// @brief it should create the monitored nodes in requests that the server's limit
+/// allows, and deliver the value of each node.
+TEST_F(ConnectionPoolTest, SubscribeSplitsAtServerLimit) {
+    server_cfg_.generated_variables = 5;
+    server_cfg_.max_monitored_items_per_call = 2;
+    restart_server();
+    Pool pool(testutil::create_store());
+    auto conn = ASSERT_NIL_P(pool.acquire(conn_cfg_, "[test] "));
+    std::vector<std::string> ids(5);
+    std::vector<UA_NodeId> nodes(ids.size());
+    for (std::size_t i = 0; i < ids.size(); ++i) {
+        ids[i] = "Generated.V" + std::to_string(i);
+        nodes[i] = UA_NODEID_STRING(1, ids[i].data());
+    }
+    std::vector<Changed> changes;
+    const auto monitored = ASSERT_NIL_P(conn.subscribe(nodes, FAST, collect(changes)));
+    ASSERT_EQ(monitored.errors.size(), 5);
+    for (const auto &err: monitored.errors)
+        ASSERT_NIL(err);
+    iterate_until(conn, changes, 5);
+    std::set<std::size_t> delivered;
+    for (const auto &c: changes)
+        delivered.insert(c.node);
+    EXPECT_EQ(delivered, std::set<std::size_t>({0, 1, 2, 3, 4}));
+}
+
+/// @brief it should report a server that stops answering as unreachable, as fast when
+/// the server chose a longer publishing interval than the request, since the
+/// subscription asks for keep-alives at the interval that the server chose.
+TEST_F(ConnectionPoolTest, IterateReportsSilentServer) {
+    conn_cfg_.client_timeout_ms = 1000;
+    Pool pool(testutil::create_store());
+    std::vector<Changed> changes;
+    auto conn = ASSERT_NIL_P(pool.acquire(conn_cfg_, "[test] "));
+    const auto monitored = ASSERT_NIL_P(conn.subscribe(
+        {TEST_DOUBLE},
+        {.sampling = x::telem::MILLISECOND, .publishing = 2 * x::telem::MILLISECOND},
+        collect(changes)
+    ));
+    ASSERT_EQ(monitored.intervals.publishing, 100 * x::telem::MILLISECOND);
+    iterate_until(conn, changes, 1);
+    server_->frozen = true;
+    const auto start = std::chrono::steady_clock::now();
+    x::errors::Error err;
+    while (!err && std::chrono::steady_clock::now() - start < std::chrono::seconds(15))
+        err = conn.iterate(x::telem::MILLISECOND * 100);
+    const auto found = std::chrono::steady_clock::now() - start;
+    server_->frozen = false;
+    ASSERT_OCCURRED_AS(err, errors::UNREACHABLE);
+    EXPECT_LT(found, std::chrono::seconds(5));
+}
+
+/// @brief it should close the channel of a subscription whose server stops answering,
+/// so the connection goes back to the pool without waiting and keeps its Session.
+TEST_F(ConnectionPoolTest, SilentSubscriptionKeepsSession) {
+    conn_cfg_.client_timeout_ms = 1000;
+    Pool pool(testutil::create_store());
+    std::vector<Changed> changes;
+    UA_UInt32 id = 0;
+    UA_Client *client = nullptr;
+    std::chrono::steady_clock::duration released{};
+    {
+        auto conn = ASSERT_NIL_P(pool.acquire(conn_cfg_, "[test] "));
+        ASSERT_NIL_P(conn.subscribe({TEST_DOUBLE}, FAST, collect(changes)));
+        iterate_until(conn, changes, 1);
+        id = conn.subscription_id();
+        client = conn.get();
+        server_->frozen = true;
+        x::errors::Error err;
+        const auto deadline = std::chrono::steady_clock::now() +
+                              std::chrono::seconds(10);
+        while (!err && std::chrono::steady_clock::now() < deadline)
+            err = conn.iterate(x::telem::MILLISECOND * 100);
+        ASSERT_OCCURRED_AS(err, errors::UNREACHABLE);
+        const auto start = std::chrono::steady_clock::now();
+        conn = Pool::Connection(nullptr, nullptr, "");
+        released = std::chrono::steady_clock::now() - start;
+    }
+    server_->frozen = false;
+    EXPECT_LT(released, std::chrono::milliseconds(100));
+    EXPECT_TRUE(holds(client, id));
+    const auto conn = ASSERT_NIL_P(pool.acquire(conn_cfg_, "[test] "));
+    ASSERT_EQ(conn.get(), client);
+    EXPECT_FALSE(holds(client, id));
+    std::this_thread::sleep_for(std::chrono::milliseconds(200));
+    EXPECT_EQ(server_->sessions_created, 1);
+}
+
+/// @brief history values of the node that the tests change.
+struct History {
+    std::vector<UA_Double> values;
+    std::vector<UA_DateTime> times;
+    bool more = false;
+};
+
+/// @brief reads the raw history of TEST_DOUBLE from start, count entries of it in one
+/// request.
+History read_history(
+    const Pool::Connection &conn,
+    const UA_DateTime start,
+    const std::size_t count = 1
+) {
+    UA_ReadRawModifiedDetails details;
+    UA_ReadRawModifiedDetails_init(&details);
+    details.startTime = start;
+    details.endTime = telem::to_date_time(x::telem::TimeStamp::now());
+    details.numValuesPerNode = 10;
+    std::vector<UA_HistoryReadValueId> ids(count);
+    for (auto &id: ids) {
+        UA_HistoryReadValueId_init(&id);
+        id.nodeId = TEST_DOUBLE;
+    }
+    UA_HistoryReadRequest req;
+    UA_HistoryReadRequest_init(&req);
+    UA_ExtensionObject_setValueNoDelete(
+        &req.historyReadDetails,
+        &details,
+        &UA_TYPES[UA_TYPES_READRAWMODIFIEDDETAILS]
+    );
+    req.timestampsToReturn = UA_TIMESTAMPSTORETURN_SOURCE;
+    req.nodesToRead = ids.data();
+    req.nodesToReadSize = ids.size();
+    auto [res, err] = conn.read_history(req);
+    EXPECT_FALSE(err) << err;
+    History history;
+    const auto &raw = res.get();
+    EXPECT_EQ(raw.resultsSize, count);
+    for (std::size_t i = 0; i < raw.resultsSize; ++i) {
+        const auto &result = raw.results[i];
+        EXPECT_EQ(result.statusCode, UA_STATUSCODE_GOOD);
+        history.more = history.more || result.continuationPoint.length > 0;
+        const auto *data = static_cast<const UA_HistoryData *>(
+            result.historyData.content.decoded.data
+        );
+        for (std::size_t j = 0; j < data->dataValuesSize; ++j) {
+            history.values.push_back(
+                *static_cast<const UA_Double *>(data->dataValues[j].value.data)
+            );
+            history.times.push_back(data->dataValues[j].sourceTimestamp);
+        }
+    }
+    return history;
+}
+
+/// @brief it should read history a page at a time, so the next request starts after the
+/// last value of the page before, and release the continuation point of each page with
+/// its node.
+TEST_F(ConnectionPoolTest, ReadHistoryPagesByTime) {
+    server_cfg_.historizing = true;
+    server_cfg_.max_history_values = 2;
+    restart_server();
+    Pool pool(testutil::create_store());
+    const auto conn = ASSERT_NIL_P(pool.acquire(conn_cfg_, "[test] "));
+    const auto start = x::telem::TimeStamp::now() - x::telem::MINUTE;
+    for (int i = 0; i < 5; ++i)
+        server_->change({
+            .node = "TestDouble",
+            .value = static_cast<UA_Double>(i),
+            .time = start + x::telem::SECOND * i,
+        });
+    ASSERT_EVENTUALLY_EQ(
+        read_history(conn, telem::to_date_time(start + 4 * x::telem::SECOND))
+            .values.size(),
+        1
+    );
+    auto page = read_history(conn, telem::to_date_time(start));
+    EXPECT_EQ(page.values, std::vector<UA_Double>({0, 1}));
+    EXPECT_TRUE(page.more);
+    page = read_history(conn, page.times.back() + 1);
+    EXPECT_EQ(page.values, std::vector<UA_Double>({2, 3}));
+    EXPECT_TRUE(page.more);
+    page = read_history(conn, page.times.back() + 1);
+    EXPECT_EQ(page.values, std::vector<UA_Double>({4}));
+    EXPECT_FALSE(page.more);
+    EXPECT_EQ(server_->released, 2);
+}
+
+/// @brief it should read the history of more nodes than the server's limit allows in
+/// one request, in order.
+TEST_F(ConnectionPoolTest, ReadHistorySplitsAtServerLimit) {
+    server_cfg_.historizing = true;
+    server_cfg_.max_nodes_per_history_read_data = 1;
+    restart_server();
+    Pool pool(testutil::create_store());
+    const auto conn = ASSERT_NIL_P(pool.acquire(conn_cfg_, "[test] "));
+    const auto time = x::telem::TimeStamp::now() - x::telem::MINUTE;
+    server_->change({.node = "TestDouble", .value = 3.0, .time = time});
+    ASSERT_EVENTUALLY_EQ(
+        read_history(conn, telem::to_date_time(time), 2).values.size(),
+        2
+    );
+    EXPECT_EQ(
+        read_history(conn, telem::to_date_time(time), 2).values,
+        std::vector<UA_Double>({3, 3})
+    );
+}
 }
