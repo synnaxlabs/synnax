@@ -15,13 +15,23 @@ import Card from "@/components/card/Card.astro";
 import Grid from "@/components/card/Grid.astro";
 import Figure from "@/components/rigetti/Figure.astro";
 import Quote from "@/components/rigetti/Quote.astro";
-import { announcement } from "@/components/rigetti/content";
 import { mdxOverrides } from "@/components/mdxOverrides";
 export const components = mdxOverrides;
 
 <Figure direction="instrument" id="partnership-post-hero" />
 
-{announcement.slice(1).map((paragraph) => <p>{paragraph}</p>)}
+Rigetti builds superconducting quantum computers that operate in fridges at near
+absolute zero temperatures.
+
+Running experiments on new quantum processors requires delicate operations for warming
+and cooling these fridges.
+
+Rigetti's engineers are adopting Synnax to accelerate fridge operations. Together, we're
+optimizing automated warmup and cool down procedures, improving operational visibility,
+and simulating critical workflows before deployment.
+
+All with one goal: faster turnaround to run more experiments on novel quantum
+technologies.
 
 <Quote by="Carlos Orozco Gonzalez, Rigetti Computing">
   As our fridge fleet grows, maintaining custom Python scripts becomes increasingly
