@@ -1872,6 +1872,59 @@ describe("Tombstones", () => {
     expect(table.get("k2")).toEqual({ key: "k2", name: "d" });
   });
 
+  it("should keep the tombstone on a stamped ingest", () => {
+    const table = newTable();
+    table.set("k1", { key: "k1", name: "a" });
+    table.delete("k1");
+    table.ingest({ key: "k1", name: "b" }, { since: table.stamp() });
+    expect(table.status("k1")).toBe("tombstoned");
+  });
+
+  describe("revivable", () => {
+    const fetched = { key: "k1", name: "b" };
+
+    const newRevivable = () => {
+      const table = new query.Table<string, Doc>({
+        onError: noopError,
+        revivable: true,
+      });
+      table.set("k1", { key: "k1", name: "a" });
+      return table;
+    };
+
+    it("should restore a key deleted before the stamp", () => {
+      const table = newRevivable();
+      table.delete("k1");
+      table.ingest(fetched, { since: table.stamp() });
+      expect(table.status("k1")).toBe("present");
+      expect(table.get("k1")).toEqual(fetched);
+    });
+
+    it("should keep a key deleted after the stamp", () => {
+      const table = newRevivable();
+      const since = table.stamp();
+      table.delete("k1");
+      table.ingest(fetched, { since });
+      expect(table.status("k1")).toBe("tombstoned");
+    });
+
+    it("should keep a key whose delete repeats after the stamp", () => {
+      const table = newRevivable();
+      const since = table.stamp();
+      table.delete("k1");
+      table.delete("k1");
+      table.ingest(fetched, { since });
+      expect(table.status("k1")).toBe("tombstoned");
+    });
+
+    it("should keep the tombstone on an ingest without a stamp", () => {
+      const table = newRevivable();
+      table.delete("k1");
+      table.ingest(fetched);
+      expect(table.status("k1")).toBe("tombstoned");
+    });
+  });
+
   it("should keep a key deleted during its retrieve deleted", async () => {
     let release: (docs: Doc[]) => void = () => {};
     const fetch = vi.fn(
