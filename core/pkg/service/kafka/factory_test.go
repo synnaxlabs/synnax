@@ -14,6 +14,7 @@ import (
 	"crypto/tls"
 	"encoding/pem"
 	"time"
+	"uuid"
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
@@ -26,6 +27,7 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/service/task"
 	"github.com/synnaxlabs/x/address"
 	xfs "github.com/synnaxlabs/x/io/fs"
+	"github.com/synnaxlabs/x/query"
 	"github.com/synnaxlabs/x/telem"
 	. "github.com/synnaxlabs/x/testutil"
 	"github.com/synnaxlabs/x/validate"
@@ -71,6 +73,19 @@ var _ = Describe("Factory", func() {
 				t := newTask(kafka.ScanTaskType, map[string]any{"rate": -1})
 				Expect(f.ConfigureTask(ctx, t, "cmd-1")).Error().
 					To(MatchError(validate.ErrValidation))
+			},
+		)
+
+		It("Should only log an invalid config when no command waits on it",
+			func(ctx SpecContext) {
+				t := newTask(kafka.WriteTaskType, kafka.WriteConfig{})
+				Expect(f.ConfigureTask(ctx, t, driver.NoCommand)).Error().
+					To(MatchError(validate.ErrValidation))
+				var stat task.Status
+				Expect(statusSvc.NewRetrieve[task.StatusDetails]().
+					Where(status.MatchKeys[task.StatusDetails](t.OntologyID().String())).
+					Entry(&stat).
+					Exec(ctx, nil)).To(MatchError(query.ErrNotFound))
 			},
 		)
 
@@ -168,6 +183,60 @@ var _ = Describe("Factory", func() {
 			DeferCleanup(func() { Expect(dt.Stop(false)).To(Succeed()) })
 			Expect(dt.Exec(ctx, task.Command{Task: t.Key, Type: "bogus"})).
 				To(MatchError(driver.ErrUnsupportedCommand))
+		},
+		Entry("read", kafka.ReadTaskType, readConfig),
+		Entry("write", kafka.WriteTaskType, writeConfig),
+	)
+
+	DescribeTable("Should reject a device that is not a Kafka cluster",
+		func(ctx SpecContext, typ string, build buildConfig) {
+			dev := device.Device{
+				Key:        uuid.New().String(),
+				Rack:       rackSvc.EmbeddedKey,
+				Location:   "elsewhere",
+				Make:       "other",
+				Model:      "box",
+				Name:       "box-" + uuid.New().String()[:8],
+				Configured: true,
+			}
+			Expect(deviceSvc.NewWriter(nil).Create(ctx, &dev)).To(Succeed())
+			t := newTask(typ, build(ctx, dev.Key, false))
+			Expect(f.ConfigureTask(ctx, t, "cmd-1")).Error().To(SatisfyAll(
+				MatchError(validate.ErrValidation),
+				MatchError(ContainSubstring("is not a Kafka cluster")),
+			))
+			Expect(taskStatus(ctx, t).Message).To(Equal("Failed to configure task"))
+		},
+		Entry("read", kafka.ReadTaskType, readConfig),
+		Entry("write", kafka.WriteTaskType, writeConfig),
+	)
+
+	DescribeTable("Should reject a device whose properties do not parse",
+		func(ctx SpecContext, typ string, build buildConfig) {
+			dev := device.Device{
+				Key:        uuid.New().String(),
+				Rack:       rackSvc.EmbeddedKey,
+				Location:   "kafka",
+				Make:       kafka.Make,
+				Model:      "cluster",
+				Name:       "cluster-" + uuid.New().String()[:8],
+				Configured: true,
+				Properties: toJSON(map[string]any{"brokers": "localhost:9092"}),
+			}
+			Expect(deviceSvc.NewWriter(nil).Create(ctx, &dev)).To(Succeed())
+			t := newTask(typ, build(ctx, dev.Key, false))
+			Expect(f.ConfigureTask(ctx, t, "cmd-1")).Error().
+				To(MatchError(ContainSubstring("parsing properties")))
+		},
+		Entry("read", kafka.ReadTaskType, readConfig),
+		Entry("write", kafka.WriteTaskType, writeConfig),
+	)
+
+	DescribeTable("Should reject an unknown device",
+		func(ctx SpecContext, typ string, build buildConfig) {
+			t := newTask(typ, build(ctx, uuid.New().String(), false))
+			Expect(f.ConfigureTask(ctx, t, "cmd-1")).Error().
+				To(MatchError(query.ErrNotFound))
 		},
 		Entry("read", kafka.ReadTaskType, readConfig),
 		Entry("write", kafka.WriteTaskType, writeConfig),
@@ -353,6 +422,15 @@ var _ = Describe("Factory", func() {
 					},
 				),
 			)
+
+			It("Should fail to connect without credentials", func(ctx SpecContext) {
+				stat := testConnection(ctx, kafka.Properties{
+					Brokers: brokers,
+					Sasl:    kafka.SASL{Variant: kafka.NoneSASL{}},
+				})
+				Expect(stat.Variant).To(Equal(status.VariantError))
+				Expect(stat.Message).To(Equal("Failed to connect"))
+			})
 
 			It("Should fail to connect with a wrong password", func(ctx SpecContext) {
 				stat := testConnection(ctx, kafka.Properties{
