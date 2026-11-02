@@ -249,3 +249,18 @@ class TestRackClient:
             assert rack.key in {r.key for r in res}
 
         assert_eventually(check)
+
+
+class TestBuilder:
+    def test_join(self) -> None:
+        """Should join rack conditions into one Where tree."""
+        where = filter.join(
+            rack.Where,
+            [rack.integrations.has("ni"), rack.host_is_node.eq(True)],
+        )
+        assert where == rack.Where(
+            and_=[
+                rack.Where(integrations=filter.Contains[str](any=["ni"])),
+                rack.Where(host_is_node=True),
+            ]
+        )

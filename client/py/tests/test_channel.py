@@ -940,3 +940,27 @@ class TestChannelWriteRead:
             start + (len(d) - 1) * sy.TimeSpan.SECOND + sy.TimeSpan.NANOSECOND
         )
         assert np.array_equal(data, d)
+
+
+class TestBuilder:
+    def test_join(self) -> None:
+        """Should join channel conditions into one Where tree."""
+        where = filter.join(
+            sy.channel.Where,
+            [
+                sy.channel.virtual.eq(False),
+                sy.channel.is_index.eq(True),
+                sy.channel.data_type.eq(sy.DataType.TIMESTAMP),
+                sy.channel.name_patterns.has_any(["pressure_.*"]),
+            ],
+        )
+        assert where == sy.channel.Where(
+            and_=[
+                sy.channel.Where(virtual=False),
+                sy.channel.Where(is_index=filter.Bool(eq=True)),
+                sy.channel.Where(
+                    data_type=filter.Set[sy.DataType](eq=sy.DataType.TIMESTAMP)
+                ),
+                sy.channel.Where(name_patterns=["pressure_.*"]),
+            ]
+        )

@@ -10,7 +10,7 @@
 import re
 from collections.abc import Callable
 from typing import cast
-from uuid import uuid4
+from uuid import UUID, uuid4
 
 import numpy as np
 import pydantic
@@ -21,6 +21,7 @@ from synnax import label, ranger
 from synnax.ontology import ID
 from synnax.state import Latest, State
 from tests.channel import RetrieveCounter
+from x import filter
 from x.params import RequiresNamedParams
 from x.strings import random_name
 from x.testutil import assert_eventually
@@ -937,3 +938,39 @@ class TestOnCreate:
                     client, sy.Series(["not an object"], data_type="json")
                 )
             )
+
+
+class TestBuilder:
+    def test_join(self) -> None:
+        """Should join nested range conditions into one Where tree."""
+        key = uuid4()
+        label_key = uuid4()
+        window = sy.TimeRange(sy.TimeStamp(1), sy.TimeStamp(2))
+        where = filter.join(
+            ranger.Where,
+            [
+                ranger.name.starts_with("hot", case_insensitive=True)
+                | ranger.labels.has(label_key),
+                ~ranger.key.in_([key]),
+                ranger.overlaps(window),
+            ],
+        )
+        assert where == ranger.Where(
+            and_=[
+                ranger.Where(
+                    or_=[
+                        ranger.Where(
+                            name=filter.String(starts_with="hot", case_insensitive=True)
+                        ),
+                        ranger.Where(labels=[label_key]),
+                    ]
+                ),
+                ranger.Where(not_=ranger.Where(key=filter.Set[UUID](in_=[key]))),
+                ranger.Where(overlaps=window),
+            ]
+        )
+
+    def test_another_entity(self) -> None:
+        """Should fail the type check for a condition of another entity."""
+        condition: label.Condition = ranger.name.eq("Hotfire")  # type: ignore[assignment]
+        assert condition.tree == {"name": {"eq": "Hotfire"}}

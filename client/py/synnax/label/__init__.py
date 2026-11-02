@@ -7,9 +7,27 @@
 #  License, use of this software will be governed by the Apache License, Version 2.0,
 #  included in the file licenses/APL.txt.
 
+from synnax.label.builder_gen import (
+    Condition,
+    and_,
+    for_,
+    key,
+    name,
+    not_,
+    or_,
+    where,
+)
 from synnax.label.types_gen import Key, Label
 
 __all__ = [
+    "Condition",
     "Key",
     "Label",
+    "and_",
+    "for_",
+    "key",
+    "name",
+    "not_",
+    "or_",
+    "where",
 ]

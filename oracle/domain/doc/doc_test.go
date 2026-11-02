@@ -166,6 +166,29 @@ var _ = Describe("FormatTS", func() {
 	})
 })
 
+var _ = Describe("FormatPy", func() {
+	It("should return empty string for empty doc", func() {
+		Expect(doc.FormatPy("")).To(Equal(""))
+	})
+	It("should capitalize a single-line doc", func() {
+		Expect(doc.FormatPy("selects by key.")).To(Equal(`"""Selects by key."""`))
+	})
+	It("should put the closing quotes of a long doc on their own line", func() {
+		longDoc := "matches virtual channels that are not calculated, or every other " +
+			"channel when false."
+		Expect(doc.FormatPy(longDoc)).To(Equal(`"""Matches virtual channels that ` +
+			`are not calculated, or every other channel when false.` + "\n" + `"""`))
+	})
+	It("should wrap long text to 88 characters", func() {
+		longDoc := strings.Repeat("matches the records of the entity. ", 5)
+		lines := strings.Split(doc.FormatPy(longDoc), "\n")
+		Expect(len(lines)).To(BeNumerically(">", 2))
+		for _, line := range lines {
+			Expect(len(line)).To(BeNumerically("<=", 88))
+		}
+	})
+})
+
 var _ = Describe("FormatCpp", func() {
 	It("should return empty string for empty doc", func() {
 		Expect(doc.FormatCpp("Name", "")).To(Equal(""))
