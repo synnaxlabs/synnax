@@ -8,6 +8,7 @@
 // included in the file licenses/APL.txt.
 
 import { Component } from "@synnaxlabs/lyra/component";
+import { deep } from "@synnaxlabs/x";
 import { fireEvent, screen, waitFor, within } from "@testing-library/react";
 import { describe, expect, it, vi } from "vitest";
 
@@ -16,6 +17,8 @@ import { renderInTaskForm } from "@/platform/task/testutil";
 import { type Channel } from "@/platform/task/types";
 import { getIconButton, queryIcon, queryIconButton } from "@/testutil";
 
+const path = deep.path<{ config: { channels: Channel[] } }>();
+
 // The channel item renders inside its real Select/List context by being handed to the
 // layouts List as its listItem render prop.
 const renderItem = (
@@ -23,6 +26,7 @@ const renderItem = (
 ) =>
   renderInTaskForm(
     <Task.Views.List<Channel>
+      path={path.config.channels}
       createChannel={() => null}
       resolve={() => null}
       listItem={Component.renderProp((p) => (
@@ -32,7 +36,7 @@ const renderItem = (
           portMaxChars={4}
           canTare
           channel={12}
-          path={`config.channels.${p.itemKey}`}
+          path={path.config.channels[p.itemKey]}
           hasTareButton
           {...extra}
         />
@@ -71,12 +75,12 @@ describe("layouts.ListAndDetailsChannelItem", () => {
     await waitFor(() => expect(enabled().checked).toBe(true));
     fireEvent.click(enabled());
     await waitFor(() =>
-      expect(form.current?.get("config.channels.a.disabled").value).toBe(true),
+      expect(form.current?.get(path.config.channels.a.disabled).value).toBe(true),
     );
     expect(enabled().checked).toBe(false);
     fireEvent.click(enabled());
     await waitFor(() =>
-      expect(form.current?.get("config.channels.a.disabled").value).toBe(false),
+      expect(form.current?.get(path.config.channels.a.disabled).value).toBe(false),
     );
     expect(enabled().checked).toBe(true);
   });

@@ -20,6 +20,8 @@ import { Status } from "@/status";
 import { renderHookSuspended } from "@/testutil/render";
 import { createAsyncSynnaxWrapper } from "@/testutil/Synnax";
 
+const path = Status.formPath;
+
 const client = createTestClient();
 
 describe("Status queries", () => {
@@ -733,10 +735,10 @@ describe("Status queries", () => {
       const { result } = renderHook(() => Status.useForm({ query: null }), { wrapper });
       await waitFor(() => expect(result.current.variant).toEqual("success"));
       act(() => {
-        result.current.form.set("name", "Form Test Status");
-        result.current.form.set("variant", "info");
-        result.current.form.set("message", "Created via form");
-        result.current.form.set("description", "Test description");
+        result.current.form.set(path.name, "Form Test Status");
+        result.current.form.set(path.variant, "info");
+        result.current.form.set(path.message, "Created via form");
+        result.current.form.set(path.description, "Test description");
       });
       act(() => {
         result.current.save();
@@ -794,9 +796,9 @@ describe("Status queries", () => {
       );
       await waitFor(() => expect(result.current.form.variant).toEqual("success"));
       act(() => {
-        result.current.form.form.set("name", "Updated Name");
-        result.current.form.form.set("variant", "success");
-        result.current.form.form.set("message", "Updated message");
+        result.current.form.form.set(path.name, "Updated Name");
+        result.current.form.form.set(path.variant, "success");
+        result.current.form.form.set(path.message, "Updated message");
       });
       act(() => {
         result.current.form.save();
@@ -832,7 +834,7 @@ describe("Status queries", () => {
         { wrapper },
       );
       await waitFor(() => expect(result.current.variant).toEqual("success"));
-      act(() => result.current.form.set("name", "Edited"));
+      act(() => result.current.form.set(path.name, "Edited"));
       await act(async () => await client.statuses.delete(key));
       await expectAlways(async () => {
         await expect(
@@ -847,10 +849,10 @@ describe("Status queries", () => {
       const { result } = renderHook(() => Status.useForm({ query: null }), { wrapper });
       await waitFor(() => expect(result.current.variant).toEqual("success"));
       act(() => {
-        result.current.form.set("name", "Status with Labels");
-        result.current.form.set("variant", "info");
-        result.current.form.set("message", "Has labels");
-        result.current.form.set("labels", [label1.key, label2.key]);
+        result.current.form.set(path.name, "Status with Labels");
+        result.current.form.set(path.variant, "info");
+        result.current.form.set(path.message, "Has labels");
+        result.current.form.set(path.labels, [label1.key, label2.key]);
       });
       act(() => {
         result.current.save();
@@ -901,8 +903,8 @@ describe("Status queries", () => {
       const { result } = renderHook(() => Status.useForm({ query: null }), { wrapper });
       await waitFor(() => expect(result.current.variant).toEqual("success"));
       act(() => {
-        result.current.form.set("name", "Auto UUID Status");
-        result.current.form.set("variant", "success");
+        result.current.form.set(path.name, "Auto UUID Status");
+        result.current.form.set(path.variant, "success");
       });
       act(() => {
         result.current.save();
@@ -919,8 +921,8 @@ describe("Status queries", () => {
       await waitFor(() => expect(result.current.variant).toEqual("success"));
       const initialTime = result.current.form.value().time;
       act(() => {
-        result.current.form.set("name", "Time Test");
-        result.current.form.set("variant", "info");
+        result.current.form.set(path.name, "Time Test");
+        result.current.form.set(path.variant, "info");
       });
       await new Promise((r) => setTimeout(r, 10));
       act(() => {
@@ -947,9 +949,9 @@ describe("Status queries", () => {
         });
         await waitFor(() => expect(result.current.variant).toEqual("success"));
         act(() => {
-          result.current.form.set("name", `${variant} Status`);
-          result.current.form.set("variant", variant);
-          result.current.form.set("message", `Test ${variant}`);
+          result.current.form.set(path.name, `${variant} Status`);
+          result.current.form.set(path.variant, variant);
+          result.current.form.set(path.message, `Test ${variant}`);
         });
         act(() => {
           result.current.save();
@@ -993,7 +995,7 @@ describe("Status queries", () => {
         expect(result.current.form.value().labels).toContain(label1.key),
       );
       act(() => {
-        result.current.form.set("labels", [label2.key, label3.key]);
+        result.current.form.set(path.labels, [label2.key, label3.key]);
       });
       act(() => {
         result.current.save();
@@ -1076,8 +1078,8 @@ describe("Status queries", () => {
       );
       await waitFor(() => expect(result.current.form.variant).toEqual("success"));
       act(() => {
-        result.current.form.form.set("name", "Updated");
-        result.current.form.form.set("message", "Updated message");
+        result.current.form.form.set(path.name, "Updated");
+        result.current.form.form.set(path.message, "Updated message");
       });
       act(() => {
         result.current.form.save();
