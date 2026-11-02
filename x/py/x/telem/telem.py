@@ -91,21 +91,33 @@ def _span_nanoseconds(value: CrudeTimeSpan) -> int:
     raise TypeError(f"Cannot convert {type(value)} to TimeSpan")
 
 
-# The operand helpers keep a float whole, so comparisons treat it as int does instead
-# of truncating it to nanoseconds.
+def _exact_float(value: float | np.floating) -> float | Fraction:
+    """Converts a float to a value that compares with an int as the float does,
+    without truncating it to nanoseconds or rounding a wider NumPy float.
+    """
+    if isinstance(value, float) or not np.isfinite(value):
+        return float(value)
+    return Fraction(*value.as_integer_ratio())
+
+
 def _stamp_operand(
     value: CrudeTimeStamp | float | np.integer | np.floating,
-) -> int | float:
+) -> int | float | Fraction:
     if isinstance(value, (float, np.floating)):
-        return float(value)
+        return _exact_float(value)
     if isinstance(value, np.integer):
         return int(value)
     return _stamp_nanoseconds(value)
 
 
-def _span_operand(value: CrudeTimeSpan | np.integer | np.floating) -> int | float:
+def _span_operand(
+    value: CrudeTimeSpan | np.integer | np.floating,
+) -> int | float | Fraction:
     if isinstance(value, (float, np.floating)):
-        return float(value)
+        return _exact_float(value)
+    # np.timedelta64 is an np.integer, so it must convert by its unit first.
+    if isinstance(value, np.timedelta64):
+        return _timedelta64_nanoseconds(value)
     if isinstance(value, np.integer):
         return int(value)
     return _span_nanoseconds(value)
@@ -298,6 +310,9 @@ class TimeStamp(int):
         ):
             return False
         return int(self) == _stamp_operand(rhs)
+
+    def __ne__(self, rhs: object) -> bool:
+        return not self == rhs
 
     def __hash__(self) -> int:
         return super().__hash__()
@@ -617,6 +632,10 @@ class TimeSpan(int):
         ):
             return NotImplemented
         return int(self) == _span_operand(rhs)
+
+    def __ne__(self, rhs: object) -> bool:
+        eq = self.__eq__(rhs)
+        return eq if eq is NotImplemented else not eq
 
     def __hash__(self) -> int:
         return super().__hash__()

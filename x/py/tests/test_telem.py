@@ -1258,6 +1258,27 @@ class TestTimeProperties:
             if t == other:
                 assert hash(t) == hash(other)
 
+    def test_compare_with_timedelta64(self) -> None:
+        """Should convert a timedelta64 by its unit before it checks equality"""
+        assert sy.TimeSpan(1000) == np.timedelta64(1, "us")
+        assert sy.TimeSpan(1) != np.timedelta64(1, "us")
+
+    def test_ne_with_datetime(self) -> None:
+        """Should not differ from a datetime that it equals"""
+        d = datetime(2020, 1, 1, tzinfo=UTC)
+        assert sy.TimeStamp(d) == d
+        assert (sy.TimeStamp(d) != d) is False
+
+    def test_compare_with_longdouble(self) -> None:
+        """Should compare with a long double without rounding it to a float"""
+        wide = np.longdouble(2**53) + np.longdouble(1)
+        if int(wide) != 2**53 + 1:
+            pytest.skip("long double is not wider than float on this platform")
+        for t in (sy.TimeStamp(2**53 + 1), sy.TimeSpan(2**53 + 1)):
+            assert t == wide
+            assert t <= wide
+            assert not t > wide
+
     @given(_INT64)
     def test_numpy_number_eq(self, value: int) -> None:
         """Should equal a NumPy number that holds the same value"""
