@@ -551,12 +551,22 @@ describe("Latest", () => {
       const core = createCore(true);
       const { open, close } = createLatest(core);
       const stored = open(100);
-      const unindexed = open(100, undefined, core.virtual!.key);
+      const key = core.virtual!.key;
+      const unindexed = open(100, undefined, key);
       try {
-        await expect.poll(() => stored.value().status.variant, POLL).toBe("success");
-        await expect.poll(() => unindexed.value().status.variant, POLL).toBe("success");
+        await expect
+          .poll(() => {
+            const times = timedOf(stored);
+            return times.length > 0 && times.every((t) => t != null);
+          }, POLL)
+          .toBe(true);
         expect(stored.timeAt(0n)).toBeNull();
-        expect(unindexed.timeAt(0n)).toBeNull();
+        await expect.poll(() => unindexed.value().status.variant, POLL).toBe("success");
+        await expect.poll(() => core.streams(key), POLL).toBe(true);
+        core.stream(new framer.Frame(key, write(10n, 2, START)));
+        await expect.poll(() => unindexed.timeAt(10n), POLL).toEqual(START);
+        expect(unindexed.timeAt(9n)).toBeNull();
+        expect(unindexed.timeAt(12n)).toBeNull();
       } finally {
         stored.close();
         unindexed.close();

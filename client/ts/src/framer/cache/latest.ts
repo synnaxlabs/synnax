@@ -184,6 +184,8 @@ export class Latest {
     if (timeSource == null) return null;
     if (timeSource === "self") return this.sampleAt(alignment);
     if (timeSource === "stamps") return this.stamps?.at(alignment) ?? null;
+    // The latest of an index shares the window and count, so it holds the stamps of the
+    // samples held.
     this.index ??= new Latest(
       this.props,
       timeSource.index,
@@ -311,8 +313,6 @@ export class Latest {
     return new Stamps(Math.min(Math.max(this.count, 1), MAX_BUFFER));
   }
 
-  // The latest of an index shares the window and count, so it holds the stamps of the
-  // samples held.
   private findTimeSource(p: channel.Payload): void {
     if (this.timeSource != null) return;
     if (!p.isIndex && p.index === 0) {

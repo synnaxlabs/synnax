@@ -90,7 +90,9 @@ describe("Streamer", () => {
         start: TimeStamp.now(),
         channels: ch.key,
       });
-      const before = TimeStamp.now();
+      // The Core stamps with its own clock, which can drift from the client's.
+      const skew = TimeSpan.seconds(1);
+      const before = TimeStamp.now().sub(skew);
       try {
         const fr = new framer.Frame(
           [ch.key],
@@ -110,7 +112,7 @@ describe("Streamer", () => {
       const series = d.series[0];
       expect(series.timeRange.span.valueOf()).toEqual(1n);
       expect(series.timeRange.start.afterEq(before)).toBe(true);
-      const after = TimeStamp.now().add(TimeSpan.seconds(1));
+      const after = TimeStamp.now().add(skew);
       expect(series.timeRange.start.beforeEq(after)).toBe(true);
     });
     test("should deliver series stamped with the index's time range", async () => {
