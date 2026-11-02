@@ -10,6 +10,7 @@
 import { CONNECT_COMMANDS, CREATE_RACK_COMMAND } from "@/feature/device/commands";
 import { HTTP } from "@/feature/http";
 import { Modbus } from "@/feature/modbus";
+import { MQTT } from "@/feature/mqtt";
 import { OPCUA } from "@/feature/opcua";
 import { type Command } from "@/platform/command";
 
@@ -27,5 +28,6 @@ export const COMMANDS: Command.Command[] = [
   CREATE_RACK_COMMAND,
   ...HTTP.Device.COMMANDS,
   ...Modbus.Device.COMMANDS,
+  ...MQTT.Device.COMMANDS,
   ...OPCUA.Device.COMMANDS,
 ];

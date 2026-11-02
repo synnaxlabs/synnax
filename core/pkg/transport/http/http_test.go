@@ -582,20 +582,11 @@ var _ = Describe("HTTP", func() {
 		})
 		It("Should set the caller's own password", func() {
 			token := login(auth.Proof{Variant: auth.PasswordProof{Credentials: creds}})
-			Expect(call(
-				"/api/v1/auth/password/set",
-				token,
-				apipassword.SetRequest{Password: "new", CurrentPassword: "wrong"},
-				nil,
-			)).To(Equal(http.StatusBadRequest))
 			var set apipassword.SetResponse
 			Expect(call(
 				"/api/v1/auth/password/set",
 				token,
-				apipassword.SetRequest{
-					Password:        "new",
-					CurrentPassword: creds.Password,
-				},
+				apipassword.SetRequest{Password: "new"},
 				&set,
 			)).To(Equal(http.StatusOK))
 			Expect(call("/api/v1/auth/session/renew", token, struct{}{}, nil)).

@@ -154,14 +154,13 @@ describe("useModal", () => {
     expect(await screen.findByText("Create key")).toBeTruthy();
   });
 
-  it("should set the caller's own password given the current one", async () => {
+  it("should set the caller's own password", async () => {
     const self = await createTestClientWithRole(createTestClient(), "Viewer");
     const { username } = self.params;
     await self.auth.sessions.retrieve();
     const { subject } = self.auth;
     if (subject == null || username == null) throw new Error("not logged in");
     await openModal(Credential.useModal, { client: self, params: { subject } });
-    await type("Current password", "test");
     await type("New password", "changed123");
     fireEvent.click(findButton("Set password"));
     await expect
@@ -189,7 +188,6 @@ describe("useModal", () => {
       params: { subject: user.ontologyID(subject.key) },
     });
     await type("New password", "changed123");
-    expect(screen.queryByPlaceholderText("Current password")).toBeNull();
     fireEvent.click(findButton("Set password"));
     expect(await screen.findByText("Successfully changed password")).toBeTruthy();
     await type("New password", "again");

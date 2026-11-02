@@ -12,7 +12,7 @@ import { Button } from "@synnaxlabs/lyra/button";
 import { Flex } from "@synnaxlabs/lyra/flex";
 import { Input } from "@synnaxlabs/lyra/input";
 import { Text } from "@synnaxlabs/lyra/text";
-import { Credential, Synnax } from "@synnaxlabs/pluto";
+import { Credential } from "@synnaxlabs/pluto";
 import { type ReactElement, useEffect, useState } from "react";
 
 import { CSS } from "@/platform/css";
@@ -111,57 +111,36 @@ const RenameForm = ({
 type SetFormProps = Pick<FormProps, "subject" | "onMessage">;
 
 const SetForm = ({ subject, onMessage }: SetFormProps): ReactElement => {
-  const client = Synnax.use();
-  const own = client?.auth.subject?.key === subject.key;
   const [password, setPassword] = useState("");
-  const [currentPassword, setCurrentPassword] = useState("");
   const set = Credential.Password.useSet({
     afterSuccess: () => {
       setPassword("");
-      setCurrentPassword("");
       onMessage("Successfully changed password");
     },
   });
-  const handleCurrentPassword = (value: string) => {
-    setCurrentPassword(value);
-    onMessage(null);
-  };
   const handlePassword = (value: string) => {
     setPassword(value);
     onMessage(null);
   };
-  const handleSet = () =>
-    set.update(own ? { password, currentPassword } : { subject, password });
   return (
-    <>
-      {own && (
-        <Input.Text
-          value={currentPassword}
-          onChange={handleCurrentPassword}
-          placeholder="Current password"
-          type="password"
-          full="x"
-        />
-      )}
-      <Flex.Box x>
-        <Input.Text
-          value={password}
-          onChange={handlePassword}
-          placeholder="New password"
-          type="password"
-          full="x"
-        />
-        <Button.Button
-          className={CSS.BE("credential", "action")}
-          variant="filled"
-          status={status.keepVariants(set.variant, "loading")}
-          disabled={password === ""}
-          onClick={handleSet}
-        >
-          Set password
-        </Button.Button>
-      </Flex.Box>
-    </>
+    <Flex.Box x>
+      <Input.Text
+        value={password}
+        onChange={handlePassword}
+        placeholder="New password"
+        type="password"
+        full="x"
+      />
+      <Button.Button
+        className={CSS.BE("credential", "action")}
+        variant="filled"
+        status={status.keepVariants(set.variant, "loading")}
+        disabled={password === ""}
+        onClick={() => set.update({ subject, password })}
+      >
+        Set password
+      </Button.Button>
+    </Flex.Box>
   );
 };
 
@@ -191,10 +170,7 @@ export interface SectionProps {
   onMessage: MessageHandler;
 }
 
-/**
- * Sets a user's username and password, or creates a password for a user who has none.
- * The caller's own password needs the current one to set it.
- */
+/** Sets a user's username and password, or creates a password when they have none. */
 export const Section = ({ subject, onMessage }: SectionProps): ReactElement => {
   const query = { subject };
   const invalidate = Credential.Password.useInvalidate();
