@@ -15,6 +15,7 @@ import { EtherCAT } from "@/feature/ethercat";
 import { HTTP } from "@/feature/http";
 import { LabJack } from "@/feature/labjack";
 import { Modbus } from "@/feature/modbus";
+import { MQTT } from "@/feature/mqtt";
 import { NI } from "@/feature/ni";
 import { OPCUA } from "@/feature/opcua";
 import { PagerDuty } from "@/feature/pagerduty";
@@ -36,6 +37,7 @@ export const SELECTABLES: Base.Selectable[] = [
   ...HTTP.Task.SELECTABLES,
   ...LabJack.Task.SELECTABLES,
   ...Modbus.Task.SELECTABLES,
+  ...MQTT.Task.SELECTABLES,
   ...NI.Task.SELECTABLES,
   ...OPCUA.Task.SELECTABLES,
   ...PagerDuty.Task.SELECTABLES,
