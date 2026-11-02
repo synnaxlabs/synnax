@@ -45,6 +45,13 @@ var _ = Describe("Color", func() {
 		})
 	})
 
+	Describe("FromUint32", func() {
+		It("Should unpack a 0xRRGGBBAA color", func() {
+			Expect(color.FromUint32(0x12345678)).
+				To(Equal(color.Color{R: 0x12, G: 0x34, B: 0x56, A: 0x78}))
+		})
+	})
+
 	Describe("FromCSS", func() {
 		DescribeTable(
 			"Should parse valid color strings",

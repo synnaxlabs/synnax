@@ -39,4 +39,15 @@ var _ = Describe("Label", func() {
 			}))
 		})
 	})
+
+	Describe("Validate", func() {
+		It("Should accept a label with a name", func() {
+			Expect(v1.Label{Name: "Critical"}.Validate()).To(Succeed())
+		})
+		It("Should reject a label without a name", func() {
+			Expect(
+				v1.Label{}.Validate(),
+			).To(MatchError(ContainSubstring("name: required")))
+		})
+	})
 })
