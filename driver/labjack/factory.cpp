@@ -14,15 +14,6 @@
 #include "driver/labjack/write_task.h"
 
 namespace driver::labjack {
-/// @brief retries a lost device without a limit, so a task waits for it to return.
-x::breaker::Config retry_config(const std::string &name) {
-    return x::breaker::Config{
-        .name = name,
-        .max_retries = x::breaker::RETRY_INFINITELY,
-        .max_interval = 5 * x::telem::SECOND,
-    };
-}
-
 std::pair<common::ConfigureResult, x::errors::Error> configure_read(
     x::lib::Lazy<device::Manager> &devs,
     const std::shared_ptr<task::Context> &ctx,
@@ -43,7 +34,7 @@ std::pair<common::ConfigureResult, x::errors::Error> configure_read(
     result.task = std::make_unique<common::ReadTask>(
         task,
         ctx,
-        retry_config(task.name),
+        common::unlimited_retry_config(task.name),
         std::move(source)
     );
     return {std::move(result), x::errors::NIL};
@@ -63,7 +54,7 @@ std::pair<common::ConfigureResult, x::errors::Error> configure_write(
     result.task = std::make_unique<common::WriteTask>(
         task,
         ctx,
-        retry_config(task.name),
+        common::unlimited_retry_config(task.name),
         std::make_unique<WriteSink>(manager, std::move(cfg))
     );
     return {std::move(result), x::errors::NIL};
