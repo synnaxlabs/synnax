@@ -36,7 +36,12 @@ const RELEASE_REDIRECTS = Object.fromEntries(
   ]),
 );
 
-// A page behind a flag renders per request, so it can answer 404 while the flag is off.
+// Reads a flag as src/flags.ts does: a preview build or FLAG_<NAME>=true turns it on.
+const off = (flag: string): boolean =>
+  process.env.VERCEL_ENV !== "preview" &&
+  process.env[`FLAG_${flag.toUpperCase()}`] !== "true";
+
+// A page behind a flag that is off renders per request, so it can answer 404.
 const flaggedPages: AstroIntegration = {
   name: "flagged-pages",
   hooks: {
@@ -46,7 +51,8 @@ const flaggedPages: AstroIntegration = {
         path.join(import.meta.dirname, route.component),
         "utf8",
       );
-      if (matter(source).data.flag != null) route.prerender = false;
+      const { flag } = matter(source).data;
+      if (typeof flag === "string" && off(flag)) route.prerender = false;
     },
   },
 };
