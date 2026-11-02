@@ -206,7 +206,6 @@ func (n *testEdgeNode) birth() {
 	n.mu.Lock()
 	defer n.mu.Unlock()
 	n.mu.seq = 0
-	n.mu.bdSeq++
 	n.mu.births++
 	for _, device := range append([]string{""}, n.devices()...) {
 		p := &pb.Payload{Seq: n.nextSeq()}
@@ -224,6 +223,16 @@ func (n *testEdgeNode) birth() {
 		}
 		n.send(msgType, device, p)
 	}
+}
+
+// reconnect publishes the births of a new session of the edge node, as a node does when
+// it connects again. A rebirth keeps the bdSeq of the session.
+func (n *testEdgeNode) reconnect() {
+	GinkgoHelper()
+	n.mu.Lock()
+	n.mu.bdSeq++
+	n.mu.Unlock()
+	n.birth()
 }
 
 // devices returns the device IDs in a fixed order. The caller holds n.mu.

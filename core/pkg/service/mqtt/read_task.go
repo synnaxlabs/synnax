@@ -15,12 +15,14 @@ import (
 	"strings"
 	"time"
 
+	"github.com/synnaxlabs/alamos"
 	"github.com/synnaxlabs/synnax/pkg/distribution/framer/frame"
 	"github.com/synnaxlabs/synnax/pkg/service/channel"
 	"github.com/synnaxlabs/synnax/pkg/service/driver"
 	"github.com/synnaxlabs/synnax/pkg/service/framer"
 	"github.com/synnaxlabs/synnax/pkg/service/legacy/device"
 	"github.com/synnaxlabs/synnax/pkg/service/mqtt/sparkplug"
+	"github.com/synnaxlabs/x/control"
 	"github.com/synnaxlabs/x/errors"
 	xjson "github.com/synnaxlabs/x/json"
 	"github.com/synnaxlabs/x/set"
@@ -235,6 +237,9 @@ func (t readTopic) convert(msg message) ([]telem.Series, telem.TimeStamp, error)
 type batch struct {
 	keys   channel.Keys
 	series []telem.Series
+	// ended holds the indexes whose domains end after the samples of the batch. The
+	// batch takes no more samples once it holds any.
+	ended channel.Keys
 	// at is the position in series of each channel.
 	at map[channel.Key]int
 }
@@ -253,11 +258,12 @@ func (b *batch) append(key channel.Key, dt telem.DataType, data []byte) {
 	b.series[i].Data = append(b.series[i].Data, data...)
 }
 
-func (b *batch) frame() framer.Frame {
-	if len(b.keys) == 0 {
-		return framer.Frame{}
+func (b *batch) result() driver.Batch {
+	res := driver.Batch{EndDomains: b.ended}
+	if len(b.keys) > 0 {
+		res.Frame = frame.NewMulti(b.keys, b.series)
 	}
-	return frame.NewMulti(b.keys, b.series)
+	return res
 }
 
 // readSource is the driver.Source of an MQTT read task.
@@ -273,6 +279,9 @@ type readSource struct {
 	// stored holds the index channels that each run reads the stored data of. Empty
 	// when the task saves no data.
 	stored channel.Keys
+	// subject identifies the task to the writers of its historical values.
+	subject control.Subject
+	ins     alamos.Instrumentation
 	// broker is the key of the broker device.
 	broker    device.Key
 	queueSize int
@@ -301,6 +310,7 @@ func (s *readSource) Open(ctx context.Context) (driver.Reader, error) {
 		s.pool.release(s.broker, a)
 		return nil, err
 	}
+	r.history = newHistory(s)
 	return r, nil
 }
 
@@ -342,6 +352,10 @@ func (s *readSource) seedIndex(ctx context.Context, key channel.Key) error {
 type reader struct {
 	*readSource
 	attachment *attachment
+	history    *history
+	// held is a birth that waits for the next Read, since the domains that it ends
+	// must end before its samples and after the samples of the last batch.
+	held *message
 	// awaited holds the edge nodes and devices that must publish a birth, each with the
 	// time it has until.
 	awaited map[tagScope]time.Time
@@ -404,15 +418,26 @@ func (r *reader) awaitDevices(now time.Time, node sparkplug.NodeID) {
 	}
 }
 
-// Close implements driver.Reader.
+// Close implements driver.Reader. The task calls it after it closes its writer, which
+// frees the task to write the historical values that wait for a live value.
 func (r *reader) Close() error {
 	r.pool.release(r.broker, r.attachment)
-	return nil
+	return r.history.close()
+}
+
+// next returns the held message, or else the next message on the queue.
+func (r *reader) next(ctx context.Context) (message, error) {
+	if r.held != nil {
+		msg := *r.held
+		r.held = nil
+		return msg, nil
+	}
+	return r.attachment.next(ctx)
 }
 
 // Read implements driver.Reader. It returns every message that waits on the queue, up
-// to the size of the queue, in one frame.
-func (r *reader) Read(ctx context.Context) (framer.Frame, error) {
+// to the size of the queue, in one batch.
+func (r *reader) Read(ctx context.Context) (driver.Batch, error) {
 	waitCtx := ctx
 	if deadline, ok := r.deadline(); ok {
 		// The deadline wakes a quiet task, so that it can change its warning.
@@ -420,18 +445,21 @@ func (r *reader) Read(ctx context.Context) (framer.Frame, error) {
 		waitCtx, cancel = context.WithDeadline(ctx, deadline)
 		defer cancel()
 	}
-	msg, err := r.attachment.next(waitCtx)
+	msg, err := r.next(waitCtx)
 	now := time.Now()
 	if err != nil {
 		if ctx.Err() == nil && errors.Is(err, context.DeadlineExceeded) {
 			r.expire(now)
-			return framer.Frame{}, r.health()
+			return driver.Batch{}, r.health()
 		}
-		return framer.Frame{}, err
+		return driver.Batch{}, err
 	}
 	var b batch
 	r.apply(now, msg, &b)
 	for range r.queueSize - 1 {
+		if len(b.ended) > 0 {
+			break
+		}
 		msg, ok := r.attachment.poll()
 		if !ok {
 			break
@@ -446,7 +474,7 @@ func (r *reader) Read(ctx context.Context) (framer.Frame, error) {
 		))
 	}
 	r.expire(now)
-	return b.frame(), r.health()
+	return b.result(), r.health()
 }
 
 // apply adds the samples of msg to b. The first message of a new session awaits the
@@ -464,8 +492,8 @@ func (r *reader) apply(now time.Time, msg message, b *batch) {
 	}
 }
 
-// deadline returns the next time at which the warning of the task changes with no
-// message.
+// deadline returns the next time at which the warning of the task changes, or its
+// historical values need attention, with no message.
 func (r *reader) deadline() (deadline time.Time, ok bool) {
 	if r.degraded.err != nil {
 		deadline, ok = r.degraded.until, true
@@ -475,14 +503,21 @@ func (r *reader) deadline() (deadline time.Time, ok bool) {
 			deadline, ok = until, true
 		}
 	}
+	if until, due := r.history.deadline(time.Now()); due &&
+		(!ok || until.Before(deadline)) {
+		deadline, ok = until, true
+	}
 	return deadline, ok
 }
 
-// expire ends the warning of a data loss that is over, and takes the edge nodes and
-// devices that gave no birth in time as offline.
+// expire ends the warning of a data loss that is over, takes the edge nodes and devices
+// that gave no birth in time as offline, and moves the historical values along.
 func (r *reader) expire(now time.Time) {
 	if r.degraded.err != nil && !now.Before(r.degraded.until) {
 		r.degraded.err = nil
+	}
+	if err := r.history.tick(now); err != nil {
+		r.degrade(now, err)
 	}
 	expired := false
 	for scope, until := range r.awaited {
@@ -564,9 +599,10 @@ func (r *reader) convert(now time.Time, msg message, b *batch) {
 
 // convertEvent applies one Sparkplug B message: a birth or a death changes which edge
 // nodes are offline, a lost birth gives the edge node the time of birthGrace to publish
-// a new one, and the values of the tags of the task go into b. A message of an older
-// session gives its values only, since a new session can reach the reader before the
-// messages queued in the old one.
+// a new one, and the values of the tags of the task go into b. A death ends the domains
+// of its tags, and so does a birth that starts a new session, for a death that went
+// missing. A message of an older session gives its values only, since a new session can
+// reach the reader before the messages queued in the old one.
 func (r *reader) convertEvent(now time.Time, msg message, b *batch) {
 	ev := msg.sparkplug
 	current := msg.session == r.session
@@ -583,11 +619,18 @@ func (r *reader) convertEvent(now time.Time, msg message, b *batch) {
 		if current && r.reads(scope) {
 			r.offline.Add(scope)
 			r.refreshOffline()
+			b.ended = r.endDomains(scope)
 		}
 		return
 	case sparkplug.NBirth, sparkplug.DBirth:
 		birth = true
 		if current {
+			if ev.NewSession {
+				if b.ended = r.endDomains(scope); len(b.ended) > 0 {
+					r.held = &msg
+					return
+				}
+			}
 			delete(r.awaited, scope)
 			delete(r.offline, scope)
 			if ev.Type == sparkplug.NBirth {
@@ -602,17 +645,15 @@ func (r *reader) convertEvent(now time.Time, msg message, b *batch) {
 		if !ok || m.Value == nil {
 			continue
 		}
-		if m.Historical {
-			r.degrade(now, errors.Newf(
-				"rejected a historical value of %s: the task does not write values "+
-					"that an edge node stored while offline",
-				t,
-			))
-			continue
-		}
 		data, err := sparkplug.AppendSample(nil, t.dataType, m.Value)
 		if err != nil {
 			r.degrade(now, errors.Wrapf(err, "rejected a value of %s", t))
+			continue
+		}
+		if m.Historical {
+			if err = r.history.add(now, t, m.Timestamp, data); err != nil {
+				r.degrade(now, err)
+			}
 			continue
 		}
 		if t.index != 0 {
@@ -633,6 +674,9 @@ func (r *reader) convertEvent(now time.Time, msg message, b *batch) {
 				continue
 			}
 			r.lastStamp[t.index] = stamp
+			if err = r.history.live(now, t.index, stamp); err != nil {
+				r.degrade(now, err)
+			}
 			b.append(
 				t.index,
 				telem.TimestampT,
@@ -647,11 +691,23 @@ func (r *reader) convertEvent(now time.Time, msg message, b *batch) {
 // its devices.
 func (r *reader) reads(scope tagScope) bool {
 	for id := range r.tags {
-		if id.node == scope.node && (scope.device == "" || id.device == scope.device) {
+		if scope.holds(id) {
 			return true
 		}
 	}
 	return false
+}
+
+// endDomains opens a gap for each tag in scope and returns the indexes that end a
+// domain.
+func (r *reader) endDomains(scope tagScope) channel.Keys {
+	var ended channel.Keys
+	for id, t := range r.tags {
+		if scope.holds(id) && r.history.end(t.index, r.lastStamp[t.index]) {
+			ended = append(ended, t.index)
+		}
+	}
+	return ended
 }
 
 // checkBirth warns about the tags of the task that the birth of scope did not declare.

@@ -76,8 +76,15 @@ that time to the index channel of `channel`. Tags change at different times, so 
 each tag an index channel of its own. The task drops a value whose timestamp is not
 after the last one it wrote, and shows a warning.
 
-An edge node can store values while it is offline and send them later, marked as
-historical. The task drops historical values, and shows a warning.
+An edge node can store values while it is offline and send them after its next birth,
+marked as historical. The task writes each one into the outage that it belongs to, or
+into the time before the task started. These values reach stored data but not live
+plots. The task writes them after the first live value of the tag, which usually comes
+in the birth, or when the task stops.
+
+The task drops a historical value whose timestamp is not inside an outage, and shows a
+warning. A task with data saving off and a tag on a virtual channel store nothing, so
+they drop historical values with no warning.
 
 The task converts each value to the data type of the channel. It supports the integer,
 `float`, `double`, `boolean`, `string`, `text`, `uuid`, and `date_time` data types of

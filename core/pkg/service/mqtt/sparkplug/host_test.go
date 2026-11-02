@@ -479,8 +479,9 @@ var _ = Describe("Host", func() {
 						),
 					)
 					Expect(ev).To(Equal(sparkplug.Event{
-						Type: sparkplug.NBirth,
-						Node: node,
+						Type:       sparkplug.NBirth,
+						Node:       node,
+						NewSession: true,
 						Metrics: []sparkplug.Metric{
 							{
 								Name:      sparkplug.BdSeqMetric,
@@ -506,6 +507,34 @@ var _ = Describe("Host", func() {
 					Expect(born(other)).To(BeFalse())
 				},
 			)
+			DescribeTable(
+				"Should report whether a birth starts a new session",
+				func(after func(), bdSeq uint64, expected bool) {
+					handle(nodeTopic(sparkplug.NBirth), birth(0, 7))
+					after()
+					ev := handle(nodeTopic(sparkplug.NBirth), birth(0, bdSeq))
+					Expect(ev.NewSession).To(Equal(expected))
+				},
+				Entry("not for a rebirth", func() {}, uint64(7), false),
+				Entry("for a new bdSeq with no death", func() {}, uint64(8), true),
+				Entry("for the same bdSeq after a death", func() {
+					handle(nodeTopic(sparkplug.NDeath), death(7))
+				}, uint64(7), true),
+				Entry("for a host that lost its connection", func() {
+					h.Reset()
+				}, uint64(7), true),
+				Entry("not after a stale death", func() {
+					handle(nodeTopic(sparkplug.NDeath), death(6))
+				}, uint64(7), false),
+			)
+			It("Should not take a birth with no bdSeq as a new session", func() {
+				handle(nodeTopic(sparkplug.NBirth), birth(0, 7))
+				ev := handle(
+					nodeTopic(sparkplug.NBirth),
+					&pb.Payload{Seq: new(uint64(0))},
+				)
+				Expect(ev.NewSession).To(BeFalse())
+			})
 			It("Should replace the tags of the last birth", func() {
 				handle(
 					nodeTopic(sparkplug.NBirth),

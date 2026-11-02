@@ -16,8 +16,10 @@ import (
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
+	"github.com/synnaxlabs/synnax/pkg/distribution/framer/frame"
 	"github.com/synnaxlabs/synnax/pkg/service/channel"
 	"github.com/synnaxlabs/synnax/pkg/service/driver"
+	"github.com/synnaxlabs/synnax/pkg/service/framer"
 	"github.com/synnaxlabs/synnax/pkg/service/legacy/device"
 	"github.com/synnaxlabs/synnax/pkg/service/mqtt"
 	"github.com/synnaxlabs/synnax/pkg/service/rack"
@@ -195,32 +197,381 @@ var _ = Describe("Sparkplug B read entries", func() {
 				Expect(stored(ctx, data[0]).Len()).To(BeEquivalentTo(1))
 			},
 		)
+	})
 
-		It("Should warn about a historical value and not write it",
+	Describe("Historical values", func() {
+		const (
+			baseMillis = 1700000000000
+			timeout    = 5 * time.Second
+		)
+		// live returns a value of the temperature tag, value seconds after baseMillis.
+		live := func(value float64) tagValue {
+			return tagValue{
+				name:      "temperature",
+				alias:     1,
+				value:     value,
+				timestamp: baseMillis + uint64(value)*1000,
+			}
+		}
+		past := func(value float64) tagValue {
+			v := live(value)
+			v.historical = true
+			return v
+		}
+		expectStored := func(ctx context.Context, ch channel.Channel, values ...float64) {
+			GinkgoHelper()
+			Eventually(func() telem.Series { return stored(ctx, ch) }, timeout).
+				Should(telem.MatchSeriesData(telem.NewSeriesV(values...)))
+		}
+		expectWarning := func(ctx context.Context, t task.Task, description any) {
+			GinkgoHelper()
+			Eventually(func() task.Status { return taskStatus(ctx, t) }, timeout).
+				Should(And(
+					HaveField("Variant", status.VariantWarning),
+					HaveField("Message", Equal("Failed to read some data")),
+					HaveField("Description", description),
+				))
+		}
+		// startTemperature starts a read task that has stored the value 1.
+		startTemperature := func(ctx context.Context) (channel.Channel, task.Task) {
+			GinkgoHelper()
+			_, data := createIndexed(ctx, telem.Float64T)
+			node.setTags("", live(1))
+			t := start(ctx, readConfig(
+				dev, tagEntry("plant", "line1", "", "temperature", data[0]),
+			))
+			expectStored(ctx, data[0], 1)
+			return data[0], t
+		}
+		// restartable starts a read task, like startTemperature, and returns a function
+		// that runs a command on the task.
+		restartable := func(
+			ctx context.Context,
+		) (channel.Channel, func(command string)) {
+			GinkgoHelper()
+			_, data := createIndexed(ctx, telem.Float64T)
+			node.setTags("", live(1))
+			configured := configure(ctx, factory, newTask(
+				rackKey,
+				mqtt.ReadTaskType,
+				readConfig(dev, tagEntry("plant", "line1", "", "temperature", data[0])),
+			))
+			exec := func(command string) {
+				GinkgoHelper()
+				before := node.births()
+				Expect(configured.Exec(ctx, task.Command{
+					Type: command, Key: command,
+				})).To(Succeed())
+				if command == "start" {
+					Eventually(node.births).Should(BeNumerically(">", before))
+				}
+			}
+			exec("start")
+			expectStored(ctx, data[0], 1)
+			return data[0], exec
+		}
+
+		It("Should write the values that an edge node stored through an outage",
 			func(ctx SpecContext) {
-				_, data := createIndexed(ctx, telem.Float64T)
-				node.setTags("", tagValue{
-					name: "temperature", alias: 1, value: 5.0, timestamp: 1700000002000,
-				})
+				idx, data := createIndexed(ctx, telem.Float64T)
+				node.setTags("", live(1))
 				t := start(ctx, readConfig(
 					dev, tagEntry("plant", "line1", "", "temperature", data[0]),
 				))
-				Eventually(func() int64 { return stored(ctx, data[0]).Len() }).
-					Should(BeEquivalentTo(1))
-				node.data("", tagValue{
-					alias: 1, value: 4.0, timestamp: 1700000001000, historical: true,
-				})
-				Eventually(func() task.Status { return taskStatus(ctx, t) }).Should(And(
-					HaveField("Variant", status.VariantWarning),
-					HaveField("Message", Equal("Failed to read some data")),
-					HaveField("Description", Equal(
-						"rejected a historical value of tag plant/line1/temperature: "+
-							"the task does not write values that an edge node stored "+
-							"while offline",
-					)),
+				expectStored(ctx, data[0], 1)
+				node.death()
+				node.setTags("", live(4))
+				node.birth()
+				node.data("", past(2), past(3))
+				expectStored(ctx, data[0], 1, 2, 3, 4)
+				stamp := func(seconds telem.TimeStamp) telem.TimeStamp {
+					return baseMillis*telem.MillisecondTS + seconds*telem.SecondTS
+				}
+				Expect(stored(ctx, idx)).To(telem.MatchSeriesData(telem.NewSeriesV(
+					stamp(1), stamp(2), stamp(3), stamp(4),
+				)))
+				Expect(taskStatus(ctx, t).Variant).To(Equal(status.VariantSuccess))
+			},
+		)
+
+		It("Should fill an outage whose death never arrived", func(ctx SpecContext) {
+			data, _ := startTemperature(ctx)
+			node.setTags("", live(4))
+			node.reconnect()
+			node.data("", past(2))
+			expectStored(ctx, data, 1, 2, 4)
+		})
+
+		It("Should keep the live values that follow a new session",
+			func(ctx SpecContext) {
+				data, _ := startTemperature(ctx)
+				node.death()
+				node.setTags("", live(4))
+				node.birth()
+				node.data("", live(5))
+				node.data("", past(2))
+				node.data("", live(6))
+				expectStored(ctx, data, 1, 2, 4, 5, 6)
+			},
+		)
+
+		It("Should reject a value inside stored data", func(ctx SpecContext) {
+			data, t := startTemperature(ctx)
+			node.data("", live(3))
+			expectStored(ctx, data, 1, 3)
+			node.data("", past(2))
+			expectWarning(ctx, t, Equal(
+				"rejected a historical value of tag plant/line1/temperature: "+
+					"its timestamp is not inside an outage",
+			))
+			Expect(stored(ctx, data)).
+				To(telem.MatchSeriesData(telem.NewSeriesV(1.0, 3.0)))
+		})
+
+		It("Should not take a rebirth as an outage", func(ctx SpecContext) {
+			data, t := startTemperature(ctx)
+			node.birth()
+			node.data("", past(2))
+			expectWarning(ctx, t, Equal(
+				"rejected a historical value of tag plant/line1/temperature: "+
+					"its timestamp is not inside an outage",
+			))
+			Expect(stored(ctx, data)).To(telem.MatchSeriesData(telem.NewSeriesV(1.0)))
+		})
+
+		It("Should write a burst in time order and write each timestamp once",
+			func(ctx SpecContext) {
+				data, _ := startTemperature(ctx)
+				node.death()
+				node.setTags("", live(5))
+				node.birth()
+				node.data("", past(3), past(2))
+				node.data("", past(2), past(4))
+				expectStored(ctx, data, 1, 2, 3, 4, 5)
+			},
+		)
+
+		It("Should take an edge node that sends values twice", func(ctx SpecContext) {
+			data, t := startTemperature(ctx)
+			node.death()
+			node.setTags("", live(5))
+			node.birth()
+			node.data("", past(2), past(3))
+			expectStored(ctx, data, 1, 2, 3, 5)
+			node.data("", past(3), past(4))
+			expectStored(ctx, data, 1, 2, 3, 4, 5)
+			expectWarning(ctx, t, Equal(
+				"rejected a historical value of tag plant/line1/temperature: "+
+					"its timestamp is not inside an outage",
+			))
+		})
+
+		It("Should fill the time around values that it wrote", func(ctx SpecContext) {
+			data, t := startTemperature(ctx)
+			node.death()
+			node.setTags("", live(9))
+			node.birth()
+			node.data("", past(5))
+			expectStored(ctx, data, 1, 5, 9)
+			node.data("", past(2))
+			expectStored(ctx, data, 1, 2, 5, 9)
+			node.data("", past(7))
+			expectStored(ctx, data, 1, 2, 5, 7, 9)
+			Expect(taskStatus(ctx, t).Variant).To(Equal(status.VariantSuccess))
+		})
+
+		It("Should fill each outage of an edge node", func(ctx SpecContext) {
+			data, _ := startTemperature(ctx)
+			node.death()
+			node.setTags("", live(3))
+			node.birth()
+			expectStored(ctx, data, 1, 3)
+			node.death()
+			node.setTags("", live(5))
+			node.birth()
+			expectStored(ctx, data, 1, 3, 5)
+			node.data("", past(2), past(4))
+			expectStored(ctx, data, 1, 2, 3, 4, 5)
+		})
+
+		It("Should fill the outage of a device, and leave its edge node's domains",
+			func(ctx SpecContext) {
+				_, data := createIndexed(ctx, telem.Float64T)
+				speed := func(value float64) tagValue {
+					v := live(value)
+					v.name = "speed"
+					return v
+				}
+				node.setTags("", live(1))
+				node.setTags("pump", speed(1))
+				start(ctx, readConfig(
+					dev, tagEntry("plant", "line1", "pump", "speed", data[0]),
 				))
-				Expect(stored(ctx, data[0])).
-					To(telem.MatchSeriesData(telem.NewSeriesV(5.0)))
+				expectStored(ctx, data[0], 1)
+				node.deviceDeath("pump")
+				node.setTags("pump", speed(4))
+				node.birth()
+				past := speed(2)
+				past.historical = true
+				node.data("pump", past)
+				expectStored(ctx, data[0], 1, 2, 4)
+			},
+		)
+
+		It("Should write stored values before the session of a restarted task",
+			func(ctx SpecContext) {
+				data, exec := restartable(ctx)
+				exec("stop")
+				node.setTags("", live(4))
+				exec("start")
+				node.data("", past(2), past(3))
+				expectStored(ctx, data, 1, 2, 3, 4)
+			},
+		)
+
+		It("Should write values that wait for a live value when the task stops",
+			func(ctx SpecContext) {
+				data, exec := restartable(ctx)
+				exec("stop")
+				exec("start")
+				node.data("", past(2))
+				Consistently(
+					func() int64 { return stored(ctx, data).Len() },
+					time.Second,
+				).
+					Should(BeEquivalentTo(1))
+				exec("stop")
+				expectStored(ctx, data, 1, 2)
+			},
+		)
+
+		It("Should reject a value at or after the live value that ends its outage",
+			func(ctx SpecContext) {
+				data, exec := restartable(ctx)
+				exec("stop")
+				exec("start")
+				node.data("", past(5), past(2))
+				node.data("", live(4))
+				expectStored(ctx, data, 1, 2, 4)
+			},
+		)
+
+		It("Should warn when a write fails, and keep reading", func(ctx SpecContext) {
+			idx, data := createIndexed(ctx, telem.Float64T)
+			node.setTags("", live(1))
+			t := start(ctx, readConfig(
+				dev, tagEntry("plant", "line1", "", "temperature", data[0]),
+			))
+			expectStored(ctx, data[0], 1)
+			node.death()
+			node.setTags("", live(4))
+			node.birth()
+			expectStored(ctx, data[0], 1, 4)
+			keys := channel.Keys{idx.Key(), data[0].Key()}
+			at := baseMillis*telem.MillisecondTS + 2*telem.SecondTS
+			w := MustSucceed(framerSvc.OpenWriter(ctx, framer.WriterConfig{
+				Keys:  keys,
+				Start: at,
+				Mode:  framer.WriterModePersistOnly,
+			}))
+			Expect(w.Write(frame.NewMulti(keys, []telem.Series{
+				telem.NewSeriesV(at), telem.NewSeriesV(9.0),
+			}))).To(BeTrue())
+			Expect(w.Close()).To(Succeed())
+			node.data("", past(2))
+			expectWarning(ctx, t, And(
+				ContainSubstring(
+					"failed to write historical values of tag plant/line1/temperature",
+				),
+				ContainSubstring("overlaps with existing data"),
+			))
+			node.data("", live(5))
+			expectStored(ctx, data[0], 1, 9, 4, 5)
+		})
+
+		It("Should warn when another writer holds an outage", func(ctx SpecContext) {
+			idx, data := createIndexed(ctx, telem.Float64T)
+			node.setTags("", live(1))
+			t := start(ctx, readConfig(
+				dev, tagEntry("plant", "line1", "", "temperature", data[0]),
+			))
+			expectStored(ctx, data[0], 1)
+			node.death()
+			node.setTags("", live(4))
+			node.birth()
+			expectStored(ctx, data[0], 1, 4)
+			w := MustSucceed(framerSvc.OpenWriter(ctx, framer.WriterConfig{
+				Keys:  channel.Keys{idx.Key(), data[0].Key()},
+				Start: baseMillis*telem.MillisecondTS + 2*telem.SecondTS,
+			}))
+			defer func() { Expect(w.Close()).To(Succeed()) }()
+			node.data("", past(3))
+			expectWarning(ctx, t, ContainSubstring(
+				"failed to write historical values of tag plant/line1/temperature",
+			))
+			Expect(stored(ctx, data[0])).
+				To(telem.MatchSeriesData(telem.NewSeriesV(1.0, 4.0)))
+		})
+
+		It("Should write a value once a writer leaves its outage",
+			func(ctx SpecContext) {
+				idx, data := createIndexed(ctx, telem.Float64T)
+				node.setTags("", live(1))
+				t := start(ctx, readConfig(
+					dev, tagEntry("plant", "line1", "", "temperature", data[0]),
+				))
+				expectStored(ctx, data[0], 1)
+				node.death()
+				node.setTags("", live(4))
+				node.birth()
+				expectStored(ctx, data[0], 1, 4)
+				w := MustSucceed(framerSvc.OpenWriter(ctx, framer.WriterConfig{
+					Keys:  channel.Keys{idx.Key(), data[0].Key()},
+					Start: baseMillis*telem.MillisecondTS + 2*telem.SecondTS,
+					Mode:  framer.WriterModePersistOnly,
+				}))
+				node.data("", past(2))
+				Consistently(
+					func() int64 { return stored(ctx, data[0]).Len() },
+					time.Second,
+				).
+					Should(BeEquivalentTo(2))
+				Expect(w.Close()).To(Succeed())
+				expectStored(ctx, data[0], 1, 2, 4)
+				Expect(taskStatus(ctx, t).Variant).To(Equal(status.VariantSuccess))
+			},
+		)
+
+		// expectDropped starts a task with cfg, and sends a value that it has nowhere
+		// to store.
+		expectDropped := func(ctx context.Context, cfg msgpack.EncodedJSON) {
+			GinkgoHelper()
+			node.setTags("", live(1))
+			t := start(ctx, cfg)
+			node.data("", past(0))
+			Consistently(func() status.Variant {
+				return taskStatus(ctx, t).Variant
+			}, 200*time.Millisecond).Should(Equal(status.VariantSuccess))
+		}
+
+		It("Should drop a value of a task that saves no data, with no warning",
+			func(ctx SpecContext) {
+				_, data := createIndexed(ctx, telem.Float64T)
+				cfg := readConfig(
+					dev, tagEntry("plant", "line1", "", "temperature", data[0]),
+				)
+				cfg["data_saving_disabled"] = true
+				expectDropped(ctx, cfg)
+				Expect(stored(ctx, data[0]).Len()).To(BeZero())
+			},
+		)
+
+		It("Should drop a value of a virtual channel, with no warning",
+			func(ctx SpecContext) {
+				ch := createVirtual(ctx, telem.Float64T)
+				expectDropped(ctx, readConfig(
+					dev, tagEntry("plant", "line1", "", "temperature", ch),
+				))
 			},
 		)
 	})

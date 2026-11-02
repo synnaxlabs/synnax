@@ -71,6 +71,7 @@ const (
 	WriterCommandWrite          = writer.CommandWrite
 	WriterCommandCommit         = writer.CommandCommit
 	WriterCommandSetAuthority   = writer.CommandSetAuthority
+	WriterCommandEndDomain      = writer.CommandEndDomain
 	WriterModePersistStream     = writer.ModePersistStream
 	WriterModePersistOnly       = writer.ModePersistOnly
 	WriterModeStreamOnly        = writer.ModeStreamOnly

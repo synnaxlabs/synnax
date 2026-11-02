@@ -51,6 +51,10 @@ type Event struct {
 	// BirthLost is true when the message ended the birth of the edge node. The host
 	// drops the data of the node until its next birth.
 	BirthLost bool
+	// NewSession is true for a birth that does not repeat the last one: the host saw
+	// no live birth before it, or its bdSeq shows that the edge node reconnected. The
+	// death of the old session can reach the host after this birth.
+	NewSession bool
 }
 
 // Host is the session state of a Sparkplug B host application: for each edge node,
@@ -138,10 +142,12 @@ func (h *Host) handle(m Message) Event {
 	)
 	switch topic.Type {
 	case NBirth:
+		bdSeq, bdSeqKnown := findBdSeq(p.Metrics)
+		ev.NewSession = !n.born || (bdSeqKnown && n.bdSeqKnown && bdSeq != n.bdSeq)
 		n.born, n.rebirth = true, false
 		n.nextSeq = uint8(p.GetSeq()) + 1
 		n.tables = map[string]tagTable{"": birthTable(p.Metrics)}
-		n.bdSeq, n.bdSeqKnown = findBdSeq(p.Metrics)
+		n.bdSeq, n.bdSeqKnown = bdSeq, bdSeqKnown
 		ev.Metrics = birthMetrics(p)
 		return ev
 	case NDeath:

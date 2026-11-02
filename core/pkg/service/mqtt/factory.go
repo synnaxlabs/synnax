@@ -376,6 +376,8 @@ func (f *Factory) configureRead(
 		tags:       make(map[tagID]readTag),
 		lastStamp:  make(map[channel.Key]telem.TimeStamp),
 		framer:     f.cfg.Framer,
+		subject:    control.Subject{Key: t.Key.String(), Name: t.Name},
+		ins:        f.cfg.Child(t.Key.String()),
 	}
 	var (
 		// written names the entry that writes to each channel.

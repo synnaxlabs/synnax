@@ -37,6 +37,7 @@ import (
 type readResult struct {
 	err           error
 	frame         framer.Frame
+	endDomains    channel.Keys
 	heldUntilStop bool
 }
 
@@ -60,15 +61,15 @@ func (s *queueSource) Open(context.Context) (driver.Reader, error) {
 	return s, nil
 }
 
-func (s *queueSource) Read(ctx context.Context) (framer.Frame, error) {
+func (s *queueSource) Read(ctx context.Context) (driver.Batch, error) {
 	select {
 	case <-ctx.Done():
-		return framer.Frame{}, ctx.Err()
+		return driver.Batch{}, ctx.Err()
 	case r := <-s.results:
 		if r.heldUntilStop {
 			<-ctx.Done()
 		}
-		return r.frame, r.err
+		return driver.Batch{Frame: r.frame, EndDomains: r.endDomains}, r.err
 	}
 }
 
@@ -168,6 +169,27 @@ var _ = Describe("ReadTask", func() {
 			},
 		)}
 	}
+
+	DescribeTable("Batch.Empty",
+		func(b func() driver.Batch, expected bool) {
+			Expect(b().Empty()).To(Equal(expected))
+		},
+		Entry("no frame and no domains", func() driver.Batch {
+			return driver.Batch{}
+		}, true),
+		Entry("a frame", func() driver.Batch {
+			return driver.Batch{Frame: samples(1).frame}
+		}, false),
+		Entry("domains to end", func() driver.Batch {
+			return driver.Batch{EndDomains: channel.Keys{idxCh.Key()}}
+		}, false),
+		Entry("a frame and domains to end", func() driver.Batch {
+			return driver.Batch{
+				Frame:      samples(1).frame,
+				EndDomains: channel.Keys{idxCh.Key()},
+			}
+		}, false),
+	)
 
 	Describe("NewReadTask", func() {
 		It("Should reject a configuration with no source", func() {
@@ -387,6 +409,40 @@ var _ = Describe("ReadTask", func() {
 				Expect(written(ctx, framerSvc, behindData)).
 					To(telem.MatchWrittenSeries(telem.NewSeriesV[float32](5, 6)))
 			},
+		)
+
+		DescribeTable(
+			"Should end domains after it writes the frame of their batch",
+			func(ctx SpecContext, results func() []readResult) {
+				rt := open(0)
+				DeferCleanup(func() { Expect(rt.Stop(false)).To(Succeed()) })
+				Expect(rt.Start(ctx, driver.NoCommand)).To(Succeed())
+				for _, r := range results() {
+					src.results <- r
+				}
+				Eventually(src.results).Should(BeEmpty())
+				Expect(rt.Stop(false)).To(Succeed())
+				w := MustSucceed(framerSvc.OpenWriter(ctx, framer.WriterConfig{
+					Keys:              channel.Keys{idxCh.Key(), dataCh.Key()},
+					Start:             5 * telem.SecondTS,
+					Mode:              framer.WriterModePersistOnly,
+					ErrOnUnauthorized: new(true),
+				}))
+				Expect(w.Write(samples(5).frame)).To(BeTrue())
+				Expect(w.Close()).To(Succeed())
+				Expect(written(ctx, framerSvc, dataCh)).To(
+					telem.MatchWrittenSeries(telem.NewSeriesV[float32](1, 5, 10)),
+				)
+			},
+			Entry("in a batch with a frame", func() []readResult {
+				first := samples(1)
+				first.endDomains = channel.Keys{idxCh.Key()}
+				return []readResult{first, samples(10)}
+			}),
+			Entry("in a batch with no frame", func() []readResult {
+				end := readResult{endDomains: channel.Keys{idxCh.Key()}}
+				return []readResult{samples(1), end, samples(10)}
+			}),
 		)
 
 		It("Should answer a start for a running task without a second source open",
