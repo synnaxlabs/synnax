@@ -14,7 +14,7 @@ import time
 from collections.abc import Callable
 from typing import Literal, Protocol, TypeVar
 
-from x.telem import CrudeTimeSpan, Rate, TimeSpan, TimeStamp
+from x.telem import CrudeTimeSpan, TimeSpan, TimeStamp
 
 T = TypeVar("T")
 
@@ -65,7 +65,7 @@ def _sleep_until(clock: Clock, deadline: int, *, precise: bool) -> None:
 
 
 def sleep(
-    dur: Rate | TimeSpan | float | int,
+    dur: CrudeTimeSpan,
     *,
     precise: bool = False,
     clock: Clock = _SYSTEM_CLOCK,
@@ -132,7 +132,7 @@ class Loop:
 
     def __init__(
         self,
-        interval: Rate | TimeSpan | float | int,
+        interval: CrudeTimeSpan,
         *,
         precise: bool = False,
         clock: Clock = _SYSTEM_CLOCK,

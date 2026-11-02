@@ -48,6 +48,13 @@ type Writer struct {
 	taskSync   *debounce.Keyed[Key]
 }
 
+// WithDispatchKey returns a copy of the writer that stamps dispatchKey onto the create
+// broadcasts it emits, so the client that sent the create recognizes its own echo.
+func (w Writer) WithDispatchKey(dispatchKey string) Writer {
+	w.dispatcher = w.dispatcher.WithDispatchKey(dispatchKey)
+	return w
+}
+
 // Create creates the given Arc. If the Arc does not have a key,
 // a new key will be generated.
 func (w Writer) Create(ctx context.Context, a *Arc) error {
@@ -81,9 +88,11 @@ func (w Writer) Create(ctx context.Context, a *Arc) error {
 	} else if err = w.syncTask(ctx, *a); err != nil {
 		return err
 	}
-	// Notify last: a create rejected by ontology validation must not be broadcast.
-	w.dispatcher.Notify(
-		ctx, a.Key, "", []Action{NewCreateAction(CreatePayload{Arc: *a})},
+	w.dispatcher.NotifyOnCommit(
+		ctx,
+		w.tx,
+		a.Key,
+		NewCreateAction(CreatePayload{Arc: *a}),
 	)
 	return nil
 }

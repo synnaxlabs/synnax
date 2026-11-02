@@ -9,6 +9,7 @@
 
 import sys
 import threading
+from datetime import timedelta
 
 import pytest
 
@@ -110,6 +111,12 @@ class TestTiming:
             sys.setswitchinterval(interval)
         thread.join()
         assert yielded
+
+    def test_sleep_timedelta(self) -> None:
+        """Should convert a timedelta argument into the equivalent sleep duration."""
+        clock = FakeClock()
+        sleep(timedelta(milliseconds=10), clock=clock)
+        assert clock.sleeps == [TimeSpan.MILLISECOND * 10]
 
     def test_poll_returns_value_when_condition_met(self) -> None:
         """Should return the non-None value when the condition is met."""

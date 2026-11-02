@@ -7,15 +7,16 @@
 #  License, use of this software will be governed by the Apache License, Version 2.0,
 #  included in the file licenses/APL.txt.
 
-import json
 import random
 import re
-from typing import Any, Literal
+from typing import Literal
 
 from playwright.sync_api import Locator
 from playwright.sync_api import TimeoutError as PlaywrightTimeoutError
+from pydantic import JsonValue
 
 from console.base import ResourceClient
+from framework.utils import read_json_object
 
 
 class TaskClient(ResourceClient):
@@ -121,7 +122,7 @@ class TaskClient(ResourceClient):
         for name in names:
             self.get_item(name).wait_for(state="hidden", timeout=5000)
 
-    def export(self, name: str) -> dict[str, Any]:
+    def export(self, name: str) -> dict[str, JsonValue]:
         """Export a task via context menu in the task toolbar.
 
         Args:
@@ -140,9 +141,7 @@ class TaskClient(ResourceClient):
         download = download_info.value
         save_path = str(self.layout.results_dir / f"{name}_export.json")
         download.save_as(save_path)
-        with open(save_path, encoding="utf-8") as f:
-            result: dict[str, Any] = json.load(f)
-            return result
+        return read_json_object(save_path)
 
     def copy_link(self, name: str) -> str:
         """Copy a link to a task via context menu.

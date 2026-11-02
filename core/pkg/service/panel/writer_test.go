@@ -21,6 +21,8 @@ import (
 	"github.com/synnaxlabs/x/query"
 	"github.com/synnaxlabs/x/spatial"
 	. "github.com/synnaxlabs/x/testutil"
+	"github.com/synnaxlabs/x/union"
+	"github.com/synnaxlabs/x/validate"
 )
 
 var _ = Describe("Writer", func() {
@@ -156,6 +158,39 @@ var _ = Describe("Writer", func() {
 				Expect(retrieve(ctx, key).Name).To(Equal("second"))
 			},
 		)
+
+		It(
+			"Should broadcast the create with the writer's dispatch key after commit",
+			func(ctx SpecContext) {
+				rec := &Recorder[panel.Key, panel.Action]{}
+				DeferCleanup(svc.OnAction(rec.Record))
+				v := panel.Panel{Name: "broadcast", Parent: &parentID}
+				Expect(
+					svc.NewWriter(tx).WithDispatchKey("dk-1").Create(ctx, &v),
+				).To(Succeed())
+				Expect(rec.Snapshot()).To(BeEmpty())
+				Expect(tx.Commit(ctx)).To(Succeed())
+				seen := rec.Snapshot()
+				Expect(seen).To(HaveLen(1))
+				Expect(seen[0].Key).To(Equal(v.Key))
+				Expect(seen[0].DispatchKey).To(Equal("dk-1"))
+				Expect(seen[0].Actions).To(HaveLen(1))
+				Expect(seen[0].Actions[0].Type).To(Equal(panel.ActionTypeCreate))
+			},
+		)
+
+		It(
+			"Should not broadcast a create whose transaction closes uncommitted",
+			func(ctx SpecContext) {
+				rec := &Recorder[panel.Key, panel.Action]{}
+				DeferCleanup(svc.OnAction(rec.Record))
+				uncommitted := db.OpenTx()
+				v := panel.Panel{Name: "discarded", Parent: &parentID}
+				Expect(svc.NewWriter(uncommitted).Create(ctx, &v)).To(Succeed())
+				Expect(uncommitted.Close()).To(Succeed())
+				Expect(rec.Snapshot()).To(BeEmpty())
+			},
+		)
 	})
 
 	Describe("CreateMany", func() {
@@ -257,6 +292,49 @@ var _ = Describe("Writer", func() {
 			Expect(svc.NewWriter(nil).Create(ctx, &p)).To(Succeed())
 			return p.Key
 		}
+
+		It(
+			"Should reject an action that leaves the panel invalid",
+			func(ctx SpecContext) {
+				key := create(ctx, leafNode())
+				Expect(svc.Dispatch(ctx, key, "d1", []panel.Action{
+					panel.NewRenameAction(panel.RenamePayload{}),
+				})).To(MatchError(ContainSubstring("name: required")))
+				Expect(retrieve(ctx, key).Name).To(Equal("test"))
+			},
+		)
+
+		It("Should reject an action with no payload", func(ctx SpecContext) {
+			key := create(ctx, leafNode())
+			Expect(svc.Dispatch(ctx, key, "d1", []panel.Action{
+				{Type: panel.ActionTypeRename},
+			})).To(MatchError(union.ErrMissingPayload))
+			Expect(retrieve(ctx, key).Name).To(Equal("test"))
+		})
+
+		It(
+			"Should reject a create without changing the panel it names",
+			func(ctx SpecContext) {
+				target := create(ctx, leafNode())
+				other := create(ctx, leafNode())
+				Expect(svc.Dispatch(ctx, target, "d1", []panel.Action{
+					panel.NewCreateAction(panel.CreatePayload{
+						Panel: panel.Panel{
+							Key:    other,
+							Name:   "overwritten",
+							Root:   leafNode(),
+							Parent: &parentID,
+						},
+					}),
+				})).To(SatisfyAll(
+					MatchError(validate.ErrValidation),
+					MatchError(
+						ContainSubstring("only the Core dispatches a panel create"),
+					),
+				))
+				Expect(retrieve(ctx, other).Name).To(Equal("test"))
+			},
+		)
 
 		It("Should apply a Rename action and persist it", func(ctx SpecContext) {
 			key := create(ctx, leafNode())

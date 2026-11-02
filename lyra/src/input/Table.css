@@ -50,6 +50,11 @@
         text-align: center;
     }
 
+    /* Matches the gutter's gap, so the remove button clears the box edge. */
+    & tbody td:last-child {
+        padding-left: 1rem;
+    }
+
     /* Headings sit over the cell text, which shadow inputs inset. */
     & thead th:not(.lyra-input__table-gutter) {
         padding-left: 1.5rem;
@@ -104,7 +109,9 @@
         background: var(--pluto-fill-rest);
     }
 
-    & tbody .lyra-input__container {
+    /* A cell's content fills it, whether a bare input or a container. */
+    & tbody td:not(:last-child) > * {
+        width: 100%;
         border-radius: 0;
     }
 
@@ -112,7 +119,7 @@
     & tbody tr:last-child > :nth-last-child(2) {
         border-bottom-right-radius: var(--pluto-border-radius-tiny);
 
-        & .lyra-input__container {
+        & > * {
             border-bottom-right-radius: var(--pluto-table-cell-radius);
         }
     }
@@ -121,7 +128,7 @@
     &:not(:has(thead)) tbody tr:first-child > :nth-last-child(2) {
         border-top-right-radius: var(--pluto-border-radius-tiny);
 
-        & .lyra-input__container {
+        & > * {
             border-top-right-radius: var(--pluto-table-cell-radius);
         }
     }
@@ -135,7 +142,7 @@
         ) {
         border-bottom-left-radius: var(--pluto-border-radius-tiny);
 
-        & .lyra-input__container {
+        & > * {
             border-bottom-left-radius: var(--pluto-table-cell-radius);
         }
     }
@@ -156,7 +163,7 @@
         ) {
         border-top-left-radius: var(--pluto-border-radius-tiny);
 
-        & .lyra-input__container {
+        & > * {
             border-top-left-radius: var(--pluto-table-cell-radius);
         }
     }
