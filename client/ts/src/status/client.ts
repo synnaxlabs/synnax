@@ -15,6 +15,7 @@ import { AccessDeniedError } from "@/errors";
 import { label } from "@/label";
 import { ontology } from "@/ontology";
 import { query } from "@/query";
+import { type Condition } from "@/status/builder.gen";
 import { DELETE_CHANNEL_NAME, ontologyID, SET_CHANNEL_NAME } from "@/status/payload";
 import {
   type Key,
@@ -79,7 +80,11 @@ export interface ClientConfig {
   labels: label.Client;
 }
 
+type ListParts = query.ListParts<Condition, typeof retrieveMultiParamsZ>;
+type OneParts = query.OneParts<Condition, typeof retrieveMultiParamsZ>;
+
 export class Client extends query.Retriever<
+  Condition,
   typeof retrieveMultiParamsZ,
   Key,
   Status,
@@ -164,14 +169,27 @@ export class Client extends query.Retriever<
     });
   }
 
+  /**
+   * Retrieves the statuses that match every condition in parts, or one status when
+   * parts end with `one()`.
+   */
+  async retrieve(...parts: OneParts): Promise<Status>;
+  async retrieve(...parts: ListParts): Promise<Status[]>;
   async retrieve<DetailsSchema extends z.ZodType>(
     params: SingleRetrieveParams & { detailsSchema?: DetailsSchema },
   ): Promise<Status<DetailsSchema>>;
   async retrieve(params: Key | SingleRetrieveParams): Promise<Status>;
   async retrieve(params: Key[] | RetrieveMultipleParams): Promise<Status[]>;
   async retrieve<DetailsSchema extends z.ZodType = z.ZodNever>(
-    rawParams: Key | Key[] | (RetrieveParams & { detailsSchema?: DetailsSchema }),
+    ...args:
+      | ListParts
+      | OneParts
+      | [rawParams: Key | Key[] | (RetrieveParams & { detailsSchema?: DetailsSchema })]
   ): Promise<Status<DetailsSchema> | Status<DetailsSchema>[]> {
+    if (this.isParts(args))
+      return (await this.retrieveParts(args)) as
+        Status<DetailsSchema> | Status<DetailsSchema>[];
+    const [rawParams] = args;
     if (Array.isArray(rawParams))
       return (await super.retrieve(rawParams)) as Status<DetailsSchema>[];
     const params = typeof rawParams === "string" ? { key: rawParams } : rawParams;

@@ -15,6 +15,7 @@ import { type connection } from "@/connection";
 import { MultipleFoundError, NotFoundError } from "@/errors";
 import { ontology } from "@/ontology";
 import { query } from "@/query";
+import { type Condition } from "@/user/builder.gen";
 import { Current } from "@/user/current";
 import {
   type Key,
@@ -88,6 +89,7 @@ export interface ClientConfig {
 }
 
 export class Client extends query.Retriever<
+  Condition,
   typeof retrieveMultiParamsZ,
   Key,
   User,

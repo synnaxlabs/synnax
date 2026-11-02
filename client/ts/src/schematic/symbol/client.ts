@@ -19,6 +19,7 @@ import { group } from "@/group";
 import { imex } from "@/imex";
 import { ontology } from "@/ontology";
 import { query } from "@/query";
+import { type Condition } from "@/schematic/symbol/builder.gen";
 import {
   type Key,
   keyZ,
@@ -92,7 +93,12 @@ export interface ClientConfig {
   groupStore: query.Table<group.Key, group.Group>;
 }
 
-export class Client extends query.Retriever<typeof retrieveMultiParamsZ, Key, Symbol> {
+export class Client extends query.Retriever<
+  Condition,
+  typeof retrieveMultiParamsZ,
+  Key,
+  Symbol
+> {
   private readonly cfg: ClientConfig;
   private readonly store: query.Table<Key, Symbol>;
 

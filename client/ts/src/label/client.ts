@@ -19,6 +19,7 @@ import {
   dispatchResZ,
   scopedActionZ,
 } from "@/label/actions.gen";
+import { type Condition } from "@/label/builder.gen";
 import { LABELED_BY_ONTOLOGY_RELATIONSHIP_TYPE } from "@/label/payload";
 import { matchLabeledBy } from "@/label/store";
 import {
@@ -85,7 +86,12 @@ export interface ClientConfig {
  * Creates, reads, deletes, and attaches labels on a Core. Reach it through
  * `client.labels`.
  */
-export class Client extends query.Retriever<typeof retrieveMultiParamsZ, Key, Label> {
+export class Client extends query.Retriever<
+  Condition,
+  typeof retrieveMultiParamsZ,
+  Key,
+  Label
+> {
   readonly type: string = "label";
   /** The label record table; injected into sibling clients at wiring. */
   readonly store: query.Table<Key, Label>;

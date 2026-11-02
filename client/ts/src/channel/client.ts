@@ -24,6 +24,7 @@ import {
 } from "@synnaxlabs/x";
 import { z } from "zod";
 
+import { type Condition } from "@/channel/builder.gen";
 import {
   analyzeParams,
   isCalculated,
@@ -228,6 +229,9 @@ const aliasedRetrieveRequestZ = z.object({
   rangeKey: rangerKeyZ.optional(),
 });
 
+type ListParts = query.ListParts<Condition, typeof retrieveMultipleParamsZ>;
+type OneParts = query.OneParts<Condition, typeof retrieveMultipleParamsZ>;
+
 /** The options a retrieval by keys or names accepts. */
 export type RetrieveOptions = Pick<RetrieveMultipleParams, "rangeKey">;
 
@@ -299,6 +303,7 @@ export interface ClientConfig {
  * read costs nothing.
  */
 export class Client extends query.Retriever<
+  Condition,
   typeof retrieveMultipleParamsZ,
   Key,
   Channel,
@@ -475,6 +480,13 @@ export class Client extends query.Retriever<
   }
 
   /**
+   * Retrieves the channels that match every condition in parts, or one channel when
+   * parts end with `one()`.
+   */
+  async retrieve(...parts: OneParts): Promise<Channel>;
+  async retrieve(...parts: ListParts): Promise<Channel[]>;
+
+  /**
    * Retrieves a channel from the database using the given key or name.
    * @param params - The key or the name of the channel to retrieve. A name that is not
    * a valid channel name is a regular expression, anchored when unanchored.
@@ -514,9 +526,17 @@ export class Client extends query.Retriever<
   async retrieve(params: RetrieveMultipleParams): Promise<Channel[]>;
 
   async retrieve(
-    params: PrimitiveParams | Payload[] | RetrieveSingleParams | RetrieveMultipleParams,
-    options?: RetrieveOptions,
+    ...args:
+      | ListParts
+      | OneParts
+      | [
+          params:
+            PrimitiveParams | Payload[] | RetrieveSingleParams | RetrieveMultipleParams,
+          options?: RetrieveOptions,
+        ]
   ): Promise<Channel | Channel[]> {
+    if (this.isParts(args)) return await this.retrieveParts(args);
+    const [params, options] = args;
     if (typeof params === "object" && !Array.isArray(params))
       return await super.retrieve(params);
     const isSingle = !Array.isArray(params);

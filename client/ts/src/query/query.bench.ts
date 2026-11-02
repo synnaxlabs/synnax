@@ -26,7 +26,7 @@ const requestZ = z.object({
   searchTerm: z.string().optional(),
 });
 
-class Client extends query.Retriever<typeof requestZ, string, Thing> {
+class Client extends query.Retriever<never, typeof requestZ, string, Thing> {
   constructor(cache: query.Cache) {
     const store = cache.createTable<string, Thing>({
       name: "things",
