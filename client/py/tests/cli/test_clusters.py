@@ -10,6 +10,7 @@
 import json
 import socket
 from pathlib import Path
+from typing import override
 from uuid import UUID, uuid4
 
 import pytest
@@ -25,6 +26,7 @@ from tests.memory_keyring import MemoryKeyring
 
 
 class UndeletableKeyring(MemoryKeyring):
+    @override
     def delete_password(self, service: str, username: str) -> None:
         raise KeyringError("locked")
 

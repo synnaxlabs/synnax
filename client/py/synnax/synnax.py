@@ -22,6 +22,7 @@ from synnax import (
     exceptions,
     framer,
     group,
+    label,
     project,
     rack,
     ranger,
@@ -86,6 +87,7 @@ class Synnax(framer.Client):
     statuses: status.Client
     arcs: arc.Client
     groups: group.Client
+    labels: label.Client
     views: view.Client
     imex: ImexClient
     projects: project.Client
@@ -199,9 +201,13 @@ class Synnax(framer.Client):
             instrumentation=instrumentation,
         )
         self.groups = group.Client(self._transport.unary)
+        self.labels = label.Client(self._transport.unary)
         self.ontology = OntologyClient(client=self._transport.unary)
         self.channels = channel.Client(
-            frame_client=self, retriever=ch_retriever, creator=ch_creator
+            client=self._transport.unary,
+            frame_client=self,
+            retriever=ch_retriever,
+            creator=ch_creator,
         )
         range_retriever = RangeRetriever(
             client=self._transport.unary, instrumentation=instrumentation
@@ -233,6 +239,7 @@ class Synnax(framer.Client):
             signals=self.signals,
             ontology=self.ontology,
             tasks=self.tasks,
+            labels=self.labels,
         )
         self.control = ControlClient(
             framer=self, channels=ch_retriever, client=self._transport.unary
