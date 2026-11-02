@@ -8,6 +8,7 @@
 #  included in the file licenses/APL.txt.
 
 import asyncio
+from typing import override
 
 from x.thread import AsyncThread
 
@@ -17,6 +18,7 @@ class TestAsyncThread:
         results: list[int] = []
 
         class Worker(AsyncThread):
+            @override
             async def run_async(self) -> None:
                 await asyncio.sleep(0.01)
                 results.append(42)
@@ -28,6 +30,7 @@ class TestAsyncThread:
 
     def test_cleans_up_event_loop(self) -> None:
         class Worker(AsyncThread):
+            @override
             async def run_async(self) -> None:
                 pass
 

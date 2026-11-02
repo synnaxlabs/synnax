@@ -13,7 +13,7 @@ import uuid
 from datetime import UTC, datetime, timedelta, tzinfo
 from fractions import Fraction
 from math import trunc
-from typing import Any, ClassVar, Literal, NoReturn, TypeAlias, overload
+from typing import Any, ClassVar, Literal, NoReturn, TypeAlias, overload, override
 
 import numpy as np
 import pandas as pd
@@ -224,12 +224,14 @@ class TimeStamp(int):
     def __add__(self, rhs: TimeSpan) -> TimeStamp: ...
     @overload
     def __add__(self, rhs: int) -> int: ...
+    @override
     def __add__(self, rhs: object) -> int:
         if isinstance(rhs, TimeSpan):
             return TimeStamp(int(self) + int(rhs))
         _reject_number("+", self, rhs)
         return NotImplemented
 
+    @override
     def __radd__(self, lhs: int) -> NoReturn:
         raise _operand_error("+", lhs, self)
 
@@ -239,6 +241,7 @@ class TimeStamp(int):
     def __sub__(self, rhs: TimeSpan) -> TimeStamp: ...
     @overload
     def __sub__(self, rhs: int) -> int: ...
+    @override
     def __sub__(self, rhs: object) -> int:
         if isinstance(rhs, TimeStamp):
             return TimeSpan(int(self) - int(rhs))
@@ -247,30 +250,39 @@ class TimeStamp(int):
         _reject_number("-", self, rhs)
         return NotImplemented
 
+    @override
     def __rsub__(self, lhs: int) -> NoReturn:
         raise _operand_error("-", lhs, self)
 
+    @override
     def __mul__(self, rhs: int) -> NoReturn:
         raise _operand_error("*", self, rhs)
 
+    @override
     def __rmul__(self, lhs: int) -> NoReturn:
         raise _operand_error("*", lhs, self)
 
+    @override
     def __neg__(self) -> NoReturn:
         raise TypeError("bad operand type for unary -: 'TimeStamp'")
 
+    @override
     def __lt__(self, rhs: CrudeTimeStamp) -> bool:
         return self.before(rhs)
 
+    @override
     def __le__(self, rhs: CrudeTimeStamp) -> bool:
         return self.before_eq(rhs)
 
+    @override
     def __ge__(self, rhs: CrudeTimeStamp) -> bool:
         return self.after_eq(rhs)
 
+    @override
     def __gt__(self, rhs: CrudeTimeStamp) -> bool:
         return self.after(rhs)
 
+    @override
     def __eq__(self, rhs: object) -> bool:
         if not isinstance(
             rhs, (int, TimeSpan, datetime, timedelta, np.datetime64, np.int64)
@@ -278,9 +290,11 @@ class TimeStamp(int):
             return False
         return super().__eq__(_stamp_nanoseconds(rhs))
 
+    @override
     def __hash__(self) -> int:
         return super().__hash__()
 
+    @override
     def __str__(self) -> str:
         return self.datetime().isoformat()
 
@@ -327,9 +341,11 @@ class TimeSpan(int):
         TimeStamp."""
         return TimeStamp.now().span(ts)
 
+    @override
     def __repr__(self) -> str:
         return f"TimeSpan({super().__repr__()})"
 
+    @override
     def __str__(self) -> str:
         tot_days = self.trunc(TimeSpan.DAY)
         tot_hours = self.trunc(TimeSpan.HOUR)
@@ -485,6 +501,7 @@ class TimeSpan(int):
     def __add__(self, rhs: TimeSpan) -> TimeSpan: ...
     @overload
     def __add__(self, rhs: int) -> int: ...
+    @override
     def __add__(self, rhs: object) -> int:
         if isinstance(rhs, TimeStamp):
             return TimeStamp(int(self) + int(rhs))
@@ -493,6 +510,7 @@ class TimeSpan(int):
         _reject_number("+", self, rhs)
         return NotImplemented
 
+    @override
     def __radd__(self, lhs: int) -> NoReturn:
         raise _operand_error("+", lhs, self)
 
@@ -502,15 +520,18 @@ class TimeSpan(int):
     def __sub__(self, rhs: TimeSpan) -> TimeSpan: ...
     @overload
     def __sub__(self, rhs: int) -> int: ...
+    @override
     def __sub__(self, rhs: object) -> int:
         if isinstance(rhs, TimeSpan):
             return TimeSpan(int(self) - int(rhs))
         _reject_number("-", self, rhs)
         return NotImplemented
 
+    @override
     def __rsub__(self, lhs: int) -> NoReturn:
         raise _operand_error("-", lhs, self)
 
+    @override
     def __mul__(self, rhs: float | np.integer | np.floating) -> TimeSpan:
         if isinstance(rhs, TimeStamp):
             raise _operand_error("*", self, rhs)
@@ -519,11 +540,13 @@ class TimeSpan(int):
         return TimeSpan(int(self) * float(rhs))
 
     # Pyright has no reflected-operand priority, so it types int * TimeSpan as int.
+    @override
     def __rmul__(self, lhs: int | np.integer) -> TimeSpan:
         return self.__mul__(lhs)
 
     # Mypy and Pyright reject overloads that make TimeSpan / TimeSpan a float and
     # TimeSpan / number a TimeSpan, as TimeSpan is an int. These annotations follow int.
+    @override
     def __truediv__(self, rhs: float | np.integer | np.floating) -> float:
         if isinstance(rhs, TimeSpan):
             return float(Fraction(int(self), int(rhs)))
@@ -533,6 +556,7 @@ class TimeSpan(int):
             return TimeSpan(_div_toward_zero(int(self), int(rhs)))
         return TimeSpan(int(Fraction(int(self)) / Fraction(float(rhs))))
 
+    @override
     def __floordiv__(self, rhs: int | np.integer) -> int:
         if isinstance(rhs, TimeSpan):
             return int(self) // int(rhs)
@@ -546,31 +570,39 @@ class TimeSpan(int):
     def __mod__(self, rhs: TimeSpan) -> TimeSpan: ...
     @overload
     def __mod__(self, rhs: int) -> int: ...
+    @override
     def __mod__(self, rhs: object) -> int:
         if isinstance(rhs, TimeSpan):
             return TimeSpan(int(self) % int(rhs))
         _reject_number("%", self, rhs)
         return NotImplemented
 
+    @override
     def __neg__(self) -> TimeSpan:
         return TimeSpan(-int(self))
 
+    @override
     def __abs__(self) -> TimeSpan:
         return TimeSpan(abs(int(self)))
 
     # Omits np.timedelta64: its reflected comparisons return np.bool, not bool.
+    @override
     def __gt__(self, rhs: _ComparableTimeSpan) -> bool:
         return super().__gt__(_span_nanoseconds(rhs))
 
+    @override
     def __ge__(self, rhs: _ComparableTimeSpan) -> bool:
         return super().__ge__(_span_nanoseconds(rhs))
 
+    @override
     def __lt__(self, rhs: _ComparableTimeSpan) -> bool:
         return super().__lt__(_span_nanoseconds(rhs))
 
+    @override
     def __le__(self, rhs: _ComparableTimeSpan) -> bool:
         return super().__le__(_span_nanoseconds(rhs))
 
+    @override
     def __eq__(self, rhs: object) -> bool:
         if isinstance(rhs, (int, float)):
             return int(self) == rhs
@@ -578,6 +610,7 @@ class TimeSpan(int):
             return NotImplemented
         return super().__eq__(_span_nanoseconds(rhs))
 
+    @override
     def __hash__(self) -> int:
         return super().__hash__()
 
@@ -749,11 +782,13 @@ class Rate(float):
             raise ContiguityError(f"Size {size} is not a multiple of density {density}")
         return self.span(int(size / density))
 
+    @override
     def __str__(self) -> str:
         if self < 1:
             return f"{self.period} per cycle"
         return f"{round(self, 2)} Hz"
 
+    @override
     def __repr__(self) -> str:
         return f"Rate({super().__repr__()} Hz)"
 
@@ -762,12 +797,14 @@ class Rate(float):
     def __add__(self, rhs: Rate) -> Rate: ...
     @overload
     def __add__(self, rhs: float) -> float: ...
+    @override
     def __add__(self, rhs: object) -> float:
         if isinstance(rhs, Rate):
             return Rate(float(self) + float(rhs))
         _reject_number("+", self, rhs)
         return NotImplemented
 
+    @override
     def __radd__(self, lhs: float) -> NoReturn:
         raise _operand_error("+", lhs, self)
 
@@ -775,18 +812,22 @@ class Rate(float):
     def __sub__(self, rhs: Rate) -> Rate: ...
     @overload
     def __sub__(self, rhs: float) -> float: ...
+    @override
     def __sub__(self, rhs: object) -> float:
         if isinstance(rhs, Rate):
             return Rate(float(self) - float(rhs))
         _reject_number("-", self, rhs)
         return NotImplemented
 
+    @override
     def __rsub__(self, lhs: float) -> NoReturn:
         raise _operand_error("-", lhs, self)
 
+    @override
     def __mul__(self, rhs: CrudeRate) -> Rate:
         return Rate(super().__mul__(Rate(rhs)))
 
+    @override
     def __rmul__(self, lhs: float) -> Rate:
         return Rate(float(lhs) * float(self))
 
@@ -914,6 +955,7 @@ class TimeRange(BaseModel):
         self.copy()
         return TimeRange(start=self.end, end=self.start)
 
+    @override
     def copy(self, *args: Any, **kwargs: Any) -> TimeRange:
         """:returns: A copy of the time range."""
         return TimeRange(start=self.start, end=self.end)
@@ -925,14 +967,17 @@ class TimeRange(BaseModel):
         """
         return self.span >= TimeSpan.ZERO
 
+    @override
     def __str__(self) -> str:
         return str(self.start) + " - " + str(self.end)
 
+    @override
     def __eq__(self, rhs: object) -> bool:
         if not isinstance(rhs, TimeRange):
             return False
         return self.start == rhs.start and self.end == rhs.end
 
+    @override
     def __hash__(self) -> int:
         return hash((self.start, self.end))
 
@@ -983,6 +1028,7 @@ class Density(int):
         """:returns: The number of bytes occupied by the given number of samples."""
         return Size(sample_count * self)
 
+    @override
     def __repr__(self) -> str:
         return f"Density({super().__repr__()})"
 
@@ -1009,9 +1055,11 @@ Density.BIT8 = Density(1)
 
 
 class Size(int):
+    @override
     def __mul__(self, rhs: CrudeSize) -> Size:
         return Size(super().__mul__(Size(rhs)))
 
+    @override
     def __str__(self) -> str:
         tot_gb = self.trunc(Size.GB)
         tot_mb = self.trunc(Size.MB)
@@ -1089,9 +1137,11 @@ class Size(int):
         """
         return Size(trunc(self / size) * size)
 
+    @override
     def __sub__(self, rhs: CrudeSize) -> Size:
         return Size(int(self) - Size(rhs))
 
+    @override
     def __add__(self, rhs: CrudeSize) -> Size:
         return Size(int(self) + Size(rhs))
 
@@ -1241,6 +1291,7 @@ class DataType(str):
         """
         return DataType._DENSITIES.get(self, Density.UNKNOWN)
 
+    @override
     def __repr__(self) -> str:
         return f"DataType({super().__repr__()})"
 
@@ -1502,6 +1553,7 @@ class Alignment(int):
             self.sample_index + other.sample_index,
         )
 
+    @override
     def __str__(self) -> str:
         """Returns a string representation of the Alignment in the format
         'domain-sample'.
@@ -1510,6 +1562,7 @@ class Alignment(int):
         """
         return f"{self.domain_index}-{self.sample_index}"
 
+    @override
     def __repr__(self) -> str:
         """Returns a string representation of the Alignment for debugging.
 

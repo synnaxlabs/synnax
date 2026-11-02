@@ -7,7 +7,7 @@
 #  License, use of this software will be governed by the Apache License, Version 2.0,
 #  included in the file licenses/APL.txt.
 
-from typing import Literal, TypedDict
+from typing import Literal, TypedDict, TypeVar
 
 from playwright.sync_api import Locator
 
@@ -25,7 +25,7 @@ from console.schematic.symbol import (
     box_top,
 )
 
-PropertyDict = dict[str, float | str | bool]
+_SymbolT = TypeVar("_SymbolT", bound=Symbol)
 
 
 class SchematicProperties(TypedDict):
@@ -98,7 +98,7 @@ class Schematic(ConsolePage):
         self.layout.show_visualization_toolbar()
         self.page.get_by_role("tab", name="Properties", exact=True).click()
 
-    def create_symbol(self, symbol: Symbol) -> Symbol:
+    def create_symbol(self, symbol: _SymbolT) -> _SymbolT:
         """Add a symbol to the schematic and configure it.
 
         Args:
