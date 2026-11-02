@@ -123,9 +123,9 @@ func OpenService(ctx context.Context, cfgs ...ServiceConfig) (*Service, error) {
 	}
 
 	s := &Service{cfg: cfg}
-	s.disconnectFromChannelChanges = cfg.ChannelGraph.Observe().OnChange(s.handleChange)
 	s.mu.graph = g
 	s.mu.groups = make(map[int]*group)
+	s.disconnectFromChannelChanges = cfg.ChannelGraph.Observe().OnChange(s.handleChange)
 
 	if err := cfg.DB.WithTx(ctx, func(tx gorp.Tx) error {
 		return cfg.Channel.NewWriter(tx).DeleteManyByNames(
