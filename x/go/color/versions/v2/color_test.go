@@ -22,6 +22,14 @@ import (
 	"github.com/vmihailenco/msgpack/v5"
 )
 
+func alphaEntries() []TableEntry {
+	entries := make([]TableEntry, 256)
+	for a := range entries {
+		entries[a] = Entry(nil, a)
+	}
+	return entries
+}
+
 var _ = Describe("Color", func() {
 	Describe("FromHex", func() {
 		DescribeTable("Should parse a hex string",
@@ -84,15 +92,16 @@ var _ = Describe("Color", func() {
 			var c *v2.Color
 			Expect(json.Marshal(c)).To(Equal([]byte(`null`)))
 		})
-		It("Should round-trip every alpha", func() {
-			for a := range 256 {
+		DescribeTable("Should round-trip every alpha",
+			func(a int) {
 				original := v2.Color{R: 1, G: 2, B: 3, A: uint8(a)}
 				var decoded v2.Color
 				Expect(json.Unmarshal(MustSucceed(json.Marshal(original)), &decoded)).
 					To(Succeed())
 				Expect(decoded).To(Equal(original))
-			}
-		})
+			},
+			alphaEntries(),
+		)
 		DescribeTable(
 			"Should unmarshal",
 			func(data string, expected v2.Color) {

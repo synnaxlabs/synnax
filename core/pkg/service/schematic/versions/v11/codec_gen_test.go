@@ -955,60 +955,6 @@ var _ = Describe("Codec", func() {
 			Entry("data variant", v11.ElementConfig{Variant: v11.DataElementConfig{SegmentedEdgeConfig: fullyPopulatedSegmentedEdgeConfig}}),
 		)
 	})
-	Describe("LabelConfig", func() {
-		DescribeTable("should round-trip encode and decode",
-			func(original v11.LabelConfig) {
-				w := orc.NewWriter(0)
-				Expect(original.EncodeOrc(w)).To(Succeed())
-				var decoded v11.LabelConfig
-				r := orc.NewReader(nil)
-				r.ResetBytes(w.Bytes())
-				Expect(decoded.DecodeOrc(r)).To(Succeed())
-				Expect(decoded).To(Equal(original))
-			},
-			Entry("fully populated", v11.LabelConfig{
-				Label:         "test_1",
-				Level:         text.Level("h1"),
-				Orientation:   spatial.Location("top"),
-				Direction:     spatial.Direction("x"),
-				MaxInlineSize: 5.5,
-				Align:         v11.FlexAlignment("start"),
-			}),
-			Entry("zero values", v11.LabelConfig{
-				Label:         "",
-				Level:         text.Level(""),
-				Orientation:   spatial.Location(""),
-				Direction:     spatial.Direction(""),
-				MaxInlineSize: 0,
-				Align:         v11.FlexAlignment(""),
-			}),
-		)
-	})
-	Describe("LabeledConfig", func() {
-		DescribeTable("should round-trip encode and decode",
-			func(original v11.LabeledConfig) {
-				w := orc.NewWriter(0)
-				Expect(original.EncodeOrc(w)).To(Succeed())
-				var decoded v11.LabeledConfig
-				r := orc.NewReader(nil)
-				r.ResetBytes(w.Bytes())
-				Expect(decoded.DecodeOrc(r)).To(Succeed())
-				Expect(decoded).To(Equal(original))
-			},
-			Entry("fully populated", fullyPopulatedLabeledConfig),
-			Entry("zero values", v11.LabeledConfig{
-				Label: v11.LabelConfig{
-					Label:         "",
-					Level:         text.Level(""),
-					Orientation:   spatial.Location(""),
-					Direction:     spatial.Direction(""),
-					MaxInlineSize: 0,
-					Align:         v11.FlexAlignment(""),
-				},
-				Orientation: spatial.OuterLocation(""),
-			}),
-		)
-	})
 	Describe("NodeConfig", func() {
 		DescribeTable("should round-trip encode and decode",
 			func(original v11.NodeConfig) {
@@ -1662,21 +1608,6 @@ var _ = Describe("Codec", func() {
 			Entry("group_box variant", v11.NodeConfig{Variant: v11.GroupBoxNodeConfig{Members: []string{"test_1"}, Locked: false}}),
 		)
 	})
-	Describe("Page", func() {
-		DescribeTable("should round-trip encode and decode",
-			func(original v11.Page) {
-				w := orc.NewWriter(0)
-				Expect(original.EncodeOrc(w)).To(Succeed())
-				var decoded v11.Page
-				r := orc.NewReader(nil)
-				r.ResetBytes(w.Bytes())
-				Expect(decoded.DecodeOrc(r)).To(Succeed())
-				Expect(decoded).To(Equal(original))
-			},
-			Entry("fully populated", v11.Page{Type: v11.PageType("schematic"), Key: "test_2"}),
-			Entry("zero values", v11.Page{Type: v11.PageType(""), Key: ""}),
-		)
-	})
 	Describe("ScaleIndicatorConfig", func() {
 		DescribeTable("should round-trip encode and decode",
 			func(original v11.ScaleIndicatorConfig) {
@@ -1973,47 +1904,6 @@ func BenchmarkEncodeDecodeElementConfig(b *testing.B) {
 	}
 }
 
-func BenchmarkEncodeDecodeLabelConfig(b *testing.B) {
-	seed := v11.LabelConfig{
-		Label:         "test_1",
-		Level:         text.Level("h1"),
-		Orientation:   spatial.Location("top"),
-		Direction:     spatial.Direction("x"),
-		MaxInlineSize: 5.5,
-		Align:         v11.FlexAlignment("start"),
-	}
-	w := orc.NewWriter(0)
-	r := orc.NewReader(nil)
-	for b.Loop() {
-		w.Reset()
-		if err := seed.EncodeOrc(w); err != nil {
-			b.Fatal(err)
-		}
-		var decoded v11.LabelConfig
-		r.ResetBytes(w.Bytes())
-		if err := decoded.DecodeOrc(r); err != nil {
-			b.Fatal(err)
-		}
-	}
-}
-
-func BenchmarkEncodeDecodeLabeledConfig(b *testing.B) {
-	seed := fullyPopulatedLabeledConfig
-	w := orc.NewWriter(0)
-	r := orc.NewReader(nil)
-	for b.Loop() {
-		w.Reset()
-		if err := seed.EncodeOrc(w); err != nil {
-			b.Fatal(err)
-		}
-		var decoded v11.LabeledConfig
-		r.ResetBytes(w.Bytes())
-		if err := decoded.DecodeOrc(r); err != nil {
-			b.Fatal(err)
-		}
-	}
-}
-
 func BenchmarkEncodeDecodeNodeConfig(b *testing.B) {
 	seed := v11.NodeConfig{Variant: v11.CapNodeConfig{StaticSymbolConfig: fullyPopulatedStaticSymbolConfig}}
 	w := orc.NewWriter(0)
@@ -2024,23 +1914,6 @@ func BenchmarkEncodeDecodeNodeConfig(b *testing.B) {
 			b.Fatal(err)
 		}
 		var decoded v11.NodeConfig
-		r.ResetBytes(w.Bytes())
-		if err := decoded.DecodeOrc(r); err != nil {
-			b.Fatal(err)
-		}
-	}
-}
-
-func BenchmarkEncodeDecodePage(b *testing.B) {
-	seed := v11.Page{Type: v11.PageType("schematic"), Key: "test_2"}
-	w := orc.NewWriter(0)
-	r := orc.NewReader(nil)
-	for b.Loop() {
-		w.Reset()
-		if err := seed.EncodeOrc(w); err != nil {
-			b.Fatal(err)
-		}
-		var decoded v11.Page
 		r.ResetBytes(w.Bytes())
 		if err := decoded.DecodeOrc(r); err != nil {
 			b.Fatal(err)
@@ -3828,108 +3701,6 @@ func FuzzDecodeElementConfig(f *testing.F) {
 	})
 }
 
-func FuzzDecodeLabelConfig(f *testing.F) {
-	{
-		seed := v11.LabelConfig{
-			Label:         "test_1",
-			Level:         text.Level("h1"),
-			Orientation:   spatial.Location("top"),
-			Direction:     spatial.Direction("x"),
-			MaxInlineSize: 5.5,
-			Align:         v11.FlexAlignment("start"),
-		}
-		w := orc.NewWriter(0)
-		if err := seed.EncodeOrc(w); err != nil {
-			f.Fatal(err)
-		}
-		f.Add(w.Bytes())
-	}
-	{
-		seed := v11.LabelConfig{
-			Label:         "",
-			Level:         text.Level(""),
-			Orientation:   spatial.Location(""),
-			Direction:     spatial.Direction(""),
-			MaxInlineSize: 0,
-			Align:         v11.FlexAlignment(""),
-		}
-		w := orc.NewWriter(0)
-		if err := seed.EncodeOrc(w); err != nil {
-			f.Fatal(err)
-		}
-		f.Add(w.Bytes())
-	}
-	f.Fuzz(func(t *testing.T, data []byte) {
-		var decoded v11.LabelConfig
-		r := orc.NewReader(nil)
-		r.ResetBytes(data)
-		if err := decoded.DecodeOrc(r); err != nil {
-			return
-		}
-		w1 := orc.NewWriter(len(data))
-		if err := decoded.EncodeOrc(w1); err != nil {
-			t.Fatalf("encode after successful decode failed: %v", err)
-		}
-		var redecoded v11.LabelConfig
-		r.ResetBytes(w1.Bytes())
-		if err := redecoded.DecodeOrc(r); err != nil {
-			t.Fatalf("re-decode failed: %v", err)
-		}
-		if !testutil.DeepEqual(decoded, redecoded) {
-			t.Fatal("round-trip mismatch: decoded value changed after an encode/decode cycle")
-		}
-	})
-}
-
-func FuzzDecodeLabeledConfig(f *testing.F) {
-	{
-		seed := fullyPopulatedLabeledConfig
-		w := orc.NewWriter(0)
-		if err := seed.EncodeOrc(w); err != nil {
-			f.Fatal(err)
-		}
-		f.Add(w.Bytes())
-	}
-	{
-		seed := v11.LabeledConfig{
-			Label: v11.LabelConfig{
-				Label:         "",
-				Level:         text.Level(""),
-				Orientation:   spatial.Location(""),
-				Direction:     spatial.Direction(""),
-				MaxInlineSize: 0,
-				Align:         v11.FlexAlignment(""),
-			},
-			Orientation: spatial.OuterLocation(""),
-		}
-		w := orc.NewWriter(0)
-		if err := seed.EncodeOrc(w); err != nil {
-			f.Fatal(err)
-		}
-		f.Add(w.Bytes())
-	}
-	f.Fuzz(func(t *testing.T, data []byte) {
-		var decoded v11.LabeledConfig
-		r := orc.NewReader(nil)
-		r.ResetBytes(data)
-		if err := decoded.DecodeOrc(r); err != nil {
-			return
-		}
-		w1 := orc.NewWriter(len(data))
-		if err := decoded.EncodeOrc(w1); err != nil {
-			t.Fatalf("encode after successful decode failed: %v", err)
-		}
-		var redecoded v11.LabeledConfig
-		r.ResetBytes(w1.Bytes())
-		if err := redecoded.DecodeOrc(r); err != nil {
-			t.Fatalf("re-decode failed: %v", err)
-		}
-		if !testutil.DeepEqual(decoded, redecoded) {
-			t.Fatal("round-trip mismatch: decoded value changed after an encode/decode cycle")
-		}
-	})
-}
-
 func FuzzDecodeNodeConfig(f *testing.F) {
 	{
 		seed := v11.NodeConfig{Variant: v11.CapNodeConfig{StaticSymbolConfig: fullyPopulatedStaticSymbolConfig}}
@@ -5311,45 +5082,6 @@ func FuzzDecodeNodeConfig(f *testing.F) {
 			t.Fatalf("encode after successful decode failed: %v", err)
 		}
 		var redecoded v11.NodeConfig
-		r.ResetBytes(w1.Bytes())
-		if err := redecoded.DecodeOrc(r); err != nil {
-			t.Fatalf("re-decode failed: %v", err)
-		}
-		if !testutil.DeepEqual(decoded, redecoded) {
-			t.Fatal("round-trip mismatch: decoded value changed after an encode/decode cycle")
-		}
-	})
-}
-
-func FuzzDecodePage(f *testing.F) {
-	{
-		seed := v11.Page{Type: v11.PageType("schematic"), Key: "test_2"}
-		w := orc.NewWriter(0)
-		if err := seed.EncodeOrc(w); err != nil {
-			f.Fatal(err)
-		}
-		f.Add(w.Bytes())
-	}
-	{
-		seed := v11.Page{Type: v11.PageType(""), Key: ""}
-		w := orc.NewWriter(0)
-		if err := seed.EncodeOrc(w); err != nil {
-			f.Fatal(err)
-		}
-		f.Add(w.Bytes())
-	}
-	f.Fuzz(func(t *testing.T, data []byte) {
-		var decoded v11.Page
-		r := orc.NewReader(nil)
-		r.ResetBytes(data)
-		if err := decoded.DecodeOrc(r); err != nil {
-			return
-		}
-		w1 := orc.NewWriter(len(data))
-		if err := decoded.EncodeOrc(w1); err != nil {
-			t.Fatalf("encode after successful decode failed: %v", err)
-		}
-		var redecoded v11.Page
 		r.ResetBytes(w1.Bytes())
 		if err := redecoded.DecodeOrc(r); err != nil {
 			t.Fatalf("re-decode failed: %v", err)

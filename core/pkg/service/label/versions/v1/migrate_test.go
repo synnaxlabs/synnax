@@ -52,3 +52,12 @@ var _ = Describe("Migration", func() {
 		Entry("an opaque alpha", 1.0, uint8(255)),
 	)
 })
+
+var _ = Describe("MigrateLabel", func() {
+	It("Should store the color alpha as a byte", func(ctx SpecContext) {
+		out := MustSucceed(v1.MigrateLabel(ctx, v0.Label{
+			Name: "l", Color: color.Color{R: 1, A: 0.5},
+		}))
+		Expect(out.Color).To(Equal(colorv2.Color{R: 1, A: 128}))
+	})
+})

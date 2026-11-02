@@ -356,6 +356,101 @@ Node struct {
 		Expect(content).To(ContainSubstring("core/pkg/service/base/versions/v1"))
 	})
 
+	It("Should name a renamed variable apart from the other variables", func() {
+		root := GinkgoT().TempDir()
+		write := func(rel, content string) {
+			GinkgoHelper()
+			full := filepath.Join(root, rel)
+			Expect(os.MkdirAll(filepath.Dir(full), 0o755)).To(Succeed())
+			Expect(os.WriteFile(full, []byte(content), 0o644)).To(Succeed())
+		}
+		write("schemas/synnax/versions/base/v0.oracle", `
+Base struct {
+	name string
+
+	@go marshal
+}
+`)
+		write("schemas/synnax/versions/base/v1.oracle", `
+Base struct {
+	name string
+	extra string
+
+	@go marshal
+}
+`)
+		write("schemas/synnax/base.oracle", `
+@go output "core/pkg/service/base"
+
+Base struct {
+	name string
+	extra string
+}
+`)
+		write("schemas/synnax/versions/node/v0.oracle", `
+import "schemas/synnax/versions/base/v0"
+
+Node struct {
+	key uuid @key
+	base base.Base
+	base_val base.Base
+
+	@go marshal
+	@go migrate
+}
+`)
+		write("schemas/synnax/versions/node/v1.oracle", `
+import "schemas/synnax/versions/base/v1"
+
+Node struct {
+	key uuid @key
+	base base.Base
+	base_val base.Base
+
+	@go marshal
+	@go migrate
+}
+`)
+		chains := MustSucceed(versions.Discover(root))
+		resolver := versions.NewResolver(
+			chains, analyzer.NewStandardFileLoader(root),
+		)
+		table := resolution.NewTable()
+		diag := analyzer.AnalyzeSeeded(
+			GinkgoT().Context(), `
+import "schemas/synnax/base"
+
+@go output "core/pkg/service/node"
+
+Node struct {
+	key uuid @key
+	base base.Base
+	base_val base.Base
+}
+`,
+			"schemas/synnax/node.oracle", "node",
+			analyzer.NewStandardFileLoader(root), table,
+		)
+		Expect(diag.Ok()).To(BeTrue(), diag.String())
+		resp := MustSucceed(migrate.New().Generate(&plugin.Request{
+			Resolutions: table, RepoRoot: root, Versions: resolver,
+		}))
+		var content string
+		for _, f := range resp.Files {
+			if f.Path == "core/pkg/service/node/versions/v1/migrate.gen.go" {
+				content = string(f.Content)
+			}
+		}
+		Expect(content).ToNot(BeEmpty())
+		Expect(content).To(ContainSubstring(
+			"baseValVal, err := base.MigrateBase(ctx, old.Base)",
+		))
+		Expect(content).To(ContainSubstring(
+			"baseVal, err := base.MigrateBase(ctx, old.BaseVal)",
+		))
+		Expect(content).To(MatchRegexp(`Base:\s+baseValVal,`))
+	})
+
 	DescribeTable("auto-copy scenarios",
 		func(
 			resource, v0, v1, live string,

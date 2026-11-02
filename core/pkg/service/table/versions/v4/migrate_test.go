@@ -69,3 +69,17 @@ var _ = Describe("Migration", func() {
 		Entry("an opaque alpha", 1.0, uint8(255)),
 	)
 })
+
+var _ = Describe("MigrateTable", func() {
+	It("Should store the cell color alpha as a byte", func(ctx SpecContext) {
+		out := MustSucceed(
+			v4.MigrateTable(ctx, v3.Table{Cells: map[string]v2.CellConfig{
+				"a": {
+					Variant: v2.TextCellConfig{FillColor: &color.Color{R: 1, A: 0.5}},
+				},
+			}}),
+		)
+		Expect(out.Cells["a"].Variant.(v4.TextCellConfig).FillColor).
+			To(Equal(&colorv2.Color{R: 1, A: 128}))
+	})
+})

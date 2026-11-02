@@ -59,3 +59,31 @@ var _ = Describe("Migration", func() {
 		Entry("an opaque alpha", 1.0, uint8(255)),
 	)
 })
+
+var _ = Describe("Migrate functions", func() {
+	region := func() v2.Region {
+		return v2.Region{Key: "r", FillColor: &color.Color{R: 1, A: 0.5}}
+	}
+	want := &colorv2.Color{R: 1, A: 128}
+	It("Should migrate a region", func(ctx SpecContext) {
+		Expect(MustSucceed(v3.MigrateRegion(ctx, region())).FillColor).To(Equal(want))
+	})
+	It("Should migrate a state", func(ctx SpecContext) {
+		out := MustSucceed(
+			v3.MigrateState(ctx, v2.State{Regions: []v2.Region{region()}}),
+		)
+		Expect(out.Regions[0].FillColor).To(Equal(want))
+	})
+	It("Should migrate a spec", func(ctx SpecContext) {
+		out := MustSucceed(v3.MigrateSpec(ctx, v2.Spec{
+			States: []v2.State{{Regions: []v2.Region{region()}}},
+		}))
+		Expect(out.States[0].Regions[0].FillColor).To(Equal(want))
+	})
+	It("Should migrate a symbol", func(ctx SpecContext) {
+		out := MustSucceed(v3.MigrateSymbol(ctx, v2.Symbol{Data: v2.Spec{
+			States: []v2.State{{Regions: []v2.Region{region()}}},
+		}}))
+		Expect(out.Data.States[0].Regions[0].FillColor).To(Equal(want))
+	})
+})

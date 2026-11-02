@@ -10,6 +10,7 @@
 package v11_test
 
 import (
+	"context"
 	"uuid"
 
 	. "github.com/onsi/ginkgo/v2"
@@ -91,5 +92,77 @@ var _ = Describe("Migration", func() {
 		Entry("a faint alpha", 0.003, uint8(1)),
 		Entry("a half alpha", 0.5, uint8(128)),
 		Entry("an opaque alpha", 1.0, uint8(255)),
+	)
+})
+
+var _ = Describe("Migrate functions", func() {
+	half := func() *color.Color { return &color.Color{R: 1, A: 0.5} }
+	want := &colorv2.Color{R: 1, A: 128}
+	DescribeTable(
+		"Should store the color alpha as a byte",
+		func(ctx SpecContext, migrate func(context.Context) *colorv2.Color) {
+			Expect(migrate(ctx)).To(Equal(want))
+		},
+		Entry("MigrateSchematic", func(ctx context.Context) *colorv2.Color {
+			out := MustSucceed(v11.MigrateSchematic(ctx, v10.Schematic{
+				Configs: map[string]v10.ElementConfig{
+					"n": {Variant: v10.CapElementConfig{
+						StaticSymbolConfig: v10.StaticSymbolConfig{StrokeColor: half()},
+					}},
+				},
+			}))
+			return out.Configs["n"].Variant.(v11.CapElementConfig).StrokeColor
+		}),
+		Entry("MigrateElementConfig", func(ctx context.Context) *colorv2.Color {
+			out := MustSucceed(v11.MigrateElementConfig(ctx, v10.ElementConfig{
+				Variant: v10.PipeElementConfig{
+					SegmentedEdgeConfig: v10.SegmentedEdgeConfig{StrokeColor: half()},
+				},
+			}))
+			return out.Variant.(v11.PipeElementConfig).StrokeColor
+		}),
+		Entry("MigrateStaticSymbolConfig", func(ctx context.Context) *colorv2.Color {
+			return MustSucceed(v11.MigrateStaticSymbolConfig(
+				ctx, v10.StaticSymbolConfig{StrokeColor: half()},
+			)).StrokeColor
+		}),
+		Entry("MigrateToggleSymbolConfig", func(ctx context.Context) *colorv2.Color {
+			return MustSucceed(v11.MigrateToggleSymbolConfig(
+				ctx, v10.ToggleSymbolConfig{StrokeColor: half()},
+			)).StrokeColor
+		}),
+		Entry("MigrateStalenessConfig", func(ctx context.Context) *colorv2.Color {
+			return MustSucceed(v11.MigrateStalenessConfig(
+				ctx, v10.StalenessConfig{StalenessColor: half()},
+			)).StalenessColor
+		}),
+		Entry("MigrateStateMapping", func(ctx context.Context) *colorv2.Color {
+			return MustSucceed(v11.MigrateStateMapping(
+				ctx, v10.StateMapping{Color: half()},
+			)).Color
+		}),
+		Entry("MigrateScaleIndicatorConfig", func(ctx context.Context) *colorv2.Color {
+			return MustSucceed(v11.MigrateScaleIndicatorConfig(
+				ctx, v10.ScaleIndicatorConfig{LevelColor: half()},
+			)).LevelColor
+		}),
+		Entry(
+			"MigrateDummyToggleSymbolConfig",
+			func(ctx context.Context) *colorv2.Color {
+				return MustSucceed(v11.MigrateDummyToggleSymbolConfig(
+					ctx, v10.DummyToggleSymbolConfig{StrokeColor: half()},
+				)).StrokeColor
+			},
+		),
+		Entry("MigrateToggleConfig", func(ctx context.Context) *colorv2.Color {
+			return MustSucceed(v11.MigrateToggleConfig(
+				ctx, v10.ToggleConfig{StalenessColor: half()},
+			)).StalenessColor
+		}),
+		Entry("MigrateSegmentedEdgeConfig", func(ctx context.Context) *colorv2.Color {
+			return MustSucceed(v11.MigrateSegmentedEdgeConfig(
+				ctx, v10.SegmentedEdgeConfig{StrokeColor: half()},
+			)).StrokeColor
+		}),
 	)
 })

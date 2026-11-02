@@ -330,6 +330,7 @@ describe("caseconv", () => {
       pairList: z.array(pairZ),
       nested: z.object({ innerPair: pairZ }),
       plain: z.array(z.number()),
+      pairs: z.record(z.string(), pairZ),
     });
     const value = {
       fieldPair: [1, 2],
@@ -337,6 +338,7 @@ describe("caseconv", () => {
       pairList: [[5, 6]],
       nested: { innerPair: [7, 8] },
       plain: [9],
+      pairs: { someKey: [10, 11] },
     };
 
     it("Should encode marked values when converting to snake case", () => {
@@ -346,6 +348,7 @@ describe("caseconv", () => {
         pair_list: ["5:6"],
         nested: { inner_pair: "7:8" },
         plain: [9],
+        pairs: { some_key: "10:11" },
       });
     });
 

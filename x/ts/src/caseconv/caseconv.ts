@@ -289,6 +289,9 @@ const createConverter = (
       return converter(anyObj.toJSON(), opt);
 
     const shape = getSchemaShape(schema);
+    // A record has no shape, so its values encode through its value schema.
+    const recordEncode =
+      encodes && shape == null ? encoderOf(getRecordValueSchema(schema)) : undefined;
     const childOpt: Options = { recursive, recursiveInArray, schema: undefined };
     const keys = Object.keys(anyObj);
     for (let i = 0; i < keys.length; i++) {
@@ -309,7 +312,7 @@ const createConverter = (
             value = converter(value, childOpt);
           }
         } else if (recursiveInArray && Array.isArray(value)) {
-          const encode = encoderOf(propSchema);
+          const encode = encoderOf(propSchema) ?? recordEncode;
           if (encode != null) value = encode(value);
           else {
             childOpt.schema = getArrayElementSchema(propSchema);

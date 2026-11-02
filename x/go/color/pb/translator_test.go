@@ -18,6 +18,14 @@ import (
 	"google.golang.org/protobuf/proto"
 )
 
+func alphaEntries() []TableEntry {
+	entries := make([]TableEntry, 256)
+	for a := range entries {
+		entries[a] = Entry(nil, a)
+	}
+	return entries
+}
+
 var _ = Describe("Translator", func() {
 	It("Should pack the color into one field", func() {
 		msg := MustSucceed(
@@ -26,15 +34,16 @@ var _ = Describe("Translator", func() {
 		Expect(msg.GetRgba()).To(Equal(uint32(0x12345678)))
 	})
 
-	It("Should round-trip every alpha through the wire", func() {
-		for a := range 256 {
+	DescribeTable("Should round-trip every alpha through the wire",
+		func(a int) {
 			original := color.Color{R: 10, G: 20, B: 30, A: uint8(a)}
 			data := MustSucceed(proto.Marshal(MustSucceed(pb.ColorToPB(original))))
 			var msg pb.Color
 			Expect(proto.Unmarshal(data, &msg)).To(Succeed())
 			Expect(pb.ColorFromPB(&msg)).To(Equal(original))
-		}
-	})
+		},
+		alphaEntries(),
+	)
 
 	It("Should translate a nil message to the zero color", func() {
 		Expect(pb.ColorFromPB(nil)).To(Equal(color.Color{}))

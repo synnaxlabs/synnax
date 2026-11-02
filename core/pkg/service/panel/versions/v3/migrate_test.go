@@ -24,6 +24,8 @@ import (
 	"github.com/synnaxlabs/x/testutil/memkv"
 )
 
+func root() v1.Node { return v1.Node{Variant: v1.LeafNode{Tabs: []v1.Tab{}}} }
+
 var _ = Describe("Migration", func() {
 	migrate := func(ctx SpecContext, old v2.Panel) v3.Panel {
 		GinkgoHelper()
@@ -40,14 +42,13 @@ var _ = Describe("Migration", func() {
 			Entry(&got).Exec(ctx, db)).To(Succeed())
 		return got
 	}
-	root := v1.Node{Variant: v1.LeafNode{Tabs: []v1.Tab{}}}
 
 	DescribeTable("Should store the icon color alpha as a byte",
 		func(ctx SpecContext, a float64, expected uint8) {
 			old := v2.Panel{
 				Key:   uuid.New(),
 				Name:  "p",
-				Root:  root,
+				Root:  root(),
 				Color: &color.Color{R: 1, G: 2, B: 3, A: a},
 			}
 			Expect(migrate(ctx, old).Color).
@@ -60,6 +61,15 @@ var _ = Describe("Migration", func() {
 	)
 
 	It("Should keep an absent icon color absent", func(ctx SpecContext) {
-		Expect(migrate(ctx, v2.Panel{Key: uuid.New(), Root: root}).Color).To(BeNil())
+		Expect(migrate(ctx, v2.Panel{Key: uuid.New(), Root: root()}).Color).To(BeNil())
+	})
+})
+
+var _ = Describe("MigratePanel", func() {
+	It("Should store the icon color alpha as a byte", func(ctx SpecContext) {
+		out := MustSucceed(v3.MigratePanel(ctx, v2.Panel{
+			Root: root(), Color: &color.Color{R: 1, A: 0.5},
+		}))
+		Expect(out.Color).To(Equal(&colorv2.Color{R: 1, A: 128}))
 	})
 })

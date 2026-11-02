@@ -59,7 +59,7 @@ std::pair<Color, x::errors::Error> from_hex(const std::string &input) {
 /// value above 2 is taken as a byte. A value in (1, 2] is a 0-1 alpha nudged past 1 by
 /// float error and means opaque. Mirrors the rule in the Go color decoders.
 std::uint8_t legacy_alpha(const double a, const x::json::Parser &parser) {
-    if (!(a >= 0 && a <= 255)) {
+    if (std::isnan(a) || a < 0 || a > 255) {
         parser.field_err("a", "alpha is outside the 0-255 range");
         return 0;
     }

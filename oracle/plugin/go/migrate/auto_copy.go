@@ -315,6 +315,8 @@ func (c *collector) collect(types []resolution.Type) fileData {
 
 // renameShadowingVars renames each preamble variable that takes the name of an
 // imported package, since the variable would shadow the package its own call reads.
+// The new name appends "Val" until it matches no import and no other variable of the
+// function.
 func (c *collector) renameShadowingVars() {
 	aliases := make(set.Set[string], len(c.imports))
 	for _, imp := range c.imports {
@@ -324,24 +326,34 @@ func (c *collector) renameShadowingVars() {
 		}
 		aliases.Add(alias)
 	}
-	rename := func(steps []step, fields []field) {
+	rename := func(recv string, steps []step, fields []field) {
+		taken := set.New(recv)
+		for _, s := range steps {
+			taken.Add(s.VarName)
+		}
 		for i := range steps {
 			if !aliases.Contains(steps[i].VarName) {
 				continue
 			}
 			old := steps[i].VarName
-			steps[i].VarName += "Val"
+			name := old + "Val"
+			for aliases.Contains(name) || taken.Contains(name) {
+				name += "Val"
+			}
+			taken.Add(name)
+			steps[i].VarName = name
 			for j := range fields {
 				if fields[j].Value == old {
-					fields[j].Value = steps[i].VarName
+					fields[j].Value = name
 				}
 			}
 		}
 	}
 	for i := range c.funcs {
-		rename(c.funcs[i].Preamble, c.funcs[i].Fields)
-		for j := range c.funcs[i].Cases {
-			rename(c.funcs[i].Cases[j].Preamble, c.funcs[i].Cases[j].Fields)
+		fn := &c.funcs[i]
+		rename(fn.recv, fn.Preamble, fn.Fields)
+		for j := range fn.Cases {
+			rename(fn.recv, fn.Cases[j].Preamble, fn.Cases[j].Fields)
 		}
 	}
 }

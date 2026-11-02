@@ -3239,82 +3239,6 @@ func (ec *ElementConfig) DecodeOrc(r *orc.Reader) error {
 }
 
 // EncodeOrc writes the value to w in the Orc binary format.
-func (lc LabelConfig) EncodeOrc(w *orc.Writer) error {
-	w.String(lc.Label)
-	w.String(string(lc.Level))
-	w.String(string(lc.Orientation))
-	w.String(string(lc.Direction))
-	w.Float64(float64(lc.MaxInlineSize))
-	w.String(string(lc.Align))
-	return nil
-}
-
-// DecodeOrc reads the value from r in the Orc binary format.
-func (lc *LabelConfig) DecodeOrc(r *orc.Reader) error {
-	var err error
-	if lc.Label, err = r.String(); err != nil {
-		return err
-	}
-	{
-		rawV, err := r.String()
-		if err != nil {
-			return err
-		}
-		lc.Level = text.Level(rawV)
-	}
-	{
-		rawV, err := r.String()
-		if err != nil {
-			return err
-		}
-		lc.Orientation = spatial.Location(rawV)
-	}
-	{
-		rawV, err := r.String()
-		if err != nil {
-			return err
-		}
-		lc.Direction = spatial.Direction(rawV)
-	}
-	if lc.MaxInlineSize, err = r.Float64(); err != nil {
-		return err
-	}
-	{
-		rawV, err := r.String()
-		if err != nil {
-			return err
-		}
-		lc.Align = FlexAlignment(rawV)
-	}
-	return nil
-}
-
-// EncodeOrc writes the value to w in the Orc binary format.
-func (lc LabeledConfig) EncodeOrc(w *orc.Writer) error {
-	if err := lc.Label.EncodeOrc(w); err != nil {
-		return err
-	}
-	w.String(string(lc.Orientation))
-	return nil
-}
-
-// DecodeOrc reads the value from r in the Orc binary format.
-func (lc *LabeledConfig) DecodeOrc(r *orc.Reader) error {
-	var err error
-	if err = lc.Label.DecodeOrc(r); err != nil {
-		return err
-	}
-	{
-		rawV, err := r.String()
-		if err != nil {
-			return err
-		}
-		lc.Orientation = spatial.OuterLocation(rawV)
-	}
-	return nil
-}
-
-// EncodeOrc writes the value to w in the Orc binary format.
 func (nc NodeConfig) EncodeOrc(w *orc.Writer) error {
 	switch v := nc.Variant.(type) {
 	case CapNodeConfig:
@@ -6291,29 +6215,6 @@ func (nc *NodeConfig) DecodeOrc(r *orc.Reader) error {
 		nc.Variant = v
 	default:
 		return errors.Newf("NodeConfig: unknown variant %q", tag)
-	}
-	return nil
-}
-
-// EncodeOrc writes the value to w in the Orc binary format.
-func (p Page) EncodeOrc(w *orc.Writer) error {
-	w.String(string(p.Type))
-	w.String(p.Key)
-	return nil
-}
-
-// DecodeOrc reads the value from r in the Orc binary format.
-func (p *Page) DecodeOrc(r *orc.Reader) error {
-	var err error
-	{
-		rawV, err := r.String()
-		if err != nil {
-			return err
-		}
-		p.Type = PageType(rawV)
-	}
-	if p.Key, err = r.String(); err != nil {
-		return err
 	}
 	return nil
 }

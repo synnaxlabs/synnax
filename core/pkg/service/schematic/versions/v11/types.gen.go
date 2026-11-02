@@ -371,75 +371,10 @@ const (
 )
 
 // LabelConfig is the text label configuration shared by schematic symbols.
-type LabelConfig struct {
-	// Label is the text content of the label.
-	Label string `json:"label" msgpack:"label"`
-	// Level is the typography level of the label text.
-	Level text.Level `json:"level" msgpack:"level"`
-	// Orientation is the placement of the label relative to the symbol.
-	Orientation spatial.Location `json:"orientation" msgpack:"orientation"`
-	// Direction is the axis along which the label text flows.
-	Direction spatial.Direction `json:"direction" msgpack:"direction"`
-	// MaxInlineSize is the maximum inline size of the label in pixels before wrapping.
-	MaxInlineSize float64 `json:"max_inline_size" msgpack:"max_inline_size"`
-	// Align is the alignment of the label text within its box.
-	Align FlexAlignment `json:"align" msgpack:"align"`
-}
-
-// ApplyDefaults fills zero-valued fields with their schema-declared defaults.
-func (l *LabelConfig) ApplyDefaults() {
-	if l.Level == "" {
-		l.Level = text.LevelH5
-	}
-	if l.Orientation == "" {
-		l.Orientation = spatial.LocationTop
-	}
-	if l.Direction == "" {
-		l.Direction = spatial.DirectionX
-	}
-	if l.MaxInlineSize == 0 {
-		l.MaxInlineSize = 150
-	}
-	if l.Align == "" {
-		l.Align = FlexAlignmentCenter
-	}
-}
-
-// Validate returns an error wrapping validate.ErrValidation if any field violates its
-// schema constraints.
-func (l LabelConfig) Validate() error {
-	v := validate.New("LabelConfig")
-	v.Ternaryf("level", !l.Level.IsValid(), "invalid level: %v", l.Level)
-	v.Ternaryf("orientation", !l.Orientation.IsValid(), "invalid orientation: %v", l.Orientation)
-	v.Ternaryf("direction", !l.Direction.IsValid(), "invalid direction: %v", l.Direction)
-	v.Ternaryf("align", !l.Align.IsValid(), "invalid align: %v", l.Align)
-	return v.Error()
-}
+type LabelConfig = v10.LabelConfig
 
 // LabeledConfig is the base configuration for any symbol that carries a label.
-type LabeledConfig struct {
-	// Label is the symbol's label configuration.
-	Label LabelConfig `json:"label" msgpack:"label"`
-	// Orientation is the orientation of the symbol's primitive within the diagram.
-	Orientation spatial.OuterLocation `json:"orientation" msgpack:"orientation"`
-}
-
-// ApplyDefaults fills zero-valued fields with their schema-declared defaults.
-func (l *LabeledConfig) ApplyDefaults() {
-	if l.Orientation == "" {
-		l.Orientation = spatial.OuterLocationLeft
-	}
-	l.Label.ApplyDefaults()
-}
-
-// Validate returns an error wrapping validate.ErrValidation if any field violates its
-// schema constraints.
-func (l LabeledConfig) Validate() error {
-	v := validate.New("LabeledConfig")
-	v.Ternaryf("orientation", !l.Orientation.IsValid(), "invalid orientation: %v", l.Orientation)
-	v.Exec(func() error { return validate.PathedError(l.Label.Validate(), "label") })
-	return v.Error()
-}
+type LabeledConfig = v10.LabeledConfig
 
 // ControlStateConfig is the control authority and state display configuration for
 // actuated symbols.
@@ -10164,20 +10099,7 @@ const (
 )
 
 // Page identifies a page an off-page reference links to.
-type Page struct {
-	// Type is the kind of page referenced.
-	Type PageType `json:"type" msgpack:"type"`
-	// Key is the key of the referenced page.
-	Key string `json:"key" msgpack:"key"`
-}
-
-// Validate returns an error wrapping validate.ErrValidation if any field violates its
-// schema constraints.
-func (p Page) Validate() error {
-	v := validate.New("Page")
-	v.Ternaryf("type", !p.Type.IsValid(), "invalid type: %v", p.Type)
-	return v.Error()
-}
+type Page = v10.Page
 
 // StalenessConfig is the staleness detection shared by every symbol that reads a
 // channel.

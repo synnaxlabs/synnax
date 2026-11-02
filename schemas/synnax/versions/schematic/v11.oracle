@@ -34,9 +34,9 @@ ComponentSize = v9.ComponentSize
 
 ButtonMode = v9.ButtonMode
 
-LabelConfig struct extends v9.LabelConfig {}
+LabelConfig = v9.LabelConfig
 
-LabeledConfig struct extends v9.LabeledConfig {}
+LabeledConfig = v9.LabeledConfig
 
 ScaledConfig = v9.ScaledConfig
 
@@ -60,7 +60,7 @@ StateMapping struct extends v9.StateMapping {}
 
 PageType = v9.PageType
 
-Page struct extends v9.Page {}
+Page = v9.Page
 
 NodeConfig union on variant extends v10.NodeConfig {}
 

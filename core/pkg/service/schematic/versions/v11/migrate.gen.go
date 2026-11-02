@@ -246,10 +246,6 @@ func autoMigrateElementConfig(ctx context.Context, old v10.ElementConfig) (Eleme
 			StaticSymbolConfig: staticSymbolConfig,
 		}}, nil
 	case v10.BoxElementConfig:
-		labeledConfig, err := MigrateLabeledConfig(ctx, variant.LabeledConfig)
-		if err != nil {
-			return ElementConfig{}, err
-		}
 		var strokeColor *color.Color
 		if variant.StrokeColor != nil {
 			v, err := color.MigrateColor(ctx, *variant.StrokeColor)
@@ -267,7 +263,7 @@ func autoMigrateElementConfig(ctx context.Context, old v10.ElementConfig) (Eleme
 			fillColor = &v
 		}
 		return ElementConfig{Variant: BoxElementConfig{
-			LabeledConfig: labeledConfig,
+			LabeledConfig: variant.LabeledConfig,
 			StrokeColor:   strokeColor,
 			FillColor:     fillColor,
 			Dimensions:    variant.Dimensions,
@@ -275,10 +271,6 @@ func autoMigrateElementConfig(ctx context.Context, old v10.ElementConfig) (Eleme
 			StrokeWidth:   variant.StrokeWidth,
 		}}, nil
 	case v10.ButtonElementConfig:
-		labeledConfig, err := MigrateLabeledConfig(ctx, variant.LabeledConfig)
-		if err != nil {
-			return ElementConfig{}, err
-		}
 		var fillColor *color.Color
 		if variant.FillColor != nil {
 			v, err := color.MigrateColor(ctx, *variant.FillColor)
@@ -288,7 +280,7 @@ func autoMigrateElementConfig(ctx context.Context, old v10.ElementConfig) (Eleme
 			fillColor = &v
 		}
 		return ElementConfig{Variant: ButtonElementConfig{
-			LabeledConfig:  labeledConfig,
+			LabeledConfig:  variant.LabeledConfig,
 			Size:           variant.Size,
 			Level:          variant.Level,
 			OnClickDelay:   variant.OnClickDelay,
@@ -298,10 +290,6 @@ func autoMigrateElementConfig(ctx context.Context, old v10.ElementConfig) (Eleme
 			Control:        variant.Control,
 		}}, nil
 	case v10.CircleElementConfig:
-		labeledConfig, err := MigrateLabeledConfig(ctx, variant.LabeledConfig)
-		if err != nil {
-			return ElementConfig{}, err
-		}
 		var strokeColor *color.Color
 		if variant.StrokeColor != nil {
 			v, err := color.MigrateColor(ctx, *variant.StrokeColor)
@@ -319,17 +307,13 @@ func autoMigrateElementConfig(ctx context.Context, old v10.ElementConfig) (Eleme
 			fillColor = &v
 		}
 		return ElementConfig{Variant: CircleElementConfig{
-			LabeledConfig: labeledConfig,
+			LabeledConfig: variant.LabeledConfig,
 			Radius:        variant.Radius,
 			StrokeColor:   strokeColor,
 			FillColor:     fillColor,
 			StrokeWidth:   variant.StrokeWidth,
 		}}, nil
 	case v10.GaugeElementConfig:
-		labeledConfig, err := MigrateLabeledConfig(ctx, variant.LabeledConfig)
-		if err != nil {
-			return ElementConfig{}, err
-		}
 		stalenessConfig, err := MigrateStalenessConfig(ctx, variant.StalenessConfig)
 		if err != nil {
 			return ElementConfig{}, err
@@ -343,7 +327,7 @@ func autoMigrateElementConfig(ctx context.Context, old v10.ElementConfig) (Eleme
 			strokeColor = &v
 		}
 		return ElementConfig{Variant: GaugeElementConfig{
-			LabeledConfig:      labeledConfig,
+			LabeledConfig:      variant.LabeledConfig,
 			NumericTelemConfig: variant.NumericTelemConfig,
 			StalenessConfig:    stalenessConfig,
 			Position:           variant.Position,
@@ -355,10 +339,6 @@ func autoMigrateElementConfig(ctx context.Context, old v10.ElementConfig) (Eleme
 			Level:              variant.Level,
 		}}, nil
 	case v10.InputElementConfig:
-		labeledConfig, err := MigrateLabeledConfig(ctx, variant.LabeledConfig)
-		if err != nil {
-			return ElementConfig{}, err
-		}
 		stalenessConfig, err := MigrateStalenessConfig(ctx, variant.StalenessConfig)
 		if err != nil {
 			return ElementConfig{}, err
@@ -372,7 +352,7 @@ func autoMigrateElementConfig(ctx context.Context, old v10.ElementConfig) (Eleme
 			fillColor = &v
 		}
 		return ElementConfig{Variant: InputElementConfig{
-			LabeledConfig:   labeledConfig,
+			LabeledConfig:   variant.LabeledConfig,
 			StalenessConfig: stalenessConfig,
 			Size:            variant.Size,
 			CommandChannel:  variant.CommandChannel,
@@ -385,10 +365,6 @@ func autoMigrateElementConfig(ctx context.Context, old v10.ElementConfig) (Eleme
 			Control:         variant.Control,
 		}}, nil
 	case v10.LightElementConfig:
-		labeledConfig, err := MigrateLabeledConfig(ctx, variant.LabeledConfig)
-		if err != nil {
-			return ElementConfig{}, err
-		}
 		stalenessConfig, err := MigrateStalenessConfig(ctx, variant.StalenessConfig)
 		if err != nil {
 			return ElementConfig{}, err
@@ -410,7 +386,7 @@ func autoMigrateElementConfig(ctx context.Context, old v10.ElementConfig) (Eleme
 			onColor = &v
 		}
 		return ElementConfig{Variant: LightElementConfig{
-			LabeledConfig:   labeledConfig,
+			LabeledConfig:   variant.LabeledConfig,
 			ScaledConfig:    variant.ScaledConfig,
 			StalenessConfig: stalenessConfig,
 			Channel:         variant.Channel,
@@ -434,10 +410,6 @@ func autoMigrateElementConfig(ctx context.Context, old v10.ElementConfig) (Eleme
 			StrokeWidth: variant.StrokeWidth,
 		}}, nil
 	case v10.OffPageReferenceElementConfig:
-		labeledConfig, err := MigrateLabeledConfig(ctx, variant.LabeledConfig)
-		if err != nil {
-			return ElementConfig{}, err
-		}
 		var fillColor *color.Color
 		if variant.FillColor != nil {
 			v, err := color.MigrateColor(ctx, *variant.FillColor)
@@ -446,25 +418,13 @@ func autoMigrateElementConfig(ctx context.Context, old v10.ElementConfig) (Eleme
 			}
 			fillColor = &v
 		}
-		var page *Page
-		if variant.Page != nil {
-			v, err := MigratePage(ctx, *variant.Page)
-			if err != nil {
-				return ElementConfig{}, err
-			}
-			page = &v
-		}
 		return ElementConfig{Variant: OffPageReferenceElementConfig{
-			LabeledConfig:       labeledConfig,
+			LabeledConfig:       variant.LabeledConfig,
 			FillColor:           fillColor,
-			Page:                page,
+			Page:                variant.Page,
 			DblClickNavDisabled: variant.DblClickNavDisabled,
 		}}, nil
 	case v10.PolygonElementConfig:
-		labeledConfig, err := MigrateLabeledConfig(ctx, variant.LabeledConfig)
-		if err != nil {
-			return ElementConfig{}, err
-		}
 		var strokeColor *color.Color
 		if variant.StrokeColor != nil {
 			v, err := color.MigrateColor(ctx, *variant.StrokeColor)
@@ -482,7 +442,7 @@ func autoMigrateElementConfig(ctx context.Context, old v10.ElementConfig) (Eleme
 			fillColor = &v
 		}
 		return ElementConfig{Variant: PolygonElementConfig{
-			LabeledConfig:  labeledConfig,
+			LabeledConfig:  variant.LabeledConfig,
 			NumSides:       variant.NumSides,
 			SideLength:     variant.SideLength,
 			Rotation:       variant.Rotation,
@@ -492,10 +452,6 @@ func autoMigrateElementConfig(ctx context.Context, old v10.ElementConfig) (Eleme
 			StrokeWidth:    variant.StrokeWidth,
 		}}, nil
 	case v10.SelectElementConfig:
-		labeledConfig, err := MigrateLabeledConfig(ctx, variant.LabeledConfig)
-		if err != nil {
-			return ElementConfig{}, err
-		}
 		stalenessConfig, err := MigrateStalenessConfig(ctx, variant.StalenessConfig)
 		if err != nil {
 			return ElementConfig{}, err
@@ -515,7 +471,7 @@ func autoMigrateElementConfig(ctx context.Context, old v10.ElementConfig) (Eleme
 			return ElementConfig{}, err
 		}
 		return ElementConfig{Variant: SelectElementConfig{
-			LabeledConfig:   labeledConfig,
+			LabeledConfig:   variant.LabeledConfig,
 			StalenessConfig: stalenessConfig,
 			Size:            variant.Size,
 			CommandChannel:  variant.CommandChannel,
@@ -528,25 +484,17 @@ func autoMigrateElementConfig(ctx context.Context, old v10.ElementConfig) (Eleme
 			Control:         variant.Control,
 		}}, nil
 	case v10.ScaleElementConfig:
-		labeledConfig, err := MigrateLabeledConfig(ctx, variant.LabeledConfig)
-		if err != nil {
-			return ElementConfig{}, err
-		}
 		scaleIndicatorConfig, err := MigrateScaleIndicatorConfig(ctx, variant.ScaleIndicatorConfig)
 		if err != nil {
 			return ElementConfig{}, err
 		}
 		return ElementConfig{Variant: ScaleElementConfig{
-			LabeledConfig:        labeledConfig,
+			LabeledConfig:        variant.LabeledConfig,
 			ScaleIndicatorConfig: scaleIndicatorConfig,
 			Position:             variant.Position,
 			Dimensions:           variant.Dimensions,
 		}}, nil
 	case v10.SetpointElementConfig:
-		labeledConfig, err := MigrateLabeledConfig(ctx, variant.LabeledConfig)
-		if err != nil {
-			return ElementConfig{}, err
-		}
 		stalenessConfig, err := MigrateStalenessConfig(ctx, variant.StalenessConfig)
 		if err != nil {
 			return ElementConfig{}, err
@@ -560,7 +508,7 @@ func autoMigrateElementConfig(ctx context.Context, old v10.ElementConfig) (Eleme
 			fillColor = &v
 		}
 		return ElementConfig{Variant: SetpointElementConfig{
-			LabeledConfig:   labeledConfig,
+			LabeledConfig:   variant.LabeledConfig,
 			StalenessConfig: stalenessConfig,
 			Size:            variant.Size,
 			CommandChannel:  variant.CommandChannel,
@@ -574,10 +522,6 @@ func autoMigrateElementConfig(ctx context.Context, old v10.ElementConfig) (Eleme
 			Control:         variant.Control,
 		}}, nil
 	case v10.StateIndicatorElementConfig:
-		labeledConfig, err := MigrateLabeledConfig(ctx, variant.LabeledConfig)
-		if err != nil {
-			return ElementConfig{}, err
-		}
 		stalenessConfig, err := MigrateStalenessConfig(ctx, variant.StalenessConfig)
 		if err != nil {
 			return ElementConfig{}, err
@@ -597,7 +541,7 @@ func autoMigrateElementConfig(ctx context.Context, old v10.ElementConfig) (Eleme
 			return ElementConfig{}, err
 		}
 		return ElementConfig{Variant: StateIndicatorElementConfig{
-			LabeledConfig:   labeledConfig,
+			LabeledConfig:   variant.LabeledConfig,
 			StalenessConfig: stalenessConfig,
 			Channel:         variant.Channel,
 			StrokeColor:     strokeColor,
@@ -606,10 +550,6 @@ func autoMigrateElementConfig(ctx context.Context, old v10.ElementConfig) (Eleme
 			Size:            variant.Size,
 		}}, nil
 	case v10.StringDisplayElementConfig:
-		labeledConfig, err := MigrateLabeledConfig(ctx, variant.LabeledConfig)
-		if err != nil {
-			return ElementConfig{}, err
-		}
 		stalenessConfig, err := MigrateStalenessConfig(ctx, variant.StalenessConfig)
 		if err != nil {
 			return ElementConfig{}, err
@@ -631,7 +571,7 @@ func autoMigrateElementConfig(ctx context.Context, old v10.ElementConfig) (Eleme
 			textColor = &v
 		}
 		return ElementConfig{Variant: StringDisplayElementConfig{
-			LabeledConfig:   labeledConfig,
+			LabeledConfig:   variant.LabeledConfig,
 			StalenessConfig: stalenessConfig,
 			StrokeColor:     strokeColor,
 			TextColor:       textColor,
@@ -649,10 +589,6 @@ func autoMigrateElementConfig(ctx context.Context, old v10.ElementConfig) (Eleme
 			ToggleSymbolConfig: toggleSymbolConfig,
 		}}, nil
 	case v10.TextBoxElementConfig:
-		labeledConfig, err := MigrateLabeledConfig(ctx, variant.LabeledConfig)
-		if err != nil {
-			return ElementConfig{}, err
-		}
 		var textColor *color.Color
 		if variant.TextColor != nil {
 			v, err := color.MigrateColor(ctx, *variant.TextColor)
@@ -662,7 +598,7 @@ func autoMigrateElementConfig(ctx context.Context, old v10.ElementConfig) (Eleme
 			textColor = &v
 		}
 		return ElementConfig{Variant: TextBoxElementConfig{
-			LabeledConfig:   labeledConfig,
+			LabeledConfig:   variant.LabeledConfig,
 			TextColor:       textColor,
 			Width:           variant.Width,
 			Align:           variant.Align,
@@ -671,10 +607,6 @@ func autoMigrateElementConfig(ctx context.Context, old v10.ElementConfig) (Eleme
 			Value:           variant.Value,
 		}}, nil
 	case v10.ValueElementConfig:
-		labeledConfig, err := MigrateLabeledConfig(ctx, variant.LabeledConfig)
-		if err != nil {
-			return ElementConfig{}, err
-		}
 		stalenessConfig, err := MigrateStalenessConfig(ctx, variant.StalenessConfig)
 		if err != nil {
 			return ElementConfig{}, err
@@ -708,7 +640,7 @@ func autoMigrateElementConfig(ctx context.Context, old v10.ElementConfig) (Eleme
 			return ElementConfig{}, err
 		}
 		return ElementConfig{Variant: ValueElementConfig{
-			LabeledConfig:      labeledConfig,
+			LabeledConfig:      variant.LabeledConfig,
 			NumericTelemConfig: variant.NumericTelemConfig,
 			StalenessConfig:    stalenessConfig,
 			Position:           variant.Position,
@@ -1172,10 +1104,6 @@ func autoMigrateElementConfig(ctx context.Context, old v10.ElementConfig) (Eleme
 			StaticSymbolConfig: staticSymbolConfig,
 		}}, nil
 	case v10.CylinderElementConfig:
-		labeledConfig, err := MigrateLabeledConfig(ctx, variant.LabeledConfig)
-		if err != nil {
-			return ElementConfig{}, err
-		}
 		var strokeColor *color.Color
 		if variant.StrokeColor != nil {
 			v, err := color.MigrateColor(ctx, *variant.StrokeColor)
@@ -1193,7 +1121,7 @@ func autoMigrateElementConfig(ctx context.Context, old v10.ElementConfig) (Eleme
 			fillColor = &v
 		}
 		return ElementConfig{Variant: CylinderElementConfig{
-			LabeledConfig: labeledConfig,
+			LabeledConfig: variant.LabeledConfig,
 			ScaledConfig:  variant.ScaledConfig,
 			Dimensions:    variant.Dimensions,
 			BorderRadius:  variant.BorderRadius,
@@ -1201,10 +1129,6 @@ func autoMigrateElementConfig(ctx context.Context, old v10.ElementConfig) (Eleme
 			FillColor:     fillColor,
 		}}, nil
 	case v10.TankElementConfig:
-		labeledConfig, err := MigrateLabeledConfig(ctx, variant.LabeledConfig)
-		if err != nil {
-			return ElementConfig{}, err
-		}
 		var stalenessColor *color.Color
 		if variant.StalenessColor != nil {
 			v, err := color.MigrateColor(ctx, *variant.StalenessColor)
@@ -1254,7 +1178,7 @@ func autoMigrateElementConfig(ctx context.Context, old v10.ElementConfig) (Eleme
 			fillColor = &v
 		}
 		return ElementConfig{Variant: TankElementConfig{
-			LabeledConfig:    labeledConfig,
+			LabeledConfig:    variant.LabeledConfig,
 			Channel:          variant.Channel,
 			RollingAverage:   variant.RollingAverage,
 			Precision:        variant.Precision,
@@ -1303,10 +1227,6 @@ func autoMigrateElementConfig(ctx context.Context, old v10.ElementConfig) (Eleme
 			StateOverrides: stateOverrides,
 		}}, nil
 	case v10.CustomStaticElementConfig:
-		labeledConfig, err := MigrateLabeledConfig(ctx, variant.LabeledConfig)
-		if err != nil {
-			return ElementConfig{}, err
-		}
 		stateOverrides, err := lo.MapErr(variant.StateOverrides, func(v symbolv2.State, _ int) (symbol.State, error) {
 			return symbol.MigrateState(ctx, v)
 		})
@@ -1314,7 +1234,7 @@ func autoMigrateElementConfig(ctx context.Context, old v10.ElementConfig) (Eleme
 			return ElementConfig{}, err
 		}
 		return ElementConfig{Variant: CustomStaticElementConfig{
-			LabeledConfig:  labeledConfig,
+			LabeledConfig:  variant.LabeledConfig,
 			ScaledConfig:   variant.ScaledConfig,
 			SpecKey:        variant.SpecKey,
 			StateOverrides: stateOverrides,
@@ -1386,10 +1306,6 @@ func autoMigrateElementConfig(ctx context.Context, old v10.ElementConfig) (Eleme
 }
 
 func autoMigrateStaticSymbolConfig(ctx context.Context, old v10.StaticSymbolConfig) (StaticSymbolConfig, error) {
-	labeledConfig, err := MigrateLabeledConfig(ctx, old.LabeledConfig)
-	if err != nil {
-		return StaticSymbolConfig{}, err
-	}
 	var strokeColor *color.Color
 	if old.StrokeColor != nil {
 		v, err := color.MigrateColor(ctx, *old.StrokeColor)
@@ -1399,7 +1315,7 @@ func autoMigrateStaticSymbolConfig(ctx context.Context, old v10.StaticSymbolConf
 		strokeColor = &v
 	}
 	return StaticSymbolConfig{
-		LabeledConfig: labeledConfig,
+		LabeledConfig: old.LabeledConfig,
 		ScaledConfig:  old.ScaledConfig,
 		StrokeColor:   strokeColor,
 	}, nil
@@ -1424,17 +1340,6 @@ func autoMigrateToggleSymbolConfig(ctx context.Context, old v10.ToggleSymbolConf
 	}, nil
 }
 
-func autoMigrateLabeledConfig(ctx context.Context, old v10.LabeledConfig) (LabeledConfig, error) {
-	label, err := MigrateLabelConfig(ctx, old.Label)
-	if err != nil {
-		return LabeledConfig{}, err
-	}
-	return LabeledConfig{
-		Label:       label,
-		Orientation: old.Orientation,
-	}, nil
-}
-
 func autoMigrateStalenessConfig(ctx context.Context, old v10.StalenessConfig) (StalenessConfig, error) {
 	var stalenessColor *color.Color
 	if old.StalenessColor != nil {
@@ -1447,13 +1352,6 @@ func autoMigrateStalenessConfig(ctx context.Context, old v10.StalenessConfig) (S
 	return StalenessConfig{
 		StalenessTimeout: old.StalenessTimeout,
 		StalenessColor:   stalenessColor,
-	}, nil
-}
-
-func autoMigratePage(_ context.Context, old v10.Page) (Page, error) {
-	return Page{
-		Type: old.Type,
-		Key:  old.Key,
 	}, nil
 }
 
@@ -1521,10 +1419,6 @@ func autoMigrateScaleIndicatorConfig(ctx context.Context, old v10.ScaleIndicator
 }
 
 func autoMigrateDummyToggleSymbolConfig(ctx context.Context, old v10.DummyToggleSymbolConfig) (DummyToggleSymbolConfig, error) {
-	labeledConfig, err := MigrateLabeledConfig(ctx, old.LabeledConfig)
-	if err != nil {
-		return DummyToggleSymbolConfig{}, err
-	}
 	var strokeColor *color.Color
 	if old.StrokeColor != nil {
 		v, err := color.MigrateColor(ctx, *old.StrokeColor)
@@ -1534,7 +1428,7 @@ func autoMigrateDummyToggleSymbolConfig(ctx context.Context, old v10.DummyToggle
 		strokeColor = &v
 	}
 	return DummyToggleSymbolConfig{
-		LabeledConfig: labeledConfig,
+		LabeledConfig: old.LabeledConfig,
 		ScaledConfig:  old.ScaledConfig,
 		Enabled:       old.Enabled,
 		Clickable:     old.Clickable,
@@ -1543,16 +1437,12 @@ func autoMigrateDummyToggleSymbolConfig(ctx context.Context, old v10.DummyToggle
 }
 
 func autoMigrateToggleConfig(ctx context.Context, old v10.ToggleConfig) (ToggleConfig, error) {
-	labeledConfig, err := MigrateLabeledConfig(ctx, old.LabeledConfig)
-	if err != nil {
-		return ToggleConfig{}, err
-	}
 	stalenessConfig, err := MigrateStalenessConfig(ctx, old.StalenessConfig)
 	if err != nil {
 		return ToggleConfig{}, err
 	}
 	return ToggleConfig{
-		LabeledConfig:   labeledConfig,
+		LabeledConfig:   old.LabeledConfig,
 		ScaledConfig:    old.ScaledConfig,
 		StalenessConfig: stalenessConfig,
 		StateChannel:    old.StateChannel,
@@ -1574,16 +1464,5 @@ func autoMigrateSegmentedEdgeConfig(ctx context.Context, old v10.SegmentedEdgeCo
 	return SegmentedEdgeConfig{
 		StrokeColor: strokeColor,
 		Segments:    old.Segments,
-	}, nil
-}
-
-func autoMigrateLabelConfig(_ context.Context, old v10.LabelConfig) (LabelConfig, error) {
-	return LabelConfig{
-		Label:         old.Label,
-		Level:         old.Level,
-		Orientation:   old.Orientation,
-		Direction:     old.Direction,
-		MaxInlineSize: old.MaxInlineSize,
-		Align:         old.Align,
 	}, nil
 }

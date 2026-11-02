@@ -50,25 +50,12 @@ func MigrateToggleSymbolConfig(
 	return autoMigrateToggleSymbolConfig(ctx, old)
 }
 
-// MigrateLabeledConfig lifts a v10 labeled config to v11.
-func MigrateLabeledConfig(
-	ctx context.Context,
-	old v10.LabeledConfig,
-) (LabeledConfig, error) {
-	return autoMigrateLabeledConfig(ctx, old)
-}
-
 // MigrateStalenessConfig lifts a v10 staleness config to v11.
 func MigrateStalenessConfig(
 	ctx context.Context,
 	old v10.StalenessConfig,
 ) (StalenessConfig, error) {
 	return autoMigrateStalenessConfig(ctx, old)
-}
-
-// MigratePage lifts a v10 page to v11.
-func MigratePage(ctx context.Context, old v10.Page) (Page, error) {
-	return autoMigratePage(ctx, old)
 }
 
 // MigrateStateMapping lifts a v10 state mapping to v11.
@@ -109,9 +96,4 @@ func MigrateSegmentedEdgeConfig(
 	old v10.SegmentedEdgeConfig,
 ) (SegmentedEdgeConfig, error) {
 	return autoMigrateSegmentedEdgeConfig(ctx, old)
-}
-
-// MigrateLabelConfig lifts a v10 label config to v11.
-func MigrateLabelConfig(ctx context.Context, old v10.LabelConfig) (LabelConfig, error) {
-	return autoMigrateLabelConfig(ctx, old)
 }
