@@ -263,11 +263,12 @@ class LinePlot(ConsoleCase):
         assert_envelope(
             exported, envelope_type="lineplot", min_version=1, name=plot.page_name
         )
-        assert "channels" in exported, "Exported JSON should contain 'channels'"
-        assert "y1" in exported["channels"], "Channels should include 'y1' axis"
+        channels = exported.get("channels")
+        assert isinstance(channels, dict), "Exported JSON should contain 'channels'"
+        y1_channels = channels.get("y1")
+        assert isinstance(y1_channels, list), "Channels should include 'y1' axis"
 
         data_channel = self.client.channels.retrieve(data_name)
-        y1_channels = exported["channels"]["y1"]
         assert data_channel.key in y1_channels, (
             f"Y1 should contain channel key {data_channel.key}"
         )

@@ -8,6 +8,7 @@
 #  included in the file licenses/APL.txt.
 
 import time
+from datetime import timedelta
 
 import numpy as np
 import pytest
@@ -51,6 +52,12 @@ class TestTiming:
             samples.append(t.elapsed())
         median = TimeSpan(int(np.median(samples)))
         assert TimeSpan.MILLISECOND * 5 < median < TimeSpan.MILLISECOND * 20
+
+    def test_sleep_timedelta(self) -> None:
+        """Should sleep for at least the duration of a timedelta."""
+        t = Timer()
+        sleep(timedelta(milliseconds=10))
+        assert t.elapsed() >= TimeSpan.MILLISECOND * 10
 
     def test_poll_returns_value_when_condition_met(self) -> None:
         """Should return the non-None value when the condition is met."""
