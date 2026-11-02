@@ -25,9 +25,10 @@ const elements = (node: Root | Element): Element[] =>
 
 const RELEASES: Release[] = [
   { tag_name: "core/v0.60.0", prerelease: false, draft: false },
+  { tag_name: "desktop/v1.0.0", prerelease: false, draft: false },
 ];
 
-const segmentHrefs = async (path: string): Promise<unknown[]> => {
+const renderPost = async (path: string): Promise<Element[]> => {
   const container = await experimental_AstroContainer.create({
     astroConfig: { site: "https://docs.synnaxlabs.com" },
   });
@@ -43,12 +44,15 @@ const segmentHrefs = async (path: string): Promise<unknown[]> => {
       frontmatter: { title: "A post", description: "A post.", published: "2024-10-15" },
     },
   });
-  return elements(fromHtml(html, { fragment: true }))
+  return elements(fromHtml(html, { fragment: true }));
+};
+
+const segmentHrefs = async (path: string): Promise<unknown[]> =>
+  (await renderPost(path))
     .filter(({ properties: { className } }) =>
       Array.isArray(className) ? className.includes("lyra-breadcrumb__segment") : false,
     )
     .map(({ properties: { href } }) => href);
-};
 
 describe("Blog", () => {
   it.each(["/blog/a-post", "/blog/a-post/"])(
@@ -57,4 +61,15 @@ describe("Blog", () => {
       expect(await segmentHrefs(path)).toEqual(["/blog", "/blog/a-post"]);
     },
   );
+
+  it("should end with a Desktop download that reports the blog as its location", async () => {
+    const tracked = (await renderPost("/blog/a-post")).filter(
+      ({ properties }) => properties.dataEvent === "desktop_download_clicked",
+    );
+    expect(tracked).toHaveLength(2);
+    expect(tracked.map(({ properties }) => properties.dataLocation)).toEqual([
+      "blog",
+      "blog",
+    ]);
+  });
 });
