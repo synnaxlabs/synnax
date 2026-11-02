@@ -13,7 +13,7 @@ from collections.abc import Iterator, Mapping
 from pathlib import Path
 
 import pytest
-from pydantic import JsonValue
+from pydantic import JsonValue, ValidationError
 
 from framework import config_client
 from framework.target_filter import TargetFilter
@@ -157,3 +157,25 @@ class TestConfigClient:
             config_client.ConfigClient(tests_dir=cases_dir).load(
                 TargetFilter(file_filter=["spec"])
             )
+
+    @pytest.mark.parametrize(
+        "test",
+        [
+            {"name": "no case"},
+            {"case": "config_client_spec/plain", "parameters": [1]},
+            {"case": "config_client_spec/plain", "matrix": {"n": 1}},
+        ],
+    )
+    def test_invalid_test(self, cases_dir: Path, test: dict[str, object]) -> None:
+        """Should reject a test without a case or with malformed parameters."""
+        write_case(
+            cases_dir, case="config_client_spec/plain", source=named_case("Plain")
+        )
+        with pytest.raises(ValidationError):
+            load(cases_dir, sequence={"sequence_name": "bad", "tests": [test]})
+
+    def test_invalid_pool_size(self, cases_dir: Path) -> None:
+        """Should reject a pool size that is not an integer."""
+        cases_dir.mkdir(parents=True)
+        with pytest.raises(ValidationError, match="pool_size"):
+            load(cases_dir, sequence={"sequence_name": "bad", "pool_size": "two"})
