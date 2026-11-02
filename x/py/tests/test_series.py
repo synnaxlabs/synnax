@@ -641,6 +641,16 @@ class TestSeriesSlice:
         assert list(decoded) == [1.0, 3.0]
         assert decoded.alignment_multiple == 4
 
+    @pytest.mark.parametrize(
+        "data_type",
+        [telem.DataType.FLOAT64, telem.DataType.UUID, telem.DataType.STRING],
+    )
+    def test_slice_empty_series(self, data_type: telem.DataType) -> None:
+        """Should slice an empty series into another empty series"""
+        s = telem.Series(b"", data_type=data_type)
+        assert len(s[:]) == 0
+        assert len(s[::2][1:]) == 0
+
     @pytest.mark.parametrize("step", [-1, -2])
     def test_slice_rejects_negative_step(self, step: int) -> None:
         """Should reject a negative slice step"""

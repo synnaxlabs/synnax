@@ -489,7 +489,8 @@ class Series(ArrayOperators, Generic[T]):
                 for i in range(start, stop, step)
             )
         else:
-            samples = np.frombuffer(self.data, np.uint8).reshape(len(self), -1)
+            density = int(self.data_type.density)
+            samples = np.frombuffer(self.data, np.uint8).reshape(-1, density)
             data = samples[start:stop:step].tobytes()
         sliced = copy.copy(self)
         sliced.data = data
