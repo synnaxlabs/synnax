@@ -22,7 +22,6 @@ import (
 	"github.com/synnaxlabs/x/config"
 	"github.com/synnaxlabs/x/errors"
 	"github.com/synnaxlabs/x/override"
-	"github.com/synnaxlabs/x/query"
 	"github.com/synnaxlabs/x/validate"
 )
 
@@ -184,66 +183,18 @@ func (s *Service) SetByKeyOrName(
 	}, nil
 }
 
-type RetrieveRequest struct {
-	// SearchTerm is used for fuzzy searching statuses.
-	SearchTerm string `json:"search_term" msgpack:"search_term"`
-	// Keys are the keys of the statuses to retrieve.
-	Keys []status.Key `json:"keys" msgpack:"keys"`
-	// HasLabels retrieves statuses that are labeled by one or more labels with the
-	// given keys.
-	HasLabels []label.Key `json:"has_labels" msgpack:"has_labels"`
-	// Variants filters for statuses with the given variants.
-	Variants []status.Variant `json:"variants" msgpack:"variants"`
-	// Limit is the maximum number of statuses to retrieve.
-	Limit int `json:"limit" msgpack:"limit"`
-	// Offset is the number of statuses to skip.
-	Offset int `json:"offset" msgpack:"offset"`
-	// IncludeLabels sets whether to fetch labels for the retrieved statuses.
-	IncludeLabels bool `json:"include_labels" msgpack:"include_labels"`
-	// IgnoreNotFoundError returns the statuses that do exist instead of an error when
-	// one or more of Keys names a status that does not.
-	IgnoreNotFoundError bool `json:"ignore_not_found_error" msgpack:"ignore_not_found_error"`
-}
-
-type RetrieveResponse struct {
-	// Statuses are the statuses that were retrieved.
-	Statuses []status.Status[any] `json:"statuses" msgpack:"statuses"`
-}
-
 func (s *Service) Retrieve(
 	ctx context.Context,
 	req RetrieveRequest,
 ) (RetrieveResponse, error) {
-	q := s.internal.NewRetrieve[any]()
-	resStatuses := make([]status.Status[any], 0, len(req.Keys))
-
-	if req.SearchTerm != "" {
-		q = q.Where(status.MatchSearch(req.SearchTerm))
-	}
-	if req.Limit > 0 {
-		q = q.Limit(req.Limit)
-	}
-	if req.Offset > 0 {
-		q = q.Offset(req.Offset)
-	}
-	if len(req.HasLabels) > 0 {
-		q = q.Where(status.MatchLabels[any](req.HasLabels...))
-	}
-	if len(req.Variants) > 0 {
-		q = q.Where(status.MatchVariants[any](req.Variants...))
-	}
-	if len(req.Keys) != 0 {
-		q = q.Where(status.MatchKeys[any](req.Keys...))
-	}
-	err := q.Entries(&resStatuses).Exec(ctx, nil)
-	if req.IgnoreNotFoundError && err != nil {
-		err = errors.Skip(err, query.ErrNotFound)
-	}
+	res := RetrieveResponse{Statuses: []status.Status[any]{}}
+	q, err := req.Apply(s.internal.NewRetrieve[any]().Entries(&res.Statuses))
 	if err != nil {
 		return RetrieveResponse{}, err
 	}
-	res := RetrieveResponse{Statuses: resStatuses}
-	ids := statusAccessOntologyIDs(res.Statuses)
+	if err := q.Exec(ctx, nil); err != nil {
+		return RetrieveResponse{}, err
+	}
 	if req.IncludeLabels {
 		for i, stat := range res.Statuses {
 			labels, err := s.label.RetrieveFor(ctx, stat.OntologyID(), nil)
@@ -256,7 +207,7 @@ func (s *Service) Retrieve(
 	if err := s.access.NewEnforcer(nil).Enforce(ctx, access.Request{
 		Subject: auth.GetSubject(ctx),
 		Action:  access.ActionRetrieve,
-		Objects: ids,
+		Objects: statusAccessOntologyIDs(res.Statuses),
 	}); err != nil {
 		return RetrieveResponse{}, err
 	}

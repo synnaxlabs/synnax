@@ -126,7 +126,7 @@ describe("Status queries", () => {
       const { result } = renderHook(() => Status.useList(), { wrapper });
 
       act(() => {
-        result.current.retrieve({ keys: keys.slice(0, 2) });
+        result.current.retrieve({ where: { key: { in: keys.slice(0, 2) } } });
       });
 
       await waitFor(() => expect(result.current.variant).toEqual("success"));
@@ -151,11 +151,11 @@ describe("Status queries", () => {
       await client.labels.label(status.ontologyID("filter-label-test"), [label.key]);
 
       const { result } = renderHook(
-        () => Status.useList({ initialQuery: { hasLabels: [label.key] } }),
+        () => Status.useList({ initialQuery: { where: { labels: [label.key] } } }),
         { wrapper },
       );
       act(() => {
-        result.current.retrieve({ hasLabels: [label.key] });
+        result.current.retrieve({ where: { labels: [label.key] } });
       });
       await waitFor(() => expect(result.current.variant).toEqual("success"));
       expect(result.current.data).toHaveLength(1);
@@ -168,7 +168,7 @@ describe("Status queries", () => {
         time: TimeStamp.now(),
       });
       act(() => {
-        result.current.retrieve({ hasLabels: [label.key] });
+        result.current.retrieve({ where: { labels: [label.key] } });
       });
       await waitFor(() => expect(result.current.variant).toEqual("success"));
       expect(result.current.data).not.toContain("unlabeled-status-test");
@@ -181,7 +181,7 @@ describe("Status queries", () => {
       });
       await client.labels.label(status.ontologyID("labeled-status-test"), [label.key]);
       act(() => {
-        result.current.retrieve({ hasLabels: [label.key] });
+        result.current.retrieve({ where: { labels: [label.key] } });
       });
       await waitFor(() => expect(result.current.data.length).toEqual(2));
       expect(result.current.data).toContain("labeled-status-test");
@@ -217,16 +217,22 @@ describe("Status queries", () => {
         () =>
           Status.useList({
             initialQuery: {
-              keys: [`${prefix}-success`, `${prefix}-error`, `${prefix}-warning`],
-              variants: ["error"],
+              where: {
+                key: {
+                  in: [`${prefix}-success`, `${prefix}-error`, `${prefix}-warning`],
+                },
+                variant: { in: ["error"] },
+              },
             },
           }),
         { wrapper },
       );
       act(() => {
         result.current.retrieve({
-          keys: [`${prefix}-success`, `${prefix}-error`, `${prefix}-warning`],
-          variants: ["error"],
+          where: {
+            key: { in: [`${prefix}-success`, `${prefix}-error`, `${prefix}-warning`] },
+            variant: { in: ["error"] },
+          },
         });
       });
       await waitFor(() => expect(result.current.variant).toEqual("success"));
@@ -266,16 +272,20 @@ describe("Status queries", () => {
         () =>
           Status.useList({
             initialQuery: {
-              keys: [`${prefix}-info`, `${prefix}-error`, `${prefix}-success`],
-              variants: ["info", "success"],
+              where: {
+                key: { in: [`${prefix}-info`, `${prefix}-error`, `${prefix}-success`] },
+                variant: { in: ["info", "success"] },
+              },
             },
           }),
         { wrapper },
       );
       act(() => {
         result.current.retrieve({
-          keys: [`${prefix}-info`, `${prefix}-error`, `${prefix}-success`],
-          variants: ["info", "success"],
+          where: {
+            key: { in: [`${prefix}-info`, `${prefix}-error`, `${prefix}-success`] },
+            variant: { in: ["info", "success"] },
+          },
         });
       });
       await waitFor(() => expect(result.current.variant).toEqual("success"));
@@ -308,16 +318,20 @@ describe("Status queries", () => {
         () =>
           Status.useList({
             initialQuery: {
-              keys: [`${prefix}-error`, `${prefix}-warning`],
-              variants: ["error"],
+              where: {
+                key: { in: [`${prefix}-error`, `${prefix}-warning`] },
+                variant: { in: ["error"] },
+              },
             },
           }),
         { wrapper },
       );
       act(() => {
         result.current.retrieve({
-          keys: [`${prefix}-error`, `${prefix}-warning`],
-          variants: ["error"],
+          where: {
+            key: { in: [`${prefix}-error`, `${prefix}-warning`] },
+            variant: { in: ["error"] },
+          },
         });
       });
       await waitFor(() => expect(result.current.variant).toEqual("success"));
@@ -334,8 +348,10 @@ describe("Status queries", () => {
 
       act(() => {
         result.current.retrieve({
-          keys: [`${prefix}-error`, `${prefix}-warning`],
-          variants: ["error"],
+          where: {
+            key: { in: [`${prefix}-error`, `${prefix}-warning`] },
+            variant: { in: ["error"] },
+          },
         });
       });
       await waitFor(() => expect(result.current.data).toHaveLength(2));
@@ -365,16 +381,20 @@ describe("Status queries", () => {
         () =>
           Status.useList({
             initialQuery: {
-              keys: [`${prefix}-error-1`, `${prefix}-error-2`],
-              variants: ["error"],
+              where: {
+                key: { in: [`${prefix}-error-1`, `${prefix}-error-2`] },
+                variant: { in: ["error"] },
+              },
             },
           }),
         { wrapper },
       );
       act(() => {
         result.current.retrieve({
-          keys: [`${prefix}-error-1`, `${prefix}-error-2`],
-          variants: ["error"],
+          where: {
+            key: { in: [`${prefix}-error-1`, `${prefix}-error-2`] },
+            variant: { in: ["error"] },
+          },
         });
       });
       await waitFor(() => expect(result.current.variant).toEqual("success"));
@@ -512,7 +532,7 @@ describe("Status queries", () => {
       });
 
       const statuses = await client.statuses.retrieve({
-        keys: ["batch-hook-1", "batch-hook-2"],
+        where: { key: { in: ["batch-hook-1", "batch-hook-2"] } },
       });
       expect(statuses).toHaveLength(2);
     });
@@ -836,7 +856,7 @@ describe("Status queries", () => {
       await act(async () => await client.statuses.delete(key));
       await expectAlways(async () => {
         await expect(
-          async () => await client.statuses.retrieve({ keys: [key] }),
+          async () => await client.statuses.retrieve({ key }),
         ).rejects.toThrow(NotFoundError);
       }, 800);
     });
@@ -1172,7 +1192,7 @@ describe("Status queries", () => {
       });
 
       const statuses = await client.statuses.retrieve({
-        keys: [status1.key, status2.key],
+        where: { key: { in: [status1.key, status2.key] } },
       });
 
       expect(statuses).toHaveLength(2);
@@ -1199,13 +1219,15 @@ describe("Status queries", () => {
       await client.statuses.retrieve(status1.key);
 
       const statuses = await client.statuses.retrieve({
-        keys: [status1.key, status2.key],
+        where: { key: { in: [status1.key, status2.key] } },
       });
 
       expect(statuses).toHaveLength(2);
       expect(statuses.map((s) => s.key)).toContain(status1.key);
       expect(statuses.map((s) => s.key)).toContain(status2.key);
-      const cached = client.statuses.getCached({ keys: [status1.key, status2.key] });
+      const cached = client.statuses.getCached({
+        where: { key: { in: [status1.key, status2.key] } },
+      });
       expect(query.isLive(cached)).toBe(true);
     });
 
@@ -1225,10 +1247,12 @@ describe("Status queries", () => {
         time: TimeStamp.now(),
       });
 
-      await client.statuses.retrieve({ keys: [status1.key, status2.key] });
+      await client.statuses.retrieve({
+        where: { key: { in: [status1.key, status2.key] } },
+      });
 
       const statuses = await client.statuses.retrieve({
-        keys: [status1.key, status2.key],
+        where: { key: { in: [status1.key, status2.key] } },
       });
 
       expect(statuses).toHaveLength(2);

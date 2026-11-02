@@ -33,3 +33,6 @@ type Key = versions.Key
 // component-specific details. A status is uniquely identified by a key and may carry a
 // human-readable name and labels for categorization and filtering.
 type Status[Details any] = versions.Status[Details]
+
+// Where is a filter that selects statuses.
+type Where = versions.Where

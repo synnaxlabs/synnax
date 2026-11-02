@@ -8,6 +8,7 @@
 // included in the file licenses/APL.txt.
 
 import "schemas/synnax/label"
+import "schemas/x/filter"
 import "schemas/x/telem"
 
 @cpp output "client/cpp/status"
@@ -44,6 +45,7 @@ Status struct<Details?, V extends Variant = Variant> {
             is the name of what the status is about, such as a task, device, or rack.
             Empty when the status is not about a named thing.
         """
+        @search
     }
     variant     V               {
         @doc value """
@@ -76,6 +78,7 @@ Status struct<Details?, V extends Variant = Variant> {
     labels      label.Label[]?  {
         @doc value  "contains optional labels for categorization and filtering."
         @go marshal omit
+        @include
     }
 
     @create
@@ -87,5 +90,18 @@ Status struct<Details?, V extends Variant = Variant> {
     """
     @go marshal
     @go to_any
+    @retrieve indexes
     @ts concrete_types
+}
+
+Where filter Status {
+    key
+    variant
+    labels  label.Key[] {
+        @doc value "matches statuses that have any of the given labels."
+    }
+
+    @doc value         "is a filter that selects statuses."
+    @go marshal
+    @go request_output "core/pkg/api/status"
 }

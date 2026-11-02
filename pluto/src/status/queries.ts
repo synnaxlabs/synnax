@@ -19,7 +19,7 @@ import { Synnax } from "@/synnax";
 const RESOURCE_NAME = "status";
 const PLURAL_RESOURCE_NAME = "statuses";
 
-export type ListParams = status.MultiRetrieveParams;
+export type ListParams = status.RetrieveMultipleParams;
 
 export const useList = Flux.createList<ListParams, status.Key, status.Status>({
   name: PLURAL_RESOURCE_NAME,
@@ -63,10 +63,6 @@ export const { useUpdate: useSet } = Flux.createUpdate<SetParams>({
 
 export type RetrieveQuery = status.SingleRetrieveParams;
 
-const BASE_QUERY: Pick<RetrieveQuery, "includeLabels"> = {
-  includeLabels: true,
-};
-
 // Cached answers are untyped; a details schema only validates the fetch, so
 // schema-typed reads cast the shared cache entries.
 export const createRetrieve = <DetailsSchema extends z.ZodType = z.ZodNever>(
@@ -74,7 +70,6 @@ export const createRetrieve = <DetailsSchema extends z.ZodType = z.ZodNever>(
 ) =>
   Flux.createRetrieve<RetrieveQuery, status.Status<DetailsSchema>>({
     name: RESOURCE_NAME,
-    normalizeQuery: (query) => ({ ...BASE_QUERY, ...query }),
     retrieve: async ({ client, query }) =>
       await client.statuses.retrieve({ ...query, detailsSchema }),
     onChange: ({ client, query }, handler) =>
@@ -93,18 +88,10 @@ export const { use: useMultiple, useResult: useResultMultiple } = Flux.createRet
   status.Status[]
 >({
   name: PLURAL_RESOURCE_NAME,
-  retrieve: async ({ client, query: { keys } }) => {
-    if (keys.length === 0) return [];
-    return await client.statuses.retrieve({ keys });
-  },
-  onChange: ({ client, query: { keys } }, handler) => {
-    if (keys.length === 0) return () => {};
-    return client.statuses.onChange({ keys }, handler);
-  },
-  getCached: ({ client, query: { keys } }) => {
-    if (keys.length === 0) return undefined;
-    return client.statuses.getCached({ keys });
-  },
+  retrieve: async ({ client, query: { keys } }) => await client.statuses.retrieve(keys),
+  onChange: ({ client, query: { keys } }, handler) =>
+    client.statuses.onChange(keys, handler),
+  getCached: ({ client, query: { keys } }) => client.statuses.getCached(keys),
 });
 
 export const { use, useResult } = createRetrieve();
@@ -137,7 +124,6 @@ export const useForm = Flux.createForm<RetrieveQuery, typeof formSchema>({
   name: RESOURCE_NAME,
   schema: formSchema,
   initialValues: INITIAL_VALUES,
-  normalizeQuery: (query) => ({ ...BASE_QUERY, ...query }),
   retrieve: async ({ client, query }) => {
     const [stat, labels] = await Promise.all([
       client.statuses.retrieve(query),

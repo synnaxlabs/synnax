@@ -17,9 +17,11 @@ import (
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	"github.com/synnaxlabs/synnax/pkg/service/ontology"
+	rangerv1 "github.com/synnaxlabs/synnax/pkg/service/ranger/versions/v1"
 	statusv1 "github.com/synnaxlabs/synnax/pkg/service/status/versions/v1"
 	v1 "github.com/synnaxlabs/synnax/pkg/service/view/versions/v1"
 	"github.com/synnaxlabs/x/encoding/orc"
+	filter "github.com/synnaxlabs/x/filter/versions/v0"
 	. "github.com/synnaxlabs/x/testutil"
 )
 
@@ -103,29 +105,31 @@ var _ = Describe("View", func() {
 				Expect(decoded).To(Equal(v))
 			},
 			Entry("range", v1.View{Variant: v1.RangeView{
-				Base:  v1.Base{Key: uuid.New(), Name: "Ranges"},
-				Query: v1.RangeQuery{HasLabels: []uuid.UUID{uuid.New()}},
+				Base: v1.Base{Key: uuid.New(), Name: "Ranges"},
+				Where: &rangerv1.Where{Or: []rangerv1.Where{
+					{Labels: []uuid.UUID{uuid.New()}},
+					{Not: &rangerv1.Where{Name: &filter.String{Eq: new("Run")}}},
+				}},
 			}}),
 			Entry("status", v1.View{Variant: v1.StatusView{
 				Base: v1.Base{Key: uuid.New(), Name: "Statuses"},
-				Query: v1.StatusQuery{
-					HasLabels: []uuid.UUID{},
-					Variants:  []statusv1.Variant{statusv1.VariantError},
-				},
+				Where: &statusv1.Where{Variant: &filter.Set[statusv1.Variant]{
+					In: []statusv1.Variant{statusv1.VariantError},
+				}},
 			}}),
 		)
 
-		It("Should put the type beside the base and query fields", func() {
-			key := uuid.New()
+		It("Should put the type beside the base and where fields", func() {
+			key, label := uuid.New(), uuid.New()
 			b := MustSucceed(json.Marshal(v1.View{Variant: v1.RangeView{
 				Base:  v1.Base{Key: key, Name: "Ranges"},
-				Query: v1.RangeQuery{HasLabels: []uuid.UUID{}},
+				Where: &rangerv1.Where{Labels: []uuid.UUID{label}},
 			}}))
 			Expect(b).To(MatchJSON(`{
 				"type": "range",
 				"key": "` + key.String() + `",
 				"name": "Ranges",
-				"query": {"has_labels": []}
+				"where": {"labels": ["` + label.String() + `"]}
 			}`))
 		})
 
@@ -177,14 +181,19 @@ var _ = Describe("View", func() {
 				}
 			},
 			Entry("range", v1.View{Variant: v1.RangeView{
-				Base:  v1.Base{Key: uuid.New(), Name: "Ranges"},
-				Query: v1.RangeQuery{HasLabels: []uuid.UUID{uuid.New()}},
+				Base: v1.Base{Key: uuid.New(), Name: "Ranges"},
+				Where: &rangerv1.Where{Or: []rangerv1.Where{
+					{Labels: []uuid.UUID{uuid.New()}},
+					{Not: &rangerv1.Where{Name: &filter.String{Eq: new("Run")}}},
+				}},
 			}}),
 			Entry("status", v1.View{Variant: v1.StatusView{
 				Base: v1.Base{Key: uuid.New(), Name: "Statuses"},
-				Query: v1.StatusQuery{
-					HasLabels: []uuid.UUID{uuid.New()},
-					Variants:  []statusv1.Variant{statusv1.VariantError},
+				Where: &statusv1.Where{
+					Labels: []uuid.UUID{uuid.New()},
+					Variant: &filter.Set[statusv1.Variant]{
+						Eq: new(statusv1.VariantError),
+					},
 				},
 			}}),
 		)

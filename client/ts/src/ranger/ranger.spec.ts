@@ -33,8 +33,10 @@ import {
   createTestClient,
   expectDeleted,
   expectLive,
+  holdResponses,
   spyOnSend,
   TEST_CORE_ADDRESS,
+  waitForStreamLive,
 } from "@/testutil";
 
 const client = createTestClient();
@@ -284,8 +286,7 @@ describe("range", () => {
       });
       await rng.addLabel(label.key);
       const newRange = await client.ranges.retrieve({
-        keys: [rng.key],
-        includeLabels: true,
+        where: { key: { in: [rng.key] } },
       });
       expect(newRange[0].labels).toHaveLength(1);
       expect(newRange[0].labels?.[0]).toEqual(label);
@@ -304,8 +305,7 @@ describe("range", () => {
       });
       await client.ontology.addChildren(parent.ontologyID, child.ontologyID);
       const newParent = await client.ranges.retrieve({
-        keys: [child.key],
-        includeParent: true,
+        where: { key: { in: [child.key] } },
       });
       expect(newParent[0].parent).toEqual(parent.payload);
     });
@@ -813,7 +813,7 @@ describe("cached reads", () => {
     });
   });
 
-  describe("hasLabels membership", () => {
+  describe("labels membership", () => {
     it("admits a newly labeled range and evicts an unlabeled one", async () => {
       const lbl = await client.labels.create({
         name: `qry-lbl-${id.create()}`,
@@ -822,7 +822,7 @@ describe("cached reads", () => {
       const labeled = await createRange();
       await client.labels.label(ranger.ontologyID(labeled.key), [lbl.key]);
       const handler = vi.fn();
-      const params = { hasLabels: [lbl.key] };
+      const params = { where: { labels: [lbl.key] } };
       const off = client.ranges.onChange(params, handler);
       try {
         const initial = await client.ranges.retrieve(params);
@@ -863,7 +863,7 @@ describe("cached reads", () => {
         name: `qry-lbl-${id.create()}`,
         color: "#FF0000",
       });
-      const params = { overlapsWith: parent.timeRange, limit: 100 };
+      const params = { where: { overlaps: parent.timeRange }, limit: 100 };
       const off = local.ranges.onChange(params, vi.fn());
       try {
         await local.ranges.retrieve(params);
@@ -893,7 +893,7 @@ describe("cached reads", () => {
         await local.ranges.retrieve(barrier.key);
         const fetched = send.mock.calls.flatMap(([target, req]) =>
           target === "/range/retrieve"
-            ? ((req as ranger.RetrieveRequest).keys ?? [])
+            ? ((req as ranger.RetrieveRequest).where?.key?.in ?? [])
             : [],
         );
         expect(fetched).toContain(barrier.key);
@@ -922,7 +922,7 @@ describe("cached reads", () => {
       };
       const { relationships } = local.ontology.cache;
       relationships.set(ontology.relationshipToString(rel), rel);
-      const params = { hasLabels: [lbl.key] };
+      const params = { where: { labels: [lbl.key] } };
       const off = local.ranges.onChange(params, vi.fn());
       try {
         await local.ranges.retrieve(params);
@@ -933,7 +933,7 @@ describe("cached reads", () => {
         await local.ranges.retrieve(barrier.key);
         const fetched = send.mock.calls.flatMap(([target, req]) =>
           target === "/range/retrieve"
-            ? ((req as ranger.RetrieveRequest).keys ?? [])
+            ? ((req as ranger.RetrieveRequest).where?.key?.in ?? [])
             : [],
         );
         expect(fetched).toContain(barrier.key);
@@ -951,11 +951,40 @@ describe("cached reads", () => {
       const rng = await createRange(remote);
       const local = createTestClient();
       await local.connect();
-      const params = { hasLabels: [lbl.key] };
+      const params = { where: { labels: [lbl.key] } };
       const off = local.ranges.onChange(params, vi.fn());
       try {
         expect(await local.ranges.retrieve(params)).toEqual([]);
         await remote.labels.label(ranger.ontologyID(rng.key), [lbl.key]);
+        await expect
+          .poll(() => {
+            const cached = local.ranges.getCached(params);
+            return query.isLive(cached) && cached.map((r) => r.key);
+          })
+          .toEqual([rng.key]);
+      } finally {
+        off();
+      }
+    });
+
+    it("fetches an unseen range when losing a label adds it to a not query", async () => {
+      const lbl = await remote.labels.create({
+        name: `qry-lbl-${id.create()}`,
+        color: "#FF0000",
+      });
+      const past = TimeStamp.now().sub(TimeSpan.days(7300));
+      const timeRange = new TimeRange(past, past.add(TimeSpan.seconds(1)));
+      const rng = await createRange(remote, { timeRange });
+      await remote.labels.label(ranger.ontologyID(rng.key), [lbl.key]);
+      const local = createTestClient();
+      await local.connect();
+      const params = {
+        where: { and: [{ overlaps: timeRange }, { not: { labels: [lbl.key] } }] },
+      };
+      const off = local.ranges.onChange(params, vi.fn());
+      try {
+        expect(await local.ranges.retrieve(params)).toEqual([]);
+        await remote.labels.remove(ranger.ontologyID(rng.key), [lbl.key]);
         await expect
           .poll(() => {
             const cached = local.ranges.getCached(params);
@@ -1048,7 +1077,7 @@ describe("write-through", () => {
         if (target !== "/range/retrieve") return resZ.parse({});
         // Key fetches are parent backfills; echo bare ranges so the cache settles
         // without growing the label or relationship tables.
-        const { keys } = req as ranger.RetrieveRequest;
+        const keys = (req as ranger.RetrieveRequest).where?.key?.in;
         if (keys != null)
           return resZ.parse({
             ranges: keys.map((key) => ({
@@ -1084,10 +1113,12 @@ describe("write-through", () => {
   let window = 0;
   const fetchBatch = async (ranges: ranger.Client) =>
     await ranges.retrieve({
-      overlapsWith: new TimeRange({
-        start: TimeStamp.seconds(window * 1e3),
-        end: TimeStamp.seconds(window++ * 1e3 + 1),
-      }),
+      where: {
+        overlaps: new TimeRange({
+          start: TimeStamp.seconds(window * 1e3),
+          end: TimeStamp.seconds(window++ * 1e3 + 1),
+        }),
+      },
     });
 
   it("should not scan the relationships table when writing a fetch through", async () => {
@@ -1134,6 +1165,25 @@ describe("dispatch", () => {
     const cached = expectLive(client.ranges.getCached(rng.key));
     expect(cached.name).toBe("Cold flow");
     expect(cached.timeRange.end).toEqual(end);
+  });
+
+  it("should keep a dispatch that lands before an older fetch", async () => {
+    const rng = await createRange();
+    await remote.ranges.retrieve(rng.key);
+    const local = createTestClient();
+    await local.connect();
+    await waitForStreamLive(local.connection);
+    await local.ranges.retrieve(rng.key);
+    const { responded, release } = holdResponses(local, "/range/retrieve");
+    const fetching = local.ranges.retrieve({ where: { name: { eq: rng.name } } });
+    await responded;
+    await remote.ranges.dispatch(rng.key, rename("Cold flow"));
+    await expect
+      .poll(() => expectLive(local.ranges.getCached(rng.key)).name)
+      .toBe("Cold flow");
+    release();
+    await fetching;
+    expect(expectLive(local.ranges.getCached(rng.key)).name).toBe("Cold flow");
   });
 
   it("should return false without a send when the range is not cached", async () => {

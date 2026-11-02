@@ -355,6 +355,28 @@ var _ = Describe("Status", Ordered, func() {
 			})
 		})
 
+		Describe("SkipMissingKeys", func() {
+			It("Should return not found for a missing key without it", func(
+				ctx SpecContext,
+			) {
+				var statuses []status.Status[any]
+				Expect(svc.NewRetrieve[any]().
+					Where(status.MatchKeys[any]("retrieve-a", "missing")).
+					Entries(&statuses).
+					Exec(ctx, tx)).To(MatchError(query.ErrNotFound))
+			})
+
+			It("Should return the found statuses with it", func(ctx SpecContext) {
+				var statuses []status.Status[any]
+				Expect(svc.NewRetrieve[any]().
+					Where(status.MatchKeys[any]("retrieve-a", "missing")).
+					SkipMissingKeys().
+					Entries(&statuses).
+					Exec(ctx, tx)).To(Succeed())
+				Expect(statuses).To(HaveExactElements(HaveField("Key", "retrieve-a")))
+			})
+		})
+
 		Describe("Limit and Offset", func() {
 			It("Should limit results", func(ctx SpecContext) {
 				var statuses []status.Status[any]

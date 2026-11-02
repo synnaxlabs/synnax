@@ -108,7 +108,10 @@ export class Provider extends aether.Leaf<typeof providerStateZ, InternalState> 
     const { internal: i } = this;
     if (i.window == null || !covers(i.window, timeRange)) i.window = pad(timeRange);
     if (i.client != null)
-      i.retrieve.update(i.client, { overlapsWith: i.window, limit: FETCH_LIMIT });
+      i.retrieve.update(i.client, {
+        where: { overlaps: i.window },
+        limit: FETCH_LIMIT,
+      });
     const { draw } = i;
     const fetched = i.retrieve.value ?? [];
     const start = timeRange.start.valueOf();

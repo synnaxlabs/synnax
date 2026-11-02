@@ -219,7 +219,7 @@ const labels = await myRange.retrieveLabels();
 await myRange.removeLabel(label.key);
 
 // Retrieve every range with the label
-const hotfires = await client.ranges.retrieve({ hasLabels: [label.key] });
+const hotfires = await client.ranges.retrieve({ where: { labels: [label.key] } });
 ```
 
   </Fragment>

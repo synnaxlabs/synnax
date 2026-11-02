@@ -1254,6 +1254,17 @@ describe("Answers", () => {
       expect(fetch).toHaveBeenCalledTimes(1);
     });
 
+    it("refetches a full page with a zero offset on a new match", async () => {
+      const table = newTable();
+      const fetch = fetchOf(table, [rec("a", 5), rec("b", 4)]);
+      const answers = limitSpace(table, fetch);
+      answers.onChange({ min: 3, limit: 2, offset: 0 }, vi.fn());
+      await answers.retrieve({ min: 3, limit: 2, offset: 0 });
+      table.set("c", rec("c", 6));
+      await wait(150);
+      expect(fetch).toHaveBeenCalledTimes(2);
+    });
+
     it("admits matches only up to the limit", async () => {
       const table = newTable();
       const fetch = fetchOf(table, [rec("a", 5)]);
@@ -1451,6 +1462,20 @@ describe("Answers", () => {
       expect(handler).not.toHaveBeenCalled();
     });
 
+    it("refetches an empty search term on a new record", async () => {
+      const table = newTable();
+      const fetch = vi.fn(async () => {
+        table.set("a", rec("a", 1));
+        return ["a"];
+      });
+      const answers = searchSpace(table, fetch);
+      answers.onChange({ searchTerm: "" }, vi.fn());
+      await answers.retrieve({ searchTerm: "" });
+      table.set("z", rec("z", 9));
+      await wait(150);
+      expect(fetch).toHaveBeenCalledTimes(2);
+    });
+
     it("refetches wholesale after a debounced table change", async () => {
       const table = newTable();
       const fetch = vi.fn(async () => {
@@ -1462,6 +1487,26 @@ describe("Answers", () => {
       answers.onChange({ searchTerm: "x" }, handler);
       await answers.retrieve({ searchTerm: "x" });
       expect(fetch).toHaveBeenCalledTimes(1);
+      table.set("z", rec("z", 9));
+      await expect.poll(() => fetch.mock.calls.length).toBe(2);
+    });
+
+    it("refetches wholesale when serverComputed holds", async () => {
+      const table = newTable();
+      const fetch = vi.fn(async () => {
+        table.set("a", rec("a", 1));
+        return ["a"];
+      });
+      const answers = new Space<{ regex?: string }, Rec[], string, Rec>({
+        name: "things",
+        table,
+        fetch,
+        compose: (records) => records,
+        matches: () => true,
+        serverComputed: (q) => q.regex != null,
+      });
+      answers.onChange({ regex: "^a" }, vi.fn());
+      await answers.retrieve({ regex: "^a" });
       table.set("z", rec("z", 9));
       await expect.poll(() => fetch.mock.calls.length).toBe(2);
     });
