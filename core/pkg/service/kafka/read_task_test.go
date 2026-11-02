@@ -261,6 +261,24 @@ var _ = Describe("Read task", func() {
 		},
 	)
 
+	It("Should write records after the start command's context ends",
+		func(ctx SpecContext) {
+			index, data := createIndexed(ctx, telem.Float64T)
+			dev := createDevice(ctx, clusterProperties())
+			topic := newTopic()
+			dt, t := configure(ctx, kafka.ReadConfig{
+				Device:  dev.Key,
+				Topic:   topic,
+				Records: single(stampedFields(index, data)),
+			})
+			cmdCtx, cancel := context.WithCancel(ctx)
+			start(cmdCtx, dt, t)
+			cancel()
+			produceJSON(ctx, producer, topic, "", map[string]any{"ts": 10e9, "v": 1.0})
+			Expect(floats(expectStored(ctx, data.Key(), 1))).To(Equal([]float64{1}))
+		},
+	)
+
 	It("Should skip a record lacking a field with an error status",
 		func(ctx SpecContext) {
 			index, data := createIndexed(ctx, telem.Float64T)

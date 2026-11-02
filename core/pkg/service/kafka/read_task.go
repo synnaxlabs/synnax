@@ -391,12 +391,14 @@ func (t *readTask) open(ctx context.Context) (err error) {
 		}
 		g.replaying = true
 	}
-	if t.writer, err = t.openWriter(ctx); err != nil {
-		return err
-	}
 	sCtx, cancel := signal.Isolated(
 		signal.WithInstrumentation(t.factoryCfg.Instrumentation),
 	)
+	// The writer outlives the start command, so it opens in the consumer's context.
+	if t.writer, err = t.openWriter(sCtx); err != nil {
+		cancel()
+		return err
+	}
 	t.client = cl
 	t.sCtx = sCtx
 	t.lastSkip = ""
