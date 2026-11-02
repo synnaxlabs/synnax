@@ -11,7 +11,7 @@ from __future__ import annotations
 
 from collections import Counter
 from collections.abc import Iterator, Mapping, Sequence
-from typing import TypeAlias, overload
+from typing import TypeAlias, overload, override
 
 import numpy as np
 import numpy.typing as npt
@@ -121,6 +121,7 @@ class Frame:
                 and {series}.
             """)
 
+    @override
     def __str__(self) -> str:
         return self.to_df().__str__()
 

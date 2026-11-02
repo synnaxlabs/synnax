@@ -11,7 +11,7 @@ from __future__ import annotations
 
 import asyncio
 import time
-from typing import cast, overload
+from typing import cast, overload, override
 
 from pydantic import BaseModel
 
@@ -90,9 +90,11 @@ class _Liveness:
 
 
 class _WSStreamerCodec(WSCodec):
+    @override
     def encode(self, data: BaseModel) -> bytes:
         return self.lower_perf_codec.encode(data)
 
+    @override
     def decode(self, data: bytes, pld_t: type[P]) -> P:
         if data[0] == LOW_PERF_SPECIAL_CHAR:
             return self.lower_perf_codec.decode(data[1:], pld_t)

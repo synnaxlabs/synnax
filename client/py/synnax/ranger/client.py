@@ -12,7 +12,7 @@ from __future__ import annotations
 
 import functools
 from collections.abc import Callable, Iterator
-from typing import cast, overload
+from typing import cast, overload, override
 from uuid import UUID
 
 import numpy as np
@@ -46,9 +46,10 @@ from synnax.telem import (
     SampleValue,
     TimeRange,
 )
+from x import lists
 from x.color import Color
 from x.interop import ArrayOperators
-from x.lists import all_none, normalize, override
+from x.lists import all_none, normalize
 from x.params import require_named_params
 from x.uuid import NIL
 
@@ -99,6 +100,7 @@ class _InternalScopedChannel(ArrayOperators, channel.Payload):
     def time_range(self) -> TimeRange:
         return self._range.time_range
 
+    @override
     def __array__(
         self, dtype: np.dtype | None = None, copy: bool | None = None
     ) -> np.ndarray:
@@ -129,6 +131,7 @@ class _InternalScopedChannel(ArrayOperators, channel.Payload):
     def set_alias(self, alias: str) -> None:
         self._range.set_alias(self.key, alias)
 
+    @override
     def __str__(self) -> str:
         tr = self.time_range
         return f"{super().__str__()} between {tr.start} and {tr.end}"
@@ -170,6 +173,7 @@ class ScopedChannel(ArrayOperators):
             """
             )
 
+    @override
     def __array__(
         self, dtype: np.dtype | None = None, copy: bool | None = None
     ) -> np.ndarray:
@@ -729,8 +733,8 @@ class Client:
                 "key and name cannot be combined with list filters; use keys or names"
             )
         req = Request(
-            keys=override(key, keys),
-            names=override(name, names),
+            keys=lists.override(key, keys),
+            names=lists.override(name, names),
             search_term=search_term,
             overlaps_with=overlaps_with,
             has_labels=has_labels,

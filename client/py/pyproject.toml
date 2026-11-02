@@ -103,6 +103,7 @@ enable_error_code = [
     "mutable-override",
     "deprecated",
     "unused-awaitable",
+    "explicit-override",
 ]
 
 [tool.pydantic-mypy]
