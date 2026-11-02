@@ -108,6 +108,7 @@ const createTables = (
 
   const aliases = cache.createTable<string, alias.Alias>({
     name: "range_aliases",
+    revivable: true,
     listen: [
       query.createSetListener(alias.SET_CHANNEL_NAME, alias.aliasZ, {
         key: (changed) => alias.createKey(changed),
