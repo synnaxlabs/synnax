@@ -253,7 +253,7 @@ func topicID(ctx context.Context, cl *kgo.Client, topic string) [16]byte {
 	GinkgoHelper()
 	req := kmsg.NewPtrMetadataRequest()
 	t := kmsg.NewMetadataRequestTopic()
-	t.Topic = kmsg.StringPtr(topic)
+	t.Topic = new(topic)
 	req.Topics = append(req.Topics, t)
 	res := MustSucceed(req.RequestWith(ctx, cl))
 	Expect(res.Topics).To(HaveLen(1))
