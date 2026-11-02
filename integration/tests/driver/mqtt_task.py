@@ -101,7 +101,7 @@ class MQTTReadTaskCase(SimulatorCase, ReadTaskCase[mqtt.ReadTask]):
     """Base class for MQTT read task tests."""
 
     sim_classes = [MQTTSim]
-    RACK_NAME = CORE_RACK_NAME
+    rack_name = CORE_RACK_NAME
     EVENT_DRIVEN = True
     # The rate at which the simulator publishes each topic.
     SAMPLE_RATE = 10 * sy.Rate.HZ
@@ -141,7 +141,7 @@ class MQTTWriteTaskCase(SimulatorCase, WriteTaskCase[mqtt.WriteTask]):
     """Base class for MQTT write task tests."""
 
     sim_classes = [MQTTSim]
-    RACK_NAME = CORE_RACK_NAME
+    rack_name = CORE_RACK_NAME
 
     @staticmethod
     @abstractmethod
