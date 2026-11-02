@@ -12,6 +12,7 @@ package kafka
 import (
 	"encoding/json/jsontext"
 	"encoding/json/v2"
+	"math"
 	"strconv"
 	"time"
 	"uuid"
@@ -164,12 +165,14 @@ func readSample(
 		return nil, errors.Wrapf(validate.ErrValidation, "unsupported data type %s", dt)
 	}
 	switch v := raw.(type) {
-	case float64, int64, uint64, bool:
+	case bool:
 		return v, nil
+	case float64, int64, uint64:
+		return v, checkFits(v, dt)
 	case string:
 		for _, e := range enums {
 			if e.Label == v {
-				return e.Value, nil
+				return e.Value, checkFits(e.Value, dt)
 			}
 		}
 		return nil, errors.Wrapf(validate.ErrValidation, "unknown enum label %q", v)
@@ -178,6 +181,62 @@ func readSample(
 			validate.ErrValidation, "expected a number or boolean, got %T", raw,
 		)
 	}
+}
+
+// integerBounds returns the range of the integer data type dt. ok is false when dt
+// is not an integer type.
+func integerBounds(dt telem.DataType) (lo int64, hi uint64, ok bool) {
+	switch dt {
+	case telem.Int8T:
+		return math.MinInt8, math.MaxInt8, true
+	case telem.Int16T:
+		return math.MinInt16, math.MaxInt16, true
+	case telem.Int32T:
+		return math.MinInt32, math.MaxInt32, true
+	case telem.Int64T:
+		return math.MinInt64, math.MaxInt64, true
+	case telem.Uint8T:
+		return 0, math.MaxUint8, true
+	case telem.Uint16T:
+		return 0, math.MaxUint16, true
+	case telem.Uint32T:
+		return 0, math.MaxUint32, true
+	case telem.Uint64T:
+		return 0, math.MaxUint64, true
+	default:
+		return 0, 0, false
+	}
+}
+
+// checkFits returns an error wrapping validate.ErrValidation when n, an int64,
+// uint64, or float64, does not convert into dt without wrapping, truncating, or
+// overflowing to infinity.
+func checkFits(n any, dt telem.DataType) error {
+	if f, ok := n.(float64); ok && dt == telem.Float32T &&
+		math.Abs(f) > math.MaxFloat32 {
+		return errors.Wrapf(validate.ErrValidation, "%v overflows %s", f, dt)
+	}
+	lo, hi, ok := integerBounds(dt)
+	if !ok {
+		return nil
+	}
+	fits := true
+	switch v := n.(type) {
+	case int64:
+		fits = v >= lo && (v < 0 || uint64(v) <= hi)
+	case uint64:
+		fits = v <= hi
+	case float64:
+		if v != math.Trunc(v) {
+			return errors.Wrapf(validate.ErrValidation, "%v is not an integer", v)
+		}
+		// float64(hi)+1 rounds to the first value past hi for every integer type.
+		fits = v >= float64(lo) && v < float64(hi)+1
+	}
+	if !fits {
+		return errors.Wrapf(validate.ErrValidation, "%v is out of range for %s", n, dt)
+	}
+	return nil
 }
 
 // sampleNumber returns sample i of a fixed-density series as a JSON number. Integer

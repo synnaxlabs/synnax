@@ -11,6 +11,7 @@ package kafka_test
 
 import (
 	"context"
+	"encoding/json/jsontext"
 	"math"
 	"time"
 	"uuid"
@@ -539,6 +540,13 @@ var _ = Describe("Read task", func() {
 			telem.Uint64T, http.TimeFormatUnixNs, nil,
 			map[string]any{"ts": 10e9, "v": uint64(math.MaxUint64)},
 			telem.NewSeriesV[uint64](math.MaxUint64)),
+		Entry("the smallest integer of the channel's range",
+			telem.Int8T, http.TimeFormatUnixNs, nil,
+			map[string]any{"ts": 10e9, "v": -128}, telem.NewSeriesV[int8](-128)),
+		Entry("an integral float into an integer channel",
+			telem.Uint16T, http.TimeFormatUnixNs, nil,
+			map[string]any{"ts": 10e9, "v": jsontext.Value("6.5e4")},
+			telem.NewSeriesV[uint16](65000)),
 		Entry("an enum label",
 			telem.Uint8T, http.TimeFormatUnixNs, onOff,
 			map[string]any{"ts": 10e9, "v": "ON"}, telem.NewSeriesV[uint8](1)),
@@ -619,6 +627,26 @@ var _ = Describe("Read task", func() {
 		Entry("a malformed UUID",
 			telem.UUIDT, http.TimeFormatUnixNs, nil,
 			map[string]any{"ts": 10e9, "v": "not-a-uuid"}, "invalid UUID"),
+		Entry("an integer beyond the channel's range",
+			telem.Uint8T, http.TimeFormatUnixNs, nil,
+			map[string]any{"ts": 10e9, "v": 256}, "256 is out of range for uint8"),
+		Entry("a negative integer into an unsigned channel",
+			telem.Uint32T, http.TimeFormatUnixNs, nil,
+			map[string]any{"ts": 10e9, "v": -1}, "-1 is out of range for uint32"),
+		Entry("a fraction into an integer channel",
+			telem.Int32T, http.TimeFormatUnixNs, nil,
+			map[string]any{"ts": 10e9, "v": 1.5}, "1.5 is not an integer"),
+		Entry("a float beyond the integer channel's range",
+			telem.Int64T, http.TimeFormatUnixNs, nil,
+			map[string]any{"ts": 10e9, "v": jsontext.Value("1e19")},
+			"1e+19 is out of range for int64"),
+		Entry("a number beyond float32",
+			telem.Float32T, http.TimeFormatUnixNs, nil,
+			map[string]any{"ts": 10e9, "v": 1e39}, "1e+39 overflows float32"),
+		Entry("an enum value beyond the channel's range",
+			telem.Int8T, http.TimeFormatUnixNs,
+			[]http.EnumEntry{{Label: "BIG", Value: 200}},
+			map[string]any{"ts": 10e9, "v": "BIG"}, "200 is out of range for int8"),
 	)
 
 	DescribeTable("Should reject an invalid config",
