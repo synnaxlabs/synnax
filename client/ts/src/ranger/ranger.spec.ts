@@ -33,8 +33,10 @@ import {
   createTestClient,
   expectDeleted,
   expectLive,
+  holdResponses,
   spyOnSend,
   TEST_CORE_ADDRESS,
+  waitForStreamLive,
 } from "@/testutil";
 
 const client = createTestClient();
@@ -1206,6 +1208,25 @@ describe("dispatch", () => {
     const cached = expectLive(client.ranges.getCached(rng.key));
     expect(cached.name).toBe("Cold flow");
     expect(cached.timeRange.end).toEqual(end);
+  });
+
+  it("should keep a dispatch that lands before an older fetch", async () => {
+    const rng = await createRange();
+    await remote.ranges.retrieve(rng.key);
+    const local = createTestClient();
+    await local.connect();
+    await waitForStreamLive(local.connection);
+    await local.ranges.retrieve(rng.key);
+    const { responded, release } = holdResponses(local, "/range/retrieve");
+    const fetching = local.ranges.retrieve({ where: { name: { eq: rng.name } } });
+    await responded;
+    await remote.ranges.dispatch(rng.key, rename("Cold flow"));
+    await expect
+      .poll(() => expectLive(local.ranges.getCached(rng.key)).name)
+      .toBe("Cold flow");
+    release();
+    await fetching;
+    expect(expectLive(local.ranges.getCached(rng.key)).name).toBe("Cold flow");
   });
 
   it("should return false without a send when the range is not cached", async () => {

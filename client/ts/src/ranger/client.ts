@@ -715,9 +715,9 @@ export class Client extends query.Retriever<
     this.writeRelationships(range);
   }
 
-  private hydrate(range: Range): void {
+  private hydrate(range: Range, since: query.Stamp): void {
     if (this.store.status(range.key) === "tombstoned") return;
-    this.store.ingest(range);
+    this.store.ingest(range, { since });
     if (range.labels != null) this.cfg.labels.store.ingest(range.labels);
     this.writeRelationships(range);
   }
@@ -750,11 +750,11 @@ export class Client extends query.Retriever<
   }
 
   // One batch per table, so each table flushes once.
-  private hydrateMany(ranges: Range[]): void {
+  private hydrateMany(ranges: Range[], since: query.Stamp): void {
     this.store.batch(() =>
       this.cfg.labels.store.batch(() =>
         this.cfg.ontology.cache.relationships.batch(() =>
-          ranges.forEach((r) => this.hydrate(r)),
+          ranges.forEach((r) => this.hydrate(r, since)),
         ),
       ),
     );
@@ -765,8 +765,9 @@ export class Client extends query.Retriever<
    * their relationships through. Powers the table's fetch primitive.
    */
   private async fetchThrough(keys: Key[]): Promise<Range[]> {
+    const since = this.store.stamp();
     const ranges = await this.execRetrieve(query.keysRequest(keys));
-    this.hydrateMany(ranges);
+    this.hydrateMany(ranges, since);
     return ranges;
   }
 
@@ -778,9 +779,10 @@ export class Client extends query.Retriever<
       checkForMultipleOrNoResults("Range", query, ranges, true);
       return this.composeOne(ranges[0]);
     }
+    const since = this.store.stamp();
     const ranges = await this.execRetrieve({ where: { name: { eq: query } } });
     checkForMultipleOrNoResults("Range", query, ranges, true);
-    this.hydrate(ranges[0]);
+    this.hydrate(ranges[0], since);
     return ranges[0];
   }
 
@@ -802,8 +804,9 @@ export class Client extends query.Retriever<
   }
 
   private async fetchRequest(query: RetrieveMultipleParams): Promise<Range[]> {
+    const since = this.store.stamp();
     const ranges = await this.execRetrieve(query);
-    this.hydrateMany(ranges);
+    this.hydrateMany(ranges, since);
     return ranges;
   }
 
