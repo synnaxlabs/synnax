@@ -11,8 +11,10 @@ import { type ontology } from "@synnaxlabs/client";
 import { Flex } from "@synnaxlabs/lyra/flex";
 import { Icon } from "@synnaxlabs/lyra/icon";
 import { Modal } from "@synnaxlabs/lyra/modal";
+import { Synnax } from "@synnaxlabs/pluto";
 import { type ReactElement } from "react";
 
+import { Core } from "@/platform/core";
 import { APIKey } from "@/platform/credential/apikey";
 import { Password } from "@/platform/credential/password";
 import { Modals } from "@/platform/modals";
@@ -26,16 +28,22 @@ export interface ModalParams {
 const Credentials = ({
   subject,
   title,
-}: Modals.ContentProps<ModalParams, void>): ReactElement => (
-  <Modal.Frame>
-    <Modal.Header icon={<Icon.Lock />}>{title ?? "Credentials"}</Modal.Header>
-    <Modal.Body>
-      <Flex.Box y gap="large">
-        <APIKey.Section subject={subject} />
-        {subject.type === "user" && <Password.Section subject={subject} />}
-      </Flex.Box>
-    </Modal.Body>
-  </Modal.Frame>
-);
+}: Modals.ContentProps<ModalParams, void>): ReactElement => {
+  const client = Synnax.use();
+  const { password } = Core.useAcceptedMethods(client?.params);
+  return (
+    <Modal.Frame>
+      <Modal.Header icon={<Icon.Lock />}>{title ?? "Credentials"}</Modal.Header>
+      <Modal.Body>
+        <Flex.Box y gap="large">
+          <APIKey.Section subject={subject} />
+          {subject.type === "user" && password && (
+            <Password.Section subject={subject} />
+          )}
+        </Flex.Box>
+      </Modal.Body>
+    </Modal.Frame>
+  );
+};
 
 export const useModal = Modals.create<ModalParams>(Credentials);

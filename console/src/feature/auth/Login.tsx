@@ -50,44 +50,28 @@ const PASSWORD_INPUT_PROPS: Partial<Input.TextProps> = {
   size: "large",
 };
 
-interface Accepted {
-  password: boolean;
-  oidc: boolean;
-  providers: auth.OIDCLogin[];
-}
-
-const DEFAULT_ACCEPTED: Accepted = { password: true, oidc: false, providers: [] };
-
-// An unreachable Core, or one older than the methods endpoint, keeps the password
-// form: the connection status reports the first, and the second accepts passwords.
-const useAccepted = (core?: auth.TokenlessParams): Accepted => {
+const useProviders = (
+  core: auth.TokenlessParams | undefined,
+  oidc: boolean,
+): auth.OIDCLogin[] => {
   const host = core?.host;
   const port = core?.port;
   const secure = core?.secure;
-  const tokenless =
-    host == null || port == null
-      ? null
-      : auth.createTokenlessClient({ host, port, secure });
-  const [accepted, setAccepted] = useState<Accepted>(DEFAULT_ACCEPTED);
+  const [providers, setProviders] = useState<auth.OIDCLogin[]>([]);
   const handleError = Status.useErrorHandler();
   useAsyncEffect(
     async (signal) => {
-      setAccepted(DEFAULT_ACCEPTED);
-      if (tokenless == null) return;
-      const methods = await auth.retrieveMethods(tokenless).catch(() => null);
-      if (methods == null || signal.aborted) return;
-      const oidc = methods.includes("oidc");
-      const password = methods.includes("password");
-      setAccepted({ password, oidc, providers: [] });
-      if (!oidc) return;
+      setProviders([]);
+      if (!oidc || host == null || port == null) return;
+      const tokenless = auth.createTokenlessClient({ host, port, secure });
       handleError(async () => {
-        const providers = await auth.retrieveProviders(tokenless);
-        if (!signal.aborted) setAccepted({ password, oidc, providers });
+        const retrieved = await auth.retrieveProviders(tokenless);
+        if (!signal.aborted) setProviders(retrieved);
       }, "Failed to retrieve the login providers");
     },
-    [host, port, secure],
+    [host, port, secure, oidc],
   );
-  return accepted;
+  return providers;
 };
 
 /**
@@ -130,11 +114,9 @@ export const Login = (): ReactElement => {
     servingCore != null || activeKey != null ? "login" : "cores",
   );
   const target = servingCore ?? selectedCore;
-  const {
-    password: passwordAccepted,
-    oidc: oidcAccepted,
-    providers,
-  } = useAccepted(target);
+  const { password: passwordAccepted, oidc: oidcAccepted } =
+    Core.useAcceptedMethods(target);
+  const providers = useProviders(target, oidcAccepted);
   const handleError = Status.useErrorHandler();
   // a second login would replace the first one's loopback listener
   const [pendingProvider, setPendingProvider] = useState<string>();

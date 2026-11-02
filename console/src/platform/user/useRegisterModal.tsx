@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { type access, status } from "@synnaxlabs/client";
+import { type access, status, UnexpectedError, user } from "@synnaxlabs/client";
 import { Button } from "@synnaxlabs/lyra/button";
 import { Flex } from "@synnaxlabs/lyra/flex";
 import { Form } from "@synnaxlabs/lyra/form";
@@ -17,6 +17,8 @@ import { Modal } from "@synnaxlabs/lyra/modal";
 import { Nav } from "@synnaxlabs/lyra/nav";
 import { Access, Synnax, User } from "@synnaxlabs/pluto";
 
+import { Core } from "@/platform/core";
+import { Credential } from "@/platform/credential";
 import { Modals } from "@/platform/modals";
 import { Triggers } from "@/platform/triggers";
 
@@ -41,9 +43,19 @@ const PASSWORD_INPUT_PROPS: Partial<Input.TextProps> = {
 
 const Register = ({ close }: Modals.ContentProps<Record<never, never>, void>) => {
   const client = Synnax.use();
+  const { password: passwordAccepted } = Core.useAcceptedMethods(client?.params);
+  const openCredentials = Credential.useModal();
   const { form, save, variant } = User.useForm({
     query: null,
-    afterSave: () => close(),
+    afterSave: ({ value }) => {
+      const { key, name } = value();
+      if (key == null) throw new UnexpectedError("User key is null");
+      close();
+      openCredentials({
+        subject: user.ontologyID(key),
+        title: ["Credentials", name],
+      });
+    },
   });
 
   return (
@@ -56,11 +68,13 @@ const Register = ({ close }: Modals.ContentProps<Record<never, never>, void>) =>
             <Form.TextField
               path="username"
               label="Username"
+              visible={passwordAccepted}
               inputProps={USERNAME_INPUT_PROPS}
             />
             <Form.TextField
               path="password"
               label="Password"
+              visible={passwordAccepted}
               inputProps={PASSWORD_INPUT_PROPS}
             />
             <Form.Field<access.role.Key> path="role" label="Role">

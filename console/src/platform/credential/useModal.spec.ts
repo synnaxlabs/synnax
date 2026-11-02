@@ -18,6 +18,7 @@ import { fireEvent, screen, waitFor } from "@testing-library/react";
 import { createElement } from "react";
 import { describe, expect, it, vi } from "vitest";
 
+import { createClientAccepting } from "@/platform/core/testutil";
 import { Credential } from "@/platform/credential";
 import { findButton, findDismissButton, openModal } from "@/platform/modals/testutil";
 import {
@@ -183,12 +184,14 @@ describe("useModal", () => {
     const { user: subject, username } = await createTestUser(client, {
       username: uniqueName("user"),
     });
+    let statuses: Status.NotificationSpec[] = [];
     await openModal(Credential.useModal, {
       client,
       params: { subject: user.ontologyID(subject.key) },
+      extra: createElement(CaptureStatuses, { onStatuses: (s) => (statuses = s) }),
     });
-    expect(screen.queryByPlaceholderText("Current password")).toBeNull();
     await type("New password", "changed123");
+    expect(screen.queryByPlaceholderText("Current password")).toBeNull();
     fireEvent.click(findButton("Set password"));
     await expect
       .poll(async () => {
@@ -203,5 +206,42 @@ describe("useModal", () => {
         }
       })
       .toBe(true);
+    await waitFor(() =>
+      expect(statuses.map((s) => s.message)).toContain("Successfully changed password"),
+    );
+  });
+
+  it("should create a password for a user who has none", async () => {
+    const client = createTestClient();
+    const subject = await client.users.create({ name: uniqueName("user") });
+    const id = user.ontologyID(subject.key);
+    let statuses: Status.NotificationSpec[] = [];
+    await openModal(Credential.useModal, {
+      client,
+      params: { subject: id },
+      extra: createElement(CaptureStatuses, { onStatuses: (s) => (statuses = s) }),
+    });
+    const username = uniqueName("user");
+    await type("Username", username);
+    await type("Password", "created123");
+    fireEvent.click(findButton("Create password"));
+    await screen.findByPlaceholderText("New password");
+    expect(screen.queryByText("Create password")).toBeNull();
+    expect(statuses.map((s) => s.message)).toContain("Successfully created password");
+    const [created] = await client.auth.passwords.retrieve({ subjects: [id] });
+    expect(created.username).toEqual(username);
+    await createTestClient({
+      username,
+      password: "created123",
+    }).auth.sessions.retrieve();
+  });
+
+  it("should hide the password when the Core rejects passwords", async () => {
+    const client = await createClientAccepting(["api_key"]);
+    const subject = await client.users.create({ name: uniqueName("user") });
+    const id = user.ontologyID(subject.key);
+    await openModal(Credential.useModal, { client, params: { subject: id } });
+    await screen.findByText("No API keys");
+    await waitFor(() => expect(screen.queryByText("Password")).toBeNull());
   });
 });
