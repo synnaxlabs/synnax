@@ -602,6 +602,12 @@ class TestChannel:
         assert retrieved.operations[0].type == "avg"
         assert retrieved.operations[0].duration == sy.TimeSpan.SECOND * 15
 
+    def test_retrieve_group(self, client: sy.Synnax) -> None:
+        """Should retrieve the group that holds every channel by default"""
+        g = client.channels.retrieve_group()
+        assert g.name == "Channels"
+        assert client.channels.retrieve_group().key == g.key
+
 
 @pytest.mark.channel
 class TestChannelRetrieveFilters:

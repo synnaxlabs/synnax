@@ -200,7 +200,10 @@ class Synnax(framer.Client):
         self.groups = group.Client(self._transport.unary)
         self.ontology = OntologyClient(client=self._transport.unary)
         self.channels = channel.Client(
-            frame_client=self, retriever=ch_retriever, creator=ch_creator
+            client=self._transport.unary,
+            frame_client=self,
+            retriever=ch_retriever,
+            creator=ch_creator,
         )
         range_retriever = RangeRetriever(
             client=self._transport.unary, instrumentation=instrumentation
