@@ -15,6 +15,7 @@ from synnax import (
     labjack,
     license,
     modbus,
+    mqtt,
     ni,
     node,
     opcua,
@@ -69,6 +70,7 @@ from synnax.framer import (
     WriterClosed,
     WriterMode,
 )
+from synnax.label import Label
 from synnax.options import Options
 from synnax.project import Project
 from synnax.rack import Rack
@@ -86,6 +88,7 @@ from synnax.telem import (
     CrudeDataType,
     CrudeDensity,
     CrudeRate,
+    CrudeSeries,
     CrudeTimeSpan,
     CrudeTimeStamp,
     DataType,
@@ -94,6 +97,7 @@ from synnax.telem import (
     MultiSeries,
     Rate,
     Reduction,
+    SampleValue,
     Series,
     Size,
     StrideReduction,
@@ -134,6 +138,7 @@ __all__ = [
     "CrudeDataType",
     "CrudeDensity",
     "CrudeRate",
+    "CrudeSeries",
     "CrudeTimeSpan",
     "CrudeTimeStamp",
     "DataType",
@@ -151,6 +156,7 @@ __all__ = [
     "InvalidLicense",
     "InvalidToken",
     "Iterator",
+    "Label",
     "LicenseEditionMismatch",
     "LicenseError",
     "LicenseFingerprintMismatch",
@@ -173,6 +179,7 @@ __all__ = [
     "Reduction",
     "Role",
     "RouteError",
+    "SampleValue",
     "Series",
     "SessionEnded",
     "Size",
@@ -201,9 +208,11 @@ __all__ = [
     "ethercat",
     "group",
     "http",
+    "label",
     "labjack",
     "license",
     "modbus",
+    "mqtt",
     "ni",
     "node",
     "ontology",

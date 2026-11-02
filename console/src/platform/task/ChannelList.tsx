@@ -15,8 +15,8 @@ import { Input } from "@synnaxlabs/lyra/input";
 import { List } from "@synnaxlabs/lyra/list";
 import { Menu } from "@synnaxlabs/lyra/menu";
 import { Select } from "@synnaxlabs/lyra/select";
-import { array } from "@synnaxlabs/x";
-import { type ReactElement, type ReactNode } from "react";
+import { array, deep } from "@synnaxlabs/x";
+import { type ReactElement, type ReactNode, type UIEvent, useRef } from "react";
 
 import { ContextMenu as PlatformContextMenu } from "@/platform/context-menu";
 import { CSS } from "@/platform/css";
@@ -30,7 +30,7 @@ export interface ContextMenuItemProps<C extends Channel> {
 }
 
 interface ContextMenuProps<C extends Channel> extends Pick<
-  Form.UseFieldListReturn<C["key"], C>,
+  Form.UseFieldListReturn<C>,
   "data" | "remove"
 > {
   keys: string[];
@@ -38,7 +38,7 @@ interface ContextMenuProps<C extends Channel> extends Pick<
   onDuplicate?: (channels: C[], keys: string[]) => void;
   onSelect: (keys: string[]) => void;
   onTare?: (keys: string[], channels: C[]) => void;
-  path: string;
+  path: deep.Path<C[]>;
   contextMenuItems?: Component.RenderProp<ContextMenuItemProps<C>>;
 }
 
@@ -55,16 +55,14 @@ const ContextMenu = <C extends Channel>({
   const isPreview = useIsPreview();
   const handleRemove = () => onSelect(array.toArray(remove(keys)[0]));
   const { get, set } = Form.useContext();
-  const channels = Form.useFieldValue<C[]>(path).filter(({ key }) =>
-    keys.includes(key),
-  );
+  const channels = Form.useFieldValue(path).filter(({ key }) => keys.includes(key));
   const handleDuplicate = () => {
-    const allChannels = get<C[]>(path).value;
+    const allChannels = get(path).value;
     onDuplicate?.(allChannels, keys);
   };
   const isEnabled = (c: C) => !c.disabled;
   const setEnabled = (key: string, enabled: boolean) =>
-    set(`${path}.${key}.disabled`, !enabled);
+    set(deep.widen<Channel[]>(path)[key].disabled, !enabled);
   const handleDisable = () => keys.forEach((key) => setEnabled(key, false));
   const handleEnable = () => keys.forEach((key) => setEnabled(key, true));
   const handleTare = () => onTare?.(keys, channels);
@@ -123,7 +121,10 @@ export interface ChannelListProps<C extends Channel>
   extends
     Omit<ContextMenuProps<C>, "keys">,
     Pick<Flex.BoxProps, "onDragOver" | "onDrop" | "grow" | "style"> {
-  /** Null only for a list whose entries an outer BindChannels binds. */
+  /**
+   * Null for a list whose entries an outer BindChannels binds, or whose channels no
+   * device maps.
+   */
   resolve: BindChannelsProps<C>["resolve"] | null;
   emptyContent: ReactElement;
   header: ReactNode;
@@ -132,6 +133,13 @@ export interface ChannelListProps<C extends Channel>
   isDragging?: boolean;
   listItem: Component.RenderProp<ChannelListItemProps>;
   selected: string[];
+  /**
+   * Whether items select only through their checkbox or a modifier click. The selection
+   * can then be empty.
+   */
+  checkable?: boolean;
+  /** The columns items line up on. The list then shows their headings. */
+  columns?: List.Column[];
   /**
    * Shown in place of the items, such as the channels by port. A right click on an
    * element with `Menu.CONTEXT_TARGET` and a channel key in `data-menu-key` opens that
@@ -152,6 +160,8 @@ export const ChannelList = <C extends Channel>({
   grow,
   style,
   resolve,
+  checkable = false,
+  columns,
   ports,
   ...rest
 }: ChannelListProps<C>) => {
@@ -159,16 +169,32 @@ export const ChannelList = <C extends Channel>({
   const { status } = Form.useFieldState(path);
   const handleChange = (keys: string[]) => onSelect(keys);
   const menuProps = Menu.useContextMenu();
-  return (
+  const headingsRef = useRef<HTMLDivElement>(null);
+  const handleScroll = (e: UIEvent<HTMLDivElement>) => {
+    if (headingsRef.current != null)
+      headingsRef.current.scrollLeft = e.currentTarget.scrollLeft;
+  };
+  const content = (
     <Flex.Box className={CSS.B("channel-list")} empty grow={grow} style={style}>
       {resolve != null && <BindChannels<C> path={path} resolve={resolve} />}
-      {header}
       <Menu.ContextMenu
         {...menuProps}
         menu={(p) => <ContextMenu {...p} {...rest} />}
         onDragOver={onDragOver}
         onDrop={onDrop}
       >
+        {/* A header element that names a channel by data-menu-key opens its menu. */}
+        <Flex.Box
+          y
+          empty
+          className={menuProps.className}
+          onContextMenu={menuProps.open}
+        >
+          {header}
+          {ports == null && columns != null && (
+            <List.Headings ref={headingsRef} checkable={checkable} />
+          )}
+        </Flex.Box>
         {ports != null ? (
           <Flex.Box
             y
@@ -185,9 +211,9 @@ export const ChannelList = <C extends Channel>({
             data={data}
             value={selected}
             onChange={handleChange}
-            replaceOnSingle
-            allowNone={false}
-            autoSelectOnNone
+            replaceOnSingle={!checkable}
+            allowNone={checkable}
+            autoSelectOnNone={!checkable}
           >
             <List.Scroll
               full="y"
@@ -195,6 +221,7 @@ export const ChannelList = <C extends Channel>({
               onDrop={onDrop}
               className={menuProps.className}
               onContextMenu={menuProps.open}
+              onScroll={handleScroll}
             >
               <List.Items<string, C> emptyContent={emptyContent}>{listItem}</List.Items>
             </List.Scroll>
@@ -212,4 +239,6 @@ export const ChannelList = <C extends Channel>({
       {footer}
     </Flex.Box>
   );
+  if (columns == null) return content;
+  return <List.Columns columns={columns}>{content}</List.Columns>;
 };

@@ -55,6 +55,8 @@ import { Device as PlatformDevice } from "@/platform/device";
 import { Selector } from "@/platform/selector";
 import { Task } from "@/platform/task";
 
+const path = deep.path<Task.Values<WriteSchemas>>();
+
 const Properties = () => (
   <>
     <Select />
@@ -83,24 +85,25 @@ interface ChannelListItemProps extends Task.ChannelListItemProps {
 const ChannelListItem = ({ device, ...rest }: ChannelListItemProps) => {
   const { model } = device;
   const identifier = channel.escapeInvalidName(device.properties.identifier);
-  const path = `config.channels.${rest.itemKey}`;
+  const entry = path.config.channels[rest.itemKey];
   const { get, set } = PForm.useContext();
-  const item = PForm.useFieldValue<WriteChannel>(path);
+  const item = PForm.useFieldValue(entry);
   const { port, type, cmdChannel, stateChannel } = item;
   return (
     <List.Item {...rest} full="x" justify="between">
       <Flex.Box pack x align="center">
-        <PForm.Field<string>
-          path={`${path}.port`}
+        <PForm.Field
+          path={entry.port}
           showLabel={false}
           showHelpText={false}
           onChange={(value) => {
             if (port === value) return;
-            set(path, { ...item, port: value });
+            set(entry, { ...item, port: value });
           }}
         >
           {({ value, onChange, preview }) => (
             <PortPicker<WriteChannel>
+              channelsPath={path.config.channels}
               value={value}
               onChange={onChange}
               preview={preview}
@@ -112,20 +115,20 @@ const ChannelListItem = ({ device, ...rest }: ChannelListItemProps) => {
             >
               <PForm.Field<WriteChannelType>
                 key="type"
-                path={`${path}.type`}
+                path={entry.type}
                 showLabel={false}
                 showHelpText={false}
                 gap="large"
                 onChange={(value) => {
                   if (type === value) return;
                   const portType = convertWriteChannelTypeToPortType(value);
-                  const others = get<WriteChannel[]>("config.channels").value.filter(
+                  const others = get(path.config.channels).value.filter(
                     ({ key }) => key !== item.key,
                   );
                   const port = (
                     getOpenPort(others, model, [portType]) ?? PORTS[model][portType][0]
                   ).key;
-                  set(path, { ...item, type: value, port });
+                  set(entry, { ...item, type: value, port });
                 }}
                 empty
               >
@@ -140,12 +143,12 @@ const ChannelListItem = ({ device, ...rest }: ChannelListItemProps) => {
           cmdChannel={cmdChannel}
           itemKey={item.key}
           stateChannel={stateChannel}
-          cmdNamePath={`${path}.cmdChannelName`}
-          stateNamePath={`${path}.stateChannelName`}
+          cmdNamePath={entry.cmdChannelName}
+          stateNamePath={entry.stateChannelName}
           cmdDefaultName={commandName(item, identifier)}
           stateDefaultName={stateName(item, identifier)}
         />
-        <Task.EnabledCheckbox path={`${path}.disabled`} />
+        <Task.EnabledCheckbox path={entry.disabled} />
       </Flex.Box>
     </List.Item>
   );
@@ -196,13 +199,13 @@ interface ChannelListProps {
 const ChannelList = ({ device }: ChannelListProps) => {
   const { model } = device;
   const identifier = channel.escapeInvalidName(device.properties.identifier);
-  PForm.useCheck("config", uniqueTerminalsZ(model));
+  PForm.useCheck(path.config, uniqueTerminalsZ(model));
   const createChannel = (channels: WriteChannel[]) =>
     createNextChannel(channels, model);
   const listItem = ({ key, ...p }: Task.ChannelListItemProps) => (
     <ChannelListItem key={key} {...p} device={device} />
   );
-  const ports = (p: Task.Views.PortsProps) => (
+  const ports = (p: Task.Views.PortsProps<WriteChannel>) => (
     <PortsView<WriteChannel, AOPort | DOPort>
       {...p}
       model={model}
@@ -219,6 +222,7 @@ const ChannelList = ({ device }: ChannelListProps) => {
   };
   return (
     <Task.Views.List<WriteChannel>
+      path={path.config.channels}
       createChannel={createChannel}
       listItem={listItem}
       contextMenuItems={Task.writeChannelContextMenuItems}
@@ -389,7 +393,6 @@ export const Write = Task.wrapForm({
   schemas: WRITE_SCHEMAS,
   deployConfigZ: deployWriteConfigZ,
   type: "labjack_write",
-  getInitialValues,
   onConfigure,
 });
 

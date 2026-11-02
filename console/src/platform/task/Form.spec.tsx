@@ -13,8 +13,8 @@ import {
   createTestClientWithRole,
 } from "@synnaxlabs/client/testutil";
 import { Form as PForm } from "@synnaxlabs/lyra/form";
-import { TimeStamp } from "@synnaxlabs/x";
-import { act, screen, waitFor } from "@testing-library/react";
+import { deep, TimeStamp } from "@synnaxlabs/x";
+import { act, fireEvent, screen, waitFor } from "@testing-library/react";
 import { type FC } from "react";
 import { describe, expect, it, vi } from "vitest";
 import { z } from "zod";
@@ -30,11 +30,13 @@ import {
 } from "@/platform/task/testutil";
 import { uniqueName } from "@/testutil";
 
+const path = deep.path<Task.Values<typeof schemas>>();
+
 const schemas = {
   type: z.literal("opc_read"),
   config: z.object({
     device: z.string().default(""),
-    channels: z.array(z.object({ key: z.string(), enabled: z.boolean() })).default([]),
+    channels: z.array(z.object({ key: z.string(), disabled: z.boolean() })).default([]),
   }),
   statusData: z.object({ running: z.boolean() }).nullish(),
 };
@@ -42,8 +44,13 @@ const schemas = {
 const ChildForm: FC = () => <div>child-form-body</div>;
 ChildForm.displayName = "TestChildForm";
 
-const RackProbe: FC = () => <div>{`rack:${PForm.useFieldValue<number>("rack")}`}</div>;
+const RackProbe: FC = () => <div>{`rack:${PForm.useFieldValue(path.rack)}`}</div>;
 RackProbe.displayName = "RackProbe";
+
+const DeviceProbe: FC = () => (
+  <div>{`device:${PForm.useFieldValue(path.config.device)}`}</div>
+);
+DeviceProbe.displayName = "DeviceProbe";
 
 interface MakeRendererParams {
   showControls?: boolean;
@@ -69,7 +76,6 @@ const createRenderer = ({
     schemas,
     deployConfigZ,
     type: "opc_read",
-    getInitialValues,
     onConfigure,
     showControls,
   });
@@ -124,7 +130,7 @@ describe("wrapForm", () => {
     expect(container.querySelector(".lyra-icon--play")).toBeNull();
   });
 
-  it("should keep the controls on the driver status through an autosave", async () => {
+  it("should keep the controls on the driver status through an edit", async () => {
     const client = createTestClient();
     const tsk = await createTask(client);
     const Renderer = createRenderer();
@@ -166,7 +172,7 @@ describe("wrapForm", () => {
 
   describe("deploy validation gate", () => {
     const DeviceStatusProbe: FC = () => {
-      const { status, onChange } = PForm.useField<string>("config.device");
+      const { status, onChange } = PForm.useField(path.config.device);
       return (
         <button
           onClick={() => onChange("dev")}
@@ -184,7 +190,7 @@ describe("wrapForm", () => {
     });
 
     const PortCheckProbe: FC = () => {
-      PForm.useCheck("config", noPortZ);
+      PForm.useCheck(path.config, noPortZ);
       return <DeviceStatusProbe />;
     };
     PortCheckProbe.displayName = "PortCheckProbe";
@@ -210,6 +216,40 @@ describe("wrapForm", () => {
         expect(screen.getByText("device-status:Device is required")).toBeTruthy(),
       );
       expect(configured).toBe(false);
+    });
+
+    it("should put an error of a keyed list entry on the field of that entry", async () => {
+      const ChannelStatus: FC = () => {
+        const { status } = PForm.useField(path.config.channels.ch1.key);
+        return <div>{`channel-status:${status.message}`}</div>;
+      };
+      ChannelStatus.displayName = "ChannelStatus";
+      // The form mounts with its initial values, before the task loads.
+      const ChannelStatusProbe: FC = () => {
+        const channels = PForm.useFieldValue(path.config.channels);
+        return channels.length > 0 ? <ChannelStatus /> : null;
+      };
+      ChannelStatusProbe.displayName = "ChannelStatusProbe";
+      const client = createTestClient();
+      const draft = await client.tasks.create({
+        ...getInitialValues({}),
+        config: { device: "dev", channels: [{ key: "ch1", disabled: false }] },
+        rack: 0,
+      });
+      const Renderer = createRenderer({
+        Form: ChannelStatusProbe,
+        deployConfigZ: schemas.config.extend({
+          channels: z.array(z.object({ key: z.string().min(4, "Key is too short") })),
+        }),
+      });
+      const { container } = await renderTaskFormTab(Renderer, {
+        client,
+        taskKey: draft.key,
+      });
+      await clickDeploy(container);
+      await waitFor(() =>
+        expect(screen.getByText("channel-status:Key is too short")).toBeTruthy(),
+      );
     });
 
     it("should block deploy on an error from a check the form runs", async () => {
@@ -288,6 +328,41 @@ describe("wrapForm", () => {
       });
       await clickDeploy(container);
       await waitFor(() => expect(configured).toBe(true));
+    });
+
+    it("should not deploy while a field holds a value that fails its schema", async () => {
+      const client = createTestClient();
+      const draft = await client.tasks.create({ ...getInitialValues({}), rack: 0 });
+      const DeviceForm: FC = () => {
+        const { set } = PForm.useContext();
+        return (
+          <>
+            <button onClick={() => set<unknown>(path.config.device, 5)}>invalid</button>
+            <button onClick={() => set(path.config.device, "valid")}>valid</button>
+          </>
+        );
+      };
+      DeviceForm.displayName = "DeviceForm";
+      const onConfigure = vi.fn<Task.OnConfigure<(typeof schemas)["config"]>>(
+        async (_client, config) => [config, 0],
+      );
+      const Renderer = createRenderer({
+        Form: DeviceForm,
+        deployConfigZ: z.unknown(),
+        onConfigure,
+      });
+      const { container } = await renderTaskFormTab(Renderer, {
+        client,
+        taskKey: draft.key,
+      });
+      await act(async () => fireEvent.click(screen.getByText("invalid")));
+      await clickDeploy(container);
+      await act(async () => {});
+      expect(onConfigure).not.toHaveBeenCalled();
+      await act(async () => fireEvent.click(screen.getByText("valid")));
+      await clickDeploy(container);
+      await waitFor(() => expect(onConfigure).toHaveBeenCalledOnce());
+      expect(onConfigure.mock.calls[0][1]).toMatchObject({ device: "valid" });
     });
 
     it("should keep a deploy error after an edit to another field", async () => {
@@ -402,7 +477,7 @@ describe("wrapForm", () => {
       let renders = 0;
       const CountingForm: FC = () => {
         renders++;
-        return <div>{`rack:${PForm.useFieldValue<number>("rack")}`}</div>;
+        return <div>{`rack:${PForm.useFieldValue(path.rack)}`}</div>;
       };
       CountingForm.displayName = "CountingForm";
       const Renderer = createRenderer({ Form: CountingForm });
@@ -433,7 +508,7 @@ describe("wrapForm", () => {
   });
 
   describe("deploying against a live Core", () => {
-    it("should persist the configured rack and issue a start command", async () => {
+    it("should persist the configured rack and issue a pinned start", async () => {
       const client = createTestClient();
       const rack = await client.racks.create({ name: uniqueName("rack") });
       const draft = await client.tasks.create({
@@ -452,12 +527,70 @@ describe("wrapForm", () => {
         await clickDeploy(container);
         const cmd = await awaitCommand(streamer, draft.key);
         expect(cmd.type).toBe("start");
+        expect(cmd.pinned).toBe(true);
+        const updated = await createTestClient().tasks.retrieve({ key: draft.key });
+        expect(cmd.configHash).toBe(updated.configHash);
+        expect(updated.name).toBe("New Test Task");
+        expect(updated.rack).toBe(rack.key);
       } finally {
         streamer.close();
       }
-      const updated = await client.tasks.retrieve({ key: draft.key });
-      expect(updated.name).toBe("New Test Task");
-      expect(updated.rack).toBe(rack.key);
+    });
+
+    it("should write the config fields that onConfigure fills", async () => {
+      const client = createTestClient();
+      const draft = await client.tasks.create({ ...getInitialValues({}), rack: 0 });
+      const Renderer = createRenderer({
+        onConfigure: async (_client, config) => [{ ...config, device: "filled" }, 0],
+      });
+      const streamer = await client.openStreamer(task.COMMAND_CHANNEL_NAME);
+      try {
+        const { container } = await renderTaskFormTab(Renderer, {
+          client,
+          taskKey: draft.key,
+        });
+        await clickDeploy(container);
+        const cmd = await awaitCommand(streamer, draft.key);
+        const updated = await createTestClient().tasks.retrieve({ key: draft.key });
+        expect(updated.config).toMatchObject({ device: "filled" });
+        expect(cmd.configHash).toBe(updated.configHash);
+      } finally {
+        streamer.close();
+      }
+    });
+
+    it("should keep a field another client edits while onConfigure runs", async () => {
+      const client = createTestClient();
+      const draft = await client.tasks.create({ ...getInitialValues({}), rack: 0 });
+      const other = createTestClient();
+      await other.tasks.retrieve({ key: draft.key });
+      const Renderer = createRenderer({
+        Form: DeviceProbe,
+        onConfigure: async (_client, config) => {
+          expect(
+            await other.tasks.dispatch(
+              draft.key,
+              task.set({ path: ["config", "device"], value: "remote" }),
+            ),
+          ).toBe(true);
+          await screen.findByText("device:remote");
+          return [config, 0];
+        },
+      });
+      const streamer = await client.openStreamer(task.COMMAND_CHANNEL_NAME);
+      try {
+        const { container } = await renderTaskFormTab(Renderer, {
+          client,
+          taskKey: draft.key,
+        });
+        await clickDeploy(container);
+        const cmd = await awaitCommand(streamer, draft.key);
+        const updated = await createTestClient().tasks.retrieve({ key: draft.key });
+        expect(updated.config).toMatchObject({ device: "remote" });
+        expect(cmd.configHash).toBe(updated.configHash);
+      } finally {
+        streamer.close();
+      }
     });
 
     it("should report the type of the task it started", async () => {
@@ -477,7 +610,7 @@ describe("wrapForm", () => {
       );
     });
 
-    it("should start without saving for a subject who cannot update the task", async () => {
+    it("should start without writing for a subject who cannot update the task", async () => {
       const client = createTestClient();
       const operator = await createTestClientWithRole(client, "Operator");
       const rack = await client.racks.create({ name: uniqueName("rack") });

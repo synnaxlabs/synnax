@@ -503,3 +503,5 @@ export const createReduceAll = (handlers: Handlers) =>
 export const scopedActionZ = actions.scopedZ(keyZ, actionZ);
 
 export const dispatchReqZ = actions.dispatchReqZ(keyZ, actionZ);
+
+export const dispatchResZ = actions.dispatchResZ(actionZ);
