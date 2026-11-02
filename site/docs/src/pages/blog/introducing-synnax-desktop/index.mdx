@@ -48,24 +48,39 @@ rep, do a demo ... or two ... or three ... and then spend weeks convincing your 
 pay for a product you've never actually used. And, often times, the really expensive
 tool you buy ends up not being what you expected.
 
-If you've ever downloaded a Keyence manual, you know exactly how story 1 starts.
+There's a common joke on industrial automation subreddits that goes like this:
 
 <figure className="article-portrait">
   <img
     src="https://i.redd.it/g6van9ug3xbc1.jpeg"
+    loading="lazy"
+    decoding="async"
     alt="A man at a urinal next to a Keyence rep, who says he saw you downloaded a manual"
   />
-  <figcaption>
-    From
-    [r/PLC](https://www.reddit.com/r/PLC/comments/194jgm9/i_saw_you_downloaded_the_manual/)
-  </figcaption>
+  <figcaption>From [r/PLC](https://redd.it/194jgm9)</figcaption>
 </figure>
 
-Story 2 is the one every engineer actually wants. You try the tool yourself, see where
-it really works and where it doesn't, build a business case from real results, and only
-start the sales process once you know you need more.
+Unlike the joke, the second pathway is different. Instead of submitting a form for a
+demo, you can download the product yourself. Sometimes the full-fledged version,
+sometimes with restricted use. You're able to try it, enjoy using it, find value, and
+use practical deployment to show your team that the paid edition is a worthwhile
+investment.
 
-Desktop is our story 2. Here's what that looks like, uncut and in real time.
+If you're an engineer, story 2 is dramatically better than story 1. You directly
+interact with the tool, see where it works and where it doesn't, and decide if it's
+worth your time and investment.
+
+The companies and tools I respect the most operate this way: Linear, Vercel, and Figma.
+Most recently, I signed up for an enterprise subscription to
+[Paradev](https://paradev.com). The product was clearly so much better than anything
+else out there, that I knew I had to pay for it.
+
+Desktop is our story 2. We're putting the product first, and focusing deeply on the user
+experience and technical excellence. It's a risk, but it's one we're happy to take
+because it's the way we'd like to evaluate Synnax if we were engineers at our customers'
+companies.
+
+Here's what trying out Desktop looks like, uncut and in real time.
 
 <Diagram.Diagram>
   **To record (V2):** download, install, open the sample project, and watch the live
@@ -80,9 +95,11 @@ Synnax Desktop is a free edition of Synnax designed specifically for benchtop te
 It combines our Core, Console, and device drivers into what we think is one of the best
 desktop data acquisition, control, and data review tools on the market.
 
-It's a single install. There's no database to set up, no server to run, and nothing to
-start from a terminal. Under the hood, it runs a real Synnax Core, and if that Core ever
-crashes, Desktop quietly restarts it.
+It's easy to set up. Download and run Desktop, and it'll immediately detect the data
+acquisition devices you have connected. The path from first seeing the tool to actually
+getting use out of it is as short as possible. Under the hood, we run the key components
+of the enterprise edition: device drivers, the Arc runtime, a Core, and the Console, all
+in one.
 
 <Diagram.Block
   title="Inside Synnax Desktop: the Driver reads your hardware, the Core stores every sample, and the Console and your scripts read from the Core."
@@ -208,15 +225,16 @@ And here's the long one.
 
 ### LabVIEW
 
-LabVIEW is the default. If you've worked in a lab, there's a good chance a VI written by
-someone who left the company years ago is still running a test stand near you. It earned
-that spot: decades of drivers, deep integration with NI hardware, and real-time and FPGA
-targets that are hard to match.
+LabVIEW is the most common by far. If you're in a lab, there's a good chance you're
+either someone who uses a VI written by someone who left the company a while ago, or
+you're in charge of maintaining bespoke VIs for different test applications. LabVIEW has
+clearly earned its place: decades of reliability improvements, integration with the NI
+hardware ecosystem, and awesome tooling like FPGA programming.
 
-But LabVIEW is a programming language, not a finished tool. Before your first reading,
-someone has to wire up the plots, the logging, and the buttons, and someone has to
-maintain it after they move on. The free Community Edition is non-commercial, and NI
-doesn't list prices for the rest: you request a quote. Story 1 again.
+But good LabVIEW tools require good LabVIEW programmers. They are hard to come by, busy,
+and often times stretched thin in their work. If you want to do it yourself, you have to
+build the tool, and the free Community Edition is non-commercial. NI doesn't list prices
+for the rest: you request a quote. Story 1 again.
 
 Desktop is that tool, already built. If you need deterministic control on an FPGA, keep
 LabVIEW. For everything else on the bench, try Desktop.
@@ -224,27 +242,34 @@ LabVIEW. For everything else on the bench, try Desktop.
 ### FlexLogger
 
 FlexLogger is NI's no-code data logger, and it's the closest thing to Desktop out there.
-If your bench is all NI hardware and all you need is logging, it's genuinely good.
+If your bench is all NI hardware, it's a great way to get a logging setup running
+without writing a single line of LabVIEW. There's a lot to like: it's built by the same
+people who make the hardware, it's easy to configure, and the Lite edition is free.
 
-The catch is in those two ifs. Anything that isn't NI needs a plug-in built in LabVIEW,
-and there's no built-in sequencer, so the moment you want to pressurize, hold, vent, and
-abort, you're back in LabVIEW or Python.
+But FlexLogger is really built for NI hardware and for logging. Plenty of benches aren't
+all NI, though. There's a LabJack someone bought for a quick test, or a PLC talking
+Modbus, and connecting those means a plug-in built in LabVIEW. You can set up events in
+the Professional edition, but there's no sequencer, so the moment you want to
+pressurize, hold, and vent, you're back to writing LabVIEW or Python.
 
-Plenty of benches aren't all NI. There's a LabJack someone bought for a quick test, a
-PLC talking Modbus, and an EtherCAT module wired up last month. Desktop talks to all of
-them at once, and runs your sequences in the same window you're plotting in.
+Desktop talks to all of that hardware at once, and runs your sequences in the same
+window you're plotting in.
 
 ### InfluxDB and Grafana
 
-This is the stack software engineers reach for, and I get why. It's open source, Grafana
-makes beautiful dashboards, and for server metrics it's hard to beat.
+InfluxDB and Grafana are what software engineers reach for. If someone on your team came
+from the software world, they've probably pitched it to you as the free option. And I
+get why: both are open source, Grafana makes beautiful dashboards, and for monitoring
+servers it's hard to beat.
 
-On a bench, you're the integrator. Neither tool talks to a DAQ card, so you write a
-script to get data in. Grafana doesn't control anything, so opening a valve is another
-script. Dashboards refresh every 5 seconds by default, which is fine for CPU usage and a
-lot less fine for a pressure transient.
+But neither tool was built for hardware. Nothing in the stack talks to a DAQ card, so
+someone has to write and maintain a script to get data in. Grafana can't control
+anything, so opening a valve is another script. Dashboards also refresh every 5 seconds
+by default, which is fine for CPU usage but not for watching a pressure spike. By the
+time it all works, you've built a custom tool out of five different pieces, and someone
+has to own it.
 
-Desktop is the whole stack in one tool. No bolting together a DAQ, a Python script,
+Desktop is the whole stack in one tool, with no bolting together a DAQ, a Python script,
 Telegraf, InfluxDB, and Grafana. And the database underneath was built for sensor data:
 we [benchmarked it against InfluxDB and Timescale](/blog/one-billion-rows).
 
@@ -282,10 +307,10 @@ and why we build.
 
 ## When should you talk to us?
 
-Remember the end of story 2? You realize you need enterprise tooling and support, and
-then you start the sales process. Desktop is designed for every step before that one.
-And yes, it's also designed to eventually make you interested in having a conversation
-with us about our enterprise edition.
+Remember the end of story 2? You show your team the paid edition is worth it, and then
+you start the sales process. Desktop is designed for every step before that one. And
+yes, it's also designed to eventually make you interested in having a conversation with
+us about our enterprise edition.
 
 Desktop is for one person on one computer, with up to 50 channels. Synnax Enterprise is
 for a team that shares one system. You run a Synnax Core on your own servers and get:
