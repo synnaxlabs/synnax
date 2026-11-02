@@ -12,7 +12,7 @@ from typing import overload
 from pydantic import BaseModel, ConfigDict, Field
 
 from freighter import Empty, UnaryClient
-from synnax.exceptions import NotFoundError
+from synnax.exceptions import MultipleFoundError, NotFoundError
 from synnax.label.types_gen import Key, Label
 from synnax.ontology.payload import ID, CrudeID
 from x import color as color_
@@ -149,6 +149,7 @@ class Client:
             labels.
         :raises NotFoundError: If a requested key does not exist, or if no label has
             the given ``name``.
+        :raises MultipleFoundError: If more than one label has the given ``name``.
         """
         is_single = key is not None or name is not None
         req = _RetrieveRequest(
@@ -164,6 +165,8 @@ class Client:
             return res.labels
         if len(res.labels) == 0:
             raise NotFoundError(f"Label matching {key or name} not found")
+        if len(res.labels) > 1:
+            raise MultipleFoundError(f"Multiple labels named {name} found")
         return res.labels[0]
 
     def delete(self, keys: Key | list[Key]) -> None:

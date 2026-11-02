@@ -81,6 +81,14 @@ class TestLabelClient:
         res = client.labels.retrieve(search_term=lbl.name)
         assert lbl.key in {r.key for r in res}
 
+    def test_retrieve_name_multiple_found(self, client: sy.Synnax) -> None:
+        """Should raise MultipleFoundError when several labels share the name."""
+        name = str(uuid4())
+        client.labels.create(name=name, color="#FF0000")
+        client.labels.create(name=name, color="#00FF00")
+        with pytest.raises(sy.MultipleFoundError):
+            client.labels.retrieve(name=name)
+
     def test_retrieve_key_not_found(self, client: sy.Synnax) -> None:
         """Should raise NotFoundError when no label has the key."""
         with pytest.raises(sy.NotFoundError):
