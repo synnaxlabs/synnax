@@ -155,9 +155,7 @@ export class Latest {
     this.demand = props.streamer.demand([key], (frame) => {
       const series = frame.get(key);
       if (series == null) return;
-      this.push(series);
-      // Each write records its stamp once, before the buffer joins it to others.
-      series.forEach((s) => this.stamps?.record(s));
+      this.push(series, true);
       this.notify();
     });
     this.demand.onStatusChange((_, s) => {
@@ -402,12 +400,14 @@ export class Latest {
         ? this.buffer.dataTimeRange
         : series.timeRange;
     if (tr == null || tr.isZero) return;
+    // The leading buffer can grow while the read waits.
+    const { length } = series;
     const read: IndexRead = { span: series.alignmentBounds, tries: prev?.tries ?? 0 };
     this.indexReads = [...this.indexReads.filter((r) => r !== prev), read];
     try {
-      const times = await this.props.readLatest(index, series.length, tr);
+      const times = await this.props.readLatest(index, length, tr);
       if (this.indexStamps !== stamps) return;
-      if (times.length === series.length) {
+      if (times.length === length) {
         stamps.add([realign(times, read.span.lower, tr)], [read.span]);
         this.indexReads = this.indexReads.filter((r) => r !== read);
         return this.notify();
@@ -490,7 +490,7 @@ export class Latest {
     const dropped = this.running?.dropped ?? false;
     if (this.shown) {
       [this.running, this.shown] = [null, false];
-      this.push(read);
+      this.push(read, false);
       if (dropped) this.reload();
       return;
     }
@@ -503,7 +503,7 @@ export class Latest {
     });
     this.running = null;
     const { appended } = this;
-    this.push(read);
+    this.push(read, false);
     if (repeated) this.appended = appended;
     // Frames may have dropped between the read and the streamed series, so the next
     // read starts after the newest sample of this read, not after a streamed one.
@@ -511,18 +511,21 @@ export class Latest {
       this.closeLeading();
       this.restart(this.series.length, { after: this.time() });
     }
-    this.push(streamed);
+    this.push(streamed, false);
     this.unserved = this.total;
     this.snapshot = null;
   }
 
-  private push(series: Series[]): void {
+  // Appends the series the latest accepts. A live write records its stamp once, before
+  // the buffer joins it to others.
+  private push(series: Series[], live: boolean): void {
     for (const s of series) {
       const fresh = this.fresh(s);
       if (fresh == null) continue;
       // Series of two data types cannot share a snapshot.
       const first = this.series.at(0) ?? this.buffer.leadingBuffer;
       if (first != null && !first.dataType.equals(fresh.dataType)) this.clear();
+      if (live) this.stamps?.record(fresh);
       this.unserved += fresh.length;
       this.appended += fresh.length;
       this.append(fresh);
