@@ -10,6 +10,7 @@
 #pragma once
 
 #include <algorithm>
+#include <functional>
 #include <memory>
 #include <string>
 #include <string_view>
@@ -269,6 +270,13 @@ format_time_stamp(const x::telem::TimeStamp ts, const std::string_view format) {
     return strftime(ts, format);
 }
 
+const std::string FORMAT_FAILED = "Failed to format timestamp";
+const std::string INVALID_HANDLE = "The Arc runtime passed an invalid string handle.";
+
+/// @brief sends a warning to the task that runs the program.
+using Reporter = std::function<
+    void(const std::string &message, const std::string &description)>;
+
 class Module : public stl::Module {
     /// @brief the shortest timer span of the program, or TimeSpan::max() if none.
     x::telem::TimeSpan shortest = x::telem::TimeSpan::max();
@@ -278,10 +286,12 @@ class Module : public stl::Module {
     x::telem::TimeStamp now;
     /// @brief backs the `format` return value.
     std::shared_ptr<strings::State> str_state;
+    /// @brief receives the warnings `format` raises.
+    Reporter report;
 
 public:
-    explicit Module(std::shared_ptr<strings::State> str_state):
-        str_state(std::move(str_state)) {}
+    Module(std::shared_ptr<strings::State> str_state, Reporter report):
+        str_state(std::move(str_state)), report(std::move(report)) {}
 
     /// @brief binds the cycle stamp the `now` host function returns for the
     /// coming pass. The runtime loop calls it before every Scheduler::next.
@@ -335,7 +345,12 @@ public:
             .func_wrap(
                 MODULE_NAME,
                 "format",
-                [ss](const int64_t v, const uint32_t format) -> uint32_t {
+                [ss, report = this->report](const int64_t v, const uint32_t format)
+                    -> uint32_t {
+                    if (!ss->exists(format)) {
+                        report(FORMAT_FAILED, INVALID_HANDLE);
+                        return 0;
+                    }
                     return ss->create(
                         format_time_stamp(x::telem::TimeStamp(v), ss->get(format))
                     );

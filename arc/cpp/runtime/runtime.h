@@ -74,6 +74,8 @@ struct Config {
     /// @brief the wall clock the runtime stamps its cycles from. Defaults to
     /// TimeStamp::now when null.
     x::telem::NowFunc now;
+    /// @brief receives the warnings the time module's `format` raises. Required.
+    stl::time::Reporter report;
 };
 
 /// @brief callback invoked when a fatal error occurs in the runtime.
@@ -270,6 +272,11 @@ inline std::pair<std::shared_ptr<Runtime>, x::errors::Error> load(
     errors::Handler error_handler = errors::noop_handler,
     scheduler::ErrorHandler node_error_handler = scheduler::noop_handler
 ) {
+    if (!cfg.report)
+        return {
+            nullptr,
+            x::errors::Error(x::errors::VALIDATION, "The runtime needs a reporter.")
+        };
     if (auto err = scheduler::validate(cfg.program.root); err) return {nullptr, err};
     std::set<types::ChannelKey> reads;
     std::set<types::ChannelKey> writes;
@@ -312,7 +319,7 @@ inline std::pair<std::shared_ptr<Runtime>, x::errors::Error> load(
         error_handler
     );
 
-    auto time_module = std::make_shared<stl::time::Module>(str_st);
+    auto time_module = std::make_shared<stl::time::Module>(str_st, cfg.report);
     std::vector<std::shared_ptr<stl::Module>> stl_modules = {
         std::make_shared<stl::channels::Module>(channel_st, str_st),
         std::make_shared<stl::stateful::Module>(var_st, series_st, str_st),

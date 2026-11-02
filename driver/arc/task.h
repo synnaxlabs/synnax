@@ -232,6 +232,14 @@ public:
                     ),
                 },
             .rt_handle = rt_handle,
+            .report =
+                [task_ptr = task.get()](
+                    const std::string &message,
+                    const std::string &description
+                ) {
+                    std::lock_guard lock(task_ptr->state_mu);
+                    task_ptr->state.send_warning(message, description);
+                },
         };
 
         const auto fail = [task_ptr = task.get()](const x::errors::Error &err) {

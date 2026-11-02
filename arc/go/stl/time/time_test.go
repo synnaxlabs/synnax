@@ -18,6 +18,7 @@ import (
 	"github.com/synnaxlabs/arc/ir"
 	"github.com/synnaxlabs/arc/runtime/node"
 	"github.com/synnaxlabs/arc/stl/strings"
+	stltestutil "github.com/synnaxlabs/arc/stl/testutil"
 	"github.com/synnaxlabs/arc/stl/time"
 	"github.com/synnaxlabs/arc/symbol"
 	. "github.com/synnaxlabs/arc/symbol/testutil"
@@ -41,19 +42,73 @@ var _ = Describe("Time", func() {
 						wazero.NewRuntimeConfigInterpreter(),
 					),
 					strings.NewProgramState(),
+					discard,
 				),
 			)
 			Expect(factory).ToNot(BeNil())
 		})
 		It("Should reject a runtime without a strings state", func(ctx SpecContext) {
 			rt := wazero.NewRuntimeWithConfig(ctx, wazero.NewRuntimeConfigInterpreter())
-			Expect(time.NewHost(ctx, rt, nil)).Error().
+			Expect(time.NewHost(ctx, rt, nil, discard)).Error().
 				To(MatchError(ContainSubstring("strings")))
 		})
+		It("Should reject a runtime without a reporter", func(ctx SpecContext) {
+			rt := wazero.NewRuntimeWithConfig(ctx, wazero.NewRuntimeConfigInterpreter())
+			Expect(time.NewHost(ctx, rt, strings.NewProgramState(), nil)).Error().
+				To(MatchError(ContainSubstring("report")))
+		})
 		It("Should not create a node for format", func(ctx SpecContext) {
-			factory := MustSucceed(time.NewHost(ctx, nil, nil))
+			factory := MustSucceed(time.NewHost(ctx, nil, nil, nil))
 			Expect(factory.Create(node.Config{Node: ir.Node{Type: "format"}})).Error().
 				To(MatchError(query.ErrNotFound))
+		})
+	})
+	Describe("Format host function", func() {
+		var (
+			rt          *stltestutil.Runtime
+			stringState *strings.ProgramState
+			reports     [][2]string
+		)
+		BeforeEach(func(ctx SpecContext) {
+			rt = stltestutil.NewRuntime(ctx)
+			DeferCleanup(rt.Close)
+			stringState = strings.NewProgramState()
+			reports = nil
+			MustSucceed(time.NewHost(
+				ctx,
+				rt.Underlying(),
+				stringState,
+				func(_ context.Context, message, description string) {
+					reports = append(reports, [2]string{message, description})
+				},
+			))
+			rt.Passthrough(ctx, "time")
+		})
+		format := func(ctx context.Context, ns int64, handle uint32) uint32 {
+			return stltestutil.AsU32(rt.Call(
+				ctx,
+				"time",
+				"format",
+				stltestutil.I64(ns),
+				stltestutil.U32(handle),
+			)[0])
+		}
+		It(
+			"Should warn and return an empty string for an unknown format handle",
+			func(ctx SpecContext) {
+				Expect(format(ctx, 0, 999)).To(BeZero())
+				Expect(reports).To(Equal([][2]string{{
+					"Failed to format timestamp",
+					"The Arc runtime passed an invalid string handle.",
+				}}))
+			},
+		)
+		It("Should format a valid handle without a warning", func(ctx SpecContext) {
+			out := format(ctx, 0, stringState.Create("%Y"))
+			Expect(MustBeOk(stringState.Get(out))).To(Equal("1970"))
+			out = format(ctx, 0, 0)
+			Expect(MustBeOk(stringState.Get(out))).To(Equal("1970-01-01T00:00:00Z"))
+			Expect(reports).To(BeEmpty())
 		})
 	})
 	Describe("Interval", func() {
@@ -69,6 +124,7 @@ var _ = Describe("Time", func() {
 						wazero.NewRuntimeConfigInterpreter(),
 					),
 					strings.NewProgramState(),
+					discard,
 				),
 			)
 			changedOutputs = nil
@@ -473,6 +529,7 @@ var _ = Describe("Time", func() {
 						wazero.NewRuntimeConfigInterpreter(),
 					),
 					strings.NewProgramState(),
+					discard,
 				),
 			)
 			changedOutputs = nil
@@ -1196,7 +1253,7 @@ var _ = Describe("Time", func() {
 			})
 		}
 		BeforeEach(func(ctx SpecContext) {
-			factory = MustSucceed(time.NewHost(ctx, nil, nil))
+			factory = MustSucceed(time.NewHost(ctx, nil, nil, nil))
 			reported, deadlines, changed = nil, nil, nil
 		})
 		It("Should park an interval and report the error once", func(ctx SpecContext) {
@@ -1316,7 +1373,7 @@ var _ = Describe("Time", func() {
 				fired    int
 			)
 			BeforeEach(func(ctx SpecContext) {
-				factory := MustSucceed(time.NewHost(ctx, nil, nil))
+				factory := MustSucceed(time.NewHost(ctx, nil, nil, nil))
 				g := graph.Graph{
 					Nodes: []graph.Node{{Key: "interval_1"}},
 					Inputs: map[string]msgpack.EncodedJSON{
@@ -1415,7 +1472,7 @@ var _ = Describe("Time", func() {
 			var factory *time.Host
 			var s *node.ProgramState
 			BeforeEach(func(ctx SpecContext) {
-				factory = MustSucceed(time.NewHost(ctx, nil, nil))
+				factory = MustSucceed(time.NewHost(ctx, nil, nil, nil))
 				g := graph.Graph{
 					Nodes: []graph.Node{{Key: "wait_1"}},
 					Inputs: map[string]msgpack.EncodedJSON{
@@ -1617,6 +1674,7 @@ var _ = Describe("Time", func() {
 						wazero.NewRuntimeConfigInterpreter(),
 					),
 					strings.NewProgramState(),
+					discard,
 				),
 			)
 			changedOutputs = nil
@@ -1783,7 +1841,7 @@ var _ = Describe("Time", func() {
 	Describe("Variable inputs", func() {
 		var factory *time.Host
 		BeforeEach(func(ctx SpecContext) {
-			factory = MustSucceed(time.NewHost(ctx, nil, nil))
+			factory = MustSucceed(time.NewHost(ctx, nil, nil, nil))
 		})
 
 		// varConfig builds a config whose span input is var-bound: Value holds

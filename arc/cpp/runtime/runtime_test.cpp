@@ -23,7 +23,10 @@ namespace arc::runtime {
 /// @brief builds a time module on a throwaway strings state. These runtimes bind
 /// no WASM, so nothing reads the handles.
 std::shared_ptr<stl::time::Module> make_time_module() {
-    return std::make_shared<stl::time::Module>(std::make_shared<stl::strings::State>());
+    return std::make_shared<stl::time::Module>(
+        std::make_shared<stl::strings::State>(),
+        [](const std::string &, const std::string &) {}
+    );
 }
 
 /// @brief Creates a minimal Runtime for testing queue behavior.
@@ -98,11 +101,20 @@ TEST(RuntimeTest, LoadRejectsAnActivationWithNoKind) {
     stage.activations = {
         {.on = ir::Handle{"trigger", "output"}, .kind = ir::EdgeKind::Unspecified}
     };
-    Config cfg{.program = {}};
+    Config cfg{.program = {}, .report = [](const std::string &, const std::string &) {
+               }};
     cfg.program.root.strata.push_back({ir::scope_member(std::move(stage))});
     const auto result = load(cfg);
     ASSERT_OCCURRED_AS_P(result, x::errors::VALIDATION);
     EXPECT_EQ(result.second.data, "scope stage has an activation with no kind");
+    EXPECT_EQ(result.first, nullptr);
+}
+
+/// @brief load rejects a config with no reporter.
+TEST(RuntimeTest, LoadRejectsAConfigWithoutAReporter) {
+    const auto result = load(Config{.program = {}});
+    ASSERT_OCCURRED_AS_P(result, x::errors::VALIDATION);
+    EXPECT_EQ(result.second.data, "The runtime needs a reporter.");
     EXPECT_EQ(result.first, nullptr);
 }
 

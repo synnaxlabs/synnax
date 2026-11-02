@@ -10,6 +10,7 @@
 package time_test
 
 import (
+	"context"
 	"testing"
 
 	. "github.com/onsi/ginkgo/v2"
@@ -23,3 +24,5 @@ func TestTime(t *testing.T) {
 }
 
 var _ = ShouldNotLeakGoroutinesPerSpec()
+
+func discard(context.Context, string, string) {}

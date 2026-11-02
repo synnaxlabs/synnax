@@ -10,6 +10,7 @@
 package compiler_test
 
 import (
+	"context"
 	"testing"
 
 	. "github.com/onsi/ginkgo/v2"
@@ -23,3 +24,5 @@ func TestCompiler(t *testing.T) {
 }
 
 var _ = ShouldNotLeakGoroutinesPerSpec()
+
+func discardReport(context.Context, string, string) {}

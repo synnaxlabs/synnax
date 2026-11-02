@@ -35,6 +35,8 @@ const (
 	nowSymbolName      = "now"
 	formatSymbolName   = "format"
 	formatInputParam   = "format"
+	formatFailed       = "Failed to format timestamp"
+	invalidHandle      = "The Arc runtime passed an invalid string handle."
 	periodInputParam   = "period"
 	durationInputParam = "duration"
 	name               = "time"
@@ -195,7 +197,11 @@ type Host struct {
 	// to read, so the value is pushed here instead.
 	now     telem.TimeStamp
 	strings *strings.ProgramState
+	report  Reporter
 }
+
+// Reporter sends a warning to the task that runs the program.
+type Reporter func(ctx context.Context, message, description string)
 
 // SetNow binds the cycle stamp the `now` host function returns for the coming pass.
 // The runtime loop calls it before every Scheduler.Next.
@@ -203,18 +209,21 @@ func (h *Host) SetNow(now telem.TimeStamp) { h.now = now }
 
 // NewHost registers the time module's `now` and `format` WASM host bindings with
 // rt and returns a Host handle that acts as the node factory for interval / wait /
-// now. stringState backs the `format` return value and is required when rt is set.
+// now. stringState backs the `format` return value, and report receives the warnings
+// `format` raises. Both are required when rt is set.
 func NewHost(
 	ctx context.Context,
 	rt wazero.Runtime,
 	stringState *strings.ProgramState,
+	report Reporter,
 ) (*Host, error) {
-	h := &Host{strings: stringState}
+	h := &Host{strings: stringState, report: report}
 	if rt == nil {
 		return h, nil
 	}
 	v := validate.New("arc.time")
 	v.NotNil("strings", stringState)
+	v.NotNil("report", report)
 	if err := v.Error(); err != nil {
 		return nil, err
 	}
@@ -224,9 +233,10 @@ func NewHost(
 			return uint64(h.now)
 		}).Export(nowSymbolName)
 	builder = builder.NewFunctionBuilder().
-		WithFunc(func(_ context.Context, v int64, format uint32) uint32 {
+		WithFunc(func(ctx context.Context, v int64, format uint32) uint32 {
 			l, ok := h.strings.Get(format)
 			if !ok {
+				h.report(ctx, formatFailed, invalidHandle)
 				return 0
 			}
 			return h.strings.Create(formatTimeStamp(telem.TimeStamp(v), l))
