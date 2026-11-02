@@ -98,11 +98,6 @@ func (w Writer) Create(ctx context.Context, a *Arc) error {
 		if err = validateType(existing.Type, a.Type); err != nil {
 			return err
 		}
-		if existing.Name != a.Name {
-			if err = w.otgWriter.ValidateName(ctx, a.OntologyID(), a.Name); err != nil {
-				return err
-			}
-		}
 	}
 	if err = w.table.NewCreate().Entry(a).Exec(ctx, w.tx); err != nil {
 		return err

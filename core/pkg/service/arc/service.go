@@ -37,7 +37,6 @@ import (
 	"github.com/synnaxlabs/x/observe"
 	"github.com/synnaxlabs/x/override"
 	"github.com/synnaxlabs/x/service"
-	"github.com/synnaxlabs/x/set"
 	xsync "github.com/synnaxlabs/x/sync"
 	"github.com/synnaxlabs/x/telem"
 	"github.com/synnaxlabs/x/validate"
@@ -152,8 +151,6 @@ type Service struct {
 	closer   xio.MultiCloser
 	cfg      ServiceConfig
 	group    group.Group
-	reserved set.Set[string]
-	names    nameLock
 	state    *actions.State[Key, Action]
 	locks    xsync.KeyedMutex[Key]
 	sweeper  textSweeper
@@ -245,11 +242,9 @@ func OpenService(
 		return nil, err
 	}
 	s = &Service{
-		cfg:      cfg,
-		reserved: reservedNames(),
-		names:    newNameLock(),
-		state:    actions.NewState[Key, Action](cfg.DB),
-		indexes:  newIndexes(),
+		cfg:     cfg,
+		state:   actions.NewState[Key, Action](cfg.DB),
+		indexes: newIndexes(),
 		sweeper: newTextSweeper(
 			cfg.Now,
 			cfg.TextSweepQuiescence,
@@ -282,8 +277,6 @@ func OpenService(
 		return nil, err
 	}
 	cfg.Ontology.RegisterService(s)
-	// The policy reads the Arc table, so it registers after the table's migrations.
-	cfg.Ontology.RegisterPolicy(s)
 	if err = cfg.ImEx.RegisterImportExporter(s); !ok(err, nil) {
 		return nil, err
 	}
