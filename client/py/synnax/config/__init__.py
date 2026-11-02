@@ -53,7 +53,7 @@ def _saved_by_desktop(opts: Options, path: Path) -> bool:
         return False
     try:
         return opts == load_desktop_options(path)
-    except ValueError:
+    except (ValueError, OSError):
         # The file changes only the advice of errors, so a broken one must not break
         # a connection that names its Core.
         return False

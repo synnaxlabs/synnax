@@ -13,6 +13,7 @@ import os
 import socket
 import subprocess
 import sys
+from collections.abc import Callable
 from pathlib import Path
 
 import pytest
@@ -89,11 +90,22 @@ class TestTryLoadOptions:
         )
         assert embedded
 
+    @pytest.mark.parametrize(
+        "break_file",
+        # A directory at the path cannot be read as a file, on any platform or user.
+        [lambda path: path.write_text("not json"), Path.mkdir],
+        ids=["malformed", "unreadable"],
+    )
     def test_given_options_with_a_broken_desktop_file(
-        self, clusters: Clusters, desktop_file: Path
+        self,
+        clusters: Clusters,
+        desktop_file: Path,
+        break_file: Callable[[Path], object],
     ) -> None:
-        """Should connect with the given options when the Desktop file is broken."""
-        desktop_file.write_text("not json")
+        """Should connect with the given options when the Desktop file is malformed or
+        cannot be read.
+        """
+        break_file(desktop_file)
         opts, embedded = try_load_options_if_none_provided(
             host="h",
             port=1,
