@@ -22,12 +22,12 @@ import {
 import { describe, expect, it } from "vitest";
 
 import { type channel } from "@/channel";
-import { NotFoundError, UnexpectedError } from "@/errors";
+import { framer } from "@/framer";
 import { RAW_LEVEL, rawIndex } from "@/framer/cache/block";
 import { indexes, tileRange } from "@/framer/cache/grid";
 import { Reader, type ReaderProps } from "@/framer/cache/reader";
 import { Store } from "@/framer/cache/store";
-import { Frame } from "@/framer/frame";
+import { NotFoundError, UnexpectedError } from "@/index";
 import { createTestClient, SyntheticCore } from "@/testutil";
 
 const blockRange = (index: number): TimeRange => tileRange({ level: RAW_LEVEL, index });
@@ -72,7 +72,7 @@ interface SetupProps extends Partial<ReaderProps> {
   /** Runs before each fetch is answered. A rejection fails the fetch. */
   before?: (fetch: Fetch) => Promise<void>;
   /** Changes each frame the Core answers with. */
-  answer?: (frame: Frame) => Frame;
+  answer?: (frame: framer.Frame) => framer.Frame;
   /** Runs before each channel retrieval is answered. */
   beforeRetrieve?: () => Promise<void>;
   /** The stale threshold of the store, on the Core's clock. */
@@ -219,7 +219,9 @@ describe("Reader", () => {
         elapsed: 20,
         // The Core committed the index two samples past its data channel.
         answer: (frame) =>
-          new Frame(frame.map((k, s) => [k, k === 2 ? s.slice(0, s.length - 2) : s])),
+          new framer.Frame(
+            frame.map((k, s) => [k, k === 2 ? s.slice(0, s.length - 2) : s]),
+          ),
       });
       await Promise.all([reader.catchUp(1, 100), reader.catchUp(2, 100)]);
       expect(store.raw(1, 100).coveredCount).toBe(20);
@@ -335,7 +337,7 @@ describe("Reader", () => {
     // Converts the series of channel 2 to float64 once the returned flag is set.
     const createConversion = () => {
       const state = { converted: false };
-      const answer = (frame: Frame): Frame =>
+      const answer = (frame: framer.Frame): framer.Frame =>
         frame.map((k, s) => [
           k,
           state.converted && k === 2 ? s.convert(DataType.FLOAT64) : s,
@@ -465,7 +467,9 @@ describe("Reader", () => {
       const { read } = createReader({
         // The Core committed the data channel two samples past its index.
         answer: (frame) =>
-          new Frame(frame.map((k, s) => [k, k === 1 ? s.slice(0, s.length - 2) : s])),
+          new framer.Frame(
+            frame.map((k, s) => [k, k === 1 ? s.slice(0, s.length - 2) : s]),
+          ),
       });
       const tr = new TimeRange(at(0), at(10));
       const [index, data] = await Promise.all([read(tr, 1), read(tr, 2)]);
@@ -708,7 +712,7 @@ describe("Reader", () => {
       });
       const start = TimeStamp.now().sub(TimeSpan.minutes(5));
       await client.write(start, { [time.key]: [start], [data.key]: [1] });
-      const fetched: Frame[] = [];
+      const fetched: framer.Frame[] = [];
       const store = new Store();
       const reader = new Reader({
         readRemote: async (tr, keys) => {

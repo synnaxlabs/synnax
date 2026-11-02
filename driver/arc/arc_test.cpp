@@ -2929,6 +2929,99 @@ TEST(ArcTests, testWriterOpensEagerlyBeforeFirstFrame) {
     task->stop("test_stop", true);
 }
 
+/// @brief it should store an output stamped before the task started.
+TEST(ArcTests, ForwardsStampFromBeforeStart) {
+    auto client = std::make_shared<synnax::Synnax>(new_test_client());
+
+    auto input_idx = synnax::channel::Channel{
+        .name = make_unique_channel_name("early_input_idx"),
+        .data_type = x::telem::TIMESTAMP_T,
+        .is_index = true,
+    };
+    ASSERT_NIL(client->channels.create(input_idx));
+    auto output_idx = synnax::channel::Channel{
+        .name = make_unique_channel_name("early_output_idx"),
+        .data_type = x::telem::TIMESTAMP_T,
+        .is_index = true,
+    };
+    ASSERT_NIL(client->channels.create(output_idx));
+    auto input_ch = synnax::channel::Channel{
+        .name = make_unique_channel_name("early_input"),
+        .data_type = x::telem::FLOAT32_T,
+        .index = input_idx.key,
+    };
+    auto output_ch = synnax::channel::Channel{
+        .name = make_unique_channel_name("early_output"),
+        .data_type = x::telem::FLOAT32_T,
+        .index = output_idx.key,
+    };
+    ASSERT_NIL(client->channels.create(input_ch));
+    ASSERT_NIL(client->channels.create(output_ch));
+
+    synnax::arc::Arc arc_prog{
+        .name = make_unique_channel_name("early_stamp_test"),
+        .mode = synnax::arc::MODE_TEXT
+    };
+    arc_prog.text = ::arc::text::Text{
+        .raw = "func calc() {val f32} f32 {\n"
+               "    return val * 2\n"
+               "}\n" +
+               input_ch.name + " -> calc() -> " + output_ch.name + "\n"
+    };
+    ASSERT_NIL(client->arcs.create(arc_prog));
+
+    auto rack = ASSERT_NIL_P(
+        client->racks.create(make_unique_channel_name("arc_early_rack"))
+    );
+    synnax::task::Task task_meta{
+        .rack = rack.key,
+        .name = "arc_early_stamp_test",
+        .type = "arc_runtime",
+    };
+    task_meta.config = nlohmann::json{{"arc_key", arc_prog.key.to_string()}};
+    auto parser = x::json::Parser(task_meta.config);
+    auto task_cfg = ASSERT_NIL_P(arc::TaskConfig::parse(client, parser));
+
+    const auto early = x::telem::TimeStamp::now() - x::telem::MINUTE;
+    auto input_frames = std::make_shared<std::vector<x::telem::Frame>>();
+    x::telem::Frame input_fr(2);
+    auto input_idx_series = x::telem::Series(early);
+    input_idx_series.alignment = x::telem::Alignment(1, 0);
+    auto input_val_series = x::telem::Series(5.0f);
+    input_val_series.alignment = x::telem::Alignment(1, 0);
+    input_fr.emplace(input_idx.key, std::move(input_idx_series));
+    input_fr.emplace(input_ch.key, std::move(input_val_series));
+    input_frames->push_back(std::move(input_fr));
+    auto mock_streamer = pipeline::testutil::simple_streamer_factory(
+        {input_idx.key, input_ch.key},
+        input_frames
+    );
+
+    auto streamer = ASSERT_NIL_P(client->telem.open_streamer(
+        synnax::framer::StreamerConfig{.channels = {output_idx.key, output_ch.key}}
+    ));
+    auto ctx = std::make_shared<task::MockContext>(client);
+    auto task = ASSERT_NIL_P(
+        arc::Task::create(
+            task_meta,
+            ctx,
+            task_cfg,
+            std::make_shared<pipeline::SynnaxWriterFactory>(client),
+            mock_streamer
+        )
+    );
+    task->start("test_start");
+    auto output_fr = ASSERT_NIL_P(streamer.read());
+    EXPECT_EQ(output_fr.at<x::telem::TimeStamp>(output_idx.key, 0), early);
+    EXPECT_FLOAT_EQ(output_fr.at<float>(output_ch.key, 0), 10.0f);
+    task->stop("test_stop", true);
+    EXPECT_EQ(
+        find_status_by_variant(ctx->statuses, synnax::status::VARIANT_ERROR),
+        nullptr
+    );
+    ASSERT_NIL(streamer.close());
+}
+
 TEST(ArcTests, testReadOnlyNoWriteChannels) {
     auto client = std::make_shared<synnax::Synnax>(new_test_client());
 

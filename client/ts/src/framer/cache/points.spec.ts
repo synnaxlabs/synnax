@@ -23,7 +23,7 @@ import {
 import { describe, expect, it } from "vitest";
 
 import { type channel } from "@/channel";
-import { AccessDeniedError, ValidationError } from "@/errors";
+import { type framer } from "@/framer";
 import { RAW_LEVEL, rawIndex } from "@/framer/cache/block";
 import {
   index as tileIndex,
@@ -39,7 +39,7 @@ import { Reader, type RemoteReader } from "@/framer/cache/reader";
 import { Store, type StoreProps } from "@/framer/cache/store";
 import { MultiplexedStreamer } from "@/framer/cache/streamer";
 import { tileKey, TileReader } from "@/framer/cache/tile";
-import { type PointsLimit } from "@/framer/subscription";
+import { AccessDeniedError, ValidationError } from "@/index";
 import { SyntheticCore } from "@/testutil";
 
 // More points than any window here holds samples, so every sample draws.
@@ -52,8 +52,16 @@ const BREAKER: breaker.Config = {
   baseInterval: TimeSpan.milliseconds(10),
   maxInterval: TimeSpan.milliseconds(50),
 };
-const RAW: PointsLimit = { variant: "points", count: EXACT, aggregation: "min_max" };
-const TILED: PointsLimit = { variant: "points", count: 100, aggregation: "min_max" };
+const RAW: framer.PointsLimit = {
+  variant: "points",
+  count: EXACT,
+  aggregation: "min_max",
+};
+const TILED: framer.PointsLimit = {
+  variant: "points",
+  count: 100,
+  aggregation: "min_max",
+};
 
 // Returns true when the range is one whole tile of the grid.
 const isTile = (tr: TimeRange): boolean => {
@@ -115,7 +123,11 @@ const createPoints = (
     breaker: pointsBreaker,
   };
   const open = new Set<Points>();
-  const subscribe = (key: channel.Key, window: Window, limit: PointsLimit): Points => {
+  const subscribe = (
+    key: channel.Key,
+    window: Window,
+    limit: framer.PointsLimit,
+  ): Points => {
     const points: Points = new Points(props, key, window, limit, () =>
       setTimeout(() => {
         if (open.has(points)) points.value();
@@ -184,7 +196,7 @@ describe("Points", () => {
         level,
         index: tileIndex(START.add(span.mult(2)), level),
       });
-      const limitAt = (end: TimeStamp): PointsLimit => ({
+      const limitAt = (end: TimeStamp): framer.PointsLimit => ({
         ...TILED,
         view: new TimeRange(end.sub(span), end),
       });

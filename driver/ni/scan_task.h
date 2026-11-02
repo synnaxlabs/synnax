@@ -17,10 +17,13 @@
 
 #include "nlohmann/json.hpp"
 
+#include "client/cpp/ni/json.gen.h"
+#include "client/cpp/ni/types.gen.h"
 #include "client/cpp/synnax.h"
 #include "x/cpp/lib/lazy.h"
 
 #include "driver/common/scan_task.h"
+#include "driver/ni/daqmx/sugared.h"
 #include "driver/ni/ni.h"
 #include "driver/ni/syscfg/nisyscfg.h"
 #include "driver/ni/syscfg/sugared.h"
@@ -28,6 +31,7 @@
 namespace driver::ni {
 const std::string SCAN_LOG_PREFIX = "[" + INTEGRATION_NAME + ".scan_task] ";
 const std::string RESET_DEVICE_CMD = "reset_device";
+const std::string HARDWARE_KEY = "hardware";
 
 struct ResetDeviceCommandArgs {
     std::vector<std::string> device_keys;
@@ -49,6 +53,9 @@ struct Device : synnax::device::Device {
     std::string connects_to_link_name;
     /// @brief link name this device provides (chassis provide links for modules).
     std::string provides_link_name;
+    /// @brief the ports and capabilities of the device. Absent when the scan did not
+    /// read them, which keeps the stored value.
+    std::optional<::synnax::ni::Hardware> hardware;
 
     Device() = default;
 
@@ -64,6 +71,13 @@ struct Device : synnax::device::Device {
     /// @brief returns the synnax device representation along with json serialized
     /// properties.
     synnax::device::Device to_synnax() {
+        x::json::json properties = {
+            {"is_simulated", this->is_simulated},
+            {"resource_name", this->resource_name},
+            {"is_chassis", this->is_chassis},
+        };
+        if (this->hardware.has_value())
+            properties[HARDWARE_KEY] = this->hardware->to_json();
         auto dev = synnax::device::Device{
             .key = this->key,
             .rack = this->rack,
@@ -71,13 +85,7 @@ struct Device : synnax::device::Device {
             .make = this->make,
             .model = this->model,
             .name = this->name,
-            .properties =
-                x::json::json{
-                    {"is_simulated", this->is_simulated},
-                    {"resource_name", this->resource_name},
-                    {"is_chassis", this->is_chassis},
-                }
-                    .get<x::json::json::object_t>(),
+            .properties = properties.get<x::json::json::object_t>(),
         };
         dev.status = this->status;
         return dev;
@@ -98,12 +106,17 @@ class Scanner final : public common::Scanner {
     std::shared_ptr<x::lib::Lazy<syscfg::SugaredAPI>> lib;
     /// @brief the NI System Configuration library, set by the first open.
     std::shared_ptr<syscfg::SugaredAPI> syscfg;
+    /// @brief loads the DAQmx library, which reads the hardware of each device.
+    std::shared_ptr<x::lib::Lazy<daqmx::SugaredAPI>> dmx;
     /// @brief ni system configuration session handle.
     NISysCfgSessionHandle session = nullptr;
     /// @brief ni filter we use to only find certain ni devices. Null while closed.
     NISysCfgFilterHandle filter = nullptr;
     /// @brief keys of devices already logged as ignored by the model filter.
     std::unordered_set<std::string> ignored_keys;
+    /// @brief keys of devices whose last hardware read failed or was incomplete, so the
+    /// warning logs once per run of failures.
+    std::unordered_set<std::string> unread_keys;
 
     /// @brief parses the device located at the specified resource handle.
     /// @returns the parsed device and x::errors::NIL error if successful.
@@ -112,6 +125,11 @@ class Scanner final : public common::Scanner {
     /// @returns an empty device and an error if the device could not be parsed.
     std::pair<ni::Device, x::errors::Error>
     parse_device(NISysCfgResourceHandle resource);
+
+    /// @brief reads the hardware of the device unless its stored record holds complete
+    /// hardware. A failed read leaves the hardware absent, and an incomplete read keeps
+    /// what it read. The next scan reads both again.
+    void read_hardware(ni::Device &dev, const common::ScannerContext &ctx);
 
     /// @brief loads the library, then opens the session and the device filter.
     x::errors::Error open();
@@ -126,6 +144,7 @@ class Scanner final : public common::Scanner {
 public:
     explicit Scanner(
         std::shared_ptr<x::lib::Lazy<syscfg::SugaredAPI>> lib,
+        std::shared_ptr<x::lib::Lazy<daqmx::SugaredAPI>> dmx,
         ScanTaskConfig cfg,
         synnax::task::Task task
     );
