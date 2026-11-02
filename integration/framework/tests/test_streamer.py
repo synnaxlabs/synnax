@@ -35,7 +35,7 @@ def streamer(client: Client) -> Streamer:
 
 def stop(streamer: Streamer) -> None:
     streamer.stop()
-    streamer.join(timeout=WAIT)
+    streamer.join(timeout=WAIT.seconds)
 
 
 class TestStreamer:
