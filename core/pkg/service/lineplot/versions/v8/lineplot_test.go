@@ -74,6 +74,16 @@ var _ = Describe("LinePlot", func() {
 				To(MatchError(ContainSubstring("lines.0.y_axis: invalid y_axis")))
 		})
 
+		It("Should reject a line stroke width below 1", func() {
+			lp := v8.LinePlot{
+				Name:  "valid",
+				Lines: []v8.Line{{YAxis: v8.YAxisKeyY1, StrokeWidth: 0.5}},
+			}
+			lp.ApplyDefaults()
+			Expect(lp.Validate()).
+				To(MatchError(ContainSubstring("lines.0.stroke_width")))
+		})
+
 		It("Should reject an empty name", func() {
 			lp := v8.LinePlot{}
 			lp.ApplyDefaults()

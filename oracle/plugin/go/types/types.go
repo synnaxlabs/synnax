@@ -1661,17 +1661,22 @@ func (u *{{.Name}}) UnmarshalJSONFrom(dec *jsontext.Decoder) error {
 	var disc struct {
 		Type {{.DiscType}} ` + "`" + `json:"{{.DiscJSONName}}"` + "`" + `
 	}
-	if err := json.Unmarshal(data, &disc, opts); err != nil {
+	if err := json.Unmarshal(
+		data, &disc, opts, json.RejectUnknownMembers(false),
+	); err != nil {
 		return err
 	}
 	switch disc.Type {
 {{- range .Variants}}
 	case {{.ConstName}}:
-		var v {{.TypeName}}
+		var v struct {
+			Type {{$u.DiscType}} ` + "`" + `json:"{{$u.DiscJSONName}}"` + "`" + `
+			{{.TypeName}}
+		}
 		if err := json.Unmarshal(data, &v, opts); err != nil {
 			return err
 		}
-		u.Variant = v
+		u.Variant = v.{{.TypeName}}
 {{- end}}
 	default:
 		return errors.Newf("{{.Name}}: unknown {{.DiscJSONName}} %q", disc.Type)
