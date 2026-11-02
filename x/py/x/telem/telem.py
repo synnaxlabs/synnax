@@ -745,15 +745,11 @@ class Rate(float):
     """Rate represents a data rate measured in Hz."""
 
     def __new__(cls, value: CrudeRate) -> Rate:
-        if isinstance(value, float):
-            return super().__new__(cls, value)
         if isinstance(value, TimeSpan):
-            value = 1 / value.seconds
-        elif isinstance(value, int):
-            value = float(value)
-        else:
-            raise TypeError(f"Cannot convert {type(value)} to Rate")
-        return super().__new__(cls, value)
+            return super().__new__(cls, 1 / value.seconds)
+        if isinstance(value, (int, float, np.integer, np.floating)):
+            return super().__new__(cls, float(value))
+        raise TypeError(f"Cannot convert {type(value)} to Rate")
 
     @classmethod
     def __get_pydantic_core_schema__(
@@ -1023,8 +1019,8 @@ class Density(int):
     def __new__(cls, value: CrudeDensity) -> Density:
         if isinstance(value, Density):
             return value
-        if isinstance(value, int):
-            return super().__new__(cls, value)
+        if isinstance(value, (int, np.integer)):
+            return super().__new__(cls, int(value))
         raise TypeError(f"Cannot convert {type(value)} to Density")
 
     @classmethod
@@ -1390,8 +1386,8 @@ CrudeTimeSpan: TypeAlias = (
     int | float | TimeSpan | TimeStamp | timedelta | np.timedelta64 | str
 )
 _ComparableTimeSpan: TypeAlias = int | float | timedelta
-CrudeRate: TypeAlias = int | float | TimeSpan | Rate
-CrudeDensity: TypeAlias = Density | int
+CrudeRate: TypeAlias = int | float | np.integer | np.floating | TimeSpan | Rate
+CrudeDensity: TypeAlias = Density | int | np.integer
 CrudeDataType: TypeAlias = (
     DTypeLike | DataType | str | list[str] | np.number | int | float
 )

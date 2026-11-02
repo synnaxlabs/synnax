@@ -15,7 +15,9 @@ from typing import TypeAlias, overload
 
 import numpy as np
 import numpy.typing as npt
+import pandas as pd
 from pandas import DataFrame
+from pandas.api.extensions import ExtensionDtype
 from pydantic import BaseModel, Field
 from typing_extensions import TypeVar
 
@@ -47,11 +49,15 @@ class Frame:
 
     :ivar names: The names of channels in the frame, by channel key. Frames read from
         the Core carry the names of the channels they read.
+    :ivar indexes: The key of the index channel of each channel, by channel key. An
+        index channel is its own index. Frames read from the Core carry the indexes of
+        the channels they read.
     """
 
     channels: list[channel.Key | str]
     series: list[Series] = Field(default_factory=list)
     names: dict[channel.Key, str]
+    indexes: dict[channel.Key, channel.Key]
 
     @overload
     def __init__(
@@ -66,9 +72,9 @@ class Frame:
         self,
         channels: (
             list[channel.Key]
-            | tuple[channel.Key]
+            | tuple[channel.Key, ...]
             | list[str]
-            | tuple[str]
+            | tuple[str, ...]
             | DataFrame
             | Frame
             | FramePayload
@@ -84,9 +90,9 @@ class Frame:
         channels: (
             list[channel.Key | str]
             | list[channel.Key]
-            | tuple[channel.Key]
+            | tuple[channel.Key, ...]
             | list[str]
-            | tuple[str]
+            | tuple[str, ...]
             | DataFrame
             | Frame
             | FramePayload
@@ -97,10 +103,12 @@ class Frame:
         series: Sequence[TypedCrudeSeries] | None = None,
     ) -> None:
         self.names = {}
+        self.indexes = {}
         if isinstance(channels, Frame):
             self.channels = channels.channels
             self.series = channels.series
             self.names = channels.names
+            self.indexes = channels.indexes
         elif isinstance(channels, FramePayload):
             self.channels = list(channels.keys)
             self.series = channels.series
@@ -110,9 +118,7 @@ class Frame:
         elif isinstance(channels, Mapping):
             self.channels = list(channels.keys())
             self.series = [Series(d) for d in channels.values()]
-        elif (series is None or isinstance(series, list)) and (
-            channels is None or isinstance(channels, list)
-        ):
+        elif channels is None or isinstance(channels, (list, tuple)):
             self.series = [] if series is None else [Series(d) for d in series]
             self.channels = list(channels) if channels else []
         else:
@@ -155,6 +161,7 @@ class Frame:
             self.series.extend(col_or_frame.series)
             self.channels.extend(col_or_frame.channels)
             self.names.update(col_or_frame.names)
+            self.indexes.update(col_or_frame.indexes)
         else:
             if series is None:
                 raise ValueError("series must be provided when appending a channel")
@@ -180,7 +187,9 @@ class Frame:
 
     @overload
     def __getitem__(self, key: npt.NDArray[np.bool_]) -> DataFrame:
-        """Selects the rows where the boolean mask is true, through pandas."""
+        """Selects the rows of to_df() where the boolean mask is true. The mask has one
+        value for each row of to_df().
+        """
 
     def __getitem__(
         self, key: channel.Key | str | npt.NDArray[np.bool_]
@@ -247,24 +256,91 @@ class Frame:
         columns are in the order the channels first appear in the frame. Each column
         is the channel name, or the channel key when the frame does not know the name
         or when two channels in the frame share the name.
+
+        When the frame holds the index channel of every channel, the DataFrame index is
+        a UTC DatetimeIndex and the index channels are not columns. The DatetimeIndex
+        has the name of the index channel, or "time" when the frame holds more than
+        one. Channels on different index channels are joined on time, and a cell is
+        blank when its channel has no sample at that time. Integer columns with blanks
+        use pandas nullable dtypes, such as Int64. When the frame does not hold an
+        index channel, the DataFrame index is a RangeIndex.
         """
         cols = {
             k: self.names.get(k, k) if isinstance(k, channel.Key) else k
             for k in self.channels
         }
+        if len(cols) == 0:
+            return DataFrame()
         counts = Counter(cols.values())
-        base: dict[channel.Key | str, object] = {}
-        for k, name in cols.items():
-            col = name if counts[name] == 1 else k
-            v = self[k]
-            try:
-                base[col] = v.__array__()
-            except TypeError:
-                base[col] = list(v)
-        return DataFrame(base)
+        names = {k: name if counts[name] == 1 else k for k, name in cols.items()}
+        indexes: dict[channel.Key | str, channel.Key] = {}
+        for k in cols:
+            idx = self._index(k)
+            if idx is None or idx not in self:
+                return DataFrame({names[k]: _column_values(self[k]) for k in cols})
+            indexes[k] = idx
+        index_cols = {idx: k for k, idx in indexes.items() if self._key(k) == idx}
+        times = {idx: self[idx].to_numpy() for idx in set(indexes.values())}
+        merged = _time_index(np.unique(np.concatenate(list(times.values()))))
+        merged.name = (
+            names[index_cols[next(iter(times))]] if len(times) == 1 else "time"
+        )
+        data: dict[channel.Key | str, pd.Series] = {}
+        for k in cols:
+            if k in index_cols.values():
+                continue
+            t = _time_index(times[indexes[k]])
+            values = _column_values(self[k])
+            if len(t) == len(merged):
+                data[names[k]] = pd.Series(values, index=t)
+            else:
+                col = pd.Series(values, index=t, dtype=_nullable_dtype(values))
+                data[names[k]] = col.reindex(merged)
+        return DataFrame(data, index=merged)
+
+    def _key(self, key: channel.Key | str) -> channel.Key | None:
+        if isinstance(key, channel.Key):
+            return key
+        keys = [k for k, name in self.names.items() if name == key]
+        return keys[0] if len(keys) == 1 else None
+
+    def _index(self, key: channel.Key | str) -> channel.Key | None:
+        k = self._key(key)
+        return None if k is None else self.indexes.get(k)
 
     def __contains__(self, key: channel.Key | str) -> bool:
         return not self._columns(key).isdisjoint(self.channels)
+
+
+def _column_values(series: MultiSeries) -> npt.NDArray[np.generic] | list[object]:
+    if series.data_type.has_np:
+        return series.to_numpy()
+    return list(series)
+
+
+def _time_index(stamps: npt.NDArray[np.int64]) -> pd.DatetimeIndex:
+    return pd.to_datetime(stamps, unit="ns", utc=True)
+
+
+# A blank in a NumPy integer column makes it float64, which corrupts values above 2^53.
+_NULLABLE_INTS: Mapping[np.dtype, ExtensionDtype] = {
+    np.dtype(np.int8): pd.Int8Dtype(),
+    np.dtype(np.int16): pd.Int16Dtype(),
+    np.dtype(np.int32): pd.Int32Dtype(),
+    np.dtype(np.int64): pd.Int64Dtype(),
+    np.dtype(np.uint8): pd.UInt8Dtype(),
+    np.dtype(np.uint16): pd.UInt16Dtype(),
+    np.dtype(np.uint32): pd.UInt32Dtype(),
+    np.dtype(np.uint64): pd.UInt64Dtype(),
+}
+
+
+def _nullable_dtype(
+    values: npt.NDArray[np.generic] | list[object],
+) -> ExtensionDtype | None:
+    if isinstance(values, list):
+        return None
+    return _NULLABLE_INTS.get(values.dtype)
 
 
 # Bound per call, so a typed mapping of keys, names, payloads, or a mix matches.
