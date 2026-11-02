@@ -14,7 +14,13 @@ import { z } from "zod";
 import { device } from "@/device";
 import { NotFoundError } from "@/index";
 import { query } from "@/query";
-import { createTestClient, expectLive, spyOnSend, waitForStreamLive } from "@/testutil";
+import {
+  createTestClient,
+  expectLive,
+  holdResponses,
+  spyOnSend,
+  waitForStreamLive,
+} from "@/testutil";
 
 const client = createTestClient();
 
@@ -164,6 +170,24 @@ describe("Device", async () => {
         model: "dog",
         properties: { cat: "dog" },
       });
+    it("should keep a rename that lands before an older fetch", async () => {
+      const d = await createDevice(`device-${id.create()}`);
+      const local = createTestClient();
+      await local.connect();
+      await waitForStreamLive(local.connection);
+      await local.devices.retrieve(d.key);
+      const { responded, release } = holdResponses(local, "/device/retrieve");
+      const fetching = local.devices.retrieve({ where: { name: { eq: d.name } } });
+      await responded;
+      const name = `device-renamed-${id.create()}`;
+      await client.devices.rename(d.key, name);
+      await expect
+        .poll(() => expectLive(local.devices.getCached(d.key)).name)
+        .toBe(name);
+      release();
+      await fetching;
+      expect(expectLive(local.devices.getCached(d.key)).name).toBe(name);
+    });
     it("should rename a device and keep its properties", async () => {
       const d = await createDevice("device-rename");
       await client.devices.rename(d.key, "device-renamed");

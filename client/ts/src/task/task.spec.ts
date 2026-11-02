@@ -22,6 +22,7 @@ import { task } from "@/task";
 import {
   createTestClient,
   createTestClientWithPolicy,
+  expectLive,
   holdResponses,
   recordResponses,
   spyOnSend,
@@ -117,6 +118,27 @@ describe("Task", async () => {
     });
   });
   describe("rename", () => {
+    it("should keep a rename that lands before an older fetch by name", async () => {
+      const m = await testRack.createTask({
+        name: `task-${id.create()}`,
+        config: { routingKey: "rk" },
+        type: "pagerduty_alert",
+      });
+      const local = createTestClient();
+      await local.connect();
+      await waitForStreamLive(local.connection);
+      await local.tasks.retrieve(m.key);
+      local.statuses.store.delete(task.statusKey(m.key));
+      const { responded, release } = holdResponses(local, "/task/retrieve");
+      const fetching = local.tasks.retrieve({ name: m.name });
+      await responded;
+      const name = `task-renamed-${id.create()}`;
+      await client.tasks.rename(m.key, name);
+      await expect.poll(() => expectLive(local.tasks.getCached(m.key)).name).toBe(name);
+      release();
+      await fetching;
+      expect(expectLive(local.tasks.getCached(m.key)).name).toBe(name);
+    });
     it("should rename a task and keep its config", async () => {
       const m = await testRack.createTask({
         name: "task-rename",
