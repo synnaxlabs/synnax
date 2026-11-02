@@ -7,10 +7,10 @@
 #  License, use of this software will be governed by the Apache License, Version 2.0,
 #  included in the file licenses/APL.txt.
 
-from typing import Any, Literal
+from typing import Literal, Unpack
 
 from console.layout import LayoutClient
-from console.task.channels.counter import Counter
+from console.task.channels.counter import Counter, Options
 
 
 class AngularVelocity(Counter):
@@ -39,7 +39,7 @@ class AngularVelocity(Counter):
         pulses_per_rev: int | None = None,
         terminal_a: str | None = None,
         terminal_b: str | None = None,
-        **kwargs: Any,
+        **kwargs: Unpack[Options],
     ) -> None:
         """Initialize angular velocity channel with configuration."""
         super().__init__(

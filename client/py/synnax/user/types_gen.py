@@ -12,6 +12,7 @@
 from __future__ import annotations
 
 from typing import TypeAlias
+from typing import override as _override
 from uuid import UUID
 
 from pydantic import BaseModel, Field
@@ -36,6 +37,7 @@ class User(BaseModel):
     name: str = Field(min_length=1)
     root_user: bool = False
 
+    @_override
     def __hash__(self) -> int:
         return hash(self.key)
 

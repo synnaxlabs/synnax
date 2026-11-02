@@ -103,6 +103,11 @@ class SimulatorCase(HardwareCase):
             self.sim = None
 
     @property
+    def rack_name(self) -> str:
+        """The name of the rack that holds the devices of the simulators."""
+        return self.options.driver_rack
+
+    @property
     def simulator_process(self) -> BaseProcess | None:
         """Access the underlying process (for DisconnectTask compatibility)."""
         if self.sim is not None:
@@ -123,7 +128,7 @@ class SimulatorCase(HardwareCase):
 
     def _connect_device_for(self, sim_cls: type[DeviceSim]) -> None:
         """Get or create the hardware device for a given simulator class."""
-        rack = self.client.racks.retrieve(name=self.options.driver_rack)
+        rack = self.client.racks.retrieve(name=self.rack_name)
         device_instance = sim_cls.create_device(rack.key)
         try:
             existing = self.client.devices.retrieve(name=device_instance.name)
