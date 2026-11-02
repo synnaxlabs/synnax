@@ -9,5 +9,6 @@
 
 export * from "@/log/actions";
 export * from "@/log/actions.gen";
+export * from "@/log/builder.gen";
 export * from "@/log/client";
 export * from "@/log/types.gen";

@@ -495,11 +495,13 @@ var _ = Describe("Go Filter Plugin", func() {
 			Expect(resp.Files).To(BeEmpty())
 		})
 
-		DescribeTable("Should reject a typed line that calls a generated matcher", func(
-			ctx SpecContext,
-			line, function string,
-		) {
-			req := MustGenerateRequest(ctx, `
+		DescribeTable(
+			"Should reject a typed line that calls a generated matcher",
+			func(
+				ctx SpecContext,
+				line, domains, function string,
+			) {
+				req := MustGenerateRequest(ctx, `
 				import "schemas/x/filter"
 
 				@go output "core/pkg/service/thing"
@@ -511,16 +513,28 @@ var _ = Describe("Go Filter Plugin", func() {
 					@retrieve
 				}
 				Where filter Thing {
-					`+line+` bool
+					`+line+` bool `+domains+`
 				}
 			`, "thing", loader)
-			Expect(p.Generate(req)).Error().To(MatchError(ContainSubstring(
-				"filter thing.Where: typed line " + line + " calls " + function +
-					", which the generated code already declares; rename the line",
-			)))
-		},
-			Entry("for a field matcher", "active", "MatchActive"),
-			Entry("for the search filter", "search", "MatchSearch"),
+				Expect(p.Generate(req)).Error().To(MatchError(ContainSubstring(
+					"filter thing.Where: typed line " + line + " calls " + function +
+						", which the generated code already declares; rename the line",
+				)))
+			},
+			Entry("for a field matcher", "active", "", "MatchActive"),
+			Entry("for the keys filter", "keys", "", "MatchKeys"),
+			Entry(
+				"for the tree through a Go name",
+				"predicate",
+				"{ @go name Where }",
+				"MatchWhere",
+			),
+			Entry(
+				"for the search through a Go name",
+				"predicate",
+				"{ @go name Search }",
+				"MatchSearch",
+			),
 		)
 
 		It("Should reject a constrained type parameter", func(ctx SpecContext) {
