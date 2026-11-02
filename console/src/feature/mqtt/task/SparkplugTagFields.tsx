@@ -9,49 +9,55 @@
 
 import { Flex } from "@synnaxlabs/lyra/flex";
 import { Form as PForm } from "@synnaxlabs/lyra/form";
+import { deep } from "@synnaxlabs/x";
+
+import { type SparkplugTagID } from "@/feature/mqtt/task/types";
 
 export interface SparkplugNodeFieldsProps {
-  path: string;
+  path: deep.Target<Pick<SparkplugTagID, "group" | "edgeNode">>;
 }
 
-export const SparkplugNodeFields = ({ path }: SparkplugNodeFieldsProps) => (
-  <Flex.Box x>
-    <PForm.TextField
-      path={`${path}.group`}
-      label="Group"
-      inputProps={GROUP_INPUT_PROPS}
-      grow
-    />
-    <PForm.TextField
-      path={`${path}.edgeNode`}
-      label="Edge node"
-      inputProps={EDGE_NODE_INPUT_PROPS}
-      grow
-    />
-  </Flex.Box>
-);
-
-export interface SparkplugTagFieldsProps extends SparkplugNodeFieldsProps {}
-
-export const SparkplugTagFields = ({ path }: SparkplugTagFieldsProps) => (
-  <>
-    <SparkplugNodeFields path={path} />
+export const SparkplugNodeFields = ({ path }: SparkplugNodeFieldsProps) => {
+  const node = deep.widen(path);
+  return (
     <Flex.Box x>
       <PForm.TextField
-        path={`${path}.device`}
-        label="Device"
-        inputProps={DEVICE_INPUT_PROPS}
+        path={node.group}
+        label="Group"
+        inputProps={GROUP_INPUT_PROPS}
         grow
       />
       <PForm.TextField
-        path={`${path}.tag`}
-        label="Tag"
-        inputProps={TAG_INPUT_PROPS}
+        path={node.edgeNode}
+        label="Edge node"
+        inputProps={EDGE_NODE_INPUT_PROPS}
         grow
       />
     </Flex.Box>
-  </>
-);
+  );
+};
+
+export interface SparkplugTagFieldsProps {
+  path: deep.Target<SparkplugTagID>;
+}
+
+export const SparkplugTagFields = ({ path }: SparkplugTagFieldsProps) => {
+  const tag = deep.widen(path);
+  return (
+    <>
+      <SparkplugNodeFields path={path} />
+      <Flex.Box x>
+        <PForm.TextField
+          path={tag.device}
+          label="Device"
+          inputProps={DEVICE_INPUT_PROPS}
+          grow
+        />
+        <PForm.TextField path={tag.tag} label="Tag" inputProps={TAG_INPUT_PROPS} grow />
+      </Flex.Box>
+    </>
+  );
+};
 
 const GROUP_INPUT_PROPS = { placeholder: "plant" } as const;
 

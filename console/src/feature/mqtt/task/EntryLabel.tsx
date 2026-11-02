@@ -11,13 +11,24 @@ import "@/feature/mqtt/task/EntryLabel.css";
 
 import { Flex } from "@synnaxlabs/lyra/flex";
 import { Form as PForm } from "@synnaxlabs/lyra/form";
+import { deep } from "@synnaxlabs/x";
 
+import { type SparkplugTagID } from "@/feature/mqtt/task/types";
 import { CSS } from "@/platform/css";
 import { Task } from "@/platform/task";
 
+interface PlainEntry {
+  type: "plain";
+  topic: string;
+}
+
+interface SparkplugEntry extends SparkplugTagID {
+  type: "sparkplug";
+}
+
 export interface EntryLabelProps {
   /** The form path of a read entry or a write target. */
-  path: string;
+  path: deep.Target<PlainEntry | SparkplugEntry>;
 }
 
 const KINDS = {
@@ -47,16 +58,16 @@ const Label = ({ type, identity }: LabelProps) => {
   );
 };
 
-const PlainLabel = ({ path }: EntryLabelProps) => {
-  const topic = PForm.useFieldValue<string>(`${path}.topic`);
+const PlainLabel = ({ path }: { path: deep.Path<PlainEntry> }) => {
+  const topic = PForm.useFieldValue(path.topic);
   return <Label type="plain" identity={topic} />;
 };
 
-const SparkplugLabel = ({ path }: EntryLabelProps) => {
-  const group = PForm.useFieldValue<string>(`${path}.group`);
-  const edgeNode = PForm.useFieldValue<string>(`${path}.edgeNode`);
-  const device = PForm.useFieldValue<string>(`${path}.device`);
-  const tag = PForm.useFieldValue<string>(`${path}.tag`);
+const SparkplugLabel = ({ path }: { path: deep.Path<SparkplugEntry> }) => {
+  const group = PForm.useFieldValue(path.group);
+  const edgeNode = PForm.useFieldValue(path.edgeNode);
+  const device = PForm.useFieldValue(path.device);
+  const tag = PForm.useFieldValue(path.tag);
   const identity =
     tag === ""
       ? ""
@@ -69,6 +80,10 @@ const SparkplugLabel = ({ path }: EntryLabelProps) => {
  * or the full tag path of a Sparkplug B entry.
  */
 export const EntryLabel = ({ path }: EntryLabelProps) => {
-  const type = PForm.useFieldValue<LabelProps["type"]>(`${path}.type`);
-  return type === "plain" ? <PlainLabel path={path} /> : <SparkplugLabel path={path} />;
+  const type = PForm.useFieldValue(deep.widen(path).type);
+  return type === "plain" ? (
+    <PlainLabel path={deep.variant(path, "type", "plain")} />
+  ) : (
+    <SparkplugLabel path={deep.variant(path, "type", "sparkplug")} />
+  );
 };

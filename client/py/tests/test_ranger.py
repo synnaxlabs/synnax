@@ -9,7 +9,7 @@
 
 import re
 from collections.abc import Callable
-from typing import cast
+from typing import cast, override
 from uuid import uuid4
 
 import numpy as np
@@ -454,6 +454,7 @@ class TestRangeClient:
             )
 
             class Test:
+                @override
                 def __str__(self) -> str:
                     return "test"
 

@@ -9,7 +9,7 @@
 
 from __future__ import annotations
 
-from typing import overload
+from typing import overload, override
 from uuid import UUID
 
 from pydantic import BaseModel, PrivateAttr
@@ -183,9 +183,11 @@ class Channel(Payload):
             )
         return self._cached_frame_client
 
+    @override
     def __hash__(self) -> int:
         return hash(self.key)
 
+    @override
     def __eq__(self, other: object) -> bool:
         if not isinstance(other, Channel):
             return NotImplemented

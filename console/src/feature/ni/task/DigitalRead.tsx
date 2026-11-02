@@ -12,7 +12,7 @@ import { Component } from "@synnaxlabs/lyra/component";
 import { Flex } from "@synnaxlabs/lyra/flex";
 import { Form as PForm } from "@synnaxlabs/lyra/form";
 import { Icon } from "@synnaxlabs/lyra/icon";
-import { errors, primitive } from "@synnaxlabs/x";
+import { deep, errors, primitive } from "@synnaxlabs/x";
 import { type FC } from "react";
 
 import { Device } from "@/feature/ni/device";
@@ -37,6 +37,8 @@ import { Device as PlatformDevice } from "@/platform/device";
 import { Selector } from "@/platform/selector";
 import { Task } from "@/platform/task";
 
+const root = deep.path<Task.Values<DigitalReadSchemas>>();
+
 const Properties = () => (
   <>
     <Device.Select />
@@ -54,7 +56,7 @@ const NameComponent = ({ channel, itemKey, path }: NameComponentProps) => (
     channel={channel}
     id={Task.getChannelNameID(itemKey)}
     level="p"
-    namePath={`${path}.name`}
+    namePath={path.name}
   />
 );
 
@@ -62,7 +64,7 @@ const name = Component.renderProp(NameComponent);
 
 const Form: FC = () => {
   const dev = Device.useFromConfig();
-  PForm.useCheck("config", digitalHardwareZ(dev, "input"));
+  PForm.useCheck(root.config, digitalHardwareZ(dev, "input"));
   const resolve = (ch: DIChannel) =>
     dev == null
       ? null
@@ -72,6 +74,7 @@ const Form: FC = () => {
         };
   return (
     <DigitalChannelList<DIChannel>
+      path={root.config.channels}
       createChannel={(channels) => createNextDIChannel(channels, {}, dev)}
       name={name}
       contextMenuItems={Task.readChannelContextMenuItem}
