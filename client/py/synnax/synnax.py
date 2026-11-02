@@ -236,6 +236,7 @@ class Synnax(framer.Client):
             signals=self.signals,
             ontology=self.ontology,
             tasks=self.tasks,
+            labels=self.labels,
         )
         self.control = ControlClient(
             framer=self, channels=ch_retriever, client=self._transport.unary

@@ -256,6 +256,7 @@ class Range(Payload):
     _cached_client: Client | None = PrivateAttr(None)
     _cached_tasks: TaskClient | None = PrivateAttr(None)
     _cached_ontology: OntologyClient | None = PrivateAttr(None)
+    _cached_label_client: label.Client | None = PrivateAttr(None)
 
     def __init__(
         self,
@@ -272,6 +273,7 @@ class Range(Payload):
         _client: Client | None = None,
         _tasks: TaskClient | None = None,
         _ontology: OntologyClient | None = None,
+        _label_client: label.Client | None = None,
     ):
         """Initializes a new Range using the given parameters. It's important to note
         that this does not create the Range in the cluster. To create the range, call
@@ -318,6 +320,7 @@ class Range(Payload):
         self._cached_client = _client
         self._cached_tasks = _tasks
         self._cached_ontology = _ontology
+        self._cached_label_client = _label_client
 
     def _get_scoped_channel(
         self, channels: list[channel.Payload], query: str
@@ -411,6 +414,12 @@ class Range(Payload):
         return self._cached_ontology
 
     @property
+    def _label_client(self) -> label.Client:
+        if self._cached_label_client is None:
+            raise _RANGE_NOT_CREATED
+        return self._cached_label_client
+
+    @property
     def _channel_retriever(self) -> ChannelRetriever:
         if self._channels is None:
             raise _RANGE_NOT_CREATED
@@ -499,6 +508,24 @@ class Range(Payload):
         ]
         return self._client.retrieve(keys=child_keys)
 
+    def retrieve_labels(self) -> list[label.Label]:
+        """Retrieves the labels on the range from the Core."""
+        return self._label_client.retrieve(for_=self.ontology_id)
+
+    def add_label(self, *labels: label.Key) -> None:
+        """Adds labels to the range.
+
+        :param labels: The keys of the labels to add.
+        """
+        self._label_client.label(self.ontology_id, list(labels))
+
+    def remove_label(self, *labels: label.Key) -> None:
+        """Removes labels from the range.
+
+        :param labels: The keys of the labels to remove.
+        """
+        self._label_client.remove(self.ontology_id, list(labels))
+
     def snapshots(self) -> list[Task]:
         res = self._ontology.retrieve_children(self.ontology_id)
         tasks = [t for t in res if t.type == "task"]
@@ -516,6 +543,7 @@ class Client:
     _signals: Registry
     _tasks: TaskClient
     _ontology: OntologyClient
+    _labels: label.Client
 
     def __init__(
         self,
@@ -528,6 +556,7 @@ class Client:
         signals: Registry,
         tasks: TaskClient,
         ontology: OntologyClient,
+        labels: label.Client,
     ) -> None:
         self._unary_client = unary_client
         self._frame_client = frame_client
@@ -537,6 +566,7 @@ class Client:
         self._signals = signals
         self._tasks = tasks
         self._ontology = ontology
+        self._labels = labels
 
     @overload
     def create(
@@ -780,6 +810,7 @@ class Client:
                 _client=self,
                 _ontology=self._ontology,
                 _tasks=self._tasks,
+                _label_client=self._labels,
             )
             rng.labels = r.labels
             if r.parent is not None:
