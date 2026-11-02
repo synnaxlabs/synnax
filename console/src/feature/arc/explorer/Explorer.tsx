@@ -44,10 +44,10 @@ const RootContextMenu = ({ root, state }: Tree.DefaultContextMenuProps) => {
 };
 
 export const Explorer: Panel.Content = () => {
-  const groupID = Ontology.useRootChildID({ name: "Arcs" });
+  const rootID = Ontology.useRootChildID({ name: "Arcs" });
   return (
     <Tree.Tree
-      root={groupID}
+      root={rootID}
       emptyContent={<Empty.Action message="No Arcs" />}
       rootContextMenu={RootContextMenu}
     />

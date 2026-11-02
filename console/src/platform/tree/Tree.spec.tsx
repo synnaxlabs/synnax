@@ -442,10 +442,10 @@ describe("Tree.Tree", () => {
       });
       const name = uniqueName("grp");
       await client.groups.create({ parent: group.ontologyID(root.key), name });
-      const RootContextMenu = (props: Tree.DefaultContextMenuProps): ReactElement => (
-        <Tree.DefaultContextMenu {...props}>
+      const RootContextMenu = (): ReactElement => (
+        <Menu.Menu>
           <Menu.Item itemKey="extra">Extra item</Menu.Item>
-        </Tree.DefaultContextMenu>
+        </Menu.Menu>
       );
       render(
         <Tree.Tree
@@ -457,7 +457,7 @@ describe("Tree.Tree", () => {
       await screen.findByText(name);
       await openTreeRootContextMenu();
       await waitFor(() => expect(screen.getByText("Extra item")).toBeTruthy());
-      expect(screen.getByText("New group")).toBeTruthy();
+      expect(screen.queryByText("New group")).toBeNull();
     });
 
     it("should route a right-click on an item to its service's context menu with the selection", async () => {

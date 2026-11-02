@@ -13,7 +13,7 @@ import { fireEvent, screen, waitFor } from "@testing-library/react";
 import { describe, expect, it } from "vitest";
 
 import { Arc } from "@/feature/arc";
-import { retrieveArcsGroupID } from "@/platform/arc/testutil";
+import { retrieveRootDirectoryID } from "@/platform/arc/testutil";
 import { findButton } from "@/platform/modals/testutil";
 import {
   findTreeRow,
@@ -34,7 +34,7 @@ import {
 const client = createTestClient();
 
 const createArcInDirectory = async () => {
-  const arcsID = await retrieveArcsGroupID(client);
+  const arcsID = await retrieveRootDirectoryID(client);
   const dir = await client.arcs.directories.create({
     parent: arcsID.key,
     name: uniqueName("dir"),

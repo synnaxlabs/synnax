@@ -12,10 +12,12 @@ import { createTestClient } from "@synnaxlabs/client/testutil";
 
 export const client = createTestClient();
 
-/** Resolves the Arcs group the Core keeps under the ontology root. */
-export const retrieveArcsGroupID = async (client: Synnax): Promise<ontology.ID> => {
-  const children = await client.ontology.children.retrieve({ ids: ontology.ROOT_ID });
-  const arcs = children.find((r) => r.name === "Arcs");
-  if (arcs == null) throw new Error("Arcs group not found");
-  return arcs.id;
+/** Resolves the root Arcs directory the Core keeps under the ontology root. */
+export const retrieveRootDirectoryID = async (client: Synnax): Promise<ontology.ID> => {
+  const [root] = await client.ontology.children.retrieve({
+    ids: ontology.ROOT_ID,
+    types: ["arc_directory"],
+  });
+  if (root == null) throw new Error("root Arcs directory not found");
+  return root.id;
 };

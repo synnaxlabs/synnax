@@ -14,7 +14,7 @@ import { describe, expect, it } from "vitest";
 
 import { Arc } from "@/feature/arc";
 import { Explorer } from "@/feature/arc/explorer/Explorer";
-import { retrieveArcsGroupID } from "@/platform/arc/testutil";
+import { retrieveRootDirectoryID } from "@/platform/arc/testutil";
 import {
   expandTreeRow,
   findTreeRow,
@@ -53,7 +53,7 @@ describe("arc/Explorer", () => {
 
   it("creates a directory in the Arcs directory from the root context menu", async () => {
     const arc = await createArc();
-    const arcsID = await retrieveArcsGroupID(client);
+    const arcsID = await retrieveRootDirectoryID(client);
     await renderExplorer();
     await findTreeRow(arc.name);
     await openTreeRootContextMenu();
@@ -75,7 +75,7 @@ describe("arc/Explorer", () => {
   });
 
   it("shows an Arc inside nested directories once each parent is expanded", async () => {
-    const arcsID = await retrieveArcsGroupID(client);
+    const arcsID = await retrieveRootDirectoryID(client);
     const dir = await createDirectory(arcsID);
     const sub = await createDirectory(clientArc.directory.ontologyID(dir.key));
     const module = await createModule();
@@ -93,7 +93,7 @@ describe("arc/Explorer", () => {
   });
 
   it("creates a directory inside a directory from its context menu", async () => {
-    const dir = await createDirectory(await retrieveArcsGroupID(client));
+    const dir = await createDirectory(await retrieveRootDirectoryID(client));
     await renderExplorer();
     await openTreeRowContextMenu(dir.name);
     fireEvent.click(await screen.findByText("New directory"));

@@ -28,7 +28,7 @@ import (
 )
 
 // testParent satisfies the registry's required-parent check; the Arc importer ignores
-// it and parents under the Arcs group, so the ID only has to be non-zero.
+// it and parents under the root Arcs directory, so the ID only has to be non-zero.
 var testParent = ontology.ID{Type: ontology.ResourceTypeProject, Key: "imex-parent"}
 
 var _ = Describe("ImEx", func() {
@@ -132,7 +132,7 @@ var _ = Describe("ImEx", func() {
 		})
 
 		It(
-			"Should parent the imported Arc under the Arcs group",
+			"Should parent the imported Arc under the root Arcs directory",
 			func(ctx SpecContext) {
 				res := importAndRetrieve(
 					ctx,
@@ -146,6 +146,7 @@ var _ = Describe("ImEx", func() {
 					Entries(&parents).
 					Exec(ctx, db)).To(Succeed())
 				Expect(parents).To(HaveLen(1))
+				Expect(parents[0].ID.Type).To(Equal(ontology.ResourceTypeArcDirectory))
 				Expect(parents[0].Name).To(Equal("Arcs"))
 			},
 		)
