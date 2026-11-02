@@ -146,7 +146,8 @@ class TestReader:
         assert list(df.columns) == [data_ch.name]
         assert df.index.name == idx_ch.name
         assert np.array_equal(df[data_ch.name], np.arange(10, dtype=np.float64))
-        times = pd.to_datetime(seconds_linspace(1, count=10), unit="ns", utc=True)
+        stamps = np.array(seconds_linspace(1, count=10), dtype=np.int64)
+        times = pd.to_datetime(stamps, unit="ns", utc=True)
         assert list(df.index) == list(times)
 
     def test_read_by_name(
