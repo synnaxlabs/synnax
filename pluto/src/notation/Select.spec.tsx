@@ -58,6 +58,23 @@ describe("Notation.Select", () => {
     expect(hover(c.getByRole("button", { name: /Engineering/ }))).toBeUndefined();
   });
 
+  it("should add the tooltips when a resize swaps the labels for icons", () => {
+    const query = Object.assign(new EventTarget(), {
+      media: "",
+      matches: false,
+      onchange: null,
+      addListener: () => {},
+      removeListener: () => {},
+    });
+    vi.stubGlobal("matchMedia", () => query);
+    const c = render(<Notation.Select value="standard" onChange={() => {}} />);
+    act(() => {
+      query.matches = true;
+      query.dispatchEvent(new Event("change"));
+    });
+    expect(hover(c.getByRole("button", { name: /Engineering/ }))).toBe("Engineering");
+  });
+
   it("should name each button in a tooltip while it shows icons", () => {
     showIcons(true);
     const c = render(<Notation.Select value="standard" onChange={() => {}} />);
