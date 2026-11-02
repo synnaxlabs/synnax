@@ -29,13 +29,13 @@ class _Response(BaseModel):
 
 
 class _DeleteRequest(BaseModel):
-    keys: list[Key] | tuple[Key] | None = None
-    names: list[str] | tuple[str] | None = None
+    keys: list[Key] | tuple[Key, ...] | None = None
+    names: list[str] | tuple[str, ...] | None = None
 
 
 class _RenameRequest(BaseModel):
-    keys: list[Key] | tuple[Key]
-    names: list[str] | tuple[str]
+    keys: list[Key] | tuple[Key, ...]
+    names: list[str] | tuple[str, ...]
 
 
 class Writer:
@@ -70,7 +70,7 @@ class Writer:
 
     @trace("debug")
     def rename(
-        self, keys: list[Key] | tuple[Key], names: list[str] | tuple[str]
+        self, keys: list[Key] | tuple[Key, ...], names: list[str] | tuple[str, ...]
     ) -> None:
         req = _RenameRequest(keys=keys, names=names)
         self._client.send("/channel/rename", req, Empty)

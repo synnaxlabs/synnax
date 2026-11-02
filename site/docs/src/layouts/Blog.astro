@@ -59,7 +59,7 @@ const posting = {
         set:html={JSON.stringify(posting).replaceAll("<", "\\u003c")}
     />
     <OutlineBar slot="subheader" headings={shown} outline={frontmatter.outline} />
-    <section>
+    <section class="blog-post">
         <Article
             url={route}
             title={heading ?? title}
@@ -102,6 +102,26 @@ const posting = {
 </Root>
 
 <style is:global>
+    /* Where the right gutter fits the outline, the text column centers on the page
+       and the outline hangs in the gutter. */
+    @media (width >= 1440px) {
+        main > section.blog-post {
+            display: grid;
+            grid-template-columns: minmax(0, 1fr) 138rem minmax(0, 1fr);
+            gap: 0;
+            max-width: none;
+
+            & > article {
+                grid-column: 2;
+            }
+
+            & > nav.on-this-page {
+                grid-column: 3;
+                margin-left: clamp(4rem, 50vw - 700px, 8rem);
+            }
+        }
+    }
+
     .blog-meta {
         position: absolute;
         top: 5rem;
@@ -218,8 +238,8 @@ const posting = {
     }
 
     .blog-author__photo {
-        width: 6rem;
-        height: 6rem;
+        width: 5rem;
+        height: 5rem;
         border-radius: 50%;
         object-fit: cover;
         object-position: center 20%;

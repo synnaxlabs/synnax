@@ -21,7 +21,7 @@ class Color(BaseModel):
     r: int = Field(default=0, ge=0, le=255)
     g: int = Field(default=0, ge=0, le=255)
     b: int = Field(default=0, ge=0, le=255)
-    a: float = 1
+    a: float = Field(default=1, ge=0, le=1)
 
     def __init__(self, __value: object = None, /, **kwargs: object):
         if __value is not None:
@@ -118,8 +118,6 @@ def _normalize_alpha(a: float) -> float:
 
 def _from_hex(s: str) -> dict[str, int | float]:
     s = s.lstrip("#")
-    if len(s) == 0:
-        return {"r": 0, "g": 0, "b": 0, "a": 0}
     if len(s) == 6:
         return {
             "r": int(s[0:2], 16),
