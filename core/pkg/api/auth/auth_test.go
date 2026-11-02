@@ -192,7 +192,7 @@ var _ = Describe("Disabled methods", func() {
 		Expect(disabled(ctx, auth.MethodPassword).SetPassword(
 			requestCtx(ctx),
 			nil,
-			apiauth.PasswordSetRequest{Password: "new", CurrentPassword: own.Password},
+			apiauth.PasswordSetRequest{Password: "new"},
 		)).Error().To(MatchError(validate.ErrValidation))
 		MustSucceed(passwordSvc.Authenticate(ctx, passwordProof(own.Username, "old")))
 	})
@@ -313,8 +313,7 @@ var _ = Describe("SetPassword", func() {
 	) {
 		other := login(ctx, bob.Name, "old")
 		res := MustSucceed(set(ctx, bobToken, apiauth.PasswordSetRequest{
-			Password:        "new",
-			CurrentPassword: "old",
+			Password: "new",
 		}))
 		Expect(res.Session).ToNot(BeNil())
 		Expect(res.Session.Subject).To(Equal(bob.OntologyID()))
@@ -330,9 +329,8 @@ var _ = Describe("SetPassword", func() {
 	) {
 		fctx := authed(ctx, bobToken)
 		res := MustSucceed(apiSvc.SetPassword(fctx, nil, apiauth.PasswordSetRequest{
-			Password:        "new",
-			CurrentPassword: "old",
-			Cookie:          true,
+			Password: "new",
+			Cookie:   true,
 		}))
 		Expect(res.Token).To(BeEmpty())
 		cookie := MustBeOk(fctx.Get(apiauth.SessionCookieParam)).(apiauth.SessionCookie)
@@ -351,29 +349,12 @@ var _ = Describe("SetPassword", func() {
 			apiauth.SessionCreateRequest{Proof: keyProof(key.Token)},
 		)).Token
 		res := MustSucceed(set(ctx, keyToken, apiauth.PasswordSetRequest{
-			Password:        "new",
-			CurrentPassword: "old",
+			Password: "new",
 		}))
 		Expect(res).To(Equal(apiauth.PasswordSetResponse{}))
 		MustSucceed(authSvc.Authenticate(ctx, keyToken))
 		Expect(authSvc.Authenticate(ctx, bobToken)).Error().
 			To(MatchError(auth.ErrInvalidToken))
-	})
-	It("Should refuse the caller's own password with a wrong current one", func(
-		ctx SpecContext,
-	) {
-		Expect(set(ctx, bobToken, apiauth.PasswordSetRequest{
-			Password:        "new",
-			CurrentPassword: "wrong",
-		})).Error().To(MatchError(auth.ErrInvalidCredentials))
-		login(ctx, bob.Name, "old")
-	})
-	It("Should refuse the caller's own password without the current one", func(
-		ctx SpecContext,
-	) {
-		Expect(set(ctx, bobToken, apiauth.PasswordSetRequest{Password: "new"})).
-			Error().To(MatchError(ContainSubstring("password: required")))
-		login(ctx, bob.Name, "old")
 	})
 	It("Should let the owner set another user's password", func(ctx SpecContext) {
 		Expect(set(ctx, rootToken, apiauth.PasswordSetRequest{

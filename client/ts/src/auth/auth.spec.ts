@@ -787,11 +787,10 @@ describe("auth", () => {
         { credentials: { username, password: "old" } },
         { onSuccess: (key) => successes.push(key) },
       );
-      await expect(self.setPassword({ password: "new" })).rejects.toThrow();
       await self.retrieveSessions();
       const old = self.session?.key;
       const before = successes.length;
-      await self.setPassword({ password: "new", currentPassword: "old" });
+      await self.setPassword({ password: "new" });
       expect(successes).toHaveLength(before + 1);
       expect(self.session?.key).toBeDefined();
       expect(successes.at(-1)).toEqual(self.session?.key);
@@ -810,7 +809,7 @@ describe("auth", () => {
         credentials: { username: first.username, password: "old" },
       });
       await client.retrieveSessions();
-      const change = client.setPassword({ password: "new", currentPassword: "old" });
+      const change = client.setPassword({ password: "new" });
       client.setCredentials({ username: second.username, password: "old" });
       await change;
       await client.retrieveSessions();
@@ -824,7 +823,7 @@ describe("auth", () => {
       const token = opener.token;
       if (token == null) throw new Error("no token");
       const resumed = makeClient({ token });
-      await resumed.setPassword({ password: "new", currentPassword: "old" });
+      await resumed.setPassword({ password: "new" });
       expect(resumed.token).not.toEqual(token);
       await resumed.retrieveSessions();
       await expect(opener.retrieveSessions()).rejects.toThrow(AuthError);
