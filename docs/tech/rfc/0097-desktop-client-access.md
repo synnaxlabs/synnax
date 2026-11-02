@@ -55,7 +55,9 @@ After sign-in, the main window reads the saved key. When it is missing, malforme
 not in `client.auth.retrieveKeys()`, the window creates a key named "Scripts on this
 computer" and saves it. Otherwise it saves the same key again, with the current port.
 Root's API keys survive the password reset of each launch (RFC 0073 §4.7). When a save
-fails, the window deletes the new key.
+fails, the window deletes the new key. The shell saves a key only while the file holds
+the key the window read, so a window that loses a race deletes its new key and uses the
+saved one.
 
 ### 3.3 The dialog
 

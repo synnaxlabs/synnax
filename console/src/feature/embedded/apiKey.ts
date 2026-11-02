@@ -24,15 +24,29 @@ const recordKey = (token: string): auth.APIKeyKey | null => {
   }
 };
 
-const create = async (client: Synnax): Promise<string> => {
+const known = async (client: Synnax, token: string): Promise<boolean> => {
+  const key = recordKey(token);
+  if (key == null) return false;
+  const keys = await client.auth.retrieveKeys();
+  return keys.some((k) => k.key === key);
+};
+
+/** @returns The new key, or null when another window changed the saved key first. */
+const create = async (
+  client: Synnax,
+  replaces: string | null,
+): Promise<string | null> => {
   const { token, key } = await client.auth.createKey({ name: NAME });
+  let saved: boolean;
   try {
-    await saveAPIKey(token);
+    saved = await saveAPIKey(token, replaces);
   } catch (e) {
     await client.auth.deleteKeys(key.key).catch(console.error);
     throw errors.fromUnknown(e);
   }
-  return token;
+  if (saved) return token;
+  await client.auth.deleteKeys(key.key);
+  return null;
 };
 
 /**
@@ -43,12 +57,14 @@ const create = async (client: Synnax): Promise<string> => {
  */
 export const ensure = async (client: Synnax): Promise<string> => {
   const saved = await retrieveAPIKey();
-  const key = saved == null ? null : recordKey(saved);
-  if (saved == null || key == null) return await create(client);
-  const keys = await client.auth.retrieveKeys();
-  if (!keys.some((k) => k.key === key)) return await create(client);
-  await saveAPIKey(saved);
-  return saved;
+  if (saved != null && (await known(client, saved))) {
+    if (await saveAPIKey(saved, saved)) return saved;
+  } else {
+    const token = await create(client, saved);
+    if (token != null) return token;
+  }
+  // Another window changed the saved key between the read and the save.
+  return await ensure(client);
 };
 
 /**
@@ -58,7 +74,9 @@ export const ensure = async (client: Synnax): Promise<string> => {
  */
 export const replace = async (client: Synnax): Promise<string> => {
   const saved = await retrieveAPIKey();
-  const token = await create(client);
+  const token = await create(client, saved);
+  // Another window reset the key first, so its new key is the one to use.
+  if (token == null) return await ensure(client);
   const old = saved == null ? null : recordKey(saved);
   if (old != null) await client.auth.deleteKeys(old);
   return token;

@@ -64,6 +64,10 @@ export const deleteKeysCreatedByTest = async (client: Client): Promise<void> => 
   });
 };
 
+/** @returns The keys of the API keys of the client's user, sorted. */
+export const retrieveKeyIDs = async (client: Client): Promise<string[]> =>
+  (await client.auth.retrieveKeys()).map((k) => k.key).sort();
+
 /** Creates a client of the test Core that logs in with an API key, as a script does. */
 export const createScriptClient = (apiKey: string): Client => {
   const { host, port } = TEST_CLIENT_PARAMS;
@@ -120,14 +124,16 @@ export interface DiscoveryFile {
   apiKey: string | null;
 }
 
-const saveArgsZ = z.object({ apiKey: z.string() });
+const saveArgsZ = z.object({ apiKey: z.string(), replaces: z.string().nullable() });
 
 /**
- * Creates a discovery file and the supervisor command handlers that read and write it.
- * Pass the handlers to {@link mockSupervisor}.
+ * Creates a discovery file and the supervisor command handlers that read and write it,
+ * with the compare-and-swap of the shell. Pass the handlers to {@link mockSupervisor}.
+ * @param beforeSave Runs before each save compares, as another window that saves first.
  */
 export const createDiscoveryFile = (
   apiKey: string | null = null,
+  beforeSave?: (file: DiscoveryFile, apiKey: string) => void,
 ): { file: DiscoveryFile; handlers: Record<string, CommandHandler> } => {
   const file: DiscoveryFile = { apiKey };
   return {
@@ -135,7 +141,11 @@ export const createDiscoveryFile = (
     handlers: {
       supervisor_api_key: () => file.apiKey,
       supervisor_save_api_key: (args) => {
-        file.apiKey = saveArgsZ.parse(args).apiKey;
+        const { apiKey, replaces } = saveArgsZ.parse(args);
+        beforeSave?.(file, apiKey);
+        if (file.apiKey !== replaces) return false;
+        file.apiKey = apiKey;
+        return true;
       },
     },
   };

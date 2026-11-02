@@ -14,6 +14,7 @@ use std::path::{Path, PathBuf};
 
 use serde::Serialize;
 use tauri::{AppHandle, Emitter, Manager, Runtime, State};
+use tokio::sync::Mutex;
 
 use super::{Config, History, Status, Supervisor, diagnostics, discovery};
 use crate::install;
@@ -33,7 +34,13 @@ pub struct Paths {
     version: String,
     data_dir: PathBuf,
     log_dir: PathBuf,
-    discovery_file: PathBuf,
+}
+
+/// The discovery file, managed as app state. Each window of the app writes it.
+pub struct Discovery {
+    path: PathBuf,
+    /// Makes the compare and the write of each save one step.
+    lock: Mutex<()>,
 }
 
 /// What the diagnostics dialog shows beside the status.
@@ -60,7 +67,7 @@ pub fn init<R: Runtime>(app: &AppHandle<R>) -> Result<(), Box<dyn std::error::Er
     let log_dir = app.path().app_log_dir()?;
     let version = app.package_info().version.to_string();
     let data_dir = local.join("core");
-    let discovery_file = discovery::path(&app.path().home_dir()?);
+    let discovery_path = discovery::path(&app.path().home_dir()?);
     let cfg = Config::new(
         program,
         version.clone(),
@@ -85,7 +92,10 @@ pub fn init<R: Runtime>(app: &AppHandle<R>) -> Result<(), Box<dyn std::error::Er
         version,
         data_dir,
         log_dir,
-        discovery_file,
+    });
+    app.manage(Discovery {
+        path: discovery_path,
+        lock: Mutex::new(()),
     });
     Ok(())
 }
@@ -131,6 +141,7 @@ pub async fn supervisor_reset<R: Runtime>(
     app: AppHandle<R>,
     supervisor: State<'_, Supervisor>,
     paths: State<'_, Paths>,
+    discovery: State<'_, Discovery>,
 ) -> Result<(), String> {
     let data_dir = paths.data_dir.clone();
     let local = app
@@ -144,26 +155,30 @@ pub async fn supervisor_reset<R: Runtime>(
     }
     supervisor.reset().await.map_err(|err| err.to_string())?;
     // The erased Core took the key of the discovery file with it.
-    let discovery_file = paths.discovery_file.clone();
-    blocking(move || discovery::remove(&discovery_file)).await?;
+    let path = discovery.path.clone();
+    blocking(move || discovery::remove(&path)).await?;
     app.restart()
 }
 
 /// Returns the API key in the discovery file, or `None` when there is no file.
 #[tauri::command]
-pub async fn supervisor_api_key(paths: State<'_, Paths>) -> Result<Option<String>, String> {
-    let discovery_file = paths.discovery_file.clone();
-    let file = blocking(move || discovery::read(&discovery_file)).await?;
+pub async fn supervisor_api_key(discovery: State<'_, Discovery>) -> Result<Option<String>, String> {
+    let path = discovery.path.clone();
+    let file = blocking(move || discovery::read(&path)).await?;
     Ok(file.map(|file| file.api_key))
 }
 
-/// Writes the discovery file with the address of the running Core and `api_key`.
+/// Writes the discovery file with the address of the running Core and `api_key`, but
+/// only while the file holds `replaces`, the key the caller read. `None` means no file.
+///
+/// Returns false, with no write, when another window changed the key first.
 #[tauri::command]
 pub async fn supervisor_save_api_key(
     api_key: String,
+    replaces: Option<String>,
     supervisor: State<'_, Supervisor>,
-    paths: State<'_, Paths>,
-) -> Result<(), String> {
+    discovery: State<'_, Discovery>,
+) -> Result<bool, String> {
     let Status::Running { connection } = supervisor.status() else {
         return Err("Synnax is not running".to_string());
     };
@@ -173,8 +188,9 @@ pub async fn supervisor_save_api_key(
         secure: false,
         api_key,
     };
-    let discovery_file = paths.discovery_file.clone();
-    blocking(move || discovery::write(&discovery_file, &file)).await
+    let path = discovery.path.clone();
+    let _guard = discovery.lock.lock().await;
+    blocking(move || discovery::swap(&path, &file, replaces.as_deref())).await
 }
 
 /// Stores the size of the data a reset is about to erase, for the next launch to report.

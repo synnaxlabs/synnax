@@ -24,6 +24,7 @@ import {
   type DiscoveryFile,
   LIVE,
   mockSupervisor,
+  retrieveKeyIDs,
 } from "@/feature/embedded/testutil";
 import { findDismissButton } from "@/platform/modals/testutil";
 import { CaptureStatuses, getIconButton } from "@/testutil";
@@ -34,9 +35,9 @@ const client = createTestClient();
 
 /** Opens the dialog from the palette and waits until it shows the saved key. */
 const openConnect = async (
-  apiKey: string | null = null,
+  ...args: Parameters<typeof createDiscoveryFile>
 ): Promise<{ file: DiscoveryFile; statuses: () => LyraStatus.NotificationSpec[] }> => {
-  const { file, handlers } = createDiscoveryFile(apiKey);
+  const { file, handlers } = createDiscoveryFile(...args);
   mockSupervisor(() => LIVE, handlers);
   const { wrapper } = await createDesktopWrapper();
   let statuses: LyraStatus.NotificationSpec[] = [];
@@ -127,6 +128,27 @@ describe("Embedded connect from code dialog", () => {
       fireEvent.click(screen.getByText("Connect from code"), { detail: 1 });
     });
     expect(await screen.findByText("1 session")).toBeTruthy();
+  });
+
+  it("should show the key of a reset that another window saved first", async () => {
+    await deleteKeysCreatedByTest(client);
+    const { token } = await client.auth.createKey({ name: "replaced" });
+    const { token: other } = await client.auth.createKey({ name: "other window" });
+    const before = await retrieveKeyIDs(client);
+    const { file } = await openConnect(token, (f, apiKey) => {
+      if (apiKey !== token && f.apiKey === token) f.apiKey = other;
+    });
+    fireEvent.click(screen.getByRole("button", { name: "Reset key" }));
+    await screen.findByText(/want to reset the API key/);
+    const buttons = screen.getAllByRole("button", { name: "Reset key" });
+    fireEvent.click(buttons[buttons.length - 1]);
+    fireEvent.click(screen.getByRole("tab", { name: "Other" }));
+    fireEvent.click(screen.getByRole("button", { name: "Show API key" }));
+    await waitFor(() =>
+      expect(screen.getByLabelText("API key").textContent).toBe(other),
+    );
+    expect(file.apiKey).toBe(other);
+    await expect.poll(async () => await retrieveKeyIDs(client)).toEqual(before);
   });
 
   it("should replace the key after asking and end the sessions of the old one", async () => {

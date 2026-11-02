@@ -38,9 +38,22 @@ pub fn read(path: &Path) -> io::Result<Option<File>> {
     }
 }
 
+/// Writes `file` to `path` only when the file there holds the API key `expected`, or,
+/// for `None`, when there is no file. Callers must serialize their calls.
+///
+/// Returns whether it wrote the file.
+pub fn swap(path: &Path, file: &File, expected: Option<&str>) -> io::Result<bool> {
+    let current = read(path)?;
+    if current.as_ref().map(|current| current.api_key.as_str()) != expected {
+        return Ok(false);
+    }
+    write(path, file)?;
+    Ok(true)
+}
+
 /// Writes `file` to `path` so that only the current user can read it. The write goes to
 /// a temporary file first, so a reader never sees half a file.
-pub fn write(path: &Path, file: &File) -> io::Result<()> {
+fn write(path: &Path, file: &File) -> io::Result<()> {
     let dir = path
         .parent()
         .ok_or_else(|| io::Error::other("the discovery file has no parent directory"))?;
@@ -133,6 +146,32 @@ mod tests {
         write(&path, &next).unwrap();
         assert_eq!(read(&path).unwrap(), Some(next));
         assert!(!path.with_extension("json.partial").exists());
+    }
+
+    #[test]
+    fn swaps_the_file_only_when_it_holds_the_expected_key() {
+        let dir = tempfile::tempdir().unwrap();
+        let path = path(dir.path());
+        write(&path, &file()).unwrap();
+        let next = File {
+            api_key: "syk_next".to_string(),
+            ..file()
+        };
+        assert!(!swap(&path, &next, Some("syk_other")).unwrap());
+        assert!(!swap(&path, &next, None).unwrap());
+        assert_eq!(read(&path).unwrap(), Some(file()));
+        assert!(swap(&path, &next, Some("syk_key_secret")).unwrap());
+        assert_eq!(read(&path).unwrap(), Some(next));
+    }
+
+    #[test]
+    fn swaps_in_a_first_file_only_when_none_was_expected() {
+        let dir = tempfile::tempdir().unwrap();
+        let path = path(dir.path());
+        assert!(!swap(&path, &file(), Some("syk_key_secret")).unwrap());
+        assert_eq!(read(&path).unwrap(), None);
+        assert!(swap(&path, &file(), None).unwrap());
+        assert_eq!(read(&path).unwrap(), Some(file()));
     }
 
     #[test]

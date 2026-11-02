@@ -20,6 +20,7 @@ import {
   deleteKeysCreatedByTest,
   LIVE,
   mockSupervisor,
+  retrieveKeyIDs,
 } from "@/feature/embedded/testutil";
 import { Session } from "@/session";
 
@@ -121,9 +122,7 @@ describe("Embedded.Guard API key for scripts", () => {
 
   it("should delete the new key when the save fails", async () => {
     await deleteKeysCreatedByTest(client);
-    const keys = async (): Promise<string[]> =>
-      (await client.auth.retrieveKeys()).map((k) => k.key).sort();
-    const before = await keys();
+    const before = await retrieveKeyIDs(client);
     const { handlers } = createDiscoveryFile();
     const { commands } = mockSupervisor(() => LIVE, {
       ...handlers,
@@ -135,7 +134,20 @@ describe("Embedded.Guard API key for scripts", () => {
     await waitFor(() =>
       expect(commands).toHaveBeenCalledWith("supervisor_save_api_key"),
     );
-    await expect.poll(keys).toEqual(before);
+    await expect.poll(async () => await retrieveKeyIDs(client)).toEqual(before);
+  });
+
+  it("should use the key that another window saved first", async () => {
+    await deleteKeysCreatedByTest(client);
+    const { token: other } = await client.auth.createKey({ name: "other window" });
+    const before = await retrieveKeyIDs(client);
+    const { file, handlers } = createDiscoveryFile(null, (f) => {
+      f.apiKey ??= other;
+    });
+    mockSupervisor(() => LIVE, handlers);
+    await renderGuard();
+    await waitFor(() => expect(file.apiKey).toBe(other));
+    await expect.poll(async () => await retrieveKeyIDs(client)).toEqual(before);
   });
 
   it("should replace a saved key that the Core no longer accepts", async () => {
