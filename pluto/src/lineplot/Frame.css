@@ -19,13 +19,52 @@
     overflow: hidden;
 }
 
+/* The highlight spans the axis's width, from its line to its outer edge. A y axis's
+   highlight runs the frame's full height, so it covers the end tick labels and meets
+   the x axis's highlight at a clean corner. */
 .pluto-line-plot .lyra-haul-drop-region {
-    background: var(--haul-background);
-    border: var(--pluto-border);
-    border-color: var(--haul-border-color);
-    border-radius: var(--pluto-border-radius);
+    --pluto-drop-region-background: var(--haul-background);
+    --pluto-drop-region-border-color: var(--haul-border-color);
+
+    position: relative;
+
+    &::before {
+        content: "";
+        position: absolute;
+        inset: 0;
+        background: var(--pluto-drop-region-background);
+        border: var(--pluto-border);
+        border-color: var(--pluto-drop-region-border-color);
+        border-radius: var(--pluto-border-radius);
+        pointer-events: none;
+    }
+
+    &.pluto-y-axis::before {
+        inset: calc(-1 * var(--pluto-line-plot-top)) 0
+            calc(-1 * var(--pluto-line-plot-bottom));
+    }
+
+    &.pluto--drag-over {
+        --pluto-drop-region-background: var(--pluto-gray-l8-40);
+        --pluto-drop-region-border-color: var(--pluto-gray-l8-80);
+    }
+}
+
+/* With no y axis highlighted, an x axis's highlight runs the frame's full width to
+   cover its end tick labels. */
+.pluto-line-plot:not(:has(.pluto-y-axis.lyra-haul-drop-region))
+    .pluto-x-axis.lyra-haul-drop-region::before {
+    inset: 0 calc(-1 * var(--pluto-line-plot-right)) 0
+        calc(-1 * var(--pluto-line-plot-left));
 }
 
 .pluto-line-plot__viewport {
     grid-area: plot-start / plot-start / plot-end / plot-end;
+}
+
+.pluto-line-plot__viewport.pluto--drag-over {
+    background: var(--haul-background);
+    outline: var(--pluto-border);
+    outline-color: var(--haul-border-color);
+    outline-offset: -1px;
 }
