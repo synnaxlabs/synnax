@@ -13,6 +13,7 @@ import { Flex } from "@synnaxlabs/lyra/flex";
 import { Text } from "@synnaxlabs/lyra/text";
 import OneBillionRowsTile from "@/components/blog/OneBillionRowsTile.astro";
 import ArcTile from "@/components/blog/ArcTile.astro";
+import DesktopTile from "@/components/blog/DesktopTile.astro";
 ---
 
 <Root
@@ -33,6 +34,7 @@ import ArcTile from "@/components/blog/ArcTile.astro";
                 </Flex.Box>
             </Flex.Box>
             <Flex.Box direction="y" className="blog-entries" gap={6}>
+                <DesktopTile />
                 <ArcTile />
                 <OneBillionRowsTile />
             </Flex.Box>
