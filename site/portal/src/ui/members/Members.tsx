@@ -16,6 +16,7 @@ import { Input } from "@synnaxlabs/lyra/input";
 import { Select } from "@synnaxlabs/lyra/select";
 import { Status } from "@synnaxlabs/lyra/status";
 import { Text } from "@synnaxlabs/lyra/text";
+import { deep } from "@synnaxlabs/x";
 import { type ReactElement } from "react";
 import { z } from "zod";
 
@@ -34,6 +35,8 @@ import { Modal } from "@/ui/modal";
 import { Empty, Page, Section } from "@/ui/Page";
 import { Row, Table } from "@/ui/Table";
 import { useAction } from "@/ui/useAction";
+
+const path = deep.path<z.infer<typeof inviteSchema>>();
 
 const MEMBER_COLUMNS = "minmax(0, 2fr) minmax(0, 2fr) 16rem 4rem";
 const INVITATION_COLUMNS = "minmax(0, 4fr) 16rem 14rem 8rem";
@@ -318,12 +321,12 @@ const InviteContent = ({ organization }: InviteDialogProps): ReactElement => {
         They get an email with a link to join. Admins manage the team; members use its
         licenses.
       </Text.Text>
-      <Form.Field<string> path="email" label="Email">
+      <Form.Field path={path.email} label="Email">
         {(p) => (
           <Input.Text {...p} type="email" autoFocus placeholder="name@company.com" />
         )}
       </Form.Field>
-      <Form.Field<string> path="role" label="Role">
+      <Form.Field path={path.role} label="Role">
         {(p) => (
           <Select.Simple<string> {...p} resourceName="Role">
             {ROLES.map(({ key, name }) => (

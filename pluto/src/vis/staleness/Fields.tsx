@@ -10,9 +10,12 @@
 import { Color } from "@synnaxlabs/lyra/color";
 import { Form } from "@synnaxlabs/lyra/form";
 import { Theming } from "@synnaxlabs/lyra/theming";
+import { type color, deep } from "@synnaxlabs/x";
 import { type ReactElement } from "react";
 
 import { staleness } from "@/vis/staleness/aether";
+
+const path = deep.path<{ stalenessColor?: color.Color; stalenessTimeout?: number }>();
 
 /**
  * Fields edits the color a component takes on, and the delay before it does, once its
@@ -25,11 +28,11 @@ export const Fields = (): ReactElement => {
   return (
     <>
       <Color.Field
-        path="stalenessColor"
+        path={path.stalenessColor}
         fallback={staleness.resolveColor(undefined, theme)}
       />
       <Form.NumericField
-        path="stalenessTimeout"
+        path={path.stalenessTimeout}
         label="Timeout"
         padHelpText={false}
         inputProps={INPUT_PROPS}

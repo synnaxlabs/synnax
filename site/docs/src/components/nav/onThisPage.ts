@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { CHANGE_EVENT } from "@/components/tabs/sync";
+import { Tabs } from "@/components/tabs";
 
 const ACTIVE_CLASS = "active";
 // Marks an outline menu; the value selects the headings its entries link to.
@@ -74,7 +74,7 @@ const follow = (menu: HTMLElement, signal: AbortSignal): void => {
   };
 
   hideTabbedAway();
-  document.addEventListener(CHANGE_EVENT, hideTabbedAway, { signal });
+  document.addEventListener(Tabs.CHANGE_EVENT, hideTabbedAway, { signal });
   window.addEventListener("scroll", () => activate(findReading(headings)), {
     passive: true,
     signal,

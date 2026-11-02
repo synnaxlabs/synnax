@@ -8,6 +8,7 @@
 // included in the file licenses/APL.txt.
 
 import { createTestClient } from "@synnaxlabs/client/testutil";
+import { deep } from "@synnaxlabs/x";
 import { fireEvent, screen } from "@testing-library/react";
 import { describe, expect, it } from "vitest";
 
@@ -17,13 +18,15 @@ import { createRunningRack, renderWithDeviceForm } from "@/platform/device/testu
 import { Modals } from "@/platform/modals";
 import { findDialogTrigger } from "@/testutil";
 
+const path = deep.path<{ config: { device: string } }>();
+
 const client = createTestClient();
 
 describe("EtherCAT.Device.SelectSlave", () => {
   it("should open the find view from the footer", async () => {
     await renderWithDeviceForm(
       <>
-        <EtherCAT.Device.SelectSlave path="config.device" />
+        <EtherCAT.Device.SelectSlave path={path.config.device} />
         <Modals.Stack />
       </>,
       { deviceKey: "", client },
@@ -47,7 +50,7 @@ describe("EtherCAT.Device.SelectSlave", () => {
     const otherNetwork = await create("eth1", false);
     await renderWithDeviceForm(
       <>
-        <EtherCAT.Device.SelectSlave path="config.device" />
+        <EtherCAT.Device.SelectSlave path={path.config.device} />
         <Modals.Stack />
       </>,
       { deviceKey: "", channels: [{ device: inTask.key }], client },

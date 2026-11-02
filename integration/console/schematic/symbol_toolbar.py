@@ -9,14 +9,13 @@
 
 """Symbol Toolbar client for managing symbol groups and symbols."""
 
-import json
-from typing import Any
-
 from playwright.sync_api import Locator
 from playwright.sync_api import TimeoutError as PlaywrightTimeoutError
+from pydantic import JsonValue
 
 from console.layout import LayoutClient
 from console.schematic.symbol_editor import SymbolEditor
+from framework.utils import read_json_object
 
 
 class SymbolToolbar:
@@ -253,7 +252,7 @@ class SymbolToolbar:
         download_info.value.save_as(zip_path)
         return zip_path
 
-    def export_symbol(self, name: str) -> dict[str, Any]:
+    def export_symbol(self, name: str) -> dict[str, JsonValue]:
         """Export a symbol via context menu and return the JSON content."""
         symbol = self.get_symbol(name)
         self.ctx_menu.open_on(symbol)
@@ -265,9 +264,7 @@ class SymbolToolbar:
         save_path = str(self.layout.results_dir / f"{name}_export.json")
         download.save_as(save_path)
 
-        with open(save_path, encoding="utf-8") as f:
-            result: dict[str, Any] = json.load(f)
-            return result
+        return read_json_object(save_path)
 
     def drag_symbol_to_schematic(self, name: str) -> None:
         """Drag a symbol onto the schematic canvas."""

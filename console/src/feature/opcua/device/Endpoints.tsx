@@ -22,6 +22,7 @@ import { Select } from "@synnaxlabs/lyra/select";
 import { Status } from "@synnaxlabs/lyra/status";
 import { Text } from "@synnaxlabs/lyra/text";
 import { Synnax } from "@synnaxlabs/pluto";
+import { deep } from "@synnaxlabs/x";
 import { type ReactElement, useState } from "react";
 
 import { commandTimeout } from "@/feature/opcua/device/commandTimeout";
@@ -30,6 +31,7 @@ import { SECURITY_MODE_NAMES } from "@/feature/opcua/device/SelectSecurityMode";
 import { SECURITY_POLICY_NAMES } from "@/feature/opcua/device/SelectSecurityPolicy";
 import {
   type ConnectionConfig,
+  type Device,
   NO_SECURITY_POLICY,
   type SecurityMode,
   type SecurityPolicy,
@@ -39,6 +41,8 @@ import {
   endpointsResponseZ,
   GET_ENDPOINTS_COMMAND_TYPE,
 } from "@/feature/opcua/task/types";
+
+const path = deep.path<Device>();
 
 const LOGIN_NAMES: Record<string, string> = {
   anonymous: "Anonymous",
@@ -139,14 +143,12 @@ export const Endpoints = ({ rack, onSelect }: EndpointsProps): ReactElement => {
   const client = Synnax.use();
   const [state, setState] = useState<State | null>(null);
   const { get } = Form.useContext();
-  const endpoint = Form.useFieldValue<string>("properties.connection.endpoint");
-  const securityMode = Form.useFieldValue<string>("properties.connection.securityMode");
-  const securityPolicy = Form.useFieldValue<string>(
-    "properties.connection.securityPolicy",
-  );
+  const endpoint = Form.useFieldValue(path.properties.connection.endpoint);
+  const securityMode = Form.useFieldValue(path.properties.connection.securityMode);
+  const securityPolicy = Form.useFieldValue(path.properties.connection.securityPolicy);
   const handleFind = async () => {
     setState({ rack, endpoint, variant: "loading" });
-    const connection = get<ConnectionConfig>("properties.connection").value;
+    const connection = get(path.properties.connection).value;
     let next: State;
     try {
       next = { rack, endpoint, ...(await findEndpoints(client, rack, connection)) };

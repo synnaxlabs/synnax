@@ -259,6 +259,11 @@ struct Config {
 
     static x::errors::Error clear_persisted_state(x::args::Parser &args);
 
+    /// @brief applies the persisted state ownership and modes without opening the
+    /// state. Run as root once the Linux service user exists, it gives that user the
+    /// state that an earlier login left to root. Skips state that does not exist.
+    static x::errors::Error secure_persisted_state(x::args::Parser &args);
+
     /// @brief loads the configuration from the provided command line arguments.
     /// Looks for a "--config" flag followed by a configuration file path.
     [[nodiscard]] x::errors::Error load_persisted_state(x::args::Parser &args);

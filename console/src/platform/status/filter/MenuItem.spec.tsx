@@ -7,8 +7,8 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { type status } from "@synnaxlabs/client";
 import { Form } from "@synnaxlabs/lyra/form";
+import { deep } from "@synnaxlabs/x";
 import { fireEvent, screen, waitFor } from "@testing-library/react";
 import { type ReactElement } from "react";
 import { describe, expect, it } from "vitest";
@@ -16,6 +16,8 @@ import { z } from "zod";
 
 import { Status } from "@/platform/status";
 import { findDialogTrigger, renderWithConsole } from "@/testutil";
+
+const path = deep.path<z.infer<typeof schema>>();
 
 const schema = z.object({
   query: z.object({ variants: z.array(z.string()) }),
@@ -26,7 +28,7 @@ const Fixture = (): ReactElement => {
   return (
     <Form.Form<typeof schema> {...methods}>
       <Status.Filter.MenuItem />
-      <Form.Field<status.Variant[]> path="query.variants" showLabel={false}>
+      <Form.Field path={path.query.variants} showLabel={false}>
         {({ value }) => <span>{`value:${value.join(",")}`}</span>}
       </Form.Field>
     </Form.Form>

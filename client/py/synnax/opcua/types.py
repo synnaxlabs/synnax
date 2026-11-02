@@ -7,7 +7,8 @@
 #  License, use of this software will be governed by the Apache License, Version 2.0,
 #  included in the file licenses/APL.txt.
 
-from typing import Literal
+from collections.abc import Sequence
+from typing import Literal, override
 from uuid import uuid4
 
 from pydantic import JsonValue
@@ -67,7 +68,7 @@ class ReadTask(
         auto_start: bool = False,
         array_mode: bool = False,
         array_size: int = 1,
-        channels: list[ReadChannel] | None = None,
+        channels: Sequence[ReadChannel] | None = None,
         nan_fill_enabled: bool = False,
     ) -> None:
         if internal is not None:
@@ -83,11 +84,12 @@ class ReadTask(
             auto_start=auto_start,
             array_mode=array_mode,
             array_size=array_size,
-            channels=channels if channels is not None else [],
+            channels=list(channels) if channels is not None else [],
             nan_fill_enabled=nan_fill_enabled,
         )
         task.assign_keys(self.config.channels)
 
+    @override
     def update_device_properties(self, device_client: device.Client) -> device.Device:
         """Update device properties before task configuration."""
         dev = device_client.retrieve(key=self.config.device)
@@ -126,7 +128,7 @@ class WriteTask(
         device: device.Key = "",
         name: str = "",
         auto_start: bool = False,
-        channels: list[WriteChannel] | None = None,
+        channels: Sequence[WriteChannel] | None = None,
     ) -> None:
         if internal is not None:
             self._internal = internal
@@ -136,10 +138,11 @@ class WriteTask(
         self.config = WriteConfig(
             device=device,
             auto_start=auto_start,
-            channels=channels if channels is not None else [],
+            channels=list(channels) if channels is not None else [],
         )
         task.assign_keys(self.config.channels)
 
+    @override
     def update_device_properties(self, device_client: device.Client) -> device.Device:
         """Update device properties before task configuration."""
         dev = device_client.retrieve(key=self.config.device)

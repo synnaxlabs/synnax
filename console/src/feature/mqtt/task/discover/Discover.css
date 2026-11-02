@@ -1,0 +1,184 @@
+/*
+ * Copyright 2026 Synnax Labs, Inc.
+ *
+ * Use of this software is governed by the Business Source License included in the file
+ * licenses/BSL.txt.
+ *
+ * As of the Change Date specified in that file, in accordance with the Business Source
+ * License, use of this software will be governed by the Apache License, Version 2.0,
+ * included in the file licenses/APL.txt.
+ */
+
+.console-mqtt-discover {
+    --console-divider: var(--pluto-border-width) solid var(--pluto-gray-l4);
+    --console-values-columns: 3rem minmax(16rem, 1fr) minmax(14rem, 1.3fr) 11rem;
+
+    width: min(196rem, calc(100vw - 8rem));
+    height: min(128rem, calc(100vh - 8rem));
+
+    .console-mqtt-discover__bar {
+        flex-shrink: 0;
+        padding: 0 2rem;
+        background: var(--pluto-gray-l2);
+    }
+
+    .console-mqtt-discover__frame {
+        flex: 1 1 0;
+        min-height: 0;
+
+        &.console--hidden {
+            display: none;
+        }
+    }
+
+    .console-mqtt-discover__progress {
+        position: absolute;
+        left: 0;
+        right: 0;
+        bottom: -1px;
+    }
+
+    .console-mqtt-discover__side {
+        flex: none;
+        width: 36%;
+        min-width: 38rem;
+        max-width: 62rem;
+        background: var(--pluto-gray-l1);
+        border-right: var(--console-divider);
+    }
+
+    .console-mqtt-discover__search {
+        flex-shrink: 0;
+        align-self: stretch;
+        width: auto;
+        margin: 2rem 2rem 0;
+    }
+
+    .console-mqtt-discover__tree {
+        flex: 1 1 0;
+        min-height: 0;
+    }
+
+    .console-mqtt-discover__meta {
+        flex: none;
+        margin-left: auto;
+        white-space: nowrap;
+
+        &.console--picked {
+            color: var(--pluto-primary-text);
+            font-weight: 500;
+        }
+    }
+
+    .console-mqtt-discover__skeleton {
+        padding: 1rem;
+    }
+
+    .console-mqtt-discover__skeleton-item {
+        height: var(--console-item-height);
+        padding-left: calc(var(--console-depth, 0) * 3rem + 1.5rem);
+    }
+
+    .console-mqtt-discover__scope {
+        flex-shrink: 0;
+        padding: 2rem;
+        border-top: var(--console-divider);
+    }
+
+    .console-mqtt-discover__add {
+        flex-shrink: 0;
+        align-self: flex-start;
+        margin: 0.5rem 1rem 1.5rem;
+    }
+
+    .console-mqtt-discover__pane {
+        min-width: 0;
+        overflow: auto;
+    }
+
+    .console-mqtt-discover__pane-header {
+        flex-shrink: 0;
+        padding: 2.5rem 3rem 2rem;
+    }
+
+    .console-mqtt-discover__values {
+        flex-shrink: 0;
+        margin: 0 3rem;
+        border: var(--console-divider);
+        border-radius: var(--pluto-border-radius-large);
+        background: var(--pluto-gray-l1);
+        overflow: hidden;
+    }
+
+    /* The extra class outranks the gap and padding the list item sets as a button. */
+    .console-mqtt-discover__values-head,
+    .console-mqtt-discover__values .console-mqtt-discover__value,
+    .console-mqtt-discover__value-skeleton {
+        display: grid;
+        grid-template-columns: var(--console-values-columns);
+        column-gap: 2rem;
+        align-items: center;
+
+        > * {
+            min-width: 0;
+        }
+    }
+
+    .console-mqtt-discover__values .console-mqtt-discover__value,
+    .console-mqtt-discover__value-skeleton {
+        padding: 0 1rem;
+    }
+
+    .console-mqtt-discover__values-head {
+        height: 5rem;
+        padding: 0 2rem;
+        background: var(--pluto-gray-l2);
+        border-bottom: var(--console-divider);
+    }
+
+    .console-mqtt-discover__value-list {
+        padding: 1rem;
+    }
+
+    .console-mqtt-discover__value-skeleton {
+        height: 5.5rem;
+    }
+
+    .console-mqtt-discover__section {
+        padding: 1.5rem 2rem;
+        background: var(--pluto-gray-l2);
+        border-top: var(--console-divider);
+        border-bottom: var(--console-divider);
+    }
+
+    /* The table head already draws the line above the first section. */
+    .console-mqtt-discover__values-head + .console-mqtt-discover__section {
+        border-top: none;
+    }
+
+    .console-mqtt-discover__raw {
+        padding: 2rem 2.5rem 3rem;
+    }
+
+    .console-mqtt-discover__raw-text {
+        align-self: stretch;
+        margin: 1rem 0.5rem 0;
+        padding: 2rem;
+        overflow: auto;
+        background: var(--pluto-gray-l1);
+        border: var(--console-divider);
+        border-radius: var(--pluto-border-radius-large);
+        font-family: var(--pluto-code-font-family);
+        font-size: var(--pluto-small-size);
+        color: var(--pluto-gray-l10);
+    }
+
+    .console-mqtt-discover__code {
+        font-family: var(--pluto-code-font-family);
+    }
+
+    .console-mqtt-discover__notice {
+        padding: 4rem;
+        text-wrap: balance;
+    }
+}

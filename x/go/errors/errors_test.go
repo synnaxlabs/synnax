@@ -10,6 +10,8 @@
 package errors_test
 
 import (
+	stderrors "errors"
+
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	"github.com/synnaxlabs/x/errors"
@@ -26,6 +28,12 @@ func (e *aggregateError) Error() string { return "aggregate" }
 func (e *aggregateError) Unwrap() []error { return e.errs }
 
 var _ = Describe("Is", func() {
+	Describe("ErrUnsupported", func() {
+		It("Should be the standard library sentinel", func() {
+			Expect(errors.ErrUnsupported).To(BeIdenticalTo(stderrors.ErrUnsupported))
+		})
+	})
+
 	Describe("Is", func() {
 		It("Should work with sub-errors", func() {
 			err1 := errors.New("err1")
@@ -60,6 +68,24 @@ var _ = Describe("Is", func() {
 				Expect(errors.Is(wrapped, base)).To(BeTrue())
 				Expect(wrapped).To(MatchError("wrapped cat: base"))
 			})
+		})
+	})
+
+	Describe("Mark", func() {
+		reference := errors.New("reference")
+		It("Should match the reference and keep the message of the error", func() {
+			cause := errors.New("cause")
+			marked := errors.Mark(errors.Wrap(cause, "context"), reference)
+			Expect(marked).To(MatchError("context: cause"))
+			Expect(errors.Is(marked, reference)).To(BeTrue())
+			Expect(errors.Is(marked, cause)).To(BeTrue())
+		})
+		It("Should not match a different reference", func() {
+			marked := errors.Mark(errors.New("cause"), reference)
+			Expect(errors.Is(marked, errors.New("other"))).To(BeFalse())
+		})
+		It("Should return nil for a nil error", func() {
+			Expect(errors.Mark(nil, reference)).To(Succeed())
 		})
 	})
 
