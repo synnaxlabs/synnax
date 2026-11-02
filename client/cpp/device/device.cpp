@@ -75,6 +75,8 @@ Client::retrieve_one(const RetrieveRequest &req, const std::string &query) const
     auto [devices, err] = this->retrieve(req);
     if (err) return {Device{}, err};
     if (devices.empty()) return {Device{}, errors::not_found_error("device", query)};
+    if (devices.size() > 1)
+        return {Device{}, errors::multiple_found_error("devices", query)};
     return {std::move(devices[0]), x::errors::NIL};
 }
 

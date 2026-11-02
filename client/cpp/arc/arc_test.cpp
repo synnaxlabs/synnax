@@ -9,6 +9,7 @@
 
 #include <functional>
 #include <random>
+#include <set>
 #include <string>
 
 #include <include/gtest/gtest.h>
@@ -116,6 +117,37 @@ TEST(TestArc, testRetrieveByKeys) {
     std::vector<x::uuid::UUID> keys = {arcs[0].key, arcs[1].key};
     auto retrieved = ASSERT_NIL_P(client.arcs.retrieve_by_keys(keys));
     ASSERT_EQ(retrieved.size(), 2);
+}
+
+/// @brief it should retrieve the Arc programs that match every condition.
+TEST(TestArc, testRetrieveConditions) {
+    const auto client = new_test_client();
+    const auto prefix = random_arc_name("cond");
+    auto arcs = std::vector<Arc>{
+        Arc{.name = prefix + "_a", .mode = MODE_TEXT},
+        Arc{.name = prefix + "_b", .mode = MODE_TEXT},
+        Arc{.name = prefix + "_c", .mode = MODE_TEXT},
+    };
+    ASSERT_NIL(client.arcs.create(arcs));
+    const auto retrieved = ASSERT_NIL_P(client.arcs.retrieve(
+        arc::name.starts_with(prefix),
+        arc::not_(arc::key.eq(arcs[1].key))
+    ));
+    std::set<std::string> names;
+    for (const auto &a: retrieved)
+        names.insert(a.name);
+    ASSERT_EQ(names, (std::set<std::string>{arcs[0].name, arcs[2].name}));
+}
+
+/// @brief it should retrieve one Arc program that matches every condition.
+TEST(TestArc, testRetrieveOne) {
+    const auto client = new_test_client();
+    auto created = Arc{.name = random_arc_name("one"), .mode = MODE_TEXT};
+    ASSERT_NIL(client.arcs.create(created));
+    const auto retrieved = ASSERT_NIL_P(
+        client.arcs.retrieve(arc::name.eq(created.name), arc::one())
+    );
+    ASSERT_EQ(retrieved.key, created.key);
 }
 
 /// @brief it should retrieve the Arc programs that match a filter tree.

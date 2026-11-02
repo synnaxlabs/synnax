@@ -11,6 +11,7 @@
 
 #include <string>
 
+#include "client/cpp/channel/builder.gen.h"
 #include "client/cpp/channel/types.gen.h"
 #include "freighter/cpp/freighter.h"
 #include "x/cpp/telem/telem.h"
@@ -152,7 +153,26 @@ public:
     [[nodiscard]] std::pair<std::vector<Channel>, x::errors::Error>
     retrieve(const RetrieveRequest &req) const;
 
+    /// @brief Retrieves the channels that match every condition in parts, with each
+    /// option in parts applied.
+    /// @returns the channels, or one channel when parts end with channel::one(). One
+    /// channel is an error when no channel or more than one channel matches.
+    template<typename... Parts>
+        requires x::filter::parts<Where, RetrieveRequest, Parts...>
+    [[nodiscard]] auto retrieve(Parts... parts) const {
+        const auto req = x::filter::request<Where, RetrieveRequest>(
+            std::move(parts)...
+        );
+        if constexpr (x::filter::returns_one<Parts...>)
+            return this->retrieve_one(req, x::filter::describe(req.where));
+        else
+            return this->retrieve(req);
+    }
+
 private:
+    [[nodiscard]] std::pair<Channel, x::errors::Error>
+    retrieve_one(const RetrieveRequest &req, const std::string &query) const;
+
     /// @brief transport for retrieving channels.
     std::shared_ptr<RetrieveClient> retrieve_client;
     /// @brief transport for creating channels.

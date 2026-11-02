@@ -17,6 +17,7 @@
 
 #include "google/protobuf/empty.pb.h"
 
+#include "client/cpp/device/builder.gen.h"
 #include "client/cpp/device/json.gen.h"
 #include "client/cpp/device/proto.gen.h"
 #include "client/cpp/device/types.gen.h"
@@ -123,6 +124,22 @@ public:
     [[nodiscard]]
     std::pair<std::vector<Device>, x::errors::Error>
     retrieve(const RetrieveRequest &req) const;
+
+    /// @brief Retrieves the devices that match every condition in parts, with each
+    /// option in parts applied.
+    /// @returns the devices, or one device when parts end with device::one(). One
+    /// device is an error when no device or more than one device matches.
+    template<typename... Parts>
+        requires x::filter::parts<Where, RetrieveRequest, Parts...>
+    [[nodiscard]] auto retrieve(Parts... parts) const {
+        const auto req = x::filter::request<Where, RetrieveRequest>(
+            std::move(parts)...
+        );
+        if constexpr (x::filter::returns_one<Parts...>)
+            return this->retrieve_one(req, x::filter::describe(req.where));
+        else
+            return this->retrieve(req);
+    }
 
     /// @brief Creates a device in the cluster.
     /// @param device The device to create. Will be updated with the assigned key.

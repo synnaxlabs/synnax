@@ -164,6 +164,47 @@ TEST(StatusTest, RetrieveWhere) {
     ASSERT_EQ(retrieved[0].key, statuses[1].key);
 }
 
+/// @brief it should retrieve the statuses that match every condition.
+TEST(StatusTest, RetrieveConditions) {
+    const auto client = new_test_client();
+    const auto suffix = x::uuid::create().to_string();
+    std::vector<Status<x::json::json>> statuses;
+    for (const auto &variant: {VARIANT_INFO, VARIANT_ERROR, VARIANT_WARNING}) {
+        Status<x::json::json> s;
+        s.key = std::string("test-cond-") + variant + "-" + suffix;
+        s.variant = variant;
+        s.message = "Conditions";
+        s.time = x::telem::TimeStamp::now();
+        statuses.push_back(s);
+    }
+    ASSERT_NIL(client.statuses.set(statuses));
+    const auto retrieved = ASSERT_NIL_P(client.statuses.retrieve(
+        status::variant.eq(VARIANT_ERROR) || status::key.eq(statuses[2].key),
+        !status::variant.eq(VARIANT_WARNING),
+        status::key.in({statuses[0].key, statuses[1].key, statuses[2].key})
+    ));
+    ASSERT_EQ(retrieved.size(), 1);
+    ASSERT_EQ(retrieved[0].key, statuses[1].key);
+}
+
+/// @brief it should retrieve one status with custom details.
+TEST(StatusTest, RetrieveOneCustomDetails) {
+    const auto client = new_test_client();
+    Status<CustomStatusDetails> s;
+    s.key = "test-cond-one-" + x::uuid::create().to_string();
+    s.variant = VARIANT_ERROR;
+    s.message = "Device error occurred";
+    s.time = x::telem::TimeStamp::now();
+    s.details.device_id = "device-beta-7";
+    ASSERT_NIL(client.statuses.set<CustomStatusDetails>(s));
+    const auto retrieved = ASSERT_NIL_P(client.statuses.retrieve<CustomStatusDetails>(
+        status::key.eq(s.key),
+        status::one()
+    ));
+    EXPECT_EQ(retrieved.key, s.key);
+    EXPECT_EQ(retrieved.details.device_id, "device-beta-7");
+}
+
 /// @brief it should update an existing status with new values.
 TEST(StatusTest, UpdateExistingStatus) {
     const auto client = new_test_client();
