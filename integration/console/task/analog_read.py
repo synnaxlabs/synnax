@@ -75,17 +75,14 @@ class AnalogRead(NITask):
         *args: _P.args,
         **kwargs: _P.kwargs,
     ) -> _Channel:
-        """
-        Add an analog read channel to the task.
+        """Add an analog read channel to the task.
 
-        Args:
-            name: Channel name
-            chan_type: Channel class, which must be valid for analog read tasks
-            device: Device identifier
-            dev_name: Optional device name
-            *args, **kwargs: Channel-specific configuration
-
-        Returns:
-            The created channel instance
+        :param name: The channel name.
+        :param chan_type: The channel class. It must be valid for analog read tasks.
+        :param device: The device identifier.
+        :param dev_name: The device name. Defaults to the first 12 characters of name.
+        :param args: Channel-specific configuration.
+        :param kwargs: Channel-specific configuration.
+        :returns: The created channel.
         """
         return self._add_channel(name, chan_type, device, dev_name, *args, **kwargs)

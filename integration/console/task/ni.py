@@ -74,18 +74,15 @@ class NITask(TaskPage):
         *args: _P.args,
         **kwargs: _P.kwargs,
     ) -> _NIChannelT:
-        """
-        Add a channel row to the task and configure it.
+        """Add a channel row to the task and configure it.
 
-        Args:
-            name: Channel name
-            chan_type: Channel class to instantiate
-            device: Device identifier
-            dev_name: Optional device name
-            *args, **kwargs: Channel-specific configuration
-
-        Returns:
-            The created channel instance
+        :param name: The channel name.
+        :param chan_type: The channel class to instantiate.
+        :param device: The device identifier.
+        :param dev_name: The device name. Defaults to the first 12 characters of name.
+        :param args: Channel-specific configuration.
+        :param kwargs: Channel-specific configuration.
+        :returns: The created channel.
         """
         layout = self.layout
 

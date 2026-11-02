@@ -34,18 +34,15 @@ class AnalogWrite(NITask):
         *args: _P.args,
         **kwargs: _P.kwargs,
     ) -> _Channel:
-        """
-        Add an analog write channel to the task.
+        """Add an analog write channel to the task.
 
-        Args:
-            name: Channel name
-            chan_type: Channel class, which must be valid for analog write tasks
-            device: Device identifier
-            dev_name: Optional device name
-            *args, **kwargs: Channel-specific configuration
-
-        Returns:
-            The created channel instance
+        :param name: The channel name.
+        :param chan_type: The channel class. It must be valid for analog write tasks.
+        :param device: The device identifier.
+        :param dev_name: The device name. Defaults to the first 12 characters of name.
+        :param args: Channel-specific configuration.
+        :param kwargs: Channel-specific configuration.
+        :returns: The created channel.
         """
         return self._add_channel(name, chan_type, device, dev_name, *args, **kwargs)
 
@@ -59,16 +56,14 @@ class AnalogWrite(NITask):
         stream_rate: float | None = None,
         state_update_rate: float | None = None,
     ) -> None:
-        """
-        Set the parameters for the NI AO task.
+        """Set the parameters for the NI AO task.
 
-        Args:
-            task_name: The name of the task.
-            data_saving: Whether to save data to the core.
-            auto_start: Whether to start the task automatically.
-            sample_rate: The sample rate for the AO task.
-            stream_rate: The stream rate for the AO task.
-            state_update_rate: The state update rate for the AO task.
+        :param task_name: The name of the task.
+        :param data_saving: Whether to save data to the Core.
+        :param auto_start: Whether to start the task automatically.
+        :param sample_rate: The sample rate for the AO task.
+        :param stream_rate: The stream rate for the AO task.
+        :param state_update_rate: The state update rate for the AO task.
         """
 
         super().set_parameters(
