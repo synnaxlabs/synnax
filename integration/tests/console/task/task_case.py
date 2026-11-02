@@ -27,7 +27,7 @@ PageT = TypeVar("PageT", bound=TaskPage)
 REJECTED_LEVELS = ("error", "warning")
 
 
-def _keys_in(value: Any) -> set[int]:
+def _keys_in(value: JsonValue) -> set[int]:
     """Collect every integer nested in a device property subtree."""
     if isinstance(value, bool):
         return set()
