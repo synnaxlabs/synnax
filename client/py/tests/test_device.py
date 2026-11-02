@@ -16,7 +16,6 @@ from pydantic import JsonValue
 
 import synnax as sy
 from synnax import device
-from x import filter
 from x.testutil import assert_eventually
 
 
@@ -136,21 +135,36 @@ class TestDevice:
         with pytest.raises(sy.NotFoundError):
             client.devices.retrieve(key=str(uuid4()))
 
-    def test_retrieve_where(self, client: sy.Synnax) -> None:
-        """Should keep devices that match a filter tree and the other filters."""
+    def test_retrieve_conditions(self, client: sy.Synnax) -> None:
+        """Should keep devices that match every condition and the other filters."""
         rack = client.racks.create(name=str(uuid4()))
         devs = [client.devices.create(basic_device(rack.key, i)) for i in range(3)]
-        where = device.Where(
-            or_=[
-                device.Where(name=filter.String(eq=devs[0].name)),
-                device.Where(
-                    key=filter.Set[str](eq=devs[1].key),
-                    model=filter.String(regex="^test"),
-                ),
-            ]
+        res = client.devices.retrieve(
+            device.name.eq(devs[0].name)
+            | (device.key.eq(devs[1].key) & device.model.regex("^test")),
+            racks=[rack.key],
         )
-        res = client.devices.retrieve(where=where, racks=[rack.key])
         assert {d.key for d in res} == {devs[0].key, devs[1].key}
+
+    def test_retrieve_by_bare_key(self, client: sy.Synnax) -> None:
+        """Should retrieve a device by a key passed as the first argument."""
+        rack = client.racks.create(name=str(uuid4()))
+        devs = [client.devices.create(basic_device(rack.key, i)) for i in range(2)]
+        assert client.devices.retrieve(devs[0].key).name == devs[0].name
+        keys = [d.key for d in devs]
+        assert {d.key for d in client.devices.retrieve(keys)} == set(keys)
+        assert client.devices.retrieve(str(uuid4()), ignore_not_found=True) is None
+        with pytest.raises(sy.MultipleFoundError):
+            client.devices.retrieve(device.rack.eq(rack.key), one=True)
+
+    def test_retrieve_one_ignore_not_found(self, client: sy.Synnax) -> None:
+        """Should return None for one device when none matches and not-found errors
+        are ignored."""
+        res = client.devices.retrieve(
+            device.make.eq(str(uuid4())), one=True, ignore_not_found=True
+        )
+        assert_type(res, sy.Device | None)
+        assert res is None
 
     def test_create_converts_properties_to_json(self, client: sy.Synnax) -> None:
         """Should store a UUID in the properties as a string."""
