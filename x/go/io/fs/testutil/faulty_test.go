@@ -79,6 +79,27 @@ var _ = Describe("FaultyFS", func() {
 				return err
 			},
 		),
+		Entry(
+			"open",
+			WithFailOpen("a.bin"),
+			func(fs *FaultyFS, _ xfs.File) error {
+				_, err := fs.Open("a.bin", os.O_RDONLY)
+				return err
+			},
+		),
+		Entry(
+			"remove",
+			WithFailRemove("a.bin"),
+			func(fs *FaultyFS, _ xfs.File) error { return fs.Remove("a.bin") },
+		),
+		Entry(
+			"list",
+			WithFailList(""),
+			func(fs *FaultyFS, _ xfs.File) error {
+				_, err := fs.List("")
+				return err
+			},
+		),
 	)
 
 	It("Should fail an operation on every path when the failure names none", func() {
