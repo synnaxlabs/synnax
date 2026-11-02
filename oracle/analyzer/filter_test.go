@@ -381,6 +381,7 @@ var _ = Describe("Filter definitions", func() {
 						details D
 						spans   Span[]
 						values  Attributes[]
+						fixed   int32[4]
 					}
 					Other enum {
 						a = "a"
@@ -437,6 +438,11 @@ var _ = Describe("Filter definitions", func() {
 			Entry("a bare line over an array of maps",
 				"Where filter Thing {\n values\n}",
 				"filter Where: Thing.values has elements that cannot be compared"),
+			Entry(
+				"a bare line over a fixed-size array",
+				"Where filter Thing {\n fixed\n}",
+				"filter Where: Thing.fixed is a fixed-size array, which bare lines do not",
+			),
 			Entry("a bare line over an optional field",
 				"Where filter Thing {\n color\n}",
 				"filter Where: Thing.color is optional, which bare lines do not"),
