@@ -37,6 +37,8 @@ interface DetailsProps {
   device: Device;
   nodeId: string;
   field: string;
+  /** The node ID of the node that the browser found this one under. */
+  parent?: string;
 }
 
 interface State {
@@ -84,7 +86,12 @@ const Row = ({ label, value }: RowProps): ReactElement | null => {
 };
 
 /** Shows the attributes and the current value of one node of a server. */
-export const Details = ({ device, nodeId, field }: DetailsProps): ReactElement => {
+export const Details = ({
+  device,
+  nodeId,
+  field,
+  parent,
+}: DetailsProps): ReactElement => {
   const client = Synnax.use();
   const { startDrag } = Haul.useDrag({ type: HAUL_TYPE });
   const deviceRef = useSyncedRef(device);
@@ -147,6 +154,12 @@ export const Details = ({ device, nodeId, field }: DetailsProps): ReactElement =
               : `${details.minimumSamplingInterval} ms minimum`
           }
         />
+        <Row
+          label="Arguments"
+          value={details.inputArguments
+            ?.map(({ name, typeName }) => `${name} (${typeName})`)
+            .join(", ")}
+        />
         <Row label="Value" value={details.value} />
         <Row label="Status" value={details.status} />
         <Row label="Source time" value={details.sourceTimestamp} />
@@ -154,10 +167,15 @@ export const Details = ({ device, nodeId, field }: DetailsProps): ReactElement =
       </Flex.Box>
     );
   const draggable =
-    details?.nodeClass === "Variable" || details?.nodeClass === "Object";
+    details?.nodeClass === "Variable" ||
+    details?.nodeClass === "Object" ||
+    details?.nodeClass === "ObjectType" ||
+    details?.nodeClass === "Method";
   const handleDragStart = () => {
     if (details != null)
-      startDrag([createHaulItem({ ...details.node, key: nodeIdentity(details.node) })]);
+      startDrag([
+        createHaulItem({ ...details.node, key: nodeIdentity(details.node), parent }),
+      ]);
   };
   return (
     <Flex.Box y empty className={CSS.B("opc-details")}>

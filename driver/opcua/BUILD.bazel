@@ -17,6 +17,7 @@ cc_library(
         "scan_task.cpp",
     ],
     hdrs = [
+        "event_task.h",
         "opcua.h",
         "read_task.h",
         "scan_task.h",
@@ -32,6 +33,7 @@ cc_library(
         "//driver/opcua/connection",
         "//driver/opcua/device",
         "//driver/opcua/errors",
+        "//driver/opcua/method",
         "//driver/opcua/structure",
         "//driver/opcua/telem",
         "//driver/opcua/types",
@@ -54,6 +56,7 @@ cc_test(
     name = "opcua_test",
     timeout = "long",
     srcs = [
+        "event_task_test.cpp",
         "read_task_test.cpp",
         "scan_task_test.cpp",
         "write_task_test.cpp",

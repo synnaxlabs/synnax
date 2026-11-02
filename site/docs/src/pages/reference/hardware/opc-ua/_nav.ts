@@ -25,5 +25,9 @@ export const OPC_UA_NAV: PageNavNode = {
       href: "/reference/hardware/opc-ua/write-task",
       name: "Write task",
     },
+    {
+      href: "/reference/hardware/opc-ua/event-task",
+      name: "Event task",
+    },
   ],
 };

@@ -47,6 +47,7 @@ describe("OPC UA Write Task Types", () => {
           nodeId: "1",
           name: "test",
           nodeName: "test",
+          type: "node",
         },
       ],
       device: "1",
@@ -194,6 +195,7 @@ describe("OPC UA Write Task Config Validation", () => {
       disabled: false,
       dataType: "float32",
       name: "",
+      type: "node",
     });
     const result = OPCUA.Task.deployWriteConfigZ.safeParse({
       device: "dev",
@@ -205,6 +207,145 @@ describe("OPC UA Write Task Config Validation", () => {
         message.includes("used for multiple channels"),
       ),
     ).toBe(true);
+  });
+});
+
+describe("OPC UA method channel validation", () => {
+  const method = (overrides: Partial<OPCUA.Task.WriteChannel> = {}): unknown => ({
+    key: "k0",
+    nodeId: "ns=1;s=Pump.SetSpeed",
+    nodeName: "SetSpeed",
+    cmdChannel: 0,
+    disabled: false,
+    dataType: "float32",
+    name: "",
+    type: "method",
+    objectId: "ns=1;s=Pump",
+    arguments: [{ source: "command", name: "speed", dataType: "float64" }],
+    ...overrides,
+  });
+  const issues = (...channels: unknown[]) =>
+    OPCUA.Task.deployWriteConfigZ
+      .safeParse({ device: "dev", channels })
+      .error?.issues.map(({ message, path }) => ({ message, path })) ?? [];
+
+  it("should accept a method channel", () => {
+    expect(issues(method())).toEqual([]);
+  });
+
+  it("should require an object", () => {
+    expect(issues(method({ objectId: "" }))).toEqual([
+      { message: "Method must have an object", path: ["channels", 0, "objectId"] },
+    ]);
+  });
+
+  it("should allow only one argument to take the command", () => {
+    const arg = {
+      source: "command",
+      name: "a",
+      dataType: "float64",
+    } as const;
+    expect(issues(method({ arguments: [arg, { ...arg, name: "b" }] }))).toEqual([
+      {
+        message: "Only one argument can take the command",
+        path: ["channels", 0, "arguments"],
+      },
+    ]);
+  });
+
+  it("should not warn about two channels that call one method", () => {
+    expect(issues(method(), method({ key: "k1" }))).toEqual([]);
+  });
+
+  it("should not check a disabled method", () => {
+    const arg = { source: "command", name: "a", dataType: "float64" } as const;
+    const unfinished = method({
+      key: "k1",
+      disabled: true,
+      objectId: "",
+      arguments: [arg, { ...arg, name: "b" }],
+    });
+    expect(issues(method(), unfinished)).toEqual([]);
+  });
+});
+
+describe("OPC UA event task config validation", () => {
+  const issues = (fields: Partial<OPCUA.Task.EventField>[]) =>
+    OPCUA.Task.deployEventConfigZ
+      .safeParse({
+        device: "dev",
+        fields: fields.map((f, i) => ({
+          key: `f${i}`,
+          name: "",
+          browsePath: "",
+          ...f,
+        })),
+      })
+      .error?.issues.map(({ message, path }) => ({ message, path })) ?? [];
+
+  it("should accept fields with unique names and full browse paths", () => {
+    expect(issues([{ name: "level", browsePath: "2:Pump/2:Level" }])).toEqual([]);
+  });
+
+  it("should reject a field without a name", () => {
+    expect(issues([{ browsePath: "Level" }])).toEqual([
+      { message: "Field must have a name", path: ["fields", 0, "name"] },
+    ]);
+  });
+
+  it("should reject a field that repeats a standard or earlier name", () => {
+    expect(
+      issues([
+        { name: "severity", browsePath: "Level" },
+        { name: "level", browsePath: "Level" },
+        { name: "level", browsePath: "Level" },
+      ]),
+    ).toEqual([
+      { message: "A standard field has this name", path: ["fields", 0, "name"] },
+      { message: "Another field has this name", path: ["fields", 2, "name"] },
+    ]);
+  });
+
+  it("should reject a browse path with an empty element", () => {
+    expect(issues([{ name: "id", browsePath: "EnabledState//Id" }])).toEqual([
+      {
+        message: "Browse path must name each element",
+        path: ["fields", 0, "browsePath"],
+      },
+    ]);
+  });
+
+  it("should accept a namespace URI that holds a slash", () => {
+    expect(
+      issues([{ name: "level", browsePath: "nsu=http://x.com/UA/;Pump/2:Level" }]),
+    ).toEqual([]);
+  });
+
+  it("should reject a namespace URI with no semicolon after it", () => {
+    expect(issues([{ name: "level", browsePath: "nsu=urn:pump" }])).toEqual([
+      {
+        message: "Browse path must end each namespace URI with ';'",
+        path: ["fields", 0, "browsePath"],
+      },
+    ]);
+  });
+
+  it("should reject a namespace URI with an invalid escape", () => {
+    expect(issues([{ name: "level", browsePath: "nsu=urn:%zz;Level" }])).toEqual([
+      {
+        message: "Browse path has an invalid namespace URI",
+        path: ["fields", 0, "browsePath"],
+      },
+    ]);
+  });
+
+  it("should reject a name after a namespace index that is empty", () => {
+    expect(issues([{ name: "level", browsePath: "Pump/2:" }])).toEqual([
+      {
+        message: "Browse path must name each element",
+        path: ["fields", 0, "browsePath"],
+      },
+    ]);
   });
 });
 

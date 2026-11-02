@@ -16,8 +16,14 @@ import { Task } from "@/platform/task";
 export const PREFIX = "opc";
 
 export interface ReadChannel extends opcua.ReadChannel {}
-export interface WriteChannel extends opcua.WriteChannel {}
+export type WriteChannel = opcua.WriteChannel;
 export type Channel = ReadChannel | WriteChannel;
+export type MethodArgument = opcua.MethodArgument;
+export interface EventField extends opcua.EventField {}
+
+/** @returns true if the channel calls a method instead of writing a node. */
+export const isMethod = (ch: Channel): ch is opcua.MethodWriteChannel =>
+  "type" in ch && ch.type === "method";
 
 /**
  * @returns a key for what a channel reads or writes: its node, and the member of the
@@ -31,7 +37,9 @@ const validateNodeIDs = ({
   issues,
 }: z.core.ParsePayload<Channel[]>) => {
   const counts = new Map<string, number>();
+  // A method can take more than one channel, each with its own arguments.
   channels.forEach((ch) => {
+    if (isMethod(ch)) return;
     const id = nodeIdentity(ch);
     counts.set(id, (counts.get(id) ?? 0) + 1);
   });
@@ -127,12 +135,36 @@ export const WRITE_TYPE = `${PREFIX}_write`;
 
 const writeConfigZ = opcua.writeConfigZ;
 
+const validateMethodChannels = ({
+  value: channels,
+  issues,
+}: z.core.ParsePayload<WriteChannel[]>) =>
+  channels.forEach((ch, i) => {
+    if (ch.type !== "method" || ch.disabled) return;
+    if (ch.objectId.length === 0)
+      issues.push({
+        code: "custom",
+        message: "Method must have an object",
+        path: [i, "objectId"],
+        input: channels,
+      });
+    const commands = ch.arguments.filter(({ source }) => source === "command");
+    if (commands.length > 1)
+      issues.push({
+        code: "custom",
+        message: "Only one argument can take the command",
+        path: [i, "arguments"],
+        input: channels,
+      });
+  });
+
 export const deployWriteConfigZ = opcua.writeConfigZ.extend({
   device: Task.deviceKeyZ,
   channels: opcua.writeChannelZ
     .array()
     .check(Task.validateChannels)
     .check(Task.validateEnabledChannel)
+    .check(validateMethodChannels)
     .check(({ value: channels, issues }) => {
       const channelsToIndexMap = new Map<channel.Key, number>();
       channels.forEach(({ cmdChannel }, i) => {
@@ -159,6 +191,96 @@ export const WRITE_SCHEMAS = {
 
 export type WriteSchemas = typeof WRITE_SCHEMAS;
 
+export const EVENT_TYPE = `${PREFIX}_event`;
+
+// The keys of the fields that every event records.
+const STANDARD_EVENT_KEYS = [
+  "event_id",
+  "event_type",
+  "source_name",
+  "time",
+  "message",
+  "severity",
+];
+
+const NAMESPACE_URI_PREFIX = "nsu=";
+
+// Returns the problem with a browse path, by the rules that the Driver parses it with.
+const findBrowsePathIssue = (path: string): string | null => {
+  let rest = path;
+  let more = true;
+  while (more) {
+    let named = false;
+    if (
+      rest.slice(0, NAMESPACE_URI_PREFIX.length).toLowerCase() === NAMESPACE_URI_PREFIX
+    ) {
+      const end = rest.indexOf(";");
+      if (end === -1) return "Browse path must end each namespace URI with ';'";
+      const uri = rest.slice(NAMESPACE_URI_PREFIX.length, end);
+      if (uri.length === 0 || /%(?![0-9a-f]{2})/i.test(uri))
+        return "Browse path has an invalid namespace URI";
+      rest = rest.slice(end + 1);
+      named = true;
+    }
+    const slash = rest.indexOf("/");
+    let name = slash === -1 ? rest : rest.slice(0, slash);
+    const index = /^(\d+):/.exec(name);
+    if (!named && index != null && Number(index[1]) <= 0xffff)
+      name = name.slice(index[0].length);
+    if (name.length === 0) return "Browse path must name each element";
+    more = slash !== -1;
+    rest = rest.slice(slash + 1);
+  }
+  return null;
+};
+
+export const deployEventConfigZ = opcua.eventConfigZ.extend({
+  device: Task.deviceKeyZ,
+  fields: opcua.eventFieldZ.array().check(({ value: fields, issues }) => {
+    const names = new Set<string>();
+    fields.forEach(({ name, browsePath }, i) => {
+      if (name.length === 0)
+        issues.push({
+          code: "custom",
+          message: "Field must have a name",
+          path: [i, "name"],
+          input: fields,
+        });
+      else if (STANDARD_EVENT_KEYS.includes(name))
+        issues.push({
+          code: "custom",
+          message: "A standard field has this name",
+          path: [i, "name"],
+          input: fields,
+        });
+      else if (names.has(name))
+        issues.push({
+          code: "custom",
+          message: "Another field has this name",
+          path: [i, "name"],
+          input: fields,
+        });
+      names.add(name);
+      const pathIssue = findBrowsePathIssue(browsePath);
+      if (pathIssue != null)
+        issues.push({
+          code: "custom",
+          message: pathIssue,
+          path: [i, "browsePath"],
+          input: fields,
+        });
+    });
+  }),
+});
+
+export const EVENT_SCHEMAS = {
+  type: z.literal(EVENT_TYPE),
+  config: opcua.eventConfigZ,
+  statusData: z.unknown().optional(),
+} as const satisfies task.Schemas;
+
+export type EventSchemas = typeof EVENT_SCHEMAS;
+
 export const SCAN_TYPE = `${PREFIX}_scan`;
 
 const scannedNodeFieldsZ = z.object({
@@ -178,7 +300,19 @@ const withKey = <N extends { key?: string; nodeId: string }>({ key, ...rest }: N
 
 const scannedNodeZ = scannedNodeFieldsZ.transform(withKey);
 
-export interface ScannedNode extends z.infer<typeof scannedNodeZ> {}
+const inputArgumentZ = z.object({
+  name: z.string(),
+  typeName: z.string(),
+  dataType: z.string(),
+});
+
+/** An input argument of a method, as the server declares it. */
+export interface InputArgument extends z.infer<typeof inputArgumentZ> {}
+
+export interface ScannedNode extends z.infer<typeof scannedNodeZ> {
+  /** The node ID of the node that the browser found this one under. */
+  parent?: string;
+}
 
 // A variable that a search under a folder found, with its browse path below it.
 const foundNodeZ = scannedNodeFieldsZ
@@ -210,6 +344,7 @@ export const nodeDetailsZ = z.object({
   sourceTimestamp: z.string().optional(),
   serverTimestamp: z.string().optional(),
   value: z.string().optional(),
+  inputArguments: z.array(inputArgumentZ).optional(),
 });
 
 /** The attributes and the value of one node, as the server reports them. */

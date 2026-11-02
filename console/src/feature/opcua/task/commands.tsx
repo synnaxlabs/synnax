@@ -9,6 +9,7 @@
 
 import { Icon } from "@synnaxlabs/lyra/icon";
 
+import { useCreateEvent } from "@/feature/opcua/task/Event";
 import { useCreateRead } from "@/feature/opcua/task/Read";
 import { useCreateWrite } from "@/feature/opcua/task/Write";
 import { Task } from "@/platform/task";
@@ -27,4 +28,11 @@ const CreateWriteCommand = Task.createCommand({
   useOnSelect: useCreateWrite,
 });
 
-export const COMMANDS = [CreateReadCommand, CreateWriteCommand];
+const CreateEventCommand = Task.createCommand({
+  key: "opc_ua_create_event_task",
+  name: "Create OPC UA event task",
+  icon: <Icon.Logo.OPCUA />,
+  useOnSelect: useCreateEvent,
+});
+
+export const COMMANDS = [CreateReadCommand, CreateWriteCommand, CreateEventCommand];

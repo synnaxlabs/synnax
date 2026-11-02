@@ -126,6 +126,7 @@ protected:
                  {{{"key", "NS=2;I=1"},
                    {"name", "bool_write_test"},
                    {"node_name", "TestBoolean"},
+                   {"type", "node"},
                    {"node_id", "NS=1;S=TestBoolean"},
                    {"cmd_channel", this->bool_cmd_channel.key},
                    {"disabled", false},
@@ -133,6 +134,7 @@ protected:
                   {{"key", "NS=2;I=2"},
                    {"name", "uint16_write_test"},
                    {"node_name", "TestUInt16"},
+                   {"type", "node"},
                    {"node_id", "NS=1;S=TestUInt16"},
                    {"cmd_channel", this->uint16_cmd_channel.key},
                    {"disabled", false},
@@ -140,6 +142,7 @@ protected:
                   {{"key", "NS=2;I=3"},
                    {"name", "uint32_write_test"},
                    {"node_name", "TestUInt32"},
+                   {"type", "node"},
                    {"node_id", "NS=1;S=TestUInt32"},
                    {"cmd_channel", this->uint32_cmd_channel.key},
                    {"disabled", false},
@@ -147,6 +150,7 @@ protected:
                   {{"key", "NS=2;I=4"},
                    {"name", "uint64_write_test"},
                    {"node_name", "TestUInt64"},
+                   {"type", "node"},
                    {"node_id", "NS=1;S=TestUInt64"},
                    {"cmd_channel", this->uint64_cmd_channel.key},
                    {"disabled", false},
@@ -154,6 +158,7 @@ protected:
                   {{"key", "NS=2;I=5"},
                    {"name", "int8_write_test"},
                    {"node_name", "TestInt8"},
+                   {"type", "node"},
                    {"node_id", "NS=1;S=TestInt8"},
                    {"cmd_channel", this->int8_cmd_channel.key},
                    {"disabled", false},
@@ -161,6 +166,7 @@ protected:
                   {{"key", "NS=2;I=6"},
                    {"name", "int16_write_test"},
                    {"node_name", "TestInt16"},
+                   {"type", "node"},
                    {"node_id", "NS=1;S=TestInt16"},
                    {"cmd_channel", this->int16_cmd_channel.key},
                    {"disabled", false},
@@ -168,6 +174,7 @@ protected:
                   {{"key", "NS=2;I=7"},
                    {"name", "int32_write_test"},
                    {"node_name", "TestInt32"},
+                   {"type", "node"},
                    {"node_id", "NS=1;S=TestInt32"},
                    {"cmd_channel", this->int32_cmd_channel.key},
                    {"disabled", false},
@@ -175,6 +182,7 @@ protected:
                   {{"key", "NS=2;I=8"},
                    {"name", "int64_write_test"},
                    {"node_name", "TestInt64"},
+                   {"type", "node"},
                    {"node_id", "NS=1;S=TestInt64"},
                    {"cmd_channel", this->int64_cmd_channel.key},
                    {"disabled", false},
@@ -182,6 +190,7 @@ protected:
                   {{"key", "NS=2;I=9"},
                    {"name", "float_write_test"},
                    {"node_name", "TestFloat"},
+                   {"type", "node"},
                    {"node_id", "NS=1;S=TestFloat"},
                    {"cmd_channel", this->float_cmd_channel.key},
                    {"disabled", false},
@@ -189,6 +198,7 @@ protected:
                   {{"key", "NS=2;I=10"},
                    {"name", "double_write_test"},
                    {"node_name", "TestDouble"},
+                   {"type", "node"},
                    {"node_id", "NS=1;S=TestDouble"},
                    {"cmd_channel", this->double_cmd_channel.key},
                    {"disabled", false},
@@ -207,6 +217,7 @@ protected:
 
         // Use the comprehensive default server configuration
         auto server_cfg = testutil::ServerConfig::create_default();
+        server_cfg.pump = testutil::Pump{};
 
         ctx = std::make_shared<task::MockContext>(client);
         auto reads = std::make_shared<std::vector<::x::telem::Frame>>();
@@ -296,6 +307,44 @@ protected:
         );
     }
 
+    /// @returns a sink that calls method on object with arguments, with the commands of
+    /// the double command channel.
+    [[nodiscard]] std::unique_ptr<WriteTaskSink> create_method_sink(
+        const std::string &method,
+        const x::json::json &arguments,
+        const std::string &object = "NS=1;S=Pump"
+    ) const {
+        x::json::json task_cfg = {
+            {"device", "abc123"},
+            {"channels",
+             x::json::json::array({
+                 {{"type", "method"},
+                  {"node_id", method},
+                  {"object_id", object},
+                  {"arguments", arguments},
+                  {"cmd_channel", this->double_cmd_channel.key}},
+                 {{"type", "node"},
+                  {"node_id", "NS=1;S=TestFloat"},
+                  {"cmd_channel", this->float_cmd_channel.key}},
+             })}
+        };
+        auto p = x::json::Parser(task_cfg);
+        auto write_cfg = WriteTaskConfig(ctx->client, p);
+        EXPECT_FALSE(p.error()) << p.error().message();
+        return std::make_unique<WriteTaskSink>(
+            ctx->client,
+            conn_pool,
+            std::move(write_cfg)
+        );
+    }
+
+    /// @returns a frame that commands the double channel with value.
+    [[nodiscard]] x::telem::Frame method_command(const double value) const {
+        auto fr = x::telem::Frame(1);
+        fr.emplace(this->double_cmd_channel.key, x::telem::Series(value));
+        return fr;
+    }
+
     static constexpr std::uint16_t SECURED_PORT = 4862;
     inline static const std::string SECURED_DEVICE_KEY = "secured_write_device";
     synnax::channel::Channel secured_cmd_channel;
@@ -336,7 +385,8 @@ protected:
             {"device", SECURED_DEVICE_KEY},
             {"channels",
              x::json::json::array(
-                 {{{"node_id", node_id},
+                 {{{"type", "node"},
+                   {"node_id", node_id},
                    {"cmd_channel", this->secured_cmd_channel.key},
                    {"disabled", false}}}
              )}
@@ -579,10 +629,12 @@ TEST_F(TestWriteTask, testRejectedNodeWritesOthers) {
         {"device", "abc123"},
         {"channels",
          x::json::json::array({
-             {{"node_id", "NS=99;I=99999"},
+             {{"type", "node"},
+              {"node_id", "NS=99;I=99999"},
               {"cmd_channel", bad_cmd.key},
               {"disabled", false}},
-             {{"node_id", "NS=1;S=TestUInt32"},
+             {{"type", "node"},
+              {"node_id", "NS=1;S=TestUInt32"},
               {"cmd_channel", this->uint32_cmd_channel.key},
               {"disabled", false}},
          })}
@@ -633,7 +685,10 @@ std::unique_ptr<WriteTaskSink> sink_for(
         {"device", "abc123"},
         {"channels",
          x::json::json::array({
-             {{"node_id", node_id}, {"cmd_channel", cmd_channel}, {"disabled", false}},
+             {{"type", "node"},
+              {"node_id", node_id},
+              {"cmd_channel", cmd_channel},
+              {"disabled", false}},
          })}
     };
     auto p = x::json::Parser(task_cfg);
@@ -923,11 +978,12 @@ TEST_F(TestWriteTask, testUnboundDisabledChannel) {
              {{{"key", "NS=2;I=1"},
                {"name", "bool_write_test"},
                {"node_name", "TestBoolean"},
+               {"type", "node"},
                {"node_id", "NS=1;S=TestBoolean"},
                {"cmd_channel", this->bool_cmd_channel.key},
                {"disabled", false},
                {"data_type", "uint8"}},
-              {{"key", "blank"}, {"disabled", true}}}
+              {{"key", "blank"}, {"type", "node"}, {"disabled", true}}}
          )}
     };
 
@@ -938,4 +994,204 @@ TEST_F(TestWriteTask, testUnboundDisabledChannel) {
     EXPECT_TRUE(parsed->channels.contains(this->bool_cmd_channel.key));
 }
 
+/// @brief it should call a method with the command as its argument, and write the
+/// values of node channels in the same frame.
+TEST_F(TestWriteTask, testCallsMethodWithCommand) {
+    const auto sink = this->create_method_sink(
+        "NS=1;S=Pump.SetSpeed",
+        {{{"source", "command"}}}
+    );
+    ASSERT_NIL(sink->start());
+    auto fr = this->method_command(42);
+    fr.emplace(this->float_cmd_channel.key, x::telem::Series(1.5f));
+    ASSERT_NIL(sink->write(fr));
+    const auto client = ASSERT_NIL_P(connection::connect(conn_cfg, {}, "[test] "));
+    const auto speed = ASSERT_NIL_P(testutil::simple_read(client, "NS=1;S=Pump.Speed"));
+    EXPECT_EQ(speed.at<double>(0), 42);
+    const auto value = ASSERT_NIL_P(testutil::simple_read(client, "NS=1;S=TestFloat"));
+    EXPECT_FLOAT_EQ(value.at<float>(0), 1.5f);
+    ASSERT_NIL(sink->stop());
+}
+
+/// @brief it should convert fixed arguments and the command to the declared types of
+/// the method's arguments.
+TEST_F(TestWriteTask, testCallsMethodWithFixedArguments) {
+    const auto sink = this->create_method_sink(
+        "NS=1;S=Pump.Configure",
+        {{{"source", "value"}, {"value", "auto"}}, {{"source", "command"}}}
+    );
+    ASSERT_NIL(sink->start());
+    auto fr = this->method_command(7);
+    ASSERT_NIL(sink->write(fr));
+    const auto client = ASSERT_NIL_P(connection::connect(conn_cfg, {}, "[test] "));
+    const auto speed = ASSERT_NIL_P(testutil::simple_read(client, "NS=1;S=Pump.Speed"));
+    EXPECT_EQ(speed.at<double>(0), 7);
+    const auto mode = ASSERT_NIL_P(testutil::simple_read(client, "NS=1;S=Pump.Mode"));
+    EXPECT_EQ(mode.at<std::string>(0), "auto");
+    ASSERT_NIL(sink->stop());
+}
+
+/// @brief it should reject a command when the method fails, naming the channel.
+TEST_F(TestWriteTask, testRejectsFailedMethod) {
+    const auto sink = this->create_method_sink(
+        "NS=1;S=Pump.Fail",
+        x::json::json::array()
+    );
+    ASSERT_NIL(sink->start());
+    auto fr = this->method_command(1);
+    const auto err = sink->write(fr);
+    ASSERT_MATCHES(err, errors::COMMAND_REJECTED);
+    EXPECT_EQ(
+        err.data,
+        this->double_cmd_channel.name + " returned BadInvalidState. " +
+            errors::parse(UA_STATUSCODE_BADINVALIDSTATE).data
+    );
+    ASSERT_NIL(sink->stop());
+}
+
+/// @brief it should convert the arguments of a method that the server adds after the
+/// task starts to their declared types, on the same Session.
+TEST_F(TestWriteTask, testMethodAddedAfterStart) {
+    server->stop();
+    server->cfg.pump.reset();
+    server->start();
+    ASSERT_TRUE(server->wait_until_ready());
+    const auto sink = this->create_method_sink(
+        "NS=1;S=Pump.SetSpeed",
+        {{{"source", "value"}, {"value", "5"}}}
+    );
+    ASSERT_NIL(sink->start());
+    auto fr = this->method_command(1);
+    ASSERT_OCCURRED_AS(sink->write(fr), errors::COMMAND_REJECTED);
+    const auto sessions = server->sessions_created.load();
+    server->add_pump(testutil::Pump{});
+    ASSERT_NIL(sink->write(fr));
+    EXPECT_EQ(server->sessions_created.load(), sessions);
+    const auto client = ASSERT_NIL_P(connection::connect(conn_cfg, {}, "[test] "));
+    const auto speed = ASSERT_NIL_P(testutil::simple_read(client, "NS=1;S=Pump.Speed"));
+    EXPECT_EQ(speed.at<double>(0), 5);
+    ASSERT_NIL(sink->stop());
+}
+
+/// @brief it should call a method on an object in a namespace that the server adds
+/// after the task starts, on the same Session.
+TEST_F(TestWriteTask, testCallsMethodOfObjectAddedLater) {
+    const auto sink = this->create_method_sink(
+        "NS=1;S=Pump.SetSpeed",
+        {{{"source", "command"}}},
+        "nsu=urn:late;s=Pump"
+    );
+    ASSERT_NIL(sink->start());
+    auto fr = this->method_command(3);
+    ASSERT_OCCURRED_AS(sink->write(fr), errors::COMMAND_REJECTED);
+    const auto sessions = server->sessions_created.load();
+    server->add_pump_object("urn:late");
+    ASSERT_NIL(sink->write(fr));
+    EXPECT_EQ(server->sessions_created.load(), sessions);
+    const auto client = ASSERT_NIL_P(connection::connect(conn_cfg, {}, "[test] "));
+    const auto speed = ASSERT_NIL_P(testutil::simple_read(client, "NS=1;S=Pump.Speed"));
+    EXPECT_EQ(speed.at<double>(0), 3);
+    ASSERT_NIL(sink->stop());
+}
+
+/// @brief it should not call a method again when the call times out, since the server
+/// might have run it.
+TEST_F(TestWriteTask, testDoesNotResendTimedOutCall) {
+    auto timeout_cfg = conn_cfg;
+    timeout_cfg.client_timeout_ms = 500;
+    auto dev = ASSERT_NIL_P(ctx->client->devices.retrieve("abc123"));
+    dev.properties = x::json::json::object(
+        {{"connection", testutil::connection_json(timeout_cfg)}}
+    );
+    ASSERT_NIL(ctx->client->devices.create(dev));
+    conn_pool = std::make_shared<connection::Pool>(testutil::create_store());
+    const auto sink = this->create_method_sink(
+        "NS=1;S=Pump.SetSpeed",
+        {{{"source", "command"}}}
+    );
+    ASSERT_NIL(sink->start());
+    const auto client = ASSERT_NIL_P(connection::connect(conn_cfg, {}, "[test] "));
+    server->probe_delay = 2 * x::telem::SECOND;
+    // The server waits for a request before it starts the delay, so send one first.
+    ASSERT_NIL_P(testutil::simple_read(client, "NS=1;S=Pump.Speed"));
+    auto fr = this->method_command(42);
+    const auto err = sink->write(fr);
+    server->probe_delay = x::telem::TimeSpan{};
+    ASSERT_MATCHES(err, errors::COMMAND_REJECTED);
+    EXPECT_EQ(
+        err.data,
+        this->double_cmd_channel.name +
+            ": lost the connection during the call, so the method might not have run."
+    );
+    // The server can answer a later read before it runs the call that timed out.
+    ASSERT_EVENTUALLY_EQ_WITH_TIMEOUT(
+        server->method_calls.load(),
+        1,
+        std::chrono::seconds(5),
+        std::chrono::milliseconds(10)
+    );
+    const auto speed = ASSERT_NIL_P(testutil::simple_read(client, "NS=1;S=Pump.Speed"));
+    EXPECT_EQ(speed.at<double>(0), 42);
+    EXPECT_EQ(server->method_calls, 1);
+    ASSERT_NIL(sink->stop());
+}
+
+/// @brief it should reject a command when the channel gives a different number of
+/// arguments than the method takes.
+TEST_F(TestWriteTask, testRejectsArgumentCount) {
+    const auto sink = this->create_method_sink(
+        "NS=1;S=Pump.SetSpeed",
+        x::json::json::array()
+    );
+    ASSERT_NIL(sink->start());
+    auto fr = this->method_command(1);
+    const auto err = sink->write(fr);
+    ASSERT_MATCHES(err, errors::COMMAND_REJECTED);
+    EXPECT_EQ(
+        err.data,
+        this->double_cmd_channel.name +
+            ": the method takes 1 argument, but the channel gives 0 arguments."
+    );
+    ASSERT_NIL(sink->stop());
+}
+
+/// @brief it should reject a command when a fixed argument does not convert to the
+/// declared type of its argument.
+TEST_F(TestWriteTask, testRejectsFixedArgumentThatDoesNotConvert) {
+    const auto sink = this->create_method_sink(
+        "NS=1;S=Pump.Configure",
+        {{{"source", "value"}, {"value", "auto"}},
+         {{"source", "value"}, {"value", "fast"}}}
+    );
+    ASSERT_NIL(sink->start());
+    auto fr = this->method_command(1);
+    const auto err = sink->write(fr);
+    ASSERT_MATCHES(err, errors::COMMAND_REJECTED);
+    EXPECT_TRUE(err.data.starts_with(this->double_cmd_channel.name + ": argument 2: "))
+        << err.data;
+    ASSERT_NIL(sink->stop());
+}
+
+/// @brief it should reject a method channel that takes the command as more than one
+/// argument, or names no object.
+TEST_F(TestWriteTask, testRejectsInvalidMethodChannel) {
+    x::json::json task_cfg = {
+        {"device", "abc123"},
+        {"channels",
+         x::json::json::array({
+             {{"type", "method"},
+              {"node_id", "NS=1;S=Pump.Configure"},
+              {"arguments", {{{"source", "command"}}, {{"source", "command"}}}},
+              {"cmd_channel", this->double_cmd_channel.key}},
+         })}
+    };
+    auto p = x::json::Parser(task_cfg);
+    const auto parsed = WriteTaskConfig(ctx->client, p);
+    ASSERT_OCCURRED_AS(p.error(), x::errors::VALIDATION);
+    EXPECT_NE(
+        p.error().data.find("Only one argument can take the command"),
+        std::string::npos
+    );
+    EXPECT_NE(p.error().data.find("object_id"), std::string::npos);
+}
 }

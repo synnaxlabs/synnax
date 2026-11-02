@@ -12,8 +12,16 @@ from uuid import uuid4
 
 from pydantic import JsonValue
 
-from synnax import device, task
-from synnax.opcua.types_gen import ReadChannel, ReadConfig, WriteChannel, WriteConfig
+from synnax import channel, device, task
+from synnax.opcua.types_gen import (
+    EventConfig,
+    EventField,
+    NodeWriteChannel,
+    ReadChannel,
+    ReadConfig,
+    WriteChannel,
+    WriteConfig,
+)
 from synnax.telem import CrudeRate, Rate
 
 SecurityMode = Literal["None", "Sign", "SignAndEncrypt"]
@@ -118,8 +126,8 @@ class WriteTask(
     :param device: The key of the Synnax OPC UA device to write to.
     :param name: A human-readable name for the task.
     :param auto_start: Whether to start the task automatically when it is created.
-    :param channels: The OPC UA nodes to write to and the Synnax channels to read
-        command values from.
+    :param channels: The OPC UA nodes to write to, or the methods to call, and the
+        Synnax channels to read command values from.
     """
 
     TYPE = "opc_write"
@@ -152,10 +160,64 @@ class WriteTask(
         props = dict(dev.properties)
         channels = device.ensure_object(props, "write", "channels")
         for ch in self.config.channels:
-            if ch.node_id:
+            # A method can take many channels, so the device binds only nodes.
+            if ch.node_id and isinstance(ch, NodeWriteChannel):
                 channels[ch.node_id] = ch.cmd_channel
         dev.properties = props
         return device_client.create(dev)
+
+
+class EventTask(
+    task.StarterStopperMixin, task.JSONConfigMixin[EventConfig], task.Protocol
+):
+    """An event task that records the events of an OPC UA server as JSON samples in a
+    Synnax channel. For detailed information on configuring and operating an OPC UA
+    event task, see https://docs.synnaxlabs.com/reference/hardware/opc-ua/event-task
+
+    :param device: The key of the Synnax OPC UA device to record events from.
+    :param name: A human-readable name for the task.
+    :param channel: The key of the JSON channel, with an index, that the task writes
+        events to.
+    :param notifiers: The node IDs of the objects to record events from. When empty,
+        the task records the events of the Server object.
+    :param event_types: The node IDs of the event types to record, with their subtypes.
+        When empty, the task records events of every type.
+    :param fields: The event fields to record beyond the standard fields.
+    :param data_saving_disabled: Whether to only stream events for real-time
+        consumption instead of saving them permanently within Synnax.
+    :param auto_start: Whether to start the task automatically when it is created.
+    """
+
+    TYPE = "opc_event"
+    _internal: task.Task
+
+    def __init__(
+        self,
+        internal: task.Task | None = None,
+        *,
+        device: device.Key = "",
+        name: str = "",
+        channel: channel.Key = 0,
+        notifiers: list[str] | None = None,
+        event_types: list[str] | None = None,
+        fields: list[EventField] | None = None,
+        data_saving_disabled: bool = False,
+        auto_start: bool = False,
+    ) -> None:
+        if internal is not None:
+            self._internal = internal
+            self.config = EventConfig.model_validate(internal.config)
+            return
+        self._internal = task.Task(name=name, type=self.TYPE)
+        self.config = EventConfig(
+            device=device,
+            channel=channel,
+            notifiers=notifiers if notifiers is not None else [],
+            event_types=event_types if event_types is not None else [],
+            fields=fields if fields is not None else [],
+            data_saving_disabled=data_saving_disabled,
+            auto_start=auto_start,
+        )
 
 
 MAKE = "opc"

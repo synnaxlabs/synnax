@@ -11,6 +11,7 @@
 
 from __future__ import annotations
 
+from typing import Annotated, Literal
 from uuid import uuid4
 
 from pydantic import BaseModel, Field
@@ -19,6 +20,20 @@ from synnax import channel as channel_
 from synnax import device as device_
 from synnax import task
 from x import telem
+
+WRITE_TYPE_NODE: Literal["node"] = "node"
+
+WRITE_TYPE_METHOD: Literal["method"] = "method"
+
+
+WriteType = Literal["node", "method"]
+
+ARGUMENT_SOURCE_VALUE: Literal["value"] = "value"
+
+ARGUMENT_SOURCE_COMMAND: Literal["command"] = "command"
+
+
+ArgumentSource = Literal["value", "command"]
 
 
 class BaseChannel(BaseModel):
@@ -30,7 +45,6 @@ class BaseChannel(BaseModel):
         disabled: Is true when the channel is excluded from the task.
         node_id: Is the OPC UA node ID the channel is bound to.
         node_name: Is the browse name of the OPC UA node.
-        data_type: Is the data type of the Synnax channel.
     """
 
     key: str = Field(default_factory=lambda: str(uuid4()))
@@ -38,7 +52,6 @@ class BaseChannel(BaseModel):
     disabled: bool = False
     node_id: str = ""
     node_name: str = ""
-    data_type: telem.DataType = telem.DataType("float32")
 
     def __hash__(self) -> int:
         return hash(self.key)
@@ -46,6 +59,39 @@ class BaseChannel(BaseModel):
 
 class ScanConfig(task.ScanConfig):
     """Configures an OPC UA scan task."""
+
+    def __hash__(self) -> int:
+        return hash(self.key)
+
+
+class BaseMethodArgument(BaseModel):
+    """Carries the fields every input argument of a method shares.
+
+    Attributes:
+        name: Is the name of the argument, as the method declares it.
+        data_type: Is the Synnax data type of the argument, which a command channel that
+            gives the argument takes.
+    """
+
+    name: str = ""
+    data_type: telem.DataType = telem.DataType("")
+
+
+class EventField(BaseModel):
+    """Is an event field that the task records beyond the standard fields.
+
+    Attributes:
+        key: Uniquely identifies the field within the task.
+        name: Is the key of the field in the JSON sample of each event.
+        browse_path: Is the path to the field from the event type, as browse names
+            joined with '/', such as 'EnabledState/Id'. A name can start with
+            'nsu=<uri>;' or '<index>:' to name its namespace, as in 'nsu=urn:pump;Level'
+            or '2:Level'.
+    """
+
+    key: str = Field(default_factory=lambda: str(uuid4()))
+    name: str = ""
+    browse_path: str = ""
 
     def __hash__(self) -> int:
         return hash(self.key)
@@ -59,24 +105,70 @@ class ReadChannel(BaseChannel):
         is_index: Is true when the channel's Synnax channel is the task's index.
         field: Is the path to a member of the node's structure value. Names join with
             '.', and '&' escapes the next character. Empty reads the whole value.
+        data_type: Is the data type of the Synnax channel.
     """
 
     channel: channel_.Key = Field(default=channel_.Key(0), ge=0, le=4294967295)
     is_index: bool = False
     field: str = ""
+    data_type: telem.DataType = telem.DataType("float32")
 
     def __hash__(self) -> int:
         return hash(self.key)
 
 
-class WriteChannel(BaseChannel):
-    """Is a single OPC UA node the task drives.
+class BaseWriteChannel(BaseChannel):
+    """Carries the fields every OPC UA write channel shares.
 
     Attributes:
         cmd_channel: Is the Synnax channel commands are read from.
     """
 
     cmd_channel: channel_.Key = Field(default=channel_.Key(0), ge=0, le=4294967295)
+
+    def __hash__(self) -> int:
+        return hash(self.key)
+
+
+class ValueMethodArgument(BaseMethodArgument):
+    """Gives the argument a fixed value."""
+
+    source: Literal["value"] = "value"
+    value: str = ""
+
+
+class CommandMethodArgument(BaseMethodArgument):
+    """Gives the argument the value of each command."""
+
+    source: Literal["command"] = "command"
+
+
+# Is an input argument of an OPC UA method call. The source field selects where
+# its value comes from.
+MethodArgument = Annotated[
+    ValueMethodArgument | CommandMethodArgument,
+    Field(discriminator="source"),
+]
+
+
+class EventConfig(task.PersistConfig):
+    """Configures an OPC UA event task.
+
+    Attributes:
+        device: Is the key of the device representing the OPC UA server.
+        channel: Is the JSON channel that each event is written to.
+        notifiers: Are the node IDs of the objects whose events the task records. Empty
+            records the events of the Server object.
+        event_types: Are the node IDs of the event types the task keeps, with their
+            subtypes. Empty keeps every event.
+        fields: Are the event fields the task records beyond the standard fields.
+    """
+
+    device: device_.Key = ""
+    channel: channel_.Key = Field(default=channel_.Key(0), ge=0, le=4294967295)
+    notifiers: list[str] = Field(default_factory=list)
+    event_types: list[str] = Field(default_factory=list)
+    fields: list[EventField] = Field(default_factory=list)
 
     def __hash__(self) -> int:
         return hash(self.key)
@@ -107,6 +199,29 @@ class ReadConfig(task.ReadConfig):
 
     def __hash__(self) -> int:
         return hash(self.key)
+
+
+class NodeWriteChannel(BaseWriteChannel):
+    """Writes each command to the value of the node."""
+
+    type: Literal["node"] = "node"
+    data_type: telem.DataType = telem.DataType("float32")
+
+
+class MethodWriteChannel(BaseWriteChannel):
+    """Calls the node as a method with each command."""
+
+    type: Literal["method"] = "method"
+    object_id: str = ""
+    arguments: list[MethodArgument] = Field(default_factory=list)
+
+
+# Is a single OPC UA node the task drives. The type field selects what each
+# command does on the server.
+WriteChannel = Annotated[
+    NodeWriteChannel | MethodWriteChannel,
+    Field(discriminator="type"),
+]
 
 
 class WriteConfig(task.WriteConfig):

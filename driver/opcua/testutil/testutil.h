@@ -37,6 +37,13 @@ inline std::shared_ptr<certificate::Store> create_store() {
     });
 }
 
+/// @returns the time now plus offset, rounded to the microsecond so that it survives
+/// the 100 ns resolution of an OPC UA DateTime.
+inline x::telem::TimeStamp now(const x::telem::TimeSpan offset = {}) {
+    const auto ns = (x::telem::TimeStamp::now() + offset).nanoseconds();
+    return x::telem::TimeStamp(ns / 1000 * 1000);
+}
+
 /// @brief encodes the configuration as the connection properties of a device.
 inline x::json::json connection_json(const connection::Config &cfg) {
     x::json::json j = {
@@ -48,6 +55,7 @@ inline x::json::json connection_json(const connection::Config &cfg) {
         {"client_certificate", cfg.client_cert},
         {"client_private_key", cfg.client_private_key},
         {"certificate_validation_disabled", cfg.certificate_validation_disabled},
+        {"client_timeout_ms", cfg.client_timeout_ms},
     };
     if (cfg.server_certificate.has_value())
         j["server_certificate"] = cfg.server_certificate->pem();

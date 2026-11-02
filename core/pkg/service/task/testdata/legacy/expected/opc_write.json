@@ -8,7 +8,8 @@
       "key": "ch-opc-write-0",
       "name": "fixture_opc_valve_cmd",
       "node_id": "NS=2;S=fixture.node.valveCmd",
-      "node_name": "FixtureValveCmdNode"
+      "node_name": "FixtureValveCmdNode",
+      "type": "node"
     },
     {
       "cmd_channel": 6120,
@@ -17,7 +18,8 @@
       "key": "ch-opc-write-1",
       "name": "fixture_opc_heater_cmd",
       "node_id": "NS=3;I=4242",
-      "node_name": "FixtureHeaterCmdNode"
+      "node_name": "FixtureHeaterCmdNode",
+      "type": "node"
     }
   ],
   "data_saving_disabled": true,
