@@ -11,7 +11,7 @@
 
 from __future__ import annotations
 
-from typing import override
+from typing import override as _override
 from uuid import uuid4
 
 from pydantic import BaseModel, Field
@@ -41,7 +41,7 @@ class BaseChannel(BaseModel):
     node_name: str = ""
     data_type: telem.DataType = telem.DataType("float32")
 
-    @override
+    @_override
     def __hash__(self) -> int:
         return hash(self.key)
 
@@ -49,7 +49,7 @@ class BaseChannel(BaseModel):
 class ScanConfig(task.ScanConfig):
     """Configures an OPC UA scan task."""
 
-    @override
+    @_override
     def __hash__(self) -> int:
         return hash(self.key)
 
@@ -65,7 +65,7 @@ class ReadChannel(BaseChannel):
     channel: channel_.Key = Field(default=channel_.Key(0), ge=0, le=4294967295)
     is_index: bool = False
 
-    @override
+    @_override
     def __hash__(self) -> int:
         return hash(self.key)
 
@@ -79,7 +79,7 @@ class WriteChannel(BaseChannel):
 
     cmd_channel: channel_.Key = Field(default=channel_.Key(0), ge=0, le=4294967295)
 
-    @override
+    @_override
     def __hash__(self) -> int:
         return hash(self.key)
 
@@ -103,7 +103,7 @@ class ReadConfig(task.ReadConfig):
     array_size: int = Field(default=1, ge=-2147483648, le=2147483647)
     channels: list[ReadChannel] = Field(default_factory=list)
 
-    @override
+    @_override
     def __hash__(self) -> int:
         return hash(self.key)
 
@@ -117,6 +117,6 @@ class WriteConfig(task.WriteConfig):
 
     channels: list[WriteChannel] = Field(default_factory=list)
 
-    @override
+    @_override
     def __hash__(self) -> int:
         return hash(self.key)

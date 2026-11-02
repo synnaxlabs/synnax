@@ -11,7 +11,8 @@
 
 from __future__ import annotations
 
-from typing import Annotated, Literal, override
+from typing import Annotated, Literal
+from typing import override as _override
 from uuid import uuid4
 
 from pydantic import BaseModel, Field
@@ -55,7 +56,7 @@ class BaseReadChannel(BaseModel):
     channel: channel_.Key = Field(default=channel_.Key(0), ge=0, le=4294967295)
     address: int = Field(default=0, ge=0, le=65535)
 
-    @override
+    @_override
     def __hash__(self) -> int:
         return hash(self.key)
 
@@ -77,7 +78,7 @@ class BaseWriteChannel(BaseModel):
     channel: channel_.Key = Field(default=channel_.Key(0), ge=0, le=4294967295)
     address: int = Field(default=0, ge=0, le=65535)
 
-    @override
+    @_override
     def __hash__(self) -> int:
         return hash(self.key)
 
@@ -85,7 +86,7 @@ class BaseWriteChannel(BaseModel):
 class ScanConfig(task.ScanConfig):
     """Configures a Modbus scan task."""
 
-    @override
+    @_override
     def __hash__(self) -> int:
         return hash(self.key)
 
@@ -188,7 +189,7 @@ class ReadConfig(task.ReadConfig):
     device: device_.Key = ""
     channels: list[ReadChannel] = Field(default_factory=list)
 
-    @override
+    @_override
     def __hash__(self) -> int:
         return hash(self.key)
 
@@ -202,6 +203,6 @@ class WriteConfig(task.WriteConfig):
 
     channels: list[WriteChannel] = Field(default_factory=list)
 
-    @override
+    @_override
     def __hash__(self) -> int:
         return hash(self.key)

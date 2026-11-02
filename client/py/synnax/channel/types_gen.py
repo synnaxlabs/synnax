@@ -11,7 +11,8 @@
 
 from __future__ import annotations
 
-from typing import Literal, TypeAlias, override
+from typing import Literal, TypeAlias
+from typing import override as _override
 
 from pydantic import BaseModel, Field
 
@@ -105,7 +106,7 @@ class Payload(BaseModel):
     concurrency: control.Concurrency = control.Concurrency.exclusive
     status: Status | None = None
 
-    @override
+    @_override
     def __hash__(self) -> int:
         return hash(self.key)
 

@@ -1448,9 +1448,9 @@ var _ = Describe("Python Types Plugin", func() {
 					resp := MustGenerate(ctx, source, "channel", loader, typesPlugin)
 					ExpectContent(resp, "types_gen.py").
 						ToContain(
-							`from typing import TypeAlias, override`,
+							`from typing import TypeAlias, override as _override`,
 							`class Channel(BaseModel):`,
-							"@override\n    def __hash__(self) -> int:",
+							"@_override\n    def __hash__(self) -> int:",
 							`return hash(self.key)`,
 						)
 				},
