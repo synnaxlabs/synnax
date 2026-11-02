@@ -10,7 +10,7 @@
 from __future__ import annotations
 
 from enum import Enum
-from typing import Literal, TypeAlias, cast, overload
+from typing import Literal, TypeAlias, cast, overload, override
 from uuid import uuid4
 
 from pydantic import BaseModel
@@ -85,6 +85,7 @@ class WriterResponse(BaseModel):
 
 
 class _WSWriterCodec(WSCodec):
+    @override
     def encode(self, data: BaseModel) -> bytes:
         if not isinstance(data, Message):
             raise TypeError(f"expected Message, got {type(data)}")
@@ -99,6 +100,7 @@ class _WSWriterCodec(WSCodec):
         buf[0] = HIGH_PERF_SPECIAL_CHAR
         return bytes(buf)
 
+    @override
     def decode(self, data: bytes, pld_t: type[P]) -> P:
         if data[0] == LOW_PERF_SPECIAL_CHAR:
             return self.lower_perf_codec.decode(data[1:], pld_t)

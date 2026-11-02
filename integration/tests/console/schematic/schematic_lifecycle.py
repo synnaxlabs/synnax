@@ -7,7 +7,8 @@
 #  License, use of this software will be governed by the Apache License, Version 2.0,
 #  included in the file licenses/APL.txt.
 
-from typing import Any
+from playwright.sync_api import Page
+from pydantic import JsonValue
 
 import synnax as sy
 from console.case import ConsoleCase
@@ -18,7 +19,7 @@ from framework.utils import assert_envelope, assert_link_format
 from x import random_name
 
 
-def assert_exported_json(exported: dict[str, Any]) -> None:
+def assert_exported_json(exported: dict[str, JsonValue]) -> None:
     """Assert that the exported JSON has a valid structure.
 
     Validates:
@@ -411,7 +412,7 @@ class SchematicLifecycle(ConsoleCase):
         self.console.layout.close_tab(new_name)
         self.console.pages.delete(original_name)
 
-    def _dblclick_node(self, page: Any, label: str) -> None:
+    def _dblclick_node(self, page: Page, label: str) -> None:
         """Double-click a react-flow node by label using mouse coordinates."""
         pane = page.locator(".react-flow__pane").first
         pane.click()

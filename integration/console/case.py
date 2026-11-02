@@ -8,7 +8,7 @@
 #  included in the file licenses/APL.txt.
 
 import random
-from typing import Any, cast
+from typing import Any
 from urllib.request import urlopen
 from uuid import uuid4
 
@@ -82,7 +82,7 @@ class ConsoleCase(TestCase):
         # Open page
         self.log(f"Opening browser in {'headed' if headed else 'headless'} mode")
         self.playwright = sync_playwright().start()
-        browser_engine = self.determine_browser()
+        browser_engine = self.determine_browser(self.playwright)
         # Playwright cannot drive the File System Access save picker, so remove the
         # local pickers; exports then fall back to plain downloads, which
         # expect_download captures. Inputs (expect_file_chooser) are unaffected.
@@ -208,7 +208,7 @@ class ConsoleCase(TestCase):
             # debugging aid, not a correctness requirement.
             self.log(f"Failed to stop trace: {e}")
 
-    def determine_browser(self) -> BrowserType:
+    def determine_browser(self, playwright: Playwright) -> BrowserType:
         """
         Provide random coverage for all browsers.
         """
@@ -216,8 +216,7 @@ class ConsoleCase(TestCase):
         # SY-2928
         # Firefox failing in CI only
         # Webkit failing on Win in CI
-        browsers = ["chromium"]
+        browsers = [playwright.chromium]
         selected = random.choice(browsers)
-        self.log(f"Randomly selected browser: {selected}")
-        browser_attr = getattr(self.playwright, selected)
-        return cast(BrowserType, browser_attr)
+        self.log(f"Randomly selected browser: {selected.name}")
+        return selected

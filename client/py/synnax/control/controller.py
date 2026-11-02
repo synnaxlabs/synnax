@@ -12,7 +12,7 @@ from __future__ import annotations
 from asyncio import Future
 from collections.abc import Callable
 from threading import Event, Lock
-from typing import Any, Protocol, TypeAlias, cast, overload
+from typing import Any, Protocol, TypeAlias, cast, overload, override
 
 import numpy as np
 
@@ -47,6 +47,7 @@ class _WaitUntil(_Processor):
         self.exc = None
         self.reverse = reverse
 
+    @override
     def process(self, state: Controller) -> Any:
         try:
             res = self.callback(state)
@@ -78,6 +79,7 @@ class _RemainsTrueFor(_Processor):
         self.exc = None
         self.target = percentage
 
+    @override
     def process(self, state: Controller) -> Any:
         try:
             v = bool(self.callback(state))
@@ -440,6 +442,7 @@ class Controller:
         """
         return self._receiver.state
 
+    @override
     def __setattr__(self, key: str, value: CrudeSample) -> None:
         """Commands the channel named key, unless key is private or a class
         attribute.
@@ -566,6 +569,7 @@ class _Receiver(AsyncThread):
         await self.shutdown_future
         await self.streamer.close_loop()
 
+    @override
     async def run_async(self) -> None:
         self.shutdown_future = self.loop.create_future()
         error: Exception | None = None

@@ -14,6 +14,7 @@ import random
 import socket
 import ssl
 from pathlib import Path
+from typing import override
 
 from asyncua import ua
 from asyncua.client.client import Client
@@ -222,6 +223,7 @@ class SimpleUserManager(UserManager):
     def __init__(self, users: dict[str, str]):
         self.users = users
 
+    @override
     def get_user(
         self,
         iserver: InternalServer,
@@ -385,6 +387,7 @@ class OPCUASim(DeviceSim):
         self.user_manager = user_manager
         self.max_sessions = max_sessions
 
+    @override
     def _wait_for_ready(self) -> None:
         """Poll until the server answers a GetEndpoints request. The socket accepts
         connections before the server is initialized, so the TCP check is too early."""
@@ -403,6 +406,7 @@ class OPCUASim(DeviceSim):
                     ) from e
                 sy.sleep(sy.TimeSpan.SECOND * 0.1)
 
+    @override
     async def _run_server(self) -> None:
         await run_server(
             endpoint=self.endpoint,
@@ -413,6 +417,7 @@ class OPCUASim(DeviceSim):
             max_sessions=self.max_sessions,
         )
 
+    @override
     @staticmethod
     def create_device(rack_key: int) -> opcua.Device:
         return opcua.Device(
@@ -448,6 +453,7 @@ class OPCUATLSSim(OPCUASim):
             max_sessions=max_sessions,
         )
 
+    @override
     @staticmethod
     def create_device(rack_key: int) -> opcua.Device:
         return opcua.Device(
@@ -475,6 +481,7 @@ class OPCUATLSDriverCertificateSim(OPCUATLSSim):
     device_name = "OPC UA TLS Driver Certificate Server"
     endpoint = f"opc.tcp://{host}:{port}/freeopcua/server/"
 
+    @override
     @staticmethod
     def create_device(rack_key: int) -> opcua.Device:
         return opcua.Device(
@@ -517,6 +524,7 @@ class OPCUATLSAuthSim(OPCUASim):
             max_sessions=max_sessions,
         )
 
+    @override
     @staticmethod
     def create_device(rack_key: int) -> opcua.Device:
         return opcua.Device(
