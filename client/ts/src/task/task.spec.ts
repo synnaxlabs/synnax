@@ -97,6 +97,25 @@ describe("Task", async () => {
       expect(retrieved.status?.details?.task).toBe(m.key);
       expect(retrieved.status?.details?.running).toBe(true);
     });
+    it("should cache the status of a task another client creates with the task", async () => {
+      const key = uuid.create();
+      const statuses: Array<status.Status | undefined> = [];
+      onTestFinished(
+        client.tasks.store.subscribe(() => {
+          statuses.push(client.statuses.store.get(task.statusKey(key)));
+        }, key),
+      );
+      await waitForStreamLive(client.connection);
+      await writer.tasks.create({
+        key,
+        name: "task-created-remotely",
+        config: {},
+        type: "pagerduty_alert",
+        rack: testRack.key,
+      });
+      await expect.poll(() => statuses.length).toBeGreaterThan(0);
+      expect(statuses[0]).toMatchObject({ details: { task: key } });
+    });
   });
   describe("update", () => {
     it("should update a task if the key is provided", async () => {
