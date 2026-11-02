@@ -38,3 +38,12 @@ func MigrateSchematic(ctx context.Context, old v9.Schematic) (Schematic, error) 
 // Migration lifts stored schematics from v9 to v10, which adds read-back state to the
 // setpoint, input, and select symbols.
 var Migration = migrate.NewEntry("v60_add_read_back_state", MigrateSchematic)
+
+// MigrateElementConfig lifts a v9 element config to v10. MigrateSchematic decodes each
+// stored config again over the v10 defaults.
+func MigrateElementConfig(
+	ctx context.Context,
+	old v9.ElementConfig,
+) (ElementConfig, error) {
+	return autoMigrateElementConfig(ctx, old)
+}

@@ -31,7 +31,7 @@ var _ = Describe("Provision", func() {
 		It(
 			"Should have created all built-in roles during OpenService",
 			func(ctx SpecContext) {
-				for _, name := range []string{"Owner", "Engineer", "Host", "Operator", "Viewer"} {
+				for _, name := range []string{"Owner", "Engineer", "Driver", "Operator", "Viewer"} {
 					var r role.Role
 					Expect(
 						rbacSvc.Role.NewRetrieve().
@@ -45,7 +45,7 @@ var _ = Describe("Provision", func() {
 			},
 		)
 		It("Should have created policies for each role", func(ctx SpecContext) {
-			for _, name := range []string{"Owner", "Engineer", "Host", "Operator", "Viewer"} {
+			for _, name := range []string{"Owner", "Engineer", "Driver", "Operator", "Viewer"} {
 				var r role.Role
 				Expect(
 					rbacSvc.Role.NewRetrieve().
@@ -64,13 +64,13 @@ var _ = Describe("Provision", func() {
 		})
 	})
 
-	Describe("Host role", func() {
+	Describe("Driver role", func() {
 		var subject ontology.ID
 		BeforeEach(func(ctx SpecContext) {
 			var r role.Role
 			Expect(
 				rbacSvc.Role.NewRetrieve().
-					Where(role.MatchNames("Host")).
+					Where(role.MatchNames("Driver")).
 					Entry(&r).
 					Exec(ctx, tx),
 			).To(Succeed())
@@ -92,7 +92,6 @@ var _ = Describe("Provision", func() {
 				}
 			},
 			Entry("range", ontology.ResourceTypeRange),
-			Entry("rack", ontology.ResourceTypeRack),
 			Entry("device", ontology.ResourceTypeDevice),
 			Entry("task", ontology.ResourceTypeTask),
 			Entry("arc", ontology.ResourceTypeArc),
@@ -122,6 +121,22 @@ var _ = Describe("Provision", func() {
 			Entry("role", ontology.ResourceTypeRole),
 			Entry("policy", ontology.ResourceTypePolicy),
 			Entry("builtin", ontology.ResourceTypeBuiltin),
+		)
+
+		DescribeTable("grants retrieve and update on racks, but not create or delete",
+			func(ctx SpecContext, action access.Action, matcher OmegaMatcher) {
+				Expect(rbacSvc.NewEnforcer(tx).Enforce(ctx, access.Request{
+					Subject: subject,
+					Action:  action,
+					Objects: []ontology.ID{
+						{Type: ontology.ResourceTypeRack, Key: "test-key"},
+					},
+				})).To(matcher)
+			},
+			Entry("retrieve", access.ActionRetrieve, Succeed()),
+			Entry("update", access.ActionUpdate, Succeed()),
+			Entry("create", access.ActionCreate, MatchError(access.ErrDenied)),
+			Entry("delete", access.ActionDelete, MatchError(access.ErrDenied)),
 		)
 
 		DescribeTable("grants only retrieve on channels",
@@ -161,13 +176,12 @@ var _ = Describe("Provision", func() {
 			func(ctx SpecContext) {
 				var p policy.Policy
 				Expect(rbacSvc.Policy.NewRetrieve().
-					Where(policy.MatchNames("Host Edit Access")).
+					Where(policy.MatchNames("Driver Edit Access")).
 					Entry(&p).
 					Exec(ctx, tx)).To(Succeed())
 				Expect(p.Actions).To(ConsistOf(access.AllActions))
 				Expect(p.Objects).To(ConsistOf(
 					ontology.ID{Type: ontology.ResourceTypeRange},
-					ontology.ID{Type: ontology.ResourceTypeRack},
 					ontology.ID{Type: ontology.ResourceTypeDevice},
 					ontology.ID{Type: ontology.ResourceTypeTask},
 					ontology.ID{Type: ontology.ResourceTypeArc},
@@ -206,6 +220,84 @@ var _ = Describe("Provision", func() {
 				Expect(ownerAfter.Key).To(Equal(ownerBefore.Key))
 			},
 		)
+	})
+
+	Describe("Renames", func() {
+		It("Should rename a stored Host role to Driver", func(ctx SpecContext) {
+			var driver role.Role
+			Expect(rbacSvc.Role.NewRetrieve().
+				Where(role.MatchNames("Driver")).
+				Entry(&driver).
+				Exec(ctx, nil)).To(Succeed())
+			var edit policy.Policy
+			Expect(rbacSvc.Policy.NewRetrieve().
+				Where(policy.MatchNames("Driver Edit Access")).
+				Entry(&edit).
+				Exec(ctx, nil)).To(Succeed())
+			staleTx := db.OpenTx()
+			Expect(gorp.NewUpdate[role.Key, role.Role]().
+				Where(gorp.MatchKeys[role.Key, role.Role](driver.Key)).
+				Change(func(_ gorp.Context, r role.Role) role.Role {
+					r.Name = "Host"
+					return r
+				}).Exec(ctx, staleTx)).To(Succeed())
+			Expect(gorp.NewUpdate[policy.Key, policy.Policy]().
+				Where(gorp.MatchKeys[policy.Key, policy.Policy](edit.Key)).
+				Change(func(_ gorp.Context, p policy.Policy) policy.Policy {
+					p.Name = "Host Edit Access"
+					return p
+				}).Exec(ctx, staleTx)).To(Succeed())
+			Expect(staleTx.Commit(ctx)).To(Succeed())
+
+			svc2 := MustOpen(rbac.OpenService(ctx, rbac.ServiceConfig{
+				DB:       db,
+				Ontology: otg,
+				Group:    groupSvc,
+				User:     userSvc,
+			}))
+			Expect(svc2.Builtin.DriverKey).To(Equal(driver.Key))
+			var roles []role.Role
+			Expect(svc2.Role.NewRetrieve().
+				Where(role.MatchNames("Driver", "Host")).
+				Entries(&roles).
+				Exec(ctx, nil)).To(Succeed())
+			Expect(roles).To(HaveLen(1))
+			Expect(roles[0].Name).To(Equal("Driver"))
+			var policies []policy.Policy
+			Expect(svc2.Policy.NewRetrieve().
+				Where(policy.MatchNames("Driver Edit Access", "Host Edit Access")).
+				Entries(&policies).
+				Exec(ctx, nil)).To(Succeed())
+			Expect(policies).To(HaveLen(1))
+			Expect(policies[0].Key).To(Equal(edit.Key))
+			Expect(policies[0].Name).To(Equal("Driver Edit Access"))
+		})
+	})
+
+	Describe("Custom roles", func() {
+		It("Should not take over a custom role named Driver", func(ctx SpecContext) {
+			custom := role.Role{Name: "Driver", Description: "custom"}
+			Expect(rbacSvc.Role.NewWriter(nil, false).Create(ctx, &custom)).
+				To(Succeed())
+			DeferCleanup(func(ctx SpecContext) {
+				Expect(rbacSvc.Role.NewWriter(nil, false).Delete(ctx, custom.Key)).
+					To(Succeed())
+			})
+			svc2 := MustOpen(rbac.OpenService(ctx, rbac.ServiceConfig{
+				DB:       db,
+				Ontology: otg,
+				Group:    groupSvc,
+				User:     userSvc,
+			}))
+			Expect(svc2.Builtin.DriverKey).ToNot(Equal(custom.Key))
+			var stored role.Role
+			Expect(svc2.Role.NewRetrieve().
+				Where(role.MatchKeys(custom.Key)).
+				Entry(&stored).
+				Exec(ctx, nil)).To(Succeed())
+			Expect(stored.Internal).To(BeFalse())
+			Expect(stored.Description).To(Equal("custom"))
+		})
 	})
 
 	Describe("Policy updates", func() {

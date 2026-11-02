@@ -40,6 +40,9 @@ const OPTIONS: Partial<framer.FeedProps> = {
   breaker: { baseInterval: TimeSpan.milliseconds(10) },
 };
 
+// Stream reopens fail while a spec holds the Core down.
+const quiet = (): void => {};
+
 const createCore = (props: Partial<SyntheticCoreProps> = {}): SyntheticCore =>
   new SyntheticCore({ rate: RATE, start: START, now: NOW, channels: 2, ...props });
 
@@ -125,6 +128,17 @@ describe("StreamMultiChannelLog", () => {
     core.advance(TimeSpan.seconds(1));
     await settle(log, HISTORY + 10);
     expect(handler).toHaveBeenCalledTimes(loaded + 1);
+  });
+
+  it("should notify when a channel loads no samples", async () => {
+    const core = createCore({ start: NOW });
+    const [a] = core.data.map((c) => c.key);
+    const log = open(core, connect(core), { channels: [a] });
+    const notified: cstatus.Variant[] = [];
+    log.onChange(() => notified.push(log.value().status.variant));
+    expect(log.value().status.variant).toBe("loading");
+    await expect.poll(() => notified.at(-1), POLL).toBe("success");
+    expect(entriesOf(log)).toEqual([]);
   });
 
   describe("history", () => {
@@ -214,6 +228,7 @@ describe("StreamMultiChannelLog", () => {
     let waiting = false;
     const { promise: released, resolve: release } = Promise.withResolvers<void>();
     const client = connect(core, {
+      onRetry: quiet,
       readLatest: async (keys, count, tr) => {
         if (held) {
           waiting = true;
@@ -316,6 +331,16 @@ describe("StreamMultiChannelLog", () => {
       expect(handler).not.toHaveBeenCalled();
     });
 
+    it("should report loading until an added channel loads", async () => {
+      const core = createCore();
+      const [a, b] = core.data.map((c) => c.key);
+      const log = open(core, connect(core), { channels: [a] });
+      await settle(log, HISTORY);
+      log.setChannels([a, b]);
+      expect(log.value().status.variant).toBe("loading");
+      await expect.poll(() => log.value().status.variant, POLL).toBe("success");
+    });
+
     it("should drop the entries of a removed channel", async () => {
       const core = createCore();
       const [a, b] = core.data.map((c) => c.key);
@@ -413,7 +438,7 @@ describe("StreamMultiChannelLog", () => {
     it("should notify when a pull evicts entries and adds none", async () => {
       const core = createCore();
       const [a] = core.data.map((c) => c.key);
-      const log = open(core, connect(core), {
+      const log = open(core, connect(core, { onRetry: quiet }), {
         channels: [a],
         keepFor: TimeSpan.seconds(2),
       });

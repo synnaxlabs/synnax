@@ -167,6 +167,29 @@ describe("Input.Numeric", () => {
       expect(onChange).toHaveBeenCalledWith(-1);
     });
 
+    it("should call onClear when the user empties a set value", () => {
+      const onChange = vi.fn();
+      const onClear = vi.fn();
+      const c = render(
+        <Input.Numeric value={7} onChange={onChange} onClear={onClear} />,
+      );
+      const input = c.getByRole("textbox");
+      fireEvent.change(input, { target: { value: "" } });
+      fireEvent.blur(input);
+      expect(onClear).toHaveBeenCalledTimes(1);
+      expect(onChange).not.toHaveBeenCalled();
+    });
+
+    it("should revert an emptied set value without onClear", () => {
+      const onChange = vi.fn();
+      const c = render(<Input.Numeric value={7} onChange={onChange} />);
+      const input = c.getByRole("textbox") as HTMLInputElement;
+      fireEvent.change(input, { target: { value: "" } });
+      fireEvent.blur(input);
+      expect(onChange).not.toHaveBeenCalled();
+      expect(input.value).toEqual("7");
+    });
+
     it("should emit a typed value from an absent one", () => {
       const onChange = vi.fn();
       const c = render(<Input.Numeric value={undefined} onChange={onChange} />);

@@ -17,6 +17,7 @@ import { EtherCAT } from "@/feature/ethercat";
 import { HTTP } from "@/feature/http";
 import { LabJack } from "@/feature/labjack";
 import { Modbus } from "@/feature/modbus";
+import { MQTT } from "@/feature/mqtt";
 import { NI } from "@/feature/ni";
 import { OPCUA } from "@/feature/opcua";
 import { PagerDuty } from "@/feature/pagerduty";
@@ -29,6 +30,7 @@ const FORMS: Task.Forms = {
   ...HTTP.Task.FORMS,
   ...LabJack.Task.FORMS,
   ...Modbus.Task.FORMS,
+  ...MQTT.Task.FORMS,
   ...NI.Task.FORMS,
   ...OPCUA.Task.FORMS,
   ...PagerDuty.Task.FORMS,
@@ -49,7 +51,7 @@ const Content: Panel.Content = () => {
   return <Form taskKey={key} />;
 };
 
-const Name: Panel.TabName = ({ allowRename = true }) => {
+const Name: Panel.TabName = ({ allowRename = true, ...rest }) => {
   const tabKey = PPanel.useTabKey();
   const resource = PPanel.useTabResource();
   const { key } = resource;
@@ -66,6 +68,7 @@ const Name: Panel.TabName = ({ allowRename = true }) => {
         value={name}
         disabled={!allowRename || !canRename}
         onChange={(name) => rename({ key, name })}
+        {...rest}
       />
     </>
   );

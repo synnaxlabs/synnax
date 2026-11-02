@@ -122,6 +122,7 @@ Command::to_proto() const {
         if (err) return {{}, err};
         *pb.mutable_args() = v;
     }
+    pb.set_pinned(this->pinned);
     return {pb, x::errors::NIL};
 }
 
@@ -141,6 +142,7 @@ Command::from_proto(const ::service::task::pb::Command &pb) {
         if (err) return {{}, err};
         cpp.args = v;
     }
+    cpp.pinned = pb.pinned();
     return {cpp, x::errors::NIL};
 }
 

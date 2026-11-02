@@ -53,7 +53,7 @@ export const useOpenSample = (): (() => void) => {
         });
         if (confirmed !== true) return;
       }
-      await create(client, Session.Range.RECENT_KEY, { simulator, sequence });
+      await create(client, { simulator, sequence });
       await load(store, KEYS.project);
       store.dispatch(
         Session.Schematic.setEditable({ key: KEYS.schematic, editable: false }),

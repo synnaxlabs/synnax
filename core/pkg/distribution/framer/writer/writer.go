@@ -12,6 +12,7 @@ package writer
 import (
 	"io"
 
+	"github.com/synnaxlabs/synnax/pkg/distribution/channel"
 	"github.com/synnaxlabs/synnax/pkg/distribution/framer/frame"
 	"github.com/synnaxlabs/x/confluence"
 	"github.com/synnaxlabs/x/errors"
@@ -48,6 +49,21 @@ func (w *Writer) Commit() (telem.TimeStamp, error) {
 func (w *Writer) SetAuthority(cfg Config) error {
 	_, err := w.exec(Request{Command: CommandSetAuthority, Config: cfg}, true)
 	return err
+}
+
+// EndDomain commits the writer, then ends the domains of the given indexes and of the
+// data channels they index, on every node the writer is open on. It returns false if
+// another writer controls an index or one of its data channels. The index then keeps
+// its domain, and some of its data channels may end theirs.
+func (w *Writer) EndDomain(indexes channel.Keys) (authorized bool, err error) {
+	res, err := w.exec(
+		Request{Command: CommandEndDomain, Config: Config{Keys: indexes}},
+		true,
+	)
+	if err != nil {
+		return false, err
+	}
+	return res.Authorized, nil
 }
 
 func (w *Writer) exec(req Request, sync bool) (Response, error) {
