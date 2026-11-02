@@ -23,9 +23,14 @@ import (
 	"github.com/synnaxlabs/x/validate"
 )
 
-// Move moves the Arcs and directories with ids into the directory to, which becomes
-// the only parent of each.
-func (w Writer) Move(ctx context.Context, to directory.Key, ids ...ontology.ID) error {
+// Move moves the Arcs and directories with ids from directory from to directory to,
+// which becomes the only parent of each. An entry not in from is a validation error.
+func (w Writer) Move(
+	ctx context.Context,
+	from, to directory.Key,
+	ids ...ontology.ID,
+) error {
+	source := directory.OntologyID(from)
 	parent := directory.OntologyID(to)
 	for _, id := range ids {
 		switch {
@@ -55,14 +60,22 @@ func (w Writer) Move(ctx context.Context, to directory.Key, ids ...ontology.ID) 
 		return errNameUsed(dups[0].Name)
 	}
 	for _, entry := range entries {
+		current, err := w.parentOf(ctx, entry.ID)
+		if err != nil {
+			return err
+		}
+		if current != source {
+			return errors.Wrapf(
+				validate.ErrValidation, "%q is not in the source directory", entry.Name,
+			)
+		}
 		identifier := true
 		if entry.ID.Type == ontology.ResourceTypeArc {
-			var err error
 			if identifier, err = w.isModule(ctx, entry.ID); err != nil {
 				return err
 			}
 		}
-		if err := w.validateEntry(
+		if err = w.validateEntry(
 			ctx, parent, entry.ID, entry.Name, identifier,
 		); err != nil {
 			return err
@@ -88,6 +101,15 @@ func (w Writer) validateName(
 	name string,
 	identifier bool,
 ) error {
+	parent, err := w.parentOf(ctx, id)
+	if err != nil || parent.IsZero() {
+		return err
+	}
+	return w.validateEntry(ctx, parent, id, name, identifier)
+}
+
+// parentOf returns the directory that holds id, or a zero ID when no directory does.
+func (w Writer) parentOf(ctx context.Context, id ontology.ID) (ontology.ID, error) {
 	var parents []ontology.Resource
 	if err := w.otg.NewRetrieve().
 		WhereIDs(id).
@@ -96,9 +118,9 @@ func (w Writer) validateName(
 		ExcludeFieldData(true).
 		Entries(&parents).
 		Exec(ctx, w.tx); err != nil || len(parents) == 0 {
-		return err
+		return ontology.ID{}, err
 	}
-	return w.validateEntry(ctx, parents[0].ID, id, name, identifier)
+	return parents[0].ID, nil
 }
 
 // validateEntry checks name for the entry id placed in the directory parent. The name

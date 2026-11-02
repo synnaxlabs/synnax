@@ -29,7 +29,7 @@ const createReqZ = z.object({
 const createResZ = z.object({ directory: directoryZ });
 const renameReqZ = z.object({ key: keyZ, name: z.string() });
 const deleteReqZ = z.object({ keys: z.array(keyZ) });
-const moveReqZ = z.object({ to: keyZ, ids: z.array(ontologyIDZ) });
+const moveReqZ = z.object({ from: keyZ, to: keyZ, ids: z.array(ontologyIDZ) });
 
 export interface CreateParams {
   /** parent is the key of the directory to create the new directory in. */
@@ -125,7 +125,7 @@ export class Client {
       commit: async () =>
         await this.cfg.unary.send(
           "/arc/move",
-          { to: to.key, ids: children },
+          { from: from.key, to: to.key, ids: children },
           moveReqZ,
           z.object({}),
         ),

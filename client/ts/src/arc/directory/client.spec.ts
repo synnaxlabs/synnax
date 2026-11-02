@@ -11,7 +11,7 @@ import { id } from "@synnaxlabs/x";
 import { describe, expect, it } from "vitest";
 
 import { arc } from "@/arc";
-import { NotFoundError } from "@/index";
+import { NotFoundError, ValidationError } from "@/index";
 import { ontology } from "@/ontology";
 import { createTestClient } from "@/testutil";
 
@@ -76,5 +76,29 @@ describe("arc.directory", () => {
       ids: arc.ontologyID(a.key),
     });
     expect(parents.map((p) => p.id)).toEqual([dirID]);
+  });
+
+  it("should reject a move whose source does not hold the Arc", async () => {
+    const root = await retrieveRoot();
+    const named = await client.arcs.directories.create({
+      parent: root.key,
+      name: uniqueName(),
+    });
+    const dest = await client.arcs.directories.create({
+      parent: root.key,
+      name: uniqueName(),
+    });
+    const a = await client.arcs.create({ name: uniqueName(), mode: "text" });
+    await expect(
+      client.arcs.directories.move(
+        arc.directory.ontologyID(named.key),
+        arc.directory.ontologyID(dest.key),
+        arc.ontologyID(a.key),
+      ),
+    ).rejects.toSatisfy(ValidationError.matches);
+    const parents = await client.ontology.parents.retrieve({
+      ids: arc.ontologyID(a.key),
+    });
+    expect(parents.map((p) => p.id)).toEqual([root]);
   });
 });

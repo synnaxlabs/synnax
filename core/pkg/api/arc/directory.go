@@ -100,14 +100,16 @@ func (s *Service) DeleteDirectory(
 	return struct{}{}, s.internal.NewWriter(tx).DeleteDirectory(ctx, req.Keys...)
 }
 
-// MoveRequest moves the Arcs and directories with IDs into the directory To.
+// MoveRequest moves the Arcs and directories with IDs from the directory From into the
+// directory To.
 type MoveRequest struct {
-	To  directory.Key `json:"to"  msgpack:"to"`
-	IDs []ontology.ID `json:"ids" msgpack:"ids"`
+	From directory.Key `json:"from" msgpack:"from"`
+	To   directory.Key `json:"to"   msgpack:"to"`
+	IDs  []ontology.ID `json:"ids"  msgpack:"ids"`
 }
 
-// Move moves Arcs and directories into a directory. The caller must hold update access
-// to each moved entry and to the destination.
+// Move moves Arcs and directories between directories. The caller must hold update
+// access to each moved entry, to the source, and to the destination.
 func (s *Service) Move(
 	ctx context.Context,
 	tx gorp.Tx,
@@ -116,9 +118,13 @@ func (s *Service) Move(
 	if err := s.access.NewEnforcer(tx).Enforce(ctx, access.Request{
 		Subject: auth.GetSubject(ctx),
 		Action:  access.ActionUpdate,
-		Objects: append(req.IDs, directory.OntologyID(req.To)),
+		Objects: append(
+			req.IDs,
+			directory.OntologyID(req.From),
+			directory.OntologyID(req.To),
+		),
 	}); err != nil {
 		return struct{}{}, err
 	}
-	return struct{}{}, s.internal.NewWriter(tx).Move(ctx, req.To, req.IDs...)
+	return struct{}{}, s.internal.NewWriter(tx).Move(ctx, req.From, req.To, req.IDs...)
 }

@@ -10,8 +10,11 @@
 package arc_test
 
 import (
+	"uuid"
+
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
+	"github.com/synnaxlabs/gorp"
 	"github.com/synnaxlabs/synnax/pkg/service/arc"
 	"github.com/synnaxlabs/synnax/pkg/service/arc/directory"
 	"github.com/synnaxlabs/synnax/pkg/service/ontology"
@@ -78,7 +81,7 @@ var _ = Describe("Directories", func() {
 		})
 		It("Should reject moving the root", func(ctx SpecContext) {
 			lib := createDirectory(ctx, "lib", root)
-			Expect(w.Move(ctx, lib.Key, directory.OntologyID(root))).
+			Expect(w.Move(ctx, root, lib.Key, directory.OntologyID(root))).
 				To(MatchError(ContainSubstring("root Arcs directory cannot be moved")))
 		})
 		It("Should reject deleting the root", func(ctx SpecContext) {
@@ -168,7 +171,7 @@ var _ = Describe("Directories", func() {
 			func(ctx SpecContext) {
 				lib := createDirectory(ctx, "lib", root)
 				m := createArc(ctx, "m", arc.TypeModule)
-				Expect(w.Move(ctx, lib.Key, m.OntologyID())).To(Succeed())
+				Expect(w.Move(ctx, root, lib.Key, m.OntologyID())).To(Succeed())
 				Expect(parentsOf(ctx, m.OntologyID())).To(ConsistOf(lib.OntologyID()))
 			},
 		)
@@ -176,8 +179,8 @@ var _ = Describe("Directories", func() {
 			a := createDirectory(ctx, "a", root)
 			b := createDirectory(ctx, "b", root)
 			m := createArc(ctx, "m", arc.TypeModule)
-			Expect(w.Move(ctx, a.Key, m.OntologyID())).To(Succeed())
-			Expect(w.Move(ctx, b.Key, a.OntologyID())).To(Succeed())
+			Expect(w.Move(ctx, root, a.Key, m.OntologyID())).To(Succeed())
+			Expect(w.Move(ctx, root, b.Key, a.OntologyID())).To(Succeed())
 			Expect(parentsOf(ctx, a.OntologyID())).To(ConsistOf(b.OntologyID()))
 			Expect(parentsOf(ctx, m.OntologyID())).To(ConsistOf(a.OntologyID()))
 		})
@@ -185,44 +188,76 @@ var _ = Describe("Directories", func() {
 			ctx SpecContext,
 		) {
 			m := createArc(ctx, "m", arc.TypeModule)
-			Expect(w.Move(ctx, root, m.OntologyID())).To(Succeed())
+			Expect(w.Move(ctx, root, root, m.OntologyID())).To(Succeed())
 			Expect(parentsOf(ctx, m.OntologyID())).
 				To(ConsistOf(directory.OntologyID(root)))
 		})
-		It("Should reject a move that duplicates a name", func(ctx SpecContext) {
-			lib := createDirectory(ctx, "lib", root)
-			first := createArc(ctx, "m", arc.TypeModule)
-			Expect(w.Move(ctx, lib.Key, first.OntologyID())).To(Succeed())
-			second := createArc(ctx, "m", arc.TypeModule)
-			Expect(w.Move(ctx, lib.Key, second.OntologyID())).
-				To(MatchError(ContainSubstring(`name "m" is already used`)))
-		})
-		It("Should reject two entries of one name moved together", func(
+		It("Should reject an entry that is not in the source", func(
 			ctx SpecContext,
 		) {
 			a := createDirectory(ctx, "a", root)
 			b := createDirectory(ctx, "b", root)
-			c := createDirectory(ctx, "c", root)
-			first := createDirectory(ctx, "dup", a.Key)
-			second := createDirectory(ctx, "dup", b.Key)
-			Expect(w.Move(ctx, c.Key, first.OntologyID(), second.OntologyID())).
+			m := createArc(ctx, "m", arc.TypeModule)
+			Expect(w.Move(ctx, a.Key, b.Key, m.OntologyID())).
+				To(MatchError(ContainSubstring(`"m" is not in the source directory`)))
+			Expect(parentsOf(ctx, m.OntologyID())).
+				To(ConsistOf(directory.OntologyID(root)))
+		})
+		It("Should reject a batch with one entry outside the source", func(
+			ctx SpecContext,
+		) {
+			a := createDirectory(ctx, "a", root)
+			b := createDirectory(ctx, "b", root)
+			inRoot := createArc(ctx, "in_root", arc.TypeModule)
+			inA := createArc(ctx, "in_a", arc.TypeModule)
+			Expect(w.Move(ctx, root, a.Key, inA.OntologyID())).To(Succeed())
+			Expect(w.Move(
+				ctx, root, b.Key, inRoot.OntologyID(), inA.OntologyID(),
+			)).To(MatchError(ContainSubstring(`"in_a" is not in the source directory`)))
+			Expect(parentsOf(ctx, inRoot.OntologyID())).
+				To(ConsistOf(directory.OntologyID(root)))
+			Expect(parentsOf(ctx, inA.OntologyID())).To(ConsistOf(a.OntologyID()))
+		})
+		It("Should reject a move that duplicates a name", func(ctx SpecContext) {
+			lib := createDirectory(ctx, "lib", root)
+			first := createArc(ctx, "m", arc.TypeModule)
+			Expect(w.Move(ctx, root, lib.Key, first.OntologyID())).To(Succeed())
+			second := createArc(ctx, "m", arc.TypeModule)
+			Expect(w.Move(ctx, root, lib.Key, second.OntologyID())).
+				To(MatchError(ContainSubstring(`name "m" is already used`)))
+		})
+		It("Should reject two legacy entries of one name moved together", func(
+			ctx SpecContext,
+		) {
+			lib := createDirectory(ctx, "lib", root)
+			// Stored without the name rules, as Arcs migrated from a release before
+			// the rules are.
+			first := arc.Arc{Key: uuid.New(), Name: "dup", Type: arc.TypeAutomation}
+			second := arc.Arc{Key: uuid.New(), Name: "dup", Type: arc.TypeAutomation}
+			Expect(gorp.NewCreate[arc.Key, arc.Arc]().
+				Entries(&[]arc.Arc{first, second}).
+				Exec(ctx, tx)).To(Succeed())
+			Expect(otg.NewWriter(tx).DefineResources(
+				ctx, first.OntologyID(), second.OntologyID(),
+			)).To(Succeed())
+			Expect(w.Move(ctx, root, lib.Key, first.OntologyID(), second.OntologyID())).
 				To(MatchError(ContainSubstring(`name "dup" is already used`)))
 		})
 		It("Should reject moving a directory into itself", func(ctx SpecContext) {
 			lib := createDirectory(ctx, "lib", root)
-			Expect(w.Move(ctx, lib.Key, lib.OntologyID())).
+			Expect(w.Move(ctx, root, lib.Key, lib.OntologyID())).
 				To(MatchError(validate.ErrValidation))
 		})
 		It("Should reject moving a directory below itself", func(ctx SpecContext) {
 			lib := createDirectory(ctx, "lib", root)
 			sub := createDirectory(ctx, "sub", lib.Key)
-			Expect(w.Move(ctx, sub.Key, lib.OntologyID())).
+			Expect(w.Move(ctx, root, sub.Key, lib.OntologyID())).
 				To(MatchError(graph.ErrCyclicDependency))
 		})
 		It("Should reject moving a resource of another type", func(ctx SpecContext) {
 			lib := createDirectory(ctx, "lib", root)
 			other := ontology.ID{Type: ontology.ResourceTypeChannel, Key: "1"}
-			Expect(w.Move(ctx, lib.Key, other)).
+			Expect(w.Move(ctx, root, lib.Key, other)).
 				To(MatchError(ContainSubstring("cannot go in an Arc directory")))
 		})
 	})

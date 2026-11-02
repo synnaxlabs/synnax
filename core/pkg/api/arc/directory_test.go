@@ -140,32 +140,152 @@ var _ = Describe("Directories", func() {
 	})
 
 	Describe("Move", func() {
-		It("Should move an Arc into a directory", func(ctx SpecContext) {
-			d := createDirectory(ctx)
+		// createArcIn creates an Arc in the directory d, deleted on cleanup.
+		createArcIn := func(ctx SpecContext, d directory.Directory) arc.Arc {
+			GinkgoHelper()
 			a := createArc(ctx, uniqueName())
 			DeferCleanup(func(ctx SpecContext) {
 				Expect(arcSvc.NewWriter(nil).Delete(ctx, a.Key)).To(Succeed())
 			})
-			grantUpdateOn(ctx, author.OntologyID(), a.OntologyID(), d.OntologyID())
-			MustSucceed(apiSvc.Move(
+			Expect(arcSvc.NewWriter(nil).Move(ctx, root, d.Key, a.OntologyID())).
+				To(Succeed())
+			return a
+		}
+		move := func(
+			ctx SpecContext,
+			from, to directory.Directory,
+			ids ...ontology.ID,
+		) error {
+			_, err := apiSvc.Move(
 				AuthedCtx(ctx, author),
 				db,
-				apiarc.MoveRequest{To: d.Key, IDs: []ontology.ID{a.OntologyID()}},
-			))
-			Expect(parentsOf(ctx, a.OntologyID())).To(ConsistOf(d.OntologyID()))
-		})
-		It("Should deny a caller without update access", func(ctx SpecContext) {
-			d := createDirectory(ctx)
-			a := createArc(ctx, uniqueName())
-			DeferCleanup(func(ctx SpecContext) {
-				Expect(arcSvc.NewWriter(nil).Delete(ctx, a.Key)).To(Succeed())
-			})
-			Expect(apiSvc.Move(
-				AuthedCtx(ctx, author),
-				db,
-				apiarc.MoveRequest{To: d.Key, IDs: []ontology.ID{a.OntologyID()}},
-			)).Error().To(MatchError(access.ErrDenied))
-		})
+				apiarc.MoveRequest{From: from.Key, To: to.Key, IDs: ids},
+			)
+			return err
+		}
+		It(
+			"Should move an Arc with update access to it and both directories",
+			func(ctx SpecContext) {
+				src := createDirectory(ctx)
+				dst := createDirectory(ctx)
+				a := createArcIn(ctx, src)
+				grantUpdateOn(
+					ctx,
+					author.OntologyID(),
+					a.OntologyID(),
+					src.OntologyID(),
+					dst.OntologyID(),
+				)
+				Expect(move(ctx, src, dst, a.OntologyID())).To(Succeed())
+				Expect(parentsOf(ctx, a.OntologyID())).To(ConsistOf(dst.OntologyID()))
+			},
+		)
+		It(
+			"Should deny a caller without update access to the source",
+			func(ctx SpecContext) {
+				src := createDirectory(ctx)
+				dst := createDirectory(ctx)
+				a := createArcIn(ctx, src)
+				grantUpdateOn(
+					ctx,
+					author.OntologyID(),
+					a.OntologyID(),
+					dst.OntologyID(),
+				)
+				Expect(move(ctx, src, dst, a.OntologyID())).
+					To(MatchError(access.ErrDenied))
+				Expect(parentsOf(ctx, a.OntologyID())).To(ConsistOf(src.OntologyID()))
+			},
+		)
+		It(
+			"Should deny a caller without update access to the destination",
+			func(ctx SpecContext) {
+				src := createDirectory(ctx)
+				dst := createDirectory(ctx)
+				a := createArcIn(ctx, src)
+				grantUpdateOn(
+					ctx,
+					author.OntologyID(),
+					a.OntologyID(),
+					src.OntologyID(),
+				)
+				Expect(move(ctx, src, dst, a.OntologyID())).
+					To(MatchError(access.ErrDenied))
+				Expect(parentsOf(ctx, a.OntologyID())).To(ConsistOf(src.OntologyID()))
+			},
+		)
+		It(
+			"Should deny a caller without update access to the entry",
+			func(ctx SpecContext) {
+				src := createDirectory(ctx)
+				dst := createDirectory(ctx)
+				a := createArcIn(ctx, src)
+				grantUpdateOn(
+					ctx,
+					author.OntologyID(),
+					src.OntologyID(),
+					dst.OntologyID(),
+				)
+				Expect(move(ctx, src, dst, a.OntologyID())).
+					To(MatchError(access.ErrDenied))
+				Expect(parentsOf(ctx, a.OntologyID())).To(ConsistOf(src.OntologyID()))
+			},
+		)
+		It(
+			"Should deny moving a directory out of a source the caller cannot edit",
+			func(ctx SpecContext) {
+				src := createDirectory(ctx)
+				dst := createDirectory(ctx)
+				sub := createDirectory(ctx)
+				Expect(arcSvc.NewWriter(nil).Move(
+					ctx, root, src.Key, sub.OntologyID(),
+				)).To(Succeed())
+				grantUpdateOn(
+					ctx,
+					author.OntologyID(),
+					sub.OntologyID(),
+					dst.OntologyID(),
+				)
+				Expect(move(ctx, src, dst, sub.OntologyID())).
+					To(MatchError(access.ErrDenied))
+				Expect(parentsOf(ctx, sub.OntologyID())).
+					To(ConsistOf(src.OntologyID()))
+			},
+		)
+		It(
+			"Should reject a source that does not hold the entry",
+			func(ctx SpecContext) {
+				src := createDirectory(ctx)
+				named := createDirectory(ctx)
+				dst := createDirectory(ctx)
+				a := createArcIn(ctx, src)
+				grantUpdateOn(
+					ctx,
+					author.OntologyID(),
+					a.OntologyID(),
+					named.OntologyID(),
+					dst.OntologyID(),
+				)
+				Expect(move(ctx, named, dst, a.OntologyID())).
+					To(MatchError(validate.ErrValidation))
+				Expect(parentsOf(ctx, a.OntologyID())).To(ConsistOf(src.OntologyID()))
+			},
+		)
+		It(
+			"Should move within one directory with update access to it",
+			func(ctx SpecContext) {
+				src := createDirectory(ctx)
+				a := createArcIn(ctx, src)
+				grantUpdateOn(
+					ctx,
+					author.OntologyID(),
+					a.OntologyID(),
+					src.OntologyID(),
+				)
+				Expect(move(ctx, src, src, a.OntologyID())).To(Succeed())
+				Expect(parentsOf(ctx, a.OntologyID())).To(ConsistOf(src.OntologyID()))
+			},
+		)
 		It("Should refuse the generic ontology move of an Arc", func(ctx SpecContext) {
 			d := createDirectory(ctx)
 			a := createArc(ctx, uniqueName())
