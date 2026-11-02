@@ -7,6 +7,7 @@
 #  License, use of this software will be governed by the Apache License, Version 2.0,
 #  included in the file licenses/APL.txt.
 
+import re
 from collections.abc import Sequence
 from typing import Final, Literal, TypeAlias, get_args
 
@@ -31,6 +32,23 @@ SUPPORTED_MODELS: TypeAlias = Literal["LJM_dtT4", "LJM_dtT7", "LJM_dtT8"]
 # Console reads the same groups to reuse a port's channels in new tasks.
 _READ_PORT_TYPES: Final = {"analog": "AI", "thermocouple": "AI", "digital": "DI"}
 _WRITE_PORT_TYPES: Final = {"analog": "AO", "digital": "DO"}
+# The Console keys a digital port by its DIO number. These are the DIO numbers of the
+# first line of each alias.
+_DIO_OFFSETS: Final = {"FIO": 0, "EIO": 8, "CIO": 16, "MIO": 20}
+_DIO_ALIAS: Final = re.compile(r"(FIO|EIO|CIO|MIO)(\d+)")
+
+
+def _port_key(channel_type: str, port: str) -> str:
+    """Returns the key of a port in the device properties.
+
+    :param channel_type: The type of the channel on the port.
+    :param port: The port, such as AIN0, DIO4, or FIO4.
+    :returns: The DIO name of a digital port, such as DIO4 for FIO4, or the port.
+    """
+    alias = _DIO_ALIAS.fullmatch(port)
+    if channel_type != "digital" or alias is None:
+        return port
+    return f"DIO{_DIO_OFFSETS[alias[1]] + int(alias[2])}"
 
 
 class ReadTask(
@@ -88,8 +106,10 @@ class ReadTask(
         dev = device_client.retrieve(key=self.config.device)
         props = dict(dev.properties)
         for ch in self.config.channels:
-            port_type = _READ_PORT_TYPES[ch.type]
-            device.ensure_object(props, port_type, "channels")[ch.port] = ch.channel
+            channels = device.ensure_object(
+                props, _READ_PORT_TYPES[ch.type], "channels"
+            )
+            channels[_port_key(ch.type, ch.port)] = ch.channel
         dev.properties = props
         return device_client.create(dev)
 
@@ -148,7 +168,10 @@ class WriteTask(
             channels = device.ensure_object(
                 props, _WRITE_PORT_TYPES[ch.type], "channels"
             )
-            channels[ch.port] = {"command": ch.cmd_channel, "state": ch.state_channel}
+            channels[_port_key(ch.type, ch.port)] = {
+                "command": ch.cmd_channel,
+                "state": ch.state_channel,
+            }
         dev.properties = props
         return device_client.create(dev)
 
