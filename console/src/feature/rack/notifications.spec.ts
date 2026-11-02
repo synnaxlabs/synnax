@@ -13,6 +13,7 @@ import { TimeSpan } from "@synnaxlabs/x";
 import { act, screen } from "@testing-library/react";
 import { afterEach, describe, expect, it, vi } from "vitest";
 
+import { HTTP } from "@/feature/http";
 import { Rack } from "@/feature/rack";
 import {
   renderForward,
@@ -23,9 +24,14 @@ import { uniqueName } from "@/testutil";
 
 const client = createTestClient();
 
-/** @returns the status key of a new rack, without the status that the Core gives it. */
+/** @returns the status key of a new rack in use, without the Core's first status. */
 const createRackKey = async (): Promise<status.Key> => {
   const r = await client.racks.create({ name: uniqueName("rack") });
+  await r.createTask({
+    name: uniqueName("task"),
+    type: HTTP.Task.READ_TYPE,
+    config: HTTP.Task.READ_SCHEMAS.config.parse({}),
+  });
   const key = rack.statusKey(r.key);
   // The Core gives a new rack an open "Rack status unknown" problem.
   await client.statuses.delete(key);
@@ -64,6 +70,18 @@ describe("Rack.NOTIFICATION_RULE", () => {
     await settleWrites(client);
     act(() => void vi.advanceTimersByTime(TimeSpan.seconds(5).milliseconds));
     expect(screen.queryByText(name)).toBeNull();
+  });
+
+  it("should not notify a warning on a rack with no tasks", async () => {
+    fakeTimers();
+    await renderForward(client, { rack: Rack.NOTIFICATION_RULE });
+    const r = await client.racks.create({ name: uniqueName("rack") });
+    await settleWrites(client);
+    const message = await writeStatus(client, rack.statusKey(r.key), "warning");
+    await settleWrites(client);
+    act(() => void vi.advanceTimersByTime(TimeSpan.seconds(5).milliseconds));
+    await settleWrites(client);
+    expect(screen.queryByText(message)).toBeNull();
   });
 
   it("should not notify a rack status that is not a problem", async () => {
