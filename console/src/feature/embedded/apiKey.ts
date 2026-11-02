@@ -64,9 +64,8 @@ export const replace = async (client: Synnax): Promise<string> => {
   return token;
 };
 
-/** @returns The number of sessions that the given API key has open. */
-export const countSessions = async (client: Synnax, token: string): Promise<number> => {
+/** @returns The number of the given sessions that the given API key opened. */
+export const countSessions = (sessions: auth.Session[], token: string): number => {
   const key = recordKey(token);
-  const sessions = await client.auth.retrieveSessions();
   return sessions.filter((s) => s.credential === key).length;
 };

@@ -9,7 +9,7 @@
 
 import "@/feature/embedded/useConnectModal.css";
 
-import { type Synnax as Client } from "@synnaxlabs/client";
+import { type ontology } from "@synnaxlabs/client";
 import { Button } from "@synnaxlabs/lyra/button";
 import { Description } from "@synnaxlabs/lyra/description";
 import { Flex } from "@synnaxlabs/lyra/flex";
@@ -19,7 +19,7 @@ import { Modal } from "@synnaxlabs/lyra/modal";
 import { Status } from "@synnaxlabs/lyra/status";
 import { Tabs } from "@synnaxlabs/lyra/tabs";
 import { Text } from "@synnaxlabs/lyra/text";
-import { Synnax } from "@synnaxlabs/pluto";
+import { Credential, Synnax } from "@synnaxlabs/pluto";
 import { type ReactElement, useState } from "react";
 
 import { countSessions, ensure, replace } from "@/feature/embedded/apiKey";
@@ -184,18 +184,26 @@ const OtherTab = ({ host, port, apiKey }: Params): ReactElement => {
   );
 };
 
-interface KeyState {
-  apiKey: string;
-  sessions: number;
-}
-
-const retrieveKeyState = async (client: Client): Promise<KeyState> => {
-  const apiKey = await ensure(client);
-  return { apiKey, sessions: await countSessions(client, apiKey) };
-};
-
 const formatSessions = (count: number): string =>
   `${count} ${count === 1 ? "session" : "sessions"}`;
+
+interface SessionCountProps {
+  apiKey: string;
+  /** The user that owns the key. */
+  subject: ontology.ID;
+}
+
+const SessionCount = ({ apiKey, subject }: SessionCountProps): ReactElement | null => {
+  const sessions = Credential.useResultSessions({ subject });
+  if (sessions.variant !== "success" && sessions.variant !== "error") return null;
+  return (
+    <Text.Text level="small" color={9} className={CSS.BE("connect", "sessions")}>
+      {sessions.variant === "success"
+        ? formatSessions(countSessions(sessions.data, apiKey))
+        : "Sessions unknown"}
+    </Text.Text>
+  );
+};
 
 const ConnectModal = (): ReactElement => {
   const client = Synnax.use();
@@ -204,13 +212,20 @@ const ConnectModal = (): ReactElement => {
   const handleError = Status.useErrorHandler();
   const addStatus = Status.useAdder();
   const confirm = Modals.useConfirm();
-  const [state, setState] = useState<KeyState | null>(null);
+  const invalidateSessions = Credential.useInvalidateSessions();
+  const [apiKey, setAPIKey] = useState<string | null>(null);
+  const subject = client?.auth.subject;
+  // Sessions have no live updates: drop the cached answer before a new count mounts.
+  const show = (next: string): void => {
+    if (subject != null) invalidateSessions({ subject });
+    setAPIKey(next);
+  };
   useAsyncEffect(
     async (signal) => {
       if (client == null) return;
       try {
-        const next = await retrieveKeyState(client);
-        if (!signal.aborted) setState(next);
+        const next = await ensure(client);
+        if (!signal.aborted) show(next);
       } catch (err) {
         if (!signal.aborted) handleError(err, "Failed to load API key");
       }
@@ -227,14 +242,13 @@ const ConnectModal = (): ReactElement => {
         confirm: { label: "Reset key" },
       });
       if (confirmed !== true) return;
-      const apiKey = await replace(client);
-      setState({ apiKey, sessions: await countSessions(client, apiKey) });
+      show(await replace(client));
       addStatus({ variant: "success", message: "Reset API key" });
     }, "Failed to reset API key");
   const connection = status.state === "running" ? status.connection : null;
   const release = matchingRelease(connectionStatus.details.nodeVersion);
   let body: ReactElement;
-  if (connection == null || state == null)
+  if (connection == null || apiKey == null)
     body = (
       <Status.Summary
         variant="loading"
@@ -243,7 +257,6 @@ const ConnectModal = (): ReactElement => {
     );
   else {
     const { host, port } = connection;
-    const { apiKey } = state;
     body = (
       <Tabs.Frame initialValue="python" empty={false} gap="large">
         <Tabs.Selector variant="chip">
@@ -271,14 +284,8 @@ const ConnectModal = (): ReactElement => {
       </Modal.Body>
       <Modal.Footer>
         <Flex.Box x gap="small" align="center" className={CSS.BE("connect", "actions")}>
-          {state != null && (
-            <Text.Text
-              level="small"
-              color={9}
-              className={CSS.BE("connect", "sessions")}
-            >
-              {formatSessions(state.sessions)}
-            </Text.Text>
+          {apiKey != null && subject != null && (
+            <SessionCount key={apiKey} apiKey={apiKey} subject={subject} />
           )}
           <Button.Button variant="text" href={CLIENT_DOCS_URL} target="_blank">
             <Icon.OpenExternal />
@@ -287,7 +294,7 @@ const ConnectModal = (): ReactElement => {
           <Button.Button
             variant="outlined"
             status="error"
-            disabled={state == null}
+            disabled={apiKey == null}
             onClick={handleReset}
           >
             <Icon.Refresh />

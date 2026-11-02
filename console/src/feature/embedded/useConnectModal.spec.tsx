@@ -25,6 +25,7 @@ import {
   LIVE,
   mockSupervisor,
 } from "@/feature/embedded/testutil";
+import { findDismissButton } from "@/platform/modals/testutil";
 import { CaptureStatuses, getIconButton } from "@/testutil";
 
 const { host, port } = TEST_CLIENT_PARAMS;
@@ -111,6 +112,20 @@ describe("Embedded connect from code dialog", () => {
     const { token } = await client.auth.createKey({ name: "counted" });
     await createScriptClient(token).auth.retrieveSessions();
     await openConnect(token);
+    expect(await screen.findByText("1 session")).toBeTruthy();
+  });
+
+  it("should count sessions opened since the dialog last closed", async () => {
+    await deleteKeysCreatedByTest(client);
+    const { token } = await client.auth.createKey({ name: "reopened" });
+    await openConnect(token);
+    await screen.findByText("0 sessions");
+    fireEvent.click(findDismissButton());
+    await waitFor(() => expect(screen.queryByLabelText("Python code")).toBeNull());
+    await createScriptClient(token).auth.retrieveSessions();
+    await act(async () => {
+      fireEvent.click(screen.getByText("Connect from code"), { detail: 1 });
+    });
     expect(await screen.findByText("1 session")).toBeTruthy();
   });
 
