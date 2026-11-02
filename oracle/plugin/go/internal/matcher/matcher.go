@@ -41,12 +41,14 @@ func (k Kind) Scalar() bool { return k != Variadic }
 
 // Matcher is one field matcher.
 type Matcher struct {
+	// Field is the field that the matcher reads.
 	Field resolution.Field
 	// Func is the name of the matcher function.
 	Func string
 	// Access is the selector that reads the field from an entry, as Access returns it.
 	Access string
-	Kind   Kind
+	// Kind is the signature of the matcher function.
+	Kind Kind
 }
 
 // List returns the matchers of typ in field order: one for each field with @filter or
