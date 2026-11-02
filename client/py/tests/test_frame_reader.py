@@ -13,6 +13,7 @@ import pathlib
 import uuid
 
 import numpy as np
+import pandas as pd
 import pytest
 from nptdms import TdmsChannel, TdmsFile, TdmsGroup, types
 
@@ -145,6 +146,8 @@ class TestReader:
         df = fr.to_df()
         assert list(df.columns) == [data_ch.name, idx_ch.name]
         assert np.array_equal(df[data_ch.name], np.arange(10, dtype=np.float64))
+        times = pd.to_datetime(seconds_linspace(1, count=10), unit="ns", utc=True)
+        assert list(df.index) == list(times)
 
     def test_read_by_name(
         self, written_pair: tuple[sy.Channel, sy.Channel], client: sy.Synnax

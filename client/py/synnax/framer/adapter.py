@@ -25,6 +25,7 @@ from synnax.telem import CrudeSeries, DataType, Series
 class ReadFrameAdapter:
     _by_name: bool
     _names: dict[channel.Key, str]
+    _indexes: dict[channel.Key, channel.Key]
     _rank: dict[channel.Key | str, int]
     retriever: ChannelRetriever
     keys: list[channel.Key]
@@ -34,6 +35,7 @@ class ReadFrameAdapter:
         self.retriever = retriever
         self._by_name = False
         self._names = {}
+        self._indexes = {}
         self._rank = {}
         self.keys = []
         self.codec = Codec()
@@ -49,6 +51,11 @@ class ReadFrameAdapter:
                 keys=new_keys, data_types=[ch.data_type for ch in fetched]
             )
         self._names = {ch.key: ch.name for ch in fetched}
+        self._indexes = {
+            ch.key: ch.key if ch.is_index else ch.index
+            for ch in fetched
+            if ch.is_index or ch.index != 0
+        }
         self._by_name = isinstance(normal, channel.NormalizedNameResult)
         if isinstance(normal, channel.NormalizedKeyResult):
             self.keys = list(normal.channels)
@@ -66,8 +73,8 @@ class ReadFrameAdapter:
 
     def adapt(self, fr: Frame) -> Frame:
         """Sorts the frame's series into the order of the requested channels and
-        records the channel names in the frame. When the channels were requested by
-        name, the frame is keyed by name.
+        records the channel names and indexes in the frame. When the channels were
+        requested by name, the frame is keyed by name.
         """
         # The Core can send channels the client has not adapted yet, so purge them.
         items = sorted(
@@ -80,6 +87,7 @@ class ReadFrameAdapter:
         ]
         fr.series = [s for _, s in items]
         fr.names.update(self._names)
+        fr.indexes.update(self._indexes)
         return fr
 
 

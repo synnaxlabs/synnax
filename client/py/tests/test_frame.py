@@ -7,6 +7,7 @@
 #  License, use of this software will be governed by the Apache License, Version 2.0,
 #  included in the file licenses/APL.txt.
 
+from datetime import UTC
 from types import MappingProxyType
 from typing import cast
 
@@ -193,6 +194,118 @@ class TestFrameToDF:
         other.names = {1: "big"}
         f.append(other)
         assert list(f.to_df().columns) == ["big"]
+
+    def test_range_index_without_indexes(self) -> None:
+        """Should use a RangeIndex when the frame does not hold the indexes."""
+        f = sy.Frame({1: sy.Series([1, 2]), 2: sy.Series([3, 4])})
+        f.indexes = {1: 3, 2: 3}
+        assert isinstance(f.to_df().index, pd.RangeIndex)
+
+    def test_empty_frame(self) -> None:
+        """Should convert an empty frame to an empty DataFrame."""
+        df = sy.Frame().to_df()
+        assert df.empty
+        assert list(df.columns) == []
+
+    def test_same_index(self) -> None:
+        """Should index the DataFrame by the UTC timestamps of a shared index."""
+        start = sy.TimeStamp(sy.TimeSpan.SECOND)
+        end = sy.TimeStamp(2 * sy.TimeSpan.SECOND)
+        f = sy.Frame(
+            [1, 2],
+            [
+                sy.Series([start, end], data_type=sy.DataType.TIMESTAMP),
+                sy.Series([1.5, 2.5]),
+            ],
+        )
+        f.names = {1: "time", 2: "pressure"}
+        f.indexes = {1: 1, 2: 1}
+        df = f.to_df()
+        assert list(df.index) == [start.datetime(UTC), end.datetime(UTC)]
+        assert list(df.columns) == ["time", "pressure"]
+        assert list(df["pressure"]) == [1.5, 2.5]
+        assert df["time"].dtype == np.int64
+
+    def test_name_keyed_frame(self) -> None:
+        """Should find the indexes of a frame keyed by channel name."""
+        f = sy.Frame(
+            ["time", "pressure"],
+            [
+                sy.Series([10, 20], data_type=sy.DataType.TIMESTAMP),
+                sy.Series([1.5, 2.5]),
+            ],
+        )
+        f.names = {1: "time", 2: "pressure"}
+        f.indexes = {1: 1, 2: 1}
+        assert list(f.to_df().index) == list(
+            pd.to_datetime([10, 20], unit="ns", utc=True)
+        )
+
+    def test_different_indexes(self) -> None:
+        """Should join channels on different indexes into one sorted time index with
+        blanks where a channel has no sample."""
+        f = sy.Frame(
+            [1, 2, 3, 4],
+            [
+                sy.Series([10, 30], data_type=sy.DataType.TIMESTAMP),
+                sy.Series([1.5, 3.5]),
+                sy.Series([20, 30], data_type=sy.DataType.TIMESTAMP),
+                sy.Series([2.0, 3.0], data_type=sy.DataType.FLOAT32),
+            ],
+        )
+        f.names = {1: "a_time", 2: "a", 3: "b_time", 4: "b"}
+        f.indexes = {1: 1, 2: 1, 3: 3, 4: 3}
+        df = f.to_df()
+        assert list(df.index) == list(pd.to_datetime([10, 20, 30], unit="ns", utc=True))
+        assert df["a"].tolist()[0] == 1.5
+        assert np.isnan(df["a"].iloc[1])
+        assert np.isnan(df["b"].iloc[0])
+        assert df["b"].iloc[2] == 3.0
+        assert df["a_time"].dtype == pd.Int64Dtype()
+        assert df["a_time"].isna().tolist() == [False, True, False]
+
+    def test_large_integers_with_blanks(self) -> None:
+        """Should keep integers above 2^53 exact in a column with blanks."""
+        big = 2**60 + 1
+        f = sy.Frame(
+            [1, 2, 3, 4],
+            [
+                sy.Series([10, 20], data_type=sy.DataType.TIMESTAMP),
+                sy.Series([big, 2], data_type=sy.DataType.INT64),
+                sy.Series([15], data_type=sy.DataType.TIMESTAMP),
+                sy.Series([7], data_type=sy.DataType.UINT32),
+            ],
+        )
+        f.indexes = {1: 1, 2: 1, 3: 3, 4: 3}
+        df = f.to_df()
+        assert df[2].dtype == pd.Int64Dtype()
+        assert df[2].iloc[0] == big
+        assert df[2].isna().tolist() == [False, True, False]
+        assert df[4].dtype == pd.UInt32Dtype()
+        assert df[4].iloc[1] == 7
+
+    def test_string_and_json_columns(self) -> None:
+        """Should convert string and JSON channels to object columns."""
+        f = sy.Frame(
+            [1, 2, 3, 4],
+            [
+                sy.Series([10, 20], data_type=sy.DataType.TIMESTAMP),
+                sy.Series(["on", "off"]),
+                sy.Series([15], data_type=sy.DataType.TIMESTAMP),
+                sy.Series([{"k": 1}]),
+            ],
+        )
+        f.indexes = {1: 1, 2: 1, 3: 3, 4: 3}
+        df = f.to_df()
+        assert df[2].tolist()[0] == "on"
+        assert df[2].tolist()[2] == "off"
+        assert pd.isna(df[2].iloc[1])
+        assert df[4].iloc[1] == {"k": 1}
+
+    def test_string_columns_without_indexes(self) -> None:
+        """Should convert string channels when the frame does not hold indexes."""
+        f = sy.Frame({"a": sy.Series(["x", "y"])})
+        assert list(f.to_df()["a"]) == ["x", "y"]
 
 
 @pytest.mark.framer
