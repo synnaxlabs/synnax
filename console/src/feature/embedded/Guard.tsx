@@ -49,7 +49,7 @@ export const Guard = ({ children }: PropsWithChildren): ReactNode => {
   else
     content = (
       <Access.PermissionsBoundary loading={<Starting connected />}>
-        <SaveAPIKey />
+        <APIKeySideEffect />
         {children}
       </Access.PermissionsBoundary>
     );
@@ -94,7 +94,7 @@ const SideEffect = (): null => {
 };
 
 /** Keeps an API key for the scripts on this computer saved with the Core address. */
-const SaveAPIKey = (): null => {
+const APIKeySideEffect = (): null => {
   const client = Synnax.use();
   const handleError = Status.useErrorHandler();
   useEffect(() => {

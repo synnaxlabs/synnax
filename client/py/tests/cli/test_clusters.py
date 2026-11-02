@@ -13,8 +13,7 @@ from pathlib import Path
 from uuid import UUID, uuid4
 
 import pytest
-from keyring.backend import KeyringBackend
-from keyring.errors import KeyringError, PasswordDeleteError
+from keyring.errors import KeyringError
 
 import synnax as sy
 from synnax.cli import connect, console
@@ -22,24 +21,7 @@ from synnax.cli.flow import Context
 from synnax.cli.login import run as login
 from synnax.config import DESKTOP_NOT_RUNNING_MSG, Cluster, Clusters, File
 from synnax.options import Options
-
-
-class MemoryKeyring(KeyringBackend):
-    priority = 1
-
-    def __init__(self) -> None:
-        super().__init__()  # type: ignore[no-untyped-call]
-        self.values: dict[tuple[str, str], str] = {}
-
-    def get_password(self, service: str, username: str) -> str | None:
-        return self.values.get((service, username))
-
-    def set_password(self, service: str, username: str, password: str) -> None:
-        self.values[(service, username)] = password
-
-    def delete_password(self, service: str, username: str) -> None:
-        if self.values.pop((service, username), None) is None:
-            raise PasswordDeleteError(username)
+from tests.memory_keyring import MemoryKeyring
 
 
 class UndeletableKeyring(MemoryKeyring):

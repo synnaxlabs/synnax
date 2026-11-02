@@ -36,10 +36,10 @@ const PYTHON_CODE = `import synnax as sy
 client = sy.Synnax()`;
 
 /**
- * @returns The release line that matches the given Core version, or null for a
+ * @returns The client release that matches the given Core version, or null for a
  * development build, which no release matches.
  */
-const releaseLine = (version: string | undefined): string | null => {
+const matchingRelease = (version: string | undefined): string | null => {
   const [major, minor] = version?.split(".") ?? [];
   if (major == null || minor == null || (major === "0" && minor === "0")) return null;
   return `${major}.${minor}.0`;
@@ -75,34 +75,34 @@ const Snippet = ({ label, code, copy = code }: SnippetProps): ReactElement => (
   </Flex.Box>
 );
 
-interface Connection {
+interface Params {
   host: string;
   port: number;
   apiKey: string;
 }
 
 interface TabProps {
-  /** The release line of the clients that match the Core, or null for any release. */
-  line: string | null;
+  /** The client release that matches the Core, or null for any release. */
+  release: string | null;
 }
 
-const PythonTab = ({ line }: TabProps): ReactElement => (
+const PythonTab = ({ release }: TabProps): ReactElement => (
   <Flex.Box y gap="medium">
     <Text.Text color={9}>
       Install the client, then connect. The client finds Synnax Desktop by itself.
     </Text.Text>
     <Snippet
       label="Install command"
-      code={line == null ? "pip install synnax" : `pip install "synnax~=${line}"`}
+      code={release == null ? "pip install synnax" : `pip install "synnax~=${release}"`}
     />
     <Snippet label="Python code" code={PYTHON_CODE} />
   </Flex.Box>
 );
 
-interface TypeScriptTabProps extends TabProps, Connection {}
+interface TypeScriptTabProps extends TabProps, Params {}
 
 const TypeScriptTab = ({
-  line,
+  release,
   host,
   port,
   apiKey,
@@ -115,9 +115,9 @@ const TypeScriptTab = ({
     <Snippet
       label="Install command"
       code={
-        line == null
+        release == null
           ? "npm install @synnaxlabs/client"
-          : `npm install @synnaxlabs/client@~${line}`
+          : `npm install @synnaxlabs/client@~${release}`
       }
     />
     <Snippet
@@ -155,7 +155,7 @@ const Value = ({ label, value, display = value }: ValueProps): ReactElement => (
   </Description.Item>
 );
 
-const OtherTab = ({ host, port, apiKey }: Connection): ReactElement => {
+const OtherTab = ({ host, port, apiKey }: Params): ReactElement => {
   const [revealed, setRevealed] = useState(false);
   return (
     <Flex.Box y gap="medium">
@@ -232,7 +232,7 @@ const ConnectModal = (): ReactElement => {
       addStatus({ variant: "success", message: "Reset API key" });
     }, "Failed to reset API key");
   const connection = status.state === "running" ? status.connection : null;
-  const line = releaseLine(connectionStatus.details.nodeVersion);
+  const release = matchingRelease(connectionStatus.details.nodeVersion);
   let body: ReactElement;
   if (connection == null || state == null)
     body = (
@@ -252,10 +252,10 @@ const ConnectModal = (): ReactElement => {
           <Tabs.Tab itemKey="other">Other</Tabs.Tab>
         </Tabs.Selector>
         <Tabs.Content itemKey="python">
-          <PythonTab line={line} />
+          <PythonTab release={release} />
         </Tabs.Content>
         <Tabs.Content itemKey="typescript">
-          <TypeScriptTab line={line} host={host} port={port} apiKey={apiKey} />
+          <TypeScriptTab release={release} host={host} port={port} apiKey={apiKey} />
         </Tabs.Content>
         <Tabs.Content itemKey="other">
           <OtherTab host={host} port={port} apiKey={apiKey} />

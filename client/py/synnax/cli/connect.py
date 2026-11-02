@@ -58,7 +58,7 @@ def prompt_client_options(ctx: Context) -> Options:
 
 
 def from_clusters(
-    ctx: Context, clusters: Clusters, desktop: Path = DESKTOP_FILE_PATH
+    ctx: Context, clusters: Clusters, desktop_file: Path = DESKTOP_FILE_PATH
 ) -> Synnax | None:
     """Connects to a Synnax server. Without saved connection parameters, it connects
     to Synnax Desktop, or prompts the user when Synnax Desktop saved none either. A
@@ -66,12 +66,13 @@ def from_clusters(
 
     :param ctx: The context of the current flow.
     :param clusters: The saved connection parameters.
-    :param desktop: The file where Synnax Desktop saves its connection parameters.
+    :param desktop_file: The file where Synnax Desktop saves its connection
+        parameters.
     :returns: The connected client, or None if the connection failed.
     """
     cluster = clusters.get()
     if cluster is None:
-        opts = load_desktop_options(desktop)
+        opts = load_desktop_options(desktop_file)
         if opts is None:
             return from_context(ctx, opts=prompt_client_options(ctx))
         ctx.console.info("Using Synnax Desktop.")

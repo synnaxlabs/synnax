@@ -14,5 +14,4 @@ export * from "@/feature/embedded/Indicator";
 export * from "@/feature/embedded/install";
 export { Provider } from "@/feature/embedded/Provider";
 export { onStatusChange, retrieveHistory } from "@/feature/embedded/supervisor";
-export { useConnectModal } from "@/feature/embedded/useConnectModal";
 export { useConnParams } from "@/feature/embedded/useConnParams";

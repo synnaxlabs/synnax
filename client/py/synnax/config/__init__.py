@@ -39,7 +39,7 @@ def load_desktop_options(path: Path = DESKTOP_FILE_PATH) -> Options | None:
     """Loads the options that Synnax Desktop saved for scripts on this computer.
 
     :param path: The file Synnax Desktop writes.
-    :return: The options, or None if Synnax Desktop has saved none.
+    :returns: The options, or None if Synnax Desktop has saved none.
     """
     try:
         raw = json.loads(path.read_text())
@@ -68,20 +68,26 @@ def try_load_options_if_none_provided(
     secure: bool = False,
     ca_cert: str | None = None,
     api_key: str = "",
+    clusters: Clusters | None = None,
+    desktop_file: Path = DESKTOP_FILE_PATH,
 ) -> tuple[Options, bool]:
     """Returns the given options, or, without a host, the options that `sy login`
     saved, then those that Synnax Desktop saved.
 
-    :return: The options, and whether Synnax Desktop saved them.
+    :param clusters: The saved logins. Defaults to those of the current user.
+    :param desktop_file: The file where Synnax Desktop saves its options.
+    :returns: The options, and whether Synnax Desktop saved them.
     :raises ValidationError: If an API key has no host, or nothing is saved.
     """
     if len(host) == 0:
         if api_key:
             raise ValidationError("give a host with an API key")
-        cluster = default_clusters().get()
+        if clusters is None:
+            clusters = default_clusters()
+        cluster = clusters.get()
         if cluster is not None:
             return cluster.options, False
-        opts = load_desktop_options(DESKTOP_FILE_PATH)
+        opts = load_desktop_options(desktop_file)
         if opts is None:
             raise ValidationError(NO_OPTIONS_MSG)
         return opts, True

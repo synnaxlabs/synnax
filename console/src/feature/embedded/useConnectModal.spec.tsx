@@ -25,7 +25,7 @@ import {
   LIVE,
   mockSupervisor,
 } from "@/feature/embedded/testutil";
-import { CaptureStatuses } from "@/testutil";
+import { CaptureStatuses, getIconButton } from "@/testutil";
 
 const { host, port } = TEST_CLIENT_PARAMS;
 
@@ -64,7 +64,7 @@ const savedKey = (file: DiscoveryFile): string => {
   return file.apiKey;
 };
 
-describe("Embedded.useConnectModal", () => {
+describe("Embedded connect from code dialog", () => {
   afterEach(clearSupervisor);
 
   it("should save a key on open and keep it out of the Python code", async () => {
@@ -73,6 +73,16 @@ describe("Embedded.useConnectModal", () => {
     const apiKey = savedKey(file);
     await createScriptClient(apiKey).auth.retrieveSessions();
     expect(screen.getByLabelText("Python code").textContent).not.toContain(apiKey);
+  });
+
+  it("should open from the top bar button", async () => {
+    await deleteKeysCreatedByTest(client);
+    const { handlers } = createDiscoveryFile();
+    mockSupervisor(() => LIVE, handlers);
+    const { wrapper } = await createDesktopWrapper();
+    const { container } = render(<Embedded.ConnectButton />, { wrapper });
+    fireEvent.click(getIconButton(container, "code"));
+    expect(await screen.findByLabelText("Python code")).toBeTruthy();
   });
 
   it("should fill the TypeScript code with the address and mask the key", async () => {

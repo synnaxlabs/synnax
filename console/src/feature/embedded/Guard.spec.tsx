@@ -119,6 +119,25 @@ describe("Embedded.Guard API key for scripts", () => {
     expect(await client.auth.retrieveKeys()).toHaveLength(keys);
   });
 
+  it("should delete the new key when the save fails", async () => {
+    await deleteKeysCreatedByTest(client);
+    const keys = async (): Promise<string[]> =>
+      (await client.auth.retrieveKeys()).map((k) => k.key).sort();
+    const before = await keys();
+    const { handlers } = createDiscoveryFile();
+    const { commands } = mockSupervisor(() => LIVE, {
+      ...handlers,
+      supervisor_save_api_key: () => {
+        throw new Error("disk full");
+      },
+    });
+    await renderGuard();
+    await waitFor(() =>
+      expect(commands).toHaveBeenCalledWith("supervisor_save_api_key"),
+    );
+    await expect.poll(keys).toEqual(before);
+  });
+
   it("should replace a saved key that the Core no longer accepts", async () => {
     await deleteKeysCreatedByTest(client);
     const { token, key } = await client.auth.createKey({ name: "deleted" });
