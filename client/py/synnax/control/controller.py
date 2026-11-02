@@ -342,7 +342,7 @@ class Controller:
             raise processor.exc
         return ok
 
-    def sleep(self, dur: float | int | TimeSpan, *, precise: bool = False) -> None:
+    def sleep(self, dur: CrudeTimeSpan, *, precise: bool = False) -> None:
         """Sleeps the controller for the provided duration.
 
         :param dur: The duration to sleep for. This can be a flot or int representing
@@ -622,7 +622,7 @@ class ScheduledCommand:
         *,
         channel: channel_.Key | str,
         value: CrudeSample,
-        delay: float | int | TimeSpan,
+        delay: CrudeTimeSpan,
     ):
         self.channel = channel
         self.value = value

@@ -279,8 +279,9 @@ export class Client extends query.Retriever<
     return parsed.success ? parsed.data : undefined;
   }
 
-  private writeThrough(racks: Payload[]): void {
-    this.store.ingest(racks.map(stripStatus));
+  // A rack written after since keeps that write, since the fetch predates it.
+  private writeThrough(racks: Payload[], since: query.Stamp): void {
+    this.store.ingest(racks.map(stripStatus), { since });
     racks.forEach(({ status: st }) => {
       if (st != null) this.cfg.statusStore.ingest(st);
     });
@@ -297,8 +298,9 @@ export class Client extends query.Retriever<
   }
 
   private async fetchThrough(req: RetrieveRequest): Promise<Payload[]> {
+    const since = this.store.stamp();
     const racks = await this.execRetrieve(req);
-    this.writeThrough(racks);
+    this.writeThrough(racks, since);
     return racks;
   }
 
@@ -310,9 +312,10 @@ export class Client extends query.Retriever<
       checkForMultipleOrNoResults("Rack", q, racks, true);
       return this.sugar(racks[0]);
     }
+    const since = this.store.stamp();
     const racks = await this.execRetrieve(q);
     checkForMultipleOrNoResults("Rack", q, racks, true);
-    this.writeThrough(racks);
+    this.writeThrough(racks, since);
     return this.sugar(racks[0]);
   }
 }
