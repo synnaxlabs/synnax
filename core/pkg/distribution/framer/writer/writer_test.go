@@ -739,6 +739,7 @@ var _ = Describe("Writer", func() {
 			ctx SpecContext,
 			s scenario,
 		) (map[channel.Key]telem.Series, telem.TimeStamp, telem.TimeStamp) {
+			GinkgoHelper()
 			streamer := MustSucceed(s.dist.Framer.NewStreamer(framer.StreamerConfig{
 				Keys:        s.keys,
 				SendOpenAck: new(true),

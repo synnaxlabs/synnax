@@ -10,7 +10,7 @@
 import { DataType, Series, TimeSpan, TimeStamp } from "@synnaxlabs/x";
 import { describe, expect, it } from "vitest";
 
-import { Stamps } from "@/framer/cache/stamps";
+import { IndexStamps, Stamps } from "@/framer/cache/stamps";
 
 const T0 = TimeStamp.seconds(1_700_000_000);
 const T1 = T0.add(TimeSpan.seconds(1));
@@ -115,5 +115,57 @@ describe("Stamps", () => {
     );
     expect(s.at(0n)).toBeNull();
     expect(s.at(5n)).toBeNull();
+  });
+});
+
+// An index series at alignment holding the stamps.
+const index = (alignment: bigint, ...stamps: TimeStamp[]): Series =>
+  new Series({
+    data: BigInt64Array.from(stamps.map((t) => t.valueOf())),
+    dataType: DataType.TIMESTAMP,
+    alignment,
+  });
+
+const span = (lower: bigint, upper: bigint) => ({ lower, upper });
+
+describe("IndexStamps", () => {
+  it("should return the stamp of the index sample at an alignment", () => {
+    const s = new IndexStamps();
+    s.add([index(10n, T0, T1)], [span(10n, 12n)]);
+    expect(s.at(10n)).toEqual(T0);
+    expect(s.at(11n)).toEqual(T1);
+  });
+
+  it("should be null outside the series it holds", () => {
+    const s = new IndexStamps();
+    s.add([index(20n, T1), index(10n, T0)], [span(10n, 11n), span(20n, 21n)]);
+    expect(s.at(10n)).toEqual(T0);
+    expect(s.at(20n)).toEqual(T1);
+    expect(s.at(9n)).toBeNull();
+    expect(s.at(15n)).toBeNull();
+    expect(s.at(21n)).toBeNull();
+  });
+
+  it("should keep only the index series that overlap the data", () => {
+    const s = new IndexStamps();
+    s.add([index(10n, T0), index(20n, T1)], [span(20n, 21n)]);
+    expect(s.at(10n)).toBeNull();
+    expect(s.at(20n)).toEqual(T1);
+  });
+
+  it("should replace the series held over the alignments of a new one", () => {
+    const s = new IndexStamps();
+    s.add([index(10n, T0, T1)], [span(10n, 12n)]);
+    s.add([index(10n, T2, T3, T4)], [span(10n, 13n)]);
+    expect(s.at(10n)).toEqual(T2);
+    expect(s.at(12n)).toEqual(T4);
+  });
+
+  it("should drop the series that no data overlaps", () => {
+    const s = new IndexStamps();
+    s.add([index(10n, T0), index(20n, T1)], [span(10n, 11n), span(20n, 21n)]);
+    s.retain([span(20n, 21n)]);
+    expect(s.at(10n)).toBeNull();
+    expect(s.at(20n)).toEqual(T1);
   });
 });

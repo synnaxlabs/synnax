@@ -1738,6 +1738,50 @@ describe("Feed.subscribe", () => {
       }
     });
 
+    it("should read the index again after the stream reconnects", async () => {
+      const core = createCore();
+      const { key: index } = core.index;
+      let short = true;
+      const feed = core.openFeed({
+        ...OPTIONS,
+        // The stream fails to open again while the Core is down.
+        onRetry: () => {},
+        readLatest: async (keys, count, tr) => {
+          const frame = core.readLatest(keys, count, tr);
+          return short && keys.length === 1 && keys[0] === index
+            ? new framer.Frame()
+            : frame;
+        },
+      });
+      const key = core.data[0].key;
+      const sub = feed.subscribe({
+        keys: [key],
+        limit: { variant: "latest", count: 10_000 },
+      });
+      try {
+        await expect.poll(() => sub.value(key).status.variant, POLL).toBe("success");
+        const [{ alignment }] = sub.value(key).series.series;
+        for (let i = 0; i < 3; i++) {
+          expect(sub.timeAt(key, alignment)).toBeNull();
+          await sleep.sleep(TimeSpan.milliseconds(20));
+          core.advance(TimeSpan.seconds(5), false);
+        }
+        short = false;
+        expect(sub.timeAt(key, alignment)).toBeNull();
+        await sleep.sleep(TimeSpan.milliseconds(20));
+        expect(sub.timeAt(key, alignment)).toBeNull();
+        core.disconnect();
+        await expect
+          .poll(() => sub.value(key).status, POLL)
+          .toMatchObject({ variant: "warning", message: "reconnecting" });
+        core.reconnect();
+        await expect.poll(() => sub.timeAt(key, alignment), POLL).not.toBeNull();
+      } finally {
+        sub.close();
+        await feed.close();
+      }
+    });
+
     it("should return null for a points request", async () => {
       const core = createCore();
       const feed = core.openFeed(OPTIONS);

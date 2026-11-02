@@ -10,6 +10,7 @@
 import {
   DataType,
   dynamicWindow,
+  MultiSeries,
   Rate,
   Series,
   sleep,
@@ -20,6 +21,8 @@ import {
 } from "@synnaxlabs/x";
 import { describe, expect, it, vi } from "vitest";
 
+import { type channel } from "@/channel";
+import { UnsupportedError } from "@/errors";
 import { framer } from "@/framer";
 import { domainOf } from "@/framer/cache/block";
 import { Joins } from "@/framer/cache/join";
@@ -32,10 +35,11 @@ const START = TimeStamp.seconds(1_000_000);
 const POLL = { timeout: 5000, interval: 5 };
 
 // Wires a latest to the Core as a feed does, counting its reads. onRead runs before
-// each read, which waits for it.
+// each read, which waits for it, and readOf replaces what a read returns.
 const createLatest = (
   core: SyntheticCore,
   onRead: () => void | Promise<void> = () => {},
+  readOf: (key: channel.Key, read: MultiSeries) => MultiSeries = (_, read) => read,
 ) => {
   const store = new Store({ now: core.now });
   const streamer = new MultiplexedStreamer({
@@ -55,7 +59,7 @@ const createLatest = (
     readLatest: async (key, count, tr) => {
       await onRead();
       reads++;
-      return core.readLatest([key], count, tr).get(key);
+      return readOf(key, core.readLatest([key], count, tr).get(key));
     },
   };
   const open = (
@@ -425,6 +429,19 @@ describe("Latest", () => {
     const timedOf = (latest: Latest): (bigint | null)[] =>
       alignmentsOf(latest).map((a) => latest.timeAt(a)?.valueOf() ?? null);
 
+    // Returns true when every held sample is timed, one period apart, and the newest
+    // ends the snapshot.
+    const timedInOrder = (latest: Latest): boolean => {
+      const period = Rate.hz(100).period.valueOf();
+      const times = timedOf(latest);
+      const end = latest.value().time?.valueOf();
+      return (
+        times.length > 0 &&
+        times.every((t, i) => t != null && (i === 0 || t - times[i - 1]! === period)) &&
+        times.at(-1)! + 1n === end
+      );
+    };
+
     // A write the Core stamps with one instant, at alignments Cesium gives in a row.
     const write = (alignment: bigint, length: number, stamp: TimeStamp): Series =>
       new Series({
@@ -438,24 +455,165 @@ describe("Latest", () => {
       const core = createCore();
       const { open, close } = createLatest(core);
       const latest = open(100);
-      const period = Rate.hz(100).period.valueOf();
-      // Every sample is timed, one period apart, and the newest ends the snapshot.
-      const timed = (): boolean => {
-        const times = timedOf(latest);
-        const end = latest.value().time?.valueOf();
-        return (
-          times.length > 0 &&
-          times.every(
-            (t, i) => t != null && (i === 0 || t - times[i - 1]! === period),
-          ) &&
-          times.at(-1)! + 1n === end
-        );
-      };
       try {
-        await expect.poll(timed, POLL).toBe(true);
+        await expect.poll(() => timedInOrder(latest), POLL).toBe(true);
         core.advance(TimeSpan.milliseconds(100));
         await expect.poll(() => latest.value().series.series.length, POLL).toBe(2);
-        await expect.poll(timed, POLL).toBe(true);
+        await expect.poll(() => timedInOrder(latest), POLL).toBe(true);
+      } finally {
+        latest.close();
+        await close();
+      }
+    });
+
+    it("should time samples streamed before the index streams", async () => {
+      const core = createCore();
+      const { open, close } = createLatest(core);
+      const latest = open(100);
+      try {
+        await expect.poll(() => latest.value().status.variant, POLL).toBe("success");
+        core.advance(TimeSpan.milliseconds(100));
+        await expect.poll(() => latest.value().series.series.length, POLL).toBe(2);
+        expect(core.streams(core.index.key)).toBe(false);
+        await expect.poll(() => timedInOrder(latest), POLL).toBe(true);
+      } finally {
+        latest.close();
+        await close();
+      }
+    });
+
+    it("should time a channel's samples while another writer writes its index", async () => {
+      const core = createCore();
+      const { open, close } = createLatest(core);
+      const { key: index } = core.index;
+      const { key } = core.data[0];
+      const latest = open(10, undefined, key);
+      // Past the Core's clock, so a read of the index finds nothing there.
+      const start = core.now().add(TimeSpan.hours(1));
+      const own = 7n << 32n;
+      const other = 8n << 32n;
+      // Returns n index samples from start, one millisecond apart.
+      const times = (alignment: bigint, from: TimeStamp, n: number): Series =>
+        new Series({
+          data: BigInt64Array.from({ length: n }, (_, i) =>
+            from.add(TimeSpan.milliseconds(i)).valueOf(),
+          ),
+          dataType: DataType.TIMESTAMP,
+          alignment,
+          timeRange: from.range(from.add(TimeSpan.milliseconds(n))),
+        });
+      try {
+        await expect.poll(() => latest.value().status.variant, POLL).toBe("success");
+        latest.timeAt(0n);
+        await expect.poll(() => core.streams(index), POLL).toBe(true);
+        const written = times(own, start, 2);
+        const data = new Series({
+          data: new Float32Array(2),
+          dataType: DataType.FLOAT32,
+          alignment: own,
+          timeRange: written.timeRange,
+        });
+        core.stream(new framer.Frame([index, key], [written, data]));
+        core.stream(
+          new framer.Frame(index, times(other, start.add(TimeSpan.seconds(1)), 1_000)),
+        );
+        await expect.poll(() => latest.timeAt(own), POLL).toEqual(start);
+        expect(latest.timeAt(own + 1n)).toEqual(start.add(TimeSpan.milliseconds(1)));
+      } finally {
+        latest.close();
+        await close();
+      }
+    });
+
+    it("should forget the stamps of the samples it drops", async () => {
+      const core = createCore();
+      const { open, close } = createLatest(core);
+      const latest = open(10);
+      try {
+        await expect.poll(() => timedInOrder(latest), POLL).toBe(true);
+        const [{ alignment }] = latest.value().series.series;
+        core.advance(TimeSpan.seconds(1));
+        await expect
+          .poll(() => latest.value().series.series[0].alignment, POLL)
+          .not.toBe(alignment);
+        expect(latest.timeAt(alignment)).toBeNull();
+      } finally {
+        latest.close();
+        await close();
+      }
+    });
+
+    it("should wait to read the index again after a read that does not stamp", async () => {
+      const core = createCore();
+      let short = true;
+      const { open, close, reads } = createLatest(core, undefined, (key, read) =>
+        short && key === core.index.key ? new MultiSeries([]) : read,
+      );
+      const latest = open(100);
+      try {
+        await expect.poll(() => latest.value().status.variant, POLL).toBe("success");
+        const [{ alignment }] = latest.value().series.series;
+        const before = reads();
+        expect(latest.timeAt(alignment)).toBeNull();
+        await expect.poll(reads, POLL).toBe(before + 1);
+        await sleep.sleep(TimeSpan.milliseconds(20));
+        expect(latest.timeAt(alignment)).toBeNull();
+        await sleep.sleep(TimeSpan.milliseconds(20));
+        expect(reads()).toBe(before + 1);
+        short = false;
+        core.advance(TimeSpan.seconds(4), false);
+        expect(latest.timeAt(alignment)).toBeNull();
+        await sleep.sleep(TimeSpan.milliseconds(20));
+        expect(reads()).toBe(before + 1);
+        core.advance(TimeSpan.seconds(1), false);
+        await expect.poll(() => latest.timeAt(alignment), POLL).not.toBeNull();
+        expect(reads()).toBe(before + 2);
+      } finally {
+        latest.close();
+        await close();
+      }
+    });
+
+    it("should read the index for a series at most three times", async () => {
+      const core = createCore();
+      const { open, close, reads } = createLatest(core, undefined, (key, read) =>
+        key === core.index.key ? new MultiSeries([]) : read,
+      );
+      const latest = open(100);
+      try {
+        await expect.poll(() => latest.value().status.variant, POLL).toBe("success");
+        const [{ alignment }] = latest.value().series.series;
+        const before = reads();
+        for (let i = 0; i < 4; i++) {
+          expect(latest.timeAt(alignment)).toBeNull();
+          await sleep.sleep(TimeSpan.milliseconds(20));
+          core.advance(TimeSpan.seconds(5), false);
+        }
+        expect(reads()).toBe(before + 3);
+      } finally {
+        latest.close();
+        await close();
+      }
+    });
+
+    it("should stop reading the index once the Core refuses it", async () => {
+      const core = createCore();
+      const { open, close, reads } = createLatest(core, undefined, (key, read) => {
+        if (key === core.index.key) throw new UnsupportedError("index read refused");
+        return read;
+      });
+      const latest = open(100);
+      try {
+        await expect.poll(() => latest.value().status.variant, POLL).toBe("success");
+        const [{ alignment }] = latest.value().series.series;
+        const before = reads();
+        expect(latest.timeAt(alignment)).toBeNull();
+        await expect.poll(reads, POLL).toBe(before + 1);
+        await sleep.sleep(TimeSpan.milliseconds(20));
+        core.advance(TimeSpan.seconds(5), false);
+        expect(latest.timeAt(alignment)).toBeNull();
+        await sleep.sleep(TimeSpan.milliseconds(20));
+        expect(reads()).toBe(before + 1);
       } finally {
         latest.close();
         await close();
@@ -541,6 +699,29 @@ describe("Latest", () => {
         await expect.poll(() => timed(10), POLL).toBe(true);
         latest.update(undefined, 200);
         await expect.poll(() => timed(200), POLL).toBe(true);
+      } finally {
+        latest.close();
+        await close();
+      }
+    });
+
+    it("should time every write of a count past the buffer size", async () => {
+      const core = createCore(true);
+      const { open, close } = createLatest(core);
+      const key = core.virtual!.key;
+      const count = 70_000;
+      const latest = open(count, undefined, key);
+      const stampOf = (i: number): TimeStamp => START.add(TimeSpan.milliseconds(i));
+      try {
+        await expect.poll(() => latest.value().status.variant, POLL).toBe("success");
+        await expect.poll(() => core.streams(key), POLL).toBe(true);
+        const writes = Array.from({ length: count }, (_, i) =>
+          write(BigInt(i), 1, stampOf(i)),
+        );
+        core.stream(new framer.Frame(new Array(count).fill(key), writes));
+        await expect.poll(() => latest.value().series.length, POLL).toBe(count);
+        expect(latest.timeAt(0n)).toEqual(stampOf(0));
+        expect(latest.timeAt(BigInt(count - 1))).toEqual(stampOf(count - 1));
       } finally {
         latest.close();
         await close();
