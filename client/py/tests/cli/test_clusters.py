@@ -8,6 +8,7 @@
 #  included in the file licenses/APL.txt.
 
 from pathlib import Path
+from typing import override
 from uuid import UUID, uuid4
 
 import pytest
@@ -29,18 +30,22 @@ class MemoryKeyring(KeyringBackend):
         super().__init__()  # type: ignore[no-untyped-call]
         self.values: dict[tuple[str, str], str] = {}
 
+    @override
     def get_password(self, service: str, username: str) -> str | None:
         return self.values.get((service, username))
 
+    @override
     def set_password(self, service: str, username: str, password: str) -> None:
         self.values[(service, username)] = password
 
+    @override
     def delete_password(self, service: str, username: str) -> None:
         if self.values.pop((service, username), None) is None:
             raise PasswordDeleteError(username)
 
 
 class UndeletableKeyring(MemoryKeyring):
+    @override
     def delete_password(self, service: str, username: str) -> None:
         raise KeyringError("locked")
 
