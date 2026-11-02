@@ -84,6 +84,7 @@ func openMockDriver(
 		Insecure:        new(true),
 		Address:         "localhost:9090",
 		ParentDirname:   GinkgoT().TempDir(),
+		BinaryDirname:   GinkgoT().TempDir(),
 		Keys:            keys,
 		RackKey:         rackKey,
 	}
@@ -115,6 +116,7 @@ var _ = Describe("Open", func() {
 					Keys:            keys,
 					RackKey:         rackKey,
 					ParentDirname:   GinkgoT().TempDir(),
+					BinaryDirname:   GinkgoT().TempDir(),
 					StartTimeout:    100 * time.Millisecond,
 					StopTimeout:     500 * time.Millisecond,
 				})
@@ -160,6 +162,7 @@ var _ = Describe("Open", func() {
 					Keys:            keys,
 					RackKey:         rackKey,
 					ParentDirname:   GinkgoT().TempDir(),
+					BinaryDirname:   GinkgoT().TempDir(),
 					StartTimeout:    500 * time.Millisecond,
 					StopTimeout:     500 * time.Millisecond,
 				})
@@ -201,6 +204,7 @@ var _ = Describe("Open", func() {
 					Keys:            keys,
 					RackKey:         rackKey,
 					ParentDirname:   GinkgoT().TempDir(),
+					BinaryDirname:   GinkgoT().TempDir(),
 				}))
 				Expect(d.Close()).To(Succeed())
 				Expect(buffer.String()).To(ContainSubstring(
@@ -221,6 +225,7 @@ var _ = Describe("Open", func() {
 					Keys:                keys,
 					RackKey:             rackKey,
 					ParentDirname:       GinkgoT().TempDir(),
+					BinaryDirname:       GinkgoT().TempDir(),
 					RestartBaseInterval: -time.Second,
 				})).Error().To(MatchError(ContainSubstring("base_interval")))
 			},
@@ -240,6 +245,7 @@ var _ = Describe("Open", func() {
 					Keys:            keys,
 					RackKey:         rackKey,
 					ParentDirname:   GinkgoT().TempDir(),
+					BinaryDirname:   GinkgoT().TempDir(),
 					StartTimeout:    2 * time.Second,
 					StopTimeout:     500 * time.Millisecond,
 				})).Error().
@@ -261,9 +267,31 @@ var _ = Describe("Open", func() {
 					Keys:            keys,
 					RackKey:         rackKey,
 					ParentDirname:   GinkgoT().TempDir(),
+					BinaryDirname:   GinkgoT().TempDir(),
 					StartTimeout:    200 * time.Millisecond,
 					StopTimeout:     200 * time.Millisecond,
 				})).Error().To(MatchError(fs.ErrNotExist))
+			},
+		)
+
+		It(
+			"Should fail to start when the binary directory cannot be created",
+			func(ctx SpecContext) {
+				logger, _ := newTestLogger()
+				blocker := filepath.Join(GinkgoT().TempDir(), "blocker")
+				Expect(os.WriteFile(blocker, []byte("x"), 0o644)).To(Succeed())
+				Expect(driver.Open(ctx, driver.Config{
+					Instrumentation: alamos.New("test", alamos.WithLogger(logger)),
+					FS:              mockFS,
+					Insecure:        new(true),
+					Address:         "localhost:9090",
+					Keys:            keys,
+					RackKey:         rackKey,
+					ParentDirname:   GinkgoT().TempDir(),
+					BinaryDirname:   filepath.Join(blocker, "sub"),
+					StartTimeout:    200 * time.Millisecond,
+					StopTimeout:     200 * time.Millisecond,
+				})).Error().To(MatchError(syscall.ENOTDIR))
 			},
 		)
 
@@ -281,6 +309,7 @@ var _ = Describe("Open", func() {
 					Keys:            keys,
 					RackKey:         rackKey,
 					ParentDirname:   filepath.Join(blocker, "sub"),
+					BinaryDirname:   GinkgoT().TempDir(),
 					StartTimeout:    200 * time.Millisecond,
 					StopTimeout:     200 * time.Millisecond,
 				})).Error().To(MatchError(syscall.ENOTDIR))
@@ -338,6 +367,7 @@ var _ = Describe("Open", func() {
 				GinkgoHelper()
 				Expect(openMockDriver(ctx, logger, driver.Config{
 					ParentDirname: GinkgoT().TempDir(),
+					BinaryDirname: GinkgoT().TempDir(),
 					KeyDirname:    keyDir,
 				}).Close()).To(Succeed())
 				return readSavedKey(keyDir)
@@ -379,6 +409,7 @@ var _ = Describe("Open", func() {
 				Insecure:        new(true),
 				Address:         "localhost:9090",
 				ParentDirname:   GinkgoT().TempDir(),
+				BinaryDirname:   GinkgoT().TempDir(),
 				KeyDirname:      keyDir,
 				Keys:            keys,
 				RackKey:         rackKey,
@@ -400,34 +431,65 @@ var _ = Describe("Open", func() {
 			ctx SpecContext,
 		) {
 			logger, _ := newTestLogger()
-			dir := GinkgoT().TempDir()
-			cfg := driver.Config{ParentDirname: dir}
+			// Each open gets its own work directory, as each Core process does.
+			cfg := driver.Config{BinaryDirname: GinkgoT().TempDir()}
 			Expect(openMockDriver(ctx, logger, cfg).Close()).To(Succeed())
-			first := MustSucceed(os.Stat(extractedBinary(dir)))
+			first := MustSucceed(os.Stat(extractedBinary(cfg.BinaryDirname)))
 			Expect(openMockDriver(ctx, logger, cfg).Close()).To(Succeed())
-			Expect(os.SameFile(first, MustSucceed(os.Stat(extractedBinary(dir))))).
-				To(BeTrue())
+			second := MustSucceed(os.Stat(extractedBinary(cfg.BinaryDirname)))
+			Expect(os.SameFile(first, second)).To(BeTrue())
 		})
 
 		It("Should replace the extracted binary when the binary changes", func(
 			ctx SpecContext,
 		) {
 			logger, _ := newTestLogger()
-			dir := GinkgoT().TempDir()
-			Expect(openMockDriver(ctx, logger, driver.Config{ParentDirname: dir}).
+			binDir := GinkgoT().TempDir()
+			Expect(openMockDriver(ctx, logger, driver.Config{BinaryDirname: binDir}).
 				Close()).To(Succeed())
-			old := extractedBinary(dir)
+			old := extractedBinary(binDir)
 			changed := append(
 				MustSucceed(fs.ReadFile(mockFS, driverName())),
 				[]byte("changed")...,
 			)
-			d := openMockDriver(ctx, logger, driver.Config{
-				ParentDirname: dir,
+			Expect(openMockDriver(ctx, logger, driver.Config{
+				BinaryDirname: binDir,
 				FS:            fstest.MapFS{driverName(): {Data: changed}},
-			})
-			Expect(d.Close()).To(Succeed())
+			}).Close()).To(Succeed())
 			Expect(old).ToNot(BeAnExistingFile())
-			Expect(os.ReadFile(extractedBinary(dir))).To(Equal(changed))
+			Expect(os.ReadFile(extractedBinary(binDir))).To(Equal(changed))
+		})
+
+		It("Should remove old binaries and keep temp files", func(ctx SpecContext) {
+			logger, _ := newTestLogger()
+			// A '[' is pattern syntax to filepath.Glob.
+			binDir := filepath.Join(GinkgoT().TempDir(), "cache[")
+			Expect(os.Mkdir(binDir, 0o700)).To(Succeed())
+			stale := filepath.Join(binDir, oldBinaryName())
+			Expect(os.WriteFile(stale, []byte("old"), 0o700)).To(Succeed())
+			temp := filepath.Join(binDir, oldBinaryName()+".123.tmp")
+			Expect(os.WriteFile(temp, []byte("partial"), 0o600)).To(Succeed())
+			Expect(openMockDriver(ctx, logger, driver.Config{BinaryDirname: binDir}).
+				Close()).To(Succeed())
+			Expect(stale).ToNot(BeAnExistingFile())
+			Expect(temp).To(BeAnExistingFile())
+			Expect(extractedBinary(binDir)).To(BeAnExistingFile())
+		})
+
+		It("Should start when an old binary cannot be removed", func(
+			ctx SpecContext,
+		) {
+			logger, buffer := newTestLogger()
+			binDir := GinkgoT().TempDir()
+			// A non-empty directory cannot be removed with os.Remove.
+			stuck := filepath.Join(binDir, oldBinaryName())
+			Expect(os.MkdirAll(filepath.Join(stuck, "child"), 0o700)).To(Succeed())
+			Expect(openMockDriver(ctx, logger, driver.Config{BinaryDirname: binDir}).
+				Close()).To(Succeed())
+			Expect(stuck).To(BeADirectory())
+			Expect(buffer.String()).To(ContainSubstring(
+				"failed to remove old Driver binary",
+			))
 		})
 
 		It("Should write no trust anchors in insecure mode", func(ctx SpecContext) {
@@ -457,11 +519,21 @@ func driverName() string {
 	return "driver"
 }
 
-// extractedBinary returns the path of the only Driver binary in the working directory.
-func extractedBinary(parentDirname string) string {
+// oldBinaryName returns the name of a binary that another Driver version extracted.
+func oldBinaryName() string {
+	return "driver-0000000000000000" + filepath.Ext(driverName())
+}
+
+// extractedBinary returns the path of the only Driver binary in binDir.
+func extractedBinary(binDir string) string {
 	GinkgoHelper()
-	pattern := filepath.Join(parentDirname, "driver", "driver*")
-	binaries := MustSucceed(filepath.Glob(pattern))
+	var binaries []string
+	for _, e := range MustSucceed(os.ReadDir(binDir)) {
+		if strings.HasPrefix(e.Name(), "driver-") &&
+			!strings.HasSuffix(e.Name(), ".tmp") {
+			binaries = append(binaries, filepath.Join(binDir, e.Name()))
+		}
+	}
 	Expect(binaries).To(HaveLen(1))
 	return binaries[0]
 }
@@ -527,6 +599,7 @@ var _ = Describe("restart", func() {
 			Keys:            keys,
 			RackKey:         rackKey,
 			ParentDirname:   GinkgoT().TempDir(),
+			BinaryDirname:   GinkgoT().TempDir(),
 			// The Driver never starts, so Open returns as soon as the policy gives up.
 			// StartTimeout only has to outlast three subprocess launches on a loaded
 			// machine; it is never actually waited out.
@@ -544,18 +617,18 @@ var _ = Describe("restart", func() {
 		Expect(os.Setenv("MOCK_EXIT_AFTER_MS", "100")).To(Succeed())
 		defer func() { Expect(os.Unsetenv("MOCK_EXIT_AFTER_MS")).To(Succeed()) }()
 		logger, buffer := newTestLogger()
-		dir := GinkgoT().TempDir()
+		binDir := GinkgoT().TempDir()
 		d := openMockDriver(ctx, logger, driver.Config{
-			ParentDirname:       dir,
+			BinaryDirname:       binDir,
 			StartTimeout:        5 * time.Second,
 			RestartBaseInterval: time.Millisecond,
 		})
-		first := MustSucceed(os.Stat(extractedBinary(dir)))
+		first := MustSucceed(os.Stat(extractedBinary(binDir)))
 		Eventually(func() int {
 			return strings.Count(buffer.String(), "started successfully")
 		}, 5*time.Second).Should(BeNumerically(">=", 2))
 		Expect(d.Close()).To(Succeed())
-		Expect(os.SameFile(first, MustSucceed(os.Stat(extractedBinary(dir))))).
+		Expect(os.SameFile(first, MustSucceed(os.Stat(extractedBinary(binDir))))).
 			To(BeTrue())
 	})
 
