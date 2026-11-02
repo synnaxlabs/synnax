@@ -19,8 +19,28 @@ interface Rect {
 
 interface Still {
     version: string;
-    stills: { window: Partial<Record<string, Rect>> };
+    width: number;
+    height: number;
+    /** The regions of each still, by the name the capture gave the still. */
+    stills: Partial<Record<string, Partial<Record<string, Rect>>>>;
 }
+
+/** The space kept around a zoomed region, in pixels of the still. */
+const REGION_MARGIN = 16;
+/** The smallest area a zoomed hero shows, so a small region keeps its surroundings. */
+const MIN_REGION = { width: 560, height: 320 };
+
+/** grow widens [start, start + size) to at least `min` around its center, in [0, max). */
+const grow = (
+    start: number,
+    size: number,
+    min: number,
+    max: number,
+): [number, number] => {
+    const width = Math.min(Math.max(size, min), max);
+    const from = Math.min(Math.max(start + size / 2 - width / 2, 0), max - width);
+    return [from, width];
+};
 
 /** The version and regions Studio recorded for each hero still, by Studio id. */
 const STILLS: Record<string, Still> = Object.fromEntries(
@@ -71,13 +91,18 @@ interface InsetProps {
 interface StillProps extends BaseProps {
     /** The Studio id of a hero still, from a `hero` entry in `studio/videos.ts`. */
     still: string;
+    /** The name of the still to show, from the capture. Defaults to `window`. */
+    view?: string;
     /**
      * Where the window sits on the gradient. `bleed` runs it off the right and bottom
      * edges. `layered` dims that window and lifts its bottom toolbar out in front.
      * `centered` runs it off the bottom edge only. `framed` shows all of it, for a
-     * subject at the middle of the window.
+     * subject at the middle of the window. `zoomed` shows only `region`, enlarged, for
+     * a subject too small to read in the whole window.
      */
-    layout: "bleed" | "layered" | "centered" | "framed";
+    layout: "bleed" | "layered" | "centered" | "framed" | "zoomed";
+    /** The region of the still that the `zoomed` layout shows. */
+    region?: string;
 }
 
 /**
@@ -109,6 +134,8 @@ const props = Astro.props;
 const { layout, palette } = props;
 const [from, to] = PALETTES[palette];
 let toolbar: Rect | undefined;
+let zoom: Rect | undefined;
+let stillWidth = 0;
 let still: string | undefined;
 if ("still" in props) {
     const recorded = STILLS[props.still];
@@ -116,8 +143,33 @@ if ("still" in props) {
         throw new Error(
             `no hero still ${props.still}: add a hero entry to studio/videos.ts and run pnpm batch`,
         );
-    still = `${props.still}/${recorded.version}/window`;
-    toolbar = recorded.stills.window.toolbar;
+    const view = props.view ?? "window";
+    const regions = recorded.stills[view];
+    if (regions == null)
+        throw new Error(`the ${props.still} capture records no ${view} still`);
+    still = `${props.still}/${recorded.version}/${view}`;
+    toolbar = regions.toolbar;
+    stillWidth = recorded.width;
+    if (layout === "zoomed") {
+        const region = props.region != null ? regions[props.region] : undefined;
+        if (region == null)
+            throw new Error(
+                `the ${view} still of ${props.still} records no ${props.region} region`,
+            );
+        const [x, width] = grow(
+            region.x - REGION_MARGIN,
+            region.width + 2 * REGION_MARGIN,
+            MIN_REGION.width,
+            recorded.width,
+        );
+        const [y, height] = grow(
+            region.y - REGION_MARGIN,
+            region.height + 2 * REGION_MARGIN,
+            MIN_REGION.height,
+            recorded.height,
+        );
+        zoom = { x, y, width, height };
+    }
     if (layout === "layered" && toolbar == null)
         throw new Error(
             `the ${props.still} still records no toolbar for the layered layout`,
@@ -134,6 +186,15 @@ const style = [
               `--toolbar-y: ${toolbar.y}`,
               `--toolbar-width: ${toolbar.width}`,
               `--toolbar-height: ${toolbar.height}`,
+          ]
+        : []),
+    ...(zoom != null
+        ? [
+              `--still-width: ${stillWidth}`,
+              `--region-x: ${zoom.x}`,
+              `--region-y: ${zoom.y}`,
+              `--region-width: ${zoom.width}`,
+              `--region-height: ${zoom.height}`,
           ]
         : []),
 ].join("; ");
@@ -308,6 +369,27 @@ const style = [
         }
     }
 
+    /* The region of the still, enlarged to the width of a framed window. */
+    .zoomed {
+        aspect-ratio: auto;
+
+        & .window {
+            --zoom: calc(728 / var(--region-width));
+
+            position: relative;
+            width: calc(728 * var(--px));
+            height: calc(var(--region-height) * var(--zoom) * var(--px));
+            margin: calc(30 * var(--px)) auto calc(34 * var(--px));
+
+            & :global(img) {
+                width: calc(var(--still-width) * var(--zoom) * var(--px));
+                max-width: none;
+                margin-top: calc(var(--region-y) * var(--zoom) * -1 * var(--px));
+                margin-left: calc(var(--region-x) * var(--zoom) * -1 * var(--px));
+            }
+        }
+    }
+
     /* Over the page gray, so it follows the theme and stays quieter than the cover. */
     .inset {
         margin-top: 3rem;
@@ -319,7 +401,7 @@ const style = [
         );
         box-shadow: inset 0 0 0 1px var(--pluto-gray-l4);
 
-        &:not(.framed) {
+        &:not(.framed, .zoomed) {
             aspect-ratio: 12 / 5;
         }
 

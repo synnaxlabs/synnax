@@ -1,0 +1,227 @@
+---
+// Copyright 2026 Synnax Labs, Inc.
+//
+// Use of this software is governed by the Business Source License included in the file
+// licenses/BSL.txt.
+//
+// As of the Change Date specified in that file, in accordance with the Business Source
+// License, use of this software will be governed by the Apache License, Version 2.0,
+// included in the file licenses/APL.txt.
+
+import { Flex } from "@synnaxlabs/lyra/flex";
+import { Text } from "@synnaxlabs/lyra/text";
+
+/** Where the hand closes on the thermocouple, and the newest sample. */
+const WARM_START = 340;
+const LAST = 744;
+
+/** A thermocouple at room temperature that warms in a hand, with a little noise. */
+const reading = (x: number): number => {
+    const rise = x < WARM_START ? 0 : 1 - Math.exp(-(x - WARM_START) / 85);
+    const noise = 1.3 * Math.sin(x * 0.9) + 0.9 * Math.sin(x * 2.7 + 1);
+    return 128 - 66 * rise + noise;
+};
+
+const xs = Array.from({ length: LAST / 6 + 1 }, (_, i) => i * 6);
+const line = xs.map((x) => `${x},${reading(x).toFixed(1)}`).join(" ");
+const area = `M0,200 L${line.replaceAll(" ", " L")} L${LAST},200 Z`;
+const end = `M${LAST},${reading(LAST).toFixed(1)} h0`;
+---
+
+<Flex.Box
+    el="a"
+    href="/blog/labjack-t7-software"
+    className="labjack-tile"
+    direction="x"
+    justify="between"
+    align="start"
+>
+    <Text.Text level="small" className="tile-date" color={8}>
+        Nov 2, 2026
+    </Text.Text>
+    <Flex.Box direction="y" justify="between" className="labjack-tile__content">
+        <Text.Text level="h3" color={10}>
+            LabJack T7 software for Mac and Windows
+        </Text.Text>
+        <Text.Text level="p" color={9} weight={400} className="labjack-tile__summary">
+            Stream a thermocouple from a LabJack T7, plot it live, and record every
+            sample, with no code.
+        </Text.Text>
+    </Flex.Box>
+
+    <svg
+        class="curve"
+        viewBox="0 0 800 200"
+        preserveAspectRatio="none"
+        aria-hidden="true"
+    >
+        <defs>
+            <filter id="labjack-glow" x="-10%" y="-50%" width="120%" height="200%">
+                <feGaussianBlur in="SourceGraphic" stdDeviation="5"></feGaussianBlur>
+                <feMerge>
+                    <feMergeNode></feMergeNode>
+                    <feMergeNode in="SourceGraphic"></feMergeNode>
+                </feMerge>
+            </filter>
+            <linearGradient id="labjack-heat" x1="0%" y1="0%" x2="100%" y2="0%">
+                <stop offset="0%" stop-color="#3774d0" stop-opacity="0"></stop>
+                <stop offset="18%" stop-color="#3774d0"></stop>
+                <stop offset="44%" stop-color="#a855f7"></stop>
+                <stop offset="62%" stop-color="#ff007b"></stop>
+                <stop offset="93%" stop-color="#ff9b42"></stop>
+            </linearGradient>
+            <linearGradient id="labjack-fill" x1="0%" y1="0%" x2="0%" y2="100%">
+                <stop offset="0%" stop-color="#ff5a5f" stop-opacity="0.22"></stop>
+                <stop offset="100%" stop-color="#ff5a5f" stop-opacity="0"></stop>
+            </linearGradient>
+            <linearGradient id="labjack-fade" x1="0%" y1="0%" x2="100%" y2="0%">
+                <stop offset="42%" stop-color="#fff" stop-opacity="0"></stop>
+                <stop offset="70%" stop-color="#fff"></stop>
+                <stop offset="93%" stop-color="#fff" stop-opacity="0"></stop>
+            </linearGradient>
+            <mask id="labjack-fill-mask">
+                <rect width="800" height="200" fill="url(#labjack-fade)"></rect>
+            </mask>
+        </defs>
+
+        <path class="area" d={area} mask="url(#labjack-fill-mask)"></path>
+        <polyline class="line" points={line} filter="url(#labjack-glow)"></polyline>
+        <path class="pulse" d={end}></path>
+        <path class="dot" d={end}></path>
+    </svg>
+</Flex.Box>
+
+<style>
+    /* Flex.Box and Text.Text render the tile's markup, so their classes are global. */
+    :global(.labjack-tile) {
+        position: relative;
+        overflow: hidden;
+        background-color: var(--pluto-gray-l1);
+        padding: 5rem;
+        cursor: pointer;
+        transition: all 0.2s;
+        text-decoration: none !important;
+        border: var(--pluto-border-l6);
+        box-shadow: var(--pluto-shadow-v1);
+        border-radius: 2rem;
+        height: 300px;
+
+        & :global(h3) {
+            margin: 0;
+        }
+
+        & :global(.tile-date) {
+            position: absolute;
+            top: 3rem;
+            right: 3rem;
+            z-index: 2;
+            font-weight: 400;
+            background-color: var(--pluto-gray-l2);
+            border: var(--pluto-border);
+            border-radius: 1rem;
+            padding: 0.75rem 1.5rem;
+        }
+
+        &:hover {
+            --pluto-shadow-v1:
+                0px 1px 1px rgb(0 0 0 / 6%), 0px 4px 8px -4px rgb(0 0 0 / 10%),
+                0px 16px 24px -8px rgb(0 0 0 / 20%);
+
+            & .curve {
+                opacity: 1;
+            }
+        }
+    }
+
+    :global(.labjack-tile__content) {
+        z-index: 2;
+        height: 100%;
+    }
+
+    :global(.labjack-tile__summary) {
+        max-width: 450px;
+    }
+
+    .curve {
+        position: absolute;
+        top: 0;
+        left: 0;
+        width: 100%;
+        height: 100%;
+        z-index: 1;
+        opacity: 0.85;
+        transition: opacity 0.3s;
+
+        & path,
+        & polyline {
+            vector-effect: non-scaling-stroke;
+        }
+    }
+
+    /* On a phone, the date sits above the title, so a long title never runs under
+       it. The title then wraps into the curve. */
+    @media (width <= 600px) {
+        :global(.labjack-tile) {
+            flex-direction: column;
+            gap: 2rem;
+            padding: 4rem;
+
+            & :global(.tile-date) {
+                position: static;
+            }
+
+            & :global(.labjack-tile__content) {
+                flex: 1;
+                height: auto;
+            }
+
+            & .curve {
+                opacity: 0.45;
+            }
+        }
+    }
+
+    .area {
+        fill: url("#labjack-fill");
+    }
+
+    .line {
+        fill: none;
+        stroke: url("#labjack-heat");
+        stroke-width: 2.5;
+        stroke-linecap: round;
+        stroke-linejoin: round;
+    }
+
+    /* A zero-length path with a round cap stays a circle when the SVG stretches. */
+    .dot {
+        stroke: #ff9b42;
+        stroke-width: 9;
+        stroke-linecap: round;
+    }
+
+    .pulse {
+        stroke: #ff9b42;
+        stroke-linecap: round;
+        animation: labjack-pulse 2s ease-out infinite;
+    }
+
+    @keyframes labjack-pulse {
+        from {
+            stroke-width: 9;
+            opacity: 0.6;
+        }
+
+        to {
+            stroke-width: 34;
+            opacity: 0;
+        }
+    }
+
+    @media (prefers-reduced-motion: reduce) {
+        .pulse {
+            animation: none;
+            opacity: 0;
+        }
+    }
+</style>

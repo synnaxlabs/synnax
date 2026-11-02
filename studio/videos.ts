@@ -46,6 +46,7 @@ export default manifest.define([
   hero("releases/0-60-0/hero", "scripts/release-0-60-hero.ts"),
   hero("releases/0-60-0/read-back", "scripts/release-0-60-read-back.ts"),
   hero("releases/0-60-0/connect-device", "scripts/release-0-60-connect-device.ts"),
+  hero("blog/labjack-t7-software", "scripts/blog-labjack.ts"),
   hero("releases/0-60-0/panel-icons", "scripts/release-0-60-panel-icons.ts"),
   { id: "console/line-plots/toolbar", script: "scripts/line-plot-toolbar.ts" },
   { id: "console/line-plots/slope", script: "scripts/line-plot-slope.ts" },

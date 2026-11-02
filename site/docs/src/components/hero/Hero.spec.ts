@@ -17,6 +17,7 @@ import { fromHtml } from "hast-util-from-html";
 import { beforeAll, describe, expect, it } from "vitest";
 
 import { Hero } from "@/components/hero";
+import labjack from "@/components/hero/stills/blog/labjack-t7-software.json";
 import linePlots from "@/components/hero/stills/console/line-plots/hero.json";
 import schematics from "@/components/hero/stills/console/schematics/hero.json";
 import { mediaURL } from "@/components/media/url";
@@ -34,6 +35,14 @@ const withClass = (node: Root | Element, name: string): Element[] =>
 /** The classes of the hero's root element. */
 const classes = (root: Root): unknown =>
   withClass(root, "docs-hero")[0].properties.className;
+
+/** The CSS custom properties on the hero's root element, by name. */
+const variables = (root: Root): Record<string, string> =>
+  Object.fromEntries(
+    String(withClass(root, "docs-hero")[0].properties.style)
+      .split(";")
+      .map((entry) => entry.split(":").map((part) => part.trim())),
+  );
 
 const images = (node: Root | Element): unknown[] =>
   elements(node)
@@ -109,6 +118,69 @@ describe("Hero.Hero", () => {
         }),
       ).rejects.toThrow(
         "the console/schematics/hero still records no toolbar for the layered layout",
+      );
+    });
+  });
+
+  describe("view", () => {
+    it("should show the named still of a capture", async () => {
+      const root = await render({
+        still: "blog/labjack-t7-software",
+        view: "task",
+        layout: "framed",
+        inset: true,
+        palette: "pink-orange",
+      });
+      expect(images(root)).toEqual([
+        mediaURL(`blog/labjack-t7-software/${labjack.version}/task`, "webp", "light"),
+      ]);
+    });
+
+    it("should throw on a still that the capture did not take", async () => {
+      await expect(
+        render({
+          still: "blog/labjack-t7-software",
+          view: "missing",
+          layout: "framed",
+          inset: true,
+          palette: "pink-orange",
+        }),
+      ).rejects.toThrow(
+        "the blog/labjack-t7-software capture records no missing still",
+      );
+    });
+  });
+
+  describe("zoomed", () => {
+    it("should grow a small region to the smallest zoomed area", async () => {
+      const root = await render({
+        still: "blog/labjack-t7-software",
+        view: "export",
+        layout: "zoomed",
+        region: "menu",
+        inset: true,
+        palette: "pink-orange",
+      });
+      expect(classes(root)).toEqual(["docs-hero", "zoomed", "inset"]);
+      expect(variables(root)).toMatchObject({
+        "--still-width": "1280",
+        "--region-width": "560",
+        "--region-height": "320",
+      });
+    });
+
+    it("should throw on a region that the still did not record", async () => {
+      await expect(
+        render({
+          still: "blog/labjack-t7-software",
+          view: "task",
+          layout: "zoomed",
+          region: "missing",
+          inset: true,
+          palette: "pink-orange",
+        }),
+      ).rejects.toThrow(
+        "the task still of blog/labjack-t7-software records no missing region",
       );
     });
   });
