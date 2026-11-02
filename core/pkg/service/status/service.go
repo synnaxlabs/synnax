@@ -225,3 +225,28 @@ func (s *Service) NewRetrieve[D any]() Retrieve[D] {
 		label:   s.cfg.Label,
 	}
 }
+
+// Join returns the stored status of each resource in ids, in the same order. A resource
+// with no stored status gets nil.
+func (s *Service) Join[D any](
+	ctx context.Context,
+	ids []ontology.ID,
+) ([]*Status[D], error) {
+	var statuses []Status[D]
+	if err := s.NewRetrieve[D]().
+		SkipMissingKeys().
+		Where(MatchKeys[D](ontology.IDsToKeys(ids)...)).
+		Entries(&statuses).
+		Exec(ctx, nil); err != nil {
+		return nil, err
+	}
+	byKey := make(map[Key]*Status[D], len(statuses))
+	for i := range statuses {
+		byKey[statuses[i].Key] = &statuses[i]
+	}
+	joined := make([]*Status[D], len(ids))
+	for i, id := range ids {
+		joined[i] = byKey[id.String()]
+	}
+	return joined, nil
+}

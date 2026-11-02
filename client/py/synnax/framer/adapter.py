@@ -40,7 +40,7 @@ class ReadFrameAdapter:
 
     def update(self, channels: channel.Params) -> None:
         normal = channel.normalize_params(channels)
-        fetched = self.retriever.retrieve(normal.channels)
+        fetched = retrieve_required_channel(self.retriever, normal.channels)
         new_keys = [ch.key for ch in fetched]
         # The Core counts every update that carries keys, and both sides must agree on
         # the sequence number of each codec state.
@@ -54,15 +54,11 @@ class ReadFrameAdapter:
             self.keys = list(normal.channels)
         else:
             keys_by_name = {name: key for key, name in self._names.items()}
-            for name in normal.channels:
-                if name not in keys_by_name:
-                    raise KeyError(f"Channel {name} not found.")
             self.keys = [keys_by_name[name] for name in normal.channels]
         self._rank = {}
         for i, key in enumerate(self.keys):
             self._rank.setdefault(key, i)
-            if key in self._names:
-                self._rank.setdefault(self._names[key], i)
+            self._rank.setdefault(self._names[key], i)
 
     def adapt(self, fr: Frame) -> Frame:
         """Sorts the frame's series into the order of the requested channels and

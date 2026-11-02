@@ -68,7 +68,9 @@ const selectRackRenderProp = Component.renderProp(
   ),
 );
 
-const INITIAL_RACK_QUERY: rack.RetrieveParams = { integration: "pagerduty" };
+const INITIAL_RACK_QUERY: rack.RetrieveMultipleParams = {
+  where: { integrations: { any: ["pagerduty"] } },
+};
 
 interface AlertDetailsProps {
   itemKey: string;

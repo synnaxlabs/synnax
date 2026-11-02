@@ -175,9 +175,7 @@ const createLinePlot = (ch: Channels): lineplot.New => ({
 
 const deploy = async (client: Synnax, key: arc.Key): Promise<void> => {
   const racks = await client.racks.retrieve({
-    integration: "arc",
-    embedded: true,
-    hostIsNode: true,
+    where: { integrations: { any: ["arc"] }, embedded: { eq: true }, hostIsNode: true },
   });
   if (racks.length === 0) throw new NotFoundError("No rack can run Arc programs");
   const task = await client.arcs.updateTask(key, { rack: racks[0].key });

@@ -13,6 +13,7 @@ import (
 	"context"
 	"regexp"
 
+	"github.com/samber/lo"
 	"github.com/synnaxlabs/gorp"
 	"github.com/synnaxlabs/synnax/pkg/service/channel"
 	"github.com/synnaxlabs/synnax/pkg/service/ranger"
@@ -160,4 +161,54 @@ func (r Reader) Search(
 		idx.Set(a.Channel, a.Alias)
 	}
 	return idx.Search(term, 0).Keys, nil
+}
+
+// SearchChannels returns the channels that q selects and that match term by name or by
+// their alias on rng. Alias matches come first, then name matches, each closest match
+// first. A positive limit and the offset page the merged list.
+func (r Reader) SearchChannels(
+	ctx context.Context,
+	q channel.Retrieve,
+	rng ranger.Key,
+	term string,
+	limit, offset int,
+) ([]channel.Channel, error) {
+	keys, err := r.Search(ctx, rng, term)
+	if err != nil {
+		return nil, err
+	}
+	var aliased []channel.Channel
+	if len(keys) > 0 {
+		// An alias can outlive its channel.
+		if err := q.SkipMissingKeys().
+			Where(channel.MatchKeys(keys...)).
+			Entries(&aliased).
+			Exec(ctx, r.tx); err != nil {
+			return nil, err
+		}
+	}
+	matched := lo.KeyBy(aliased, func(ch channel.Channel) channel.Key {
+		return ch.Key()
+	})
+	named := q.Search(term)
+	if limit > 0 {
+		named = named.Limit(limit + offset)
+	}
+	var byName []channel.Channel
+	if err := named.Entries(&byName).Exec(ctx, r.tx); err != nil {
+		return nil, err
+	}
+	merged := lo.FilterMap(keys, func(k channel.Key, _ int) (channel.Channel, bool) {
+		ch, ok := matched[k]
+		return ch, ok
+	})
+	merged = append(merged, lo.Reject(byName, func(ch channel.Channel, _ int) bool {
+		_, ok := matched[ch.Key()]
+		return ok
+	})...)
+	length := uint(len(merged))
+	if limit > 0 {
+		length = uint(limit)
+	}
+	return lo.Subset(merged, offset, length), nil
 }

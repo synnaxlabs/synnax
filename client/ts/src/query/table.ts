@@ -73,7 +73,7 @@ export type Stamp = number;
 export interface IngestOptions {
   /** Overrides the table's declared hydrate mode. */
   mode?: HydrateMode;
-  /** Skips entries written after this stamp: the fetch predates those writes. */
+  /** Skips entries written or deleted after this stamp: the fetch predates them. */
   since?: Stamp;
 }
 
@@ -115,6 +115,11 @@ export interface TableParams<
    * across every mutation, rollbacks and resets included.
    */
   indexes?: Array<LookupIndex<Key, Value>>;
+  /**
+   * Lets a fetch that started after a delete restore the key. For tables whose deleted
+   * keys fall back to another record, such as a range alias inheriting from its parent.
+   */
+  revivable?: boolean;
 }
 
 /**
@@ -176,6 +181,7 @@ export class Table<
   private readonly equal: (a: Value, b: Value, key: Key) => boolean;
   private readonly fetchEntries?: (keys: Key[]) => Promise<Array<Keyed<Key, Value>>>;
   private readonly hydrateMode: HydrateMode;
+  private readonly revivable: boolean;
   private readonly fetchBatcher: scheduler.Batcher<
     Key[],
     Array<Keyed<Key, Value>>
@@ -184,8 +190,8 @@ export class Table<
   private interceptor: Interceptor<Key, Value> | null = null;
   private gen = 0;
   private writeSeq = 0;
-  // Holds a stamp only for present entries: applyDelete drops the key's stamp, so the
-  // map never outgrows the entries.
+  // Holds a stamp only for present and tombstoned entries: applyDelete drops the stamp
+  // of any other key, so the map never outgrows them.
   private readonly writeStamps = new Map<Key, Stamp>();
 
   constructor({
@@ -195,11 +201,13 @@ export class Table<
     hydrate = "set",
     fetchDebounce = DEFAULT_FETCH_DEBOUNCE,
     indexes = [],
+    revivable = false,
   }: TableParams<Key, Value>) {
     this.onError = onError;
     this.equal = equal;
     this.fetchEntries = fetch;
     this.hydrateMode = hydrate;
+    this.revivable = revivable;
     this.indexes = [...indexes];
     this.fetchBatcher =
       fetch == null
@@ -383,21 +391,45 @@ export class Table<
    * one: "set" overwrites entries, "if-absent" leaves existing entries untouched. A
    * tombstoned key is skipped, as is a key written after the given stamp: the fetch may
    * predate the delete or the write, and only a {@link set} revives a deleted record.
+   * On a revivable table, a key deleted before the given stamp also revives.
    * @returns A rollback that undoes the entries this call wrote.
    */
   ingest(
     values: Keyed<Key, Value> | Array<Keyed<Key, Value>>,
-    { mode = this.hydrateMode, since }: IngestOptions = {},
+    options?: IngestOptions,
+  ): destructor.Destructor;
+  /**
+   * Writes one fetched value under the given key, by the same rules.
+   * @returns A rollback that undoes the entry, if this call wrote it.
+   */
+  ingest(key: Key, value: Value, options?: IngestOptions): destructor.Destructor;
+  ingest(
+    keyOrValues: Key | Keyed<Key, Value> | Array<Keyed<Key, Value>>,
+    valueOrOptions?: Value | IngestOptions,
+    options?: IngestOptions,
   ): destructor.Destructor {
+    if (typeof keyOrValues !== "object") {
+      const key = keyOrValues as Key;
+      const { mode = this.hydrateMode, since } = options ?? {};
+      if (
+        !this.ingestible(key, since) ||
+        (mode === "if-absent" && this.entries.has(key))
+      )
+        return destructor.NOOP;
+      return this.setOne(key, valueOrOptions as Value) ?? destructor.NOOP;
+    }
+    const { mode = this.hydrateMode, since }: IngestOptions =
+      (valueOrOptions as IngestOptions | undefined) ?? {};
     const arr = array
-      .toArray(values)
-      .filter(
-        ({ key }) =>
-          !this.tombstones.has(key) &&
-          (since == null || !this.writtenSince(key, since)),
-      );
+      .toArray(keyOrValues)
+      .filter(({ key }) => this.ingestible(key, since));
     if (mode === "if-absent") return this.setIfAbsent(arr);
     return this.setMany(arr);
+  }
+
+  private ingestible(key: Key, since?: Stamp): boolean {
+    if (since != null && this.writtenSince(key, since)) return false;
+    return !this.tombstones.has(key) || (this.revivable && since != null);
   }
 
   /** Returns every entry in the table, or every entry the filter accepts. */
@@ -529,6 +561,9 @@ export class Table<
         this.applyDelete(k);
         if (tombstone && value != null)
           this.tombstones.set(k, new Deleted(value, TimeStamp.now()));
+        // A repeat marks the delete as committed, so it also counts as a write.
+        if (tombstone && this.tombstones.has(k))
+          this.writeStamps.set(k, ++this.writeSeq);
         this.notify({ variant: "delete", key: k });
       }),
     );

@@ -14,7 +14,13 @@ import { NotFoundError } from "@/index";
 import { query } from "@/query";
 import { rack } from "@/rack";
 import { status } from "@/status";
-import { createTestClient, spyOnSend, waitForStreamLive } from "@/testutil";
+import {
+  createTestClient,
+  expectLive,
+  holdResponses,
+  spyOnSend,
+  waitForStreamLive,
+} from "@/testutil";
 
 const client = createTestClient();
 
@@ -109,6 +115,22 @@ describe("Rack", () => {
         .poll(async () => (await client.racks.retrieve(r.key)).name)
         .toBe(name);
     });
+    it("should keep a rename that lands before an older fetch", async () => {
+      const r = await client.racks.create({ name: `rack-${id.create()}` });
+      const local = createTestClient();
+      await local.connect();
+      await waitForStreamLive(local.connection);
+      await local.racks.retrieve(r.key);
+      const { responded, release } = holdResponses(local, "/rack/retrieve");
+      const fetching = local.racks.retrieve({ where: { name: { eq: r.name } } });
+      await responded;
+      const name = `rack-renamed-${id.create()}`;
+      await client.racks.rename(r.key, name);
+      await expect.poll(() => expectLive(local.racks.getCached(r.key)).name).toBe(name);
+      release();
+      await fetching;
+      expect(expectLive(local.racks.getCached(r.key)).name).toBe(name);
+    });
     it("should reject an empty name", async () => {
       const r = await client.racks.create({ name: "rack-rename-empty" });
       await expect(client.racks.rename(r.key, "")).rejects.toThrow();
@@ -162,6 +184,31 @@ describe("Rack", () => {
       expect(retrieved.key).toBe(r.key);
       expect(retrieved.name).toEqual(name);
     });
+    it("should retrieve racks that match any branch of an or", async () => {
+      const [a, b, c] = await client.racks.create([
+        { name: `rack-or-${id.create()}` },
+        { name: `rack-or-${id.create()}`, integrations: ["labjack"] },
+        { name: `rack-or-${id.create()}` },
+      ]);
+      const results = await client.racks.retrieve({
+        where: {
+          key: { in: [a.key, b.key, c.key] },
+          or: [{ name: { eq: a.name } }, { integrations: { any: ["labjack"] } }],
+        },
+      });
+      expect(results.map((r) => r.key).sort()).toEqual([a.key, b.key].sort());
+    });
+    it("should treat a missing key as a non-match", async () => {
+      const r = await client.racks.create({ name: "rack-missing-key" });
+      const results = await client.racks.retrieve({
+        where: { key: { in: [r.key, 4123456789] } },
+      });
+      expect(results.map(({ key }) => key)).toEqual([r.key]);
+    });
+    it("should retrieve the racks on the Core that serves the request", async () => {
+      const racks = await client.racks.retrieve({ where: { hostIsNode: true } });
+      expect(racks.some((r) => r.embedded)).toBe(true);
+    });
     it("should retrieve racks by search term", async () => {
       const prefix = `searchable-rack-${id.create()}`;
       const names = [`${prefix}-1`, `${prefix}-2`];
@@ -192,7 +239,9 @@ describe("Rack", () => {
         name: "rack-modbus-only",
         integrations: ["modbus"],
       });
-      const results = await client.racks.retrieve({ integration: "ni" });
+      const results = await client.racks.retrieve({
+        where: { integrations: { any: ["ni"] } },
+      });
       const keys = results.map((r) => r.key);
       expect(keys).toContain(r1.key);
       expect(keys).not.toContain(r2.key);
@@ -241,7 +290,7 @@ describe("Rack", () => {
       await expect
         .poll(async () => {
           const retrieved = await client.racks.retrieve({
-            keys: [r1.key, r2.key],
+            where: { key: { in: [r1.key, r2.key] } },
             includeStatus: true,
           });
           statuses = retrieved.map((r) => r.status);
@@ -279,7 +328,7 @@ describe("Rack", () => {
     });
     it("should compose streamed statuses onto a request query answer", async () => {
       const r = await client.racks.create({ name: "status-compose-request" });
-      const params = { keys: [r.key], includeStatus: true };
+      const params = { where: { key: { in: [r.key] } }, includeStatus: true };
       await client.racks.retrieve(params);
       const seen: rack.Rack[][] = [];
       const stop = client.racks.onChange(params, (cached) => {

@@ -118,7 +118,7 @@ func Bind(layer *api.Layer, router *http.Router) {
 			router,
 			"/api/v1/channel/create",
 		),
-		ChannelRetrieve: unary[channel.RetrieveRequest, channel.RetrieveResponse](
+		ChannelRetrieve: unary[channel.AliasedRetrieveRequest, channel.RetrieveResponse](
 			router,
 			"/api/v1/channel/retrieve",
 		),

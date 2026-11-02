@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { type channel, lineplot, type ranger } from "@synnaxlabs/client";
+import { type channel, DataType, lineplot, type ranger } from "@synnaxlabs/client";
 import { Flex } from "@synnaxlabs/lyra/flex";
 import { Input } from "@synnaxlabs/lyra/input";
 import { Channel, LinePlot } from "@synnaxlabs/pluto";
@@ -18,10 +18,11 @@ import { CustomRangeInput } from "@/feature/lineplot/CustomRangeInput";
 import { Range } from "@/platform/range";
 import { Session } from "@/session";
 
-const SEARCH_OPTIONS: channel.RetrieveOptions = {
-  notDataTypes: ["string", "json", "uuid"],
-  internal: false,
-  virtual: false,
+const SEARCH_QUERY: Channel.ListQuery = {
+  where: {
+    not: { dataType: { in: [DataType.STRING, DataType.JSON, DataType.UUID] } },
+    virtual: false,
+  },
 };
 
 export interface YAxisChannelSelectProps extends Omit<
@@ -44,7 +45,7 @@ export const YAxisChannelSelect = ({
     <Input.Item x label={LinePlot.axisLabel(axisKey)} {...rest}>
       <Channel.SelectMultiple
         value={value}
-        initialQuery={{ ...SEARCH_OPTIONS, rangeKey }}
+        initialQuery={{ ...SEARCH_QUERY, rangeKey }}
         onChange={handleChange}
         full="x"
         location="top"
@@ -75,7 +76,7 @@ export const XAxisChannelSelect = ({
         value={value}
         onChange={handleChange}
         allowNone
-        initialQuery={{ ...SEARCH_OPTIONS, rangeKey }}
+        initialQuery={{ ...SEARCH_QUERY, rangeKey }}
         location="top"
       />
     </Input.Item>

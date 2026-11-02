@@ -375,7 +375,7 @@ describe("queries", () => {
         wrapper,
       });
       act(() => {
-        result.current.retrieve({ makes: [targetMake] });
+        result.current.retrieve({ where: { make: { in: [targetMake] } } });
       });
       await waitFor(() => expect(result.current.variant).toEqual("success"));
       expect(result.current.data.length).toEqual(1);
@@ -599,7 +599,7 @@ describe("queries", () => {
 
         const { result } = renderHook(() => Device.useList(), { wrapper });
         act(() => {
-          result.current.retrieve({ makes: [targetMake] });
+          result.current.retrieve({ where: { make: { in: [targetMake] } } });
         });
         await waitFor(() => expect(result.current.variant).toEqual("success"));
         expect(result.current.data).toContain(dev1.key);
@@ -632,7 +632,7 @@ describe("queries", () => {
 
         const { result } = renderHook(() => Device.useList(), { wrapper });
         act(() => {
-          result.current.retrieve({ models: [targetModel] });
+          result.current.retrieve({ where: { model: { in: [targetModel] } } });
         });
         await waitFor(() => expect(result.current.variant).toEqual("success"));
         expect(result.current.data).toContain(dev1.key);
@@ -667,7 +667,7 @@ describe("queries", () => {
 
         const { result } = renderHook(() => Device.useList(), { wrapper });
         act(() => {
-          result.current.retrieve({ racks: [rack1.key] });
+          result.current.retrieve({ where: { rack: { in: [rack1.key] } } });
         });
         await waitFor(() => expect(result.current.variant).toEqual("success"));
         expect(result.current.data).toContain(dev1.key);
@@ -700,7 +700,7 @@ describe("queries", () => {
 
         const { result } = renderHook(() => Device.useList(), { wrapper });
         act(() => {
-          result.current.retrieve({ locations: [targetLocation] });
+          result.current.retrieve({ where: { location: { in: [targetLocation] } } });
         });
         await waitFor(() => expect(result.current.variant).toEqual("success"));
         expect(result.current.data).toContain(dev1.key);
@@ -733,7 +733,7 @@ describe("queries", () => {
 
         const { result } = renderHook(() => Device.useList(), { wrapper });
         act(() => {
-          result.current.retrieve({ names: [targetName] });
+          result.current.retrieve({ where: { name: { in: [targetName] } } });
         });
         await waitFor(() => expect(result.current.variant).toEqual("success"));
         expect(result.current.data).toContain(dev1.key);
@@ -777,9 +777,11 @@ describe("queries", () => {
         const { result } = renderHook(() => Device.useList(), { wrapper });
         act(() => {
           result.current.retrieve({
-            makes: [targetMake],
-            models: [targetModel],
-            racks: [rack1.key],
+            where: {
+              make: { eq: targetMake },
+              model: { eq: targetModel },
+              rack: { eq: rack1.key },
+            },
           });
         });
         await waitFor(() => expect(result.current.variant).toEqual("success"));
@@ -901,7 +903,7 @@ describe("queries", () => {
       const make = id.create();
       const first = await createDevice(make);
       const { result } = await renderHookSuspended(
-        () => Device.useMultiple({ makes: [make] }),
+        () => Device.useMultiple({ where: { make: { in: [make] } } }),
         { wrapper },
       );
       await waitFor(() =>
@@ -919,7 +921,7 @@ describe("queries", () => {
       const make = id.create();
       const dev = await createDevice(make);
       const { result } = await renderHookSuspended(
-        () => Device.useMultiple({ makes: [make] }),
+        () => Device.useMultiple({ where: { make: { in: [make] } } }),
         { wrapper },
       );
       await waitFor(() => expect(result.current?.[0]?.configured).toBe(false));
@@ -951,7 +953,7 @@ describe("queries", () => {
       });
 
       const devices = await client.devices.retrieve({
-        keys: [dev1.key, dev2.key],
+        where: { key: { in: [dev1.key, dev2.key] } },
         includeStatus: true,
       });
 
@@ -984,7 +986,7 @@ describe("queries", () => {
       await client.devices.retrieve(dev1.key);
 
       const devices = await client.devices.retrieve({
-        keys: [dev1.key, dev2.key],
+        where: { key: { in: [dev1.key, dev2.key] } },
         includeStatus: true,
       });
 
@@ -992,7 +994,7 @@ describe("queries", () => {
       expect(devices.map((d) => d.key)).toContain(dev1.key);
       expect(devices.map((d) => d.key)).toContain(dev2.key);
       const cached = client.devices.getCached({
-        keys: [dev1.key, dev2.key],
+        where: { key: { in: [dev1.key, dev2.key] } },
         includeStatus: true,
       });
       expect(query.isLive(cached)).toBe(true);
@@ -1019,10 +1021,10 @@ describe("queries", () => {
         properties: {},
       });
 
-      await client.devices.retrieve({ keys: [dev1.key, dev2.key] });
+      await client.devices.retrieve({ where: { key: { in: [dev1.key, dev2.key] } } });
 
       const devices = await client.devices.retrieve({
-        keys: [dev1.key, dev2.key],
+        where: { key: { in: [dev1.key, dev2.key] } },
         includeStatus: true,
       });
 
@@ -1044,7 +1046,7 @@ describe("queries", () => {
       });
 
       const devices = await client.devices.retrieve({
-        keys: [dev.key],
+        where: { key: { in: [dev.key] } },
         includeStatus: true,
       });
 
@@ -1068,7 +1070,7 @@ describe("queries", () => {
       await client.devices.retrieve(dev.key);
 
       const devices = await client.devices.retrieve({
-        keys: [dev.key],
+        where: { key: { in: [dev.key] } },
         includeStatus: true,
       });
 
@@ -1521,7 +1523,7 @@ describe("queries", () => {
         const second = await createUntyped();
         const { use } = Device.createRetrieveMultiple(defaultedSchemas);
         const { result } = await renderHookSuspended(
-          () => use({ keys: [first.key, second.key] }),
+          () => use({ where: { key: { in: [first.key, second.key] } } }),
           { wrapper },
         );
         await waitFor(() => expect(result.current).toHaveLength(2));
@@ -1552,7 +1554,7 @@ describe("queries", () => {
         const second = await createDevice(rack.key, 200);
         const { use } = Device.createRetrieveMultiple(schemas);
         const { result } = await renderHookSuspended(
-          () => use({ keys: [first.key, second.key] }),
+          () => use({ where: { key: { in: [first.key, second.key] } } }),
           { wrapper },
         );
         await waitFor(() => expect(result.current).toHaveLength(2));
@@ -1566,7 +1568,7 @@ describe("queries", () => {
         const second = await createDevice(rack.key, 200);
         const { use } = Device.createRetrieveMultiple(schemas);
         const { result } = await renderHookSuspended(
-          () => use({ keys: [first.key, second.key] }),
+          () => use({ where: { key: { in: [first.key, second.key] } } }),
           { wrapper },
         );
         await waitFor(() => expect(result.current).toHaveLength(2));
