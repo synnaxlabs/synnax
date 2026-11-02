@@ -110,7 +110,7 @@ class TestTaskClient:
         assert [t.key for t in res] == [task.key]
 
     def test_retrieve_single_with_status(self, client: sy.Synnax) -> None:
-        """Should return one task when a key, name, or type is given."""
+        """Should return one task when a key or name is given."""
         name = str(uuid4())
         task = client.tasks.create(name=name, type="pagerduty_alert")
         by_key = client.tasks.retrieve(key=task.key, include_status=True)
@@ -119,9 +119,19 @@ class TestTaskClient:
         by_name = client.tasks.retrieve(name=name, include_status=True)
         assert_type(by_name, sy.Task)
         assert by_name.key == task.key
-        by_type = client.tasks.retrieve(type="pagerduty_alert", include_status=True)
-        assert_type(by_type, sy.Task)
-        assert by_type.type == "pagerduty_alert"
+
+    def test_retrieve_single_multiple_found(self, client: sy.Synnax) -> None:
+        """Should raise when more than one task has the name or type."""
+        name = str(uuid4())
+        for _ in range(2):
+            client.tasks.create(name=name, type="pagerduty_alert")
+        with pytest.raises(
+            sy.MultipleFoundError,
+            match=f"Expected one Task matching {name}, but found 2",
+        ):
+            client.tasks.retrieve(name=name)
+        with pytest.raises(sy.MultipleFoundError):
+            client.tasks.retrieve(type="pagerduty_alert")
 
     def test_retrieve_no_filters(self, client: sy.Synnax) -> None:
         """Should return a list of every task when no filter is given."""

@@ -851,6 +851,44 @@ describe("Answers", () => {
       expect(fetch).toHaveBeenCalledTimes(2);
     });
 
+    it("invalidates and refetches when a second record matches", async () => {
+      const table = newTable();
+      const fetch = vi.fn(async () => {
+        table.set("a", rec("a", 1));
+        return ["a"];
+      });
+      const answers = evictingSpace(table, fetch);
+      const handler = vi.fn();
+      answers.onChange(qA, handler);
+      await answers.retrieve(qA);
+      table.set("b", rec("b", 2));
+      expect(handler).toHaveBeenLastCalledWith(undefined);
+      expect(answers.getCached(qA)).toBeUndefined();
+      await answers.retrieve(qA);
+      expect(fetch).toHaveBeenCalledTimes(2);
+    });
+
+    // Regression: a second match that raced the fetch left the answer unfetched, and
+    // the fetch returned its stale key, so the caller never saw the ambiguity.
+    it("refetches when a second record matches while the fetch is in flight", async () => {
+      const table = newTable();
+      let release = (_: string[]): void => {};
+      const fetch = vi.fn(async (_: Q): Promise<string[]> => {
+        throw new Error("found 2 things");
+      });
+      fetch.mockImplementationOnce(async () => {
+        table.set("a", rec("a", 1));
+        return await new Promise<string[]>((resolve) => (release = resolve));
+      });
+      const answers = evictingSpace(table, fetch);
+      answers.onChange(qA, vi.fn());
+      const pending = answers.retrieve(qA);
+      table.set("b", rec("b", 2));
+      release(["a"]);
+      await expect(pending).rejects.toThrow("found 2 things");
+      expect(fetch).toHaveBeenCalledTimes(2);
+    });
+
     it("flips to deleted when the last member's entry is tombstoned", async () => {
       const table = newTable();
       const answers = evictingSpace(table, async () => {

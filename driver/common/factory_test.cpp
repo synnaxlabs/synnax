@@ -80,6 +80,28 @@ TEST(TestFactory, TestCreateIfTypeNotExistsOnRack_ExistingTask) {
     ASSERT_TRUE(new_task.key.is_nil());
 }
 
+/// @brief it should not create a task when several tasks of the type exist on rack.
+TEST(TestFactory, TestCreateIfTypeNotExistsOnRack_SeveralExisting) {
+    auto client = std::make_shared<synnax::Synnax>(new_test_client());
+    auto rack = ASSERT_NIL_P(client->racks.create("test_rack"));
+    for (const auto *name: {"first", "second"}) {
+        synnax::task::Task existing{
+            .rack = rack.key,
+            .name = name,
+            .type = SYNTHETIC_TASK_TYPE,
+        };
+        ASSERT_NIL(rack.tasks.create(existing));
+    }
+    synnax::task::Task new_task{
+        .rack = rack.key,
+        .name = "new_task",
+        .type = SYNTHETIC_TASK_TYPE,
+    };
+    auto created = ASSERT_NIL_P(create_if_type_not_exists_on_rack(rack, new_task));
+    ASSERT_FALSE(created);
+    ASSERT_TRUE(new_task.key.is_nil());
+}
+
 /// @brief it should successfully configure initial factory tasks.
 TEST(TestFactory, TestConfigureInitialFactoryTasks_Success) {
     auto client = std::make_shared<synnax::Synnax>(new_test_client());
@@ -193,6 +215,27 @@ TEST(TestFactory, TestDeleteLegacyTaskByType_Success) {
         rack.tasks.retrieve_by_type(SYNTHETIC_TASK_TYPE),
         x::errors::NOT_FOUND
     );
+}
+
+/// @brief it should delete every legacy task of the type.
+TEST(TestFactory, TestDeleteLegacyTaskByType_Several) {
+    const auto client = std::make_shared<synnax::Synnax>(new_test_client());
+    const auto rack = ASSERT_NIL_P(client->racks.create("test_rack"));
+    for (const auto *name: {"first", "second"}) {
+        synnax::task::Task legacy{
+            .rack = rack.key,
+            .name = name,
+            .type = SYNTHETIC_TASK_TYPE,
+        };
+        ASSERT_NIL(rack.tasks.create(legacy));
+    }
+    ASSERT_NIL(
+        delete_legacy_task_by_type(rack, SYNTHETIC_TASK_TYPE, "test_integration")
+    );
+    const auto remaining = ASSERT_NIL_P(
+        rack.tasks.retrieve_by_type(std::vector<std::string>{SYNTHETIC_TASK_TYPE})
+    );
+    ASSERT_TRUE(remaining.empty());
 }
 
 /// @brief it should handle non-existent legacy task type gracefully.

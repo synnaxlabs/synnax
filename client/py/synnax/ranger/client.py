@@ -48,6 +48,7 @@ from synnax.telem import (
     SampleValue,
     TimeRange,
 )
+from synnax.util import one
 from x import filter
 from x.color import Color
 from x.interop import ArrayOperators
@@ -438,9 +439,7 @@ class Range(Payload):
         for ch, alias in channel.items():
             if isinstance(ch, str):
                 res = self._channel_retriever.retrieve(ch)
-                if len(res) == 0:
-                    raise NotFoundError(f"Channel {ch} not found")
-                corrected[res[0].key] = alias
+                corrected[one("Channel", ch, res).key] = alias
             else:
                 corrected[ch] = alias
         self._aliaser.set(corrected)
@@ -720,8 +719,8 @@ class Client:
         :param include_labels: Attaches the labels of each range.
         :param include_parent: Attaches the parent of each range.
         :returns: The range for a key or name, else a list of the matching ranges.
-        :raises NotFoundError: If no range matches a key or name.
-        :raises MultipleFoundError: If more than one range matches a key or name.
+        :raises NotFoundError: If no range matches the key or name.
+        :raises MultipleFoundError: If more than one range matches the name.
         :raises ValueError: If key and name are both given, or either is combined with
             a list filter.
         """
@@ -755,11 +754,7 @@ class Client:
         sug = self._sugar(self._retriever.retrieve(req))
         if not is_single:
             return sug
-        if len(sug) == 0:
-            raise NotFoundError(f"Range {key or name} not found")
-        if len(sug) > 1:
-            raise MultipleFoundError(f"Multiple ranges matching {key or name} found")
-        return sug[0]
+        return one("Range", key or name, sug)
 
     def delete(
         self,

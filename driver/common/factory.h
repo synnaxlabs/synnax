@@ -22,15 +22,14 @@ namespace driver::common {
 ///         - bool: true if a new task was created, false if a task of that type already
 ///         exists
 ///         - Error: any error that occurred during the operation
-/// @note If a task of the specified type already exists, returns {false, err} where err
-///       is the error from the retrieval operation
 inline std::pair<bool, x::errors::Error> create_if_type_not_exists_on_rack(
     const synnax::rack::Rack &rack,
     synnax::task::Task &task
 ) {
-    auto [_, err] = rack.tasks.retrieve_by_type(task.type);
-    if (err.matches(x::errors::NOT_FOUND)) return {true, rack.tasks.create(task)};
-    return {false, err};
+    auto [existing, err] = rack.tasks.retrieve_by_type(std::vector{task.type});
+    if (err) return {false, err};
+    if (!existing.empty()) return {false, x::errors::NIL};
+    return {true, rack.tasks.create(task)};
 }
 
 /// @brief Creates and configures initial tasks for a factory
@@ -88,11 +87,11 @@ configure_initial_factory_tasks(
     return tasks;
 }
 
-/// @brief Deletes a task of a specific type from a rack if it exists
-/// @param rack The rack to delete the task from
+/// @brief Deletes every task of a specific type from a rack
+/// @param rack The rack to delete the tasks from
 /// @param task_type The type of task to delete
 /// @param integration_name Name of the integration for logging purposes
-/// @return Error if any occurred during the operation (NOT_FOUND errors are skipped)
+/// @return Error if retrieving the tasks failed
 /// @note
 /// - Logs success/failure
 /// - Silently succeeds if no task of the specified type exists
@@ -102,14 +101,15 @@ inline x::errors::Error delete_legacy_task_by_type(
     const std::string &task_type,
     const std::string &integration_name
 ) {
-    auto [legacy, o_err] = rack.tasks.retrieve_by_type(task_type);
-    if (o_err) return o_err.skip(x::errors::NOT_FOUND);
-    if (const auto del_err = rack.tasks.del(legacy.key))
-        LOG(ERROR) << "[" << integration_name << "] failed to delete legacy "
-                   << task_type << " task: " << del_err;
-    else
-        LOG(INFO) << "[" << integration_name << "] deleted legacy " << task_type
-                  << " task";
-    return o_err;
+    auto [legacy, err] = rack.tasks.retrieve_by_type(std::vector{task_type});
+    if (err) return err;
+    for (const auto &task: legacy)
+        if (const auto del_err = rack.tasks.del(task.key))
+            LOG(ERROR) << "[" << integration_name << "] failed to delete legacy "
+                       << task_type << " task: " << del_err;
+        else
+            LOG(INFO) << "[" << integration_name << "] deleted legacy " << task_type
+                      << " task";
+    return x::errors::NIL;
 }
 }
