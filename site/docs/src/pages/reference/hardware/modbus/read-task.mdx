@@ -127,11 +127,12 @@ task.start()
 TypeScript does not create channels. Create them first.
 
 ```typescript
-import { modbus } from "@synnaxlabs/client";
+import { device, modbus } from "@synnaxlabs/client";
 
-const [dev] = await client.devices.retrieve({
-  where: { name: { eq: "Pump skid PLC" } },
-});
+const dev = await client.devices.retrieve(
+  device.name.eq("Pump skid PLC"),
+  device.one(),
+);
 const time = await client.channels.create({
   name: "plc_time",
   isIndex: true,

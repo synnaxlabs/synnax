@@ -80,8 +80,10 @@ The key of a LabJack device is its serial number. Configure devices in the Conso
 Find the LabJack devices that the Driver found:
 
 ```typescript
-const devices = await client.devices.retrieve({ where: { make: { eq: "LabJack" } } });
-for (const dev of devices) console.log(dev.key, dev.name, dev.model, dev.location);
+import { device } from "@synnaxlabs/client";
+
+for (const dev of await client.devices.retrieve(device.make.eq("LabJack")))
+  console.log(dev.key, dev.name, dev.model, dev.location);
 ```
 
 The key of a LabJack device is its serial number. Configure devices in the Console.

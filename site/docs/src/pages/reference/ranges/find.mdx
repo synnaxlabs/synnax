@@ -153,6 +153,8 @@ passed = client.ranges.retrieve(has_labels=[pass_label.key])
   <Fragment slot="typescript">
 
 ```typescript
+import { ranger } from "@synnaxlabs/client";
+
 // By name
 const myRanges = await client.ranges.retrieve(["My Range", "My Other Range"]);
 
@@ -160,10 +162,10 @@ const myRanges = await client.ranges.retrieve(["My Range", "My Other Range"]);
 const myRanges = await client.ranges.retrieve([myRange.key, myOtherRange.key]);
 
 // By search term
-const ranges = await client.ranges.retrieve({ searchTerm: "Hotfire" });
+const ranges = await client.ranges.retrieve(ranger.search("Hotfire"));
 
 // By label
-const passed = await client.ranges.retrieve({ where: { labels: [passLabel.key] } });
+const passed = await client.ranges.retrieve(ranger.labels.has(passLabel.key));
 ```
 
   </Fragment>
