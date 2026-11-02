@@ -156,6 +156,8 @@ export class Latest {
       const series = frame.get(key);
       if (series == null) return;
       this.push(series);
+      // Each write records its stamp once, before the buffer joins it to others.
+      series.forEach((s) => this.stamps?.record(s));
       this.notify();
     });
     this.demand.onStatusChange((_, s) => {
@@ -521,7 +523,6 @@ export class Latest {
       // Series of two data types cannot share a snapshot.
       const first = this.series.at(0) ?? this.buffer.leadingBuffer;
       if (first != null && !first.dataType.equals(fresh.dataType)) this.clear();
-      this.stamps?.record(fresh);
       this.unserved += fresh.length;
       this.appended += fresh.length;
       this.append(fresh);

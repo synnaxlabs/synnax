@@ -34,12 +34,13 @@ import { SyntheticCore } from "@/testutil";
 const START = TimeStamp.seconds(1_000_000);
 const POLL = { timeout: 5000, interval: 5 };
 
-// Wires a latest to the Core as a feed does, counting its reads. onRead runs before
-// each read, which waits for it, and readOf replaces what a read returns.
+// Wires a latest to the Core as a feed does, counting its reads. Each read waits for
+// onRead and each lookup for onRetrieve, and readOf replaces what a read returns.
 const createLatest = (
   core: SyntheticCore,
   onRead: () => void | Promise<void> = () => {},
   readOf: (key: channel.Key, read: MultiSeries) => MultiSeries = (_, read) => read,
+  onRetrieve: () => void | Promise<void> = () => {},
 ) => {
   const store = new Store({ now: core.now });
   const streamer = new MultiplexedStreamer({
@@ -53,7 +54,10 @@ const createLatest = (
   const props: LatestProps = {
     store,
     streamer,
-    retrieveChannels: core.retrieveChannels,
+    retrieveChannels: async (keys) => {
+      await onRetrieve();
+      return await core.retrieveChannels(keys);
+    },
     now: core.now,
     breaker: { baseInterval: TimeSpan.milliseconds(10) },
     readLatest: async (key, count, tr) => {
@@ -722,6 +726,34 @@ describe("Latest", () => {
         await expect.poll(() => latest.value().series.length, POLL).toBe(count);
         expect(latest.timeAt(0n)).toEqual(stampOf(0));
         expect(latest.timeAt(BigInt(count - 1))).toEqual(stampOf(count - 1));
+      } finally {
+        latest.close();
+        await close();
+      }
+    });
+
+    it("should keep each write's stamp when the load lands after it", async () => {
+      const core = createCore(true);
+      let release: () => void = () => {};
+      const released = new Promise<void>((resolve) => (release = resolve));
+      const { open, close } = createLatest(core, undefined, undefined, async () => {
+        await released;
+      });
+      const key = core.virtual!.key;
+      const latest = open(100, undefined, key);
+      const stamps = [0, 1, 2].map((i) => START.add(TimeSpan.seconds(i)));
+      try {
+        await expect.poll(() => core.streams(key), POLL).toBe(true);
+        stamps.forEach((t, i) =>
+          core.stream(new framer.Frame(key, write(10n + 2n * BigInt(i), 2, t))),
+        );
+        await expect.poll(() => latest.value().series.length, POLL).toBe(6);
+        // The last two writes share one buffer, which the load closes as it lands.
+        expect(latest.value().series.series).toHaveLength(2);
+        release();
+        await expect.poll(() => latest.value().status.variant, POLL).toBe("success");
+        const [t0, t1, t2] = stamps.map((t) => t.valueOf());
+        expect(timedOf(latest)).toEqual([t0, t0, t1, t1, t2, t2]);
       } finally {
         latest.close();
         await close();
