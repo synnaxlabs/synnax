@@ -54,6 +54,12 @@ class TestTiming:
         sleep(dur)
         assert TimeSpan.MILLISECOND * 10 <= t.elapsed() < TimeSpan.SECOND
 
+    def test_sleep_timedelta(self) -> None:
+        """Should sleep for at least the duration of a timedelta."""
+        t = Timer()
+        sleep(timedelta(milliseconds=10))
+        assert t.elapsed() >= TimeSpan.MILLISECOND * 10
+
     def test_poll_returns_value_when_condition_met(self) -> None:
         """Should return the non-None value when the condition is met."""
         call_count = 0
