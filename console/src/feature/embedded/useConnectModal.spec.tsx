@@ -9,7 +9,7 @@
 
 import { AuthError } from "@synnaxlabs/client";
 import { createTestClient, TEST_CLIENT_PARAMS } from "@synnaxlabs/client/testutil";
-import { type Status as LyraStatus } from "@synnaxlabs/lyra/status";
+import { type Status } from "@synnaxlabs/lyra/status";
 import { stubClipboardWriteText } from "@synnaxlabs/lyra/testutil";
 import { act, fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { afterEach, describe, expect, it } from "vitest";
@@ -37,11 +37,11 @@ const client = createTestClient();
 /** Opens the dialog from the palette and waits until it shows the saved key. */
 const openConnect = async (
   ...args: Parameters<typeof createDiscoveryFile>
-): Promise<{ file: DiscoveryFile; statuses: () => LyraStatus.NotificationSpec[] }> => {
+): Promise<{ file: DiscoveryFile; statuses: () => Status.NotificationSpec[] }> => {
   const { file, handlers } = createDiscoveryFile(...args);
   mockSupervisor(() => LIVE, handlers);
   const { wrapper } = await createDesktopWrapper();
-  let statuses: LyraStatus.NotificationSpec[] = [];
+  let statuses: Status.NotificationSpec[] = [];
   render(
     <>
       <Command.List
