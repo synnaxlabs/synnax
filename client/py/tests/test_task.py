@@ -157,12 +157,24 @@ class TestTaskClient:
         res = client.tasks.retrieve(rack=rack.key, internal=False, snapshot=False)
         assert [t.key for t in res] == [task.key]
 
-    def test_retrieve_where(self, client: sy.Synnax) -> None:
-        """Should keep tasks that match a filter tree and the other filters."""
+    def test_retrieve_conditions(self, client: sy.Synnax) -> None:
+        """Should keep tasks that match every condition and the other filters."""
         rack = client.racks.create(name=str(uuid4()))
         tasks = [
             client.tasks.create(name=f"t{i}", type="pagerduty_alert", rack=rack.key)
             for i in range(3)
+        ]
+        res = client.tasks.retrieve(
+            task.name.eq("t0") | task.key.eq(tasks[1].key), rack=rack.key
+        )
+        assert {t.key for t in res} == {tasks[0].key, tasks[1].key}
+
+    def test_retrieve_stored_tree(self, client: sy.Synnax) -> None:
+        """Should keep tasks that match a stored filter tree."""
+        rack = client.racks.create(name=str(uuid4()))
+        tasks = [
+            client.tasks.create(name=f"t{i}", type="pagerduty_alert", rack=rack.key)
+            for i in range(2)
         ]
         where = task.Where(
             or_=[
@@ -170,8 +182,32 @@ class TestTaskClient:
                 task.Where(key=filter.Set[UUID](eq=tasks[1].key)),
             ]
         )
-        res = client.tasks.retrieve(where=where, rack=rack.key)
+        res = client.tasks.retrieve(task.where(where), task.rack.eq(rack.key))
         assert {t.key for t in res} == {tasks[0].key, tasks[1].key}
+
+    def test_retrieve_one(self, client: sy.Synnax) -> None:
+        """Should return the one task that matches."""
+        rack = client.racks.create(name=str(uuid4()))
+        tasks = [
+            client.tasks.create(name=f"t{i}", type="pagerduty_alert", rack=rack.key)
+            for i in range(2)
+        ]
+        res = client.tasks.retrieve(
+            task.type.eq("pagerduty_alert"),
+            task.rack.eq(rack.key),
+            task.name.eq("t1"),
+            one=True,
+        )
+        assert res.key == tasks[1].key
+        with pytest.raises(sy.MultipleFoundError):
+            client.tasks.retrieve(task.rack.eq(rack.key), one=True)
+
+    def test_retrieve_by_bare_name(self, client: sy.Synnax) -> None:
+        """Should retrieve a task by a name passed as the first argument."""
+        name = str(uuid4())
+        t = client.tasks.create(name=name, type="pagerduty_alert")
+        assert client.tasks.retrieve(name).key == t.key
+        assert [x.key for x in client.tasks.retrieve([name])] == [t.key]
 
     def test_retrieve_missing_key(self, client: sy.Synnax) -> None:
         """Should treat a missing key as a non-match in a list retrieve."""

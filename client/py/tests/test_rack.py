@@ -144,8 +144,8 @@ class TestRackClient:
         assert r1.key in result_keys
         assert r2.key not in result_keys
 
-    def test_retrieve_where(self, client: sy.Synnax) -> None:
-        """Should keep racks that match a filter tree and the other filters"""
+    def test_retrieve_conditions(self, client: sy.Synnax) -> None:
+        """Should keep racks that match every condition and the other filters"""
         racks = client.racks.create(
             racks=[
                 sy.Rack(name=f"py-where-{uuid4()}", integrations=["labjack"]),
@@ -153,14 +153,18 @@ class TestRackClient:
                 sy.Rack(name=f"py-where-{uuid4()}"),
             ]
         )
-        where = rack.Where(
-            or_=[
-                rack.Where(integrations=filter.Contains[str](any=["labjack"])),
-                rack.Where(name=filter.String(eq=racks[1].name)),
-            ]
+        res = client.racks.retrieve(
+            rack.integrations.has("labjack") | rack.name.eq(racks[1].name),
+            keys=[r.key for r in racks],
         )
-        res = client.racks.retrieve(where=where, keys=[r.key for r in racks])
         assert {r.key for r in res} == {racks[0].key, racks[1].key}
+
+    def test_retrieve_by_bare_key_and_name(self, client: sy.Synnax) -> None:
+        """Should retrieve a rack by a key or a name passed as the first argument"""
+        r = client.racks.create(name=f"py-bare-{uuid4()}")
+        assert client.racks.retrieve(r.key).name == r.name
+        assert client.racks.retrieve(r.name).key == r.key
+        assert [x.key for x in client.racks.retrieve([r.key])] == [r.key]
 
     def test_retrieve_missing_key(self, client: sy.Synnax) -> None:
         """Should treat a missing key as a non-match in a list retrieve"""
