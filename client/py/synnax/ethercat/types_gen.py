@@ -11,7 +11,8 @@
 
 from __future__ import annotations
 
-from typing import Annotated, Literal, override
+from typing import Annotated, Literal
+from typing import override as _override
 from uuid import uuid4
 
 from pydantic import BaseModel, Field
@@ -39,7 +40,7 @@ class BaseReadChannel(BaseModel):
     channel: channel_.Key = Field(default=channel_.Key(0), ge=0, le=4294967295)
     device: device_.Key = ""
 
-    @override
+    @_override
     def __hash__(self) -> int:
         return hash(self.key)
 
@@ -67,7 +68,7 @@ class BaseWriteChannel(BaseModel):
     state_channel_name: str = ""
     device: device_.Key = ""
 
-    @override
+    @_override
     def __hash__(self) -> int:
         return hash(self.key)
 
@@ -75,7 +76,7 @@ class BaseWriteChannel(BaseModel):
 class ScanConfig(task.ScanConfig):
     """Configures an EtherCAT scan task."""
 
-    @override
+    @_override
     def __hash__(self) -> int:
         return hash(self.key)
 
@@ -142,7 +143,7 @@ class ReadConfig(task.ReadConfig):
 
     channels: list[ReadChannel] = Field(default_factory=list)
 
-    @override
+    @_override
     def __hash__(self) -> int:
         return hash(self.key)
 
@@ -161,6 +162,6 @@ class WriteConfig(task.PersistConfig):
     execution_rate: telem.Rate = telem.Rate(1000)
     channels: list[WriteChannel] = Field(default_factory=list)
 
-    @override
+    @_override
     def __hash__(self) -> int:
         return hash(self.key)

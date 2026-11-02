@@ -11,7 +11,8 @@
 
 from __future__ import annotations
 
-from typing import TypeAlias, override
+from typing import TypeAlias
+from typing import override as _override
 
 from pydantic import BaseModel, Field
 
@@ -55,7 +56,7 @@ class Base(BaseModel):
     status: Status | None = None
     integrations: list[str] = Field(default_factory=list)
 
-    @override
+    @_override
     def __hash__(self) -> int:
         return hash(self.key)
 
@@ -71,7 +72,7 @@ class Rack(Base):
     key: Key = Field(default=Key(0), ge=0, le=4294967295)
     embedded: bool = Field(default=False, exclude=True)
 
-    @override
+    @_override
     def __hash__(self) -> int:
         return hash(self.key)
 

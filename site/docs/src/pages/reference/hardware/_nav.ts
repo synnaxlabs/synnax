@@ -8,10 +8,12 @@
 // included in the file licenses/APL.txt.
 
 import { type PageNavNode } from "@/components/nav/tree";
+import { enabled } from "@/flags";
 import { ETHERCAT_NAV } from "@/pages/reference/hardware/ethercat/_nav";
 import { HTTP_NAV } from "@/pages/reference/hardware/http/_nav";
 import { LABJACK_NAV } from "@/pages/reference/hardware/labjack/_nav";
 import { MODBUS_NAV } from "@/pages/reference/hardware/modbus/_nav";
+import { MQTT_NAV } from "@/pages/reference/hardware/mqtt/_nav";
 import { NI_NAV } from "@/pages/reference/hardware/ni/_nav";
 import { OPC_UA_NAV } from "@/pages/reference/hardware/opc-ua/_nav";
 
@@ -43,6 +45,7 @@ export const HARDWARE_NAV: PageNavNode = {
     HTTP_NAV,
     LABJACK_NAV,
     MODBUS_NAV,
+    ...(enabled("mqtt") ? [MQTT_NAV] : []),
     NI_NAV,
     OPC_UA_NAV,
     {
