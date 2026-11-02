@@ -12,7 +12,6 @@ package kafka
 import (
 	"cmp"
 	"context"
-	"encoding/json/v2"
 	"fmt"
 	"io"
 	"slices"
@@ -45,6 +44,10 @@ type readGroup struct {
 	fields []ReadField
 	// channels[i] is the channel fields[i] writes to.
 	channels []channel.Channel
+	// extractor resolves the fields' pointers in a record.
+	extractor *extractor
+	// found[i] is scratch space for whether a record holds fields[i].
+	found []bool
 	// stamp is the position in fields of the field targeting the index channel, or
 	// -1 when records are stamped with their receive time.
 	stamp int
@@ -200,6 +203,12 @@ func buildReadGroups(
 		if len(g.fields) == 0 {
 			continue
 		}
+		pointers := make([]string, len(g.fields))
+		for i, fld := range g.fields {
+			pointers[i] = fld.Pointer
+		}
+		g.extractor = newExtractor(pointers)
+		g.found = make([]bool, len(g.fields))
 		if rec.Index != "" && g.stamp == -1 {
 			return nil, errors.Wrapf(
 				validate.ErrValidation,
@@ -571,24 +580,22 @@ func (t *readTask) convert(
 			return nil, row{}, false
 		}
 	}
-	var doc any
-	if err := json.Unmarshal(rec.Value, &doc, preciseNumbers); err != nil {
+	r = row{values: make([]any, len(g.fields))}
+	if err := g.extractor.extract(rec.Value, r.values, g.found); err != nil {
 		t.skip(ctx, "Record is not JSON: "+err.Error())
 		return nil, row{}, false
 	}
-	r = row{ts: telem.Now(), values: make([]any, len(g.fields))}
 	for i, fld := range g.fields {
-		raw, found, err := pointerGet(doc, fld.Pointer)
-		if err != nil {
+		if err := g.extractor.errs[i]; err != nil {
 			t.skip(ctx, err.Error())
 			return nil, row{}, false
 		}
-		if !found {
+		if !g.found[i] {
 			t.skip(ctx, fmt.Sprintf("Record has no value at %s", fld.Pointer))
 			return nil, row{}, false
 		}
 		v, err := readSample(
-			raw, g.channels[i].DataType, fld.TimeFormat, fld.EnumValues,
+			r.values[i], g.channels[i].DataType, fld.TimeFormat, fld.EnumValues,
 		)
 		if err != nil {
 			t.skip(ctx, fmt.Sprintf("Value at %s: %s", fld.Pointer, err))
@@ -596,7 +603,9 @@ func (t *readTask) convert(
 		}
 		r.values[i] = v
 	}
-	if g.stamp != -1 {
+	if g.stamp == -1 {
+		r.ts = telem.Now()
+	} else {
 		r.ts = r.values[g.stamp].(telem.TimeStamp)
 	}
 	return g, r, true

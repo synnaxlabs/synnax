@@ -421,6 +421,45 @@ var _ = Describe("Read task", func() {
 		Expect(floats(expectStored(ctx, data.Key(), 1))).To(Equal([]float64{1}))
 	})
 
+	It("Should skip a record that repeats a field's value", func(ctx SpecContext) {
+		index, data := createIndexed(ctx, telem.Float64T)
+		dev := createDevice(ctx, clusterProperties())
+		topic := newTopic()
+		dt, t := configure(ctx, kafka.ReadConfig{
+			Device:  dev.Key,
+			Topic:   topic,
+			Records: single(stampedFields(index, data)),
+		})
+		start(ctx, dt, t)
+		rec := &kgo.Record{Topic: topic, Value: []byte(`{"ts":10e9,"v":1,"v":2}`)}
+		Expect(producer.ProduceSync(ctx, rec).FirstErr()).To(Succeed())
+		Eventually(func() string { return taskStatus(ctx, t).Description }).
+			WithTimeout(15 * time.Second).
+			Should(ContainSubstring("duplicate value at /v"))
+		produceJSON(ctx, producer, topic, "", map[string]any{"ts": 11e9, "v": 3.0})
+		Expect(floats(expectStored(ctx, data.Key(), 1))).To(Equal([]float64{3}))
+	})
+
+	It("Should read a record that repeats a name no field addresses",
+		func(ctx SpecContext) {
+			index, data := createIndexed(ctx, telem.Float64T)
+			dev := createDevice(ctx, clusterProperties())
+			topic := newTopic()
+			dt, t := configure(ctx, kafka.ReadConfig{
+				Device:  dev.Key,
+				Topic:   topic,
+				Records: single(stampedFields(index, data)),
+			})
+			start(ctx, dt, t)
+			rec := &kgo.Record{
+				Topic: topic,
+				Value: []byte(`{"ts":10e9,"x":1,"x":2,"v":1.5}`),
+			}
+			Expect(producer.ProduceSync(ctx, rec).FirstErr()).To(Succeed())
+			Expect(floats(expectStored(ctx, data.Key(), 1))).To(Equal([]float64{1.5}))
+		},
+	)
+
 	It("Should resolve array indexes and escaped tokens in pointers",
 		func(ctx SpecContext) {
 			index, data := createIndexed(ctx, telem.Float64T)

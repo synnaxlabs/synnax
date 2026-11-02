@@ -10,7 +10,6 @@
 package kafka
 
 import (
-	"strconv"
 	"strings"
 
 	"github.com/synnaxlabs/x/errors"
@@ -33,35 +32,6 @@ func pointerTokens(pointer string) ([]string, error) {
 		tokens[i] = strings.ReplaceAll(strings.ReplaceAll(t, "~1", "/"), "~0", "~")
 	}
 	return tokens, nil
-}
-
-// pointerGet resolves pointer within doc, a decoded JSON value. The bool is false when
-// the path does not exist. It returns an error only for a malformed pointer.
-func pointerGet(doc any, pointer string) (any, bool, error) {
-	tokens, err := pointerTokens(pointer)
-	if err != nil {
-		return nil, false, err
-	}
-	cur := doc
-	for _, t := range tokens {
-		switch c := cur.(type) {
-		case map[string]any:
-			v, ok := c[t]
-			if !ok {
-				return nil, false, nil
-			}
-			cur = v
-		case []any:
-			i, err := strconv.Atoi(t)
-			if err != nil || i < 0 || i >= len(c) {
-				return nil, false, nil
-			}
-			cur = c[i]
-		default:
-			return nil, false, nil
-		}
-	}
-	return cur, true, nil
 }
 
 // pointerSet places v at pointer within doc, creating the objects on the way. A

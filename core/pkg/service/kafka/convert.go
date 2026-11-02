@@ -14,6 +14,7 @@ import (
 	"encoding/json/v2"
 	"math"
 	"strconv"
+	"strings"
 	"time"
 	"uuid"
 
@@ -42,11 +43,13 @@ var preciseNumbers = json.WithUnmarshalers(json.UnmarshalFromFunc(
 // parseNumber converts the text of a JSON number into an int64 or uint64 when it is an
 // integer that fits, and a float64 otherwise.
 func parseNumber(text string) (any, error) {
-	if i, err := strconv.ParseInt(text, 10, 64); err == nil {
-		return i, nil
-	}
-	if u, err := strconv.ParseUint(text, 10, 64); err == nil {
-		return u, nil
+	if !strings.ContainsAny(text, ".eE") {
+		if i, err := strconv.ParseInt(text, 10, 64); err == nil {
+			return i, nil
+		}
+		if u, err := strconv.ParseUint(text, 10, 64); err == nil {
+			return u, nil
+		}
 	}
 	f, err := strconv.ParseFloat(text, 64)
 	if err != nil {
