@@ -104,3 +104,36 @@ class TestStreamToFile:
         dest.chmod(0o604)
         stream_to_file([b'{"new": true}'], dest)
         assert _mode(dest) == 0o604
+
+    @pytest.mark.skipif(sys.platform == "win32", reason="POSIX file modes")
+    @pytest.mark.usefixtures("umask")
+    def test_replaced_dest_streams_privately(self, tmp_path: Path) -> None:
+        """Should not let other users read the stream that replaces a private dest."""
+        dest = tmp_path / "out.json"
+        dest.write_bytes(b"{}")
+        dest.chmod(0o600)
+        modes: list[int] = []
+
+        def chunks() -> Iterator[bytes]:
+            modes.extend(_mode(p) for p in tmp_path.glob("*.part"))
+            yield b"{}"
+
+        stream_to_file(chunks(), dest)
+        assert modes == [0o600]
+        assert _mode(dest) == 0o600
+
+    def test_empty_stream_over_read_only_dest(self, tmp_path: Path) -> None:
+        """Should leave a read-only dest and no temp file after an empty stream."""
+        dest = tmp_path / "out.json"
+        dest.write_bytes(b'{"old": true}')
+        dest.chmod(stat.S_IREAD)
+        with pytest.raises(ValueError, match="empty stream"):
+            stream_to_file([], dest, allow_empty=False)
+        assert dest.read_bytes() == b'{"old": true}'
+        assert list(tmp_path.glob("*.part")) == []
+
+    def test_long_dest_name(self, tmp_path: Path) -> None:
+        """Should write a dest whose name is at the file name length limit."""
+        dest = tmp_path / ("a" * 250 + ".json")
+        stream_to_file([b"{}"], dest)
+        assert dest.read_bytes() == b"{}"

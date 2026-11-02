@@ -48,10 +48,11 @@ def stream_to_file(
         mode: int | None = stat.S_IMODE(dest_path.stat().st_mode)
     except FileNotFoundError:
         mode = None
-    tmp_name = dest_path.with_name(f"{dest_path.name}.{secrets.token_hex(8)}.part")
+    tmp_name = dest_path.parent / f"{secrets.token_hex(8)}.part"
     # O_BINARY exists only on Windows, where it stops newline translation.
     flags = os.O_WRONLY | os.O_CREAT | os.O_EXCL | getattr(os, "O_BINARY", 0)
-    fd = os.open(tmp_name, flags, 0o666)
+    # The temp file for a replaced dest starts private, as dest can deny other users.
+    fd = os.open(tmp_name, flags, 0o666 if mode is None else 0o600)
     try:
         written = 0
         with os.fdopen(fd, "wb") as out:
@@ -60,13 +61,15 @@ def stream_to_file(
                 written += len(chunk)
             out.flush()
             os.fsync(out.fileno())
-        if mode is not None:
-            os.chmod(tmp_name, mode)
         if not allow_empty and written == 0:
             raise ValueError(
                 f"refusing to write an empty stream to {os.fspath(dest)!r}"
             )
+        if mode is not None:
+            os.chmod(tmp_name, mode)
         os.replace(tmp_name, dest_path)
     except BaseException:
+        # Windows cannot remove a read-only file.
+        os.chmod(tmp_name, 0o600)
         os.unlink(tmp_name)
         raise
