@@ -1734,6 +1734,16 @@ TEST(FormatTest, ExpandsEveryCode) {
     EXPECT_EQ(f.format(STAMP, "%n"), "\n");
     EXPECT_EQ(f.format(STAMP, "%R"), "08:32");
     EXPECT_EQ(f.format(STAMP, "%t"), "\t");
+    EXPECT_EQ(f.format(STAMP, "%a"), "Tue");
+    EXPECT_EQ(f.format(STAMP, "%A"), "Tuesday");
+    EXPECT_EQ(f.format(STAMP, "%b"), "Jan");
+    EXPECT_EQ(f.format(STAMP, "%h"), "Jan");
+    EXPECT_EQ(f.format(STAMP, "%B"), "January");
+    EXPECT_EQ(f.format(STAMP, "%p"), "AM");
+    EXPECT_EQ(f.format(STAMP, "%c"), "Tue Jan 17 08:32:05 2012");
+    EXPECT_EQ(f.format(STAMP, "%x"), "01/17/12");
+    EXPECT_EQ(f.format(STAMP, "%X"), "08:32:05");
+    EXPECT_EQ(f.format(STAMP, "%r"), "08:32:05 AM");
     EXPECT_EQ(f.format(STAMP, "%Y-%m-%d %H:%M:%S.%f"), "2012-01-17 08:32:05.250000");
     EXPECT_EQ(f.format(STAMP, "T+%S s"), "T+05 s");
 }
@@ -1758,6 +1768,20 @@ TEST(FormatTest, MatchesCAndPythonAtTheEdges) {
     // The two-digit ISO year follows %G, not %Y.
     EXPECT_EQ(f.format(1'609'459'200'000'000'000, "%g %y"), "20 21");
     EXPECT_EQ(f.format(1'735'516'800'000'000'000, "%g %y"), "25 24");
+    // Midnight on the 12-hour clock, with a one-digit day.
+    EXPECT_EQ(
+        f.format(1'325'376'000'000'000'000, "%p %r %c"),
+        "AM 12:00:00 AM Sun Jan  1 00:00:00 2012"
+    );
+    // The last second before noon, noon, and one o'clock in the afternoon.
+    EXPECT_EQ(f.format(1'326'801'599'000'000'000, "%p %r"), "AM 11:59:59 AM");
+    EXPECT_EQ(f.format(1'326'801'600'000'000'000, "%p %r"), "PM 12:00:00 PM");
+    EXPECT_EQ(f.format(1'326'805'200'000'000'000, "%p %r"), "PM 01:00:00 PM");
+    // A Sunday in December.
+    EXPECT_EQ(
+        f.format(1'356'893'100'000'000'000, "%a %A %b %B %h %p %c"),
+        "Sun Sunday Dec December Dec PM Sun Dec 30 18:45:00 2012"
+    );
 }
 
 /// @brief the ends of the timestamp range format without overflow.
@@ -1778,6 +1802,14 @@ TEST(FormatTest, HoldsAtTheEndsOfTheRange) {
         f.format(INT64_MAX, fmt),
         "2262-04-11 23:47:16.854775807 101 5 2262-15 22 62"
     );
+    EXPECT_EQ(
+        f.format(INT64_MIN, "%c %r %x"),
+        "Tue Sep 21 00:12:43 1677 12:12:43 AM 09/21/77"
+    );
+    EXPECT_EQ(
+        f.format(INT64_MAX, "%c %r %x"),
+        "Fri Apr 11 23:47:16 2262 11:47:16 PM 04/11/62"
+    );
 }
 
 /// @brief an unknown code and a trailing percent copy through unchanged.
@@ -1788,8 +1820,11 @@ TEST(FormatTest, CopiesAnUnknownCodeThrough) {
 
 /// @brief every day from 1970 to 2100 formats as the C library does.
 TEST(FormatTest, MatchesTheCLibraryOnEveryDay) {
-    const char
-        *format = "%Y-%m-%d %H:%M:%S %e %j %u %w %U %W %G-%V %C %y %g %D %R %F %T";
+    const char *format = "%Y-%m-%d %H:%M:%S %e %j %u %w %U %W %G-%V %C %y %g %D %R %F "
+                         "%T %a %A %b %B %h %p %r %x %X";
+    // The Windows C library prints %c in its own form, so %c is checked against the
+    // C standard's definition instead.
+    const char *standard_c = "%a %b %e %T %Y";
     // 4'133'980'800 is 2101-01-01T00:00:00Z.
     for (int64_t sec = 13 * 3600 + 4 * 60 + 5; sec < 4'133'980'800; sec += 86400) {
         const auto t = static_cast<std::time_t>(sec);
@@ -1799,13 +1834,14 @@ TEST(FormatTest, MatchesTheCLibraryOnEveryDay) {
 #else
         ASSERT_NE(gmtime_r(&t, &tm), nullptr) << sec;
 #endif
-        char buf[128];
+        char buf[256];
         const size_t n = std::strftime(buf, sizeof(buf), format, &tm);
         ASSERT_GT(n, 0u) << sec;
-        EXPECT_EQ(
-            strftime(x::telem::TimeStamp(sec * 1'000'000'000), format),
-            std::string(buf, n)
-        ) << sec;
+        const auto ts = x::telem::TimeStamp(sec * 1'000'000'000);
+        EXPECT_EQ(strftime(ts, format), std::string(buf, n)) << sec;
+        const size_t c_n = std::strftime(buf, sizeof(buf), standard_c, &tm);
+        ASSERT_GT(c_n, 0u) << sec;
+        EXPECT_EQ(strftime(ts, "%c"), std::string(buf, c_n)) << sec;
     }
 }
 }

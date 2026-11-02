@@ -9,6 +9,7 @@
 
 #pragma once
 
+#include <array>
 #include <cstddef>
 #include <cstdint>
 #include <string>
@@ -32,11 +33,32 @@ inline void pad(std::string &b, int v, int width) {
     b += digits;
 }
 
-/// @brief appends the expansion of one format code for c to b. Every strftime code
-/// that does not depend on locale is here. The locale codes %a %A %b %B %p %c %x %X
-/// print weekday and month names, AM and PM, and the local date style. Those words
-/// change with the user's language, and both runtimes must print the same bytes, so
-/// the locale codes are left out.
+const std::array<std::string_view, 7> WEEKDAYS = {
+    "Sunday",
+    "Monday",
+    "Tuesday",
+    "Wednesday",
+    "Thursday",
+    "Friday",
+    "Saturday",
+};
+
+const std::array<std::string_view, 12> MONTHS = {
+    "January",
+    "February",
+    "March",
+    "April",
+    "May",
+    "June",
+    "July",
+    "August",
+    "September",
+    "October",
+    "November",
+    "December",
+};
+
+/// @brief appends the expansion of one format code for c to b.
 /// @returns false for an unsupported code, with b unchanged.
 inline bool expand(std::string &b, const date::CivilTime &c, const char code) {
     switch (code) {
@@ -141,6 +163,44 @@ inline bool expand(std::string &b, const date::CivilTime &c, const char code) {
         case 't':
             b += '\t';
             return true;
+        case 'a':
+            b += WEEKDAYS[c.weekday].substr(0, 3);
+            return true;
+        case 'A':
+            b += WEEKDAYS[c.weekday];
+            return true;
+        case 'b':
+        case 'h':
+            b += MONTHS[c.month - 1].substr(0, 3);
+            return true;
+        case 'B':
+            b += MONTHS[c.month - 1];
+            return true;
+        case 'p':
+            b += c.hour < 12 ? "AM" : "PM";
+            return true;
+        case 'c':
+            expand(b, c, 'a');
+            b += ' ';
+            expand(b, c, 'b');
+            b += ' ';
+            expand(b, c, 'e');
+            b += ' ';
+            expand(b, c, 'T');
+            b += ' ';
+            return expand(b, c, 'Y');
+        case 'x':
+            return expand(b, c, 'D');
+        case 'X':
+            return expand(b, c, 'T');
+        case 'r':
+            expand(b, c, 'I');
+            b += ':';
+            expand(b, c, 'M');
+            b += ':';
+            expand(b, c, 'S');
+            b += ' ';
+            return expand(b, c, 'p');
         case '%':
             b += '%';
             return true;

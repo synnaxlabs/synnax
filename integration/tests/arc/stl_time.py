@@ -184,6 +184,16 @@ CODE_CASES = (
     ("%%", "%"),
     ("%n", "\n"),
     ("%t", "\t"),
+    ("%a", "Tue"),
+    ("%b", "Jan"),
+    ("%A", "Tuesday"),
+    ("%h", "Jan"),
+    ("%B", "January"),
+    ("%p", "AM"),
+    ("%c", "Tue Jan 17 08:32:05 2012"),
+    ("%x", "01/17/12"),
+    ("%X", "08:32:05"),
+    ("%r", "08:32:05 AM"),
     ("%Y-%m-%d %H:%M:%S.%f", "2012-01-17 08:32:05.250000"),
     ("%H:%M:%S.%N", "08:32:05.250000000"),
     ("T+%S s", "T+05 s"),
@@ -191,8 +201,8 @@ CODE_CASES = (
 )
 
 # (ns since the Unix epoch, format, expected) at the calendar edges. Week numbers,
-# the 12-hour clock, ISO week rollover, the epoch, a stamp before it, and the ends
-# of the timestamp range.
+# the 12-hour clock, weekday and month names, ISO week rollover, the epoch, a stamp
+# before it, and the ends of the timestamp range.
 EDGE_CASES = (
     # Sunday, January 1, 2012 at midnight.
     (1_325_376_000_000_000_000, "%u %w %U %W %I %e %j", "7 0 01 00 12  1 001"),
@@ -232,10 +242,25 @@ EDGE_CASES = (
         "%F %T.%N %j %w %G-%V %C %g",
         "2262-04-11 23:47:16.854775807 101 5 2262-15 22 62",
     ),
+    # Midnight on the 12-hour clock, with a one-digit day.
+    (1_325_376_000_000_000_000, "%p %r %c", "AM 12:00:00 AM Sun Jan  1 00:00:00 2012"),
+    # The last second before noon, noon, and one o'clock in the afternoon.
+    (1_326_801_599_000_000_000, "%p %r", "AM 11:59:59 AM"),
+    (1_326_801_600_000_000_000, "%p %r", "PM 12:00:00 PM"),
+    (1_326_805_200_000_000_000, "%p %r", "PM 01:00:00 PM"),
+    # A Sunday in December.
+    (
+        1_356_893_100_000_000_000,
+        "%a %A %b %B %h %p %c",
+        "Sun Sunday Dec December Dec PM Sun Dec 30 18:45:00 2012",
+    ),
+    # The names at the earliest and latest timestamps.
+    (-(2**63), "%c %r %x", "Tue Sep 21 00:12:43 1677 12:12:43 AM 09/21/77"),
+    (2**63 - 1, "%c %r %x", "Fri Apr 11 23:47:16 2262 11:47:16 PM 04/11/62"),
 )
 
 # Codes Python documents for every platform. The rest are checked by hand above.
-PYTHON_CODES = set("YymdHIMSjfUWwzZ%")
+PYTHON_CODES = set("YymdHIMSjfUWwzZ%aAbBpxX")
 
 
 def python_strftime(ns: int, fmt: str) -> str | None:

@@ -65,7 +65,7 @@ var (
 	formatDoc = doc.New(
 		doc.Paragraph("Formats a timestamp in UTC. Without a format, prints ISO 8601."),
 		doc.Paragraph(
-			"A format takes every strftime code that does not depend on locale.",
+			"A format takes strftime codes.",
 		),
 		doc.Divider(),
 		doc.Code("arc", "t_str := time.format(time.now())\n"+

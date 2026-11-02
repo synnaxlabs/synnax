@@ -4751,6 +4751,16 @@ var _ = Describe("Compiler", func() {
 				Entry("%n", "%n", "\n"),
 				Entry("%R", "%R", "08:32"),
 				Entry("%t", "%t", "\t"),
+				Entry("%a", "%a", "Tue"),
+				Entry("%A", "%A", "Tuesday"),
+				Entry("%b", "%b", "Jan"),
+				Entry("%h", "%h", "Jan"),
+				Entry("%B", "%B", "January"),
+				Entry("%p", "%p", "AM"),
+				Entry("%c", "%c", "Tue Jan 17 08:32:05 2012"),
+				Entry("%x", "%x", "01/17/12"),
+				Entry("%X", "%X", "08:32:05"),
+				Entry("%r", "%r", "08:32:05 AM"),
 				Entry(
 					"a Python format",
 					"%Y-%m-%d %H:%M:%S.%f",
@@ -4842,6 +4852,50 @@ var _ = Describe("Compiler", func() {
 					"%F %T.%N %j %w %G-%V %C %g",
 					"2262-04-11 23:47:16.854775807 101 5 2262-15 22 62",
 				),
+				Entry(
+					"midnight on the 12-hour clock, with a one-digit day",
+					time.Date(2012, time.January, 1, 0, 0, 0, 0, time.UTC).UnixNano(),
+					"%p %r %c",
+					"AM 12:00:00 AM Sun Jan  1 00:00:00 2012",
+				),
+				Entry(
+					"the last second before noon",
+					time.Date(2012, time.January, 17, 11, 59, 59, 0, time.UTC).
+						UnixNano(),
+					"%p %r",
+					"AM 11:59:59 AM",
+				),
+				Entry(
+					"noon",
+					time.Date(2012, time.January, 17, 12, 0, 0, 0, time.UTC).UnixNano(),
+					"%p %r",
+					"PM 12:00:00 PM",
+				),
+				Entry(
+					"one o'clock in the afternoon",
+					time.Date(2012, time.January, 17, 13, 0, 0, 0, time.UTC).UnixNano(),
+					"%p %r",
+					"PM 01:00:00 PM",
+				),
+				Entry(
+					"a Sunday in December",
+					time.Date(2012, time.December, 30, 18, 45, 0, 0, time.UTC).
+						UnixNano(),
+					"%a %A %b %B %h %p %c",
+					"Sun Sunday Dec December Dec PM Sun Dec 30 18:45:00 2012",
+				),
+				Entry(
+					"the names at the earliest timestamp",
+					int64(math.MinInt64),
+					"%c %r %x",
+					"Tue Sep 21 00:12:43 1677 12:12:43 AM 09/21/77",
+				),
+				Entry(
+					"the names at the latest timestamp",
+					int64(math.MaxInt64),
+					"%c %r %x",
+					"Fri Apr 11 23:47:16 2262 11:47:16 PM 04/11/62",
+				),
 			)
 
 			It(
@@ -4856,7 +4910,8 @@ var _ = Describe("Compiler", func() {
 					mod := MustSucceed(r.Instantiate(ctx, output.WASM))
 					compute := mod.ExportedFunction("compute")
 					format := strState.Create(
-						"%Y-%m-%d %H:%M:%S %e %j %u %w %U %W %G-%V %C %y %g %D %R %F %T",
+						"%Y-%m-%d %H:%M:%S %e %j %u %w %U %W %G-%V %C %y %g %D %R %F %T " +
+							"%a %A %b %B %p %c",
 					)
 					// The sweep covers every day an i64 ns timestamp can hold. %U
 					// counts the Sundays so far this year and %W the Mondays, which is
@@ -4876,7 +4931,8 @@ var _ = Describe("Compiler", func() {
 						isoYear, isoWeek := day.ISOWeek()
 						weekday := int(day.Weekday())
 						expected := fmt.Sprintf(
-							"%s %2d %03d %d %d %02d %02d %04d-%02d %02d %02d %02d %s %s %s %s",
+							"%s %2d %03d %d %d %02d %02d %04d-%02d %02d %02d %02d %s %s %s %s "+
+								"%s %s",
 							day.Format("2006-01-02 15:04:05"),
 							day.Day(),
 							day.YearDay(),
@@ -4893,6 +4949,9 @@ var _ = Describe("Compiler", func() {
 							day.Format("15:04"),
 							day.Format("2006-01-02"),
 							day.Format("15:04:05"),
+							day.Format("Mon Monday Jan January PM"),
+							// time.ANSIC is the C standard's %c.
+							day.Format(time.ANSIC),
 						)
 						results := MustSucceed(
 							compute.Call(ctx, uint64(day.UnixNano()), uint64(format)),

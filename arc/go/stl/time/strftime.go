@@ -11,6 +11,7 @@ package time
 
 import (
 	"fmt"
+	stdtime "time"
 
 	"github.com/synnaxlabs/x/telem"
 )
@@ -55,20 +56,59 @@ func hour(b []byte, c civilTime) []byte   { return pad(b, c.hour, 2) }
 func minute(b []byte, c civilTime) []byte { return pad(b, c.minute, 2) }
 func second(b []byte, c civilTime) []byte { return pad(b, c.second, 2) }
 
-// codes maps each supported format code to its expansion. Every strftime code that
-// does not depend on locale is here. The locale codes %a %A %b %B %p %c %x %X print
-// weekday and month names, AM and PM, and the local date style. Those words change
-// with the user's language, and both runtimes must print the same bytes, so the
-// locale codes are left out.
+func spaceDay(b []byte, c civilTime) []byte { return fmt.Appendf(b, "%2d", c.day) }
+
+func hour12(b []byte, c civilTime) []byte { return pad(b, (c.hour+11)%12+1, 2) }
+
+func weekdayName(b []byte, c civilTime) []byte {
+	return append(b, stdtime.Weekday(c.weekday).String()...)
+}
+
+func shortWeekday(b []byte, c civilTime) []byte {
+	return append(b, stdtime.Weekday(c.weekday).String()[:3]...)
+}
+
+func monthName(b []byte, c civilTime) []byte {
+	return append(b, stdtime.Month(c.month).String()...)
+}
+
+func shortMonth(b []byte, c civilTime) []byte {
+	return append(b, stdtime.Month(c.month).String()[:3]...)
+}
+
+func meridiem(b []byte, c civilTime) []byte {
+	if c.hour < 12 {
+		return append(b, "AM"...)
+	}
+	return append(b, "PM"...)
+}
+
+func clock(b []byte, c civilTime) []byte {
+	b = hour(b, c)
+	b = append(b, ':')
+	b = minute(b, c)
+	b = append(b, ':')
+	return second(b, c)
+}
+
+func slashDate(b []byte, c civilTime) []byte {
+	b = month(b, c)
+	b = append(b, '/')
+	b = day(b, c)
+	b = append(b, '/')
+	return pad(b, c.year%100, 2)
+}
+
+// codes maps each supported format code to its expansion.
 var codes = map[byte]expansion{
 	'Y': year,
 	'y': func(b []byte, c civilTime) []byte { return pad(b, c.year%100, 2) },
 	'C': func(b []byte, c civilTime) []byte { return pad(b, c.year/100, 2) },
 	'm': month,
 	'd': day,
-	'e': func(b []byte, c civilTime) []byte { return fmt.Appendf(b, "%2d", c.day) },
+	'e': spaceDay,
 	'H': hour,
-	'I': func(b []byte, c civilTime) []byte { return pad(b, (c.hour+11)%12+1, 2) },
+	'I': hour12,
 	'M': minute,
 	'S': second,
 	'j': func(b []byte, c civilTime) []byte { return pad(b, c.yearDay, 3) },
@@ -96,24 +136,40 @@ var codes = map[byte]expansion{
 		b = append(b, '-')
 		return day(b, c)
 	},
-	'T': func(b []byte, c civilTime) []byte {
-		b = hour(b, c)
-		b = append(b, ':')
-		b = minute(b, c)
-		b = append(b, ':')
-		return second(b, c)
-	},
-	'D': func(b []byte, c civilTime) []byte {
-		b = month(b, c)
-		b = append(b, '/')
-		b = day(b, c)
-		b = append(b, '/')
-		return pad(b, c.year%100, 2)
-	},
+	'T': clock,
+	'D': slashDate,
 	'R': func(b []byte, c civilTime) []byte {
 		b = hour(b, c)
 		b = append(b, ':')
 		return minute(b, c)
+	},
+	'a': shortWeekday,
+	'A': weekdayName,
+	'b': shortMonth,
+	'h': shortMonth,
+	'B': monthName,
+	'p': meridiem,
+	'c': func(b []byte, c civilTime) []byte {
+		b = shortWeekday(b, c)
+		b = append(b, ' ')
+		b = shortMonth(b, c)
+		b = append(b, ' ')
+		b = spaceDay(b, c)
+		b = append(b, ' ')
+		b = clock(b, c)
+		b = append(b, ' ')
+		return year(b, c)
+	},
+	'x': slashDate,
+	'X': clock,
+	'r': func(b []byte, c civilTime) []byte {
+		b = hour12(b, c)
+		b = append(b, ':')
+		b = minute(b, c)
+		b = append(b, ':')
+		b = second(b, c)
+		b = append(b, ' ')
+		return meridiem(b, c)
 	},
 	'n': func(b []byte, _ civilTime) []byte { return append(b, '\n') },
 	't': func(b []byte, _ civilTime) []byte { return append(b, '\t') },
