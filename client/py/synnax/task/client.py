@@ -13,7 +13,7 @@ import warnings
 from collections.abc import Generator, Iterable, Mapping, Sequence
 from contextlib import contextmanager
 from typing import Protocol as BaseProtocol
-from typing import TypeVar, overload
+from typing import TypeVar, overload, override
 from uuid import UUID, uuid4
 
 from pydantic import BaseModel, Field, JsonValue, ValidationError
@@ -29,7 +29,8 @@ from synnax.rack import Client as RackClient
 from synnax.rack import Rack
 from synnax.task.types_gen import Command, Key, Payload, Status, ontology_id
 from synnax.telem import CrudeTimeSpan, TimeSpan
-from x.lists import all_none, override
+from x import lists
+from x.lists import all_none
 from x.timing import Timer
 
 
@@ -320,17 +321,20 @@ class JSONConfigMixin[C: BaseModel](Protocol):
     def name(self) -> str:
         return self._internal.name
 
+    @override
     @property
     def key(self) -> Key:
         """Implements the Protocol interface."""
         return self._internal.key
 
+    @override
     def to_payload(self) -> Payload:
         """Implements the Protocol interface."""
         pld = self._internal.to_payload()
         pld.config = to_jsonable_python(self.config, by_alias=True, exclude_none=True)
         return pld
 
+    @override
     def set_internal(self, task: Task) -> None:
         """Implements the Protocol interface."""
         self._internal = task
@@ -530,9 +534,9 @@ class Client:
         res = self._client.send(
             "/task/retrieve",
             _RetrieveRequest(
-                keys=override(key, keys),
-                names=override(name, names),
-                types=override(type, types),
+                keys=lists.override(key, keys),
+                names=lists.override(name, names),
+                types=lists.override(type, types),
                 search_term=search_term,
                 rack=rack,
                 internal=internal,
