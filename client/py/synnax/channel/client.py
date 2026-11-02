@@ -389,8 +389,6 @@ class Client:
         internal: bool | None = None,
         range_key: UUID | None = None,
         node_key: int | None = None,
-        limit: int | None = None,
-        offset: int = 0,
         include_status: bool = False,
     ) -> Channel: ...
 
@@ -458,7 +456,9 @@ class Client:
         :raises MultipleFoundError: If a single name, or one, matches more than one
             channel.
         :raises TypeError: If args are not channel conditions, or follow a key or name.
+        :raises ValueError: If one is combined with limit or offset.
         """
+        util.reject_page(one, limit, offset)
         positional: tuple[object, ...] = args
         if isinstance(channel, filter.Condition) or len(args) > 0:
             positional = (channel, *args)

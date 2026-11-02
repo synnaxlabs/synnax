@@ -383,7 +383,6 @@ class TestChannel:
         one = client.channels.retrieve(
             sy.channel.name.starts_with(prefix),
             ~sy.channel.key.eq(c.key),
-            limit=2,
             data_types=["float32"],
             one=True,
         )

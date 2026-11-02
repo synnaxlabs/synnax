@@ -351,6 +351,10 @@ constexpr bool one_last = [] {
     }
 }();
 
+template<typename... Parts>
+constexpr bool one_unpaged = count<One, Parts...> == 0 ||
+                             count<Limit, Parts...> + count<Offset, Parts...> == 0;
+
 template<typename W, typename R, typename P>
 void apply(R &req, std::vector<W> &conditions, P part) {
     if constexpr (std::is_same_v<P, Condition<W>>)
@@ -368,10 +372,11 @@ void apply(R &req, std::vector<W> &conditions, P part) {
 
 /// @brief parts is satisfied when Parts can make a retrieve request R of the entity
 /// whose filter is W: conditions of W and the options of R, each option at most once,
-/// and one last.
+/// and one last. One takes no limit or offset, since a page could hide a second match.
 template<typename W, typename R, typename... Parts>
 concept parts = (details::is_part<Parts, W, R> && ...) &&
-                details::unique<W, Parts...> && details::one_last<Parts...>;
+                details::unique<W, Parts...> && details::one_last<Parts...> &&
+                details::one_unpaged<Parts...>;
 
 /// @brief includes is satisfied when Parts are distinct include options of the retrieve
 /// request R.

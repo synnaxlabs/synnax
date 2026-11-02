@@ -174,8 +174,6 @@ class Client:
         one: Literal[True],
         keys: list[str] | None = None,
         search_term: str = "",
-        offset: int = 0,
-        limit: int | None = None,
         include_labels: bool = False,
         has_labels: list[UUID] | None = None,
         variants: list[Variant] | None = None,
@@ -226,7 +224,9 @@ class Client:
         :raises NotFoundError: If no status matches a key or one.
         :raises MultipleFoundError: If one is True and more than one status matches.
         :raises TypeError: If args are neither status conditions nor a shortcut.
+        :raises ValueError: If one is combined with limit or offset.
         """
+        util.reject_page(one, limit, offset)
         conditions, query = util.shortcut(
             "Status", args, Condition, str, builder_gen.key
         )

@@ -279,8 +279,6 @@ class Client:
         locations: list[str] | None = None,
         racks: list[int] | None = None,
         search_term: str = "",
-        limit: int | None = None,
-        offset: int = 0,
         include_status: bool = False,
         include_parent: bool = False,
         ignore_not_found: Literal[False] = False,
@@ -367,7 +365,9 @@ class Client:
         :raises MultipleFoundError: If a single device is requested and more than one
             matches, even when ignore_not_found is set.
         :raises TypeError: If args are neither device conditions nor a shortcut.
+        :raises ValueError: If one is combined with limit or offset.
         """
+        util.reject_page(one, limit, offset)
         conditions, query = util.shortcut(
             "Device", args, Condition, str, builder_gen.key
         )

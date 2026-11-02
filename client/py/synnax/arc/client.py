@@ -171,8 +171,6 @@ class Client:
         keys: list[Key] | None = None,
         names: list[str] | None = None,
         search_term: str = "",
-        limit: int | None = None,
-        offset: int = 0,
         include_program: bool = False,
     ) -> Arc: ...
 
@@ -214,7 +212,9 @@ class Client:
         :raises MultipleFoundError: If a single Arc is requested by name or one and more
             than one matches.
         :raises TypeError: If args are neither Arc conditions nor a shortcut.
+        :raises ValueError: If one is combined with limit or offset.
         """
+        util.reject_page(one, limit, offset)
         conditions, query = util.shortcut(
             "Arc", args, Condition, UUID, builder_gen.key, builder_gen.name
         )

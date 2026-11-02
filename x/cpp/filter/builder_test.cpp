@@ -194,8 +194,7 @@ TEST(FilterBuilder, RequestOptions) {
         x::filter::limit(5),
         x::filter::offset(10),
         x::filter::search("a"),
-        IncludeLabels{},
-        x::filter::one()
+        IncludeLabels{}
     );
     EXPECT_EQ(req.limit.value(), 5);
     EXPECT_EQ(req.offset, 10);
@@ -225,6 +224,14 @@ TEST(FilterBuilder, OneLast) {
     static_assert(!makes_request<x::filter::One, x::filter::One>);
     static_assert(x::filter::returns_one<Condition, x::filter::One>);
     static_assert(!x::filter::returns_one<Condition>);
+}
+
+/// @brief it should reject a limit or an offset with one.
+TEST(FilterBuilder, RejectPageWithOne) {
+    static_assert(makes_request<x::filter::Search, x::filter::One>);
+    static_assert(!makes_request<x::filter::Limit, x::filter::One>);
+    static_assert(!makes_request<x::filter::Offset, x::filter::One>);
+    static_assert(!makes_request<Condition, x::filter::Limit, x::filter::One>);
 }
 
 /// @brief it should accept distinct include options of the request.

@@ -700,8 +700,6 @@ class Client:
         search_term: str = "",
         overlaps_with: TimeRange | None = None,
         has_labels: list[label.Key] | None = None,
-        limit: int | None = None,
-        offset: int = 0,
         include_labels: bool = False,
         include_parent: bool = False,
     ) -> Range: ...
@@ -763,7 +761,9 @@ class Client:
         :raises ValueError: If key and name are both given, or either is combined with
             a list filter.
         :raises TypeError: If args are neither range conditions nor a shortcut.
+        :raises ValueError: If one is combined with limit or offset.
         """
+        util.reject_page(one, limit, offset)
         conditions, query = util.shortcut(
             "Range", args, Condition, UUID, builder_gen.key, builder_gen.name
         )
