@@ -22,6 +22,7 @@ import (
 	"runtime/pprof"
 	"slices"
 	"strconv"
+	"strings"
 	"sync"
 	"sync/atomic"
 	"syscall"
@@ -40,6 +41,7 @@ import (
 	"github.com/synnaxlabs/x/signal"
 	"github.com/synnaxlabs/x/telem"
 	. "github.com/synnaxlabs/x/testutil"
+	"github.com/twmb/franz-go/pkg/kadm"
 	"github.com/twmb/franz-go/pkg/kgo"
 )
 
@@ -128,7 +130,8 @@ func cpuTime() time.Duration {
 var _ = Describe("Read task benchmark", Serial, func() {
 	BeforeEach(func() {
 		if os.Getenv("KAFKA_BENCH") == "" {
-			Skip("set KAFKA_BENCH to run the read task benchmark")
+			Skip("set KAFKA_BENCH to run the read task benchmark, and " +
+				"KAFKA_BENCH_BROKERS to run it against a real cluster")
 		}
 	})
 
@@ -308,9 +311,21 @@ func runBench(ctx SpecContext, sc benchScenario) benchResult {
 	GinkgoHelper()
 	f := newFactory()
 	groups := createBenchGroups(ctx, sc)
-	dev := createDevice(ctx, clusterProperties())
+	brokers := cluster.ListenAddrs()
+	if b := os.Getenv("KAFKA_BENCH_BROKERS"); b != "" {
+		brokers = strings.Split(b, ",")
+	}
+	dev := createDevice(ctx, kafka.Properties{Brokers: brokers})
 	topic := uniqueTopic()
-	Expect(cluster.CreateTopic(topic, 1, nil)).To(Succeed())
+	producer := MustSucceed(kgo.NewClient(
+		kgo.SeedBrokers(brokers...),
+		kgo.ProducerLinger(time.Millisecond),
+		kgo.MaxBufferedRecords(1<<20),
+		kgo.ProducerBatchMaxBytes(1_000_000),
+		kgo.RecordPartitioner(kgo.ManualPartitioner()),
+	))
+	DeferCleanup(producer.Close)
+	MustSucceed(kadm.NewClient(producer).CreateTopic(ctx, 1, 1, nil, topic))
 	cfg := kafka.ReadConfig{
 		Device:      dev.Key,
 		Topic:       topic,
@@ -341,6 +356,12 @@ func runBench(ctx SpecContext, sc benchScenario) benchResult {
 	sCtx, cancel := signal.Isolated()
 	requests, responses := confluence.Attach(streamer, 1000)
 	streamer.Flow(sCtx, confluence.CloseOutputInletsOnExit())
+	// A streamer left open blocks the relay's close at suite teardown.
+	DeferCleanup(func() {
+		requests.Close()
+		cancel()
+		Expect(sCtx.Wait()).To(Or(Succeed(), MatchError(context.Canceled)))
+	})
 	Eventually(responses.Outlet()).Should(Receive())
 
 	var (
@@ -370,12 +391,6 @@ func runBench(ctx SpecContext, sc benchScenario) benchResult {
 		}
 	}()
 
-	producer := newKafkaClient(
-		kgo.ProducerLinger(time.Millisecond),
-		kgo.MaxBufferedRecords(1<<20),
-		kgo.ProducerBatchMaxBytes(16<<20),
-		kgo.RecordPartitioner(kgo.ManualPartitioner()),
-	)
 	ticks := int(sc.duration.Seconds() * float64(sc.rate))
 	produced := make([][]telem.TimeStamp, len(groups))
 	for i := range produced {
@@ -476,8 +491,6 @@ func runBench(ctx SpecContext, sc benchScenario) benchResult {
 	}
 	requests.Close()
 	Eventually(done).Should(BeClosed())
-	cancel()
-	Expect(sCtx.Wait()).To(Or(Succeed(), MatchError(context.Canceled)))
 
 	res := benchResult{
 		Scenario:       sc.name(),
