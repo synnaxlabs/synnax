@@ -804,6 +804,7 @@ class TestDensity:
         assert type(density) is sy.Density
 
 
+@pytest.mark.telem
 class TestDataType:
     @pytest.mark.parametrize(
         ("crude", "expected"),
