@@ -11,6 +11,7 @@ import asyncio
 import threading
 from collections.abc import Iterator
 from datetime import timedelta
+from typing import override
 
 import pytest
 from websockets.frames import Frame, Opcode
@@ -34,6 +35,7 @@ def pinged_endpoint() -> Iterator[tuple[URL, threading.Event]]:
     pinged = threading.Event()
 
     class Connection(ServerConnection):
+        @override
         def process_event(self, event: Event) -> None:
             if isinstance(event, Frame) and event.opcode is Opcode.PING:
                 pinged.set()

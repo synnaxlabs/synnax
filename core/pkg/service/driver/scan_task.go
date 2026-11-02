@@ -158,7 +158,7 @@ func NewScanTask(cfgs ...ScanTaskConfig) (*ScanTask, error) {
 		Instrumentation: cfg.Instrumentation,
 		Task:            cfg.Task,
 		Open: func(context.Context) (func(context.Context) error, error) {
-			return t.run, nil
+			return t.open(), nil
 		},
 	})
 	if err != nil {
@@ -250,7 +250,9 @@ type health struct {
 	description string
 }
 
-func (t *ScanTask) run(ctx context.Context) error {
+// open subscribes to device changes before the run starts, so the subscription exists
+// when Start returns.
+func (t *ScanTask) open() func(context.Context) error {
 	changed := make(chan struct{}, 1)
 	disconnect := t.cfg.Device.Observe().OnChange(func(
 		_ context.Context,
@@ -267,7 +269,13 @@ func (t *ScanTask) run(ctx context.Context) error {
 			return
 		}
 	})
-	defer disconnect()
+	return func(ctx context.Context) error {
+		defer disconnect()
+		return t.run(ctx, changed)
+	}
+}
+
+func (t *ScanTask) run(ctx context.Context, changed <-chan struct{}) error {
 	ticker := time.NewTicker(t.cfg.Interval)
 	defer ticker.Stop()
 	for {
