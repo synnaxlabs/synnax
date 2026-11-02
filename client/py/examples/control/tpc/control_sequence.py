@@ -232,7 +232,7 @@ def execute_auto(params: TPCParameters, *, wait_for_confirm: bool = False) -> sy
                     "scuba_press_target": f"{params.scuba_press_target} PSI",
                     "press_1_step": f"{params.press_1_step} PSI",
                     "press_2_step": f"{params.press_2_step} PSI",
-                    "press_step_delay": f"{params.press_step_delay} seconds",
+                    "press_step_delay": str(params.press_step_delay),
                     "tpc_upper_bound": f"{params.tpc_upper_bound} PSI",
                     "tpc_lower_bound": f"{params.tpc_lower_bound} PSI",
                 }

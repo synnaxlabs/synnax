@@ -187,7 +187,7 @@ class OPCUADriverResponsiveness(OPCUAReadTaskCase):
 
         t = threading.Thread(target=probe, daemon=True)
         t.start()
-        t.join(timeout=HEALTH_TIMEOUT)
+        t.join(timeout=HEALTH_TIMEOUT.seconds)
 
         if t.is_alive():
             self.fail(
