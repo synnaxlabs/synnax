@@ -11,7 +11,10 @@
 
 package panel
 
-import "github.com/synnaxlabs/synnax/pkg/service/panel/versions"
+import (
+	"github.com/synnaxlabs/synnax/pkg/service/panel/versions"
+	"github.com/synnaxlabs/x/filter"
+)
 
 // TabKey uniquely identifies a tab within a panel.
 type TabKey = versions.TabKey
@@ -76,3 +79,15 @@ type Key = versions.Key
 
 // Panel is a project-owned tree of visualization tabs.
 type Panel = versions.Panel
+
+// Where is a filter that selects panels.
+type Where struct {
+	// And matches when every child matches.
+	And []Where `json:"and,omitzero" msgpack:"and,omitempty"`
+	// Or matches when any child matches.
+	Or []Where `json:"or,omitzero" msgpack:"or,omitempty"`
+	// Not matches when the child does not match.
+	Not *Where `json:"not,omitzero" msgpack:"not,omitempty"`
+	// Key selects by key.
+	Key *filter.Set[Key] `json:"key,omitzero" msgpack:"key,omitempty"`
+}

@@ -11,7 +11,10 @@
 
 package schematic
 
-import "github.com/synnaxlabs/synnax/pkg/service/schematic/versions"
+import (
+	"github.com/synnaxlabs/synnax/pkg/service/schematic/versions"
+	"github.com/synnaxlabs/x/filter"
+)
 
 // Key is a unique identifier for a schematic, represented as a UUID.
 type Key = versions.Key
@@ -740,3 +743,15 @@ type NumericTelemConfig = versions.NumericTelemConfig
 
 // ScaledConfig is the base configuration for any symbol drawn at a scale multiplier.
 type ScaledConfig = versions.ScaledConfig
+
+// Where is a filter that selects schematics.
+type Where struct {
+	// And matches when every child matches.
+	And []Where `json:"and,omitzero" msgpack:"and,omitempty"`
+	// Or matches when any child matches.
+	Or []Where `json:"or,omitzero" msgpack:"or,omitempty"`
+	// Not matches when the child does not match.
+	Not *Where `json:"not,omitzero" msgpack:"not,omitempty"`
+	// Key selects by key.
+	Key *filter.Set[Key] `json:"key,omitzero" msgpack:"key,omitempty"`
+}

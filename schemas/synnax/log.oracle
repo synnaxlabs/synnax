@@ -9,6 +9,7 @@
 
 import "schemas/synnax/channel"
 import "schemas/x/color"
+import "schemas/x/filter"
 import "schemas/x/notation"
 import "schemas/x/telem"
 
@@ -241,4 +242,11 @@ Log struct {
     @go migrate
     @ontology type "log"
     @retrieve
+}
+
+Where filter Log {
+    key
+
+    @doc value         "is a filter that selects logs."
+    @go request_output "core/pkg/api/log"
 }

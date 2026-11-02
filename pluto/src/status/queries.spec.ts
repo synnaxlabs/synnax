@@ -1020,7 +1020,7 @@ describe("Status queries", () => {
       });
       await waitFor(async () => {
         const labels = await client.labels.retrieve({
-          for: status.ontologyID(key),
+          where: { for: status.ontologyID(key) },
         });
         const labelKeys = labels.map((l) => l.key);
         expect(labelKeys).not.toContain(label1.key);

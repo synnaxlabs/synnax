@@ -11,107 +11,82 @@ package label
 
 import (
 	"context"
+	"slices"
 
-	"github.com/samber/lo"
 	"github.com/synnaxlabs/gorp"
 	"github.com/synnaxlabs/synnax/pkg/service/ontology"
 )
 
 // Retrieve is a builder for querying labels.
 type Retrieve struct {
-	baseTx gorp.Tx
-	gorp   gorp.Retrieve[Key, Label]
-	search *gorp.SearchIndex[Key, Label]
+	baseTX   gorp.Tx
+	gorp     gorp.Retrieve[Key, Label]
+	indexes  indexes
+	ontology *ontology.Ontology
 }
 
-// Search filters the labels to those whose name matches term, closest match first. An
-// empty term adds no filter.
-func (r Retrieve) Search(term string) Retrieve {
-	if term == "" {
-		return r
+// MatchFor returns a filter that matches the labels attached to the resource with the
+// given ID. A resource that does not exist has no labels.
+func MatchFor(id ontology.ID) Filter {
+	return func(r Retrieve) gorp.Filter[Key, Label] {
+		return gorp.MatchKeysFunc[Key, Label](func(ctx gorp.Context) ([]Key, error) {
+			start := r.ontology.NewRetrieve().WhereIDs(id).SkipMissingIDs()
+			return resolveFor(ctx, ctx.Tx, start)
+		})
 	}
-	r.gorp = r.gorp.Where(r.search.Filter(term))
-	return r
 }
 
-// Limit limits the number of results that Retrieve will return.
-func (r Retrieve) Limit(limit int) Retrieve { r.gorp = r.gorp.Limit(limit); return r }
-
-// Offset marks the starting index of results that Retrieve will return.
-func (r Retrieve) Offset(
-	offset int,
-) Retrieve {
-	r.gorp = r.gorp.Offset(offset)
-	return r
+// ForIDs returns the IDs that the for lines of w name, at any depth.
+func (w Where) ForIDs() []ontology.ID {
+	var ids []ontology.ID
+	if w.For != nil {
+		ids = append(ids, *w.For)
+	}
+	for _, c := range slices.Concat(w.And, w.Or) {
+		ids = append(ids, c.ForIDs()...)
+	}
+	if w.Not != nil {
+		ids = append(ids, w.Not.ForIDs()...)
+	}
+	return ids
 }
 
-// Entry binds the Label that Retrieve will fill results into. If multiple results match
-// the query, only the first result will be filled into the provided Label.
-func (r Retrieve) Entry(
-	label *Label,
-) Retrieve {
-	r.gorp = r.gorp.Entry(label)
-	return r
-}
-
-// Entries binds a slice that Retrieve will fill results into.
-func (r Retrieve) Entries(
-	labels *[]Label,
-) Retrieve {
-	r.gorp = r.gorp.Entries(labels)
-	return r
-}
-
-// Where applies the provided filter to the query. To compose multiple filters,
-// chain Where calls or pass a combined filter via gorp.And / gorp.Or.
-func (r Retrieve) Where(filter gorp.Filter[Key, Label]) Retrieve {
-	r.gorp = r.gorp.Where(filter)
-	return r
-}
-
-// MatchKeys returns a filter that restricts results to labels whose key matches
-// any of the provided values.
-func MatchKeys(keys ...Key) gorp.Filter[Key, Label] {
-	return gorp.MatchKeys[Key, Label](keys...)
-}
-
-// MatchNames returns a filter for labels whose Name matches any of the provided values.
-func MatchNames(names ...string) gorp.Filter[Key, Label] {
-	return gorp.Match(func(_ gorp.Context, l *Label) (bool, error) {
-		return lo.Contains(names, l.Name), nil
-	})
-}
-
-// Exec executes the Retrieve query. If a tx is provided, Exec will use it to execute
-// the query. Otherwise, it will execute against the underlying gorp.DB.
-func (r Retrieve) Exec(ctx context.Context, tx gorp.Tx) error {
-	return r.gorp.Exec(ctx, gorp.OverrideTx(r.baseTx, tx))
+func resolveFor(
+	ctx context.Context,
+	tx gorp.Tx,
+	resource ontology.Retrieve,
+) ([]Key, error) {
+	var labels []ontology.Resource
+	if err := resource.
+		TraverseTo(LabelsOntologyTraverser).
+		ExcludeFieldData(true).
+		Entries(&labels).
+		Exec(ctx, tx); err != nil {
+		return nil, err
+	}
+	return KeysFromOntologyIDs(ontology.ResourceIDs(labels))
 }
 
 // RetrieveFor retrieves all labels that are associated with the provided ontology ID.
 // If a tx is provided, RetrieveFor will use it to execute the query. Otherwise, it will
-// execute against the underlying gorp.DB.
+// execute against the underlying gorp.DB. It returns query.ErrNotFound if the resource
+// or one of its labels does not exist.
 func (s *Service) RetrieveFor(
 	ctx context.Context,
 	id ontology.ID,
 	tx gorp.Tx,
 ) ([]Label, error) {
-	var labelResources []ontology.Resource
 	tx = gorp.OverrideTx(s.cfg.DB, tx)
-	if err := s.cfg.Ontology.NewRetrieve().
-		WhereIDs(id).
-		TraverseTo(LabelsOntologyTraverser).
-		Entries(&labelResources).
-		Exec(ctx, tx); err != nil {
-		return nil, err
-	}
-	keys, err := KeysFromOntologyIDs(ontology.ResourceIDs(labelResources))
+	keys, err := resolveFor(ctx, tx, s.cfg.Ontology.NewRetrieve().WhereIDs(id))
 	if err != nil {
 		return nil, err
 	}
 	labels := make([]Label, 0, len(keys))
-	return labels, s.NewRetrieve().
+	if err := s.NewRetrieve().
 		Where(MatchKeys(keys...)).
 		Entries(&labels).
-		Exec(ctx, tx)
+		Exec(ctx, tx); err != nil {
+		return nil, err
+	}
+	return labels, nil
 }

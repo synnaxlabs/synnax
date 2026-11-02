@@ -9,6 +9,7 @@
 
 import "schemas/synnax/ontology"
 import "schemas/x/color"
+import "schemas/x/filter"
 import "schemas/x/spatial"
 
 @go output "core/pkg/service/panel"
@@ -277,4 +278,11 @@ Panel struct {
     @go migrate
     @ontology type "panel"
     @retrieve
+}
+
+Where filter Panel {
+    key
+
+    @doc value         "is a filter that selects panels."
+    @go request_output "core/pkg/api/panel"
 }

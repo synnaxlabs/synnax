@@ -19,6 +19,7 @@
 #include "client/cpp/arc/types.gen.h"
 #include "freighter/cpp/freighter.h"
 
+#include "core/pkg/api/arc/pb/arc.pb.h"
 #include "core/pkg/transport/grpc/arc/arc.pb.h"
 
 namespace synnax::arc {
@@ -29,7 +30,7 @@ using CreateClient = freighter::
 
 /// @brief Freighter client for retrieving Arc programs.
 using RetrieveClient = freighter::
-    UnaryClient<grpc::arc::RetrieveRequest, grpc::arc::RetrieveResponse>;
+    UnaryClient<grpc::arc::RetrieveRequest, ::api::arc::pb::RetrieveResponse>;
 
 /// @brief Freighter client for deleting Arc programs.
 using DeleteClient = freighter::
@@ -37,25 +38,8 @@ using DeleteClient = freighter::
 
 /// @brief Options for retrieving Arc programs.
 struct RetrieveOptions {
-    /// @brief If true, compiles the Arc text to a module with IR and WASM bytecode.
-    bool compile = false;
-
-    /// @brief Maximum number of results to return (0 = unlimited).
-    int32_t limit = 0;
-
-    /// @brief Number of results to skip before returning.
-    int32_t offset = 0;
-
-    /// @brief Search term for filtering Arc programs by name.
-    std::string search_term;
-
-    /// @brief Applies these options to a protobuf retrieve request.
-    void apply(grpc::arc::RetrieveRequest &req) const {
-        req.set_compile(compile);
-        if (limit > 0) req.set_limit(limit);
-        if (offset > 0) req.set_offset(offset);
-        if (!search_term.empty()) req.set_search_term(search_term);
-    }
+    /// @brief If true, the Core compiles each Arc and sets its program.
+    bool include_program = false;
 };
 
 /// @brief Client for managing Arc automation programs in a Synnax cluster.
@@ -99,7 +83,7 @@ public:
 
     /// @brief Retrieves an Arc program by its name.
     /// @param name The name of the Arc program to retrieve.
-    /// @param options Optional retrieve options (compile, limit, etc.).
+    /// @param options Optional retrieve options.
     /// @returns A pair containing the retrieved Arc program and an error.
     /// If the Arc program does not exist or multiple programs have the same name,
     /// an error is returned.
@@ -110,7 +94,7 @@ public:
 
     /// @brief Retrieves an Arc program by its key (UUID).
     /// @param key The key of the Arc program to retrieve.
-    /// @param options Optional retrieve options (compile, limit, etc.).
+    /// @param options Optional retrieve options.
     /// @returns A pair containing the retrieved Arc program and an error.
     /// If the Arc program does not exist, an error is returned.
     [[nodiscard]] std::pair<Arc, x::errors::Error> retrieve_by_key(
@@ -120,7 +104,7 @@ public:
 
     /// @brief Retrieves Arc programs by their names.
     /// @param names Vector of names of Arc programs to retrieve.
-    /// @param options Optional retrieve options (compile, limit, etc.).
+    /// @param options Optional retrieve options.
     /// @returns A pair containing a vector of retrieved Arc programs and an error.
     /// If an Arc program with a given name does not exist, it will not be in the
     /// result.
@@ -131,13 +115,17 @@ public:
 
     /// @brief Retrieves Arc programs by their keys (UUIDs).
     /// @param keys Vector of keys of Arc programs to retrieve.
-    /// @param options Optional retrieve options (compile, limit, etc.).
+    /// @param options Optional retrieve options.
     /// @returns A pair containing a vector of retrieved Arc programs and an error.
     /// If an Arc program with a given key does not exist, it will not be in the result.
     [[nodiscard]] std::pair<std::vector<Arc>, x::errors::Error> retrieve_by_keys(
         const std::vector<x::uuid::UUID> &keys,
         const RetrieveOptions &options = {}
     ) const;
+
+    /// @brief Retrieves the Arc programs that req selects.
+    [[nodiscard]] std::pair<std::vector<Arc>, x::errors::Error>
+    retrieve(const RetrieveRequest &req) const;
 
     /// @brief Deletes an Arc program by its key.
     /// @param key The key of the Arc program to delete.
@@ -150,6 +138,9 @@ public:
     [[nodiscard]] x::errors::Error del(const std::vector<x::uuid::UUID> &keys) const;
 
 private:
+    [[nodiscard]] std::pair<Arc, x::errors::Error>
+    retrieve_one(const RetrieveRequest &req, const std::string &query) const;
+
     /// @brief Client for retrieving Arc programs.
     std::shared_ptr<RetrieveClient> retrieve_client;
 

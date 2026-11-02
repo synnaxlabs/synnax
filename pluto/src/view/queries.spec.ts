@@ -58,7 +58,9 @@ describe("View queries", () => {
       const keys = views.map((v) => v.key);
       const { result } = renderHook(() => View.useList(), { wrapper });
       act(() => {
-        result.current.retrieve({ keys, types: ["status"] });
+        result.current.retrieve({
+          where: { key: { in: keys }, type: { eq: "status" } },
+        });
       });
       await waitFor(() => expect(result.current.variant).toEqual("success"));
       expect(result.current.data).toEqual([views[1].key]);
@@ -71,11 +73,12 @@ describe("View queries", () => {
         { name: "Solo View", type: "status" },
       ]);
       const keys = views.map((v) => v.key);
-      const { result } = renderHook(() => View.useList({ initialQuery: { keys } }), {
+      const where = { key: { in: keys } };
+      const { result } = renderHook(() => View.useList({ initialQuery: { where } }), {
         wrapper,
       });
       await act(async () => {
-        await result.current.retrieveAsync({ keys });
+        await result.current.retrieveAsync({ where });
       });
       expect(result.current.data.length).toBe(3);
       keys.forEach((key) => expect(result.current.data).toContain(key));
@@ -84,7 +87,7 @@ describe("View queries", () => {
     it("should update the list when a view is created", async () => {
       const { result } = renderHook(() => View.useList({}), { wrapper });
       act(() => {
-        result.current.retrieve({ types: ["status"] });
+        result.current.retrieve({ where: { type: { eq: "status" } } });
       });
       await waitFor(() => expect(result.current.variant).toEqual("success"));
       const newView = await client.views.create({

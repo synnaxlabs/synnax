@@ -8,7 +8,7 @@
 // included in the file licenses/APL.txt.
 
 import { type UnaryClient } from "@synnaxlabs/freighter";
-import { array, type observe, primitive } from "@synnaxlabs/x";
+import { array, type observe } from "@synnaxlabs/x";
 import { z } from "zod";
 
 import { type connection } from "@/connection";
@@ -16,29 +16,33 @@ import { MultipleFoundError, NotFoundError } from "@/errors";
 import { ontology } from "@/ontology";
 import { query } from "@/query";
 import { Current } from "@/user/current";
-import { type Key, keyZ, type New, newZ, type User, userZ } from "@/user/types.gen";
+import {
+  type Key,
+  keyZ,
+  type New,
+  newZ,
+  type RetrieveRequest,
+  retrieveRequestZ,
+  retrieveResponseZ,
+  type User,
+  userZ,
+} from "@/user/types.gen";
+import { type Lines, matches, serverComputed } from "@/user/where.gen";
 
-const retrieveRequestZ = z.object({
-  keys: keyZ.array().optional(),
-  usernames: z.string().array().optional(),
-});
-const retrieveMultiParamsZ = retrieveRequestZ.or(query.keyListZ(keyZ));
+const retrieveMultiParamsZ = z.union([query.keysRequestZ(keyZ), retrieveRequestZ]);
 
 const keyRetrieveRequestZ = z
-  .object({
-    key: keyZ,
-  })
-  .transform(({ key }) => ({ keys: [key] }));
+  .object({ key: keyZ })
+  .transform(({ key }): RetrieveRequest => ({ where: { key: { eq: key } } }));
 
 const usernameRetrieveRequestZ = z
-  .object({
-    username: z.string(),
-  })
-  .transform(({ username }) => ({ usernames: [username] }));
+  .object({ username: z.string() })
+  .transform(({ username }): RetrieveRequest => ({
+    where: { usernames: [username] },
+  }));
 
 export type KeyRetrieveRequest = z.input<typeof keyRetrieveRequestZ>;
 export type UsernameRetrieveRequest = z.input<typeof usernameRetrieveRequestZ>;
-export type UsernamesRetrieveRequest = { usernames: string[] };
 
 const retrieveParamsZ = z.union([
   keyRetrieveRequestZ,
@@ -46,11 +50,8 @@ const retrieveParamsZ = z.union([
   retrieveRequestZ,
 ]);
 
-export type RetrieveParams = z.input<typeof retrieveParamsZ>;
-
-export interface RetrieveRequest extends z.infer<typeof retrieveRequestZ> {}
-
-const retrieveResZ = z.object({ users: userZ.array().default(() => []) });
+export type RetrieveParams =
+  KeyRetrieveRequest | UsernameRetrieveRequest | RetrieveRequest;
 
 const createReqZ = z.object({ users: newZ.array() });
 const createResZ = z.object({ users: userZ.array() });
@@ -60,6 +61,8 @@ const renameReqZ = z.object({ key: keyZ, name: z.string() });
 const renameResZ = z.object({});
 const deleteReqZ = z.object({ keys: keyZ.array() });
 const deleteResZ = z.object({});
+
+const LINES: Lines = { usernames: null };
 
 export const SET_CHANNEL_NAME = "sy_user_set";
 export const DELETE_CHANNEL_NAME = "sy_user_delete";
@@ -74,14 +77,6 @@ const singleParamsZ = z.union([
 
 const singleIdentifier = (params: SingleParams): string =>
   "key" in params ? `key ${params.key}` : `username ${params.username}`;
-
-const requestFilter = (req: RetrieveRequest): ((u: User) => boolean) => {
-  const keySet = primitive.isNonZero(req.keys) ? new Set(req.keys) : undefined;
-  return (u) => keySet == null || keySet.has(u.key);
-};
-
-// The username lives on the user's password, so only the Core can match it.
-const SERVER_FIELDS = ["searchTerm", "limit", "offset", "usernames"] as const;
 
 export interface ClientConfig {
   unary: UnaryClient;
@@ -109,7 +104,7 @@ export class Client extends query.Retriever<
     const { cache } = cfg;
     const store = cache.createTable<Key, User>({
       name: "users",
-      fetch: async (keys) => await this.execRetrieve({ keys }),
+      fetch: async (keys) => await this.execRetrieve(query.keysRequest(keys)),
       listen: [
         query.createSetListener(SET_CHANNEL_NAME, userZ),
         query.createDeleteListener(DELETE_CHANNEL_NAME, keyZ),
@@ -134,8 +129,8 @@ export class Client extends query.Retriever<
       request: {
         schema: retrieveMultiParamsZ,
         fetch: async (req) => await this.execRetrieve(req),
-        matches: (u, req) => requestFilter(req)(u),
-        serverFields: SERVER_FIELDS,
+        matches: (u, req) => matches(LINES, u, req.where),
+        serverComputed: (req) => serverComputed(LINES, req.where),
       },
       single: { schema: singleParamsZ, space: single },
     });
@@ -214,7 +209,7 @@ export class Client extends query.Retriever<
       "/user/retrieve",
       params,
       retrieveParamsZ,
-      retrieveResZ,
+      retrieveResponseZ,
     );
     return res.users;
   }

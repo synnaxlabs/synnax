@@ -86,8 +86,8 @@ type statusQuery struct {
 // where.
 func lift(old v0.View) (View, error) {
 	base := Base{Key: old.Key, Name: old.Name}
-	switch ViewType(old.Type) {
-	case RangeViewType:
+	switch Type(old.Type) {
+	case TypeRange:
 		var q rangeQuery
 		if err := old.Query.Unmarshal(&q); err != nil {
 			return View{}, err
@@ -97,7 +97,7 @@ func lift(old v0.View) (View, error) {
 			v.Where = &ranger.Where{Labels: q.HasLabels}
 		}
 		return View{Variant: v}, nil
-	case StatusViewType:
+	case TypeStatus:
 		var q statusQuery
 		if err := old.Query.Unmarshal(&q); err != nil {
 			return View{}, err
