@@ -14,7 +14,10 @@ field error. A broker that is down and a channel another task writes are only fo
 at runtime, so the Driver reports those.
 """
 
+from examples.mqtt_sim import MQTTSim
+
 from console.task.mqtt import BROKER_FIELD_LABEL, MQTTRead
+from synnax import mqtt
 from tests.console.task.mqtt_case import MQTTCase
 
 TOPIC = "plant/sensors"
@@ -24,6 +27,8 @@ WILDCARD_TOPIC = "plant/+"
 
 class MQTTInvalidConfig(MQTTCase):
     """Verify invalid MQTT read task configurations are rejected.
+
+    A new task takes the only configured broker, so a second broker leaves it empty.
 
     Tests (run sequentially on one task page):
         1. No device selected: the form blocks the deploy.
@@ -43,6 +48,14 @@ class MQTTInvalidConfig(MQTTCase):
 
     def test_no_device(self) -> MQTTRead:
         self.log("Testing: No device selected")
+        rack = self.client.racks.retrieve(name=self.rack_name)
+        second = mqtt.Device(
+            host=MQTTSim.host,
+            port=MQTTSim.port,
+            name=f"{self.device_name} 2",
+            rack=rack.key,
+        )
+        self.create_test_devices([second])
         page = self.create_page(MQTTRead, prefix="MQTT Console Invalid")
         self.assert_device_required(page, label=BROKER_FIELD_LABEL)
         return page
