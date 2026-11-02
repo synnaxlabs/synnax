@@ -13,7 +13,7 @@ import {
   type UnaryClient,
   WebSocketClient,
 } from "@synnaxlabs/freighter";
-import { binary, Series, TimeSpan, TimeStamp, url, uuid } from "@synnaxlabs/x";
+import { binary, Series, TimeSpan, TimeStamp, url } from "@synnaxlabs/x";
 import { describe, expect, it, onTestFinished } from "vitest";
 
 import { type channel } from "@/channel";
@@ -121,7 +121,7 @@ describe("task.Client", () => {
   describe("a task another client creates", () => {
     it("should hold the status its create carries before the status streams in", async () => {
       const { stream, tasks } = await createStreamedClient();
-      const key = uuid.create();
+      const key = "0a7d3c2e-6f1b-4c5d-9e8f-1a2b3c4d5e6f";
       const cachedMessage = () => {
         const cached = tasks.getCached(key);
         return query.isLive(cached) ? cached.status?.message : undefined;
@@ -131,7 +131,7 @@ describe("task.Client", () => {
           [task.ACTION_CHANNEL_NAME]: new Series([
             {
               key,
-              dispatchKey: uuid.create(),
+              dispatchKey: "remote-dispatch",
               seq: 1,
               actions: [
                 task.create({
