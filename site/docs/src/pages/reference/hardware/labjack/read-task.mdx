@@ -329,6 +329,20 @@ Use a T7 or a T8 for thermocouple channels.
 </Problem.Fix>
 </Problem.Item>
 
+<Problem.Item message={"... is a thermocouple channel, so it cannot be the CJC source of ..."}>
+<Problem.Cause>
+
+The **CJC source** of a thermocouple is the port of another thermocouple channel. A
+thermocouple port has no CJC sensor.
+
+</Problem.Cause>
+<Problem.Fix>
+
+Set **CJC source** to **Device**, or to the `AIN` port of a CJC sensor.
+
+</Problem.Fix>
+</Problem.Item>
+
 <Problem.Item message={"... has a max voltage of ..., but the largest range of the device is ..."}>
 <Problem.Cause>
 

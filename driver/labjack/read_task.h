@@ -524,7 +524,21 @@ struct ReadTaskConfig : common::BaseReadTaskConfig {
             const auto cjc = tc->cjc_register(this->dev_model);
             const auto it = std::ranges::find(this->registers, cjc);
             tc->cjc_index = static_cast<size_t>(it - this->registers.begin());
-            if (it == this->registers.end()) this->registers.push_back(cjc);
+            if (it == this->registers.end())
+                this->registers.push_back(cjc);
+            else if (
+                tc->cjc_index < this->channels.size() &&
+                dynamic_cast<const ThermocoupleChan *>(
+                    this->channels[tc->cjc_index].get()
+                ) != nullptr
+            )
+                parser.field_err(
+                    "channels",
+                    cjc +
+                        " is a thermocouple channel, so it cannot be the CJC "
+                        "source of " +
+                        tc->port
+                );
             this->thermocouples.emplace_back(j, tc);
         }
         if (this->dev_model == T8 && !this->thermocouples.empty() &&

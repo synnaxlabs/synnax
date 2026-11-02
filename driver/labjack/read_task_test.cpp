@@ -1014,8 +1014,8 @@ protected:
         };
     }
 
-    /// @brief parses a task on a new device of the model.
-    std::pair<ReadTaskConfig, x::errors::Error> parse(
+    /// @brief returns a parser of a task on a new device of the model.
+    x::json::Parser parser(
         const std::string &model,
         const x::json::json &channels,
         const int sample_rate = 10,
@@ -1037,7 +1037,17 @@ protected:
         j["channels"] = channels;
         j["sample_rate"] = sample_rate;
         j["stream_rate"] = stream_rate;
-        auto p = x::json::Parser(j);
+        return x::json::Parser(j);
+    }
+
+    /// @brief parses a task on a new device of the model.
+    std::pair<ReadTaskConfig, x::errors::Error> parse(
+        const std::string &model,
+        const x::json::json &channels,
+        const int sample_rate = 10,
+        const int stream_rate = 5
+    ) {
+        auto p = this->parser(model, channels, sample_rate, stream_rate);
         ReadTaskConfig cfg(this->client, p);
         return {std::move(cfg), p.error()};
     }
@@ -1086,17 +1096,30 @@ TEST_F(ReadTaskTest, testSharesCJCPortWithChannel) {
 /// @brief it should reject a T8 task with thermocouples above 250 Hz, and allow the
 /// same rate on a T7.
 TEST_F(ReadTaskTest, testT8RateLimit) {
-    auto [t8, t8_err] = this->parse(
-        T8,
-        x::json::json::array({thermocouple("AIN0")}),
-        500
-    );
-    ASSERT_OCCURRED_AS(t8_err, x::errors::VALIDATION);
-    EXPECT_NE(
-        t8_err.data.find("A T8 task with thermocouples samples at 250 Hz or less"),
-        std::string::npos
-    );
+    auto p = this->parser(T8, x::json::json::array({thermocouple("AIN0")}), 500);
+    const ReadTaskConfig cfg(this->client, p);
+    ASSERT_OCCURRED_AS(p.error(), x::errors::VALIDATION);
+    const auto err = p.error_json()["errors"][0];
+    EXPECT_EQ(err["path"], "sample_rate");
+    EXPECT_EQ(err["message"], "A T8 task with thermocouples samples at 250 Hz or less");
     ASSERT_NIL_P(this->parse(T7, x::json::json::array({thermocouple("AIN0")}), 500));
+}
+
+/// @brief it should reject a thermocouple whose CJC source is the port of another
+/// thermocouple.
+TEST_F(ReadTaskTest, testRejectsThermocoupleAsCJCSource) {
+    auto p = this->parser(
+        T7,
+        x::json::json::array({thermocouple("AIN2"), thermocouple("AIN0", "AIN2")})
+    );
+    const ReadTaskConfig cfg(this->client, p);
+    ASSERT_OCCURRED_AS(p.error(), x::errors::VALIDATION);
+    const auto err = p.error_json()["errors"][0];
+    EXPECT_EQ(err["path"], "channels");
+    EXPECT_EQ(
+        err["message"],
+        "AIN2 is a thermocouple channel, so it cannot be the CJC source of AIN0"
+    );
 }
 
 /// @brief it should convert each polled thermocouple voltage with the CJC reading of
