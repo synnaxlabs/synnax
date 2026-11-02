@@ -121,6 +121,24 @@ class TestIterator:
             assert not i.seek_le(sy.TimeStamp(-1))
             assert not i.seek_ge(sy.TimeStamp(20 * sy.TimeSpan.SECOND))
 
+    def test_span_seconds(
+        self, client: sy.Synnax, indexed_pair: tuple[sy.Channel, sy.Channel]
+    ) -> None:
+        """Should read a bare number span as seconds."""
+        idx_ch, data_ch = indexed_pair
+        seconds = np.array([0, 1, 2, 3, 4, 5]).astype(np.int64)
+        client.write(
+            sy.TimeStamp(0),
+            {idx_ch.key: seconds * int(sy.TimeSpan.SECOND), data_ch.key: seconds},
+        )
+        with client.open_iterator(sy.TimeRange.MAX, data_ch.key) as i:
+            assert i.seek_first()
+            assert i.next(3)
+            assert i.value[data_ch.key].to_numpy().tolist() == [0, 1, 2]
+            assert i.seek_last()
+            assert i.prev(2)
+            assert i.value[data_ch.key].to_numpy().tolist() == [4, 5]
+
     def def_test_calculated_channel(
         self, client: sy.Synnax, indexed_pair: tuple[sy.Channel, sy.Channel]
     ) -> None:
