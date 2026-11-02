@@ -209,7 +209,7 @@ func (s *Service) handleChange(ctx context.Context, reader channelgraph.Changes)
 			continue
 		}
 		s.mu.Lock()
-		if !s.mu.graph.CalculatedKeys().Contains(cg.Key) {
+		if !s.mu.graph.Contains(cg.Key) {
 			s.mu.Unlock()
 			continue
 		}
