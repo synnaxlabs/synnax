@@ -64,6 +64,8 @@ def _encode_samples(samples: list[Any], data_type: DataType) -> bytes:
         return _encode_variable([json.dumps(d).encode("utf-8") for d in samples])
     if data_type == DataType.STRING:
         return _encode_variable([str(d).encode("utf-8") for d in samples])
+    if data_type == DataType.TIMESTAMP:
+        return np.array([TimeStamp(d) for d in samples], dtype=np.int64).tobytes()
     if data_type == DataType.UUID:
         uuids = [d for d in samples if isinstance(d, uuid.UUID)]
         if len(uuids) != len(samples):
@@ -312,9 +314,11 @@ class Series(ArrayOperators, Generic[T]):
         if data_type is not None:
             data_type = DataType(data_type)
         align = None if alignment is None else Alignment(alignment)
-        if isinstance(data, (TimeStamp, int, float, np.number, np.bool_)):
+        if isinstance(
+            data, (TimeStamp, int, float, np.number, np.bool_, np.datetime64)
+        ):
             data_type = data_type or DataType(data)
-            data_ = np.array([data], dtype=data_type.np).tobytes()
+            data_ = _encode_samples([data], data_type)
         elif isinstance(data, Series):
             data_type = data_type or data.data_type
             data_ = data.data
@@ -338,15 +342,21 @@ class Series(ArrayOperators, Generic[T]):
                     "converted to a Series"
                 )
             data_type = data_type or data.data_type
-        elif isinstance(data, pd.Series):
-            if data_type is None:
-                if not isinstance(data.dtype, np.dtype):
-                    raise TypeError(f"Cannot convert {data.dtype} to DataType")
-                data_type = DataType(data.dtype)
-            data_ = data.to_numpy(dtype=data_type.np).tobytes()
-        elif isinstance(data, np.ndarray):
-            data_type = data_type or DataType(data.dtype)
-            data_ = data.astype(data_type.np).tobytes()
+        elif isinstance(data, (pd.Series, np.ndarray)):
+            if isinstance(data, pd.Series) and isinstance(
+                data.dtype, pd.DatetimeTZDtype
+            ):
+                data = data.dt.tz_convert(None)
+            if data_type is None and not isinstance(data.dtype, np.dtype):
+                raise TypeError(f"Cannot convert {data.dtype} to DataType")
+            arr = data.to_numpy() if isinstance(data, pd.Series) else data
+            data_type = data_type or DataType(arr.dtype)
+            if arr.dtype.kind == "M":
+                arr = arr.astype("datetime64[ns]")
+            if data_type.has_np:
+                data_ = arr.astype(data_type.np).tobytes()
+            else:
+                data_ = _encode_samples(arr.tolist(), data_type)
         elif isinstance(data, list):
             data_type = data_type or DataType(data)
             data_ = _encode_samples(data, data_type)
@@ -532,7 +542,15 @@ def to_int(value: SampleValue) -> int:
 
 
 CrudeSample: TypeAlias = (
-    np.number | np.bool_ | str | uuid.UUID | dict[str, Any] | float | int | TimeStamp
+    np.number
+    | np.bool_
+    | np.datetime64
+    | str
+    | uuid.UUID
+    | dict[str, Any]
+    | float
+    | int
+    | TimeStamp
 )
 """A single sample that a Series can be built from."""
 
@@ -548,6 +566,7 @@ CrudeSeries: TypeAlias = (
     | list[dict[str, Any]]
     | list[uuid.UUID]
     | list[TimeStamp]
+    | list[np.datetime64]
     | CrudeSample
 )
 
