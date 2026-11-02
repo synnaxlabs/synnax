@@ -37,6 +37,9 @@ class TestParam:
             lambda: param({"key": 1.5}, "key", 10),
             lambda: param({"key": None}, "key", 0.0),
             lambda: param({"key": [1]}, "key", ""),
+            lambda: param({"key": True}, "key", 101),
+            lambda: param({"key": False}, "key", 0.0),
+            lambda: param({"key": 1}, "key", False),
         ],
     )
     def test_should_reject_a_parameter_of_another_type(

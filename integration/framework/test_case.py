@@ -62,14 +62,17 @@ _Param = TypeVar("_Param", bool, int, float, str)
 
 def param(params: Mapping[str, JsonValue], key: str, default: _Param) -> _Param:
     """Returns the test definition parameter named key, or default if params does not
-    hold it. An int parameter passes for a float default.
+    hold it. An int parameter passes for a float default, but a bool never passes for an
+    int or float default.
 
     :raises TypeError: If the parameter does not have the type of default.
     """
     value = params.get(key, default)
     if type(default) is float and type(value) is int:
         value = float(value)
-    if not isinstance(value, type(default)):
+    if isinstance(value, bool) != isinstance(default, bool) or not isinstance(
+        value, type(default)
+    ):
         raise TypeError(
             f"Parameter {key!r} is {value!r}; expected {type(default).__name__}"
         )
