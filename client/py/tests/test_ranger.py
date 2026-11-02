@@ -721,10 +721,13 @@ class TestRangeRetrieveFilters:
 
     def test_one(self, client: sy.Synnax, window_ranges: list[sy.Range]) -> None:
         """Should return the one range that matches"""
-        rng = client.ranges.retrieve(
-            ranger.name.eq(window_ranges[1].name), limit=5, one=True
-        )
+        rng = client.ranges.retrieve(ranger.name.eq(window_ranges[1].name), one=True)
         assert rng.key == window_ranges[1].key
+
+    def test_one_page(self, client: sy.Synnax) -> None:
+        """Should reject a limit on one, since a page could hide a second match"""
+        with pytest.raises(ValueError, match="one cannot be combined"):
+            client.ranges.retrieve(one=True, limit=1)  # type: ignore[call-overload]
 
     def test_one_multiple(
         self, client: sy.Synnax, window: sy.TimeRange, window_ranges: list[sy.Range]
