@@ -18,7 +18,7 @@ class SetpointPressAuto(TestCase):
 
     def setup(self) -> None:
         self.set_manual_timeout(60)
-        self.control_authority = self.params.get("control_authority", 101)
+        self.control_authority = self.param("control_authority", 101)
 
         self.subscribe(
             [

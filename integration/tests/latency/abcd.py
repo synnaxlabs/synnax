@@ -56,8 +56,8 @@ class Abcd(Latency):
         self.configure(loop_rate=0.01, manual_timeout=15)
 
         # Get mode from matrix parameters
-        self.mode = self.params.get("mode")
-        if self.mode is None:
+        self.mode = self.param("mode", "")
+        if not self.mode:
             raise ValueError("Missing required parameter 'mode' from matrix")
 
         if self.mode == "a":

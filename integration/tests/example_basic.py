@@ -35,12 +35,12 @@ class CheckConnectionBasic(TestCase):
         """
 
         # Stuff goes here
-        wait_time = self.params.get("wait_time", 0)
+        wait_time = self.param("wait_time", 0.0)
         self.log(f"Waiting for {wait_time} seconds")
         sy.sleep(wait_time)
 
         # Or induce a failure
-        if self.params.get("fail_test", False):
+        if self.param("fail_test", False):
             raise Exception("Injected failure")
 
     def teardown(self) -> None:

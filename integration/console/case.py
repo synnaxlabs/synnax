@@ -8,7 +8,7 @@
 #  included in the file licenses/APL.txt.
 
 import random
-from typing import Any, cast
+from typing import Unpack, cast
 from urllib.request import urlopen
 from uuid import uuid4
 
@@ -24,8 +24,8 @@ from playwright.sync_api import TimeoutError as PlaywrightTimeoutError
 
 import synnax as sy
 from console.console import Console
-from framework.models import DEFAULT_CONNECTION, STATUS, SynnaxConnection
-from framework.test_case import TestCase
+from framework.models import STATUS
+from framework.test_case import Config, TestCase
 
 
 class ConsoleCase(TestCase):
@@ -45,14 +45,8 @@ class ConsoleCase(TestCase):
     default_nav_timeout: int
     console: Console
 
-    def __init__(
-        self,
-        *,
-        synnax_connection: SynnaxConnection = DEFAULT_CONNECTION,
-        name: str,
-        **params: Any,
-    ) -> None:
-        super().__init__(synnax_connection=synnax_connection, name=name, **params)
+    def __init__(self, **kwargs: Unpack[Config]) -> None:
+        super().__init__(**kwargs)
         self.playwright = None
         self._cleanup_pages: list[str] = []
         self._project: sy.Project | None = None
@@ -74,10 +68,10 @@ class ConsoleCase(TestCase):
         self._bootstrap_project()
 
     def _launch_browser(self) -> None:
-        headed = self.params.get("headed", self.options.headed)
-        slow_mo = self.params.get("slow_mo", self.options.slow_mo)
-        default_timeout = self.params.get("default_timeout", 15000)  # 15s
-        default_nav_timeout = self.params.get("default_nav_timeout", 15000)  # 15s
+        headed = self.param("headed", self.options.headed)
+        slow_mo = self.param("slow_mo", self.options.slow_mo)
+        default_timeout = self.param("default_timeout", 15000)  # 15s
+        default_nav_timeout = self.param("default_nav_timeout", 15000)  # 15s
 
         # Open page
         self.log(f"Opening browser in {'headed' if headed else 'headless'} mode")
