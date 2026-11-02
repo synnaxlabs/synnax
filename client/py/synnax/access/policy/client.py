@@ -87,8 +87,6 @@ class Client:
         subjects: list[ID] | None = None,
         internal: bool | None = None,
         search_term: str = "",
-        limit: int | None = None,
-        offset: int = 0,
     ) -> Policy: ...
 
     @overload
@@ -126,7 +124,9 @@ class Client:
         :raises NotFoundError: If no policy matches a key or one.
         :raises MultipleFoundError: If one is True and more than one policy matches.
         :raises TypeError: If args are neither policy conditions nor a shortcut.
+        :raises ValueError: If one is combined with limit or offset.
         """
+        util.reject_page(one, limit, offset)
         conditions, query = util.shortcut(
             "Policy", args, Condition, UUID, builder_gen.key
         )

@@ -126,8 +126,6 @@ class Client:
         integration: str | None = None,
         embedded: bool | None = None,
         host_is_node: bool | None = None,
-        limit: int | None = None,
-        offset: int = 0,
         include_status: bool = False,
     ) -> Rack: ...
 
@@ -185,7 +183,9 @@ class Client:
         :raises NotFoundError: If a single rack is requested and none matches.
         :raises MultipleFoundError: If more than one rack matches a single name or one.
         :raises TypeError: If args are neither rack conditions nor a shortcut.
+        :raises ValueError: If one is combined with limit or offset.
         """
+        util.reject_page(one, limit, offset)
         conditions, query = util.shortcut(
             "Rack", args, Condition, int, builder_gen.key, builder_gen.name
         )
