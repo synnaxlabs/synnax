@@ -14,6 +14,7 @@ import (
 	"encoding/json/jsontext"
 	"encoding/json/v2"
 	"math"
+	"slices"
 	"time"
 	"uuid"
 
@@ -381,11 +382,24 @@ var _ = Describe("Read task", func() {
 				Records: single(stampedFields(index, data)),
 			})
 			start(ctx, dt, t)
+			// A control handles one request, and a consumer another spec left
+			// behind can still fetch, so only a fetch of this topic fails.
+			id := topicID(ctx, producer, topic)
 			cluster.ControlKey(
 				int16(kmsg.Fetch),
 				func(req kmsg.Request) (kmsg.Response, error, bool) {
+					fetch := req.(*kmsg.FetchRequest)
+					ours := slices.ContainsFunc(
+						fetch.Topics,
+						func(rt kmsg.FetchRequestTopic) bool {
+							return rt.TopicID == id || rt.Topic == topic
+						},
+					)
+					if !ours {
+						return nil, nil, false
+					}
 					res := req.ResponseKind().(*kmsg.FetchResponse)
-					for _, rt := range req.(*kmsg.FetchRequest).Topics {
+					for _, rt := range fetch.Topics {
 						st := kmsg.NewFetchResponseTopic()
 						st.Topic, st.TopicID = rt.Topic, rt.TopicID
 						for _, rp := range rt.Partitions {

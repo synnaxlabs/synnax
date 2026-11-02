@@ -38,6 +38,7 @@ import (
 	. "github.com/synnaxlabs/x/testutil"
 	"github.com/twmb/franz-go/pkg/kfake"
 	"github.com/twmb/franz-go/pkg/kgo"
+	"github.com/twmb/franz-go/pkg/kmsg"
 )
 
 var (
@@ -245,3 +246,16 @@ func produceJSON(ctx context.Context, cl *kgo.Client, topic, key string, doc any
 
 // uniqueTopic returns a topic name no other spec uses.
 func uniqueTopic() string { return "topic-" + uuid.New().String()[:8] }
+
+// topicID returns the ID the cluster gave topic. Fetch requests carry the ID in place
+// of the name.
+func topicID(ctx context.Context, cl *kgo.Client, topic string) [16]byte {
+	GinkgoHelper()
+	req := kmsg.NewPtrMetadataRequest()
+	t := kmsg.NewMetadataRequestTopic()
+	t.Topic = kmsg.StringPtr(topic)
+	req.Topics = append(req.Topics, t)
+	res := MustSucceed(req.RequestWith(ctx, cl))
+	Expect(res.Topics).To(HaveLen(1))
+	return res.Topics[0].TopicID
+}
