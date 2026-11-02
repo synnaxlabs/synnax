@@ -8,14 +8,14 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-// Local review only. Copy, logo use, and placement require written partner approval.
-// Logo: unchanged masthead SVG from https://www.rigetti.com/, in its original teal.
-import rigettiLogo from "./assets/rigetti-logo.svg?raw";
+// The logo is the masthead SVG from https://www.rigetti.com/, unchanged.
+import { DOCS_URL } from "astro:env/client";
+import { Button } from "@synnaxlabs/lyra/button";
+import { Text } from "@synnaxlabs/lyra/text";
+import Arrow from "@/components/common/Arrow.astro";
+import logo from "./logo.svg?raw";
 
-interface Props {
-    href?: string;
-}
-const { href = "http://127.0.0.1:4346/blog/rigetti-computing" } = Astro.props;
+const href = new URL("/blog/rigetti", DOCS_URL).href;
 ---
 
 <aside class="partnership-banner" aria-label="Partnership announcement">
@@ -24,23 +24,36 @@ const { href = "http://127.0.0.1:4346/blog/rigetti-computing" } = Astro.props;
             class="partnership-banner__logo"
             role="img"
             aria-label="Rigetti Computing"
-            set:html={rigettiLogo}
+            set:html={logo}
         />
-        <span class="partnership-banner__content">
-            <span class="partnership-banner__label">Partnership</span>
-            <span class="partnership-banner__copy">
+        <div class="partnership-banner__content">
+            <Text.Text level="p" variant="code" color={8} weight={500}>
+                Partnership
+            </Text.Text>
+            <Text.Text
+                level="h4"
+                color={10}
+                weight={400}
+                className="partnership-banner__copy"
+            >
                 We’re excited to welcome Rigetti Computing as a Synnax customer.
-            </span>
-        </span>
-        <span class="partnership-banner__cta">Read the announcement</span>
+            </Text.Text>
+        </div>
+        <Button.Button
+            el="div"
+            size="huge"
+            level="p"
+            className="partnership-banner__cta"
+        >
+            Read the announcement
+            <Arrow direction="right" />
+        </Button.Button>
     </a>
 </aside>
 
 <style>
     .partnership-banner {
         --banner-base: light-dark(#e5eaf0, #101923);
-        --banner-ink: light-dark(#243443, #dce3ea);
-        --banner-muted: light-dark(#52677d, #96a8ba);
         --banner-line: light-dark(#a6bac45c, #b7d3e52b);
         position: relative;
         isolation: isolate;
@@ -96,14 +109,9 @@ const { href = "http://127.0.0.1:4346/blog/rigetti-computing" } = Astro.props;
         display: grid;
         grid-template-columns: 170px minmax(0, 1fr) auto;
         align-items: center;
-        gap: clamp(24px, 3vw, 42px);
+        gap: clamp(4rem, 3vw, 7rem);
         min-height: 190px;
-        padding: clamp(24px, 3.2vw, 42px);
-        color: var(--banner-ink);
-        text-decoration: none;
-    }
-
-    a.partnership-banner__link:hover {
+        padding: clamp(4rem, 3.2vw, 7rem);
         text-decoration: none;
     }
 
@@ -129,92 +137,65 @@ const { href = "http://127.0.0.1:4346/blog/rigetti-computing" } = Astro.props;
     .partnership-banner__content {
         display: flex;
         flex-direction: column;
-        gap: 12px;
-        padding-left: clamp(24px, 3vw, 42px);
+        gap: 2rem;
+        padding-left: clamp(4rem, 3vw, 7rem);
         border-left: 1px solid var(--banner-line);
+
+        & :global(.partnership-banner__copy) {
+            max-width: 540px;
+        }
     }
 
-    .partnership-banner__label {
-        font-family: var(--pluto-code-font-family);
-        font-size: 11px;
-        font-weight: 400;
-        color: var(--banner-muted);
-    }
-
-    .partnership-banner__copy {
-        max-width: 540px;
-        font-size: clamp(18px, 1.7vw, 23px);
-        font-weight: 400;
-        line-height: 1.5;
-        letter-spacing: -0.025em;
-    }
-
-    .partnership-banner__cta {
-        display: block;
-        padding: 12px 17px;
-        border: 1px solid var(--banner-line);
-        border-radius: 1rem;
-        background: light-dark(#ffffff26, #050a1024);
-        color: var(--banner-ink);
-        font-size: 12px;
-        font-weight: 450;
-        line-height: 1.5;
+    /* The look of the hero buttons. */
+    .partnership-banner :global(.partnership-banner__cta) {
+        padding: 0 3rem 0 3.5rem;
+        font-size: 2.5rem;
+        font-weight: 550;
+        border-radius: var(--pluto-border-radius-small);
         white-space: nowrap;
-        transition:
-            background 160ms ease,
-            border-color 160ms ease;
     }
 
-    .partnership-banner__link:hover .partnership-banner__cta {
-        background: light-dark(#ffffff60, #ffffff0d);
-        border-color: light-dark(#68899b80, #adc9da70);
+    /* The whole banner is the link, so the button shows its hover with the banner. */
+    a.partnership-banner__link:hover :global(.partnership-banner__cta) {
+        --pluto-btn-bg: var(--pluto-hover-bg);
+        --pluto-btn-border-color: var(--pluto-hover-border-color);
     }
 
     @media (width < 1000px) {
         a.partnership-banner__link {
             grid-template-columns: 150px minmax(0, 1fr);
-            gap: 22px 28px;
+            row-gap: 4rem;
         }
+
         .partnership-banner__logo {
             width: 150px;
             grid-row: 1 / 3;
         }
-        .partnership-banner__cta {
-            justify-self: start;
+
+        .partnership-banner :global(.partnership-banner__cta) {
             grid-column: 2;
-            margin-left: 28px;
-        }
-        .partnership-banner__content {
-            padding-left: 28px;
+            margin-left: clamp(4rem, 3vw, 7rem);
         }
     }
 
     @media (width < 600px) {
         a.partnership-banner__link {
             grid-template-columns: minmax(0, 1fr);
-            gap: 24px;
-            padding: 28px;
         }
+
         .partnership-banner__logo {
             grid-row: auto;
             width: 140px;
         }
+
         .partnership-banner__content {
             border-left: none;
             padding-left: 0;
         }
-        .partnership-banner__copy {
-            font-size: 20px;
-        }
-        .partnership-banner__cta {
+
+        .partnership-banner :global(.partnership-banner__cta) {
             grid-column: 1;
             margin-left: 0;
-        }
-    }
-
-    @media (prefers-reduced-motion: reduce) {
-        .partnership-banner__cta {
-            transition: none;
         }
     }
 </style>

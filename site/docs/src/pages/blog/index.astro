@@ -8,12 +8,14 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
+import { enabled } from "@/flags";
 import Root from "@/layouts/Root.astro";
 import { Flex } from "@synnaxlabs/lyra/flex";
-import { Text } from "@synnaxlabs/lyra/text";
+import IndexHero from "@/components/hero/Index.astro";
+import BlogArtwork from "@/components/hero/BlogArtwork.astro";
 import OneBillionRowsTile from "@/components/blog/OneBillionRowsTile.astro";
 import ArcTile from "@/components/blog/ArcTile.astro";
-import PartnershipTile from "@/components/blog/PartnershipTile.astro";
+import RigettiTile from "@/components/blog/RigettiTile.astro";
 ---
 
 <Root
@@ -25,16 +27,14 @@ import PartnershipTile from "@/components/blog/PartnershipTile.astro";
 >
     <section>
         <Flex.Box direction="y" className="blog" el="article" grow>
-            <Flex.Box direction="x" className="header" justify="between" align="center">
-                <Flex.Box direction="y" justify="center" gap="large">
-                    <Text.Text level="h1">Blog</Text.Text>
-                    <Text.Text color={8}>
-                        Articles and insights from the Synnax team.
-                    </Text.Text>
-                </Flex.Box>
-            </Flex.Box>
+            <IndexHero
+                title="Blog"
+                description="Articles and insights from the Synnax team."
+            >
+                <BlogArtwork slot="art" />
+            </IndexHero>
             <Flex.Box direction="y" className="blog-entries" gap={6}>
-                {import.meta.env.DEV && <PartnershipTile />}
+                {enabled("rigetti") && <RigettiTile />}
                 <ArcTile />
                 <OneBillionRowsTile />
             </Flex.Box>
@@ -43,30 +43,19 @@ import PartnershipTile from "@/components/blog/PartnershipTile.astro";
 </Root>
 
 <style is:global>
+    main:has(.blog) {
+        overflow-x: clip;
+    }
+
     main > section:has(.blog) {
         max-width: 1150px;
+        overflow: visible;
     }
 
     .blog {
         flex: 1 1 840px;
         min-width: 0;
         padding: 5rem 8rem;
-
-        .header {
-            min-height: 200px;
-            height: 25vh;
-            margin: 0 -8rem;
-            padding-left: 8rem;
-            padding-right: 8rem;
-            width: calc(100% + 16rem);
-            background-size: 2rem 2rem;
-            background-image: radial-gradient(
-                var(--pluto-gray-l4) 0.5px,
-                transparent 0.5px
-            );
-            position: relative;
-            mask-image: radial-gradient(circle, black 90%, transparent);
-        }
     }
 
     .blog-entries {
@@ -81,13 +70,6 @@ import PartnershipTile from "@/components/blog/PartnershipTile.astro";
     @media (width <= 800px) {
         .blog {
             padding: 3rem;
-
-            .header {
-                margin: 0 -3rem;
-                padding-left: 3rem;
-                padding-right: 3rem;
-                width: calc(100% + 6rem);
-            }
         }
     }
 </style>

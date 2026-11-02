@@ -1,0 +1,73 @@
+---
+layout: "@/layouts/Blog.astro"
+title: "Welcoming Rigetti Computing"
+description: "We’re excited to welcome Rigetti Computing as a Synnax customer."
+# A placeholder until Rigetti sets a date.
+published: "2026-11-02"
+author: "Emiliano Bonilla"
+authorImage: "https://synnax.nyc3.cdn.digitaloceanspaces.com/eb_headshot.png"
+authorLink: "https://www.linkedin.com/in/emiliano-bonilla-8a0a95187/"
+flag: "rigetti"
+---
+
+import { Icon } from "@synnaxlabs/lyra/icon";
+import Card from "@/components/card/Card.astro";
+import Grid from "@/components/card/Grid.astro";
+import Figure from "@/components/rigetti/Figure.astro";
+import Quote from "@/components/rigetti/Quote.astro";
+import { announcement } from "@/components/rigetti/content";
+import { mdxOverrides } from "@/components/mdxOverrides";
+export const components = mdxOverrides;
+
+<Figure direction="instrument" id="partnership-post-hero" />
+
+{announcement.slice(1).map((paragraph) => <p>{paragraph}</p>)}
+
+<Quote by="Carlos Orozco Gonzalez, Rigetti Computing">
+  As our fridge fleet grows, maintaining custom Python scripts becomes increasingly
+  painful. Synnax gives us a path forward: Arc sequences have been relatively easy to
+  build, and the pilot support was so good that we felt spoiled.
+</Quote>
+
+## Why warmup and cool down matter
+
+A dilution refrigerator keeps a quantum processor a fraction of a degree above absolute
+zero. To change the processor, operators warm the fridge to room temperature, make the
+change, and cool it back down. Each direction is a long procedure of pump, valve,
+heater, and gas-handling steps, with pressure and temperature checks between them.
+
+No experiments run on a fridge while it warms or cools. Each hour taken out of a cycle
+is an hour of experiments given back.
+
+<Figure direction="cycle" id="partnership-post-cycle" />
+
+## What this looks like in Synnax
+
+Each part of the work above maps to a part of Synnax.
+
+<Grid columns={3}>
+  <Card
+    href="/reference/control/arc/test-sequences"
+    title="Automate procedures"
+    description="Write each procedure as Arc stages, with checks that abort when a value is unsafe."
+  >
+    <Icon.Arc slot="icon" />
+  </Card>
+  <Card
+    href="/reference/visualize/schematics"
+    title="See the system live"
+    description="Watch live pressures, temperatures, and valve states on schematics, plots, and alarms."
+  >
+    <Icon.Schematic slot="icon" />
+  </Card>
+  <Card
+    href="/reference/get-started/sample-project"
+    title="Test before hardware"
+    description="Run a sequence against a simulator that writes the same channels as the hardware."
+  >
+    <Icon.Play slot="icon" />
+  </Card>
+</Grid>
+
+If your team runs long, careful procedures on hardware,
+[talk to an engineer](https://www.synnaxlabs.com/#contact) about running them in Synnax.

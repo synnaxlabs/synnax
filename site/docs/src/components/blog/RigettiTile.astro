@@ -1,0 +1,104 @@
+---
+// Copyright 2026 Synnax Labs, Inc.
+//
+// Use of this software is governed by the Business Source License included in the file
+// licenses/BSL.txt.
+//
+// As of the Change Date specified in that file, in accordance with the Business Source
+// License, use of this software will be governed by the Apache License, Version 2.0,
+// included in the file licenses/APL.txt.
+
+import Card from "@/components/blog/Card.astro";
+import Cryostat from "@/components/rigetti/Cryostat.astro";
+---
+
+<Card
+    href="/blog/rigetti"
+    title="Welcoming Rigetti Computing"
+    summary="Rigetti's engineers are adopting Synnax to accelerate fridge operations."
+    published="2026-11-02"
+    category="Partnership"
+>
+    <div slot="background" class="partnership-field" aria-hidden="true" />
+    <div class="partnership-instrument">
+        <Cryostat id="partnership-card-cryostat" compact />
+    </div>
+</Card>
+
+<style>
+    .partnership-field {
+        position: absolute;
+        inset: 0;
+        pointer-events: none;
+    }
+
+    .partnership-field::before {
+        content: "";
+        position: absolute;
+        inset: -10%;
+        background:
+            radial-gradient(
+                ellipse 34% 60% at 74% 44%,
+                light-dark(#3774d02e, #3774d047),
+                transparent
+            ),
+            radial-gradient(
+                ellipse 30% 34% at 74% 96%,
+                light-dark(#00b5ad1c, #00b5ad26),
+                transparent
+            );
+        mask-image: linear-gradient(to right, transparent 32%, black 62%);
+        animation: partnership-drift 18s ease-in-out infinite alternate;
+
+        @media (width <= 600px) {
+            background:
+                radial-gradient(
+                    ellipse 60% 26% at 50% 74%,
+                    light-dark(#3774d02e, #3774d047),
+                    transparent
+                ),
+                radial-gradient(
+                    ellipse 50% 14% at 50% 96%,
+                    light-dark(#00b5ad1c, #00b5ad26),
+                    transparent
+                );
+            mask-image: linear-gradient(to bottom, transparent 45%, black 70%);
+        }
+    }
+
+    .partnership-field::after {
+        content: "";
+        position: absolute;
+        inset: 0;
+        opacity: 0.15;
+        mix-blend-mode: soft-light;
+        background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='180' height='180'%3E%3Cfilter id='grain'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='.88' numOctaves='3' seed='7' stitchTiles='stitch'/%3E%3CfeColorMatrix type='saturate' values='0'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23grain)'/%3E%3C/svg%3E");
+    }
+
+    .partnership-instrument {
+        width: 37rem;
+        max-width: 100%;
+    }
+
+    @media (width <= 600px) {
+        .partnership-instrument {
+            width: 27rem;
+        }
+    }
+
+    @keyframes partnership-drift {
+        from {
+            transform: translate3d(-2%, 2%, 0);
+        }
+
+        to {
+            transform: translate3d(2%, -2%, 0);
+        }
+    }
+
+    @media (prefers-reduced-motion: reduce) {
+        .partnership-field::before {
+            animation: none;
+        }
+    }
+</style>

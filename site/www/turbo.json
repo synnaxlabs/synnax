@@ -9,7 +9,8 @@
         "astro.config.ts",
         "tsconfig*.json",
         "package.json"
-      ]
+      ],
+      "env": ["VERCEL_ENV", "FLAG_*", "DOCS_URL"]
     },
     "lint": {
       "inputs": [

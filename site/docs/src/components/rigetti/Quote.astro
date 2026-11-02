@@ -1,0 +1,56 @@
+---
+// Copyright 2026 Synnax Labs, Inc.
+//
+// Use of this software is governed by the Business Source License included in the file
+// licenses/BSL.txt.
+//
+// As of the Change Date specified in that file, in accordance with the Business Source
+// License, use of this software will be governed by the Apache License, Version 2.0,
+// included in the file licenses/APL.txt.
+
+interface Props {
+    /** The name and organization of the person quoted. */
+    by: string;
+}
+
+const { by } = Astro.props;
+---
+
+<figure class="rigetti-quote">
+    <blockquote>
+        <slot />
+    </blockquote>
+    <figcaption>{by}</figcaption>
+</figure>
+
+<style>
+    /* Articles center figures; a quote keeps its left edge. */
+    .rigetti-quote {
+        margin: 6rem 0;
+        align-items: stretch;
+    }
+
+    blockquote {
+        margin: 0;
+        padding-left: 4rem;
+        border-left: 2px solid var(--pluto-primary-z);
+
+        /* MDX wraps the quote in a paragraph. */
+        & :global(p) {
+            margin: 0;
+            color: var(--pluto-gray-l10);
+            font-size: var(--pluto-h3-size);
+            font-weight: 375;
+            line-height: 1.5;
+        }
+    }
+
+    figcaption {
+        margin-top: 2rem;
+        padding-left: calc(4rem + 2px);
+        color: var(--pluto-gray-l8);
+        font-size: var(--pluto-small-size);
+        font-style: normal;
+        text-align: left;
+    }
+</style>
