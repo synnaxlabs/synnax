@@ -28,6 +28,12 @@ class TestFrame:
         f = sy.Frame(["big", "red", "dog"], [np.array([1, 2, 3]), np.array([4, 5, 6])])
         assert f["big"][0] == 1
 
+    def test_construction_from_tuples(self) -> None:
+        """Should accept channels and series as tuples."""
+        f = sy.Frame((1, 2), (sy.Series([1, 2]), sy.Series([3, 4])))
+        assert f.channels == [1, 2]
+        assert list(f[2]) == [3, 4]
+
     def test_construction_from_dict(self) -> None:
         f = sy.Frame({1: sy.Series([1, 2, 3, 4]), 3: sy.Series([4, 5, 6, 7])})
         assert f[1][0] == 1
