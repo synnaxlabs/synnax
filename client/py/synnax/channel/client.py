@@ -12,9 +12,10 @@ from __future__ import annotations
 from typing import overload
 from uuid import UUID
 
-from pydantic import PrivateAttr
+from pydantic import BaseModel, PrivateAttr
 
-from synnax import framer
+from freighter import Empty, UnaryClient
+from synnax import framer, group
 from synnax.channel.payload import (
     Key,
     NormalizedNameResult,
@@ -205,9 +206,14 @@ class Channel(Payload):
         )
 
 
+class _RetrieveGroupResponse(BaseModel):
+    group: group.Group
+
+
 class Client:
     """The core py class for executing channel operations against a Synnax cluster."""
 
+    _client: UnaryClient
     _frame_client: framer.Client
     _retriever: Retriever
     _creator: Writer
@@ -215,10 +221,12 @@ class Client:
     def __init__(
         self,
         *,
+        client: UnaryClient,
         frame_client: framer.Client,
         retriever: Retriever,
         creator: Writer,
     ):
+        self._client = client
         self._frame_client = frame_client
         self._retriever = retriever
         self._creator = creator
@@ -479,6 +487,15 @@ class Client:
         :returns: None.
         """
         self._creator.rename(normalize(keys), normalize(names))
+
+    def retrieve_group(self) -> group.Group:
+        """Retrieves the group that holds every channel by default.
+
+        :returns: The channel group.
+        """
+        return self._client.send(
+            "/channel/retrieve-group", Empty(), _RetrieveGroupResponse
+        ).group
 
     def _sugar(self, channels: list[Payload]) -> list[Channel]:
         return [
