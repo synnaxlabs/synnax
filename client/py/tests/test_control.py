@@ -413,7 +413,7 @@ class TestController:
                 # the opening sample can never arrive before wait_while registers.
                 timer = sy.Timer()
                 while not observing.is_set():
-                    if timer.elapsed() > HANDSHAKE_TIMEOUT * sy.TimeSpan.SECOND:
+                    if timer.elapsed() > HANDSHAKE_TIMEOUT:
                         return
                     auto[press_en.key] = False
                     auto.sleep(5 * sy.TimeSpan.MILLISECOND)
@@ -521,7 +521,7 @@ class TestController:
 
             waiter = threading.Thread(target=run, daemon=True)
             waiter.start()
-            deadline = time.monotonic() + HANDSHAKE_TIMEOUT
+            deadline = time.monotonic() + HANDSHAKE_TIMEOUT.seconds
             while not receiver.processors:
                 if errors:
                     raise errors[0]
@@ -529,8 +529,8 @@ class TestController:
                 time.sleep(0.01)
             asyncio.run_coroutine_threadsafe(
                 receiver.streamer.close_loop(), receiver.loop
-            ).result(HANDSHAKE_TIMEOUT)
-            waiter.join(HANDSHAKE_TIMEOUT)
+            ).result(HANDSHAKE_TIMEOUT.seconds)
+            waiter.join(HANDSHAKE_TIMEOUT.seconds)
             assert not waiter.is_alive(), "blocked wait was not woken"
             assert len(errors) == 1
             assert isinstance(errors[0], sy.UnexpectedError)
@@ -567,21 +567,21 @@ class TestController:
         seq_one_done = threading.Event()
 
         def sequence_one() -> None:
-            daq_ready.wait(HANDSHAKE_TIMEOUT)
+            daq_ready.wait(HANDSHAKE_TIMEOUT.seconds)
             with client.control.acquire(
                 name="Basic Valve Toggle",
                 read=[press_en.key],
                 write=[press_en_cmd.key],
                 write_authorities=[100],
             ) as auto:
-                seq_two_acquired.wait(HANDSHAKE_TIMEOUT)
+                seq_two_acquired.wait(HANDSHAKE_TIMEOUT.seconds)
                 auto[press_en_cmd.key] = True
                 assertions["seq_one_first_ack"] = auto.wait_until(
                     lambda c: c[press_en.key],
                     timeout=250 * sy.TimeSpan.MILLISECOND,
                 )
                 seq_one_blocked.set()
-                seq_two_lowered.wait(HANDSHAKE_TIMEOUT)
+                seq_two_lowered.wait(HANDSHAKE_TIMEOUT.seconds)
                 auto[press_en_cmd.key] = True
                 assertions["seq_one_second_ack"] = auto.wait_until(
                     lambda c: c[press_en.key],
@@ -591,7 +591,7 @@ class TestController:
                 auto[press_en_cmd.key] = False
 
         def sequence_two() -> None:
-            daq_ready.wait(HANDSHAKE_TIMEOUT)
+            daq_ready.wait(HANDSHAKE_TIMEOUT.seconds)
             with client.control.acquire(
                 name="Basic Valve Toggle",
                 read=[press_en.key],
@@ -599,14 +599,14 @@ class TestController:
                 write_authorities=[255],
             ) as auto:
                 seq_two_acquired.set()
-                seq_one_blocked.wait(HANDSHAKE_TIMEOUT)
+                seq_one_blocked.wait(HANDSHAKE_TIMEOUT.seconds)
                 # set_authority blocks until the Core acknowledges it, so sequence one
                 # commands only after the lower authority is in effect. Sequence two
                 # holds its writer open until sequence one is done, so the commands go
                 # through because of the authority change alone.
                 auto.set_authority({press_en_cmd.key: 50})
                 seq_two_lowered.set()
-                seq_one_done.wait(HANDSHAKE_TIMEOUT)
+                seq_one_done.wait(HANDSHAKE_TIMEOUT.seconds)
 
         def daq() -> None:
             with client.control.acquire(
