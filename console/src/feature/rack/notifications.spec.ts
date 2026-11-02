@@ -57,7 +57,7 @@ describe("Rack.NOTIFICATION_RULE", () => {
     await settleWrites(client);
     expect(screen.queryByText(message)).toBeNull();
     act(() => void vi.advanceTimersByTime(TimeSpan.seconds(5).milliseconds));
-    expect(screen.getByText(message)).toBeTruthy();
+    expect(await screen.findByText(message)).toBeTruthy();
   });
 
   it("should not notify the unknown status of a rack whose Driver reports", async () => {
