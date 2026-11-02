@@ -150,6 +150,34 @@ var _ = Describe("TS Actions Plugin", func() {
 			)
 
 			It(
+				"Should name the state type and payload references by their TS names",
+				func(ctx SpecContext) {
+					source := `
+					@ts output "client/ts/src/counter"
+
+					Counter struct {
+						key uuid
+
+						action Create {
+							counter Counter
+						}
+
+						@ts name "Payload"
+					}
+				`
+					resp := MustGenerate(ctx, source, "counter", loader, p)
+					ExpectContent(resp, "actions.gen.ts").
+						ToContain(
+							`import { Payload, keyZ, payloadZ } from "@/counter/types.gen";`,
+							"counter: payloadZ,",
+							"export type ReduceAllResult = actions.ReduceAllResult<Payload, Action>;",
+							"create: (state: Draft<Payload>, payload: CreatePayload) => HandlerResult;",
+						).
+						ToNotContain("counterZ", "Draft<Counter>")
+				},
+			)
+
+			It(
 				"Should flatten fields from an extended struct into the action payload",
 				func(ctx SpecContext) {
 					source := `
@@ -178,7 +206,7 @@ var _ = Describe("TS Actions Plugin", func() {
 			)
 
 			It(
-				"Should emit scopedActionZ and dispatchReqZ bound to keyZ and actionZ",
+				"Should emit scopedActionZ, dispatchReqZ, and dispatchResZ bound to actionZ",
 				func(ctx SpecContext) {
 					source := `
 					@ts output "client/ts/src/counter"
@@ -196,6 +224,7 @@ var _ = Describe("TS Actions Plugin", func() {
 							`import { Counter, keyZ } from "@/counter/types.gen";`,
 							"export const scopedActionZ = actions.scopedZ(keyZ, actionZ);",
 							"export const dispatchReqZ = actions.dispatchReqZ(keyZ, actionZ);",
+							"export const dispatchResZ = actions.dispatchResZ(actionZ);",
 						)
 				},
 			)

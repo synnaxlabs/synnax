@@ -7,10 +7,10 @@
 #  License, use of this software will be governed by the Apache License, Version 2.0,
 #  included in the file licenses/APL.txt.
 
-from typing import Any, Literal
+from typing import Literal, Unpack
 
 from console.layout import LayoutClient
-from console.task.channels.counter import Counter
+from console.task.channels.counter import Counter, Options
 
 
 class TwoEdgeSeparation(Counter):
@@ -35,7 +35,7 @@ class TwoEdgeSeparation(Counter):
         units: Literal["Seconds", "Ticks"] | None = None,
         first_edge: Literal["Rising", "Falling"] | None = None,
         second_edge: Literal["Rising", "Falling"] | None = None,
-        **kwargs: Any,
+        **kwargs: Unpack[Options],
     ) -> None:
         """Initialize two edge separation channel with configuration."""
         super().__init__(

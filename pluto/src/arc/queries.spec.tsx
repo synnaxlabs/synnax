@@ -8,11 +8,24 @@
 // included in the file licenses/APL.txt.
 
 import { arc, query, status, task } from "@synnaxlabs/client";
-import { createTestClient } from "@synnaxlabs/client/testutil";
+import {
+  createTestClient,
+  spyOnSend,
+  waitForStreamLive,
+} from "@synnaxlabs/client/testutil";
 import { crdt, id, uuid } from "@synnaxlabs/x";
 import { act, render, renderHook, waitFor, within } from "@testing-library/react";
 import { type FC, type PropsWithChildren, type ReactElement } from "react";
-import { afterEach, assert, beforeAll, beforeEach, describe, expect, it } from "vitest";
+import {
+  afterEach,
+  assert,
+  beforeAll,
+  beforeEach,
+  describe,
+  expect,
+  it,
+  vi,
+} from "vitest";
 
 import { Arc } from "@/arc";
 import { Errors } from "@/errors";
@@ -575,6 +588,100 @@ describe("Arc queries", () => {
 
       expect(result.current.form.value().key).toBeUndefined();
       expect(result.current.form.get("name").status.variant).toBe("error");
+    });
+  });
+
+  describe("useNodeForm", () => {
+    const remote = createTestClient();
+    const STATUS_INPUTS = {
+      type: "status.set",
+      key_or_name: "alarm",
+      variant: "success",
+      message: "ok",
+    };
+
+    beforeEach(async () => await waitForStreamLive(client.connection));
+
+    afterEach(() => {
+      vi.restoreAllMocks();
+    });
+
+    const createStatusArc = async (): Promise<arc.Arc> =>
+      await createTestArc({
+        graph: {
+          nodes: [
+            { key: "n1", position: { x: 0, y: 0 } },
+            { key: "n2", position: { x: 10, y: 10 } },
+          ],
+          edges: [],
+          inputs: { n1: STATUS_INPUTS, n2: { ...STATUS_INPUTS, key_or_name: "fault" } },
+        },
+      });
+
+    const renderForm = async (key: arc.Key) =>
+      await renderHookSuspended(
+        ({ nodeKey }: { nodeKey: string }) => Arc.useNodeForm({ key, nodeKey }),
+        { wrapper, initialProps: { nodeKey: "n1" } },
+      );
+
+    // A fresh client reads the Core. A streaming client's cache can lag a dispatch.
+    const fetchStoredInputs = async (key: arc.Key, nodeKey: string): Promise<unknown> =>
+      (await createTestClient().arcs.retrieve({ key })).graph.inputs[nodeKey];
+
+    it("should show the node's inputs", async () => {
+      const a = await createStatusArc();
+      const { result } = await renderForm(a.key);
+      expect(result.current.form.value()).toEqual(STATUS_INPUTS);
+    });
+
+    it("should send an edit as a path action that keeps input key case", async () => {
+      const a = await createStatusArc();
+      const { result } = await renderForm(a.key);
+      const send = spyOnSend(client);
+      act(() => result.current.form.set("key_or_name", "pressure"));
+      await act(async () => expect(await result.current.flush()).toBe(true));
+      const [, req] =
+        send.mock.calls.find(([target]) => target === "/arc/dispatch") ?? [];
+      expect(req).toMatchObject({
+        actions: [
+          {
+            type: "set",
+            set: { path: ["graph", "inputs", "n1", "key_or_name"], value: "pressure" },
+          },
+        ],
+      });
+      expect(await fetchStoredInputs(a.key, "n1")).toEqual({
+        ...STATUS_INPUTS,
+        key_or_name: "pressure",
+      });
+    });
+
+    it("should show a remote edit to the node", async () => {
+      const a = await createStatusArc();
+      const { result } = await renderForm(a.key);
+      await remote.arcs.retrieve({ key: a.key });
+      await act(async () => {
+        await remote.arcs.dispatch(
+          a.key,
+          arc.set({ path: ["graph", "inputs", "n1", "message"], value: "remote" }),
+        );
+      });
+      await waitFor(() =>
+        expect(result.current.form.get("message").value).toBe("remote"),
+      );
+    });
+
+    it("should edit the new node when the node key changes", async () => {
+      const a = await createStatusArc();
+      const { result, rerender } = await renderForm(a.key);
+      rerender({ nodeKey: "n2" });
+      expect(result.current.form.get("key_or_name").value).toBe("fault");
+      act(() => result.current.form.set("message", "tripped"));
+      await act(async () => expect(await result.current.flush()).toBe(true));
+      expect(await fetchStoredInputs(a.key, "n2")).toMatchObject({
+        message: "tripped",
+      });
+      expect(await fetchStoredInputs(a.key, "n1")).toEqual(STATUS_INPUTS);
     });
   });
 

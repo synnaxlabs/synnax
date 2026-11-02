@@ -260,7 +260,6 @@ export const CounterRead = Task.wrapForm({
   schemas: COUNTER_READ_SCHEMAS,
   deployConfigZ: deployCounterReadConfigZ,
   type: "ni_counter_read",
-  getInitialValues,
   onConfigure,
 });
 

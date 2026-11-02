@@ -7,6 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
+export * from "@/platform/task/views/ChannelList";
 export * from "@/platform/task/views/ContextMenu";
 export * from "@/platform/task/views/DetailsHeader";
 export * from "@/platform/task/views/GroupTree";
@@ -14,5 +15,6 @@ export * from "@/platform/task/views/ItemLabel";
 export * from "@/platform/task/views/List";
 export * from "@/platform/task/views/ListAndDetails";
 export * from "@/platform/task/views/ListAndDetailsChannelItem";
+export * from "@/platform/task/views/ListChannelItem";
 export * from "@/platform/task/views/Panes";
 export type { PortsProps } from "@/platform/task/views/Ports";
