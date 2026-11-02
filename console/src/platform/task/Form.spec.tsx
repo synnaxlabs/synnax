@@ -36,7 +36,7 @@ const schemas = {
   type: z.literal("opc_read"),
   config: z.object({
     device: z.string().default(""),
-    channels: z.array(z.object({ key: z.string(), enabled: z.boolean() })).default([]),
+    channels: z.array(z.object({ key: z.string(), disabled: z.boolean() })).default([]),
   }),
   statusData: z.object({ running: z.boolean() }).nullish(),
 };
@@ -216,6 +216,40 @@ describe("wrapForm", () => {
         expect(screen.getByText("device-status:Device is required")).toBeTruthy(),
       );
       expect(configured).toBe(false);
+    });
+
+    it("should put an error of a keyed list entry on the field of that entry", async () => {
+      const ChannelStatus: FC = () => {
+        const { status } = PForm.useField(path.config.channels.ch1.key);
+        return <div>{`channel-status:${status.message}`}</div>;
+      };
+      ChannelStatus.displayName = "ChannelStatus";
+      // The form mounts with its initial values, before the task loads.
+      const ChannelStatusProbe: FC = () => {
+        const channels = PForm.useFieldValue(path.config.channels);
+        return channels.length > 0 ? <ChannelStatus /> : null;
+      };
+      ChannelStatusProbe.displayName = "ChannelStatusProbe";
+      const client = createTestClient();
+      const draft = await client.tasks.create({
+        ...getInitialValues({}),
+        config: { device: "dev", channels: [{ key: "ch1", disabled: false }] },
+        rack: 0,
+      });
+      const Renderer = createRenderer({
+        Form: ChannelStatusProbe,
+        deployConfigZ: schemas.config.extend({
+          channels: z.array(z.object({ key: z.string().min(4, "Key is too short") })),
+        }),
+      });
+      const { container } = await renderTaskFormTab(Renderer, {
+        client,
+        taskKey: draft.key,
+      });
+      await clickDeploy(container);
+      await waitFor(() =>
+        expect(screen.getByText("channel-status:Key is too short")).toBeTruthy(),
+      );
     });
 
     it("should block deploy on an error from a check the form runs", async () => {

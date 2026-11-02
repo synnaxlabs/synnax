@@ -9,27 +9,20 @@
 
 import "@/feature/http/task/Form.css";
 
-import {
-  channel,
-  http,
-  NotFoundError,
-  type Synnax as Client,
-} from "@synnaxlabs/client";
+import { channel, http } from "@synnaxlabs/client";
 import { Component } from "@synnaxlabs/lyra/component";
 import { Flex } from "@synnaxlabs/lyra/flex";
 import { Form as PForm } from "@synnaxlabs/lyra/form";
 import { Icon } from "@synnaxlabs/lyra/icon";
 import { Input } from "@synnaxlabs/lyra/input";
 import { Select } from "@synnaxlabs/lyra/select";
-import { Access, Channel as PChannel, Telem } from "@synnaxlabs/pluto";
-import { DataType, deep, errors, id, primitive } from "@synnaxlabs/x";
+import { DataType, deep, id } from "@synnaxlabs/x";
 import { type FC } from "react";
 
 import { useFromConfig } from "@/feature/http/device/queries";
 import { Select as SelectDevice } from "@/feature/http/device/Select";
 import { MAKE, SCHEMAS } from "@/feature/http/device/types";
 import { EndpointLabel } from "@/feature/http/task/EndpointLabel";
-import { TimeFormatField } from "@/feature/http/task/TimeFormatField";
 import {
   deployReadConfigZ,
   READ_SCHEMAS,
@@ -78,26 +71,13 @@ const isTimingField = (f: ReadField): boolean => f.timeFormat != null;
 const defaultChannelName = (devName: string, epPath: string, pointer: string): string =>
   channel.escapeInvalidName(devName) + channel.escapeInvalidName(epPath + pointer);
 
-const useDefaultChannelName = (epKey: string, pointer: string): string => {
-  const epPath = PForm.useFieldValue(root.config.endpoints[epKey].path);
+const useDefaultChannelName = (endpoint: deep.Path<ReadEndpoint>, pointer: string) => {
+  const epPath = PForm.useFieldValue(endpoint.path);
   const dev = useFromConfig();
   return dev == null ? "" : defaultChannelName(dev.name, epPath, pointer);
 };
 
 const POINTER_INPUT_PROPS = { placeholder: "/temperature" } as const;
-
-const HIDDEN_DATA_TYPES = [
-  DataType.TIMESTAMP,
-  DataType.UUID,
-  DataType.JSON,
-  DataType.BYTES,
-];
-
-const renderTelemSelectDataType = Component.renderProp(
-  (p: Telem.SelectDataTypeProps) => (
-    <Telem.SelectDataType {...p} hideDataTypes={HIDDEN_DATA_TYPES} location="bottom" />
-  ),
-);
 
 const MethodSelect: FC<{ path: deep.Path<ReadEndpoint> }> = ({ path }) => {
   const { set } = PForm.useContext();
@@ -118,77 +98,6 @@ const MethodSelect: FC<{ path: deep.Path<ReadEndpoint> }> = ({ path }) => {
     <PForm.Field path={path.method} label="Method">
       {renderMethod}
     </PForm.Field>
-  );
-};
-
-/**
- * Binds an endpoint's fields to the channels the device stores for its path. Mounted by
- * the form for every endpoint, as the details pane renders only the selected one.
- */
-const FieldBinder = ({ epKey }: { epKey: string }) => {
-  const dev = useFromConfig();
-  const epPath = PForm.useFieldValue(root.config.endpoints[epKey].path);
-  const indexKey = PForm.useFieldValue(root.config.endpoints[epKey].index);
-  const resolve = (field: ReadField) => {
-    if (dev == null) return null;
-    const props = dev.properties.read[epPath];
-    if (props == null) return { channel: 0 };
-    return {
-      channel:
-        field.key === indexKey ? props.index : (props.channels[field.pointer] ?? 0),
-    };
-  };
-  return (
-    <Task.BindChannels<ReadField>
-      path={root.config.endpoints[epKey].fields}
-      resolve={resolve}
-    />
-  );
-};
-
-interface ChannelNameFieldProps {
-  path: deep.Path<ReadField>;
-  channel: channel.Key;
-  defaultName: string;
-}
-
-/**
- * Names a field's channel. Until configure creates the channel, the name lives on the
- * field; after, an edit renames the channel itself.
- */
-const ChannelNameField = ({
-  path,
-  channel: key,
-  defaultName,
-}: ChannelNameFieldProps) =>
-  key === 0 ? (
-    <PForm.TextField
-      path={path.name}
-      label="Channel"
-      padHelpText={false}
-      inputProps={{ placeholder: defaultName === "" ? "Channel name" : defaultName }}
-    />
-  ) : (
-    <ExistingChannelNameField channel={key} />
-  );
-
-const ExistingChannelNameField = ({ channel: key }: { channel: channel.Key }) => {
-  const { data: name = "" } = PChannel.useResultName({ key });
-  const { update } = PChannel.useRename();
-  const canRename = Access.useUpdateGranted(channel.TYPE_ONTOLOGY_ID);
-  const isPreview = Task.useIsPreview();
-  const handleChange = (next: string) => {
-    if (next.length > 0 && next !== name) update({ key, name: next });
-  };
-  return (
-    <Input.Item label="Channel" padHelpText={false}>
-      <Input.Text
-        value={name}
-        onChange={handleChange}
-        onlyChangeOnBlur
-        disabled={isPreview || !canRename}
-      />
-    </Input.Item>
   );
 };
 
@@ -237,7 +146,7 @@ const TimestampFields: FC<{ path: deep.Path<ReadEndpoint> }> = ({ path }) => {
             padHelpText={false}
             inputProps={TIMESTAMP_POINTER_INPUT_PROPS}
           />
-          <TimeFormatField
+          <Task.Payload.TimeFormatField
             path={path.fields[indexField.key].timeFormat}
             label="Format"
           />
@@ -249,29 +158,29 @@ const TimestampFields: FC<{ path: deep.Path<ReadEndpoint> }> = ({ path }) => {
 
 const TIMESTAMP_POINTER_INPUT_PROPS = { placeholder: "/timestamp" } as const;
 
-const EndpointDetails: FC<{ endpoint: deep.Path<ReadEndpoint> }> = ({ endpoint }) => {
-  const method = PForm.useFieldValue(endpoint.method);
+const EndpointDetails: FC<{ path: deep.Path<ReadEndpoint> }> = ({ path }) => {
+  const method = PForm.useFieldValue(path.method);
   return (
     <Flex.Box y grow empty className={CSS.B("endpoint-details")}>
       <PForm.Sections className={CSS.B("endpoint-form")}>
         <PForm.Section title="Request">
-          <MethodSelect path={endpoint} />
+          <MethodSelect path={path} />
           <PForm.TextField
-            path={endpoint.path}
+            path={path.path}
             label="Path"
             padHelpText={false}
             inputProps={PATH_INPUT_PROPS}
           />
           {method === "POST" && (
             <PForm.TextField
-              path={endpoint.body}
+              path={path.body}
               label="Body"
               padHelpText={false}
               inputProps={REQUEST_BODY_INPUT_PROPS}
             />
           )}
           <PlatformForm.KeyValueEditor
-            path={endpoint.queryParams}
+            path={path.queryParams}
             resourceName="parameter"
             label="Query parameters"
             keyField="parameter"
@@ -279,7 +188,7 @@ const EndpointDetails: FC<{ endpoint: deep.Path<ReadEndpoint> }> = ({ endpoint }
             valuePlaceholder="100"
           />
           <PlatformForm.KeyValueEditor
-            path={endpoint.headers}
+            path={path.headers}
             resourceName="header"
             label="Headers"
             keyField="name"
@@ -288,53 +197,39 @@ const EndpointDetails: FC<{ endpoint: deep.Path<ReadEndpoint> }> = ({ endpoint }
           />
         </PForm.Section>
         <PForm.Section title="Timestamp">
-          <TimestampFields path={endpoint} />
+          <TimestampFields path={path} />
         </PForm.Section>
       </PForm.Sections>
     </Flex.Box>
   );
 };
 
-const FieldPane: FC<{ epKey: string; field: deep.Path<ReadField> }> = ({
-  epKey,
-  field,
-}) => {
-  const { channel: fieldChannel, pointer } = PForm.useFieldValue(field);
-  const defaultName = useDefaultChannelName(epKey, pointer);
-  const bound = fieldChannel !== 0;
+interface FieldPaneProps {
+  endpoint: deep.Path<ReadEndpoint>;
+  path: deep.Path<ReadField>;
+}
+
+const FieldPane: FC<FieldPaneProps> = ({ endpoint, path }) => {
+  const { channel: fieldChannel, pointer } = PForm.useFieldValue(path);
+  const defaultName = useDefaultChannelName(endpoint, pointer);
   return (
     <Flex.Box y grow empty className={CSS.B("endpoint-details")}>
       <PForm.Sections className={CSS.B("endpoint-form")}>
         <PForm.Section title="Field">
           <PForm.TextField
-            path={field.pointer}
+            path={path.pointer}
             label="Pointer"
             padHelpText={false}
             inputProps={POINTER_INPUT_PROPS}
           />
-          <PForm.Field
-            path={field.dataType}
-            label="Data type"
-            padHelpText={false}
-            helpText={bound ? "Set on the channel" : undefined}
-          >
-            {(p) => renderTelemSelectDataType({ ...p, disabled: bound })}
-          </PForm.Field>
-          <ChannelNameField
-            path={field}
+          <Task.Payload.DataTypeField path={path.dataType} channel={fieldChannel} />
+          <Task.ChannelNameField
             channel={fieldChannel}
+            namePath={path.name}
             defaultName={defaultName}
           />
         </PForm.Section>
-        <PForm.Section title="Enum mapping">
-          <PlatformForm.KeyValueEditor
-            path={field.enumValues}
-            resourceName="mapping"
-            keyField="label"
-            keyPlaceholder="String (e.g. ON)"
-            valueType="number"
-          />
-        </PForm.Section>
+        <Task.Payload.EnumMappingSection path={path.enumValues} />
       </PForm.Sections>
     </Flex.Box>
   );
@@ -348,7 +243,9 @@ const REQUEST_BODY_INPUT_PROPS = {
   className: CSS.B("request-body"),
 } as const;
 
-const createEndpoint = (): Omit<ReadEndpoint, "key"> => http.readEndpointZ.parse({});
+const createEndpoints = async (): Promise<ReadEndpoint[]> => [
+  http.readEndpointZ.parse({}),
+];
 
 const createField = (): Omit<ReadField, "key"> => http.readFieldZ.parse({});
 
@@ -357,34 +254,39 @@ const endpointLabel = Component.renderProp(
 );
 
 const endpointDetails = Component.renderProp(
-  ({ path }: Task.Views.GroupProps<ReadEndpoint>) => (
-    <EndpointDetails endpoint={path} />
-  ),
+  ({ path }: Task.Views.GroupProps<ReadEndpoint>) => <EndpointDetails path={path} />,
 );
 
 const fieldDetails = Component.renderProp(
   ({ groupKey, path }: Task.Views.FieldProps<ReadField>) => (
-    <FieldPane epKey={groupKey} field={path} />
+    <FieldPane endpoint={root.config.endpoints[groupKey]} path={path} />
   ),
 );
 
 const Form: FC = () => {
   const endpoints = PForm.useFieldValue(root.config.endpoints);
+  const read = useFromConfig()?.properties.read ?? null;
   return (
     <>
       <Task.Views.GroupTree<ReadEndpoint, ReadField>
         path={root.config.endpoints}
         listTitle="Endpoints"
-        groupName="endpoint"
+        emptyMessage="No endpoints"
         placeholder="Select an endpoint or field to configure"
-        createGroup={createEndpoint}
+        addLabel="Add endpoint"
+        createGroups={createEndpoints}
         createField={createField}
         groupLabel={endpointLabel}
         groupDetails={endpointDetails}
         fieldDetails={fieldDetails}
       />
       {endpoints.map(({ key }) => (
-        <FieldBinder key={key} epKey={key} />
+        <Task.BindReadChannels
+          key={key}
+          path={root.config.endpoints[key]}
+          propertiesKey={root.config.endpoints[key].path}
+          read={read}
+        />
       ))}
     </>
   );
@@ -399,104 +301,26 @@ const getInitialValues: Task.GetInitialValues<ReadSchemas> = ({
   return { name: "HTTP read task", type: READ_TYPE, config: cfg };
 };
 
-const retrieveChannel = async (
-  client: Client,
-  key: channel.Key,
-): Promise<channel.Channel | null> => {
-  try {
-    return await client.channels.retrieve(key);
-  } catch (e) {
-    if (NotFoundError.matches(e)) return null;
-    throw errors.fromUnknown(e);
-  }
-};
-
-const channelExists = async (client: Client, key: channel.Key): Promise<boolean> =>
-  (await retrieveChannel(client, key)) != null;
-
 const onConfigure: Task.OnConfigure<ReadSchemas["config"]> = async (client, config) => {
   const dev = await client.devices.retrieve({
     key: config.device,
     schemas: SCHEMAS,
   });
   const safeDevName = channel.escapeInvalidName(dev.name);
-  let modified = false;
+  const saved = deep.copy(dev.properties);
   try {
-    for (const ep of config.endpoints) {
-      dev.properties.read[ep.path] ??= { index: 0, channels: {} };
-      const epProps = dev.properties.read[ep.path];
-
-      const needsIndex = ep.fields.some(
-        (f) => !isTimingField(f) && !new DataType(f.dataType).isVariable,
-      );
-
-      if (needsIndex) {
-        let shouldCreateIndex = !primitive.isNonZero(epProps.index);
-        shouldCreateIndex ||= !(await channelExists(client, epProps.index));
-        if (shouldCreateIndex) {
-          // check if any existing data channels share an index we can reuse
-          let recoveredIndex = 0;
-          for (const storedKey of Object.values(epProps.channels)) {
-            if (!primitive.isNonZero(storedKey)) continue;
-            const ch = await retrieveChannel(client, storedKey);
-            if (ch != null && primitive.isNonZero(ch.index)) {
-              const indexCh = await retrieveChannel(client, ch.index);
-              if (indexCh != null) {
-                recoveredIndex = ch.index;
-                break;
-              }
-            }
-          }
-          if (primitive.isNonZero(recoveredIndex)) {
-            epProps.index = recoveredIndex;
-            modified = true;
-          } else {
-            modified = true;
-            const newIndexCh = await client.channels.create({
-              name: `${safeDevName}${channel.escapeInvalidName(ep.path)}_time`,
-              dataType: "timestamp",
-              isIndex: true,
-            });
-            epProps.index = newIndexCh.key;
-          }
-        }
-      }
-
-      const potentialTimingKey = ep.index;
-      for (const field of ep.fields) {
-        if (field.key === potentialTimingKey && epProps.index !== 0) {
-          field.channel = epProps.index;
-          continue;
-        }
-
-        if (field.channel !== 0 && (await channelExists(client, field.channel)))
-          continue;
-
-        const storedKey = epProps.channels[field.pointer];
-        if (
-          primitive.isNonZero(storedKey) &&
-          (await channelExists(client, storedKey))
-        ) {
-          field.channel = storedKey;
-          continue;
-        }
-
-        const dt = new DataType(field.dataType);
-        const chName = primitive.isNonZero(field.name)
-          ? field.name
-          : defaultChannelName(dev.name, ep.path, field.pointer);
-        const newCh = await client.channels.create({
-          name: chName,
-          dataType: field.dataType,
-          ...(dt.isVariable ? { virtual: true } : { index: epProps.index }),
-        });
-        modified = true;
-        field.channel = newCh.key;
-        epProps.channels[field.pointer] = newCh.key;
-      }
-    }
+    for (const ep of config.endpoints)
+      await Task.configureReadChannels({
+        client,
+        read: dev.properties.read,
+        propertiesKey: ep.path,
+        fields: ep.fields,
+        namePrefix: `${safeDevName}${channel.escapeInvalidName(ep.path)}`,
+        indexKey: ep.index,
+        indexed: (f) => !isTimingField(f) && !new DataType(f.dataType).isVariable,
+      });
   } finally {
-    if (modified) await client.devices.create(dev, SCHEMAS);
+    if (!deep.equal(saved, dev.properties)) await client.devices.create(dev, SCHEMAS);
   }
   return [config, dev.rack];
 };

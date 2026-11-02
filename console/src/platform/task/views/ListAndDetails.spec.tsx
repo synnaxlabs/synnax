@@ -169,7 +169,7 @@ describe("layouts.ListAndDetails", () => {
     expect(screen.getByText("item-new_a")).toBeTruthy();
   });
 
-  it("should duplicate the selected channels through the context menu", async () => {
+  it("should duplicate the selected channels through the context menu and select the copies", async () => {
     let counter = 0;
     const createChannel = (_channels: Channel[], copyFrom?: string): Channel => ({
       key: `dup_${copyFrom}_${counter++}`,
@@ -185,6 +185,7 @@ describe("layouts.ListAndDetails", () => {
       expect(form.current?.get(path.config.channels).value).toHaveLength(2),
     );
     expect(screen.getByText("item-dup_a_0")).toBeTruthy();
+    await screen.findByText("details-for-config.channels.dup_a_0");
   });
 
   it("should remove a channel through the context menu and clear the details panel", async () => {

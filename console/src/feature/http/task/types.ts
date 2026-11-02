@@ -20,8 +20,6 @@ import { Task } from "@/platform/task";
 
 export const PREFIX = "http";
 
-export type TimeFormat = http.TimeFormat;
-
 export const READ_TYPE = `${PREFIX}_read`;
 
 export interface ReadField extends http.ReadField {}
@@ -68,8 +66,6 @@ export type ReadSchemas = typeof READ_SCHEMAS;
 
 export const WRITE_TYPE = `${PREFIX}_write`;
 
-export type GeneratorType = http.GeneratorType;
-
 export interface ChannelField extends http.ChannelField {}
 
 const validateEnumValues = (ctx: z.core.ParsePayload<ChannelField>) => {
@@ -96,8 +92,6 @@ const writeFieldZ = z.discriminatedUnion("type", [
   http.staticWriteFieldZ,
   http.generatedWriteFieldZ,
 ]);
-
-export type WriteField = z.infer<typeof writeFieldZ>;
 
 const writeMethodZ = z.enum(["POST", "PUT", "PATCH"]);
 

@@ -20,16 +20,20 @@ import {
 import { LIST_CHANNEL_COLUMNS } from "@/platform/task/views/ListChannelItem";
 import { type PortsProps, type View, ViewSwitch } from "@/platform/task/views/Ports";
 
-export interface ListProps<C extends Channel> extends Pick<
-  ChannelListProps<C>,
-  | "createChannel"
-  | "listItem"
-  | "contextMenuItems"
-  | "path"
-  | "resolve"
-  | "header"
-  | "checkable"
-> {
+export interface ListProps<C extends Channel>
+  extends
+    Pick<
+      ChannelListProps<C>,
+      | "listItem"
+      | "contextMenuItems"
+      | "path"
+      | "resolve"
+      | "header"
+      | "checkable"
+      | "emptyContent"
+      | "addLabel"
+    >,
+    Required<Pick<ChannelListProps<C>, "createChannel">> {
   /**
    * The task's own columns, for items that are `ListChannelItem`s. The arrow and
    * channel columns follow them.

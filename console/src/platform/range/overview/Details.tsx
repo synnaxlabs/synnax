@@ -15,7 +15,6 @@ import { Divider } from "@synnaxlabs/lyra/divider";
 import { Flex } from "@synnaxlabs/lyra/flex";
 import { Form } from "@synnaxlabs/lyra/form";
 import { Icon } from "@synnaxlabs/lyra/icon";
-import { Status } from "@synnaxlabs/lyra/status";
 import { Text } from "@synnaxlabs/lyra/text";
 import { Access, Label as PLabel, Ranger } from "@synnaxlabs/pluto";
 import { type FC, type ReactElement } from "react";
@@ -107,10 +106,7 @@ export const Details: FC<DetailsProps> = ({ rangeKey }) => {
     mode: canEdit ? "normal" : "preview",
   });
 
-  const handleError = Status.useErrorHandler();
-  const name = Form.useFieldValue(path.name, {
-    ctx: form,
-  });
+  const name = Form.useFieldValue(path.name, { ctx: form });
 
   const getPythonCode = () =>
     `
@@ -123,7 +119,7 @@ export const Details: FC<DetailsProps> = ({ rangeKey }) => {
       const rng = await client.ranges.retrieve("${rangeKey}")
     `;
 
-  const promptDownloadCSVModal = Framer.useDownloadCSVModal();
+  const openDownloadCSVModal = Framer.useDownloadCSVModal();
 
   return (
     <Form.Form<typeof Ranger.formSchema> {...form}>
@@ -172,14 +168,12 @@ export const Details: FC<DetailsProps> = ({ rangeKey }) => {
               variant="text"
               textColor={9}
               onClick={() =>
-                handleError(async () => {
-                  await promptDownloadCSVModal({
-                    timeRange: form.get(path.timeRange).value,
-                    name,
-                    channels: [],
-                    icon: <Icon.Range />,
-                  });
-                }, "Failed to download CSV")
+                openDownloadCSVModal({
+                  timeRange: form.get(path.timeRange).value,
+                  name,
+                  channels: [],
+                  icon: <Icon.Range />,
+                })
               }
             >
               <Icon.CSV />
