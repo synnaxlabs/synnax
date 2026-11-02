@@ -7,19 +7,19 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { type Model, type Port, PORTS } from "@/feature/labjack/device/types";
+import { Device } from "@/feature/labjack/device";
 import { type Channel } from "@/feature/labjack/task/types";
 import { Task } from "@/platform/task";
 
 /** The name on the port's terminal: its alias, such as "FIO4", or else its key. */
-export const terminal = ({ key, alias }: Port): string => alias ?? key;
+export const terminal = ({ key, alias }: Device.Port): string => alias ?? key;
 
 /**
  * The terminal of the port with the key on the model. Ports of two types can share a
  * terminal: on a T4, AIN4 and DIO4 are both FIO4. A port the model lacks is its own.
  */
-export const terminalOf = (model: Model, key: string): string => {
-  const lists: Port[][] = Object.values(PORTS[model]);
+export const terminalOf = (model: Device.Model, key: string): string => {
+  const lists: Device.Port[][] = Object.values(Device.PORTS[model]);
   for (const ports of lists) {
     const port = ports.find((p) => p.key === key);
     if (port != null) return terminal(port);
@@ -31,12 +31,12 @@ export const terminalOf = (model: Model, key: string): string => {
 export interface Bank {
   /** The terminal prefix and the accessory the ports need, such as "AIN (MUX80)". */
   title: string;
-  ports: Port[];
+  ports: Device.Port[];
 }
 
 const TERMINAL_REGEX = /^(\D+)(\d+)$/;
 
-const split = (port: Port): [string, number] => {
+const split = (port: Device.Port): [string, number] => {
   const name = terminal(port);
   const match = TERMINAL_REGEX.exec(name);
   if (match == null) throw new Error(`LabJack terminal ${name} has no number`);
@@ -44,7 +44,7 @@ const split = (port: Port): [string, number] => {
 };
 
 /** Splits the ports into banks where the terminal prefix or the accessory changes. */
-export const banks = (ports: Port[]): Bank[] => {
+export const banks = (ports: Device.Port[]): Bank[] => {
   const result: Bank[] = [];
   for (const port of ports) {
     const [prefix] = split(port);
@@ -67,7 +67,7 @@ export const banks = (ports: Port[]): Bank[] => {
 };
 
 /** The channels on each terminal of the model. */
-export const claims = (channels: Channel[], model: Model): Task.Port.Claims =>
+export const claims = (channels: Channel[], model: Device.Model): Task.Port.Claims =>
   Task.Port.group(
     channels.map(({ key, port, disabled }) => ({
       port: terminalOf(model, port),

@@ -9,7 +9,7 @@
 
 import { type z } from "zod";
 
-import { type Model } from "@/feature/labjack/device/types";
+import { type Device } from "@/feature/labjack/device";
 import { claims } from "@/feature/labjack/task/ports";
 import { type Channel } from "@/feature/labjack/task/types";
 import { Task } from "@/platform/task";
@@ -18,7 +18,7 @@ import { Task } from "@/platform/task";
  * Checks that no two channels of a task config use one terminal of the model. On a T4,
  * a channel on AIN4 and one on DIO4 both use FIO4.
  */
-export const uniqueTerminalsZ = (model: Model): z.ZodType =>
+export const uniqueTerminalsZ = (model: Device.Model): z.ZodType =>
   Task.check<{ channels: Channel[] }>(({ channels }, report) =>
     Task.Port.reportConflicts(claims(channels, model), channels, report),
   );

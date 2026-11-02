@@ -10,7 +10,7 @@
 import { type ni } from "@synnaxlabs/client";
 import { deep, id } from "@synnaxlabs/x";
 
-import { type Device } from "@/feature/ni/device/types";
+import { type Device } from "@/feature/ni/device";
 import {
   ANALOG_INPUT,
   ANALOG_OUTPUT,
@@ -55,7 +55,7 @@ const template = <C extends { key: string }>(
   return deep.copy(channels.find(({ key }) => key === copy) ?? zero);
 };
 
-const hardwareOf = (devices: Device[], key: string): ni.Hardware | undefined =>
+const hardwareOf = (devices: Device.Device[], key: string): ni.Hardware | undefined =>
   devices.find((d) => d.key === key)?.properties.hardware;
 
 /**
@@ -66,7 +66,7 @@ const hardwareOf = (devices: Device[], key: string): ni.Hardware | undefined =>
 export const createNextAIChannel = (
   channels: AIChannel[],
   { copy, device, port }: Placement = {},
-  devices: Device[] = [],
+  devices: Device.Device[] = [],
 ): AIChannel => {
   const next: AIChannel = {
     ...template(channels, createAIChannel(), copy),
@@ -90,7 +90,7 @@ export const createNextAIChannel = (
 export const createNextAOChannel = (
   channels: AOChannel[],
   { copy, port }: Omit<Placement, "device"> = {},
-  device?: Device,
+  device?: Device.Device,
 ): AOChannel => {
   const hardware = device?.properties.hardware;
   const next: AOChannel = {
@@ -112,7 +112,7 @@ export const createNextAOChannel = (
 export const createNextCIChannel = (
   channels: CIChannel[],
   { copy, device, port }: Placement = {},
-  devices: Device[] = [],
+  devices: Device.Device[] = [],
 ): CIChannel => {
   const next: CIChannel = {
     ...template(channels, createCIChannel(), copy),
@@ -143,7 +143,7 @@ const createDigitalChannel = <C extends DigitalChannel>(
   zero: C,
   direction: "input" | "output",
   placement: LinePlacement,
-  device?: Device,
+  device?: Device.Device,
 ): C => {
   const next = { ...zero, key: id.create() };
   if (placement.port != null && placement.line != null)
@@ -169,7 +169,7 @@ const createDigitalChannel = <C extends DigitalChannel>(
 export const createNextDIChannel = (
   channels: DIChannel[],
   placement: LinePlacement = {},
-  device?: Device,
+  device?: Device.Device,
 ): DIChannel =>
   createDigitalChannel(channels, createDIChannel(), "input", placement, device);
 
@@ -177,6 +177,6 @@ export const createNextDIChannel = (
 export const createNextDOChannel = (
   channels: DOChannel[],
   placement: LinePlacement = {},
-  device?: Device,
+  device?: Device.Device,
 ): DOChannel =>
   createDigitalChannel(channels, createDOChannel(), "output", placement, device);

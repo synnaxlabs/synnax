@@ -10,7 +10,7 @@
 import { channel, type ni } from "@synnaxlabs/client";
 import { primitive } from "@synnaxlabs/x";
 
-import { type Device } from "@/feature/ni/device/types";
+import { type Device } from "@/feature/ni/device";
 import { getAIChannelSuffix } from "@/feature/ni/task/getAIChannelDeviceKey";
 import {
   type AIChannel,
@@ -204,7 +204,7 @@ export interface PortKind<C extends Task.Channel> {
   /** The names of the ports the channel holds, its own port first. */
   holds: (channel: C, hardware?: ni.Hardware) => string[];
   /** The name a channel shows by. */
-  name: (channel: C, device: Device) => string;
+  name: (channel: C, device: Device.Device) => string;
 }
 
 /** The claims of the channels, all on one device. */
@@ -240,7 +240,7 @@ export const holdState = <C extends Task.Channel>(
   );
 };
 
-const identifierOf = (device: Device): string =>
+const identifierOf = (device: Device.Device): string =>
   channel.escapeInvalidName(device.properties.identifier);
 
 const named = (name: string, fallback: () => string): string =>
@@ -269,13 +269,13 @@ export const COUNTER_INPUT: PortKind<CIChannel> = {
 };
 
 /** The name an analog output channel's state channel shows by. */
-export const analogOutputStateName = (c: AOChannel, d: Device): string =>
+export const analogOutputStateName = (c: AOChannel, d: Device.Device): string =>
   named(c.stateChannelName, () => `${identifierOf(d)}_ao_${c.port}_state`);
 
 /** The name a digital input channel shows by. */
-export const digitalInputName = (c: DIChannel, d: Device): string =>
+export const digitalInputName = (c: DIChannel, d: Device.Device): string =>
   named(c.name, () => `${identifierOf(d)}_di_${c.port}_${c.line}`);
 
 /** The name a digital output channel shows by: its command channel's. */
-export const digitalOutputName = (c: DOChannel, d: Device): string =>
+export const digitalOutputName = (c: DOChannel, d: Device.Device): string =>
   named(c.cmdChannelName, () => `${identifierOf(d)}_do_${c.port}_${c.line}_cmd`);

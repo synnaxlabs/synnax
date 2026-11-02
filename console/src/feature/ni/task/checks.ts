@@ -11,7 +11,7 @@ import { type ni } from "@synnaxlabs/client";
 import { unique } from "@synnaxlabs/x";
 import { type z } from "zod";
 
-import { type Device } from "@/feature/ni/device/types";
+import { type Device } from "@/feature/ni/device";
 import {
   accepts,
   ANALOG_INPUT,
@@ -33,7 +33,7 @@ import {
 } from "@/feature/ni/task/types";
 import { Task } from "@/platform/task";
 
-const hardwareOf = (devices: Device[], key: string): ni.Hardware | undefined =>
+const hardwareOf = (devices: Device.Device[], key: string): ni.Hardware | undefined =>
   devices.find((d) => d.key === key)?.properties.hardware;
 
 const conflictMessage = (port: string, claim: Claim, enabled: Claim[]): string => {
@@ -47,7 +47,7 @@ const conflictMessage = (port: string, claim: Claim, enabled: Claim[]): string =
 const reportConflicts = <C extends Task.Channel & { device: string }>(
   kind: PortKind<C>,
   channels: C[],
-  devices: Device[],
+  devices: Device.Device[],
   report: Task.ReportIssue,
 ): void =>
   unique.unique(channels.map(({ device }) => device)).forEach((key) =>
@@ -74,7 +74,7 @@ const SCAN_CHANNELS_PER_THERMOCOUPLE_DEVICE = 2;
 
 const checkAnalogRate = (
   config: ni.AnalogReadConfig,
-  devices: Device[],
+  devices: Device.Device[],
   report: Task.ReportIssue,
 ): void => {
   devices.forEach(({ key, model, properties: { hardware } }) => {
@@ -104,7 +104,7 @@ const checkAnalogRate = (
  * channels on a device share, each channel's port, type, and terminal configuration,
  * and the sample rate. Only the port checks run on a device with no port data.
  */
-export const analogReadHardwareZ = (devices: Device[]): z.ZodType =>
+export const analogReadHardwareZ = (devices: Device.Device[]): z.ZodType =>
   Task.check<ni.AnalogReadConfig>((config, report) => {
     const { channels } = config;
     reportConflicts(ANALOG_INPUT, channels, devices, report);
@@ -134,7 +134,7 @@ export const analogReadHardwareZ = (devices: Device[]): z.ZodType =>
   });
 
 /** Checks an analog write config against the ports of its device. */
-export const analogWriteHardwareZ = (device: Device | undefined): z.ZodType =>
+export const analogWriteHardwareZ = (device: Device.Device | undefined): z.ZodType =>
   Task.check<ni.AnalogWriteConfig>(({ channels }, report) => {
     const hardware = device?.properties.hardware;
     Task.Port.reportConflicts(
@@ -158,7 +158,7 @@ export const analogWriteHardwareZ = (device: Device | undefined): z.ZodType =>
   });
 
 /** Checks a counter read config against the counters of its devices. */
-export const counterReadHardwareZ = (devices: Device[]): z.ZodType =>
+export const counterReadHardwareZ = (devices: Device.Device[]): z.ZodType =>
   Task.check<ni.CounterReadConfig>(({ channels }, report) => {
     reportConflicts(COUNTER_INPUT, channels, devices, report);
     channels.forEach((c, i) => {
@@ -181,7 +181,7 @@ export const counterReadHardwareZ = (devices: Device[]): z.ZodType =>
  * share, each line's port, and its place in the port's width.
  */
 export const digitalHardwareZ = (
-  device: Device | undefined,
+  device: Device.Device | undefined,
   direction: "input" | "output",
 ): z.ZodType =>
   Task.check<{ channels: DigitalChannel[] }>(({ channels }, report) => {

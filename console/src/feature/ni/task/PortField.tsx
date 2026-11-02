@@ -12,7 +12,7 @@ import { Form } from "@synnaxlabs/lyra/form";
 import { deep } from "@synnaxlabs/x";
 import { type ReactElement } from "react";
 
-import { type Device } from "@/feature/ni/device/types";
+import { type Device } from "@/feature/ni/device";
 import { claimsOf, groups, type PortKind } from "@/feature/ni/task/ports";
 import { Task } from "@/platform/task";
 
@@ -21,7 +21,7 @@ export interface PortFieldProps<C extends Task.Channel> {
   path: deep.Target<{ key: string; port: number }>;
   /** The path of the task's channels. */
   channelsPath: deep.Target<C[]>;
-  device?: Device;
+  device?: Device.Device;
   kind: PortKind<C>;
   deviceOf: (channel: C) => device.Key;
 }

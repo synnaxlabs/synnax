@@ -11,7 +11,7 @@ import { Form } from "@synnaxlabs/lyra/form";
 import { deep } from "@synnaxlabs/x";
 import { type ReactElement } from "react";
 
-import { type Model, PORTS, type PortType } from "@/feature/labjack/device/types";
+import { Device } from "@/feature/labjack/device";
 import { PortBanks } from "@/feature/labjack/task/PortBanks";
 import { claims } from "@/feature/labjack/task/ports";
 import { type Channel } from "@/feature/labjack/task/types";
@@ -22,8 +22,8 @@ export interface PortFieldProps<C extends Channel> {
   path: deep.Target<C>;
   /** The path of the task's channels. */
   channelsPath: deep.Target<C[]>;
-  model: Model;
-  type: PortType;
+  model: Device.Model;
+  type: Device.PortType;
   /** The name a channel shows by. */
   name: (channel: C) => string;
 }
@@ -43,7 +43,7 @@ export const PortField = <C extends Channel>({
     <Form.Field path={port} label="Port">
       {({ onChange, preview }) => (
         <PortBanks
-          ports={PORTS[model][type]}
+          ports={Device.PORTS[model][type]}
           claims={claims(channels, model)}
           selected={[key]}
           describe={Task.Port.describer(channels, name)}
