@@ -59,9 +59,9 @@ class Transport:
         """
         if ca_cert is not None and not secure:
             raise ValueError("ca_cert requires secure=True")
-        open_timeout = TimeSpan.from_seconds(open_timeout)
-        read_timeout = TimeSpan.from_seconds(read_timeout)
-        keep_alive = TimeSpan.from_seconds(keep_alive)
+        open_timeout = TimeSpan(open_timeout)
+        read_timeout = TimeSpan(read_timeout)
+        keep_alive = TimeSpan(keep_alive)
         ssl_context = ssl.create_default_context(cafile=ca_cert) if secure else None
         self.url = url.child("/api/v1/")
         codec = JSONCodec()

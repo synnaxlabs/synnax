@@ -209,9 +209,7 @@ class Writer:
             mode=_parse_writer_mode(mode),
             err_on_unauthorized=err_on_unauthorized,
             enable_auto_commit=enable_auto_commit,
-            auto_index_persist_interval=TimeSpan.from_seconds(
-                auto_index_persist_interval
-            ),
+            auto_index_persist_interval=TimeSpan(auto_index_persist_interval),
             auto_index=auto_index,
         )
         self._stream.send(WriterRequest(command=WriterCommand.OPEN, config=config))

@@ -10,6 +10,7 @@
 import asyncio
 import threading
 from collections.abc import Iterator
+from datetime import timedelta
 
 import pytest
 from websockets.frames import Frame, Opcode
@@ -20,7 +21,7 @@ from alamos import NOOP
 from freighter import URL, Empty
 from freighter.websocket import Message
 from synnax.exceptions import create_registry
-from synnax.telem import TimeSpan
+from synnax.telem import CrudeTimeSpan, TimeSpan
 from synnax.transport import Transport
 from x.codec import JSONCodec
 
@@ -76,14 +77,23 @@ class TestKeepAlive:
         assert pinged.wait(2)
         stream.close_send()
 
-    def test_seconds(self, pinged_endpoint: tuple[URL, threading.Event]) -> None:
-        """Should read a bare number keep-alive as seconds."""
+    @pytest.mark.parametrize(
+        "keep_alive",
+        [50_000_000, TimeSpan.MILLISECOND * 50, timedelta(milliseconds=50)],
+        ids=["int_nanoseconds", "time_span", "timedelta"],
+    )
+    def test_crude_span(
+        self,
+        pinged_endpoint: tuple[URL, threading.Event],
+        keep_alive: CrudeTimeSpan,
+    ) -> None:
+        """Should convert a crude keep-alive with the TimeSpan constructor."""
         url, pinged = pinged_endpoint
         transport = Transport(
             url=url,
             instrumentation=NOOP,
             registry=create_registry(),
-            keep_alive=0.05,
+            keep_alive=keep_alive,
         )
         stream = transport.stream.stream("/", Empty, Empty)
         assert pinged.wait(2)

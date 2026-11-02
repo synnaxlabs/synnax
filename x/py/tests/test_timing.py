@@ -13,7 +13,7 @@ from datetime import timedelta
 import numpy as np
 import pytest
 
-from x.telem import Rate, TimeSpan
+from x.telem import CrudeTimeSpan, TimeSpan
 from x.timing import Loop, Timer, poll, sleep
 
 
@@ -31,7 +31,7 @@ class TestTiming:
         for _ in range(50):
             duration = TimeSpan.MICROSECOND * float(np.random.uniform(100, 5_000))
             start = time.perf_counter_ns()
-            sleep(duration.seconds, precise=False)
+            time.sleep(duration.seconds)
             time_elapsed = time.perf_counter_ns() - start
             start = time.perf_counter_ns()
             sleep(duration, precise=True)
@@ -43,21 +43,16 @@ class TestTiming:
 
         assert sum(accumulated_precise) < sum(accumulated_standard)
 
-    def test_sleep_rate(self) -> None:
-        """Should convert a rate argument into the equivalent sleep duration."""
-        samples: list[int] = []
-        for _ in range(10):
-            t = Timer()
-            sleep(100 * Rate.HZ, precise=True)
-            samples.append(t.elapsed())
-        median = TimeSpan(int(np.median(samples)))
-        assert TimeSpan.MILLISECOND * 5 < median < TimeSpan.MILLISECOND * 20
-
-    def test_sleep_timedelta(self) -> None:
-        """Should sleep for at least the duration of a timedelta."""
+    @pytest.mark.parametrize(
+        "dur",
+        [10_000_000, TimeSpan.MILLISECOND * 10, timedelta(milliseconds=10)],
+        ids=["int_nanoseconds", "time_span", "timedelta"],
+    )
+    def test_sleep_crude_span(self, dur: CrudeTimeSpan) -> None:
+        """Should convert a crude duration with the TimeSpan constructor."""
         t = Timer()
-        sleep(timedelta(milliseconds=10))
-        assert t.elapsed() >= TimeSpan.MILLISECOND * 10
+        sleep(dur)
+        assert TimeSpan.MILLISECOND * 10 <= t.elapsed() < TimeSpan.SECOND
 
     def test_poll_returns_value_when_condition_met(self) -> None:
         """Should return the non-None value when the condition is met."""
@@ -85,8 +80,21 @@ class TestTiming:
         )
         assert result is None
 
-    def test_poll_reads_numbers_as_seconds(self) -> None:
-        """Should read a numeric timeout and interval as seconds, like sleep"""
+    @pytest.mark.parametrize(
+        ("timeout", "interval"),
+        [
+            (5_000_000_000, 10_000_000),
+            (TimeSpan.SECOND * 5, TimeSpan.MILLISECOND * 10),
+            (timedelta(seconds=5), timedelta(milliseconds=10)),
+        ],
+        ids=["int_nanoseconds", "time_span", "timedelta"],
+    )
+    def test_poll_crude_span(
+        self, timeout: CrudeTimeSpan, interval: CrudeTimeSpan
+    ) -> None:
+        """Should convert a crude timeout and interval with the TimeSpan
+        constructor.
+        """
         call_count = 0
 
         def condition() -> str | None:
@@ -95,8 +103,8 @@ class TestTiming:
             return "done" if call_count >= 3 else None
 
         t = Timer()
-        assert poll(condition, timeout=5, interval=0.01) == "done"
-        assert t.elapsed() >= 20 * TimeSpan.MILLISECOND
+        assert poll(condition, timeout=timeout, interval=interval) == "done"
+        assert TimeSpan.MILLISECOND * 20 <= t.elapsed() < TimeSpan.SECOND
 
     def test_poll_returns_immediately(self) -> None:
         """Should return immediately if the condition is already met."""
@@ -125,6 +133,16 @@ class TestTiming:
 
 @pytest.mark.timing
 class TestLoop:
+    @pytest.mark.parametrize(
+        "interval",
+        [10_000_000, TimeSpan.MILLISECOND * 10, timedelta(milliseconds=10)],
+        ids=["int_nanoseconds", "time_span", "timedelta"],
+    )
+    def test_crude_interval(self, interval: CrudeTimeSpan) -> None:
+        """Should convert a crude interval with the TimeSpan constructor."""
+        with Loop(interval) as loop:
+            assert loop.interval == TimeSpan.MILLISECOND * 10
+
     @pytest.mark.parametrize("precise", [False, True])
     def test_no_drift(self, precise: bool) -> None:
         """Should hold the average rate over many iterations when the block takes a

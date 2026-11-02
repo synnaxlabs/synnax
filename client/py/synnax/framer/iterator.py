@@ -148,14 +148,12 @@ class Iterator:
         :param span: The span of time to read. A negative span is equivalent to calling
         prev with the absolute value of the span. If AUTO_SPAN is provided, the iterator
         will automatically determine the span of time to read. This is useful for
-        iterating quickly over an entire time range. Numbers are seconds.
+        iterating quickly over an entire time range.
 
         :returns: False if a segment satisfying the request can't be found for a
         particular channel or the iterator has accumulated an error.
         """
-        return self._exec(
-            _Request(command=_Command.NEXT, span=TimeSpan.from_seconds(span))
-        )
+        return self._exec(_Request(command=_Command.NEXT, span=TimeSpan(span)))
 
     def prev(self, span: CrudeTimeSpan) -> bool:
         """Reads the previous time span of telemetry for each channel in the iterator.
@@ -163,14 +161,12 @@ class Iterator:
         :param span: The span of time to read. A negative span is equivalent to calling
         next with the absolute value of the span. If AUTO_SPAN is provided, the iterator
         will automatically determine the span of time to read. This is useful for
-        iterating quickly over an entire time range. Numbers are seconds.
+        iterating quickly over an entire time range.
 
         :returns: False if a segment satisfying the request can't be found for a
         particular channel or the iterator has accumulated an error.
         """
-        return self._exec(
-            _Request(command=_Command.PREV, span=TimeSpan.from_seconds(span))
-        )
+        return self._exec(_Request(command=_Command.PREV, span=TimeSpan(span)))
 
     def seek_first(self) -> bool:
         """Seeks the iterator to the first segment in the time range, but does not read

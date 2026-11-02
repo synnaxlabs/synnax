@@ -43,13 +43,12 @@ def _sleep_until(deadline: int, *, precise: bool) -> None:
 def sleep(dur: CrudeTimeSpan, *, precise: bool = False) -> None:
     """Sleeps for the given duration.
 
-    :param dur: The duration to sleep for. A float or int is a number of seconds, and a
-        Rate is one period of that rate (1 Hz = 1 second).
+    :param dur: The duration to sleep for.
     :param precise: Whether to wake within microseconds of the deadline. A precise sleep
         sleeps in the OS until shortly before the deadline, then busy-waits the rest, so
         it uses more CPU than the default sleep.
     """
-    span = TimeSpan.from_seconds(dur)
+    span = TimeSpan(dur)
     if not precise:
         return time.sleep(span.seconds)
     return _sleep_until(time.perf_counter_ns() + span.nanoseconds, precise=True)
@@ -104,12 +103,11 @@ class Loop:
     def __init__(self, interval: CrudeTimeSpan, *, precise: bool = False):
         """Creates a new Loop object with the given interval and precision.
 
-        :param interval: The interval at which to run the loop. A float or int is a
-            number of seconds, and a Rate is one period of that rate (1 Hz = 1 second).
+        :param interval: The interval at which to run the loop.
         :param precise: Whether to wake within microseconds of each deadline. See
             sleep for the CPU cost.
         """
-        self.interval = TimeSpan.from_seconds(interval)
+        self.interval = TimeSpan(interval)
         self.precise = precise
         self._restart()
 
@@ -168,13 +166,12 @@ def poll(
 
     :param func: A callable that returns a value or None. Polling stops when it returns
     a non-None value.
-    :param timeout: Maximum time to poll for. A float or int is a number of seconds.
-    :param interval: Time to sleep between calls to func. A float or int is a number of
-    seconds.
+    :param timeout: Maximum time to poll for.
+    :param interval: Time to sleep between calls to func.
     :returns: The first non-None return value from func, or None if the timeout expired.
     """
-    timeout = TimeSpan.from_seconds(timeout)
-    interval = TimeSpan.from_seconds(interval)
+    timeout = TimeSpan(timeout)
+    interval = TimeSpan(interval)
     timer = Timer()
     while timer.elapsed() < timeout:
         result = func()

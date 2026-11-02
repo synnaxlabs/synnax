@@ -11,6 +11,7 @@ import asyncio
 import threading
 import time
 from collections.abc import Callable
+from datetime import timedelta
 from typing import cast
 
 import numpy as np
@@ -25,7 +26,7 @@ from x.strings import random_name
 
 # Seconds to wait for a cross-thread handshake. Generous, so a slow Core cannot fail the
 # test, but bounded, so a broken run fails instead of hanging CI.
-HANDSHAKE_TIMEOUT = 5
+HANDSHAKE_TIMEOUT = sy.TimeSpan.SECOND * 5
 # A wait timeout long enough that only a stopped receiver can wake the wait in time.
 BLOCKED_WAIT = 30 * sy.TimeSpan.SECOND
 
@@ -359,7 +360,7 @@ class TestController:
             name="Bare duration", read=[press_en.key], write=None
         ) as auto:
             start = time.perf_counter()
-            auto.remains_true_for(lambda _: True, duration=0.2)
+            auto.remains_true_for(lambda _: True, duration=sy.TimeSpan.SECOND * 0.2)
             assert time.perf_counter() - start >= 0.2
 
     def test_wait_while(self, client: sy.Synnax) -> None:
@@ -766,17 +767,15 @@ class TestRemainsTrueForProcessor:
 
 
 class TestScheduledCommand:
-    def test_bare_number_delay_is_seconds(self) -> None:
-        """Should read a bare number delay as seconds."""
-        assert (
-            ScheduledCommand(channel="ch", value=1, delay=2).delay
-            == 2 * sy.TimeSpan.SECOND
-        )
-
-    def test_time_span_delay_passes_through(self) -> None:
-        """Should keep a TimeSpan delay unchanged."""
-        delay = 5 * sy.TimeSpan.MILLISECOND
-        assert ScheduledCommand(channel="ch", value=1, delay=delay).delay == delay
+    @pytest.mark.parametrize(
+        "delay",
+        [2_000_000, 2 * sy.TimeSpan.MILLISECOND, timedelta(milliseconds=2)],
+        ids=["int_nanoseconds", "time_span", "timedelta"],
+    )
+    def test_crude_delay(self, delay: sy.CrudeTimeSpan) -> None:
+        """Should convert a crude delay with the TimeSpan constructor."""
+        cmd = ScheduledCommand(channel="ch", value=1, delay=delay)
+        assert cmd.delay == 2 * sy.TimeSpan.MILLISECOND
 
 
 @pytest.mark.control

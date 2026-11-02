@@ -20,7 +20,7 @@ from tests.channel import assert_eventually_channels_are_found
 from tests.proxy import Proxy
 
 # Seconds to wait for a written sample to come back through the streamer.
-READ_TIMEOUT = 5
+READ_TIMEOUT = sy.TimeSpan.SECOND * 5
 # The Core's minimum accepted keep-alive interval.
 KEEP_ALIVE = 2 * sy.TimeSpan.SECOND
 # Three keep-alive intervals: how long a read may stay silent once armed.
@@ -43,7 +43,7 @@ def read_while_writing(
         deadline = time.monotonic() + READ_TIMEOUT
         while time.monotonic() < deadline:
             w.write({ch.key: [1.0]})
-            if (frame := s.read(timeout=0.05)) is not None:
+            if (frame := s.read(timeout=sy.TimeSpan.SECOND * 0.05)) is not None:
                 return frame
     return None
 
@@ -128,7 +128,7 @@ class TestStreamer:
             ) as w:
                 data = np.random.rand(10).astype(np.float64)
                 w.write(pd.DataFrame({virtual_channel.key: data}))
-                frame = s.read(timeout=0.5)
+                frame = s.read(timeout=sy.TimeSpan.SECOND * 0.5)
                 assert frame is None
 
     def test_exclude_groups_non_matching(
@@ -144,7 +144,7 @@ class TestStreamer:
             ) as w:
                 data = np.random.rand(10).astype(np.float64)
                 w.write(pd.DataFrame({virtual_channel.key: data}))
-                frame = s.read(timeout=1)
+                frame = s.read(timeout=sy.TimeSpan.SECOND)
                 assert frame is not None
                 assert np.array_equal(frame[virtual_channel.key], data)
 
@@ -160,7 +160,7 @@ class TestStreamer:
             ) as w:
                 data = np.random.rand(10).astype(np.float64)
                 w.write(pd.DataFrame({virtual_channel.key: data}))
-                frame = s.read(timeout=1)
+                frame = s.read(timeout=sy.TimeSpan.SECOND)
                 assert frame is not None
                 assert np.array_equal(frame[virtual_channel.key], data)
 
@@ -191,7 +191,7 @@ class TestStreamer:
             with client.open_writer(sy.TimeStamp.now(), virtual_channel.key) as w:
                 data = np.random.rand(1).astype(np.float64)
                 w.write(pd.DataFrame({virtual_channel.key: data}))
-                frame = s.read(timeout=1)
+                frame = s.read(timeout=sy.TimeSpan.SECOND)
                 assert frame is not None
                 assert np.array_equal(frame[virtual_channel.key], data)
 
@@ -242,7 +242,7 @@ class TestStreamer:
                         c = int((i % 150) / 50) + 1
                         curr_channels = channel_names[:c]
                         s.update_channels(curr_channels)
-                    frm = s.read(timeout=1)
+                    frm = s.read(timeout=sy.TimeSpan.SECOND)
                     assert frm is not None
                     for channel in curr_channels:
                         d = frm[channel]
@@ -254,7 +254,7 @@ class TestStreamer:
         """Should return None after the specified timeout is exceeded"""
         with client.open_streamer([]) as s:
             start = sy.TimeStamp.now()
-            f = s.read(timeout=0.1)
+            f = s.read(timeout=sy.TimeSpan.SECOND * 0.1)
             assert f is None
             assert abs(sy.TimeSpan.since(start).seconds - 0.1) < 0.05
 
@@ -272,7 +272,7 @@ class TestStreamer:
             with client.open_writer(sy.TimeStamp.now(), virtual_channel.key) as w:
                 data = np.random.rand(10).astype(np.float64)
                 w.write(pd.DataFrame({virtual_channel.key: data}))
-                frame = s.read(timeout=1)
+                frame = s.read(timeout=sy.TimeSpan.SECOND)
                 assert frame is not None
                 assert np.array_equal(frame[virtual_channel.key], data)
         with client.open_streamer(virtual_channel.key, downsample_factor=2) as s:
@@ -280,7 +280,7 @@ class TestStreamer:
                 samples = [1.0, 2.0, 3.0, 4.0, 5.0, 6.0, 7.0, 8.0, 9.0, 10.0]
                 expect = [1.0, 3.0, 5.0, 7.0, 9.0]
                 w.write(pd.DataFrame({virtual_channel.key: samples}))
-                frame = s.read(timeout=1)
+                frame = s.read(timeout=sy.TimeSpan.SECOND)
                 assert frame is not None
                 assert np.array_equal(frame[virtual_channel.key], expect)
         with client.open_streamer(virtual_channel.key, downsample_factor=10) as s:
@@ -288,7 +288,7 @@ class TestStreamer:
                 samples = [1.0, 2.0, 3.0, 4.0, 5.0, 6.0, 7.0, 8.0, 9.0, 10.0]
                 expect = [1.0]
                 w.write(pd.DataFrame({virtual_channel.key: samples}))
-                frame = s.read(timeout=1)
+                frame = s.read(timeout=sy.TimeSpan.SECOND)
                 assert frame is not None
                 assert np.array_equal(frame[virtual_channel.key], expect)
         with client.open_streamer(virtual_channel.key, downsample_factor=20) as s:
@@ -296,7 +296,7 @@ class TestStreamer:
                 samples = [1.0, 2.0, 3.0, 4.0, 5.0, 6.0, 7.0, 8.0, 9.0, 10.0]
                 expect = [1.0]
                 w.write(pd.DataFrame({virtual_channel.key: samples}))
-                frame = s.read(timeout=1)
+                frame = s.read(timeout=sy.TimeSpan.SECOND)
                 assert frame is not None
                 assert np.array_equal(frame[virtual_channel.key], expect)
 
@@ -353,7 +353,7 @@ class TestStreamer:
         with client.open_streamer(data.key) as s:
             with client.open_writer(sy.TimeStamp.now(), [idx.key, data.key]) as w:
                 w.write({idx.key: [sy.TimeStamp.now()], data.key: [1]})
-                f = s.read(timeout=1)
+                f = s.read(timeout=sy.TimeSpan.SECOND)
                 assert f is not None
                 assert f[data.key][0] == 1
 
@@ -386,7 +386,7 @@ class TestStreamer:
                 sy.TimeStamp.now(), [idx.key, data.key]
             ) as w:
                 w.write({idx.key: [sy.TimeStamp.now()], data.key: [1]})
-                f = s.read(timeout=1)
+                f = s.read(timeout=sy.TimeSpan.SECOND)
                 assert f is not None
                 assert f[data.key][0] == 1
 
@@ -458,7 +458,7 @@ class TestStreamerKeepAlive:
         with pytest.raises(
             sy.ValidationError, match="must be greater than or equal to 2s"
         ):
-            client.open_streamer(virtual_channel.key, keep_alive=1)
+            client.open_streamer(virtual_channel.key, keep_alive=sy.TimeSpan.SECOND)
 
     def test_silent_read_unreachable(
         self, virtual_channel: sy.Channel, proxy: Proxy, proxied_client: sy.Synnax
@@ -481,7 +481,7 @@ class TestStreamerKeepAlive:
         s = proxied_client.open_streamer(virtual_channel.key, keep_alive=KEEP_ALIVE)
         time.sleep(ARMED)
         assert proxy.blackhole() > 0
-        assert s.read(timeout=1) is None
+        assert s.read(timeout=sy.TimeSpan.SECOND) is None
 
     def test_polled_read_unreachable(
         self, virtual_channel: sy.Channel, proxy: Proxy, proxied_client: sy.Synnax
@@ -493,7 +493,7 @@ class TestStreamerKeepAlive:
         start = sy.TimeStamp.now()
         with pytest.raises(Unreachable):
             while sy.TimeSpan.since(start) < DEADLINE + KEEP_ALIVE:
-                assert s.read(timeout=1) is None
+                assert s.read(timeout=sy.TimeSpan.SECOND) is None
 
     def test_early_keep_alive_arms(
         self,
@@ -513,10 +513,12 @@ class TestStreamerKeepAlive:
         self, virtual_channel: sy.Channel, proxy: Proxy, proxied_client: sy.Synnax
     ) -> None:
         """Should never arm the deadline when keep-alive is disabled"""
-        s = proxied_client.open_streamer(virtual_channel.key, keep_alive=0)
+        s = proxied_client.open_streamer(
+            virtual_channel.key, keep_alive=sy.TimeSpan.ZERO
+        )
         time.sleep(0.25)
         assert proxy.blackhole() > 0
-        assert s.read(timeout=1) is None
+        assert s.read(timeout=sy.TimeSpan.SECOND) is None
 
 
 @pytest.mark.framer

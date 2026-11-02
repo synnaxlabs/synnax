@@ -294,8 +294,8 @@ class Controller:
         a boolean. The controller will execute this callback on every new sample
         received to the channels it is reading from. The controller will block until
         the callback returns True.
-        :param timeout: An optional timeout in seconds. If the timeout is reached before
-        the callback returns True, the method will return False.
+        :param timeout: An optional timeout. If the timeout is reached before the
+        callback returns True, the method will return False.
         :returns: True if the callback returned True before the timeout,
         False otherwise.
 
@@ -331,9 +331,7 @@ class Controller:
         processor = _WaitUntil(cond, reverse=reverse)
         self._receiver.add_processor(processor)
         try:
-            timeout_seconds = (
-                TimeSpan.from_seconds(timeout).seconds if timeout else None
-            )
+            timeout_seconds = TimeSpan(timeout).seconds if timeout else None
             ok = processor.event.wait(timeout=timeout_seconds)
         finally:
             self._receiver.remove_processor(processor)
@@ -345,8 +343,7 @@ class Controller:
     def sleep(self, dur: CrudeTimeSpan, *, precise: bool = False) -> None:
         """Sleeps the controller for the provided duration.
 
-        :param dur: The duration to sleep for. This can be a flot or int representing
-        the number of seconds to sleep, or a synnax TimeSpan object.
+        :param dur: The duration to sleep for.
         :param precise: If True, the controller will use a more precise sleep method
         that is more accurate for short durations, but consumes more CPU resources.
         If you're looking for millisecond level precision, set this value to True.
@@ -366,8 +363,8 @@ class Controller:
 
         :param channels: A single channel key or name, or a list of channel keys or
         names to wait for.
-        :param timeout: An optional timeout in seconds. If the timeout is reached before
-        the channels are defined, the method will return False.
+        :param timeout: An optional timeout. If the timeout is reached before the
+        channels are defined, the method will return False.
 
         Examples:
         >>> controller.wait_until_defined("my_channel")
@@ -393,8 +390,7 @@ class Controller:
         :param cond: A callable that takes the controller as an argument and returns
         a boolean. The controller will execute this callback on every new sample
         received to the channels it is reading from.
-        :param duration: The duration to check that the callback returns True. A bare
-        number is in seconds.
+        :param duration: The duration to check that the callback returns True.
         :param percentage: The target percentage of the duration that the callback
         should return True. If this value is 1 or greater, the controller will
         immediately unblock if the callback returns False. If this value is less than 1,
@@ -405,7 +401,7 @@ class Controller:
         processor = _RemainsTrueFor(cond, percentage)
         self._receiver.add_processor(processor)
         try:
-            timeout_seconds = TimeSpan.from_seconds(duration).seconds
+            timeout_seconds = TimeSpan(duration).seconds
             # If the event is set, this means the target percentage was >= 1 and the
             # callback returned False, so we just exit immediately.
             ok = not processor.event.wait(timeout=timeout_seconds)
@@ -609,8 +605,7 @@ class _Receiver(AsyncThread):
 
 class ScheduledCommand:
     """A command that can be scheduled to run at a specific time in the future. This
-    command can be sent to the controller to be executed at a later time. A bare number
-    delay is in seconds.
+    command can be sent to the controller to be executed at a later time.
     """
 
     channel: channel_.Key | str
@@ -626,4 +621,4 @@ class ScheduledCommand:
     ):
         self.channel = channel
         self.value = value
-        self.delay = TimeSpan.from_seconds(delay)
+        self.delay = TimeSpan(delay)

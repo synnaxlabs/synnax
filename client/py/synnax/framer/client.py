@@ -138,7 +138,7 @@ class Client:
         will flush that commit to index after the specified auto_index_persist_interval.
         :param auto_index_persist_interval: interval at which commits to the index will
         be persisted. To persist every commit to guarantee minimal loss of data, set
-        auto_index_persist_interval to AlwaysAutoIndexPersist. Numbers are seconds.
+        auto_index_persist_interval to AlwaysAutoIndexPersist.
         :param auto_index: when True, Synnax automatically generates timestamps for any
         index channel that is not included in a write call. The first sample in each
         write is stamped at the time the write is received, and subsequent samples are
@@ -407,7 +407,7 @@ class Client:
         the Core. Used for telemetry bypass deduplication.
         :param keep_alive: Interval at which the Core sends keep-alive responses. A read
         that stays silent for three intervals raises Unreachable. Zero disables
-        detection. Numbers are seconds.
+        detection.
         """
         adapter = ReadFrameAdapter(self._channels)
         adapter.update(channels)

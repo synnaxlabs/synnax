@@ -16,7 +16,7 @@ from x.telem import seconds_linspace
 from x.testutil import assert_eventually
 
 # Seconds to wait for a written sample to come back through the calculation pipeline.
-READ_TIMEOUT = 5
+READ_TIMEOUT = sy.TimeSpan.SECOND * 5
 
 
 @pytest.mark.framer
@@ -73,7 +73,7 @@ class TestCalculatedChannelStreaming:
                 # made before it is listening produce no frame at all.
                 def await_first_calculation() -> None:
                     write_sources()
-                    assert streamer.read(timeout=0.5) is not None
+                    assert streamer.read(timeout=sy.TimeSpan.SECOND * 0.5) is not None
 
                 assert_eventually(await_first_calculation)
 
@@ -117,7 +117,7 @@ class TestCalculatedChannelStreaming:
                 }
             )
             writer.commit()
-            frame = streamer.read(timeout=2)
+            frame = streamer.read(timeout=sy.TimeSpan.SECOND * 2)
             assert frame is not None
             assert np.array_equal(frame[calc.key], value * 2)
 
@@ -146,7 +146,7 @@ class TestCalculatedChannelStreaming:
                 }
             )
             writer.commit()
-            frame = streamer.read(timeout=2)
+            frame = streamer.read(timeout=sy.TimeSpan.SECOND * 2)
             assert frame is not None
             assert np.array_equal(frame[calc.key], value * 2)
 
@@ -684,7 +684,7 @@ class TestCalculationOperations:
                         data.key: np.array([10.0, 20.0, 30.0], dtype=np.float32),
                     }
                 )
-                frame = streamer.read(timeout=1)
+                frame = streamer.read(timeout=sy.TimeSpan.SECOND)
                 assert frame is not None
                 assert len(frame[calc.key]) == 1
                 assert frame[calc.key][0] == pytest.approx(20.0)
@@ -704,7 +704,7 @@ class TestCalculationOperations:
                         data.key: np.array([40.0, 50.0, 60.0], dtype=np.float32),
                     }
                 )
-                frame = streamer.read(timeout=1)
+                frame = streamer.read(timeout=sy.TimeSpan.SECOND)
                 assert frame is not None
                 assert len(frame[calc.key]) == 1
                 assert frame[calc.key][0] == pytest.approx(35.0)
@@ -741,7 +741,7 @@ class TestCalculationOperations:
                         data.key: np.array([10.0, 20.0, 30.0], dtype=np.float32),
                     }
                 )
-                frame = streamer.read(timeout=1)
+                frame = streamer.read(timeout=sy.TimeSpan.SECOND)
                 assert frame is not None
                 assert len(frame[calc.key]) == 1
                 assert frame[calc.key][0] == pytest.approx(20.0)
@@ -757,7 +757,7 @@ class TestCalculationOperations:
                         data.key: np.array([40.0, 50.0], dtype=np.float32),
                     }
                 )
-                frame = streamer.read(timeout=1)
+                frame = streamer.read(timeout=sy.TimeSpan.SECOND)
                 assert frame is not None
                 assert len(frame[calc.key]) == 1
                 assert frame[calc.key][0] == pytest.approx(45.0)
@@ -792,7 +792,7 @@ class TestCalculationOperations:
                         data.key: np.array([30.0, 10.0, 20.0], dtype=np.float32),
                     }
                 )
-                frame = streamer.read(timeout=1)
+                frame = streamer.read(timeout=sy.TimeSpan.SECOND)
                 assert frame is not None
                 assert len(frame[calc.key]) == 1
                 assert frame[calc.key][0] == pytest.approx(10.0)
@@ -811,7 +811,7 @@ class TestCalculationOperations:
                         data.key: np.array([50.0, 40.0], dtype=np.float32),
                     }
                 )
-                frame = streamer.read(timeout=1)
+                frame = streamer.read(timeout=sy.TimeSpan.SECOND)
                 assert frame is not None
                 assert len(frame[calc.key]) == 1
                 assert frame[calc.key][0] == pytest.approx(40.0)
@@ -848,7 +848,7 @@ class TestCalculationOperations:
                         data.key: np.array([10.0, 30.0, 20.0], dtype=np.float32),
                     }
                 )
-                frame = streamer.read(timeout=1)
+                frame = streamer.read(timeout=sy.TimeSpan.SECOND)
                 assert frame is not None
                 assert len(frame[calc.key]) == 1
                 assert frame[calc.key][0] == pytest.approx(30.0)
@@ -867,7 +867,7 @@ class TestCalculationOperations:
                         data.key: np.array([15.0, 25.0], dtype=np.float32),
                     }
                 )
-                frame = streamer.read(timeout=1)
+                frame = streamer.read(timeout=sy.TimeSpan.SECOND)
                 assert frame is not None
                 assert len(frame[calc.key]) == 1
                 assert frame[calc.key][0] == pytest.approx(25.0)
@@ -906,7 +906,7 @@ class TestCalculationOperations:
                         reset.key: np.array([False, False, False], dtype=np.bool_),
                     }
                 )
-                frame = streamer.read(timeout=1)
+                frame = streamer.read(timeout=sy.TimeSpan.SECOND)
                 assert frame is not None
                 assert len(frame[calc.key]) == 1
                 assert frame[calc.key][0] == pytest.approx(20.0)
@@ -923,7 +923,7 @@ class TestCalculationOperations:
                         reset.key: np.array([True, False], dtype=np.bool_),
                     }
                 )
-                frame = streamer.read(timeout=1)
+                frame = streamer.read(timeout=sy.TimeSpan.SECOND)
                 assert frame is not None
                 assert len(frame[calc.key]) == 1
                 assert frame[calc.key][0] == pytest.approx(45.0)
@@ -960,7 +960,7 @@ class TestCalculationOperations:
                         reset.key: np.array([False, False, False], dtype=np.bool_),
                     }
                 )
-                frame = streamer.read(timeout=1)
+                frame = streamer.read(timeout=sy.TimeSpan.SECOND)
                 assert frame is not None
                 assert len(frame[calc.key]) == 1
                 assert frame[calc.key][0] == pytest.approx(10.0)
@@ -977,7 +977,7 @@ class TestCalculationOperations:
                         reset.key: np.array([True, False], dtype=np.bool_),
                     }
                 )
-                frame = streamer.read(timeout=1)
+                frame = streamer.read(timeout=sy.TimeSpan.SECOND)
                 assert frame is not None
                 assert len(frame[calc.key]) == 1
                 assert frame[calc.key][0] == pytest.approx(40.0)
@@ -1014,7 +1014,7 @@ class TestCalculationOperations:
                         reset.key: np.array([False, False, False], dtype=np.bool_),
                     }
                 )
-                frame = streamer.read(timeout=1)
+                frame = streamer.read(timeout=sy.TimeSpan.SECOND)
                 assert frame is not None
                 assert len(frame[calc.key]) == 1
                 assert frame[calc.key][0] == pytest.approx(30.0)
@@ -1031,7 +1031,7 @@ class TestCalculationOperations:
                         reset.key: np.array([True, False], dtype=np.bool_),
                     }
                 )
-                frame = streamer.read(timeout=1)
+                frame = streamer.read(timeout=sy.TimeSpan.SECOND)
                 assert frame is not None
                 assert len(frame[calc.key]) == 1
                 assert frame[calc.key][0] == pytest.approx(25.0)
@@ -1071,7 +1071,7 @@ class TestCalculationOperations:
                     data.key: np.array([42.0], dtype=np.float32),
                 }
             )
-            frame = streamer.read(timeout=1)
+            frame = streamer.read(timeout=sy.TimeSpan.SECOND)
             assert frame is not None
             assert frame[calc_min.key][0] == pytest.approx(42.0)
             assert frame[calc_max.key][0] == pytest.approx(42.0)
@@ -1102,7 +1102,7 @@ class TestCalculationOperations:
                         data.key: np.array([10.0], dtype=np.float32),
                     }
                 )
-                frame = streamer.read(timeout=1)
+                frame = streamer.read(timeout=sy.TimeSpan.SECOND)
                 assert frame is not None
                 assert frame[calc.key][0] == pytest.approx(10.0)
                 writer.write(
@@ -1113,7 +1113,7 @@ class TestCalculationOperations:
                         data.key: np.array([20.0], dtype=np.float32),
                     }
                 )
-                frame = streamer.read(timeout=1)
+                frame = streamer.read(timeout=sy.TimeSpan.SECOND)
                 assert frame is not None
                 assert frame[calc.key][0] == pytest.approx(20.0)
                 writer.write(
@@ -1124,7 +1124,7 @@ class TestCalculationOperations:
                         data.key: np.array([30.0], dtype=np.float32),
                     }
                 )
-                frame = streamer.read(timeout=1)
+                frame = streamer.read(timeout=sy.TimeSpan.SECOND)
                 assert frame is not None
                 assert frame[calc.key][0] == pytest.approx(30.0)
 
@@ -1165,7 +1165,7 @@ class TestCalculationOperations:
                         reset.key: np.array([False, False], dtype=np.bool_),
                     }
                 )
-                frame = streamer.read(timeout=1)
+                frame = streamer.read(timeout=sy.TimeSpan.SECOND)
                 assert frame is not None
                 assert frame[calc.key][0] == pytest.approx(15.0)
                 writer.write(
@@ -1177,7 +1177,7 @@ class TestCalculationOperations:
                         reset.key: np.array([True], dtype=np.bool_),
                     }
                 )
-                frame = streamer.read(timeout=1)
+                frame = streamer.read(timeout=sy.TimeSpan.SECOND)
                 assert frame is not None
                 assert frame[calc.key][0] == pytest.approx(30.0)
                 writer.write(
@@ -1189,7 +1189,7 @@ class TestCalculationOperations:
                         reset.key: np.array([False], dtype=np.bool_),
                     }
                 )
-                frame = streamer.read(timeout=1)
+                frame = streamer.read(timeout=sy.TimeSpan.SECOND)
                 assert frame is not None
                 assert frame[calc.key][0] == pytest.approx(35.0)
 
@@ -1236,7 +1236,7 @@ class TestCalculationOperations:
                     data.key: np.array([5.0, 5.0, 5.0, 5.0], dtype=np.float32),
                 }
             )
-            frame = streamer.read(timeout=1)
+            frame = streamer.read(timeout=sy.TimeSpan.SECOND)
             assert frame is not None
             assert frame[calc_min.key][0] == pytest.approx(5.0)
             assert frame[calc_max.key][0] == pytest.approx(5.0)
@@ -1273,7 +1273,7 @@ class TestCalculationOperations:
                         reset.key: np.array([False, False], dtype=np.bool_),
                     }
                 )
-                frame = streamer.read(timeout=1)
+                frame = streamer.read(timeout=sy.TimeSpan.SECOND)
                 assert frame is not None
                 assert frame[calc.key][0] == pytest.approx(15.0)
                 writer.write(
@@ -1290,7 +1290,7 @@ class TestCalculationOperations:
                         reset.key: np.array([True, False, True], dtype=np.bool_),
                     }
                 )
-                frame = streamer.read(timeout=1)
+                frame = streamer.read(timeout=sy.TimeSpan.SECOND)
                 assert frame is not None
                 assert frame[calc.key][0] == pytest.approx(40.0)
 
@@ -1323,7 +1323,7 @@ class TestCalculationOperations:
                         data.key: np.array([10.0, 20.0, 40.0], dtype=np.float32),
                     }
                 )
-                frame = streamer.read(timeout=1)
+                frame = streamer.read(timeout=sy.TimeSpan.SECOND)
                 assert frame is not None
                 vals = frame[calc.key].to_numpy()
                 assert len(vals) == 3
@@ -1359,7 +1359,7 @@ class TestCalculationOperations:
                         data.key: np.array([0.0, 10.0], dtype=np.float32),
                     }
                 )
-                frame = streamer.read(timeout=1)
+                frame = streamer.read(timeout=sy.TimeSpan.SECOND)
                 assert frame is not None
 
                 writer.write(
@@ -1371,7 +1371,7 @@ class TestCalculationOperations:
                         data.key: np.array([30.0], dtype=np.float32),
                     }
                 )
-                frame = streamer.read(timeout=1)
+                frame = streamer.read(timeout=sy.TimeSpan.SECOND)
                 assert frame is not None
                 vals = frame[calc.key].to_numpy()
                 assert len(vals) == 1
@@ -1406,7 +1406,7 @@ class TestCalculationOperations:
                         data.key: np.array([100.0, 80.0, 50.0], dtype=np.float32),
                     }
                 )
-                frame = streamer.read(timeout=1)
+                frame = streamer.read(timeout=sy.TimeSpan.SECOND)
                 assert frame is not None
                 vals = frame[calc.key].to_numpy()
                 assert len(vals) == 3
@@ -3034,7 +3034,7 @@ class TestCalcChannelStress:
                     }
                 )
 
-            frame = streamer_a.read(timeout=5)
+            frame = streamer_a.read(timeout=sy.TimeSpan.SECOND * 5)
             verify_stream_frame(frame, expect_a(a3, b3), "phase2-domain3")
 
             # Close writer, open a NEW writer, write again
@@ -3053,7 +3053,7 @@ class TestCalcChannelStress:
                     }
                 )
 
-            frame = streamer_a.read(timeout=5)
+            frame = streamer_a.read(timeout=sy.TimeSpan.SECOND * 5)
             verify_stream_frame(frame, expect_a(a4, b4), "phase2-domain4")
 
             # Rapid-fire: open writer, write 1 sample, close, repeat 3 times
@@ -3076,7 +3076,7 @@ class TestCalcChannelStress:
                 rapid_a.append(av)
                 rapid_b.append(bv)
 
-                frame = streamer_a.read(timeout=5)
+                frame = streamer_a.read(timeout=sy.TimeSpan.SECOND * 5)
                 verify_stream_frame(frame, expect_a([av], [bv]), f"phase2-rapid-{i}")
 
         # ── PHASE 3: Close streamer, open new one, keep writing ───────────
@@ -3096,7 +3096,7 @@ class TestCalcChannelStress:
                         beta.key: [b5[0]],
                     }
                 )
-                frame = streamer_a2.read(timeout=5)
+                frame = streamer_a2.read(timeout=sy.TimeSpan.SECOND * 5)
                 verify_stream_frame(frame, expect_a([a5[0]], [b5[0]]), "phase3-batch1")
 
                 w.write(
@@ -3106,7 +3106,7 @@ class TestCalcChannelStress:
                         beta.key: [b5[1]],
                     }
                 )
-                frame = streamer_a2.read(timeout=5)
+                frame = streamer_a2.read(timeout=sy.TimeSpan.SECOND * 5)
                 verify_stream_frame(frame, expect_a([a5[1]], [b5[1]]), "phase3-batch2")
 
         # ── PHASE 4: Concurrent streamers on different indexes ────────────
@@ -3140,10 +3140,10 @@ class TestCalcChannelStress:
                         }
                     )
 
-                frame_a = streamer_a3.read(timeout=5)
+                frame_a = streamer_a3.read(timeout=sy.TimeSpan.SECOND * 5)
                 verify_stream_frame(frame_a, expect_a(a6, b6), "phase4-A")
 
-                frame_b = streamer_b.read(timeout=5)
+                frame_b = streamer_b.read(timeout=sy.TimeSpan.SECOND * 5)
                 verify_stream_frame(frame_b, expect_b(g3), "phase4-B")
 
         # ── PHASE 5: Full read of everything, verify total counts ─────────
