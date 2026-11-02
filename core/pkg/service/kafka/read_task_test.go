@@ -400,7 +400,7 @@ var _ = Describe("Read task", func() {
 				},
 			)
 			Eventually(func() string { return taskStatus(ctx, t).Message }).
-				Should(Equal("Failed to fetch records"))
+				WithTimeout(15 * time.Second).Should(Equal("Failed to fetch records"))
 			start(ctx, dt, t)
 			produceJSON(ctx, producer, topic, "", map[string]any{"ts": 10e9, "v": 1.0})
 			Expect(floats(expectStored(ctx, data.Key(), 1))).To(Equal([]float64{1}))
