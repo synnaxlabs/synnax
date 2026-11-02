@@ -10,6 +10,7 @@
 from __future__ import annotations
 
 import re
+from typing import override
 
 from pydantic import BaseModel, Field, model_validator
 
@@ -41,6 +42,7 @@ class Color(BaseModel):
             return f"#{self.r:02x}{self.g:02x}{self.b:02x}"
         return f"#{self.r:02x}{self.g:02x}{self.b:02x}{alpha_byte:02x}"
 
+    @override
     def __eq__(self, other: object) -> bool:
         if isinstance(other, (str, list, tuple)):
             try:
