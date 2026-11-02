@@ -29,6 +29,15 @@ _now = sy.TimeStamp.now()
 
 EST = dateutil.tz.gettz("EST")
 
+_COMPARISONS = (
+    operator.eq,
+    operator.ne,
+    operator.lt,
+    operator.le,
+    operator.gt,
+    operator.ge,
+)
+
 _INT64 = st.integers(min_value=-(2**63), max_value=2**63 - 1)
 _SPAN = st.integers(min_value=-(2**62), max_value=2**62)
 _NONZERO = _SPAN.filter(lambda v: v != 0)
@@ -1238,6 +1247,24 @@ class TestTimeProperties:
         assert (span == other) == (value == other)
         if span == other:
             assert hash(span) == hash(other)
+
+    @given(_INT64, st.floats(allow_nan=False, allow_infinity=False))
+    def test_float_compare_matches_int(self, value: int, other: float) -> None:
+        """Should compare a timestamp and a span with a float as the equal int does"""
+        for t in (sy.TimeStamp(value), sy.TimeSpan(value)):
+            for op in _COMPARISONS:
+                assert op(t, other) == op(value, other)
+                assert op(t, np.float64(other)) == op(value, other)
+            if t == other:
+                assert hash(t) == hash(other)
+
+    @given(_INT64)
+    def test_numpy_number_eq(self, value: int) -> None:
+        """Should equal a NumPy number that holds the same value"""
+        for t in (sy.TimeStamp(value), sy.TimeSpan(value)):
+            assert t == np.int64(value)
+            if -(2**31) <= value < 2**31:
+                assert t == np.int32(value)
 
     @given(_STAMP, st.integers(min_value=2**63))
     def test_compare_with_out_of_range_int(self, value: int, big: int) -> None:

@@ -91,6 +91,26 @@ def _span_nanoseconds(value: CrudeTimeSpan) -> int:
     raise TypeError(f"Cannot convert {type(value)} to TimeSpan")
 
 
+# The operand helpers keep a float whole, so comparisons treat it as int does instead
+# of truncating it to nanoseconds.
+def _stamp_operand(
+    value: CrudeTimeStamp | float | np.integer | np.floating,
+) -> int | float:
+    if isinstance(value, (float, np.floating)):
+        return float(value)
+    if isinstance(value, np.integer):
+        return int(value)
+    return _stamp_nanoseconds(value)
+
+
+def _span_operand(value: CrudeTimeSpan | np.integer | np.floating) -> int | float:
+    if isinstance(value, (float, np.floating)):
+        return float(value)
+    if isinstance(value, np.integer):
+        return int(value)
+    return _span_nanoseconds(value)
+
+
 def _operand_error(op: str, lhs: object, rhs: object) -> TypeError:
     return TypeError(
         f"unsupported operand type(s) for {op}: '{type(lhs).__name__}' and "
@@ -184,25 +204,25 @@ class TimeStamp(int):
         :param ts: The TimeStamp to compare to.
 
         """
-        return super().__gt__(_stamp_nanoseconds(ts))
+        return int(self) > _stamp_operand(ts)
 
     def after_eq(self, ts: CrudeTimeStamp) -> bool:
         """:return: True if the TimeStamp is after or equal to the given TimeStamp.
         :param ts: The TimeStamp to compare to.
         """
-        return super().__ge__(_stamp_nanoseconds(ts))
+        return int(self) >= _stamp_operand(ts)
 
     def before(self, ts: CrudeTimeStamp) -> bool:
         """:returns: True if the TimeStamp is strictly before the given TimeStamp.
         :param ts: The TimeStamp to compare to.
         """
-        return super().__lt__(_stamp_nanoseconds(ts))
+        return int(self) < _stamp_operand(ts)
 
     def before_eq(self, ts: CrudeTimeStamp) -> bool:
         """:returns: True if the TimeStamp is before or equal to the given TimeStamp.
         :param ts: The TimeStamp to compare to.
         """
-        return super().__le__(_stamp_nanoseconds(ts))
+        return int(self) <= _stamp_operand(ts)
 
     def span_range(self, span: TimeSpan) -> TimeRange:
         """:returns: A TimeRange that spans the given TimeSpan
@@ -273,10 +293,11 @@ class TimeStamp(int):
 
     def __eq__(self, rhs: object) -> bool:
         if not isinstance(
-            rhs, (int, TimeSpan, datetime, timedelta, np.datetime64, np.int64)
+            rhs,
+            (int, float, np.integer, np.floating, datetime, timedelta, np.datetime64),
         ):
             return False
-        return super().__eq__(_stamp_nanoseconds(rhs))
+        return int(self) == _stamp_operand(rhs)
 
     def __hash__(self) -> int:
         return super().__hash__()
@@ -579,23 +600,23 @@ class TimeSpan(int):
 
     # Omits np.timedelta64: its reflected comparisons return np.bool, not bool.
     def __gt__(self, rhs: _ComparableTimeSpan) -> bool:
-        return super().__gt__(_span_nanoseconds(rhs))
+        return int(self) > _span_operand(rhs)
 
     def __ge__(self, rhs: _ComparableTimeSpan) -> bool:
-        return super().__ge__(_span_nanoseconds(rhs))
+        return int(self) >= _span_operand(rhs)
 
     def __lt__(self, rhs: _ComparableTimeSpan) -> bool:
-        return super().__lt__(_span_nanoseconds(rhs))
+        return int(self) < _span_operand(rhs)
 
     def __le__(self, rhs: _ComparableTimeSpan) -> bool:
-        return super().__le__(_span_nanoseconds(rhs))
+        return int(self) <= _span_operand(rhs)
 
     def __eq__(self, rhs: object) -> bool:
-        if isinstance(rhs, (int, float)):
-            return int(self) == rhs
-        if not isinstance(rhs, (timedelta, np.timedelta64)):
+        if not isinstance(
+            rhs, (int, float, np.integer, np.floating, timedelta, np.timedelta64)
+        ):
             return NotImplemented
-        return super().__eq__(_span_nanoseconds(rhs))
+        return int(self) == _span_operand(rhs)
 
     def __hash__(self) -> int:
         return super().__hash__()
