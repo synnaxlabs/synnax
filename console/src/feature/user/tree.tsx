@@ -67,7 +67,6 @@ const TreeContextMenu: Tree.ContextMenu = (props) => {
   const { data: currentKey } = User.useResultKey({});
   const isNotCurrentUser = first != null && first.id.key !== currentKey;
   const isRootUser = first?.data?.root_user === true;
-  const isSelf = ids[0]?.key === currentKey;
 
   return (
     <ContextMenu.Menu>
@@ -85,7 +84,7 @@ const TreeContextMenu: Tree.ContextMenu = (props) => {
           )}
         </>
       )}
-      {singleResource && first != null && (hasUpdatePermission || isSelf) && (
+      {singleResource && hasUpdatePermission && isNotCurrentUser && (
         <Menu.Item
           itemKey="credentials"
           onClick={() =>
