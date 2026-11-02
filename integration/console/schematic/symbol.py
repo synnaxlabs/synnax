@@ -62,7 +62,7 @@ class Symbol(ABC):
     _symbol_type: str
     _symbol_group: str | None = None
 
-    def __init__(self, label: str, symbol_type: str, rotatable: bool = False):
+    def __init__(self, *, label: str, symbol_type: str, rotatable: bool = False):
         """Initialize a symbol with configuration parameters.
 
         The symbol is not yet attached to a schematic. Call
@@ -96,7 +96,7 @@ class Symbol(ABC):
         self.notifications = layout.notifications
 
         toolbar = SymbolToolbar(self.layout)
-        self.symbol_id = toolbar.add_symbol(self._symbol_type, self._symbol_group)
+        self.symbol_id = toolbar.add_symbol(self._symbol_type, group=self._symbol_group)
         self.locator = self.page.get_by_test_id(self.symbol_id)
         self.set_label(self.label)
         self._apply_properties()
@@ -157,6 +157,7 @@ class Symbol(ABC):
     @abstractmethod
     def set_properties(
         self,
+        *,
         channel_name: str | None = None,
         **kwargs: Any,
     ) -> dict[str, Any]:
@@ -178,7 +179,9 @@ class Symbol(ABC):
     def set_channel(self, *, section: str, channel_name: str) -> None:
         if channel_name is not None:
             self.layout.click(self.channel_trigger(section))
-            self.layout.select_from_dropdown(channel_name, "Search", exact=True)
+            self.layout.select_from_dropdown(
+                channel_name, placeholder="Search", exact=True
+            )
 
     def set_value(self, value: float) -> None:
         """Set the symbol's value if applicable. Default implementation does nothing."""
@@ -200,7 +203,7 @@ class Symbol(ABC):
         finally:
             self.page.mouse.up()
 
-    def press_and_hold(self, delay: sy.TimeSpan = sy.TimeSpan.SECOND) -> None:
+    def press_and_hold(self, *, delay: sy.TimeSpan = sy.TimeSpan.SECOND) -> None:
         """Press the symbol, hold for ``delay``, then release."""
         with self.hold():
             self.page.wait_for_timeout(int(delay.milliseconds))
@@ -251,7 +254,7 @@ class Symbol(ABC):
         control_chip = self.locator.locator(".pluto-control-chip").first
         self.layout.click(control_chip)
 
-    def get_properties(self, tab: str = "Symbols") -> dict[str, Any]:
+    def get_properties(self, *, tab: str = "Symbols") -> dict[str, Any]:
         """
         Get the current properties of the symbol.
 

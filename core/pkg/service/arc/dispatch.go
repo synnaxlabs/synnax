@@ -49,16 +49,12 @@ func (s *Service) Dispatch(
 					if s.sweeper.quiet(key) {
 						dead = s.sweeper.forgettable(a.Text.Doc)
 					}
-					stored := a
+					name := a.Name
 					a, err := Reduce(a, acts...)
 					if err != nil {
 						return a, err
 					}
-					a.ApplyDefaults()
-					if err = validateType(stored.Type, a.Type); err != nil {
-						return Arc{}, err
-					}
-					if a.Name != stored.Name {
+					if a.Name != name {
 						if err = s.cfg.Ontology.NewWriter(tx).
 							ValidateName(ctx, OntologyID(key), a.Name); err != nil {
 							return Arc{}, err
@@ -80,9 +76,9 @@ func (s *Service) Dispatch(
 		}); err != nil {
 			return err
 		}
-		dispatcher.Notify(ctx, key, dispatchKey, acts)
+		dispatcher.WithDispatchKey(dispatchKey).Notify(ctx, key, acts...)
 		if len(sweep) > 0 {
-			dispatcher.Notify(ctx, key, "", sweep)
+			dispatcher.Notify(ctx, key, sweep...)
 		}
 		s.taskSync.Trigger(key)
 		return nil

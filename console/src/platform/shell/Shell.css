@@ -76,7 +76,8 @@
     flex-wrap: wrap;
     justify-content: center;
 
-    & > .lyra-text--overflow-ellipsis {
+    & > .console-shell__connection-name,
+    & > .console-shell__connection-address {
         min-width: 0;
     }
 }

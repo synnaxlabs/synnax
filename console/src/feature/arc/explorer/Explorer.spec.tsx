@@ -16,13 +16,14 @@ import { Arc } from "@/feature/arc";
 import { Explorer } from "@/feature/arc/explorer/Explorer";
 import { Group } from "@/feature/group";
 import { retrieveArcsGroupID } from "@/platform/arc/testutil";
-import { expandTreeRow, renderToolbar } from "@/platform/tree/menuTestutil";
 import {
+  expandTreeRow,
   findTreeRow,
   findTreeRowIcon,
   openTreeRootContextMenu,
   openTreeRowContextMenu,
-} from "@/platform/tree/treeTestutil";
+  renderToolbar,
+} from "@/platform/tree/testutil";
 import { awaitTextEditingElement, commitTextEdit, uniqueName } from "@/testutil";
 
 const client = createTestClient();
@@ -124,6 +125,6 @@ describe("arc/Explorer", () => {
     await act(async () => {
       fireEvent.click(createArcItem);
     });
-    expect(await screen.findByPlaceholderText("Name")).toBeTruthy();
+    expect(await screen.findByPlaceholderText("Arc name")).toBeTruthy();
   });
 });

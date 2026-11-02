@@ -155,9 +155,9 @@ class DriverNIDigitalWrite(Latency):
         latencies_loop_ms = np.array(latencies_loop)
 
         # Get statistics
-        stats_core = self.calculate_stats(latencies_core_ms, "Driver Latency")
+        stats_core = self.calculate_stats(latencies_core_ms, name="Driver Latency")
         stats_loop = self.calculate_stats(
-            latencies_loop_ms, "Loop Latency (Python timestamp)"
+            latencies_loop_ms, name="Loop Latency (Python timestamp)"
         )
 
         # Create range for the latency benchmark
@@ -228,12 +228,17 @@ class DriverNIDigitalWrite(Latency):
             )
 
         self.plot_latencies(
-            latencies_core_ms, latencies_loop_ms, stats_core, stats_loop
+            latencies_core_ms=latencies_core_ms,
+            latencies_loop_ms=latencies_loop_ms,
+            stats_core=stats_core,
+            stats_loop=stats_loop,
         )
 
-        self.check_results(stats_core, stats_loop)
+        self.check_results(stats_driver=stats_core, stats_loop=stats_loop)
 
-    def calculate_stats(self, latencies_ms: np.ndarray, name: str) -> dict[str, float]:
+    def calculate_stats(
+        self, latencies_ms: np.ndarray, *, name: str
+    ) -> dict[str, float]:
         """Calculate and print statistics for a latency dataset"""
         mean = np.mean(latencies_ms)
         median = np.median(latencies_ms)
@@ -283,7 +288,7 @@ class DriverNIDigitalWrite(Latency):
         }
 
     def check_results(
-        self, stats_driver: dict[str, float], stats_loop: dict[str, float]
+        self, *, stats_driver: dict[str, float], stats_loop: dict[str, float]
     ) -> None:
         assert stats_driver["mean"] <= 5, "Driver mean latency is greater than 5 ms"
         assert stats_loop["mean"] <= 5, "Loop mean latency is greater than 5 ms"
@@ -315,6 +320,7 @@ class DriverNIDigitalWrite(Latency):
 
     def plot_latencies(
         self,
+        *,
         latencies_core_ms: np.ndarray,
         latencies_loop_ms: np.ndarray,
         stats_core: dict[str, float],

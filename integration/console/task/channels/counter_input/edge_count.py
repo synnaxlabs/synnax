@@ -28,6 +28,7 @@ class EdgeCount(Counter):
 
     def __init__(
         self,
+        *,
         layout: LayoutClient,
         name: str,
         device: str,

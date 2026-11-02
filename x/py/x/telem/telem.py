@@ -678,7 +678,7 @@ TimeSpanUnits = Literal["ns", "us", "ms", "s", "m", "h", "d", "iso"]
 
 
 def convert_time_units(
-    data: np.ndarray, _from: TimeSpanUnits, to: TimeSpanUnits
+    data: np.ndarray, *, _from: TimeSpanUnits, to: TimeSpanUnits
 ) -> np.ndarray:
     """Converts the data from one time unit to another.
 
@@ -743,7 +743,7 @@ class Rate(float):
         """:returns: the number of samples in the given TimeSpan at this rate"""
         return int(TimeSpan(time_span).seconds * self)
 
-    def byte_size(self, time_span: CrudeTimeSpan, density: Density) -> Size:
+    def byte_size(self, time_span: CrudeTimeSpan, *, density: Density) -> Size:
         """:returns: the amount of bytes occupied by the given TimeSpan at this rate
         and the given sample density.
 
@@ -761,7 +761,7 @@ class Rate(float):
         rate = Fraction(repr(float(self)))
         return TimeSpan(int(Fraction(sample_count * int(TimeSpan.SECOND)) / rate))
 
-    def size_span(self, size: Size, density: Density) -> TimeSpan:
+    def size_span(self, size: Size, *, density: Density) -> TimeSpan:
         """:returns: the TimeSpan that corresponds to the given number of bytes at this
         rate and the given sample density."""
         if size % density != 0:
@@ -908,7 +908,7 @@ class TimeRange(BaseModel):
         pv = TimeStamp(value)
         return pv.after_eq(self.start) and pv.before(self.end)
 
-    def overlaps_with(self, tr: TimeRange, delta: CrudeTimeSpan = 0) -> bool:
+    def overlaps_with(self, tr: TimeRange, *, delta: CrudeTimeSpan = 0) -> bool:
         """:returns: True if the time ranges share at least delta of time. Ranges that
         only touch at a boundary do not overlap.
         :param tr: The time range to compare against.
@@ -1540,7 +1540,7 @@ class Alignment(int):
 CrudeAlignment: TypeAlias = int | tuple[int, int] | Alignment | str
 
 
-def seconds_linspace(start: int, count: int) -> list[TimeStamp]:
+def seconds_linspace(start: int, *, count: int) -> list[TimeStamp]:
     """Generates count TimeStamps one second apart, starting start seconds after the
     Unix epoch."""
     return [TimeStamp(TimeSpan.SECOND * (start + i)) for i in range(count)]

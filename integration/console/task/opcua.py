@@ -13,6 +13,7 @@ import re
 
 from playwright.sync_api import Locator, expect
 
+from console.page import PageType
 from console.task_page import TaskPage
 
 SERVER_FIELD_LABEL = "OPC UA server"
@@ -39,7 +40,7 @@ class OPCUATask(TaskPage):
         :param name: Name of the server device.
         """
         # The option's accessible name is the device name joined to its endpoint.
-        self.select_device(SERVER_FIELD_LABEL, name)
+        self.select_device(SERVER_FIELD_LABEL, name=name)
         browser = self._browser()
         browser.wait_for(state="visible", timeout=10000)
         browser.locator(_BROWSER_LOADING_SELECTOR).wait_for(
@@ -83,12 +84,12 @@ class OPCUATask(TaskPage):
 class OPCUARead(OPCUATask):
     """OPC UA read task page."""
 
-    page_type = "OPC UA read task"
+    page_type: PageType = "OPC UA read task"
     pluto_label: str = ".console-task-configure--opc_read"
 
 
 class OPCUAWrite(OPCUATask):
     """OPC UA write task page."""
 
-    page_type = "OPC UA write task"
+    page_type: PageType = "OPC UA write task"
     pluto_label: str = ".console-task-configure--opc_write"

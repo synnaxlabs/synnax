@@ -43,7 +43,7 @@ class ArcClient(ResourceClient):
         controls.wait_for(state="visible", timeout=5000)
         return controls
 
-    def create(self, name: str, source: str, mode: str = "Text") -> None:
+    def create(self, name: str, *, source: str, mode: str = "Text") -> None:
         """Create a new Arc automation via Console UI.
 
         Args:
@@ -56,7 +56,7 @@ class ArcClient(ResourceClient):
         add_btn = self.layout.page.locator(f"{self.TOOLBAR_CLASS} button").first
         add_btn.click()
 
-        name_input = self.layout.page.locator("input[placeholder='Name']")
+        name_input = self.layout.page.locator("input[placeholder='Arc name']")
         name_input.wait_for(state="visible", timeout=5000)
         name_input.fill(name)
 

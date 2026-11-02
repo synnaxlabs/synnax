@@ -17,14 +17,14 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/distribution/channel"
 	"github.com/synnaxlabs/synnax/pkg/distribution/framer"
 	"github.com/synnaxlabs/synnax/pkg/distribution/framer/frame"
-	"github.com/synnaxlabs/synnax/pkg/distribution/mock"
+	"github.com/synnaxlabs/synnax/pkg/distribution/testutil"
 	"github.com/synnaxlabs/x/telem"
 	. "github.com/synnaxlabs/x/testutil"
 )
 
 var _ = Describe("OnHistoryChange", func() {
 	It("Should report changes until the handler disconnects", func(ctx SpecContext) {
-		dist := mock.NewNode(ctx)
+		dist := testutil.NewNode(ctx)
 		chs := MustSucceed(dist.Channel.Create(ctx, []channel.Channel{{
 			Name:     "Hopper",
 			DataType: telem.TimestampT,

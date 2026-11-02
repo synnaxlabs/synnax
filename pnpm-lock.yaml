@@ -1695,6 +1695,9 @@ importers:
       '@astrojs/check':
         specifier: 'catalog:'
         version: 0.9.10(prettier-plugin-astro@1.1.1(@emnapi/core@1.11.3)(@emnapi/runtime@1.11.3)(prettier@3.9.10))(prettier@3.9.10)(typescript@6.0.3)
+      '@juggle/resize-observer':
+        specifier: 'catalog:'
+        version: 3.4.0
       '@synnaxlabs/eslint-config':
         specifier: 'catalog:'
         version: link:../../configs/eslint
@@ -1874,6 +1877,9 @@ importers:
       '@astrojs/check':
         specifier: 'catalog:'
         version: 0.9.10(prettier-plugin-astro@1.1.1(@emnapi/core@1.11.3)(@emnapi/runtime@1.11.3)(prettier@3.9.10))(prettier@3.9.10)(typescript@6.0.3)
+      '@juggle/resize-observer':
+        specifier: 'catalog:'
+        version: 3.4.0
       '@synnaxlabs/eslint-config':
         specifier: 'catalog:'
         version: link:../../configs/eslint

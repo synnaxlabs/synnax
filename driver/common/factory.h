@@ -102,13 +102,14 @@ inline x::errors::Error delete_legacy_task_by_type(
     const std::string &task_type,
     const std::string &integration_name
 ) {
-    auto [old_heartbeat_task, o_err] = rack.tasks.retrieve_by_type(task_type);
+    auto [legacy, o_err] = rack.tasks.retrieve_by_type(task_type);
     if (o_err) return o_err.skip(x::errors::NOT_FOUND);
-    if (const auto del_err = rack.tasks.del(old_heartbeat_task.key))
-        LOG(ERROR) << "[" << integration_name
-                   << "] failed to delete legacy heartbeat task: " << del_err;
+    if (const auto del_err = rack.tasks.del(legacy.key))
+        LOG(ERROR) << "[" << integration_name << "] failed to delete legacy "
+                   << task_type << " task: " << del_err;
     else
-        LOG(INFO) << "[" << integration_name << "] deleted legacy heartbeat task";
+        LOG(INFO) << "[" << integration_name << "] deleted legacy " << task_type
+                  << " task";
     return o_err;
 }
 }

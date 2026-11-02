@@ -49,8 +49,6 @@ const Properties = () => (
       inputProps={EXECUTION_RATE_INPUT_PROPS}
     />
     <Task.Fields.StateUpdateRate />
-    <Task.Fields.DataSaving />
-    <Task.Fields.AutoStart />
   </Flex.Box>
 );
 
@@ -105,11 +103,11 @@ const Form: FC = () => {
   );
 };
 
-const getInitialValues: Task.GetInitialValues<WriteSchemas> = ({ config }) => ({
-  name: "EtherCAT write task",
-  type: WRITE_TYPE,
-  config: WRITE_SCHEMAS.config.parse(config ?? {}),
-});
+const getInitialValues: Task.GetInitialValues<WriteSchemas> = ({ config }) => {
+  const cfg = WRITE_SCHEMAS.config.parse(config ?? {});
+  if (config == null) cfg.channels = [createWriteChannel([])];
+  return { name: "EtherCAT write task", type: WRITE_TYPE, config: cfg };
+};
 
 const WRITE_INDEX_OPTIONS = {
   indexProperty: "writeStateIndex" as const,
@@ -202,7 +200,6 @@ export const Write = Task.wrapForm({
   schemas: WRITE_SCHEMAS,
   deployConfigZ: deployWriteConfigZ,
   type: "ethercat_write",
-  getInitialValues,
   onConfigure,
 });
 

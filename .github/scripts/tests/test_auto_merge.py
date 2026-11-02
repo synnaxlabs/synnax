@@ -45,6 +45,7 @@ jq -r "$EXPR" "$FAKE_GH_DIR/pull.json"
 
 def pull(
     labels: list[str],
+    *,
     enabled_by: str | None = None,
     draft: bool = False,
     base: str = "main",

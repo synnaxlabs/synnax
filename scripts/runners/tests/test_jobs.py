@@ -37,11 +37,11 @@ def runs(*ids: int) -> dict:
     return {"workflow_runs": [{"id": i} for i in ids]}
 
 
-def job(id: int, status: str) -> dict:
+def job(id: int, *, status: str) -> dict:
     return {"id": id, "status": status, "labels": LABELS}
 
 
-def delivery(action: str, id: int) -> dict:
+def delivery(action: str, *, id: int) -> dict:
     return {
         "action": action,
         "workflow_job": {
@@ -62,7 +62,7 @@ class Held(Executor):
     """Holds each submitted call until release runs it, or runs it at once when
     immediate is set."""
 
-    def __init__(self, immediate: bool = True) -> None:
+    def __init__(self, *, immediate: bool = True) -> None:
         self.immediate = immediate
         self.pending: list[tuple[Future[Any], Callable[[], Any]]] = []
 
@@ -81,16 +81,20 @@ class Held(Executor):
         self.pending.clear()
 
 
-def jobs(github: GitHub, client: Client, pool: Executor | None = None) -> Jobs:
-    log = Log(core(client), Channels(core(client), False), "log")
-    return Jobs(github, log, pool or Held())
+def jobs(github: GitHub, *, client: Client, pool: Executor | None = None) -> Jobs:
+    log = Log(
+        client=core(client),
+        channels=Channels(client=core(client), enabled=False),
+        channel="log",
+    )
+    return Jobs(github=github, log=log, pool=pool or Held())
 
 
 class TestJobs:
     """Tests for the job queue built from deliveries and runs."""
 
     def test_should_count_queued_deliveries_per_pool(self, client: Client) -> None:
-        j = jobs(Responses({}), client)
+        j = jobs(Responses({}), client=client)
         j.apply(
             [
                 {"action": "queued", "workflow_job": {"id": 1, "labels": LABELS}},
@@ -107,11 +111,11 @@ class TestJobs:
                 "/actions/runs?status=queued&per_page=100&page=1": runs(),
                 "/actions/runs?status=in_progress&per_page=100&page=1": runs(7),
                 "/actions/runs/7/jobs?per_page=100&page=1": {
-                    "jobs": [job(1, "completed"), job(2, "queued")]
+                    "jobs": [job(1, status="completed"), job(2, status="queued")]
                 },
             }
         )
-        j = jobs(github, client)
+        j = jobs(github, client=client)
         j.resync(sy.TimeStamp.now())
         assert j.queued == {2: set(LABELS)}
         assert j.counts() == {"ubuntu-test-bot": 1}
@@ -124,12 +128,12 @@ class TestJobs:
                 "/actions/runs?status=queued&per_page=100&page=1": runs(),
                 "/actions/runs?status=in_progress&per_page=100&page=1": runs(7),
                 "/actions/runs/7/jobs?per_page=100&page=1": {
-                    "jobs": [job(2, "queued")]
+                    "jobs": [job(2, status="queued")]
                 },
             }
         )
         pool = Held(immediate=False)
-        j = jobs(github, client, pool)
+        j = jobs(github, client=client, pool=pool)
         j.apply([{"action": "queued", "workflow_job": {"id": 1, "labels": LABELS}}])
         j.resync(sy.TimeStamp.now())
         assert j.queued == {1: set(LABELS)}
@@ -147,17 +151,17 @@ class TestJobs:
                 "/actions/runs?status=queued&per_page=100&page=1": runs(),
                 "/actions/runs?status=in_progress&per_page=100&page=1": runs(7),
                 "/actions/runs/7/jobs?per_page=100&page=1": {
-                    "jobs": [job(2, "queued")]
+                    "jobs": [job(2, status="queued")]
                 },
             }
         )
         pool = Held(immediate=False)
-        j = jobs(github, client, pool)
+        j = jobs(github, client=client, pool=pool)
         j.resync(sy.TimeStamp.now())
         j.apply(
             [
                 {"action": "queued", "workflow_job": {"id": 3, "labels": LABELS}},
-                delivery("in_progress", 2),
+                delivery("in_progress", id=2),
             ]
         )
         pool.release()
@@ -167,7 +171,9 @@ class TestJobs:
     def test_should_not_restore_a_job_that_finished_during_a_resync(
         self, client: Client
     ) -> None:
-        running = delivery("in_progress", 3)["workflow_job"] | {"status": "in_progress"}
+        running = delivery("in_progress", id=3)["workflow_job"] | {
+            "status": "in_progress"
+        }
         github = Responses(
             {
                 "/actions/runs?status=queued&per_page=100&page=1": runs(),
@@ -176,33 +182,35 @@ class TestJobs:
             }
         )
         pool = Held(immediate=False)
-        j = jobs(github, client, pool)
+        j = jobs(github, client=client, pool=pool)
         j.resync(sy.TimeStamp.now())
         pool.release()
-        j.apply([delivery("in_progress", 3), delivery("completed", 3)])
+        j.apply([delivery("in_progress", id=3), delivery("completed", id=3)])
         j.resync(sy.TimeStamp.now())
         assert "runner" not in j.active
 
     def test_should_read_every_page_of_jobs(self, client: Client) -> None:
-        first = [job(i, "completed") for i in range(100)]
+        first = [job(i, status="completed") for i in range(100)]
         github = Responses(
             {
                 "/actions/runs?status=queued&per_page=100&page=1": runs(),
                 "/actions/runs?status=in_progress&per_page=100&page=1": runs(7),
                 "/actions/runs/7/jobs?per_page=100&page=1": {"jobs": first},
                 "/actions/runs/7/jobs?per_page=100&page=2": {
-                    "jobs": [job(100, "queued")]
+                    "jobs": [job(100, status="queued")]
                 },
             }
         )
-        j = jobs(github, client)
+        j = jobs(github, client=client)
         j.resync(sy.TimeStamp.now())
         assert j.queued == {100: set(LABELS)}
 
     def test_should_restore_running_jobs_no_delivery_reported(
         self, client: Client
     ) -> None:
-        running = delivery("in_progress", 3)["workflow_job"] | {"status": "in_progress"}
+        running = delivery("in_progress", id=3)["workflow_job"] | {
+            "status": "in_progress"
+        }
         github = Responses(
             {
                 "/actions/runs?status=queued&per_page=100&page=1": runs(),
@@ -210,13 +218,13 @@ class TestJobs:
                 "/actions/runs/7/jobs?per_page=100&page=1": {"jobs": [running]},
             }
         )
-        j = jobs(github, client)
+        j = jobs(github, client=client)
         j.resync(sy.TimeStamp.now())
         assert j.active["runner"]["id"] == 3
 
     def test_should_keep_the_current_job_on_a_late_completion(
         self, client: Client
     ) -> None:
-        j = jobs(Responses({}), client)
-        j.apply([delivery("in_progress", 2), delivery("completed", 1)])
+        j = jobs(Responses({}), client=client)
+        j.apply([delivery("in_progress", id=2), delivery("completed", id=1)])
         assert j.active["runner"]["id"] == 2

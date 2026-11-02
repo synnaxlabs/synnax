@@ -124,7 +124,7 @@ const ListItem = (props: BaseList.ItemProps<string>) => {
           allowDoubleClick={false}
         />
       </Flex.Box>
-      <Telem.Text.TimeRange level="small">{timeRange}</Telem.Text.TimeRange>
+      <Telem.Text.TimeRange level="tiny">{timeRange}</Telem.Text.TimeRange>
       {labels.length > 0 && (
         <Flex.Box x gap="small" wrap className={CSS.B("range-list-item-labels")}>
           {labels.map((l) => (
@@ -154,11 +154,7 @@ const Actions = (): ReactElement | null => {
         </Toolbar.Action>
       )}
       {hasCreatePermission && (
-        <Toolbar.Action
-          tooltip="Create range"
-          onClick={() => openCreate()}
-          variant="filled"
-        >
+        <Toolbar.Action tooltip="Create range" onClick={() => openCreate()}>
           <Icon.Add />
         </Toolbar.Action>
       )}

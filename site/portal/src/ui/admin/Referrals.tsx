@@ -102,11 +102,11 @@ const ReferralRow = ({
 }: Entry): ReactElement => (
   <Row columns={COLUMNS}>
     <Flex.Box y gap="tiny" className="portal-list__stack">
-      <Text.Text level="p" weight={500} overflow="ellipsis">
+      <Text.Text level="p" weight={500} overflow="fade">
         {ref.recipient}
       </Text.Text>
       {account != null && (
-        <Text.Text level="small" color={9} overflow="ellipsis">
+        <Text.Text level="small" color={9} overflow="fade">
           {account.email}
         </Text.Text>
       )}
@@ -117,7 +117,7 @@ const ReferralRow = ({
     <Text.Text level="p" color={9}>
       {date(usage.lastActive)}
     </Text.Text>
-    <Text.Text level="p" color={9} overflow="ellipsis">
+    <Text.Text level="p" color={9} overflow="fade">
       {referrer}
     </Text.Text>
     <Text.Text level="p" color={9}>

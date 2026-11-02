@@ -154,6 +154,7 @@ export const Fallback = ({
             <Text.Text
               level="h3"
               status="error"
+              overflow="fade"
               className={CSS.BE("error-fallback", "name")}
             >
               {error.name}

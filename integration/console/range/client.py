@@ -27,14 +27,17 @@ class Client(Surface):
 
     def __init__(
         self,
+        *,
         layout: LayoutClient,
         pages: "PagesClient",
     ):
         super().__init__(layout)
         self.pages = pages
         self.toolbar = Toolbar(layout)
-        self.explorer = Explorer(layout, self.toolbar)
-        self.overview = Overview(layout, self.toolbar, self.explorer)
+        self.explorer = Explorer(layout=layout, toolbar=self.toolbar)
+        self.overview = Overview(
+            layout=layout, toolbar=self.toolbar, explorer=self.explorer
+        )
 
     def create(
         self,
@@ -91,7 +94,7 @@ class Client(Surface):
         name_input.wait_for(state="visible", timeout=5000)
         expect(name_input).to_have_value(name, timeout=5000)
 
-    def snapshot_to_active_range(self, name: str, range_name: str) -> None:
+    def snapshot_to_active_range(self, name: str, *, range_name: str) -> None:
         """Snapshot a page or task to the active range via context menu.
 
         Searches the project tree first (for schematics, line plots, etc.),

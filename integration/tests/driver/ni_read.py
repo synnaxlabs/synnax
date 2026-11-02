@@ -51,6 +51,34 @@ class NIAnalogReadHS(NIAnalogReadTaskCase):
             for i in range(2)
         ]
 
+    def run(self) -> None:
+        super().run()
+        self.test_hardware_lists_ports()
+
+    def test_hardware_lists_ports(self) -> None:
+        """Verify the device's hardware lists each port that the task reads, with the
+        channel type of its channel.
+        """
+        assert self.tsk is not None
+        self.log("Testing: Device hardware lists the read ports")
+        device = self.client.devices.retrieve(key=self._device_key)
+        if "hardware" not in device.properties:
+            raise AssertionError(f"Device {device.key} has no hardware")
+        hardware = sy.ni.Hardware.model_validate(device.properties["hardware"])
+        ports = {p.port: p for p in hardware.analog_inputs}
+        for ch in self.tsk.config.channels:
+            assert isinstance(ch, sy.ni.AIVoltageChannel)
+            if ch.port not in ports:
+                raise AssertionError(
+                    f"Hardware of {device.key} does not list port {ch.port}. "
+                    f"Ports: {sorted(ports)}"
+                )
+            if ch.type not in ports[ch.port].types:
+                raise AssertionError(
+                    f"Port {ch.port} of {device.key} does not accept {ch.type}. "
+                    f"Types: {ports[ch.port].types}"
+                )
+
 
 class NIAnalogReadScaled(NIAnalogReadTaskCase):
     """Read voltage with custom scales, verify values fall in scaled bounds.
@@ -212,7 +240,7 @@ class NIAnalogReadScaled(NIAnalogReadTaskCase):
             )
 
             # Execute tare on all channels (async — tare doesn't send an ACK)
-            self.tsk._internal.execute_command("tare", {"keys": channel_keys})
+            self.tsk._internal.execute_command("tare", args={"keys": channel_keys})
             self.log("  Tare command sent")
 
             # Capture post-tare values

@@ -50,6 +50,7 @@ ALIGNMENT_EXTRACTORS = {
 def assert_alignment(
     symbols: list[Symbol],
     alignment: AlignmentType,
+    *,
     tolerance: float | None = None,
 ) -> None:
     """Assert that all symbols are aligned along the specified axis."""
@@ -79,6 +80,7 @@ def assert_alignment(
 def assert_distribution(
     symbols: list[Symbol],
     distribution: DistributionType,
+    *,
     tolerance: float | None = None,
 ) -> None:
     """Assert that symbols are evenly distributed along the specified axis."""
@@ -143,6 +145,7 @@ def assert_distribution(
 
 def assert_rotation(
     symbols: list[Symbol],
+    *,
     initial_positions: list[FloatRect],
     direction: RotationType,
     group: bool = False,
@@ -485,21 +488,41 @@ class Alignment(ConsoleCase):
         self.log("Rotate Individual Clockwise")
         initial_positions = [symbol.position for symbol in symbols]
         schematic.rotate(symbols, "clockwise", group=False)
-        assert_rotation(symbols, initial_positions, "clockwise", group=False)
+        assert_rotation(
+            symbols,
+            initial_positions=initial_positions,
+            direction="clockwise",
+            group=False,
+        )
 
         self.log("Rotate Individual Counterclockwise")
         initial_positions = [symbol.position for symbol in symbols]
         schematic.rotate(symbols, "counterclockwise", group=False)
-        assert_rotation(symbols, initial_positions, "counterclockwise", group=False)
+        assert_rotation(
+            symbols,
+            initial_positions=initial_positions,
+            direction="counterclockwise",
+            group=False,
+        )
 
         self.log("Rotate Group Clockwise")
         initial_positions = [symbol.position for symbol in symbols]
         schematic.rotate(symbols, "clockwise", group=True)
-        assert_rotation(symbols, initial_positions, "clockwise", group=True)
+        assert_rotation(
+            symbols,
+            initial_positions=initial_positions,
+            direction="clockwise",
+            group=True,
+        )
 
         self.log("Rotate Group Counterclockwise")
         initial_positions = [symbol.position for symbol in symbols]
         schematic.rotate(symbols, "counterclockwise", group=True)
-        assert_rotation(symbols, initial_positions, "counterclockwise", group=True)
+        assert_rotation(
+            symbols,
+            initial_positions=initial_positions,
+            direction="counterclockwise",
+            group=True,
+        )
 
         schematic.screenshot()

@@ -37,6 +37,7 @@ class Webhook:
 
     def __init__(
         self,
+        *,
         secret: str,
         port: int,
         report: Callable[[str, Exception], None] = warn,
@@ -51,7 +52,7 @@ class Webhook:
         self.thread = threading.Thread(target=self.server.serve_forever, daemon=True)
         self.thread.start()
 
-    def valid(self, body: bytes, signature: str) -> bool:
+    def valid(self, body: bytes, *, signature: str) -> bool:
         digest = hmac.new(self.secret, body, hashlib.sha256).hexdigest()
         return hmac.compare_digest(f"sha256={digest}", signature)
 
@@ -89,7 +90,9 @@ class Webhook:
                     self.reply(413)
                     return
                 body = self.rfile.read(length)
-                if not hook.valid(body, self.headers.get("X-Hub-Signature-256", "")):
+                if not hook.valid(
+                    body, signature=self.headers.get("X-Hub-Signature-256", "")
+                ):
                     hook.rejected += 1
                     self.reply(401)
                     return

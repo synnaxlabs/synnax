@@ -527,11 +527,13 @@ class EdgeCases(ArcCase):
         for ch in CHANNEL_VIRTUAL:
             create_virtual_channel(self.client, ch)
         create_virtual_channel(
-            self.client, "start_read_only_monitor_cmd", sy.DataType.UINT8
+            self.client, "start_read_only_monitor_cmd", data_type=sy.DataType.UINT8
         )
         create_virtual_channel(self.client, "edge_monitor_input")
-        create_virtual_channel(self.client, "edge_len_input", sy.DataType.STRING)
-        create_virtual_channel(self.client, "edge_len_out", sy.DataType.INT64)
+        create_virtual_channel(
+            self.client, "edge_len_input", data_type=sy.DataType.STRING
+        )
+        create_virtual_channel(self.client, "edge_len_out", data_type=sy.DataType.INT64)
         self.client.statuses.set(
             sy.Status(
                 key="press_monitor_status",
@@ -581,19 +583,19 @@ class EdgeCases(ArcCase):
     def _assert_configure_error(
         self,
         source: str,
+        *,
         name_prefix: str,
         substr: str,
         expect: Sequence[str] = (),
     ) -> None:
         """Start an Arc expected to be rejected on deploy and verify the error."""
-        name = self.load_arc(source, name_prefix, start=False)
+        name = self.load_arc(source, name_prefix=name_prefix, start=False)
         handle = next(h for h in self._arcs if h.name == name)
         message = run_and_expect_rejection(
             self.client, handle.task, timeout=30 * sy.TimeSpan.SECOND
         )
         if message is None:
             self.fail(f"[{name_prefix}] deploy unexpectedly succeeded")
-            return
         assert substr in message, (
             f"[{name_prefix}] expected '{substr}' in error, got: {message}"
         )
@@ -608,12 +610,15 @@ class EdgeCases(ArcCase):
         for case in CIRCULAR_CASES:
             self.log(f"[{case.label}] Testing circular dependency")
             self._assert_configure_error(
-                case.source, f"Circ{case.label}", case.wait_substr, case.expect
+                case.source,
+                name_prefix=f"Circ{case.label}",
+                substr=case.wait_substr,
+                expect=case.expect,
             )
 
     def _assert_guarded_configures(self, case: GuardedCase) -> None:
         self.log(f"[Guarded {case.label}] Testing guarded recursion")
-        self.load_arc(case.source, f"Guard{case.label}")
+        self.load_arc(case.source, name_prefix=f"Guard{case.label}")
 
     def _verify_guarded_cases(self) -> None:
         self.log("=== Guarded recursion (should deploy successfully) ===")
@@ -625,12 +630,14 @@ class EdgeCases(ArcCase):
         for case in EXEC_CONTEXT_CASES:
             self.log(f"[{case.label}] Testing exec context violation")
             self._assert_configure_error(
-                case.source, f"ExecCtx{case.label}", case.wait_substr
+                case.source,
+                name_prefix=f"ExecCtx{case.label}",
+                substr=case.wait_substr,
             )
 
     def _verify_wasm_in_flow(self) -> None:
         self.log("=== WASM-only callee as a flow node ===")
-        self.load_arc(ARC_WASM_IN_FLOW, "WasmInFlow")
+        self.load_arc(ARC_WASM_IN_FLOW, name_prefix="WasmInFlow")
         self.writer.write("edge_len_input", "hello")
         self.wait_for_eq("edge_len_out", 5)
 
@@ -639,7 +646,9 @@ class EdgeCases(ArcCase):
         for case in IMPORT_CASES:
             self.log(f"[{case.label}] Testing import diagnostic")
             self._assert_configure_error(
-                case.source, f"Import{case.label}", case.wait_substr
+                case.source,
+                name_prefix=f"Import{case.label}",
+                substr=case.wait_substr,
             )
 
     def _verify_type_mismatch_cases(self) -> None:
@@ -647,7 +656,9 @@ class EdgeCases(ArcCase):
         for case in TYPE_MISMATCH_CASES:
             self.log(f"[{case.label}] Testing type mismatch")
             self._assert_configure_error(
-                case.source, f"TypeMismatch{case.label}", case.wait_substr
+                case.source,
+                name_prefix=f"TypeMismatch{case.label}",
+                substr=case.wait_substr,
             )
 
     def _verify_routing_table_cases(self) -> None:
@@ -655,14 +666,16 @@ class EdgeCases(ArcCase):
         for case in ROUTING_TABLE_CASES:
             self.log(f"[{case.label}] Testing transition into routing")
             self._assert_configure_error(
-                case.source, f"RoutingTable{case.label}", case.wait_substr
+                case.source,
+                name_prefix=f"RoutingTable{case.label}",
+                substr=case.wait_substr,
             )
 
     def _verify_read_only_monitor(self) -> None:
         self.log("=== Read-only monitor (no write channels) ===")
         name = self.load_arc(
             ARC_READ_ONLY_MONITOR,
-            "ReadOnly",
+            name_prefix="ReadOnly",
             trigger="start_read_only_monitor_cmd",
         )
 

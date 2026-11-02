@@ -124,11 +124,7 @@ const Actions = ({ handleCreate }: ActionsProps): ReactElement | null => {
         </Toolbar.Action>
       )}
       {hasCreatePermission && (
-        <Toolbar.Action
-          tooltip="Create Arc automation"
-          onClick={handleCreate}
-          variant="filled"
-        >
+        <Toolbar.Action tooltip="Create Arc automation" onClick={handleCreate}>
           <Icon.Add />
         </Toolbar.Action>
       )}
@@ -189,7 +185,7 @@ const ArcListItem = ({ onRename, onEdit, ...rest }: ArcListItemProps) => {
             value={arcItem?.name ?? ""}
             onChange={hasUpdatePermission ? handleRename : undefined}
             allowDoubleClick={false}
-            overflow="ellipsis"
+            overflow="fade"
             weight={500}
           />
           {drifted && (

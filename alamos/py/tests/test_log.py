@@ -84,7 +84,7 @@ class TestInstrumentationLogger:
         self, base: logging.Logger, caplog: pytest.LogCaptureFixture
     ) -> None:
         """Should add the instrumentation key and path to each record."""
-        ins = Instrumentation("root", logger=Logger(noop=False, base=base))
+        ins = Instrumentation(key="root", logger=Logger(noop=False, base=base))
         with caplog.at_level(logging.INFO):
             ins.L.info("root")
             ins.child("a").child("b").L.info("child", extra={"user": "x"})
@@ -98,7 +98,7 @@ class TestInstrumentationLogger:
         handler = Records()
         base = logging.Logger("app")
         base.addHandler(handler)
-        ins = Instrumentation("root", logger=Logger(noop=False, base=base))
+        ins = Instrumentation(key="root", logger=Logger(noop=False, base=base))
         ins.child("a").L.warn("child")
         (record,) = handler.records
         assert record.name == "app"
@@ -106,6 +106,8 @@ class TestInstrumentationLogger:
 
     def test_meta(self, base: logging.Logger) -> None:
         """Should set the instrumentation meta on the logger."""
-        child = Instrumentation("root", logger=Logger(noop=False, base=base)).child("a")
+        child = Instrumentation(key="root", logger=Logger(noop=False, base=base)).child(
+            "a"
+        )
         assert child.L.meta.key == "a"
         assert child.L.meta.path == "root.a"

@@ -15,12 +15,12 @@ import { describe, expect, it } from "vitest";
 import { Arc } from "@/feature/arc";
 import { retrieveArcsGroupID } from "@/platform/arc/testutil";
 import { findButton } from "@/platform/modals/testutil";
-import { getTreeRow } from "@/platform/tree/menuTestutil";
 import {
   findTreeRow,
+  getTreeRow,
   openTreeRowContextMenu,
   renderOntologyTree,
-} from "@/platform/tree/treeTestutil";
+} from "@/platform/tree/testutil";
 import { Session } from "@/session";
 import { documentIn } from "@/session/window/testutil";
 import {

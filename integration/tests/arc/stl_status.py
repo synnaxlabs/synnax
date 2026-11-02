@@ -142,14 +142,14 @@ class StlStatus(ArcCase):
     collect_notifications = True
 
     def setup(self) -> None:
-        create_virtual_channel(self.client, TRIG_SET, sy.DataType.UINT8)
-        create_virtual_channel(self.client, TRIG_DUP_FUNC, sy.DataType.UINT8)
-        create_virtual_channel(self.client, TRIG_DUP_FLOW, sy.DataType.UINT8)
-        create_virtual_channel(self.client, TRIG_SEQ, sy.DataType.UINT8)
-        create_virtual_channel(self.client, DUP_FUNC_KEY, sy.DataType.STRING)
-        create_virtual_channel(self.client, SEQ_DONE, sy.DataType.UINT8)
+        create_virtual_channel(self.client, TRIG_SET, data_type=sy.DataType.UINT8)
+        create_virtual_channel(self.client, TRIG_DUP_FUNC, data_type=sy.DataType.UINT8)
+        create_virtual_channel(self.client, TRIG_DUP_FLOW, data_type=sy.DataType.UINT8)
+        create_virtual_channel(self.client, TRIG_SEQ, data_type=sy.DataType.UINT8)
+        create_virtual_channel(self.client, DUP_FUNC_KEY, data_type=sy.DataType.STRING)
+        create_virtual_channel(self.client, SEQ_DONE, data_type=sy.DataType.UINT8)
         for ch in KEY_CHANNELS:
-            create_virtual_channel(self.client, ch, sy.DataType.STRING)
+            create_virtual_channel(self.client, ch, data_type=sy.DataType.STRING)
         for c in CASES:
             self.client.statuses.set(
                 sy.Status(

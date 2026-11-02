@@ -86,7 +86,7 @@ const ChannelListItem = <C extends Channel>({
             weight={350}
             color={opcNodeColor ?? 9}
             gap="small"
-            overflow="ellipsis"
+            overflow="fade"
           >
             {nodeName} {opcNode}
           </Text.Text>

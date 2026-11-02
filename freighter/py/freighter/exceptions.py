@@ -20,7 +20,7 @@ class Unreachable(Error):
     target: str
     message: str
 
-    def __init__(self, target: str = "", message: str = "Unreachable"):
+    def __init__(self, *, target: str = "", message: str = "Unreachable"):
         self.target = target
         self.message = message
         super().__init__(message)

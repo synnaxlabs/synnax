@@ -242,7 +242,7 @@ const Entry = ({ icon, label, value }: EntryProps): ReactElement => (
       <Text.Text level="small" color={9}>
         {label}
       </Text.Text>
-      <Text.Text level="p" color={11} overflow="ellipsis">
+      <Text.Text level="p" color={11} overflow="fade">
         {value}
       </Text.Text>
     </Flex.Box>

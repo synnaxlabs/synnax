@@ -80,7 +80,6 @@
         border: none;
         background: none;
         width: 100%;
-        text-overflow: ellipsis;
         white-space: nowrap;
         height: 100%;
         padding: 0 1.5rem;
@@ -90,9 +89,19 @@
 
         &::placeholder {
             color: var(--pluto-text-placeholder);
-            text-overflow: ellipsis;
             max-width: 100%;
         }
+
+        /* A cut placeholder cannot be measured, so it keeps an ellipsis. */
+        &:placeholder-shown {
+            text-overflow: ellipsis;
+        }
+    }
+
+    /* A cut value fades out at the content edge until the input takes focus. */
+    & input.lyra--cut:not(:focus) {
+        mask: linear-gradient(to right, black calc(100% - 2.25rem), transparent)
+            content-box no-repeat;
     }
 
     & textarea {

@@ -48,7 +48,7 @@ GENERATED = """## What's Changed
 class Harness:
     """A fake gh serving one generate-notes response."""
 
-    def __init__(self, path: Path, body: str = GENERATED) -> None:
+    def __init__(self, *, path: Path, body: str = GENERATED) -> None:
         bin_dir = path / "bin"
         bin_dir.mkdir()
         gh = bin_dir / "gh"
@@ -80,7 +80,7 @@ class Harness:
 
 @pytest.fixture
 def harness(tmp_path: Path) -> Harness:
-    return Harness(tmp_path)
+    return Harness(path=tmp_path)
 
 
 class TestReleaseNotes:

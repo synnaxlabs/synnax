@@ -14,7 +14,6 @@
     padding: 2px;
     width: fit-content;
     white-space: nowrap;
-    text-overflow: ellipsis;
     text-wrap: wrap;
 
     & .pluto-symbol__label {

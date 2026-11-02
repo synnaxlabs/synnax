@@ -52,6 +52,7 @@ class Instrumentation:
 
     def __init__(
         self,
+        *,
         key: str,
         service_name: str | None = None,
         logger: Logger = NOOP_LOGGER,
@@ -82,7 +83,7 @@ class Instrumentation:
         return ins
 
 
-NOOP = Instrumentation("")
+NOOP = Instrumentation(key="")
 """
 Noop is instrumentation that does nothing. We highly recommend using this as a default
 value for instrumentation fields or function arguments.
@@ -114,7 +115,7 @@ class _Decorator(Protocol):
     ) -> Callable[Concatenate[T, P], R]: ...
 
 
-def trace(env: Environment, key: str | None = None) -> _Decorator:
+def trace(env: Environment, *, key: str | None = None) -> _Decorator:
     """
     Trace the given method on the class. This method can only be used on a class that
     implements the Traceable protocol. Supports both sync and async methods. An
@@ -145,7 +146,7 @@ def trace(env: Environment, key: str | None = None) -> _Decorator:
             async def async_wrapper(
                 self: T, /, *args: P.args, **kwargs: P.kwargs
             ) -> object:
-                with self.instrumentation.T.trace(span_key, env) as span:
+                with self.instrumentation.T.trace(span_key, env=env) as span:
                     try:
                         return await f(self, *args, **kwargs)
                     except Exception as e:
@@ -156,7 +157,7 @@ def trace(env: Environment, key: str | None = None) -> _Decorator:
 
         @functools.wraps(f)
         def wrapper(self: T, /, *args: P.args, **kwargs: P.kwargs) -> object:
-            with self.instrumentation.T.trace(span_key, env) as span:
+            with self.instrumentation.T.trace(span_key, env=env) as span:
                 try:
                     return f(self, *args, **kwargs)
                 except Exception as e:

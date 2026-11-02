@@ -23,7 +23,8 @@ class ConnectionLifecycle(ConsoleCase):
     def setup(self) -> None:
         super().setup()
         self.proxy = SeverableProxy(
-            self.synnax_connection.server_address, self.synnax_connection.port
+            target_host=self.synnax_connection.server_address,
+            target_port=self.synnax_connection.port,
         )
         self.recon_channel: str | None = None
 

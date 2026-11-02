@@ -9,8 +9,13 @@
 
 from dataclasses import dataclass
 from enum import Enum, auto
+from typing import Protocol
 
 import synnax as sy
+
+
+class Log(Protocol):
+    def __call__(self, message: str, /, *, use_name: bool = True) -> None: ...
 
 
 class STATUS(Enum):

@@ -23,21 +23,40 @@ import (
 	"github.com/synnaxlabs/x/query"
 	"github.com/synnaxlabs/x/spatial"
 	"github.com/synnaxlabs/x/telem"
+	"github.com/synnaxlabs/x/validate"
 )
 
 var _ = Describe("Dispatch", func() {
-	It("Should reject a create action that changes the type", func(ctx SpecContext) {
-		a := arc.Arc{Name: "dispatch_type", Type: arc.TypeModule, Mode: arc.ModeText}
-		Expect(writer.Create(ctx, &a)).To(Succeed())
-		DeferCleanup(func(ctx SpecContext) {
-			Expect(writer.Delete(ctx, a.Key)).To(Succeed())
-		})
-		replacement := a
-		replacement.Type = arc.TypeAutomation
-		Expect(svc.Dispatch(ctx, a.Key, "session-1", []arc.Action{
-			arc.NewCreateAction(arc.CreatePayload{Arc: replacement}),
-		})).To(MatchError(ContainSubstring("type cannot change")))
-	})
+	It(
+		"Should reject a create without changing the Arc it names",
+		func(ctx SpecContext) {
+			target := arc.Arc{Name: "target", Mode: arc.ModeGraph}
+			Expect(writer.Create(ctx, &target)).To(Succeed())
+			other := arc.Arc{Name: "other", Mode: arc.ModeGraph}
+			Expect(writer.Create(ctx, &other)).To(Succeed())
+			DeferCleanup(func(ctx SpecContext) {
+				Expect(writer.Delete(ctx, target.Key, other.Key)).To(Succeed())
+			})
+			Expect(svc.Dispatch(ctx, target.Key, "d1", []arc.Action{
+				arc.NewCreateAction(arc.CreatePayload{
+					Arc: arc.Arc{
+						Key:  other.Key,
+						Name: "overwritten",
+						Mode: arc.ModeGraph,
+					},
+				}),
+			})).To(SatisfyAll(
+				MatchError(validate.ErrValidation),
+				MatchError(ContainSubstring("only the Core dispatches an Arc create")),
+			))
+			var res arc.Arc
+			Expect(svc.NewRetrieve().
+				Where(arc.MatchKeys(other.Key)).
+				Entry(&res).
+				Exec(ctx, nil)).To(Succeed())
+			Expect(res.Name).To(Equal("other"))
+		},
+	)
 
 	It(
 		"Should apply a single SetNodePosition action to the target Arc",

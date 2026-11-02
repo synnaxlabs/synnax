@@ -101,7 +101,7 @@ const RegionControls = ({
         level="small"
         color={9}
         className={CSS.B("schematic-region-name")}
-        overflow="ellipsis"
+        overflow="fade"
       >
         {caseconv.capitalize(name)}
       </Text.Text>

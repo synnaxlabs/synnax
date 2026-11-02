@@ -28,15 +28,10 @@ const Actions = (): ReactElement | null => {
       <Toolbar.Action
         onClick={() => openCalculated()}
         tooltip="Create calculated channel"
-        variant="filled"
       >
         <Channel.CreateCalculatedIcon />
       </Toolbar.Action>
-      <Toolbar.Action
-        onClick={() => openCreate()}
-        tooltip="Create channel"
-        variant="filled"
-      >
+      <Toolbar.Action onClick={() => openCreate()} tooltip="Create channel">
         <Icon.Add />
       </Toolbar.Action>
     </Toolbar.Actions>

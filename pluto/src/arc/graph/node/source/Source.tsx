@@ -37,7 +37,7 @@ export const Symbol = ({ config: { channel } }: SymbolProps) => {
         weight={500}
         color={10}
         className={CSS.BE("arc", "source-label")}
-        overflow="ellipsis"
+        overflow="fade"
       >
         {name}
       </Text.Text>

@@ -134,12 +134,12 @@ export const TextShowcase = () => (
     <Flex.Box x pack grow sharp>
       <SubcategorySection
         title="Text overflow policies"
-        description="How text behaves when it exceeds container width - ellipsis, clip, or nowrap"
+        description="How text behaves when it exceeds container width - fade, clip, or nowrap"
       >
         <Flex.Box y gap="medium">
           <Flex.Box y gap="small">
             <Text.Text level="small" weight={500}>
-              Ellipsis (default overflow with ...)
+              Fade (fades out at its end)
             </Text.Text>
             <Flex.Box
               style={{
@@ -148,16 +148,16 @@ export const TextShowcase = () => (
                 padding: "8px",
               }}
             >
-              <Text.Text overflow="ellipsis" style={{ width: "100px" }}>
-                This is a very long text that will be truncated with ellipsis when it
-                exceeds the container width
+              <Text.Text overflow="fade" style={{ width: "100px" }}>
+                This is a very long text that will fade out at its end when it exceeds
+                the container width
               </Text.Text>
             </Flex.Box>
           </Flex.Box>
 
           <Flex.Box y gap="small">
             <Text.Text level="small" weight={500}>
-              Clip (hard cut without ...)
+              Clip (hard cut)
             </Text.Text>
             <Flex.Box
               style={{
@@ -167,8 +167,7 @@ export const TextShowcase = () => (
               }}
             >
               <Text.Text overflow="clip">
-                This is a very long text that will be clipped without any ellipsis
-                indicator
+                This is a very long text that will be clipped without any fade indicator
               </Text.Text>
             </Flex.Box>
           </Flex.Box>

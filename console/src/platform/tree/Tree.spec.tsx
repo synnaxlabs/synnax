@@ -22,12 +22,13 @@ import {
 import { beforeAll, describe, expect, it, vi } from "vitest";
 
 import { Tree } from "@/platform/tree";
-import { expandTreeRow, getTreeRow } from "@/platform/tree/menuTestutil";
 import {
+  expandTreeRow,
   findTreeRow,
+  getTreeRow,
   openTreeRootContextMenu,
   renderOntologyTree,
-} from "@/platform/tree/treeTestutil";
+} from "@/platform/tree/testutil";
 import {
   awaitTextEditingElement,
   awaitTextEditingExit,

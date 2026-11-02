@@ -15,7 +15,7 @@ import synnax as sy
 
 
 class Writer:
-    def __init__(self, client: "Client", start: sy.TimeStamp) -> None:
+    def __init__(self, *, client: "Client", start: sy.TimeStamp) -> None:
         self.client = client
         self.start = start
 
@@ -39,7 +39,7 @@ class Streamer:
     def __init__(self, client: "Client") -> None:
         self.client = client
 
-    def read(self, timeout: sy.TimeSpan) -> dict | None:
+    def read(self, *, timeout: sy.TimeSpan) -> dict | None:
         return self.client.streamed.pop(0) if self.client.streamed else None
 
     def close(self) -> None:
@@ -63,7 +63,7 @@ class Client:
     def open_writer(
         self, start: sy.TimeStamp, *args: object, **kwargs: object
     ) -> Writer:
-        return Writer(self, start)
+        return Writer(client=self, start=start)
 
     def open_streamer(self, *args: object, **kwargs: object) -> Streamer:
         self.elapsed += self.latency

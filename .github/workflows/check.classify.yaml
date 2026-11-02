@@ -48,6 +48,9 @@ jobs:
   surface:
     name: Compare ${{ matrix.surface }}
     runs-on: ubuntu-latest
+    # The proxy drops streams at times, so a failed fetch falls back to the source.
+    env:
+      GOPROXY: https://proxy.golang.org|direct
     strategy:
       fail-fast: false
       matrix:
@@ -95,6 +98,12 @@ jobs:
         with:
           go-version-file: ${{ matrix.go }}
           cache-dependency-path: ${{ matrix.go }}
+
+      - name: Download the Go modules
+        if: steps.base.outputs.touched == 'true' && matrix.go
+        env:
+          GO_MOD: ${{ matrix.go }}
+        run: .github/scripts/go_mod_download.sh "$(dirname "$GO_MOD")"
 
       - name: Set up pnpm and Node
         if: steps.base.outputs.touched == 'true' && matrix.node

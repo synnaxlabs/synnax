@@ -31,7 +31,10 @@ EDGE_VARIANTS = [
 
 
 def assert_properties(
-    schematic: Schematic, control_authority: int = 1, show_control_legend: bool = True
+    schematic: Schematic,
+    *,
+    control_authority: int = 1,
+    show_control_legend: bool = True,
 ) -> None:
     """Assert the schematic properties match expected values."""
     props = schematic.get_properties()
@@ -105,7 +108,7 @@ class EditProps(ConsoleCase):
         assert schematic.get_control_status() is True, (
             "Control status mismatch! Expected: True"
         )
-        assert schematic.control_legend_visible is True, (
+        assert schematic.control_legend_visible() is True, (
             "Control legend should be visible"
         )
 
@@ -120,7 +123,7 @@ class EditProps(ConsoleCase):
         )
         schematic.set_properties(show_control_legend=False)
         schematic.acquire_control()
-        assert schematic.control_legend_visible is False, (
+        assert schematic.control_legend_visible() is False, (
             "Control legend should not be visible"
         )
 
@@ -253,13 +256,23 @@ class EditProps(ConsoleCase):
         )
         target.move(delta_x=200, delta_y=0)
 
-        schematic.connect_symbols(source, "right", target, "left")
+        schematic.connect_symbols(
+            source_symbol=source,
+            source_handle="right",
+            target_symbol=target,
+            target_handle="left",
+        )
         assert schematic.get_edge_count() == 1, (
             f"Expected one edge after connecting, got {schematic.get_edge_count()}"
         )
 
         self.log("3.1 Default")
-        schematic.select_edge(source, "right", target, "left")
+        schematic.select_edge(
+            source_symbol=source,
+            source_handle="right",
+            target_symbol=target,
+            target_handle="left",
+        )
         default_variant = schematic.get_edge_variant()
         assert default_variant == "Pipe", (
             f"Default edge variant mismatch! Actual: {default_variant}, Expected: Pipe"
@@ -267,7 +280,12 @@ class EditProps(ConsoleCase):
 
         for variant in EDGE_VARIANTS:
             self.log(f"3.2 Switch to {variant}")
-            schematic.select_edge(source, "right", target, "left")
+            schematic.select_edge(
+                source_symbol=source,
+                source_handle="right",
+                target_symbol=target,
+                target_handle="left",
+            )
             schematic.set_edge_variant(variant)
 
             # A variant whose key is missing from the registry throws during render

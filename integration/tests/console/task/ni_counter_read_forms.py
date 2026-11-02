@@ -38,7 +38,7 @@ class NICounterReadForms(NIRackCase):
             auto_start=False,
         )
 
-        self.create_test_ni_rack(rack_name, device_name)
+        self.create_test_ni_rack(rack_name, device_name=device_name)
 
         # All available channel type verifiers
         all_verifiers = [
@@ -61,7 +61,7 @@ class NICounterReadForms(NIRackCase):
 
         self.log(f"Testing {len(selected)}/{len(all_verifiers)} channel types")
         for verifier in selected:
-            verifier(ni_ci, device_name)
+            verifier(ni_ci, device_name=device_name)
 
         # Assert the set values with form state
         ch_names = ni_ci.channels_by_name.copy()
@@ -70,7 +70,7 @@ class NICounterReadForms(NIRackCase):
         for ch in ch_names:
             ni_ci.assert_channel(ch)
 
-    def verify_edge_count_inputs(self, ni_ci: CounterRead, device_name: str) -> None:
+    def verify_edge_count_inputs(self, ni_ci: CounterRead, *, device_name: str) -> None:
         """Validate Edge Count inputs"""
         self.log("Configuring channels of type Edge Count")
         channel_type = "Edge count"
@@ -98,7 +98,7 @@ class NICounterReadForms(NIRackCase):
             count_direction="Externally controlled",
         )
 
-    def verify_frequency_inputs(self, ni_ci: CounterRead, device_name: str) -> None:
+    def verify_frequency_inputs(self, ni_ci: CounterRead, *, device_name: str) -> None:
         """Validate Frequency inputs"""
         self.log("Configuring channels of type Frequency")
         channel_type = "Frequency"
@@ -128,7 +128,7 @@ class NICounterReadForms(NIRackCase):
             meas_method="Two counters (large range)",
         )
 
-    def verify_period_inputs(self, ni_ci: CounterRead, device_name: str) -> None:
+    def verify_period_inputs(self, ni_ci: CounterRead, *, device_name: str) -> None:
         """Validate Period inputs"""
         self.log("Configuring channels of type Period")
         channel_type = "Period"
@@ -166,7 +166,9 @@ class NICounterReadForms(NIRackCase):
             meas_method="Dynamic averaging",
         )
 
-    def verify_pulse_width_inputs(self, ni_ci: CounterRead, device_name: str) -> None:
+    def verify_pulse_width_inputs(
+        self, ni_ci: CounterRead, *, device_name: str
+    ) -> None:
         """Validate Pulse Width inputs"""
         self.log("Configuring channels of type Pulse Width")
         channel_type = "Pulse width"
@@ -195,7 +197,9 @@ class NICounterReadForms(NIRackCase):
             units="Ticks",
         )
 
-    def verify_semi_period_inputs(self, ni_ci: CounterRead, device_name: str) -> None:
+    def verify_semi_period_inputs(
+        self, ni_ci: CounterRead, *, device_name: str
+    ) -> None:
         """Validate Semi Period inputs"""
         self.log("Configuring channels of type Semi Period")
         channel_type = "Semi period"
@@ -221,7 +225,9 @@ class NICounterReadForms(NIRackCase):
             units="Ticks",
         )
 
-    def verify_two_edge_sep_inputs(self, ni_ci: CounterRead, device_name: str) -> None:
+    def verify_two_edge_sep_inputs(
+        self, ni_ci: CounterRead, *, device_name: str
+    ) -> None:
         """Validate Two Edge Separation inputs"""
         self.log("Configuring channels of type Two Edge Separation")
         channel_type = "Two edge separation"
@@ -246,7 +252,7 @@ class NICounterReadForms(NIRackCase):
         )
 
     def verify_linear_velocity_inputs(
-        self, ni_ci: CounterRead, device_name: str
+        self, ni_ci: CounterRead, *, device_name: str
     ) -> None:
         """Validate Linear Velocity inputs"""
         self.log("Configuring channels of type Velocity Linear")
@@ -280,7 +286,7 @@ class NICounterReadForms(NIRackCase):
         )
 
     def verify_angular_velocity_inputs(
-        self, ni_ci: CounterRead, device_name: str
+        self, ni_ci: CounterRead, *, device_name: str
     ) -> None:
         """Validate Angular Velocity inputs"""
         self.log("Configuring channels of type Velocity Angular")
@@ -314,7 +320,7 @@ class NICounterReadForms(NIRackCase):
         )
 
     def verify_linear_position_inputs(
-        self, ni_ci: CounterRead, device_name: str
+        self, ni_ci: CounterRead, *, device_name: str
     ) -> None:
         """Validate Linear Position inputs"""
         self.log("Configuring channels of type Position Linear")
@@ -355,7 +361,7 @@ class NICounterReadForms(NIRackCase):
         )
 
     def verify_angular_position_inputs(
-        self, ni_ci: CounterRead, device_name: str
+        self, ni_ci: CounterRead, *, device_name: str
     ) -> None:
         """Validate Angular Position inputs"""
         self.log("Configuring channels of type Position Angular")
@@ -395,7 +401,7 @@ class NICounterReadForms(NIRackCase):
             z_index_phase="A high B low",
         )
 
-    def verify_duty_cycle_inputs(self, ni_ci: CounterRead, device_name: str) -> None:
+    def verify_duty_cycle_inputs(self, ni_ci: CounterRead, *, device_name: str) -> None:
         """Validate Duty Cycle inputs"""
         self.log("Configuring channels of type Duty Cycle")
         channel_type = "Duty cycle"

@@ -110,6 +110,7 @@ class AsyncWebsocketStream(AsyncStream[RQ, RS]):
 
     def __init__(
         self,
+        *,
         encoder: Codec,
         registry: Registry,
         ws: AsyncClientConnection,
@@ -215,6 +216,7 @@ class SyncWebsocketStream(Stream[RQ, RS]):
 
     def __init__(
         self,
+        *,
         encoder: Codec,
         registry: Registry,
         connector: SyncConnector,
@@ -228,7 +230,7 @@ class SyncWebsocketStream(Stream[RQ, RS]):
         self._server_closed = None
         self._res_msg_t = _new_res_msg_t(res_t)
 
-    def receive(self, timeout: float | None = None) -> RS:
+    def receive(self, *, timeout: float | None = None) -> RS:
         server_closed = self._server_closed
         if server_closed is not None:
             raise server_closed
@@ -315,6 +317,7 @@ class _Base:
 
     def __init__(
         self,
+        *,
         encoder: Codec,
         registry: Registry,
         base_url: URL,
@@ -340,6 +343,7 @@ class AsyncWebsocketClient(_Base, AsyncMiddlewareCollector, AsyncStreamClient):
 
     def __init__(
         self,
+        *,
         encoder: Codec,
         registry: Registry,
         base_url: URL,
@@ -377,7 +381,7 @@ class AsyncWebsocketClient(_Base, AsyncMiddlewareCollector, AsyncStreamClient):
         socket_container: list[AsyncWebsocketStream[RQ, RS] | None] = [None]
 
         async def finalizer(ctx: Context) -> Context:
-            out_ctx = Context("websocket", target, "client")
+            out_ctx = Context(protocol="websocket", target=target, role="client")
             ws = await connect(
                 self._endpoint.child(target).stringify(),
                 additional_headers=self.additional_headers(ctx.params),
@@ -386,13 +390,16 @@ class AsyncWebsocketClient(_Base, AsyncMiddlewareCollector, AsyncStreamClient):
                 **self._kwargs,
             )
             socket = AsyncWebsocketStream[RQ, RS](
-                self._encoder, self._registry, ws, res_t
+                encoder=self._encoder, registry=self._registry, ws=ws, res_t=res_t
             )
             await socket.receive_open_ack()
             socket_container[0] = socket
             return out_ctx
 
-        await self.exec(Context("websocket", target, "client"), finalizer)
+        await self.exec(
+            Context(protocol="websocket", target=target, role="client"),
+            finalizer=finalizer,
+        )
 
         socket = socket_container[0]
         assert socket is not None
@@ -425,6 +432,7 @@ class AsyncWebsocketClient(_Base, AsyncMiddlewareCollector, AsyncStreamClient):
 class WebsocketClient(_Base, MiddlewareCollector, StreamClient):
     def __init__(
         self,
+        *,
         encoder: Codec,
         registry: Registry,
         base_url: URL,
@@ -461,7 +469,7 @@ class WebsocketClient(_Base, MiddlewareCollector, StreamClient):
         socket_container: list[SyncWebsocketStream[RQ, RS] | None] = [None]
 
         def finalizer(ctx: Context) -> Context:
-            out_ctx = Context("websocket", target, "client")
+            out_ctx = Context(protocol="websocket", target=target, role="client")
             connector = sync_connect(
                 self._endpoint.child(target).stringify(),
                 additional_headers=self.additional_headers(ctx.params),
@@ -471,13 +479,19 @@ class WebsocketClient(_Base, MiddlewareCollector, StreamClient):
                 **self._kwargs,
             )
             socket = SyncWebsocketStream[RQ, RS](
-                self._encoder, self._registry, connector, res_t
+                encoder=self._encoder,
+                registry=self._registry,
+                connector=connector,
+                res_t=res_t,
             )
             socket.receive_open_ack()
             socket_container[0] = socket
             return out_ctx
 
-        self.exec(Context("websocket", target, "client"), finalizer)
+        self.exec(
+            Context(protocol="websocket", target=target, role="client"),
+            finalizer=finalizer,
+        )
         socket = socket_container[0]
         assert socket is not None
         return socket

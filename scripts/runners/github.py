@@ -40,7 +40,7 @@ class GitHub:
         with urllib.request.urlopen(req, timeout=10, context=SSL_CONTEXT) as resp:
             return json.load(resp)
 
-    def pages(self, path: str, key: str) -> list[dict]:
+    def pages(self, path: str, *, key: str) -> list[dict]:
         """Every item under key across all pages of a list endpoint."""
         sep = "&" if "?" in path else "?"
         items: list[dict] = []
@@ -63,7 +63,7 @@ class GitHub:
         with, which are what the scaler matches queued jobs against."""
         status: dict[str, int] = {}
         labels: dict[str, set[str]] = {}
-        for r in self.pages("/actions/runners", "runners"):
+        for r in self.pages("/actions/runners", key="runners"):
             if r["status"] != "online":
                 status[r["name"]] = OFFLINE
             else:
@@ -74,7 +74,7 @@ class GitHub:
     def run_jobs(self, run_id: int) -> list[dict]:
         """Every job of one run, the cheapest way to see step detail for several
         runners at once."""
-        return self.pages(f"/actions/runs/{run_id}/jobs", "jobs")
+        return self.pages(f"/actions/runs/{run_id}/jobs", key="jobs")
 
     def unfinished_runs(self) -> list[int]:
         """The runs that can hold a queued job. A run whose hosted jobs already
@@ -82,5 +82,5 @@ class GitHub:
         return [
             run["id"]
             for status in ("queued", "in_progress")
-            for run in self.pages(f"/actions/runs?status={status}", "workflow_runs")
+            for run in self.pages(f"/actions/runs?status={status}", key="workflow_runs")
         ]

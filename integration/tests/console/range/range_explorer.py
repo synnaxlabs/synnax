@@ -158,7 +158,7 @@ class RangeExplorer(ConsoleCase):
             try:
                 self.client.ranges.retrieve(name=name)
                 raise AssertionError(f"Range '{name}' should be deleted from server")
-            except sy.QueryError:
+            except sy.NotFoundError:
                 pass
 
     def test_search_ranges(self) -> None:

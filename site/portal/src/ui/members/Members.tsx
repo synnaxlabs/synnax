@@ -159,7 +159,7 @@ const Entry = ({
   return (
     <Row columns={MEMBER_COLUMNS}>
       <Flex.Box y gap="tiny" className="portal-list__stack">
-        <Text.Text level="p" overflow="ellipsis">
+        <Text.Text level="p" overflow="fade">
           {m.name}
           {self ? " (you)" : ""}
         </Text.Text>
@@ -167,7 +167,7 @@ const Entry = ({
           <Status.Summary variant="error" level="small" message={error} />
         )}
       </Flex.Box>
-      <Text.Text level="p" color={10} overflow="ellipsis">
+      <Text.Text level="p" color={10} overflow="fade">
         {m.email}
       </Text.Text>
       {editable ? (
@@ -228,7 +228,7 @@ const Sent = ({ organization, invitation: inv, now }: SentProps): ReactElement =
   return (
     <Row columns={INVITATION_COLUMNS}>
       <Flex.Box y gap="tiny" className="portal-list__stack">
-        <Text.Text level="p" overflow="ellipsis">
+        <Text.Text level="p" overflow="fade">
           {inv.email}
         </Text.Text>
         {error != null && (

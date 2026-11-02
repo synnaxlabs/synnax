@@ -67,6 +67,7 @@ class Scaler:
 
     def __init__(
         self,
+        *,
         client: sy.Synnax,
         cooldown: sy.TimeSpan,
         boot_grace: sy.TimeSpan,
@@ -74,7 +75,13 @@ class Scaler:
         enabled: bool = True,
         pool_cooldowns: dict[Pool, sy.TimeSpan] | None = None,
     ) -> None:
-        self.commander = Commander(client, "ec2_cmd", "EC2 Scaler", log, self.describe)
+        self.commander = Commander(
+            client=client,
+            command="ec2_cmd",
+            name="EC2 Scaler",
+            log=log,
+            describe=self.describe,
+        )
         self.log = log
         self.cooldown = cooldown
         self.pool_cooldowns = pool_cooldowns or {}
@@ -92,6 +99,7 @@ class Scaler:
 
     def step(
         self,
+        *,
         known: set[str],
         status: dict[str, int],
         labels: dict[str, set[str]],
@@ -107,7 +115,7 @@ class Scaler:
         now = sy.TimeStamp.now()
 
         def idle_on(r: str) -> bool:
-            iid = instance_for(r, found)
+            iid = instance_for(r, found=found)
             # A job in progress outranks a runner status that says offline.
             if iid is None or not found[iid]["running"] or r in running:
                 return False
@@ -131,10 +139,10 @@ class Scaler:
         # Offline-past-grace runners are stoppable but cannot take a job.
         stoppable: dict[Pool, list[str]] = {}
         # Recently commanded runners still count, they just cannot be commanded again.
-        ready = self.commander.ready(known, now)
+        ready = self.commander.ready(known, now=now)
         for r in sorted(known):
             pool = pool_of(labels.get(r, set()))
-            iid = instance_for(r, found)
+            iid = instance_for(r, found=found)
             if pool is None or iid is None:
                 continue
             state = found[iid]["state"]
@@ -158,7 +166,7 @@ class Scaler:
             # Once a pool has been acted on, stay quiet until something changes for
             # it; only a pool with nothing left to start keeps reporting.
             if starting or not spare:
-                self.announce(pool, n, len(spare), len(starting))
+                self.announce(pool, queued=n, spare=len(spare), starting=len(starting))
             commands.update(dict.fromkeys(starting, True))
         for pool in [p for p in self.announced if p not in queued]:
             del self.announced[pool]
@@ -170,9 +178,9 @@ class Scaler:
                 if r in ready and now.span(self.idle_since[r]) >= cooldown:
                     commands[r] = False
         if commands:
-            self.command(commands, now)
+            self.command(commands, now=now)
 
-    def announce(self, pool: Pool, queued: int, spare: int, starting: int) -> None:
+    def announce(self, pool: Pool, *, queued: int, spare: int, starting: int) -> None:
         """Logs a pool's demand once per distinct message, so a queue that sits for
         several polls does not repeat itself."""
         action = f"starting {starting}" if starting else "none to start"
@@ -183,7 +191,7 @@ class Scaler:
             self.announced[pool] = line
             self.log(line)
 
-    def describe(self, runner: str, value: bool, now: sy.TimeStamp) -> str:
+    def describe(self, runner: str, *, value: bool, now: sy.TimeStamp) -> str:
         name = self.commander.channel(runner)
         if value:
             return f"{name}=True"
@@ -192,17 +200,17 @@ class Scaler:
             return f"{name}=False (idle)"
         return f"{name}=False (idle {now.span(since).trunc(sy.TimeSpan.SECOND)})"
 
-    def command(self, commands: dict[str, bool], now: sy.TimeStamp) -> None:
+    def command(self, commands: dict[str, bool], *, now: sy.TimeStamp) -> None:
         if not self.enabled:
             # Log each decision once, and leave commanded alone so enabling acts
             # on the backlog without waiting out RECOMMAND_DELAY.
             fresh = {r: v for r, v in commands.items() if self.logged.get(r) != v}
             if fresh:
                 self.logged.update(fresh)
-                self.log(f"[DISABLED] {self.commander.lines(fresh, now)}")
+                self.log(f"[DISABLED] {self.commander.lines(fresh, now=now)}")
             return
         self.logged.clear()
-        self.commander.command(commands, now)
+        self.commander.command(commands, now=now)
 
     def close(self) -> None:
         self.commander.close()

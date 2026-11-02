@@ -29,7 +29,7 @@ def prompt_file(ctx: Context) -> Path | None:
 
 
 def prompt_new_reader(
-    ctx: Context, path: Path | str | None = None
+    ctx: Context, *, path: Path | str | None = None
 ) -> RowFileReader | None:
     """Prompts the user for a file path and returns a new reader for that file."""
     if path is None:

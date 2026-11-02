@@ -34,14 +34,22 @@ class TaskPage(ConsolePage):
 
     def __init__(
         self,
+        *,
         layout: LayoutClient,
         client: sy.Synnax,
         page_name: str,
-        *,
         pane_locator: Locator,
     ) -> None:
         """Initialize a TaskPage wrapper (see ConsolePage.__init__ for details)."""
-        super().__init__(layout, client, page_name, pane_locator=pane_locator)
+        super().__init__(
+            layout=layout, client=client, page_name=page_name, pane_locator=pane_locator
+        )
+        self.first_row_unused = False
+
+    def _initialize_from_project(self, tab_locator: Locator, page_id: str) -> None:
+        super()._initialize_from_project(tab_locator, page_id)
+        # Only a task the page just created has a first channel no test filled in.
+        self.first_row_unused = True
 
     def _pane(self) -> Locator | Page:
         return self.pane_locator if self.pane_locator is not None else self.page
@@ -51,10 +59,16 @@ class TaskPage(ConsolePage):
         controls.wait_for(state="visible", timeout=5000)
         return controls
 
+    def _set_setting(self, label: str, on: bool) -> None:
+        """Set a task-wide setting with its toggle in the controls footer."""
+        toggle = self._controls().get_by_role("button", name=label, exact=True)
+        if (toggle.get_attribute("aria-pressed") == "true") != on:
+            toggle.click()
+
     def _channel_list(self) -> Locator:
         return self._pane().locator(_CHANNEL_LIST_SELECTOR).first
 
-    def select_device(self, label: str, name: str) -> None:
+    def select_device(self, label: str, *, name: str) -> None:
         """Pick ``name`` in the device dropdown of the form field ``label``."""
         self.layout.click_btn(label)
         self.layout.select_from_dropdown(name)
@@ -63,11 +77,25 @@ class TaskPage(ConsolePage):
         """Append a channel row from the button under the channel list."""
         self._pane().get_by_role("button", name="Add channel", exact=True).click()
 
+    def next_channel_row(self) -> int:
+        """Return the index of the channel row to fill in next. On a new task, this is
+        the first channel the task starts with. Otherwise, a row is appended.
+        """
+        rows = self._channel_list().get_by_role("option")
+        if self.first_row_unused:
+            self.first_row_unused = False
+            rows.first.wait_for(state="visible", timeout=5000)
+            return 0
+        index = rows.count()
+        self.add_channel_row()
+        rows.nth(index).wait_for(state="visible", timeout=5000)
+        return index
+
     def name_input(self) -> Locator:
         """The task name input in the form header, which shows no visible label."""
         return self._pane().get_by_role("textbox", name="Name", exact=True).first
 
-    def deploy(self, expect: str | None = STARTED_MESSAGE) -> None:
+    def deploy(self, *, expect: str | None = STARTED_MESSAGE) -> None:
         """Deploy the task from the controls bar.
 
         Play configures, saves, and starts the task.
@@ -92,7 +120,7 @@ class TaskPage(ConsolePage):
         stop_btn.click()
         self.wait_for_status(self.STOPPED_MESSAGE)
 
-    def wait_for_status(self, substr: str, timeout: float = 30000) -> str:
+    def wait_for_status(self, substr: str, *, timeout: float = 30000) -> str:
         """Wait for the status bar to contain a substring.
 
         :param substr: The substring to wait for in the status message.
@@ -108,6 +136,7 @@ class TaskPage(ConsolePage):
     def wait_for_status_level(
         self,
         levels: tuple[str, ...],
+        *,
         timeout: sy.TimeSpan = 30 * sy.TimeSpan.SECOND,
     ) -> dict[str, str]:
         """Poll the status box until its level is one of ``levels``.
@@ -218,11 +247,11 @@ class TaskPage(ConsolePage):
             self.name_input().fill(task_name)
             layout.press_enter()
 
-        if data_saving is not None and data_saving != layout.get_toggle("Data saving"):
-            layout.click_checkbox("Data saving")
+        if data_saving is not None:
+            self._set_setting("Data saving", data_saving)
 
-        if auto_start is not None and auto_start != layout.get_toggle("Auto start"):
-            layout.click_checkbox("Auto start")
+        if auto_start is not None:
+            self._set_setting("Auto start", auto_start)
 
         if sample_rate is not None:
             layout.fill_input_field("Sample rate", str(sample_rate))

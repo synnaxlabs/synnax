@@ -28,7 +28,7 @@ var KeysFromUint32 = channel.KeysFromUint32
 
 // ParseKey attempts to parse the string representation of a Key into a Key.
 func ParseKey(s string) (Key, error) {
-	k, err := strconv.Atoi(s)
+	k, err := strconv.ParseUint(s, 10, 32)
 	if err != nil {
 		return Key(0), errors.Wrapf(
 			validate.ErrValidation, "%s is not a valid channel key", s,

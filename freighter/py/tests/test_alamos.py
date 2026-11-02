@@ -66,7 +66,9 @@ def run_sync(instrumentation: Instrumentation, role: Role) -> Capture:
     collector = MiddlewareCollector()
     collector.use(instrumentation_middleware(instrumentation))
     capture = Capture()
-    collector.exec(Context("websocket", "/echo", role), capture)
+    collector.exec(
+        Context(protocol="websocket", target="/echo", role=role), finalizer=capture
+    )
     return capture
 
 
@@ -74,7 +76,10 @@ async def run_async(instrumentation: Instrumentation, role: Role) -> Capture:
     collector = AsyncMiddlewareCollector()
     collector.use(async_instrumentation_middleware(instrumentation))
     capture = Capture()
-    await collector.exec(Context("websocket", "/echo", role), capture.async_call)
+    await collector.exec(
+        Context(protocol="websocket", target="/echo", role=role),
+        finalizer=capture.async_call,
+    )
     return capture
 
 

@@ -19,12 +19,6 @@
     .lyra-header__text,
     .lyra-breadcrumb {
         overflow: hidden;
-
-        .lyra-text {
-            overflow: hidden;
-            text-overflow: ellipsis;
-            white-space: nowrap;
-        }
     }
 
     .lyra-header-button-title {

@@ -34,8 +34,9 @@ const all = <E extends Element>(parent: ParentNode, selector: string): E[] => [
 ];
 
 const cdnImages = (doc: Document): HTMLImageElement[] =>
-  all<HTMLImageElement>(doc, "picture img").filter((img) =>
-    decodeURIComponent(img.src).includes(CDN),
+  all<HTMLImageElement>(doc, "picture img").filter(
+    (img) =>
+      new URL(img.src, config.site).searchParams.get("href")?.startsWith(CDN) === true,
   );
 
 describe("pages", () => {

@@ -21,8 +21,8 @@ from console.notifications import NotificationsClient
 
 def fill_configure(
     modal: Locator,
-    notifications: NotificationsClient,
     *,
+    notifications: NotificationsClient,
     name: str,
     identifier: str,
     action: str = "Save",
@@ -49,7 +49,7 @@ class DevicesClient(ResourceClient):
     RACK_PREFIX = "rack:"
     DEVICE_PREFIX = "device:"
 
-    def __init__(self, layout: LayoutClient, client: sy.Synnax):
+    def __init__(self, *, layout: LayoutClient, client: sy.Synnax):
         super().__init__(layout)
         self.client = client
 
@@ -327,7 +327,7 @@ class DevicesClient(ResourceClient):
             parent = self.get(parent_name)
             if not self.tree.is_expanded(parent):
                 self.tree.expand(parent)
-            names = self.tree.list_nested_names(parent, self.DEVICE_PREFIX)
+            names = self.tree.list_nested_names(parent, prefix=self.DEVICE_PREFIX)
             if names:
                 return names
             self.layout.page.wait_for_timeout(200)
@@ -385,7 +385,7 @@ class DevicesClient(ResourceClient):
         self.modal.wait_for(state="visible", timeout=5000)
         fill_configure(
             self.modal,
-            self.layout.notifications,
+            notifications=self.layout.notifications,
             name=device_name,
             identifier=identifier,
         )
@@ -425,6 +425,13 @@ class DevicesClient(ResourceClient):
         self.layout.notifications.close_all()
         self.modal.get_by_role("button", name="Connect", exact=True).click(timeout=5000)
 
+    def fill_connect_serial(self, *, name: str, serial_port: str) -> None:
+        """Fill the open connect form of a serial device and click Connect."""
+        self.modal.get_by_label("Name", exact=True).fill(name)
+        self.modal.get_by_label(re.compile(r"^Serial port\b")).fill(serial_port)
+        self.layout.notifications.close_all()
+        self.modal.get_by_role("button", name="Connect", exact=True).click(timeout=5000)
+
     def found(self, name: str) -> Locator:
         """The item of a device in the open find view."""
         return self.modal.locator(".lyra-pane__item").filter(has_text=name)
@@ -444,7 +451,7 @@ class DevicesClient(ResourceClient):
         )
         fill_configure(
             self.modal,
-            self.layout.notifications,
+            notifications=self.layout.notifications,
             name=device_name,
             identifier=identifier,
             action=action,

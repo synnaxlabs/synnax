@@ -81,7 +81,7 @@ class PanelsClient:
         self.layout.confirm_delete()
         self.layout.wait_for_hidden(pill)
 
-    def reorder(self, name: str, target: str) -> None:
+    def reorder(self, name: str, *, target: str) -> None:
         """Drag the pill for ``name`` onto the pill for ``target``."""
         self.layout.drag(self.pill(name), self.pill(target))
 
