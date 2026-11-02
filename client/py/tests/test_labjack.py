@@ -7,6 +7,7 @@
 #  License, use of this software will be governed by the Apache License, Version 2.0,
 #  included in the file licenses/APL.txt.
 
+import random
 from collections.abc import Callable
 from typing import cast
 
@@ -471,6 +472,26 @@ class TestLabJackWriteTask:
 
 
 @pytest.mark.labjack
+class TestLabJackDevice:
+    """Tests for the LabJack device constructor."""
+
+    def test_key_is_serial_number(self) -> None:
+        """Should key the device by its serial number, as the Driver's scanner does."""
+        device = sy.labjack.Device(model=sy.labjack.T8, serial_number=480010003)
+        assert device.key == "480010003"
+        assert device.make == "LabJack"
+        assert device.model == "LJM_dtT8"
+
+    def test_invalid_model(self) -> None:
+        """Should reject a model that Synnax does not support."""
+        with pytest.raises(ValueError, match="Invalid model 'LJM_dtDIGIT'"):
+            sy.labjack.Device(
+                model=cast(sy.labjack.SUPPORTED_MODELS, "LJM_dtDIGIT"),
+                serial_number=1,
+            )
+
+
+@pytest.mark.labjack
 class TestLabJackDevicePropertyUpdates:
     """Tests that device properties are correctly updated with channel mappings."""
 
@@ -484,11 +505,10 @@ class TestLabJackDevicePropertyUpdates:
         # Create a device
         device = sy.labjack.Device(
             model=sy.labjack.T7,
-            identifier="ANY",
+            serial_number=random.randint(470000000, 479999999),
             name="Test LabJack T7",
-            location="USB",
+            location="LJM_ctUSB",
             rack=rack.key,
-            connection_type="ANY",
         )
 
         client.devices.create(device)
@@ -542,16 +562,8 @@ class TestLabJackDevicePropertyUpdates:
         updated_device = client.devices.retrieve(key=device.key)
         props = updated_device.properties
 
-        # Verify read.channels mapping exists
-        assert "read" in props
-        assert "channels" in obj(props, "read")
-
-        # Verify port -> channel key mapping
-        channels = obj(props, "read", "channels")
-        assert "AIN0" in channels
-        assert channels["AIN0"] == ch1.key
-        assert "FIO4" in channels
-        assert channels["FIO4"] == ch2.key
+        assert obj(props, "AI", "channels") == {"AIN0": ch1.key}
+        assert obj(props, "DI", "channels") == {"FIO4": ch2.key}
 
     def test_write_task_updates_device_properties(self, client: sy.Synnax) -> None:
         """Test that configuring a WriteTask updates device properties with channel
@@ -563,11 +575,10 @@ class TestLabJackDevicePropertyUpdates:
         # Create a device
         device = sy.labjack.Device(
             model=sy.labjack.T7,
-            identifier="ANY",
+            serial_number=random.randint(470000000, 479999999),
             name="Test LabJack Write T7",
-            location="USB",
+            location="LJM_ctUSB",
             rack=rack.key,
-            connection_type="ANY",
         )
 
         client.devices.create(device)
@@ -639,13 +650,9 @@ class TestLabJackDevicePropertyUpdates:
         updated_device = client.devices.retrieve(key=device.key)
         props = updated_device.properties
 
-        # Verify write.channels mapping exists
-        assert "write" in props
-        assert "channels" in obj(props, "write")
-
-        # Verify port -> state_channel key mapping
-        channels = obj(props, "write", "channels")
-        assert "DAC0" in channels
-        assert channels["DAC0"] == dac0_state.key
-        assert "FIO4" in channels
-        assert channels["FIO4"] == fio4_state.key
+        assert obj(props, "AO", "channels") == {
+            "DAC0": {"command": dac0_cmd.key, "state": dac0_state.key}
+        }
+        assert obj(props, "DO", "channels") == {
+            "FIO4": {"command": fio4_cmd.key, "state": fio4_state.key}
+        }

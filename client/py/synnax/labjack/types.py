@@ -9,9 +9,6 @@
 
 from collections.abc import Sequence
 from typing import Final, Literal, TypeAlias, get_args
-from uuid import uuid4
-
-from pydantic import JsonValue
 
 from synnax import device, task
 from synnax.labjack.types_gen import (
@@ -29,6 +26,11 @@ T4: Final = "LJM_dtT4"
 T7: Final = "LJM_dtT7"
 T8: Final = "LJM_dtT8"
 SUPPORTED_MODELS: TypeAlias = Literal["LJM_dtT4", "LJM_dtT7", "LJM_dtT8"]
+
+# The device property groups that map each port to its channels, by channel type. The
+# Console reads the same groups to reuse a port's channels in new tasks.
+_READ_PORT_TYPES: Final = {"analog": "AI", "thermocouple": "AI", "digital": "DI"}
+_WRITE_PORT_TYPES: Final = {"analog": "AO", "digital": "DO"}
 
 
 class ReadTask(
@@ -85,12 +87,9 @@ class ReadTask(
         """Update device properties before task configuration."""
         dev = device_client.retrieve(key=self.config.device)
         props = dict(dev.properties)
-        if "read" not in props:
-            props["read"] = {"index": 0, "channels": {}}
-        channels = device.ensure_object(props, "read", "channels")
         for ch in self.config.channels:
-            # Map port location -> channel key for Console
-            channels[ch.port] = ch.channel
+            port_type = _READ_PORT_TYPES[ch.type]
+            device.ensure_object(props, port_type, "channels")[ch.port] = ch.channel
         dev.properties = props
         return device_client.create(dev)
 
@@ -145,25 +144,24 @@ class WriteTask(
         """Update device properties before task configuration."""
         dev = device_client.retrieve(key=self.config.device)
         props = dict(dev.properties)
-        channels = device.ensure_object(props, "write", "channels")
         for ch in self.config.channels:
-            # Map port location -> state_channel key for Console
-            channels[ch.port] = ch.state_channel
+            channels = device.ensure_object(
+                props, _WRITE_PORT_TYPES[ch.type], "channels"
+            )
+            channels[ch.port] = {"command": ch.cmd_channel, "state": ch.state_channel}
         dev.properties = props
         return device_client.create(dev)
 
 
 class Device(device.Device):
-    """A LabJack device.
+    """A LabJack device. The Driver finds connected LabJacks on its own and creates
+    them with the same key, so retrieve a found device instead of creating one.
 
     :param model: LabJack model. Use the module constants T4, T7, or T8.
-    :param identifier: Device identifier: serial number, IP address, or device name.
-    :param connection_type: Connection method: "ANY", "USB", "TCP", "ETHERNET", or
-        "WIFI".
+    :param serial_number: The serial number of the device, which is also its key.
     :param name: Human-readable name for the device.
     :param location: Physical location or description.
     :param rack: Rack key this device belongs to.
-    :param key: Unique key for the device. Auto-generated if empty.
     :param configured: Whether the device has been configured.
     """
 
@@ -171,12 +169,10 @@ class Device(device.Device):
         self,
         *,
         model: SUPPORTED_MODELS,
-        identifier: str,
-        connection_type: str = "ANY",
+        serial_number: int,
         name: str = "",
         location: str = "",
         rack: int = 0,
-        key: str = "",
         configured: bool = False,
     ):
         valid_models = get_args(SUPPORTED_MODELS)
@@ -184,23 +180,12 @@ class Device(device.Device):
             raise ValueError(
                 f"Invalid model '{model}'. Must be one of: {list(valid_models)}"
             )
-        if not key:
-            key = str(uuid4())
-        props: dict[str, JsonValue] = {
-            "connection": {
-                "identifier": identifier,
-                "connection_type": connection_type,
-            },
-            "read": {"index": 0, "channels": {}},
-            "write": {"channels": {}},
-        }
         super().__init__(
-            key=key,
+            key=str(serial_number),
             location=location,
             rack=rack,
             name=name,
             make=MAKE,
             model=model,
             configured=configured,
-            properties=props,
         )

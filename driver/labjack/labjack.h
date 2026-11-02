@@ -9,6 +9,10 @@
 
 #pragma once
 
+#include <map>
+#include <string>
+#include <vector>
+
 #include "x/cpp/lib/lazy.h"
 
 #include "driver/common/sample_clock.h"
@@ -24,6 +28,13 @@ const std::string T4 = "LJM_dtT4";
 const std::string T7 = "LJM_dtT7";
 /// @brief T8 model name.
 const std::string T8 = "LJM_dtT8";
+
+/// @brief the model names of the LJM device types that Synnax supports.
+const std::map<int, std::string> MODELS = {
+    {LJM_dtT4, T4},
+    {LJM_dtT7, T7},
+    {LJM_dtT8, T8},
+};
 
 /// @brief LJM errors that indicate the device is currently unreachable but may be
 /// reachable again in the near future.

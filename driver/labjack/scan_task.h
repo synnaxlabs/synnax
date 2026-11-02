@@ -70,9 +70,13 @@ class Scanner final : public common::Scanner {
 
         for (int i = 0; i < num_found; i++) {
             const auto serial_str = std::to_string(serial_numbers[i]);
-            const auto device_type_str = std::string(
-                NumberToDeviceType(device_types[i])
-            );
+            const auto model = MODELS.find(device_types[i]);
+            if (model == MODELS.end()) {
+                VLOG(1) << SCAN_LOG_PREFIX << "skipping device " << serial_str
+                        << " with unsupported device type " << device_types[i];
+                continue;
+            }
+            const auto &device_type_str = model->second;
             const auto conn_type_str = std::string(
                 NumberToConnectionType(connection_types[i])
             );
