@@ -181,15 +181,14 @@ export class Client extends query.Retriever<
   async retrieve(params: Key | SingleRetrieveParams): Promise<Status>;
   async retrieve(params: Key[] | RetrieveMultipleParams): Promise<Status[]>;
   async retrieve<DetailsSchema extends z.ZodType = z.ZodNever>(
-    ...args:
-      | ListParts
-      | OneParts
-      | [rawParams: Key | Key[] | (RetrieveParams & { detailsSchema?: DetailsSchema })]
+    ...args: unknown[]
   ): Promise<Status<DetailsSchema> | Status<DetailsSchema>[]> {
     if (this.isParts(args))
       return (await this.retrieveParts(args)) as
         Status<DetailsSchema> | Status<DetailsSchema>[];
-    const [rawParams] = args;
+    const [rawParams] = args as [
+      Key | Key[] | (RetrieveParams & { detailsSchema?: DetailsSchema }),
+    ];
     if (Array.isArray(rawParams))
       return (await super.retrieve(rawParams)) as Status<DetailsSchema>[];
     const params = typeof rawParams === "string" ? { key: rawParams } : rawParams;

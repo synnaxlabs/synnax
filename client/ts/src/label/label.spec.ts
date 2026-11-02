@@ -36,6 +36,12 @@ describe("Label", () => {
       const retrieved = await client.labels.retrieve(v.key);
       expect(retrieved).toEqual(v);
     });
+    it("should retrieve a label by its name", async () => {
+      const name = `label-${id.create()}`;
+      const v = await client.labels.create({ name, color: "#E774D0" });
+      const retrieved = await client.labels.retrieve(name);
+      expect(retrieved.key).toEqual(v.key);
+    });
     it("should retrieve labels by search term", async () => {
       const prefix = `searchable-label-${id.create()}`;
       const names = [`${prefix}-1`, `${prefix}-2`];
