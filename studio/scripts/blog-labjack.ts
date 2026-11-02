@@ -155,26 +155,39 @@ const warmUp = async (
   const { key } = await client.channels.retrieve(CHANNEL);
   const streamer = await client.openStreamer([key]);
   let first: number | undefined;
-  let risen = false;
+  let last = Number.NaN;
+  let peak = -Infinity;
   const loop = (async () => {
     for await (const frame of streamer)
       for (const sample of frame.get(key)) {
-        const v = Number(sample);
-        first ??= v;
-        if (v - first >= RISE) risen = true;
+        last = Number(sample);
+        first ??= last;
+        peak = Math.max(peak, last);
       }
   })();
-  console.log(`>>> Hold the thermocouple in your hand now (${CHANNEL}).`);
-  const deadline = Date.now() + WARM_TIMEOUT_MS;
-  while (!risen) {
-    if (Date.now() > deadline)
-      throw new Error(`${CHANNEL} did not rise ${RISE} °C within three minutes`);
-    await session.settleWall(500);
+  // The client logs out on close, which ends an open stream, so the stream closes first.
+  try {
+    console.log(`>>> Hold the thermocouple in your hand now (${CHANNEL}).`);
+    const deadline = Date.now() + WARM_TIMEOUT_MS;
+    let report = Date.now();
+    while (first == null || peak - first < RISE) {
+      if (Date.now() > deadline)
+        throw new Error(
+          `${CHANNEL} did not rise ${RISE} °C within three minutes: it read ` +
+            `${first?.toFixed(2) ?? "no samples"} first and ${peak.toFixed(2)} at most`,
+        );
+      if (Date.now() >= report) {
+        console.log(`${CHANNEL}: ${last.toFixed(2)} °C`);
+        report += 5000;
+      }
+      await session.settleWall(500);
+    }
+    console.log(">>> Warm enough. Let go of the thermocouple.");
+    await session.settleWall(8000);
+  } finally {
+    streamer.close();
+    await loop;
   }
-  console.log(">>> Warm enough. Let go of the thermocouple.");
-  await session.settleWall(8000);
-  streamer.close();
-  await loop;
 };
 
 /** selectWarmUp holds Alt, drags across the climb, and opens the selection's menu. */
