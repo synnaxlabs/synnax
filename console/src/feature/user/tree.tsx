@@ -84,7 +84,7 @@ const TreeContextMenu: Tree.ContextMenu = (props) => {
           )}
         </>
       )}
-      {singleResource && hasUpdatePermission && isNotCurrentUser && (
+      {singleResource && hasUpdatePermission && first != null && (
         <Menu.Item
           itemKey="credentials"
           onClick={() =>
