@@ -40,7 +40,7 @@ def read_while_writing(
     """Writes until the streamer reads a frame. The Core does not acknowledge an
     updated channel set, so a write can reach the relay before the update does."""
     with client.open_writer(sy.TimeStamp.now(), ch.key) as w:
-        deadline = time.monotonic() + READ_TIMEOUT
+        deadline = time.monotonic() + READ_TIMEOUT.seconds
         while time.monotonic() < deadline:
             w.write({ch.key: [1.0]})
             if (frame := s.read(timeout=sy.TimeSpan.SECOND * 0.05)) is not None:
@@ -417,7 +417,7 @@ class TestAsyncStreamer:
                 virtual_channel.key, downsample_factor=downsample_factor
             ) as s:
                 w.write(pd.DataFrame({virtual_channel.key: data}))
-                async with asyncio.timeout(READ_TIMEOUT):
+                async with asyncio.timeout(READ_TIMEOUT.seconds):
                     frame = await s.read()
                 assert np.array_equal(frame[virtual_channel.key], expected)
 
@@ -533,7 +533,7 @@ class TestAsyncStreamerKeepAlive:
         ) as s:
             await asyncio.sleep(KEEP_ALIVE.seconds * 2.5)
             write(client, virtual_channel, [1, 2, 3])
-            async with asyncio.timeout(READ_TIMEOUT):
+            async with asyncio.timeout(READ_TIMEOUT.seconds):
                 frame = await s.read()
             assert np.array_equal(frame[virtual_channel.key], [1, 2, 3])
 
@@ -547,11 +547,11 @@ class TestAsyncStreamerKeepAlive:
         ) as s:
             await asyncio.sleep(ARMED)
             write(client, virtual_channel, [1, 2, 3])
-            async with asyncio.timeout(READ_TIMEOUT):
+            async with asyncio.timeout(READ_TIMEOUT.seconds):
                 await s.read()
             time.sleep((DEADLINE + KEEP_ALIVE).seconds)
             write(client, virtual_channel, [4, 5, 6])
-            async with asyncio.timeout(READ_TIMEOUT):
+            async with asyncio.timeout(READ_TIMEOUT.seconds):
                 frame = await s.read()
             assert np.array_equal(frame[virtual_channel.key], [4, 5, 6])
 
@@ -617,7 +617,7 @@ class TestAsyncStreamerClose:
         s = await client.open_async_streamer(virtual_channel.key)
         write(client, virtual_channel, [1])
         write(client, virtual_channel, [2])
-        async with asyncio.timeout(READ_TIMEOUT):
+        async with asyncio.timeout(READ_TIMEOUT.seconds):
             await s.read()
         await asyncio.sleep(0.1)
         await s.close()
