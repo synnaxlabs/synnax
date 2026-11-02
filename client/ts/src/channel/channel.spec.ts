@@ -907,7 +907,10 @@ describe("cached reads", () => {
         await client.ranges.setAlias(parent.key, ch.key, inherited);
         await client.ranges.setAlias(child.key, ch.key, `qry_alias_${id.create()}`);
         await client.ranges.deleteAlias(child.key, ch.key);
-        expect((await retrieve(ch.key, child.key)).alias).toEqual(inherited);
+        // The delete's own echo can drop one read, and the next read restores it.
+        await expect
+          .poll(async () => (await retrieve(ch.key, child.key)).alias)
+          .toEqual(inherited);
       },
     );
 
