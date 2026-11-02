@@ -34,6 +34,15 @@ export const { useUpdate: useCreate } = Flux.createUpdate<auth.password.CreatePa
   },
 });
 
+export const { useUpdate: useRename } = Flux.createUpdate<auth.password.RenameParams>({
+  name: "password",
+  verbs: verbs.RENAME,
+  update: async ({ client, data }) => {
+    await client.auth.passwords.rename(data);
+    return data;
+  },
+});
+
 export const { useUpdate: useSet } = Flux.createUpdate<auth.password.SetParams>({
   name: "password",
   verbs: verbs.SET,

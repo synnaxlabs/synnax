@@ -16,19 +16,20 @@ import { Text } from "@synnaxlabs/lyra/text";
 import { Credential, Synnax } from "@synnaxlabs/pluto";
 import { type ReactElement, useEffect, useState } from "react";
 
-interface CreateFormProps {
+interface FormProps {
   subject: ontology.ID;
-  onCreate: () => void;
+  /** Called after a write that changes what the form loaded. */
+  onChange: () => void;
 }
 
-const CreateForm = ({ subject, onCreate }: CreateFormProps): ReactElement => {
+const CreateForm = ({ subject, onChange }: FormProps): ReactElement => {
   const [username, setUsername] = useState("");
   const [password, setPassword] = useState("");
   const addStatus = Status.useAdder();
   const create = Credential.Password.useCreate({
     afterSuccess: () => {
       addStatus({ variant: "success", message: "Successfully created password" });
-      onCreate();
+      onChange();
     },
   });
   return (
@@ -57,6 +58,43 @@ const CreateForm = ({ subject, onCreate }: CreateFormProps): ReactElement => {
         </Button.Button>
       </Flex.Box>
     </>
+  );
+};
+
+interface RenameFormProps extends FormProps {
+  username: string;
+}
+
+const RenameForm = ({
+  subject,
+  username: initial,
+  onChange,
+}: RenameFormProps): ReactElement => {
+  const [username, setUsername] = useState(initial);
+  const addStatus = Status.useAdder();
+  const rename = Credential.Password.useRename({
+    afterSuccess: () => {
+      addStatus({ variant: "success", message: "Successfully changed username" });
+      onChange();
+    },
+  });
+  return (
+    <Flex.Box x>
+      <Input.Text
+        value={username}
+        onChange={setUsername}
+        placeholder="Username"
+        full="x"
+      />
+      <Button.Button
+        variant="filled"
+        status={status.keepVariants(rename.variant, "loading")}
+        disabled={username === "" || username === initial}
+        onClick={() => rename.update({ subject, username })}
+      >
+        Set username
+      </Button.Button>
+    </Flex.Box>
   );
 };
 
@@ -111,14 +149,23 @@ const SetForm = ({ subject }: SetFormProps): ReactElement => {
   );
 };
 
-const Form = ({ subject, onCreate }: CreateFormProps): ReactElement | null => {
+const Form = ({ subject, onChange }: FormProps): ReactElement | null => {
   const passwords = Credential.Password.useResult({ subject });
   if (passwords.variant === "error")
     return <Text.Text status="error">{passwords.status.message}</Text.Text>;
   if (passwords.data == null) return null;
   if (passwords.data.length === 0)
-    return <CreateForm subject={subject} onCreate={onCreate} />;
-  return <SetForm subject={subject} />;
+    return <CreateForm subject={subject} onChange={onChange} />;
+  return (
+    <>
+      <RenameForm
+        subject={subject}
+        username={passwords.data[0].username}
+        onChange={onChange}
+      />
+      <SetForm subject={subject} />
+    </>
+  );
 };
 
 export interface SectionProps {
@@ -127,15 +174,15 @@ export interface SectionProps {
 }
 
 /**
- * Sets a user's password, or creates one for a user who has none. The caller's own
- * password needs the current one to set it.
+ * Sets a user's username and password, or creates a password for a user who has none.
+ * The caller's own password needs the current one to set it.
  */
 export const Section = ({ subject }: SectionProps): ReactElement => {
   const query = { subject };
   const invalidate = Credential.Password.useInvalidate();
   // This read has no live updates, so a remount is what fetches it again.
   const [generation, setGeneration] = useState(0);
-  const handleCreate = () => {
+  const handleChange = () => {
     invalidate(query);
     setGeneration((g) => g + 1);
   };
@@ -143,7 +190,7 @@ export const Section = ({ subject }: SectionProps): ReactElement => {
   return (
     <Flex.Box y>
       <Text.Text level="h5">Password</Text.Text>
-      <Form key={generation} subject={subject} onCreate={handleCreate} />
+      <Form key={generation} subject={subject} onChange={handleChange} />
     </Flex.Box>
   );
 };

@@ -211,6 +211,30 @@ describe("useModal", () => {
     );
   });
 
+  it("should change another user's username", async () => {
+    const client = createTestClient();
+    const { user: subject, password } = await createTestUser(client, {
+      username: uniqueName("user"),
+    });
+    await openModal(Credential.useModal, {
+      client,
+      params: { subject: user.ontologyID(subject.key) },
+    });
+    const username = uniqueName("renamed");
+    await type("Username", username);
+    fireEvent.click(findButton("Set username"));
+    await expect
+      .poll(async () => {
+        try {
+          await createTestClient({ username, password }).auth.sessions.retrieve();
+          return true;
+        } catch {
+          return false;
+        }
+      })
+      .toBe(true);
+  });
+
   it("should create a password for a user who has none", async () => {
     const client = createTestClient();
     const subject = await client.users.create({ name: uniqueName("user") });
