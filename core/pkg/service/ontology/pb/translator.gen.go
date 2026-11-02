@@ -75,6 +75,8 @@ func ResourceTypeToPB(v ontology.ResourceType) (ResourceType, error) {
 	switch v {
 	case ontology.ResourceTypeArc:
 		return ResourceType_RESOURCE_TYPE_ARC, nil
+	case ontology.ResourceTypeArcDirectory:
+		return ResourceType_RESOURCE_TYPE_ARC_DIRECTORY, nil
 	case ontology.ResourceTypeBuiltin:
 		return ResourceType_RESOURCE_TYPE_BUILTIN, nil
 	case ontology.ResourceTypeChannel:
@@ -131,6 +133,8 @@ func ResourceTypeFromPB(v ResourceType) (ontology.ResourceType, error) {
 	switch v {
 	case ResourceType_RESOURCE_TYPE_ARC:
 		return ontology.ResourceTypeArc, nil
+	case ResourceType_RESOURCE_TYPE_ARC_DIRECTORY:
+		return ontology.ResourceTypeArcDirectory, nil
 	case ResourceType_RESOURCE_TYPE_BUILTIN:
 		return ontology.ResourceTypeBuiltin, nil
 	case ResourceType_RESOURCE_TYPE_CHANNEL:

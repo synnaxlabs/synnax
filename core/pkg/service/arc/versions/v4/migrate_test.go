@@ -19,7 +19,6 @@ import (
 	"github.com/synnaxlabs/gorp"
 	v3 "github.com/synnaxlabs/synnax/pkg/service/arc/versions/v3"
 	v4 "github.com/synnaxlabs/synnax/pkg/service/arc/versions/v4"
-	"github.com/synnaxlabs/synnax/pkg/service/group"
 	"github.com/synnaxlabs/synnax/pkg/service/ontology"
 	. "github.com/synnaxlabs/x/testutil"
 	"github.com/synnaxlabs/x/testutil/memkv"
@@ -147,35 +146,38 @@ var _ = Describe("TypeMigration", func() {
 	})
 })
 
-var _ = Describe("NewGroupMigration", func() {
-	It("Should parent every Arc without a group under Arcs", func(ctx SpecContext) {
+var _ = Describe("NewRootMigration", func() {
+	It("Should parent every Arc without a directory under the root", func(
+		ctx SpecContext,
+	) {
 		db := DeferClose(gorp.Wrap(memkv.New()))
 		otg := MustOpen(ontology.Open(ctx, ontology.Config{DB: db}))
-		groups := MustOpen(group.OpenService(ctx, group.ServiceConfig{
-			DB:       db,
-			Ontology: otg,
-		}))
-		arcs := MustSucceed(groups.CreateOrRetrieve(ctx, "Arcs", ontology.RootID))
+		owner := otg.Own(ontology.Ownership{
+			Children: []ontology.ResourceType{
+				ontology.ResourceTypeArc,
+				ontology.ResourceTypeArcDirectory,
+			},
+			Parents: []ontology.ResourceType{ontology.ResourceTypeArcDirectory},
+		})
+		root := ontology.ID{Type: ontology.ResourceTypeArcDirectory, Key: "root"}
+		sub := ontology.ID{Type: ontology.ResourceTypeArcDirectory, Key: "sub"}
 		table := MustSucceed(gorp.OpenTable(ctx, gorp.TableConfig[v4.Key, v4.Arc]{
 			DB: db,
 		}))
 		tx := db.OpenTx()
-		elsewhere := MustSucceed(groups.NewWriter(tx).Create(
-			ctx, "elsewhere", ontology.RootID,
-		))
 		orphan := v4.Arc{Key: uuid.New(), Name: "orphan", Type: v4.TypeAutomation}
-		grouped := v4.Arc{Key: uuid.New(), Name: "grouped", Type: v4.TypeAutomation}
+		placed := v4.Arc{Key: uuid.New(), Name: "placed", Type: v4.TypeAutomation}
 		Expect(table.NewCreate().Entry(&orphan).Exec(ctx, tx)).To(Succeed())
-		Expect(table.NewCreate().Entry(&grouped).Exec(ctx, tx)).To(Succeed())
-		w := otg.NewWriter(tx)
+		Expect(table.NewCreate().Entry(&placed).Exec(ctx, tx)).To(Succeed())
+		w := owner.NewWriter(tx)
 		Expect(w.DefineResources(
-			ctx, orphan.OntologyID(), grouped.OntologyID(),
+			ctx, root, sub, orphan.OntologyID(), placed.OntologyID(),
 		)).To(Succeed())
 		Expect(w.DefineRelationships(
-			ctx,
-			elsewhere.OntologyID(),
-			ontology.RelationshipTypeParentOf,
-			grouped.OntologyID(),
+			ctx, root, ontology.RelationshipTypeParentOf, sub,
+		)).To(Succeed())
+		Expect(w.DefineRelationships(
+			ctx, sub, ontology.RelationshipTypeParentOf, placed.OntologyID(),
 		)).To(Succeed())
 		Expect(tx.Commit(ctx)).To(Succeed())
 		Expect(tx.Close()).To(Succeed())
@@ -185,7 +187,11 @@ var _ = Describe("NewGroupMigration", func() {
 			DB:        db,
 			Namespace: "Arc",
 			Migrations: []gorp.Migration{
-				v4.NewGroupMigration(v4.MigrationConfig{Ontology: otg, Group: arcs}),
+				v4.NewRootMigration(v4.MigrationConfig{
+					Ontology: otg,
+					Owner:    owner,
+					Root:     root,
+				}),
 			},
 		})).To(Succeed())
 
@@ -204,7 +210,7 @@ var _ = Describe("NewGroupMigration", func() {
 			}
 			return ids
 		}
-		Expect(parentsOf(orphan.OntologyID())).To(ConsistOf(arcs.OntologyID()))
-		Expect(parentsOf(grouped.OntologyID())).To(ConsistOf(elsewhere.OntologyID()))
+		Expect(parentsOf(orphan.OntologyID())).To(ConsistOf(root))
+		Expect(parentsOf(placed.OntologyID())).To(ConsistOf(sub))
 	})
 })

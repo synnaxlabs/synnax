@@ -17,8 +17,8 @@ import (
 	"github.com/synnaxlabs/arc/text"
 	"github.com/synnaxlabs/gorp"
 	"github.com/synnaxlabs/synnax/pkg/service/actions"
+	"github.com/synnaxlabs/synnax/pkg/service/arc/directory"
 	taskversions "github.com/synnaxlabs/synnax/pkg/service/arc/task/versions"
-	"github.com/synnaxlabs/synnax/pkg/service/group"
 	"github.com/synnaxlabs/synnax/pkg/service/ontology"
 	"github.com/synnaxlabs/synnax/pkg/service/rack"
 	"github.com/synnaxlabs/synnax/pkg/service/status"
@@ -27,6 +27,7 @@ import (
 	"github.com/synnaxlabs/x/encoding/msgpack"
 	"github.com/synnaxlabs/x/errors"
 	"github.com/synnaxlabs/x/query"
+	"github.com/synnaxlabs/x/set"
 	"github.com/synnaxlabs/x/validate"
 )
 
@@ -38,16 +39,18 @@ const TaskType = "arc"
 // method. If no transaction is provided, the writer will execute operations directly
 // on the database.
 type Writer struct {
-	tx         gorp.Tx
-	otgWriter  ontology.Writer
-	otg        *ontology.Ontology
-	group      group.Group
-	tasks      *task.Service
-	status     *status.Service
-	table      *gorp.Table[Key, Arc]
-	dispatcher actions.Dispatcher[Key, Action]
-	sweeper    textSweeper
-	taskSync   *debounce.Keyed[Key]
+	tx          gorp.Tx
+	otgWriter   ontology.Writer
+	otg         *ontology.Ontology
+	root        directory.Key
+	directories *gorp.Table[directory.Key, directory.Directory]
+	reserved    set.Set[string]
+	tasks       *task.Service
+	status      *status.Service
+	table       *gorp.Table[Key, Arc]
+	dispatcher  actions.Dispatcher[Key, Action]
+	sweeper     textSweeper
+	taskSync    *debounce.Keyed[Key]
 }
 
 // WithDispatchKey returns a copy of the writer that stamps dispatchKey onto the create
@@ -94,9 +97,21 @@ func (w Writer) Create(ctx context.Context, a *Arc) error {
 	if err = a.Validate(); err != nil {
 		return err
 	}
-	if exists {
+	module := a.Type == TypeModule
+	if !exists {
+		if err = w.validateEntry(
+			ctx, directory.OntologyID(w.root), a.OntologyID(), a.Name, module,
+		); err != nil {
+			return err
+		}
+	} else {
 		if err = validateType(existing.Type, a.Type); err != nil {
 			return err
+		}
+		if existing.Name != a.Name {
+			if err = w.validateName(ctx, a.OntologyID(), a.Name, module); err != nil {
+				return err
+			}
 		}
 	}
 	if err = w.table.NewCreate().Entry(a).Exec(ctx, w.tx); err != nil {
@@ -108,7 +123,7 @@ func (w Writer) Create(ctx context.Context, a *Arc) error {
 		}
 		if err = w.otgWriter.DefineRelationships(
 			ctx,
-			w.group.OntologyID(),
+			directory.OntologyID(w.root),
 			ontology.RelationshipTypeParentOf,
 			a.OntologyID(),
 		); err != nil {

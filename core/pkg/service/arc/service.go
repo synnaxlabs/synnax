@@ -21,11 +21,11 @@ import (
 	"github.com/synnaxlabs/arc/symbol"
 	"github.com/synnaxlabs/gorp"
 	"github.com/synnaxlabs/synnax/pkg/service/actions"
+	"github.com/synnaxlabs/synnax/pkg/service/arc/directory"
 	"github.com/synnaxlabs/synnax/pkg/service/arc/ranges"
 	arcstatus "github.com/synnaxlabs/synnax/pkg/service/arc/status"
 	"github.com/synnaxlabs/synnax/pkg/service/arc/versions"
 	"github.com/synnaxlabs/synnax/pkg/service/channel"
-	"github.com/synnaxlabs/synnax/pkg/service/group"
 	"github.com/synnaxlabs/synnax/pkg/service/imex"
 	"github.com/synnaxlabs/synnax/pkg/service/ontology"
 	"github.com/synnaxlabs/synnax/pkg/service/signals"
@@ -37,6 +37,7 @@ import (
 	"github.com/synnaxlabs/x/observe"
 	"github.com/synnaxlabs/x/override"
 	"github.com/synnaxlabs/x/service"
+	"github.com/synnaxlabs/x/set"
 	xsync "github.com/synnaxlabs/x/sync"
 	"github.com/synnaxlabs/x/telem"
 	"github.com/synnaxlabs/x/validate"
@@ -53,10 +54,6 @@ type ServiceConfig struct {
 	//
 	// [REQUIRED]
 	Ontology *ontology.Ontology
-	// Group is used to create the Arcs group that every Arc is parented under.
-	//
-	// [REQUIRED]
-	Group *group.Service
 	// Channel is used for retrieving channel information from the cluster.
 	//
 	// [REQUIRED]
@@ -110,7 +107,6 @@ var _ config.Config[ServiceConfig] = ServiceConfig{}
 func (c ServiceConfig) Override(other ServiceConfig) ServiceConfig {
 	c.DB = override.Nil(c.DB, other.DB)
 	c.Ontology = override.Nil(c.Ontology, other.Ontology)
-	c.Group = override.Nil(c.Group, other.Group)
 	c.Instrumentation = override.Zero(c.Instrumentation, other.Instrumentation)
 	c.Channel = override.Nil(c.Channel, other.Channel)
 	c.Task = override.Nil(c.Task, other.Task)
@@ -135,7 +131,6 @@ func (c ServiceConfig) Validate() error {
 	v := validate.New("arc")
 	v.NotNil("db", c.DB)
 	v.NotNil("ontology", c.Ontology)
-	v.NotNil("group", c.Group)
 	v.NotNil("channel", c.Channel)
 	v.NotNil("task", c.Task)
 	v.NotNil("status", c.Status)
@@ -146,11 +141,17 @@ func (c ServiceConfig) Validate() error {
 
 // Service is the primary service for retrieving and modifying arcs from Synnax.
 type Service struct {
-	table    *gorp.Table[Key, Arc]
-	indexes  indexes
-	closer   xio.MultiCloser
-	cfg      ServiceConfig
-	group    group.Group
+	table   *gorp.Table[Key, Arc]
+	indexes indexes
+	closer  xio.MultiCloser
+	cfg     ServiceConfig
+	owner   *ontology.Owner
+	// directories stores the directories below root.
+	directories directories
+	// root is the directory that holds every Arc.
+	root directory.Key
+	// reserved holds the standard module names, which no entry of root may take.
+	reserved set.Set[string]
 	state    *actions.State[Key, Action]
 	locks    xsync.KeyedMutex[Key]
 	sweeper  textSweeper
@@ -242,9 +243,10 @@ func OpenService(
 		return nil, err
 	}
 	s = &Service{
-		cfg:     cfg,
-		state:   actions.NewState[Key, Action](cfg.DB),
-		indexes: newIndexes(),
+		cfg:      cfg,
+		reserved: reservedNames(),
+		state:    actions.NewState[Key, Action](cfg.DB),
+		indexes:  newIndexes(),
 		sweeper: newTextSweeper(
 			cfg.Now,
 			cfg.TextSweepQuiescence,
@@ -253,9 +255,17 @@ func OpenService(
 	}
 	cleanup, ok := service.NewOpener(ctx, &s.closer)
 	defer func() { err = cleanup(err) }()
-	if s.group, err = cfg.Group.CreateOrRetrieve(
-		ctx, "Arcs", ontology.RootID,
-	); !ok(err, nil) {
+	s.owner = cfg.Ontology.Own(ontology.Ownership{
+		Children: []ontology.ResourceType{
+			ontology.ResourceTypeArc,
+			ontology.ResourceTypeArcDirectory,
+		},
+		Parents: []ontology.ResourceType{ontology.ResourceTypeArcDirectory},
+	})
+	if s.directories, err = openDirectories(ctx, cfg); !ok(err, s.directories.table) {
+		return nil, err
+	}
+	if s.root, err = s.openRoot(ctx); !ok(err, nil) {
 		return nil, err
 	}
 	if s.table, err = gorp.OpenTable(ctx, gorp.TableConfig[Key, Arc]{
@@ -263,7 +273,8 @@ func OpenService(
 		Indexes: s.indexes.all(),
 		Migrations: versions.NewMigrations(versions.MigrationsConfig{
 			Ontology: cfg.Ontology,
-			Group:    s.group,
+			Owner:    s.owner,
+			Root:     directory.OntologyID(s.root),
 		}),
 		Instrumentation: cfg.Instrumentation,
 	}); !ok(err, s.table) {
@@ -277,6 +288,7 @@ func OpenService(
 		return nil, err
 	}
 	cfg.Ontology.RegisterService(s)
+	cfg.Ontology.RegisterService(s.directories)
 	if err = cfg.ImEx.RegisterImportExporter(s); !ok(err, nil) {
 		return nil, err
 	}
@@ -319,16 +331,18 @@ func (s *Service) OnAction(
 // execute the operations directly against the underlying gorp.DB.
 func (s *Service) NewWriter(tx gorp.Tx) Writer {
 	return Writer{
-		tx:         gorp.OverrideTx(s.cfg.DB, tx),
-		otgWriter:  s.cfg.Ontology.NewWriter(tx),
-		otg:        s.cfg.Ontology,
-		group:      s.group,
-		tasks:      s.cfg.Task,
-		status:     s.cfg.Status,
-		table:      s.table,
-		dispatcher: s.state.Dispatcher(),
-		sweeper:    s.sweeper,
-		taskSync:   s.taskSync,
+		tx:          gorp.OverrideTx(s.cfg.DB, tx),
+		otgWriter:   s.owner.NewWriter(tx),
+		otg:         s.cfg.Ontology,
+		root:        s.root,
+		directories: s.directories.table,
+		reserved:    s.reserved,
+		tasks:       s.cfg.Task,
+		status:      s.cfg.Status,
+		table:       s.table,
+		dispatcher:  s.state.Dispatcher(),
+		sweeper:     s.sweeper,
+		taskSync:    s.taskSync,
 	}
 }
 

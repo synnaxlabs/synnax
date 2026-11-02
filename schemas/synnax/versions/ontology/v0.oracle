@@ -9,6 +9,7 @@
 
 ResourceType enum {
     arc              = "arc"
+    arc_directory    = "arc_directory"
     builtin          = "builtin"
     channel          = "channel"
     device           = "device"

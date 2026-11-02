@@ -18,6 +18,7 @@ type ResourceType string
 
 const (
 	ResourceTypeArc             ResourceType = "arc"
+	ResourceTypeArcDirectory    ResourceType = "arc_directory"
 	ResourceTypeBuiltin         ResourceType = "builtin"
 	ResourceTypeChannel         ResourceType = "channel"
 	ResourceTypeDevice          ResourceType = "device"
@@ -47,7 +48,7 @@ const (
 // values.
 func (r ResourceType) IsValid() bool {
 	switch r {
-	case ResourceTypeArc, ResourceTypeBuiltin, ResourceTypeChannel, ResourceTypeDevice, ResourceTypeFramer, ResourceTypeGroup, ResourceTypeLabel, ResourceTypeLineplot, ResourceTypeLog, ResourceTypeNode, ResourceTypePanel, ResourceTypePolicy, ResourceTypeProject, ResourceTypeRack, ResourceTypeRange, ResourceTypeRangeAlias, ResourceTypeRole, ResourceTypeSchematic, ResourceTypeSchematicSymbol, ResourceTypeStatus, ResourceTypeTable, ResourceTypeTask, ResourceTypeUser, ResourceTypeView:
+	case ResourceTypeArc, ResourceTypeArcDirectory, ResourceTypeBuiltin, ResourceTypeChannel, ResourceTypeDevice, ResourceTypeFramer, ResourceTypeGroup, ResourceTypeLabel, ResourceTypeLineplot, ResourceTypeLog, ResourceTypeNode, ResourceTypePanel, ResourceTypePolicy, ResourceTypeProject, ResourceTypeRack, ResourceTypeRange, ResourceTypeRangeAlias, ResourceTypeRole, ResourceTypeSchematic, ResourceTypeSchematicSymbol, ResourceTypeStatus, ResourceTypeTable, ResourceTypeTask, ResourceTypeUser, ResourceTypeView:
 		return true
 	default:
 		return false

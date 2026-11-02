@@ -113,7 +113,6 @@ var _ = BeforeSuite(func(ctx SpecContext) {
 	arcSvc = MustOpen(arc.OpenService(ctx, arc.ServiceConfig{
 		DB:       db,
 		Ontology: otg,
-		Group:    groupSvc,
 		Channel:  channelSvc,
 		Task:     taskSvc,
 		Status:   statusSvc,

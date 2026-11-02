@@ -82,6 +82,7 @@ type Ontology struct {
 	resourceTable       *gorp.Table[string, Resource]
 	relationshipTable   *gorp.Table[string, Relationship]
 	relIndexes          relationshipIndexes
+	owned               ownedTypes
 }
 
 // Open opens the ontology using the given configuration. If the RootID resource does
@@ -98,6 +99,7 @@ func Open(ctx context.Context, configs ...Config) (_ *Ontology, err error) {
 		registrar:        serviceRegistrar{ResourceTypeBuiltin: builtin},
 		services:         []Service{builtin},
 		relIndexes:       newRelationshipIndexes(),
+		owned:            newOwnedTypes(),
 	}
 	cleanup, ok := service.NewOpener(ctx, &o.closer)
 	defer func() { err = cleanup(err) }()
@@ -133,7 +135,16 @@ func (o *Ontology) NewWriter(tx gorp.Tx) Writer {
 		tx:                o.cfg.DB.OverrideTx(tx),
 		resourceTable:     o.resourceTable,
 		relationshipTable: o.relationshipTable,
+		owned:             o.owned,
 	}
+}
+
+// Own returns the only [Owner] that changes the relationships of ownership. Any other
+// Writer returns a validation error on them.
+func (o *Ontology) Own(ownership Ownership) *Owner {
+	owner := &Owner{otg: o}
+	o.owned.add(ownership, owner)
+	return owner
 }
 
 // NewRetrieve opens a new Retrieve query, which can be used to traverse and read

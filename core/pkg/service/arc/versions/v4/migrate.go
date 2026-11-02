@@ -17,7 +17,6 @@ import (
 	"github.com/synnaxlabs/gorp"
 	"github.com/synnaxlabs/gorp/migrate"
 	v3 "github.com/synnaxlabs/synnax/pkg/service/arc/versions/v3"
-	"github.com/synnaxlabs/synnax/pkg/service/group"
 	"github.com/synnaxlabs/synnax/pkg/service/ontology"
 	"github.com/synnaxlabs/x/errors"
 )
@@ -75,19 +74,21 @@ var TypeMigration = migrate.New(
 	},
 )
 
-// MigrationConfig is the configuration for NewGroupMigration.
+// MigrationConfig is the configuration for NewRootMigration.
 type MigrationConfig struct {
 	// Ontology holds the parent relationships of stored Arcs.
 	Ontology *ontology.Ontology
-	// Group is the Arcs group.
-	Group group.Group
+	// Owner writes the parent relationships of Arcs.
+	Owner *ontology.Owner
+	// Root is the directory that holds every Arc.
+	Root ontology.ID
 }
 
-// NewGroupMigration returns the migration that parents every stored Arc without a
-// group under the Arcs group.
-func NewGroupMigration(cfg MigrationConfig) gorp.Migration {
+// NewRootMigration returns the migration that parents every stored Arc without a
+// directory under the root directory.
+func NewRootMigration(cfg MigrationConfig) gorp.Migration {
 	return migrate.New(
-		"v61_arcs_group",
+		"v61_arcs_directory",
 		func(ctx context.Context, tx gorp.Tx, _ alamos.Instrumentation) (err error) {
 			iter, err := gorp.WrapReader[Key, Arc](tx).OpenIterator(gorp.IterOptions{})
 			if err != nil {
@@ -107,7 +108,7 @@ func NewGroupMigration(cfg MigrationConfig) gorp.Migration {
 				if err = cfg.Ontology.NewRetrieve().
 					WhereIDs(id).
 					TraverseTo(ontology.ParentsTraverser).
-					WhereTypes(ontology.ResourceTypeGroup).
+					WhereTypes(ontology.ResourceTypeArcDirectory).
 					ExcludeFieldData(true).
 					Entries(&parents).
 					Exec(ctx, tx); err != nil {
@@ -120,9 +121,9 @@ func NewGroupMigration(cfg MigrationConfig) gorp.Migration {
 			if len(orphans) == 0 {
 				return nil
 			}
-			return cfg.Ontology.NewWriter(tx).DefineRelationships(
+			return cfg.Owner.NewWriter(tx).DefineRelationships(
 				ctx,
-				cfg.Group.OntologyID(),
+				cfg.Root,
 				ontology.RelationshipTypeParentOf,
 				orphans...,
 			)

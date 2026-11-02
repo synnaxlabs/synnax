@@ -33,7 +33,8 @@ func (*Service) Match(body map[string]any) bool {
 // discarded so every import mints a new resource. An unknown envelope version is a
 // path-scoped validation error.
 //
-// opts.Parent is ignored: the writer parents every new Arc under the Arcs group. The
+// opts.Parent is ignored: the writer parents every new Arc under the root directory.
+// The
 // API layer still enforces update access on the parent the caller declared.
 func (s *Service) Import(
 	ctx context.Context,

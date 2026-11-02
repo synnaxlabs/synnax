@@ -18,6 +18,7 @@ type ResourceType = versions.ResourceType
 
 const (
 	ResourceTypeArc             ResourceType = versions.ResourceTypeArc
+	ResourceTypeArcDirectory    ResourceType = versions.ResourceTypeArcDirectory
 	ResourceTypeBuiltin         ResourceType = versions.ResourceTypeBuiltin
 	ResourceTypeChannel         ResourceType = versions.ResourceTypeChannel
 	ResourceTypeDevice          ResourceType = versions.ResourceTypeDevice

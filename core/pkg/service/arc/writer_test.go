@@ -47,7 +47,7 @@ var _ = Describe("Writer", func() {
 			Expect(a.Key).To(Equal(key))
 		})
 
-		It("Should parent the Arc under the Arcs group", func(ctx SpecContext) {
+		It("Should parent the Arc under the root directory", func(ctx SpecContext) {
 			a := arc.Arc{Name: "parented-arc", Mode: arc.ModeText}
 			Expect(svc.NewWriter(tx).Create(ctx, &a)).To(Succeed())
 			var parents []ontology.Resource
@@ -57,7 +57,7 @@ var _ = Describe("Writer", func() {
 				Entries(&parents).
 				Exec(ctx, tx)).To(Succeed())
 			Expect(parents).To(HaveLen(1))
-			Expect(parents[0].ID.Type).To(Equal(ontology.ResourceTypeGroup))
+			Expect(parents[0].ID.Type).To(Equal(ontology.ResourceTypeArcDirectory))
 			Expect(parents[0].Name).To(Equal("Arcs"))
 		})
 

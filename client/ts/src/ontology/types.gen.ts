@@ -13,6 +13,7 @@ import { z } from "zod";
 
 export const RESOURCE_TYPES = [
   "arc",
+  "arc_directory",
   "builtin",
   "channel",
   "device",

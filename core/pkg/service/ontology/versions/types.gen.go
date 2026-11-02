@@ -18,6 +18,7 @@ type ResourceType = v0.ResourceType
 
 const (
 	ResourceTypeArc             ResourceType = v0.ResourceTypeArc
+	ResourceTypeArcDirectory    ResourceType = v0.ResourceTypeArcDirectory
 	ResourceTypeBuiltin         ResourceType = v0.ResourceTypeBuiltin
 	ResourceTypeChannel         ResourceType = v0.ResourceTypeChannel
 	ResourceTypeDevice          ResourceType = v0.ResourceTypeDevice

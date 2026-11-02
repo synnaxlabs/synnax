@@ -40,9 +40,8 @@ Binding a rack to a module is a validation error, and so is importing an automat
 
 ![Arc ontology](img/0082-arc-user-modules/ontology.svg)
 
-- **Root group**: The Arc service creates "Arcs" below the ontology root with
-  `group.Service.CreateOrRetrieve`, as the channel, task, and project services do, and
-  parents every new Arc under it.
+- **Root group**: The Arc service creates "Arcs" below the ontology root and parents
+  every new Arc under it.
 - **Directories**: A group below "Arcs" is a directory. A module may sit directly under
   "Arcs" or in a group at any depth (§5.0, §5.1).
 - **Names**: Group and module names are validated like channel names.

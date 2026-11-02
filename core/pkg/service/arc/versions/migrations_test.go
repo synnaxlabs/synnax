@@ -16,10 +16,10 @@ import (
 )
 
 var _ = Describe("NewMigrations", func() {
-	It("Should end the chain with the group migration", func() {
+	It("Should end the chain with the root migration", func() {
 		chain := versions.NewMigrations(versions.MigrationsConfig{})
 		Expect(chain[0].Key()).To(Equal("normalize_keys"))
-		Expect(chain[len(chain)-1].Key()).To(Equal("v61_arcs_group"))
+		Expect(chain[len(chain)-1].Key()).To(Equal("v61_arcs_directory"))
 	})
 })
 
