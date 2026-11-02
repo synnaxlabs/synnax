@@ -110,6 +110,8 @@ jobs:
           GITHUB_HEAD_SHA: ${{ github.event.pull_request.head.sha || github.sha }}
           SKIP_BUILD: ${{ github.event.inputs.SKIP_BUILD || 'false' }}
           REF_RUN_ID: ${{ github.event.inputs.REF_RUN_ID || '' }}
+          # Matches flags_enabled of the build job.
+          FLAGS_ENABLED: true
           PLATFORMS:
             ${{ inputs.ubuntu && inputs.windows && 'all' || inputs.windows && 'windows'
             || 'linux' }}
@@ -150,6 +152,9 @@ jobs:
       docker: false
       driver: true
       console: true
+      # The suite tests the work that flags hide in the Console build. Matches
+      # FLAGS_ENABLED of the cache check.
+      flags_enabled: true
       core: true
       use_simple_artifact_names: true
       driver_ref_run_id: ${{ needs.setup.outputs.DRIVER_REF_RUN_ID }}
