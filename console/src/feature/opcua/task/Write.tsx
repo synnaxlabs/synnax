@@ -16,7 +16,6 @@ import { Access } from "@synnaxlabs/pluto";
 import { caseconv, errors, primitive } from "@synnaxlabs/x";
 import { type FC } from "react";
 
-import { type HaulItem } from "@/feature/opcua/device/Browser";
 import { Select } from "@/feature/opcua/device/Select";
 import {
   type Device,
@@ -28,6 +27,7 @@ import {
 import { type ChannelKeyAndIDGetter, createForm } from "@/feature/opcua/task/Form";
 import {
   deployWriteConfigZ,
+  type ScannedNode,
   WRITE_SCHEMAS,
   WRITE_TYPE,
   type WriteChannel,
@@ -40,17 +40,17 @@ import { Task } from "@/platform/task";
 const Properties = () => <Select />;
 
 // A write goes to a whole node, so a member of a structure is not a write channel.
-const convertHaulItemToChannel = ({ data }: HaulItem): WriteChannel | null =>
-  data.field !== ""
+const convertNodeToChannel = (node: ScannedNode): WriteChannel | null =>
+  node.field !== ""
     ? null
     : {
-        key: data.nodeId,
-        nodeName: data.name,
-        nodeId: data.nodeId,
+        key: node.nodeId,
+        nodeName: node.name,
+        nodeId: node.nodeId,
         name: "",
         cmdChannel: 0,
         disabled: false,
-        dataType: data.dataType,
+        dataType: node.dataType,
       };
 
 const getChannelKeyAndID: ChannelKeyAndIDGetter<WriteChannel> = ({
@@ -88,7 +88,7 @@ const resolve = (device: Device, { nodeId }: WriteChannel) => ({
 });
 
 const TaskForm: FC = createForm<WriteChannel>({
-  convertHaulItemToChannel,
+  convertNodeToChannel,
   getChannelKeyAndID,
   contextMenuItems,
   resolve,

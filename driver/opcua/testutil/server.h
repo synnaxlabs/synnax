@@ -312,6 +312,18 @@ struct ServerConfig {
     std::uint32_t max_nodes_per_read = 0;
     /// @brief the most nodes that one Write request can name. 0 means no limit.
     std::uint32_t max_nodes_per_write = 0;
+    /// @brief the most nodes that one Browse request can name. 0 means no limit.
+    std::uint32_t max_nodes_per_browse = 0;
+    /// @brief the most children that the server returns for a node before it returns a
+    /// continuation point. 0 means no limit.
+    std::uint32_t max_references_per_node = 0;
+    /// @brief the number of Double variables V0, V1, ... in the NS=1;S=Generated
+    /// folder. The folder also holds NS=1;S=Generated.Inner, a folder that holds the
+    /// variable Deep and organizes the Generated folder again. The server adds the
+    /// folders only when this or generated_folders is more than 0.
+    std::uint32_t generated_variables = 0;
+    /// @brief the number of empty folders F0, F1, ... in the NS=1;S=Generated folder.
+    std::uint32_t generated_folders = 0;
     /// @brief the value of the NS=1;S=TestMotor node, of the Motor data type. The
     /// server adds the node only when it is set.
     std::optional<Motor> motor;
@@ -650,6 +662,82 @@ private:
         UA_NodeId_clear(&raw_node_id);
     }
 
+    /// @brief adds a folder with the browse name name under parent.
+    static void add_folder(
+        UA_Server *server,
+        const std::string &id,
+        const std::string &name,
+        const UA_NodeId &parent
+    ) {
+        UA_ObjectAttributes attr = UA_ObjectAttributes_default;
+        attr.displayName = UA_LOCALIZEDTEXT(
+            const_cast<char *>("en-US"),
+            const_cast<char *>(name.c_str())
+        );
+        UA_Server_addObjectNode(
+            server,
+            UA_NODEID_STRING(1, const_cast<char *>(id.c_str())),
+            parent,
+            UA_NS0ID(ORGANIZES),
+            UA_QUALIFIEDNAME(1, const_cast<char *>(name.c_str())),
+            UA_NS0ID(FOLDERTYPE),
+            attr,
+            nullptr,
+            nullptr
+        );
+    }
+
+    /// @brief adds a Double variable with the browse name name under parent.
+    static void add_double(
+        UA_Server *server,
+        const std::string &id,
+        const std::string &name,
+        const UA_NodeId &parent
+    ) {
+        UA_VariableAttributes attr = UA_VariableAttributes_default;
+        UA_Double value = 1.0;
+        UA_Variant_setScalar(&attr.value, &value, &UA_TYPES[UA_TYPES_DOUBLE]);
+        attr.dataType = UA_TYPES[UA_TYPES_DOUBLE].typeId;
+        attr.valueRank = UA_VALUERANK_SCALAR;
+        attr.accessLevel = UA_ACCESSLEVELMASK_READ;
+        UA_Server_addVariableNode(
+            server,
+            UA_NODEID_STRING(1, const_cast<char *>(id.c_str())),
+            parent,
+            UA_NS0ID(HASCOMPONENT),
+            UA_QUALIFIEDNAME(1, const_cast<char *>(name.c_str())),
+            UA_NODEID_NULL,
+            attr,
+            nullptr,
+            nullptr
+        );
+    }
+
+    /// @brief adds the folders that ServerConfig::generated_variables and
+    /// ServerConfig::generated_folders describe.
+    static void add_generated(
+        UA_Server *server,
+        const std::uint32_t variables,
+        const std::uint32_t folders
+    ) {
+        const auto generated = UA_NODEID_STRING(1, const_cast<char *>("Generated"));
+        const auto inner = UA_NODEID_STRING(1, const_cast<char *>("Generated.Inner"));
+        add_folder(server, "Generated", "Generated", UA_NS0ID(OBJECTSFOLDER));
+        for (std::uint32_t i = 0; i < variables; ++i) {
+            const auto name = "V" + std::to_string(i);
+            add_double(server, "Generated." + name, name, generated);
+        }
+        for (std::uint32_t i = 0; i < folders; ++i) {
+            const auto name = "F" + std::to_string(i);
+            add_folder(server, "Generated." + name, name, generated);
+        }
+        add_folder(server, "Generated.Inner", "Inner", generated);
+        add_double(server, "Generated.Inner.Deep", "Deep", inner);
+        UA_ExpandedNodeId target = UA_EXPANDEDNODEID_NULL;
+        target.nodeId = generated;
+        UA_Server_addReference(server, inner, UA_NS0ID(ORGANIZES), target, true);
+    }
+
     /// @brief adds what add_namespace and add_motor asked for.
     void add_requested(UA_Server *server, const UA_DataType &motor_type) {
         std::lock_guard lock(this->added_mu);
@@ -797,6 +885,8 @@ private:
         if (cfg.max_sessions > 0) server_config->maxSessions = cfg.max_sessions;
         server_config->maxNodesPerRead = cfg.max_nodes_per_read;
         server_config->maxNodesPerWrite = cfg.max_nodes_per_write;
+        server_config->maxNodesPerBrowse = cfg.max_nodes_per_browse;
+        server_config->maxReferencesPerNode = cfg.max_references_per_node;
         for (const auto &uri: cfg.namespaces)
             UA_Server_addNamespace(server, uri.c_str());
         const StructureTypes structures;
@@ -849,6 +939,9 @@ private:
 
         for (const auto &node: cfg.test_nodes)
             add_node(server, node);
+
+        if (cfg.generated_variables > 0 || cfg.generated_folders > 0)
+            add_generated(server, cfg.generated_variables, cfg.generated_folders);
 
         UA_StatusCode status = UA_Server_run_startup(server);
         if (status != UA_STATUSCODE_GOOD) {

@@ -27,7 +27,7 @@ import { Text } from "@synnaxlabs/lyra/text";
 import { Synnax } from "@synnaxlabs/pluto";
 import { type PropsWithChildren, type ReactElement, useState } from "react";
 
-import { retrieveScanTask } from "@/feature/opcua/device/retrieveScanTask";
+import { executeScanCommand } from "@/feature/opcua/device/scanCommand";
 import {
   type CertificateInfo,
   type CertificatesResponse,
@@ -39,14 +39,6 @@ import { Modals } from "@/platform/modals";
 import { Runtime } from "@/platform/runtime";
 
 const COMMAND_TIMEOUT = TimeSpan.seconds(10);
-
-const toStream = (bytes: Uint8Array): ReadableStream<Uint8Array> =>
-  new ReadableStream({
-    start: (controller) => {
-      controller.enqueue(bytes);
-      controller.close();
-    },
-  });
 
 const PEM_ARMOR = /-----(BEGIN|END) CERTIFICATE-----|\s/g;
 
@@ -71,16 +63,13 @@ const executeCertificateCommand = async (
   client: Client,
   rack: rack.Key,
   type: string,
-): Promise<CertificatesResponse> => {
-  const scanTask = await retrieveScanTask(client, rack);
-  const res = await scanTask.executeCommandSync({
+): Promise<CertificatesResponse> =>
+  await executeScanCommand(client, rack, {
     type,
-    timeout: COMMAND_TIMEOUT,
     args: {},
+    schema: certificatesResponseZ,
+    timeout: COMMAND_TIMEOUT,
   });
-  if (res.variant === "error") throw status.toError(res);
-  return certificatesResponseZ.parse(res.details?.data);
-};
 
 interface DetailsProps extends PropsWithChildren {
   title?: string;
@@ -173,7 +162,7 @@ export const DriverCertificate = ({ rack }: DriverCertificateProps): ReactElemen
     handleError(
       async () =>
         await download({
-          stream: toStream(toDER(certificate.pem)),
+          stream: Runtime.toStream(toDER(certificate.pem)),
           name,
           extension: "der",
         }),
