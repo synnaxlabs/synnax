@@ -731,6 +731,83 @@ var _ = Describe("Writer", func() {
 			},
 		)
 	})
+
+	Describe("Virtual Write Stamps", func() {
+		// writeAndReceive writes to every key of s and returns each key's streamed
+		// series with the instants that bound the write.
+		writeAndReceive := func(
+			ctx SpecContext,
+			s scenario,
+		) (map[channel.Key]telem.Series, telem.TimeStamp, telem.TimeStamp) {
+			streamer := MustSucceed(s.dist.Framer.NewStreamer(framer.StreamerConfig{
+				Keys:        s.keys,
+				SendOpenAck: new(true),
+			}))
+			_, out := confluence.Attach(streamer, 10)
+			sCtx, cancel := signal.WithCancel(ctx)
+			DeferCleanup(cancel)
+			streamer.Flow(sCtx)
+			var res framer.StreamerResponse
+			Eventually(out.Outlet()).Should(Receive(&res))
+			w := MustOpen(s.dist.Framer.OpenWriter(ctx, writer.Config{
+				Keys:  s.keys,
+				Start: 10 * telem.SecondTS,
+				Sync:  new(true),
+			}))
+			series := make([]telem.Series, len(s.keys))
+			for i := range series {
+				series[i] = telem.NewSeriesV[int64](1, 2)
+				series[i].TimeRange = telem.TimeRange{
+					Start: 1 * telem.SecondTS,
+					End:   2 * telem.SecondTS,
+				}
+			}
+			before := telem.Now()
+			Expect(w.Write(frame.NewMulti(s.keys, series))).To(BeTrue())
+			received := make(map[channel.Key]telem.Series, len(s.keys))
+			for len(received) < len(s.keys) {
+				Eventually(out.Outlet()).Should(Receive(&res))
+				for _, k := range s.keys {
+					if got := res.Frame.Get(k).Series; len(got) > 0 {
+						received[k] = got[0]
+					}
+				}
+			}
+			return received, before, telem.Now()
+		}
+
+		DescribeTable(
+			"Should stamp leased virtual channels with the leaseholder's clock",
+			func(ctx SpecContext, open func(context.Context) scenario) {
+				s := DeferClose(open(ctx))
+				received, before, after := writeAndReceive(ctx, s)
+				for _, k := range s.keys {
+					written := received[k]
+					Expect(
+						written,
+					).To(telem.MatchSeriesData(telem.NewSeriesV[int64](1, 2)))
+					Expect(written.TimeRange.Span()).To(Equal(telem.Nanosecond))
+					Expect(written.TimeRange.Start).To(BeNumerically(">=", before))
+					Expect(written.TimeRange.Start).To(BeNumerically("<=", after))
+				}
+			},
+			Entry("Gateway", gatewayOnlyScenario),
+			Entry("Peer", peerOnlyScenario),
+		)
+
+		It(
+			"Should stamp every virtual series in one write with one instant",
+			func(ctx SpecContext) {
+				s := DeferClose(gatewayOnlyScenario(ctx))
+				received, _, _ := writeAndReceive(ctx, s)
+				first := received[s.keys[0]].TimeRange
+				Expect(first.Span()).To(Equal(telem.Nanosecond))
+				for _, k := range s.keys[1:] {
+					Expect(received[k].TimeRange).To(Equal(first))
+				}
+			},
+		)
+	})
 })
 
 // indexResolver resolves free channel indexes from a fixed key-to-index map.

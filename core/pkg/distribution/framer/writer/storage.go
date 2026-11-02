@@ -14,13 +14,55 @@ import (
 
 	"github.com/synnaxlabs/synnax/pkg/distribution/node"
 	"github.com/synnaxlabs/synnax/pkg/storage/ts"
+	"github.com/synnaxlabs/x/set"
+	"github.com/synnaxlabs/x/telem"
 )
 
-func newRequestTranslator() func(ctx context.Context, in Request) (ts.WriterRequest, bool, error) {
+// virtualKeys returns the keys of the virtual channels among keys.
+func virtualKeys(
+	ctx context.Context,
+	db *ts.DB,
+	keys []ts.ChannelKey,
+) (set.Set[ts.ChannelKey], error) {
+	channels, err := db.RetrieveChannels(ctx, keys...)
+	if err != nil {
+		return nil, err
+	}
+	virtual := make(set.Set[ts.ChannelKey])
+	for _, ch := range channels {
+		if ch.Virtual {
+			virtual.Add(ch.Key)
+		}
+	}
+	return virtual, nil
+}
+
+// stampVirtual stamps each series of a virtual channel with one instant from the host's
+// clock, since no index places its samples.
+func stampVirtual(fr ts.Frame, virtual set.Set[ts.ChannelKey]) ts.Frame {
+	now := telem.Now()
+	for rawI, k := range fr.RawKeys() {
+		if fr.ShouldExcludeRaw(rawI) || !virtual.Contains(k) {
+			continue
+		}
+		s := fr.RawSeriesAt(rawI)
+		s.TimeRange = now.SpanRange(telem.Nanosecond)
+		fr.SetRawSeriesAt(rawI, s)
+	}
+	return fr
+}
+
+func newRequestTranslator(
+	virtual set.Set[ts.ChannelKey],
+) func(ctx context.Context, in Request) (ts.WriterRequest, bool, error) {
 	return func(ctx context.Context, in Request) (ts.WriterRequest, bool, error) {
+		fr := in.Frame.ToStorage()
+		if in.Command == CommandWrite && len(virtual) > 0 {
+			fr = stampVirtual(fr, virtual)
+		}
 		return ts.WriterRequest{
 			Command: ts.WriterCommand(in.Command),
-			Frame:   in.Frame.ToStorage(),
+			Frame:   fr,
 			Config:  in.Config.toStorage(),
 			SeqNum:  in.SeqNum,
 		}, true, nil

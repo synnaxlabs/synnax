@@ -24,6 +24,7 @@ import { NotFoundError, UnsupportedError } from "@/errors";
 import { type ChannelRetriever } from "@/framer/adapter";
 import { domainOf } from "@/framer/cache/block";
 import { Dynamic } from "@/framer/cache/dynamic";
+import { Stamps } from "@/framer/cache/stamps";
 import { LOADING, NO_HISTORY, READ_FAILED, SUCCESS } from "@/framer/cache/status";
 import { calculated, type Store } from "@/framer/cache/store";
 import { type Demand, type MultiplexedStreamer } from "@/framer/cache/streamer";
@@ -87,6 +88,14 @@ export class Latest {
   private running: Load | null;
   private readonly demand: Demand;
   private readonly stopInvalidations: () => void;
+  // timeSource is null until the channel is found.
+  private timeSource: { index: channel.Key } | "self" | "stamps" | null = null;
+  // index serves the newest samples of the channel's index, from the first timeAt that
+  // needs them.
+  private index: Latest | null = null;
+  // stamps records each write until the channel turns out to have an index, since
+  // streamed series can arrive before it is found.
+  private stamps: Stamps | null;
   // dedupe is how fresh finds repeated samples: by Core alignment for a stored channel,
   // and by time for one a calculation writes, whose alignments depend on how its inputs
   // split into series. A channel that only streams repeats no sample.
@@ -113,6 +122,7 @@ export class Latest {
     private readonly notify: () => void,
   ) {
     this.buffer = this.createBuffer();
+    this.stamps = this.createStamps();
     this.demand = props.streamer.demand([key], (frame) => {
       const series = frame.get(key);
       if (series == null) return;
@@ -137,6 +147,7 @@ export class Latest {
     this.window = window;
     this.count = count;
     this.taken = false;
+    this.index?.update(window, count);
     this.clear();
     this.restart(0);
   }
@@ -147,6 +158,8 @@ export class Latest {
    * the newest series keeps the snapshot's series and moves its time.
    */
   value(): Snapshot {
+    // The index serves with the channel, so it trims as the channel does.
+    this.index?.value();
     const snapshot = this.current();
     const { running } = this;
     if (
@@ -158,8 +171,34 @@ export class Latest {
     return snapshot;
   }
 
+  /**
+   * @returns the Core's stamp of the held sample at alignment, read from the channel's
+   * index or, for a channel with no index, from the write that carried it. It answers
+   * for at least the newest count samples. The first call for a channel with an index
+   * starts serving the index, and the latest notifies once its samples arrive. Null
+   * until then, until the channel is found, and when no sample it answers for has the
+   * alignment.
+   */
+  timeAt(alignment: bigint): TimeStamp | null {
+    const { timeSource } = this;
+    if (timeSource == null) return null;
+    if (timeSource === "self") return this.sampleAt(alignment);
+    if (timeSource === "stamps") return this.stamps?.at(alignment) ?? null;
+    this.index ??= new Latest(
+      this.props,
+      timeSource.index,
+      this.window,
+      this.count,
+      this.notify,
+    );
+    return this.index.sampleAt(alignment);
+  }
+
   /** Releases the channel's stream. */
   close(): void {
+    this.index?.close();
+    this.index = null;
+    this.timeSource = null;
     this.restart(null);
     this.stopInvalidations();
     this.demand.close();
@@ -263,6 +302,35 @@ export class Latest {
     this.unserved = 0;
     this.shown = false;
     this.snapshot = null;
+    if (this.stamps != null) this.stamps = this.createStamps();
+  }
+
+  // Each write holds at least one sample, so count records cover the newest count
+  // samples.
+  private createStamps(): Stamps {
+    return new Stamps(Math.min(Math.max(this.count, 1), MAX_BUFFER));
+  }
+
+  // The latest of an index shares the window and count, so it holds the stamps of the
+  // samples held.
+  private findTimeSource(p: channel.Payload): void {
+    if (this.timeSource != null) return;
+    if (!p.isIndex && p.index === 0) {
+      this.timeSource = "stamps";
+      return;
+    }
+    this.timeSource = p.isIndex ? "self" : { index: p.index };
+    this.stamps = null;
+  }
+
+  // Returns the timestamp sample at alignment, for an index channel.
+  private sampleAt(alignment: bigint): TimeStamp | null {
+    const leading = this.buffer.leadingBuffer;
+    for (const s of leading == null ? this.series : [...this.series, leading]) {
+      const value = s.atAlignment(alignment);
+      if (value != null) return new TimeStamp(value as bigint);
+    }
+    return null;
   }
 
   private createBuffer(): Dynamic {
@@ -290,6 +358,7 @@ export class Latest {
       try {
         const [payload] = await retrieveChannels([this.key]);
         if (payload == null) throw new NotFoundError(`channel ${this.key} not found`);
+        if (this.running === run) this.findTimeSource(payload);
         let read: Series[] = [];
         if (!payload.virtual) this.dedupe = "alignment";
         else this.dedupe = calculated(payload) ? "time" : null;
@@ -367,6 +436,7 @@ export class Latest {
       // Series of two data types cannot share a snapshot.
       const first = this.series.at(0) ?? this.buffer.leadingBuffer;
       if (first != null && !first.dataType.equals(fresh.dataType)) this.clear();
+      this.stamps?.record(fresh);
       this.unserved += fresh.length;
       this.appended += fresh.length;
       this.append(fresh);

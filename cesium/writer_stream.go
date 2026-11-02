@@ -974,10 +974,7 @@ func (w virtualWriter) write(
 	filterUnauthorized *[]ChannelKey,
 	fr Frame,
 ) (Frame, error) {
-	var (
-		accumulatedErr error
-		now            = telem.Now()
-	)
+	var accumulatedErr error
 	for rawI, k := range fr.RawKeys() {
 		if fr.ShouldExcludeRaw(rawI) {
 			continue
@@ -987,7 +984,6 @@ func (w virtualWriter) write(
 			continue
 		}
 		s := fr.RawSeriesAt(rawI)
-		s.TimeRange = now.SpanRange(telem.Nanosecond)
 		alignment, err := v.Write(s)
 		if err != nil {
 			accumulatedErr = err

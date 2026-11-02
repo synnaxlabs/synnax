@@ -48,16 +48,6 @@ export class Stamps {
     this.length++;
   }
 
-  /**
-   * Records a fetched write unless a recorded write already reaches its start. A fetch
-   * can land behind newer live writes, which keep their records.
-   */
-  recordFetched(series: Series): void {
-    const { lower } = series.alignmentBounds;
-    if (this.length > 0 && this.endAt(this.length - 1) > lower) return;
-    this.record(series);
-  }
-
   /** @returns the stamp of the write holding the sample at alignment, else null. */
   at(alignment: bigint): TimeStamp | null {
     let lo = 0;
@@ -83,9 +73,5 @@ export class Stamps {
 
   private startAt(i: number): bigint {
     return this.starts[this.slot(i)];
-  }
-
-  private endAt(i: number): bigint {
-    return this.ends[this.slot(i)];
   }
 }

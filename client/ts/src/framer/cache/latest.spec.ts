@@ -412,6 +412,159 @@ describe("Latest", () => {
     }
   });
 
+  describe("timeAt", () => {
+    // Returns the alignment of every sample the latest holds.
+    const alignmentsOf = (latest: Latest): bigint[] =>
+      latest
+        .value()
+        .series.series.flatMap((s) =>
+          Array.from({ length: s.length }, (_, i) => s.alignment + BigInt(i)),
+        );
+
+    // Returns the time of each held sample, or null for a sample timeAt misses.
+    const timedOf = (latest: Latest): (bigint | null)[] =>
+      alignmentsOf(latest).map((a) => latest.timeAt(a)?.valueOf() ?? null);
+
+    // A write the Core stamps with one instant, at alignments Cesium gives in a row.
+    const write = (alignment: bigint, length: number, stamp: TimeStamp): Series =>
+      new Series({
+        data: new Float32Array(length),
+        dataType: DataType.FLOAT32,
+        alignment,
+        timeRange: stamp.spanRange(TimeSpan.NANOSECOND),
+      });
+
+    it("should time a stored channel's read and streamed samples from its index", async () => {
+      const core = createCore();
+      const { open, close } = createLatest(core);
+      const latest = open(100);
+      const period = Rate.hz(100).period.valueOf();
+      // Every sample is timed, one period apart, and the newest ends the snapshot.
+      const timed = (): boolean => {
+        const times = timedOf(latest);
+        const end = latest.value().time?.valueOf();
+        return (
+          times.length > 0 &&
+          times.every(
+            (t, i) => t != null && (i === 0 || t - times[i - 1]! === period),
+          ) &&
+          times.at(-1)! + 1n === end
+        );
+      };
+      try {
+        await expect.poll(timed, POLL).toBe(true);
+        core.advance(TimeSpan.milliseconds(100));
+        await expect.poll(() => latest.value().series.series.length, POLL).toBe(2);
+        await expect.poll(timed, POLL).toBe(true);
+      } finally {
+        latest.close();
+        await close();
+      }
+    });
+
+    it("should time an index channel's samples from their own values", async () => {
+      const core = createCore();
+      const { open, close } = createLatest(core);
+      const latest = open(100, undefined, core.index.key);
+      try {
+        await expect.poll(() => latest.value().status.variant, POLL).toBe("success");
+        expect(timedOf(latest)).toEqual(timesOf(latest));
+      } finally {
+        latest.close();
+        await close();
+      }
+    });
+
+    it("should time each write to a channel with no index from its stamp", async () => {
+      const core = createCore(true);
+      const { open, close } = createLatest(core);
+      const key = core.virtual!.key;
+      const latest = open(100, undefined, key);
+      const stamps = [0, 1, 2].map((i) => START.add(TimeSpan.seconds(i)));
+      try {
+        await expect.poll(() => latest.value().status.variant, POLL).toBe("success");
+        await expect.poll(() => core.streams(key), POLL).toBe(true);
+        core.stream(new framer.Frame(key, write(10n, 2, stamps[0])));
+        core.stream(new framer.Frame(key, write(12n, 1, stamps[1])));
+        core.stream(new framer.Frame(key, write(13n, 2, stamps[2])));
+        await expect.poll(() => latest.value().series.length, POLL).toBe(5);
+        // The second and third writes share one buffer, and keep their own stamps.
+        expect(latest.value().series.series).toHaveLength(2);
+        const [t0, t1, t2] = stamps.map((t) => t.valueOf());
+        expect(timedOf(latest)).toEqual([t0, t0, t1, t2, t2]);
+      } finally {
+        latest.close();
+        await close();
+      }
+    });
+
+    it("should stream the index only once timeAt needs it", async () => {
+      const core = createCore();
+      const { open, close } = createLatest(core);
+      const latest = open(100);
+      try {
+        await expect.poll(() => latest.value().status.variant, POLL).toBe("success");
+        expect(core.streams(core.index.key)).toBe(false);
+        latest.timeAt(0n);
+        await expect.poll(() => core.streams(core.index.key), POLL).toBe(true);
+      } finally {
+        latest.close();
+        await close();
+      }
+    });
+
+    it("should release the index's stream on close", async () => {
+      const core = createCore();
+      const { open, close } = createLatest(core);
+      const latest = open(100);
+      try {
+        await expect.poll(() => latest.value().status.variant, POLL).toBe("success");
+        latest.timeAt(0n);
+        await expect.poll(() => core.streams(core.index.key), POLL).toBe(true);
+        latest.close();
+        await expect.poll(() => core.streams(core.index.key), POLL).toBe(false);
+      } finally {
+        await close();
+      }
+    });
+
+    it("should time the samples an update adds", async () => {
+      const core = createCore();
+      const { open, close } = createLatest(core);
+      const latest = open(10);
+      // Returns true once the latest holds at least count samples, each one timed.
+      const timed = (count: number): boolean => {
+        const times = timedOf(latest);
+        return times.length >= count && times.every((t) => t != null);
+      };
+      try {
+        await expect.poll(() => timed(10), POLL).toBe(true);
+        latest.update(undefined, 200);
+        await expect.poll(() => timed(200), POLL).toBe(true);
+      } finally {
+        latest.close();
+        await close();
+      }
+    });
+
+    it("should return null for an alignment it does not hold", async () => {
+      const core = createCore(true);
+      const { open, close } = createLatest(core);
+      const stored = open(100);
+      const unindexed = open(100, undefined, core.virtual!.key);
+      try {
+        await expect.poll(() => stored.value().status.variant, POLL).toBe("success");
+        await expect.poll(() => unindexed.value().status.variant, POLL).toBe("success");
+        expect(stored.timeAt(0n)).toBeNull();
+        expect(unindexed.timeAt(0n)).toBeNull();
+      } finally {
+        stored.close();
+        unindexed.close();
+        await close();
+      }
+    });
+  });
+
   it("should end the load's wait for the stream's ack on close", async () => {
     const core = createCore();
     const { streamer, open, close } = createLatest(core);
