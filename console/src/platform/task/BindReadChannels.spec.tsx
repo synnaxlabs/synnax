@@ -7,22 +7,35 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
+import { deep } from "@synnaxlabs/x";
 import { act, waitFor } from "@testing-library/react";
 import { describe, expect, it } from "vitest";
 
 import { Task } from "@/platform/task";
 import { type FormRef, renderInTaskForm } from "@/platform/task/testutil";
 
-const PATH = "config.sources.s";
+interface Source {
+  key: string;
+  path: string;
+  index: string;
+  fields: Task.ReadChannelField[];
+}
 
-const SOURCE = {
+const source = deep.path<{ config: { sources: Source[] } }>().config.sources.s;
+
+const field = (key: string, pointer: string): Task.ReadChannelField => ({
+  key,
+  pointer,
+  channel: 0,
+  name: "",
+  dataType: "float64",
+});
+
+const SOURCE: Source = {
   key: "s",
   path: "/api",
   index: "ts",
-  fields: [
-    { key: "ts", pointer: "/time", channel: 0 },
-    { key: "v", pointer: "/value", channel: 0 },
-  ],
+  fields: [field("ts", "/time"), field("v", "/value")],
 };
 
 const READ: Record<string, Task.ReadChannelProps> = {
@@ -30,11 +43,11 @@ const READ: Record<string, Task.ReadChannelProps> = {
 };
 
 const channelOf = (form: FormRef, key: string) =>
-  form.current?.get<number>(`${PATH}.fields.${key}.channel`).value;
+  form.current?.get(source.fields[key].channel).value;
 
 const render = async (read: Record<string, Task.ReadChannelProps> | null) =>
   await renderInTaskForm(
-    <Task.BindReadChannels path={PATH} propertiesKeyField="path" read={read} />,
+    <Task.BindReadChannels path={source} propertiesKey={source.path} read={read} />,
     { values: { config: { sources: [SOURCE] } } },
   );
 
@@ -57,7 +70,7 @@ describe("BindReadChannels", () => {
       "/other": { index: 8, channels: { "/value": 9 } },
     });
     await waitFor(() => expect(channelOf(form, "v")).toBe(6));
-    act(() => form.current?.set(`${PATH}.path`, "/other"));
+    act(() => form.current?.set(source.path, "/other"));
     await waitFor(() => expect(channelOf(form, "v")).toBe(9));
     expect(channelOf(form, "ts")).toBe(8);
   });

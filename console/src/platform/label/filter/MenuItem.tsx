@@ -11,10 +11,12 @@ import { type label } from "@synnaxlabs/client";
 import { Form } from "@synnaxlabs/lyra/form";
 import { type position } from "@synnaxlabs/lyra/position";
 import { type Select } from "@synnaxlabs/lyra/select";
-import { location } from "@synnaxlabs/x";
+import { deep, location } from "@synnaxlabs/x";
 import { type ReactElement } from "react";
 
 import { SelectMultiple } from "@/platform/label/Select";
+
+const path = deep.path<{ query: { hasLabels?: label.Key[] } }>();
 
 const TRIGGER_PROPS: Select.MultipleTriggerProps<string> = {
   hideTags: true,
@@ -28,7 +30,7 @@ const LABEL_LOCATION: position.LocationPreference = {
 
 export const MenuItem = (): ReactElement => (
   <Form.Field<label.Key[] | undefined, label.Key[]>
-    path="query.hasLabels"
+    path={path.query.hasLabels}
     showLabel={false}
     showHelpText={false}
   >

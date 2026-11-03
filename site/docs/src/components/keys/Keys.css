@@ -9,6 +9,15 @@
  * included in the file licenses/APL.txt.
  */
 
+/* In running text, the chip follows the size of the words around it. */
+:is(p, li, td) > .docs-keys {
+    --pluto-keycap-height: 1.375em;
+    --pluto-keycap-font-size: 0.8125em;
+}
+
+/* A flex box, so a flex parent centers the chip instead of setting it on a line of
+   text. The nav tooltip hides its keys with the hidden attribute. */
+.docs-keys:not([hidden]),
 .docs-keys__mac,
 .docs-keys__pc {
     display: inline-flex;
@@ -18,10 +27,4 @@
 :root:not([data-os="Windows"], [data-os="Linux"]) .docs-keys__pc,
 :root:is([data-os="Windows"], [data-os="Linux"]) .docs-keys__mac {
     display: none;
-}
-
-/* In running text, the chip follows the size of the words around it. */
-:is(p, li, td) > .docs-keys {
-    --pluto-keycap-height: 1.375em;
-    --pluto-keycap-font-size: 0.8125em;
 }
