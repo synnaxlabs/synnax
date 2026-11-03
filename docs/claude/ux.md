@@ -221,6 +221,22 @@ says why in a sentence, then gives the raw error.
 - The copy button sits at the top right, centered on the first line. A one-line block
   centers its line in the box.
 
+### Plot ranges
+
+- Ranges are bars in a strip above the plot. Overlapping ranges stack in lanes by start,
+  longer first, so a parent sits above its children. Three lanes are 20 px and show the
+  name. Up to four more are 4 px, with no name.
+- A bar is its range color tinted over the background, with a 1 px border in the color.
+  The name is in the range hue, centered on its cap height, and fades at its end. A side
+  cut by the plot edge has square corners, and the name stays at the edge.
+- In the plot, each range draws its start and end lines. Only a range that holds no
+  other range gets a fill, so fills do not stack. A range with no color is not drawn.
+- Hover fills the range, dims the others, and shows its name, start, end, and duration.
+  The tooltip wraps a name past 240 px.
+- A click on a range zooms to it and pauses the plot. A second click on that range goes
+  back to the view and pause state from before. If the view changes between the two
+  clicks, the second click zooms in again. Clicks nest, one level per click.
+
 ## Interaction
 
 - Respond to every input in less than 100 ms. Show a spinner only after 150 to 300 ms,
