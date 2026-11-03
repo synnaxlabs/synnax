@@ -125,6 +125,8 @@ export interface RenderModalOpenerOptions extends Pick<RenderOptions, "onCaughtE
   analytics?: Analytics.Sink;
   /** Extra siblings rendered alongside the modal stack, e.g. CaptureStatuses. */
   extra?: ReactNode;
+  /** Builds the console stack. Defaults to createConsoleWrapper. */
+  createWrapper?: typeof createConsoleWrapper;
 }
 
 export interface ModalOpenerHandle<R> {
@@ -156,8 +158,9 @@ export const renderModalOpener = async <Args extends unknown[], R>(
     onCaughtError,
     analytics = Analytics.NOOP,
     extra,
+    createWrapper = createConsoleWrapper,
   } = options;
-  const { wrapper: Console, store: resolvedStore } = await createConsoleWrapper({
+  const { wrapper: Console, store: resolvedStore } = await createWrapper({
     client,
     preloadedState,
     store,
@@ -195,7 +198,10 @@ export const renderModalOpener = async <Args extends unknown[], R>(
   };
 };
 
-export interface OpenModalOptions<P> extends Pick<RenderModalOpenerOptions, "extra"> {
+export interface OpenModalOptions<P> extends Pick<
+  RenderModalOpenerOptions,
+  "extra" | "createWrapper"
+> {
   client?: Client | null;
   params?: P;
 }
@@ -208,11 +214,12 @@ export interface OpenModalOptions<P> extends Pick<RenderModalOpenerOptions, "ext
  */
 export const openModal = async <P,>(
   useOpen: () => Modals.Opener<P>,
-  { client = null, params, extra }: OpenModalOptions<P> = {},
+  { client = null, params, extra, createWrapper }: OpenModalOptions<P> = {},
 ): Promise<ModalOpenerHandle<void>> =>
   await renderModalOpener(useOpen as () => (params?: P) => void, [params], {
     client,
     extra,
+    createWrapper,
   });
 
 /**

@@ -8,5 +8,6 @@
 // included in the file licenses/APL.txt.
 
 export { APIKey } from "@/credential/apikey";
+export { OIDC } from "@/credential/oidc";
 export { Password } from "@/credential/password";
 export { Session } from "@/credential/session";

@@ -20,6 +20,7 @@ import { type ReactElement, useState } from "react";
 
 import { Core } from "@/platform/core";
 import { APIKey } from "@/platform/credential/apikey";
+import { OIDC } from "@/platform/credential/oidc";
 import { Password } from "@/platform/credential/password";
 import { CSS } from "@/platform/css";
 import { Modals } from "@/platform/modals";
@@ -35,7 +36,7 @@ const Credentials = ({
   title,
 }: Modals.ContentProps<ModalParams, void>): ReactElement => {
   const client = Synnax.use();
-  const { password } = Core.useAcceptedMethods(client?.params);
+  const { password, oidc } = Core.useAcceptedMethods(client?.params);
   const [message, setMessage] = useState<string | null>(null);
   return (
     <Modal.Frame className={CSS.B("credential")}>
@@ -45,6 +46,9 @@ const Credentials = ({
           <APIKey.Section subject={subject} />
           {subject.type === "user" && password && (
             <Password.Section subject={subject} onMessage={setMessage} />
+          )}
+          {subject.type === "user" && oidc && (
+            <OIDC.Section subject={subject} onMessage={setMessage} />
           )}
         </Flex.Box>
       </Modal.Body>
