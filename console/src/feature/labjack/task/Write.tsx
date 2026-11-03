@@ -9,7 +9,7 @@
 
 import "@/feature/labjack/task/Write.css";
 
-import { channel, NotFoundError } from "@synnaxlabs/client";
+import { channel, NotFoundError, type Synnax } from "@synnaxlabs/client";
 import { Component } from "@synnaxlabs/lyra/component";
 import { Flex } from "@synnaxlabs/lyra/flex";
 import { Form as PForm } from "@synnaxlabs/lyra/form";
@@ -244,6 +244,29 @@ const getInitialValues: Task.GetInitialValues<WriteSchemas> = ({
   return { name: "LabJack write task", type: WRITE_TYPE, config: cfg };
 };
 
+// Returns the index of a state channel the device maps that still exists, or 0 if there
+// is none. A client that maps channels without setting writeStateIndex, such as Python,
+// leaves the index only on the state channels.
+const retrieveMappedStateIndex = async (
+  client: Synnax,
+  dev: Device,
+): Promise<channel.Key> => {
+  const pairs = [
+    ...Object.values(dev.properties.AO.channels),
+    ...Object.values(dev.properties.DO.channels),
+  ];
+  for (const { state } of pairs) {
+    if (primitive.isZero(state)) continue;
+    try {
+      const { index } = await client.channels.retrieve(state);
+      if (!primitive.isZero(index)) return index;
+    } catch (e) {
+      if (!NotFoundError.matches(e)) throw errors.fromUnknown(e);
+    }
+  }
+  return 0;
+};
+
 const onConfigure: Task.OnConfigure<WriteSchemas["config"]> = async (
   client,
   config,
@@ -266,14 +289,18 @@ const onConfigure: Task.OnConfigure<WriteSchemas["config"]> = async (
   try {
     if (shouldCreateStateIndex) {
       modified = true;
-      const stateIndex = await client.channels.create({
-        name: `${identifier}_write_state_time`,
-        dataType: "timestamp",
-        isIndex: true,
-      });
-      dev.properties.writeStateIndex = stateIndex.key;
-      dev.properties.DO.channels = {};
-      dev.properties.AO.channels = {};
+      const mappedIndex = await retrieveMappedStateIndex(client, dev);
+      if (!primitive.isZero(mappedIndex)) dev.properties.writeStateIndex = mappedIndex;
+      else {
+        const stateIndex = await client.channels.create({
+          name: `${identifier}_write_state_time`,
+          dataType: "timestamp",
+          isIndex: true,
+        });
+        dev.properties.writeStateIndex = stateIndex.key;
+        dev.properties.DO.channels = {};
+        dev.properties.AO.channels = {};
+      }
     }
     const commandChannelsToCreate: WriteChannel[] = [];
     const stateChannelsToCreate: WriteChannel[] = [];
