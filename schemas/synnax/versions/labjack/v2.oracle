@@ -134,8 +134,8 @@ ReadChannel union on type extends BaseReadChannel {
             @doc value """
                 selects the cold-junction-compensation source: the device sensor
                 ('TEMPERATURE_DEVICE_K', which on a T8 is the sensor at the
-                thermocouple's own terminal), ambient air ('TEMPERATURE_AIR_K', not on
-                a T8), or an AIN port (e.g. 'AIN2').
+                thermocouple's own terminal), ambient air ('TEMPERATURE_AIR_K', not on a
+                T8), or an AIN port (e.g. 'AIN2').
             """
         }
         cjc_slope         float64 = 1 {
