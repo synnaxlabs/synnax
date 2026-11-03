@@ -17,6 +17,7 @@ import (
 	"github.com/synnaxlabs/arc/graph"
 	"github.com/synnaxlabs/arc/ir"
 	. "github.com/synnaxlabs/arc/lsp/testutil"
+	"github.com/synnaxlabs/arc/symbol"
 	"github.com/synnaxlabs/arc/types"
 	"github.com/synnaxlabs/synnax/pkg/service/arc"
 	"github.com/synnaxlabs/synnax/pkg/service/channel"
@@ -133,5 +134,38 @@ var _ = Describe("NewLSP", func() {
 		Eventually(func() int {
 			return len(client.Diagnostics())
 		}).Should(Equal(0))
+	})
+})
+
+var _ = Describe("NewRoot", func() {
+	var ch channel.Channel
+	BeforeEach(func(ctx SpecContext) {
+		ch = channel.Channel{
+			Name:     "new_root_ch",
+			DataType: telem.Float32T,
+			Virtual:  true,
+		}
+		Expect(channelSvc.NewWriter(nil).Create(ctx, &ch)).To(Succeed())
+		DeferCleanup(func(ctx SpecContext) {
+			Expect(channelSvc.NewWriter(nil).Delete(ctx, ch.Key(), false)).
+				To(Succeed())
+		})
+	})
+
+	It("Should resolve a channel by the name it first had", func(ctx SpecContext) {
+		root := svc.NewRoot(nil)
+		Expect(root.Resolve(ctx, "new_root_ch")).To(HaveField("ID", int(ch.Key())))
+		Expect(channelSvc.NewWriter(nil).Rename(ctx, ch.Key(), "new_root_ch_2", false)).
+			To(Succeed())
+		Expect(root.Resolve(ctx, "new_root_ch")).To(HaveField("ID", int(ch.Key())))
+	})
+
+	It("Should resolve a renamed channel by its new name", func(ctx SpecContext) {
+		Expect(channelSvc.NewWriter(nil).Rename(ctx, ch.Key(), "new_root_ch_3", false)).
+			To(Succeed())
+		root := svc.NewRoot(nil)
+		Expect(root.Resolve(ctx, "new_root_ch_3")).To(HaveField("ID", int(ch.Key())))
+		Expect(root.Resolve(ctx, "new_root_ch")).Error().
+			To(BeAssignableToTypeOf(&symbol.UndefinedSymbolError{}))
 	})
 })

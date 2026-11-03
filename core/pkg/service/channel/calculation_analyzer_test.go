@@ -10,6 +10,8 @@
 package channel_test
 
 import (
+	"context"
+
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	"github.com/synnaxlabs/arc/parser"
@@ -17,6 +19,7 @@ import (
 	. "github.com/synnaxlabs/arc/symbol/testutil"
 	"github.com/synnaxlabs/arc/types"
 	"github.com/synnaxlabs/synnax/pkg/service/channel"
+	"github.com/synnaxlabs/x/query"
 	"github.com/synnaxlabs/x/telem"
 	. "github.com/synnaxlabs/x/testutil"
 )
@@ -406,4 +409,69 @@ var _ = Describe("Analyze", func() {
 			},
 		)
 	})
+	Describe("Dependency Removed During Analysis", func() {
+		It(
+			"Should never report an analyzed channel without a data type",
+			func(ctx SpecContext) {
+				for found := range 20 {
+					r := &disappearingResolver{found: found}
+					a := channel.NewCalculationAnalyzer(r)
+					res, err := a.Analyze(ctx, channel.Channel{
+						Name:       "calc",
+						Expression: "return 100 / base",
+					})
+					if err == nil {
+						Expect(res.ChanDataType).To(Equal(telem.Int64T))
+					}
+				}
+			},
+		)
+
+		It(
+			"Should resolve a dependency the same way throughout one analysis",
+			func(ctx SpecContext) {
+				r := &disappearingResolver{found: 1}
+				a := channel.NewCalculationAnalyzer(r)
+				res := MustSucceed(a.Analyze(ctx, channel.Channel{
+					Name:       "calc",
+					Expression: "return 100 / base",
+				}))
+				Expect(res.ChanDataType).To(Equal(telem.Int64T))
+				Expect(r.calls).To(Equal(1))
+			},
+		)
+	})
 })
+
+// disappearingResolver resolves "base" for its first found lookups, then reports it
+// missing, as a rename that commits during analysis would.
+type disappearingResolver struct {
+	found int
+	calls int
+}
+
+func (r *disappearingResolver) Resolve(
+	_ context.Context,
+	name string,
+) (*symbol.Symbol, error) {
+	if name != "base" {
+		return nil, query.ErrNotFound
+	}
+	r.calls++
+	if r.calls > r.found {
+		return nil, query.ErrNotFound
+	}
+	return &symbol.Symbol{
+		Name: "base",
+		Kind: symbol.KindChannel,
+		Type: types.Chan(types.I64()),
+		ID:   10,
+	}, nil
+}
+
+func (r *disappearingResolver) Search(
+	context.Context,
+	string,
+) ([]*symbol.Symbol, error) {
+	return nil, nil
+}
