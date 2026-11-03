@@ -111,6 +111,8 @@ outlined button) has fill l2 and border l4, and its caret has the disabled text 
   edge holds only Back, a mode switch ("Create more"), or a status summary.
 - Esc closes the modal from any field. Validation never changes the status of the
   primary button; errors show at their fields.
+- Every step of the device connect flow is 930 px (155 rem) wide
+  (`PlatformDevice.ConnectFrame`), so the modal keeps its size between steps.
 - A confirmation is narrow. Its title names the action and the object ("Delete
   channel"), its body states the result once, and its button is the verb ("Delete").
 
@@ -130,9 +132,27 @@ outlined button) has fill l2 and border l4, and its caret has the disabled text 
   changes with state: "Index channel", not "Is index".
 - An error message is a sentence about its field ("Name is required"), never a raw
   schema message.
+- Fields that belong together share a row: host and port, username and password, the
+  timing settings. A row is a `Flex.Box x` of two or three fields in a stacked
+  `Form.Sections`. Its first label stays in the label column, and its later fields line
+  up with the later fields of every other row.
+- A row never starts with a checkbox. In a row of three, the later two fields are short:
+  a number or a duration. Wide later fields squeeze the first control.
+- A number or a duration field is 144 px (24 rem) wide wherever it sits. A form can set
+  another width when its values need one.
+- A dialog shows its settings in sections, not tabs, while they fit with no scroll. The
+  Modbus connect dialog has no tabs.
 - A field in a row, or beside another field, has no help text. Its control shows the
   error, and the message shows on hover. A control with a border gets a red border. A
   control with no border, such as a text select or a button group, gets red text.
+- A span of time (a timeout, a delay, a window) is a typed duration field
+  (`Form.TimeSpanField`, or `Input.TimeSpan inline`), never a number with a unit suffix.
+  The person types "500ms", "2.5s", or "1min 30s". A number alone takes the unit of the
+  stored value. The readings and a hint show under the field while it has focus, also
+  when it already has a value. A bound is a message under the field ("Timeout must be
+  1min or less"), never a silent clamp.
+- A range duration on the timeline keeps the popover editor (`Input.TimeSpan`), because
+  it reads as a value, not as a form field.
 
 ### Task forms
 
@@ -145,6 +165,12 @@ outlined button) has fill l2 and border l4, and its caret has the disabled text 
   the way to enable the channel again.
 - A new task takes the only device of its make. With two or more, the device stays
   empty.
+- Port banks sit side by side in columns eight ports wide, each under its title. They
+  wrap to one column in a narrow pane.
+- A port field that lists an accessory's ports, such as the 80 that a Mux80 adds to a
+  LabJack T7, shows one bank at a time. A tab for each bank names its connector and its
+  port numbers ("X3 48–71"). The tabs wrap to a second line in a narrow pane. The field
+  opens on the bank of the channel's port, and the Ports view shows every bank.
 
 ### Overflow
 
@@ -213,6 +239,30 @@ outlined button) has fill l2 and border l4, and its caret has the disabled text 
 Follow the status text rule in `AGENTS.md`. The name holds the object. The description
 says why in a sentence, then gives the raw error.
 
+### Code blocks
+
+- Code to copy uses the colors of the docs site: keywords `--editor-token-keyword`,
+  strings `--pluto-secondary-m1`, functions `--pluto-primary-z`, and comments
+  `--pluto-gray-l7`.
+- The copy button sits at the top right, centered on the first line. A one-line block
+  centers its line in the box.
+
+### Plot ranges
+
+- Ranges are bars in a strip above the plot. Overlapping ranges stack in lanes by start,
+  longer first, so a parent sits above its children. Three lanes are 20 px and show the
+  name. Up to four more are 4 px, with no name.
+- A bar is its range color tinted over the background, with a 1 px border in the color.
+  The name is in the range hue, centered on its cap height, and fades at its end. A side
+  cut by the plot edge has square corners, and the name stays at the edge.
+- In the plot, each range draws its start and end lines. Only a range that holds no
+  other range gets a fill, so fills do not stack. A range with no color is not drawn.
+- Hover fills the range, dims the others, and shows its name, start, end, and duration.
+  The tooltip wraps a name past 240 px.
+- A click on a range zooms to it and pauses the plot. A second click on that range goes
+  back to the view and pause state from before. If the view changes between the two
+  clicks, the second click zooms in again. Clicks nest, one level per click.
+
 ## Interaction
 
 - Respond to every input in less than 100 ms. Show a spinner only after 150 to 300 ms,
@@ -250,3 +300,9 @@ typeface, and the icon set.
 
 The `docs-refine` skill owns the forms and rhythm of docs pages, in its
 `design-system.md`. The rules here cover what the docs share with the Console.
+
+- A picture of the product shows the current Console: a Studio still from
+  `site/docs/src/components/hero/stills`, never the screenshot on the www landing page.
+- Gradient blooms stay quiet. The Desktop band at the end of a blog post has a 30% blue
+  bloom over `#181b27` in dark mode. A 70% bloom over `#282c41` was too intense, and a
+  7% tint over the page surface was too flat.
