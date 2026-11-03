@@ -128,6 +128,20 @@ describe("lineplot/toolbar/Data", () => {
       await expectRanges(key, []);
     });
 
+    it("clears the window with the Off option", async () => {
+      const { key } = await renderData([rolling(FIVE_MIN)]);
+      openSearch();
+      fireEvent.click(screen.getByRole("button", { name: "Off" }));
+      await expectRanges(key, []);
+    });
+
+    it("marks Off while the plot has no window", async () => {
+      await renderData([]);
+      openSearch();
+      const off = screen.getByRole("button", { name: "Off" });
+      expect(off.getAttribute("aria-pressed")).toBe("true");
+    });
+
     it("sets the window to a duration typed into the search on Enter", async () => {
       const { key } = await renderData([rolling(FIVE_MIN)]);
       const input = openSearch();
@@ -185,8 +199,9 @@ describe("lineplot/toolbar/Data", () => {
       });
       const pressed = screen
         .getAllByRole("button")
-        .filter((b) => b.getAttribute("aria-pressed") === "true");
-      expect(pressed).toHaveLength(0);
+        .filter((b) => b.getAttribute("aria-pressed") === "true")
+        .map((b) => b.textContent);
+      expect(pressed).toEqual(["Off"]);
     });
 
     it("clears the window when its tag is closed", async () => {
