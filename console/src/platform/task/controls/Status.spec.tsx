@@ -78,4 +78,25 @@ describe("Controls.Status", () => {
     );
     expect(queryIcon(loading.container, "loading")).toBeTruthy();
   });
+
+  describe("without a status", () => {
+    it("should show no status next to a status indicator", async () => {
+      const { container } = await renderWithConsole(
+        <Status expanded={false} onToggle={vi.fn()} />,
+      );
+      expect(screen.getByText("No status")).toBeTruthy();
+      expect(queryIcon(container, "status-concentric")).toBeTruthy();
+    });
+
+    it("should neither expand nor offer diagnostics", async () => {
+      const onToggle = vi.fn();
+      const { container } = await renderWithConsole(
+        <Status expanded onToggle={onToggle} />,
+      );
+      fireEvent.click(screen.getByText("No status"));
+      expect(onToggle).not.toHaveBeenCalled();
+      expect(screen.queryByText("Copy diagnostics")).toBeNull();
+      expect(queryIcon(container, "collapse")).toBeNull();
+    });
+  });
 });

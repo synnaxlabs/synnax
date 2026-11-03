@@ -10,6 +10,7 @@
 import { type device } from "@synnaxlabs/client";
 import { createTestClient } from "@synnaxlabs/client/testutil";
 import { Form } from "@synnaxlabs/lyra/form";
+import { deep } from "@synnaxlabs/x";
 import { fireEvent, screen, waitFor } from "@testing-library/react";
 import { type ReactElement } from "react";
 import { describe, expect, it, vi } from "vitest";
@@ -19,10 +20,12 @@ import { createTestDevice, renderWithDeviceForm } from "@/platform/device/testut
 import { Modals } from "@/platform/modals";
 import { findDialogTrigger, uniqueName } from "@/testutil";
 
+const path = deep.path<{ rack: number }>();
+
 const client = createTestClient();
 
 const RackProbe = (): ReactElement => {
-  const value = Form.useFieldValue<number>("rack", { optional: true });
+  const value = Form.useFieldValue(path.rack, { optional: true });
   return <div>{`rack:${value ?? "none"}`}</div>;
 };
 RackProbe.displayName = "RackProbe";
