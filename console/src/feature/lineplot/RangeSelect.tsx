@@ -234,6 +234,8 @@ const DurationSearch = ({
         if (e.key !== "Enter") return;
         const typed = TimeSpan.parse(term);
         if (typed == null || typed.isZero) return;
+        // Keeps the list's window-level Enter trigger from clicking a favorite.
+        e.stopPropagation();
         onDuration(typed);
         close();
       }}

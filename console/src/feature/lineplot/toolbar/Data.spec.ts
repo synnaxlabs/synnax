@@ -138,6 +138,23 @@ describe("lineplot/toolbar/Data", () => {
       expect(screen.queryByPlaceholderText(SEARCH_PLACEHOLDER)).toBeNull();
     });
 
+    it("keeps Enter on a typed duration from selecting a favorite", async () => {
+      const favorite: Session.Range.StaticState = {
+        variant: "static",
+        key: "7c1e4b2a-9d3f-4e6a-b8c0-1f2a3b4c5d6e",
+        name: "45m burn",
+        timeRange: { start: 1_000_000_000, end: 3_000_000_000 },
+      };
+      const { key } = await renderData([rolling(FIVE_MIN)], [favorite]);
+      const input = openSearch();
+      fireEvent.change(input, { target: { value: "45m" } });
+      await screen.findByText("45m burn");
+      act(() => {
+        fireEvent.keyDown(input, { key: "Enter", code: "Enter" });
+      });
+      await expectRanges(key, [rolling(FORTY_FIVE_MIN)]);
+    });
+
     it("lists no option for a duration typed into the search", async () => {
       await renderData([]);
       search("45m");
