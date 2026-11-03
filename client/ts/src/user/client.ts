@@ -119,9 +119,11 @@ export class Client extends query.Retriever<
       name: "user",
       table: store,
       fetch: async (params) => {
+        // A user written after since keeps that write, since the fetch predates it.
+        const since = store.stamp();
         const users = await this.execRetrieve(params);
         checkSingle(params, users);
-        store.ingest(users);
+        store.ingest(users, { since });
         return users.map((u) => u.key);
       },
       compose: (records) => records[0],

@@ -13,7 +13,7 @@ import {
   spyOnSend,
   waitForStreamLive,
 } from "@synnaxlabs/client/testutil";
-import { uuid } from "@synnaxlabs/x";
+import { deep, uuid } from "@synnaxlabs/x";
 import { act, render, renderHook, waitFor } from "@testing-library/react";
 import { type FC, type PropsWithChildren, type ReactElement } from "react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
@@ -22,6 +22,8 @@ import { Errors } from "@/errors";
 import { Table } from "@/table";
 import { renderHookSuspended } from "@/testutil/render";
 import { createAsyncSynnaxWrapper } from "@/testutil/Synnax";
+
+const path = deep.path<table.TextCellConfig>();
 
 const client = createTestClient();
 
@@ -893,7 +895,7 @@ describe("table queries", () => {
       const created = await createTable();
       const { result } = await renderForm(created.key);
       const send = spyOnSend(client);
-      act(() => result.current.form.set("value", "Pressure"));
+      act(() => result.current.form.set(path.value, "Pressure"));
       await act(async () => expect(await result.current.flush()).toBe(true));
       const [, req] =
         send.mock.calls.find(([target]) => target === "/table/dispatch") ?? [];
@@ -918,7 +920,7 @@ describe("table queries", () => {
         );
       });
       await waitFor(() =>
-        expect(result.current.form.get("value").value).toBe("Remote"),
+        expect(result.current.form.get(path.value).value).toBe("Remote"),
       );
     });
 
@@ -926,8 +928,8 @@ describe("table queries", () => {
       const created = await createTable();
       const { result, rerender } = await renderForm(created.key);
       rerender({ cellKey: "b" });
-      expect(result.current.form.get("value").value).toBe("B");
-      act(() => result.current.form.set("value", "Temperature"));
+      expect(result.current.form.get(path.value).value).toBe("B");
+      act(() => result.current.form.set(path.value, "Temperature"));
       await act(async () => expect(await result.current.flush()).toBe(true));
       expect(await fetchStoredCell(created.key, "b")).toMatchObject({
         value: "Temperature",

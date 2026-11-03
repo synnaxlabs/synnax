@@ -19,6 +19,7 @@ import (
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
+	"github.com/onsi/gomega/gleak"
 	"github.com/synnaxlabs/gorp"
 	"github.com/synnaxlabs/synnax/pkg/service/driver"
 	"github.com/synnaxlabs/synnax/pkg/service/legacy/device"
@@ -28,6 +29,7 @@ import (
 	"github.com/synnaxlabs/x/encoding/msgpack"
 	"github.com/synnaxlabs/x/errors"
 	"github.com/synnaxlabs/x/kv"
+	"github.com/synnaxlabs/x/set"
 	. "github.com/synnaxlabs/x/testutil"
 )
 
@@ -248,6 +250,31 @@ var _ = Describe("ScanTask", func() {
 				g.Expect(deviceStatus(ctx, dev).Message).To(Equal("Broker connected"))
 			}).Should(Succeed())
 		})
+
+		It("Should subscribe to device changes before Start returns",
+			func(ctx SpecContext) {
+				ids := func(top string) set.Set[uint64] {
+					s := set.New[uint64]()
+					for _, g := range gleak.Goroutines() {
+						if top == "" || g.TopFunction == top {
+							s.Add(g.ID)
+						}
+					}
+					return s
+				}
+				before := ids("")
+				handlers := func() set.Set[uint64] {
+					return ids(
+						"github.com/synnaxlabs/x/observe.(*async[...]).OnChange.func1",
+					).Difference(before)
+				}
+				st := open(time.Hour)
+				Expect(st.Start(ctx, driver.NoCommand)).To(Succeed())
+				started := ids("")
+				Eventually(handlers).ShouldNot(BeEmpty())
+				Expect(handlers().IsSubsetOf(started)).To(BeTrue())
+			},
+		)
 
 		It("Should report a change of health on the next interval",
 			func(ctx SpecContext) {

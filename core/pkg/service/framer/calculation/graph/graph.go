@@ -851,6 +851,12 @@ func (g *Graph) CalculatedKeys() set.Set[channel.Key] {
 	return keys
 }
 
+// Contains returns whether the graph holds the calculated channel with the given key.
+func (g *Graph) Contains(key channel.Key) bool {
+	_, ok := g.channels[key]
+	return ok
+}
+
 // ConcreteBaseKeys returns the set of all concrete (non-calculated) base channel keys
 // that the calculated channels depend on.
 func (g *Graph) ConcreteBaseKeys() set.Set[channel.Key] {

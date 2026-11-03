@@ -11,11 +11,14 @@ import threading
 import traceback
 from collections.abc import Callable
 from enum import Enum
-from typing import Any
+from typing import TypeAlias
 
 import synnax as sy
 from framework.utils import create_indexed_channel, create_time_index
 from framework.websocket import suppress_websocket_errors
+
+Sample: TypeAlias = int | float | sy.TimeStamp
+"""A value that a telemetry dict holds for one channel."""
 
 
 class TelemetryWriter:
@@ -25,9 +28,9 @@ class TelemetryWriter:
         self,
         *,
         client: sy.Synnax,
-        tlm: dict[str, Any],
+        tlm: dict[str, Sample],
         channels: sy.channel.Params,
-        update: Callable[[dict[str, object], sy.TimeStamp, float], None],
+        update: Callable[[dict[str, Sample], sy.TimeStamp, float], None],
         should_stop: Callable[[], bool],
         rate: sy.Rate | sy.TimeSpan = 200 * sy.TimeSpan.MILLISECOND,
         name: str | None = None,
@@ -65,13 +68,9 @@ class TelemetryWriter:
         writer = None
 
         try:
-            open_kwargs: dict[str, Any] = {
-                "start": start_time,
-                "channels": self._channels,
-            }
-            if self._name is not None:
-                open_kwargs["name"] = self._name
-            writer = self._client.open_writer(**open_kwargs)
+            writer = self._client.open_writer(
+                start=start_time, channels=self._channels, name=self._name or ""
+            )
 
             self._update(self._tlm, start_time, 0)
             writer.write(self._tlm)
@@ -146,7 +145,7 @@ class TelemetryClient:
             client, self._ch_test_cases_ran, data_type=sy.DataType.UINT32, index_key=idx
         )
 
-        self.tlm: dict[str, int | float | sy.TimeStamp] = {
+        self.tlm: dict[str, Sample] = {
             self._ch_time: sy.TimeStamp.now(),
             self._ch_uptime: 0,
             self._ch_state: get_state().value,
@@ -165,7 +164,7 @@ class TelemetryClient:
         )
 
     def _update_tlm(
-        self, tlm: dict[str, object], now: sy.TimeStamp, uptime: float
+        self, tlm: dict[str, Sample], now: sy.TimeStamp, uptime: float
     ) -> None:
         tlm[self._ch_time] = now
         tlm[self._ch_uptime] = uptime
