@@ -10,6 +10,8 @@
 package domain_test
 
 import (
+	"sync"
+
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	. "github.com/synnaxlabs/alamos/testutil"
@@ -39,6 +41,43 @@ var _ = Describe("Index Persist", Ordered, func() {
 			})
 			AfterEach(func() {
 				Expect(db.Close()).To(Succeed())
+			})
+
+			Describe("Concurrent writers", func() {
+				It("Should persist every domain", func(ctx SpecContext) {
+					const (
+						workers = 8
+						commits = 128
+					)
+					var wg sync.WaitGroup
+					for w := range workers {
+						wg.Go(func() {
+							defer GinkgoRecover()
+							for c := range commits {
+								start := telem.TimeStamp(c*workers+w+1) * telem.SecondTS
+								w := MustSucceed(db.OpenWriter(ctx, domain.WriterConfig{
+									Start:            start,
+									End:              start + 1,
+									EnableAutoCommit: new(false),
+								}))
+								MustSucceed(w.Write([]byte{1}))
+								Expect(w.Commit(ctx, start+1)).To(Succeed())
+								Expect(w.Close()).To(Succeed())
+							}
+						})
+					}
+					wg.Wait()
+					Expect(db.Close()).To(Succeed())
+					db = MustSucceed(domain.Open(domain.Config{
+						FS:              fs,
+						FileSize:        5 * telem.Byte,
+						GCThreshold:     0,
+						Instrumentation: PanicLogger(),
+					}))
+					Expect(MustSucceed(
+						testutil.ReadDomain(ctx, db, telem.TimeRangeMax),
+					)).To(HaveLen(workers * commits))
+				})
 			})
 
 			Describe("Happy path", func() {
