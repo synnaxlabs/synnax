@@ -12,11 +12,11 @@
     python3 classify.py <artifacts-dir>
 
 A pull request needs review/human when a surface report differs between its base and
-head. No report covers the Console, so a person picks the tier of a UI change. A UI
-change with no tier, or with review/bot from the App, gets review/human. The script
-only raises: it never removes review/human. It reads the pull request number from
-<artifacts-dir>/pr/number and refuses it unless the pull request's head is HEAD_SHA.
-Environment: GH_TOKEN, GITHUB_REPOSITORY, and HEAD_SHA.
+head. No report covers the Console, so the author picks the tier of a UI change. A UI
+change with no tier, or with a review/bot label this script added, gets review/human.
+The script only raises: it never removes review/human. It reads the pull request
+number from <artifacts-dir>/pr/number and refuses it unless the pull request's head
+is HEAD_SHA. Environment: GH_TOKEN, GITHUB_REPOSITORY, and HEAD_SHA.
 """
 
 import json
@@ -31,7 +31,6 @@ from urllib.parse import quote
 
 HUMAN = "review/human"
 BOT = "review/bot"
-APP = "synnax-claude-code[bot]"
 # Tier labels from before the two-tier scheme. Both ask for a human.
 HUMAN_TIERS = {HUMAN, "review/light", "review/thorough"}
 UI_PREFIXES = ("console/", "pluto/", "lyra/")
@@ -51,6 +50,8 @@ CLASSIFIER_PATHS = (
     "scripts/surface_py.py",
 )
 MARKER = "<!-- review-classifier -->"
+# Records in the comment that this script added review/bot: the author did not pick it.
+AUTO_BOT = "<!-- review-classifier:auto-bot -->"
 SURFACES = {
     "oracle": "Oracle schemas",
     "client-ts": "TypeScript client API",
@@ -99,13 +100,10 @@ def changes_ui(files: list[dict[str, Any]]) -> bool:
     return any(f["filename"].startswith(UI_PREFIXES) for f in files)
 
 
-def has_chosen_tier(current: set[str], *, bot_labelers: list[str]) -> bool:
-    """Reports if a person set the tier. bot_labelers lists who labeled review/bot, in
-    order. A review/bot label from the App proves nothing about a UI change, since the
-    classifier adds it to a pull request that had no UI file on an earlier push."""
+def has_chosen_tier(current: set[str], *, auto_bot: bool) -> bool:
     if current & HUMAN_TIERS:
         return True
-    return BOT in current and bool(bot_labelers) and bot_labelers[-1] != APP
+    return BOT in current and not auto_bot
 
 
 def needs_human(surfaces: list[Surface], *, reasons: list[str]) -> bool:
@@ -135,6 +133,7 @@ def render(
     ui: bool,
     reasons: list[str],
     kept: bool,
+    auto_bot: bool,
 ) -> str:
     changed = any(s.status != "same" for s in surfaces)
     tier = HUMAN if changed or reasons or kept else BOT
@@ -145,7 +144,7 @@ def render(
     elif kept:
         summary = "No interface changed, but a human review tier is already set."
     elif ui:
-        summary = "No report changed, and a person chose this tier for a UI change."
+        summary = "No report changed, and the author chose this tier for a UI change."
     else:
         summary = "This pull request changes no user-facing interface."
     rows = [f"| {SURFACES[s.name]} | {STATUS_TEXT[s.status]} |" for s in surfaces]
@@ -177,6 +176,7 @@ def render(
     lines += [
         "",
         f"The classifier only raises the tier. It never removes `{HUMAN}`.",
+        *([AUTO_BOT] if auto_bot else []),
     ]
     return "\n".join(lines) + "\n"
 
@@ -191,7 +191,7 @@ def gh_lines(*args: str) -> list[Any]:
     return [json.loads(line) for line in gh(*args).splitlines() if line]
 
 
-def upsert_comment(repo: str, *, number: int, body: str) -> None:
+def find_comment(repo: str, *, number: int) -> dict[str, Any] | None:
     comments = gh_lines(
         "api",
         "--paginate",
@@ -199,27 +199,25 @@ def upsert_comment(repo: str, *, number: int, body: str) -> None:
         "--jq",
         ".[] | {id, body}",
     )
-    payload = json.dumps({"body": body})
-    for c in comments:
-        if c["body"].startswith(MARKER):
-            gh(
-                "api",
-                "-X",
-                "PATCH",
-                f"repos/{repo}/issues/comments/{c['id']}",
-                "--input",
-                "-",
-                stdin=payload,
-            )
-            return
+    return next((c for c in comments if c["body"].startswith(MARKER)), None)
+
+
+def write_comment(
+    repo: str, *, number: int, comment: dict[str, Any] | None, body: str
+) -> None:
+    target = (
+        f"repos/{repo}/issues/{number}/comments"
+        if comment is None
+        else f"repos/{repo}/issues/comments/{comment['id']}"
+    )
     gh(
         "api",
         "-X",
-        "POST",
-        f"repos/{repo}/issues/{number}/comments",
+        "POST" if comment is None else "PATCH",
+        target,
         "--input",
         "-",
-        stdin=payload,
+        stdin=json.dumps({"body": body}),
     )
 
 
@@ -239,14 +237,8 @@ def main() -> None:
         "--jq",
         ".[] | {filename}",
     )
-    bot_labelers = gh_lines(
-        "api",
-        "--paginate",
-        f"repos/{repo}/issues/{number}/events",
-        "--jq",
-        f'.[] | select(.event == "labeled" and .label.name == "{BOT}")'
-        " | .actor.login | tojson",
-    )
+    comment = find_comment(repo, number=number)
+    was_auto_bot = comment is not None and AUTO_BOT in comment["body"]
     ui = changes_ui(files)
     reasons = trust_reasons(pull, files=files)
     surfaces = read_surfaces(root)
@@ -256,8 +248,8 @@ def main() -> None:
         print(f"#{number} moved past {head_sha}; a newer run classifies it")
         return
     current = {label["name"] for label in pull["labels"]}
-    if ui and not has_chosen_tier(current, bot_labelers=bot_labelers):
-        reasons.append("A UI file changed and no person chose a tier.")
+    if ui and not has_chosen_tier(current, auto_bot=was_auto_bot):
+        reasons.append("A UI file changed and the author chose no tier.")
     add, remove = plan_labels(current, human=needs_human(surfaces, reasons=reasons))
     for label in add:
         gh(
@@ -276,10 +268,12 @@ def main() -> None:
             f"repos/{repo}/issues/{number}/labels/{quote(label, safe='')}",
         )
     kept = bool(current & HUMAN_TIERS)
-    upsert_comment(
+    auto_bot = BOT in add or (was_auto_bot and BOT in current and BOT not in remove)
+    write_comment(
         repo,
         number=number,
-        body=render(surfaces, ui=ui, reasons=reasons, kept=kept),
+        comment=comment,
+        body=render(surfaces, ui=ui, reasons=reasons, kept=kept, auto_bot=auto_bot),
     )
     print(f"#{number}: add {add}, remove {remove}")
 
