@@ -13,13 +13,20 @@ from tests.arc.arc import ArcCase
 from x import random_name
 
 START_CMD = "start_entry_samples_cmd"
-SEQUENCES = ["drop", "straddle", "milli", "nano"]
+SEQUENCES = ["drop", "straddle", "milli", "nano", "counter"]
 
 SECOND = sy.TimeSpan.SECOND
 MILLISECOND = sy.TimeSpan.MILLISECOND
 NANOSECOND = sy.TimeSpan.NANOSECOND
 # The value every sample taken before entry carries. Seeing it on pt_seen is a leak.
 BEFORE_ENTRY = -1.0
+# The counter sequence mirrors a field abort: 50 samples of persistence at 5 kHz on a
+# 300 psi low limit, armed on entering stage B.
+COUNTER_SAMPLES = 100
+COUNTER_PERIOD = 200 * sy.TimeSpan.MICROSECOND
+COUNTER_STALE_FROM = 34 * MILLISECOND
+COUNTER_IN_STAGE_FROM = 50 * MILLISECOND
+COUNTER_LAST = 333.0
 
 
 def _ch(p: str, name: str, tag: str) -> str:
@@ -48,6 +55,57 @@ sequence {p}_main {{
 """
 
 
+def _counter_func(tag: str) -> str:
+    """A per-sample limit check with a stateful sample counter, as a field sequence
+    writes one: config params, a flow-fed value, and channel writes from the body."""
+    idx, reason = _ch("counter", "abort_idx", tag), _ch("counter", "abort_reason", tag)
+    return (
+        "func limit_persists(hi f64, lo f64, idx i32, n i64) {value f64} u8 {\n"
+        "    count $= 0\n"
+        "    alarm_state u8 $= 0\n"
+        "    if value > hi or value < lo {\n"
+        "        count = count + 1\n"
+        "    } else {\n"
+        "        count = 0\n"
+        "    }\n"
+        "    if count >= n {\n"
+        "        count = 0\n"
+        "        alarm_state = 1\n"
+        f"        {idx} = idx\n"
+        f'        {reason} = "ABORT: LOW" + f" {{value:.2f}} PSIA"\n'
+        "    }\n"
+        "    return alarm_state\n"
+        "}\n"
+    )
+
+
+def _counter_sequence(tag: str) -> str:
+    p = "counter"
+    log, go, entered, pt, seen, probe, probe_seen = (
+        _ch(p, n, tag)
+        for n in ("log", "go_cmd", "entered", "pt", "pt_seen", "probe", "probe_seen")
+    )
+    return f"""
+sequence {p}_main {{
+    stage a {{
+        "a" -> {log}
+        {go} => next
+    }}
+    stage b {{
+        1 -> {entered}
+        "b" -> {log}
+        {pt} -> {seen}
+        {probe} -> {probe_seen}
+        {pt} -> limit_persists(hi=1000, lo=300, idx=7045, n=50) => aborted
+    }}
+    stage aborted {{
+        "aborted" -> {log}
+    }}
+}}
+{START_CMD} => {p}_main
+"""
+
+
 class StageEntrySamples(ArcCase):
     """A stage sees only samples taken after it was entered (SY-5456).
 
@@ -61,10 +119,19 @@ class StageEntrySamples(ArcCase):
 
     def setup(self) -> None:
         self.tag = random_name()
-        self.arc_source = "".join(_sequence(p, self.tag) for p in SEQUENCES)
-        self.subscribe_channels = [
-            self._ch(p, n) for p in SEQUENCES for n in ("log", "pt_seen", "probe_seen")
-        ] + [self._entered_time(p) for p in SEQUENCES]
+        self.arc_source = _counter_func(self.tag) + "".join(
+            _counter_sequence(self.tag) if p == "counter" else _sequence(p, self.tag)
+            for p in SEQUENCES
+        )
+        self.subscribe_channels = (
+            [
+                self._ch(p, n)
+                for p in SEQUENCES
+                for n in ("log", "pt_seen", "probe_seen")
+            ]
+            + [self._entered_time(p) for p in SEQUENCES]
+            + [self._ch("counter", "abort_idx"), self._ch("counter", "abort_reason")]
+        )
         for p in SEQUENCES:
             create_indexed_pair(
                 self.client, self._ch(p, "pt"), data_type=sy.DataType.FLOAT64
@@ -84,6 +151,13 @@ class StageEntrySamples(ArcCase):
                     (self._ch(p, "log"), sy.DataType.STRING),
                 ],
             )
+        create_virtual_channels(
+            self.client,
+            [
+                (self._ch("counter", "abort_idx"), sy.DataType.INT32),
+                (self._ch("counter", "abort_reason"), sy.DataType.STRING),
+            ],
+        )
         super().setup()
 
     def _ch(self, p: str, name: str) -> str:
@@ -145,7 +219,38 @@ class StageEntrySamples(ArcCase):
         if seen != [1.0, 2.0]:
             self.fail(f"{seen_ch} holds {seen}, expected [1.0, 2.0]")
 
+    def _verify_counter(self) -> None:
+        """The batch in flight at entry, 100 samples below the limit, must not trip a
+        50-sample counter armed on entry. The samples taken inside B are above it."""
+        p = "counter"
+        self.log(f"[{p}] A stale batch must not trip a counter armed on entry")
+        entered = self._enter_b(p)
+        first = entered - COUNTER_STALE_FROM
+        stale = [first + COUNTER_PERIOD * i for i in range(COUNTER_SAMPLES)]
+        stale_values = [255.0 + 0.35 * i for i in range(COUNTER_SAMPLES - 1)] + [289.6]
+        self._write_pt(p, stale, stale_values)
+        in_stage = entered + COUNTER_IN_STAGE_FROM
+        inside = [in_stage + COUNTER_PERIOD * i for i in range(COUNTER_SAMPLES)]
+        in_values = [313.0 + 0.2 * i for i in range(COUNTER_SAMPLES - 1)] + [
+            COUNTER_LAST
+        ]
+        self._write_pt(p, inside, in_values)
+        # An abort on the stale batch leaves B, so the probe never comes back.
+        self.writer.write(self._ch(p, "probe"), 1)
+        try:
+            self.wait_for_eq(self._ch(p, "probe_seen"), 1)
+        except RuntimeError:
+            self.fail(
+                f"stage B of {p}_main was left: "
+                f"log={self.read_tlm(self._ch(p, 'log'))!r} "
+                f"last seen={self.read_tlm(self._ch(p, 'pt_seen'))!r} "
+                f"abort_idx={self.read_tlm(self._ch(p, 'abort_idx'))!r} "
+                f"abort_reason={self.read_tlm(self._ch(p, 'abort_reason'))!r}"
+            )
+        self.wait_for_eq(self._ch(p, "pt_seen"), COUNTER_LAST)
+
     def verify_sequence_execution(self) -> None:
+        self._verify_counter()
         self._verify_before_entry("drop", [6 * SECOND, 5 * SECOND, 4 * SECOND])
         self._verify_straddle()
         self._verify_before_entry("milli", [MILLISECOND])
