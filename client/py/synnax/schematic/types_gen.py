@@ -201,13 +201,13 @@ class NumericTelemConfig(BaseModel):
     Attributes:
         channel: Is the channel whose value the symbol displays.
         rolling_average: Is the sample window for rolling-average smoothing.
-        precision: Is the number of decimal places shown.
+        precision: Is the number of decimal places shown. Absent shows the default of 2.
         notation: Is the numeric notation used to format the value.
     """
 
     channel: channel_.Key | None = Field(default=None, ge=0, le=4294967295)
     rolling_average: int | None = Field(default=None, ge=-2147483648, le=2147483647)
-    precision: float = 2
+    precision: float | None = None
     notation: notation_.Notation = "standard"
 
 
@@ -265,7 +265,8 @@ class ScaleIndicatorConfig(NumericTelemConfig, StalenessConfig):
     level against a numeric range.
 
     Attributes:
-        bounds: Is the numeric range the indicator maps onto its extent.
+        bounds: Is the numeric range the indicator maps onto its extent. Absent maps 0
+            to 100.
         level_color: Is the color of the filled portion, the caret, and the value
             readout border.
         axis_color: Is the color of the axis and its ticks.
@@ -279,9 +280,7 @@ class ScaleIndicatorConfig(NumericTelemConfig, StalenessConfig):
         level: Is the typography level of the tick labels.
     """
 
-    bounds: spatial.Bounds = Field(
-        default_factory=lambda: spatial.Bounds(lower=0, upper=100)
-    )
+    bounds: spatial.Bounds | None = None
     level_color: color_.Color | None = None
     axis_color: color_.Color | None = None
     text_color: color_.Color | None = None
@@ -500,8 +499,8 @@ class BoxNodeConfig(LabeledConfig):
     dimensions: spatial.Dimensions = Field(
         default_factory=lambda: spatial.Dimensions(width=125, height=200)
     )
-    border_radius: float = 3
-    stroke_width: float = 2
+    border_radius: float | None = None
+    stroke_width: float | None = None
 
 
 class ButtonNodeConfig(LabeledConfig):
@@ -524,7 +523,7 @@ class CircleNodeConfig(LabeledConfig):
     radius: float = 20
     stroke_color: color_.Color | None = None
     fill_color: color_.Color | None = None
-    stroke_width: float = 2
+    stroke_width: float | None = None
 
 
 class GaugeNodeConfig(LabeledConfig, NumericTelemConfig, StalenessConfig):
@@ -533,9 +532,7 @@ class GaugeNodeConfig(LabeledConfig, NumericTelemConfig, StalenessConfig):
     variant: Literal["gauge"] = "gauge"
     position: spatial.XY | None = None
     stroke_color: color_.Color | None = None
-    bounds: spatial.Bounds = Field(
-        default_factory=lambda: spatial.Bounds(lower=0, upper=100)
-    )
+    bounds: spatial.Bounds | None = None
     bar_width: float = 10
     location: spatial.LocationXY = Field(
         default_factory=lambda: spatial.LocationXY(x="left", y="center")
@@ -575,8 +572,8 @@ class LineNodeConfig(BaseModel):
     variant: Literal["line"] = "line"
     stroke_color: color_.Color | None = None
     start: spatial.XY = Field(default_factory=lambda: spatial.XY(x=0, y=0))
-    end: spatial.XY = Field(default_factory=lambda: spatial.XY(x=100, y=0))
-    stroke_width: float = 2
+    end: spatial.XY | None = None
+    stroke_width: float | None = None
 
 
 class OffPageReferenceNodeConfig(LabeledConfig):
@@ -599,7 +596,7 @@ class PolygonNodeConfig(LabeledConfig):
     corner_rounding: float = 0
     stroke_color: color_.Color | None = None
     fill_color: color_.Color | None = None
-    stroke_width: float = 2
+    stroke_width: float | None = None
 
 
 class SelectNodeConfig(LabeledConfig, StalenessConfig):
@@ -950,13 +947,11 @@ class TankNodeConfig(LabeledConfig):
     variant: Literal["tank"] = "tank"
     channel: channel_.Key | None = Field(default=None, ge=0, le=4294967295)
     rolling_average: int | None = Field(default=None, ge=-2147483648, le=2147483647)
-    precision: float = 2
+    precision: float | None = None
     notation: notation_.Notation = "standard"
     staleness_timeout: float = 5
     staleness_color: color_.Color | None = None
-    bounds: spatial.Bounds = Field(
-        default_factory=lambda: spatial.Bounds(lower=0, upper=100)
-    )
+    bounds: spatial.Bounds | None = None
     level_color: color_.Color | None = None
     axis_color: color_.Color | None = None
     text_color: color_.Color | None = None
@@ -970,14 +965,7 @@ class TankNodeConfig(LabeledConfig):
     dimensions: spatial.Dimensions = Field(
         default_factory=lambda: spatial.Dimensions(width=125, height=200)
     )
-    border_radius: border.Radius = Field(
-        default_factory=lambda: border.Radius(
-            top_left=spatial.XY(x=50, y=10),
-            top_right=spatial.XY(x=50, y=10),
-            bottom_left=spatial.XY(x=50, y=10),
-            bottom_right=spatial.XY(x=50, y=10),
-        )
-    )
+    border_radius: border.Radius | None = None
     caret_visible: bool = False
     scale_visible: bool = False
     side: spatial.OuterLocation = "left"
@@ -1235,8 +1223,8 @@ class BoxElementConfig(LabeledConfig):
     dimensions: spatial.Dimensions = Field(
         default_factory=lambda: spatial.Dimensions(width=125, height=200)
     )
-    border_radius: float = 3
-    stroke_width: float = 2
+    border_radius: float | None = None
+    stroke_width: float | None = None
 
 
 class ButtonElementConfig(LabeledConfig):
@@ -1259,7 +1247,7 @@ class CircleElementConfig(LabeledConfig):
     radius: float = 20
     stroke_color: color_.Color | None = None
     fill_color: color_.Color | None = None
-    stroke_width: float = 2
+    stroke_width: float | None = None
 
 
 class GaugeElementConfig(LabeledConfig, NumericTelemConfig, StalenessConfig):
@@ -1268,9 +1256,7 @@ class GaugeElementConfig(LabeledConfig, NumericTelemConfig, StalenessConfig):
     variant: Literal["gauge"] = "gauge"
     position: spatial.XY | None = None
     stroke_color: color_.Color | None = None
-    bounds: spatial.Bounds = Field(
-        default_factory=lambda: spatial.Bounds(lower=0, upper=100)
-    )
+    bounds: spatial.Bounds | None = None
     bar_width: float = 10
     location: spatial.LocationXY = Field(
         default_factory=lambda: spatial.LocationXY(x="left", y="center")
@@ -1310,8 +1296,8 @@ class LineElementConfig(BaseModel):
     variant: Literal["line"] = "line"
     stroke_color: color_.Color | None = None
     start: spatial.XY = Field(default_factory=lambda: spatial.XY(x=0, y=0))
-    end: spatial.XY = Field(default_factory=lambda: spatial.XY(x=100, y=0))
-    stroke_width: float = 2
+    end: spatial.XY | None = None
+    stroke_width: float | None = None
 
 
 class OffPageReferenceElementConfig(LabeledConfig):
@@ -1334,7 +1320,7 @@ class PolygonElementConfig(LabeledConfig):
     corner_rounding: float = 0
     stroke_color: color_.Color | None = None
     fill_color: color_.Color | None = None
-    stroke_width: float = 2
+    stroke_width: float | None = None
 
 
 class SelectElementConfig(LabeledConfig, StalenessConfig):
@@ -1685,13 +1671,11 @@ class TankElementConfig(LabeledConfig):
     variant: Literal["tank"] = "tank"
     channel: channel_.Key | None = Field(default=None, ge=0, le=4294967295)
     rolling_average: int | None = Field(default=None, ge=-2147483648, le=2147483647)
-    precision: float = 2
+    precision: float | None = None
     notation: notation_.Notation = "standard"
     staleness_timeout: float = 5
     staleness_color: color_.Color | None = None
-    bounds: spatial.Bounds = Field(
-        default_factory=lambda: spatial.Bounds(lower=0, upper=100)
-    )
+    bounds: spatial.Bounds | None = None
     level_color: color_.Color | None = None
     axis_color: color_.Color | None = None
     text_color: color_.Color | None = None
@@ -1705,14 +1689,7 @@ class TankElementConfig(LabeledConfig):
     dimensions: spatial.Dimensions = Field(
         default_factory=lambda: spatial.Dimensions(width=125, height=200)
     )
-    border_radius: border.Radius = Field(
-        default_factory=lambda: border.Radius(
-            top_left=spatial.XY(x=50, y=10),
-            top_right=spatial.XY(x=50, y=10),
-            bottom_left=spatial.XY(x=50, y=10),
-            bottom_right=spatial.XY(x=50, y=10),
-        )
-    )
+    border_radius: border.Radius | None = None
     caret_visible: bool = False
     scale_visible: bool = False
     side: spatial.OuterLocation = "left"
