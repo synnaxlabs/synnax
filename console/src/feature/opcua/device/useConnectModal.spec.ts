@@ -468,7 +468,7 @@ describe("OPCUA.Device.useConnectModal", () => {
     expect(await screen.findByText(SERVER_CERTIFICATE.subject)).toBeTruthy();
     expect(screen.getByText("Server certificate not trusted")).toBeTruthy();
     const accepted = await answerNextCommand(client, scan, TEST_CONNECTION);
-    fireEvent.click(findButton("Trust"));
+    fireEvent.click(findButton("Trust and connect"));
     await accepted.answered;
     const key = await result();
     if (key == null) throw new Error("the modal closed without a device");

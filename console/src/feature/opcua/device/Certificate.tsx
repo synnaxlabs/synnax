@@ -427,7 +427,7 @@ export const ServerCertificate = ({
         <Card
           actions={
             <Button.Button size="small" variant="filled" onClick={() => onTrust(offer)}>
-              Trust
+              Trust and connect
             </Button.Button>
           }
         >
