@@ -14,7 +14,9 @@ import (
 	"encoding/json/jsontext"
 	"encoding/json/v2"
 	"math"
+	"net"
 	"slices"
+	"strconv"
 	"time"
 	"uuid"
 
@@ -32,6 +34,7 @@ import (
 	. "github.com/synnaxlabs/x/testutil"
 	"github.com/synnaxlabs/x/validate"
 	"github.com/twmb/franz-go/pkg/kerr"
+	"github.com/twmb/franz-go/pkg/kfake"
 	"github.com/twmb/franz-go/pkg/kgo"
 	"github.com/twmb/franz-go/pkg/kmsg"
 )
@@ -420,6 +423,47 @@ var _ = Describe("Read task", func() {
 			Expect(floats(expectStored(ctx, data.Key(), 1))).To(Equal([]float64{1}))
 		},
 	)
+
+	It("Should resume consuming when the cluster comes back", func(ctx SpecContext) {
+		// The broker persists to dir, so its restart keeps the topic and its ID.
+		dir := GinkgoT().TempDir()
+		first := MustSucceed(kfake.NewCluster(kfake.NumBrokers(1), kfake.DataDir(dir)))
+		DeferCleanup(first.Close)
+		addr := first.ListenAddrs()[0]
+		index, data := createIndexed(ctx, telem.Float64T)
+		dev := createDevice(ctx, kafka.Properties{Brokers: []string{addr}})
+		topic := uniqueTopic()
+		Expect(first.CreateTopic(topic, 1, nil)).To(Succeed())
+		dt, t := configure(ctx, kafka.ReadConfig{
+			Device:  dev.Key,
+			Topic:   topic,
+			Records: single(stampedFields(index, data)),
+		})
+		start(ctx, dt, t)
+		first.Close()
+		Eventually(func() string { return taskStatus(ctx, t).Message }).
+			WithTimeout(15 * time.Second).Should(Equal("Lost connection to cluster"))
+		stat := taskStatus(ctx, t)
+		Expect(stat.Variant).To(Equal(status.VariantWarning))
+		Expect(stat.Details.Running).To(BeTrue())
+		_, port := MustSucceed2(net.SplitHostPort(addr))
+		second := MustSucceed(kfake.NewCluster(
+			kfake.Ports(MustSucceed(strconv.Atoi(port))),
+			kfake.DataDir(dir),
+		))
+		DeferCleanup(second.Close)
+		pr := MustSucceed(kgo.NewClient(kgo.SeedBrokers(addr)))
+		DeferCleanup(pr.Close)
+		produceJSON(ctx, pr, topic, "", map[string]any{"ts": 10e9, "v": 1.0})
+		Expect(floats(expectStored(ctx, data.Key(), 1))).To(Equal([]float64{1}))
+		Eventually(func() string { return taskStatus(ctx, t).Message }).
+			Should(Equal("Reconnected to cluster"))
+		stat = taskStatus(ctx, t)
+		Expect(stat.Variant).To(Equal(status.VariantSuccess))
+		Expect(stat.Details.Running).To(BeTrue())
+		// The offsets commit on stop, which needs the cluster cleanup closes.
+		Expect(dt.Stop(false)).To(Succeed())
+	})
 
 	It("Should route keyed records to their groups", func(ctx SpecContext) {
 		indexA, dataA := createIndexed(ctx, telem.Float64T)

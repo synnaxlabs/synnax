@@ -14,6 +14,7 @@ import (
 	"context"
 	"fmt"
 	"io"
+	"net"
 	"slices"
 
 	"github.com/synnaxlabs/synnax/pkg/distribution/framer/frame"
@@ -87,6 +88,8 @@ type readTask struct {
 	sCtx signal.Context
 	// lastSkip is the last skip reported, so a repeated one is not rewritten.
 	lastSkip string
+	// disconnected is true from a connection failure until records arrive again.
+	disconnected bool
 }
 
 var _ driver.Task = (*readTask)(nil)
@@ -413,6 +416,7 @@ func (t *readTask) open(ctx context.Context) (err error) {
 	t.client = cl
 	t.sCtx = sCtx
 	t.lastSkip = ""
+	t.disconnected = false
 	t.closer = xio.MultiCloser{
 		xio.CloserFunc(t.closeClient),
 		signal.NewHardShutdown(sCtx, cancel),
@@ -518,30 +522,45 @@ func (t *readTask) lastStored(
 	return s.ValueAt[telem.TimeStamp](int(s.Len()) - 1), nil
 }
 
-// consume polls the topic until ctx ends. A fetch or write failure stops it with an
-// error status.
+// consume polls the topic until ctx ends. A connection failure sets a warning status
+// while the consumer retries. Any other fetch failure or a write failure stops it with
+// an error status.
 func (t *readTask) consume(ctx context.Context) error {
 	for {
 		fetches := t.client.PollFetches(ctx)
 		if ctx.Err() != nil || fetches.IsClientClosed() {
 			return nil
 		}
-		var fetchErr error
+		var fatal, transient error
 		fetches.EachError(func(topic string, partition int32, err error) {
-			if fetchErr == nil {
-				fetchErr = errors.Wrapf(err, "fetching %s/%d", topic, partition)
+			err = errors.Wrapf(err, "fetching %s/%d", topic, partition)
+			if isConnectionErr(err) {
+				transient = cmp.Or(transient, err)
+			} else {
+				fatal = cmp.Or(fatal, err)
 			}
 		})
-		if fetchErr != nil {
+		if fatal != nil {
 			t.setStatus(
 				ctx,
 				driver.NoCommand,
 				status.VariantError,
 				false,
 				"Failed to fetch records",
-				fetchErr.Error(),
+				fatal.Error(),
 			)
-			return fetchErr
+			return fatal
+		}
+		if transient != nil && !t.disconnected {
+			t.disconnected = true
+			t.setStatus(
+				ctx,
+				driver.NoCommand,
+				status.VariantWarning,
+				true,
+				"Lost connection to cluster",
+				transient.Error()+". The task retries until the cluster is reachable.",
+			)
 		}
 		if err := t.process(ctx, fetches); err != nil {
 			t.setStatus(
@@ -554,7 +573,44 @@ func (t *readTask) consume(ctx context.Context) error {
 			)
 			return err
 		}
+		if transient == nil && t.disconnected && fetches.NumRecords() > 0 {
+			t.disconnected = false
+			t.setStatus(
+				ctx,
+				driver.NoCommand,
+				status.VariantSuccess,
+				true,
+				"Reconnected to cluster",
+				"",
+			)
+		}
 	}
+}
+
+// unavailable are the broker errors for a broker or coordinator that is down or
+// moving.
+var unavailable = []error{
+	kerr.BrokerNotAvailable,
+	kerr.CoordinatorLoadInProgress,
+	kerr.CoordinatorNotAvailable,
+	kerr.LeaderNotAvailable,
+	kerr.NetworkException,
+	kerr.NotCoordinator,
+	kerr.NotLeaderForPartition,
+	kerr.RequestTimedOut,
+}
+
+// isConnectionErr reports whether err is a failure to reach the cluster, which the
+// consumer retries on its own.
+func isConnectionErr(err error) bool {
+	var opErr *net.OpError
+	return errors.As(err, &opErr) ||
+		errors.Is(err, io.EOF) ||
+		kgo.IsRetryableBrokerErr(err) ||
+		slices.ContainsFunc(
+			unavailable,
+			func(u error) bool { return errors.Is(err, u) },
+		)
 }
 
 // process writes the records of one poll and marks them for commit once every

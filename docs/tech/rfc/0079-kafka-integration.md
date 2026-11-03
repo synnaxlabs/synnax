@@ -281,7 +281,9 @@ Each task holds a `driver.StatusHandler`. Configure failures answer the start co
 with an error status, as `pagerduty.factory.setConfigStatus` does. A start opens the
 client and reports "Task started successfully" with `running: true`; a connection
 failure at start is an error status with `running: false`. Runtime failures write
-unsolicited error statuses and leave the running flag as it was.
+unsolicited error statuses and leave the running flag as it was. A read task that loses
+the cluster keeps running: it writes a warning, the consumer retries, and the first
+records after the cluster returns write "Reconnected to cluster".
 
 ### 4.6 Console
 
