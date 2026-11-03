@@ -33,7 +33,7 @@ SEQ_ROWS = [
     ("status_seq_c", "33330003"),
     ("status_seq_d", "33330004"),
 ]
-SEQ_EXPECTED = {
+SEQ_EXPECTED: dict[str, tuple[sy.status.Variant, str]] = {
     "status_seq_a": ("info", "seq step a"),
     "status_seq_b": ("warning", "seq step b"),
     "status_seq_c": ("error", "seq step c"),
@@ -89,7 +89,7 @@ class Case(NamedTuple):
 
     name: str
     key: str
-    variant: str
+    variant: sy.status.Variant
     message: str
     key_channel: str
 

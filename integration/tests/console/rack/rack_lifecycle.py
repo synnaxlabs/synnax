@@ -42,10 +42,10 @@ class RackLifecycle(HardwareCase, ConsoleCase):
         """Test that rack status is displayed correctly."""
         self.log("Testing: Rack status display")
         status = self.console.devices.get_status(self.rack_name)
-        assert status["variant"] in [
+        assert status.variant in [
             "disabled",
             "warning",
-        ], f"Expected disabled/warning status without driver, got {status['variant']}"
+        ], f"Expected disabled/warning status without driver, got {status.variant}"
 
     def test_rename_rack(self) -> None:
         """Test renaming a rack via context menu."""
