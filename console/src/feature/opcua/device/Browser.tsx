@@ -142,6 +142,7 @@ const isNodeID = (value: string): boolean => value.includes("=");
 interface Selection {
   nodeId: string;
   field: string;
+  name?: string;
 }
 
 export const Browser = ({ device }: BrowserProps) => {
@@ -153,6 +154,7 @@ export const Browser = ({ device }: BrowserProps) => {
   const [initialLoading, setInitialLoading] = useState(false);
   const [query, setQuery] = useState("");
   const [lookup, setLookup] = useState<string | null>(null);
+  const [detailsCollapsed, setDetailsCollapsed] = useState(false);
   const client = Synnax.use();
   const addStatus = Status.useAdder();
   const handleError = Status.useErrorHandler();
@@ -237,7 +239,11 @@ export const Browser = ({ device }: BrowserProps) => {
   let selection: Selection | null = null;
   if (lookup != null) selection = { nodeId: lookup, field: "" };
   else if (selectedNode != null)
-    selection = { nodeId: selectedNode.nodeId, field: selectedNode.field };
+    selection = {
+      nodeId: selectedNode.nodeId,
+      field: selectedNode.field,
+      name: selectedNode.name,
+    };
   const refresh = () => {
     setInitialLoading(true);
     expand({ action: "expand", current: [] });
@@ -317,7 +323,12 @@ export const Browser = ({ device }: BrowserProps) => {
       />
       {content}
       {selection != null && (
-        <Details device={device} nodeId={selection.nodeId} field={selection.field} />
+        <Details
+          device={device}
+          {...selection}
+          collapsed={detailsCollapsed}
+          onCollapsedChange={setDetailsCollapsed}
+        />
       )}
     </Flex.Box>
   );

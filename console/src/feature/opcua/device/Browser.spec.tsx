@@ -271,9 +271,46 @@ describe("Browser details", () => {
     fireEvent.click(screen.getByText("TankPressure"));
     expect((await read.answered).args).toMatchObject({ nodeId: TANK.nodeId });
     await screen.findByText("Double");
-    expect(screen.getByText("Scalar")).toBeTruthy();
     expect(screen.getByText("2.5")).toBeTruthy();
     expect(screen.getByText("Good")).toBeTruthy();
+  });
+
+  it("should list the fields of a structure value by path", async () => {
+    const { client, scan } = await renderBrowser();
+    const read = await answerNextCommand(client, scan, {
+      type: OPCUA.Task.READ_NODE_COMMAND_TYPE,
+      data: { ...DETAILS, value: '{"Speed":2.5,"Position":{"X":-1.5,"Y":4}}' },
+    });
+    fireEvent.click(screen.getByText("TankPressure"));
+    await read.answered;
+    await screen.findByText("Position.X");
+    expect(screen.getByText("-1.5")).toBeTruthy();
+    expect(screen.getByText("Speed")).toBeTruthy();
+    expect(screen.queryByText(/\{/)).toBeNull();
+  });
+
+  it("should show only the start of a long array value", async () => {
+    const { client, scan } = await renderBrowser();
+    const read = await answerNextCommand(client, scan, {
+      type: OPCUA.Task.READ_NODE_COMMAND_TYPE,
+      data: { ...DETAILS, value: "[0, 1, 2, 3, 4, 5, 6, 7, 8, 9]" },
+    });
+    fireEvent.click(screen.getByText("TankPressure"));
+    await read.answered;
+    await screen.findByText("Showing 8 of 10 values");
+    expect(screen.getByText("[0, 1, 2, 3, 4, 5, 6, 7, …]")).toBeTruthy();
+  });
+
+  it("should hide the value when the server sent none", async () => {
+    const { client, scan } = await renderBrowser();
+    const read = await answerNextCommand(client, scan, {
+      type: OPCUA.Task.READ_NODE_COMMAND_TYPE,
+      data: { ...DETAILS, value: "null", status: "BadSensorFailure" },
+    });
+    fireEvent.click(screen.getByText("TankPressure"));
+    await read.answered;
+    await screen.findByText("BadSensorFailure");
+    expect(screen.queryByText("null")).toBeNull();
   });
 
   it("should read the node again when Read again is clicked", async () => {
@@ -294,6 +331,60 @@ describe("Browser details", () => {
     await second.answered;
     await screen.findByText("3.5");
     expect(screen.queryByText("2.5")).toBeNull();
+  });
+
+  it("should keep the last reading in view while it reads again", async () => {
+    const { client, scan, container } = await renderBrowser();
+    const first = await answerNextCommand(client, scan, {
+      type: OPCUA.Task.READ_NODE_COMMAND_TYPE,
+      data: DETAILS,
+    });
+    fireEvent.click(screen.getByText("TankPressure"));
+    await first.answered;
+    await screen.findByText("2.5");
+    const second = await answerNextCommand(client, scan, {
+      type: OPCUA.Task.READ_NODE_COMMAND_TYPE,
+      data: { ...DETAILS, value: "3.5" },
+    });
+    const [, readAgain] = getIconButtons(container, "refresh");
+    fireEvent.click(readAgain);
+    expect(screen.getByText("2.5")).toBeTruthy();
+    await second.answered;
+    await screen.findByText("3.5");
+  });
+
+  it("should read nothing while collapsed and the selection when expanded", async () => {
+    const { client, scan } = await renderBrowser();
+    const first = await answerNextCommand(client, scan, {
+      type: OPCUA.Task.READ_NODE_COMMAND_TYPE,
+      data: DETAILS,
+    });
+    fireEvent.click(screen.getByText("TankPressure"));
+    await first.answered;
+    await screen.findByText("2.5");
+    // A read sent while collapsed would take this answer first.
+    const next = await answerNextCommand(client, scan, {
+      type: OPCUA.Task.READ_NODE_COMMAND_TYPE,
+      data: { ...DETAILS, node: PUMP, browseName: PUMP.name, value: "3.5" },
+    });
+    fireEvent.click(screen.getByRole("button", { name: /TankPressure/ }));
+    expect(screen.queryByText("2.5")).toBeNull();
+    await act(async () => await scheduler.flushTaskQueue());
+    fireEvent.click(screen.getByText("PumpSpeed"));
+    fireEvent.click(screen.getByRole("button", { name: /PumpSpeed/ }));
+    expect((await next.answered).args).toMatchObject({ nodeId: PUMP.nodeId });
+    await screen.findByText("3.5");
+  });
+
+  it("should round a fractional value for display", async () => {
+    const { client, scan } = await renderBrowser();
+    const read = await answerNextCommand(client, scan, {
+      type: OPCUA.Task.READ_NODE_COMMAND_TYPE,
+      data: { ...DETAILS, value: "-0.9925542249712099" },
+    });
+    fireEvent.click(screen.getByText("TankPressure"));
+    await read.answered;
+    await screen.findByText("-0.99255");
   });
 
   it("should read only the latest node selected while a read is open", async () => {

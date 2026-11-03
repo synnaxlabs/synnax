@@ -21,7 +21,11 @@
     font-size: 5rem;
 }
 
+/* The input insets its icon by 1rem, so the icon lines up with the header title. */
 .console-opc-browser__search {
     flex-shrink: 0;
+    align-self: stretch;
+    width: auto;
+    padding: 0 0.5rem;
     border-bottom: var(--pluto-border);
 }

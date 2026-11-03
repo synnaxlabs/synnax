@@ -739,8 +739,9 @@ describe("Read", () => {
     });
     fireEvent.click(await screen.findByText(node.name));
     await read.answered;
-    // The details header repeats the name below the tree.
-    await waitFor(() => expect(screen.getAllByText(node.name)).toHaveLength(2));
+    // The title can be dragged once the details land. It repeats the name below the
+    // tree.
+    await screen.findByText(node.nodeId);
     fireEvent.dragStart(screen.getAllByText(node.name)[1]);
     fireEvent.drop(screen.getByText(new RegExp(held.nodeName)));
     await waitFor(async () =>
