@@ -14,7 +14,7 @@ import { beforeAll, describe, expect, it, vi } from "vitest";
 import { Dialog } from "@/dialog";
 import { List } from "@/list";
 import { Select } from "@/select";
-import { mockGeometry } from "@/testutil/dom";
+import { mockGeometry } from "@/testutil";
 import { Triggers } from "@/triggers";
 
 const DATA = Array.from({ length: 300 }, (_, i) => `${i}`);

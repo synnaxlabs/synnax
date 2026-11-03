@@ -9,7 +9,7 @@
 
 import { describe, expect, it } from "vitest";
 
-import { disableActEnvironment } from "@/testutil/act";
+import { disableActEnvironment } from "@/testutil";
 
 describe("disableActEnvironment", () => {
   it("should turn the act environment off", () => {

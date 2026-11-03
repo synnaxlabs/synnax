@@ -10,7 +10,7 @@
 import { act, renderHook } from "@testing-library/react";
 import { describe, expect, it, vi } from "vitest";
 
-import { useWindowResize } from "@/hooks/useResize";
+import { useWindowResize } from "@/hooks";
 
 describe("useWindowResize", () => {
   it("should call the handler on window resize when enabled", () => {

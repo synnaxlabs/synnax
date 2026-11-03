@@ -11,12 +11,12 @@ import { renderHook } from "@testing-library/react";
 import { type PropsWithChildren } from "react";
 import { describe, expect, it } from "vitest";
 
-import { create } from "@/context/context";
+import { context } from "@/context";
 
 describe("create", () => {
   describe("with a default value", () => {
     it("should create a context with the correct display name", () => {
-      const [Context] = create({
+      const [Context] = context.create({
         defaultValue: "test-value",
         displayName: "TestContext",
       });
@@ -24,7 +24,7 @@ describe("create", () => {
     });
 
     it("should return the default value when used outside a provider", () => {
-      const [_, useContext] = create({
+      const [_, useContext] = context.create({
         defaultValue: "test-value",
         displayName: "TestContext",
       });
@@ -32,7 +32,7 @@ describe("create", () => {
       expect(result.current).toBe("test-value");
     });
     it("should return the context value when used inside a provider", () => {
-      const [Context, useContext] = create({
+      const [Context, useContext] = context.create({
         defaultValue: "test-value",
         displayName: "TestContext",
       });
@@ -45,7 +45,7 @@ describe("create", () => {
   });
   describe("without a default value", () => {
     it("should create a context with the correct display name", () => {
-      const [Context] = create({
+      const [Context] = context.create({
         displayName: "TestContext",
         providerName: "TestProvider",
       });
@@ -53,7 +53,7 @@ describe("create", () => {
     });
 
     it("should return the context value when used inside a provider", () => {
-      const [Context, useContext] = create<string>({
+      const [Context, useContext] = context.create<string>({
         displayName: "TestContext",
         providerName: "TestProvider",
       });
@@ -64,7 +64,7 @@ describe("create", () => {
       expect(result.current).toBe("test-value");
     });
     it("should throw an error containing the hook name and provider name when used outside a provider", () => {
-      const [, useContext] = create<string>({
+      const [, useContext] = context.create<string>({
         displayName: "TestContext",
         providerName: "TestProvider",
       });
@@ -74,7 +74,7 @@ describe("create", () => {
     });
 
     it("should work with different hook names for the same context", () => {
-      const [Context, useContext] = create<string>({
+      const [Context, useContext] = context.create<string>({
         displayName: "TestContext",
         providerName: "TestProvider",
       });
@@ -90,7 +90,7 @@ describe("create", () => {
     });
 
     it("should throw different error messages for different hook names", () => {
-      const [, useContext] = create<string>({
+      const [, useContext] = context.create<string>({
         displayName: "TestContext",
         providerName: "TestProvider",
       });

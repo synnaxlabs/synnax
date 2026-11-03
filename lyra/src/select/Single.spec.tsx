@@ -11,13 +11,13 @@ import { act, fireEvent, render } from "@testing-library/react";
 import { useState } from "react";
 import { beforeAll, describe, expect, it, vi } from "vitest";
 
-import { renderProp } from "@/component/renderProp";
+import { Component } from "@/component";
 import { Haul } from "@/haul";
 import { Icon } from "@/icon";
 import { Input } from "@/input";
 import { List } from "@/list";
 import { Select } from "@/select";
-import { mockGeometry } from "@/testutil/dom";
+import { mockGeometry } from "@/testutil";
 import { Text } from "@/text";
 import { Triggers } from "@/triggers";
 
@@ -35,7 +35,7 @@ describe("Select.Single", () => {
     { key: "3", name: "Third Item" },
   ];
 
-  const listItemRenderProp = renderProp((props: List.ItemProps<string>) => {
+  const listItemRenderProp = Component.renderProp((props: List.ItemProps<string>) => {
     const { itemKey } = props;
     const item = testData.find((i) => i.key === itemKey);
     return (

@@ -13,9 +13,9 @@ import { type ReactElement, useState } from "react";
 import { afterEach, beforeAll, beforeEach, describe, expect, it, vi } from "vitest";
 
 import { Button } from "@/button";
-import { renderProp } from "@/component/renderProp";
+import { Component } from "@/component";
 import { List } from "@/list";
-import { mockGeometry } from "@/testutil/dom";
+import { mockGeometry } from "@/testutil";
 import { createRenderCounter } from "@/testutil/renders";
 
 const removalObservers = new Set<RemovalResizeObserver>();
@@ -188,10 +188,12 @@ describe("List", () => {
             return undefined;
           }) as List.GetItem<string, record.KeyedNamed<string>>;
           const obs = new observe.Observer<void>();
-          const itemProp = renderProp(({ itemKey }: List.ItemProps<string>) => {
-            const item = List.useItem<string, record.KeyedNamed<string>>(itemKey);
-            return <div key={itemKey}>{item?.name}</div>;
-          });
+          const itemProp = Component.renderProp(
+            ({ itemKey }: List.ItemProps<string>) => {
+              const item = List.useItem<string, record.KeyedNamed<string>>(itemKey);
+              return <div key={itemKey}>{item?.name}</div>;
+            },
+          );
           const result = render(
             <List.Frame<string, record.KeyedNamed<string>>
               data={["1", "2", "3"]}
