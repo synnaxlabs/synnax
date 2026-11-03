@@ -9,7 +9,10 @@
 
 import { Form } from "@synnaxlabs/lyra/form";
 import { type Input } from "@synnaxlabs/lyra/input";
+import { deep } from "@synnaxlabs/x";
 import { type ReactElement } from "react";
+
+const path = deep.path<{ onClickDelay?: number }>();
 
 const ACTIVATION_DELAY_INPUT_PROPS: Partial<Input.NumericProps> = {
   endContent: "ms",
@@ -21,7 +24,7 @@ export const ActivationDelayField = (
 ): ReactElement => (
   <Form.NumericField
     label="Delay"
-    path="onClickDelay"
+    path={path.onClickDelay}
     inputProps={ACTIVATION_DELAY_INPUT_PROPS}
     padHelpText={false}
     {...props}

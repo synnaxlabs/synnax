@@ -10,7 +10,7 @@
 import { Component } from "@synnaxlabs/lyra/component";
 import { Form } from "@synnaxlabs/lyra/form";
 import { type Status } from "@synnaxlabs/lyra/status";
-import { id } from "@synnaxlabs/x";
+import { deep, id } from "@synnaxlabs/x";
 import { fireEvent, screen, waitFor, within } from "@testing-library/react";
 import { Profiler } from "react";
 import { describe, expect, it } from "vitest";
@@ -44,16 +44,29 @@ const field = (key: string, pointer: string, channel = 0): Field => ({
   disabled: false,
 });
 
-const groupLabel = Component.renderProp(({ groupKey }: Task.Views.GroupProps) => (
+const path = deep.path<{ config: { groups: Item[] } }>();
+
+/** Any group read as one that may hold fields. */
+interface Branch {
+  key: string;
+  index?: string;
+  fields?: Field[];
+}
+
+const branches = deep.widen<Branch[]>(path.config.groups);
+
+const fieldsOf = (groupKey: string) => deep.present(branches[groupKey].fields);
+
+const groupLabel = Component.renderProp(({ groupKey }: Task.Views.GroupProps<Item>) => (
   <span>group-{groupKey}</span>
 ));
 
-const groupDetails = Component.renderProp(({ path }: Task.Views.GroupProps) => (
-  <span>details-for-{path}</span>
+const groupDetails = Component.renderProp(({ path }: Task.Views.GroupProps<Item>) => (
+  <span>details-for-{String(path)}</span>
 ));
 
-const fieldDetails = Component.renderProp(({ path }: Task.Views.FieldProps) => (
-  <span>details-for-{path}</span>
+const fieldDetails = Component.renderProp(({ path }: Task.Views.FieldProps<Field>) => (
+  <span>details-for-{String(path)}</span>
 ));
 
 const createGroups = async (): Promise<Item[]> => [
@@ -74,6 +87,7 @@ const renderTree = (
   renderInTaskForm(
     <>
       <Task.Views.GroupTree<Item, Field>
+        path={path.config.groups}
         listTitle="Groups"
         emptyMessage="No groups"
         placeholder="Select a group or field"
@@ -126,9 +140,9 @@ describe("GroupTree", () => {
     const { form } = await renderTree([]);
     fireEvent.click(await screen.findByRole("button", { name: "Add group" }));
     await waitFor(() =>
-      expect(form.current?.get("config.groups").value).toHaveLength(1),
+      expect(form.current?.get(path.config.groups).value).toHaveLength(1),
     );
-    const [added] = form.current?.get<Group[]>("config.groups").value ?? [];
+    const [added] = form.current?.get(path.config.groups).value ?? [];
     await screen.findByText(`details-for-config.groups.${added.key}`);
   });
 
@@ -142,9 +156,9 @@ describe("GroupTree", () => {
     });
     fireEvent.click(await screen.findByRole("button", { name: "Add group" }));
     await waitFor(() =>
-      expect(
-        form.current?.get<Item[]>("config.groups").value.map(({ key }) => key),
-      ).toEqual(["g", "a", "b"]),
+      expect(form.current?.get(path.config.groups).value.map(({ key }) => key)).toEqual(
+        ["g", "a", "b"],
+      ),
     );
     await screen.findByText("details-for-config.groups.a");
   });
@@ -159,7 +173,7 @@ describe("GroupTree", () => {
     });
     fireEvent.click(await screen.findByRole("button", { name: "Add group" }));
     await waitFor(() =>
-      expect(form.current?.get<Item[]>("config.groups").value).toEqual([replacement]),
+      expect(form.current?.get(path.config.groups).value).toEqual([replacement]),
     );
   });
 
@@ -167,10 +181,8 @@ describe("GroupTree", () => {
     const { form } = await renderTree([GROUP]);
     await screen.findAllByText("group-g");
     fireEvent.click(screen.getByRole("button", { name: "Add field" }));
-    await waitFor(() =>
-      expect(form.current?.get("config.groups.g.fields").value).toHaveLength(3),
-    );
-    const added = form.current?.get<Field[]>("config.groups.g.fields").value[2];
+    await waitFor(() => expect(form.current?.get(fieldsOf("g")).value).toHaveLength(3));
+    const added = form.current?.get(fieldsOf("g")).value[2];
     expect(added?.pointer).toBe("/value");
     expect(added?.channel).toBe(0);
   });
@@ -184,10 +196,9 @@ describe("GroupTree", () => {
   it("should add and select the first field when the add field item is chosen", async () => {
     const { form } = await renderTree([EMPTY_GROUP]);
     fireEvent.click(await screen.findByText("Add field"));
-    await waitFor(() =>
-      expect(form.current?.get("config.groups.e.fields").value).toHaveLength(1),
-    );
-    const [added] = form.current?.get<Field[]>("config.groups.e.fields").value ?? [];
+    const fields = fieldsOf("e");
+    await waitFor(() => expect(form.current?.get(fields).value).toHaveLength(1));
+    const [added] = form.current?.get(fields).value ?? [];
     await screen.findByText(`details-for-config.groups.e.fields.${added.key}`);
     expect(screen.queryByText("Add field")).toBeNull();
   });
@@ -222,12 +233,12 @@ describe("GroupTree", () => {
     fireEvent.contextMenu((await screen.findAllByText("group-g"))[0]);
     fireEvent.click(await screen.findByText("Duplicate"));
     await waitFor(() =>
-      expect(form.current?.get("config.groups").value).toHaveLength(2),
+      expect(form.current?.get(path.config.groups).value).toHaveLength(2),
     );
-    const copy = form.current?.get<Group[]>("config.groups").value[1];
+    const copy = form.current?.get(branches).value[1];
     expect(copy?.key).not.toBe("g");
-    expect(copy?.fields.map((f) => f.channel)).toEqual([0, 0]);
-    expect(copy?.index).toBe(copy?.fields[0].key);
+    expect(copy?.fields?.map((f) => f.channel)).toEqual([0, 0]);
+    expect(copy?.index).toBe(copy?.fields?.[0].key);
     expect(copy?.index).not.toBe("ts");
   });
 
@@ -235,9 +246,7 @@ describe("GroupTree", () => {
     const { form } = await renderTree([GROUP]);
     fireEvent.contextMenu(await screen.findByText("/value"));
     fireEvent.click(await screen.findByText("Remove"));
-    await waitFor(() =>
-      expect(form.current?.get("config.groups.g.fields").value).toHaveLength(1),
-    );
+    await waitFor(() => expect(form.current?.get(fieldsOf("g")).value).toHaveLength(1));
   });
 
   it("should name a field with an empty pointer by the empty pointer label", async () => {
@@ -282,16 +291,16 @@ describe("GroupTree", () => {
     fireEvent.contextMenu(await screen.findByRole("treeitem", { name: /group-l/ }));
     fireEvent.click(await screen.findByText("Duplicate"));
     await waitFor(() =>
-      expect(form.current?.get("config.groups").value).toHaveLength(2),
+      expect(form.current?.get(path.config.groups).value).toHaveLength(2),
     );
-    const copy = form.current?.get<Leaf[]>("config.groups").value[1];
+    const copy = form.current?.get(path.config.groups).value[1];
     expect(copy).toMatchObject({ channel: 0, name: "" });
     expect(copy?.key).not.toBe("l");
   });
 
   it("should switch a group of a switchable tree through its checkbox and menu", async () => {
     const { form } = await renderTree([GROUP], { groupsSwitchable: true });
-    const disabled = () => form.current?.get("config.groups.g.disabled").value;
+    const disabled = () => form.current?.get(path.config.groups.g.disabled).value;
     const item = await screen.findByRole("treeitem", { name: /group-g/ });
     fireEvent.click(within(item).getByRole("checkbox", { name: "Enabled" }));
     await waitFor(() => expect(disabled()).toBe(true));
@@ -312,19 +321,23 @@ describe("GroupTree", () => {
 
   it("should re-render no group when a field takes a keystroke", async () => {
     const updates: string[] = [];
-    const countedLabel = Component.renderProp(({ groupKey }: Task.Views.GroupProps) => (
-      <Profiler
-        id={groupKey}
-        onRender={(groupKey, phase) => {
-          if (phase !== "mount") updates.push(groupKey);
-        }}
-      >
-        <span>group-{groupKey}</span>
-      </Profiler>
-    ));
-    const pointerDetails = Component.renderProp(({ path }: Task.Views.FieldProps) => (
-      <Form.TextField path={`${path}.pointer`} label="Pointer" />
-    ));
+    const countedLabel = Component.renderProp(
+      ({ groupKey }: Task.Views.GroupProps<Item>) => (
+        <Profiler
+          id={groupKey}
+          onRender={(groupKey, phase) => {
+            if (phase !== "mount") updates.push(groupKey);
+          }}
+        >
+          <span>group-{groupKey}</span>
+        </Profiler>
+      ),
+    );
+    const pointerDetails = Component.renderProp(
+      ({ path }: Task.Views.FieldProps<Field>) => (
+        <Form.TextField path={path.pointer} label="Pointer" />
+      ),
+    );
     const other: Group = { ...GROUP, key: "h", fields: [field("w", "/wind")] };
     await renderTree([GROUP, other], {
       groupLabel: countedLabel,

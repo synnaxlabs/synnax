@@ -23,8 +23,6 @@ import {
   type SparkplugTag,
 } from "@/feature/mqtt/task/types";
 
-export const ENTRIES_PATH = "config.entries";
-
 /** The prefix configure gives the channels of a topic's fields. */
 export const namePrefix = (devName: string, topic: string): string =>
   `${channel.escapeInvalidName(devName)}_${channel.escapeInvalidName(topic)}`;

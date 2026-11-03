@@ -43,7 +43,7 @@ export interface ListProps<C extends Channel>
    * The channels by port. The header becomes a "Channels" title with a "List" and
    * "Ports" switch that shows it.
    */
-  ports?: Component.RenderProp<PortsProps>;
+  ports?: Component.RenderProp<PortsProps<C>>;
 }
 
 export const List = <C extends Channel>({
@@ -67,7 +67,7 @@ export const List = <C extends Channel>({
       columns={columns && [...columns, ...LIST_CHANNEL_COLUMNS]}
       ports={
         ports != null && view === "ports"
-          ? ports({ selected, onSelect: setSelected })
+          ? ports({ path: rest.path, selected, onSelect: setSelected })
           : undefined
       }
       selected={selected}

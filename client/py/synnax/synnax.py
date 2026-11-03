@@ -22,6 +22,7 @@ from synnax import (
     exceptions,
     framer,
     group,
+    label,
     lineplot,
     log,
     panel,
@@ -36,7 +37,7 @@ from synnax import (
     view,
 )
 from synnax.access import Client as AccessClient
-from synnax.config import try_load_options_if_none_provided
+from synnax.config import DESKTOP_NOT_RUNNING_MSG, try_load_options_if_none_provided
 from synnax.control import Client as ControlClient
 from synnax.exceptions import ValidationError
 from synnax.imex import Client as ImexClient
@@ -91,6 +92,7 @@ class Synnax(framer.Client):
     statuses: status.Client
     arcs: arc.Client
     groups: group.Client
+    labels: label.Client
     views: view.Client
     imex: ImexClient
     projects: project.Client
@@ -119,14 +121,9 @@ class Synnax(framer.Client):
         ca_cert: str | None = None,
         api_key: str = "",
     ):
-        """Creates a new client. Connection parameters can be provided as arguments, or,
-        if none are provided, the client will attempt to load them from the Synnax
-        configuration file (~/.synnax/config.json) as well as credentials stored in the
-        operating system's keychain.
-
-        If using the client for data analysis/personal use, the easiest way to connect
-        is to use the `sy login` command, which will prompt and securely store your
-        credentials. The client can then be initialized without parameters.
+        """Creates a new client. Without a host, the client connects with the
+        credentials that `sy login` saved, or, if it saved none, to the Core of Synnax
+        Desktop on this computer.
 
         :param host: Hostname of a Core in the Synnax cluster.
         :param port: Port of the Core.
@@ -146,7 +143,7 @@ class Synnax(framer.Client):
             raise ValidationError(
                 "give either an API key or a username and password, not both"
             )
-        opts = try_load_options_if_none_provided(
+        opts, embedded = try_load_options_if_none_provided(
             host=host,
             port=port,
             username=username,
@@ -173,13 +170,21 @@ class Synnax(framer.Client):
                 else auth.PasswordProof(username=opts.username, password=opts.password)
             ),
         )
-        self.auth.authenticate()
+        try:
+            self.auth.authenticate()
+        except Unreachable as e:
+            if embedded:
+                raise Unreachable(
+                    target=e.target, message=DESKTOP_NOT_RUNNING_MSG
+                ) from e
+            raise
         self._transport.use(self.auth.middleware())
         self._transport.use_async(self.auth.async_middleware())
         self.connectivity = connection.Checker(
             client=self._transport.unary,
             client_version=_version("synnax"),
             clock_skew_threshold=clock_skew_threshold,
+            embedded=embedded,
         )
         # Not __del__: interpreter finalization would run it after daemon threads
         # are frozen, deadlocking stop()'s join. finalize runs at atexit, before
@@ -206,6 +211,7 @@ class Synnax(framer.Client):
             instrumentation=instrumentation,
         )
         self.groups = group.Client(self._transport.unary)
+        self.labels = label.Client(self._transport.unary)
         self.ontology = OntologyClient(client=self._transport.unary)
         self.channels = channel.Client(
             client=self._transport.unary,
@@ -248,6 +254,7 @@ class Synnax(framer.Client):
             signals=self.signals,
             ontology=self.ontology,
             tasks=self.tasks,
+            labels=self.labels,
         )
         self.control = ControlClient(
             framer=self, channels=ch_retriever, client=self._transport.unary

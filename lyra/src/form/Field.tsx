@@ -22,8 +22,8 @@ interface FieldChild<I, O>
 /** Props for {@link Field}. */
 export type FieldProps<I = string | number, O = I> = UseFieldOptions<I, O> &
   Omit<Input.ItemProps, "children" | "onChange" | "defaultValue"> & {
-    /** Dot-separated path into the form values. */
-    path: string;
+    /** The path into the form values. */
+    path: deep.Target<I>;
     /** Renders the input. Defaults to a text input. */
     children?: RenderProp<FieldChild<I, O>>;
     /** Whether to hold room for help text, so the layout does not jump. */
@@ -45,8 +45,8 @@ export type FieldT<I, O = I> = (props: FieldProps<I, O>) => ReactElement | null;
  * One labeled row of a form: its label, its input, and its validation message. The
  * label falls back to the last path element in sentence case.
  *
- * @example <Form.Field path="range.name" />
- * @example <Form.Field path="rate">{(p) => <Input.Numeric {...p} />}</Form.Field>
+ * @example <Form.Field path={path.range.name} />
+ * @example <Form.Field path={path.rate}>{(p) => <Input.Numeric {...p} />}</Form.Field>
  */
 export const Field = <I = string | number, O = I>({
   path,
@@ -63,7 +63,8 @@ export const Field = <I = string | number, O = I>({
   const field = useField<I, O>(path, { onChange, optional: !visible });
   const markable = emptiable ?? children == null;
   if (field == null || !visible) return null;
-  if (label == null) label = caseconv.toSentence(deep.element(path, -1));
+  const key = String(path);
+  if (label == null) label = caseconv.toSentence(deep.element(key, -1));
   const helpText = field.status.message;
   const { onChange: fieldOnChange, value } = field;
   const childrenProps: FieldChild<I, O> = { onChange: fieldOnChange, value };
@@ -77,7 +78,7 @@ export const Field = <I = string | number, O = I>({
       required={markable && field.required && field.preview !== true}
       className={CSS.cls(
         className,
-        CSS.BE("field", path.split(".").join("-")),
+        CSS.BE("field", key.split(".").join("-")),
         CSS.M(field.status.variant),
       )}
       {...rest}
@@ -90,7 +91,6 @@ export const Field = <I = string | number, O = I>({
 };
 
 export interface FieldBuilderProps<I, O, P extends {}> {
-  fieldKey?: string;
   fieldProps?: Partial<FieldProps<I, O>>;
   inputProps: Omit<P, "value" | "onChange">;
 }
@@ -100,9 +100,10 @@ export type BuiltFieldProps<
   O,
   P extends {},
   OptionalFields extends keyof Omit<P, "value" | "onChange"> = never,
-> = FieldProps<I, O> & {
+> = Omit<FieldProps<I, O>, "path"> & {
+  /** The path into the form values. A built field takes an optional value. */
+  path: deep.Target<I | undefined>;
   inputProps?: optional.Optional<Omit<P, "value" | "onChange">, OptionalFields>;
-  fieldKey?: string;
 };
 
 /**
@@ -125,21 +126,15 @@ export const fieldBuilder =
     defaults: Partial<FieldProps<I, O>> = {},
   ) =>
   ({
-    fieldKey: baseFieldKey,
     fieldProps,
     inputProps: baseInputProps,
   }: FieldBuilderProps<I, O, P>): FC<BuiltFieldProps<I, O, P, OptionalFields>> => {
-    const C = ({
-      inputProps,
-      path,
-      fieldKey = baseFieldKey,
-      ...rest
-    }: BuiltFieldProps<I, O, P>) => (
+    const C = ({ inputProps, path, ...rest }: BuiltFieldProps<I, O, P>) => (
       <Field<I, O>
         {...defaults}
         {...fieldProps}
         {...rest}
-        path={fieldKey ? `${path}.${fieldKey}` : path}
+        path={path as deep.Target<I>}
       >
         {(cp) => <Component {...cp} {...baseInputProps} {...(inputProps as P)} />}
       </Field>
@@ -184,10 +179,9 @@ export const CheckboxField = ({
   inverted = false,
   inputProps,
   path,
-  fieldKey,
   ...rest
 }: CheckboxFieldProps): ReactElement | null => (
-  <Field<boolean> {...rest} path={fieldKey ? `${path}.${fieldKey}` : path}>
+  <Field<boolean> {...rest} path={path as deep.Target<boolean>}>
     {({ value, onChange, ...p }) => (
       <Input.Checkbox
         {...p}

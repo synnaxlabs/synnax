@@ -15,7 +15,7 @@ import { Input } from "@synnaxlabs/lyra/input";
 import { List } from "@synnaxlabs/lyra/list";
 import { Menu } from "@synnaxlabs/lyra/menu";
 import { Select } from "@synnaxlabs/lyra/select";
-import { array } from "@synnaxlabs/x";
+import { array, deep } from "@synnaxlabs/x";
 import { type ReactElement, type ReactNode, type UIEvent, useRef } from "react";
 
 import { ContextMenu as PlatformContextMenu } from "@/platform/context-menu";
@@ -30,7 +30,7 @@ export interface ContextMenuItemProps<C extends Channel> {
 }
 
 interface ContextMenuProps<C extends Channel> extends Pick<
-  Form.UseFieldListReturn<C["key"], C>,
+  Form.UseFieldListReturn<C>,
   "data" | "remove"
 > {
   keys: string[];
@@ -38,7 +38,7 @@ interface ContextMenuProps<C extends Channel> extends Pick<
   onDuplicate?: (channels: C[], keys: string[]) => void;
   onSelect: (keys: string[]) => void;
   onTare?: (keys: string[], channels: C[]) => void;
-  path: string;
+  path: deep.Path<C[]>;
   contextMenuItems?: Component.RenderProp<ContextMenuItemProps<C>>;
 }
 
@@ -55,16 +55,14 @@ const ContextMenu = <C extends Channel>({
   const isPreview = useIsPreview();
   const handleRemove = () => onSelect(array.toArray(remove(keys)[0]));
   const { get, set } = Form.useContext();
-  const channels = Form.useFieldValue<C[]>(path).filter(({ key }) =>
-    keys.includes(key),
-  );
+  const channels = Form.useFieldValue(path).filter(({ key }) => keys.includes(key));
   const handleDuplicate = () => {
-    const allChannels = get<C[]>(path).value;
+    const allChannels = get(path).value;
     onDuplicate?.(allChannels, keys);
   };
   const isEnabled = (c: C) => !c.disabled;
   const setEnabled = (key: string, enabled: boolean) =>
-    set(`${path}.${key}.disabled`, !enabled);
+    set(deep.widen<Channel[]>(path)[key].disabled, !enabled);
   const handleDisable = () => keys.forEach((key) => setEnabled(key, false));
   const handleEnable = () => keys.forEach((key) => setEnabled(key, true));
   const handleTare = () => onTare?.(keys, channels);

@@ -191,7 +191,7 @@ class Client:
         :returns: An Iterator over the given channels within the provided time
         range. See the Iterator documentation for more.
         """
-        adapter = ReadFrameAdapter(self._channels)
+        adapter = ReadFrameAdapter(self._channels, reduction=reduction)
         adapter.update(channels)
         return Iterator(
             tr=tr,
