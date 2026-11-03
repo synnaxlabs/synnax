@@ -8,6 +8,7 @@
 // included in the file licenses/APL.txt.
 
 import { type channel, lineplot } from "@synnaxlabs/client";
+import { Flex } from "@synnaxlabs/lyra/flex";
 import { Icon } from "@synnaxlabs/lyra/icon";
 import { Input } from "@synnaxlabs/lyra/input";
 import { Select } from "@synnaxlabs/lyra/select";
@@ -64,29 +65,30 @@ const CHIP_CLASS = CSS.BE("line-plot", "x-time-chip");
 
 // Key 0 means no X channel: each Y channel plots against its own index channel.
 const TIME_OPTION = (
-  <Select.Item<channel.Key>
-    itemKey={0}
-    textValue="Time"
-    label={
-      <>
+  <Flex.Box className={CSS.BE("line-plot", "x-time")} full="x">
+    <Select.Item<channel.Key>
+      itemKey={0}
+      textValue="Time"
+      label={
+        <>
+          Time
+          <Input.AutoChip className={CHIP_CLASS} />
+        </>
+      }
+      y
+      gap="tiny"
+      align="start"
+    >
+      <Text.Text className={CSS.BE("line-plot", "x-time-title")}>
+        <Icon.Time />
         Time
         <Input.AutoChip className={CHIP_CLASS} />
-      </>
-    }
-    className={CSS.BE("line-plot", "x-time")}
-    y
-    gap="tiny"
-    align="start"
-  >
-    <Text.Text className={CSS.BE("line-plot", "x-time-title")}>
-      <Icon.Time />
-      Time
-      <Input.AutoChip className={CHIP_CLASS} />
-    </Text.Text>
-    <Text.Text level="small" color={9}>
-      Automatically uses each channel's time. Best for most needs.
-    </Text.Text>
-  </Select.Item>
+      </Text.Text>
+      <Text.Text level="small" color={9}>
+        Automatically uses each channel's time. Best for most needs.
+      </Text.Text>
+    </Select.Item>
+  </Flex.Box>
 );
 
 export const XAxisChannelSelect = ({

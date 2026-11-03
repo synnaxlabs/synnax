@@ -27,10 +27,9 @@
     }
 }
 
-/* The list insets its rows by 1rem, so 3rem lines this option up with them. */
+/* Inset by the list's own padding, so the option lines up with its rows. */
 .console-line-plot__x-time {
-    height: auto;
-    padding: 1rem 3rem;
+    padding: 1rem;
     border-top: var(--pluto-border-width) solid var(--pluto-gray-l6);
 }
 

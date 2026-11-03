@@ -8,10 +8,12 @@
 // included in the file licenses/APL.txt.
 
 import { describe, expect, it } from "vitest";
+import { page, userEvent } from "vitest/browser";
 
 import { Dialog } from "@/dialog";
 import { Select } from "@/select";
 import { computed, renderThemed, resolve } from "@/styletest";
+import { Triggers } from "@/triggers";
 
 const renderButtons = async (
   variant: Select.ButtonsProps["variant"],
@@ -45,7 +47,46 @@ const renderFixedLabel = async (): Promise<Record<string, Element>> => {
   };
 };
 
+const FOOTER_HEIGHT = 100;
+const KEYS = Array.from({ length: 30 }, (_, i) => `key-${i}`);
+
+const renderFooter = async (): Promise<Element> => {
+  const { getByText } = await renderThemed(
+    <Triggers.Provider>
+      <Dialog.Frame>
+        <Select.Frame<string, undefined> data={KEYS} onChange={() => {}}>
+          <Select.SingleTrigger placeholder="Pick" />
+          <Select.Dialog>
+            <Select.Body<string>
+              resourceName="key"
+              footer={<div id="footer" style={{ height: FOOTER_HEIGHT }} />}
+            >
+              {({ key, ...p }) => (
+                <Select.Item key={key} {...p}>
+                  {p.itemKey}
+                </Select.Item>
+              )}
+            </Select.Body>
+          </Select.Dialog>
+        </Select.Frame>
+      </Dialog.Frame>
+    </Triggers.Provider>,
+  );
+  await userEvent.click(getByText("Pick").element());
+  const dialog = page.getByRole("dialog");
+  await expect.element(dialog).toBeVisible();
+  await expect.poll(() => computed(dialog.element(), "opacity")).toBe("1");
+  return document.getElementById("footer") as Element;
+};
+
 describe("Select", () => {
+  describe("footer", () => {
+    it("should keep its height when the list overflows the dialog", async () => {
+      const footer = await renderFooter();
+      expect(footer.getBoundingClientRect().height).toBe(FOOTER_HEIGHT);
+    });
+  });
+
   describe("fixed item label", () => {
     it("should fill the trigger up to the caret", async () => {
       const { label, fixed, caret } = await renderFixedLabel();
