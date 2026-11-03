@@ -61,3 +61,15 @@ export const SAVE: Verbs = {
   past: "saved",
   participle: "saving",
 };
+
+export const LINK: Verbs = {
+  present: "link",
+  past: "linked",
+  participle: "linking",
+};
+
+export const UNLINK: Verbs = {
+  present: "unlink",
+  past: "unlinked",
+  participle: "unlinking",
+};

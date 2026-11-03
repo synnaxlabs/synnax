@@ -17,3 +17,4 @@ export * from "@/platform/core/useConnectModal";
 export * from "@/platform/core/useConnParams";
 export * from "@/platform/core/useCopyLinkToClipboard";
 export * from "@/platform/core/useLogout";
+export * from "@/platform/core/useProviders";

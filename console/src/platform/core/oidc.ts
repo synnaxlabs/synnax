@@ -86,18 +86,15 @@ const parseCallback = (query: string, state: string): string => {
 };
 
 /**
- * Logs in through a provider from the desktop Console: opens the provider's login page
- * in the browser, waits for it to redirect to a loopback port, exchanges the code for
- * a session, and saves the session's token in the keychain. The code never reaches the
- * Core's shared record, so other windows resume the saved session instead of spending
- * the same code.
- * @throws {Error} when the person does not finish within five minutes, the provider
- * refuses, or the Core rejects the code.
+ * Proves a provider account from the desktop Console: opens the provider's login page
+ * in the browser and waits for it to redirect to a loopback port.
+ * @returns The credentials, which the Core accepts once.
+ * @throws {Error} when the person does not finish within five minutes, or the provider
+ * refuses.
  */
-export const loginDesktop = async (
-  core: Pick<Session.Core.Core, "key" | "host" | "port" | "secure">,
+export const authorizeDesktop = async (
   login: auth.OIDCLogin,
-): Promise<void> => {
+): Promise<auth.OIDCCredentials> => {
   const { verifier, challenge } = await createPKCE();
   const state = randomString();
   const port = await invoke<number>("oidc_listen");
@@ -105,19 +102,41 @@ export const loginDesktop = async (
   await Runtime.openExternal(authorizeURL({ login, redirectUri, challenge, state }));
   const query = await invoke<string>("oidc_wait", { state });
   const code = parseCallback(query, state);
+  return { provider: login.provider, code, verifier, redirectUri };
+};
+
+/**
+ * Logs in through a provider from the desktop Console: exchanges the proof from
+ * {@link authorizeDesktop} for a session and saves the session's token in the keychain.
+ * The code never reaches the Core's shared record, so other windows resume the saved
+ * session instead of spending the same code.
+ * @throws {Error} when the person does not finish within five minutes, the provider
+ * refuses, or the Core rejects the code.
+ */
+export const loginDesktop = async (
+  core: Pick<Session.Core.Core, "key" | "host" | "port" | "secure">,
+  login: auth.OIDCLogin,
+): Promise<void> => {
+  const credentials = await authorizeDesktop(login);
   const { token } = await auth.createSession(auth.createTokenlessClient(core), {
     method: "oidc",
-    provider: login.provider,
-    code,
-    verifier,
-    redirectUri,
+    ...credentials,
   });
   // recordLogin clears the username, so the session is saved under the account the
   // record has after it
   await writeToken({ ...core, username: "" }, token);
 };
 
+const purposeZ = z.enum(["login", "link"]);
+
+/**
+ * What a provider redirect finishes: a login replaces the session, and a link adds the
+ * account to the logged-in user.
+ */
+export type Purpose = z.infer<typeof purposeZ>;
+
 const pendingZ = z.object({
+  purpose: purposeZ,
   core: z.string(),
   provider: z.string(),
   verifier: z.string(),
@@ -129,16 +148,19 @@ const pendingZ = z.object({
  * Starts a login through a provider from the browser Console: saves the verifier for
  * the page load that follows, then leaves for the provider's login page. The provider
  * redirects back to the Console's own origin.
+ * @param purpose - What {@link completeBrowserLogin} reports for the redirect.
  * @throws {Error} when the browser cannot create the PKCE pair or save the login.
  */
 export const beginBrowserLogin = async (
   core: string,
   login: auth.OIDCLogin,
+  purpose: Purpose = "login",
 ): Promise<void> => {
   const { verifier, challenge } = await createPKCE();
   const state = randomString();
   const redirectUri = `${window.location.origin}/`;
   const pending: z.infer<typeof pendingZ> = {
+    purpose,
     core,
     provider: login.provider,
     verifier,
@@ -151,10 +173,17 @@ export const beginBrowserLogin = async (
 
 /** A browser login that returned from its provider. */
 export interface CompletedLogin {
+  purpose: Purpose;
   /** The key of the Core the login is for. */
   core: string;
   credentials: auth.OIDCCredentials;
 }
+
+/** The purpose of the browser login in progress, if any. */
+export const pendingPurpose = (): Purpose | undefined => {
+  const raw = sessionStorage.getItem(PENDING_KEY);
+  return raw == null ? undefined : pendingZ.parse(JSON.parse(raw)).purpose;
+};
 
 /**
  * Finishes a browser login on the page load the provider redirected to. Removes the
@@ -172,6 +201,7 @@ export const completeBrowserLogin = (): CompletedLogin | undefined => {
   const pending = pendingZ.parse(JSON.parse(raw));
   const code = parseCallback(search, pending.state);
   return {
+    purpose: pending.purpose,
     core: pending.core,
     credentials: {
       provider: pending.provider,
