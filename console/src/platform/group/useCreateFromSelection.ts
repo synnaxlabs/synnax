@@ -57,9 +57,13 @@ const beforeUpdate = async ({
   rollbacks.push(() => setNodes(prevNodes));
   const res: ontology.Resource = { key: newIDString, id: newID, name: "" };
   setResource(res);
-  const destination = ontology.idsEqual(selection.rootID, selection.parentID)
-    ? null
-    : ontology.idToString(selection.parentID);
+  // The new group shows where the selection shows. In flat search results, that is the
+  // top of the tree, while the real parent is a group.
+  const destination =
+    PTree.findNodeParent({
+      tree: nodes,
+      key: ontology.idToString(resourcesToGroup[0]),
+    })?.key ?? null;
   let nextNodes = PTree.setNode({
     tree: nodes,
     destination,

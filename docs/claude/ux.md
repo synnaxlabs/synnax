@@ -84,6 +84,17 @@ outlined button) has fill l2 and border l4, and its caret has the disabled text 
 - An icon-only button has a tooltip that names the action in a word ("Close"), then
   shows its keys.
 
+### Toolbar search
+
+- A search action in a resource toolbar header turns the title into a field. The search
+  glyph sits where the title icon was, and the term starts at the title text.
+- While the field is open, the header holds a toggle that shows the results in their
+  groups, and a close button. Esc or the close button ends the search, and the tree
+  comes back as it was.
+- In the flat layout, each match shows the name of its group at gray step 8. The start
+  of each word that the term matches takes the primary color.
+- At most 100 matches show. A closing line says when more exist.
+
 ### Keycaps
 
 - Tooltips and buttons show a shortcut as one chip: 18 px tall, a faint fill, a faint

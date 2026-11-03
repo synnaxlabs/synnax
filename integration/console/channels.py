@@ -23,6 +23,8 @@ class ChannelClient(ResourceClient):
     """
 
     ITEM_PREFIX = "channel:"
+    _HEADER = ".console-toolbar__header"
+    _SEARCH_FIELD = "input[placeholder='Search channels']"
 
     def __init__(
         self,
@@ -550,6 +552,31 @@ class ChannelClient(ResourceClient):
         """List all visible channels in the sidebar."""
         self.show_channels()
         return self.tree.list_names(self.ITEM_PREFIX)
+
+    def search(self, term: str) -> None:
+        """Open the search in the channels pane and type a term.
+
+        :param term: The search term.
+        """
+        self.show_channels()
+        field = self.layout.page.locator(self._SEARCH_FIELD)
+        if field.count() == 0:
+            self.layout.page.locator(
+                f"{self._HEADER} button:has(.lyra-icon--search)"
+            ).click()
+        field.fill(term)
+
+    def toggle_search_groups(self) -> None:
+        """Switch the search results between the flat and the groups layout."""
+        self.layout.page.locator(
+            f"{self._HEADER} button:has(.lyra-icon--tree-view)"
+        ).click()
+
+    def close_search(self) -> None:
+        """Close the search with Escape, which brings the tree back."""
+        field = self.layout.page.locator(self._SEARCH_FIELD)
+        field.press("Escape")
+        field.wait_for(state="detached", timeout=5000)
 
     def close_modal(self) -> None:
         """Close any open modal by clicking the close button."""

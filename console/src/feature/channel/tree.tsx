@@ -214,6 +214,7 @@ const Content = ({ resource, icon: _, ...rest }: Tree.ContentProps) => {
   const data = resource.data as channel.Payload;
   const DataTypeIcon = PChannel.resolveIcon(data);
   const statusVariant = status.keepVariants(chStatus?.variant, ["error", "warning"]);
+  const highlight = Tree.useHighlight();
   return (
     <PTree.Item {...rest}>
       <DataTypeIcon color={10} />
@@ -226,7 +227,9 @@ const Content = ({ resource, icon: _, ...rest }: Tree.ContentProps) => {
         grow
         disabled={!allowRename(resource)}
         onChange
+        highlight={highlight}
       />
+      <Tree.MatchGroup id={resource.id} />
       {statusVariant != null && (
         <Tooltip.Dialog location="right">
           <Status.Summary variant={statusVariant} hideIcon level="small" weight={450}>

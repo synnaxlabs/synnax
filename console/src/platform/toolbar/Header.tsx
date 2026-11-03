@@ -62,3 +62,23 @@ export const Action = ({ className, ...rest }: ActionProps): ReactElement => (
     {...rest}
   />
 );
+
+export interface ToggleActionProps extends Omit<
+  Button.ToggleProps,
+  "variant" | "textColor"
+> {}
+
+/** An {@link Action} that holds an on or off state, shown as selected when on. */
+export const ToggleAction = ({
+  className,
+  ...rest
+}: ToggleActionProps): ReactElement => (
+  <Button.Toggle
+    size="small"
+    rounded="small"
+    variant="text"
+    textColor={9}
+    className={CSS.cls(CSS.BE("toolbar", "action"), className)}
+    {...rest}
+  />
+);

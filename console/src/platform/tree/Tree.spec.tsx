@@ -7,10 +7,11 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { group, ontology, type Synnax as Client } from "@synnaxlabs/client";
+import { group, ontology, ranger, type Synnax as Client } from "@synnaxlabs/client";
 import { createTestClient, RoleClients } from "@synnaxlabs/client/testutil";
 import { Haul } from "@synnaxlabs/lyra/haul";
 import { Tree as PTree } from "@synnaxlabs/lyra/tree";
+import { TimeRange, TimeStamp } from "@synnaxlabs/x";
 import { act, fireEvent, render, screen, waitFor } from "@testing-library/react";
 import {
   type PropsWithChildren,
@@ -25,13 +26,17 @@ import {
   expandTreeRow,
   findTreeRow,
   getTreeRow,
+  itemName,
   renderOntologyTree,
+  searchTree,
 } from "@/platform/tree/testutil";
 import {
   awaitTextEditingElement,
   awaitTextEditingExit,
   createConsoleWrapper,
+  getIconButton,
   uniqueName,
+  uniqueToken,
   withControlHeld,
 } from "@/testutil";
 
@@ -870,5 +875,181 @@ describe("Tree.Tree", () => {
         ).toBeTruthy();
       });
     });
+  });
+});
+
+const useGroupSearch = Tree.createSearch({ noun: "groups" });
+
+const renderSearchable = async (
+  root: ontology.ID,
+  search: Tree.UseSearch = useGroupSearch,
+) => await renderOntologyTree({ client, root, search });
+
+const hiddenTrees = (): number =>
+  document.querySelectorAll(".lyra-tree.console-tree--hidden").length;
+
+interface SearchTree {
+  root: ontology.ID;
+  tok: string;
+  names: Record<
+    "alpha" | "bravo" | "charlie" | "delta" | "echo" | "golf" | "hotel",
+    string
+  >;
+}
+
+// root > alpha > {bravo > {charlie, hotel}, golf}, root > delta, root > echo. Only
+// alpha, charlie, and delta match the token.
+const createSearchTree = async (): Promise<SearchTree> => {
+  const tok = uniqueToken();
+  const names = {
+    alpha: `${tok} alpha`,
+    bravo: uniqueName("bravo"),
+    charlie: `${tok} charlie`,
+    delta: `${tok} delta`,
+    echo: uniqueName("echo"),
+    golf: uniqueName("golf"),
+    hotel: uniqueName("hotel"),
+  };
+  const root = await client.groups.create({
+    parent: ontology.ROOT_ID,
+    name: uniqueName("root"),
+  });
+  const rootID = group.ontologyID(root.key);
+  const alpha = await client.groups.create({ parent: rootID, name: names.alpha });
+  const alphaID = group.ontologyID(alpha.key);
+  const bravo = await client.groups.create({ parent: alphaID, name: names.bravo });
+  const bravoID = group.ontologyID(bravo.key);
+  await client.groups.create({ parent: bravoID, name: names.charlie });
+  await client.groups.create({ parent: bravoID, name: names.hotel });
+  await client.groups.create({ parent: alphaID, name: names.golf });
+  await client.groups.create({ parent: rootID, name: names.delta });
+  await client.groups.create({ parent: rootID, name: names.echo });
+  return { root: rootID, tok, names };
+};
+
+describe("Tree.Tree search", () => {
+  it("should show each match with its group and hide the tree", async () => {
+    const { root, tok, names } = await createSearchTree();
+    await renderSearchable(root);
+    await findTreeRow(names.echo);
+    searchTree(tok);
+    const charlie = await findTreeRow(itemName(names.charlie));
+    expect(charlie.textContent).toContain(names.bravo);
+    expect(charlie.querySelector("mark")?.textContent).toBe(tok);
+    await findTreeRow(itemName(names.alpha));
+    await findTreeRow(itemName(names.delta));
+    expect(hiddenTrees()).toBe(1);
+    const results = document.querySelector(".lyra-tree:not(.console-tree--hidden)");
+    expect(results?.textContent).not.toContain(names.echo);
+  });
+
+  it("should find the resources of the given types with the groups", async () => {
+    const { root, tok, names } = await createSearchTree();
+    const range = await client.ranges.create({
+      name: `${tok} foxtrot`,
+      timeRange: new TimeRange(TimeStamp.seconds(1), TimeStamp.seconds(2)),
+    });
+    await client.ontology.addChildren(root, ranger.ontologyID(range.key));
+    await renderSearchable(
+      root,
+      Tree.createSearch({ noun: "things", types: ["range"] }),
+    );
+    searchTree(tok);
+    await findTreeRow(itemName(range.name));
+    await findTreeRow(itemName(names.charlie));
+  });
+
+  it("should show the matches inside their groups", async () => {
+    const { root, tok, names } = await createSearchTree();
+    await renderSearchable(root);
+    searchTree(tok);
+    await findTreeRow(itemName(names.charlie));
+    fireEvent.click(getIconButton(document.body, "tree-view"));
+    const bravo = await findTreeRow(names.bravo);
+    const charlie = await findTreeRow(itemName(names.charlie));
+    expect(Number(charlie.getAttribute("aria-level"))).toBe(
+      Number(bravo.getAttribute("aria-level")) + 1,
+    );
+    expect(charlie.textContent).not.toContain(names.bravo);
+  });
+
+  it("should show every child of a matched group, and only the matches of the rest", async () => {
+    const { root, tok, names } = await createSearchTree();
+    await renderSearchable(root);
+    searchTree(tok);
+    await findTreeRow(itemName(names.charlie));
+    fireEvent.click(getIconButton(document.body, "tree-view"));
+    expect(await findTreeRow(names.golf)).toBeTruthy();
+    expect(
+      screen.queryByText(names.hotel, { ignore: ".console-tree--hidden *" }),
+    ).toBeNull();
+  });
+
+  it("should bring the tree back as it was when the search closes", async () => {
+    const { root, tok, names } = await createSearchTree();
+    await renderSearchable(root);
+    await findTreeRow(names.alpha);
+    expandTreeRow(names.alpha);
+    await findTreeRow(names.bravo);
+    searchTree(tok);
+    await findTreeRow(itemName(names.charlie));
+    fireEvent.keyDown(screen.getByPlaceholderText("Search groups"), { key: "Escape" });
+    await waitFor(() => expect(hiddenTrees()).toBe(0));
+    expect(getTreeRow(names.bravo)).toBeTruthy();
+    expect(screen.queryByPlaceholderText("Search groups")).toBeNull();
+  });
+
+  it("should show a message when nothing matches", async () => {
+    const { root } = await createSearchTree();
+    await renderSearchable(root);
+    const term = uniqueToken();
+    searchTree(term);
+    expect(await screen.findByText(`No groups match “${term}”`)).toBeTruthy();
+  });
+
+  it("should show a new match as it arrives", async () => {
+    const { root, tok, names } = await createSearchTree();
+    await renderSearchable(root);
+    searchTree(tok);
+    await findTreeRow(itemName(names.delta));
+    const late = `${tok} foxtrot`;
+    await client.groups.create({ parent: root, name: late });
+    await findTreeRow(itemName(late));
+  });
+
+  it("should show at most 100 matches and say that more exist", async () => {
+    const tok = uniqueToken();
+    const container = await client.groups.create({
+      parent: ontology.ROOT_ID,
+      name: uniqueName("many"),
+    });
+    const root = group.ontologyID(container.key);
+    await Promise.all(
+      Array.from(
+        { length: 101 },
+        async (_, i) =>
+          await client.groups.create({ parent: root, name: `${tok} ${i}` }),
+      ),
+    );
+    await renderSearchable(root);
+    searchTree(tok);
+    expect(
+      await screen.findByText(
+        "Showing the first 100 matches. Type more to narrow the search.",
+      ),
+    ).toBeTruthy();
+  });
+
+  it("should show a status when the search fails", async () => {
+    const failing = Tree.createSearch({
+      noun: "things",
+      useMatches: () => [{ variant: "error", description: "the index is gone" }],
+    });
+    const { root, tok } = await createSearchTree();
+    await renderSearchable(root, failing);
+    searchTree(tok);
+    expect(await screen.findByText("Failed to search things")).toBeTruthy();
+    expect(screen.getByText("the index is gone")).toBeTruthy();
+    expect(hiddenTrees()).toBe(1);
   });
 });
