@@ -27,8 +27,6 @@
     "console/src/feature/core/Badge.css": ["lyra-btn"],
     "console/src/feature/embedded/Guard.css": ["lyra-orbital"],
     "console/src/feature/http/device/Connect.css": [
-      "lyra--direction-y",
-      "lyra-form-sections",
       "lyra-tabs__content",
       "lyra-tabs__selector"
     ],
@@ -38,10 +36,6 @@
     "console/src/feature/ni/task/DigitalChannelList.css": [
       "lyra--selected",
       "lyra-list__item"
-    ],
-    "console/src/feature/opcua/device/Connect.css": [
-      "lyra--direction-y",
-      "lyra-form-sections"
     ],
     "console/src/feature/opcua/task/Task.css": ["lyra-header"],
     "console/src/feature/panel/Mosaic.css": [

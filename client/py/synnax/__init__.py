@@ -12,8 +12,11 @@ from importlib.metadata import version as _version
 from synnax import (
     ethercat,
     http,
+    kafka,
     labjack,
     license,
+    lineplot,
+    log,
     modbus,
     mqtt,
     ni,
@@ -70,12 +73,18 @@ from synnax.framer import (
     WriterClosed,
     WriterMode,
 )
+from synnax.label import Label
+from synnax.lineplot import LinePlot
+from synnax.log import Log
 from synnax.options import Options
+from synnax.panel import Panel
 from synnax.project import Project
 from synnax.rack import Rack
 from synnax.ranger import Range
+from synnax.schematic import Schematic
 from synnax.status import Status
 from synnax.synnax import Synnax
+from synnax.table import Table
 from synnax.task import Task
 from synnax.telem import (
     Aggregation,
@@ -87,6 +96,7 @@ from synnax.telem import (
     CrudeDataType,
     CrudeDensity,
     CrudeRate,
+    CrudeSeries,
     CrudeTimeSpan,
     CrudeTimeStamp,
     DataType,
@@ -95,6 +105,7 @@ from synnax.telem import (
     MultiSeries,
     Rate,
     Reduction,
+    SampleValue,
     Series,
     Size,
     StrideReduction,
@@ -135,6 +146,7 @@ __all__ = [
     "CrudeDataType",
     "CrudeDensity",
     "CrudeRate",
+    "CrudeSeries",
     "CrudeTimeSpan",
     "CrudeTimeStamp",
     "DataType",
@@ -152,17 +164,21 @@ __all__ = [
     "InvalidLicense",
     "InvalidToken",
     "Iterator",
+    "Label",
     "LicenseEditionMismatch",
     "LicenseError",
     "LicenseFingerprintMismatch",
     "LicenseLimitExceeded",
     "LimitReduction",
+    "LinePlot",
+    "Log",
     "Loop",
     "MissingLicense",
     "MultiSeries",
     "MultipleFoundError",
     "NotFoundError",
     "Options",
+    "Panel",
     "PathError",
     "Policy",
     "Position",
@@ -174,6 +190,8 @@ __all__ = [
     "Reduction",
     "Role",
     "RouteError",
+    "SampleValue",
+    "Schematic",
     "Series",
     "SessionEnded",
     "Size",
@@ -181,6 +199,7 @@ __all__ = [
     "Streamer",
     "StrideReduction",
     "Synnax",
+    "Table",
     "Task",
     "Text",
     "TimeRange",
@@ -202,8 +221,12 @@ __all__ = [
     "ethercat",
     "group",
     "http",
+    "kafka",
+    "label",
     "labjack",
     "license",
+    "lineplot",
+    "log",
     "modbus",
     "mqtt",
     "ni",

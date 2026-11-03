@@ -10,6 +10,7 @@
 import { type channel } from "@synnaxlabs/client";
 import { Text } from "@synnaxlabs/lyra/text";
 import { Tooltip } from "@synnaxlabs/lyra/tooltip";
+import { type deep } from "@synnaxlabs/x";
 import { type JSX, type ReactElement } from "react";
 
 import { Task } from "@/platform/task";
@@ -19,7 +20,7 @@ export interface DetailsTitleProps {
   port: { label: string; state: Task.Port.State; disabled: boolean } | null;
   type: { icon: JSX.Element; name: string };
   channel: channel.Key;
-  namePath: string;
+  namePath: deep.Target<string | undefined>;
   /** The name deploying the task gives a channel with no name. */
   defaultName?: string;
   model?: string;

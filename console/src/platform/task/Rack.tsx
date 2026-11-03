@@ -18,6 +18,7 @@ import { type ReactElement } from "react";
 
 import { CSS } from "@/platform/css";
 import { Errors } from "@/platform/errors";
+import { formPath } from "@/platform/task/types";
 
 interface ContentProps {
   rackKey: rack.Key;
@@ -41,7 +42,7 @@ const Content = ({ rackKey }: ContentProps): ReactElement => {
 };
 
 export const Rack = (): ReactElement | null => {
-  const rackKey = PForm.useFieldValue<rack.Key>("rack", { optional: true }) ?? 0;
+  const rackKey = PForm.useFieldValue(formPath.rack, { optional: true }) ?? 0;
   if (primitive.isZero(rackKey)) return null;
   return (
     <Errors.SuspenseBoundary>

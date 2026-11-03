@@ -13,7 +13,7 @@ import {
   type Next,
   type UnaryClient,
 } from "@synnaxlabs/freighter";
-import { errors, TimeStamp, url } from "@synnaxlabs/x";
+import { errors, TimeStamp, url, uuid } from "@synnaxlabs/x";
 import { z } from "zod";
 
 import {
@@ -65,6 +65,30 @@ const apiKeyZ = z.object({
 });
 /** APIKey is an API key as the API returns it: the stored record without its hash. */
 export interface APIKey extends z.infer<typeof apiKeyZ> {}
+
+const API_KEY_PREFIX = "syk_";
+/** An API key token holds the 16 bytes of the record key and a 32 byte secret. */
+const API_KEY_LENGTH = 48;
+
+/**
+ * Returns the key of the API key record that a token belongs to.
+ * @throws {InvalidTokenError} when the token is not an API key.
+ */
+export const apiKeyID = (token: string): APIKeyKey => {
+  if (!token.startsWith(API_KEY_PREFIX)) throw new InvalidTokenError("not an API key");
+  const body = token
+    .slice(API_KEY_PREFIX.length)
+    .replaceAll("-", "+")
+    .replaceAll("_", "/");
+  let raw: Uint8Array;
+  try {
+    raw = Uint8Array.from(atob(body), (c) => c.charCodeAt(0));
+  } catch {
+    throw new InvalidTokenError("malformed API key");
+  }
+  if (raw.length !== API_KEY_LENGTH) throw new InvalidTokenError("malformed API key");
+  return uuid.parse(raw);
+};
 
 export interface NewAPIKey {
   /** The user or rack the key logs in as. Defaults to the caller. */
