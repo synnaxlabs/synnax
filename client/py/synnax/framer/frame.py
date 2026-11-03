@@ -337,11 +337,12 @@ def _sample_times(series: MultiSeries, index: MultiSeries) -> npt.NDArray[np.int
     than its index, so samples match index samples by alignment.
     """
     stamps = index.to_numpy()
-    if len(series) == len(index):
-        return stamps
     alignments = _alignments(series)
+    index_alignments = _alignments(index)
+    if np.array_equal(alignments, index_alignments):
+        return stamps
     shared, _, positions = np.intersect1d(
-        alignments, _alignments(index), return_indices=True
+        alignments, index_alignments, return_indices=True
     )
     if len(shared) != len(alignments):
         raise ValueError("A channel has samples at alignments its index does not hold.")

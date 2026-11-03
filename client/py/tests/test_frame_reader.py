@@ -243,6 +243,32 @@ class TestReader:
         assert df[partial.name].isna().sum() == 15
         assert df[partial.name].dropna().tolist() == [0.0, 1.0, 2.0, 3.0, 4.0]
 
+    def test_read_limited_text_to_df(self, client: sy.Synnax) -> None:
+        """Should not index text by time, as a limit reduces only its timestamps."""
+        idx_ch = _create_index(client)
+        text = client.channels.create(
+            name=f"test_{random_name()}_text",
+            index=idx_ch.key,
+            data_type=sy.DataType.STRING,
+        )
+        with client.open_writer(
+            start=1 * sy.TimeSpan.SECOND, channels=[idx_ch.key, text.key]
+        ) as w:
+            w.write(
+                {
+                    idx_ch.key: seconds_linspace(1, count=10),
+                    text.key: [str(i) for i in range(10)],
+                }
+            )
+            w.commit()
+        fr = client.read(
+            sy.TimeRange.MAX,
+            [text.key],
+            reduction=sy.LimitReduction(aggregation="decimate", point_limit=5),
+        )
+        assert fr.channels == [text.key]
+        assert len(fr.to_df()) == 10
+
     def test_read_requested_index_once(
         self, written_pair: tuple[sy.Channel, sy.Channel], client: sy.Synnax
     ) -> None:

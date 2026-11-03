@@ -199,6 +199,24 @@ class TestFrameToDF:
         f.indexes = {1: 1, 2: 1}
         assert f.to_df()["dog"].dropna().index.astype("int64").tolist() == [3]
 
+    def test_equal_lengths_at_other_alignments(self) -> None:
+        """Should fail when equal length series are at different alignments."""
+        stamps = sy.Series(
+            [18, 19, 20],
+            data_type=sy.DataType.TIMESTAMP,
+            alignment=sy.Alignment(0, 17),
+        )
+        data = sy.Series(
+            [1.5, 2.5, 3.5],
+            data_type=sy.DataType.FLOAT64,
+            alignment=sy.Alignment(0, 0),
+        )
+        f = sy.Frame({1: stamps, 2: data})
+        f.names = {1: "time", 2: "dog"}
+        f.indexes = {1: 1, 2: 1}
+        with pytest.raises(ValueError, match="alignments"):
+            f.to_df()
+
     def test_alignment_outside_index(self) -> None:
         """Should fail when a channel has a sample its index does not hold."""
         stamps = sy.Series(

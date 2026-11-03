@@ -24,6 +24,7 @@ from synnax.telem import CrudeSeries, DataType, LimitReduction, Reduction, Serie
 
 class ReadFrameAdapter:
     _aligned: bool
+    _limited: bool
     _timestamps_included: bool
     _by_name: bool
     _names: dict[channel.Key, str]
@@ -51,6 +52,7 @@ class ReadFrameAdapter:
         self._aligned = not (
             isinstance(reduction, LimitReduction) and reduction.aggregation == "min_max"
         )
+        self._limited = isinstance(reduction, LimitReduction)
         self._timestamps_included = timestamps_included and self._aligned
         self._by_name = False
         self._names = {}
@@ -75,7 +77,7 @@ class ReadFrameAdapter:
         self._indexes = {
             ch.key: ch.key if ch.is_index else ch.index
             for ch in fetched
-            if self._aligned and (ch.is_index or ch.index != 0)
+            if self._time_indexed(ch) and (ch.is_index or ch.index != 0)
         }
         self._by_name = isinstance(normal, channel.NormalizedNameResult)
         if isinstance(normal, channel.NormalizedKeyResult):
@@ -93,6 +95,10 @@ class ReadFrameAdapter:
             if key in self._names:
                 self._rank.setdefault(self._names[key], i)
 
+    def _time_indexed(self, ch: channel.Payload) -> bool:
+        # A limit reduces the index but keeps every sample of a non-numeric channel.
+        return self._aligned and not (self._limited and not ch.data_type.has_np)
+
     def _retrieve_missing_indexes(
         self, fetched: list[channel.Payload]
     ) -> list[channel.Payload]:
@@ -100,7 +106,7 @@ class ReadFrameAdapter:
         missing = {
             ch.index: None
             for ch in fetched
-            if ch.index != 0 and ch.index not in present
+            if self._time_indexed(ch) and ch.index != 0 and ch.index not in present
         }
         if len(missing) == 0:
             return []
