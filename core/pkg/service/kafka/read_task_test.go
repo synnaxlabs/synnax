@@ -486,6 +486,59 @@ var _ = Describe("Read task", func() {
 		},
 	)
 
+	It("Should report a record skipped in the first poll after reconnecting",
+		func(ctx SpecContext) {
+			dir := GinkgoT().TempDir()
+			first := MustSucceed(kfake.NewCluster(
+				kfake.NumBrokers(1),
+				kfake.DataDir(dir),
+			))
+			DeferCleanup(first.Close)
+			addr := first.ListenAddrs()[0]
+			index, data := createIndexed(ctx, telem.Float64T)
+			dev := createDevice(ctx, kafka.Properties{Brokers: []string{addr}})
+			topic := uniqueTopic()
+			Expect(first.CreateTopic(topic, 1, nil)).To(Succeed())
+			dt, t := configure(ctx, kafka.ReadConfig{
+				Device:  dev.Key,
+				Topic:   topic,
+				Records: single(stampedFields(index, data)),
+			})
+			start(ctx, dt, t)
+			produce := func(doc map[string]any) {
+				GinkgoHelper()
+				pr := MustSucceed(kgo.NewClient(kgo.SeedBrokers(addr)))
+				defer pr.Close()
+				produceJSON(ctx, pr, topic, "", doc)
+			}
+			// The same skip before the drop must not hide the one after it.
+			produce(map[string]any{"ts": 5e9})
+			Eventually(func() string { return taskStatus(ctx, t).Message }).
+				WithTimeout(15 * time.Second).Should(Equal("Skipped record"))
+			first.Close()
+			Eventually(func() string { return taskStatus(ctx, t).Message }).
+				WithTimeout(15 * time.Second).
+				Should(Equal("Lost connection to cluster"))
+			_, port := MustSucceed2(net.SplitHostPort(addr))
+			second := MustSucceed(kfake.NewCluster(
+				kfake.Ports(MustSucceed(strconv.Atoi(port))),
+				kfake.DataDir(dir),
+			))
+			DeferCleanup(second.Close)
+			produce(map[string]any{"ts": 11e9})
+			produce(map[string]any{"ts": 12e9, "v": 1.0})
+			Expect(floats(expectStored(ctx, data.Key(), 1))).To(Equal([]float64{1}))
+			// The rejoined group may replay the first skipped record too.
+			stat := taskStatus(ctx, t)
+			Expect(stat.Message).To(HavePrefix("Skipped"))
+			Expect(stat.Description).To(Equal("Record has no value at /v"))
+			Expect(stat.Variant).To(Equal(status.VariantError))
+			Expect(stat.Details.Running).To(BeTrue())
+			// The offsets commit on stop, which needs the cluster cleanup closes.
+			Expect(dt.Stop(false)).To(Succeed())
+		},
+	)
+
 	It("Should write one status for the records a poll skips", func(ctx SpecContext) {
 		index, data := createIndexed(ctx, telem.Float64T)
 		dev := createDevice(ctx, clusterProperties())
@@ -500,7 +553,9 @@ var _ = Describe("Read task", func() {
 			Topic:   topic,
 			Records: single(stampedFields(index, data)),
 		})
-		start(ctx, dt, t)
+		// The first poll can report the skips before the start status is read.
+		Expect(dt.Exec(ctx, task.Command{Task: t.Key, Type: "start", Key: "cmd-2"})).
+			To(Succeed())
 		Eventually(func() string { return taskStatus(ctx, t).Message }).
 			WithTimeout(15 * time.Second).Should(Equal("Skipped 3 records"))
 		Expect(taskStatus(ctx, t).Description).To(Equal("Record has no value at /v"))

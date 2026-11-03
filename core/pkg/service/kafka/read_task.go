@@ -565,8 +565,11 @@ func (t *readTask) consume(ctx context.Context) error {
 			)
 			return fatal
 		}
+		// A connection status replaces the last skip, so the next skip is reported
+		// again. Recovery is reported before the batch, so a skip in it stays visible.
 		if transient != nil && !t.disconnected {
 			t.disconnected = true
+			t.lastSkip = ""
 			t.setStatus(
 				ctx,
 				driver.NoCommand,
@@ -574,6 +577,18 @@ func (t *readTask) consume(ctx context.Context) error {
 				true,
 				"Lost connection to cluster",
 				transient.Error()+". The task retries until the cluster is reachable.",
+			)
+		}
+		if transient == nil && t.disconnected && fetches.NumRecords() > 0 {
+			t.disconnected = false
+			t.lastSkip = ""
+			t.setStatus(
+				ctx,
+				driver.NoCommand,
+				status.VariantSuccess,
+				true,
+				"Reconnected to cluster",
+				"",
 			)
 		}
 		if err := t.process(ctx, fetches); err != nil {
@@ -586,17 +601,6 @@ func (t *readTask) consume(ctx context.Context) error {
 				err.Error(),
 			)
 			return err
-		}
-		if transient == nil && t.disconnected && fetches.NumRecords() > 0 {
-			t.disconnected = false
-			t.setStatus(
-				ctx,
-				driver.NoCommand,
-				status.VariantSuccess,
-				true,
-				"Reconnected to cluster",
-				"",
-			)
 		}
 	}
 }
