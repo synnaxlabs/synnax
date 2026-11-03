@@ -261,6 +261,22 @@ describe("lineplot/toolbar/Data", () => {
   });
 
   describe("static window", () => {
+    it("marks each tag with the stage of its window", async () => {
+      const now = TimeStamp.now();
+      const window = (start: TimeSpan, end: TimeSpan): ranger.Ref => ({
+        variant: "window",
+        window: staticWindow(new TimeRange(now.add(start), now.add(end))),
+      });
+      await renderData([
+        window(TimeSpan.hours(-2), TimeSpan.hours(-1)),
+        window(TimeSpan.hours(-1), TimeSpan.hours(1)),
+        window(TimeSpan.hours(1), TimeSpan.hours(2)),
+      ]);
+      expect(await screen.findByLabelText("Completed")).toBeDefined();
+      expect(screen.getByLabelText("In progress")).toBeDefined();
+      expect(screen.getByLabelText("To do")).toBeDefined();
+    });
+
     it("edits the start from its tag", async () => {
       const { key } = await renderData([fixed(14, 16)]);
       editTime("Start", "2026-08-23 15:00");

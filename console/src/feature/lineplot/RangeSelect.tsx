@@ -154,7 +154,7 @@ const StaticTag = ({
   };
   return (
     <Tag.Tag
-      icon={<Icon.Range />}
+      icon={<Ranger.StageIcon timeRange={{ start, end }} />}
       onClose={onSelect}
       level="small"
       size="small"
