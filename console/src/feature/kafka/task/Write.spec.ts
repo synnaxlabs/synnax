@@ -169,4 +169,42 @@ describe("Write", () => {
     );
     expect(created.config.channels[0].jsonType).toBe("string");
   });
+
+  it("should encode a timestamp channel by its time format on deploy", async () => {
+    const dev = await createKafkaDevice(client);
+    const ch = await client.channels.create({
+      name: uniqueName("kafka_time"),
+      dataType: "timestamp",
+      isIndex: true,
+    });
+    const draft = await createDraft(client, {
+      ...Kafka.Task.WRITE_SCHEMAS.config.parse({}),
+      device: dev.key,
+      topic: "samples",
+      channels: [
+        {
+          ...kafka.writeChannelZ.parse({}),
+          key: "c1",
+          channel: ch.key,
+          jsonType: "string",
+          timeFormat: "unix_ns",
+          enumValues: [{ label: "ON", value: 1 }],
+        },
+      ],
+    });
+    const { container } = await renderWrite({ client, taskKey: draft.key });
+    await screen.findByText(dev.name);
+    fireEvent.click((await screen.findAllByText(ch.name))[0]);
+    await screen.findByText("Time format");
+    expect(screen.queryByText("JSON type")).toBeNull();
+    expect(screen.queryByText("Enum mapping")).toBeNull();
+    const created = await deployAndAwaitTask(
+      client,
+      container,
+      draft.key,
+      Kafka.Task.WRITE_SCHEMAS,
+    );
+    expect(created.config.channels[0].jsonType).toBe("number");
+    expect(created.config.channels[0].enumValues).toEqual([]);
+  });
 });

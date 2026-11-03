@@ -193,16 +193,16 @@ const ChannelDetails = ({ path }: Task.Views.DetailsProps<WriteChannel>) => {
   const query = primitive.isNonZero(key) ? { key } : null;
   const { data: dataType } = PChannel.useResultDataType(query);
   const isTimestamp = dataType != null && DataType.TIMESTAMP.equals(dataType);
-  // A string, JSON, or UUID channel always goes out as a string, so it has no JSON
-  // type.
-  const stringOnly = dataType != null && isString(dataType);
+  // A string, JSON, or UUID channel always goes out as a string, and the time format
+  // alone encodes a timestamp channel, so neither has a JSON type.
+  const typed = dataType != null && !isString(dataType) && !isTimestamp;
   return (
     <PForm.Sections className={CSS.B("kafka-details")}>
       <PForm.Section title="Channel">
         <PForm.Field path={path.channel} label="Channel" required>
           {renderSelectChannel}
         </PForm.Field>
-        {!stringOnly && (
+        {typed && (
           <PForm.Field path={path.jsonType} label="JSON type" padHelpText={false}>
             {renderSelectJSONType}
           </PForm.Field>
@@ -211,7 +211,7 @@ const ChannelDetails = ({ path }: Task.Views.DetailsProps<WriteChannel>) => {
           <Task.Payload.TimeFormatField path={path.timeFormat} label="Time format" />
         )}
       </PForm.Section>
-      {jsonType === "string" && !stringOnly && (
+      {jsonType === "string" && typed && (
         <Task.Payload.EnumMappingSection path={path.enumValues} valueFirst />
       )}
     </PForm.Sections>
@@ -269,8 +269,9 @@ const getInitialValues: Task.GetInitialValues<WriteSchemas> = ({
 
 /**
  * A cleared pointer is omitted from the record instead of placed at "". A string,
- * JSON, or UUID channel goes out as a string, whatever JSON type the form holds.
- * Disabled rows are left alone, so a deleted channel on one cannot block the deploy.
+ * JSON, or UUID channel goes out as a string, and a timestamp channel by its time
+ * format, whatever JSON type the form holds. Disabled rows are left alone, so a
+ * deleted channel on one cannot block the deploy.
  */
 const onConfigure: Task.OnConfigure<WriteSchemas["config"]> = async (
   client,
@@ -287,8 +288,15 @@ const onConfigure: Task.OnConfigure<WriteSchemas["config"]> = async (
       .filter((k) => k !== 0),
   );
   const stringOnly = new Set(chs.filter((c) => isString(c.dataType)).map((c) => c.key));
+  const timestamps = new Set(
+    chs.filter((c) => DataType.TIMESTAMP.equals(c.dataType)).map((c) => c.key),
+  );
   config.channels.forEach((c) => {
     if (stringOnly.has(c.channel)) c.jsonType = "string";
+    if (timestamps.has(c.channel)) {
+      c.jsonType = "number";
+      c.enumValues = [];
+    }
   });
   if (config.record.channelPointer === "") delete config.record.channelPointer;
   if (config.record.timestampPointer === "") delete config.record.timestampPointer;

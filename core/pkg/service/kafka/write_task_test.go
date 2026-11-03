@@ -492,5 +492,29 @@ var _ = Describe("Write task", func() {
 					Channels: []kafka.WriteChannel{{Key: "c1", Channel: data.Key()}},
 				}
 			}, "time_format"),
+		Entry("timestamp channel with a JSON type",
+			func(data channel.Channel) kafka.WriteConfig {
+				return kafka.WriteConfig{
+					Topic: "t",
+					Channels: []kafka.WriteChannel{{
+						Key:        "c1",
+						Channel:    data.Key(),
+						TimeFormat: &unixMs,
+						JSONType:   http.JSONTypeString,
+					}},
+				}
+			}, "time_format alone encodes"),
+		Entry("timestamp channel with enum values",
+			func(data channel.Channel) kafka.WriteConfig {
+				return kafka.WriteConfig{
+					Topic: "t",
+					Channels: []kafka.WriteChannel{{
+						Key:        "c1",
+						Channel:    data.Key(),
+						TimeFormat: &unixMs,
+						EnumValues: onOff,
+					}},
+				}
+			}, "time_format alone encodes"),
 	)
 })

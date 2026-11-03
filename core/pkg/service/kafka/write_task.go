@@ -119,12 +119,21 @@ func (f *factory) configureWrite(
 			continue
 		}
 		ch := channels[wc.Channel]
-		if ch.DataType == telem.TimestampT && wc.TimeFormat == nil {
-			return nil, errors.Wrapf(
-				validate.ErrValidation,
-				"channel %q: time_format is required for timestamp channel %s",
-				wc.Key, ch.Name,
-			)
+		if ch.DataType == telem.TimestampT {
+			if wc.TimeFormat == nil {
+				return nil, errors.Wrapf(
+					validate.ErrValidation,
+					"channel %q: time_format is required for timestamp channel %s",
+					wc.Key, ch.Name,
+				)
+			}
+			if wc.JSONType != http.JSONTypeNumber || len(wc.EnumValues) > 0 {
+				return nil, errors.Wrapf(
+					validate.ErrValidation,
+					"channel %q: time_format alone encodes timestamp channel %s",
+					wc.Key, ch.Name,
+				)
+			}
 		}
 		wt.channels[wc.Channel] = writeChannel{cfg: wc, ch: ch}
 		for _, k := range []channel.Key{ch.Key(), ch.Index()} {

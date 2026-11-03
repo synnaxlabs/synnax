@@ -219,7 +219,9 @@ func decodeValue(raw jsontext.Value) (any, error) {
 		return string(s), err
 	default:
 		var v any
-		err := json.Unmarshal(raw, &v, preciseNumbers)
-		return v, err
+		if err := json.Unmarshal(raw, &v, preciseNumbers); err != nil {
+			return nil, err
+		}
+		return v, nil
 	}
 }
