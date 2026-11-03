@@ -86,6 +86,8 @@ def _span_nanoseconds(value: CrudeTimeSpan) -> int:
         return _timedelta_nanoseconds(value)
     if isinstance(value, np.timedelta64):
         return _timedelta64_nanoseconds(value)
+    if isinstance(value, Rate):
+        return int(value.period)
     if isinstance(value, (int, float, np.integer, np.floating)):
         return int(value)
     raise TypeError(f"Cannot convert {type(value)} to TimeSpan")
@@ -317,6 +319,7 @@ class TimeSpan(int):
     * timedelta - The duration of the timedelta.
     * pands.timedelta - The duration of the timedelta.
     * np.timedelta64 - The duration of the timedelta64.
+    * Rate - The period of the rate, so 2 Hz is 500 milliseconds.
     * str - Parses a decimal string of nanoseconds.
     """
 
@@ -1364,7 +1367,7 @@ CrudeTimeStamp: TypeAlias = (
     int | TimeStamp | TimeSpan | datetime | timedelta | np.datetime64 | np.int64 | str
 )
 CrudeTimeSpan: TypeAlias = (
-    int | float | TimeSpan | TimeStamp | timedelta | np.timedelta64 | str
+    int | float | TimeSpan | TimeStamp | Rate | timedelta | np.timedelta64 | str
 )
 _ComparableTimeSpan: TypeAlias = int | float | timedelta
 CrudeRate: TypeAlias = int | float | np.integer | np.floating | TimeSpan | Rate
