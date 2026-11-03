@@ -208,7 +208,7 @@ export const DateTimeField = buildDateTimeField({ inputProps: {} });
 export interface TimeSpanFieldProps extends BuiltFieldProps<
   number | undefined,
   number | undefined,
-  Input.TimeSpanProps
+  Omit<Input.TimeSpanProps, "unit" | "inline" | "check" | "onClear">
 > {
   /** The unit of the stored number, and of a number typed alone. */
   unit: TimeSpan;
@@ -244,8 +244,8 @@ export const TimeSpanField = ({
       {({ value, onChange, ...p }) => (
         <Input.TimeSpan
           {...p}
-          inline
           {...inputProps}
+          inline
           unit={unit}
           value={value == null ? undefined : Number(unit.mult(value).valueOf())}
           onChange={(ns) => onChange(ns / Number(unit.valueOf()))}
