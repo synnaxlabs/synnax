@@ -874,6 +874,61 @@ TEST(StableForSampleTimeTest, EmitsOnTheChangingSampleWhenTheDurationIsZero) {
     EXPECT_EQ(t.output_stamps(), std::vector<int64_t>{t.ms(2)});
 }
 
+// A virtual channel has no index, so the runtime stamps each batch at the cycle that
+// reads it, 1ns apart inside the batch.
+TEST(StableForCycleStampedTest, DoesNotCloseInsideOneBatch) {
+    SampleTime t;
+    t.ingest({1, 1, 1}, {t.ms(0), 1, 2});
+    EXPECT_FALSE(t.next());
+}
+
+TEST(StableForCycleStampedTest, ClosesOnTheFirstBatchStampedAWindowLater) {
+    SampleTime t;
+    t.ingest({1, 1, 1}, {t.ms(0), 1, 2});
+    EXPECT_FALSE(t.next());
+    t.ingest({1, 1}, {t.ms(5), t.ms(5) + 1});
+    EXPECT_FALSE(t.next());
+    t.ingest({1, 1}, {t.ms(10), t.ms(10) + 1});
+    EXPECT_TRUE(t.next());
+    EXPECT_EQ(t.outputs(), std::vector<uint8_t>{1});
+    EXPECT_EQ(t.output_stamps(), std::vector<int64_t>{t.ms(10)});
+    t.ingest({1}, {t.ms(15)});
+    EXPECT_FALSE(t.next());
+}
+
+TEST(StableForCycleStampedTest, EmitsEachValueItsOwnBatchConfirmsAcrossManyBatches) {
+    SampleTime t;
+    t.ingest({1, 1}, {t.ms(0), 1});
+    EXPECT_FALSE(t.next());
+    t.ingest({1, 2, 2}, {t.ms(10), t.ms(10) + 1, t.ms(10) + 2});
+    EXPECT_TRUE(t.next());
+    EXPECT_EQ(t.outputs(), std::vector<uint8_t>{1});
+    EXPECT_EQ(t.output_stamps(), std::vector<int64_t>{t.ms(10)});
+    t.ingest({2}, {t.ms(15)});
+    EXPECT_FALSE(t.next());
+    t.ingest({2, 1}, {t.ms(21), t.ms(21) + 1});
+    EXPECT_TRUE(t.next());
+    EXPECT_EQ(t.outputs(), std::vector<uint8_t>{2});
+    EXPECT_EQ(t.output_stamps(), std::vector<int64_t>{t.ms(21)});
+    t.ingest({1, 1}, {t.ms(32), t.ms(32) + 1});
+    EXPECT_TRUE(t.next());
+    EXPECT_EQ(t.outputs(), std::vector<uint8_t>{1});
+    EXPECT_EQ(t.output_stamps(), std::vector<int64_t>{t.ms(32)});
+}
+
+TEST(StableForCycleStampedTest, DoesNotCloseAcrossAChangeInsideAnEarlierBatch) {
+    SampleTime t;
+    t.ingest({1}, {t.ms(0)});
+    EXPECT_FALSE(t.next());
+    t.ingest({2, 1}, {t.ms(5), t.ms(5) + 1});
+    EXPECT_FALSE(t.next());
+    t.ingest({1}, {t.ms(12)});
+    EXPECT_FALSE(t.next());
+    t.ingest({1, 1}, {t.ms(16), t.ms(16) + 1});
+    EXPECT_TRUE(t.next());
+    EXPECT_EQ(t.output_stamps(), std::vector<int64_t>{t.ms(16)});
+}
+
 struct TypePreservationCase {
     types::Kind kind;
     x::telem::DataType dt;

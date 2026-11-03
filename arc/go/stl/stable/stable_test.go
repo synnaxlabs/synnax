@@ -1202,6 +1202,69 @@ var _ = Describe("Sample-time window", func() {
 		},
 	)
 
+	// A virtual channel has no index, so the runtime stamps each batch at the cycle
+	// that reads it, 1ns apart inside the batch.
+	Describe("Cycle-stamped batches", func() {
+		ns := func(v int) telem.TimeStamp { return telem.TimeStamp(v) }
+
+		It("Should not close inside one batch", func(ctx SpecContext) {
+			ingest([]uint8{1, 1, 1}, []telem.TimeStamp{ms(0), ns(1), ns(2)})
+			Expect(next(ctx)).To(BeFalse())
+		})
+
+		It("Should close on the first batch stamped a window later",
+			func(ctx SpecContext) {
+				ingest([]uint8{1, 1, 1}, []telem.TimeStamp{ms(0), ns(1), ns(2)})
+				Expect(next(ctx)).To(BeFalse())
+				ingest([]uint8{1, 1}, []telem.TimeStamp{ms(5), ms(5) + ns(1)})
+				Expect(next(ctx)).To(BeFalse())
+				ingest([]uint8{1, 1}, []telem.TimeStamp{ms(10), ms(10) + ns(1)})
+				Expect(next(ctx)).To(BeTrue())
+				Expect(outputs()).To(Equal([]uint8{1}))
+				Expect(outputStamps()).To(Equal([]telem.TimeStamp{ms(10)}))
+				ingest([]uint8{1}, []telem.TimeStamp{ms(15)})
+				Expect(next(ctx)).To(BeFalse())
+			},
+		)
+
+		It("Should emit each value its own batch confirms across many batches",
+			func(ctx SpecContext) {
+				ingest([]uint8{1, 1}, []telem.TimeStamp{ms(0), ns(1)})
+				Expect(next(ctx)).To(BeFalse())
+				ingest([]uint8{1, 2, 2}, []telem.TimeStamp{
+					ms(10), ms(10) + ns(1), ms(10) + ns(2),
+				})
+				Expect(next(ctx)).To(BeTrue())
+				Expect(outputs()).To(Equal([]uint8{1}))
+				Expect(outputStamps()).To(Equal([]telem.TimeStamp{ms(10)}))
+				ingest([]uint8{2}, []telem.TimeStamp{ms(15)})
+				Expect(next(ctx)).To(BeFalse())
+				ingest([]uint8{2, 1}, []telem.TimeStamp{ms(21), ms(21) + ns(1)})
+				Expect(next(ctx)).To(BeTrue())
+				Expect(outputs()).To(Equal([]uint8{2}))
+				Expect(outputStamps()).To(Equal([]telem.TimeStamp{ms(21)}))
+				ingest([]uint8{1, 1}, []telem.TimeStamp{ms(32), ms(32) + ns(1)})
+				Expect(next(ctx)).To(BeTrue())
+				Expect(outputs()).To(Equal([]uint8{1}))
+				Expect(outputStamps()).To(Equal([]telem.TimeStamp{ms(32)}))
+			},
+		)
+
+		It("Should not close across a change inside an earlier batch",
+			func(ctx SpecContext) {
+				ingest([]uint8{1}, []telem.TimeStamp{ms(0)})
+				Expect(next(ctx)).To(BeFalse())
+				ingest([]uint8{2, 1}, []telem.TimeStamp{ms(5), ms(5) + ns(1)})
+				Expect(next(ctx)).To(BeFalse())
+				ingest([]uint8{1}, []telem.TimeStamp{ms(12)})
+				Expect(next(ctx)).To(BeFalse())
+				ingest([]uint8{1, 1}, []telem.TimeStamp{ms(16), ms(16) + ns(1)})
+				Expect(next(ctx)).To(BeTrue())
+				Expect(outputStamps()).To(Equal([]telem.TimeStamp{ms(16)}))
+			},
+		)
+	})
+
 	It("Should emit on the changing sample when the duration is zero",
 		func(ctx SpecContext) {
 			build(0)
