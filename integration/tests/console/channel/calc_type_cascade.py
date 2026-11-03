@@ -210,9 +210,7 @@ class CalcTypeCascade(ConsoleCase):
 
         notifs = self.console.notifications.check(timeout=3 * sy.TimeSpan.SECOND)
         error_notifs = [
-            n
-            for n in notifs
-            if n.get("type") == "error" and "Connected" not in n.get("message", "")
+            n for n in notifs if n.variant == "error" and "Connected" not in n.message
         ]
         self.log(f"Phase 4: Error notifications: {error_notifs}")
 
@@ -232,9 +230,7 @@ class CalcTypeCascade(ConsoleCase):
 
         notifs = self.console.notifications.check()
         error_notifs = [
-            n
-            for n in notifs
-            if n.get("type") == "error" and "Connected" not in n.get("message", "")
+            n for n in notifs if n.variant == "error" and "Connected" not in n.message
         ]
         assert len(error_notifs) == 0, (
             f"Expected no errors after fix, got: {error_notifs}"

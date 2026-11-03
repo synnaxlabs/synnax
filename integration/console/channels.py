@@ -537,8 +537,8 @@ class ChannelClient(ResourceClient):
         self.layout.delete_with_confirmation(item)
 
         for i, notification in enumerate(self.notifications.check()):
-            message = notification.get("message", "")
-            description = notification.get("description", "")
+            message = notification.message
+            description = notification.description
             if message == "Failed to delete Channel" and name in description:
                 self.notifications.close(notification_index=i)
                 raise RuntimeError(f"{message} {name}, {description}")
