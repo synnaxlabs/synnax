@@ -12,6 +12,7 @@ package kafka_test
 import (
 	"context"
 	"encoding/json/v2"
+	"math"
 	"time"
 	"uuid"
 
@@ -427,6 +428,25 @@ var _ = Describe("Write task", func() {
 		Expect(string(recs[0].Value)).To(ContainSubstring(`"value":9007199254740993`))
 	})
 
+	DescribeTable("Should write a number in its shortest JSON form",
+		func(ctx SpecContext, value float64, expected string) {
+			index, data, topic, _ := startOne(ctx, telem.Float64T, kafka.WriteChannel{})
+			writeFrame(ctx, index, data,
+				[]telem.TimeStamp{telem.TimeStamp(10 * telem.Second)},
+				telem.NewSeriesV(value))
+			recs := consume(ctx, topic, 1)
+			Expect(string(recs[0].Value)).To(Equal(`{"value":` + expected + `}`))
+		},
+		Entry("a whole number", 100000.0, "100000"),
+		Entry("a fraction", 0.1, "0.1"),
+		Entry("negative zero", math.Copysign(0, -1), "-0"),
+		Entry("the largest plain number", 1e20, "100000000000000000000"),
+		Entry("the first exponent past it", 1e21, "1e+21"),
+		Entry("the smallest plain number", 1e-6, "0.000001"),
+		Entry("a one-digit negative exponent", 1e-7, "1e-7"),
+		Entry("a two-digit negative exponent", 1.5e-10, "1.5e-10"),
+	)
+
 	DescribeTable("Should report a sample that does not serialize",
 		func(
 			ctx SpecContext,
@@ -448,6 +468,12 @@ var _ = Describe("Write task", func() {
 			telem.Uint8T, telem.NewSeriesV[uint8](5),
 			kafka.WriteChannel{JSONType: http.JSONTypeString, EnumValues: onOff},
 			"no enum label for value 5"),
+		Entry("NaN as a number",
+			telem.Float64T, telem.NewSeriesV(math.NaN()), kafka.WriteChannel{},
+			"NaN is not a JSON number"),
+		Entry("infinity as a number",
+			telem.Float64T, telem.NewSeriesV(math.Inf(1)), kafka.WriteChannel{},
+			"+Inf is not a JSON number"),
 		Entry("a string as a number",
 			telem.StringT, telem.NewSeriesV("hi"), kafka.WriteChannel{},
 			"only serializes as a string"),
