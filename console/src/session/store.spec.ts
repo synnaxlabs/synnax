@@ -75,6 +75,15 @@ describe("createStore", () => {
     );
   });
 
+  it("should not warn when its state checks run slowly", async () => {
+    const store = await createStore({ enablePersistence: false });
+    let now = 0;
+    vi.spyOn(Date, "now").mockImplementation(() => (now += 40));
+    const warn = vi.spyOn(console, "warn");
+    store.dispatch(Session.Core.select(DEMO_KEY));
+    expect(warn).not.toHaveBeenCalled();
+  });
+
   it("routes dispatched actions to their owning slice", async () => {
     const store = await createStore({ enablePersistence: false });
     store.dispatch(Session.Core.select(DEMO_KEY));

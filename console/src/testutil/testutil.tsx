@@ -40,6 +40,7 @@ import { Provider } from "react-redux";
 import { assert } from "vitest";
 
 import { Session } from "@/session";
+import { STORE_CHECKS } from "@/testutil/store";
 import {
   createAsyncSynnaxWrapper,
   createSynnaxWrapper,
@@ -209,7 +210,8 @@ export const createTestStore = async (options: ConsoleTestProviderOptions = {}) 
     runtime: new Drift.NoopRuntime(windowLabel),
     reducer: Session.reducer,
     preloadedState: deep.copy({ ...Session.ZERO_STATE, ...preloadedState }),
-    middleware: (getDefault) => getDefault().concat(...Session.BASE_MIDDLEWARE),
+    middleware: (getDefault) =>
+      getDefault(STORE_CHECKS).concat(...Session.BASE_MIDDLEWARE),
     enablePrerender: false,
   });
 };
