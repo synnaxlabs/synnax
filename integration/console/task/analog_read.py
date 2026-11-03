@@ -7,10 +7,11 @@
 #  License, use of this software will be governed by the Apache License, Version 2.0,
 #  included in the file licenses/APL.txt.
 
-from typing import Any
+from collections.abc import Callable
+from typing import Concatenate, ParamSpec, TypeVar
 
+from console.layout import LayoutClient
 from console.page import PageType
-from console.task.channels.analog import Analog
 from console.task.channels.analog_input import (
     RTD,
     Accelerometer,
@@ -31,29 +32,32 @@ from console.task.channels.analog_input import (
     VelocityIEPE,
     Voltage,
 )
-from console.task.ni import NIChannel, NITask
+from console.task.ni import NITask
 
-# Valid channel types for NI Analog Read tasks
-_ANALOG_READ_CHANNEL_TYPES: dict[str, type[Analog]] = {
-    "Accelerometer": Accelerometer,
-    "Bridge": Bridge,
-    "Current": Current,
-    "Force bridge table": ForceBridgeTable,
-    "Force bridge two-point linear": ForceBridgeTwoPointLinear,
-    "Force IEPE": ForceIEPE,
-    "Microphone": Microphone,
-    "Pressure bridge table": PressureBridgeTable,
-    "Pressure bridge two-point linear": PressureBridgeTwoPointLinear,
-    "Resistance": Resistance,
-    "RTD": RTD,
-    "Strain gauge": StrainGauge,
-    "Temperature built-in sensor": TemperatureBuiltInSensor,
-    "Thermocouple": Thermocouple,
-    "Torque bridge table": TorqueBridgeTable,
-    "Torque bridge two-point linear": TorqueBridgeTwoPointLinear,
-    "Velocity IEPE": VelocityIEPE,
-    "Voltage": Voltage,
-}
+_Channel = TypeVar(
+    "_Channel",
+    bound=(
+        Accelerometer
+        | Bridge
+        | Current
+        | ForceBridgeTable
+        | ForceBridgeTwoPointLinear
+        | ForceIEPE
+        | Microphone
+        | PressureBridgeTable
+        | PressureBridgeTwoPointLinear
+        | Resistance
+        | RTD
+        | StrainGauge
+        | TemperatureBuiltInSensor
+        | Thermocouple
+        | TorqueBridgeTable
+        | TorqueBridgeTwoPointLinear
+        | VelocityIEPE
+        | Voltage
+    ),
+)
+_P = ParamSpec("_P")
 
 
 class AnalogRead(NITask):
@@ -65,38 +69,20 @@ class AnalogRead(NITask):
     def add_channel(
         self,
         name: str,
-        *,
-        chan_type: str,
+        chan_type: Callable[Concatenate[LayoutClient, str, str, _P], _Channel],
         device: str,
         dev_name: str | None = None,
-        **kwargs: Any,
-    ) -> NIChannel:
+        *args: _P.args,
+        **kwargs: _P.kwargs,
+    ) -> _Channel:
+        """Add an analog read channel to the task.
+
+        :param name: The channel name.
+        :param chan_type: The channel class. It must be valid for analog read tasks.
+        :param device: The device identifier.
+        :param dev_name: The device name. Defaults to the first 12 characters of name.
+        :param args: Channel-specific configuration.
+        :param kwargs: Channel-specific configuration.
+        :returns: The created channel.
         """
-        Add an analog read channel to the task.
-
-        Args:
-            name: Channel name
-            chan_type: Channel type (must be valid for analog read tasks)
-            device: Device identifier
-            dev_name: Optional device name
-            **kwargs: Additional channel-specific configuration
-
-        Returns:
-            The created channel instance
-
-        Raises:
-            ValueError: If channel type is not valid for analog read tasks
-        """
-        if chan_type not in _ANALOG_READ_CHANNEL_TYPES:
-            raise ValueError(
-                f"Invalid channel type for NI Analog Read: {chan_type}. "
-                f"Valid types: {list(_ANALOG_READ_CHANNEL_TYPES.keys())}"
-            )
-
-        return self._add_channel_helper(
-            name=name,
-            device=device,
-            dev_name=dev_name,
-            channel_class=_ANALOG_READ_CHANNEL_TYPES[chan_type],
-            **kwargs,
-        )
+        return self._add_channel(name, chan_type, device, dev_name, *args, **kwargs)
