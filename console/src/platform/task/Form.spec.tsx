@@ -640,30 +640,6 @@ describe("wrapForm", () => {
   });
 });
 
-describe("useIsRunning", () => {
-  it("should be true when the status reports the task as running", async () => {
-    const { result } = await renderTaskFormHook(
-      { status: { details: { running: true } } },
-      (ctx) => Task.useIsRunning(ctx),
-    );
-    expect(result.current.value).toBe(true);
-  });
-
-  it("should be false when the status reports the task as not running", async () => {
-    const { result } = await renderTaskFormHook(
-      { status: { details: { running: false } } },
-      (ctx) => Task.useIsRunning(ctx),
-    );
-    expect(result.current.value).toBe(false);
-  });
-
-  it("should throw when the form carries no status", async () => {
-    await expect(
-      renderTaskFormHook({}, (ctx) => Task.useIsRunning(ctx)),
-    ).rejects.toThrow("Field status is not in the form");
-  });
-});
-
 describe("useIsSnapshot", () => {
   it("should return the value of the snapshot field", async () => {
     const { result } = await renderTaskFormHook({ snapshot: true }, (ctx) =>

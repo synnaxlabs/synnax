@@ -97,4 +97,14 @@ describe("Controls.Bar", () => {
     expect(screen.getByText("Auto start")).toBeTruthy();
     expect(container.querySelector("[aria-label='lyra-icon--play']")).toBeNull();
   });
+
+  it("should deploy a task with no status", async () => {
+    const onDeploy = vi.fn();
+    const { container } = await renderWithConsole(
+      <Task.Controls.Bar running={false} onDeploy={onDeploy} onStop={vi.fn()} />,
+    );
+    expect(screen.getByText("No status")).toBeTruthy();
+    fireEvent.click(getIconButton(container, "play"));
+    expect(onDeploy).toHaveBeenCalledTimes(1);
+  });
 });
