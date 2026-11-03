@@ -237,7 +237,11 @@ func (o *Ontology) Search(
 		if len(q.Types) > 0 && !slices.Contains(q.Types, svc.Type()) {
 			continue
 		}
-		res, err := svc.Search(ctx, tx, q.Term, except, q.Offset+limit)
+		res, err := svc.Search(ctx, tx, search.Query[ID]{
+			Term:   q.Term,
+			Except: except,
+			Limit:  q.Offset + limit,
+		})
 		if err != nil {
 			return nil, err
 		}

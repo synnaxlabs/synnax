@@ -101,9 +101,7 @@ func newSearchIndex() *gorp.SearchIndex[Key, Status[any]] {
 func (s *Service) Search(
 	ctx context.Context,
 	tx gorp.Tx,
-	term string,
-	except func(ontology.ID) bool,
-	limit int,
+	q search.Query[ontology.ID],
 ) (search.Result[ontology.ID], error) {
-	return ontology.SearchIndex(ctx, tx, s.search, term, except, limit, OntologyID)
+	return ontology.SearchIndex(ctx, tx, s.search, OntologyID, q)
 }

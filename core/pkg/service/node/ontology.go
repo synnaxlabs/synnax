@@ -68,18 +68,18 @@ func (s *Service) RetrieveResource(
 func (s *Service) Search(
 	_ context.Context,
 	_ gorp.Tx,
-	term string,
-	except func(ontology.ID) bool,
-	limit int,
+	q search.Query[ontology.ID],
 ) (search.Result[ontology.ID], error) {
 	nodes := s.cfg.Cluster.CopyState().Nodes
 	idx := search.New[Key]()
 	for _, key := range slices.Sorted(maps.Keys(nodes)) {
 		idx.Set(key, name(key))
 	}
-	res := idx.SearchExcept(term, func(key Key) bool {
-		return except != nil && except(OntologyID(key))
-	}, limit)
+	res := idx.Search(search.Query[Key]{
+		Term:   q.Term,
+		Except: func(key Key) bool { return q.Except != nil && q.Except(OntologyID(key)) },
+		Limit:  q.Limit,
+	})
 	return search.MapKeys(res, OntologyID), nil
 }
 

@@ -55,9 +55,7 @@ func (s constService) RetrieveResource(
 func (constService) Search(
 	context.Context,
 	gorp.Tx,
-	string,
-	func(ontology.ID) bool,
-	int,
+	search.Query[ontology.ID],
 ) (search.Result[ontology.ID], error) {
 	return search.Result[ontology.ID]{}, nil
 }
@@ -93,7 +91,13 @@ var _ = Describe("SearchIndex", func() {
 	DescribeTable("Should return the IDs of at most limit matches, closest match first",
 		func(ctx SpecContext, limit int, expected []ontology.ID) {
 			Expect(MustSucceed(
-				ontology.SearchIndex(ctx, d, idx, "turbopump", nil, limit, parseID),
+				ontology.SearchIndex(
+					ctx,
+					d,
+					idx,
+					parseID,
+					search.Query[ontology.ID]{Term: "turbopump", Limit: limit},
+				),
 			).Keys).To(Equal(expected))
 		},
 		Entry("every match", 10, []ontology.ID{newSampleType("b"), newSampleType("a")}),
@@ -105,10 +109,11 @@ var _ = Describe("SearchIndex", func() {
 			ctx,
 			d,
 			idx,
-			"turbopump inlet",
-			func(id ontology.ID) bool { return id == newSampleType("a") },
-			0,
 			parseID,
+			search.Query[ontology.ID]{
+				Term:   "turbopump inlet",
+				Except: func(id ontology.ID) bool { return id == newSampleType("a") },
+			},
 		)).Keys).To(Equal([]ontology.ID{newSampleType("b")}))
 	})
 
@@ -116,7 +121,11 @@ var _ = Describe("SearchIndex", func() {
 		canceled, cancel := context.WithCancel(ctx)
 		cancel()
 		Expect(ontology.SearchIndex(
-			canceled, d, newNameIndex(), "turbopump", nil, 10, parseID,
+			canceled,
+			d,
+			newNameIndex(),
+			parseID,
+			search.Query[ontology.ID]{Term: "turbopump", Limit: 10},
 		)).Error().To(MatchError(context.Canceled))
 	})
 })

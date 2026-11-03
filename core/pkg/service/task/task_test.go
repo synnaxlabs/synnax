@@ -36,6 +36,7 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/service/task/config"
 	"github.com/synnaxlabs/x/encoding/msgpack"
 	"github.com/synnaxlabs/x/query"
+	"github.com/synnaxlabs/x/search"
 	"github.com/synnaxlabs/x/telem"
 	. "github.com/synnaxlabs/x/testutil"
 	"github.com/synnaxlabs/x/testutil/memkv"
@@ -1573,16 +1574,19 @@ var _ = Describe("Task", Ordered, func() {
 			func(ctx SpecContext) {
 				a := create(ctx, "turbopump test")
 				b := create(ctx, "turbopump")
-				Expect(MustSucceed(svc.Search(ctx, tx, "turbopump", nil, 0)).Keys).
+				q := search.Query[ontology.ID]{Term: "turbopump"}
+				Expect(MustSucceed(svc.Search(ctx, tx, q)).Keys).
 					To(Equal([]ontology.ID{b, a}))
-				Expect(MustSucceed(svc.Search(ctx, tx, "turbopump", nil, 1)).Keys).
+				q.Limit = 1
+				Expect(MustSucceed(svc.Search(ctx, tx, q)).Keys).
 					To(Equal([]ontology.ID{b}))
 			},
 		)
 
 		It("Should match a task by its type", func(ctx SpecContext) {
 			id := create(ctx, "igniter")
-			Expect(MustSucceed(svc.Search(ctx, tx, testType, nil, 0)).Keys).
+			q := search.Query[ontology.ID]{Term: testType}
+			Expect(MustSucceed(svc.Search(ctx, tx, q)).Keys).
 				To(ContainElement(id))
 		})
 
@@ -1590,9 +1594,8 @@ var _ = Describe("Task", Ordered, func() {
 			"Should not match a staged task outside its transaction",
 			func(ctx SpecContext) {
 				create(ctx, "injector")
-				Expect(
-					MustSucceed(svc.Search(ctx, db, "injector", nil, 0)).Keys,
-				).To(BeEmpty())
+				q := search.Query[ontology.ID]{Term: "injector"}
+				Expect(MustSucceed(svc.Search(ctx, db, q)).Keys).To(BeEmpty())
 			},
 		)
 	})

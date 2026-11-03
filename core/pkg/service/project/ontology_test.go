@@ -22,6 +22,7 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/service/project"
 	xchange "github.com/synnaxlabs/x/change"
 	"github.com/synnaxlabs/x/query"
+	"github.com/synnaxlabs/x/search"
 	. "github.com/synnaxlabs/x/testutil"
 	"github.com/synnaxlabs/x/validate"
 )
@@ -163,9 +164,11 @@ var _ = Describe("Ontology", func() {
 				b := project.Project{Key: uuid.New(), Name: "turbopump"}
 				Expect(writer.Create(ctx, &a)).To(Succeed())
 				Expect(writer.Create(ctx, &b)).To(Succeed())
-				Expect(MustSucceed(svc.Search(ctx, db, "turbopump", nil, 10)).Keys).
+				q := search.Query[ontology.ID]{Term: "turbopump", Limit: 10}
+				Expect(MustSucceed(svc.Search(ctx, db, q)).Keys).
 					To(Equal([]ontology.ID{b.OntologyID(), a.OntologyID()}))
-				Expect(MustSucceed(svc.Search(ctx, db, "turbopump", nil, 1)).Keys).
+				q.Limit = 1
+				Expect(MustSucceed(svc.Search(ctx, db, q)).Keys).
 					To(Equal([]ontology.ID{b.OntologyID()}))
 			},
 		)
