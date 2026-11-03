@@ -24,4 +24,11 @@ TEST(DataSavingWriterMode, testDataSavingEnabled) {
     EXPECT_EQ(mode, synnax::framer::WriterMode::PersistStream);
 }
 
+/// @brief it should retry without a limit, at most 5 s apart.
+TEST(UnlimitedRetryConfig, testRetriesWithoutLimit) {
+    const auto cfg = unlimited_retry_config("task");
+    EXPECT_EQ(cfg.name, "task");
+    EXPECT_EQ(cfg.max_retries, x::breaker::RETRY_INFINITELY);
+    EXPECT_EQ(cfg.max_interval, 5 * x::telem::SECOND);
+}
 }

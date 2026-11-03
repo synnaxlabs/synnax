@@ -9,6 +9,7 @@
 
 from typing import Literal
 
+import synnax as sy
 from console.schematic.symbol import PropertyDict, Symbol
 
 ButtonMode = Literal["Fire", "Momentary", "Pulse"]
@@ -113,7 +114,9 @@ class Button(Symbol):
         # the hold is the actuation.
         delay_field = self.page.locator("text=Delay")
         if delay_field.count() > 0:
-            props["activation_delay"] = float(self.layout.get_input_field("Delay"))
+            props["activation_delay"] = (
+                self.layout.get_time_span_field("Delay") / sy.TimeSpan.MILLISECOND
+            )
 
         # Control chip
         chip_toggle = (

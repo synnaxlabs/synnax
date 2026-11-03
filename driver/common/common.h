@@ -9,7 +9,11 @@
 
 #pragma once
 
+#include <string>
+
 #include "client/cpp/framer/framer.h"
+#include "x/cpp/breaker/breaker.h"
+#include "x/cpp/telem/telem.h"
 
 #include "driver/task/task.h"
 
@@ -23,6 +27,16 @@ struct ConfigureResult {
     /// @brief whether to auto-start the task if no error occurred.
     bool auto_start = false;
 };
+
+/// @brief returns a breaker configuration that retries without a limit, at most 5 s
+/// apart, so a task waits for a lost device to return.
+inline x::breaker::Config unlimited_retry_config(const std::string &name) {
+    return x::breaker::Config{
+        .name = name,
+        .max_retries = x::breaker::RETRY_INFINITELY,
+        .max_interval = 5 * x::telem::SECOND,
+    };
+}
 
 /// @brief converts a data_saving_disabled boolean to the appropriate WriterMode.
 inline synnax::framer::WriterMode
