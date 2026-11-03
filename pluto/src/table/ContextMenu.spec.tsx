@@ -21,7 +21,7 @@ import {
   type DefaultContextMenuProps,
   ERASE_TRIGGER,
 } from "@/table/ContextMenu";
-import { createAsyncSynnaxWrapper } from "@/testutil/Synnax";
+import { createAsyncSynnaxWrapper } from "@/testutil";
 
 const client = createTestClient();
 

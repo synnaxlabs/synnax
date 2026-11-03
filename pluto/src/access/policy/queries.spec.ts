@@ -14,8 +14,7 @@ import { type PropsWithChildren } from "react";
 import { assert, beforeEach, describe, expect, it } from "vitest";
 
 import { Policy } from "@/access/policy";
-import { renderHookSuspended } from "@/testutil/render";
-import { createAsyncSynnaxWrapper } from "@/testutil/Synnax";
+import { createAsyncSynnaxWrapper, renderHookSuspended } from "@/testutil";
 
 const path = Policy.formPath;
 

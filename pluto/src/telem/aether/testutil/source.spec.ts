@@ -9,32 +9,25 @@
 
 import { afterEach, describe, expect, it, vi } from "vitest";
 
-import { TEST_SOURCE_TYPE, TestFactory } from "@/telem/aether/testutil/factory";
-import {
-  booleanSourceSpec,
-  numberSourceSpec,
-  source,
-  stringSourceSpec,
-  TestSource,
-} from "@/telem/aether/testutil/source";
+import { telemTest } from "@/telem/aether/testutil";
 
 describe("TestSource", () => {
-  const sources: TestSource<unknown>[] = [];
+  const sources: telemTest.TestSource<unknown>[] = [];
 
   afterEach(() => {
     sources.forEach((s) => s.cleanup());
     sources.length = 0;
   });
 
-  const createSource = <V>(initialValue: V): TestSource<V> => {
-    const s = source(initialValue);
+  const createSource = <V>(initialValue: V): telemTest.TestSource<V> => {
+    const s = telemTest.source(initialValue);
     sources.push(s);
     return s;
   };
 
   describe("constructor and id", () => {
     it("should have static TYPE equal to TEST_SOURCE_TYPE", () => {
-      expect(TestSource.TYPE).toBe(TEST_SOURCE_TYPE);
+      expect(telemTest.TestSource.TYPE).toBe(telemTest.TEST_SOURCE_TYPE);
     });
 
     it("should generate unique id for each instance", () => {
@@ -48,7 +41,7 @@ describe("TestSource", () => {
 
     it("should auto-register on construction", () => {
       const s = createSource(42);
-      const factory = new TestFactory();
+      const factory = new telemTest.TestFactory();
 
       const result = factory.create({
         type: "test-source",
@@ -104,8 +97,8 @@ describe("TestSource", () => {
 
   describe("cleanup", () => {
     it("should unregister from factory on cleanup", () => {
-      const s = source(0);
-      const factory = new TestFactory();
+      const s = telemTest.source(0);
+      const factory = new telemTest.TestFactory();
 
       expect(
         factory.create({
@@ -132,7 +125,7 @@ describe("TestSource", () => {
   describe("source factory function", () => {
     it("should create TestSource with initial value", () => {
       const s = createSource(99);
-      expect(s).toBeInstanceOf(TestSource);
+      expect(s).toBeInstanceOf(telemTest.TestSource);
       expect(s.value().data).toBe(99);
     });
   });
@@ -140,9 +133,9 @@ describe("TestSource", () => {
   describe("spec creators", () => {
     it("booleanSourceSpec should create correct spec", () => {
       const s = createSource(true);
-      const spec = booleanSourceSpec(s);
+      const spec = telemTest.booleanSourceSpec(s);
 
-      expect(spec.type).toBe(TEST_SOURCE_TYPE);
+      expect(spec.type).toBe(telemTest.TEST_SOURCE_TYPE);
       expect(spec.variant).toBe("source");
       expect(spec.valueType).toBe("boolean");
       expect(spec.props.testId).toBe(s.id);
@@ -150,9 +143,9 @@ describe("TestSource", () => {
 
     it("numberSourceSpec should create correct spec", () => {
       const s = createSource(42);
-      const spec = numberSourceSpec(s);
+      const spec = telemTest.numberSourceSpec(s);
 
-      expect(spec.type).toBe(TEST_SOURCE_TYPE);
+      expect(spec.type).toBe(telemTest.TEST_SOURCE_TYPE);
       expect(spec.variant).toBe("source");
       expect(spec.valueType).toBe("number");
       expect(spec.props.testId).toBe(s.id);
@@ -160,9 +153,9 @@ describe("TestSource", () => {
 
     it("stringSourceSpec should create correct spec", () => {
       const s = createSource("test");
-      const spec = stringSourceSpec(s);
+      const spec = telemTest.stringSourceSpec(s);
 
-      expect(spec.type).toBe(TEST_SOURCE_TYPE);
+      expect(spec.type).toBe(telemTest.TEST_SOURCE_TYPE);
       expect(spec.variant).toBe("source");
       expect(spec.valueType).toBe("string");
       expect(spec.props.testId).toBe(s.id);
@@ -170,8 +163,8 @@ describe("TestSource", () => {
 
     it("spec should allow factory to retrieve source", () => {
       const s = createSource(true);
-      const spec = booleanSourceSpec(s);
-      const factory = new TestFactory();
+      const spec = telemTest.booleanSourceSpec(s);
+      const factory = new telemTest.TestFactory();
 
       const result = factory.create(spec);
 

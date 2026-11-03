@@ -9,8 +9,8 @@
 
 import { type FC, type PropsWithChildren, useState } from "react";
 
+import { Aether } from "@/aether";
 import { aether } from "@/aether/aether";
-import { Provider } from "@/aether/main";
 
 /** Comms that build their worker tree on first use rather than on construction. The
  * Store only touches them when it connects, which happens on commit, so a render React
@@ -38,7 +38,7 @@ export const createAetherProvider = (
     // State rather than a memo: React may drop a memo and recompute it, and one comms
     // per mount is what keeps one test's worker tree out of the next test's.
     const [comms] = useState(() => lazyComms(registry));
-    return <Provider worker={comms}>{children}</Provider>;
+    return <Aether.Provider worker={comms}>{children}</Aether.Provider>;
   };
 
   return TestProvider;

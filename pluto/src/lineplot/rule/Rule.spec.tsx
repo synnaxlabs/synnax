@@ -16,7 +16,7 @@ import { Frame } from "@/lineplot/Frame";
 import { rule } from "@/lineplot/rule/aether";
 import { Rule } from "@/lineplot/rule/Rule";
 import { Viewport } from "@/lineplot/Viewport";
-import { render } from "@/testutil/render";
+import { render } from "@/testutil";
 
 const RULE_PATH = [
   "alamos",

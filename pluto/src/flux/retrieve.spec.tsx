@@ -37,8 +37,7 @@ import { Status } from "@/status";
 import { status } from "@/status/aether";
 import { Synnax } from "@/synnax";
 import { synnax } from "@/synnax/aether";
-import { createAetherProvider } from "@/testutil/Aether";
-import { createSynnaxWrapper } from "@/testutil/Synnax";
+import { createAetherProvider, createSynnaxWrapper } from "@/testutil";
 
 const client = createTestClient();
 const Wrapper = createSynnaxWrapper({ client });

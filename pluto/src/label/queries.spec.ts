@@ -29,8 +29,7 @@ import {
 
 import { Flux } from "@/flux";
 import { Label } from "@/label";
-import { renderHookSuspended } from "@/testutil/render";
-import { createAsyncSynnaxWrapper } from "@/testutil/Synnax";
+import { createAsyncSynnaxWrapper, renderHookSuspended } from "@/testutil";
 
 const path = Label.createFormPath;
 

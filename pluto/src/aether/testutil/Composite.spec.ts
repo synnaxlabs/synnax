@@ -10,42 +10,42 @@
 import { describe, expect, it } from "vitest";
 
 import { type aether } from "@/aether/aether";
-import { Composite, compositeStateZ } from "@/aether/testutil/Composite";
-import { createDriver, ROOT_KEY } from "@/aether/testutil/driver";
-import { Leaf } from "@/aether/testutil/Leaf";
+import { aetherTest } from "@/aether/testutil";
 
 const REGISTRY: aether.ComponentRegistry = {
-  [Composite.TYPE]: Composite,
-  [Leaf.TYPE]: Leaf,
+  [aetherTest.Composite.TYPE]: aetherTest.Composite,
+  [aetherTest.Leaf.TYPE]: aetherTest.Leaf,
 };
 
 describe("aetherTest.Composite", () => {
   it("accepts any record-shaped state", () => {
-    expect(compositeStateZ.parse({ a: 1 })).toEqual({ a: 1 });
+    expect(aetherTest.compositeStateZ.parse({ a: 1 })).toEqual({ a: 1 });
   });
 
   it("records lifecycle calls like Leaf", () => {
-    const d = createDriver(REGISTRY);
-    d.update([ROOT_KEY, "c"], Composite.TYPE, {});
-    const c = d.find<Composite>([ROOT_KEY, "c"]);
+    const d = aetherTest.createDriver(REGISTRY);
+    d.update([aetherTest.ROOT_KEY, "c"], aetherTest.Composite.TYPE, {});
+    const c = d.find<aetherTest.Composite>([aetherTest.ROOT_KEY, "c"]);
     expect(c.updateCalls).toHaveLength(1);
-    d.delete([ROOT_KEY, "c"]);
+    d.delete([aetherTest.ROOT_KEY, "c"]);
     expect(c.deleteCallCount).toBe(1);
   });
 
   it("hosts arbitrary descendants", () => {
-    const d = createDriver(REGISTRY);
-    d.update([ROOT_KEY, "c"], Composite.TYPE, {});
-    d.update([ROOT_KEY, "c", "leaf"], Leaf.TYPE, { value: 7 });
-    expect(d.find<Leaf>([ROOT_KEY, "c", "leaf"]).state).toEqual({ value: 7 });
+    const d = aetherTest.createDriver(REGISTRY);
+    d.update([aetherTest.ROOT_KEY, "c"], aetherTest.Composite.TYPE, {});
+    d.update([aetherTest.ROOT_KEY, "c", "leaf"], aetherTest.Leaf.TYPE, { value: 7 });
+    expect(d.find<aetherTest.Leaf>([aetherTest.ROOT_KEY, "c", "leaf"]).state).toEqual({
+      value: 7,
+    });
   });
 
   it("tears down descendants when the parent is deleted", () => {
-    const d = createDriver(REGISTRY);
-    d.update([ROOT_KEY, "c"], Composite.TYPE, {});
-    d.update([ROOT_KEY, "c", "leaf"], Leaf.TYPE, { value: 1 });
-    const leaf = d.find<Leaf>([ROOT_KEY, "c", "leaf"]);
-    d.delete([ROOT_KEY, "c"]);
+    const d = aetherTest.createDriver(REGISTRY);
+    d.update([aetherTest.ROOT_KEY, "c"], aetherTest.Composite.TYPE, {});
+    d.update([aetherTest.ROOT_KEY, "c", "leaf"], aetherTest.Leaf.TYPE, { value: 1 });
+    const leaf = d.find<aetherTest.Leaf>([aetherTest.ROOT_KEY, "c", "leaf"]);
+    d.delete([aetherTest.ROOT_KEY, "c"]);
     expect(leaf.deleteCallCount).toBe(1);
   });
 });

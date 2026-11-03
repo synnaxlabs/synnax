@@ -21,7 +21,7 @@ import { assert, describe, expect, it, vi } from "vitest";
 
 import { Errors } from "@/errors";
 import { Schematic } from "@/schematic";
-import { createAsyncSynnaxWrapper } from "@/testutil/Synnax";
+import { createAsyncSynnaxWrapper } from "@/testutil";
 
 // preventDefault is a vi.fn() mock here, so passing it to expect() loses no
 // `this` binding — the unbound-method warning does not apply.

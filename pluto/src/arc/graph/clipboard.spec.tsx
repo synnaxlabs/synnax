@@ -17,7 +17,7 @@ import { beforeAll, describe, expect, it, vi } from "vitest";
 import { Arc } from "@/arc";
 import { useClipboard } from "@/arc/graph/clipboard";
 import { Errors } from "@/errors";
-import { createAsyncSynnaxWrapper } from "@/testutil/Synnax";
+import { createAsyncSynnaxWrapper } from "@/testutil";
 import { type Diagram } from "@/vis/diagram";
 
 const client = createTestClient();

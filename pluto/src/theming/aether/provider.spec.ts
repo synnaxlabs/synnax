@@ -12,7 +12,7 @@ import { sleep, TimeSpan } from "@synnaxlabs/x";
 import { describe, expect, it, vi } from "vitest";
 
 import { aetherTest } from "@/aether/testutil";
-import { renderAether } from "@/testutil/renderAether";
+import { renderAether } from "@/testutil/internal";
 
 const { Leaf } = aetherTest;
 

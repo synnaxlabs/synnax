@@ -17,7 +17,7 @@ import { beforeAll, describe, expect, it } from "vitest";
 
 import { Node } from "@/schematic/node";
 import { Tooltip } from "@/schematic/Tooltip";
-import { createAsyncSynnaxWrapper } from "@/testutil/Synnax";
+import { createAsyncSynnaxWrapper } from "@/testutil";
 
 const client = createTestClient();
 

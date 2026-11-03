@@ -11,7 +11,7 @@ import { box, xy } from "@synnaxlabs/x";
 import { describe, expect, it } from "vitest";
 
 import { aetherTest } from "@/aether/testutil";
-import { renderAether } from "@/testutil/renderAether";
+import { renderAether } from "@/testutil/internal";
 import { Diagram } from "@/vis/diagram/aether/Diagram";
 import { canvasTest } from "@/vis/render/testutil";
 

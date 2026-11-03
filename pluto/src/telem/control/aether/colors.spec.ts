@@ -14,7 +14,7 @@ import { color, DataType, id, TimeStamp } from "@synnaxlabs/x";
 import { afterEach, assert, describe, expect, it, vi } from "vitest";
 
 import { Colors } from "@/telem/control/aether/colors";
-import { renderAether } from "@/testutil/renderAether";
+import { renderAether } from "@/testutil/internal";
 
 const client = createTestClient();
 

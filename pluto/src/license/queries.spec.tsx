@@ -15,7 +15,7 @@ import { describe, expect, it } from "vitest";
 
 import { License } from "@/license";
 import { Synnax } from "@/synnax";
-import { createSynnaxWrapper } from "@/testutil/Synnax";
+import { createSynnaxWrapper } from "@/testutil";
 
 /** Renders the license query under a client that a spec can swap. */
 const renderResult = async (client: Client) => {

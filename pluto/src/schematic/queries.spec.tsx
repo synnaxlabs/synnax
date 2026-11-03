@@ -31,8 +31,7 @@ import { type z } from "zod";
 import { Errors } from "@/errors";
 import { Flux } from "@/flux";
 import { Schematic } from "@/schematic";
-import { renderHookSuspended } from "@/testutil/render";
-import { createAsyncSynnaxWrapper } from "@/testutil/Synnax";
+import { createAsyncSynnaxWrapper, renderHookSuspended } from "@/testutil";
 
 const path = deep.path<schematic.TankNodeConfig>();
 const display = deep.path<schematic.StringDisplayNodeConfig>();

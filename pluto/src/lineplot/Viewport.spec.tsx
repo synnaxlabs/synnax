@@ -13,7 +13,7 @@ import { describe, expect, it } from "vitest";
 import { lineplot } from "@/lineplot/aether";
 import { Frame } from "@/lineplot/Frame";
 import { Viewport } from "@/lineplot/Viewport";
-import { render } from "@/testutil/render";
+import { render } from "@/testutil";
 
 const WORKER_PATH = [
   "alamos",
