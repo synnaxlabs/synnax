@@ -331,9 +331,9 @@ export class Client {
   private authState: AuthState = { authenticated: false };
   authenticating: Promise<Error | null> | undefined;
   private generation = 0;
-  // whether this client opened the session with credentials; a resumed session
+  // the key of the session this client opened with credentials; a resumed session
   // belongs to whoever saved its token or cookie
-  private ownsSession = false;
+  private ownedSession?: string;
 
   /** @throws {Error} when the authority holds more than one proof. */
   constructor(client: UnaryClient, authority: Authority, observer: Observer = {}) {
@@ -555,6 +555,8 @@ export class Client {
     const own = params.subject == null || params.subject.key === this.subject?.key;
     if (own && this.credentials != null) this.credentials.password = params.password;
     if (res.session == null) return;
+    if (this.ownedSession != null && this.session?.key === this.ownedSession)
+      this.ownedSession = res.session.key;
     this.authState = { authenticated: true, token: res.token, session: res.session };
     if (this.resumeToken != null) this.resumeToken = res.token;
     this.observer.onSuccess?.(res.session.key);
@@ -614,7 +616,9 @@ export class Client {
   async release(): Promise<void> {
     // a login still in flight decides whether this client owns the session
     if (!this.authState.authenticated) await this.authenticating;
-    if (this.ownsSession && !this.persistent) return await this.logout();
+    const owned =
+      this.authState.authenticated && this.authState.session.key === this.ownedSession;
+    if (owned && !this.persistent) return await this.logout();
     this.authState = { authenticated: false };
     this.authenticating = undefined;
   }
@@ -643,7 +647,7 @@ export class Client {
     const generation = this.generation;
     try {
       let state: AuthState;
-      let owned: boolean;
+      let owned: string | undefined;
       let u: user.User | undefined;
       let spentCode = false;
       const proof = this.proof();
@@ -657,7 +661,7 @@ export class Client {
         spentCode = proof.method === "oidc";
         state = { authenticated: true, token: res.token, session: res.session };
         u = res.user;
-        owned = true;
+        owned = res.session.key;
       } else if (this.resumeToken != null || this.cookie) {
         // a cookie session has no token; the browser attaches the cookie
         const token = this.resumeToken ?? "";
@@ -671,7 +675,7 @@ export class Client {
         state = { authenticated: true, token, session: res.session };
         u = res.user;
         // the token a spent code left names the session this client opened
-        owned = this.ownsSession;
+        owned = res.session.key === this.ownedSession ? res.session.key : undefined;
       } else
         throw new AuthError("no credentials, API key, token, or cookie to log in with");
       if (generation !== this.generation) return null;
@@ -681,7 +685,7 @@ export class Client {
         this.resumeToken = state.token;
       }
       this.authState = state;
-      this.ownsSession = owned;
+      this.ownedSession = owned;
       this.observer.onUser?.(u);
       this.observer.onSuccess?.(state.session.key);
       return null;
