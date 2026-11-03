@@ -880,6 +880,8 @@ describe("Tree.Tree", () => {
 
 const useGroupSearch = Tree.createSearch({ noun: "groups" });
 
+const MORE_MATCHES = "Showing the first 100 matches. Type more to narrow the search.";
+
 const renderSearchable = async (
   root: ontology.ID,
   search: Tree.UseSearch = useGroupSearch,
@@ -985,6 +987,24 @@ describe("Tree.Tree search", () => {
     ).toBeNull();
   });
 
+  it("should drop the other children of a group that stops matching", async () => {
+    const { root, tok, names } = await createSearchTree();
+    await renderSearchable(root);
+    searchTree(tok);
+    await findTreeRow(itemName(names.charlie));
+    fireEvent.click(getIconButton(document.body, "tree-view"));
+    await findTreeRow(names.golf);
+    fireEvent.change(screen.getByPlaceholderText(/^Search /), {
+      target: { value: names.charlie },
+    });
+    await waitFor(() =>
+      expect(
+        screen.queryByText(names.golf, { ignore: ".console-tree--hidden *" }),
+      ).toBeNull(),
+    );
+    expect(getTreeRow(itemName(names.charlie))).toBeTruthy();
+  });
+
   it("should bring the tree back as it was when the search closes", async () => {
     const { root, tok, names } = await createSearchTree();
     await renderSearchable(root);
@@ -1033,11 +1053,30 @@ describe("Tree.Tree search", () => {
     );
     await renderSearchable(root);
     searchTree(tok);
-    expect(
-      await screen.findByText(
-        "Showing the first 100 matches. Type more to narrow the search.",
+    expect(await screen.findByText(MORE_MATCHES)).toBeTruthy();
+  });
+
+  it("should say that more exist when a match arrives past the limit", async () => {
+    const tok = uniqueToken();
+    const container = await client.groups.create({
+      parent: ontology.ROOT_ID,
+      name: uniqueName("many"),
+    });
+    const root = group.ontologyID(container.key);
+    await Promise.all(
+      Array.from(
+        { length: 100 },
+        async (_, i) =>
+          await client.groups.create({ parent: root, name: `${tok} ${i}` }),
       ),
-    ).toBeTruthy();
+    );
+    await renderSearchable(root);
+    searchTree(tok);
+    await findTreeRow(itemName(`${tok} 0`));
+    expect(screen.queryByText(MORE_MATCHES)).toBeNull();
+    // A prefix match ranks after the exact ones, so the first 100 stay the same.
+    await client.groups.create({ parent: root, name: `${tok}z` });
+    expect(await screen.findByText(MORE_MATCHES)).toBeTruthy();
   });
 
   it("should show a status when the search fails", async () => {

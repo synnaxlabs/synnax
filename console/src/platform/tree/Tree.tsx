@@ -433,6 +433,10 @@ const Internal = ({
   const openedRef = useInitializerRef(() => new Set<string>());
   useEffect(() => {
     if (results == null) return;
+    // A group that now holds only matches drops every child its watch gave.
+    releaseChildren(
+      [...watchedRef.current.keys()].filter((key) => results.fixed.has(key)),
+    );
     setNodes((prev) => keepWatchedChildren(prev, results.nodes, watchedRef.current));
     results.expanded.forEach((key) => {
       if (openedRef.current.has(key)) return;
@@ -758,6 +762,7 @@ export const createSearch = ({
     else if (ancestry.variant === "success") placed = ancestry.data;
     const key =
       shownIDs == null ? null : [trimmed, ...ontology.idToString(shownIDs)].join("\n");
+    const more = found != null && found.length > LIMIT;
 
     // The last answer shows until the next one is placed, so the results never blank
     // between keystrokes.
@@ -770,7 +775,10 @@ export const createSearch = ({
       found != null &&
       shownIDs != null &&
       placed != null &&
-      (held?.key !== key || held.ancestry !== placed || held.layout !== layout)
+      (held?.key !== key ||
+        held.ancestry !== placed ||
+        held.layout !== layout ||
+        held.more !== more)
     ) {
       const { results, groups } = buildResults({
         ids: shownIDs,
@@ -785,7 +793,7 @@ export const createSearch = ({
         ancestry: placed,
         results,
         match: { term: trimmed, groups },
-        more: found.length > LIMIT,
+        more,
       });
     }
 
