@@ -168,10 +168,33 @@ describe("lineplot/toolbar/Data", () => {
       await expectRanges(key, [rolling(FORTY_FIVE_MIN)]);
     });
 
-    it("lists no option for a duration typed into the search", async () => {
+    it("lists a live option for a duration typed into the search", async () => {
       await renderData([]);
       search("45m");
-      expect(screen.queryAllByRole("option")).toHaveLength(0);
+      const options = screen.getAllByRole("option");
+      expect(options).toHaveLength(1);
+      expect(within(options[0]).getByText(label(FORTY_FIVE_MIN))).toBeDefined();
+      expect(screen.queryByText("No favorite ranges found")).toBeNull();
+    });
+
+    it("replaces the window with the live option picked", async () => {
+      const { key } = await renderData([fixed(1, 2), rolling(FIVE_MIN)]);
+      search("45m");
+      fireEvent.click(screen.getByRole("option"));
+      await expectRanges(key, [fixed(1, 2), rolling(FORTY_FIVE_MIN)]);
+    });
+
+    it("clears the window when its live option is picked again", async () => {
+      const { key } = await renderData([rolling(FIVE_MIN)]);
+      search("5m");
+      fireEvent.click(screen.getByRole("option"));
+      await expectRanges(key, []);
+    });
+
+    it("marks the live option selected while its window is live", async () => {
+      await renderData([rolling(FIVE_MIN)]);
+      search("5m");
+      expect(screen.getByRole("option").getAttribute("aria-selected")).toBe("true");
     });
 
     it("ignores Enter when the search is not a duration", async () => {
