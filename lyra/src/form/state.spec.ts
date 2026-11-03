@@ -718,6 +718,26 @@ describe("State", () => {
       expect(state.getState("name").value).toBe("Jane");
       expect(state.getState("age").value).toBe(30);
     });
+
+    it("should read a value that the batch wrote earlier", () => {
+      const state = new State(createLocalStore(initialValues), basicSchema);
+      expect(state.getState("profile.bio").value).toBe("Software developer");
+      let read: unknown;
+      state.batch(() => {
+        state.setValue("profile", { ...state.values.profile, bio: "Updated bio" });
+        read = state.getState("profile.bio").value;
+      });
+      expect(read).toBe("Updated bio");
+    });
+
+    it("should keep a status set after a write in the same batch", () => {
+      const state = new State(createLocalStore(initialValues), basicSchema);
+      state.batch(() => {
+        state.setValue("name", "Jane Doe");
+        state.setStatus("name", { variant: "error", message: "Name is taken" });
+      });
+      expect(state.getState("name").status.message).toBe("Name is taken");
+    });
   });
 
   describe("listen", () => {

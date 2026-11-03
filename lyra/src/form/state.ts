@@ -197,13 +197,19 @@ export class State<Z extends z.ZodType> extends observe.Observer<void> {
     return this.store.onChange(handleChange);
   }
 
+  // A batch refreshes once at its end, so a read or a status inside one catches up
+  // first.
+  private catchUp() {
+    if (this.depth > 0) this.refresh();
+  }
+
   private write(change: () => void) {
     this.depth++;
     try {
       change();
     } finally {
       this.depth--;
-      this.refresh();
+      if (this.depth === 0) this.refresh();
     }
   }
 
@@ -330,6 +336,7 @@ export class State<Z extends z.ZodType> extends observe.Observer<void> {
    * through `clearStatus`.
    */
   setStatus(path: string, status: Status.Crude) {
+    this.catchUp();
     this.statuses.set(path, { ...status, key: path });
     this.external.add(path);
     this.markStale(path);
@@ -520,6 +527,7 @@ export class State<Z extends z.ZodType> extends observe.Observer<void> {
    */
   getState<V>(path: string, opts: GetOptions = {}): FieldState<V> | null {
     const { optional = false } = opts;
+    this.catchUp();
     const cached = this.cachedRefs.get(path);
     if (cached != null && !cached.stale) return cached.state as FieldState<V>;
     let value = deep.get<V, z.infer<Z>>(this.values, path, { optional: true });
