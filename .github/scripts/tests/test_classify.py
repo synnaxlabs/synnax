@@ -19,17 +19,14 @@ from classify import (
     BOT,
     HUMAN,
     MARKER,
-    Answer,
     Surface,
-    ask_agent,
+    changes_ui,
     fence,
     needs_human,
-    parse_answer,
     plan_labels,
     read_surfaces,
     render,
     trust_reasons,
-    ui_answer,
 )
 
 
@@ -77,33 +74,34 @@ class TestReadSurfaces:
 
 
 class TestNeedsHuman:
-    """Tests the decision from reports, the UI answer, and trust reasons."""
+    """Tests the decision from reports and reasons."""
 
     def test_is_false_when_nothing_changed(self) -> None:
-        assert not needs_human(ALL_SAME, console=None, reasons=[])
-        assert not needs_human(
-            ALL_SAME, console=Answer(human=False, reason="refactor"), reasons=[]
-        )
+        assert not needs_human(ALL_SAME, reasons=[])
 
     def test_is_true_when_a_surface_changed_or_failed(self) -> None:
         assert needs_human(
             [*ALL_SAME, Surface(name="core", status="changed", diff="")],
-            console=None,
             reasons=[],
         )
         assert needs_human(
             [*ALL_SAME, Surface(name="core", status="error", diff="")],
-            console=None,
             reasons=[],
         )
 
-    def test_is_true_when_the_ui_changed_visibly(self) -> None:
-        assert needs_human(
-            ALL_SAME, console=Answer(human=True, reason="new button"), reasons=[]
-        )
+    def test_is_true_when_a_reason_applies(self) -> None:
+        assert needs_human(ALL_SAME, reasons=["fork"])
 
-    def test_is_true_when_the_reports_cannot_be_trusted(self) -> None:
-        assert needs_human(ALL_SAME, console=None, reasons=["fork"])
+
+class TestChangesUI:
+    """Tests finding UI files in a pull request."""
+
+    def test_finds_console_pluto_and_lyra(self) -> None:
+        for name in ("console/a.tsx", "pluto/b.tsx", "lyra/c.css"):
+            assert changes_ui([file(name)])
+
+    def test_ignores_other_files(self) -> None:
+        assert not changes_ui([file("core/main.go")])
 
 
 class TestPlanLabels:
@@ -128,41 +126,6 @@ class TestPlanLabels:
         assert plan_labels({BOT}, human=False) == ([], [])
 
 
-class TestUIAnswer:
-    """Tests when and how the agent judges the UI patches."""
-
-    def test_is_none_without_ui_files(self, tmp_path: Path) -> None:
-        assert (
-            ui_answer([file("core/main.go")], command=agent(tmp_path, reply="{}"))
-            is None
-        )
-
-    def test_asks_about_console_pluto_and_lyra(self, tmp_path: Path) -> None:
-        reply = '{"human": false, "reason": "Tests only."}'
-        for name in ("console/a.tsx", "pluto/b.tsx", "lyra/c.css"):
-            assert ui_answer(
-                [file(name)], command=agent(tmp_path, reply=reply)
-            ) == Answer(human=False, reason="Tests only.")
-
-    def test_answers_human_without_asking_when_a_patch_is_missing(
-        self, tmp_path: Path
-    ) -> None:
-        reply = '{"human": false, "reason": "x"}'
-        files = [file("console/a.tsx"), file("console/b.png", patch=None)]
-        answer = ui_answer(files, command=agent(tmp_path, reply=reply))
-        assert answer is not None
-        assert answer.human
-
-    def test_answers_human_without_asking_when_the_diff_is_too_large(
-        self, tmp_path: Path
-    ) -> None:
-        reply = '{"human": false, "reason": "x"}'
-        files = [file("console/a.tsx", patch="+" + "x" * 200_000)]
-        answer = ui_answer(files, command=agent(tmp_path, reply=reply))
-        assert answer is not None
-        assert answer.human
-
-
 class TestTrustReasons:
     """Tests the cases where the reports could be forged."""
 
@@ -181,35 +144,6 @@ class TestTrustReasons:
         ]
 
 
-class TestParseAnswer:
-    """Tests reading the agent's JSON answer."""
-
-    def test_reads_the_last_json_answer(self) -> None:
-        text = 'thinking {"x": 1}\n{"human": false, "reason": "Tests only."}'
-        assert parse_answer(text) == Answer(human=False, reason="Tests only.")
-
-    def test_answers_human_when_unclear(self) -> None:
-        assert parse_answer("no idea").human
-        assert parse_answer('{"human": "no", "reason": "x"}').human
-
-
-class TestAskAgent:
-    """Tests running the agent command."""
-
-    def test_sends_the_prompt_on_stdin(self, tmp_path: Path) -> None:
-        script = tmp_path / "echo.py"
-        script.write_text(
-            "import json, sys\n"
-            "print(json.dumps({'human': False, 'reason': sys.stdin.read()}))\n"
-        )
-        assert ask_agent("hello", command=f"{sys.executable} {script}") == Answer(
-            human=False, reason="hello"
-        )
-
-    def test_answers_human_when_the_agent_fails(self) -> None:
-        assert ask_agent("prompt", command=f"{sys.executable} -c 'exit(3)'").human
-
-
 class TestRender:
     """Tests the sticky comment."""
 
@@ -218,29 +152,22 @@ class TestRender:
             *ALL_SAME[:4],
             Surface(name="driver", status="changed", diff="+flag --x\n"),
         ]
-        body = render(surfaces, console=None, reasons=[], kept=False)
+        body = render(surfaces, ui=False, reasons=[], kept=False)
         assert body.startswith(MARKER)
         assert f"`{HUMAN}`" in body
         assert "| Driver commands and config keys | Changed |" in body
         assert "+flag --x" in body
-        assert "Console screenshots" not in body
 
     def test_explains_a_kept_human_label(self) -> None:
-        body = render(
-            ALL_SAME,
-            console=Answer(human=False, reason="Refactor."),
-            reasons=[],
-            kept=True,
-        )
+        body = render(ALL_SAME, ui=True, reasons=[], kept=True)
         assert f"## Review tier: `{HUMAN}`" in body
         assert "already set" in body
-        assert "| Console and UI libraries | No visible change: Refactor. |" in body
-        assert "Console screenshots" in body
+        assert "| Console and UI libraries | Changed: the author picks" in body
 
     def test_lists_trust_reasons(self) -> None:
         body = render(
             ALL_SAME,
-            console=None,
+            ui=False,
             reasons=["The pull request comes from a fork."],
             kept=False,
         )
@@ -249,7 +176,7 @@ class TestRender:
 
     def test_says_bot_when_nothing_changed(self) -> None:
         assert f"## Review tier: `{BOT}`" in render(
-            ALL_SAME, console=None, reasons=[], kept=False
+            ALL_SAME, ui=False, reasons=[], kept=False
         )
 
     def test_fences_a_diff_that_holds_backticks(self) -> None:
@@ -265,7 +192,8 @@ class FakeGH:
     """Serves pull request 5 through the gh API calls the classifier makes."""
 
     def __init__(self) -> None:
-        self.heads = ["abc", "abc"]
+        self.head = "abc"
+        self.files = ["core/main.go"]
         self.labels: list[str] = []
         self.comments: list[dict[str, Any]] = []
         self.writes: list[tuple[tuple[str, ...], str | None]] = []
@@ -273,11 +201,11 @@ class FakeGH:
     def __call__(self, *args: str, stdin: str | None = None) -> str:
         if args == ("api", f"repos/{REPO}/pulls/5"):
             same = {"repo": {"full_name": REPO}}
-            head = {**same, "sha": self.heads.pop(0)}
+            head = {**same, "sha": self.head}
             labels = [{"name": n} for n in self.labels]
             return json.dumps({"head": head, "base": same, "labels": labels})
         if f"repos/{REPO}/pulls/5/files" in args:
-            return json.dumps(file("core/main.go")) + "\n"
+            return "".join(json.dumps(file(name)) + "\n" for name in self.files)
         if args[:3] == ("api", "--paginate", COMMENTS):
             return "".join(json.dumps(c) + "\n" for c in self.comments)
         self.writes.append((args, stdin))
@@ -300,7 +228,6 @@ class TestMain:
         monkeypatch.setattr(sys, "argv", ["classify.py", str(tmp_path)])
         monkeypatch.setenv("GITHUB_REPOSITORY", REPO)
         monkeypatch.setenv("HEAD_SHA", "abc")
-        monkeypatch.setenv("REVIEW_AGENT", "false")
         return fake
 
     def test_labels_bot_and_posts_a_comment_when_nothing_changed(
@@ -333,9 +260,22 @@ class TestMain:
             ),
         ]
 
-    def test_writes_nothing_when_the_head_moves_during_the_run(
+    def test_labels_human_when_the_ui_changed_and_no_tier_is_set(
         self, gh: FakeGH
     ) -> None:
-        gh.heads = ["abc", "def"]
+        gh.files = ["console/a.tsx"]
+        classify.main()
+        label, _ = gh.writes[0]
+        assert label == ("api", "-X", "POST", LABELS, "-f", f"labels[]={HUMAN}")
+
+    def test_keeps_the_bot_tier_the_author_set_on_a_ui_change(self, gh: FakeGH) -> None:
+        gh.files = ["console/a.tsx"]
+        gh.labels = [BOT]
+        classify.main()
+        assert [args[1:3] for args, _ in gh.writes] == [("-X", "POST")]
+        assert gh.writes[0][0][3] == COMMENTS
+
+    def test_writes_nothing_when_the_head_moved(self, gh: FakeGH) -> None:
+        gh.head = "def"
         classify.main()
         assert gh.writes == []

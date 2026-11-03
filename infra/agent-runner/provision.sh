@@ -134,7 +134,6 @@ register() {
     ./svc.sh start
 }
 for i in \$(seq $RUNNERS); do register "\$i" "agent,agent-$AGENT,seat-$SEAT"; done
-if [ $AGENT = claude ]; then register classify "agent-classify,seat-$SEAT"; fi
 EOF
 chmod +x /usr/local/bin/register-agent-runners
 
