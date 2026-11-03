@@ -287,7 +287,7 @@ class Module : public stl::Module {
     /// @brief the current cycle's stamp, set by the runtime loop before each
     /// pass. The `now` WASM binding is called from guest code, which has no node
     /// Context to read, so the value is pushed here instead.
-    x::telem::TimeStamp now;
+    x::telem::TimeStamp now{};
     /// @brief backs the `format` return value.
     std::shared_ptr<strings::State> str_state;
     /// @brief receives the warnings `format` raises.

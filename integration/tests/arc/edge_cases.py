@@ -750,13 +750,13 @@ class EdgeCases(ArcCase):
             self.writer.write("edge_fmt_in", case.fmt)
             self.writer.write("edge_fmt_tz_in", case.zone)
             self._expect_format_warning(names, case.zone)
-        for case in FORMAT_ODD_CASES:
-            self.log(f"[{case.label}] {case.fmt!r} in {case.zone!r}")
+        for odd in FORMAT_ODD_CASES:
+            self.log(f"[{odd.label}] {odd.fmt!r} in {odd.zone!r}")
             self.writer.write("edge_fmt_ts_in", FORMAT_STAMP)
-            self.writer.write("edge_fmt_in", case.fmt)
-            self.writer.write("edge_fmt_tz_in", case.zone)
-            self.wait_for_eq("edge_fmt_fn_out", case.expected)
-            self.wait_for_eq("edge_fmt_flow_out", case.expected)
+            self.writer.write("edge_fmt_in", odd.fmt)
+            self.writer.write("edge_fmt_tz_in", odd.zone)
+            self.wait_for_eq("edge_fmt_fn_out", odd.expected)
+            self.wait_for_eq("edge_fmt_flow_out", odd.expected)
         self.log("[LiteralZone] Mars/Olympus as a literal")
         literal = [
             self.load_arc(ARC_FORMAT_LITERAL_ZONE_FN, name_prefix="FormatLitFn"),

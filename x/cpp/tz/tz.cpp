@@ -162,7 +162,7 @@ std::optional<int64_t> rule_offset(std::string_view &s) {
         s = s.substr(1);
         neg = true;
     }
-    const auto hours = rule_num(s, 0, 24 * 7);
+    const auto hours = rule_num(s, 0, int64_t{24} * 7);
     if (!hours) return std::nullopt;
     int64_t off = *hours * SECONDS_PER_HOUR;
     if (s.empty() || s[0] != ':') return neg ? -off : off;
