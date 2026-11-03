@@ -88,13 +88,13 @@ const LEVELS: Level[] = [
 ];
 
 const ITEM_CLASS = CSS.BE("performance-select", "item");
-const NAME_CLASS = CSS.BE("performance-select", "name");
-const DESCRIPTION_CLASS = CSS.BE("performance-select", "description");
 
+// The trigger shows the selected level's glyph as its icon, so its label is the name.
 const ITEMS = LEVELS.map(({ key, name, description }) => (
   <Select.Item<arc.task.Performance>
     key={key}
     itemKey={key}
+    label={name}
     className={ITEM_CLASS}
     y
     gap="tiny"
@@ -102,9 +102,9 @@ const ITEMS = LEVELS.map(({ key, name, description }) => (
   >
     <Text.Text>
       {GLYPHS[key]}
-      <span className={NAME_CLASS}>{name}</span>
+      {name}
     </Text.Text>
-    <Text.Text className={DESCRIPTION_CLASS} color={9} level="small" wrap>
+    <Text.Text color={9} level="small" wrap>
       {description}
     </Text.Text>
   </Select.Item>

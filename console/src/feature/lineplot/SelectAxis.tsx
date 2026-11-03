@@ -8,11 +8,10 @@
 // included in the file licenses/APL.txt.
 
 import { type channel, lineplot, type ranger } from "@synnaxlabs/client";
-import { Button } from "@synnaxlabs/lyra/button";
-import { Dialog } from "@synnaxlabs/lyra/dialog";
 import { Flex } from "@synnaxlabs/lyra/flex";
 import { Icon } from "@synnaxlabs/lyra/icon";
 import { Input } from "@synnaxlabs/lyra/input";
+import { Select } from "@synnaxlabs/lyra/select";
 import { Text } from "@synnaxlabs/lyra/text";
 import { Channel, LinePlot } from "@synnaxlabs/pluto";
 import { dynamicWindow, TimeSpan, unique } from "@synnaxlabs/x";
@@ -65,44 +64,34 @@ export interface XAxisChannelSelectProps extends Omit<
   axisKey: lineplot.XAxisKey;
 }
 
-const TRIGGER_PROPS = { placeholder: "Time", auto: true };
+const CHIP_CLASS = CSS.BE("line-plot", "x-time-chip");
 
-interface TimeOptionProps {
-  selected: boolean;
-  onSelect: () => void;
-}
-
-// Pinned under the list, out of its search and arrow keys, so it stays in reach.
-const TimeOption = ({ selected, onSelect }: TimeOptionProps): ReactElement => {
-  const { close } = Dialog.useContext();
-  const handleChange = () => {
-    onSelect();
-    close();
-  };
-  return (
-    <Flex.Box className={CSS.BE("line-plot", "x-time")} full="x">
-      <Button.Toggle
-        value={selected}
-        onChange={handleChange}
-        variant="text"
-        full="x"
-        justify="start"
-        className={CSS.BE("line-plot", "x-time-btn")}
-      >
-        <Flex.Box y gap="tiny" align="start" full="x">
-          <Text.Text className={CSS.BE("line-plot", "x-time-title")}>
-            <Icon.Time />
-            Time
-            <Input.AutoChip className={CSS.BE("line-plot", "x-time-chip")} />
-          </Text.Text>
-          <Text.Text level="small" color={9}>
-            Automatically uses each channel's time. Best for most needs.
-          </Text.Text>
-        </Flex.Box>
-      </Button.Toggle>
-    </Flex.Box>
-  );
-};
+// Key 0 means no X channel: each Y channel plots against its own index channel.
+const TIME_OPTION = (
+  <Select.Item<channel.Key>
+    itemKey={0}
+    textValue="Time"
+    label={
+      <>
+        Time
+        <Input.AutoChip className={CHIP_CLASS} />
+      </>
+    }
+    className={CSS.BE("line-plot", "x-time")}
+    y
+    gap="tiny"
+    align="start"
+  >
+    <Text.Text className={CSS.BE("line-plot", "x-time-title")}>
+      <Icon.Time />
+      Time
+      <Input.AutoChip className={CHIP_CLASS} />
+    </Text.Text>
+    <Text.Text level="small" color={9}>
+      Automatically uses each channel's time. Best for most needs.
+    </Text.Text>
+  </Select.Item>
+);
 
 export const XAxisChannelSelect = ({
   axisKey,
@@ -122,8 +111,7 @@ export const XAxisChannelSelect = ({
         initialQuery={{ ...SEARCH_OPTIONS, rangeKey }}
         location="top"
         icon={<Icon.Time />}
-        footer={<TimeOption selected={value === 0} onSelect={() => handleChange(0)} />}
-        triggerProps={TRIGGER_PROPS}
+        footer={TIME_OPTION}
       />
     </Input.Item>
   );

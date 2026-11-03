@@ -88,46 +88,6 @@ describe("Select.Single", () => {
     expect(c.getByText("Test Item")).toBeTruthy();
   });
 
-  describe("auto", () => {
-    it("should show the placeholder as a value with an auto chip", () => {
-      const { SelectSingle } = createSelectSingle();
-      const c = render(
-        <SelectSingle triggerProps={{ auto: true, placeholder: "Time" }} />,
-      );
-      const chip = c.getByText("Auto");
-      const trigger = chip.closest(".lyra-dialog__trigger") as Element;
-      expect(trigger.classList.contains("lyra-select-single-trigger--empty")).toBe(
-        false,
-      );
-      const caret = trigger.querySelector(".lyra-caret-animated") as Element;
-      const following = (a: Node, b: Node): boolean =>
-        (a.compareDocumentPosition(b) & Node.DOCUMENT_POSITION_FOLLOWING) !== 0;
-      expect(following(c.getByText("Time"), chip)).toBe(true);
-      expect(following(chip, caret)).toBe(true);
-    });
-
-    it("should show the placeholder, not None, on a preview trigger", () => {
-      const { SelectSingle } = createSelectSingle();
-      const c = render(
-        <SelectSingle
-          triggerProps={{ auto: true, placeholder: "Time", preview: true }}
-        />,
-      );
-      expect(c.getByText("Time")).toBeTruthy();
-      expect(c.queryByText("None")).toBeNull();
-    });
-
-    it("should remove the auto chip once an item is selected", () => {
-      const { SelectSingle } = createSelectSingle();
-      const c = render(
-        <SelectSingle triggerProps={{ auto: true, placeholder: "Time" }} />,
-      );
-      fireEvent.click(c.getByText("Time"));
-      fireEvent.click(c.getByText("First Item Option"));
-      expect(c.queryByText("Auto")).toBeNull();
-    });
-  });
-
   it("should close the selection dialog on one Escape from the search field", () => {
     const { SelectSingle } = createSelectSingle();
     const c = render(<SelectSingle />, { wrapper: Triggers.Provider });

@@ -54,15 +54,14 @@
     }
 }
 
-/* The auto chip sits at the trailing edge, and the caret follows it. */
-.lyra-select-single-trigger__auto {
-    margin-left: auto;
-}
+/* A fixed item's label fills the trigger, so its content can push a part, such as an
+   auto chip, to the trailing edge. */
+.lyra-dialog__trigger > .lyra-select__label:has(> .lyra-select__fixed-label) {
+    flex-grow: 1;
 
-.lyra-dialog__trigger
-    > .lyra-select-single-trigger__auto
-    ~ :is(.lyra-caret-animated, .lyra-select-single-trigger__icon) {
-    margin-left: 0;
+    > .lyra-select__fixed-label {
+        min-width: 100%;
+    }
 }
 
 /* The icon or caret alone sizes this box. The clear button covers it at the same size

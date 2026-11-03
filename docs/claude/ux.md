@@ -148,9 +148,10 @@ bound, a log precision, or the line plot X channel.
 - A set value removes the chip and shows the Auto button (`Input.AutoButton`): the Auto
   icon in violet, with the tooltip "Auto". The button, or an empty field, puts the field
   back in auto.
-- A select whose empty value is an auto mode shows the mode as a value ("Time"), never
-  "Select channel". The mode is a button pinned under the list, out of its search, with
-  a one-line hint that ends "Best for most needs."
+- A select whose empty value is an auto mode shows the mode as a value ("Time") with the
+  chip, never "Select channel". The mode is a `Select.Item` in the select's `footer`, so
+  it stays under the list and the search never hides it. It has a one-line hint that
+  ends "Best for most needs." Its `label` leaves the hint out of the trigger.
 
 ### Task forms
 
