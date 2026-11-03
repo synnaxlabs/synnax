@@ -34,9 +34,48 @@
         padding: 2rem;
     }
 
+    /* The label column fits the widest label, so every field starts at one edge. X1
+       takes the last column of the Ranges row. */
+    .console-line-plot__toolbar-data {
+        display: grid;
+        grid-template-columns: max-content minmax(0, 1fr) auto;
+        gap: 1.5rem 1rem;
+        align-items: center;
+        container-type: inline-size;
+    }
+
+    /* A row's label and field become cells of the grid. */
+    .console-line-plot__toolbar-data-row {
+        display: contents;
+    }
+
+    .console-line-plot__toolbar-data-row--full > :last-child {
+        grid-column: 2 / -1;
+    }
+
     .console-line-plot__toolbar-data-x {
-        max-width: 400px;
-        width: 100%;
+        width: 50rem;
+        margin-left: 1rem;
+    }
+
+    /* A shared row this narrow leaves Ranges too little room for its tags, so X1 takes
+       its own row at the bottom. */
+    @container (width < 144rem) {
+        .console-line-plot__toolbar-data-row > :last-child {
+            grid-column: 2 / -1;
+        }
+
+        .console-line-plot__toolbar-data-x {
+            display: contents;
+
+            > * {
+                order: 1;
+            }
+
+            > :last-child {
+                max-width: 50rem;
+            }
+        }
     }
 
     .console-line-plot__toolbar-axes-label-direction {

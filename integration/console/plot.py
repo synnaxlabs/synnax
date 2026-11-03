@@ -249,10 +249,11 @@ class Plot(ConsolePage):
         data_tab = self.page.get_by_role("tab", name="Data", exact=True)
         data_tab.click(timeout=5000)
 
-        axis_section = self.page.locator(f"label:has-text('{axis}')").locator("..")
-        axis_section.wait_for(state="visible", timeout=5000)
+        # The axis row lays out as cells of the tab's grid and has no box of its own.
+        axis_field = self.page.locator(f"label:has-text('{axis}') + *")
+        axis_field.wait_for(state="visible", timeout=5000)
 
-        self.layout.drag(channel_item, axis_section)
+        self.layout.drag(channel_item, axis_field)
         channels.hide_channels()
 
         self.data[axis].append(channel_name)

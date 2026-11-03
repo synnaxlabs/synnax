@@ -63,6 +63,8 @@ export interface XAxisChannelSelectProps extends Omit<
 
 const CHIP_CLASS = CSS.BE("line-plot", "x-time-chip");
 
+const X_DIALOG_PROPS = { className: CSS.BE("line-plot", "x-dialog") };
+
 // Key 0 means no X channel: each Y channel plots against its own index channel.
 const TIME_OPTION = (
   <Flex.Box className={CSS.BE("line-plot", "x-time")} full="x">
@@ -107,9 +109,11 @@ export const XAxisChannelSelect = ({
         onChange={handleChange}
         allowNone
         initialQuery={{ ...SEARCH_OPTIONS, rangeKey }}
+        variant="floating"
         location="top"
         icon={<Icon.Time />}
         footer={TIME_OPTION}
+        dialogProps={X_DIALOG_PROPS}
       />
     </Input.Item>
   );

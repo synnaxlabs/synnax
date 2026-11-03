@@ -288,6 +288,14 @@ says why in a sentence, then gives the raw error.
   schematic element config. Each tab shows `LinePlot.axisIcon`: a faint plot frame with
   the axis side drawn solid. An inset band was rejected for the first style.
 
+### Plot data tab
+
+- The labels share one column as wide as the widest label, so every field starts at one
+  edge. X1, the field people change least, sits at the end of the Ranges row, as both
+  set the x axis. Below a toolbar width of 144rem it takes its own row at the bottom.
+- The X1 dialog floats and is at least 66rem wide, so the Time option's description fits
+  on one line.
+
 ## Interaction
 
 - Respond to every input in less than 100 ms. Show a spinner only after 150 to 300 ms,

@@ -40,3 +40,8 @@
 .console-line-plot__x-time-chip {
     margin-left: auto;
 }
+
+/* Wide enough for the Time option's description, whatever the trigger's width. */
+.console-line-plot__x-dialog {
+    --pluto-select-dialog-min-width: 66rem;
+}
