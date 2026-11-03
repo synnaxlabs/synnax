@@ -136,7 +136,7 @@ class Value(Symbol):
         props["averaging_window"] = int(self.layout.get_input_field("Averaging window"))
 
         # Staleness Timeout
-        props["stale_timeout"] = int(self.layout.get_input_field("Timeout"))
+        props["stale_timeout"] = int(self.layout.get_time_span_field("Timeout").seconds)
 
         # Notation
         notation_options = ["Scientific", "Engineering", "Standard"]
