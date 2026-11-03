@@ -203,8 +203,9 @@ TEST(StableForTest, EmitsWhenStableForDuration) {
     auto ctx = make_context();
     ASSERT_NIL(node.next(ctx));
 
-    // Advance past the duration (start + 1s).
+    // A sample of the same value stamped start + 1s shows the hold.
     const auto emit_ns = start_ns + x::telem::SECOND.nanoseconds();
+    write_source(source, {5}, {emit_ns});
     ctx.cycle.now = x::telem::TimeStamp(emit_ns);
     std::vector<size_t> marked;
     ctx.mark_changed = [&](size_t i) { marked.push_back(i); };
@@ -216,7 +217,7 @@ TEST(StableForTest, EmitsWhenStableForDuration) {
     EXPECT_EQ(checker.output(0)->size(), 1);
     EXPECT_EQ(checker.output(0)->at<uint8_t>(0), 5);
 
-    // Output timestamp should be the cycle stamp, not the input timestamp.
+    // Output timestamp is the stamp of the sample that showed the hold.
     const auto &output_time = checker.output_time(0);
     EXPECT_EQ(output_time->size(), 1);
     EXPECT_EQ(output_time->at<int64_t>(0), emit_ns);
@@ -246,6 +247,7 @@ TEST(StableForTest, ResetsTimerOnValueChange) {
 
     // At 1s, only 500ms since the change at 500ms — should NOT emit.
     bool changed = false;
+    write_source(source2, {10}, {x::telem::SECOND.nanoseconds()});
     ctx.cycle.now = x::telem::TimeStamp(x::telem::SECOND.nanoseconds());
     ctx.mark_changed = [&](size_t) { changed = true; };
     ASSERT_NIL(node.next(ctx));
@@ -254,6 +256,7 @@ TEST(StableForTest, ResetsTimerOnValueChange) {
     // At 1.5s, 1s since the change — should emit.
     const auto ts_1500ms = x::telem::SECOND.nanoseconds() +
                            500 * x::telem::MILLISECOND.nanoseconds();
+    write_source(source2, {10}, {ts_1500ms});
     ctx.cycle.now = x::telem::TimeStamp(ts_1500ms);
     ASSERT_NIL(node.next(ctx));
     EXPECT_TRUE(changed);
@@ -278,11 +281,13 @@ TEST(StableForTest, DoesNotEmitSameValueTwice) {
     ASSERT_NIL(node.next(ctx));
 
     // First emission after stable duration.
+    write_source(source, {5}, {start_ns + x::telem::SECOND.nanoseconds()});
     ctx.cycle.now = x::telem::TimeStamp(start_ns + x::telem::SECOND.nanoseconds());
     ASSERT_NIL(node.next(ctx));
 
     // Second call later — same value, should NOT emit again.
     int call_count = 0;
+    write_source(source, {5}, {start_ns + 2 * x::telem::SECOND.nanoseconds()});
     ctx.cycle.now = x::telem::TimeStamp(start_ns + 2 * x::telem::SECOND.nanoseconds());
     ctx.mark_changed = [&](size_t) { call_count++; };
     ASSERT_NIL(node.next(ctx));
@@ -304,6 +309,7 @@ TEST(StableForTest, EmitsDifferentValueAfterStablePeriod) {
     write_source(source1, {5}, {start_ns});
     auto ctx = make_context();
     ASSERT_NIL(node.next(ctx));
+    write_source(source1, {5}, {start_ns + x::telem::SECOND.nanoseconds()});
     ctx.cycle.now = x::telem::TimeStamp(start_ns + x::telem::SECOND.nanoseconds());
     ASSERT_NIL(node.next(ctx));
 
@@ -316,6 +322,7 @@ TEST(StableForTest, EmitsDifferentValueAfterStablePeriod) {
 
     // At 3s, value 10 should emit.
     bool changed = false;
+    write_source(source2, {10}, {3 * x::telem::SECOND.nanoseconds()});
     ctx.cycle.now = x::telem::TimeStamp(3 * x::telem::SECOND.nanoseconds());
     ctx.mark_changed = [&](size_t) { changed = true; };
     ASSERT_NIL(node.next(ctx));
@@ -342,7 +349,8 @@ TEST(StableForTest, HandlesMultipleValuesInSingleInput) {
     auto ctx = make_context();
     ASSERT_NIL(node.next(ctx));
 
-    // last_changed is at 200ms (when 5->10 occurred). At 1.2s, should emit.
+    // last_changed is at 200ms (when 5->10 occurred). A sample at 1.2s shows the hold.
+    write_source(source, {10}, {1200 * ms});
     ctx.cycle.now = x::telem::TimeStamp(1200 * ms);
     bool changed = false;
     ctx.mark_changed = [&](size_t) { changed = true; };
@@ -367,6 +375,7 @@ TEST(StableForTest, ResetClearsState) {
     write_source(source, {5}, {start_ns});
     auto ctx = make_context();
     ASSERT_NIL(node.next(ctx));
+    write_source(source, {5}, {start_ns + x::telem::SECOND.nanoseconds()});
     ctx.cycle.now = x::telem::TimeStamp(start_ns + x::telem::SECOND.nanoseconds());
     ASSERT_NIL(node.next(ctx));
 
@@ -436,6 +445,7 @@ TEST(StableForTest, IsOutputTruthyDelegatesToState) {
     write_source(source, {1}, {start_ns});
     auto ctx = make_context();
     ASSERT_NIL(node.next(ctx));
+    write_source(source, {1}, {start_ns + x::telem::SECOND.nanoseconds()});
     ctx.cycle.now = x::telem::TimeStamp(start_ns + x::telem::SECOND.nanoseconds());
     ASSERT_NIL(node.next(ctx));
 
@@ -458,7 +468,8 @@ TEST(StableForTest, HandlesSameValueRepeatedInInput) {
     auto ctx = make_context();
     ASSERT_NIL(node.next(ctx));
 
-    // last_changed at 100ms. At 1.1s, should emit.
+    // last_changed at 100ms. A sample at 1.1s shows the hold.
+    write_source(source, {5}, {1100 * ms});
     ctx.cycle.now = x::telem::TimeStamp(1100 * ms);
     bool changed = false;
     ctx.mark_changed = [&](size_t) { changed = true; };
@@ -483,6 +494,7 @@ TEST(StableForTest, ResetAllowsSameValueToEmitAgain) {
     write_source(source1, {5}, {start_ns});
     auto ctx = make_context();
     ASSERT_NIL(node.next(ctx));
+    write_source(source1, {5}, {start_ns + x::telem::SECOND.nanoseconds()});
     ctx.cycle.now = x::telem::TimeStamp(start_ns + x::telem::SECOND.nanoseconds());
     ASSERT_NIL(node.next(ctx));
 
@@ -495,6 +507,7 @@ TEST(StableForTest, ResetAllowsSameValueToEmitAgain) {
     ASSERT_NIL(node.next(ctx));
 
     bool changed = false;
+    write_source(source2, {5}, {3 * x::telem::SECOND.nanoseconds()});
     ctx.cycle.now = x::telem::TimeStamp(3 * x::telem::SECOND.nanoseconds());
     ctx.mark_changed = [&](size_t) { changed = true; };
     ASSERT_NIL(node.next(ctx));
@@ -655,8 +668,10 @@ TEST(StableForVarDurationTest, HonorsTheDeclaredInitialBeforeAnyWrite) {
     t.current_time = x::telem::TimeStamp(x::telem::SECOND);
     EXPECT_FALSE(t.next());
     t.current_time = x::telem::TimeStamp(x::telem::SECOND + x::telem::SECOND / 2);
+    t.ingest(5, t.current_time);
     EXPECT_FALSE(t.next());
     t.current_time = x::telem::TimeStamp(2 * x::telem::SECOND);
+    t.ingest(5, t.current_time);
     EXPECT_TRUE(t.next());
 }
 
@@ -668,14 +683,17 @@ TEST(StableForVarDurationTest, AdoptsAShorteningWriteAtTheNextWindowNotMidWindow
     t.set_duration(x::telem::SECOND);
     // The in-flight window completes under its starting 10s.
     t.current_time = x::telem::TimeStamp(2 * x::telem::SECOND);
+    t.ingest(5, t.current_time);
     EXPECT_FALSE(t.next());
     t.current_time = x::telem::TimeStamp(11 * x::telem::SECOND);
+    t.ingest(5, t.current_time);
     EXPECT_TRUE(t.next());
     // The next window latches the shortened 1s.
     t.ingest(7, x::telem::TimeStamp(12 * x::telem::SECOND));
     t.current_time = x::telem::TimeStamp(12 * x::telem::SECOND);
     EXPECT_FALSE(t.next());
     t.current_time = x::telem::TimeStamp(13 * x::telem::SECOND);
+    t.ingest(7, t.current_time);
     EXPECT_TRUE(t.next());
 }
 
@@ -687,17 +705,173 @@ TEST(StableForVarDurationTest, AdoptsALengtheningWriteAtTheNextWindowNotMidWindo
     t.set_duration(10 * x::telem::SECOND);
     // The in-flight window completes under its starting 1s.
     t.current_time = x::telem::TimeStamp(2 * x::telem::SECOND);
+    t.ingest(5, t.current_time);
     EXPECT_TRUE(t.next());
     // The next window latches the lengthened 10s.
     t.ingest(7, x::telem::TimeStamp(3 * x::telem::SECOND));
     t.current_time = x::telem::TimeStamp(3 * x::telem::SECOND);
     EXPECT_FALSE(t.next());
     t.current_time = x::telem::TimeStamp(4 * x::telem::SECOND);
+    t.ingest(7, t.current_time);
     EXPECT_FALSE(t.next());
     t.current_time = x::telem::TimeStamp(13 * x::telem::SECOND);
+    t.ingest(7, t.current_time);
     EXPECT_TRUE(t.next());
     const auto output = t.handle("stable").output(0);
     EXPECT_EQ(output->values<uint8_t>(), std::vector<uint8_t>{7});
+}
+
+/// @brief Builds a stable_for node with a 10ms window over a u8 source. The window
+/// is measured in sample time at both ends: a batch that is older than the window
+/// but spans less than it has not shown the value held.
+struct SampleTime {
+    TestSetup setup;
+    StableFor node;
+    runtime::state::Node source;
+    x::telem::TimeStamp current_time{x::telem::SECOND};
+
+    explicit SampleTime(
+        const int64_t duration_ns = 10 * x::telem::MILLISECOND.nanoseconds()
+    ):
+        setup(duration_ns),
+        node(
+            ASSERT_NIL_P(StableForInputs::create(setup.ir.nodes[1].inputs)),
+            setup.make_stable_node(),
+            0
+        ),
+        source(setup.make_source_node()) {}
+
+    static int64_t ms(const int64_t v) {
+        return v * x::telem::MILLISECOND.nanoseconds();
+    }
+
+    void ingest(const std::vector<uint8_t> &values, const std::vector<int64_t> &at) {
+        write_source(this->source, values, at);
+    }
+
+    bool next() {
+        bool fired = false;
+        auto ctx = make_context();
+        ctx.cycle.now = this->current_time;
+        ctx.mark_changed = [&fired](size_t) { fired = true; };
+        EXPECT_FALSE(this->node.next(ctx));
+        return fired;
+    }
+
+    int64_t output_stamp() {
+        return this->setup.make_stable_node().output_time(0)->at<int64_t>(0);
+    }
+
+    std::vector<int64_t> output_stamps() {
+        return this->setup.make_stable_node().output_time(0)->values<int64_t>();
+    }
+
+    std::vector<uint8_t> outputs() {
+        return this->setup.make_stable_node().output(0)->values<uint8_t>();
+    }
+};
+
+TEST(StableForSampleTimeTest, DoesNotCloseOnABatchOlderThanTheWindowButShorter) {
+    SampleTime t;
+    // At cycle stamp T, a batch stamped T-18ms to T-16ms shows a 2ms hold.
+    const auto now = t.current_time.nanoseconds();
+    t.ingest({1, 1, 1}, {now - t.ms(18), now - t.ms(17), now - t.ms(16)});
+    EXPECT_FALSE(t.next());
+}
+
+TEST(StableForSampleTimeTest, ClosesOnceOnTheSampleThatShowsTheHoldStampedAtIt) {
+    SampleTime t;
+    const auto now = t.current_time.nanoseconds();
+    t.ingest({1, 1, 1}, {now - t.ms(18), now - t.ms(17), now - t.ms(16)});
+    EXPECT_FALSE(t.next());
+    t.ingest({1, 1}, {now - t.ms(8), now - t.ms(7)});
+    EXPECT_TRUE(t.next());
+    EXPECT_EQ(t.setup.make_stable_node().output(0)->at<uint8_t>(0), 1);
+    EXPECT_EQ(t.output_stamp(), now - t.ms(8));
+    t.ingest({1}, {now - t.ms(5)});
+    EXPECT_FALSE(t.next());
+}
+
+TEST(StableForSampleTimeTest, DoesNotCloseWhenTheValueChangesBackInsideTheWindow) {
+    SampleTime t;
+    t.ingest({1}, {t.ms(0)});
+    EXPECT_FALSE(t.next());
+    t.ingest({0, 1}, {t.ms(5), t.ms(8)});
+    EXPECT_FALSE(t.next());
+    t.ingest({1}, {t.ms(15)});
+    EXPECT_FALSE(t.next());
+    t.ingest({1}, {t.ms(18)});
+    EXPECT_TRUE(t.next());
+    EXPECT_EQ(t.output_stamp(), t.ms(18));
+}
+
+TEST(StableForSampleTimeTest, DoesNotCloseOnACycleWithNoNewInput) {
+    SampleTime t;
+    t.ingest({1}, {t.ms(0)});
+    EXPECT_FALSE(t.next());
+    t.current_time = x::telem::TimeStamp(100 * x::telem::SECOND);
+    EXPECT_FALSE(t.next());
+}
+
+TEST(StableForSampleTimeTest, EmitsAValueConfirmedInsideABatchThatThenChanges) {
+    SampleTime t;
+    t.ingest({1, 1, 1}, {t.ms(0), t.ms(1), t.ms(2)});
+    EXPECT_FALSE(t.next());
+    t.ingest({1, 2, 2}, {t.ms(5000), t.ms(5001), t.ms(5002)});
+    EXPECT_TRUE(t.next());
+    EXPECT_EQ(t.outputs(), std::vector<uint8_t>{1});
+    EXPECT_EQ(t.output_stamps(), std::vector<int64_t>{t.ms(5000)});
+}
+
+TEST(StableForSampleTimeTest, EmitsEveryValueConfirmedInsideOneBatchAtItsSample) {
+    SampleTime t;
+    t.ingest({1, 1, 2, 2}, {t.ms(0), t.ms(20), t.ms(30), t.ms(50)});
+    EXPECT_TRUE(t.next());
+    EXPECT_EQ(t.outputs(), (std::vector<uint8_t>{1, 2}));
+    EXPECT_EQ(t.output_stamps(), (std::vector<int64_t>{t.ms(20), t.ms(50)}));
+}
+
+TEST(StableForSampleTimeTest, EmitsAValueAtMostOnceAcrossBatches) {
+    SampleTime t;
+    t.ingest({1}, {t.ms(0)});
+    EXPECT_FALSE(t.next());
+    t.ingest({1}, {t.ms(20)});
+    EXPECT_TRUE(t.next());
+    t.ingest({1, 1}, {t.ms(40), t.ms(60)});
+    EXPECT_FALSE(t.next());
+}
+
+TEST(StableForSampleTimeTest, EmitsAValueAgainAfterADifferentValueWasSent) {
+    SampleTime t;
+    t.ingest({1, 1}, {t.ms(0), t.ms(20)});
+    EXPECT_TRUE(t.next());
+    EXPECT_EQ(t.outputs(), std::vector<uint8_t>{1});
+    t.ingest({2, 2}, {t.ms(30), t.ms(50)});
+    EXPECT_TRUE(t.next());
+    EXPECT_EQ(t.outputs(), std::vector<uint8_t>{2});
+    t.ingest({1, 1}, {t.ms(60), t.ms(80)});
+    EXPECT_TRUE(t.next());
+    EXPECT_EQ(t.outputs(), std::vector<uint8_t>{1});
+    EXPECT_EQ(t.output_stamps(), std::vector<int64_t>{t.ms(80)});
+}
+
+TEST(StableForSampleTimeTest, DoesNotEmitWhenAChangePrecedesTheConfirmationInTheBatch) {
+    SampleTime t;
+    t.ingest({1, 1, 1}, {t.ms(0), t.ms(1), t.ms(2)});
+    EXPECT_FALSE(t.next());
+    t.ingest({2, 1}, {t.ms(5000), t.ms(5001)});
+    EXPECT_FALSE(t.next());
+}
+
+TEST(StableForSampleTimeTest, EmitsOnTheChangingSampleWhenTheDurationIsZero) {
+    SampleTime t(0);
+    t.ingest({1}, {t.ms(0)});
+    EXPECT_TRUE(t.next());
+    EXPECT_EQ(t.output_stamps(), std::vector<int64_t>{t.ms(0)});
+    t.ingest({1, 2}, {t.ms(1), t.ms(2)});
+    EXPECT_TRUE(t.next());
+    EXPECT_EQ(t.outputs(), std::vector<uint8_t>{2});
+    EXPECT_EQ(t.output_stamps(), std::vector<int64_t>{t.ms(2)});
 }
 
 struct TypePreservationCase {
@@ -742,10 +916,13 @@ TEST_P(StableForTypePreservationTest, DebouncesAndEmitsFullWidthValue) {
     EXPECT_FALSE(fired);
 
     ctx.cycle.now = x::telem::TimeStamp(2 * x::telem::SECOND);
-    source.output(0) = x::mem::make_local_shared<x::telem::Series>(p.dt, 0);
-    source.output_time(
-        0
-    ) = x::mem::make_local_shared<x::telem::Series>(x::telem::TIMESTAMP_T, 0);
+    auto held = x::telem::Series(p.dt, 1);
+    held.resize(1);
+    std::memcpy(held.data(), p.bytes.data(), p.bytes.size());
+    source.output(0) = x::mem::make_local_shared<x::telem::Series>(std::move(held));
+    source.output_time(0) = x::mem::make_local_shared<x::telem::Series>(
+        std::vector<int64_t>{2 * x::telem::SECOND.nanoseconds()}
+    );
     source.mark_fresh(0);
     ASSERT_NIL(node.next(ctx));
     EXPECT_TRUE(fired);

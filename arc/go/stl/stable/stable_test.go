@@ -185,10 +185,11 @@ var _ = Describe("StableFor", func() {
 			)
 			Expect(outputs.Contains(0)).To(BeFalse())
 
-			// Advance time to exactly duration (no new input data)
+			// A sample of the same value stamped exactly duration later closes
+			// the window.
 			currentTime = telem.SecondTS * 2
-			*source.Output(0) = telem.NewSeriesV[uint8]()
-			*source.OutputTime(0) = telem.NewSeriesSecondsTSV()
+			*source.Output(0) = telem.NewSeriesV[uint8](5)
+			*source.OutputTime(0) = telem.NewSeriesSecondsTSV(2)
 			source.MarkFresh(0)
 			outputs = make(set.Set[int])
 			n.Next(
@@ -253,8 +254,11 @@ var _ = Describe("StableFor", func() {
 			)
 			Expect(outputs.Contains(0)).To(BeFalse())
 
-			// Advance to 1.5 seconds from start (0.5s since change at time 1s)
+			// Same value at 1.5s: only 0.5s since the change at 1s.
 			currentTime = telem.SecondTS + telem.SecondTS/2
+			*source.Output(0) = telem.NewSeriesV[uint8](10)
+			*source.OutputTime(0) = telem.NewSeriesV(currentTime)
+			source.MarkFresh(0)
 			outputs = make(set.Set[int])
 			n.Next(
 				node.Context{
@@ -266,8 +270,11 @@ var _ = Describe("StableFor", func() {
 			// Should not emit yet - value changed at 1s, only 0.5s elapsed
 			Expect(outputs.Contains(0)).To(BeFalse())
 
-			// Advance to 2 seconds from start (1s since change at time 1s)
+			// Same value at 2s: 1s since the change at 1s.
 			currentTime = telem.SecondTS * 2
+			*source.Output(0) = telem.NewSeriesV[uint8](10)
+			*source.OutputTime(0) = telem.NewSeriesSecondsTSV(2)
+			source.MarkFresh(0)
 			outputs = make(set.Set[int])
 			n.Next(
 				node.Context{
@@ -309,8 +316,8 @@ var _ = Describe("StableFor", func() {
 			)
 
 			currentTime = telem.SecondTS * 2
-			*source.Output(0) = telem.NewSeriesV[uint8]()
-			*source.OutputTime(0) = telem.NewSeriesSecondsTSV()
+			*source.Output(0) = telem.NewSeriesV[uint8](5)
+			*source.OutputTime(0) = telem.NewSeriesSecondsTSV(2)
 			source.MarkFresh(0)
 			outputs := make(set.Set[int])
 			n.Next(
@@ -324,8 +331,8 @@ var _ = Describe("StableFor", func() {
 
 			// Call again with same value - should not emit
 			currentTime = telem.SecondTS * 3
-			*source.Output(0) = telem.NewSeriesV[uint8]()
-			*source.OutputTime(0) = telem.NewSeriesSecondsTSV()
+			*source.Output(0) = telem.NewSeriesV[uint8](5)
+			*source.OutputTime(0) = telem.NewSeriesSecondsTSV(3)
 			source.MarkFresh(0)
 			outputs = make(set.Set[int])
 			n.Next(
@@ -369,6 +376,9 @@ var _ = Describe("StableFor", func() {
 
 			// Emit first value
 			currentTime = telem.SecondTS
+			*source.Output(0) = telem.NewSeriesV[uint8](5)
+			*source.OutputTime(0) = telem.NewSeriesSecondsTSV(1)
+			source.MarkFresh(0)
 			n.Next(
 				node.Context{
 					Context:     ctx,
@@ -392,6 +402,9 @@ var _ = Describe("StableFor", func() {
 
 			// Wait for stability
 			currentTime = telem.SecondTS * 3
+			*source.Output(0) = telem.NewSeriesV[uint8](10)
+			*source.OutputTime(0) = telem.NewSeriesSecondsTSV(3)
+			source.MarkFresh(0)
 			outputs := make(set.Set[int])
 			n.Next(
 				node.Context{
@@ -443,8 +456,11 @@ var _ = Describe("StableFor", func() {
 				},
 			)
 
-			// Should track last value (7) with time 0.4s, so wait until 1.4s elapsed
+			// Should track last value (7) with time 0.4s, so a sample at 1.4s closes
 			currentTime = telem.SecondTS + telem.SecondTS*2/5 // 1.4s
+			*source.Output(0) = telem.NewSeriesV[uint8](7)
+			*source.OutputTime(0) = telem.NewSeriesV(currentTime)
+			source.MarkFresh(0)
 			outputs := make(set.Set[int])
 			n.Next(
 				node.Context{
@@ -462,7 +478,7 @@ var _ = Describe("StableFor", func() {
 		})
 
 		It(
-			"Should use output timestamp as current time not input time",
+			"Should stamp the output with the newest input sample, not the cycle",
 			func(ctx SpecContext) {
 				cfg := node.Config{
 					Node: ir.Node{
@@ -492,8 +508,8 @@ var _ = Describe("StableFor", func() {
 				)
 
 				currentTime = telem.SecondTS * 100 // Set current time far in future
-				*source.Output(0) = telem.NewSeriesV[uint8]()
-				*source.OutputTime(0) = telem.NewSeriesSecondsTSV()
+				*source.Output(0) = telem.NewSeriesV[uint8](5)
+				*source.OutputTime(0) = telem.NewSeriesSecondsTSV(2)
 				source.MarkFresh(0)
 				outputs := make(set.Set[int])
 				n.Next(
@@ -508,7 +524,7 @@ var _ = Describe("StableFor", func() {
 				stableNode := s.Node("stable")
 				outputTime := stableNode.OutputTime(0)
 				outputTimes := outputTime.Unmarshal[telem.TimeStamp]()
-				Expect(outputTimes).To(Equal([]telem.TimeStamp{telem.SecondTS * 100}))
+				Expect(outputTimes).To(Equal([]telem.TimeStamp{telem.SecondTS * 2}))
 			},
 		)
 
@@ -546,8 +562,11 @@ var _ = Describe("StableFor", func() {
 				},
 			)
 
-			// Should use time from first occurrence (0)
+			// Should use time from first occurrence (0), so a sample at 1s closes
 			currentTime = telem.SecondTS
+			*source.Output(0) = telem.NewSeriesV[uint8](5)
+			*source.OutputTime(0) = telem.NewSeriesSecondsTSV(1)
+			source.MarkFresh(0)
 			outputs := make(set.Set[int])
 			n.Next(
 				node.Context{
@@ -659,6 +678,9 @@ var _ = Describe("StableFor", func() {
 				Expect(outputs.Contains(0)).To(BeFalse())
 
 				currentTime = telem.SecondTS * 2
+				*source.Output(0) = telem.NewSeriesV[uint8](5)
+				*source.OutputTime(0) = telem.NewSeriesSecondsTSV(2)
+				source.MarkFresh(0)
 				outputs = make(set.Set[int])
 				n.Next(
 					node.Context{
@@ -847,8 +869,10 @@ var _ = Describe("Variable duration", func() {
 		currentTime = telem.SecondTS
 		Expect(next(ctx, n)).To(BeFalse())
 		currentTime = telem.SecondTS + telem.SecondTS/2
+		ingest(5, currentTime)
 		Expect(next(ctx, n)).To(BeFalse())
 		currentTime = 2 * telem.SecondTS
+		ingest(5, currentTime)
 		Expect(next(ctx, n)).To(BeTrue())
 	})
 
@@ -863,14 +887,17 @@ var _ = Describe("Variable duration", func() {
 			setDuration(telem.Second)
 			// The in-flight window completes under its starting 10s.
 			currentTime = 2 * telem.SecondTS
+			ingest(5, currentTime)
 			Expect(next(ctx, n)).To(BeFalse())
 			currentTime = 11 * telem.SecondTS
+			ingest(5, currentTime)
 			Expect(next(ctx, n)).To(BeTrue())
 			// The next window latches the shortened 1s.
 			ingest(7, 12*telem.SecondTS)
 			currentTime = 12 * telem.SecondTS
 			Expect(next(ctx, n)).To(BeFalse())
 			currentTime = 13 * telem.SecondTS
+			ingest(7, currentTime)
 			Expect(next(ctx, n)).To(BeTrue())
 		},
 	)
@@ -886,14 +913,17 @@ var _ = Describe("Variable duration", func() {
 			setDuration(10 * telem.Second)
 			// The in-flight window completes under its starting 1s.
 			currentTime = 2 * telem.SecondTS
+			ingest(5, currentTime)
 			Expect(next(ctx, n)).To(BeTrue())
 			// The next window latches the lengthened 10s.
 			ingest(7, 3*telem.SecondTS)
 			currentTime = 3 * telem.SecondTS
 			Expect(next(ctx, n)).To(BeFalse())
 			currentTime = 4 * telem.SecondTS
+			ingest(7, currentTime)
 			Expect(next(ctx, n)).To(BeFalse())
 			currentTime = 13 * telem.SecondTS
+			ingest(7, currentTime)
 			Expect(next(ctx, n)).To(BeTrue())
 			output := s.Node("stable").Output(0)
 			Expect(output.Unmarshal[uint8]()).To(Equal([]uint8{7}))
@@ -969,8 +999,8 @@ var _ = Describe("StableFor type preservation", func() {
 			Expect(fired.Contains(0)).To(BeFalse())
 
 			now = telem.SecondTS * 2
-			*source.Output(0) = telem.Series{DataType: input.DataType}
-			*source.OutputTime(0) = telem.NewSeriesSecondsTSV()
+			*source.Output(0) = input
+			*source.OutputTime(0) = telem.NewSeriesSecondsTSV(2)
 			source.MarkFresh(0)
 			fired = make(set.Set[int])
 			n.Next(
@@ -997,5 +1027,190 @@ var _ = Describe("StableFor type preservation", func() {
 		Entry("f32", types.F32(), telem.NewSeriesV[float32](4.321)),
 		Entry("f64", types.F64(), telem.NewSeriesV(4.321)),
 		Entry("bool", types.Bool(), telem.NewSeriesV(true)),
+	)
+})
+
+// The window is measured in sample time at both ends: a batch that is older than
+// the window but spans less than it has not shown the value held.
+var _ = Describe("Sample-time window", func() {
+	var (
+		s           *node.ProgramState
+		n           node.Node
+		currentTime telem.TimeStamp
+	)
+	build := func(duration telem.TimeSpan) {
+		prog := ir.IR{
+			Nodes: ir.Nodes{
+				{
+					Key:  "source",
+					Type: "source",
+					Outputs: types.Params{
+						{Name: ir.DefaultOutputParam, Type: types.U8()},
+					},
+				},
+				{
+					Key:  "stable",
+					Type: "stable_for",
+					Inputs: types.Params{
+						{Name: "duration", Type: types.TimeSpan(), Value: duration},
+						{Name: ir.DefaultInputParam, Type: types.U8()},
+					},
+					Outputs: types.Params{
+						{Name: ir.DefaultOutputParam, Type: types.U8()},
+					},
+				},
+			},
+			Edges: ir.Edges{{
+				Source: ir.Handle{Node: "source", Param: ir.DefaultOutputParam},
+				Target: ir.Handle{Node: "stable", Param: ir.DefaultInputParam},
+			}},
+		}
+		s = node.New(prog)
+		n = MustSucceed(stable.NewHost().Create(node.Config{
+			Node: prog.Nodes.Get("stable"), State: s.Node("stable"),
+		}))
+	}
+	BeforeEach(func() {
+		currentTime = telem.SecondTS
+		build(10 * telem.Millisecond)
+	})
+	ingest := func(values []uint8, at []telem.TimeStamp) {
+		*s.Node("source").Output(0) = telem.NewSeriesV(values...)
+		*s.Node("source").OutputTime(0) = telem.NewSeriesV(at...)
+		s.Node("source").MarkFresh(0)
+	}
+	next := func(ctx SpecContext) bool {
+		fired := false
+		n.Next(node.Context{
+			Context:     ctx,
+			Now:         currentTime,
+			MarkChanged: func(int) { fired = true },
+		})
+		return fired
+	}
+	ms := func(v int) telem.TimeStamp { return telem.TimeStamp(v) * telem.MillisecondTS }
+	outputStamp := func() telem.TimeStamp {
+		return s.Node("stable").OutputTime(0).ValueAt[telem.TimeStamp](0)
+	}
+	outputStamps := func() []telem.TimeStamp {
+		return s.Node("stable").OutputTime(0).Unmarshal[telem.TimeStamp]()
+	}
+	outputs := func() []uint8 { return s.Node("stable").Output(0).Unmarshal[uint8]() }
+
+	It("Should not close on a batch older than the window but shorter than it",
+		func(ctx SpecContext) {
+			// At cycle stamp T, a batch stamped T-18ms to T-16ms shows a 2ms hold.
+			ingest([]uint8{1, 1, 1}, []telem.TimeStamp{
+				currentTime - ms(18), currentTime - ms(17), currentTime - ms(16),
+			})
+			Expect(next(ctx)).To(BeFalse())
+		},
+	)
+
+	It("Should close once on the sample that shows the hold, stamped at that sample",
+		func(ctx SpecContext) {
+			ingest([]uint8{1, 1, 1}, []telem.TimeStamp{
+				currentTime - ms(18), currentTime - ms(17), currentTime - ms(16),
+			})
+			Expect(next(ctx)).To(BeFalse())
+			ingest([]uint8{1, 1}, []telem.TimeStamp{
+				currentTime - ms(8), currentTime - ms(7),
+			})
+			Expect(next(ctx)).To(BeTrue())
+			Expect(s.Node("stable").Output(0).Unmarshal[uint8]()).To(Equal([]uint8{1}))
+			Expect(outputStamp()).To(Equal(currentTime - ms(8)))
+			ingest([]uint8{1}, []telem.TimeStamp{currentTime - ms(5)})
+			Expect(next(ctx)).To(BeFalse())
+		},
+	)
+
+	It("Should not close when the value changes back inside the window",
+		func(ctx SpecContext) {
+			ingest([]uint8{1}, []telem.TimeStamp{ms(0)})
+			Expect(next(ctx)).To(BeFalse())
+			ingest([]uint8{0, 1}, []telem.TimeStamp{ms(5), ms(8)})
+			Expect(next(ctx)).To(BeFalse())
+			ingest([]uint8{1}, []telem.TimeStamp{ms(15)})
+			Expect(next(ctx)).To(BeFalse())
+			ingest([]uint8{1}, []telem.TimeStamp{ms(18)})
+			Expect(next(ctx)).To(BeTrue())
+			Expect(outputStamp()).To(Equal(ms(18)))
+		},
+	)
+
+	It("Should not close on a cycle with no new input", func(ctx SpecContext) {
+		ingest([]uint8{1}, []telem.TimeStamp{ms(0)})
+		Expect(next(ctx)).To(BeFalse())
+		currentTime = 100 * telem.SecondTS
+		Expect(next(ctx)).To(BeFalse())
+	})
+
+	It("Should emit a value confirmed inside a batch that then changes",
+		func(ctx SpecContext) {
+			ingest([]uint8{1, 1, 1}, []telem.TimeStamp{ms(0), ms(1), ms(2)})
+			Expect(next(ctx)).To(BeFalse())
+			ingest([]uint8{1, 2, 2}, []telem.TimeStamp{ms(5000), ms(5001), ms(5002)})
+			Expect(next(ctx)).To(BeTrue())
+			Expect(outputs()).To(Equal([]uint8{1}))
+			Expect(outputStamps()).To(Equal([]telem.TimeStamp{ms(5000)}))
+		},
+	)
+
+	It("Should emit every value confirmed inside one batch, each at its sample",
+		func(ctx SpecContext) {
+			ingest(
+				[]uint8{1, 1, 2, 2},
+				[]telem.TimeStamp{ms(0), ms(20), ms(30), ms(50)},
+			)
+			Expect(next(ctx)).To(BeTrue())
+			Expect(outputs()).To(Equal([]uint8{1, 2}))
+			Expect(outputStamps()).To(Equal([]telem.TimeStamp{ms(20), ms(50)}))
+		},
+	)
+
+	It("Should emit a value at most once across batches", func(ctx SpecContext) {
+		ingest([]uint8{1}, []telem.TimeStamp{ms(0)})
+		Expect(next(ctx)).To(BeFalse())
+		ingest([]uint8{1}, []telem.TimeStamp{ms(20)})
+		Expect(next(ctx)).To(BeTrue())
+		ingest([]uint8{1, 1}, []telem.TimeStamp{ms(40), ms(60)})
+		Expect(next(ctx)).To(BeFalse())
+	})
+
+	It("Should emit a value again after a different value was sent",
+		func(ctx SpecContext) {
+			ingest([]uint8{1, 1}, []telem.TimeStamp{ms(0), ms(20)})
+			Expect(next(ctx)).To(BeTrue())
+			Expect(outputs()).To(Equal([]uint8{1}))
+			ingest([]uint8{2, 2}, []telem.TimeStamp{ms(30), ms(50)})
+			Expect(next(ctx)).To(BeTrue())
+			Expect(outputs()).To(Equal([]uint8{2}))
+			ingest([]uint8{1, 1}, []telem.TimeStamp{ms(60), ms(80)})
+			Expect(next(ctx)).To(BeTrue())
+			Expect(outputs()).To(Equal([]uint8{1}))
+			Expect(outputStamps()).To(Equal([]telem.TimeStamp{ms(80)}))
+		},
+	)
+
+	It("Should not emit a value when a change precedes its confirmation in the batch",
+		func(ctx SpecContext) {
+			ingest([]uint8{1, 1, 1}, []telem.TimeStamp{ms(0), ms(1), ms(2)})
+			Expect(next(ctx)).To(BeFalse())
+			ingest([]uint8{2, 1}, []telem.TimeStamp{ms(5000), ms(5001)})
+			Expect(next(ctx)).To(BeFalse())
+		},
+	)
+
+	It("Should emit on the changing sample when the duration is zero",
+		func(ctx SpecContext) {
+			build(0)
+			ingest([]uint8{1}, []telem.TimeStamp{ms(0)})
+			Expect(next(ctx)).To(BeTrue())
+			Expect(outputStamps()).To(Equal([]telem.TimeStamp{ms(0)}))
+			ingest([]uint8{1, 2}, []telem.TimeStamp{ms(1), ms(2)})
+			Expect(next(ctx)).To(BeTrue())
+			Expect(outputs()).To(Equal([]uint8{2}))
+			Expect(outputStamps()).To(Equal([]telem.TimeStamp{ms(2)}))
+		},
 	)
 })
