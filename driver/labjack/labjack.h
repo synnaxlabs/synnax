@@ -36,21 +36,6 @@ const std::map<int, std::string> MODELS = {
     {LJM_dtT8, T8},
 };
 
-/// @brief LJM errors that indicate the device is currently unreachable but may be
-/// reachable again in the near future.
-const std::vector UNREACHABLE_ERRORS = {
-    ljm::NO_RESPONSE_BYTES_RECEIVED,
-    ljm::STREAM_NOT_INITIALIZED,
-    ljm::RECONNECT_FAILED,
-    ljm::SYNCHRONIZATION_TIMEOUT
-};
-
-/// @brief translates LJM errors into useful errors for managing the task lifecycle.
-inline x::errors::Error translate_error(const x::errors::Error &err) {
-    if (err.matches(UNREACHABLE_ERRORS)) return ljm::TEMPORARILY_UNREACHABLE;
-    return err;
-}
-
 /// @brief factory for creating and operating LabJack tasks.
 class Factory final : public task::Factory {
     std::shared_ptr<x::lib::Lazy<device::Manager>> dev_manager;

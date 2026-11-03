@@ -9,6 +9,8 @@
 
 #pragma once
 
+#include <algorithm>
+#include <deque>
 #include <functional>
 #include <map>
 #include <memory>
@@ -21,10 +23,32 @@
 
 namespace driver::labjack::device {
 
+/// @brief a scripted device for tests. Each error queue serves one error per call, in
+/// order, and calls past the end of a queue succeed.
 class Mock final : public Device {
+    /// @brief returns the next error of the queue, or NIL when it is empty.
+    static x::errors::Error next(std::deque<x::errors::Error> &errors) {
+        if (errors.empty()) return x::errors::NIL;
+        auto err = errors.front();
+        errors.pop_front();
+        return err;
+    }
+
 public:
-    Mock() = default;
-    ~Mock() override = default;
+    /// @brief the errors that e_stream_read returns.
+    mutable std::deque<x::errors::Error> stream_read_errors;
+    /// @brief the errors that e_read_names returns.
+    mutable std::deque<x::errors::Error> read_errors;
+    /// @brief the errors that e_write_names returns.
+    mutable std::deque<x::errors::Error> write_errors;
+    /// @brief the interleaved scans that each e_stream_read copies into its buffer.
+    std::vector<double> stream_data;
+    /// @brief the value that e_read_names returns for each name. Other names read 0.
+    std::map<std::string, double> read_values;
+    /// @brief the values of each successful e_write_names call, by name.
+    mutable std::vector<std::map<std::string, double>> name_write_calls;
+    /// @brief the value that calibration_invalid returns.
+    bool invalid_calibration = false;
 
     x::errors::Error e_stream_read(
         double *data,
@@ -32,6 +56,8 @@ public:
         int *ljm_scan_backlog
     ) const override {
         if (should_fail_) return x::errors::Error("mock failure");
+        if (auto err = next(this->stream_read_errors)) return err;
+        std::ranges::copy(this->stream_data, data);
         *dev_scan_backlog = 0;
         *ljm_scan_backlog = 0;
         return x::errors::NIL;
@@ -65,17 +91,6 @@ public:
     }
 
     [[nodiscard]] x::errors::Error
-    start_interval(int interval_handle, int microseconds) const override {
-        if (should_fail_) return x::errors::Error("mock failure");
-        return x::errors::NIL;
-    }
-
-    [[nodiscard]] x::errors::Error clean_interval(int interval_handle) const override {
-        if (should_fail_) return x::errors::Error("mock failure");
-        return x::errors::NIL;
-    }
-
-    [[nodiscard]] x::errors::Error
     e_read_name(const char *name, double *value) const override {
         if (should_fail_) return x::errors::Error("mock failure");
         *value = 0;
@@ -97,6 +112,10 @@ public:
         int *err_addr
     ) const override {
         if (should_fail_) return x::errors::Error("mock failure");
+        if (auto err = next(this->write_errors)) return err;
+        auto &call = this->name_write_calls.emplace_back();
+        for (size_t i = 0; i < num_frames; ++i)
+            call[names[i]] = values[i];
         return x::errors::NIL;
     }
 
@@ -110,13 +129,6 @@ public:
         return x::errors::NIL;
     }
 
-    [[nodiscard]] x::errors::Error
-    wait_for_next_interval(int interval_handle, int *skipped_intervals) const override {
-        if (should_fail_) return x::errors::Error("mock failure");
-        *skipped_intervals = 0;
-        return x::errors::NIL;
-    }
-
     [[nodiscard]] x::errors::Error e_read_names(
         size_t num_frames,
         const char **a_names,
@@ -124,6 +136,11 @@ public:
         int *error_addr
     ) const override {
         if (should_fail_) return x::errors::Error("mock failure");
+        if (auto err = next(this->read_errors)) return err;
+        for (size_t i = 0; i < num_frames; ++i) {
+            const auto it = this->read_values.find(a_names[i]);
+            a_values[i] = it == this->read_values.end() ? 0 : it->second;
+        }
         return x::errors::NIL;
     }
 
@@ -138,14 +155,23 @@ public:
         if (this->streaming) return ljm::STREAM_IS_ACTIVE;
         if (const auto err = configure()) return err;
         this->streaming = true;
+        ++this->stream_starts;
         *scan_rate = requested_scan_rate_;
         return x::errors::NIL;
+    }
+
+    [[nodiscard]] bool calibration_invalid() const override {
+        return this->invalid_calibration;
     }
 
     // Mock control methods
     void set_should_fail(const bool should_fail) { should_fail_ = should_fail; }
     void set_scan_rate(const double rate) { requested_scan_rate_ = rate; }
     [[nodiscard]] size_t write_count() const { return this->name_writes; }
+    /// @brief the number of streams started on the device.
+    [[nodiscard]] size_t stream_start_count() const { return this->stream_starts; }
+    /// @brief whether a stream runs on the device.
+    [[nodiscard]] bool is_streaming() const { return this->streaming; }
     /// @brief the last value written to each register by name.
     [[nodiscard]] const std::map<std::string, double> &written_names() const {
         return this->name_values;
@@ -159,6 +185,7 @@ private:
     bool should_fail_{false};
     double requested_scan_rate_{1000.0};
     mutable bool streaming = false;
+    mutable size_t stream_starts = 0;
     mutable size_t name_writes = 0;
     mutable std::map<std::string, double> name_values;
     mutable std::map<int, double> addr_writes;
