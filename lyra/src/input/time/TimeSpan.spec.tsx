@@ -95,10 +95,10 @@ describe("Input.TimeSpan", () => {
           <Input.TimeSpan inline value={HOUR} onChange={onChange} />
         </Triggers.Provider>,
       );
-      fireEvent.focus(field());
-      fireEvent.change(field(), { target: { value: "5min" } });
+      // A real focus, so the blur that Escape causes reaches the editor.
+      act(() => field().focus());
+      fireEvent.change(field(), { target: { value: "30s" } });
       fireEvent.keyDown(field(), { key: "Escape", code: "Escape" });
-      fireEvent.blur(field());
       expect(field().value).toBe("1h");
       expect(onChange).not.toHaveBeenCalled();
     });

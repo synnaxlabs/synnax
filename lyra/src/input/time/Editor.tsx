@@ -10,7 +10,7 @@
 import "@/input/time/Time.css";
 
 import { state } from "@synnaxlabs/x";
-import { type ReactElement, type ReactNode, useMemo, useState } from "react";
+import { type ReactElement, type ReactNode, useMemo, useRef, useState } from "react";
 import { flushSync } from "react-dom";
 
 import { type Component } from "@/component";
@@ -132,7 +132,15 @@ export const Editor = <V,>({
   check,
   ...rest
 }: EditorProps<V>): ReactElement => {
-  const [draft, setDraft] = useState<Draft | null>(null);
+  const [draft, setDraftState] = useState<Draft | null>(null);
+  // Escape closes the edit, then blurs the field in the same event, before React
+  // renders again. The ref lets that blur see the edit is over.
+  const draftRef = useRef<Draft | null>(null);
+  const setDraft = (next: state.SetArg<Draft | null>): void => {
+    const value = state.executeSetter(next, draftRef.current);
+    draftRef.current = value;
+    setDraftState(value);
+  };
   const text = draft?.text;
   // A reading's key holds the time that suggest resolved. Without this memo, the
   // compiler reruns suggest on each hover, and each item remounts.
@@ -160,7 +168,7 @@ export const Editor = <V,>({
   };
 
   const finish = (): void => {
-    if (draft == null) return;
+    if (draftRef.current == null) return;
     if (blank) onClear?.();
     else if (chosen != null) onCommit(chosen.value);
     close();
@@ -172,7 +180,7 @@ export const Editor = <V,>({
   };
 
   const open = (next: string): void => {
-    if (draft == null) setDraft(openDraft(next));
+    if (draftRef.current == null) setDraft(openDraft(next));
     else setText(next);
   };
 
