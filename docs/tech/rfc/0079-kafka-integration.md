@@ -188,9 +188,10 @@ A record goes to the group whose key equals its own, else to the empty-key group
 one exists, else it is skipped as not addressed to this task. Its value is parsed as
 JSON, and for every enabled field in the group the value at `pointer` is converted with
 the HTTP driver's rules (RFC 0028 §3.1). A record that lacks a field's pointer, or holds
-a value that does not convert, is a task error status, and the record is skipped. A
-topic whose shapes differ without keys needs a match on a value inside the record, which
-is an open question (§9).
+a value that does not convert, is skipped. Each poll writes at most one error status for
+its skipped records, carrying the count and the first reason. A topic whose shapes
+differ without keys needs a match on a value inside the record, which is an open
+question (§9).
 
 `name` and `data_type` serve channel creation only: at deploy the Console creates a
 channel for every field whose `channel` is zero, as the HTTP read form does. After that
@@ -215,13 +216,14 @@ write acknowledgment means the samples are on disk. The consumer commits only ma
 offsets, and a batch is marked after its write is acknowledged. A write failure sets an
 error status, leaves the batch unmarked, and stops the task, so a restart resumes from
 the last acknowledged batch. A crash between the acknowledgment and the offset commit
-replays that batch. At start the task reads the last stored timestamp of each group as
-its replay boundary. Records at or before the boundary that arrive before the first
-record past it are the replay, and skip silently: under the ordering rule, each one was
-either stored or rejected with a status the first time. Any regression after that first
-record is handled as above. A record stamped by Kafka in the same millisecond as the
-boundary is indistinguishable from the replay, so a restart inside that millisecond
-skips it.
+replays that batch, and so does a group that reassigns partitions, as after a lost
+connection. At start the task reads the last stored timestamp of each group as its
+replay boundary, and the last written timestamp becomes the boundary on every
+reassignment. Records at or before the boundary that arrive before the first record past
+it are the replay, and skip silently: under the ordering rule, each one was either
+stored or rejected with a status the first time. Any regression after that first record
+is handled as above. A record stamped by Kafka in the same millisecond as the boundary
+is indistinguishable from the replay, so a restart inside that millisecond skips it.
 
 Validation at deploy: a device of make `kafka`, a non-empty topic, at least one enabled
 field, a pointer on every enabled field, a `time_format` on every timestamp channel, at

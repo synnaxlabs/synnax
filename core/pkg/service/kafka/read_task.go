@@ -16,6 +16,7 @@ import (
 	"io"
 	"net"
 	"slices"
+	"sync/atomic"
 
 	"github.com/synnaxlabs/synnax/pkg/distribution/framer/frame"
 	"github.com/synnaxlabs/synnax/pkg/service/channel"
@@ -88,6 +89,13 @@ type readTask struct {
 	sCtx signal.Context
 	// lastSkip is the last skip reported, so a repeated one is not rewritten.
 	lastSkip string
+	// skipped counts the records the current poll skipped, and skipReason is why the
+	// first was.
+	skipped    int
+	skipReason string
+	// reassigned is set when the group assigns partitions, which replay from the last
+	// committed offset.
+	reassigned atomic.Bool
 	// disconnected is true from a connection failure until records arrive again.
 	disconnected bool
 }
@@ -369,12 +377,18 @@ func (t *readTask) open(ctx context.Context) (err error) {
 	if err != nil {
 		return err
 	}
-	cl, err := openClient(props,
+	cl, err := openClient(
+		props,
 		kgo.ConsumerGroup(t.group()),
 		kgo.ConsumeTopics(t.cfg.Topic),
 		kgo.ConsumeResetOffset(resetOffset(t.cfg.StartOffset)),
 		kgo.AutoCommitMarks(),
 		kgo.FetchMaxWait(t.factoryCfg.FetchMaxWait.Duration()),
+		kgo.OnPartitionsAssigned(
+			func(context.Context, *kgo.Client, map[string][]int32) {
+				t.reassigned.Store(true)
+			},
+		),
 	)
 	if err != nil {
 		return err
@@ -616,18 +630,24 @@ func isConnectionErr(err error) bool {
 // process writes the records of one poll and marks them for commit once every
 // group's write is acknowledged.
 func (t *readTask) process(ctx context.Context, fetches kgo.Fetches) error {
+	if t.reassigned.Swap(false) {
+		for _, g := range t.groups {
+			g.replaying = g.index != 0
+		}
+	}
 	rows := make(map[*readGroup][]row)
 	fetches.EachRecord(func(rec *kgo.Record) {
-		if g, r, ok := t.convert(ctx, rec); ok {
+		if g, r, ok := t.convert(rec); ok {
 			rows[g] = append(rows[g], r)
 		}
 	})
 	var fr frame.Frame
 	for g, rs := range rows {
-		if kept := t.keep(ctx, g, rs); len(kept) > 0 {
+		if kept := t.keep(g, rs); len(kept) > 0 {
 			fr = g.appendFrame(fr, kept)
 		}
 	}
+	t.reportSkips(ctx)
 	if !fr.Empty() {
 		if _, err := t.writer.Write(fr); err != nil {
 			return errors.Wrap(err, "writing records")
@@ -639,10 +659,7 @@ func (t *readTask) process(ctx context.Context, fetches kgo.Fetches) error {
 
 // convert parses rec into its group's samples. ok is false when the record is not
 // addressed to this task or was skipped with a status.
-func (t *readTask) convert(
-	ctx context.Context,
-	rec *kgo.Record,
-) (g *readGroup, r row, ok bool) {
+func (t *readTask) convert(rec *kgo.Record) (g *readGroup, r row, ok bool) {
 	g, ok = t.groups[string(rec.Key)]
 	if !ok {
 		if g, ok = t.groups[""]; !ok {
@@ -651,23 +668,23 @@ func (t *readTask) convert(
 	}
 	r = row{values: make([]any, len(g.fields))}
 	if err := g.extractor.extract(rec.Value, r.values, g.found); err != nil {
-		t.skip(ctx, "Record is not JSON: "+err.Error())
+		t.skip("Record is not JSON: " + err.Error())
 		return nil, row{}, false
 	}
 	for i, fld := range g.fields {
 		if err := g.extractor.errs[i]; err != nil {
-			t.skip(ctx, err.Error())
+			t.skip(err.Error())
 			return nil, row{}, false
 		}
 		if !g.found[i] {
-			t.skip(ctx, fmt.Sprintf("Record has no value at %s", fld.Pointer))
+			t.skip(fmt.Sprintf("Record has no value at %s", fld.Pointer))
 			return nil, row{}, false
 		}
 		v, err := readSample(
 			r.values[i], g.channels[i].DataType, fld.TimeFormat, fld.EnumValues,
 		)
 		if err != nil {
-			t.skip(ctx, fmt.Sprintf("Value at %s: %s", fld.Pointer, err))
+			t.skip(fmt.Sprintf("Value at %s: %s", fld.Pointer, err))
 			return nil, row{}, false
 		}
 		r.values[i] = v
@@ -683,7 +700,7 @@ func (t *readTask) convert(
 // keep sorts rows by timestamp and drops the replay. A body-stamped regression is
 // dropped with a status. Kafka timestamps only count milliseconds, so a regression of
 // one moves to a nanosecond past the last written stamp.
-func (t *readTask) keep(ctx context.Context, g *readGroup, rows []row) []row {
+func (t *readTask) keep(g *readGroup, rows []row) []row {
 	slices.SortStableFunc(rows, func(a, b row) int { return cmp.Compare(a.ts, b.ts) })
 	kept := rows[:0]
 	for _, r := range rows {
@@ -692,7 +709,7 @@ func (t *readTask) keep(ctx context.Context, g *readGroup, rows []row) []row {
 				continue
 			}
 			if g.stamp != -1 {
-				t.skip(ctx, fmt.Sprintf(
+				t.skip(fmt.Sprintf(
 					"Record stamped %s is not after the last written %s for key %q",
 					r.ts, g.last, g.key,
 				))
@@ -728,19 +745,37 @@ func (g *readGroup) appendFrame(fr frame.Frame, rows []row) frame.Frame {
 	return fr.Extend(frame.NewMulti(g.keys, series))
 }
 
-// skip reports a skipped record and why. A repeat of the last report is not rewritten.
-func (t *readTask) skip(ctx context.Context, description string) {
-	if description == t.lastSkip {
+// skip counts a skipped record and why for reportSkips.
+func (t *readTask) skip(reason string) {
+	if t.skipped == 0 {
+		t.skipReason = reason
+	}
+	t.skipped++
+}
+
+// reportSkips writes one status for the records the poll skipped, unless its reason
+// repeats the last one.
+func (t *readTask) reportSkips(ctx context.Context) {
+	n := t.skipped
+	if n == 0 {
 		return
 	}
-	t.lastSkip = description
+	t.skipped = 0
+	if t.skipReason == t.lastSkip {
+		return
+	}
+	t.lastSkip = t.skipReason
+	message := "Skipped record"
+	if n > 1 {
+		message = fmt.Sprintf("Skipped %d records", n)
+	}
 	t.setStatus(
 		ctx,
 		driver.NoCommand,
 		status.VariantError,
 		true,
-		"Skipped record",
-		description,
+		message,
+		t.skipReason,
 	)
 }
 

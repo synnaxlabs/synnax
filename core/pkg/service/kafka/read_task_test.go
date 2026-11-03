@@ -424,45 +424,86 @@ var _ = Describe("Read task", func() {
 		},
 	)
 
-	It("Should resume consuming when the cluster comes back", func(ctx SpecContext) {
-		// The broker persists to dir, so its restart keeps the topic and its ID.
-		dir := GinkgoT().TempDir()
-		first := MustSucceed(kfake.NewCluster(kfake.NumBrokers(1), kfake.DataDir(dir)))
-		DeferCleanup(first.Close)
-		addr := first.ListenAddrs()[0]
+	It("Should resume consuming without duplicates when the cluster comes back",
+		func(ctx SpecContext) {
+			// The broker persists to dir, so its restart keeps the topic and its ID.
+			dir := GinkgoT().TempDir()
+			first := MustSucceed(kfake.NewCluster(
+				kfake.NumBrokers(1),
+				kfake.DataDir(dir),
+			))
+			DeferCleanup(first.Close)
+			addr := first.ListenAddrs()[0]
+			index, data := createIndexed(ctx, telem.Float64T)
+			dev := createDevice(ctx, kafka.Properties{Brokers: []string{addr}})
+			topic := uniqueTopic()
+			Expect(first.CreateTopic(topic, 1, nil)).To(Succeed())
+			dt, t := configure(ctx, kafka.ReadConfig{
+				Device:  dev.Key,
+				Topic:   topic,
+				Records: single(unstampedFields(data)),
+			})
+			start(ctx, dt, t)
+			produce := func(ms int64, v float64) {
+				GinkgoHelper()
+				pr := MustSucceed(kgo.NewClient(kgo.SeedBrokers(addr)))
+				defer pr.Close()
+				Expect(pr.ProduceSync(ctx, &kgo.Record{
+					Topic:     topic,
+					Value:     MustSucceed(json.Marshal(map[string]any{"v": v})),
+					Timestamp: time.UnixMilli(ms),
+				}).FirstErr()).To(Succeed())
+			}
+			// The cluster closes before the offset commits, so the rejoined group
+			// replays this record.
+			produce(10_000, 1)
+			expectStored(ctx, data.Key(), 1)
+			first.Close()
+			Eventually(func() string { return taskStatus(ctx, t).Message }).
+				WithTimeout(15 * time.Second).
+				Should(Equal("Lost connection to cluster"))
+			stat := taskStatus(ctx, t)
+			Expect(stat.Variant).To(Equal(status.VariantWarning))
+			Expect(stat.Details.Running).To(BeTrue())
+			_, port := MustSucceed2(net.SplitHostPort(addr))
+			second := MustSucceed(kfake.NewCluster(
+				kfake.Ports(MustSucceed(strconv.Atoi(port))),
+				kfake.DataDir(dir),
+			))
+			DeferCleanup(second.Close)
+			produce(11_000, 2)
+			Expect(floats(expectStored(ctx, data.Key(), 2))).To(Equal([]float64{1, 2}))
+			Expect(timestamps(stored(ctx, index.Key()))).To(Equal(
+				[]telem.TimeStamp{10 * telem.SecondTS, 11 * telem.SecondTS},
+			))
+			Eventually(func() string { return taskStatus(ctx, t).Message }).
+				Should(Equal("Reconnected to cluster"))
+			stat = taskStatus(ctx, t)
+			Expect(stat.Variant).To(Equal(status.VariantSuccess))
+			Expect(stat.Details.Running).To(BeTrue())
+			// The offsets commit on stop, which needs the cluster cleanup closes.
+			Expect(dt.Stop(false)).To(Succeed())
+		},
+	)
+
+	It("Should write one status for the records a poll skips", func(ctx SpecContext) {
 		index, data := createIndexed(ctx, telem.Float64T)
-		dev := createDevice(ctx, kafka.Properties{Brokers: []string{addr}})
-		topic := uniqueTopic()
-		Expect(first.CreateTopic(topic, 1, nil)).To(Succeed())
+		dev := createDevice(ctx, clusterProperties())
+		topic := newTopic()
+		var recs []*kgo.Record
+		for range 3 {
+			recs = append(recs, &kgo.Record{Topic: topic, Value: []byte(`{"ts": 1}`)})
+		}
+		Expect(producer.ProduceSync(ctx, recs...).FirstErr()).To(Succeed())
 		dt, t := configure(ctx, kafka.ReadConfig{
 			Device:  dev.Key,
 			Topic:   topic,
 			Records: single(stampedFields(index, data)),
 		})
 		start(ctx, dt, t)
-		first.Close()
 		Eventually(func() string { return taskStatus(ctx, t).Message }).
-			WithTimeout(15 * time.Second).Should(Equal("Lost connection to cluster"))
-		stat := taskStatus(ctx, t)
-		Expect(stat.Variant).To(Equal(status.VariantWarning))
-		Expect(stat.Details.Running).To(BeTrue())
-		_, port := MustSucceed2(net.SplitHostPort(addr))
-		second := MustSucceed(kfake.NewCluster(
-			kfake.Ports(MustSucceed(strconv.Atoi(port))),
-			kfake.DataDir(dir),
-		))
-		DeferCleanup(second.Close)
-		pr := MustSucceed(kgo.NewClient(kgo.SeedBrokers(addr)))
-		DeferCleanup(pr.Close)
-		produceJSON(ctx, pr, topic, "", map[string]any{"ts": 10e9, "v": 1.0})
-		Expect(floats(expectStored(ctx, data.Key(), 1))).To(Equal([]float64{1}))
-		Eventually(func() string { return taskStatus(ctx, t).Message }).
-			Should(Equal("Reconnected to cluster"))
-		stat = taskStatus(ctx, t)
-		Expect(stat.Variant).To(Equal(status.VariantSuccess))
-		Expect(stat.Details.Running).To(BeTrue())
-		// The offsets commit on stop, which needs the cluster cleanup closes.
-		Expect(dt.Stop(false)).To(Succeed())
+			WithTimeout(15 * time.Second).Should(Equal("Skipped 3 records"))
+		Expect(taskStatus(ctx, t).Description).To(Equal("Record has no value at /v"))
 	})
 
 	It("Should route keyed records to their groups", func(ctx SpecContext) {
