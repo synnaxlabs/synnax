@@ -263,6 +263,25 @@ func (u *ReadChannel) UnmarshalJSONFrom(dec *jsontext.Decoder) error {
 	return nil
 }
 
+// Base returns the fields that every variant of ReadChannel shares.
+func (u ReadChannel) Base() BaseReadChannel {
+	switch v := u.Variant.(type) {
+	case CoilReadChannel:
+		return v.BaseReadChannel
+	case DiscreteInputReadChannel:
+		return v.BaseReadChannel
+	case HoldingRegisterReadChannel:
+		return v.BaseReadChannel
+	case InputRegisterReadChannel:
+		return v.BaseReadChannel
+	case HoldingRegisterBitReadChannel:
+		return v.BaseReadChannel
+	case InputRegisterBitReadChannel:
+		return v.BaseReadChannel
+	}
+	return BaseReadChannel{}
+}
+
 // ApplyDefaults fills the active variant's zero-valued fields with their
 // schema-declared defaults.
 func (u *ReadChannel) ApplyDefaults() {
@@ -421,6 +440,19 @@ func (u *WriteChannel) UnmarshalJSONFrom(dec *jsontext.Decoder) error {
 		return errors.Newf("WriteChannel: unknown type %q", disc.Type)
 	}
 	return nil
+}
+
+// Base returns the fields that every variant of WriteChannel shares.
+func (u WriteChannel) Base() BaseWriteChannel {
+	switch v := u.Variant.(type) {
+	case CoilWriteChannel:
+		return v.BaseWriteChannel
+	case HoldingRegisterWriteChannel:
+		return v.BaseWriteChannel
+	case HoldingRegisterBitWriteChannel:
+		return v.BaseWriteChannel
+	}
+	return BaseWriteChannel{}
 }
 
 // ApplyDefaults fills the active variant's zero-valued fields with their

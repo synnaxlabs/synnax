@@ -39,13 +39,63 @@ type scopedAction = actions.Scoped[arc.Key, arc.Action]
 // ontology resource.
 func createArc(ctx context.Context, name string) arc.Arc {
 	GinkgoHelper()
-	a := arc.Arc{Name: name, Mode: arc.ModeGraph}
+	a := arc.Arc{Variant: arc.AutomationArc{
+		Base: arc.Base{Name: name, Mode: arc.ModeGraph},
+	}}
 	Expect(arcSvc.NewWriter(nil).Create(ctx, &a)).To(Succeed())
 	return a
 }
 
 var _ = Describe("Service", func() {
 	Describe("Retrieve", func() {
+		It(
+			"Should compile automations and leave modules uncompiled",
+			func(ctx SpecContext) {
+				automation := arc.Arc{Variant: arc.AutomationArc{Base: arc.Base{
+					Name: "compiled",
+					Mode: arc.ModeText,
+					Text: text.Text{Raw: "func f() {}"},
+				}}}
+				module := arc.Arc{Variant: arc.ModuleArc{Base: arc.Base{
+					Name: "not_compiled",
+					Mode: arc.ModeText,
+					Text: text.Text{Raw: "this does not compile"},
+				}}}
+				w := arcSvc.NewWriter(nil)
+				Expect(w.Create(ctx, &automation)).To(Succeed())
+				Expect(w.Create(ctx, &module)).To(Succeed())
+				DeferCleanup(func(ctx SpecContext) {
+					Expect(w.Delete(
+						ctx, automation.Base().Key, module.Base().Key,
+					)).To(Succeed())
+				})
+				grantOn(
+					ctx,
+					author.OntologyID(),
+					access.ActionRetrieve,
+					automation.OntologyID(),
+					module.OntologyID(),
+				)
+				res := MustSucceed(
+					apiSvc.Retrieve(AuthedCtx(ctx, author), apiarc.RetrieveRequest{
+						Keys:    []arc.Key{automation.Base().Key, module.Base().Key},
+						Compile: true,
+					}),
+				)
+				Expect(res.Arcs).To(HaveLen(2))
+				for _, a := range res.Arcs {
+					switch v := a.Variant.(type) {
+					case arc.AutomationArc:
+						Expect(v.Program).ToNot(BeNil())
+					case arc.ModuleArc:
+						Expect(v.Name).To(Equal("not_compiled"))
+					default:
+						Fail("unexpected variant")
+					}
+				}
+			},
+		)
+
 		It(
 			"Should omit missing keys from a multi-key retrieve instead of failing",
 			func(ctx SpecContext) {
@@ -54,16 +104,16 @@ var _ = Describe("Service", func() {
 					ctx,
 					author.OntologyID(),
 					access.ActionRetrieve,
-					arc.OntologyID(a.Key),
+					arc.OntologyID(a.Base().Key),
 				)
 				res := MustSucceed(
 					apiSvc.Retrieve(AuthedCtx(ctx, author), apiarc.RetrieveRequest{
-						Keys:                []arc.Key{a.Key, uuid.New()},
+						Keys:                []arc.Key{a.Base().Key, uuid.New()},
 						IgnoreNotFoundError: true,
 					}),
 				)
 				Expect(res.Arcs).To(HaveLen(1))
-				Expect(res.Arcs[0].Key).To(Equal(a.Key))
+				Expect(res.Arcs[0].Base().Key).To(Equal(a.Base().Key))
 			},
 		)
 
@@ -91,15 +141,17 @@ var _ = Describe("Service", func() {
 					access.ActionCreate,
 					ontology.ID{Type: ontology.ResourceTypeArc},
 				)
-				a := apiarc.Arc{Name: "lying-raw", Mode: arc.ModeText}
-				a.Text.Doc = text.Create("a -> b")
-				a.Text.Raw = "a -> c"
+				a := apiarc.Arc{Variant: arc.AutomationArc{Base: arc.Base{
+					Name: "lying-raw",
+					Mode: arc.ModeText,
+					Text: text.Text{Doc: text.Create("a -> b"), Raw: "a -> c"},
+				}}}
 				res := MustSucceed(
 					apiSvc.Create(AuthedCtx(ctx, author), db, apiarc.CreateRequest{
 						Arcs: []apiarc.Arc{a},
 					}),
 				)
-				Expect(res.Arcs[0].Text.Raw).To(Equal("a -> b"))
+				Expect(res.Arcs[0].Base().Text.Raw).To(Equal("a -> b"))
 			},
 		)
 
@@ -116,13 +168,15 @@ var _ = Describe("Service", func() {
 			DeferCleanup(arcSvc.OnAction(rec.Record))
 			res := MustSucceed(
 				apiSvc.Create(AuthedCtx(ctx, author), db, apiarc.CreateRequest{
-					Arcs:        []apiarc.Arc{{Name: "broadcast", Mode: arc.ModeGraph}},
+					Arcs: []apiarc.Arc{{Variant: arc.AutomationArc{
+						Base: arc.Base{Name: "broadcast", Mode: arc.ModeGraph},
+					}}},
 					DispatchKey: "dk-create",
 				}),
 			)
 			frames := rec.Snapshot()
 			Expect(frames).To(HaveLen(1))
-			Expect(frames[0].Key).To(Equal(res.Arcs[0].Key))
+			Expect(frames[0].Key).To(Equal(res.Arcs[0].Base().Key))
 			Expect(frames[0].DispatchKey).To(Equal("dk-create"))
 		})
 	})
@@ -135,7 +189,7 @@ var _ = Describe("Service", func() {
 					a := createArc(ctx, "no-policy")
 					Expect(apiSvc.Dispatch(
 						AuthedCtx(ctx, author), db, apiarc.DispatchRequest{
-							Key:         a.Key,
+							Key:         a.Base().Key,
 							DispatchKey: "sess-1",
 							Actions: []arc.Action{
 								arc.NewRemoveNodeAction(arc.RemoveNodePayload{
@@ -154,7 +208,7 @@ var _ = Describe("Service", func() {
 					grantUpdateOn(ctx, author.OntologyID(), a.OntologyID())
 					Expect(apiSvc.Dispatch(
 						AuthedCtx(ctx, author), db, apiarc.DispatchRequest{
-							Key:         a.Key,
+							Key:         a.Base().Key,
 							DispatchKey: "sess-1",
 							Actions: []arc.Action{
 								arc.NewSetNodeAction(arc.SetNodePayload{
@@ -168,11 +222,11 @@ var _ = Describe("Service", func() {
 					)).Error().To(Succeed())
 					var res arc.Arc
 					Expect(arcSvc.NewRetrieve().
-						Where(arc.MatchKeys(a.Key)).
+						Where(arc.MatchKeys(a.Base().Key)).
 						Entry(&res).Exec(ctx, nil)).To(Succeed())
-					Expect(res.Graph.Nodes).To(HaveLen(1))
+					Expect(res.Base().Graph.Nodes).To(HaveLen(1))
 					Expect(
-						res.Graph.Nodes[0].Position,
+						res.Base().Graph.Nodes[0].Position,
 					).To(Equal(spatial.XY{X: 1, Y: 2}))
 				},
 			)
@@ -185,7 +239,7 @@ var _ = Describe("Service", func() {
 					grantUpdateOn(ctx, author.OntologyID(), a.OntologyID())
 					Expect(apiSvc.Dispatch(
 						AuthedCtx(ctx, author), db, apiarc.DispatchRequest{
-							Key:         b.Key,
+							Key:         b.Base().Key,
 							DispatchKey: "sess-1",
 							Actions: []arc.Action{
 								arc.NewRemoveNodeAction(arc.RemoveNodePayload{
@@ -206,7 +260,7 @@ var _ = Describe("Service", func() {
 					grantUpdateOn(ctx, author.OntologyID(), a.OntologyID())
 					Expect(apiSvc.Dispatch(
 						AuthedCtx(ctx, author), db, apiarc.DispatchRequest{
-							Key:         a.Key,
+							Key:         a.Base().Key,
 							DispatchKey: "sess-1",
 							Actions: []arc.Action{
 								arc.NewSetNodeAction(
@@ -223,10 +277,10 @@ var _ = Describe("Service", func() {
 					)).Error().To(Succeed())
 					var res arc.Arc
 					Expect(arcSvc.NewRetrieve().
-						Where(arc.MatchKeys(a.Key)).
+						Where(arc.MatchKeys(a.Base().Key)).
 						Entry(&res).Exec(ctx, nil)).To(Succeed())
-					Expect(res.Graph.Nodes).To(HaveLen(2))
-					Expect(res.Name).To(Equal("renamed-multi"))
+					Expect(res.Base().Graph.Nodes).To(HaveLen(2))
+					Expect(res.Base().Name).To(Equal("renamed-multi"))
 				},
 			)
 
@@ -264,7 +318,7 @@ var _ = Describe("Service", func() {
 					)
 					Expect(apiSvc.Dispatch(
 						AuthedCtx(ctx, author), db, apiarc.DispatchRequest{
-							Key:         a.Key,
+							Key:         a.Base().Key,
 							DispatchKey: "session-marker-xyz",
 							Actions: []arc.Action{
 								arc.NewSetNodeAction(arc.SetNodePayload{
@@ -275,7 +329,7 @@ var _ = Describe("Service", func() {
 					)).Error().To(Succeed())
 					var got scopedAction
 					Eventually(seen).Should(Receive(&got))
-					Expect(got.Key).To(Equal(a.Key))
+					Expect(got.Key).To(Equal(a.Base().Key))
 					Expect(got.DispatchKey).To(Equal("session-marker-xyz"))
 					Expect(got.Seq).To(BeNumerically(">", uint64(0)))
 					Expect(got.Actions).To(HaveLen(1))
@@ -305,7 +359,7 @@ var _ = Describe("Service", func() {
 						AuthedCtx(ctx, author),
 						db,
 						apiarc.UpdateTaskRequest{
-							Key:  a.Key,
+							Key:  a.Base().Key,
 							Rack: new(testRack.Key),
 						},
 					),
@@ -324,7 +378,7 @@ var _ = Describe("Service", func() {
 						AuthedCtx(ctx, author),
 						db,
 						apiarc.UpdateTaskRequest{
-							Key:  a.Key,
+							Key:  a.Base().Key,
 							Rack: new(testRack.Key),
 						},
 					),
@@ -338,13 +392,15 @@ var _ = Describe("Service", func() {
 			grantBind(ctx, a)
 			res := MustSucceed(
 				apiSvc.UpdateTask(AuthedCtx(ctx, author), db, apiarc.UpdateTaskRequest{
-					Key:  a.Key,
+					Key:  a.Base().Key,
 					Rack: new(testRack.Key),
 				}),
 			)
 			Expect(res.Task).ToNot(BeNil())
 			Expect(res.Task.Rack).To(Equal(testRack.Key))
-			Expect(res.Task.Config).To(HaveKeyWithValue("arc_key", a.Key.String()))
+			Expect(
+				res.Task.Config,
+			).To(HaveKeyWithValue("arc_key", a.Base().Key.String()))
 			Expect(res.Task.Config).To(HaveKey("hash"))
 		})
 
@@ -359,20 +415,20 @@ var _ = Describe("Service", func() {
 			)
 			deployed := MustSucceed(
 				apiSvc.UpdateTask(AuthedCtx(ctx, author), db, apiarc.UpdateTaskRequest{
-					Key:  a.Key,
+					Key:  a.Base().Key,
 					Rack: new(testRack.Key),
 				}),
 			)
 			Expect(deployed.Task).ToNot(BeNil())
 			res := MustSucceed(
 				apiSvc.UpdateTask(AuthedCtx(ctx, author), db, apiarc.UpdateTaskRequest{
-					Key:  a.Key,
+					Key:  a.Base().Key,
 					Rack: new(rack.Key(0)),
 				}),
 			)
 			Expect(res.Task).To(BeNil())
 			Expect(arcSvc.NewRetrieve().
-				Where(arc.MatchKeys(a.Key)).
+				Where(arc.MatchKeys(a.Base().Key)).
 				Exec(ctx, nil)).To(Succeed())
 		})
 
@@ -386,7 +442,7 @@ var _ = Describe("Service", func() {
 						AuthedCtx(ctx, author),
 						db,
 						apiarc.UpdateTaskRequest{
-							Key:  a.Key,
+							Key:  a.Base().Key,
 							Rack: new(testRack.Key),
 						},
 					),
@@ -396,7 +452,7 @@ var _ = Describe("Service", func() {
 						AuthedCtx(ctx, author),
 						db,
 						apiarc.UpdateTaskRequest{
-							Key:         a.Key,
+							Key:         a.Base().Key,
 							Performance: new(arctask.PerformanceHigh),
 						},
 					),
@@ -421,7 +477,7 @@ var _ = Describe("Service", func() {
 						AuthedCtx(ctx, author),
 						db,
 						apiarc.UpdateTaskRequest{
-							Key:  a.Key,
+							Key:  a.Base().Key,
 							Rack: new(testRack.Key),
 						},
 					),
@@ -431,7 +487,7 @@ var _ = Describe("Service", func() {
 						AuthedCtx(ctx, author),
 						db,
 						apiarc.UpdateTaskRequest{
-							Key:         a.Key,
+							Key:         a.Base().Key,
 							Performance: new(arctask.PerformanceHigh),
 						},
 					),

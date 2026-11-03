@@ -32,9 +32,8 @@ enum Type {
   TYPE_MODULE = 1;
 }
 
-// Arc is an Arc module combining visual graph representation and text-based source code
-// for reactive control systems. Compiles to WebAssembly for sandboxed execution.
-message Arc {
+// Base carries the fields that every Arc shares.
+message Base {
   // key is the unique identifier for this module.
   string key = 1;
   // name is a human-readable name for the module.
@@ -46,8 +45,19 @@ message Arc {
   .arc.graph.pb.Graph graph = 4;
   // text is the text-based Arc source code.
   .arc.text.pb.Text text = 5;
+}
+message ArcAutomationPayload {
   // program is the compiled module output including IR and WebAssembly bytecode.
-  optional .arc.program.pb.Program program = 6;
-  // type specifies whether this Arc is an automation or a module.
-  Type type = 7;
+  optional .arc.program.pb.Program program = 1;
+}
+message ArcModulePayload {}
+
+// Arc is an Arc module combining visual graph representation and text-based source code
+// for reactive control systems. Compiles to WebAssembly for sandboxed execution.
+message Arc {
+  Base base = 1;
+  oneof variant {
+    ArcAutomationPayload automation = 2;
+    ArcModulePayload module = 3;
+  }
 }

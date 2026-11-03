@@ -11,43 +11,76 @@
 
 package v4
 
-import "github.com/synnaxlabs/x/encoding/orc"
+import (
+	"github.com/synnaxlabs/x/encoding/orc"
+	"github.com/synnaxlabs/x/errors"
+)
 
 // EncodeOrc writes the value to w in the Orc binary format.
 func (a Arc) EncodeOrc(w *orc.Writer) error {
-	w.Write(a.Key[:])
-	w.String(a.Name)
-	w.String(string(a.Mode))
-	if err := a.Graph.EncodeOrc(w); err != nil {
-		return err
+	switch v := a.Variant.(type) {
+	case AutomationArc:
+		w.String("automation")
+		if err := v.Base.EncodeOrc(w); err != nil {
+			return err
+		}
+	case ModuleArc:
+		w.String("module")
+		if err := v.Base.EncodeOrc(w); err != nil {
+			return err
+		}
+	default:
+		return errors.Newf("Arc: nil or unknown variant %T", a.Variant)
 	}
-	if err := a.Text.EncodeOrc(w); err != nil {
-		return err
-	}
-	w.String(string(a.Type))
 	return nil
 }
 
 // DecodeOrc reads the value from r in the Orc binary format.
 func (a *Arc) DecodeOrc(r *orc.Reader) error {
+	tag, err := r.String()
+	if err != nil {
+		return err
+	}
+	switch tag {
+	case "automation":
+		var v AutomationArc
+		if err := v.Base.DecodeOrc(r); err != nil {
+			return err
+		}
+		a.Variant = v
+	case "module":
+		var v ModuleArc
+		if err := v.Base.DecodeOrc(r); err != nil {
+			return err
+		}
+		a.Variant = v
+	default:
+		return errors.Newf("Arc: unknown variant %q", tag)
+	}
+	return nil
+}
+
+// EncodeOrc writes the value to w in the Orc binary format.
+func (bv Base) EncodeOrc(w *orc.Writer) error {
+	w.Write(bv.Key[:])
+	w.String(bv.Name)
+	w.String(string(bv.Mode))
+	if err := bv.Graph.EncodeOrc(w); err != nil {
+		return err
+	}
+	if err := bv.Text.EncodeOrc(w); err != nil {
+		return err
+	}
+	return nil
+}
+
+// DecodeOrc reads the value from r in the Orc binary format.
+func (bv *Base) DecodeOrc(r *orc.Reader) error {
 	var err error
-	if _, err := r.Read(a.Key[:]); err != nil {
+	if _, err := r.Read(bv.Key[:]); err != nil {
 		return err
 	}
-	if a.Name, err = r.String(); err != nil {
-		return err
-	}
-	{
-		rawV, err := r.String()
-		if err != nil {
-			return err
-		}
-		a.Mode = Mode(rawV)
-	}
-	if err = a.Graph.DecodeOrc(r); err != nil {
-		return err
-	}
-	if err = a.Text.DecodeOrc(r); err != nil {
+	if bv.Name, err = r.String(); err != nil {
 		return err
 	}
 	{
@@ -55,7 +88,13 @@ func (a *Arc) DecodeOrc(r *orc.Reader) error {
 		if err != nil {
 			return err
 		}
-		a.Type = Type(rawV)
+		bv.Mode = Mode(rawV)
+	}
+	if err = bv.Graph.DecodeOrc(r); err != nil {
+		return err
+	}
+	if err = bv.Text.DecodeOrc(r); err != nil {
+		return err
 	}
 	return nil
 }

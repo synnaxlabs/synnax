@@ -416,6 +416,17 @@ func (u *WriteField) UnmarshalJSONFrom(dec *jsontext.Decoder) error {
 	return nil
 }
 
+// Base returns the fields that every variant of WriteField shares.
+func (u WriteField) Base() BaseWriteField {
+	switch v := u.Variant.(type) {
+	case StaticWriteField:
+		return v.BaseWriteField
+	case GeneratedWriteField:
+		return v.BaseWriteField
+	}
+	return BaseWriteField{}
+}
+
 // ApplyDefaults fills the active variant's zero-valued fields with their
 // schema-declared defaults.
 func (u *WriteField) ApplyDefaults() {

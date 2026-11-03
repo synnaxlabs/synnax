@@ -172,8 +172,8 @@ var _ = Describe("Go Query Plugin", func() {
 			)
 
 			DescribeTable(
-				"Should reject a generated query tag on a union field",
-				func(ctx SpecContext, tag string) {
+				"Should read a union's query fields through its Base accessor",
+				func(ctx SpecContext, tag, read string) {
 					source := `
 					@go output "core/pkg/service/view"
 
@@ -189,15 +189,41 @@ var _ = Describe("Go Query Plugin", func() {
 						@retrieve
 					}
 				`
+					resp := MustGenerate(ctx, source, "view", loader, p)
+					ExpectContent(resp, "retrieve.gen.go").
+						ToContain(read).
+						ToNotContain("e.Name")
+				},
+				Entry("filter", "@filter", "slices.Contains(vals, e.Base().Name)"),
+				Entry("index", "@index lookup", "return e.Base().Name }"),
+				Entry("search", "@search", "return []string{e.Base().Name}"),
+			)
+
+			It(
+				"Should reject a query tag on a union whose variants share no base",
+				func(ctx SpecContext) {
+					source := `
+					@go output "core/pkg/service/view"
+
+					Base struct {
+						key uuid @key
+						name string @filter
+					}
+
+					View union on type extends Base {
+						first {}
+						second {
+							-name
+						}
+						@retrieve
+					}
+				`
 					req := MustGenerateRequest(ctx, source, "view", loader)
 					Expect(p.Generate(req)).Error().To(MatchError(ContainSubstring(
-						"view.View: @filter, @index, and @search are not supported " +
-							"on union fields (name)",
+						"view.View: @filter, @index, and @search need one base " +
+							"that every variant inherits (name)",
 					)))
 				},
-				Entry("filter", "@filter"),
-				Entry("index", "@index lookup"),
-				Entry("search", "@search"),
 			)
 		})
 

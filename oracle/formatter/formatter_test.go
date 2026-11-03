@@ -757,6 +757,23 @@ var _ = Describe("Format", func() {
 			Expect(result).To(ContainSubstring("Foo union on type extends Base {"))
 		})
 
+		It("should format actions after the variants of a union", func() {
+			source := "A struct {}\nFoo union on type {\n  action Rename {\n    name string\n  }\n  a A\n  action Reset {}\n  @doc value \"is a foo.\"\n}\n"
+			Expect(format(source)).To(Equal(
+				"A struct {}\n\nFoo union on type {\n    a A\n\n" +
+					"    action Rename {\n        name string\n    }\n\n" +
+					"    action Reset {}\n\n" +
+					"    @doc value \"is a foo.\"\n}\n",
+			))
+		})
+
+		It("should format a union that holds only actions", func() {
+			source := "Foo union on type {\n  action Reset {}\n}\n"
+			Expect(format(source)).To(Equal(
+				"Foo union on type {\n    action Reset {}\n}\n",
+			))
+		})
+
 		It("should format a union with multiple bases", func() {
 			source := "X struct {\n  x string\n}\nY struct {\n  y string\n}\nA struct {}\nB struct {}\nFoo union on kind extends X, Y {\n  a A\n  b B\n}\n"
 			result := format(source)

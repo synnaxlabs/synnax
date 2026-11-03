@@ -99,10 +99,12 @@ func createTask(ctx SpecContext, name string) task.Task {
 
 func createArc(ctx SpecContext, name, source string) arc.Arc {
 	GinkgoHelper()
-	a := arc.Arc{Name: name, Mode: arc.ModeText, Text: text.Text{Raw: source}}
+	a := arc.Arc{Variant: arc.AutomationArc{
+		Base: arc.Base{Name: name, Mode: arc.ModeText, Text: text.Text{Raw: source}},
+	}}
 	Expect(arcSvc.NewWriter(nil).Create(ctx, &a)).To(Succeed())
 	DeferCleanup(func(ctx SpecContext) {
-		Expect(arcSvc.NewWriter(nil).Delete(ctx, a.Key)).To(Succeed())
+		Expect(arcSvc.NewWriter(nil).Delete(ctx, a.Base().Key)).To(Succeed())
 	})
 	return a
 }
@@ -601,8 +603,8 @@ var _ = Describe("Import", func() {
 				Where(arc.MatchKeys(MustSucceed(uuid.Parse(arcID.Key)))).
 				Entry(&a).
 				Exec(ctx, tx)).To(Succeed())
-			Expect(a.Name).To(Equal("Startup Sequence"))
-			Expect(a.Text.Materialize().Raw).
+			Expect(a.Base().Name).To(Equal("Startup Sequence"))
+			Expect(a.Base().Text.Materialize().Raw).
 				To(Equal("stage chamber_pressure -> ok\n"))
 			Expect(refs[1].Type).To(Equal(ontology.ResourceTypeTask))
 		})
@@ -744,7 +746,7 @@ var _ = Describe("Import", func() {
 		)
 		files, _ := MustSucceed2(svc.Export(ctx, src.Key, xjson.Codec))
 		// The import lands beside the original, where the name is taken.
-		Expect(arcSvc.Dispatch(ctx, a.Key, "", []arc.Action{
+		Expect(arcSvc.Dispatch(ctx, a.Base().Key, "", []arc.Action{
 			arc.NewRenameAction(arc.RenamePayload{Name: "Startup Source"}),
 		})).To(Succeed())
 		proj := importProject(ctx, files)
@@ -760,8 +762,8 @@ var _ = Describe("Import", func() {
 			Where(arc.MatchKeys(key)).
 			Entry(&res).
 			Exec(ctx, tx)).To(Succeed())
-		Expect(res.Name).To(Equal("Startup"))
-		Expect(res.Text.Materialize().Raw).To(Equal("x := 1"))
+		Expect(res.Base().Name).To(Equal("Startup"))
+		Expect(res.Base().Text.Materialize().Raw).To(Equal("x := 1"))
 		var parents []ontology.Resource
 		Expect(otg.NewRetrieve().
 			WhereIDs(newArcID).

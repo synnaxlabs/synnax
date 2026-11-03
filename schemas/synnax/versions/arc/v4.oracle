@@ -25,34 +25,44 @@ Type enum {
     """
 }
 
-Arc struct {
-    key     Key = create {
+Base struct {
+    key   Key = create {
         @doc value "is the unique identifier for this module."
         @key
     }
-    name    string           {
+    name  string      {
         @doc value "is a human-readable name for the module."
     }
-    mode    Mode             {
+    mode  Mode        {
         @doc value """
             specifies the representation mode for this module. Either "text" for
             text-based Arc code or "graph" for visual dataflow.
         """
     }
-    graph   graph.Graph = {} {
+    graph graph.Graph = {} {
         @doc value "is the visual dataflow graph representation of the module."
     }
-    text    text.Text = {} {
+    text  text.Text = {} {
         @doc value "is the text-based Arc source code."
     }
-    program program.Program? {
-        @doc value  """
-            is the compiled module output including IR and WebAssembly bytecode.
-        """
-        @go marshal omit
+
+    @doc value  "carries the fields that every Arc shares."
+    @go marshal
+}
+
+Arc union on type Type extends Base {
+    automation {
+        program program.Program? {
+            @doc value  """
+                is the compiled module output including IR and WebAssembly bytecode.
+            """
+            @go marshal omit
+        }
+
+        @doc value "is an Arc that runs on a rack as a task."
     }
-    type    Type = automation {
-        @doc value "specifies whether this Arc is an automation or a module."
+    module {
+        @doc value "is an Arc that holds code for other Arcs to import."
     }
 
     @go imex

@@ -1683,6 +1683,19 @@ func (u *{{.Name}}) UnmarshalJSONFrom(dec *jsontext.Decoder) error {
 	}
 	return nil
 }
+{{- if .Base}}
+
+// Base returns the fields that every variant of {{.Name}} shares.
+func (u {{.Name}}) Base() {{.Base}} {
+	switch v := u.Variant.(type) {
+{{- range .Variants}}
+	case {{.TypeName}}:
+		return v.{{$u.BaseField}}
+{{- end}}
+	}
+	return {{.Base}}{}
+}
+{{- end}}
 {{- if .NeedsApplyDefaults}}
 
 // ApplyDefaults fills the active variant's zero-valued fields with their

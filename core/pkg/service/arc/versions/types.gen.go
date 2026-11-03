@@ -24,9 +24,19 @@ const (
 	ModeGraph Mode = v4.ModeGraph
 )
 
+// Base carries the fields that every Arc shares.
+type Base = v4.Base
+
 // Arc is an Arc module combining visual graph representation and text-based source code
 // for reactive control systems. Compiles to WebAssembly for sandboxed execution.
 type Arc = v4.Arc
+type ArcVariant = v4.ArcVariant
+
+// AutomationArc is an Arc that runs on a rack as a task.
+type AutomationArc = v4.AutomationArc
+
+// ModuleArc is an Arc that holds code for other Arcs to import.
+type ModuleArc = v4.ModuleArc
 
 // Type specifies whether an Arc runs on a rack as an automation or holds code for other
 // Arcs to import as a module.

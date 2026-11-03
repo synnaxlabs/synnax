@@ -13,6 +13,7 @@ import pytest
 
 import synnax as sy
 from x.testutil import assert_eventually
+from x.uuid import NIL
 
 
 @pytest.mark.arc
@@ -28,41 +29,41 @@ class TestArc:
             text=sy.Text(raw="x := 1"),
         )
         assert arc.name == name
-        assert arc.key != sy.Arc().key
+        assert arc.key != NIL
         assert arc.mode == "text"
         assert arc.text.raw == "x := 1"
 
     def test_create_from_instance(self, client: sy.Synnax) -> None:
         """Should create an Arc from an existing instance."""
         name = f"test-arc-{uuid4()}"
-        arc = sy.Arc(
+        arc = sy.arc.Automation(
             name=name,
             mode="text",
             text=sy.Text(raw="y := 2"),
         )
         created = client.arcs.create(arc)
         assert created.name == name
-        assert created.key != sy.Arc().key
+        assert created.key != NIL
         assert created.text.raw == "y := 2"
 
     def test_create_module(self, client: sy.Synnax) -> None:
         """Should create a module and read its type back."""
         name = f"test_module_{uuid4().hex}"
         created = client.arcs.create(name=name, mode="text", type="module")
-        assert created.type == "module"
-        assert client.arcs.retrieve(key=created.key).type == "module"
+        assert isinstance(created, sy.arc.Module)
+        assert isinstance(client.arcs.retrieve(key=created.key), sy.arc.Module)
 
     def test_create_multiple(self, client: sy.Synnax) -> None:
         """Should create multiple Arcs at once."""
         arcs = [
-            sy.Arc(name=f"test-arc-multi-{uuid4()}", mode="text"),
-            sy.Arc(name=f"test-arc-multi-{uuid4()}", mode="text"),
+            sy.arc.Automation(name=f"test-arc-multi-{uuid4()}", mode="text"),
+            sy.arc.Automation(name=f"test-arc-multi-{uuid4()}", mode="text"),
         ]
         created = client.arcs.create(arcs)
         assert len(created) == 2
         for arc in created:
             assert arc.name.startswith("test-arc-multi-")
-            assert arc.key != sy.Arc().key
+            assert arc.key != NIL
 
     def test_retrieve_by_key(self, client: sy.Synnax) -> None:
         """Should retrieve an Arc by key."""
@@ -83,8 +84,8 @@ class TestArc:
     def test_retrieve_multiple_by_keys(self, client: sy.Synnax) -> None:
         """Should retrieve multiple Arcs by keys."""
         arcs = [
-            sy.Arc(name=f"test-arc-keys-{uuid4()}", mode="text"),
-            sy.Arc(name=f"test-arc-keys-{uuid4()}", mode="text"),
+            sy.arc.Automation(name=f"test-arc-keys-{uuid4()}", mode="text"),
+            sy.arc.Automation(name=f"test-arc-keys-{uuid4()}", mode="text"),
         ]
         created = client.arcs.create(arcs)
         keys = [arc.key for arc in created]
@@ -101,6 +102,7 @@ class TestArc:
             text=sy.Text(raw="func f() {}"),
         )
         retrieved = client.arcs.retrieve(key=created.key, compile=True)
+        assert isinstance(retrieved, sy.arc.Automation)
         assert retrieved.program is not None
         assert retrieved.program.wasm.startswith(b"\x00asm")
 
@@ -111,7 +113,9 @@ class TestArc:
             mode="text",
             text=sy.Text(raw="func f() {}"),
         )
-        assert client.arcs.retrieve(key=created.key).program is None
+        retrieved = client.arcs.retrieve(key=created.key)
+        assert isinstance(retrieved, sy.arc.Automation)
+        assert retrieved.program is None
 
     def test_retrieve_not_found(self, client: sy.Synnax) -> None:
         """Should raise NotFoundError when Arc is not found."""
@@ -129,8 +133,8 @@ class TestArc:
     def test_delete_multiple(self, client: sy.Synnax) -> None:
         """Should delete multiple Arcs."""
         arcs = [
-            sy.Arc(name=f"test-arc-delete-multi-{uuid4()}", mode="text"),
-            sy.Arc(name=f"test-arc-delete-multi-{uuid4()}", mode="text"),
+            sy.arc.Automation(name=f"test-arc-delete-multi-{uuid4()}", mode="text"),
+            sy.arc.Automation(name=f"test-arc-delete-multi-{uuid4()}", mode="text"),
         ]
         created = client.arcs.create(arcs)
         keys = [arc.key for arc in created]
@@ -144,8 +148,8 @@ class TestArc:
         unique_prefix = f"searchable-arc-{uuid4()}"
         client.arcs.create(
             [
-                sy.Arc(name=f"{unique_prefix}-1", mode="text"),
-                sy.Arc(name=f"{unique_prefix}-2", mode="text"),
+                sy.arc.Automation(name=f"{unique_prefix}-1", mode="text"),
+                sy.arc.Automation(name=f"{unique_prefix}-2", mode="text"),
             ]
         )
 

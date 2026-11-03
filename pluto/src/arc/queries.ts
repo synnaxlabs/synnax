@@ -215,7 +215,7 @@ export const useForm = Flux.createForm<FormQuery, typeof formSchema>({
   },
 });
 
-export interface CreateParams extends arc.New {}
+export type CreateParams = arc.New;
 
 export const { useUpdate: useCreate } = Flux.createUpdate<CreateParams, arc.Arc>({
   name: RESOURCE_NAME,

@@ -42,6 +42,7 @@ import (
 	"github.com/synnaxlabs/oracle/plugin/go/internal/versioning"
 	"github.com/synnaxlabs/oracle/plugin/gomod"
 	"github.com/synnaxlabs/oracle/plugin/output"
+	"github.com/synnaxlabs/oracle/plugin/resolver"
 	"github.com/synnaxlabs/oracle/resolution"
 	"github.com/synnaxlabs/oracle/versions"
 	"github.com/synnaxlabs/x/errors"
@@ -289,12 +290,17 @@ func (p *Plugin) generatePackage(
 		)
 		return nil
 	}
+	name, err := exportedName(targets[0].typ, req.Resolutions)
+	if err != nil {
+		return err
+	}
 	// A fresh buffer: plugin.File.Content aliases the backing array, so reusing buf
 	// would overwrite the chain file appended above.
 	var exportBuf bytes.Buffer
 	if err := exportTemplate.Execute(&exportBuf, &exportData{
 		Package: naming.DerivePackageName(outputPath),
 		Type:    targets[0].goName,
+		Name:    name,
 		Versions: gomod.ResolveImportPath(
 			outputPath+"/versions", req.RepoRoot, gomod.DefaultModulePrefix,
 		),
@@ -342,9 +348,27 @@ func (p *Plugin) executeBody(
 	return bodyTemplate.Execute(buf, data)
 }
 
+// exportedName returns the selector that reads the name of an exported typ held in v.
+// A union reads it through the Base accessor of the one base its variants share.
+func exportedName(typ resolution.Type, table *resolution.Table) (string, error) {
+	form, ok := typ.Form.(resolution.UnionForm)
+	if !ok {
+		return "v.Name", nil
+	}
+	if _, ok := resolver.SharedBase(form, "go", table); !ok {
+		return "", errors.Newf(
+			"%s: an exported union needs one base that every variant inherits",
+			typ.QualifiedName,
+		)
+	}
+	return "v.Base().Name", nil
+}
+
 type exportData struct {
-	Package  string
-	Type     string
+	Package string
+	Type    string
+	// Name is the selector that reads the exported entry's name.
+	Name     string
 	Versions string
 	Runtime  string
 	Ontology string
@@ -379,7 +403,7 @@ func (s *Service) Export(ctx context.Context, id ontology.ID) (imex.Envelope, er
 		return imex.Envelope{}, err
 	}
 	env := imex.Envelope{
-		Version: versions.Latest, Type: string(s.Type()), Name: v.Name,
+		Version: versions.Latest, Type: string(s.Type()), Name: {{.Name}},
 	}
 	if err = env.Encode(v); err != nil {
 		return imex.Envelope{}, err

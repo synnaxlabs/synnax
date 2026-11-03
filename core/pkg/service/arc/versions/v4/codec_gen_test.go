@@ -29,6 +29,41 @@ import (
 	"github.com/synnaxlabs/x/testutil"
 )
 
+var (
+	fullyPopulatedBase = v4.Base{
+		Key:  uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef1234567801"),
+		Name: "test_2",
+		Mode: v4.Mode("text"),
+		Graph: graph.Graph{
+			Functions: []ir.Function{
+				{
+					Key:      "test_6",
+					Body:     ir.Body{},
+					Inputs:   []types.Param{{}},
+					Outputs:  []types.Param{{}},
+					Channels: types.Channels{},
+				},
+			},
+			Edges: []graph.Edge{
+				{
+					Source: ir.Handle{},
+					Target: ir.Handle{},
+					Kind:   ir.EdgeKind(0),
+					Key:    "test_15",
+				},
+			},
+			Nodes:  []graph.Node{{Key: "test_17", Position: spatial.XY{}}},
+			Inputs: map[string]msgpack.EncodedJSON{"test_19": {"key_19": "value_19"}},
+		},
+		Text: text.Text{
+			Doc: text.Document{
+				Inserts: []crdt.Insert{{}},
+				Deletes: []crdt.Delete{{}},
+			},
+		},
+	}
+)
+
 var _ = Describe("Codec", func() {
 	Describe("Arc", func() {
 		DescribeTable("should round-trip encode and decode",
@@ -41,62 +76,23 @@ var _ = Describe("Codec", func() {
 				Expect(decoded.DecodeOrc(r)).To(Succeed())
 				Expect(decoded).To(Equal(original))
 			},
-			Entry("fully populated", v4.Arc{
-				Key:  uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef1234567801"),
-				Name: "test_2",
-				Mode: v4.Mode("text"),
-				Graph: graph.Graph{
-					Functions: []ir.Function{
-						{
-							Key:  "test_6",
-							Body: ir.Body{Raw: "test_8"},
-							Inputs: []types.Param{
-								{
-									Name:  "test_10",
-									Type:  types.Type{},
-									Value: any(map[string]any{"key_12": "value_12"}),
-								},
-							},
-							Outputs: []types.Param{
-								{
-									Name:  "test_14",
-									Type:  types.Type{},
-									Value: any(map[string]any{"key_16": "value_16"}),
-								},
-							},
-							Channels: types.Channels{
-								Read:  map[uint32]string{19: "test_18"},
-								Write: map[uint32]string{20: "test_19"},
-							},
-						},
-					},
-					Edges: []graph.Edge{
-						{
-							Source: ir.Handle{Node: "test_22", Param: "test_23"},
-							Target: ir.Handle{Node: "test_25", Param: "test_26"},
-							Kind:   ir.EdgeKind(0),
-							Key:    "test_28",
-						},
-					},
-					Nodes:  []graph.Node{{Key: "test_30", Position: spatial.XY{X: 32.5, Y: 33.5}}},
-					Inputs: map[string]msgpack.EncodedJSON{"test_34": {"key_34": "value_34"}},
-				},
-				Text: text.Text{
-					Doc: text.Document{
-						Inserts: []crdt.Insert{
-							{
-								ID:     crdt.ID{},
-								Origin: crdt.ID{},
-								Side:   spatial.XLocation("left"),
-								Char:   42,
-							},
-						},
-						Deletes: []crdt.Delete{{ID: crdt.ID{}}},
-					},
-				},
-				Type: v4.Type("automation"),
-			}),
-			Entry("zero values", v4.Arc{
+			Entry("automation variant", v4.Arc{Variant: v4.AutomationArc{Base: fullyPopulatedBase}}),
+			Entry("module variant", v4.Arc{Variant: v4.ModuleArc{Base: fullyPopulatedBase}}),
+		)
+	})
+	Describe("Base", func() {
+		DescribeTable("should round-trip encode and decode",
+			func(original v4.Base) {
+				w := orc.NewWriter(0)
+				Expect(original.EncodeOrc(w)).To(Succeed())
+				var decoded v4.Base
+				r := orc.NewReader(nil)
+				r.ResetBytes(w.Bytes())
+				Expect(decoded.DecodeOrc(r)).To(Succeed())
+				Expect(decoded).To(Equal(original))
+			},
+			Entry("fully populated", fullyPopulatedBase),
+			Entry("zero values", v4.Base{
 				Key:  uuid.Nil(),
 				Name: "",
 				Mode: v4.Mode(""),
@@ -109,68 +105,13 @@ var _ = Describe("Codec", func() {
 				Text: text.Text{
 					Doc: text.Document{Inserts: []crdt.Insert{}, Deletes: []crdt.Delete{}},
 				},
-				Type: v4.Type(""),
 			}),
 		)
 	})
 })
 
 func BenchmarkEncodeDecodeArc(b *testing.B) {
-	seed := v4.Arc{
-		Key:  uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef1234567801"),
-		Name: "test_2",
-		Mode: v4.Mode("text"),
-		Graph: graph.Graph{
-			Functions: []ir.Function{
-				{
-					Key:  "test_6",
-					Body: ir.Body{Raw: "test_8"},
-					Inputs: []types.Param{
-						{
-							Name:  "test_10",
-							Type:  types.Type{},
-							Value: any(map[string]any{"key_12": "value_12"}),
-						},
-					},
-					Outputs: []types.Param{
-						{
-							Name:  "test_14",
-							Type:  types.Type{},
-							Value: any(map[string]any{"key_16": "value_16"}),
-						},
-					},
-					Channels: types.Channels{
-						Read:  map[uint32]string{19: "test_18"},
-						Write: map[uint32]string{20: "test_19"},
-					},
-				},
-			},
-			Edges: []graph.Edge{
-				{
-					Source: ir.Handle{Node: "test_22", Param: "test_23"},
-					Target: ir.Handle{Node: "test_25", Param: "test_26"},
-					Kind:   ir.EdgeKind(0),
-					Key:    "test_28",
-				},
-			},
-			Nodes:  []graph.Node{{Key: "test_30", Position: spatial.XY{X: 32.5, Y: 33.5}}},
-			Inputs: map[string]msgpack.EncodedJSON{"test_34": {"key_34": "value_34"}},
-		},
-		Text: text.Text{
-			Doc: text.Document{
-				Inserts: []crdt.Insert{
-					{
-						ID:     crdt.ID{},
-						Origin: crdt.ID{},
-						Side:   spatial.XLocation("left"),
-						Char:   42,
-					},
-				},
-				Deletes: []crdt.Delete{{ID: crdt.ID{}}},
-			},
-		},
-		Type: v4.Type("automation"),
-	}
+	seed := v4.Arc{Variant: v4.AutomationArc{Base: fullyPopulatedBase}}
 	w := orc.NewWriter(0)
 	r := orc.NewReader(nil)
 	for b.Loop() {
@@ -186,63 +127,26 @@ func BenchmarkEncodeDecodeArc(b *testing.B) {
 	}
 }
 
+func BenchmarkEncodeDecodeBase(b *testing.B) {
+	seed := fullyPopulatedBase
+	w := orc.NewWriter(0)
+	r := orc.NewReader(nil)
+	for b.Loop() {
+		w.Reset()
+		if err := seed.EncodeOrc(w); err != nil {
+			b.Fatal(err)
+		}
+		var decoded v4.Base
+		r.ResetBytes(w.Bytes())
+		if err := decoded.DecodeOrc(r); err != nil {
+			b.Fatal(err)
+		}
+	}
+}
+
 func FuzzDecodeArc(f *testing.F) {
 	{
-		seed := v4.Arc{
-			Key:  uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef1234567801"),
-			Name: "test_2",
-			Mode: v4.Mode("text"),
-			Graph: graph.Graph{
-				Functions: []ir.Function{
-					{
-						Key:  "test_6",
-						Body: ir.Body{Raw: "test_8"},
-						Inputs: []types.Param{
-							{
-								Name:  "test_10",
-								Type:  types.Type{},
-								Value: any(map[string]any{"key_12": "value_12"}),
-							},
-						},
-						Outputs: []types.Param{
-							{
-								Name:  "test_14",
-								Type:  types.Type{},
-								Value: any(map[string]any{"key_16": "value_16"}),
-							},
-						},
-						Channels: types.Channels{
-							Read:  map[uint32]string{19: "test_18"},
-							Write: map[uint32]string{20: "test_19"},
-						},
-					},
-				},
-				Edges: []graph.Edge{
-					{
-						Source: ir.Handle{Node: "test_22", Param: "test_23"},
-						Target: ir.Handle{Node: "test_25", Param: "test_26"},
-						Kind:   ir.EdgeKind(0),
-						Key:    "test_28",
-					},
-				},
-				Nodes:  []graph.Node{{Key: "test_30", Position: spatial.XY{X: 32.5, Y: 33.5}}},
-				Inputs: map[string]msgpack.EncodedJSON{"test_34": {"key_34": "value_34"}},
-			},
-			Text: text.Text{
-				Doc: text.Document{
-					Inserts: []crdt.Insert{
-						{
-							ID:     crdt.ID{},
-							Origin: crdt.ID{},
-							Side:   spatial.XLocation("left"),
-							Char:   42,
-						},
-					},
-					Deletes: []crdt.Delete{{ID: crdt.ID{}}},
-				},
-			},
-			Type: v4.Type("automation"),
-		}
+		seed := v4.Arc{Variant: v4.AutomationArc{Base: fullyPopulatedBase}}
 		w := orc.NewWriter(0)
 		if err := seed.EncodeOrc(w); err != nil {
 			f.Fatal(err)
@@ -250,21 +154,7 @@ func FuzzDecodeArc(f *testing.F) {
 		f.Add(w.Bytes())
 	}
 	{
-		seed := v4.Arc{
-			Key:  uuid.Nil(),
-			Name: "",
-			Mode: v4.Mode(""),
-			Graph: graph.Graph{
-				Functions: []ir.Function{},
-				Edges:     []graph.Edge{},
-				Nodes:     []graph.Node{},
-				Inputs:    map[string]msgpack.EncodedJSON{},
-			},
-			Text: text.Text{
-				Doc: text.Document{Inserts: []crdt.Insert{}, Deletes: []crdt.Delete{}},
-			},
-			Type: v4.Type(""),
-		}
+		seed := v4.Arc{Variant: v4.ModuleArc{Base: fullyPopulatedBase}}
 		w := orc.NewWriter(0)
 		if err := seed.EncodeOrc(w); err != nil {
 			f.Fatal(err)
@@ -283,6 +173,58 @@ func FuzzDecodeArc(f *testing.F) {
 			t.Fatalf("encode after successful decode failed: %v", err)
 		}
 		var redecoded v4.Arc
+		r.ResetBytes(w1.Bytes())
+		if err := redecoded.DecodeOrc(r); err != nil {
+			t.Fatalf("re-decode failed: %v", err)
+		}
+		if !testutil.DeepEqual(decoded, redecoded) {
+			t.Fatal("round-trip mismatch: decoded value changed after an encode/decode cycle")
+		}
+	})
+}
+
+func FuzzDecodeBase(f *testing.F) {
+	{
+		seed := fullyPopulatedBase
+		w := orc.NewWriter(0)
+		if err := seed.EncodeOrc(w); err != nil {
+			f.Fatal(err)
+		}
+		f.Add(w.Bytes())
+	}
+	{
+		seed := v4.Base{
+			Key:  uuid.Nil(),
+			Name: "",
+			Mode: v4.Mode(""),
+			Graph: graph.Graph{
+				Functions: []ir.Function{},
+				Edges:     []graph.Edge{},
+				Nodes:     []graph.Node{},
+				Inputs:    map[string]msgpack.EncodedJSON{},
+			},
+			Text: text.Text{
+				Doc: text.Document{Inserts: []crdt.Insert{}, Deletes: []crdt.Delete{}},
+			},
+		}
+		w := orc.NewWriter(0)
+		if err := seed.EncodeOrc(w); err != nil {
+			f.Fatal(err)
+		}
+		f.Add(w.Bytes())
+	}
+	f.Fuzz(func(t *testing.T, data []byte) {
+		var decoded v4.Base
+		r := orc.NewReader(nil)
+		r.ResetBytes(data)
+		if err := decoded.DecodeOrc(r); err != nil {
+			return
+		}
+		w1 := orc.NewWriter(len(data))
+		if err := decoded.EncodeOrc(w1); err != nil {
+			t.Fatalf("encode after successful decode failed: %v", err)
+		}
+		var redecoded v4.Base
 		r.ResetBytes(w1.Bytes())
 		if err := redecoded.DecodeOrc(r); err != nil {
 			t.Fatalf("re-decode failed: %v", err)

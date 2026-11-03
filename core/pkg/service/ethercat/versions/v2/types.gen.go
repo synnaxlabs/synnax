@@ -128,6 +128,17 @@ func (u *ReadChannel) UnmarshalJSONFrom(dec *jsontext.Decoder) error {
 	return nil
 }
 
+// Base returns the fields that every variant of ReadChannel shares.
+func (u ReadChannel) Base() BaseReadChannel {
+	switch v := u.Variant.(type) {
+	case EntryReadChannel:
+		return v.BaseReadChannel
+	case UnresolvedReadChannel:
+		return v.BaseReadChannel
+	}
+	return BaseReadChannel{}
+}
+
 // BaseWriteChannel carries the fields every EtherCAT write channel shares.
 type BaseWriteChannel = v1.BaseWriteChannel
 
@@ -233,6 +244,17 @@ func (u *WriteChannel) UnmarshalJSONFrom(dec *jsontext.Decoder) error {
 		return errors.Newf("WriteChannel: unknown type %q", disc.Type)
 	}
 	return nil
+}
+
+// Base returns the fields that every variant of WriteChannel shares.
+func (u WriteChannel) Base() BaseWriteChannel {
+	switch v := u.Variant.(type) {
+	case EntryWriteChannel:
+		return v.BaseWriteChannel
+	case UnresolvedWriteChannel:
+		return v.BaseWriteChannel
+	}
+	return BaseWriteChannel{}
 }
 
 // ReadConfig configures an EtherCAT read task. Each channel addresses a PDO entry on

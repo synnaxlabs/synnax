@@ -3326,6 +3326,105 @@ var _ = Describe("Go Union Generation", func() {
 	)
 
 	It(
+		"Should give a union whose variants all embed one base a Base accessor",
+		func(ctx SpecContext) {
+			source := `
+			@go output "out"
+
+			Base struct {
+				key uuid
+			}
+			SquareFields struct { side float64 }
+
+			Shape union on type extends Base {
+				circle {
+					radius float64
+				}
+				square SquareFields
+			}
+		`
+			resp := MustGenerate(ctx, source, "shape", loader, goPlugin)
+			ExpectContent(resp, "types.gen.go").ToContain(
+				"// Base returns the fields that every variant of Shape shares.\n" +
+					"func (u Shape) Base() Base {\n" +
+					"\tswitch v := u.Variant.(type) {\n" +
+					"\tcase CircleShape:\n\t\treturn v.Base\n" +
+					"\tcase SquareShape:\n\t\treturn v.Base\n" +
+					"\t}\n\treturn Base{}\n}\n",
+			)
+		},
+	)
+
+	It(
+		"Should name a base from another namespace in the Base accessor",
+		func(ctx SpecContext) {
+			loader.Add("schemas/common", `
+			@go output "core/common"
+
+			BaseAIChan struct {
+				port int32
+			}
+		`)
+			source := `
+			import "schemas/common"
+
+			@go output "core/ni"
+
+			AIChannel union on type extends common.BaseAIChan {
+				ai_voltage {}
+			}
+		`
+			resp := MustGenerate(ctx, source, "ni", loader, goPlugin)
+			ExpectContent(resp, "ni/types.gen.go").ToContain(
+				"func (u AIChannel) Base() common.BaseAIChan {\n",
+				"\t\treturn v.BaseAIChan\n",
+				"\treturn common.BaseAIChan{}\n",
+			)
+		},
+	)
+
+	It(
+		"Should give no Base accessor when a variant drops a base field",
+		func(ctx SpecContext) {
+			source := `
+			@go output "out"
+
+			Base struct {
+				key  uuid
+				port int32
+			}
+
+			Shape union on type extends Base {
+				circle {}
+				square {
+					-port
+				}
+			}
+		`
+			resp := MustGenerate(ctx, source, "shape", loader, goPlugin)
+			ExpectContent(resp, "types.gen.go").ToNotContain(") Base() ")
+		},
+	)
+
+	It(
+		"Should give no Base accessor to a union with two bases",
+		func(ctx SpecContext) {
+			source := `
+			@go output "out"
+
+			Keyed struct { key uuid }
+			Named struct { name string }
+
+			Shape union on type extends Keyed, Named {
+				circle {}
+			}
+		`
+			resp := MustGenerate(ctx, source, "shape", loader, goPlugin)
+			ExpectContent(resp, "types.gen.go").ToNotContain(") Base() ")
+		},
+	)
+
+	It(
 		"Should resolve a union-typed struct field to the union wrapper",
 		func(ctx SpecContext) {
 			source := `

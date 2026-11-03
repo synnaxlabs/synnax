@@ -12,6 +12,7 @@
 #pragma once
 
 #include <string>
+#include <variant>
 
 #include "client/cpp/arc/types.gen.h"
 #include "x/cpp/json/json.h"
@@ -22,28 +23,68 @@
 
 namespace synnax::arc {
 
-inline Arc Arc::parse(x::json::Parser parser) {
-    return Arc{
+inline Base Base::parse(x::json::Parser parser) {
+    return Base{
         .key = parser.field<Key>("key", x::uuid::create()),
         .name = parser.field<std::string>("name"),
         .mode = parser.field<std::string>("mode"),
         .graph = parser.field<::arc::graph::Graph>("graph"),
         .text = parser.field<::arc::text::Text>("text"),
-        .program = parser.field<std::optional<::arc::program::Program>>("program"),
-        .type = parser.field<std::string>("type", "automation"),
     };
 }
 
-inline x::json::json Arc::to_json() const {
+inline x::json::json Base::to_json() const {
     x::json::json j;
     j["key"] = this->key.to_json();
     j["name"] = this->name;
     j["mode"] = this->mode;
     j["graph"] = this->graph.to_json();
     j["text"] = this->text.to_json();
+    return j;
+}
+
+inline AutomationArc AutomationArc::parse(x::json::Parser parser) {
+    AutomationArc result;
+    static_cast<Base &>(result) = Base::parse(parser);
+    result.program = parser.field<std::optional<::arc::program::Program>>("program");
+    result.type = parser.field<std::string>("type");
+    return result;
+}
+
+inline x::json::json AutomationArc::to_json() const {
+    x::json::json j;
+    for (auto &[k, v]: Base::to_json().items())
+        j[k] = v;
     if (this->program.has_value()) j["program"] = this->program->to_json();
     j["type"] = this->type;
     return j;
+}
+
+inline ModuleArc ModuleArc::parse(x::json::Parser parser) {
+    ModuleArc result;
+    static_cast<Base &>(result) = Base::parse(parser);
+    result.type = parser.field<std::string>("type");
+    return result;
+}
+
+inline x::json::json ModuleArc::to_json() const {
+    x::json::json j;
+    for (auto &[k, v]: Base::to_json().items())
+        j[k] = v;
+    j["type"] = this->type;
+    return j;
+}
+
+inline Arc parse_arc(x::json::Parser parser) {
+    const auto discriminator = parser.field<std::string>("type");
+    if (discriminator == "automation") return AutomationArc::parse(parser);
+    if (discriminator == "module") return ModuleArc::parse(parser);
+    parser.field_err("type", "unknown Arc type: " + discriminator);
+    return {};
+}
+
+inline x::json::json to_json(const Arc &value) {
+    return std::visit([](const auto &v) { return v.to_json(); }, value);
 }
 
 }

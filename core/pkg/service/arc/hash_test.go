@@ -23,12 +23,12 @@ import (
 
 func newText(raw string) text.Text { return text.Text{Doc: text.Create(raw)} }
 
-func textArc(raw string) arc.Arc {
-	return arc.Arc{Mode: arc.ModeText, Text: newText(raw)}
+func textArc(raw string) arc.Base {
+	return arc.Base{Mode: arc.ModeText, Text: newText(raw)}
 }
 
-func graphArc() arc.Arc {
-	return arc.Arc{
+func graphArc() arc.Base {
+	return arc.Base{
 		Mode: arc.ModeGraph,
 		Graph: graph.Graph{
 			Nodes: graph.Nodes{
@@ -144,8 +144,8 @@ var _ = Describe("Hash", func() {
 	})
 
 	It("Should hash the two modes differently", func() {
-		a := arc.Arc{Mode: arc.ModeText}
-		b := arc.Arc{Mode: arc.ModeGraph}
+		a := arc.Base{Mode: arc.ModeText}
+		b := arc.Base{Mode: arc.ModeGraph}
 		Expect(MustSucceed(arc.Hash(a))).ToNot(Equal(MustSucceed(arc.Hash(b))))
 	})
 })

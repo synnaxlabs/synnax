@@ -480,3 +480,22 @@ var _ = Describe("MergeOverrideField", func() {
 		Expect(merged.Domains).ToNot(HaveKey("doc"))
 	})
 })
+
+var _ = Describe("Type.Actions", func() {
+	rename := resolution.Action{Name: "Rename"}
+	It("Should return the actions of a struct", func() {
+		typ := resolution.Type{Form: resolution.StructForm{
+			Actions: []resolution.Action{rename},
+		}}
+		Expect(typ.Actions()).To(Equal([]resolution.Action{rename}))
+	})
+	It("Should return the actions of a union", func() {
+		typ := resolution.Type{Form: resolution.UnionForm{
+			Actions: []resolution.Action{rename},
+		}}
+		Expect(typ.Actions()).To(Equal([]resolution.Action{rename}))
+	})
+	It("Should return no actions for any other form", func() {
+		Expect(resolution.Type{Form: resolution.EnumForm{}}.Actions()).To(BeEmpty())
+	})
+})

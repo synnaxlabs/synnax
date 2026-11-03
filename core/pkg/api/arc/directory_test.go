@@ -145,7 +145,7 @@ var _ = Describe("Directories", func() {
 			GinkgoHelper()
 			a := createArc(ctx, uniqueName())
 			DeferCleanup(func(ctx SpecContext) {
-				Expect(arcSvc.NewWriter(nil).Delete(ctx, a.Key)).To(Succeed())
+				Expect(arcSvc.NewWriter(nil).Delete(ctx, a.Base().Key)).To(Succeed())
 			})
 			Expect(arcSvc.NewWriter(nil).Move(ctx, root, d.Key, a.OntologyID())).
 				To(Succeed())
@@ -290,7 +290,7 @@ var _ = Describe("Directories", func() {
 			d := createDirectory(ctx)
 			a := createArc(ctx, uniqueName())
 			DeferCleanup(func(ctx SpecContext) {
-				Expect(arcSvc.NewWriter(nil).Delete(ctx, a.Key)).To(Succeed())
+				Expect(arcSvc.NewWriter(nil).Delete(ctx, a.Base().Key)).To(Succeed())
 			})
 			rootID := directory.OntologyID(root)
 			grantUpdateOn(
@@ -310,7 +310,7 @@ var _ = Describe("Directories", func() {
 				apiontology.MoveChildrenRequest{
 					From:     rootID,
 					To:       d.OntologyID(),
-					Children: []ontology.ID{arc.OntologyID(a.Key)},
+					Children: []ontology.ID{arc.OntologyID(a.Base().Key)},
 				},
 			)).Error().To(MatchError(validate.ErrValidation))
 		})

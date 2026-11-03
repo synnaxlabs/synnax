@@ -33,6 +33,7 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/service/task"
 	"github.com/synnaxlabs/x/config"
 	"github.com/synnaxlabs/x/debounce"
+	"github.com/synnaxlabs/x/errors"
 	xio "github.com/synnaxlabs/x/io"
 	"github.com/synnaxlabs/x/observe"
 	"github.com/synnaxlabs/x/override"
@@ -203,27 +204,36 @@ func (s *Service) Close() error { return s.closer.Close() }
 // is permitted exactly when channel-name validation is disabled.
 func (s *Service) AllowDashedNames() bool { return !s.cfg.Channel.ShouldValidateNames() }
 
-// CompileProgram retrieves an Arc program by key and compiles its Module. The returned
-// Arc has its Module field populated with the compiled module.
-func (s *Service) CompileProgram(ctx context.Context, key Key) (Arc, error) {
+// CompileProgram retrieves the automation with key and compiles its program. A module
+// is a validation error.
+func (s *Service) CompileProgram(ctx context.Context, key Key) (AutomationArc, error) {
 	var entry Arc
 	err := s.NewRetrieve().Where(MatchKeys(key)).Entry(&entry).Exec(ctx, nil)
 	if err != nil {
-		return Arc{}, err
+		return AutomationArc{}, err
+	}
+	automation, ok := entry.Variant.(AutomationArc)
+	if !ok {
+		return AutomationArc{}, errors.Wrapf(
+			validate.ErrValidation,
+			"modules cannot be deployed independently. Import %q from an "+
+				"automation instead",
+			entry.Base().Name,
+		)
 	}
 	var prog arc.Program
-	if entry.Mode == ModeText {
-		prog, err = arc.CompileText(ctx, entry.Text.Materialize(), s.NewRoot(nil),
+	if automation.Mode == ModeText {
+		prog, err = arc.CompileText(ctx, automation.Text.Materialize(), s.NewRoot(nil),
 			arc.WithAllowDashedNames(s.AllowDashedNames()))
 	} else {
-		prog, err = arc.CompileGraph(ctx, entry.Graph, s.NewRoot(nil),
+		prog, err = arc.CompileGraph(ctx, automation.Graph, s.NewRoot(nil),
 			arc.WithAllowDashedNames(s.AllowDashedNames()))
 	}
 	if err != nil {
-		return Arc{}, err
+		return AutomationArc{}, err
 	}
-	entry.Program = &prog
-	return entry, nil
+	automation.Program = &prog
+	return automation, nil
 }
 
 // OpenService instantiates a new Arc service using the provided configurations. Each

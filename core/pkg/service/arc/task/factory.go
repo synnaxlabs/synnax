@@ -37,8 +37,8 @@ import (
 // Type is the type identifier for Arc tasks.
 const Type = "arc"
 
-// GetProgramFunc retrieves an Arc with its compiled Program by key.
-type GetProgramFunc func(context.Context, arc.Key) (arc.Arc, error)
+// GetProgramFunc retrieves an automation with its compiled Program by key.
+type GetProgramFunc func(context.Context, arc.Key) (arc.AutomationArc, error)
 
 // FactoryConfig is the configuration for creating an Arc factory.
 type FactoryConfig struct {
@@ -58,7 +58,7 @@ type FactoryConfig struct {
 	//
 	// [REQUIRED]
 	Status *status.Service
-	// GetProgram retrieves an Arc with its compiled Program by key.
+	// GetProgram retrieves an automation with its compiled Program by key.
 	//
 	// [REQUIRED]
 	GetProgram GetProgramFunc

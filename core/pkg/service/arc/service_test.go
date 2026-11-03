@@ -17,6 +17,7 @@ import (
 	"github.com/synnaxlabs/arc/graph"
 	"github.com/synnaxlabs/arc/ir"
 	. "github.com/synnaxlabs/arc/lsp/testutil"
+	"github.com/synnaxlabs/arc/text"
 	"github.com/synnaxlabs/arc/types"
 	"github.com/synnaxlabs/synnax/pkg/service/arc"
 	"github.com/synnaxlabs/synnax/pkg/service/channel"
@@ -25,12 +26,13 @@ import (
 	"github.com/synnaxlabs/x/query"
 	"github.com/synnaxlabs/x/telem"
 	. "github.com/synnaxlabs/x/testutil"
+	"github.com/synnaxlabs/x/validate"
 	"go.lsp.dev/uri"
 )
 
 var _ = Describe("CompileProgram", func() {
 	It("Should retrieve and compile an Arc with a valid graph", func(ctx SpecContext) {
-		a := arc.Arc{
+		a := newAutomation(arc.Base{
 			Name: "test-arc",
 			Mode: arc.ModeGraph,
 			Graph: graph.Graph{
@@ -48,16 +50,31 @@ var _ = Describe("CompileProgram", func() {
 					},
 				},
 			},
-		}
+		})
 		Expect(svc.NewWriter(tx).Create(ctx, &a)).To(Succeed())
 		Expect(tx.Commit(ctx)).To(Succeed())
 		DeferCleanup(func(ctx SpecContext) {
-			Expect(svc.NewWriter(nil).Delete(ctx, a.Key)).To(Succeed())
+			Expect(svc.NewWriter(nil).Delete(ctx, a.Base().Key)).To(Succeed())
 		})
 
-		result := MustSucceed(svc.CompileProgram(ctx, a.Key))
-		Expect(result.Key).To(Equal(a.Key))
+		result := MustSucceed(svc.CompileProgram(ctx, a.Base().Key))
+		Expect(result.Key).To(Equal(a.Base().Key))
 		Expect(result.Program.IR).ToNot(BeNil())
+	})
+
+	It("Should refuse a module, which never runs", func(ctx SpecContext) {
+		m := newModule(arc.Base{
+			Name: "never_runs",
+			Mode: arc.ModeText,
+			Text: text.Text{Raw: "func f() {}"},
+		})
+		Expect(svc.NewWriter(tx).Create(ctx, &m)).To(Succeed())
+		Expect(tx.Commit(ctx)).To(Succeed())
+		DeferCleanup(func(ctx SpecContext) {
+			Expect(svc.NewWriter(nil).Delete(ctx, m.Base().Key)).To(Succeed())
+		})
+		Expect(svc.CompileProgram(ctx, m.Base().Key)).Error().
+			To(MatchError(validate.ErrValidation))
 	})
 
 	It("Should return error when Arc does not exist", func(ctx SpecContext) {
@@ -67,7 +84,7 @@ var _ = Describe("CompileProgram", func() {
 	})
 
 	It("Should return error when graph compilation fails", func(ctx SpecContext) {
-		a := arc.Arc{
+		a := newAutomation(arc.Base{
 			Name: "invalid-arc",
 			Mode: arc.ModeGraph,
 			Graph: graph.Graph{
@@ -92,14 +109,14 @@ var _ = Describe("CompileProgram", func() {
 					},
 				},
 			},
-		}
+		})
 		Expect(svc.NewWriter(tx).Create(ctx, &a)).To(Succeed())
 		Expect(tx.Commit(ctx)).To(Succeed())
 		DeferCleanup(func(ctx SpecContext) {
-			Expect(svc.NewWriter(nil).Delete(ctx, a.Key)).To(Succeed())
+			Expect(svc.NewWriter(nil).Delete(ctx, a.Base().Key)).To(Succeed())
 		})
 
-		Expect(svc.CompileProgram(ctx, a.Key)).Error().
+		Expect(svc.CompileProgram(ctx, a.Base().Key)).Error().
 			To(MatchError(ContainSubstring("edge target node 'nonexistent' not found")))
 	})
 })

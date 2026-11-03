@@ -28,11 +28,8 @@ export type Type = z.infer<typeof typeZ>;
 export const keyZ = z.uuid();
 export type Key = z.infer<typeof keyZ>;
 
-/**
- * Arc is an Arc module combining visual graph representation and text-based source code
- * for reactive control systems. Compiles to WebAssembly for sandboxed execution.
- */
-export const arcZ = z.object({
+/** Base carries the fields that every Arc shares. */
+export const baseZ = z.object({
   /** key is the unique identifier for this module. */
   key: keyZ.default(uuid.create),
   /** name is a human-readable name for the module. */
@@ -46,13 +43,37 @@ export const arcZ = z.object({
   graph: graph.graphZ.prefault({}),
   /** text is the text-based Arc source code. */
   text: text.textZ.prefault({}),
+});
+export interface Base extends z.infer<typeof baseZ> {}
+
+/** AutomationArc is an Arc that runs on a rack as a task. */
+export const automationArcZ = baseZ.extend({
+  type: z.literal("automation"),
   /** program is the compiled module output including IR and WebAssembly bytecode. */
   program: program.programZ.optional(),
-  /** type specifies whether this Arc is an automation or a module. */
-  type: typeZ.default("automation"),
 });
-export interface Arc extends z.infer<typeof arcZ> {}
-export interface New extends z.input<typeof arcZ> {}
+export interface AutomationArc extends z.infer<typeof automationArcZ> {}
+
+/** ModuleArc is an Arc that holds code for other Arcs to import. */
+export const moduleArcZ = baseZ.extend({
+  type: z.literal("module"),
+});
+export interface ModuleArc extends z.infer<typeof moduleArcZ> {}
+
+/**
+ * Arc is an Arc module combining visual graph representation and text-based source code
+ * for reactive control systems. Compiles to WebAssembly for sandboxed execution.
+ */
+export const arcZ = z.discriminatedUnion("type", [automationArcZ, moduleArcZ]);
+export type Arc = AutomationArc | ModuleArc;
+
+export const ARC_SCHEMAS: {
+  [K in Type]: z.ZodType<Extract<Arc, { type: K }>>;
+} = {
+  automation: automationArcZ,
+  module: moduleArcZ,
+};
+export type New = z.input<typeof arcZ>;
 
 export const ontologyID = ontology.createIDFactory<Key>("arc");
 export const TYPE_ONTOLOGY_ID = ontologyID("");

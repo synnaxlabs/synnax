@@ -8,7 +8,7 @@
 #  included in the file licenses/APL.txt.
 
 from synnax.arc import compiler, graph, ir, program, text, types
-from synnax.arc.client import Arc, Client
+from synnax.arc.client import Arc, Automation, Client, Module
 from synnax.arc.graph import Edge as GraphEdge
 from synnax.arc.graph import Graph
 from synnax.arc.graph import Node as GraphNode
@@ -27,6 +27,7 @@ from x.spatial import XY as Position
 __all__ = [
     "ONTOLOGY_TYPE",
     "Arc",
+    "Automation",
     "Client",
     "Edge",
     "Graph",
@@ -35,6 +36,7 @@ __all__ = [
     "Handle",
     "Key",
     "Mode",
+    "Module",
     "Payload",
     "Position",
     "Task",

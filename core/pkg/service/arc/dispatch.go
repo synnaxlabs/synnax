@@ -47,16 +47,16 @@ func (s *Service) Dispatch(
 					sweep = nil
 					var dead []crdt.ID
 					if s.sweeper.quiet(key) {
-						dead = s.sweeper.forgettable(a.Text.Doc)
+						dead = s.sweeper.forgettable(a.Base().Text.Doc)
 					}
-					name := a.Name
+					name := a.Base().Name
 					a, err := Reduce(a, acts...)
 					if err != nil {
 						return a, err
 					}
-					if a.Name != name {
+					if renamed := a.Base().Name; renamed != name {
 						if err = s.NewWriter(tx).validateName(
-							ctx, OntologyID(key), a.Name, a.Type == TypeModule,
+							ctx, OntologyID(key), renamed, a.Type() == TypeModule,
 						); err != nil {
 							return Arc{}, err
 						}
@@ -98,7 +98,7 @@ func (s *Service) resyncTask(ctx context.Context, key Key) {
 			Exec(ctx, tx); err != nil {
 			return err
 		}
-		return s.NewWriter(tx).syncTask(ctx, a)
+		return s.NewWriter(tx).syncTask(ctx, a.Base())
 	})
 	if err == nil || errors.Is(err, context.Canceled) ||
 		errors.Is(err, query.ErrNotFound) {

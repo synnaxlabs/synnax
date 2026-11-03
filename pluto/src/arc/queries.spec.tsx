@@ -54,6 +54,7 @@ describe("Arc queries", () => {
     await client.arcs.create({
       name: `arc_${id.create()}`,
       mode: "graph",
+      type: "automation",
       graph: {
         nodes: [
           { key: "n1", position: { x: 0, y: 0 } },
@@ -109,7 +110,11 @@ describe("Arc queries", () => {
 
   describe("useList", () => {
     it("should update an item read by key when it changes", async () => {
-      const item = await client.arcs.create({ name: "original", mode: "text" });
+      const item = await client.arcs.create({
+        name: "original",
+        mode: "text",
+        type: "automation",
+      });
       const { result } = renderHook(
         () => {
           const list = Arc.useList({ useCachedList: false });
@@ -132,10 +137,12 @@ describe("Arc queries", () => {
       const arc1 = await client.arcs.create({
         name: "arc1",
         mode: "text",
+        type: "automation",
       });
       const arc2 = await client.arcs.create({
         name: "arc2",
         mode: "text",
+        type: "automation",
       });
 
       const { result } = renderHook(() => Arc.useList({}), { wrapper });
@@ -174,7 +181,11 @@ describe("Arc queries", () => {
 
       const name = `new-arc-${id.create()}`;
       await act(async () => {
-        await result.current.create.updateAsync({ name, mode: "text" });
+        await result.current.create.updateAsync({
+          name,
+          mode: "text",
+          type: "automation",
+        });
       });
 
       await waitFor(() => {
@@ -197,6 +208,7 @@ describe("Arc queries", () => {
           key,
           name: "original-name",
           mode: "text",
+          type: "automation",
         });
       });
 
@@ -223,6 +235,7 @@ describe("Arc queries", () => {
       const testArc = await client.arcs.create({
         name: "to-delete",
         mode: "text",
+        type: "automation",
       });
 
       const { result } = renderHook(() => Arc.useList({}), { wrapper });
@@ -250,14 +263,17 @@ describe("Arc queries", () => {
       const arc1 = await client.arcs.create({
         name: "filter-arc-1",
         mode: "text",
+        type: "automation",
       });
       const arc2 = await client.arcs.create({
         name: "filter-arc-2",
         mode: "text",
+        type: "automation",
       });
       await client.arcs.create({
         name: "filter-arc-3",
         mode: "text",
+        type: "automation",
       });
 
       const { result } = renderHook(() => Arc.useList({}), { wrapper });
@@ -287,6 +303,7 @@ describe("Arc queries", () => {
       const a = await remote.arcs.create({
         name: `hydrate-${id.create()}`,
         mode: "text",
+        type: "automation",
       });
       const { result } = renderHook(() => Arc.useList({}), { wrapper });
 
@@ -305,7 +322,11 @@ describe("Arc queries", () => {
 
     it("reflects a live rename on an arc only loaded via the list", async () => {
       const originalName = `list-only-${id.create()}`;
-      const a = await client.arcs.create({ name: originalName, mode: "text" });
+      const a = await client.arcs.create({
+        name: originalName,
+        mode: "text",
+        type: "automation",
+      });
       const { result } = renderHook(
         () => ({ list: Arc.useList({}), rename: Arc.useRename() }),
         { wrapper },
@@ -355,6 +376,7 @@ describe("Arc queries", () => {
       const testArc = await client.arcs.create({
         name: "delete-single",
         mode: "text",
+        type: "automation",
       });
 
       const { result } = renderHook(() => Arc.useDelete(), { wrapper });
@@ -374,10 +396,12 @@ describe("Arc queries", () => {
       const arc1 = await client.arcs.create({
         name: "delete-multi-1",
         mode: "text",
+        type: "automation",
       });
       const arc2 = await client.arcs.create({
         name: "delete-multi-2",
         mode: "text",
+        type: "automation",
       });
 
       const { result } = renderHook(() => Arc.useDelete(), { wrapper });
@@ -405,6 +429,7 @@ describe("Arc queries", () => {
         await result.current.updateAsync({
           name: uniqueName,
           mode: "text",
+          type: "automation",
         });
       });
 
@@ -417,7 +442,7 @@ describe("Arc queries", () => {
       const { result } = renderHook(() => Arc.useCreate(), { wrapper });
       const name = `arc_no_task_${id.create()}`;
       await act(async () => {
-        await result.current.updateAsync({ name, mode: "text" });
+        await result.current.updateAsync({ name, mode: "text", type: "automation" });
       });
       await waitFor(() => {
         expect(result.current.variant).toEqual("success");
@@ -437,6 +462,7 @@ describe("Arc queries", () => {
       const created = await client.arcs.create({
         name: `arc_deploy_${id.create()}`,
         mode: "text",
+        type: "automation",
       });
       const { result } = renderHook(() => Arc.useUpdateTask(), { wrapper });
 
@@ -461,6 +487,7 @@ describe("Arc queries", () => {
       const created = await client.arcs.create({
         name: `arc_move_${id.create()}`,
         mode: "text",
+        type: "automation",
       });
       const { result } = renderHook(() => Arc.useUpdateTask(), { wrapper });
 
@@ -493,6 +520,7 @@ describe("Arc queries", () => {
       const created = await client.arcs.create({
         name: `arc_undeploy_${id.create()}`,
         mode: "text",
+        type: "automation",
       });
       const { result } = renderHook(() => Arc.useUpdateTask(), { wrapper });
 
@@ -517,6 +545,7 @@ describe("Arc queries", () => {
       const created = await client.arcs.create({
         name: `arc_performance_${id.create()}`,
         mode: "text",
+        type: "automation",
       });
       const { result } = renderHook(() => Arc.useUpdateTask(), { wrapper });
 
@@ -691,6 +720,7 @@ describe("Arc queries", () => {
       const testArc = await client.arcs.create({
         name: `retrieve-arc-${Math.random().toString(36).substring(7)}`,
         mode: "text",
+        type: "automation",
       });
 
       const { result } = await renderHookSuspended(
@@ -738,6 +768,7 @@ describe("Arc queries", () => {
       const testArc = await client.arcs.create({
         name: `original-${Math.random().toString(36).substring(7)}`,
         mode: "text",
+        type: "automation",
       });
 
       const { result } = renderHook(() => Arc.useRename(), { wrapper });
@@ -762,6 +793,7 @@ describe("Arc queries", () => {
       const testArc = await client.arcs.create({
         name: `arc-no-task-${Math.random().toString(36).substring(7)}`,
         mode: "text",
+        type: "automation",
       });
 
       const { result } = await renderHookSuspended(
@@ -776,6 +808,7 @@ describe("Arc queries", () => {
       const testArc = await client.arcs.create({
         name: `arc-with-task-${Math.random().toString(36).substring(7)}`,
         mode: "text",
+        type: "automation",
       });
 
       const rack = await client.racks.create({ name: "test-rack" });
@@ -806,6 +839,7 @@ describe("Arc queries", () => {
       const testArc = await client.arcs.create({
         name: `arc-task-add-${Math.random().toString(36).substring(7)}`,
         mode: "text",
+        type: "automation",
       });
 
       const { result } = await renderHookSuspended(
@@ -844,6 +878,7 @@ describe("Arc queries", () => {
       const testArc = await client.arcs.create({
         name: `arc-status-${Math.random().toString(36).substring(7)}`,
         mode: "text",
+        type: "automation",
       });
 
       const rack = await client.racks.create({ name: "test-rack-status" });
@@ -893,6 +928,7 @@ describe("Arc queries", () => {
       const testArc = await client.arcs.create({
         name: `arc-rename-${Math.random().toString(36).substring(7)}`,
         mode: "text",
+        type: "automation",
       });
 
       const rack = await client.racks.create({ name: "test-rack-rename" });
@@ -935,6 +971,7 @@ describe("Arc queries", () => {
       const testArc = await client.arcs.create({
         name: `arc-untasked-${id.create()}`,
         mode: "graph",
+        type: "automation",
         graph: { nodes: [], edges: [] },
       });
       const { result } = renderHook(
@@ -955,6 +992,7 @@ describe("Arc queries", () => {
       const a = await client.arcs.create({
         name: `arc-drift-${id.create()}`,
         mode: "text",
+        type: "automation",
       });
       const tsk = await client.arcs.updateTask(a.key, { rack: rck.key });
       if (tsk == null) throw new Error("expected a deployment task");

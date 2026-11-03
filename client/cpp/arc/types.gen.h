@@ -14,6 +14,7 @@
 #include <optional>
 #include <string>
 #include <utility>
+#include <variant>
 
 #include "client/cpp/ontology/id.h"
 #include "x/cpp/errors/errors.h"
@@ -27,7 +28,7 @@
 
 namespace synnax::arc {
 
-struct Arc;
+struct Base;
 
 constexpr const char *MODE_TEXT = "text";
 constexpr const char *MODE_GRAPH = "graph";
@@ -37,10 +38,8 @@ constexpr const char *TYPE_MODULE = "module";
 
 using Key = x::uuid::UUID;
 
-/// @brief Arc is an Arc module combining visual graph representation and text-based
-/// source code for reactive control systems. Compiles to WebAssembly for sandboxed
-/// execution.
-struct Arc {
+/// @brief Base carries the fields that every Arc shares.
+struct Base {
     /// @brief key is the unique identifier for this module.
     Key key;
     /// @brief name is a human-readable name for the module.
@@ -52,20 +51,58 @@ struct Arc {
     ::arc::graph::Graph graph = {};
     /// @brief text is the text-based Arc source code.
     ::arc::text::Text text = {};
+
+    static Base parse(x::json::Parser parser);
+    [[nodiscard]] x::json::json to_json() const;
+
+    using proto_type = ::service::arc::pb::Base;
+    [[nodiscard]] std::pair<::service::arc::pb::Base, x::errors::Error>
+    to_proto() const;
+    static std::pair<Base, x::errors::Error>
+    from_proto(const ::service::arc::pb::Base &pb);
+};
+
+/// @brief AutomationArc is an Arc that runs on a rack as a task.
+struct AutomationArc : public Base {
+    std::string type = TYPE_AUTOMATION;
     /// @brief program is the compiled module output including IR and WebAssembly
     /// bytecode.
     std::optional<::arc::program::Program> program;
-    /// @brief type specifies whether this Arc is an automation or a module.
-    std::string type = TYPE_AUTOMATION;
 
-    static Arc parse(x::json::Parser parser);
+    static AutomationArc parse(x::json::Parser parser);
     [[nodiscard]] x::json::json to_json() const;
 
-    using proto_type = ::service::arc::pb::Arc;
-    [[nodiscard]] std::pair<::service::arc::pb::Arc, x::errors::Error> to_proto() const;
-    static std::pair<Arc, x::errors::Error>
-    from_proto(const ::service::arc::pb::Arc &pb);
+    using proto_type = ::service::arc::pb::ArcAutomationPayload;
+    [[nodiscard]] std::pair<::service::arc::pb::ArcAutomationPayload, x::errors::Error>
+    to_proto() const;
+    static std::pair<AutomationArc, x::errors::Error>
+    from_proto(const ::service::arc::pb::ArcAutomationPayload &pb);
 };
+
+/// @brief ModuleArc is an Arc that holds code for other Arcs to import.
+struct ModuleArc : public Base {
+    std::string type = TYPE_MODULE;
+
+    static ModuleArc parse(x::json::Parser parser);
+    [[nodiscard]] x::json::json to_json() const;
+
+    using proto_type = ::service::arc::pb::ArcModulePayload;
+    [[nodiscard]] std::pair<::service::arc::pb::ArcModulePayload, x::errors::Error>
+    to_proto() const;
+    static std::pair<ModuleArc, x::errors::Error>
+    from_proto(const ::service::arc::pb::ArcModulePayload &pb);
+};
+
+/// @brief Arc is an Arc module combining visual graph representation and text-based
+/// source code for reactive control systems. Compiles to WebAssembly for sandboxed
+/// execution.
+using Arc = std::variant<AutomationArc, ModuleArc>;
+
+Arc parse_arc(x::json::Parser parser);
+[[nodiscard]] x::json::json to_json(const Arc &value);
+[[nodiscard]] std::pair<::service::arc::pb::Arc, x::errors::Error>
+to_proto(const Arc &value);
+std::pair<Arc, x::errors::Error> arc_from_proto(const ::service::arc::pb::Arc &pb);
 
 const synnax::ontology::ID ONTOLOGY_TYPE("arc", "");
 

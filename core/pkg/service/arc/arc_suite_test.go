@@ -126,3 +126,19 @@ var (
 	})
 	_ = BeforeEach(func() { tx = DeferClose(db.OpenTx()) })
 )
+
+// newAutomation returns an automation that holds b.
+func newAutomation(b arc.Base) arc.Arc {
+	return arc.Arc{Variant: arc.AutomationArc{Base: b}}
+}
+
+// newModule returns a module that holds b.
+func newModule(b arc.Base) arc.Arc { return arc.Arc{Variant: arc.ModuleArc{Base: b}} }
+
+// newArc returns an Arc of type t that holds b.
+func newArc(t arc.Type, b arc.Base) arc.Arc {
+	if t == arc.TypeModule {
+		return newModule(b)
+	}
+	return newAutomation(b)
+}

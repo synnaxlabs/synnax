@@ -39,7 +39,7 @@ var _ = Describe("MigrateArc", func() {
 			Mode: v3.ModeText,
 			Text: text.Text{Doc: text.Create(oldText)},
 		}
-		got := migrateFromV3(ctx, seed)
+		got := migrateFromV3(ctx, seed).Base()
 		Expect(got.Key).To(Equal(seed.Key))
 		Expect(got.Name).To(Equal(seed.Name))
 		Expect(got.Mode).To(Equal(seed.Mode))
@@ -54,7 +54,7 @@ var _ = Describe("MigrateArc", func() {
 			Name: "exported",
 			Mode: v3.ModeText,
 			Text: text.Text{Raw: oldText},
-		}))
+		})).Base()
 		Expect(got.Text.Materialize().Raw).To(Equal(newText))
 		Expect(got.Text.Raw).To(BeEmpty())
 	})
@@ -66,14 +66,17 @@ var _ = Describe("MigrateArc", func() {
 			Name: "legacy",
 			Mode: v3.ModeText,
 		}))
-		Expect(migrated.Key).To(Equal(key))
-		Expect(migrated.Name).To(Equal("legacy"))
-		Expect(migrated.Mode).To(Equal(v4.ModeText))
-		Expect(migrated.Type).To(Equal(v4.TypeAutomation))
+		automation, ok := migrated.Variant.(v4.AutomationArc)
+		Expect(ok).To(BeTrue())
+		Expect(automation.Key).To(Equal(key))
+		Expect(automation.Name).To(Equal("legacy"))
+		Expect(automation.Mode).To(Equal(v4.ModeText))
 	})
 
 	It("Should leave an Arc with no text untouched", func(ctx SpecContext) {
-		got := MustSucceed(v4.MigrateArc(ctx, v3.Arc{Name: "empty", Mode: v3.ModeText}))
+		got := MustSucceed(
+			v4.MigrateArc(ctx, v3.Arc{Name: "empty", Mode: v3.ModeText}),
+		).Base()
 		Expect(got.Text.Doc.Inserts).To(BeEmpty())
 		Expect(got.Text.Raw).To(BeEmpty())
 	})
@@ -88,7 +91,7 @@ var _ = Describe("MigrateArc", func() {
 			Graph: graph.Graph{Nodes: graph.Nodes{{Key: "n1"}}},
 			Text:  text.Text{Doc: text.Create(oldText)},
 		}
-		got := migrateFromV3(ctx, seed)
+		got := migrateFromV3(ctx, seed).Base()
 		Expect(got.Mode).To(Equal(v3.ModeGraph))
 		Expect(got.Graph).To(Equal(seed.Graph))
 		Expect(got.Text.Materialize().Raw).To(Equal(newText))
@@ -114,38 +117,6 @@ func migrateFromV3(ctx SpecContext, seed v3.Arc) v4.Arc {
 	return got
 }
 
-var _ = Describe("TypeMigration", func() {
-	It("Should make an Arc without a type an automation", func(ctx SpecContext) {
-		db := DeferClose(gorp.Wrap(memkv.New()))
-		MustSucceed(gorp.OpenTable(ctx, gorp.TableConfig[v4.Key, v4.Arc]{DB: db}))
-		untyped := v4.Arc{Key: uuid.New(), Name: "untyped", Mode: v4.ModeText}
-		module := v4.Arc{
-			Key:  uuid.New(),
-			Name: "m",
-			Mode: v4.ModeText,
-			Type: v4.TypeModule,
-		}
-		seed := []v4.Arc{untyped, module}
-		Expect(gorp.NewCreate[v4.Key, v4.Arc]().Entries(&seed).Exec(ctx, db)).
-			To(Succeed())
-		Expect(gorp.Migrate(ctx, gorp.MigrateConfig{
-			DB:         db,
-			Namespace:  "Arc",
-			Migrations: []gorp.Migration{v4.TypeMigration},
-		})).To(Succeed())
-		typeOf := func(key v4.Key) v4.Type {
-			GinkgoHelper()
-			var got v4.Arc
-			Expect(gorp.NewRetrieve[v4.Key, v4.Arc]().
-				Where(gorp.MatchKeys[v4.Key, v4.Arc](key)).
-				Entry(&got).Exec(ctx, db)).To(Succeed())
-			return got.Type
-		}
-		Expect(typeOf(untyped.Key)).To(Equal(v4.TypeAutomation))
-		Expect(typeOf(module.Key)).To(Equal(v4.TypeModule))
-	})
-})
-
 var _ = Describe("NewRootMigration", func() {
 	It("Should parent every Arc without a directory under the root", func(
 		ctx SpecContext,
@@ -165,8 +136,12 @@ var _ = Describe("NewRootMigration", func() {
 			DB: db,
 		}))
 		tx := db.OpenTx()
-		orphan := v4.Arc{Key: uuid.New(), Name: "orphan", Type: v4.TypeAutomation}
-		placed := v4.Arc{Key: uuid.New(), Name: "placed", Type: v4.TypeAutomation}
+		orphan := v4.Arc{Variant: v4.AutomationArc{
+			Base: v4.Base{Key: uuid.New(), Name: "orphan"},
+		}}
+		placed := v4.Arc{Variant: v4.ModuleArc{
+			Base: v4.Base{Key: uuid.New(), Name: "placed"},
+		}}
 		Expect(table.NewCreate().Entry(&orphan).Exec(ctx, tx)).To(Succeed())
 		Expect(table.NewCreate().Entry(&placed).Exec(ctx, tx)).To(Succeed())
 		w := owner.NewWriter(tx)

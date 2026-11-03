@@ -12,8 +12,10 @@
 #pragma once
 
 #include <string>
+#include <type_traits>
 #include <unordered_map>
 #include <utility>
+#include <variant>
 
 #include "client/cpp/arc/json.gen.h"
 #include "client/cpp/arc/types.gen.h"
@@ -78,8 +80,8 @@ type_from_pb(::service::arc::pb::Type pb) {
     }
 }
 
-inline std::pair<::service::arc::pb::Arc, x::errors::Error> Arc::to_proto() const {
-    ::service::arc::pb::Arc pb;
+inline std::pair<::service::arc::pb::Base, x::errors::Error> Base::to_proto() const {
+    ::service::arc::pb::Base pb;
     pb.set_key(this->key.to_string());
     pb.set_name(this->name);
     {
@@ -97,22 +99,12 @@ inline std::pair<::service::arc::pb::Arc, x::errors::Error> Arc::to_proto() cons
         if (err) return {{}, err};
         *pb.mutable_text() = v;
     }
-    if (this->program.has_value()) {
-        auto [v, err] = this->program->to_proto();
-        if (err) return {{}, err};
-        *pb.mutable_program() = v;
-    }
-    {
-        auto [v, err] = type_to_pb(this->type);
-        if (err) return {{}, err};
-        pb.set_type(v);
-    }
     return {pb, x::errors::NIL};
 }
 
-inline std::pair<Arc, x::errors::Error>
-Arc::from_proto(const ::service::arc::pb::Arc &pb) {
-    Arc cpp;
+inline std::pair<Base, x::errors::Error>
+Base::from_proto(const ::service::arc::pb::Base &pb) {
+    Base cpp;
     {
         auto [v, err] = x::uuid::UUID::parse(pb.key());
         if (err) return {{}, err};
@@ -134,17 +126,92 @@ Arc::from_proto(const ::service::arc::pb::Arc &pb) {
         if (err) return {{}, err};
         cpp.text = v;
     }
+    return {cpp, x::errors::NIL};
+}
+
+inline std::pair<::service::arc::pb::ArcAutomationPayload, x::errors::Error>
+AutomationArc::to_proto() const {
+    ::service::arc::pb::ArcAutomationPayload pb;
+    if (this->program.has_value()) {
+        auto [v, err] = this->program->to_proto();
+        if (err) return {{}, err};
+        *pb.mutable_program() = v;
+    }
+    return {pb, x::errors::NIL};
+}
+
+inline std::pair<AutomationArc, x::errors::Error>
+AutomationArc::from_proto(const ::service::arc::pb::ArcAutomationPayload &pb) {
+    AutomationArc cpp;
     if (pb.has_program()) {
         auto [v, err] = ::arc::program::Program::from_proto(pb.program());
         if (err) return {{}, err};
         cpp.program = v;
     }
-    {
-        auto [v, err] = type_from_pb(pb.type());
-        if (err) return {{}, err};
-        cpp.type = v;
-    }
     return {cpp, x::errors::NIL};
+}
+
+inline std::pair<::service::arc::pb::ArcModulePayload, x::errors::Error>
+ModuleArc::to_proto() const {
+    ::service::arc::pb::ArcModulePayload pb;
+    return {pb, x::errors::NIL};
+}
+
+inline std::pair<ModuleArc, x::errors::Error>
+ModuleArc::from_proto(const ::service::arc::pb::ArcModulePayload &pb) {
+    ModuleArc cpp;
+    return {cpp, x::errors::NIL};
+}
+
+inline std::pair<::service::arc::pb::Arc, x::errors::Error> to_proto(const Arc &value) {
+    ::service::arc::pb::Arc pb;
+    const auto visit_err = std::visit(
+        [&pb](const auto &v) -> x::errors::Error {
+            using V = std::decay_t<decltype(v)>;
+            auto [inner, err] = v.to_proto();
+            if (err) return err;
+            {
+                auto [base, base_err] = static_cast<const Base &>(v).to_proto();
+                if (base_err) return base_err;
+                *pb.mutable_base() = base;
+            }
+            if constexpr (std::is_same_v<V, AutomationArc>)
+                *pb.mutable_automation() = inner;
+            else if constexpr (std::is_same_v<V, ModuleArc>)
+                *pb.mutable_module() = inner;
+            return x::errors::NIL;
+        },
+        value
+    );
+    return {pb, visit_err};
+}
+
+inline std::pair<Arc, x::errors::Error>
+arc_from_proto(const ::service::arc::pb::Arc &pb) {
+    switch (pb.variant_case()) {
+        case ::service::arc::pb::Arc::kAutomation: {
+            auto [v, err] = AutomationArc::from_proto(pb.automation());
+            if (err) return {{}, err};
+            {
+                auto [base, base_err] = Base::from_proto(pb.base());
+                if (base_err) return {{}, base_err};
+                static_cast<Base &>(v) = base;
+            }
+            return {v, x::errors::NIL};
+        }
+        case ::service::arc::pb::Arc::kModule: {
+            auto [v, err] = ModuleArc::from_proto(pb.module());
+            if (err) return {{}, err};
+            {
+                auto [base, base_err] = Base::from_proto(pb.base());
+                if (base_err) return {{}, base_err};
+                static_cast<Base &>(v) = base;
+            }
+            return {v, x::errors::NIL};
+        }
+        default:
+            return {{}, x::errors::Error(x::errors::VALIDATION, "Arc: no variant set")};
+    }
 }
 
 }

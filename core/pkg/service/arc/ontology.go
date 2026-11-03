@@ -52,7 +52,11 @@ var schema = zyn.Object(map[string]zyn.Schema{
 })
 
 func newResource(a Arc) ontology.Resource {
-	return ontology.NewResource(schema, a.OntologyID(), a.Name, a)
+	b := a.Base()
+	return ontology.NewResource(schema, a.OntologyID(), b.Name, struct {
+		Key  Key
+		Type Type
+	}{Key: b.Key, Type: a.Type()})
 }
 
 var _ ontology.Service = (*Service)(nil)

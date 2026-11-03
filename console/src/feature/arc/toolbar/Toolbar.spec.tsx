@@ -32,6 +32,7 @@ const createArc = async () =>
   await client.arcs.create({
     name: uniqueName("arc"),
     mode: "graph",
+    type: "automation",
     graph: { nodes: [], edges: [] },
   });
 

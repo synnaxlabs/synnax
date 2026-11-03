@@ -173,7 +173,7 @@ func (w Writer) isModule(ctx context.Context, id ontology.ID) (bool, error) {
 		Exec(ctx, w.tx); err != nil {
 		return false, err
 	}
-	return a.Type == TypeModule, nil
+	return a.Type() == TypeModule, nil
 }
 
 func errNameUsed(name string) error {

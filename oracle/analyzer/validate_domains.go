@@ -204,7 +204,7 @@ func validateImex(c *analysisCtx, types []resolution.Type) {
 func validateDeadOutputs(c *analysisCtx, types []resolution.Type) {
 	var hasActions bool
 	for _, t := range types {
-		if sf, ok := t.Form.(resolution.StructForm); ok && len(sf.Actions) > 0 {
+		if len(t.Actions()) > 0 {
 			hasActions = true
 		}
 	}

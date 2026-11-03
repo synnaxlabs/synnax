@@ -21,14 +21,39 @@ import (
 var _ gorp.Entry[Key] = Arc{}
 
 // GorpKey implements gorp.Entry.
-func (a Arc) GorpKey() Key { return a.Key }
+func (a Arc) GorpKey() Key { return a.Base().Key }
 
 // SetOptions implements gorp.Entry.
 func (Arc) SetOptions() []any { return nil }
 
 // OntologyID returns the unique ontology identifier for the Arc.
 func (a Arc) OntologyID() ontology.ID {
-	return ontology.ID{Type: ontology.ResourceTypeArc, Key: a.Key.String()}
+	return ontology.ID{Type: ontology.ResourceTypeArc, Key: a.Base().Key.String()}
+}
+
+// Type returns the type of the Arc's variant, or an empty type for an Arc without one.
+func (a Arc) Type() Type {
+	switch a.Variant.(type) {
+	case AutomationArc:
+		return TypeAutomation
+	case ModuleArc:
+		return TypeModule
+	}
+	return ""
+}
+
+// WithBase returns a copy of the Arc whose variant holds b. An Arc without a variant
+// is returned unchanged.
+func (a Arc) WithBase(b Base) Arc {
+	switch v := a.Variant.(type) {
+	case AutomationArc:
+		v.Base = b
+		a.Variant = v
+	case ModuleArc:
+		v.Base = b
+		a.Variant = v
+	}
+	return a
 }
 
 // fileTypePrefix precedes the Arc's type in the type header of its file.
@@ -68,11 +93,12 @@ var _ imex.BodyExporter = Arc{}
 
 // ExportBody implements imex.BodyExporter.
 func (a Arc) ExportBody() any {
+	b := a.Base()
 	return exportBody{
-		Name:  a.Name,
-		Type:  FileType(a.Type),
-		Mode:  a.Mode,
-		Graph: a.Graph,
-		Text:  exportText{Raw: a.Text.Materialize().Raw},
+		Name:  b.Name,
+		Type:  FileType(a.Type()),
+		Mode:  b.Mode,
+		Graph: b.Graph,
+		Text:  exportText{Raw: b.Text.Materialize().Raw},
 	}
 }

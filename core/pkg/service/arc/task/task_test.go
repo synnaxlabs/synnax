@@ -75,8 +75,8 @@ func buildGraphNodes(
 	return nodes, configs
 }
 
-func moduleNotFoundGetter(context.Context, uuid.UUID) (svcarc.Arc, error) {
-	return svcarc.Arc{}, query.ErrNotFound
+func moduleNotFoundGetter(context.Context, uuid.UUID) (svcarc.AutomationArc, error) {
+	return svcarc.AutomationArc{}, query.ErrNotFound
 }
 
 var _ = Describe("Task", Ordered, func() {
@@ -138,7 +138,7 @@ var _ = Describe("Task", Ordered, func() {
 	})
 
 	newFactoryWith := func(
-		getModule func(context.Context, uuid.UUID) (svcarc.Arc, error),
+		getModule func(context.Context, uuid.UUID) (svcarc.AutomationArc, error),
 		cfgs ...arctask.FactoryConfig,
 	) driver.Factory {
 		GinkgoHelper()
@@ -155,14 +155,14 @@ var _ = Describe("Task", Ordered, func() {
 	newGraphFactory := func(g graph.Graph) driver.Factory {
 		GinkgoHelper()
 		return newFactoryWith(
-			func(ctx context.Context, key uuid.UUID) (svcarc.Arc, error) {
+			func(ctx context.Context, key uuid.UUID) (svcarc.AutomationArc, error) {
 				resolver := channelSvc.NewArcSymbolResolver(nil)
 				root := arc.NewRoot(resolver, arcstatus.NewSymbols()...)
 				module, err := arc.CompileGraph(ctx, g, root)
 				if err != nil {
-					return svcarc.Arc{}, err
+					return svcarc.AutomationArc{}, err
 				}
-				return svcarc.Arc{
+				return svcarc.AutomationArc{
 					Key:     key,
 					Name:    "test-arc",
 					Graph:   g,
@@ -178,22 +178,25 @@ var _ = Describe("Task", Ordered, func() {
 		cfgs ...arctask.FactoryConfig,
 	) driver.Factory {
 		GinkgoHelper()
-		return newFactoryWith(func(_ context.Context, _ uuid.UUID) (svcarc.Arc, error) {
-			resolver := channelSvc.NewArcSymbolResolver(nil)
-			root := arc.NewRoot(resolver, slices.Concat(
-				arcstatus.NewSymbols(), ranges.NewSymbols(),
-			)...)
-			module, err := arc.CompileText(ctx, prof, root)
-			if err != nil {
-				return svcarc.Arc{}, err
-			}
-			return svcarc.Arc{
-				Key:     uuid.New(),
-				Name:    "test-arc",
-				Text:    prof,
-				Program: &module,
-			}, nil
-		}, cfgs...)
+		return newFactoryWith(
+			func(_ context.Context, _ uuid.UUID) (svcarc.AutomationArc, error) {
+				resolver := channelSvc.NewArcSymbolResolver(nil)
+				root := arc.NewRoot(resolver, slices.Concat(
+					arcstatus.NewSymbols(), ranges.NewSymbols(),
+				)...)
+				module, err := arc.CompileText(ctx, prof, root)
+				if err != nil {
+					return svcarc.AutomationArc{}, err
+				}
+				return svcarc.AutomationArc{
+					Key:     uuid.New(),
+					Name:    "test-arc",
+					Text:    prof,
+					Program: &module,
+				}, nil
+			},
+			cfgs...,
+		)
 	}
 
 	configToMap := func(cfg arctask.Config) map[string]any {
@@ -357,8 +360,8 @@ var _ = Describe("Task", Ordered, func() {
 					Framer:  framerSvc,
 					Status:  statusSvc,
 					Ranger:  rangerSvc,
-					GetProgram: func(context.Context, uuid.UUID) (svcarc.Arc, error) {
-						return svcarc.Arc{}, nil
+					GetProgram: func(context.Context, uuid.UUID) (svcarc.AutomationArc, error) {
+						return svcarc.AutomationArc{}, nil
 					},
 				}))
 				svcTask := task.Task{
@@ -388,7 +391,7 @@ var _ = Describe("Task", Ordered, func() {
 				Channel:    channelSvc,
 				Framer:     framerSvc,
 				Status:     statusSvc,
-				GetProgram: func(context.Context, uuid.UUID) (svcarc.Arc, error) { return svcarc.Arc{}, nil },
+				GetProgram: func(context.Context, uuid.UUID) (svcarc.AutomationArc, error) { return svcarc.AutomationArc{}, nil },
 				Ranger:     rangerSvc,
 			}))
 			svcTask := task.Task{
@@ -444,7 +447,7 @@ var _ = Describe("Task", Ordered, func() {
 				Channel:    channelSvc,
 				Framer:     framerSvc,
 				Status:     statusSvc,
-				GetProgram: func(context.Context, uuid.UUID) (svcarc.Arc, error) { return svcarc.Arc{}, nil },
+				GetProgram: func(context.Context, uuid.UUID) (svcarc.AutomationArc, error) { return svcarc.AutomationArc{}, nil },
 				Ranger:     rangerSvc,
 			}))
 			svcTask := task.Task{
@@ -631,7 +634,7 @@ var _ = Describe("Task", Ordered, func() {
 					Channel:    channelSvc,
 					Framer:     framerSvc,
 					Status:     statusSvc,
-					GetProgram: func(context.Context, uuid.UUID) (svcarc.Arc, error) { return svcarc.Arc{}, nil },
+					GetProgram: func(context.Context, uuid.UUID) (svcarc.AutomationArc, error) { return svcarc.AutomationArc{}, nil },
 					Ranger:     rangerSvc,
 				}))
 				svcTask := task.Task{
@@ -775,7 +778,7 @@ var _ = Describe("Task", Ordered, func() {
 				Channel:    channelSvc,
 				Framer:     framerSvc,
 				Status:     statusSvc,
-				GetProgram: func(context.Context, uuid.UUID) (svcarc.Arc, error) { return svcarc.Arc{}, nil },
+				GetProgram: func(context.Context, uuid.UUID) (svcarc.AutomationArc, error) { return svcarc.AutomationArc{}, nil },
 				Ranger:     rangerSvc,
 				Now:        telem.Now,
 			}

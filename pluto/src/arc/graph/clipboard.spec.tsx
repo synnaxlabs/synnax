@@ -35,6 +35,7 @@ const createGraphArc = async (): Promise<arc.Arc> =>
   await client.arcs.create({
     name: `clipboard_${id.create()}`,
     mode: "graph",
+    type: "automation",
     graph: {
       nodes: [
         { key: N1, position: { x: 0, y: 0 } },

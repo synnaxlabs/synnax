@@ -20,9 +20,9 @@ import (
 var _ = Describe("RetrieveResource", func() {
 	DescribeTable("Should carry the Arc type in the resource data",
 		func(ctx SpecContext, t arc.Type) {
-			a := arc.Arc{Name: "typed", Mode: arc.ModeText, Type: t}
+			a := newArc(t, arc.Base{Name: "typed", Mode: arc.ModeText})
 			Expect(svc.NewWriter(tx).Create(ctx, &a)).To(Succeed())
-			res := MustSucceed(svc.RetrieveResource(ctx, a.Key.String(), tx))
+			res := MustSucceed(svc.RetrieveResource(ctx, a.Base().Key.String(), tx))
 			Expect(res.Data).To(HaveKeyWithValue("type", string(t)))
 		},
 		Entry("automation", arc.TypeAutomation),
@@ -33,9 +33,9 @@ var _ = Describe("RetrieveResource", func() {
 var _ = Describe("Search", func() {
 	create := func(ctx SpecContext, name string) ontology.ID {
 		GinkgoHelper()
-		a := arc.Arc{Name: name, Mode: arc.ModeText}
+		a := newAutomation(arc.Base{Name: name, Mode: arc.ModeText})
 		Expect(svc.NewWriter(tx).Create(ctx, &a)).To(Succeed())
-		return arc.OntologyID(a.Key)
+		return arc.OntologyID(a.Base().Key)
 	}
 
 	It("Should return the matching Arcs, closest match first", func(ctx SpecContext) {

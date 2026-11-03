@@ -25,54 +25,27 @@ import (
 // braces and triggers in parens. A stored Arc carries its text as a document and an
 // exported one as raw; either way the result carries a fresh document and no raw.
 // Every Arc stored before v4 is an automation.
-func MigrateArc(ctx context.Context, old v3.Arc) (Arc, error) {
-	a, err := autoMigrateArc(ctx, old)
-	if err != nil {
-		return Arc{}, err
+func MigrateArc(_ context.Context, old v3.Arc) (Arc, error) {
+	b := Base{
+		Key:   old.Key,
+		Name:  old.Name,
+		Mode:  old.Mode,
+		Graph: old.Graph,
+		Text:  old.Text,
 	}
-	a.ApplyDefaults()
-	raw := a.Text.Raw
-	if len(a.Text.Doc.Inserts) > 0 {
-		raw = a.Text.Materialize().Raw
+	raw := b.Text.Raw
+	if len(b.Text.Doc.Inserts) > 0 {
+		raw = b.Text.Materialize().Raw
 	}
-	if raw == "" {
-		return a, nil
+	if raw != "" {
+		b.Text.Doc = text.Create(SwapBrackets(raw))
+		b.Text.Raw = ""
 	}
-	a.Text.Doc = text.Create(SwapBrackets(raw))
-	a.Text.Raw = ""
-	return a, nil
+	return Arc{Variant: AutomationArc{Base: b}}, nil
 }
 
 // Migration rewrites the text of every stored Arc for the bracket swap.
 var Migration = migrate.NewEntry("v61_swap_brackets", MigrateArc)
-
-// TypeMigration makes every stored Arc without a type an automation. A store that ran
-// Migration before the type existed holds such Arcs.
-var TypeMigration = migrate.New(
-	"v61_add_type",
-	func(ctx context.Context, tx gorp.Tx, _ alamos.Instrumentation) (err error) {
-		iter, err := gorp.WrapReader[Key, Arc](tx).OpenIterator(gorp.IterOptions{})
-		if err != nil {
-			return err
-		}
-		defer func() { err = errors.Combine(err, iter.Close()) }()
-		var untyped []Arc
-		for iter.First(); iter.Valid(); iter.Next() {
-			a := iter.Value(ctx)
-			if err = iter.Error(); err != nil {
-				return err
-			}
-			if a.Type == "" {
-				a.Type = TypeAutomation
-				untyped = append(untyped, *a)
-			}
-		}
-		if len(untyped) == 0 {
-			return nil
-		}
-		return gorp.NewCreate[Key, Arc]().Entries(&untyped).Exec(ctx, tx)
-	},
-)
 
 // MigrationConfig is the configuration for NewRootMigration.
 type MigrationConfig struct {

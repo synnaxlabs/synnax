@@ -56,7 +56,7 @@ var _ = Describe("Directories", func() {
 	}
 	createArc := func(ctx SpecContext, name string, t arc.Type) arc.Arc {
 		GinkgoHelper()
-		a := arc.Arc{Name: name, Mode: arc.ModeText, Type: t}
+		a := newArc(t, arc.Base{Name: name, Mode: arc.ModeText})
 		Expect(w.Create(ctx, &a)).To(Succeed())
 		return a
 	}
@@ -232,8 +232,8 @@ var _ = Describe("Directories", func() {
 			lib := createDirectory(ctx, "lib", root)
 			// Stored without the name rules, as Arcs migrated from a release before
 			// the rules are.
-			first := arc.Arc{Key: uuid.New(), Name: "dup", Type: arc.TypeAutomation}
-			second := arc.Arc{Key: uuid.New(), Name: "dup", Type: arc.TypeAutomation}
+			first := newAutomation(arc.Base{Key: uuid.New(), Name: "dup"})
+			second := newAutomation(arc.Base{Key: uuid.New(), Name: "dup"})
 			Expect(gorp.NewCreate[arc.Key, arc.Arc]().
 				Entries(&[]arc.Arc{first, second}).
 				Exec(ctx, tx)).To(Succeed())
@@ -266,7 +266,7 @@ var _ = Describe("Directories", func() {
 		It("Should reject a module whose name is not an identifier", func(
 			ctx SpecContext,
 		) {
-			a := arc.Arc{Name: "my module", Mode: arc.ModeText, Type: arc.TypeModule}
+			a := newModule(arc.Base{Name: "my module", Mode: arc.ModeText})
 			Expect(w.Create(ctx, &a)).To(MatchError(ContainSubstring(
 				"must contain only letters, digits, and underscores",
 			)))
@@ -278,7 +278,7 @@ var _ = Describe("Directories", func() {
 			ctx SpecContext,
 		) {
 			createDirectory(ctx, "lib", root)
-			a := arc.Arc{Name: "lib", Mode: arc.ModeText, Type: arc.TypeModule}
+			a := newModule(arc.Base{Name: "lib", Mode: arc.ModeText})
 			Expect(w.Create(ctx, &a)).
 				To(MatchError(ContainSubstring(`name "lib" is already used`)))
 		})
@@ -287,20 +287,26 @@ var _ = Describe("Directories", func() {
 		) {
 			createArc(ctx, "taken", arc.TypeModule)
 			a := createArc(ctx, "free", arc.TypeModule)
-			a.Name = "taken"
+			b := a.Base()
+			b.Name = "taken"
+			a = a.WithBase(b)
 			Expect(w.Create(ctx, &a)).To(MatchError(ContainSubstring("already used")))
 		})
 		It("Should reject a dispatched rename that duplicates a name", func(
 			ctx SpecContext,
 		) {
-			taken := arc.Arc{Name: "dispatch_taken", Mode: arc.ModeText}
+			taken := newAutomation(arc.Base{Name: "dispatch_taken", Mode: arc.ModeText})
 			Expect(writer.Create(ctx, &taken)).To(Succeed())
-			renamed := arc.Arc{Name: "dispatch_free", Mode: arc.ModeText}
+			renamed := newAutomation(
+				arc.Base{Name: "dispatch_free", Mode: arc.ModeText},
+			)
 			Expect(writer.Create(ctx, &renamed)).To(Succeed())
 			DeferCleanup(func(ctx SpecContext) {
-				Expect(writer.Delete(ctx, taken.Key, renamed.Key)).To(Succeed())
+				Expect(
+					writer.Delete(ctx, taken.Base().Key, renamed.Base().Key),
+				).To(Succeed())
 			})
-			Expect(svc.Dispatch(ctx, renamed.Key, "", []arc.Action{
+			Expect(svc.Dispatch(ctx, renamed.Base().Key, "", []arc.Action{
 				arc.NewRenameAction(arc.RenamePayload{Name: "dispatch_taken"}),
 			})).To(MatchError(ContainSubstring("already used")))
 		})

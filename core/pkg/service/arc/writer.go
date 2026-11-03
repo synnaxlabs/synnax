@@ -77,12 +77,13 @@ func (w Writer) Create(ctx context.Context, a *Arc) error {
 		existing Arc
 		exists   bool
 		err      error
+		b        = a.Base()
 	)
-	if a.Key == uuid.Nil() {
-		a.Key = uuid.New()
+	if b.Key == uuid.Nil() {
+		b.Key = uuid.New()
 	} else {
 		err = w.table.NewRetrieve().
-			Where(gorp.MatchKeys[Key, Arc](a.Key)).
+			Where(gorp.MatchKeys[Key, Arc](b.Key)).
 			Entry(&existing).
 			Exec(ctx, w.tx)
 		if errors.Skip(err, query.ErrNotFound) != nil {
@@ -90,26 +91,26 @@ func (w Writer) Create(ctx context.Context, a *Arc) error {
 		}
 		exists = err == nil
 	}
-	if len(a.Text.Doc.Inserts) == 0 && a.Text.Raw != "" {
-		a.Text.Doc = text.Create(a.Text.Raw)
+	if len(b.Text.Doc.Inserts) == 0 && b.Text.Raw != "" {
+		b.Text.Doc = text.Create(b.Text.Raw)
 	}
-	a.ApplyDefaults()
+	*a = a.WithBase(b)
 	if err = a.Validate(); err != nil {
 		return err
 	}
-	module := a.Type == TypeModule
+	module := a.Type() == TypeModule
 	if !exists {
 		if err = w.validateEntry(
-			ctx, directory.OntologyID(w.root), a.OntologyID(), a.Name, module,
+			ctx, directory.OntologyID(w.root), a.OntologyID(), b.Name, module,
 		); err != nil {
 			return err
 		}
 	} else {
-		if err = validateType(existing.Type, a.Type); err != nil {
+		if err = validateType(existing.Type(), a.Type()); err != nil {
 			return err
 		}
-		if existing.Name != a.Name {
-			if err = w.validateName(ctx, a.OntologyID(), a.Name, module); err != nil {
+		if existing.Base().Name != b.Name {
+			if err = w.validateName(ctx, a.OntologyID(), b.Name, module); err != nil {
 				return err
 			}
 		}
@@ -129,13 +130,13 @@ func (w Writer) Create(ctx context.Context, a *Arc) error {
 		); err != nil {
 			return err
 		}
-	} else if err = w.syncTask(ctx, *a); err != nil {
+	} else if err = w.syncTask(ctx, b); err != nil {
 		return err
 	}
 	w.dispatcher.NotifyOnCommit(
 		ctx,
 		w.tx,
-		a.Key,
+		b.Key,
 		NewCreateAction(CreatePayload{Arc: *a}),
 	)
 	return nil
@@ -248,7 +249,7 @@ func (w Writer) UpdateTask(
 		Exec(ctx, w.tx); err != nil {
 		return nil, err
 	}
-	if a.Type == TypeModule {
+	if a.Type() == TypeModule {
 		return nil, errors.Wrap(
 			validate.ErrValidation, "a module cannot be bound to a rack",
 		)
@@ -269,10 +270,10 @@ func (w Writer) UpdateTask(
 	if update.Performance != nil {
 		cfg.Performance = *update.Performance
 	}
-	if cfg.Hash, err = Hash(a); err != nil {
+	if cfg.Hash, err = Hash(a.Base()); err != nil {
 		return nil, err
 	}
-	return w.writeTask(ctx, a, tsk.Rack, existing, cfg)
+	return w.writeTask(ctx, a.Base(), tsk.Rack, existing, cfg)
 }
 
 // writeTask creates or overwrites the arc's task on rackKey with cfg, stamping the
@@ -281,7 +282,7 @@ func (w Writer) UpdateTask(
 // no extra machinery.
 func (w Writer) writeTask(
 	ctx context.Context,
-	a Arc,
+	a Base,
 	rackKey rack.Key,
 	existing []task.Key,
 	cfg taskversions.Config,
@@ -336,7 +337,7 @@ func (w Writer) retrieveTask(
 // syncTask rewrites the arc's task in place when an edit changed the arc's semantic
 // hash, keeping the task config in step with the arc's content. A no-op for arcs with
 // no rack bound and for edits, like graph layout moves, that hash equally.
-func (w Writer) syncTask(ctx context.Context, a Arc) error {
+func (w Writer) syncTask(ctx context.Context, a Base) error {
 	existing, err := w.childTaskKeys(ctx, a.Key)
 	if err != nil || len(existing) == 0 {
 		return err

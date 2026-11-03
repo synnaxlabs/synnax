@@ -506,6 +506,9 @@ func extractLive(source string) (*liveContent, error) {
 				for _, d := range body.AllDomain() {
 					liveOwned(d, addType)
 				}
+				for _, ad := range body.AllActionDef() {
+					ex.actionBlocks = append(ex.actionBlocks, text(ad))
+				}
 				for _, v := range body.AllUnionVariant() {
 					iv, ok := v.(*parser.InlineVariantContext)
 					if !ok || iv.StructBody() == nil {

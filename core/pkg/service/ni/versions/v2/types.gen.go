@@ -3966,6 +3966,35 @@ func (u *CIChannel) UnmarshalJSONFrom(dec *jsontext.Decoder) error {
 	return nil
 }
 
+// Base returns the fields that every variant of CIChannel shares.
+func (u CIChannel) Base() BaseCIChannel {
+	switch v := u.Variant.(type) {
+	case CIFrequencyChannel:
+		return v.BaseCIChannel
+	case CIEdgeCountChannel:
+		return v.BaseCIChannel
+	case CIPeriodChannel:
+		return v.BaseCIChannel
+	case CIPulseWidthChannel:
+		return v.BaseCIChannel
+	case CISemiPeriodChannel:
+		return v.BaseCIChannel
+	case CITwoEdgeSepChannel:
+		return v.BaseCIChannel
+	case CIVelocityLinearChannel:
+		return v.BaseCIChannel
+	case CIVelocityAngularChannel:
+		return v.BaseCIChannel
+	case CIPositionLinearChannel:
+		return v.BaseCIChannel
+	case CIPositionAngularChannel:
+		return v.BaseCIChannel
+	case CIDutyCycleChannel:
+		return v.BaseCIChannel
+	}
+	return BaseCIChannel{}
+}
+
 // ApplyDefaults fills the active variant's zero-valued fields with their
 // schema-declared defaults.
 func (u *CIChannel) ApplyDefaults() {
@@ -4245,6 +4274,19 @@ func (u *AOChannel) UnmarshalJSONFrom(dec *jsontext.Decoder) error {
 		return errors.Newf("AOChannel: unknown type %q", disc.Type)
 	}
 	return nil
+}
+
+// Base returns the fields that every variant of AOChannel shares.
+func (u AOChannel) Base() BaseAOChannel {
+	switch v := u.Variant.(type) {
+	case AOCurrentChannel:
+		return v.BaseAOChannel
+	case AOFuncGenChannel:
+		return v.BaseAOChannel
+	case AOVoltageChannel:
+		return v.BaseAOChannel
+	}
+	return BaseAOChannel{}
 }
 
 // ApplyDefaults fills the active variant's zero-valued fields with their

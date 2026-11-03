@@ -21,8 +21,8 @@ import (
 	"github.com/synnaxlabs/x/errors"
 )
 
-// ArcToPB converts Arc to Arc.
-func ArcToPB(r arc.Arc) (*Arc, error) {
+// BaseToPB converts Base to Base.
+func BaseToPB(r arc.Base) (*Base, error) {
 	modeVal, err := ModeToPB(r.Mode)
 	if err != nil {
 		return nil, err
@@ -35,18 +35,72 @@ func ArcToPB(r arc.Arc) (*Arc, error) {
 	if err != nil {
 		return nil, err
 	}
-	typeVal, err := TypeToPB(r.Type)
-	if err != nil {
-		return nil, err
-	}
-	pb := &Arc{
+	pb := &Base{
 		Name:  r.Name,
 		Key:   r.Key.String(),
 		Mode:  modeVal,
 		Graph: graphVal,
 		Text:  textVal,
-		Type:  typeVal,
 	}
+	return pb, nil
+}
+
+// BaseFromPB converts Base to Base.
+func BaseFromPB(pb *Base) (arc.Base, error) {
+	var r arc.Base
+	if pb == nil {
+		return r, nil
+	}
+	var err error
+	r.Key, err = uuid.Parse(pb.Key)
+	if err != nil {
+		return arc.Base{}, err
+	}
+	r.Mode, err = ModeFromPB(pb.Mode)
+	if err != nil {
+		return arc.Base{}, err
+	}
+	r.Graph, err = graphpb.GraphFromPB(pb.Graph)
+	if err != nil {
+		return arc.Base{}, err
+	}
+	r.Text, err = textpb.TextFromPB(pb.Text)
+	if err != nil {
+		return arc.Base{}, err
+	}
+	r.Name = pb.Name
+	return r, nil
+}
+
+// BasesToPB converts a slice of Base to Base.
+func BasesToPB(rs []arc.Base) ([]*Base, error) {
+	result := make([]*Base, len(rs))
+	for i := range rs {
+		var err error
+		result[i], err = BaseToPB(rs[i])
+		if err != nil {
+			return nil, err
+		}
+	}
+	return result, nil
+}
+
+// BasesFromPB converts a slice of Base to Base.
+func BasesFromPB(pbs []*Base) ([]arc.Base, error) {
+	result := make([]arc.Base, len(pbs))
+	for i, pb := range pbs {
+		var err error
+		result[i], err = BaseFromPB(pb)
+		if err != nil {
+			return nil, err
+		}
+	}
+	return result, nil
+}
+
+// AutomationArcToPB converts AutomationArc to ArcAutomationPayload.
+func AutomationArcToPB(r arc.AutomationArc) (*ArcAutomationPayload, error) {
+	pb := &ArcAutomationPayload{}
 	if r.Program != nil {
 		var err error
 		pb.Program, err = programpb.ProgramToPB(*r.Program)
@@ -57,40 +111,151 @@ func ArcToPB(r arc.Arc) (*Arc, error) {
 	return pb, nil
 }
 
+// AutomationArcFromPB converts ArcAutomationPayload to AutomationArc.
+func AutomationArcFromPB(pb *ArcAutomationPayload) (arc.AutomationArc, error) {
+	var r arc.AutomationArc
+	if pb == nil {
+		return r, nil
+	}
+	if pb.Program != nil {
+		val, err := programpb.ProgramFromPB(pb.Program)
+		if err != nil {
+			return arc.AutomationArc{}, err
+		}
+		r.Program = &val
+	}
+	return r, nil
+}
+
+// AutomationArcsToPB converts a slice of AutomationArc to ArcAutomationPayload.
+func AutomationArcsToPB(rs []arc.AutomationArc) ([]*ArcAutomationPayload, error) {
+	result := make([]*ArcAutomationPayload, len(rs))
+	for i := range rs {
+		var err error
+		result[i], err = AutomationArcToPB(rs[i])
+		if err != nil {
+			return nil, err
+		}
+	}
+	return result, nil
+}
+
+// AutomationArcsFromPB converts a slice of ArcAutomationPayload to AutomationArc.
+func AutomationArcsFromPB(pbs []*ArcAutomationPayload) ([]arc.AutomationArc, error) {
+	result := make([]arc.AutomationArc, len(pbs))
+	for i, pb := range pbs {
+		var err error
+		result[i], err = AutomationArcFromPB(pb)
+		if err != nil {
+			return nil, err
+		}
+	}
+	return result, nil
+}
+
+// ModuleArcToPB converts ModuleArc to ArcModulePayload.
+func ModuleArcToPB(r arc.ModuleArc) (*ArcModulePayload, error) {
+	pb := &ArcModulePayload{}
+	return pb, nil
+}
+
+// ModuleArcFromPB converts ArcModulePayload to ModuleArc.
+func ModuleArcFromPB(pb *ArcModulePayload) (arc.ModuleArc, error) {
+	var r arc.ModuleArc
+	if pb == nil {
+		return r, nil
+	}
+	return r, nil
+}
+
+// ModuleArcsToPB converts a slice of ModuleArc to ArcModulePayload.
+func ModuleArcsToPB(rs []arc.ModuleArc) ([]*ArcModulePayload, error) {
+	result := make([]*ArcModulePayload, len(rs))
+	for i := range rs {
+		var err error
+		result[i], err = ModuleArcToPB(rs[i])
+		if err != nil {
+			return nil, err
+		}
+	}
+	return result, nil
+}
+
+// ModuleArcsFromPB converts a slice of ArcModulePayload to ModuleArc.
+func ModuleArcsFromPB(pbs []*ArcModulePayload) ([]arc.ModuleArc, error) {
+	result := make([]arc.ModuleArc, len(pbs))
+	for i, pb := range pbs {
+		var err error
+		result[i], err = ModuleArcFromPB(pb)
+		if err != nil {
+			return nil, err
+		}
+	}
+	return result, nil
+}
+
+// ArcToPB converts Arc to Arc.
+func ArcToPB(r arc.Arc) (*Arc, error) {
+	if r.Variant == nil {
+		return nil, nil
+	}
+	pb := &Arc{}
+	switch v := r.Variant.(type) {
+	case arc.AutomationArc:
+		inner, err := AutomationArcToPB(v)
+		if err != nil {
+			return nil, err
+		}
+		pb.Base, err = BaseToPB(v.Base)
+		if err != nil {
+			return nil, err
+		}
+		pb.Variant = &Arc_Automation{Automation: inner}
+	case arc.ModuleArc:
+		inner, err := ModuleArcToPB(v)
+		if err != nil {
+			return nil, err
+		}
+		pb.Base, err = BaseToPB(v.Base)
+		if err != nil {
+			return nil, err
+		}
+		pb.Variant = &Arc_Module{Module: inner}
+	default:
+		return nil, errors.Newf("Arc: unknown variant %T", r.Variant)
+	}
+	return pb, nil
+}
+
 // ArcFromPB converts Arc to Arc.
 func ArcFromPB(pb *Arc) (arc.Arc, error) {
 	var r arc.Arc
 	if pb == nil {
 		return r, nil
 	}
-	var err error
-	r.Key, err = uuid.Parse(pb.Key)
-	if err != nil {
-		return arc.Arc{}, err
-	}
-	r.Mode, err = ModeFromPB(pb.Mode)
-	if err != nil {
-		return arc.Arc{}, err
-	}
-	r.Graph, err = graphpb.GraphFromPB(pb.Graph)
-	if err != nil {
-		return arc.Arc{}, err
-	}
-	r.Text, err = textpb.TextFromPB(pb.Text)
-	if err != nil {
-		return arc.Arc{}, err
-	}
-	r.Type, err = TypeFromPB(pb.Type)
-	if err != nil {
-		return arc.Arc{}, err
-	}
-	r.Name = pb.Name
-	if pb.Program != nil {
-		val, err := programpb.ProgramFromPB(pb.Program)
+	switch v := pb.Variant.(type) {
+	case *Arc_Automation:
+		inner, err := AutomationArcFromPB(v.Automation)
 		if err != nil {
-			return arc.Arc{}, err
+			return r, err
 		}
-		r.Program = &val
+		m := inner
+		m.Base, err = BaseFromPB(pb.Base)
+		if err != nil {
+			return r, err
+		}
+		r.Variant = m
+	case *Arc_Module:
+		inner, err := ModuleArcFromPB(v.Module)
+		if err != nil {
+			return r, err
+		}
+		m := inner
+		m.Base, err = BaseFromPB(pb.Base)
+		if err != nil {
+			return r, err
+		}
+		r.Variant = m
 	}
 	return r, nil
 }

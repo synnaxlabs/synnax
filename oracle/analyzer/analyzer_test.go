@@ -203,6 +203,27 @@ Entry struct {
 			))
 		})
 
+		It("Should reject an action declared in a union in a version file", func(
+			ctx SpecContext,
+		) {
+			diag := analyzeAt(ctx, `
+Entry union on type {
+	a {}
+
+	action Rename {
+		name string
+	}
+
+	@go marshal
+}
+`,
+				"schemas/synnax/versions/channel/v0.oracle", "v0")
+			Expect(diag.Ok()).To(BeFalse())
+			Expect(diag.String()).To(ContainSubstring(
+				"actions are live-owned",
+			))
+		})
+
 		It("Should accept an action declared in a live schema", func(
 			ctx SpecContext,
 		) {
@@ -768,6 +789,26 @@ Node union on variant {
 			`
 				_, diag := Analyze(ctx, source, "test", loader)
 				Expect(diag.Ok()).To(BeTrue())
+			},
+		)
+
+		It(
+			"Should keep an output alive through the actions of a union",
+			func(ctx SpecContext) {
+				source := `
+				@ts output "ts/out"
+				Entry union on type {
+					a {}
+
+					action Rename {
+						name string
+					}
+
+					@ts omit
+				}
+			`
+				_, diag := Analyze(ctx, source, "test", loader)
+				Expect(diag.Ok()).To(BeTrue(), diag.String())
 			},
 		)
 
@@ -2756,6 +2797,109 @@ Node union on variant {
 				_, diag := Analyze(ctx, source, "test", loader)
 				Expect(diag.Ok()).To(BeFalse())
 				Expect(diag.Error()).To(ContainSubstring("type arguments"))
+			},
+		)
+	})
+
+	Describe("Union Actions", func() {
+		It("Should collect and resolve the actions of a union", func(ctx SpecContext) {
+			source := `
+				Base struct {
+					key uuid
+				}
+
+				Point struct {
+					x float64
+				}
+
+				Shape union on type extends Base {
+					circle {
+						radius float64
+					}
+					square {}
+
+					action Rename {
+						name string
+					}
+
+					action Place {
+						at Point
+					}
+				}
+			`
+			table, diag := Analyze(ctx, source, "test", loader)
+			Expect(diag.Ok()).To(BeTrue(), diag.String())
+			actions := table.MustGet("test.Shape").Actions()
+			Expect(actions).To(HaveLen(2))
+			Expect(actions[0].Name).To(Equal("Rename"))
+			Expect(actions[1].Name).To(Equal("Place"))
+			Expect(actions[1].Fields[0].Type.Name).To(Equal("test.Point"))
+		})
+
+		It(
+			"Should flatten an extended struct's fields into a union action",
+			func(ctx SpecContext) {
+				source := `
+				Named struct {
+					name string
+				}
+
+				Shape union on type {
+					circle {}
+
+					action Rename extends Named {
+						extra int32
+					}
+				}
+			`
+				table, diag := Analyze(ctx, source, "test", loader)
+				Expect(diag.Ok()).To(BeTrue(), diag.String())
+				action := table.MustGet("test.Shape").Actions()[0]
+				names := make([]string, len(action.Fields))
+				for i, f := range action.Fields {
+					names[i] = f.Name
+				}
+				Expect(names).To(Equal([]string{"name", "extra"}))
+			},
+		)
+
+		It(
+			"Should error when a union action extends a non-struct type",
+			func(ctx SpecContext) {
+				source := `
+				Kind enum {
+					a = "a"
+				}
+
+				Shape union on type {
+					circle {}
+
+					action Apply extends Kind {}
+				}
+			`
+				_, diag := Analyze(ctx, source, "test", loader)
+				Expect(diag.Ok()).To(BeFalse())
+				Expect(diag.Error()).To(ContainSubstring("extends non-struct type"))
+			},
+		)
+
+		It(
+			"Should point an action in an inline variant to the union body",
+			func(ctx SpecContext) {
+				source := `
+				Shape union on type {
+					circle {
+						action Grow {
+							by float64
+						}
+					}
+				}
+			`
+				_, diag := Analyze(ctx, source, "test", loader)
+				Expect(diag.Ok()).To(BeFalse())
+				Expect(diag.Error()).To(ContainSubstring(
+					"declare actions in the union body",
+				))
 			},
 		)
 	})

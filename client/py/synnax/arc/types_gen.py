@@ -11,7 +11,7 @@
 
 from __future__ import annotations
 
-from typing import Literal, TypeAlias
+from typing import Annotated, Literal, TypeAlias
 from uuid import UUID, uuid4
 
 from pydantic import BaseModel, Field
@@ -38,9 +38,8 @@ Type = Literal["automation", "module"]
 Key: TypeAlias = UUID
 
 
-class Payload(BaseModel):
-    """Is an Arc module combining visual graph representation and text-based source code
-    for reactive control systems. Compiles to WebAssembly for sandboxed execution.
+class Base(BaseModel):
+    """Carries the fields that every Arc shares.
 
     Attributes:
         key: Is the unique identifier for this module.
@@ -49,8 +48,6 @@ class Payload(BaseModel):
             text-based Arc code or "graph" for visual dataflow.
         graph: Is the visual dataflow graph representation of the module.
         text: Is the text-based Arc source code.
-        program: Is the compiled module output including IR and WebAssembly bytecode.
-        type: Specifies whether this Arc is an automation or a module.
     """
 
     key: Key = Field(default_factory=uuid4)
@@ -58,11 +55,31 @@ class Payload(BaseModel):
     mode: Mode
     graph: graph_.Graph = Field(default_factory=lambda: graph_.Graph())
     text: text_.Text = Field(default_factory=lambda: text_.Text())
-    program: program_.Program | None = None
-    type: Type = "automation"
 
     def __hash__(self) -> int:
         return hash(self.key)
+
+
+class AutomationPayload(Base):
+    """Is an Arc that runs on a rack as a task."""
+
+    type: Literal["automation"] = "automation"
+    program: program_.Program | None = None
+
+
+class ModulePayload(Base):
+    """Is an Arc that holds code for other Arcs to import."""
+
+    type: Literal["module"] = "module"
+
+
+# Is an Arc module combining visual graph representation and text-based source
+# code for reactive control systems. Compiles to WebAssembly for sandboxed
+# execution.
+Payload = Annotated[
+    AutomationPayload | ModulePayload,
+    Field(discriminator="type"),
+]
 
 
 ONTOLOGY_TYPE = ID(type="arc")

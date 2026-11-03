@@ -27,6 +27,7 @@ describe("arc", () => {
       const a: arc.New = {
         name: id.create(),
         mode: "text",
+        type: "automation",
       };
       const randomArc = await client.arcs.create(a);
       await expect(userClient.arcs.retrieve(randomArc.key)).rejects.toSatisfy(
@@ -43,6 +44,7 @@ describe("arc", () => {
       const randomArc = await client.arcs.create({
         name: id.create(),
         mode: "text",
+        type: "automation",
       });
       const retrieved = await userClient.arcs.retrieve(randomArc.key);
       expect(retrieved.key).toBe(randomArc.key);
@@ -58,6 +60,7 @@ describe("arc", () => {
       await userClient.arcs.create({
         name: id.create(),
         mode: "text",
+        type: "automation",
       });
     });
 
@@ -71,6 +74,7 @@ describe("arc", () => {
         userClient.arcs.create({
           name: id.create(),
           mode: "text",
+          type: "automation",
         }),
       ).rejects.toSatisfy(AccessDeniedError.matches);
     });
@@ -84,6 +88,7 @@ describe("arc", () => {
       const randomArc = await client.arcs.create({
         name: id.create(),
         mode: "text",
+        type: "automation",
       });
       await userClient.arcs.delete(randomArc.key);
       await expect(userClient.arcs.retrieve(randomArc.key)).rejects.toThrow(
@@ -100,6 +105,7 @@ describe("arc", () => {
       const randomArc = await client.arcs.create({
         name: id.create(),
         mode: "text",
+        type: "automation",
       });
       await expect(userClient.arcs.delete(randomArc.key)).rejects.toSatisfy(
         AccessDeniedError.matches,

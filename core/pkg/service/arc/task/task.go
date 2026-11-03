@@ -67,7 +67,7 @@ type impl struct {
 	factoryCfg FactoryConfig
 	task       task.Task
 	cfg        Config
-	prog       arc.Arc
+	prog       arc.AutomationArc
 	// status is the authority on this instance's current status.
 	status *driver.StatusHandler
 

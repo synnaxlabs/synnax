@@ -134,7 +134,7 @@ func (s *Service) Create(
 		return CreateResponse{}, err
 	}
 	for i := range req.Arcs {
-		req.Arcs[i].Text = req.Arcs[i].Text.Materialize()
+		req.Arcs[i] = materialize(req.Arcs[i])
 	}
 	return CreateResponse{Arcs: req.Arcs}, nil
 }
@@ -291,20 +291,14 @@ func (s *Service) Retrieve(
 	// before compilation and for clients that read the source text directly rather than
 	// reconstructing the document.
 	for i := range res.Arcs {
-		res.Arcs[i].Text = res.Arcs[i].Text.Materialize()
+		res.Arcs[i] = materialize(res.Arcs[i])
 	}
 
-	// Compile Arcs to modules if requested
 	if req.Compile {
 		for i := range res.Arcs {
 			if err := s.compile(ctx, &res.Arcs[i]); err != nil {
 				return RetrieveResponse{}, err
 			}
-		}
-	} else {
-		// Reset the program to zero value just in case it was there
-		for i := range res.Arcs {
-			res.Arcs[i].Program = nil
 		}
 	}
 
@@ -337,11 +331,22 @@ func (s *Service) LSP(
 	})
 }
 
-// compile compiles the Arc text to a module containing IR and WASM bytecode. Returns an
-// error if parsing, analysis, or compilation fails.
-func (s *Service) compile(ctx context.Context, arc *Arc) error {
+// materialize returns a with its raw text derived from its document.
+func materialize(a Arc) Arc {
+	b := a.Base()
+	b.Text = b.Text.Materialize()
+	return a.WithBase(b)
+}
+
+// compile compiles the text of an automation into its program and leaves a module as
+// is. Returns an error if parsing, analysis, or compilation fails.
+func (s *Service) compile(ctx context.Context, a *Arc) error {
+	automation, ok := a.Variant.(arc.AutomationArc)
+	if !ok {
+		return nil
+	}
 	cfg := parser.Config{AllowDashedNames: s.internal.AllowDashedNames()}
-	parsed, diag := arctext.Parse(arc.Text, cfg)
+	parsed, diag := arctext.Parse(automation.Text, cfg)
 	if diag != nil && !diag.Ok() {
 		return CompileError{Diagnostics: diag.Error()}
 	}
@@ -353,6 +358,7 @@ func (s *Service) compile(ctx context.Context, arc *Arc) error {
 	if err != nil {
 		return err
 	}
-	arc.Program = &mod
+	automation.Program = &mod
+	a.Variant = automation
 	return nil
 }

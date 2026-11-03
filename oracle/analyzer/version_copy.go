@@ -301,6 +301,7 @@ func copyUnion(
 	return unionDecl{
 		extends:  appendRefs(parent.extends, slices.Delete(decl.extends, i, i+1)),
 		variants: variants,
+		actions:  decl.actions,
 		domains:  mergeDomains(parent.domains, decl.domains),
 	}, true
 }

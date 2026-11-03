@@ -12,10 +12,14 @@
 package v4
 
 import (
+	"encoding/json/jsontext"
+	"encoding/json/v2"
+
 	graph "github.com/synnaxlabs/arc/graph/versions/v1"
 	"github.com/synnaxlabs/arc/program"
 	text "github.com/synnaxlabs/arc/text/versions/v1"
 	v3 "github.com/synnaxlabs/synnax/pkg/service/arc/versions/v3"
+	"github.com/synnaxlabs/x/errors"
 	"github.com/synnaxlabs/x/validate"
 )
 
@@ -30,9 +34,8 @@ const (
 	ModeGraph Mode = v3.ModeGraph
 )
 
-// Arc is an Arc module combining visual graph representation and text-based source code
-// for reactive control systems. Compiles to WebAssembly for sandboxed execution.
-type Arc struct {
+// Base carries the fields that every Arc shares.
+type Base struct {
 	// Key is the unique identifier for this module.
 	Key Key `json:"key" msgpack:"key"`
 	// Name is a human-readable name for the module.
@@ -44,28 +47,145 @@ type Arc struct {
 	Graph graph.Graph `json:"graph" msgpack:"graph"`
 	// Text is the text-based Arc source code.
 	Text text.Text `json:"text" msgpack:"text"`
-	// Program is the compiled module output including IR and WebAssembly bytecode.
-	Program *program.Program `json:"program,omitzero" msgpack:"program,omitempty"`
-	// Type specifies whether this Arc is an automation or a module.
-	Type Type `json:"type" msgpack:"type"`
-}
-
-// ApplyDefaults fills zero-valued fields with their schema-declared defaults.
-func (a *Arc) ApplyDefaults() {
-	if a.Type == "" {
-		a.Type = TypeAutomation
-	}
 }
 
 // Validate returns an error wrapping validate.ErrValidation if any field violates its
 // schema constraints.
-func (a Arc) Validate() error {
-	v := validate.New("Arc")
-	v.Ternaryf("mode", !a.Mode.IsValid(), "invalid mode: %v", a.Mode)
-	v.Ternaryf("type", !a.Type.IsValid(), "invalid type: %v", a.Type)
-	v.NotEmptyString("name", a.Name)
-	v.Exec(func() error { return validate.PathedError(a.Text.Validate(), "text") })
+func (b Base) Validate() error {
+	v := validate.New("Base")
+	v.Ternaryf("mode", !b.Mode.IsValid(), "invalid mode: %v", b.Mode)
+	v.NotEmptyString("name", b.Name)
+	v.Exec(func() error { return validate.PathedError(b.Text.Validate(), "text") })
 	return v.Error()
+}
+
+type ArcVariant interface {
+	isArcVariant()
+}
+
+// AutomationArc is an Arc that runs on a rack as a task.
+type AutomationArc struct {
+	Base
+	// Program is the compiled module output including IR and WebAssembly bytecode.
+	Program *program.Program `json:"program,omitzero" msgpack:"program,omitempty"`
+}
+
+func (AutomationArc) isArcVariant() {}
+
+// Validate returns an error wrapping validate.ErrValidation if any field violates its
+// schema constraints.
+func (a AutomationArc) Validate() error {
+	v := validate.New("AutomationArc")
+	v.Exec(a.Base.Validate)
+	return v.Error()
+}
+
+// ModuleArc is an Arc that holds code for other Arcs to import.
+type ModuleArc struct {
+	Base
+}
+
+func (ModuleArc) isArcVariant() {}
+
+// Validate returns an error wrapping validate.ErrValidation if any field violates its
+// schema constraints.
+func (m ModuleArc) Validate() error {
+	v := validate.New("ModuleArc")
+	v.Exec(m.Base.Validate)
+	return v.Error()
+}
+
+// Arc is an Arc module combining visual graph representation and text-based source code
+// for reactive control systems. Compiles to WebAssembly for sandboxed execution.
+type Arc struct {
+	Variant ArcVariant
+}
+
+// MarshalJSONTo encodes the active variant with its "type" tag injected.
+func (u Arc) MarshalJSONTo(enc *jsontext.Encoder) error {
+	switch v := u.Variant.(type) {
+	case nil:
+		return enc.WriteToken(jsontext.Null)
+	case AutomationArc:
+		return json.MarshalEncode(enc, struct {
+			Type Type `json:"type"`
+			AutomationArc
+		}{Type: TypeAutomation, AutomationArc: v})
+	case ModuleArc:
+		return json.MarshalEncode(enc, struct {
+			Type Type `json:"type"`
+			ModuleArc
+		}{Type: TypeModule, ModuleArc: v})
+	default:
+		return errors.Newf("Arc: unknown variant %T", v)
+	}
+}
+
+// UnmarshalJSONFrom decodes the variant selected by the "type" field.
+func (u *Arc) UnmarshalJSONFrom(dec *jsontext.Decoder) error {
+	data, err := dec.ReadValue()
+	if err != nil {
+		return err
+	}
+	if data.Kind() == 'n' {
+		u.Variant = nil
+		return nil
+	}
+	opts := dec.Options()
+	var disc struct {
+		Type Type `json:"type"`
+	}
+	if err := json.Unmarshal(
+		data, &disc, opts, json.RejectUnknownMembers(false),
+	); err != nil {
+		return err
+	}
+	switch disc.Type {
+	case TypeAutomation:
+		var v struct {
+			Type Type `json:"type"`
+			AutomationArc
+		}
+		if err := json.Unmarshal(data, &v, opts); err != nil {
+			return err
+		}
+		u.Variant = v.AutomationArc
+	case TypeModule:
+		var v struct {
+			Type Type `json:"type"`
+			ModuleArc
+		}
+		if err := json.Unmarshal(data, &v, opts); err != nil {
+			return err
+		}
+		u.Variant = v.ModuleArc
+	default:
+		return errors.Newf("Arc: unknown type %q", disc.Type)
+	}
+	return nil
+}
+
+// Base returns the fields that every variant of Arc shares.
+func (u Arc) Base() Base {
+	switch v := u.Variant.(type) {
+	case AutomationArc:
+		return v.Base
+	case ModuleArc:
+		return v.Base
+	}
+	return Base{}
+}
+
+// Validate returns an error wrapping validate.ErrValidation if the active variant
+// violates its schema constraints.
+func (u Arc) Validate() error {
+	switch variant := u.Variant.(type) {
+	case AutomationArc:
+		return variant.Validate()
+	case ModuleArc:
+		return variant.Validate()
+	}
+	return nil
 }
 
 // Type specifies whether an Arc runs on a rack as an automation or holds code for other

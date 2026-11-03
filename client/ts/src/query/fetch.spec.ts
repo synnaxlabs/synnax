@@ -67,7 +67,13 @@ const DOMAINS: Domain[] = [
   {
     name: "arc",
     create: async () =>
-      (await writer.arcs.create({ name: `arc-${id.create()}`, mode: "graph" })).key,
+      (
+        await writer.arcs.create({
+          name: `arc-${id.create()}`,
+          mode: "graph",
+          type: "automation",
+        })
+      ).key,
     del: async (key) => await writer.arcs.delete(key),
     retrieveKeys: async (reader, keys) => await reader.arcs.retrieve({ keys }),
   },

@@ -27,6 +27,7 @@ const empty = (graph: Partial<arc.graph.Graph> = {}, name = "Test Arc"): arc.Arc
   arc.arcZ.parse({
     name,
     mode: "graph",
+    type: "automation",
     graph: arc.graph.graphZ.parse(graph),
   });
 

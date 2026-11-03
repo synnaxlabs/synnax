@@ -34,8 +34,7 @@ func (*Service) Match(body map[string]any) bool {
 // path-scoped validation error.
 //
 // opts.Parent is ignored: the writer parents every new Arc under the root directory.
-// The
-// API layer still enforces update access on the parent the caller declared.
+// The API layer still enforces update access on the parent the caller declared.
 func (s *Service) Import(
 	ctx context.Context,
 	tx gorp.Tx,
@@ -49,5 +48,5 @@ func (s *Service) Import(
 	if err = s.NewWriter(tx).Create(ctx, &a); err != nil {
 		return ontology.ID{}, err
 	}
-	return OntologyID(a.Key), nil
+	return a.OntologyID(), nil
 }

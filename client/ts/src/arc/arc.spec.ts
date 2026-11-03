@@ -24,7 +24,11 @@ import {
 
 const client = createTestClient();
 
-const newTextArc = (name: string): arc.New => ({ name, mode: "text" });
+const newTextArc = (name: string): arc.New => ({
+  name,
+  mode: "text",
+  type: "automation",
+});
 
 describe("arc", () => {
   describe("retrieve", () => {

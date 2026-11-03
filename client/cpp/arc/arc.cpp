@@ -31,14 +31,14 @@ Client::Client(
 
 x::errors::Error Client::create(Arc &arc) const {
     auto req = grpc::arc::CreateRequest();
-    auto [pb, pb_err] = arc.to_proto();
+    auto [pb, pb_err] = to_proto(arc);
     if (pb_err) return pb_err;
     *req.add_arcs() = pb;
     auto [res, err] = create_client->send(CREATE_ENDPOINT, req);
     if (err) return err;
     if (res.arcs_size() == 0) return errors::unexpected_missing_error("arc");
 
-    auto [updated_arc, from_err] = Arc::from_proto(res.arcs(0));
+    auto [updated_arc, from_err] = arc_from_proto(res.arcs(0));
     if (from_err) return from_err;
     arc = updated_arc;
 
@@ -49,7 +49,7 @@ x::errors::Error Client::create(std::vector<Arc> &arcs) const {
     auto req = grpc::arc::CreateRequest();
     req.mutable_arcs()->Reserve(static_cast<int>(arcs.size()));
     for (const auto &arc: arcs) {
-        auto [pb, pb_err] = arc.to_proto();
+        auto [pb, pb_err] = to_proto(arc);
         if (pb_err) return pb_err;
         *req.add_arcs() = pb;
     }
@@ -58,7 +58,7 @@ x::errors::Error Client::create(std::vector<Arc> &arcs) const {
     if (err) return err;
 
     for (int i = 0; i < res.arcs_size(); i++) {
-        auto [updated_arc, from_err] = Arc::from_proto(res.arcs(i));
+        auto [updated_arc, from_err] = arc_from_proto(res.arcs(i));
         if (from_err) return from_err;
         arcs[i] = updated_arc;
     }
@@ -67,7 +67,7 @@ x::errors::Error Client::create(std::vector<Arc> &arcs) const {
 }
 
 std::pair<Arc, x::errors::Error> Client::create(const std::string &name) const {
-    Arc arc{.name = name, .mode = MODE_TEXT};
+    Arc arc = AutomationArc{{.name = name, .mode = MODE_TEXT}};
     auto err = create(arc);
     return {arc, err};
 }
@@ -85,7 +85,7 @@ std::pair<Arc, x::errors::Error> Client::retrieve_by_name(
     if (res.arcs_size() == 0) return {Arc{}, errors::unexpected_missing_error("arc")};
     if (res.arcs_size() > 1) return {Arc{}, errors::multiple_found_error("arc", name)};
 
-    return Arc::from_proto(res.arcs(0));
+    return arc_from_proto(res.arcs(0));
 }
 
 std::pair<Arc, x::errors::Error> Client::retrieve_by_key(
@@ -100,7 +100,7 @@ std::pair<Arc, x::errors::Error> Client::retrieve_by_key(
     if (err) return {Arc{}, err};
     if (res.arcs_size() == 0) return {Arc{}, errors::unexpected_missing_error("arc")};
 
-    return Arc::from_proto(res.arcs(0));
+    return arc_from_proto(res.arcs(0));
 }
 
 std::pair<std::vector<Arc>, x::errors::Error> Client::retrieve(
@@ -118,7 +118,7 @@ std::pair<std::vector<Arc>, x::errors::Error> Client::retrieve(
     std::vector<Arc> arcs;
     arcs.reserve(res.arcs_size());
     for (const auto &pb: res.arcs()) {
-        auto [arc, from_err] = Arc::from_proto(pb);
+        auto [arc, from_err] = arc_from_proto(pb);
         if (from_err) return {std::vector<Arc>(), from_err};
         arcs.push_back(arc);
     }
@@ -141,7 +141,7 @@ std::pair<std::vector<Arc>, x::errors::Error> Client::retrieve_by_keys(
     std::vector<Arc> arcs;
     arcs.reserve(res.arcs_size());
     for (const auto &pb: res.arcs()) {
-        auto [arc, from_err] = Arc::from_proto(pb);
+        auto [arc, from_err] = arc_from_proto(pb);
         if (from_err) return {std::vector<Arc>(), from_err};
         arcs.push_back(arc);
     }

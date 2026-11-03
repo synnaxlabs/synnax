@@ -186,12 +186,14 @@ type searchInfo struct {
 
 // retrieveInfo holds extracted data about a @retrieve-annotated struct.
 type retrieveInfo struct {
-	GoName   string
-	KeyType  string
-	IsCustom bool // user defines the struct (@retrieve custom)
-	Filters  []filterInfo
-	Indexes  []indexInfo
-	Search   []searchInfo
+	GoName  string
+	KeyType string
+	// FieldPrefix is "Base()." for a union and empty for a struct.
+	FieldPrefix string
+	IsCustom    bool // user defines the struct (@retrieve custom)
+	Filters     []filterInfo
+	Indexes     []indexInfo
+	Search      []searchInfo
 }
 
 // HasSearch reports whether the retrieve declared any @search fields.
@@ -295,9 +297,13 @@ func extractRetrieveInfo(
 	r *resolver.Resolver,
 	ctx *resolver.Context,
 ) (*retrieveInfo, error) {
-	_, isUnion := typ.Form.(resolution.UnionForm)
+	unionForm, isUnion := typ.Form.(resolution.UnionForm)
 	if _, isStruct := typ.Form.(resolution.StructForm); !isStruct && !isUnion {
 		return nil, nil
+	}
+	var fieldPrefix string
+	if isUnion {
+		fieldPrefix = "Base()."
 	}
 	allFields := retrieveFields(typ, table)
 
@@ -352,11 +358,12 @@ func extractRetrieveInfo(
 		if !hasFilter && !hasIndex && !hasSearch {
 			continue
 		}
-		// A union entry holds its fields behind Variant, so generated code cannot read
-		// them.
-		if isUnion {
+		// A union entry reads its fields through the Base accessor, which only a union
+		// whose variants share one base has.
+		if _, ok := resolver.SharedBase(unionForm, "go", table); isUnion && !ok {
 			return nil, errors.Newf(
-				"%s: @filter, @index, and @search are not supported on union fields (%s)",
+				"%s: @filter, @index, and @search need one base that every variant "+
+					"inherits (%s)",
 				typ.QualifiedName,
 				field.Name,
 			)
@@ -439,12 +446,13 @@ func extractRetrieveInfo(
 	}
 
 	return &retrieveInfo{
-		GoName:   goName,
-		KeyType:  keyType,
-		IsCustom: isCustom,
-		Filters:  filters,
-		Indexes:  indexes,
-		Search:   search,
+		GoName:      goName,
+		KeyType:     keyType,
+		FieldPrefix: fieldPrefix,
+		IsCustom:    isCustom,
+		Filters:     filters,
+		Indexes:     indexes,
+		Search:      search,
 	}, nil
 }
 
@@ -610,7 +618,7 @@ func newIndexes() indexes {
 {{- range $idx := $ret.Indexes}}
 		{{$idx.StructField}}: gorp.{{if $idx.IsSorted}}NewSortedIndex{{else}}NewLookupIndex{{end}}[{{$ret.KeyType}}, {{$ret.GoName}}, {{$idx.GoType}}](
 			"{{$idx.FieldName}}",
-			func(e *{{$ret.GoName}}) {{$idx.GoType}} { return e.{{$idx.GoName}} },
+			func(e *{{$ret.GoName}}) {{$idx.GoType}} { return e.{{$ret.FieldPrefix}}{{$idx.GoName}} },
 		),
 {{- end}}
 {{- if $ret.HasSearch}}
@@ -618,7 +626,7 @@ func newIndexes() indexes {
 			"search",
 			func(e *{{$ret.GoName}}) []string {
 				return []string{
-{{- range $i, $f := $ret.Search}}{{if $i}}, {{end}}{{if $f.IsString}}e.{{$f.GoName}}{{else}}string(e.{{$f.GoName}}){{end}}{{end -}}
+{{- range $i, $f := $ret.Search}}{{if $i}}, {{end}}{{if $f.IsString}}e.{{$ret.FieldPrefix}}{{$f.GoName}}{{else}}string(e.{{$ret.FieldPrefix}}{{$f.GoName}}){{end}}{{end -}}
 				}
 			},
 		),
@@ -738,7 +746,7 @@ func Match{{.GoName}}(v bool) Filter {
 		return r.indexes.{{.IndexFieldName}}.Filter(v)
 {{- else}}
 		return gorp.Match(func(_ gorp.Context, e *{{$ret.GoName}}) (bool, error) {
-			return e.{{.GoName}} == v, nil
+			return e.{{$ret.FieldPrefix}}{{.GoName}} == v, nil
 		})
 {{- end}}
 	}
@@ -750,7 +758,7 @@ func Match{{.GoName}}(v bool) Filter {
 func Match{{.GoName | singularize}}(v {{.ElemGoType}}) Filter {
 	return func(Retrieve) gorp.Filter[{{$ret.KeyType}}, {{$ret.GoName}}] {
 		return gorp.Match(func(_ gorp.Context, e *{{$ret.GoName}}) (bool, error) {
-			return slices.Contains(e.{{.GoName}}, v), nil
+			return slices.Contains(e.{{$ret.FieldPrefix}}{{.GoName}}, v), nil
 		})
 	}
 }
@@ -763,7 +771,7 @@ func Match{{.GoName}}(v {{.GoType}}) Filter {
 		return r.indexes.{{.IndexFieldName}}.Filter(v)
 {{- else}}
 		return gorp.Match(func(_ gorp.Context, e *{{$ret.GoName}}) (bool, error) {
-			return e.{{.GoName}} == v, nil
+			return e.{{$ret.FieldPrefix}}{{.GoName}} == v, nil
 		})
 {{- end}}
 	}
@@ -778,7 +786,7 @@ func Match{{.GoName | pluralize}}(vals ...{{.GoType}}) Filter {
 		return r.indexes.{{.IndexFieldName}}.Filter(vals...)
 {{- else}}
 		return gorp.Match(func(_ gorp.Context, e *{{$ret.GoName}}) (bool, error) {
-			return slices.Contains(vals, e.{{.GoName}}), nil
+			return slices.Contains(vals, e.{{$ret.FieldPrefix}}{{.GoName}}), nil
 		})
 {{- end}}
 	}

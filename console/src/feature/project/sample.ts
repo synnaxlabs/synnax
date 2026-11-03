@@ -228,12 +228,14 @@ export const create = async (client: Synnax, programs: Programs): Promise<void> 
       key: KEYS.simulator,
       name: "Tank simulator",
       mode: "text",
+      type: "automation",
       text: { raw: programs.simulator },
     },
     {
       key: KEYS.sequence,
       name: "Press sequence",
       mode: "text",
+      type: "automation",
       text: { raw: programs.sequence },
     },
   ]);

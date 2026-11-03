@@ -43,6 +43,7 @@ const createArcInDirectory = async () => {
   const arc = await client.arcs.create({
     name: uniqueName("arc"),
     mode: "graph",
+    type: "automation",
     graph: { nodes: [], edges: [] },
   });
   await client.arcs.directories.move(arcsID, root, clientArc.ontologyID(arc.key));

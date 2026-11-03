@@ -11,6 +11,8 @@ package versions
 
 import (
 	"context"
+	"encoding/json/jsontext"
+	"encoding/json/v2"
 	"uuid"
 
 	"github.com/synnaxlabs/synnax/pkg/service/arc/versions/legacy"
@@ -31,7 +33,10 @@ func DecodeImExEnvelope(ctx context.Context, env imex.Envelope) (Arc, error) {
 		err error
 	)
 	if env.Version > legacy.LastVersion {
-		a, err = autoDecodeEnvelope(ctx, env)
+		var typed imex.Envelope
+		if typed, err = withVariantType(ctx, env); err == nil {
+			a, err = autoDecodeEnvelope(ctx, typed)
+		}
 	} else {
 		var doc legacy.Document
 		if doc, err = decodeConsole(ctx, env); err == nil {
@@ -44,29 +49,48 @@ func DecodeImExEnvelope(ctx context.Context, env imex.Envelope) (Arc, error) {
 	if err != nil {
 		return Arc{}, err
 	}
+	b := a.Base()
 	// Console-era files leave the mode blank when the Arc was never switched out of the
 	// graph editor.
-	if a.Mode == "" {
-		a.Mode = ModeGraph
+	if b.Mode == "" {
+		b.Mode = ModeGraph
 	}
 	// Importing always materializes a new resource, so any key on the wire is dropped
 	// and the importer mints a fresh one.
-	a.Key = uuid.Nil()
+	b.Key = uuid.Nil()
 	// The header is the resolved name: the body's name when present, or the file-name
 	// fallback the imex service applies. Console-era decodes drop it, so it is stamped
 	// here for every path.
-	a.Name = env.Name
-	// From v4 on the type header names the Arc's type; a file written before holds an
-	// automation.
-	a.Type = TypeAutomation
-	if t, ok := v4.TypeFromFileType(env.Type); ok {
-		a.Type = t
-	}
-	return a, nil
+	b.Name = env.Name
+	return a.WithBase(b), nil
 }
 
-// decodeConsole lifts either Console-written file shape into a Document. Both shapes
-// carry the graph at the top level, so the structural guard runs ahead of the split.
+// withVariantType replaces the file type in env's body with the Arc type it names, or
+// with automation when it names none.
+func withVariantType(ctx context.Context, env imex.Envelope) (imex.Envelope, error) {
+	t, ok := v4.TypeFromFileType(env.Type)
+	if !ok {
+		t = TypeAutomation
+	}
+	body, err := env.Decode[map[string]jsontext.Value](ctx)
+	if err != nil {
+		return imex.Envelope{}, err
+	}
+	if body["type"], err = json.Marshal(t); err != nil {
+		return imex.Envelope{}, err
+	}
+	raw, err := json.Marshal(body)
+	if err != nil {
+		return imex.Envelope{}, err
+	}
+	var typed imex.Envelope
+	if err = imex.Codec.Decode(ctx, raw, &typed); err != nil {
+		return imex.Envelope{}, err
+	}
+	typed.Type = env.Type
+	return typed, nil
+}
+
 func decodeConsole(ctx context.Context, env imex.Envelope) (legacy.Document, error) {
 	body, err := env.Decode[msgpack.EncodedJSON](ctx)
 	if err != nil {

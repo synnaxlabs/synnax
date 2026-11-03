@@ -54,6 +54,10 @@ type unionData struct {
 	// NeedsValidate reports that at least one variant carries a Validate method, so the
 	// wrapper emits one that dispatches on the active variant.
 	NeedsValidate bool
+	// Base is the rendered type of the one base every variant embeds, and BaseField its
+	// field selector. The wrapper emits a Base accessor only when Base is set.
+	Base      string
+	BaseField string
 }
 
 // unionVariantData is the template view of one variant of a discriminated union.
@@ -242,6 +246,10 @@ func processUnion(entry resolution.Type, data *templateData) unionData {
 	}
 	if ud.NeedsValidate {
 		data.AddExternal(validateImportPath)
+	}
+	if _, ok := resolver.SharedBase(form, "go", data.table); ok {
+		ud.Base = baseEmbeds[0].rendered
+		ud.BaseField = embedFieldName(ud.Base)
 	}
 	return ud
 }

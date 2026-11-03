@@ -140,6 +140,17 @@ func (u *View) UnmarshalJSONFrom(dec *jsontext.Decoder) error {
 	return nil
 }
 
+// Base returns the fields that every variant of View shares.
+func (u View) Base() Base {
+	switch v := u.Variant.(type) {
+	case RangeView:
+		return v.Base
+	case StatusView:
+		return v.Base
+	}
+	return Base{}
+}
+
 // Validate returns an error wrapping validate.ErrValidation if the active variant
 // violates its schema constraints.
 func (u View) Validate() error {

@@ -32,6 +32,7 @@ const createGraphArc = async (graph: Partial<arc.Arc["graph"]> = {}) =>
   await client.arcs.create({
     name: uniqueName("arc"),
     mode: "graph",
+    type: "automation",
     graph: { nodes: [], edges: [], ...graph },
   });
 
@@ -217,6 +218,7 @@ describe("arc editor toolbar", () => {
     const arc = await client.arcs.create({
       name: uniqueName("arc"),
       mode: "text",
+      type: "automation",
       text: { raw: "x = 1" },
     });
     await renderToolbar(arc.key);
