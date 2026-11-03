@@ -140,6 +140,8 @@ export const serveOIDC = async ({
     if (path.endsWith("/auth/methods")) return { body: { methods, providers } };
     if (path.endsWith("/auth/session/create"))
       return { body: { token: "sys_local", session: SESSION } };
+    if (path.endsWith("/auth/session/retrieve"))
+      return { body: { sessions: [SESSION] } };
     if (path.endsWith("/auth/oidc/retrieve")) return { body: { links: state.links } };
     if (path.endsWith("/auth/oidc/unlink")) {
       const { keys } = JSON.parse(body) as { keys: string[] };

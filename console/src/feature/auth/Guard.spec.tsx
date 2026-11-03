@@ -24,7 +24,7 @@ import { describe, expect, it, onTestFinished } from "vitest";
 
 import { Auth } from "@/feature/auth";
 import { Core } from "@/feature/core";
-import { type OIDCServer, serveOIDC } from "@/platform/core/testutil";
+import { LOCAL_SUBJECT, type OIDCServer, serveOIDC } from "@/platform/core/testutil";
 import { findButton } from "@/platform/modals/testutil";
 import { Session } from "@/session";
 import {
@@ -115,11 +115,16 @@ describe("auth guard", () => {
     const VERIFIER = "verifier";
     const REDIRECT_URI = "https://core.example.com/";
 
-    const returnFromProvider = (search: string, core = CORE_KEY): void => {
+    const returnFromProvider = (
+      search: string,
+      core = CORE_KEY,
+      subject = LOCAL_SUBJECT.key,
+    ): void => {
       sessionStorage.setItem(
         "synnax-oidc-login",
         JSON.stringify({
           purpose: "link",
+          subject,
           core,
           provider: PROVIDER,
           verifier: VERIFIER,
@@ -188,6 +193,16 @@ describe("auth guard", () => {
     it("should report the provider's refusal as a failed link", async () => {
       const server = await serveOIDC();
       returnFromProvider("/?error=access_denied&state=state");
+      const { statuses } = await renderReturn(server);
+      await waitFor(() =>
+        expect(statuses()).toContain("Failed to link provider account"),
+      );
+      expect(server.linked).toEqual([]);
+    });
+
+    it("should refuse a link another user started", async () => {
+      const server = await serveOIDC();
+      returnFromProvider("/?code=abc&state=state", CORE_KEY, "another-user");
       const { statuses } = await renderReturn(server);
       await waitFor(() =>
         expect(statuses()).toContain("Failed to link provider account"),

@@ -160,7 +160,7 @@ describe("oidc", () => {
     it("should tell a link from a login", async () => {
       await Core.beginBrowserLogin("alpha", LOGIN);
       expect(Core.pendingPurpose()).toBe("login");
-      await Core.beginBrowserLogin("alpha", LOGIN, "link");
+      await Core.beginBrowserLogin("alpha", LOGIN, "user");
       expect(Core.pendingPurpose()).toBe("link");
     });
   });

@@ -62,7 +62,7 @@ export const useCompleteBrowserLogin = (): void => {
   const dispatch = Session.useDispatch();
   const handleError = Status.useErrorHandler();
   const addStatus = Status.useAdder();
-  const [linkCredentials, setLinkCredentials] = useState<auth.OIDCCredentials>();
+  const [pendingLink, setPendingLink] = useState<Core.CompletedLogin>();
   const link = Credential.OIDC.useLink({
     afterSuccess: ({ data }) =>
       addStatus({
@@ -82,7 +82,7 @@ export const useCompleteBrowserLogin = (): void => {
             throw new Error(
               "The Console left the Core that started the link. Log in and try again.",
             );
-          setLinkCredentials(completed.credentials);
+          setPendingLink(completed);
           return;
         }
         const core = cores.find((c) => c.key === completed.core) ?? servingCore;
@@ -95,10 +95,16 @@ export const useCompleteBrowserLogin = (): void => {
     );
   }, []);
   useEffect(() => {
-    if (linkCredentials == null || client == null) return;
-    setLinkCredentials(undefined);
-    link.update(linkCredentials);
-  }, [client, linkCredentials]);
+    if (pendingLink == null || client == null) return;
+    setPendingLink(undefined);
+    handleError(async () => {
+      // the session cookie is shared, so another tab can change the user mid-redirect
+      await client.auth.sessions.retrieve();
+      if (client.auth.subject?.key !== pendingLink.subject)
+        throw new Error("Another user logged in during the link. Please try again.");
+      await link.updateAsync(pendingLink.credentials);
+    }, "Failed to link provider account");
+  }, [client, pendingLink]);
 };
 
 /**

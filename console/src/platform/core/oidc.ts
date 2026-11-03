@@ -137,6 +137,8 @@ export type Purpose = z.infer<typeof purposeZ>;
 
 const pendingZ = z.object({
   purpose: purposeZ,
+  /** The key of the user who started a link. */
+  subject: z.string().optional(),
   core: z.string(),
   provider: z.string(),
   verifier: z.string(),
@@ -148,19 +150,21 @@ const pendingZ = z.object({
  * Starts a login through a provider from the browser Console: saves the verifier for
  * the page load that follows, then leaves for the provider's login page. The provider
  * redirects back to the Console's own origin.
- * @param purpose - What {@link completeBrowserLogin} reports for the redirect.
+ * @param subject - The key of the logged-in user, for a redirect that links an account
+ * to them. A redirect with no subject is a login.
  * @throws {Error} when the browser cannot create the PKCE pair or save the login.
  */
 export const beginBrowserLogin = async (
   core: string,
   login: auth.OIDCLogin,
-  purpose: Purpose = "login",
+  subject?: string,
 ): Promise<void> => {
   const { verifier, challenge } = await createPKCE();
   const state = randomString();
   const redirectUri = `${window.location.origin}/`;
   const pending: z.infer<typeof pendingZ> = {
-    purpose,
+    purpose: subject == null ? "login" : "link",
+    subject,
     core,
     provider: login.provider,
     verifier,
@@ -174,6 +178,8 @@ export const beginBrowserLogin = async (
 /** A browser login that returned from its provider. */
 export interface CompletedLogin {
   purpose: Purpose;
+  /** The key of the user who started a link. */
+  subject?: string;
   /** The key of the Core the login is for. */
   core: string;
   credentials: auth.OIDCCredentials;
@@ -202,6 +208,7 @@ export const completeBrowserLogin = (): CompletedLogin | undefined => {
   const code = parseCallback(search, pending.state);
   return {
     purpose: pending.purpose,
+    subject: pending.subject,
     core: pending.core,
     credentials: {
       provider: pending.provider,

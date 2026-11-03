@@ -14,6 +14,7 @@ import { Icon } from "@synnaxlabs/lyra/icon";
 import { Status } from "@synnaxlabs/lyra/status";
 import { Text } from "@synnaxlabs/lyra/text";
 import { Access, Credential, Synnax } from "@synnaxlabs/pluto";
+import { errors } from "@synnaxlabs/x";
 import { type ReactElement, useEffect, useState } from "react";
 
 import { Core } from "@/platform/core";
@@ -145,15 +146,21 @@ export const Section = ({ subject, onMessage }: SectionProps): ReactElement => {
       return;
     }
     if (selectedCore == null) throw new Error("No Core is selected");
-    await Core.beginBrowserLogin(selectedCore, login, "link");
+    await Core.beginBrowserLogin(selectedCore, login, subject.key);
   };
   const handleLink = (login: auth.OIDCLogin) => {
     onMessage(null);
     setLinking(true);
-    handleError(
-      async () => await startLink(login).finally(() => setLinking(false)),
-      "Failed to link provider account",
-    );
+    handleError(async () => {
+      let failure: Error | undefined;
+      try {
+        await startLink(login);
+      } catch (e) {
+        failure = errors.fromUnknown(e);
+      }
+      setLinking(false);
+      if (failure != null) throw failure;
+    }, "Failed to link provider account");
   };
   const handleUnlink = (key: auth.oidc.LinkKey) => {
     onMessage(null);
