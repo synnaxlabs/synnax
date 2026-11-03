@@ -433,6 +433,7 @@ jobs:
       contains(fromJSON(needs.changes.outputs.ci), 'docs')
     uses: ./.github/workflows/test.ts.yaml
     with:
+      browsers: true
       coverage_flag: docs
       directory: site/docs
       macos: *full

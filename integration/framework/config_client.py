@@ -19,7 +19,8 @@ import threading
 from collections.abc import Callable
 from dataclasses import dataclass, field, replace
 from pathlib import Path
-from typing import Any
+
+from pydantic import BaseModel, Field, JsonValue
 
 from framework.target_filter import TargetFilter
 from framework.test_case import TestCase
@@ -29,7 +30,7 @@ _DEFAULT_TIMEOUT = 300.0
 definition sets `timeout`."""
 
 
-def _timeout(case: str, value: Any) -> float:
+def _timeout(case: str, value: JsonValue) -> float:
     """:raises ValueError: If value is not a finite, positive number of seconds."""
     if (
         isinstance(value, bool)
@@ -50,8 +51,8 @@ class TestDefinition:
 
     case: str
     name: str | None = None
-    parameters: dict[str, Any | list[Any]] = field(default_factory=dict)
-    matrix: dict[str, list[Any]] | None = None
+    parameters: dict[str, JsonValue] = field(default_factory=dict)
+    matrix: dict[str, list[JsonValue]] | None = None
     timeout: float = _DEFAULT_TIMEOUT
     """Seconds the test may run before the conductor marks it TIMEOUT."""
 
@@ -74,6 +75,29 @@ class Sequence:
     order: str  # "sequential" | "random" | "asynchronous"
     pool_size: int
     tests: list[TestDefinition]
+
+
+class _TestEntry(BaseModel):
+    """A test in a sequence of a test file."""
+
+    case: str
+    name: str | None = None
+    parameters: dict[str, JsonValue] = Field(default_factory=dict)
+    matrix: dict[str, list[JsonValue]] | None = None
+    timeout: JsonValue = _DEFAULT_TIMEOUT
+
+
+class _SequenceEntry(BaseModel):
+    """A sequence of a test file."""
+
+    sequence_name: str | None = None
+    sequence_order: str = "sequential"
+    pool_size: int = -1
+    tests: list[_TestEntry] = Field(default_factory=list)
+
+
+class _TestFile(BaseModel):
+    sequences: list[JsonValue] = Field(default_factory=list)
 
 
 class ConfigClient:
@@ -132,7 +156,7 @@ class ConfigClient:
 
     # ----- JSON loading -----
 
-    def _load_json(self, file_filter: list[str] | None) -> list[dict[str, Any]]:
+    def _load_json(self, file_filter: list[str] | None) -> list[_SequenceEntry]:
         """Load raw sequence dicts from JSON files."""
         if not file_filter:
             test_files = glob.glob(str(self._tests_dir / "*_tests.json"))
@@ -143,7 +167,7 @@ class ConfigClient:
         else:
             test_files = [f"{f}_tests.json" for f in file_filter]
 
-        all_sequences: list[dict[str, Any]] = []
+        all_sequences: list[_SequenceEntry] = []
         for test_file in test_files:
             file_path = Path(test_file)
             if not file_path.exists():
@@ -153,15 +177,13 @@ class ConfigClient:
 
             try:
                 with open(file_path, encoding="utf-8") as f:
-                    file_data = json.load(f)
-                if "sequences" in file_data:
-                    for i, seq in enumerate(file_data["sequences"]):
-                        if not isinstance(seq, dict):
-                            raise ValueError(
-                                f"Sequence {i} in test file '{test_file}' is not "
-                                "an object"
-                            )
-                        all_sequences.append(seq)
+                    file_data = _TestFile.model_validate(json.load(f))
+                for i, seq in enumerate(file_data.sequences):
+                    if not isinstance(seq, dict):
+                        raise ValueError(
+                            f"Sequence {i} in test file '{test_file}' is not an object"
+                        )
+                    all_sequences.append(_SequenceEntry.model_validate(seq))
             except FileNotFoundError:
                 raise FileNotFoundError(f"Test file not found: {test_file}") from None
             except json.JSONDecodeError as e:
@@ -176,22 +198,22 @@ class ConfigClient:
 
     def _process_sequences(
         self,
-        sequences_array: list[dict[str, Any]],
+        sequences_array: list[_SequenceEntry],
         target_filter: TargetFilter,
     ) -> list[Sequence]:
         sequences: list[Sequence] = []
 
         for seq_idx, seq_dict in enumerate(sequences_array):
-            seq_name = seq_dict.get("sequence_name", f"Sequence_{seq_idx + 1}")
-            seq_order: str = seq_dict.get("sequence_order", "sequential").lower()
-            pool_size: int = seq_dict.get("pool_size", -1)
-            raw_tests: list[dict[str, Any]] = seq_dict.get("tests", [])
+            seq_name = seq_dict.sequence_name or f"Sequence_{seq_idx + 1}"
+            seq_order = seq_dict.sequence_order.lower()
+            pool_size = seq_dict.pool_size
+            raw_tests = seq_dict.tests
 
             seq_name_matches = target_filter.matches_sequence(seq_name)
 
             expanded_tests: list[TestDefinition] = []
             for test in raw_tests:
-                case_path: str = test["case"]
+                case_path = test.case
                 if not seq_name_matches and (
                     target_filter.case_filter is None
                     or not target_filter.matches_case(case_path)
@@ -200,10 +222,10 @@ class ConfigClient:
 
                 test_def = TestDefinition(
                     case=case_path,
-                    name=test.get("name", None),
-                    parameters=test.get("parameters", {}),
-                    matrix=test.get("matrix", None),
-                    timeout=_timeout(case_path, test.get("timeout", _DEFAULT_TIMEOUT)),
+                    name=test.name,
+                    parameters=test.parameters,
+                    matrix=test.matrix,
+                    timeout=_timeout(case_path, test.timeout),
                 )
 
                 class_defs = self._expand_test_classes(test_def)
@@ -284,8 +306,8 @@ class ConfigClient:
         if not test_def.parameters:
             return [test_def]
 
-        single_params: dict[str, Any] = {}
-        multi_params: dict[str, list[Any]] = {}
+        single_params: dict[str, JsonValue] = {}
+        multi_params: dict[str, list[JsonValue]] = {}
 
         for key, value in test_def.parameters.items():
             if isinstance(value, list):
@@ -407,7 +429,7 @@ class ConfigClient:
                 if spec.loader is not None:
                     spec.loader.exec_module(module)
 
-            def is_valid_test_case(obj: Any) -> bool:
+            def is_valid_test_case(obj: object) -> bool:
                 try:
                     return (
                         isinstance(obj, type)

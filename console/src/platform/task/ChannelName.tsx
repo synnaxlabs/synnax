@@ -18,7 +18,7 @@ import { Form } from "@synnaxlabs/lyra/form";
 import { Text } from "@synnaxlabs/lyra/text";
 import { Tooltip } from "@synnaxlabs/lyra/tooltip";
 import { Access, Channel, Flux } from "@synnaxlabs/pluto";
-import { type optional, primitive } from "@synnaxlabs/x";
+import { type deep, type optional, primitive } from "@synnaxlabs/x";
 import { type ReactElement } from "react";
 
 import { CSS } from "@/platform/css";
@@ -36,7 +36,7 @@ export interface ChannelNameProps extends optional.Optional<
    * Holds the name configure gives the channel, shown until the channel resolves.
    * Required while the channel is 0.
    */
-  namePath?: string;
+  namePath?: deep.Target<string | undefined>;
 }
 
 const NO_CHANNEL = "No channel";
@@ -70,15 +70,14 @@ const Name = ({ channel, name, onDraftRename, className, ...rest }: NameProps) =
 };
 
 interface StoredProps extends Omit<ChannelNameProps, "namePath"> {
-  namePath: string;
+  namePath: deep.Target<string | undefined>;
 }
 
 /** The name the form carries for a channel whose record isn't in hand. */
 const Stored = ({ namePath, defaultName = NO_CHANNEL, ...rest }: StoredProps) => {
   // Use optional values here because for some reason, the namePath is not always
-  // populated. Eventually we should strongly type the Form so we don't need to worry
-  // about this.
-  const field = Form.useField<string>(namePath, { optional: true });
+  // populated.
+  const field = Form.useField(namePath, { optional: true });
   const name = primitive.isNonZero(field?.value) ? field.value : defaultName;
   return <Name {...rest} name={name} onDraftRename={field?.onChange} />;
 };

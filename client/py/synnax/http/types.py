@@ -7,7 +7,7 @@
 #  License, use of this software will be governed by the Apache License, Version 2.0,
 #  included in the file licenses/APL.txt.
 
-from typing import Any
+from typing import Any, override
 from uuid import uuid4
 
 from pydantic import BaseModel, JsonValue
@@ -112,6 +112,7 @@ class ReadTask(
         for ep in self.config.endpoints:
             task.assign_keys(ep.fields)
 
+    @override
     def update_device_properties(self, device_client: device.Client) -> device.Device:
         """Sync channel mappings to device properties."""
         dev = device_client.retrieve(key=self.config.device)
@@ -166,6 +167,7 @@ class WriteTask(
         for ep in self.config.endpoints:
             task.assign_keys(ep.fields)
 
+    @override
     def update_device_properties(self, device_client: device.Client) -> device.Device:
         """Sync channel mappings to device properties."""
         dev = device_client.retrieve(key=self.config.device)

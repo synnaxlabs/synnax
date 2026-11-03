@@ -53,7 +53,7 @@ export const Invite = ({ view, installable }: InviteProps): ReactElement => {
 
 const PITCH =
   "Connect to your hardware, record and show its data, and control it. Free for " +
-  "personal use.";
+  "any use, including commercial use.";
 
 interface GuideProps {
   view: View;
