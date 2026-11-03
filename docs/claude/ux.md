@@ -140,6 +140,10 @@ outlined button) has fill l2 and border l4, and its caret has the disabled text 
   a number or a duration. Wide later fields squeeze the first control.
 - A number or a duration field is 144 px (24 rem) wide wherever it sits. A form can set
   another width when its values need one.
+- A row of three fits the dialog with no overflow into its padding, so its labels are
+  short ("Channel lifetime", not "Secure channel lifetime"). The last fields of all rows
+  share one column, so a text field at the end of a row is 144 px too, as the OPC UA
+  password is.
 - A dialog shows its settings in sections, not tabs, while they fit with no scroll. The
   Modbus connect dialog has no tabs.
 - A field in a row, or beside another field, has no help text. Its control shows the
