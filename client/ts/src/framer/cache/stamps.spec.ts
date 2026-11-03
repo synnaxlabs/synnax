@@ -83,6 +83,32 @@ describe("Stamps", () => {
     expect(s.at(10n)).toBeNull();
   });
 
+  it("should keep every write as it grows toward capacity", () => {
+    const s = new Stamps(100);
+    for (let i = 0; i < 100; i++) s.record(write(BigInt(i) * 2n, 2, plus(T0, i * 10)));
+    for (let i = 0; i < 100; i++) {
+      expect(s.at(BigInt(i) * 2n)).toEqual(plus(T0, i * 10));
+      expect(s.at(BigInt(i) * 2n + 1n)).toEqual(plus(T0, i * 10 + 1));
+    }
+    expect(s.at(200n)).toBeNull();
+  });
+
+  it("should forget the oldest write once it grows to capacity", () => {
+    const s = new Stamps(20);
+    for (let i = 0; i < 25; i++) s.record(write(BigInt(i), 1, plus(T0, i)));
+    expect(s.at(4n)).toBeNull();
+    for (let i = 5; i < 25; i++) expect(s.at(BigInt(i))).toEqual(plus(T0, i));
+  });
+
+  it("should replace the writes from a repeated alignment once it grows", () => {
+    const s = new Stamps(40);
+    for (let i = 0; i < 30; i++) s.record(write(BigInt(i), 1, plus(T0, i)));
+    s.record(write(10n, 3, T1));
+    expect(s.at(9n)).toEqual(plus(T0, 9));
+    expect(s.at(12n)).toEqual(plus(T1, 2));
+    expect(s.at(13n)).toBeNull();
+  });
+
   it("should replace the writes from a repeated alignment on", () => {
     const s = new Stamps(4);
     s.record(write(0n, 3, T0));
@@ -156,6 +182,19 @@ describe("IndexStamps", () => {
     expect(s.at(9n)).toBeNull();
     expect(s.at(15n)).toBeNull();
     expect(s.at(21n)).toBeNull();
+  });
+
+  it("should keep the index series that overlap unsorted data spans", () => {
+    const s = new IndexStamps();
+    s.add([index(10n, T0), index(20n, T1)], [span(20n, 21n), span(10n, 11n)]);
+    expect(s.at(10n)).toEqual(T0);
+    expect(s.at(20n)).toEqual(T1);
+  });
+
+  it("should join the data spans that touch or overlap", () => {
+    const s = new IndexStamps();
+    s.add([index(13n, T0)], [span(10n, 12n), span(11n, 14n), span(12n, 13n)]);
+    expect(s.at(13n)).toEqual(T0);
   });
 
   it("should keep only the index series that overlap the data", () => {

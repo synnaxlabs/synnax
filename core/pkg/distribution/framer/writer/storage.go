@@ -14,7 +14,6 @@ import (
 
 	"github.com/synnaxlabs/synnax/pkg/distribution/node"
 	"github.com/synnaxlabs/synnax/pkg/storage/ts"
-	"github.com/synnaxlabs/x/set"
 	"github.com/synnaxlabs/x/telem"
 	"github.com/synnaxlabs/x/types"
 )
@@ -24,15 +23,15 @@ func virtualKeys(
 	ctx context.Context,
 	db *ts.DB,
 	keys []ts.ChannelKey,
-) (set.Set[ts.ChannelKey], error) {
+) ([]ts.ChannelKey, error) {
 	channels, err := db.RetrieveChannels(ctx, keys...)
 	if err != nil {
 		return nil, err
 	}
-	virtual := make(set.Set[ts.ChannelKey])
+	var virtual []ts.ChannelKey
 	for _, ch := range channels {
 		if ch.Virtual {
-			virtual.Add(ch.Key)
+			virtual = append(virtual, ch.Key)
 		}
 	}
 	return virtual, nil
@@ -41,41 +40,56 @@ func virtualKeys(
 // unindexedStamper times each sample of a channel with no index 1ns after the one
 // before it in the frame, from the host's clock. It is not safe for concurrent use.
 type unindexedStamper[K types.SizedNumeric] struct {
-	unindexed func(K) bool
-	ends      map[K]telem.TimeStamp
+	slots map[K]*stampSlot
+	frame uint64
 }
 
-func newUnindexedStamper[K types.SizedNumeric](
-	unindexed func(K) bool,
-) *unindexedStamper[K] {
-	return &unindexedStamper[K]{unindexed: unindexed, ends: make(map[K]telem.TimeStamp)}
+// stampSlot holds where a channel's last series ended, and in which frame.
+type stampSlot struct {
+	frame uint64
+	end   telem.TimeStamp
+}
+
+func newUnindexedStamper[K types.SizedNumeric](keys []K) *unindexedStamper[K] {
+	slots := make(map[K]*stampSlot, len(keys))
+	for _, k := range keys {
+		slots[k] = &stampSlot{}
+	}
+	return &unindexedStamper[K]{slots: slots}
 }
 
 func (st *unindexedStamper[K]) stamp(fr telem.Frame[K]) {
-	clear(st.ends)
+	if len(st.slots) == 0 {
+		return
+	}
+	st.frame++
 	now := telem.Now()
 	for rawI, k := range fr.RawKeys() {
-		if fr.ShouldExcludeRaw(rawI) || !st.unindexed(k) {
+		if fr.ShouldExcludeRaw(rawI) {
 			continue
 		}
-		start, ok := st.ends[k]
+		slot, ok := st.slots[k]
 		if !ok {
-			start = now
+			continue
+		}
+		start := now
+		if slot.frame == st.frame {
+			start = slot.end
 		}
 		s := fr.RawSeriesAt(rawI)
 		s.TimeRange = start.SpanRange(telem.TimeSpan(s.Len()) * telem.Nanosecond)
-		st.ends[k] = s.TimeRange.End
+		slot.frame, slot.end = st.frame, s.TimeRange.End
 		fr.SetRawSeriesAt(rawI, s)
 	}
 }
 
 func newRequestTranslator(
-	virtual set.Set[ts.ChannelKey],
+	virtual []ts.ChannelKey,
 ) func(ctx context.Context, in Request) (ts.WriterRequest, bool, error) {
-	st := newUnindexedStamper(virtual.Contains)
+	st := newUnindexedStamper(virtual)
 	return func(ctx context.Context, in Request) (ts.WriterRequest, bool, error) {
 		fr := in.Frame.ToStorage()
-		if in.Command == CommandWrite && len(virtual) > 0 {
+		if in.Command == CommandWrite {
 			st.stamp(fr)
 		}
 		return ts.WriterRequest{

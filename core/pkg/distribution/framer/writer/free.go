@@ -13,6 +13,7 @@ import (
 	"context"
 	"sync"
 
+	"github.com/samber/lo"
 	"github.com/synnaxlabs/cesium"
 	"github.com/synnaxlabs/synnax/pkg/distribution/channel"
 	"github.com/synnaxlabs/synnax/pkg/distribution/framer/frame"
@@ -58,6 +59,7 @@ func (f *freeWriteAlignments) reserve(
 func (s *Service) newFree(
 	mode Mode,
 	sync bool,
+	keys []channel.Key,
 	freeIndexes map[channel.Key]channel.Key,
 	alignments map[channel.Key]telem.Alignment,
 	group uint32,
@@ -65,6 +67,10 @@ func (s *Service) newFree(
 	if freeIndexes == nil {
 		freeIndexes = make(map[channel.Key]channel.Key)
 	}
+	unindexed := lo.Filter(keys, func(k channel.Key, _ int) bool {
+		_, indexed := freeIndexes[k]
+		return !indexed
+	})
 	w := &freeWriter{
 		freeWrites: s.cfg.FreeWrites,
 		mode:       mode,
@@ -72,10 +78,7 @@ func (s *Service) newFree(
 		group:      group,
 		indexes:    freeIndexes,
 		alignments: alignments,
-		stamper: newUnindexedStamper(func(k channel.Key) bool {
-			_, indexed := freeIndexes[k]
-			return !indexed
-		}),
+		stamper:    newUnindexedStamper(unindexed),
 	}
 	w.Transform = w.transform
 	return w

@@ -897,6 +897,67 @@ var _ = Describe("Writer", func() {
 			Entry("Peer", peerOnlyScenario),
 			Entry("Free", freeWriterScenario),
 		)
+
+		It(
+			"Should align indexed free channels and stamp index-less ones in one frame",
+			func(ctx SpecContext) {
+				s := DeferClose(gatewayOnlyScenario(ctx))
+				idx := MustSucceed(s.dist.Channel.Create(ctx, []channel.Channel{{
+					Name:        "mixed_time",
+					IsIndex:     true,
+					DataType:    telem.TimestampT,
+					Leaseholder: node.KeyFree,
+					Virtual:     true,
+				}}))[0]
+				created := MustSucceed(s.dist.Channel.Create(ctx, []channel.Channel{
+					{
+						Name:        "mixed_data",
+						DataType:    telem.Float32T,
+						Leaseholder: node.KeyFree,
+						Virtual:     true,
+						LocalIndex:  idx.LocalKey,
+					},
+					{
+						Name:        "mixed_unindexed",
+						DataType:    telem.Int64T,
+						Leaseholder: node.KeyFree,
+						Virtual:     true,
+					},
+				}))
+				data, unindexed := created[0], created[1]
+				s.dist.Framer.SetFreeIndexResolver(indexResolver{
+					idx.Key():  idx.Key(),
+					data.Key(): idx.Key(),
+				})
+				received, _, _ := writeAndReceive(
+					ctx,
+					s.dist,
+					channel.Keys{
+						idx.Key(),
+						data.Key(),
+						unindexed.Key(),
+						unindexed.Key(),
+					},
+					telem.NewSeriesSecondsTSV(10*telem.SecondTS, 11*telem.SecondTS),
+					telem.NewSeriesV[float32](1, 2),
+					telem.NewSeriesV[int64](1, 2),
+					telem.NewSeriesV[int64](3),
+				)
+				client := telem.TimeRange{
+					Start: 1 * telem.SecondTS,
+					End:   2 * telem.SecondTS,
+				}
+				writtenIdx, writtenData := received[idx.Key()][0], received[data.Key()][0]
+				Expect(writtenIdx.TimeRange).To(Equal(client))
+				Expect(writtenData.TimeRange).To(Equal(client))
+				Expect(writtenData.Alignment).To(Equal(writtenIdx.Alignment))
+				Expect(received[unindexed.Key()]).To(HaveLen(2))
+				first := received[unindexed.Key()][0].TimeRange
+				second := received[unindexed.Key()][1].TimeRange
+				Expect(first.Span()).To(Equal(2 * telem.Nanosecond))
+				Expect(second).To(Equal(first.End.SpanRange(telem.Nanosecond)))
+			},
+		)
 	})
 })
 

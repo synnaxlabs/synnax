@@ -9,21 +9,24 @@
 
 import { type bounds, type Series, TimeStamp } from "@synnaxlabs/x";
 
+const INITIAL_SIZE = 16;
+
 /**
  * The stamps of the last writes to a channel with no index, one record per write. The
  * Core stamps a write's samples 1ns apart. At capacity the oldest write is forgotten.
  */
 export class Stamps {
-  private readonly starts: BigUint64Array;
-  private readonly ends: BigUint64Array;
-  private readonly stamps: BigInt64Array;
+  private starts: BigUint64Array;
+  private lengths: Uint32Array;
+  private stamps: BigInt64Array;
   private head = 0;
   private length = 0;
 
-  constructor(capacity: number) {
-    this.starts = new BigUint64Array(capacity);
-    this.ends = new BigUint64Array(capacity);
-    this.stamps = new BigInt64Array(capacity);
+  constructor(private readonly capacity: number) {
+    const size = Math.min(capacity, INITIAL_SIZE);
+    this.starts = new BigUint64Array(size);
+    this.lengths = new Uint32Array(size);
+    this.stamps = new BigInt64Array(size);
   }
 
   /**
@@ -32,17 +35,16 @@ export class Stamps {
    * records from there on.
    */
   record(series: Series): void {
-    if (series.length === 0 || series.timeRange.isZero) return;
-    const { lower, upper } = series.alignmentBounds;
+    const { length, alignment: lower } = series;
+    if (length === 0 || series.timeRange.isZero) return;
     while (this.length > 0 && this.startAt(this.length - 1) >= lower) this.length--;
-    const { capacity } = this;
-    if (this.length === capacity) {
-      this.head = (this.head + 1) % capacity;
+    if (this.length === this.capacity) {
+      this.head = (this.head + 1) % this.capacity;
       this.length--;
-    }
+    } else if (this.length === this.size) this.grow();
     const i = this.slot(this.length);
     this.starts[i] = lower;
-    this.ends[i] = upper;
+    this.lengths[i] = length;
     this.stamps[i] = series.timeRange.start.valueOf();
     this.length++;
   }
@@ -58,16 +60,31 @@ export class Stamps {
     }
     if (lo === 0) return null;
     const i = this.slot(lo - 1);
-    if (alignment >= this.ends[i]) return null;
-    return new TimeStamp(this.stamps[i] + (alignment - this.starts[i]));
+    const offset = alignment - this.starts[i];
+    if (offset >= BigInt(this.lengths[i])) return null;
+    return new TimeStamp(this.stamps[i] + offset);
   }
 
-  private get capacity(): number {
+  // The head only moves once the ring reaches capacity, so it is 0 here.
+  private grow(): void {
+    const size = Math.min(this.size * 2, this.capacity);
+    const starts = new BigUint64Array(size);
+    const lengths = new Uint32Array(size);
+    const stamps = new BigInt64Array(size);
+    starts.set(this.starts);
+    lengths.set(this.lengths);
+    stamps.set(this.stamps);
+    this.starts = starts;
+    this.lengths = lengths;
+    this.stamps = stamps;
+  }
+
+  private get size(): number {
     return this.starts.length;
   }
 
   private slot(i: number): number {
-    return (this.head + i) % this.capacity;
+    return (this.head + i) % this.size;
   }
 
   private startAt(i: number): bigint {
