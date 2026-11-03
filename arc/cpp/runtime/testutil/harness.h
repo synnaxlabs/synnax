@@ -173,6 +173,9 @@ public:
         this->clock.advance(this->sched->next(cycle));
     }
 
+    /// @brief the stamp the last tick ran with.
+    [[nodiscard]] x::telem::TimeStamp now() const { return this->cycle_now; }
+
     void ingest(const types::ChannelKey channel_key, x::telem::Series &&data) {
         data.alignment = this->alignment;
         this->alignment += x::telem::Alignment(data.size());

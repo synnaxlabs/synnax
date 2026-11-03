@@ -34,25 +34,34 @@ replace_all(std::string s, const std::string &from, const std::string &to) {
 struct ChannelSpec {
     std::string name;
     x::telem::DataType data_type;
+    /// @brief the declared name of the index channel; empty for a virtual channel.
+    std::string index;
+    bool is_index = false;
 };
 
 /// @brief the channels a test program runs against, created on the cluster under
-/// generated names so repeated runs never collide.
+/// generated names so repeated runs never collide. An index is declared before the
+/// channels it indexes.
 class Channels {
     std::unordered_map<std::string, synnax::channel::Channel> created;
 
+    [[nodiscard]] std::pair<synnax::channel::Channel, x::errors::Error>
+    create(const synnax::Synnax &client, const ChannelSpec &spec) const {
+        const auto name = make_unique_channel_name(spec.name);
+        if (spec.is_index) return client.channels.create(name, spec.data_type, 0, true);
+        if (spec.index.empty()) return client.channels.create(name, spec.data_type);
+        return client.channels.create(name, spec.data_type, this->key(spec.index));
+    }
+
 public:
     Channels(const synnax::Synnax &client, const std::vector<ChannelSpec> &specs) {
-        for (const auto &[name, data_type]: specs) {
-            auto [ch, err] = client.channels.create(
-                make_unique_channel_name(name),
-                data_type
-            );
+        for (const auto &spec: specs) {
+            auto [ch, err] = this->create(client, spec);
             if (err)
                 throw std::runtime_error(
-                    "Failed to create channel " + name + ": " + err.message()
+                    "Failed to create channel " + spec.name + ": " + err.message()
                 );
-            this->created.emplace(name, std::move(ch));
+            this->created.emplace(spec.name, std::move(ch));
         }
     }
 

@@ -63,6 +63,10 @@
           "parameters": { "rack_key": [65537, 65538] }
         },
         {
+          "case": "arc/stage_entry_samples",
+          "parameters": { "rack_key": [65537, 65538] }
+        },
+        {
           "case": "arc/stageless_workflow",
           "parameters": { "rack_key": [65537, 65538] }
         },

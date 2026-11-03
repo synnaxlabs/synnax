@@ -44,6 +44,33 @@ inline types::ChannelKey bound_key(
     return configured;
 }
 
+/// @brief returns the samples of s from index from to the end.
+inline ::x::telem::Series tail(const ::x::telem::Series &s, const size_t from) {
+    const auto n = s.size();
+    const auto dt = s.data_type();
+    if (dt.is_variable()) {
+        ::x::telem::Series out(dt, s.byte_size());
+        for (size_t j = from; j < n; j++)
+            out.write(s.at<std::string>(j));
+        return out;
+    }
+    ::x::telem::Series out(dt, n - from);
+    out.write(
+        reinterpret_cast<const uint8_t *>(s.data()) + from * dt.density(),
+        n - from
+    );
+    return out;
+}
+
+/// @brief returns the index of the first stamp in time at or after stamp, or
+/// time.size() when every stamp is earlier.
+inline size_t
+first_at_or_after(const ::x::telem::Series &time, const ::x::telem::TimeStamp stamp) {
+    for (size_t j = 0; j < time.size(); j++)
+        if (time.at<::x::telem::TimeStamp>(j) >= stamp) return j;
+    return time.size();
+}
+
 /// @brief Source node that reads from a channel and outputs the data.
 /// Tracks a high water mark to avoid duplicate processing of the same data.
 class On : public runtime::node::Node {
@@ -54,6 +81,9 @@ class On : public runtime::node::Node {
     /// alias-bound.
     size_t channel_idx;
     ::x::telem::Alignment high_water_mark{0};
+    /// @brief the cycle stamp of the last reset. Samples stamped earlier were taken
+    /// before the stage was entered and are dropped.
+    ::x::telem::TimeStamp entry_stamp{0};
 
     /// @brief re-points the source at key. A rebind is not a value:
     /// only values arriving afterward fire
@@ -120,11 +150,23 @@ public:
             } else if (time_series.alignment != ser.alignment)
                 return x::errors::NIL;
 
+            const size_t first = generate_synthetic
+                                   ? 0
+                                   : first_at_or_after(time_series, this->entry_stamp);
+            if (first == time_series.size()) {
+                this->high_water_mark = ::x::telem::Alignment(upper_val + 1);
+                continue;
+            }
+            auto out_data = first == 0 ? ser.deep_copy() : tail(ser, first);
+            auto out_time = first == 0 ? std::move(time_series)
+                                       : tail(time_series, first);
+            out_data.alignment = ::x::telem::Alignment(lower.uint64() + first);
+            out_time.alignment = out_data.alignment;
             this->state.output(0) = x::mem::make_local_shared<::x::telem::Series>(
-                ser.deep_copy()
+                std::move(out_data)
             );
             this->state.output_time(0) = x::mem::make_local_shared<::x::telem::Series>(
-                std::move(time_series)
+                std::move(out_time)
             );
             this->high_water_mark = ::x::telem::Alignment(upper_val + 1);
             this->state.emit(ctx.mark_changed, 0);
@@ -133,11 +175,12 @@ public:
         return x::errors::NIL;
     }
 
-    /// @brief advances the high water mark to the current channel alignment,
-    /// ensuring that when a stage is (re-)activated it only responds to
-    /// data that arrives after activation rather than stale pre-existing data.
+    /// @brief advances the high water mark to the current channel alignment and
+    /// the entry stamp to the current cycle, so a (re-)activated stage only responds
+    /// to samples taken and arriving after activation.
     void reset(runtime::node::Context &ctx) override {
         this->state.reset();
+        this->entry_stamp = ctx.cycle.now;
         if (const auto k = bound_key(this->state, this->channel_idx, this->key);
             k != this->curr_key) {
             this->rebind_to(k);
