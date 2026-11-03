@@ -214,22 +214,10 @@ func (c *column) appendNumber(n number) error {
 		c.data = order.AppendUint64(c.data, math.Float64bits(n.float()))
 	case telem.Float32T:
 		c.data = order.AppendUint32(c.data, math.Float32bits(float32(n.float())))
-	case telem.Int64T:
-		c.data = order.AppendUint64(c.data, uint64(convertNumber[int64](n)))
-	case telem.Int32T:
-		c.data = order.AppendUint32(c.data, uint32(convertNumber[int32](n)))
-	case telem.Int16T:
-		c.data = order.AppendUint16(c.data, uint16(convertNumber[int16](n)))
-	case telem.Int8T:
-		c.data = append(c.data, byte(convertNumber[int8](n)))
-	case telem.Uint64T:
-		c.data = order.AppendUint64(c.data, convertNumber[uint64](n))
-	case telem.Uint32T:
-		c.data = order.AppendUint32(c.data, convertNumber[uint32](n))
-	case telem.Uint16T:
-		c.data = order.AppendUint16(c.data, convertNumber[uint16](n))
-	case telem.Uint8T:
-		c.data = append(c.data, convertNumber[uint8](n))
+	case telem.Int64T, telem.Int32T, telem.Int16T, telem.Int8T,
+		telem.Uint64T, telem.Uint32T, telem.Uint16T, telem.Uint8T:
+		end := len(c.data) + c.density
+		c.data = order.AppendUint64(c.data, n.bits())[:end]
 	case telem.BooleanT:
 		var b byte
 		if n.float() != 0 {
