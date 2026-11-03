@@ -25,7 +25,6 @@ const propertiesZ = kafka.propertiesZ.extend({
 
 export interface Properties extends z.infer<typeof propertiesZ> {}
 
-export type SASL = kafka.SASL;
 export type SASLType = kafka.SASLType;
 
 export const ZERO_PROPERTIES: Properties = {
