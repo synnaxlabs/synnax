@@ -8,7 +8,7 @@
 // included in the file licenses/APL.txt.
 
 import { createSlice } from "@reduxjs/toolkit";
-import { describe, expect, it, vi } from "vitest";
+import { describe, expect, it, onTestFinished, vi } from "vitest";
 
 import { createMinimalStore } from "@/testutil";
 
@@ -26,7 +26,8 @@ describe("createMinimalStore", () => {
   it("should not warn when its state checks run slowly", () => {
     const store = createMinimalStore({ reducer: slice.reducer });
     let now = 0;
-    vi.spyOn(Date, "now").mockImplementation(() => (now += 40));
+    const clock = vi.spyOn(Date, "now").mockImplementation(() => (now += 40));
+    onTestFinished(() => clock.mockRestore());
     const warn = vi.spyOn(console, "warn");
     store.dispatch(slice.actions.increment());
     expect(warn).not.toHaveBeenCalled();
