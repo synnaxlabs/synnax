@@ -27,10 +27,20 @@ export const terminalOf = (model: Model, key: string): string => {
   return key;
 };
 
-/** Ports in sequence on one terminal prefix, such as FIO4 to FIO7. */
+/** The length of the model's longest terminal name, such as 6 for AIN127 on a T7. */
+export const maxTerminalChars = (model: Model): number =>
+  Math.max(
+    ...Object.values(PORTS[model]).flatMap((ports: Port[]) =>
+      ports.map((p) => terminal(p).length),
+    ),
+  );
+
+/** Ports in sequence on one terminal prefix and connector, such as FIO4 to FIO7. */
 export interface Bank {
-  /** The terminal prefix and the accessory the ports need, such as "AIN (MUX80)". */
+  /** The terminal prefix and the connector the ports need, such as "AIN (Mux80 X3)". */
   title: string;
+  /** The connector the ports need, such as "X3", or else the terminal prefix. */
+  name: string;
   ports: Port[];
 }
 
@@ -43,28 +53,36 @@ const split = (port: Port): [string, number] => {
   return [match[1], Number(match[2])];
 };
 
-/** Splits the ports into banks where the terminal prefix or the accessory changes. */
+const connectorOf = ({ connector }: Port): string | null =>
+  connector == null ? null : `${connector.accessory} ${connector.name}`;
+
+/** Splits the ports into banks where the terminal prefix or the connector changes. */
 export const banks = (ports: Port[]): Bank[] => {
   const result: Bank[] = [];
   for (const port of ports) {
     const [prefix] = split(port);
-    const { accessory } = port;
+    const connector = connectorOf(port);
     const bank = result.at(-1);
     const last = bank?.ports.at(-1);
     if (bank != null && last != null) {
       const [lastPrefix] = split(last);
-      if (lastPrefix === prefix && last.accessory === accessory) {
+      if (lastPrefix === prefix && connectorOf(last) === connector) {
         bank.ports.push(port);
         continue;
       }
     }
     result.push({
-      title: accessory == null ? prefix : `${prefix} (${accessory})`,
+      title: connector == null ? prefix : `${prefix} (${connector})`,
+      name: port.connector?.name ?? prefix,
       ports: [port],
     });
   }
   return result;
 };
+
+/** The numbers of the bank's first and last ports, such as "48–71". */
+export const numbers = ({ ports }: Bank): string =>
+  `${split(ports[0])[1]}–${split(ports[ports.length - 1])[1]}`;
 
 /** The channels on each terminal of the model. */
 export const claims = (channels: Channel[], model: Model): Task.Port.Claims =>
@@ -86,23 +104,19 @@ export interface GroupsProps {
 
 const WIDTH = 8;
 
-const GROUP = 16;
-
-/** Lays a bank out as the grid shows it: eight ports to a row, sixteen to a group. */
+/** Lays a bank out as the grid shows it: eight ports to a row. */
 export const groups = ({
   bank,
   claims,
   selected,
   describe,
 }: GroupsProps): Task.Port.Group[] => {
-  const result: Task.Port.Group[] = [];
-  for (let start = 0; start < bank.ports.length; start += GROUP) {
-    const chunk = bank.ports.slice(start, start + GROUP);
-    const width = Math.min(WIDTH, chunk.length);
-    result.push({
-      key: chunk[0].key,
+  const width = Math.min(WIDTH, bank.ports.length);
+  return [
+    {
+      key: bank.ports[0].key,
       columns: width,
-      cells: chunk.map((port, i) =>
+      cells: bank.ports.map((port, i) =>
         Task.Port.cell({
           key: port.key,
           labels: [String(split(port)[1])],
@@ -114,7 +128,6 @@ export const groups = ({
           describe,
         }),
       ),
-    });
-  }
-  return result;
+    },
+  ];
 };

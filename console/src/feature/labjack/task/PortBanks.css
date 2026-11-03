@@ -9,11 +9,13 @@
  * included in the file licenses/APL.txt.
  */
 
-.console-opc-connect {
-    width: 155rem;
-
-    /* Fits the longest label, so the column holds still as fields show and hide. */
-    .lyra-form-sections.lyra--direction-y {
-        grid-template-columns: minmax(18rem, max-content) minmax(0, 1fr);
-    }
+/* A column fits a full row of a bank: eight ports, as `groups` lays them out. */
+.console-labjack-port-banks {
+    display: grid;
+    grid-template-columns: repeat(
+        auto-fill,
+        calc(8 * var(--pluto-port-width) + 7 * var(--pluto-port-gap))
+    );
+    gap: 1.5rem 4rem;
+    align-items: start;
 }
