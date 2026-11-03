@@ -211,6 +211,7 @@ class Analog:
         """
         if value is None:
             return
+        value = console_label(value)
         trigger = self.layout.page.locator(
             f"button.lyra-dialog__trigger:has-text('{trigger_text}')"
         )

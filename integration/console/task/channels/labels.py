@@ -28,6 +28,7 @@ _LABELS = {
     "PoundsPerSquareInch": "PSI",
     "NewtonMeters": "Newton meters",
     "InchOunces": "Inch ounces",
+    "InchPounds": "Inch pounds",
     "FootPounds": "Foot pounds",
     "KilogramForce": "Kilograms",
     "DegC": "Celsius",
@@ -65,6 +66,7 @@ _LABELS = {
     "HalfBridgeI": "Half bridge I",
     "HalfBridgeII": "Half bridge II",
     "QuarterBridgeI": "Quarter bridge I",
+    "QuarterBridgeII": "Quarter bridge II",
 }
 
 

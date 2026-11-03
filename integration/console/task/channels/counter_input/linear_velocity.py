@@ -22,7 +22,7 @@ class LinearVelocity(Counter):
         port (int): Physical port number
         min_val (float): Minimum value
         max_val (float): Maximum value
-        units (str): "MetersPerSecond" or "InchesPerSecond"
+        units (str): "m/s" or "in/s"
         decoding_type (str): "X1", "X2", "X4", or "TwoPulse"
         dist_per_pulse (float): Distance per pulse
         terminal_a (str): Input Terminal A
