@@ -77,7 +77,7 @@ export const BankTabs = ({ ports, port, ...rest }: BankTabsProps): ReactElement 
     list[0];
   return (
     <Flex.Box y gap="small">
-      <Select.Buttons<string> size="small" value={bank.name} onChange={setViewed}>
+      <Select.Buttons<string> size="small" wrap value={bank.name} onChange={setViewed}>
         {list.map((b) => (
           <Select.Item<string> key={b.name} itemKey={b.name} size="small">
             {b.name}{" "}

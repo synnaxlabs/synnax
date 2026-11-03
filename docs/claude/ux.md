@@ -149,8 +149,8 @@ outlined button) has fill l2 and border l4, and its caret has the disabled text 
   wrap to one column in a narrow pane.
 - A port field that lists an accessory's ports, such as the 80 that a Mux80 adds to a
   LabJack T7, shows one bank at a time. A tab for each bank names its connector and its
-  port numbers ("X3 48–71"). The field opens on the bank of the channel's port, and the
-  Ports view shows every bank.
+  port numbers ("X3 48–71"). The tabs wrap to a second line in a narrow pane. The field
+  opens on the bank of the channel's port, and the Ports view shows every bank.
 
 ### Overflow
 

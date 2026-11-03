@@ -633,9 +633,9 @@ describe("Read ports", () => {
         within(g as HTMLElement).getAllByRole("button").length,
       ]);
     const x3 = bank("Analog inputs", "AIN48 to AIN71");
-    expect(layout(x3)).toEqual([["repeat(8, var(--pluto-port-cell))", 24]]);
+    expect(layout(x3)).toEqual([["repeat(8, var(--pluto-port-width))", 24]]);
     expect(layout(bank("Digital inputs", "MIO0 to MIO2"))).toEqual([
-      ["repeat(3, var(--pluto-port-cell))", 3],
+      ["repeat(3, var(--pluto-port-width))", 3],
     ]);
     const last = within(x3).getByRole("button", { name: "AIN71" });
     expect([last.style.gridRow, last.style.gridColumn]).toEqual(["3", "8"]);

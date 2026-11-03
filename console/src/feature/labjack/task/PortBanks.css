@@ -9,10 +9,13 @@
  * included in the file licenses/APL.txt.
  */
 
-/* A column fits the widest bank: eight 24px cells and the 3px gaps between them. */
+/* A column fits a full row of a bank: eight ports, as `groups` lays them out. */
 .console-labjack-port-banks {
     display: grid;
-    grid-template-columns: repeat(auto-fill, calc(8 * 24px + 7 * 3px));
+    grid-template-columns: repeat(
+        auto-fill,
+        calc(8 * var(--pluto-port-width) + 7 * var(--pluto-port-gap))
+    );
     gap: 1.5rem 4rem;
     align-items: start;
 }
