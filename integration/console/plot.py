@@ -17,6 +17,9 @@ from console.channels import ChannelClient
 from console.layout import LayoutClient
 from console.page import ConsolePage, PageType
 
+Axis = Literal["x1", "y1", "y2"]
+"""The keys of `sy.lineplot.AxisKey` that the Console toolbar offers."""
+
 # The middle of the range strip's first lane: 4 px of padding, then a 20 px lane.
 FIRST_LANE_CENTER = 14
 
@@ -41,9 +44,7 @@ class Plot(ConsolePage):
             layout=layout, client=client, page_name=page_name, pane_locator=pane_locator
         )
 
-    def add_channels(
-        self, axis: sy.lineplot.AxisKey, channels: str | list[str]
-    ) -> None:
+    def add_channels(self, axis: Axis, channels: str | list[str]) -> None:
         channels = [channels] if isinstance(channels, str) else channels
 
         data_tab = self.page.get_by_role("tab", name="Data", exact=True)
@@ -236,7 +237,7 @@ class Plot(ConsolePage):
         channel_name: str,
         *,
         channels: ChannelClient,
-        axis: sy.lineplot.AxisKey = "y1",
+        axis: Axis = "y1",
     ) -> None:
         """Drag a channel from the sidebar onto the toolbar data section.
 
@@ -373,7 +374,7 @@ class Plot(ConsolePage):
         else:
             toggle.not_to_have_class(pattern, timeout=timeout)
 
-    def has_channel(self, axis: sy.lineplot.AxisKey, channel_name: str) -> bool:
+    def has_channel(self, axis: Axis, channel_name: str) -> bool:
         """Check if a channel is shown on the specified axis in the toolbar."""
         self.layout.get_tab(self.page_name).click()
         self.layout.show_visualization_toolbar()
