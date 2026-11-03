@@ -203,6 +203,30 @@ describe("Browser search", () => {
     expect(screen.queryByText("TankPressure")).toBeNull();
   });
 
+  it("should load the children of a match that the filter shows in a closed folder", async () => {
+    const { client, scan } = await renderBrowser();
+    const valve = variable("Valve");
+    const opened = await answerNextCommand(client, scan, {
+      type: OPCUA.Task.BROWSE_COMMAND_TYPE,
+      data: { channels: [valve] },
+    });
+    fireEvent.click(screen.getByText("TankPressure"));
+    await opened.answered;
+    await screen.findByText("Valve");
+    fireEvent.click(screen.getByRole("treeitem", { name: /TankPressure/ }));
+    await waitFor(() => expect(screen.queryByText("Valve")).toBeNull());
+    fireEvent.change(screen.getByPlaceholderText("Filter, or enter a node ID"), {
+      target: { value: "valve" },
+    });
+    const children = await answerNextCommand(client, scan, {
+      type: OPCUA.Task.BROWSE_COMMAND_TYPE,
+      data: { channels: [variable("Position")] },
+    });
+    fireEvent.click(await screen.findByText("Valve"));
+    expect((await children.answered).args).toMatchObject({ nodeId: valve.nodeId });
+    await screen.findByText("Position");
+  });
+
   it("should explain why no loaded node matches", async () => {
     await renderBrowser();
     fireEvent.change(screen.getByPlaceholderText("Filter, or enter a node ID"), {

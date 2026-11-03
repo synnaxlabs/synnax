@@ -125,15 +125,20 @@ const browseNodes = async (
   return { ...browseResponseZ.parse(res.details?.data), warning };
 };
 
-/** @returns the nodes that match, or that hold a node that matches. */
+/**
+ * @returns the nodes that match with all their loaded children, and the nodes that hold
+ * a node that matches. Adds the key of each node that holds a match to holders.
+ */
 const filterNodes = (
   nodes: Tree.Node[],
   matches: (key: string) => boolean,
+  holders: string[],
 ): Tree.Node[] =>
   nodes.flatMap((node) => {
-    const children = filterNodes(node.children ?? [], matches);
-    if (children.length === 0 && !matches(node.key)) return [];
-    return [{ ...node, children }];
+    const children = filterNodes(node.children ?? [], matches, holders);
+    if (children.length > 0) holders.push(node.key);
+    if (matches(node.key)) return [node];
+    return children.length === 0 ? [] : [{ ...node, children }];
   });
 
 // A typed value with '=' names a node ID, such as ns=2;s=Tank1 or i=2258.
@@ -231,7 +236,7 @@ export const Browser = ({ device }: BrowserProps) => {
     onExpand: expand,
     onSelectedChange: () => setLookup(null),
   });
-  const { shape, clearExpanded, selected } = treeProps;
+  const { shape, clearExpanded, selected, expanded } = treeProps;
   const selectedKey = selected.at(-1);
   const selectedNode =
     selectedKey == null ? undefined : opcNodesStore.getItem(selectedKey);
@@ -261,11 +266,13 @@ export const Browser = ({ device }: BrowserProps) => {
   let visibleShape = shape;
   let unmatched = false;
   if (search !== "") {
-    const filtered = filterNodes(treeNodes, matches);
+    const holders: string[] = [];
+    const filtered = filterNodes(treeNodes, matches, holders);
     unmatched = filtered.length === 0;
+    // A node that holds a match stays open. The others open as the user sets them.
     visibleShape = Tree.flatten({
       nodes: filtered,
-      expanded: Tree.getDescendants(...filtered).map(({ key }) => key),
+      expanded: [...holders, ...expanded],
     });
   }
   const handleSearchKeyDown = (e: KeyboardEvent<HTMLInputElement>) => {
