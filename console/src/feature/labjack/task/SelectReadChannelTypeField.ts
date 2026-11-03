@@ -35,7 +35,6 @@ export const READ_CHANNEL_TYPE_ITEMS: Record<Model, ReactElement[]> = {
 };
 
 export const SelectReadChannelTypeField = Form.buildSelectField<ReadChannelType>({
-  fieldKey: "type",
   fieldProps: { label: "Channel type" },
   inputProps: {
     allowNone: false,

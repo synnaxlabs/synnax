@@ -10,12 +10,15 @@
 import { Component } from "@synnaxlabs/lyra/component";
 import { Form } from "@synnaxlabs/lyra/form";
 import { Select } from "@synnaxlabs/lyra/select";
+import { deep } from "@synnaxlabs/x";
 import { act, fireEvent, screen, waitFor } from "@testing-library/react";
 import { type ReactNode } from "react";
 import { describe, expect, it, vi } from "vitest";
 
 import { Task } from "@/platform/task";
 import { renderInTaskForm } from "@/platform/task/testutil";
+
+const path = deep.path<{ config: { channels: Task.Channel[] } }>();
 
 const resolve = () => null;
 
@@ -44,13 +47,13 @@ const Harness = ({
   allowTare,
   ports,
 }: HarnessProps) => {
-  const { data, remove } = Form.useFieldList<string, Task.Channel>("config.channels");
+  const { data, remove } = Form.useFieldList(path.config.channels);
   return (
     <Task.ChannelList<Task.Channel>
       resolve={resolve}
       data={data}
       remove={remove}
-      path="config.channels"
+      path={path.config.channels}
       header={<div>My Header</div>}
       emptyContent={<div>Nothing here</div>}
       listItem={listItem}
@@ -109,7 +112,7 @@ describe("ChannelList", () => {
   it("should show the list's error under the list", async () => {
     const { form } = await renderInTaskForm(<Harness />, { values: twoChannels });
     act(() =>
-      form.current?.setStatus("config.channels", {
+      form.current?.setStatus(path.config.channels, {
         key: "config.channels",
         variant: "error",
         message: "List error",
@@ -131,7 +134,7 @@ describe("ChannelList", () => {
       fireEvent.contextMenu(await screen.findByText("item-a"));
       fireEvent.click(await screen.findByText("Disable"));
       await waitFor(() =>
-        expect(form.current?.get("config.channels.a.disabled").value).toBe(true),
+        expect(form.current?.get(path.config.channels.a.disabled).value).toBe(true),
       );
     });
 
@@ -140,7 +143,7 @@ describe("ChannelList", () => {
       fireEvent.contextMenu(await screen.findByText("item-b"));
       fireEvent.click(await screen.findByText("Enable"));
       await waitFor(() =>
-        expect(form.current?.get("config.channels.b.disabled").value).toBe(false),
+        expect(form.current?.get(path.config.channels.b.disabled).value).toBe(false),
       );
     });
 
@@ -152,7 +155,7 @@ describe("ChannelList", () => {
       fireEvent.contextMenu(await screen.findByText("item-a"));
       fireEvent.click(await screen.findByText("Remove"));
       await waitFor(() =>
-        expect(form.current?.get("config.channels").value).toEqual([CHANNEL_B]),
+        expect(form.current?.get(path.config.channels).value).toEqual([CHANNEL_B]),
       );
       expect(onSelect).toHaveBeenCalledWith(["b"]);
     });
@@ -210,7 +213,7 @@ describe("ChannelList", () => {
       fireEvent.contextMenu(await screen.findByRole("button", { name: "ai0" }));
       fireEvent.click(await screen.findByText("Remove"));
       await waitFor(() =>
-        expect(form.current?.get("config.channels").value).toEqual([CHANNEL_B]),
+        expect(form.current?.get(path.config.channels).value).toEqual([CHANNEL_B]),
       );
     });
 

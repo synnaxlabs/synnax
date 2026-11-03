@@ -9,7 +9,7 @@
 
 import re
 from collections.abc import Sequence
-from typing import Final, Literal, TypeAlias, get_args
+from typing import Final, Literal, TypeAlias, get_args, override
 
 from synnax import device, task
 from synnax.labjack.types_gen import (
@@ -101,6 +101,7 @@ class ReadTask(
         )
         task.assign_keys(self.config.channels)
 
+    @override
     def update_device_properties(self, device_client: device.Client) -> device.Device:
         """Update device properties before task configuration."""
         dev = device_client.retrieve(key=self.config.device)
@@ -160,6 +161,7 @@ class WriteTask(
         )
         task.assign_keys(self.config.channels)
 
+    @override
     def update_device_properties(self, device_client: device.Client) -> device.Device:
         """Update device properties before task configuration."""
         dev = device_client.retrieve(key=self.config.device)
