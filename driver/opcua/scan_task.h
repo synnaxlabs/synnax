@@ -56,6 +56,7 @@ struct ScanCommandArgs {
 
 const std::string BROWSE_CMD_TYPE = "browse";
 const std::string TEST_CONNECTION_CMD_TYPE = "test_connection";
+const std::string GET_ENDPOINTS_CMD_TYPE = "get_endpoints";
 const std::string GET_CERTIFICATE_CMD_TYPE = "get_certificate";
 const std::string REGENERATE_CERTIFICATE_CMD_TYPE = "regenerate_certificate";
 /// @brief how often the Scanner offers the next Driver certificate to each server.
@@ -116,6 +117,10 @@ private:
     /// @brief Test connection to an OPC UA server. Never trusts a server certificate
     /// that the configuration does not name.
     void test_connection(const synnax::task::Command &cmd) const;
+
+    /// @brief replies with the endpoints of the server that the command's connection
+    /// names.
+    void endpoints(const synnax::task::Command &cmd) const;
 
     /// @brief replies with the current and next Driver certificates, replacing both
     /// first when regenerate is true.
