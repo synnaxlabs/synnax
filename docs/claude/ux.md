@@ -111,6 +111,8 @@ outlined button) has fill l2 and border l4, and its caret has the disabled text 
   edge holds only Back, a mode switch ("Create more"), or a status summary.
 - Esc closes the modal from any field. Validation never changes the status of the
   primary button; errors show at their fields.
+- Every step of the device connect flow is 930 px (155 rem) wide
+  (`PlatformDevice.ConnectFrame`), so the modal keeps its size between steps.
 - A confirmation is narrow. Its title names the action and the object ("Delete
   channel"), its body states the result once, and its button is the verb ("Delete").
 
@@ -130,6 +132,16 @@ outlined button) has fill l2 and border l4, and its caret has the disabled text 
   changes with state: "Index channel", not "Is index".
 - An error message is a sentence about its field ("Name is required"), never a raw
   schema message.
+- Fields that belong together share a row: host and port, username and password, the
+  timing settings. A row is a `Flex.Box x` of two or three fields in a stacked
+  `Form.Sections`. Its first label stays in the label column, and its later fields line
+  up with the later fields of every other row.
+- A row never starts with a checkbox. In a row of three, the later two fields are short:
+  a number or a duration. Wide later fields squeeze the first control.
+- A number or a duration field is 144 px (24 rem) wide wherever it sits. A form can set
+  another width when its values need one.
+- A dialog shows its settings in sections, not tabs, while they fit with no scroll. The
+  Modbus connect dialog has no tabs.
 - A field in a row, or beside another field, has no help text. Its control shows the
   error, and the message shows on hover. A control with a border gets a red border. A
   control with no border, such as a text select or a button group, gets red text.
