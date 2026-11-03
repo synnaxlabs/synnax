@@ -8,7 +8,7 @@
 // included in the file licenses/APL.txt.
 
 import { query, view } from "@synnaxlabs/client";
-import { verbs } from "@synnaxlabs/x";
+import { deep, verbs } from "@synnaxlabs/x";
 import { useEffect } from "react";
 import { z } from "zod";
 
@@ -52,6 +52,8 @@ export const formSchema = z.discriminatedUnion("type", [
   view.rangeViewZ.partial({ key: true }),
   view.statusViewZ.partial({ key: true }),
 ]);
+
+export const formPath = deep.path<z.infer<typeof formSchema>>();
 
 const ZERO_VALUES: z.infer<typeof formSchema> = {
   name: "",

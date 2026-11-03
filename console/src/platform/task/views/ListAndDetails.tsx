@@ -9,6 +9,7 @@
 
 import { type Component } from "@synnaxlabs/lyra/component";
 import { Flex } from "@synnaxlabs/lyra/flex";
+import { type deep } from "@synnaxlabs/x";
 import { useState } from "react";
 
 import { CSS } from "@/platform/css";
@@ -21,20 +22,20 @@ export interface CreateChannel<C extends Channel> {
   (channels: C[], channelKeyToCopy?: string): C | null;
 }
 
-export interface DetailsProps {
-  path: string;
+export interface DetailsProps<C extends Channel> {
+  path: deep.Path<C>;
 }
 
 export interface ListAndDetailsProps<C extends Channel> extends Pick<
   ChannelListProps<C>,
-  "onTare" | "allowTare" | "listItem" | "contextMenuItems" | "resolve"
+  "onTare" | "allowTare" | "listItem" | "contextMenuItems" | "path" | "resolve"
 > {
-  details: Component.RenderProp<DetailsProps>;
+  details: Component.RenderProp<DetailsProps<C>>;
   /** Names the selected channel in the details header, typically by its port. */
-  detailsTitle?: Component.RenderProp<DetailsProps>;
+  detailsTitle?: Component.RenderProp<DetailsProps<C>>;
   createChannel: CreateChannel<C>;
   /** The channels by port. A "List" and "Ports" switch in the header shows it. */
-  ports?: Component.RenderProp<PortsProps>;
+  ports?: Component.RenderProp<PortsProps<C>>;
 }
 
 export const ListAndDetails = <C extends Channel>({
@@ -44,6 +45,7 @@ export const ListAndDetails = <C extends Channel>({
   ports,
   ...rest
 }: ListAndDetailsProps<C>) => {
+  const { path } = rest;
   const [selected, setSelected] = useState<string[]>([]);
   const [view, setView] = useState<View>("list");
   const handleCreateChannel = (channels: C[]) => createChannel(channels, selected[0]);
@@ -55,7 +57,7 @@ export const ListAndDetails = <C extends Channel>({
     });
     return newlyMade;
   };
-  const detailsPath = selected.length > 0 ? `config.channels.${selected[0]}` : null;
+  const detailsPath = selected.length > 0 ? path[selected[0]] : null;
   return (
     <Panes
       listTitle="Channels"
@@ -69,7 +71,7 @@ export const ListAndDetails = <C extends Channel>({
           header={null}
           ports={
             ports != null && view === "ports"
-              ? ports({ selected, onSelect: setSelected })
+              ? ports({ path, selected, onSelect: setSelected })
               : undefined
           }
           selected={selected}

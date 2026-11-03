@@ -10,15 +10,17 @@
 import { Component } from "@synnaxlabs/lyra/component";
 import { Form } from "@synnaxlabs/lyra/form";
 import { Select } from "@synnaxlabs/lyra/select";
-import { type text } from "@synnaxlabs/x";
+import { deep, type text } from "@synnaxlabs/x";
 import { type ReactElement } from "react";
 
 import { LEVEL_SIZES, SIZE_LEVELS } from "@/schematic/node/common/size";
 
+const path = deep.path<{ size: Component.Size; level: text.Level }>();
+
 export const SizeField = (
   props: Partial<Form.FieldProps<Component.Size>>,
 ): ReactElement => (
-  <Form.Field<Component.Size> path="size" label="Size" padHelpText={false} {...props}>
+  <Form.Field path={path.size} label="Size" padHelpText={false} {...props}>
     {selectSize}
   </Form.Field>
 );
@@ -29,7 +31,7 @@ const selectSize = Component.renderProp(Select.Component.Size);
 export const LevelSizeField = (
   props: Partial<Form.FieldProps<text.Level>>,
 ): ReactElement => (
-  <Form.Field<text.Level> path="level" label="Size" padHelpText={false} {...props}>
+  <Form.Field path={path.level} label="Size" padHelpText={false} {...props}>
     {selectLevelSize}
   </Form.Field>
 );
