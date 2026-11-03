@@ -908,6 +908,90 @@ var _ = Describe("Read task", func() {
 			To(Equal(`{"a":{"b":7.5}}`))
 	})
 
+	// startSingle starts a task reading /v of each record into a channel of dt, and
+	// produces body.
+	startSingle := func(
+		ctx context.Context,
+		dt telem.DataType,
+		body string,
+	) (data channel.Channel, t task.Task) {
+		GinkgoHelper()
+		var index channel.Channel
+		index, data = createIndexed(ctx, dt)
+		dev := createDevice(ctx, clusterProperties())
+		topic := newTopic()
+		fields := stampedFields(index, data)
+		fields[1].DataType = dt
+		var dtask driver.Task
+		dtask, t = configure(ctx, kafka.ReadConfig{
+			Device:  dev.Key,
+			Topic:   topic,
+			Records: single(fields),
+		})
+		start(ctx, dtask, t)
+		rec := &kgo.Record{Topic: topic, Value: []byte(body)}
+		Expect(producer.ProduceSync(ctx, rec).FirstErr()).To(Succeed())
+		return data, t
+	}
+
+	DescribeTable("Should store a JSON value as the record spells it",
+		func(ctx SpecContext, value, expected string) {
+			data, _ := startSingle(ctx, telem.JSONT, `{"ts":10e9,"v":`+value+`}`)
+			Expect(string(expectStored(ctx, data.Key(), 1).At(0))).To(Equal(expected))
+		},
+		Entry("a fraction with a trailing zero", `1.0`, `1.0`),
+		Entry("a number past the range of a float", `1e999`, `1e999`),
+		Entry("members out of order", `{"z":1,"a":2}`, `{"z":1,"a":2}`),
+		Entry("spaces inside a value", `{ "a" : [ 1 , 2 ] }`, `{"a":[1,2]}`),
+	)
+
+	It("Should skip a number past the range of a numeric channel",
+		func(ctx SpecContext) {
+			_, t := startSingle(ctx, telem.Float64T, `{"ts":10e9,"v":1e999}`)
+			Eventually(func() string { return taskStatus(ctx, t).Description }).
+				WithTimeout(15 * time.Second).
+				Should(ContainSubstring("Value at /v: "))
+			Expect(
+				taskStatus(ctx, t).Description,
+			).To(ContainSubstring("invalid number"))
+		},
+	)
+
+	DescribeTable(
+		"Should encode a number in an integer channel",
+		func(
+			ctx SpecContext,
+			dt telem.DataType,
+			value string,
+			expected telem.Series,
+		) {
+			body := `{"ts":10e9,"v":` + value + `}`
+			data, _ := startSingle(ctx, dt, body)
+			Expect(expectStored(ctx, data.Key(), 1).Data).To(Equal(expected.Data))
+		},
+		Entry("a negative int8", telem.Int8T, `-2`, telem.NewSeriesV[int8](-2)),
+		Entry("a negative int16", telem.Int16T, `-300`, telem.NewSeriesV[int16](-300)),
+		Entry(
+			"a negative int32",
+			telem.Int32T,
+			`-70000`,
+			telem.NewSeriesV[int32](-70000),
+		),
+		Entry("a negative int64", telem.Int64T, `-5000000000`,
+			telem.NewSeriesV[int64](-5000000000)),
+		Entry("the largest uint8", telem.Uint8T, `255`, telem.NewSeriesV[uint8](255)),
+		Entry("the largest uint16", telem.Uint16T, `65535`,
+			telem.NewSeriesV[uint16](65535)),
+		Entry("the largest uint32", telem.Uint32T, `4294967295`,
+			telem.NewSeriesV[uint32](4294967295)),
+		Entry("the largest uint64", telem.Uint64T, `18446744073709551615`,
+			telem.NewSeriesV[uint64](18446744073709551615)),
+		Entry("a negative whole float", telem.Int16T, `-3.0`,
+			telem.NewSeriesV[int16](-3)),
+		Entry("a float past the range of an int64", telem.Uint64T, `1e19`,
+			telem.NewSeriesV[uint64](10000000000000000000)),
+	)
+
 	It("Should skip a JSON value that repeats a member", func(ctx SpecContext) {
 		index, data := createIndexed(ctx, telem.JSONT)
 		dev := createDevice(ctx, clusterProperties())

@@ -80,15 +80,19 @@ func (n number) appendText(dst []byte) []byte {
 
 func (n number) String() string { return string(n.appendText(nil)) }
 
-// convertNumber converts n with Go conversion semantics, so check fits first.
-func convertNumber[T telem.NumericSample](n number) T {
+// bits returns n as a two's complement integer. Its low bytes are the encoding of n in
+// any integer type n fits in, so check fits first.
+func (n number) bits() uint64 {
 	switch n.kind {
 	case intNumber:
-		return T(n.i)
+		return uint64(n.i)
 	case uintNumber:
-		return T(n.u)
+		return n.u
 	default:
-		return T(n.f)
+		if n.f < 0 {
+			return uint64(int64(n.f))
+		}
+		return uint64(n.f)
 	}
 }
 
@@ -120,10 +124,8 @@ func numericTimestamp(n number, format http.TimeFormat) (telem.TimeStamp, error)
 		}
 		return telem.TimeStamp(n.i) * telem.TimeStamp(unit), nil
 	case uintNumber:
-		if n.u > math.MaxInt64/uint64(unit) {
-			return 0, timestampOutOfRange(n, format)
-		}
-		return telem.TimeStamp(n.u) * telem.TimeStamp(unit), nil
+		// parseNumber only returns one past the range of an int64.
+		return 0, timestampOutOfRange(n, format)
 	default:
 		// math.MaxInt64 rounds up to 2^63 as a float64, so the bound is exclusive.
 		ns := n.f * float64(unit)
