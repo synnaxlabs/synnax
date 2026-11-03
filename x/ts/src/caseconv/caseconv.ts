@@ -428,7 +428,7 @@ const createPathConverter =
       if (keysKept) s = getRecordValueSchema(s);
       else {
         const shape = getSchemaShape(s);
-        s = shape != null ? (shape[seg] ?? shape[next]) : undefined;
+        s = shape != null ? (shape[seg] ?? shape[next]) : getRecordValueSchema(s);
       }
       const obj = narrow.isObject(d) ? d : undefined;
       d = obj?.[seg] ?? obj?.[next];
@@ -450,12 +450,8 @@ const convertChild = <V>(
   if (!Array.isArray(value)) return value;
   const encode = encodes ? getEncoder(schema) : undefined;
   if (encode != null) return encode(value) as V;
-  const opt: Options = { schema: getArrayElementSchema(schema) };
-  return value.map((v: unknown) => {
-    if (isValidObject(v)) return isPreservedType(v) ? v : converter(v, opt);
-    if (Array.isArray(v)) return converter({ key: v }, opt).key;
-    return v;
-  }) as V;
+  const element = getArrayElementSchema(schema);
+  return value.map((v: unknown) => convertChild(v, element, converter, encodes)) as V;
 };
 
 /**

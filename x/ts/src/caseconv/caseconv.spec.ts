@@ -364,6 +364,23 @@ describe("caseconv", () => {
       expect(convert([1, 2])).toEqual("1:2");
     });
 
+    it("Should encode each marked value of a list at the end of a path", () => {
+      const { convert } = caseconv.camelToSnakePath(["pairList"], { schema });
+      expect(
+        convert([
+          [1, 2],
+          [3, 4],
+        ]),
+      ).toEqual(["1:2", "3:4"]);
+    });
+
+    it("Should encode a marked value at a path into a record", () => {
+      const { convert } = caseconv.camelToSnakePath(["pairs", "first"], {
+        schema: z.object({ pairs: z.record(z.string(), pairZ) }),
+      });
+      expect(convert([1, 2])).toEqual("1:2");
+    });
+
     it("Should leave a marked value at the end of a camel case path", () => {
       const { convert } = caseconv.snakeToCamelPath(["nested", "inner_pair"], {
         schema,
