@@ -9,7 +9,7 @@
 
 import { type ranger } from "@synnaxlabs/client";
 import { theme } from "@synnaxlabs/lyra/theme";
-import { box, color, location, xy } from "@synnaxlabs/x";
+import { type bounds, box, color, location, xy } from "@synnaxlabs/x";
 
 import { legible, over, withLightness } from "@/lineplot/range/aether/legible";
 import { type Draw2D } from "@/vis/draw2d";
@@ -100,8 +100,8 @@ export interface Layout {
 }
 
 /**
- * Places each range in the first lane that is free at its start, longer ranges first,
- * so a parent sits above its children. Lanes pack in time, so a zoom never moves a
+ * Places each range in the first lane that is free at its start and below every range
+ * that holds it, so a parent sits above its children. Lanes pack in time, so a zoom never moves a
  * range to another lane. Ranges past the last thin lane share it. Ranges with no color
  * get no bar.
  * @param position - Maps a timestamp in nanoseconds to a canvas x position.
@@ -137,12 +137,15 @@ export const layout = (
     ];
   });
   bars.sort((a, b) => a.start - b.start || span(b) - span(a));
-  const ends: number[] = [];
+  // The time bounds of the last range in each lane.
+  const last: bounds.Bounds[] = [];
   bars.forEach((bar, i) => {
-    const { start, end } = bar.range.timeRange;
-    let lane = ends.findIndex((e) => e <= Number(start.valueOf()));
-    if (lane === -1) lane = ends.length;
-    ends[lane] = Number(end.valueOf());
+    const lower = Number(bar.range.timeRange.start.valueOf());
+    const upper = Number(bar.range.timeRange.end.valueOf());
+    const below = last.findLastIndex((l) => l.lower <= lower && l.upper >= upper) + 1;
+    let lane = last.findIndex((l, j) => j >= below && l.upper <= lower);
+    if (lane === -1) lane = last.length;
+    last[lane] = { lower, upper };
     bar.lane = Math.min(lane, NAMED_LANES + THIN_LANES - 1);
     for (let j = i + 1; j < bars.length && bars[j].start <= bar.end; j++)
       if (bars[j].end <= bar.end && span(bars[j]) < span(bar)) {
@@ -150,7 +153,7 @@ export const layout = (
         break;
       }
   });
-  return { bars, lanes: Math.min(ends.length, NAMED_LANES + THIN_LANES) };
+  return { bars, lanes: Math.min(last.length, NAMED_LANES + THIN_LANES) };
 };
 
 const barBox = (bar: Bar, region: box.Box, lanes: number): box.Box => {

@@ -221,6 +221,31 @@ describe("Provider", () => {
     }
   });
 
+  it("keeps a range below the range that holds it", async () => {
+    const start = TimeStamp.now().add(TimeSpan.days(11315));
+    const ranges = await createRanges(start, [
+      [0, 5],
+      [2, 30],
+      [5, 10],
+    ]);
+    try {
+      const provider = mount();
+      const props = renderProps(new TimeRange(start, start.add(TimeSpan.seconds(30))));
+      await expect
+        .poll(() => {
+          provider.render(props);
+          return provider.state.height;
+        })
+        .toEqual(72);
+      // The 5 to 10 second range holds the third lane, from 24 to 4 px above the plot.
+      provider.setState((s) => ({ ...s, cursor: { x: 250, y: -14 } }));
+      provider.render(props);
+      expect(provider.state.hovered?.key).toEqual(ranges[2].key);
+    } finally {
+      await createTestClient().ranges.delete(ranges.map((r) => r.key));
+    }
+  });
+
   it("draws ranges past the third lane in thin lanes", async () => {
     const start = TimeStamp.now().add(TimeSpan.days(12775));
     const ranges = await createRanges(start, [
