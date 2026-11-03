@@ -459,8 +459,14 @@ const ByteOrderField = (): ReactElement => {
 
 const SelectTransport = (props: Select.ButtonsProps<Transport>) => (
   <Select.Buttons<Transport> {...props}>
-    <Select.Item<Transport> itemKey="tcp">TCP</Select.Item>
-    <Select.Item<Transport> itemKey="rtu">Serial</Select.Item>
+    <Select.Item<Transport> itemKey="tcp">
+      <Icon.Network />
+      TCP
+    </Select.Item>
+    <Select.Item<Transport> itemKey="rtu">
+      <Icon.Serial />
+      Serial
+    </Select.Item>
   </Select.Buttons>
 );
 
