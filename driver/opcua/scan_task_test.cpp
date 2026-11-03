@@ -956,7 +956,8 @@ synnax::task::Status browse_node(
     return ctx->statuses.back();
 }
 
-/// @brief starts a server that holds a TestMotor node, of the Motor structure type.
+/// @brief starts a server that holds a TestMotor node, of the Motor structure type, and
+/// a TestSensor node, whose structure holds an array.
 std::unique_ptr<testutil::Server> start_motor_server() {
     auto cfg = testutil::ServerConfig::create_default();
     cfg.port = 4881;
@@ -965,6 +966,7 @@ std::unique_ptr<testutil::Server> start_motor_server() {
         .running = true,
         .position = {.x = 1.5F, .y = 2.5F},
     };
+    cfg.sensor = std::vector<UA_Double>{1.5, 2.5};
     auto server = std::make_unique<testutil::Server>(cfg);
     server->start();
     EXPECT_TRUE(server->wait_until_ready());
@@ -1008,6 +1010,30 @@ TEST_F(TestScanTask, testBrowsesNestedMembers) {
     EXPECT_EQ(channels[0]["field"], "Position.X");
     EXPECT_EQ(channels[0]["data_type"], "float32");
     EXPECT_EQ(channels[1]["field"], "Position.Y");
+    motor_server->stop();
+}
+
+/// @brief it should list a member that holds an array, and no members of it.
+TEST_F(TestScanTask, testBrowsesArrayMember) {
+    const auto motor_server = start_motor_server();
+    const auto
+        sensor = browse_node(ctx, task, conn_pool, store, "NS=1;S=TestSensor", "");
+    ASSERT_EQ(sensor.variant, synnax::status::VARIANT_SUCCESS) << sensor.description;
+    const auto &members = sensor.details.data.value().at("channels");
+    ASSERT_EQ(members.size(), 1);
+    EXPECT_EQ(members[0]["field"], "Readings");
+    EXPECT_TRUE(members[0]["is_array"].get<bool>());
+    const auto readings = browse_node(
+        ctx,
+        task,
+        conn_pool,
+        store,
+        "NS=1;S=TestSensor",
+        "Readings"
+    );
+    ASSERT_EQ(readings.variant, synnax::status::VARIANT_SUCCESS)
+        << readings.description;
+    EXPECT_TRUE(readings.details.data.value().at("channels").empty());
     motor_server->stop();
 }
 
@@ -1372,6 +1398,28 @@ TEST_F(TestScanTask, testReadNodeStructure) {
     EXPECT_EQ(y["node"]["name"], "Y");
     EXPECT_EQ(y["node"]["field"], "Position.Y");
     EXPECT_EQ(y["node"]["data_type"], "float32");
+    motor_server->stop();
+}
+
+/// @brief it should read a member that holds an array, with its elements.
+TEST_F(TestScanTask, testReadNodeArrayMember) {
+    const auto motor_server = start_motor_server();
+    const auto status = run_command(
+        ctx,
+        task,
+        conn_pool,
+        store,
+        READ_NODE_CMD_TYPE,
+        4881,
+        {{"node_id", "NS=1;S=TestSensor"}, {"field", "Readings"}}
+    );
+    ASSERT_EQ(status.variant, synnax::status::VARIANT_SUCCESS) << status.description;
+    const x::json::json readings = status.details.data.value();
+    EXPECT_EQ(readings["type_name"], "Double");
+    EXPECT_EQ(readings["value"], "[1.5, 2.5]");
+    EXPECT_EQ(readings["node"]["field"], "Readings");
+    EXPECT_EQ(readings["node"]["data_type"], "float64");
+    EXPECT_TRUE(readings["node"]["is_array"].get<bool>());
     motor_server->stop();
 }
 

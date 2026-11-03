@@ -61,6 +61,8 @@ class Field {
     const UA_DataType *root = nullptr;
     std::vector<Step> steps;
     const UA_DataType *member = nullptr;
+    /// @brief whether the member holds an array of its type.
+    bool array = false;
 
 public:
     /// @returns the data type of the member.
@@ -90,6 +92,11 @@ class Types {
     std::vector<std::pair<types::NodeId, std::string>> failures;
 
     [[nodiscard]] const UA_DataTypeArray *head() const;
+
+    /// @returns the member at path, as field does, except that the last member of path
+    /// can be an array.
+    [[nodiscard]] std::pair<Field, x::errors::Error>
+    locate(const UA_NodeId &data_type, const Path &path) const;
 
     /// @returns the member at field of a structure that decode returned, borrowed from
     /// it.
@@ -121,6 +128,12 @@ public:
     /// exist or is an array.
     [[nodiscard]] std::pair<Field, x::errors::Error>
     field(const UA_NodeId &data_type, const Path &path) const;
+
+    /// @returns the member at path in values of the data type, which can be an array,
+    /// unlike that of field. An empty path names the whole value.
+    /// @returns the errors of field, but for an array.
+    [[nodiscard]] std::pair<Member, x::errors::Error>
+    describe(const UA_NodeId &data_type, const Path &path) const;
 
     /// @returns the structure in value, decoded when the client could not decode it.
     /// The result borrows from value when the client decoded it.

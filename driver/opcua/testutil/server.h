@@ -133,6 +133,13 @@ struct Motor {
     Point position;
 };
 
+/// @brief a value of the Sensor structure type of the mock server, whose member is an
+/// array.
+struct Sensor {
+    std::size_t readings_size;
+    UA_Double *readings;
+};
+
 /// @brief a value of the Hidden structure type of the mock server, which has no
 /// DataType node.
 struct Hidden {
@@ -156,6 +163,8 @@ constexpr UA_UInt32 HIDDEN_ENCODING_ID = 4247;
 constexpr UA_UInt32 BROKEN_TYPE_ID = 4248;
 constexpr UA_UInt32 BROKEN_ENCODING_ID = 4249;
 constexpr UA_UInt32 OPAQUE_TYPE_ID = 4250;
+constexpr UA_UInt32 SENSOR_TYPE_ID = 4251;
+constexpr UA_UInt32 SENSOR_ENCODING_ID = 4252;
 
 /// @brief the open62541 descriptions of the structure types. Types point at the types
 /// of their members, so the descriptions never move.
@@ -164,7 +173,8 @@ class StructureTypes {
     std::array<UA_DataTypeMember, 3> motor_members{};
     std::array<UA_DataTypeMember, 1> hidden_members{};
     std::array<UA_DataTypeMember, 1> broken_members{};
-    std::array<UA_DataType, 4> types{};
+    std::array<UA_DataTypeMember, 1> sensor_members{};
+    std::array<UA_DataType, 5> types{};
 
     static void set_member(
         UA_DataTypeMember &m,
@@ -262,6 +272,18 @@ public:
             this->broken_members.data(),
             this->broken_members.size()
         );
+        set_member(this->sensor_members[0], "Readings", &UA_TYPES[UA_TYPES_DOUBLE], 0);
+        this->sensor_members[0].isArray = true;
+        set_type(
+            this->types[4],
+            "Sensor",
+            SENSOR_TYPE_ID,
+            SENSOR_ENCODING_ID,
+            sizeof(Sensor),
+            this->sensor_members.data(),
+            this->sensor_members.size()
+        );
+        this->types[4].pointerFree = false;
         this->array = {
             .next = nullptr,
             .typesSize = this->types.size(),
@@ -279,6 +301,7 @@ public:
     [[nodiscard]] const UA_DataType &point() const { return this->types[0]; }
     [[nodiscard]] const UA_DataType &motor() const { return this->types[1]; }
     [[nodiscard]] const UA_DataType &broken() const { return this->types[3]; }
+    [[nodiscard]] const UA_DataType &sensor() const { return this->types[4]; }
 };
 
 /// @brief the ApplicationUri of the mock server, which its certificate must carry.
@@ -331,6 +354,9 @@ struct ServerConfig {
     /// does not build. The server adds the node, with its child NS=1;S=TestBrokenChild,
     /// only when it is set.
     std::optional<Broken> broken;
+    /// @brief the readings of the NS=1;S=TestSensor node, of the Sensor data type. The
+    /// server adds the node only when it is set.
+    std::optional<std::vector<UA_Double>> sensor;
     /// @brief the usernames and passwords that the server accepts besides anonymous
     /// logins. The server accepts a password only on an encrypted channel.
     std::vector<std::pair<std::string, std::string>> users;
@@ -780,6 +806,34 @@ private:
         );
     }
 
+    static void add_sensor_node(
+        UA_Server *server,
+        const UA_DataType &type,
+        std::vector<UA_Double> &readings
+    ) {
+        Sensor value{.readings_size = readings.size(), .readings = readings.data()};
+        UA_VariableAttributes attr = UA_VariableAttributes_default;
+        attr.dataType = type.typeId;
+        attr.valueRank = UA_VALUERANK_SCALAR;
+        attr.accessLevel = UA_ACCESSLEVELMASK_READ;
+        attr.displayName = UA_LOCALIZEDTEXT(
+            const_cast<char *>("en-US"),
+            const_cast<char *>("TestSensor")
+        );
+        UA_Variant_setScalar(&attr.value, &value, &type);
+        UA_Server_addVariableNode(
+            server,
+            UA_NODEID_STRING(1, const_cast<char *>("TestSensor")),
+            UA_NS0ID(OBJECTSFOLDER),
+            UA_NS0ID(ORGANIZES),
+            UA_QUALIFIEDNAME(1, const_cast<char *>("TestSensor")),
+            UA_NODEID_NULL,
+            attr,
+            nullptr,
+            nullptr
+        );
+    }
+
     static void
     add_broken_node(UA_Server *server, const UA_DataType &type, Broken &value) {
         UA_VariableAttributes attr = UA_VariableAttributes_default;
@@ -893,10 +947,11 @@ private:
         server_config->customDataTypes = const_cast<UA_DataTypeArray *>(
             &structures.array
         );
-        const std::array<std::pair<UA_NodeId, const char *>, 4> data_types{{
+        const std::array<std::pair<UA_NodeId, const char *>, 5> data_types{{
             {structures.point().typeId, "Point"},
             {structures.motor().typeId, "Motor"},
             {structures.broken().typeId, "Broken"},
+            {structures.sensor().typeId, "Sensor"},
             {UA_NODEID_NUMERIC(1, OPAQUE_TYPE_ID), "Opaque"},
         }};
         for (const auto &[id, name]: data_types) {
@@ -920,6 +975,8 @@ private:
             add_motor_node(server, structures.motor(), *cfg.motor);
         if (cfg.broken.has_value())
             add_broken_node(server, structures.broken(), *cfg.broken);
+        if (cfg.sensor.has_value())
+            add_sensor_node(server, structures.sensor(), *cfg.sensor);
         if (!cfg.users.empty()) {
             std::vector<UA_UsernamePasswordLogin> logins;
             logins.reserve(cfg.users.size());

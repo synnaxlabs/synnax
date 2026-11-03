@@ -419,7 +419,7 @@ std::pair<std::vector<types::Node>, x::errors::Error> to_nodes(
 }
 
 /// @brief lists the members of the structure value of a variable, at path. A node that
-/// holds no structure has no members.
+/// holds no structure, and a member that holds an array, have no members.
 /// @returns x::errors::VALIDATION if the structure type of the node does not build, or
 /// if path is not empty and does not name a structure member of the node's value.
 std::pair<std::vector<types::Node>, x::errors::Error> structure_members(
@@ -454,12 +454,14 @@ std::pair<std::vector<types::Node>, x::errors::Error> structure_members(
     const auto &data_type = *static_cast<const UA_NodeId *>(dt.data);
     auto [types, types_err] = structure::Types::read(conn, {data_type});
     if (types_err) return {{}, types_err};
-    auto [field, field_err] = types.field(data_type, path);
-    if (field_err.matches(structure::UNDEFINED) && path.empty())
+    auto [member, member_err] = types.describe(data_type, path);
+    if (member_err.matches(structure::UNDEFINED) && path.empty())
         return {{}, x::errors::NIL};
-    if (field_err) return {{}, field_err};
+    if (member_err) return {{}, member_err};
+    // No field names an element of an array, so an array lists no members.
     std::vector<types::Node> members;
-    for (const auto &m: structure::Types::members(field.type())) {
+    if (member.is_array) return {std::move(members), x::errors::NIL};
+    for (const auto &m: structure::Types::members(*member.type)) {
         auto member_path = path;
         member_path.push_back(m.name);
         members.emplace_back(
@@ -695,12 +697,12 @@ std::pair<x::json::json, x::errors::Error> read_details(
                         "the node does not hold a structure"
                     )
                 };
-            auto [member, member_err] = types.field(*type_id, field);
+            auto [member, member_err] = types.describe(*type_id, field);
             if (member_err) return {{}, member_err};
-            out["type_name"] = member.type().typeName;
+            out["type_name"] = member.type->typeName;
             type = {
-                .data_type = telem::to_data_type(&member.type()),
-                .is_array = false,
+                .data_type = telem::to_data_type(member.type),
+                .is_array = member.is_array,
             };
         }
         if (value.hasValue) {
