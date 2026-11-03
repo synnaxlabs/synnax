@@ -16,6 +16,7 @@ import { Provider } from "react-redux";
 import { beforeEach, describe, expect, it } from "vitest";
 
 import { Schematic } from "@/session/schematic";
+import { Window } from "@/session/window";
 import {
   createSliceStore,
   documentIn,
@@ -472,5 +473,17 @@ describe("sliceStateZ", () => {
 
   it("should parse an empty slice as version 1", () => {
     expect(Schematic.sliceStateZ.parse({})).toEqual({ version: 1, windows: {} });
+  });
+});
+
+describe("window partition round trip", () => {
+  it("should keep legend colors through a save and load", () => {
+    const state = Schematic.sliceStateZ.parse({
+      version: 1,
+      windows: { main: { s1: { legend: { colors: { a: [255, 0, 0, 255] } } } } },
+    });
+    const stored = JSON.parse(JSON.stringify(Window.LENS.narrow(state, "main")));
+    const loaded = Schematic.sliceStateZ.parse(stored);
+    expect(loaded.windows.main.s1.legend.colors).toEqual({ a: [255, 0, 0, 255] });
   });
 });

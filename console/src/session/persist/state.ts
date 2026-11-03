@@ -57,6 +57,8 @@ export type SliceSchemas<S extends object> = {
 
 /** A slice keying its state by window, which is what a lens splits. */
 export interface Windowed {
+  /** The schema version of the slice, which a window partition keeps. */
+  version?: number;
   windows: Record<string, unknown>;
 }
 
