@@ -14,6 +14,7 @@ import { Component } from "@synnaxlabs/lyra/component";
 import { Flex } from "@synnaxlabs/lyra/flex";
 import { Form as PForm } from "@synnaxlabs/lyra/form";
 import { Icon } from "@synnaxlabs/lyra/icon";
+import { Select as PSelect } from "@synnaxlabs/lyra/select";
 import { caseconv, DataType, deep, errors, primitive } from "@synnaxlabs/x";
 import { type FC, type ReactElement } from "react";
 
@@ -89,15 +90,16 @@ const IsIndexItem = ({ path }: ExtraItemProps<ReadChannel>): ReactElement => {
 
 const isIndexItem = Component.renderProp(IsIndexItem);
 
+type SamplingMode = "scalar" | "array";
+
 const Properties = (): ReactElement => {
   const arrayMode = PForm.useFieldValue(path.config.arrayMode);
   return (
     <>
       <Select />
-      <Flex.Box x>
-        <Task.Fields.SampleRate />
-        <PForm.CheckboxField
-          label="Array sampling"
+      <Flex.Box x wrap>
+        <PForm.Field<boolean>
+          label="Sampling mode"
           path={path.config.arrayMode}
           onChange={(value, { set }) => {
             // always set the array size to 1 for either the default in array mode or an
@@ -105,7 +107,18 @@ const Properties = (): ReactElement => {
             set(path.config.arraySize, 1);
             if (!value) set(path.config.streamRate, 25);
           }}
-        />
+        >
+          {({ value, onChange }) => (
+            <PSelect.Buttons<SamplingMode>
+              value={value ? "array" : "scalar"}
+              onChange={(mode: SamplingMode) => onChange(mode === "array")}
+            >
+              <PSelect.Item itemKey="scalar">Scalar</PSelect.Item>
+              <PSelect.Item itemKey="array">Array</PSelect.Item>
+            </PSelect.Buttons>
+          )}
+        </PForm.Field>
+        <Task.Fields.SampleRate />
         {arrayMode ? (
           <PForm.NumericField
             label="Array size"

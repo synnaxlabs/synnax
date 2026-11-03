@@ -359,12 +359,11 @@ describe("Read", () => {
     await screen.findByText("Stream rate");
     expect(screen.queryByText("Array size")).toBeNull();
 
-    const arrayModeSwitch = getLabeledInput("Array sampling");
-    fireEvent.click(arrayModeSwitch);
+    fireEvent.click(screen.getByText("Array"));
     await screen.findByText("Array size");
     expect(screen.queryByText("Stream rate")).toBeNull();
 
-    fireEvent.click(arrayModeSwitch);
+    fireEvent.click(screen.getByText("Scalar"));
     await screen.findByText("Stream rate");
     expect(screen.queryByText("Array size")).toBeNull();
   });

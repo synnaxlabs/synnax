@@ -193,7 +193,7 @@ separate the cells, and the Console ignores other columns.
 
 Some servers buffer fast samples in an array node. To read the arrays:
 
-1. Turn on **Array sampling**.
+1. Set **Sampling mode** to **Array**.
 2. Set **Array size** to the number of values in each array.
 
 The Driver then reads each node `Sample rate / Array size` times a second, and spreads
@@ -222,8 +222,8 @@ In Python and TypeScript, set `field` to the path of the field from the node, wi
 between names, such as `Position.Y`. Put `&` before a `.` or a `&` that is part of a
 name: `a&.b` is the field `a.b`.
 
-Array sampling cannot read structure fields. A write task cannot write to a field, so
-the Console does not add fields to a write task.
+Array mode cannot read structure fields. A write task cannot write to a field, so the
+Console does not add fields to a write task.
 
 <Divider.Divider x />
 
@@ -269,16 +269,16 @@ server again, so a corrected endpoint or password takes effect without a restart
 
 ## Task options
 
-| Console label  | Python field           | Default                 | Notes                                                                           |
-| -------------- | ---------------------- | ----------------------- | ------------------------------------------------------------------------------- |
-| OPC UA server  | `device`               |                         | The key of the server.                                                          |
-| Sample rate    | `sample_rate`          | 50 Hz (10 Hz in Python) | Reads per second. At most 10,000.                                               |
-| Stream rate    | `stream_rate`          | 25 Hz (5 Hz in Python)  | Frames per second sent to the Core. At most the sample rate. Not in array mode. |
-| Array sampling | `array_mode`           | Off                     | See [read arrays](#read-arrays).                                                |
-| Array size     | `array_size`           | 1                       | Values in each array node.                                                      |
-| NaN fill       | `nan_fill_enabled`     | Off                     | See [bad values](#bad-values).                                                  |
-| Data saving    | `data_saving_disabled` | On                      | See [data saving](/reference/hardware/tasks#data-saving).                       |
-| Auto start     | `auto_start`           | Off                     | Starts the task each time the Driver starts.                                    |
+| Console label | Python field           | Default                 | Notes                                                                           |
+| ------------- | ---------------------- | ----------------------- | ------------------------------------------------------------------------------- |
+| OPC UA server | `device`               |                         | The key of the server.                                                          |
+| Sampling mode | `array_mode`           | Scalar                  | See [read arrays](#read-arrays).                                                |
+| Sample rate   | `sample_rate`          | 50 Hz (10 Hz in Python) | Reads per second. At most 10,000.                                               |
+| Stream rate   | `stream_rate`          | 25 Hz (5 Hz in Python)  | Frames per second sent to the Core. At most the sample rate. Not in array mode. |
+| Array size    | `array_size`           | 1                       | Values in each array node.                                                      |
+| NaN fill      | `nan_fill_enabled`     | Off                     | See [bad values](#bad-values).                                                  |
+| Data saving   | `data_saving_disabled` | On                      | See [data saving](/reference/hardware/tasks#data-saving).                       |
+| Auto start    | `auto_start`           | Off                     | Starts the task each time the Driver starts.                                    |
 
 TypeScript uses the same fields in camel case, such as `sampleRate`. See
 [timing](/reference/hardware/tasks#timing). When a task has more nodes than the server
