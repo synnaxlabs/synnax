@@ -11,7 +11,7 @@ import { compare, type destructor, TimeSpan, TimeStamp, xy } from "@synnaxlabs/x
 import { type PropsWithChildren, type ReactElement, useEffect, useRef } from "react";
 
 import { context } from "@/context";
-import { useStateRef } from "@/hooks/ref";
+import { useStateRef } from "@/hooks";
 import {
   type Callback,
   eventKey,
@@ -24,7 +24,7 @@ import {
   type MouseKey,
   type Trigger,
 } from "@/triggers/triggers";
-import { isInputOrContentEditable } from "@/util/event";
+import { isInputOrContentEditable } from "@/util";
 
 /** Subscribes to every trigger event, returning the unsubscribe. */
 export interface Listen {

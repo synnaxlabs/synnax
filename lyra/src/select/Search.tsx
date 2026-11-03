@@ -11,7 +11,7 @@ import { type ReactNode, useEffect, useRef, useState } from "react";
 
 import { Dialog } from "@/dialog";
 import { Flex } from "@/flex";
-import { useSyncedRef } from "@/hooks/ref";
+import { useSyncedRef } from "@/hooks";
 import { Icon } from "@/icon";
 import { Input } from "@/input";
 import { useRegistryContext } from "@/select/registry";

@@ -26,7 +26,7 @@ import {
   useSyncExternalStore,
 } from "react";
 
-import { memo } from "@/component/memo";
+import { Component } from "@/component";
 import { context } from "@/context";
 import { useCombinedRefs, useInitializerRef, useSyncedRef } from "@/hooks";
 import { type Elements, ElementsContext, ItemsContext } from "@/list/scope";
@@ -531,4 +531,4 @@ export const BaseFrame = <
  *   </List.Scroll>
  * </List.Frame>
  */
-export const Frame = memo(BaseFrame);
+export const Frame = Component.memo(BaseFrame);

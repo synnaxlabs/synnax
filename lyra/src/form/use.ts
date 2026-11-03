@@ -24,7 +24,7 @@ import {
 } from "@/form/Context";
 import { type GetOptions, State } from "@/form/state";
 import { createLocalStore, type Store } from "@/form/store";
-import { useInitializerRef, useSyncedRef } from "@/hooks/ref";
+import { useInitializerRef, useSyncedRef } from "@/hooks";
 import { Status } from "@/status";
 
 export interface OnChangeParams<Z extends z.ZodType> {

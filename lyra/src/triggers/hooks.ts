@@ -10,7 +10,7 @@
 import { box, compare, unique, type xy } from "@synnaxlabs/x";
 import { type RefObject, useEffect, useRef, useState } from "react";
 
-import { useStateRef, useSyncedRef } from "@/hooks/ref";
+import { useStateRef, useSyncedRef } from "@/hooks";
 import { useMemoCompare } from "@/memo";
 import { useContext } from "@/triggers/Provider";
 import { type Condition, resolveCondition, useScope } from "@/triggers/Scope";

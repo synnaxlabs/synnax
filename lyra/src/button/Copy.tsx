@@ -20,7 +20,7 @@ import { Button, type ButtonProps } from "@/button/Button";
 import { clipboard } from "@/clipboard";
 import { Icon } from "@/icon";
 import { type Status } from "@/status";
-import { useAdder, useErrorHandler } from "@/status/Aggregator";
+import { useAdder, useErrorHandler } from "@/status/core";
 
 const COPIED_DURATION_MS = TimeSpan.seconds(2).milliseconds;
 

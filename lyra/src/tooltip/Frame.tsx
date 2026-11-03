@@ -22,7 +22,7 @@ import { createPortal } from "react-dom";
 import { CSS } from "@/css";
 import { useCombinedRefs, useResize, useSyncedRef, useWindowResize } from "@/hooks";
 import { position } from "@/position";
-import { getRootElement } from "@/util/rootElement";
+import { getRootElement } from "@/util";
 
 export interface FrameProps {
   /** The element the frame sits beside. */

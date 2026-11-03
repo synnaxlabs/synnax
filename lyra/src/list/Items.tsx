@@ -12,7 +12,7 @@ import "@/list/Items.css";
 import { type record } from "@synnaxlabs/x";
 import { type ReactNode } from "react";
 
-import { memo } from "@/component/memo";
+import { Component } from "@/component";
 import { CSS } from "@/css";
 import { useData } from "@/list/Frame";
 import { type ItemRenderProp, type ItemRenderProps } from "@/list/Item";
@@ -39,7 +39,7 @@ interface SlotProps<K extends record.Key> extends Pick<
 // A memoized slot lets React skip an item whose key, index, and offset are unchanged,
 // so a scroll or a data change renders only the items that moved or appeared. A new
 // render function renders every item again.
-const Slot = memo(
+const Slot = Component.memo(
   <K extends record.Key>({ render, itemKey, index, translate }: SlotProps<K>) =>
     render({ key: itemKey, index, itemKey, translate }),
 );
@@ -91,4 +91,4 @@ const BaseItems = <
  *
  * @throws if no {@link Scroll} of the same {@link Frame} encloses it.
  */
-export const Items = memo(BaseItems);
+export const Items = Component.memo(BaseItems);

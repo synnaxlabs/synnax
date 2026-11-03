@@ -24,7 +24,7 @@ import {
 import { z } from "zod";
 
 import { context } from "@/context";
-import { useSyncedRef } from "@/hooks/ref";
+import { useSyncedRef } from "@/hooks";
 import { state } from "@/state";
 
 /** Zod schema for a draggable/droppable {@link Item}. */

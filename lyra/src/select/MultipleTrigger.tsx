@@ -14,7 +14,7 @@ import { type ReactElement, type ReactNode } from "react";
 
 import { Button } from "@/button";
 import { Caret } from "@/caret";
-import { type RenderProp, renderProp } from "@/component/renderProp";
+import { Component } from "@/component";
 import { CSS } from "@/css";
 import { Dialog } from "@/dialog";
 import { Haul } from "@/haul";
@@ -70,7 +70,7 @@ const MultipleTag = <K extends record.Key, E extends MultipleEntry<K>>({
   );
 };
 
-const multipleTag = renderProp(MultipleTag);
+const multipleTag = Component.renderProp(MultipleTag);
 
 /** Props for {@link MultipleTrigger}. */
 export interface MultipleTriggerProps<
@@ -87,7 +87,7 @@ export interface MultipleTriggerProps<
   "aria-label"?: string;
   /** Whether to show only a count instead of one tag per entry. */
   hideTags?: boolean;
-  children?: RenderProp<MultipleTagProps<K>>;
+  children?: Component.RenderProp<MultipleTagProps<K>>;
   renderIcon?: (entry: unknown) => Icon.ReactElement | undefined;
 }
 
@@ -117,7 +117,7 @@ export const MultipleTrigger = <
   icon,
   "aria-label": ariaLabel,
   hideTags = false,
-  children = multipleTag as unknown as RenderProp<MultipleTagProps<K>>,
+  children = multipleTag as unknown as Component.RenderProp<MultipleTagProps<K>>,
   renderIcon,
   className,
 }: MultipleTriggerProps<K, E>): ReactElement | null => {

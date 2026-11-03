@@ -13,13 +13,12 @@ import { describe, expect, it, vi } from "vitest";
 
 import { Button } from "@/button";
 import { Icon } from "@/icon";
-import { Notification, type NotificationProps } from "@/status/Notification";
-import { toString } from "@/status/status";
+import { Status } from "@/status";
 
 const mockSilence = vi.fn();
 
 describe("Notification Component", () => {
-  const notificationProps: NotificationProps = {
+  const notificationProps: Status.NotificationProps = {
     status: {
       key: "test-key",
       name: "test-name",
@@ -37,7 +36,7 @@ describe("Notification Component", () => {
   };
 
   it("renders notification message and description", () => {
-    const c = render(<Notification {...notificationProps} />);
+    const c = render(<Status.Notification {...notificationProps} />);
 
     expect(c.getByText("Test notification message")).toBeTruthy();
     expect(c.getByText("Test notification description")).toBeTruthy();
@@ -45,7 +44,7 @@ describe("Notification Component", () => {
 
   it("omits the description entirely when the status carries an empty one", () => {
     const c = render(
-      <Notification
+      <Status.Notification
         {...notificationProps}
         status={{ ...notificationProps.status, description: "" }}
       />,
@@ -56,7 +55,7 @@ describe("Notification Component", () => {
 
   it("omits the name entirely when the status carries an empty one", () => {
     const c = render(
-      <Notification
+      <Status.Notification
         {...notificationProps}
         status={{ ...notificationProps.status, name: "" }}
       />,
@@ -67,7 +66,7 @@ describe("Notification Component", () => {
 
   it("renders a custom icon tinted with the variant color as the indicator", () => {
     const c = render(
-      <Notification
+      <Status.Notification
         {...notificationProps}
         status={{ ...notificationProps.status, variant: "error" }}
         icon={<Icon.Device />}
@@ -82,7 +81,7 @@ describe("Notification Component", () => {
 
   it("keeps the loading spinner even when a custom icon is given", () => {
     const c = render(
-      <Notification
+      <Status.Notification
         {...notificationProps}
         status={{ ...notificationProps.status, variant: "loading" }}
         icon={<Icon.Device />}
@@ -94,7 +93,7 @@ describe("Notification Component", () => {
   });
 
   it("calls silence function when close button is clicked", () => {
-    const c = render(<Notification {...notificationProps} />);
+    const c = render(<Status.Notification {...notificationProps} />);
 
     const closeButton = c.getByRole("button", { name: "Silence" });
     fireEvent.click(closeButton);
@@ -103,7 +102,7 @@ describe("Notification Component", () => {
   });
 
   it("renders action buttons correctly", () => {
-    const c = render(<Notification {...notificationProps} />);
+    const c = render(<Status.Notification {...notificationProps} />);
 
     expect(c.getByText("Action 1")).toBeTruthy();
     expect(c.getByText("Action 2")).toBeTruthy();
@@ -112,11 +111,11 @@ describe("Notification Component", () => {
   it("should copy diagnostics to clipboard when copy button is clicked", async () => {
     const writeText = vi.fn().mockResolvedValue(undefined);
     Object.assign(navigator, { clipboard: { writeText } });
-    const c = render(<Notification {...notificationProps} />);
+    const c = render(<Status.Notification {...notificationProps} />);
     const copyButton = c.getByRole("button", { name: "Copy diagnostics" });
     fireEvent.click(copyButton);
     await waitFor(() =>
-      expect(writeText).toHaveBeenCalledWith(toString(notificationProps.status)),
+      expect(writeText).toHaveBeenCalledWith(Status.toString(notificationProps.status)),
     );
   });
 });
