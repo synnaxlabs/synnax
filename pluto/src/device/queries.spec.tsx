@@ -22,6 +22,8 @@ import { Status } from "@/status";
 import { renderHookSuspended } from "@/testutil/render";
 import { createAsyncSynnaxWrapper } from "@/testutil/Synnax";
 
+const path = Device.formPath;
+
 const client = createTestClient();
 
 describe("queries", () => {
@@ -1119,11 +1121,11 @@ describe("queries", () => {
         await waitFor(() => expect(result.current.variant).toBe("success"));
 
         act(() => {
-          result.current.form.set("rack", rack.key);
-          result.current.form.set("name", "Test Form Device");
-          result.current.form.set("make", "TestMake");
-          result.current.form.set("model", "TestModel");
-          result.current.form.set("location", "Lab1");
+          result.current.form.set(path.rack, rack.key);
+          result.current.form.set(path.name, "Test Form Device");
+          result.current.form.set(path.make, "TestMake");
+          result.current.form.set(path.model, "TestModel");
+          result.current.form.set(path.location, "Lab1");
         });
 
         await act(async () => {
@@ -1134,7 +1136,7 @@ describe("queries", () => {
           expect(result.current.variant).toBe("success");
         });
 
-        const key = result.current.form.get<device.Key>("key").value;
+        const key = result.current.form.get(path.key).value;
         // parent and status are cache enrichments whose presence depends on
         // which relationship queries have already run; don't pin them.
         const {
@@ -1166,13 +1168,13 @@ describe("queries", () => {
           result.current.save();
         });
 
-        const nameField = result.current.form.get("name");
+        const nameField = result.current.form.get(path.name);
         expect(nameField.status.message).toBe("name is required");
-        const makeField = result.current.form.get("make");
+        const makeField = result.current.form.get(path.make);
         expect(makeField.status.message).toBe("make is required");
-        const modelField = result.current.form.get("model");
+        const modelField = result.current.form.get(path.model);
         expect(modelField.status.message).toBe("model is required");
-        const locationField = result.current.form.get("location");
+        const locationField = result.current.form.get(path.location);
         expect(locationField.status.message).toBe("location is required");
       });
 
@@ -1210,12 +1212,12 @@ describe("queries", () => {
         };
 
         act(() => {
-          result.current.form.set("rack", rack.key);
-          result.current.form.set("name", "Custom Device");
-          result.current.form.set("make", "CustomMake");
-          result.current.form.set("model", "CustomModel");
-          result.current.form.set("location", "Lab2");
-          result.current.form.set("properties", customProps);
+          result.current.form.set(path.rack, rack.key);
+          result.current.form.set(path.name, "Custom Device");
+          result.current.form.set(path.make, "CustomMake");
+          result.current.form.set(path.model, "CustomModel");
+          result.current.form.set(path.location, "Lab2");
+          result.current.form.set(path.properties, customProps);
         });
 
         await act(async () => {
@@ -1292,8 +1294,8 @@ describe("queries", () => {
         });
 
         act(() => {
-          result.current.form.set("name", "Updated Device Name");
-          result.current.form.set("location", "Lab4");
+          result.current.form.set(path.name, "Updated Device Name");
+          result.current.form.set(path.location, "Lab4");
         });
 
         await act(async () => {
@@ -1354,13 +1356,13 @@ describe("queries", () => {
         await waitFor(() => expect(result.current.variant).toBe("success"));
 
         act(() => {
-          result.current.form.set("name", "");
+          result.current.form.set(path.name, "");
         });
 
-        const isValid = result.current.form.validate("name");
+        const isValid = result.current.form.validate(path.name);
         expect(isValid).toBe(false);
 
-        const msg = result.current.form.get("name").status.message;
+        const msg = result.current.form.get(path.name).status.message;
         expect(msg).toEqual("name is required");
       });
     });
@@ -1690,7 +1692,7 @@ describe("queries", () => {
         });
 
         act(() => {
-          result.current.form.set("name", "updated-schema-device");
+          result.current.form.set(path.name, "updated-schema-device");
         });
 
         await act(async () => {

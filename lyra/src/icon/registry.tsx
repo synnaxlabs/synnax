@@ -100,6 +100,7 @@ import {
   MdBorderColor,
   MdCalculate,
   MdCalendarToday,
+  MdCode,
   MdComment,
   MdCommit,
   MdComputer,
@@ -204,6 +205,7 @@ import {
 import { RxComponentBoolean, RxReset } from "react-icons/rx";
 import {
   SiCplusplus,
+  SiMqtt,
   SiNpm,
   SiPagerduty,
   SiPnpm,
@@ -368,6 +370,7 @@ export const NPM = wrapSVGIcon(SiNpm, "npm");
 export const PNPM = wrapSVGIcon(SiPnpm, "pnpm");
 export const Yarn = wrapSVGIcon(SiYarn, "yarn");
 export const QuestionMark = wrapSVGIcon(MdQuestionMark, "question-mark");
+export const Code = wrapSVGIcon(MdCode, "code");
 export const Menu = wrapSVGIcon(GiHamburgerMenu, "menu");
 export const Sidebar = wrapSVGIcon(TbLayoutSidebar, "sidebar");
 export const Logo = {
@@ -378,6 +381,7 @@ export const Logo = {
   LinkedIn: wrapSVGIcon(AiFillLinkedin, "logo-linkedin"),
   Linux: wrapSVGIcon(FaLinux, "logo-linux"),
   Modbus,
+  MQTT: wrapSVGIcon(SiMqtt, "logo-mqtt"),
   NI,
   OPCUA,
   PagerDuty: wrapSVGIcon(SiPagerduty, "logo-pagerduty"),
@@ -633,6 +637,7 @@ const icons = {
   PNPM,
   Yarn,
   QuestionMark,
+  Code,
   Menu,
   Sidebar,
   Logo,

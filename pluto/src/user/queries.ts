@@ -8,7 +8,7 @@
 // included in the file licenses/APL.txt.
 
 import { access, user } from "@synnaxlabs/client";
-import { array, uuid, verbs } from "@synnaxlabs/x";
+import { array, deep, uuid, verbs } from "@synnaxlabs/x";
 import { z } from "zod";
 
 import { Flux } from "@/flux";
@@ -53,6 +53,8 @@ export const formSchema = user.newZ.extend({
   name: z.string().min(1, "Name is required"),
   role: access.role.keyZ,
 });
+
+export const formPath = deep.path<z.infer<typeof formSchema>>();
 
 export type FormQuery = {
   key: user.Key;

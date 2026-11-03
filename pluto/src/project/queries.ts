@@ -8,7 +8,7 @@
 // included in the file licenses/APL.txt.
 
 import { type ontology, project, query, type Synnax } from "@synnaxlabs/client";
-import { array, type record, verbs } from "@synnaxlabs/x";
+import { array, deep, type record, verbs } from "@synnaxlabs/x";
 import type z from "zod";
 
 import { Flux } from "@/flux";
@@ -74,6 +74,8 @@ export const { useUpdate: useRename } = Flux.createUpdate<RenameParams>({
 
 export const formSchema = project.projectZ.partial({ key: true });
 
+export const formPath = deep.path<z.infer<typeof formSchema>>();
+
 const INITIAL_VALUES: z.infer<typeof formSchema> = {
   name: "",
 };
@@ -89,7 +91,7 @@ export const useForm = Flux.createForm<RetrieveQuery, typeof formSchema>({
   },
   update: async ({ client, value, set }) => {
     const res = await client.projects.create(value());
-    set("key", res.key);
+    set(formPath.key, res.key);
   },
 });
 

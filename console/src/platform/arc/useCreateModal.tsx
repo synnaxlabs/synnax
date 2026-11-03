@@ -25,6 +25,8 @@ import { CSS } from "@/platform/css";
 import { Modals } from "@/platform/modals";
 import { Triggers } from "@/platform/triggers";
 
+const path = Arc.formPath;
+
 export interface CreateModalResult {
   key: arc.Key;
 }
@@ -63,8 +65,12 @@ const Create = ({
       <Modal.Header icon={<Icon.Arc />}>Arc.Create</Modal.Header>
       <Modal.Body>
         <Form.Form<typeof Arc.formSchema> {...form}>
-          <Form.TextField path="name" showLabel={false} inputProps={NAME_INPUT_PROPS} />
-          <Form.Field<arc.Type> path="type" label="Type">
+          <Form.TextField
+            path={path.name}
+            showLabel={false}
+            inputProps={NAME_INPUT_PROPS}
+          />
+          <Form.Field path={path.type} label="Type">
             {({ value, onChange }) => (
               <Select.Buttons value={value} onChange={onChange} variant="outlined">
                 <Select.Item itemKey="automation">
@@ -78,7 +84,7 @@ const Create = ({
               </Select.Buttons>
             )}
           </Form.Field>
-          <Form.Field<arc.Mode> path="mode" label="Editor mode" full="x">
+          <Form.Field path={path.mode} label="Editor mode" full="x">
             {({ value, onChange }) => (
               <Select.Buttons value={value} onChange={onChange} variant="card" full="x">
                 <Select.Item itemKey="text">

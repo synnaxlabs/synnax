@@ -7,10 +7,10 @@
 #  License, use of this software will be governed by the Apache License, Version 2.0,
 #  included in the file licenses/APL.txt.
 
-from typing import Any, Literal
+from typing import Literal, Unpack
 
 from console.layout import LayoutClient
-from console.task.channels.analog import Analog
+from console.task.channels.analog import Analog, Options
 
 
 class TemperatureBuiltInSensor(Analog):
@@ -34,18 +34,16 @@ class TemperatureBuiltInSensor(Analog):
         layout: LayoutClient,
         name: str,
         device: str,
-        port: int | None = None,
         temperature_units: (
             Literal["Celsius", "Fahrenheit", "Kelvin", "Rankine"] | None
         ) = None,
-        **kwargs: Any,
+        **kwargs: Unpack[Options],
     ) -> None:
         super().__init__(
             layout=layout,
             name=name,
             device=device,
             chan_type="Temperature built-in sensor",
-            port=port,
             **kwargs,
         )
 

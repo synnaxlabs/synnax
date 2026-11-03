@@ -13,7 +13,7 @@ import {
   spyOnSend,
   waitForStreamLive,
 } from "@synnaxlabs/client/testutil";
-import { crdt, id, uuid } from "@synnaxlabs/x";
+import { crdt, deep, id, uuid } from "@synnaxlabs/x";
 import { act, render, renderHook, waitFor, within } from "@testing-library/react";
 import { type FC, type PropsWithChildren, type ReactElement } from "react";
 import {
@@ -32,6 +32,8 @@ import { Errors } from "@/errors";
 import { Flux } from "@/flux";
 import { renderHookSuspended } from "@/testutil/render";
 import { createAsyncSynnaxWrapper } from "@/testutil/Synnax";
+
+const path = Arc.formPath;
 
 describe("Arc queries", () => {
   let controller: AbortController;
@@ -587,8 +589,8 @@ describe("Arc queries", () => {
       const uniqueName = `form-arc-${Math.random().toString(36).substring(7)}`;
 
       act(() => {
-        result.current.form.set("name", uniqueName);
-        result.current.form.set("mode", "text");
+        result.current.form.set(path.name, uniqueName);
+        result.current.form.set(path.mode, "text");
       });
 
       await act(async () => {
@@ -617,7 +619,7 @@ describe("Arc queries", () => {
       });
 
       expect(result.current.form.value().key).toBeUndefined();
-      expect(result.current.form.get("name").status.variant).toBe("error");
+      expect(result.current.form.get(path.name).status.variant).toBe("error");
     });
   });
 
@@ -648,6 +650,8 @@ describe("Arc queries", () => {
         },
       });
 
+    const inputs = deep.path<typeof STATUS_INPUTS>();
+
     const renderForm = async (key: arc.Key) =>
       await renderHookSuspended(
         ({ nodeKey }: { nodeKey: string }) => Arc.useNodeForm({ key, nodeKey }),
@@ -668,7 +672,7 @@ describe("Arc queries", () => {
       const a = await createStatusArc();
       const { result } = await renderForm(a.key);
       const send = spyOnSend(client);
-      act(() => result.current.form.set("key_or_name", "pressure"));
+      act(() => result.current.form.set(inputs.key_or_name, "pressure"));
       await act(async () => expect(await result.current.flush()).toBe(true));
       const [, req] =
         send.mock.calls.find(([target]) => target === "/arc/dispatch") ?? [];
@@ -697,7 +701,7 @@ describe("Arc queries", () => {
         );
       });
       await waitFor(() =>
-        expect(result.current.form.get("message").value).toBe("remote"),
+        expect(result.current.form.get(inputs.message).value).toBe("remote"),
       );
     });
 
@@ -705,8 +709,8 @@ describe("Arc queries", () => {
       const a = await createStatusArc();
       const { result, rerender } = await renderForm(a.key);
       rerender({ nodeKey: "n2" });
-      expect(result.current.form.get("key_or_name").value).toBe("fault");
-      act(() => result.current.form.set("message", "tripped"));
+      expect(result.current.form.get(inputs.key_or_name).value).toBe("fault");
+      act(() => result.current.form.set(inputs.message, "tripped"));
       await act(async () => expect(await result.current.flush()).toBe(true));
       expect(await fetchStoredInputs(a.key, "n2")).toMatchObject({
         message: "tripped",
