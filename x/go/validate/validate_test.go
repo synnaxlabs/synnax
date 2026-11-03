@@ -208,13 +208,13 @@ var _ = Describe("Validate", func() {
 			})
 
 			Describe("MinLength", func() {
-				DescribeTable("Should count UTF-16 code units", func(value string) {
+				DescribeTable("Should count Unicode code points", func(value string) {
 					Expect(v.MinLength("field", value, 4)).To(BeFalse())
 					Expect(v.Error()).NotTo(HaveOccurred())
 				},
 					Entry("ASCII letters", "abcd"),
 					Entry("accented letters", "éééé"),
-					Entry("emoji", "😀😀"),
+					Entry("emoji", "😀😀😀😀"),
 				)
 
 				DescribeTable("Should catch short strings", func(value string) {
@@ -225,18 +225,18 @@ var _ = Describe("Validate", func() {
 				},
 					Entry("ASCII letters", "abc"),
 					Entry("accented letters", "ééé"),
-					Entry("emoji", "a😀"),
+					Entry("emoji", "😀😀😀"),
 				)
 			})
 
 			Describe("MaxLength", func() {
-				DescribeTable("Should count UTF-16 code units", func(value string) {
+				DescribeTable("Should count Unicode code points", func(value string) {
 					Expect(v.MaxLength("field", value, 4)).To(BeFalse())
 					Expect(v.Error()).NotTo(HaveOccurred())
 				},
 					Entry("ASCII letters", "abcd"),
 					Entry("accented letters", "éééé"),
-					Entry("emoji", "😀😀"),
+					Entry("emoji", "😀😀😀😀"),
 				)
 
 				DescribeTable("Should catch long strings", func(value string) {
@@ -247,7 +247,8 @@ var _ = Describe("Validate", func() {
 				},
 					Entry("ASCII letters", "abcde"),
 					Entry("accented letters", "ééééé"),
-					Entry("emoji", "😀😀a"),
+					Entry("emoji", "😀😀😀😀😀"),
+					Entry("a family emoji, which is five code points", "👨‍👩‍👧"),
 				)
 			})
 		})

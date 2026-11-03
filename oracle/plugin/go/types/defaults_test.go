@@ -747,7 +747,7 @@ var _ = Describe("ApplyDefaults and Validate generation", func() {
 		)
 
 		It(
-			"Should check string lengths in UTF-16 code units",
+			"Should check string lengths with the validator methods",
 			func(ctx SpecContext) {
 				source := `
 				@go output "core/pkg/service/x"

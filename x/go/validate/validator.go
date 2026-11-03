@@ -11,7 +11,7 @@ package validate
 
 import (
 	"reflect"
-	"unicode/utf16"
+	"unicode/utf8"
 
 	"github.com/samber/lo"
 	"github.com/synnaxlabs/x/errors"
@@ -144,32 +144,24 @@ func (v *Validator) NotEmptyString[T ~string](field string, value T) bool {
 	return v.Ternary(field, value == "", "required")
 }
 
-// MinLength returns true and attaches an error to v if the string is shorter than min.
-// Length counts UTF-16 code units, matching JavaScript string length.
+// MinLength returns true and attaches an error to v if the string has fewer than min
+// Unicode code points.
 func (v *Validator) MinLength[T ~string](field string, value T, min int) bool {
 	return v.Ternaryf(
 		field,
-		utf16Len(value) < min,
+		utf8.RuneCountInString(string(value)) < min,
 		"must be at least %d characters long",
 		min,
 	)
 }
 
-// MaxLength returns true and attaches an error to v if the string is longer than max.
-// Length counts UTF-16 code units, matching JavaScript string length.
+// MaxLength returns true and attaches an error to v if the string has more than max
+// Unicode code points.
 func (v *Validator) MaxLength[T ~string](field string, value T, max int) bool {
 	return v.Ternaryf(
 		field,
-		utf16Len(value) > max,
+		utf8.RuneCountInString(string(value)) > max,
 		"must be at most %d characters long",
 		max,
 	)
-}
-
-func utf16Len[T ~string](value T) int {
-	n := 0
-	for _, r := range string(value) {
-		n += utf16.RuneLen(r)
-	}
-	return n
 }

@@ -291,15 +291,13 @@ var _ = Describe("Python Types Plugin", func() {
 				).To(ContainSubstring(`from pydantic import BaseModel, Field`))
 				Expect(
 					content,
-				).To(ContainSubstring(
-					`name: Annotated[str, strings.max_length(255)] = Field(min_length=1)`,
-				))
+				).To(ContainSubstring(`name: str = Field(min_length=1, max_length=255)`))
 				Expect(content).To(ContainSubstring(`age: int = Field(ge=0, le=150)`))
 			},
 		)
 
 		It(
-			"Should check string lengths in UTF-16 code units",
+			"Should emit native Field length constraints, which count code points",
 			func(ctx SpecContext) {
 				source := `
 				@py output "out"
@@ -318,15 +316,12 @@ var _ = Describe("Python Types Plugin", func() {
 					Resolutions: table,
 				}))
 				content := string(resp.Files[0].Content)
-				Expect(content).To(ContainSubstring("from typing import Annotated"))
-				Expect(content).To(ContainSubstring("from x import strings"))
 				Expect(content).To(ContainSubstring(
-					"name: Annotated[str, strings.min_length(2), strings.max_length(64)]",
+					`name: str = Field(min_length=2, max_length=64)`,
 				))
 				Expect(content).To(ContainSubstring(
-					"alias: Annotated[str, strings.max_length(64)] | None = None",
+					`alias: str | None = Field(default=None, max_length=64)`,
 				))
-				Expect(content).NotTo(ContainSubstring("max_length=64"))
 			},
 		)
 

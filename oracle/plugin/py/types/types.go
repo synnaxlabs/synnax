@@ -958,13 +958,8 @@ func processField(
 		fd.Alias = wireName
 	}
 
+	baseType := typeToPython(field.Type, table, data)
 	validateDomain := field.Domains["validate"]
-	baseType := withLengthValidators(
-		typeToPython(field.Type, table, data),
-		validation.Parse(validateDomain),
-		field.Type,
-		data,
-	)
 	fieldConstraints := collectValidation(
 		validateDomain,
 		field.Default,
@@ -1091,36 +1086,6 @@ func buildDefault(
 	return ""
 }
 
-// withLengthValidators wraps a string type in x.strings length validators, which count
-// UTF-16 code units like Zod and Go. Pydantic's own length rules count code points.
-func withLengthValidators(
-	pyType string,
-	rules *validation.Rules,
-	typeRef resolution.TypeRef,
-	data *templateData,
-) string {
-	if !resolution.IsPrimitive(typeRef.Name) ||
-		!resolution.IsStringPrimitive(typeRef.Name) {
-		return pyType
-	}
-	var validators []string
-	if rules.MinLength != nil && *rules.MinLength > 1 {
-		validators = append(validators, fmt.Sprintf("min_length(%d)", *rules.MinLength))
-	}
-	if rules.MaxLength != nil {
-		validators = append(validators, fmt.Sprintf("max_length(%d)", *rules.MaxLength))
-	}
-	if len(validators) == 0 {
-		return pyType
-	}
-	data.imports.addTyping("Annotated")
-	module := data.imports.addModuleImport("x", "strings")
-	for i, v := range validators {
-		validators[i] = module + "." + v
-	}
-	return fmt.Sprintf("Annotated[%s, %s]", pyType, strings.Join(validators, ", "))
-}
-
 func collectValidation(
 	domain resolution.Domain,
 	defaultVal *resolution.ExpressionValue,
@@ -1137,11 +1102,19 @@ func collectValidation(
 		resolution.IsStringPrimitive(typeRef.Name)
 	isNumber := resolution.IsPrimitive(typeRef.Name) &&
 		resolution.IsNumberPrimitive(typeRef.Name)
-	if isString && rules.MinLength != nil && *rules.MinLength <= 1 {
-		constraints = append(
-			constraints,
-			fmt.Sprintf("min_length=%d", *rules.MinLength),
-		)
+	if isString {
+		if rules.MinLength != nil {
+			constraints = append(
+				constraints,
+				fmt.Sprintf("min_length=%d", *rules.MinLength),
+			)
+		}
+		if rules.MaxLength != nil {
+			constraints = append(
+				constraints,
+				fmt.Sprintf("max_length=%d", *rules.MaxLength),
+			)
+		}
 	}
 	if isNumber {
 		if rules.Min != nil {
