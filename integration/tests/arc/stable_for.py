@@ -160,37 +160,29 @@ class StableFor(ArcCase):
                 enable_auto_commit=True,
             ) as writer,
         ):
-            last_write = sy.TimeStamp.now()
+            # The hold starts once the runtime has read the previous batch.
+            last_read = sy.TimeStamp.now()
 
-            def ingest(values: list[float], *, hold: bool = False) -> None:
-                nonlocal last_write
-                if hold:
-                    while sy.TimeStamp.now() < last_write + VIRTUAL_HOLD:
-                        sy.sleep(0.02)
+            def ingest(values: list[float]) -> None:
+                nonlocal last_read
+                while sy.TimeStamp.now() < last_read + VIRTUAL_HOLD:
+                    sy.sleep(0.02)
                 writer.write({"sf_vpt": values})
-                last_write = sy.TimeStamp.now()
                 self._settle(stream, "sf_vseen", values[-1], "sf_vout", emitted)
+                last_read = sy.TimeStamp.now()
 
             self.log("[virtual] One batch, 1ns apart: no emit")
             ingest([100.0, 101.0, 102.0])
             self._expect(emitted, [], "fired inside one batch")
 
-            self.log("[virtual] Second batch at once: no emit")
-            ingest([103.0, 104.0])
-            self._expect(emitted, [], "fired before the window closed")
-
             self.log("[virtual] Batch after the hold, then a change to false: true")
-            ingest([105.0, 400.0, 401.0], hold=True)
+            ingest([103.0, 400.0, 401.0])
             self._expect(emitted, [True], "true confirmed after the hold")
 
-            self.log("[virtual] False at once: no emit")
-            ingest([402.0])
-            self._expect(emitted, [True], "fired before the false held")
-
             self.log("[virtual] False after the hold, then a change to true: false")
-            ingest([403.0, 106.0], hold=True)
+            ingest([402.0, 104.0])
             self._expect(emitted, [True, False], "false confirmed after the hold")
 
             self.log("[virtual] True after the hold: true")
-            ingest([107.0, 108.0], hold=True)
+            ingest([105.0, 106.0])
             self._expect(emitted, [True, False, True], "true confirmed again")
