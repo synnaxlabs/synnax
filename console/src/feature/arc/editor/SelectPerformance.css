@@ -22,7 +22,7 @@
 }
 
 .lyra-icon.console-performance-select__auto {
-    color: #635bff;
+    color: var(--pluto-auto-z);
 }
 
 .console-performance-select__bar {

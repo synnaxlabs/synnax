@@ -56,6 +56,11 @@ export interface SingleTriggerProps extends Omit<Dialog.TriggerProps, "variant">
    * trigger's width no longer depends on the name.
    */
   collapsible?: boolean;
+  /**
+   * Whether the empty selection is an auto mode. An empty trigger then shows its
+   * placeholder as a value, followed by an {@link Input.AutoChip}.
+   */
+  auto?: boolean;
 }
 
 const LABEL_SELECTOR = `:scope > .${CSS.BE("select", "label")}`;
@@ -80,6 +85,7 @@ export const SingleTrigger = <K extends record.Key>({
   renderIcon,
   collapsible = false,
   clearable = false,
+  auto = false,
   preview,
   className,
   status,
@@ -96,6 +102,7 @@ export const SingleTrigger = <K extends record.Key>({
   const fixedText = useText(selected);
   const item = List.useItem<K, SingleTriggerEntry<K>>(selected);
   const { name, icon } = item ?? {};
+  const empty = name == null && !fixed;
   const resolvedIcon = renderIcon?.(item) ?? icon ?? baseIcon;
   const canDrop = (hauled: Haul.DraggingState) =>
     staticCanDrop(hauled, haulType, allSelected, disabled);
@@ -121,7 +128,9 @@ export const SingleTrigger = <K extends record.Key>({
   const labelId = `${baseId}-label`;
   // A self-reference reads the trigger's own aria-label, so the name becomes the
   // aria-label followed by the selection.
-  const shown = fixed ? fixedText : (name ?? (preview === true ? "None" : placeholder));
+  const shown = fixed
+    ? fixedText
+    : (name ?? (preview === true && !auto ? "None" : placeholder));
   const { visible, variant } = Dialog.useContext();
   // A key with no entry, such as a deleted resource, can still be cleared. A zero key
   // means none.
@@ -170,7 +179,7 @@ export const SingleTrigger = <K extends record.Key>({
       className={CSS.cls(
         CSS.dropRegion(canDrop(dragging)),
         triggerVariant === "shadow" && CSS.M("shadow"),
-        name == null && !fixed ? CSS.BM("select-single-trigger", "empty") : null,
+        empty && !auto ? CSS.BM("select-single-trigger", "empty") : null,
         collapsible && CSS.BM("select-single-trigger", "collapsible"),
         clearShown && CSS.M("reveals"),
         clearShown && CSS.BM("select-single-trigger", "clearable"),
@@ -199,6 +208,9 @@ export const SingleTrigger = <K extends record.Key>({
         <Label itemKey={selected} id={labelId}>
           {shown}
         </Label>
+      )}
+      {auto && empty && (
+        <Input.AutoChip className={CSS.BE("select-single-trigger", "auto")} />
       )}
       {clearOnCaret &&
         withClear(

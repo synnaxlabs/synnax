@@ -10,12 +10,12 @@
 import { DataType, type lineplot, type ranger } from "@synnaxlabs/client";
 import { createTestClient } from "@synnaxlabs/client/testutil";
 import { dynamicWindow, TimeSpan } from "@synnaxlabs/x";
-import { fireEvent, screen, waitFor } from "@testing-library/react";
+import { fireEvent, screen, waitFor, within } from "@testing-library/react";
 import { describe, expect, it } from "vitest";
 
 import { client, renderLinePlot } from "@/feature/lineplot/testutil";
 import { Toolbar } from "@/feature/lineplot/toolbar";
-import { uniqueName } from "@/testutil";
+import { findDialogTriggerByText, getInputItem, uniqueName } from "@/testutil";
 
 const PLACEHOLDER = "1h 30min";
 
@@ -90,6 +90,34 @@ describe("lineplot/toolbar/Data", () => {
       expect(plot.channels.x1).toBe(0);
     });
     expect(screen.queryByLabelText(`Clear ${index.name}`)).toBeNull();
+  });
+
+  it("shows an empty X channel as time with an auto chip", async () => {
+    await renderData();
+    const item = getInputItem("X1");
+    expect(within(item).getByText("Time")).toBeDefined();
+    expect(within(item).getByText("Auto")).toBeDefined();
+  });
+
+  it("returns the X channel to time with the pinned time option", async () => {
+    const index = await client.channels.create({
+      name: uniqueName("x_index"),
+      dataType: DataType.TIMESTAMP,
+      isIndex: true,
+    });
+    const { key } = await renderLinePlot(Toolbar, {
+      linePlot: { channels: { x1: index.key } },
+    });
+    fireEvent.click(await findDialogTriggerByText(index.name));
+    fireEvent.click(
+      await screen.findByText(
+        "Automatically uses each channel's time. Best for most needs.",
+      ),
+    );
+    await waitFor(async () => {
+      const plot = await reader.lineplots.retrieve(key);
+      expect(plot.channels.x1).toBe(0);
+    });
   });
 
   it("keeps the stored window when the input is zero", async () => {

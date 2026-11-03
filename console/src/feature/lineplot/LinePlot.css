@@ -26,3 +26,21 @@
         right: 0;
     }
 }
+
+.console-line-plot__x-time {
+    padding: 0.5rem;
+    border-top: var(--pluto-border-width) solid var(--pluto-gray-l6);
+}
+
+.console-line-plot__x-time-btn {
+    height: auto;
+    padding: 1rem 1.5rem;
+}
+
+.console-line-plot__x-time-title {
+    width: 100%;
+}
+
+.console-line-plot__x-time-chip {
+    margin-left: auto;
+}

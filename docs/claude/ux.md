@@ -134,6 +134,24 @@ outlined button) has fill l2 and border l4, and its caret has the disabled text 
   error, and the message shows on hover. A control with a border gets a red border. A
   control with no border, such as a text select or a button group, gets red text.
 
+### Auto values
+
+An auto field holds a value that the Console picks until a person sets one: an axis
+bound, a log precision, or the line plot X channel.
+
+- The field shows the "Auto" chip (`Input.AutoChip`) at its end, where a unit sits.
+  Violet (`--pluto-auto-z`, `--pluto-auto-text`) means auto. Primary blue stays for
+  focus and selection.
+- The field never shows a value that it does not use, such as 0 for an auto bound. A
+  field with room shows the prompt "Enter a value to override". A narrow field shows
+  only the chip.
+- A set value removes the chip and shows the Auto button (`Input.AutoButton`): the Auto
+  icon in violet, with the tooltip "Auto". The button, or an empty field, puts the field
+  back in auto.
+- A select whose empty value is an auto mode shows the mode as a value ("Time"), never
+  "Select channel". The mode is a button pinned under the list, out of its search, with
+  a one-line hint that ends "Best for most needs."
+
 ### Task forms
 
 - Task-wide settings (Data saving, Auto start) are toggle buttons in the task footer,
