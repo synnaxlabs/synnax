@@ -126,6 +126,14 @@ export const getLabeledInput = (labelText: string): HTMLInputElement =>
   getBySelector<HTMLInputElement>(getInputItem(labelText), "input");
 
 /**
+ * Hides the name of a collapsible select trigger, as a narrow layout does. jsdom
+ * applies no stylesheets, so the trigger otherwise always fits its name.
+ */
+export const collapseSelectTrigger = (trigger: HTMLElement): void => {
+  getBySelector<HTMLElement>(trigger, ".lyra-select__label").style.display = "none";
+};
+
+/**
  * Waits for the live dialog trigger of the mounted select whose current value renders
  * as text. Select triggers expose no accessible name, so this matches on the shown
  * value. A preview trigger opens nothing and so carries no popup, which also keeps it

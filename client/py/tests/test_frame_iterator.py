@@ -9,7 +9,6 @@
 
 
 from collections.abc import Callable
-from datetime import timedelta
 
 import numpy as np
 import pydantic
@@ -121,37 +120,6 @@ class TestIterator:
 
             assert not i.seek_le(sy.TimeStamp(-1))
             assert not i.seek_ge(sy.TimeStamp(20 * sy.TimeSpan.SECOND))
-
-    @pytest.mark.parametrize(
-        ("forward", "backward"),
-        [
-            (3_000_000_000, 2_000_000_000),
-            (sy.TimeSpan.SECOND * 3, sy.TimeSpan.SECOND * 2),
-            (timedelta(seconds=3), timedelta(seconds=2)),
-        ],
-        ids=["int_nanoseconds", "time_span", "timedelta"],
-    )
-    def test_crude_span(
-        self,
-        client: sy.Synnax,
-        indexed_pair: tuple[sy.Channel, sy.Channel],
-        forward: sy.CrudeTimeSpan,
-        backward: sy.CrudeTimeSpan,
-    ) -> None:
-        """Should convert a crude span with the TimeSpan constructor."""
-        idx_ch, data_ch = indexed_pair
-        seconds = np.array([0, 1, 2, 3, 4, 5]).astype(np.int64)
-        client.write(
-            sy.TimeStamp(0),
-            {idx_ch.key: seconds * int(sy.TimeSpan.SECOND), data_ch.key: seconds},
-        )
-        with client.open_iterator(sy.TimeRange.MAX, data_ch.key) as i:
-            assert i.seek_first()
-            assert i.next(forward)
-            assert i.value[data_ch.key].to_numpy().tolist() == [0, 1, 2]
-            assert i.seek_last()
-            assert i.prev(backward)
-            assert i.value[data_ch.key].to_numpy().tolist() == [4, 5]
 
     def def_test_calculated_channel(
         self, client: sy.Synnax, indexed_pair: tuple[sy.Channel, sy.Channel]

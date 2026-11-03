@@ -11,7 +11,6 @@ import asyncio
 import threading
 import time
 from collections.abc import Callable
-from datetime import timedelta
 from typing import cast
 
 import numpy as np
@@ -26,7 +25,7 @@ from x.strings import random_name
 
 # Seconds to wait for a cross-thread handshake. Generous, so a slow Core cannot fail the
 # test, but bounded, so a broken run fails instead of hanging CI.
-HANDSHAKE_TIMEOUT = sy.TimeSpan.SECOND * 5
+HANDSHAKE_TIMEOUT = 5
 # A wait timeout long enough that only a stopped receiver can wake the wait in time.
 BLOCKED_WAIT = 30 * sy.TimeSpan.SECOND
 
@@ -360,7 +359,7 @@ class TestController:
             name="Bare duration", read=[press_en.key], write=None
         ) as auto:
             start = time.perf_counter()
-            auto.remains_true_for(lambda _: True, duration=sy.TimeSpan.SECOND * 0.2)
+            auto.remains_true_for(lambda _: True, duration=0.2)
             assert time.perf_counter() - start >= 0.2
 
     def test_wait_while(self, client: sy.Synnax) -> None:
@@ -413,7 +412,7 @@ class TestController:
                 # the opening sample can never arrive before wait_while registers.
                 timer = sy.Timer()
                 while not observing.is_set():
-                    if timer.elapsed() > HANDSHAKE_TIMEOUT:
+                    if timer.elapsed() > HANDSHAKE_TIMEOUT * sy.TimeSpan.SECOND:
                         return
                     auto[press_en.key] = False
                     auto.sleep(5 * sy.TimeSpan.MILLISECOND)
@@ -521,7 +520,7 @@ class TestController:
 
             waiter = threading.Thread(target=run, daemon=True)
             waiter.start()
-            deadline = time.monotonic() + HANDSHAKE_TIMEOUT.seconds
+            deadline = time.monotonic() + HANDSHAKE_TIMEOUT
             while not receiver.processors:
                 if errors:
                     raise errors[0]
@@ -529,8 +528,8 @@ class TestController:
                 time.sleep(0.01)
             asyncio.run_coroutine_threadsafe(
                 receiver.streamer.close_loop(), receiver.loop
-            ).result(HANDSHAKE_TIMEOUT.seconds)
-            waiter.join(HANDSHAKE_TIMEOUT.seconds)
+            ).result(HANDSHAKE_TIMEOUT)
+            waiter.join(HANDSHAKE_TIMEOUT)
             assert not waiter.is_alive(), "blocked wait was not woken"
             assert len(errors) == 1
             assert isinstance(errors[0], sy.UnexpectedError)
@@ -567,21 +566,21 @@ class TestController:
         seq_one_done = threading.Event()
 
         def sequence_one() -> None:
-            daq_ready.wait(HANDSHAKE_TIMEOUT.seconds)
+            daq_ready.wait(HANDSHAKE_TIMEOUT)
             with client.control.acquire(
                 name="Basic Valve Toggle",
                 read=[press_en.key],
                 write=[press_en_cmd.key],
                 write_authorities=[100],
             ) as auto:
-                seq_two_acquired.wait(HANDSHAKE_TIMEOUT.seconds)
+                seq_two_acquired.wait(HANDSHAKE_TIMEOUT)
                 auto[press_en_cmd.key] = True
                 assertions["seq_one_first_ack"] = auto.wait_until(
                     lambda c: c[press_en.key],
                     timeout=250 * sy.TimeSpan.MILLISECOND,
                 )
                 seq_one_blocked.set()
-                seq_two_lowered.wait(HANDSHAKE_TIMEOUT.seconds)
+                seq_two_lowered.wait(HANDSHAKE_TIMEOUT)
                 auto[press_en_cmd.key] = True
                 assertions["seq_one_second_ack"] = auto.wait_until(
                     lambda c: c[press_en.key],
@@ -591,7 +590,7 @@ class TestController:
                 auto[press_en_cmd.key] = False
 
         def sequence_two() -> None:
-            daq_ready.wait(HANDSHAKE_TIMEOUT.seconds)
+            daq_ready.wait(HANDSHAKE_TIMEOUT)
             with client.control.acquire(
                 name="Basic Valve Toggle",
                 read=[press_en.key],
@@ -599,14 +598,14 @@ class TestController:
                 write_authorities=[255],
             ) as auto:
                 seq_two_acquired.set()
-                seq_one_blocked.wait(HANDSHAKE_TIMEOUT.seconds)
+                seq_one_blocked.wait(HANDSHAKE_TIMEOUT)
                 # set_authority blocks until the Core acknowledges it, so sequence one
                 # commands only after the lower authority is in effect. Sequence two
                 # holds its writer open until sequence one is done, so the commands go
                 # through because of the authority change alone.
                 auto.set_authority({press_en_cmd.key: 50})
                 seq_two_lowered.set()
-                seq_one_done.wait(HANDSHAKE_TIMEOUT.seconds)
+                seq_one_done.wait(HANDSHAKE_TIMEOUT)
 
         def daq() -> None:
             with client.control.acquire(
@@ -767,15 +766,17 @@ class TestRemainsTrueForProcessor:
 
 
 class TestScheduledCommand:
-    @pytest.mark.parametrize(
-        "delay",
-        [2_000_000, 2 * sy.TimeSpan.MILLISECOND, timedelta(milliseconds=2)],
-        ids=["int_nanoseconds", "time_span", "timedelta"],
-    )
-    def test_crude_delay(self, delay: sy.CrudeTimeSpan) -> None:
-        """Should convert a crude delay with the TimeSpan constructor."""
-        cmd = ScheduledCommand(channel="ch", value=1, delay=delay)
-        assert cmd.delay == 2 * sy.TimeSpan.MILLISECOND
+    def test_bare_number_delay_is_seconds(self) -> None:
+        """Should read a bare number delay as seconds."""
+        assert (
+            ScheduledCommand(channel="ch", value=1, delay=2).delay
+            == 2 * sy.TimeSpan.SECOND
+        )
+
+    def test_time_span_delay_passes_through(self) -> None:
+        """Should keep a TimeSpan delay unchanged."""
+        delay = 5 * sy.TimeSpan.MILLISECOND
+        assert ScheduledCommand(channel="ch", value=1, delay=delay).delay == delay
 
 
 @pytest.mark.control

@@ -107,7 +107,7 @@ class Client:
         mode: CrudeWriterMode = WriterMode.PERSIST_STREAM,
         err_on_unauthorized: bool = False,
         enable_auto_commit: bool = True,
-        auto_index_persist_interval: CrudeTimeSpan = TimeSpan.SECOND,
+        auto_index_persist_interval: TimeSpan = TimeSpan.SECOND,
         auto_index: bool = False,
         err_on_extra_chans: bool = True,
     ) -> Writer:
@@ -407,7 +407,7 @@ class Client:
         the Core. Used for telemetry bypass deduplication.
         :param keep_alive: Interval at which the Core sends keep-alive responses. A read
         that stays silent for three intervals raises Unreachable. Zero disables
-        detection.
+        detection. Numbers are seconds.
         """
         adapter = ReadFrameAdapter(self._channels)
         adapter.update(channels)

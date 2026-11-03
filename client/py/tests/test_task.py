@@ -175,7 +175,7 @@ class TestTaskClient:
         def driver(ev: threading.Event) -> None:
             with client.open_streamer("sy_task_cmd") as s:
                 ev.set()
-                f = s.read(timeout=sy.TimeSpan.SECOND)
+                f = s.read(timeout=1)
                 assert f is not None
                 cmd = sy.task.Command.model_validate(f["sy_task_cmd"][0])
                 client.statuses.set(
@@ -215,14 +215,14 @@ class TestTaskClient:
                         message="unrelated",
                     )
                 )
-                sy.sleep(sy.TimeSpan.SECOND * 0.1)
+                sy.sleep(0.1)
 
         t = threading.Thread(target=noise)
         t.start()
         try:
             timer = sy.Timer()
             with pytest.raises(TimeoutError):
-                tsk.execute_command_sync("test", timeout=sy.TimeSpan.SECOND)
+                tsk.execute_command_sync("test", timeout=1)
             assert timer.elapsed() < 5 * sy.TimeSpan.SECOND
         finally:
             stop.set()
@@ -237,7 +237,7 @@ class TestTaskClient:
             key = tsk.execute_command("test")
             matches: list[dict[str, Any]] = []
             for _ in range(10):
-                f = s.read(timeout=sy.TimeSpan.SECOND)
+                f = s.read(timeout=1)
                 assert f is not None, "timed out waiting for the command"
                 matches = [
                     c
@@ -256,7 +256,7 @@ class TestTaskClient:
             key = tsk.execute_command("test", args={"target": target})
             matches: list[dict[str, Any]] = []
             for _ in range(10):
-                f = s.read(timeout=sy.TimeSpan.SECOND)
+                f = s.read(timeout=1)
                 assert f is not None, "timed out waiting for the command"
                 matches = [
                     c

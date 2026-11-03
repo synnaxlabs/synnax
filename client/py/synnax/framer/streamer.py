@@ -139,7 +139,7 @@ class Streamer:
         keep_alive: CrudeTimeSpan = DEFAULT_KEEP_ALIVE,
     ) -> None:
         validate_downsample_factor(downsample_factor)
-        keep_alive = TimeSpan(keep_alive)
+        keep_alive = TimeSpan.from_seconds(keep_alive)
         self._liveness = _Liveness(keep_alive)
         self._adapter = adapter
         client = client.with_codec(_WSStreamerCodec(self._adapter.codec))
@@ -168,7 +168,8 @@ class Streamer:
         occurs while reading the frame, an exception will be raised.
 
         :param timeout: The maximum amount of time to wait for a frame to be received
-        before returning None. A bare number is nanoseconds.
+        before returning None. This can be a float or integer representing the number
+        of seconds, or a synnax TimeSpan object.
         :return: The next frame of telemetry, or None if no frame is received within the
         timeout.
         """
@@ -197,7 +198,7 @@ class Streamer:
         :raises Unreachable: If keep-alives were flowing and then no response arrives,
         across reads, for the keep-alive deadline: the connection is presumed dead.
         """
-        seconds = None if timeout is None else TimeSpan(timeout).seconds
+        seconds = TimeSpan.to_seconds(timeout)
         end = None if seconds is None else time.monotonic() + seconds
         while True:
             dead = self._liveness.dead_at()
@@ -239,16 +240,14 @@ class Streamer:
         """Closes the streamer and frees all network resources.
 
         :param timeout: The maximum amount of time to wait for the server to acknowledge
-        the closure before raising a TimeoutError. A bare number is nanoseconds. If no
-        timeout is provided, this method will block until the server acknowledges the
-        closure.
+        the closure before raising a TimeoutError. This can be a float or integer
+        representing the number of seconds, or a synnax TimeSpan object. If no timeout
+        is provided, this method will block until the server acknowledges the closure.
         """
         self._stream.close_send()
         while True:
             try:
-                self._stream.receive(
-                    timeout=None if timeout is None else TimeSpan(timeout).seconds
-                )
+                self._stream.receive(timeout=TimeSpan.to_seconds(timeout))
             except EOF:
                 break
 
@@ -308,7 +307,7 @@ class AsyncStreamer:
         self._downsample_factor = downsample_factor
         self._throttle_rate = throttle_rate
         self._exclude_groups = exclude_groups or []
-        self._liveness = _Liveness(TimeSpan(keep_alive))
+        self._liveness = _Liveness(TimeSpan.from_seconds(keep_alive))
 
     async def _open(self) -> None:
         client = self._client.with_codec(_WSStreamerCodec(self._adapter.codec))

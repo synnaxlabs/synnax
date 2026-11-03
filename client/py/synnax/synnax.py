@@ -132,6 +132,10 @@ class Synnax(framer.Client):
         :param secure: Whether to use TLS when connecting to the Core. The client
             verifies the Core's certificate against ca_cert, or the system trust roots
             when ca_cert is None.
+        :param open_timeout: The time to wait for a connection. A bare number is
+            seconds.
+        :param read_timeout: The time to wait for a response. A bare number is seconds.
+        :param keep_alive: The time between keep alive pings. A bare number is seconds.
         :param clock_skew_threshold: The maximum allowable clock skew between this
             host and Synnax Core before a warning is issued. Defaults to 1 second.
         :param api_key: API key to authenticate with, in place of a username and

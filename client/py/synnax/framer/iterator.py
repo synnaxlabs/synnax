@@ -22,7 +22,7 @@ from freighter.websocket import Message
 from synnax.framer.adapter import ReadFrameAdapter
 from synnax.framer.codec import LOW_PERF_SPECIAL_CHAR, WSCodec
 from synnax.framer.frame import Frame, FramePayload
-from synnax.telem import CrudeTimeSpan, Reduction, TimeRange, TimeSpan, TimeStamp
+from synnax.telem import Reduction, TimeRange, TimeSpan, TimeStamp
 
 AUTO_SPAN = TimeSpan(-1)
 
@@ -144,7 +144,7 @@ class Iterator:
         )
         self.value = Frame()
 
-    def next(self, span: CrudeTimeSpan) -> bool:
+    def next(self, span: TimeSpan) -> bool:
         """Reads the next time span of telemetry for each channel in the iterator.
 
         :param span: The span of time to read. A negative span is equivalent to calling
@@ -155,9 +155,9 @@ class Iterator:
         :returns: False if a segment satisfying the request can't be found for a
         particular channel or the iterator has accumulated an error.
         """
-        return self._exec(_Request(command=_Command.NEXT, span=TimeSpan(span)))
+        return self._exec(_Request(command=_Command.NEXT, span=span))
 
-    def prev(self, span: CrudeTimeSpan) -> bool:
+    def prev(self, span: TimeSpan) -> bool:
         """Reads the previous time span of telemetry for each channel in the iterator.
 
         :param span: The span of time to read. A negative span is equivalent to calling
@@ -168,7 +168,7 @@ class Iterator:
         :returns: False if a segment satisfying the request can't be found for a
         particular channel or the iterator has accumulated an error.
         """
-        return self._exec(_Request(command=_Command.PREV, span=TimeSpan(span)))
+        return self._exec(_Request(command=_Command.PREV, span=span))
 
     def seek_first(self) -> bool:
         """Seeks the iterator to the first segment in the time range, but does not read

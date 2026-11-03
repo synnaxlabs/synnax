@@ -88,6 +88,7 @@ const LEVELS: Level[] = [
 ];
 
 const ITEM_CLASS = CSS.BE("performance-select", "item");
+const LEVEL_CLASS = CSS.BE("performance-select", "level");
 const NAME_CLASS = CSS.BE("performance-select", "name");
 const DESCRIPTION_CLASS = CSS.BE("performance-select", "description");
 
@@ -96,17 +97,15 @@ const ITEMS = LEVELS.map(({ key, name, description }) => (
     key={key}
     itemKey={key}
     className={ITEM_CLASS}
-    y
-    gap="tiny"
-    align="start"
+    textValue={name}
   >
-    <Text.Text>
+    <div className={LEVEL_CLASS}>
       {GLYPHS[key]}
       <span className={NAME_CLASS}>{name}</span>
-    </Text.Text>
-    <Text.Text className={DESCRIPTION_CLASS} color={9} level="small" wrap>
-      {description}
-    </Text.Text>
+      <Text.Text className={DESCRIPTION_CLASS} color={9} level="small" overflow="wrap">
+        {description}
+      </Text.Text>
+    </div>
   </Select.Item>
 ));
 
@@ -149,6 +148,7 @@ export const SelectPerformance = ({
     triggerProps={TRIGGER_PROPS}
     dialogProps={DIALOG_PROPS}
     resourceName="performance"
+    searchName="level"
   >
     {ITEMS}
   </Select.Simple>

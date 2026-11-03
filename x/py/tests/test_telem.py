@@ -492,12 +492,16 @@ class TestTimeSpan:
                 1 * sy.TimeSpan.SECOND,
                 1 * sy.TimeSpan.SECOND,
             ),
+            (np.int64(2), 2 * sy.TimeSpan.SECOND),
+            (np.float64(0.5), 500 * sy.TimeSpan.MILLISECOND),
+            (sy.Rate(2), 500 * sy.TimeSpan.MILLISECOND),
+            (timedelta(seconds=3), 3 * sy.TimeSpan.SECOND),
+            (sy.TimeStamp(1000), sy.TimeSpan.MICROSECOND),
         ],
     )
-    def test_from_seconds(self, span: object, expected: sy.TimeSpan) -> None:
+    def test_from_seconds(self, span: sy.CrudeTimeSpan, expected: sy.TimeSpan) -> None:
         """It should evaluate pure floats or integers as seconds"""
-        abc = sy.TimeSpan.from_seconds(1.0)
-        assert abc == sy.TimeSpan(1 * sy.TimeSpan.SECOND)
+        assert sy.TimeSpan.from_seconds(span) == expected
 
     @pytest.mark.parametrize(
         ("span", "expected"),

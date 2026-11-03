@@ -66,30 +66,17 @@ class TestTransport:
 
 
 class TestKeepAlive:
-    def test_sync(self, pinged_endpoint: tuple[URL, threading.Event]) -> None:
-        """Should ping the Core at the keep-alive interval on a sync stream."""
-        url, pinged = pinged_endpoint
-        transport = Transport(
-            url=url,
-            instrumentation=NOOP,
-            registry=create_registry(),
-            keep_alive=TimeSpan.MILLISECOND * 50,
-        )
-        stream = transport.stream.stream("/", Empty, Empty)
-        assert pinged.wait(2)
-        stream.close_send()
-
     @pytest.mark.parametrize(
         "keep_alive",
-        [50_000_000, TimeSpan.MILLISECOND * 50, timedelta(milliseconds=50)],
-        ids=["int_nanoseconds", "time_span", "timedelta"],
+        [0.05, TimeSpan.MILLISECOND * 50, timedelta(milliseconds=50)],
+        ids=["seconds", "time_span", "timedelta"],
     )
-    def test_crude_span(
+    def test_sync(
         self,
         pinged_endpoint: tuple[URL, threading.Event],
         keep_alive: CrudeTimeSpan,
     ) -> None:
-        """Should convert a crude keep-alive with the TimeSpan constructor."""
+        """Should ping the Core at the keep-alive interval on a sync stream."""
         url, pinged = pinged_endpoint
         transport = Transport(
             url=url,

@@ -386,14 +386,15 @@ class TimeSpan(int):
 
     @staticmethod
     def from_seconds(span: CrudeTimeSpan) -> TimeSpan:
-        """An alternative constructor for TimeSpan that parses raw numeric values as
-        seconds instead of nanoseconds.
+        """Converts a duration parameter. Every Python API that takes a duration uses
+        this conversion, so a bare number is seconds. The TimeSpan constructor reads a
+        bare number as nanoseconds instead.
         """
-        if isinstance(span, TimeSpan):
-            return span
+        if isinstance(span, (TimeSpan, TimeStamp)):
+            return TimeSpan(span)
         if isinstance(span, Rate):
             return span.period
-        if isinstance(span, (float, int)):
+        if isinstance(span, (int, float, np.integer, np.floating)):
             return TimeSpan.SECOND * span
         return TimeSpan(span)
 

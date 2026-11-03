@@ -72,13 +72,14 @@ def sleep(
 ) -> None:
     """Sleeps for the given duration.
 
-    :param dur: The duration to sleep for.
+    :param dur: The duration to sleep for. A float or int is a number of seconds, and a
+        Rate is one period of that rate (1 Hz = 1 second).
     :param precise: Whether to wake within microseconds of the deadline. A precise sleep
         sleeps in the OS until shortly before the deadline, then busy-waits the rest, so
         it uses more CPU than the default sleep.
     :param clock: The clock to sleep on. Defaults to the host's performance counter.
     """
-    span = TimeSpan(dur)
+    span = TimeSpan.from_seconds(dur)
     _sleep_until(clock, clock.now() + span.nanoseconds, precise=precise)
 
 
@@ -138,14 +139,15 @@ class Loop:
     ):
         """Creates a new Loop object with the given interval and precision.
 
-        :param interval: The interval at which to run the loop.
+        :param interval: The interval at which to run the loop. A float or int is a
+            number of seconds, and a Rate is one period of that rate (1 Hz = 1 second).
         :param precise: Whether to wake within microseconds of each deadline. See
             sleep for the CPU cost.
         :param clock: The clock to schedule on. Defaults to the host's performance
             counter.
         """
         self._clock = clock
-        self.interval = TimeSpan(interval)
+        self.interval = TimeSpan.from_seconds(interval)
         self.precise = precise
         self._restart()
 
@@ -205,14 +207,15 @@ def poll(
 
     :param func: A callable that returns a value or None. Polling stops when it returns
     a non-None value.
-    :param timeout: Maximum time to poll for.
-    :param interval: Time to sleep between calls to func.
+    :param timeout: Maximum time to poll for. A float or int is a number of seconds.
+    :param interval: Time to sleep between calls to func. A float or int is a number of
+    seconds.
     :param clock: The clock to time out and sleep on. Defaults to the host's performance
     counter.
     :returns: The first non-None return value from func, or None if the timeout expired.
     """
-    timeout = TimeSpan(timeout)
-    interval = TimeSpan(interval)
+    timeout = TimeSpan.from_seconds(timeout)
+    interval = TimeSpan.from_seconds(interval)
     deadline = clock.now() + timeout.nanoseconds
     while clock.now() < deadline:
         result = func()

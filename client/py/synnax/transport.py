@@ -53,15 +53,19 @@ class Transport:
         :param registry: Decodes the errors that the Core returns.
         :param secure: Whether to use TLS. The client then verifies the Core's
             certificate against ca_cert, or the system trust roots when ca_cert is None.
+        :param open_timeout: The time to wait for a connection. A bare number is
+            seconds.
+        :param read_timeout: The time to wait for a response. A bare number is seconds.
+        :param keep_alive: The time between keep alive pings. A bare number is seconds.
         :param ca_cert: The path to a PEM file of CA certificates that sign the Core's
             certificate.
         :raises ValueError: If ca_cert is set and secure is False.
         """
         if ca_cert is not None and not secure:
             raise ValueError("ca_cert requires secure=True")
-        open_timeout = TimeSpan(open_timeout)
-        read_timeout = TimeSpan(read_timeout)
-        keep_alive = TimeSpan(keep_alive)
+        open_timeout = TimeSpan.from_seconds(open_timeout)
+        read_timeout = TimeSpan.from_seconds(read_timeout)
+        keep_alive = TimeSpan.from_seconds(keep_alive)
         ssl_context = ssl.create_default_context(cafile=ca_cert) if secure else None
         self.url = url.child("/api/v1/")
         codec = JSONCodec()
