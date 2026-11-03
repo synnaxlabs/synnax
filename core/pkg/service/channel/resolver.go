@@ -12,6 +12,7 @@ package channel
 import (
 	"context"
 	"strconv"
+	"sync"
 
 	"github.com/samber/lo"
 	"github.com/synnaxlabs/arc"
@@ -80,7 +81,7 @@ func (r *symbolResolver) Search(
 // NewConsistentResolver returns a resolver that answers each name the way r first
 // answered it. Arc resolves a name several times in one analysis or compile, and a
 // rename that commits part way through would otherwise give that pass both answers.
-// Use one per analysis or compile. It is not safe for concurrent use.
+// Use one per analysis or compile. It is safe for concurrent use.
 func NewConsistentResolver(r arc.SymbolResolver) arc.SymbolResolver {
 	return &consistentResolver{
 		SymbolResolver: r,
@@ -95,6 +96,7 @@ type resolution struct {
 
 type consistentResolver struct {
 	arc.SymbolResolver
+	mu       sync.Mutex
 	resolved map[string]resolution
 }
 
@@ -102,11 +104,13 @@ func (r *consistentResolver) Resolve(
 	ctx context.Context,
 	name string,
 ) (*symbol.Symbol, error) {
+	r.mu.Lock()
 	res, ok := r.resolved[name]
 	if !ok {
 		res.sym, res.err = r.SymbolResolver.Resolve(ctx, name)
 		r.resolved[name] = res
 	}
+	r.mu.Unlock()
 	if res.err != nil {
 		return nil, res.err
 	}

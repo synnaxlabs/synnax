@@ -11,6 +11,7 @@ package channel_test
 
 import (
 	"context"
+	"fmt"
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
@@ -410,21 +411,20 @@ var _ = Describe("Analyze", func() {
 		)
 	})
 	Describe("Dependency Removed During Analysis", func() {
-		It(
+		DescribeTable(
 			"Should never report an analyzed channel without a data type",
-			func(ctx SpecContext) {
-				for found := range 20 {
-					r := &disappearingResolver{found: found}
-					a := channel.NewCalculationAnalyzer(r)
-					res, err := a.Analyze(ctx, channel.Channel{
-						Name:       "calc",
-						Expression: "return 100 / base",
-					})
-					if err == nil {
-						Expect(res.ChanDataType).To(Equal(telem.Int64T))
-					}
+			func(ctx SpecContext, found int) {
+				r := &disappearingResolver{found: found}
+				a := channel.NewCalculationAnalyzer(r)
+				res, err := a.Analyze(ctx, channel.Channel{
+					Name:       "calc",
+					Expression: "return 100 / base",
+				})
+				if err == nil {
+					Expect(res.ChanDataType).To(Equal(telem.Int64T))
 				}
 			},
+			disappearingEntries(),
 		)
 
 		It(
@@ -474,4 +474,12 @@ func (r *disappearingResolver) Search(
 	string,
 ) ([]*symbol.Symbol, error) {
 	return nil, nil
+}
+
+func disappearingEntries() []TableEntry {
+	entries := make([]TableEntry, 0, 20)
+	for found := range 20 {
+		entries = append(entries, Entry(fmt.Sprintf("found %d times", found), found))
+	}
+	return entries
 }
