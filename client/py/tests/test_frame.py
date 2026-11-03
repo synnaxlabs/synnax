@@ -162,6 +162,57 @@ class TestFrameToDF:
         assert list(df.columns) == ["big", "dog"]
         assert list(df["big"]) == [1, 2]
 
+    def test_join_on_alignment(self) -> None:
+        """Should place a channel with fewer samples than its index by alignment."""
+        stamps = sy.Series(
+            [1, 2, 3, 4, 5],
+            data_type=sy.DataType.TIMESTAMP,
+            alignment=sy.Alignment(2, 10),
+        )
+        data = sy.Series(
+            [7.5, 8.5], data_type=sy.DataType.FLOAT64, alignment=sy.Alignment(2, 12)
+        )
+        f = sy.Frame({1: stamps, 2: data})
+        f.names = {1: "time", 2: "dog"}
+        f.indexes = {1: 1, 2: 1}
+        df = f.to_df()
+        assert list(df.index.astype("int64")) == [1, 2, 3, 4, 5]
+        assert df["dog"].isna().tolist() == [True, True, False, False, True]
+        assert df["dog"].dropna().tolist() == [7.5, 8.5]
+
+    def test_join_on_alignment_multiple(self) -> None:
+        """Should step through alignments by the multiple of a strided series."""
+        stamps = sy.Series(
+            [1, 2, 3],
+            data_type=sy.DataType.TIMESTAMP,
+            alignment=sy.Alignment(0, 0),
+            alignment_multiple=2,
+        )
+        data = sy.Series(
+            [9.5],
+            data_type=sy.DataType.FLOAT64,
+            alignment=sy.Alignment(0, 4),
+            alignment_multiple=2,
+        )
+        f = sy.Frame({1: stamps, 2: data})
+        f.names = {1: "time", 2: "dog"}
+        f.indexes = {1: 1, 2: 1}
+        assert f.to_df()["dog"].dropna().index.astype("int64").tolist() == [3]
+
+    def test_alignment_outside_index(self) -> None:
+        """Should fail when a channel has a sample its index does not hold."""
+        stamps = sy.Series(
+            [1, 2, 3], data_type=sy.DataType.TIMESTAMP, alignment=sy.Alignment(0, 0)
+        )
+        data = sy.Series(
+            [9.5], data_type=sy.DataType.FLOAT64, alignment=sy.Alignment(1, 0)
+        )
+        f = sy.Frame({1: stamps, 2: data})
+        f.names = {1: "time", 2: "dog"}
+        f.indexes = {1: 1, 2: 1}
+        with pytest.raises(ValueError, match="alignments"):
+            f.to_df()
+
     def test_key_fallback(self) -> None:
         """Should use the channel key when the frame does not know the name."""
         f = sy.Frame({1: sy.Series([1, 2]), 2: sy.Series([3, 4])})

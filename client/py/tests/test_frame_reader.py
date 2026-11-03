@@ -215,6 +215,34 @@ class TestReader:
         stamps = np.array(seconds_linspace(1, count=10), dtype=np.int64)
         assert list(df.index) == list(pd.to_datetime(stamps, unit="ns", utc=True))
 
+    def test_read_partial_channel_to_df(self, client: sy.Synnax) -> None:
+        """Should leave a cell blank where a channel has no sample at an index time."""
+        idx_ch = _create_index(client)
+        full, partial = client.channels.create(
+            [
+                sy.Channel(
+                    name=f"test_{random_name()}_{i}",
+                    index=idx_ch.key,
+                    data_type=sy.DataType.FLOAT64,
+                )
+                for i in range(2)
+            ]
+        )
+        stamps = seconds_linspace(1, count=20)
+        with client.open_writer(
+            start=1 * sy.TimeSpan.SECOND, channels=[idx_ch.key, full.key]
+        ) as w:
+            w.write({idx_ch.key: stamps, full.key: np.arange(20, dtype=np.float64)})
+            w.commit()
+        with client.open_writer(start=stamps[15], channels=[partial.key]) as w:
+            w.write({partial.key: np.arange(5, dtype=np.float64)})
+            w.commit()
+        df = client.read(sy.TimeRange.MAX, [partial.key]).to_df()
+        assert list(df.columns) == [partial.name]
+        assert len(df) == 20
+        assert df[partial.name].isna().sum() == 15
+        assert df[partial.name].dropna().tolist() == [0.0, 1.0, 2.0, 3.0, 4.0]
+
     def test_read_requested_index_once(
         self, written_pair: tuple[sy.Channel, sy.Channel], client: sy.Synnax
     ) -> None:
