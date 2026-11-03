@@ -16,14 +16,6 @@ from console.schematic import Schematic
 from framework.hardware_case import HardwareCase
 from x import random_name
 
-NI_ANALOG_READ_CONFIG = {
-    "autoStart": False,
-    "dataSaving": True,
-    "sampleRate": 10,
-    "streamRate": 5,
-    "channels": [],
-}
-
 
 class RangeDetails(HardwareCase, ConsoleCase):
     """Test Range Details: child range context menu, metadata, and snapshot
@@ -62,7 +54,7 @@ class RangeDetails(HardwareCase, ConsoleCase):
         task = self.client.tasks.create(
             name=self.task_name,
             type="ni_analog_read",
-            config=NI_ANALOG_READ_CONFIG,
+            config=sy.ni.AnalogReadConfig(),
         )
         self.track_test_tasks([task])
         sy.sleep(1)  # SY not?
