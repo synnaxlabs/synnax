@@ -141,11 +141,17 @@ outlined button) has fill l2 and border l4, and its caret has the disabled text 
 - A number or a duration field is 144 px (24 rem) wide wherever it sits. A form can set
   another width when its values need one.
 - A row of three fits the dialog with no overflow into its padding, so its labels are
-  short ("Channel lifetime", not "Secure channel lifetime"). The last fields of all rows
-  share one column, so a text field at the end of a row is 144 px too, as the OPC UA
-  password is.
+  short ("Channel lifetime", not "Secure channel lifetime").
+- Two text fields on one line, such as a username and a password, are equally wide. The
+  second sits in the control of the first, not in the later field columns. An empty
+  field shows what empty means: "Anonymous" for the username, "None" for the password.
 - A dialog shows its settings in sections, not tabs, while they fit with no scroll. The
   Modbus connect dialog has no tabs.
+- A section holds a whole topic, so a short topic joins its neighbor: the OPC UA login
+  sits in Connection, and its certificates sit in Security. An action that fills a field
+  sits beside that field ("Find endpoints" beside Mode), not on a line of its own.
+- A value in a dialog field, such as a thumbprint, sits on one line with its actions as
+  icon buttons at the end. Each icon button has a tooltip that names it.
 - A field in a row, or beside another field, has no help text. Its control shows the
   error, and the message shows on hover. A control with a border gets a red border. A
   control with no border, such as a text select or a button group, gets red text.

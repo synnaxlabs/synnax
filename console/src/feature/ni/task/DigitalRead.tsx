@@ -44,7 +44,7 @@ const root = deep.path<Task.Values<DigitalReadSchemas>>();
 const Properties = () => (
   <>
     <Select />
-    <Flex.Box x>
+    <Flex.Box x wrap>
       <Task.Fields.SampleRate />
       <Task.Fields.StreamRate />
     </Flex.Box>
