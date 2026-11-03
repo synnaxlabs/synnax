@@ -77,18 +77,22 @@ const TIME_OPTION = (
           <Input.AutoChip className={CHIP_CLASS} />
         </>
       }
-      y
-      gap="tiny"
-      align="start"
     >
-      <Text.Text className={CSS.BE("line-plot", "x-time-title")}>
+      <div className={CSS.BE("line-plot", "x-time-option")}>
         <Icon.Time />
-        Time
-        <Input.AutoChip className={CHIP_CLASS} />
-      </Text.Text>
-      <Text.Text level="small" color={9}>
-        Automatically uses each channel's time. Best for most needs.
-      </Text.Text>
+        <Text.Text>
+          Time
+          <Input.AutoChip className={CHIP_CLASS} />
+        </Text.Text>
+        <Text.Text
+          className={CSS.BE("line-plot", "x-time-description")}
+          level="small"
+          color={9}
+          overflow="wrap"
+        >
+          Automatically uses each channel's time. Best for most needs.
+        </Text.Text>
+      </div>
     </Select.Item>
   </Flex.Box>
 );

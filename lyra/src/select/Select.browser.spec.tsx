@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { assert, describe, expect, it } from "vitest";
+import { describe, expect, it } from "vitest";
 import { page, userEvent } from "vitest/browser";
 
 import { Dialog } from "@/dialog";
@@ -104,42 +104,7 @@ const renderFooter = async (): Promise<Element> => {
   return document.getElementById("footer") as Element;
 };
 
-const MIN_WIDTH = "--pluto-select-dialog-min-width";
-
-const openDialog = async (): Promise<HTMLElement> => {
-  const { getByText } = await renderThemed(
-    <Dialog.Frame>
-      <Select.Frame<string, undefined> data={KEYS} onChange={() => {}}>
-        <Select.SingleTrigger placeholder="Pick" />
-        <Select.Dialog>
-          <Select.Item itemKey="time">Time</Select.Item>
-        </Select.Dialog>
-      </Select.Frame>
-    </Dialog.Frame>,
-  );
-  await userEvent.click(getByText("Pick").element());
-  const dialog = page.getByRole("dialog");
-  await expect.element(dialog).toBeVisible();
-  const el = dialog.element();
-  assert(el instanceof HTMLElement);
-  return el;
-};
-
 describe("Select", () => {
-  describe("min width", () => {
-    it("should take the min width its caller sets", async () => {
-      const dialog = await openDialog();
-      dialog.style.setProperty(MIN_WIDTH, "100px");
-      expect(computed(dialog, "min-width")).toBe(resolve("100px", "min-width"));
-    });
-
-    it("should still fit the window", async () => {
-      const dialog = await openDialog();
-      dialog.style.setProperty(MIN_WIDTH, "10000px");
-      expect(dialog.getBoundingClientRect().width).toBeLessThanOrEqual(innerWidth);
-    });
-  });
-
   describe("footer", () => {
     it("should keep its height when the list overflows the dialog", async () => {
       const footer = await renderFooter();

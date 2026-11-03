@@ -38,8 +38,7 @@ const Closed = ({ children }: PropsWithChildren): ReactNode => {
 /**
  * The floating surface of a selection. While closed it renders its children into an
  * element outside the page, so a selected fixed {@link Item} can still show its label
- * in the trigger. `--pluto-select-dialog-min-width` sets its minimum width, which the
- * window still caps.
+ * in the trigger.
  */
 export const Dialog = ({ className, children, ...rest }: DialogProps): ReactNode => {
   const { visible } = BaseDialog.useContext();

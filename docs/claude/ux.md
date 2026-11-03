@@ -300,8 +300,7 @@ says why in a sentence, then gives the raw error.
 - The labels share one column as wide as the widest label, so every field starts at one
   edge. X1, the field people change least, sits at the end of the Ranges row, as both
   set the x axis. Below a toolbar width of 144rem it takes its own row at the bottom.
-- The X1 dialog floats and is at least 66rem wide, so the Time option's description fits
-  on one line.
+- The X1 dialog floats, so it can be wider than its trigger.
 
 ## Interaction
 

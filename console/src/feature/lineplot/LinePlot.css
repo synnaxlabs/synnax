@@ -33,7 +33,12 @@
     border-top: var(--pluto-border-width) solid var(--pluto-gray-l6);
 }
 
-.console-line-plot__x-time-title {
+/* The icon hangs beside the name, so the description lines up with the name. */
+.console-line-plot__x-time-option {
+    display: grid;
+    grid-template-columns: auto 1fr;
+    align-items: center;
+    gap: 0.5rem 1rem;
     width: 100%;
 }
 
@@ -41,7 +46,13 @@
     margin-left: auto;
 }
 
-/* Wide enough for the Time option's description, whatever the trigger's width. */
+.console-line-plot__x-time-description {
+    grid-column: 2;
+    text-wrap: pretty;
+}
+
+/* The Time option's description fits on one line. A narrow window wraps it instead. */
 .console-line-plot__x-dialog {
-    --pluto-select-dialog-min-width: 66rem;
+    width: max-content;
+    max-width: var(--pluto-dialog-available-width, 100vw);
 }
