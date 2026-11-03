@@ -11,33 +11,28 @@ import { type Reducer } from "@reduxjs/toolkit";
 import { deep } from "@synnaxlabs/x";
 import { describe, expect, it } from "vitest";
 
-import { configureStore } from "@/configureStore";
 import {
+  configureStore,
+  MAIN_WINDOW,
   reducer,
   setWindowProps,
   type SliceState,
   type StoreState,
-  ZERO_SLICE_STATE,
-} from "@/state";
-import { MockRuntime } from "@/testutil";
-import {
-  INITIAL_PRERENDER_WINDOW_STATE,
-  INITIAL_WINDOW_STATE,
-  MAIN_WINDOW,
   type WindowState,
-} from "@/window";
+  ZERO_SLICE_STATE,
+} from "@/index";
+import { createWindowState, MockRuntime } from "@/testutil";
 
 const stored = (props: Partial<WindowState> = {}): StoreState => ({
   drift: {
     ...deep.copy(ZERO_SLICE_STATE),
     windows: {
-      [MAIN_WINDOW]: {
-        ...INITIAL_WINDOW_STATE,
+      [MAIN_WINDOW]: createWindowState({
         key: MAIN_WINDOW,
         reserved: true,
         ordinal: 1,
         ...props,
-      },
+      }),
     },
   },
 });
@@ -46,7 +41,7 @@ const stored = (props: Partial<WindowState> = {}): StoreState => ({
 const storedWithoutMain = (): StoreState => ({
   drift: {
     ...deep.copy(ZERO_SLICE_STATE),
-    windows: { prerender: { ...INITIAL_PRERENDER_WINDOW_STATE } },
+    windows: { prerender: createWindowState({ key: "prerender", visible: false }) },
     labelKeys: {},
     keyLabels: {},
   },

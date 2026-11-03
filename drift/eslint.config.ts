@@ -10,10 +10,20 @@
 import cfg, { reactCompiled } from "@synnaxlabs/eslint-config";
 import type { Linter } from "eslint";
 
-// Off until the deep imports in this package are fixed.
 export default [
   ...cfg,
   reactCompiled,
   { ignores: ["examples"] },
-  { rules: { "synnax/barrel-imports": "off" } },
+  // Off until these specs test through configureStore instead of internal files.
+  {
+    files: [
+      "src/middleware.spec.ts",
+      "src/state.spec.ts",
+      "src/sugar.spec.ts",
+      "src/sync.spec.ts",
+      "src/tauri/index.spec.ts",
+      "src/validate.spec.ts",
+    ],
+    rules: { "synnax/barrel-imports": "off" },
+  },
 ] as Linter.Config[];

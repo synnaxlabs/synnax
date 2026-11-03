@@ -10,28 +10,29 @@
 import { describe, expect, it } from "vitest";
 
 import {
+  MAIN_WINDOW,
   selectSliceState,
   selectWindow,
   selectWindowAttribute,
   selectWindowKey,
   selectWindowLabel,
   selectWindows,
-} from "@/selectors";
-import { type StoreState, ZERO_SLICE_STATE } from "@/state";
-import { INITIAL_WINDOW_STATE, MAIN_WINDOW, type WindowState } from "@/window";
+  type StoreState,
+  ZERO_SLICE_STATE,
+} from "@/index";
+import { createWindowState } from "@/testutil";
 
-const WINDOW_A: WindowState = {
-  ...INITIAL_WINDOW_STATE,
+const WINDOW_A = createWindowState({
   key: "window-a",
   title: "Window A",
   reserved: true,
-};
+});
 
 const baseState = (): StoreState => ({
   drift: {
     ...ZERO_SLICE_STATE,
     windows: {
-      main: { ...INITIAL_WINDOW_STATE, key: MAIN_WINDOW, reserved: true },
+      main: createWindowState({ key: MAIN_WINDOW, reserved: true }),
       "label-a": WINDOW_A,
     },
     labelKeys: { main: MAIN_WINDOW, "label-a": "window-a" },
