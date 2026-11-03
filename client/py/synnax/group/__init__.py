@@ -8,11 +8,12 @@
 #  included in the file licenses/APL.txt.
 
 from synnax.group.client import Client
-from synnax.group.types_gen import ONTOLOGY_TYPE, Group, ontology_id
+from synnax.group.types_gen import ONTOLOGY_TYPE, Group, Key, ontology_id
 
 __all__ = [
     "ONTOLOGY_TYPE",
     "Client",
     "Group",
+    "Key",
     "ontology_id",
 ]

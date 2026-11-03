@@ -7,10 +7,9 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import "@/feature/opcua/device/Connect.css";
-
 import { type device, status, TimeSpan } from "@synnaxlabs/client";
 import { Component } from "@synnaxlabs/lyra/component";
+import { Flex } from "@synnaxlabs/lyra/flex";
 import { Form } from "@synnaxlabs/lyra/form";
 import { Icon } from "@synnaxlabs/lyra/icon";
 import { Input } from "@synnaxlabs/lyra/input";
@@ -48,7 +47,6 @@ import {
   TEST_CONNECTION_COMMAND_TYPE,
 } from "@/feature/opcua/task/types";
 import { Analytics } from "@/platform/analytics";
-import { CSS } from "@/platform/css";
 import { Device as PlatformDevice } from "@/platform/device";
 
 const path = deep.path<Device>();
@@ -202,7 +200,7 @@ export const Connect = ({
   };
 
   return (
-    <Modal.Frame className={CSS.B("opc-connect")}>
+    <PlatformDevice.ConnectFrame>
       <Modal.Header icon={<Icon.Logo.OPCUA />}>{HEADER}</Modal.Header>
       <Modal.Body gap="large">
         <Form.Form<PDevice.FormSchema<typeof SCHEMAS>> {...form}>
@@ -223,18 +221,20 @@ export const Connect = ({
               <PlatformDevice.RackField integration={INTEGRATION} />
             </Form.Section>
             <Form.Section title="Authentication">
-              <Form.TextField
-                path={path.properties.connection.username}
-                label="Username"
-                padHelpText={false}
-                inputProps={USERNAME_INPUT_PROPS}
-              />
-              <Form.TextField
-                path={path.properties.connection.password}
-                label="Password"
-                padHelpText={false}
-                inputProps={PASSWORD_INPUT_PROPS}
-              />
+              <Flex.Box x>
+                <Form.TextField
+                  path={path.properties.connection.username}
+                  label="Username"
+                  padHelpText={false}
+                  inputProps={USERNAME_INPUT_PROPS}
+                />
+                <Form.TextField
+                  path={path.properties.connection.password}
+                  label="Password"
+                  padHelpText={false}
+                  inputProps={PASSWORD_INPUT_PROPS}
+                />
+              </Flex.Box>
             </Form.Section>
             <Form.Section title="Security">
               <Form.Field
@@ -304,7 +304,7 @@ export const Connect = ({
         onConnect={() => save()}
         onBack={onBack}
       />
-    </Modal.Frame>
+    </PlatformDevice.ConnectFrame>
   );
 };
 

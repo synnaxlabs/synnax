@@ -7,10 +7,9 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import "@/feature/mqtt/device/Connect.css";
-
 import { type device, status, TimeSpan } from "@synnaxlabs/client";
 import { Component } from "@synnaxlabs/lyra/component";
+import { Flex } from "@synnaxlabs/lyra/flex";
 import { Form } from "@synnaxlabs/lyra/form";
 import { Icon } from "@synnaxlabs/lyra/icon";
 import { Input } from "@synnaxlabs/lyra/input";
@@ -29,7 +28,6 @@ import {
 } from "@/feature/mqtt/device/types";
 import { TEST_CONNECTION_COMMAND_TYPE } from "@/feature/mqtt/task/types";
 import { Analytics } from "@/platform/analytics";
-import { CSS } from "@/platform/css";
 import { Device as PlatformDevice } from "@/platform/device";
 
 const path = deep.path<Device>();
@@ -116,7 +114,7 @@ export const Connect = ({
   const secure = Form.useFieldValue(properties.secure, { ctx: form });
 
   return (
-    <Modal.Frame className={CSS.B("mqtt-connect")}>
+    <PlatformDevice.ConnectFrame>
       <Modal.Header icon={<Icon.Logo.MQTT />}>{HEADER}</Modal.Header>
       <Modal.Body gap="large">
         <Form.Form<PDevice.FormSchema<typeof SCHEMAS>> {...form}>
@@ -125,45 +123,52 @@ export const Connect = ({
             showLabel={false}
             inputProps={NAME_INPUT_PROPS}
           />
-          <Form.Sections className={CSS.BE("mqtt-connect", "sections")}>
+          <Form.Sections>
             <Form.Section title="Connection">
-              <Form.TextField
-                path={path.location}
-                label="Host"
-                padHelpText={false}
-                inputProps={HOST_INPUT_PROPS}
-              />
-              <Form.Field path={properties.port} label="Port" padHelpText={false}>
-                {secure ? renderSecurePort : renderPort}
-              </Form.Field>
-              <Form.TextField
-                path={properties.clientId}
-                label="Client ID"
-                padHelpText={false}
-                inputProps={CLIENT_ID_INPUT_PROPS}
-              />
-              <Form.Field
-                path={properties.keepAlive}
-                label="Keep alive"
-                padHelpText={false}
-              >
-                {renderKeepAlive}
-              </Form.Field>
+              <Flex.Box x>
+                <Form.TextField
+                  path={path.location}
+                  label="Host"
+                  padHelpText={false}
+                  inputProps={HOST_INPUT_PROPS}
+                />
+                <Form.Field path={properties.port} label="Port" padHelpText={false}>
+                  {secure ? renderSecurePort : renderPort}
+                </Form.Field>
+              </Flex.Box>
+              <Flex.Box x>
+                <Form.TextField
+                  path={properties.clientId}
+                  label="Client ID"
+                  padHelpText={false}
+                  inputProps={CLIENT_ID_INPUT_PROPS}
+                />
+                <Form.TimeSpanField
+                  path={properties.keepAlive}
+                  label="Keep alive"
+                  unit={TimeSpan.SECOND}
+                  emptiable
+                  padHelpText={false}
+                  inputProps={KEEP_ALIVE_INPUT_PROPS}
+                />
+              </Flex.Box>
               <PlatformDevice.RackField integration={INTEGRATION} />
             </Form.Section>
             <Form.Section title="Authentication">
-              <Form.TextField
-                path={properties.username}
-                label="Username"
-                padHelpText={false}
-                inputProps={USERNAME_INPUT_PROPS}
-              />
-              <Form.TextField
-                path={properties.password}
-                label="Password"
-                padHelpText={false}
-                inputProps={PASSWORD_INPUT_PROPS}
-              />
+              <Flex.Box x>
+                <Form.TextField
+                  path={properties.username}
+                  label="Username"
+                  padHelpText={false}
+                  inputProps={USERNAME_INPUT_PROPS}
+                />
+                <Form.TextField
+                  path={properties.password}
+                  label="Password"
+                  padHelpText={false}
+                  inputProps={PASSWORD_INPUT_PROPS}
+                />
+              </Flex.Box>
             </Form.Section>
             <Form.Section title="Security">
               <Form.CheckboxField
@@ -204,19 +209,21 @@ export const Connect = ({
               )}
             </Form.Section>
             <Form.Section title="Sparkplug B">
-              <Form.TextField
-                path={properties.sparkplug.hostId}
-                label="Host ID"
-                padHelpText={false}
-                inputProps={HOST_ID_INPUT_PROPS}
-              />
-              <Form.Field
-                path={properties.sparkplug.groups}
-                label="Groups"
-                padHelpText={false}
-              >
-                {groupsRenderProp}
-              </Form.Field>
+              <Flex.Box x>
+                <Form.TextField
+                  path={properties.sparkplug.hostId}
+                  label="Host ID"
+                  padHelpText={false}
+                  inputProps={HOST_ID_INPUT_PROPS}
+                />
+                <Form.Field
+                  path={properties.sparkplug.groups}
+                  label="Groups"
+                  padHelpText={false}
+                >
+                  {groupsRenderProp}
+                </Form.Field>
+              </Flex.Box>
               <Text.Text level="small" color={9}>
                 Leave the host ID empty for a passive host. Separate groups with commas,
                 or leave them empty to browse all groups.
@@ -232,7 +239,7 @@ export const Connect = ({
         onConnect={() => save()}
         onBack={onBack}
       />
-    </Modal.Frame>
+    </PlatformDevice.ConnectFrame>
   );
 };
 
@@ -271,10 +278,7 @@ const HOST_INPUT_PROPS = {
 } as const;
 
 // An empty port selects the default, which the placeholder names.
-const PORT_INPUT_PROPS = {
-  placeholder: "1883",
-  style: { width: "23rem" },
-} as const;
+const PORT_INPUT_PROPS = { placeholder: "1883" } as const;
 
 const SECURE_PORT_INPUT_PROPS = { ...PORT_INPUT_PROPS, placeholder: "8883" } as const;
 
@@ -282,11 +286,7 @@ const CLIENT_ID_INPUT_PROPS = {
   placeholder: "Derived from the device when empty",
 } as const;
 
-const KEEP_ALIVE_INPUT_PROPS = {
-  endContent: "s",
-  placeholder: "30",
-  style: { width: "23rem" },
-} as const;
+const KEEP_ALIVE_INPUT_PROPS = { placeholder: "30s" } as const;
 
 const USERNAME_INPUT_PROPS = { placeholder: "Anonymous" } as const;
 
@@ -310,5 +310,3 @@ const createOptionalNumericRenderProp = (
 const renderPort = createOptionalNumericRenderProp(PORT_INPUT_PROPS);
 
 const renderSecurePort = createOptionalNumericRenderProp(SECURE_PORT_INPUT_PROPS);
-
-const renderKeepAlive = createOptionalNumericRenderProp(KEEP_ALIVE_INPUT_PROPS);

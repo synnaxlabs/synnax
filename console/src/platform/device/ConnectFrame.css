@@ -9,11 +9,9 @@
  * included in the file licenses/APL.txt.
  */
 
-.console-range-select__dynamic-icon {
-    color: var(--pluto-error-p1);
-    filter: opacity(0.8);
-}
+/* The label column fits the longest label, so it holds still as fields show and hide. */
+.console-device-connect-frame {
+    --pluto-form-label-column: minmax(18rem, max-content);
 
-.console-range-select__dynamic-name {
-    width: 100px;
+    width: 155rem;
 }

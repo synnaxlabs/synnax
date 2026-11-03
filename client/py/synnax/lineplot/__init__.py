@@ -7,6 +7,7 @@
 #  License, use of this software will be governed by the Apache License, Version 2.0,
 #  included in the file licenses/APL.txt.
 
+from synnax.lineplot.client import Client
 from synnax.lineplot.types_gen import (
     ONTOLOGY_TYPE,
     Aggregation,
@@ -35,6 +36,7 @@ __all__ = [
     "Axis",
     "AxisKey",
     "Channels",
+    "Client",
     "Detail",
     "Key",
     "Legend",
