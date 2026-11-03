@@ -14,7 +14,7 @@ import { Component } from "@synnaxlabs/lyra/component";
 import { Flex } from "@synnaxlabs/lyra/flex";
 import { Form as PForm } from "@synnaxlabs/lyra/form";
 import { Icon } from "@synnaxlabs/lyra/icon";
-import { caseconv, DataType, errors, primitive } from "@synnaxlabs/x";
+import { caseconv, DataType, deep, errors, primitive } from "@synnaxlabs/x";
 import { type FC, type ReactElement } from "react";
 
 import { Select } from "@/feature/opcua/device/Select";
@@ -25,7 +25,11 @@ import {
   type Properties as DeviceProperties,
   SCHEMAS,
 } from "@/feature/opcua/device/types";
-import { type ChannelKeyAndIDGetter, createForm } from "@/feature/opcua/task/Form";
+import {
+  type ChannelKeyAndIDGetter,
+  createForm,
+  type ExtraItemProps,
+} from "@/feature/opcua/task/Form";
 import {
   deployReadConfigZ,
   nodeIdentity,
@@ -40,34 +44,40 @@ import { CSS } from "@/platform/css";
 import { Selector } from "@/platform/selector";
 import { Task } from "@/platform/task";
 
+const path = deep.path<Task.Values<ReadSchemas>>();
+
 type ChannelSource = Pick<ReadChannel, "nodeId" | "field">;
 
-const getChannel = (props: DeviceProperties, { nodeId, field }: ChannelSource) =>
-  field === ""
-    ? (props.read.channels[nodeId] ??
-      props.read.channels[caseconv.snakeToCamel(nodeId)] ??
+const findField = (props: DeviceProperties, { nodeId, field }: ChannelSource) =>
+  props.read.fields.find((f) => f.nodeId === nodeId && f.field === field);
+
+const getChannel = (props: DeviceProperties, source: ChannelSource) =>
+  source.field === ""
+    ? (props.read.channels[source.nodeId] ??
+      props.read.channels[caseconv.snakeToCamel(source.nodeId)] ??
       0)
-    : (props.read.fields[nodeId]?.[field] ?? 0);
+    : (findField(props, source)?.channel ?? 0);
 
 const setChannel = (
   props: DeviceProperties,
-  { nodeId, field }: ChannelSource,
+  source: ChannelSource,
   key: channel.Key,
 ) => {
-  if (field === "") props.read.channels[nodeId] = key;
-  else (props.read.fields[nodeId] ??= {})[field] = key;
+  const { nodeId, field } = source;
+  if (field === "") {
+    props.read.channels[nodeId] = key;
+    return;
+  }
+  const existing = findField(props, source);
+  if (existing != null) existing.channel = key;
+  else props.read.fields.push({ nodeId, field, channel: key });
 };
 
-interface IsIndexItemProps {
-  path: string;
-  snapshot?: boolean;
-}
-
-const IsIndexItem = ({ path }: IsIndexItemProps): ReactElement => {
-  const dataType = PForm.useFieldValue<string>(`${path}.dataType`, { optional: true });
+const IsIndexItem = ({ path }: ExtraItemProps<ReadChannel>): ReactElement => {
+  const dataType = PForm.useFieldValue(path.dataType, { optional: true });
   return (
     <PForm.CheckboxField
-      path={`${path}.isIndex`}
+      path={path.isIndex}
       label="Use as index"
       x
       align="center"
@@ -80,7 +90,7 @@ const IsIndexItem = ({ path }: IsIndexItemProps): ReactElement => {
 const isIndexItem = Component.renderProp(IsIndexItem);
 
 const Properties = (): ReactElement => {
-  const arrayMode = PForm.useFieldValue<boolean>("config.arrayMode");
+  const arrayMode = PForm.useFieldValue(path.config.arrayMode);
   return (
     <>
       <Select />
@@ -88,18 +98,18 @@ const Properties = (): ReactElement => {
         <Task.Fields.SampleRate />
         <PForm.CheckboxField
           label="Array sampling"
-          path="config.arrayMode"
+          path={path.config.arrayMode}
           onChange={(value, { set }) => {
             // always set the array size to 1 for either the default in array mode or an
             // array size of 1 in stream mode.
-            set("config.arraySize", 1);
-            if (!value) set("config.streamRate", 25);
+            set(path.config.arraySize, 1);
+            if (!value) set(path.config.streamRate, 25);
           }}
         />
         {arrayMode ? (
           <PForm.NumericField
             label="Array size"
-            path="config.arraySize"
+            path={path.config.arraySize}
             className={CSS.B("opc-array-size-field")}
           />
         ) : (
@@ -133,6 +143,7 @@ const resolve = (device: Device, ch: ReadChannel) => ({
 });
 
 const TaskForm: FC = createForm<ReadChannel>({
+  path: path.config.channels,
   convertNodeToChannel,
   getChannelKeyAndID,
   contextMenuItems: Task.readChannelContextMenuItem,

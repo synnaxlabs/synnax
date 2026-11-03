@@ -8,6 +8,7 @@
 // included in the file licenses/APL.txt.
 
 import { createTestClient, RoleClients } from "@synnaxlabs/client/testutil";
+import { deep } from "@synnaxlabs/x";
 import { fireEvent, screen, waitFor } from "@testing-library/react";
 import { assert, describe, expect, it, vi } from "vitest";
 
@@ -19,6 +20,10 @@ import {
   renderInTaskFormWithClient,
 } from "@/platform/task/testutil";
 import { findIconButton, queryIconButton } from "@/testutil";
+
+const path = deep.path<{
+  config: { dataSavingDisabled: boolean; autoStart: boolean };
+}>();
 
 const client = createTestClient();
 const roles = new RoleClients(client);
@@ -152,7 +157,7 @@ describe("Controls.Controls", () => {
       const button = await waitFor(() => getSetting("Data saving"));
       expect(button.textContent).toBe("On");
       fireEvent.click(button);
-      expect(form.current?.get("config.dataSavingDisabled").value).toBe(true);
+      expect(form.current?.get(path.config.dataSavingDisabled).value).toBe(true);
       expect(getSetting("Data saving").textContent).toBe("Off");
     });
 
@@ -164,7 +169,7 @@ describe("Controls.Controls", () => {
       const button = await waitFor(() => getSetting("Auto start"));
       expect(button.textContent).toBe("Off");
       fireEvent.click(button);
-      expect(form.current?.get("config.autoStart").value).toBe(true);
+      expect(form.current?.get(path.config.autoStart).value).toBe(true);
       expect(getSetting("Auto start").textContent).toBe("On");
     });
 
@@ -176,7 +181,7 @@ describe("Controls.Controls", () => {
       const button = await waitFor(() => getSetting("Data saving"));
       expect(button.getAttribute("aria-disabled")).toBe("true");
       fireEvent.click(button);
-      expect(form.current?.get("config.dataSavingDisabled").value).toBe(false);
+      expect(form.current?.get(path.config.dataSavingDisabled).value).toBe(false);
     });
 
     it("should leave out a setting the config does not carry", async () => {

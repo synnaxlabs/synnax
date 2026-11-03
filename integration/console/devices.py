@@ -446,6 +446,8 @@ class DevicesClient(ResourceClient):
         :param identifier: Prefix for the channels of the device.
         :param action: The submit button, "Save" or "Save and create read task".
         """
+        # Toasts stack over the right edge of the list and swallow the click.
+        self.layout.notifications.close_all()
         self.found(name).get_by_role("button", name="Configure", exact=True).click(
             timeout=5000
         )

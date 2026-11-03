@@ -7,11 +7,14 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
+import { deep } from "@synnaxlabs/x";
 import { fireEvent } from "@testing-library/react";
 import { describe, expect, it } from "vitest";
 
 import { Task } from "@/platform/task";
 import { renderInTaskForm } from "@/platform/task/testutil";
+
+const path = deep.path<{ config: { nanFillEnabled: boolean } }>();
 
 describe("fields.NaNFill", () => {
   it("should write the toggled value back into the form", async () => {
@@ -23,6 +26,6 @@ describe("fields.NaNFill", () => {
     );
     expect(checkbox).toBeTruthy();
     fireEvent.click(checkbox as HTMLInputElement);
-    expect(form.current?.get("config.nanFillEnabled").value).toBe(true);
+    expect(form.current?.get(path.config.nanFillEnabled).value).toBe(true);
   });
 });

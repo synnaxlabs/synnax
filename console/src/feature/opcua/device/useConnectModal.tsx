@@ -9,7 +9,7 @@
 
 import "@/feature/opcua/device/Connect.css";
 
-import { type device, type rack, status } from "@synnaxlabs/client";
+import { type device, status } from "@synnaxlabs/client";
 import { Component } from "@synnaxlabs/lyra/component";
 import { Form } from "@synnaxlabs/lyra/form";
 import { Icon } from "@synnaxlabs/lyra/icon";
@@ -17,6 +17,7 @@ import { Input } from "@synnaxlabs/lyra/input";
 import { Modal } from "@synnaxlabs/lyra/modal";
 import { Select } from "@synnaxlabs/lyra/select";
 import { Device as PDevice, type Flux } from "@synnaxlabs/pluto";
+import { deep } from "@synnaxlabs/x";
 import { useState } from "react";
 
 import {
@@ -35,7 +36,6 @@ import {
   BASIC128_RSA15_SECURITY_POLICY,
   BASIC256_SECURITY_POLICY,
   BASIC256_SHA256_SECURITY_POLICY,
-  type ConnectionConfig,
   type Device,
   INTEGRATION,
   NO_SECURITY_MODE,
@@ -53,6 +53,8 @@ import {
 import { Analytics } from "@/platform/analytics";
 import { CSS } from "@/platform/css";
 import { Device as PlatformDevice } from "@/platform/device";
+
+const path = deep.path<Device>();
 
 const INITIAL_VALUES: Device = {
   key: "",
@@ -73,7 +75,7 @@ const beforeValidate = ({
 }: Flux.BeforeValidateParams<
   PDevice.RetrieveQuery,
   PDevice.FormSchema<typeof SCHEMAS>
->) => set("location", get("properties.connection.endpoint").value);
+>) => set(path.location, get(path.properties.connection.endpoint).value);
 
 type ClientCertificateSource = "driver" | "files";
 
@@ -103,8 +105,8 @@ export const Connect = ({
     PDevice.FormSchema<typeof SCHEMAS>
   >) => {
     setServerCertificateOffer(null);
-    const connection = get<ConnectionConfig>("properties.connection").value;
-    const scanStatus = await sendScanCommand(client, get<rack.Key>("rack").value, {
+    const connection = get(path.properties.connection).value;
+    const scanStatus = await sendScanCommand(client, get(path.rack).value, {
       type: TEST_CONNECTION_COMMAND_TYPE,
       timeout: commandTimeout(connection),
       args: { connection },
@@ -118,15 +120,15 @@ export const Connect = ({
     // Since we just scanned successfully, we create a default healthy status for the
     // device that can then be overwritten by the scanner if we lose connection.
     const devStatus: device.Status = status.create<typeof device.statusDetailsZ>({
-      name: get<string>("name").value,
+      name: get(path.name).value,
       message: "Server connected",
       variant: "success",
       details: {
-        rack: get<rack.Key>("rack").value,
-        device: get<device.Key>("key").value,
+        rack: get(path.rack).value,
+        device: get(path.key).value,
       },
     });
-    set("status", devStatus, { notifyOnChange: false, markTouched: false });
+    set(path.status, devStatus, { notifyOnChange: false, markTouched: false });
     return true;
   };
 
@@ -142,14 +144,10 @@ export const Connect = ({
     beforeSave,
     afterSave: ({ get }) => {
       if (deviceKey == null) capture("device_connected", { integration: "opcua" });
-      close(get<device.Key>("key").value);
+      close(get(path.key).value);
     },
   });
-  const rackKey = Form.useFieldValue<
-    rack.Key,
-    rack.Key,
-    PDevice.FormSchema<typeof SCHEMAS>
-  >("rack", { ctx: form });
+  const rackKey = Form.useFieldValue(path.rack, { ctx: form });
   const reason = PlatformDevice.useBlockedReason({
     integration: INTEGRATION,
     name: "OPC UA",
@@ -158,26 +156,19 @@ export const Connect = ({
 
   const { get: getField, set: setField } = form;
   const hasSecurity =
-    Form.useFieldValue<SecurityMode, SecurityMode, PDevice.FormSchema<typeof SCHEMAS>>(
-      "properties.connection.securityMode",
-      { ctx: form },
-    ) != NO_SECURITY_MODE;
-  const clientCertificate = Form.useFieldValue<
-    string | undefined,
-    string | undefined,
-    PDevice.FormSchema<typeof SCHEMAS>
-  >("properties.connection.clientCertificate", { ctx: form });
-  const clientPrivateKey = Form.useFieldValue<
-    string | undefined,
-    string | undefined,
-    PDevice.FormSchema<typeof SCHEMAS>
-  >("properties.connection.clientPrivateKey", { ctx: form });
+    Form.useFieldValue(path.properties.connection.securityMode, { ctx: form }) !=
+    NO_SECURITY_MODE;
+  const clientCertificate = Form.useFieldValue(
+    path.properties.connection.clientCertificate,
+    { ctx: form },
+  );
+  const clientPrivateKey = Form.useFieldValue(
+    path.properties.connection.clientPrivateKey,
+    { ctx: form },
+  );
   const serverCertificate =
-    Form.useFieldValue<
-      string | undefined,
-      string | undefined,
-      PDevice.FormSchema<typeof SCHEMAS>
-    >("properties.connection.serverCertificate", { ctx: form }) ?? "";
+    Form.useFieldValue(path.properties.connection.serverCertificate, { ctx: form }) ??
+    "";
   // Empty paths select the Driver certificate, so a device that names files has chosen
   // them until the user picks again.
   const hasFiles = (clientCertificate ?? "") !== "" || (clientPrivateKey ?? "") !== "";
@@ -186,17 +177,17 @@ export const Connect = ({
   const handleSourceChange = (next: ClientCertificateSource) => {
     setClientCertificateSource(next);
     if (next !== "driver") return;
-    setField("properties.connection.clientCertificate", "");
-    setField("properties.connection.clientPrivateKey", "");
+    setField(path.properties.connection.clientCertificate, "");
+    setField(path.properties.connection.clientPrivateKey, "");
   };
 
   const handleEndpointSelect = (mode: SecurityMode, policy: SecurityPolicy) => {
-    setField("properties.connection.securityMode", mode);
-    setField("properties.connection.securityPolicy", policy);
+    setField(path.properties.connection.securityMode, mode);
+    setField(path.properties.connection.securityPolicy, policy);
   };
 
   const handleTrust = (offer: CertificateInfo) => {
-    setField("properties.connection.serverCertificate", offer.pem);
+    setField(path.properties.connection.serverCertificate, offer.pem);
     save();
   };
 
@@ -206,11 +197,11 @@ export const Connect = ({
   }: SelectSecurityModeProps & { onChange: (v: SecurityMode) => void }) => {
     const handleChange = (mode: SecurityMode) => {
       onChange(mode);
-      const policyPath = "properties.connection.securityPolicy";
+      const policyPath = path.properties.connection.securityPolicy;
       // Security mode None pairs only with policy None, and every other mode with a
       // policy other than None.
       if (mode === NO_SECURITY_MODE) setField(policyPath, NO_SECURITY_POLICY);
-      else if (getField<SecurityPolicy>(policyPath).value === NO_SECURITY_POLICY)
+      else if (getField(policyPath).value === NO_SECURITY_POLICY)
         setField(policyPath, BASIC256_SHA256_SECURITY_POLICY);
     };
     return <SelectSecurityMode {...rest} onChange={handleChange} />;
@@ -222,7 +213,7 @@ export const Connect = ({
       <Modal.Body gap="large">
         <Form.Form<PDevice.FormSchema<typeof SCHEMAS>> {...form}>
           <Form.TextField
-            path="name"
+            path={path.name}
             showLabel={false}
             padHelpText={false}
             inputProps={NAME_INPUT_PROPS}
@@ -230,7 +221,7 @@ export const Connect = ({
           <Form.Sections>
             <Form.Section title="Connection">
               <Form.TextField
-                path="properties.connection.endpoint"
+                path={path.properties.connection.endpoint}
                 label="Endpoint"
                 padHelpText={false}
                 inputProps={ENDPOINT_INPUT_PROPS}
@@ -239,13 +230,13 @@ export const Connect = ({
             </Form.Section>
             <Form.Section title="Authentication">
               <Form.TextField
-                path="properties.connection.username"
+                path={path.properties.connection.username}
                 label="Username"
                 padHelpText={false}
                 inputProps={USERNAME_INPUT_PROPS}
               />
               <Form.TextField
-                path="properties.connection.password"
+                path={path.properties.connection.password}
                 label="Password"
                 padHelpText={false}
                 inputProps={PASSWORD_INPUT_PROPS}
@@ -255,8 +246,8 @@ export const Connect = ({
               <Input.Item label="Endpoint security">
                 <Endpoints rack={rackKey} onSelect={handleEndpointSelect} />
               </Input.Item>
-              <Form.Field<SecurityMode>
-                path="properties.connection.securityMode"
+              <Form.Field
+                path={path.properties.connection.securityMode}
                 label="Mode"
                 padHelpText={false}
               >
@@ -264,8 +255,8 @@ export const Connect = ({
               </Form.Field>
               {hasSecurity && (
                 <>
-                  <Form.Field<SecurityPolicy>
-                    path="properties.connection.securityPolicy"
+                  <Form.Field
+                    path={path.properties.connection.securityPolicy}
                     label="Policy"
                     padHelpText={false}
                   >
@@ -288,13 +279,13 @@ export const Connect = ({
                   {source === "files" && (
                     <>
                       <Form.TextField
-                        path="properties.connection.clientCertificate"
+                        path={path.properties.connection.clientCertificate}
                         label="Certificate file"
                         padHelpText={false}
                         inputProps={PATH_INPUT_PROPS}
                       />
                       <Form.TextField
-                        path="properties.connection.clientPrivateKey"
+                        path={path.properties.connection.clientPrivateKey}
                         label="Private key file"
                         padHelpText={false}
                         inputProps={PATH_INPUT_PROPS}
@@ -314,19 +305,19 @@ export const Connect = ({
             </Form.Section>
             <Form.Section title="Advanced">
               <Form.NumericField
-                path="properties.connection.clientTimeoutMs"
+                path={path.properties.connection.clientTimeoutMs}
                 label="Request timeout"
                 padHelpText={false}
                 inputProps={MS_INPUT_PROPS}
               />
               <Form.NumericField
-                path="properties.connection.sessionTimeoutMs"
+                path={path.properties.connection.sessionTimeoutMs}
                 label="Session timeout"
                 padHelpText={false}
                 inputProps={MS_INPUT_PROPS}
               />
               <Form.NumericField
-                path="properties.connection.secureChannelLifetimeMs"
+                path={path.properties.connection.secureChannelLifetimeMs}
                 label="Secure channel lifetime"
                 padHelpText={false}
                 inputProps={MS_INPUT_PROPS}
@@ -361,10 +352,10 @@ const SecurityPolicyField = ({ value, onChange }: Input.Control<SecurityPolicy>)
 
 const renderSecurityPolicy = Component.renderProp(SecurityPolicyField);
 
-const VALIDATION_PATH = "properties.connection.certificateValidationDisabled";
+const VALIDATION_PATH = path.properties.connection.certificateValidationDisabled;
 
 const ValidationField = () => {
-  const disabled = Form.useFieldValue<boolean>(VALIDATION_PATH);
+  const disabled = Form.useFieldValue(VALIDATION_PATH);
   return (
     <Form.CheckboxField
       path={VALIDATION_PATH}

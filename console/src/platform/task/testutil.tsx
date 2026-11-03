@@ -402,8 +402,8 @@ export interface RenderTaskFormTabResult extends RenderResult, CreatedPanel {
 /**
  * Renders a Task.wrapForm tab the way the task panel entry does: seeds a panel doc
  * whose single leaf holds a resource tab for the task, then mounts the form inside the
- * panel and tab scopes within the full console provider stack, with the drag and drop
- * provider and modal stack the window mounts.
+ * panel and tab scopes within the full console provider stack. The drag and drop
+ * provider and a modal stack render around the panel, as in a window.
  */
 export const renderTaskFormTab = async (
   Form: FC<FormTabProps>,
@@ -432,11 +432,11 @@ export const renderTaskFormTab = async (
   const result = await renderSuspended(
     <Analytics.Provider sink={analytics}>
       <HaulProvider>
+        <Modals.Stack />
         <PanelScopes panelKey={created.panelKey} tabKey={tab.key}>
           <Form taskKey={taskKey} />
           {onStatuses != null && <CaptureStatuses onStatuses={onStatuses} />}
         </PanelScopes>
-        <Modals.Stack />
       </HaulProvider>
     </Analytics.Provider>,
     { wrapper, onCaughtError },
