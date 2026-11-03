@@ -31,6 +31,7 @@ from urllib.parse import quote
 
 HUMAN = "review/human"
 BOT = "review/bot"
+APP = "synnax-claude-code[bot]"
 # Tier labels from before the two-tier scheme. Both ask for a human.
 HUMAN_TIERS = {HUMAN, "review/light", "review/thorough"}
 UI_PREFIXES = ("console/", "pluto/", "lyra/")
@@ -191,6 +192,18 @@ def gh_lines(*args: str) -> list[Any]:
     return [json.loads(line) for line in gh(*args).splitlines() if line]
 
 
+def bot_labelers(repo: str, *, number: int) -> list[str]:
+    """Returns who labeled the pull request review/bot, oldest first."""
+    return gh_lines(
+        "api",
+        "--paginate",
+        f"repos/{repo}/issues/{number}/events",
+        "--jq",
+        f'.[] | select(.event == "labeled" and .label.name == "{BOT}")'
+        " | .actor.login | tojson",
+    )
+
+
 def find_comment(repo: str, *, number: int) -> dict[str, Any] | None:
     comments = gh_lines(
         "api",
@@ -238,7 +251,12 @@ def main() -> None:
         ".[] | {filename}",
     )
     comment = find_comment(repo, number=number)
-    was_auto_bot = comment is not None and AUTO_BOT in comment["body"]
+    # A person who labels review/bot after the classifier makes the choice their own.
+    was_auto_bot = (
+        comment is not None
+        and AUTO_BOT in comment["body"]
+        and bot_labelers(repo, number=number)[-1:] == [APP]
+    )
     ui = changes_ui(files)
     reasons = trust_reasons(pull, files=files)
     surfaces = read_surfaces(root)

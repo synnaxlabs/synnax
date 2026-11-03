@@ -16,6 +16,7 @@ import pytest
 
 import classify
 from classify import (
+    APP,
     AUTO_BOT,
     BOT,
     HUMAN,
@@ -217,6 +218,7 @@ class FakeGH:
 
     def __init__(self) -> None:
         self.heads = ["abc", "abc"]
+        self.bot_labelers = [APP]
         self.files = ["core/main.go"]
         self.labels: list[str] = []
         self.comments: list[dict[str, Any]] = []
@@ -230,6 +232,8 @@ class FakeGH:
             return json.dumps({"head": head, "base": same, "labels": labels})
         if f"repos/{REPO}/pulls/5/files" in args:
             return "".join(json.dumps(file(name)) + "\n" for name in self.files)
+        if args[:3] == ("api", "--paginate", f"repos/{REPO}/issues/5/events"):
+            return "".join(json.dumps(name) + "\n" for name in self.bot_labelers)
         if args[:3] == ("api", "--paginate", COMMENTS):
             return "".join(json.dumps(c) + "\n" for c in self.comments)
         self.writes.append((args, stdin))
@@ -328,6 +332,19 @@ class TestMain:
             "-f",
             f"labels[]={HUMAN}",
         )
+
+    def test_keeps_a_bot_tier_a_person_set_after_the_classifier(
+        self, gh: FakeGH
+    ) -> None:
+        gh.files = ["console/a.tsx"]
+        gh.labels = [BOT]
+        gh.comments = [{"id": 9, "body": f"{MARKER}\n{AUTO_BOT}"}]
+        gh.bot_labelers = [APP, "pjdotson"]
+        classify.main()
+        args, body = gh.writes[0]
+        assert args[2] == "PATCH"
+        assert body is not None
+        assert AUTO_BOT not in json.loads(body)["body"]
 
     def test_writes_nothing_when_the_head_moves_during_the_run(
         self, gh: FakeGH
