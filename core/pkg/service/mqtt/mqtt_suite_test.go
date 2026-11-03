@@ -214,6 +214,8 @@ func newTCPListener(cfg listeners.Config) *tcpListener {
 
 func (l *tcpListener) Serve(establish listeners.EstablishFn) {
 	l.TCP.Serve(func(id string, c net.Conn) error {
+		// Mochi runs its hooks for c on this goroutine.
+		defer GinkgoRecover()
 		l.mu.Lock()
 		if l.mu.closed {
 			l.mu.Unlock()
@@ -236,11 +238,12 @@ func (l *tcpListener) Serve(establish listeners.EstablishFn) {
 
 // awaitServed blocks until mochi is done with c.
 func (l *tcpListener) awaitServed(c net.Conn) {
+	GinkgoHelper()
 	l.mu.Lock()
 	served, ok := l.mu.conns[c]
 	l.mu.Unlock()
 	if ok {
-		<-served
+		Eventually(served).Should(BeClosed())
 	}
 }
 
