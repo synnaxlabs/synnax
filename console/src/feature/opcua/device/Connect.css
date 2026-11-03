@@ -9,7 +9,16 @@
  * included in the file licenses/APL.txt.
  */
 
-/* The password shares the last column with the timing row, so it is as short. */
-.console-opc-connect__password {
-    --pluto-control-width: 24rem;
+/* The username and the password are equally wide, with the form's column gap. */
+.console-opc-connect__login {
+    display: grid;
+    grid-template-columns: 1fr max-content 1fr;
+    gap: 4rem;
+    align-items: center;
+
+    /* The form puts the control of each field from its second column. Here, each
+       control comes after its label. */
+    & * {
+        grid-column: auto;
+    }
 }

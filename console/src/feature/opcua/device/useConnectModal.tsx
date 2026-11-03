@@ -214,7 +214,12 @@ export const Connect = ({
       else if (getField(policyPath).value === NO_SECURITY_POLICY)
         setField(policyPath, BASIC256_SHA256_SECURITY_POLICY);
     };
-    return <SelectSecurityMode {...rest} onChange={handleChange} />;
+    return (
+      <Flex.Box x justify="between" align="start" grow>
+        <SelectSecurityMode {...rest} onChange={handleChange} />
+        <Endpoints rack={rackKey} onSelect={handleEndpointSelect} />
+      </Flex.Box>
+    );
   };
 
   return (
@@ -237,27 +242,15 @@ export const Connect = ({
                 inputProps={ENDPOINT_INPUT_PROPS}
               />
               <PlatformDevice.RackField integration={INTEGRATION} />
-            </Form.Section>
-            <Form.Section title="Authentication">
-              <Flex.Box x>
-                <Form.TextField
-                  path={path.properties.connection.username}
-                  label="Username"
-                  padHelpText={false}
-                  inputProps={USERNAME_INPUT_PROPS}
-                />
-                <Form.TextField
-                  path={path.properties.connection.password}
-                  label="Password"
-                  padHelpText={false}
-                  inputProps={PASSWORD_INPUT_PROPS}
-                />
-              </Flex.Box>
+              <Form.Field
+                path={path.properties.connection.username}
+                label="Username"
+                padHelpText={false}
+              >
+                {renderLogin}
+              </Form.Field>
             </Form.Section>
             <Form.Section title="Security">
-              <Input.Item label="Endpoint security">
-                <Endpoints rack={rackKey} onSelect={handleEndpointSelect} />
-              </Input.Item>
               <Form.Field
                 path={path.properties.connection.securityMode}
                 label="Mode"
@@ -274,55 +267,55 @@ export const Connect = ({
                   {renderSecurityPolicy}
                 </Form.Field>
               )}
+              {hasSecurity && (
+                <>
+                  <Input.Item
+                    label="Client certificate"
+                    status={clientCertificateRejection == null ? undefined : "error"}
+                    helpText={clientCertificateRejection ?? undefined}
+                  >
+                    <Flex.Box y gap={2}>
+                      <Select.Buttons<ClientCertificateSource>
+                        value={source}
+                        onChange={handleSourceChange}
+                      >
+                        <Select.Item<ClientCertificateSource> itemKey="driver">
+                          Driver certificate
+                        </Select.Item>
+                        <Select.Item<ClientCertificateSource> itemKey="files">
+                          Files on the Driver computer
+                        </Select.Item>
+                      </Select.Buttons>
+                      {source === "driver" && <DriverCertificate rack={rackKey} />}
+                    </Flex.Box>
+                  </Input.Item>
+                  {source === "files" && (
+                    <>
+                      <Form.TextField
+                        path={path.properties.connection.clientCertificate}
+                        label="Certificate file"
+                        padHelpText={false}
+                        inputProps={PATH_INPUT_PROPS}
+                      />
+                      <Form.TextField
+                        path={path.properties.connection.clientPrivateKey}
+                        label="Private key file"
+                        padHelpText={false}
+                        inputProps={PATH_INPUT_PROPS}
+                      />
+                    </>
+                  )}
+                  <Input.Item label="Server certificate">
+                    <ServerCertificate
+                      pem={serverCertificate}
+                      offer={serverCertificateOffer}
+                      onTrust={handleTrust}
+                    />
+                  </Input.Item>
+                  <ValidationField />
+                </>
+              )}
             </Form.Section>
-            {hasSecurity && (
-              <Form.Section title="Certificates">
-                <Input.Item
-                  label="Client certificate"
-                  status={clientCertificateRejection == null ? undefined : "error"}
-                  helpText={clientCertificateRejection ?? undefined}
-                >
-                  <Flex.Box y gap={2}>
-                    <Select.Buttons<ClientCertificateSource>
-                      value={source}
-                      onChange={handleSourceChange}
-                    >
-                      <Select.Item<ClientCertificateSource> itemKey="driver">
-                        Driver certificate
-                      </Select.Item>
-                      <Select.Item<ClientCertificateSource> itemKey="files">
-                        Files on the Driver computer
-                      </Select.Item>
-                    </Select.Buttons>
-                    {source === "driver" && <DriverCertificate rack={rackKey} />}
-                  </Flex.Box>
-                </Input.Item>
-                {source === "files" && (
-                  <>
-                    <Form.TextField
-                      path={path.properties.connection.clientCertificate}
-                      label="Certificate file"
-                      padHelpText={false}
-                      inputProps={PATH_INPUT_PROPS}
-                    />
-                    <Form.TextField
-                      path={path.properties.connection.clientPrivateKey}
-                      label="Private key file"
-                      padHelpText={false}
-                      inputProps={PATH_INPUT_PROPS}
-                    />
-                  </>
-                )}
-                <Input.Item label="Server certificate">
-                  <ServerCertificate
-                    pem={serverCertificate}
-                    offer={serverCertificateOffer}
-                    onTrust={handleTrust}
-                  />
-                </Input.Item>
-                <ValidationField />
-              </Form.Section>
-            )}
             <Form.Section title="Advanced">
               <Flex.Box x>
                 <Form.TimeSpanField
@@ -377,6 +370,21 @@ const SecurityPolicyField = ({ value, onChange }: Input.Control<SecurityPolicy>)
 
 const renderSecurityPolicy = Component.renderProp(SecurityPolicyField);
 
+/** The username, with the password beside it at the same width. */
+const LoginField = ({ value, onChange }: Input.Control<string | undefined>) => (
+  <div className={CSS.BE("opc-connect", "login")}>
+    <Input.Text value={value ?? ""} onChange={onChange} placeholder="Anonymous" />
+    <Form.TextField
+      path={path.properties.connection.password}
+      label="Password"
+      padHelpText={false}
+      inputProps={PASSWORD_INPUT_PROPS}
+    />
+  </div>
+);
+
+const renderLogin = Component.renderProp(LoginField);
+
 const VALIDATION_PATH = path.properties.connection.certificateValidationDisabled;
 
 const ValidationField = () => {
@@ -406,13 +414,8 @@ const ENDPOINT_INPUT_PROPS = {
   autoFocus: true,
 } as const;
 
-const USERNAME_INPUT_PROPS = { placeholder: "Anonymous" } as const;
-
 const PATH_INPUT_PROPS = { placeholder: "Path on the Driver computer" } as const;
 
-const PASSWORD_INPUT_PROPS = {
-  type: "password",
-  className: CSS.BE("opc-connect", "password"),
-} as const;
+const PASSWORD_INPUT_PROPS = { type: "password", placeholder: "None" } as const;
 
 const TIMING_BOUNDS = { lower: TimeSpan.MILLISECOND };

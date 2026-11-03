@@ -94,17 +94,47 @@ const Detail = ({ label, ...rest }: DetailProps): ReactElement => (
 
 interface CopyButtonProps {
   thumbprint: string;
+  iconOnly?: boolean;
 }
 
-const CopyButton = ({ thumbprint }: CopyButtonProps): ReactElement => (
-  <Button.Copy text={thumbprint} size="small" variant="text" textColor={9}>
-    Copy thumbprint
+const CopyButton = ({
+  thumbprint,
+  iconOnly = false,
+}: CopyButtonProps): ReactElement => (
+  <Button.Copy
+    text={thumbprint}
+    size="small"
+    variant="text"
+    textColor={9}
+    tooltip={iconOnly ? "Copy thumbprint" : undefined}
+  >
+    {iconOnly ? null : "Copy thumbprint"}
   </Button.Copy>
 );
 
 interface CardProps extends PropsWithChildren {
   actions: ReactNode;
 }
+
+/** A certificate on one line, with icon buttons at its end. */
+const InlineCard = ({ children, actions }: CardProps): ReactElement => (
+  <Flex.Box
+    x
+    gap="medium"
+    align="center"
+    justify="between"
+    bordered
+    borderColor={6}
+    rounded="small"
+    background={1}
+    className={CSS.cls(CSS.B("opc-certificate"), CSS.BM("opc-certificate", "inline"))}
+  >
+    {children}
+    <Flex.Box x gap="small" align="center">
+      {actions}
+    </Flex.Box>
+  </Flex.Box>
+);
 
 const Card = ({ children, actions }: CardProps): ReactElement => (
   <Flex.Box
@@ -356,10 +386,10 @@ export const DriverCertificate = ({ rack }: DriverCertificateProps): ReactElemen
     void openModal({ rackKey: rack }).then(reload);
   };
   return (
-    <Card
+    <InlineCard
       actions={
         <>
-          <CopyButton thumbprint={current.thumbprint} />
+          <CopyButton thumbprint={current.thumbprint} iconOnly />
           <Button.Button
             size="small"
             variant="text"
@@ -368,16 +398,15 @@ export const DriverCertificate = ({ rack }: DriverCertificateProps): ReactElemen
             onClick={() => downloadCertificate(current, "driver")}
           >
             <Icon.Download />
-            Download
           </Button.Button>
           <Button.Button
             size="small"
             variant="text"
             textColor={9}
+            tooltip="Manage"
             onClick={handleManage}
           >
             <Icon.Settings />
-            Manage
           </Button.Button>
         </>
       }
@@ -385,7 +414,7 @@ export const DriverCertificate = ({ rack }: DriverCertificateProps): ReactElemen
       <Description.List level="small">
         <ThumbprintDetail value={current.thumbprint} />
       </Description.List>
-    </Card>
+    </InlineCard>
   );
 };
 
@@ -422,11 +451,11 @@ export const ServerCertificate = ({
         {note}
       </Text.Text>
       {typeof pinned === "string" && (
-        <Card actions={<CopyButton thumbprint={pinned} />}>
+        <InlineCard actions={<CopyButton thumbprint={pinned} iconOnly />}>
           <Description.List level="small">
             <ThumbprintDetail value={pinned} />
           </Description.List>
-        </Card>
+        </InlineCard>
       )}
       {pinned != null && typeof pinned !== "string" && (
         <Status.Summary status={pinned} />

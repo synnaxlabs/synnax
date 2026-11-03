@@ -21,6 +21,11 @@
     padding: 2rem 1rem 1rem 2rem;
 }
 
+/* The icon buttons sit as close to the top as to the right and the bottom. */
+.console-opc-certificate--inline {
+    padding-top: 1rem;
+}
+
 .console-opc-certificate__value {
     overflow-wrap: anywhere;
     user-select: text;

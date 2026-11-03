@@ -34,6 +34,7 @@ import {
 import {
   captureBrowserDownloads,
   findDialogTriggerByText,
+  getIconButton,
   isPlutoDisabled,
   uniqueName,
 } from "@/testutil";
@@ -339,7 +340,7 @@ describe("OPCUA.Device.useConnectModal", () => {
   it("should copy the thumbprint of the Driver certificate", async () => {
     const writeText = stubClipboardWriteText();
     await openWithDriverCertificate();
-    fireEvent.click(findButton("Copy thumbprint"));
+    fireEvent.click(getIconButton(document.body, "copy"));
     await waitFor(() =>
       expect(writeText).toHaveBeenCalledWith(DRIVER_CERTIFICATE.thumbprint),
     );
@@ -348,7 +349,7 @@ describe("OPCUA.Device.useConnectModal", () => {
   it("should download the Driver certificate as DER", async () => {
     await openWithDriverCertificate();
     const downloads = captureBrowserDownloads();
-    fireEvent.click(findButton("Download"));
+    fireEvent.click(getIconButton(document.body, "download"));
     await waitFor(() => expect(downloads.anchors).toHaveLength(1));
     expect(downloads.anchors[0].download).toBe("driver.der");
     expect(new Uint8Array(await downloads.blobs[0].arrayBuffer())).toEqual(
@@ -362,7 +363,7 @@ describe("OPCUA.Device.useConnectModal", () => {
       current: DRIVER_CERTIFICATE,
       next: NEXT_DRIVER_CERTIFICATE,
     });
-    fireEvent.click(findButton("Manage"));
+    fireEvent.click(getIconButton(document.body, "settings"));
     await loaded.answered;
     expect(await screen.findByText("2029-01-15")).toBeTruthy();
     expect(screen.getByText("Renewal")).toBeTruthy();
@@ -376,7 +377,7 @@ describe("OPCUA.Device.useConnectModal", () => {
       current: DRIVER_CERTIFICATE,
       next: NEXT_DRIVER_CERTIFICATE,
     });
-    fireEvent.click(findButton("Manage"));
+    fireEvent.click(getIconButton(document.body, "settings"));
     await loaded.answered;
     await screen.findByText("Renewal");
     const downloads = captureBrowserDownloads();
@@ -388,7 +389,7 @@ describe("OPCUA.Device.useConnectModal", () => {
   it("should show the regenerated Driver certificate once its view closes", async () => {
     const { scan } = await openWithDriverCertificate();
     const loaded = await answerGetCertificate(scan);
-    fireEvent.click(findButton("Manage"));
+    fireEvent.click(getIconButton(document.body, "settings"));
     await loaded.answered;
     await screen.findByText("2029-01-15");
     const streamer = await client.openStreamer(task.COMMAND_CHANNEL_NAME);
@@ -739,6 +740,32 @@ describe("OPCUA.Device.useConnectModal", () => {
       clientTimeoutMs: 2500,
       secureChannelLifetimeMs: 600_000,
       sessionTimeoutMs: 90_000,
+    });
+  });
+
+  it("should save the username and the password the user enters", async () => {
+    const rack = await createRunningRack(client, "opc");
+    const scan = await createScanTask(rack);
+    const { result } = await renderModalOpener(
+      OPCUA.Device.useConnectModal,
+      [{ rack: rack.key }],
+      { client },
+    );
+    fireEvent.change(await screen.findByLabelText("Username"), {
+      target: { value: "operator" },
+    });
+    fireEvent.change(screen.getByLabelText("Password"), {
+      target: { value: "secret" },
+    });
+    const { answered } = await answerNextCommand(client, scan, TEST_CONNECTION);
+    pressSaveTrigger();
+    await answered;
+    const key = await result();
+    if (key == null) throw new Error("the modal closed without a device");
+    const dev = await client.devices.retrieve({ key, schemas: OPCUA.Device.SCHEMAS });
+    expect(dev.properties.connection).toMatchObject({
+      username: "operator",
+      password: "secret",
     });
   });
 

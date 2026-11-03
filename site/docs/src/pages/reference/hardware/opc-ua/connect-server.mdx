@@ -117,11 +117,11 @@ between the Driver and the server. Set them to values that the server accepts.
   selects **Basic 256-bit with SHA-256**. Select a deprecated policy only when the
   server supports nothing newer.
 
-To see the settings that the server accepts, click **Find endpoints** in **Endpoint
-security**. The Driver asks the server for its endpoints, and the Console lists each
-mode and policy, most secure first, with the logins that each one accepts. Select one to
-set the **Mode** and the **Policy**. A policy that the Driver does not support shows as
-"not supported" and you cannot select it.
+To see the settings that the server accepts, click **Find endpoints** next to **Mode**.
+The Driver asks the server for its endpoints, and the Console lists each mode and
+policy, most secure first, with the logins that each one accepts. Select one to set the
+**Mode** and the **Policy**. A policy that the Driver does not support shows as "not
+supported" and you cannot select it.
 
 The other security fields show when the mode is not **None**. In Python and TypeScript,
 set a policy other than `"None"` when the mode is not `"None"`. With the policy at
@@ -147,9 +147,9 @@ rejected certificates. To make the server trust the Driver certificate:
    thumbprint is the same as the one in the dialog, then trust it.
 3. Click **Connect** again.
 
-If the server has no rejected list, click **Download** to save the certificate as a DER
-file, then add the file to the trust list of the server. For a server that needs PEM,
-convert the file that you downloaded, here `driver.der`:
+If the server has no rejected list, click <Icon.Download /> (**Download as DER**) to
+save the certificate as a DER file, then add the file to the trust list of the server.
+For a server that needs PEM, convert the file that you downloaded, here `driver.der`:
 
 ```bash
 openssl x509 -inform der -in driver.der -out driver.pem
@@ -158,9 +158,9 @@ openssl x509 -inform der -in driver.der -out driver.pem
 The Driver certificate is valid for 3 years. 60 days before it expires, the Driver makes
 the next certificate and keeps using the current one. Once a day, the Driver connects to
 each secured server with the next certificate, so a server that does not trust it yet
-adds it to its rejected list. Trust it there, or click **Manage** in the dialog and
-download it under **Renewal**. The Driver uses the next certificate when all the servers
-accept it, or when the current one expires.
+adds it to its rejected list. Trust it there, or click <Icon.Settings /> (**Manage**) in
+the dialog and download it under **Renewal**. The Driver uses the next certificate when
+all the servers accept it, or when the current one expires.
 
 **Regenerate** replaces the certificate of the Driver with a new one. Use it only when
 the private key is no longer safe. All the servers must then trust the new certificate.
