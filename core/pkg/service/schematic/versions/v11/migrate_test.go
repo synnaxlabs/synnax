@@ -126,7 +126,9 @@ var _ = Describe("Migration", func() {
 
 	It("Should fill the v10 defaults of an imported config", func(ctx SpecContext) {
 		got := MustSucceed(v11.MigrateSchematic(ctx, v10.Schematic{
-			Configs: map[string]v10.ElementConfig{"n1": {Variant: v10.LineElementConfig{}}},
+			Configs: map[string]v10.ElementConfig{
+				"n1": {Variant: v10.LineElementConfig{}},
+			},
 		}))
 		Expect(got.Configs["n1"].Variant).To(SatisfyAll(
 			HaveField("End", HaveValue(Equal(spatial.XY{X: 100}))),
