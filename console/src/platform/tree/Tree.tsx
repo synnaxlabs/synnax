@@ -427,7 +427,7 @@ const Internal = ({
     onSelectedChange: setSelected,
     sort: results == null ? sort : undefined,
   });
-  const { shape, expand, contract } = treeProps;
+  const { shape, expand, contract, expanded } = treeProps;
 
   // Groups open on arrival once, so a group the user closes stays closed.
   const openedRef = useInitializerRef(() => new Set<string>());
@@ -438,6 +438,15 @@ const Internal = ({
       [...watchedRef.current.keys()].filter((key) => results.fixed.has(key)),
     );
     setNodes((prev) => keepWatchedChildren(prev, results.nodes, watchedRef.current));
+    // An open group that starts to match gets no expand, so it loads its children here.
+    expanded
+      .filter(
+        (key) =>
+          !results.fixed.has(key) &&
+          !watchedRef.current.has(key) &&
+          Base.findNode({ tree: results.nodes, key }) != null,
+      )
+      .forEach((key) => void watchChildren(ontology.parseID(key)));
     results.expanded.forEach((key) => {
       if (openedRef.current.has(key)) return;
       openedRef.current.add(key);

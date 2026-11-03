@@ -122,13 +122,13 @@ const baseUngroup = Flux.createUpdate<UngroupParams>({
       selection.ids.map((id) => ontology.idToString(id)),
     );
     for (const id of selection.ids) {
-      const children =
-        PTree.findNode({ tree: prevNodes, key: ontology.idToString(id) })?.children ??
-        [];
-      const childKeys = ontology.parseIDs(
-        children.map(({ key }) => key).filter((k) => !resourceIDStrings.has(k)),
-      );
-      await client.ontology.moveChildren(id, parentID, ...childKeys);
+      // The tree can hold only some of the children: a search shows only the matches,
+      // and a folded group loads none.
+      const children = await client.ontology.children.retrieve({ ids: id });
+      const childIDs = children
+        .map((child) => child.id)
+        .filter((child) => !resourceIDStrings.has(ontology.idToString(child)));
+      await client.ontology.moveChildren(id, parentID, ...childIDs);
     }
     await client.groups.delete(selection.ids.map((id) => id.key));
     return args;
