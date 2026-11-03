@@ -26,6 +26,9 @@ import { findDialogTriggerByText, uniqueName } from "@/testutil";
 
 const client = createTestClient();
 
+const unitId = (): HTMLInputElement =>
+  screen.getByLabelText<HTMLInputElement>("Unit ID");
+
 describe("Modbus.Device.useConnectModal", () => {
   it("should populate the form from an existing device", async () => {
     const dev = await createModbusDevice(client, {
@@ -84,8 +87,7 @@ describe("Modbus.Device.useConnectModal", () => {
     });
     commitFieldInput(screen.getByDisplayValue<HTMLInputElement>("255"), "12");
     await selectFromDropdown("Word swap", "Big-endian");
-    fireEvent.click(screen.getByText("Advanced"));
-    fireEvent.click(await screen.findByRole("checkbox"));
+    fireEvent.click(screen.getByRole("checkbox"));
     const { answered } = await answerNextCommand(client, scan);
     pressSaveTrigger();
     const cmd = await answered;
@@ -130,7 +132,6 @@ describe("Modbus.Device.useConnectModal", () => {
     await renderModalOpener(Modbus.Device.useConnectModal, [{ deviceKey: dev.key }], {
       client,
     });
-    fireEvent.click(await screen.findByText("Diagnostics"));
     expect(await screen.findByText("41")).toBeTruthy();
     expect(screen.getByText("3")).toBeTruthy();
     expect(screen.getByText("2")).toBeTruthy();
@@ -144,13 +145,12 @@ describe("Modbus.Device.useConnectModal", () => {
     await renderModalOpener(Modbus.Device.useConnectModal, [{ deviceKey: dev.key }], {
       client,
     });
-    fireEvent.click(await screen.findByText("Diagnostics"));
     expect(await screen.findByText("No requests counted yet")).toBeTruthy();
   });
 
   it("should not show diagnostics for a new server", async () => {
     await renderModalOpener(Modbus.Device.useConnectModal, [{}], { client });
-    await screen.findByText("Advanced");
+    await screen.findByText("Timing");
     expect(screen.queryByText("Diagnostics")).toBeNull();
   });
 
@@ -173,7 +173,7 @@ describe("Modbus.Device.useConnectModal", () => {
     expect(screen.getByDisplayValue("/dev/ttyUSB3")).toBeTruthy();
     expect(screen.getByText("9600")).toBeTruthy();
     expect(screen.getByText("Even")).toBeTruthy();
-    expect(screen.getByDisplayValue("1")).toBeTruthy();
+    expect(unitId().value).toBe("1");
     expect(screen.queryByPlaceholderText("localhost")).toBeNull();
   });
 
@@ -186,7 +186,7 @@ describe("Modbus.Device.useConnectModal", () => {
     });
     await screen.findByDisplayValue(dev.name);
     fireEvent.click(screen.getByText("Serial"));
-    expect(await screen.findByDisplayValue("1")).toBeTruthy();
+    await waitFor(() => expect(unitId().value).toBe("1"));
     expect(screen.getByText("Little-endian")).toBeTruthy();
     expect(screen.queryByPlaceholderText("localhost")).toBeNull();
   });
@@ -194,8 +194,9 @@ describe("Modbus.Device.useConnectModal", () => {
   it("should keep the unit ID of a serial device from 1 to 247", async () => {
     await renderModalOpener(Modbus.Device.useConnectModal, [{}], { client });
     fireEvent.click(await screen.findByText("Serial"));
-    commitFieldInput(await screen.findByDisplayValue<HTMLInputElement>("1"), "300");
-    expect(await screen.findByDisplayValue("247")).toBeTruthy();
+    await waitFor(() => expect(unitId().value).toBe("1"));
+    commitFieldInput(unitId(), "300");
+    await waitFor(() => expect(unitId().value).toBe("247"));
   });
 
   it("should save a serial device with the line settings entered", async () => {

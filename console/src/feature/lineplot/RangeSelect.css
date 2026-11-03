@@ -9,11 +9,14 @@
  * included in the file licenses/APL.txt.
  */
 
-.console-mqtt-connect {
-    width: 155rem;
+.console-range-select__live-icon,
+.console-range-select__live-label {
+    color: var(--pluto-error-p1);
+    filter: opacity(0.8);
 }
 
-/* Fits the longest label, so the column holds still as fields show and hide. */
-.console-mqtt-connect__sections {
-    grid-template-columns: minmax(18rem, max-content) minmax(0, 1fr);
+.console-range-select__live {
+    padding: 0.5rem 1rem;
+    border: 0 solid var(--pluto-gray-l6);
+    border-width: 0 var(--pluto-border-width);
 }
