@@ -738,6 +738,17 @@ describe("State", () => {
       });
       expect(state.getState("name").status.message).toBe("Name is taken");
     });
+
+    it("should drop a status that a write earlier in the batch cleared", () => {
+      const state = new State(createLocalStore(initialValues), basicSchema);
+      state.setStatus("name", { variant: "error", message: "Name is taken" });
+      let statuses: unknown;
+      state.batch(() => {
+        state.setValue("name", "Jane Doe");
+        statuses = state.getStatuses();
+      });
+      expect(statuses).toEqual([]);
+    });
   });
 
   describe("listen", () => {

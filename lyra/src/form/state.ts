@@ -509,6 +509,7 @@ export class State<Z extends z.ZodType> extends observe.Observer<void> {
   }
 
   getStatuses(): Status.Crude[] {
+    this.catchUp();
     return Array.from(this.statuses.values()).filter(
       (status) => status.variant !== "success",
     );

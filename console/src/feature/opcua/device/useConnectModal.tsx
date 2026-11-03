@@ -7,8 +7,6 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import "@/feature/opcua/device/Connect.css";
-
 import { type device, status } from "@synnaxlabs/client";
 import { Component } from "@synnaxlabs/lyra/component";
 import { Flex } from "@synnaxlabs/lyra/flex";
@@ -52,7 +50,6 @@ import {
   testConnectionResponseZ,
 } from "@/feature/opcua/task/types";
 import { Analytics } from "@/platform/analytics";
-import { CSS } from "@/platform/css";
 import { Device as PlatformDevice } from "@/platform/device";
 
 const path = deep.path<Device>();
@@ -218,7 +215,7 @@ export const Connect = ({
   };
 
   return (
-    <Modal.Frame className={CSS.B("opc-connect")}>
+    <PlatformDevice.ConnectFrame>
       <Modal.Header icon={<Icon.Logo.OPCUA />}>{HEADER}</Modal.Header>
       <Modal.Body gap="large">
         <Form.Form<PDevice.FormSchema<typeof SCHEMAS>> {...form}>
@@ -239,18 +236,20 @@ export const Connect = ({
               <PlatformDevice.RackField integration={INTEGRATION} />
             </Form.Section>
             <Form.Section title="Authentication">
-              <Form.TextField
-                path={path.properties.connection.username}
-                label="Username"
-                padHelpText={false}
-                inputProps={USERNAME_INPUT_PROPS}
-              />
-              <Form.TextField
-                path={path.properties.connection.password}
-                label="Password"
-                padHelpText={false}
-                inputProps={PASSWORD_INPUT_PROPS}
-              />
+              <Flex.Box x>
+                <Form.TextField
+                  path={path.properties.connection.username}
+                  label="Username"
+                  padHelpText={false}
+                  inputProps={USERNAME_INPUT_PROPS}
+                />
+                <Form.TextField
+                  path={path.properties.connection.password}
+                  label="Password"
+                  padHelpText={false}
+                  inputProps={PASSWORD_INPUT_PROPS}
+                />
+              </Flex.Box>
             </Form.Section>
             <Form.Section title="Security">
               <Input.Item label="Endpoint security">
@@ -322,24 +321,26 @@ export const Connect = ({
               </Form.Section>
             )}
             <Form.Section title="Advanced">
-              <Form.NumericField
-                path={path.properties.connection.clientTimeoutMs}
-                label="Request timeout"
-                padHelpText={false}
-                inputProps={MS_INPUT_PROPS}
-              />
-              <Form.NumericField
-                path={path.properties.connection.sessionTimeoutMs}
-                label="Session timeout"
-                padHelpText={false}
-                inputProps={MS_INPUT_PROPS}
-              />
-              <Form.NumericField
-                path={path.properties.connection.secureChannelLifetimeMs}
-                label="Secure channel lifetime"
-                padHelpText={false}
-                inputProps={MS_INPUT_PROPS}
-              />
+              <Flex.Box x>
+                <Form.NumericField
+                  path={path.properties.connection.clientTimeoutMs}
+                  label="Request timeout"
+                  padHelpText={false}
+                  inputProps={MS_INPUT_PROPS}
+                />
+                <Form.NumericField
+                  path={path.properties.connection.sessionTimeoutMs}
+                  label="Session timeout"
+                  padHelpText={false}
+                  inputProps={MS_INPUT_PROPS}
+                />
+                <Form.NumericField
+                  path={path.properties.connection.secureChannelLifetimeMs}
+                  label="Secure channel lifetime"
+                  padHelpText={false}
+                  inputProps={MS_INPUT_PROPS}
+                />
+              </Flex.Box>
             </Form.Section>
           </Form.Sections>
         </Form.Form>
@@ -351,7 +352,7 @@ export const Connect = ({
         onConnect={() => save()}
         onBack={onBack}
       />
-    </Modal.Frame>
+    </PlatformDevice.ConnectFrame>
   );
 };
 
