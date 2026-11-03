@@ -7,6 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
+import { Icon } from "@synnaxlabs/lyra/icon";
 import { render } from "@testing-library/react";
 import { describe, expect, it, vi } from "vitest";
 
@@ -23,6 +24,15 @@ describe("Channel select", () => {
       wrapper: Wrapper,
     });
     expect(c.container.querySelector(`.${TRIGGER_CLASS}`)).not.toBeNull();
+  });
+
+  it("should show the select's own icon when no channel is selected", () => {
+    const c = render(
+      <Channel.SelectSingle value={0} onChange={vi.fn()} icon={<Icon.Time />} />,
+      { wrapper: Wrapper },
+    );
+    const trigger = c.container.querySelector(`.${TRIGGER_CLASS}`);
+    expect(trigger?.querySelector(".lyra-icon--time")).not.toBeNull();
   });
 
   it("should mark the multiple select's trigger so forms can widen it", () => {
