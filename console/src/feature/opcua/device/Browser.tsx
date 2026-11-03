@@ -259,8 +259,10 @@ export const Browser = ({ device }: BrowserProps) => {
     );
   };
   let visibleShape = shape;
+  let unmatched = false;
   if (search !== "") {
     const filtered = filterNodes(treeNodes, matches);
+    unmatched = filtered.length === 0;
     visibleShape = Tree.flatten({
       nodes: filtered,
       expanded: Tree.getDescendants(...filtered).map(({ key }) => key),
@@ -280,6 +282,19 @@ export const Browser = ({ device }: BrowserProps) => {
     content = (
       <Flex.Box center>
         <Icon.Loading className={CSS.BE("opc-browser", "loading-icon")} color={9} />
+      </Flex.Box>
+    );
+  else if (unmatched)
+    content = (
+      <Flex.Box center>
+        <Text.Text
+          level="small"
+          status="disabled"
+          className={CSS.BE("opc-browser", "empty")}
+        >
+          No loaded node matches. Expand a folder to load its nodes, or enter a node ID
+          and press Enter.
+        </Text.Text>
       </Flex.Box>
     );
   else
@@ -318,7 +333,7 @@ export const Browser = ({ device }: BrowserProps) => {
         onChange={setQuery}
         onKeyDown={handleSearchKeyDown}
         startContent={SEARCH_ICON}
-        placeholder="Search, or enter a node ID"
+        placeholder="Filter, or enter a node ID"
         className={CSS.BE("opc-browser", "search")}
       />
       {content}

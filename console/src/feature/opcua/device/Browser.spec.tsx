@@ -196,10 +196,19 @@ const renderBrowser = async () => {
 describe("Browser search", () => {
   it("should show only the loaded nodes whose name or node ID matches", async () => {
     await renderBrowser();
-    fireEvent.change(screen.getByPlaceholderText("Search, or enter a node ID"), {
+    fireEvent.change(screen.getByPlaceholderText("Filter, or enter a node ID"), {
       target: { value: "pump" },
     });
     await screen.findByText("PumpSpeed");
+    expect(screen.queryByText("TankPressure")).toBeNull();
+  });
+
+  it("should explain why no loaded node matches", async () => {
+    await renderBrowser();
+    fireEvent.change(screen.getByPlaceholderText("Filter, or enter a node ID"), {
+      target: { value: "valve" },
+    });
+    await screen.findByText(/No loaded node matches/);
     expect(screen.queryByText("TankPressure")).toBeNull();
   });
 
@@ -209,7 +218,7 @@ describe("Browser search", () => {
       type: OPCUA.Task.READ_NODE_COMMAND_TYPE,
       data: DETAILS,
     });
-    const input = screen.getByPlaceholderText("Search, or enter a node ID");
+    const input = screen.getByPlaceholderText("Filter, or enter a node ID");
     fireEvent.change(input, { target: { value: "ns=2;s=TankPressure" } });
     fireEvent.keyDown(input, { key: "Enter" });
     expect((await read.answered).args).toMatchObject({
@@ -225,7 +234,7 @@ describe("Browser search", () => {
       type: OPCUA.Task.READ_NODE_COMMAND_TYPE,
       data: DETAILS,
     });
-    const input = screen.getByPlaceholderText("Search, or enter a node ID");
+    const input = screen.getByPlaceholderText("Filter, or enter a node ID");
     fireEvent.change(input, { target: { value: " ns=2;s=Tank " } });
     fireEvent.keyDown(input, { key: "Enter" });
     expect((await read.answered).args).toMatchObject({ nodeId: "ns=2;s=Tank " });
@@ -244,7 +253,7 @@ describe("Browser search", () => {
       return cmd;
     };
     try {
-      const input = screen.getByPlaceholderText("Search, or enter a node ID");
+      const input = screen.getByPlaceholderText("Filter, or enter a node ID");
       fireEvent.click(screen.getByText("TankPressure"));
       await answerRead();
       fireEvent.change(input, { target: { value: "ns=2;s=Other" } });
