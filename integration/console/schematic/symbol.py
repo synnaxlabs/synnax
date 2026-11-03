@@ -39,6 +39,11 @@ class Properties(TypedDict, total=False):
     show_control_legend: bool
 
 
+def option_text(value: float) -> str:
+    """Return the text of an option value, with no digits lost and no trailing ".0"."""
+    return repr(value).removesuffix(".0")
+
+
 """ Symbol Box helpers """
 
 

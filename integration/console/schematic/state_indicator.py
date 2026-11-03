@@ -9,7 +9,7 @@
 
 
 import synnax as sy
-from console.schematic.symbol import Symbol
+from console.schematic.symbol import Symbol, option_text
 
 
 class StateIndicator(Symbol):
@@ -67,7 +67,7 @@ class StateIndicator(Symbol):
                 name_input = last_item.locator("input").first
                 name_input.fill(option.name)
                 value_input = last_item.locator("input").nth(1)
-                value_input.fill(f"{option.value:g}")
+                value_input.fill(option_text(option.value))
 
     def get_label(self) -> str:
         """Read the currently displayed state label text.
