@@ -33,6 +33,7 @@ export {
   DisconnectedError,
   ExpiredLicenseError,
   InvalidLicenseError,
+  InvalidTokenError,
   isConnectionError,
   LicenseError,
   LicenseFingerprintError,

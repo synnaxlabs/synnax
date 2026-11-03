@@ -10,6 +10,7 @@
 import { Component } from "@synnaxlabs/lyra/component";
 import { Form } from "@synnaxlabs/lyra/form";
 import { Select } from "@synnaxlabs/lyra/select";
+import { deep } from "@synnaxlabs/x";
 import { type ReactElement } from "react";
 
 import { type TimeFormat } from "@/platform/task/payload/types";
@@ -27,7 +28,7 @@ const renderSelect = Component.renderProp(
 );
 
 export interface TimeFormatFieldProps {
-  path: string;
+  path: deep.Target<TimeFormat | undefined>;
   label: string;
 }
 
@@ -40,7 +41,7 @@ export const TimeFormatField = ({
   path,
   label,
 }: TimeFormatFieldProps): ReactElement => (
-  <Form.Field<TimeFormat> path={path} label={label} padHelpText={false}>
+  <Form.Field path={deep.present(path)} label={label} padHelpText={false}>
     {renderSelect}
   </Form.Field>
 );

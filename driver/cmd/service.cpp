@@ -14,6 +14,7 @@
 #include "x/cpp/log/log.h"
 
 #include "driver/daemon/daemon.h"
+#include "driver/rack/rack.h"
 
 namespace driver::cmd::sub {
 int start(x::args::Parser &args);
@@ -58,7 +59,11 @@ int service_restart(x::args::Parser &args) {
 }
 
 int service_install(x::args::Parser &args) {
-    return exec_svc_cmd(daemon::install_service, "install", "installed");
+    const auto install = [&] {
+        if (auto err = daemon::install_service()) return err;
+        return rack::Config::secure_persisted_state(args);
+    };
+    return exec_svc_cmd(install, "install", "installed");
 }
 
 int service_uninstall(x::args::Parser &args) {
