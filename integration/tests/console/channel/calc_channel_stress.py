@@ -199,10 +199,10 @@ class CalcChannelStress(ConsoleCase):
 
         plot = console.pages.create(Plot, f"Calc Stress {self.rate}Hz")
         self._cleanup_pages.append(plot.page_name)
-        plot.add_channels("Y1", CALC_CHANNELS)
+        plot.add_channels("y1", CALC_CHANNELS)
 
         for ch in CALC_CHANNELS:
-            assert ch in plot.data["Y1"], f"Channel {ch} should be on Y1"
+            assert ch in plot.data["y1"], f"Channel {ch} should be on Y1"
 
         sy.sleep(1)
 

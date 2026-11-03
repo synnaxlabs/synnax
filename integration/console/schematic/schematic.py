@@ -67,7 +67,7 @@ RotationType = Literal[
 class Schematic(ConsolePage):
     """Schematic page management interface"""
 
-    page_type: PageType = "Schematic"
+    page_type: PageType = "schematic"
     pluto_label: str = ".react-flow__pane"
 
     def __init__(
