@@ -12,7 +12,6 @@ import { type Nav } from "@/components/nav";
 export const CLIENT_NAV: Nav.PageNavNode = {
   key: "client",
   name: "Client libraries",
-  edition: "enterprise",
   children: [
     {
       href: "/reference/client",
