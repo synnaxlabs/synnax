@@ -8,14 +8,14 @@
 #  included in the file licenses/APL.txt.
 
 import re
-from typing import Any, Literal
+from typing import Literal
 
 from playwright.sync_api import Locator, expect
 
 import synnax as sy
 from console.channels import ChannelClient
 from console.layout import LayoutClient
-from console.page import ConsolePage
+from console.page import ConsolePage, PageType
 
 Axis = Literal["Y1", "Y2", "X1"]
 
@@ -23,7 +23,7 @@ Axis = Literal["Y1", "Y2", "X1"]
 class Plot(ConsolePage):
     """Plot page management interface"""
 
-    page_type = "Line plot"
+    page_type: PageType = "Line plot"
     pluto_label: str = ".pluto-line-plot"
 
     def __init__(
@@ -35,12 +35,7 @@ class Plot(ConsolePage):
         pane_locator: Locator,
     ) -> None:
         """Initialize a Plot page wrapper (see ConsolePage.__init__ for details)."""
-        self.data: dict[str, Any] = {
-            "Y1": [],
-            "Y2": [],
-            "Ranges": [],
-            "X1": None,
-        }
+        self.data: dict[str, list[str]] = {"Y1": [], "Y2": [], "X1": [], "Ranges": []}
         super().__init__(
             layout=layout, client=client, page_name=page_name, pane_locator=pane_locator
         )
@@ -114,77 +109,6 @@ class Plot(ConsolePage):
         download.save_as(save_path)
         with open(save_path, encoding="utf-8") as f:
             return f.read()
-
-    def set_axis(self, axis: Axis, config: dict[str, Any]) -> None:
-        """Set axis configuration with the given parameters."""
-        self.notifications.close_all()
-        self.page.get_by_role("tab", name="Axes", exact=True).click(timeout=5000)
-
-        self._select_axis_tab(axis)
-
-        for key, value in config.items():
-            self._set_axis_property(key, value)
-
-        self.layout.press_enter()
-
-    def _select_axis_tab(self, axis: Axis) -> None:
-        """Select the axis tab in the configuration panel."""
-        self.page.get_by_role("tab", name=axis, exact=True).click(timeout=5000)
-
-    def _set_axis_property(self, key: str, value: Any) -> None:
-        """Set a single axis property."""
-        try:
-            if key in {"Lower bound", "Upper bound", "Tick spacing", "Label"}:
-                self._set_input_field(key, value)
-            elif key == "Label direction":
-                self._set_label_direction(value)
-            elif key == "Label size":
-                self._set_label_size(value)
-            else:
-                self.page.locator(key).fill(str(value), timeout=5000)
-        except Exception as e:
-            raise ValueError(f'Failed to set axis property "{key}" to "{value}"') from e
-
-    def _set_input_field(self, key: str, value: Any) -> None:
-        """Set an input field value."""
-        selectors = [
-            f"label:has-text('{key}') + div input",
-            f"label:has-text('{key}') input",
-            f"input[aria-label*='{key}']",
-            f"input[placeholder*='{key}']",
-        ]
-
-        for selector in selectors:
-            try:
-                input_field = self.page.locator(selector)
-                if input_field.count() > 0:
-                    input_field.clear(timeout=5000)
-                    input_field.fill(str(value), timeout=5000)
-                    return
-            except Exception:
-                continue
-
-        raise RuntimeError(f"Could not find input field for {key}")
-
-    def _set_label_direction(
-        self, direction: Literal["horizontal", "vertical"]
-    ) -> None:
-        """Set label direction button."""
-
-        icon_direction: Literal["arrow-up", "arrow-right"] = (
-            "arrow-up" if direction == "vertical" else "arrow-right"
-        )
-        selector = (
-            "label:has-text('Label direction') + div "
-            f"button:has(svg.lyra-icon--{icon_direction})"
-        )
-        self.page.locator(selector).click(timeout=5000)
-
-    def _set_label_size(self, size: Literal["xs", "s", "m", "l", "xl"]) -> None:
-        """Set label size button."""
-
-        selector = f"label:has-text('Label size') + div button:has-text('{size}')"
-        self.page.locator(selector).click(timeout=5000)
 
     def set_title(self, title: str) -> None:
         """Set the plot title via the Properties tab.

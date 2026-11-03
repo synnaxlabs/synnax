@@ -20,20 +20,25 @@ import { type FC } from "react";
 
 import { use } from "@/feature/labjack/device/queries";
 import { Select } from "@/feature/labjack/device/Select";
-import { SelectPort } from "@/feature/labjack/device/SelectPort";
 import {
   AO_PORT_TYPE,
+  type AOPort,
   type Device,
   DO_PORT_TYPE,
+  type DOPort,
+  MAKE,
   type Model,
   PORTS,
   SCHEMAS,
 } from "@/feature/labjack/device/types";
+import { uniqueTerminalsZ } from "@/feature/labjack/task/checks";
 import {
   convertPortTypeToWriteChannelType,
   convertWriteChannelTypeToPortType,
 } from "@/feature/labjack/task/convertChannelTypeToPortType";
 import { getOpenPort } from "@/feature/labjack/task/getOpenPort";
+import { PortPicker } from "@/feature/labjack/task/PortPicker";
+import { PortsView } from "@/feature/labjack/task/PortsView";
 import { SelectWriteChannelType } from "@/feature/labjack/task/SelectWriteChannelType";
 import {
   createWriteChannel,
@@ -50,62 +55,86 @@ import { Device as PlatformDevice } from "@/platform/device";
 import { Selector } from "@/platform/selector";
 import { Task } from "@/platform/task";
 
+const path = deep.path<Task.Values<WriteSchemas>>();
+
 const Properties = () => (
   <>
     <Select />
     <Flex.Box x>
       <Task.Fields.StateUpdateRate />
-      <Task.Fields.DataSaving />
     </Flex.Box>
   </>
 );
 
+/** The name a channel shows by: its command channel's, or the one configuring gives. */
+const commandName = (c: WriteChannel, identifier: string): string =>
+  primitive.isNonZero(c.cmdChannelName)
+    ? c.cmdChannelName
+    : `${identifier}_${c.port}_cmd`;
+
+/** The name a channel's state channel shows by. */
+const stateName = (c: WriteChannel, identifier: string): string =>
+  primitive.isNonZero(c.stateChannelName)
+    ? c.stateChannelName
+    : `${identifier}_${c.port}_state`;
+
 interface ChannelListItemProps extends Task.ChannelListItemProps {
-  deviceModel: Model;
+  device: Device;
 }
 
-const ChannelListItem = ({ deviceModel, ...rest }: ChannelListItemProps) => {
-  const path = `config.channels.${rest.itemKey}`;
-  const { set } = PForm.useContext();
-  const item = PForm.useFieldValue<WriteChannel>(path);
+const ChannelListItem = ({ device, ...rest }: ChannelListItemProps) => {
+  const { model } = device;
+  const identifier = channel.escapeInvalidName(device.properties.identifier);
+  const entry = path.config.channels[rest.itemKey];
+  const { get, set } = PForm.useContext();
+  const item = PForm.useFieldValue(entry);
   const { port, type, cmdChannel, stateChannel } = item;
   return (
     <List.Item {...rest} full="x" justify="between">
       <Flex.Box pack x align="center">
-        <PForm.Field<string>
-          path={`${path}.port`}
+        <PForm.Field
+          path={entry.port}
           showLabel={false}
+          showHelpText={false}
           onChange={(value) => {
             if (port === value) return;
-            set(path, { ...item, port: value });
+            set(entry, { ...item, port: value });
           }}
         >
           {({ value, onChange, preview }) => (
-            <SelectPort
+            <PortPicker<WriteChannel>
+              channelsPath={path.config.channels}
               value={value}
               onChange={onChange}
               preview={preview}
-              model={deviceModel}
-              portType={convertWriteChannelTypeToPortType(type)}
-              allowNone={false}
+              model={model}
+              type={convertWriteChannelTypeToPortType(type)}
+              channel={item.key}
+              name={(c) => commandName(c, identifier)}
               className={CSS.BE("labjack-write", "port-select")}
             >
               <PForm.Field<WriteChannelType>
                 key="type"
-                path={`${path}.type`}
+                path={entry.type}
                 showLabel={false}
+                showHelpText={false}
                 gap="large"
                 onChange={(value) => {
                   if (type === value) return;
                   const portType = convertWriteChannelTypeToPortType(value);
-                  const port = PORTS[deviceModel][portType][0].key;
-                  set(path, { ...item, type: value, port });
+                  const others = get(path.config.channels).value.filter(
+                    ({ key }) => key !== item.key,
+                  );
+                  const port = (
+                    getOpenPort(others, model, [portType]) ?? PORTS[model][portType][0]
+                  ).key;
+                  set(entry, { ...item, type: value, port });
                 }}
                 empty
               >
                 {selectWriteChannelType}
               </PForm.Field>
-            </SelectPort>
+            </PortPicker>
           )}
         </PForm.Field>
       </Flex.Box>
@@ -114,10 +143,12 @@ const ChannelListItem = ({ deviceModel, ...rest }: ChannelListItemProps) => {
           cmdChannel={cmdChannel}
           itemKey={item.key}
           stateChannel={stateChannel}
-          cmdNamePath={`${path}.cmdChannelName`}
-          stateNamePath={`${path}.stateChannelName`}
+          cmdNamePath={entry.cmdChannelName}
+          stateNamePath={entry.stateChannelName}
+          cmdDefaultName={commandName(item, identifier)}
+          stateDefaultName={stateName(item, identifier)}
         />
-        <Task.EnabledCheckbox path={`${path}.disabled`} />
+        <Task.EnabledCheckbox path={entry.disabled} />
       </Flex.Box>
     </List.Item>
   );
@@ -130,14 +161,28 @@ const createFirstChannel = (): WriteChannel => ({
   key: id.create(),
 });
 
-const getOpenChannel = (channels: WriteChannel[], deviceModel: Model) => {
-  if (channels.length === 0) return createFirstChannel();
-  const last = channels[channels.length - 1];
-  const preferredPortType = convertWriteChannelTypeToPortType(last.type);
-  const backupPortType =
-    preferredPortType === DO_PORT_TYPE ? AO_PORT_TYPE : DO_PORT_TYPE;
-  const port = getOpenPort(channels, deviceModel, [preferredPortType, backupPortType]);
+/** Creates a channel on the port, of the type the port takes. */
+const createChannelOn = (port: AOPort | DOPort): WriteChannel => ({
+  ...createWriteChannel(convertPortTypeToWriteChannelType(port.type)),
+  key: id.create(),
+  port: port.key,
+});
+
+/**
+ * Creates a channel on the lowest free port of the last channel's type, then of the
+ * other type. Null when every port is taken.
+ */
+const createNextChannel = (
+  channels: WriteChannel[],
+  model: Model,
+): WriteChannel | null => {
+  const last = channels.at(-1);
+  const preferred =
+    last == null ? DO_PORT_TYPE : convertWriteChannelTypeToPortType(last.type);
+  const backup = preferred === DO_PORT_TYPE ? AO_PORT_TYPE : DO_PORT_TYPE;
+  const port = getOpenPort(channels, model, [preferred, backup]);
   if (port == null) return null;
+  if (last == null) return createChannelOn(port);
   return {
     ...deep.copy(last),
     ...Task.WRITE_CHANNEL_OVERRIDE,
@@ -153,9 +198,21 @@ interface ChannelListProps {
 
 const ChannelList = ({ device }: ChannelListProps) => {
   const { model } = device;
-  const createChannel = (channels: WriteChannel[]) => getOpenChannel(channels, model);
+  const identifier = channel.escapeInvalidName(device.properties.identifier);
+  PForm.useCheck(path.config, uniqueTerminalsZ(model));
+  const createChannel = (channels: WriteChannel[]) =>
+    createNextChannel(channels, model);
   const listItem = ({ key, ...p }: Task.ChannelListItemProps) => (
-    <ChannelListItem key={key} {...p} deviceModel={model} />
+    <ChannelListItem key={key} {...p} device={device} />
+  );
+  const ports = (p: Task.Views.PortsProps<WriteChannel>) => (
+    <PortsView<WriteChannel, AOPort | DOPort>
+      {...p}
+      model={model}
+      ports={[...PORTS[model][AO_PORT_TYPE], ...PORTS[model][DO_PORT_TYPE]]}
+      create={(_, port) => createChannelOn(port)}
+      name={(c) => commandName(c, identifier)}
+    />
   );
   const resolve = (c: WriteChannel) => {
     const pair =
@@ -165,10 +222,12 @@ const ChannelList = ({ device }: ChannelListProps) => {
   };
   return (
     <Task.Views.List<WriteChannel>
+      path={path.config.channels}
       createChannel={createChannel}
       listItem={listItem}
       contextMenuItems={Task.writeChannelContextMenuItems}
       resolve={resolve}
+      ports={ports}
     />
   );
 };
@@ -222,10 +281,14 @@ const onConfigure: Task.OnConfigure<WriteSchemas["config"]> = async (
     }
     const commandChannelsToCreate: WriteChannel[] = [];
     const stateChannelsToCreate: WriteChannel[] = [];
-    for (const channel of config.channels) {
+    // Channels on one port share its data channels, named by an enabled one if any.
+    const seen = new Set<string>();
+    for (const channel of Task.enabledFirst(config.channels)) {
       const key = channel.port;
-      const existingPair =
-        dev.properties[convertWriteChannelTypeToPortType(channel.type)].channels[key];
+      const type = convertWriteChannelTypeToPortType(channel.type);
+      if (seen.has(`${type}/${key}`)) continue;
+      seen.add(`${type}/${key}`);
+      const existingPair = dev.properties[type].channels[key];
       if (existingPair == null) {
         commandChannelsToCreate.push(channel);
         stateChannelsToCreate.push(channel);
@@ -248,12 +311,10 @@ const onConfigure: Task.OnConfigure<WriteSchemas["config"]> = async (
     if (stateChannelsToCreate.length > 0) {
       modified = true;
       const stateChannels = await client.channels.create(
-        stateChannelsToCreate.map(({ port, type, stateChannelName }) => ({
-          name: primitive.isNonZero(stateChannelName)
-            ? stateChannelName
-            : `${identifier}_${port}_state`,
+        stateChannelsToCreate.map((c) => ({
+          name: stateName(c, identifier),
           index: dev.properties.writeStateIndex,
-          dataType: type === "analog" ? "float32" : "uint8",
+          dataType: c.type === "analog" ? "float32" : "uint8",
         })),
       );
       stateChannels.forEach((c, i) => {
@@ -281,21 +342,17 @@ const onConfigure: Task.OnConfigure<WriteSchemas["config"]> = async (
     if (commandChannelsToCreate.length > 0) {
       modified = true;
       const commandIndexes = await client.channels.create(
-        commandChannelsToCreate.map(({ port, cmdChannelName }) => ({
-          name: primitive.isNonZero(cmdChannelName)
-            ? `${cmdChannelName}_time`
-            : `${identifier}_${port}_cmd_time`,
+        commandChannelsToCreate.map((c) => ({
+          name: `${commandName(c, identifier)}_time`,
           dataType: "timestamp",
           isIndex: true,
         })),
       );
       const commandChannels = await client.channels.create(
-        commandChannelsToCreate.map(({ cmdChannelName, port, type }, i) => ({
-          name: primitive.isNonZero(cmdChannelName)
-            ? cmdChannelName
-            : `${identifier}_${port}_cmd`,
+        commandChannelsToCreate.map((c, i) => ({
+          name: commandName(c, identifier),
           index: commandIndexes[i].key,
-          dataType: type === "analog" ? "float32" : "uint8",
+          dataType: c.type === "analog" ? "float32" : "uint8",
         })),
       );
       commandChannels.forEach((c, i) => {
@@ -336,12 +393,12 @@ export const Write = Task.wrapForm({
   schemas: WRITE_SCHEMAS,
   deployConfigZ: deployWriteConfigZ,
   type: "labjack_write",
-  getInitialValues,
   onConfigure,
 });
 
 export const useCreateWrite = Task.createUseCreate({
   getInitialValues,
+  deviceMake: MAKE,
 });
 
 export const WriteSelectable = Selector.createSelectable({

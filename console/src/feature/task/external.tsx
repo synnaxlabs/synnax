@@ -14,6 +14,7 @@ import { EtherCAT } from "@/feature/ethercat";
 import { HTTP } from "@/feature/http";
 import { LabJack } from "@/feature/labjack";
 import { Modbus } from "@/feature/modbus";
+import { MQTT } from "@/feature/mqtt";
 import { NI } from "@/feature/ni";
 import { OPCUA } from "@/feature/opcua";
 import { PagerDuty } from "@/feature/pagerduty";
@@ -42,6 +43,7 @@ export const COMMANDS: Command.Command[] = [
   ...HTTP.Task.COMMANDS,
   ...LabJack.Task.COMMANDS,
   ...Modbus.Task.COMMANDS,
+  ...MQTT.Task.COMMANDS,
   ...NI.Task.COMMANDS,
   ...OPCUA.Task.COMMANDS,
   ...PagerDuty.Task.COMMANDS,

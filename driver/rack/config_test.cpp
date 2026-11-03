@@ -24,7 +24,7 @@ namespace driver::rack {
 const std::string STATE_PATH = "/tmp/rack-config-test/state.json";
 
 synnax::Config key_conn(const std::string &key) {
-    auto conn = test_client_config;
+    auto conn = test_client_config();
     conn.api_key = key;
     return conn;
 }
@@ -151,7 +151,7 @@ TEST_F(RackConfigTest, EnrollKeepsSavedRackWhenKeyDenied) {
     const auto cluster_key = ASSERT_NIL_P(
         x::uuid::UUID::parse(client.connectivity->check().cluster_key)
     );
-    auto conn = test_client_config;
+    auto conn = test_client_config();
     conn.api_key = caller_key.token;
     Config cfg{
         .remote_info = {.rack_key = saved.key, .cluster_key = cluster_key},
@@ -276,6 +276,14 @@ TEST_F(RackConfigTest, RefuseSymlinkStateFile) {
     ASSERT_OCCURRED_AS(Config::save_api_key(args, key_conn("syk_saved")), STATE_ERROR);
     ASSERT_OCCURRED_AS(Config::save_conn_params(args, {}), STATE_ERROR);
     ASSERT_OCCURRED_AS(Config::save_remote_info(args, {}), STATE_ERROR);
+    ASSERT_OCCURRED_AS(Config::secure_persisted_state(args), STATE_ERROR);
+}
+
+/// @brief it should secure the persisted state without creating a missing state file.
+TEST_F(RackConfigTest, SecureMissingStateFile) {
+    std::filesystem::remove(STATE_PATH);
+    ASSERT_NIL(Config::secure_persisted_state(args));
+    ASSERT_FALSE(std::filesystem::exists(STATE_PATH));
 }
 
 /// @brief it should keep the persisted state file readable only by its owner.

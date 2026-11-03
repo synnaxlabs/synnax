@@ -191,24 +191,36 @@ const interceptWrites = (
 
 /**
  * A writer factory whose open blocks until `finishOpen` is called, counting the writes
- * that reach the Core. Lets a test change state while an acquisition is in flight.
+ * that reach the Core and the closes. Lets a test change state while an acquisition is
+ * in flight.
  */
 const gateWriter = () => {
   let finishOpen!: () => void;
   const gate = new Promise<void>((resolve) => (finishOpen = resolve));
   let writes = 0;
+  let closes = 0;
   const openWriter: OpenWriter = async (client, config) => {
     await gate;
     const w = await client.openWriter(config);
     const write = w.write.bind(w);
+    const close = w.close.bind(w);
     return Object.assign(Object.create(w) as framer.Writer, {
       write: async (...args: Parameters<typeof write>) => {
         writes += 1;
         return await write(...args);
       },
+      close: async () => {
+        closes += 1;
+        await close();
+      },
     });
   };
-  return { openWriter, finishOpen: () => finishOpen(), writeCount: () => writes };
+  return {
+    openWriter,
+    finishOpen: () => finishOpen(),
+    writeCount: () => writes,
+    closeCount: () => closes,
+  };
 };
 
 /**
@@ -285,6 +297,18 @@ describe("control/aether/Controller", SUITE, () => {
     controller.release();
     await expect.poll(() => controller.state.status, POLL).toEqual("released");
     await expect.poll(() => source.value().data.message, POLL).toEqual("Uncontrolled");
+  });
+
+  it("should close a writer that finishes opening after a release", async () => {
+    const ch = await createIndexed();
+    const { openWriter, finishOpen, closeCount } = gateWriter();
+    const { controller } = await setup(ch.key, openWriter);
+    controller.create(setChannelValue({ channel: ch.key }));
+    controller.acquire();
+    controller.release();
+    finishOpen();
+    await expect.poll(() => closeCount(), POLL).toEqual(1);
+    await expect.poll(() => controller.state.status, POLL).toEqual("released");
   });
 
   it("should release without an error when the writer's session ended", async () => {

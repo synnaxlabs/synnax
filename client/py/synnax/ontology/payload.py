@@ -9,7 +9,7 @@
 
 from __future__ import annotations
 
-from typing import cast
+from typing import cast, override
 
 from pydantic import BaseModel
 
@@ -28,9 +28,6 @@ class ID(BaseModel):
     ):
         if isinstance(key, ID):
             super().__init__(key=key.key, type=key.type)
-        elif isinstance(key, tuple):
-            key, type = key
-            super().__init__(key=key, type=type)
         elif type is None and key is not None:
             type_str, key = key.split(":")
             # cast satisfies mypy; pydantic validates the value against
@@ -39,6 +36,7 @@ class ID(BaseModel):
         else:
             super().__init__(key=key, type=type)
 
+    @override
     def __str__(self) -> str:
         return f"{self.type}:{self.key}"
 

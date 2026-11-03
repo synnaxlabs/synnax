@@ -15,6 +15,7 @@ const INDEX_FILES = ["index.ts", "index.tsx"];
 const CODE_EXTENSIONS = [".ts", ".tsx"];
 const TEST_FILE = /\.(spec|test|bench)\.tsx?$/;
 const TESTUTIL = "testutil";
+const EXTERNAL_FILES = ["external.ts", "external.tsx"];
 
 const isModule = (dir: string): boolean =>
   INDEX_FILES.some((index) => fs.existsSync(path.join(dir, index)));
@@ -58,6 +59,9 @@ const isBarrel = (file: string): boolean => {
   return INDEX_FILES.includes(name) || name.replace(/\.tsx?$/, "") === TESTUTIL;
 };
 
+const isExternal = (file: string): boolean =>
+  EXTERNAL_FILES.includes(path.basename(file));
+
 const enclosingModule = (src: string, file: string): string | null => {
   if (!contains(src, file)) return null;
   // An index file under an Astro pages directory is a route, not a barrel.
@@ -86,10 +90,12 @@ export const barrelImports: Rule.RuleModule = {
     const src = findSrc(importer);
     if (src == null) return {};
     const spec = TEST_FILE.test(importer);
-    const check = (node: Rule.Node, specifier: unknown): void => {
+    const check = (node: Rule.Node, specifier: unknown, merge = false): void => {
       if (typeof specifier !== "string") return;
       const target = resolve(src, importer, specifier);
       if (target == null || isBarrel(target)) return;
+      // A Console layer merges another layer's module of the same domain into its own.
+      if (merge && isExternal(importer) && isExternal(target)) return;
       const module = enclosingModule(src, target);
       if (module == null) return;
       if (!contains(module, importer))
@@ -108,7 +114,8 @@ export const barrelImports: Rule.RuleModule = {
     return {
       ImportDeclaration: (node) => check(node, node.source.value),
       ExportNamedDeclaration: (node) => check(node, node.source?.value),
-      ExportAllDeclaration: (node) => check(node, node.source.value),
+      ExportAllDeclaration: (node) =>
+        check(node, node.source.value, node.exported == null),
       ImportExpression: (node) =>
         check(node, node.source.type === "Literal" ? node.source.value : null),
     };

@@ -14,11 +14,11 @@ import { Input } from "@synnaxlabs/lyra/input";
 import { Select } from "@synnaxlabs/lyra/select";
 import {
   caseconv,
+  deep,
   type direction,
   location,
   type notation,
   primitive,
-  type text,
 } from "@synnaxlabs/x";
 import { type PropsWithChildren, type ReactElement } from "react";
 
@@ -29,6 +29,8 @@ import { type Config } from "@/schematic/node/common/scale/config";
 import { type ColorFallbacks } from "@/schematic/node/spec";
 import { Scale as VisScale } from "@/vis/scale";
 import { Staleness } from "@/vis/staleness";
+
+const root = deep.path<Config>();
 
 export const colorFallbacks = {
   textColor: VisScale.textColorFallback,
@@ -53,7 +55,7 @@ const SIDES: readonly location.Outer[] = [
 ];
 
 interface SideFieldProps {
-  path: string;
+  path: deep.Target<location.Outer>;
   label: string;
   /** The sides to offer. A symbol with a fixed axis offers only the two it can use. */
   sides: readonly location.Outer[];
@@ -61,7 +63,7 @@ interface SideFieldProps {
 
 // A field on the other axis takes the side facing the same way as the default.
 const SideField = ({ path, label, sides }: SideFieldProps): ReactElement => (
-  <Base.Field<location.Outer> path={path} label={label} padHelpText={false}>
+  <Base.Field path={path} label={label} padHelpText={false}>
     {({ value, onChange }) => (
       <Select.Buttons value={value} onChange={onChange}>
         {sides.map((side) => (
@@ -82,10 +84,10 @@ export interface TelemFormProps {
 /** TelemForm renders telemetry sections; place it inside `Form.Sections`. */
 export const TelemForm = ({ allowNone = false }: TelemFormProps): ReactElement => {
   const { set } = Base.useContext();
-  const channel = Base.useFieldValue<Config["channel"]>("channel", { optional: true });
+  const channel = Base.useFieldValue(root.channel, { optional: true });
   const handleChannelChange = (key: channel.Key | null): void => {
-    if (allowNone && !primitive.isNonZero(key)) return set("channel", undefined);
-    set("channel", key ?? 0);
+    if (allowNone && !primitive.isNonZero(key)) return set(root.channel, undefined);
+    set(root.channel, key ?? 0);
   };
   return (
     <>
@@ -98,30 +100,26 @@ export const TelemForm = ({ allowNone = false }: TelemFormProps): ReactElement =
           />
         </Input.Item>
         <Base.NumericField
-          path="rollingAverage"
+          path={root.rollingAverage}
           label="Averaging window"
           padHelpText={false}
           inputProps={WINDOW_SIZE_INPUT_PROPS}
         />
       </Base.Section>
       <Base.Section title="Range">
-        <NodeForm.BoundsFields path="bounds" padHelpText={false} />
+        <NodeForm.BoundsFields path={root.bounds} padHelpText={false} />
       </Base.Section>
       <Base.Section title="Format">
-        <Base.Field<notation.Notation>
-          path="notation"
-          label="Notation"
-          padHelpText={false}
-        >
+        <Base.Field path={root.notation} label="Notation" padHelpText={false}>
           {NotationSelect}
         </Base.Field>
         <Base.NumericField
-          path="precision"
+          path={root.precision}
           label="Precision"
           padHelpText={false}
           inputProps={PRECISION_INPUT_PROPS}
         />
-        <NodeForm.UnitsField path="units" />
+        <NodeForm.UnitsField path={root.units} />
       </Base.Section>
       <Base.Section title="Staleness">
         <Staleness.Fields />
@@ -144,11 +142,15 @@ export const DisplayFields = ({
   children,
 }: DisplayFieldsProps): ReactElement => (
   <>
-    <NodeForm.NegatedSwitchField path="levelHidden" label="Fill" padHelpText={false} />
+    <NodeForm.NegatedSwitchField
+      path={root.levelHidden}
+      label="Fill"
+      padHelpText={false}
+    />
     {children}
-    <SideField path="caretSide" label="Value side" sides={SIDES} />
+    <SideField path={root.caretSide} label="Value side" sides={SIDES} />
     <SideField
-      path="side"
+      path={root.side}
       label="Scale side"
       sides={axis === "y" ? location.X_LOCATIONS : location.Y_LOCATIONS}
     />
@@ -159,21 +161,21 @@ export const DisplayFields = ({
 export const StyleFields = (): ReactElement => (
   <>
     <NodeForm.ColorField
-      path="levelColor"
+      path={root.levelColor}
       label="Level"
       fallback={VisScale.levelColorFallback}
     />
     <NodeForm.ColorField
-      path="axisColor"
+      path={root.axisColor}
       label="Axis"
       fallback={VisScale.axisColorFallback}
     />
     <NodeForm.ColorField
-      path="textColor"
+      path={root.textColor}
       label="Text"
       fallback={colorFallbacks.textColor}
     />
-    <Base.Field<text.Level> path="level" label="Text size" padHelpText={false}>
+    <Base.Field path={root.level} label="Text size" padHelpText={false}>
       {(p) => <NodeForm.SelectTextLevel {...p} />}
     </Base.Field>
   </>

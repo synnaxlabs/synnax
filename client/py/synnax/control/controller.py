@@ -12,7 +12,7 @@ from __future__ import annotations
 from asyncio import Future
 from collections.abc import Callable
 from threading import Event, Lock
-from typing import Any, Protocol, TypeAlias, cast, overload
+from typing import Any, Protocol, TypeAlias, cast, overload, override
 
 import numpy as np
 
@@ -47,6 +47,7 @@ class _WaitUntil(_Processor):
         self.exc = None
         self.reverse = reverse
 
+    @override
     def process(self, state: Controller) -> Any:
         try:
             res = self.callback(state)
@@ -78,6 +79,7 @@ class _RemainsTrueFor(_Processor):
         self.exc = None
         self.target = percentage
 
+    @override
     def process(self, state: Controller) -> Any:
         try:
             v = bool(self.callback(state))
@@ -117,7 +119,6 @@ class Controller:
             write_keys.extend([ch.key for ch in write_channels])
             self._writer_opt = frame_client.open_writer(
                 name=name,
-                start=TimeStamp.now(),
                 channels=write_keys,
                 authorities=write_authorities,
             )
@@ -343,7 +344,7 @@ class Controller:
             raise processor.exc
         return ok
 
-    def sleep(self, dur: float | int | TimeSpan, *, precise: bool = False) -> None:
+    def sleep(self, dur: CrudeTimeSpan, *, precise: bool = False) -> None:
         """Sleeps the controller for the provided duration.
 
         :param dur: The duration to sleep for. This can be a flot or int representing
@@ -445,6 +446,7 @@ class Controller:
         """
         return self._receiver.state
 
+    @override
     def __setattr__(self, key: str, value: CrudeSample) -> None:
         """Commands the channel named key, unless key is private or a class
         attribute.
@@ -571,6 +573,7 @@ class _Receiver(AsyncThread):
         await self.shutdown_future
         await self.streamer.close_loop()
 
+    @override
     async def run_async(self) -> None:
         self.shutdown_future = self.loop.create_future()
         error: Exception | None = None
@@ -588,7 +591,7 @@ class _Receiver(AsyncThread):
 
     async def _stream(self) -> None:
         self.streamer = await self.client.open_async_streamer(self.channels)
-        self.loop.create_task(self._listen_for_close())
+        close_listener = self.loop.create_task(self._listen_for_close())
         self.startup_ack.set()
         async for frame in self.streamer:
             for i, key in enumerate(frame.channels):
@@ -599,6 +602,7 @@ class _Receiver(AsyncThread):
             self._process()
         if not self.shutdown_future.done():
             raise UnexpectedError("streamer closed before the controller released")
+        await close_listener
 
     def stop(self) -> None:
         with self.lock:
@@ -622,7 +626,7 @@ class ScheduledCommand:
         *,
         channel: channel_.Key | str,
         value: CrudeSample,
-        delay: float | int | TimeSpan,
+        delay: CrudeTimeSpan,
     ):
         self.channel = channel
         self.value = value

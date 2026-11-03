@@ -12,6 +12,8 @@ Simulates a multi-system rocket engine with oxidizer (OX) and fuel tanks,
 pressure systems, and multiple valves and sensors.
 """
 
+from typing import override
+
 import numpy as np
 
 import synnax as sy
@@ -75,13 +77,16 @@ INITIAL_DAQ_STATE: dict[str, float] = {
     PNEUMATICS_PT: 300,
 }
 
+END_CMD_CHANNEL = "end_tpc_test_cmd"
+
 
 class TPCSimDAQ(SimDAQ):
     """Simulates multi-system rocket engine with OX/FUEL tanks."""
 
     description = "Run TPC simulator standalone"
-    end_cmd_channel = "end_tpc_test_cmd"
+    end_cmd_channel: str | None = END_CMD_CHANNEL
 
+    @override
     def _create_channels(self) -> None:
         self.log("Creating channels...")
         client = self.client
@@ -110,7 +115,7 @@ class TPCSimDAQ(SimDAQ):
             )
 
         client.channels.create(
-            name=self.end_cmd_channel,
+            name=END_CMD_CHANNEL,
             data_type=sy.DataType.UINT8,
             virtual=True,
             retrieve_if_name_exists=True,
@@ -127,6 +132,7 @@ class TPCSimDAQ(SimDAQ):
         client.write(now, initial_state)
         self.log("Channels created successfully")
 
+    @override
     def _run_loop(self) -> None:
         self.log("Starting simulation loop...")
         loop = sy.Loop(sy.Rate.HZ * 50, precise=False)

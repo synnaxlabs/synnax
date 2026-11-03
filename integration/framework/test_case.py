@@ -32,7 +32,7 @@ from framework.models import (
 )
 from framework.recorder import Notifications, TaskStatus
 from framework.streamer import Streamer
-from framework.telemetry import TelemetryWriter
+from framework.telemetry import Sample, TelemetryWriter
 from framework.utils import (
     create_indexed_channel,
     create_time_index,
@@ -145,7 +145,7 @@ class TestCase(ABC):
 
         self.time_index = create_time_index(self.client, self._ch_time)
 
-        self.tlm: dict[str, Any] = {
+        self.tlm: dict[str, Sample] = {
             self._ch_time: sy.TimeStamp.now(),
         }
 
@@ -155,7 +155,7 @@ class TestCase(ABC):
         )
 
     def _update_tlm(
-        self, tlm: dict[str, object], now: sy.TimeStamp, uptime: float
+        self, tlm: dict[str, Sample], now: sy.TimeStamp, uptime: float
     ) -> None:
         tlm[self._ch_time] = now
         tlm[self._ch_uptime] = uptime
@@ -247,7 +247,7 @@ class TestCase(ABC):
         self,
         name: str,
         data_type: sy.DataType,
-        initial_value: Any = None,
+        initial_value: Sample,
         *,
         append_name: bool = True,
     ) -> None:
@@ -314,7 +314,7 @@ class TestCase(ABC):
         """Cleanup after test execution. Overrides must call super().teardown()
         so mixin cleanups (e.g. HardwareCase) run."""
 
-    def write_tlm(self, channel: str, value: Any = None) -> None:
+    def write_tlm(self, channel: str, value: Sample) -> None:
         """Write values to telemetry dictionary."""
         self.tlm[channel] = value
 
@@ -363,7 +363,6 @@ class TestCase(ABC):
                 f"Actual: {actual_value}\n"
                 f"Timeout: {timeout_span}"
             )
-            return
 
         timer = sy.Timer()
         while self.should_continue:

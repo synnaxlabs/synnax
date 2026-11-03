@@ -122,10 +122,29 @@ outlined button) has fill l2 and border l4, and its caret has the disabled text 
 - Use a switch only when the change applies at once, as in toolbar properties and live
   preferences. In a form that commits on a button, use a checkbox. A footer mode switch
   ("Create more") stays a switch, because it changes the dialog at once.
+- A checkbox in a form has its label above it or in the label column, like every other
+  field. Its box starts at the edge of the label.
+- When flags pick one of a few kinds, show one button selector with an icon per kind,
+  never a checkbox per flag. The Create channel dialog uses Data, Index, and Virtual.
 - A label is a noun phrase in sentence case. It is never a question, and it never
   changes with state: "Index channel", not "Is index".
 - An error message is a sentence about its field ("Name is required"), never a raw
   schema message.
+- A field in a row, or beside another field, has no help text. Its control shows the
+  error, and the message shows on hover. A control with a border gets a red border. A
+  control with no border, such as a text select or a button group, gets red text.
+
+### Task forms
+
+- Task-wide settings (Data saving, Auto start) are toggle buttons in the task footer,
+  next to the start button. Each shows its icon and "On" or "Off", and its tooltip names
+  the setting. They stay, read-only, when the footer hides the start button.
+- The header stays compact: the rack name hangs under the utility buttons and adds no
+  height.
+- A disabled channel dims to half strength. Its enabled dot stays at full strength, as
+  the way to enable the channel again.
+- A new task takes the only device of its make. With two or more, the device stays
+  empty.
 
 ### Overflow
 
@@ -159,6 +178,18 @@ outlined button) has fill l2 and border l4, and its caret has the disabled text 
 - The checkbox has no gap after it. Its own padding spaces it from the content.
 - Hover tints the item faintly, and a press does not deepen the tint.
 
+### Record tables
+
+- A task's channel list is a record table: one item per channel, built from
+  `Task.Views.ListChannelItem`. The task supplies only its own fields.
+- A record table names its columns in a band above the items. Explorers have no
+  headings.
+- Declare the columns once with `List.Columns`. Each item lays out its own grid, so give
+  each column a width that does not follow its content, such as `30rem` or `1fr`.
+- A heading over a field lines up with the field's text, not its box.
+- A record table that does not fit its pane scrolls sideways, and the headings scroll
+  with it. Fields never shrink to fit: a cut value can read as another value.
+
 ### Table input
 
 - A ruled grid: the cells join into one box with shared lines, and headings sit in the
@@ -181,6 +212,14 @@ outlined button) has fill l2 and border l4, and its caret has the disabled text 
 
 Follow the status text rule in `AGENTS.md`. The name holds the object. The description
 says why in a sentence, then gives the raw error.
+
+### Code blocks
+
+- Code to copy uses the colors of the docs site: keywords `--editor-token-keyword`,
+  strings `--pluto-secondary-m1`, functions `--pluto-primary-z`, and comments
+  `--pluto-gray-l7`.
+- The copy button sits at the top right, centered on the first line. A one-line block
+  centers its line in the box.
 
 ## Interaction
 
@@ -219,3 +258,9 @@ typeface, and the icon set.
 
 The `docs-refine` skill owns the forms and rhythm of docs pages, in its
 `design-system.md`. The rules here cover what the docs share with the Console.
+
+- A picture of the product shows the current Console: a Studio still from
+  `site/docs/src/components/hero/stills`, never the screenshot on the www landing page.
+- Gradient blooms stay quiet. The Desktop band at the end of a blog post has a 30% blue
+  bloom over `#181b27` in dark mode. A 70% bloom over `#282c41` was too intense, and a
+  7% tint over the page surface was too flat.

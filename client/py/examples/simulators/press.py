@@ -8,6 +8,7 @@
 #  included in the file licenses/APL.txt.
 
 import random
+from typing import override
 
 import synnax as sy
 from examples.simulators.simdaq import SimDAQ
@@ -17,8 +18,9 @@ class PressSimDAQ(SimDAQ):
     """Simulates pressurization system with valves and pressure sensor."""
 
     description = "Run press simulator standalone"
-    end_cmd_channel = "end_test_cmd"
+    end_cmd_channel: str | None = "end_test_cmd"
 
+    @override
     def _create_channels(self) -> None:
         self.log("Creating channels...")
         client = self.client
@@ -114,6 +116,7 @@ class PressSimDAQ(SimDAQ):
         )
         self.log("Channels created successfully")
 
+    @override
     def _run_loop(self) -> None:
         self.log("Starting simulation loop...")
         loop = sy.Loop(sy.Rate.HZ * 50)

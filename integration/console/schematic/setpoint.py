@@ -7,7 +7,6 @@
 #  License, use of this software will be governed by the Apache License, Version 2.0,
 #  included in the file licenses/APL.txt.
 
-from typing import Any
 
 from console.schematic.symbol import Symbol
 
@@ -15,7 +14,7 @@ from console.schematic.symbol import Symbol
 class Setpoint(Symbol):
     """Schematic setpoint/control symbol"""
 
-    _symbol_group = "General"
+    _symbol_group: str | None = "General"
 
     def __init__(self, *, label: str, channel_name: str, symbol_type: str = "Setpoint"):
         """Initialize a setpoint symbol with configuration.
@@ -36,12 +35,10 @@ class Setpoint(Symbol):
         self,
         *,
         channel_name: str | None = None,
-        **kwargs: Any,
-    ) -> dict[str, Any]:
+    ) -> None:
         """Set Setpoint properties including channel settings."""
         self.click()
 
-        applied_properties: dict[str, Any] = {}
         if channel_name is not None:
             self.set_label(channel_name)
 
@@ -49,9 +46,6 @@ class Setpoint(Symbol):
             self.open_properties_tab()
             self.page.get_by_text("Control").last.click()
             self.set_channel(section="Command", channel_name=channel_name)
-            applied_properties["channel"] = channel_name
-
-        return applied_properties
 
     def set_value(self, value: float) -> None:
         self._disable_edit_mode()

@@ -7,14 +7,14 @@
 #  License, use of this software will be governed by the Apache License, Version 2.0,
 #  included in the file licenses/APL.txt.
 
-from typing import Literal, TypedDict
+from typing import Literal, TypedDict, TypeVar
 
 from playwright.sync_api import Locator
 
 import synnax as sy
 from console.layout import LayoutClient
 from console.multiedit import Colors
-from console.page import ConsolePage
+from console.page import ConsolePage, PageType
 from console.schematic.symbol import (
     Symbol,
     box_bottom,
@@ -25,7 +25,7 @@ from console.schematic.symbol import (
     box_top,
 )
 
-PropertyDict = dict[str, float | str | bool]
+_SymbolT = TypeVar("_SymbolT", bound=Symbol)
 
 
 class SchematicProperties(TypedDict):
@@ -67,7 +67,7 @@ RotationType = Literal[
 class Schematic(ConsolePage):
     """Schematic page management interface"""
 
-    page_type = "Schematic"
+    page_type: PageType = "Schematic"
     pluto_label: str = ".react-flow__pane"
 
     def __init__(
@@ -98,7 +98,7 @@ class Schematic(ConsolePage):
         self.layout.show_visualization_toolbar()
         self.page.get_by_role("tab", name="Properties", exact=True).click()
 
-    def create_symbol(self, symbol: Symbol) -> Symbol:
+    def create_symbol(self, symbol: _SymbolT) -> _SymbolT:
         """Add a symbol to the schematic and configure it.
 
         Args:
@@ -535,7 +535,6 @@ class Schematic(ConsolePage):
         """Get the number of symbol nodes on the schematic pane."""
         return self.page.locator(".react-flow__node").count()
 
-    @property
     def control_legend_visible(self) -> bool:
         """Check if the control state legend is visible."""
         legend = self.page.locator(".pluto-legend")

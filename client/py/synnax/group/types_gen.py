@@ -12,6 +12,7 @@
 from __future__ import annotations
 
 from typing import TypeAlias
+from typing import override as _override
 from uuid import UUID
 
 from pydantic import BaseModel
@@ -33,6 +34,7 @@ class Group(BaseModel):
     key: Key
     name: str
 
+    @_override
     def __hash__(self) -> int:
         return hash(self.key)
 

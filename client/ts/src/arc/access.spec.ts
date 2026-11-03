@@ -10,7 +10,7 @@
 import { describe, expect, it } from "vitest";
 
 import { arc } from "@/arc";
-import { AccessDeniedError, NotFoundError } from "@/errors";
+import { AccessDeniedError, NotFoundError } from "@/index";
 import { createTestClient, createTestClientWithPolicy } from "@/testutil";
 
 const client = createTestClient();
