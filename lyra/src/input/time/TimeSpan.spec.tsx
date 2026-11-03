@@ -14,6 +14,7 @@ import { beforeAll, describe, expect, it, vi } from "vitest";
 import { Input } from "@/input";
 import { loadLanguage } from "@/input/time/suggest";
 import { mockBoundingClientRect } from "@/testutil/dom";
+import { Triggers } from "@/triggers";
 
 const HOUR = Number(TimeSpan.HOUR.valueOf());
 
@@ -89,10 +90,14 @@ describe("Input.TimeSpan", () => {
 
     it("should discard the edit on Escape", () => {
       const onChange = vi.fn();
-      render(<Input.TimeSpan inline value={HOUR} onChange={onChange} />);
+      render(
+        <Triggers.Provider>
+          <Input.TimeSpan inline value={HOUR} onChange={onChange} />
+        </Triggers.Provider>,
+      );
       fireEvent.focus(field());
       fireEvent.change(field(), { target: { value: "5min" } });
-      fireEvent.keyDown(field(), { key: "Escape" });
+      fireEvent.keyDown(field(), { key: "Escape", code: "Escape" });
       fireEvent.blur(field());
       expect(field().value).toBe("1h");
       expect(onChange).not.toHaveBeenCalled();
@@ -112,6 +117,12 @@ describe("Input.TimeSpan", () => {
         Number(TimeSpan.minutes(5).valueOf()),
       );
       expect(onClear).not.toHaveBeenCalled();
+    });
+
+    it("should show the span as text in a preview", () => {
+      render(<Input.TimeSpan inline preview value={HOUR} onChange={vi.fn()} />);
+      expect(screen.queryByRole("textbox")).toBeNull();
+      expect(screen.getByText("1h")).toBeTruthy();
     });
 
     it("should show why a span fails its check and not commit it", () => {
