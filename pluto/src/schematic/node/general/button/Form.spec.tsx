@@ -9,7 +9,7 @@
 
 import { type channel, DataType, schematic } from "@synnaxlabs/client";
 import { createTestClient } from "@synnaxlabs/client/testutil";
-import { id } from "@synnaxlabs/x";
+import { deep, id } from "@synnaxlabs/x";
 import { fireEvent, waitFor } from "@testing-library/react";
 import { type FC, type PropsWithChildren } from "react";
 import { beforeAll, describe, expect, it, vi } from "vitest";
@@ -17,6 +17,8 @@ import { beforeAll, describe, expect, it, vi } from "vitest";
 import { ButtonForm } from "@/schematic/node/general/button/Form";
 import { createConfig } from "@/schematic/node/registry";
 import { createAsyncSynnaxWrapper, renderForm } from "@/testutil";
+
+const path = deep.path<schematic.ButtonNodeConfig>();
 
 const client = createTestClient();
 
@@ -41,6 +43,6 @@ describe("ButtonForm", () => {
       wrapper,
     );
     fireEvent.click(await findByLabelText(`Clear ${ch.name}`));
-    await waitFor(() => expect(value("commandChannel")).toBeUndefined());
+    await waitFor(() => expect(value(path.commandChannel)).toBeUndefined());
   });
 });

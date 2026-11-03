@@ -418,24 +418,19 @@ const XAxis = ({
 
 interface UseViewportResetParams {
   key: lineplot.Key;
-  hold?: boolean;
 }
 
 const useViewportReset = ({
   key,
-  hold,
 }: UseViewportResetParams): RefObject<Viewport.UseRefValue | null> => {
   const lineCount = useLineCount({ key });
   const viewportRef = useRef<Viewport.UseRefValue | null>(null);
   const prevLineCount = useRef(lineCount);
-  const prevHold = useRef(hold);
   useEffect(() => {
     const linesAppeared = prevLineCount.current === 0 && lineCount !== 0;
-    const holdReleased = prevHold.current === true && hold === false;
     prevLineCount.current = lineCount;
-    prevHold.current = hold;
-    if (linesAppeared || holdReleased) viewportRef.current?.reset();
-  }, [lineCount, hold]);
+    if (linesAppeared) viewportRef.current?.reset();
+  }, [lineCount]);
   return viewportRef;
 };
 
@@ -489,9 +484,14 @@ export const LinePlot = ({
   const key = useKey();
   useUndoRedoTriggers({ key, enabled: enableTriggers });
   const xAxisKeys = useXAxisKeys({ key });
-  const viewportRef = useViewportReset({ key, hold: rest.hold });
+  const viewportRef = useViewportReset({ key });
   return (
-    <Frame ref={ref} loadingMessage={fetchingMessage(windows)} {...rest}>
+    <Frame
+      ref={ref}
+      viewportRef={viewportRef}
+      loadingMessage={fetchingMessage(windows)}
+      {...rest}
+    >
       {xAxisKeys.map((xAxisKey) => (
         <XAxis
           key={xAxisKey}

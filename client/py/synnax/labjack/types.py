@@ -7,10 +7,9 @@
 #  License, use of this software will be governed by the Apache License, Version 2.0,
 #  included in the file licenses/APL.txt.
 
-from typing import Final, Literal, TypeAlias, get_args
-from uuid import uuid4
-
-from pydantic import JsonValue
+import re
+from collections.abc import Sequence
+from typing import Final, Literal, TypeAlias, get_args, override
 
 from synnax import device, task
 from synnax.labjack.types_gen import (
@@ -28,6 +27,28 @@ T4: Final = "LJM_dtT4"
 T7: Final = "LJM_dtT7"
 T8: Final = "LJM_dtT8"
 SUPPORTED_MODELS: TypeAlias = Literal["LJM_dtT4", "LJM_dtT7", "LJM_dtT8"]
+
+# The device property groups that map each port to its channels, by channel type. The
+# Console reads the same groups to reuse a port's channels in new tasks.
+_READ_PORT_TYPES: Final = {"analog": "AI", "thermocouple": "AI", "digital": "DI"}
+_WRITE_PORT_TYPES: Final = {"analog": "AO", "digital": "DO"}
+# The Console keys a digital port by its DIO number. These are the DIO numbers of the
+# first line of each alias.
+_DIO_OFFSETS: Final = {"FIO": 0, "EIO": 8, "CIO": 16, "MIO": 20}
+_DIO_ALIAS: Final = re.compile(r"(FIO|EIO|CIO|MIO)(\d+)")
+
+
+def _port_key(channel_type: str, port: str) -> str:
+    """Returns the key of a port in the device properties.
+
+    :param channel_type: The type of the channel on the port.
+    :param port: The port, such as AIN0, DIO4, or FIO4.
+    :returns: The DIO name of a digital port, such as DIO4 for FIO4, or the port.
+    """
+    alias = _DIO_ALIAS.fullmatch(port)
+    if channel_type != "digital" or alias is None:
+        return port
+    return f"DIO{_DIO_OFFSETS[alias[1]] + int(alias[2])}"
 
 
 class ReadTask(
@@ -63,7 +84,7 @@ class ReadTask(
         stream_rate: CrudeRate = 5,
         data_saving_disabled: bool = False,
         auto_start: bool = False,
-        channels: list[ReadChannel] | None = None,
+        channels: Sequence[ReadChannel] | None = None,
     ) -> None:
         if internal is not None:
             self._internal = internal
@@ -76,20 +97,20 @@ class ReadTask(
             stream_rate=Rate(stream_rate),
             data_saving_disabled=data_saving_disabled,
             auto_start=auto_start,
-            channels=channels if channels is not None else [],
+            channels=list(channels) if channels is not None else [],
         )
         task.assign_keys(self.config.channels)
 
+    @override
     def update_device_properties(self, device_client: device.Client) -> device.Device:
         """Update device properties before task configuration."""
         dev = device_client.retrieve(key=self.config.device)
         props = dict(dev.properties)
-        if "read" not in props:
-            props["read"] = {"index": 0, "channels": {}}
-        channels = device.ensure_object(props, "read", "channels")
         for ch in self.config.channels:
-            # Map port location -> channel key for Console
-            channels[ch.port] = ch.channel
+            channels = device.ensure_object(
+                props, _READ_PORT_TYPES[ch.type], "channels"
+            )
+            channels[_port_key(ch.type, ch.port)] = ch.channel
         dev.properties = props
         return device_client.create(dev)
 
@@ -124,7 +145,7 @@ class WriteTask(
         state_rate: CrudeRate = 10,
         data_saving_disabled: bool = False,
         auto_start: bool = False,
-        channels: list[WriteChannel] | None = None,
+        channels: Sequence[WriteChannel] | None = None,
     ) -> None:
         if internal is not None:
             self._internal = internal
@@ -136,33 +157,36 @@ class WriteTask(
             state_rate=Rate(state_rate),
             data_saving_disabled=data_saving_disabled,
             auto_start=auto_start,
-            channels=channels if channels is not None else [],
+            channels=list(channels) if channels is not None else [],
         )
         task.assign_keys(self.config.channels)
 
+    @override
     def update_device_properties(self, device_client: device.Client) -> device.Device:
         """Update device properties before task configuration."""
         dev = device_client.retrieve(key=self.config.device)
         props = dict(dev.properties)
-        channels = device.ensure_object(props, "write", "channels")
         for ch in self.config.channels:
-            # Map port location -> state_channel key for Console
-            channels[ch.port] = ch.state_channel
+            channels = device.ensure_object(
+                props, _WRITE_PORT_TYPES[ch.type], "channels"
+            )
+            channels[_port_key(ch.type, ch.port)] = {
+                "command": ch.cmd_channel,
+                "state": ch.state_channel,
+            }
         dev.properties = props
         return device_client.create(dev)
 
 
 class Device(device.Device):
-    """A LabJack device.
+    """A LabJack device. The Driver finds connected LabJacks on its own and creates
+    them with the same key, so retrieve a found device instead of creating one.
 
     :param model: LabJack model. Use the module constants T4, T7, or T8.
-    :param identifier: Device identifier: serial number, IP address, or device name.
-    :param connection_type: Connection method: "ANY", "USB", "TCP", "ETHERNET", or
-        "WIFI".
+    :param serial_number: The serial number of the device, which is also its key.
     :param name: Human-readable name for the device.
     :param location: Physical location or description.
     :param rack: Rack key this device belongs to.
-    :param key: Unique key for the device. Auto-generated if empty.
     :param configured: Whether the device has been configured.
     """
 
@@ -170,12 +194,10 @@ class Device(device.Device):
         self,
         *,
         model: SUPPORTED_MODELS,
-        identifier: str,
-        connection_type: str = "ANY",
+        serial_number: int,
         name: str = "",
         location: str = "",
         rack: int = 0,
-        key: str = "",
         configured: bool = False,
     ):
         valid_models = get_args(SUPPORTED_MODELS)
@@ -183,23 +205,12 @@ class Device(device.Device):
             raise ValueError(
                 f"Invalid model '{model}'. Must be one of: {list(valid_models)}"
             )
-        if not key:
-            key = str(uuid4())
-        props: dict[str, JsonValue] = {
-            "connection": {
-                "identifier": identifier,
-                "connection_type": connection_type,
-            },
-            "read": {"index": 0, "channels": {}},
-            "write": {"channels": {}},
-        }
         super().__init__(
-            key=key,
+            key=str(serial_number),
             location=location,
             rack=rack,
             name=name,
             make=MAKE,
             model=model,
             configured=configured,
-            properties=props,
         )

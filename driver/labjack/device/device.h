@@ -47,12 +47,6 @@ public:
     ) const = 0;
 
     [[nodiscard]] virtual x::errors::Error
-    start_interval(int interval_handle, int microseconds) const = 0;
-
-    [[nodiscard]] virtual x::errors::Error
-    clean_interval(int interval_handle) const = 0;
-
-    [[nodiscard]] virtual x::errors::Error
     e_write_name(const char *Name, double value) const = 0;
 
     [[nodiscard]] virtual x::errors::Error e_write_names(
@@ -69,9 +63,6 @@ public:
         int *types
     ) const = 0;
 
-    [[nodiscard]] virtual x::errors::Error
-    wait_for_next_interval(int interval_handle, int *skipped_intervals) const = 0;
-
     [[nodiscard]] virtual x::errors::Error e_read_names(
         size_t num_frames,
         const char **a_names,
@@ -81,6 +72,17 @@ public:
 
     [[nodiscard]] virtual x::errors::Error
     e_read_name(const char *name, double *value) const = 0;
+
+    /// @brief converts a thermocouple voltage to a temperature in Kelvin.
+    /// @param type the LJM thermocouple type, such as LJM_ttK.
+    /// @param cjc_k the temperature of the cold junction in Kelvin.
+    /// @returns ljm::VOLTAGE_OUT_OF_RANGE or ljm::TEMPERATURE_OUT_OF_RANGE when the
+    /// voltage is outside the range of the thermocouple type.
+    [[nodiscard]] virtual x::errors::Error
+    tc_volts_to_temp(int type, double volts, double cjc_k, double *temp_k) const = 0;
+
+    /// @brief reads the version of the LJM library, such as 1.2304.
+    [[nodiscard]] virtual x::errors::Error ljm_version(double *version) const = 0;
 
     /// @brief starts a stream.
     /// @param configure writes the settings of the stream. It runs only when no other
@@ -93,6 +95,11 @@ public:
         double *scan_rate,
         const std::function<x::errors::Error()> &configure
     ) const = 0;
+
+    /// @brief returns true once LJM reports that the calibration constants of the
+    /// device are invalid. LJM then uses default constants, so readings may be
+    /// inaccurate.
+    [[nodiscard]] virtual bool calibration_invalid() const = 0;
 };
 
 class LJMDevice final : public Device {
@@ -103,10 +110,25 @@ class LJMDevice final : public Device {
     /// @brief true while a stream runs on the handle. A second LJM start on one handle
     /// succeeds and silently replaces the running stream.
     mutable std::atomic<bool> streaming = false;
+    /// @brief true once LJM returns LJME_USING_DEFAULT_CALIBRATION for the handle.
+    mutable std::atomic<bool> default_calibration;
+
+    /// @brief converts an LJM code into an error, and records a default calibration.
+    x::errors::Error check(const int code) const {
+        if (code == LJME_USING_DEFAULT_CALIBRATION) this->default_calibration = true;
+        return parse_error(this->ljm, code);
+    }
 
 public:
-    LJMDevice(const std::shared_ptr<ljm::API> &ljm, const int dev_handle):
-        ljm(ljm), dev_handle(dev_handle) {}
+    /// @param open_code the code that LJM returned when it opened the handle.
+    LJMDevice(
+        const std::shared_ptr<ljm::API> &ljm,
+        const int dev_handle,
+        const int open_code = LJME_NOERROR
+    ):
+        ljm(ljm),
+        dev_handle(dev_handle),
+        default_calibration(open_code == LJME_USING_DEFAULT_CALIBRATION) {}
 
     ~LJMDevice() override {
         if (const auto err = ljm->close(dev_handle))
@@ -118,27 +140,23 @@ public:
         int *dev_scan_backlog,
         int *ljm_scan_backlog
     ) const override {
-        return parse_error(
-            this->ljm,
-            this->ljm->e_stream_read(
-                this->dev_handle,
-                data,
-                dev_scan_backlog,
-                ljm_scan_backlog
-            )
-        );
+        return this->check(this->ljm->e_stream_read(
+            this->dev_handle,
+            data,
+            dev_scan_backlog,
+            ljm_scan_backlog
+        ));
     }
 
     [[nodiscard]] x::errors::Error e_stream_stop() const override {
-        const auto err = parse_error(this->ljm, this->ljm->e_stream_stop(dev_handle));
+        const auto err = this->check(this->ljm->e_stream_stop(dev_handle));
         this->streaming = false;
         return err;
     }
 
     [[nodiscard]] x::errors::Error
     e_write_addr(const int addr, const int type, const double value) const override {
-        return parse_error(
-            this->ljm,
+        return this->check(
             this->ljm->e_write_addr(this->dev_handle, addr, type, value)
         );
     }
@@ -150,35 +168,19 @@ public:
         const double *values,
         int *error_addrs
     ) const override {
-        return parse_error(
-            this->ljm,
-            this->ljm->e_write_addrs(
-                this->dev_handle,
-                static_cast<int>(num_frames),
-                addrs,
-                types,
-                values,
-                error_addrs
-            )
-        );
-    }
-
-    [[nodiscard]] x::errors::Error
-    start_interval(const int interval_handle, const int microseconds) const override {
-        return parse_error(
-            this->ljm,
-            this->ljm->start_interval(interval_handle, microseconds)
-        );
-    }
-
-    [[nodiscard]] x::errors::Error
-    clean_interval(const int interval_handle) const override {
-        return parse_error(this->ljm, this->ljm->clean_interval(interval_handle));
+        return this->check(this->ljm->e_write_addrs(
+            this->dev_handle,
+            static_cast<int>(num_frames),
+            addrs,
+            types,
+            values,
+            error_addrs
+        ));
     }
 
     [[nodiscard]] x::errors::Error
     e_write_name(const char *name, const double vlaue) const override {
-        return parse_error(ljm, ljm->e_write_name(dev_handle, name, vlaue));
+        return this->check(this->ljm->e_write_name(dev_handle, name, vlaue));
     }
 
     [[nodiscard]] x::errors::Error e_write_names(
@@ -187,16 +189,13 @@ public:
         const double *values,
         int *err_addr
     ) const override {
-        return parse_error(
-            this->ljm,
-            this->ljm->e_write_names(
-                this->dev_handle,
-                static_cast<int>(num_frames),
-                names,
-                values,
-                err_addr
-            )
-        );
+        return this->check(this->ljm->e_write_names(
+            this->dev_handle,
+            static_cast<int>(num_frames),
+            names,
+            values,
+            err_addr
+        ));
     }
 
     [[nodiscard]] x::errors::Error names_to_addrs(
@@ -205,19 +204,8 @@ public:
         int *addrs,
         int *types
     ) const override {
-        return parse_error(
-            this->ljm,
+        return this->check(
             this->ljm->names_to_addrs(static_cast<int>(num_frames), names, addrs, types)
-        );
-    }
-
-    [[nodiscard]] x::errors::Error wait_for_next_interval(
-        const int interval_handle,
-        int *skipped_intervals
-    ) const override {
-        return parse_error(
-            this->ljm,
-            this->ljm->wait_for_next_interval(interval_handle, skipped_intervals)
         );
     }
 
@@ -227,23 +215,36 @@ public:
         double *a_values,
         int *error_addr
     ) const override {
-        return parse_error(
-            this->ljm,
-            this->ljm->e_read_names(
-                this->dev_handle,
-                static_cast<int>(num_frames),
-                a_names,
-                a_values,
-                error_addr
-            )
-        );
+        return this->check(this->ljm->e_read_names(
+            this->dev_handle,
+            static_cast<int>(num_frames),
+            a_names,
+            a_values,
+            error_addr
+        ));
     }
 
     [[nodiscard]] x::errors::Error
     e_read_name(const char *name, double *value) const override {
+        return this->check(this->ljm->e_read_name(this->dev_handle, name, value));
+    }
+
+    [[nodiscard]] x::errors::Error tc_volts_to_temp(
+        const int type,
+        const double volts,
+        const double cjc_k,
+        double *temp_k
+    ) const override {
         return parse_error(
             this->ljm,
-            this->ljm->e_read_name(this->dev_handle, name, value)
+            this->ljm->tc_volts_to_temp(type, volts, cjc_k, temp_k)
+        );
+    }
+
+    [[nodiscard]] x::errors::Error ljm_version(double *version) const override {
+        return parse_error(
+            this->ljm,
+            this->ljm->read_library_config(LJM_LIBRARY_VERSION, version)
         );
     }
 
@@ -262,18 +263,19 @@ public:
             );
         auto err = configure();
         if (!err)
-            err = parse_error(
-                this->ljm,
-                this->ljm->e_stream_start(
-                    this->dev_handle,
-                    static_cast<int>(scans_per_read),
-                    static_cast<int>(num_addrs),
-                    scan_list,
-                    scan_rate
-                )
-            );
+            err = this->check(this->ljm->e_stream_start(
+                this->dev_handle,
+                static_cast<int>(scans_per_read),
+                static_cast<int>(num_addrs),
+                scan_list,
+                scan_rate
+            ));
         if (err) this->streaming = false;
         return err;
+    }
+
+    [[nodiscard]] bool calibration_invalid() const override {
+        return this->default_calibration;
     }
 };
 
@@ -337,14 +339,17 @@ public:
             [ljm](const std::string &serial_number)
                 -> std::pair<std::shared_ptr<Device>, x::errors::Error> {
                 int dev_handle = 0;
-                const int err = ljm->open(
+                const int code = ljm->open(
                     LJM_dtANY,
                     LJM_ctANY,
                     serial_number.c_str(),
                     &dev_handle
                 );
-                if (err != 0) return {nullptr, parse_error(ljm, err)};
-                return {std::make_shared<LJMDevice>(ljm, dev_handle), x::errors::NIL};
+                if (const auto err = parse_error(ljm, code)) return {nullptr, err};
+                return {
+                    std::make_shared<LJMDevice>(ljm, dev_handle, code),
+                    x::errors::NIL
+                };
             }
         ) {}
 

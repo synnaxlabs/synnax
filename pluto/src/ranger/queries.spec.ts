@@ -28,6 +28,10 @@ import { Ranger } from "@/ranger";
 import { renderHookSuspended } from "@/testutil/render";
 import { createAsyncSynnaxWrapper } from "@/testutil/Synnax";
 
+const path = Ranger.formPath;
+const created = Ranger.createFormPath;
+const pair = Ranger.kvPairFormPath;
+
 const client = createTestClient();
 
 describe("queries", () => {
@@ -881,9 +885,9 @@ describe("queries", () => {
       });
 
       act(() => {
-        result.current.form.set("name", "newFormRange");
-        result.current.form.set("timeRange", timeRange.numeric);
-        result.current.form.set("color", "#FF0000");
+        result.current.form.set(created.name, "newFormRange");
+        result.current.form.set(created.timeRange, timeRange.numeric);
+        result.current.form.set(created.color, color.construct("#FF0000"));
         result.current.save({ signal: controller.signal });
       });
 
@@ -912,9 +916,9 @@ describe("queries", () => {
       });
 
       act(() => {
-        result.current.form.set("name", "labeledRange");
-        result.current.form.set("timeRange", timeRange.numeric);
-        result.current.form.set("labels", [label1.key, label2.key]);
+        result.current.form.set(created.name, "labeledRange");
+        result.current.form.set(created.timeRange, timeRange.numeric);
+        result.current.form.set(created.labels, [label1.key, label2.key]);
         result.current.save({ signal: controller.signal });
       });
 
@@ -937,9 +941,9 @@ describe("queries", () => {
       });
 
       act(() => {
-        result.current.form.set("name", "childRange");
-        result.current.form.set("timeRange", childTimeRange.numeric);
-        result.current.form.set("parent", parentRange.key);
+        result.current.form.set(created.name, "childRange");
+        result.current.form.set(created.timeRange, childTimeRange.numeric);
+        result.current.form.set(created.parent, parentRange.key);
         result.current.save({ signal: controller.signal });
       });
 
@@ -980,11 +984,11 @@ describe("queries", () => {
       const complexTimeRange = TimeStamp.now().spanRange(TimeSpan.minutes(45));
 
       act(() => {
-        result.current.form.set("name", "complexRange");
-        result.current.form.set("timeRange", complexTimeRange.numeric);
-        result.current.form.set("parent", parentRange.key);
-        result.current.form.set("labels", [label.key]);
-        result.current.form.set("color", color.construct("#654321"));
+        result.current.form.set(created.name, "complexRange");
+        result.current.form.set(created.timeRange, complexTimeRange.numeric);
+        result.current.form.set(created.parent, parentRange.key);
+        result.current.form.set(created.labels, [label.key]);
+        result.current.form.set(created.color, color.construct("#654321"));
         result.current.save({ signal: controller.signal });
       });
 
@@ -1005,8 +1009,8 @@ describe("queries", () => {
       });
 
       act(() => {
-        result.current.form.set("name", "timeRangeTest");
-        result.current.form.set("timeRange", initialTimeRange.numeric);
+        result.current.form.set(created.name, "timeRangeTest");
+        result.current.form.set(created.timeRange, initialTimeRange.numeric);
         result.current.save({ signal: controller.signal });
       });
 
@@ -1016,7 +1020,7 @@ describe("queries", () => {
 
       const modifiedTimeRange = TimeStamp.now().spanRange(TimeSpan.minutes(20));
       act(() => {
-        result.current.form.set("timeRange", modifiedTimeRange.numeric);
+        result.current.form.set(created.timeRange, modifiedTimeRange.numeric);
         result.current.save({ signal: controller.signal });
       });
 
@@ -1044,9 +1048,9 @@ describe("queries", () => {
       const timeRange = TimeStamp.now().spanRange(TimeSpan.minutes(30));
 
       act(() => {
-        result.current.form.set("name", "parentChangeTest");
-        result.current.form.set("timeRange", timeRange.numeric);
-        result.current.form.set("parent", parent1.key);
+        result.current.form.set(created.name, "parentChangeTest");
+        result.current.form.set(created.timeRange, timeRange.numeric);
+        result.current.form.set(created.parent, parent1.key);
         result.current.save({ signal: controller.signal });
       });
 
@@ -1055,7 +1059,7 @@ describe("queries", () => {
       });
 
       act(() => {
-        result.current.form.set("parent", parent2.key);
+        result.current.form.set(created.parent, parent2.key);
         result.current.save({ signal: controller.signal });
       });
 
@@ -1080,8 +1084,8 @@ describe("queries", () => {
         { wrapper },
       );
       act(() => {
-        result.current.form.set("key", "operator");
-        result.current.form.set("value", "Ada");
+        result.current.form.set(pair.key, "operator");
+        result.current.form.set(pair.value, "Ada");
       });
       await act(async () => expect(await result.current.saveAsync()).toBe(true));
       expect(await rng.kv.get("operator")).toBe("Ada");
@@ -1161,8 +1165,8 @@ describe("useForm", () => {
     const rng = await createRange();
     const { result } = await renderForm(rng.key);
     const send = spyOnSend(formClient);
-    act(() => result.current.form.set("name", "Cold flow"));
-    expect(result.current.form.get("name").value).toBe("Cold flow");
+    act(() => result.current.form.set(path.name, "Cold flow"));
+    expect(result.current.form.get(path.name).value).toBe("Cold flow");
     await act(async () => expect(await result.current.flush()).toBe(true));
     expect(send.mock.calls.map(([target]) => target)).toContain("/range/dispatch");
     expect((await createTestClient().ranges.retrieve(rng.key)).name).toBe("Cold flow");
@@ -1172,7 +1176,7 @@ describe("useForm", () => {
     const rng = await createRange();
     const { result } = await renderForm(rng.key);
     const next = rng.timeRange.start.spanRange(TimeSpan.minutes(10));
-    act(() => result.current.form.set("timeRange", next.numeric));
+    act(() => result.current.form.set(path.timeRange, next.numeric));
     await act(async () => expect(await result.current.flush()).toBe(true));
     const stored = await createTestClient().ranges.retrieve(rng.key);
     expect(stored.timeRange.numeric).toEqual(next.numeric);
@@ -1182,7 +1186,7 @@ describe("useForm", () => {
     const rng = await createRange();
     const { result } = await renderForm(rng.key);
     const { start, end } = rng.timeRange.numeric;
-    act(() => result.current.form.set("timeRange", { start: end, end: start }));
+    act(() => result.current.form.set(path.timeRange, { start: end, end: start }));
     await act(async () => expect(await result.current.flush()).toBe(false));
     const stored = await createTestClient().ranges.retrieve(rng.key);
     expect(stored.timeRange.numeric).toEqual(rng.timeRange.numeric);
@@ -1191,11 +1195,11 @@ describe("useForm", () => {
   it("should show a rename from another client and keep the time range", async () => {
     const rng = await createRange();
     const { result } = await renderForm(rng.key);
-    const timeRange = result.current.form.get("timeRange").value;
+    const timeRange = result.current.form.get(path.timeRange).value;
     await act(async () => {
       await client.ranges.rename(rng.key, "Cold flow");
     });
     await waitFor(() => expect(result.current.form.value().name).toBe("Cold flow"));
-    expect(result.current.form.get("timeRange").value).toBe(timeRange);
+    expect(result.current.form.get(path.timeRange).value).toBe(timeRange);
   });
 });

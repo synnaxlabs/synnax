@@ -105,7 +105,10 @@ const GROUPS: Group[] = [
     {
         name: "Automation",
         capabilities: [
-            { name: "Python and TypeScript clients", values: ENTERPRISE },
+            {
+                name: "Python and TypeScript clients",
+                values: { desktop: "On the same computer", enterprise: true },
+            },
             { name: "Arc automations", values: BOTH },
             { name: "Statuses and alarms", values: BOTH },
         ],
