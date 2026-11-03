@@ -12,7 +12,12 @@ import { beforeAll, describe, expect, test, vi } from "vitest";
 
 import { AuthError, NotFoundError, ValidationError } from "@/index";
 import { query } from "@/query";
-import { createTestClient, expectDeleted } from "@/testutil";
+import {
+  createTestClient,
+  expectDeleted,
+  holdResponses,
+  waitForStreamLive,
+} from "@/testutil";
 import { type user } from "@/user";
 
 const client = createTestClient();
@@ -219,6 +224,26 @@ describe("User", () => {
       expect(res.key).toEqual(userOne.key);
       expect(res.name).toEqual("Thomas Jefferson");
       userOne.name = "Thomas Jefferson";
+    });
+    test("should keep a rename that streams in during a retrieve", async () => {
+      const u = await client.users.create({ username: id.create(), password: "test" });
+      const local = createTestClient();
+      await local.connect();
+      await waitForStreamLive(local.connection);
+      await local.users.retrieve(u.key);
+      const cachedName = () => {
+        const cached = local.users.getCached(u.key);
+        return query.isLive(cached) ? cached.name : undefined;
+      };
+      const { responded, release } = holdResponses(local, "/user/retrieve");
+      const fetching = local.users.retrieve(u.key);
+      await responded;
+      const name = `renamed-${id.create()}`;
+      await client.users.rename(u.key, name);
+      await expect.poll(cachedName).toBe(name);
+      release();
+      await fetching;
+      expect(cachedName()).toBe(name);
     });
   });
   describe("Delete", () => {

@@ -10,6 +10,7 @@
 import { type Synnax as Client } from "@synnaxlabs/client";
 import { createTestClient, RoleClients } from "@synnaxlabs/client/testutil";
 import { Menu } from "@synnaxlabs/lyra/menu";
+import { deep } from "@synnaxlabs/x";
 import { act, fireEvent, screen, waitFor } from "@testing-library/react";
 import { describe, expect, it } from "vitest";
 
@@ -19,6 +20,8 @@ import {
   type RenderInTaskFormWithClientResult,
 } from "@/platform/task/testutil";
 import { awaitTextEditing, commitTextEdit } from "@/testutil";
+
+const path = deep.path<{ config: { cmdName: string; stateName: string } }>();
 
 const channel = {
   key: "ch1",
@@ -40,8 +43,8 @@ const renderMenuWithNames = async (
       <Task.WriteChannelNames
         cmdChannel={0}
         stateChannel={0}
-        cmdNamePath="config.cmdName"
-        stateNamePath="config.stateName"
+        cmdNamePath={path.config.cmdName}
+        stateNamePath={path.config.stateName}
         itemKey="ch1"
       />
       <Menu.Menu>
@@ -61,9 +64,9 @@ describe("WriteChannelContextMenuItems", () => {
     const el = await awaitTextEditing(Task.getChannelNameID("ch1", "cmd"));
     act(() => commitTextEdit(el, "cmd_after"));
     await waitFor(() =>
-      expect(form.current?.get("config.cmdName").value).toBe("cmd_after"),
+      expect(form.current?.get(path.config.cmdName).value).toBe("cmd_after"),
     );
-    expect(form.current?.get("config.stateName").value).toBe("state_before");
+    expect(form.current?.get(path.config.stateName).value).toBe("state_before");
   });
 
   it("should rename the state channel through the form", async () => {
@@ -72,9 +75,9 @@ describe("WriteChannelContextMenuItems", () => {
     const el = await awaitTextEditing(Task.getChannelNameID("ch1", "state"));
     act(() => commitTextEdit(el, "state_after"));
     await waitFor(() =>
-      expect(form.current?.get("config.stateName").value).toBe("state_after"),
+      expect(form.current?.get(path.config.stateName).value).toBe("state_after"),
     );
-    expect(form.current?.get("config.cmdName").value).toBe("cmd_before");
+    expect(form.current?.get(path.config.cmdName).value).toBe("cmd_before");
   });
 
   it("should render nothing when no matching channel is selected", async () => {

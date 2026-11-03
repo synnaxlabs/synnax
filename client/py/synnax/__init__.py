@@ -71,6 +71,7 @@ from synnax.framer import (
     WriterClosed,
     WriterMode,
 )
+from synnax.label import Label
 from synnax.lineplot import LinePlot
 from synnax.options import Options
 from synnax.project import Project
@@ -158,6 +159,7 @@ __all__ = [
     "InvalidLicense",
     "InvalidToken",
     "Iterator",
+    "Label",
     "LicenseEditionMismatch",
     "LicenseError",
     "LicenseFingerprintMismatch",
@@ -211,6 +213,7 @@ __all__ = [
     "ethercat",
     "group",
     "http",
+    "label",
     "labjack",
     "license",
     "lineplot",
