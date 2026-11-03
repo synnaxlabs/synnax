@@ -13,7 +13,7 @@ from datetime import timedelta
 
 import pytest
 
-from x.telem import CrudeTimeSpan, TimeSpan
+from x.telem import CrudeTimeSpan, Rate, TimeSpan
 from x.timing import Loop, Timer, poll, sleep
 
 
@@ -73,6 +73,12 @@ class TestTiming:
         t = Timer()
         sleep(dur)
         assert TimeSpan.MILLISECOND * 10 <= t.elapsed() < TimeSpan.SECOND
+
+    def test_sleep_rate(self) -> None:
+        """Should convert a rate argument into the equivalent sleep duration."""
+        clock = FakeClock()
+        sleep(100 * Rate.HZ, clock=clock)
+        assert clock.sleeps == [TimeSpan.MILLISECOND * 10]
 
     @pytest.mark.parametrize("lateness", [TimeSpan.ZERO, LATENESS])
     @pytest.mark.parametrize("duration_us", [100, 3_000, 200_000])

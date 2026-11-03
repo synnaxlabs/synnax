@@ -370,6 +370,7 @@ class TestTimeSpan:
             (timedelta(microseconds=1000), 1000 * sy.TimeSpan.MICROSECOND),
             (sy.TimeStamp(1000), sy.TimeSpan.MICROSECOND),
             (np.timedelta64(1000, "us"), 1000 * sy.TimeSpan.MICROSECOND),
+            (sy.Rate(2), 500 * sy.TimeSpan.MILLISECOND),
             (pd.Timedelta(1000, "ms"), 1000 * sy.TimeSpan.MILLISECOND),
             (sy.TimeSpan.MICROSECOND * 1000, sy.TimeSpan.MICROSECOND * 1000),
             (np.int64(1000), 1 * sy.TimeSpan.MICROSECOND),
