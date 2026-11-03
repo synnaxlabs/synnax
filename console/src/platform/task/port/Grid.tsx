@@ -99,7 +99,7 @@ export const Grid = ({
       <div
         key={key}
         className={CSS.BE("port-grid", "group")}
-        style={{ gridTemplateColumns: `repeat(${columns}, var(--pluto-port-cell))` }}
+        style={{ gridTemplateColumns: `repeat(${columns}, var(--pluto-port-width))` }}
       >
         {cells.map((cell) => {
           const menuKey =

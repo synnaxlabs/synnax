@@ -11,12 +11,16 @@ package driver
 
 import (
 	"context"
+	"crypto/rand"
+	"crypto/sha256"
+	"encoding/hex"
 	"encoding/json/v2"
 	"io"
 	"io/fs"
 	"os"
 	"os/exec"
 	"path/filepath"
+	"strings"
 	"sync"
 	"time"
 
@@ -83,10 +87,15 @@ type Config struct {
 	ParentDirname string `json:"parent_dirname"`
 	// FS is the filesystem containing the Driver binary. The binary is read from this
 	// filesystem at the OS-specific name (driver / driver.exe), extracted to disk under
-	// ParentDirname, and executed. When nil, the embedded Driver is unavailable and
+	// BinaryDirname, and executed. When nil, the embedded Driver is unavailable and
 	// Open returns a no-op Driver. Defaults to the embedded Driver binary when built
 	// with -tags=driver, and is nil otherwise.
 	FS fs.FS `json:"-"`
+	// BinaryDirname is the directory that keeps extracted Driver binaries between
+	// starts. Several Cores on one host may share it.
+	BinaryDirname string `json:"-"`
+	// BinaryFS is the file system that holds BinaryDirname.
+	BinaryFS xfs.FS `json:"-"`
 	// Integrations define which device integrations are enabled.
 	Integrations []string `json:"integrations"`
 	// StartTimeout sets the maximum acceptable time to wait for the Driver to bootup
@@ -159,6 +168,7 @@ var (
 	}
 	DefaultConfig = Config{
 		Integrations:         []string{},
+		BinaryFS:             xfs.Default,
 		Enabled:              new(true),
 		Detached:             new(false),
 		Debug:                new(false),
@@ -190,6 +200,8 @@ func (c Config) Override(other Config) Config {
 	c.StartTimeout = override.Numeric(c.StartTimeout, other.StartTimeout)
 	c.ParentDirname = override.String(c.ParentDirname, other.ParentDirname)
 	c.FS = override.Nil(c.FS, other.FS)
+	c.BinaryDirname = override.String(c.BinaryDirname, other.BinaryDirname)
+	c.BinaryFS = override.Nil(c.BinaryFS, other.BinaryFS)
 	c.TaskOpTimeout = override.Numeric(c.TaskOpTimeout, other.TaskOpTimeout)
 	c.TaskPollInterval = override.Numeric(c.TaskPollInterval, other.TaskPollInterval)
 	c.TaskShutdownTimeout = override.Numeric(
@@ -224,6 +236,8 @@ func (c Config) Validate() error {
 	v.NonZero("rack_key", c.RackKey)
 	v.NotNil("debug", c.Debug)
 	v.NotEmptyString("parent_dirname", c.ParentDirname)
+	v.NotEmptyString("binary_dirname", c.BinaryDirname)
+	v.NotNil("binary_fs", c.BinaryFS)
 	v.InBounds("task_worker_count", c.TaskWorkerCount, 1, 64)
 	return v.Error()
 }
@@ -397,7 +411,7 @@ func (d *Driver) runOnce(
 	policy *restart.Policy,
 	startedOnce *sync.Once,
 ) (restart.Action, error) {
-	cmd, tempFiles, extractedBinary, err := d.setupCmd(ctx)
+	cmd, tempFiles, err := d.setupCmd(ctx)
 	for _, f := range tempFiles {
 		defer func() {
 			if rmErr := os.Remove(f); rmErr != nil {
@@ -406,13 +420,6 @@ func (d *Driver) runOnce(
 					zap.String("path", f),
 					zap.Error(rmErr),
 				)
-			}
-		}()
-	}
-	if extractedBinary != "" {
-		defer func() {
-			if rmErr := os.Remove(extractedBinary); rmErr != nil {
-				d.cfg.L.Error("failed to remove extracted binary", zap.Error(rmErr))
 			}
 		}()
 	}
@@ -561,10 +568,10 @@ func (d *Driver) close() error {
 // the caller can defer their cleanup.
 func (d *Driver) setupCmd(
 	ctx context.Context,
-) (_ *exec.Cmd, tempFiles []string, extractedBinary string, _ error) {
+) (_ *exec.Cmd, tempFiles []string, _ error) {
 	workDir := d.workDir()
 	if err := os.MkdirAll(workDir, xfs.UserRWX); err != nil {
-		return nil, tempFiles, "", err
+		return nil, tempFiles, err
 	}
 	var trustAnchorFile string
 	if len(d.cfg.TrustAnchorsPEM) > 0 && !*d.cfg.Insecure {
@@ -574,26 +581,22 @@ func (d *Driver) setupCmd(
 			d.cfg.TrustAnchorsPEM,
 			xfs.UserRW,
 		); err != nil {
-			return nil, tempFiles, "", err
+			return nil, tempFiles, err
 		}
 		tempFiles = append(tempFiles, trustAnchorFile)
 	}
 	b, err := json.Marshal(d.cfg.format(d.apiKey))
 	if err != nil {
-		return nil, tempFiles, "", err
+		return nil, tempFiles, err
 	}
 	cfgFile := filepath.Join(workDir, configFileName)
 	if err = os.WriteFile(cfgFile, b, xfs.UserRW); err != nil {
-		return nil, tempFiles, "", err
+		return nil, tempFiles, err
 	}
 	tempFiles = append(tempFiles, cfgFile)
-	data, err := fs.ReadFile(d.cfg.FS, driverName)
+	binary, err := d.extractBinary()
 	if err != nil {
-		return nil, tempFiles, "", err
-	}
-	extractedBinary = filepath.Join(workDir, driverName)
-	if err = os.WriteFile(extractedBinary, data, xfs.UserRWX); err != nil {
-		return nil, tempFiles, "", err
+		return nil, tempFiles, err
 	}
 	flags := []string{"start", "--standalone", "--disable-sig-stop", "--no-color"}
 	if *d.cfg.Debug {
@@ -604,19 +607,102 @@ func (d *Driver) setupCmd(
 		"--config", cfgFile,
 		"--state-file", filepath.Join(workDir, stateFileName),
 	)
-	cmd := exec.CommandContext(ctx, extractedBinary, flags...)
+	cmd := exec.CommandContext(ctx, binary, flags...)
 	if trustAnchorFile != "" {
 		cmd.Env = append(os.Environ(), grpcRootsEnv+"="+trustAnchorFile)
 	}
 	configureSysProcAttr(cmd)
 	stdin, err := cmd.StdinPipe()
 	if err != nil {
-		return nil, tempFiles, extractedBinary, err
+		return nil, tempFiles, err
 	}
 	// On ctx cancellation, ask the Driver to stop gracefully via STOP instead of the
 	// default SIGKILL; WaitDelay then escalates to a kill if it does not exit in time
 	// and guarantees the stdin pipe is closed so cmd.Wait cannot block indefinitely.
 	cmd.Cancel = func() error { _, err := io.WriteString(stdin, "STOP\n"); return err }
 	cmd.WaitDelay = d.cfg.StopTimeout
-	return cmd, tempFiles, extractedBinary, nil
+	return cmd, tempFiles, nil
+}
+
+// binaryPrefix starts the name of every Driver binary in BinaryDirname. The rest of
+// the name is a hash of the binary's content.
+const binaryPrefix = "driver-"
+
+// binaryHashLen is the number of hex characters of the content hash in a binary name.
+const binaryHashLen = 16
+
+// extractBinary writes the Driver binary to BinaryDirname under a name derived from its
+// content and returns its path. It reuses a binary that an earlier run or another Core
+// extracted, so each launch runs the same file. It removes the other Driver binaries in
+// BinaryDirname.
+func (d *Driver) extractBinary() (string, error) {
+	binFS, err := d.cfg.BinaryFS.Sub(d.cfg.BinaryDirname)
+	if err != nil {
+		return "", err
+	}
+	data, err := fs.ReadFile(d.cfg.FS, driverName)
+	if err != nil {
+		return "", err
+	}
+	sum := sha256.Sum256(data)
+	name := binaryPrefix + hex.EncodeToString(sum[:])[:binaryHashLen] +
+		filepath.Ext(driverName)
+	if _, err = binFS.Stat(name); errors.Is(err, fs.ErrNotExist) {
+		err = writeBinary(binFS, name, data)
+	}
+	if err != nil {
+		return "", err
+	}
+	d.removeOldBinaries(binFS, name)
+	return filepath.Join(d.cfg.BinaryDirname, name), nil
+}
+
+// writeBinary writes data to name through a uniquely named temp file, so concurrent
+// writers never share a temp file and name never holds a partial binary. A name that
+// exists after a failed rename was written by another Core with the same content.
+func writeBinary(binFS xfs.FS, name string, data []byte) error {
+	tmp := name + "." + rand.Text() + ".tmp"
+	f, err := binFS.Open(tmp, os.O_CREATE|os.O_EXCL|os.O_WRONLY)
+	if err != nil {
+		return err
+	}
+	_, err = f.Write(data)
+	if err = errors.Combine(err, f.Close()); err == nil {
+		if err = binFS.Rename(tmp, name); err == nil {
+			return nil
+		}
+		// On Windows, a rename onto a binary that another Core runs fails.
+		if _, statErr := binFS.Stat(name); statErr == nil {
+			err = nil
+		}
+	}
+	return errors.Combine(err, binFS.Remove(tmp))
+}
+
+// removeOldBinaries removes the Driver binaries in binFS other than keep. It leaves
+// temp files alone, since another Core may be writing them.
+func (d *Driver) removeOldBinaries(binFS xfs.FS, keep string) {
+	infos, err := binFS.List("")
+	if err != nil {
+		d.cfg.L.Warn("failed to list old Driver binaries", zap.Error(err))
+		return
+	}
+	ext := filepath.Ext(driverName)
+	for _, info := range infos {
+		name := info.Name()
+		if name == keep ||
+			!strings.HasPrefix(name, binaryPrefix) ||
+			!strings.HasSuffix(name, ext) ||
+			len(name) != len(binaryPrefix)+binaryHashLen+len(ext) {
+			continue
+		}
+		// A binary that another Core runs cannot be removed on Windows.
+		if err = binFS.Remove(name); err != nil {
+			d.cfg.L.Warn(
+				"failed to remove old Driver binary",
+				zap.String("path", filepath.Join(d.cfg.BinaryDirname, name)),
+				zap.Error(err),
+			)
+		}
+	}
 }

@@ -17,10 +17,13 @@ import { Form } from "@synnaxlabs/lyra/form";
 import { Icon } from "@synnaxlabs/lyra/icon";
 import { Text } from "@synnaxlabs/lyra/text";
 import { Group, Schematic } from "@synnaxlabs/pluto";
+import { deep } from "@synnaxlabs/x";
 import { type ReactElement, useState } from "react";
 
 import { Edit } from "@/feature/schematic/symbol/edit";
 import { CSS } from "@/platform/css";
+
+const path = deep.path<{ specKey: schematic.symbol.Key; stateOverrides: unknown[] }>();
 
 export const MissingForm = (): ReactElement => {
   const form = Form.useContext();
@@ -31,12 +34,12 @@ export const MissingForm = (): ReactElement => {
   );
   const handleRelink = (key: schematic.symbol.Key | undefined) => {
     if (key == null) return;
-    form.set("specKey", key);
-    form.set("stateOverrides", []);
+    form.set(path.specKey, key);
+    form.set(path.stateOverrides, []);
   };
   const handleCreate = () => {
     if (createGroupKey == null) return;
-    const missingKey = form.get<string>("specKey", { optional: true })?.value;
+    const missingKey = form.get(path.specKey, { optional: true })?.value;
     openEditModal({
       parent: group.ontologyID(createGroupKey),
       createKey: missingKey,
