@@ -58,9 +58,8 @@ class RackLifecycle(HardwareCase, ConsoleCase):
         """Test copying rack properties via context menu."""
         self.log("Testing: Copy rack properties")
         props = self.console.devices.copy_rack_properties(self.rack_name)
-        assert props, "Should have copied rack properties"
-        assert str(self.test_rack.key) in str(props), (
-            f"Properties should contain rack key {self.test_rack.key}"
+        assert props.key == self.test_rack.key, (
+            f"Properties should contain rack key {self.test_rack.key}, got {props.key}"
         )
 
     def test_delete_rack(self) -> None:
