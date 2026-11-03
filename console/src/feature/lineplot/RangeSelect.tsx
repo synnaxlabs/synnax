@@ -290,7 +290,7 @@ export interface RangeSelectProps extends Omit<
 
 /**
  * Selects what the plot shows: at most one rolling window, favorite ranges, and static
- * windows. A duration typed into the search sets the rolling window on Enter, and a
+ * windows. A duration typed into the search lists a live option, and Enter sets it. A
  * static window's tag edits the window in place.
  */
 export const RangeSelect = (props: RangeSelectProps): ReactElement => {
