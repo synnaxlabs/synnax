@@ -49,6 +49,8 @@ class API {
         decltype(&LJM_eReadNames) eReadNames;
         decltype(&LJM_eReadName) eReadName;
         decltype(&LJM_eStreamStart) eStreamStart;
+        decltype(&LJM_TCVoltsToTemp) TCVoltsToTemp;
+        decltype(&LJM_ReadLibraryConfigS) ReadLibraryConfigS;
     };
 
     /// @brief Shared library handle.
@@ -102,6 +104,13 @@ public:
         );
         func_ptrs.eStreamStart = reinterpret_cast<decltype(&LJM_eStreamStart)>(
             const_cast<void *>(lib->get_func_ptr("LJM_eStreamStart"))
+        );
+        func_ptrs.TCVoltsToTemp = reinterpret_cast<decltype(&LJM_TCVoltsToTemp)>(
+            const_cast<void *>(lib->get_func_ptr("LJM_TCVoltsToTemp"))
+        );
+        func_ptrs
+            .ReadLibraryConfigS = reinterpret_cast<decltype(&LJM_ReadLibraryConfigS)>(
+            const_cast<void *>(lib->get_func_ptr("LJM_ReadLibraryConfigS"))
         );
     }
 
@@ -233,6 +242,20 @@ public:
     ) const {
         return this->func_ptrs
             .eStreamStart(dev_handle, scans_per_read, num_addrs, scan_list, scan_rate);
+    }
+
+    [[nodiscard]] LJM_ERROR_RETURN tc_volts_to_temp(
+        const int tc_type,
+        const double tc_volts,
+        const double cj_temp_k,
+        double *tc_temp_k
+    ) const {
+        return this->func_ptrs.TCVoltsToTemp(tc_type, tc_volts, cj_temp_k, tc_temp_k);
+    }
+
+    [[nodiscard]] LJM_ERROR_RETURN
+    read_library_config(const char *parameter, double *value) const {
+        return this->func_ptrs.ReadLibraryConfigS(parameter, value);
     }
 };
 }

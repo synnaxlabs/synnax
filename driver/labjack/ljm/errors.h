@@ -694,6 +694,12 @@ const x::errors::Error STREAM_NOT_RUNNING = CRITICAL_ERROR.sub("STREAM_NOT_RUNNI
 const x::errors::Error LJME_AUTO_IPS_FILE_NOT_FOUND = CRITICAL_ERROR.sub(
     "LJME_AUTO_IPS_FILE_NOT_FOUND"
 );
+const x::errors::Error TEMPERATURE_OUT_OF_RANGE = CRITICAL_ERROR.sub(
+    "LJME_TEMPERATURE_OUT_OF_RANGE"
+);
+const x::errors::Error VOLTAGE_OUT_OF_RANGE = CRITICAL_ERROR.sub(
+    "LJME_VOLTAGE_OUT_OF_RANGE"
+);
 
 /// @brief the message of every UNREACHABLE error.
 const std::string

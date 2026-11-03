@@ -27,7 +27,7 @@ std::pair<common::ConfigureResult, x::errors::Error> configure_read(
     auto [manager, manager_err] = devs.get();
     if (manager_err) return {std::move(result), manager_err};
     std::unique_ptr<common::Source> source;
-    if (cfg.has_thermocouples())
+    if (cfg.polled())
         source = std::make_unique<UnarySource>(manager, std::move(cfg));
     else
         source = std::make_unique<StreamSource>(manager, std::move(cfg));

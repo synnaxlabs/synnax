@@ -7,6 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
+#include <cmath>
 #include <map>
 #include <memory>
 #include <string>
@@ -92,23 +93,24 @@ TEST(TestReadChannelParse, testTCChan) {
     ASSERT_NIL(p.error());
     auto *const tc_chan = dynamic_cast<ThermocoupleChan *>(chan.get());
     ASSERT_NE(tc_chan, nullptr);
-    ASSERT_EQ(tc_chan->port, "AIN3_EF_READ_A");
+    ASSERT_EQ(tc_chan->port, "AIN3");
     ASSERT_EQ(tc_chan->enabled, true);
     ASSERT_EQ(tc_chan->synnax_key, 0);
     ASSERT_EQ(tc_chan->type, LJM_ttK);
     ASSERT_EQ(tc_chan->pos_chan, 3);
     ASSERT_EQ(tc_chan->neg_chan, 199);
     ASSERT_EQ(tc_chan->units, LJM_KELVIN);
-    ASSERT_EQ(tc_chan->cjc_addr, LJM_TEMPERATURE_DEVICE_K_ADDRESS);
+    ASSERT_EQ(tc_chan->cjc_source, DEVICE_CJC_SOURCE);
     ASSERT_EQ(tc_chan->cjc_slope, 1);
     ASSERT_EQ(tc_chan->cjc_offset, 0);
 }
 
-/// @brief parses a K-type thermocouple channel in Kelvin on the port.
+/// @brief parses a K-type thermocouple channel on the port.
 std::unique_ptr<InputChan> parse_thermocouple(
     const std::string &port,
     const std::string &cjc_source,
-    const int neg_chan = 199
+    const int neg_chan = 199,
+    const std::string &units = "K"
 ) {
     const x::json::json cfg{
         {"port", port},
@@ -116,7 +118,7 @@ std::unique_ptr<InputChan> parse_thermocouple(
         {"type", "thermocouple"},
         {"thermocouple_type", "K"},
         {"neg_chan", neg_chan},
-        {"units", "K"},
+        {"units", units},
         {"cjc_source", cjc_source},
         {"cjc_slope", 1},
         {"cjc_offset", 0}
@@ -158,12 +160,23 @@ TEST(TestReadChannelParse, testAIChanZeroRange) {
     EXPECT_EQ(p.errors->at(0)["message"], "Max voltage must be greater than 0");
 }
 
-/// @brief it should resolve an AIN CJC source to the Modbus address of the AIN.
+/// @brief it should read an AIN CJC source on its own port, on every model.
 TEST(TestReadChannelParse, testTCChanAINCJCSource) {
     const auto chan = parse_thermocouple("AIN0", "AIN2");
     const auto *const tc_chan = dynamic_cast<ThermocoupleChan *>(chan.get());
     ASSERT_NE(tc_chan, nullptr);
-    EXPECT_EQ(tc_chan->cjc_addr, 4);
+    EXPECT_EQ(tc_chan->cjc_register(T7), "AIN2");
+    EXPECT_EQ(tc_chan->cjc_register(T8), "AIN2");
+}
+
+/// @brief it should read the device CJC source from the sensor at the terminal of the
+/// thermocouple on a T8, and from the device sensor on a T7.
+TEST(TestReadChannelParse, testTCChanDeviceCJCRegister) {
+    const auto chan = parse_thermocouple("AIN3", DEVICE_CJC_SOURCE);
+    const auto *const tc_chan = dynamic_cast<ThermocoupleChan *>(chan.get());
+    ASSERT_NE(tc_chan, nullptr);
+    EXPECT_EQ(tc_chan->cjc_register(T7), "TEMPERATURE_DEVICE_K");
+    EXPECT_EQ(tc_chan->cjc_register(T8), "TEMPERATURE3");
 }
 
 /// @brief it should reject an AIN CJC source without a valid AIN index.
@@ -182,39 +195,33 @@ TEST(TestReadChannelParse, testTCChanInvalidAINCJCSource) {
     EXPECT_EQ(p.errors->at(0)["message"], "Invalid CJC source: AINx");
 }
 
-/// @brief it should set up the thermocouple extended feature on a T8, with no
-/// negative channel write.
+/// @brief it should turn off the thermocouple feature of the device and set the
+/// thermocouple range on a T8, with no negative channel write.
 TEST(TestReadChannelApply, testT8Thermocouple) {
     const auto chan = parse_thermocouple("AIN3", "TEMPERATURE_DEVICE_K");
     const auto dev = std::make_shared<device::Mock>();
     ASSERT_NIL(chan->apply(dev, T8));
-    const std::map<int, double> expected{
-        {41503, 0},
-        {9006, 22},
-        {9306, LJM_KELVIN},
-        {9606, LJM_TEMPERATURE_DEVICE_K_ADDRESS},
-        {10206, 1},
-        {10506, 0},
+    const std::map<std::string, double> expected{
+        {"AIN3_EF_INDEX", 0},
+        {"AIN3_RANGE", 0.15},
+        {"AIN3_RESOLUTION_INDEX", 0},
     };
-    EXPECT_EQ(dev->written_addrs(), expected);
+    EXPECT_EQ(dev->written_names(), expected);
 }
 
-/// @brief it should set up the negative channel and the thermocouple extended
-/// feature on a T7.
+/// @brief it should turn off the thermocouple feature of the device, and set the
+/// thermocouple range and the negative channel on a T7.
 TEST(TestReadChannelApply, testT7Thermocouple) {
     const auto chan = parse_thermocouple("AIN2", "TEMPERATURE_DEVICE_K", 3);
     const auto dev = std::make_shared<device::Mock>();
     ASSERT_NIL(chan->apply(dev, T7));
-    const std::map<int, double> expected{
-        {41502, 0},
-        {41002, 3},
-        {9004, 22},
-        {9304, LJM_KELVIN},
-        {9604, LJM_TEMPERATURE_DEVICE_K_ADDRESS},
-        {10204, 1},
-        {10504, 0},
+    const std::map<std::string, double> expected{
+        {"AIN2_EF_INDEX", 0},
+        {"AIN2_RANGE", 0.1},
+        {"AIN2_RESOLUTION_INDEX", 0},
+        {"AIN2_NEGATIVE_CH", 3},
     };
-    EXPECT_EQ(dev->written_addrs(), expected);
+    EXPECT_EQ(dev->written_names(), expected);
 }
 
 /// @brief it should refuse the air temperature CJC source on a T8, which has no air
@@ -229,7 +236,7 @@ TEST(TestReadChannelApply, testT8AirCJC) {
         "AIN1 uses the air temperature as its CJC source, which the T8 does not have. "
         "Select another CJC source."
     );
-    EXPECT_TRUE(dev->written_addrs().empty());
+    EXPECT_TRUE(dev->written_names().empty());
 }
 
 /// @brief it should refuse a thermocouple on a T4, which has no thermocouple inputs.
@@ -242,7 +249,78 @@ TEST(TestReadChannelApply, testT4Thermocouple) {
         err.data,
         "AIN2 is a thermocouple channel, but the T4 does not support thermocouples."
     );
-    EXPECT_TRUE(dev->written_addrs().empty());
+    EXPECT_TRUE(dev->written_names().empty());
+}
+
+/// @brief returns the temperature that the thermocouple channel converts from the
+/// voltage and the CJC reading.
+std::pair<double, x::errors::Error> temperature(
+    const std::unique_ptr<InputChan> &chan,
+    const device::Mock &dev,
+    const double volts,
+    const double cjc
+) {
+    const auto *const tc = dynamic_cast<ThermocoupleChan *>(chan.get());
+    EXPECT_NE(tc, nullptr);
+    return tc->temperature(dev, volts, cjc);
+}
+
+/// @brief it should convert a thermocouple voltage to a temperature in the units of
+/// the channel.
+TEST(TestThermocoupleTemperature, testConvertsToUnits) {
+    const device::Mock dev;
+    const auto kelvin = parse_thermocouple("AIN0", DEVICE_CJC_SOURCE, 199, "K");
+    EXPECT_DOUBLE_EQ(ASSERT_NIL_P(temperature(kelvin, dev, 0.001, 300)), 325);
+    const auto celsius = parse_thermocouple("AIN0", DEVICE_CJC_SOURCE, 199, "C");
+    EXPECT_DOUBLE_EQ(ASSERT_NIL_P(temperature(celsius, dev, 0.001, 300)), 51.85);
+    const auto fahrenheit = parse_thermocouple("AIN0", DEVICE_CJC_SOURCE, 199, "F");
+    EXPECT_NEAR(ASSERT_NIL_P(temperature(fahrenheit, dev, 0.001, 300)), 125.33, 1e-9);
+}
+
+/// @brief it should convert the CJC reading to Kelvin with the CJC slope and offset.
+TEST(TestThermocoupleTemperature, testAppliesCJCSlopeAndOffset) {
+    const x::json::json cfg{
+        {"port", "AIN0"},
+        {"channel", 1},
+        {"type", "thermocouple"},
+        {"thermocouple_type", "K"},
+        {"units", "K"},
+        {"cjc_source", "AIN2"},
+        {"cjc_slope", 100},
+        {"cjc_offset", 250},
+    };
+    auto p = x::json::Parser(cfg);
+    const auto chan = parse_input_chan(p);
+    ASSERT_NIL(p.error());
+    const device::Mock dev;
+    EXPECT_DOUBLE_EQ(ASSERT_NIL_P(temperature(chan, dev, 0.001, 0.5)), 325);
+}
+
+/// @brief it should return NaN for a voltage above the range of every thermocouple
+/// type, without a call to LJM.
+TEST(TestThermocoupleTemperature, testVoltageAboveEveryTypeIsNaN) {
+    device::Mock dev;
+    dev.tc_errors = {x::errors::Error("must not be called")};
+    const auto chan = parse_thermocouple("AIN0", DEVICE_CJC_SOURCE);
+    EXPECT_TRUE(std::isnan(ASSERT_NIL_P(temperature(chan, dev, -0.5, 300))));
+    EXPECT_EQ(dev.tc_errors.size(), 1);
+}
+
+/// @brief it should return NaN when LJM rejects the voltage for the thermocouple type.
+TEST(TestThermocoupleTemperature, testLJMOutOfRangeIsNaN) {
+    device::Mock dev;
+    dev.tc_errors = {ljm::VOLTAGE_OUT_OF_RANGE, ljm::TEMPERATURE_OUT_OF_RANGE};
+    const auto chan = parse_thermocouple("AIN0", DEVICE_CJC_SOURCE);
+    EXPECT_TRUE(std::isnan(ASSERT_NIL_P(temperature(chan, dev, 0.07, 300))));
+    EXPECT_TRUE(std::isnan(ASSERT_NIL_P(temperature(chan, dev, 0.07, 300))));
+}
+
+/// @brief it should return any other conversion error.
+TEST(TestThermocoupleTemperature, testOtherErrorsAreReturned) {
+    device::Mock dev;
+    dev.tc_errors = {ljm::CRITICAL_ERROR.sub("LJME_INVALID_PARAMETER")};
+    const auto chan = parse_thermocouple("AIN0", DEVICE_CJC_SOURCE);
+    ASSERT_OCCURRED_AS_P(temperature(chan, dev, 0.001, 300), ljm::CRITICAL_ERROR);
 }
 
 /// @brief it should select the smallest T8 range that covers the max voltage, with
@@ -441,14 +519,14 @@ TEST(TestReadTaskConfigParse, testBasicReadTaskConfigParse) {
 
     auto *const tc_chan = dynamic_cast<ThermocoupleChan *>(cfg->channels[0].get());
     ASSERT_NE(tc_chan, nullptr);
-    ASSERT_EQ(tc_chan->port, "AIN0_EF_READ_A");
+    ASSERT_EQ(tc_chan->port, "AIN0");
     ASSERT_EQ(tc_chan->enabled, true);
     ASSERT_EQ(tc_chan->synnax_key, tc_ch.key);
     ASSERT_EQ(tc_chan->type, LJM_ttK);
     ASSERT_EQ(tc_chan->pos_chan, 0);
     ASSERT_EQ(tc_chan->neg_chan, 199);
     ASSERT_EQ(tc_chan->units, LJM_KELVIN);
-    ASSERT_EQ(tc_chan->cjc_addr, LJM_TEMPERATURE_DEVICE_K_ADDRESS);
+    ASSERT_EQ(tc_chan->cjc_source, DEVICE_CJC_SOURCE);
     ASSERT_EQ(tc_chan->cjc_slope, 1);
     ASSERT_EQ(tc_chan->cjc_offset, 0);
 
@@ -890,6 +968,290 @@ TEST_F(SourceClaimTest, testStreamSourceWritesNothingWhenEveryScanSkipped) {
     ASSERT_NIL(res.error);
     EXPECT_EQ(res.warning.message, "Skipped samples");
     EXPECT_TRUE(fr.empty());
+    ASSERT_NIL(source.stop());
+}
+
+class ReadTaskTest : public ::testing::Test {
+protected:
+    std::shared_ptr<synnax::Synnax> client = std::make_shared<synnax::Synnax>(
+        new_test_client()
+    );
+    std::shared_ptr<device::Mock> dev = std::make_shared<device::Mock>();
+    std::shared_ptr<device::MockManager> devs = std::make_shared<device::MockManager>(
+        this->dev
+    );
+
+    void SetUp() override { this->dev->read_values["FIRMWARE_VERSION"] = 1.0061; }
+
+    /// @brief returns a K-type thermocouple channel on the port, in Kelvin.
+    x::json::json thermocouple(
+        const std::string &port,
+        const std::string &cjc_source = DEVICE_CJC_SOURCE
+    ) {
+        const auto ch = ASSERT_NIL_P(this->client->channels.create(
+            make_unique_channel_name("tc"),
+            x::telem::FLOAT64_T,
+            true
+        ));
+        return {
+            {"port", port},
+            {"channel", ch.key},
+            {"type", "thermocouple"},
+            {"scale", {{"type", "none"}}},
+            {"thermocouple_type", "K"},
+            {"neg_chan", 199},
+            {"units", "K"},
+            {"cjc_source", cjc_source},
+            {"cjc_slope", 1},
+            {"cjc_offset", 0},
+        };
+    }
+
+    /// @brief returns an analog channel on the port.
+    x::json::json analog(const std::string &port) {
+        const auto ch = ASSERT_NIL_P(this->client->channels.create(
+            make_unique_channel_name("ai"),
+            x::telem::FLOAT64_T,
+            true
+        ));
+        return {
+            {"port", port},
+            {"channel", ch.key},
+            {"type", "analog"},
+            {"range", 10},
+            {"scale", {{"type", "none"}}},
+        };
+    }
+
+    /// @brief returns a parser of a task on a new device of the model.
+    x::json::Parser parser(
+        const std::string &model,
+        const x::json::json &channels,
+        const int sample_rate = 10,
+        const int stream_rate = 5
+    ) {
+        const auto rack = ASSERT_NIL_P(this->client->racks.create("tc"));
+        synnax::device::Device device{
+            .key = make_unique_channel_name("labjack"),
+            .rack = rack.key,
+            .location = "dev1",
+            .make = "labjack",
+            .model = model,
+            .name = "my_device",
+        };
+        const auto create_err = this->client->devices.create(device);
+        EXPECT_FALSE(create_err) << create_err;
+        auto j = basic_read_task_config();
+        j["device"] = device.key;
+        j["channels"] = channels;
+        j["sample_rate"] = sample_rate;
+        j["stream_rate"] = stream_rate;
+        return x::json::Parser(j);
+    }
+
+    /// @brief parses a task on a new device of the model.
+    std::pair<ReadTaskConfig, x::errors::Error> parse(
+        const std::string &model,
+        const x::json::json &channels,
+        const int sample_rate = 10,
+        const int stream_rate = 5
+    ) {
+        auto p = this->parser(model, channels, sample_rate, stream_rate);
+        ReadTaskConfig cfg(this->client, p);
+        return {std::move(cfg), p.error()};
+    }
+};
+
+/// @brief it should read the device CJC sensor after the channels on a T7, and poll.
+TEST_F(ReadTaskTest, testT7ReadsDeviceSensor) {
+    const auto cfg = ASSERT_NIL_P(
+        this->parse(T7, x::json::json::array({thermocouple("AIN0"), analog("AIN1")}))
+    );
+    const std::vector<std::string> expected{"AIN0", "AIN1", "TEMPERATURE_DEVICE_K"};
+    EXPECT_EQ(cfg.registers, expected);
+    ASSERT_EQ(cfg.thermocouples.size(), 1);
+    EXPECT_EQ(cfg.thermocouples[0].second->cjc_index, 2);
+    EXPECT_TRUE(cfg.polled());
+}
+
+/// @brief it should read the sensor at the terminal of each thermocouple on a T8, and
+/// stream.
+TEST_F(ReadTaskTest, testT8ReadsTerminalSensors) {
+    const auto cfg = ASSERT_NIL_P(this->parse(
+        T8,
+        x::json::json::array({thermocouple("AIN3"), thermocouple("AIN5")})
+    ));
+    const std::vector<std::string> expected{
+        "AIN3",
+        "AIN5",
+        "TEMPERATURE3",
+        "TEMPERATURE5"
+    };
+    EXPECT_EQ(cfg.registers, expected);
+    EXPECT_FALSE(cfg.polled());
+}
+
+/// @brief it should read a CJC port once when a channel of the task also reads it.
+TEST_F(ReadTaskTest, testSharesCJCPortWithChannel) {
+    const auto cfg = ASSERT_NIL_P(this->parse(
+        T7,
+        x::json::json::array({thermocouple("AIN0", "AIN2"), analog("AIN2")})
+    ));
+    const std::vector<std::string> expected{"AIN0", "AIN2"};
+    EXPECT_EQ(cfg.registers, expected);
+    EXPECT_EQ(cfg.thermocouples[0].second->cjc_index, 1);
+}
+
+/// @brief it should reject a T8 task with thermocouples above 250 Hz, and allow the
+/// same rate on a T7.
+TEST_F(ReadTaskTest, testT8RateLimit) {
+    auto p = this->parser(T8, x::json::json::array({thermocouple("AIN0")}), 500);
+    const ReadTaskConfig cfg(this->client, p);
+    ASSERT_OCCURRED_AS(p.error(), x::errors::VALIDATION);
+    const auto err = p.error_json()["errors"][0];
+    EXPECT_EQ(err["path"], "sample_rate");
+    EXPECT_EQ(err["message"], "A T8 task with thermocouples samples at 250 Hz or less");
+    ASSERT_NIL_P(this->parse(T7, x::json::json::array({thermocouple("AIN0")}), 500));
+}
+
+/// @brief it should reject a thermocouple whose CJC source is the port of another
+/// thermocouple.
+TEST_F(ReadTaskTest, testRejectsThermocoupleAsCJCSource) {
+    auto p = this->parser(
+        T7,
+        x::json::json::array({thermocouple("AIN2"), thermocouple("AIN0", "AIN2")})
+    );
+    const ReadTaskConfig cfg(this->client, p);
+    ASSERT_OCCURRED_AS(p.error(), x::errors::VALIDATION);
+    const auto err = p.error_json()["errors"][0];
+    EXPECT_EQ(err["path"], "channels");
+    EXPECT_EQ(
+        err["message"],
+        "AIN2 is a thermocouple channel, so it cannot be the CJC source of AIN0"
+    );
+}
+
+/// @brief it should convert each polled thermocouple voltage with the CJC reading of
+/// the same request.
+TEST_F(ReadTaskTest, testUnarySourceConverts) {
+    auto cfg = ASSERT_NIL_P(
+        this->parse(T7, x::json::json::array({thermocouple("AIN0")}))
+    );
+    this->dev->read_values = {{"AIN0", 0.001}, {"TEMPERATURE_DEVICE_K", 300}};
+    UnarySource source(this->devs, std::move(cfg));
+    ASSERT_NIL(source.start());
+    x::telem::Frame fr(0);
+    const auto res = read_once(source, fr);
+    ASSERT_NIL(res.error);
+    EXPECT_TRUE(res.warning.empty());
+    const auto &s = fr.series->at(0);
+    ASSERT_EQ(s.size(), 2);
+    EXPECT_DOUBLE_EQ(s.at<double>(0), 325);
+    EXPECT_DOUBLE_EQ(s.at<double>(1), 325);
+    ASSERT_NIL(source.stop());
+}
+
+/// @brief it should write NaN and warn for a thermocouple out of range.
+TEST_F(ReadTaskTest, testUnarySourceWarnsOutOfRange) {
+    auto cfg = ASSERT_NIL_P(
+        this->parse(T7, x::json::json::array({thermocouple("AIN0")}))
+    );
+    this->dev->read_values = {{"AIN0", 9.9}, {"TEMPERATURE_DEVICE_K", 300}};
+    UnarySource source(this->devs, std::move(cfg));
+    ASSERT_NIL(source.start());
+    x::telem::Frame fr(0);
+    const auto res = read_once(source, fr);
+    ASSERT_NIL(res.error);
+    EXPECT_EQ(res.warning.message, "Thermocouple out of range");
+    EXPECT_EQ(
+        res.warning.description,
+        "AIN0 reads a voltage outside the range of its thermocouple type. Check for an "
+        "open thermocouple or a loose wire. The Driver writes NaN until the voltage is "
+        "in range."
+    );
+    EXPECT_TRUE(std::isnan(fr.series->at(0).at<double>(0)));
+    ASSERT_NIL(source.stop());
+}
+
+/// @brief it should stream each thermocouple with its terminal sensor on a T8, and
+/// write only the channels to the frame.
+TEST_F(ReadTaskTest, testStreamSourceConverts) {
+    auto cfg = ASSERT_NIL_P(
+        this->parse(T8, x::json::json::array({thermocouple("AIN3")}))
+    );
+    this->dev->stream_data = {0.001, 300, 0.002, 301};
+    StreamSource source(this->devs, std::move(cfg));
+    ASSERT_NIL(source.start());
+    x::telem::Frame fr(0);
+    ASSERT_NIL(read_once(source, fr).error);
+    ASSERT_EQ(fr.size(), 1);
+    const auto &s = fr.series->at(0);
+    ASSERT_EQ(s.size(), 2);
+    EXPECT_DOUBLE_EQ(s.at<double>(0), 325);
+    EXPECT_DOUBLE_EQ(s.at<double>(1), 351);
+    ASSERT_NIL(source.stop());
+}
+
+/// @brief it should refuse to stream thermocouples from a T8 with old firmware.
+TEST_F(ReadTaskTest, testT8OldFirmware) {
+    auto cfg = ASSERT_NIL_P(
+        this->parse(T8, x::json::json::array({thermocouple("AIN0")}))
+    );
+    this->dev->read_values["FIRMWARE_VERSION"] = 1.0025;
+    StreamSource source(this->devs, std::move(cfg));
+    const auto err = source.start();
+    ASSERT_OCCURRED_AS(err, x::errors::VALIDATION);
+    EXPECT_EQ(
+        err.data,
+        "Thermocouples on a T8 need firmware 1.0038 or later, but the device has "
+        "firmware 1.0025. Update the firmware with Kipling."
+    );
+    EXPECT_FALSE(this->dev->is_streaming());
+}
+
+/// @brief it should refuse to stream thermocouples from a T8 with an old LJM.
+TEST_F(ReadTaskTest, testT8OldLJM) {
+    auto cfg = ASSERT_NIL_P(
+        this->parse(T8, x::json::json::array({thermocouple("AIN0")}))
+    );
+    this->dev->library_version = 1.2302;
+    StreamSource source(this->devs, std::move(cfg));
+    const auto err = source.start();
+    ASSERT_OCCURRED_AS(err, x::errors::VALIDATION);
+    EXPECT_EQ(
+        err.data,
+        "Thermocouples on a T8 need LJM 1.2304 or later, but the Driver loaded LJM "
+        "1.2302. Install the latest LJM."
+    );
+}
+
+/// @brief it should keep the timestamps of the scans after a skipped scan in place, so
+/// the gap of the skipped scan stays in the index.
+TEST_F(ReadTaskTest, testStreamSourceKeepsGapOfSkippedScan) {
+    const auto index = ASSERT_NIL_P(
+        this->client->channels
+            .create(make_unique_channel_name("time"), x::telem::TIMESTAMP_T, 0, true)
+    );
+    const auto data = ASSERT_NIL_P(this->client->channels.create(
+        make_unique_channel_name("ai"),
+        x::telem::FLOAT64_T,
+        index.key
+    ));
+    auto channel = analog("AIN0");
+    channel["channel"] = data.key;
+    auto cfg = ASSERT_NIL_P(this->parse(T7, x::json::json::array({channel}), 20, 5));
+    this->dev->stream_data = {1, LJM_DUMMY_VALUE, 3, 4};
+    StreamSource source(this->devs, std::move(cfg));
+    ASSERT_NIL(source.start());
+    x::telem::Frame fr(0);
+    ASSERT_NIL(read_once(source, fr).error);
+    ASSERT_EQ(fr.size(), 2);
+    ASSERT_EQ(fr.series->at(0).size(), 3);
+    EXPECT_EQ(fr.at<double>(data.key, 1), 3);
+    const auto t0 = fr.at<x::telem::TimeStamp>(index.key, 0);
+    const auto t2 = fr.at<x::telem::TimeStamp>(index.key, 1);
+    const auto t3 = fr.at<x::telem::TimeStamp>(index.key, 2);
+    EXPECT_EQ(t2 - t0, (t3 - t2) * 2);
     ASSERT_NIL(source.stop());
 }
 }

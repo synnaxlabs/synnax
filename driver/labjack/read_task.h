@@ -11,7 +11,9 @@
 
 #include <algorithm>
 #include <charconv>
+#include <cmath>
 #include <format>
+#include <limits>
 #include <map>
 #include <optional>
 #include <set>
@@ -37,11 +39,7 @@
 #include "driver/transform/transform.h"
 
 namespace driver::labjack {
-///@brief look up table mapping LJM TC Type to TC AIN_EF index
-// Thermocouple type:		 B  E  J  K  N  R  S  T  C
-const int TC_INDEX_LUT[9] = {28, 20, 21, 22, 27, 23, 25, 24, 30};
-
-const std::map<std::string, long> TC_TYPE_LUT = {
+const std::map<std::string, int> TC_TYPE_LUT = {
     {"B", LJM_ttB},
     {"E", LJM_ttE},
     {"J", LJM_ttJ},
@@ -82,7 +80,7 @@ resolve_temperature_units(x::json::Parser &parser, const std::string &units) {
 }
 
 /// @brief converts the configured thermocouple type to the LJM constant.
-inline long resolve_tc_type(x::json::Parser &parser, const std::string &tc_type) {
+inline int resolve_tc_type(x::json::Parser &parser, const std::string &tc_type) {
     const auto v = TC_TYPE_LUT.find(tc_type);
     if (v == TC_TYPE_LUT.end()) {
         parser.field_err("thermocouple_type", "Invalid thermocouple type: " + tc_type);
@@ -109,13 +107,14 @@ inline int resolve_ain_index(x::json::Parser &parser, const std::string &port) {
     return 0;
 }
 
-/// @brief resolves the CJC Modbus address for the configured CJC source.
-inline int resolve_cjc_addr(x::json::Parser &parser, const std::string &cjc_source) {
-    if (cjc_source == DEVICE_CJC_SOURCE) return LJM_TEMPERATURE_DEVICE_K_ADDRESS;
-    if (cjc_source == AIR_CJC_SOURCE) return LJM_TEMPERATURE_AIR_K_ADDRESS;
-    if (const auto index = ain_index(cjc_source)) return *index * 2;
+/// @brief validates the configured CJC source.
+inline std::string
+resolve_cjc_source(x::json::Parser &parser, const std::string &cjc_source) {
+    if (cjc_source == DEVICE_CJC_SOURCE || cjc_source == AIR_CJC_SOURCE ||
+        ain_index(cjc_source))
+        return cjc_source;
     parser.field_err("cjc_source", "Invalid CJC source: " + cjc_source);
-    return 0;
+    return "";
 }
 
 /// @brief base class for an input channel configuration.
@@ -146,53 +145,42 @@ struct InputChan {
     }
 };
 
-const std::string TC_SUFFIX = "_EF_READ_A";
+/// @brief the range of a thermocouple input on each model that supports
+/// thermocouples, in volts. Each range covers every thermocouple type.
+const std::map<std::string, double> THERMOCOUPLE_RANGES = {{T7, 0.1}, {T8, 0.15}};
 
-/// @brief class for a thermocouple channel configuration.
+/// @brief the largest voltage magnitude of any thermocouple type. LJM takes up to
+/// 100 µs to reject a larger voltage, so the Driver rejects it first.
+constexpr double MAX_THERMOCOUPLE_VOLTS = 0.1;
+
+/// @brief the offset between Kelvin and Celsius.
+constexpr double KELVIN_OFFSET = 273.15;
+
+/// @brief configuration for a thermocouple channel. The channel reads the voltage of
+/// the thermocouple and the temperature of its cold junction (CJC), and the Driver
+/// converts the two to a temperature.
 struct ThermocoupleChan final : InputChan {
-    ///@brief The thermocouple type
-    // Supported TC types are:
-    //     LJM_ttB (val=6001)
-    //     LJM_ttE (val=6002)
-    //     LJM_ttJ (val=6003)
-    //     LJM_ttK (val=6004)
-    //     LJM_ttN (val=6005)
-    //     LJM_ttR (val=6006)
-    //     LJM_ttS (val=6007)
-    //     LJM_ttT (val=6008)
-    //     LJM_ttC (val=6009)
-    // Note that the values above do not align with the AIN_EF index values
-    // or order. We use a lookup table provided by LabJack to convert our
-    // thermocouple constant to the correct index when using the AIN_EF
-    // Lookup table: TC_INDEX_LUT[ x - 60001] = AIN_EF_INDEX
-    const long type;
-
-    ///@brief the AIN index the thermocouple's positive lead is wired to.
+    /// @brief the LJM thermocouple type, such as LJM_ttK.
+    const int type;
+    /// @brief the AIN index the thermocouple's positive lead is wired to.
     const int pos_chan;
-
-    ///@brief the AIN port of the negative lead on T7 devices. 199 is single ended.
+    /// @brief the AIN port of the negative lead on T7 devices. 199 is single ended.
     const int neg_chan;
-
-    /// @brief the Modbus address of the CJC sensor. On a T8, TEMPERATURE_DEVICE_K
-    /// selects the sensor at the thermocouple's own terminal.
-    const int cjc_addr;
-
-    ///@brief slope of CJC Voltage to temperature conversion (Kelvin/Volts).
-    // if using device temp (cjc_addr is TEMPERATURE_DEVICE_K), set to 1
-    // If using a LM34 on some AIN, set to 55.56
+    /// @brief the source of the CJC temperature: TEMPERATURE_DEVICE_K,
+    /// TEMPERATURE_AIR_K, or an AIN port wired to a temperature sensor.
+    const std::string cjc_source;
+    /// @brief the slope that converts the CJC reading to Kelvin.
     const double cjc_slope;
-
-    ///@brief Offset for CJC temp (Kelvin)
-    // If cjc_addr = TEMPERATURE_DEVICE_K. set to 0
-    // If using InAmp or expansion board, might need to adjust it a few degrees
-    // If using LM34 connected to an AIN, set to 255.37
+    /// @brief the offset that converts the CJC reading to Kelvin.
     const double cjc_offset;
-
-    ///@brief units for the thermocouple reading
+    /// @brief units for the thermocouple reading
     const LJM_TemperatureUnits units;
-
-    ///@brief the scale applied to raw samples after acquisition.
+    /// @brief the scale applied to the temperature after conversion.
     const ::synnax::labjack::Scale scale_cfg;
+    /// @brief the warning for a voltage outside the range of the thermocouple type.
+    const common::Warning out_of_range;
+    /// @brief the position of the CJC register in the registers of the task.
+    size_t cjc_index = 0;
 
     ThermocoupleChan(
         const ::synnax::labjack::ThermocoupleReadChannel &cfg,
@@ -202,79 +190,89 @@ struct ThermocoupleChan final : InputChan {
         type(resolve_tc_type(parser, cfg.thermocouple_type)),
         pos_chan(resolve_ain_index(parser, cfg.port)),
         neg_chan(cfg.neg_chan),
-        cjc_addr(resolve_cjc_addr(parser, cfg.cjc_source)),
+        cjc_source(resolve_cjc_source(parser, cfg.cjc_source)),
         cjc_slope(cfg.cjc_slope),
         cjc_offset(cfg.cjc_offset),
         units(resolve_temperature_units(parser, cfg.units)),
-        scale_cfg(cfg.scale) {
-        this->port = AIN_PREFIX + std::to_string(this->pos_chan) + TC_SUFFIX;
-    }
+        scale_cfg(cfg.scale),
+        out_of_range{
+            .message = "Thermocouple out of range",
+            .description = cfg.port + " reads a voltage outside the range of its "
+                                      "thermocouple type. Check for an open "
+                                      "thermocouple or a loose wire. The Driver writes "
+                                      "NaN until the voltage is in range.",
+        } {}
 
     [[nodiscard]] const ::synnax::labjack::Scale *scale() const override {
         return &this->scale_cfg;
     }
 
+    /// @brief returns the register that reads the CJC on the model. A T8 has a
+    /// temperature sensor at each AIN terminal.
+    [[nodiscard]] std::string cjc_register(const std::string &model) const {
+        if (model == T8 && this->cjc_source == DEVICE_CJC_SOURCE)
+            return "TEMPERATURE" + std::to_string(this->pos_chan);
+        return this->cjc_source;
+    }
+
     x::errors::Error apply(
-        const std::shared_ptr<device::Device> &ljm,
+        const std::shared_ptr<device::Device> &dev,
         const std::string &device_type
     ) override {
-        if (device_type == T4)
+        const auto range = THERMOCOUPLE_RANGES.find(device_type);
+        if (range == THERMOCOUPLE_RANGES.end()) {
+            const std::string prefix = "LJM_dt";
+            const auto name = device_type.starts_with(prefix)
+                                ? device_type.substr(prefix.size())
+                                : device_type;
             return x::errors::Error(
                 x::errors::VALIDATION,
-                AIN_PREFIX + std::to_string(this->pos_chan) +
-                    " is a thermocouple channel, but the T4 does not support "
-                    "thermocouples."
+                this->port + " is a thermocouple channel, but the " + name +
+                    " does not support thermocouples."
             );
-        if (device_type == T8 && this->cjc_addr == LJM_TEMPERATURE_AIR_K_ADDRESS)
+        }
+        if (device_type == T8 && this->cjc_source == AIR_CJC_SOURCE)
             return x::errors::Error(
                 x::errors::VALIDATION,
-                AIN_PREFIX + std::to_string(this->pos_chan) +
+                this->port +
                     " uses the air temperature as its CJC source, which the T8 does "
                     "not have. Select another CJC source."
             );
-        if (const auto err = ljm->e_write_addr(41500 + this->pos_chan, LJM_UINT16, 0))
-            return err;
+        // A device keeps a thermocouple feature that other software set until it
+        // loses power.
+        std::vector<std::pair<std::string, double>> writes = {
+            {this->port + "_EF_INDEX", 0},
+            {this->port + "_RANGE", range->second},
+            {this->port + "_RESOLUTION_INDEX", 0},
+        };
         if (device_type == T7)
-            if (const auto err = ljm->e_write_addr(
-                    41000 + this->pos_chan,
-                    LJM_UINT16,
-                    this->neg_chan
-                ))
-                return err;
-        // writing 5 frames of data to modbus registers: tc type, cjc address,
-        // slope, offset and units
-        enum { NUM_FRAMES = 5 };
-        int aAddresses[NUM_FRAMES];
-        int aTypes[NUM_FRAMES];
-        double aValues[NUM_FRAMES];
-        int err_addr = INITIAL_ERR_ADDRESS;
+            writes.emplace_back(this->port + "_NEGATIVE_CH", this->neg_chan);
+        for (const auto &[name, value]: writes)
+            if (const auto err = dev->e_write_name(name.c_str(), value)) return err;
+        return x::errors::NIL;
+    }
 
-        // For setting up the AIN#_EF_INDEX (thermocouple type)
-        aAddresses[0] = 9000 + 2 * pos_chan;
-        aTypes[0] = LJM_UINT32;
-        aValues[0] = TC_INDEX_LUT[this->type - 6001];
-
-        // For setting up the AIN#_EF_CONFIG_A (temperature units)
-        aAddresses[1] = 9300 + 2 * this->pos_chan;
-        aTypes[1] = LJM_UINT32;
-        aValues[1] = this->units;
-
-        // For setting up the AIN#_EF_CONFIG_B (CJC address)
-        aAddresses[2] = 9600 + 2 * this->pos_chan;
-        aTypes[2] = LJM_UINT32;
-        aValues[2] = this->cjc_addr;
-
-        // For setting up the AIN#_EF_CONFIG_D (CJC slope)
-        aAddresses[3] = 10200 + 2 * this->pos_chan;
-        aTypes[3] = LJM_FLOAT32;
-        aValues[3] = this->cjc_slope;
-
-        // For setting up the AIN#_EF_CONFIG_E (CJC offset)
-        aAddresses[4] = 10500 + 2 * this->pos_chan;
-        aTypes[4] = LJM_FLOAT32;
-        aValues[4] = this->cjc_offset;
-
-        return ljm->e_write_addrs(NUM_FRAMES, aAddresses, aTypes, aValues, &err_addr);
+    /// @brief converts a thermocouple voltage to a temperature in the units of the
+    /// channel.
+    /// @param cjc the reading of the CJC register.
+    /// @returns NaN when the voltage is out of range for the thermocouple type, which
+    /// an open thermocouple causes.
+    [[nodiscard]] std::pair<double, x::errors::Error>
+    temperature(const device::Device &dev, const double volts, const double cjc) const {
+        constexpr double NaN = std::numeric_limits<double>::quiet_NaN();
+        if (std::abs(volts) > MAX_THERMOCOUPLE_VOLTS) return {NaN, x::errors::NIL};
+        double kelvin = 0;
+        const auto cjc_k = cjc * this->cjc_slope + this->cjc_offset;
+        if (const auto err = dev.tc_volts_to_temp(this->type, volts, cjc_k, &kelvin)) {
+            if (err.matches(ljm::VOLTAGE_OUT_OF_RANGE) ||
+                err.matches(ljm::TEMPERATURE_OUT_OF_RANGE))
+                return {NaN, x::errors::NIL};
+            return {0, err};
+        }
+        if (this->units == LJM_CELSIUS) return {kelvin - KELVIN_OFFSET, x::errors::NIL};
+        if (this->units == LJM_FARENHEIT)
+            return {(kelvin - KELVIN_OFFSET) * 9 / 5 + 32, x::errors::NIL};
+        return {kelvin, x::errors::NIL};
     }
 };
 
@@ -408,6 +406,20 @@ inline size_t parse_backlog_warn_on_count(
     return static_cast<size_t>(sample_rate.hz() * seconds);
 }
 
+/// @brief the highest sample rate of a T8 task with thermocouples. Above it, the CJC
+/// sensors of a T8 read LJM_DUMMY_VALUE.
+const x::telem::Rate T8_MAX_THERMOCOUPLE_RATE = 250 * x::telem::HERTZ;
+/// @brief the first T8 firmware that streams its CJC sensors.
+constexpr double T8_THERMOCOUPLE_FIRMWARE = 1.0038;
+/// @brief the first LJM version that streams the CJC sensors of a T8.
+constexpr double T8_THERMOCOUPLE_LJM = 1.2304;
+
+/// @brief returns true if the version is below the minimum. LabJack versions have four
+/// decimal places, and the device reports its firmware version as a float32.
+inline bool version_below(const double version, const double minimum) {
+    return version < minimum - 0.00005;
+}
+
 /// @brief configuration for a LabJack read task.
 struct ReadTaskConfig : common::BaseReadTaskConfig {
     const std::string device_key;
@@ -418,6 +430,11 @@ struct ReadTaskConfig : common::BaseReadTaskConfig {
     const std::size_t samples_per_chan;
     /// @brief the configurations for each channel in the task.
     std::vector<std::unique_ptr<InputChan>> channels;
+    /// @brief the registers each read requests: the port of each channel, in channel
+    /// order, then the CJC registers that no channel reads.
+    std::vector<std::string> registers;
+    /// @brief the thermocouple channels, by their position in channels.
+    std::vector<std::pair<size_t, const ThermocoupleChan *>> thermocouples;
     /// @brief the model of device being read from.
     /// Dynamically populated by querying the core.
     std::string dev_model;
@@ -435,6 +452,8 @@ struct ReadTaskConfig : common::BaseReadTaskConfig {
         indexes(std::move(other.indexes)),
         samples_per_chan(other.samples_per_chan),
         channels(std::move(other.channels)),
+        registers(std::move(other.registers)),
+        thermocouples(std::move(other.thermocouples)),
         dev_model(std::move(other.dev_model)),
         transform(std::move(other.transform)),
         device_scan_backlog_warn_on_count(other.device_scan_backlog_warn_on_count),
@@ -497,6 +516,37 @@ struct ReadTaskConfig : common::BaseReadTaskConfig {
             if (ch.index != 0) this->indexes.insert(ch.index);
             this->channels[i++]->ch = ch;
         }
+        for (const auto &ch: this->channels)
+            this->registers.push_back(ch->port);
+        for (size_t j = 0; j < this->channels.size(); ++j) {
+            auto *tc = dynamic_cast<ThermocoupleChan *>(this->channels[j].get());
+            if (tc == nullptr) continue;
+            const auto cjc = tc->cjc_register(this->dev_model);
+            const auto it = std::ranges::find(this->registers, cjc);
+            tc->cjc_index = static_cast<size_t>(it - this->registers.begin());
+            if (it == this->registers.end())
+                this->registers.push_back(cjc);
+            else if (
+                tc->cjc_index < this->channels.size() &&
+                dynamic_cast<const ThermocoupleChan *>(
+                    this->channels[tc->cjc_index].get()
+                ) != nullptr
+            )
+                parser.field_err(
+                    "channels",
+                    cjc +
+                        " is a thermocouple channel, so it cannot be the CJC "
+                        "source of " +
+                        tc->port
+                );
+            this->thermocouples.emplace_back(j, tc);
+        }
+        if (this->dev_model == T8 && !this->thermocouples.empty() &&
+            this->sample_rate > T8_MAX_THERMOCOUPLE_RATE)
+            parser.field_err(
+                "sample_rate",
+                "A T8 task with thermocouples samples at 250 Hz or less"
+            );
         auto scale_transform = std::make_unique<transform::Scale>();
         for (const auto &ch: this->channels)
             if (const auto *scale = ch->scale())
@@ -541,17 +591,72 @@ struct ReadTaskConfig : common::BaseReadTaskConfig {
         return {ReadTaskConfig(client, parser, timing_cfg), parser.error()};
     }
 
-    /// @brief returns true if the task has any thermocouples.
-    [[nodiscard]] bool has_thermocouples() const {
-        for (const auto &ch: this->channels)
-            if (dynamic_cast<ThermocoupleChan *>(ch.get())) return true;
-        return false;
+    /// @brief returns true if the task polls the device instead of streaming. A T7
+    /// cannot stream its CJC sensors, so a T7 task with thermocouples polls.
+    [[nodiscard]] bool polled() const {
+        return !this->thermocouples.empty() && this->dev_model != T8;
     }
 
+    /// @brief checks the firmware and LJM versions that the task needs, then applies
+    /// the settings of each channel to the device.
     [[nodiscard]] x::errors::Error
     apply(const std::shared_ptr<device::Device> &dev) const {
+        if (this->dev_model == T8 && !this->thermocouples.empty())
+            if (const auto err = check_t8_thermocouple_versions(*dev)) return err;
         for (const auto &ch: this->channels)
             if (const auto err = ch->apply(dev, this->dev_model)) return err;
+        return x::errors::NIL;
+    }
+
+    /// @brief converts the thermocouple voltages of one read to temperatures, in place.
+    /// @param values one value per register, in the order of registers.
+    /// @param warning set when a thermocouple is out of range.
+    [[nodiscard]] x::errors::Error convert_thermocouples(
+        const device::Device &dev,
+        double *values,
+        common::Warning &warning
+    ) const {
+        for (const auto &[i, tc]: this->thermocouples) {
+            const auto [temp, err] = tc->temperature(
+                dev,
+                values[i],
+                values[tc->cjc_index]
+            );
+            if (err) return err;
+            if (std::isnan(temp)) warning = tc->out_of_range;
+            values[i] = temp;
+        }
+        return x::errors::NIL;
+    }
+
+private:
+    /// @brief returns an error if the firmware of the T8 or the LJM library is too old
+    /// to stream the CJC sensors of the T8.
+    static x::errors::Error check_t8_thermocouple_versions(const device::Device &dev) {
+        double firmware = 0;
+        if (const auto err = dev.e_read_name("FIRMWARE_VERSION", &firmware)) return err;
+        if (version_below(firmware, T8_THERMOCOUPLE_FIRMWARE))
+            return x::errors::Error(
+                x::errors::VALIDATION,
+                std::format(
+                    "Thermocouples on a T8 need firmware {:.4f} or later, but the "
+                    "device has firmware {:.4f}. Update the firmware with Kipling.",
+                    T8_THERMOCOUPLE_FIRMWARE,
+                    firmware
+                )
+            );
+        double ljm_version = 0;
+        if (const auto err = dev.ljm_version(&ljm_version)) return err;
+        if (version_below(ljm_version, T8_THERMOCOUPLE_LJM))
+            return x::errors::Error(
+                x::errors::VALIDATION,
+                std::format(
+                    "Thermocouples on a T8 need LJM {:.4f} or later, but the Driver "
+                    "loaded LJM {:.4f}. Install the latest LJM.",
+                    T8_THERMOCOUPLE_LJM,
+                    ljm_version
+                )
+            );
         return x::errors::NIL;
     }
 };
@@ -572,8 +677,8 @@ const common::Warning DEFAULT_CALIBRATION_WARNING{
 };
 
 /// @brief a source that polls the device with one request per sample, on a software
-/// clock. Tasks with thermocouples use it, because the device converts thermocouples
-/// only outside a stream.
+/// clock. T7 tasks with thermocouples use it, because a T7 cannot stream its CJC
+/// sensors.
 class UnarySource final : public common::Source {
     /// @brief the configuration for the read task.
     ReadTaskConfig cfg;
@@ -583,9 +688,9 @@ class UnarySource final : public common::Source {
     std::shared_ptr<device::Device> dev;
     /// @brief regulates the rate of the requests.
     x::loop::Timer timer;
-    /// @brief the ports of the channels, in channel order.
-    std::vector<const char *> ports;
-    /// @brief the values of one request, in channel order.
+    /// @brief the registers of each request.
+    std::vector<const char *> registers;
+    /// @brief the values of one request, in the order of registers.
     std::vector<double> values;
 
     /// @brief acquires the device and applies the channel settings. A device that lost
@@ -601,10 +706,10 @@ class UnarySource final : public common::Source {
 
 public:
     UnarySource(const std::shared_ptr<device::Manager> &devs, ReadTaskConfig cfg):
-        cfg(std::move(cfg)), devs(devs), values(this->cfg.channels.size()) {
-        this->ports.reserve(this->cfg.channels.size());
-        for (const auto &ch: this->cfg.channels)
-            this->ports.push_back(ch->port.c_str());
+        cfg(std::move(cfg)), devs(devs), values(this->cfg.registers.size()) {
+        this->registers.reserve(this->cfg.registers.size());
+        for (const auto &reg: this->cfg.registers)
+            this->registers.push_back(reg.c_str());
     }
 
     /// @brief claims the device and applies the channel settings.
@@ -626,7 +731,7 @@ public:
         common::ReadResult res;
         if (this->dev == nullptr)
             if (res.error = this->connect(); res.error) return res;
-        const auto n_channels = this->values.size();
+        const auto n_channels = this->cfg.channels.size();
         common::initialize_frame(
             fr,
             this->cfg.channels,
@@ -640,8 +745,8 @@ public:
             const auto start = x::telem::TimeStamp::now();
             int err_addr = 0;
             if (res.error = this->dev->e_read_names(
-                    n_channels,
-                    this->ports.data(),
+                    this->registers.size(),
+                    this->registers.data(),
                     this->values.data(),
                     &err_addr
                 );
@@ -651,6 +756,13 @@ public:
                 return res;
             }
             const auto end = x::telem::TimeStamp::now();
+            if (res.error = this->cfg.convert_thermocouples(
+                    *this->dev,
+                    this->values.data(),
+                    res.warning
+                );
+                res.error)
+                return res;
             for (size_t j = 0; j < n_channels; ++j)
                 fr.series->at(j).write_casted(&this->values[j], 1);
             const auto time = x::telem::TimeStamp(end - (end - start) / 2);
@@ -669,7 +781,7 @@ public:
 };
 
 /// @brief a source that reads from the device through an LJM stream. It is much
-/// faster than polling, and tasks without thermocouples use it.
+/// faster than polling, and every task but a T7 task with thermocouples uses it.
 class StreamSource final : public common::Source {
     /// @brief the configuration for the read task.
     ReadTaskConfig cfg;
@@ -679,7 +791,8 @@ class StreamSource final : public common::Source {
     std::shared_ptr<device::Device> dev;
     /// @brief sample clock used to get timestamp information for the task.
     common::HardwareTimedSampleClock sample_clock;
-    /// @brief buffer containing interleaved data directly from device
+    /// @brief buffer containing interleaved data directly from device, with one value
+    /// per register in each scan.
     std::vector<double> interleaved_buf;
     /// @brief buffer containing channel-grouped data after deinterleaving
     std::vector<double> channel_grouped_buf;
@@ -691,34 +804,50 @@ class StreamSource final : public common::Source {
     /// buffer fills.
     /// @returns the number of scans kept.
     size_t drop_skipped_scans() {
-        const size_t n_channels = this->cfg.channels.size();
+        const size_t n_registers = this->cfg.registers.size();
         this->kept_scans.clear();
         for (size_t scan = 0; scan < this->cfg.samples_per_chan; ++scan) {
             const auto begin = this->interleaved_buf.begin() +
-                               static_cast<std::ptrdiff_t>(scan * n_channels);
-            const auto end = begin + static_cast<std::ptrdiff_t>(n_channels);
+                               static_cast<std::ptrdiff_t>(scan * n_registers);
+            const auto end = begin + static_cast<std::ptrdiff_t>(n_registers);
             if (std::find(begin, end, LJM_DUMMY_VALUE) != end) continue;
             std::copy(
                 begin,
                 end,
                 this->interleaved_buf.begin() +
-                    static_cast<std::ptrdiff_t>(this->kept_scans.size() * n_channels)
+                    static_cast<std::ptrdiff_t>(this->kept_scans.size() * n_registers)
             );
             this->kept_scans.push_back(scan);
         }
         return this->kept_scans.size();
     }
 
-    /// @brief deinterleaves the first n_scans scans of interleaved_buf into
-    /// channel_grouped_buf.
+    /// @brief converts the thermocouple voltages of the first n_scans scans of
+    /// interleaved_buf to temperatures.
+    x::errors::Error
+    convert_thermocouples(const size_t n_scans, common::Warning &warning) {
+        if (this->cfg.thermocouples.empty()) return x::errors::NIL;
+        const size_t n_registers = this->cfg.registers.size();
+        for (size_t scan = 0; scan < n_scans; ++scan)
+            if (const auto err = this->cfg.convert_thermocouples(
+                    *this->dev,
+                    this->interleaved_buf.data() + scan * n_registers,
+                    warning
+                ))
+                return err;
+        return x::errors::NIL;
+    }
+
+    /// @brief deinterleaves the channel values of the first n_scans scans of
+    /// interleaved_buf into channel_grouped_buf.
     std::vector<double> &deinterleave(const size_t n_scans) {
-        const size_t n_channels = this->cfg.channels.size();
-        if (n_channels <= 1) return this->interleaved_buf;
-        for (size_t ch = 0; ch < n_channels; ch++)
+        const size_t n_registers = this->cfg.registers.size();
+        if (n_registers == 1) return this->interleaved_buf;
+        for (size_t ch = 0; ch < this->cfg.channels.size(); ch++)
             for (size_t scan = 0; scan < n_scans; scan++)
                 this->channel_grouped_buf
                     [ch * n_scans +
-                     scan] = this->interleaved_buf[ch + scan * n_channels];
+                     scan] = this->interleaved_buf[ch + scan * n_registers];
         return this->channel_grouped_buf;
     }
 
@@ -755,14 +884,14 @@ class StreamSource final : public common::Source {
     x::errors::Error connect() {
         auto [d, acquire_err] = this->devs->acquire(this->cfg.device_key);
         if (acquire_err) return acquire_err;
-        std::vector<int> addrs(this->cfg.channels.size());
-        std::vector<const char *> ports;
-        ports.reserve(this->cfg.channels.size());
-        for (const auto &channel: this->cfg.channels)
-            ports.push_back(channel->port.c_str());
+        std::vector<int> addrs(this->cfg.registers.size());
+        std::vector<const char *> registers;
+        registers.reserve(this->cfg.registers.size());
+        for (const auto &reg: this->cfg.registers)
+            registers.push_back(reg.c_str());
         if (const auto err = d->names_to_addrs(
-                ports.size(),
-                ports.data(),
+                registers.size(),
+                registers.data(),
                 addrs.data(),
                 nullptr
             ))
@@ -792,7 +921,7 @@ public:
                 this->cfg.timing.correct_skew
             )
         ),
-        interleaved_buf(this->cfg.samples_per_chan * this->cfg.channels.size()),
+        interleaved_buf(this->cfg.samples_per_chan * this->cfg.registers.size()),
         channel_grouped_buf(this->cfg.samples_per_chan * this->cfg.channels.size()) {
         this->kept_scans.reserve(this->cfg.samples_per_chan);
     }
@@ -867,6 +996,8 @@ public:
             fr.clear();
             return res;
         }
+        if (res.error = this->convert_thermocouples(n_scans, res.warning); res.error)
+            return res;
         common::transfer_buf(this->deinterleave(n_scans), fr, n_channels, n_scans);
         this->write_index(fr, start, end);
         res.error = this->cfg.transform.transform(fr);

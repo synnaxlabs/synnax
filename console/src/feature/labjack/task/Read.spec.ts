@@ -22,6 +22,7 @@ import {
 } from "@/feature/labjack/testutil";
 import {
   awaitEditableForm,
+  clickDeploy,
   createWithHook,
   deployAndAwaitTask,
   findChannelListItem,
@@ -205,6 +206,35 @@ describe("Read", () => {
     fireEvent.click(await findDialogTriggerByText("Analog input"));
     expect(await screen.findByText("Digital input")).toBeTruthy();
     expect(screen.queryByText("Thermocouple")).toBeNull();
+  });
+
+  it("should refuse a T8 task with thermocouples above 250 Hz", async () => {
+    const dev = await createLabJackDevice(client, { model: LabJack.Device.T8_MODEL });
+    const draft = await createDraft(client, {
+      ...createConfig(dev.key, [createThermocoupleReadChannel("AIN0")]),
+      sampleRate: 500,
+    });
+    const { container } = await renderRead({ client, taskKey: draft.key });
+    await clickDeploy(container);
+    expect(
+      await screen.findByText("A T8 task with thermocouples samples at 250 Hz or less"),
+    ).toBeTruthy();
+  });
+
+  it("should allow a T7 task with thermocouples above 250 Hz", async () => {
+    const dev = await createLabJackDevice(client, { model: LabJack.Device.T7_MODEL });
+    const draft = await createDraft(client, {
+      ...createConfig(dev.key, [createThermocoupleReadChannel("AIN0")]),
+      sampleRate: 500,
+    });
+    const { container } = await renderRead({ client, taskKey: draft.key });
+    const deployed = await deployAndAwaitTask(
+      client,
+      container,
+      draft.key,
+      LabJack.Task.READ_SCHEMAS,
+    );
+    expect(deployed.config.sampleRate).toBe(500);
   });
 
   it("should show no extra detail fields for a DI channel", async () => {
