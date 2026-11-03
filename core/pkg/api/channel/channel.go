@@ -241,6 +241,11 @@ func (s *Service) Retrieve(
 	ctx context.Context,
 	req RetrieveRequest,
 ) (RetrieveResponse, error) {
+	v := validate.New("api.channel")
+	v.GreaterThanEq("offset", req.Offset, 0)
+	if err := v.Error(); err != nil {
+		return RetrieveResponse{}, err
+	}
 	var (
 		resChannels   []channel.Channel
 		aliasChannels []channel.Channel

@@ -321,6 +321,13 @@ var _ = Describe("Ontology", func() {
 			},
 		)
 
+		It("Should reject a negative limit or offset", func(ctx SpecContext) {
+			Expect(o.Search(ctx, nil, ontology.SearchQuery{Term: "valve", Limit: -1})).
+				Error().To(MatchError("limit: must be greater than or equal to 0"))
+			Expect(o.Search(ctx, nil, ontology.SearchQuery{Term: "valve", Offset: -1})).
+				Error().To(MatchError("offset: must be greater than or equal to 0"))
+		})
+
 		It("Should keep only the descendants of Root", func(ctx SpecContext) {
 			o.RegisterService(&textService{
 				typ:  ontology.ResourceTypeUser,

@@ -306,6 +306,26 @@ describe("Ontology", () => {
       expect(paths[ontology.idToString(leaf)]).toHaveLength(2);
     });
 
+    it("should drop a cached parent link that the Core no longer has", async () => {
+      const { top, mid, leaf } = await createChain();
+      const side = await client.groups.create({ parent: top, name: randomName() });
+      // A link whose delete the cache missed, as across a reconnect.
+      const stale: ontology.Relationship = {
+        from: group.ontologyID(side.key),
+        type: ontology.PARENT_OF_RELATIONSHIP_TYPE,
+        to: leaf,
+      };
+      client.ontology.cache.relationships.set(
+        ontology.relationshipToString(stale),
+        stale,
+      );
+      const { paths } = await client.ontology.ancestors.retrieve({
+        ids: leaf,
+        root: top,
+      });
+      expect(paths[ontology.idToString(leaf)]).toEqual([[mid]]);
+    });
+
     describe("onChange", () => {
       beforeAll(async () => await client.connect());
 
@@ -328,6 +348,26 @@ describe("Ontology", () => {
             })
             .toEqual([[sideID]]);
           expect(handler).toHaveBeenCalled();
+        } finally {
+          off();
+        }
+      });
+
+      it("should follow a remote move to the root", async () => {
+        const { top, mid, leaf } = await createChain();
+        const params = { ids: leaf, root: top };
+        const off = client.ontology.ancestors.onChange(params, () => {});
+        try {
+          await client.ontology.ancestors.retrieve(params);
+          await remote.ontology.moveChildren(mid, top, leaf);
+          await expect
+            .poll(() => {
+              const cached = client.ontology.ancestors.getCached(params);
+              return query.isLive(cached)
+                ? cached.paths[ontology.idToString(leaf)]
+                : null;
+            })
+            .toEqual([[]]);
         } finally {
           off();
         }

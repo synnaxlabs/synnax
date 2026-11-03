@@ -208,12 +208,14 @@ func (s *Service) retrieveAncestors(
 	if len(ids) == 0 {
 		return ancestors, nil
 	}
-	err := s.ontology.NewRetrieve().
+	if err := s.ontology.NewRetrieve().
 		WhereIDs(ids...).
 		ExcludeFieldData(req.ExcludeFieldData).
 		Entries(&ancestors).
-		Exec(ctx, nil)
-	return ancestors, err
+		Exec(ctx, nil); err != nil {
+		return nil, err
+	}
+	return ancestors, nil
 }
 
 type AddChildrenRequest struct {
