@@ -19,9 +19,9 @@ cc_library(
     deps = [
         "//driver/errors",
         "//driver/labjack/ljm:ljm_official",
-        "@abseil-cpp//absl/log",
         "//x/cpp/lib",
         "//x/cpp/os",
+        "@abseil-cpp//absl/log",
     ],
 )
 
