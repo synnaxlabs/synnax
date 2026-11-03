@@ -327,8 +327,8 @@ const bindNodeCommands = async (
 };
 
 /**
- * @returns the new command channel of each method that has no channel, or whose command
- * now takes another type.
+ * @returns the new command channel of each enabled method that has no channel, or whose
+ * command now takes another type.
  */
 const createMethodCommands = async (
   client: Synnax,
@@ -345,6 +345,7 @@ const createMethodCommands = async (
       .flatMap((name) => [name, `${name}_time`]),
   );
   for (const method of methods) {
+    if (method.disabled) continue;
     const dataType = commandDataType(method.arguments);
     let replaced: string | undefined;
     if (method.cmdChannel !== 0)

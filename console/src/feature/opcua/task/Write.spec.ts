@@ -411,6 +411,30 @@ describe("Write", () => {
       ]);
     });
 
+    it("should give a disabled method no command channel", async () => {
+      const dev = await createOPCDevice(client);
+      const nodeName = createMethodName();
+      const name = `${nodeName}_cmd`;
+      const draft = await createDraft(
+        client,
+        createWriteConfig(dev.key, [
+          { ...createMethodChannel(nodeName, [MODE, SPEED]), name },
+          { ...createMethodChannel(nodeName, [MODE, SPEED]), name, disabled: true },
+        ]),
+      );
+      const { container } = await renderWrite({ client, taskKey: draft.key });
+      await screen.findAllByText(`Call ${nodeName}`);
+      const { config } = await deployAndAwaitTask(
+        client,
+        container,
+        draft.key,
+        OPCUA.Task.WRITE_SCHEMAS,
+      );
+      expect(config.channels[1].cmdChannel).toBe(0);
+      const cmd = await client.channels.retrieve(config.channels[0].cmdChannel);
+      expect(cmd.name).toBe(name);
+    });
+
     it("should replace the command channel when the command moves to an argument of another type", async () => {
       const dev = await createOPCDevice(client);
       const ch = createMethodChannel(createMethodName(), [MODE, SPEED]);
