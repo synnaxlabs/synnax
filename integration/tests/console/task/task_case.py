@@ -7,7 +7,7 @@
 #  License, use of this software will be governed by the Apache License, Version 2.0,
 #  included in the file licenses/APL.txt.
 
-from typing import Any, TypeVar, Unpack
+from typing import TypeVar, Unpack
 
 from pydantic import JsonValue
 
@@ -28,7 +28,7 @@ PageT = TypeVar("PageT", bound=TaskPage)
 REJECTED_LEVELS = ("error", "warning")
 
 
-def _keys_in(value: Any) -> set[int]:
+def _keys_in(value: JsonValue) -> set[int]:
     """Collect every integer nested in a device property subtree."""
     if isinstance(value, bool):
         return set()
