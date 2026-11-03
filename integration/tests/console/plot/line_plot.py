@@ -23,12 +23,14 @@ class LinePlot(ConsoleCase):
     _shared_plot_name: str | None
     ctx_plot_name: str | None
     ctx_plot_link: str
+    _annotation: sy.Range | None
 
     def setup(self) -> None:
         super().setup()
         self.suffix = random_name()
         self._shared_plot_name = None
         self.ctx_plot_name = None
+        self._annotation = None
 
         ctx_plot = self.console.pages.create(Plot, f"Context Menu Test {self.suffix}")
         self.ctx_plot_name = ctx_plot.page_name
@@ -40,7 +42,11 @@ class LinePlot(ConsoleCase):
             self._cleanup_pages.append(self._shared_plot_name)
         if self.ctx_plot_name is not None:
             self._cleanup_pages.append(self.ctx_plot_name)
-        super().teardown()
+        try:
+            if self._annotation is not None:
+                self.client.ranges.delete(self._annotation.key)
+        finally:
+            super().teardown()
 
     def run(self) -> None:
         """Run all line plot tests."""
@@ -65,11 +71,12 @@ class LinePlot(ConsoleCase):
         self.test_drag_channel_to_toolbar(plot)
         self.test_download_csv(plot, data_name=data_name)
         self.test_create_range_from_selection(plot, suffix=suffix)
-        annotation = self._create_annotation_range(suffix)
+        self._annotation = self._create_annotation_range(suffix)
         self.test_toggle_range_annotation_visibility(plot)
         self.test_click_range_to_zoom(plot)
-        self.test_view_range_details(plot, range_name=annotation.name)
-        self.client.ranges.delete(annotation.key)
+        self.test_view_range_details(plot, range_name=self._annotation.name)
+        self.client.ranges.delete(self._annotation.key)
+        self._annotation = None
         self.test_export_json(plot, data_name=data_name)
 
         plot_link = self.test_copy_link(plot)
