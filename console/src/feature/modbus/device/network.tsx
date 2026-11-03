@@ -9,9 +9,9 @@
 
 import { Icon } from "@synnaxlabs/lyra/icon";
 
+import { SCAN_TYPE } from "@/feature/modbus/device/scan";
 import { INTEGRATION, MAKE } from "@/feature/modbus/device/types";
 import { Connect } from "@/feature/modbus/device/useConnectModal";
-import { SCAN_TYPE } from "@/feature/modbus/task/types";
 import { type Device } from "@/platform/device";
 
 export const NETWORK: Device.Network = {

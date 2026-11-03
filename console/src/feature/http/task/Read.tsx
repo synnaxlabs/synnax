@@ -19,9 +19,7 @@ import { Select } from "@synnaxlabs/lyra/select";
 import { DataType, deep, id } from "@synnaxlabs/x";
 import { type FC } from "react";
 
-import { useFromConfig } from "@/feature/http/device/queries";
-import { Select as SelectDevice } from "@/feature/http/device/Select";
-import { MAKE, SCHEMAS } from "@/feature/http/device/types";
+import { Device } from "@/feature/http/device";
 import { EndpointLabel } from "@/feature/http/task/EndpointLabel";
 import {
   deployReadConfigZ,
@@ -49,7 +47,7 @@ const NAN_FILL_INPUT_PROPS = {
 
 const Properties = () => (
   <>
-    <SelectDevice />
+    <Device.Select />
     <Flex.Box x grow>
       <PForm.NumericField
         path={root.config.rate}
@@ -73,7 +71,7 @@ const defaultChannelName = (devName: string, epPath: string, pointer: string): s
 
 const useDefaultChannelName = (endpoint: deep.Path<ReadEndpoint>, pointer: string) => {
   const epPath = PForm.useFieldValue(endpoint.path);
-  const dev = useFromConfig();
+  const dev = Device.useFromConfig();
   return dev == null ? "" : defaultChannelName(dev.name, epPath, pointer);
 };
 
@@ -265,7 +263,7 @@ const fieldDetails = Component.renderProp(
 
 const Form: FC = () => {
   const endpoints = PForm.useFieldValue(root.config.endpoints);
-  const read = useFromConfig()?.properties.read ?? null;
+  const read = Device.useFromConfig()?.properties.read ?? null;
   return (
     <>
       <Task.Views.GroupTree<ReadEndpoint, ReadField>
@@ -304,7 +302,7 @@ const getInitialValues: Task.GetInitialValues<ReadSchemas> = ({
 const onConfigure: Task.OnConfigure<ReadSchemas["config"]> = async (client, config) => {
   const dev = await client.devices.retrieve({
     key: config.device,
-    schemas: SCHEMAS,
+    schemas: Device.SCHEMAS,
   });
   const safeDevName = channel.escapeInvalidName(dev.name);
   const saved = deep.copy(dev.properties);
@@ -320,7 +318,8 @@ const onConfigure: Task.OnConfigure<ReadSchemas["config"]> = async (client, conf
         indexed: (f) => !isTimingField(f) && !new DataType(f.dataType).isVariable,
       });
   } finally {
-    if (!deep.equal(saved, dev.properties)) await client.devices.create(dev, SCHEMAS);
+    if (!deep.equal(saved, dev.properties))
+      await client.devices.create(dev, Device.SCHEMAS);
   }
   return [config, dev.rack];
 };
@@ -336,7 +335,7 @@ export const Read = Task.wrapForm({
 
 export const useCreateRead = Task.createUseCreate({
   getInitialValues,
-  deviceMake: MAKE,
+  deviceMake: Device.MAKE,
 });
 
 export const ReadSelectable = Selector.createSelectable({

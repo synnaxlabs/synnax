@@ -88,12 +88,12 @@ const CONTEXT_MENU_ITEMS: Record<
   ComponentType<PlatformDevice.ContextMenuItemsProps>
 > = {
   [EtherCAT.Device.MAKE]: EtherCAT.Device.ContextMenuItems,
-  [HTTP.Device.MAKE]: HTTP.Device.ContextMenuItems,
+  [HTTP.Device.MAKE]: HTTP.ContextMenuItems,
   [LabJack.Device.MAKE]: LabJack.Device.ContextMenuItems,
-  [Modbus.Device.MAKE]: Modbus.Device.ContextMenuItems,
+  [Modbus.Device.MAKE]: Modbus.ContextMenuItems,
   [MQTT.Device.MAKE]: MQTT.Device.ContextMenuItems,
   [NI.Device.MAKE]: NI.Device.ContextMenuItems,
-  [OPCUA.Device.MAKE]: OPCUA.Device.ContextMenuItems,
+  [OPCUA.Device.MAKE]: OPCUA.ContextMenuItems,
 };
 
 export interface ContextMenuItemsProps extends Tree.ContextMenuProps {

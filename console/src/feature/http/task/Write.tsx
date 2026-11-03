@@ -19,9 +19,7 @@ import { Text } from "@synnaxlabs/lyra/text";
 import { deep, id, primitive } from "@synnaxlabs/x";
 import { type FC, useState } from "react";
 
-import { useFromConfig } from "@/feature/http/device/queries";
-import { Select as SelectDevice } from "@/feature/http/device/Select";
-import { MAKE, SCHEMAS } from "@/feature/http/device/types";
+import { Device } from "@/feature/http/device";
 import { EndpointLabel } from "@/feature/http/task/EndpointLabel";
 import {
   deployWriteConfigZ,
@@ -39,7 +37,7 @@ import { Task } from "@/platform/task";
 
 const root = deep.path<Task.Values<WriteSchemas>>();
 
-const Properties = () => <SelectDevice />;
+const Properties = () => <Device.Select />;
 
 const MethodSelect: FC<{ path: deep.Target<http.Method> }> = ({ path }) => (
   <PForm.Field path={path} label="Method">
@@ -148,7 +146,7 @@ const duplicateEndpoints = (
 
 const Form: FC = () => {
   const [selected, setSelected] = useState<string[]>([]);
-  const dev = useFromConfig();
+  const dev = Device.useFromConfig();
   const resolve = (ep: WriteEndpoint) =>
     dev == null
       ? null
@@ -202,7 +200,7 @@ const onConfigure: Task.OnConfigure<WriteSchemas["config"]> = async (
 ) => {
   const dev = await client.devices.retrieve({
     key: config.device,
-    schemas: SCHEMAS,
+    schemas: Device.SCHEMAS,
   });
   const safeDevName = channel.escapeInvalidName(dev.name);
   const saved = deep.copy(dev.properties);
@@ -223,7 +221,8 @@ const onConfigure: Task.OnConfigure<WriteSchemas["config"]> = async (
       );
     }
   } finally {
-    if (!deep.equal(saved, dev.properties)) await client.devices.create(dev, SCHEMAS);
+    if (!deep.equal(saved, dev.properties))
+      await client.devices.create(dev, Device.SCHEMAS);
   }
   return [config, dev.rack];
 };
@@ -239,7 +238,7 @@ export const Write = Task.wrapForm({
 
 export const useCreateWrite = Task.createUseCreate({
   getInitialValues,
-  deviceMake: MAKE,
+  deviceMake: Device.MAKE,
 });
 
 export const WriteSelectable = Selector.createSelectable({

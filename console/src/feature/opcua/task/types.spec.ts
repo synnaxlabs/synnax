@@ -15,23 +15,23 @@ import { SERVER_CERTIFICATE } from "@/feature/opcua/testutil";
 
 describe("OPC UA Scan Task Types", () => {
   it("should parse null scan config as empty object", () => {
-    const result = OPCUA.Task.SCAN_SCHEMAS.config.safeParse(null);
+    const result = OPCUA.Device.SCAN_SCHEMAS.config.safeParse(null);
     expect(result.success).toBe(true);
     expect(result.data).toEqual({});
   });
 
   it("should parse undefined scan config as empty object", () => {
-    const result = OPCUA.Task.SCAN_SCHEMAS.config.safeParse(undefined);
+    const result = OPCUA.Device.SCAN_SCHEMAS.config.safeParse(undefined);
     expect(result.success).toBe(true);
     expect(result.data).toEqual({});
   });
 
   it("should accept null statusData", () => {
-    expect(z.validate(OPCUA.Task.SCAN_SCHEMAS.statusData, null)).toBe(true);
+    expect(z.validate(OPCUA.Device.SCAN_SCHEMAS.statusData, null)).toBe(true);
   });
 
   it("should accept undefined statusData", () => {
-    expect(z.validate(OPCUA.Task.SCAN_SCHEMAS.statusData, undefined)).toBe(true);
+    expect(z.validate(OPCUA.Device.SCAN_SCHEMAS.statusData, undefined)).toBe(true);
   });
 });
 
@@ -174,7 +174,7 @@ describe("OPC UA Write Task Config Validation", () => {
 
 describe("Scanned Nodes", () => {
   it("should default a scanned node's key to its node ID", () => {
-    const result = OPCUA.Task.SCAN_SCHEMAS.statusData.parse({
+    const result = OPCUA.Device.SCAN_SCHEMAS.statusData.parse({
       channels: [
         {
           dataType: "float32",
@@ -192,12 +192,12 @@ describe("Scanned Nodes", () => {
 describe("Scan command replies", () => {
   it("should parse a certificate reply", () => {
     const reply = { current: SERVER_CERTIFICATE, next: SERVER_CERTIFICATE };
-    expect(OPCUA.Task.SCAN_SCHEMAS.statusData.parse(reply)).toEqual(reply);
+    expect(OPCUA.Device.SCAN_SCHEMAS.statusData.parse(reply)).toEqual(reply);
   });
 
   it("should parse a failed test connection reply with the server certificate", () => {
     const reply = { serverCertificate: SERVER_CERTIFICATE };
-    expect(OPCUA.Task.SCAN_SCHEMAS.statusData.parse(reply)).toEqual(reply);
+    expect(OPCUA.Device.SCAN_SCHEMAS.statusData.parse(reply)).toEqual(reply);
   });
 });
 

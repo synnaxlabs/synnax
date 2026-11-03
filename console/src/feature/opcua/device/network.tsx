@@ -9,9 +9,9 @@
 
 import { Icon } from "@synnaxlabs/lyra/icon";
 
+import { SCAN_TYPE } from "@/feature/opcua/device/scan";
 import { INTEGRATION, MAKE } from "@/feature/opcua/device/types";
 import { Connect } from "@/feature/opcua/device/useConnectModal";
-import { SCAN_TYPE } from "@/feature/opcua/task/types";
 import { type Device } from "@/platform/device";
 
 export const NETWORK: Device.Network = {

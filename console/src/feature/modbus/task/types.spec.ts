@@ -14,23 +14,23 @@ import { Modbus } from "@/feature/modbus";
 
 describe("Modbus Scan Task Types", () => {
   it("should parse null scan config as empty object", () => {
-    const result = Modbus.Task.SCAN_SCHEMAS.config.safeParse(null);
+    const result = Modbus.Device.SCAN_SCHEMAS.config.safeParse(null);
     expect(result.success).toBe(true);
     expect(result.data).toEqual({});
   });
 
   it("should parse undefined scan config as empty object", () => {
-    const result = Modbus.Task.SCAN_SCHEMAS.config.safeParse(undefined);
+    const result = Modbus.Device.SCAN_SCHEMAS.config.safeParse(undefined);
     expect(result.success).toBe(true);
     expect(result.data).toEqual({});
   });
 
   it("should accept null statusData", () => {
-    expect(z.validate(Modbus.Task.SCAN_SCHEMAS.statusData, null)).toBe(true);
+    expect(z.validate(Modbus.Device.SCAN_SCHEMAS.statusData, null)).toBe(true);
   });
 
   it("should accept undefined statusData", () => {
-    expect(z.validate(Modbus.Task.SCAN_SCHEMAS.statusData, undefined)).toBe(true);
+    expect(z.validate(Modbus.Device.SCAN_SCHEMAS.statusData, undefined)).toBe(true);
   });
 });
 

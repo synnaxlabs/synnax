@@ -12,13 +12,7 @@ import { Select } from "@synnaxlabs/lyra/select";
 import { DataType, deep, Density } from "@synnaxlabs/x";
 import { type CSSProperties, type ReactElement } from "react";
 
-import { useFromConfig } from "@/feature/modbus/device/queries";
-import {
-  BYTE_ORDERS,
-  type ByteOrder,
-  byteOrderOf,
-  swapsOf,
-} from "@/feature/modbus/device/types";
+import { Device } from "@/feature/modbus/device";
 import {
   MENU_PROPS,
   Option,
@@ -26,9 +20,9 @@ import {
 } from "@/feature/modbus/task/Register";
 import { CSS } from "@/platform/css";
 
-type Order = "device" | ByteOrder;
+type Order = "device" | Device.ByteOrder;
 
-const ORDER_NAMES: Record<ByteOrder, string> = {
+const ORDER_NAMES: Record<Device.ByteOrder, string> = {
   ABCD: "Big-endian",
   BADC: "Byte swap",
   CDAB: "Word swap",
@@ -36,12 +30,12 @@ const ORDER_NAMES: Record<ByteOrder, string> = {
 };
 
 // A word has no word order, so its one swap reverses its bytes.
-const WORD_ORDERS: ByteOrder[] = ["ABCD", "DCBA"];
+const WORD_ORDERS: Device.ByteOrder[] = ["ABCD", "DCBA"];
 
 // The bytes in the order the device sends them, as letters with A the most
 // significant. The Driver reads the low word first unless the words are swapped.
-const wireOrder = (size: number, order: ByteOrder): string[] => {
-  const { swapBytes, swapWords } = swapsOf(order);
+const wireOrder = (size: number, order: Device.ByteOrder): string[] => {
+  const { swapBytes, swapWords } = Device.swapsOf(order);
   const pairs: string[][] = [];
   for (let i = 0; i < Math.max(size, 2); i += 2)
     pairs.push([String.fromCharCode(65 + i), String.fromCharCode(66 + i)]);
@@ -53,8 +47,12 @@ const orderOf = (
   multiWord: boolean,
   swapBytes: boolean,
   swapWords: boolean,
-): ByteOrder =>
-  multiWord ? byteOrderOf({ swapBytes, swapWords }) : swapBytes ? "DCBA" : "ABCD";
+): Device.ByteOrder =>
+  multiWord
+    ? Device.byteOrderOf({ swapBytes, swapWords })
+    : swapBytes
+      ? "DCBA"
+      : "ABCD";
 
 const GLYPH_WIDTH = 30;
 
@@ -114,7 +112,7 @@ export const ByteOrderField = ({
   path,
   dataType,
 }: ByteOrderFieldProps): ReactElement => {
-  const connection = useFromConfig()?.properties.connection;
+  const connection = Device.useFromConfig()?.properties.connection;
   const ctx = Form.useContext();
   const { bytesSwapped: bytesPath, wordsSwapped: wordsPath } = deep.widen(path);
   const bytesSwapped = Form.useFieldValue(bytesPath, { optional: true });
@@ -134,7 +132,7 @@ export const ByteOrderField = ({
       ctx.set(wordsPath, undefined);
       return;
     }
-    const { swapBytes, swapWords } = swapsOf(next);
+    const { swapBytes, swapWords } = Device.swapsOf(next);
     ctx.set(bytesPath, swapBytes);
     ctx.set(wordsPath, multiWord ? swapWords : undefined);
   };
@@ -155,7 +153,7 @@ export const ByteOrderField = ({
           description={ORDER_NAMES[device]}
         />
       </Select.Item>
-      {(multiWord ? BYTE_ORDERS : WORD_ORDERS).map((order) => {
+      {(multiWord ? Device.BYTE_ORDERS : WORD_ORDERS).map((order) => {
         const wire = wireOrder(size, order);
         return (
           <Select.Item<Order> key={order} itemKey={order}>

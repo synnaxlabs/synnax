@@ -16,15 +16,7 @@ import { Access } from "@synnaxlabs/pluto";
 import { caseconv, deep, errors, primitive } from "@synnaxlabs/x";
 import { type FC } from "react";
 
-import { type HaulItem } from "@/feature/opcua/device/Browser";
-import { Select } from "@/feature/opcua/device/Select";
-import {
-  type Device,
-  MAKE,
-  migrateProperties,
-  type Properties as DeviceProperties,
-  SCHEMAS,
-} from "@/feature/opcua/device/types";
+import { Device } from "@/feature/opcua/device";
 import { type ChannelKeyAndIDGetter, createForm } from "@/feature/opcua/task/Form";
 import {
   deployWriteConfigZ,
@@ -39,9 +31,9 @@ import { Task } from "@/platform/task";
 
 const path = deep.path<Task.Values<WriteSchemas>>();
 
-const Properties = () => <Select />;
+const Properties = () => <Device.Select />;
 
-const convertHaulItemToChannel = ({ data }: HaulItem): WriteChannel => ({
+const convertHaulItemToChannel = ({ data }: Device.HaulItem): WriteChannel => ({
   key: data.nodeId,
   nodeName: data.name,
   nodeId: data.nodeId,
@@ -78,10 +70,10 @@ const ContextMenuItem: React.FC<ContextMenuItemProps> = ({ channels, keys }) => 
 
 const contextMenuItems = Component.renderProp(ContextMenuItem);
 
-const getChannelByNodeID = (props: DeviceProperties, nodeId: string) =>
+const getChannelByNodeID = (props: Device.Properties, nodeId: string) =>
   props.write.channels[nodeId] ?? props.write.channels[caseconv.snakeToCamel(nodeId)];
 
-const resolve = (device: Device, { nodeId }: WriteChannel) => ({
+const resolve = (device: Device.Device, { nodeId }: WriteChannel) => ({
   cmdChannel: getChannelByNodeID(device.properties, nodeId) ?? 0,
 });
 
@@ -108,10 +100,10 @@ const onConfigure: Task.OnConfigure<WriteSchemas["config"]> = async (
 ) => {
   let dev = await client.devices.retrieve({
     key: config.device,
-    schemas: SCHEMAS,
+    schemas: Device.SCHEMAS,
   });
   try {
-    dev = { ...dev, properties: migrateProperties(dev.properties) };
+    dev = { ...dev, properties: Device.migrateProperties(dev.properties) };
     const commandsToCreate: WriteChannel[] = [];
     for (const channel of config.channels) {
       const key = getChannelByNodeID(dev.properties, channel.nodeId);
@@ -160,7 +152,7 @@ const onConfigure: Task.OnConfigure<WriteSchemas["config"]> = async (
       cmdChannel: getChannelByNodeID(dev.properties, c.nodeId),
     }));
   } finally {
-    await client.devices.create(dev, SCHEMAS);
+    await client.devices.create(dev, Device.SCHEMAS);
   }
   return [config, dev.rack];
 };
@@ -176,7 +168,7 @@ export const Write = Task.wrapForm({
 
 export const useCreateWrite = Task.createUseCreate({
   getInitialValues,
-  deviceMake: MAKE,
+  deviceMake: Device.MAKE,
 });
 
 export const WriteSelectable = Selector.createSelectable({

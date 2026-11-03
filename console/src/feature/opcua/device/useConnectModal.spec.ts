@@ -28,34 +28,34 @@ import { captureBrowserDownloads, uniqueName } from "@/testutil";
 
 const client = createTestClient();
 
-const DRIVER_CERTIFICATE: OPCUA.Task.CertificateInfo = {
+const DRIVER_CERTIFICATE: OPCUA.Device.CertificateInfo = {
   ...SERVER_CERTIFICATE,
   subject: "CN=Synnax Driver",
   thumbprint: "0123456789ABCDEF0123456789ABCDEF01234567",
   notAfter: "2029-01-15T00:00:00Z",
 };
 
-const NEXT_DRIVER_CERTIFICATE: OPCUA.Task.CertificateInfo = {
+const NEXT_DRIVER_CERTIFICATE: OPCUA.Device.CertificateInfo = {
   ...DRIVER_CERTIFICATE,
   thumbprint: "89ABCDEF0123456789ABCDEF0123456789ABCDEF",
   notAfter: "2032-01-15T00:00:00Z",
 };
 
-const TEST_CONNECTION = { type: OPCUA.Task.TEST_CONNECTION_COMMAND_TYPE };
+const TEST_CONNECTION = { type: OPCUA.Device.TEST_CONNECTION_COMMAND_TYPE };
 
 const createScanTask = async (rck: rack.Rack) =>
   await rck.createTask({
     name: uniqueName("opcua_scan"),
-    type: OPCUA.Task.SCAN_TYPE,
+    type: OPCUA.Device.SCAN_TYPE,
     config: {},
   });
 
 const answerGetCertificate = async (
   scan: task.Task,
-  next?: OPCUA.Task.CertificateInfo,
+  next?: OPCUA.Device.CertificateInfo,
 ) =>
   await answerNextCommand(client, scan, {
-    type: OPCUA.Task.GET_CERTIFICATE_COMMAND_TYPE,
+    type: OPCUA.Device.GET_CERTIFICATE_COMMAND_TYPE,
     data: { current: DRIVER_CERTIFICATE, next },
   });
 
@@ -304,7 +304,7 @@ describe("OPCUA.Device.useConnectModal", () => {
     await loaded.answered;
     await screen.findByText("Expires 2029-01-15");
     const regenerated = await answerNextCommand(client, scan, {
-      type: OPCUA.Task.REGENERATE_CERTIFICATE_COMMAND_TYPE,
+      type: OPCUA.Device.REGENERATE_CERTIFICATE_COMMAND_TYPE,
       data: { current: NEXT_DRIVER_CERTIFICATE },
     });
     fireEvent.click(findButton("Regenerate"));
