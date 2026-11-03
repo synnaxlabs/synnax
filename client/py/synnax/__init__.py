@@ -70,12 +70,14 @@ from synnax.framer import (
     WriterClosed,
     WriterMode,
 )
+from synnax.label import Label
 from synnax.options import Options
 from synnax.project import Project
 from synnax.rack import Rack
 from synnax.ranger import Range
 from synnax.status import Status
 from synnax.synnax import Synnax
+from synnax.table import Table
 from synnax.task import Task
 from synnax.telem import (
     Aggregation,
@@ -155,6 +157,7 @@ __all__ = [
     "InvalidLicense",
     "InvalidToken",
     "Iterator",
+    "Label",
     "LicenseEditionMismatch",
     "LicenseError",
     "LicenseFingerprintMismatch",
@@ -185,6 +188,7 @@ __all__ = [
     "Streamer",
     "StrideReduction",
     "Synnax",
+    "Table",
     "Task",
     "Text",
     "TimeRange",
@@ -206,6 +210,7 @@ __all__ = [
     "ethercat",
     "group",
     "http",
+    "label",
     "labjack",
     "license",
     "modbus",

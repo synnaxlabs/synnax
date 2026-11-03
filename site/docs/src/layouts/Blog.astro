@@ -8,7 +8,12 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
+import { Text } from "@synnaxlabs/lyra/text";
+
 import Article from "@/components/article/Article.astro";
+import DownloadButton from "@/components/desktop/DownloadButton.astro";
+import still from "@/components/hero/stills/console/visualize/hero.json";
+import { Image } from "@/components/media/Media";
 import OnThisPage from "@/components/nav/OnThisPage.astro";
 import OutlineBar from "@/components/nav/OutlineBar.astro";
 import Root from "@/layouts/Root.astro";
@@ -19,6 +24,8 @@ const { headings, frontmatter } = Astro.props;
 const { title, heading, description, published, author, authorImage, authorLink } =
     frontmatter;
 const route = normalizeRoute(Astro.url.pathname);
+// Flagged posts render on request, so a post stays readable when GitHub is down.
+const desktop = await Astro.locals.releases.latest("desktop").catch(() => null);
 const shown = outlined(headings);
 const organization = {
     "@type": "Organization",
@@ -52,7 +59,7 @@ const posting = {
         set:html={JSON.stringify(posting).replaceAll("<", "\\u003c")}
     />
     <OutlineBar slot="subheader" headings={shown} outline={frontmatter.outline} />
-    <section>
+    <section class="blog-post">
         <Article
             url={route}
             title={heading ?? title}
@@ -64,6 +71,27 @@ const posting = {
             authorLink={authorLink}
         >
             <slot />
+            {desktop != null && (
+                <aside class="blog-download">
+                    <div class="blog-download__text">
+                        <Text.Text level="h3" el="p">
+                            Try Synnax Desktop
+                        </Text.Text>
+                        <Text.Text level="p" color={9} className="blog-download__body">
+                            Free for any use, including commercial use, up to 50
+                            channels. On macOS and Windows.
+                        </Text.Text>
+                        <DownloadButton location="blog" />
+                    </div>
+                    <div class="blog-download__window">
+                        <Image
+                            id={`console/visualize/hero/${still.version}/window`}
+                            extension="webp"
+                            alt="The Synnax Console"
+                        />
+                    </div>
+                </aside>
+            )}
         </Article>
         <OnThisPage headings={shown} outline={frontmatter.outline} hideFeedback>
             <div class="blog-human-note">
@@ -74,6 +102,26 @@ const posting = {
 </Root>
 
 <style is:global>
+    /* Where the right gutter fits the outline, the text column centers on the page
+       and the outline hangs in the gutter. */
+    @media (width >= 1440px) {
+        main > section.blog-post {
+            display: grid;
+            grid-template-columns: minmax(0, 1fr) 138rem minmax(0, 1fr);
+            gap: 0;
+            max-width: none;
+
+            & > article {
+                grid-column: 2;
+            }
+
+            & > nav.on-this-page {
+                grid-column: 3;
+                margin-left: clamp(4rem, 50vw - 700px, 8rem);
+            }
+        }
+    }
+
     .blog-meta {
         position: absolute;
         top: 5rem;
@@ -95,6 +143,92 @@ const posting = {
         padding-top: 2rem;
     }
 
+    .blog-download {
+        --base: var(--pluto-gray-l1);
+        --bloom: 14%;
+        position: relative;
+        overflow: hidden;
+        container-type: inline-size;
+        min-height: 42rem;
+        margin-top: 6rem;
+        border: var(--pluto-border);
+        border-radius: 2rem;
+        background:
+            radial-gradient(
+                80% 110% at 100% 0%,
+                rgb(55 116 208 / var(--bloom)),
+                transparent 70%
+            ),
+            var(--base);
+    }
+
+    @media (prefers-color-scheme: dark) {
+        .blog-download {
+            --base: #181b27;
+            --bloom: 30%;
+        }
+    }
+
+    .blog-download__text {
+        display: flex;
+        flex-direction: column;
+        gap: 1.5rem;
+        width: 50%;
+        padding: 6rem 3rem 6rem 6rem;
+    }
+
+    .blog-download__body {
+        line-height: 1.5;
+    }
+
+    .blog-download .docs-download {
+        justify-content: flex-start;
+        margin: 2rem 0 0;
+    }
+
+    .blog-download .docs-download > * {
+        align-items: flex-start;
+    }
+
+    .blog-download__window {
+        position: absolute;
+        top: 7rem;
+        left: 52%;
+        width: 92rem;
+        overflow: hidden;
+        border-radius: 1rem;
+        box-shadow:
+            0 0 0 1px var(--pluto-gray-l4),
+            0 16px 40px -20px rgb(0 0 0 / 30%);
+    }
+
+    .blog-download__window img {
+        display: block;
+        width: 100%;
+        height: auto;
+        margin: 0;
+        border: none;
+        border-radius: 0;
+        box-shadow: none;
+    }
+
+    /* Narrow posts stack the window under the text, running off the right edge. */
+    @container (width < 90rem) {
+        .blog-download__text {
+            width: 100%;
+            padding: 5rem 4rem 0;
+        }
+
+        .blog-download__window {
+            position: relative;
+            top: auto;
+            left: auto;
+            height: 34rem;
+            margin: 5rem 0 0 4rem;
+            border-bottom-left-radius: 0;
+        }
+    }
+
     .blog-author {
         margin-bottom: 4rem;
         display: flex;
@@ -104,8 +238,8 @@ const posting = {
     }
 
     .blog-author__photo {
-        width: 6rem;
-        height: 6rem;
+        width: 5rem;
+        height: 5rem;
         border-radius: 50%;
         object-fit: cover;
         object-position: center 20%;

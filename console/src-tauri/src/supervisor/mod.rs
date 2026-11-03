@@ -13,6 +13,7 @@
 mod backup;
 pub mod commands;
 mod diagnostics;
+pub mod discovery;
 mod launch;
 pub mod probe;
 mod reset;
@@ -33,6 +34,9 @@ use tokio::task::JoinHandle;
 
 /// The line that asks the Core to stop.
 const STOP_LINE: &[u8] = b"stop\n";
+
+/// The name of the Core config file in the work directory.
+const CONFIG_FILE: &str = "core.json";
 
 /// Configures a [`Supervisor`].
 #[derive(Clone)]
@@ -183,6 +187,12 @@ impl Supervisor {
     /// Starts the supervisor and the first Core on the current Tokio runtime.
     pub fn open(cfg: Config) -> io::Result<Self> {
         let password = launch::password()?;
+        // A config that cannot be read only costs the preference: the spawn writes a
+        // new one.
+        let port = launch::saved_port(&cfg.work_dir.join(CONFIG_FILE)).unwrap_or_else(|err| {
+            eprintln!("failed to read the port of the last launch: {err}");
+            None
+        });
         std::fs::create_dir_all(&cfg.work_dir)?;
         std::fs::create_dir_all(&cfg.data_dir)?;
         std::fs::create_dir_all(&cfg.log_dir)?;
@@ -192,7 +202,7 @@ impl Supervisor {
         let task = Task {
             cfg,
             password,
-            port: None,
+            port,
             status: status_tx,
             history: history_tx,
             requests: requests_rx,
@@ -269,8 +279,8 @@ enum Outcome {
 struct Task {
     cfg: Config,
     password: String,
-    /// The port of the last Core that became ready. The next Core reuses it, so the
-    /// clients of the launch reconnect to the address they know.
+    /// The port of the last Core that became ready, first from the last launch. The
+    /// next Core reuses it, so clients reconnect to the address they know.
     port: Option<u16>,
     status: watch::Sender<Status>,
     history: watch::Sender<History>,
@@ -524,7 +534,7 @@ impl Task {
 
     fn spawn(&self) -> io::Result<(Child, u16)> {
         let port = launch::port(self.port)?;
-        let config = self.cfg.work_dir.join("core.json");
+        let config = self.cfg.work_dir.join(CONFIG_FILE);
         launch::write_config(&config, port, &self.cfg.data_dir, &self.cfg.log_dir)?;
         let mut cmd = Command::new(&self.cfg.program);
         cmd.arg("start")
@@ -762,6 +772,22 @@ while true; do sleep 1; done
         assert!(sup.history().time_to_ready_ms.is_some());
         sup.stop().await;
         assert!(sup.history().time_to_ready_ms.is_some());
+    }
+
+    #[tokio::test]
+    async fn keeps_the_port_of_the_last_launch() {
+        let f = Fixture::new(OBEDIENT, always(true));
+        let port = |status: Status| match status {
+            Status::Running { connection } => connection.port,
+            other => panic!("expected running, got {other:?}"),
+        };
+        let first = Supervisor::open(f.cfg.clone()).unwrap();
+        let before = port(wait_for(&first, |s| matches!(s, Status::Running { .. })).await);
+        first.stop().await;
+        let second = Supervisor::open(f.cfg.clone()).unwrap();
+        let after = port(wait_for(&second, |s| matches!(s, Status::Running { .. })).await);
+        second.stop().await;
+        assert_eq!(after, before);
     }
 
     #[tokio::test]

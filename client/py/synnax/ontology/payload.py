@@ -9,7 +9,7 @@
 
 from __future__ import annotations
 
-from typing import cast
+from typing import cast, override
 
 from pydantic import BaseModel
 
@@ -36,6 +36,7 @@ class ID(BaseModel):
         else:
             super().__init__(key=key, type=type)
 
+    @override
     def __str__(self) -> str:
         return f"{self.type}:{self.key}"
 
