@@ -489,17 +489,17 @@ func appendInt(dst []byte, dt telem.DataType, i int64) ([]byte, error) {
 		return telem.ByteOrder.AppendUint64(dst, uint64(i)), nil
 	case telem.Bit32:
 		if i < math.MinInt32 || i > math.MaxInt32 {
-			return dst, errOutOfBounds
+			return nil, errOutOfBounds
 		}
 		return telem.ByteOrder.AppendUint32(dst, uint32(int32(i))), nil
 	case telem.Bit16:
 		if i < math.MinInt16 || i > math.MaxInt16 {
-			return dst, errOutOfBounds
+			return nil, errOutOfBounds
 		}
 		return telem.ByteOrder.AppendUint16(dst, uint16(int16(i))), nil
 	}
 	if i < math.MinInt8 || i > math.MaxInt8 {
-		return dst, errOutOfBounds
+		return nil, errOutOfBounds
 	}
 	return append(dst, byte(int8(i))), nil
 }
@@ -510,17 +510,17 @@ func appendUint(dst []byte, dt telem.DataType, u uint64) ([]byte, error) {
 		return telem.ByteOrder.AppendUint64(dst, u), nil
 	case telem.Bit32:
 		if u > math.MaxUint32 {
-			return dst, errOutOfBounds
+			return nil, errOutOfBounds
 		}
 		return telem.ByteOrder.AppendUint32(dst, uint32(u)), nil
 	case telem.Bit16:
 		if u > math.MaxUint16 {
-			return dst, errOutOfBounds
+			return nil, errOutOfBounds
 		}
 		return telem.ByteOrder.AppendUint16(dst, uint16(u)), nil
 	}
 	if u > math.MaxUint8 {
-		return dst, errOutOfBounds
+		return nil, errOutOfBounds
 	}
 	return append(dst, byte(u)), nil
 }
