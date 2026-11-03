@@ -44,6 +44,12 @@ const DRIVER_CERTIFICATE: OPCUA.Task.CertificateInfo = {
   notAfter: "2029-01-15T00:00:00Z",
 };
 
+const REPLACED_SERVER_CERTIFICATE: OPCUA.Task.CertificateInfo = {
+  ...SERVER_CERTIFICATE,
+  subject: "CN=Replaced OPC UA Server",
+  thumbprint: "FEDCBA9876543210FEDCBA9876543210FEDCBA98",
+};
+
 const NEXT_DRIVER_CERTIFICATE: OPCUA.Task.CertificateInfo = {
   ...DRIVER_CERTIFICATE,
   thumbprint: "89ABCDEF0123456789ABCDEF0123456789ABCDEF",
@@ -330,7 +336,7 @@ describe("OPCUA.Device.useConnectModal", () => {
   it("should copy the thumbprint of the Driver certificate", async () => {
     const writeText = stubClipboardWriteText();
     await openWithDriverCertificate();
-    fireEvent.click(findButton("Copy"));
+    fireEvent.click(findButton("Copy thumbprint"));
     await waitFor(() =>
       expect(writeText).toHaveBeenCalledWith(DRIVER_CERTIFICATE.thumbprint),
     );
@@ -405,6 +411,44 @@ describe("OPCUA.Device.useConnectModal", () => {
         "FF:65:16:FC:E0:22:F9:7F:23:B6:F6:79:17:9D:B7:FE:68:CB:2D:9C",
       ),
     ).toBeTruthy();
+    expect(screen.getByText("The device trusts this certificate.")).toBeTruthy();
+  });
+
+  it("should say when the server sends a certificate other than the pinned one", async () => {
+    const rack = await createRunningRack(client, "opc");
+    const scan = await createScanTask(rack);
+    const loaded = await answerGetCertificate(scan);
+    const dev = await createOPCDevice(client, {
+      rack: rack.key,
+      properties: {
+        connection: {
+          ...OPCUA.Device.ZERO_PROPERTIES.connection,
+          securityMode: "Sign",
+          securityPolicy: "Basic256Sha256",
+          serverCertificate: SERVER_CERTIFICATE.pem,
+        },
+      },
+    });
+    await renderModalOpener(OPCUA.Device.useConnectModal, [{ deviceKey: dev.key }], {
+      client,
+    });
+    await loaded.answered;
+    await screen.findByText("The device trusts this certificate.");
+    const rejected = await answerNextCommand(client, scan, {
+      ...TEST_CONNECTION,
+      variant: "error",
+      message: "Server certificate not trusted",
+      description: "The Driver does not trust the server certificate yet.",
+      data: { serverCertificate: REPLACED_SERVER_CERTIFICATE },
+    });
+    pressSaveTrigger();
+    await rejected.answered;
+    expect(
+      await screen.findByText(
+        "The server sent a different certificate. Compare its thumbprint with the certificate on the server, then trust it.",
+      ),
+    ).toBeTruthy();
+    expect(screen.getByText(REPLACED_SERVER_CERTIFICATE.subject)).toBeTruthy();
   });
 
   it("should trust the certificate the server sent and connect again", async () => {

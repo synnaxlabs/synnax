@@ -264,61 +264,63 @@ export const Connect = ({
                 {renderSecurityMode}
               </Form.Field>
               {hasSecurity && (
-                <>
-                  <Form.Field
-                    path={path.properties.connection.securityPolicy}
-                    label="Policy"
-                    padHelpText={false}
-                  >
-                    {renderSecurityPolicy}
-                  </Form.Field>
-                  <Input.Item
-                    label="Client certificate"
-                    status={clientCertificateRejection == null ? undefined : "error"}
-                    helpText={clientCertificateRejection ?? undefined}
-                  >
-                    <Flex.Box y gap={2}>
-                      <Select.Buttons<ClientCertificateSource>
-                        value={source}
-                        onChange={handleSourceChange}
-                      >
-                        <Select.Item<ClientCertificateSource> itemKey="driver">
-                          Driver certificate
-                        </Select.Item>
-                        <Select.Item<ClientCertificateSource> itemKey="files">
-                          Files on the Driver computer
-                        </Select.Item>
-                      </Select.Buttons>
-                      {source === "driver" && <DriverCertificate rack={rackKey} />}
-                    </Flex.Box>
-                  </Input.Item>
-                  {source === "files" && (
-                    <>
-                      <Form.TextField
-                        path={path.properties.connection.clientCertificate}
-                        label="Certificate file"
-                        padHelpText={false}
-                        inputProps={PATH_INPUT_PROPS}
-                      />
-                      <Form.TextField
-                        path={path.properties.connection.clientPrivateKey}
-                        label="Private key file"
-                        padHelpText={false}
-                        inputProps={PATH_INPUT_PROPS}
-                      />
-                    </>
-                  )}
-                  <Input.Item label="Server certificate">
-                    <ServerCertificate
-                      pem={serverCertificate}
-                      offer={serverCertificateOffer}
-                      onTrust={handleTrust}
-                    />
-                  </Input.Item>
-                  <ValidationField />
-                </>
+                <Form.Field
+                  path={path.properties.connection.securityPolicy}
+                  label="Policy"
+                  padHelpText={false}
+                >
+                  {renderSecurityPolicy}
+                </Form.Field>
               )}
             </Form.Section>
+            {hasSecurity && (
+              <Form.Section title="Certificates">
+                <Input.Item
+                  label="Client certificate"
+                  status={clientCertificateRejection == null ? undefined : "error"}
+                  helpText={clientCertificateRejection ?? undefined}
+                >
+                  <Flex.Box y gap={2}>
+                    <Select.Buttons<ClientCertificateSource>
+                      value={source}
+                      onChange={handleSourceChange}
+                    >
+                      <Select.Item<ClientCertificateSource> itemKey="driver">
+                        Driver certificate
+                      </Select.Item>
+                      <Select.Item<ClientCertificateSource> itemKey="files">
+                        Files on the Driver computer
+                      </Select.Item>
+                    </Select.Buttons>
+                    {source === "driver" && <DriverCertificate rack={rackKey} />}
+                  </Flex.Box>
+                </Input.Item>
+                {source === "files" && (
+                  <>
+                    <Form.TextField
+                      path={path.properties.connection.clientCertificate}
+                      label="Certificate file"
+                      padHelpText={false}
+                      inputProps={PATH_INPUT_PROPS}
+                    />
+                    <Form.TextField
+                      path={path.properties.connection.clientPrivateKey}
+                      label="Private key file"
+                      padHelpText={false}
+                      inputProps={PATH_INPUT_PROPS}
+                    />
+                  </>
+                )}
+                <Input.Item label="Server certificate">
+                  <ServerCertificate
+                    pem={serverCertificate}
+                    offer={serverCertificateOffer}
+                    onTrust={handleTrust}
+                  />
+                </Input.Item>
+                <ValidationField />
+              </Form.Section>
+            )}
             <Form.Section title="Advanced">
               <Form.NumericField
                 path={path.properties.connection.clientTimeoutMs}

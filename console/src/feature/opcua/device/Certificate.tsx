@@ -29,7 +29,12 @@ import { Nav } from "@synnaxlabs/lyra/nav";
 import { Status } from "@synnaxlabs/lyra/status";
 import { Text } from "@synnaxlabs/lyra/text";
 import { Rack, Synnax } from "@synnaxlabs/pluto";
-import { type PropsWithChildren, type ReactElement, useState } from "react";
+import {
+  type PropsWithChildren,
+  type ReactElement,
+  type ReactNode,
+  useState,
+} from "react";
 
 import { executeScanCommand } from "@/feature/opcua/device/scanCommand";
 import {
@@ -101,33 +106,49 @@ const CopyButton = ({ thumbprint, name }: CopyButtonProps): ReactElement => {
       variant="text"
       onClick={() => copy(thumbprint, "thumbprint", name)}
     >
-      Copy
+      Copy thumbprint
     </Button.Button>
   );
 };
 
-interface ThumbprintProps extends PropsWithChildren {
-  value: string;
-  name: string;
+interface CardProps extends PropsWithChildren {
+  actions: ReactNode;
 }
 
-const Thumbprint = ({ value, name, children }: ThumbprintProps): ReactElement => (
-  <Flex.Box x align="center" gap="medium" className={CSS.BE("opc-certificate", "line")}>
-    <Text.Text level="small" color={9}>
-      Thumbprint
-    </Text.Text>
-    <Text.Text
-      level="small"
-      variant="code"
-      className={CSS.BE("opc-certificate", "value")}
+const Card = ({ children, actions }: CardProps): ReactElement => (
+  <Flex.Box
+    y
+    gap="medium"
+    bordered
+    borderColor={6}
+    rounded="small"
+    background={1}
+    className={CSS.B("opc-certificate")}
+  >
+    {children}
+    <Flex.Box
+      x
+      gap="small"
+      align="center"
+      className={CSS.BE("opc-certificate", "actions")}
     >
-      {formatThumbprint(value)}
-    </Text.Text>
-    <Flex.Box x gap="tiny" align="center">
-      <CopyButton thumbprint={value} name={name} />
-      {children}
+      {actions}
     </Flex.Box>
   </Flex.Box>
+);
+
+interface ThumbprintDetailProps {
+  value: string;
+}
+
+const ThumbprintDetail = ({ value }: ThumbprintDetailProps): ReactElement => (
+  <Detail
+    label="Thumbprint"
+    variant="code"
+    className={CSS.BE("opc-certificate", "value")}
+  >
+    {formatThumbprint(value)}
+  </Detail>
 );
 
 interface DriverCertificateDetailsProps {
@@ -335,19 +356,28 @@ export const DriverCertificate = ({ rack }: DriverCertificateProps): ReactElemen
     void openModal({ rackKey: rack }).then(reload);
   };
   return (
-    <Thumbprint value={current.thumbprint} name="Driver certificate">
-      <Button.Button
-        size="small"
-        variant="text"
-        tooltip="Download as DER"
-        onClick={() => downloadCertificate(current, "driver")}
-      >
-        Download
-      </Button.Button>
-      <Button.Button size="small" variant="text" onClick={handleManage}>
-        Manage
-      </Button.Button>
-    </Thumbprint>
+    <Card
+      actions={
+        <>
+          <CopyButton thumbprint={current.thumbprint} name="Driver certificate" />
+          <Button.Button
+            size="small"
+            variant="text"
+            tooltip="Download as DER"
+            onClick={() => downloadCertificate(current, "driver")}
+          >
+            Download
+          </Button.Button>
+          <Button.Button size="small" variant="text" onClick={handleManage}>
+            Manage
+          </Button.Button>
+        </>
+      }
+    >
+      <Description.List level="small">
+        <ThumbprintDetail value={current.thumbprint} />
+      </Description.List>
+    </Card>
   );
 };
 
@@ -359,6 +389,16 @@ export interface ServerCertificateProps {
   onTrust: (offer: CertificateInfo) => void;
 }
 
+const NO_CERTIFICATE_NOTE = "No certificate yet. Connect to get one from the server.";
+
+const TRUSTED_NOTE = "The device trusts this certificate.";
+
+const OFFER_NOTE =
+  "The server sent this certificate. Compare its thumbprint with the certificate on the server, then trust it.";
+
+const CHANGED_NOTE =
+  "The server sent a different certificate. Compare its thumbprint with the certificate on the server, then trust it.";
+
 /** Shows the server certificate the device trusts, and offers one the server sent. */
 export const ServerCertificate = ({
   pem,
@@ -366,53 +406,37 @@ export const ServerCertificate = ({
   onTrust,
 }: ServerCertificateProps): ReactElement => {
   const pinned = pem === "" ? null : readThumbprint(pem);
+  let note = pinned == null ? NO_CERTIFICATE_NOTE : TRUSTED_NOTE;
+  if (offer != null) note = pinned == null ? OFFER_NOTE : CHANGED_NOTE;
   return (
     <Flex.Box y gap={2}>
-      {pinned == null && offer == null && (
-        <Text.Text
-          level="small"
-          color={9}
-          className={CSS.BE("opc-certificate", "line")}
-        >
-          No certificate yet. Connect to get one from the server.
-        </Text.Text>
-      )}
+      <Text.Text level="small" color={9} className={CSS.BE("opc-certificate", "line")}>
+        {note}
+      </Text.Text>
       {typeof pinned === "string" && (
-        <Thumbprint value={pinned} name="Server certificate" />
+        <Card actions={<CopyButton thumbprint={pinned} name="Server certificate" />}>
+          <Description.List level="small">
+            <ThumbprintDetail value={pinned} />
+          </Description.List>
+        </Card>
       )}
       {pinned != null && typeof pinned !== "string" && (
         <Status.Summary status={pinned} />
       )}
       {offer != null && (
-        <Flex.Box
-          y
-          gap="medium"
-          bordered
-          borderColor={6}
-          rounded="small"
-          className={CSS.B("opc-certificate-offer")}
-        >
-          <Text.Text
-            level="small"
-            color={9}
-            className={CSS.BE("opc-certificate-offer", "note")}
-          >
-            The server sent this certificate. Compare its thumbprint with the
-            certificate on the server, then trust it.
-          </Text.Text>
-          <Description.List level="small">
-            <Detail label="Subject">{offer.subject}</Detail>
-            <Detail label="Thumbprint" variant="code">
-              {formatThumbprint(offer.thumbprint)}
-            </Detail>
-            <Detail label="Expires">{formatExpiry(offer.notAfter)}</Detail>
-          </Description.List>
-          <Flex.Box x>
+        <Card
+          actions={
             <Button.Button size="small" variant="filled" onClick={() => onTrust(offer)}>
               Trust
             </Button.Button>
-          </Flex.Box>
-        </Flex.Box>
+          }
+        >
+          <Description.List level="small">
+            <Detail label="Subject">{offer.subject}</Detail>
+            <ThumbprintDetail value={offer.thumbprint} />
+            <Detail label="Expires">{formatExpiry(offer.notAfter)}</Detail>
+          </Description.List>
+        </Card>
       )}
     </Flex.Box>
   );

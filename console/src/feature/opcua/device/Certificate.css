@@ -16,20 +16,18 @@
     min-height: var(--pluto-height-medium);
 }
 
+.console-opc-certificate {
+    padding: 2rem;
+
+    /* The text of a first text button lines up with the details above it. */
+    .console-opc-certificate__actions > .lyra-btn--text:first-child {
+        margin-left: -1.5rem;
+    }
+}
+
 .console-opc-certificate__value {
     overflow-wrap: anywhere;
     user-select: text;
-}
-
-.console-opc-certificate-offer {
-    padding: 0 2rem 2rem;
-
-    /* Centers on the field label, like a control inside the border. */
-    .console-opc-certificate-offer__note {
-        display: flex;
-        align-items: center;
-        min-height: calc(var(--pluto-height-medium) - 2 * var(--pluto-border-width));
-    }
 }
 
 .console-opc-driver-certificate {
