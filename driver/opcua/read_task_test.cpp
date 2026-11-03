@@ -29,6 +29,8 @@ namespace driver::opcua {
 constexpr double RATE_TOLERANCE = 0.10;
 /// @brief Wall time each rate runs for.
 const auto RATE_SPAN = 1 * x::telem::SECOND;
+/// @brief Sample rate of the array read tasks.
+const auto ARRAY_SAMPLE_RATE = x::telem::Rate(25);
 
 /// @brief Logs the rate a task held and checks it against the tolerance.
 void expect_rate(const double measured, const int rate_hz) {
@@ -268,6 +270,28 @@ protected:
             (250 * x::telem::MILLISECOND).chrono()
         );
         UA_Client_disconnect(test_client.get());
+    }
+
+    [[nodiscard]] x::json::json create_array_cfg() const {
+        return {
+            {"data_saving_disabled", false},
+            {"device", "opc_read_task_test_server_key"},
+            {"channels",
+             x::json::json::array(
+                 {{{"key", "NS=2;I=1"},
+                   {"name", "double_array_test"},
+                   {"node_name", "TestDoubleArray"},
+                   {"node_id", "NS=1;S=TestDoubleArray"},
+                   {"channel", this->double_channel.key},
+                   {"disabled", false},
+                   {"is_index", false},
+                   {"data_type", "float64"}}}
+             )},
+            {"sample_rate", ARRAY_SAMPLE_RATE.hz()},
+            {"array_mode", true},
+            {"array_size", testutil::DOUBLE_ARRAY_SIZE},
+            {"stream_rate", ARRAY_SAMPLE_RATE.hz()}
+        };
     }
 
     std::unique_ptr<common::ReadTask> create_task() {
@@ -1295,31 +1319,10 @@ TEST(OPCReadTaskConfig, testOPCDriverSetsAutoCommitTrue) {
     ASSERT_TRUE(writer_cfg.enable_auto_commit);
 }
 
-/// @brief it should stamp array blocks with the interval they took to acquire, so
-/// the next run of the task does not open its writer inside data this run wrote.
+/// @brief it should stamp array samples in order, no more than one sample period
+/// apart within a block, and never ahead of the clock.
 TEST_F(TestReadTask, testArrayTimestampsTrailTheClock) {
-    constexpr int SAMPLE_RATE = 25;
-    x::json::json array_cfg{
-        {"data_saving_disabled", false},
-        {"device", "opc_read_task_test_server_key"},
-        {"channels",
-         x::json::json::array(
-             {{{"key", "NS=2;I=1"},
-               {"name", "double_array_test"},
-               {"node_name", "TestDoubleArray"},
-               {"node_id", "NS=1;S=TestDoubleArray"},
-               {"channel", this->double_channel.key},
-               {"disabled", false},
-               {"is_index", false},
-               {"data_type", "float64"}}}
-         )},
-        {"sample_rate", SAMPLE_RATE},
-        {"array_mode", true},
-        {"array_size", testutil::DOUBLE_ARRAY_SIZE},
-        {"stream_rate", SAMPLE_RATE}
-    };
-
-    auto p = x::json::Parser(array_cfg);
+    auto p = x::json::Parser(create_array_cfg());
     auto cfg = std::make_unique<ReadTaskConfig>(ctx->client, p);
     ASSERT_NIL(p.error());
 
@@ -1351,14 +1354,59 @@ TEST_F(TestReadTask, testArrayTimestampsTrailTheClock) {
     }
     ASSERT_GE(stamps.size(), 3 * testutil::DOUBLE_ARRAY_SIZE);
     EXPECT_LE(stamps.back(), stopped_at);
-    // A block that tiles the acquisition window holds its samples one period apart,
-    // including across the boundary into the next block. The stop cuts the block
-    // timer short, so the last block spans only the read that followed it.
-    const auto complete = stamps.size() - testutil::DOUBLE_ARRAY_SIZE;
-    const auto min_spacing = x::telem::Rate(SAMPLE_RATE).period() / 4;
-    for (size_t i = 1; i < complete; i++)
-        EXPECT_GE(stamps[i] - stamps[i - 1], min_spacing)
-            << "samples " << i - 1 << " and " << i;
+    for (size_t i = 1; i < stamps.size(); i++) {
+        EXPECT_GT(stamps[i], stamps[i - 1]) << "samples " << i - 1 << " and " << i;
+        if (i % testutil::DOUBLE_ARRAY_SIZE != 0) {
+            EXPECT_LE(stamps[i] - stamps[i - 1], ARRAY_SAMPLE_RATE.period())
+                << "samples " << i - 1 << " and " << i;
+        }
+    }
+}
+
+/// @brief it should not stamp a block that ends early before the start of the run.
+TEST_F(TestReadTask, testEarlyArrayBlockStartsAfterRunStart) {
+    auto p = x::json::Parser(create_array_cfg());
+    ArrayReadTaskSource source(ctx->client, conn_pool, ReadTaskConfig(ctx->client, p));
+    ASSERT_NIL(p.error());
+    const auto started_at = x::telem::TimeStamp::now();
+    ASSERT_NIL(source.start());
+    // A stopped breaker ends the block wait at once.
+    x::breaker::Breaker breaker;
+    x::telem::Frame fr;
+    ASSERT_NIL(source.read(breaker, fr).error);
+    ASSERT_NIL(source.stop());
+    EXPECT_GE(fr.at<x::telem::TimeStamp>(this->index_channel.key, 0), started_at);
+}
+
+/// @brief it should space the samples of a late block one sample period apart.
+TEST_F(TestReadTask, testLateArrayBlockKeepsSamplePeriod) {
+    auto p = x::json::Parser(create_array_cfg());
+    ArrayReadTaskSource source(ctx->client, conn_pool, ReadTaskConfig(ctx->client, p));
+    ASSERT_NIL(p.error());
+    ASSERT_NIL(source.start());
+    x::breaker::Breaker breaker;
+    x::telem::Frame fr;
+    ASSERT_NIL(source.read(breaker, fr).error);
+    const auto prev_last = fr.at<x::telem::TimeStamp>(
+        this->index_channel.key,
+        static_cast<int>(testutil::DOUBLE_ARRAY_SIZE - 1)
+    );
+    // Holding the loop for a full block makes the next read late.
+    std::this_thread::sleep_for(
+        (ARRAY_SAMPLE_RATE.period() * testutil::DOUBLE_ARRAY_SIZE).chrono()
+    );
+    ASSERT_NIL(source.read(breaker, fr).error);
+    ASSERT_NIL(source.stop());
+    EXPECT_GT(fr.at<x::telem::TimeStamp>(this->index_channel.key, 0), prev_last);
+    for (size_t i = 1; i < testutil::DOUBLE_ARRAY_SIZE; i++)
+        EXPECT_EQ(
+            fr.at<x::telem::TimeStamp>(this->index_channel.key, static_cast<int>(i)) -
+                fr.at<x::telem::TimeStamp>(
+                    this->index_channel.key,
+                    static_cast<int>(i - 1)
+                ),
+            ARRAY_SAMPLE_RATE.period()
+        );
 }
 
 /// @brief it should hold each configured sample rate over time.
