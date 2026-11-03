@@ -16,4 +16,10 @@ constexpr int FAILING_START_HANDLE = 1;
 constexpr int FAILING_STOP_HANDLE = 2;
 /// @brief an error code that the fake library names STREAM_BUFFER_FULL, a device error.
 constexpr int STREAM_BUFFER_FULL_CODE = 2900;
+/// @brief a device handle whose reads return LJME_USING_DEFAULT_CALIBRATION.
+constexpr int DEFAULT_CALIBRATION_HANDLE = 3;
+/// @brief a serial number whose open returns LJME_USING_DEFAULT_CALIBRATION.
+constexpr const char *DEFAULT_CALIBRATION_SERIAL = "470000003";
+/// @brief the value that every read of the fake library returns.
+constexpr double READ_VALUE = 1.5;
 }

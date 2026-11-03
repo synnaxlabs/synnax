@@ -668,6 +668,14 @@ const common::Warning SKIPPED_SCANS_WARNING{
                    "Lower the sample rate, or check the connection to the device.",
 };
 
+/// @brief the warning a source reports while LJM uses the default calibration of the
+/// device.
+const common::Warning DEFAULT_CALIBRATION_WARNING{
+    .message = "Using default calibration",
+    .description = "The calibration constants of the device are not valid, so readings "
+                   "may be inaccurate. Contact LabJack support.",
+};
+
 /// @brief a source that polls the device with one request per sample, on a software
 /// clock. T7 tasks with thermocouples use it, because a T7 cannot stream its CJC
 /// sensors.
@@ -704,13 +712,8 @@ public:
             this->registers.push_back(reg.c_str());
     }
 
-    /// @brief claims the device. After a temporary error, the first read claims it, so
-    /// a task starts while its device is away.
-    x::errors::Error start() override {
-        const auto err = this->connect();
-        if (err.matches(errors::TEMPORARY_HARDWARE_ERROR)) return x::errors::NIL;
-        return err;
-    }
+    /// @brief claims the device and applies the channel settings.
+    x::errors::Error start() override { return this->connect(); }
 
     [[nodiscard]] std::vector<synnax::channel::Channel> channels() const override {
         return this->cfg.sy_channels();
@@ -766,6 +769,8 @@ public:
             for (size_t j = n_channels; j < fr.size(); ++j)
                 fr.series->at(j).write(time);
         }
+        if (res.warning.empty() && this->dev->calibration_invalid())
+            res.warning = DEFAULT_CALIBRATION_WARNING;
         res.error = this->cfg.transform.transform(fr);
         return res;
     }
@@ -926,13 +931,8 @@ public:
         return this->cfg.writer();
     }
 
-    /// @brief starts the stream. After a temporary error, the first read starts it, so
-    /// a task starts while its device is away.
-    x::errors::Error start() override {
-        const auto err = this->restart();
-        if (err.matches(errors::TEMPORARY_HARDWARE_ERROR)) return x::errors::NIL;
-        return err;
-    }
+    /// @brief claims the device and starts the stream.
+    x::errors::Error start() override { return this->restart(); }
 
     [[nodiscard]] std::vector<synnax::channel::Channel> channels() const override {
         return this->cfg.sy_channels();
@@ -979,6 +979,7 @@ public:
             if (res.error.matches(errors::TEMPORARY_HARDWARE_ERROR)) this->stop();
             return res;
         }
+        if (this->dev->calibration_invalid()) res.warning = DEFAULT_CALIBRATION_WARNING;
         if (std::cmp_greater(
                 device_scan_backlog,
                 this->cfg.device_scan_backlog_warn_on_count

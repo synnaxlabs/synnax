@@ -97,6 +97,28 @@ TEST(LJMDeviceTest, testFailedStopAllowsNextStart) {
     ASSERT_NIL(start_stream(dev));
 }
 
+/// @brief it should keep the value of a read that warns of a default calibration, and
+/// report the calibration as invalid from then on.
+TEST(LJMDeviceTest, testReadWarnsOfDefaultCalibration) {
+    const LJMDevice dev(open_fake_api(), DEFAULT_CALIBRATION_HANDLE);
+    EXPECT_FALSE(dev.calibration_invalid());
+    double value = 0;
+    ASSERT_NIL(dev.e_read_name("AIN0", &value));
+    EXPECT_EQ(value, READ_VALUE);
+    EXPECT_TRUE(dev.calibration_invalid());
+    ASSERT_NIL(start_stream(dev));
+    EXPECT_TRUE(dev.calibration_invalid());
+}
+
+/// @brief it should open a device whose open warns of a default calibration, and report
+/// the calibration as invalid.
+TEST(LJMManagerTest, testOpenWarnsOfDefaultCalibration) {
+    LJMManager manager(open_fake_api());
+    const auto dev = ASSERT_NIL_P(manager.acquire(DEFAULT_CALIBRATION_SERIAL));
+    ASSERT_NE(dev, nullptr);
+    EXPECT_TRUE(dev->calibration_invalid());
+}
+
 /// @brief it should report a lost connection as unreachable, with one message for
 /// every cause.
 TEST(ParseErrorTest, testLostConnectionIsUnreachable) {

@@ -24,6 +24,12 @@
 #include "driver/labjack/read_task.h"
 
 namespace driver::labjack {
+/// @brief the error LJM returns while the device is unplugged.
+const auto UNREACHABLE = x::errors::Error(
+    ljm::UNREACHABLE.sub("LJME_DEVICE_NOT_FOUND"),
+    ljm::UNREACHABLE_MESSAGE
+);
+
 /// @brief it should parse analog input channel configuration.
 TEST(TestReadChannelParse, testAIChan) {
     const x::json::json cfg{
@@ -695,9 +701,9 @@ TEST_F(SourceClaimTest, testUnarySourceClaimsDeviceOnStart) {
 /// on the next start.
 TEST_F(SourceClaimTest, testUnarySourceAcquireFailureRetriesOnNextStart) {
     parse_config(true);
-    devs->acquire_errors = {x::errors::Error(ljm::CRITICAL_ERROR, "device not found")};
+    devs->acquire_errors = {UNREACHABLE};
     UnarySource source(devs, std::move(*cfg));
-    ASSERT_OCCURRED_AS(source.start(), ljm::CRITICAL_ERROR);
+    ASSERT_OCCURRED_AS(source.start(), ljm::UNREACHABLE);
     EXPECT_EQ(devs->dev.use_count(), 1);
     ASSERT_NIL(source.start());
     EXPECT_EQ(devs->acquire_call_count, 2);
@@ -724,9 +730,9 @@ TEST_F(SourceClaimTest, testStreamSourceClaimsDeviceOnStart) {
 /// on the next start.
 TEST_F(SourceClaimTest, testStreamSourceAcquireFailureRetriesOnNextStart) {
     parse_config(false);
-    devs->acquire_errors = {x::errors::Error(ljm::CRITICAL_ERROR, "device not found")};
+    devs->acquire_errors = {UNREACHABLE};
     StreamSource source(devs, std::move(*cfg));
-    ASSERT_OCCURRED_AS(source.start(), ljm::CRITICAL_ERROR);
+    ASSERT_OCCURRED_AS(source.start(), ljm::UNREACHABLE);
     EXPECT_EQ(devs->dev.use_count(), 1);
     ASSERT_NIL(source.start());
     EXPECT_EQ(devs->acquire_call_count, 2);
@@ -822,12 +828,6 @@ TEST_F(SourceClaimTest, testStreamSourceSecondStartLeavesFirstStreamRunning) {
     ASSERT_NIL(second.stop());
 }
 
-/// @brief the error LJM returns while the device is unplugged.
-const auto UNREACHABLE = x::errors::Error(
-    ljm::UNREACHABLE.sub("LJME_DEVICE_NOT_FOUND"),
-    ljm::UNREACHABLE_MESSAGE
-);
-
 /// @brief reads once from the source with a running breaker.
 common::ReadResult read_once(common::Source &source, x::telem::Frame &fr) {
     x::breaker::Breaker breaker(x::breaker::default_config("read"));
@@ -856,20 +856,6 @@ TEST_F(SourceClaimTest, testUnarySourceReconnectsAfterTemporaryError) {
     ASSERT_NIL(source.stop());
 }
 
-/// @brief it should start while the device is away and claim it on the first read.
-TEST_F(SourceClaimTest, testUnarySourceStartsWhileDeviceIsAway) {
-    parse_config(true);
-    devs->acquire_errors = {UNREACHABLE};
-    UnarySource source(devs, std::move(*cfg));
-    ASSERT_NIL(source.start());
-    EXPECT_EQ(devs->dev.use_count(), 1);
-    x::telem::Frame fr(0);
-    ASSERT_NIL(read_once(source, fr).error);
-    EXPECT_EQ(devs->acquire_call_count, 2);
-    EXPECT_EQ(devs->dev.use_count(), 2);
-    ASSERT_NIL(source.stop());
-}
-
 /// @brief it should read one value of each channel per sample, for the samples of
 /// one stream period.
 TEST_F(SourceClaimTest, testUnarySourceReadsSamplesPerChan) {
@@ -889,6 +875,46 @@ TEST_F(SourceClaimTest, testUnarySourceReadsSamplesPerChan) {
     ASSERT_NIL(source.stop());
 }
 
+/// @brief it should keep the samples and warn while the device uses its default
+/// calibration.
+TEST_F(SourceClaimTest, testUnarySourceWarnsOfDefaultCalibration) {
+    parse_config(false);
+    const auto mock = std::make_shared<device::Mock>();
+    mock->read_values = {{"AIN0", 1.5}};
+    mock->invalid_calibration = true;
+    devs->dev = mock;
+    UnarySource source(devs, std::move(*cfg));
+    ASSERT_NIL(source.start());
+    x::telem::Frame fr(0);
+    const auto res = read_once(source, fr);
+    ASSERT_NIL(res.error);
+    EXPECT_EQ(res.warning.message, "Using default calibration");
+    EXPECT_EQ(fr.series->at(0).at<double>(0), 1.5);
+    ASSERT_NIL(source.stop());
+}
+
+/// @brief it should keep the scans and warn while the device uses its default
+/// calibration, and warn of skipped samples first.
+TEST_F(SourceClaimTest, testStreamSourceWarnsOfDefaultCalibration) {
+    parse_config(false);
+    const auto mock = std::make_shared<device::Mock>();
+    mock->stream_data = {1, 2};
+    mock->invalid_calibration = true;
+    devs->dev = mock;
+    StreamSource source(devs, std::move(*cfg));
+    ASSERT_NIL(source.start());
+    x::telem::Frame fr(0);
+    auto res = read_once(source, fr);
+    ASSERT_NIL(res.error);
+    EXPECT_EQ(res.warning.message, "Using default calibration");
+    EXPECT_EQ(fr.series->at(0).size(), 2);
+    mock->stream_data = {LJM_DUMMY_VALUE, 2};
+    res = read_once(source, fr);
+    ASSERT_NIL(res.error);
+    EXPECT_EQ(res.warning.message, "Skipped samples");
+    ASSERT_NIL(source.stop());
+}
+
 /// @brief it should stop the stream after a temporary read error, then start it again
 /// on the next read.
 TEST_F(SourceClaimTest, testStreamSourceRestartsAfterTemporaryError) {
@@ -905,23 +931,6 @@ TEST_F(SourceClaimTest, testStreamSourceRestartsAfterTemporaryError) {
     EXPECT_EQ(mock.use_count(), 2);
     ASSERT_NIL(read_once(source, fr).error);
     EXPECT_EQ(mock->stream_start_count(), 2);
-    EXPECT_TRUE(mock->is_streaming());
-    ASSERT_NIL(source.stop());
-}
-
-/// @brief it should start while the device is away and start the stream on the first
-/// read.
-TEST_F(SourceClaimTest, testStreamSourceStartsWhileDeviceIsAway) {
-    parse_config(false);
-    const auto mock = std::make_shared<device::Mock>();
-    mock->stream_data = {1, 2};
-    devs->dev = mock;
-    devs->acquire_errors = {UNREACHABLE};
-    StreamSource source(devs, std::move(*cfg));
-    ASSERT_NIL(source.start());
-    EXPECT_FALSE(mock->is_streaming());
-    x::telem::Frame fr(0);
-    ASSERT_NIL(read_once(source, fr).error);
     EXPECT_TRUE(mock->is_streaming());
     ASSERT_NIL(source.stop());
 }

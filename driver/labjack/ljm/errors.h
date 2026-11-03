@@ -702,8 +702,10 @@ const x::errors::Error VOLTAGE_OUT_OF_RANGE = CRITICAL_ERROR.sub(
 );
 
 /// @brief the message of every UNREACHABLE error.
-const std::string UNREACHABLE_MESSAGE = "The device is temporarily unreachable. The "
-                                        "Driver will keep trying to reach it.";
+const std::string
+    UNREACHABLE_MESSAGE = "The Driver cannot reach the device. Check the "
+                          "USB cable or the network, and close other "
+                          "programs that use the device, such as Kipling.";
 
 /// @brief the LJM error codes of a lost connection.
 const std::set<int> UNREACHABLE_CODES = {
@@ -755,10 +757,12 @@ parse_error(const std::shared_ptr<ljm::API> &ljm, const int err) {
     std::string description = "LabJack returned " + name + ".";
     if (const auto it = ERROR_DESCRIPTIONS.find(name); it != ERROR_DESCRIPTIONS.end())
         description = it->second;
-    // Every warning but this one means the operation still ran.
+    // Every warning but this one means the operation still ran. A read task reports a
+    // default calibration through device::Device::calibration_invalid.
     if (err >= LJME_WARNINGS_BEGIN && err <= LJME_WARNINGS_END &&
         err != LJME_FRAMES_OMITTED_DUE_TO_PACKET_SIZE) {
-        LOG(WARNING) << "[labjack] " << name << ": " << description;
+        if (err != LJME_USING_DEFAULT_CALIBRATION)
+            LOG(WARNING) << "[labjack] " << name << ": " << description;
         return x::errors::NIL;
     }
     if (UNREACHABLE_CODES.contains(err))
