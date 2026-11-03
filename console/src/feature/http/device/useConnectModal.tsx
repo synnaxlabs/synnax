@@ -9,7 +9,8 @@
 
 import "@/feature/http/device/Connect.css";
 
-import { type device, type rack, status, TimeSpan } from "@synnaxlabs/client";
+import { type device, status, TimeSpan } from "@synnaxlabs/client";
+import { Flex } from "@synnaxlabs/lyra/flex";
 import { Form } from "@synnaxlabs/lyra/form";
 import { Icon } from "@synnaxlabs/lyra/icon";
 import { Modal } from "@synnaxlabs/lyra/modal";
@@ -26,7 +27,7 @@ import {
   type Device,
   type HealthCheckMethod,
   INTEGRATION,
-  type Properties,
+  type Response,
   SCHEMAS,
   ZERO_AUTH_CONFIGS,
   ZERO_PROPERTIES,
@@ -41,6 +42,16 @@ import { Analytics } from "@/platform/analytics";
 import { CSS } from "@/platform/css";
 import { Device as PlatformDevice } from "@/platform/device";
 import { Form as PlatformForm } from "@/platform/form";
+
+const path = deep.path<Device>();
+const { auth, healthCheck } = path.properties;
+const apiKey = deep.variant(auth, "type", "api_key");
+const bearer = deep.variant(auth, "type", "bearer");
+const basic = deep.variant(auth, "type", "basic");
+const healthBody = deep.variant(healthCheck, "method", "POST").body;
+const response = deep.variant(healthCheck, "validateResponse", true).response;
+const apiKeyHeader = deep.variant(apiKey, "sendAs", "header").header;
+const apiKeyParameter = deep.variant(apiKey, "sendAs", "query_param").parameter;
 
 const INITIAL_VALUES: Device = {
   key: "",
@@ -69,12 +80,12 @@ const beforeSave = async ({
 >) => {
   const scanTask = await client.tasks.retrieve({
     type: SCAN_TYPE,
-    rack: get<rack.Key>("rack").value,
+    rack: get(path.rack).value,
     includeStatus: true,
     schemas: SCAN_SCHEMAS,
   });
-  const props = get<Properties>("properties").value;
-  const host = get<string>("location").value;
+  const props = get(path.properties).value;
+  const host = get(path.location).value;
   const protocol = props.secure ? "https://" : "http://";
   const connection = {
     base_url: `${protocol}${host}`,
@@ -90,15 +101,15 @@ const beforeSave = async ({
   });
   if (state.variant === "error") throw status.toError(state);
   const devStatus: device.Status = status.create<typeof device.statusDetailsZ>({
-    name: get<string>("name").value,
+    name: get(path.name).value,
     message: "Device connected",
     variant: "success",
     details: {
-      rack: get<rack.Key>("rack").value,
-      device: get<device.Key>("key").value,
+      rack: get(path.rack).value,
+      device: get(path.key).value,
     },
   });
-  set("status", devStatus, { markTouched: false });
+  set(path.status, devStatus, { markTouched: false });
   return true;
 };
 
@@ -120,14 +131,10 @@ export const Connect = ({
     beforeSave,
     afterSave: ({ get }) => {
       if (deviceKey == null) capture("device_connected", { integration: "http" });
-      close(get<device.Key>("key").value);
+      close(get(path.key).value);
     },
   });
-  const rackKey = Form.useFieldValue<
-    rack.Key,
-    rack.Key,
-    PDevice.FormSchema<typeof SCHEMAS>
-  >("rack", { ctx: form });
+  const rackKey = Form.useFieldValue(path.rack, { ctx: form });
   const reason = PlatformDevice.useBlockedReason({
     integration: INTEGRATION,
     name: "HTTP",
@@ -136,49 +143,31 @@ export const Connect = ({
 
   const { set: setField } = form;
 
-  const authType = Form.useFieldValue<
-    AuthType,
-    AuthType,
-    PDevice.FormSchema<typeof SCHEMAS>
-  >("properties.auth.type", { ctx: form });
+  const authType = Form.useFieldValue(auth.type, { ctx: form });
 
-  const sendAs = Form.useFieldValue<string, string, PDevice.FormSchema<typeof SCHEMAS>>(
-    "properties.auth.sendAs",
-    { ctx: form, optional: true },
-  );
+  const sendAs = Form.useFieldValue(apiKey.sendAs, { ctx: form, optional: true });
 
-  const healthCheckMethod = Form.useFieldValue<
-    HealthCheckMethod,
-    HealthCheckMethod,
-    PDevice.FormSchema<typeof SCHEMAS>
-  >("properties.healthCheck.method", { ctx: form });
+  const healthCheckMethod = Form.useFieldValue(healthCheck.method, { ctx: form });
 
-  const validateResponse = Form.useFieldValue<
-    boolean,
-    boolean,
-    PDevice.FormSchema<typeof SCHEMAS>
-  >("properties.healthCheck.validateResponse", { ctx: form });
+  const validateResponse = Form.useFieldValue(healthCheck.validateResponse, {
+    ctx: form,
+  });
 
-  const expectedValueType = Form.useFieldValue<
-    json.PrimitiveType,
-    json.PrimitiveType,
-    PDevice.FormSchema<typeof SCHEMAS>
-  >("properties.healthCheck.response.expectedValueType", {
+  const expectedValueType = Form.useFieldValue(response.expectedValueType, {
     ctx: form,
     optional: true,
   });
 
-  const secure = Form.useFieldValue<
-    boolean,
-    boolean,
-    PDevice.FormSchema<typeof SCHEMAS>
-  >("properties.secure", { ctx: form });
+  const secure = Form.useFieldValue(path.properties.secure, { ctx: form });
 
   const [tab, setTab] = useState("authentication");
 
   const handleValidateResponseChange = (value: boolean) => {
-    setField("properties.healthCheck.validateResponse", value);
-    setField("properties.healthCheck.response", value ? ZERO_RESPONSE : undefined);
+    setField(healthCheck.validateResponse, value);
+    setField(
+      deep.widen<Response | undefined>(response),
+      value ? ZERO_RESPONSE : undefined,
+    );
   };
 
   const renderExpectedValueType = ({
@@ -188,10 +177,7 @@ export const Connect = ({
     onChange: (v: json.PrimitiveType) => void;
   }) => {
     const handleChange = (value: json.PrimitiveType) => {
-      setField(
-        "properties.healthCheck.response.expectedValue",
-        json.ZERO_PRIMITIVES[value],
-      );
+      setField(response.expectedValue, json.ZERO_PRIMITIVES[value]);
       onChange(value);
     };
     return <SelectExpectedValueType {...rest} onChange={handleChange} />;
@@ -202,7 +188,7 @@ export const Connect = ({
     ...rest
   }: SelectAuthTypeProps & { onChange: (v: AuthType) => void }) => {
     const handleChange = (value: AuthType) => {
-      setField("properties.auth", ZERO_AUTH_CONFIGS[value]);
+      setField(auth, ZERO_AUTH_CONFIGS[value]);
       onChange(value);
     };
     return <SelectAuthType {...rest} onChange={handleChange} />;
@@ -216,7 +202,7 @@ export const Connect = ({
   }) => {
     const handleChange = (method: HealthCheckMethod) => {
       onChange(method);
-      setField("properties.healthCheck.body", method === "POST" ? "" : undefined);
+      setField(healthBody, method === "POST" ? "" : undefined);
     };
     return <SelectHealthCheckMethod {...rest} onChange={handleChange} />;
   };
@@ -226,8 +212,8 @@ export const Connect = ({
     ...rest
   }: SelectSendAsProps & { onChange: (v: APIKeyAuthConfigSendAs) => void }) => {
     const handleChange = (value: APIKeyAuthConfigSendAs) => {
-      if (value === "header") setField("properties.auth.header", "");
-      else setField("properties.auth.parameter", "");
+      if (value === "header") setField(apiKeyHeader, "");
+      else setField(apiKeyParameter, "");
       onChange(value);
     };
     return <SelectSendAs {...rest} onChange={handleChange} />;
@@ -247,12 +233,12 @@ export const Connect = ({
     if (next != null) setTab(next);
   };
   return (
-    <Modal.Frame className={CSS.B("http-connect")}>
+    <PlatformDevice.ConnectFrame className={CSS.B("http-connect")}>
       <Modal.Header icon={<Icon.Logo.HTTP />}>{HEADER}</Modal.Header>
       <Modal.Body gap="large" justify="start">
         <Form.Form<PDevice.FormSchema<typeof SCHEMAS>> {...form}>
           <Form.TextField
-            path="name"
+            path={path.name}
             showLabel={false}
             padHelpText={false}
             inputProps={NAME_INPUT_PROPS}
@@ -260,19 +246,19 @@ export const Connect = ({
           <Form.Sections>
             <Form.Section title="Connection">
               <Form.TextField
-                path="location"
+                path={path.location}
                 label="Host"
                 padHelpText={false}
                 inputProps={HOST_INPUT_PROPS}
               />
               <Form.CheckboxField
-                path="properties.secure"
+                path={path.properties.secure}
                 label="HTTPS"
                 padHelpText={false}
               />
               {secure && (
                 <Form.CheckboxField
-                  path="properties.verifySsl"
+                  path={path.properties.verifySsl}
                   label="Verify certificate"
                   padHelpText={false}
                 />
@@ -295,16 +281,12 @@ export const Connect = ({
             <Tabs.Content itemKey="authentication">
               <Form.Sections>
                 <Form.Section>
-                  <Form.Field<AuthType>
-                    path="properties.auth.type"
-                    label="Type"
-                    padHelpText={false}
-                  >
+                  <Form.Field path={auth.type} label="Type" padHelpText={false}>
                     {renderAuthType}
                   </Form.Field>
                   {authType === "bearer" && (
                     <Form.TextField
-                      path="properties.auth.token"
+                      path={bearer.token}
                       label="Token"
                       padHelpText={false}
                       inputProps={AUTH_TOKEN_INPUT_PROPS}
@@ -312,8 +294,8 @@ export const Connect = ({
                   )}
                   {authType === "api_key" && (
                     <>
-                      <Form.Field<APIKeyAuthConfigSendAs>
-                        path="properties.auth.sendAs"
+                      <Form.Field
+                        path={apiKey.sendAs}
                         label="Send as"
                         padHelpText={false}
                       >
@@ -321,21 +303,21 @@ export const Connect = ({
                       </Form.Field>
                       {sendAs === "query_param" ? (
                         <Form.TextField
-                          path="properties.auth.parameter"
+                          path={apiKeyParameter}
                           label="Parameter"
                           padHelpText={false}
                           inputProps={AUTH_PARAM_INPUT_PROPS}
                         />
                       ) : (
                         <Form.TextField
-                          path="properties.auth.header"
+                          path={apiKeyHeader}
                           label="Header"
                           padHelpText={false}
                           inputProps={AUTH_HEADER_INPUT_PROPS}
                         />
                       )}
                       <Form.TextField
-                        path="properties.auth.key"
+                        path={apiKey.key}
                         label="Key"
                         padHelpText={false}
                         inputProps={AUTH_KEY_INPUT_PROPS}
@@ -343,20 +325,20 @@ export const Connect = ({
                     </>
                   )}
                   {authType === "basic" && (
-                    <>
+                    <Flex.Box x>
                       <Form.TextField
-                        path="properties.auth.username"
+                        path={basic.username}
                         label="Username"
                         padHelpText={false}
                         inputProps={AUTH_USERNAME_INPUT_PROPS}
                       />
                       <Form.TextField
-                        path="properties.auth.password"
+                        path={basic.password}
                         label="Password"
                         padHelpText={false}
                         inputProps={AUTH_PASSWORD_INPUT_PROPS}
                       />
-                    </>
+                    </Flex.Box>
                   )}
                 </Form.Section>
               </Form.Sections>
@@ -364,29 +346,29 @@ export const Connect = ({
             <Tabs.Content itemKey="health_check">
               <Form.Sections>
                 <Form.Section title="Request">
-                  <Form.Field<HealthCheckMethod>
-                    path="properties.healthCheck.method"
+                  <Form.Field
+                    path={healthCheck.method}
                     label="Method"
                     padHelpText={false}
                   >
                     {renderHealthCheckMethod}
                   </Form.Field>
                   <Form.TextField
-                    path="properties.healthCheck.path"
+                    path={healthCheck.path}
                     label="Path"
                     padHelpText={false}
                     inputProps={HEALTH_PATH_INPUT_PROPS}
                   />
                   {healthCheckMethod === "POST" && (
                     <Form.TextField
-                      path="properties.healthCheck.body"
+                      path={healthBody}
                       label="Body"
                       padHelpText={false}
                       inputProps={HEALTH_BODY_INPUT_PROPS}
                     />
                   )}
                   <PlatformForm.KeyValueEditor
-                    path="properties.healthCheck.headers"
+                    path={deep.present(healthCheck.headers)}
                     resourceName="header"
                     label="Headers"
                     keyField="name"
@@ -394,7 +376,7 @@ export const Connect = ({
                     valuePlaceholder="application/json"
                   />
                   <PlatformForm.KeyValueEditor
-                    path="properties.healthCheck.queryParams"
+                    path={deep.present(healthCheck.queryParams)}
                     resourceName="parameter"
                     label="Query parameters"
                     keyField="parameter"
@@ -404,7 +386,7 @@ export const Connect = ({
                 </Form.Section>
                 <Form.Section title="Response">
                   <Form.CheckboxField
-                    path="properties.healthCheck.validateResponse"
+                    path={healthCheck.validateResponse}
                     label="Validate body"
                     padHelpText={false}
                     onChange={handleValidateResponseChange}
@@ -412,13 +394,13 @@ export const Connect = ({
                   {validateResponse && (
                     <>
                       <Form.TextField
-                        path="properties.healthCheck.response.pointer"
+                        path={response.pointer}
                         label="JSON pointer"
                         padHelpText={false}
                         inputProps={HEALTH_POINTER_INPUT_PROPS}
                       />
-                      <Form.Field<json.PrimitiveType>
-                        path="properties.healthCheck.response.expectedValueType"
+                      <Form.Field
+                        path={response.expectedValueType}
                         label="Value type"
                         padHelpText={false}
                       >
@@ -426,7 +408,10 @@ export const Connect = ({
                       </Form.Field>
                       {expectedValueType === "string" && (
                         <Form.TextField
-                          path="properties.healthCheck.response.expectedValue"
+                          path={
+                            deep.variant(response, "expectedValueType", "string")
+                              .expectedValue
+                          }
                           label="Expected value"
                           padHelpText={false}
                           inputProps={HEALTH_EXPECTED_STRING_INPUT_PROPS}
@@ -434,14 +419,20 @@ export const Connect = ({
                       )}
                       {expectedValueType === "number" && (
                         <Form.NumericField
-                          path="properties.healthCheck.response.expectedValue"
+                          path={
+                            deep.variant(response, "expectedValueType", "number")
+                              .expectedValue
+                          }
                           label="Expected value"
                           padHelpText={false}
                         />
                       )}
                       {expectedValueType === "boolean" && (
                         <Form.CheckboxField
-                          path="properties.healthCheck.response.expectedValue"
+                          path={
+                            deep.variant(response, "expectedValueType", "boolean")
+                              .expectedValue
+                          }
                           label="Expected value"
                           padHelpText={false}
                         />
@@ -454,14 +445,14 @@ export const Connect = ({
             <Tabs.Content itemKey="advanced">
               <Form.Sections>
                 <Form.Section>
-                  <Form.NumericField
-                    path="properties.timeoutMs"
+                  <Form.TimeSpanField
+                    path={path.properties.timeoutMs}
                     label="Timeout"
+                    unit={TimeSpan.MILLISECOND}
                     padHelpText={false}
-                    inputProps={TIMEOUT_INPUT_PROPS}
                   />
                   <Form.NumericField
-                    path="properties.maxConcurrentRequests"
+                    path={path.properties.maxConcurrentRequests}
                     label="Concurrent requests"
                     padHelpText={false}
                     inputProps={MAX_CONCURRENT_REQUESTS_INPUT_PROPS}
@@ -479,7 +470,7 @@ export const Connect = ({
         onConnect={() => void handleConnect()}
         onBack={onBack}
       />
-    </Modal.Frame>
+    </PlatformDevice.ConnectFrame>
   );
 };
 
@@ -489,9 +480,12 @@ const HEADER = ["Device", "Connect", "HTTP server"];
 
 // The paths each tab edits, so a failed Connect can open the tab with the error.
 const TAB_PATHS: Record<string, string[]> = {
-  authentication: ["properties.auth"],
-  health_check: ["properties.healthCheck"],
-  advanced: ["properties.timeoutMs", "properties.maxConcurrentRequests"],
+  authentication: [String(auth)],
+  health_check: [String(healthCheck)],
+  advanced: [
+    String(path.properties.timeoutMs),
+    String(path.properties.maxConcurrentRequests),
+  ],
 };
 
 const NAME_INPUT_PROPS = {
@@ -503,11 +497,8 @@ const NAME_INPUT_PROPS = {
 
 const HOST_INPUT_PROPS = { autoFocus: true, placeholder: "www.example.com" } as const;
 
-const TIMEOUT_INPUT_PROPS = { endContent: "ms", style: { width: "23rem" } } as const;
-
 const MAX_CONCURRENT_REQUESTS_INPUT_PROPS = {
   bounds: { lower: 1, upper: Infinity },
-  style: { width: "23rem" },
 } as const;
 
 const AUTH_TOKEN_INPUT_PROPS = {

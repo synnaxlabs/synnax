@@ -295,8 +295,11 @@ var _ = Describe("Edge task", func() {
 				Expect(birth.metric("count").GetIsNull()).To(BeTrue())
 				// The rebirth starts the sequence again.
 				streamValue(ctx, idx, data[0], telem.NewSeriesV(22.5))
+				// A retried write can publish one more NDATA between the two reads.
+				Eventually(func(g Gomega) {
+					g.Expect(host.sequence()).To(HaveLen(len(host.data()) + 2))
+				}).Should(Succeed())
 				seqs := host.sequence()
-				Expect(seqs).To(HaveLen(len(host.data()) + 2))
 				expectSequential(seqs[slices.Index(seqs[1:], 0)+1:])
 			},
 		)

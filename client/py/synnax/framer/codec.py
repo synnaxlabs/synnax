@@ -10,6 +10,7 @@
 from __future__ import annotations
 
 import struct
+from typing import override
 
 import synnax.channel.payload as channel
 from synnax.exceptions import ValidationError
@@ -408,5 +409,6 @@ class WSCodec(XCodec):
         self.codec = codec
         self.lower_perf_codec = JSONCodec()
 
+    @override
     def content_type(self) -> str:
         return "application/vnd.synnax.frame"

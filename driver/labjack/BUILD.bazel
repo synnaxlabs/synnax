@@ -66,6 +66,7 @@ cc_test(
     srcs = [
         "factory_test.cpp",
         "read_task_test.cpp",
+        "scan_task_test.cpp",
         "write_task_test.cpp",
     ],
     tags = ["requires-core"],

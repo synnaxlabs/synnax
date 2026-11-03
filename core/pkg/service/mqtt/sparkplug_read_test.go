@@ -143,12 +143,13 @@ var _ = Describe("Sparkplug B read entries", func() {
 				tagEntry("plant", "line1", "", "a", first[0]),
 				tagEntry("plant", "line1", "", "b", second[0]),
 			))
-			Eventually(func() int64 { return stored(ctx, second[0]).Len() }).
-				Should(BeEquivalentTo(1))
-			Expect(stored(ctx, first[0])).
-				To(telem.MatchSeriesData(telem.NewSeriesV(1.0)))
-			Expect(stored(ctx, second[0])).
-				To(telem.MatchSeriesData(telem.NewSeriesV[int32](-4)))
+			// Each index commits on its own, so the two channels can fill in any order.
+			Eventually(func(g Gomega) {
+				g.Expect(stored(ctx, first[0])).
+					To(telem.MatchSeriesData(telem.NewSeriesV(1.0)))
+				g.Expect(stored(ctx, second[0])).
+					To(telem.MatchSeriesData(telem.NewSeriesV[int32](-4)))
+			}).Should(Succeed())
 		})
 
 		It("Should read the tags of a device", func(ctx SpecContext) {

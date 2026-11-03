@@ -99,7 +99,7 @@ export type ChannelSchemas<C extends Channel> = Record<C["type"], z.ZodType<C>>;
 
 export interface RegisterFieldProps<C extends Channel> {
   /** The channel's form path. */
-  path: string;
+  path: deep.Target<C>;
   schemas: ChannelSchemas<C>;
 }
 
@@ -111,9 +111,9 @@ export const RegisterField = <C extends Channel>({
   path,
   schemas,
 }: RegisterFieldProps<C>): ReactElement | null => {
-  const field = Form.useField<C["type"]>(`${path}.type`, {
+  const field = Form.useField(deep.widen<{ type: C["type"] }>(path).type, {
     onChange: (value, { get, set }) => {
-      const prev = get<C>(path).value;
+      const prev = get(path).value;
       if (prev.type === value) return;
       const schema: z.ZodType<C> = schemas[value];
       const next = schema.parse({ type: value });
