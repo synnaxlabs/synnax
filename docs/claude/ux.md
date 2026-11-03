@@ -153,6 +153,9 @@ outlined button) has fill l2 and border l4, and its caret has the disabled text 
   the way to enable the channel again.
 - A new task takes the only device of its make. With two or more, the device stays
   empty.
+- As the Arc task controls get narrow, the Driver name keeps its space longest. Below
+  450 px, the performance select and redeploy show only their icons. Below 280 px, the
+  Driver select shows only its icon too.
 
 ### Overflow
 
@@ -177,6 +180,10 @@ outlined button) has fill l2 and border l4, and its caret has the disabled text 
 - An open select marks the current value and opens scrolled to it.
 - A field in a list item uses the `shadow` variant: no box at rest, a border on hover,
   and a box while open. Fields in forms and detail panes keep their box.
+- An option with a description shows the icon beside the name and the description under
+  the name. The dropdown is wide enough for each description on one line. Only a narrow
+  window wraps it, and it is never cut.
+- A select that shows only its icon is a square button, never a wide box.
 
 ### Lists with checkboxes
 

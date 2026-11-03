@@ -62,7 +62,7 @@ const renderControls = async (
 
 const searchAndClickRack = async (name: string): Promise<void> => {
   fireEvent.click(await findDialogTrigger());
-  const search = await waitFor(() => screen.getByPlaceholderText("Search Drivers..."));
+  const search = await waitFor(() => screen.getByPlaceholderText("Search drivers..."));
   fireEvent.change(search, { target: { value: name } });
   const option = await waitFor(() => screen.getByText(name));
   fireEvent.click(option);
