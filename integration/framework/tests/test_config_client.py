@@ -145,6 +145,26 @@ class TestConfigClient:
         with pytest.raises(ValueError, match="timeout"):
             load(cases_dir, sequence=sequence)
 
+    def test_invalid_timeout_on_filtered_test(self, cases_dir: Path) -> None:
+        """Should reject a file when a test its filter skips has an invalid timeout."""
+        selected = "config_client_spec/selected"
+        write_case(cases_dir, case=selected, source=named_case("Selected"))
+        sequence = {
+            "sequence_name": "timeouts",
+            "tests": [
+                {"case": selected},
+                {"case": "config_client_spec/skipped", "timeout": 0},
+            ],
+        }
+        (cases_dir / "spec_tests.json").write_text(
+            json.dumps({"sequences": [sequence]})
+        )
+        target_filter = TargetFilter(
+            file_filter=["spec"], sequence_filter="other", case_filter=[selected]
+        )
+        with pytest.raises(ValueError, match="timeout"):
+            config_client.ConfigClient(tests_dir=cases_dir).load(target_filter)
+
     def test_sequence_not_an_object(self, cases_dir: Path) -> None:
         """Should fail on a sequence entry that is not an object."""
         cases_dir.mkdir(parents=True)
