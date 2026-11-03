@@ -17,10 +17,9 @@ import os
 import sys
 import threading
 from collections.abc import Callable
-from dataclasses import dataclass, field, replace
 from pathlib import Path
 
-from pydantic import BaseModel, Field, JsonValue
+from pydantic import BaseModel, Field, JsonValue, ValidationInfo, field_validator
 
 from framework.target_filter import TargetFilter
 from framework.test_case import TestCase
@@ -30,31 +29,31 @@ _DEFAULT_TIMEOUT = 300.0
 definition sets `timeout`."""
 
 
-def _timeout(case: str, value: JsonValue) -> float:
-    """:raises ValueError: If value is not a finite, positive number of seconds."""
-    if (
-        isinstance(value, bool)
-        or not isinstance(value, (int, float))
-        or not math.isfinite(value)
-        or value <= 0
-    ):
-        raise ValueError(
-            f"Test '{case}' has timeout {value!r}; it must be a positive number of "
-            "seconds"
-        )
-    return float(value)
-
-
-@dataclass
-class TestDefinition:
+class TestDefinition(BaseModel):
     """A test case definition from a sequence configuration file."""
 
     case: str
     name: str | None = None
-    parameters: dict[str, JsonValue] = field(default_factory=dict)
+    parameters: dict[str, JsonValue] = Field(default_factory=dict)
     matrix: dict[str, list[JsonValue]] | None = None
     timeout: float = _DEFAULT_TIMEOUT
     """Seconds the test may run before the conductor marks it TIMEOUT."""
+
+    @field_validator("timeout", mode="before")
+    @classmethod
+    def _validate_timeout(cls, value: JsonValue, info: ValidationInfo) -> float:
+        """:raises ValueError: If value is not a finite, positive number of seconds."""
+        if (
+            isinstance(value, bool)
+            or not isinstance(value, (int, float))
+            or not math.isfinite(value)
+            or value <= 0
+        ):
+            raise ValueError(
+                f"Test '{info.data.get('case')}' has timeout {value!r}; it must be a "
+                "positive number of seconds"
+            )
+        return float(value)
 
     @property
     def display_name(self) -> str:
@@ -67,33 +66,14 @@ class TestDefinition:
         return self.case
 
 
-@dataclass
-class Sequence:
+class Sequence(BaseModel):
     """A named group of test definitions with an execution order."""
 
-    name: str
-    order: str  # "sequential" | "random" | "asynchronous"
-    pool_size: int
-    tests: list[TestDefinition]
-
-
-class _TestEntry(BaseModel):
-    """A test in a sequence of a test file."""
-
-    case: str
-    name: str | None = None
-    parameters: dict[str, JsonValue] = Field(default_factory=dict)
-    matrix: dict[str, list[JsonValue]] | None = None
-    timeout: JsonValue = _DEFAULT_TIMEOUT
-
-
-class _SequenceEntry(BaseModel):
-    """A sequence of a test file."""
-
-    sequence_name: str | None = None
-    sequence_order: str = "sequential"
+    name: str = Field(default="", validation_alias="sequence_name")
+    order: str = Field(default="sequential", validation_alias="sequence_order")
+    """One of "sequential", "random", or "asynchronous"."""
     pool_size: int = -1
-    tests: list[_TestEntry] = Field(default_factory=list)
+    tests: list[TestDefinition] = Field(default_factory=list)
 
 
 class _TestFile(BaseModel):
@@ -156,7 +136,7 @@ class ConfigClient:
 
     # ----- JSON loading -----
 
-    def _load_json(self, file_filter: list[str] | None) -> list[_SequenceEntry]:
+    def _load_json(self, file_filter: list[str] | None) -> list[Sequence]:
         """Load raw sequence dicts from JSON files."""
         if not file_filter:
             test_files = glob.glob(str(self._tests_dir / "*_tests.json"))
@@ -167,7 +147,7 @@ class ConfigClient:
         else:
             test_files = [f"{f}_tests.json" for f in file_filter]
 
-        all_sequences: list[_SequenceEntry] = []
+        all_sequences: list[Sequence] = []
         for test_file in test_files:
             file_path = Path(test_file)
             if not file_path.exists():
@@ -183,7 +163,7 @@ class ConfigClient:
                         raise ValueError(
                             f"Sequence {i} in test file '{test_file}' is not an object"
                         )
-                    all_sequences.append(_SequenceEntry.model_validate(seq))
+                    all_sequences.append(Sequence.model_validate(seq))
             except FileNotFoundError:
                 raise FileNotFoundError(f"Test file not found: {test_file}") from None
             except json.JSONDecodeError as e:
@@ -198,15 +178,14 @@ class ConfigClient:
 
     def _process_sequences(
         self,
-        sequences_array: list[_SequenceEntry],
+        sequences_array: list[Sequence],
         target_filter: TargetFilter,
     ) -> list[Sequence]:
         sequences: list[Sequence] = []
 
         for seq_idx, seq_dict in enumerate(sequences_array):
-            seq_name = seq_dict.sequence_name or f"Sequence_{seq_idx + 1}"
-            seq_order = seq_dict.sequence_order.lower()
-            pool_size = seq_dict.pool_size
+            seq_name = seq_dict.name or f"Sequence_{seq_idx + 1}"
+            seq_order = seq_dict.order.lower()
             raw_tests = seq_dict.tests
 
             seq_name_matches = target_filter.matches_sequence(seq_name)
@@ -220,15 +199,7 @@ class ConfigClient:
                 ):
                     continue
 
-                test_def = TestDefinition(
-                    case=case_path,
-                    name=test.name,
-                    parameters=test.parameters,
-                    matrix=test.matrix,
-                    timeout=_timeout(case_path, test.timeout),
-                )
-
-                class_defs = self._expand_test_classes(test_def)
+                class_defs = self._expand_test_classes(test)
                 for class_def in class_defs:
                     # -f matches against both the file path (e.g. "driver/ni_read") and
                     # the class name (e.g. "NIAnalogReadScaled"), so you can filter into
@@ -263,11 +234,12 @@ class ConfigClient:
                 continue
 
             if expanded_tests:
-                seq = Sequence(
-                    name=seq_name,
-                    order=seq_order,
-                    pool_size=pool_size,
-                    tests=expanded_tests,
+                seq = seq_dict.model_copy(
+                    update={
+                        "name": seq_name,
+                        "order": seq_order,
+                        "tests": expanded_tests,
+                    }
                 )
                 sequences.append(seq)
 
@@ -332,11 +304,12 @@ class ConfigClient:
             generated_name = f"{base_name}_{matrix_suffix}"
 
             expanded.append(
-                replace(
-                    test_def,
-                    name=generated_name,
-                    parameters=merged_params,
-                    matrix=None,
+                test_def.model_copy(
+                    update={
+                        "name": generated_name,
+                        "parameters": merged_params,
+                        "matrix": None,
+                    }
                 )
             )
 
@@ -352,10 +325,11 @@ class ConfigClient:
                 return [test_def]
 
             return [
-                replace(
-                    test_def,
-                    name=test_class.__name__,
-                    parameters=test_def.parameters.copy(),
+                test_def.model_copy(
+                    update={
+                        "name": test_class.__name__,
+                        "parameters": test_def.parameters.copy(),
+                    }
                 )
                 for test_class in test_classes
             ]
