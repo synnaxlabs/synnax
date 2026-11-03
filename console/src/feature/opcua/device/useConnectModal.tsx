@@ -304,26 +304,24 @@ export const Connect = ({
               )}
             </Form.Section>
             <Form.Section title="Advanced">
-              <Flex.Box x>
-                <Form.NumericField
-                  path={path.properties.connection.clientTimeoutMs}
-                  label="Request timeout"
-                  padHelpText={false}
-                  inputProps={MS_INPUT_PROPS}
-                />
-                <Form.NumericField
-                  path={path.properties.connection.sessionTimeoutMs}
-                  label="Session timeout"
-                  padHelpText={false}
-                  inputProps={MS_INPUT_PROPS}
-                />
-                <Form.NumericField
-                  path={path.properties.connection.secureChannelLifetimeMs}
-                  label="Secure channel lifetime"
-                  padHelpText={false}
-                  inputProps={MS_INPUT_PROPS}
-                />
-              </Flex.Box>
+              <Form.NumericField
+                path={path.properties.connection.clientTimeoutMs}
+                label="Request timeout"
+                padHelpText={false}
+                inputProps={MS_INPUT_PROPS}
+              />
+              <Form.NumericField
+                path={path.properties.connection.sessionTimeoutMs}
+                label="Session timeout"
+                padHelpText={false}
+                inputProps={MS_INPUT_PROPS}
+              />
+              <Form.NumericField
+                path={path.properties.connection.secureChannelLifetimeMs}
+                label="Secure channel lifetime"
+                padHelpText={false}
+                inputProps={MS_INPUT_PROPS}
+              />
             </Form.Section>
           </Form.Sections>
         </Form.Form>
