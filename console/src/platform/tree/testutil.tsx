@@ -307,6 +307,8 @@ export interface RenderTreeContextMenuOptions extends Pick<
   resources: ontology.Resource[];
   /** The selected ids; defaults to every resource. */
   selected?: ontology.ID[];
+  /** The tree root; defaults to the ontology root. */
+  rootID?: ontology.ID;
   /** The tree parent of the selection; defaults to the root. */
   parentID?: ontology.ID;
   store?: TestStore;
@@ -330,6 +332,7 @@ export const renderTreeContextMenu = async (
     client,
     resources,
     selected,
+    rootID,
     parentID,
     store,
     baseOverrides = {},
@@ -346,6 +349,7 @@ export const renderTreeContextMenu = async (
     }),
     selection: createSelection({
       ids: selected ?? resources.map((r) => r.id),
+      rootID,
       parentID,
     }),
     state: createState(resources, stateOverrides),

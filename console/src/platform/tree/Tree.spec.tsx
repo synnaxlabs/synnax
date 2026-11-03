@@ -747,6 +747,48 @@ describe("Tree.Tree", () => {
       expect(await childKeysOf(folderID)).not.toContain(nested.key);
     });
 
+    it("should move only the group when a group and a match inside it are dragged from search results", async () => {
+      const tok = uniqueToken();
+      const container = await createGroup(ontology.ROOT_ID, "container");
+      const containerID = group.ontologyID(container.key);
+      const folder = await client.groups.create({
+        parent: containerID,
+        name: `${tok} folder`,
+      });
+      const folderID = group.ontologyID(folder.key);
+      const report = await client.groups.create({
+        parent: folderID,
+        name: `${tok} report`,
+      });
+      const dest = await client.groups.create({
+        parent: containerID,
+        name: `${tok} dest`,
+      });
+      await renderOntologyTree({
+        client,
+        root: containerID,
+        items: DROPPABLE,
+        search: useGroupSearch,
+      });
+      searchTree(tok);
+      // The report is clicked first: a click on the folder opens it and shows the
+      // report a second time.
+      fireEvent.click(await findTreeRow(itemName(report.name)));
+      // The report shows the folder's name as its group, so the ID finds the folder.
+      const folderRow = document.querySelector(
+        `.lyra-tree:not(.console-tree--hidden) [id="${ontology.idToString(folderID)}"]`,
+      );
+      if (folderRow == null) throw new Error("folder result not found");
+      withControlHeld(() => fireEvent.click(folderRow));
+      fireEvent.dragStart(folderRow);
+      fireEvent.drop(await findTreeRow(itemName(dest.name)));
+      await waitFor(async () =>
+        expect(await childKeysOf(group.ontologyID(dest.key))).toContain(folder.key),
+      );
+      expect(await childKeysOf(group.ontologyID(dest.key))).not.toContain(report.key);
+      expect(await childKeysOf(folderID)).toContain(report.key);
+    });
+
     it("should detach each item from its own parent when the selection spans parents", async () => {
       const container = await createGroup(ontology.ROOT_ID, "container");
       const containerID = group.ontologyID(container.key);

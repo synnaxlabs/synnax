@@ -102,6 +102,8 @@ export interface ResultNodes {
   expanded: string[];
   /** The parent of each node at the top of the results. */
   parents: Map<string, ontology.ID>;
+  /** The keys of every group above each match, over all of its paths. */
+  ancestors: Map<string, Set<string>>;
 }
 
 /** What shows in place of the tree while a search has a term. */

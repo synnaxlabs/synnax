@@ -134,6 +134,40 @@ describe("group ontology service", () => {
     });
   });
 
+  it("should ungroup a nested group shown at the top of flat search results", async () => {
+    const root = await createGroup(ontology.ROOT_ID);
+    const parent = await createGroup(group.ontologyID(root.key));
+    const child = await createGroup(group.ontologyID(parent.key));
+    const grandchild = await createGroup(group.ontologyID(child.key));
+    const parentID = group.ontologyID(parent.key);
+    const childID = group.ontologyID(child.key);
+    const [childKey, grandchildKey] = [childID, group.ontologyID(grandchild.key)].map(
+      (id) => ontology.idToString(id),
+    );
+    // Flat results show the match at the top, without its real parent.
+    const nodes: PTree.Node<string>[] = [
+      { key: childKey, children: [{ key: grandchildKey }] },
+    ];
+    const shape = PTree.flatten({ nodes, expanded: [childKey] });
+    assertDefined(Item.ContextMenu);
+    await renderTreeContextMenu(Item.ContextMenu, {
+      client,
+      resources: [
+        groupResource(child.key, child.name),
+        groupResource(grandchild.key, grandchild.name),
+      ],
+      selected: [childID],
+      rootID: group.ontologyID(root.key),
+      parentID,
+      stateOverrides: { nodes, shape },
+    });
+    fireEvent.click(await screen.findByText("Ungroup"));
+    await waitFor(async () => {
+      const children = await client.ontology.children.retrieve({ ids: parentID });
+      expect(children.map((r) => r.name)).toEqual([grandchild.name]);
+    });
+  });
+
   it("should label ungroup as delete for a childless nested group", async () => {
     const parent = await createGroup(ontology.ROOT_ID);
     const child = await createGroup(group.ontologyID(parent.key));

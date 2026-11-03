@@ -140,7 +140,10 @@ const beforeUngroup = async ({ data }: Flux.BeforeUpdateParams<UngroupParams>) =
     selection,
     state: { shape, nodes, setNodes },
   } = data;
-  const parentID = parentOf(selection);
+  const parentKey = ontology.idToString(parentOf(selection));
+  // Flat search results do not show the real parent, so the children move to the top.
+  const destination =
+    PTree.findNode({ tree: nodes, key: parentKey }) == null ? null : parentKey;
   // Sort the groups by depth that way deeper nested groups are ungrouped first.
   const byDepth = PTree.compareDepth(shape);
   selection.ids.sort((a, b) => byDepth(ontology.idToString(a), ontology.idToString(b)));
@@ -152,9 +155,7 @@ const beforeUngroup = async ({ data }: Flux.BeforeUpdateParams<UngroupParams>) =
         const children = PTree.findNode({ tree: nodes, key })?.children ?? [];
         acc = PTree.moveNode({
           tree: acc,
-          destination: ontology.idsEqual(parentID, selection.rootID)
-            ? null
-            : ontology.idToString(parentID),
+          destination,
           keys: children.map((c) => c.key),
         });
         acc = PTree.removeNode({ tree: acc, keys: key });

@@ -162,12 +162,18 @@ const TreeItem = ({ onDrop: _, ...rest }: Base.ItemProps<string>) => {
 
 const itemRenderProp = Component.renderProp(TreeItem);
 
-// Returns the keys that sit inside another key in the same set. Depth cannot answer
-// this: two nodes at different depths are often unrelated.
-const findContainedKeys = (tree: Base.Node<string>[], keys: string[]): Set<string> => {
+// Returns the keys that sit inside another key in the same set, in the tree or in the
+// ancestors of a search match. Depth cannot answer this: two nodes at different depths
+// are often unrelated.
+const findContainedKeys = (
+  tree: Base.Node<string>[],
+  keys: string[],
+  ancestors: Map<string, Set<string>> = new Map(),
+): Set<string> => {
   const all = new Set(keys);
   const contained = new Set<string>();
   keys.forEach((key) => {
+    if ([...(ancestors.get(key) ?? [])].some((a) => all.has(a))) contained.add(key);
     const node = Base.findNode({ tree, key });
     if (node?.children == null) return;
     Base.getDescendants(...node.children).forEach(({ key: descendant }) => {
@@ -505,7 +511,7 @@ const Internal = ({
     // An item inside another dragged item travels with it. Moving it explicitly
     // would re-parent it onto the destination as a sibling of its own parent.
     const droppedKeys = dropped.map(({ key }) => key);
-    const contained = findContainedKeys(nodesSnapshot, droppedKeys);
+    const contained = findContainedKeys(nodesSnapshot, droppedKeys, results?.ancestors);
     const moved = dropped.filter(({ key }) => !contained.has(key));
     if (moved.length === 0) return [];
 
@@ -673,6 +679,7 @@ const buildResults = ({
   const matched = new Set(ontology.idToString(ids));
   const nodes: Base.Node<string>[] = [];
   const parents = new Map<string, ontology.ID>();
+  const ancestors = new Map<string, Set<string>>();
   const groups = new Map<string, string>();
   const fixed = new Set<string>();
   const expanded = new Set<string>();
@@ -687,6 +694,7 @@ const buildResults = ({
     if (idPaths.length === 0) return;
     const parent = idPaths[0].at(-1);
     parents.set(key, parent ?? root);
+    ancestors.set(key, new Set(idPaths.flatMap((path) => ontology.idToString(path))));
     if (layout === "flat") {
       const group = parent == null ? undefined : names.get(ontology.idToString(parent));
       if (group != null) groups.set(key, group);
@@ -711,7 +719,13 @@ const buildResults = ({
     });
   });
   return {
-    results: { nodes: foldersFirst(nodes), fixed, expanded: [...expanded], parents },
+    results: {
+      nodes: foldersFirst(nodes),
+      fixed,
+      expanded: [...expanded],
+      parents,
+      ancestors,
+    },
     groups,
   };
 };
