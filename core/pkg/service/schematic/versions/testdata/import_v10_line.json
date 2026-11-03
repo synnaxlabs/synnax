@@ -1,0 +1,8 @@
+{
+  "version": 10,
+  "type": "schematic",
+  "name": "Feed line",
+  "nodes": [{ "key": "n1", "position": { "x": 1, "y": 2 }, "z_index": 4 }],
+  "edges": [],
+  "configs": { "n1": { "variant": "line" } }
+}

@@ -190,6 +190,16 @@ var _ = Describe("DecodeImExEnvelope", func() {
 			To(Equal("Renamed"))
 	})
 
+	It("Should fill the old defaults of a field a v10 envelope omits", func(
+		ctx SpecContext,
+	) {
+		sch := decode(ctx, "testdata/import_v10_line.json")
+		Expect(sch.Configs["n1"].Variant).To(SatisfyAll(
+			HaveField("End", HaveValue(Equal(spatial.XY{X: 100}))),
+			HaveField("StrokeWidth", HaveValue(BeEquivalentTo(2))),
+		))
+	})
+
 	It("Should reject a v8 envelope holding a config the union rejects", func(
 		ctx SpecContext,
 	) {

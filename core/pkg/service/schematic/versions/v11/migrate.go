@@ -16,8 +16,15 @@ import (
 	v10 "github.com/synnaxlabs/synnax/pkg/service/schematic/versions/v10"
 )
 
-// MigrateSchematic lifts a v10 schematic to v11.
+// MigrateSchematic lifts an imported v10 schematic to v11. An imported file can omit
+// any field, so the lift fills the v10 defaults before those fields become optional.
 func MigrateSchematic(ctx context.Context, old v10.Schematic) (Schematic, error) {
+	old.ApplyDefaults()
+	return autoMigrateSchematic(ctx, old)
+}
+
+// migrateStored lifts a stored v10 schematic to v11, keeping every value, 0 included.
+func migrateStored(ctx context.Context, old v10.Schematic) (Schematic, error) {
 	return autoMigrateSchematic(ctx, old)
 }
 
@@ -93,4 +100,4 @@ func MigrateScaleIndicatorConfig(
 }
 
 // Migration lifts stored schematics from v10 to v11.
-var Migration = migrate.NewEntry("v61_optional_zero_valid_configs", MigrateSchematic)
+var Migration = migrate.NewEntry("v61_optional_zero_valid_configs", migrateStored)
