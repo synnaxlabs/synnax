@@ -19,23 +19,34 @@ const T3 = T0.add(TimeSpan.seconds(3));
 const T4 = T0.add(TimeSpan.seconds(4));
 const LEADING = (BigInt(0xffffffff) - 1_000_000n) << 32n;
 
+// A write the Core stamps 1ns per sample.
 const write = (alignment: bigint, length: number, stamp: TimeStamp): Series =>
   new Series({
     data: new Float32Array(length),
     dataType: DataType.FLOAT32,
-    timeRange: stamp.range(stamp.add(TimeSpan.NANOSECOND)),
+    timeRange: stamp.spanRange(TimeSpan.nanoseconds(length)),
     alignment,
   });
 
+const plus = (stamp: TimeStamp, i: number): TimeStamp =>
+  stamp.add(TimeSpan.nanoseconds(i));
+
 describe("Stamps", () => {
-  it("should return the stamp of the write holding the sample", () => {
+  it("should time each sample of a write 1ns after the one before", () => {
     const s = new Stamps(4);
     s.record(write(10n, 3, T0));
     s.record(write(13n, 2, T1));
     expect(s.at(10n)).toEqual(T0);
-    expect(s.at(12n)).toEqual(T0);
+    expect(s.at(11n)).toEqual(plus(T0, 1));
+    expect(s.at(12n)).toEqual(plus(T0, 2));
     expect(s.at(13n)).toEqual(T1);
-    expect(s.at(14n)).toEqual(T1);
+    expect(s.at(14n)).toEqual(plus(T1, 1));
+  });
+
+  it("should time the samples of a large write", () => {
+    const s = new Stamps(1);
+    s.record(write(0n, 70_000, T0));
+    expect(s.at(69_999n)).toEqual(plus(T0, 69_999));
   });
 
   it("should be null before the first write and past the last", () => {
@@ -67,8 +78,8 @@ describe("Stamps", () => {
     [T0, T1, T2, T3, T4].forEach((t, i) => s.record(write(BigInt(i) * 2n, 2, t)));
     expect(s.at(3n)).toBeNull();
     expect(s.at(4n)).toEqual(T2);
-    expect(s.at(7n)).toEqual(T3);
-    expect(s.at(9n)).toEqual(T4);
+    expect(s.at(7n)).toEqual(plus(T3, 1));
+    expect(s.at(9n)).toEqual(plus(T4, 1));
     expect(s.at(10n)).toBeNull();
   });
 
@@ -77,9 +88,9 @@ describe("Stamps", () => {
     s.record(write(0n, 3, T0));
     s.record(write(3n, 2, T1));
     s.record(write(3n, 4, T2));
-    expect(s.at(1n)).toEqual(T0);
+    expect(s.at(1n)).toEqual(plus(T0, 1));
     expect(s.at(3n)).toEqual(T2);
-    expect(s.at(6n)).toEqual(T2);
+    expect(s.at(6n)).toEqual(plus(T2, 3));
     expect(s.at(7n)).toBeNull();
   });
 
@@ -98,7 +109,8 @@ describe("Stamps", () => {
     s.record(write(LEADING, 2, T0));
     s.record(write(LEADING + 2n, 1, T1));
     expect(s.at(LEADING - 1n)).toBeNull();
-    expect(s.at(LEADING + 1n)).toEqual(T0);
+    expect(s.at(LEADING)).toEqual(T0);
+    expect(s.at(LEADING + 1n)).toEqual(plus(T0, 1));
     expect(s.at(LEADING + 2n)).toEqual(T1);
     expect(s.at(LEADING + 3n)).toBeNull();
   });

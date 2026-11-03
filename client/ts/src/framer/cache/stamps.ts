@@ -10,9 +10,8 @@
 import { type bounds, type Series, TimeStamp } from "@synnaxlabs/x";
 
 /**
- * The stamps of the last writes to a channel with no index, one record per write. Every
- * sample of a write shares the stamp the Core gave the write. At capacity the oldest
- * write is forgotten.
+ * The stamps of the last writes to a channel with no index, one record per write. The
+ * Core stamps a write's samples 1ns apart. At capacity the oldest write is forgotten.
  */
 export class Stamps {
   private readonly starts: BigUint64Array;
@@ -48,7 +47,7 @@ export class Stamps {
     this.length++;
   }
 
-  /** @returns the stamp of the write holding the sample at alignment, else null. */
+  /** @returns the stamp of the sample at alignment, else null. */
   at(alignment: bigint): TimeStamp | null {
     let lo = 0;
     let hi = this.length;
@@ -60,7 +59,7 @@ export class Stamps {
     if (lo === 0) return null;
     const i = this.slot(lo - 1);
     if (alignment >= this.ends[i]) return null;
-    return new TimeStamp(this.stamps[i]);
+    return new TimeStamp(this.stamps[i] + (alignment - this.starts[i]));
   }
 
   private get capacity(): number {

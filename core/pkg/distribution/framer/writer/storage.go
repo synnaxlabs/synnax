@@ -16,6 +16,7 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/storage/ts"
 	"github.com/synnaxlabs/x/set"
 	"github.com/synnaxlabs/x/telem"
+	"github.com/synnaxlabs/x/types"
 )
 
 // virtualKeys returns the keys of the virtual channels among keys.
@@ -37,28 +38,45 @@ func virtualKeys(
 	return virtual, nil
 }
 
-// stampVirtual stamps each series of a virtual channel with one instant from the host's
-// clock, since no index places its samples.
-func stampVirtual(fr ts.Frame, virtual set.Set[ts.ChannelKey]) ts.Frame {
+// unindexedStamper times each sample of a channel with no index 1ns after the one
+// before it in the frame, from the host's clock. It is not safe for concurrent use.
+type unindexedStamper[K types.SizedNumeric] struct {
+	unindexed func(K) bool
+	ends      map[K]telem.TimeStamp
+}
+
+func newUnindexedStamper[K types.SizedNumeric](
+	unindexed func(K) bool,
+) *unindexedStamper[K] {
+	return &unindexedStamper[K]{unindexed: unindexed, ends: make(map[K]telem.TimeStamp)}
+}
+
+func (st *unindexedStamper[K]) stamp(fr telem.Frame[K]) {
+	clear(st.ends)
 	now := telem.Now()
 	for rawI, k := range fr.RawKeys() {
-		if fr.ShouldExcludeRaw(rawI) || !virtual.Contains(k) {
+		if fr.ShouldExcludeRaw(rawI) || !st.unindexed(k) {
 			continue
 		}
+		start, ok := st.ends[k]
+		if !ok {
+			start = now
+		}
 		s := fr.RawSeriesAt(rawI)
-		s.TimeRange = now.SpanRange(telem.Nanosecond)
+		s.TimeRange = start.SpanRange(telem.TimeSpan(s.Len()) * telem.Nanosecond)
+		st.ends[k] = s.TimeRange.End
 		fr.SetRawSeriesAt(rawI, s)
 	}
-	return fr
 }
 
 func newRequestTranslator(
 	virtual set.Set[ts.ChannelKey],
 ) func(ctx context.Context, in Request) (ts.WriterRequest, bool, error) {
+	st := newUnindexedStamper(virtual.Contains)
 	return func(ctx context.Context, in Request) (ts.WriterRequest, bool, error) {
 		fr := in.Frame.ToStorage()
 		if in.Command == CommandWrite && len(virtual) > 0 {
-			fr = stampVirtual(fr, virtual)
+			st.stamp(fr)
 		}
 		return ts.WriterRequest{
 			Command: ts.WriterCommand(in.Command),

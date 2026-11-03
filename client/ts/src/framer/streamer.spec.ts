@@ -83,7 +83,7 @@ describe("Streamer", () => {
       const d = await streamer.read();
       expect(Array.from(d.get(ch.key))).toEqual(samples);
     });
-    test("should stamp a virtual channel's series with the Core's clock", async () => {
+    test("should stamp each sample of a virtual series 1ns apart with the Core's clock", async () => {
       const ch = await newVirtualChannel(client);
       const streamer = await client.openStreamer(ch.key);
       const writer = await client.openWriter({
@@ -110,7 +110,7 @@ describe("Streamer", () => {
       }
       const d = await streamer.read();
       const series = d.series[0];
-      expect(series.timeRange.span.valueOf()).toEqual(1n);
+      expect(series.timeRange.span.valueOf()).toEqual(3n);
       expect(series.timeRange.start.afterEq(before)).toBe(true);
       const after = TimeStamp.now().add(skew);
       expect(series.timeRange.start.beforeEq(after)).toBe(true);

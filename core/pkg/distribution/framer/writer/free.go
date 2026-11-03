@@ -72,6 +72,10 @@ func (s *Service) newFree(
 		group:      group,
 		indexes:    freeIndexes,
 		alignments: alignments,
+		stamper: newUnindexedStamper(func(k channel.Key) bool {
+			_, indexed := freeIndexes[k]
+			return !indexed
+		}),
 	}
 	w.Transform = w.transform
 	return w
@@ -83,6 +87,7 @@ type freeWriter struct {
 	indexes map[channel.Key]channel.Key
 	// alignments tracks the current alignment for each free index channel.
 	alignments map[channel.Key]telem.Alignment
+	stamper    *unindexedStamper[channel.Key]
 	confluence.LinearTransform[Request, Response]
 	// freeWrites is the inlet for communicating free frames to the relay
 	freeWrites confluence.Inlet[relay.Response]
@@ -96,17 +101,16 @@ type freeWriter struct {
 }
 
 func (w *freeWriter) alignFrame(fr frame.Frame) frame.Frame {
-	now := telem.Now()
+	w.stamper.stamp(fr.Frame)
+	var (
+		idx channel.Key
+		ok  bool
+	)
 	for rawI, s := range fr.RawSeries() {
 		if fr.ShouldExcludeRaw(rawI) {
 			continue
 		}
-		idx, ok := w.indexes[fr.RawKeyAt(rawI)]
-		// No index places these samples, so the receiving node's clock does.
-		if !ok {
-			s.TimeRange = now.SpanRange(telem.Nanosecond)
-		}
-		s.Alignment = w.alignments[idx]
+		s.Alignment = w.alignments[w.indexes[fr.RawKeyAt(rawI)]]
 		fr.SetRawSeriesAt(rawI, s)
 	}
 
@@ -114,7 +118,7 @@ func (w *freeWriter) alignFrame(fr frame.Frame) frame.Frame {
 		if fr.ShouldExcludeRaw(rawI) {
 			continue
 		}
-		idx, ok := w.indexes[rawKey]
+		idx, ok = w.indexes[rawKey]
 		if !ok || rawKey != idx {
 			continue
 		}

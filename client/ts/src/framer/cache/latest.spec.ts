@@ -447,13 +447,13 @@ describe("Latest", () => {
       );
     };
 
-    // A write the Core stamps with one instant, at alignments Cesium gives in a row.
+    // A write the Core stamps 1ns per sample, at alignments Cesium gives in a row.
     const write = (alignment: bigint, length: number, stamp: TimeStamp): Series =>
       new Series({
         data: new Float32Array(length),
         dataType: DataType.FLOAT32,
         alignment,
-        timeRange: stamp.spanRange(TimeSpan.NANOSECOND),
+        timeRange: stamp.spanRange(TimeSpan.nanoseconds(length)),
       });
 
     it("should time a stored channel's read and streamed samples from its index", async () => {
@@ -638,7 +638,7 @@ describe("Latest", () => {
       }
     });
 
-    it("should time each write to a channel with no index from its stamp", async () => {
+    it("should time the samples of each write to a channel with no index 1ns apart", async () => {
       const core = createCore(true);
       const { open, close } = createLatest(core);
       const key = core.virtual!.key;
@@ -654,7 +654,7 @@ describe("Latest", () => {
         // The second and third writes share one buffer, and keep their own stamps.
         expect(latest.value().series.series).toHaveLength(2);
         const [t0, t1, t2] = stamps.map((t) => t.valueOf());
-        expect(timedOf(latest)).toEqual([t0, t0, t1, t2, t2]);
+        expect(timedOf(latest)).toEqual([t0, t0 + 1n, t1, t2, t2 + 1n]);
       } finally {
         latest.close();
         await close();
@@ -754,7 +754,7 @@ describe("Latest", () => {
         release();
         await expect.poll(() => latest.value().status.variant, POLL).toBe("success");
         const [t0, t1, t2] = stamps.map((t) => t.valueOf());
-        expect(timedOf(latest)).toEqual([t0, t0, t1, t1, t2, t2]);
+        expect(timedOf(latest)).toEqual([t0, t0 + 1n, t1, t1 + 1n, t2, t2 + 1n]);
       } finally {
         latest.close();
         await close();
@@ -948,13 +948,13 @@ describe("Latest", () => {
           data: new Float64Array(2),
           dataType: DataType.FLOAT64,
           alignment: 12n,
-          timeRange: t1.spanRange(TimeSpan.NANOSECOND),
+          timeRange: t1.spanRange(TimeSpan.nanoseconds(2)),
         });
         core.stream(new framer.Frame(key, retyped));
         await expect
           .poll(() => latest.value().series.series[0]?.dataType.toString(), POLL)
           .toBe(DataType.FLOAT64.toString());
-        expect(timedOf(latest)).toEqual([t1.valueOf(), t1.valueOf()]);
+        expect(timedOf(latest)).toEqual([t1.valueOf(), t1.valueOf() + 1n]);
         expect(latest.timeAt(10n)).toBeNull();
       } finally {
         latest.close();
@@ -980,6 +980,7 @@ describe("Latest", () => {
         await expect.poll(() => core.streams(key), POLL).toBe(true);
         core.stream(new framer.Frame(key, write(10n, 2, START)));
         await expect.poll(() => unindexed.timeAt(10n), POLL).toEqual(START);
+        expect(unindexed.timeAt(11n)).toEqual(START.add(TimeSpan.NANOSECOND));
         expect(unindexed.timeAt(9n)).toBeNull();
         expect(unindexed.timeAt(12n)).toBeNull();
       } finally {
