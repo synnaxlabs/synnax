@@ -25,10 +25,12 @@ import { Flux, LinePlot, Ranger } from "@synnaxlabs/pluto";
 import {
   type DynamicWindow,
   dynamicWindow,
+  resolveWindow,
   type StaticWindow,
   staticWindow,
   TimeRange,
   TimeSpan,
+  TimeStamp,
 } from "@synnaxlabs/x";
 import { type ReactElement, useState } from "react";
 
@@ -147,14 +149,15 @@ const StaticTag = ({
   onChange,
 }: StaticTagProps): ReactElement => {
   const { onSelect } = Select.useItemState(itemKey);
-  const start = Number(window.timeRange.start);
-  const end = Number(window.timeRange.end);
+  const timeRange = resolveWindow(window, TimeStamp.now());
+  const start = timeRange.start.nanoseconds;
+  const end = timeRange.end.nanoseconds;
   const handleChange = (next: TimeRange) => {
     if (next.isValid && !next.span.isZero) onChange(next);
   };
   return (
     <Tag.Tag
-      icon={<Ranger.StageIcon timeRange={{ start, end }} />}
+      icon={<Ranger.StageIcon timeRange={timeRange} />}
       onClose={onSelect}
       level="small"
       size="small"
@@ -162,7 +165,7 @@ const StaticTag = ({
     >
       <Input.DateTime
         value={start}
-        onChange={(next) => handleChange(new TimeRange(next, end))}
+        onChange={(next) => handleChange(new TimeRange(next, timeRange.end))}
         aria-label="Start"
         variant="text"
         size="small"
@@ -172,7 +175,7 @@ const StaticTag = ({
       <Icon.Arrow.Right />
       <Input.DateTime
         value={end}
-        onChange={(next) => handleChange(new TimeRange(start, next))}
+        onChange={(next) => handleChange(new TimeRange(timeRange.start, next))}
         aria-label="End"
         variant="text"
         size="small"
