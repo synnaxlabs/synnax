@@ -1,0 +1,48 @@
+// Copyright 2026 Synnax Labs, Inc.
+//
+// Use of this software is governed by the Business Source License included in the file
+// licenses/BSL.txt.
+//
+// As of the Change Date specified in that file, in accordance with the Business Source
+// License, use of this software will be governed by the Apache License, Version 2.0,
+// included in the file licenses/APL.txt.
+
+import "schemas/synnax/ontology"
+import "schemas/x/telem"
+
+@go output "core/pkg/service/auth/oidc/invite"
+@ts output "client/ts/src/auth/oidc/invite"
+
+Key = uuid {
+    @doc value "is a unique identifier for an invite."
+}
+
+Invite struct {
+    key     Key = create {
+        @doc value "is the unique identifier for this invite."
+        @key
+    }
+    subject ontology.ID     {
+        @doc value    """
+            is the user a provider account links to when it redeems the invite.
+        """
+        @filter
+        @index lookup
+    }
+    hash    bytes           {
+        @doc value "is the SHA-256 hash of the secret in the invite's token."
+        @go wire   omit
+        @ts omit
+    }
+    expiry  telem.TimeStamp {
+        @doc value "is when the invite stops working."
+    }
+
+    @doc value  """
+        lets one provider account link to a user without a session. A user holds at most
+        one invite, and it works once.
+    """
+    @go marshal
+    @go migrate
+    @retrieve
+}

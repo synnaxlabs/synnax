@@ -22,6 +22,7 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/service/access/rbac/role"
 	"github.com/synnaxlabs/synnax/pkg/service/auth"
 	"github.com/synnaxlabs/synnax/pkg/service/auth/oidc"
+	"github.com/synnaxlabs/synnax/pkg/service/auth/oidc/invite"
 	"github.com/synnaxlabs/synnax/pkg/service/auth/oidc/testutil"
 	"github.com/synnaxlabs/synnax/pkg/service/ontology"
 	"github.com/synnaxlabs/synnax/pkg/service/user"
@@ -86,6 +87,7 @@ var _ = Describe("Service", func() {
 			User:        userSvc,
 			Role:        rbacSvc.Role,
 			NewUserRole: rbacSvc.Builtin.ViewerKey,
+			Invite:      invites,
 			Providers:   providers,
 		}))
 	}
@@ -113,6 +115,7 @@ var _ = Describe("Service", func() {
 				User:        userSvc,
 				Role:        rbacSvc.Role,
 				NewUserRole: rbacSvc.Builtin.ViewerKey,
+				Invite:      invites,
 			}
 		}
 		DescribeTable(
@@ -136,6 +139,11 @@ var _ = Describe("Service", func() {
 				"no user service",
 				func(c *oidc.ServiceConfig) { c.User = nil },
 				"user: must be non-nil",
+			),
+			Entry(
+				"no invite service",
+				func(c *oidc.ServiceConfig) { c.Invite = nil },
+				"invite: must be non-nil",
 			),
 			Entry(
 				"no role service",
@@ -328,6 +336,7 @@ var _ = Describe("Service", func() {
 				User:             userSvc,
 				Role:             rbacSvc.Role,
 				NewUserRole:      rbacSvc.Builtin.ViewerKey,
+				Invite:           invites,
 				DiscoveryTimeout: 100 * time.Millisecond,
 				Providers: []oidc.Provider{
 					{Name: "stalled", Issuer: stalled.URL, ClientID: "s"},
@@ -360,6 +369,7 @@ var _ = Describe("Service", func() {
 				User:             userSvc,
 				Role:             rbacSvc.Role,
 				NewUserRole:      rbacSvc.Builtin.ViewerKey,
+				Invite:           invites,
 				DiscoveryTimeout: 200 * time.Millisecond,
 				Providers: []oidc.Provider{
 					{Name: "stalled", Issuer: stalled.URL, ClientID: "s"},
@@ -556,9 +566,16 @@ var _ = Describe("Service", func() {
 					Provider: p, ID: uuid.New().String(),
 				}))
 			}
+			MustSucceed2(invites.NewWriter(nil).Create(ctx, subject))
 			Expect(svc.DeleteFor(ctx, nil, subject)).To(Succeed())
 			Expect(
 				svc.NewRetrieve().Where(oidc.MatchSubjects(subject)).Exists(ctx, nil),
+			).
+				To(BeFalse())
+			Expect(
+				invites.NewRetrieve().
+					Where(invite.MatchSubjects(subject)).
+					Exists(ctx, nil),
 			).
 				To(BeFalse())
 		})

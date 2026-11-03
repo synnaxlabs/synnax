@@ -16,6 +16,7 @@ import (
 	. "github.com/onsi/gomega"
 	"github.com/synnaxlabs/gorp"
 	"github.com/synnaxlabs/synnax/pkg/service/access/rbac"
+	"github.com/synnaxlabs/synnax/pkg/service/auth/oidc/invite"
 	"github.com/synnaxlabs/synnax/pkg/service/auth/oidc/testutil"
 	"github.com/synnaxlabs/synnax/pkg/service/group"
 	"github.com/synnaxlabs/synnax/pkg/service/ontology"
@@ -36,6 +37,7 @@ var (
 	otg      *ontology.Ontology
 	userSvc  *user.Service
 	rbacSvc  *rbac.Service
+	invites  *invite.Service
 	provider *testutil.Provider
 )
 
@@ -52,6 +54,7 @@ var _ = BeforeSuite(func(ctx SpecContext) {
 	rbacSvc = MustOpen(rbac.OpenService(ctx, rbac.ServiceConfig{
 		DB: db, Ontology: otg, Group: groupSvc, User: userSvc,
 	}))
+	invites = MustOpen(invite.OpenService(ctx, invite.ServiceConfig{DB: db}))
 	provider = testutil.NewProvider()
 	DeferCleanup(provider.Close)
 })

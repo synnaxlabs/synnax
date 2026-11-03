@@ -20,6 +20,7 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/service/access/rbac"
 	"github.com/synnaxlabs/synnax/pkg/service/auth"
 	"github.com/synnaxlabs/synnax/pkg/service/auth/oidc"
+	"github.com/synnaxlabs/synnax/pkg/service/auth/oidc/invite"
 	"github.com/synnaxlabs/synnax/pkg/service/auth/oidc/testutil"
 	"github.com/synnaxlabs/synnax/pkg/service/ontology"
 	"github.com/synnaxlabs/synnax/pkg/service/user"
@@ -59,9 +60,11 @@ func linkAccount(ctx context.Context, token, sub string) oidc.Link {
 var _ = Describe("ServiceConfig", func() {
 	full := func() apioidc.ServiceConfig {
 		return apioidc.ServiceConfig{
-			Auth: &auth.Service{},
-			OIDC: &oidc.Service{},
-			RBAC: &rbac.Service{},
+			Auth:   &auth.Service{},
+			OIDC:   &oidc.Service{},
+			Invite: &invite.Service{},
+			User:   &user.Service{},
+			RBAC:   &rbac.Service{},
 		}
 	}
 	It("Should succeed when every service is set", func() {
@@ -85,6 +88,16 @@ var _ = Describe("ServiceConfig", func() {
 			"oidc: must be non-nil",
 		),
 		Entry(
+			"invite",
+			func(c *apioidc.ServiceConfig) { c.Invite = nil },
+			"invite: must be non-nil",
+		),
+		Entry(
+			"user",
+			func(c *apioidc.ServiceConfig) { c.User = nil },
+			"user: must be non-nil",
+		),
+		Entry(
 			"rbac",
 			func(c *apioidc.ServiceConfig) { c.RBAC = nil },
 			"rbac: must be non-nil",
@@ -95,6 +108,8 @@ var _ = Describe("ServiceConfig", func() {
 		merged := apioidc.ServiceConfig{}.Override(cfg)
 		Expect(merged.Auth).To(BeIdenticalTo(cfg.Auth))
 		Expect(merged.OIDC).To(BeIdenticalTo(cfg.OIDC))
+		Expect(merged.Invite).To(BeIdenticalTo(cfg.Invite))
+		Expect(merged.User).To(BeIdenticalTo(cfg.User))
 		Expect(merged.RBAC).To(BeIdenticalTo(cfg.RBAC))
 	})
 })

@@ -25,6 +25,7 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/service/auth"
 	"github.com/synnaxlabs/synnax/pkg/service/auth/apikey"
 	"github.com/synnaxlabs/synnax/pkg/service/auth/oidc"
+	"github.com/synnaxlabs/synnax/pkg/service/auth/oidc/invite"
 	"github.com/synnaxlabs/synnax/pkg/service/auth/password"
 	passwordversions "github.com/synnaxlabs/synnax/pkg/service/auth/password/versions"
 	"github.com/synnaxlabs/synnax/pkg/service/channel"
@@ -192,6 +193,8 @@ type Layer struct {
 	Password *password.Service
 	// APIKey stores API keys and checks proofs of them.
 	APIKey *apikey.Service
+	// Invite stores one-time invites that link a provider account to a user.
+	Invite *invite.Service
 	// OIDC stores provider links and checks proofs of provider accounts.
 	OIDC *oidc.Service
 	// Auth logs subjects in and checks the session tokens their requests carry.
@@ -517,12 +520,19 @@ func OpenLayer(ctx context.Context, cfgs ...LayerConfig) (l *Layer, err error) {
 	}); !ok(err, l.RBAC) {
 		return nil, err
 	}
+	if l.Invite, err = invite.OpenService(ctx, invite.ServiceConfig{
+		Instrumentation: cfg.Child("invite"),
+		DB:              cfg.Distribution.DB,
+	}); !ok(err, l.Invite) {
+		return nil, err
+	}
 	if l.OIDC, err = oidc.OpenService(ctx, oidc.ServiceConfig{
 		Instrumentation: cfg.Child("oidc"),
 		DB:              cfg.Distribution.DB,
 		User:            l.User,
 		Role:            l.RBAC.Role,
 		NewUserRole:     l.RBAC.Builtin.ViewerKey,
+		Invite:          l.Invite,
 		Providers:       cfg.OIDCProviders,
 	}); !ok(err, l.OIDC) {
 		return nil, err

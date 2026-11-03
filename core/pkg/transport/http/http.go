@@ -106,6 +106,22 @@ func Bind(layer *api.Layer, router *http.Router) {
 			router,
 			"/api/v1/auth/oidc/unlink",
 		),
+		AuthOIDCInviteCreate: unary[oidc.CreateInviteRequest, oidc.CreateInviteResponse](
+			router,
+			"/api/v1/auth/oidc/invite/create",
+		),
+		AuthOIDCInviteRetrieve: unary[
+			oidc.RetrieveInvitesRequest,
+			oidc.RetrieveInvitesResponse,
+		](router, "/api/v1/auth/oidc/invite/retrieve"),
+		AuthOIDCInviteDelete: unary[oidc.DeleteInvitesRequest, struct{}](
+			router,
+			"/api/v1/auth/oidc/invite/delete",
+		),
+		AuthOIDCInviteRedeem: unary[oidc.RedeemInviteRequest, session.CreateResponse](
+			router,
+			"/api/v1/auth/oidc/invite/redeem",
+		),
 		AuthPasswordCreate: unary[password.CreateRequest, struct{}](
 			router,
 			"/api/v1/auth/password/create",

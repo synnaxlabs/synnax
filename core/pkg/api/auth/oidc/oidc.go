@@ -19,7 +19,9 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/service/access/rbac"
 	svcauth "github.com/synnaxlabs/synnax/pkg/service/auth"
 	"github.com/synnaxlabs/synnax/pkg/service/auth/oidc"
+	"github.com/synnaxlabs/synnax/pkg/service/auth/oidc/invite"
 	"github.com/synnaxlabs/synnax/pkg/service/ontology"
+	"github.com/synnaxlabs/synnax/pkg/service/user"
 	"github.com/synnaxlabs/x/config"
 	"github.com/synnaxlabs/x/errors"
 	"github.com/synnaxlabs/x/override"
@@ -37,6 +39,14 @@ type ServiceConfig struct {
 	//
 	// [REQUIRED]
 	OIDC *oidc.Service
+	// Invite stores one-time invites.
+	//
+	// [REQUIRED]
+	Invite *invite.Service
+	// User finds the users that invites name.
+	//
+	// [REQUIRED]
+	User *user.Service
 	// RBAC enforces access control on every request.
 	//
 	// [REQUIRED]
@@ -53,6 +63,8 @@ var (
 func (c ServiceConfig) Override(other ServiceConfig) ServiceConfig {
 	c.Auth = override.Nil(c.Auth, other.Auth)
 	c.OIDC = override.Nil(c.OIDC, other.OIDC)
+	c.Invite = override.Nil(c.Invite, other.Invite)
+	c.User = override.Nil(c.User, other.User)
 	c.RBAC = override.Nil(c.RBAC, other.RBAC)
 	return c
 }
@@ -62,15 +74,19 @@ func (c ServiceConfig) Validate() error {
 	v := validate.New("api.auth.oidc")
 	v.NotNil("auth", c.Auth)
 	v.NotNil("oidc", c.OIDC)
+	v.NotNil("invite", c.Invite)
+	v.NotNil("user", c.User)
 	v.NotNil("rbac", c.RBAC)
 	return v.Error()
 }
 
-// Service links, lists, and unlinks provider accounts.
+// Service links, lists, and unlinks provider accounts, and manages invites.
 type Service struct {
-	auth *svcauth.Service
-	oidc *oidc.Service
-	rbac *rbac.Service
+	auth   *svcauth.Service
+	oidc   *oidc.Service
+	invite *invite.Service
+	user   *user.Service
+	rbac   *rbac.Service
 }
 
 // NewService opens a new OIDC API service.
@@ -79,7 +95,13 @@ func NewService(cfgs ...ServiceConfig) (*Service, error) {
 	if err != nil {
 		return nil, err
 	}
-	return &Service{auth: cfg.Auth, oidc: cfg.OIDC, rbac: cfg.RBAC}, nil
+	return &Service{
+		auth:   cfg.Auth,
+		oidc:   cfg.OIDC,
+		invite: cfg.Invite,
+		user:   cfg.User,
+		rbac:   cfg.RBAC,
+	}, nil
 }
 
 // LinkRequest links a provider account to the caller.
