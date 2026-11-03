@@ -12,7 +12,7 @@ import { Flex } from "@synnaxlabs/lyra/flex";
 import { Input } from "@synnaxlabs/lyra/input";
 import { Select } from "@synnaxlabs/lyra/select";
 import { Tabs } from "@synnaxlabs/lyra/tabs";
-import { Direction, LinePlot } from "@synnaxlabs/pluto";
+import { Direction, LinePlot, Properties } from "@synnaxlabs/pluto";
 import { type text } from "@synnaxlabs/x";
 import { type ReactElement } from "react";
 
@@ -21,24 +21,20 @@ import { CSS } from "@/platform/css";
 export const Axes = (): ReactElement => {
   const axisKeys = LinePlot.useAxisKeys();
   return (
-    <Tabs.Frame
-      className={CSS.BE("line-plot", "toolbar", "axes-tabs")}
+    <Properties.Rail
+      tabs={axisKeys.map((key) => ({
+        key,
+        name: LinePlot.axisLabel(key),
+        icon: LinePlot.axisIcon(key),
+      }))}
       initialValue={axisKeys[0]}
-      grow
     >
-      <Tabs.Selector size="small">
-        {axisKeys.map((key) => (
-          <Tabs.Tab key={key} itemKey={key}>
-            {key.toUpperCase()}
-          </Tabs.Tab>
-        ))}
-      </Tabs.Selector>
       {axisKeys.map((key) => (
         <Tabs.Content key={key} itemKey={key}>
           <LinePlotAxisControls axisKey={key} />
         </Tabs.Content>
       ))}
-    </Tabs.Frame>
+    </Properties.Rail>
   );
 };
 

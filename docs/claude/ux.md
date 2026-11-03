@@ -282,6 +282,12 @@ says why in a sentence, then gives the raw error.
   back to the view and pause state from before. If the view changes between the two
   clicks, the second click zooms in again. Clicks nest, one level per click.
 
+### Plot axes
+
+- The toolbar's axes sit in a `Properties.Rail` on the left, the same rail as the
+  schematic element config. Each tab shows `LinePlot.axisIcon`: a faint plot frame with
+  the axis side drawn solid. An inset band was rejected for the first style.
+
 ## Interaction
 
 - Respond to every input in less than 100 ms. Show a spinner only after 150 to 300 ms,

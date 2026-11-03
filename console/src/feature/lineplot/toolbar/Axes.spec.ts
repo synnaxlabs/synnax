@@ -44,6 +44,14 @@ describe("lineplot/toolbar/Axes", () => {
     expect(screen.queryByText("Y2")).toBeNull();
   });
 
+  it("shows the side of the plot each axis sits on", async () => {
+    await renderAxesTab();
+    const x1 = screen.getByRole("tab", { name: "X1" });
+    const y1 = screen.getByRole("tab", { name: "Y1" });
+    expect(x1.querySelector(".lyra-icon--axis-bottom")).not.toBeNull();
+    expect(y1.querySelector(".lyra-icon--axis-left")).not.toBeNull();
+  });
+
   it("persists an axis label edit to the server", async () => {
     const { key } = await renderAxesTab();
     const input = getLabeledInput("Label");
