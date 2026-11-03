@@ -12,11 +12,11 @@
     python3 classify.py <artifacts-dir>
 
 A pull request needs review/human when a surface report differs between its base and
-head. No report covers the Console, so the author picks the tier of a UI change, and
-one with no tier gets review/human. The script only raises: it never removes
-review/human. It reads the pull request number from <artifacts-dir>/pr/number and
-refuses it unless the pull request's head is HEAD_SHA. Environment: GH_TOKEN,
-GITHUB_REPOSITORY, and HEAD_SHA.
+head. No report covers the Console, so a person picks the tier of a UI change. A UI
+change with no tier, or with review/bot from the App, gets review/human. The script
+only raises: it never removes review/human. It reads the pull request number from
+<artifacts-dir>/pr/number and refuses it unless the pull request's head is HEAD_SHA.
+Environment: GH_TOKEN, GITHUB_REPOSITORY, and HEAD_SHA.
 """
 
 import json
@@ -31,6 +31,7 @@ from urllib.parse import quote
 
 HUMAN = "review/human"
 BOT = "review/bot"
+APP = "synnax-claude-code[bot]"
 # Tier labels from before the two-tier scheme. Both ask for a human.
 HUMAN_TIERS = {HUMAN, "review/light", "review/thorough"}
 UI_PREFIXES = ("console/", "pluto/", "lyra/")
@@ -98,6 +99,15 @@ def changes_ui(files: list[dict[str, Any]]) -> bool:
     return any(f["filename"].startswith(UI_PREFIXES) for f in files)
 
 
+def has_chosen_tier(current: set[str], *, bot_labelers: list[str]) -> bool:
+    """Reports if a person set the tier. bot_labelers lists who labeled review/bot, in
+    order. A review/bot label from the App proves nothing about a UI change, since the
+    classifier adds it to a pull request that had no UI file on an earlier push."""
+    if current & HUMAN_TIERS:
+        return True
+    return BOT in current and bool(bot_labelers) and bot_labelers[-1] != APP
+
+
 def needs_human(surfaces: list[Surface], *, reasons: list[str]) -> bool:
     return any(s.status != "same" for s in surfaces) or bool(reasons)
 
@@ -134,6 +144,8 @@ def render(
         summary = "The classifier cannot clear this pull request."
     elif kept:
         summary = "No interface changed, but a human review tier is already set."
+    elif ui:
+        summary = "No report changed, and a person chose this tier for a UI change."
     else:
         summary = "This pull request changes no user-facing interface."
     rows = [f"| {SURFACES[s.name]} | {STATUS_TEXT[s.status]} |" for s in surfaces]
@@ -227,12 +239,25 @@ def main() -> None:
         "--jq",
         ".[] | {filename}",
     )
-    current = {label["name"] for label in pull["labels"]}
+    bot_labelers = gh_lines(
+        "api",
+        "--paginate",
+        f"repos/{repo}/issues/{number}/events",
+        "--jq",
+        f'.[] | select(.event == "labeled" and .label.name == "{BOT}")'
+        " | .actor.login | tojson",
+    )
     ui = changes_ui(files)
     reasons = trust_reasons(pull, files=files)
-    if ui and not current & (HUMAN_TIERS | {BOT}):
-        reasons.append("A UI file changed and the author set no tier.")
     surfaces = read_surfaces(root)
+    # A push during the reads leaves the reports stale: check the head before writing.
+    pull = json.loads(gh("api", f"repos/{repo}/pulls/{number}"))
+    if pull["head"]["sha"] != head_sha:
+        print(f"#{number} moved past {head_sha}; a newer run classifies it")
+        return
+    current = {label["name"] for label in pull["labels"]}
+    if ui and not has_chosen_tier(current, bot_labelers=bot_labelers):
+        reasons.append("A UI file changed and no person chose a tier.")
     add, remove = plan_labels(current, human=needs_human(surfaces, reasons=reasons))
     for label in add:
         gh(

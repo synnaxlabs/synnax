@@ -16,12 +16,14 @@ import pytest
 
 import classify
 from classify import (
+    APP,
     BOT,
     HUMAN,
     MARKER,
     Surface,
     changes_ui,
     fence,
+    has_chosen_tier,
     needs_human,
     plan_labels,
     read_surfaces,
@@ -104,6 +106,22 @@ class TestChangesUI:
         assert not changes_ui([file("core/main.go")])
 
 
+class TestHasChosenTier:
+    """Tests telling a person's tier from one the App added."""
+
+    def test_is_false_with_no_tier(self) -> None:
+        assert not has_chosen_tier(set(), bot_labelers=[])
+
+    def test_is_true_for_a_human_tier(self) -> None:
+        assert has_chosen_tier({HUMAN}, bot_labelers=[])
+
+    def test_is_true_for_a_bot_tier_from_a_person(self) -> None:
+        assert has_chosen_tier({BOT}, bot_labelers=[APP, "pjdotson"])
+
+    def test_is_false_for_a_bot_tier_from_the_app(self) -> None:
+        assert not has_chosen_tier({BOT}, bot_labelers=["pjdotson", APP])
+
+
 class TestPlanLabels:
     """Tests that exactly one of review/human and review/bot stays."""
 
@@ -179,6 +197,11 @@ class TestRender:
             ALL_SAME, ui=False, reasons=[], kept=False
         )
 
+    def test_says_a_person_chose_the_tier_of_a_ui_change(self) -> None:
+        body = render(ALL_SAME, ui=True, reasons=[], kept=False)
+        assert "a person chose this tier" in body
+        assert "changes no user-facing interface" not in body
+
     def test_fences_a_diff_that_holds_backticks(self) -> None:
         assert fence("+```\n").startswith("````diff")
 
@@ -192,7 +215,8 @@ class FakeGH:
     """Serves pull request 5 through the gh API calls the classifier makes."""
 
     def __init__(self) -> None:
-        self.head = "abc"
+        self.heads = ["abc", "abc"]
+        self.bot_labelers = ["pjdotson"]
         self.files = ["core/main.go"]
         self.labels: list[str] = []
         self.comments: list[dict[str, Any]] = []
@@ -201,11 +225,13 @@ class FakeGH:
     def __call__(self, *args: str, stdin: str | None = None) -> str:
         if args == ("api", f"repos/{REPO}/pulls/5"):
             same = {"repo": {"full_name": REPO}}
-            head = {**same, "sha": self.head}
+            head = {**same, "sha": self.heads.pop(0)}
             labels = [{"name": n} for n in self.labels]
             return json.dumps({"head": head, "base": same, "labels": labels})
         if f"repos/{REPO}/pulls/5/files" in args:
             return "".join(json.dumps(file(name)) + "\n" for name in self.files)
+        if args[:3] == ("api", "--paginate", f"repos/{REPO}/issues/5/events"):
+            return "".join(json.dumps(name) + "\n" for name in self.bot_labelers)
         if args[:3] == ("api", "--paginate", COMMENTS):
             return "".join(json.dumps(c) + "\n" for c in self.comments)
         self.writes.append((args, stdin))
@@ -275,7 +301,25 @@ class TestMain:
         assert [args[1:3] for args, _ in gh.writes] == [("-X", "POST")]
         assert gh.writes[0][0][3] == COMMENTS
 
-    def test_writes_nothing_when_the_head_moved(self, gh: FakeGH) -> None:
-        gh.head = "def"
+    def test_raises_a_bot_tier_from_the_app_when_a_later_push_changes_the_ui(
+        self, gh: FakeGH
+    ) -> None:
+        gh.files = ["console/a.tsx"]
+        gh.labels = [BOT]
+        gh.bot_labelers = [APP]
+        classify.main()
+        assert gh.writes[0][0] == (
+            "api",
+            "-X",
+            "POST",
+            LABELS,
+            "-f",
+            f"labels[]={HUMAN}",
+        )
+
+    def test_writes_nothing_when_the_head_moves_during_the_run(
+        self, gh: FakeGH
+    ) -> None:
+        gh.heads = ["abc", "def"]
         classify.main()
         assert gh.writes == []
