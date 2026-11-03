@@ -7,16 +7,19 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
+import { task } from "@synnaxlabs/client";
 import { createTestClient, RoleClients } from "@synnaxlabs/client/testutil";
 import { deep } from "@synnaxlabs/x";
 import { fireEvent, screen, waitFor } from "@testing-library/react";
 import { assert, describe, expect, it, vi } from "vitest";
+import { z } from "zod";
 
 import { Task } from "@/platform/task";
 import {
   clickRedeploy,
   createTaskStatus,
   isRedeployHidden,
+  renderInTaskForm,
   renderInTaskFormWithClient,
 } from "@/platform/task/testutil";
 import { findIconButton, queryIconButton } from "@/testutil";
@@ -129,6 +132,17 @@ describe("Controls.Controls", () => {
     );
     await findIconButton(container, "play");
     expect(isRedeployHidden()).toBe(true);
+  });
+
+  it("should show no status for a task that has none", async () => {
+    await renderInTaskForm(
+      <Task.Controls.Controls onDeploy={vi.fn()} onStop={vi.fn()} />,
+      {
+        values: { key: "1", status: null },
+        schema: z.object({ status: task.statusZ().optional().nullable() }),
+      },
+    );
+    expect(await screen.findByText("No status")).toBeTruthy();
   });
 
   it("should expand the status on click and contract it on a second click", async () => {
