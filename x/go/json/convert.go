@@ -472,36 +472,57 @@ func appendNumber(dst []byte, dt telem.DataType, n number) ([]byte, error) {
 		if err != nil {
 			return dst, err
 		}
-		bits := uint(dt.Density()) * 8
-		if shifted := i >> (bits - 1); shifted != 0 && shifted != -1 {
-			return dst, errOutOfBounds
-		}
-		return appendUint(dst, dt, uint64(i)), nil
+		return appendInt(dst, dt, i)
 	case telem.Uint64T, telem.Uint32T, telem.Uint16T, telem.Uint8T:
 		u, err := n.uint64()
 		if err != nil {
 			return dst, err
 		}
-		if bits := uint(dt.Density()) * 8; bits < 64 && u>>bits != 0 {
-			return dst, errOutOfBounds
-		}
-		return appendUint(dst, dt, u), nil
+		return appendUint(dst, dt, u)
 	}
 	return dst, errIncompatible
 }
 
-// appendUint appends the low bytes of v at the width of dt. Two's complement makes
-// this correct for signed types that already passed their bounds check.
-func appendUint(dst []byte, dt telem.DataType, v uint64) []byte {
+func appendInt(dst []byte, dt telem.DataType, i int64) ([]byte, error) {
 	switch dt.Density() {
 	case telem.Bit64:
-		return telem.ByteOrder.AppendUint64(dst, v)
+		return telem.ByteOrder.AppendUint64(dst, uint64(i)), nil
 	case telem.Bit32:
-		return telem.ByteOrder.AppendUint32(dst, uint32(v))
+		if i < math.MinInt32 || i > math.MaxInt32 {
+			return nil, errOutOfBounds
+		}
+		return telem.ByteOrder.AppendUint32(dst, uint32(int32(i))), nil
 	case telem.Bit16:
-		return telem.ByteOrder.AppendUint16(dst, uint16(v))
+		if i < math.MinInt16 || i > math.MaxInt16 {
+			return nil, errOutOfBounds
+		}
+		return telem.ByteOrder.AppendUint16(dst, uint16(int16(i))), nil
 	}
-	return append(dst, byte(v))
+	if i < math.MinInt8 || i > math.MaxInt8 {
+		return nil, errOutOfBounds
+	}
+	return append(dst, byte(int8(i))), nil
+}
+
+func appendUint(dst []byte, dt telem.DataType, u uint64) ([]byte, error) {
+	switch dt.Density() {
+	case telem.Bit64:
+		return telem.ByteOrder.AppendUint64(dst, u), nil
+	case telem.Bit32:
+		if u > math.MaxUint32 {
+			return nil, errOutOfBounds
+		}
+		return telem.ByteOrder.AppendUint32(dst, uint32(u)), nil
+	case telem.Bit16:
+		if u > math.MaxUint16 {
+			return nil, errOutOfBounds
+		}
+		return telem.ByteOrder.AppendUint16(dst, uint16(u)), nil
+	}
+	if u > math.MaxUint8 {
+		return nil, errOutOfBounds
+	}
+	return append(dst, byte(u)), nil
 }
 
 func toTimeStamp(value any, format TimeFormat) (telem.TimeStamp, error) {

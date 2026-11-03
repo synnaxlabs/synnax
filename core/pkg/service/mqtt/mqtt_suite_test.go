@@ -250,16 +250,14 @@ func (l *tcpListener) awaitServed(c net.Conn) {
 func (l *tcpListener) Close(closeClients listeners.CloseFn) {
 	l.mu.Lock()
 	l.mu.closed = true
-	l.mu.Unlock()
-	l.TCP.Close(closeClients)
-	l.mu.Lock()
-	// A connection that has not sent its CONNECT packet yet has no client to close.
-	// Mochi closes the connection of each client it disconnected.
 	for c := range l.mu.conns {
 		l.closeErr = errors.Combine(l.closeErr, errors.Skip(c.Close(), net.ErrClosed))
 	}
 	l.mu.Unlock()
+	// Clients.GetByListener takes its read lock two times, so mochi deadlocks when it
+	// closes its clients while one of them leaves. Every client must be gone first.
 	l.serving.Wait()
+	l.TCP.Close(closeClients)
 }
 
 // brokerOptions selects what a test broker requires of its clients.

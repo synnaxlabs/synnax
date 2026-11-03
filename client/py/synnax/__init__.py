@@ -12,8 +12,11 @@ from importlib.metadata import version as _version
 from synnax import (
     ethercat,
     http,
+    kafka,
     labjack,
     license,
+    lineplot,
+    log,
     modbus,
     mqtt,
     ni,
@@ -71,10 +74,14 @@ from synnax.framer import (
     WriterMode,
 )
 from synnax.label import Label
+from synnax.lineplot import LinePlot
+from synnax.log import Log
 from synnax.options import Options
+from synnax.panel import Panel
 from synnax.project import Project
 from synnax.rack import Rack
 from synnax.ranger import Range
+from synnax.schematic import Schematic
 from synnax.status import Status
 from synnax.synnax import Synnax
 from synnax.table import Table
@@ -163,12 +170,15 @@ __all__ = [
     "LicenseFingerprintMismatch",
     "LicenseLimitExceeded",
     "LimitReduction",
+    "LinePlot",
+    "Log",
     "Loop",
     "MissingLicense",
     "MultiSeries",
     "MultipleFoundError",
     "NotFoundError",
     "Options",
+    "Panel",
     "PathError",
     "Policy",
     "Position",
@@ -181,6 +191,7 @@ __all__ = [
     "Role",
     "RouteError",
     "SampleValue",
+    "Schematic",
     "Series",
     "SessionEnded",
     "Size",
@@ -210,9 +221,12 @@ __all__ = [
     "ethercat",
     "group",
     "http",
+    "kafka",
     "label",
     "labjack",
     "license",
+    "lineplot",
+    "log",
     "modbus",
     "mqtt",
     "ni",
