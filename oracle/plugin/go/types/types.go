@@ -1437,9 +1437,9 @@ func ({{$s.Receiver}} {{$s.Name}}) Validate() error {
 {{- else if eq .Kind "non_zero"}}
 	v.NonZero("{{.FieldName}}", {{$val}})
 {{- else if eq .Kind "min_len"}}
-	v.Ternaryf("{{.FieldName}}", len({{$val}}) < {{.Arg}}, "must be at least {{.Arg}} characters long")
+	v.MinLength("{{.FieldName}}", {{$val}}, {{.Arg}})
 {{- else if eq .Kind "max_len"}}
-	v.Ternaryf("{{.FieldName}}", len({{$val}}) > {{.Arg}}, "must be at most {{.Arg}} characters long")
+	v.MaxLength("{{.FieldName}}", {{$val}}, {{.Arg}})
 {{- else if eq .Kind "ge"}}
 	v.GreaterThanEq("{{.FieldName}}", {{$val}}, {{.Arg}})
 {{- else if eq .Kind "le"}}
@@ -1587,9 +1587,9 @@ func ({{$vt.Receiver}} {{$vt.TypeName}}) Validate() error {
 {{- else if eq .Kind "non_zero"}}
 	v.NonZero("{{.FieldName}}", {{$val}})
 {{- else if eq .Kind "min_len"}}
-	v.Ternaryf("{{.FieldName}}", len({{$val}}) < {{.Arg}}, "must be at least {{.Arg}} characters long")
+	v.MinLength("{{.FieldName}}", {{$val}}, {{.Arg}})
 {{- else if eq .Kind "max_len"}}
-	v.Ternaryf("{{.FieldName}}", len({{$val}}) > {{.Arg}}, "must be at most {{.Arg}} characters long")
+	v.MaxLength("{{.FieldName}}", {{$val}}, {{.Arg}})
 {{- else if eq .Kind "ge"}}
 	v.GreaterThanEq("{{.FieldName}}", {{$val}}, {{.Arg}})
 {{- else if eq .Kind "le"}}

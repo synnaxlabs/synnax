@@ -206,6 +206,50 @@ var _ = Describe("Validate", func() {
 					).To(MatchError(ContainSubstring("field: required")))
 				})
 			})
+
+			Describe("MinLength", func() {
+				DescribeTable("Should count UTF-16 code units", func(value string) {
+					Expect(v.MinLength("field", value, 4)).To(BeFalse())
+					Expect(v.Error()).NotTo(HaveOccurred())
+				},
+					Entry("ASCII letters", "abcd"),
+					Entry("accented letters", "éééé"),
+					Entry("emoji", "😀😀"),
+				)
+
+				DescribeTable("Should catch short strings", func(value string) {
+					Expect(v.MinLength("field", value, 4)).To(BeTrue())
+					Expect(v.Error()).To(MatchError(ContainSubstring(
+						"field: must be at least 4 characters long",
+					)))
+				},
+					Entry("ASCII letters", "abc"),
+					Entry("accented letters", "ééé"),
+					Entry("emoji", "a😀"),
+				)
+			})
+
+			Describe("MaxLength", func() {
+				DescribeTable("Should count UTF-16 code units", func(value string) {
+					Expect(v.MaxLength("field", value, 4)).To(BeFalse())
+					Expect(v.Error()).NotTo(HaveOccurred())
+				},
+					Entry("ASCII letters", "abcd"),
+					Entry("accented letters", "éééé"),
+					Entry("emoji", "😀😀"),
+				)
+
+				DescribeTable("Should catch long strings", func(value string) {
+					Expect(v.MaxLength("field", value, 4)).To(BeTrue())
+					Expect(v.Error()).To(MatchError(ContainSubstring(
+						"field: must be at most 4 characters long",
+					)))
+				},
+					Entry("ASCII letters", "abcde"),
+					Entry("accented letters", "ééééé"),
+					Entry("emoji", "😀😀a"),
+				)
+			})
 		})
 
 		Describe("Zeroable", func() {
