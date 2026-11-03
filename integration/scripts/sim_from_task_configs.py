@@ -37,7 +37,7 @@ class _ChannelConfig(BaseModel):
     enabled: bool = True
     type: str | None = None
     line: int = 0
-    port: int = 0
+    port: int | str = 0
     channel: int | None = None
     cmd_channel: int | None = Field(default=None, alias="cmdChannel")
     state_channel: int | None = Field(default=None, alias="stateChannel")
@@ -307,7 +307,7 @@ class SimDAQ:
             print(f"  ✓ {cmd_name} / {state_name}")
 
     def _generate_sensor_name(
-        self, ch: _ChannelConfig, port: int, ch_type: str, index: int
+        self, ch: _ChannelConfig, port: int | str, ch_type: str, index: int
     ) -> str:
         """Generate a descriptive sensor name."""
         if ch_type == "ai_voltage":
