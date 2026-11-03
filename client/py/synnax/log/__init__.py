@@ -7,6 +7,7 @@
 #  License, use of this software will be governed by the Apache License, Version 2.0,
 #  included in the file licenses/APL.txt.
 
+from synnax.log.client import Client
 from synnax.log.types_gen import (
     ONTOLOGY_TYPE,
     ChannelEntry,
@@ -19,6 +20,7 @@ from synnax.log.types_gen import (
 __all__ = [
     "ONTOLOGY_TYPE",
     "ChannelEntry",
+    "Client",
     "Key",
     "Log",
     "TimestampConfig",

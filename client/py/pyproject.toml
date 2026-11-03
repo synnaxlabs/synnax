@@ -145,6 +145,7 @@ markers = [
     "label: mark test as a label test",
     "labjack: mark test as a labjack test",
     "lineplot: mark test as a line plot test",
+    "log: mark test as a log test",
     "io: mark test as an io test",
     "multi_node: mark test as a multi_node test",
     "modbus: mark test as a modbus test",

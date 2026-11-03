@@ -15,6 +15,7 @@ from synnax import (
     labjack,
     license,
     lineplot,
+    log,
     modbus,
     mqtt,
     ni,
@@ -73,6 +74,7 @@ from synnax.framer import (
 )
 from synnax.label import Label
 from synnax.lineplot import LinePlot
+from synnax.log import Log
 from synnax.options import Options
 from synnax.panel import Panel
 from synnax.project import Project
@@ -167,6 +169,7 @@ __all__ = [
     "LicenseLimitExceeded",
     "LimitReduction",
     "LinePlot",
+    "Log",
     "Loop",
     "MissingLicense",
     "MultiSeries",
@@ -219,6 +222,7 @@ __all__ = [
     "labjack",
     "license",
     "lineplot",
+    "log",
     "modbus",
     "mqtt",
     "ni",
