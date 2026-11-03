@@ -17,7 +17,7 @@ import {
   TimeStamp,
 } from "@synnaxlabs/x";
 import { act, fireEvent, screen, waitFor } from "@testing-library/react";
-import { describe, expect, it } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 import { client, renderLinePlot } from "@/feature/lineplot/testutil";
 import { Toolbar } from "@/feature/lineplot/toolbar";
@@ -270,35 +270,44 @@ describe("lineplot/toolbar/Data", () => {
       expect(screen.getByLabelText("To do")).toBeDefined();
     });
 
-    it("labels its tag with the times, read-only", async () => {
-      await renderData([fixed(14, 16)]);
-      expect(await screen.findByText("Aug 23 14:00 → 16:00")).toBeDefined();
-      expect(screen.queryByLabelText("Start")).toBeNull();
-    });
+    describe("label", () => {
+      // The day names depend on today, so the clock is fixed.
+      beforeEach(() => {
+        vi.useFakeTimers({ toFake: ["Date"] });
+        vi.setSystemTime(new Date(2026, 10, 3, 15, 0));
+      });
+      afterEach(() => vi.useRealTimers());
 
-    it("shows seconds and no day for a short window today", async () => {
-      const noon = new Date();
-      noon.setHours(12, 0, 5, 0);
-      const start = new TimeStamp(noon);
-      await renderData([
-        {
-          variant: "window",
-          window: staticWindow(new TimeRange(start, start.add(TimeSpan.seconds(30)))),
-        },
-      ]);
-      expect(await screen.findByText("12:00:05 → 12:00:35")).toBeDefined();
-    });
+      it("labels its tag with the times, read-only", async () => {
+        await renderData([fixed(14, 16)]);
+        expect(await screen.findByText("Aug 23 14:00 → 16:00")).toBeDefined();
+        expect(screen.queryByLabelText("Start")).toBeNull();
+      });
 
-    it("shows the end's day when the window crosses midnight", async () => {
-      await renderData([
-        {
-          variant: "window",
-          window: staticWindow(
-            new TimeRange(local(22), new TimeStamp(new Date(2026, 7, 24, 2, 0))),
-          ),
-        },
-      ]);
-      expect(await screen.findByText("Aug 23 22:00 → Aug 24 02:00")).toBeDefined();
+      it("shows seconds and no day for a short window today", async () => {
+        const noon = new Date();
+        noon.setHours(12, 0, 5, 0);
+        const start = new TimeStamp(noon);
+        await renderData([
+          {
+            variant: "window",
+            window: staticWindow(new TimeRange(start, start.add(TimeSpan.seconds(30)))),
+          },
+        ]);
+        expect(await screen.findByText("12:00:05 → 12:00:35")).toBeDefined();
+      });
+
+      it("shows the end's day when the window crosses midnight", async () => {
+        await renderData([
+          {
+            variant: "window",
+            window: staticWindow(
+              new TimeRange(local(22), new TimeStamp(new Date(2026, 7, 24, 2, 0))),
+            ),
+          },
+        ]);
+        expect(await screen.findByText("Aug 23 22:00 → Aug 24 02:00")).toBeDefined();
+      });
     });
   });
 
