@@ -69,6 +69,7 @@ func (s *Service) Search(
 	_ context.Context,
 	_ gorp.Tx,
 	term string,
+	except func(ontology.ID) bool,
 	limit int,
 ) (search.Result[ontology.ID], error) {
 	nodes := s.cfg.Cluster.CopyState().Nodes
@@ -76,7 +77,10 @@ func (s *Service) Search(
 	for _, key := range slices.Sorted(maps.Keys(nodes)) {
 		idx.Set(key, name(key))
 	}
-	return search.MapKeys(idx.Search(term, limit), OntologyID), nil
+	res := idx.SearchExcept(term, func(key Key) bool {
+		return except != nil && except(OntologyID(key))
+	}, limit)
+	return search.MapKeys(res, OntologyID), nil
 }
 
 // OnChange implements ontology.Service.

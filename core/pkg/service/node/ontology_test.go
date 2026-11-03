@@ -119,8 +119,9 @@ var _ = Describe("Ontology", func() {
 		Describe("Search", func() {
 			DescribeTable("Should search the nodes currently in the cluster",
 				func(ctx SpecContext, term string, limit int, expected []ontology.ID) {
-					Expect(MustSucceed(testSvc.Search(ctx, nil, term, limit)).Keys).
-						To(Equal(expected))
+					Expect(
+						MustSucceed(testSvc.Search(ctx, nil, term, nil, limit)).Keys,
+					).To(Equal(expected))
 				},
 				Entry("every node", "node", 10,
 					[]ontology.ID{node.OntologyID(1), node.OntologyID(2)}),

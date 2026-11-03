@@ -1148,9 +1148,9 @@ var _ = Describe("Device", func() {
 			func(ctx SpecContext) {
 				a := create(ctx, "a", "turbopump test")
 				b := create(ctx, "b", "turbopump")
-				Expect(MustSucceed(svc.Search(ctx, tx, "turbopump", 0)).Keys).
+				Expect(MustSucceed(svc.Search(ctx, tx, "turbopump", nil, 0)).Keys).
 					To(Equal([]ontology.ID{b, a}))
-				Expect(MustSucceed(svc.Search(ctx, tx, "turbopump", 1)).Keys).
+				Expect(MustSucceed(svc.Search(ctx, tx, "turbopump", nil, 1)).Keys).
 					To(Equal([]ontology.ID{b}))
 			},
 		)
@@ -1158,7 +1158,7 @@ var _ = Describe("Device", func() {
 		DescribeTable("Should match a device by its",
 			func(ctx SpecContext, term string) {
 				id := create(ctx, "igniter", "igniter")
-				Expect(MustSucceed(svc.Search(ctx, tx, term, 0)).Keys).
+				Expect(MustSucceed(svc.Search(ctx, tx, term, nil, 0)).Keys).
 					To(Equal([]ontology.ID{id}))
 			},
 			Entry("name", "igniter"),
@@ -1172,7 +1172,7 @@ var _ = Describe("Device", func() {
 			func(ctx SpecContext) {
 				create(ctx, "injector", "injector")
 				Expect(
-					MustSucceed(svc.Search(ctx, db, "injector", 0)).Keys,
+					MustSucceed(svc.Search(ctx, db, "injector", nil, 0)).Keys,
 				).To(BeEmpty())
 			},
 		)

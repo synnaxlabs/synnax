@@ -10,14 +10,19 @@
 package channel_test
 
 import (
+	"fmt"
+	"math/rand/v2"
+
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
+	"github.com/samber/lo"
 	apichannel "github.com/synnaxlabs/synnax/pkg/api/channel"
 	. "github.com/synnaxlabs/synnax/pkg/api/testutil"
 	"github.com/synnaxlabs/synnax/pkg/service/access"
 	"github.com/synnaxlabs/synnax/pkg/service/channel"
 	. "github.com/synnaxlabs/synnax/pkg/service/channel/testutil"
 	"github.com/synnaxlabs/synnax/pkg/service/ontology"
+	"github.com/synnaxlabs/synnax/pkg/service/ranger"
 	"github.com/synnaxlabs/synnax/pkg/service/status"
 	"github.com/synnaxlabs/x/query"
 	"github.com/synnaxlabs/x/telem"
@@ -139,6 +144,97 @@ var _ = Describe("Service", func() {
 					Expect(res).To(HaveLen(2))
 					Expect(res[0].Status).ToNot(BeNil())
 					Expect(res[1].Status).To(BeNil())
+				},
+			)
+		})
+
+		Describe("SearchTerm", func() {
+			var (
+				term string
+				rng  ranger.Range
+			)
+			BeforeEach(func(ctx SpecContext) {
+				grantOn(
+					ctx,
+					author.OntologyID(),
+					[]access.Action{access.ActionRetrieve},
+					ontology.ID{Type: ontology.ResourceTypeChannel},
+				)
+				term = fmt.Sprintf("zq%09d", rand.IntN(999999999))
+				rng = ranger.Range{Name: term, TimeRange: telem.NewRangeSeconds(1, 5)}
+				Expect(rangerSvc.NewWriter(nil).Create(ctx, &rng)).To(Succeed())
+			})
+
+			named := func(ctx SpecContext, name string) channel.Channel {
+				GinkgoHelper()
+				ch := channel.Channel{
+					Name:     name,
+					DataType: telem.Float32T,
+					Virtual:  true,
+				}
+				Expect(channelSvc.NewWriter(nil).Create(ctx, &ch)).To(Succeed())
+				return ch
+			}
+
+			aliased := func(ctx SpecContext, name string) channel.Channel {
+				GinkgoHelper()
+				ch := named(ctx, name)
+				Expect(
+					aliasSvc.NewWriter(nil).Set(ctx, rng.Key, ch.Key(), term+" feed"),
+				).
+					To(Succeed())
+				return ch
+			}
+
+			search := func(ctx SpecContext, req apichannel.RetrieveRequest) []channel.Key {
+				GinkgoHelper()
+				req.SearchTerm = term
+				req.RangeKey = rng.Key
+				res := MustSucceed(apiSvc.Retrieve(AuthedCtx(ctx, author), req))
+				return lo.Map(
+					res.Channels,
+					func(ch apichannel.Channel, _ int) channel.Key {
+						return ch.Key
+					},
+				)
+			}
+
+			It(
+				"Should rank alias matches first and page through every match",
+				func(ctx SpecContext) {
+					byAlias := aliased(ctx, UniqueChannelName())
+					inlet := named(ctx, term+"_inlet")
+					outlet := named(ctx, term+"_outlet")
+					first := search(ctx, apichannel.RetrieveRequest{Limit: 2})
+					Expect(first).To(HaveLen(2))
+					Expect(first[0]).To(Equal(byAlias.Key()))
+					Expect(
+						search(ctx, apichannel.RetrieveRequest{Limit: 2, Offset: 1}),
+					).
+						To(ConsistOf(inlet.Key(), outlet.Key()))
+					Expect(
+						search(ctx, apichannel.RetrieveRequest{Limit: 2, Offset: 2}),
+					).
+						To(HaveLen(1))
+				},
+			)
+
+			It(
+				"Should apply the other filters to alias matches",
+				func(ctx SpecContext) {
+					aliased(ctx, UniqueChannelName())
+					Expect(search(ctx, apichannel.RetrieveRequest{
+						DataTypes: []telem.DataType{telem.Int64T},
+					})).To(BeEmpty())
+				},
+			)
+
+			It(
+				"Should return a channel whose alias and name both match once",
+				func(ctx SpecContext) {
+					ch := aliased(ctx, term+"_inlet")
+					Expect(search(ctx, apichannel.RetrieveRequest{})).
+						To(Equal([]channel.Key{ch.Key()}))
 				},
 			)
 		})

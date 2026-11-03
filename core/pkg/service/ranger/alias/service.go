@@ -189,9 +189,10 @@ func (s *Service) Search(
 	ctx context.Context,
 	tx gorp.Tx,
 	term string,
+	except func(ontology.ID) bool,
 	limit int,
 ) (search.Result[ontology.ID], error) {
-	return ontology.SearchIndex(ctx, tx, s.search, term, limit, ontologyID)
+	return ontology.SearchIndex(ctx, tx, s.search, term, except, limit, ontologyID)
 }
 
 // ontologyID returns the ontology ID of the alias with the given gorp key.

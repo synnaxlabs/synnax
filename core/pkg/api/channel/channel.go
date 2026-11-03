@@ -11,6 +11,7 @@ package channel
 
 import (
 	"context"
+	"slices"
 	"uuid"
 
 	"github.com/samber/lo"
@@ -241,16 +242,11 @@ func (s *Service) Retrieve(
 	req RetrieveRequest,
 ) (RetrieveResponse, error) {
 	var (
-		resChannels     []channel.Channel
-		aliasChannels   []channel.Channel
-		q               = s.internal.NewRetrieve().Entries(&resChannels)
-		hasNames        = len(req.Names) > 0
-		hasKeys         = len(req.Keys) > 0
-		hasSearch       = len(req.SearchTerm) > 0
-		hasDataTypes    = len(req.DataTypes) > 0
-		hasNotDataTypes = len(req.NotDataTypes) > 0
+		resChannels   []channel.Channel
+		aliasChannels []channel.Channel
+		aliasKeys     []channel.Key
+		hasSearch     = len(req.SearchTerm) > 0
 	)
-
 	var resRng ranger.Range
 	if req.RangeKey != uuid.Nil() {
 		err := s.ranger.NewRetrieve().
@@ -264,64 +260,56 @@ func (s *Service) Retrieve(
 		// We can still do a best effort search without the range even if we don't
 		// find it.
 		if !isNotFound && hasSearch {
-			keys, err := s.alias.NewReader(nil).Search(ctx, resRng.Key, req.SearchTerm)
-			if err != nil {
-				return RetrieveResponse{}, err
-			}
-			aliasChannels = make([]channel.Channel, 0, len(keys))
-			if err := s.internal.NewRetrieve().
-				Where(channel.MatchKeys(keys...)).
-				Entries(&aliasChannels).
-				Exec(ctx, nil); err != nil {
+			if aliasKeys, err = s.alias.NewReader(nil).Search(
+				ctx,
+				resRng.Key,
+				req.SearchTerm,
+			); err != nil {
 				return RetrieveResponse{}, err
 			}
 		}
 	}
-	if hasKeys {
-		q = q.Where(channel.MatchKeys(req.Keys...))
+	if len(aliasKeys) > 0 {
+		if err := s.filter(req, s.internal.NewRetrieve()).
+			Where(channel.MatchKeys(aliasKeys...)).
+			Entries(&aliasChannels).
+			Exec(ctx, nil); err != nil {
+			return RetrieveResponse{}, err
+		}
+		rank := make(map[channel.Key]int, len(aliasKeys))
+		for i, k := range aliasKeys {
+			rank[k] = i
+		}
+		slices.SortFunc(aliasChannels, func(a, b channel.Channel) int {
+			return rank[a.Key()] - rank[b.Key()]
+		})
 	}
-	if hasNames {
-		q = q.Where(channel.MatchNames(req.Names...))
-	}
-	if hasSearch {
-		q = q.Search(req.SearchTerm)
-	}
-	if req.NodeKey != 0 {
-		q = q.Where(channel.MatchLeaseholders(req.NodeKey))
-	}
-	if hasDataTypes {
-		q = q.Where(channel.MatchDataTypes(req.DataTypes...))
-	}
-	if hasNotDataTypes {
-		q = q.Where(channel.Not(channel.MatchDataTypes(req.NotDataTypes...)))
-	}
+	// Alias matches rank ahead of name matches, so the offset and the limit cover them
+	// first.
+	skipped := min(req.Offset, len(aliasChannels))
+	aliasChannels = aliasChannels[skipped:]
 	if req.Limit > 0 {
-		q = q.Limit(req.Limit)
+		aliasChannels = aliasChannels[:min(len(aliasChannels), req.Limit)]
 	}
-	if req.Offset > 0 {
-		q = q.Offset(req.Offset)
+	if req.Limit == 0 || len(aliasChannels) < req.Limit {
+		q := s.filter(req, s.internal.NewRetrieve()).Entries(&resChannels)
+		if hasSearch {
+			q = q.Search(req.SearchTerm)
+		}
+		if len(aliasKeys) > 0 {
+			q = q.Where(channel.Not(channel.MatchKeys(aliasKeys...)))
+		}
+		if req.Limit > 0 {
+			q = q.Limit(req.Limit - len(aliasChannels))
+		}
+		if offset := req.Offset - skipped; offset > 0 {
+			q = q.Offset(offset)
+		}
+		if err := q.Exec(ctx, nil); err != nil {
+			return RetrieveResponse{}, err
+		}
 	}
-	if req.Virtual != nil {
-		q = q.Where(channel.MatchVirtual(*req.Virtual))
-	}
-	if req.IsIndex != nil {
-		q = q.Where(channel.MatchIsIndex(*req.IsIndex))
-	}
-	if req.Internal != nil {
-		q = q.Where(channel.MatchInternal(*req.Internal))
-	}
-	if err := q.Exec(ctx, nil); err != nil {
-		return RetrieveResponse{}, err
-	}
-	if len(aliasChannels) > 0 {
-		aliasKeys := channel.KeysFromChannels(aliasChannels)
-		resChannels = append(
-			aliasChannels,
-			lo.Filter(resChannels, func(ch channel.Channel, _ int) bool {
-				return !aliasKeys.Contains(ch.Key())
-			})...,
-		)
-	}
+	resChannels = append(aliasChannels, resChannels...)
 	oChannels := translateChannelsForward(resChannels)
 	if resRng.Key != uuid.Nil() {
 		aliasReader := s.alias.NewReader(nil)
@@ -360,6 +348,36 @@ func (s *Service) Retrieve(
 		return RetrieveResponse{}, err
 	}
 	return RetrieveResponse{Channels: oChannels}, nil
+}
+
+// filter applies every filter of req except the search term, the limit, and the
+// offset.
+func (s *Service) filter(req RetrieveRequest, q channel.Retrieve) channel.Retrieve {
+	if len(req.Keys) > 0 {
+		q = q.Where(channel.MatchKeys(req.Keys...))
+	}
+	if len(req.Names) > 0 {
+		q = q.Where(channel.MatchNames(req.Names...))
+	}
+	if req.NodeKey != 0 {
+		q = q.Where(channel.MatchLeaseholders(req.NodeKey))
+	}
+	if len(req.DataTypes) > 0 {
+		q = q.Where(channel.MatchDataTypes(req.DataTypes...))
+	}
+	if len(req.NotDataTypes) > 0 {
+		q = q.Where(channel.Not(channel.MatchDataTypes(req.NotDataTypes...)))
+	}
+	if req.Virtual != nil {
+		q = q.Where(channel.MatchVirtual(*req.Virtual))
+	}
+	if req.IsIndex != nil {
+		q = q.Where(channel.MatchIsIndex(*req.IsIndex))
+	}
+	if req.Internal != nil {
+		q = q.Where(channel.MatchInternal(*req.Internal))
+	}
+	return q
 }
 
 func translateChannelsForward(channels []channel.Channel) []Channel {

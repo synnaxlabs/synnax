@@ -92,7 +92,7 @@ var _ = Describe("Ontology", func() {
 				DeferCleanup(func(ctx SpecContext) {
 					Expect(writer.Delete(ctx, created.Key)).To(Succeed())
 				})
-				Expect(MustSucceed(svc.Search(ctx, db, term, 10)).Keys).
+				Expect(MustSucceed(svc.Search(ctx, db, term, nil, 10)).Keys).
 					To(ContainElement(created.OntologyID()))
 			},
 			Entry("first word", "Persephone"),

@@ -95,13 +95,26 @@ func (s *SearchIndex[K, E]) Search(
 	term string,
 	limit int,
 ) (search.Result[K], error) {
+	return s.SearchExcept(ctx, tx, term, nil, limit)
+}
+
+// SearchExcept is Search with the keys for which except returns true left out. It
+// leaves them out before it checks whether any entry matches every word. A nil except
+// keeps every key.
+func (s *SearchIndex[K, E]) SearchExcept(
+	ctx context.Context,
+	tx Tx,
+	term string,
+	except func(K) bool,
+	limit int,
+) (search.Result[K], error) {
 	checkForNilTx("SearchIndex.Search", tx)
 	if err := s.store.Wait(ctx); errors.Is(err, ErrIndexInvalid) {
-		return s.scan(ctx, tx, term, limit)
+		return s.scan(ctx, tx, term, except, limit)
 	} else if err != nil {
 		return search.Result[K]{}, err
 	}
-	return s.store.Get(scopeOf(tx), term, limit)
+	return s.store.Get(scopeOf(tx), term, except, limit)
 }
 
 // Filter returns a Filter matching the entries that Search returns for term. A
@@ -124,6 +137,7 @@ func (s *SearchIndex[K, E]) scan(
 	ctx context.Context,
 	tx Tx,
 	term string,
+	except func(K) bool,
 	limit int,
 ) (search.Result[K], error) {
 	entries, closer, err := wrapReader[K, E](tx, nil).OpenNexter(ctx)
@@ -137,5 +151,5 @@ func (s *SearchIndex[K, E]) scan(
 	if err = closer.Close(); err != nil {
 		return search.Result[K]{}, err
 	}
-	return idx.Search(term, limit), nil
+	return idx.SearchExcept(term, except, limit), nil
 }

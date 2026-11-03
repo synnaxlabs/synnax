@@ -797,9 +797,9 @@ var _ = Describe("Status", Ordered, func() {
 			func(ctx SpecContext) {
 				a := create(ctx, "a", "turbopump test")
 				b := create(ctx, "b", "turbopump")
-				Expect(MustSucceed(svc.Search(ctx, db, "turbopump", 0)).Keys).
+				Expect(MustSucceed(svc.Search(ctx, db, "turbopump", nil, 0)).Keys).
 					To(Equal([]ontology.ID{b, a}))
-				Expect(MustSucceed(svc.Search(ctx, db, "turbopump", 1)).Keys).
+				Expect(MustSucceed(svc.Search(ctx, db, "turbopump", nil, 1)).Keys).
 					To(Equal([]ontology.ID{b}))
 			},
 		)
@@ -807,9 +807,9 @@ var _ = Describe("Status", Ordered, func() {
 		It("Should match a renamed status by its new name", func(ctx SpecContext) {
 			id := create(ctx, "c", "cryogenic")
 			Expect(svc.NewWriter(nil).Rename(ctx, "c", "hydraulic")).To(Succeed())
-			Expect(MustSucceed(svc.Search(ctx, db, "hydraulic", 0)).Keys).
+			Expect(MustSucceed(svc.Search(ctx, db, "hydraulic", nil, 0)).Keys).
 				To(Equal([]ontology.ID{id}))
-			Expect(MustSucceed(svc.Search(ctx, db, "cryogenic", 0)).Keys).
+			Expect(MustSucceed(svc.Search(ctx, db, "cryogenic", nil, 0)).Keys).
 				To(BeEmpty())
 		})
 	})

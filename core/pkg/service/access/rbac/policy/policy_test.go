@@ -626,7 +626,7 @@ var _ = Describe("Ontology Integration", func() {
 					Actions: []access.Action{access.ActionRetrieve},
 				}
 				Expect(svc.NewWriter(tx, false).Create(ctx, p)).To(Succeed())
-				Expect(MustSucceed(svc.Search(ctx, tx, "turbopump", 10)).Keys).
+				Expect(MustSucceed(svc.Search(ctx, tx, "turbopump", nil, 10)).Keys).
 					To(Equal([]ontology.ID{p.OntologyID()}))
 			},
 		)

@@ -1573,16 +1573,16 @@ var _ = Describe("Task", Ordered, func() {
 			func(ctx SpecContext) {
 				a := create(ctx, "turbopump test")
 				b := create(ctx, "turbopump")
-				Expect(MustSucceed(svc.Search(ctx, tx, "turbopump", 0)).Keys).
+				Expect(MustSucceed(svc.Search(ctx, tx, "turbopump", nil, 0)).Keys).
 					To(Equal([]ontology.ID{b, a}))
-				Expect(MustSucceed(svc.Search(ctx, tx, "turbopump", 1)).Keys).
+				Expect(MustSucceed(svc.Search(ctx, tx, "turbopump", nil, 1)).Keys).
 					To(Equal([]ontology.ID{b}))
 			},
 		)
 
 		It("Should match a task by its type", func(ctx SpecContext) {
 			id := create(ctx, "igniter")
-			Expect(MustSucceed(svc.Search(ctx, tx, testType, 0)).Keys).
+			Expect(MustSucceed(svc.Search(ctx, tx, testType, nil, 0)).Keys).
 				To(ContainElement(id))
 		})
 
@@ -1591,7 +1591,7 @@ var _ = Describe("Task", Ordered, func() {
 			func(ctx SpecContext) {
 				create(ctx, "injector")
 				Expect(
-					MustSucceed(svc.Search(ctx, db, "injector", 0)).Keys,
+					MustSucceed(svc.Search(ctx, db, "injector", nil, 0)).Keys,
 				).To(BeEmpty())
 			},
 		)

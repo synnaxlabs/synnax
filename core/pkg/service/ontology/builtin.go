@@ -38,6 +38,7 @@ func (*builtinService) Search(
 	context.Context,
 	gorp.Tx,
 	string,
+	func(ID) bool,
 	int,
 ) (search.Result[ID], error) {
 	return search.Result[ID]{}, nil

@@ -28,14 +28,14 @@ var _ = Describe("Search", func() {
 	It("Should return the matching Arcs, closest match first", func(ctx SpecContext) {
 		a := create(ctx, "turbopump test")
 		b := create(ctx, "turbopump")
-		Expect(MustSucceed(svc.Search(ctx, tx, "turbopump", 0)).Keys).
+		Expect(MustSucceed(svc.Search(ctx, tx, "turbopump", nil, 0)).Keys).
 			To(Equal([]ontology.ID{b, a}))
-		Expect(MustSucceed(svc.Search(ctx, tx, "turbopump", 1)).Keys).
+		Expect(MustSucceed(svc.Search(ctx, tx, "turbopump", nil, 1)).Keys).
 			To(Equal([]ontology.ID{b}))
 	})
 
 	It("Should not match a staged Arc outside its transaction", func(ctx SpecContext) {
 		create(ctx, "injector")
-		Expect(MustSucceed(svc.Search(ctx, db, "injector", 0)).Keys).To(BeEmpty())
+		Expect(MustSucceed(svc.Search(ctx, db, "injector", nil, 0)).Keys).To(BeEmpty())
 	})
 })

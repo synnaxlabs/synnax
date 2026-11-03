@@ -60,6 +60,7 @@ func (*sampleService) Search(
 	context.Context,
 	gorp.Tx,
 	string,
+	func(ontology.ID) bool,
 	int,
 ) (search.Result[ontology.ID], error) {
 	return search.Result[ontology.ID]{}, nil

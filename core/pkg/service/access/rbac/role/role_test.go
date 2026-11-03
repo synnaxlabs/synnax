@@ -512,7 +512,7 @@ var _ = Describe("Ontology Integration", func() {
 					Description: "Search test role",
 				}
 				Expect(svc.NewWriter(tx, true).Create(ctx, r)).To(Succeed())
-				Expect(MustSucceed(svc.Search(ctx, tx, "turbopump", 10)).Keys).
+				Expect(MustSucceed(svc.Search(ctx, tx, "turbopump", nil, 10)).Keys).
 					To(Equal([]ontology.ID{r.OntologyID()}))
 			},
 		)

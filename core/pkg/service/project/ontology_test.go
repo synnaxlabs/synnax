@@ -163,9 +163,9 @@ var _ = Describe("Ontology", func() {
 				b := project.Project{Key: uuid.New(), Name: "turbopump"}
 				Expect(writer.Create(ctx, &a)).To(Succeed())
 				Expect(writer.Create(ctx, &b)).To(Succeed())
-				Expect(MustSucceed(svc.Search(ctx, db, "turbopump", 10)).Keys).
+				Expect(MustSucceed(svc.Search(ctx, db, "turbopump", nil, 10)).Keys).
 					To(Equal([]ontology.ID{b.OntologyID(), a.OntologyID()}))
-				Expect(MustSucceed(svc.Search(ctx, db, "turbopump", 1)).Keys).
+				Expect(MustSucceed(svc.Search(ctx, db, "turbopump", nil, 1)).Keys).
 					To(Equal([]ontology.ID{b.OntologyID()}))
 			},
 		)

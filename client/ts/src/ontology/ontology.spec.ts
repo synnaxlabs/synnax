@@ -181,6 +181,177 @@ describe("Ontology", () => {
         })
         .toMatchObject({ name, id: { type: "group", key: g.key } });
     });
+    test("retrieve by search term under a root", async () => {
+      const name = randomName();
+      const parent = await client.groups.create({
+        parent: ontology.ROOT_ID,
+        name: randomName(),
+      });
+      const parentID = group.ontologyID(parent.key);
+      const inside = await client.groups.create({ parent: parentID, name });
+      await client.groups.create({ parent: ontology.ROOT_ID, name });
+      await expect
+        .poll(async () =>
+          (
+            await client.ontology.retrieve({
+              searchTerm: name,
+              root: parentID,
+              types: ["group"],
+            })
+          ).map((r) => r.id.key),
+        )
+        .toEqual([inside.key]);
+    });
+    test("retrieve by search term for the given types only", async () => {
+      const name = randomName();
+      const g = await client.groups.create({ parent: ontology.ROOT_ID, name });
+      const found = async (types: ontology.ResourceType[]): Promise<boolean> =>
+        (await client.ontology.retrieve({ searchTerm: name, types })).some(
+          (r) => r.id.key === g.key,
+        );
+      await expect.poll(async () => await found(["group"])).toBe(true);
+      expect(await found(["channel"])).toBe(false);
+    });
+    test("page through search results with a limit and an offset", async () => {
+      const token = `page${Math.random().toString(36).slice(2)}`;
+      const parent = await client.groups.create({
+        parent: ontology.ROOT_ID,
+        name: randomName(),
+      });
+      const root = group.ontologyID(parent.key);
+      for (const suffix of ["a", "b", "c"])
+        await client.groups.create({ parent: root, name: `${token} ${suffix}` });
+      const search = async (offset: number): Promise<number> =>
+        (
+          await client.ontology.retrieve({
+            searchTerm: token,
+            root,
+            limit: 2,
+            offset,
+          })
+        ).length;
+      await expect.poll(async () => await search(0)).toEqual(2);
+      expect(await search(2)).toEqual(1);
+    });
+  });
+
+  describe("ancestors", () => {
+    const createChain = async (): Promise<{
+      top: ontology.ID;
+      mid: ontology.ID;
+      leaf: ontology.ID;
+    }> => {
+      const top = await client.groups.create({
+        parent: ontology.ROOT_ID,
+        name: randomName(),
+      });
+      const mid = await client.groups.create({
+        parent: group.ontologyID(top.key),
+        name: randomName(),
+      });
+      const leaf = await client.groups.create({
+        parent: group.ontologyID(mid.key),
+        name: randomName(),
+      });
+      return {
+        top: group.ontologyID(top.key),
+        mid: group.ontologyID(mid.key),
+        leaf: group.ontologyID(leaf.key),
+      };
+    };
+
+    it("should return the resources and the path above each ID", async () => {
+      const { top, mid, leaf } = await createChain();
+      const { resources, paths } = await client.ontology.ancestors.retrieve({
+        ids: leaf,
+      });
+      expect(resources.map((r) => r.key).sort()).toEqual(
+        ontology.idToString([top, mid]).sort(),
+      );
+      expect(paths[ontology.idToString(leaf)]).toEqual([[top, mid]]);
+    });
+
+    it("should cache the resources of the IDs", async () => {
+      const { leaf } = await createChain();
+      const key = ontology.idToString(leaf);
+      expect(client.ontology.cache.resources.get(key)).toBeUndefined();
+      await client.ontology.ancestors.retrieve({ ids: leaf });
+      expect(
+        client.ontology.cache.resources.get(ontology.idToString(leaf)),
+      ).toMatchObject({ id: leaf });
+    });
+
+    it("should stop the walk at the root", async () => {
+      const { top, mid, leaf } = await createChain();
+      const { resources, paths } = await client.ontology.ancestors.retrieve({
+        ids: leaf,
+        root: top,
+      });
+      expect(resources.map((r) => r.key)).toEqual([ontology.idToString(mid)]);
+      expect(paths[ontology.idToString(leaf)]).toEqual([[mid]]);
+    });
+
+    it("should return a path for each parent", async () => {
+      const { top, mid, leaf } = await createChain();
+      const side = await client.groups.create({ parent: top, name: randomName() });
+      const sideID = group.ontologyID(side.key);
+      await client.ontology.addChildren(sideID, leaf);
+      const { paths } = await client.ontology.ancestors.retrieve({
+        ids: leaf,
+        root: top,
+      });
+      expect(paths[ontology.idToString(leaf)]).toEqual(
+        expect.arrayContaining([[mid], [sideID]]),
+      );
+      expect(paths[ontology.idToString(leaf)]).toHaveLength(2);
+    });
+
+    describe("onChange", () => {
+      beforeAll(async () => await client.connect());
+
+      it("should follow a remote move", async () => {
+        const { top, mid, leaf } = await createChain();
+        const side = await client.groups.create({ parent: top, name: randomName() });
+        const sideID = group.ontologyID(side.key);
+        const params = { ids: leaf, root: top };
+        const handler = vi.fn();
+        const off = client.ontology.ancestors.onChange(params, handler);
+        try {
+          await client.ontology.ancestors.retrieve(params);
+          await remote.ontology.moveChildren(mid, sideID, leaf);
+          await expect
+            .poll(() => {
+              const cached = client.ontology.ancestors.getCached(params);
+              return query.isLive(cached)
+                ? cached.paths[ontology.idToString(leaf)]
+                : null;
+            })
+            .toEqual([[sideID]]);
+          expect(handler).toHaveBeenCalled();
+        } finally {
+          off();
+        }
+      });
+
+      it("should follow a remote group rename", async () => {
+        const { top, mid, leaf } = await createChain();
+        const params = { ids: leaf, root: top };
+        const off = client.ontology.ancestors.onChange(params, () => {});
+        try {
+          await client.ontology.ancestors.retrieve(params);
+          const name = randomName();
+          await remote.groups.rename(mid.key, name);
+          await expect
+            .poll(() => {
+              const cached = client.ontology.ancestors.getCached(params);
+              return query.isLive(cached) ? cached.resources[0]?.name : null;
+            })
+            .toEqual(name);
+        } finally {
+          off();
+        }
+      });
+    });
   });
 
   describe("write", () => {

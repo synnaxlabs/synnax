@@ -137,7 +137,7 @@ var _ = Describe("Ontology", func() {
 			DeferCleanup(func(ctx SpecContext) {
 				Expect(writer.Delete(ctx, p.Key)).To(Succeed())
 			})
-			Expect(MustSucceed(svc.Search(ctx, db, "turbopump", 10)).Keys).
+			Expect(MustSucceed(svc.Search(ctx, db, "turbopump", nil, 10)).Keys).
 				To(Equal([]ontology.ID{p.OntologyID()}))
 		})
 	})

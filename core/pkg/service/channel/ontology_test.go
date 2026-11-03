@@ -109,9 +109,10 @@ var _ = Describe("Ontology", Ordered, func() {
 				}
 				Expect(channelWriter.Create(ctx, &inlet)).To(Succeed())
 				Expect(channelWriter.Create(ctx, &outlet)).To(Succeed())
-				Expect(MustSucceed(svc.Search(ctx, db, "turbopump inlet", 10)).Keys).
-					To(Equal([]ontology.ID{inlet.OntologyID()}))
-				Expect(MustSucceed(svc.Search(ctx, db, "turbopump", 10)).Keys).
+				Expect(
+					MustSucceed(svc.Search(ctx, db, "turbopump inlet", nil, 10)).Keys,
+				).To(Equal([]ontology.ID{inlet.OntologyID()}))
+				Expect(MustSucceed(svc.Search(ctx, db, "turbopump", nil, 10)).Keys).
 					To(ConsistOf(inlet.OntologyID(), outlet.OntologyID()))
 			},
 		)

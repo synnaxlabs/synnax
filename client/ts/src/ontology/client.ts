@@ -29,6 +29,7 @@ import {
   type ResourceType,
   resourceTypeZ,
   resourceZ,
+  ROOT_ID,
   stringIDZ,
 } from "@/ontology/payload";
 import {
@@ -52,6 +53,8 @@ const wireReqZ = z.object({
   limit: z.int().optional(),
   offset: z.int().optional(),
   ignoreNotFoundError: z.boolean().optional(),
+  root: idZ.optional(),
+  ancestors: z.boolean().optional(),
 });
 /** Everything an ontology retrieval can filter on. */
 export interface RetrieveRequest extends z.infer<typeof wireReqZ> {}
@@ -62,7 +65,11 @@ export interface RetrieveOptions extends Pick<
   "excludeFieldData" | "types"
 > {}
 
-const retrieveResZ = z.object({ resources: resourceZ.array() });
+const retrieveResZ = z.object({
+  resources: resourceZ.array(),
+  ancestors: resourceZ.array().optional(),
+  relationships: relationshipZ.array().optional(),
+});
 
 const parentRel = (from: ID, to: ID): Relationship => ({
   from,
@@ -76,6 +83,7 @@ type NormalizedRequest = {
   excludeFieldData?: boolean;
   types?: ResourceType[];
   searchTerm?: string;
+  root?: string;
   limit?: number;
   offset?: number;
 };
@@ -102,6 +110,33 @@ export type DependentParams = {
 
 const DEPENDENT_SERVER_FIELDS = ["searchTerm", "limit", "offset"] as const;
 
+/** Query addressing the ancestors of a set of resources. */
+export type AncestorParams = {
+  ids: ID | ID[];
+  /** Where the walk up ends. Defaults to the ontology root. */
+  root?: ID;
+};
+
+/** Request key for the ancestors of a set of resources. */
+type AncestorRequest = { ids: string[]; root?: string };
+
+/** The ancestors of a set of resources. */
+export interface Ancestry {
+  /** Every resource between the IDs and the root, leaving out the root. */
+  resources: Resource[];
+  /**
+   * The paths from the root down to the parent of each ID, keyed by the string form of
+   * the ID. A path lists IDs from the top down and leaves out the root.
+   */
+  paths: Record<string, ID[][]>;
+}
+
+const normalizeAncestors = ({ ids, root }: AncestorParams): AncestorRequest => {
+  const out: AncestorRequest = { ids: normalizeIDs(ids) };
+  if (root != null) out.root = idToString(root);
+  return out;
+};
+
 const normalizeIDs = (ids: ID | ID[]): string[] =>
   [...new Set(idToString(parseIDs(ids)))].sort();
 
@@ -125,6 +160,7 @@ const retrieveRequestZ = z
     excludeFieldData: z.boolean().optional(),
     types: resourceTypeZ.array().optional(),
     searchTerm: z.string().optional(),
+    root: idZ.optional(),
     limit: z.int().optional(),
     offset: z.int().optional(),
   })
@@ -134,6 +170,7 @@ const retrieveRequestZ = z
     if (req.excludeFieldData != null) out.excludeFieldData = req.excludeFieldData;
     if (req.types != null) out.types = [...req.types].sort();
     if (req.searchTerm != null) out.searchTerm = req.searchTerm;
+    if (req.root != null) out.root = idToString(req.root);
     if (req.limit != null) out.limit = req.limit;
     if (req.offset != null) out.offset = req.offset;
     return out;
@@ -190,6 +227,12 @@ export class Client extends query.Retriever<
   readonly children: query.Retrieves<DependentParams, Resource[]>;
   /** Cached read surface for the parents of a set of resources. */
   readonly parents: query.Retrieves<DependentParams, Resource[]>;
+  /**
+   * Cached read surface for the ancestors of a set of resources. Paths follow moves
+   * and group renames while subscribed. A retrieve also caches the resources of the
+   * IDs.
+   */
+  readonly ancestors: query.Retrieves<AncestorParams, Ancestry>;
   private readonly cfg: ClientConfig;
   private readonly writer: Writer;
 
@@ -253,6 +296,7 @@ export class Client extends query.Retriever<
     this.cache = new Cache(relationships, resources, relationshipIndexes);
     this.children = this.dependentSurface(cache, "children", "to");
     this.parents = this.dependentSurface(cache, "parents", "from");
+    this.ancestors = this.ancestorSurface(cache);
   }
 
   /**
@@ -399,10 +443,12 @@ export class Client extends query.Retriever<
   }
 
   private async fetchRequest(req: NormalizedRequest): Promise<Resource[]> {
-    const { ids, ...rest } = req;
-    const resources = await this.execRetrieve(
-      ids == null ? rest : { ids: parseIDs(ids), ...rest },
-    );
+    const { ids, root, ...rest } = req;
+    const resources = await this.execRetrieve({
+      ...rest,
+      ...(ids != null && { ids: parseIDs(ids) }),
+      ...(root != null && { root: parseID(root) }),
+    });
     return resources.map((r) => this.mergeFieldData(r));
   }
 
@@ -464,6 +510,75 @@ export class Client extends query.Retriever<
     };
   }
 
+  private async fetchAncestors({ ids, root }: AncestorRequest): Promise<string[]> {
+    const {
+      resources,
+      ancestors = [],
+      relationships = [],
+    } = await this.send({
+      ids: parseIDs(ids),
+      root: root == null ? undefined : parseID(root),
+      ancestors: true,
+      ignoreNotFoundError: true,
+    });
+    // The resources of the IDs come back too, so a reader can render them with no
+    // second request.
+    this.writeResources([...resources, ...ancestors]);
+    // The Core walks up from the IDs, so the reversed links reach the cache top down
+    // and each one finds the path above it already cached.
+    relationships
+      .toReversed()
+      .forEach((rel) => this.cache.relationships.set(relationshipToString(rel), rel));
+    return ancestors.map((r) => r.key);
+  }
+
+  private ancestorSurface(
+    cache: query.Cache,
+  ): query.Retrieves<AncestorParams, Ancestry> {
+    const anchorsOf = (q: AncestorRequest): ID[] => parseIDs(q.ids);
+    const rootOf = (q: AncestorRequest): ID | undefined =>
+      q.root == null ? undefined : parseID(q.root);
+    const space = cache.queries<AncestorRequest, Ancestry, string, Resource>({
+      name: "ancestors",
+      table: this.cache.resources,
+      fetch: async (q) => await this.fetchAncestors(q),
+      compose: (resources, q) => ({
+        resources,
+        paths: this.cache.paths(anchorsOf(q), rootOf(q)),
+      }),
+      matches: (resource, q) =>
+        this.cache.ancestorKeys(anchorsOf(q), rootOf(q)).has(resource.key),
+      watch: [
+        query.watch(this.cache.relationships, (event, q: AncestorRequest) => {
+          const rel =
+            event.variant === "set" ? event.value : relationshipZ.parse(event.key);
+          if (rel.type !== PARENT_OF_RELATIONSHIP_TYPE) return null;
+          const to = idToString(rel.to);
+          const tracked = this.cache.ancestorKeys(anchorsOf(q), rootOf(q));
+          if (!q.ids.includes(to) && !tracked.has(to)) return null;
+          const from = idToString(rel.from);
+          const above = [from, ...this.cache.ancestorKeys([rel.from], rootOf(q))];
+          if (event.variant === "delete" || from === (q.root ?? idToString(ROOT_ID)))
+            return above;
+          // A new parent whose own path is not cached needs the Core to place it.
+          const placed =
+            this.cache.resources.get(from) != null &&
+            this.cache
+              .relationshipsTo(rel.from)
+              .some((r) => r.type === PARENT_OF_RELATIONSHIP_TYPE);
+          return placed ? above : "refetch";
+        }),
+      ],
+    });
+    return {
+      retrieve: async (params, opts) =>
+        await space.retrieve(normalizeAncestors(params), opts),
+      onChange: (params, handler) =>
+        space.onChange(normalizeAncestors(params), handler),
+      getCached: (params) => space.getCached(normalizeAncestors(params)),
+    };
+  }
+
   /** Whether a cached relationship makes the resource a dependent of the query. */
   private isDependent(
     resource: Resource,
@@ -484,12 +599,15 @@ export class Client extends query.Retriever<
   }
 
   private async execRetrieve(request: RetrieveRequest): Promise<Resource[]> {
-    const { resources } = await this.cfg.unary.send(
+    return (await this.send(request)).resources;
+  }
+
+  private async send(request: RetrieveRequest): Promise<z.infer<typeof retrieveResZ>> {
+    return await this.cfg.unary.send(
       "/ontology/retrieve",
       request,
       wireReqZ,
       retrieveResZ,
     );
-    return resources;
   }
 }

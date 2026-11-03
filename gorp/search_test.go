@@ -115,6 +115,16 @@ var _ = Describe("SearchIndex", func() {
 			Expect(search(ctx, db, "valve")).To(Equal([]int32{5}))
 		})
 
+		It("Should leave out keys before it picks full matches", func(ctx SpecContext) {
+			Expect(MustSucceed(idx.SearchExcept(
+				ctx,
+				db,
+				"pressure digital",
+				func(key int32) bool { return key == 2 },
+				0,
+			)).Keys).To(Equal([]int32{1}))
+		})
+
 		It("Should panic when tx is nil", func(ctx SpecContext) {
 			Expect(func() { MustSucceed(idx.Search(ctx, nil, "valve", 0)) }).
 				To(PanicWith(ContainSubstring("nil transaction")))
@@ -131,6 +141,19 @@ var _ = Describe("SearchIndex", func() {
 					Exec(ctx, tx)).To(Succeed())
 				Expect(search(ctx, tx, "pressure")).To(Equal([]int32{5, 1}))
 				Expect(search(ctx, db, "pressure")).To(Equal([]int32{2, 1}))
+			})
+
+			It("Should leave out staged and committed keys", func(ctx SpecContext) {
+				stage(ctx, tx, indexedEntry{
+					ID: 5, Name: "pressure", Category: "digital",
+				})
+				Expect(MustSucceed(idx.SearchExcept(
+					ctx,
+					tx,
+					"pressure digital",
+					func(key int32) bool { return key == 2 || key == 5 },
+					0,
+				)).Keys).To(Equal([]int32{1}))
 			})
 
 			It("Should apply staged writes when tx commits", func(ctx SpecContext) {
@@ -244,6 +267,13 @@ var _ = Describe("SearchIndex", func() {
 				To(Equal([]int32{3, 1, 4}))
 			Expect(MustSucceed(failed.Search(ctx, failing, "analog", 2)).Keys).
 				To(Equal([]int32{3, 1}))
+			Expect(MustSucceed(failed.SearchExcept(
+				ctx,
+				failing,
+				"pressure digital",
+				func(key int32) bool { return key == 2 },
+				0,
+			)).Keys).To(Equal([]int32{1}))
 		})
 
 		It("Should retrieve the matches closest match first", func(ctx SpecContext) {

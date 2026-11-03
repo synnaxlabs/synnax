@@ -129,7 +129,8 @@ func (s *Service) Search(
 	ctx context.Context,
 	tx gorp.Tx,
 	term string,
+	except func(ontology.ID) bool,
 	limit int,
 ) (search.Result[ontology.ID], error) {
-	return ontology.SearchIndex(ctx, tx, s.search, term, limit, OntologyID)
+	return ontology.SearchIndex(ctx, tx, s.search, term, except, limit, OntologyID)
 }
