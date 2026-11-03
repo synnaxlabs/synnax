@@ -7,7 +7,13 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { caseconv, deep, type optional, type record } from "@synnaxlabs/x";
+import {
+  caseconv,
+  deep,
+  type optional,
+  type record,
+  type TimeSpan,
+} from "@synnaxlabs/x";
 import { type FC, type ReactElement } from "react";
 
 import { type RenderProp, renderProp } from "@/component/renderProp";
@@ -198,6 +204,58 @@ export const buildDateTimeField = fieldBuilder<number, number, Input.DateTimePro
   Input.DateTime,
 );
 export const DateTimeField = buildDateTimeField({ inputProps: {} });
+
+export interface TimeSpanFieldProps extends BuiltFieldProps<
+  number | undefined,
+  number | undefined,
+  Input.TimeSpanProps
+> {
+  /** The unit of the stored number, and of a number typed alone. */
+  unit: TimeSpan;
+  /** The shortest and longest spans the field accepts. */
+  bounds?: { lower?: TimeSpan; upper?: TimeSpan };
+}
+
+/**
+ * A duration field, typed in place. It stores a number of `unit`. An emptiable field
+ * stores undefined when emptied, and any other field reverts.
+ *
+ * @example <Form.TimeSpanField path={path.timeoutMs} unit={TimeSpan.MILLISECOND} />
+ */
+export const TimeSpanField = ({
+  unit,
+  bounds,
+  inputProps,
+  path,
+  label,
+  emptiable,
+  ...rest
+}: TimeSpanFieldProps): ReactElement | null => {
+  const name = label ?? caseconv.toSentence(deep.element(String(path), -1));
+  const check = (span: TimeSpan): string | null => {
+    if (bounds?.lower != null && span.lessThan(bounds.lower))
+      return `${name} must be ${Input.formatTimeSpan(bounds.lower)} or more`;
+    if (bounds?.upper != null && span.greaterThan(bounds.upper))
+      return `${name} must be ${Input.formatTimeSpan(bounds.upper)} or less`;
+    return null;
+  };
+  return (
+    <Field<number | undefined> {...rest} label={name} emptiable={emptiable} path={path}>
+      {({ value, onChange, ...p }) => (
+        <Input.TimeSpan
+          {...p}
+          inline
+          {...inputProps}
+          unit={unit}
+          value={value == null ? undefined : Number(unit.mult(value).valueOf())}
+          onChange={(ns) => onChange(ns / Number(unit.valueOf()))}
+          onClear={emptiable === true ? () => onChange(undefined) : undefined}
+          check={bounds == null ? undefined : check}
+        />
+      )}
+    </Field>
+  );
+};
 
 export type SelectFieldProps<K extends record.Key> = BuiltFieldProps<
   K,

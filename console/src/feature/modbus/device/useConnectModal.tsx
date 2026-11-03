@@ -265,11 +265,13 @@ export const Connect = ({
             <Tabs.Content itemKey="advanced" className={CONTENT_CLASS}>
               <Form.Sections className={SECTIONS_CLASS}>
                 <Form.Section title="Timing">
-                  <Form.NumericField
+                  <Form.TimeSpanField
                     path={connectionPath.timeoutMs}
                     label="Timeout"
+                    unit={TimeSpan.MILLISECOND}
+                    bounds={TIMEOUT_BOUNDS}
                     padHelpText={false}
-                    inputProps={TIMEOUT_INPUT_PROPS}
+                    inputProps={TIME_SPAN_INPUT_PROPS}
                   />
                   <Form.NumericField
                     path={connectionPath.retries}
@@ -277,11 +279,13 @@ export const Connect = ({
                     padHelpText={false}
                     inputProps={RETRIES_INPUT_PROPS}
                   />
-                  <Form.NumericField
+                  <Form.TimeSpanField
                     path={path.properties.requests.delayMs}
                     label="Request delay"
+                    unit={TimeSpan.MILLISECOND}
+                    bounds={DELAY_BOUNDS}
                     padHelpText={false}
-                    inputProps={DELAY_INPUT_PROPS}
+                    inputProps={TIME_SPAN_INPUT_PROPS}
                   />
                 </Form.Section>
                 <Form.Section title="Requests">
@@ -361,22 +365,16 @@ const UNIT_ID_INPUT_PROPS = {
   rtu: { bounds: { lower: 1, upper: 247 }, style: { width: "23rem" } },
 } as const;
 
-const TIMEOUT_INPUT_PROPS = {
-  bounds: { lower: 1, upper: 60000 },
-  endContent: "ms",
-  style: { width: "23rem" },
-} as const;
+const TIME_SPAN_INPUT_PROPS = { style: { width: "23rem" } } as const;
+
+const TIMEOUT_BOUNDS = { lower: TimeSpan.MILLISECOND, upper: TimeSpan.MINUTE };
 
 const RETRIES_INPUT_PROPS = {
   bounds: { lower: 0, upper: 10 },
   style: { width: "23rem" },
 } as const;
 
-const DELAY_INPUT_PROPS = {
-  bounds: { lower: 0, upper: 5000 },
-  endContent: "ms",
-  style: { width: "23rem" },
-} as const;
+const DELAY_BOUNDS = { upper: TimeSpan.seconds(5) };
 
 const MAX_REGISTERS_INPUT_PROPS = {
   bounds: { lower: 1, upper: 125 },
