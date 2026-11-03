@@ -207,12 +207,18 @@ type SearchQuery struct {
 
 // Search returns the IDs of the resources that match q, closest match first. Search
 // reads the changes staged against tx, falling back to the underlying database when tx
-// is nil.
+// is nil. A negative limit or offset is a validation error.
 func (o *Ontology) Search(
 	ctx context.Context,
 	tx gorp.Tx,
 	q SearchQuery,
 ) ([]ID, error) {
+	v := validate.New("ontology.search")
+	v.GreaterThanEq("limit", q.Limit, 0)
+	v.GreaterThanEq("offset", q.Offset, 0)
+	if err := v.Error(); err != nil {
+		return nil, err
+	}
 	tx = o.cfg.DB.OverrideTx(tx)
 	limit := q.Limit
 	if limit == 0 {

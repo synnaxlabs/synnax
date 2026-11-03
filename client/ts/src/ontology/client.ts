@@ -511,25 +511,43 @@ export class Client extends query.Retriever<
   }
 
   private async fetchAncestors({ ids, root }: AncestorRequest): Promise<string[]> {
-    const {
-      resources,
-      ancestors = [],
-      relationships = [],
-    } = await this.send({
-      ids: parseIDs(ids),
-      root: root == null ? undefined : parseID(root),
-      ancestors: true,
-      ignoreNotFoundError: true,
-    });
+    const table = this.cache.relationships;
+    // A link written while the request is in flight is newer than the answer.
+    const written = new Set<string>();
+    const stopWatching = table.subscribe(({ key }) => written.add(key));
+    let res: z.infer<typeof retrieveResZ>;
+    try {
+      res = await this.send({
+        ids: parseIDs(ids),
+        root: root == null ? undefined : parseID(root),
+        ancestors: true,
+        ignoreNotFoundError: true,
+      });
+    } finally {
+      stopWatching();
+    }
+    const { resources, ancestors = [], relationships = [] } = res;
     // The resources of the IDs come back too, so a reader can render them with no
     // second request.
     this.writeResources([...resources, ...ancestors]);
+    // The answer holds every parent link of each resource the walk passed, so a cached
+    // link it lacks was deleted while the cache missed the change.
+    const passed = [...resources.map((r) => r.id), ...relationships.map((r) => r.from)];
+    const walked = new Map(passed.map((id) => [idToString(id), id]));
+    walked.delete(root ?? idToString(ROOT_ID));
+    const fetched = new Set(relationships.map(relationshipToString));
+    const stale = [...walked.values()]
+      .flatMap((id) => this.cache.relationshipsTo(id))
+      .filter(({ type }) => type === PARENT_OF_RELATIONSHIP_TYPE)
+      .map(relationshipToString)
+      .filter((key) => !fetched.has(key) && !written.has(key));
+    if (stale.length > 0) table.delete(stale);
     // The Core walks up from the IDs, so the reversed links reach the cache top down
     // and each one finds the path above it already cached.
     relationships
       .toReversed()
-      .forEach((rel) => this.cache.relationships.set(relationshipToString(rel), rel));
-    return ancestors.map((r) => r.key);
+      .forEach((rel) => table.set(relationshipToString(rel), rel));
+    return [...new Set([...resources, ...ancestors].map((r) => r.key))];
   }
 
   private ancestorSurface(
@@ -538,15 +556,21 @@ export class Client extends query.Retriever<
     const anchorsOf = (q: AncestorRequest): ID[] => parseIDs(q.ids);
     const rootOf = (q: AncestorRequest): ID | undefined =>
       q.root == null ? undefined : parseID(q.root);
+    // The IDs are members but stay out of the resources, so a link change that moves no
+    // ancestor still recomposes the paths.
     const space = cache.queries<AncestorRequest, Ancestry, string, Resource>({
       name: "ancestors",
       table: this.cache.resources,
       fetch: async (q) => await this.fetchAncestors(q),
-      compose: (resources, q) => ({
-        resources,
-        paths: this.cache.paths(anchorsOf(q), rootOf(q)),
-      }),
+      compose: (members, q) => {
+        const ancestors = this.cache.ancestorKeys(anchorsOf(q), rootOf(q));
+        return {
+          resources: members.filter(({ key }) => ancestors.has(key)),
+          paths: this.cache.paths(anchorsOf(q), rootOf(q)),
+        };
+      },
       matches: (resource, q) =>
+        q.ids.includes(resource.key) ||
         this.cache.ancestorKeys(anchorsOf(q), rootOf(q)).has(resource.key),
       watch: [
         query.watch(this.cache.relationships, (event, q: AncestorRequest) => {
@@ -557,7 +581,7 @@ export class Client extends query.Retriever<
           const tracked = this.cache.ancestorKeys(anchorsOf(q), rootOf(q));
           if (!q.ids.includes(to) && !tracked.has(to)) return null;
           const from = idToString(rel.from);
-          const above = [from, ...this.cache.ancestorKeys([rel.from], rootOf(q))];
+          const above = [to, from, ...this.cache.ancestorKeys([rel.from], rootOf(q))];
           if (event.variant === "delete" || from === (q.root ?? idToString(ROOT_ID)))
             return above;
           // A new parent whose own path is not cached needs the Core to place it.

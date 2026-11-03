@@ -148,6 +148,13 @@ var _ = Describe("Service", func() {
 			)
 		})
 
+		It("Should reject a negative offset", func(ctx SpecContext) {
+			Expect(apiSvc.Retrieve(
+				AuthedCtx(ctx, author),
+				apichannel.RetrieveRequest{Offset: -1},
+			)).Error().To(MatchError("offset: must be greater than or equal to 0"))
+		})
+
 		Describe("SearchTerm", func() {
 			var (
 				term string
