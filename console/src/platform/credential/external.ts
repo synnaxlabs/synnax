@@ -8,4 +8,5 @@
 // included in the file licenses/APL.txt.
 
 export { APIKey } from "@/platform/credential/apikey";
+export { Common } from "@/platform/credential/common";
 export * from "@/platform/credential/useModal";

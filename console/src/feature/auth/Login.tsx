@@ -14,7 +14,7 @@ import { Button } from "@synnaxlabs/lyra/button";
 import { Flex } from "@synnaxlabs/lyra/flex";
 import { Form } from "@synnaxlabs/lyra/form";
 import { Icon } from "@synnaxlabs/lyra/icon";
-import { type Input } from "@synnaxlabs/lyra/input";
+import { Input } from "@synnaxlabs/lyra/input";
 import { Status } from "@synnaxlabs/lyra/status";
 import { type Triggers } from "@synnaxlabs/lyra/triggers";
 import { Credential, Synnax } from "@synnaxlabs/pluto";
@@ -49,10 +49,17 @@ const PASSWORD_INPUT_PROPS: Partial<Input.TextProps> = {
   size: "large",
 };
 
+const FAILURE_MESSAGES: Record<Core.Purpose, string> = {
+  login: "Failed to log in",
+  link: "Failed to link provider account",
+  invite: "Failed to redeem invite code",
+};
+
 /**
  * Finishes a provider redirect, before any guard chooses between the login surface and
  * a session the browser already holds. A login replaces the session. A link keeps it,
- * and waits for the client to link the account to the logged-in user.
+ * and waits for the client to link the account to the logged-in user. An invite
+ * replaces the session once the Core accepts the code.
  */
 export const useCompleteBrowserLogin = (): void => {
   const client = Synnax.use();
@@ -87,11 +94,27 @@ export const useCompleteBrowserLogin = (): void => {
         }
         const core = cores.find((c) => c.key === completed.core) ?? servingCore;
         if (core == null) return;
-        const oidc = completed.credentials;
-        dispatch(Session.Core.set({ ...core, username: "", password: "", oidc }));
-        dispatch(Session.Core.select(core.key));
+        const { invite, credentials } = completed;
+        const cleared = {
+          ...core,
+          username: "",
+          password: "",
+          oidc: undefined,
+          token: undefined,
+        };
+        if (invite == null) {
+          dispatch(Session.Core.set({ ...cleared, oidc: credentials }));
+          dispatch(Session.Core.select(core.key));
+          return;
+        }
+        handleError(async () => {
+          const cookie = Core.servesPage(core);
+          const token = await Core.redeemInvite(core, invite, credentials, cookie);
+          dispatch(Session.Core.set({ ...cleared, token: cookie ? undefined : token }));
+          dispatch(Session.Core.select(core.key));
+        }, FAILURE_MESSAGES.invite);
       },
-      purpose === "link" ? "Failed to link provider account" : "Failed to log in",
+      FAILURE_MESSAGES[purpose ?? "login"],
     );
   }, []);
   useEffect(() => {
@@ -105,6 +128,18 @@ export const useCompleteBrowserLogin = (): void => {
       await link.updateAsync(pendingLink.credentials);
     }, "Failed to link provider account");
   }, [client, pendingLink]);
+};
+
+type ProviderCore = Parameters<typeof Core.loginDesktop>[0];
+
+const startProviderLogin = async (
+  core: ProviderCore,
+  login: auth.OIDCLogin,
+  invite?: string,
+): Promise<void> => {
+  if (Session.Runtime.ENGINE === "tauri") await Core.loginDesktop(core, login, invite);
+  else if (invite == null) await Core.beginBrowserLogin(core.key, login);
+  else await Core.beginBrowserInvite(core.key, login, invite);
 };
 
 /**
@@ -131,6 +166,8 @@ export const Login = (): ReactElement => {
   const handleError = Status.useErrorHandler();
   // a second login would replace the first one's loopback listener
   const [pendingProvider, setPendingProvider] = useState<string>();
+  const [inviteRevealed, setInviteRevealed] = useState(false);
+  const [inviteCode, setInviteCode] = useState("");
   const mounted = useRef(false);
   useEffect(() => {
     mounted.current = true;
@@ -143,30 +180,35 @@ export const Login = (): ReactElement => {
     const core = servingCore ?? selectedCore;
     if (core == null) return;
     setPendingProvider(login.provider);
-    handleError(async () => {
-      let failure: Error | undefined;
-      try {
-        if (Session.Runtime.ENGINE !== "tauri")
-          await Core.beginBrowserLogin(core.key, login);
-        else await Core.loginDesktop(core, login);
-      } catch (e) {
-        failure = errors.fromUnknown(e);
-      }
-      setPendingProvider(undefined);
-      if (failure != null) throw failure;
-      if (Session.Runtime.ENGINE !== "tauri") return;
-      const current = Session.Core.selectState(store.getState(), core.key);
-      // the token is saved under the address the login started with
-      if (
-        current?.host !== core.host ||
-        current.port !== core.port ||
-        current.secure !== core.secure
-      )
-        throw new Error("The Core's address changed during the login. Log in again.");
-      // a user who left the login surface has moved on
-      if (mounted.current)
-        dispatch(Session.Core.recordLogin({ key: core.key, at: Date.now() }));
-    }, `Failed to log in with ${login.provider}`);
+    const trimmed = inviteCode.trim();
+    const invite = trimmed === "" ? undefined : trimmed;
+    handleError(
+      async () => {
+        let failure: Error | undefined;
+        try {
+          await startProviderLogin(core, login, invite);
+        } catch (e) {
+          failure = errors.fromUnknown(e);
+        }
+        setPendingProvider(undefined);
+        if (failure != null) throw failure;
+        if (Session.Runtime.ENGINE !== "tauri") return;
+        const current = Session.Core.selectState(store.getState(), core.key);
+        // the token is saved under the address the login started with
+        if (
+          current?.host !== core.host ||
+          current.port !== core.port ||
+          current.secure !== core.secure
+        )
+          throw new Error("The Core's address changed during the login. Log in again.");
+        // a user who left the login surface has moved on
+        if (mounted.current)
+          dispatch(Session.Core.recordLogin({ key: core.key, at: Date.now() }));
+      },
+      invite == null
+        ? `Failed to log in with ${login.provider}`
+        : FAILURE_MESSAGES.invite,
+    );
   };
 
   const methods = Form.use<typeof credentialsZ>({
@@ -182,7 +224,14 @@ export const Login = (): ReactElement => {
     // A same-credentials resubmit leaves the connection params untouched, so the
     // provider never swaps the client; nudge the existing one to reconnect.
     if (client != null && key === activeKey) client.reauthenticate(credentials);
-    dispatch(Session.Core.set({ ...coreToConnect, ...credentials, oidc: undefined }));
+    dispatch(
+      Session.Core.set({
+        ...coreToConnect,
+        ...credentials,
+        oidc: undefined,
+        token: undefined,
+      }),
+    );
     dispatch(Session.Core.select(key));
   };
 
@@ -277,6 +326,25 @@ export const Login = (): ReactElement => {
               )}
               {providers.length > 0 && window.isSecureContext && (
                 <Flex.Box y gap="small" full="x">
+                  {inviteRevealed ? (
+                    <Input.Text
+                      value={inviteCode}
+                      onChange={setInviteCode}
+                      placeholder="Invite code"
+                      size="large"
+                      full="x"
+                      autoFocus
+                    />
+                  ) : (
+                    <Button.Button
+                      variant="text"
+                      full="x"
+                      justify="center"
+                      onClick={() => setInviteRevealed(true)}
+                    >
+                      I have an invite code
+                    </Button.Button>
+                  )}
                   {providers.map((login) => (
                     <Button.Button
                       key={login.provider}

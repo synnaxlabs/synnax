@@ -18,6 +18,7 @@ import { errors } from "@synnaxlabs/x";
 import { type ReactElement, useEffect, useState } from "react";
 
 import { Core } from "@/platform/core";
+import { Invite } from "@/platform/credential/oidc/Invite";
 import { CSS } from "@/platform/css";
 import { Session } from "@/session";
 
@@ -120,6 +121,7 @@ export const Section = ({ subject, onMessage }: SectionProps): ReactElement => {
   // The Core links a proven account to the caller alone.
   const own = client?.auth.subject?.key === subject.key;
   const canUnlink = Access.useDeleteGranted(subject) || own;
+  const canInvite = Access.useUpdateGranted(subject);
   const providers = Core.useProviders(client?.params, own);
   const selectedCore = Session.Core.useSelectSelectedKey();
   const query = { subject };
@@ -178,6 +180,7 @@ export const Section = ({ subject, onMessage }: SectionProps): ReactElement => {
         onLink={handleLink}
         onUnlink={canUnlink ? handleUnlink : undefined}
       />
+      {canInvite && <Invite subject={subject} onMessage={onMessage} />}
     </Flex.Box>
   );
 };

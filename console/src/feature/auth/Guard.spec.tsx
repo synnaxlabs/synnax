@@ -221,6 +221,105 @@ describe("auth guard", () => {
     });
   });
 
+  describe("an invite's return", () => {
+    const CODE = "syi_code";
+
+    const renderReturn = async (server: OIDCServer) => {
+      const core = { ...LOCAL, ...server.address };
+      sessionStorage.setItem(
+        "synnax-oidc-login",
+        JSON.stringify({
+          purpose: "invite",
+          invite: CODE,
+          core: CORE_KEY,
+          provider: "company-sso",
+          verifier: "verifier",
+          state: "state",
+          redirectUri: "https://core.example.com/",
+        }),
+      );
+      window.history.replaceState(null, "", "/?code=abc&state=state");
+      onTestFinished(() => {
+        sessionStorage.clear();
+        window.history.replaceState(null, "", "/");
+      });
+      let statuses: Status.NotificationSpec[] = [];
+      const { wrapper, store } = await createStatusConsoleWrapper({
+        client: null,
+        status: connection.DEFAULT_STATUS,
+        preloadedState: {
+          [Session.Core.SLICE_NAME]: {
+            ...Session.Core.ZERO_SLICE_STATE,
+            cores: { [CORE_KEY]: core },
+          },
+        },
+      });
+      render(
+        <>
+          <CaptureStatuses onStatuses={(next) => (statuses = next)} />
+          <Auth.Guard>
+            <span>authenticated content</span>
+          </Auth.Guard>
+        </>,
+        { wrapper },
+      );
+      return { core, store, statuses: () => statuses };
+    };
+
+    it("should redeem the code instead of logging in or linking", async () => {
+      const server = await serveOIDC();
+      const { store } = await renderReturn(server);
+      await waitFor(() =>
+        expect(Session.Core.selectSelectedKey(store.getState())).toBe(CORE_KEY),
+      );
+      expect(server.redeemed).toEqual([
+        expect.objectContaining({
+          token: CODE,
+          cookie: false,
+          credentials: expect.objectContaining({ code: "abc" }),
+        }),
+      ]);
+      expect(server.sessionsCreated).toBe(0);
+      expect(server.linked).toEqual([]);
+      const record = store.getState()[Session.Core.SLICE_NAME].cores[CORE_KEY];
+      expect(record.oidc).toBeUndefined();
+      expect(record.token).toBe("sys_invited");
+      expect(window.location.search).toBe("");
+    });
+
+    it("should leave the session to a cookie on a page the Core serves", async () => {
+      const server = await serveOIDC();
+      pinLocationOrigin(
+        `http://${server.address.host}:${server.address.port}`,
+        "?code=abc&state=state",
+      );
+      const { store } = await renderReturn(server);
+      await waitFor(() =>
+        expect(Session.Core.selectSelectedKey(store.getState())).toBe(CORE_KEY),
+      );
+      expect(server.redeemed[0].cookie).toBe(true);
+      const record = store.getState()[Session.Core.SLICE_NAME].cores[CORE_KEY];
+      expect(record.token).toBeUndefined();
+    });
+
+    it("should explain a refused code and open no session", async () => {
+      const server = await serveOIDC({ inviteRefused: true });
+      const { store, statuses } = await renderReturn(server);
+      await waitFor(() =>
+        expect(statuses()).toContainEqual(
+          expect.objectContaining({
+            message: "Failed to redeem invite code",
+            description:
+              "This invite code is not valid. Ask your administrator for a new one.",
+          }),
+        ),
+      );
+      expect(Session.Core.selectSelectedKey(store.getState())).toBeUndefined();
+      const record = store.getState()[Session.Core.SLICE_NAME].cores[CORE_KEY];
+      expect(record.token).toBeUndefined();
+    });
+  });
+
   it("should render the login screen when no Core is selected", async () => {
     await renderGuard();
     expect(screen.getAllByText("Log in").length).toBeGreaterThan(0);

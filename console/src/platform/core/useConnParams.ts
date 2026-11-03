@@ -23,7 +23,11 @@ interface StoredToken {
  * Reports whether the Core serves the page itself. Only then does the browser send the
  * session cookie back, so only then may the session live in one.
  */
-const servesPage = ({ host, port, secure }: Session.Core.Core): boolean => {
+export const servesPage = ({
+  host,
+  port,
+  secure,
+}: Pick<Session.Core.Core, "host" | "port" | "secure">): boolean => {
   const origin = new URL(window.location.origin);
   const originPort =
     origin.port !== "" ? Number(origin.port) : origin.protocol === "https:" ? 443 : 80;
@@ -67,7 +71,7 @@ export const useConnParams = (): SynnaxParams | undefined => {
     };
   }, [account, lastLogin]);
   if (core == null) return undefined;
-  const { host, port, secure, username, password, oidc } = core;
+  const { host, port, secure, username, password, oidc, token } = core;
   const params: SynnaxParams =
     oidc == null
       ? {
@@ -80,7 +84,7 @@ export const useConnParams = (): SynnaxParams | undefined => {
       : { host, port, secure, oidc };
   if (Session.Runtime.ENGINE !== "tauri") {
     const cookie = servesPage(core);
-    return { ...params, sessionCookie: cookie, sessionPersistent: cookie };
+    return { ...params, token, sessionCookie: cookie, sessionPersistent: cookie };
   }
   if (stored == null || stored.account !== account) return undefined;
   return { ...params, token: stored.token, sessionPersistent: true };

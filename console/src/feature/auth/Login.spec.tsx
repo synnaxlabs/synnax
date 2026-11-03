@@ -38,7 +38,7 @@ vi.mock("@/session/runtime/runtime", async (importOriginal) => {
 });
 
 import { Login } from "@/feature/auth/Login";
-import { serveAuth } from "@/platform/core/testutil";
+import { serveAuth, serveOIDC, type ServeOIDCParams } from "@/platform/core/testutil";
 import { Session } from "@/session";
 import { createCore } from "@/session/core/testutil";
 import {
@@ -78,6 +78,30 @@ const REJECTED: connection.Status = {
     reason: "auth",
     error: new AuthError("invalid credentials"),
   },
+};
+
+const INVITE_CONTROL = "I have an invite code";
+const INVITE_PLACEHOLDER = "Invite code";
+const INVITE_CODE = "syi_code";
+
+// a server that also answers invites, and the record of a Core that reaches it
+const serveInvites = async (params?: ServeOIDCParams) => {
+  const server = await serveOIDC({
+    methods: ["oidc"],
+    providers: [PROVIDER],
+    ...params,
+  });
+  return { server, core: { ...ALPHA, ...server.address } };
+};
+
+const enterInviteCode = async (): Promise<void> => {
+  fireEvent.click(await screen.findByText(ALPHA.name));
+  fireEvent.click(await screen.findByText(INVITE_CONTROL));
+  // a space comes along with a pasted code
+  fireEvent.change(await screen.findByPlaceholderText(INVITE_PLACEHOLDER), {
+    target: { value: ` ${INVITE_CODE}\n` },
+  });
+  fireEvent.click(await screen.findByText("Log in with company-sso"));
 };
 
 const BACK = ".console-login__back";
@@ -288,6 +312,37 @@ describe("auth/Login", () => {
     sessionStorage.clear();
   });
 
+  it("should offer no invite code while the Core does not accept OIDC", async () => {
+    let served!: () => void;
+    const answered = new Promise<void>((resolve) => (served = resolve));
+    await renderLogin(await serveCore(["password"], [], () => served()));
+    fireEvent.click(await screen.findByText(ALPHA.name));
+    await answered;
+    await expectAlways(() => expect(screen.queryByText(INVITE_CONTROL)).toBeNull());
+  });
+
+  it("should hide the invite code field until the person asks for it", async () => {
+    const { core } = await serveInvites();
+    await renderLogin(core);
+    fireEvent.click(await screen.findByText(ALPHA.name));
+    fireEvent.click(await screen.findByText(INVITE_CONTROL));
+    expect(await screen.findByPlaceholderText(INVITE_PLACEHOLDER)).toBeTruthy();
+    expect(screen.queryByText(INVITE_CONTROL)).toBeNull();
+  });
+
+  it("should keep the invite code off the address of a browser login", async () => {
+    const { core } = await serveInvites();
+    await renderLogin(core);
+    onTestFinished(() => sessionStorage.clear());
+    await enterInviteCode();
+    await vi.waitFor(() =>
+      expect(
+        JSON.parse(sessionStorage.getItem("synnax-oidc-login") ?? "{}"),
+      ).toMatchObject({ purpose: "invite", invite: INVITE_CODE, core: core.key }),
+    );
+    expect(window.location.href).not.toContain(INVITE_CODE);
+  });
+
   it("should return to the Core list from the credentials", async () => {
     const { container } = await renderLogin();
     fireEvent.click(await screen.findByText(ALPHA.name));
@@ -338,6 +393,46 @@ describe("auth/Login", () => {
       expect(Object.fromEntries(ipc.saved)).toEqual({
         [`http://@127.0.0.1:${core.port}#${core.key}`]: "sys_token",
       });
+    });
+
+    it("should redeem an invite code and save the session", async () => {
+      const { server, core } = await serveInvites();
+      const ipc = fakeDesktop();
+      const { store } = await renderLogin(core, createConsoleWrapper);
+      await enterInviteCode();
+      await vi.waitFor(() =>
+        expect(store.getState().core.cores[core.key].lastLogin).toBeDefined(),
+      );
+      expect(store.getState().core.selected).toBe(core.key);
+      expect(server.redeemed).toEqual([
+        expect.objectContaining({
+          token: INVITE_CODE,
+          credentials: expect.objectContaining({ code: "abc" }),
+        }),
+      ]);
+      expect(server.sessionsCreated).toBe(0);
+      expect(Object.fromEntries(ipc.saved)).toEqual({
+        [`http://@127.0.0.1:${core.port}#${core.key}`]: "sys_invited",
+      });
+    });
+
+    it("should explain a refused invite code and open no session", async () => {
+      const { core } = await serveInvites({ inviteRefused: true });
+      const ipc = fakeDesktop();
+      const { store, statuses } = await renderLogin(core, createConsoleWrapper);
+      await enterInviteCode();
+      await vi.waitFor(() =>
+        expect(statuses()).toContainEqual(
+          expect.objectContaining({
+            message: "Failed to redeem invite code",
+            description:
+              "This invite code is not valid. Ask your administrator for a new one.",
+          }),
+        ),
+      );
+      expect(ipc.saved.size).toBe(0);
+      expect(store.getState().core.selected).toBeUndefined();
+      expect(store.getState().core.cores[core.key].lastLogin).toBeUndefined();
     });
 
     it("should let the user retry a login the Core rejects", async () => {
