@@ -18,7 +18,8 @@ import { StartStopButton } from "@/platform/task/controls/StartStopButton";
 import { Status } from "@/platform/task/controls/Status";
 
 export interface BarProps extends Flex.BoxProps {
-  status: status.Status;
+  /** Absent for a task with no status. */
+  status?: status.Status;
   running: boolean;
   /** Shows the redeploy button when the deployed config is stale. */
   drifted?: boolean;

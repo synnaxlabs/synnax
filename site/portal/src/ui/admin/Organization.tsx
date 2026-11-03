@@ -12,6 +12,7 @@ import { Dialog } from "@synnaxlabs/lyra/dialog";
 import { Flex } from "@synnaxlabs/lyra/flex";
 import { Form } from "@synnaxlabs/lyra/form";
 import { Icon } from "@synnaxlabs/lyra/icon";
+import { deep } from "@synnaxlabs/x";
 import { type ReactElement, type ReactNode } from "react";
 import { z } from "zod";
 
@@ -30,6 +31,8 @@ import { date, standing } from "@/ui/format";
 import { Members } from "@/ui/members";
 import { Modal } from "@/ui/modal";
 import { Empty, Page } from "@/ui/Page";
+
+const path = deep.path<z.infer<typeof renameSchema>>();
 
 export type OrganizationTab = "licenses" | "members" | "activity";
 
@@ -183,7 +186,7 @@ const RenameContent = ({ team }: { team: Team }): ReactElement => {
         reload();
       }}
     >
-      <Form.TextField path="name" label="Name" inputProps={{ autoFocus: true }} />
+      <Form.TextField path={path.name} label="Name" inputProps={{ autoFocus: true }} />
     </Modal.Form>
   );
 };

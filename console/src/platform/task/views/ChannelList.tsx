@@ -9,7 +9,7 @@
 
 import { Form } from "@synnaxlabs/lyra/form";
 import { Header as PHeader } from "@synnaxlabs/lyra/header";
-import { type ReactElement, type ReactNode, useEffect } from "react";
+import { type ReactElement, type ReactNode } from "react";
 
 import { Button } from "@/platform/button";
 import { Empty } from "@/platform/empty";
@@ -56,14 +56,7 @@ const Footer = ({ label, onAdd }: FooterProps) => {
 
 export interface ChannelListProps<C extends Channel> extends Omit<
   BaseProps<C>,
-  | "data"
-  | "header"
-  | "emptyContent"
-  | "footer"
-  | "path"
-  | "remove"
-  | "onDuplicate"
-  | "resolve"
+  "data" | "header" | "emptyContent" | "footer" | "remove" | "onDuplicate" | "resolve"
 > {
   /** Defaults to a "Channels" title; null when the enclosing frame titles the list. */
   header?: ReactNode;
@@ -77,7 +70,6 @@ export interface ChannelListProps<C extends Channel> extends Omit<
   /** Creates what the add action adds, or returns null to add nothing. */
   createChannel?: (channels: C[]) => C | null;
   createChannels?: (channels: C[], keys: string[]) => C[];
-  path?: string;
   /** Shown in place of the items and the footer. */
   ports?: ReactNode;
 }
@@ -89,7 +81,7 @@ export interface ChannelListProps<C extends Channel> extends Omit<
 export const ChannelList = <C extends Channel>({
   createChannel,
   createChannels,
-  path = "config.channels",
+  path,
   header = HEADER,
   emptyContent = EMPTY_CONTENT,
   addLabel = "Add channel",
@@ -98,31 +90,13 @@ export const ChannelList = <C extends Channel>({
   ...rest
 }: ChannelListProps<C>) => {
   const ctx = Form.useContext();
-
-  // Hotfix for an issue we have been having with the "path config.channels" issue.
-  // Would like to remove this but it's just something that comes up consistently in
-  // prod and it's more important to make sure that we don't break anything in prod then
-  // have pretty code.
-  useEffect(() => {
-    if (path === "config.channels") {
-      const cfg = ctx.get("config").value;
-      if (
-        typeof cfg !== "object" ||
-        cfg == null ||
-        !("channels" in cfg) ||
-        !Array.isArray(cfg.channels)
-      )
-        ctx.set(path, []);
-    }
-  }, [path, ctx]);
-
-  const { data, push, remove } = Form.useFieldList<C["key"], C>(path);
+  const { data, push, remove } = Form.useFieldList(path);
   const { onSelect, checkable = false } = rest;
   const handleAdd =
     createChannel == null
       ? undefined
       : () => {
-          const channel = createChannel(ctx.get<C[]>(path).value);
+          const channel = createChannel(ctx.get(path).value);
           if (channel == null) return;
           push(channel);
           if (!checkable) onSelect([channel.key]);
