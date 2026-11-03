@@ -7,7 +7,9 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { type device, status } from "@synnaxlabs/client";
+import "@/feature/opcua/device/Connect.css";
+
+import { type device, status, TimeSpan } from "@synnaxlabs/client";
 import { Component } from "@synnaxlabs/lyra/component";
 import { Flex } from "@synnaxlabs/lyra/flex";
 import { Form } from "@synnaxlabs/lyra/form";
@@ -50,6 +52,7 @@ import {
   testConnectionResponseZ,
 } from "@/feature/opcua/task/types";
 import { Analytics } from "@/platform/analytics";
+import { CSS } from "@/platform/css";
 import { Device as PlatformDevice } from "@/platform/device";
 
 const path = deep.path<Device>();
@@ -321,24 +324,29 @@ export const Connect = ({
               </Form.Section>
             )}
             <Form.Section title="Advanced">
-              <Form.NumericField
-                path={path.properties.connection.clientTimeoutMs}
-                label="Request timeout"
-                padHelpText={false}
-                inputProps={MS_INPUT_PROPS}
-              />
-              <Form.NumericField
-                path={path.properties.connection.sessionTimeoutMs}
-                label="Session timeout"
-                padHelpText={false}
-                inputProps={MS_INPUT_PROPS}
-              />
-              <Form.NumericField
-                path={path.properties.connection.secureChannelLifetimeMs}
-                label="Secure channel lifetime"
-                padHelpText={false}
-                inputProps={MS_INPUT_PROPS}
-              />
+              <Flex.Box x>
+                <Form.TimeSpanField
+                  path={path.properties.connection.clientTimeoutMs}
+                  label="Request timeout"
+                  unit={TimeSpan.MILLISECOND}
+                  bounds={TIMING_BOUNDS}
+                  padHelpText={false}
+                />
+                <Form.TimeSpanField
+                  path={path.properties.connection.sessionTimeoutMs}
+                  label="Session timeout"
+                  unit={TimeSpan.MILLISECOND}
+                  bounds={TIMING_BOUNDS}
+                  padHelpText={false}
+                />
+                <Form.TimeSpanField
+                  path={path.properties.connection.secureChannelLifetimeMs}
+                  label="Channel lifetime"
+                  unit={TimeSpan.MILLISECOND}
+                  bounds={TIMING_BOUNDS}
+                  padHelpText={false}
+                />
+              </Flex.Box>
             </Form.Section>
           </Form.Sections>
         </Form.Form>
@@ -402,6 +410,9 @@ const USERNAME_INPUT_PROPS = { placeholder: "Anonymous" } as const;
 
 const PATH_INPUT_PROPS = { placeholder: "Path on the Driver computer" } as const;
 
-const PASSWORD_INPUT_PROPS = { type: "password" } as const;
+const PASSWORD_INPUT_PROPS = {
+  type: "password",
+  className: CSS.BE("opc-connect", "password"),
+} as const;
 
-const MS_INPUT_PROPS = { endContent: "ms" } as const;
+const TIMING_BOUNDS = { lower: TimeSpan.MILLISECOND };

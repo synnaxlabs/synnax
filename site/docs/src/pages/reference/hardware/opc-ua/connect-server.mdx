@@ -210,7 +210,7 @@ The Driver logs in to the server as an anonymous user, or with the **Username** 
 | Validate server certificate | `certificate_validation_disabled` | `False`                    | The switch shows the opposite value.                                                    |
 | Request timeout             | `client_timeout_ms`               | 5,000 ms                   | The wait for a reply to each request and connection attempt.                            |
 | Session timeout             | `session_timeout_ms`              | 1,200,000 ms (20 minutes)  | How long the server keeps a session that gets no requests.                              |
-| Secure channel lifetime     | `secure_channel_lifetime_ms`      | 600,000 ms (10 minutes)    | How long the keys of the connection last before the Driver renews them.                 |
+| Channel lifetime            | `secure_channel_lifetime_ms`      | 600,000 ms (10 minutes)    | How long the keys of the connection last before the Driver renews them.                 |
 
 The timeouts are in the **Advanced** section of the dialog. In TypeScript, the fields
 are in `properties.connection` in camel case, such as `securityMode`,

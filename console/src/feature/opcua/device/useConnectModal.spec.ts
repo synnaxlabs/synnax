@@ -164,9 +164,9 @@ describe("OPCUA.Device.useConnectModal", () => {
       client,
     });
     await screen.findByDisplayValue(dev.name);
-    expect(screen.getByDisplayValue("2000")).toBeTruthy();
-    expect(screen.getByDisplayValue("60000")).toBeTruthy();
-    expect(screen.getByDisplayValue("120000")).toBeTruthy();
+    expect(screen.getByDisplayValue("2s")).toBeTruthy();
+    expect(screen.getByDisplayValue("1min")).toBeTruthy();
+    expect(screen.getByDisplayValue("2min")).toBeTruthy();
     expect(screen.getByDisplayValue("opc.tcp://existing-server:4840")).toBeTruthy();
     expect(screen.getByDisplayValue("operator")).toBeTruthy();
     await screen.findByText("Client certificate");
@@ -727,8 +727,8 @@ describe("OPCUA.Device.useConnectModal", () => {
       [{ rack: rack.key }],
       { client },
     );
-    commitFieldInput(await screen.findByDisplayValue<HTMLInputElement>("5000"), "2500");
-    commitFieldInput(screen.getByDisplayValue<HTMLInputElement>("1200000"), "90000");
+    commitFieldInput(await screen.findByDisplayValue<HTMLInputElement>("5s"), "2.5s");
+    commitFieldInput(screen.getByDisplayValue<HTMLInputElement>("20min"), "1min 30s");
     const { answered } = await answerNextCommand(client, scan, TEST_CONNECTION);
     pressSaveTrigger();
     await answered;
@@ -742,6 +742,18 @@ describe("OPCUA.Device.useConnectModal", () => {
     });
   });
 
+  it("should name a timeout that is not a whole number of milliseconds", async () => {
+    const rack = await createRunningRack(client, "opc");
+    await createScanTask(rack);
+    await renderModalOpener(OPCUA.Device.useConnectModal, [{ rack: rack.key }], {
+      client,
+    });
+    commitFieldInput(await screen.findByDisplayValue<HTMLInputElement>("5s"), "1.5ms");
+    expect(
+      await screen.findByText("Request timeout must be a whole number"),
+    ).toBeTruthy();
+  });
+
   it("should wait twice the request timeout and a margin for the connection test", async () => {
     const rack = await createRunningRack(client, "opc");
     await createScanTask(rack);
@@ -751,7 +763,7 @@ describe("OPCUA.Device.useConnectModal", () => {
     fireEvent.change(screen.getByPlaceholderText("opc.tcp://localhost:4840"), {
       target: { value: "opc.tcp://localhost:4840" },
     });
-    commitFieldInput(await screen.findByDisplayValue<HTMLInputElement>("5000"), "100");
+    commitFieldInput(await screen.findByDisplayValue<HTMLInputElement>("5s"), "100ms");
     pressSaveTrigger();
     const message = `timed out after ${TimeSpan.milliseconds(2200).toString()}`;
     expect(await screen.findByText(message, { exact: false })).toBeTruthy();
