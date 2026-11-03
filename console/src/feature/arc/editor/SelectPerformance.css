@@ -9,16 +9,31 @@
  * included in the file licenses/APL.txt.
  */
 
+/* Each description fits on one line. A narrow window wraps them instead. */
 .lyra-select__dialog.console-performance-select__dialog {
-    width: 320px;
+    width: max-content;
+    max-width: var(--pluto-dialog-available-width, 100vw);
 
     &.lyra--visible {
         max-height: none;
     }
 }
 
+/* The glyph hangs beside the name, so the description lines up with the name. */
+.console-performance-select__dialog .console-performance-select__level {
+    display: grid;
+    grid-template-columns: auto 1fr;
+    align-items: center;
+    gap: 0.5rem 1rem;
+}
+
 .console-performance-select__item + .console-performance-select__item {
     margin-top: 1rem;
+}
+
+.console-performance-select__description {
+    grid-column: 2;
+    text-wrap: pretty;
 }
 
 .lyra-icon.console-performance-select__auto {

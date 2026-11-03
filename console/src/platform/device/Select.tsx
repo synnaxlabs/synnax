@@ -7,6 +7,8 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
+import "@/platform/device/Select.css";
+
 import { device } from "@synnaxlabs/client";
 import { Dialog } from "@synnaxlabs/lyra/dialog";
 import { Form } from "@synnaxlabs/lyra/form";
@@ -17,6 +19,7 @@ import { deep, primitive } from "@synnaxlabs/x";
 import { type ReactElement } from "react";
 
 import { Button } from "@/platform/button";
+import { CSS } from "@/platform/css";
 
 const root = deep.path<{ rack: number; config: { device: device.Key } }>();
 
@@ -85,7 +88,13 @@ export const Select = ({
     (model == null || d.model === model) &&
     (filterProp?.(d) ?? true);
   return (
-    <Form.Field grow label={label} onChange={handleDeviceChange} path={path}>
+    <Form.Field
+      className={CSS.B("device-select")}
+      grow
+      label={label}
+      onChange={handleDeviceChange}
+      path={path}
+    >
       {({ value, onChange, preview }) => (
         <Device.SelectSingle
           value={value}

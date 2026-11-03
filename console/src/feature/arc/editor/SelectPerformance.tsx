@@ -88,6 +88,9 @@ const LEVELS: Level[] = [
 ];
 
 const ITEM_CLASS = CSS.BE("performance-select", "item");
+const LEVEL_CLASS = CSS.BE("performance-select", "level");
+const NAME_CLASS = CSS.BE("performance-select", "name");
+const DESCRIPTION_CLASS = CSS.BE("performance-select", "description");
 
 // The trigger shows the selected level's glyph as its icon, so its label is the name.
 const ITEMS = LEVELS.map(({ key, name, description }) => (
@@ -96,17 +99,15 @@ const ITEMS = LEVELS.map(({ key, name, description }) => (
     itemKey={key}
     label={name}
     className={ITEM_CLASS}
-    y
-    gap="tiny"
-    align="start"
+    textValue={name}
   >
-    <Text.Text>
+    <div className={LEVEL_CLASS}>
       {GLYPHS[key]}
-      {name}
-    </Text.Text>
-    <Text.Text color={9} level="small" wrap>
-      {description}
-    </Text.Text>
+      <span className={NAME_CLASS}>{name}</span>
+      <Text.Text className={DESCRIPTION_CLASS} color={9} level="small" overflow="wrap">
+        {description}
+      </Text.Text>
+    </div>
   </Select.Item>
 ));
 
@@ -149,6 +150,7 @@ export const SelectPerformance = ({
     triggerProps={TRIGGER_PROPS}
     dialogProps={DIALOG_PROPS}
     resourceName="performance"
+    searchName="level"
   >
     {ITEMS}
   </Select.Simple>
