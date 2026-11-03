@@ -209,12 +209,7 @@ export const createTestStore = async (options: ConsoleTestProviderOptions = {}) 
     runtime: new Drift.NoopRuntime(windowLabel),
     reducer: Session.reducer,
     preloadedState: deep.copy({ ...Session.ZERO_STATE, ...preloadedState }),
-    // The checks still run. Only their timing warnings, which track machine load, go.
-    middleware: (getDefault) =>
-      getDefault({
-        serializableCheck: { warnAfter: Infinity },
-        immutableCheck: { warnAfter: Infinity },
-      }).concat(...Session.BASE_MIDDLEWARE),
+    middleware: (getDefault) => getDefault().concat(...Session.BASE_MIDDLEWARE),
     enablePrerender: false,
   });
 };

@@ -19,6 +19,19 @@ describe("failOnConsoleOutput", () => {
     console.warn("unexpected warning");
   });
 
+  it.fails("should fail a warning that only names a Redux Toolkit check", () => {
+    console.warn("ImmutableStateInvariantMiddleware found a mutation");
+  });
+
+  it("should pass a test whose Redux Toolkit checks ran slowly", () => {
+    console.warn(
+      "ImmutableStateInvariantMiddleware took 36ms, which is more than the warning threshold of 32ms.",
+    );
+    console.warn(
+      "SerializableStateInvariantMiddleware took 36ms, which is more than the warning threshold of 32ms.",
+    );
+  });
+
   it("should start each test with no recorded output", () => {});
 
   it("should pass a test that mocks the method it expects", () => {
