@@ -10,7 +10,7 @@
 import { describe, expect, it, vi } from "vitest";
 
 import { type Form } from "@/form";
-import { createLocalStore } from "@/form/store";
+import { createLocalStore } from "@/form/testutil";
 
 interface Values {
   name: string;
