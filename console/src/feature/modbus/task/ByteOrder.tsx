@@ -7,6 +7,8 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
+import "@/feature/modbus/task/ByteOrder.css";
+
 import { Form } from "@synnaxlabs/lyra/form";
 import { Select } from "@synnaxlabs/lyra/select";
 import { DataType, deep, Density } from "@synnaxlabs/x";
@@ -93,6 +95,27 @@ const Glyph = ({ order, device = false }: GlyphProps): ReactElement => {
   );
 };
 
+export interface ByteOrderOptionProps {
+  order: ByteOrder;
+  /** The size of the value in bytes. */
+  size: number;
+}
+
+/** A byte order as a menu option: its bytes in the order the device sends them. */
+export const ByteOrderOption = ({
+  order,
+  size,
+}: ByteOrderOptionProps): ReactElement => {
+  const wire = wireOrder(size, order);
+  return (
+    <Option
+      glyph={<Glyph order={wire} />}
+      name={ORDER_NAMES[order]}
+      description={wire.join("")}
+    />
+  );
+};
+
 interface Swapped {
   bytesSwapped?: boolean;
   wordsSwapped?: boolean;
@@ -155,18 +178,11 @@ export const ByteOrderField = ({
           description={ORDER_NAMES[device]}
         />
       </Select.Item>
-      {(multiWord ? BYTE_ORDERS : WORD_ORDERS).map((order) => {
-        const wire = wireOrder(size, order);
-        return (
-          <Select.Item<Order> key={order} itemKey={order}>
-            <Option
-              glyph={<Glyph order={wire} />}
-              name={ORDER_NAMES[order]}
-              description={wire.join("")}
-            />
-          </Select.Item>
-        );
-      })}
+      {(multiWord ? BYTE_ORDERS : WORD_ORDERS).map((order) => (
+        <Select.Item<Order> key={order} itemKey={order}>
+          <ByteOrderOption order={order} size={size} />
+        </Select.Item>
+      ))}
     </Select.Simple>
   );
 };

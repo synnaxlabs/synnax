@@ -50,7 +50,7 @@ describe("Modbus.Device.useConnectModal", () => {
     });
     await screen.findByDisplayValue(dev.name);
     expect(screen.getByDisplayValue("7")).toBeTruthy();
-    expect(screen.getByText("Little-endian (DCBA)")).toBeTruthy();
+    expect(screen.getByText("Little-endian")).toBeTruthy();
   });
 
   it("should save the unit, byte order, and mask writes entered for a new server", async () => {
@@ -69,7 +69,7 @@ describe("Modbus.Device.useConnectModal", () => {
       target: { value: "gateway.local" },
     });
     commitFieldInput(screen.getByDisplayValue<HTMLInputElement>("255"), "12");
-    await selectFromDropdown("Word swap (CDAB)", "Big-endian (ABCD)");
+    await selectFromDropdown("Word swap", "Big-endian");
     fireEvent.click(screen.getByText("Advanced"));
     fireEvent.click(await screen.findByRole("checkbox"));
     const { answered } = await answerNextCommand(client, scan);
@@ -173,7 +173,7 @@ describe("Modbus.Device.useConnectModal", () => {
     await screen.findByDisplayValue(dev.name);
     fireEvent.click(screen.getByText("Serial"));
     expect(await screen.findByDisplayValue("1")).toBeTruthy();
-    expect(screen.getByText("Little-endian (DCBA)")).toBeTruthy();
+    expect(screen.getByText("Little-endian")).toBeTruthy();
     expect(screen.queryByPlaceholderText("localhost")).toBeNull();
   });
 

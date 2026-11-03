@@ -36,33 +36,6 @@
     }
 }
 
-.console-modbus__glyph {
-    width: 2.5rem;
-    height: 2.5rem;
-    flex-shrink: 0;
-    color: var(--pluto-gray-l9);
-}
-
-.console-modbus__trigger .console-modbus__glyph {
-    color: var(--pluto-gray-l9);
-}
-
-.console-modbus__menu {
-    min-width: max-content;
-}
-
-.console-modbus__option-description {
-    margin-left: auto;
-    padding-left: 3rem;
-    color: var(--pluto-gray-l8);
-    font-size: var(--pluto-small-size);
-    font-variant-numeric: tabular-nums;
-}
-
-.console-modbus__trigger .console-modbus__option-description {
-    display: none;
-}
-
 .console-modbus__address {
     position: relative;
     font-variant-numeric: tabular-nums;
@@ -106,26 +79,6 @@
 
 .console-modbus__address:focus-within .console-modbus__address-end {
     display: none;
-}
-
-.console-modbus__order-glyph {
-    --console-modbus-order-color: var(--pluto-primary-z);
-
-    width: 5rem;
-    height: 2rem;
-    flex-shrink: 0;
-
-    & rect {
-        fill: color-mix(
-            in srgb,
-            var(--console-modbus-order-color) calc(90% - var(--rank) * 72%),
-            transparent
-        );
-    }
-}
-
-.console-modbus__order-glyph--device {
-    --console-modbus-order-color: var(--pluto-gray-l9);
 }
 
 .console-modbus__map {

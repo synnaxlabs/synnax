@@ -7,6 +7,8 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
+import "@/feature/modbus/task/Register.css";
+
 import { Form } from "@synnaxlabs/lyra/form";
 import { Select } from "@synnaxlabs/lyra/select";
 import { deep } from "@synnaxlabs/x";
@@ -73,10 +75,15 @@ export const RegisterGlyph = ({ type }: RegisterGlyphProps): ReactElement => {
 /** Lets a menu grow to fit the descriptions beside the option names. */
 export const MENU_PROPS = { className: CSS.BE("modbus", "menu") };
 
-/** A quiet trigger that shows a picked option without its description. */
-export const SHADOW_TRIGGER_PROPS: Select.SingleTriggerProps = {
-  variant: "shadow",
+/** A trigger that shows a picked option without its description. */
+export const TRIGGER_PROPS: Select.SingleTriggerProps = {
   className: CSS.BE("modbus", "trigger"),
+};
+
+/** A quiet {@link TRIGGER_PROPS} trigger. */
+export const SHADOW_TRIGGER_PROPS: Select.SingleTriggerProps = {
+  ...TRIGGER_PROPS,
+  variant: "shadow",
 };
 
 export interface OptionProps {
