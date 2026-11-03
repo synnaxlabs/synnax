@@ -19,6 +19,7 @@ import (
 	"os"
 	"strconv"
 	"time"
+	"uuid"
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
@@ -28,6 +29,7 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/service/http"
 	"github.com/synnaxlabs/synnax/pkg/service/kafka"
 	"github.com/synnaxlabs/synnax/pkg/service/task"
+	"github.com/synnaxlabs/x/set"
 	"github.com/synnaxlabs/x/telem"
 	. "github.com/synnaxlabs/x/testutil"
 	"github.com/twmb/franz-go/pkg/kgo"
@@ -168,11 +170,16 @@ func runWriteBench(ctx SpecContext, sc writeBenchScenario) {
 	profile.stop()
 
 	seen := make([]int, len(data))
+	ids := make(set.Set[uuid.UUID])
 	for _, rec := range records {
 		var doc struct {
 			Value     float64         `json:"value"`
 			Channel   string          `json:"channel"`
 			Timestamp telem.TimeStamp `json:"timestamp"`
+			ID        string          `json:"id"`
+			Meta      struct {
+				Source string `json:"source"`
+			} `json:"meta"`
 		}
 		Expect(json.Unmarshal(rec.Value, &doc)).To(Succeed())
 		c, ok := byName[doc.Channel]
@@ -183,6 +190,12 @@ func runWriteBench(ctx SpecContext, sc writeBenchScenario) {
 		Expect(math.Float64bits(doc.Value)).
 			To(Equal(math.Float64bits(benchValue(c, i))))
 		Expect(doc.Timestamp).To(Equal(stamp(i/sc.samples, i%sc.samples)))
+		if sc.fields {
+			Expect(doc.Meta.Source).To(Equal("synnax"))
+			id := MustSucceed(uuid.Parse(doc.ID))
+			Expect(ids.Contains(id)).To(BeFalse())
+			ids.Add(id)
+		}
 	}
 	GinkgoWriter.Printf("BENCH %s %d records in %s\n", sc.name(), len(records), elapsed)
 }

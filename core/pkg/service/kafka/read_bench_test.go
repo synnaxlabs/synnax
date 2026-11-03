@@ -129,6 +129,8 @@ func startBenchProfile(name string) *benchProfile {
 		return &benchProfile{}
 	}
 	p := &benchProfile{dir: dir, name: name}
+	rate := runtime.MemProfileRate
+	DeferCleanup(func() { runtime.MemProfileRate = rate })
 	runtime.MemProfileRate = 1
 	p.writeAllocs("allocs.base")
 	p.cpu = MustSucceed(os.Create(filepath.Join(dir, name+".cpu.pprof")))
@@ -148,7 +150,6 @@ func (p *benchProfile) stop() {
 	Expect(p.cpu.Close()).To(Succeed())
 	p.cpu = nil
 	p.writeAllocs("allocs")
-	runtime.MemProfileRate = 512 * 1024
 }
 
 func (p *benchProfile) writeAllocs(suffix string) {
