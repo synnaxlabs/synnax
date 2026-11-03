@@ -675,7 +675,8 @@ TEST_F(ConnectionPoolTest, WriteSplitsAtServerLimit) {
     for (const uint32_t value: {1U, 2U, 3U})
         ASSERT_NIL(builder.add_value(
             id.resolve({}).value(),
-            x::telem::Series(value, x::telem::UINT32_T)
+            x::telem::Series(value, x::telem::UINT32_T),
+            nullptr
         ));
     const auto res = ASSERT_NIL_P(conn.write(builder.build()));
     ASSERT_EQ(res.get().resultsSize, 3);

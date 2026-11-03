@@ -97,9 +97,31 @@ class ReadTask(
         if "read" not in props:
             props["read"] = {"index": 0, "channels": {}}
         channels = device.ensure_object(props, "read", "channels")
+        fields = device.ensure_object(props, "read").setdefault("fields", [])
+        if not isinstance(fields, list):
+            raise TypeError("device property 'fields' is not a list")
         for ch in self.config.channels:
-            if ch.node_id:
+            if not ch.node_id:
+                continue
+            if not ch.field:
                 channels[ch.node_id] = ch.channel
+                continue
+            existing = next(
+                (
+                    f
+                    for f in fields
+                    if isinstance(f, dict)
+                    and f.get("node_id") == ch.node_id
+                    and f.get("field") == ch.field
+                ),
+                None,
+            )
+            if existing is not None:
+                existing["channel"] = ch.channel
+            else:
+                fields.append(
+                    {"node_id": ch.node_id, "field": ch.field, "channel": ch.channel}
+                )
         dev.properties = props
         return device_client.create(dev)
 
@@ -235,7 +257,7 @@ class Device(device.Device):
         props: dict[str, JsonValue] = {
             "version": "2.0.0",
             "connection": connection,
-            "read": {"indexes": [], "channels": {}},
+            "read": {"indexes": [], "channels": {}, "fields": []},
             "write": {"channels": {}},
         }
         super().__init__(

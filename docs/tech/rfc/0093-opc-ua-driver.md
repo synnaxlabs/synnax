@@ -170,24 +170,39 @@ parser and passes IDs to the Driver as they are.
 
 ### 2.6 Data types and writes
 
-- **Types come from the node**: The browser reads `DataType`, `ValueRank`, and
-  `ArrayDimensions` instead of the current value. A Boolean node gets a `boolean`
-  channel (SY-4536). Existing `uint8` channels keep working, because reads cast to the
-  channel type.
-- **Writes convert to the node's type**: The Driver reads each target's `DataType` at
-  start and converts the command to it. A value out of range, or a string that does not
-  parse, warns and is not sent. A `uint8` or `boolean` command to a Boolean node stays
-  valid, as a spec pins today.
+- **Types come from the node**: The browser reads `DataType` and `ValueRank`. It reads
+  the current value only when the type is abstract or unknown, or the rank allows both a
+  scalar and an array. `ArrayDimensions` comes with the node details (§2.10). A Boolean
+  node gets a `boolean` channel (SY-4536), and an enumeration an `int32` channel.
+  Existing `uint8` channels keep working, because reads cast to the channel type.
+- **Writes convert to the node's type**: The Driver reads each target's `DataType` on
+  each new connection and converts the command to it. A value out of range, or a string
+  that does not parse, warns with the channel name and is not sent. A `uint8` or
+  `boolean` command to a Boolean node stays valid, as a spec pins today. A node whose
+  type the server does not give takes the channel's type, and `uint8` now maps to Byte,
+  not Boolean.
 - **Fixed conversions**: Strings, DateTime, ByteString, and Guid read and write as
   `string`, `timestamp`, `bytes`, and `uuid`. Each array node checks its length against
   `array_size`.
 
 ### 2.7 Structures
 
-Each new session calls `UA_Client_getRemoteDataTypes` and gives the result to the
-client, so structures decode. The browser lists a structure's members under its node. A
-read channel gets a `field`: the dot path of member names, such as `Motor.Speed`. Each
-member is its own channel on the task's index.
+A read channel gets a `field`: the path of member names from the node's value, joined by
+`.`, such as `Speed` or `Position.Y`. A `&` escapes the next character. Each member is
+its own channel on the task's index, and the channels of one node share one read. Device
+properties map fields to channels in `read.fields`, by node ID and field.
+
+On each new connection the task reads the `DataType` of its field nodes and the
+`DataTypeDefinition` of each type the client does not know, with the types its members
+use. A new `driver/opcua/structure` package builds open62541 types from the definitions
+and decodes the values. The browser lists a structure's members under its node, by the
+same read. Array mode rejects a field, and the Console does not add members to a write
+task.
+
+`UA_Client_getRemoteDataTypes` is rejected. It reads without the connected check of §2.1
+and does not split at the operation limits (§2.3). It also sets the types on the client,
+which the pool later gives to other tasks. The trade is real: the Driver keeps about 450
+lines of definition decoding.
 
 ### 2.8 Events
 
@@ -250,15 +265,15 @@ Compatibility: every new field is optional, and stored `ns=` IDs keep working. T
 longer stop on outages or bad values, and a write task drops commands while
 disconnected. These go in the release notes.
 
-| Phase | Scope                                                   | Touches                                                                                                              | Depends on |
-| ----- | ------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------- | ---------- |
-| 1     | Upgrade open62541 to 1.5                                | `vendor/open62541`, `driver/opcua`                                                                                   | -          |
-| 2     | Recover OPC UA tasks from outages and bad values        | `vendor/open62541`, `driver/opcua`, `driver/pipeline`, `schemas`, `oracle`, `console/src/feature/opcua`, `site/docs` | 1          |
-| 3     | Read OPC UA nodes by namespace URI within server limits | `driver/opcua`, `console/src/feature/opcua`, `client/py/synnax/opcua`, `site/docs`                                   | 2          |
-| 4     | Convert OPC UA writes and read structures               | `schemas`, `driver/opcua`, `console/src/feature/opcua`, `client/py/synnax/opcua`, `site/docs`                        | 3          |
-| 5     | Show OPC UA node details and add folders in bulk        | `driver/opcua`, `console/src/feature/opcua`, `site/docs`                                                             | 4          |
-| 6     | Add OPC UA event tasks and method calls                 | `schemas`, `driver/opcua`, `console/src/feature/opcua`, `client/py/synnax/opcua`, `site/docs`                        | 3          |
-| 7     | Add the OPC UA On change read mode                      | `schemas`, `client/cpp/framer`, `driver/opcua`, `console/src/feature/opcua`, `client/py/synnax/opcua`, `site/docs`   | 3          |
+| Phase | Scope                                                   | Touches                                                                                                                 | Depends on |
+| ----- | ------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------- | ---------- |
+| 1     | Upgrade open62541 to 1.5                                | `vendor/open62541`, `driver/opcua`                                                                                      | -          |
+| 2     | Recover OPC UA tasks from outages and bad values        | `vendor/open62541`, `driver/opcua`, `driver/pipeline`, `schemas`, `oracle`, `console/src/feature/opcua`, `site/docs`    | 1          |
+| 3     | Read OPC UA nodes by namespace URI within server limits | `driver/opcua`, `console/src/feature/opcua`, `client/py/synnax/opcua`, `site/docs`                                      | 2          |
+| 4     | Convert OPC UA writes and read structures               | `schemas`, `core/pkg/service/opcua`, `driver/opcua`, `console/src/feature/opcua`, `client/py/synnax/opcua`, `site/docs` | 3          |
+| 5     | Show OPC UA node details and add folders in bulk        | `driver/opcua`, `console/src/feature/opcua`, `site/docs`                                                                | 4          |
+| 6     | Add OPC UA event tasks and method calls                 | `schemas`, `driver/opcua`, `console/src/feature/opcua`, `client/py/synnax/opcua`, `site/docs`                           | 3          |
+| 7     | Add the OPC UA On change read mode                      | `schemas`, `client/cpp/framer`, `driver/opcua`, `console/src/feature/opcua`, `client/py/synnax/opcua`, `site/docs`      | 3          |
 
 ## 4 What this RFC does not cover
 

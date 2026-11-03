@@ -28,7 +28,11 @@ import { type ReactElement, useEffect, useState } from "react";
 
 import { retrieveScanTask } from "@/feature/opcua/device/retrieveScanTask";
 import { type ConnectionConfig, type Device } from "@/feature/opcua/device/types";
-import { BROWSE_COMMAND_TYPE, type ScannedNode } from "@/feature/opcua/task/types";
+import {
+  BROWSE_COMMAND_TYPE,
+  nodeIdentity,
+  type ScannedNode,
+} from "@/feature/opcua/task/types";
 import { CSS } from "@/platform/css";
 
 const ICONS: Record<string, ReactElement> = {
@@ -38,8 +42,9 @@ const ICONS: Record<string, ReactElement> = {
   Object: <Icon.Group />,
 };
 
-const nodeKey = (nodeId: string, parentId: string): string => `${nodeId}---${parentId}`;
-const parseNodeID = (key: string): string => key.split("---")[0];
+// A node can sit under more than one parent, so its key names the parent too.
+const nodeKey = (node: ScannedNode, parent?: ScannedNode): string =>
+  `${nodeIdentity(node)}---${parent == null ? "" : nodeIdentity(parent)}`;
 
 export const HAUL_TYPE = "opc";
 
@@ -47,7 +52,7 @@ export type HaulItem = Haul.Item<typeof HAUL_TYPE, string, ScannedNode>;
 
 const createHaulItem = (node: ScannedNode): HaulItem => ({
   type: HAUL_TYPE,
-  key: node.nodeId,
+  key: node.key,
   data: node,
 });
 
@@ -70,7 +75,7 @@ const NodeItem = (props: Tree.ItemRenderProps<string>) => {
   const { getItem } = List.useUtilContext<string, ScannedNode>();
   const { startDrag } = Haul.useDrag({
     type: HAUL_TYPE,
-    key: node?.nodeId,
+    key: node?.key,
   });
   const handleDragStart = () => {
     if (node == null) return;
@@ -100,13 +105,13 @@ const browseNodes = async (
   client: Client,
   rack: rack.Key,
   connection: ConnectionConfig,
-  id: string,
+  parent?: ScannedNode,
 ): Promise<ScannedNode[]> => {
   const scanTask = await retrieveScanTask(client, rack);
   const browseStatus = await scanTask.executeCommandSync({
     type: BROWSE_COMMAND_TYPE,
     timeout: BROWSE_TIMEOUT,
-    args: { connection, node_id: id },
+    args: { connection, node_id: parent?.nodeId ?? "", field: parent?.field ?? "" },
   });
   if (browseStatus.variant === "error") throw status.toError(browseStatus);
   const { details } = browseStatus;
@@ -123,7 +128,7 @@ export const Browser = ({ device }: BrowserProps) => {
   const [initialLoading, setInitialLoading] = useState(false);
   const client = Synnax.use();
   const handleError = Status.useErrorHandler();
-  const retrieveNodes = (id: string, key: string | undefined) => {
+  const retrieveNodes = (parent?: ScannedNode) => {
     if (client == null) return;
     setStat(status.create({ variant: "loading", message: "Browsing OPC UA nodes" }));
     handleError(async () => {
@@ -133,28 +138,32 @@ export const Browser = ({ device }: BrowserProps) => {
           client,
           device.rack,
           device.properties.connection,
-          id,
+          parent,
         );
       } catch (e) {
         setStat(status.fromException(e, "Failed to browse OPC UA nodes"));
         return;
       }
       setStat(status.create({ variant: "success", message: "Browsed OPC UA nodes" }));
-      const isRoot = id === "";
-      const newNodes = channels.map((node): Tree.Node => ({
-        key: nodeKey(node.nodeId, id),
-        children: [],
+      // A member's name carries its structure's name, so channels made from members of
+      // different structures do not collide.
+      const nodes = channels.map((node) => ({
+        ...node,
+        name:
+          parent == null || node.field === ""
+            ? node.name
+            : `${parent.name}.${node.name}`,
+        key: nodeKey(node, parent),
       }));
-      opcNodesStore.setItem(
-        channels.map((node) => ({ ...node, key: nodeKey(node.nodeId, id) })),
-      );
+      opcNodesStore.setItem(nodes);
+      const newNodes = nodes.map(({ key }): Tree.Node => ({ key, children: [] }));
       setInitialLoading(false);
-      if (isRoot) setTreeNodes(newNodes);
+      if (parent == null) setTreeNodes(newNodes);
       else
         setTreeNodes([
           ...Tree.setNode({
             tree: treeNodesRef.current,
-            destination: key ?? null,
+            destination: parent.key,
             additions: newNodes,
           }),
         ]);
@@ -166,7 +175,7 @@ export const Browser = ({ device }: BrowserProps) => {
     action,
   }: optional.Optional<Tree.HandleExpandProps, "clicked">) => {
     if (action === "contract") return;
-    retrieveNodes(clicked == null ? "" : parseNodeID(clicked), clicked);
+    retrieveNodes(clicked == null ? undefined : opcNodesStore.getItem(clicked));
   };
 
   const treeProps = Tree.use({ nodes: treeNodes, onExpand: expand });

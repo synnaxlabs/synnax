@@ -33,6 +33,7 @@ import {
 } from "@/feature/opcua/task/Form";
 import {
   deployReadConfigZ,
+  nodeIdentity,
   READ_SCHEMAS,
   READ_TYPE,
   type ReadChannel,
@@ -45,10 +46,32 @@ import { Task } from "@/platform/task";
 
 const path = deep.path<Task.Values<ReadSchemas>>();
 
-const getChannelByNodeID = (props: DeviceProperties, nodeId: string): channel.Key =>
-  props.read.channels[nodeId] ??
-  props.read.channels[caseconv.snakeToCamel(nodeId)] ??
-  0;
+type ChannelSource = Pick<ReadChannel, "nodeId" | "field">;
+
+const findField = (props: DeviceProperties, { nodeId, field }: ChannelSource) =>
+  props.read.fields.find((f) => f.nodeId === nodeId && f.field === field);
+
+const getChannel = (props: DeviceProperties, source: ChannelSource) =>
+  source.field === ""
+    ? (props.read.channels[source.nodeId] ??
+      props.read.channels[caseconv.snakeToCamel(source.nodeId)] ??
+      0)
+    : (findField(props, source)?.channel ?? 0);
+
+const setChannel = (
+  props: DeviceProperties,
+  source: ChannelSource,
+  key: channel.Key,
+) => {
+  const { nodeId, field } = source;
+  if (field === "") {
+    props.read.channels[nodeId] = key;
+    return;
+  }
+  const existing = findField(props, source);
+  if (existing != null) existing.channel = key;
+  else props.read.fields.push({ nodeId, field, channel: key });
+};
 
 const IsIndexItem = ({ path }: ExtraItemProps<ReadChannel>): ReactElement => {
   const dataType = PForm.useFieldValue(path.dataType, { optional: true });
@@ -99,9 +122,10 @@ const Properties = (): ReactElement => {
 };
 
 const convertHaulItemToChannel = ({ data }: HaulItem): ReadChannel => ({
-  key: data.nodeId,
+  key: data.field === "" ? data.nodeId : nodeIdentity(data),
   nodeName: data.name,
   nodeId: data.nodeId,
+  field: data.field,
   channel: 0,
   disabled: false,
   isIndex: false,
@@ -114,8 +138,8 @@ const getChannelKeyAndID: ChannelKeyAndIDGetter<ReadChannel> = ({ channel, key }
   id: Task.getChannelNameID(key),
 });
 
-const resolve = (device: Device, { nodeId }: ReadChannel) => ({
-  channel: getChannelByNodeID(device.properties, nodeId),
+const resolve = (device: Device, ch: ReadChannel) => ({
+  channel: getChannel(device.properties, ch),
 });
 
 const TaskForm: FC = createForm<ReadChannel>({
@@ -151,10 +175,7 @@ const determineIndexChannel = async ({
 }: DetermineIndexChannelParams): Promise<channel.Key> => {
   const indexChannelInTaskConfig = config.channels.find(({ isIndex }) => isIndex);
   if (indexChannelInTaskConfig) {
-    const existingIndex = getChannelByNodeID(
-      device.properties,
-      indexChannelInTaskConfig.nodeId,
-    );
+    const existingIndex = getChannel(device.properties, indexChannelInTaskConfig);
     if (existingIndex)
       try {
         const { isIndex, key, name } = await client.channels.retrieve(existingIndex);
@@ -164,7 +185,7 @@ const determineIndexChannel = async ({
           );
         if (!device.properties.read.indexes.includes(key))
           device.properties.read.indexes.push(key);
-        device.properties.read.channels[indexChannelInTaskConfig.nodeId] = key;
+        setChannel(device.properties, indexChannelInTaskConfig, key);
         return key;
       } catch (e) {
         if (!NotFoundError.matches(e)) throw errors.fromUnknown(e);
@@ -175,13 +196,13 @@ const determineIndexChannel = async ({
       isIndex: true,
     });
     device.properties.read.indexes.push(key);
-    device.properties.read.channels[indexChannelInTaskConfig.nodeId] = key;
+    setChannel(device.properties, indexChannelInTaskConfig, key);
     return key;
   }
 
   // if one of the channels already exists, just use that channels index channel.
-  for (const { nodeId } of config.channels) {
-    const existingChannelKey = getChannelByNodeID(device.properties, nodeId);
+  for (const ch of config.channels) {
+    const existingChannelKey = getChannel(device.properties, ch);
     if (existingChannelKey)
       try {
         const { index } = await client.channels.retrieve(existingChannelKey);
@@ -226,7 +247,7 @@ const onConfigure: Task.OnConfigure<ReadSchemas["config"]> = async (
 
   const toCreate: ReadChannel[] = [];
   for (const ch of config.channels) {
-    const exKey = getChannelByNodeID(device.properties, ch.nodeId);
+    const exKey = getChannel(device.properties, ch);
     if (!exKey) {
       toCreate.push(ch);
       continue;
@@ -252,13 +273,11 @@ const onConfigure: Task.OnConfigure<ReadSchemas["config"]> = async (
         index,
       })),
     );
-    channels.forEach(
-      ({ key }, i) => (device.properties.read.channels[toCreate[i].nodeId] = key),
-    );
+    channels.forEach(({ key }, i) => setChannel(device.properties, toCreate[i], key));
   }
   config.channels = config.channels.map((c) => ({
     ...c,
-    channel: getChannelByNodeID(device.properties, c.nodeId),
+    channel: getChannel(device.properties, c),
   }));
   await client.devices.create(device, SCHEMAS);
   return [config, device.rack];
