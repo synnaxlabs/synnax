@@ -1039,6 +1039,7 @@ var _ = Describe("Sample-time window", func() {
 		currentTime telem.TimeStamp
 	)
 	build := func(duration telem.TimeSpan) {
+		GinkgoHelper()
 		prog := ir.IR{
 			Nodes: ir.Nodes{
 				{
