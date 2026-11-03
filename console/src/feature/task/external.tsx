@@ -12,6 +12,7 @@ import { Icon } from "@synnaxlabs/lyra/icon";
 
 import { EtherCAT } from "@/feature/ethercat";
 import { HTTP } from "@/feature/http";
+import { Kafka } from "@/feature/kafka";
 import { LabJack } from "@/feature/labjack";
 import { Modbus } from "@/feature/modbus";
 import { MQTT } from "@/feature/mqtt";
@@ -41,6 +42,7 @@ export const REGISTRY: Task.Registry = { getIcon, parseType };
 export const COMMANDS: Command.Command[] = [
   ...EtherCAT.Task.COMMANDS,
   ...HTTP.Task.COMMANDS,
+  ...Kafka.Task.COMMANDS,
   ...LabJack.Task.COMMANDS,
   ...Modbus.Task.COMMANDS,
   ...MQTT.Task.COMMANDS,

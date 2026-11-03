@@ -114,6 +114,19 @@ describe("suggestTimeSpans", () => {
     expect(first.value.equals(TimeSpan.minutes(150))).toBe(true);
   });
 
+  it("should read a bare number in the given unit and name the unit", () => {
+    const suggestions = suggestTimeSpans("1000", language, TimeSpan.MILLISECOND);
+    expect(suggestions).toHaveLength(1);
+    expect(suggestions[0].value.equals(TimeSpan.SECOND)).toBe(true);
+    expect(suggestions[0].reading).toBe("milliseconds");
+  });
+
+  it("should throw on a unit it cannot name", () => {
+    expect(() => suggestTimeSpans("5", language, TimeSpan.seconds(2))).toThrow(
+      "2s is not a unit of time",
+    );
+  });
+
   it("should read Ms only as megaseconds", () => {
     const suggestions = suggestTimeSpans("5Ms", language);
     expect(suggestions.length).toBeGreaterThan(0);
