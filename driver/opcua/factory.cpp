@@ -56,7 +56,7 @@ std::pair<common::ConfigureResult, x::errors::Error> configure_event(
     result.task = std::make_unique<common::ReadTask>(
         task,
         ctx,
-        retry_config(task.name),
+        common::unlimited_retry_config(task.name),
         std::make_unique<EventTaskSource>(ctx->client, pool, std::move(cfg))
     );
     return {std::move(result), x::errors::NIL};
