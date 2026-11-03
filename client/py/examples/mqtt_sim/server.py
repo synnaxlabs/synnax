@@ -37,6 +37,7 @@ import asyncio
 import json
 import math
 import time
+from typing import override
 
 from examples.mqtt_sim import sparkplug
 from examples.mqtt_sim import sparkplug_b_pb2 as pb
@@ -121,9 +122,11 @@ class MQTTSim(DeviceSim):
     port = 1884
     device_name = "MQTT Test Broker"
 
+    @override
     async def _run_server(self) -> None:
         await run_server(self.host, self.port, rate_hz=float(self.rate))
 
+    @override
     @staticmethod
     def create_device(rack_key: int) -> mqtt.Device:
         return mqtt.Device(

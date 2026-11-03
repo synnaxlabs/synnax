@@ -53,27 +53,31 @@ import { Empty } from "@/platform/empty";
 import { Selector } from "@/platform/selector";
 import { Task } from "@/platform/task";
 
-const Properties = () => <SelectDevice />;
+const root = deep.path<Task.Values<WriteSchemas>>();
 
-const TARGETS_PATH = "config.targets";
+const Properties = () => <SelectDevice />;
 
 /** The name configure gives the command channel of a plain target. */
 const commandChannelName = (devName: string, topic: string): string =>
   `${channel.escapeInvalidName(devName)}_${channel.escapeInvalidName(topic)}_cmd`;
 
 /** A plain target holds its channel in a field; a Sparkplug B target is the field. */
-const channelPaths = (path: string, type: WriteTarget["type"]) =>
-  type === "plain"
-    ? { key: `${path}.channel.channel`, name: `${path}.channel.name` }
-    : { key: `${path}.channel`, name: `${path}.name` };
+const channelPaths = (path: deep.Path<WriteTarget>, type: WriteTarget["type"]) => {
+  if (type === "plain") {
+    const { channel } = deep.variant(path, "type", "plain");
+    return { key: channel.channel, name: channel.name };
+  }
+  const target = deep.variant(path, "type", "sparkplug");
+  return { key: target.channel, name: target.name };
+};
 
 const TargetItem = (props: Task.ChannelListItemProps) => {
   const { itemKey } = props;
-  const path = `${TARGETS_PATH}.${itemKey}`;
-  const type = PForm.useFieldValue<WriteTarget["type"]>(`${path}.type`);
-  const disabled = PForm.useFieldValue<boolean>(`${path}.disabled`);
+  const path = root.config.targets[itemKey];
+  const type = PForm.useFieldValue(path.type);
+  const disabled = PForm.useFieldValue(path.disabled);
   const paths = channelPaths(path, type);
-  const channelKey = PForm.useFieldValue<number>(paths.key);
+  const channelKey = PForm.useFieldValue(paths.key);
   return (
     <Select.Item
       {...props}
@@ -84,7 +88,7 @@ const TargetItem = (props: Task.ChannelListItemProps) => {
     >
       <Flex.Box x align="center" gap="small" full="x">
         <EntryLabel path={path} />
-        <Task.EnabledCheckbox path={`${path}.disabled`} />
+        <Task.EnabledCheckbox path={path.disabled} />
       </Flex.Box>
       <Task.ChannelName
         channel={channelKey}
@@ -103,13 +107,16 @@ const targetItem = Component.renderProp(TargetItem);
 
 const EMPTY_TARGETS = <Empty.Action message="No targets" />;
 
-interface PaneProps {
-  path: string;
+interface PaneProps<T> {
+  path: deep.Path<T>;
   deviceName: string;
 }
 
-const SparkplugTargetPane: FC<PaneProps> = ({ path, deviceName }) => {
-  const target = PForm.useFieldValue<SparkplugWriteTarget>(path);
+const SparkplugTargetPane: FC<PaneProps<SparkplugWriteTarget>> = ({
+  path,
+  deviceName,
+}) => {
+  const target = PForm.useFieldValue(path);
   return (
     <PForm.Sections>
       <PForm.Section title="Tag">
@@ -118,11 +125,11 @@ const SparkplugTargetPane: FC<PaneProps> = ({ path, deviceName }) => {
       <PForm.Section title="Channel">
         <Task.ChannelNameField
           channel={target.channel}
-          namePath={`${path}.name`}
+          namePath={path.name}
           defaultName={`${sparkplugChannelName(deviceName, target)}_cmd`}
         />
         <SparkplugTypeField
-          path={`${path}.tagType`}
+          path={path.tagType}
           label="Sparkplug B type"
           padHelpText={false}
         />
@@ -131,54 +138,59 @@ const SparkplugTargetPane: FC<PaneProps> = ({ path, deviceName }) => {
   );
 };
 
-const PlainChannelNameField: FC<PaneProps> = ({ path, deviceName }) => {
-  const channelKey = PForm.useFieldValue<number>(`${path}.channel.channel`);
-  const topic = PForm.useFieldValue<string>(`${path}.topic`);
+const PlainChannelNameField: FC<PaneProps<PlainWriteTarget>> = ({
+  path,
+  deviceName,
+}) => {
+  const channelKey = PForm.useFieldValue(path.channel.channel);
+  const topic = PForm.useFieldValue(path.topic);
   return (
     <Task.ChannelNameField
       channel={channelKey}
-      namePath={`${path}.channel.name`}
+      namePath={path.channel.name}
       defaultName={commandChannelName(deviceName, topic)}
     />
   );
 };
 
-const PlainTargetPane: FC<PaneProps> = ({ path, deviceName }) => (
+const PlainTargetPane: FC<PaneProps<PlainWriteTarget>> = ({ path, deviceName }) => (
   <PForm.Sections>
     <PForm.Section title="Publish">
       <PForm.TextField
-        path={`${path}.topic`}
+        path={path.topic}
         label="Topic"
         padHelpText={false}
         inputProps={TOPIC_INPUT_PROPS}
       />
-      <QoSField path={`${path}.qos`} />
-      <PForm.CheckboxField
-        path={`${path}.retained`}
-        label="Retain"
-        padHelpText={false}
-      />
+      <QoSField path={path.qos} />
+      <PForm.CheckboxField path={path.retained} label="Retain" padHelpText={false} />
     </PForm.Section>
     <Task.Payload.ChannelSections
-      path={`${path}.channel`}
+      path={path.channel}
       pointerPlaceholder="Empty sends the bare value"
     >
       <PlainChannelNameField path={path} deviceName={deviceName} />
     </Task.Payload.ChannelSections>
-    <Task.Payload.AdditionalFields key={path} path={`${path}.fields`} />
+    <Task.Payload.AdditionalFields key={String(path)} path={path.fields} />
   </PForm.Sections>
 );
 
 const TOPIC_INPUT_PROPS = { placeholder: "plant/line1/valve/set" } as const;
 
-const TargetPane: FC<PaneProps> = ({ path, deviceName }) => {
-  const type = PForm.useFieldValue<WriteTarget["type"]>(`${path}.type`);
+const TargetPane: FC<PaneProps<WriteTarget>> = ({ path, deviceName }) => {
+  const type = PForm.useFieldValue(path.type);
   return (
     <Flex.Box y grow empty className={CSS.BE("details", "form")}>
       {type === "plain" ? (
-        <PlainTargetPane path={path} deviceName={deviceName} />
+        <PlainTargetPane
+          path={deep.variant(path, "type", "plain")}
+          deviceName={deviceName}
+        />
       ) : (
-        <SparkplugTargetPane path={path} deviceName={deviceName} />
+        <SparkplugTargetPane
+          path={deep.variant(path, "type", "sparkplug")}
+          deviceName={deviceName}
+        />
       )}
     </Flex.Box>
   );
@@ -239,7 +251,7 @@ const duplicateTargets = (targets: WriteTarget[], keys: string[]): WriteTarget[]
 const Content = ({ device }: PlatformDevice.TaskFormContentProps<Device>) => {
   const [selected, setSelected] = useState<string[]>([]);
   const isPreview = Task.useIsPreview();
-  const targets = PForm.useFieldListUtils<string, WriteTarget>(TARGETS_PATH);
+  const targets = PForm.useFieldListUtils(root.config.targets);
   const discover = useDiscoverModal();
 
   const handleAdd = async () => {
@@ -257,14 +269,14 @@ const Content = ({ device }: PlatformDevice.TaskFormContentProps<Device>) => {
   };
 
   const current = selected.at(0);
-  const currentPath = current == null ? null : `${TARGETS_PATH}.${current}`;
+  const currentPath = current == null ? null : root.config.targets[current];
 
   return (
     <Task.Views.Panes
       listTitle="Targets"
       list={
         <Task.Views.ChannelList<WriteTarget>
-          path={TARGETS_PATH}
+          path={root.config.targets}
           header={null}
           emptyContent={EMPTY_TARGETS}
           footer={

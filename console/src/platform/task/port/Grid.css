@@ -9,6 +9,13 @@
  * included in the file licenses/APL.txt.
  */
 
+/* On :root, so a container of grids can size its columns to them. */
+:root {
+    --pluto-port-width: 4rem;
+    --pluto-port-height: round(3.3333rem, 1px);
+    --pluto-port-gap: 0.5rem;
+}
+
 .console-port-grid,
 .console-port-badge {
     /* Oklch mixing keeps the primary hue from going muddy at low strength. */
@@ -45,8 +52,6 @@
 }
 
 .console-port-grid {
-    --pluto-port-cell: 24px;
-
     display: flex;
     flex-wrap: wrap;
     gap: 1.5rem 2rem;
@@ -54,8 +59,8 @@
 
 .console-port-grid__group {
     display: grid;
-    grid-auto-rows: 20px;
-    gap: 3px;
+    grid-auto-rows: var(--pluto-port-height);
+    gap: var(--pluto-port-gap);
 }
 
 .console-port-grid__cell {
@@ -109,7 +114,7 @@
 }
 
 .console-port-grid__cell--paired {
-    padding: 2px 0;
+    padding: 0.25rem 0;
 
     > :last-child {
         font-weight: 400;
@@ -141,9 +146,9 @@
     flex: none;
     align-items: center;
     justify-content: center;
-    min-width: 24px;
-    height: 20px;
-    padding: 0 4px;
+    min-width: var(--pluto-port-width);
+    height: var(--pluto-port-height);
+    padding: 0 0.75rem;
     border: var(--pluto-border-width) solid transparent;
     border-radius: var(--pluto-border-radius-tiny);
     font-family: var(--pluto-font-family);

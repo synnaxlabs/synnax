@@ -18,6 +18,7 @@ import { Header as PHeader } from "@synnaxlabs/lyra/header";
 import { Icon } from "@synnaxlabs/lyra/icon";
 import { Select } from "@synnaxlabs/lyra/select";
 import { Text } from "@synnaxlabs/lyra/text";
+import { deep } from "@synnaxlabs/x";
 import { type FC, useState } from "react";
 
 import {
@@ -35,8 +36,8 @@ import { CSS } from "@/platform/css";
 import { Device as PlatformDevice } from "@/platform/device";
 import { Task } from "@/platform/task";
 
-export interface ExtraItemProps {
-  path: string;
+export interface ExtraItemProps<C extends Channel> {
+  path: deep.Path<C>;
 }
 
 export interface ChannelKeyAndIDGetter<C extends Channel> {
@@ -47,17 +48,19 @@ interface ChannelListItemProps<C extends Channel> extends Omit<
   Task.ChannelListItemProps,
   "children"
 > {
-  children: Component.RenderProp<ExtraItemProps>;
+  children: Component.RenderProp<ExtraItemProps<C>>;
   getChannelKeyAndID: ChannelKeyAndIDGetter<C>;
+  path: deep.Path<C>;
 }
 
 const ChannelListItem = <C extends Channel>({
   children,
   getChannelKeyAndID,
+  path,
   ...rest
 }: ChannelListItemProps<C>) => {
-  const path = `config.channels.${rest.itemKey}`;
-  const item = PForm.useFieldValue<C>(path);
+  const item = PForm.useFieldValue(path);
+  const fields = deep.widen<Channel>(path);
   if (item == null) return null;
   const { nodeName, nodeId } = item;
   const opcNode = nodeId.length > 0 ? nodeId : "No node selected";
@@ -77,7 +80,7 @@ const ChannelListItem = <C extends Channel>({
           level="p"
           channel={channel}
           id={id}
-          namePath={`${path}.name`}
+          namePath={fields.name}
         />
         <Flex.Box x align="center" gap="tiny">
           <Icon.Variable color={9} />
@@ -94,7 +97,7 @@ const ChannelListItem = <C extends Channel>({
       </Flex.Box>
       <Flex.Box direction="x" align="center">
         {children({ path })}
-        <Task.EnabledCheckbox path={`${path}.disabled`} />
+        <Task.EnabledCheckbox path={fields.disabled} />
       </Flex.Box>
     </Select.Item>
   );
@@ -118,8 +121,6 @@ const EmptyContent = () => (
   </Flex.Box>
 );
 
-const CHANNELS_PATH = "config.channels";
-
 const VARIABLE_NODE_CLASS = "Variable";
 
 const isVariableHaulItem = (item: Haul.Item): item is HaulItem =>
@@ -130,9 +131,9 @@ const canDrop = ({ items }: Haul.DraggingState): boolean =>
 
 interface ChannelListProps<C extends Channel> extends Pick<
   Task.ChannelListProps<C>,
-  "contextMenuItems" | "resolve"
+  "contextMenuItems" | "path" | "resolve"
 > {
-  children: Component.RenderProp<ExtraItemProps>;
+  children: Component.RenderProp<ExtraItemProps<C>>;
   device: Device;
   convertHaulItemToChannel: (item: HaulItem) => C;
   getChannelKeyAndID: ChannelKeyAndIDGetter<C>;
@@ -146,10 +147,11 @@ const ChannelList = <C extends Channel>({
   ...rest
 }: ChannelListProps<C>) => {
   const ctx = PForm.useContext();
-  const fieldListReturn = PForm.useFieldList<C["key"], C>(CHANNELS_PATH);
+  const { path } = rest;
+  const fieldListReturn = PForm.useFieldList(path);
   const { data, push } = fieldListReturn;
   const handleDrop = ({ items }: Haul.OnDropProps): Haul.Item[] => {
-    const channels = ctx.get<C[]>(CHANNELS_PATH).value;
+    const channels = ctx.get(path).value;
     const dropped = items.filter(isVariableHaulItem);
     const toAdd = dropped
       .filter(({ data }) => !channels.some(({ nodeId }) => nodeId === data.nodeId))
@@ -172,14 +174,18 @@ const ChannelList = <C extends Channel>({
 
   const [selected, setSelected] = useState(data.length > 0 ? [data[0]] : []);
   const listItem = ({ key, ...p }: Task.ChannelListItemProps) => (
-    <ChannelListItem<C> key={key} {...p} getChannelKeyAndID={getChannelKeyAndID}>
+    <ChannelListItem<C>
+      key={key}
+      {...p}
+      getChannelKeyAndID={getChannelKeyAndID}
+      path={path[p.itemKey]}
+    >
       {children}
     </ChannelListItem>
   );
   return (
     <Task.ChannelList
       onSelect={setSelected}
-      path={CHANNELS_PATH}
       emptyContent={<EmptyContent />}
       header={<Header />}
       selected={selected}
@@ -194,9 +200,9 @@ const ChannelList = <C extends Channel>({
 };
 
 export interface FormProps<C extends Channel> extends Required<
-  Pick<ChannelListProps<C>, "convertHaulItemToChannel" | "contextMenuItems">
+  Pick<ChannelListProps<C>, "convertHaulItemToChannel" | "contextMenuItems" | "path">
 > {
-  children?: Component.RenderProp<ExtraItemProps>;
+  children?: Component.RenderProp<ExtraItemProps<C>>;
   getChannelKeyAndID: ChannelKeyAndIDGetter<C>;
   /** Returns the bindings the device holds for a channel's node. */
   resolve: (device: Device, channel: C) => Partial<C>;
@@ -211,6 +217,7 @@ const Body = <C extends Channel>({
   children = () => null,
   getChannelKeyAndID,
   contextMenuItems,
+  path,
   resolve,
 }: BodyProps<C>) => {
   const isPreview = Task.useIsPreview();
@@ -223,6 +230,7 @@ const Body = <C extends Channel>({
         convertHaulItemToChannel={convertHaulItemToChannel}
         getChannelKeyAndID={getChannelKeyAndID}
         contextMenuItems={contextMenuItems}
+        path={path}
         resolve={resolveOnDevice}
       >
         {children}

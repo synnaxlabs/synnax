@@ -10,7 +10,7 @@
 from collections.abc import Iterator
 from enum import Enum
 from pathlib import Path
-from typing import Protocol
+from typing import Protocol, override
 
 from pandas import DataFrame
 
@@ -89,6 +89,7 @@ class BaseReader(File, Protocol):
         """:returns : the type of reader."""
         ...
 
+    @override
     def path(self) -> Path:
         """:returns: the path to the file."""
         ...

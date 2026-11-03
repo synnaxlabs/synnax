@@ -10,7 +10,7 @@
 import { type label, view } from "@synnaxlabs/client";
 import { createTestClient } from "@synnaxlabs/client/testutil";
 import { Form } from "@synnaxlabs/lyra/form";
-import { uuid } from "@synnaxlabs/x";
+import { deep, uuid } from "@synnaxlabs/x";
 import { fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { type ReactElement } from "react";
 import { describe, expect, it } from "vitest";
@@ -26,6 +26,8 @@ import {
   uniqueName,
 } from "@/testutil";
 
+const path = deep.path<z.infer<typeof schema>>();
+
 const client = createTestClient();
 
 const schema = z.object({
@@ -38,7 +40,7 @@ const Fixture = ({ hasLabels }: { hasLabels: label.Key[] }): ReactElement => {
     <View.Frame resourceType="range" icon="Label">
       <Form.Form<typeof schema> {...methods}>
         <Label.Filter.Chips />
-        <Form.Field<label.Key[]> path="query.hasLabels" showLabel={false}>
+        <Form.Field path={path.query.hasLabels} showLabel={false}>
           {({ value }) => <span>{`value:${value.join(",")}`}</span>}
         </Form.Field>
       </Form.Form>

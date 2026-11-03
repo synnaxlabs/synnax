@@ -45,5 +45,5 @@ export interface SparkplugTypeFieldProps extends Omit<
 > {}
 
 export const SparkplugTypeField = (props: SparkplugTypeFieldProps) => (
-  <PForm.Field<SparkplugDataType> {...props}>{renderSelect}</PForm.Field>
+  <PForm.Field {...props}>{renderSelect}</PForm.Field>
 );
