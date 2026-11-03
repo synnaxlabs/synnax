@@ -685,6 +685,44 @@ var _ = Describe("Read task", func() {
 		Expect(floats(expectStored(ctx, data.Key(), 1))).To(Equal([]float64{3}))
 	})
 
+	It("Should write one poll's partitions in timestamp order", func(ctx SpecContext) {
+		index, data := createIndexed(ctx, telem.Float64T)
+		dev := createDevice(ctx, clusterProperties())
+		topic := uniqueTopic()
+		Expect(cluster.CreateTopic(topic, 2, nil)).To(Succeed())
+		partitioned := newKafkaClient(kgo.RecordPartitioner(kgo.ManualPartitioner()))
+		record := func(partition int32, stamp, value float64) *kgo.Record {
+			GinkgoHelper()
+			doc := map[string]any{"ts": stamp, "v": value}
+			return &kgo.Record{
+				Topic:     topic,
+				Partition: partition,
+				Value:     MustSucceed(json.Marshal(doc)),
+			}
+		}
+		// Producing before the start puts both partitions in the task's first poll.
+		Expect(partitioned.ProduceSync(ctx,
+			record(0, 10e9, 1),
+			record(0, 12e9, 3),
+			record(1, 11e9, 2),
+			record(1, 13e9, 4),
+		).FirstErr()).To(Succeed())
+		dt, t := configure(ctx, kafka.ReadConfig{
+			Device:  dev.Key,
+			Topic:   topic,
+			Records: single(stampedFields(index, data)),
+		})
+		start(ctx, dt, t)
+		Expect(floats(expectStored(ctx, data.Key(), 4))).
+			To(Equal([]float64{1, 2, 3, 4}))
+		Expect(timestamps(stored(ctx, index.Key()))).To(Equal([]telem.TimeStamp{
+			10 * telem.SecondTS,
+			11 * telem.SecondTS,
+			12 * telem.SecondTS,
+			13 * telem.SecondTS,
+		}))
+	})
+
 	It("Should read a record that repeats a name no field addresses",
 		func(ctx SpecContext) {
 			index, data := createIndexed(ctx, telem.Float64T)
