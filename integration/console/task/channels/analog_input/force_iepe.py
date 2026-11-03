@@ -7,7 +7,7 @@
 #  License, use of this software will be governed by the Apache License, Version 2.0,
 #  included in the file licenses/APL.txt.
 
-from typing import Literal, Unpack
+from typing import Unpack
 
 import synnax as sy
 from console.layout import LayoutClient
@@ -19,18 +19,18 @@ class ForceIEPE(Analog):
     Force IEPE channel type for NI analog read tasks.
 
     Supported kwargs (in addition to Analog base kwargs):
-        force_units (str): "Newtons", "Pounds", "Kilograms", etc.
+        force_units (str): "Newtons", "Pounds", "KilogramForce", etc.
         sensitivity (float): Sensor sensitivity value
-        sensitivity_units (str): "mV/N", "mV/lb", etc.
+        sensitivity_units (str): "mVoltsPerNewton", "mVoltsPerPound", etc.
         current_excitation_source (str): "Internal", "External", "None"
         current_excitation_value (float): Current excitation value
 
     Base kwargs from Analog:
         port (int): Physical port number
-        terminal_config (str): "Default", "Differential", etc.
+        terminal_config (str): "Cfg_Default", "Diff", etc.
         min_val (float): Minimum value
         max_val (float): Maximum value
-        custom_scale (str): "None", "Linear", "Map", "Table"
+        custom_scale (str): "none", "linear", "map", "table"
     """
 
     def __init__(
@@ -39,10 +39,10 @@ class ForceIEPE(Analog):
         name: str,
         device: str,
         *,
-        force_units: Literal["Newtons", "Pounds"] | None = None,
+        force_units: sy.ni.ForceUnits | None = None,
         sensitivity: float | None = None,
-        sensitivity_units: Literal["mV/N", "mV/lb"] | None = None,
-        current_excitation_source: (sy.ni.ExcitationSource | None) = None,
+        sensitivity_units: sy.ni.ForceSensitivityUnits | None = None,
+        current_excitation_source: sy.ni.ExcitationSource | None = None,
         current_excitation_value: float | None = None,
         **kwargs: Unpack[Options],
     ) -> None:

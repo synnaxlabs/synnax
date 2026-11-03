@@ -25,7 +25,7 @@ class Period(Counter):
         starting_edge (str): "Rising" or "Falling"
         units (str): "Seconds", "Ticks", or "Custom"
         terminal (str): Input terminal (e.g., "PFI0", "PFI1", etc.)
-        meas_method (str): "One counter (low frequency)",
+        meas_method (str): "LowFreq1Ctr",
             "Two counters (high frequency)", "Two counters (large range)",
             "Dynamic averaging"
     """
@@ -39,13 +39,7 @@ class Period(Counter):
         starting_edge: sy.ni.CIEdge | None = None,
         units: sy.ni.CITimeUnits | Literal["Custom"] | None = None,
         terminal: str | None = None,
-        meas_method: Literal[
-            "One counter (low frequency)",
-            "Two counters (high frequency)",
-            "Two counters (large range)",
-            "Dynamic averaging",
-        ]
-        | None = None,
+        meas_method: sy.ni.CIMeasMethod | None = None,
         **kwargs: Unpack[Options],
     ) -> None:
         """Initialize period channel with configuration."""

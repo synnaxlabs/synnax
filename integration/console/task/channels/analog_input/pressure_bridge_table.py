@@ -7,7 +7,7 @@
 #  License, use of this software will be governed by the Apache License, Version 2.0,
 #  included in the file licenses/APL.txt.
 
-from typing import Literal, Unpack
+from typing import Unpack
 
 import synnax as sy
 from console.layout import LayoutClient
@@ -19,20 +19,20 @@ class PressureBridgeTable(Analog):
     Pressure Bridge Table channel type for NI analog read tasks.
 
     Supported kwargs (in addition to Analog base kwargs):
-        pressure_units (str): "Pascals", "PSI", etc.
-        bridge_configuration (str): "Full bridge", "Half bridge", "Quarter bridge"
+        pressure_units (str): "Pascals", "PoundsPerSquareInch", etc.
+        bridge_configuration (str): "FullBridge", "HalfBridge", "QuarterBridge"
         resistance (float): Nominal bridge resistance
         excitation_source (str): "Internal", "External", "None"
         excitation_value (float): Voltage excitation value
-        physical_units (str): "Pascals", "PSI", etc.
-        electrical_units (str): "mV/V", "V/V"
+        physical_units (str): "Pascals", "PoundsPerSquareInch", etc.
+        electrical_units (str): "mVoltsPerVolt", "VoltsPerVolt"
 
     Base kwargs from Analog:
         port (int): Physical port number
-        terminal_config (str): "Default", "Differential", etc.
+        terminal_config (str): "Cfg_Default", "Diff", etc.
         min_val (float): Minimum value
         max_val (float): Maximum value
-        custom_scale (str): "None", "Linear", "Map", "Table"
+        custom_scale (str): "none", "linear", "map", "table"
     """
 
     def __init__(
@@ -41,15 +41,13 @@ class PressureBridgeTable(Analog):
         name: str,
         device: str,
         *,
-        pressure_units: Literal["Pascals", "PSI"] | None = None,
-        bridge_configuration: (
-            Literal["Full bridge", "Half bridge", "Quarter bridge"] | None
-        ) = None,
+        pressure_units: sy.ni.PressureUnits | None = None,
+        bridge_configuration: sy.ni.BridgeConfig | None = None,
         resistance: float | None = None,
         excitation_source: sy.ni.ExcitationSource | None = None,
         excitation_value: float | None = None,
-        physical_units: Literal["Pascals", "PSI"] | None = None,
-        electrical_units: Literal["mV/V", "V/V"] | None = None,
+        physical_units: sy.ni.PressureUnits | None = None,
+        electrical_units: sy.ni.ElectricalUnits | None = None,
         **kwargs: Unpack[Options],
     ) -> None:
         super().__init__(
