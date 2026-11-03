@@ -9,6 +9,7 @@
 
 from typing import Literal, Unpack
 
+import synnax as sy
 from console.layout import LayoutClient
 from console.task.channels.counter import Counter, Options
 
@@ -38,7 +39,7 @@ class AngularPosition(Counter):
         name: str,
         device: str,
         *,
-        units: Literal["Degrees", "Radians", "Ticks"] | None = None,
+        units: sy.ni.CIAngularPositionUnits | None = None,
         decoding_type: Literal["X1", "X2", "X4", "Two pulse"] | None = None,
         pulses_per_rev: int | None = None,
         initial_angle: float | None = None,

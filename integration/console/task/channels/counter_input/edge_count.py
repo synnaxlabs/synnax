@@ -9,6 +9,7 @@
 
 from typing import Literal, Unpack
 
+import synnax as sy
 from console.layout import LayoutClient
 from console.task.channels.counter import Counter, Options
 
@@ -32,7 +33,7 @@ class EdgeCount(Counter):
         name: str,
         device: str,
         *,
-        active_edge: Literal["Rising", "Falling"] | None = None,
+        active_edge: sy.ni.CIEdge | None = None,
         count_direction: Literal["Count up", "Count down", "Externally controlled"]
         | None = None,
         terminal: str | None = None,

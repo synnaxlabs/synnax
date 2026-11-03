@@ -9,6 +9,7 @@
 
 from typing import Literal, Unpack
 
+import synnax as sy
 from console.layout import LayoutClient
 from console.task.channels.analog import Analog, Options
 
@@ -39,7 +40,7 @@ class Accelerometer(Analog):
         *,
         sensitivity: float | None = None,
         units: Literal["mV/g", "V/g"] | None = None,
-        excitation_source: Literal["Internal", "External", "None"] | None = None,
+        excitation_source: sy.ni.ExcitationSource | None = None,
         current_excitation_value: float | None = None,
         **kwargs: Unpack[Options],
     ) -> None:

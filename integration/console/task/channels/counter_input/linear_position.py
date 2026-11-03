@@ -9,6 +9,7 @@
 
 from typing import Literal, Unpack
 
+import synnax as sy
 from console.layout import LayoutClient
 from console.task.channels.counter import Counter, Options
 
@@ -38,7 +39,7 @@ class LinearPosition(Counter):
         name: str,
         device: str,
         *,
-        units: Literal["Meters", "Inches", "Ticks"] | None = None,
+        units: sy.ni.CILinearPositionUnits | None = None,
         decoding_type: Literal["X1", "X2", "X4", "Two pulse"] | None = None,
         dist_per_pulse: float | None = None,
         initial_pos: float | None = None,

@@ -9,6 +9,7 @@
 
 from typing import Literal, Unpack
 
+import synnax as sy
 from console.layout import LayoutClient
 from console.task.channels.analog import Analog, Options
 
@@ -48,7 +49,7 @@ class ForceBridgeTwoPointLinear(Analog):
             Literal["Full bridge", "Half bridge", "Quarter bridge"] | None
         ) = None,
         resistance: float | None = None,
-        excitation_source: Literal["Internal", "External", "None"] | None = None,
+        excitation_source: sy.ni.ExcitationSource | None = None,
         excitation_value: float | None = None,
         physical_units: Literal["Newtons", "Pounds", "Kilograms"] | None = None,
         electrical_units: Literal["mV/V", "V/V"] | None = None,

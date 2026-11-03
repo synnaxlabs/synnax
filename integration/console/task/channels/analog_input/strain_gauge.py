@@ -9,6 +9,7 @@
 
 from typing import Literal, Unpack
 
+import synnax as sy
 from console.layout import LayoutClient
 from console.task.channels.analog import Analog, Options
 
@@ -53,7 +54,7 @@ class StrainGauge(Analog):
             ]
             | None
         ) = None,
-        excitation_source: Literal["Internal", "External", "None"] | None = None,
+        excitation_source: sy.ni.ExcitationSource | None = None,
         excitation_value: float | None = None,
         gage_factor: float | None = None,
         initial_bridge_voltage: float | None = None,
