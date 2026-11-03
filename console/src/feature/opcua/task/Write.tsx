@@ -101,26 +101,27 @@ const convertNodeToChannel = (
 
 const VALUE_INPUT_PROPS = { placeholder: "Value" } as const;
 
-interface ArgumentProps extends ExtraItemProps {
+interface ArgumentProps {
+  path: deep.Path<opcua.MethodWriteChannel>;
   index: number;
 }
 
 const Argument = ({ path, index }: ArgumentProps): ReactElement | null => {
-  const argPath = `${path}.arguments.${index}`;
-  const arg = PForm.useFieldValue<MethodArgument>(argPath, { optional: true });
+  const argPath = path.arguments[index];
+  const arg = PForm.useFieldValue(argPath, { optional: true });
   if (arg == null) return null;
   const command = arg.source === "command";
   const handleSourceChange = (
     source: opcua.ArgumentSource,
     { get, set }: PForm.ContextValue,
   ) => {
-    const args = get<MethodArgument[]>(`${path}.arguments`).value.map(
+    const args = get(path.arguments).value.map(
       ({ name, dataType, ...a }, i): MethodArgument =>
         i === index && source === "command"
           ? { source, name, dataType }
           : { source: "value", value: "value" in a ? a.value : "", name, dataType },
     );
-    set(`${path}.arguments`, args);
+    set(path.arguments, args);
   };
   const label = arg.dataType === "" ? arg.name : `${arg.name} (${arg.dataType})`;
   return (
@@ -133,17 +134,13 @@ const Argument = ({ path, index }: ArgumentProps): ReactElement | null => {
         </Input.Item>
       ) : (
         <PForm.TextField
-          path={`${argPath}.value`}
+          path={deep.variant(argPath, "source", "value").value}
           label={label}
           grow
           inputProps={VALUE_INPUT_PROPS}
         />
       )}
-      <PForm.Field<opcua.ArgumentSource>
-        path={`${argPath}.source`}
-        label="Command"
-        onChange={handleSourceChange}
-      >
+      <PForm.Field path={argPath.source} label="Command" onChange={handleSourceChange}>
         {({ value, onChange }) => (
           <Input.Checkbox
             value={value === "command"}
@@ -168,8 +165,9 @@ const Replacement = ({ bound, dataType }: ReplacementProps): ReactElement => (
   </Text.Text>
 );
 
-const MethodDetails = ({ path }: ExtraItemProps): ReactElement | null => {
-  const ch = PForm.useFieldValue<WriteChannel>(path, { optional: true });
+const MethodDetails = ({ path }: ExtraItemProps<WriteChannel>): ReactElement | null => {
+  const ch = PForm.useFieldValue(path, { optional: true });
+  const methodPath = deep.variant(path, "type", "method");
   const method = ch != null && isMethod(ch) ? ch : null;
   const query =
     method != null && method.cmdChannel !== 0 ? { key: method.cmdChannel } : null;
@@ -185,7 +183,7 @@ const MethodDetails = ({ path }: ExtraItemProps): ReactElement | null => {
       </Header.Header>
       <Flex.Box y gap="small" className={CSS.BE("opc-method", "fields")}>
         <PForm.TextField
-          path={`${path}.objectId`}
+          path={methodPath.objectId}
           label="Object"
           inputProps={OBJECT_INPUT_PROPS}
         />
@@ -194,7 +192,9 @@ const MethodDetails = ({ path }: ExtraItemProps): ReactElement | null => {
             The method takes no arguments. Any command calls it.
           </Text.Text>
         ) : (
-          method.arguments.map((_, i) => <Argument key={i} path={path} index={i} />)
+          method.arguments.map((_, i) => (
+            <Argument key={i} path={methodPath} index={i} />
+          ))
         )}
         {bound != null && dataType != null && !bound.dataType.equals(dataType) && (
           <Replacement bound={bound} dataType={dataType} />

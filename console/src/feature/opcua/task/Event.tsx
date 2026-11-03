@@ -17,7 +17,7 @@ import { Haul } from "@synnaxlabs/lyra/haul";
 import { Header } from "@synnaxlabs/lyra/header";
 import { Icon } from "@synnaxlabs/lyra/icon";
 import { Text } from "@synnaxlabs/lyra/text";
-import { DataType, errors, id } from "@synnaxlabs/x";
+import { DataType, deep, errors, id } from "@synnaxlabs/x";
 import { type FC, type ReactElement, type ReactNode } from "react";
 
 import { Browser } from "@/feature/opcua/device/Browser";
@@ -31,7 +31,6 @@ import {
   deployEventConfigZ,
   EVENT_SCHEMAS,
   EVENT_TYPE,
-  type EventField,
   type EventSchemas,
   type ScannedNode,
 } from "@/feature/opcua/task/types";
@@ -40,10 +39,12 @@ import { Device as PlatformDevice } from "@/platform/device";
 import { Selector } from "@/platform/selector";
 import { Task } from "@/platform/task";
 
+const path = deep.path<Task.Values<EventSchemas>>();
+
 const Properties = (): ReactElement => <Select />;
 
 interface NodeListProps {
-  path: string;
+  path: deep.Path<string[]>;
   title: string;
   /** The class of the nodes that the list takes from the browser. */
   nodeClass: string;
@@ -61,7 +62,7 @@ const NodeList = ({
 }: NodeListProps): ReactElement => {
   const isPreview = Task.useIsPreview();
   const { set } = PForm.useContext();
-  const nodes = PForm.useFieldValue<string[]>(path);
+  const nodes = PForm.useFieldValue(path);
   const accepts = (item: Haul.Item): item is HaulItem =>
     isHaulItem(item) && item.data.nodeClass === nodeClass;
   const haulProps = Haul.useDrop({
@@ -123,8 +124,6 @@ const NodeList = ({
   );
 };
 
-const FIELDS_PATH = "config.fields";
-
 const BROWSE_PATH_INPUT_PROPS = { placeholder: "2:Level" } as const;
 
 interface FieldItemProps {
@@ -133,15 +132,15 @@ interface FieldItemProps {
 
 const FieldItem = ({ index }: FieldItemProps): ReactElement | null => {
   const isPreview = Task.useIsPreview();
-  const path = `${FIELDS_PATH}.${index}`;
-  const field = PForm.useFieldValue<EventField>(path, { optional: true });
-  const { remove } = PForm.useFieldListUtils<string, EventField>(FIELDS_PATH);
+  const fieldPath = path.config.fields[index];
+  const field = PForm.useFieldValue(fieldPath, { optional: true });
+  const { remove } = PForm.useFieldListUtils(path.config.fields);
   if (field == null) return null;
   return (
     <Flex.Box x align="start" gap="small">
-      <PForm.TextField path={`${path}.name`} label="Name" grow />
+      <PForm.TextField path={fieldPath.name} label="Name" grow />
       <PForm.TextField
-        path={`${path}.browsePath`}
+        path={fieldPath.browsePath}
         label="Browse path"
         grow
         inputProps={BROWSE_PATH_INPUT_PROPS}
@@ -164,7 +163,7 @@ const FieldItem = ({ index }: FieldItemProps): ReactElement | null => {
 
 const Fields = (): ReactElement => {
   const isPreview = Task.useIsPreview();
-  const { data, push } = PForm.useFieldList<string, EventField>(FIELDS_PATH);
+  const { data, push } = PForm.useFieldList(path.config.fields);
   const handleAdd = () => push({ key: id.create(), name: "", browsePath: "" });
   return (
     <Flex.Box y empty className={CSS.BE("opc-event", "fields")}>
@@ -220,14 +219,14 @@ const Content = ({ device }: PlatformDevice.TaskFormContentProps<Device>) => {
       {!isPreview && <Browser device={device} roots={BROWSER_ROOTS} />}
       <Flex.Box y empty grow className={CSS.B("opc-event")}>
         <NodeList
-          path="config.notifiers"
+          path={path.config.notifiers}
           title="Sources"
           nodeClass="Object"
           icon={<Icon.Group />}
           emptyContent="Records the events of the Server object. Drag objects from the browser to record their events instead."
         />
         <NodeList
-          path="config.eventTypes"
+          path={path.config.eventTypes}
           title="Event types"
           nodeClass="ObjectType"
           icon={<Icon.Type />}
