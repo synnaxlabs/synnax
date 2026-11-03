@@ -13,6 +13,7 @@ import { lineplot, NotFoundError, ranger } from "@synnaxlabs/client";
 import { Component } from "@synnaxlabs/lyra/component";
 import { Dialog } from "@synnaxlabs/lyra/dialog";
 import { Flex } from "@synnaxlabs/lyra/flex";
+import { useNow } from "@synnaxlabs/lyra/hooks";
 import { Icon } from "@synnaxlabs/lyra/icon";
 import { Input } from "@synnaxlabs/lyra/input";
 import { List } from "@synnaxlabs/lyra/list";
@@ -27,8 +28,7 @@ import {
   dynamicWindow,
   resolveWindow,
   type StaticWindow,
-  staticWindow,
-  TimeRange,
+  type TimeRange,
   TimeSpan,
   TimeStamp,
 } from "@synnaxlabs/x";
@@ -135,54 +135,56 @@ const KeyTag = ({ range: { key } }: KeyTagProps): ReactElement => {
   );
 };
 
+// About ten steps of the resolution fit in the span, so a 15 minute window shows
+// minutes and a 30 second window shows seconds.
+const RESOLUTIONS = [
+  TimeSpan.HOUR,
+  TimeSpan.MINUTE,
+  TimeSpan.SECOND,
+  TimeSpan.MILLISECOND,
+];
+
+const resolutionOf = (span: TimeSpan): TimeSpan | undefined =>
+  RESOLUTIONS.find((r) => r.valueOf() * 10n <= span.valueOf());
+
+const formatWindow = (timeRange: TimeRange, now: TimeStamp): string => {
+  const { start, end } = timeRange;
+  const resolution = resolutionOf(timeRange.span);
+  const startDay = start.isSameDay(now, "local")
+    ? ""
+    : `${Telem.Text.describeDay(start, now)} `;
+  const endDay = end.isSameDay(start, "local")
+    ? ""
+    : `${Telem.Text.describeDay(end, now)} `;
+  const startTime = Telem.Text.formatTime(start, resolution);
+  const endTime = Telem.Text.formatTime(end, resolution);
+  return `${startDay}${startTime} → ${endDay}${endTime}`;
+};
+
+const formatExact = ({ start, end }: TimeRange): string =>
+  `${start.toPreciseString("local")} → ${end.toPreciseString("local")}`;
+
 interface StaticTagProps {
   itemKey: string;
   window: StaticWindow;
   name?: string;
-  onChange: (timeRange: TimeRange) => void;
 }
 
-const StaticTag = ({
-  itemKey,
-  window,
-  name,
-  onChange,
-}: StaticTagProps): ReactElement => {
+const StaticTag = ({ itemKey, window, name }: StaticTagProps): ReactElement => {
   const { onSelect } = Select.useItemState(itemKey);
   const timeRange = resolveWindow(window, TimeStamp.now());
-  const start = timeRange.start.nanoseconds;
-  const end = timeRange.end.nanoseconds;
-  const handleChange = (next: TimeRange) => {
-    if (next.isValid && !next.span.isZero) onChange(next);
-  };
+  // The day prefix changes at midnight.
+  const now = useNow((now) => Telem.Text.nextMidnight(now));
+  const exact = formatExact(timeRange);
   return (
     <Tag.Tag
       icon={<Ranger.StageIcon timeRange={timeRange} />}
       onClose={onSelect}
       level="small"
       size="small"
-      tooltip={name}
+      tooltip={name == null ? exact : `${name}: ${exact}`}
     >
-      <Input.DateTime
-        value={start}
-        onChange={(next) => handleChange(new TimeRange(next, timeRange.end))}
-        aria-label="Start"
-        variant="text"
-        size="small"
-        bound="start"
-        anchors={{ end }}
-      />
-      <Icon.Arrow.Right />
-      <Input.DateTime
-        value={end}
-        onChange={(next) => handleChange(new TimeRange(timeRange.start, next))}
-        aria-label="End"
-        variant="text"
-        size="small"
-        bound="end"
-        anchors={{ start }}
-        sharedDay={start}
-      />
+      {formatWindow(timeRange, now)}
     </Tag.Tag>
   );
 };
@@ -293,8 +295,6 @@ export const RangeSelect = (props: RangeSelectProps): ReactElement => {
   const span = rolling == null ? undefined : new TimeSpan(rolling.window.timeSpan);
   const setRanges = (ranges: ranger.Ref[]) =>
     dispatch(lineplot.setRanges({ ranges: dedupe(ranges) }));
-  const replace = (prev: ranger.Ref, next: ranger.Ref) =>
-    setRanges(refs.map((r) => (r === prev ? next : r)));
   const setRolling = (next?: TimeSpan) => {
     if (next == null) return setRanges(refs.filter((r) => !isRolling(r)));
     if (rolling == null) return setRanges([...refs, rollingRef(next)]);
@@ -330,9 +330,6 @@ export const RangeSelect = (props: RangeSelectProps): ReactElement => {
         itemKey={itemKey}
         window={ref.window}
         name={state?.variant === "static" ? state.name : undefined}
-        onChange={(timeRange) =>
-          replace(ref, { variant: "window", window: staticWindow(timeRange) })
-        }
       />
     );
   };

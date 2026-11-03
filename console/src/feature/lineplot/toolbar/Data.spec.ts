@@ -77,13 +77,6 @@ const expectRanges = async (key: string, ranges: ranger.Ref[]): Promise<void> =>
     expect((await reader.lineplots.retrieve(key)).ranges).toEqual(ranges),
   );
 
-const editTime = (label: string, text: string): void => {
-  fireEvent.click(screen.getByLabelText(label));
-  const field = screen.getByRole("textbox");
-  fireEvent.change(field, { target: { value: text } });
-  fireEvent.keyDown(field, { key: "Enter" });
-};
-
 const local = (hour: number): TimeStamp =>
   new TimeStamp(new Date(2026, 7, 23, hour, 0));
 
@@ -277,26 +270,35 @@ describe("lineplot/toolbar/Data", () => {
       expect(screen.getByLabelText("To do")).toBeDefined();
     });
 
-    it("edits the start from its tag", async () => {
-      const { key } = await renderData([fixed(14, 16)]);
-      editTime("Start", "2026-08-23 15:00");
-      await expectRanges(key, [fixed(15, 16)]);
+    it("labels its tag with the times, read-only", async () => {
+      await renderData([fixed(14, 16)]);
+      expect(await screen.findByText("Aug 23 14:00 → 16:00")).toBeDefined();
+      expect(screen.queryByLabelText("Start")).toBeNull();
     });
 
-    it("edits the end from its tag", async () => {
-      const { key } = await renderData([fixed(14, 16)]);
-      editTime("End", "2026-08-23 17:00");
-      await expectRanges(key, [fixed(14, 17)]);
+    it("shows seconds and no day for a short window today", async () => {
+      const noon = new Date();
+      noon.setHours(12, 0, 5, 0);
+      const start = new TimeStamp(noon);
+      await renderData([
+        {
+          variant: "window",
+          window: staticWindow(new TimeRange(start, start.add(TimeSpan.seconds(30)))),
+        },
+      ]);
+      expect(await screen.findByText("12:00:05 → 12:00:35")).toBeDefined();
     });
 
-    it("rejects a bound that would cross the other", async () => {
-      const { key } = await renderData([fixed(14, 16)]);
-      editTime("Start", "2026-08-23 17:00");
-      editTime("End", "2026-08-23 18:00");
-      await expectRanges(key, [fixed(14, 18)]);
-      editTime("End", "2026-08-23 13:00");
-      editTime("Start", "2026-08-23 15:00");
-      await expectRanges(key, [fixed(15, 18)]);
+    it("shows the end's day when the window crosses midnight", async () => {
+      await renderData([
+        {
+          variant: "window",
+          window: staticWindow(
+            new TimeRange(local(22), new TimeStamp(new Date(2026, 7, 24, 2, 0))),
+          ),
+        },
+      ]);
+      expect(await screen.findByText("Aug 23 22:00 → Aug 24 02:00")).toBeDefined();
     });
   });
 
@@ -307,7 +309,7 @@ describe("lineplot/toolbar/Data", () => {
         window: staticWindow(new TimeRange(1_000_000_000, 2_000_000_000)),
       },
     ]);
-    fireEvent.click(await screen.findByRole("button", { name: "Remove" }));
+    fireEvent.click(await screen.findByRole("button", { name: /^Remove / }));
     await expectRanges(key, []);
   });
 
