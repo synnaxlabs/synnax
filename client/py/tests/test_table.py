@@ -12,7 +12,14 @@ from uuid import uuid4
 import pytest
 from pydantic import ValidationError
 
+import synnax as sy
 from synnax import table
+from synnax.exceptions import NotFoundError
+
+
+@pytest.fixture
+def project(client: sy.Synnax) -> sy.Project:
+    return client.projects.create(name="Table Project")
 
 
 class TestTable:
@@ -53,3 +60,67 @@ class TestTable:
         assert table.ontology_id(key).key == str(key)
         t = table.Table(name="Readings")
         assert hash(t) == hash(t.key)
+
+
+@pytest.mark.table
+class TestClient:
+    def test_create(self, client: sy.Synnax, project: sy.Project) -> None:
+        """Should create an empty table from a name."""
+        t = client.tables.create(project.key, name="Test Table")
+        assert t.name == "Test Table"
+        assert t.rows == []
+
+    def test_create_from_object(self, client: sy.Synnax, project: sy.Project) -> None:
+        """Should persist the rows, columns, and cells of a table."""
+        row = table.Row(cells=["a", "b"])
+        t = client.tables.create(
+            project.key,
+            table.Table(
+                name="Full Table",
+                rows=[row],
+                columns=[table.Column(), table.Column(size=120)],
+                cells={
+                    "a": table.TextCellConfig(value="Pressure"),
+                    "b": table.ValueCellConfig(units="psi"),
+                },
+            ),
+        )
+        retrieved = client.tables.retrieve(key=t.key)
+        assert retrieved.rows == [row]
+        assert retrieved.columns[1].size == 120
+        assert retrieved.cells["a"] == table.TextCellConfig(value="Pressure")
+        assert retrieved.cells["b"] == table.ValueCellConfig(units="psi")
+
+    def test_create_multiple(self, client: sy.Synnax, project: sy.Project) -> None:
+        """Should create multiple tables."""
+        tables = client.tables.create(
+            project.key,
+            [table.Table(name="Multi 1"), table.Table(name="Multi 2")],
+        )
+        assert [t.name for t in tables] == ["Multi 1", "Multi 2"]
+
+    def test_retrieve_by_keys(self, client: sy.Synnax, project: sy.Project) -> None:
+        """Should retrieve multiple tables by key."""
+        t1 = client.tables.create(project.key, name="Table A")
+        t2 = client.tables.create(project.key, name="Table B")
+        tables = client.tables.retrieve(keys=[t1.key, t2.key])
+        assert {t.key for t in tables} == {t1.key, t2.key}
+
+    def test_retrieve_missing_raises(self, client: sy.Synnax) -> None:
+        """Should raise NotFoundError when a table does not exist."""
+        with pytest.raises(NotFoundError):
+            client.tables.retrieve(key=uuid4())
+
+    def test_rename(self, client: sy.Synnax, project: sy.Project) -> None:
+        """Should rename a table."""
+        t = client.tables.create(project.key, name="Before Rename")
+        client.tables.rename(t.key, "After Rename")
+        assert client.tables.retrieve(key=t.key).name == "After Rename"
+
+    def test_delete(self, client: sy.Synnax, project: sy.Project) -> None:
+        """Should delete multiple tables."""
+        t1 = client.tables.create(project.key, name="Delete 1")
+        t2 = client.tables.create(project.key, name="Delete 2")
+        client.tables.delete([t1.key, t2.key])
+        with pytest.raises(NotFoundError):
+            client.tables.retrieve(keys=[t1.key, t2.key])
