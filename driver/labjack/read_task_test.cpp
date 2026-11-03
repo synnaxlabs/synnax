@@ -7,7 +7,11 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
+#include <map>
+#include <memory>
+#include <string>
 #include <utility>
+#include <vector>
 
 #include "gtest/gtest.h"
 
@@ -92,6 +96,198 @@ TEST(TestReadChannelParse, testTCChan) {
     ASSERT_EQ(tc_chan->cjc_addr, LJM_TEMPERATURE_DEVICE_K_ADDRESS);
     ASSERT_EQ(tc_chan->cjc_slope, 1);
     ASSERT_EQ(tc_chan->cjc_offset, 0);
+}
+
+/// @brief parses a K-type thermocouple channel in Kelvin on the port.
+std::unique_ptr<InputChan> parse_thermocouple(
+    const std::string &port,
+    const std::string &cjc_source,
+    const int neg_chan = 199
+) {
+    const x::json::json cfg{
+        {"port", port},
+        {"channel", 1},
+        {"type", "thermocouple"},
+        {"thermocouple_type", "K"},
+        {"neg_chan", neg_chan},
+        {"units", "K"},
+        {"cjc_source", cjc_source},
+        {"cjc_slope", 1},
+        {"cjc_offset", 0}
+    };
+    auto p = x::json::Parser(cfg);
+    auto chan = parse_input_chan(p);
+    EXPECT_FALSE(p.error()) << p.error();
+    return chan;
+}
+
+/// @brief parses an analog channel on AIN0 with the max voltage.
+std::unique_ptr<InputChan> parse_analog(const double range) {
+    const x::json::json cfg{
+        {"port", "AIN0"},
+        {"channel", 1},
+        {"type", "analog"},
+        {"range", range},
+        {"neg_chan", 1},
+    };
+    auto p = x::json::Parser(cfg);
+    auto chan = parse_input_chan(p);
+    EXPECT_FALSE(p.error()) << p.error();
+    return chan;
+}
+
+/// @brief it should reject an analog channel with a max voltage of zero.
+TEST(TestReadChannelParse, testAIChanZeroRange) {
+    const x::json::json cfg{
+        {"port", "AIN0"},
+        {"channel", 1},
+        {"type", "analog"},
+        {"range", 0},
+    };
+    auto p = x::json::Parser(cfg);
+    parse_input_chan(p);
+    ASSERT_OCCURRED_AS(p.error(), x::errors::VALIDATION);
+    ASSERT_EQ(p.errors->size(), 1);
+    EXPECT_EQ(p.errors->at(0)["path"], "range");
+    EXPECT_EQ(p.errors->at(0)["message"], "Max voltage must be greater than 0");
+}
+
+/// @brief it should resolve an AIN CJC source to the Modbus address of the AIN.
+TEST(TestReadChannelParse, testTCChanAINCJCSource) {
+    const auto chan = parse_thermocouple("AIN0", "AIN2");
+    const auto *const tc_chan = dynamic_cast<ThermocoupleChan *>(chan.get());
+    ASSERT_NE(tc_chan, nullptr);
+    EXPECT_EQ(tc_chan->cjc_addr, 4);
+}
+
+/// @brief it should reject an AIN CJC source without a valid AIN index.
+TEST(TestReadChannelParse, testTCChanInvalidAINCJCSource) {
+    const x::json::json cfg{
+        {"port", "AIN0"},
+        {"channel", 1},
+        {"type", "thermocouple"},
+        {"cjc_source", "AINx"},
+    };
+    auto p = x::json::Parser(cfg);
+    parse_input_chan(p);
+    ASSERT_OCCURRED_AS(p.error(), x::errors::VALIDATION);
+    ASSERT_EQ(p.errors->size(), 1);
+    EXPECT_EQ(p.errors->at(0)["path"], "cjc_source");
+    EXPECT_EQ(p.errors->at(0)["message"], "Invalid CJC source: AINx");
+}
+
+/// @brief it should set up the thermocouple extended feature on a T8, with no
+/// negative channel write.
+TEST(TestReadChannelApply, testT8Thermocouple) {
+    const auto chan = parse_thermocouple("AIN3", "TEMPERATURE_DEVICE_K");
+    const auto dev = std::make_shared<device::Mock>();
+    ASSERT_NIL(chan->apply(dev, T8));
+    const std::map<int, double> expected{
+        {41503, 0},
+        {9006, 22},
+        {9306, LJM_KELVIN},
+        {9606, LJM_TEMPERATURE_DEVICE_K_ADDRESS},
+        {10206, 1},
+        {10506, 0},
+    };
+    EXPECT_EQ(dev->written_addrs(), expected);
+}
+
+/// @brief it should set up the negative channel and the thermocouple extended
+/// feature on a T7.
+TEST(TestReadChannelApply, testT7Thermocouple) {
+    const auto chan = parse_thermocouple("AIN2", "TEMPERATURE_DEVICE_K", 3);
+    const auto dev = std::make_shared<device::Mock>();
+    ASSERT_NIL(chan->apply(dev, T7));
+    const std::map<int, double> expected{
+        {41502, 0},
+        {41002, 3},
+        {9004, 22},
+        {9304, LJM_KELVIN},
+        {9604, LJM_TEMPERATURE_DEVICE_K_ADDRESS},
+        {10204, 1},
+        {10504, 0},
+    };
+    EXPECT_EQ(dev->written_addrs(), expected);
+}
+
+/// @brief it should refuse the air temperature CJC source on a T8, which has no air
+/// temperature sensor.
+TEST(TestReadChannelApply, testT8AirCJC) {
+    const auto chan = parse_thermocouple("AIN1", "TEMPERATURE_AIR_K");
+    const auto dev = std::make_shared<device::Mock>();
+    const auto err = chan->apply(dev, T8);
+    ASSERT_OCCURRED_AS(err, x::errors::VALIDATION);
+    EXPECT_EQ(
+        err.data,
+        "AIN1 uses the air temperature as its CJC source, which the T8 does not have. "
+        "Select another CJC source."
+    );
+    EXPECT_TRUE(dev->written_addrs().empty());
+}
+
+/// @brief it should refuse a thermocouple on a T4, which has no thermocouple inputs.
+TEST(TestReadChannelApply, testT4Thermocouple) {
+    const auto chan = parse_thermocouple("AIN2", "TEMPERATURE_DEVICE_K");
+    const auto dev = std::make_shared<device::Mock>();
+    const auto err = chan->apply(dev, T4);
+    ASSERT_OCCURRED_AS(err, x::errors::VALIDATION);
+    EXPECT_EQ(
+        err.data,
+        "AIN2 is a thermocouple channel, but the T4 does not support thermocouples."
+    );
+    EXPECT_TRUE(dev->written_addrs().empty());
+}
+
+/// @brief it should select the smallest T8 range that covers the max voltage, with
+/// no negative channel write.
+TEST(TestReadChannelApply, testT8AnalogRange) {
+    for (const auto &[max_voltage, range]:
+         std::vector<std::pair<double, double>>{{5, 9.6}, {10, 11}, {0.075, 0.075}}) {
+        const auto chan = parse_analog(max_voltage);
+        const auto dev = std::make_shared<device::Mock>();
+        ASSERT_NIL(chan->apply(dev, T8));
+        const std::map<std::string, double> expected{
+            {"AIN0_RESOLUTION_INDEX", 0},
+            {"AIN0_RANGE", range},
+        };
+        EXPECT_EQ(dev->written_names(), expected);
+    }
+}
+
+/// @brief it should select the smallest T7 range that covers the max voltage, and
+/// write the negative channel.
+TEST(TestReadChannelApply, testT7AnalogRange) {
+    const auto chan = parse_analog(0.05);
+    const auto dev = std::make_shared<device::Mock>();
+    ASSERT_NIL(chan->apply(dev, T7));
+    const std::map<std::string, double> expected{
+        {"AIN0_RESOLUTION_INDEX", 0},
+        {"AIN0_RANGE", 0.1},
+        {"AIN0_NEGATIVE_CH", 1},
+    };
+    EXPECT_EQ(dev->written_names(), expected);
+}
+
+/// @brief it should leave the fixed T4 ranges alone.
+TEST(TestReadChannelApply, testT4AnalogRange) {
+    const auto chan = parse_analog(10);
+    const auto dev = std::make_shared<device::Mock>();
+    ASSERT_NIL(chan->apply(dev, T4));
+    const std::map<std::string, double> expected{{"AIN0_RESOLUTION_INDEX", 0}};
+    EXPECT_EQ(dev->written_names(), expected);
+}
+
+/// @brief it should refuse a max voltage above the largest range of the device.
+TEST(TestReadChannelApply, testAnalogRangeAboveDeviceMax) {
+    const auto chan = parse_analog(12);
+    const auto dev = std::make_shared<device::Mock>();
+    const auto err = chan->apply(dev, T8);
+    ASSERT_OCCURRED_AS(err, x::errors::VALIDATION);
+    EXPECT_EQ(
+        err.data,
+        "AIN0 has a max voltage of 12 V, but the largest range of the device is ±11 V."
+    );
 }
 
 /// @brief it should reject invalid channel type in configuration.
@@ -184,7 +380,7 @@ x::json::json basic_read_task_config() {
                {"key", "ain6"},
                {"channel", 0},
                {"type", "analog"},
-               {"range", 0},
+               {"range", 10},
                {"scale", {{"type", "none"}}}}}
          )}
     };
@@ -199,7 +395,7 @@ TEST(TestReadTaskConfigParse, testBasicReadTaskConfigParse) {
         .rack = rack.key,
         .location = "dev1",
         .make = "labjack",
-        .model = "T7",
+        .model = T7,
         .name = "my_device",
     };
     ASSERT_NIL(client->devices.create(dev));
@@ -261,7 +457,7 @@ TEST(TestReadTaskConfigParse, testBasicReadTaskConfigParse) {
     ASSERT_EQ(ai_chan->port, "AIN6");
     ASSERT_EQ(ai_chan->enabled, true);
     ASSERT_EQ(ai_chan->synnax_key, ai_ch.key);
-    ASSERT_EQ(ai_chan->range, 0);
+    ASSERT_EQ(ai_chan->range, 10);
 }
 
 /// @brief it should reject invalid channel type in read task configuration.
@@ -273,7 +469,7 @@ TEST(TestReadTaskConfigParse, testInvalidChannelTypeInConfig) {
         .rack = rack.key,
         .location = "dev1",
         .make = "labjack",
-        .model = "T7",
+        .model = T7,
         .name = "my_device",
     };
     ASSERT_NIL(client->devices.create(dev));
@@ -311,7 +507,7 @@ TEST(TestReadTaskConfigParse, testLabJackDriverSetsAutoCommitTrue) {
         .rack = rack.key,
         .location = "dev1",
         .make = "labjack",
-        .model = "T7",
+        .model = T7,
         .name = "test_device",
     };
     ASSERT_NIL(client->devices.create(dev));
@@ -357,7 +553,7 @@ protected:
             .rack = rack.key,
             .location = "dev1",
             .make = "labjack",
-            .model = "T7",
+            .model = T7,
             .name = "my_device",
         };
         ASSERT_NIL(client->devices.create(dev));

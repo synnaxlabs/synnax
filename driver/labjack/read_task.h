@@ -9,8 +9,11 @@
 
 #pragma once
 
+#include <algorithm>
 #include <charconv>
+#include <format>
 #include <map>
+#include <optional>
 #include <set>
 #include <string>
 #include <utility>
@@ -86,26 +89,29 @@ inline long resolve_tc_type(x::json::Parser &parser, const std::string &tc_type)
     return v->second;
 }
 
+/// @brief returns the AIN index a port names, e.g. 3 for "AIN3", or nullopt when the
+/// port is not an AIN port.
+inline std::optional<int> ain_index(const std::string &port) {
+    if (!port.starts_with(AIN_PREFIX)) return std::nullopt;
+    int index = 0;
+    const char *last = port.data() + port.size();
+    const auto res = std::from_chars(port.data() + AIN_PREFIX.size(), last, index);
+    if (res.ec != std::errc{} || res.ptr != last) return std::nullopt;
+    return index;
+}
+
 /// @brief resolves the AIN index a port names, e.g. 3 for "AIN3".
 inline int resolve_ain_index(x::json::Parser &parser, const std::string &port) {
-    if (port.starts_with(AIN_PREFIX)) {
-        int index = 0;
-        const char *last = port.data() + port.size();
-        const auto res = std::from_chars(port.data() + AIN_PREFIX.size(), last, index);
-        if (res.ec == std::errc{} && res.ptr == last) return index;
-    }
+    if (const auto index = ain_index(port)) return *index;
     parser.field_err("port", "Invalid port: " + port);
     return 0;
 }
 
-/// @brief resolves the CJC modbus address for the configured CJC source.
+/// @brief resolves the CJC Modbus address for the configured CJC source.
 inline int resolve_cjc_addr(x::json::Parser &parser, const std::string &cjc_source) {
     if (cjc_source == DEVICE_CJC_SOURCE) return LJM_TEMPERATURE_DEVICE_K_ADDRESS;
     if (cjc_source == AIR_CJC_SOURCE) return LJM_TEMPERATURE_AIR_K_ADDRESS;
-    if (cjc_source.contains(AIN_PREFIX)) {
-        const int port_num = std::stoi(cjc_source.substr(3));
-        return port_num * 2;
-    }
+    if (const auto index = ain_index(cjc_source)) return *index * 2;
     parser.field_err("cjc_source", "Invalid CJC source: " + cjc_source);
     return 0;
 }
@@ -165,7 +171,8 @@ struct ThermocoupleChan final : InputChan {
     ///@brief the AIN port of the negative lead on T7 devices. 199 is single ended.
     const int neg_chan;
 
-    ///@brief  Modbus Address to read the CJC sensor
+    /// @brief the Modbus address of the CJC sensor. On a T8, TEMPERATURE_DEVICE_K
+    /// selects the sensor at the thermocouple's own terminal.
     const int cjc_addr;
 
     ///@brief slope of CJC Voltage to temperature conversion (Kelvin/Volts).
@@ -209,69 +216,88 @@ struct ThermocoupleChan final : InputChan {
         const std::shared_ptr<device::Device> &ljm,
         const std::string &device_type
     ) override {
+        if (device_type == T4)
+            return x::errors::Error(
+                x::errors::VALIDATION,
+                AIN_PREFIX + std::to_string(this->pos_chan) +
+                    " is a thermocouple channel, but the T4 does not support "
+                    "thermocouples."
+            );
+        if (device_type == T8 && this->cjc_addr == LJM_TEMPERATURE_AIR_K_ADDRESS)
+            return x::errors::Error(
+                x::errors::VALIDATION,
+                AIN_PREFIX + std::to_string(this->pos_chan) +
+                    " uses the air temperature as its CJC source, which the T8 does "
+                    "not have. Select another CJC source."
+            );
         if (const auto err = ljm->e_write_addr(41500 + this->pos_chan, LJM_UINT16, 0))
             return err;
-        if (device_type == T7) {
+        if (device_type == T7)
             if (const auto err = ljm->e_write_addr(
                     41000 + this->pos_chan,
                     LJM_UINT16,
                     this->neg_chan
                 ))
                 return err;
-            // writing 5 frames of data to modbus registers: tc type, cjc address,
-            // slope, offset and units
-            enum { NUM_FRAMES = 5 };
-            int aAddresses[NUM_FRAMES];
-            int aTypes[NUM_FRAMES];
-            double aValues[NUM_FRAMES];
-            int err_addr = INITIAL_ERR_ADDRESS;
+        // writing 5 frames of data to modbus registers: tc type, cjc address,
+        // slope, offset and units
+        enum { NUM_FRAMES = 5 };
+        int aAddresses[NUM_FRAMES];
+        int aTypes[NUM_FRAMES];
+        double aValues[NUM_FRAMES];
+        int err_addr = INITIAL_ERR_ADDRESS;
 
-            // For setting up the AIN#_EF_INDEX (thermocouple type)
-            aAddresses[0] = 9000 + 2 * pos_chan;
-            aTypes[0] = LJM_UINT32;
-            aValues[0] = TC_INDEX_LUT[this->type - 6001];
+        // For setting up the AIN#_EF_INDEX (thermocouple type)
+        aAddresses[0] = 9000 + 2 * pos_chan;
+        aTypes[0] = LJM_UINT32;
+        aValues[0] = TC_INDEX_LUT[this->type - 6001];
 
-            // For setting up the AIN#_EF_CONFIG_A (temperature units)
-            aAddresses[1] = 9300 + 2 * this->pos_chan;
-            aTypes[1] = LJM_UINT32;
-            aValues[1] = this->units;
+        // For setting up the AIN#_EF_CONFIG_A (temperature units)
+        aAddresses[1] = 9300 + 2 * this->pos_chan;
+        aTypes[1] = LJM_UINT32;
+        aValues[1] = this->units;
 
-            // For setting up the AIN#_EF_CONFIG_B (CJC address)
-            aAddresses[2] = 9600 + 2 * this->pos_chan;
-            aTypes[2] = LJM_UINT32;
-            aValues[2] = this->cjc_addr;
+        // For setting up the AIN#_EF_CONFIG_B (CJC address)
+        aAddresses[2] = 9600 + 2 * this->pos_chan;
+        aTypes[2] = LJM_UINT32;
+        aValues[2] = this->cjc_addr;
 
-            // For setting up the AIN#_EF_CONFIG_D (CJC slope)
-            aAddresses[3] = 10200 + 2 * this->pos_chan;
-            aTypes[3] = LJM_FLOAT32;
-            aValues[3] = this->cjc_slope;
+        // For setting up the AIN#_EF_CONFIG_D (CJC slope)
+        aAddresses[3] = 10200 + 2 * this->pos_chan;
+        aTypes[3] = LJM_FLOAT32;
+        aValues[3] = this->cjc_slope;
 
-            // For setting up the AIN#_EF_CONFIG_E (CJC offset)
-            aAddresses[4] = 10500 + 2 * this->pos_chan;
-            aTypes[4] = LJM_FLOAT32;
-            aValues[4] = this->cjc_offset;
+        // For setting up the AIN#_EF_CONFIG_E (CJC offset)
+        aAddresses[4] = 10500 + 2 * this->pos_chan;
+        aTypes[4] = LJM_FLOAT32;
+        aValues[4] = this->cjc_offset;
 
-            return ljm
-                ->e_write_addrs(NUM_FRAMES, aAddresses, aTypes, aValues, &err_addr);
-        }
-        return x::errors::NIL;
+        return ljm->e_write_addrs(NUM_FRAMES, aAddresses, aTypes, aValues, &err_addr);
     }
+};
+
+/// @brief the analog input ranges of each model with selectable ranges, in volts,
+/// smallest first. A range of r reads from -r to +r.
+const std::map<std::string, std::vector<double>> AI_RANGES = {
+    {T7, {0.01, 0.1, 1, 10}},
+    {T8, {0.018, 0.036, 0.075, 0.15, 0.3, 0.6, 1.2, 2.4, 4.8, 9.6, 11}},
 };
 
 /// @brief configuration for an analog input channel.
 struct AIChan final : InputChan {
-    /// @brief the voltage range for the channel, starting at 0 and ending at range.
+    /// @brief the largest voltage magnitude the channel reads. The channel uses the
+    /// smallest range of the device that covers it.
     const double range;
     /// @brief the negative channel for differential readings. 199 is single ended.
     const int neg_chan;
     /// @brief the scale applied to raw samples after acquisition.
     const ::synnax::labjack::Scale scale_cfg;
 
-    explicit AIChan(const ::synnax::labjack::AnalogReadChannel &cfg):
-        InputChan(cfg),
-        range(cfg.range),
-        neg_chan(cfg.neg_chan),
-        scale_cfg(cfg.scale) {}
+    AIChan(const ::synnax::labjack::AnalogReadChannel &cfg, x::json::Parser &parser):
+        InputChan(cfg), range(cfg.range), neg_chan(cfg.neg_chan), scale_cfg(cfg.scale) {
+        if (this->range <= 0)
+            parser.field_err("range", "Max voltage must be greater than 0");
+    }
 
     [[nodiscard]] const ::synnax::labjack::Scale *scale() const override {
         return &this->scale_cfg;
@@ -286,9 +312,27 @@ struct AIChan final : InputChan {
                 0
             ))
             return err;
-        if (device_type == T7 || device_type == T8)
-            if (const auto err = dev->e_write_name((this->port + "_RANGE").c_str(), 0))
+        if (const auto ranges = AI_RANGES.find(device_type);
+            ranges != AI_RANGES.end()) {
+            const auto &options = ranges->second;
+            const auto range = std::ranges::lower_bound(options, this->range);
+            if (range == options.end())
+                return x::errors::Error(
+                    x::errors::VALIDATION,
+                    std::format(
+                        "{} has a max voltage of {} V, but the largest range of the "
+                        "device is ±{} V.",
+                        this->port,
+                        this->range,
+                        options.back()
+                    )
+                );
+            if (const auto err = dev->e_write_name(
+                    (this->port + "_RANGE").c_str(),
+                    *range
+                ))
                 return err;
+        }
         if (device_type == T7)
             if (const auto err = dev->e_write_name(
                     (this->port + "_NEGATIVE_CH").c_str(),
@@ -316,7 +360,8 @@ inline std::unique_ptr<InputChan> parse_input_chan(x::json::Parser &cfg) {
         );
     if (type == "analog")
         return std::make_unique<AIChan>(
-            ::synnax::labjack::AnalogReadChannel::parse(cfg)
+            ::synnax::labjack::AnalogReadChannel::parse(cfg),
+            cfg
         );
     if (type == "digital")
         return std::make_unique<DIChan>(

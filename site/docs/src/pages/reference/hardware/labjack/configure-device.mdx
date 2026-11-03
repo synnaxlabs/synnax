@@ -14,9 +14,9 @@ import { Problem } from "@/components/problem";
 import { mdxOverrides } from "@/components/mdxOverrides";
 export const components = mdxOverrides;
 
-The Driver connects to [LabJack](https://labjack.com/) T4 and T7 devices over USB,
+The Driver connects to [LabJack](https://labjack.com/) T4, T7, and T8 devices over USB,
 Ethernet, or Wi-Fi. It finds them with the LabJack LJM library. Before a task can use a
-device, you configure it. The T8 is not supported yet.
+device, you configure it.
 
 <Divider.Divider x />
 
@@ -44,6 +44,10 @@ device on the network can take about a minute.
 
 The Console also shows the notification "New LJM_dtT7 connected", with a **Configure**
 button.
+
+If the Driver does not find a device on the network, for example because the device is
+on another subnet, add the IP address of the device to the LJM
+[`ljm_specific_ips.config`](https://support.labjack.com/docs/ljm-specific-ips) file.
 
 <Divider.Divider x />
 

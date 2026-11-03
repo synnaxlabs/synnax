@@ -47,6 +47,7 @@ public:
     [[nodiscard]] x::errors::Error
     e_write_addr(int addr, int type, double value) const override {
         if (should_fail_) return x::errors::Error("mock failure");
+        this->addr_writes[addr] = value;
         return x::errors::NIL;
     }
 
@@ -58,6 +59,8 @@ public:
         int *error_addrs
     ) const override {
         if (should_fail_) return x::errors::Error("mock failure");
+        for (size_t i = 0; i < num_frames; ++i)
+            this->addr_writes[addrs[i]] = values[i];
         return x::errors::NIL;
     }
 
@@ -83,6 +86,7 @@ public:
     e_write_name(const char *name, double value) const override {
         if (should_fail_) return x::errors::Error("mock failure");
         ++this->name_writes;
+        this->name_values[name] = value;
         return x::errors::NIL;
     }
 
@@ -142,12 +146,22 @@ public:
     void set_should_fail(const bool should_fail) { should_fail_ = should_fail; }
     void set_scan_rate(const double rate) { requested_scan_rate_ = rate; }
     [[nodiscard]] size_t write_count() const { return this->name_writes; }
+    /// @brief the last value written to each register by name.
+    [[nodiscard]] const std::map<std::string, double> &written_names() const {
+        return this->name_values;
+    }
+    /// @brief the last value written to each register by address.
+    [[nodiscard]] const std::map<int, double> &written_addrs() const {
+        return this->addr_writes;
+    }
 
 private:
     bool should_fail_{false};
     double requested_scan_rate_{1000.0};
     mutable bool streaming = false;
     mutable size_t name_writes = 0;
+    mutable std::map<std::string, double> name_values;
+    mutable std::map<int, double> addr_writes;
 };
 
 /// @brief a Manager that serves scripted devices for tests instead of opening LJM
@@ -174,7 +188,34 @@ public:
     MockManager(MockManager &&) = delete;
     MockManager &operator=(MockManager &&) = delete;
 
-    x::errors::Error list_all(int, int, int *, int *, int *, int *, int *) override {
+    /// @brief a device that list_all() reports.
+    struct Listing {
+        int device_type = LJM_dtANY;
+        int connection_type = LJM_ctUSB;
+        int serial_number = 0;
+    };
+    /// @brief the devices that list_all() reports on their connection type.
+    std::vector<Listing> listed;
+
+    x::errors::Error list_all(
+        int,
+        const int conn_type,
+        int *num_found,
+        int *dev_types,
+        int *conn_types,
+        int *serial_numbers,
+        int *ip_addresses
+    ) override {
+        *num_found = 0;
+        for (const auto &listing: this->listed) {
+            if (conn_type != LJM_ctANY && listing.connection_type != conn_type)
+                continue;
+            dev_types[*num_found] = listing.device_type;
+            conn_types[*num_found] = listing.connection_type;
+            serial_numbers[*num_found] = listing.serial_number;
+            ip_addresses[*num_found] = 0;
+            ++*num_found;
+        }
         return x::errors::NIL;
     }
 

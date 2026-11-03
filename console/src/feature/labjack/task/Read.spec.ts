@@ -117,7 +117,7 @@ describe("Read", () => {
   });
 
   it("should show the AI detail form with its scale editor", async () => {
-    const dev = await createLabJackDevice(client);
+    const dev = await createLabJackDevice(client, { model: LabJack.Device.T7_MODEL });
     const draft = await createDraft(
       client,
       createConfig(dev.key, [createAnalogReadChannel("AIN0")]),
@@ -146,7 +146,7 @@ describe("Read", () => {
   });
 
   it("should show the thermocouple detail form for a TC channel", async () => {
-    const dev = await createLabJackDevice(client);
+    const dev = await createLabJackDevice(client, { model: LabJack.Device.T7_MODEL });
     const draft = await createDraft(
       client,
       createConfig(dev.key, [createThermocoupleReadChannel("AIN0")]),
@@ -163,6 +163,50 @@ describe("Read", () => {
     expect(screen.getByText("CJC offset")).toBeTruthy();
   });
 
+  it("should offer the terminal CJC sensor and no negative channel on a T8", async () => {
+    const dev = await createLabJackDevice(client, { model: LabJack.Device.T8_MODEL });
+    const draft = await createDraft(
+      client,
+      createConfig(dev.key, [createThermocoupleReadChannel("AIN0")]),
+    );
+    await renderRead({ client, taskKey: draft.key });
+    fireEvent.click(await findChannelListItem("AIN0"));
+    await waitFor(() => expect(screen.getByText("Thermocouple type")).toBeTruthy());
+    expect(screen.queryByText("Negative channel")).toBeNull();
+    fireEvent.click(await findDialogTriggerByText("Terminal"));
+    expect(await screen.findByText("AIN1")).toBeTruthy();
+    expect(screen.queryByText("Air")).toBeNull();
+  });
+
+  it("should offer ground and the port's pair as the negative channel on a T7", async () => {
+    const dev = await createLabJackDevice(client, { model: LabJack.Device.T7_MODEL });
+    const draft = await createDraft(
+      client,
+      createConfig(dev.key, [createAnalogReadChannel("AIN2")]),
+    );
+    await renderRead({ client, taskKey: draft.key });
+    fireEvent.click(await findChannelListItem("AIN2"));
+    await waitFor(() => expect(screen.getByText("Negative channel")).toBeTruthy());
+    fireEvent.click(await findDialogTriggerByText("Ground"));
+    expect(await screen.findByText("AIN3")).toBeTruthy();
+  });
+
+  it("should offer no max voltage or thermocouple on a T4", async () => {
+    const dev = await createLabJackDevice(client, { model: LabJack.Device.T4_MODEL });
+    const draft = await createDraft(
+      client,
+      createConfig(dev.key, [createAnalogReadChannel("AIN0")]),
+    );
+    await renderRead({ client, taskKey: draft.key });
+    fireEvent.click(await findChannelListItem("AIN0"));
+    await waitFor(() => expect(screen.getByText("Channel type")).toBeTruthy());
+    expect(screen.queryByText("Max voltage")).toBeNull();
+    expect(screen.queryByText("Negative channel")).toBeNull();
+    fireEvent.click(await findDialogTriggerByText("Analog input"));
+    expect(await screen.findByText("Digital input")).toBeTruthy();
+    expect(screen.queryByText("Thermocouple")).toBeNull();
+  });
+
   it("should show no extra detail fields for a DI channel", async () => {
     const dev = await createLabJackDevice(client);
     const draft = await createDraft(
@@ -177,7 +221,7 @@ describe("Read", () => {
   });
 
   it("should swap the channel type and remap its port to the new port space", async () => {
-    const dev = await createLabJackDevice(client);
+    const dev = await createLabJackDevice(client, { model: LabJack.Device.T7_MODEL });
     const draft = await createDraft(
       client,
       createConfig(dev.key, [createAnalogReadChannel("AIN0")]),
@@ -188,11 +232,11 @@ describe("Read", () => {
     fireEvent.click(await findDialogTriggerByText("Analog input"));
     fireEvent.click(await screen.findByText("Digital input"));
     await waitFor(() => expect(screen.queryByText("Max voltage")).toBeNull());
-    await waitFor(() => expect(screen.getAllByText("FIO4").length).toBeGreaterThan(0));
+    await waitFor(() => expect(screen.getAllByText("FIO0").length).toBeGreaterThan(0));
   });
 
   it("should drop the scale section when the channel swaps to an unscaled type", async () => {
-    const dev = await createLabJackDevice(client);
+    const dev = await createLabJackDevice(client, { model: LabJack.Device.T7_MODEL });
     const draft = await createDraft(
       client,
       createConfig(dev.key, [createAnalogReadChannel("AIN0")]),
