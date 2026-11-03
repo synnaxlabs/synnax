@@ -174,6 +174,7 @@ export const Endpoints = ({ rack, onSelect }: EndpointsProps): ReactElement => {
         {options != null && options.length > 0 && (
           <Select.Simple<string>
             resourceName="endpoint"
+            variant="floating"
             allowNone
             value={optionKey(securityMode, securityPolicy)}
             onChange={handleChange}
@@ -185,6 +186,7 @@ export const Endpoints = ({ rack, onSelect }: EndpointsProps): ReactElement => {
                   key={option.key}
                   itemKey={option.key}
                   textValue={name}
+                  justify="between"
                   disabled={!isMode(option.mode) || !isPolicy(option.policy)}
                 >
                   <Text.Text>{name}</Text.Text>
