@@ -213,6 +213,14 @@ outlined button) has fill l2 and border l4, and its caret has the disabled text 
 Follow the status text rule in `AGENTS.md`. The name holds the object. The description
 says why in a sentence, then gives the raw error.
 
+### Code blocks
+
+- Code to copy uses the colors of the docs site: keywords `--editor-token-keyword`,
+  strings `--pluto-secondary-m1`, functions `--pluto-primary-z`, and comments
+  `--pluto-gray-l7`.
+- The copy button sits at the top right, centered on the first line. A one-line block
+  centers its line in the box.
+
 ## Interaction
 
 - Respond to every input in less than 100 ms. Show a spinner only after 150 to 300 ms,
@@ -250,3 +258,9 @@ typeface, and the icon set.
 
 The `docs-refine` skill owns the forms and rhythm of docs pages, in its
 `design-system.md`. The rules here cover what the docs share with the Console.
+
+- A picture of the product shows the current Console: a Studio still from
+  `site/docs/src/components/hero/stills`, never the screenshot on the www landing page.
+- Gradient blooms stay quiet. The Desktop band at the end of a blog post has a 30% blue
+  bloom over `#181b27` in dark mode. A 70% bloom over `#282c41` was too intense, and a
+  7% tint over the page surface was too flat.

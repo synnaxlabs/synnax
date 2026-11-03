@@ -21,7 +21,7 @@ import { Form as PForm } from "@synnaxlabs/lyra/form";
 import { Input } from "@synnaxlabs/lyra/input";
 import { Status } from "@synnaxlabs/lyra/status";
 import { Access, Synnax as PSynnax, Task as PTask } from "@synnaxlabs/pluto";
-import { primitive, TimeSpan } from "@synnaxlabs/x";
+import { deep, primitive } from "@synnaxlabs/x";
 import { type FC, useRef } from "react";
 import { type z } from "zod";
 
@@ -31,7 +31,7 @@ import { Errors } from "@/platform/errors";
 import { Controls } from "@/platform/task/controls";
 import { ParentRangeButton } from "@/platform/task/ParentRangeButton";
 import { Rack } from "@/platform/task/Rack";
-import { useStatus } from "@/platform/task/useStatus";
+import { formPath } from "@/platform/task/types";
 import { UtilityButtons } from "@/platform/task/UtilityButtons";
 
 export interface OnConfigure<Config extends z.ZodType = z.ZodType> {
@@ -65,22 +65,17 @@ export interface WrapFormParams<S extends task.Schemas = task.Schemas> {
   schemas: S;
   /**
    * Checks the config from the first deploy on, as a check the form runs on every edit.
-   * Shape schemas stay lax so drafts persist through autosave. A deploy starts only
-   * when no field shows an error, so a warning never blocks one.
+   * A deploy starts only when no field shows an error, so a warning never blocks one.
+   * Keep the shape schemas lax: a field whose value fails its shape schema stays unsent.
    */
   deployConfigZ: z.ZodType;
-  getInitialValues: GetInitialValues<S>;
   showHeader?: boolean;
   showControls?: boolean;
 }
 
-export const useIsRunning = <Schema extends z.ZodType>(
-  ctx?: PForm.ContextValue<Schema>,
-) => useStatus(ctx).details.running;
-
 export const useIsSnapshot = <Schema extends z.ZodType>(
   ctx?: PForm.ContextValue<Schema>,
-) => PForm.useFieldValue<boolean>("snapshot", { ctx });
+) => PForm.useFieldValue(formPath.snapshot, { ctx });
 
 interface HeaderProps {
   isSnapshot: boolean;
@@ -89,7 +84,7 @@ interface HeaderProps {
 const Header = ({ isSnapshot }: HeaderProps) => (
   <>
     <Flex.Box x justify="between">
-      <PForm.Field<string> path="name" showLabel={false} padHelpText={false} grow>
+      <PForm.Field path={formPath.name} showLabel={false} padHelpText={false} grow>
         {(p) => (
           <Input.Text
             variant="text"
@@ -111,30 +106,22 @@ const Header = ({ isSnapshot }: HeaderProps) => (
   </>
 );
 
-// Numeric fields have drag handles that emit a change per pixel.
-const AUTO_SAVE_DEBOUNCE = TimeSpan.milliseconds(200);
-
 export const wrapForm = <S extends task.Schemas = task.Schemas>({
   Properties,
   Form,
   schemas,
   type,
   deployConfigZ,
-  getInitialValues,
   onConfigure,
   showHeader = true,
   showControls = true,
 }: WrapFormParams<S>): FC<FormTabProps> => {
-  const useForm = PTask.createForm({ schemas, initialValues: getInitialValues({}) });
+  const useForm = PTask.createForm({ schemas });
   const Wrapped: FC<FormTabProps> = ({ taskKey }) => {
     const client = PSynnax.use();
     const handleError = Status.useErrorHandler();
     const { capture } = Analytics.use();
-    const { form, saveAsync } = useForm({
-      query: { key: taskKey },
-      autoSave: true,
-      autoSaveDebounce: AUTO_SAVE_DEBOUNCE,
-    });
+    const { form, flush } = useForm({ query: { key: taskKey } });
 
     // The form saves on every edit, so a subject who cannot write the task gets it
     // read-only rather than fields that revert once the save is refused.
@@ -146,20 +133,38 @@ export const wrapForm = <S extends task.Schemas = task.Schemas>({
       handleError(async () => {
         if (client == null) throw new DisconnectedError();
         if (canEdit) {
+          if (!(await flush())) return;
           if (!deployChecked.current) {
-            form.addCheck("config", deployConfigZ);
+            form.addCheck(formPath.config, deployConfigZ);
             deployChecked.current = true;
           }
           await form.validateAsync();
           if (form.getStatuses().some(({ variant }) => variant === "error")) return;
-          const { config, name } = form.value();
-          const [newConfig, newRack] = await onConfigure(client, config, name);
-          // Tracked sets, so the result of a save still in flight cannot revert them.
-          form.set("config", newConfig);
-          if (primitive.isNonZero(newRack)) form.set("rack", newRack);
-          if (!(await saveAsync())) return;
+          const { config, name, rack } = form.value();
+          // The form's values are the cached task, and onConfigure changes its config.
+          const [newConfig, newRack] = await onConfigure(
+            client,
+            deep.copy(config),
+            name,
+          );
+          // Another client can edit the task while onConfigure runs, so only the
+          // values onConfigure changed are written.
+          form.batch(() => {
+            PForm.setChanged(form, formPath.config, config, newConfig);
+            if (primitive.isNonZero(newRack))
+              PForm.setChanged(form, formPath.rack, rack, newRack);
+          });
+          if (!(await flush())) return;
+          await client.tasks.settled(taskKey);
         }
-        await client.tasks.executeCommand({ task: taskKey, type: "start" });
+        // A pinned start runs only the config this form shows. The Driver refuses it
+        // when another client changed the config since.
+        await client.tasks.executeCommand({
+          task: taskKey,
+          type: "start",
+          configHash: form.value().configHash,
+          pinned: true,
+        });
         capture("task_started", { type });
       }, "Failed to start task");
     };

@@ -8,6 +8,7 @@
 // included in the file licenses/APL.txt.
 
 import { Form } from "@synnaxlabs/lyra/form";
+import { deep } from "@synnaxlabs/x";
 import { fireEvent, render } from "@testing-library/react";
 import { type ReactElement } from "react";
 import { describe, expect, it } from "vitest";
@@ -18,8 +19,10 @@ import { ControlChipField } from "@/schematic/node/common/form/Control";
 
 const schema = z.object({ control: Control.stateConfigZ.optional() });
 
+const path = deep.path<z.infer<typeof schema>>();
+
 const Stored = (): ReactElement => {
-  const control = Form.useFieldValue<Control.StateConfig | undefined>("control", {
+  const control = Form.useFieldValue(path.control, {
     optional: true,
   });
   return <div data-testid="stored">{JSON.stringify(control ?? null)}</div>;

@@ -12,7 +12,7 @@ import { Component } from "@synnaxlabs/lyra/component";
 import { Flex } from "@synnaxlabs/lyra/flex";
 import { Form as PForm } from "@synnaxlabs/lyra/form";
 import { Icon } from "@synnaxlabs/lyra/icon";
-import { errors, primitive, unique } from "@synnaxlabs/x";
+import { deep, errors, primitive, unique } from "@synnaxlabs/x";
 import { type FC } from "react";
 
 import { useByKeys } from "@/feature/ni/device/queries";
@@ -27,7 +27,6 @@ import {
   CI_CHANNEL_TYPE_ICONS,
   CI_CHANNEL_TYPE_NAMES,
   type CIChannel,
-  type CIChannelType,
   COUNTER_READ_SCHEMAS,
   COUNTER_READ_TYPE,
   counterReadConfigZ,
@@ -38,6 +37,8 @@ import { useChannelDevice } from "@/feature/ni/task/usePort";
 import { Device as PlatformDevice } from "@/platform/device";
 import { Selector } from "@/platform/selector";
 import { Task } from "@/platform/task";
+
+const root = deep.path<Task.Values<CounterReadSchemas>>();
 
 const Properties = () => (
   <>
@@ -53,9 +54,9 @@ interface ChannelListItemProps extends Task.ChannelListItemProps {
 }
 
 const ChannelListItem = ({ onTare, ...rest }: ChannelListItemProps) => {
-  const path = `config.channels.${rest.itemKey}`;
-  const value = PForm.useFieldValue<CIChannel>(path);
-  const device = useChannelDevice(path);
+  const entry = root.config.channels[rest.itemKey];
+  const value = PForm.useFieldValue(entry);
+  const device = useChannelDevice(entry);
   const { port, type, channel, disabled } = value;
   const isSnapshot = Task.useIsSnapshot();
   const isRunning = Task.useIsRunning();
@@ -68,7 +69,7 @@ const ChannelListItem = ({ onTare, ...rest }: ChannelListItemProps) => {
       port={port}
       canTare={canTare}
       onTare={onTare}
-      path={path}
+      path={entry}
       hasTareButton={hasTareButton}
       channel={channel}
       defaultName={device == null ? undefined : COUNTER_INPUT.name(value, device)}
@@ -78,16 +79,16 @@ const ChannelListItem = ({ onTare, ...rest }: ChannelListItemProps) => {
   );
 };
 
-const ChannelDetails = ({ path }: Task.Views.DetailsProps) => {
-  const type = PForm.useFieldValue<CIChannelType>(`${path}.type`);
-  return <CIChannelForm type={type} prefix={path} />;
+const ChannelDetails = ({ path }: Task.Views.DetailsProps<CIChannel>) => {
+  const type = PForm.useFieldValue(path.type);
+  return <CIChannelForm type={type} path={path} channelsPath={root.config.channels} />;
 };
 
 const channelDetails = Component.renderProp(ChannelDetails);
 
-const DetailsTitle = ({ path }: Task.Views.DetailsProps) => {
-  const value = PForm.useFieldValue<CIChannel>(path);
-  const channels = PForm.useFieldValue<CIChannel[]>("config.channels");
+const DetailsTitle = ({ path }: Task.Views.DetailsProps<CIChannel>) => {
+  const value = PForm.useFieldValue(path);
+  const channels = PForm.useFieldValue(root.config.channels);
   const device = useChannelDevice(path);
   const Icon = CI_CHANNEL_TYPE_ICONS[value.type];
   const own = channels.filter((c) => c.device === value.device);
@@ -100,7 +101,7 @@ const DetailsTitle = ({ path }: Task.Views.DetailsProps) => {
       }}
       type={{ icon: <Icon />, name: CI_CHANNEL_TYPE_NAMES[value.type] }}
       channel={value.channel}
-      namePath={`${path}.name`}
+      namePath={path.name}
       defaultName={device == null ? undefined : COUNTER_INPUT.name(value, device)}
       model={device?.model}
     />
@@ -116,8 +117,8 @@ const hasPortList = (devices: Device[]): boolean =>
 
 const Form: FC = () => {
   const [tare, allowTare, handleTare] = Task.useTare<CIChannel>();
-  const devices = useByKeys(Task.useChannelDeviceKeys());
-  PForm.useCheck("config", counterReadHardwareZ(devices ?? []));
+  const devices = useByKeys(Task.useChannelDeviceKeys(root.config.channels));
+  PForm.useCheck(root.config, counterReadHardwareZ(devices ?? []));
   const resolve = (ch: CIChannel) => {
     const dev = devices?.find(({ key }) => key === ch.device);
     if (dev == null) return null;
@@ -128,7 +129,7 @@ const Form: FC = () => {
   );
   const ports =
     devices != null && hasPortList(devices)
-      ? (props: Task.Views.PortsProps) => (
+      ? (props: Task.Views.PortsProps<CIChannel>) => (
           <PortsView<CIChannel>
             {...props}
             kind={COUNTER_INPUT}
@@ -143,6 +144,7 @@ const Form: FC = () => {
       : undefined;
   return (
     <Task.Views.ListAndDetails<CIChannel>
+      path={root.config.channels}
       listItem={listItem}
       details={channelDetails}
       detailsTitle={detailsTitle}
@@ -261,7 +263,6 @@ export const CounterRead = Task.wrapForm({
   schemas: COUNTER_READ_SCHEMAS,
   deployConfigZ: deployCounterReadConfigZ,
   type: "ni_counter_read",
-  getInitialValues,
   onConfigure,
 });
 

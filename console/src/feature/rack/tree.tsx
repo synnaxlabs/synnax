@@ -23,6 +23,7 @@ import { Device } from "@/feature/device";
 import { NI } from "@/feature/ni";
 import { OPCUA } from "@/feature/opcua";
 import { ContextMenu } from "@/platform/context-menu";
+import { Credential } from "@/platform/credential";
 import { CSS } from "@/platform/css";
 import { Group } from "@/platform/group";
 import { Tree } from "@/platform/tree";
@@ -112,7 +113,7 @@ const OPCUADriverCertificateItem = ({
 const TreeContextMenu: Tree.ContextMenu = (props) => {
   const {
     selection,
-    state: { shape },
+    state: { shape, getResource },
   } = props;
   const { ids, rootID } = selection;
   const ontologyIDs = ids.map((id) => rack.ontologyID(Number(id.key)));
@@ -126,6 +127,7 @@ const TreeContextMenu: Tree.ContextMenu = (props) => {
   const group = Group.useCreateFromSelection();
   const create = Arc.useCreate();
   const openConnectDevice = Device.useConnectModal();
+  const openCredentials = Credential.useModal();
   const isSingle = ids.length === 1;
   const rackKey = Number(ids[0]?.key ?? 0);
   const handleCreate = () => create();
@@ -160,6 +162,18 @@ const TreeContextMenu: Tree.ContextMenu = (props) => {
           )}
           {hasTaskCreatePermission && <NIScannerItem rackKey={rackKey} />}
           <OPCUADriverCertificateItem rackKey={rackKey} />
+          <Menu.Item
+            itemKey="credentials"
+            onClick={() =>
+              openCredentials({
+                subject: ontologyIDs[0],
+                title: ["Credentials", getResource(ids[0]).name],
+              })
+            }
+          >
+            <Icon.Lock />
+            Manage credentials
+          </Menu.Item>
         </>
       )}
       <Menu.Divider />

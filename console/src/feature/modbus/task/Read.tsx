@@ -16,7 +16,7 @@ import { Form as PForm } from "@synnaxlabs/lyra/form";
 import { Header } from "@synnaxlabs/lyra/header";
 import { Icon } from "@synnaxlabs/lyra/icon";
 import { List } from "@synnaxlabs/lyra/list";
-import { DataType, errors, id, primitive } from "@synnaxlabs/x";
+import { DataType, deep, errors, id, primitive } from "@synnaxlabs/x";
 import { type FC } from "react";
 
 import { useFromConfig } from "@/feature/modbus/device/queries";
@@ -50,6 +50,8 @@ import {
 import { Selector } from "@/platform/selector";
 import { Task } from "@/platform/task";
 
+const path = deep.path<Task.Values<ReadSchemas>>();
+
 const Properties = () => (
   <>
     <SelectDevice />
@@ -68,17 +70,17 @@ const COLUMNS: List.Column[] = [
 ];
 
 const ChannelListItem = ({ itemKey, ...rest }: Task.ChannelListItemProps) => {
-  const path = `config.channels.${itemKey}`;
-  const ch = PForm.useFieldValue<ReadChannel>(path);
+  const entry = path.config.channels[itemKey];
+  const ch = PForm.useFieldValue(entry);
   const dev = useFromConfig();
   const hovered = useIsHovered(itemKey);
   const hoveredRef = useHoveredRef(itemKey);
-  const overlapping = useOverlaps(itemKey);
+  const overlapping = useOverlaps(path.config.channels, itemKey);
   return (
     <Task.Views.ListChannelItem
       {...rest}
       itemKey={itemKey}
-      path={path}
+      path={entry}
       channel={ch.channel}
       defaultName={
         dev == null
@@ -89,21 +91,24 @@ const ChannelListItem = ({ itemKey, ...rest }: Task.ChannelListItemProps) => {
       hovered={hovered}
     >
       <List.Cell>
-        <RegisterField<ReadChannel> path={path} schemas={READ_CHANNEL_SCHEMAS} />
+        <RegisterField path={entry} schemas={READ_CHANNEL_SCHEMAS} />
       </List.Cell>
       <List.Cell>
-        <AddressField path={path} variant="shadow" overlapping={overlapping} />
+        <AddressField path={entry} variant="shadow" overlapping={overlapping} />
       </List.Cell>
       <List.Cell>
         <DataTypeCell
-          path={path}
+          path={entry}
           channel={ch}
           hideDataTypes={UNSUPPORTED_READ_DATA_TYPES}
         />
       </List.Cell>
       <List.Cell>
         {isVariableDensityReadChannel(ch) && (
-          <ByteOrderField path={path} dataType={ch.dataType} />
+          <ByteOrderField
+            path={deep.variant(entry, "type", ch.type)}
+            dataType={ch.dataType}
+          />
         )}
       </List.Cell>
     </Task.Views.ListChannelItem>
@@ -138,7 +143,7 @@ const HEADER = (
         Channels
       </Header.Title>
     </Header.Header>
-    <RegisterMap createChannel={createMapChannel} />
+    <RegisterMap path={path.config.channels} createChannel={createMapChannel} />
   </>
 );
 
@@ -148,7 +153,8 @@ const Form: FC = () => {
     dev == null ? null : { channel: dev.properties.read.channels[readMapKey(c)] ?? 0 };
   return (
     <RegisterMapProvider>
-      <Task.Views.List<ReadChannel>
+      <Task.Views.List
+        path={path.config.channels}
         createChannel={getOpenChannel}
         contextMenuItems={Task.readChannelContextMenuItem}
         listItem={listItem}
@@ -240,7 +246,6 @@ export const Read = Task.wrapForm({
   schemas: READ_SCHEMAS,
   deployConfigZ: deployReadConfigZ,
   type: "modbus_read",
-  getInitialValues,
   onConfigure,
 });
 
