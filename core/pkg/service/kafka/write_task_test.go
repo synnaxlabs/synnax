@@ -428,6 +428,47 @@ var _ = Describe("Write task", func() {
 		Expect(string(recs[0].Value)).To(ContainSubstring(`"value":9007199254740993`))
 	})
 
+	It("Should write record members in config order", func(ctx SpecContext) {
+		index, data := createIndexed(ctx, telem.Float64T)
+		dev := createDevice(ctx, clusterProperties())
+		topic := uniqueTopic()
+		startTask(ctx, kafka.WriteConfig{
+			Device: dev.Key,
+			Topic:  topic,
+			Record: kafka.Record{
+				ValuePointer:     "/payload/value",
+				ChannelPointer:   new("/channel"),
+				TimestampPointer: new("/meta/sent"),
+				TimeFormat:       http.TimeFormatUnixNs,
+				Fields: []http.WriteField{
+					{Variant: http.StaticWriteField{
+						BaseWriteField: http.BaseWriteField{
+							Key: "unit", Pointer: "/payload/unit",
+						},
+						JSONType: http.JSONTypeString,
+						Value:    "psi",
+					}},
+					{Variant: http.StaticWriteField{
+						BaseWriteField: http.BaseWriteField{
+							Key: "source", Pointer: "/meta/source",
+						},
+						JSONType: http.JSONTypeString,
+						Value:    "synnax",
+					}},
+				},
+			},
+			Channels: []kafka.WriteChannel{{Key: "c1", Channel: data.Key()}},
+		})
+		start := 10 * telem.SecondTS
+		writeFrame(ctx, index, data, []telem.TimeStamp{start},
+			telem.NewSeriesV[float64](1.5))
+		recs := consume(ctx, topic, 1)
+		Expect(string(recs[0].Value)).To(Equal(
+			`{"payload":{"value":1.5,"unit":"psi"},"channel":"` + data.Name +
+				`","meta":{"sent":10000000000,"source":"synnax"}}`,
+		))
+	})
+
 	DescribeTable("Should write a number in its shortest JSON form",
 		func(ctx SpecContext, value float64, expected string) {
 			index, data, topic, _ := startOne(ctx, telem.Float64T, kafka.WriteChannel{})
