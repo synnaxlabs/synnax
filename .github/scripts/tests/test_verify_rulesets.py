@@ -14,38 +14,9 @@ from pathlib import Path
 from typing import Any
 
 import pytest
+from scripts_common.testutil import FakeGH
 
 SCRIPT = Path(__file__).resolve().parents[1] / "verify_rulesets.sh"
-
-# Stands in for gh: serves the canned rulesets from FAKE_GH_DIR and applies the
-# requested jq expression.
-FAKE_GH = """#!/usr/bin/env bash
-set -euo pipefail
-ENDPOINT=""
-EXPR="."
-while [ $# -gt 0 ]; do
-    case "$1" in
-        api | --paginate) shift ;;
-        --jq)
-            EXPR=$2
-            shift 2
-            ;;
-        *)
-            ENDPOINT=$1
-            shift
-            ;;
-    esac
-done
-case "$ENDPOINT" in
-    */rulesets\\?*) FILE="$FAKE_GH_DIR/rulesets.json" ;;
-    */rulesets/*) FILE="$FAKE_GH_DIR/ruleset-${ENDPOINT##*/}.json" ;;
-    *)
-        echo "unexpected endpoint: $ENDPOINT" >&2
-        exit 1
-        ;;
-esac
-jq -r "$EXPR" "$FILE"
-"""
 
 
 def ruleset(name: str, *, count: int = 0) -> dict[str, Any]:
@@ -70,19 +41,12 @@ class Harness:
 
     def __init__(self, path: Path) -> None:
         self.root = path
-        self.data = path / "gh"
-        self.data.mkdir()
         self.files = path / ".github" / "rulesets"
         self.files.mkdir(parents=True)
-        bin_dir = path / "bin"
-        bin_dir.mkdir()
-        gh = bin_dir / "gh"
-        gh.write_text(FAKE_GH)
-        gh.chmod(0o755)
+        self.gh = FakeGH(path)
         self.env = {
             **os.environ,
-            "PATH": f"{bin_dir}:{os.environ['PATH']}",
-            "FAKE_GH_DIR": str(self.data),
+            "PATH": f"{self.gh.bin_dir}:{os.environ['PATH']}",
             "GITHUB_REPOSITORY": "synnaxlabs/synnax",
         }
 
@@ -101,8 +65,8 @@ class Harness:
                 **rules,
                 "rules": list(reversed(rules["rules"])),
             }
-            (self.data / f"ruleset-{key}.json").write_text(json.dumps(served))
-        (self.data / "rulesets.json").write_text(json.dumps(listing))
+            self.gh.serve(f"api */rulesets/{key}", served)
+        self.gh.serve("api */rulesets[?]*", listing)
 
     def run(self) -> subprocess.CompletedProcess[str]:
         return subprocess.run(

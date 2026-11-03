@@ -7,32 +7,14 @@
 #  License, use of this software will be governed by the Apache License, Version 2.0,
 #  included in the file licenses/APL.txt.
 
-import json
 import os
 import subprocess
 from pathlib import Path
 
 import pytest
+from scripts_common.testutil import FakeGH
 
 SCRIPT = Path(__file__).resolve().parents[1] / "release_notes.sh"
-
-# Stands in for gh: records its arguments to FAKE_GH_ARGS, one per line, and serves the
-# canned generate-notes response in FAKE_GH_BODY through the requested jq expression.
-FAKE_GH = """#!/usr/bin/env bash
-set -euo pipefail
-printf '%s\\n' "$@" > "$FAKE_GH_ARGS"
-EXPR="."
-while [ $# -gt 0 ]; do
-    case "$1" in
-        --jq)
-            EXPR=$2
-            shift 2
-            ;;
-        *) shift ;;
-    esac
-done
-jq -r "$EXPR" "$FAKE_GH_BODY"
-"""
 
 GENERATED = """## What's Changed
 ### Driver
@@ -49,19 +31,11 @@ class Harness:
     """A fake gh serving one generate-notes response."""
 
     def __init__(self, *, path: Path, body: str = GENERATED) -> None:
-        bin_dir = path / "bin"
-        bin_dir.mkdir()
-        gh = bin_dir / "gh"
-        gh.write_text(FAKE_GH)
-        gh.chmod(0o755)
-        self.args_file = path / "args"
-        body_file = path / "body.json"
-        body_file.write_text(json.dumps({"body": body}))
+        self.gh = FakeGH(path)
+        self.gh.serve("api */releases/generate-notes", {"body": body})
         self.env = {
             **os.environ,
-            "PATH": f"{bin_dir}:{os.environ['PATH']}",
-            "FAKE_GH_ARGS": str(self.args_file),
-            "FAKE_GH_BODY": str(body_file),
+            "PATH": f"{self.gh.bin_dir}:{os.environ['PATH']}",
             "GITHUB_REPOSITORY": "synnaxlabs/synnax",
         }
 
@@ -75,7 +49,7 @@ class Harness:
 
     def gh_args(self) -> list[str]:
         """Returns the arguments the script passed to gh."""
-        return self.args_file.read_text().splitlines()
+        return self.gh.calls()[-1]
 
 
 @pytest.fixture
