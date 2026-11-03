@@ -19,6 +19,9 @@ from console.page import ConsolePage, PageType
 
 Axis = Literal["Y1", "Y2", "X1"]
 
+# The middle of the range strip's first lane: 4 px of padding, then a 20 px lane.
+FIRST_LANE_CENTER = 14
+
 
 class Plot(ConsolePage):
     """Plot page management interface"""
@@ -320,6 +323,46 @@ class Plot(ConsolePage):
         pattern = re.compile(r"lyra--selected")
         toggle = expect(self.get_annotation_toggle())
         if visible:
+            toggle.to_have_class(pattern, timeout=timeout)
+        else:
+            toggle.not_to_have_class(pattern, timeout=timeout)
+
+    def get_range_strip(self) -> Locator:
+        """Return the strip above the plot that shows the plot's ranges."""
+        if not self.pane_locator:
+            raise RuntimeError("Plot pane locator not available")
+        return self.pane_locator.locator(".pluto-lineplot-range-provider")
+
+    def click_range(self, *, button: Literal["left", "right"] = "left") -> None:
+        """Click the range in the strip's first lane, at the middle of the plot.
+
+        Waits for the strip to report the range under the cursor before the click,
+        since the plot finds that range on its next render.
+        """
+        strip = self.get_range_strip()
+        box = strip.bounding_box()
+        if box is None:
+            raise RuntimeError("Range strip not visible")
+        x = box["x"] + box["width"] / 2
+        y = box["y"] + FIRST_LANE_CENTER
+        self.page.mouse.move(x, y)
+        expect(strip).to_have_class(re.compile(r"pluto--hovered"), timeout=5000)
+        self.page.mouse.click(x, y, button=button)
+
+    def get_pause_toggle(self) -> Locator:
+        """Return the button that pauses and resumes live plotting."""
+        if not self.pane_locator:
+            raise RuntimeError("Plot pane locator not available")
+        return self.pane_locator.locator(
+            ".console-controls button:has(.lyra-icon--pause), "
+            ".console-controls button:has(.lyra-icon--play)"
+        )
+
+    def expect_paused(self, *, paused: bool = True, timeout: int = 5000) -> None:
+        """Assert the plot is paused, or plotting live when paused is False."""
+        pattern = re.compile(r"lyra--selected")
+        toggle = expect(self.get_pause_toggle())
+        if paused:
             toggle.to_have_class(pattern, timeout=timeout)
         else:
             toggle.not_to_have_class(pattern, timeout=timeout)

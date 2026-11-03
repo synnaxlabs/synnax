@@ -63,7 +63,18 @@ const (
 // PreProcess compiles the channel's expression to discover channel references
 // and infer output types without building the full execution graph.
 func PreProcess(ctx context.Context, cfg Config) (arc.Program, error) {
-	resolver := cfg.ChannelService.NewArcSymbolResolver(nil)
+	return preProcess(ctx, cfg, newResolver(cfg))
+}
+
+func newResolver(cfg Config) arc.SymbolResolver {
+	return channel.NewConsistentResolver(cfg.ChannelService.NewArcSymbolResolver(nil))
+}
+
+func preProcess(
+	ctx context.Context,
+	cfg Config,
+	resolver arc.SymbolResolver,
+) (arc.Program, error) {
 	ana := channel.NewCalculationAnalyzer(resolver, parser.Config{
 		AllowDashedNames: !cfg.ChannelService.ShouldValidateNames(),
 	})
@@ -104,7 +115,8 @@ func Compile(ctx context.Context, cfgs ...Config) (Module, error) {
 	if err != nil {
 		return Module{}, err
 	}
-	preProcessed, err := PreProcess(ctx, cfg)
+	resolver := newResolver(cfg)
+	preProcessed, err := preProcess(ctx, cfg, resolver)
 	if err != nil {
 		return Module{}, err
 	}
@@ -176,7 +188,6 @@ func Compile(ctx context.Context, cfgs ...Config) (Module, error) {
 		}
 	}
 
-	resolver := cfg.ChannelService.NewArcSymbolResolver(nil)
 	for k, v := range calcFn.Channels.Read {
 		sym, err := resolver.Resolve(ctx, v)
 		if err != nil {

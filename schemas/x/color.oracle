@@ -33,6 +33,7 @@ Color struct {
     @go marshal  hand
     @pb hand
     @py hand
+    @py include  "x/py/x/color/color"
     @ts hand
     @ts include  "x/ts/src/color/color"
 }
@@ -76,7 +77,6 @@ Band struct {
     @doc value  "is a colored range of values starting at a threshold."
     @go marshal
     @pb omit
-    @py omit
 }
 
 Scale struct {
@@ -94,5 +94,4 @@ Scale struct {
     @doc value  "maps a value to a color through threshold bands."
     @go marshal
     @pb omit
-    @py omit
 }
