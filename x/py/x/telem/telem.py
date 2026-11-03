@@ -86,9 +86,11 @@ def _span_nanoseconds(value: CrudeTimeSpan) -> int:
         return _timedelta_nanoseconds(value)
     if isinstance(value, np.timedelta64):
         return _timedelta64_nanoseconds(value)
+    if isinstance(value, (int, np.integer)):
+        return int(value)
     if isinstance(value, Rate):
         return int(value.period)
-    if isinstance(value, (int, float, np.integer, np.floating)):
+    if isinstance(value, (float, np.floating)):
         return int(value)
     raise TypeError(f"Cannot convert {type(value)} to TimeSpan")
 
