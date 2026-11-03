@@ -80,6 +80,7 @@ from synnax.panel import Panel
 from synnax.project import Project
 from synnax.rack import Rack
 from synnax.ranger import Range
+from synnax.schematic import Schematic
 from synnax.status import Status
 from synnax.synnax import Synnax
 from synnax.table import Table
@@ -189,6 +190,7 @@ __all__ = [
     "Role",
     "RouteError",
     "SampleValue",
+    "Schematic",
     "Series",
     "SessionEnded",
     "Size",

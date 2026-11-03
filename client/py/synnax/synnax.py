@@ -29,6 +29,7 @@ from synnax import (
     project,
     rack,
     ranger,
+    schematic,
     status,
     table,
     task,
@@ -99,6 +100,7 @@ class Synnax(framer.Client):
     line_plots: lineplot.Client
     panels: panel.Client
     logs: log.Client
+    schematics: schematic.Client
 
     _transport: Transport
 
@@ -236,6 +238,7 @@ class Synnax(framer.Client):
         self.line_plots = lineplot.Client(client=self._transport.unary)
         self.panels = panel.Client(client=self._transport.unary, ontology=self.ontology)
         self.logs = log.Client(self._transport.unary)
+        self.schematics = schematic.Client(client=self._transport.unary)
         self.tasks = task.Client(
             client=self._transport.unary,
             frame_client=self,

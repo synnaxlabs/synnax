@@ -7,6 +7,8 @@
 #  License, use of this software will be governed by the Apache License, Version 2.0,
 #  included in the file licenses/APL.txt.
 
+from synnax.schematic import symbol
+from synnax.schematic.client import Client
 from synnax.schematic.types_gen import (
     ONTOLOGY_TYPE,
     AgitatorElementConfig,
@@ -298,6 +300,7 @@ __all__ = [
     "CheckValveWithArrowNodeConfig",
     "CircleElementConfig",
     "CircleNodeConfig",
+    "Client",
     "ComponentSize",
     "CompressorElementConfig",
     "CompressorNodeConfig",
@@ -513,4 +516,5 @@ __all__ = [
     "VentElementConfig",
     "VentNodeConfig",
     "ontology_id",
+    "symbol",
 ]
