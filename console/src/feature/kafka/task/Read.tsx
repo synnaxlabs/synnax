@@ -22,14 +22,12 @@ import { Icon } from "@synnaxlabs/lyra/icon";
 import { Input } from "@synnaxlabs/lyra/input";
 import { Select } from "@synnaxlabs/lyra/select";
 import { Text } from "@synnaxlabs/lyra/text";
-import { Access, Channel as PChannel, Telem } from "@synnaxlabs/pluto";
-import { DataType, errors, id, primitive } from "@synnaxlabs/x";
+import { DataType, deep, errors, id, primitive } from "@synnaxlabs/x";
 import { type FC } from "react";
 
 import { useFromConfig } from "@/feature/kafka/device/queries";
 import { Select as SelectDevice } from "@/feature/kafka/device/Select";
 import { MAKE, SCHEMAS } from "@/feature/kafka/device/types";
-import { TimeFormatField } from "@/feature/kafka/task/TimeFormatField";
 import {
   deployReadConfigZ,
   isString,
@@ -41,9 +39,10 @@ import {
   type StartOffset,
 } from "@/feature/kafka/task/types";
 import { CSS } from "@/platform/css";
-import { Form as PlatformForm } from "@/platform/form";
 import { Selector } from "@/platform/selector";
 import { Task } from "@/platform/task";
+
+const root = deep.path<Task.Values<ReadSchemas>>();
 
 const SELECT_TRIGGER_PROPS = { className: CSS.BE("kafka-select", "trigger") };
 
@@ -72,19 +71,19 @@ const Properties = () => (
     <Flex.Box x grow wrap>
       <PForm.TextField
         className={TEXT_FIELD_CLASS}
-        path="config.topic"
+        path={root.config.topic}
         label="Topic"
         inputProps={TOPIC_INPUT_PROPS}
         grow
       />
       <PForm.TextField
         className={TEXT_FIELD_CLASS}
-        path="config.group"
+        path={root.config.group}
         label="Consumer group"
         inputProps={GROUP_INPUT_PROPS}
         grow
       />
-      <PForm.Field<StartOffset> path="config.startOffset" label="Start from">
+      <PForm.Field path={root.config.startOffset} label="Start from">
         {renderStartOffsetSelect}
       </PForm.Field>
     </Flex.Box>
@@ -105,57 +104,11 @@ const defaultChannelName = (devName: string, recordKey: string, pointer: string)
 const defaultIndexName = (devName: string, recordKey: string) =>
   defaultChannelName(devName, recordKey, "_time");
 
+/** A Kafka field reads any JSON value, so it hides only the types JSON cannot carry. */
 const HIDDEN_DATA_TYPES = [DataType.BYTES];
 
-const renderSelectDataType = Component.renderProp((p: Telem.SelectDataTypeProps) => (
-  <Telem.SelectDataType {...p} hideDataTypes={HIDDEN_DATA_TYPES} location="bottom" />
-));
-
-interface ChannelNameFieldProps {
-  path: string;
-  defaultName: string;
-}
-
-/**
- * Names a field's channel. Until configure creates the channel, the name lives on the
- * field; after, an edit renames the channel itself.
- */
-const ChannelNameField = ({ path, defaultName }: ChannelNameFieldProps) => {
-  const key = PForm.useFieldValue<channel.Key>(`${path}.channel`);
-  if (key === 0)
-    return (
-      <PForm.TextField
-        path={`${path}.name`}
-        label="Channel"
-        padHelpText={false}
-        inputProps={{ placeholder: defaultName === "" ? "Channel name" : defaultName }}
-      />
-    );
-  return <ExistingChannelNameField channel={key} />;
-};
-
-const ExistingChannelNameField = ({ channel: key }: { channel: channel.Key }) => {
-  const { data: name = "" } = PChannel.useResultName({ key });
-  const { update } = PChannel.useRename();
-  const canRename = Access.useUpdateGranted(channel.TYPE_ONTOLOGY_ID);
-  const isPreview = Task.useIsPreview();
-  const handleChange = (next: string) => {
-    if (next.length > 0 && next !== name) update({ key, name: next });
-  };
-  return (
-    <Input.Item label="Channel" padHelpText={false}>
-      <Input.Text
-        value={name}
-        onChange={handleChange}
-        onlyChangeOnBlur
-        disabled={isPreview || !canRename}
-      />
-    </Input.Item>
-  );
-};
-
-const RecordLabel = ({ path }: Task.Views.GroupProps) => {
-  const recordKey = PForm.useFieldValue<string>(`${path}.recordKey`);
+const RecordLabel = ({ path }: Task.Views.GroupProps<ReadRecord>) => {
+  const recordKey = PForm.useFieldValue(path.recordKey);
   return (
     <Text.Text level="p" weight={500} color={recordKey === "" ? 9 : 10} overflow="fade">
       {recordKey === "" ? "Any key" : recordKey}
@@ -166,9 +119,9 @@ const RecordLabel = ({ path }: Task.Views.GroupProps) => {
 type TimingMode = "kafka" | "value";
 
 /** Picks how a record's samples are stamped: by Kafka, or by a value it carries. */
-const TimestampFields = ({ path }: { path: string }) => {
+const TimestampFields = ({ path }: { path: deep.Path<ReadRecord> }) => {
   const { set } = PForm.useContext();
-  const { index, fields, recordKey } = PForm.useFieldValue<ReadRecord>(path);
+  const { index, fields, recordKey } = PForm.useFieldValue(path);
   const indexField = fields.find((f) => f.key === index);
   const dev = useFromConfig();
   const handleChange = (mode: TimingMode) => {
@@ -180,17 +133,16 @@ const TimestampFields = ({ path }: { path: string }) => {
         dataType: DataType.TIMESTAMP.toString(),
         timeFormat: "unix_sec",
       };
-      set(`${path}.fields`, [...fields, field]);
-      set(`${path}.index`, field.key);
+      set(path.fields, [...fields, field]);
+      set(path.index, field.key);
     } else if (mode === "kafka" && indexField != null) {
       set(
-        `${path}.fields`,
+        path.fields,
         fields.filter((f) => f.key !== index),
       );
-      set(`${path}.index`, "");
+      set(path.index, "");
     }
   };
-  const fieldPath = `${path}.fields.${indexField?.key}`;
   return (
     <>
       <Input.Item label="Source" padHelpText={false}>
@@ -205,14 +157,18 @@ const TimestampFields = ({ path }: { path: string }) => {
       {indexField != null && (
         <>
           <PForm.TextField
-            path={`${fieldPath}.pointer`}
+            path={path.fields[indexField.key].pointer}
             label="Pointer"
             padHelpText={false}
             inputProps={TIMESTAMP_POINTER_INPUT_PROPS}
           />
-          <TimeFormatField path={`${fieldPath}.timeFormat`} label="Time format" />
-          <ChannelNameField
-            path={fieldPath}
+          <Task.Payload.TimeFormatField
+            path={path.fields[indexField.key].timeFormat}
+            label="Time format"
+          />
+          <Task.ChannelNameField
+            channel={indexField.channel}
+            namePath={path.fields[indexField.key].name}
             defaultName={dev == null ? "" : defaultIndexName(dev.name, recordKey)}
           />
         </>
@@ -223,11 +179,11 @@ const TimestampFields = ({ path }: { path: string }) => {
 
 const TIMESTAMP_POINTER_INPUT_PROPS = { placeholder: "/timestamp" } as const;
 
-const RecordDetails = ({ path }: Task.Views.GroupProps) => (
+const RecordDetails = ({ path }: Task.Views.GroupProps<ReadRecord>) => (
   <PForm.Sections className={CSS.B("kafka-details")}>
     <PForm.Section title="Record">
       <PForm.TextField
-        path={`${path}.recordKey`}
+        path={path.recordKey}
         label="Record key"
         padHelpText={false}
         inputProps={RECORD_KEY_INPUT_PROPS}
@@ -241,11 +197,10 @@ const RecordDetails = ({ path }: Task.Views.GroupProps) => (
 
 const RECORD_KEY_INPUT_PROPS = { placeholder: "Any key" } as const;
 
-const FieldDetails = ({ groupKey, path }: Task.Views.FieldProps) => {
-  const { channel: key, dataType, pointer } = PForm.useFieldValue<ReadField>(path);
-  const recordKey = PForm.useFieldValue<string>(`config.records.${groupKey}.recordKey`);
+const FieldDetails = ({ groupKey, path }: Task.Views.FieldProps<ReadField>) => {
+  const { channel: key, dataType, pointer } = PForm.useFieldValue(path);
+  const recordKey = PForm.useFieldValue(root.config.records[groupKey].recordKey);
   const dev = useFromConfig();
-  const bound = key !== 0;
   const isTimestamp = DataType.TIMESTAMP.equals(dataType);
   // Labels map to numbers, so only a numeric field takes an enum mapping.
   const enumerable = !isTimestamp && !isString(dataType);
@@ -253,39 +208,28 @@ const FieldDetails = ({ groupKey, path }: Task.Views.FieldProps) => {
     <PForm.Sections className={CSS.B("kafka-details")}>
       <PForm.Section title="Field">
         <PForm.TextField
-          path={`${path}.pointer`}
+          path={path.pointer}
           label="Pointer"
           padHelpText={false}
           inputProps={POINTER_INPUT_PROPS}
         />
-        <PForm.Field<string>
-          path={`${path}.dataType`}
-          label="Data type"
-          padHelpText={false}
-          helpText={bound ? "Set on the channel" : undefined}
-        >
-          {(p) => renderSelectDataType({ ...p, disabled: bound })}
-        </PForm.Field>
+        <Task.Payload.DataTypeField
+          path={path.dataType}
+          channel={key}
+          hideDataTypes={HIDDEN_DATA_TYPES}
+        />
         {isTimestamp && (
-          <TimeFormatField path={`${path}.timeFormat`} label="Time format" />
+          <Task.Payload.TimeFormatField path={path.timeFormat} label="Time format" />
         )}
-        <ChannelNameField
-          path={path}
+        <Task.ChannelNameField
+          channel={key}
+          namePath={path.name}
           defaultName={
             dev == null ? "" : defaultChannelName(dev.name, recordKey, pointer)
           }
         />
       </PForm.Section>
-      {enumerable && (
-        <PForm.Section title="Enum mapping">
-          <PlatformForm.KeyValueEditor
-            path={`${path}.enumValues`}
-            keyField="label"
-            keyPlaceholder="String (e.g. ON)"
-            valueType="number"
-          />
-        </PForm.Section>
-      )}
+      {enumerable && <Task.Payload.EnumMappingSection path={path.enumValues} />}
     </PForm.Sections>
   );
 };
@@ -304,7 +248,7 @@ const createField = (): Omit<ReadField, "key"> => kafka.readFieldZ.parse({});
 
 const Form: FC = () => (
   <Task.Views.GroupTree<ReadRecord, ReadField>
-    path="config.records"
+    path={root.config.records}
     listTitle="Records"
     emptyMessage="No records"
     placeholder="Select a record or field to configure"

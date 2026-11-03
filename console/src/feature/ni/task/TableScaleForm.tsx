@@ -11,7 +11,7 @@ import { Form } from "@synnaxlabs/lyra/form";
 import { Input } from "@synnaxlabs/lyra/input";
 import { Select } from "@synnaxlabs/lyra/select";
 import { state } from "@synnaxlabs/lyra/state";
-import { binary, type record } from "@synnaxlabs/x";
+import { binary, type deep, type record } from "@synnaxlabs/x";
 import { type ReactElement } from "react";
 import { z } from "zod";
 
@@ -36,32 +36,33 @@ const lengthMismatch = (preScaled: number[], scaled: number[]): string | null =>
 
 export interface TableScaleFormProps {
   /** The form path of the table scale. */
-  prefix: string;
+  path: deep.Path<{ preScaledVals: number[]; scaledVals: number[] }>;
 }
 
 /**
  * Edits the pre-scaled and scaled value pairs of a table scale. The pairs are typed in
  * directly or loaded from two columns of a CSV.
  */
-export const TableScaleForm = ({ prefix }: TableScaleFormProps): ReactElement => {
-  const [rawCol, setRawCol] = state.usePersisted<string>("Raw", `${prefix}.rawCol`);
+export const TableScaleForm = ({ path }: TableScaleFormProps): ReactElement => {
+  const stateKey = String(path);
+  const [rawCol, setRawCol] = state.usePersisted<string>("Raw", `${stateKey}.rawCol`);
   const [scaledCol, setScaledCol] = state.usePersisted<string>(
     "Scaled",
-    `${prefix}.scaledCol`,
+    `${stateKey}.scaledCol`,
   );
   const [colOptions, setColOptions] = state.usePersisted<record.KeyedNamed<string>[]>(
     [],
-    `${prefix}.colOptions`,
+    `${stateKey}.colOptions`,
   );
-  const [fileName, setFileName] = state.usePersisted<string>("", `${prefix}.path`);
+  const [fileName, setFileName] = state.usePersisted<string>("", `${stateKey}.path`);
   // The parsed table persists beside the form state, so a column change after a
   // remount recomputes the values without re-reading the file.
   const [table, setTable] = state.usePersisted<Record<string, unknown[]>>(
     {},
-    `${prefix}.table`,
+    `${stateKey}.table`,
   );
-  const preScaled = Form.useField<number[]>(`${prefix}.preScaledVals`);
-  const scaled = Form.useField<number[]>(`${prefix}.scaledVals`);
+  const preScaled = Form.useField(path.preScaledVals);
+  const scaled = Form.useField(path.scaledVals);
 
   const length = Math.max(preScaled.value.length, scaled.value.length);
   const rows = Array.from({ length }, (_, i) => [

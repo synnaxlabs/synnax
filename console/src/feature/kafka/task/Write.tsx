@@ -17,15 +17,11 @@ import { Icon } from "@synnaxlabs/lyra/icon";
 import { Select } from "@synnaxlabs/lyra/select";
 import { Text } from "@synnaxlabs/lyra/text";
 import { Channel as PChannel } from "@synnaxlabs/pluto";
-import { DataType, id, primitive } from "@synnaxlabs/x";
+import { DataType, deep, id, primitive } from "@synnaxlabs/x";
 import { type FC } from "react";
 
 import { Select as SelectDevice } from "@/feature/kafka/device/Select";
 import { MAKE, SCHEMAS } from "@/feature/kafka/device/types";
-import {
-  TIME_FORMAT_ITEMS,
-  TimeFormatField,
-} from "@/feature/kafka/task/TimeFormatField";
 import {
   deployWriteConfigZ,
   isString,
@@ -37,9 +33,10 @@ import {
   type WriteSchemas,
 } from "@/feature/kafka/task/types";
 import { CSS } from "@/platform/css";
-import { Form as PlatformForm } from "@/platform/form";
 import { Selector } from "@/platform/selector";
 import { Task } from "@/platform/task";
+
+const root = deep.path<Task.Values<WriteSchemas>>();
 
 const SELECT_TRIGGER_PROPS = { className: CSS.BE("kafka-select", "trigger") };
 
@@ -69,7 +66,11 @@ const renderTimeFormatSelect = Component.renderProp(
       triggerProps={SELECT_TRIGGER_PROPS}
       dialogProps={SELECT_DIALOG_PROPS}
     >
-      {TIME_FORMAT_ITEMS}
+      <Select.Item itemKey="iso8601">ISO 8601</Select.Item>
+      <Select.Item itemKey="unix_sec">Unix (s)</Select.Item>
+      <Select.Item itemKey="unix_ms">Unix (ms)</Select.Item>
+      <Select.Item itemKey="unix_us">Unix (µs)</Select.Item>
+      <Select.Item itemKey="unix_ns">Unix (ns)</Select.Item>
     </Select.Simple>
   ),
 );
@@ -80,38 +81,38 @@ const Properties = () => (
     <Flex.Box x grow wrap>
       <PForm.TextField
         className={TEXT_FIELD_CLASS}
-        path="config.topic"
+        path={root.config.topic}
         label="Topic"
         inputProps={TOPIC_INPUT_PROPS}
         grow
       />
-      <PForm.Field<RecordKey> path="config.recordKey" label="Record key">
+      <PForm.Field path={root.config.recordKey} label="Record key">
         {renderRecordKeySelect}
       </PForm.Field>
     </Flex.Box>
     <Flex.Box x grow wrap>
       <PForm.TextField
         className={TEXT_FIELD_CLASS}
-        path="config.record.valuePointer"
+        path={root.config.record.valuePointer}
         label="Value pointer"
         inputProps={VALUE_POINTER_INPUT_PROPS}
         grow
       />
       <PForm.TextField
         className={TEXT_FIELD_CLASS}
-        path="config.record.channelPointer"
+        path={root.config.record.channelPointer}
         label="Channel pointer"
         inputProps={CHANNEL_POINTER_INPUT_PROPS}
         grow
       />
       <PForm.TextField
         className={TEXT_FIELD_CLASS}
-        path="config.record.timestampPointer"
+        path={root.config.record.timestampPointer}
         label="Timestamp pointer"
         inputProps={TIMESTAMP_POINTER_INPUT_PROPS}
         grow
       />
-      <PForm.Field<TimeFormat> path="config.record.timeFormat" label="Time format">
+      <PForm.Field path={root.config.record.timeFormat} label="Time format">
         {renderTimeFormatSelect}
       </PForm.Field>
     </Flex.Box>
@@ -133,8 +134,8 @@ const useChannelName = (key: channel.Key): string | undefined => {
 
 const ChannelListItem = (props: Task.ChannelListItemProps) => {
   const { itemKey } = props;
-  const path = `config.channels.${itemKey}`;
-  const { channel: key, jsonType, disabled } = PForm.useFieldValue<WriteChannel>(path);
+  const path = root.config.channels[itemKey];
+  const { channel: key, jsonType, disabled } = PForm.useFieldValue(path);
   const name = useChannelName(key);
   return (
     <Select.Item
@@ -158,7 +159,7 @@ const ChannelListItem = (props: Task.ChannelListItemProps) => {
           {jsonType}
         </Text.Text>
       </Flex.Box>
-      <Task.EnabledCheckbox path={`${path}.disabled`} />
+      <Task.EnabledCheckbox path={path.disabled} />
     </Select.Item>
   );
 };
@@ -187,8 +188,8 @@ const renderSelectJSONType = Component.renderProp(
   ),
 );
 
-const ChannelDetails = ({ path }: Task.Views.DetailsProps) => {
-  const { channel: key, jsonType } = PForm.useFieldValue<WriteChannel>(path);
+const ChannelDetails = ({ path }: Task.Views.DetailsProps<WriteChannel>) => {
+  const { channel: key, jsonType } = PForm.useFieldValue(path);
   const query = primitive.isNonZero(key) ? { key } : null;
   const { data: dataType } = PChannel.useResultDataType(query);
   const isTimestamp = dataType != null && DataType.TIMESTAMP.equals(dataType);
@@ -198,32 +199,20 @@ const ChannelDetails = ({ path }: Task.Views.DetailsProps) => {
   return (
     <PForm.Sections className={CSS.B("kafka-details")}>
       <PForm.Section title="Channel">
-        <PForm.Field<channel.Key> path={`${path}.channel`} label="Channel" required>
+        <PForm.Field path={path.channel} label="Channel" required>
           {renderSelectChannel}
         </PForm.Field>
         {!stringOnly && (
-          <PForm.Field<string>
-            path={`${path}.jsonType`}
-            label="JSON type"
-            padHelpText={false}
-          >
+          <PForm.Field path={path.jsonType} label="JSON type" padHelpText={false}>
             {renderSelectJSONType}
           </PForm.Field>
         )}
         {isTimestamp && (
-          <TimeFormatField path={`${path}.timeFormat`} label="Time format" />
+          <Task.Payload.TimeFormatField path={path.timeFormat} label="Time format" />
         )}
       </PForm.Section>
       {jsonType === "string" && !stringOnly && (
-        <PForm.Section title="Enum mapping">
-          <PlatformForm.KeyValueEditor
-            path={`${path}.enumValues`}
-            keyField="label"
-            keyPlaceholder="String (e.g. ON)"
-            valueType="number"
-            valueFirst
-          />
-        </PForm.Section>
+        <Task.Payload.EnumMappingSection path={path.enumValues} valueFirst />
       )}
     </PForm.Sections>
   );
@@ -231,8 +220,8 @@ const ChannelDetails = ({ path }: Task.Views.DetailsProps) => {
 
 const details = Component.renderProp(ChannelDetails);
 
-const ChannelTitle = ({ path }: Task.Views.DetailsProps) => {
-  const key = PForm.useFieldValue<channel.Key>(`${path}.channel`);
+const ChannelTitle = ({ path }: Task.Views.DetailsProps<WriteChannel>) => {
+  const key = PForm.useFieldValue(path.channel);
   const name = useChannelName(key);
   return (
     <Text.Text level="p" weight={500} color={name == null ? 8 : 10}>
@@ -256,6 +245,7 @@ const resolveNothing = () => null;
 
 const Form: FC = () => (
   <Task.Views.ListAndDetails<WriteChannel>
+    path={root.config.channels}
     listItem={listItem}
     details={details}
     detailsTitle={detailsTitle}

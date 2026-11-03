@@ -8,6 +8,7 @@
 // included in the file licenses/APL.txt.
 
 import { stubClipboardWriteText } from "@synnaxlabs/lyra/testutil";
+import { deep } from "@synnaxlabs/x";
 import { fireEvent, screen, waitFor } from "@testing-library/react";
 import { describe, expect, it } from "vitest";
 
@@ -15,12 +16,14 @@ import { Task } from "@/platform/task";
 import { renderInTaskForm } from "@/platform/task/testutil";
 import { getIconButton } from "@/testutil";
 
+const path = deep.path<{ config: { channels: unknown[] } }>();
+
 describe("layouts.DetailsHeader", () => {
   it("should copy the form value at the given path as JSON", async () => {
     const writeText = stubClipboardWriteText();
     const channels = [{ key: "a", disabled: false }];
     const { container } = await renderInTaskForm(
-      <Task.Views.DetailsHeader path="config" />,
+      <Task.Views.DetailsHeader path={path.config} />,
       { values: { config: { channels } } },
     );
     fireEvent.click(getIconButton(container, "json"));
@@ -30,7 +33,7 @@ describe("layouts.DetailsHeader", () => {
 
   it("should not nest a rich title inside a paragraph", async () => {
     const { container } = await renderInTaskForm(
-      <Task.Views.DetailsHeader path="config">
+      <Task.Views.DetailsHeader path={path.config}>
         <Task.Views.ItemLabel kind="Voltage">Port 1</Task.Views.ItemLabel>
       </Task.Views.DetailsHeader>,
       { values: { config: { channels: [] } } },
@@ -39,10 +42,10 @@ describe("layouts.DetailsHeader", () => {
     expect(container.querySelector("p p, p div")).toBeNull();
   });
 
-  it("should not copy anything when disabled", async () => {
+  it("should not copy anything without a path", async () => {
     const writeText = stubClipboardWriteText();
     const { container } = await renderInTaskForm(
-      <Task.Views.DetailsHeader path="config" disabled />,
+      <Task.Views.DetailsHeader path={null} />,
       { values: { config: { channels: [] } } },
     );
     const button = getIconButton(container, "json");

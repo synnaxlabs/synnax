@@ -8,7 +8,7 @@
 #  included in the file licenses/APL.txt.
 
 from collections.abc import Sequence
-from typing import Final, Literal, TypeAlias, get_args
+from typing import Final, Literal, TypeAlias, get_args, override
 from uuid import uuid4
 
 from pydantic import JsonValue
@@ -81,6 +81,7 @@ class ReadTask(
         )
         task.assign_keys(self.config.channels)
 
+    @override
     def update_device_properties(self, device_client: device.Client) -> device.Device:
         """Update device properties before task configuration."""
         dev = device_client.retrieve(key=self.config.device)
@@ -141,6 +142,7 @@ class WriteTask(
         )
         task.assign_keys(self.config.channels)
 
+    @override
     def update_device_properties(self, device_client: device.Client) -> device.Device:
         """Update device properties before task configuration."""
         dev = device_client.retrieve(key=self.config.device)

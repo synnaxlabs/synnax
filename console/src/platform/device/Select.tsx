@@ -15,11 +15,13 @@ import { Form } from "@synnaxlabs/lyra/form";
 import { type Icon } from "@synnaxlabs/lyra/icon";
 import { Status } from "@synnaxlabs/lyra/status";
 import { Access, Device, Synnax } from "@synnaxlabs/pluto";
-import { primitive } from "@synnaxlabs/x";
+import { deep, primitive } from "@synnaxlabs/x";
 import { type ReactElement } from "react";
 
 import { Button } from "@/platform/button";
 import { CSS } from "@/platform/css";
+
+const root = deep.path<{ rack: number; config: { device: device.Key } }>();
 
 export interface SelectConnect {
   /** What the action connects, such as "OPC UA server". */
@@ -52,7 +54,7 @@ export interface SelectProps extends Pick<Device.SelectSingleProps, "filter"> {
   label?: string;
   make: string;
   model?: string;
-  path?: string;
+  path?: deep.Target<device.Key>;
   icon?: Icon.ReactElement;
   /** Adds an action below the list that connects a device and selects it. */
   connect?: SelectConnect;
@@ -65,7 +67,7 @@ export const Select = ({
   label = "Device",
   make,
   model,
-  path = "config.device",
+  path = root.config.device,
   icon,
   connect,
 }: SelectProps) => {
@@ -76,7 +78,7 @@ export const Select = ({
     if (client == null || primitive.isZero(key)) return;
     handleError(async () => {
       const { configured, rack } = await client.devices.retrieve({ key });
-      set("rack", rack);
+      set(root.rack, rack);
       if (configured) return;
       onConfigure(key);
     }, "Failed to retrieve device");
@@ -86,7 +88,7 @@ export const Select = ({
     (model == null || d.model === model) &&
     (filterProp?.(d) ?? true);
   return (
-    <Form.Field<string>
+    <Form.Field
       className={CSS.B("device-select")}
       grow
       label={label}

@@ -38,6 +38,8 @@ import { type Panel } from "@/platform/panel";
 import { Toolbar as Base } from "@/platform/toolbar";
 import { Session } from "@/session";
 
+const path = deep.path<{ variant: Table.Cell.Variant }>();
+
 const Internal = (): ReactElement => {
   const key = Table.useKey();
   const name = Table.useName();
@@ -167,11 +169,7 @@ const CellForm = ({ cellKey }: CellFormProps): ReactElement => {
   const handleTabChange = (tab: Properties.TabKey) =>
     sessionDispatch(Session.Table.setPropertiesTab({ key, tab }));
   const { form } = Table.useCellForm({ cellKey });
-  const variant = Form.useFieldValue<
-    Table.Cell.Variant,
-    Table.Cell.Variant,
-    typeof Table.Cell.configZ
-  >("variant", { ctx: form });
+  const variant = Form.useFieldValue(path.variant, { ctx: form });
   const C = Table.Cell.REGISTRY[variant];
   return (
     <Form.Form<typeof Table.Cell.configZ> {...form}>

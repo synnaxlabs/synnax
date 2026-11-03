@@ -8,6 +8,7 @@
 // included in the file licenses/APL.txt.
 
 import { Form as PForm } from "@synnaxlabs/lyra/form";
+import { deep } from "@synnaxlabs/x";
 import { fireEvent, screen, waitFor, within } from "@testing-library/react";
 import { type ReactElement } from "react";
 import { describe, expect, it, type Mock, vi } from "vitest";
@@ -18,6 +19,9 @@ import { getKVRows } from "@/platform/form/testutil";
 import { getIconButton, renderWithConsole } from "@/testutil";
 
 const PATH = "headers";
+
+const root = deep.path<{ [PATH]: Form.Entry<string, string | number>[] }>();
+const named = deep.path<{ [PATH]: Form.Entry<"name", string | number>[] }>();
 
 type Row = Record<string, unknown>;
 type OnChange = (args: { values: unknown }) => void;
@@ -44,7 +48,7 @@ const Harness = ({
   return (
     <PForm.Form {...methods}>
       <Form.KeyValueEditor
-        path={PATH}
+        path={root[PATH]}
         label="Headers"
         keyField={keyField}
         valueType={valueType}
@@ -217,7 +221,7 @@ describe("KeyValueEditor", () => {
       const methods = PForm.use<typeof schema>({ values: {}, schema, onChange });
       return (
         <PForm.Form<typeof schema> {...methods}>
-          <Form.KeyValueEditor path={PATH} label="Headers" keyField="name" />
+          <Form.KeyValueEditor path={named[PATH]} label="Headers" keyField="name" />
         </PForm.Form>
       );
     };
@@ -249,7 +253,7 @@ describe("KeyValueEditor", () => {
       return (
         <PForm.Form<typeof schema> {...methods}>
           <Form.KeyValueEditor
-            path={PATH}
+            path={named[PATH]}
             label="Headers"
             keyField="name"
             valueFirst={valueFirst}

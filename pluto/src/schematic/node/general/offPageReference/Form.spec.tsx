@@ -10,7 +10,7 @@
 import { schematic } from "@synnaxlabs/client";
 import { createTestClient } from "@synnaxlabs/client/testutil";
 import { Form } from "@synnaxlabs/lyra/form";
-import { uuid } from "@synnaxlabs/x";
+import { deep, uuid } from "@synnaxlabs/x";
 import { fireEvent, render, waitFor } from "@testing-library/react";
 import { type PropsWithChildren, type ReactElement } from "react";
 import { describe, expect, it } from "vitest";
@@ -18,6 +18,8 @@ import { describe, expect, it } from "vitest";
 import { Node } from "@/schematic/node";
 import { OffPageReferenceForm } from "@/schematic/node/general/offPageReference/Form";
 import { createAsyncSynnaxWrapper, createSynnaxWrapper } from "@/testutil/Synnax";
+
+const path = deep.path<schematic.OffPageReferenceNodeConfig>();
 
 const CONFIG_Z = schematic.offPageReferenceNodeConfigZ;
 
@@ -118,7 +120,8 @@ describe("OffPageReferenceForm", () => {
       if (methods == null) throw new Error("form did not mount");
       return methods;
     };
-    const getColor = (): string => JSON.stringify(getMethods().get("fillColor").value);
+    const getColor = (): string =>
+      JSON.stringify(getMethods().get(path.fillColor).value);
     return { ...rendered, target, targetName, getMethods, getColor };
   };
 
@@ -144,7 +147,7 @@ describe("OffPageReferenceForm", () => {
     fireEvent.click(getByText("Select page"));
     fireEvent.click(await findByText(targetName));
     await waitFor(() =>
-      expect(getMethods().get("page").value).toEqual({
+      expect(getMethods().get(path.page).value).toEqual({
         type: "lineplot",
         key: target.key,
       }),
@@ -161,7 +164,7 @@ describe("OffPageReferenceForm", () => {
     fireEvent.click(getByText("Select page"));
     fireEvent.click(await findByText(targetName));
     await waitFor(() =>
-      expect(getMethods().get("page").value).toEqual({
+      expect(getMethods().get(path.page).value).toEqual({
         type: "lineplot",
         key: target.key,
       }),
@@ -177,7 +180,7 @@ describe("OffPageReferenceForm", () => {
     const before = getColor();
     fireEvent.click(await findByLabelText(`Clear ${targetName}`));
     await waitFor(() =>
-      expect(getMethods().get("page", { optional: true })?.value).toBeUndefined(),
+      expect(getMethods().get(path.page, { optional: true })?.value).toBeUndefined(),
     );
     expect(getColor()).toBe(before);
   });

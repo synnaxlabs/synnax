@@ -9,7 +9,7 @@
 
 import "@/feature/kafka/device/Connect.css";
 
-import { type device, type rack, status, TimeSpan } from "@synnaxlabs/client";
+import { type device, status, TimeSpan } from "@synnaxlabs/client";
 import { Button } from "@synnaxlabs/lyra/button";
 import { Flex } from "@synnaxlabs/lyra/flex";
 import { Form } from "@synnaxlabs/lyra/form";
@@ -18,11 +18,11 @@ import { Input } from "@synnaxlabs/lyra/input";
 import { Modal } from "@synnaxlabs/lyra/modal";
 import { Select } from "@synnaxlabs/lyra/select";
 import { Device as PDevice, type Flux } from "@synnaxlabs/pluto";
+import { deep } from "@synnaxlabs/x";
 
 import {
   type Device,
   INTEGRATION,
-  type SASL,
   type SASLType,
   SCHEMAS,
   ZERO_PROPERTIES,
@@ -37,6 +37,11 @@ import { CSS } from "@/platform/css";
 import { Device as PlatformDevice } from "@/platform/device";
 
 const TEST_CONNECTION_TIMEOUT = TimeSpan.seconds(15);
+
+const path = deep.path<Device>();
+const { sasl } = path.properties;
+// Every mechanism but none carries credentials at the same paths.
+const credentials = deep.variant(sasl, "mechanism", "plain");
 
 const INITIAL_VALUES: Device = {
   key: "",
@@ -58,8 +63,8 @@ const beforeValidate = ({
   PDevice.RetrieveQuery,
   PDevice.FormSchema<typeof SCHEMAS>
 >) => {
-  const brokers = get<string[]>("properties.brokers").value;
-  set("location", brokers.filter((b) => b !== "").join(","));
+  const brokers = get(path.properties.brokers).value;
+  set(path.location, brokers.filter((b) => b !== "").join(","));
 };
 
 const beforeSave = async ({
@@ -72,14 +77,14 @@ const beforeSave = async ({
 >) => {
   const scanTask = await client.tasks.retrieve({
     type: SCAN_TYPE,
-    rack: get<rack.Key>("rack").value,
+    rack: get(path.rack).value,
     includeStatus: true,
     schemas: SCAN_SCHEMAS,
   });
   const state = await scanTask.executeCommandSync({
     type: TEST_CONNECTION_COMMAND_TYPE,
     timeout: TEST_CONNECTION_TIMEOUT,
-    args: { connection: get("properties").value },
+    args: { connection: get(path.properties).value },
   });
   if (state.variant === "error")
     throw new Error([state.message, state.description].filter(Boolean).join(": "));
@@ -89,17 +94,17 @@ const beforeSave = async ({
     message: "Device connected",
     variant: "success",
     details: {
-      rack: get<rack.Key>("rack").value,
-      device: get<device.Key>("key").value,
+      rack: get(path.rack).value,
+      device: get(path.key).value,
     },
   });
-  set("status", devStatus, { notifyOnChange: false, markTouched: false });
+  set(path.status, devStatus, { notifyOnChange: false, markTouched: false });
   return true;
 };
 
 const BrokersField = () => (
-  <Form.Field<string[]>
-    path="properties.brokers"
+  <Form.Field
+    path={path.properties.brokers}
     label="Brokers"
     padHelpText={false}
     required
@@ -155,17 +160,17 @@ const SASL_TRIGGER_PROPS = { className: CSS.BE("kafka-connect", "sasl") };
 
 /** Clears the CA certificate when TLS turns off. The Core rejects one without TLS. */
 const handleTLS = (tls: boolean, { set }: Form.ContextValue) => {
-  if (!tls) set("properties.caCertificate", "");
+  if (!tls) set(path.properties.caCertificate, "");
 };
 
 /** Takes a PEM certificate authority for brokers whose certificates the system roots
  * do not trust. Shown only with TLS on. */
 const CAField = () => {
-  const tls = Form.useFieldValue<boolean>("properties.tls");
+  const tls = Form.useFieldValue(path.properties.tls);
   if (!tls) return null;
   return (
     <Form.TextField
-      path="properties.caCertificate"
+      path={path.properties.caCertificate}
       label="CA certificate"
       padHelpText={false}
       inputProps={CA_INPUT_PROPS}
@@ -176,21 +181,21 @@ const CAField = () => {
 /** Selects the SASL mechanism and, for the ones that carry them, the credentials. */
 const SASLFields = () => {
   const { set } = Form.useContext();
-  const sasl = Form.useFieldValue<SASL>("properties.sasl");
+  const value = Form.useFieldValue(sasl);
   const handleMechanism = (mechanism: SASLType) => {
-    if (mechanism === "none") set("properties.sasl", { mechanism });
+    if (mechanism === "none") set(sasl, { mechanism });
     else
-      set("properties.sasl", {
+      set(sasl, {
         mechanism,
-        username: "username" in sasl ? sasl.username : "",
-        password: "password" in sasl ? sasl.password : "",
+        username: "username" in value ? value.username : "",
+        password: "password" in value ? value.password : "",
       });
   };
   return (
     <>
       <Input.Item label="Mechanism">
         <Select.Simple<SASLType>
-          value={sasl.mechanism}
+          value={value.mechanism}
           onChange={handleMechanism}
           resourceName="mechanism"
           triggerProps={SASL_TRIGGER_PROPS}
@@ -198,16 +203,16 @@ const SASLFields = () => {
           {SASL_ITEMS}
         </Select.Simple>
       </Input.Item>
-      {sasl.mechanism !== "none" && (
+      {value.mechanism !== "none" && (
         <>
           <Form.TextField
-            path="properties.sasl.username"
+            path={credentials.username}
             label="Username"
             padHelpText={false}
             inputProps={USERNAME_INPUT_PROPS}
           />
           <Form.TextField
-            path="properties.sasl.password"
+            path={credentials.password}
             label="Password"
             padHelpText={false}
             inputProps={PASSWORD_INPUT_PROPS}
@@ -237,14 +242,10 @@ export const Connect = ({
     beforeSave,
     afterSave: ({ get }) => {
       if (deviceKey == null) capture("device_connected", { integration: INTEGRATION });
-      close(get<device.Key>("key").value);
+      close(get(path.key).value);
     },
   });
-  const rackKey = Form.useFieldValue<
-    rack.Key,
-    rack.Key,
-    PDevice.FormSchema<typeof SCHEMAS>
-  >("rack", { ctx: form });
+  const rackKey = Form.useFieldValue(path.rack, { ctx: form });
   const reason = PlatformDevice.useBlockedReason({
     integration: INTEGRATION,
     name: "Kafka",
@@ -255,7 +256,11 @@ export const Connect = ({
       <Modal.Header icon={<Icon.Logo.Kafka />}>{HEADER}</Modal.Header>
       <Modal.Body gap="large" justify="start">
         <Form.Form<PDevice.FormSchema<typeof SCHEMAS>> {...form}>
-          <Form.TextField path="name" showLabel={false} inputProps={NAME_INPUT_PROPS} />
+          <Form.TextField
+            path={path.name}
+            showLabel={false}
+            inputProps={NAME_INPUT_PROPS}
+          />
           <Form.Sections className={CSS.BE("kafka-connect", "sections")}>
             <Form.Section title="Connection">
               <BrokersField />
@@ -263,7 +268,7 @@ export const Connect = ({
             </Form.Section>
             <Form.Section title="Security">
               <Form.SwitchField
-                path="properties.tls"
+                path={path.properties.tls}
                 label="TLS"
                 padHelpText={false}
                 onChange={handleTLS}
