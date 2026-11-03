@@ -10,7 +10,7 @@
 import { Color } from "@synnaxlabs/lyra/color";
 import { Form } from "@synnaxlabs/lyra/form";
 import { Theming } from "@synnaxlabs/lyra/theming";
-import { type color, deep } from "@synnaxlabs/x";
+import { type color, deep, TimeSpan } from "@synnaxlabs/x";
 import { type ReactElement } from "react";
 
 import { staleness } from "@/vis/staleness/aether";
@@ -31,9 +31,11 @@ export const Fields = (): ReactElement => {
         path={path.stalenessColor}
         fallback={staleness.resolveColor(undefined, theme)}
       />
-      <Form.NumericField
+      <Form.TimeSpanField
         path={path.stalenessTimeout}
         label="Timeout"
+        unit={TimeSpan.SECOND}
+        bounds={BOUNDS}
         padHelpText={false}
         inputProps={INPUT_PROPS}
       />
@@ -41,8 +43,6 @@ export const Fields = (): ReactElement => {
   );
 };
 
-const INPUT_PROPS: Form.NumericFieldProps["inputProps"] = {
-  bounds: { lower: 1, upper: Infinity },
-  endContent: "s",
-  style: { maxWidth: "18rem" },
-};
+const BOUNDS = { lower: TimeSpan.SECOND };
+
+const INPUT_PROPS = { style: { maxWidth: "18rem" } } as const;

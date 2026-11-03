@@ -545,6 +545,12 @@ public:
                     needs_update = true;
                 }
 
+                if (dev.model != remote_dev.model) {
+                    LOG(INFO) << this->log_prefix << "device model changed from "
+                              << remote_dev.model << " to " << dev.model;
+                    needs_update = true;
+                }
+
                 if (dev.rack != remote_dev.rack &&
                     this->update_threshold_exceeded(dev.key)) {
                     LOG(INFO) << this->log_prefix << "taking ownership over device";
