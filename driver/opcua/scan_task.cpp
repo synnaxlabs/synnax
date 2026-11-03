@@ -939,6 +939,8 @@ void Scanner::test_connection(const synnax::task::Command &cmd) const {
         if (err.matches(errors::SERVER_CERTIFICATE_UNTRUSTED))
             if (const auto cert = connection::server_certificate(client.get()))
                 status.details.data = {{"server_certificate", cert->info().to_json()}};
+        if (err.matches(errors::CLIENT_CERTIFICATE_REJECTED))
+            status.details.data = {{"client_certificate_rejected", true}};
         ctx->set_status(status);
         return;
     }

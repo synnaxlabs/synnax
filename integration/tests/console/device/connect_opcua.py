@@ -40,8 +40,9 @@ class ConnectOPCUA(OPCUACase):
         modal.get_by_role("button", name="Sign and encrypt", exact=True).click(
             timeout=5000
         )
-        # The Driver answers the certificate request before the dialog shows an expiry.
-        modal.get_by_text(re.compile(r"^Expires ")).wait_for(timeout=TIMEOUT)
+        # The Driver answers the certificate request before the dialog shows its
+        # thumbprint.
+        modal.get_by_text("Thumbprint", exact=True).wait_for(timeout=TIMEOUT)
         # Toasts stack over the modal footer and swallow the click.
         self.console.layout.notifications.close_all()
         modal.get_by_role("button", name="Connect", exact=True).click(timeout=5000)

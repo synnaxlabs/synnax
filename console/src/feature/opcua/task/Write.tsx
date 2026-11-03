@@ -19,7 +19,7 @@ import { Input } from "@synnaxlabs/lyra/input";
 import { Menu } from "@synnaxlabs/lyra/menu";
 import { Text } from "@synnaxlabs/lyra/text";
 import { Access, Channel } from "@synnaxlabs/pluto";
-import { caseconv, DataType, errors, id, primitive } from "@synnaxlabs/x";
+import { caseconv, DataType, deep, errors, id, primitive } from "@synnaxlabs/x";
 import { type FC, type ReactElement } from "react";
 
 import { Select } from "@/feature/opcua/device/Select";
@@ -52,6 +52,8 @@ import { ContextMenu } from "@/platform/context-menu";
 import { CSS } from "@/platform/css";
 import { Selector } from "@/platform/selector";
 import { Task } from "@/platform/task";
+
+const path = deep.path<Task.Values<WriteSchemas>>();
 
 const Properties = () => <Select />;
 
@@ -241,6 +243,7 @@ const resolve = (device: Device, ch: WriteChannel): Partial<WriteChannel> =>
     : { cmdChannel: getChannelByNodeID(device.properties, ch.nodeId) ?? 0 };
 
 const TaskForm: FC = createForm<WriteChannel>({
+  path: path.config.channels,
   convertNodeToChannel,
   getChannelKeyAndID,
   contextMenuItems,

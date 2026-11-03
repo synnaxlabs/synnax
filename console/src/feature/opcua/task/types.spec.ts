@@ -156,6 +156,21 @@ describe("OPC UA Read Task Config Validation", () => {
     ).toBe(true);
   });
 
+  it("should reject an enabled structure field channel in array mode", () => {
+    const result = OPCUA.Task.deployReadConfigZ.safeParse({
+      ...createConfig([{ field: "Speed" }, { field: "Speed", disabled: true }, {}]),
+      arrayMode: true,
+      arraySize: 5,
+    });
+    expect(result.success).toBe(false);
+    expect(result.error?.issues).toEqual([
+      expect.objectContaining({
+        path: ["channels", 0, "nodeId"],
+        message: "Array sampling cannot read structure fields",
+      }),
+    ]);
+  });
+
   it("should reject a non-positive array size", () => {
     const config = {
       ...createConfig([{}]),

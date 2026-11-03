@@ -128,15 +128,20 @@ const browseNodes = async (
   return { ...browseResponseZ.parse(res.details?.data), warning };
 };
 
-/** @returns the nodes that match, or that hold a node that matches. */
+/**
+ * @returns the nodes that match with all their loaded children, and the nodes that hold
+ * a node that matches. Adds the key of each node that holds a match to holders.
+ */
 const filterNodes = (
   nodes: Tree.Node[],
   matches: (key: string) => boolean,
+  holders: string[],
 ): Tree.Node[] =>
   nodes.flatMap((node) => {
-    const children = filterNodes(node.children ?? [], matches);
-    if (children.length === 0 && !matches(node.key)) return [];
-    return [{ ...node, children }];
+    const children = filterNodes(node.children ?? [], matches, holders);
+    if (children.length > 0) holders.push(node.key);
+    if (matches(node.key)) return [node];
+    return children.length === 0 ? [] : [{ ...node, children }];
   });
 
 // A typed value with '=' names a node ID, such as ns=2;s=Tank1 or i=2258.
@@ -147,6 +152,7 @@ interface Selection {
   field: string;
   /** The node ID of the node that the browser found this one under. */
   parent?: string;
+  name?: string;
 }
 
 export const Browser = ({ device, roots }: BrowserProps) => {
@@ -158,6 +164,7 @@ export const Browser = ({ device, roots }: BrowserProps) => {
   const [initialLoading, setInitialLoading] = useState(false);
   const [query, setQuery] = useState("");
   const [lookup, setLookup] = useState<string | null>(null);
+  const [detailsCollapsed, setDetailsCollapsed] = useState(false);
   const client = Synnax.use();
   const addStatus = Status.useAdder();
   const handleError = Status.useErrorHandler();
@@ -236,7 +243,7 @@ export const Browser = ({ device, roots }: BrowserProps) => {
     onExpand: expand,
     onSelectedChange: () => setLookup(null),
   });
-  const { shape, clearExpanded, selected } = treeProps;
+  const { shape, clearExpanded, selected, expanded } = treeProps;
   const selectedKey = selected.at(-1);
   const selectedNode =
     selectedKey == null ? undefined : opcNodesStore.getItem(selectedKey);
@@ -248,6 +255,7 @@ export const Browser = ({ device, roots }: BrowserProps) => {
       nodeId: selectedNode.nodeId,
       field: selectedNode.field,
       parent: selectedNode.parent,
+      name: selectedNode.name,
     };
   const refresh = () => {
     setInitialLoading(true);
@@ -264,11 +272,15 @@ export const Browser = ({ device, roots }: BrowserProps) => {
     );
   };
   let visibleShape = shape;
+  let unmatched = false;
   if (search !== "") {
-    const filtered = filterNodes(treeNodes, matches);
+    const holders: string[] = [];
+    const filtered = filterNodes(treeNodes, matches, holders);
+    unmatched = filtered.length === 0;
+    // A node that holds a match stays open. The others open as the user sets them.
     visibleShape = Tree.flatten({
       nodes: filtered,
-      expanded: Tree.getDescendants(...filtered).map(({ key }) => key),
+      expanded: [...holders, ...expanded],
     });
   }
   const handleSearchKeyDown = (e: KeyboardEvent<HTMLInputElement>) => {
@@ -285,6 +297,19 @@ export const Browser = ({ device, roots }: BrowserProps) => {
     content = (
       <Flex.Box center>
         <Icon.Loading className={CSS.BE("opc-browser", "loading-icon")} color={9} />
+      </Flex.Box>
+    );
+  else if (unmatched)
+    content = (
+      <Flex.Box center>
+        <Text.Text
+          level="small"
+          status="disabled"
+          className={CSS.BE("opc-browser", "empty")}
+        >
+          No loaded node matches. Expand a folder to load its nodes, or enter a node ID
+          and press Enter.
+        </Text.Text>
       </Flex.Box>
     );
   else
@@ -323,11 +348,18 @@ export const Browser = ({ device, roots }: BrowserProps) => {
         onChange={setQuery}
         onKeyDown={handleSearchKeyDown}
         startContent={SEARCH_ICON}
-        placeholder="Search, or enter a node ID"
+        placeholder="Filter, or enter a node ID"
         className={CSS.BE("opc-browser", "search")}
       />
       {content}
-      {selection != null && <Details device={device} {...selection} />}
+      {selection != null && (
+        <Details
+          device={device}
+          {...selection}
+          collapsed={detailsCollapsed}
+          onCollapsedChange={setDetailsCollapsed}
+        />
+      )}
     </Flex.Box>
   );
 };

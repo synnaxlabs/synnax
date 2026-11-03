@@ -95,8 +95,17 @@ export const deployReadConfigZ = opcua.readConfigZ
   })
   .check((ctx) => {
     const { value, issues } = ctx;
-    const { arrayMode, arraySize, sampleRate, streamRate } = value;
+    const { arrayMode, arraySize, channels, sampleRate, streamRate } = value;
     if (arrayMode) {
+      channels.forEach(({ disabled, field }, i) => {
+        if (disabled || field === "") return;
+        issues.push({
+          code: "custom",
+          message: "Array sampling cannot read structure fields",
+          path: ["channels", i, "nodeId"],
+          input: value,
+        });
+      });
       if (!Number.isInteger(arraySize) || arraySize <= 0)
         issues.push({
           code: "custom",
@@ -376,6 +385,7 @@ export interface CertificatesResponse extends z.infer<typeof certificatesRespons
 
 export const testConnectionResponseZ = z.object({
   serverCertificate: certificateInfoZ.optional(),
+  clientCertificateRejected: z.boolean().optional(),
 });
 
 const endpointZ = z.object({

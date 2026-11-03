@@ -11,7 +11,6 @@
 
 #include "x/cpp/breaker/breaker.h"
 #include "x/cpp/json/json.h"
-#include "x/cpp/telem/telem.h"
 
 #include "driver/common/factory.h"
 #include "driver/common/scan_task.h"
@@ -22,17 +21,6 @@
 #include "driver/opcua/write_task.h"
 
 namespace driver::opcua {
-namespace {
-/// @brief retries a lost server without a limit, so a task waits for it to return.
-x::breaker::Config retry_config(const std::string &name) {
-    return x::breaker::Config{
-        .name = name,
-        .max_retries = x::breaker::RETRY_INFINITELY,
-        .max_interval = 5 * x::telem::SECOND,
-    };
-}
-}
-
 std::pair<common::ConfigureResult, x::errors::Error> configure_read(
     const std::shared_ptr<task::Context> &ctx,
     const synnax::task::Task &task,
@@ -50,7 +38,7 @@ std::pair<common::ConfigureResult, x::errors::Error> configure_read(
     result.task = std::make_unique<common::ReadTask>(
         task,
         ctx,
-        retry_config(task.name),
+        common::unlimited_retry_config(task.name),
         std::move(s)
     );
     return {std::move(result), x::errors::NIL};
@@ -86,7 +74,7 @@ std::pair<common::ConfigureResult, x::errors::Error> configure_write(
     result.task = std::make_unique<common::WriteTask>(
         task,
         ctx,
-        retry_config(task.name),
+        common::unlimited_retry_config(task.name),
         std::make_unique<WriteTaskSink>(ctx->client, pool, std::move(cfg))
     );
     return {std::move(result), x::errors::NIL};

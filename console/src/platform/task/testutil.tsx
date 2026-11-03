@@ -105,9 +105,10 @@ export type FormRef = { current: PForm.ContextValue<z.ZodType> | null };
 export const renderTaskFormHook = async <R,>(
   values: TaskFormValues,
   useValue: (ctx: PForm.ContextValue<z.ZodType>) => R,
+  schema?: z.ZodType,
 ) => {
   const useHarness = () => {
-    const ctx = PForm.use<z.ZodType>({ values });
+    const ctx = PForm.use<z.ZodType>({ values, schema });
     return { ctx, value: useValue(ctx) };
   };
   return await renderHookWithConsole(useHarness);
@@ -117,6 +118,8 @@ export interface TaskFormProviderProps extends PropsWithChildren {
   values: TaskFormValues;
   mode?: PForm.Mode;
   formRef?: FormRef;
+  /** Field schemas the form reads through, such as an optional field. */
+  schema?: z.ZodType;
 }
 
 /**
@@ -129,9 +132,10 @@ export const TaskFormProvider = ({
   values,
   mode,
   formRef,
+  schema,
   children,
 }: TaskFormProviderProps): ReactElement => {
-  const ctx = PForm.use<z.ZodType>({ values, mode });
+  const ctx = PForm.use<z.ZodType>({ values, mode, schema });
   useImperativeHandle(formRef, () => ctx, [ctx]);
   return <PForm.Form {...ctx}>{children}</PForm.Form>;
 };
@@ -272,7 +276,8 @@ export const createWithHook = async <S extends task.Schemas>(
   return await defaultClient.tasks.retrieve({ key, schemas });
 };
 
-export interface RenderInTaskFormOptions extends RenderWithConsoleOptions {
+export interface RenderInTaskFormOptions
+  extends RenderWithConsoleOptions, Pick<TaskFormProviderProps, "schema"> {
   values?: TaskFormValues;
   mode?: PForm.Mode;
 }
@@ -311,7 +316,7 @@ export const renderInTaskForm = async (
   ui: ReactElement,
   options: RenderInTaskFormOptions = {},
 ): Promise<RenderInTaskFormResult> => {
-  const { values, mode, ...rest } = options;
+  const { values, mode, schema, ...rest } = options;
   const formRef: FormRef = { current: null };
   const defaultConfig = DEFAULT_TASK_FORM_VALUES.config as TaskFormValues;
   const merged: TaskFormValues = {
@@ -322,7 +327,7 @@ export const renderInTaskForm = async (
   const tabKey = uuid.create();
   const result = await renderWithConsole(
     <PanelScopes panelKey={uuid.create()} tabKey={tabKey}>
-      <TaskFormProvider values={merged} mode={mode} formRef={formRef}>
+      <TaskFormProvider values={merged} mode={mode} formRef={formRef} schema={schema}>
         {ui}
       </TaskFormProvider>
     </PanelScopes>,
@@ -350,7 +355,15 @@ export const renderInTaskFormWithClient = async (
   ui: ReactElement,
   options: RenderInTaskFormWithClientOptions = {},
 ): Promise<RenderInTaskFormWithClientResult> => {
-  const { client = null, values, mode, preloadedState, store, ...rest } = options;
+  const {
+    client = null,
+    values,
+    mode,
+    schema,
+    preloadedState,
+    store,
+    ...rest
+  } = options;
   const formRef: FormRef = { current: null };
   const defaultConfig = DEFAULT_TASK_FORM_VALUES.config as TaskFormValues;
   const merged: TaskFormValues = {
@@ -367,7 +380,7 @@ export const renderInTaskFormWithClient = async (
   const tabKey = uuid.create();
   const result = await renderSuspended(
     <PanelScopes panelKey={panelKey} tabKey={tabKey}>
-      <TaskFormProvider values={merged} mode={mode} formRef={formRef}>
+      <TaskFormProvider values={merged} mode={mode} formRef={formRef} schema={schema}>
         {ui}
       </TaskFormProvider>
     </PanelScopes>,
@@ -402,8 +415,8 @@ export interface RenderTaskFormTabResult extends RenderResult, CreatedPanel {
 /**
  * Renders a Task.wrapForm tab the way the task panel entry does: seeds a panel doc
  * whose single leaf holds a resource tab for the task, then mounts the form inside the
- * panel and tab scopes within the full console provider stack, with the drag and drop
- * provider and modal stack the window mounts.
+ * panel and tab scopes within the full console provider stack. The drag and drop
+ * provider and a modal stack render around the panel, as in a window.
  */
 export const renderTaskFormTab = async (
   Form: FC<FormTabProps>,
@@ -432,11 +445,11 @@ export const renderTaskFormTab = async (
   const result = await renderSuspended(
     <Analytics.Provider sink={analytics}>
       <HaulProvider>
+        <Modals.Stack />
         <PanelScopes panelKey={created.panelKey} tabKey={tab.key}>
           <Form taskKey={taskKey} />
           {onStatuses != null && <CaptureStatuses onStatuses={onStatuses} />}
         </PanelScopes>
-        <Modals.Stack />
       </HaulProvider>
     </Analytics.Provider>,
     { wrapper, onCaughtError },

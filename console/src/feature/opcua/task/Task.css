@@ -82,6 +82,8 @@
     transform: translateY(0.5rem);
 }
 
+/* The width of the stream rate field it replaces, so the row does not move. */
 .console-opc-array-size-field {
-    width: 100px;
+    width: 115px;
+    flex-shrink: 0;
 }

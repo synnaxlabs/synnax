@@ -678,6 +678,32 @@ TEST_F(TestScanTask, testTestConnectionUntrustedCertificate) {
     EXPECT_EQ(ctx->statuses[1].message, "Connected to server");
 }
 
+/// @brief it should mark a reply when the server rejects the Driver certificate.
+TEST_F(TestScanTask, testTestConnectionDriverCertificateRejected) {
+    const auto server_id = ASSERT_NIL_P(testutil::create_server_identity());
+    const auto other_id = ASSERT_NIL_P(testutil::create_server_identity());
+    start_secured_server(server_id, {other_id.certificate});
+    Scanner scanner(ctx, task, conn_pool, store);
+    auto conn_cfg = secured_config();
+    conn_cfg.server_certificate = server_id.certificate;
+    synnax::task::Command cmd{
+        .task = task.key,
+        .type = TEST_CONNECTION_CMD_TYPE,
+        .key = "rejected_cmd",
+        .args = {{"connection", testutil::connection_json(conn_cfg)}},
+    };
+    ASSERT_TRUE(scanner.exec(cmd, task, ctx));
+    ASSERT_EQ(ctx->statuses.size(), 1);
+    const auto &status = ctx->statuses[0];
+    EXPECT_EQ(status.variant, synnax::status::VARIANT_ERROR);
+    EXPECT_EQ(status.message, "Server rejected the Driver certificate");
+    ASSERT_TRUE(status.details.data.has_value());
+    EXPECT_EQ(
+        x::json::json(status.details.data.value()),
+        x::json::json({{"client_certificate_rejected", true}})
+    );
+}
+
 /// @brief it should trust the first certificate of a secured device that trusts
 /// none, and keep using its connection once the device trusts that certificate.
 TEST_F(TestScanTask, testHealthCheckTrustsFirstCertificate) {

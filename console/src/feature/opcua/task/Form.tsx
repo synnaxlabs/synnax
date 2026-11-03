@@ -22,7 +22,7 @@ import { Status } from "@synnaxlabs/lyra/status";
 import { Text } from "@synnaxlabs/lyra/text";
 import { Tooltip } from "@synnaxlabs/lyra/tooltip";
 import { Synnax as PSynnax } from "@synnaxlabs/pluto";
-import { id, primitive, TimeSpan } from "@synnaxlabs/x";
+import { deep, id, primitive, TimeSpan } from "@synnaxlabs/x";
 import { type FC, useState } from "react";
 
 import { Browser } from "@/feature/opcua/device/Browser";
@@ -54,8 +54,8 @@ import { Modals } from "@/platform/modals";
 import { Runtime } from "@/platform/runtime";
 import { Task } from "@/platform/task";
 
-export interface ExtraItemProps {
-  path: string;
+export interface ExtraItemProps<C extends Channel> {
+  path: deep.Path<C>;
 }
 
 export interface ChannelKeyAndIDGetter<C extends Channel> {
@@ -66,20 +66,20 @@ interface ChannelListItemProps<C extends Channel> extends Omit<
   Task.ChannelListItemProps,
   "children"
 > {
-  children: Component.RenderProp<ExtraItemProps>;
+  children: Component.RenderProp<ExtraItemProps<C>>;
   getChannelKeyAndID: ChannelKeyAndIDGetter<C>;
+  path: deep.Path<C>;
 }
 
 const ChannelListItem = <C extends Channel>({
   children,
   getChannelKeyAndID,
+  path,
   ...rest
 }: ChannelListItemProps<C>) => {
-  const path = `config.channels.${rest.itemKey}`;
-  const item = PForm.useFieldValue<C>(path);
-  const nodeIdState = PForm.useFieldState<string>(`${path}.nodeId`, {
-    optional: true,
-  });
+  const item = PForm.useFieldValue(path);
+  const fields = deep.widen<Channel>(path);
+  const nodeIdState = PForm.useFieldState(fields.nodeId, { optional: true });
   if (item == null) return null;
   const { nodeName, nodeId } = item;
   const opcNode = nodeId.length > 0 ? nodeId : "No node selected";
@@ -102,7 +102,7 @@ const ChannelListItem = <C extends Channel>({
           level="p"
           channel={channel}
           id={id}
-          namePath={`${path}.name`}
+          namePath={fields.name}
         />
         <Flex.Box x align="center" gap="tiny">
           {isMethod(item) ? <Icon.Function color={9} /> : <Icon.Variable color={9} />}
@@ -123,13 +123,13 @@ const ChannelListItem = <C extends Channel>({
       </Flex.Box>
       <Flex.Box direction="x" align="center">
         {children({ path })}
-        <Task.EnabledCheckbox path={`${path}.disabled`} />
+        <Task.EnabledCheckbox path={fields.disabled} />
       </Flex.Box>
     </Select.Item>
   );
 };
 
-const CHANNELS_PATH = "config.channels";
+const root = deep.path<{ name: string; config: { device: string } }>();
 
 const EXPORT_LABEL = "Export channels to CSV";
 
@@ -137,7 +137,7 @@ const IMPORT_LABEL = "Import channels from CSV";
 
 interface HeaderProps<C extends Channel> extends Pick<
   ChannelListProps<C>,
-  "convertNodeToChannel" | "indexed"
+  "convertNodeToChannel" | "indexed" | "path"
 > {
   onImport: (channels: C[]) => void;
 }
@@ -146,12 +146,13 @@ const Header = <C extends Channel>({
   convertNodeToChannel,
   indexed,
   onImport,
+  path,
 }: HeaderProps<C>) => {
   const ctx = PForm.useContext();
   const isPreview = Task.useIsPreview();
   const download = Runtime.useDownload();
   const handleError = Status.useErrorHandler();
-  const getChannels = () => ctx.get<C[]>(CHANNELS_PATH).value;
+  const getChannels = () => ctx.get(path).value;
   const handleExport = () =>
     handleError(
       async () =>
@@ -159,7 +160,7 @@ const Header = <C extends Channel>({
           stream: Runtime.toStream(
             new TextEncoder().encode(CSV.encode(getChannels(), { indexed })),
           ),
-          name: `${ctx.get<string>("name").value}_channels`,
+          name: `${ctx.get(root.name).value}_channels`,
           extension: "csv",
         }),
       "Failed to export channels",
@@ -302,11 +303,11 @@ const describeMissing = ({ truncated, skipped }: Search): string | null => {
 
 interface ChannelListProps<C extends Channel> extends Pick<
   Task.ChannelListProps<C>,
-  "contextMenuItems" | "resolve"
+  "contextMenuItems" | "path" | "resolve"
 > {
-  children: Component.RenderProp<ExtraItemProps>;
+  children: Component.RenderProp<ExtraItemProps<C>>;
   /** Renders the details of the one selected channel, under the list. */
-  details?: Component.RenderProp<ExtraItemProps>;
+  details?: Component.RenderProp<ExtraItemProps<C>>;
   device: Device;
   /**
    * @returns the channel of a node, or null if the task cannot hold it. Details are
@@ -328,14 +329,15 @@ const ChannelList = <C extends Channel>({
   ...rest
 }: ChannelListProps<C>) => {
   const ctx = PForm.useContext();
-  const fieldListReturn = PForm.useFieldList<C["key"], C>(CHANNELS_PATH);
+  const { path } = rest;
+  const fieldListReturn = PForm.useFieldList(path);
   const { data, push } = fieldListReturn;
   const client = PSynnax.use();
   const confirm = Modals.useConfirm();
   const addStatus = Status.useAdder();
   const handleError = Status.useErrorHandler();
   const newChannels = (nodes: ScannedNode[]): C[] => {
-    const channels = ctx.get<C[]>(CHANNELS_PATH).value;
+    const channels = ctx.get(path).value;
     const held = new Set(channels.map(nodeIdentity));
     const names = new Set(channels.map(deployName));
     return nodes
@@ -351,7 +353,7 @@ const ChannelList = <C extends Channel>({
   // Another device mounts another body, but an add that waits on the Driver still
   // writes to this form.
   const moved = (key: string, name: string, message: string): boolean => {
-    if (ctx.get<string>("config.device").value === device.key) return false;
+    if (ctx.get(root.config.device).value === device.key) return false;
     addStatus({ key, variant: "warning", name, message, description: MOVED_NOTE });
     return true;
   };
@@ -469,20 +471,25 @@ const ChannelList = <C extends Channel>({
 
   const [selected, setSelected] = useState(data.length > 0 ? [data[0]] : []);
   const listItem = ({ key, ...p }: Task.ChannelListItemProps) => (
-    <ChannelListItem<C> key={key} {...p} getChannelKeyAndID={getChannelKeyAndID}>
+    <ChannelListItem<C>
+      key={key}
+      {...p}
+      getChannelKeyAndID={getChannelKeyAndID}
+      path={path[p.itemKey]}
+    >
       {children}
     </ChannelListItem>
   );
   const list = (
     <Task.ChannelList
       onSelect={setSelected}
-      path={CHANNELS_PATH}
       emptyContent={<EmptyContent />}
       header={
         <Header<C>
           convertNodeToChannel={convertNodeToChannel}
           indexed={indexed}
           onImport={push}
+          path={path}
         />
       }
       selected={selected}
@@ -498,16 +505,18 @@ const ChannelList = <C extends Channel>({
   return (
     <Flex.Box y empty grow className={CSS.B("opc-task-channels")}>
       {list}
-      {selected.length === 1 && details({ path: `${CHANNELS_PATH}.${selected[0]}` })}
+      {selected.length === 1 && details({ path: path[selected[0]] })}
     </Flex.Box>
   );
 };
 
 export interface FormProps<C extends Channel>
   extends
-    Required<Pick<ChannelListProps<C>, "convertNodeToChannel" | "contextMenuItems">>,
+    Required<
+      Pick<ChannelListProps<C>, "convertNodeToChannel" | "contextMenuItems" | "path">
+    >,
     Pick<ChannelListProps<C>, "indexed" | "details"> {
-  children?: Component.RenderProp<ExtraItemProps>;
+  children?: Component.RenderProp<ExtraItemProps<C>>;
   getChannelKeyAndID: ChannelKeyAndIDGetter<C>;
   /** Returns the bindings the device holds for a channel's node. */
   resolve: (device: Device, channel: C) => Partial<C>;
@@ -522,6 +531,7 @@ const Body = <C extends Channel>({
   children = () => null,
   getChannelKeyAndID,
   contextMenuItems,
+  path,
   resolve,
   indexed,
   details,
@@ -536,6 +546,7 @@ const Body = <C extends Channel>({
         convertNodeToChannel={convertNodeToChannel}
         getChannelKeyAndID={getChannelKeyAndID}
         contextMenuItems={contextMenuItems}
+        path={path}
         resolve={resolveOnDevice}
         indexed={indexed}
         details={details}
