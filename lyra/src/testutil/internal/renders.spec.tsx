@@ -11,7 +11,7 @@ import { fireEvent, render } from "@testing-library/react";
 import { type ReactElement, useState } from "react";
 import { describe, expect, it } from "vitest";
 
-import { createRenderCounter } from "@/testutil/renders";
+import { createRenderCounter } from "@/testutil/internal";
 
 describe("createRenderCounter", () => {
   const Clickable = ({ label }: { label: string }): ReactElement => {

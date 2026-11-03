@@ -9,31 +9,28 @@
 
 import { render } from "@testing-library/react";
 import { type ReactElement, useRef } from "react";
-import { createPortal } from "react-dom";
 import { describe, expect, it, vi } from "vitest";
 
-import {
-  PORTAL_ID_ATTR,
-  PORTAL_OWNER_ATTR,
-  useClickOutside,
-} from "@/dialog/useClickOutside";
+import { Dialog } from "@/dialog";
 import { firePointerDown, mockBoundingClientRect } from "@/testutil";
 
 interface OwnerProps {
   onClickOutside: () => void;
+  dialog: boolean;
 }
 
-const Owner = ({ onClickOutside }: OwnerProps): ReactElement => {
+const Owner = ({ onClickOutside, dialog }: OwnerProps): ReactElement => {
   const ref = useRef<HTMLDivElement>(null);
-  useClickOutside({ ref, onClickOutside });
+  Dialog.useClickOutside({ ref, onClickOutside });
   return (
-    <div ref={ref} {...{ [PORTAL_ID_ATTR]: "owner" }}>
+    <div ref={ref}>
       <span>Inside</span>
-      {createPortal(
-        <div {...{ [PORTAL_OWNER_ATTR]: "owner" }}>
-          <span>Portaled</span>
-        </div>,
-        document.body,
+      {dialog && (
+        <Dialog.Frame visible variant="modal">
+          <Dialog.Dialog>
+            <span>Portaled</span>
+          </Dialog.Dialog>
+        </Dialog.Frame>
       )}
     </div>
   );
@@ -42,10 +39,10 @@ Owner.displayName = "Owner";
 
 // jsdom gives every element a zero rect, which reads as containing every click, so
 // the owner and the viewport need rects of their own.
-const renderOwner = (onClickOutside: () => void) => {
+const renderOwner = (onClickOutside: () => void, dialog = false) => {
   const c = render(
     <>
-      <Owner onClickOutside={onClickOutside} />
+      <Owner onClickOutside={onClickOutside} dialog={dialog} />
       <span>Elsewhere</span>
     </>,
   );
@@ -76,9 +73,9 @@ describe("useClickOutside", () => {
     expect(onClickOutside).not.toHaveBeenCalled();
   });
 
-  it("should not call the callback when the click lands inside a portaled child", () => {
+  it("should not call the callback when the click lands in a dialog the element portals", () => {
     const onClickOutside = vi.fn();
-    const c = renderOwner(onClickOutside);
+    const c = renderOwner(onClickOutside, true);
     firePointerDown(c.getByText("Portaled"), { x: 200, y: 200 });
     expect(onClickOutside).not.toHaveBeenCalled();
   });
