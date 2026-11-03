@@ -124,10 +124,10 @@ const Calculated = ({
                   className={CSS.BE("operations", "window")}
                 >
                   {({ value, onChange }) => (
-                    <Input.Numeric
-                      value={new TimeSpan(value).seconds}
-                      onChange={(v) => onChange(TimeSpan.seconds(v))}
-                      endContent="s"
+                    <Input.TimeSpan
+                      inline
+                      value={Number(new TimeSpan(value).valueOf())}
+                      onChange={(ns) => onChange(new TimeSpan(ns))}
                     />
                   )}
                 </Form.Field>

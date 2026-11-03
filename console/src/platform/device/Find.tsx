@@ -31,6 +31,7 @@ import { type ReactElement, type ReactNode, useState } from "react";
 
 import { CSS } from "@/platform/css";
 import { Configure } from "@/platform/device/Configure";
+import { ConnectFrame } from "@/platform/device/ConnectFrame";
 import { type Hardware } from "@/platform/device/integration";
 import { isRunning } from "@/platform/device/racks";
 import { Modals } from "@/platform/modals";
@@ -297,7 +298,7 @@ export const Find = ({
     setScanning(false);
   };
   return (
-    <Modal.Frame className={CSS.B("device-find")}>
+    <ConnectFrame className={CSS.B("device-find")}>
       <Modal.Header icon={icon}>{["Device", "Connect", title]}</Modal.Header>
       <Modal.Body gap="large" justify="start">
         {racks?.length === 0 && (
@@ -357,7 +358,7 @@ export const Find = ({
           </Button.Button>
         </Nav.Bar.End>
       </Modal.Footer>
-    </Modal.Frame>
+    </ConnectFrame>
   );
 };
 

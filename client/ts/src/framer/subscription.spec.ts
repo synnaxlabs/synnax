@@ -45,6 +45,9 @@ const OPTIONS: framer.FeedOptions = {
   },
 };
 
+// Stream reopens fail while a spec holds the Core down.
+const quiet = (): void => {};
+
 const createCore = (props: Partial<SyntheticCoreProps> = {}): SyntheticCore =>
   new SyntheticCore({
     rate: RATE,
@@ -968,7 +971,7 @@ describe("Feed.subscribe", () => {
 
     it("should report reconnecting during an outage and fill it after", async () => {
       const core = createCore();
-      const feed = core.openFeed(OPTIONS);
+      const feed = core.openFeed({ ...OPTIONS, onRetry: quiet });
       const span = TimeSpan.seconds(30);
       const sub = feed.subscribe(raw([core.index.key], span));
       const stop = tick(core);
@@ -992,6 +995,7 @@ describe("Feed.subscribe", () => {
       const raw: TimeRange[] = [];
       const feed = core.openFeed({
         ...OPTIONS,
+        onRetry: quiet,
         readRemote: async (tr, keys, reduction) => {
           if (reduction == null) raw.push(tr);
           return core.read(tr, keys, reduction);
@@ -1184,7 +1188,7 @@ describe("Feed.subscribe", () => {
 
     it("should count no streamed sample again after the stream reconnects", async () => {
       const core = createCore();
-      const feed = core.openFeed(OPTIONS);
+      const feed = core.openFeed({ ...OPTIONS, onRetry: quiet });
       const key = core.index.key;
       const sub = feed.subscribe({
         keys: [key],
@@ -1215,7 +1219,7 @@ describe("Feed.subscribe", () => {
 
     it("should read the newest samples again after the stream reconnects", async () => {
       const core = createCore();
-      const feed = core.openFeed(OPTIONS);
+      const feed = core.openFeed({ ...OPTIONS, onRetry: quiet });
       const key = core.index.key;
       const sub = feed.subscribe({
         keys: [key],
@@ -1323,6 +1327,7 @@ describe("Feed.subscribe", () => {
       const { promise: released, resolve: release } = Promise.withResolvers<void>();
       const feed = core.openFeed({
         ...OPTIONS,
+        onRetry: quiet,
         readLatest: async (keys, count, tr) => {
           if (held) {
             waiting = true;
