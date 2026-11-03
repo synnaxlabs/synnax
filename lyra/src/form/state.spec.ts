@@ -201,6 +201,20 @@ describe("State", () => {
         expect(before.port).toBe(1);
       });
 
+      it("should give an entry's state a new value when its key holds a dot", () => {
+        const state = new State<z.ZodType<Keyed>>(
+          createLocalStore({
+            channels: [{ key: "ns=1;s=a.b", port: 1 }],
+            other: { x: 1 },
+          }),
+        );
+        const before = state.getState<{ port: number }>("channels.ns=1;s=a.b").value;
+        state.setValue("channels.ns=1;s=a.b.port", 3);
+        const after = state.getState<{ port: number }>("channels.ns=1;s=a.b").value;
+        expect(after).not.toBe(before);
+        expect(after.port).toBe(3);
+      });
+
       it("should keep the state object of a sibling the write left unchanged", () => {
         const state = new State(createLocalStore(initialValues), basicSchema);
         const sibling = state.getState("email");
@@ -680,6 +694,14 @@ describe("State", () => {
       expect(keysOf(state)).toEqual(["b"]);
       expect(state.getState("channels").touched).toBe(true);
     });
+
+    it("should clear the touched flag when a remove of a dotted key restores the list", () => {
+      const state = new State<z.ZodType<Keyed>>(createLocalStore(createKeyed()));
+      state.insert("channels", { key: "ns=1;s=a.b", port: 3 });
+      state.remove("channels.ns=1;s=a.b");
+      expect(keysOf(state)).toEqual(["a", "b"]);
+      expect(state.getState("channels").touched).toBe(false);
+    });
   });
 
   describe("batch", () => {
@@ -695,6 +717,26 @@ describe("State", () => {
       expect(handleChange).toHaveBeenCalledTimes(1);
       expect(state.getState("name").value).toBe("Jane");
       expect(state.getState("age").value).toBe(30);
+    });
+
+    it("should read a value that the batch wrote earlier", () => {
+      const state = new State(createLocalStore(initialValues), basicSchema);
+      expect(state.getState("profile.bio").value).toBe("Software developer");
+      let read: unknown;
+      state.batch(() => {
+        state.setValue("profile", { ...state.values.profile, bio: "Updated bio" });
+        read = state.getState("profile.bio").value;
+      });
+      expect(read).toBe("Updated bio");
+    });
+
+    it("should keep a status set after a write in the same batch", () => {
+      const state = new State(createLocalStore(initialValues), basicSchema);
+      state.batch(() => {
+        state.setValue("name", "Jane Doe");
+        state.setStatus("name", { variant: "error", message: "Name is taken" });
+      });
+      expect(state.getState("name").status.message).toBe("Name is taken");
     });
   });
 
