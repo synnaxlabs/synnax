@@ -37,8 +37,10 @@ func zoneAt(loc *time.Location, t time.Time) (string, int) { return t.In(loc).Zo
 
 // ruleZone returns the TZif data gen.go builds for testdata/rules.tsv.
 func ruleZone(rule string) []byte {
+	GinkgoHelper()
 	var b bytes.Buffer
 	header := func(types, chars uint32) {
+		GinkgoHelper()
 		b.WriteString("TZif2")
 		b.Write(make([]byte, 15))
 		for _, n := range []uint32{0, 0, 0, 0, types, chars} {
@@ -56,6 +58,7 @@ func ruleZone(rule string) []byte {
 
 // eachVector calls check with the fields of every data line in the vector file.
 func eachVector(path string, check func(fields []string)) int {
+	GinkgoHelper()
 	f := MustSucceed(os.Open(path))
 	DeferCleanup(f.Close)
 	scanner := bufio.NewScanner(f)

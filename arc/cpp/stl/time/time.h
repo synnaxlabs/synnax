@@ -296,6 +296,9 @@ class Module : public stl::Module {
     std::shared_ptr<x::tz::Database> zones = std::make_shared<x::tz::Database>();
 
 public:
+    /// @brief creates the time module.
+    /// @param str_state holds the strings `format` reads and returns.
+    /// @param report receives the warnings `format` raises.
     Module(std::shared_ptr<strings::State> str_state, Reporter report):
         str_state(std::move(str_state)), report(std::move(report)) {}
 

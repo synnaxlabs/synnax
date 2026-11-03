@@ -11,13 +11,22 @@ load("@rules_cc//cc:cc_library.bzl", "cc_library")
 load("@rules_cc//cc:cc_test.bzl", "cc_test")
 
 cc_library(
+    name = "zoneinfo",
+    srcs = ["zoneinfo.cpp"],
+    hdrs = ["zoneinfo.h"],
+    # Linting the generated zone table takes time and finds nothing.
+    tags = ["no-clang-tidy"],
+    # Written by x/go/tz/gen.go from the same data the Go library embeds.
+    textual_hdrs = ["zoneinfo.inc"],
+)
+
+cc_library(
     name = "tz",
     srcs = ["tz.cpp"],
     hdrs = ["tz.h"],
-    # Written by x/go/tz/gen.go from the same data the Go library embeds.
-    textual_hdrs = ["zoneinfo.inc"],
     visibility = ["//visibility:public"],
     deps = [
+        ":zoneinfo",
         "//x/cpp/date",
         "//x/cpp/errors",
     ],

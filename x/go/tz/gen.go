@@ -203,9 +203,11 @@ func read(f *zip.File) []byte {
 	if err != nil {
 		log.Fatal(err)
 	}
-	defer func() { _ = rc.Close() }()
 	data, err := io.ReadAll(rc)
 	if err != nil {
+		log.Fatal(err)
+	}
+	if err := rc.Close(); err != nil {
 		log.Fatal(err)
 	}
 	return data
@@ -287,21 +289,20 @@ func ruleVectors() string {
 // RuleZone returns TZif data for a zone with no transitions and rule as its rule
 // string.
 func RuleZone(rule string) []byte {
-	var b bytes.Buffer
+	var b []byte
 	header := func(types, chars uint32) {
-		b.WriteString("TZif2")
-		b.Write(make([]byte, 15))
+		b = append(b, "TZif2"...)
+		b = append(b, make([]byte, 15)...)
 		for _, n := range []uint32{0, 0, 0, 0, types, chars} {
-			_ = binary.Write(&b, binary.BigEndian, n)
+			b = binary.BigEndian.AppendUint32(b, n)
 		}
 	}
 	header(0, 0)
 	header(1, 4)
-	_ = binary.Write(&b, binary.BigEndian, int32(3600))
-	b.Write([]byte{0, 0})
-	b.WriteString("FAL\x00")
-	b.WriteString("\n" + rule + "\n")
-	return b.Bytes()
+	b = binary.BigEndian.AppendUint32(b, 3600)
+	b = append(b, 0, 0)
+	b = append(b, "FAL\x00"...)
+	return append(b, "\n"+rule+"\n"...)
 }
 
 // sampleSeconds are the instants every zone is checked at.

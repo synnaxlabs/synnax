@@ -1851,10 +1851,15 @@ TEST(FormatTest, CopiesAnUnknownCodeThrough) {
 
 /// @brief one row of the time zone table, shared with the Go spec of the same name.
 struct ZoneCase {
+    /// @brief names the row in a failure.
     const char *name;
+    /// @brief the timestamp to format.
     int64_t ns;
+    /// @brief the format string.
     const char *format;
+    /// @brief the IANA zone, or empty for UTC.
     const char *zone;
+    /// @brief the text time.format must print.
     const char *expected;
 };
 

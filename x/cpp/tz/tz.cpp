@@ -18,18 +18,10 @@
 
 #include "x/cpp/date/date.h"
 #include "x/cpp/tz/tz.h"
+#include "x/cpp/tz/zoneinfo.h"
 
 namespace x::tz {
 namespace {
-struct Entry {
-    std::string_view name;
-    size_t offset;
-    size_t size;
-};
-
-// Defines DATA and ENTRIES.
-#include "x/cpp/tz/zoneinfo.inc"
-
 constexpr int64_t SECONDS_PER_MINUTE = 60;
 constexpr int64_t SECONDS_PER_HOUR = 60 * SECONDS_PER_MINUTE;
 constexpr int64_t SECONDS_PER_DAY = 24 * SECONDS_PER_HOUR;
@@ -447,8 +439,8 @@ Info Zone::at(const int64_t unix_seconds) const {
 }
 
 Database::Database() {
-    const std::string_view data(reinterpret_cast<const char *>(DATA), sizeof(DATA));
-    for (const auto &e: ENTRIES)
+    const std::string_view data = zoneinfo::data();
+    for (const auto &e: zoneinfo::entries())
         this->files.emplace(lower(e.name), File{e.name, data.substr(e.offset, e.size)});
 }
 
@@ -474,8 +466,9 @@ Database::load(const std::string_view name) {
 
 std::vector<std::string> Database::names() const {
     std::vector<std::string> out;
-    out.reserve(std::size(ENTRIES));
-    for (const auto &e: ENTRIES)
+    const auto entries = zoneinfo::entries();
+    out.reserve(entries.size());
+    for (const auto &e: entries)
         out.emplace_back(e.name);
     return out;
 }

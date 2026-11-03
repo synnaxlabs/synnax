@@ -71,6 +71,7 @@ private:
 /// for concurrent use.
 class Database {
 public:
+    /// @brief indexes the zone database embedded in the binary.
     Database();
 
     /// @brief returns the zone called name, matched without regard to case.
