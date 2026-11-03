@@ -81,6 +81,8 @@ outlined button) has fill l2 and border l4, and its caret has the disabled text 
 - Filled is the one primary action of a region: a footer, a card, or a form. Outlined is
   a secondary action next to it. Text buttons are for toolbars, inline actions, and
   menus.
+- In a resource toolbar header, each create action is outlined (`Toolbar.CreateAction`).
+  The other actions in that header are text buttons.
 - An icon-only button has a tooltip that names the action in a word ("Close"), then
   shows its keys.
 
