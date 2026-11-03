@@ -38,14 +38,19 @@ const TIMEOUTS = {
   sessionTimeoutMs: DEFAULT_SESSION_TIMEOUT_MS,
 };
 
+const wholeNumberZ = (name: string) => z.int(`${name} must be a whole number`);
+
 export const connectionConfigZ = baseConnectionConfigZ.extend({
   certificateValidationDisabled: z.boolean().default(false),
-  clientTimeoutMs: z.int().positive().default(DEFAULT_CLIENT_TIMEOUT_MS),
-  secureChannelLifetimeMs: z
-    .int()
+  clientTimeoutMs: wholeNumberZ("Request timeout")
+    .positive()
+    .default(DEFAULT_CLIENT_TIMEOUT_MS),
+  secureChannelLifetimeMs: wholeNumberZ("Channel lifetime")
     .positive()
     .default(DEFAULT_SECURE_CHANNEL_LIFETIME_MS),
-  sessionTimeoutMs: z.int().positive().default(DEFAULT_SESSION_TIMEOUT_MS),
+  sessionTimeoutMs: wholeNumberZ("Session timeout")
+    .positive()
+    .default(DEFAULT_SESSION_TIMEOUT_MS),
 });
 export type ConnectionConfig = z.infer<typeof connectionConfigZ>;
 const ZERO_CONNECTION_CONFIG: ConnectionConfig = {
