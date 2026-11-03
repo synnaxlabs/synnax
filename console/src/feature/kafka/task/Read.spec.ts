@@ -21,6 +21,7 @@ import {
   type RenderTaskFormTabOptions,
   selectFromDropdown,
 } from "@/platform/task/testutil";
+import { uniqueName } from "@/testutil";
 
 const client = createTestClient();
 
@@ -141,6 +142,7 @@ describe("Read", () => {
 
   it("should create an index per record and a channel per field on deploy", async () => {
     const dev = await createKafkaDevice(client);
+    const tempName = uniqueName("kafka_temp");
     const draft = await createDraft(client, {
       ...Kafka.Task.READ_SCHEMAS.config.parse({}),
       device: dev.key,
@@ -150,7 +152,7 @@ describe("Read", () => {
           "any",
           [
             createField("ts", "/ts", { dataType: "timestamp", timeFormat: "unix_ms" }),
-            createField("temp", "/temp", { name: "kafka_temp" }),
+            createField("temp", "/temp", { name: tempName }),
           ],
           { index: "ts" },
         ),
@@ -174,7 +176,7 @@ describe("Read", () => {
     expect(index.isIndex).toBe(true);
     expect(index.name).toBe(`${dev.name}_time`);
     const tempCh = await client.channels.retrieve(temp.channel);
-    expect(tempCh.name).toBe("kafka_temp");
+    expect(tempCh.name).toBe(tempName);
     expect(tempCh.index).toBe(index.key);
     expect(tempCh.dataType.toString()).toBe("float64");
 

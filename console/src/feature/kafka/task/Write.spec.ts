@@ -195,7 +195,8 @@ describe("Write", () => {
     const { container } = await renderWrite({ client, taskKey: draft.key });
     await screen.findByText(dev.name);
     fireEvent.click((await screen.findAllByText(ch.name))[0]);
-    await screen.findByText("Time format");
+    // The record's time format and the channel's, once the details render.
+    await waitFor(() => expect(screen.getAllByText("Time format")).toHaveLength(2));
     expect(screen.queryByText("JSON type")).toBeNull();
     expect(screen.queryByText("Enum mapping")).toBeNull();
     const created = await deployAndAwaitTask(

@@ -195,7 +195,7 @@ const ChannelDetails = ({ path }: Task.Views.DetailsProps<WriteChannel>) => {
   const isTimestamp = dataType != null && DataType.TIMESTAMP.equals(dataType);
   // A string, JSON, or UUID channel always goes out as a string, and the time format
   // alone encodes a timestamp channel, so neither has a JSON type.
-  const typed = dataType != null && !isString(dataType) && !isTimestamp;
+  const typed = dataType == null || (!isString(dataType) && !isTimestamp);
   return (
     <PForm.Sections className={CSS.B("kafka-details")}>
       <PForm.Section title="Channel">
