@@ -47,6 +47,8 @@ public:
     std::map<std::string, double> read_values;
     /// @brief the values of each successful e_write_names call, by name.
     mutable std::vector<std::map<std::string, double>> name_write_calls;
+    /// @brief the value that calibration_invalid returns.
+    bool invalid_calibration = false;
 
     x::errors::Error e_stream_read(
         double *data,
@@ -156,6 +158,10 @@ public:
         ++this->stream_starts;
         *scan_rate = requested_scan_rate_;
         return x::errors::NIL;
+    }
+
+    [[nodiscard]] bool calibration_invalid() const override {
+        return this->invalid_calibration;
     }
 
     // Mock control methods

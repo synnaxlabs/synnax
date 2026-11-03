@@ -751,10 +751,12 @@ parse_error(const std::shared_ptr<ljm::API> &ljm, const int err) {
     std::string description = "LabJack returned " + name + ".";
     if (const auto it = ERROR_DESCRIPTIONS.find(name); it != ERROR_DESCRIPTIONS.end())
         description = it->second;
-    // Every warning but this one means the operation still ran.
+    // Every warning but this one means the operation still ran. A read task reports a
+    // default calibration through device::Device::calibration_invalid.
     if (err >= LJME_WARNINGS_BEGIN && err <= LJME_WARNINGS_END &&
         err != LJME_FRAMES_OMITTED_DUE_TO_PACKET_SIZE) {
-        LOG(WARNING) << "[labjack] " << name << ": " << description;
+        if (err != LJME_USING_DEFAULT_CALIBRATION)
+            LOG(WARNING) << "[labjack] " << name << ": " << description;
         return x::errors::NIL;
     }
     if (UNREACHABLE_CODES.contains(err))

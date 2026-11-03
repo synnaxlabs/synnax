@@ -563,6 +563,14 @@ const common::Warning SKIPPED_SCANS_WARNING{
                    "Lower the sample rate, or check the connection to the device.",
 };
 
+/// @brief the warning a source reports while LJM uses the default calibration of the
+/// device.
+const common::Warning DEFAULT_CALIBRATION_WARNING{
+    .message = "Using default calibration",
+    .description = "The calibration constants of the device are not valid, so readings "
+                   "may be inaccurate. Contact LabJack support.",
+};
+
 /// @brief a source that polls the device with one request per sample, on a software
 /// clock. Tasks with thermocouples use it, because the device converts thermocouples
 /// only outside a stream.
@@ -649,6 +657,8 @@ public:
             for (size_t j = n_channels; j < fr.size(); ++j)
                 fr.series->at(j).write(time);
         }
+        if (res.warning.empty() && this->dev->calibration_invalid())
+            res.warning = DEFAULT_CALIBRATION_WARNING;
         res.error = this->cfg.transform.transform(fr);
         return res;
     }
@@ -840,6 +850,7 @@ public:
             if (res.error.matches(errors::TEMPORARY_HARDWARE_ERROR)) this->stop();
             return res;
         }
+        if (this->dev->calibration_invalid()) res.warning = DEFAULT_CALIBRATION_WARNING;
         if (std::cmp_greater(
                 device_scan_backlog,
                 this->cfg.device_scan_backlog_warn_on_count

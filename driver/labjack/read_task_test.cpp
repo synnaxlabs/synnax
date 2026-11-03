@@ -797,6 +797,46 @@ TEST_F(SourceClaimTest, testUnarySourceReadsSamplesPerChan) {
     ASSERT_NIL(source.stop());
 }
 
+/// @brief it should keep the samples and warn while the device uses its default
+/// calibration.
+TEST_F(SourceClaimTest, testUnarySourceWarnsOfDefaultCalibration) {
+    parse_config(false);
+    const auto mock = std::make_shared<device::Mock>();
+    mock->read_values = {{"AIN0", 1.5}};
+    mock->invalid_calibration = true;
+    devs->dev = mock;
+    UnarySource source(devs, std::move(*cfg));
+    ASSERT_NIL(source.start());
+    x::telem::Frame fr(0);
+    const auto res = read_once(source, fr);
+    ASSERT_NIL(res.error);
+    EXPECT_EQ(res.warning.message, "Using default calibration");
+    EXPECT_EQ(fr.series->at(0).at<double>(0), 1.5);
+    ASSERT_NIL(source.stop());
+}
+
+/// @brief it should keep the scans and warn while the device uses its default
+/// calibration, and warn of skipped samples first.
+TEST_F(SourceClaimTest, testStreamSourceWarnsOfDefaultCalibration) {
+    parse_config(false);
+    const auto mock = std::make_shared<device::Mock>();
+    mock->stream_data = {1, 2};
+    mock->invalid_calibration = true;
+    devs->dev = mock;
+    StreamSource source(devs, std::move(*cfg));
+    ASSERT_NIL(source.start());
+    x::telem::Frame fr(0);
+    auto res = read_once(source, fr);
+    ASSERT_NIL(res.error);
+    EXPECT_EQ(res.warning.message, "Using default calibration");
+    EXPECT_EQ(fr.series->at(0).size(), 2);
+    mock->stream_data = {LJM_DUMMY_VALUE, 2};
+    res = read_once(source, fr);
+    ASSERT_NIL(res.error);
+    EXPECT_EQ(res.warning.message, "Skipped samples");
+    ASSERT_NIL(source.stop());
+}
+
 /// @brief it should stop the stream after a temporary read error, then start it again
 /// on the next read.
 TEST_F(SourceClaimTest, testStreamSourceRestartsAfterTemporaryError) {
