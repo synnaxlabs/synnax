@@ -14,8 +14,8 @@ import { normalizeRoute } from "@/util/route";
 
 // Hosts that block automated requests or answer too slowly to probe; entries skip the
 // external check. Omron redirects and takes several seconds from a datacenter IP, so it
-// exhausts every attempt and fails the run.
-const IGNORED_HOSTS: string[] = ["automation.omron.com"];
+// exhausts every attempt and fails the run. Reddit answers 403 to a datacenter IP.
+const IGNORED_HOSTS: string[] = ["automation.omron.com", "redd.it"];
 
 // Sentinel origin for resolving relative hrefs; any other host is external.
 const INTERNAL = "http://internal.invalid";
