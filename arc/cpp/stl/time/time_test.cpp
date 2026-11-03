@@ -1619,9 +1619,9 @@ sequence main {
 
 const std::string_view FORMAT_WAT = R"wat(
 (module
-  (import "time" "format" (func $format (param i64 i32) (result i32)))
-  (func (export "call_format") (param i64 i32) (result i32)
-    (call $format (local.get 0) (local.get 1)))
+  (import "time" "format" (func $format (param i64 i32 i32) (result i32)))
+  (func (export "call_format") (param i64 i32 i32) (result i32)
+    (call $format (local.get 0) (local.get 1) (local.get 2)))
 )
 )wat";
 
@@ -1646,16 +1646,28 @@ struct FormatFixture {
         linker(engine),
         instance(setup_instance()) {}
 
-    std::string format(const int64_t ns, const std::string_view fmt = "") {
+    std::string format(
+        const int64_t ns,
+        const std::string_view fmt = "",
+        const std::string_view zone = ""
+    ) {
         const auto handle = static_cast<int32_t>(str_state->create(std::string(fmt)));
-        return str_state->get(call(ns, handle));
+        const auto zone_handle = static_cast<int32_t>(
+            str_state->create(std::string(zone))
+        );
+        return str_state->get(call(ns, handle, zone_handle));
     }
 
-    /// @brief calls time.format with a raw format handle and returns the result
-    /// handle.
-    uint32_t call(const int64_t ns, const int32_t handle) {
+    /// @brief calls time.format with raw format and zone handles and returns the
+    /// result handle.
+    uint32_t call(const int64_t ns, const int32_t handle, const int32_t zone = 0) {
         auto fn = std::get<wasmtime::Func>(instance.get(store, "call_format").value());
-        const auto result = fn.call(store, {wasmtime::Val(ns), wasmtime::Val(handle)})
+        const auto result = fn.call(
+                                  store,
+                                  {wasmtime::Val(ns),
+                                   wasmtime::Val(handle),
+                                   wasmtime::Val(zone)}
+        )
                                 .unwrap();
         return static_cast<uint32_t>(result[0].i32());
     }
@@ -1669,24 +1681,43 @@ private:
 };
 
 /// @brief an unknown format handle warns the task and returns the empty string.
-TEST(FormatTest, WarnsOnAnUnknownHandle) {
+TEST(FormatTest, WarnsOnAnUnknownFormatHandle) {
     FormatFixture f;
-    EXPECT_EQ(f.call(0, 999), 0);
+    EXPECT_EQ(f.call(0, 999, 0), 0);
     ASSERT_EQ(f.reports.size(), 1);
     EXPECT_EQ(f.reports[0].first, "Failed to format timestamp");
     EXPECT_EQ(f.reports[0].second, "The Arc runtime passed an invalid string handle.");
 }
 
-/// @brief a valid format handle formats without a warning.
-TEST(FormatTest, FormatsAValidHandleWithoutAWarning) {
+/// @brief an unknown time zone handle warns the task and returns the empty string.
+TEST(FormatTest, WarnsOnAnUnknownTimeZoneHandle) {
+    FormatFixture f;
+    EXPECT_EQ(f.call(0, 0, 999), 0);
+    ASSERT_EQ(f.reports.size(), 1);
+    EXPECT_EQ(f.reports[0].first, "Failed to format timestamp");
+    EXPECT_EQ(f.reports[0].second, "The Arc runtime passed an invalid string handle.");
+}
+
+/// @brief an invalid zone warns the task and returns the empty string.
+TEST(FormatTest, WarnsOnAnInvalidZone) {
+    FormatFixture f;
+    EXPECT_EQ(f.format(0, "", "America/Denvr"), "");
+    ASSERT_EQ(f.reports.size(), 1);
+    EXPECT_EQ(f.reports[0].first, "Failed to format timestamp");
+    EXPECT_EQ(f.reports[0].second, "The time zone \"America/Denvr\" is invalid.");
+}
+
+/// @brief valid format and zone handles format without a warning.
+TEST(FormatTest, FormatsValidHandlesWithoutAWarning) {
     FormatFixture f;
     EXPECT_EQ(f.format(0, "%Y"), "1970");
-    EXPECT_EQ(f.str_state->get(f.call(0, 0)), "1970-01-01T00:00:00Z");
+    EXPECT_EQ(f.str_state->get(f.call(0, 0, 0)), "1970-01-01T00:00:00Z");
+    EXPECT_EQ(f.format(0, "", "America/Denver"), "1969-12-31T17:00:00-07:00");
     EXPECT_TRUE(f.reports.empty());
 }
 
-/// @brief time.format matches the Go vectors byte for byte.
-TEST(FormatTest, MatchesTheGoVectors) {
+/// @brief time.format with no format matches the ISO 8601 vectors byte for byte.
+TEST(FormatTest, MatchesTheISO8601Vectors) {
     FormatFixture f;
     EXPECT_EQ(f.format(0), "1970-01-01T00:00:00Z");
     EXPECT_EQ(f.format(1'500'000'000), "1970-01-01T00:00:01.5Z");
@@ -1816,6 +1847,133 @@ TEST(FormatTest, HoldsAtTheEndsOfTheRange) {
 TEST(FormatTest, CopiesAnUnknownCodeThrough) {
     FormatFixture f;
     EXPECT_EQ(f.format(STAMP, "%Q %"), "%Q %");
+}
+
+/// @brief one row of the time zone table, shared with the Go spec of the same name.
+struct ZoneCase {
+    const char *name;
+    int64_t ns;
+    const char *format;
+    const char *zone;
+    const char *expected;
+};
+
+/// @brief a Saturday in March before daylight time starts, and a day in July.
+constexpr int64_t WINTER = 1'772'895'845'000'000'000;
+constexpr int64_t SUMMER = 1'784'116'800'000'000'000;
+/// @brief January 1, 1800, when Denver kept local mean time at UTC-6:59:56.
+constexpr int64_t EIGHTEEN_HUNDRED = -5'364'662'400'000'000'000;
+
+/// @brief time.format prints local time in a zone.
+TEST(FormatTest, PrintsLocalTimeInAZone) {
+    const ZoneCase cases[] = {
+        {"Denver in winter",
+         WINTER,
+         "%H:%M %Z %z",
+         "America/Denver",
+         "08:04 MST -0700"},
+        {"Denver in summer",
+         SUMMER,
+         "%H:%M %Z %z",
+         "America/Denver",
+         "06:00 MDT -0600"},
+        {"ISO 8601 with an offset",
+         WINTER + 250'000'000,
+         "",
+         "America/Denver",
+         "2026-03-07T08:04:05.25-07:00"},
+        {"Phoenix in summer",
+         SUMMER,
+         "%H:%M %Z %z",
+         "America/Phoenix",
+         "05:00 MST -0700"},
+        {"Edmonton in summer",
+         SUMMER,
+         "%H:%M %Z %z",
+         "America/Edmonton",
+         "06:00 MDT -0600"},
+        {"Toronto in summer",
+         SUMMER,
+         "%H:%M %Z %z",
+         "America/Toronto",
+         "08:00 EDT -0400"},
+        {"Berlin in winter", WINTER, "%H:%M %Z %z", "Europe/Berlin", "16:04 CET +0100"},
+        {"Berlin in summer",
+         SUMMER,
+         "%H:%M %Z %z",
+         "Europe/Berlin",
+         "14:00 CEST +0200"},
+        {"the UTC zone", WINTER, "", "UTC", "2026-03-07T15:04:05Z"},
+        {"no zone", WINTER, "%Z %z", "", "UTC +0000"},
+        {"a half-hour offset",
+         WINTER,
+         "%H:%M %Z %z",
+         "Asia/Kolkata",
+         "20:34 IST +0530"},
+        {"a 45-minute offset",
+         WINTER,
+         "%H:%M %Z %z",
+         "Asia/Kathmandu",
+         "20:49 +0545 +0545"},
+        {"a lower case name", WINTER, "%H:%M %Z", "america/denver", "08:04 MST"},
+        {"a short alias", WINTER, "%H:%M %Z", "US/Mountain", "08:04 MST"},
+        {"a lower case short alias", SUMMER, "%H:%M %Z", "us/mountain", "06:00 MDT"},
+        {"the last second before the daylight gap",
+         1'772'960'399'000'000'000,
+         "%H:%M:%S %Z",
+         "America/Denver",
+         "01:59:59 MST"},
+        {"the first second of daylight time",
+         1'772'960'400'000'000'000,
+         "%H:%M:%S %Z",
+         "America/Denver",
+         "03:00:00 MDT"},
+        {"the repeated hour in daylight time",
+         1'793'518'200'000'000'000,
+         "%H:%M %Z",
+         "America/Denver",
+         "01:30 MDT"},
+        {"the repeated hour in standard time",
+         1'793'521'800'000'000'000,
+         "%H:%M %Z",
+         "America/Denver",
+         "01:30 MST"},
+        {"a date, day, and week that change with the zone",
+         1'767'236'400'000'000'000,
+         "%Y-%m-%d %j %U %a",
+         "America/Denver",
+         "2025-12-31 365 52 Wed"},
+        {"the latest timestamp at UTC+14",
+         INT64_MAX,
+         "",
+         "Etc/GMT-14",
+         "2262-04-12T13:47:16.854775807+14:00"},
+        {"the earliest timestamp at UTC-12",
+         INT64_MIN,
+         "",
+         "Etc/GMT+12",
+         "1677-09-20T12:12:43.145224192-12:00"},
+        {"a local mean time offset with seconds",
+         EIGHTEEN_HUNDRED,
+         "%H:%M:%S %Z %z",
+         "America/Denver",
+         "17:00:04 LMT -0659"},
+        {"ISO 8601 with a local mean time offset",
+         EIGHTEEN_HUNDRED,
+         "",
+         "America/Denver",
+         "1799-12-31T17:00:04-06:59"},
+        {"London on UTC in winter",
+         WINTER,
+         "",
+         "Europe/London",
+         "2026-03-07T15:04:05Z"},
+        {"London in summer", SUMMER, "", "Europe/London", "2026-07-15T13:00:00+01:00"},
+    };
+    FormatFixture f;
+    for (const auto &c: cases)
+        EXPECT_EQ(f.format(c.ns, c.format, c.zone), c.expected) << c.name;
+    EXPECT_TRUE(f.reports.empty());
 }
 
 /// @brief every day from 1970 to 2100 formats as the C library does.

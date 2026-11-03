@@ -43,7 +43,7 @@ error is a warning. On a Driver it stops the automation.
 
 ## `format`
 
-Prints a timestamp as text, in UTC.
+Prints a timestamp as text, in UTC or a time zone.
 
 <Field.List>
 
@@ -60,25 +60,30 @@ The format of the text, from the codes below. An empty format gives ISO 8601, su
 
 </Field.Item>
 
+<Field.Item name="tz" type="str" default='""' id="format-tz">
+
+The time zone, such as `America/Denver`. Defaults to UTC.
+
+</Field.Item>
+
 </Field.List>
 
 - Trigger -> optional. Each new trigger runs it, whatever the value. With no trigger, it
   runs when `input` has a new value.
 - Output -> the text, as a `str`.
-- Function form -> `time.format(input, format) str`.
+- Function form -> `time.format(input, format, tz) str`.
 
 ```arc channels="start_msg"
 import time
 
-true => time.format(time.now(), "%Y-%m-%d %H:%M:%S") -> start_msg
+true => time.format(time.now(), "%Y-%m-%d %H:%M:%S %Z", "America/Denver") -> start_msg
 ```
-
-A format holds plain text and codes. Each code prints one part of the time.
 
 <Details>
 <Text.Text slot="summary" level="p"><Icon.Table /> Format codes</Text.Text>
 
-The examples are for `2026-03-07T15:04:05.25Z`.
+A format holds plain text and codes. Each code prints one part of the time. The examples
+are for `2026-03-07T15:04:05.25Z`.
 
 | Code | Output                                  | Example                    |
 | ---- | --------------------------------------- | -------------------------- |
@@ -108,8 +113,8 @@ The examples are for `2026-03-07T15:04:05.25Z`.
 | `%G` | ISO 8601 year                           | `2026`                     |
 | `%g` | ISO 8601 year, last two digits          | `26`                       |
 | `%V` | ISO 8601 week, 01 to 53                 | `10`                       |
-| `%z` | Offset from UTC, always `+0000`         | `+0000`                    |
-| `%Z` | Time zone, always `UTC`                 | `UTC`                      |
+| `%z` | Offset from UTC                         | `+0000`                    |
+| `%Z` | Time zone abbreviation                  | `UTC`                      |
 | `%F` | The same as `%Y-%m-%d`                  | `2026-03-07`               |
 | `%c` | The same as `%a %b %e %H:%M:%S %Y`      | `Sat Mar  7 15:04:05 2026` |
 | `%D` | The same as `%m/%d/%y`                  | `03/07/26`                 |
@@ -121,6 +126,22 @@ The examples are for `2026-03-07T15:04:05.25Z`.
 | `%%` | A `%`                                   | `%`                        |
 | `%n` | A line break                            |                            |
 | `%t` | A tab                                   |                            |
+
+</Details>
+
+<Details>
+<Text.Text slot="summary" level="p"><Icon.Table /> Time zones</Text.Text>
+
+A time zone takes [any IANA name](https://www.iana.org/time-zones), case insensitive.
+The examples are `%H:%M %Z` for `2026-03-07T15:04:05Z`.
+
+| Zone              | Short name       | Example     |
+| ----------------- | ---------------- | ----------- |
+| `America/Denver`  | `US/Mountain`    | `08:04 MST` |
+| `America/Phoenix` | `US/Arizona`     | `08:04 MST` |
+| `America/Toronto` | `Canada/Eastern` | `10:04 EST` |
+| `Europe/Berlin`   |                  | `16:04 CET` |
+| `UTC`             |                  | `15:04 UTC` |
 
 </Details>
 

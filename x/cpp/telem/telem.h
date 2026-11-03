@@ -331,12 +331,12 @@ public:
     /// @returns seconds since Unix epoch as a double.
     [[nodiscard]] double seconds() const { return static_cast<double>(value) / 1e9; }
 
-    /// @brief returns the timestamp as an ISO 8601 UTC string.
+    /// @brief returns the timestamp as an ISO 8601 string, offset_seconds east of UTC.
     /// @returns a string like "2001-09-09T01:46:40.000000001Z".
-    [[nodiscard]] std::string iso8601() const {
-        const date::CivilTime c = date::civil_from_nanoseconds(value);
+    [[nodiscard]] std::string iso8601(const int32_t offset_seconds = 0) const {
+        const date::CivilTime c = date::civil_from_nanoseconds(value, offset_seconds);
 
-        char buf[30];
+        char buf[40];
         strings::write_number(buf + 0, c.year, 4);
         buf[4] = '-';
         strings::write_number(buf + 5, c.month, 2);
@@ -368,7 +368,18 @@ public:
                 buf[len++] = frac[i];
         }
 
-        buf[len++] = 'Z';
+        if (offset_seconds == 0) {
+            buf[len++] = 'Z';
+            return std::string(buf, (size_t) len);
+        }
+        int minutes = offset_seconds / 60;
+        buf[len++] = minutes < 0 ? '-' : '+';
+        if (minutes < 0) minutes = -minutes;
+        strings::write_number(buf + len, minutes / 60, 2);
+        len += 2;
+        buf[len++] = ':';
+        strings::write_number(buf + len, minutes % 60, 2);
+        len += 2;
         return std::string(buf, (size_t) len);
     }
 

@@ -67,7 +67,14 @@ struct Date {
     return Date{static_cast<uint16_t>(year), month, day};
 }
 
-/// @brief the calendar and clock fields of an instant, in UTC.
+/// @brief returns the day of the week for a day count, counting from 0 on Sunday.
+/// @param day_count days since Unix epoch (negative for dates before 1970).
+[[nodiscard]] constexpr uint8_t weekday_from_days(const int64_t day_count) {
+    // 1970-01-01 was a Thursday.
+    return static_cast<uint8_t>((day_count % 7 + 11) % 7);
+}
+
+/// @brief the calendar and clock fields of an instant in a zone.
 struct CivilTime {
     /// @brief calendar year.
     int32_t year;
@@ -102,12 +109,14 @@ struct CivilTime {
     return p(year) == 4 || p(year - 1) == 3 ? 53 : 52;
 }
 
-/// @brief splits nanoseconds since 1970-01-01T00:00:00Z into civil fields in UTC.
-/// Every int64_t value splits without overflow, so the earliest and latest
-/// timestamps are safe.
+/// @brief splits nanoseconds since 1970-01-01T00:00:00Z into civil fields in a zone
+/// offset_seconds east of UTC. Every int64_t value and offset splits without
+/// overflow.
 /// @param ns nanoseconds since the Unix epoch (negative before 1970).
+/// @param offset_seconds the zone's offset east of UTC.
 /// @returns the civil time fields.
-[[nodiscard]] constexpr CivilTime civil_from_nanoseconds(const int64_t ns) {
+[[nodiscard]] constexpr CivilTime
+civil_from_nanoseconds(const int64_t ns, const int32_t offset_seconds = 0) {
     // The remainder comes first so that no product can leave the int64_t range.
     int64_t sec = ns / 1'000'000'000;
     auto nanosecond = static_cast<int32_t>(ns % 1'000'000'000);
@@ -115,6 +124,7 @@ struct CivilTime {
         nanosecond += 1'000'000'000;
         sec--;
     }
+    sec += offset_seconds;
     const int64_t day = sec / 86400 - (sec % 86400 != 0 && sec < 0);
     const int64_t sod = sec - day * 86400;
     const Date d = civil_from_days(static_cast<int32_t>(day));
@@ -127,8 +137,7 @@ struct CivilTime {
     c.second = static_cast<uint8_t>(sod % 60);
     c.nanosecond = nanosecond;
     c.year_day = static_cast<uint16_t>(day - days_from_civil({d.year, 1, 1}) + 1);
-    // 1970-01-01 was a Thursday.
-    c.weekday = static_cast<uint8_t>((day % 7 + 11) % 7);
+    c.weekday = weekday_from_days(day);
     const int iso_weekday = (c.weekday + 6) % 7 + 1;
     c.iso_year = c.year;
     int week = (c.year_day - iso_weekday + 10) / 7;

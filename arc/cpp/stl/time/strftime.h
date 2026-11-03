@@ -17,6 +17,7 @@
 
 #include "x/cpp/date/date.h"
 #include "x/cpp/telem/telem.h"
+#include "x/cpp/tz/tz.h"
 
 namespace arc::stl::time {
 
@@ -60,7 +61,12 @@ const std::array<std::string_view, 12> MONTHS = {
 
 /// @brief appends the expansion of one format code for c to b.
 /// @returns false for an unsupported code, with b unchanged.
-inline bool expand(std::string &b, const date::CivilTime &c, const char code) {
+inline bool expand(
+    std::string &b,
+    const date::CivilTime &c,
+    const x::tz::Info &zone,
+    const char code
+) {
     switch (code) {
         case 'Y':
             pad(b, c.year, 4);
@@ -125,11 +131,17 @@ inline bool expand(std::string &b, const date::CivilTime &c, const char code) {
         case 'V':
             pad(b, c.iso_week, 2);
             return true;
-        case 'z':
-            b += "+0000";
+        case 'z': {
+            // Go's -0700 layout drops the seconds of an offset, and so does this.
+            int minutes = zone.offset / 60;
+            b += minutes < 0 ? '-' : '+';
+            if (minutes < 0) minutes = -minutes;
+            pad(b, minutes / 60, 2);
+            pad(b, minutes % 60, 2);
             return true;
+        }
         case 'Z':
-            b += "UTC";
+            b += zone.abbreviation;
             return true;
         case 'F':
             pad(b, c.year, 4);
@@ -180,27 +192,27 @@ inline bool expand(std::string &b, const date::CivilTime &c, const char code) {
             b += c.hour < 12 ? "AM" : "PM";
             return true;
         case 'c':
-            expand(b, c, 'a');
+            expand(b, c, zone, 'a');
             b += ' ';
-            expand(b, c, 'b');
+            expand(b, c, zone, 'b');
             b += ' ';
-            expand(b, c, 'e');
+            expand(b, c, zone, 'e');
             b += ' ';
-            expand(b, c, 'T');
+            expand(b, c, zone, 'T');
             b += ' ';
-            return expand(b, c, 'Y');
+            return expand(b, c, zone, 'Y');
         case 'x':
-            return expand(b, c, 'D');
+            return expand(b, c, zone, 'D');
         case 'X':
-            return expand(b, c, 'T');
+            return expand(b, c, zone, 'T');
         case 'r':
-            expand(b, c, 'I');
+            expand(b, c, zone, 'I');
             b += ':';
-            expand(b, c, 'M');
+            expand(b, c, zone, 'M');
             b += ':';
-            expand(b, c, 'S');
+            expand(b, c, zone, 'S');
             b += ' ';
-            return expand(b, c, 'p');
+            return expand(b, c, zone, 'p');
         case '%':
             b += '%';
             return true;
@@ -209,11 +221,20 @@ inline bool expand(std::string &b, const date::CivilTime &c, const char code) {
     }
 }
 
-/// @brief renders ts in UTC with format. An unsupported code, and a '%' at the end
+/// @brief the zone time.format uses when given none.
+inline const x::tz::Info UTC{0, "UTC"};
+
+/// @brief renders ts in zone with format. An unsupported code, and a '%' at the end
 /// of format, are copied through unchanged.
-inline std::string
-strftime(const x::telem::TimeStamp ts, const std::string_view format) {
-    const date::CivilTime c = date::civil_from_nanoseconds(ts.nanoseconds());
+inline std::string strftime(
+    const x::telem::TimeStamp ts,
+    const std::string_view format,
+    const x::tz::Info &zone = UTC
+) {
+    const date::CivilTime c = date::civil_from_nanoseconds(
+        ts.nanoseconds(),
+        zone.offset
+    );
     std::string b;
     b.reserve(format.size() * 2);
     for (size_t i = 0; i < format.size(); i++) {
@@ -222,7 +243,7 @@ strftime(const x::telem::TimeStamp ts, const std::string_view format) {
             continue;
         }
         i++;
-        if (!expand(b, c, format[i])) {
+        if (!expand(b, c, zone, format[i])) {
             b += '%';
             b += format[i];
         }

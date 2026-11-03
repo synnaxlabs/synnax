@@ -12,6 +12,7 @@ package time
 import (
 	"context"
 	"reflect"
+	stdtime "time"
 
 	"github.com/synnaxlabs/arc/ir"
 	"github.com/synnaxlabs/arc/literal"
@@ -25,6 +26,7 @@ import (
 	"github.com/synnaxlabs/x/lsp/doc"
 	"github.com/synnaxlabs/x/query"
 	"github.com/synnaxlabs/x/telem"
+	"github.com/synnaxlabs/x/tz"
 	"github.com/synnaxlabs/x/validate"
 	"github.com/tetratelabs/wazero"
 )
@@ -35,6 +37,7 @@ const (
 	nowSymbolName      = "now"
 	formatSymbolName   = "format"
 	formatInputParam   = "format"
+	tzInputParam       = "tz"
 	formatFailed       = "Failed to format timestamp"
 	invalidHandle      = "The Arc runtime passed an invalid string handle."
 	periodInputParam   = "period"
@@ -63,13 +66,14 @@ var (
 		doc.Code("arc", "t := time.now()"),
 	)
 	formatDoc = doc.New(
-		doc.Paragraph("Formats a timestamp in UTC. Without a format, prints ISO 8601."),
 		doc.Paragraph(
-			"A format takes strftime codes.",
+			"Formats a timestamp with strftime codes, in UTC or IANA time zone. "+
+				"Without a format, prints ISO 8601.",
 		),
 		doc.Divider(),
 		doc.Code("arc", "t_str := time.format(time.now())\n"+
-			"day := time.format(time.now(), \"%Y-%m-%d\")"),
+			"day := time.format(time.now(), \"%Y-%m-%d\")\n"+
+			"clock := time.format(time.now(), \"%H:%M %Z\", \"America/Denver\")"),
 	)
 	moduleDoc = doc.New(
 		doc.Paragraph(
@@ -127,6 +131,7 @@ func NewSymbols() []*symbol.Symbol {
 			Inputs: types.Params{
 				{Name: ir.DefaultInputParam, Type: types.TimeStamp()},
 				{Name: formatInputParam, Type: types.String(), Value: ""},
+				{Name: tzInputParam, Type: types.String(), Value: ""},
 			},
 			Outputs: types.Params{
 				{Name: ir.DefaultOutputParam, Type: types.String()},
@@ -198,6 +203,8 @@ type Host struct {
 	now     telem.TimeStamp
 	strings *strings.ProgramState
 	report  Reporter
+	// zones resolves the zone names passed to `format`.
+	zones *tz.Database
 }
 
 // Reporter sends a warning to the task that runs the program.
@@ -227,19 +234,33 @@ func NewHost(
 	if err := v.Error(); err != nil {
 		return nil, err
 	}
+	zones, err := tz.Open()
+	if err != nil {
+		return nil, err
+	}
+	h.zones = zones
 	builder := rt.NewHostModuleBuilder(name)
 	builder = builder.NewFunctionBuilder().
 		WithFunc(func(_ context.Context) uint64 {
 			return uint64(h.now)
 		}).Export(nowSymbolName)
 	builder = builder.NewFunctionBuilder().
-		WithFunc(func(ctx context.Context, v int64, format uint32) uint32 {
-			l, ok := h.strings.Get(format)
-			if !ok {
+		WithFunc(func(ctx context.Context, v int64, format, zone uint32) uint32 {
+			f, fOK := h.strings.Get(format)
+			z, zOK := h.strings.Get(zone)
+			if !fOK || !zOK {
 				h.report(ctx, formatFailed, invalidHandle)
 				return 0
 			}
-			return h.strings.Create(formatTimeStamp(telem.TimeStamp(v), l))
+			loc := stdtime.UTC
+			if z != "" {
+				var err error
+				if loc, err = h.zones.Load(z); err != nil {
+					h.report(ctx, formatFailed, `The time zone "`+z+`" is invalid.`)
+					return 0
+				}
+			}
+			return h.strings.Create(formatTimeStamp(telem.TimeStamp(v), f, loc))
 		}).Export(formatSymbolName)
 	if _, err := builder.Instantiate(ctx); err != nil {
 		return nil, err
@@ -247,12 +268,12 @@ func NewHost(
 	return h, nil
 }
 
-// formatTimeStamp renders ts in UTC. An empty format selects ISO 8601.
-func formatTimeStamp(ts telem.TimeStamp, format string) string {
+// formatTimeStamp renders ts in loc. An empty format selects ISO 8601.
+func formatTimeStamp(ts telem.TimeStamp, format string, loc *stdtime.Location) string {
 	if format == "" {
-		return ts.Time().UTC().Format(iso8601Layout)
+		return ts.Time().In(loc).Format(iso8601Layout)
 	}
-	return strftime(ts, format)
+	return strftime(ts, format, loc)
 }
 
 func (h *Host) Create(cfg node.Config) (node.Node, error) {

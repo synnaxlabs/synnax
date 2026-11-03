@@ -16,7 +16,7 @@ import (
 	"github.com/synnaxlabs/x/telem"
 )
 
-// civilTime holds the UTC calendar and clock fields of a timestamp.
+// civilTime holds the local calendar and clock fields of a timestamp in a zone.
 type civilTime struct {
 	year, month, day, hour, minute, second, nanosecond int
 	// yearDay counts from 1 on January 1.
@@ -24,11 +24,16 @@ type civilTime struct {
 	// weekday counts from 0 on Sunday.
 	weekday          int
 	isoYear, isoWeek int
+	// zone is the zone abbreviation, such as "MST".
+	zone string
+	// offset is in seconds east of UTC.
+	offset int
 }
 
-func breakDown(ts telem.TimeStamp) civilTime {
-	t := ts.Time().UTC()
+func breakDown(ts telem.TimeStamp, loc *stdtime.Location) civilTime {
+	t := ts.Time().In(loc)
 	isoYear, isoWeek := t.ISOWeek()
+	zone, offset := t.Zone()
 	return civilTime{
 		year:       t.Year(),
 		month:      int(t.Month()),
@@ -41,6 +46,8 @@ func breakDown(ts telem.TimeStamp) civilTime {
 		weekday:    int(t.Weekday()),
 		isoYear:    isoYear,
 		isoWeek:    isoWeek,
+		zone:       zone,
+		offset:     offset,
 	}
 }
 
@@ -127,8 +134,19 @@ var codes = map[byte]expansion{
 	'G': func(b []byte, c civilTime) []byte { return pad(b, c.isoYear, 4) },
 	'g': func(b []byte, c civilTime) []byte { return pad(b, c.isoYear%100, 2) },
 	'V': func(b []byte, c civilTime) []byte { return pad(b, c.isoWeek, 2) },
-	'z': func(b []byte, _ civilTime) []byte { return append(b, "+0000"...) },
-	'Z': func(b []byte, _ civilTime) []byte { return append(b, "UTC"...) },
+	'z': func(b []byte, c civilTime) []byte {
+		// Go's -0700 layout drops the seconds of an offset, and so does this.
+		minutes := c.offset / 60
+		sign := byte('+')
+		if minutes < 0 {
+			sign = '-'
+			minutes = -minutes
+		}
+		b = append(b, sign)
+		b = pad(b, minutes/60, 2)
+		return pad(b, minutes%60, 2)
+	},
+	'Z': func(b []byte, c civilTime) []byte { return append(b, c.zone...) },
 	'F': func(b []byte, c civilTime) []byte {
 		b = year(b, c)
 		b = append(b, '-')
@@ -178,8 +196,8 @@ var codes = map[byte]expansion{
 
 // strftime renders ts in UTC with format. An unsupported code, and a '%' at the end
 // of format, are copied through unchanged.
-func strftime(ts telem.TimeStamp, format string) string {
-	c := breakDown(ts)
+func strftime(ts telem.TimeStamp, format string, loc *stdtime.Location) string {
+	c := breakDown(ts, loc)
 	b := make([]byte, 0, 2*len(format))
 	for i := 0; i < len(format); i++ {
 		if format[i] != '%' || i+1 == len(format) {

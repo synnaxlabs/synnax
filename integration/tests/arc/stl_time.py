@@ -9,6 +9,7 @@
 
 import re
 from datetime import UTC, datetime, timedelta
+from zoneinfo import ZoneInfo
 
 import synnax as sy
 from framework.utils import create_indexed_pair, create_virtual_channels
@@ -58,6 +59,18 @@ func write_format_chan() {
 }
 time_format_in -> write_format_chan()
 time.format(time_format_ts_in, time_format_in) -> time_format_chan_flow_out
+// A zone read from a channel, with a format read from a channel.
+func write_format_zone() {
+    fmt_tz_fn_out = time.format(time_format_ts_in, time_format_in, fmt_tz_in)
+}
+fmt_tz_in -> write_format_zone()
+time.format(time_format_ts_in, time_format_in, fmt_tz_in) -> fmt_tz_flow_out
+// A literal zone.
+func write_format_zone_lit() {
+    fmt_tz_lit_fn = time.format(time_format_ts_in, "%H:%M %Z", "America/Denver")
+}
+time_format_ts_in -> write_format_zone_lit()
+time.format(time_format_ts_in, "%H:%M %Z", "America/Denver") -> fmt_tz_lit_flow
 
 // ─────────────────────────── time.interval ──────────────────────────
 // interval is inherently time-triggered (that's the point of the function).
@@ -259,6 +272,66 @@ EDGE_CASES = (
     (2**63 - 1, "%c %r %x", "Fri Apr 11 23:47:16 2262 11:47:16 PM 04/11/62"),
 )
 
+# A Saturday in March before daylight time starts, and a day in July.
+WINTER = 1_772_895_845_000_000_000
+SUMMER = 1_784_116_800_000_000_000
+# January 1, 1800, when Denver kept local mean time at UTC-6:59:56.
+EIGHTEEN_HUNDRED = -5_364_662_400_000_000_000
+
+# (ns since the Unix epoch, format, zone, expected), mirroring the Go and C++ specs.
+ZONE_CASES = (
+    (WINTER, "%H:%M %Z %z", "America/Denver", "08:04 MST -0700"),
+    (SUMMER, "%H:%M %Z %z", "America/Denver", "06:00 MDT -0600"),
+    (WINTER + 250_000_000, "", "America/Denver", "2026-03-07T08:04:05.25-07:00"),
+    (SUMMER, "%H:%M %Z %z", "America/Phoenix", "05:00 MST -0700"),
+    (SUMMER, "%H:%M %Z %z", "America/Edmonton", "06:00 MDT -0600"),
+    (SUMMER, "%H:%M %Z %z", "America/Toronto", "08:00 EDT -0400"),
+    (WINTER, "%H:%M %Z %z", "Europe/Berlin", "16:04 CET +0100"),
+    (SUMMER, "%H:%M %Z %z", "Europe/Berlin", "14:00 CEST +0200"),
+    (WINTER, "", "UTC", "2026-03-07T15:04:05Z"),
+    (WINTER, "%Z %z", "", "UTC +0000"),
+    (WINTER, "%H:%M %Z %z", "Asia/Kolkata", "20:34 IST +0530"),
+    (WINTER, "%H:%M %Z %z", "Asia/Kathmandu", "20:49 +0545 +0545"),
+    (WINTER, "%H:%M %Z", "america/denver", "08:04 MST"),
+    (SUMMER, "%H:%M %Z", "us/mountain", "06:00 MDT"),
+    (WINTER, "%H:%M %Z", "US/Mountain", "08:04 MST"),
+    (1_772_960_399_000_000_000, "%H:%M:%S %Z", "America/Denver", "01:59:59 MST"),
+    (1_772_960_400_000_000_000, "%H:%M:%S %Z", "America/Denver", "03:00:00 MDT"),
+    (1_793_518_200_000_000_000, "%H:%M %Z", "America/Denver", "01:30 MDT"),
+    (1_793_521_800_000_000_000, "%H:%M %Z", "America/Denver", "01:30 MST"),
+    (
+        1_767_236_400_000_000_000,
+        "%Y-%m-%d %j %U %a",
+        "America/Denver",
+        "2025-12-31 365 52 Wed",
+    ),
+    (2**63 - 1, "", "Etc/GMT-14", "2262-04-12T13:47:16.854775807+14:00"),
+    (-(2**63), "", "Etc/GMT+12", "1677-09-20T12:12:43.145224192-12:00"),
+    (EIGHTEEN_HUNDRED, "%H:%M:%S %Z %z", "America/Denver", "17:00:04 LMT -0659"),
+    (EIGHTEEN_HUNDRED, "", "America/Denver", "1799-12-31T17:00:04-06:59"),
+    (WINTER, "", "Europe/London", "2026-03-07T15:04:05Z"),
+    (SUMMER, "", "Europe/London", "2026-07-15T13:00:00+01:00"),
+)
+
+# (ns since the Unix epoch, expected) for the literal zone.
+ZONE_LITERAL_CASES = (
+    (WINTER, "08:04 MST"),
+    (SUMMER, "06:00 MDT"),
+)
+
+# Zones whose rules have not changed in decades.
+PYTHON_ZONES = {
+    "America/Denver",
+    "America/Edmonton",
+    "America/Phoenix",
+    "America/Toronto",
+    "Asia/Kathmandu",
+    "Asia/Kolkata",
+    "Europe/Berlin",
+    "Europe/London",
+    "UTC",
+}
+
 # Codes Python documents for every platform. The rest are checked by hand above.
 PYTHON_CODES = set("YymdHIMSjfUWwzZ%aAbBpxX")
 
@@ -270,6 +343,17 @@ def python_strftime(ns: int, fmt: str) -> str | None:
         return None
     stamp = datetime(1970, 1, 1, tzinfo=UTC) + timedelta(microseconds=ns // 1000)
     return stamp.strftime(fmt)
+
+
+def python_zone_strftime(ns: int, fmt: str, zone: str) -> str | None:
+    """Python's rendering of format at ns in zone, or None when Python cannot check
+    it."""
+    if not fmt or zone not in PYTHON_ZONES or ns < 0:
+        return None
+    if python_strftime(ns, fmt) is None:
+        return None
+    stamp = datetime(1970, 1, 1, tzinfo=UTC) + timedelta(microseconds=ns // 1000)
+    return stamp.astimezone(ZoneInfo(zone)).strftime(fmt)
 
 
 # (channel, label) for the two free-running interval counters.
@@ -317,6 +401,10 @@ class StlTime(ArcCase):
         "time_fstr_out",
         "time_format_chan_fn_out",
         "time_format_chan_flow_out",
+        "fmt_tz_fn_out",
+        "fmt_tz_flow_out",
+        "fmt_tz_lit_fn",
+        "fmt_tz_lit_flow",
         "interval_count",
         "interval_count_mod",
         "toggle_cmd",
@@ -350,6 +438,11 @@ class StlTime(ArcCase):
                 ("time_format_in", sy.DataType.STRING),
                 ("time_format_chan_fn_out", sy.DataType.STRING),
                 ("time_format_chan_flow_out", sy.DataType.STRING),
+                ("fmt_tz_in", sy.DataType.STRING),
+                ("fmt_tz_fn_out", sy.DataType.STRING),
+                ("fmt_tz_flow_out", sy.DataType.STRING),
+                ("fmt_tz_lit_fn", sy.DataType.STRING),
+                ("fmt_tz_lit_flow", sy.DataType.STRING),
                 ("interval_count", sy.DataType.INT64),
                 ("interval_count_mod", sy.DataType.INT64),
                 ("start_wait_cmd", sy.DataType.UINT8),
@@ -474,6 +567,30 @@ class StlTime(ArcCase):
         for ns, fmt, expected in EDGE_CASES:
             self._check_format(ns, fmt, expected)
 
+    def _test_format_zones(self) -> None:
+        self.log("=== time.format() [time zones, zone from a channel] ===")
+        for ns, fmt, zone, expected in ZONE_CASES:
+            rendered = python_zone_strftime(ns, fmt, zone)
+            if rendered is not None and rendered != expected:
+                self.fail(
+                    f"Python renders {fmt!r} in {zone} as {rendered!r}, "
+                    f"table says {expected!r}"
+                )
+            self.writer.write("time_format_ts_in", ns)
+            self.writer.write("time_format_in", fmt)
+            self.writer.write("fmt_tz_in", zone)
+            self.log(f"Expecting {expected!r} for {fmt!r} in {zone!r} at {ns} ns")
+            self.wait_for_eq("fmt_tz_fn_out", expected)
+            self.wait_for_eq("fmt_tz_flow_out", expected)
+
+    def _test_format_zone_literal(self) -> None:
+        self.log("=== time.format() [literal time zone] ===")
+        for ns, expected in ZONE_LITERAL_CASES:
+            self.writer.write("time_format_ts_in", ns)
+            self.log(f"Expecting {expected!r} at {ns} ns")
+            self.wait_for_eq("fmt_tz_lit_fn", expected)
+            self.wait_for_eq("fmt_tz_lit_flow", expected)
+
     def _test_interval_rate(self) -> None:
         self.log("=== time.interval ===")
         baselines = {ch: self.read_tlm(ch, 0) for ch, _ in INTERVAL_CHANNELS}
@@ -527,5 +644,7 @@ class StlTime(ArcCase):
         self._test_format_fixed()
         self._test_format_codes()
         self._test_format_edges()
+        self._test_format_zones()
+        self._test_format_zone_literal()
         self._test_interval_rate()
         self._test_wait_timing()

@@ -244,6 +244,38 @@ TEST(TimeStampTests, testISO8601Negative) {
     ASSERT_EQ(ts.iso8601(), "1938-04-24T22:13:20Z");
 }
 
+/// @brief it should print an offset east or west of UTC instead of Z.
+TEST(TimeStampTests, testISO8601WithAnOffset) {
+    const auto ts = TimeStamp(1'772'895'845'250'000'000);
+    ASSERT_EQ(ts.iso8601(-7 * 3600), "2026-03-07T08:04:05.25-07:00");
+    ASSERT_EQ(
+        TimeStamp(1'772'895'845'000'000'000).iso8601(19'800),
+        "2026-03-07T20:34:05+05:30"
+    );
+    ASSERT_EQ(ts.iso8601(0), "2026-03-07T15:04:05.25Z");
+}
+
+/// @brief it should drop the seconds of an offset, as Go does.
+TEST(TimeStampTests, testISO8601DropsTheSecondsOfAnOffset) {
+    // Denver's local mean time on January 1, 1800 was UTC-6:59:56.
+    ASSERT_EQ(
+        TimeStamp(-5'364'662'400'000'000'000).iso8601(-25'196),
+        "1799-12-31T17:00:04-06:59"
+    );
+}
+
+/// @brief it should print a large offset at the ends of the timestamp range.
+TEST(TimeStampTests, testISO8601WithAnOffsetAtTheEndsOfTheRange) {
+    ASSERT_EQ(
+        TimeStamp(INT64_MAX).iso8601(14 * 3600),
+        "2262-04-12T13:47:16.854775807+14:00"
+    );
+    ASSERT_EQ(
+        TimeStamp(INT64_MIN).iso8601(-12 * 3600),
+        "1677-09-20T12:12:43.145224192-12:00"
+    );
+}
+
 /// @brief it should format the ends of the timestamp range without overflow.
 TEST(TimeStampTests, testISO8601EndsOfTheRange) {
     ASSERT_EQ(TimeStamp(INT64_MIN).iso8601(), "1677-09-21T00:12:43.145224192Z");

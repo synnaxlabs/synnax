@@ -235,6 +235,75 @@ start_edge_case_cmd -> bad()
 """
 
 
+# ── time.format with invalid inputs (runs at runtime) ──
+# Each context gets its own Arc, so a warning traces to one of them.
+
+ARC_FORMAT_FN = """
+import time
+func format_fn() {
+    edge_fmt_fn_out = time.format(edge_fmt_ts_in, edge_fmt_in, edge_fmt_tz_in)
+}
+edge_fmt_tz_in -> format_fn()
+"""
+
+ARC_FORMAT_FLOW = """
+import time
+time.format(edge_fmt_ts_in, edge_fmt_in, edge_fmt_tz_in) -> edge_fmt_flow_out
+"""
+
+ARC_FORMAT_LITERAL_ZONE_FN = """
+import time
+func format_lit_fn() {
+    edge_fmt_lit_fn_out = time.format(edge_fmt_ts_in, "%H:%M", "Mars/Olympus")
+}
+edge_fmt_ts_in -> format_lit_fn()
+"""
+
+ARC_FORMAT_LITERAL_ZONE_FLOW = """
+import time
+time.format(edge_fmt_ts_in, "%H:%M", "Mars/Olympus") -> edge_fmt_lit_flow_out
+"""
+
+# A Saturday in March before daylight time starts.
+FORMAT_STAMP = 1_772_895_845_000_000_000
+
+
+@dataclass
+class FormatInvalidCase:
+    label: str
+    fmt: str
+    zone: str
+
+
+FORMAT_INVALID_CASES = [
+    FormatInvalidCase("UnknownZone", "%H:%M %Z", "Mars/Olympus"),
+    FormatInvalidCase("UnknownZoneISO", "", "Mars/Phobos"),
+    FormatInvalidCase("UnknownZoneUnknownCode", "%Q", "Mars/Deimos"),
+    FormatInvalidCase("AbbreviationNotAZone", "%H:%M", "PST"),
+    FormatInvalidCase("PaddedZone", "%H:%M", " America/Denver"),
+    FormatInvalidCase("PartialZone", "%H:%M", "America/"),
+]
+
+
+@dataclass
+class FormatOddCase:
+    label: str
+    fmt: str
+    zone: str
+    expected: str
+
+
+# Inputs that look wrong but have a defined output. Consecutive expectations differ,
+# so each wait proves a new write landed.
+FORMAT_ODD_CASES = [
+    FormatOddCase("UnknownCodeInAZone", "%Q %Z", "America/Denver", "%Q MST"),
+    FormatOddCase("TrailingPercentInAZone", "%H %", "Europe/Berlin", "16 %"),
+    FormatOddCase("UpperCaseZone", "%Z", "AMERICA/DENVER", "MST"),
+    FormatOddCase("EmptyZone", "%Z %z", "", "UTC +0000"),
+    FormatOddCase("FixedZone", "%Z %z", "EST", "EST -0500"),
+]
+
+
 @dataclass
 class ExecContextCase:
     label: str
@@ -519,7 +588,12 @@ class EdgeCases(ArcCase):
     arc_source = ARC_CHANNEL_EDGE_CASES_SOURCE
     arc_name_prefix = "ArcEdgeCases"
     start_cmd_channel = "start_edge_case_cmd"
-    subscribe_channels = [*CHANNEL_VIRTUAL, "edge_len_out"]
+    subscribe_channels = [
+        *CHANNEL_VIRTUAL,
+        "edge_len_out",
+        "edge_fmt_fn_out",
+        "edge_fmt_flow_out",
+    ]
     collect_notifications = True
     collect_task_status = True
 
@@ -534,6 +608,18 @@ class EdgeCases(ArcCase):
             self.client, "edge_len_input", data_type=sy.DataType.STRING
         )
         create_virtual_channel(self.client, "edge_len_out", data_type=sy.DataType.INT64)
+        create_virtual_channel(
+            self.client, "edge_fmt_ts_in", data_type=sy.DataType.TIMESTAMP
+        )
+        for ch in (
+            "edge_fmt_in",
+            "edge_fmt_tz_in",
+            "edge_fmt_fn_out",
+            "edge_fmt_flow_out",
+            "edge_fmt_lit_fn_out",
+            "edge_fmt_lit_flow_out",
+        ):
+            create_virtual_channel(self.client, ch, data_type=sy.DataType.STRING)
         self.client.statuses.set(
             sy.Status(
                 key="press_monitor_status",
@@ -642,6 +728,43 @@ class EdgeCases(ArcCase):
         self.writer.write("edge_len_input", "hello")
         self.wait_for_eq("edge_len_out", 5)
 
+    def _expect_format_warning(self, names: Sequence[str], zone: str) -> None:
+        """Fail unless every named Arc warned about zone and kept running."""
+        description = f'The time zone "{zone}" is invalid.'
+        for name in names:
+            key = self.task_key(name)
+            if not self.wait_for_task_status(key, description):
+                self.fail(f"[{name}] no warning surfaced for zone {zone!r}")
+            if not self.task_is_running(key):
+                self.fail(f"[{name}] stopped after the warning for zone {zone!r}")
+
+    def _verify_time_format_invalid(self) -> None:
+        self.log("=== time.format with invalid inputs ===")
+        names = [
+            self.load_arc(ARC_FORMAT_FN, name_prefix="FormatFn"),
+            self.load_arc(ARC_FORMAT_FLOW, name_prefix="FormatFlow"),
+        ]
+        for case in FORMAT_INVALID_CASES:
+            self.log(f"[{case.label}] {case.fmt!r} in {case.zone!r}")
+            self.writer.write("edge_fmt_ts_in", FORMAT_STAMP)
+            self.writer.write("edge_fmt_in", case.fmt)
+            self.writer.write("edge_fmt_tz_in", case.zone)
+            self._expect_format_warning(names, case.zone)
+        for case in FORMAT_ODD_CASES:
+            self.log(f"[{case.label}] {case.fmt!r} in {case.zone!r}")
+            self.writer.write("edge_fmt_ts_in", FORMAT_STAMP)
+            self.writer.write("edge_fmt_in", case.fmt)
+            self.writer.write("edge_fmt_tz_in", case.zone)
+            self.wait_for_eq("edge_fmt_fn_out", case.expected)
+            self.wait_for_eq("edge_fmt_flow_out", case.expected)
+        self.log("[LiteralZone] Mars/Olympus as a literal")
+        literal = [
+            self.load_arc(ARC_FORMAT_LITERAL_ZONE_FN, name_prefix="FormatLitFn"),
+            self.load_arc(ARC_FORMAT_LITERAL_ZONE_FLOW, name_prefix="FormatLitFlow"),
+        ]
+        self.writer.write("edge_fmt_ts_in", FORMAT_STAMP)
+        self._expect_format_warning(literal, "Mars/Olympus")
+
     def _verify_import_cases(self) -> None:
         self.log("=== Import diagnostic detection ===")
         for case in IMPORT_CASES:
@@ -697,6 +820,7 @@ class EdgeCases(ArcCase):
         self._verify_guarded_cases()
         self._verify_exec_context_cases()
         self._verify_wasm_in_flow()
+        self._verify_time_format_invalid()
         self._verify_type_mismatch_cases()
         self._verify_routing_table_cases()
         self._verify_import_cases()

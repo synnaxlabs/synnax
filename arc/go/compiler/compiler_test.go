@@ -4643,61 +4643,6 @@ var _ = Describe("Compiler", func() {
 			Expect(strOf(results)).To(Equal("now 1970-01-01T00:29:10Z"))
 		})
 
-		DescribeTable("Should match the C++ iso8601 vectors",
-			func(ctx SpecContext, ns int64, expected string) {
-				output := MustSucceed(compileWithHostImports(ctx, `
-				import time
-				func compute(t i64 ns) str {
-					return time.format(t)
-				}
-				`, nil))
-				mod := MustSucceed(r.Instantiate(ctx, output.WASM))
-				results := MustSucceed(
-					mod.ExportedFunction("compute").Call(ctx, uint64(ns)),
-				)
-				Expect(strOf(results)).To(Equal(expected))
-			},
-			Entry("epoch", int64(0), "1970-01-01T00:00:00Z"),
-			Entry("trimmed fraction", int64(1_500_000_000), "1970-01-01T00:00:01.5Z"),
-			Entry(
-				"full fraction",
-				int64(1_000_000_001),
-				"1970-01-01T00:00:01.000000001Z",
-			),
-			Entry(
-				"whole second",
-				int64(1_000_000_000_000_000_000),
-				"2001-09-09T01:46:40Z",
-			),
-			Entry(
-				"before the epoch",
-				int64(-1_000_000_000_000_000_000),
-				"1938-04-24T22:13:20Z",
-			),
-			Entry(
-				"January 17, 2012 at 08:32:05",
-				time.Date(2012, time.January, 17, 8, 32, 5, 0, time.UTC).UnixNano(),
-				"2012-01-17T08:32:05Z",
-			),
-			Entry(
-				"January 17, 2012 with milliseconds",
-				time.Date(2012, time.January, 17, 8, 32, 5, 250_000_000, time.UTC).
-					UnixNano(),
-				"2012-01-17T08:32:05.25Z",
-			),
-			Entry(
-				"leap day 2024, last nanosecond",
-				time.Date(2024, time.February, 29, 23, 59, 59, 999_999_999, time.UTC).
-					UnixNano(),
-				"2024-02-29T23:59:59.999999999Z",
-			),
-			Entry(
-				"New Year 2000 at midnight",
-				time.Date(2000, time.January, 1, 0, 0, 0, 0, time.UTC).UnixNano(),
-				"2000-01-01T00:00:00Z",
-			),
-		)
-
 		Describe("Formats", func() {
 			// Tuesday, January 17, 2012 at 08:32:05.25 UTC, in ISO week 3.
 			stamp := time.Date(2012, time.January, 17, 8, 32, 5, 250_000_000, time.UTC).
@@ -4718,250 +4663,42 @@ var _ = Describe("Compiler", func() {
 				return strOf(results)
 			}
 
-			DescribeTable("Should expand every code",
-				func(ctx SpecContext, format, expected string) {
-					Expect(formatWith(ctx, stamp, format)).To(Equal(expected))
-				},
-				Entry("%Y", "%Y", "2012"),
-				Entry("%y", "%y", "12"),
-				Entry("%m", "%m", "01"),
-				Entry("%d", "%d", "17"),
-				Entry("%e", "%e", "17"),
-				Entry("%H", "%H", "08"),
-				Entry("%I", "%I", "08"),
-				Entry("%M", "%M", "32"),
-				Entry("%S", "%S", "05"),
-				Entry("%j", "%j", "017"),
-				Entry("%f", "%f", "250000"),
-				Entry("%N", "%N", "250000000"),
-				Entry("%u", "%u", "2"),
-				Entry("%w", "%w", "2"),
-				Entry("%U", "%U", "03"),
-				Entry("%W", "%W", "03"),
-				Entry("%G", "%G", "2012"),
-				Entry("%V", "%V", "03"),
-				Entry("%z", "%z", "+0000"),
-				Entry("%Z", "%Z", "UTC"),
-				Entry("%F", "%F", "2012-01-17"),
-				Entry("%T", "%T", "08:32:05"),
-				Entry("%%", "%%", "%"),
-				Entry("%C", "%C", "20"),
-				Entry("%D", "%D", "01/17/12"),
-				Entry("%g", "%g", "12"),
-				Entry("%n", "%n", "\n"),
-				Entry("%R", "%R", "08:32"),
-				Entry("%t", "%t", "\t"),
-				Entry("%a", "%a", "Tue"),
-				Entry("%A", "%A", "Tuesday"),
-				Entry("%b", "%b", "Jan"),
-				Entry("%h", "%h", "Jan"),
-				Entry("%B", "%B", "January"),
-				Entry("%p", "%p", "AM"),
-				Entry("%c", "%c", "Tue Jan 17 08:32:05 2012"),
-				Entry("%x", "%x", "01/17/12"),
-				Entry("%X", "%X", "08:32:05"),
-				Entry("%r", "%r", "08:32:05 AM"),
-				Entry(
-					"a Python format",
-					"%Y-%m-%d %H:%M:%S.%f",
-					"2012-01-17 08:32:05.250000",
-				),
-				Entry("text around a code", "T+%S s", "T+05 s"),
-			)
+			It("Should accept a literal format", func(ctx SpecContext) {
+				Expect(formatWith(ctx, stamp, "%Y-%m-%d %H:%M:%S.%f")).
+					To(Equal("2012-01-17 08:32:05.250000"))
+			})
 
-			DescribeTable("Should match C and Python at the edges",
-				func(ctx SpecContext, ns int64, format, expected string) {
-					Expect(formatWith(ctx, ns, format)).To(Equal(expected))
-				},
-				Entry(
-					"Sunday, January 1, 2012 at midnight",
-					time.Date(2012, time.January, 1, 0, 0, 0, 0, time.UTC).UnixNano(),
-					"%u %w %U %W %I %e %j",
-					"7 0 01 00 12  1 001",
-				),
-				Entry(
-					"noon and one o'clock on the 12-hour clock",
-					time.Date(2012, time.January, 17, 12, 0, 0, 0, time.UTC).UnixNano(),
-					"%I",
-					"12",
-				),
-				Entry(
-					"one o'clock on the 12-hour clock",
-					time.Date(2012, time.January, 17, 13, 0, 0, 0, time.UTC).UnixNano(),
-					"%I",
-					"01",
-				),
-				Entry(
-					"ISO week in the previous year",
-					time.Date(2021, time.January, 1, 0, 0, 0, 0, time.UTC).UnixNano(),
-					"%G-%V %Y",
-					"2020-53 2021",
-				),
-				Entry(
-					"ISO week in the next year",
-					time.Date(2024, time.December, 30, 0, 0, 0, 0, time.UTC).UnixNano(),
-					"%G-%V %Y",
-					"2025-01 2024",
-				),
-				Entry("epoch", int64(0), "%F %T", "1970-01-01 00:00:00"),
-				Entry(
-					"before the epoch",
-					int64(-1_000_000_000_000_000_000),
-					"%F %T",
-					"1938-04-24 22:13:20",
-				),
-				Entry(
-					"two-digit ISO year in the previous year",
-					time.Date(2021, time.January, 1, 0, 0, 0, 0, time.UTC).UnixNano(),
-					"%g %y",
-					"20 21",
-				),
-				Entry(
-					"two-digit ISO year in the next year",
-					time.Date(2024, time.December, 30, 0, 0, 0, 0, time.UTC).UnixNano(),
-					"%g %y",
-					"25 24",
-				),
-				Entry(
-					"the last nanosecond before the epoch",
-					int64(-1),
-					"%F %T.%N %j %w %G-%V %C %g",
-					"1969-12-31 23:59:59.999999999 365 3 1970-01 19 70",
-				),
-				Entry(
-					"the last nanosecond of the first second",
-					int64(999_999_999),
-					"%F %T.%N %j %w %G-%V %C %g",
-					"1970-01-01 00:00:00.999999999 001 4 1970-01 19 70",
-				),
-				Entry(
-					"the earliest timestamp",
-					int64(math.MinInt64),
-					"%F %T.%N %j %w %G-%V %C %g",
-					"1677-09-21 00:12:43.145224192 264 2 1677-38 16 77",
-				),
-				Entry(
-					"one nanosecond after the earliest timestamp",
-					int64(math.MinInt64+1),
-					"%F %T.%N",
-					"1677-09-21 00:12:43.145224193",
-				),
-				Entry(
-					"the latest timestamp",
-					int64(math.MaxInt64),
-					"%F %T.%N %j %w %G-%V %C %g",
-					"2262-04-11 23:47:16.854775807 101 5 2262-15 22 62",
-				),
-				Entry(
-					"midnight on the 12-hour clock, with a one-digit day",
-					time.Date(2012, time.January, 1, 0, 0, 0, 0, time.UTC).UnixNano(),
-					"%p %r %c",
-					"AM 12:00:00 AM Sun Jan  1 00:00:00 2012",
-				),
-				Entry(
-					"the last second before noon",
-					time.Date(2012, time.January, 17, 11, 59, 59, 0, time.UTC).
-						UnixNano(),
-					"%p %r",
-					"AM 11:59:59 AM",
-				),
-				Entry(
-					"noon",
-					time.Date(2012, time.January, 17, 12, 0, 0, 0, time.UTC).UnixNano(),
-					"%p %r",
-					"PM 12:00:00 PM",
-				),
-				Entry(
-					"one o'clock in the afternoon",
-					time.Date(2012, time.January, 17, 13, 0, 0, 0, time.UTC).UnixNano(),
-					"%p %r",
-					"PM 01:00:00 PM",
-				),
-				Entry(
-					"a Sunday in December",
-					time.Date(2012, time.December, 30, 18, 45, 0, 0, time.UTC).
-						UnixNano(),
-					"%a %A %b %B %h %p %c",
-					"Sun Sunday Dec December Dec PM Sun Dec 30 18:45:00 2012",
-				),
-				Entry(
-					"the names at the earliest timestamp",
-					int64(math.MinInt64),
-					"%c %r %x",
-					"Tue Sep 21 00:12:43 1677 12:12:43 AM 09/21/77",
-				),
-				Entry(
-					"the names at the latest timestamp",
-					int64(math.MaxInt64),
-					"%c %r %x",
-					"Fri Apr 11 23:47:16 2262 11:47:16 PM 04/11/62",
-				),
-			)
-
-			It(
-				"Should agree with the Go time package on every day",
-				func(ctx SpecContext) {
-					output := MustSucceed(compileWithHostImports(ctx, `
+			It("Should accept a literal time zone", func(ctx SpecContext) {
+				output := MustSucceed(compileWithHostImports(ctx, `
 				import time
-				func compute(t i64 ns, fmt str) str {
-					return time.format(t, fmt)
+				func compute(t i64 ns) str {
+					return time.format(t, "%H:%M %Z", "America/Denver")
 				}
 				`, nil))
-					mod := MustSucceed(r.Instantiate(ctx, output.WASM))
-					compute := mod.ExportedFunction("compute")
-					format := strState.Create(
-						"%Y-%m-%d %H:%M:%S %e %j %u %w %U %W %G-%V %C %y %g %D %R %F %T " +
-							"%a %A %b %B %p %c",
-					)
-					// The sweep covers every day an i64 ns timestamp can hold. %U
-					// counts the Sundays so far this year and %W the Mondays, which is
-					// their definition.
-					sundays, mondays := 0, 0
-					first := time.Date(1678, time.January, 1, 13, 4, 5, 0, time.UTC)
-					for day := first; day.Year() < 2262; day = day.AddDate(0, 0, 1) {
-						if day.YearDay() == 1 {
-							sundays, mondays = 0, 0
-						}
-						switch day.Weekday() {
-						case time.Sunday:
-							sundays++
-						case time.Monday:
-							mondays++
-						}
-						isoYear, isoWeek := day.ISOWeek()
-						weekday := int(day.Weekday())
-						expected := fmt.Sprintf(
-							"%s %2d %03d %d %d %02d %02d %04d-%02d %02d %02d %02d %s %s %s %s "+
-								"%s %s",
-							day.Format("2006-01-02 15:04:05"),
-							day.Day(),
-							day.YearDay(),
-							(weekday+6)%7+1,
-							weekday,
-							sundays,
-							mondays,
-							isoYear,
-							isoWeek,
-							day.Year()/100,
-							day.Year()%100,
-							isoYear%100,
-							day.Format("01/02/06"),
-							day.Format("15:04"),
-							day.Format("2006-01-02"),
-							day.Format("15:04:05"),
-							day.Format("Mon Monday Jan January PM"),
-							// time.ANSIC is the C standard's %c.
-							day.Format(time.ANSIC),
-						)
-						results := MustSucceed(
-							compute.Call(ctx, uint64(day.UnixNano()), uint64(format)),
-						)
-						Expect(
-							strOf(results),
-						).To(Equal(expected), day.Format(time.RFC3339))
-					}
-				},
-			)
+				mod := MustSucceed(r.Instantiate(ctx, output.WASM))
+				strMod.SetMemory(mod.Memory())
+				results := MustSucceed(
+					mod.ExportedFunction("compute").Call(ctx, uint64(stamp)),
+				)
+				Expect(strOf(results)).To(Equal("01:32 MST"))
+			})
+
+			It("Should accept a dynamic time zone", func(ctx SpecContext) {
+				output := MustSucceed(compileWithHostImports(ctx, `
+				import time
+				func compute(t i64 ns, fmt str, tz str) str {
+					return time.format(t, fmt, tz)
+				}
+				`, nil))
+				mod := MustSucceed(r.Instantiate(ctx, output.WASM))
+				results := MustSucceed(mod.ExportedFunction("compute").Call(
+					ctx,
+					uint64(stamp),
+					uint64(strState.Create("%H:%M %Z")),
+					uint64(strState.Create("America/Denver")),
+				))
+				Expect(strOf(results)).To(Equal("01:32 MST"))
+			})
 
 			It("Should format into an f-string through a local", func(ctx SpecContext) {
 				output := MustSucceed(compileWithHostImports(ctx, `

@@ -20,6 +20,7 @@
 
 #include "x/cpp/errors/errors.h"
 #include "x/cpp/telem/telem.h"
+#include "x/cpp/tz/tz.h"
 
 #include "arc/cpp/ir/ir.h"
 #include "arc/cpp/runtime/errors/errors.h"
@@ -263,11 +264,14 @@ public:
     }
 };
 
-/// @brief renders ts in UTC. An empty format selects ISO 8601.
-inline std::string
-format_time_stamp(const x::telem::TimeStamp ts, const std::string_view format) {
-    if (format.empty()) return ts.iso8601();
-    return strftime(ts, format);
+/// @brief renders ts in zone. An empty format selects ISO 8601.
+inline std::string format_time_stamp(
+    const x::telem::TimeStamp ts,
+    const std::string_view format,
+    const x::tz::Info &zone
+) {
+    if (format.empty()) return ts.iso8601(zone.offset);
+    return strftime(ts, format, zone);
 }
 
 const std::string FORMAT_FAILED = "Failed to format timestamp";
@@ -288,6 +292,8 @@ class Module : public stl::Module {
     std::shared_ptr<strings::State> str_state;
     /// @brief receives the warnings `format` raises.
     Reporter report;
+    /// @brief resolves the zone names passed to `format`.
+    std::shared_ptr<x::tz::Database> zones = std::make_shared<x::tz::Database>();
 
 public:
     Module(std::shared_ptr<strings::State> str_state, Reporter report):
@@ -345,14 +351,31 @@ public:
             .func_wrap(
                 MODULE_NAME,
                 "format",
-                [ss, report = this->report](const int64_t v, const uint32_t format)
-                    -> uint32_t {
-                    if (!ss->exists(format)) {
+                [ss, report = this->report, zones = this->zones](
+                    const int64_t v,
+                    const uint32_t format,
+                    const uint32_t zone
+                ) -> uint32_t {
+                    if (!ss->exists(format) || !ss->exists(zone)) {
                         report(FORMAT_FAILED, INVALID_HANDLE);
                         return 0;
                     }
+                    x::tz::Info info = UTC;
+                    if (const auto name = ss->get(zone); !name.empty()) {
+                        const auto [z, err] = zones->load(name);
+                        if (err) {
+                            report(
+                                FORMAT_FAILED,
+                                "The time zone \"" + name + "\" is invalid."
+                            );
+                            return 0;
+                        }
+                        int64_t sec = v / 1'000'000'000;
+                        if (v % 1'000'000'000 < 0) sec--;
+                        info = z->at(sec);
+                    }
                     return ss->create(
-                        format_time_stamp(x::telem::TimeStamp(v), ss->get(format))
+                        format_time_stamp(x::telem::TimeStamp(v), ss->get(format), info)
                     );
                 }
             )
