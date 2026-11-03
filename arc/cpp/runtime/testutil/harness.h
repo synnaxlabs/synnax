@@ -66,11 +66,20 @@ class Harness {
     x::telem::Frame pending;
 
 public:
-    Harness(const synnax::Synnax &client, const std::string &source):
-        Harness(client, compile_text(client, source)) {}
+    Harness(
+        const synnax::Synnax &client,
+        const std::string &source,
+        x::telem::NowFunc now = nullptr
+    ):
+        Harness(client, compile_text(client, source), std::move(now)) {}
 
-    Harness(const synnax::Synnax &client, arc::program::Program prog):
-        program(std::move(prog)) {
+    /// @brief now, when set, is the wall clock the harness stamps cycles from.
+    Harness(
+        const synnax::Synnax &client,
+        arc::program::Program prog,
+        x::telem::NowFunc now = nullptr
+    ):
+        program(std::move(prog)), clock(std::move(now)) {
         std::set<types::ChannelKey> reads;
         std::set<types::ChannelKey> writes;
         for (const auto &n: this->program.nodes) {
