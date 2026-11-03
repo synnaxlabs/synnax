@@ -14,6 +14,7 @@ from synnax import (
     http,
     labjack,
     license,
+    lineplot,
     modbus,
     mqtt,
     ni,
@@ -71,6 +72,7 @@ from synnax.framer import (
     WriterMode,
 )
 from synnax.label import Label
+from synnax.lineplot import LinePlot
 from synnax.options import Options
 from synnax.project import Project
 from synnax.rack import Rack
@@ -163,6 +165,7 @@ __all__ = [
     "LicenseFingerprintMismatch",
     "LicenseLimitExceeded",
     "LimitReduction",
+    "LinePlot",
     "Loop",
     "MissingLicense",
     "MultiSeries",
@@ -213,6 +216,7 @@ __all__ = [
     "label",
     "labjack",
     "license",
+    "lineplot",
     "modbus",
     "mqtt",
     "ni",
