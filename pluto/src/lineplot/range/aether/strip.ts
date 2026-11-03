@@ -101,9 +101,9 @@ export interface Layout {
 
 /**
  * Places each range in the first lane that is free at its start and below every range
- * that holds it, so a parent sits above its children. Lanes pack in time, so a zoom never moves a
- * range to another lane. Ranges past the last thin lane share it. Ranges with no color
- * get no bar.
+ * that holds it, so a parent sits above its children. Lanes pack in time, so a zoom
+ * never moves a range to another lane. Ranges past the last thin lane share it. Ranges
+ * with no color get no bar.
  * @param position - Maps a timestamp in nanoseconds to a canvas x position.
  */
 export const layout = (
