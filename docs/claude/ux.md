@@ -133,6 +133,14 @@ outlined button) has fill l2 and border l4, and its caret has the disabled text 
 - A field in a row, or beside another field, has no help text. Its control shows the
   error, and the message shows on hover. A control with a border gets a red border. A
   control with no border, such as a text select or a button group, gets red text.
+- A span of time (a timeout, a delay, a window) is a typed duration field
+  (`Form.TimeSpanField`, or `Input.TimeSpan inline`), never a number with a unit suffix.
+  The person types "500ms", "2.5s", or "1min 30s". A number alone takes the unit of the
+  stored value. The readings and a hint show under the field while it has focus, also
+  when it already has a value. A bound is a message under the field ("Timeout must be
+  1min or less"), never a silent clamp.
+- A range duration on the timeline keeps the popover editor (`Input.TimeSpan`), because
+  it reads as a value, not as a form field.
 
 ### Task forms
 

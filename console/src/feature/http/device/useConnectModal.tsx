@@ -444,9 +444,10 @@ export const Connect = ({
             <Tabs.Content itemKey="advanced">
               <Form.Sections>
                 <Form.Section>
-                  <Form.NumericField
+                  <Form.TimeSpanField
                     path={path.properties.timeoutMs}
                     label="Timeout"
+                    unit={TimeSpan.MILLISECOND}
                     padHelpText={false}
                     inputProps={TIMEOUT_INPUT_PROPS}
                   />
@@ -496,7 +497,7 @@ const NAME_INPUT_PROPS = {
 
 const HOST_INPUT_PROPS = { autoFocus: true, placeholder: "www.example.com" } as const;
 
-const TIMEOUT_INPUT_PROPS = { endContent: "ms", style: { width: "23rem" } } as const;
+const TIMEOUT_INPUT_PROPS = { style: { width: "23rem" } } as const;
 
 const MAX_CONCURRENT_REQUESTS_INPUT_PROPS = {
   bounds: { lower: 1, upper: Infinity },

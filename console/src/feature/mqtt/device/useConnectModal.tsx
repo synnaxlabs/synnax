@@ -142,13 +142,14 @@ export const Connect = ({
                 padHelpText={false}
                 inputProps={CLIENT_ID_INPUT_PROPS}
               />
-              <Form.Field
+              <Form.TimeSpanField
                 path={properties.keepAlive}
                 label="Keep alive"
+                unit={TimeSpan.SECOND}
+                emptiable
                 padHelpText={false}
-              >
-                {renderKeepAlive}
-              </Form.Field>
+                inputProps={KEEP_ALIVE_INPUT_PROPS}
+              />
               <PlatformDevice.RackField integration={INTEGRATION} />
             </Form.Section>
             <Form.Section title="Authentication">
@@ -283,8 +284,7 @@ const CLIENT_ID_INPUT_PROPS = {
 } as const;
 
 const KEEP_ALIVE_INPUT_PROPS = {
-  endContent: "s",
-  placeholder: "30",
+  placeholder: "30s",
   style: { width: "23rem" },
 } as const;
 
@@ -310,5 +310,3 @@ const createOptionalNumericRenderProp = (
 const renderPort = createOptionalNumericRenderProp(PORT_INPUT_PROPS);
 
 const renderSecurePort = createOptionalNumericRenderProp(SECURE_PORT_INPUT_PROPS);
-
-const renderKeepAlive = createOptionalNumericRenderProp(KEEP_ALIVE_INPUT_PROPS);
