@@ -16,15 +16,27 @@ from playwright.sync_api import FloatRect, Locator, Page
 
 import synnax as sy
 from console.layout import LayoutClient
+from x.control import Authority
+from x.notation import Notation
 
-PropertyDict = dict[str, float | str | bool]
 
+class Properties(TypedDict, total=False):
+    """The values a schematic or one of its symbols shows in its Console forms. Forms
+    show channels by name, not by key."""
 
-class Option(TypedDict):
-    """An option of a select or state indicator symbol."""
-
-    name: str
-    value: float
+    channel: str
+    state_channel: str
+    command_channel: str
+    activation_delay: float
+    show_control_chip: bool
+    mode: sy.schematic.ButtonMode
+    notation: Notation
+    precision: int
+    averaging_window: int
+    stale_color: str
+    stale_timeout: int
+    control_authority: Authority
+    show_control_legend: bool
 
 
 """ Symbol Box helpers """
@@ -246,7 +258,7 @@ class Symbol(ABC):
         control_chip = self.locator.locator(".pluto-control-chip").first
         self.layout.click(control_chip)
 
-    def get_properties(self, *, tab: str = "Symbols") -> PropertyDict:
+    def get_properties(self, *, tab: str = "Symbols") -> Properties:
         """
         Get the current properties of the symbol.
 

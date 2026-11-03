@@ -7,7 +7,7 @@
 #  License, use of this software will be governed by the Apache License, Version 2.0,
 #  included in the file licenses/APL.txt.
 
-from typing import Literal, TypedDict, TypeVar
+from typing import Literal, TypeVar
 
 from playwright.sync_api import Locator
 
@@ -16,6 +16,7 @@ from console.layout import LayoutClient
 from console.multiedit import Colors
 from console.page import ConsolePage, PageType
 from console.schematic.symbol import (
+    Properties,
     Symbol,
     box_bottom,
     box_center_x,
@@ -24,14 +25,10 @@ from console.schematic.symbol import (
     box_right,
     box_top,
 )
+from x.control import Authority
 from x.spatial import AngularDirection, OuterLocation
 
 _SymbolT = TypeVar("_SymbolT", bound=Symbol)
-
-
-class SchematicProperties(TypedDict):
-    control_authority: int
-    show_control_legend: bool
 
 
 SCHEMATIC_VERSION = 6
@@ -510,7 +507,7 @@ class Schematic(ConsolePage):
             )
         sy.sleep(0.1)
 
-    def get_properties(self) -> SchematicProperties:
+    def get_properties(self) -> Properties:
         """Get the current properties of the schematic.
 
         Returns:
@@ -520,7 +517,7 @@ class Schematic(ConsolePage):
         self.notifications.close_all()
         self.page.get_by_text("Control", exact=True).first.dispatch_event("click")
 
-        control_authority = int(self.layout.get_input_field("Control Authority"))
+        control_authority = Authority(self.layout.get_input_field("Control Authority"))
 
         show_control_legend = self.layout.get_toggle("Show control state legend")
 

@@ -8,7 +8,8 @@
 #  included in the file licenses/APL.txt.
 
 
-from console.schematic.symbol import Option, Symbol
+import synnax as sy
+from console.schematic.symbol import Symbol
 
 
 class Select(Symbol):
@@ -21,14 +22,14 @@ class Select(Symbol):
         *,
         label: str,
         channel_name: str,
-        options: list[Option] | None = None,
+        options: list[sy.schematic.StateMapping] | None = None,
     ):
         """Initialize a select symbol with configuration.
 
         Args:
             label: Display label for the symbol
             channel_name: Channel name for the select output
-            options: List of option dicts with "name" and "value" keys
+            options: States to add as options
         """
         super().__init__(label=label, symbol_type="Select", rotatable=False)
         self.channel_name = channel_name
@@ -41,7 +42,7 @@ class Select(Symbol):
         self,
         *,
         channel_name: str | None = None,
-        options: list[Option] | None = None,
+        options: list[sy.schematic.StateMapping] | None = None,
     ) -> None:
         self.click()
         self.notifications.close_all()
@@ -66,9 +67,9 @@ class Select(Symbol):
                 items = self.page.locator(".lyra-list__item").all()
                 last_item = items[-1]
                 name_input = last_item.locator("input").first
-                name_input.fill(option["name"])
+                name_input.fill(option.name)
                 value_input = last_item.locator("input").nth(1)
-                value_input.fill(str(option["value"]))
+                value_input.fill(f"{option.value:g}")
 
     def send(self, option_name: str) -> None:
         """Select an option from the dropdown and click Set.
