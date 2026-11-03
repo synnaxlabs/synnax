@@ -243,6 +243,25 @@ describe("Read", () => {
     expect(updated.properties.read.channels).toEqual({});
   });
 
+  it("should show the names of the channels it creates on deploy", async () => {
+    const dev = await createOPCDevice(client);
+    const motor = uniqueName("motor").replace(/_/g, "");
+    const nodeId = `ns=1;s=Structures.${motor}`;
+    const plain = createReadChannel({ key: nodeId, nodeId, nodeName: motor });
+    const x = createReadChannel({
+      key: JSON.stringify([nodeId, "Position.X"]),
+      nodeId,
+      field: "Position.X",
+      nodeName: `${motor}.Position.X`,
+    });
+    const draft = await createDraft(client, createReadConfig(dev.key, [plain, x]));
+    const { container } = await renderRead({ client, taskKey: draft.key });
+    await screen.findByText(new RegExp(x.nodeName));
+    await deployAndAwaitTask(client, container, draft.key, OPCUA.Task.READ_SCHEMAS);
+    await screen.findByText(motor);
+    await screen.findByText(`${motor}_Position_X`);
+  });
+
   it("should warn at a node that two channels read, and still deploy", async () => {
     const dev = await createOPCDevice(client);
     const first = createReadChannel();

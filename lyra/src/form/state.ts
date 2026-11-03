@@ -7,7 +7,15 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { deep, type destructor, errors, map, observe, zod } from "@synnaxlabs/x";
+import {
+  deep,
+  type destructor,
+  errors,
+  map,
+  observe,
+  type record,
+  zod,
+} from "@synnaxlabs/x";
 import { z } from "zod";
 
 import { type Entry, type Store } from "@/form/store";
@@ -20,6 +28,29 @@ export interface FieldState<V = unknown> {
   /** Whether the schema refuses the field emptied: "" for text, [] for a list. */
   required: boolean;
 }
+
+// A keyed entry's key can hold the separator, so the parts come from the values. A part
+// the values lack counts as one part.
+const parentPath = (values: unknown, path: string): string => {
+  const parts = path.split(deep.SEPARATOR);
+  let node = values;
+  let last = 0;
+  for (let i = 0; i < parts.length;) {
+    last = i;
+    const best =
+      node != null && typeof node === "object"
+        ? deep.findBestKey(node as record.Unknown, parts.slice(i))
+        : null;
+    if (best == null) {
+      node = undefined;
+      i++;
+      continue;
+    }
+    node = deep.defaultGetter(node as record.Unknown, best[0]);
+    i += best[1];
+  }
+  return parts.slice(0, last).join(deep.SEPARATOR);
+};
 
 // The value a cleared input leaves for a field of this value's type, or undefined when
 // no input can clear it.
@@ -203,8 +234,7 @@ export class State<Z extends z.ZodType> extends observe.Observer<void> {
       return c;
     };
     this.cachedRefs.forEach((cached, path) => {
-      const parent = path.slice(0, Math.max(path.lastIndexOf("."), 0));
-      if (parentChanged(parent)) cached.stale = true;
+      if (parentChanged(parentPath(next, path))) cached.stale = true;
     });
     return true;
   }
@@ -360,11 +390,11 @@ export class State<Z extends z.ZodType> extends observe.Observer<void> {
   }
 
   remove(path: string) {
+    const parent = parentPath(this.values, path);
     this.write(() => this.store.remove(path));
     this.statuses.delete(path);
     this.clearTouched(path);
     this.cachedRefs.delete(path);
-    const parent = path.slice(0, Math.max(path.lastIndexOf("."), 0));
     const list = deep.get(this.values, parent, { optional: true });
     if (Array.isArray(list)) this.checkTouched(parent, list);
   }

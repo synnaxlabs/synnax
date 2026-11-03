@@ -201,6 +201,20 @@ describe("State", () => {
         expect(before.port).toBe(1);
       });
 
+      it("should give an entry's state a new value when its key holds a dot", () => {
+        const state = new State<z.ZodType<Keyed>>(
+          createLocalStore({
+            channels: [{ key: "ns=1;s=a.b", port: 1 }],
+            other: { x: 1 },
+          }),
+        );
+        const before = state.getState<{ port: number }>("channels.ns=1;s=a.b").value;
+        state.setValue("channels.ns=1;s=a.b.port", 3);
+        const after = state.getState<{ port: number }>("channels.ns=1;s=a.b").value;
+        expect(after).not.toBe(before);
+        expect(after.port).toBe(3);
+      });
+
       it("should keep the state object of a sibling the write left unchanged", () => {
         const state = new State(createLocalStore(initialValues), basicSchema);
         const sibling = state.getState("email");
@@ -679,6 +693,14 @@ describe("State", () => {
       state.remove("channels.a");
       expect(keysOf(state)).toEqual(["b"]);
       expect(state.getState("channels").touched).toBe(true);
+    });
+
+    it("should clear the touched flag when a remove of a dotted key restores the list", () => {
+      const state = new State<z.ZodType<Keyed>>(createLocalStore(createKeyed()));
+      state.insert("channels", { key: "ns=1;s=a.b", port: 3 });
+      state.remove("channels.ns=1;s=a.b");
+      expect(keysOf(state)).toEqual(["a", "b"]);
+      expect(state.getState("channels").touched).toBe(false);
     });
   });
 
