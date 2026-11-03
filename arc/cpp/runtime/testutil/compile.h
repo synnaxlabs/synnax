@@ -36,6 +36,7 @@ struct ChannelSpec {
     x::telem::DataType data_type;
     /// @brief the declared name of the index channel; empty for a virtual channel.
     std::string index;
+    /// @brief true when this spec declares an index channel.
     bool is_index = false;
 };
 

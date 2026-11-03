@@ -216,6 +216,57 @@ TEST(OnTest, NextReadsChannelData) {
     EXPECT_EQ(output_time->at<int64_t>(2), 102);
 }
 
+TEST(OnTest, TrimmedBatchKeepsItsTimeRange) {
+    types::Param output_param;
+    output_param.name = ir::default_output_param;
+    output_param.type.kind = types::Kind::F32;
+
+    ir::Node ir_node;
+    ir_node.key = "source";
+    ir_node.type = "on";
+    ir_node.outputs.push_back(output_param);
+
+    types::Param channel_config;
+    channel_config.name = "channel";
+    channel_config.type.kind = types::Kind::U32;
+    channel_config.value = static_cast<uint32_t>(10);
+    ir_node.inputs.push_back(channel_config);
+
+    ir::IR ir;
+    ir.nodes.push_back(ir_node);
+
+    runtime::state::Config cfg{.ir = ir, .channels = {{10, ::x::telem::FLOAT32_T, 11}}};
+    runtime::state::State s(cfg, runtime::errors::noop_handler);
+
+    channels::Module module(nullptr, nullptr);
+    auto state_node = ASSERT_NIL_P(s.node("source"));
+    auto node = ASSERT_NIL_P(
+        module.create(runtime::node::Config(ir, ir_node, std::move(state_node)))
+    );
+
+    auto ctx = make_context();
+    ctx.cycle.now = ::x::telem::TimeStamp(101);
+    node->reset(ctx);
+
+    const ::x::telem::TimeRange range(100, 103);
+    ::x::telem::Frame frame(2);
+    auto data = ::x::telem::Series(std::vector<float>{1.5f, 2.5f, 3.5f});
+    data.time_range = range;
+    auto time = ::x::telem::Series(std::vector<int64_t>{100, 101, 102});
+    time.time_range = range;
+    frame.emplace(10, std::move(data));
+    frame.emplace(11, std::move(time));
+    s.ingest(frame);
+
+    ASSERT_NIL(node->next(ctx));
+    auto checker = ASSERT_NIL_P(s.node("source"));
+    const auto &output = checker.output(0);
+    ASSERT_EQ(output->size(), 2);
+    EXPECT_FLOAT_EQ(output->at<float>(0), 2.5f);
+    EXPECT_EQ(output->time_range, range);
+    EXPECT_EQ(checker.output_time(0)->time_range, range);
+}
+
 TEST(OnTest, NextHandlesChannelWithoutIndex) {
     types::Param output_param;
     output_param.name = ir::default_output_param;

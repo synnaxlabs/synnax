@@ -465,6 +465,44 @@ var _ = Describe("Channel", func() {
 				).To(telem.MatchSeries(telem.NewSeriesSecondsTSV(100, 101, 102)))
 			})
 
+			It(
+				"Should keep the time range of a batch trimmed at entry",
+				func(ctx SpecContext) {
+					source := MustSucceed(factory.Create(rnode.Config{
+						Node: ir.Node{
+							Type: "on",
+							Inputs: types.Params{
+								{Name: "channel", Type: types.U32(), Value: uint32(10)},
+							},
+						},
+						State: progState.Node("source"),
+					}))
+					source.Reset(rnode.Context{Context: ctx, Now: 101 * telem.SecondTS})
+					tr := telem.TimeRange{
+						Start: 100 * telem.SecondTS,
+						End:   103 * telem.SecondTS,
+					}
+					data := telem.NewSeriesV[float32](1.5, 2.5, 3.5)
+					data.TimeRange = tr
+					stamps := telem.NewSeriesSecondsTSV(100, 101, 102)
+					stamps.TimeRange = tr
+					fr := telem.Frame[uint32]{}
+					fr = fr.Append(10, data)
+					fr = fr.Append(11, stamps)
+					channelState.Ingest(fr)
+					source.Next(rnode.Context{
+						Context:       ctx,
+						ReserveStamps: testutil.ReserveStamps(0),
+						MarkChanged:   func(int) {},
+					})
+					nodeState := progState.Node("source")
+					out := nodeState.Output(0)
+					Expect(out.Unmarshal[float32]()).To(Equal([]float32{2.5, 3.5}))
+					Expect(out.TimeRange).To(Equal(tr))
+					Expect(nodeState.OutputTime(0).TimeRange).To(Equal(tr))
+				},
+			)
+
 			It("Should handle channel without index", func(ctx SpecContext) {
 				source := MustSucceed(factory.Create(rnode.Config{
 					Node: ir.Node{
