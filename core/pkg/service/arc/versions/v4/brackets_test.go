@@ -231,21 +231,29 @@ time.interval(1s) -> valve`),
 
 const growthFactor = 32
 
+// measured is the least time that perCall measures over. It is many times the 16 ms
+// tick of the Windows clock, so one tick changes the result little.
+const measured = 100 * time.Millisecond
+
 // growth returns how many times longer SwapBrackets takes on growthFactor*n copies of
-// unit than on n. Each size keeps its fastest of three runs, since a busy runner only
-// adds time.
+// unit than on n.
 func growth(unit string, n int) float64 {
 	small, large := strings.Repeat(unit, n), strings.Repeat(unit, growthFactor*n)
-	fastSmall, fastLarge := time.Duration(math.MaxInt64), time.Duration(math.MaxInt64)
-	for range 3 {
-		fastSmall = min(fastSmall, elapsed(small))
-		fastLarge = min(fastLarge, elapsed(large))
-	}
-	return float64(fastLarge) / float64(fastSmall)
+	return float64(perCall(large)) / float64(perCall(small))
 }
 
-func elapsed(src string) time.Duration {
-	start := time.Now()
-	v4.SwapBrackets(src)
-	return time.Since(start)
+// perCall returns the time of one SwapBrackets call on src, averaged over calls that
+// take at least measured in all. It keeps the fastest of three averages, since a busy
+// runner only adds time.
+func perCall(src string) time.Duration {
+	fastest := time.Duration(math.MaxInt64)
+	for range 3 {
+		var calls time.Duration
+		start := time.Now()
+		for ; time.Since(start) < measured; calls++ {
+			v4.SwapBrackets(src)
+		}
+		fastest = min(fastest, time.Since(start)/calls)
+	}
+	return fastest
 }
