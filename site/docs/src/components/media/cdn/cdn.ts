@@ -7,10 +7,9 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-// The CI media check (src/util/checks/media.ts) imports this file in Node. Keep it
-// dependency-free.
+// The CI media check imports this module in Node. Keep it free of dependencies.
 
-export const CDN_ROOT = "https://synnax.nyc3.cdn.digitaloceanspaces.com/docs";
+export const ROOT = "https://synnax.nyc3.cdn.digitaloceanspaces.com/docs";
 
-export const mediaURL = (id: string, extension: string, theme?: string): string =>
-  `${CDN_ROOT}/${id}${theme != null ? `-${theme}` : ""}.${extension}`;
+export const url = (id: string, extension: string, theme?: string): string =>
+  `${ROOT}/${id}${theme != null ? `-${theme}` : ""}.${extension}`;
