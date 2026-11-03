@@ -8,6 +8,7 @@
 // included in the file licenses/APL.txt.
 
 import { describe, expect, it } from "vitest";
+import { userEvent } from "vitest/browser";
 
 import { Select } from "@/select";
 import { computed, renderThemed, resolve } from "@/styletest";
@@ -102,9 +103,10 @@ describe("Select", () => {
       const options = await renderTwoLineOptions();
       const last = options[options.length - 1];
       const scroll = last.closest(".lyra-list__scroll")!;
-      expect(last.getBoundingClientRect().bottom).toBeGreaterThan(
-        scroll.getBoundingClientRect().bottom,
-      );
+      const bottom = (el: Element): number => el.getBoundingClientRect().bottom;
+      expect(bottom(last)).toBeGreaterThan(bottom(scroll));
+      await userEvent.wheel(scroll, { delta: { y: 1000 } });
+      await expect.poll(() => bottom(last)).toBeLessThanOrEqual(bottom(scroll));
     });
   });
 });
