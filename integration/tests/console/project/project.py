@@ -277,11 +277,11 @@ class Project(ConsoleCase):
 
         def collect_references(node: _PanelNode, out: list[str]) -> None:
             if node.variant == "leaf":
-                out.extend(
-                    tab.resource
-                    for tab in node.tabs
-                    if tab.variant == "resource" and tab.resource is not None
-                )
+                for tab in node.tabs:
+                    if tab.variant != "resource":
+                        continue
+                    assert tab.resource is not None, f"Tab without resource: {tab}"
+                    out.append(tab.resource)
                 return
             assert node.first is not None and node.last is not None, (
                 f"Split node without children: {node}"
