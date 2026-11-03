@@ -1416,6 +1416,7 @@ TEST_F(TestScanTask, testReadNodeArrayMember) {
     ASSERT_EQ(status.variant, synnax::status::VARIANT_SUCCESS) << status.description;
     const x::json::json readings = status.details.data.value();
     EXPECT_EQ(readings["type_name"], "Double");
+    EXPECT_EQ(readings["value_rank"], UA_VALUERANK_ONE_DIMENSION);
     EXPECT_EQ(readings["value"], "[1.5, 2.5]");
     EXPECT_EQ(readings["node"]["field"], "Readings");
     EXPECT_EQ(readings["node"]["data_type"], "float64");

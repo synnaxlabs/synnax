@@ -700,6 +700,10 @@ std::pair<x::json::json, x::errors::Error> read_details(
             auto [member, member_err] = types.describe(*type_id, field);
             if (member_err) return {{}, member_err};
             out["type_name"] = member.type->typeName;
+            // The rank and dimensions of the node describe the structure.
+            out["value_rank"] = member.is_array ? UA_VALUERANK_ONE_DIMENSION
+                                                : UA_VALUERANK_SCALAR;
+            out.erase("array_dimensions");
             type = {
                 .data_type = telem::to_data_type(member.type),
                 .is_array = member.is_array,
