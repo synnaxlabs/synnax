@@ -30,7 +30,8 @@ export interface PortFieldProps<C extends Channel> {
 
 /**
  * The port of a channel, picked from the grid of the device's ports of its type. When
- * the ports include an accessory's, such as a Mux80's, the grid shows one bank at a time.
+ * the ports include an accessory's, such as a Mux80's, the grid shows one bank at a
+ * time.
  */
 export const PortField = <C extends Channel>({
   path,
@@ -57,7 +58,7 @@ export const PortField = <C extends Channel>({
           },
         };
         return tabbed ? (
-          <BankTabs key={key} value={value} {...props} />
+          <BankTabs key={key} port={value} {...props} />
         ) : (
           <PortBanks {...props} />
         );

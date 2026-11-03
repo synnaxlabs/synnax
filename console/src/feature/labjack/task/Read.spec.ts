@@ -644,7 +644,7 @@ describe("Read ports", () => {
   describe("Mux80 tabs", () => {
     const tab = (name: string) => screen.getByRole("button", { name });
 
-    it("should show only the connector of the channel's port in the details", async () => {
+    it("should show only the connector of the channel's port", async () => {
       await renderWith([createAnalogReadChannel("AIN100")], LabJack.Device.T7_MODEL);
       fireEvent.click(await findChannelListItem("AIN100"));
       await screen.findByRole("group", { name: "AIN96 to AIN119" });

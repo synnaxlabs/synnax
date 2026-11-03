@@ -45,7 +45,7 @@ export interface PortBanksProps extends Omit<GridProps, "bank"> {
   ports: Port[];
 }
 
-/** The ports as a grid for each bank, each under its title. Banks sit side by side. */
+/** The ports as a grid for each bank, each under its title. */
 export const PortBanks = ({ ports, ...rest }: PortBanksProps): ReactElement => (
   <div className={CSS.B("labjack-port-banks")}>
     {banks(ports).map((bank) => (
@@ -61,19 +61,19 @@ export const PortBanks = ({ ports, ...rest }: PortBanksProps): ReactElement => (
 
 export interface BankTabsProps extends PortBanksProps {
   /** The key of the channel's port. The tabs open on its bank. */
-  value: string;
+  port: string;
 }
 
 /**
  * The ports one bank at a time, under a tab for each bank that names it and its port
  * numbers, such as "X3 48–71".
  */
-export const BankTabs = ({ ports, value, ...rest }: BankTabsProps): ReactElement => {
+export const BankTabs = ({ ports, port, ...rest }: BankTabsProps): ReactElement => {
   const [viewed, setViewed] = useState<string>();
   const list = banks(ports);
   const bank: Bank =
     list.find(({ name }) => name === viewed) ??
-    list.find((b) => b.ports.some(({ key }) => key === value)) ??
+    list.find((b) => b.ports.some(({ key }) => key === port)) ??
     list[0];
   return (
     <Flex.Box y gap="small">

@@ -37,7 +37,7 @@ export const maxTerminalChars = (model: Model): number =>
 
 /** Ports in sequence on one terminal prefix and connector, such as FIO4 to FIO7. */
 export interface Bank {
-  /** The terminal prefix, and the connector the ports need, such as "AIN (Mux80 X3)". */
+  /** The terminal prefix and the connector the ports need, such as "AIN (Mux80 X3)". */
   title: string;
   /** The connector the ports need, such as "X3", or else the terminal prefix. */
   name: string;
