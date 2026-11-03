@@ -9,14 +9,17 @@
 
 import { type channel, DataType } from "@synnaxlabs/client";
 import { createTestClient } from "@synnaxlabs/client/testutil";
-import { id } from "@synnaxlabs/x";
+import { deep, id } from "@synnaxlabs/x";
 import { fireEvent, waitFor } from "@testing-library/react";
 import { type FC, type PropsWithChildren } from "react";
 import { beforeAll, describe, expect, it } from "vitest";
+import { type z } from "zod";
 
 import { configZ } from "@/arc/graph/node/source/config";
 import { Form } from "@/arc/graph/node/source/Form";
 import { createAsyncSynnaxWrapper, renderForm } from "@/testutil";
+
+const path = deep.path<z.infer<typeof configZ>>();
 
 const client = createTestClient();
 
@@ -40,6 +43,6 @@ describe("source.Form", () => {
       wrapper,
     );
     fireEvent.click(await findByLabelText(`Clear ${ch.name}`));
-    await waitFor(() => expect(value("channel")).toBe(0));
+    await waitFor(() => expect(value(path.channel)).toBe(0));
   });
 });

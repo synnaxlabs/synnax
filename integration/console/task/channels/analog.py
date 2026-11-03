@@ -7,10 +7,34 @@
 #  License, use of this software will be governed by the Apache License, Version 2.0,
 #  included in the file licenses/APL.txt.
 
-from typing import Literal
+from typing import Literal, TypedDict
 
 from console.layout import LayoutClient
-from console.task.channels.utils import is_numeric_string
+from console.task.channels.utils import get_port, is_numeric_string, set_port
+
+TerminalConfig = Literal[
+    "Default",
+    "Differential",
+    "Pseudo-Differential",
+    "Referenced single ended",
+    "Non-referenced single ended",
+]
+CustomScale = Literal["None", "Linear", "Map", "Table"]
+
+
+class OutputOptions(TypedDict, total=False):
+    """Options that every analog channel type accepts."""
+
+    port: int | None
+    min_val: float | None
+    max_val: float | None
+    custom_scale: CustomScale | None
+
+
+class Options(OutputOptions, total=False):
+    """Options that every analog input channel type accepts."""
+
+    terminal_config: TerminalConfig | None
 
 
 class Analog:
@@ -29,19 +53,10 @@ class Analog:
         device: str,
         chan_type: str,
         port: int | None = None,
-        terminal_config: (
-            Literal[
-                "Default",
-                "Differential",
-                "Pseudo-Differential",
-                "Referenced single ended",
-                "Non-referenced single ended",
-            ]
-            | None
-        ) = None,
+        terminal_config: TerminalConfig | None = None,
         min_val: float | None = None,
         max_val: float | None = None,
-        custom_scale: Literal["None", "Linear", "Map", "Table"] | None = None,
+        custom_scale: CustomScale | None = None,
     ) -> None:
         """
         Initialize analog channel with common configuration.
@@ -76,10 +91,10 @@ class Analog:
 
         # Optional configurations
         if port is not None:
-            layout.fill_input_field("Port", str(port))
+            set_port(layout, port)
             values["Port"] = str(port)
         else:
-            values["Port"] = layout.get_input_field("Port")
+            values["Port"] = get_port(layout)
 
         if terminal_config is not None:
             layout.click_btn("Terminal configuration")
@@ -131,6 +146,8 @@ class Analog:
             actual_value: str | bool
             if isinstance(expected_value, bool):
                 actual_value = self.layout.get_toggle(key)
+            elif key == "Port":
+                actual_value = get_port(self.layout)
             elif is_numeric_string(expected_value):
                 # Match by accessible name: range inputs have no visible label.
                 actual_value = self.layout.page.get_by_label(

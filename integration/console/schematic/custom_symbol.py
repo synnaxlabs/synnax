@@ -56,18 +56,12 @@ class CustomSymbol(Symbol):
         self,
         *,
         channel_name: str | None = None,
-        **kwargs: str,
-    ) -> dict[str, str]:
+    ) -> None:
         """Set custom symbol properties including command channel for actuator control.
 
         Args:
             channel_name: Command channel name for actuator control (also used as state)
-            **kwargs: Additional properties (currently unused)
-
-        Returns:
-            Dictionary of applied properties
         """
-        applied_properties: dict[str, str] = {}
 
         self.locator.wait_for(state="visible", timeout=2000)
 
@@ -88,11 +82,7 @@ class CustomSymbol(Symbol):
 
         if channel_name is not None:
             self.set_channel(section="Command", channel_name=channel_name)
-            applied_properties["command_channel"] = channel_name
             self.set_channel(section="State", channel_name=channel_name)
-            applied_properties["state_channel"] = channel_name
-
-        return applied_properties
 
     def press(self) -> None:
         """Press the custom symbol to actuate it."""

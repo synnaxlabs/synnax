@@ -7,9 +7,10 @@
 #  License, use of this software will be governed by the Apache License, Version 2.0,
 #  included in the file licenses/APL.txt.
 
-from typing import Any, Literal
+from typing import Literal
 
-from console.schematic.symbol import Symbol
+import synnax as sy
+from console.schematic.symbol import PropertyDict, Symbol
 
 ButtonMode = Literal["Fire", "Momentary", "Pulse"]
 
@@ -17,7 +18,7 @@ ButtonMode = Literal["Fire", "Momentary", "Pulse"]
 class Button(Symbol):
     """Schematic button symbol"""
 
-    _symbol_group = "General"
+    _symbol_group: str | None = "General"
 
     def __init__(
         self,
@@ -62,12 +63,10 @@ class Button(Symbol):
         activation_delay: float | None = None,
         show_control_chip: bool | None = None,
         mode: ButtonMode = "Fire",
-        **kwargs: Any,
-    ) -> dict[str, Any]:
+    ) -> None:
         """Set Button properties including channel settings."""
         self.click()
 
-        applied_properties: dict[str, Any] = {}
         if channel_name is not None:
             self.set_label(channel_name)
 
@@ -77,12 +76,10 @@ class Button(Symbol):
 
         if channel_name is not None:
             self.set_channel(section="Command", channel_name=channel_name)
-            applied_properties["channel"] = channel_name
 
         if activation_delay is not None:
             self.layout.fill_input_field("Delay", str(activation_delay))
             self.page.keyboard.press("Enter")
-            applied_properties["activation_delay"] = activation_delay
 
         if show_control_chip is not None:
             chip_toggle = (
@@ -94,19 +91,15 @@ class Button(Symbol):
                 current_state = chip_toggle.is_checked()
                 if current_state != show_control_chip:
                     chip_toggle.click()
-            applied_properties["show_control_chip"] = show_control_chip
 
         if mode is not None:
             self.page.get_by_role("button", name=mode, exact=True).click()
-            applied_properties["mode"] = mode
 
-        return applied_properties
-
-    def get_properties(self, *, tab: str = "Control") -> dict[str, Any]:
+    def get_properties(self, *, tab: str = "Control") -> PropertyDict:
         """Get the current properties of the symbol"""
         super().get_properties(tab=tab)
 
-        props: dict[str, Any] = {
+        props: PropertyDict = {
             "channel": "",
             "show_control_chip": False,
             "mode": "",
@@ -121,7 +114,9 @@ class Button(Symbol):
         # the hold is the actuation.
         delay_field = self.page.locator("text=Delay")
         if delay_field.count() > 0:
-            props["activation_delay"] = float(self.layout.get_input_field("Delay"))
+            props["activation_delay"] = (
+                self.layout.get_time_span_field("Delay") / sy.TimeSpan.MILLISECOND
+            )
 
         # Control chip
         chip_toggle = (

@@ -62,9 +62,9 @@ def queries(module: str, gitlinks: str) -> list[tuple[str, str, dict[str, Any]]]
     return found
 
 
-def query_osv(query: dict[str, Any]) -> list[dict[str, Any]]:
+def query_osv(query: dict[str, Any], url: str = OSV_URL) -> list[dict[str, Any]]:
     request = urllib.request.Request(
-        OSV_URL,
+        url,
         data=json.dumps(query).encode(),
         headers={"Content-Type": "application/json"},
     )
@@ -90,10 +90,10 @@ def sarif(found: list[tuple[str, str, list[dict[str, Any]]]]) -> dict[str, Any]:
     }
 
 
-def main() -> int:
+def main(url: str = OSV_URL) -> int:
     module = Path("MODULE.bazel").read_text()
     gitlinks = subprocess.check_output(["git", "ls-files", "-s"], text=True)
-    found = [(p, d, query_osv(q)) for p, d, q in queries(module, gitlinks)]
+    found = [(p, d, query_osv(q, url)) for p, d, q in queries(module, gitlinks)]
     print(json.dumps(sarif(found)))
     return 0
 

@@ -11,20 +11,24 @@ package driver
 
 import (
 	"context"
+	"crypto/rand"
+	"crypto/sha256"
+	"encoding/hex"
 	"encoding/json/v2"
 	"io"
 	"io/fs"
 	"os"
 	"os/exec"
 	"path/filepath"
+	"strings"
 	"sync"
 	"time"
-	"uuid"
 
 	"github.com/synnaxlabs/alamos"
 	"github.com/synnaxlabs/synnax/pkg/driver/internal/log"
 	"github.com/synnaxlabs/synnax/pkg/driver/internal/restart"
 	"github.com/synnaxlabs/synnax/pkg/service/auth"
+	"github.com/synnaxlabs/synnax/pkg/service/auth/apikey"
 	"github.com/synnaxlabs/synnax/pkg/service/rack"
 	"github.com/synnaxlabs/x/address"
 	"github.com/synnaxlabs/x/config"
@@ -49,6 +53,12 @@ const grpcRootsEnv = "GRPC_DEFAULT_SSL_ROOTS_FILE_PATH"
 // not be able to write and that other Drivers on the host share.
 const stateFileName = "state.json"
 
+const configFileName = "config.json"
+
+const keyFileName = "embedded-driver-key"
+
+const apiKeyName = "Embedded Driver"
+
 // Config is the configuration for opening an embedded Driver.
 type Config struct {
 	// Insecure sets whether not to use TLS for communication. If insecure is set to
@@ -63,9 +73,8 @@ type Config struct {
 	Debug *bool `json:"debug"`
 	// Instrumentation is used for logging, tracing, and metrics.
 	alamos.Instrumentation
-	// Credentials are the authentication credentials the Driver should use when
-	// connecting to the Core.
-	Credentials auth.Credentials
+	// Keys creates and checks the API key the Driver logs in with as its rack.
+	Keys *apikey.Service `json:"-"`
 	// TrustAnchorsPEM holds the PEM certificates the Driver verifies the Core against.
 	// Not required if the Core serves a certificate the system trust store already
 	// recognizes. When set, they replace the system trust store for the Driver.
@@ -78,10 +87,15 @@ type Config struct {
 	ParentDirname string `json:"parent_dirname"`
 	// FS is the filesystem containing the Driver binary. The binary is read from this
 	// filesystem at the OS-specific name (driver / driver.exe), extracted to disk under
-	// ParentDirname, and executed. When nil, the embedded Driver is unavailable and
+	// BinaryDirname, and executed. When nil, the embedded Driver is unavailable and
 	// Open returns a no-op Driver. Defaults to the embedded Driver binary when built
 	// with -tags=driver, and is nil otherwise.
 	FS fs.FS `json:"-"`
+	// BinaryDirname is the directory that keeps extracted Driver binaries between
+	// starts. Several Cores on one host may share it.
+	BinaryDirname string `json:"-"`
+	// BinaryFS is the file system that holds BinaryDirname.
+	BinaryFS xfs.FS `json:"-"`
 	// Integrations define which device integrations are enabled.
 	Integrations []string `json:"integrations"`
 	// StartTimeout sets the maximum acceptable time to wait for the Driver to bootup
@@ -107,31 +121,28 @@ type Config struct {
 	TaskPollInterval time.Duration `json:"task_poll_interval"`
 	// TaskShutdownTimeout sets the max time to wait for task workers during shutdown.
 	TaskShutdownTimeout time.Duration `json:"task_shutdown_timeout"`
-	// RackKey is the key of the rack that the Driver should assume the identity of.
+	// KeyDirname is the owner-only directory that keeps the Driver's API key between
+	// starts. It must outlive the process and belong to this node. When empty, each
+	// start creates a new key.
+	KeyDirname string `json:"-"`
+	// RackKey is the key of the rack that the Driver logs in as.
 	RackKey rack.Key `json:"rack_key"`
-	// ClusterKey is the key of the current cluster.
-	ClusterKey uuid.UUID `json:"cluster_key"`
 	// TaskWorkerCount sets the number of worker threads for task operations.
 	TaskWorkerCount uint8 `json:"task_worker_count"`
 }
 
-func (c Config) format() map[string]any {
+func (c Config) format(apiKey string) map[string]any {
 	return map[string]any{
 		"connection": map[string]any{
-			"host":     c.Address.Host(),
-			"port":     c.Address.Port(),
-			"username": c.Credentials.Username,
-			"password": c.Credentials.Password,
-			"secure":   !*c.Insecure,
+			"host":    c.Address.Host(),
+			"port":    c.Address.Port(),
+			"api_key": apiKey,
+			"secure":  !*c.Insecure,
 		},
 		"retry": map[string]any{
 			"base_interval": 1,
 			"max_retries":   40,
 			"scale":         1.1,
-		},
-		"remote_info": map[string]any{
-			"rack_key":    c.RackKey,
-			"cluster_key": c.ClusterKey.String(),
 		},
 		"manager": map[string]any{
 			"op_timeout":       c.TaskOpTimeout.Seconds(),
@@ -157,6 +168,7 @@ var (
 	}
 	DefaultConfig = Config{
 		Integrations:         []string{},
+		BinaryFS:             xfs.Default,
 		Enabled:              new(true),
 		Detached:             new(false),
 		Debug:                new(false),
@@ -179,15 +191,17 @@ func (c Config) Override(other Config) Config {
 	c.Instrumentation = override.Zero(c.Instrumentation, other.Instrumentation)
 	c.Address = override.String(c.Address, other.Address)
 	c.RackKey = override.Numeric(c.RackKey, other.RackKey)
-	c.ClusterKey = override.UUID(c.ClusterKey, other.ClusterKey)
+	c.Keys = override.Nil(c.Keys, other.Keys)
+	c.KeyDirname = override.String(c.KeyDirname, other.KeyDirname)
 	c.Integrations = override.Slice(c.Integrations, other.Integrations)
 	c.Insecure = override.Nil(c.Insecure, other.Insecure)
 	c.TrustAnchorsPEM = override.Slice(c.TrustAnchorsPEM, other.TrustAnchorsPEM)
-	c.Credentials = override.Zero(c.Credentials, other.Credentials)
 	c.Debug = override.Nil(c.Debug, other.Debug)
 	c.StartTimeout = override.Numeric(c.StartTimeout, other.StartTimeout)
 	c.ParentDirname = override.String(c.ParentDirname, other.ParentDirname)
 	c.FS = override.Nil(c.FS, other.FS)
+	c.BinaryDirname = override.String(c.BinaryDirname, other.BinaryDirname)
+	c.BinaryFS = override.Nil(c.BinaryFS, other.BinaryFS)
 	c.TaskOpTimeout = override.Numeric(c.TaskOpTimeout, other.TaskOpTimeout)
 	c.TaskPollInterval = override.Numeric(c.TaskPollInterval, other.TaskPollInterval)
 	c.TaskShutdownTimeout = override.Numeric(
@@ -218,8 +232,12 @@ func (c Config) Validate() error {
 		return nil
 	}
 	v.NotEmptyString("address", c.Address)
+	v.NotNil("keys", c.Keys)
+	v.NonZero("rack_key", c.RackKey)
 	v.NotNil("debug", c.Debug)
 	v.NotEmptyString("parent_dirname", c.ParentDirname)
+	v.NotEmptyString("binary_dirname", c.BinaryDirname)
+	v.NotNil("binary_fs", c.BinaryFS)
 	v.InBounds("task_worker_count", c.TaskWorkerCount, 1, 64)
 	return v.Error()
 }
@@ -249,6 +267,8 @@ const restartScale = 1.1
 // methods are no-ops.
 type Driver struct {
 	cfg Config
+	// apiKey is the key the Driver logs in with. It is set once Open starts the Driver.
+	apiKey string
 	// started is closed once the subprocess prints "started successfully". Open blocks
 	// on this channel to know when startup is complete.
 	started chan struct{}
@@ -301,6 +321,10 @@ func (d *Driver) enabled() bool { return *d.cfg.Enabled && d.cfg.FS != nil }
 
 func (d *Driver) start(ctx context.Context) error {
 	d.cfg.L.Info("starting embedded Driver")
+	var err error
+	if d.apiKey, err = d.resolveKey(ctx); err != nil {
+		return err
+	}
 	sCtx, cancel := signal.Isolated(signal.WithInstrumentation(d.cfg.Instrumentation))
 	// HardShutdown cancels the context before waiting. Cancellation both stops the
 	// running subprocess (exec.CommandContext) and wakes the restart backoff
@@ -387,7 +411,7 @@ func (d *Driver) runOnce(
 	policy *restart.Policy,
 	startedOnce *sync.Once,
 ) (restart.Action, error) {
-	cmd, tempFiles, extractedBinary, err := d.setupCmd(ctx)
+	cmd, tempFiles, err := d.setupCmd(ctx)
 	for _, f := range tempFiles {
 		defer func() {
 			if rmErr := os.Remove(f); rmErr != nil {
@@ -396,13 +420,6 @@ func (d *Driver) runOnce(
 					zap.String("path", f),
 					zap.Error(rmErr),
 				)
-			}
-		}()
-	}
-	if extractedBinary != "" {
-		defer func() {
-			if rmErr := os.Remove(extractedBinary); rmErr != nil {
-				d.cfg.L.Error("failed to remove extracted binary", zap.Error(rmErr))
 			}
 		}()
 	}
@@ -458,6 +475,75 @@ func (d *Driver) runOnce(
 	return policy.Decide(expected, time.Since(startedAt)), err
 }
 
+// resolveKey returns the API key saved by an earlier start when the Core still accepts
+// it for the Driver's rack, and creates and saves a new key otherwise.
+func (d *Driver) resolveKey(ctx context.Context) (string, error) {
+	saved, err := d.savedKey()
+	if err != nil {
+		return "", err
+	}
+	if saved != "" {
+		id, err := d.cfg.Keys.Authenticate(ctx, auth.Proof{
+			Variant: auth.APIKeyProof{
+				APIKeyCredentials: auth.APIKeyCredentials{Key: saved},
+			},
+		})
+		if err == nil && id.Subject == d.cfg.RackKey.OntologyID() {
+			return saved, nil
+		}
+		if err != nil && !errors.Is(err, auth.ErrInvalidCredentials) {
+			return "", err
+		}
+	}
+	created, token, err := d.cfg.Keys.NewWriter(nil).Create(
+		ctx,
+		d.cfg.RackKey.OntologyID(),
+		apiKeyName,
+	)
+	if err != nil {
+		return "", err
+	}
+	if d.cfg.KeyDirname == "" {
+		return token, nil
+	}
+	// A key that was never saved cannot be used again, so it must not stay stored.
+	if err = writeFileAtomic(d.keyPath(), []byte(token)); err != nil {
+		return "", errors.Combine(
+			err,
+			d.cfg.Keys.NewWriter(nil).Delete(ctx, created.Key),
+		)
+	}
+	return token, nil
+}
+
+func (d *Driver) savedKey() (string, error) {
+	if d.cfg.KeyDirname == "" {
+		return "", nil
+	}
+	b, err := os.ReadFile(d.keyPath())
+	if errors.Is(err, fs.ErrNotExist) {
+		return "", nil
+	}
+	if err != nil {
+		return "", err
+	}
+	return string(b), nil
+}
+
+// writeFileAtomic replaces the file at path with data, so an interrupted write leaves
+// the old file in place.
+func writeFileAtomic(path string, data []byte) error {
+	tmp := path + ".tmp"
+	if err := os.WriteFile(tmp, data, xfs.UserRW); err != nil {
+		return err
+	}
+	return os.Rename(tmp, path)
+}
+
+func (d *Driver) workDir() string { return filepath.Join(d.cfg.ParentDirname, "driver") }
+
+func (d *Driver) keyPath() string { return filepath.Join(d.cfg.KeyDirname, keyFileName) }
+
 // Close stops the Driver and waits for it to exit. It cancels the supervisor context,
 // which asks the subprocess to stop gracefully and escalates to a kill after
 // StopTimeout (see setupCmd), then waits for the supervisor goroutines to exit. Close
@@ -482,10 +568,10 @@ func (d *Driver) close() error {
 // the caller can defer their cleanup.
 func (d *Driver) setupCmd(
 	ctx context.Context,
-) (_ *exec.Cmd, tempFiles []string, extractedBinary string, _ error) {
-	workDir := filepath.Join(d.cfg.ParentDirname, "driver")
+) (_ *exec.Cmd, tempFiles []string, _ error) {
+	workDir := d.workDir()
 	if err := os.MkdirAll(workDir, xfs.UserRWX); err != nil {
-		return nil, tempFiles, "", err
+		return nil, tempFiles, err
 	}
 	var trustAnchorFile string
 	if len(d.cfg.TrustAnchorsPEM) > 0 && !*d.cfg.Insecure {
@@ -495,26 +581,22 @@ func (d *Driver) setupCmd(
 			d.cfg.TrustAnchorsPEM,
 			xfs.UserRW,
 		); err != nil {
-			return nil, tempFiles, "", err
+			return nil, tempFiles, err
 		}
 		tempFiles = append(tempFiles, trustAnchorFile)
 	}
-	b, err := json.Marshal(d.cfg.format())
+	b, err := json.Marshal(d.cfg.format(d.apiKey))
 	if err != nil {
-		return nil, tempFiles, "", err
+		return nil, tempFiles, err
 	}
-	cfgFile := filepath.Join(workDir, "config.json")
+	cfgFile := filepath.Join(workDir, configFileName)
 	if err = os.WriteFile(cfgFile, b, xfs.UserRW); err != nil {
-		return nil, tempFiles, "", err
+		return nil, tempFiles, err
 	}
 	tempFiles = append(tempFiles, cfgFile)
-	data, err := fs.ReadFile(d.cfg.FS, driverName)
+	binary, err := d.extractBinary()
 	if err != nil {
-		return nil, tempFiles, "", err
-	}
-	extractedBinary = filepath.Join(workDir, driverName)
-	if err = os.WriteFile(extractedBinary, data, xfs.UserRWX); err != nil {
-		return nil, tempFiles, "", err
+		return nil, tempFiles, err
 	}
 	flags := []string{"start", "--standalone", "--disable-sig-stop", "--no-color"}
 	if *d.cfg.Debug {
@@ -525,19 +607,102 @@ func (d *Driver) setupCmd(
 		"--config", cfgFile,
 		"--state-file", filepath.Join(workDir, stateFileName),
 	)
-	cmd := exec.CommandContext(ctx, extractedBinary, flags...)
+	cmd := exec.CommandContext(ctx, binary, flags...)
 	if trustAnchorFile != "" {
 		cmd.Env = append(os.Environ(), grpcRootsEnv+"="+trustAnchorFile)
 	}
 	configureSysProcAttr(cmd)
 	stdin, err := cmd.StdinPipe()
 	if err != nil {
-		return nil, tempFiles, extractedBinary, err
+		return nil, tempFiles, err
 	}
 	// On ctx cancellation, ask the Driver to stop gracefully via STOP instead of the
 	// default SIGKILL; WaitDelay then escalates to a kill if it does not exit in time
 	// and guarantees the stdin pipe is closed so cmd.Wait cannot block indefinitely.
 	cmd.Cancel = func() error { _, err := io.WriteString(stdin, "STOP\n"); return err }
 	cmd.WaitDelay = d.cfg.StopTimeout
-	return cmd, tempFiles, extractedBinary, nil
+	return cmd, tempFiles, nil
+}
+
+// binaryPrefix starts the name of every Driver binary in BinaryDirname. The rest of
+// the name is a hash of the binary's content.
+const binaryPrefix = "driver-"
+
+// binaryHashLen is the number of hex characters of the content hash in a binary name.
+const binaryHashLen = 16
+
+// extractBinary writes the Driver binary to BinaryDirname under a name derived from its
+// content and returns its path. It reuses a binary that an earlier run or another Core
+// extracted, so each launch runs the same file. It removes the other Driver binaries in
+// BinaryDirname.
+func (d *Driver) extractBinary() (string, error) {
+	binFS, err := d.cfg.BinaryFS.Sub(d.cfg.BinaryDirname)
+	if err != nil {
+		return "", err
+	}
+	data, err := fs.ReadFile(d.cfg.FS, driverName)
+	if err != nil {
+		return "", err
+	}
+	sum := sha256.Sum256(data)
+	name := binaryPrefix + hex.EncodeToString(sum[:])[:binaryHashLen] +
+		filepath.Ext(driverName)
+	if _, err = binFS.Stat(name); errors.Is(err, fs.ErrNotExist) {
+		err = writeBinary(binFS, name, data)
+	}
+	if err != nil {
+		return "", err
+	}
+	d.removeOldBinaries(binFS, name)
+	return filepath.Join(d.cfg.BinaryDirname, name), nil
+}
+
+// writeBinary writes data to name through a uniquely named temp file, so concurrent
+// writers never share a temp file and name never holds a partial binary. A name that
+// exists after a failed rename was written by another Core with the same content.
+func writeBinary(binFS xfs.FS, name string, data []byte) error {
+	tmp := name + "." + rand.Text() + ".tmp"
+	f, err := binFS.Open(tmp, os.O_CREATE|os.O_EXCL|os.O_WRONLY)
+	if err != nil {
+		return err
+	}
+	_, err = f.Write(data)
+	if err = errors.Combine(err, f.Close()); err == nil {
+		if err = binFS.Rename(tmp, name); err == nil {
+			return nil
+		}
+		// On Windows, a rename onto a binary that another Core runs fails.
+		if _, statErr := binFS.Stat(name); statErr == nil {
+			err = nil
+		}
+	}
+	return errors.Combine(err, binFS.Remove(tmp))
+}
+
+// removeOldBinaries removes the Driver binaries in binFS other than keep. It leaves
+// temp files alone, since another Core may be writing them.
+func (d *Driver) removeOldBinaries(binFS xfs.FS, keep string) {
+	infos, err := binFS.List("")
+	if err != nil {
+		d.cfg.L.Warn("failed to list old Driver binaries", zap.Error(err))
+		return
+	}
+	ext := filepath.Ext(driverName)
+	for _, info := range infos {
+		name := info.Name()
+		if name == keep ||
+			!strings.HasPrefix(name, binaryPrefix) ||
+			!strings.HasSuffix(name, ext) ||
+			len(name) != len(binaryPrefix)+binaryHashLen+len(ext) {
+			continue
+		}
+		// A binary that another Core runs cannot be removed on Windows.
+		if err = binFS.Remove(name); err != nil {
+			d.cfg.L.Warn(
+				"failed to remove old Driver binary",
+				zap.String("path", filepath.Join(d.cfg.BinaryDirname, name)),
+				zap.Error(err),
+			)
+		}
+	}
 }

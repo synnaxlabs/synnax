@@ -24,6 +24,7 @@ import (
 	"github.com/synnaxlabs/x/query"
 	"github.com/synnaxlabs/x/telem"
 	. "github.com/synnaxlabs/x/testutil"
+	"github.com/synnaxlabs/x/union"
 	"github.com/synnaxlabs/x/validate"
 )
 
@@ -121,6 +122,41 @@ var _ = Describe("Writer", func() {
 				Expect(res.Name).To(Equal("second"))
 			},
 		)
+
+		It(
+			"Should broadcast the create with the writer's dispatch key after commit",
+			func(ctx SpecContext) {
+				rec := &Recorder[log.Key, log.Action]{}
+				DeferCleanup(svc.OnAction(rec.Record))
+				v := log.Log{Name: "broadcast"}
+				Expect(
+					svc.NewWriter(tx).WithDispatchKey("dk-1").Create(ctx, proj.Key, &v),
+				).To(Succeed())
+				Expect(rec.Snapshot()).To(BeEmpty())
+				Expect(tx.Commit(ctx)).To(Succeed())
+				seen := rec.Snapshot()
+				Expect(seen).To(HaveLen(1))
+				Expect(seen[0].Key).To(Equal(v.Key))
+				Expect(seen[0].DispatchKey).To(Equal("dk-1"))
+				Expect(seen[0].Actions).To(HaveLen(1))
+				Expect(seen[0].Actions[0].Type).To(Equal(log.ActionTypeCreate))
+			},
+		)
+
+		It(
+			"Should not broadcast a create whose transaction closes uncommitted",
+			func(ctx SpecContext) {
+				rec := &Recorder[log.Key, log.Action]{}
+				DeferCleanup(svc.OnAction(rec.Record))
+				uncommitted := db.OpenTx()
+				v := log.Log{Name: "discarded"}
+				Expect(
+					svc.NewWriter(uncommitted).Create(ctx, proj.Key, &v),
+				).To(Succeed())
+				Expect(uncommitted.Close()).To(Succeed())
+				Expect(rec.Snapshot()).To(BeEmpty())
+			},
+		)
 	})
 	Describe("CreateMany", func() {
 		It("Should create multiple logs", func(ctx SpecContext) {
@@ -181,6 +217,38 @@ var _ = Describe("Writer", func() {
 				To(Succeed())
 			return res
 		}
+		entry := func(ch channel.Key, alias string) log.ChannelEntry {
+			return log.ChannelEntry{
+				Channel:  ch,
+				Alias:    alias,
+				Notation: notation.NotationStandard,
+				Timestamp: log.TimestampConfig{
+					Format: telem.TimestampFormatPreciseDate,
+					Tz:     telem.TimeZoneLocal,
+				},
+			}
+		}
+		It(
+			"Should reject a create without changing the log it names",
+			func(ctx SpecContext) {
+				target := log.Log{Name: "target"}
+				Expect(svc.NewWriter(nil).Create(ctx, proj.Key, &target)).To(Succeed())
+				other := log.Log{Name: "other"}
+				Expect(svc.NewWriter(nil).Create(ctx, proj.Key, &other)).To(Succeed())
+				Expect(svc.Dispatch(ctx, target.Key, "d1", []log.Action{
+					log.NewCreateAction(log.CreatePayload{
+						Log: log.Log{Key: other.Key, Name: "overwritten"},
+					}),
+				})).To(SatisfyAll(
+					MatchError(validate.ErrValidation),
+					MatchError(
+						ContainSubstring("only the Core dispatches a log create"),
+					),
+				))
+				Expect(retrieve(ctx, other.Key).Name).To(Equal("other"))
+			},
+		)
+
 		Describe("per-action semantics", func() {
 			It("Should apply Rename", func(ctx SpecContext) {
 				l := log.Log{Name: "original"}
@@ -242,10 +310,10 @@ var _ = Describe("Writer", func() {
 					Expect(svc.NewWriter(nil).Create(ctx, proj.Key, &l)).To(Succeed())
 					Expect(svc.Dispatch(ctx, l.Key, "d1", []log.Action{
 						log.NewSetChannelEntryAction(log.SetChannelEntryPayload{
-							Entry: log.ChannelEntry{Channel: 5, Alias: "first"},
+							Entry: entry(5, "first"),
 						}),
 						log.NewSetChannelEntryAction(log.SetChannelEntryPayload{
-							Entry: log.ChannelEntry{Channel: 5, Alias: "second"},
+							Entry: entry(5, "second"),
 						}),
 					})).To(Succeed())
 					res := retrieve(ctx, l.Key)
@@ -352,7 +420,7 @@ var _ = Describe("Writer", func() {
 							Channel:   5,
 							Precision: &precision,
 						}),
-					})).Error().To(MatchError(validate.ErrValidation))
+					})).Error().To(MatchError(ContainSubstring("channels.0.precision")))
 				},
 				Entry("below minimum", int32(-1)),
 				Entry("above maximum", int32(18)),
@@ -363,7 +431,7 @@ var _ = Describe("Writer", func() {
 				Expect(svc.NewWriter(nil).Create(ctx, proj.Key, &l)).To(Succeed())
 				Expect(svc.Dispatch(ctx, l.Key, "d1", []log.Action{
 					log.NewSetChannelsAction(log.SetChannelsPayload{
-						Channels: []log.ChannelEntry{{Channel: 2}, {Channel: 3}},
+						Channels: []log.ChannelEntry{entry(2, ""), entry(3, "")},
 					}),
 				})).To(Succeed())
 				res := retrieve(ctx, l.Key)
@@ -442,10 +510,64 @@ var _ = Describe("Writer", func() {
 								TimestampPrecision: precision,
 							},
 						),
-					})).Error().To(MatchError(validate.ErrValidation))
+					})).Error().To(MatchError(ContainSubstring("timestamp_precision")))
 				},
 				Entry("below minimum", int32(-1)),
 				Entry("above maximum", int32(4)),
+			)
+
+			It("Should reject an action with no payload", func(ctx SpecContext) {
+				l := log.Log{Name: "test"}
+				Expect(svc.NewWriter(nil).Create(ctx, proj.Key, &l)).To(Succeed())
+				Expect(svc.Dispatch(ctx, l.Key, "d1", []log.Action{
+					{Type: log.ActionTypeRename},
+				})).To(MatchError(union.ErrMissingPayload))
+				Expect(retrieve(ctx, l.Key).Name).To(Equal("test"))
+			})
+
+			DescribeTable("Should reject an action that leaves the log invalid",
+				func(ctx SpecContext, act log.Action, path string) {
+					l := log.Log{Name: "test"}
+					Expect(svc.NewWriter(nil).Create(ctx, proj.Key, &l)).To(Succeed())
+					Expect(svc.Dispatch(ctx, l.Key, "d1", []log.Action{
+						log.NewAddChannelAction(log.AddChannelPayload{Channel: 5}),
+					})).To(Succeed())
+					Expect(svc.Dispatch(ctx, l.Key, "d2", []log.Action{act})).
+						To(MatchError(ContainSubstring(path)))
+					Expect(retrieve(ctx, l.Key).Channels).To(Equal([]log.ChannelEntry{
+						entry(5, ""),
+					}))
+				},
+				Entry(
+					"empty timestamp format",
+					log.NewSetChannelTimestampFormatAction(
+						log.SetChannelTimestampFormatPayload{Channel: 5},
+					),
+					"channels.0.timestamp.format",
+				),
+				Entry(
+					"empty time zone",
+					log.NewSetChannelTimestampTzAction(
+						log.SetChannelTimestampTzPayload{Channel: 5},
+					),
+					"channels.0.timestamp.tz",
+				),
+				Entry(
+					"entry with no timestamp",
+					log.NewSetChannelEntryAction(
+						log.SetChannelEntryPayload{Entry: log.ChannelEntry{Channel: 5}},
+					),
+					"channels.0.timestamp",
+				),
+				Entry(
+					"channels with no timestamp",
+					log.NewSetChannelsAction(
+						log.SetChannelsPayload{
+							Channels: []log.ChannelEntry{{Channel: 5}},
+						},
+					),
+					"channels.0.timestamp",
+				),
 			)
 
 			It("Should toggle the display flags", func(ctx SpecContext) {
@@ -496,7 +618,7 @@ var _ = Describe("Writer", func() {
 								TimestampPrecision: 99,
 							},
 						),
-					})).Error().To(MatchError(validate.ErrValidation))
+					})).Error().To(MatchError(ContainSubstring("timestamp_precision")))
 					Expect(retrieve(ctx, l.Key).Name).To(Equal("before"))
 				},
 			)
@@ -558,7 +680,7 @@ var _ = Describe("Writer", func() {
 								TimestampPrecision: 99,
 							},
 						),
-					})).Error().To(MatchError(validate.ErrValidation))
+					})).Error().To(MatchError(ContainSubstring("timestamp_precision")))
 					Expect(rec.Snapshot()).To(BeEmpty())
 				},
 			)

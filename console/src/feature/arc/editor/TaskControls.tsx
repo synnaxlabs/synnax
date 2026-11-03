@@ -20,7 +20,11 @@ import { Framer } from "@/platform/framer";
 import { Task } from "@/platform/task";
 
 const INITIAL_RACK_QUERY: rack.RetrieveParams = { integration: "arc" };
-const RACK_TRIGGER_PROPS = { collapsible: true };
+const RACK_TRIGGER_PROPS = {
+  className: CSS.BE("rack-select", "trigger"),
+  collapsible: true,
+};
+const RACK_DIALOG_PROPS = { className: CSS.BE("rack-select", "dialog") };
 
 export const TaskControls = () => {
   const key = Arc.useKey();
@@ -56,6 +60,7 @@ export const TaskControls = () => {
             location="top"
             initialQuery={INITIAL_RACK_QUERY}
             triggerProps={RACK_TRIGGER_PROPS}
+            dialogProps={RACK_DIALOG_PROPS}
           />
           <SelectPerformance
             value={taskPerformance}

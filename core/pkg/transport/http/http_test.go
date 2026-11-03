@@ -427,6 +427,27 @@ var _ = Describe("HTTP", func() {
 			res := post("/api/v1/auth/session/renew", nil, struct{}{})
 			Expect(res.StatusCode).To(Equal(http.StatusBadRequest))
 		})
+		It("Should read the cookie on every unary route", func() {
+			const unauthenticated = "no authentication token"
+			bare := post("/api/v1/auth/session/renew", nil, struct{}{})
+			Expect(MustSucceed(io.ReadAll(bare.Body))).To(
+				ContainSubstring(unauthenticated),
+			)
+			// An unknown session stops each request at the auth check.
+			headers := withCookie(
+				"localhost:9090",
+				&http.Cookie{Name: "synnax-session-9090", Value: "sys_unknown"},
+			)
+			routes := lo.Filter(app.GetRoutes(true), func(r fiber.Route, _ int) bool {
+				return r.Method == http.MethodPost
+			})
+			Expect(routes).ToNot(BeEmpty())
+			unread := lo.FilterMap(routes, func(r fiber.Route, _ int) (string, bool) {
+				body := MustSucceed(io.ReadAll(post(r.Path, headers, struct{}{}).Body))
+				return r.Path, strings.Contains(string(body), unauthenticated)
+			})
+			Expect(unread).To(BeEmpty())
+		})
 		It("Should clear the cookie when the session logs out", func() {
 			cookie := loginWithCookie("localhost:9090")
 			renew := post(
@@ -456,7 +477,7 @@ var _ = Describe("HTTP", func() {
 			Expect(again.StatusCode).To(Equal(http.StatusBadRequest))
 		})
 	})
-	Describe("API keys", func() {
+	Describe("Credentials", func() {
 		var app *fiber.App
 		creds := auth.Credentials{Username: "root", Password: "root"}
 		BeforeEach(func(ctx SpecContext) { app = openLicensed(ctx, creds) })
@@ -518,6 +539,33 @@ var _ = Describe("HTTP", func() {
 			)).To(Equal(http.StatusOK))
 			Expect(call("/api/v1/auth/session/renew", keyToken, struct{}{}, nil)).
 				To(Equal(http.StatusBadRequest))
+		})
+		It("Should set the caller's own password", func() {
+			token := login(auth.Proof{Variant: auth.PasswordProof{Credentials: creds}})
+			Expect(call(
+				"/api/v1/auth/password/set",
+				token,
+				apiauth.PasswordSetRequest{Password: "new", CurrentPassword: "wrong"},
+				nil,
+			)).To(Equal(http.StatusBadRequest))
+			var set apiauth.PasswordSetResponse
+			Expect(call(
+				"/api/v1/auth/password/set",
+				token,
+				apiauth.PasswordSetRequest{
+					Password:        "new",
+					CurrentPassword: creds.Password,
+				},
+				&set,
+			)).To(Equal(http.StatusOK))
+			Expect(call("/api/v1/auth/session/renew", token, struct{}{}, nil)).
+				To(Equal(http.StatusBadRequest))
+			Expect(call("/api/v1/auth/session/renew", set.Token, struct{}{}, nil)).
+				To(Equal(http.StatusOK))
+			login(auth.Proof{Variant: auth.PasswordProof{Credentials: auth.Credentials{
+				Username: creds.Username,
+				Password: "new",
+			}}})
 		})
 		It("Should delete a rack's keys and end their sessions with the rack", func() {
 			rootToken := login(
