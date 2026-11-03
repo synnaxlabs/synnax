@@ -27,6 +27,7 @@ import (
 	xchange "github.com/synnaxlabs/x/change"
 	"github.com/synnaxlabs/x/encoding/msgpack"
 	"github.com/synnaxlabs/x/query"
+	"github.com/synnaxlabs/x/search"
 	"github.com/synnaxlabs/x/telem"
 	. "github.com/synnaxlabs/x/testutil"
 	"github.com/synnaxlabs/x/testutil/memkv"
@@ -1148,9 +1149,11 @@ var _ = Describe("Device", func() {
 			func(ctx SpecContext) {
 				a := create(ctx, "a", "turbopump test")
 				b := create(ctx, "b", "turbopump")
-				Expect(MustSucceed(svc.Search(ctx, tx, "turbopump", nil, 0)).Keys).
+				q := search.Query[ontology.ID]{Term: "turbopump"}
+				Expect(MustSucceed(svc.Search(ctx, tx, q)).Keys).
 					To(Equal([]ontology.ID{b, a}))
-				Expect(MustSucceed(svc.Search(ctx, tx, "turbopump", nil, 1)).Keys).
+				q.Limit = 1
+				Expect(MustSucceed(svc.Search(ctx, tx, q)).Keys).
 					To(Equal([]ontology.ID{b}))
 			},
 		)
@@ -1158,7 +1161,8 @@ var _ = Describe("Device", func() {
 		DescribeTable("Should match a device by its",
 			func(ctx SpecContext, term string) {
 				id := create(ctx, "igniter", "igniter")
-				Expect(MustSucceed(svc.Search(ctx, tx, term, nil, 0)).Keys).
+				q := search.Query[ontology.ID]{Term: term}
+				Expect(MustSucceed(svc.Search(ctx, tx, q)).Keys).
 					To(Equal([]ontology.ID{id}))
 			},
 			Entry("name", "igniter"),
@@ -1171,9 +1175,8 @@ var _ = Describe("Device", func() {
 			"Should not match a staged device outside its transaction",
 			func(ctx SpecContext) {
 				create(ctx, "injector", "injector")
-				Expect(
-					MustSucceed(svc.Search(ctx, db, "injector", nil, 0)).Keys,
-				).To(BeEmpty())
+				q := search.Query[ontology.ID]{Term: "injector"}
+				Expect(MustSucceed(svc.Search(ctx, db, q)).Keys).To(BeEmpty())
 			},
 		)
 	})

@@ -108,16 +108,9 @@ func (s *Search[S, K]) StageDelete(scope S, key K) {
 	s.overlay.load(scope).set(key, nil)
 }
 
-// Get returns at most limit keys whose text matches term and for which except returns
-// false, closest match first, with the changes of scope applied. A nil except keeps
-// every key, and a limit of 0 returns every key. It blocks until the bulk load
-// finishes.
-func (s *Search[S, K]) Get(
-	scope S,
-	term string,
-	except func(K) bool,
-	limit int,
-) (search.Result[K], error) {
+// Get returns the keys that match q, closest match first, with the changes of scope
+// applied. It blocks until the bulk load finishes.
+func (s *Search[S, K]) Get(scope S, q search.Query[K]) (search.Result[K], error) {
 	<-s.population.done
 	s.mu.RLock()
 	defer s.mu.RUnlock()
@@ -126,7 +119,7 @@ func (s *Search[S, K]) Get(
 	}
 	staged, ok := s.overlay.get(scope)
 	if !ok {
-		return s.committed.SearchExcept(term, except, limit), nil
+		return s.committed.Search(q), nil
 	}
 	pending := search.New[K]()
 	for _, key := range staged.keys {
@@ -134,15 +127,15 @@ func (s *Search[S, K]) Get(
 			pending.Set(key, text...)
 		}
 	}
-	committed := s.committed.SearchExcept(term, func(key K) bool {
-		_, ok := staged.text[key]
-		return ok || (except != nil && except(key))
-	}, limit)
-	return search.Merge(
-		limit,
-		committed,
-		pending.SearchExcept(term, except, limit),
-	), nil
+	committed := s.committed.Search(search.Query[K]{
+		Term: q.Term,
+		Except: func(key K) bool {
+			_, ok := staged.text[key]
+			return ok || (q.Except != nil && q.Except(key))
+		},
+		Limit: q.Limit,
+	})
+	return search.Merge(q.Limit, committed, pending.Search(q)), nil
 }
 
 func (s *Search[S, K]) flush(staged *texts[K]) {

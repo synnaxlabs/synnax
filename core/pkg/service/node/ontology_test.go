@@ -22,6 +22,7 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/service/cluster"
 	"github.com/synnaxlabs/synnax/pkg/service/node"
 	"github.com/synnaxlabs/synnax/pkg/service/ontology"
+	"github.com/synnaxlabs/x/search"
 	. "github.com/synnaxlabs/x/testutil"
 	"github.com/synnaxlabs/x/testutil/memkv"
 )
@@ -119,8 +120,9 @@ var _ = Describe("Ontology", func() {
 		Describe("Search", func() {
 			DescribeTable("Should search the nodes currently in the cluster",
 				func(ctx SpecContext, term string, limit int, expected []ontology.ID) {
+					q := search.Query[ontology.ID]{Term: term, Limit: limit}
 					Expect(
-						MustSucceed(testSvc.Search(ctx, nil, term, nil, limit)).Keys,
+						MustSucceed(testSvc.Search(ctx, nil, q)).Keys,
 					).To(Equal(expected))
 				},
 				Entry("every node", "node", 10,

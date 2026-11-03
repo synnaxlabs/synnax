@@ -20,6 +20,7 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/service/access/rbac/role"
 	"github.com/synnaxlabs/synnax/pkg/service/ontology"
 	"github.com/synnaxlabs/x/query"
+	"github.com/synnaxlabs/x/search"
 	. "github.com/synnaxlabs/x/testutil"
 )
 
@@ -626,7 +627,8 @@ var _ = Describe("Ontology Integration", func() {
 					Actions: []access.Action{access.ActionRetrieve},
 				}
 				Expect(svc.NewWriter(tx, false).Create(ctx, p)).To(Succeed())
-				Expect(MustSucceed(svc.Search(ctx, tx, "turbopump", nil, 10)).Keys).
+				q := search.Query[ontology.ID]{Term: "turbopump", Limit: 10}
+				Expect(MustSucceed(svc.Search(ctx, tx, q)).Keys).
 					To(Equal([]ontology.ID{p.OntologyID()}))
 			},
 		)

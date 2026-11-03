@@ -46,9 +46,7 @@ func (*emittingService) RetrieveResource(
 func (*emittingService) Search(
 	context.Context,
 	gorp.Tx,
-	string,
-	func(ontology.ID) bool,
-	int,
+	search.Query[ontology.ID],
 ) (search.Result[ontology.ID], error) {
 	return search.Result[ontology.ID]{}, nil
 }
@@ -74,9 +72,7 @@ func (*textService) RetrieveResource(
 func (s *textService) Search(
 	_ context.Context,
 	tx gorp.Tx,
-	term string,
-	except func(ontology.ID) bool,
-	limit int,
+	q search.Query[ontology.ID],
 ) (search.Result[ontology.ID], error) {
 	s.tx = tx
 	if s.err != nil {
@@ -87,9 +83,11 @@ func (s *textService) Search(
 		idx.Set(k, k)
 	}
 	id := func(k string) ontology.ID { return ontology.ID{Type: s.typ, Key: k} }
-	res := idx.SearchExcept(term, func(k string) bool {
-		return except != nil && except(id(k))
-	}, limit)
+	res := idx.Search(search.Query[string]{
+		Term:   q.Term,
+		Except: func(k string) bool { return q.Except != nil && q.Except(id(k)) },
+		Limit:  q.Limit,
+	})
 	return search.MapKeys(res, id), nil
 }
 
