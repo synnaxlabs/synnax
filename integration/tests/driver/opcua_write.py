@@ -21,7 +21,7 @@ class OPCUAWriteFloat(OPCUAWriteTaskCase):
     def create_channels(client: sy.Synnax) -> list[sy.opcua.WriteChannel]:
         idx = create_index(client, "opcua_write_cmd_time")
         return [
-            sy.opcua.WriteChannel(
+            sy.opcua.NodeWriteChannel(
                 cmd_channel=create_channel(
                     client,
                     name=f"opcua_cmd_{i}",
@@ -42,7 +42,7 @@ class OPCUATLSWriteFloat(OPCUASecuredWriteTaskCase):
     def create_channels(client: sy.Synnax) -> list[sy.opcua.WriteChannel]:
         idx = create_index(client, "opcua_encrypted_write_cmd_time")
         return [
-            sy.opcua.WriteChannel(
+            sy.opcua.NodeWriteChannel(
                 cmd_channel=create_channel(
                     client,
                     name=f"opcua_encrypted_cmd_{i}",
@@ -63,7 +63,7 @@ class OPCUATLSAuthWriteFloat(OPCUASecuredWriteTaskCase):
     def create_channels(client: sy.Synnax) -> list[sy.opcua.WriteChannel]:
         idx = create_index(client, "opcua_enc_userpass_write_cmd_time")
         return [
-            sy.opcua.WriteChannel(
+            sy.opcua.NodeWriteChannel(
                 cmd_channel=create_channel(
                     client,
                     name=f"enc_userpass_cmd_{i}",

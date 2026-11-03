@@ -400,11 +400,13 @@ var _ = Describe("Legacy file import", Ordered, ContinueOnFailure, func() {
 
 	// Scan and rack status tasks are created internal by the driver on rack boot;
 	// internal tasks got no ontology resource in released cores, so no released
-	// Console surface could export them and they carry no legacy fixture.
+	// Console surface could export them and they carry no legacy fixture. OPC UA event
+	// tasks first ship with versioned exports, so no Console wrote a legacy one.
 	neverExported := func(t string) bool {
 		return strings.HasSuffix(t, "_scan") ||
 			t == "ni_scanner" ||
-			t == "rack_status"
+			t == "rack_status" ||
+			t == "opc_event"
 	}
 
 	It("covers every registered config type with a fixture", func() {

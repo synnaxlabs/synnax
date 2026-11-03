@@ -185,6 +185,7 @@ public:
         telem(
             std::move(this->t.frame_stream),
             std::move(this->t.frame_write),
+            std::move(this->t.frame_iterate),
             channel::Client(this->t.chan_retrieve, this->t.chan_create)
         ),
         racks(

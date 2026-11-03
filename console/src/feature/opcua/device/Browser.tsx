@@ -51,6 +51,7 @@ const ICONS: Record<string, ReactElement> = {
   Variable: <Icon.Variable />,
   ObjectType: <Icon.Type />,
   Object: <Icon.Group />,
+  Method: <Icon.Function />,
 };
 
 // A node can sit under more than one parent, so its key names the parent too.
@@ -59,6 +60,8 @@ const nodeKey = (node: ScannedNode, parent?: ScannedNode): string =>
 
 export interface BrowserProps {
   device: Device;
+  /** Nodes that the tree lists after the children of the Objects folder. */
+  roots?: ScannedNode[];
 }
 
 const ArrayVariableIcon = Icon.createComposite(Icon.Variable, {
@@ -147,10 +150,12 @@ const isNodeID = (value: string): boolean => value.includes("=");
 interface Selection {
   nodeId: string;
   field: string;
+  /** The node ID of the node that the browser found this one under. */
+  parent?: string;
   name?: string;
 }
 
-export const Browser = ({ device }: BrowserProps) => {
+export const Browser = ({ device, roots }: BrowserProps) => {
   const [treeNodes, setTreeNodes, treeNodesRef] = useCombinedStateAndRef<Tree.Node[]>(
     [],
   );
@@ -198,6 +203,7 @@ export const Browser = ({ device }: BrowserProps) => {
             "The Driver stopped at a limit before it loaded every node. Enter a node ID in the search to open a node that is not shown.",
         });
       setStat(status.create({ variant: "success", message: "Browsed OPC UA nodes" }));
+      if (parent == null && roots != null) channels = [...channels, ...roots];
       // A member's name carries its structure's name, so channels made from members of
       // different structures do not collide.
       const nodes = channels.map((node) => ({
@@ -207,6 +213,7 @@ export const Browser = ({ device }: BrowserProps) => {
             ? node.name
             : `${parent.name}.${node.name}`,
         key: nodeKey(node, parent),
+        parent: parent?.nodeId,
       }));
       opcNodesStore.setItem(nodes);
       const newNodes = nodes.map(({ key }): Tree.Node => ({ key, children: [] }));
@@ -247,6 +254,7 @@ export const Browser = ({ device }: BrowserProps) => {
     selection = {
       nodeId: selectedNode.nodeId,
       field: selectedNode.field,
+      parent: selectedNode.parent,
       name: selectedNode.name,
     };
   const refresh = () => {

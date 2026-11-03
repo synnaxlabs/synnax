@@ -74,7 +74,11 @@ func decodeWriteConfig(
 		if err != nil {
 			return WriteConfig{}, err
 		}
-		return t1, nil
+		t2, err := v2.MigrateWriteConfig(ctx, t1)
+		if err != nil {
+			return WriteConfig{}, err
+		}
+		return t2, nil
 	case v2.Version:
 		return imex.DecodeBlob[WriteConfig](data, "opcua.WriteConfig", version)
 	}
@@ -105,4 +109,24 @@ func decodeScanConfig(
 		return imex.DecodeBlob[ScanConfig](data, "opcua.ScanConfig", version)
 	}
 	return ScanConfig{}, imex.NewErrUnsupportedVersion("opcua.ScanConfig", version, Latest)
+}
+
+// EventConfigLadder decodes EventConfig bodies stamped at any exported version and
+// migrates them to the current shape.
+var EventConfigLadder = imex.Ladder[EventConfig]{
+	First:  v2.Version,
+	Latest: Latest,
+	Decode: decodeEventConfig,
+}
+
+func decodeEventConfig(
+	ctx context.Context,
+	version imex.Version,
+	data msgpack.EncodedJSON,
+) (EventConfig, error) {
+	switch version {
+	case v2.Version:
+		return imex.DecodeBlob[EventConfig](data, "opcua.EventConfig", version)
+	}
+	return EventConfig{}, imex.NewErrUnsupportedVersion("opcua.EventConfig", version, Latest)
 }

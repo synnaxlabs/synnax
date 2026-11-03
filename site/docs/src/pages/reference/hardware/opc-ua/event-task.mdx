@@ -1,0 +1,226 @@
+---
+layout: "@/layouts/Reference.astro"
+title: "OPC UA event task"
+description: "Record the events and alarms of an OPC UA server in a Synnax channel."
+---
+
+import { Divider } from "@synnaxlabs/lyra/divider";
+import { Icon } from "@synnaxlabs/lyra/icon";
+import { Fragment } from "react";
+import { Client } from "@/components/client";
+import { Problem } from "@/components/problem";
+import { mdxOverrides } from "@/components/mdxOverrides";
+export const components = mdxOverrides;
+
+An OPC UA event task records the events of a server, such as alarms and state changes,
+in one JSON channel. Each sample holds one event, at the time that the server gives it.
+Before you start, you need a
+[connected OPC UA server](/reference/hardware/opc-ua/connect-server).
+
+<Divider.Divider x />
+
+## Create an OPC UA event task
+
+<Client.Tabs>
+  <Fragment slot="console">
+
+1. In the devices toolbar, right-click the server and select **Create event task**.
+2. To record the events of some objects only, drag the objects from the **Browser** into
+   **Sources**. With no sources, the task records the events of the Server object, which
+   most servers use for all of their events.
+3. To record some event types only, drag the types from the `EventTypes` folder at the
+   end of the **Browser** into **Event types**. A type includes its subtypes.
+4. Click <Icon.Play /> (**Start**).
+
+The Console creates a JSON channel named `<task>_events` and its index
+`<task>_events_time`.
+
+  </Fragment>
+  <Fragment slot="python">
+
+Python does not create channels. Create the JSON channel and its index first.
+
+```python
+import synnax as sy
+from synnax import opcua
+
+server = client.devices.retrieve(name="Line 1 PLC")
+events_time = client.channels.create(
+    name="line_1_events_time", is_index=True, data_type=sy.DataType.TIMESTAMP
+)
+events = client.channels.create(
+    name="line_1_events", index=events_time.key, data_type=sy.DataType.JSON
+)
+
+task = opcua.EventTask(
+    name="Line 1 events",
+    device=server.key,
+    channel=events.key,
+    fields=[opcua.EventField(name="level", browse_path="2:Level")],
+)
+client.tasks.configure(task)
+task.start()
+```
+
+  </Fragment>
+  <Fragment slot="typescript">
+
+TypeScript does not create channels. Create the JSON channel and its index first.
+
+```typescript
+import { opcua } from "@synnaxlabs/client";
+
+const [server] = await client.devices.retrieve({ names: ["Line 1 PLC"] });
+const eventsTime = await client.channels.create({
+  name: "line_1_events_time",
+  isIndex: true,
+  dataType: "timestamp",
+});
+const events = await client.channels.create({
+  name: "line_1_events",
+  index: eventsTime.key,
+  dataType: "json",
+});
+
+const task = await client.tasks.create({
+  name: "Line 1 events",
+  rack: server.rack,
+  type: "opc_event",
+  config: opcua.eventConfigZ.parse({ device: server.key, channel: events.key }),
+});
+await task.start();
+```
+
+  </Fragment>
+</Client.Tabs>
+
+<Divider.Divider x />
+
+## Event samples
+
+Each sample has these fields:
+
+| Field         | Value                                                       |
+| ------------- | ----------------------------------------------------------- |
+| `event_id`    | The ID that the server gives the event, as base64 text.     |
+| `event_type`  | The node ID of the event type, as the **Browser** shows it. |
+| `source_name` | The name of the object that the event is about.             |
+| `time`        | The time of the event, as ISO 8601 text.                    |
+| `message`     | The text of the event.                                      |
+| `severity`    | The severity, from 1 (low) to 1000 (high).                  |
+
+A field that the event does not have is `null`. For example:
+
+```json
+{
+  "event_id": "AAAAAAAAAAE=",
+  "event_type": "nsu=urn:plant:line1;s=OverpressureAlarm",
+  "source_name": "Tank1",
+  "time": "2026-10-29T14:03:12.481Z",
+  "message": "Pressure above 8 bar",
+  "severity": 700,
+  "level": 8.4
+}
+```
+
+### Add fields
+
+To record more of each event, click <Icon.Add /> (**Add field**) under **Fields**. Give
+the field a **Name**, which is its key in the sample, and a **Browse path** from the
+event type, with `/` between browse names. A browse name in a namespace other than 0
+starts with the namespace index, as in `2:Level`. For example, `EnabledState/Id` records
+whether an alarm is enabled.
+
+<Divider.Divider x />
+
+## Event times
+
+The timestamp of each sample is the time that the server gives the event. Two samples in
+one channel cannot have the same timestamp, so an event at or before the last sample
+moves to 1 nanosecond after it. The `time` field keeps the time from the server.
+
+When the task starts, it asks the server for the state of each active alarm again, so
+the channel shows the alarms that were active before the start. The task skips a
+repeated alarm that is not newer than the last sample in the channel. A server without
+alarms refuses the request, and the task records events as usual.
+
+<Divider.Divider x />
+
+## Outages
+
+An event task keeps running when the server or the network goes down. It shows "Failed
+to read data" and connects again. The task checks every 5 seconds that the server still
+answers, because a server that stops answering sends no notice.
+
+The task cannot record the events of an outage. When it connects again, it gets the
+state of each active alarm, as it does at start.
+
+<Divider.Divider x />
+
+## Task options
+
+| Console label | Python field           | Default | Notes                                                     |
+| ------------- | ---------------------- | ------- | --------------------------------------------------------- |
+| OPC UA server | `device`               |         | The key of the server.                                    |
+|               | `channel`              |         | The key of the JSON channel. It must have an index.       |
+| Sources       | `notifiers`            | Empty   | The node IDs of the objects to record events from.        |
+| Event types   | `event_types`          | Empty   | The node IDs of the event types to record.                |
+| Fields        | `fields`               | Empty   | Each has a `name` and a `browse_path`.                    |
+| Data saving   | `data_saving_disabled` | On      | See [data saving](/reference/hardware/tasks#data-saving). |
+| Auto start    | `auto_start`           | Off     | Starts the task each time the Driver starts.              |
+
+TypeScript uses the same fields in camel case, such as `eventTypes`. For node IDs, see
+[node IDs](/reference/hardware/opc-ua/read-task#node-ids).
+
+<Divider.Divider x />
+
+## Troubleshooting
+
+<Problem.List>
+
+<Problem.Item message={"Failed to record events of some sources"}>
+<Problem.Cause>
+
+The server refused to send the events of some sources. The description names each one
+and the reason. For example, a node that is not an event notifier returns
+BadFilterNotAllowed or BadNodeIdUnknown. The task records the events of the other
+sources.
+
+</Problem.Cause>
+<Problem.Fix>
+
+Remove the source, or drag a parent object that sends the events.
+
+</Problem.Fix>
+</Problem.Item>
+
+<Problem.Item message={"Channel must have an index"}>
+<Problem.Cause>
+
+The channel of the task has no index, so its samples have no timestamps.
+
+</Problem.Cause>
+<Problem.Fix>
+
+Create a JSON channel with an index, as in
+[create an OPC UA event task](#create-an-opc-ua-event-task).
+
+</Problem.Fix>
+</Problem.Item>
+
+<Problem.Item message={"Browse path must name each element"}>
+<Problem.Cause>
+
+A field has an empty browse path, or a path with an empty element, such as `A//B`.
+
+</Problem.Cause>
+<Problem.Fix>
+
+Give each element a browse name, such as `EnabledState/Id`.
+
+</Problem.Fix>
+</Problem.Item>
+
+</Problem.List>
+
+For other problems, see [Troubleshoot hardware](/reference/hardware/troubleshooting).

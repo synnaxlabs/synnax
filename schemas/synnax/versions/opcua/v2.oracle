@@ -10,28 +10,119 @@
 import "schemas/synnax/versions/channel/v0"
 import "schemas/synnax/versions/device/v0"
 import "schemas/synnax/versions/task/v2"
+import "schemas/x/versions/telem/v0"
 
-BaseChannel = v1.BaseChannel
+BaseChannel struct extends v1.BaseChannel {
+    -data_type
+}
 
 ReadChannel struct extends BaseChannel {
-    channel  channel.Key = 0 {
+    channel   channel.Key = 0 {
         @doc value "is the Synnax channel that samples are written to."
     }
-    is_index bool = false {
+    is_index  bool = false {
         @doc value "is true when the channel's Synnax channel is the task's index."
     }
-    field    string = "" {
+    field     string = "" {
         @doc value """
             is the path to a member of the node's structure value. Names join with '.',
             and '&' escapes the next character. Empty reads the whole value.
         """
+    }
+    data_type telem.DataType = "float32" {
+        @doc value "is the data type of the Synnax channel."
     }
 
     @doc value  "is a single OPC UA node the task reads from."
     @go marshal
 }
 
-WriteChannel = v1.WriteChannel
+WriteType enum {
+    node   = "node"
+    method = "method"
+
+    @doc value "is what the commands of a write channel do on the server."
+}
+
+ArgumentSource enum {
+    value   = "value"
+    command = "command"
+
+    @doc value "is where the value of a method argument comes from."
+}
+
+BaseMethodArgument struct {
+    name      string = "" {
+        @doc value "is the name of the argument, as the method declares it."
+    }
+    data_type telem.DataType = "" {
+        @doc value """
+            is the Synnax data type of the argument, which a command channel that gives
+            the argument takes.
+        """
+        @ts type   "string"
+    }
+
+    @doc value  "carries the fields every input argument of a method shares."
+    @go marshal
+}
+
+MethodArgument union on source ArgumentSource extends BaseMethodArgument {
+    value {
+        value string = "" {
+            @doc value """
+                is the value of the argument, as text that the Driver converts to the
+                declared type of the argument.
+            """
+        }
+
+        @doc value "gives the argument a fixed value."
+    }
+    command {
+        @doc value "gives the argument the value of each command."
+    }
+
+    @doc value  """
+        is an input argument of an OPC UA method call. The source field selects where
+        its value comes from.
+    """
+    @go marshal
+}
+
+BaseWriteChannel struct extends BaseChannel {
+    cmd_channel channel.Key = 0 {
+        @doc value "is the Synnax channel commands are read from."
+    }
+
+    @doc value  "carries the fields every OPC UA write channel shares."
+    @go marshal
+}
+
+WriteChannel union on type WriteType extends BaseWriteChannel {
+    node {
+        data_type telem.DataType = "float32" {
+            @doc value "is the data type of the Synnax command channel."
+        }
+
+        @doc value "writes each command to the value of the node."
+    }
+    method {
+        object_id string = "" {
+            @doc value "is the node ID of the object that holds the method."
+        }
+        arguments MethodArgument[] {
+            @doc value "are the input arguments of the method, in order."
+        }
+
+        @doc value "calls the node as a method with each command."
+    }
+
+    @doc value  """
+        is a single OPC UA node the task drives. The type field selects what each
+        command does on the server.
+    """
+    @go marshal
+}
 
 ReadConfig struct extends task.ReadConfig {
     sample_rate      = 50
@@ -61,6 +152,64 @@ ReadConfig struct extends task.ReadConfig {
     @go migrate
 }
 
-WriteConfig = v1.WriteConfig
+WriteConfig struct extends task.WriteConfig {
+    channels WriteChannel[] {
+        @doc value "are the OPC UA nodes the task drives."
+    }
+
+    @doc value  "configures an OPC UA write task."
+    @go imex    body
+    @go marshal
+    @go migrate
+}
 
 ScanConfig = v1.ScanConfig
+
+EventField struct {
+    key         string = create {
+        @doc value "uniquely identifies the field within the task."
+        @key
+    }
+    name        string = "" {
+        @doc value "is the key of the field in the JSON sample of each event."
+    }
+    browse_path string = "" {
+        @doc value """
+            is the path to the field from the event type, as browse names joined with
+            '/', such as 'EnabledState/Id'. A name can start with 'nsu=<uri>;' or
+            '<index>:' to name its namespace, as in 'nsu=urn:pump;Level' or '2:Level'.
+        """
+    }
+
+    @doc value  "is an event field that the task records beyond the standard fields."
+    @go marshal
+}
+
+EventConfig struct extends task.PersistConfig {
+    device      device.Key = "" {
+        @doc value "is the key of the device representing the OPC UA server."
+    }
+    channel     channel.Key = 0 {
+        @doc value "is the JSON channel that each event is written to."
+    }
+    notifiers   string[]     {
+        @doc value """
+            are the node IDs of the objects whose events the task records. Empty records
+            the events of the Server object.
+        """
+    }
+    event_types string[]     {
+        @doc value """
+            are the node IDs of the event types the task keeps, with their subtypes.
+            Empty keeps every event.
+        """
+    }
+    fields      EventField[] {
+        @doc value "are the event fields the task records beyond the standard fields."
+    }
+
+    @doc value  "configures an OPC UA event task."
+    @go imex    body
+    @go marshal
+    @go migrate
+}

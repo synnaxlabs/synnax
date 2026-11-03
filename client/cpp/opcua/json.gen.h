@@ -13,6 +13,7 @@
 
 #include <cstdint>
 #include <string>
+#include <variant>
 #include <vector>
 
 #include "client/cpp/channel/json.gen.h"
@@ -32,10 +33,6 @@ inline BaseChannel BaseChannel::parse(x::json::Parser parser) {
         .disabled = parser.field<bool>("disabled", false),
         .node_id = parser.field<std::string>("node_id", ""),
         .node_name = parser.field<std::string>("node_name", ""),
-        .data_type = parser.field<::x::telem::DataType>(
-            "data_type",
-            ::x::telem::DataType("float32")
-        ),
     };
 }
 
@@ -46,7 +43,6 @@ inline x::json::json BaseChannel::to_json() const {
     j["disabled"] = this->disabled;
     j["node_id"] = this->node_id;
     j["node_name"] = this->node_name;
-    j["data_type"] = this->data_type;
     return j;
 }
 
@@ -59,6 +55,10 @@ inline ReadChannel ReadChannel::parse(x::json::Parser parser) {
     );
     result.is_index = parser.field<bool>("is_index", false);
     result.field = parser.field<std::string>("field", "");
+    result.data_type = parser.field<::x::telem::DataType>(
+        "data_type",
+        ::x::telem::DataType("float32")
+    );
     return result;
 }
 
@@ -69,11 +69,12 @@ inline x::json::json ReadChannel::to_json() const {
     j["channel"] = this->channel;
     j["is_index"] = this->is_index;
     j["field"] = this->field;
+    j["data_type"] = this->data_type;
     return j;
 }
 
-inline WriteChannel WriteChannel::parse(x::json::Parser parser) {
-    WriteChannel result;
+inline BaseWriteChannel BaseWriteChannel::parse(x::json::Parser parser) {
+    BaseWriteChannel result;
     static_cast<BaseChannel &>(result) = BaseChannel::parse(parser);
     result.cmd_channel = parser.field<::synnax::channel::Key>(
         "cmd_channel",
@@ -82,7 +83,7 @@ inline WriteChannel WriteChannel::parse(x::json::Parser parser) {
     return result;
 }
 
-inline x::json::json WriteChannel::to_json() const {
+inline x::json::json BaseWriteChannel::to_json() const {
     x::json::json j;
     for (auto &[k, v]: BaseChannel::to_json().items())
         j[k] = v;
@@ -133,10 +134,14 @@ inline WriteConfig WriteConfig::parse(x::json::Parser parser) {
     static_cast<::synnax::task::WriteConfig &>(
         result
     ) = ::synnax::task::WriteConfig::parse(parser);
-    result.channels = parser.field<std::vector<WriteChannel>>(
-        "channels",
-        std::vector<WriteChannel>{}
-    );
+    result.channels = [&] {
+        std::vector<WriteChannel> result;
+        if (parser.has("channels"))
+            parser.iter("channels", [&result](x::json::Parser &p) {
+                result.push_back(parse_write_channel(p));
+            });
+        return result;
+    }();
     return result;
 }
 
@@ -144,7 +149,12 @@ inline x::json::json WriteConfig::to_json() const {
     x::json::json j;
     for (auto &[k, v]: ::synnax::task::WriteConfig::to_json().items())
         j[k] = v;
-    j["channels"] = x::json::to_array(this->channels);
+    {
+        auto arr = x::json::json::array();
+        for (const auto &item: this->channels)
+            arr.push_back(::synnax::opcua::to_json(item));
+        j["channels"] = arr;
+    }
     return j;
 }
 
@@ -161,6 +171,183 @@ inline x::json::json ScanConfig::to_json() const {
     for (auto &[k, v]: ::synnax::task::ScanConfig::to_json().items())
         j[k] = v;
     return j;
+}
+
+inline BaseMethodArgument BaseMethodArgument::parse(x::json::Parser parser) {
+    return BaseMethodArgument{
+        .name = parser.field<std::string>("name", ""),
+        .data_type = parser.field<::x::telem::DataType>(
+            "data_type",
+            ::x::telem::DataType("")
+        ),
+    };
+}
+
+inline x::json::json BaseMethodArgument::to_json() const {
+    x::json::json j;
+    j["name"] = this->name;
+    j["data_type"] = this->data_type;
+    return j;
+}
+
+inline EventField EventField::parse(x::json::Parser parser) {
+    return EventField{
+        .key = parser.field<std::string>("key", x::uuid::create().to_string()),
+        .name = parser.field<std::string>("name", ""),
+        .browse_path = parser.field<std::string>("browse_path", ""),
+    };
+}
+
+inline x::json::json EventField::to_json() const {
+    x::json::json j;
+    j["key"] = this->key;
+    j["name"] = this->name;
+    j["browse_path"] = this->browse_path;
+    return j;
+}
+
+inline EventConfig EventConfig::parse(x::json::Parser parser) {
+    EventConfig result;
+    static_cast<::synnax::task::PersistConfig &>(
+        result
+    ) = ::synnax::task::PersistConfig::parse(parser);
+    result.device = parser.field<::synnax::device::Key>("device", "");
+    result.channel = parser.field<::synnax::channel::Key>(
+        "channel",
+        ::synnax::channel::Key(0)
+    );
+    result.notifiers = parser.field<std::vector<std::string>>(
+        "notifiers",
+        std::vector<std::string>{}
+    );
+    result.event_types = parser.field<std::vector<std::string>>(
+        "event_types",
+        std::vector<std::string>{}
+    );
+    result.fields = parser.field<std::vector<EventField>>(
+        "fields",
+        std::vector<EventField>{}
+    );
+    return result;
+}
+
+inline x::json::json EventConfig::to_json() const {
+    x::json::json j;
+    for (auto &[k, v]: ::synnax::task::PersistConfig::to_json().items())
+        j[k] = v;
+    j["device"] = this->device;
+    j["channel"] = this->channel;
+    j["notifiers"] = this->notifiers;
+    j["event_types"] = this->event_types;
+    j["fields"] = x::json::to_array(this->fields);
+    return j;
+}
+
+inline NodeWriteChannel NodeWriteChannel::parse(x::json::Parser parser) {
+    NodeWriteChannel result;
+    static_cast<BaseWriteChannel &>(result) = BaseWriteChannel::parse(parser);
+    result.data_type = parser.field<::x::telem::DataType>(
+        "data_type",
+        ::x::telem::DataType("float32")
+    );
+    result.type = parser.field<std::string>("type");
+    return result;
+}
+
+inline x::json::json NodeWriteChannel::to_json() const {
+    x::json::json j;
+    for (auto &[k, v]: BaseWriteChannel::to_json().items())
+        j[k] = v;
+    j["data_type"] = this->data_type;
+    j["type"] = this->type;
+    return j;
+}
+
+inline MethodWriteChannel MethodWriteChannel::parse(x::json::Parser parser) {
+    MethodWriteChannel result;
+    static_cast<BaseWriteChannel &>(result) = BaseWriteChannel::parse(parser);
+    result.object_id = parser.field<std::string>("object_id", "");
+    result.arguments = [&] {
+        std::vector<MethodArgument> result;
+        if (parser.has("arguments"))
+            parser.iter("arguments", [&result](x::json::Parser &p) {
+                result.push_back(parse_method_argument(p));
+            });
+        return result;
+    }();
+    result.type = parser.field<std::string>("type");
+    return result;
+}
+
+inline x::json::json MethodWriteChannel::to_json() const {
+    x::json::json j;
+    for (auto &[k, v]: BaseWriteChannel::to_json().items())
+        j[k] = v;
+    j["object_id"] = this->object_id;
+    {
+        auto arr = x::json::json::array();
+        for (const auto &item: this->arguments)
+            arr.push_back(::synnax::opcua::to_json(item));
+        j["arguments"] = arr;
+    }
+    j["type"] = this->type;
+    return j;
+}
+
+inline ValueMethodArgument ValueMethodArgument::parse(x::json::Parser parser) {
+    ValueMethodArgument result;
+    static_cast<BaseMethodArgument &>(result) = BaseMethodArgument::parse(parser);
+    result.value = parser.field<std::string>("value", "");
+    result.source = parser.field<std::string>("source");
+    return result;
+}
+
+inline x::json::json ValueMethodArgument::to_json() const {
+    x::json::json j;
+    for (auto &[k, v]: BaseMethodArgument::to_json().items())
+        j[k] = v;
+    j["value"] = this->value;
+    j["source"] = this->source;
+    return j;
+}
+
+inline CommandMethodArgument CommandMethodArgument::parse(x::json::Parser parser) {
+    CommandMethodArgument result;
+    static_cast<BaseMethodArgument &>(result) = BaseMethodArgument::parse(parser);
+    result.source = parser.field<std::string>("source");
+    return result;
+}
+
+inline x::json::json CommandMethodArgument::to_json() const {
+    x::json::json j;
+    for (auto &[k, v]: BaseMethodArgument::to_json().items())
+        j[k] = v;
+    j["source"] = this->source;
+    return j;
+}
+
+inline WriteChannel parse_write_channel(x::json::Parser parser) {
+    const auto discriminator = parser.field<std::string>("type");
+    if (discriminator == "node") return NodeWriteChannel::parse(parser);
+    if (discriminator == "method") return MethodWriteChannel::parse(parser);
+    parser.field_err("type", "unknown WriteChannel type: " + discriminator);
+    return {};
+}
+
+inline x::json::json to_json(const WriteChannel &value) {
+    return std::visit([](const auto &v) { return v.to_json(); }, value);
+}
+
+inline MethodArgument parse_method_argument(x::json::Parser parser) {
+    const auto discriminator = parser.field<std::string>("source");
+    if (discriminator == "value") return ValueMethodArgument::parse(parser);
+    if (discriminator == "command") return CommandMethodArgument::parse(parser);
+    parser.field_err("source", "unknown MethodArgument source: " + discriminator);
+    return {};
+}
+
+inline x::json::json to_json(const MethodArgument &value) {
+    return std::visit([](const auto &v) { return v.to_json(); }, value);
 }
 
 }

@@ -40,6 +40,8 @@ interface DetailsProps {
   device: Device;
   nodeId: string;
   field: string;
+  /** The node ID of the node that the browser found this one under. */
+  parent?: string;
   /** The name of the node, when the Browser knows it. */
   name?: string;
   collapsed: boolean;
@@ -205,6 +207,7 @@ export const Details = ({
   device,
   nodeId,
   field,
+  parent,
   name,
   collapsed,
   onCollapsedChange,
@@ -272,6 +275,12 @@ export const Details = ({
             value={details.nodeClass === "Variable" ? access(details) : undefined}
           />
           <Row label="Sampling" value={sampling(details.minimumSamplingInterval)} />
+          <Row
+            label="Arguments"
+            value={details.inputArguments
+              ?.map(({ name, typeName }) => `${name} (${typeName})`)
+              .join(", ")}
+          />
           <Row label="Node ID" value={details.node.nodeId} variant="code">
             {breakAfterSeparators(details.node.nodeId)}
           </Row>
@@ -291,10 +300,16 @@ export const Details = ({
       </>
     );
   const draggable =
-    fresh && (details?.nodeClass === "Variable" || details?.nodeClass === "Object");
+    fresh &&
+    (details?.nodeClass === "Variable" ||
+      details?.nodeClass === "Object" ||
+      details?.nodeClass === "ObjectType" ||
+      details?.nodeClass === "Method");
   const handleDragStart = () => {
     if (draggable && details != null)
-      startDrag([createHaulItem({ ...details.node, key: nodeIdentity(details.node) })]);
+      startDrag([
+        createHaulItem({ ...details.node, key: nodeIdentity(details.node), parent }),
+      ]);
   };
   return (
     <Flex.Box y empty className={CSS.B("opc-details")}>

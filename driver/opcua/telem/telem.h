@@ -72,4 +72,9 @@ std::pair<size_t, x::errors::Error> ua_array_write_to_series(
 /// @returns x::errors::VALIDATION if t is outside the years 1677 to 2262 that a
 /// timestamp holds.
 std::pair<x::telem::TimeStamp, x::errors::Error> to_timestamp(UA_DateTime t);
+
+/// @returns the value as JSON text, where an array is a JSON array of its elements and
+/// a structure is an object of its members.
+/// @returns x::errors::VALIDATION if the value does not encode.
+std::pair<std::string, x::errors::Error> to_json(const UA_Variant &value);
 }
