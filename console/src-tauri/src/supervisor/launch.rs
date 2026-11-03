@@ -48,6 +48,23 @@ pub fn port(preferred: Option<u16>) -> io::Result<u16> {
     }
 }
 
+/// Returns the port in the Core config file at `path`, the port of the last launch, or
+/// `None` when there is no such file. The next Core prefers it, so the address that
+/// scripts know stays the same across launches.
+pub fn saved_port(path: &Path) -> io::Result<Option<u16>> {
+    let bytes = match std::fs::read(path) {
+        Ok(bytes) => bytes,
+        Err(err) if err.kind() == io::ErrorKind::NotFound => return Ok(None),
+        Err(err) => return Err(err),
+    };
+    let config: serde_json::Value = serde_json::from_slice(&bytes)?;
+    let port = config["listen"][0]["address"]
+        .as_str()
+        .and_then(|address| address.rsplit_once(':'))
+        .and_then(|(_, port)| port.parse().ok());
+    Ok(port)
+}
+
 /// Writes the Core config file to `path`. The file holds no secret: the password
 /// travels in [`PASSWORD_ENV`].
 pub fn write_config(path: &Path, port: u16, data_dir: &Path, log_dir: &Path) -> io::Result<()> {
@@ -91,6 +108,28 @@ mod tests {
         let taken = TcpListener::bind((HOST, 0)).unwrap();
         let preferred = taken.local_addr().unwrap().port();
         assert_ne!(port(Some(preferred)).unwrap(), preferred);
+    }
+
+    #[test]
+    fn reads_the_port_of_the_config_it_writes() {
+        let dir = tempfile::tempdir().unwrap();
+        let path = dir.path().join("core.json");
+        write_config(&path, 4321, dir.path(), dir.path()).unwrap();
+        assert_eq!(saved_port(&path).unwrap(), Some(4321));
+    }
+
+    #[test]
+    fn reads_no_port_without_a_config() {
+        let dir = tempfile::tempdir().unwrap();
+        assert_eq!(saved_port(&dir.path().join("core.json")).unwrap(), None);
+    }
+
+    #[test]
+    fn fails_to_read_the_port_of_a_malformed_config() {
+        let dir = tempfile::tempdir().unwrap();
+        let path = dir.path().join("core.json");
+        std::fs::write(&path, "not json").unwrap();
+        assert!(saved_port(&path).is_err());
     }
 
     #[test]

@@ -9,11 +9,11 @@
 
 import json
 import sys
-from collections.abc import Iterator
+from collections.abc import Iterator, Mapping
 from pathlib import Path
-from typing import Any
 
 import pytest
+from pydantic import JsonValue, ValidationError
 
 from framework import config_client
 from framework.target_filter import TargetFilter
@@ -69,7 +69,7 @@ def write_case(cases_dir: Path, *, case: str, source: str) -> None:
 
 
 def load(
-    cases_dir: Path, *, sequence: dict[str, Any]
+    cases_dir: Path, *, sequence: Mapping[str, object]
 ) -> tuple[list[config_client.Sequence], list[config_client.TestDefinition]]:
     (cases_dir / "spec_tests.json").write_text(json.dumps({"sequences": [sequence]}))
     return config_client.ConfigClient(tests_dir=cases_dir).load(
@@ -133,7 +133,7 @@ class TestConfigClient:
         }
 
     @pytest.mark.parametrize("timeout", [None, 0, -1, "10", True, float("inf")])
-    def test_invalid_timeout(self, cases_dir: Path, timeout: Any) -> None:
+    def test_invalid_timeout(self, cases_dir: Path, timeout: JsonValue) -> None:
         """Should reject a timeout that is not a finite, positive number."""
         write_case(
             cases_dir, case="config_client_spec/plain", source=named_case("Plain")
@@ -157,3 +157,25 @@ class TestConfigClient:
             config_client.ConfigClient(tests_dir=cases_dir).load(
                 TargetFilter(file_filter=["spec"])
             )
+
+    @pytest.mark.parametrize(
+        "test",
+        [
+            {"name": "no case"},
+            {"case": "config_client_spec/plain", "parameters": [1]},
+            {"case": "config_client_spec/plain", "matrix": {"n": 1}},
+        ],
+    )
+    def test_invalid_test(self, cases_dir: Path, test: dict[str, object]) -> None:
+        """Should reject a test without a case or with malformed parameters."""
+        write_case(
+            cases_dir, case="config_client_spec/plain", source=named_case("Plain")
+        )
+        with pytest.raises(ValidationError):
+            load(cases_dir, sequence={"sequence_name": "bad", "tests": [test]})
+
+    def test_invalid_pool_size(self, cases_dir: Path) -> None:
+        """Should reject a pool size that is not an integer."""
+        cases_dir.mkdir(parents=True)
+        with pytest.raises(ValidationError, match="pool_size"):
+            load(cases_dir, sequence={"sequence_name": "bad", "pool_size": "two"})

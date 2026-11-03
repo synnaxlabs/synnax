@@ -13,6 +13,7 @@ import { Dialog } from "@synnaxlabs/lyra/dialog";
 import { Flex } from "@synnaxlabs/lyra/flex";
 import { Form } from "@synnaxlabs/lyra/form";
 import { Input } from "@synnaxlabs/lyra/input";
+import { type deep } from "@synnaxlabs/x";
 import { type ReactElement, type ReactNode } from "react";
 
 import {
@@ -28,6 +29,7 @@ import { CSS } from "@/platform/css";
 import { Task } from "@/platform/task";
 
 interface GridProps<C extends Channel> {
+  channelsPath: deep.Target<C[]>;
   model: Model;
   ports: Port[];
   channel: string;
@@ -36,6 +38,7 @@ interface GridProps<C extends Channel> {
 }
 
 const Grid = <C extends Channel>({
+  channelsPath,
   model,
   ports,
   channel,
@@ -43,7 +46,7 @@ const Grid = <C extends Channel>({
   onChange,
 }: GridProps<C>): ReactElement => {
   const { close } = Dialog.useContext();
-  const channels = Form.useFieldValue<C[]>("config.channels");
+  const channels = Form.useFieldValue(channelsPath);
   return (
     <PortBanks
       ports={ports}
@@ -59,6 +62,8 @@ const Grid = <C extends Channel>({
 };
 
 export interface PortPickerProps<C extends Channel> {
+  /** The path of the task's channels. */
+  channelsPath: deep.Target<C[]>;
   value: string;
   onChange: (port: string) => void;
   preview?: boolean;
@@ -78,6 +83,7 @@ export interface PortPickerProps<C extends Channel> {
  * of the device's ports of the channel's type, and a click on a port picks it.
  */
 export const PortPicker = <C extends Channel>({
+  channelsPath,
   value,
   onChange,
   preview,
@@ -101,6 +107,7 @@ export const PortPicker = <C extends Channel>({
       </Flex.Box>
       <Dialog.Dialog className={CSS.BE("labjack-port-picker", "dialog")}>
         <Grid<C>
+          channelsPath={channelsPath}
           model={model}
           ports={ports}
           channel={channel}
