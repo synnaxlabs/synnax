@@ -267,6 +267,112 @@ TEST(OnTest, TrimmedBatchKeepsItsTimeRange) {
     EXPECT_EQ(checker.output_time(0)->time_range, range);
 }
 
+TEST(OnTest, SkipsABatchTakenEntirelyBeforeEntry) {
+    types::Param output_param;
+    output_param.name = ir::default_output_param;
+    output_param.type.kind = types::Kind::F32;
+
+    ir::Node ir_node;
+    ir_node.key = "source";
+    ir_node.type = "on";
+    ir_node.outputs.push_back(output_param);
+
+    types::Param channel_config;
+    channel_config.name = "channel";
+    channel_config.type.kind = types::Kind::U32;
+    channel_config.value = static_cast<uint32_t>(10);
+    ir_node.inputs.push_back(channel_config);
+
+    ir::IR ir;
+    ir.nodes.push_back(ir_node);
+
+    runtime::state::Config cfg{.ir = ir, .channels = {{10, ::x::telem::FLOAT32_T, 11}}};
+    runtime::state::State s(cfg, runtime::errors::noop_handler);
+
+    channels::Module module(nullptr, nullptr);
+    auto state_node = ASSERT_NIL_P(s.node("source"));
+    auto node = ASSERT_NIL_P(
+        module.create(runtime::node::Config(ir, ir_node, std::move(state_node)))
+    );
+
+    bool changed = false;
+    auto ctx = make_context(&changed);
+    ctx.cycle.now = ::x::telem::TimeStamp(200);
+    node->reset(ctx);
+
+    ::x::telem::Frame frame1(2);
+    auto d1 = ::x::telem::Series(std::vector<float>{1.5f, 2.5f});
+    d1.alignment = ::x::telem::Alignment(0);
+    auto t1 = ::x::telem::Series(std::vector<int64_t>{100, 101});
+    t1.alignment = ::x::telem::Alignment(0);
+    frame1.emplace(10, std::move(d1));
+    frame1.emplace(11, std::move(t1));
+    s.ingest(frame1);
+
+    ::x::telem::Frame frame2(2);
+    auto d2 = ::x::telem::Series(3.5f);
+    d2.alignment = ::x::telem::Alignment(2);
+    auto t2 = ::x::telem::Series(static_cast<int64_t>(201));
+    t2.alignment = ::x::telem::Alignment(2);
+    frame2.emplace(10, std::move(d2));
+    frame2.emplace(11, std::move(t2));
+    s.ingest(frame2);
+
+    ASSERT_NIL(node->next(ctx));
+    EXPECT_TRUE(changed);
+    auto checker = ASSERT_NIL_P(s.node("source"));
+    const auto &output = checker.output(0);
+    ASSERT_EQ(output->size(), 1);
+    EXPECT_FLOAT_EQ(output->at<float>(0), 3.5f);
+    EXPECT_EQ(output->alignment, ::x::telem::Alignment(2));
+}
+
+TEST(OnTest, TrimsAStringBatchAtEntry) {
+    types::Param output_param;
+    output_param.name = ir::default_output_param;
+    output_param.type.kind = types::Kind::String;
+
+    ir::Node ir_node;
+    ir_node.key = "source";
+    ir_node.type = "on";
+    ir_node.outputs.push_back(output_param);
+
+    types::Param channel_config;
+    channel_config.name = "channel";
+    channel_config.type.kind = types::Kind::U32;
+    channel_config.value = static_cast<uint32_t>(12);
+    ir_node.inputs.push_back(channel_config);
+
+    ir::IR ir;
+    ir.nodes.push_back(ir_node);
+
+    runtime::state::Config cfg{.ir = ir, .channels = {{12, ::x::telem::STRING_T, 13}}};
+    runtime::state::State s(cfg, runtime::errors::noop_handler);
+
+    channels::Module module(nullptr, nullptr);
+    auto state_node = ASSERT_NIL_P(s.node("source"));
+    auto node = ASSERT_NIL_P(
+        module.create(runtime::node::Config(ir, ir_node, std::move(state_node)))
+    );
+
+    auto ctx = make_context();
+    ctx.cycle.now = ::x::telem::TimeStamp(101);
+    node->reset(ctx);
+
+    ::x::telem::Frame frame(2);
+    frame.emplace(12, ::x::telem::Series(std::vector<std::string>{"a", "b", "c"}));
+    frame.emplace(13, ::x::telem::Series(std::vector<int64_t>{100, 101, 102}));
+    s.ingest(frame);
+
+    ASSERT_NIL(node->next(ctx));
+    auto checker = ASSERT_NIL_P(s.node("source"));
+    const auto &output = checker.output(0);
+    ASSERT_EQ(output->size(), 2);
+    EXPECT_EQ(output->at<std::string>(0), "b");
+    EXPECT_EQ(output->at<std::string>(1), "c");
+    EXPECT_EQ(checker.output_time(0)->at<int64_t>(0), 101);
+}
+
 TEST(OnTest, NextHandlesChannelWithoutIndex) {
     types::Param output_param;
     output_param.name = ir::default_output_param;
