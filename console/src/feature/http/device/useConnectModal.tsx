@@ -10,6 +10,7 @@
 import "@/feature/http/device/Connect.css";
 
 import { type device, status, TimeSpan } from "@synnaxlabs/client";
+import { Flex } from "@synnaxlabs/lyra/flex";
 import { Form } from "@synnaxlabs/lyra/form";
 import { Icon } from "@synnaxlabs/lyra/icon";
 import { Modal } from "@synnaxlabs/lyra/modal";
@@ -232,7 +233,7 @@ export const Connect = ({
     if (next != null) setTab(next);
   };
   return (
-    <Modal.Frame className={CSS.B("http-connect")}>
+    <PlatformDevice.ConnectFrame className={CSS.B("http-connect")}>
       <Modal.Header icon={<Icon.Logo.HTTP />}>{HEADER}</Modal.Header>
       <Modal.Body gap="large" justify="start">
         <Form.Form<PDevice.FormSchema<typeof SCHEMAS>> {...form}>
@@ -324,7 +325,7 @@ export const Connect = ({
                     </>
                   )}
                   {authType === "basic" && (
-                    <>
+                    <Flex.Box x>
                       <Form.TextField
                         path={basic.username}
                         label="Username"
@@ -337,7 +338,7 @@ export const Connect = ({
                         padHelpText={false}
                         inputProps={AUTH_PASSWORD_INPUT_PROPS}
                       />
-                    </>
+                    </Flex.Box>
                   )}
                 </Form.Section>
               </Form.Sections>
@@ -449,7 +450,6 @@ export const Connect = ({
                     label="Timeout"
                     unit={TimeSpan.MILLISECOND}
                     padHelpText={false}
-                    inputProps={TIMEOUT_INPUT_PROPS}
                   />
                   <Form.NumericField
                     path={path.properties.maxConcurrentRequests}
@@ -470,7 +470,7 @@ export const Connect = ({
         onConnect={() => void handleConnect()}
         onBack={onBack}
       />
-    </Modal.Frame>
+    </PlatformDevice.ConnectFrame>
   );
 };
 
@@ -497,11 +497,8 @@ const NAME_INPUT_PROPS = {
 
 const HOST_INPUT_PROPS = { autoFocus: true, placeholder: "www.example.com" } as const;
 
-const TIMEOUT_INPUT_PROPS = { style: { width: "23rem" } } as const;
-
 const MAX_CONCURRENT_REQUESTS_INPUT_PROPS = {
   bounds: { lower: 1, upper: Infinity },
-  style: { width: "23rem" },
 } as const;
 
 const AUTH_TOKEN_INPUT_PROPS = {

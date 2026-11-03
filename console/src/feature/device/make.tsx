@@ -15,6 +15,7 @@ import { z } from "zod";
 import { useConfigureModal as useConfigureHardwareModal } from "@/feature/device/Configure";
 import { EtherCAT } from "@/feature/ethercat";
 import { HTTP } from "@/feature/http";
+import { Kafka } from "@/feature/kafka";
 import { LabJack } from "@/feature/labjack";
 import { Modbus } from "@/feature/modbus";
 import { MQTT } from "@/feature/mqtt";
@@ -27,6 +28,7 @@ import { type Tree } from "@/platform/tree";
 export const makeZ = z.enum([
   EtherCAT.Device.MAKE,
   HTTP.Device.MAKE,
+  Kafka.Device.MAKE,
   LabJack.Device.MAKE,
   Modbus.Device.MAKE,
   MQTT.Device.MAKE,
@@ -44,6 +46,7 @@ export const getMake = (make: unknown): Make | null => {
 const MAKE_ICONS: Record<Make, Icon.ReactElement> = {
   [EtherCAT.Device.MAKE]: <Icon.Logo.EtherCAT />,
   [HTTP.Device.MAKE]: <Icon.Logo.HTTP />,
+  [Kafka.Device.MAKE]: <Icon.Logo.Kafka />,
   [LabJack.Device.MAKE]: <Icon.Logo.LabJack />,
   [Modbus.Device.MAKE]: <Icon.Logo.Modbus />,
   [MQTT.Device.MAKE]: <Icon.Logo.MQTT />,
@@ -63,6 +66,7 @@ export const getIcon = (make: Make | null) =>
 export const useConfigureModal = (): ((make: Make, deviceKey: device.Key) => void) => {
   const configure = useConfigureHardwareModal();
   const http = HTTP.Device.useConnectModal();
+  const kafka = Kafka.Device.useConnectModal();
   const modbus = Modbus.Device.useConnectModal();
   const mqtt = MQTT.Device.useConnectModal();
   const opcua = OPCUA.Device.useConnectModal();
@@ -71,6 +75,7 @@ export const useConfigureModal = (): ((make: Make, deviceKey: device.Key) => voi
       [EtherCAT.Device.MAKE]: ({ deviceKey }) =>
         configure({ deviceKey, integration: EtherCAT.Device.INTEGRATION }),
       [HTTP.Device.MAKE]: ({ deviceKey }) => void http({ deviceKey }),
+      [Kafka.Device.MAKE]: ({ deviceKey }) => void kafka({ deviceKey }),
       [LabJack.Device.MAKE]: ({ deviceKey }) =>
         configure({ deviceKey, integration: LabJack.Device.INTEGRATION }),
       [Modbus.Device.MAKE]: ({ deviceKey }) => void modbus({ deviceKey }),
@@ -89,6 +94,7 @@ const CONTEXT_MENU_ITEMS: Record<
 > = {
   [EtherCAT.Device.MAKE]: EtherCAT.Device.ContextMenuItems,
   [HTTP.Device.MAKE]: HTTP.Device.ContextMenuItems,
+  [Kafka.Device.MAKE]: Kafka.Device.ContextMenuItems,
   [LabJack.Device.MAKE]: LabJack.Device.ContextMenuItems,
   [Modbus.Device.MAKE]: Modbus.Device.ContextMenuItems,
   [MQTT.Device.MAKE]: MQTT.Device.ContextMenuItems,
