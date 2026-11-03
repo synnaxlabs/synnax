@@ -61,5 +61,5 @@ pythonpath = ["."]
 norecursedirs = ["runners"]
 
 [tool.coverage.run]
-# The runners CI job measures its own workspace member.
-omit = ["runners/*", "tests/*"]
+# The runners CI job measures its own workspace member. common holds test helpers.
+omit = ["common/*", "runners/*", "tests/*"]

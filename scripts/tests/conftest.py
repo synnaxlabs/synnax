@@ -12,7 +12,7 @@ import subprocess
 from pathlib import Path
 
 import pytest
-from scripts_common.testutil import FakeGH
+from scripts_common import FakeGH
 
 SCRIPT = Path(__file__).resolve().parents[1] / "dispatch_agent_task.sh"
 

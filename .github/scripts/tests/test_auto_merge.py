@@ -14,7 +14,7 @@ from pathlib import Path
 from typing import Any
 
 import pytest
-from scripts_common.testutil import FakeGH
+from scripts_common import FakeGH
 
 SCRIPT = Path(__file__).resolve().parents[1] / "auto_merge.sh"
 BOT = "synnax-claude-code[bot]"
