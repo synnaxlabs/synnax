@@ -13,7 +13,7 @@ import { Select } from "@synnaxlabs/lyra/select";
 import { deep, type record } from "@synnaxlabs/x";
 import { type FC } from "react";
 
-import { AI_PORT_TYPE, type Model, PORTS } from "@/feature/labjack/device/types";
+import { Device } from "@/feature/labjack/device";
 import {
   AIR_CJC_SOURCE,
   DEVICE_CJC_SOURCE,
@@ -145,11 +145,11 @@ interface SelectCJCSourceFieldProps extends Omit<
   Select.SingleSimpleProps<string>,
   "children" | "resourceName"
 > {
-  model: Model;
+  model: Device.Model;
 }
 
 const SelectCJCSourceField = ({ model, ...rest }: SelectCJCSourceFieldProps) => {
-  const ports: record.KeyedNamed[] = PORTS[model][AI_PORT_TYPE];
+  const ports: record.KeyedNamed[] = Device.PORTS[model][Device.AI_PORT_TYPE];
   return (
     <Select.Simple<string> allowNone={false} {...rest} resourceName="CJC source">
       <Select.Item itemKey={DEVICE_CJC_SOURCE}>Device</Select.Item>
@@ -165,7 +165,7 @@ const SelectCJCSourceField = ({ model, ...rest }: SelectCJCSourceFieldProps) => 
 
 interface FormProps {
   path: deep.Path<ReadChannel>;
-  deviceModel: Model;
+  deviceModel: Device.Model;
 }
 
 /** The signal fields for each channel type, or null for a type that has none. */

@@ -7,5 +7,6 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
+export * from "@/feature/ethercat/ContextMenuItems";
 export * from "@/feature/ethercat/device";
 export * from "@/feature/ethercat/task";

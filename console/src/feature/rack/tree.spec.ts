@@ -45,10 +45,10 @@ const createNIRackWithScanner = async () => {
   const scanTask = await r.createTask(
     {
       name: uniqueName("ni_scanner"),
-      type: NI.Task.SCAN_TYPE,
+      type: NI.Device.SCAN_TYPE,
       config: ni.scanConfigZ.parse({}),
     },
-    NI.Task.SCAN_SCHEMAS,
+    NI.Device.SCAN_SCHEMAS,
   );
   return { rack: r, scanTask };
 };
@@ -151,7 +151,7 @@ describe("rack ontology service", () => {
     await waitFor(async () => {
       const after = await client.tasks.retrieve({
         key: scanTask.key,
-        schemas: NI.Task.SCAN_SCHEMAS,
+        schemas: NI.Device.SCAN_SCHEMAS,
       });
       expect(after.config.disabled).toBe(!scanTask.config.disabled);
     });

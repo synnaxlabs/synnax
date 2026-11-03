@@ -15,9 +15,7 @@ import { Icon } from "@synnaxlabs/lyra/icon";
 import { deep, errors, primitive } from "@synnaxlabs/x";
 import { type FC } from "react";
 
-import { useFromConfig } from "@/feature/ni/device/queries";
-import { Select } from "@/feature/ni/device/Select";
-import { MAKE, SCHEMAS } from "@/feature/ni/device/types";
+import { Device } from "@/feature/ni/device";
 import { AOChannelForm } from "@/feature/ni/task/AOChannelForm";
 import { analogWriteHardwareZ } from "@/feature/ni/task/checks";
 import { createNextAOChannel } from "@/feature/ni/task/createChannel";
@@ -46,7 +44,7 @@ const root = deep.path<Task.Values<AnalogWriteSchemas>>();
 
 const Properties = () => (
   <>
-    <Select />
+    <Device.Select />
     <Flex.Box x>
       <Task.Fields.StateUpdateRate />
     </Flex.Box>
@@ -57,7 +55,7 @@ const ChannelListItem = (props: Task.ChannelListItemProps) => {
   const { itemKey } = props;
   const entry = root.config.channels[itemKey];
   const item = PForm.useFieldValue(entry);
-  const device = useFromConfig();
+  const device = Device.useFromConfig();
   if (item == null) return null;
   const { port, cmdChannel, stateChannel, type } = item;
   const Icon = AO_CHANNEL_TYPE_ICONS[type];
@@ -90,7 +88,7 @@ const channelDetails = Component.renderProp(ChannelDetails);
 const DetailsTitle = ({ path }: Task.Views.DetailsProps<AOChannel>) => {
   const value = PForm.useFieldValue(path);
   const channels = PForm.useFieldValue(root.config.channels);
-  const device = useFromConfig();
+  const device = Device.useFromConfig();
   const Icon = AO_CHANNEL_TYPE_ICONS[value.type];
   return (
     <Title
@@ -112,7 +110,7 @@ const detailsTitle = Component.renderProp(DetailsTitle);
 const channelListItem = Component.renderProp(ChannelListItem);
 
 const Form: FC = () => {
-  const dev = useFromConfig();
+  const dev = Device.useFromConfig();
   PForm.useCheck(root.config, analogWriteHardwareZ(dev));
   const resolve = (ch: AOChannel) => {
     if (dev == null) return null;
@@ -163,7 +161,7 @@ const onConfigure: Task.OnConfigure<typeof analogWriteConfigZ> = async (
 ) => {
   const dev = await client.devices.retrieve({
     key: config.device,
-    schemas: SCHEMAS,
+    schemas: Device.SCHEMAS,
   });
   PlatformDevice.checkConfigured(dev);
   let modified = false;
@@ -257,7 +255,7 @@ const onConfigure: Task.OnConfigure<typeof analogWriteConfigZ> = async (
       });
     }
   } finally {
-    if (modified) await client.devices.create(dev, SCHEMAS);
+    if (modified) await client.devices.create(dev, Device.SCHEMAS);
   }
   config.channels = config.channels.map((c) => {
     const pair = dev.properties.analogOutput.channels[c.port.toString()];
@@ -277,7 +275,7 @@ export const AnalogWrite = Task.wrapForm({
 
 export const useCreateAnalogWrite = Task.createUseCreate({
   getInitialValues,
-  deviceMake: MAKE,
+  deviceMake: Device.MAKE,
 });
 
 export const AnalogWriteSelectable = Selector.createSelectable({

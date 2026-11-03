@@ -14,19 +14,7 @@ import { Icon } from "@synnaxlabs/lyra/icon";
 import { deep, errors, id, primitive } from "@synnaxlabs/x";
 import { type FC } from "react";
 
-import { use } from "@/feature/labjack/device/queries";
-import { Select } from "@/feature/labjack/device/Select";
-import {
-  AI_PORT_TYPE,
-  type AIPort,
-  type Device,
-  DI_PORT_TYPE,
-  type DIPort,
-  MAKE,
-  type Model,
-  PORTS,
-  SCHEMAS,
-} from "@/feature/labjack/device/types";
+import { Device } from "@/feature/labjack/device";
 import { uniqueTerminalsZ } from "@/feature/labjack/task/checks";
 import {
   convertPortTypeToReadChannelType,
@@ -59,7 +47,7 @@ const root = deep.path<Task.Values<ReadSchemas>>();
 
 const Properties = () => (
   <>
-    <Select />
+    <Device.Select />
     <Flex.Box x>
       <Task.Fields.SampleRate />
       <Task.Fields.StreamRate />
@@ -75,7 +63,7 @@ const channelName = (
 
 interface ChannelListItemProps extends Task.ChannelListItemProps {
   onTare: (channelKey: channel.Key) => void;
-  model: Model;
+  model: Device.Model;
   /** The device's identifier, escaped for channel names. */
   identifier: string;
 }
@@ -112,7 +100,7 @@ const ChannelListItem = ({
 };
 
 interface DetailsTitleProps extends Task.Views.DetailsProps<ReadChannel> {
-  model: Model;
+  model: Device.Model;
 }
 
 const DetailsTitle = ({ path, model }: DetailsTitleProps) => {
@@ -126,7 +114,7 @@ const DetailsTitle = ({ path, model }: DetailsTitleProps) => {
 };
 
 interface ChannelDetailsProps extends Task.Views.DetailsProps<ReadChannel> {
-  device: Device;
+  device: Device.Device;
 }
 
 const ChannelDetails = ({ path, device }: ChannelDetailsProps) => {
@@ -156,7 +144,7 @@ const ChannelDetails = ({ path, device }: ChannelDetailsProps) => {
               );
               nextPort = (
                 getOpenPort(others, model, [nextPortType]) ??
-                PORTS[model][nextPortType][0]
+                Device.PORTS[model][nextPortType][0]
               ).key;
             }
             set(path, {
@@ -198,7 +186,7 @@ const createFirstChannel = (): ReadChannel => ({
  * the port, which keeps a thermocouple a thermocouple on an AI port.
  */
 const createChannelOn = (
-  port: AIPort | DIPort,
+  port: Device.AIPort | Device.DIPort,
   template?: ReadChannel,
 ): ReadChannel => {
   const type =
@@ -223,20 +211,23 @@ const createChannelOn = (
  */
 const createNextChannel = (
   channels: ReadChannel[],
-  model: Model,
+  model: Device.Model,
   copy?: string,
 ): ReadChannel | null => {
   const template = copy == null ? undefined : channels.find(({ key }) => key === copy);
   if (copy != null && template == null) return null;
   const preferred =
-    template == null ? AI_PORT_TYPE : convertReadChannelTypeToPortType(template.type);
-  const backup = preferred === DI_PORT_TYPE ? AI_PORT_TYPE : DI_PORT_TYPE;
+    template == null
+      ? Device.AI_PORT_TYPE
+      : convertReadChannelTypeToPortType(template.type);
+  const backup =
+    preferred === Device.DI_PORT_TYPE ? Device.AI_PORT_TYPE : Device.DI_PORT_TYPE;
   const port = getOpenPort(channels, model, [preferred, backup]);
   return port == null ? null : createChannelOn(port, template);
 };
 
 interface ChannelsFormProps {
-  device: Device;
+  device: Device.Device;
 }
 
 const isChannelTareable = (channel: ReadChannel) => channel.type === "analog";
@@ -268,10 +259,13 @@ const ChannelsForm = ({ device }: ChannelsFormProps) => {
     <DetailsTitle {...p} model={model} />
   );
   const ports = (p: Task.Views.PortsProps<ReadChannel>) => (
-    <PortsView<ReadChannel, AIPort | DIPort>
+    <PortsView<ReadChannel, Device.AIPort | Device.DIPort>
       {...p}
       model={model}
-      ports={[...PORTS[model][AI_PORT_TYPE], ...PORTS[model][DI_PORT_TYPE]]}
+      ports={[
+        ...Device.PORTS[model][Device.AI_PORT_TYPE],
+        ...Device.PORTS[model][Device.DI_PORT_TYPE],
+      ]}
       create={(channels, port) =>
         createChannelOn(
           port,
@@ -298,7 +292,7 @@ const ChannelsForm = ({ device }: ChannelsFormProps) => {
 };
 
 const Form: FC = PlatformDevice.wrapTaskForm({
-  use,
+  use: Device.use,
   useConfigure,
   Content: ChannelsForm,
 });
@@ -316,7 +310,7 @@ const getInitialValues: Task.GetInitialValues<ReadSchemas> = ({
 const onConfigure: Task.OnConfigure<ReadSchemas["config"]> = async (client, config) => {
   const dev = await client.devices.retrieve({
     key: config.device,
-    schemas: SCHEMAS,
+    schemas: Device.SCHEMAS,
   });
   PlatformDevice.checkConfigured(dev);
   let shouldCreateIndex = false;
@@ -374,7 +368,7 @@ const onConfigure: Task.OnConfigure<ReadSchemas["config"]> = async (client, conf
       });
     }
   } finally {
-    if (modified) await client.devices.create(dev, SCHEMAS);
+    if (modified) await client.devices.create(dev, Device.SCHEMAS);
   }
   config.channels.forEach(
     (c) =>
@@ -395,7 +389,7 @@ export const Read = Task.wrapForm({
 
 export const useCreateRead = Task.createUseCreate({
   getInitialValues,
-  deviceMake: MAKE,
+  deviceMake: Device.MAKE,
 });
 
 export const ReadSelectable = Selector.createSelectable({

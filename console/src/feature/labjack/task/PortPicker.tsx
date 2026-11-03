@@ -16,12 +16,7 @@ import { Input } from "@synnaxlabs/lyra/input";
 import { type deep } from "@synnaxlabs/x";
 import { type ReactElement, type ReactNode } from "react";
 
-import {
-  type Model,
-  type Port,
-  PORTS,
-  type PortType,
-} from "@/feature/labjack/device/types";
+import { Device } from "@/feature/labjack/device";
 import { PortBanks } from "@/feature/labjack/task/PortBanks";
 import { claims, terminal } from "@/feature/labjack/task/ports";
 import { type Channel } from "@/feature/labjack/task/types";
@@ -30,8 +25,8 @@ import { Task } from "@/platform/task";
 
 interface GridProps<C extends Channel> {
   channelsPath: deep.Target<C[]>;
-  model: Model;
-  ports: Port[];
+  model: Device.Model;
+  ports: Device.Port[];
   channel: string;
   name: (channel: C) => string;
   onChange: (port: string) => void;
@@ -67,8 +62,8 @@ export interface PortPickerProps<C extends Channel> {
   value: string;
   onChange: (port: string) => void;
   preview?: boolean;
-  model: Model;
-  type: PortType;
+  model: Device.Model;
+  type: Device.PortType;
   /** The key of the channel whose port it is. */
   channel: string;
   /** The name a channel shows by. */
@@ -94,7 +89,7 @@ export const PortPicker = <C extends Channel>({
   children,
   className,
 }: PortPickerProps<C>): ReactElement => {
-  const ports = PORTS[model][type];
+  const ports = Device.PORTS[model][type];
   const port = ports.find(({ key }) => key === value);
   const itemStatus = Input.useItemStatus({});
   return (

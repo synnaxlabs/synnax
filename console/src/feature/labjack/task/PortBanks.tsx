@@ -11,7 +11,7 @@ import { Flex } from "@synnaxlabs/lyra/flex";
 import { Text } from "@synnaxlabs/lyra/text";
 import { type MouseEvent, type ReactElement } from "react";
 
-import { type Port } from "@/feature/labjack/device/types";
+import { type Device } from "@/feature/labjack/device";
 import {
   banks,
   groups,
@@ -21,7 +21,7 @@ import {
 import { Task } from "@/platform/task";
 
 export interface PortBanksProps extends Omit<GroupsProps, "bank"> {
-  ports: Port[];
+  ports: Device.Port[];
   onClick: (cell: Task.Port.Cell) => void;
   /** Opens a menu over a free port. */
   onContextMenu?: (e: MouseEvent) => void;

@@ -16,15 +16,7 @@ import { Menu } from "@synnaxlabs/lyra/menu";
 import { Text } from "@synnaxlabs/lyra/text";
 import { type ReactElement } from "react";
 
-import {
-  AI_PORT_TYPE,
-  AO_PORT_TYPE,
-  DI_PORT_TYPE,
-  DO_PORT_TYPE,
-  type Model,
-  type Port,
-  type PortType,
-} from "@/feature/labjack/device/types";
+import { Device } from "@/feature/labjack/device";
 import { PortBanks } from "@/feature/labjack/task/PortBanks";
 import { claims, terminal } from "@/feature/labjack/task/ports";
 import { type Channel } from "@/feature/labjack/task/types";
@@ -32,15 +24,15 @@ import { ContextMenu } from "@/platform/context-menu";
 import { CSS } from "@/platform/css";
 import { Task } from "@/platform/task";
 
-const TITLES: Record<PortType, string> = {
-  [AI_PORT_TYPE]: "Analog inputs",
-  [AO_PORT_TYPE]: "Analog outputs",
-  [DI_PORT_TYPE]: "Digital inputs",
-  [DO_PORT_TYPE]: "Digital outputs",
+const TITLES: Record<Device.PortType, string> = {
+  [Device.AI_PORT_TYPE]: "Analog inputs",
+  [Device.AO_PORT_TYPE]: "Analog outputs",
+  [Device.DI_PORT_TYPE]: "Digital inputs",
+  [Device.DO_PORT_TYPE]: "Digital outputs",
 };
 
-interface SectionProps<P extends Port> {
-  type: PortType;
+interface SectionProps<P extends Device.Port> {
+  type: Device.PortType;
   ports: P[];
   claims: Task.Port.Claims;
   selected: string[];
@@ -54,7 +46,7 @@ interface SectionProps<P extends Port> {
  * The ports of one type and how many hold channels, over their banks. A right click on
  * a free port offers "Add channel", and one on the title adds on the lowest free port.
  */
-const Section = <P extends Port>({
+const Section = <P extends Device.Port>({
   type,
   ports,
   claims,
@@ -118,9 +110,9 @@ const Section = <P extends Port>({
   );
 };
 
-export interface PortsViewProps<C extends Channel, P extends Port> extends Task.Views
-  .PortsProps<C> {
-  model: Model;
+export interface PortsViewProps<C extends Channel, P extends Device.Port> extends Task
+  .Views.PortsProps<C> {
+  model: Device.Model;
   /** The ports the task's channels can use. Each type shows in a section of its own. */
   ports: P[];
   create: (channels: C[], port: P) => C;
@@ -133,7 +125,7 @@ export interface PortsViewProps<C extends Channel, P extends Port> extends Task.
  * ports by bank. A click on a used port selects its channel, and a click on a free port
  * adds a channel on it.
  */
-export const PortsView = <C extends Channel, P extends Port>({
+export const PortsView = <C extends Channel, P extends Device.Port>({
   path,
   model,
   ports,

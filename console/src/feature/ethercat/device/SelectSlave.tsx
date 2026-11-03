@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { type device } from "@synnaxlabs/client";
+import { type device, type ethercat } from "@synnaxlabs/client";
 import { Form } from "@synnaxlabs/lyra/form";
 import { deep } from "@synnaxlabs/x";
 import { type ReactElement } from "react";
@@ -19,10 +19,11 @@ import {
   SLAVE_MODEL,
   type SlaveProperties,
 } from "@/feature/ethercat/device/types";
-import { type Channel } from "@/feature/ethercat/task/types";
 import { Device } from "@/platform/device";
 
-const root = deep.path<{ config: { channels: Channel[] } }>();
+const root = deep.path<{
+  config: { channels: (ethercat.ReadChannel | ethercat.WriteChannel)[] };
+}>();
 
 export interface SelectSlaveProps {
   /** Path to the slave device field in the form. */

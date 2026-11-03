@@ -14,7 +14,7 @@ import { Select } from "@synnaxlabs/lyra/select";
 import { type deep } from "@synnaxlabs/x";
 import { type FC } from "react";
 
-import { useFromConfig } from "@/feature/ni/device/queries";
+import { Device } from "@/feature/ni/device";
 import { createTypeFields } from "@/feature/ni/task/createTypeFields";
 import { CustomScaleSection } from "@/feature/ni/task/CustomScaleForm";
 import { MinMaxValueFields } from "@/feature/ni/task/MinMaxValueFields";
@@ -107,7 +107,7 @@ export interface AOChannelFormProps {
 const TypeFields = createTypeFields<AOChannel>(CHANNEL_FORMS);
 
 export const AOChannelForm = ({ type, path, channelsPath }: AOChannelFormProps) => {
-  const device = useFromConfig();
+  const device = Device.useFromConfig();
   const port = Form.useFieldValue(path.port);
   const entry = device?.properties.hardware?.analogOutputs.find((p) => p.port === port);
   const types = allowedTypes(AO_CHANNEL_TYPES, type, entry);

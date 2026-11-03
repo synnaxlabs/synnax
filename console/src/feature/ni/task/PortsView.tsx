@@ -18,7 +18,7 @@ import { Text } from "@synnaxlabs/lyra/text";
 import { Device as PDevice } from "@synnaxlabs/pluto";
 import { type MouseEvent, type ReactElement, type ReactNode } from "react";
 
-import { type Device, MAKE } from "@/feature/ni/device/types";
+import { Device } from "@/feature/ni/device";
 import { type LinePlacement } from "@/feature/ni/task/createChannel";
 import {
   claimsOf,
@@ -38,7 +38,7 @@ const DEVICE_MENU_KEY = "device";
 const lineKey = (port: number, line: number): string => `${port}/${line}`;
 
 interface DeviceSectionProps {
-  device: Device;
+  device: Device.Device;
   /** What the device's ports hold, such as "3 of 16 ports used". */
   usage: string;
   editable: boolean;
@@ -110,7 +110,7 @@ interface DevicePortsProps<C extends Task.Channel> extends Omit<
   Task.Views.PortsProps<C>,
   "path"
 > {
-  device: Device;
+  device: Device.Device;
   kind: PortKind<C>;
   channels: C[];
   editable: boolean;
@@ -178,9 +178,12 @@ const AddDevice = ({ rack, exclude, onAdd }: AddDeviceProps): ReactElement => (
   <PDevice.SelectSingle
     value={undefined}
     onChange={(key: device.Key) => onAdd(key)}
-    initialQuery={{ makes: [MAKE], racks: [rack] }}
+    initialQuery={{ makes: [Device.MAKE], racks: [rack] }}
     filter={(d) =>
-      d.make === MAKE && d.rack === rack && d.configured && !exclude.includes(d.key)
+      d.make === Device.MAKE &&
+      d.rack === rack &&
+      d.configured &&
+      !exclude.includes(d.key)
     }
     emptyContent="No other NI devices on this rack"
     className={CSS.BE("ni-ports", "add")}
@@ -202,7 +205,7 @@ export interface PortsViewProps<C extends Task.Channel> extends Task.Views
   .PortsProps<C> {
   kind: PortKind<C>;
   /** The devices the task uses. They show in the order of their first channels. */
-  devices: Device[];
+  devices: Device.Device[];
   deviceOf: (channel: C) => device.Key;
   /** Creates a channel on the device, on the port or the lowest free one. */
   create: (channels: C[], device: device.Key, port?: number) => C;
@@ -273,12 +276,12 @@ export const PortsView = <C extends Task.Channel>({
 
 export interface LinesViewProps<C extends DigitalChannel> extends Task.Views
   .PortsProps<C> {
-  device: Device;
+  device: Device.Device;
   direction: "input" | "output";
   /** Creates a channel on the line, or on the lowest free line. */
   create: (channels: C[], placement: LinePlacement) => C;
   /** The name a channel shows by. */
-  name: (channel: C, device: Device) => string;
+  name: (channel: C, device: Device.Device) => string;
 }
 
 /**

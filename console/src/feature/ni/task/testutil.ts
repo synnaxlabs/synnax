@@ -14,13 +14,7 @@ import { waitFor } from "@testing-library/react";
 import { type FC } from "react";
 import { expect } from "vitest";
 
-import {
-  type Device,
-  MAKE,
-  type Properties,
-  SCHEMAS,
-  ZERO_PROPERTIES,
-} from "@/feature/ni/device/types";
+import { Device } from "@/feature/ni/device";
 import { type Task } from "@/platform/task";
 import {
   awaitEditableForm,
@@ -30,10 +24,10 @@ import {
 } from "@/platform/task/testutil";
 import { uniqueName } from "@/testutil";
 
-type New = device.New<typeof SCHEMAS.properties, typeof SCHEMAS.make>;
+type New = device.New<typeof Device.SCHEMAS.properties, typeof Device.SCHEMAS.make>;
 
 export interface CreateNIDeviceOptions extends Partial<Omit<New, "properties">> {
-  properties?: Partial<Properties>;
+  properties?: Partial<Device.Properties>;
 }
 
 /**
@@ -43,7 +37,7 @@ export interface CreateNIDeviceOptions extends Partial<Omit<New, "properties">> 
 export const createNIDevice = async (
   client: Synnax,
   { properties, ...overrides }: CreateNIDeviceOptions = {},
-): Promise<Device> => {
+): Promise<Device.Device> => {
   const rack = await client.racks.create({ name: uniqueName("ni_rack") });
   const dev = await client.devices.create(
     {
@@ -51,18 +45,18 @@ export const createNIDevice = async (
       name: uniqueName("ni_dev"),
       rack: rack.key,
       location: "Dev1",
-      make: MAKE,
+      make: Device.MAKE,
       model: "TEST-MODEL",
       configured: true,
-      properties: { ...ZERO_PROPERTIES, identifier: id.create(), ...properties },
+      properties: { ...Device.ZERO_PROPERTIES, identifier: id.create(), ...properties },
       ...overrides,
     },
-    SCHEMAS,
+    Device.SCHEMAS,
   );
   // Core metadata is eventually consistent; wait until the device is retrievable so
   // task configuration flows see it.
   await waitFor(async () => {
-    await client.devices.retrieve({ key: dev.key, schemas: SCHEMAS });
+    await client.devices.retrieve({ key: dev.key, schemas: Device.SCHEMAS });
   });
   return dev;
 };

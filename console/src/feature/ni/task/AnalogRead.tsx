@@ -15,8 +15,7 @@ import { Icon } from "@synnaxlabs/lyra/icon";
 import { deep, errors, primitive, strings, unique } from "@synnaxlabs/x";
 import { type FC } from "react";
 
-import { useByKeys } from "@/feature/ni/device/queries";
-import { type Device, MAKE, SCHEMAS } from "@/feature/ni/device/types";
+import { Device } from "@/feature/ni/device";
 import { AIChannelForm } from "@/feature/ni/task/AIChannelForm";
 import { analogReadHardwareZ } from "@/feature/ni/task/checks";
 import { createNextAIChannel } from "@/feature/ni/task/createChannel";
@@ -124,12 +123,12 @@ const detailsTitle = Component.renderProp(DetailsTitle);
 
 const deviceOf = (c: AIChannel) => c.device;
 
-const hasPortList = (devices: Device[]): boolean =>
+const hasPortList = (devices: Device.Device[]): boolean =>
   devices.some(({ properties }) => properties.hardware != null);
 
 const Form: FC = () => {
   const [tare, allowTare, handleTare] = Task.useTare<AIChannel>();
-  const devices = useByKeys(Task.useChannelDeviceKeys(root.config.channels));
+  const devices = Device.useByKeys(Task.useChannelDeviceKeys(root.config.channels));
   PForm.useCheck(root.config, analogReadHardwareZ(devices ?? []));
   const resolve = (ch: AIChannel) => {
     const dev = devices?.find(({ key }) => key === ch.device);
@@ -201,7 +200,7 @@ const onConfigure: Task.OnConfigure<typeof analogReadConfigZ> = async (
   let rackKey: rack.Key | undefined;
   const allDevices = await client.devices.retrieve({
     keys: devices,
-    schemas: SCHEMAS,
+    schemas: Device.SCHEMAS,
   });
   const racks = new Set(allDevices.map((d) => d.rack));
   if (racks.size > 1) {
@@ -268,7 +267,7 @@ const onConfigure: Task.OnConfigure<typeof analogReadConfigZ> = async (
         });
       }
     } finally {
-      if (modified) await client.devices.create(dev, SCHEMAS);
+      if (modified) await client.devices.create(dev, Device.SCHEMAS);
     }
     config.channels.forEach((c) => {
       if (c.device !== dev.key) return;
@@ -290,7 +289,7 @@ export const AnalogRead = Task.wrapForm({
 
 export const useCreateAnalogRead = Task.createUseCreate({
   getInitialValues,
-  deviceMake: MAKE,
+  deviceMake: Device.MAKE,
 });
 
 export const AnalogReadSelectable = Selector.createSelectable({

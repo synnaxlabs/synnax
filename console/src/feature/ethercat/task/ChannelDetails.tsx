@@ -15,8 +15,7 @@ import { deep, primitive } from "@synnaxlabs/x";
 import { type FC } from "react";
 import { type z } from "zod";
 
-import { useResultSlave } from "@/feature/ethercat/device/queries";
-import { SelectSlave } from "@/feature/ethercat/device/SelectSlave";
+import { Device } from "@/feature/ethercat/device";
 import { SelectEntryField } from "@/feature/ethercat/task/SelectEntryField";
 import {
   type Channel,
@@ -50,7 +49,7 @@ const ChannelDetails: FC<ChannelDetailsProps> = ({ path, pdoType, schema }) => {
   return (
     <PForm.Sections>
       <PForm.Section title="Source">
-        <SelectSlave path={path.device} />
+        <Device.SelectSlave path={path.device} />
       </PForm.Section>
       <PForm.Section title="Entry">
         <SelectEntryField path={path} pdoType={pdoType} schema={schema} />
@@ -84,7 +83,7 @@ interface DetailsTitleProps {
 
 const DetailsTitle: FC<DetailsTitleProps> = ({ path, pdoType }) => {
   const ch = PForm.useFieldValue(path);
-  const { data: slave } = useResultSlave(
+  const { data: slave } = Device.useResultSlave(
     primitive.isZero(ch.device) ? null : { key: ch.device },
   );
   let title = getPortLabel(ch);

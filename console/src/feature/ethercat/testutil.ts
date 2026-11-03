@@ -10,21 +10,8 @@
 import { type ethercat, type Synnax } from "@synnaxlabs/client";
 import { id } from "@synnaxlabs/x";
 
-import {
-  MAKE,
-  type PDOs,
-  SLAVE_MODEL,
-  SLAVE_SCHEMAS,
-  type SlaveDevice,
-  type SlaveProperties,
-  ZERO_SLAVE_PROPERTIES,
-} from "@/feature/ethercat/device/types";
-import {
-  type EntryReadChannel,
-  type EntryWriteChannel,
-  READ_CHANNEL_SCHEMAS,
-  WRITE_CHANNEL_SCHEMAS,
-} from "@/feature/ethercat/task/types";
+import { Device } from "@/feature/ethercat/device";
+import { Task } from "@/feature/ethercat/task";
 
 /** Builds a Core-safe device identifier (2-12 chars, letter first). */
 export const createIdentifier = (): string =>
@@ -47,7 +34,7 @@ export const CONTROL_ENTRY: ethercat.PDOEntry = {
 };
 
 /** Builds a PDO set with one input ("Status") and one output ("Control") entry. */
-export const createPDOs = (): PDOs => ({
+export const createPDOs = (): Device.PDOs => ({
   inputs: [STATUS_ENTRY],
   outputs: [CONTROL_ENTRY],
 });
@@ -57,7 +44,7 @@ export const createPDOs = (): PDOs => ({
  * eight one-bit entries per direction that share one name, told apart by their PDO
  * names ("Channel 1" to "Channel 8") and addresses (0x6000:01 to 0x6070:01).
  */
-export const createRepeatedNamePDOs = (): PDOs => {
+export const createRepeatedNamePDOs = (): Device.PDOs => {
   const channels = Array.from({ length: 8 }, (_, i) => i);
   const entry = (name: string, base: number, i: number): ethercat.PDOEntry => ({
     name,
@@ -77,9 +64,9 @@ export const createRepeatedNamePDOs = (): PDOs => {
 export const createEntryReadChannel = (
   device: string,
   { index, subIndex, dataType }: ethercat.PDOEntry,
-  overrides: Partial<EntryReadChannel> = {},
-): EntryReadChannel =>
-  READ_CHANNEL_SCHEMAS.entry.parse({
+  overrides: Partial<Task.EntryReadChannel> = {},
+): Task.EntryReadChannel =>
+  Task.READ_CHANNEL_SCHEMAS.entry.parse({
     type: "entry",
     device,
     index,
@@ -94,7 +81,7 @@ export const createUnresolvedReadChannel = (
   pdo: string,
   overrides: Partial<ethercat.UnresolvedReadChannel> = {},
 ): ethercat.UnresolvedReadChannel =>
-  READ_CHANNEL_SCHEMAS.unresolved.parse({
+  Task.READ_CHANNEL_SCHEMAS.unresolved.parse({
     type: "unresolved",
     device,
     pdo,
@@ -105,9 +92,9 @@ export const createUnresolvedReadChannel = (
 export const createEntryWriteChannel = (
   device: string,
   { index, subIndex, dataType }: ethercat.PDOEntry,
-  overrides: Partial<EntryWriteChannel> = {},
-): EntryWriteChannel =>
-  WRITE_CHANNEL_SCHEMAS.entry.parse({
+  overrides: Partial<Task.EntryWriteChannel> = {},
+): Task.EntryWriteChannel =>
+  Task.WRITE_CHANNEL_SCHEMAS.entry.parse({
     type: "entry",
     device,
     index,
@@ -122,7 +109,7 @@ export const createUnresolvedWriteChannel = (
   pdo: string,
   overrides: Partial<ethercat.UnresolvedWriteChannel> = {},
 ): ethercat.UnresolvedWriteChannel =>
-  WRITE_CHANNEL_SCHEMAS.unresolved.parse({
+  Task.WRITE_CHANNEL_SCHEMAS.unresolved.parse({
     type: "unresolved",
     device,
     pdo,
@@ -136,9 +123,9 @@ export const createUnresolvedWriteChannel = (
 export const createSlaveDevice = async (
   client: Synnax,
   rackKey: number,
-  properties: Partial<SlaveProperties> = {},
+  properties: Partial<Device.SlaveProperties> = {},
   configured = true,
-): Promise<SlaveDevice> => {
+): Promise<Device.SlaveDevice> => {
   const key = id.create();
   return await client.devices.create(
     {
@@ -146,12 +133,12 @@ export const createSlaveDevice = async (
       name: properties.name ?? `EtherCAT Slave ${key}`,
       rack: rackKey,
       location: "test-location",
-      make: MAKE,
-      model: SLAVE_MODEL,
+      make: Device.MAKE,
+      model: Device.SLAVE_MODEL,
       configured,
-      properties: { ...ZERO_SLAVE_PROPERTIES, ...properties },
+      properties: { ...Device.ZERO_SLAVE_PROPERTIES, ...properties },
     },
-    SLAVE_SCHEMAS,
+    Device.SLAVE_SCHEMAS,
   );
 };
 
@@ -159,7 +146,7 @@ export const createSlaveDevice = async (
 export const createRepeatedNameSlave = async (
   client: Synnax,
   rackKey: number,
-): Promise<SlaveDevice> =>
+): Promise<Device.SlaveDevice> =>
   await createSlaveDevice(client, rackKey, {
     identifier: createIdentifier(),
     network: "eth0",

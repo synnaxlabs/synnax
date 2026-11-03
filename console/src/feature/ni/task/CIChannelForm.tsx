@@ -12,7 +12,7 @@ import { Select } from "@synnaxlabs/lyra/select";
 import { type deep, record } from "@synnaxlabs/x";
 import { type FC } from "react";
 
-import { Select as SelectDevice } from "@/feature/ni/device/Select";
+import { Device } from "@/feature/ni/device";
 import { createTypeFields } from "@/feature/ni/task/createTypeFields";
 import { CustomScaleSection } from "@/feature/ni/task/CustomScaleForm";
 import { MinMaxValueFields } from "@/feature/ni/task/MinMaxValueFields";
@@ -550,7 +550,7 @@ export const CIChannelForm = ({ type, path, channelsPath }: CIChannelFormProps) 
   return (
     <Form.Sections>
       <Form.Section title="Source">
-        <SelectDevice path={path.device} />
+        <Device.Select path={path.device} />
         <PortField
           path={path}
           channelsPath={channelsPath}

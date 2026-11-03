@@ -18,19 +18,7 @@ import { List } from "@synnaxlabs/lyra/list";
 import { deep, errors, id, primitive } from "@synnaxlabs/x";
 import { type FC } from "react";
 
-import { use } from "@/feature/labjack/device/queries";
-import { Select } from "@/feature/labjack/device/Select";
-import {
-  AO_PORT_TYPE,
-  type AOPort,
-  type Device,
-  DO_PORT_TYPE,
-  type DOPort,
-  MAKE,
-  type Model,
-  PORTS,
-  SCHEMAS,
-} from "@/feature/labjack/device/types";
+import { Device } from "@/feature/labjack/device";
 import { uniqueTerminalsZ } from "@/feature/labjack/task/checks";
 import {
   convertPortTypeToWriteChannelType,
@@ -59,7 +47,7 @@ const path = deep.path<Task.Values<WriteSchemas>>();
 
 const Properties = () => (
   <>
-    <Select />
+    <Device.Select />
     <Flex.Box x>
       <Task.Fields.StateUpdateRate />
     </Flex.Box>
@@ -79,7 +67,7 @@ const stateName = (c: WriteChannel, identifier: string): string =>
     : `${identifier}_${c.port}_state`;
 
 interface ChannelListItemProps extends Task.ChannelListItemProps {
-  device: Device;
+  device: Device.Device;
 }
 
 const ChannelListItem = ({ device, ...rest }: ChannelListItemProps) => {
@@ -126,7 +114,8 @@ const ChannelListItem = ({ device, ...rest }: ChannelListItemProps) => {
                     ({ key }) => key !== item.key,
                   );
                   const port = (
-                    getOpenPort(others, model, [portType]) ?? PORTS[model][portType][0]
+                    getOpenPort(others, model, [portType]) ??
+                    Device.PORTS[model][portType][0]
                   ).key;
                   set(entry, { ...item, type: value, port });
                 }}
@@ -162,7 +151,7 @@ const createFirstChannel = (): WriteChannel => ({
 });
 
 /** Creates a channel on the port, of the type the port takes. */
-const createChannelOn = (port: AOPort | DOPort): WriteChannel => ({
+const createChannelOn = (port: Device.AOPort | Device.DOPort): WriteChannel => ({
   ...createWriteChannel(convertPortTypeToWriteChannelType(port.type)),
   key: id.create(),
   port: port.key,
@@ -174,12 +163,13 @@ const createChannelOn = (port: AOPort | DOPort): WriteChannel => ({
  */
 const createNextChannel = (
   channels: WriteChannel[],
-  model: Model,
+  model: Device.Model,
 ): WriteChannel | null => {
   const last = channels.at(-1);
   const preferred =
-    last == null ? DO_PORT_TYPE : convertWriteChannelTypeToPortType(last.type);
-  const backup = preferred === DO_PORT_TYPE ? AO_PORT_TYPE : DO_PORT_TYPE;
+    last == null ? Device.DO_PORT_TYPE : convertWriteChannelTypeToPortType(last.type);
+  const backup =
+    preferred === Device.DO_PORT_TYPE ? Device.AO_PORT_TYPE : Device.DO_PORT_TYPE;
   const port = getOpenPort(channels, model, [preferred, backup]);
   if (port == null) return null;
   if (last == null) return createChannelOn(port);
@@ -193,7 +183,7 @@ const createNextChannel = (
 };
 
 interface ChannelListProps {
-  device: Device;
+  device: Device.Device;
 }
 
 const ChannelList = ({ device }: ChannelListProps) => {
@@ -206,10 +196,13 @@ const ChannelList = ({ device }: ChannelListProps) => {
     <ChannelListItem key={key} {...p} device={device} />
   );
   const ports = (p: Task.Views.PortsProps<WriteChannel>) => (
-    <PortsView<WriteChannel, AOPort | DOPort>
+    <PortsView<WriteChannel, Device.AOPort | Device.DOPort>
       {...p}
       model={model}
-      ports={[...PORTS[model][AO_PORT_TYPE], ...PORTS[model][DO_PORT_TYPE]]}
+      ports={[
+        ...Device.PORTS[model][Device.AO_PORT_TYPE],
+        ...Device.PORTS[model][Device.DO_PORT_TYPE],
+      ]}
       create={(_, port) => createChannelOn(port)}
       name={(c) => commandName(c, identifier)}
     />
@@ -233,7 +226,7 @@ const ChannelList = ({ device }: ChannelListProps) => {
 };
 
 const Form: FC = PlatformDevice.wrapTaskForm({
-  use,
+  use: Device.use,
   useConfigure,
   Content: ChannelList,
 });
@@ -254,7 +247,7 @@ const onConfigure: Task.OnConfigure<WriteSchemas["config"]> = async (
 ) => {
   const dev = await client.devices.retrieve({
     key: config.device,
-    schemas: SCHEMAS,
+    schemas: Device.SCHEMAS,
   });
   PlatformDevice.checkConfigured(dev);
   let modified = false;
@@ -377,7 +370,7 @@ const onConfigure: Task.OnConfigure<WriteSchemas["config"]> = async (
       });
     }
   } finally {
-    if (modified) await client.devices.create(dev, SCHEMAS);
+    if (modified) await client.devices.create(dev, Device.SCHEMAS);
   }
   config.channels = config.channels.map((c) => {
     const pair =
@@ -398,7 +391,7 @@ export const Write = Task.wrapForm({
 
 export const useCreateWrite = Task.createUseCreate({
   getInitialValues,
-  deviceMake: MAKE,
+  deviceMake: Device.MAKE,
 });
 
 export const WriteSelectable = Selector.createSelectable({

@@ -43,7 +43,7 @@ const createScanner = async (deviceConfigured: boolean): Promise<task.Task> => {
     await createTestDevice(client, { make: EtherCAT.Device.MAKE, rack: r.key });
   return await r.createTask({
     name: uniqueName("scanner"),
-    type: EtherCAT.Task.SCAN_TYPE,
+    type: EtherCAT.Device.SCAN_TYPE,
     config: {},
     internal: true,
   });

@@ -11,8 +11,7 @@ import { type ni } from "@synnaxlabs/client";
 import { Form } from "@synnaxlabs/lyra/form";
 import { deep } from "@synnaxlabs/x";
 
-import { useByKey } from "@/feature/ni/device/queries";
-import { type Device } from "@/feature/ni/device/types";
+import { Device } from "@/feature/ni/device";
 import { accepts } from "@/feature/ni/task/ports";
 
 interface ChannelSource {
@@ -23,8 +22,10 @@ interface ChannelSource {
 /** The device of the channel at the path. */
 export const useChannelDevice = (
   path: deep.Target<ChannelSource>,
-): Device | undefined =>
-  useByKey(Form.useFieldValue(deep.widen(path).device, { optional: true }) ?? "");
+): Device.Device | undefined =>
+  Device.useByKey(
+    Form.useFieldValue(deep.widen(path).device, { optional: true }) ?? "",
+  );
 
 /**
  * The analog input port of the channel at the path. Undefined when the device has no
