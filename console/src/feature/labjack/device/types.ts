@@ -31,10 +31,16 @@ export type T8Model = typeof T8_MODEL;
 export type Model = T4Model | T7Model | T8Model;
 export const modelZ = z.enum([T4_MODEL, T7_MODEL, T8_MODEL]);
 
+/** A connector on an accessory board, such as X3 of a Mux80. */
+export interface Connector {
+  accessory: string;
+  name: string;
+}
+
 export interface BasePort extends record.KeyedNamed<string> {
   alias?: string;
-  /** The accessory the port needs, such as "MUX80". */
-  accessory?: string;
+  /** The accessory connector the port is on, when the port needs an accessory. */
+  connector?: Connector;
 }
 
 export const AI_PORT_TYPE = "AI";
@@ -155,9 +161,19 @@ const T4_PORTS: PortsInfo = {
   [DO_PORT_TYPE]: T4_DO_PORTS,
 };
 
+/** The ports that a Mux80 adds to a T7, by the connector that holds them. */
+const MUX80_CONNECTORS: [string, bounds.Bounds][] = [
+  ["X3", { lower: 48, upper: 71 }],
+  ["X4", { lower: 72, upper: 95 }],
+  ["X5", { lower: 96, upper: 119 }],
+  ["X2", { lower: 120, upper: 127 }],
+];
+
 const T7_AI_PORTS: AIPort[] = [
   ...aiFactory({ lower: 0, upper: 13 }),
-  ...aiFactory({ lower: 48, upper: 127 }).map((p) => ({ ...p, accessory: "MUX80" })),
+  ...MUX80_CONNECTORS.flatMap(([name, b]) =>
+    aiFactory(b).map((p) => ({ ...p, connector: { accessory: "Mux80", name } })),
+  ),
 ];
 const T7_AO_PORTS: AOPort[] = aoFactory({ lower: 0, upper: 1 });
 const T7_DI_PORTS: DIPort[] = [

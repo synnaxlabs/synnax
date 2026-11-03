@@ -145,6 +145,12 @@ outlined button) has fill l2 and border l4, and its caret has the disabled text 
   the way to enable the channel again.
 - A new task takes the only device of its make. With two or more, the device stays
   empty.
+- Port banks sit side by side in columns eight ports wide, each under its title. They
+  wrap to one column in a narrow pane.
+- A port field that lists an accessory's ports, such as the 80 that a Mux80 adds to a
+  LabJack T7, shows one bank at a time. A tab for each bank names its connector and its
+  port numbers ("X3 48–71"). The field opens on the bank of the channel's port, and the
+  Ports view shows every bank.
 
 ### Overflow
 
