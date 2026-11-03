@@ -16,13 +16,9 @@
     min-height: var(--pluto-height-medium);
 }
 
+/* The actions sit close to the bottom right corner. */
 .console-opc-certificate {
-    padding: 2rem;
-
-    /* The text of a first text button lines up with the details above it. */
-    .console-opc-certificate__actions > .lyra-btn--text:first-child {
-        margin-left: -1.5rem;
-    }
+    padding: 2rem 1rem 1rem 2rem;
 }
 
 .console-opc-certificate__value {

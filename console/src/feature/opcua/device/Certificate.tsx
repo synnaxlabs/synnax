@@ -44,7 +44,6 @@ import {
   GET_CERTIFICATE_COMMAND_TYPE,
   REGENERATE_CERTIFICATE_COMMAND_TYPE,
 } from "@/feature/opcua/task/types";
-import { Clipboard } from "@/platform/clipboard";
 import { CSS } from "@/platform/css";
 import { Modals } from "@/platform/modals";
 import { Runtime } from "@/platform/runtime";
@@ -95,21 +94,13 @@ const Detail = ({ label, ...rest }: DetailProps): ReactElement => (
 
 interface CopyButtonProps {
   thumbprint: string;
-  name: string;
 }
 
-const CopyButton = ({ thumbprint, name }: CopyButtonProps): ReactElement => {
-  const copy = Clipboard.useCopy();
-  return (
-    <Button.Button
-      size="small"
-      variant="text"
-      onClick={() => copy(thumbprint, "thumbprint", name)}
-    >
-      Copy thumbprint
-    </Button.Button>
-  );
-};
+const CopyButton = ({ thumbprint }: CopyButtonProps): ReactElement => (
+  <Button.Copy text={thumbprint} size="small" variant="text" textColor={9}>
+    Copy thumbprint
+  </Button.Copy>
+);
 
 interface CardProps extends PropsWithChildren {
   actions: ReactNode;
@@ -126,12 +117,7 @@ const Card = ({ children, actions }: CardProps): ReactElement => (
     className={CSS.B("opc-certificate")}
   >
     {children}
-    <Flex.Box
-      x
-      gap="small"
-      align="center"
-      className={CSS.BE("opc-certificate", "actions")}
-    >
+    <Flex.Box x gap="small" align="center" justify="end">
       {actions}
     </Flex.Box>
   </Flex.Box>
@@ -149,24 +135,6 @@ const ThumbprintDetail = ({ value }: ThumbprintDetailProps): ReactElement => (
   >
     {formatThumbprint(value)}
   </Detail>
-);
-
-interface DriverCertificateDetailsProps {
-  certificate: CertificateInfo;
-}
-
-const DriverCertificateDetails = ({
-  certificate,
-}: DriverCertificateDetailsProps): ReactElement => (
-  <Description.List>
-    <Detail label="Thumbprint">
-      <Flex.Box x align="center" gap="small">
-        <Text.Text variant="code">{formatThumbprint(certificate.thumbprint)}</Text.Text>
-        <CopyButton thumbprint={certificate.thumbprint} name="Driver certificate" />
-      </Flex.Box>
-    </Detail>
-    <Detail label="Expires">{formatExpiry(certificate.notAfter)}</Detail>
-  </Description.List>
 );
 
 const Note = ({ children }: PropsWithChildren): ReactElement => (
@@ -227,6 +195,45 @@ const useDownloadCertificate = () => {
     );
 };
 
+interface DriverCertificateCardProps {
+  certificate: CertificateInfo;
+  /** The name of the downloaded file, without its extension. */
+  fileName: string;
+}
+
+const DriverCertificateCard = ({
+  certificate,
+  fileName,
+}: DriverCertificateCardProps): ReactElement => {
+  const downloadCertificate = useDownloadCertificate();
+  return (
+    <Card
+      actions={
+        <>
+          <CopyButton thumbprint={certificate.thumbprint} />
+          <Button.Button
+            size="small"
+            variant="text"
+            textColor={9}
+            tooltip="Download as DER"
+            onClick={() => downloadCertificate(certificate, fileName)}
+          >
+            <Icon.Download />
+            Download
+          </Button.Button>
+        </>
+      }
+    >
+      <Description.List level="small">
+        <ThumbprintDetail value={certificate.thumbprint} />
+        <Detail label="Expires">{formatExpiry(certificate.notAfter)}</Detail>
+      </Description.List>
+    </Card>
+  );
+};
+
+const REGENERATE_FAILED = "Failed to regenerate the Driver certificate";
+
 interface DriverCertificateModalParams {
   rackKey: rack.Key;
 }
@@ -237,7 +244,7 @@ const DriverCertificateModal = ({
   const client = Synnax.use();
   const confirm = Modals.useConfirm();
   const handleError = Status.useErrorHandler();
-  const downloadCertificate = useDownloadCertificate();
+  const [regenerating, setRegenerating] = useState(false);
   Rack.useEnsure({ key: rackKey });
   const rackName = Rack.useName({ key: rackKey });
   const { state, setState } = useCertificates(rackKey);
@@ -254,13 +261,19 @@ const DriverCertificateModal = ({
         confirm: { label: "Regenerate" },
       });
       if (confirmed !== true) return;
-      const next = await executeCertificateCommand(
-        client,
-        rackKey,
-        REGENERATE_CERTIFICATE_COMMAND_TYPE,
-      );
-      setState({ rack: rackKey, variant: "success", certificates: next });
-    }, "Failed to regenerate the Driver certificate");
+      setRegenerating(true);
+      try {
+        const next = await executeCertificateCommand(
+          client,
+          rackKey,
+          REGENERATE_CERTIFICATE_COMMAND_TYPE,
+        );
+        setState({ rack: rackKey, variant: "success", certificates: next });
+      } catch (e) {
+        handleError(e, REGENERATE_FAILED);
+      }
+      setRegenerating(false);
+    }, REGENERATE_FAILED);
   let body: ReactElement;
   if (state == null) body = <Note>Loading the Driver certificate</Note>;
   else if (state.variant === "error") body = <Status.Summary status={state.status} />;
@@ -271,7 +284,10 @@ const DriverCertificateModal = ({
           The Driver presents this certificate to each OPC UA server that it connects to
           with security.
         </Text.Text>
-        <DriverCertificateDetails certificate={state.certificates.current} />
+        <DriverCertificateCard
+          certificate={state.certificates.current}
+          fileName="driver"
+        />
         {renewal != null && (
           <Flex.Box y gap="medium">
             <Text.Text level="h5" weight={500} color={11}>
@@ -281,16 +297,7 @@ const DriverCertificateModal = ({
               The Driver uses this certificate when every server trusts it. Add it to
               each server that does not accept it automatically.
             </Text.Text>
-            <DriverCertificateDetails certificate={renewal} />
-            <Flex.Box x>
-              <Button.Button
-                variant="outlined"
-                onClick={() => downloadCertificate(renewal, "driver-renewal")}
-              >
-                <Icon.Download />
-                Download renewal
-              </Button.Button>
-            </Flex.Box>
+            <DriverCertificateCard certificate={renewal} fileName="driver-renewal" />
           </Flex.Box>
         )}
       </>
@@ -307,18 +314,11 @@ const DriverCertificateModal = ({
           <Button.Button
             variant="outlined"
             disabled={current == null}
+            status={regenerating ? "loading" : undefined}
             onClick={handleRegenerate}
           >
             <Icon.Refresh />
             Regenerate
-          </Button.Button>
-          <Button.Button
-            variant="filled"
-            disabled={current == null}
-            onClick={() => current != null && downloadCertificate(current, "driver")}
-          >
-            <Icon.Download />
-            Download
           </Button.Button>
         </Nav.Bar.End>
       </Modal.Footer>
@@ -359,16 +359,24 @@ export const DriverCertificate = ({ rack }: DriverCertificateProps): ReactElemen
     <Card
       actions={
         <>
-          <CopyButton thumbprint={current.thumbprint} name="Driver certificate" />
+          <CopyButton thumbprint={current.thumbprint} />
           <Button.Button
             size="small"
             variant="text"
+            textColor={9}
             tooltip="Download as DER"
             onClick={() => downloadCertificate(current, "driver")}
           >
+            <Icon.Download />
             Download
           </Button.Button>
-          <Button.Button size="small" variant="text" onClick={handleManage}>
+          <Button.Button
+            size="small"
+            variant="text"
+            textColor={9}
+            onClick={handleManage}
+          >
+            <Icon.Settings />
             Manage
           </Button.Button>
         </>
@@ -414,7 +422,7 @@ export const ServerCertificate = ({
         {note}
       </Text.Text>
       {typeof pinned === "string" && (
-        <Card actions={<CopyButton thumbprint={pinned} name="Server certificate" />}>
+        <Card actions={<CopyButton thumbprint={pinned} />}>
           <Description.List level="small">
             <ThumbprintDetail value={pinned} />
           </Description.List>

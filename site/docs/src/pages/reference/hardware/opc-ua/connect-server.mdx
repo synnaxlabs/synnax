@@ -158,8 +158,8 @@ openssl x509 -inform der -in driver.der -out driver.pem
 The Driver certificate is valid for 3 years. 60 days before it expires, the Driver makes
 the next certificate and keeps using the current one. Once a day, the Driver connects to
 each secured server with the next certificate, so a server that does not trust it yet
-adds it to its rejected list. Trust it there, or download it from the dialog, where it
-shows as **Next certificate**. The Driver uses the next certificate when all the servers
+adds it to its rejected list. Trust it there, or click **Manage** in the dialog and
+download it under **Renewal**. The Driver uses the next certificate when all the servers
 accept it, or when the current one expires.
 
 **Regenerate** replaces the certificate of the Driver with a new one. Use it only when

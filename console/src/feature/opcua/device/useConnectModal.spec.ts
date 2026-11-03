@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { type rack, type task, TimeSpan } from "@synnaxlabs/client";
+import { type rack, task, TimeSpan } from "@synnaxlabs/client";
 import { createTestClient } from "@synnaxlabs/client/testutil";
 import { stubClipboardWriteText } from "@synnaxlabs/lyra/testutil";
 import { fireEvent, screen, waitFor, within } from "@testing-library/react";
@@ -25,13 +25,16 @@ import {
   renderModalOpener,
 } from "@/platform/modals/testutil";
 import {
+  answerCommand,
   answerNextCommand,
+  awaitCommand,
   commitFieldInput,
   selectFromDropdown,
 } from "@/platform/task/testutil";
 import {
   captureBrowserDownloads,
   findDialogTriggerByText,
+  isPlutoDisabled,
   uniqueName,
 } from "@/testutil";
 
@@ -367,21 +370,47 @@ describe("OPCUA.Device.useConnectModal", () => {
     expect(screen.getByText("2032-01-15")).toBeTruthy();
   });
 
+  it("should download the renewal of the Driver certificate as DER", async () => {
+    const { scan } = await openWithDriverCertificate();
+    const loaded = await answerGetCertificate(scan, {
+      current: DRIVER_CERTIFICATE,
+      next: NEXT_DRIVER_CERTIFICATE,
+    });
+    fireEvent.click(findButton("Manage"));
+    await loaded.answered;
+    await screen.findByText("Renewal");
+    const downloads = captureBrowserDownloads();
+    fireEvent.click(findLastButton("Download"));
+    await waitFor(() => expect(downloads.anchors).toHaveLength(1));
+    expect(downloads.anchors[0].download).toBe("driver-renewal.der");
+  });
+
   it("should show the regenerated Driver certificate once its view closes", async () => {
     const { scan } = await openWithDriverCertificate();
     const loaded = await answerGetCertificate(scan);
     fireEvent.click(findButton("Manage"));
     await loaded.answered;
     await screen.findByText("2029-01-15");
-    const regenerated = await answerNextCommand(client, scan, {
-      type: OPCUA.Task.REGENERATE_CERTIFICATE_COMMAND_TYPE,
-      data: { current: NEXT_DRIVER_CERTIFICATE },
-    });
+    const streamer = await client.openStreamer(task.COMMAND_CHANNEL_NAME);
     fireEvent.click(findButton("Regenerate"));
     await screen.findByText("Regenerate Driver certificate");
     fireEvent.click(findLastButton("Regenerate"));
-    await regenerated.answered;
+    let cmd: task.Command;
+    try {
+      cmd = await awaitCommand(
+        streamer,
+        scan.key,
+        OPCUA.Task.REGENERATE_CERTIFICATE_COMMAND_TYPE,
+      );
+    } finally {
+      streamer.close();
+    }
+    await waitFor(() => expect(isPlutoDisabled(findButton("Regenerate"))).toBe(true));
+    await answerCommand(client, scan, cmd, {
+      data: { current: NEXT_DRIVER_CERTIFICATE },
+    });
     expect(await screen.findByText("2032-01-15")).toBeTruthy();
+    expect(isPlutoDisabled(findButton("Regenerate"))).toBe(false);
     const reloaded = await answerGetCertificate(scan, {
       current: NEXT_DRIVER_CERTIFICATE,
     });
