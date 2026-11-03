@@ -7,14 +7,17 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import "@/feature/modbus/task/Register.css";
-
 import { Form } from "@synnaxlabs/lyra/form";
 import { Select } from "@synnaxlabs/lyra/select";
 import { deep } from "@synnaxlabs/x";
 import { type ReactElement } from "react";
 import { type z } from "zod";
 
+import {
+  MENU_PROPS,
+  Option,
+  SHADOW_TRIGGER_PROPS,
+} from "@/feature/modbus/device/Option";
 import { type Channel, type ReadChannelType } from "@/feature/modbus/task/types";
 import { CSS } from "@/platform/css";
 
@@ -71,35 +74,6 @@ export const RegisterGlyph = ({ type }: RegisterGlyphProps): ReactElement => {
     </svg>
   );
 };
-
-/** Lets a menu grow to fit the descriptions beside the option names. */
-export const MENU_PROPS = { className: CSS.BE("modbus", "menu") };
-
-/** A trigger that shows a picked option without its description. */
-export const TRIGGER_PROPS: Select.SingleTriggerProps = {
-  className: CSS.BE("modbus", "trigger"),
-};
-
-/** A quiet {@link TRIGGER_PROPS} trigger. */
-export const SHADOW_TRIGGER_PROPS: Select.SingleTriggerProps = {
-  ...TRIGGER_PROPS,
-  variant: "shadow",
-};
-
-export interface OptionProps {
-  glyph: ReactElement;
-  name: string;
-  description: string;
-}
-
-/** A menu option: a glyph, a name, and a description that the trigger hides. */
-export const Option = ({ glyph, name, description }: OptionProps): ReactElement => (
-  <>
-    {glyph}
-    <span>{name}</span>
-    <span className={CSS.BE("modbus", "option-description")}>{description}</span>
-  </>
-);
 
 /** The schema of each register type that a task's channels can take. */
 export type ChannelSchemas<C extends Channel> = Record<C["type"], z.ZodType<C>>;

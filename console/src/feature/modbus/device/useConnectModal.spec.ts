@@ -9,7 +9,7 @@
 
 import { device, status } from "@synnaxlabs/client";
 import { createTestClient } from "@synnaxlabs/client/testutil";
-import { fireEvent, screen, waitFor } from "@testing-library/react";
+import { fireEvent, screen, waitFor, within } from "@testing-library/react";
 import { describe, expect, it } from "vitest";
 
 import { Modbus } from "@/feature/modbus";
@@ -22,7 +22,7 @@ import {
   commitFieldInput,
   selectFromDropdown,
 } from "@/platform/task/testutil";
-import { uniqueName } from "@/testutil";
+import { findDialogTriggerByText, uniqueName } from "@/testutil";
 
 const client = createTestClient();
 
@@ -51,6 +51,20 @@ describe("Modbus.Device.useConnectModal", () => {
     await screen.findByDisplayValue(dev.name);
     expect(screen.getByDisplayValue("7")).toBeTruthy();
     expect(screen.getByText("Little-endian")).toBeTruthy();
+  });
+
+  it("should show the four bytes of each byte order in the order the device sends them", async () => {
+    const dev = await createModbusDevice(client, {
+      properties: { connection: { swapBytes: false, swapWords: false } },
+    });
+    await renderModalOpener(Modbus.Device.useConnectModal, [{ deviceKey: dev.key }], {
+      client,
+    });
+    fireEvent.click(await findDialogTriggerByText("Word swap"));
+    const dialogs = await screen.findAllByRole("dialog");
+    const menu = within(dialogs[dialogs.length - 1]);
+    for (const bytes of ["ABCD", "BADC", "CDAB", "DCBA"])
+      expect(menu.getByText(bytes)).toBeTruthy();
   });
 
   it("should save the unit, byte order, and mask writes entered for a new server", async () => {

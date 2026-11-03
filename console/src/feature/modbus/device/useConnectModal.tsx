@@ -22,6 +22,8 @@ import { Device as PDevice, type Flux } from "@synnaxlabs/pluto";
 import { deep, Density } from "@synnaxlabs/x";
 import { type ReactElement, useState } from "react";
 
+import { ByteOrderOption } from "@/feature/modbus/device/ByteOrder";
+import { MENU_PROPS, TRIGGER_PROPS } from "@/feature/modbus/device/Option";
 import {
   BAUD_RATES,
   BYTE_ORDERS,
@@ -41,8 +43,6 @@ import {
   ZERO_CONNECTIONS,
   ZERO_PROPERTIES,
 } from "@/feature/modbus/device/types";
-import { ByteOrderOption } from "@/feature/modbus/task/ByteOrder";
-import { MENU_PROPS, TRIGGER_PROPS } from "@/feature/modbus/task/Register";
 import {
   SCAN_SCHEMAS,
   SCAN_TYPE,

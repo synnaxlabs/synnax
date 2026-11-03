@@ -9,17 +9,6 @@
  * included in the file licenses/APL.txt.
  */
 
-.console-modbus__glyph {
-    width: 2.5rem;
-    height: 2.5rem;
-    flex-shrink: 0;
-    color: var(--pluto-gray-l9);
-}
-
-.console-modbus__trigger .console-modbus__glyph {
-    color: var(--pluto-gray-l9);
-}
-
 .console-modbus__menu {
     min-width: max-content;
 }
