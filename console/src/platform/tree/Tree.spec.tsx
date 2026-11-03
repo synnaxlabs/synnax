@@ -43,6 +43,8 @@ import {
 const client = createTestClient();
 const roles = new RoleClients(client);
 
+const useGroupSearch = Tree.createSearch({ noun: "groups" });
+
 const createWrapper = async (items: Tree.Items = {}, as: Client = client) => {
   const { wrapper: Console } = await createConsoleWrapper({ client: as });
   const Wrapper = ({ children }: PropsWithChildren): ReactElement => (
@@ -466,7 +468,84 @@ describe("Tree.Tree", () => {
       expect(props.selection.ids).toHaveLength(1);
       expect(props.selection.ids[0].key).toBe(child.key);
       expect(ontology.idsEqual(props.selection.rootID, parentID)).toBe(true);
-      expect(ontology.idsEqual(props.selection.parentID, parentID)).toBe(true);
+      expect(props.selection.parentID).toEqual(parentID);
+    });
+
+    it("should give the parent of a selected group when its child is selected too", async () => {
+      const root = await client.groups.create({
+        parent: ontology.ROOT_ID,
+        name: uniqueName("root"),
+      });
+      const rootID = group.ontologyID(root.key);
+      const outer = await client.groups.create({
+        parent: rootID,
+        name: uniqueName("outer"),
+      });
+      const inner = await client.groups.create({
+        parent: group.ontologyID(outer.key),
+        name: uniqueName("inner"),
+      });
+      const menuSpy = vi.fn();
+      const TreeContextMenu = (props: Tree.ContextMenuProps): ReactElement => {
+        menuSpy(props);
+        return <span>group service menu</span>;
+      };
+      const items: Tree.Items = {
+        group: Tree.createItem({ type: "group", ContextMenu: TreeContextMenu }),
+      };
+      await renderOntologyTree({ client, root: rootID, items });
+      // A click on a folded group selects it and opens it.
+      fireEvent.click(await findTreeRow(outer.name));
+      const innerRow = await findTreeRow(inner.name);
+      withControlHeld(() => fireEvent.click(innerRow));
+      fireEvent.contextMenu(innerRow);
+      await screen.findByText("group service menu");
+      const [props] = menuSpy.mock.lastCall as [Tree.ContextMenuProps];
+      expect(props.selection.ids).toHaveLength(2);
+      expect(props.selection.parentID).toEqual(rootID);
+    });
+
+    it("should give no parent when the selection sits under more than one parent", async () => {
+      const tok = uniqueToken();
+      const root = await client.groups.create({
+        parent: ontology.ROOT_ID,
+        name: uniqueName("root"),
+      });
+      const rootID = group.ontologyID(root.key);
+      const left = await client.groups.create({
+        parent: rootID,
+        name: uniqueName("left"),
+      });
+      const right = await client.groups.create({
+        parent: rootID,
+        name: uniqueName("right"),
+      });
+      const a = await client.groups.create({
+        parent: group.ontologyID(left.key),
+        name: `${tok} a`,
+      });
+      const b = await client.groups.create({
+        parent: group.ontologyID(right.key),
+        name: `${tok} b`,
+      });
+      const menuSpy = vi.fn();
+      const TreeContextMenu = (props: Tree.ContextMenuProps): ReactElement => {
+        menuSpy(props);
+        return <span>group service menu</span>;
+      };
+      const items: Tree.Items = {
+        group: Tree.createItem({ type: "group", ContextMenu: TreeContextMenu }),
+      };
+      await renderOntologyTree({ client, root: rootID, items, search: useGroupSearch });
+      searchTree(tok);
+      fireEvent.click(await findTreeRow(itemName(a.name)));
+      const rowB = await findTreeRow(itemName(b.name));
+      withControlHeld(() => fireEvent.click(rowB));
+      fireEvent.contextMenu(rowB);
+      await screen.findByText("group service menu");
+      const [props] = menuSpy.mock.lastCall as [Tree.ContextMenuProps];
+      expect(props.selection.ids).toHaveLength(2);
+      expect(props.selection.parentID).toBeNull();
     });
 
     it("should drop a deleted resource from the selection backing the menu", async () => {
@@ -878,8 +957,6 @@ describe("Tree.Tree", () => {
   });
 });
 
-const useGroupSearch = Tree.createSearch({ noun: "groups" });
-
 const MORE_MATCHES = "Showing the first 100 matches. Type more to narrow the search.";
 
 const renderSearchable = async (
@@ -1002,7 +1079,7 @@ describe("Tree.Tree search", () => {
         screen.queryByText(names.golf, { ignore: ".console-tree--hidden *" }),
       ).toBeNull(),
     );
-    expect(getTreeRow(itemName(names.charlie))).toBeTruthy();
+    expect(await findTreeRow(itemName(names.charlie))).toBeTruthy();
   });
 
   it("should bring the tree back as it was when the search closes", async () => {

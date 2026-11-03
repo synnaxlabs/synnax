@@ -30,6 +30,8 @@ const base = Flux.createUpdate<CreateParams>({
       state: { shape },
       group: { name, key },
     } = data;
+    if (parentID == null)
+      throw new Error("Cannot group items that sit under more than one parent");
     const resourcesToGroup = getResourcesToGroup(ids, shape);
     await client.groups.create({ parent: parentID, name, key });
     await client.ontology.moveChildren(

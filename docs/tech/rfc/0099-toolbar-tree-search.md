@@ -125,17 +125,17 @@ const Content = () => {
 };
 ```
 
-| Concern       | Behavior                                                                         |
-| ------------- | -------------------------------------------------------------------------------- |
-| Order         | Groups first, then the other matches, each in rank order                         |
-| Limit         | Each source asks for 101. At most 100 show, with a closing line when more exist  |
-| Flat layout   | Each match shows the name of its parent group, from its first path               |
-| Groups layout | Path groups start open and hold only matches. A matched group shows all children |
-| Many parents  | The groups layout shows a match under each parent. The flat layout shows it once |
-| Actions       | Every tree action works. The parent is the last group of the match's path        |
-| Live          | Matches refetch on change (RFC 0047 §5.1, rule 3). Paths follow §2.0             |
-| Errors        | A failed search shows a status in place of the results                           |
-| Close         | The browse tree stays mounted, hidden with a class, so it comes back as it was   |
+| Concern       | Behavior                                                                                                                             |
+| ------------- | ------------------------------------------------------------------------------------------------------------------------------------ |
+| Order         | Groups first, then the other matches, each in rank order                                                                             |
+| Limit         | Each source asks for 101. At most 100 show, with a closing line when more exist                                                      |
+| Flat layout   | Each match shows the name of its parent group, from its first path                                                                   |
+| Groups layout | Path groups start open and hold only matches. A matched group shows all children                                                     |
+| Many parents  | The groups layout shows a match under each parent. The flat layout shows it once                                                     |
+| Actions       | Every tree action works. The parent is the last group of the match's path. Group and ungroup need one parent for the whole selection |
+| Live          | Matches refetch on change (RFC 0047 §5.1, rule 3). Paths follow §2.0                                                                 |
+| Errors        | A failed search shows a status in place of the results                                                                               |
+| Close         | The browse tree stays mounted, hidden with a class, so it comes back as it was                                                       |
 
 The closing line reads "Showing the first 100 matches. Type more to narrow the search."
 The error status has the message "Failed to search channels" and the error text as its

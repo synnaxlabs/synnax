@@ -537,28 +537,30 @@ const Internal = ({
     startDrag([Base.createHaulItem(itemKey), ...haulItems]);
   };
 
-  const renderContextMenu = ({ keys }: Menu.ContextMenuMenuProps) => {
+  const renderContextMenu = ({ keys: clicked }: Menu.ContextMenuMenuProps) => {
     if (client == null) return <FallbackContextMenu />;
-    if (keys.length === 0) return <DefaultContextMenu root={root} state={state} />;
-    const rightClickedButNotSelected = keys.find((v) => !selected.includes(v));
-    // In the case where we right clicked the menu, but it's not in the current
-    // selection, we only display a context menu for that item.
-    if (rightClickedButNotSelected != null) keys = [rightClickedButNotSelected];
-    // Because we're using a virtualized tree, the keys from the context menu
-    // might not actually be accurate (because we're missing DOM elements), so instead
-    // we pull directly from the list selected state.
-    else keys = selected;
+    if (clicked.length === 0) return <DefaultContextMenu root={root} state={state} />;
+    const rightClickedButNotSelected = clicked.find((v) => !selected.includes(v));
+    // A right-click outside the selection shows a menu for that item alone. Otherwise
+    // the selection state gives the keys, since the virtual tree can lack the DOM
+    // elements.
+    const keys =
+      rightClickedButNotSelected != null ? [rightClickedButNotSelected] : selected;
 
     const ids = keys.map((key) => ontology.parseID(key));
 
-    // We want to find the parent of the node with the lowest depth, since we
-    // might be selecting nodes AND their children.
-    const [shallowest] = keys.toSorted(Base.compareDepth(shape));
-    // TODO: we might be selecting two nodes that are not ascendants or descendants of
-    // the other ones. We need to change this function to implement recursion.
-    const parentID = parentOf(nodes, shallowest);
+    // A selected node's own children do not count, since an action on the node carries
+    // them along.
+    const top = Base.getAllNodesOfMinDepth(
+      Base.filterShape(shape, (key) => keys.includes(key)),
+    );
+    const parents = unique.by(
+      top.map((key) => parentOf(nodes, key)),
+      (id) => ontology.idToString(id),
+    );
+    const parentID = parents.length === 1 ? parents[0] : null;
 
-    const firstID = ontology.parseID(shallowest);
+    const firstID = ids[0];
 
     const props: ContextMenuProps = {
       selection: {

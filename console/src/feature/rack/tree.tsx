@@ -92,7 +92,7 @@ const TreeContextMenu: Tree.ContextMenu = (props) => {
     selection,
     state: { shape, getResource },
   } = props;
-  const { ids, rootID } = selection;
+  const { ids, rootID, parentID } = selection;
   const ontologyIDs = ids.map((id) => rack.ontologyID(Number(id.key)));
   const hasUpdatePermission = Access.useUpdateGranted(ontologyIDs);
   const hasArcCreatePermission = Access.useCreateGranted(arc.TYPE_ONTOLOGY_ID);
@@ -115,6 +115,7 @@ const TreeContextMenu: Tree.ContextMenu = (props) => {
         <Group.ContextMenuItem
           ids={ids}
           rootID={rootID}
+          parentID={parentID}
           shape={shape}
           onClick={() => group(props)}
         />
