@@ -7,6 +7,8 @@
 #  License, use of this software will be governed by the Apache License, Version 2.0,
 #  included in the file licenses/APL.txt.
 
+from typing import Unpack
+
 """
 Simulator lifecycle mixin.
 
@@ -28,7 +30,7 @@ from examples.simulators.device_sim import DeviceSim
 
 import synnax as sy
 from framework.hardware_case import HardwareCase
-from framework.models import DEFAULT_CONNECTION, SynnaxConnection
+from framework.test_case import Config
 
 
 class SimulatorCase(HardwareCase):
@@ -43,14 +45,8 @@ class SimulatorCase(HardwareCase):
     sims: dict[str, DeviceSim | None]
     SAMPLE_RATE: sy.Rate = 50 * sy.Rate.HZ
 
-    def __init__(
-        self,
-        *,
-        synnax_connection: SynnaxConnection = DEFAULT_CONNECTION,
-        name: str,
-        **params: object,
-    ) -> None:
-        super().__init__(synnax_connection=synnax_connection, name=name, **params)
+    def __init__(self, **kwargs: Unpack[Config]) -> None:
+        super().__init__(**kwargs)
         self.sims = {}
 
     def setup(self) -> None:

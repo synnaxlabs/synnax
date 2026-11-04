@@ -10,7 +10,12 @@
 from console.schematic.button import Button
 from console.schematic.custom_symbol import CustomSymbol
 from console.schematic.off_page_reference import OffPageReference
-from console.schematic.schematic import SCHEMATIC_VERSION, Schematic
+from console.schematic.schematic import (
+    SCHEMATIC_VERSION,
+    AlignmentType,
+    DistributionType,
+    Schematic,
+)
 from console.schematic.select import Select
 from console.schematic.setpoint import Setpoint
 from console.schematic.state_indicator import StateIndicator
@@ -22,8 +27,10 @@ from console.schematic.valve_threeway_ball import ValveThreeWayBall
 
 __all__ = [
     "SCHEMATIC_VERSION",
+    "AlignmentType",
     "Button",
     "CustomSymbol",
+    "DistributionType",
     "OffPageReference",
     "Option",
     "PropertyDict",

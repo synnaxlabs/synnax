@@ -92,6 +92,7 @@ const Properties = (): ReactElement => {
         ) : (
           <Task.Fields.StreamRate />
         )}
+        <Task.Fields.NaNFill />
       </Flex.Box>
     </>
   );
