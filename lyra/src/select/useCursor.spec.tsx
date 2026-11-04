@@ -470,6 +470,29 @@ describe("Select keyboard hover", () => {
   });
 });
 
+describe("Select.useCursor", () => {
+  const OPTIONS = ["alpha", "bravo"];
+  const getOrder = () => OPTIONS;
+  const subscribe = () => () => {};
+
+  it("should move a hover through options outside a list", () => {
+    const click = vi.fn();
+    const { result } = renderHook(
+      () =>
+        Select.useCursor({
+          order: { getOrder, subscribe, scrollTo: vi.fn(), click },
+          enableTriggers: true,
+        }),
+      { wrapper: Triggers.Provider },
+    );
+    fireEvent.keyDown(window, { code: "ArrowDown" });
+    fireEvent.keyUp(window, { code: "ArrowDown" });
+    expect(result.current.hover).toBe("alpha");
+    fireEvent.keyDown(window, { code: "Enter" });
+    expect(click).toHaveBeenCalledExactlyOnceWith("alpha");
+  });
+});
+
 describe("Select keyboard selection", () => {
   const DATA = ["alpha", "bravo", "charlie"];
 
