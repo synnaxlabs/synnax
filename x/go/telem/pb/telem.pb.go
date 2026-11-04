@@ -33,6 +33,9 @@ const (
 )
 
 // Aggregation selects how a limited read collapses each group of samples into points.
+// min_max keeps the lowest and highest sample of each group in the order they occurred,
+// average keeps the mean of each group, and decimate keeps the first sample of each
+// group.
 type Aggregation int32
 
 const (
