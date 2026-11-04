@@ -11,6 +11,7 @@ package rack
 
 import (
 	"context"
+	"encoding/json"
 
 	"github.com/synnaxlabs/gorp"
 	"github.com/synnaxlabs/synnax/pkg/service/access/rbac/role"
@@ -68,9 +69,10 @@ func (w Writer) writeStatus(ctx context.Context, r *Rack) error {
 	if r.Status != nil {
 		return w.status.Set(ctx, stat)
 	}
-	var stored Status
-	err := gorp.NewRetrieve[string, Status]().
-		Where(gorp.MatchKeys[string, Status](stat.Key)).
+	// A stored status can hold any details, so they stay raw.
+	var stored status.Status[json.RawMessage]
+	err := gorp.NewRetrieve[status.Key, status.Status[json.RawMessage]]().
+		Where(gorp.MatchKeys[status.Key, status.Status[json.RawMessage]](stat.Key)).
 		Entry(&stored).
 		Exec(ctx, w.tx)
 	if errors.Is(err, query.ErrNotFound) {

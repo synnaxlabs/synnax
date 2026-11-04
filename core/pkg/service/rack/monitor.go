@@ -11,6 +11,7 @@ package rack
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
 	"io"
 	"maps"
@@ -274,10 +275,10 @@ func openMonitor(
 	if err := svc.NewRetrieve().Entries(&racks).Exec(ctx, nil); err != nil {
 		return nil, err
 	}
-	statuses := make([]Status, 0, len(racks))
-	// A rack with no status row has no status time to compare.
-	if err := errors.Skip(svc.Status.NewRetrieve[StatusDetails]().
-		Where(status.MatchKeys[StatusDetails](
+	statuses := make([]status.Status[json.RawMessage], 0, len(racks))
+	// A stored status can hold any details, so they stay raw. A missing row is valid.
+	if err := errors.Skip(svc.Status.NewRetrieve[json.RawMessage]().
+		Where(status.MatchKeys[json.RawMessage](
 			ontology.IDsToKeys(OntologyIDsFromRacks(racks))...,
 		)).
 		Entries(&statuses).
@@ -294,11 +295,15 @@ func openMonitor(
 	now := svc.Now()
 	s.mu.racks = make(map[Key]rackState, len(racks))
 	s.mu.handlers = make(map[int]SuspectHandler)
-	for _, r := range racks {
-		s.mu.racks[r.Key] = rackState{lastUpdated: now}
-	}
+	statusTimes := make(map[status.Key]telem.TimeStamp, len(statuses))
 	for _, st := range statuses {
-		s.mu.racks[st.Details.Rack] = rackState{lastUpdated: now, statusTime: st.Time}
+		statusTimes[st.Key] = st.Time
+	}
+	for _, r := range racks {
+		s.mu.racks[r.Key] = rackState{
+			lastUpdated: now,
+			statusTime:  statusTimes[StatusKey(r.Key)],
+		}
 	}
 	s.disconnectStatusObserver = obs.OnChange(s.handleChange)
 	signal.GoTick(

@@ -1324,6 +1324,34 @@ var _ = Describe("Rack", Ordered, func() {
 			},
 		)
 
+		DescribeTable(
+			"Should restart with a stored status that has no rack details",
+			func(ctx SpecContext, details any) {
+				restartDB := DeferClose(gorp.Wrap(memkv.New()))
+				before := openStack(ctx, restartDB, rack.ServiceConfig{})
+				key := before.rack.EmbeddedKey
+				Expect(before.status.NewWriter(nil).Set(ctx, &status.Status[any]{
+					Key:     rack.StatusKey(key),
+					Name:    "stale name",
+					Variant: status.VariantSuccess,
+					Time:    telem.Now(),
+					Details: details,
+				})).To(Succeed())
+				Expect(before.Close()).To(Succeed())
+
+				after := DeferClose(openStack(ctx, restartDB, rack.ServiceConfig{}))
+				var res status.Status[any]
+				Expect(after.status.NewRetrieve[any]().
+					Where(status.MatchKeys[any](rack.StatusKey(key))).
+					Entry(&res).
+					Exec(ctx, nil)).To(Succeed())
+				Expect(res.Name).ToNot(Equal("stale name"))
+				Expect(res.Details).To(Equal(details))
+			},
+			Entry("a string", "running"),
+			Entry("an array", []any{"running"}),
+		)
+
 		It(
 			"Should mark a stored healthy rack as dead when it is silent after a restart",
 			func(ctx SpecContext) {
