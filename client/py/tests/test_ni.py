@@ -400,6 +400,21 @@ class TestNITask:
             ],
         )
 
+    def test_analog_read_task_accepts_channel_tuple(self) -> None:
+        """Should accept channels as a tuple and store them as a list."""
+        ch = sy.ni.AIVoltageChannel(
+            type="ai_voltage",
+            device="474503CF-49FD-11EF-80E5-91C59E7C9645",
+            terminal_config="Cfg_Default",
+            channel=1048582,
+            port=0,
+            min_val=0,
+            max_val=1,
+            custom_scale=sy.ni.NoneScale(type="none"),
+        )
+        tsk = sy.ni.AnalogReadTask(sample_rate=10, stream_rate=5, channels=(ch,))
+        assert tsk.config.channels == [ch]
+
     def test_parse_analog_write_task(self) -> None:
         data = {
             "device": "474503CF-49FD-11EF-80E5-91C59E7C9645",

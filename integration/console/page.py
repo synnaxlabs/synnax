@@ -7,17 +7,17 @@
 #  License, use of this software will be governed by the Apache License, Version 2.0,
 #  included in the file licenses/APL.txt.
 
-import json
 import os
-from typing import Any, Literal, Self, cast
+from typing import Literal, Self
 
 from playwright.sync_api import Error as PlaywrightError
 from playwright.sync_api import FloatRect, Locator, Page, ViewportSize
 from playwright.sync_api import TimeoutError as PlaywrightTimeoutError
+from pydantic import JsonValue
 
 import synnax as sy
 from console.layout import LayoutClient
-from framework.utils import read_latest_value
+from framework.utils import read_json_object, read_latest_value
 
 PageType = Literal[
     "Control sequence",
@@ -36,6 +36,9 @@ PageType = Literal[
     "Modbus write task",
     "OPC UA read task",
     "OPC UA write task",
+    "MQTT read task",
+    "MQTT write task",
+    "Sparkplug edge node",
 ]
 
 
@@ -198,7 +201,7 @@ class ConsolePage:
             raise RuntimeError("Could not get pane bounding box for screenshot")
         margin = 10
 
-        clip_area = {
+        clip_area: FloatRect = {
             "x": max(0, box["x"] - margin),
             "y": max(0, box["y"] - margin),
             "width": box["width"] + 2 * margin,
@@ -207,7 +210,7 @@ class ConsolePage:
 
         self.page.screenshot(
             path=path,
-            clip=cast(FloatRect, clip_area),
+            clip=clip_area,
             animations="disabled",
             omit_background=False,
             type="png",
@@ -309,7 +312,7 @@ class ConsolePage:
             link_button.dispatch_event("click")
         return self.layout.read_clipboard()
 
-    def export_json(self) -> dict[str, Any]:
+    def export_json(self) -> dict[str, JsonValue]:
         """Export the page as a JSON file via the toolbar export button.
 
         The file is saved to the tests/results directory with the page name.
@@ -332,9 +335,7 @@ class ConsolePage:
         download = download_info.value
         save_path = str(self.layout.results_dir / f"{self.page_name}.json")
         download.save_as(save_path)
-        with open(save_path, encoding="utf-8") as f:
-            result: dict[str, Any] = json.load(f)
-            return result
+        return read_json_object(save_path)
 
     def get_value(self, channel_name: str) -> float | None:
         """Get the latest data value for any channel using the synnax client"""

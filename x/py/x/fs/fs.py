@@ -11,7 +11,8 @@ from __future__ import annotations
 
 import os
 import pathlib
-import tempfile
+import secrets
+import stat
 from collections.abc import Iterable
 from typing import TypeAlias
 
@@ -32,7 +33,8 @@ def stream_to_file(
     hold either its previous contents or the complete new contents — never a partial
     write. The temp file is flushed and fsynced before the rename so its contents are
     durable on disk before they become visible at dest. A failure partway through
-    removes the temp file and leaves any existing dest untouched.
+    removes the temp file and leaves any existing dest untouched. As with open(), a new
+    dest gets the mode that the umask allows, and a replaced dest keeps its mode.
 
     :param chunks: an iterable of byte chunks to write in order.
     :param dest: the destination file path.
@@ -42,7 +44,15 @@ def stream_to_file(
     :raises ValueError: if the stream is empty and allow_empty is False.
     """
     dest_path = pathlib.Path(os.fspath(dest))
-    fd, tmp_name = tempfile.mkstemp(dir=dest_path.parent, suffix=".part")
+    try:
+        mode: int | None = stat.S_IMODE(dest_path.stat().st_mode)
+    except FileNotFoundError:
+        mode = None
+    tmp_name = dest_path.parent / f"{secrets.token_hex(8)}.part"
+    # O_BINARY exists only on Windows, where it stops newline translation.
+    flags = os.O_WRONLY | os.O_CREAT | os.O_EXCL | getattr(os, "O_BINARY", 0)
+    # The temp file for a replaced dest starts private, as dest can deny other users.
+    fd = os.open(tmp_name, flags, 0o666 if mode is None else 0o600)
     try:
         written = 0
         with os.fdopen(fd, "wb") as out:
@@ -55,7 +65,11 @@ def stream_to_file(
             raise ValueError(
                 f"refusing to write an empty stream to {os.fspath(dest)!r}"
             )
+        if mode is not None:
+            os.chmod(tmp_name, mode)
         os.replace(tmp_name, dest_path)
     except BaseException:
+        # Windows cannot remove a read-only file.
+        os.chmod(tmp_name, 0o600)
         os.unlink(tmp_name)
         raise

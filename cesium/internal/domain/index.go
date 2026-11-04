@@ -86,8 +86,7 @@ func (idx *index) insert(ctx context.Context, p pointer, persist bool) error {
 		return nil
 	}
 
-	persistPointers := idx.indexPersist.prepare(idx.persistHead)
-	return persistPointers()
+	return idx.indexPersist.prepare(idx.persistHead).run()
 }
 
 func (idx *index) overlap(tr telem.TimeRange) bool {
@@ -156,19 +155,19 @@ func (idx *index) update(ctx context.Context, p pointer, persist bool) error {
 	}
 
 	idx.persistHead = min(idx.persistHead, updateAt)
-	var persistPointers func() error
+	var write preparedWrite
 	if persist {
-		persistPointers = idx.indexPersist.prepare(idx.persistHead)
+		write = idx.indexPersist.prepare(idx.persistHead)
 	}
 	idx.mu.Unlock()
 	// The live stream carries commits to the last domain.
 	if updateAt != lastI {
 		idx.notifyHistoryChange(ctx, oldP.End.Range(p.End))
 	}
-	if persistPointers == nil {
+	if !persist {
 		return nil
 	}
-	return persistPointers()
+	return write.run()
 }
 
 func (idx *index) notifyHistoryChange(ctx context.Context, tr telem.TimeRange) {
@@ -209,33 +208,6 @@ func (idx *index) searchGE(ctx context.Context, ts telem.TimeStamp) (i int) {
 	})
 	span.End()
 	return i
-}
-
-func (idx *index) getGE(
-	ctx context.Context,
-	ts telem.TimeStamp,
-) (ptr pointer, ok bool) {
-	_, span := idx.T.Bench(ctx, "domain/index.getGE")
-	idx.mu.RLock()
-	defer func() {
-		span.End()
-		idx.mu.RUnlock()
-	}()
-	var exact bool
-	i, exact := idx.unprotectedSearch(ts.SpanRange(0))
-	if !exact {
-		if i == len(idx.mu.pointers) {
-			return pointer{}, false
-		} else {
-			i += 1
-		}
-	}
-
-	if i < 0 || i >= len(idx.mu.pointers) {
-		return pointer{}, false
-	}
-
-	return idx.mu.pointers[i], true
 }
 
 // unprotectedSearch returns the position in the index of a domain that overlaps with

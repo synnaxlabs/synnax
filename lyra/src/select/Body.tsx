@@ -26,7 +26,10 @@ export interface BodyProps<K extends record.Key>
     Pick<ItemsProps<K>, "emptyContent" | "children"> {
   status?: Status.Status<z.ZodNever>;
   resourceName: string;
-  /** Pinned below the scrollable list; stays visible regardless of list length. */
+  /**
+   * Pinned below the scrollable list. A fixed {@link Item} in it is a pinned option,
+   * which the search never hides.
+   */
   footer?: ReactNode;
   /** Fixed {@link Item}s listed above the data. */
   fixedItems?: ReactNode;

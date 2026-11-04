@@ -38,9 +38,7 @@ def fill_configure(
     # A required field's label ends in an asterisk.
     modal.get_by_label(re.compile(r"^Name\b")).fill(name)
     modal.get_by_label(re.compile(r"^Identifier\b")).fill(identifier)
-    # Toasts stack over the modal footer and swallow the click.
-    notifications.close_all()
-    modal.get_by_role("button", name=action, exact=True).click()
+    notifications.clear_and_click(modal.get_by_role("button", name=action, exact=True))
 
 
 class DevicesClient(ResourceClient):
@@ -421,16 +419,17 @@ class DevicesClient(ResourceClient):
         self.modal.get_by_label("Name", exact=True).fill(name)
         self.modal.get_by_label(re.compile(r"^Host\b")).fill(host)
         self.modal.get_by_label(re.compile(r"^Port\b")).fill(str(port))
-        # Toasts stack over the modal footer and swallow the click.
-        self.layout.notifications.close_all()
-        self.modal.get_by_role("button", name="Connect", exact=True).click(timeout=5000)
+        self.layout.notifications.clear_and_click(
+            self.modal.get_by_role("button", name="Connect", exact=True)
+        )
 
     def fill_connect_serial(self, *, name: str, serial_port: str) -> None:
         """Fill the open connect form of a serial device and click Connect."""
         self.modal.get_by_label("Name", exact=True).fill(name)
         self.modal.get_by_label(re.compile(r"^Serial port\b")).fill(serial_port)
-        self.layout.notifications.close_all()
-        self.modal.get_by_role("button", name="Connect", exact=True).click(timeout=5000)
+        self.layout.notifications.clear_and_click(
+            self.modal.get_by_role("button", name="Connect", exact=True)
+        )
 
     def found(self, name: str) -> Locator:
         """The item of a device in the open find view."""
@@ -446,8 +445,8 @@ class DevicesClient(ResourceClient):
         :param identifier: Prefix for the channels of the device.
         :param action: The submit button, "Save" or "Save and create read task".
         """
-        self.found(name).get_by_role("button", name="Configure", exact=True).click(
-            timeout=5000
+        self.layout.notifications.clear_and_click(
+            self.found(name).get_by_role("button", name="Configure", exact=True)
         )
         fill_configure(
             self.modal,
