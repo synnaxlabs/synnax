@@ -21,7 +21,7 @@ runs:
       env:
         SHA256: ACB4E8111511749DC7A3EBEDCA9B04190E37A17AFEB73F55D4425DBF0B90FAD9
         VERSION: 1.5.7
-      run: |
+      run: | # zizmor: ignore[github-env] The path holds a checksummed archive.
         if (Get-Command zstd -ErrorAction SilentlyContinue) { exit 0 }
         $name = "zstd-v$env:VERSION-win64"
         $zip = "$env:RUNNER_TEMP\$name.zip"
