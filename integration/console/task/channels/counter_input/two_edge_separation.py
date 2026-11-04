@@ -28,10 +28,10 @@ class TwoEdgeSeparation(Counter):
 
     def __init__(
         self,
-        *,
         layout: LayoutClient,
         name: str,
         device: str,
+        *,
         units: Literal["Seconds", "Ticks"] | None = None,
         first_edge: Literal["Rising", "Falling"] | None = None,
         second_edge: Literal["Rising", "Falling"] | None = None,

@@ -30,10 +30,10 @@ class LinearVelocity(Counter):
 
     def __init__(
         self,
-        *,
         layout: LayoutClient,
         name: str,
         device: str,
+        *,
         units: Literal["m/s", "in/s"] | None = None,
         decoding_type: Literal["X1", "X2", "X4", "Two pulse"] | None = None,
         dist_per_pulse: float | None = None,

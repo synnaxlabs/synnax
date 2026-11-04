@@ -31,10 +31,10 @@ class Counter:
 
     def __init__(
         self,
-        *,
         layout: LayoutClient,
         name: str,
         device: str,
+        *,
         chan_type: str,
         port: int | None = None,
         min_val: float | None = None,
