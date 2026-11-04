@@ -10,6 +10,7 @@
 import { Button } from "@synnaxlabs/lyra/button";
 import { Flex } from "@synnaxlabs/lyra/flex";
 import { Icon } from "@synnaxlabs/lyra/icon";
+import { Status } from "@synnaxlabs/lyra/status";
 import { Text } from "@synnaxlabs/lyra/text";
 import { type ReactElement } from "react";
 
@@ -22,6 +23,7 @@ import {
 import { deny } from "@/server/license/deny";
 import { channels, term } from "@/server/license/limits";
 import { activatePath } from "@/shell";
+import { post, reload } from "@/ui/api";
 import { Fact, Facts } from "@/ui/Facts";
 import {
   date,
@@ -31,12 +33,12 @@ import {
   machineName,
   statusOf,
 } from "@/ui/format";
-import { LabelDialog } from "@/ui/licenses/LabelDialog";
 import { MachineMenu } from "@/ui/licenses/MachineMenu";
 import { StaffActions } from "@/ui/licenses/StaffActions";
 import { StatusTag } from "@/ui/licenses/StatusTag";
 import { Empty, Page, Section } from "@/ui/Page";
 import { Row, Table } from "@/ui/Table";
+import { useAction } from "@/ui/useAction";
 
 export interface LicenseProps {
   license: LicenseRecord;
@@ -51,6 +53,8 @@ export interface LicenseProps {
   now: Date;
 }
 
+const LABEL_ID = "license-label";
+
 const MACHINE_COLUMNS = "minmax(0, 2fr) 14rem 14rem 6rem";
 
 /** License shows a license: its terms, the machines holding seats, and its history. */
@@ -64,6 +68,11 @@ export const License = ({
   admin,
   now,
 }: LicenseProps): ReactElement => {
+  const rename = useAction(async (label: string) => {
+    await post(`/api/licenses/${lic.key}/label`, { label });
+    reload();
+  });
+  const renamable = admin && lic.edition === "enterprise";
   const status = statusOf(lic, now);
   const held = activations.filter((a) => a.releasedAt == null);
   const released = activations.filter((a) => a.releasedAt != null);
@@ -75,6 +84,8 @@ export const License = ({
   return (
     <Page
       title={lic.label}
+      titleID={LABEL_ID}
+      onTitleChange={renamable ? rename.run : undefined}
       parent={parent}
       subtitle={
         <Flex.Box x align="center" gap="small">
@@ -88,7 +99,12 @@ export const License = ({
       }
       actions={
         <>
-          {admin && lic.edition === "enterprise" && <LabelDialog license={lic} />}
+          {renamable && (
+            <Button.Button variant="outlined" onClick={() => Text.edit(LABEL_ID)}>
+              <Icon.Rename />
+              Rename
+            </Button.Button>
+          )}
           {staff && (
             <StaffActions
               license={lic}
@@ -105,6 +121,9 @@ export const License = ({
         </>
       }
     >
+      {rename.error != null && (
+        <Status.Summary variant="error" level="small" message={rename.error} />
+      )}
       <LicenseFacts license={lic} held={held.length} />
       <Section title="Machines">
         {held.length === 0 ? (

@@ -24,6 +24,10 @@ export interface Parent {
 
 export interface PageProps extends PropsWithChildren {
   title: string;
+  /** titleID lets a caller start editing the title with `Text.edit`. */
+  titleID?: string;
+  /** onTitleChange makes the title editable in place. */
+  onTitleChange?: (title: string) => void;
   /** parent links the page that lists this one, above the title. */
   parent?: Parent;
   /** subtitle reads under the title: an organization name, a status line. */
@@ -36,6 +40,8 @@ export interface PageProps extends PropsWithChildren {
 /** Page is the frame every portal page renders: a header with actions, then content. */
 export const Page = ({
   title,
+  titleID,
+  onTitleChange,
   parent,
   subtitle,
   actions,
@@ -57,9 +63,13 @@ export const Page = ({
               {parent.label}
             </Text.Text>
           )}
-          <Text.Text level="h2" color={11}>
-            {title}
-          </Text.Text>
+          <Text.MaybeEditable
+            id={titleID}
+            level="h2"
+            color={11}
+            value={title}
+            onChange={onTitleChange}
+          />
           {subtitle != null && (
             <Text.Text level="p" color={9}>
               {subtitle}
