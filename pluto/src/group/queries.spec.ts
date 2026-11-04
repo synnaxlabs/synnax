@@ -447,11 +447,7 @@ describe("Group queries", () => {
       });
 
       await act(async () => {
-        await client.ontology.moveChildren(
-          group.resourceID(parent1.key),
-          group.resourceID(parent2.key),
-          group.resourceID(g.key),
-        );
+        await client.groups.setParent(g.key, group.resourceID(parent2.key));
       });
 
       await waitFor(() => {
@@ -496,11 +492,7 @@ describe("Group queries", () => {
       });
 
       await act(async () => {
-        await client.ontology.moveChildren(
-          group.resourceID(parent1.key),
-          group.resourceID(parent2.key),
-          group.resourceID(g.key),
-        );
+        await client.groups.setParent(g.key, group.resourceID(parent2.key));
       });
 
       await waitFor(() => {
