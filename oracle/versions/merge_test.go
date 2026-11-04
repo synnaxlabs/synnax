@@ -350,6 +350,41 @@ Channel struct {
 `)).Error().To(MatchError(ContainSubstring("Channel.name, Channel.uses")))
 		})
 
+		It("Should reject a live doc on an inherited field", func(ctx SpecContext) {
+			write("schemas/synnax/versions/channel/v2.oracle", `
+Mode = v0.Mode
+Payload = v0.Payload
+Event = v0.Event
+
+Base struct {
+    key uuid
+}
+
+Channel struct extends Base {
+    name string
+    uses Mode
+
+    @go marshal
+}
+`)
+			r, chain := resolver()
+			Expect(versions.MergeLive(ctx, r, chain, `Channel struct extends Base {
+    key uuid {
+        @doc value "identifies the channel."
+    }
+    name string
+    uses Mode
+
+    @go marshal
+}
+`)).Error().To(SatisfyAll(
+				MatchError(validate.ErrValidation),
+				MatchError(ContainSubstring(
+					"move Channel.key to schemas/synnax/versions/channel/v2.oracle",
+				)),
+			))
+		})
+
 		It("Should keep a doc on a declaration the chain removed", func(
 			ctx SpecContext,
 		) {

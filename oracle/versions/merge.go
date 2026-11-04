@@ -194,25 +194,45 @@ func MergeLive(
 	if err != nil {
 		return "", errors.Wrapf(err, "failed to parse merged %s.oracle", livePath)
 	}
-	if err := checkErasedDocs(chain, surf, lc, merged); err != nil {
+	if err := checkErasedDocs(ctx, r, chain, surf, lc, merged); err != nil {
 		return "", err
 	}
 	return license(ctx, r.RepoRoot(), formatted)
 }
 
 // checkErasedDocs fails when the merge dropped a live doc from a declaration that it
-// kept. A doc that only differs from the chain's is not reported, because it cannot be
-// told apart from an edit to the version file.
+// kept, inherited fields included. A doc that only differs from the chain's is not
+// reported, because it cannot be told apart from an edit to the version file.
 func checkErasedDocs(
-	chain Chain, surf map[string]Definition, live, merged *liveContent,
+	ctx context.Context,
+	r *Resolver,
+	chain Chain,
+	surf map[string]Definition,
+	live, merged *liveContent,
 ) error {
 	byFile := make(map[string][]string)
 	for path := range live.documented {
-		if !merged.declared.Contains(path) || merged.documented.Contains(path) {
+		if merged.documented.Contains(path) {
 			continue
 		}
-		name, _, _ := strings.Cut(path, ".")
-		file := chain.FilePath(surf[name].Version) + ".oracle"
+		name, field, _ := strings.Cut(path, ".")
+		def, member := surf[name]
+		if !member {
+			continue
+		}
+		if !merged.declared.Contains(path) {
+			definer, err := r.File(ctx, chain.LivePath(), def.Version)
+			if err != nil {
+				return err
+			}
+			fields := resolution.UnifiedFields(def.Type, definer.Table)
+			if !slices.ContainsFunc(fields, func(f resolution.Field) bool {
+				return f.Name == field
+			}) {
+				continue
+			}
+		}
+		file := chain.FilePath(def.Version) + ".oracle"
 		byFile[file] = append(byFile[file], path)
 	}
 	if len(byFile) == 0 {
