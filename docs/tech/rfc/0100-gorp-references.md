@@ -209,6 +209,13 @@ stream, not in `core/pkg/service/channel/writer.go`, so a cascade takes the same
 The `/ontology/*` routes and their access checks are deleted. Group create, rename, and
 delete move to `/group/*`, and a move into a group updates the record's `group` field.
 
+Search and lookup across types move to a service in `core/pkg/service/resource`. Each
+domain registers its type with a text search and a name lookup by ID. The service holds
+no relationships. The Console palette searches every type in one request, and a screen
+that shows an ID of any type gets its name from it. Rejected: each client sends one
+request per type, which costs about twenty requests per palette keystroke and copies the
+fan-out into each client.
+
 `/batch` takes an ordered list of typed requests, each one an existing endpoint and its
 payload. It runs them in one `gorp.WithTx` and stops at the first error. It accepts only
 requests whose work is all inside that Gorp transaction, so it refuses channel create,
