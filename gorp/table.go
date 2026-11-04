@@ -35,8 +35,8 @@ type TableConfig[K Key, E Entry[K]] struct {
 	Migrations []Migration
 	// Indexes is the set of secondary indexes to register on this table. Each index is
 	// populated at open time from the current table contents, then kept in sync via the
-	// table's observer pipeline for the lifetime of the table. See NewLookupIndex,
-	// NewSortedIndex, and NewSearchIndex for constructing index values.
+	// table's observer pipeline for the lifetime of the table. See NewLookupIndex and
+	// NewSearchIndex for constructing index values.
 	Indexes []Index[K, E]
 	// Instrumentation is used for migration and populate logging.
 	alamos.Instrumentation

@@ -55,18 +55,6 @@ func (e *Entries[K, E]) add(entry E) {
 	e.changes++
 }
 
-func (e *Entries[K, E]) replace(entries []E) {
-	if e.isMultiple {
-		*e.entries = entries
-		e.changes += len(entries)
-		return
-	}
-	if len(entries) != 0 && e.entry != nil {
-		*e.entry = entries[0]
-		e.changes++
-	}
-}
-
 // MapInPlace iterates over all entries in the provided query and applies the given
 // function to each entry. If the function returns true, the entry will be replaced
 // with the new entry. If the function returns false, the entry will be removed from
