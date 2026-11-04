@@ -81,6 +81,8 @@ outlined button) has fill l2 and border l4, and its caret has the disabled text 
 - Filled is the one primary action of a region: a footer, a card, or a form. Outlined is
   a secondary action next to it. Text buttons are for toolbars, inline actions, and
   menus.
+- In a resource toolbar header, each create action is outlined (`Toolbar.CreateAction`).
+  The other actions in that header are text buttons.
 - An icon-only button has a tooltip that names the action in a word ("Close"), then
   shows its keys.
 
@@ -164,6 +166,25 @@ outlined button) has fill l2 and border l4, and its caret has the disabled text 
   1min or less"), never a silent clamp.
 - A range duration on the timeline keeps the popover editor (`Input.TimeSpan`), because
   it reads as a value, not as a form field.
+
+### Auto values
+
+An auto field holds a value that the Console picks until a person sets one: an axis
+bound, a log precision, or the line plot X channel.
+
+- The field shows the "Auto" chip (`Input.AutoChip`) at its end, where a unit sits.
+  Violet (`--pluto-auto-z`, `--pluto-auto-text`) means auto. Primary blue stays for
+  focus and selection.
+- The field never shows a value that it does not use, such as 0 for an auto bound. A
+  field with room shows the prompt "Enter a value to override". A narrow field shows
+  only the chip.
+- A set value removes the chip and shows the Auto button (`Input.AutoButton`): the Auto
+  icon in violet, with the tooltip "Auto". The button, or an empty field, puts the field
+  back in auto.
+- A select whose empty value is an auto mode shows the mode as a value ("Time") with the
+  chip, never "Select channel". The mode is a `Select.Item` in the select's `footer`, so
+  it stays under the list and the search never hides it. It has a one-line hint that
+  ends "Best for most needs." Its `label` leaves the hint out of the trigger.
 
 ### Task forms
 
@@ -280,6 +301,19 @@ says why in a sentence, then gives the raw error.
 - A click on a range zooms to it and pauses the plot. A second click on that range goes
   back to the view and pause state from before. If the view changes between the two
   clicks, the second click zooms in again. Clicks nest, one level per click.
+
+### Plot axes
+
+- The toolbar's axes sit in a `Properties.Rail` on the left, the same rail as the
+  schematic element config. Each tab shows `LinePlot.axisIcon`: a faint plot frame with
+  the axis side drawn solid. An inset band was rejected for the first style.
+
+### Plot data tab
+
+- The labels share one column as wide as the widest label, so every field starts at one
+  edge. X1, the field people change least, sits at the end of the Ranges row, as both
+  set the x axis. Below a toolbar width of 144rem it takes its own row at the bottom.
+- The X1 dialog floats, so it can be wider than its trigger.
 
 ## Interaction
 

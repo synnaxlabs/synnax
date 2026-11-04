@@ -12,6 +12,7 @@ import "@/platform/toolbar/Header.css";
 import { Button } from "@synnaxlabs/lyra/button";
 import { Flex } from "@synnaxlabs/lyra/flex";
 import { Header as PHeader } from "@synnaxlabs/lyra/header";
+import { Icon } from "@synnaxlabs/lyra/icon";
 import { type ReactElement } from "react";
 
 import { CSS } from "@/platform/css";
@@ -52,15 +53,34 @@ export interface ActionProps extends Omit<
   "variant" | "textColor"
 > {}
 
-export const Action = ({ className, ...rest }: ActionProps): ReactElement => (
+interface ChassisProps extends ActionProps, Pick<Button.ButtonProps, "variant"> {}
+
+const Chassis = ({ className, ...rest }: ChassisProps): ReactElement => (
   <Button.Button
     size="small"
     rounded="small"
-    variant="text"
     textColor={9}
     className={CSS.cls(CSS.BE("toolbar", "action"), className)}
     {...rest}
   />
+);
+
+export const Action = (props: ActionProps): ReactElement => (
+  <Chassis variant="text" {...props} />
+);
+
+export interface CreateActionProps extends ActionProps {}
+
+const ADD_ICON = <Icon.Add />;
+
+/** An {@link Action} that creates a resource. Its icon defaults to the add glyph. */
+export const CreateAction = ({
+  children = ADD_ICON,
+  ...rest
+}: CreateActionProps): ReactElement => (
+  <Chassis variant="outlined" {...rest}>
+    {children}
+  </Chassis>
 );
 
 export interface ToggleActionProps extends Omit<

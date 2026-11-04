@@ -51,15 +51,13 @@ const Actions = ({ search }: ActionsProps): ReactElement => {
       <Tree.SearchAction search={search} />
       {hasCreatePermission && (
         <>
-          <Toolbar.Action
+          <Toolbar.CreateAction
             onClick={() => openCalculated()}
             tooltip="Create calculated channel"
           >
             <Channel.CreateCalculatedIcon />
-          </Toolbar.Action>
-          <Toolbar.Action onClick={() => openCreate()} tooltip="Create channel">
-            <Icon.Add />
-          </Toolbar.Action>
+          </Toolbar.CreateAction>
+          <Toolbar.CreateAction onClick={() => openCreate()} tooltip="Create channel" />
         </>
       )}
     </Toolbar.Actions>

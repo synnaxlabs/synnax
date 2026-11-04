@@ -37,7 +37,7 @@
 }
 
 .lyra-icon.console-performance-select__auto {
-    color: #635bff;
+    color: var(--pluto-auto-z);
 }
 
 .console-performance-select__bar {
@@ -54,13 +54,4 @@
 
 .console-performance-select-meter--high .console--filled {
     fill: var(--pluto-error-z);
-}
-
-/* The trigger shows the selected level's glyph as its icon, so its label shows the name
-   alone. */
-.console-performance-select__trigger .lyra-select__label {
-    .lyra-icon,
-    .console-performance-select__description {
-        display: none;
-    }
 }

@@ -31,11 +31,11 @@ class Current(Analog):
 
     def __init__(
         self,
-        *,
         layout: LayoutClient,
         name: str,
         device: str,
-        shunt_resistor: Literal["DefaultInternalExternal"] | None = None,
+        *,
+        shunt_resistor: Literal["Default", "Internal", "External"] | None = None,
         resistance: float | None = None,
         **kwargs: Unpack[Options],
     ) -> None:

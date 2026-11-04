@@ -7,6 +7,9 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
+#include <mutex>
+#include <stdexcept>
+
 #include "gtest/gtest.h"
 
 #include "x/cpp/testutil/testutil.h"
@@ -18,14 +21,31 @@ class ThrowingPipeline final : public Base {
 public:
     explicit ThrowingPipeline(const x::breaker::Config &config): Base(config) {}
 
-    void run() override { throw std::runtime_error("test exception"); }
+    std::mutex mu;
+    x::errors::Error err;
+
+    // NOLINTNEXTLINE(bugprone-std-exception-baseclass): tests a non-std exception.
+    void run() override { throw 1; }
+
+    void stopped_with_err(const x::errors::Error &err) override {
+        std::lock_guard lock(this->mu);
+        this->err = err;
+    }
 };
 
 class StdExceptionPipeline final : public Base {
 public:
     explicit StdExceptionPipeline(const x::breaker::Config &config): Base(config) {}
 
+    std::mutex mu;
+    x::errors::Error err;
+
     void run() override { throw std::out_of_range("test std::exception"); }
+
+    void stopped_with_err(const x::errors::Error &err) override {
+        std::lock_guard lock(this->mu);
+        this->err = err;
+    }
 };
 
 class SelfStoppingPipeline final : public Base {
@@ -40,6 +60,8 @@ public:
         this->run_count.fetch_add(1);
         this->stop();
     }
+
+    void stopped_with_err(const x::errors::Error &) override {}
 };
 
 /// @brief it should catch an unknown exception in run() and leave the pipeline
@@ -48,6 +70,11 @@ TEST(BasePipeline, testUnknownExceptionHandling) {
     auto pipeline = ThrowingPipeline(x::breaker::Config{});
     ASSERT_TRUE(pipeline.start());
     ASSERT_EVENTUALLY_FALSE(pipeline.running());
+    {
+        std::lock_guard lock(pipeline.mu);
+        ASSERT_MATCHES(pipeline.err, x::errors::INTERNAL);
+        ASSERT_EQ(pipeline.err.data, "unknown exception");
+    }
     ASSERT_TRUE(pipeline.start());
     ASSERT_EVENTUALLY_FALSE(pipeline.running());
     ASSERT_FALSE(pipeline.stop());
@@ -59,6 +86,11 @@ TEST(BasePipeline, testStdExceptionHandling) {
     auto pipeline = StdExceptionPipeline(x::breaker::Config{});
     ASSERT_TRUE(pipeline.start());
     ASSERT_EVENTUALLY_FALSE(pipeline.running());
+    {
+        std::lock_guard lock(pipeline.mu);
+        ASSERT_MATCHES(pipeline.err, x::errors::INTERNAL);
+        ASSERT_EQ(pipeline.err.data, "test std::exception");
+    }
     ASSERT_TRUE(pipeline.start());
     ASSERT_EVENTUALLY_FALSE(pipeline.running());
     ASSERT_FALSE(pipeline.stop());

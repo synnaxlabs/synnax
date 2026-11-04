@@ -17,6 +17,7 @@ import { useNow } from "@synnaxlabs/lyra/hooks";
 import { Icon } from "@synnaxlabs/lyra/icon";
 import { Input } from "@synnaxlabs/lyra/input";
 import { List } from "@synnaxlabs/lyra/list";
+import { type position } from "@synnaxlabs/lyra/position";
 import { Select } from "@synnaxlabs/lyra/select";
 import { Status } from "@synnaxlabs/lyra/status";
 import { Tag } from "@synnaxlabs/lyra/tag";
@@ -194,6 +195,9 @@ interface LiveRowProps {
   onChange: (span?: TimeSpan) => void;
 }
 
+// The Off chip's key: a zero-length window is no window.
+const OFF = 0;
+
 // A frame of its own, so its toggles stay out of the list's arrow keys and search.
 const LiveRow = ({ span, onChange }: LiveRowProps): ReactElement => (
   <Flex.Box x align="center" gap="medium" className={CSS.BE("range-select", "live")}>
@@ -204,14 +208,19 @@ const LiveRow = ({ span, onChange }: LiveRowProps): ReactElement => (
     <Select.Buttons
       allowNone
       enableTriggers={false}
-      value={span == null ? undefined : Number(span.valueOf())}
+      value={span == null ? OFF : Number(span.valueOf())}
       onChange={(key: number | null) =>
-        onChange(key == null ? undefined : new TimeSpan(key))
+        onChange(key == null || key === OFF ? undefined : new TimeSpan(key))
       }
+      size="small"
       wrap
     >
+      <Select.Item itemKey={OFF} size="small">
+        <Icon.None />
+        Off
+      </Select.Item>
       {ROLLING_PRESETS.map((preset) => (
-        <Select.Item key={preset} itemKey={preset}>
+        <Select.Item key={preset} itemKey={preset} size="small">
           {new TimeSpan(preset).toString()}
         </Select.Item>
       ))}
@@ -224,7 +233,8 @@ interface DurationSearchProps {
   onDuration: (span: TimeSpan) => void;
 }
 
-// Enter on a typed duration sets the rolling window and closes the dialog.
+// Enter on a typed duration sets the rolling window and closes the dialog. The wrapper
+// packs, so the field takes the dialog's top corners.
 const DurationSearch = ({
   onSearch,
   onDuration,
@@ -234,7 +244,7 @@ const DurationSearch = ({
   return (
     <Flex.Box
       y
-      empty
+      pack
       onKeyDown={(e) => {
         if (e.key !== "Enter") return;
         const typed = TimeSpan.parse(term);
@@ -254,6 +264,11 @@ const DurationSearch = ({
       />
     </Flex.Box>
   );
+};
+
+const ABOVE: position.LocationPreference = {
+  targetCorner: "top",
+  dialogCorner: "bottom",
 };
 
 const emptyContent = (
@@ -335,7 +350,7 @@ export const RangeSelect = (props: RangeSelectProps): ReactElement => {
   };
   return (
     <Input.Item x label="Ranges" {...props}>
-      <Dialog.Frame variant="floating">
+      <Dialog.Frame variant="floating" location={ABOVE}>
         <Select.Frame<string>
           multiple
           value={entries.map(({ key }) => key)}
