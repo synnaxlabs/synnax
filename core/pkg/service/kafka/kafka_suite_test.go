@@ -35,6 +35,7 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/service/status"
 	"github.com/synnaxlabs/synnax/pkg/service/task"
 	"github.com/synnaxlabs/x/encoding/msgpack"
+	"github.com/synnaxlabs/x/errors"
 	"github.com/synnaxlabs/x/kv"
 	"github.com/synnaxlabs/x/telem"
 	. "github.com/synnaxlabs/x/testutil"
@@ -283,4 +284,20 @@ func topicID(ctx context.Context, cl *kgo.Client, topic string) [16]byte {
 	res := MustSucceed(req.RequestWith(ctx, cl))
 	Expect(res.Topics).To(HaveLen(1))
 	return res.Topics[0].TopicID
+}
+
+// cutConnections closes each connection that sends a request to broker until restore
+// runs. broker keeps its state, unlike a kfake.DataDir restart, which fails on Windows
+// because kfake renames its files while they are open.
+func cutConnections(broker *kfake.Cluster) (restore func()) {
+	var cut atomic.Bool
+	cut.Store(true)
+	broker.Control(func(kmsg.Request) (kmsg.Response, error, bool) {
+		broker.KeepControl()
+		if cut.Load() {
+			return nil, errors.New("connection cut"), true
+		}
+		return nil, nil, false
+	})
+	return func() { cut.Store(false) }
 }

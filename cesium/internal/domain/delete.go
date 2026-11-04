@@ -210,10 +210,10 @@ func (db *DB) Delete(
 		)
 	}
 
-	persist := db.idx.indexPersist.prepare(startDomain)
+	write := db.idx.indexPersist.prepare(startDomain)
 	db.idx.notifyHistoryChange(ctx, tr)
 	// We choose to keep the mutex locked while persisting to index.
-	return span.Error(persist())
+	return span.Error(write.run())
 }
 
 // GarbageCollect rewrites files that have accumulated enough tombstones to warrant
@@ -278,11 +278,11 @@ func (db *DB) GarbageCollect(ctx context.Context) error {
 
 	db.idx.mu.Lock()
 	defer db.idx.mu.Unlock()
-	persist := db.idx.indexPersist.prepare(0)
+	write := db.idx.indexPersist.prepare(0)
 	// We choose to keep the mutex locked while persisting pointers: the time sacrifice
 	// should not be substantial, and this ensures that the order of index persists are
 	// in order of garbage collect so that the index does reflect the correct indexes.
-	return persist()
+	return write.run()
 }
 
 // garbageCollectFile rewrites key's file to drop its tombstones, reporting whether it

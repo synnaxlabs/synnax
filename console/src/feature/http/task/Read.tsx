@@ -46,7 +46,7 @@ const RATE_INPUT_PROPS = {
 const Properties = () => (
   <>
     <SelectDevice />
-    <Flex.Box x grow>
+    <Flex.Box x grow wrap>
       <PForm.NumericField
         path={root.config.rate}
         label="Rate"
