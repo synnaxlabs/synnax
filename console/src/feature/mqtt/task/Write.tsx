@@ -19,7 +19,7 @@ import { Text } from "@synnaxlabs/lyra/text";
 import { deep, id, primitive } from "@synnaxlabs/x";
 import { type FC, useState } from "react";
 
-import { use } from "@/feature/mqtt/device/queries";
+import { use, useFromConfig } from "@/feature/mqtt/device/queries";
 import { Select as SelectDevice } from "@/feature/mqtt/device/Select";
 import { type Device, MAKE, SCHEMAS } from "@/feature/mqtt/device/types";
 import { useConnectModal } from "@/feature/mqtt/device/useConnectModal";
@@ -57,9 +57,15 @@ const root = deep.path<Task.Values<WriteSchemas>>();
 
 const Properties = () => <SelectDevice />;
 
-/** The name configure gives the command channel of a plain target. */
+/** The name deploying gives the command channel of a plain target. */
 const commandChannelName = (devName: string, topic: string): string =>
   `${channel.escapeInvalidName(devName)}_${channel.escapeInvalidName(topic)}_cmd`;
+
+/** The name deploying gives a target's command channel while it has none. */
+const defaultCommandName = (devName: string, target: WriteTarget): string =>
+  target.type === "plain"
+    ? commandChannelName(devName, target.topic)
+    : `${sparkplugChannelName(devName, target)}_cmd`;
 
 /** A plain target holds its channel in a field; a Sparkplug B target is the field. */
 const channelPaths = (path: deep.Path<WriteTarget>, type: WriteTarget["type"]) => {
@@ -74,9 +80,9 @@ const channelPaths = (path: deep.Path<WriteTarget>, type: WriteTarget["type"]) =
 const TargetItem = (props: Task.ChannelListItemProps) => {
   const { itemKey } = props;
   const path = root.config.targets[itemKey];
-  const type = PForm.useFieldValue(path.type);
-  const disabled = PForm.useFieldValue(path.disabled);
-  const paths = channelPaths(path, type);
+  const target = PForm.useFieldValue(path);
+  const device = useFromConfig();
+  const paths = channelPaths(path, target.type);
   const channelKey = PForm.useFieldValue(paths.key);
   return (
     <Select.Item
@@ -84,7 +90,7 @@ const TargetItem = (props: Task.ChannelListItemProps) => {
       y
       align="start"
       gap="small"
-      className={CSS.cls(disabled && CSS.M("off"))}
+      className={CSS.cls(target.disabled && CSS.M("off"))}
     >
       <Flex.Box x align="center" gap="small" full="x">
         <EntryLabel path={path} />
@@ -93,6 +99,10 @@ const TargetItem = (props: Task.ChannelListItemProps) => {
       <Task.ChannelName
         channel={channelKey}
         namePath={paths.name}
+        defaultName={
+          device == null ? undefined : defaultCommandName(device.name, target)
+        }
+        skipped={target.disabled}
         id={Task.getChannelNameID(itemKey)}
         level="small"
         weight={450}
@@ -126,7 +136,8 @@ const SparkplugTargetPane: FC<PaneProps<SparkplugWriteTarget>> = ({
         <Task.ChannelNameField
           channel={target.channel}
           namePath={path.name}
-          defaultName={`${sparkplugChannelName(deviceName, target)}_cmd`}
+          defaultName={defaultCommandName(deviceName, target)}
+          skipped={target.disabled}
         />
         <SparkplugTypeField
           path={path.tagType}
@@ -144,11 +155,13 @@ const PlainChannelNameField: FC<PaneProps<PlainWriteTarget>> = ({
 }) => {
   const channelKey = PForm.useFieldValue(path.channel.channel);
   const topic = PForm.useFieldValue(path.topic);
+  const disabled = PForm.useFieldValue(path.disabled);
   return (
     <Task.ChannelNameField
       channel={channelKey}
       namePath={path.channel.name}
       defaultName={commandChannelName(deviceName, topic)}
+      skipped={disabled}
     />
   );
 };
@@ -346,7 +359,7 @@ const onConfigure: Task.OnConfigure<WriteSchemas["config"]> = async (
             channel: field.channel,
             name: primitive.isNonZero(field.name)
               ? field.name
-              : commandChannelName(dev.name, topic),
+              : defaultCommandName(dev.name, target),
             dataType: field.dataType,
           },
         );
@@ -359,7 +372,7 @@ const onConfigure: Task.OnConfigure<WriteSchemas["config"]> = async (
             channel: target.channel,
             name: primitive.isNonZero(target.name)
               ? target.name
-              : `${sparkplugChannelName(dev.name, target)}_cmd`,
+              : defaultCommandName(dev.name, target),
             dataType: fromSparkplugDataType(target.tagType),
           },
         );

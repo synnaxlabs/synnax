@@ -25,17 +25,26 @@ Before you start, you need a
 
 ## Node IDs
 
-Each channel of the task reads one node. A node ID has the form
-`NS=<namespace>;<type>=<identifier>`:
+Each channel of the task reads one node. A node ID names the namespace of the node and
+its identifier, in one of these forms:
 
-| Type | Identifier | Example                                       |
-| ---- | ---------- | --------------------------------------------- |
-| `I`  | A number   | `NS=2;I=1001`                                 |
-| `S`  | A string   | `NS=2;S=Tank1.Pressure`                       |
-| `G`  | A GUID     | `NS=2;G=09087e75-8e5e-499b-954f-f2a9603db28a` |
+| Form                                       | Example                                  |
+| ------------------------------------------ | ---------------------------------------- |
+| `nsu=<namespace URI>;<type>=<identifier>`  | `nsu=urn:example:plant;s=Tank1.Pressure` |
+| `ns=<namespace index>;<type>=<identifier>` | `ns=2;s=Tank1.Pressure`                  |
+| `<type>=<identifier>`                      | `i=2258`, a node in namespace 0          |
 
-Write `NS` and the type in uppercase. The Driver rejects `ns=2;s=Tank1.Pressure`. The
-browser in the Console fills the node IDs for you.
+| Type | Identifier       | Example                                       |
+| ---- | ---------------- | --------------------------------------------- |
+| `i`  | A number         | `ns=2;i=1001`                                 |
+| `s`  | A string         | `ns=2;s=Tank1.Pressure`                       |
+| `g`  | A GUID           | `ns=2;g=09087e75-8e5e-499b-954f-f2a9603db28a` |
+| `b`  | Bytes, in base64 | `ns=2;b=M/RbKBsRVkePCePcx24oRA==`             |
+
+The browser in the Console fills node IDs in the `nsu=` form. A server can give a
+namespace a different index when it restarts, but the URI stays the same. In a URI,
+write `;` as `%3B` and `%` as `%25`. The Driver ignores the case of the prefix and the
+type, so it also accepts `NS=2;S=Tank1.Pressure`.
 
 <Divider.Divider x />
 
@@ -131,11 +140,60 @@ await task.start();
 
 <Divider.Divider x />
 
+## Find nodes
+
+The **Browser** loads the children of a node when you expand it. It stops at 10,000
+children, or after 7 seconds on a slow server, and the Console warns you when it stops
+early. To find a node:
+
+- Type in the filter field. The browser shows only the loaded nodes whose name or node
+  ID holds the text. Expand a folder to load its nodes.
+- Type a node ID, such as `ns=2;s=Tank1.Pressure`, and press Enter. The browser reads
+  that node, even if it is not loaded.
+
+Select a node to see its node ID, class, data type, shape, access, and minimum sampling
+interval, with its current value, status, and timestamps. Click <Icon.Refresh /> (**Read
+again**) to read the value again. You can drag a node by its name in the details into
+**Channels**. A node that fails to browse shows <Icon.Warning />, with the reason when
+you hover over it. The rest of the tree stays.
+
+### Add a folder
+
+Drag a folder or an object into **Channels** to add the variables under it, at any
+depth. The Console asks you to confirm the count before it adds them. It names each
+channel from the folder and the browse path below it, such as `Line1_Tank1_Pressure`.
+When the task already has the name, the Console adds a number, such as
+`Line1_Tank1_Pressure_2`. The Driver looks under objects, but not under variables. It
+stops after 1,000 variables, 10,000 objects, or 20 seconds, and the Console tells you
+when it stopped early.
+
+### Import and export channels
+
+Click <Icon.Export /> (**Export channels to CSV**) in **Channels** to save the channels
+as `<task name>_channels.csv`. Click <Icon.Import /> (**Import channels from CSV**) to
+add the channels of a CSV file. The Console adds only the nodes that the task does not
+have. If one row is not valid, it adds nothing and names the row.
+
+The file starts with a header row. Only `node_id` is required. Commas or tabs can
+separate the cells, and the Console ignores other columns.
+
+| Column      | Default   | Notes                                                        |
+| ----------- | --------- | ------------------------------------------------------------ |
+| `name`      | Empty     | The channel name. Empty uses the node name.                  |
+| `node_name` | Empty     | The node name. Empty uses the end of the node ID.            |
+| `node_id`   |           | See [node IDs](#node-ids).                                   |
+| `field`     | Empty     | See [structure fields](#read-structure-fields).              |
+| `data_type` | `float32` | A Synnax [data type](#data-types).                           |
+| `enabled`   | `true`    | `true` or `false`.                                           |
+| `index`     | `false`   | `true` uses the node as the [index](#use-server-timestamps). |
+
+<Divider.Divider x />
+
 ## Read arrays
 
 Some servers buffer fast samples in an array node. To read the arrays:
 
-1. Turn on **Array sampling**.
+1. Set **Sampling mode** to **Array**.
 2. Set **Array size** to the number of values in each array.
 
 The Driver then reads each node `Sample rate / Array size` times a second, and spreads
@@ -143,6 +201,29 @@ the timestamps of the values evenly over the read period. **Sample rate** must b
 to or more than **Array size**. Each array must have exactly **Array size** values, or
 the Driver drops the frame and shows a warning. **Stream rate** does not apply in array
 mode.
+
+<Divider.Divider x />
+
+## Read structure fields
+
+Some nodes hold a structure, such as a motor with a speed, a state, and a position. A
+channel can read one field of the structure:
+
+1. In the **Browser**, expand the structure node. The browser shows the fields of its
+   type, and the fields of each nested structure.
+2. Drag the fields into **Channels**.
+
+The Console names each channel `<node>.<field>`, such as `Motor.Speed`. The channels of
+one node share one read, so their values come from the same moment. The task reads the
+definition of the type from the server each time it connects. If the server does not
+give the definition, the task shows "Received bad values" for the fields of that type.
+
+In Python and TypeScript, set `field` to the path of the field from the node, with `.`
+between names, such as `Position.Y`. Put `&` before a `.` or a `&` that is part of a
+name: `a&.b` is the field `a.b`.
+
+Array mode cannot read structure fields. A write task cannot write to a field, so the
+Console does not add fields to a write task.
 
 <Divider.Divider x />
 
@@ -159,20 +240,49 @@ task. Only one channel can be the index.
 
 <Divider.Divider x />
 
+## Bad values
+
+The server sends a status with each value. The task records a value with a Good or an
+Uncertain status. For an Uncertain value, it also shows the warning "Received uncertain
+values" with the name of the channel.
+
+The task does not record a Bad value. A node that does not exist and a value that the
+Driver cannot convert are Bad values too. The task shows the warning "Received bad
+values" with the name of the channel and the status, such as `BadSensorFailure`, and
+keeps running. When the value becomes good again, the task records it.
+
+By default, a Bad value skips the sample for every channel on the same index. Turn on
+**NaN fill** to write `NaN` for a float channel instead, so that the other channels keep
+their samples. A line plot shows `NaN` as a gap. A Bad value of a channel that is not a
+float still skips its index.
+
+<Divider.Divider x />
+
+## Outages
+
+A read task keeps running when the server or the network goes down. It shows "Failed to
+read data" and tries again at most 5 seconds apart. A task can also start while the
+server is off. Before each new connection, the task gets the connection settings of the
+server again, so a corrected endpoint or password takes effect without a restart.
+
+<Divider.Divider x />
+
 ## Task options
 
-| Console label  | Python field           | Default                 | Notes                                                                           |
-| -------------- | ---------------------- | ----------------------- | ------------------------------------------------------------------------------- |
-| OPC UA server  | `device`               |                         | The key of the server.                                                          |
-| Sample rate    | `sample_rate`          | 50 Hz (10 Hz in Python) | Reads per second. At most 10,000.                                               |
-| Stream rate    | `stream_rate`          | 25 Hz (5 Hz in Python)  | Frames per second sent to the Core. At most the sample rate. Not in array mode. |
-| Array sampling | `array_mode`           | Off                     | See [read arrays](#read-arrays).                                                |
-| Array size     | `array_size`           | 1                       | Values in each array node.                                                      |
-| Data saving    | `data_saving_disabled` | On                      | See [data saving](/reference/hardware/tasks#data-saving).                       |
-| Auto start     | `auto_start`           | Off                     | Starts the task each time the Driver starts.                                    |
+| Console label | Python field           | Default                 | Notes                                                                           |
+| ------------- | ---------------------- | ----------------------- | ------------------------------------------------------------------------------- |
+| OPC UA server | `device`               |                         | The key of the server.                                                          |
+| Sampling mode | `array_mode`           | Scalar                  | See [read arrays](#read-arrays).                                                |
+| Sample rate   | `sample_rate`          | 50 Hz (10 Hz in Python) | Reads per second. At most 10,000.                                               |
+| Stream rate   | `stream_rate`          | 25 Hz (5 Hz in Python)  | Frames per second sent to the Core. At most the sample rate. Not in array mode. |
+| Array size    | `array_size`           | 1                       | Values in each array node.                                                      |
+| NaN fill      | `nan_fill_enabled`     | Off                     | See [bad values](#bad-values).                                                  |
+| Data saving   | `data_saving_disabled` | On                      | See [data saving](/reference/hardware/tasks#data-saving).                       |
+| Auto start    | `auto_start`           | Off                     | Starts the task each time the Driver starts.                                    |
 
 TypeScript uses the same fields in camel case, such as `sampleRate`. See
-[timing](/reference/hardware/tasks#timing).
+[timing](/reference/hardware/tasks#timing). When a task has more nodes than the server
+accepts in one request, the Driver splits each read into smaller requests.
 
 <Divider.Divider x />
 
@@ -185,7 +295,8 @@ The table shows the Console label of each setting, with its Python field under i
 | Channel name <small>`name`</small>     | Empty     | The name of the channel that the Console creates.                                |
 | <small>`channel`</small>               |           | The key of the channel that records the values.                                  |
 | Node ID <small>`node_id`</small>       |           | See [node IDs](#node-ids).                                                       |
-| Node name <small>`node_name`</small>   | Empty     | The browse name. For display only.                                               |
+| <small>`field`</small>                 | Empty     | The field of a structure node. See [structure fields](#read-structure-fields).   |
+| Node name <small>`node_name`</small>   | Empty     | The browse name, or the folder path. Names the channel when the name is empty.   |
 | <small>`data_type`</small>             | `float32` | The data type of the channel that the Console creates.                           |
 | Use as index <small>`is_index`</small> | Off       | Shows only for a DateTime node. See [server timestamps](#use-server-timestamps). |
 | Enabled <small>`disabled`</small>      | Off       | A disabled channel is not read.                                                  |
@@ -196,7 +307,7 @@ The Console creates each channel with the data type of its node:
 
 | OPC UA type | Synnax data type |
 | ----------- | ---------------- |
-| Boolean     | `uint8`          |
+| Boolean     | `boolean`        |
 | SByte       | `int8`           |
 | Byte        | `uint8`          |
 | Int16       | `int16`          |
@@ -210,6 +321,12 @@ The Console creates each channel with the data type of its node:
 | String      | `string`         |
 | DateTime    | `timestamp`      |
 | Guid        | `uuid`           |
+| ByteString  | `bytes`          |
+| Enumeration | `int32`          |
+
+A channel can have a different data type than its node. The Driver converts each value
+to the data type of the channel, and a value that does not fit is a
+[bad value](#bad-values).
 
 <Divider.Divider x />
 
@@ -220,25 +337,58 @@ The Console creates each channel with the data type of its node:
 <Problem.Item message={"Invalid NodeId format"}>
 <Problem.Cause>
 
-The node ID is not in the form `NS=<namespace>;<type>=<identifier>`.
+The node ID is not in a form that the Driver accepts.
 
 </Problem.Cause>
 <Problem.Fix>
 
-Write `NS` and the type in uppercase.
+Write the node ID in one of the forms in [node IDs](#node-ids).
 
 </Problem.Fix>
 </Problem.Item>
 
-<Problem.Item message={"... (NS=...): The node id refers to a node that does not exist in the server address space."}>
+<Problem.Item message={"Received bad values"}>
 <Problem.Cause>
 
-The server has no node with that ID.
+The server sent a Bad status for a node, the server has no namespace with the URI of the
+node, or the Driver could not convert its value. The description names each channel and
+the reason. For example, `BadNodeIdUnknown` means that the server has no node with that
+ID. See [bad values](#bad-values).
 
 </Problem.Cause>
 <Problem.Fix>
 
-Drag the node from the **Browser** again.
+For `BadNodeIdUnknown` or a missing namespace, drag the node from the **Browser** again.
+For a conversion error, check the data type of the node.
+
+</Problem.Fix>
+</Problem.Item>
+
+<Problem.Item message={"Received uncertain values"}>
+<Problem.Cause>
+
+The server is not sure that a value is correct, such as a last usable value of a sensor.
+The task records the value.
+
+</Problem.Cause>
+<Problem.Fix>
+
+Check the device that the server reads the node from.
+
+</Problem.Fix>
+</Problem.Item>
+
+<Problem.Item message={"Failed to read data"}>
+<Problem.Cause>
+
+The task lost the connection to the server. It tries again until the server answers. See
+[outages](#outages).
+
+</Problem.Cause>
+<Problem.Fix>
+
+Check the
+[server connection](/reference/hardware/opc-ua/connect-server#troubleshooting).
 
 </Problem.Fix>
 </Problem.Item>
@@ -256,19 +406,6 @@ Set **Array size** to the length of the array.
 </Problem.Fix>
 </Problem.Item>
 
-<Problem.Item message={"Skipped invalid data"}>
-<Problem.Cause>
-
-The server sent a value that the Driver cannot convert. The Driver skips the frame.
-
-</Problem.Cause>
-<Problem.Fix>
-
-Check the data type of the node.
-
-</Problem.Fix>
-</Problem.Item>
-
 <Problem.Item message={"Channel ... already exists as ..."}>
 <Problem.Cause>
 
@@ -282,16 +419,32 @@ Move the channels to one task.
 </Problem.Fix>
 </Problem.Item>
 
-<Problem.Item message={"Failed to browse OPC UA nodes"}>
+<Problem.Item message={["Failed to browse OPC UA nodes", "Failed to find variables"]}>
 <Problem.Cause>
 
-The Driver could not browse the server.
+The Driver could not browse the server, or the folder that you dragged into
+**Channels**. A node that fails while the rest of the tree loads shows <Icon.Warning />
+instead.
 
 </Problem.Cause>
 <Problem.Fix>
 
 Check the
 [server connection](/reference/hardware/opc-ua/connect-server#troubleshooting).
+
+</Problem.Fix>
+</Problem.Item>
+
+<Problem.Item message={"Failed to read node"}>
+<Problem.Cause>
+
+The Driver could not read the details of the node. For `BadNodeIdUnknown`, the server
+has no node with that ID.
+
+</Problem.Cause>
+<Problem.Fix>
+
+Check the node ID that you entered, or select the node in the **Browser** again.
 
 </Problem.Fix>
 </Problem.Item>

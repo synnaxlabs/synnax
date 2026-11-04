@@ -12,10 +12,10 @@ import { createTestClient } from "@synnaxlabs/client/testutil";
 import { type record } from "@synnaxlabs/x";
 import { act, renderHook, waitFor } from "@testing-library/react";
 import { type PropsWithChildren } from "react";
-import { beforeEach, describe, expect, it } from "vitest";
+import { beforeEach, describe, expect, it, vi } from "vitest";
 
 import { Device } from "@/platform/device";
-import { createTestDevice } from "@/platform/device/testutil";
+import { createTestDevice, setTestDeviceStatus } from "@/platform/device/testutil";
 import { createAsyncSynnaxWrapper } from "@/testutil";
 
 const client = createTestClient();
@@ -63,5 +63,17 @@ describe("useChangeIdentifier", () => {
     const properties = await changeIdentifier(dev, "brand_new");
     expect(properties.identifier).toEqual("brand_new");
     expect(properties.rate).toEqual(50);
+  });
+
+  it("should not send the device's status or parent", async () => {
+    const dev = await createTestDevice(client);
+    await setTestDeviceStatus(client, dev);
+    const create = vi.spyOn(client.devices, "create");
+    await changeIdentifier(dev, "new_id");
+    const sent = create.mock.lastCall?.[0];
+    create.mockRestore();
+    expect(sent).toMatchObject({ properties: { identifier: "new_id" } });
+    expect(sent).not.toHaveProperty("status");
+    expect(sent).not.toHaveProperty("parent");
   });
 });

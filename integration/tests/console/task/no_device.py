@@ -13,6 +13,7 @@ import uuid
 import synnax as sy
 from console.case import ConsoleCase
 from console.task.analog_read import AnalogRead
+from console.task.channels import analog_input
 from framework.hardware_case import HardwareCase
 
 
@@ -91,7 +92,7 @@ class NoDevice(HardwareCase, ConsoleCase):
         # Add channel
         ni_ai.add_channel(
             name="new_channel",
-            chan_type="Voltage",
+            chan_type=analog_input.Voltage,
             device=dev_name,
             dev_name="usb_6000",
         )

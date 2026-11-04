@@ -101,25 +101,25 @@ var _ = Describe("Codec", func() {
 						},
 					},
 				},
-				TimestampPrecision:     17,
-				ChannelNamesHidden:     true,
-				ReceiptTimestampHidden: false,
+				TimestampPrecision: 17,
+				ChannelNamesHidden: true,
+				TimestampsHidden:   false,
 			}),
 			Entry("zero values", v3.Log{
-				Key:                    uuid.Nil(),
-				Name:                   "",
-				Channels:               []v3.ChannelEntry{},
-				TimestampPrecision:     0,
-				ChannelNamesHidden:     false,
-				ReceiptTimestampHidden: false,
+				Key:                uuid.Nil(),
+				Name:               "",
+				Channels:           []v3.ChannelEntry{},
+				TimestampPrecision: 0,
+				ChannelNamesHidden: false,
+				TimestampsHidden:   false,
 			}),
 			Entry("empty collections", v3.Log{
-				Key:                    uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef1234567801"),
-				Name:                   "test_2",
-				Channels:               []v3.ChannelEntry{},
-				TimestampPrecision:     5,
-				ChannelNamesHidden:     true,
-				ReceiptTimestampHidden: false,
+				Key:                uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef1234567801"),
+				Name:               "test_2",
+				Channels:           []v3.ChannelEntry{},
+				TimestampPrecision: 5,
+				ChannelNamesHidden: true,
+				TimestampsHidden:   false,
 			}),
 		)
 	})
@@ -179,9 +179,9 @@ func BenchmarkEncodeDecodeLog(b *testing.B) {
 				},
 			},
 		},
-		TimestampPrecision:     17,
-		ChannelNamesHidden:     true,
-		ReceiptTimestampHidden: false,
+		TimestampPrecision: 17,
+		ChannelNamesHidden: true,
+		TimestampsHidden:   false,
 	}
 	w := orc.NewWriter(0)
 	r := orc.NewReader(nil)
@@ -287,9 +287,9 @@ func FuzzDecodeLog(f *testing.F) {
 					},
 				},
 			},
-			TimestampPrecision:     17,
-			ChannelNamesHidden:     true,
-			ReceiptTimestampHidden: false,
+			TimestampPrecision: 17,
+			ChannelNamesHidden: true,
+			TimestampsHidden:   false,
 		}
 		w := orc.NewWriter(0)
 		if err := seed.EncodeOrc(w); err != nil {
@@ -299,12 +299,12 @@ func FuzzDecodeLog(f *testing.F) {
 	}
 	{
 		seed := v3.Log{
-			Key:                    uuid.Nil(),
-			Name:                   "",
-			Channels:               []v3.ChannelEntry{},
-			TimestampPrecision:     0,
-			ChannelNamesHidden:     false,
-			ReceiptTimestampHidden: false,
+			Key:                uuid.Nil(),
+			Name:               "",
+			Channels:           []v3.ChannelEntry{},
+			TimestampPrecision: 0,
+			ChannelNamesHidden: false,
+			TimestampsHidden:   false,
 		}
 		w := orc.NewWriter(0)
 		if err := seed.EncodeOrc(w); err != nil {
@@ -314,12 +314,12 @@ func FuzzDecodeLog(f *testing.F) {
 	}
 	{
 		seed := v3.Log{
-			Key:                    uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef1234567801"),
-			Name:                   "test_2",
-			Channels:               []v3.ChannelEntry{},
-			TimestampPrecision:     5,
-			ChannelNamesHidden:     true,
-			ReceiptTimestampHidden: false,
+			Key:                uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef1234567801"),
+			Name:               "test_2",
+			Channels:           []v3.ChannelEntry{},
+			TimestampPrecision: 5,
+			ChannelNamesHidden: true,
+			TimestampsHidden:   false,
 		}
 		w := orc.NewWriter(0)
 		if err := seed.EncodeOrc(w); err != nil {

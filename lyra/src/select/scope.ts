@@ -18,6 +18,12 @@ export const [ClosedContext, useClosed] = context.create<boolean>({
   displayName: "Select.ClosedContext",
 });
 
+/** True inside a `Select.List`. A fixed item outside one is pinned. */
+export const [ListContext, useInList] = context.create<boolean>({
+  defaultValue: false,
+  displayName: "Select.ListContext",
+});
+
 /** How a {@link Buttons} group draws its items. */
 export type ButtonsVariant = "outlined" | "text" | "card";
 
