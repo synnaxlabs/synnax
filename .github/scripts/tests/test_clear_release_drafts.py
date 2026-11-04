@@ -98,6 +98,12 @@ class TestClearReleaseDrafts:
         assert harness.run().returncode == 1
         assert harness.deleted() == []
 
+    def test_fails_without_deleting_when_the_listing_fails(
+        self, harness: Harness
+    ) -> None:
+        assert harness.run().returncode != 0
+        assert harness.deleted() == []
+
     def test_fails_when_a_delete_fails(self, tmp_path: Path) -> None:
         harness = Harness(path=tmp_path, deletes_succeed=False)
         harness.serve([release(7)])
