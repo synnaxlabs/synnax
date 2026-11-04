@@ -43,13 +43,29 @@ const Grid = ({ bank, onClick, onContextMenu, ...rest }: GridProps): ReactElemen
 
 export interface PortBanksProps extends Omit<GridProps, "bank"> {
   ports: Port[];
+  /** Each bank's title beside its grid, and the banks in a line. */
+  compact?: boolean;
 }
 
 /** The ports as a grid for each bank, each under its title. */
-export const PortBanks = ({ ports, ...rest }: PortBanksProps): ReactElement => (
-  <div className={CSS.B("labjack-port-banks")}>
+export const PortBanks = ({
+  ports,
+  compact = false,
+  ...rest
+}: PortBanksProps): ReactElement => (
+  <div
+    className={CSS.cls(
+      CSS.B("labjack-port-banks"),
+      compact && CSS.BM("labjack-port-banks", "compact"),
+    )}
+  >
     {banks(ports).map((bank) => (
-      <Flex.Box key={bank.ports[0].key} y gap="tiny">
+      <Flex.Box
+        key={bank.ports[0].key}
+        direction={compact ? "x" : "y"}
+        align={compact ? "center" : undefined}
+        gap={compact ? "small" : "tiny"}
+      >
         <Text.Text level="small" color={9}>
           {bank.title}
         </Text.Text>
@@ -59,7 +75,7 @@ export const PortBanks = ({ ports, ...rest }: PortBanksProps): ReactElement => (
   </div>
 );
 
-export interface BankTabsProps extends PortBanksProps {
+export interface BankTabsProps extends Omit<PortBanksProps, "compact"> {
   /** The key of the channel's port. The tabs open on its bank. */
   port: string;
 }

@@ -20,3 +20,16 @@
 .console-labjack-ports__usage {
     font-variant-numeric: tabular-nums;
 }
+
+.console-labjack-ports--compact {
+    flex: none;
+    gap: 1.5rem;
+    padding: 1.5rem 3rem 2rem;
+    overflow: visible;
+}
+
+.console-labjack-ports__title {
+    flex: none;
+    min-width: 18rem;
+    white-space: nowrap;
+}

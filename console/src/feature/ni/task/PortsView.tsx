@@ -37,6 +37,8 @@ const DEVICE_MENU_KEY = "device";
 
 const lineKey = (port: number, line: number): string => `${port}/${line}`;
 
+const LINES_PER_ROW = 8;
+
 interface DeviceSectionProps {
   device: Device;
   /** What the device's ports hold, such as "3 of 16 ports used". */
@@ -45,6 +47,8 @@ interface DeviceSectionProps {
   /** Adds a channel on the free cell with the key, or on the lowest free port. */
   onAdd: (cell?: string) => void;
   onRemove?: () => void;
+  /** The title beside the grid instead of over it. */
+  compact?: boolean;
   /** The device's grid, given the handler that opens the menu of a free cell. */
   children: (onContextMenu?: (e: MouseEvent) => void) => ReactNode;
 }
@@ -59,6 +63,7 @@ const DeviceSection = ({
   editable,
   onAdd,
   onRemove,
+  compact = false,
   children,
 }: DeviceSectionProps): ReactElement => {
   const menu = Menu.useContextMenu();
@@ -85,11 +90,18 @@ const DeviceSection = ({
   const open = editable ? menu.open : undefined;
   return (
     <Menu.ContextMenu {...menu} menu={renderMenu}>
-      <Flex.Box y gap="medium">
+      <Flex.Box
+        direction={compact ? "x" : "y"}
+        align={compact ? "center" : undefined}
+        gap={compact ? "large" : "medium"}
+      >
         <Flex.Box
           y
           gap="tiny"
-          className={Menu.CONTEXT_TARGET}
+          className={CSS.cls(
+            Menu.CONTEXT_TARGET,
+            compact && CSS.BE("ni-ports", "title"),
+          )}
           data-menu-key={DEVICE_MENU_KEY}
           onContextMenu={open}
         >
@@ -282,9 +294,9 @@ export interface LinesViewProps<C extends DigitalChannel> extends Task.Views
 }
 
 /**
- * A digital task's channels by line: one row of lines for each port of the device. A
- * click on a used line selects its channel, and a click on a free line adds a channel
- * on it.
+ * A digital task's channels by line, as a map above its list: the device's ports in a
+ * line, eight lines to a row. A click on a used line selects its channel, and a click
+ * on a free line adds a channel on it.
  */
 export const LinesView = <C extends DigitalChannel>({
   path,
@@ -317,7 +329,7 @@ export const LinesView = <C extends DigitalChannel>({
       key: lineKey(port, line),
       labels: [String(line)],
       row: 1,
-      column: line + 1,
+      column: (line % LINES_PER_ROW) + 1,
       ports: [lineName(port, line)],
       claims,
       selected,
@@ -332,9 +344,14 @@ export const LinesView = <C extends DigitalChannel>({
   );
   const used = Task.Port.usedCount(lines, claims);
   return (
-    <Flex.Box y empty className={CSS.B("ni-ports")}>
+    <Flex.Box
+      y
+      empty
+      className={CSS.cls(CSS.B("ni-ports"), CSS.BM("ni-ports", "compact"))}
+    >
       <DeviceSection
         device={device}
+        compact
         usage={
           hardware == null
             ? "No port list yet"
@@ -344,7 +361,7 @@ export const LinesView = <C extends DigitalChannel>({
         onAdd={(c) => add(c == null ? undefined : parse(c))}
       >
         {(onContextMenu) => (
-          <Flex.Box y gap="small">
+          <Flex.Box x wrap className={CSS.BE("ni-ports", "lines")}>
             {ports.map(({ port, lines: n }) => (
               <Flex.Box key={port} x align="center" gap="medium">
                 <Text.Text
@@ -356,13 +373,20 @@ export const LinesView = <C extends DigitalChannel>({
                 </Text.Text>
                 <Task.Port.Grid
                   label={`port${port} lines`}
-                  groups={[
-                    {
-                      key: "lines",
-                      columns: n,
-                      cells: Array.from({ length: n }, (_, line) => cell(port, line)),
+                  groups={Array.from(
+                    { length: Math.ceil(n / LINES_PER_ROW) },
+                    (_, g) => {
+                      const first = g * LINES_PER_ROW;
+                      const count = Math.min(LINES_PER_ROW, n - first);
+                      return {
+                        key: String(first),
+                        columns: count,
+                        cells: Array.from({ length: count }, (_, i) =>
+                          cell(port, first + i),
+                        ),
+                      };
                     },
-                  ]}
+                  )}
                   onClick={handleClick}
                   onContextMenu={onContextMenu}
                 />

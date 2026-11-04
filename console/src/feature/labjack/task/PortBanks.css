@@ -19,3 +19,9 @@
     gap: 1.5rem 4rem;
     align-items: start;
 }
+
+.console-labjack-port-banks--compact {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 1rem 2rem;
+}

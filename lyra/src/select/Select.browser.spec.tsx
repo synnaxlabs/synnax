@@ -11,6 +11,7 @@ import { describe, expect, it } from "vitest";
 import { page, userEvent } from "vitest/browser";
 
 import { Dialog } from "@/dialog";
+import { List } from "@/list";
 import { Select } from "@/select";
 import { computed, renderThemed, resolve } from "@/styletest";
 import { Text } from "@/text";
@@ -70,6 +71,41 @@ const renderFixedLabel = async (): Promise<Record<string, Element>> => {
     fixed: get(".lyra-select__fixed-label"),
     caret: get(".lyra-caret-animated"),
   };
+};
+
+const CHECKABLE_COLUMNS: List.Column[] = [
+  { name: "Type", width: "20rem" },
+  { name: "Channel", width: "20rem" },
+];
+
+const renderCheckable = async (): Promise<(text: string) => Element> => {
+  const { getByText } = await renderThemed(
+    <Triggers.Provider>
+      <List.Columns columns={CHECKABLE_COLUMNS}>
+        <List.Headings checkable />
+        <Select.Frame<string, undefined>
+          multiple
+          data={["1"]}
+          value={["1"]}
+          onChange={() => {}}
+        >
+          <List.Scroll>
+            <List.Items<string>>
+              {({ key, ...p }) => (
+                <Select.Item key={key} {...p} checkable>
+                  <List.Cells>
+                    <List.Cell>type-{key}</List.Cell>
+                    <List.Cell>channel-{key}</List.Cell>
+                  </List.Cells>
+                </Select.Item>
+              )}
+            </List.Items>
+          </List.Scroll>
+        </Select.Frame>
+      </List.Columns>
+    </Triggers.Provider>,
+  );
+  return (text) => getByText(text, { exact: true }).element();
 };
 
 const FOOTER_HEIGHT = 100;
@@ -178,6 +214,22 @@ describe("Select", () => {
       expect(bottom(last)).toBeGreaterThan(bottom(scroll));
       await userEvent.wheel(scroll, { delta: { y: 1000 } });
       await expect.poll(() => bottom(last)).toBeLessThanOrEqual(bottom(scroll));
+    });
+  });
+
+  describe("checkable items", () => {
+    const rect = (el: Element): DOMRect => el.getBoundingClientRect();
+
+    it("should inset the box as far from the left edge as from the top", async () => {
+      const item = (await renderCheckable())("type-1").closest(".lyra-list__item")!;
+      const box = rect(item.querySelector(".lyra-input__checkbox-indicator")!);
+      expect(box.left - rect(item).left).toBeCloseTo(box.top - rect(item).top, 0);
+    });
+
+    it("should keep each heading over its column", async () => {
+      const find = await renderCheckable();
+      expect(rect(find("Type")).left).toBeCloseTo(rect(find("type-1")).left, 0);
+      expect(rect(find("Channel")).left).toBeCloseTo(rect(find("channel-1")).left, 0);
     });
   });
 });

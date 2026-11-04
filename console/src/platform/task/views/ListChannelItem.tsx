@@ -16,7 +16,7 @@ import { Icon } from "@synnaxlabs/lyra/icon";
 import { List } from "@synnaxlabs/lyra/list";
 import { Select } from "@synnaxlabs/lyra/select";
 import { deep } from "@synnaxlabs/x";
-import { type ReactElement, type ReactNode } from "react";
+import { type PropsWithChildren, type ReactElement, type ReactNode } from "react";
 
 import { CSS } from "@/platform/css";
 import { ChannelName } from "@/platform/task/ChannelName";
@@ -29,36 +29,114 @@ export const LIST_CHANNEL_COLUMNS: List.Column[] = [
   { name: "Channel", width: "minmax(24rem, 1fr)" },
 ];
 
+/** The command and state columns that follow a write task's own columns. */
+export const LIST_WRITE_CHANNEL_COLUMNS: List.Column[] = [
+  { name: "Command", width: "minmax(24rem, 1fr)" },
+  { name: "State", width: "minmax(24rem, 1fr)" },
+];
+
 interface ItemChannel extends Channel {
   name?: string;
+  cmdChannelName?: string;
+  stateChannelName?: string;
 }
 
 export interface ListChannelItemProps extends List.ItemProps<string> {
   /** The channel's form path. */
   path: deep.Target<ItemChannel>;
-  /** The bound channel, or 0 when none exists yet. */
+  /** The bound channel, or 0 when none exists yet. A write task's command channel. */
   channel: channel.Key;
   /** The name deploying the task gives a new channel. */
   defaultName?: string;
+  /** A write task's state channel, or 0 when none exists yet. */
+  stateChannel?: channel.Key;
+  /** The name deploying the task gives a new state channel. */
+  stateDefaultName?: string;
+  /** Deploying the task skips the channel. */
+  skipped?: boolean;
   /** One {@link List.Cell} for each of the task's own columns. */
   children: ReactNode;
 }
 
+const ChannelCell = ({ children }: PropsWithChildren) => (
+  <Flex.Box
+    x
+    align="center"
+    justify="between"
+    gap="large"
+    className={CSS.BE("list-channel-item", "channel")}
+  >
+    {children}
+  </Flex.Box>
+);
+
 /**
  * A channel of a task's record table: a checkbox, the task's fields, an arrow, then
- * the channel's name and enabled switch. Only the checkbox and modifier clicks select
- * it, so editing a field never does.
+ * the channel's name and enabled switch. A write channel shows its command and state
+ * names. Only the checkbox and modifier clicks select it, so editing a field never
+ * does.
  */
 export const ListChannelItem = ({
   path,
   channel,
   defaultName,
+  stateChannel,
+  stateDefaultName,
+  skipped,
   children,
   className,
   ...rest
 }: ListChannelItemProps): ReactElement => {
   const item = deep.widen(path);
   const disabled = Form.useFieldValue(item.disabled, { optional: true });
+  const flow = <Icon.Arrow.Right className={CSS.BE("list-channel-item", "flow")} />;
+  const enabled = <EnabledCheckbox path={item.disabled} />;
+  let channels: ReactNode;
+  if (stateChannel == null)
+    channels = (
+      <ChannelCell>
+        <ChannelName
+          channel={channel}
+          namePath={item.name}
+          defaultName={defaultName}
+          skipped={skipped}
+          id={getChannelNameID(rest.itemKey)}
+          icon={flow}
+        />
+        {enabled}
+      </ChannelCell>
+    );
+  else {
+    const cmd = (
+      <ChannelName
+        channel={channel}
+        namePath={item.cmdChannelName}
+        defaultName={defaultName}
+        skipped={skipped}
+        id={getChannelNameID(rest.itemKey, "cmd")}
+        icon={flow}
+      />
+    );
+    const state = (
+      <ChannelName
+        channel={stateChannel}
+        namePath={item.stateChannelName}
+        defaultName={stateDefaultName}
+        skipped={skipped}
+        id={getChannelNameID(rest.itemKey, "state")}
+        icon={flow}
+      />
+    );
+    channels = (
+      <>
+        <ChannelCell>{cmd}</ChannelCell>
+        <ChannelCell>
+          {state}
+          {enabled}
+        </ChannelCell>
+      </>
+    );
+  }
   return (
     <Select.Item
       {...rest}
@@ -72,22 +150,7 @@ export const ListChannelItem = ({
     >
       <List.Cells className={CSS.BE("list-channel-item", "cells")}>
         {children}
-        <Flex.Box
-          x
-          align="center"
-          justify="between"
-          gap="large"
-          className={CSS.BE("list-channel-item", "channel")}
-        >
-          <ChannelName
-            channel={channel}
-            namePath={item.name}
-            defaultName={defaultName}
-            id={getChannelNameID(rest.itemKey)}
-            icon={<Icon.Arrow.Right className={CSS.BE("list-channel-item", "flow")} />}
-          />
-          <EnabledCheckbox path={item.disabled} />
-        </Flex.Box>
+        {channels}
       </List.Cells>
     </Select.Item>
   );

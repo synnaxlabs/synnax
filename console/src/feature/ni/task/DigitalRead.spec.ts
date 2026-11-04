@@ -178,14 +178,13 @@ describe("DigitalRead", () => {
 });
 
 describe("DigitalRead ports", () => {
-  it("should add a channel on a free line from the ports view", async () => {
+  it("should add a channel on a free line from the port map", async () => {
     const dev = await createNIDevice(client, {
       properties: { hardware: createHardware() },
     });
     const { draft } = await renderDigitalRead(
       createConfig([createChannel(0, 0)], dev.key),
     );
-    fireEvent.click(await screen.findByText("Ports"));
     const grid = await screen.findByRole("group", { name: "port1 lines" });
     fireEvent.click(within(grid).getByRole("button", { name: "port1/line2" }));
     await waitFor(async () => {
@@ -210,7 +209,7 @@ describe("DigitalRead ports", () => {
         dev.key,
       ),
     );
-    await screen.findByText("Ports");
+    await screen.findByRole("group", { name: "port0 lines" });
     fireEvent.click(getIconButton(container, "add"));
     await waitFor(async () => {
       const saved = await client.tasks.retrieve({
@@ -230,7 +229,6 @@ describe("DigitalRead ports", () => {
     await renderDigitalRead(
       createConfig([createChannel(0, 2), createChannel(0, 2)], dev.key),
     );
-    fireEvent.click(await screen.findByText("Ports"));
     const grid = await screen.findByRole("group", { name: "port0 lines" });
     const line = within(grid).getByRole("button", { name: "port0/line2" });
     expect(line.className).toContain("console-port-grid__cell--conflict");
@@ -263,7 +261,6 @@ describe("DigitalRead disabled channels", () => {
         dev.key,
       ),
     );
-    fireEvent.click(await screen.findByText("Ports"));
     const grid = await screen.findByRole("group", { name: "port0 lines" });
     const line = within(grid).getByRole("button", { name: "port0/line2" });
     expect(line.className).toContain("console-port-grid__cell--used");
@@ -290,7 +287,6 @@ describe("DigitalRead disabled channels", () => {
         dev.key,
       ),
     );
-    fireEvent.click(await screen.findByText("Ports"));
     const grid = await screen.findByRole("group", { name: "port1 lines" });
     const line = within(grid).getByRole("button", { name: "port1/line4" });
     expect(line.className).toContain("console-port-grid__cell--disabled");

@@ -46,6 +46,7 @@ interface SectionProps<P extends Port> {
   selected: string[];
   describe: (channel: string) => string;
   editable: boolean;
+  compact: boolean;
   onSelect: (keys: string[]) => void;
   onAdd: (port: P) => void;
 }
@@ -61,6 +62,7 @@ const Section = <P extends Port>({
   selected,
   describe,
   editable,
+  compact,
   onSelect,
   onAdd,
 }: SectionProps<P>): ReactElement => {
@@ -86,11 +88,20 @@ const Section = <P extends Port>({
   };
   return (
     <Menu.ContextMenu {...menu} menu={renderMenu}>
-      <Flex.Box y gap="medium" role="group" aria-label={TITLES[type]}>
+      <Flex.Box
+        direction={compact ? "x" : "y"}
+        align={compact ? "center" : undefined}
+        gap={compact ? "large" : "medium"}
+        role="group"
+        aria-label={TITLES[type]}
+      >
         <Flex.Box
           y
           gap="tiny"
-          className={free == null ? undefined : Menu.CONTEXT_TARGET}
+          className={CSS.cls(
+            compact && CSS.BE("labjack-ports", "title"),
+            free != null && Menu.CONTEXT_TARGET,
+          )}
           data-menu-key={free?.key}
           onContextMenu={free == null ? undefined : open}
         >
@@ -110,6 +121,7 @@ const Section = <P extends Port>({
           claims={claims}
           selected={selected}
           describe={describe}
+          compact={compact}
           onClick={handleClick}
           onContextMenu={open}
         />
@@ -126,6 +138,8 @@ export interface PortsViewProps<C extends Channel, P extends Port> extends Task.
   create: (channels: C[], port: P) => C;
   /** The name a channel shows by. */
   name: (channel: C) => string;
+  /** Each port type on one line, for a map above the list. */
+  compact?: boolean;
 }
 
 /**
@@ -139,6 +153,7 @@ export const PortsView = <C extends Channel, P extends Port>({
   ports,
   create,
   name,
+  compact = false,
   selected,
   onSelect,
 }: PortsViewProps<C, P>): ReactElement => {
@@ -154,7 +169,14 @@ export const PortsView = <C extends Channel, P extends Port>({
     onSelect([channel.key]);
   };
   return (
-    <Flex.Box y empty className={CSS.B("labjack-ports")}>
+    <Flex.Box
+      y
+      empty
+      className={CSS.cls(
+        CSS.B("labjack-ports"),
+        compact && CSS.BM("labjack-ports", "compact"),
+      )}
+    >
       {types.map((type) => (
         <Section<P>
           key={type}
@@ -164,6 +186,7 @@ export const PortsView = <C extends Channel, P extends Port>({
           selected={selected}
           describe={Task.Port.describer(channels, name)}
           editable={editable}
+          compact={compact}
           onSelect={onSelect}
           onAdd={add}
         />

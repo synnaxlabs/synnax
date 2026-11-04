@@ -98,7 +98,6 @@
     gap: 1rem;
     padding: 2rem 2rem 1.5rem;
     font-family: var(--pluto-font-family);
-    border-bottom: var(--pluto-border);
 }
 
 .console-modbus__lane {

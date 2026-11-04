@@ -30,6 +30,14 @@ import { findDialogTriggerByText, getIconButton, uniqueName } from "@/testutil";
 
 const client = createTestClient();
 
+const typeTriggers = (): HTMLElement[] =>
+  screen.getAllByRole("button", { name: /^Channel type/ });
+
+const chooseType = async (index: number, type: "Analog" | "Digital") => {
+  fireEvent.click(typeTriggers()[index]);
+  fireEvent.click(await screen.findByRole("option", { name: type }));
+};
+
 // The form renders read-only until the update grant lands, and a preview field renders
 // no input, so wait for it to become editable before querying fields.
 const renderWrite = async (options: RenderTaskFormTabOptions = {}) => {
@@ -71,7 +79,7 @@ const savedPorts = async (key: string) => {
 };
 
 describe("Write", () => {
-  it("should render output channels with port selectors and type buttons", async () => {
+  it("should render output channels with port and type selects", async () => {
     const dev = await createLabJackDevice(client);
     const draft = await createDraft(
       client,
@@ -83,11 +91,10 @@ describe("Write", () => {
     await renderWrite({ client, taskKey: draft.key });
     await waitFor(() => expect(screen.getByText("FIO4")).toBeTruthy());
     expect(screen.getByText("DAC0")).toBeTruthy();
-    expect(screen.getAllByText("Analog")).toHaveLength(2);
-    expect(screen.getAllByText("Digital")).toHaveLength(2);
+    expect(typeTriggers().map((t) => t.textContent)).toEqual(["Digital", "Analog"]);
   });
 
-  it("should swap the channel to the analog port space when Analog is clicked", async () => {
+  it("should swap the channel to the analog port space when Analog is chosen", async () => {
     const dev = await createLabJackDevice(client);
     const draft = await createDraft(
       client,
@@ -95,7 +102,7 @@ describe("Write", () => {
     );
     await renderWrite({ client, taskKey: draft.key });
     await waitFor(() => expect(screen.getByText("FIO4")).toBeTruthy());
-    fireEvent.click(screen.getByText("Analog"));
+    await chooseType(0, "Analog");
     await waitFor(() => expect(screen.getByText("DAC0")).toBeTruthy());
     expect(screen.queryByText("FIO4")).toBeNull();
   });
@@ -132,12 +139,13 @@ describe("Write", () => {
     );
     await renderWrite({ client, taskKey: draft.key });
     fireEvent.click(await findDialogTriggerByText("FIO4"));
-    const bank = await screen.findByRole("group", { name: "EIO0 to EIO7" });
+    const dialog = await screen.findByRole("dialog");
+    const bank = within(dialog).getByRole("group", { name: "EIO0 to EIO7" });
     const eio0 = within(bank).getByRole("button", { name: "EIO0" });
     expect(eio0.className).toContain("console-port-grid__cell--used");
     fireEvent.click(within(bank).getByRole("button", { name: "EIO2" }));
     await findDialogTriggerByText("EIO2");
-    expect(screen.queryByRole("group", { name: "EIO0 to EIO7" })).toBeNull();
+    expect(screen.queryByRole("dialog")).toBeNull();
     await waitFor(async () =>
       expect(await savedPorts(draft.key)).toEqual([
         ["digital", "DIO10"],
@@ -154,7 +162,8 @@ describe("Write", () => {
     );
     await renderWrite({ client, taskKey: draft.key });
     fireEvent.click(await findDialogTriggerByText("FIO4"));
-    const bank = await screen.findByRole("group", { name: "EIO0 to EIO7" });
+    const dialog = await screen.findByRole("dialog");
+    const bank = within(dialog).getByRole("group", { name: "EIO0 to EIO7" });
     fireEvent.contextMenu(within(bank).getByRole("button", { name: "EIO2" }));
     await waitFor(() => expect(screen.getByText("Reload Console")).toBeTruthy());
     expect(screen.queryByText("Remove")).toBeNull();
@@ -181,7 +190,7 @@ describe("Write", () => {
     );
     await renderWrite({ client, taskKey: draft.key });
     await findDialogTriggerByText("FIO4");
-    fireEvent.click(screen.getAllByText("Analog")[0]);
+    await chooseType(0, "Analog");
     await waitFor(async () =>
       expect(await savedPorts(draft.key)).toEqual([
         ["analog", "DAC1"],
@@ -197,7 +206,6 @@ describe("Write", () => {
       createConfig(dev.key, [createDigitalWriteChannel("DIO4")]),
     );
     await renderWrite({ client, taskKey: draft.key });
-    fireEvent.click(await screen.findByText("Ports"));
     const section = await screen.findByRole("group", { name: "Analog outputs" });
     fireEvent.click(within(section).getByRole("button", { name: "DAC1" }));
     await waitFor(async () =>
@@ -451,7 +459,6 @@ describe("Write disabled channels", () => {
       ]),
     );
     await renderWrite({ client, taskKey: draft.key });
-    fireEvent.click(await screen.findByText("Ports"));
     const section = await screen.findByRole("group", { name: "Analog outputs" });
     const port = within(section).getByRole("button", { name: "DAC0" });
     expect(port.className).toContain("console-port-grid__cell--used");

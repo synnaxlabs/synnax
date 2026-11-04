@@ -12,7 +12,6 @@ import "@/feature/modbus/task/Task.css";
 import { channel, type modbus, NotFoundError, type Synnax } from "@synnaxlabs/client";
 import { Component } from "@synnaxlabs/lyra/component";
 import { Form as PForm } from "@synnaxlabs/lyra/form";
-import { Header } from "@synnaxlabs/lyra/header";
 import { Icon } from "@synnaxlabs/lyra/icon";
 import { List } from "@synnaxlabs/lyra/list";
 import { DataType, deep, errors, id, primitive } from "@synnaxlabs/x";
@@ -186,15 +185,8 @@ const createMapChannel = (type: WriteChannelType, address: number): WriteChannel
 
 const listItem = Component.renderProp(ChannelListItem);
 
-const HEADER = (
-  <>
-    <Header.Header>
-      <Header.Title weight={500} color={10}>
-        Channels
-      </Header.Title>
-    </Header.Header>
-    <RegisterMap path={path.config.channels} createChannel={createMapChannel} />
-  </>
+const map = () => (
+  <RegisterMap path={path.config.channels} createChannel={createMapChannel} />
 );
 
 const Form: FC = () => {
@@ -211,7 +203,7 @@ const Form: FC = () => {
         contextMenuItems={Task.readChannelContextMenuItem}
         listItem={listItem}
         resolve={resolve}
-        header={HEADER}
+        map={map}
         columns={COLUMNS}
         checkable
       />

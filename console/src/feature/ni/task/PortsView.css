@@ -33,6 +33,22 @@
 
 .console-ni-ports__port {
     flex: none;
-    width: 5rem;
+    width: 6.5rem;
     font-variant-numeric: tabular-nums;
+}
+
+.console-ni-ports--compact {
+    flex: none;
+    padding: 1.5rem 3rem 2rem;
+    overflow: visible;
+}
+
+.console-ni-ports__title {
+    flex: none;
+    min-width: 18rem;
+    white-space: nowrap;
+}
+
+.console-ni-ports__lines {
+    gap: 1rem 3rem;
 }
