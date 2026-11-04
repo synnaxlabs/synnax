@@ -126,6 +126,17 @@ const stripStatus = ({ status: _, ...device }: Device): Omit<Device, "status"> =
   device;
 
 /**
+ * Removes the fields that make the Core write a device's status and parent. Use it to
+ * send a retrieved device or a create reply back to {@link Client.create}: a reply
+ * carries a parent, and the Core writes the status of any device sent with one.
+ */
+export const toUpdate = <D extends Pick<Device, "status" | "parent">>({
+  status: _status,
+  parent: _parent,
+  ...device
+}: D): Omit<D, "status" | "parent"> => device;
+
+/**
  * Client-side matching for a request: key, name, make, model, location, and
  * rack sets. Server-computed shapes (search, pagination, parent resolution)
  * never reach this filter; they refetch instead.
