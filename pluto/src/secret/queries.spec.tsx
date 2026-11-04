@@ -11,9 +11,11 @@ import { type secret } from "@synnaxlabs/client";
 import { createTestClient } from "@synnaxlabs/client/testutil";
 import { id } from "@synnaxlabs/x";
 import { act, renderHook, waitFor } from "@testing-library/react";
-import { type FC, type PropsWithChildren } from "react";
+import { type FC, type PropsWithChildren, type ReactElement } from "react";
 import { assert, beforeAll, describe, expect, it } from "vitest";
 
+import { Errors } from "@/errors";
+import { Flux } from "@/flux";
 import { Secret } from "@/secret";
 import { createAsyncSynnaxWrapper, renderHookSuspended } from "@/testutil";
 
@@ -132,6 +134,35 @@ describe("queries", () => {
       });
       await waitFor(() => expect(result.current.name).toEqual("after rename"));
       expect(result.current.uses).toEqual([]);
+    });
+
+    it("should throw a DeletedError when a secret read with its uses is deleted", async () => {
+      const created = await createSecret("deleted with uses");
+      const caught: Error[] = [];
+      const Fallback = ({ error }: Errors.FallbackProps): null => {
+        caught.push(error);
+        return null;
+      };
+      const Wrapper = wrapper;
+      const BoundaryWrapper = ({ children }: PropsWithChildren): ReactElement => (
+        <Wrapper>
+          <Errors.SuspenseBoundary loading={null} FallbackComponent={Fallback}>
+            {children}
+          </Errors.SuspenseBoundary>
+        </Wrapper>
+      );
+      const { result } = await renderHookSuspended(
+        () => Secret.use({ key: created.key, includeUses: true }),
+        { wrapper: BoundaryWrapper, onCaughtError: () => {} },
+      );
+      expect(result.current.uses).toEqual([]);
+      await act(async () => {
+        await client.secrets.delete(created.key);
+      });
+      await waitFor(() => expect(caught.length).toBeGreaterThan(0));
+      const error = caught[0];
+      assert(Flux.DeletedError.matches(error));
+      expect(error.corpseName).toEqual("deleted with uses");
     });
   });
 

@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { NotFoundError, query, type secret } from "@synnaxlabs/client";
+import { type secret } from "@synnaxlabs/client";
 import { verbs } from "@synnaxlabs/x";
 
 import { Flux } from "@/flux";
@@ -26,37 +26,13 @@ export const useList = Flux.createList<ListQuery, secret.Key, secret.Secret>({
   getCached: ({ client, query }) => client.secrets.getCached(query),
 });
 
-export type RetrieveQuery = secret.RetrieveSingleParams & {
-  /** Fills `uses` with the IDs of the resources that use the secret. */
-  includeUses?: boolean;
-};
-
-// The client reads uses only through a query for a list of keys.
-const usesQuery = (key: secret.Key): secret.RetrieveMultipleParams => ({
-  keys: [key],
-  includeUses: true,
-});
-
-const first = (
-  secrets: query.Cached<secret.Secret[]> | undefined,
-): secret.Secret | undefined => (query.isLive(secrets) ? secrets[0] : undefined);
+export type RetrieveQuery = secret.RetrieveSingleParams;
 
 export const { use } = Flux.createRetrieve<RetrieveQuery, secret.Secret>({
   name: RESOURCE_NAME,
-  retrieve: async ({ client, query: { key, includeUses } }) => {
-    if (includeUses !== true) return await client.secrets.retrieve(key);
-    const [s] = await client.secrets.retrieve(usesQuery(key));
-    if (s == null) throw new NotFoundError(`Secret with key ${key} not found`);
-    return s;
-  },
-  onChange: ({ client, query: { key, includeUses } }, handler) =>
-    includeUses === true
-      ? client.secrets.onChange(usesQuery(key), (secrets) => handler(first(secrets)))
-      : client.secrets.onChange(key, handler),
-  getCached: ({ client, query: { key, includeUses } }) =>
-    includeUses === true
-      ? first(client.secrets.getCached(usesQuery(key)))
-      : client.secrets.getCached(key),
+  retrieve: async ({ client, query }) => await client.secrets.retrieve(query),
+  onChange: ({ client, query }, handler) => client.secrets.onChange(query, handler),
+  getCached: ({ client, query }) => client.secrets.getCached(query),
 });
 
 /** Creates a secret, or replaces the secret whose key exists. */
