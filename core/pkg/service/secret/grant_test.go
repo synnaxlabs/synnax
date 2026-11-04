@@ -162,7 +162,8 @@ var _ = Describe("Grants", func() {
 		})
 		It("Should not decrypt a value moved to another secret", func(ctx SpecContext) {
 			other := e.createStored(ctx, "Token", "t")
-			moved := password.WithBase(other.Base())
+			moved := password
+			moved.SetBase(other.Base())
 			Expect(gorp.NewCreate[secret.Key, secret.Secret]().
 				Entry(&moved).
 				Exec(ctx, e.db)).To(Succeed())

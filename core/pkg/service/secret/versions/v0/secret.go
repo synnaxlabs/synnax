@@ -16,18 +16,6 @@ import (
 
 var _ gorp.Entry[Key] = Secret{}
 
-// Base returns the fields shared by every variant of the secret. A secret with no
-// variant has a zero Base.
-func (s Secret) Base() Base {
-	switch variant := s.Variant.(type) {
-	case StoredSecret:
-		return variant.Base
-	case FileSecret:
-		return variant.Base
-	}
-	return Base{}
-}
-
 // Source returns where the value of the secret lives, or an empty source if the secret
 // has no variant.
 func (s Secret) Source() Source {
@@ -38,19 +26,6 @@ func (s Secret) Source() Source {
 		return SourceFile
 	}
 	return ""
-}
-
-// WithBase returns a copy of the secret with its shared fields set to base.
-func (s Secret) WithBase(base Base) Secret {
-	switch variant := s.Variant.(type) {
-	case StoredSecret:
-		variant.Base = base
-		s.Variant = variant
-	case FileSecret:
-		variant.Base = base
-		s.Variant = variant
-	}
-	return s
 }
 
 // GorpKey returns the secret's storage key.
