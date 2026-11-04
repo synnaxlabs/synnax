@@ -71,6 +71,15 @@ describe("links", () => {
     });
   });
 
+  it.each(["ico.org.uk", "www.rockwellautomation.com"])(
+    "should skip a link to %s, which refuses the checker",
+    async (host) => {
+      const { failures, fetched } = await run(`https://${host}/page`);
+      expect(failures).toEqual([]);
+      expect(fetched.filter((url) => new URL(url).host === host)).toEqual([]);
+    },
+  );
+
   it("should fetch a link to another host as an external URL", async () => {
     const href = "https://example.com/page";
     const { failures, fetched } = await run(href, [href]);
