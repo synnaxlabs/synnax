@@ -335,6 +335,9 @@ func analyze(c *analysisCtx) {
 			}
 		}
 	}
+	if reportCircularInheritance(c, types) {
+		return
+	}
 	omitRemovedFields(c)
 
 	finalizeEnumExtensions(c)
@@ -374,9 +377,6 @@ func desugarPartialOverrides(c *analysisCtx) {
 		}
 		form, ok := typ.Form.(resolution.StructForm)
 		if !ok || len(form.Extends) == 0 {
-			continue
-		}
-		if hasCircularInheritance(typ, c.table, make(set.Set[string])) {
 			continue
 		}
 		parents := resolution.InheritedFields(form.Extends, c.table)
@@ -432,11 +432,6 @@ func desugarPartialOverrides(c *analysisCtx) {
 func validateFieldOverrides(c *analysisCtx, typ resolution.Type) {
 	form, ok := typ.Form.(resolution.StructForm)
 	if !ok {
-		return
-	}
-	// Resolving parent fields walks the extends chain; a cycle (already reported by
-	// validateExtends) would recur without bound, so skip it here.
-	if hasCircularInheritance(typ, c.table, make(set.Set[string])) {
 		return
 	}
 	parentFields := make(set.Set[string])
@@ -1860,11 +1855,6 @@ func validateExtends(c *analysisCtx, typ resolution.Type) {
 			c.report(d)
 			continue
 		}
-		if parent.QualifiedName == typ.QualifiedName {
-			d := diagnostics.Errorf(nil, "struct %s cannot extend itself", typ.Name)
-			c.report(d)
-			continue
-		}
 		if len(parentForm.TypeParams) > 0 {
 			requiredParams := 0
 			for _, tp := range parentForm.TypeParams {
@@ -1884,16 +1874,6 @@ func validateExtends(c *analysisCtx, typ resolution.Type) {
 				c.report(d)
 			}
 		}
-	}
-
-	if hasCircularInheritance(typ, c.table, make(set.Set[string])) {
-		d := diagnostics.Errorf(
-			nil,
-			"circular inheritance detected: struct %s",
-			typ.Name,
-		)
-		c.report(d)
-		return
 	}
 
 	reportInheritedFieldConflicts(
@@ -2367,6 +2347,47 @@ func validateVariantOmissions(
 			omitted,
 		))
 	}
+}
+
+// reportCircularInheritance reports each struct or union whose extends chain reaches a
+// cycle, and returns whether it found one. Passes that read inherited fields recurse
+// without bound on a cycle, so they must not run after it returns true.
+func reportCircularInheritance(c *analysisCtx, types []resolution.Type) bool {
+	var found bool
+	for _, typ := range types {
+		switch form := typ.Form.(type) {
+		case resolution.StructForm:
+			switch {
+			case slices.ContainsFunc(form.Extends, func(ref resolution.TypeRef) bool {
+				base, _, ok := resolution.Dealias(ref, c.table)
+				return ok && base.QualifiedName == typ.QualifiedName
+			}):
+				c.report(diagnostics.Errorf(
+					nil, "struct %s cannot extend itself", typ.Name,
+				))
+			case hasCircularInheritance(typ, c.table, set.New[string]()):
+				c.report(diagnostics.Errorf(
+					nil, "circular inheritance detected: struct %s", typ.Name,
+				))
+			default:
+				continue
+			}
+		case resolution.UnionForm:
+			if !slices.ContainsFunc(form.Extends, func(ref resolution.TypeRef) bool {
+				base, _, ok := resolution.Dealias(ref, c.table)
+				return ok && hasCircularInheritance(base, c.table, set.New[string]())
+			}) {
+				continue
+			}
+			c.report(diagnostics.Errorf(
+				nil, "circular inheritance detected: union %s", typ.Name,
+			))
+		default:
+			continue
+		}
+		found = true
+	}
+	return found
 }
 
 func hasCircularInheritance(

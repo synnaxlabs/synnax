@@ -2179,9 +2179,59 @@ Node union on variant {
 				}
 			`
 			table, diag := Analyze(ctx, source, "test", loader)
-			Expect(diag.Ok()).To(BeFalse())
 			Expect(table).To(BeNil())
+			Expect(diag.Flat().Errors()).To(HaveExactElements(
+				HaveField("Message", "struct Self cannot extend itself"),
+			))
 		})
+
+		It("Should report circular inheritance under a union", func(ctx SpecContext) {
+			source := `
+				A struct extends B {
+					a string
+				}
+				B struct extends A {
+					b string
+				}
+				U union on variant extends A {
+					x {}
+				}
+			`
+			_, diag := Analyze(ctx, source, "test", loader)
+			Expect(diag.Ok()).To(BeFalse())
+			Expect(diag.Error()).To(ContainSubstring(
+				"circular inheritance detected: struct A",
+			))
+		})
+
+		It(
+			"Should report circular inheritance imported under a union",
+			func(ctx SpecContext) {
+				loader.Add("schemas/cycle", `
+					A struct extends B {
+						a string
+					}
+					B struct extends A {
+						b string
+					}
+				`)
+				source := `
+					import "schemas/cycle"
+
+					U union on variant extends cycle.A {
+						x {}
+					}
+				`
+				_, diag := Analyze(ctx, source, "test", loader)
+				Expect(diag.Ok()).To(BeFalse())
+				Expect(diag.Error()).To(ContainSubstring(
+					"circular inheritance detected: struct A",
+				))
+				Expect(diag.Error()).To(ContainSubstring(
+					"circular inheritance detected: union U",
+				))
+			},
+		)
 
 		It("Should error on non-existent parent struct", func(ctx SpecContext) {
 			source := `
