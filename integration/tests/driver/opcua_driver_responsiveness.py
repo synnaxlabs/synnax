@@ -209,6 +209,12 @@ class OPCUADriverResponsiveness(OPCUAReadTaskCase):
                     os.kill(self.frozen_pid, signal.SIGCONT)
             except (OSError, psutil.NoSuchProcess, psutil.AccessDenied):
                 pass
+        # Task deletion does not wait for the Driver, so a running task keeps its writer
+        # open and the channel delete in the parent teardown fails.
+        with self._try_to("stop the OPC UA tasks"):
+            for task in (self.tsk, *self.extra_tasks):
+                if task is not None:
+                    task.stop(timeout=HEALTH_TIMEOUT)
         if self.modbus_task is not None:
             try:
                 self.client.tasks.delete(self.modbus_task.key)
