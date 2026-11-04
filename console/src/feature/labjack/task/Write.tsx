@@ -49,7 +49,7 @@ import {
 } from "@/feature/labjack/task/types";
 import { useConfigure } from "@/feature/labjack/task/useConfigure";
 import { Device as PlatformDevice } from "@/platform/device";
-import { Selector } from "@/platform/selector";
+import { type Selector } from "@/platform/selector";
 import { Task } from "@/platform/task";
 
 const path = deep.path<Task.Values<WriteSchemas>>();
@@ -427,9 +427,10 @@ export const useCreateWrite = Task.createUseCreate({
   deviceMake: MAKE,
 });
 
-export const WriteSelectable = Selector.createSelectable({
+export const WriteSelectable: Selector.Selectable = {
   type: WRITE_TYPE,
   title: "LabJack write task",
+  label: "Write",
   icon: <Icon.Logo.LabJack />,
   useOnSelect: useCreateWrite,
-});
+};

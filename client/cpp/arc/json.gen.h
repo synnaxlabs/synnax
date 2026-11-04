@@ -34,7 +34,7 @@ inline Arc Arc::parse(x::json::Parser parser) {
 }
 
 inline x::json::json Arc::to_json() const {
-    x::json::json j;
+    x::json::json j = x::json::json::object();
     j["key"] = this->key.to_json();
     j["name"] = this->name;
     j["mode"] = this->mode;

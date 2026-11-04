@@ -121,6 +121,22 @@ func ResourceTypeToPB(v ontology.ResourceType) (ResourceType, error) {
 		return ResourceType_RESOURCE_TYPE_USER, nil
 	case ontology.ResourceTypeView:
 		return ResourceType_RESOURCE_TYPE_VIEW, nil
+	case ontology.ResourceTypeEthercatMaster:
+		return ResourceType_RESOURCE_TYPE_ETHERCAT_MASTER, nil
+	case ontology.ResourceTypeEthercatSlave:
+		return ResourceType_RESOURCE_TYPE_ETHERCAT_SLAVE, nil
+	case ontology.ResourceTypeHTTPServer:
+		return ResourceType_RESOURCE_TYPE_HTTP_SERVER, nil
+	case ontology.ResourceTypeLabjackDevice:
+		return ResourceType_RESOURCE_TYPE_LABJACK_DEVICE, nil
+	case ontology.ResourceTypeModbusServer:
+		return ResourceType_RESOURCE_TYPE_MODBUS_SERVER, nil
+	case ontology.ResourceTypeNiChassis:
+		return ResourceType_RESOURCE_TYPE_NI_CHASSIS, nil
+	case ontology.ResourceTypeNiDevice:
+		return ResourceType_RESOURCE_TYPE_NI_DEVICE, nil
+	case ontology.ResourceTypeOpcuaServer:
+		return ResourceType_RESOURCE_TYPE_OPCUA_SERVER, nil
 	default:
 		return 0, errors.Newf("unrecognized ontology.ResourceType value: %v", v)
 	}
@@ -177,6 +193,22 @@ func ResourceTypeFromPB(v ResourceType) (ontology.ResourceType, error) {
 		return ontology.ResourceTypeUser, nil
 	case ResourceType_RESOURCE_TYPE_VIEW:
 		return ontology.ResourceTypeView, nil
+	case ResourceType_RESOURCE_TYPE_ETHERCAT_MASTER:
+		return ontology.ResourceTypeEthercatMaster, nil
+	case ResourceType_RESOURCE_TYPE_ETHERCAT_SLAVE:
+		return ontology.ResourceTypeEthercatSlave, nil
+	case ResourceType_RESOURCE_TYPE_HTTP_SERVER:
+		return ontology.ResourceTypeHTTPServer, nil
+	case ResourceType_RESOURCE_TYPE_LABJACK_DEVICE:
+		return ontology.ResourceTypeLabjackDevice, nil
+	case ResourceType_RESOURCE_TYPE_MODBUS_SERVER:
+		return ontology.ResourceTypeModbusServer, nil
+	case ResourceType_RESOURCE_TYPE_NI_CHASSIS:
+		return ontology.ResourceTypeNiChassis, nil
+	case ResourceType_RESOURCE_TYPE_NI_DEVICE:
+		return ontology.ResourceTypeNiDevice, nil
+	case ResourceType_RESOURCE_TYPE_OPCUA_SERVER:
+		return ontology.ResourceTypeOpcuaServer, nil
 	default:
 		return ontology.ResourceType(""), errors.Newf("unrecognized ResourceType value: %v", v)
 	}
