@@ -53,15 +53,15 @@ func resolveStatus(d *Device, provided *Status) *Status {
 }
 
 // writeStatus sets d.Status to the status that d now has in the DB. A provided status
-// replaces the stored row only if overwrite is true. The default status is written only
-// if no row exists, because a stored row may be a live status from the Driver.
+// replaces the stored row only if overwritable is true. The default status is written
+// only if no row exists, because a stored row may be a live status from the Driver.
 func (w Writer) writeStatus(
 	ctx context.Context,
 	d *Device,
 	provided *Status,
-	overwrite bool,
+	overwritable bool,
 ) error {
-	if provided != nil && overwrite {
+	if provided != nil && overwritable {
 		d.Status = resolveStatus(d, provided)
 		return w.status.Set(ctx, d.Status)
 	}
@@ -128,8 +128,8 @@ func (w Writer) Create(ctx context.Context, device *Device) error {
 	// If the device already exists and its rack hasn't changed and no explicit
 	// parent was provided, skip redefining the ontology relationship.
 	unmoved := exists && device.Rack == existing.Rack && !callerProvidedParent
-	overwrite := !unmoved || device.Name != existing.Name
-	if err = w.writeStatus(ctx, device, providedStatus, overwrite); err != nil {
+	overwritable := !unmoved || device.Name != existing.Name
+	if err = w.writeStatus(ctx, device, providedStatus, overwritable); err != nil {
 		return err
 	}
 	if unmoved {

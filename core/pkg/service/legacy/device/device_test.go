@@ -519,6 +519,7 @@ var _ = Describe("Device", func() {
 			Entry(
 				"moved to another rack",
 				func(ctx context.Context, d *device.Device) {
+					GinkgoHelper()
 					r := rack.Rack{Name: "Destination Rack"}
 					Expect(rackSvc.NewWriter(tx).Create(ctx, &r)).To(Succeed())
 					d.Rack = r.Key
