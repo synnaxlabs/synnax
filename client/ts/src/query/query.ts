@@ -671,10 +671,15 @@ export class Space<
     return promise;
   }
 
-  /** Starts a fetch that subscribers have no caller for and that reads join. */
+  /**
+   * Starts a fetch that subscribers have no caller for and that reads join. A not-found
+   * is no failure: the table delivers the deletion to subscribers.
+   */
   private fetchUncovered(query: Query<P, K, D, V>): void {
     if (query.state.variant === "loading") return;
-    this.fetch(query).catch((exc: unknown) => this.report(exc));
+    this.fetch(query).catch((exc: unknown) => {
+      if (!NotFoundError.matches(exc)) this.report(exc);
+    });
   }
 
   /** Never rejects: a failed refetch leaves the previous answer in place. */
