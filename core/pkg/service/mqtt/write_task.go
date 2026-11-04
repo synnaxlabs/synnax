@@ -11,6 +11,7 @@ package mqtt
 
 import (
 	"context"
+	"fmt"
 	"uuid"
 
 	"github.com/synnaxlabs/synnax/pkg/service/channel"
@@ -141,17 +142,17 @@ func newWriteTarget(target PlainWriteTarget, ch channel.Channel) (writeTarget, e
 	if t.encoder, err = xjson.NewEncoder(f); err != nil {
 		return writeTarget{}, errors.Wrapf(err, "%s: channel %s", path, ch.Name)
 	}
-	fields := []xjson.TemplateField{{Pointer: pointer}}
+	fields := []xjson.TemplateField{{Label: "channel.pointer", Pointer: pointer}}
 	t.slots = []slot{{kind: slotValue}}
 	for _, wf := range target.Fields {
 		var (
-			pointer string
-			field   xjson.TemplateField
-			s       slot
+			base  BaseWriteField
+			field xjson.TemplateField
+			s     slot
 		)
 		switch v := wf.Variant.(type) {
 		case StaticWriteField:
-			pointer = v.Pointer
+			base = v.BaseWriteField
 			if !matchesJSONType(v.Value, v.JSONType) {
 				return writeTarget{}, errors.Wrapf(
 					validate.ErrValidation,
@@ -166,7 +167,7 @@ func newWriteTarget(target PlainWriteTarget, ch channel.Channel) (writeTarget, e
 				)
 			}
 		case GeneratedWriteField:
-			pointer = v.Pointer
+			base = v.BaseWriteField
 			s.kind = slotUUID
 			if v.Generator == GeneratorTypeTimestamp {
 				s.kind = slotTimestamp
@@ -183,7 +184,8 @@ func newWriteTarget(target PlainWriteTarget, ch channel.Channel) (writeTarget, e
 		default:
 			panic(errors.Newf("mqtt: unknown write field variant %T", v))
 		}
-		if field.Pointer, err = xjson.ParsePointer(pointer); err != nil {
+		field.Label = fmt.Sprintf("field %q", base.Key)
+		if field.Pointer, err = xjson.ParsePointer(base.Pointer); err != nil {
 			return writeTarget{}, errors.Wrap(err, path)
 		}
 		if len(field.Pointer) == 0 {
