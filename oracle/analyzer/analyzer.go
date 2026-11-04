@@ -335,7 +335,7 @@ func analyze(c *analysisCtx) {
 			}
 		}
 	}
-	if reportCircularInheritance(c, types) {
+	if reportCircularInheritance(c) {
 		return
 	}
 	omitRemovedFields(c)
@@ -2349,43 +2349,32 @@ func validateVariantOmissions(
 	}
 }
 
-// reportCircularInheritance reports each struct or union whose extends chain reaches a
-// cycle, and returns whether it found one. Passes that read inherited fields recurse
-// without bound on a cycle, so they must not run after it returns true.
-func reportCircularInheritance(c *analysisCtx, types []resolution.Type) bool {
+// reportCircularInheritance reports each struct in the namespace whose extends chain
+// reaches a cycle. It returns whether any struct in the table does, imported ones
+// included, since passes that read inherited fields would recurse without bound.
+func reportCircularInheritance(c *analysisCtx) bool {
 	var found bool
-	for _, typ := range types {
-		switch form := typ.Form.(type) {
-		case resolution.StructForm:
-			switch {
-			case slices.ContainsFunc(form.Extends, func(ref resolution.TypeRef) bool {
-				base, _, ok := resolution.Dealias(ref, c.table)
-				return ok && base.QualifiedName == typ.QualifiedName
-			}):
-				c.report(diagnostics.Errorf(
-					nil, "struct %s cannot extend itself", typ.Name,
-				))
-			case hasCircularInheritance(typ, c.table, set.New[string]()):
-				c.report(diagnostics.Errorf(
-					nil, "circular inheritance detected: struct %s", typ.Name,
-				))
-			default:
-				continue
-			}
-		case resolution.UnionForm:
-			if !slices.ContainsFunc(form.Extends, func(ref resolution.TypeRef) bool {
-				base, _, ok := resolution.Dealias(ref, c.table)
-				return ok && hasCircularInheritance(base, c.table, set.New[string]())
-			}) {
-				continue
-			}
-			c.report(diagnostics.Errorf(
-				nil, "circular inheritance detected: union %s", typ.Name,
-			))
-		default:
+	for _, typ := range c.table.Types {
+		form, ok := typ.Form.(resolution.StructForm)
+		if !ok || !hasCircularInheritance(typ, c.table, set.New[string]()) {
 			continue
 		}
 		found = true
+		if typ.Namespace != c.namespace {
+			continue
+		}
+		if slices.ContainsFunc(form.Extends, func(ref resolution.TypeRef) bool {
+			base, _, ok := resolution.Dealias(ref, c.table)
+			return ok && base.QualifiedName == typ.QualifiedName
+		}) {
+			c.report(diagnostics.Errorf(
+				nil, "struct %s cannot extend itself", typ.Name,
+			))
+			continue
+		}
+		c.report(diagnostics.Errorf(
+			nil, "circular inheritance detected: struct %s", typ.Name,
+		))
 	}
 	return found
 }

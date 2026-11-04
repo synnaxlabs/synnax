@@ -2204,9 +2204,9 @@ Node union on variant {
 			))
 		})
 
-		It(
-			"Should report circular inheritance imported under a union",
-			func(ctx SpecContext) {
+		DescribeTable(
+			"Should report circular inheritance in an imported struct",
+			func(ctx SpecContext, source string) {
 				loader.Add("schemas/cycle", `
 					A struct extends B {
 						a string
@@ -2215,22 +2215,35 @@ Node union on variant {
 						b string
 					}
 				`)
-				source := `
-					import "schemas/cycle"
-
-					U union on variant extends cycle.A {
-						x {}
-					}
-				`
 				_, diag := Analyze(ctx, source, "test", loader)
 				Expect(diag.Ok()).To(BeFalse())
 				Expect(diag.Error()).To(ContainSubstring(
 					"circular inheritance detected: struct A",
 				))
-				Expect(diag.Error()).To(ContainSubstring(
-					"circular inheritance detected: union U",
-				))
 			},
+			Entry("as a union base", `
+				import "schemas/cycle"
+
+				U union on variant extends cycle.A {
+					x {}
+				}
+			`),
+			Entry("as a variant payload", `
+				import "schemas/cycle"
+
+				U union on variant {
+					x cycle.A
+				}
+			`),
+			Entry("as an action base", `
+				import "schemas/cycle"
+
+				Schematic struct {
+					key uuid
+
+					action Rename extends cycle.A {}
+				}
+			`),
 		)
 
 		It("Should error on non-existent parent struct", func(ctx SpecContext) {
