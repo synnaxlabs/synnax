@@ -35,30 +35,6 @@ func pointerTokens(pointer string) ([]string, error) {
 	return tokens, nil
 }
 
-// pointerSet places v at pointer within doc, creating the objects on the way. A
-// non-object on the way is replaced. The empty pointer is an error, since it would
-// replace doc itself.
-func pointerSet(doc map[string]any, pointer string, v any) error {
-	tokens, err := pointerTokens(pointer)
-	if err != nil {
-		return err
-	}
-	if len(tokens) == 0 {
-		return errors.Wrap(validate.ErrValidation, "pointer must not be empty")
-	}
-	cur := doc
-	for _, t := range tokens[:len(tokens)-1] {
-		next, ok := cur[t].(map[string]any)
-		if !ok {
-			next = make(map[string]any)
-			cur[t] = next
-		}
-		cur = next
-	}
-	cur[tokens[len(tokens)-1]] = v
-	return nil
-}
-
 // labeledPointer is a pointer named after the config entry that set it.
 type labeledPointer struct{ label, pointer string }
 
