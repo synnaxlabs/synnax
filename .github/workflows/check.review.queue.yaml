@@ -1,0 +1,48 @@
+# Copyright 2026 Synnax Labs, Inc.
+#
+# Use of this software is governed by the Business Source License included in the file
+# licenses/BSL.txt.
+#
+# As of the Change Date specified in that file, in accordance with the Business Source
+# License, use of this software will be governed by the Apache License, Version 2.0,
+# included in the file licenses/APL.txt.
+
+# Reports the Review gate commit status of a merge group from the default branch, so the
+# queued commit cannot edit the steps that write it. GitHub writes the queue ref and the
+# commit in the event, and the checkout takes the scripts from the default branch.
+
+name: Check - Review queue
+
+on:
+  workflow_run:
+    workflows:
+      - Relay - Merge group
+    types:
+      - completed
+
+permissions: {}
+
+jobs:
+  gate:
+    # The ruleset matches check runs by name too, so a skipped job named Review gate
+    # would block the merge.
+    name: Report queue review gate
+    if: github.event.workflow_run.event == 'merge_group'
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      pull-requests: read
+      statuses: write
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v7
+        with:
+          persist-credentials: false
+          sparse-checkout: .github/scripts
+
+      - name: Report the review gate status
+        env:
+          GH_TOKEN: ${{ github.token }}
+          QUEUE_REF: ${{ github.event.workflow_run.head_branch }}
+          SHA: ${{ github.event.workflow_run.head_sha }}
+        run: .github/scripts/report_queue_gate.sh "$QUEUE_REF" "$SHA"
