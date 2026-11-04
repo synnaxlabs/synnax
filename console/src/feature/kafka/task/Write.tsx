@@ -9,7 +9,7 @@
 
 import "@/feature/kafka/task/Task.css";
 
-import { type channel, kafka } from "@synnaxlabs/client";
+import { kafka } from "@synnaxlabs/client";
 import { Component } from "@synnaxlabs/lyra/component";
 import { Flex } from "@synnaxlabs/lyra/flex";
 import { Form as PForm } from "@synnaxlabs/lyra/form";
@@ -127,16 +127,10 @@ const CHANNEL_POINTER_INPUT_PROPS = { placeholder: "Omitted" } as const;
 
 const TIMESTAMP_POINTER_INPUT_PROPS = { placeholder: "Omitted" } as const;
 
-const useChannelName = (key: channel.Key): string | undefined => {
-  const query = primitive.isNonZero(key) ? { key } : null;
-  return PChannel.useResultName(query).data;
-};
-
 const ChannelListItem = (props: Task.ChannelListItemProps) => {
   const { itemKey } = props;
   const path = root.config.channels[itemKey];
   const { channel: key, jsonType, disabled } = PForm.useFieldValue(path);
-  const name = useChannelName(key);
   return (
     <Select.Item
       {...props}
@@ -146,15 +140,14 @@ const ChannelListItem = (props: Task.ChannelListItemProps) => {
       className={CSS.cls(CSS.B("kafka-item"), disabled && CSS.M("off"))}
     >
       <Flex.Box x align="center" gap="small" className={CSS.BE("kafka-item", "label")}>
-        <Text.Text
+        <Task.ChannelName
+          channel={key}
+          picked
           level="p"
           weight={500}
-          color={name == null ? 8 : 10}
-          overflow="fade"
+          color={10}
           className={CSS.BE("kafka-item", "name")}
-        >
-          {name ?? "Select a channel"}
-        </Text.Text>
+        />
         <Text.Text level="small" color={9}>
           {jsonType}
         </Text.Text>
@@ -222,12 +215,7 @@ const details = Component.renderProp(ChannelDetails);
 
 const ChannelTitle = ({ path }: Task.Views.DetailsProps<WriteChannel>) => {
   const key = PForm.useFieldValue(path.channel);
-  const name = useChannelName(key);
-  return (
-    <Text.Text level="p" weight={500} color={name == null ? 8 : 10}>
-      {name ?? "New channel"}
-    </Text.Text>
-  );
+  return <Task.ChannelName channel={key} picked level="p" weight={500} color={10} />;
 };
 
 const detailsTitle = Component.renderProp(ChannelTitle);

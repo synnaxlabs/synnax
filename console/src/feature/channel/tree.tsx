@@ -111,7 +111,7 @@ const useEditCalculated = () => {
 
 const TreeContextMenu: Tree.ContextMenu = (props) => {
   const {
-    selection: { ids, rootID },
+    selection: { ids, rootID, parentID },
     state,
   } = props;
   const activeRange = Range.useResolve();
@@ -165,6 +165,7 @@ const TreeContextMenu: Tree.ContextMenu = (props) => {
           ids={ids}
           shape={state.shape}
           rootID={rootID}
+          parentID={parentID}
           onClick={() => groupFromSelection(props)}
         />
       )}
@@ -214,6 +215,7 @@ const Content = ({ resource, icon: _, ...rest }: Tree.ContentProps) => {
   const data = resource.data as channel.Payload;
   const DataTypeIcon = PChannel.resolveIcon(data);
   const statusVariant = status.keepVariants(chStatus?.variant, ["error", "warning"]);
+  const highlight = Tree.useHighlight();
   return (
     <PTree.Item {...rest}>
       <DataTypeIcon color={10} />
@@ -226,7 +228,9 @@ const Content = ({ resource, icon: _, ...rest }: Tree.ContentProps) => {
         grow
         disabled={!allowRename(resource)}
         onChange
+        highlight={highlight}
       />
+      <Tree.MatchGroup id={resource.id} />
       {statusVariant != null && (
         <Tooltip.Dialog location="right">
           <Status.Summary variant={statusVariant} hideIcon level="small" weight={450}>

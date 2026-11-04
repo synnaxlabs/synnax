@@ -35,7 +35,7 @@ inline StatusDetails StatusDetails::parse(x::json::Parser parser) {
 }
 
 inline x::json::json StatusDetails::to_json() const {
-    x::json::json j;
+    x::json::json j = x::json::json::object();
     j["task"] = this->task.to_json();
     j["running"] = this->running;
     j["cmd"] = this->cmd;
@@ -60,7 +60,7 @@ inline Task Task::parse(x::json::Parser parser) {
 }
 
 inline x::json::json Task::to_json() const {
-    x::json::json j;
+    x::json::json j = x::json::json::object();
     j["key"] = this->key.to_json();
     j["rack"] = this->rack;
     j["name"] = this->name;
@@ -86,7 +86,7 @@ inline Command Command::parse(x::json::Parser parser) {
 }
 
 inline x::json::json Command::to_json() const {
-    x::json::json j;
+    x::json::json j = x::json::json::object();
     j["task"] = this->task.to_json();
     j["type"] = this->type;
     j["key"] = this->key;
@@ -103,7 +103,7 @@ inline KeyedConfig KeyedConfig::parse(x::json::Parser parser) {
 }
 
 inline x::json::json KeyedConfig::to_json() const {
-    x::json::json j;
+    x::json::json j = x::json::json::object();
     j["key"] = this->key.to_json();
     return j;
 }
@@ -116,7 +116,7 @@ inline StartConfig StartConfig::parse(x::json::Parser parser) {
 }
 
 inline x::json::json StartConfig::to_json() const {
-    x::json::json j;
+    x::json::json j = x::json::json::object();
     if (const auto parent = KeyedConfig::to_json(); parent.is_object())
         j.update(parent);
     j["auto_start"] = this->auto_start;
@@ -131,7 +131,7 @@ inline PersistConfig PersistConfig::parse(x::json::Parser parser) {
 }
 
 inline x::json::json PersistConfig::to_json() const {
-    x::json::json j;
+    x::json::json j = x::json::json::object();
     if (const auto parent = StartConfig::to_json(); parent.is_object())
         j.update(parent);
     j["data_saving_disabled"] = this->data_saving_disabled;
@@ -153,7 +153,7 @@ inline ReadConfig ReadConfig::parse(x::json::Parser parser) {
 }
 
 inline x::json::json ReadConfig::to_json() const {
-    x::json::json j;
+    x::json::json j = x::json::json::object();
     if (const auto parent = PersistConfig::to_json(); parent.is_object())
         j.update(parent);
     j["sample_rate"] = this->sample_rate;
@@ -169,7 +169,7 @@ inline WriteConfig WriteConfig::parse(x::json::Parser parser) {
 }
 
 inline x::json::json WriteConfig::to_json() const {
-    x::json::json j;
+    x::json::json j = x::json::json::object();
     if (const auto parent = PersistConfig::to_json(); parent.is_object())
         j.update(parent);
     j["device"] = this->device;
@@ -185,7 +185,7 @@ inline ScanConfig ScanConfig::parse(x::json::Parser parser) {
 }
 
 inline x::json::json ScanConfig::to_json() const {
-    x::json::json j;
+    x::json::json j = x::json::json::object();
     if (const auto parent = KeyedConfig::to_json(); parent.is_object())
         j.update(parent);
     j["rate"] = this->rate;
