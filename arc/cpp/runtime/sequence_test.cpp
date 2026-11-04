@@ -3821,6 +3821,26 @@ TEST(ComputedCallInputsTest, SamplesAComputedVariableInsideAFunctionInput) {
     );
 }
 
+TEST(ComputedCallInputsTest, PassesABareCallResultToAFunctionInput) {
+    Sequence h(
+        R"(
+    func one() i64 {
+        return 1
+    }
+    func f(v i64) {n u8} i64 {
+        return v
+    }
+    %trig% -> f(one()) -> %out%)",
+        {{"trig", x::telem::UINT8_T}, {"out", x::telem::INT64_T}}
+    );
+
+    h.trigger("trig");
+    EXPECT_EQ(
+        collect<std::int64_t>(h.flush(), h.key("out")),
+        (std::vector<std::int64_t>{1})
+    );
+}
+
 TEST(ComputedCallInputsTest, AdvancesPastABareCallStepWithAComputedInput) {
     Sequence h(
         R"(
@@ -3899,6 +3919,39 @@ TEST(ComputedInitializersTest, ReadsAComputedConstantExpressionAsALiteral) {
     const auto out = h.flush();
     EXPECT_EQ(last<std::string>(out, h.key("out_str")), "3");
     EXPECT_EQ(collect<std::int64_t>(out, h.key("out")), (std::vector<std::int64_t>{6}));
+}
+
+TEST(ComputedInitializersTest, ComputesATopLevelVariableFromABareCall) {
+    Sequence h(
+        R"(
+    func one() i64 {
+        return 1
+    }
+    x := one()
+    %trig% -> x * 2 -> %out%)",
+        {{"trig", x::telem::UINT8_T}, {"out", x::telem::INT64_T}}
+    );
+
+    h.trigger("trig");
+    EXPECT_EQ(
+        collect<std::int64_t>(h.flush(), h.key("out")),
+        (std::vector<std::int64_t>{2})
+    );
+}
+
+TEST(ComputedInitializersTest, ComputesATopLevelVariableFromABuiltinCall) {
+    Sequence h(
+        R"(
+    n := len("abc")
+    %trig% -> n * 2 -> %out%)",
+        {{"trig", x::telem::UINT8_T}, {"out", x::telem::INT64_T}}
+    );
+
+    h.trigger("trig");
+    EXPECT_EQ(
+        collect<std::int64_t>(h.flush(), h.key("out")),
+        (std::vector<std::int64_t>{6})
+    );
 }
 
 TEST(ComputedInitializersTest, ComputesASequenceVariableOncePerEntry) {

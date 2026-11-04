@@ -5583,6 +5583,43 @@ var _ = Describe("Sequence", func() {
 			Expect(drainI64(out, 102)).To(Equal([]int64{6}))
 		})
 
+		It("Computes a top-level variable from a bare call", func(ctx SpecContext) {
+			resolver := channelSymbols(map[string]channelDef{
+				"trig": {types.U8(), 100},
+				"out":  {types.I64(), 102},
+			})
+			h := newRuntimeHarness(ctx, `
+				func one() i64 {
+				    return 1
+				}
+				x := one()
+				trig -> x * 2 -> out`, resolver,
+				channels.Digest{Key: 102, DataType: telem.Int64T},
+			)
+			defer h.Close(ctx)
+
+			trigger(h, ctx, 100)
+			out, _ := h.Flush()
+			Expect(drainI64(out, 102)).To(Equal([]int64{2}))
+		})
+
+		It("Computes a top-level variable from a builtin call", func(ctx SpecContext) {
+			resolver := channelSymbols(map[string]channelDef{
+				"trig": {types.U8(), 100},
+				"out":  {types.I64(), 102},
+			})
+			h := newRuntimeHarness(ctx, `
+				n := len("abc")
+				trig -> n * 2 -> out`, resolver,
+				channels.Digest{Key: 102, DataType: telem.Int64T},
+			)
+			defer h.Close(ctx)
+
+			trigger(h, ctx, 100)
+			out, _ := h.Flush()
+			Expect(drainI64(out, 102)).To(Equal([]int64{6}))
+		})
+
 		It("Computes a sequence variable once per entry", func(ctx SpecContext) {
 			resolver := channelSymbols(map[string]channelDef{
 				"start_cmd": {types.U8(), 100},
@@ -5784,6 +5821,28 @@ var _ = Describe("Sequence", func() {
 			trigger(h, ctx, 100)
 			out, _ := h.Flush()
 			Expect(drainI64(out, 102)).To(Equal([]int64{6}))
+		})
+
+		It("Passes a bare call result to a function input", func(ctx SpecContext) {
+			resolver := channelSymbols(map[string]channelDef{
+				"trig": {types.U8(), 100},
+				"out":  {types.I64(), 102},
+			})
+			h := newRuntimeHarness(ctx, `
+				func one() i64 {
+				    return 1
+				}
+				func f(v i64) {n u8} i64 {
+				    return v
+				}
+				trig -> f(one()) -> out`, resolver,
+				channels.Digest{Key: 102, DataType: telem.Int64T},
+			)
+			defer h.Close(ctx)
+
+			trigger(h, ctx, 100)
+			out, _ := h.Flush()
+			Expect(drainI64(out, 102)).To(Equal([]int64{1}))
 		})
 
 		It("Advances past a bare call with a computed input", func(ctx SpecContext) {

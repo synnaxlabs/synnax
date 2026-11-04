@@ -119,11 +119,8 @@ func inferVarKind(ctx context.Context[parser.IVariableDeclarationContext]) {
 	}
 	// A bare identifier bound to a reactive variable is itself reactive; one
 	// bound to a value variable is a computed copy and registers below.
-	if primary := parser.GetPrimaryExpression(
-		expr,
-	); primary != nil &&
-		primary.IDENTIFIER() != nil {
-		ref, rerr := ctx.Scope.Resolve(ctx, primary.IDENTIFIER().GetText())
+	if id := parser.BareIdentifier(expr); id != nil {
+		ref, rerr := ctx.Scope.Resolve(ctx, id.GetText())
 		if rerr != nil {
 			return
 		}
@@ -179,11 +176,11 @@ func rhsBindsChannel[T antlr.ParserRuleContext](
 	ctx context.Context[T],
 	expr parser.IExpressionContext,
 ) (bound, bare bool) {
-	primary := parser.GetPrimaryExpression(expr)
-	if primary == nil || primary.IDENTIFIER() == nil {
+	id := parser.BareIdentifier(expr)
+	if id == nil {
 		return false, false
 	}
-	ref, err := ctx.Scope.Resolve(ctx, primary.IDENTIFIER().GetText())
+	ref, err := ctx.Scope.Resolve(ctx, id.GetText())
 	if err != nil {
 		return false, true
 	}

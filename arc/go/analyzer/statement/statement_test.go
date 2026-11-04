@@ -312,6 +312,27 @@ var _ = Describe("Statement", func() {
 				).To(BeTrue())
 			})
 
+			It("classifies a bare call as computed", func(bCtx SpecContext) {
+				root := NewRoot(nil, symbol.Symbol{
+					Name: "one",
+					Kind: symbol.KindFunction,
+					Type: types.Function(types.FunctionProperties{
+						Outputs: types.Params{
+							{Name: ir.DefaultOutputParam, Type: types.F64()},
+						},
+					}),
+				})
+				ctx := declareIn(bCtx, root, "x := one()")
+				Expect(ctx.Diagnostics.Ok()).To(BeTrue(), ctx.Diagnostics.String())
+				Expect(
+					MustSucceed(ctx.Scope.Resolve(ctx, "x")).IsComputed(),
+				).To(BeTrue())
+				expr := ctx.AST.LocalVariable().Expression()
+				Expect(MustSucceed(root.GetChildByParserRule(expr)).Kind).To(
+					Equal(symbol.KindFunction),
+				)
+			})
+
 			It("rejects a stateful bound to a ':=' variable", func(bCtx SpecContext) {
 				root := NewRoot(nil)
 				declareIn(bCtx, root, "s $= 0")

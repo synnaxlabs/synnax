@@ -120,11 +120,7 @@ func AnalyzeComputedArgs[T antlr.ParserRuleContext](
 	args []symbol.Argument,
 ) {
 	for _, arg := range args {
-		if parser.IsLiteral(arg.Expr) {
-			continue
-		}
-		p := parser.GetPrimaryExpression(arg.Expr)
-		if p != nil && p.IDENTIFIER() != nil {
+		if parser.IsLiteral(arg.Expr) || parser.BareIdentifier(arg.Expr) != nil {
 			continue
 		}
 		AnalyzeSingleExpression(ctx.Child(arg.Expr))

@@ -2062,26 +2062,24 @@ func extractInputValues(
 		// Top-level literal variables cannot be reassigned, so they inline; so
 		// does any literal variable with no write sites in the source. Any
 		// other value variable stamps a var ref to its node instead.
-		if primary := parser.GetPrimaryExpression(expr); primary != nil {
-			if id := primary.IDENTIFIER(); id != nil {
-				sym, err := ctx.Scope.Resolve(ctx, id.GetText())
-				if err == nil && (sym.IsLiteral() || isExprReadVar(sym)) {
-					if rn := shell.varNodes[sym].readNode(sym); rn != nil {
-						t := sym.Type.UnwrapChan()
-						return varValue(sym), types.VarRef(t, rn.Key), true
-					}
-					if !sym.Reassigned && sym.DefaultValue != nil {
-						return sym.DefaultValue, paramType, true
-					}
+		if id := parser.BareIdentifier(expr); id != nil {
+			sym, err := ctx.Scope.Resolve(ctx, id.GetText())
+			if err == nil && (sym.IsLiteral() || isExprReadVar(sym)) {
+				if rn := shell.varNodes[sym].readNode(sym); rn != nil {
+					t := sym.Type.UnwrapChan()
+					return varValue(sym), types.VarRef(t, rn.Key), true
 				}
-				if err == nil && sym.Type.Kind == types.KindChan {
-					ctx.Diagnostics.Add(diagnostics.Errorf(
-						expr,
-						"input value for '%s' cannot be a channel",
-						paramName,
-					))
-					return nil, paramType, false
+				if !sym.Reassigned && sym.DefaultValue != nil {
+					return sym.DefaultValue, paramType, true
 				}
+			}
+			if err == nil && sym.Type.Kind == types.KindChan {
+				ctx.Diagnostics.Add(diagnostics.Errorf(
+					expr,
+					"input value for '%s' cannot be a channel",
+					paramName,
+				))
+				return nil, paramType, false
 			}
 		}
 
