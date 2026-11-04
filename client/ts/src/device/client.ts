@@ -126,6 +126,17 @@ const stripStatus = ({ status: _, ...device }: Device): Omit<Device, "status"> =
   device;
 
 /**
+ * Removes the fields that make the Core write a device's status and parent. Use it to
+ * send a retrieved device or a create reply back to {@link Client.create}: a reply
+ * carries a parent, and the Core writes the status of any device sent with one.
+ */
+export const toUpdate = <D extends Pick<Device, "status" | "parent">>({
+  status: _status,
+  parent: _parent,
+  ...device
+}: D): Omit<D, "status" | "parent"> => device;
+
+/**
  * Client-side matching for a request: key, name, make, model, location, and
  * rack sets. Server-computed shapes (search, pagination, parent resolution)
  * never reach this filter; they refetch instead.
@@ -198,7 +209,7 @@ export class Client extends query.Retriever<
         query.createDeleteListener(DELETE_CHANNEL_NAME, keyZ),
       ],
     });
-    // Composed rows always carry status; includeStatus only gates fetch flags.
+    // Composed rows carry any cached status; includeStatus only gates fetch flags.
     const composed = cache.derive<Key, Omit<Device, "status">, Device>({
       name: "device.composed",
       source: store,
@@ -209,11 +220,13 @@ export class Client extends query.Retriever<
       name: "device",
       table: composed,
       fetch: async (q) => [(await this.fetchSingle(q)).key],
-      // The composed row always carries status; the query gates whether the
-      // answer keeps it, mirroring the request space.
+      // The query gates whether the answer keeps the row's status, mirroring the
+      // request space.
       compose: (records, q) =>
         q.includeStatus === true ? records[0] : stripStatus(records[0]),
       keyOf: (q) => q.key,
+      // The stream and status-free fetches cache devices with no status.
+      covers: (d, q) => q.includeStatus !== true || d.status != null,
       single: true,
     });
     super(cache, {
@@ -321,6 +334,8 @@ export class Client extends query.Retriever<
       .toArray(devices)
       .map((device) => deviceZ(schemas).parse(device) as Device);
     const apply = () => [this.store.set(normalized.map(stripStatus))];
+    // A status streamed during the request is newer than the reply.
+    const since = this.cfg.statusStore.stamp();
     const res = await query.optimistic({
       rollbacks: apply(),
       onOptimistic: opts.onOptimistic,
@@ -331,6 +346,9 @@ export class Client extends query.Retriever<
           createReqZ(schemas),
           createResZ(schemas),
         ),
+    });
+    res.devices.forEach(({ status: st }) => {
+      if (st != null) this.cfg.statusStore.ingest(st, { since });
     });
     this.store.set(res.devices.map(stripStatus));
     return isSingle ? res.devices[0] : res.devices;
