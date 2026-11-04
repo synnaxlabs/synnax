@@ -8,7 +8,7 @@
 // included in the file licenses/APL.txt.
 
 import { act, fireEvent, render, renderHook, screen } from "@testing-library/react";
-import { type KeyboardEvent } from "react";
+import { type KeyboardEvent, type MouseEvent } from "react";
 import { beforeAll, describe, expect, it, onTestFinished, vi } from "vitest";
 
 import { type Haul } from "@/haul";
@@ -282,13 +282,24 @@ describe("Tree keys", () => {
     nodes?: Node[];
     onKeyDown?: (e: KeyboardEvent<HTMLDivElement>) => void;
     onDoubleClick?: (key: string) => void;
+    onContextMenu?: (e: MouseEvent<HTMLDivElement>) => void;
   }
 
-  const Component = ({ nodes = NODES, onKeyDown, onDoubleClick }: ComponentProps) => {
+  const Component = ({
+    nodes = NODES,
+    onKeyDown,
+    onDoubleClick,
+    onContextMenu,
+  }: ComponentProps) => {
     const props = use({ nodes });
     return (
       <Triggers.Provider>
-        <Tree {...props} getItem={getItem} onKeyDown={onKeyDown}>
+        <Tree
+          {...props}
+          getItem={getItem}
+          onKeyDown={onKeyDown}
+          onContextMenu={onContextMenu}
+        >
           {({ key, ...rest }) => (
             <Item key={key} {...rest} onDoubleClick={() => onDoubleClick?.(key)}>
               {key}
@@ -436,6 +447,35 @@ describe("Tree keys", () => {
     expect(selected()).toEqual(["b"]);
     press("Enter");
     expect(onDoubleClick).toHaveBeenCalledExactlyOnceWith("b");
+  });
+
+  it("should open the context menu of the selected item on Shift+F10", () => {
+    const onContextMenu = vi.fn();
+    render(<Component onContextMenu={onContextMenu} />);
+    fireEvent.click(row("b"));
+    const shiftF10 = { key: "F10", code: "F10", shiftKey: true };
+    expect(fireEvent.keyDown(tree(), shiftF10)).toBe(false);
+    expect(onContextMenu).toHaveBeenCalledOnce();
+    expect(onContextMenu.mock.calls[0][0].target).toBe(row("b"));
+  });
+
+  it("should open the selected item's context menu on the Menu key release", () => {
+    const onContextMenu = vi.fn();
+    render(<Component onContextMenu={onContextMenu} />);
+    fireEvent.click(row("b"));
+    const menuKey = { key: "ContextMenu", code: "ContextMenu" };
+    expect(fireEvent.keyDown(tree(), menuKey)).toBe(false);
+    expect(onContextMenu).not.toHaveBeenCalled();
+    expect(fireEvent.keyUp(tree(), menuKey)).toBe(false);
+    expect(onContextMenu).toHaveBeenCalledOnce();
+    expect(onContextMenu.mock.calls[0][0].target).toBe(row("b"));
+  });
+
+  it("should open no context menu from the keys with nothing selected", () => {
+    const onContextMenu = vi.fn();
+    render(<Component onContextMenu={onContextMenu} />);
+    fireEvent.keyDown(tree(), { key: "F10", code: "F10", shiftKey: true });
+    expect(onContextMenu).not.toHaveBeenCalled();
   });
 
   it("should move from the item clicked last", () => {

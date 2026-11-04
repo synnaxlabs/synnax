@@ -21,12 +21,14 @@ import { useSyncedRef } from "@/hooks";
 import { List } from "@/list";
 import { Triggers } from "@/triggers";
 import { isInputOrContentEditable } from "@/util/event";
+import { moveIndex } from "@/util/move";
 
 /**
  * What the arrow keys of a selection move. A hover is a highlight that the pointer
  * shares and Enter clicks, and it answers keys anywhere in the window. The selection
- * moves itself, Enter double-clicks it, and it answers keys only on the focused element
- * that spreads the handlers of `Select.useKeyboard`.
+ * moves itself, Enter double-clicks it, Shift+F10 and the Menu key open its context
+ * menu, and it answers keys only on the focused element that spreads the handlers of
+ * `Select.useKeyboard`.
  */
 export type Cursor = "hover" | "selection";
 
@@ -39,6 +41,8 @@ export interface Order<K extends record.Key> {
   click: (key: K) => void;
   /** Double-clicks the option with the given key, as a mouse would. */
   doubleClick: (key: K) => void;
+  /** Opens the context menu of the option with the given key, under the option. */
+  contextMenu: (key: K) => void;
   /** Calls the listener whenever the fixed items change. */
   subscribe: (listener: () => void) => destructor.Destructor;
 }
@@ -111,29 +115,17 @@ const isCursorKey = (key: string | null): key is CursorKey =>
 const isX = (key: CursorKey): key is "ArrowLeft" | "ArrowRight" =>
   key === "ArrowLeft" || key === "ArrowRight";
 
+// Shift+F10 opens the context menu on its press, and the Menu key on its release, as
+// on Windows. Both keep the webview from opening its own.
+const menuKey = (e: KeyboardEvent<HTMLElement>): "F10" | "ContextMenu" | null => {
+  if (e.altKey || e.ctrlKey || e.metaKey) return null;
+  const key = Triggers.eventKey(e);
+  if (key === "ContextMenu" || (key === "F10" && e.shiftKey)) return key;
+  return null;
+};
+
 const REPEAT_DELAY = TimeSpan.milliseconds(200).milliseconds;
 const REPEAT_INTERVAL = TimeSpan.milliseconds(100).milliseconds;
-
-// The index a vertical key moves the cursor to from index at, where -1 is no cursor. A
-// held key stops at the ends, and a new press wraps around.
-const targetIndex = (
-  key: CursorKey,
-  at: number,
-  count: number,
-  held: boolean,
-): number | null => {
-  const last = count - 1;
-  if (key === "Home") return 0;
-  if (key === "End") return last;
-  if (key === "ArrowDown") {
-    if (at === -1) return 0;
-    if (at < last) return at + 1;
-    return held ? null : 0;
-  }
-  if (at === -1) return last;
-  if (at > 0) return at - 1;
-  return held ? null : last;
-};
 
 // Where the cursor rests when the key it last moved to is not among the options.
 const startOf = <K extends record.Key>(
@@ -153,17 +145,17 @@ const startOf = <K extends record.Key>(
 
 /**
  * Moves a cursor through the options of the enclosing frame with the arrow keys, Home,
- * and End, and acts on it with Enter. The cursor is a hover or the selection itself;
- * see {@link Cursor}. Holding a key repeats it, and the frame scrolls the cursor into
- * view and keeps it mounted. The cursor is a key, so it survives options appearing or
- * disappearing around it.
+ * and End, and acts on it with Enter and the menu keys. The cursor is a hover or the
+ * selection itself; see {@link Cursor}. Holding a key repeats it, and the frame scrolls
+ * the cursor into view and keeps it mounted. The cursor is a key, so it survives
+ * options appearing or disappearing around it.
  */
 export const useCursor = <K extends record.Key>({
   initialHover = -1,
   cursor = "hover",
   enableTriggers,
   moveX,
-  order: { getOrder, subscribe, scrollTo, click, doubleClick },
+  order: { getOrder, subscribe, scrollTo, click, doubleClick, contextMenu },
   selected,
   select,
 }: UseCursorProps<K>): UseCursorReturn<K> => {
@@ -193,7 +185,7 @@ export const useCursor = <K extends record.Key>({
     if (!hovering) select(key);
     scrollTo(key, direction);
   };
-  const step = (key: CursorKey, held: boolean): void => {
+  const step = (key: Exclude<CursorKey, "Enter">, held: boolean): void => {
     const order = getOrder();
     if (order.length === 0) return;
     const from = resolve(order);
@@ -202,22 +194,29 @@ export const useCursor = <K extends record.Key>({
     if (isX(key)) {
       if (from != null) to = moveX?.(from, key === "ArrowLeft" ? "left" : "right");
     } else {
-      const index = targetIndex(key, at, order.length, held);
+      const index = moveIndex(key, at, order.length, held);
       if (index != null) to = order[index];
     }
     if (to == null || to === from) return;
     moveTo(to, order.indexOf(to) < at ? "bottom" : "top");
   };
-  const activate = (): void => {
+  // The key that Enter and the menu keys act on. A modifier click can deselect the key
+  // the cursor rests on.
+  const actionKey = (): K | undefined => {
     const order = getOrder();
     const key = resolve(order);
+    if (key == null || hovering || selected.includes(key)) return key;
+    return startOf(order, cursor, initialHover, selected);
+  };
+  const activate = (): void => {
+    const key = actionKey();
     if (key == null) return;
-    if (hovering) return click(key);
-    // A modifier click can deselect the key the cursor rests on.
-    const target = selected.includes(key)
-      ? key
-      : startOf(order, cursor, initialHover, selected);
-    if (target != null) doubleClick(target);
+    if (hovering) click(key);
+    else doubleClick(key);
+  };
+  const openMenu = (): void => {
+    const key = actionKey();
+    if (key != null) contextMenu(key);
   };
   // The repeat outlives the render that started it, so it reads the latest step.
   const stepRef = useSyncedRef(step);
@@ -256,21 +255,34 @@ export const useCursor = <K extends record.Key>({
     loose: true,
     enabled: () => hovering && Triggers.resolveCondition(enabledRef.current),
   });
+  // Keys typed into an element inside the list, such as a name being edited, keep their
+  // own meaning.
+  const answers = (e: KeyboardEvent<HTMLElement>): boolean =>
+    !hovering &&
+    !e.defaultPrevented &&
+    e.target === e.currentTarget &&
+    Triggers.resolveCondition(enabledRef.current);
   const keyboard: KeyboardHandlers = {
     onKeyDown: (e) => {
-      // Keys typed into an element inside the list, such as a name being edited, keep
-      // their own meaning.
-      if (hovering || e.defaultPrevented || e.target !== e.currentTarget) return;
+      if (!answers(e)) return;
+      const menu = menuKey(e);
+      if (menu != null) {
+        e.preventDefault();
+        if (menu === "F10" && !e.repeat) openMenu();
+        return;
+      }
       if (e.altKey || e.ctrlKey || e.metaKey || e.shiftKey) return;
       const key = Triggers.eventKey(e);
       if (!isCursorKey(key) || (isX(key) && moveX == null)) return;
-      if (!Triggers.resolveCondition(enabledRef.current)) return;
       e.preventDefault();
       // The cursor repeats a held key at its own pace.
       if (!e.repeat) press(key);
     },
     onKeyUp: (e) => {
-      if (isCursorKey(Triggers.eventKey(e))) release();
+      if (isCursorKey(Triggers.eventKey(e))) return release();
+      if (!answers(e) || menuKey(e) !== "ContextMenu") return;
+      e.preventDefault();
+      openMenu();
     },
     onBlur: release,
   };

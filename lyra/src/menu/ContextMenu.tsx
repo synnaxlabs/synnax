@@ -10,7 +10,14 @@
 import "@/menu/ContextMenu.css";
 
 import { box, location, unique, xy } from "@synnaxlabs/x";
-import { type ReactNode, type RefCallback, useEffect, useRef, useState } from "react";
+import {
+  type KeyboardEvent,
+  type ReactNode,
+  type RefCallback,
+  useEffect,
+  useRef,
+  useState,
+} from "react";
 import { createPortal } from "react-dom";
 
 import { type RenderProp } from "@/component/renderProp";
@@ -26,6 +33,7 @@ import {
 } from "@/menu/types";
 import { position } from "@/position";
 import { Triggers } from "@/triggers";
+import { isMoveKey, moveIndex } from "@/util/move";
 
 interface ContextMenuState {
   visible: boolean;
@@ -64,6 +72,8 @@ const INITIAL_STATE: ContextMenuState = {
 };
 
 const CONTEXT_MENU_CONTAINER = CSS.BE("menu-context", "container");
+
+const MENU_ITEMS = '[role="menuitem"]:not([aria-disabled="true"])';
 
 const findTarget = (target: HTMLElement): HTMLElement => {
   let candidate = target;
@@ -105,6 +115,8 @@ export const useContextMenu = (): UseContextMenuReturn => {
   const menuRef = useRef<HTMLDivElement | null>(null);
   const [state, setMenuState] = useState<ContextMenuState>(INITIAL_STATE);
   const targetRef = useRef<HTMLElement | null>(null);
+  // The menu holds the focus while it is open, then gives it back to this element.
+  const returnFocusRef = useRef<HTMLElement | null>(null);
 
   const clearTarget = () => {
     targetRef.current?.removeAttribute(CONTEXT_OPEN_ATTRIBUTE);
@@ -117,6 +129,9 @@ export const useContextMenu = (): UseContextMenuReturn => {
   const handleOpen: ContextMenuOpen = (e) => {
     const p = xy.construct(e);
     clearTarget();
+    const active = document.activeElement;
+    if (active instanceof HTMLElement && menuRef.current?.contains(active) !== true)
+      returnFocusRef.current = active;
     let keys: string[] = [];
     if (typeof e === "object" && "preventDefault" in e) {
       e.preventDefault();
@@ -160,12 +175,27 @@ export const useContextMenu = (): UseContextMenuReturn => {
 
   useWindowResize(calculatePosition, { enabled: state.visible });
 
-  const hideMenu = (): void => {
+  useEffect(() => {
+    if (state.visible) menuRef.current?.focus({ preventScroll: true });
+  }, [state.visible]);
+
+  const hide = (returnFocus: boolean): void => {
     clearTarget();
+    const back = returnFocusRef.current;
+    returnFocusRef.current = null;
+    // An item that moved the focus, such as one that opened a modal, keeps it there.
+    if (
+      returnFocus &&
+      back?.isConnected === true &&
+      menuRef.current?.contains(document.activeElement) === true
+    )
+      back.focus({ preventScroll: true });
     setMenuState(INITIAL_STATE);
   };
+  const hideMenu = (): void => hide(true);
 
-  Dialog.useClickOutside({ ref: menuRef, onClickOutside: hideMenu });
+  // A click outside leaves the focus where the click puts it.
+  Dialog.useClickOutside({ ref: menuRef, onClickOutside: () => hide(false) });
 
   const visibleRef = useSyncedRef(state.visible);
   const handleEscape = ({ stage, stopPropagation }: Triggers.UseEvent) => {
@@ -212,21 +242,40 @@ const Internal = ({
   cursor,
   style,
   onClick,
+  onKeyDown,
   ...rest
 }: ContextMenuProps): ReactNode | null => {
   const menuStyle = { ...xy.css(position), ...style };
+  // The move keys walk the focus through the items, which are buttons that Enter and
+  // Space click.
+  const handleKeyDown = (e: KeyboardEvent<HTMLDivElement>) => {
+    onKeyDown?.(e);
+    if (e.defaultPrevented || e.altKey || e.ctrlKey || e.metaKey || e.shiftKey) return;
+    const key = Triggers.eventKey(e);
+    const target = e.target as HTMLElement;
+    // Keys typed into a field inside the menu keep their own meaning.
+    if (!isMoveKey(key) || (target !== e.currentTarget && !target.matches(MENU_ITEMS)))
+      return;
+    const items = Array.from(e.currentTarget.querySelectorAll<HTMLElement>(MENU_ITEMS));
+    if (items.length === 0) return;
+    e.preventDefault();
+    const index = moveIndex(key, items.indexOf(target), items.length, e.repeat);
+    if (index != null) items[index].focus();
+  };
   if (!visible) return null;
   return createPortal(
     <Flex.Box
       className={CSS.cls(CONTEXT_MENU_CLASS, CSS.bordered(), className)}
       ref={ref}
       role="menu"
+      tabIndex={-1}
       style={menuStyle}
       onClick={(e) => {
         close();
         onClick?.(e);
       }}
       gap="tiny"
+      onKeyDown={handleKeyDown}
       {...rest}
     >
       {menu?.({ keys, visible, position, cursor })}

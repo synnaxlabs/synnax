@@ -36,6 +36,17 @@ const ContextMenu = (): ReactElement => {
   );
 };
 
+const FocusMenu = (): ReactElement => {
+  const ctx = Menu.useContextMenu();
+  return (
+    <Menu.ContextMenu menu={() => ITEMS} {...ctx}>
+      <button onContextMenu={ctx.open}>Opener</button>
+      {/* Takes no focus on a press, as a canvas does. */}
+      <div onMouseDown={(e) => e.preventDefault()}>Canvas</div>
+    </Menu.ContextMenu>
+  );
+};
+
 describe("Menu", () => {
   it("should fill a selected item with the list selection tier", async () => {
     const { getByRole } = await renderThemed(ITEMS);
@@ -78,6 +89,32 @@ describe("Menu", () => {
       expect(computed(menu, "box-shadow")).toBe(
         resolve("var(--pluto-shadow-overlay)", "box-shadow"),
       );
+    });
+
+    it("should fill a focused item as a hovered item, with no ring", async () => {
+      const { getByText } = await renderThemed(<ContextMenu />);
+      await userEvent.click(getByText("Target"), { button: "right" });
+      await userEvent.keyboard("{ArrowDown}{ArrowDown}");
+      const rename = page.getByRole("menuitem", { name: "Rename" }).element();
+      await expect.poll(() => document.activeElement).toBe(rename);
+      expect(computed(rename, "background-color")).toBe(
+        resolve(computed(rename, "--pluto-hover-bg")),
+      );
+      expect(computed(rename, "background-color")).not.toBe(resolve("transparent"));
+      expect(computed(rename, "outline-style")).toBe("none");
+    });
+
+    it("should leave the focus to a click outside", async () => {
+      const { getByText } = await renderThemed(<FocusMenu />);
+      const opener = getByText("Opener").element() as HTMLElement;
+      opener.focus();
+      await userEvent.click(opener, { button: "right" });
+      await expect
+        .poll(() => document.activeElement?.getAttribute("role"))
+        .toBe("menu");
+      await userEvent.click(getByText("Canvas"));
+      await expect.poll(() => document.querySelector('[role="menu"]')).toBeNull();
+      expect(document.activeElement).not.toBe(opener);
     });
   });
 });
