@@ -566,6 +566,18 @@ var _ = Describe("Service", func() {
 					Count(ctx, nil)).To(BeZero())
 			},
 		)
+		It("Should deny a grant to a rack", func(ctx SpecContext) {
+			s := createSecret(ctx, "A", "v")
+			Expect(apiSvc.CreateGrant(SubjectCtx(ctx, rk.OntologyID()), nil,
+				apisecret.GrantCreateRequest{
+					Rack:    rk,
+					Secrets: []secret.Key{s.Base().Key},
+				},
+			)).Error().To(SatisfyAll(
+				MatchError(access.ErrDenied),
+				MatchError(ContainSubstring("only a user can grant secrets")),
+			))
+		})
 		It("Should delete grants", func(ctx SpecContext) {
 			u := createUser(ctx)
 			allowDevices(ctx, u)
