@@ -13,6 +13,7 @@ import "schemas/x/notation"
 import "schemas/x/telem"
 
 @go output "core/pkg/service/log"
+@py output "client/py/synnax/log"
 @ts output "client/ts/src/log"
 
 Key = uuid {

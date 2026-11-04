@@ -7,48 +7,10 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { type Join } from "@/deep/join";
 import { type record } from "@/record";
 
 /** The character joining the parts of a deep path. */
 export const SEPARATOR = ".";
-
-type Prev = [
-  never,
-  0,
-  1,
-  2,
-  3,
-  4,
-  5,
-  6,
-  7,
-  8,
-  9,
-  10,
-  11,
-  12,
-  13,
-  14,
-  15,
-  16,
-  17,
-  18,
-  19,
-  20,
-  ...0[],
-];
-
-/** Every deep path into T, as a dot-separated string literal union. */
-export type Key<T, D extends number = 5> = [D] extends [never]
-  ? never
-  : T extends object
-    ? {
-        [K in keyof T]-?: K extends string | number
-          ? `${K}` | Join<K, Key<T[K], Prev[D]>>
-          : never;
-      }[keyof T]
-    : "";
 
 /**
  * Rewrites each part of a path. A replacer may return one part, several, or undefined

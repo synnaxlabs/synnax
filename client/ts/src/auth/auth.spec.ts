@@ -1007,6 +1007,31 @@ describe("auth", () => {
       expect((await owner.retrieveAPIKeys()).map((k) => k.key)).not.toContain(key.key);
     });
 
+    it("should read the record key from a token", async () => {
+      const owner = makeClient({ credentials: TEST_CREDENTIALS });
+      const { token, key } = await owner.createAPIKey({ name: "id" });
+      expect(auth.apiKeyID(token)).toEqual(key.key);
+      await owner.deleteAPIKeys(key.key);
+    });
+
+    it("should refuse a token that is not an API key", () => {
+      expect(() => auth.apiKeyID("sys_abc")).toThrow(
+        new InvalidTokenError("not an API key"),
+      );
+    });
+
+    it("should refuse an API key of the wrong length", () => {
+      expect(() => auth.apiKeyID("syk_c2hvcnQ")).toThrow(
+        new InvalidTokenError("malformed API key"),
+      );
+    });
+
+    it("should refuse an API key that is not base64", () => {
+      expect(() => auth.apiKeyID("syk_!!!")).toThrow(
+        new InvalidTokenError("malformed API key"),
+      );
+    });
+
     it("should fail the next request of a client whose key was deleted", async () => {
       const owner = makeClient({ credentials: TEST_CREDENTIALS });
       const { token, key } = await owner.createAPIKey({ name: "deleted" });

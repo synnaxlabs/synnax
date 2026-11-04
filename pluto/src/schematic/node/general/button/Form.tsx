@@ -11,6 +11,7 @@ import { type channel, type schematic } from "@synnaxlabs/client";
 import { Form as Base } from "@synnaxlabs/lyra/form";
 import { Input } from "@synnaxlabs/lyra/input";
 import { Tabs } from "@synnaxlabs/lyra/tabs";
+import { deep } from "@synnaxlabs/x";
 import { type ReactElement } from "react";
 
 import { Channel } from "@/channel";
@@ -20,17 +21,14 @@ import { type ColorFallbacks, type FormProps } from "@/schematic/node/spec";
 import { Button as BaseButton } from "@/vis/button";
 import { Properties } from "@/vis/properties";
 
-type ButtonTelemFormT = Pick<
-  schematic.ButtonNodeConfig,
-  "commandChannel" | "control" | "mode"
->;
+const path = deep.path<schematic.ButtonNodeConfig>();
 
 export const colorFallbacks = {
   fillColor: Form.primaryFallback,
 } satisfies ColorFallbacks;
 
-const ButtonTelemForm = ({ path }: { path: string }): ReactElement => {
-  const { value, onChange } = Base.useField<ButtonTelemFormT>(path);
+const ButtonTelemForm = (): ReactElement => {
+  const { value, onChange } = Base.useField(path);
   const handleSinkChange = (v: channel.Key | null): void =>
     onChange({
       ...value,
@@ -50,7 +48,7 @@ const ButtonTelemForm = ({ path }: { path: string }): ReactElement => {
         <Form.ControlChipField />
       </Base.Section>
       <Base.Section title="Actuation">
-        <Base.Field<BaseButton.Mode> path="mode" label="Mode">
+        <Base.Field path={path.mode} label="Mode">
           {({ value, onChange }) => (
             <BaseButton.SelectMode value={value} onChange={onChange} />
           )}
@@ -69,7 +67,7 @@ export const ButtonForm = ({ tab, onTabChange }: FormProps): ReactElement => (
       <Base.Sections x>
         <Base.Section title="Label">
           <Label.Form
-            path="label"
+            path={path.label}
             omit={["align", "maxInlineSize", "level", "direction"]}
           />
         </Base.Section>
@@ -80,7 +78,7 @@ export const ButtonForm = ({ tab, onTabChange }: FormProps): ReactElement => (
       </Base.Sections>
     </Tabs.Content>
     <Tabs.Content itemKey="control">
-      <ButtonTelemForm path="" />
+      <ButtonTelemForm />
     </Tabs.Content>
   </Properties.Tabs>
 );
