@@ -17,50 +17,83 @@ import "github.com/synnaxlabs/synnax/pkg/service/ni/versions/v3"
 type Units = v3.Units
 
 const (
-	UnitsVolts                  Units = v3.UnitsVolts
-	UnitsAmps                   Units = v3.UnitsAmps
-	UnitsDegF                   Units = v3.UnitsDegF
-	UnitsDegC                   Units = v3.UnitsDegC
-	UnitsDegR                   Units = v3.UnitsDegR
-	UnitsKelvins                Units = v3.UnitsKelvins
-	UnitsStrain                 Units = v3.UnitsStrain
-	UnitsOhms                   Units = v3.UnitsOhms
-	UnitsHz                     Units = v3.UnitsHz
-	UnitsSeconds                Units = v3.UnitsSeconds
-	UnitsMeters                 Units = v3.UnitsMeters
-	UnitsInches                 Units = v3.UnitsInches
-	UnitsDegrees                Units = v3.UnitsDegrees
-	UnitsRadians                Units = v3.UnitsRadians
-	UnitsG                      Units = v3.UnitsG
+	// UnitsVolts is volts.
+	UnitsVolts Units = v3.UnitsVolts
+	// UnitsAmps is amperes.
+	UnitsAmps Units = v3.UnitsAmps
+	// UnitsDegF is degrees Fahrenheit.
+	UnitsDegF Units = v3.UnitsDegF
+	// UnitsDegC is degrees Celsius.
+	UnitsDegC Units = v3.UnitsDegC
+	// UnitsDegR is degrees Rankine.
+	UnitsDegR Units = v3.UnitsDegR
+	// UnitsKelvins is kelvins.
+	UnitsKelvins Units = v3.UnitsKelvins
+	// UnitsStrain is strain.
+	UnitsStrain Units = v3.UnitsStrain
+	// UnitsOhms is ohms.
+	UnitsOhms Units = v3.UnitsOhms
+	// UnitsHz is hertz.
+	UnitsHz Units = v3.UnitsHz
+	// UnitsSeconds is seconds.
+	UnitsSeconds Units = v3.UnitsSeconds
+	// UnitsMeters is meters.
+	UnitsMeters Units = v3.UnitsMeters
+	// UnitsInches is inches.
+	UnitsInches Units = v3.UnitsInches
+	// UnitsDegrees is degrees.
+	UnitsDegrees Units = v3.UnitsDegrees
+	// UnitsRadians is radians.
+	UnitsRadians Units = v3.UnitsRadians
+	// UnitsG is acceleration in g.
+	UnitsG Units = v3.UnitsG
+	// UnitsMetersPerSecondSquared is meters per second squared.
 	UnitsMetersPerSecondSquared Units = v3.UnitsMetersPerSecondSquared
-	UnitsNewtons                Units = v3.UnitsNewtons
-	UnitsPounds                 Units = v3.UnitsPounds
-	UnitsKilogramForce          Units = v3.UnitsKilogramForce
-	UnitsPoundsPerSquareInch    Units = v3.UnitsPoundsPerSquareInch
-	UnitsBar                    Units = v3.UnitsBar
-	UnitsPascals                Units = v3.UnitsPascals
-	UnitsVoltsPerVolt           Units = v3.UnitsVoltsPerVolt
-	UnitsMVoltsPerVolt          Units = v3.UnitsMVoltsPerVolt
-	UnitsNewtonMeters           Units = v3.UnitsNewtonMeters
-	UnitsInchPounds             Units = v3.UnitsInchPounds
-	UnitsInchOunces             Units = v3.UnitsInchOunces
-	UnitsFootPounds             Units = v3.UnitsFootPounds
+	// UnitsNewtons is newtons.
+	UnitsNewtons Units = v3.UnitsNewtons
+	// UnitsPounds is pounds.
+	UnitsPounds Units = v3.UnitsPounds
+	// UnitsKilogramForce is kilograms of force.
+	UnitsKilogramForce Units = v3.UnitsKilogramForce
+	// UnitsPoundsPerSquareInch is pounds per square inch.
+	UnitsPoundsPerSquareInch Units = v3.UnitsPoundsPerSquareInch
+	// UnitsBar is bar.
+	UnitsBar Units = v3.UnitsBar
+	// UnitsPascals is pascals.
+	UnitsPascals Units = v3.UnitsPascals
+	// UnitsVoltsPerVolt is volts per volt.
+	UnitsVoltsPerVolt Units = v3.UnitsVoltsPerVolt
+	// UnitsMVoltsPerVolt is millivolts per volt.
+	UnitsMVoltsPerVolt Units = v3.UnitsMVoltsPerVolt
+	// UnitsNewtonMeters is newton meters.
+	UnitsNewtonMeters Units = v3.UnitsNewtonMeters
+	// UnitsInchPounds is inch-pounds.
+	UnitsInchPounds Units = v3.UnitsInchPounds
+	// UnitsInchOunces is inch-ounces.
+	UnitsInchOunces Units = v3.UnitsInchOunces
+	// UnitsFootPounds is foot-pounds.
+	UnitsFootPounds Units = v3.UnitsFootPounds
 )
 
 // AccelSensitivityUnits are the units of an accelerometer's sensitivity rating.
 type AccelSensitivityUnits = v3.AccelSensitivityUnits
 
 const (
+	// AccelSensitivityUnitsMVoltsPerG is millivolts per g.
 	AccelSensitivityUnitsMVoltsPerG AccelSensitivityUnits = v3.AccelSensitivityUnitsMVoltsPerG
-	AccelSensitivityUnitsVoltsPerG  AccelSensitivityUnits = v3.AccelSensitivityUnitsVoltsPerG
+	// AccelSensitivityUnitsVoltsPerG is volts per g.
+	AccelSensitivityUnitsVoltsPerG AccelSensitivityUnits = v3.AccelSensitivityUnitsVoltsPerG
 )
 
 // AccelUnits are the engineering units for an acceleration measurement.
 type AccelUnits = v3.AccelUnits
 
 const (
-	AccelUnitsG                      AccelUnits = v3.AccelUnitsG
+	// AccelUnitsG is acceleration in g.
+	AccelUnitsG AccelUnits = v3.AccelUnitsG
+	// AccelUnitsMetersPerSecondSquared is meters per second squared.
 	AccelUnitsMetersPerSecondSquared AccelUnits = v3.AccelUnitsMetersPerSecondSquared
+	// AccelUnitsInchesPerSecondSquared is inches per second squared.
 	AccelUnitsInchesPerSecondSquared AccelUnits = v3.AccelUnitsInchesPerSecondSquared
 )
 
@@ -68,8 +101,11 @@ const (
 type ForceUnits = v3.ForceUnits
 
 const (
-	ForceUnitsNewtons       ForceUnits = v3.ForceUnitsNewtons
-	ForceUnitsPounds        ForceUnits = v3.ForceUnitsPounds
+	// ForceUnitsNewtons is newtons.
+	ForceUnitsNewtons ForceUnits = v3.ForceUnitsNewtons
+	// ForceUnitsPounds is pounds.
+	ForceUnitsPounds ForceUnits = v3.ForceUnitsPounds
+	// ForceUnitsKilogramForce is kilograms of force.
 	ForceUnitsKilogramForce ForceUnits = v3.ForceUnitsKilogramForce
 )
 
@@ -77,27 +113,37 @@ const (
 type ElectricalUnits = v3.ElectricalUnits
 
 const (
+	// ElectricalUnitsMVoltsPerVolt is millivolts per volt.
 	ElectricalUnitsMVoltsPerVolt ElectricalUnits = v3.ElectricalUnitsMVoltsPerVolt
-	ElectricalUnitsVoltsPerVolt  ElectricalUnits = v3.ElectricalUnitsVoltsPerVolt
+	// ElectricalUnitsVoltsPerVolt is volts per volt.
+	ElectricalUnitsVoltsPerVolt ElectricalUnits = v3.ElectricalUnitsVoltsPerVolt
 )
 
 // ExcitationSource selects the source of a sensor's excitation signal.
 type ExcitationSource = v3.ExcitationSource
 
 const (
+	// ExcitationSourceInternal is an internal excitation source.
 	ExcitationSourceInternal ExcitationSource = v3.ExcitationSourceInternal
+	// ExcitationSourceExternal is an external excitation source.
 	ExcitationSourceExternal ExcitationSource = v3.ExcitationSourceExternal
-	ExcitationSourceNone     ExcitationSource = v3.ExcitationSourceNone
+	// ExcitationSourceNone uses no excitation.
+	ExcitationSourceNone ExcitationSource = v3.ExcitationSourceNone
 )
 
 // TerminalConfig selects the terminal configuration for an analog input channel.
 type TerminalConfig = v3.TerminalConfig
 
 const (
+	// TerminalConfigCfgDefault uses the default terminal configuration of the port.
 	TerminalConfigCfgDefault TerminalConfig = v3.TerminalConfigCfgDefault
-	TerminalConfigRse        TerminalConfig = v3.TerminalConfigRse
-	TerminalConfigNrse       TerminalConfig = v3.TerminalConfigNrse
-	TerminalConfigDiff       TerminalConfig = v3.TerminalConfigDiff
+	// TerminalConfigRse is referenced single ended.
+	TerminalConfigRse TerminalConfig = v3.TerminalConfigRse
+	// TerminalConfigNrse is non-referenced single ended.
+	TerminalConfigNrse TerminalConfig = v3.TerminalConfigNrse
+	// TerminalConfigDiff is differential.
+	TerminalConfigDiff TerminalConfig = v3.TerminalConfigDiff
+	// TerminalConfigPseudoDiff is pseudo-differential.
 	TerminalConfigPseudoDiff TerminalConfig = v3.TerminalConfigPseudoDiff
 )
 
@@ -105,8 +151,11 @@ const (
 type BridgeConfig = v3.BridgeConfig
 
 const (
-	BridgeConfigFullBridge    BridgeConfig = v3.BridgeConfigFullBridge
-	BridgeConfigHalfBridge    BridgeConfig = v3.BridgeConfigHalfBridge
+	// BridgeConfigFullBridge is a full bridge.
+	BridgeConfigFullBridge BridgeConfig = v3.BridgeConfigFullBridge
+	// BridgeConfigHalfBridge is a half bridge.
+	BridgeConfigHalfBridge BridgeConfig = v3.BridgeConfigHalfBridge
+	// BridgeConfigQuarterBridge is a quarter bridge.
 	BridgeConfigQuarterBridge BridgeConfig = v3.BridgeConfigQuarterBridge
 )
 
@@ -115,8 +164,11 @@ const (
 type ShuntResistorLocation = v3.ShuntResistorLocation
 
 const (
-	ShuntResistorLocationDefault  ShuntResistorLocation = v3.ShuntResistorLocationDefault
+	// ShuntResistorLocationDefault uses the default location.
+	ShuntResistorLocationDefault ShuntResistorLocation = v3.ShuntResistorLocationDefault
+	// ShuntResistorLocationInternal uses an internal shunt resistor.
 	ShuntResistorLocationInternal ShuntResistorLocation = v3.ShuntResistorLocationInternal
+	// ShuntResistorLocationExternal uses an external shunt resistor.
 	ShuntResistorLocationExternal ShuntResistorLocation = v3.ShuntResistorLocationExternal
 )
 
@@ -124,35 +176,47 @@ const (
 type ForceSensitivityUnits = v3.ForceSensitivityUnits
 
 const (
+	// ForceSensitivityUnitsMVoltsPerNewton is millivolts per newton.
 	ForceSensitivityUnitsMVoltsPerNewton ForceSensitivityUnits = v3.ForceSensitivityUnitsMVoltsPerNewton
-	ForceSensitivityUnitsMVoltsPerPound  ForceSensitivityUnits = v3.ForceSensitivityUnitsMVoltsPerPound
+	// ForceSensitivityUnitsMVoltsPerPound is millivolts per pound.
+	ForceSensitivityUnitsMVoltsPerPound ForceSensitivityUnits = v3.ForceSensitivityUnitsMVoltsPerPound
 )
 
 // PressureUnits are the engineering units for a pressure measurement.
 type PressureUnits = v3.PressureUnits
 
 const (
+	// PressureUnitsPoundsPerSquareInch is pounds per square inch.
 	PressureUnitsPoundsPerSquareInch PressureUnits = v3.PressureUnitsPoundsPerSquareInch
-	PressureUnitsPascals             PressureUnits = v3.PressureUnitsPascals
-	PressureUnitsBar                 PressureUnits = v3.PressureUnitsBar
+	// PressureUnitsPascals is pascals.
+	PressureUnitsPascals PressureUnits = v3.PressureUnitsPascals
+	// PressureUnitsBar is bar.
+	PressureUnitsBar PressureUnits = v3.PressureUnitsBar
 )
 
 // TorqueUnits are the engineering units for a torque measurement.
 type TorqueUnits = v3.TorqueUnits
 
 const (
+	// TorqueUnitsNewtonMeters is newton meters.
 	TorqueUnitsNewtonMeters TorqueUnits = v3.TorqueUnitsNewtonMeters
-	TorqueUnitsInchOunces   TorqueUnits = v3.TorqueUnitsInchOunces
-	TorqueUnitsInchPounds   TorqueUnits = v3.TorqueUnitsInchPounds
-	TorqueUnitsFootPounds   TorqueUnits = v3.TorqueUnitsFootPounds
+	// TorqueUnitsInchOunces is inch-ounces.
+	TorqueUnitsInchOunces TorqueUnits = v3.TorqueUnitsInchOunces
+	// TorqueUnitsInchPounds is inch-pounds.
+	TorqueUnitsInchPounds TorqueUnits = v3.TorqueUnitsInchPounds
+	// TorqueUnitsFootPounds is foot-pounds.
+	TorqueUnitsFootPounds TorqueUnits = v3.TorqueUnitsFootPounds
 )
 
 // ResistanceConfig selects the number of wires used for a resistance measurement.
 type ResistanceConfig = v3.ResistanceConfig
 
 const (
+	// ResistanceConfigWire2 uses two wires.
 	ResistanceConfigWire2 ResistanceConfig = v3.ResistanceConfigWire2
+	// ResistanceConfigWire3 uses three wires.
 	ResistanceConfigWire3 ResistanceConfig = v3.ResistanceConfigWire3
+	// ResistanceConfigWire4 uses four wires.
 	ResistanceConfigWire4 ResistanceConfig = v3.ResistanceConfigWire4
 )
 
@@ -160,10 +224,14 @@ const (
 type TemperatureUnits = v3.TemperatureUnits
 
 const (
-	TemperatureUnitsDegC    TemperatureUnits = v3.TemperatureUnitsDegC
-	TemperatureUnitsDegF    TemperatureUnits = v3.TemperatureUnitsDegF
+	// TemperatureUnitsDegC is degrees Celsius.
+	TemperatureUnitsDegC TemperatureUnits = v3.TemperatureUnitsDegC
+	// TemperatureUnitsDegF is degrees Fahrenheit.
+	TemperatureUnitsDegF TemperatureUnits = v3.TemperatureUnitsDegF
+	// TemperatureUnitsKelvins is kelvins.
 	TemperatureUnitsKelvins TemperatureUnits = v3.TemperatureUnitsKelvins
-	TemperatureUnitsDegR    TemperatureUnits = v3.TemperatureUnitsDegR
+	// TemperatureUnitsDegR is degrees Rankine.
+	TemperatureUnitsDegR TemperatureUnits = v3.TemperatureUnitsDegR
 )
 
 // RTDType selects the resistance-temperature curve of an RTD sensor.
@@ -237,7 +305,9 @@ type ChanCJC = v3.ChanCJC
 type VelocityUnits = v3.VelocityUnits
 
 const (
+	// VelocityUnitsMetersPerSecond is meters per second.
 	VelocityUnitsMetersPerSecond VelocityUnits = v3.VelocityUnitsMetersPerSecond
+	// VelocityUnitsInchesPerSecond is inches per second.
 	VelocityUnitsInchesPerSecond VelocityUnits = v3.VelocityUnitsInchesPerSecond
 )
 
@@ -246,7 +316,10 @@ const (
 type VelocitySensitivityUnits = v3.VelocitySensitivityUnits
 
 const (
-	VelocitySensitivityUnitsMVoltsPerMmPerSecond   VelocitySensitivityUnits = v3.VelocitySensitivityUnitsMVoltsPerMmPerSecond
+	// VelocitySensitivityUnitsMVoltsPerMmPerSecond is millivolts per millimeter per
+	// second.
+	VelocitySensitivityUnitsMVoltsPerMmPerSecond VelocitySensitivityUnits = v3.VelocitySensitivityUnitsMVoltsPerMmPerSecond
+	// VelocitySensitivityUnitsMVoltsPerInchPerSecond is millivolts per inch per second.
 	VelocitySensitivityUnitsMVoltsPerInchPerSecond VelocitySensitivityUnits = v3.VelocitySensitivityUnitsMVoltsPerInchPerSecond
 )
 
@@ -254,7 +327,9 @@ const (
 type ChargeUnits = v3.ChargeUnits
 
 const (
-	ChargeUnitsCoulombs     ChargeUnits = v3.ChargeUnitsCoulombs
+	// ChargeUnitsCoulombs is coulombs.
+	ChargeUnitsCoulombs ChargeUnits = v3.ChargeUnitsCoulombs
+	// ChargeUnitsPicoCoulombs is picocoulombs.
 	ChargeUnitsPicoCoulombs ChargeUnits = v3.ChargeUnitsPicoCoulombs
 )
 
@@ -757,7 +832,12 @@ type ScanConfig = v3.ScanConfig
 type AccelChargeSensitivityUnits = v3.AccelChargeSensitivityUnits
 
 const (
-	AccelChargeSensitivityUnitsPicoCoulombsPerG                      AccelChargeSensitivityUnits = v3.AccelChargeSensitivityUnitsPicoCoulombsPerG
+	// AccelChargeSensitivityUnitsPicoCoulombsPerG is picocoulombs per g.
+	AccelChargeSensitivityUnitsPicoCoulombsPerG AccelChargeSensitivityUnits = v3.AccelChargeSensitivityUnitsPicoCoulombsPerG
+	// AccelChargeSensitivityUnitsPicoCoulombsPerMetersPerSecondSquared is picocoulombs
+	// per meter per second squared.
 	AccelChargeSensitivityUnitsPicoCoulombsPerMetersPerSecondSquared AccelChargeSensitivityUnits = v3.AccelChargeSensitivityUnitsPicoCoulombsPerMetersPerSecondSquared
+	// AccelChargeSensitivityUnitsPicoCoulombsPerInchesPerSecondSquared is picocoulombs
+	// per inch per second squared.
 	AccelChargeSensitivityUnitsPicoCoulombsPerInchesPerSecondSquared AccelChargeSensitivityUnits = v3.AccelChargeSensitivityUnitsPicoCoulombsPerInchesPerSecondSquared
 )
