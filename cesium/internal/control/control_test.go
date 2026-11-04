@@ -1651,7 +1651,7 @@ var _ = Describe("Control", func() {
 			cfg := gateCfg("waiting", regionB, 2)
 			cfg.Authority = xcontrol.AuthorityAbsolute - 1
 			waiting := openAsync(cfg)
-			Consistently(waiting, "50ms").ShouldNot(Receive())
+			Consistently(waiting, 50*time.Millisecond).ShouldNot(Receive())
 			finish <- nil
 			Eventually(opening).Should(Receive(&result))
 			first := result.g
@@ -1691,7 +1691,7 @@ var _ = Describe("Control", func() {
 		It("Should let a waiting gate open the resource after a failed open", func() {
 			opening, finish := openBlocked(regionB)
 			waiting := openAsync(gateCfg("waiting", regionB, 2))
-			Consistently(waiting, "50ms").ShouldNot(Receive())
+			Consistently(waiting, 50*time.Millisecond).ShouldNot(Receive())
 			openErr := errors.New("open failed")
 			finish <- openErr
 			Eventually(opening).Should(Receive(&result))

@@ -12,6 +12,7 @@ package unary_test
 import (
 	"os"
 	"strconv"
+	"time"
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
@@ -1567,7 +1568,7 @@ var _ = Describe("Writer Behavior", Ordered, func() {
 							defer GinkgoRecover()
 							opened <- open(len(writers))
 						}()
-						Consistently(opened, "50ms").ShouldNot(Receive())
+						Consistently(opened, 50*time.Millisecond).ShouldNot(Receive())
 						closed := make(chan struct{})
 						go func() {
 							defer GinkgoRecover()
