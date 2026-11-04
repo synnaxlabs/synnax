@@ -146,11 +146,15 @@ func parseISO8601(text []byte) (telem.TimeStamp, error) {
 // parseUnix parses text, decimal number text, as a count of format's units. Scaling the
 // text instead of a float64 keeps every digit down to the nanosecond.
 func parseUnix(text []byte, format TimeFormat) (telem.TimeStamp, error) {
-	ns, ok, inRange := scaleDecimal(text, format.nanosExponent())
+	d, ok := parseDecimal(text, format.nanosExponent())
 	if !ok {
-		return 0, errors.Wrapf(validate.ErrValidation, "invalid number %q", text)
+		return 0, invalidNumber(text)
 	}
-	if !inRange {
+	limit := uint64(math.MaxInt64)
+	if d.negative {
+		limit++
+	}
+	if d.overflow || d.magnitude > limit {
 		return 0, errors.Wrapf(
 			validate.ErrValidation,
 			"%s is out of range for a %s timestamp",
@@ -158,91 +162,8 @@ func parseUnix(text []byte, format TimeFormat) (telem.TimeStamp, error) {
 			format,
 		)
 	}
-	return telem.TimeStamp(ns), nil
-}
-
-// maxExponent bounds the exponent scaleDecimal reads. Any larger one overflows or
-// truncates to zero.
-const maxExponent = 1 << 20
-
-// scaleDecimal returns the decimal number text times 10^scale, truncated toward zero.
-// ok is false when text is not a decimal number, and inRange is false when the result
-// does not fit an int64.
-func scaleDecimal(text []byte, scale int) (n int64, ok, inRange bool) {
-	negative := false
-	if len(text) > 0 && (text[0] == '-' || text[0] == '+') {
-		negative, text = text[0] == '-', text[1:]
+	if d.negative {
+		return telem.TimeStamp(-d.magnitude), nil
 	}
-	exp := 0
-	if i := bytes.IndexAny(text, "eE"); i >= 0 {
-		if exp, ok = parseExponent(text[i+1:]); !ok {
-			return 0, false, false
-		}
-		text = text[:i]
-	}
-	whole, frac := text, []byte(nil)
-	if i := bytes.IndexByte(text, '.'); i >= 0 {
-		whole, frac = text[:i], text[i+1:]
-	}
-	if len(whole)+len(frac) == 0 || !isDigits(whole) || !isDigits(frac) {
-		return 0, false, false
-	}
-	// The value is the digits of whole and frac times 10^shift.
-	shift := exp + scale - len(frac)
-	count := len(whole) + len(frac)
-	var u uint64
-	for i := range count {
-		if i >= count+shift {
-			break
-		}
-		var d uint64
-		if i < len(whole) {
-			d = uint64(whole[i] - '0')
-		} else {
-			d = uint64(frac[i-len(whole)] - '0')
-		}
-		if u > (math.MaxUint64-d)/10 {
-			return 0, true, false
-		}
-		u = u*10 + d
-	}
-	for i := 0; u != 0 && i < shift; i++ {
-		if u > math.MaxUint64/10 {
-			return 0, true, false
-		}
-		u *= 10
-	}
-	if !negative {
-		return int64(u), true, u <= math.MaxInt64
-	}
-	return int64(-u), true, u <= 1<<63
-}
-
-// parseExponent parses the signed decimal exponent of a number, clamped to
-// ±maxExponent.
-func parseExponent(text []byte) (int, bool) {
-	negative := false
-	if len(text) > 0 && (text[0] == '-' || text[0] == '+') {
-		negative, text = text[0] == '-', text[1:]
-	}
-	if len(text) == 0 || !isDigits(text) {
-		return 0, false
-	}
-	e := 0
-	for _, c := range text {
-		e = min(e*10+int(c-'0'), maxExponent)
-	}
-	if negative {
-		return -e, true
-	}
-	return e, true
-}
-
-func isDigits(text []byte) bool {
-	for _, c := range text {
-		if c < '0' || c > '9' {
-			return false
-		}
-	}
-	return true
+	return telem.TimeStamp(d.magnitude), nil
 }
