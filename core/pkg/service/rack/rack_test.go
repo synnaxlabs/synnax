@@ -794,7 +794,7 @@ var _ = Describe("Rack", Ordered, func() {
 		It("Should delete a rack and its associated status", func(ctx SpecContext) {
 			r := &rack.Rack{Name: "rack4"}
 			Expect(writer.Create(ctx, r)).To(Succeed())
-			Expect(writer.DeleteGuard(ctx, r.Key, nil)).To(Succeed())
+			Expect(writer.Delete(ctx, nil, r.Key)).To(Succeed())
 			var res rack.Rack
 			Expect(
 				svc.NewRetrieve().
@@ -813,11 +813,44 @@ var _ = Describe("Rack", Ordered, func() {
 				WhereIDs(r.ResourceID()).
 				Entries(&[]ontology.Resource{}).
 				Exec(ctx, tx)).To(Succeed())
-			Expect(writer.DeleteGuard(ctx, r.Key, nil)).To(Succeed())
+			Expect(writer.Delete(ctx, nil, r.Key)).To(Succeed())
 			Expect(otg.NewRetrieve().
 				WhereIDs(r.ResourceID()).
 				Entries(&[]ontology.Resource{}).
 				Exec(ctx, tx)).To(MatchError(query.ErrNotFound))
+		})
+
+		It("Should delete many racks at once", func(ctx SpecContext) {
+			a := &rack.Rack{Name: "a"}
+			b := &rack.Rack{Name: "b"}
+			Expect(writer.Create(ctx, a)).To(Succeed())
+			Expect(writer.Create(ctx, b)).To(Succeed())
+			Expect(writer.Delete(ctx, nil, a.Key, b.Key)).To(Succeed())
+			Expect(svc.NewRetrieve().
+				Where(rack.MatchKeys(a.Key, b.Key)).
+				Exists(ctx, tx)).To(BeFalse())
+		})
+
+		It("Should refuse to delete the embedded rack", func(ctx SpecContext) {
+			Expect(writer.Delete(ctx, nil, svc.EmbeddedKey)).
+				To(MatchError(ContainSubstring("cannot delete embedded rack")))
+			Expect(svc.NewRetrieve().
+				Where(rack.MatchKeys(svc.EmbeddedKey)).
+				Exists(ctx, tx)).To(BeTrue())
+		})
+
+		It("Should refuse a rack that fails the guard", func(ctx SpecContext) {
+			r := &rack.Rack{Name: "guarded"}
+			Expect(writer.Create(ctx, r)).To(Succeed())
+			refusal := errors.New("refused")
+			Expect(writer.Delete(
+				ctx,
+				func(_ gorp.Context, _ rack.Rack) error { return refusal },
+				r.Key,
+			)).To(MatchError(refusal))
+			Expect(svc.NewRetrieve().
+				Where(rack.MatchKeys(r.Key)).
+				Exists(ctx, tx)).To(BeTrue())
 		})
 	})
 

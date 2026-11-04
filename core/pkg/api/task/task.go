@@ -18,6 +18,7 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/service/access/rbac"
 	"github.com/synnaxlabs/synnax/pkg/service/actions"
 	"github.com/synnaxlabs/synnax/pkg/service/rack"
+	"github.com/synnaxlabs/synnax/pkg/service/ranger"
 	"github.com/synnaxlabs/synnax/pkg/service/resource"
 	"github.com/synnaxlabs/synnax/pkg/service/status"
 	"github.com/synnaxlabs/synnax/pkg/service/task"
@@ -172,6 +173,8 @@ type (
 		Rack                rack.Key   `json:"rack"                   msgpack:"rack"`
 		IncludeStatus       bool       `json:"include_status"         msgpack:"include_status"`
 		IgnoreNotFoundError bool       `json:"ignore_not_found_error" msgpack:"ignore_not_found_error"`
+		// Ranges keeps only the tasks in any of these ranges.
+		Ranges []ranger.Key `json:"ranges" msgpack:"ranges"`
 	}
 	RetrieveResponse struct {
 		Tasks []task.Task `json:"tasks" msgpack:"tasks"`
@@ -217,6 +220,9 @@ func (s *Service) Retrieve(
 	}
 	if !req.Rack.IsZero() {
 		q = q.Where(task.MatchRacks(req.Rack))
+	}
+	if len(req.Ranges) > 0 {
+		q = q.Where(task.MatchRanges(req.Ranges...))
 	}
 	var res RetrieveResponse
 	err := q.Entries(&res.Tasks).Exec(ctx, nil)
@@ -308,9 +314,11 @@ func (s *Service) Delete(
 
 type (
 	CopyRequest struct {
-		Name     string   `json:"name"     msgpack:"name"`
-		Key      task.Key `json:"key"      msgpack:"key"`
-		Snapshot bool     `json:"snapshot" msgpack:"snapshot"`
+		// Range is the range a snapshot copy sits in, if any.
+		Range    *ranger.Key `json:"range"    msgpack:"range"`
+		Name     string      `json:"name"     msgpack:"name"`
+		Key      task.Key    `json:"key"      msgpack:"key"`
+		Snapshot bool        `json:"snapshot" msgpack:"snapshot"`
 	}
 	CopyResponse struct {
 		Task task.Task `json:"task" msgpack:"task"`
@@ -329,7 +337,7 @@ func (s *Service) Copy(
 	}); err != nil {
 		return CopyResponse{}, err
 	}
-	t, err := s.task.NewWriter(tx).Copy(ctx, req.Key, req.Name, req.Snapshot)
+	t, err := s.task.NewWriter(tx).Copy(ctx, req.Key, req.Name, req.Snapshot, req.Range)
 	if err != nil {
 		return CopyResponse{}, err
 	}

@@ -12,6 +12,7 @@ package device
 import (
 	"context"
 
+	"github.com/samber/lo"
 	"github.com/synnaxlabs/gorp"
 	"github.com/synnaxlabs/synnax/pkg/service/group"
 	"github.com/synnaxlabs/synnax/pkg/service/ontology"
@@ -95,12 +96,12 @@ func (w Writer) writeStatus(
 	return w.status.Set(ctx, d.Status)
 }
 
-// Create creates or updates the given device. If device.Parent is non-zero, the device
-// is parented to that ontology resource; otherwise it defaults to the device's rack.
-// A status provided on the device replaces the stored status if the device is new,
-// renamed, moved to another rack, or sent with a parent. With no provided status, the
-// stored status stays, and only a device with no stored status gets the default
-// "unknown" status. Create sets device.Status to the resulting status.
+// Create creates or updates the given device. An existing device keeps its group, and
+// its parent when sent with none, unless it moves to another rack. A status provided on
+// the device replaces the stored status if the device is new, renamed, or moved to
+// another rack or parent. With no provided status, the stored status stays, and only a
+// device with no stored status gets the default "unknown" status. Create sets
+// device.Status to the resulting status.
 func (w Writer) Create(ctx context.Context, device *Device) error {
 	return w.inTx(ctx, func(w Writer) error { return w.create(ctx, device) })
 }
@@ -111,30 +112,22 @@ func (w Writer) create(ctx context.Context, device *Device) error {
 	}
 	providedStatus := device.Status
 	device.Status = nil // Status stored separately, not in gorp
-
-	callerProvidedParent := device.Parent != nil && !device.Parent.IsZero()
-	if !callerProvidedParent {
-		rackID := device.Rack.ResourceID()
-		device.Parent = &rackID
-	}
-	parentID := *device.Parent
-	device.Parent = nil // Parent is not stored in gorp
-
 	var existing Device
 	err := w.table.
 		NewRetrieve().
 		Where(gorp.MatchKeys[Key, Device](device.Key)).
 		Entry(&existing).
 		Exec(ctx, w.tx)
-	isNotFound := errors.Is(err, query.ErrNotFound)
-	if err != nil && !isNotFound {
+	if errors.Skip(err, query.ErrNotFound) != nil {
 		return err
 	}
-	exists := !isNotFound
+	exists := err == nil
 	if exists {
 		device.Group = existing.Group
 		if device.Rack != existing.Rack {
 			device.Group = nil
+		} else if device.Parent == nil {
+			device.Parent = existing.Parent
 		}
 	}
 	if err = w.checkGroup(ctx, device.Group, *device); err != nil {
@@ -146,36 +139,17 @@ func (w Writer) create(ctx context.Context, device *Device) error {
 		Exec(ctx, w.tx); err != nil {
 		return err
 	}
-
-	device.Parent = &parentID
-
-	// If the device already exists and its rack hasn't changed and no explicit
-	// parent was provided, skip redefining the ontology relationship.
-	unmoved := exists && device.Rack == existing.Rack && !callerProvidedParent
+	unmoved := exists &&
+		device.Rack == existing.Rack &&
+		lo.FromPtr(device.Parent) == lo.FromPtr(existing.Parent)
 	overwritable := !unmoved || device.Name != existing.Name
 	if err = w.writeStatus(ctx, device, providedStatus, overwritable); err != nil {
 		return err
 	}
-	if unmoved {
+	if exists {
 		return nil
 	}
-	otgID := device.ResourceID()
-	if err = w.otg.DefineResources(ctx, otgID); err != nil {
-		return err
-	}
-	if err = w.otg.DeleteIncomingRelationshipsOfType(
-		ctx,
-		otgID,
-		ontology.RelationshipTypeParentOf,
-	); err != nil {
-		return err
-	}
-	return w.otg.DefineRelationships(
-		ctx,
-		parentID,
-		ontology.RelationshipTypeParentOf,
-		otgID,
-	)
+	return w.otg.DefineResources(ctx, device.ResourceID())
 }
 
 // CreateMany creates or updates the given devices. If devices with the same key already
@@ -232,7 +206,7 @@ func (w Writer) Rename(ctx context.Context, key Key, name string) error {
 	)
 }
 
-// Delete deletes the device with the given key and its associated status.
+// Delete deletes the device with the given key, its status, and every device it holds.
 func (w Writer) Delete(ctx context.Context, key Key) error {
 	if err := w.otg.DeleteResources(ctx, ResourceID(key)); err != nil {
 		return err

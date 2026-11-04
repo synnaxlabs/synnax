@@ -121,6 +121,7 @@ type Service struct {
 	closer            xio.MultiCloser
 	table             *gorp.Table[Key, Task]
 	search            *gorp.SearchIndex[Key, Task]
+	refs              references
 	state             *actions.State[Key, Action]
 	commandChannelKey channel.Key
 	actionChannelKey  channel.Key
@@ -142,14 +143,16 @@ func OpenService(
 	s = &Service{
 		cfg:    cfg,
 		search: newSearchIndex(),
+		refs:   newReferences(),
 		state:  actions.NewState[Key, Action](cfg.DB),
 	}
 	cleanup, ok := service.NewOpener(ctx, &s.closer)
 	defer func() { err = cleanup(err) }()
 	if s.table, err = gorp.OpenTable(ctx, gorp.TableConfig[Key, Task]{
-		DB:      cfg.DB,
-		Name:    string(resource.TypeTask),
-		Indexes: []gorp.Index[Key, Task]{s.search},
+		DB:         cfg.DB,
+		Name:       string(resource.TypeTask),
+		Indexes:    []gorp.Index[Key, Task]{s.search},
+		References: s.refs.all(),
 		Migrations: versions.NewMigrations(versions.MigrationsConfig{
 			Status:   cfg.Status,
 			Ontology: cfg.Ontology,
@@ -302,11 +305,27 @@ func (s *Service) NewWriter(tx gorp.Tx) Writer {
 func (s *Service) NewRetrieve() Retrieve {
 	return Retrieve{
 		search:  s.search,
+		refs:    s.refs,
 		baseTX:  s.cfg.DB,
 		gorp:    s.table.NewRetrieve(),
-		otg:     s.cfg.Ontology,
 		configs: s.cfg.Configs,
 	}
+}
+
+// RackDeleteGuard refuses the delete of a rack that holds a task that is not internal.
+// Pass it to rack.Writer.Delete. The internal tasks of a deleted rack go with it.
+func (s *Service) RackDeleteGuard(ctx gorp.Context, r rack.Rack) error {
+	exists, err := s.NewRetrieve().
+		Where(And(MatchRacks(r.Key), MatchInternal(false))).
+		Exists(ctx, ctx.Tx)
+	if err != nil || !exists {
+		return err
+	}
+	return errors.Wrapf(
+		validate.ErrValidation,
+		"cannot delete rack %s because it still holds tasks",
+		r.Name,
+	)
 }
 
 func (s *Service) onSuspectRack(ctx context.Context, rackStat rack.Status) error {

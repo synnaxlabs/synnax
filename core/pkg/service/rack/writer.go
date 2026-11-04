@@ -21,6 +21,7 @@ import (
 	"github.com/synnaxlabs/x/errors"
 	"github.com/synnaxlabs/x/query"
 	"github.com/synnaxlabs/x/telem"
+	"github.com/synnaxlabs/x/validate"
 )
 
 // Writer is used to create, update, and delete racks within a Synnax cluster.
@@ -199,18 +200,31 @@ func (w Writer) Rename(ctx context.Context, key Key, name string) error {
 	)
 }
 
-// DeleteGuard deletes the rack with the given key, and with it its status, if the
-// provided guard function returns nil.
-func (w Writer) DeleteGuard(
+// Delete deletes the racks with keys, their statuses, and the tasks they hold. It
+// returns a validation error when a rack is embedded, holds a device, or fails guard.
+// A nil guard checks nothing.
+func (w Writer) Delete(
 	ctx context.Context,
-	key Key,
 	guard gorp.GuardFunc[Key, Rack],
+	keys ...Key,
 ) error {
 	if err := w.table.NewDelete().
-		Where(gorp.MatchKeys[Key, Rack](key)).
+		Where(gorp.MatchKeys[Key, Rack](keys...)).
+		Guard(guardEmbedded).
 		Guard(guard).
 		Exec(ctx, w.tx); err != nil {
 		return err
 	}
-	return w.otg.DeleteResources(ctx, key.ResourceID())
+	return w.otg.DeleteResources(ctx, ResourceIDs(keys)...)
+}
+
+func guardEmbedded(_ gorp.Context, r Rack) error {
+	if !r.Embedded {
+		return nil
+	}
+	return errors.Wrapf(
+		validate.ErrValidation,
+		"cannot delete embedded rack %s",
+		r.Name,
+	)
 }

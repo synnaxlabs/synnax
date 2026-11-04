@@ -20,9 +20,11 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/service/access"
 	"github.com/synnaxlabs/synnax/pkg/service/actions"
 	"github.com/synnaxlabs/synnax/pkg/service/pagerduty"
+	"github.com/synnaxlabs/synnax/pkg/service/ranger"
 	"github.com/synnaxlabs/synnax/pkg/service/resource"
 	"github.com/synnaxlabs/synnax/pkg/service/task"
 	"github.com/synnaxlabs/x/query"
+	"github.com/synnaxlabs/x/telem"
 	. "github.com/synnaxlabs/x/testutil"
 )
 
@@ -222,5 +224,35 @@ var _ = Describe("Retrieve", func() {
 		Expect(res.Tasks[0].Status).To(BeNil())
 		Expect(res.Tasks[1].Key).To(Equal(withStatus.Key))
 		Expect(res.Tasks[1].Status.Owner).To(HaveValue(Equal(withStatus.ResourceID())))
+	})
+})
+
+var _ = Describe("Copy", func() {
+	It("Should place a snapshot copy in a range", func(ctx SpecContext) {
+		u := createUser(ctx)
+		t := createTask(ctx)
+		grant(ctx, access.ActionRetrieve, u.ResourceID(), resource.ID{
+			Type: resource.TypeTask,
+		})
+		grant(ctx, access.ActionCreate, u.ResourceID(), resource.ID{
+			Type: resource.TypeTask,
+		})
+		r := ranger.Range{
+			Name:      "Snapshot Range",
+			TimeRange: telem.TimeRange{Start: telem.Now(), End: telem.TimeStampMax},
+		}
+		Expect(svc.Ranger.NewWriter(nil).Create(ctx, &r)).To(Succeed())
+		res := MustSucceed(apiSvc.Copy(AuthedCtx(ctx, u), nil, apitask.CopyRequest{
+			Key:      t.Key,
+			Name:     "Copy",
+			Snapshot: true,
+			Range:    &r.Key,
+		}))
+		Expect(res.Task.Range).To(Equal(&r.Key))
+		found := MustSucceed(apiSvc.Retrieve(AuthedCtx(ctx, u), apitask.RetrieveRequest{
+			Ranges: []ranger.Key{r.Key},
+		}))
+		Expect(found.Tasks).To(HaveLen(1))
+		Expect(found.Tasks[0].Key).To(Equal(res.Task.Key))
 	})
 })

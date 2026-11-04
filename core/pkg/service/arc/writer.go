@@ -20,7 +20,6 @@ import (
 	taskversions "github.com/synnaxlabs/synnax/pkg/service/arc/task/versions"
 	"github.com/synnaxlabs/synnax/pkg/service/ontology"
 	"github.com/synnaxlabs/synnax/pkg/service/rack"
-	"github.com/synnaxlabs/synnax/pkg/service/resource"
 	"github.com/synnaxlabs/synnax/pkg/service/status"
 	"github.com/synnaxlabs/synnax/pkg/service/task"
 	"github.com/synnaxlabs/x/debounce"
@@ -40,7 +39,6 @@ const TaskType = "arc"
 type Writer struct {
 	tx         gorp.Tx
 	otgWriter  ontology.Writer
-	otg        *ontology.Ontology
 	tasks      *task.Service
 	status     *status.Service
 	table      *gorp.Table[Key, Arc]
@@ -147,20 +145,24 @@ func (w Writer) deleteChildTasks(ctx context.Context, key Key) error {
 }
 
 func (w Writer) childTaskKeys(ctx context.Context, key Key) ([]task.Key, error) {
-	var children []ontology.Resource
-	if err := w.otg.NewRetrieve().
-		WhereIDs(ResourceID(key)).
-		TraverseTo(ontology.ChildrenTraverser).
-		WhereTypes(resource.TypeTask).
-		Entries(&children).
-		ExcludeFieldData(true).
-		Exec(ctx, w.tx); err != nil && !errors.Is(err, query.ErrNotFound) {
+	var tasks []task.Task
+	if err := w.tasks.NewRetrieve().
+		Where(task.MatchTypes(TaskType)).
+		Entries(&tasks).
+		Exec(ctx, w.tx); err != nil {
 		return nil, err
 	}
-	if len(children) == 0 {
-		return nil, nil
+	var keys []task.Key
+	for _, t := range tasks {
+		var cfg taskversions.Config
+		if err := t.Config.Unmarshal(&cfg); err != nil {
+			return nil, err
+		}
+		if cfg.ArcKey == key {
+			keys = append(keys, t.Key)
+		}
 	}
-	return task.KeysFromResourceIDs(ontology.ResourceIDs(children))
+	return keys, nil
 }
 
 // TaskUpdate holds the fields of an arc's task to change. A nil field stays as it is.
@@ -253,16 +255,6 @@ func (w Writer) writeTask(
 	}
 	if err := w.tasks.NewWriter(w.tx).Create(ctx, &tsk); err != nil {
 		return nil, err
-	}
-	if len(existing) == 0 {
-		if err := w.otgWriter.DefineRelationships(
-			ctx,
-			ResourceID(a.Key),
-			ontology.RelationshipTypeParentOf,
-			tsk.ResourceID(),
-		); err != nil {
-			return nil, err
-		}
 	}
 	return &tsk, nil
 }

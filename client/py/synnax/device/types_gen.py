@@ -18,7 +18,6 @@ from pydantic import BaseModel, Field, JsonValue
 
 from synnax import group as group_
 from synnax import rack as rack_
-from synnax import resource
 from synnax import status as status_
 from synnax.resource import ID
 
@@ -60,8 +59,8 @@ class Device(BaseModel):
             Structure varies by device make and model.
         status: Is the current operational status of the device.
         group: Is the group the device sits in, if any.
-        parent: Is an optional parent resource ID for hierarchical device organization
-            (e.g., NI chassis containing modules).
+        parent: Is the key of the device that holds this device, such as the NI chassis
+            of a module. Empty for a device that sits directly on its rack.
     """
 
     key: Key
@@ -74,7 +73,7 @@ class Device(BaseModel):
     properties: dict[str, JsonValue] = Field(default_factory=dict)
     status: Status | None = None
     group: group_.Key | None = None
-    parent: resource.ID | None = None
+    parent: Key | None = None
 
     @_override
     def __hash__(self) -> int:

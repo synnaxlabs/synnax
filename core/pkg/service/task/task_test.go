@@ -31,6 +31,7 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/service/pagerduty"
 	"github.com/synnaxlabs/synnax/pkg/service/rack"
 	racktestutil "github.com/synnaxlabs/synnax/pkg/service/rack/testutil"
+	"github.com/synnaxlabs/synnax/pkg/service/ranger"
 	"github.com/synnaxlabs/synnax/pkg/service/resource"
 	"github.com/synnaxlabs/synnax/pkg/service/status"
 	"github.com/synnaxlabs/synnax/pkg/service/task"
@@ -56,6 +57,7 @@ var _ = Describe("Task", Ordered, func() {
 		rackService *rack.Service
 		testRack    *rack.Rack
 		stat        *status.Service
+		rangeSvc    *ranger.Service
 		configs     config.Registry
 	)
 	BeforeAll(func(ctx SpecContext) {
@@ -83,6 +85,11 @@ var _ = Describe("Task", Ordered, func() {
 			HealthCheckInterval: 10 * telem.Millisecond,
 			DriverRole:          MustSucceed(racktestutil.CreateDriverRole(ctx, otg)),
 		}))
+		rangeSvc = MustOpen(ranger.OpenService(ctx, ranger.ServiceConfig{
+			DB:       db,
+			Ontology: otg,
+			Group:    g,
+		}))
 		pd := MustOpen(pagerduty.OpenService(ctx, pagerduty.ServiceConfig{DB: db}))
 		at := MustOpen(arctask.OpenService(ctx, arctask.ServiceConfig{DB: db}))
 		lj := MustOpen(labjack.OpenService(ctx, labjack.ServiceConfig{DB: db}))
@@ -103,6 +110,15 @@ var _ = Describe("Task", Ordered, func() {
 	openTx := func() {
 		tx = DeferClose(db.OpenTx())
 		w = svc.NewWriter(tx)
+	}
+	createRange := func(ctx context.Context, tx gorp.Tx) ranger.Range {
+		GinkgoHelper()
+		r := ranger.Range{
+			Name:      "Range",
+			TimeRange: telem.TimeRange{Start: telem.Now(), End: telem.TimeStampMax},
+		}
+		Expect(rangeSvc.NewWriter(tx).Create(ctx, &r)).To(Succeed())
+		return r
 	}
 	type frame = actions.Scoped[task.Key, task.Action]
 	collect := func() *[]frame {
@@ -364,7 +380,7 @@ var _ = Describe("Task", Ordered, func() {
 					Config: msgpack.EncodedJSON{"routing_key": "rk-1"},
 				}
 				Expect(w.Create(ctx, t)).To(Succeed())
-				snap := MustSucceed(w.Copy(ctx, t.Key, "Snapshot", true))
+				snap := MustSucceed(w.Copy(ctx, t.Key, "Snapshot", true, nil))
 				Expect(snap.ConfigHash).To(Equal(t.ConfigHash))
 				edited := snap
 				edited.Config = msgpack.EncodedJSON{"routing_key": "rk-999"}
@@ -484,7 +500,7 @@ var _ = Describe("Task", Ordered, func() {
 					Config: msgpack.EncodedJSON{"routing_key": "rk-copy"},
 				}
 				Expect(w.Create(ctx, t)).To(Succeed())
-				copied := MustSucceed(w.Copy(ctx, t.Key, "Copied", false))
+				copied := MustSucceed(w.Copy(ctx, t.Key, "Copied", false, nil))
 				Expect(copied.Config).To(
 					HaveKeyWithValue("routing_key", "rk-copy"),
 				)
@@ -556,7 +572,7 @@ var _ = Describe("Task", Ordered, func() {
 			}
 			Expect(w.Create(ctx, m)).To(Succeed())
 			Expect(m.Name).To(Equal("Test Task"))
-			t := MustSucceed(w.Copy(ctx, m.Key, "Copied Task", false))
+			t := MustSucceed(w.Copy(ctx, m.Key, "Copied Task", false, nil))
 			Expect(t.Key).ToNot(Equal(uuid.Nil()))
 			Expect(t.Key).ToNot(Equal(m.Key))
 		})
@@ -570,7 +586,7 @@ var _ = Describe("Task", Ordered, func() {
 			}
 			Expect(w.Create(ctx, m)).To(Succeed())
 			Expect(m.Name).To(Equal("Test Task"))
-			t := MustSucceed(w.Copy(ctx, m.Key, "Snapshotted Task", true))
+			t := MustSucceed(w.Copy(ctx, m.Key, "Snapshotted Task", true, nil))
 			Expect(t.Key).ToNot(Equal(m.Key))
 			Expect(t.Snapshot).To(BeTrue())
 		})
@@ -579,8 +595,34 @@ var _ = Describe("Task", Ordered, func() {
 			openTx()
 			m := &task.Task{Type: testType, Rack: testRack.Key, Name: "Test Task"}
 			Expect(w.Create(ctx, m)).To(Succeed())
-			Expect(w.Copy(ctx, m.Key, "", false)).Error().
+			Expect(w.Copy(ctx, m.Key, "", false, nil)).Error().
 				To(MatchError(ContainSubstring("name: required")))
+		})
+
+		It("Should place a snapshot in a range", func(ctx SpecContext) {
+			openTx()
+			r := createRange(ctx, tx)
+			m := &task.Task{Type: testType, Rack: testRack.Key, Name: "Test Task"}
+			Expect(w.Create(ctx, m)).To(Succeed())
+			snap := MustSucceed(w.Copy(ctx, m.Key, "Snapshot", true, &r.Key))
+			Expect(snap.Range).To(Equal(&r.Key))
+			var res task.Task
+			Expect(svc.NewRetrieve().
+				Where(task.MatchRanges(r.Key)).
+				Entry(&res).
+				Exec(ctx, tx)).To(Succeed())
+			Expect(res.Key).To(Equal(snap.Key))
+		})
+
+		It("Should keep the range of a snapshot written again", func(ctx SpecContext) {
+			openTx()
+			r := createRange(ctx, tx)
+			m := &task.Task{Type: testType, Rack: testRack.Key, Name: "Test Task"}
+			Expect(w.Create(ctx, m)).To(Succeed())
+			snap := MustSucceed(w.Copy(ctx, m.Key, "Snapshot", true, &r.Key))
+			snap.Range = nil
+			Expect(w.Create(ctx, &snap)).To(Succeed())
+			Expect(snap.Range).To(Equal(&r.Key))
 		})
 
 		It(
@@ -596,7 +638,7 @@ var _ = Describe("Task", Ordered, func() {
 				openTx()
 				frames := collect()
 				copied := MustSucceed(w.WithDispatchKey("dk-copy").
-					Copy(ctx, m.Key, "Copied", false))
+					Copy(ctx, m.Key, "Copied", false, nil))
 				Expect(*frames).To(BeEmpty())
 				Expect(tx.Commit(ctx)).To(Succeed())
 				DeferCleanup(func(ctx SpecContext) {
@@ -738,7 +780,7 @@ var _ = Describe("Task", Ordered, func() {
 			Expect(rackService.NewWriter(db).Create(ctx, other)).To(Succeed())
 			DeferCleanup(func(ctx SpecContext) {
 				Expect(
-					rackService.NewWriter(db).DeleteGuard(ctx, other.Key, nil),
+					rackService.NewWriter(db).Delete(ctx, nil, other.Key),
 				).To(Succeed())
 			})
 			MustSucceed(svc.Dispatch(ctx, alerts.Key, "dk", []task.Action{
@@ -1084,47 +1126,111 @@ var _ = Describe("Task", Ordered, func() {
 		})
 	})
 
-	Describe("DeleteByRacks", func() {
+	Describe("Rack", func() {
 		BeforeEach(openTx)
+		createRack := func(ctx context.Context) rack.Rack {
+			GinkgoHelper()
+			r := rack.Rack{Name: "Other Rack"}
+			Expect(rackService.NewWriter(tx).Create(ctx, &r)).To(Succeed())
+			return r
+		}
+		exists := func(ctx context.Context, key task.Key) bool {
+			GinkgoHelper()
+			return MustSucceed(svc.NewRetrieve().
+				Where(task.MatchKeys(key)).
+				Exists(ctx, tx))
+		}
+
+		It("Should delete the internal tasks of a deleted rack", func(ctx SpecContext) {
+			r := createRack(ctx)
+			internal := &task.Task{
+				Type:     testType,
+				Rack:     r.Key,
+				Name:     "Internal Scan Task",
+				Internal: true,
+			}
+			elsewhere := &task.Task{Type: testType, Rack: testRack.Key, Name: "Kept"}
+			Expect(w.Create(ctx, internal)).To(Succeed())
+			Expect(w.Create(ctx, elsewhere)).To(Succeed())
+			Expect(rackService.NewWriter(tx).Delete(ctx, svc.RackDeleteGuard, r.Key)).
+				To(Succeed())
+			Expect(exists(ctx, internal.Key)).To(BeFalse())
+			Expect(exists(ctx, elsewhere.Key)).To(BeTrue())
+		})
+
 		It(
-			"Should delete every task on the rack with its config record",
+			"Should refuse to delete a rack that holds a task that is not internal",
 			func(ctx SpecContext) {
-				other := &rack.Rack{Name: "Other Rack"}
-				Expect(rackService.NewWriter(tx).Create(ctx, other)).To(Succeed())
-				onRack := &task.Task{
-					Type:     testType,
-					Rack:     testRack.Key,
-					Name:     "Internal Scan Task",
-					Internal: true,
-				}
-				elsewhere := &task.Task{
-					Type: testType,
-					Rack: other.Key,
-					Name: "Untouched Task",
-				}
-				Expect(w.Create(ctx, onRack)).To(Succeed())
-				Expect(w.Create(ctx, elsewhere)).To(Succeed())
-				Expect(w.DeleteByRacks(ctx, testRack.Key)).To(Succeed())
-				store := MustBeOk(configs.Store(testType))
-				Expect(
-					svc.NewRetrieve().Where(task.MatchKeys(onRack.Key)).Exec(ctx, tx),
-				).To(MatchError(query.ErrNotFound))
-				Expect(
-					store.Read(ctx, tx, onRack.Key),
-				).Error().To(MatchError(query.ErrNotFound))
-				Expect(
-					svc.NewRetrieve().
-						Where(task.MatchKeys(elsewhere.Key)).
-						Exec(ctx, tx),
-				).To(Succeed())
-				Expect(store.Read(ctx, tx, elsewhere.Key)).Error().ToNot(HaveOccurred())
+				r := createRack(ctx)
+				t := &task.Task{Type: testType, Rack: r.Key, Name: "User Task"}
+				Expect(w.Create(ctx, t)).To(Succeed())
+				Expect(rackService.NewWriter(tx).Delete(
+					ctx,
+					svc.RackDeleteGuard,
+					r.Key,
+				)).To(SatisfyAll(
+					MatchError(validate.ErrValidation),
+					MatchError(ContainSubstring("still holds tasks")),
+				))
+				Expect(exists(ctx, t.Key)).To(BeTrue())
+				Expect(rackService.NewRetrieve().
+					Where(rack.MatchKeys(r.Key)).
+					Exists(ctx, tx)).To(BeTrue())
 			},
 		)
 
-		It("Should succeed when the rack has no tasks", func(ctx SpecContext) {
-			empty := &rack.Rack{Name: "Empty Rack"}
-			Expect(rackService.NewWriter(tx).Create(ctx, empty)).To(Succeed())
-			Expect(w.DeleteByRacks(ctx, empty.Key)).To(Succeed())
+		It("Should refuse a task on a rack that does not exist", func(ctx SpecContext) {
+			t := &task.Task{Type: testType, Rack: rack.NewKey(1, 999), Name: "Lost"}
+			Expect(w.Create(ctx, t)).To(MatchError(ContainSubstring("rack")))
+		})
+
+		It("Should store a draft on rack zero", func(ctx SpecContext) {
+			t := &task.Task{Type: testType, Name: "Draft"}
+			Expect(w.Create(ctx, t)).To(Succeed())
+			Expect(exists(ctx, t.Key)).To(BeTrue())
+		})
+
+		It("Should find the tasks on a rack", func(ctx SpecContext) {
+			r := createRack(ctx)
+			t := &task.Task{Type: testType, Rack: r.Key, Name: "On Rack"}
+			Expect(w.Create(ctx, t)).To(Succeed())
+			var res []task.Task
+			Expect(svc.NewRetrieve().
+				Where(task.MatchRacks(r.Key)).
+				Entries(&res).
+				Exec(ctx, tx)).To(Succeed())
+			Expect(res).To(HaveLen(1))
+			Expect(res[0].Key).To(Equal(t.Key))
+		})
+	})
+
+	Describe("Range", func() {
+		BeforeEach(openTx)
+		It("Should delete the tasks of a deleted range", func(ctx SpecContext) {
+			r := createRange(ctx, tx)
+			t := &task.Task{
+				Type:     testType,
+				Rack:     testRack.Key,
+				Name:     "Snapshot",
+				Snapshot: true,
+				Range:    &r.Key,
+			}
+			Expect(w.Create(ctx, t)).To(Succeed())
+			Expect(rangeSvc.NewWriter(tx).Delete(ctx, r.Key)).To(Succeed())
+			Expect(svc.NewRetrieve().
+				Where(task.MatchKeys(t.Key)).
+				Exists(ctx, tx)).To(BeFalse())
+		})
+
+		It("Should refuse a range that does not exist", func(ctx SpecContext) {
+			missing := uuid.New()
+			t := &task.Task{
+				Type:  testType,
+				Rack:  testRack.Key,
+				Name:  "Lost Snapshot",
+				Range: &missing,
+			}
+			Expect(w.Create(ctx, t)).To(MatchError(ContainSubstring("range")))
 		})
 	})
 
@@ -1354,7 +1460,7 @@ var _ = Describe("Task", Ordered, func() {
 				}
 				Expect(w.Create(ctx, m)).To(Succeed())
 
-				copied := MustSucceed(w.Copy(ctx, m.Key, "Copied Task", false))
+				copied := MustSucceed(w.Copy(ctx, m.Key, "Copied Task", false, nil))
 
 				var copiedStatus task.Status
 				Expect(stat.NewRetrieve[task.StatusDetails]().

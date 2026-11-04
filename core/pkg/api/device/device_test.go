@@ -76,7 +76,7 @@ var _ = Describe("Create", func() {
 		GinkgoHelper()
 		d := createDevice(ctx, key)
 		setLiveStatus(ctx, d)
-		d.Status, d.Parent = nil, nil
+		d.Status = nil
 		return d
 	}
 	It(
@@ -234,6 +234,40 @@ var _ = Describe("Retrieve", func() {
 		Expect(
 			res.Devices[1].Status.Owner,
 		).To(HaveValue(Equal(withStatus.ResourceID())))
+	})
+
+	It("Should filter devices by parent and by nesting", func(ctx SpecContext) {
+		u := createUser(ctx)
+		grant(ctx, access.ActionRetrieve, u.ResourceID(), resource.ID{
+			Type: resource.TypeDevice,
+		})
+		chassis := createDevice(ctx, "retrieve-chassis")
+		module := device.Device{
+			Key:      "retrieve-module",
+			Rack:     svc.Rack.EmbeddedKey,
+			Location: "slot-1",
+			Name:     "Module",
+			Make:     "Test Make",
+			Model:    "Test Model",
+			Parent:   &chassis.Key,
+		}
+		Expect(svc.Device.NewWriter(nil).Create(ctx, &module)).To(Succeed())
+		res := MustSucceed(apiSvc.Retrieve(
+			AuthedCtx(ctx, u),
+			apidevice.RetrieveRequest{Parents: []device.Key{chassis.Key}},
+		))
+		Expect(res.Devices).To(HaveLen(1))
+		Expect(res.Devices[0].Key).To(Equal(module.Key))
+		Expect(res.Devices[0].Parent).To(Equal(&chassis.Key))
+		res = MustSucceed(apiSvc.Retrieve(
+			AuthedCtx(ctx, u),
+			apidevice.RetrieveRequest{
+				Keys:   []device.Key{chassis.Key, module.Key},
+				Nested: new(false),
+			},
+		))
+		Expect(res.Devices).To(HaveLen(1))
+		Expect(res.Devices[0].Key).To(Equal(chassis.Key))
 	})
 })
 

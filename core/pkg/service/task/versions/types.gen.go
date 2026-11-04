@@ -11,37 +11,37 @@
 
 package versions
 
-import "github.com/synnaxlabs/synnax/pkg/service/task/versions/v2"
+import "github.com/synnaxlabs/synnax/pkg/service/task/versions/v3"
 
 // Key is a unique identifier for a task.
-type Key = v2.Key
+type Key = v3.Key
 
 // StatusDetails contains task-specific status details including execution state.
-type StatusDetails = v2.StatusDetails
+type StatusDetails = v3.StatusDetails
 
 // Status is task-specific status information including execution state and
 // task-specific data.
-type Status = v2.Status
+type Status = v3.Status
 
 // Task is an executable unit of work in the Driver system. Tasks represent specific
 // hardware operations such as reading sensor data, writing control signals, or scanning
 // for devices.
-type Task = v2.Task
+type Task = v3.Task
 
 // KeyedConfig is the base for every stored task configuration record.
-type KeyedConfig = v2.KeyedConfig
+type KeyedConfig = v3.KeyedConfig
 
 // StartConfig carries the configuration fields shared by every task.
-type StartConfig = v2.StartConfig
+type StartConfig = v3.StartConfig
 
 // PersistConfig carries the configuration fields shared by tasks that write telemetry.
-type PersistConfig = v2.PersistConfig
+type PersistConfig = v3.PersistConfig
 
 // ReadConfig carries the configuration fields shared by hardware acquisition tasks.
-type ReadConfig = v2.ReadConfig
+type ReadConfig = v3.ReadConfig
 
 // WriteConfig carries the configuration fields shared by hardware control tasks.
-type WriteConfig = v2.WriteConfig
+type WriteConfig = v3.WriteConfig
 
 // ScanConfig carries the fields shared by every scan task configuration.
-type ScanConfig = v2.ScanConfig
+type ScanConfig = v3.ScanConfig

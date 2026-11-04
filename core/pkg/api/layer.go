@@ -910,10 +910,9 @@ func NewLayer(cfgs ...LayerConfig) (*Layer, error) {
 		return nil, err
 	}
 	if l.Device, err = device.NewService(device.ServiceConfig{
-		Device:   cfg.Service.Device,
-		Status:   cfg.Service.Status,
-		RBAC:     cfg.Service.RBAC,
-		Ontology: cfg.Service.Ontology,
+		Device: cfg.Service.Device,
+		Status: cfg.Service.Status,
+		RBAC:   cfg.Service.RBAC,
 	}); err != nil {
 		return nil, err
 	}

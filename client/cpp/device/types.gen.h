@@ -75,9 +75,9 @@ struct Device {
     x::json::json::object_t properties;
     /// @brief status is the current operational status of the device.
     std::optional<Status> status;
-    /// @brief parent is an optional parent resource ID for hierarchical device
-    /// organization (e.g., NI chassis containing modules).
-    std::optional<::synnax::resource::ID> parent;
+    /// @brief parent is the key of the device that holds this device, such as the NI
+    /// chassis of a module. Empty for a device that sits directly on its rack.
+    std::optional<Key> parent;
 
     static Device parse(x::json::Parser parser);
     [[nodiscard]] x::json::json to_json() const;

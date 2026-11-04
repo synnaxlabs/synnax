@@ -17,7 +17,6 @@ import (
 
 	"github.com/synnaxlabs/synnax/pkg/service/legacy/device"
 	"github.com/synnaxlabs/synnax/pkg/service/rack"
-	resourcepb "github.com/synnaxlabs/synnax/pkg/service/resource/pb"
 	statuspb "github.com/synnaxlabs/synnax/pkg/service/status/pb"
 	"google.golang.org/protobuf/encoding/protojson"
 	"google.golang.org/protobuf/proto"
@@ -110,11 +109,7 @@ func DeviceToPB(
 		pb.Group = &v
 	}
 	if r.Parent != nil {
-		var err error
-		pb.Parent, err = resourcepb.IDToPB(*r.Parent)
-		if err != nil {
-			return nil, err
-		}
+		pb.Parent = r.Parent
 	}
 	return pb, nil
 }
@@ -151,11 +146,7 @@ func DeviceFromPB(
 		r.Group = &v
 	}
 	if pb.Parent != nil {
-		val, err := resourcepb.IDFromPB(pb.Parent)
-		if err != nil {
-			return device.Device{}, err
-		}
-		r.Parent = &val
+		r.Parent = pb.Parent
 	}
 	return r, nil
 }

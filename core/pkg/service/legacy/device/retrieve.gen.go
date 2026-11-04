@@ -37,7 +37,9 @@ type Retrieve struct {
 // onto the Retrieve so filter functions can resolve them off r.indexes
 // instead of relying on package-level state.
 type indexes struct {
+	rack   *gorp.KeyReference[Key, Device, rack.Key]
 	group  *gorp.KeyReference[Key, Device, group.Key]
+	parent *gorp.KeyReference[Key, Device, Key]
 	search *gorp.SearchIndex[Key, Device]
 }
 
@@ -46,6 +48,14 @@ type indexes struct {
 // Service struct.
 func newIndexes() indexes {
 	return indexes{
+		rack: gorp.NewKeyReference(gorp.KeyReferenceConfig[Key, Device, rack.Key]{
+			Name:     "rack",
+			Table:    "rack",
+			OnDelete: gorp.Restrict,
+			Targets: func(e *Device) []rack.Key {
+				return []rack.Key{e.Rack}
+			},
+		}),
 		group: gorp.NewKeyReference(gorp.KeyReferenceConfig[Key, Device, group.Key]{
 			Name:     "group",
 			Table:    "group",
@@ -57,6 +67,18 @@ func newIndexes() indexes {
 				return []group.Key{*e.Group}
 			},
 			Detach: func(e *Device, _ group.Key) { e.Group = nil },
+		}),
+		parent: gorp.NewKeyReference(gorp.KeyReferenceConfig[Key, Device, Key]{
+			Name:     "parent",
+			Table:    "device",
+			OnDelete: gorp.Cascade,
+			Acyclic:  true,
+			Targets: func(e *Device) []Key {
+				if e.Parent == nil {
+					return nil
+				}
+				return []Key{*e.Parent}
+			},
 		}),
 		search: gorp.NewSearchIndex[Key, Device](
 			"search",
@@ -79,7 +101,9 @@ func (i indexes) all() []gorp.Index[Key, Device] {
 // gorp.TableConfig.References when opening the underlying table.
 func (i indexes) references() []gorp.Reference[Key, Device] {
 	return []gorp.Reference[Key, Device]{
+		i.rack,
 		i.group,
+		i.parent,
 	}
 }
 
@@ -136,14 +160,12 @@ func MatchKeys(keys ...Key) Filter {
 	}
 }
 
-// MatchRacks returns a filter for
-// devices whose Rack matches any of the
-// provided values.
+// MatchRacks returns a filter for devices
+// whose Rack matches any of the provided
+// values.
 func MatchRacks(vals ...rack.Key) Filter {
-	return func(Retrieve) gorp.Filter[Key, Device] {
-		return gorp.Match(func(_ gorp.Context, e *Device) (bool, error) {
-			return slices.Contains(vals, e.Rack), nil
-		})
+	return func(r Retrieve) gorp.Filter[Key, Device] {
+		return r.indexes.rack.Filter(vals...)
 	}
 }
 
@@ -221,6 +243,23 @@ func setGroup(
 			e.Group = v
 			return e
 		})
+}
+
+// MatchParents returns a filter for devices
+// whose Parent matches any of the provided
+// values.
+func MatchParents(vals ...Key) Filter {
+	return func(r Retrieve) gorp.Filter[Key, Device] {
+		return r.indexes.parent.Filter(vals...)
+	}
+}
+
+// MatchHasParent returns a filter for devices whose
+// Parent holds a target when has is true, and holds none when has is false.
+func MatchHasParent(has bool) Filter {
+	return func(r Retrieve) gorp.Filter[Key, Device] {
+		return r.indexes.parent.FilterHolding(has)
+	}
 }
 
 // Where applies the provided filter to the query, binding it to the Retrieve

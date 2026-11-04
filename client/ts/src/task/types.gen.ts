@@ -14,6 +14,7 @@ import { z } from "zod";
 
 import { device } from "@/device";
 import { rack } from "@/rack";
+import { ranger } from "@/ranger";
 import { resource } from "@/resource";
 import { status } from "@/status";
 
@@ -126,6 +127,7 @@ export const payloadZ = <
     configHash: z.string().default(""),
     internal: z.boolean().default(false),
     snapshot: z.boolean().default(false),
+    range: ranger.keyZ.optional(),
     status: status.statusZ({ details: statusDetailsZ(statusData) }).optional(),
   });
 export interface Payload<S extends PayloadSchemas = PayloadSchemas> {
@@ -137,6 +139,7 @@ export interface Payload<S extends PayloadSchemas = PayloadSchemas> {
   configHash: string;
   internal: boolean;
   snapshot: boolean;
+  range?: ranger.Key;
   status?: Status<S["statusData"]>;
 }
 

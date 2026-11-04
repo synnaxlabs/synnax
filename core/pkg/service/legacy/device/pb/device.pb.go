@@ -18,7 +18,6 @@
 package pb
 
 import (
-	pb1 "github.com/synnaxlabs/synnax/pkg/service/resource/pb"
 	pb "github.com/synnaxlabs/synnax/pkg/service/status/pb"
 	protoreflect "google.golang.org/protobuf/reflect/protoreflect"
 	protoimpl "google.golang.org/protobuf/runtime/protoimpl"
@@ -118,9 +117,9 @@ type Device struct {
 	Status *pb.Status `protobuf:"bytes,9,opt,name=status,proto3,oneof" json:"status,omitempty"`
 	// group is the group the device sits in, if any.
 	Group *string `protobuf:"bytes,10,opt,name=group,proto3,oneof" json:"group,omitempty"`
-	// parent is an optional parent resource ID for hierarchical device organization
-	// (e.g., NI chassis containing modules).
-	Parent        *pb1.ID `protobuf:"bytes,11,opt,name=parent,proto3,oneof" json:"parent,omitempty"`
+	// parent is the key of the device that holds this device, such as the NI chassis of a
+	// module. Empty for a device that sits directly on its rack.
+	Parent        *string `protobuf:"bytes,11,opt,name=parent,proto3,oneof" json:"parent,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -225,22 +224,22 @@ func (x *Device) GetGroup() string {
 	return ""
 }
 
-func (x *Device) GetParent() *pb1.ID {
-	if x != nil {
-		return x.Parent
+func (x *Device) GetParent() string {
+	if x != nil && x.Parent != nil {
+		return *x.Parent
 	}
-	return nil
+	return ""
 }
 
 var File_core_pkg_service_legacy_device_pb_device_proto protoreflect.FileDescriptor
 
 const file_core_pkg_service_legacy_device_pb_device_proto_rawDesc = "" +
 	"\n" +
-	".core/pkg/service/legacy/device/pb/device.proto\x12\x11service.device.pb\x1a+core/pkg/service/resource/pb/resource.proto\x1a'core/pkg/service/status/pb/status.proto\x1a\x1cgoogle/protobuf/struct.proto\"^\n" +
+	".core/pkg/service/legacy/device/pb/device.proto\x12\x11service.device.pb\x1a'core/pkg/service/status/pb/status.proto\x1a\x1cgoogle/protobuf/struct.proto\"^\n" +
 	"\rStatusDetails\x12\x12\n" +
 	"\x04rack\x18\x01 \x01(\rR\x04rack\x120\n" +
 	"\x04data\x18\x02 \x01(\v2\x17.google.protobuf.StructH\x00R\x04data\x88\x01\x01B\a\n" +
-	"\x05_data\"\x8a\x03\n" +
+	"\x05_data\"\xf1\x02\n" +
 	"\x06Device\x12\x10\n" +
 	"\x03key\x18\x01 \x01(\tR\x03key\x12\x12\n" +
 	"\x04rack\x18\x02 \x01(\rR\x04rack\x12\x1a\n" +
@@ -256,8 +255,8 @@ const file_core_pkg_service_legacy_device_pb_device_proto_rawDesc = "" +
 	"properties\x126\n" +
 	"\x06status\x18\t \x01(\v2\x19.service.status.pb.StatusH\x00R\x06status\x88\x01\x01\x12\x19\n" +
 	"\x05group\x18\n" +
-	" \x01(\tH\x01R\x05group\x88\x01\x01\x124\n" +
-	"\x06parent\x18\v \x01(\v2\x17.service.resource.pb.IDH\x02R\x06parent\x88\x01\x01B\t\n" +
+	" \x01(\tH\x01R\x05group\x88\x01\x01\x12\x1b\n" +
+	"\x06parent\x18\v \x01(\tH\x02R\x06parent\x88\x01\x01B\t\n" +
 	"\a_statusB\b\n" +
 	"\x06_groupB\t\n" +
 	"\a_parentB\xc5\x01\n" +
@@ -281,18 +280,16 @@ var file_core_pkg_service_legacy_device_pb_device_proto_goTypes = []any{
 	(*Device)(nil),          // 1: service.device.pb.Device
 	(*structpb.Struct)(nil), // 2: google.protobuf.Struct
 	(*pb.Status)(nil),       // 3: service.status.pb.Status
-	(*pb1.ID)(nil),          // 4: service.resource.pb.ID
 }
 var file_core_pkg_service_legacy_device_pb_device_proto_depIdxs = []int32{
 	2, // 0: service.device.pb.StatusDetails.data:type_name -> google.protobuf.Struct
 	2, // 1: service.device.pb.Device.properties:type_name -> google.protobuf.Struct
 	3, // 2: service.device.pb.Device.status:type_name -> service.status.pb.Status
-	4, // 3: service.device.pb.Device.parent:type_name -> service.resource.pb.ID
-	4, // [4:4] is the sub-list for method output_type
-	4, // [4:4] is the sub-list for method input_type
-	4, // [4:4] is the sub-list for extension type_name
-	4, // [4:4] is the sub-list for extension extendee
-	0, // [0:4] is the sub-list for field type_name
+	3, // [3:3] is the sub-list for method output_type
+	3, // [3:3] is the sub-list for method input_type
+	3, // [3:3] is the sub-list for extension type_name
+	3, // [3:3] is the sub-list for extension extendee
+	0, // [0:3] is the sub-list for field type_name
 }
 
 func init() { file_core_pkg_service_legacy_device_pb_device_proto_init() }

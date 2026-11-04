@@ -16,7 +16,7 @@ import (
 	"encoding/json/v2"
 
 	v1 "github.com/synnaxlabs/synnax/pkg/service/ethercat/versions/v1"
-	task "github.com/synnaxlabs/synnax/pkg/service/task/versions/v2"
+	task "github.com/synnaxlabs/synnax/pkg/service/task/versions/v3"
 	"github.com/synnaxlabs/x/errors"
 	telem "github.com/synnaxlabs/x/telem/versions/v0"
 )

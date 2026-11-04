@@ -9,7 +9,6 @@
 
 import "schemas/synnax/group"
 import "schemas/synnax/rack"
-import "schemas/synnax/resource"
 import "schemas/synnax/status"
 
 @cpp output "client/cpp/device"
@@ -49,22 +48,22 @@ Device struct<
     Make extends string = string,
     Model extends string = string
 > {
-    key        Key          {
+    key        Key        {
         @doc value "is the unique identifier for this device."
         @key
     }
-    rack       rack.Key     {
+    rack       rack.Key   {
         @doc value         "is the key of the rack that owns this device."
-        @filter
+        @ref on_delete     restrict
         @validate required
     }
-    location   string       {
+    location   string     {
         @doc value         "is the physical location or address of the device."
         @filter
         @search
         @validate required
     }
-    make       Make         {
+    make       Make       {
         @doc value         """
             is the manufacturer of the device (e.g., 'LabJack', 'National Instruments').
         """
@@ -72,13 +71,13 @@ Device struct<
         @search
         @validate required
     }
-    model      Model        {
+    model      Model      {
         @doc value         "is the device model identifier."
         @filter
         @search
         @validate required
     }
-    name       string       {
+    name       string     {
         @doc value         "is a human-readable name for the device."
         @filter
         @search
@@ -90,27 +89,28 @@ Device struct<
             for use.
         """
     }
-    properties Properties   {
+    properties Properties {
         @doc value """
             contains device-specific configuration properties stored as JSON. Structure
             varies by device make and model.
         """
     }
-    status     Status?      {
+    status     Status?    {
         @doc value  "is the current operational status of the device."
         @go marshal omit
     }
-    group      group.Key?   {
+    group      group.Key? {
         @cpp omit
         @doc value     "is the group the device sits in, if any."
         @ref on_delete detach
     }
-    parent     resource.ID? {
-        @doc value  """
-            is an optional parent resource ID for hierarchical device organization
-            (e.g., NI chassis containing modules).
+    parent     Key?       {
+        @doc value     """
+            is the key of the device that holds this device, such as the NI chassis of a
+            module. Empty for a device that sits directly on its rack.
         """
-        @go marshal omit
+        @ref acyclic
+        @ref on_delete cascade
     }
 
     @create

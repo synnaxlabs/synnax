@@ -19,7 +19,7 @@ import (
 	"github.com/synnaxlabs/gorp"
 	"github.com/synnaxlabs/synnax/pkg/service/actions"
 	"github.com/synnaxlabs/synnax/pkg/service/ontology"
-	"github.com/synnaxlabs/synnax/pkg/service/rack"
+	"github.com/synnaxlabs/synnax/pkg/service/ranger"
 	"github.com/synnaxlabs/synnax/pkg/service/status"
 	"github.com/synnaxlabs/synnax/pkg/service/task/config"
 	"github.com/synnaxlabs/x/errors"
@@ -101,10 +101,11 @@ func (w Writer) healStatus(ctx context.Context, stat *Status) (*Status, error) {
 
 // Create creates or updates a task. The task's config is stored as a record keyed by
 // the task's key in its type's config store; the task row itself carries only the
-// config hash. A provided status is persisted as given. Without one, a new task gets
-// a "not deployed" placeholder, and an existing task keeps its reported status (healed
-// to "status unknown" if the row is missing). After the transaction commits, Create
-// broadcasts a create action that carries the stored task.
+// config hash. An existing snapshot keeps its config and range. A provided status is
+// persisted as given. Without one, a new task gets a "not deployed" placeholder, and an
+// existing task keeps its reported status (healed to "status unknown" if the row is
+// missing). After the transaction commits, Create broadcasts a create action that
+// carries the stored task.
 func (w Writer) Create(ctx context.Context, t *Task) error {
 	if t.Key == uuid.Nil() {
 		t.Key = uuid.New()
@@ -129,6 +130,7 @@ func (w Writer) Create(ctx context.Context, t *Task) error {
 	}
 	otgID := t.ResourceID()
 	if existed && existing.Snapshot {
+		t.Range = existing.Range
 		t.ConfigHash = existing.ConfigHash
 		existingStore, ok := w.configs.Store(existing.Type)
 		if !ok {
@@ -319,35 +321,16 @@ func (w Writer) Delete(ctx context.Context, key Key, allowInternal bool) error {
 	return w.otgWriter.DeleteResources(ctx, ResourceID(key))
 }
 
-// DeleteByRacks deletes every task attached to the given racks, along with each task's
-// config record and status. It is the caller's job to reject the delete when a rack
-// still holds tasks the user must remove first.
-func (w Writer) DeleteByRacks(ctx context.Context, keys ...rack.Key) error {
-	var tasks []Task
-	if err := w.table.NewRetrieve().
-		Where(gorp.Match(func(_ gorp.Context, t *Task) (bool, error) {
-			return lo.Contains(keys, t.Rack), nil
-		})).
-		Entries(&tasks).
-		Exec(ctx, w.tx); err != nil && !errors.Is(err, query.ErrNotFound) {
-		return err
-	}
-	for _, t := range tasks {
-		if err := w.Delete(ctx, t.Key, true); err != nil {
-			return err
-		}
-	}
-	return nil
-}
-
 // Copy stores a copy of the task with the given key under a new key and name, with its
-// config. After the transaction commits, Copy broadcasts a create action that carries
-// the copy. It returns query.ErrNotFound if no task with the key exists.
+// config. A snapshot copy sits in rng, or in no range when rng is nil. After the
+// transaction commits, Copy broadcasts a create action that carries the copy. It
+// returns query.ErrNotFound if no task with the key exists.
 func (w Writer) Copy(
 	ctx context.Context,
 	key Key,
 	name string,
 	snapshot bool,
+	rng *ranger.Key,
 ) (Task, error) {
 	newKey := uuid.New()
 	var res Task
@@ -357,6 +340,7 @@ func (w Writer) Copy(
 			t.Key = newKey
 			t.Name = name
 			t.Snapshot = snapshot
+			t.Range = rng
 			res = t
 			return t, t.Validate()
 		}).

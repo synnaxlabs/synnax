@@ -33,6 +33,7 @@ func NewMigrations(cfg MigrationsConfig) []gorp.Migration {
 			v1.EtherCATChannelMapMigration,
 			v2.Migration,
 			v2.MembersMigration,
+			v2.ParentMigration,
 		},
 	)
 }

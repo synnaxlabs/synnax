@@ -9,6 +9,7 @@
 
 import "schemas/synnax/device"
 import "schemas/synnax/rack"
+import "schemas/synnax/ranger"
 import "schemas/synnax/status"
 import "schemas/x/patch"
 import "schemas/x/telem"
@@ -103,6 +104,11 @@ Task struct<
     snapshot    bool = false {
         @doc value "is true if this task is an immutable snapshot copy of another task."
         @filter
+    }
+    range       ranger.Key?         {
+        @cpp omit
+        @doc value "is the range the task is a snapshot in, if any."
+        @pb omit
     }
     status      Status<StatusData>? {
         @doc value  "is the current execution status of the task."

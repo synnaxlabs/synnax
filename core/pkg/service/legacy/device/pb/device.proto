@@ -13,7 +13,6 @@ syntax = "proto3";
 
 package service.device.pb;
 
-import "core/pkg/service/resource/pb/resource.proto";
 import "core/pkg/service/status/pb/status.proto";
 import "google/protobuf/struct.proto";
 
@@ -54,7 +53,7 @@ message Device {
   optional .service.status.pb.Status status = 9;
   // group is the group the device sits in, if any.
   optional string group = 10;
-  // parent is an optional parent resource ID for hierarchical device organization
-  // (e.g., NI chassis containing modules).
-  optional .service.resource.pb.ID parent = 11;
+  // parent is the key of the device that holds this device, such as the NI chassis of a
+  // module. Empty for a device that sits directly on its rack.
+  optional string parent = 11;
 }

@@ -19,8 +19,8 @@ import (
 	"github.com/synnaxlabs/gorp"
 	. "github.com/synnaxlabs/synnax/pkg/service/actions/testutil"
 	"github.com/synnaxlabs/synnax/pkg/service/arc"
-	"github.com/synnaxlabs/synnax/pkg/service/ontology"
 	"github.com/synnaxlabs/synnax/pkg/service/task"
+	"github.com/synnaxlabs/x/encoding/msgpack"
 	"github.com/synnaxlabs/x/query"
 	. "github.com/synnaxlabs/x/testutil"
 )
@@ -185,18 +185,19 @@ var _ = Describe("Writer", func() {
 			Expect(svc.NewWriter(tx).Create(ctx, &a)).To(Succeed())
 
 			t := &task.Task{
-				Rack: testRack.Key,
-				Name: "child-task",
-				Type: arc.TaskType,
+				Rack:   testRack.Key,
+				Name:   "child-task",
+				Type:   arc.TaskType,
+				Config: msgpack.EncodedJSON{"arc_key": a.Key.String()},
+			}
+			other := &task.Task{
+				Rack:   testRack.Key,
+				Name:   "other-arc-task",
+				Type:   arc.TaskType,
+				Config: msgpack.EncodedJSON{"arc_key": uuid.New().String()},
 			}
 			Expect(taskSvc.NewWriter(tx).Create(ctx, t)).To(Succeed())
-
-			Expect(otg.NewWriter(tx).DefineRelationships(
-				ctx,
-				a.ResourceID(),
-				ontology.RelationshipTypeParentOf,
-				t.ResourceID(),
-			)).To(Succeed())
+			Expect(taskSvc.NewWriter(tx).Create(ctx, other)).To(Succeed())
 
 			Expect(svc.NewWriter(tx).Delete(ctx, a.Key)).To(Succeed())
 
@@ -204,6 +205,9 @@ var _ = Describe("Writer", func() {
 				To(MatchError(query.ErrNotFound))
 			Expect(taskSvc.NewRetrieve().Where(task.MatchKeys(t.Key)).Exec(ctx, tx)).
 				To(MatchError(query.ErrNotFound))
+			Expect(taskSvc.NewRetrieve().
+				Where(task.MatchKeys(other.Key)).
+				Exists(ctx, tx)).To(BeTrue())
 		})
 
 		It(
@@ -223,32 +227,21 @@ var _ = Describe("Writer", func() {
 				a := arc.Arc{Name: "arc-with-multiple-tasks", Mode: arc.ModeText}
 				Expect(svc.NewWriter(tx).Create(ctx, &a)).To(Succeed())
 
+				cfg := msgpack.EncodedJSON{"arc_key": a.Key.String()}
 				t1 := &task.Task{
-					Rack: testRack.Key,
-					Name: "child-task-1",
-					Type: arc.TaskType,
+					Rack:   testRack.Key,
+					Name:   "child-task-1",
+					Type:   arc.TaskType,
+					Config: cfg,
 				}
 				t2 := &task.Task{
-					Rack: testRack.Key,
-					Name: "child-task-2",
-					Type: arc.TaskType,
+					Rack:   testRack.Key,
+					Name:   "child-task-2",
+					Type:   arc.TaskType,
+					Config: cfg,
 				}
 				Expect(taskSvc.NewWriter(tx).Create(ctx, t1)).To(Succeed())
 				Expect(taskSvc.NewWriter(tx).Create(ctx, t2)).To(Succeed())
-
-				otgWriter := otg.NewWriter(tx)
-				Expect(otgWriter.DefineRelationships(
-					ctx,
-					a.ResourceID(),
-					ontology.RelationshipTypeParentOf,
-					t1.ResourceID(),
-				)).To(Succeed())
-				Expect(otgWriter.DefineRelationships(
-					ctx,
-					a.ResourceID(),
-					ontology.RelationshipTypeParentOf,
-					t2.ResourceID(),
-				)).To(Succeed())
 
 				Expect(svc.NewWriter(tx).Delete(ctx, a.Key)).To(Succeed())
 

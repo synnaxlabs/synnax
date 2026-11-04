@@ -14,8 +14,9 @@ import (
 
 	"github.com/samber/lo"
 	"github.com/synnaxlabs/gorp"
-	"github.com/synnaxlabs/synnax/pkg/service/ontology"
 	"github.com/synnaxlabs/synnax/pkg/service/rack"
+	"github.com/synnaxlabs/synnax/pkg/service/ranger"
+	"github.com/synnaxlabs/synnax/pkg/service/resource"
 	"github.com/synnaxlabs/synnax/pkg/service/task/config"
 	"github.com/synnaxlabs/x/errors"
 	"github.com/synnaxlabs/x/query"
@@ -27,15 +28,59 @@ type Retrieve struct {
 	baseTX  gorp.Tx
 	gorp    gorp.Retrieve[Key, Task]
 	search  *gorp.SearchIndex[Key, Task]
-	otg     *ontology.Ontology
+	refs    references
 	configs config.Registry
 	entry   *Task
 	entries *[]Task
 }
 
+// references holds the references a task holds to other records.
+type references struct {
+	rack *gorp.Reference[Key, Task]
+	rng  *gorp.Reference[Key, Task]
+}
+
+func newReferences() references {
+	return references{
+		rack: gorp.NewReference(gorp.ReferenceConfig[Key, Task]{
+			Name:     "rack",
+			Tables:   []string{string(resource.TypeRack)},
+			OnDelete: gorp.Cascade,
+			// A draft holds rack zero, which names no rack.
+			Targets: func(t *Task) []gorp.Target {
+				if t.Rack.IsZero() {
+					return nil
+				}
+				return []gorp.Target{rackTarget(t.Rack)}
+			},
+		}),
+		rng: gorp.NewReference(gorp.ReferenceConfig[Key, Task]{
+			Name:     "range",
+			Tables:   []string{string(resource.TypeRange)},
+			OnDelete: gorp.Cascade,
+			Targets: func(t *Task) []gorp.Target {
+				if t.Range == nil {
+					return nil
+				}
+				return []gorp.Target{rangeTarget(*t.Range)}
+			},
+		}),
+	}
+}
+
+func (r references) all() []*gorp.Reference[Key, Task] {
+	return []*gorp.Reference[Key, Task]{r.rack, r.rng}
+}
+
+func rackTarget(k rack.Key) gorp.Target { return gorp.To(string(resource.TypeRack), k) }
+
+func rangeTarget(k ranger.Key) gorp.Target {
+	return gorp.To(string(resource.TypeRange), k)
+}
+
 // Filter is a per-service filter that is bound to the Retrieve when passed to Where.
 // Pure filters ignore the Retrieve argument; service-bound filters read from it (e.g.
-// r.otg, r.configs) to evaluate. Use Match to construct one from a closure.
+// r.refs, r.configs) to evaluate. Use Match to construct one from a closure.
 //
 // Filter is a type alias for gorp.BoundFilter[Retrieve, K, E] so the composition
 // helpers (Match / And / Or / Not) can be one-line wrappers around their gorp.*Bound
@@ -78,11 +123,22 @@ func MatchKeys(keys ...Key) Filter {
 }
 
 // MatchRacks returns a filter for tasks whose Rack matches any of the provided values.
+// A draft on no rack matches no value.
 func MatchRacks(vals ...rack.Key) Filter {
 	return func(r Retrieve) gorp.Filter[Key, Task] {
-		return gorp.Match(func(_ gorp.Context, e *Task) (bool, error) {
-			return lo.Contains(vals, e.Rack), nil
-		})
+		return r.refs.rack.Filter(lo.Map(vals, func(k rack.Key, _ int) gorp.Target {
+			return rackTarget(k)
+		})...)
+	}
+}
+
+// MatchRanges returns a filter for tasks whose Range matches any of the provided
+// values.
+func MatchRanges(vals ...ranger.Key) Filter {
+	return func(r Retrieve) gorp.Filter[Key, Task] {
+		return r.refs.rng.Filter(lo.Map(vals, func(k ranger.Key, _ int) gorp.Target {
+			return rangeTarget(k)
+		})...)
 	}
 }
 
@@ -123,7 +179,7 @@ func MatchSnapshot(v bool) Filter {
 }
 
 // Where applies the provided filter to the query, binding it to the Retrieve so
-// service-bound filters can read from r.otg, r.configs, etc. To compose multiple
+// service-bound filters can read from r.refs, r.configs, etc. To compose multiple
 // filters, chain Where calls or pass a combined filter via And / Or.
 func (r Retrieve) Where(filter Filter) Retrieve {
 	r.gorp = r.gorp.Where(filter(r))

@@ -19,7 +19,6 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/service/access/rbac"
 	"github.com/synnaxlabs/synnax/pkg/service/group"
 	"github.com/synnaxlabs/synnax/pkg/service/legacy/device"
-	"github.com/synnaxlabs/synnax/pkg/service/ontology"
 	"github.com/synnaxlabs/synnax/pkg/service/rack"
 	"github.com/synnaxlabs/synnax/pkg/service/resource"
 	"github.com/synnaxlabs/synnax/pkg/service/status"
@@ -44,10 +43,6 @@ type ServiceConfig struct {
 	//
 	// [REQUIRED]
 	RBAC *rbac.Service
-	// Ontology stores the relationships between resources.
-	//
-	// [REQUIRED]
-	Ontology *ontology.Ontology
 }
 
 var (
@@ -61,7 +56,6 @@ func (c ServiceConfig) Override(other ServiceConfig) ServiceConfig {
 	c.Device = override.Nil(c.Device, other.Device)
 	c.Status = override.Nil(c.Status, other.Status)
 	c.RBAC = override.Nil(c.RBAC, other.RBAC)
-	c.Ontology = override.Nil(c.Ontology, other.Ontology)
 	return c
 }
 
@@ -71,15 +65,13 @@ func (c ServiceConfig) Validate() error {
 	v.NotNil("device", c.Device)
 	v.NotNil("status", c.Status)
 	v.NotNil("rbac", c.RBAC)
-	v.NotNil("ontology", c.Ontology)
 	return v.Error()
 }
 
 type Service struct {
-	access   *rbac.Service
-	device   *device.Service
-	status   *status.Service
-	ontology *ontology.Ontology
+	access *rbac.Service
+	device *device.Service
+	status *status.Service
 }
 
 func NewService(cfgs ...ServiceConfig) (*Service, error) {
@@ -88,10 +80,9 @@ func NewService(cfgs ...ServiceConfig) (*Service, error) {
 		return nil, err
 	}
 	return &Service{
-		device:   cfg.Device,
-		status:   cfg.Status,
-		access:   cfg.RBAC,
-		ontology: cfg.Ontology,
+		device: cfg.Device,
+		status: cfg.Status,
+		access: cfg.RBAC,
 	}, nil
 }
 
@@ -211,7 +202,11 @@ type RetrieveRequest struct {
 	Offset         int          `json:"offset"           msgpack:"offset"`
 	IgnoreNotFound bool         `json:"ignore_not_found" msgpack:"ignore_not_found"`
 	IncludeStatus  bool         `json:"include_status"   msgpack:"include_status"`
-	IncludeParent  bool         `json:"include_parent"   msgpack:"include_parent"`
+	// Parents keeps only the devices held by any of these devices.
+	Parents []device.Key `json:"parents" msgpack:"parents"`
+	// Nested keeps only the devices held by another device when true, and only the
+	// devices that sit directly on their rack when false. Nil applies no filter.
+	Nested *bool `json:"nested" msgpack:"nested"`
 	// Groups keeps only the devices in any of these groups.
 	Groups []group.Key `json:"groups" msgpack:"groups"`
 	// Grouped keeps only the devices in a group when true, and only the devices in no
@@ -272,6 +267,12 @@ func (s *Service) Retrieve(
 	if req.Grouped != nil {
 		q = q.Where(device.MatchHasGroup(*req.Grouped))
 	}
+	if len(req.Parents) > 0 {
+		q = q.Where(device.MatchParents(req.Parents...))
+	}
+	if req.Nested != nil {
+		q = q.Where(device.MatchNested(*req.Nested))
+	}
 	var res RetrieveResponse
 	retErr := q.Entries(&res.Devices).Exec(ctx, nil)
 
@@ -290,26 +291,6 @@ func (s *Service) Retrieve(
 	}
 	if retErr != nil && req.IgnoreNotFound {
 		retErr = errors.Skip(retErr, query.ErrNotFound)
-	}
-	if req.IncludeParent {
-		for i, d := range res.Devices {
-			var parent ontology.Resource
-			err := s.ontology.NewRetrieve().
-				WhereIDs(d.ResourceID()).
-				TraverseTo(ontology.ParentsTraverser).
-				Limit(1).
-				ExcludeFieldData(true).
-				Entry(&parent).
-				Exec(ctx, nil)
-			if err != nil {
-				if !errors.Is(err, query.ErrNotFound) {
-					return RetrieveResponse{}, err
-				}
-				continue
-			}
-			pid := resource.ID(parent.ID)
-			res.Devices[i].Parent = &pid
-		}
 	}
 	if retErr != nil {
 		return RetrieveResponse{}, retErr

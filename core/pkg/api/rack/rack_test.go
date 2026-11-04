@@ -17,12 +17,16 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/service/access"
 	"github.com/synnaxlabs/synnax/pkg/service/auth"
 	"github.com/synnaxlabs/synnax/pkg/service/group"
+	"github.com/synnaxlabs/synnax/pkg/service/legacy/device"
+	"github.com/synnaxlabs/synnax/pkg/service/pagerduty"
 	"github.com/synnaxlabs/synnax/pkg/service/rack"
 	"github.com/synnaxlabs/synnax/pkg/service/resource"
 	"github.com/synnaxlabs/synnax/pkg/service/status"
+	"github.com/synnaxlabs/synnax/pkg/service/task"
 	"github.com/synnaxlabs/x/query"
 	"github.com/synnaxlabs/x/telem"
 	. "github.com/synnaxlabs/x/testutil"
+	"github.com/synnaxlabs/x/validate"
 )
 
 func retrieveRack(ctx SpecContext, key rack.Key) rack.Rack {
@@ -275,6 +279,79 @@ var _ = Describe("Delete", func() {
 		)).Error().ToNot(HaveOccurred())
 		Expect(svc.Auth.Authenticate(ctx, token)).Error().
 			To(MatchError(auth.ErrInvalidToken))
+	})
+
+	deleteRack := func(ctx SpecContext, key rack.Key) error {
+		GinkgoHelper()
+		u := createUser(ctx)
+		grant(ctx, access.ActionDelete, u.ResourceID(), key.ResourceID())
+		_, err := apiSvc.Delete(
+			AuthedCtx(ctx, u), nil,
+			apirack.DeleteRequest{Keys: []rack.Key{key}},
+		)
+		return err
+	}
+	exists := func(ctx SpecContext, key rack.Key) bool {
+		GinkgoHelper()
+		return MustSucceed(svc.Rack.NewRetrieve().
+			Where(rack.MatchKeys(key)).
+			Exists(ctx, nil))
+	}
+
+	It("Should refuse to delete the embedded rack", func(ctx SpecContext) {
+		Expect(deleteRack(ctx, svc.Rack.EmbeddedKey)).
+			To(MatchError(ContainSubstring("cannot delete embedded rack")))
+		Expect(exists(ctx, svc.Rack.EmbeddedKey)).To(BeTrue())
+	})
+
+	It("Should refuse to delete a rack that holds a device", func(ctx SpecContext) {
+		r := rack.Rack{Name: "With Device"}
+		Expect(svc.Rack.NewWriter(nil).Create(ctx, &r)).To(Succeed())
+		d := device.Device{
+			Key:      "api-rack-device",
+			Rack:     r.Key,
+			Location: "loc",
+			Name:     "Device",
+			Make:     "make",
+			Model:    "model",
+		}
+		Expect(svc.Device.NewWriter(nil).Create(ctx, &d)).To(Succeed())
+		Expect(deleteRack(ctx, r.Key)).To(MatchError(validate.ErrValidation))
+		Expect(exists(ctx, r.Key)).To(BeTrue())
+	})
+
+	It(
+		"Should refuse to delete a rack that holds a task that is not internal",
+		func(ctx SpecContext) {
+			r := rack.Rack{Name: "With Task"}
+			Expect(svc.Rack.NewWriter(nil).Create(ctx, &r)).To(Succeed())
+			t := task.Task{
+				Rack: r.Key,
+				Name: "User Task",
+				Type: pagerduty.AlertTaskType,
+			}
+			Expect(svc.Task.NewWriter(nil).Create(ctx, &t)).To(Succeed())
+			Expect(deleteRack(ctx, r.Key)).
+				To(MatchError(ContainSubstring("still holds tasks")))
+			Expect(exists(ctx, r.Key)).To(BeTrue())
+		},
+	)
+
+	It("Should delete the internal tasks of a deleted rack", func(ctx SpecContext) {
+		r := rack.Rack{Name: "With Internal Task"}
+		Expect(svc.Rack.NewWriter(nil).Create(ctx, &r)).To(Succeed())
+		t := task.Task{
+			Rack:     r.Key,
+			Name:     "Scanner",
+			Type:     pagerduty.AlertTaskType,
+			Internal: true,
+		}
+		Expect(svc.Task.NewWriter(nil).Create(ctx, &t)).To(Succeed())
+		Expect(deleteRack(ctx, r.Key)).To(Succeed())
+		Expect(exists(ctx, r.Key)).To(BeFalse())
+		Expect(svc.Task.NewRetrieve().
+			Where(task.MatchKeys(t.Key)).
+			Exists(ctx, nil)).To(BeFalse())
 	})
 })
 

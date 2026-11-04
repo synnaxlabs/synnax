@@ -19,6 +19,7 @@ from pydantic import BaseModel, Field, JsonValue
 
 from synnax import device as device_
 from synnax import rack as rack_
+from synnax import ranger
 from synnax import status as status_
 from synnax.resource import ID
 from x import telem
@@ -134,6 +135,7 @@ class Payload(BaseModel):
             detect drift.
         internal: Is true if this is an internal system task.
         snapshot: Is true if this task is an immutable snapshot copy of another task.
+        range: Is the range the task is a snapshot in, if any.
         status: Is the current execution status of the task.
     """
 
@@ -145,6 +147,7 @@ class Payload(BaseModel):
     config_hash: str = ""
     internal: bool = False
     snapshot: bool = False
+    range: ranger.Key | None = None
     status: Status | None = None
 
     @_override

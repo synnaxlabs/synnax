@@ -61,7 +61,7 @@ export const deviceZ = <
     properties: properties ?? record.unknownZ().default(() => ({})),
     status: statusZ.optional(),
     group: group.keyZ.optional(),
-    parent: resource.idZ.optional(),
+    parent: keyZ.optional(),
   });
 export interface Device<
   Properties extends z.ZodType<record.Unknown> = z.ZodType<record.Unknown>,
@@ -78,7 +78,7 @@ export interface Device<
   properties: z.infer<Properties>;
   status?: Status;
   group?: group.Key;
-  parent?: resource.ID;
+  parent?: Key;
 }
 export type New<
   Properties extends z.ZodType<record.Unknown> = z.ZodType<record.Unknown>,

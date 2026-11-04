@@ -118,7 +118,6 @@ func (retrieveRequestTranslator) Forward(
 		Offset:         uint32(req.Offset),
 		IgnoreNotFound: req.IgnoreNotFound,
 		IncludeStatus:  req.IncludeStatus,
-		IncludeParent:  req.IncludeParent,
 	}, nil
 }
 
@@ -138,7 +137,6 @@ func (retrieveRequestTranslator) Backward(
 		Offset:         int(req.Offset),
 		IgnoreNotFound: req.IgnoreNotFound,
 		IncludeStatus:  req.IncludeStatus,
-		IncludeParent:  req.IncludeParent,
 	}, nil
 }
 

@@ -373,13 +373,8 @@ type DeleteRequest struct {
 	Keys []rack.Key `json:"keys" msgpack:"keys"`
 }
 
-func embeddedGuard(_ gorp.Context, r rack.Rack) error {
-	if !r.Embedded {
-		return nil
-	}
-	return errors.Wrapf(validate.ErrValidation, "cannot delete embedded rack")
-}
-
+// Delete deletes the racks and the internal tasks they hold. It refuses a rack that is
+// embedded or holds a device or a task that is not internal.
 func (s *Service) Delete(
 	ctx context.Context,
 	tx gorp.Tx,
@@ -392,39 +387,8 @@ func (s *Service) Delete(
 	}); err != nil {
 		return struct{}{}, err
 	}
-	exists, err := s.device.NewRetrieve().
-		Where(device.MatchRacks(req.Keys...)).
-		Exists(ctx, tx)
-	if err != nil {
-		return struct{}{}, err
-	}
-	if exists {
-		return struct{}{}, errors.Wrapf(
-			validate.ErrValidation,
-			"cannot delete rack when devices are still attached",
-		)
-	}
-	exists, err = s.task.NewRetrieve().
-		Where(task.And(task.MatchInternal(false), task.MatchRacks(req.Keys...))).
-		Exists(ctx, tx)
-	if err != nil {
-		return struct{}{}, err
-	}
-	if exists {
-		return struct{}{}, errors.Wrapf(
-			validate.ErrValidation,
-			"cannot delete rack when tasks are still attached",
-		)
-	}
-	w := s.rack.NewWriter(tx)
-	for _, k := range req.Keys {
-		if err := w.DeleteGuard(ctx, k, embeddedGuard); err != nil {
-			return struct{}{}, err
-		}
-	}
-	// Only internal tasks are left: the check above rejects the delete while the user
-	// still has tasks of their own on the rack.
-	if err := s.task.NewWriter(tx).DeleteByRacks(ctx, req.Keys...); err != nil {
+	if err := s.rack.NewWriter(tx).
+		Delete(ctx, s.task.RackDeleteGuard, req.Keys...); err != nil {
 		return struct{}{}, err
 	}
 	return struct{}{}, s.auth.NewWriter(tx).
