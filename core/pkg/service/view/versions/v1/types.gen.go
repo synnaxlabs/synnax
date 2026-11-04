@@ -15,7 +15,7 @@ import (
 	"encoding/json/jsontext"
 	"encoding/json/v2"
 
-	ranger "github.com/synnaxlabs/synnax/pkg/service/ranger/versions/v1"
+	label "github.com/synnaxlabs/synnax/pkg/service/label/versions/v0"
 	status "github.com/synnaxlabs/synnax/pkg/service/status/versions/v1"
 	v0 "github.com/synnaxlabs/synnax/pkg/service/view/versions/v0"
 	"github.com/synnaxlabs/x/errors"
@@ -24,6 +24,36 @@ import (
 
 // Key is a unique identifier for a saved view configuration.
 type Key = v0.Key
+
+// Base carries the fields shared by every view variant.
+type Base struct {
+	// Key is the unique identifier for this view.
+	Key Key `json:"key" msgpack:"key"`
+	// Name is a human-readable name for the view.
+	Name string `json:"name" msgpack:"name"`
+}
+
+// Validate returns an error wrapping validate.ErrValidation if any field violates its
+// schema constraints.
+func (b Base) Validate() error {
+	v := validate.New("Base")
+	v.NotEmptyString("name", b.Name)
+	return v.Error()
+}
+
+// RangeQuery filters the ranges shown by a range view.
+type RangeQuery struct {
+	// HasLabels restricts the view to ranges carrying any of these labels.
+	HasLabels []label.Key `json:"has_labels" msgpack:"has_labels"`
+}
+
+// StatusQuery filters the statuses shown by a status view.
+type StatusQuery struct {
+	// HasLabels restricts the view to statuses carrying any of these labels.
+	HasLabels []label.Key `json:"has_labels" msgpack:"has_labels"`
+	// Variants restricts the view to statuses of these variants.
+	Variants []status.Variant `json:"variants" msgpack:"variants"`
+}
 
 type ViewType string
 
@@ -39,8 +69,8 @@ type ViewVariant interface {
 // RangeView is a saved view of ranges.
 type RangeView struct {
 	Base
-	// Where selects the ranges the view shows. An absent where shows all.
-	Where *ranger.Where `json:"where,omitzero" msgpack:"where,omitempty"`
+	// Query filters the ranges the view shows.
+	Query RangeQuery `json:"query" msgpack:"query"`
 }
 
 func (RangeView) isViewVariant() {}
@@ -56,8 +86,8 @@ func (r RangeView) Validate() error {
 // StatusView is a saved view of statuses.
 type StatusView struct {
 	Base
-	// Where selects the statuses the view shows. An absent where shows all.
-	Where *status.Where `json:"where,omitzero" msgpack:"where,omitempty"`
+	// Query filters the statuses the view shows.
+	Query StatusQuery `json:"query" msgpack:"query"`
 }
 
 func (StatusView) isViewVariant() {}
@@ -71,7 +101,7 @@ func (s StatusView) Validate() error {
 }
 
 // View is a saved, named filter over a list of resources. The type selects the resource
-// the view lists and the shape of its where.
+// the view lists and the shape of its query.
 type View struct {
 	Variant ViewVariant
 }
@@ -172,20 +202,4 @@ func (u View) Validate() error {
 		return variant.Validate()
 	}
 	return nil
-}
-
-// Base carries the fields shared by every view variant.
-type Base struct {
-	// Key is the unique identifier for this view.
-	Key Key `json:"key" msgpack:"key"`
-	// Name is a human-readable name for the view.
-	Name string `json:"name" msgpack:"name"`
-}
-
-// Validate returns an error wrapping validate.ErrValidation if any field violates its
-// schema constraints.
-func (b Base) Validate() error {
-	v := validate.New("Base")
-	v.NotEmptyString("name", b.Name)
-	return v.Error()
 }
