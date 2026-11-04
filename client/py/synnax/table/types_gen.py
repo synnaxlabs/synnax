@@ -47,7 +47,7 @@ class Row(BaseModel):
     """
 
     key: str = Field(default_factory=lambda: str(uuid4()))
-    size: float = Field(ge=1, default=36)
+    size: float = Field(default=36, ge=1)
     cells: list[str] = Field(default_factory=list)
 
 
@@ -60,7 +60,7 @@ class Column(BaseModel):
     """
 
     key: str = Field(default_factory=lambda: str(uuid4()))
-    size: float = Field(ge=1, default=72)
+    size: float = Field(default=72, ge=1)
 
 
 class TextCellConfig(BaseModel):
@@ -69,7 +69,7 @@ class TextCellConfig(BaseModel):
     variant: Literal["text"] = "text"
     value: str = ""
     level: text.Level = "h5"
-    weight: float = Field(ge=1, le=1000, default=400)
+    weight: float = Field(default=400, ge=1, le=1000)
     align: FlexAlignment = "center"
     fill_color: color.Color | None = None
     text_color: color.Color | None = None
@@ -80,7 +80,7 @@ class ValueCellConfig(BaseModel):
 
     variant: Literal["value"] = "value"
     channel: channel_.Key = Field(default=channel_.Key(0), ge=0, le=4294967295)
-    rolling_average: int = Field(ge=1, default=1, le=2147483647)
+    rolling_average: int = Field(default=1, ge=1, le=2147483647)
     precision: int | None = Field(default=None, ge=-2147483648, le=2147483647)
     notation: notation_.Notation = "standard"
     redline: color.Scale = Field(default_factory=lambda: color.Scale())
@@ -88,7 +88,7 @@ class ValueCellConfig(BaseModel):
     level: text.Level = "h5"
     text_color: color.Color | None = None
     units: str = ""
-    staleness_timeout: float = Field(ge=1, default=5)
+    staleness_timeout: float = Field(default=5, ge=1)
     staleness_color: color.Color | None = None
 
 
