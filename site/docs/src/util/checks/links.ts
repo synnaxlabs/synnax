@@ -17,11 +17,13 @@ import { normalizeRoute } from "@/util/route";
 
 // Hosts that block automated requests or answer too slowly to probe; entries skip the
 // external check. Omron redirects and takes several seconds from a datacenter IP, so it
-// exhausts every attempt and fails the run.
+// exhausts every attempt and fails the run. The website and portal deploy apart from
+// this build, and a Vercel bot challenge blocks CI runners from them.
 const IGNORED_HOSTS: string[] = [
   "automation.omron.com",
-  "ico.org.uk",
-  "www.rockwellautomation.com",
+  "portal.synnaxlabs.com",
+  "synnaxlabs.com",
+  "www.synnaxlabs.com",
 ];
 
 // Sentinel origin for resolving relative hrefs; any other host is external.
