@@ -10,7 +10,9 @@
 package domain_test
 
 import (
+	"context"
 	"slices"
+	"time"
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
@@ -196,6 +198,7 @@ var _ = Describe("Index Persist", Ordered, func() {
 			Describe("Buffer reuse", func() {
 				var hooked *hookedFS
 				reopen := func(fs xfs.FS) {
+					GinkgoHelper()
 					Expect(db.Close()).To(Succeed())
 					db = MustSucceed(domain.Open(domain.Config{
 						FS:              fs,
@@ -209,6 +212,7 @@ var _ = Describe("Index Persist", Ordered, func() {
 					start telem.TimeStamp,
 					data []byte,
 				) *domain.Writer {
+					GinkgoHelper()
 					w := MustSucceed(db.OpenWriter(ctx, domain.WriterConfig{
 						End:              start + 3*telem.SecondTS,
 						EnableAutoCommit: new(false),
@@ -250,14 +254,13 @@ var _ = Describe("Index Persist", Ordered, func() {
 						MustSucceed(w1.Write([]byte{5}))
 						MustSucceed(w2.Write([]byte{6}))
 
-						var (
-							entered = make(chan struct{}, 2)
-							release = make(chan struct{})
-						)
+						entered := make(chan struct{}, 2)
+						released, release := context.WithTimeout(ctx, 10*time.Second)
+						DeferCleanup(release)
 						hooked.writeAt = func(p []byte) error {
 							encoded := slices.Clone(p)
 							entered <- struct{}{}
-							<-release
+							<-released.Done()
 							if !slices.Equal(p, encoded) {
 								return errors.New("buffer changed before its write")
 							}
@@ -267,8 +270,8 @@ var _ = Describe("Index Persist", Ordered, func() {
 						go func() { done <- w1.Commit(ctx, 13*telem.SecondTS) }()
 						Eventually(entered).Should(Receive())
 						go func() { done <- w2.Commit(ctx, 23*telem.SecondTS) }()
-						Consistently(done, "50ms").ShouldNot(Receive())
-						close(release)
+						Consistently(done, 50*time.Millisecond).ShouldNot(Receive())
+						release()
 						Eventually(done).Should(Receive(BeNil()))
 						Eventually(done).Should(Receive(BeNil()))
 						hooked.writeAt = nil
