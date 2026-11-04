@@ -17,10 +17,9 @@ import { z } from "zod";
 
 import { Task } from "@/platform/task";
 import { renderInTaskForm } from "@/platform/task/testutil";
-import { type Channel } from "@/platform/task/types";
 import { getIconButton, queryIconButton, renderWithConsole } from "@/testutil";
 
-const path = deep.path<{ config: { channels: Channel[] } }>();
+const path = deep.path<{ config: { channels: Task.Channel[] } }>();
 
 const listItem = Component.renderProp(({ itemKey }: { itemKey: string }) => (
   <span>item-{itemKey}</span>
@@ -39,7 +38,7 @@ const resolve = () => null;
 describe("layouts.List", () => {
   it("should render an item for each seeded channel", async () => {
     await renderInTaskForm(
-      <Task.Views.List<Channel>
+      <Task.Views.List<Task.Channel>
         path={path.config.channels}
         createChannel={() => null}
         listItem={listItem}
@@ -61,9 +60,9 @@ describe("layouts.List", () => {
   });
 
   it("should append a channel to the form when the header add button is pressed", async () => {
-    const createChannel = vi.fn((): Channel => ({ key: "new", disabled: false }));
+    const createChannel = vi.fn((): Task.Channel => ({ key: "new", disabled: false }));
     const { container, form } = await renderInTaskForm(
-      <Task.Views.List<Channel>
+      <Task.Views.List<Task.Channel>
         path={path.config.channels}
         createChannel={createChannel}
         listItem={listItem}
@@ -80,9 +79,9 @@ describe("layouts.List", () => {
   });
 
   it("should create a channel from the footer action", async () => {
-    const createChannel = vi.fn((): Channel => ({ key: "new", disabled: false }));
+    const createChannel = vi.fn((): Task.Channel => ({ key: "new", disabled: false }));
     const { form } = await renderInTaskForm(
-      <Task.Views.List<Channel>
+      <Task.Views.List<Task.Channel>
         path={path.config.channels}
         createChannel={createChannel}
         listItem={listItem}
@@ -111,7 +110,7 @@ describe("layouts.List", () => {
     );
     await renderWithConsole(
       <Form.Form {...form.current}>
-        <Task.Views.List<Channel>
+        <Task.Views.List<Task.Channel>
           path={path.config.channels}
           createChannel={() => ({ key: "new", disabled: false })}
           listItem={listItem}
@@ -130,7 +129,7 @@ describe("layouts.List", () => {
 
   it("should append nothing when createChannel returns null", async () => {
     const { container, form } = await renderInTaskForm(
-      <Task.Views.List<Channel>
+      <Task.Views.List<Task.Channel>
         path={path.config.channels}
         createChannel={() => null}
         listItem={listItem}
@@ -145,7 +144,7 @@ describe("layouts.List", () => {
 
   it("should name the list, its empty state, and its add action as told", async () => {
     const { form } = await renderInTaskForm(
-      <Task.Views.List<Channel>
+      <Task.Views.List<Task.Channel>
         path={path.config.channels}
         createChannel={() => ({ key: "new", disabled: false })}
         listItem={listItem}
@@ -166,7 +165,7 @@ describe("layouts.List", () => {
 
   it("should offer no duplicate when the list cannot copy a channel", async () => {
     await renderInTaskForm(
-      <Task.Views.List<Channel>
+      <Task.Views.List<Task.Channel>
         path={path.config.channels}
         createChannel={() => null}
         listItem={selectItem}
@@ -181,7 +180,7 @@ describe("layouts.List", () => {
 
   it("should hide the add button when the form is in preview", async () => {
     const { container } = await renderInTaskForm(
-      <Task.Views.List<Channel>
+      <Task.Views.List<Task.Channel>
         path={path.config.channels}
         createChannel={() => null}
         listItem={listItem}

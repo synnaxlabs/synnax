@@ -31,7 +31,6 @@ import { Empty } from "@/platform";
 import { CSS } from "@/platform/css";
 import { type Import } from "@/platform/import";
 import { Panel as PlatformPanel } from "@/platform/panel";
-import { ResourceGuard, useTab } from "@/platform/panel/tab";
 import { Session } from "@/session";
 
 const corpseName = (error: Error): string | undefined =>
@@ -95,7 +94,7 @@ const Tombstone = ({
 const DeletedContent = ({ name: corpse }: Flux.Tombstone): ReactElement => {
   const resource = Panel.useTabResource({});
   const closeTabs = Panel.useCloseResourceTabs();
-  const { restore, Icon: TabIcon } = useTab();
+  const { restore, Icon: TabIcon } = PlatformPanel.useTab();
   const client = Synnax.use();
   const project = Session.Project.useSelectSelected();
   const handleError = Status.useErrorHandler();
@@ -141,7 +140,7 @@ const DeletedContent = ({ name: corpse }: Flux.Tombstone): ReactElement => {
 const NotFoundContent = (): ReactElement => {
   const resource = Panel.useTabResource({});
   const closeTabs = Panel.useCloseResourceTabs();
-  const { Icon: TabIcon } = useTab();
+  const { Icon: TabIcon } = PlatformPanel.useTab();
   return (
     <Tombstone
       icon={<TabIcon />}
@@ -165,16 +164,16 @@ const ContentFallback = (props: Errors.FallbackProps): ReactElement => {
 };
 
 const TabName = (): ReactElement => {
-  const { Name } = useTab();
+  const { Name } = PlatformPanel.useTab();
   return (
-    <ResourceGuard FallbackComponent={TabNameContent}>
+    <PlatformPanel.ResourceGuard FallbackComponent={TabNameContent}>
       <Errors.SuspenseBoundary
         loading={<Icon.Loading />}
         FallbackComponent={TabNameFallback}
       >
         <Name />
       </Errors.SuspenseBoundary>
-    </ResourceGuard>
+    </PlatformPanel.ResourceGuard>
   );
 };
 
@@ -188,7 +187,7 @@ const loading = (
 
 const LiveContent = (): ReactElement => {
   const tabType = Panel.useTabType({});
-  const { Content } = useTab();
+  const { Content } = PlatformPanel.useTab();
   // Background tabs stay mounted, so every tab answers a keystroke unless the ones the
   // user is not working in are switched off here.
   const triggersActive = Session.Panel.useGetTabTriggersActive();
@@ -212,9 +211,9 @@ const LiveContent = (): ReactElement => {
 };
 
 const Content = (): ReactElement => (
-  <ResourceGuard FallbackComponent={DeletedContent}>
+  <PlatformPanel.ResourceGuard FallbackComponent={DeletedContent}>
     <LiveContent />
-  </ResourceGuard>
+  </PlatformPanel.ResourceGuard>
 );
 
 const content = Component.renderProp(Content);

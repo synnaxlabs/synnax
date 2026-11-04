@@ -14,10 +14,9 @@ import { describe, expect, it, vi } from "vitest";
 
 import { Task } from "@/platform/task";
 import { renderInTaskForm } from "@/platform/task/testutil";
-import { type Channel } from "@/platform/task/types";
 import { getIconButton, queryIcon, queryIconButton } from "@/testutil";
 
-const path = deep.path<{ config: { channels: Channel[] } }>();
+const path = deep.path<{ config: { channels: Task.Channel[] } }>();
 
 // The channel item renders inside its real Select/List context by being handed to the
 // layouts List as its listItem render prop.
@@ -25,7 +24,7 @@ const renderItem = (
   extra: Partial<Parameters<typeof Task.Views.ListAndDetailsChannelItem>[0]> = {},
 ) =>
   renderInTaskForm(
-    <Task.Views.List<Channel>
+    <Task.Views.List<Task.Channel>
       path={path.config.channels}
       createChannel={() => null}
       resolve={() => null}

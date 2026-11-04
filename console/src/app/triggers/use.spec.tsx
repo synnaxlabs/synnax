@@ -32,7 +32,7 @@ vi.mock("@/session/runtime/runtime", async (importOriginal) => {
 });
 
 import { Triggers } from "@/app/triggers";
-import { useSelectorVisible } from "@/app/vis/useSelectorVisible";
+import { Vis } from "@/app/vis";
 import { Panel as PlatformPanel } from "@/platform/panel";
 import {
   createPanelWrapper,
@@ -124,7 +124,7 @@ const renderLiveTriggers = async (panelKey: panel.Key) => {
     () => {
       Triggers.use();
       return {
-        canCreateTab: useSelectorVisible(),
+        canCreateTab: Vis.useSelectorVisible(),
         canEditPanel: PlatformPanel.useCanEditActive(),
       };
     },

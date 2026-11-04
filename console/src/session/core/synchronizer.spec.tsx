@@ -15,7 +15,7 @@ import { type PropsWithChildren, type ReactElement } from "react";
 import { describe, expect, it, vi } from "vitest";
 
 import { Session } from "@/session";
-import { SYNCHRONIZERS } from "@/session/core/synchronizer";
+import { Core } from "@/session/core";
 import { createCore, createCoreState } from "@/session/core/testutil";
 import { Synchronizer } from "@/session/synchronizer";
 import { pickSynchronizer } from "@/session/synchronizer/testutil";
@@ -54,14 +54,14 @@ describe("useCloseOnCoreChange", () => {
 
   const useSyncWithModals = () => {
     const modals = Session.Modals.useStore("useCloseOnCoreChange spec");
-    Synchronizer.use(SYNCHRONIZERS);
+    Synchronizer.use(Core.SYNCHRONIZERS);
     return { modals, status: Synnax.useConnectionStatus() };
   };
 
   const useCloseSync = () => {
     const modals = Session.Modals.useStore("useCloseOnCoreChange spec");
     const verified = Synchronizer.use(
-      pickSynchronizer(SYNCHRONIZERS, "close windows on Core change"),
+      pickSynchronizer(Core.SYNCHRONIZERS, "close windows on Core change"),
     );
     return { modals, verified };
   };
@@ -138,7 +138,7 @@ describe("useCacheClusterKey", () => {
 
   const useCacheSync = () =>
     Synchronizer.use(
-      pickSynchronizer(SYNCHRONIZERS, "cache the connected cluster's key"),
+      pickSynchronizer(Core.SYNCHRONIZERS, "cache the connected cluster's key"),
     );
 
   /** Mounts the synchronizer against a client reporting the given cluster. */
