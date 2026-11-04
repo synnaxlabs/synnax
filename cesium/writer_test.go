@@ -26,9 +26,9 @@ import (
 	"github.com/synnaxlabs/cesium"
 	"github.com/synnaxlabs/cesium/internal/alignment"
 	"github.com/synnaxlabs/cesium/internal/channel"
-	"github.com/synnaxlabs/cesium/internal/domain"
 	"github.com/synnaxlabs/cesium/internal/index"
 	. "github.com/synnaxlabs/cesium/internal/testutil"
+	"github.com/synnaxlabs/cesium/internal/unary"
 	"github.com/synnaxlabs/x/confluence"
 	"github.com/synnaxlabs/x/control"
 	"github.com/synnaxlabs/x/io/fs"
@@ -4193,13 +4193,9 @@ var _ = Describe("Writer Behavior", func() {
 						live := openLive(ctx)
 						Expect(live.Write(frame(10, 12))).To(BeTrue())
 						Expect(live.EndDomain(idx)).To(BeTrue())
-						Expect(live.Write(frame(11))).Error().To(And(
-							MatchError(domain.ErrWriteConflict),
-							MatchError(ContainSubstring(
-								"cannot start writer because there is already data",
-							)),
-						))
-						Expect(live.Close()).To(MatchError(domain.ErrWriteConflict))
+						Expect(live.Write(frame(11))).Error().
+							To(MatchError(unary.ErrOutOfOrder))
+						Expect(live.Close()).To(MatchError(unary.ErrOutOfOrder))
 					},
 				)
 			})
@@ -4296,7 +4292,7 @@ var _ = Describe("Writer Behavior", func() {
 					Expect(err).To(MatchError(ContainSubstring("same length")))
 				})
 
-				Specify("Commit error across many channels", func(ctx SpecContext) {
+				Specify("Index error across many channels", func(ctx SpecContext) {
 					var (
 						idxKey   = GenerateChannelKey()
 						channels = []cesium.Channel{{
@@ -4336,14 +4332,14 @@ var _ = Describe("Writer Behavior", func() {
 					write(10*telem.SecondTS, 11*telem.SecondTS)
 					MustSucceed(w.Commit())
 					write(5*telem.SecondTS, 6*telem.SecondTS)
-					matchOneCommitError := And(
-						MatchError(validate.ErrValidation),
+					matchOneError := And(
+						MatchError(unary.ErrOutOfOrder),
 						WithTransform(func(err error) int {
-							return strings.Count(err.Error(), "must not be less than")
+							return strings.Count(err.Error(), "index out of order")
 						}, Equal(1)),
 					)
-					Expect(w.Commit()).Error().To(matchOneCommitError)
-					Expect(w.Close()).To(matchOneCommitError)
+					Expect(w.Commit()).Error().To(matchOneError)
+					Expect(w.Close()).To(matchOneError)
 				})
 
 				Context("Missing Channel", func() {
@@ -4541,6 +4537,81 @@ var _ = Describe("Writer Behavior", func() {
 						).To(MatchError(ContainSubstring("does not exist in the index")))
 					})
 				})
+			})
+
+			Describe("Out of Order Index", func() {
+				It(
+					"Should reject a backfill behind the data of a live writer",
+					func(ctx SpecContext) {
+						var (
+							idx  = GenerateChannelKey()
+							data = GenerateChannelKey()
+							keys = []cesium.ChannelKey{idx, data}
+						)
+						Expect(db.CreateChannel(
+							ctx,
+							cesium.Channel{
+								Name:     "Ingrid",
+								Key:      idx,
+								IsIndex:  true,
+								DataType: telem.TimestampT,
+							},
+							cesium.Channel{
+								Name:     "Hector",
+								Key:      data,
+								Index:    idx,
+								DataType: telem.Int64T,
+							},
+						)).To(Succeed())
+						live := MustSucceed(db.OpenWriter(ctx, cesium.WriterConfig{
+							Channels:       keys,
+							Start:          100 * telem.SecondTS,
+							Sync:           new(true),
+							ControlSubject: control.Subject{Key: "live"},
+							Authorities:    []control.Authority{100},
+						}))
+						Expect(MustSucceed(live.Write(telem.MultiFrame(
+							keys,
+							[]telem.Series{
+								telem.NewSeriesSecondsTSV(100, 101),
+								telem.NewSeriesV[int64](1, 2),
+							},
+						)))).To(BeTrue())
+						MustSucceed(live.Commit())
+						backfill := MustSucceed(db.OpenWriter(ctx, cesium.WriterConfig{
+							Channels:       keys,
+							Start:          10 * telem.SecondTS,
+							Sync:           new(true),
+							ControlSubject: control.Subject{Key: "backfill"},
+							Authorities:    []control.Authority{200},
+						}))
+						Expect(backfill.Write(telem.MultiFrame(
+							keys,
+							[]telem.Series{
+								telem.NewSeriesSecondsTSV(10, 11),
+								telem.NewSeriesV[int64](7, 8),
+							},
+						))).Error().To(MatchError(unary.ErrOutOfOrder))
+						Expect(backfill.Close()).To(MatchError(unary.ErrOutOfOrder))
+						Expect(MustSucceed(live.Write(telem.MultiFrame(
+							keys,
+							[]telem.Series{
+								telem.NewSeriesSecondsTSV(102, 103),
+								telem.NewSeriesV[int64](3, 4),
+							},
+						)))).To(BeTrue())
+						Expect(MustSucceed(live.Commit())).
+							To(Equal(103*telem.SecondTS + 1))
+						Expect(live.Close()).To(Succeed())
+						f := MustSucceed(db.Read(ctx, telem.TimeRangeMax, keys...))
+						Expect(f.SeriesAt(0)).To(telem.MatchSeriesData(
+							telem.NewSeriesSecondsTSV(100, 101, 102, 103),
+						))
+						Expect(f.SeriesAt(1)).To(telem.MatchSeriesData(
+							telem.NewSeriesV[int64](1, 2, 3, 4),
+						))
+					},
+				)
 			})
 
 			Describe("Data Type Errors", func() {

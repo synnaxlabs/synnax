@@ -364,7 +364,7 @@ class TestWriter:
         """Should raise a validation error when writing timestamps that are out of
         order"""
         time_ch, data_ch = indexed_pair
-        with pytest.raises(sy.ValidationError, match="commit timestamp"):
+        with pytest.raises(sy.ValidationError, match="index out of order"):
             with client.open_writer(
                 start=sy.TimeSpan.SECOND,
                 channels=[time_ch.key, data_ch.key],
