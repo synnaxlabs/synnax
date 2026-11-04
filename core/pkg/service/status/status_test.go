@@ -424,7 +424,7 @@ var _ = Describe("Status", Ordered, func() {
 							Entries(&statuses).
 							Exec(ctx, tx),
 					).To(Succeed())
-					Expect(len(statuses)).To(BeNumerically(">", 1))
+					Expect(statuses).To(HaveLen(1))
 					Expect(statuses[0].Key).To(Equal("retrieve-a"))
 				},
 			)

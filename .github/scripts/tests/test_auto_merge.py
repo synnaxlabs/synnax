@@ -29,8 +29,10 @@ def pull(
     draft: bool = False,
     base: str = "main",
     stacked: bool = False,
+    state: str = "open",
 ) -> dict[str, Any]:
     return {
+        "state": state,
         "stack": {"number": 3980, "position": 1, "size": 2} if stacked else None,
         "labels": [{"name": n} for n in labels],
         "draft": draft,
@@ -42,14 +44,22 @@ def pull(
 
 
 @pytest.fixture
-def run(tmp_path: Path) -> Run:
-    gh = FakeGH(tmp_path)
-    gh.serve("pr merge")
-    env = {
+def gh(tmp_path: Path) -> FakeGH:
+    return FakeGH(tmp_path)
+
+
+@pytest.fixture
+def env(gh: FakeGH) -> dict[str, str]:
+    return {
         **os.environ,
         "PATH": f"{gh.bin_dir}:{os.environ['PATH']}",
         "GITHUB_REPOSITORY": "synnaxlabs/synnax",
     }
+
+
+@pytest.fixture
+def run(gh: FakeGH, env: dict[str, str]) -> Run:
+    gh.serve("pr merge")
 
     def run(pr: dict[str, Any]) -> tuple[str, list[str]]:
         gh.serve("api */pulls/7", pr)
@@ -116,3 +126,29 @@ class TestAutoMerge:
         decision, calls = run(pull(["review/human"], enabled_by="emilbon99"))
         assert decision == "unchanged"
         assert calls == []
+
+    @pytest.mark.parametrize(
+        "pr",
+        [
+            pull(["review/bot"], enabled_by=BOT, base="feature", state="closed"),
+            pull(["review/bot", "review/human"], enabled_by=BOT, state="closed"),
+            pull(["review/bot"], state="closed"),
+        ],
+    )
+    def test_leaves_a_closed_pull_request(self, run: Run, pr: dict[str, Any]) -> None:
+        """Should not call gh for a merged or closed pull request, whose stale
+        auto_merge field GitHub keeps."""
+        decision, calls = run(pr)
+        assert decision == "unchanged: the pull request is closed"
+        assert calls == []
+
+    def test_fails_when_an_open_pull_request_rejects_the_change(
+        self, gh: FakeGH, env: dict[str, str]
+    ) -> None:
+        """Should fail when gh rejects the change on an open pull request."""
+        gh.serve("api */pulls/7", pull(["review/human"], enabled_by=BOT))
+        out = subprocess.run(
+            [str(SCRIPT), "7"], env=env, capture_output=True, text=True, check=False
+        )
+        assert out.returncode != 0
+        assert out.stdout == ""

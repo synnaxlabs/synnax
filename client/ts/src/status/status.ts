@@ -206,11 +206,12 @@ export const fromException = (
   // `toStatus()` method still contributes its status fields.
   const custom = safeToStatus(exc);
   const reason = custom?.description ?? joinParts([err.message, causeChain(err)], ": ");
+  const lead = custom?.message === message ? undefined : custom?.message;
   return create<typeof exceptionDetailsSchema, "error">({
     variant: "error",
     name,
     message,
-    description: joinParts([custom?.message, reason], ". "),
+    description: joinParts([lead, reason], ". "),
     details: { stack: err.stack ?? "", error: cloneSafeError(err), ...custom?.details },
   });
 };

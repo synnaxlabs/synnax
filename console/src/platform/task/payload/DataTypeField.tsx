@@ -14,6 +14,8 @@ import { Channel, Telem } from "@synnaxlabs/pluto";
 import { DataType, type deep } from "@synnaxlabs/x";
 import { type ReactElement } from "react";
 
+import { isMissing } from "@/platform/task/ChannelState";
+
 /** Data types that no JSON field can carry. */
 const HIDDEN_DATA_TYPES = [
   DataType.TIMESTAMP,
@@ -27,43 +29,46 @@ export interface DataTypeFieldProps extends Pick<
   "hideDataTypes" | "hideVariableDensity"
 > {
   path: deep.Target<string>;
-  /** The channel that sets the data type, or 0 before configure creates one. */
+  /** The channel that sets the data type, or 0 before deploying creates one. */
   channel: channel.Key;
 }
 
 /**
- * Selects the data type of the channel that configure creates. A bound channel sets the
- * data type, so the field then shows that of the channel, locked.
+ * Selects the data type of the channel that deploying creates. An existing channel sets
+ * the data type, so the field then shows that of the channel, locked.
  */
 export const DataTypeField = ({
-  path,
   channel,
+  ...rest
+}: DataTypeFieldProps): ReactElement =>
+  channel === 0 ? <Unbound {...rest} /> : <Bound {...rest} channel={channel} />;
+
+const Unbound = ({
+  path,
   hideDataTypes = HIDDEN_DATA_TYPES,
   hideVariableDensity,
-}: DataTypeFieldProps): ReactElement => {
-  if (channel !== 0) return <Bound channel={channel} />;
-  return (
-    <Form.Field path={path} label="Data type" padHelpText={false}>
-      {(p) => (
-        <Telem.SelectDataType
-          {...p}
-          hideDataTypes={hideDataTypes}
-          hideVariableDensity={hideVariableDensity}
-          location="bottom"
-        />
-      )}
-    </Form.Field>
-  );
-};
+}: Omit<DataTypeFieldProps, "channel">): ReactElement => (
+  <Form.Field path={path} label="Data type" padHelpText={false}>
+    {(p) => (
+      <Telem.SelectDataType
+        {...p}
+        hideDataTypes={hideDataTypes}
+        hideVariableDensity={hideVariableDensity}
+        location="bottom"
+      />
+    )}
+  </Form.Field>
+);
 
 const NO_HIDDEN_DATA_TYPES: DataType[] = [];
 
-const Bound = ({ channel }: Pick<DataTypeFieldProps, "channel">): ReactElement => {
-  const { data } = Channel.useResultDataType({ key: channel });
+const Bound = ({ channel, ...rest }: DataTypeFieldProps): ReactElement => {
+  const result = Channel.useResultDataType({ key: channel });
+  if (isMissing(result)) return <Unbound {...rest} />;
   return (
     <Input.Item label="Data type" padHelpText={false} helpText="Set on the channel">
       <Telem.SelectDataType
-        value={data?.toString() ?? ""}
+        value={result.data?.toString() ?? ""}
         onChange={NO_CHANGE}
         hideDataTypes={NO_HIDDEN_DATA_TYPES}
         disabled
