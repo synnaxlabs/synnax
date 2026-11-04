@@ -79,6 +79,7 @@ func (c *checker) checkMessage(path []string, m Message) {
 			c.checkBinaryField(pathOf(path, "fields", strconv.Itoa(i)), p, f)
 			binary[f.Key] = f
 		}
+		c.checkOverlaps(pathOf(path, "fields"), p.Fields)
 	case TextPayload:
 		for i, f := range p.Fields {
 			fieldPath := pathOf(path, "fields", strconv.Itoa(i))
@@ -365,6 +366,70 @@ func (c *checker) checkBinaryField(path []string, p BinaryPayload, f BinaryField
 			canLength(id),
 		)
 	}
+}
+
+// checkOverlaps finds binary fields that read the same bits and can both be present in
+// one frame.
+func (c *checker) checkOverlaps(path []string, fields []BinaryField) {
+	bits := make([]set.Set[int], len(fields))
+	for i, f := range fields {
+		if validBitLength(f.BitLength) {
+			bits[i] = coveredBits(f)
+		}
+	}
+	for j, b := range fields {
+		for i, a := range fields[:j] {
+			if coexist(a, b) && overlap(bits[i], bits[j]) {
+				c.Addf(
+					pathOf(path, strconv.Itoa(j), "start_bit"),
+					"field overlaps the bits of field %q",
+					a.Name,
+				)
+				break
+			}
+		}
+	}
+}
+
+// coveredBits returns the payload bits the field reads, each numbered 8*byte + bit,
+// where bit 0 is the least significant bit of its byte.
+func coveredBits(f BinaryField) set.Set[int] {
+	start, length := int(f.StartBit), int(f.BitLength)
+	bits := make(set.Set[int], length)
+	if f.ByteOrder != ByteOrderBigEndian {
+		for i := start; i < start+length; i++ {
+			bits.Add(i)
+		}
+		return bits
+	}
+	msb := 8*(start/8) + 7 - start%8
+	for i := msb; i < msb+length; i++ {
+		bits.Add(8*(i/8) + 7 - i%8)
+	}
+	return bits
+}
+
+func overlap(a, b set.Set[int]) bool {
+	for bit := range a {
+		if b.Contains(bit) {
+			return true
+		}
+	}
+	return false
+}
+
+// coexist reports whether fields a and b can both be present in one frame. Fields under
+// different multiplexors may be nested, so they count as exclusive.
+func coexist(a, b BinaryField) bool {
+	switch {
+	case a.Multiplexor == nil || b.Multiplexor == nil:
+		return true
+	case *a.Multiplexor != *b.Multiplexor:
+		return false
+	}
+	return slices.ContainsFunc(a.MultiplexValues, func(v int32) bool {
+		return slices.Contains(b.MultiplexValues, v)
+	})
 }
 
 func validBitLength(n uint8) bool { return n >= 1 && n <= maxBitLength }

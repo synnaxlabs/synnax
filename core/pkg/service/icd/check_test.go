@@ -11,6 +11,7 @@ package icd_test
 
 import (
 	"encoding/json/v2"
+	"fmt"
 	"math"
 	"os"
 	"path/filepath"
@@ -202,5 +203,94 @@ var _ = Describe("Check", func() {
 			canMessage("B", 2, binaryField("a", 0, 8)),
 		}}
 		Expect(icd.Check(ic)).To(BeEmpty())
+	})
+
+	Describe("Overlapping fields", func() {
+		check := func(fields ...icd.BinaryField) validate.Problems {
+			return icd.Check(icd.ICD{Name: "L", Messages: []icd.Message{
+				canMessage("M", 1, fields...),
+			}})
+		}
+		overlapping := func(i int, name string) validate.Problem {
+			return validate.Problem{
+				Path:    fmt.Sprintf("messages.0.payload.fields.%d.start_bit", i),
+				Message: fmt.Sprintf("field overlaps the bits of field %q", name),
+			}
+		}
+		bigEndian := func(f icd.BinaryField) icd.BinaryField {
+			f.ByteOrder = icd.ByteOrderBigEndian
+			return f
+		}
+		multiplexed := func(
+			f icd.BinaryField,
+			mux icd.BinaryField,
+			values ...int32,
+		) icd.BinaryField {
+			f.Multiplexor = new(mux.Key)
+			f.MultiplexValues = values
+			return f
+		}
+		var mux icd.BinaryField
+		BeforeEach(func() {
+			mux = binaryField("mux", 0, 4)
+			mux.Key = uuid.New()
+		})
+
+		It("Should find two fields that read the same bits", func() {
+			Expect(check(binaryField("a", 0, 8), binaryField("b", 4, 8))).
+				To(ConsistOf(overlapping(1, "a")))
+		})
+
+		It("Should not find fields that only touch", func() {
+			Expect(check(binaryField("a", 0, 8), binaryField("b", 8, 8))).To(BeEmpty())
+		})
+
+		It("Should compare fields with different byte orders", func() {
+			Expect(check(binaryField("a", 0, 8), bigEndian(binaryField("b", 7, 8)))).
+				To(ConsistOf(overlapping(1, "a")))
+			Expect(check(bigEndian(binaryField("a", 7, 16)), binaryField("b", 16, 8))).
+				To(BeEmpty())
+		})
+
+		It(
+			"Should find a multiplexed field over a field that is always present",
+			func() {
+				Expect(check(
+					mux,
+					binaryField("a", 8, 8),
+					multiplexed(binaryField("b", 8, 8), mux, 0),
+				)).To(ConsistOf(overlapping(2, "a")))
+			},
+		)
+
+		It("Should find multiplexed fields that share a multiplex value", func() {
+			Expect(check(
+				mux,
+				multiplexed(binaryField("a", 8, 8), mux, 0, 1),
+				multiplexed(binaryField("b", 8, 8), mux, 1, 2),
+			)).To(ConsistOf(overlapping(2, "a")))
+		})
+
+		It(
+			"Should not find multiplexed fields that are never present together",
+			func() {
+				Expect(check(
+					mux,
+					multiplexed(binaryField("a", 8, 8), mux, 0),
+					multiplexed(binaryField("b", 8, 8), mux, 1),
+				)).To(BeEmpty())
+			},
+		)
+
+		It("Should not compare fields under different multiplexors", func() {
+			other := binaryField("other", 4, 4)
+			other.Key = uuid.New()
+			Expect(check(
+				mux,
+				other,
+				multiplexed(binaryField("a", 8, 8), mux, 0),
+				multiplexed(binaryField("b", 8, 8), other, 0),
+			)).To(BeEmpty())
+		})
 	})
 })
