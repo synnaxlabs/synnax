@@ -8,7 +8,11 @@
 // included in the file licenses/APL.txt.
 
 import { device, NotFoundError, query, status } from "@synnaxlabs/client";
-import { createTestClient } from "@synnaxlabs/client/testutil";
+import {
+  createTestClient,
+  spyOnSend,
+  waitForStreamLive,
+} from "@synnaxlabs/client/testutil";
 import { id, type record } from "@synnaxlabs/x";
 import { act, render, renderHook, waitFor } from "@testing-library/react";
 import { type PropsWithChildren, type ReactElement } from "react";
@@ -64,6 +68,8 @@ describe("queries", () => {
         model: "test",
         properties: {},
       });
+      // A suspended mount discards its memoized query, so the status is cached first.
+      await client.devices.retrieve({ key: dev.key, includeStatus: true });
       const spy = vi.spyOn(client.devices, "getCached");
       const { result, rerender } = await renderHookSuspended(
         () => Device.use({ key: dev.key }),
@@ -217,6 +223,123 @@ describe("queries", () => {
         expect(result2.current).not.toBeNull();
         expect(result2.current?.status?.variant).toEqual("success");
         expect(result2.current?.status?.message).toEqual("Device is happy as a clam");
+      });
+    });
+
+    describe("device cached without a status", () => {
+      const schemas = {
+        properties: z.record(z.string(), z.unknown()),
+        make: z.string(),
+        model: z.string(),
+      };
+
+      const createDevice = async (name: string) => {
+        const { key: rack } = await client.racks.create({ name });
+        const dev: device.New = {
+          key: id.create(),
+          name,
+          rack,
+          location: "test",
+          make: "test",
+          model: "test",
+          properties: {},
+        };
+        await client.devices.create(dev);
+        return dev;
+      };
+
+      it("should fetch the status after a status-free read", async () => {
+        const dev = await createDevice("status-free-read");
+        const local = createTestClient();
+        await local.devices.retrieve(dev.key);
+        const { result } = await renderHookSuspended(
+          () => Device.use({ key: dev.key }),
+          { wrapper: await createAsyncSynnaxWrapper({ client: local }) },
+        );
+        expect(result.current?.status?.key).toEqual(device.statusKey(dev.key));
+      });
+
+      it("should fetch the status after a device arrives on the stream", async () => {
+        const dev = await createDevice("stream-cached");
+        const local = createTestClient();
+        const stop = local.devices.onChange(dev.key, () => {});
+        await waitForStreamLive(local.connection);
+        // An update that keeps the name and the parent writes no status.
+        await client.devices.create({ ...dev, location: "updated" });
+        await waitFor(() => {
+          const cached = local.devices.getCached(dev.key);
+          expect(query.isLive(cached) ? cached.location : undefined).toEqual("updated");
+        });
+        expect(
+          local.devices.getCached({ key: dev.key, includeStatus: true }),
+        ).toBeUndefined();
+        const { result } = await renderHookSuspended(
+          () => Device.use({ key: dev.key }),
+          { wrapper: await createAsyncSynnaxWrapper({ client: local }) },
+        );
+        expect(result.current?.status?.key).toEqual(device.statusKey(dev.key));
+        stop();
+      });
+
+      it("should fetch the status for a subscriber with no fetch", async () => {
+        const dev = await createDevice("subscribed");
+        const local = createTestClient();
+        await local.devices.retrieve(dev.key);
+        const { result } = renderHook(() => Device.useResult({ key: dev.key }), {
+          wrapper: await createAsyncSynnaxWrapper({ client: local }),
+        });
+        await waitFor(() =>
+          expect(result.current.data?.status?.key).toEqual(device.statusKey(dev.key)),
+        );
+      });
+
+      it("should fetch the status for a hook with schemas", async () => {
+        const dev = await createDevice("typed");
+        const local = createTestClient();
+        await local.devices.retrieve(dev.key);
+        const { use } = Device.createRetrieve(schemas);
+        const { result } = await renderHookSuspended(() => use({ key: dev.key }), {
+          wrapper: await createAsyncSynnaxWrapper({ client: local }),
+        });
+        expect(result.current?.status?.key).toEqual(device.statusKey(dev.key));
+      });
+
+      it("should fetch once when the device has no status row", async () => {
+        const dev = await createDevice("no-status-row");
+        await client.statuses.delete(device.statusKey(dev.key));
+        const local = createTestClient();
+        await local.devices.retrieve(dev.key);
+        const localWrapper = await createAsyncSynnaxWrapper({ client: local });
+        const send = spyOnSend(local);
+        const render = async () =>
+          await renderHookSuspended(() => Device.use({ key: dev.key }), {
+            wrapper: localWrapper,
+          });
+        const first = await render();
+        expect(first.result.current?.status).toBeUndefined();
+        first.unmount();
+        const second = await render();
+        expect(second.result.current?.key).toEqual(dev.key);
+        const retrieves = send.mock.calls.filter(
+          ([target]) => target === "/device/retrieve",
+        );
+        expect(retrieves).toHaveLength(1);
+      });
+
+      it("should settle a hook with schemas when the device has no status row", async () => {
+        const dev = await createDevice("typed-no-status-row");
+        await client.statuses.delete(device.statusKey(dev.key));
+        const local = createTestClient();
+        await local.devices.retrieve(dev.key);
+        const { use } = Device.createRetrieve(schemas);
+        const { result } = await renderHookSuspended(() => use({ key: dev.key }), {
+          wrapper: await createAsyncSynnaxWrapper({ client: local }),
+        });
+        expect(result.current?.key).toEqual(dev.key);
+        await act(async () => {
+          await client.devices.create({ ...dev, location: "updated" });
+        });
+        await waitFor(() => expect(result.current?.location).toEqual("updated"));
       });
     });
   });
@@ -1257,7 +1380,7 @@ describe("queries", () => {
         });
 
         const useForm = Device.createForm();
-        const { result } = renderHook(
+        const { result } = await renderHookSuspended(
           () =>
             useForm({
               query: { key: testDevice.key },
@@ -1293,7 +1416,7 @@ describe("queries", () => {
           properties: {},
         });
 
-        const { result } = renderHook(
+        const { result } = await renderHookSuspended(
           () => Device.useForm({ query: { key: testDevice.key } }),
           { wrapper },
         );
@@ -1331,7 +1454,7 @@ describe("queries", () => {
           properties: {},
         });
 
-        const { result } = renderHook(
+        const { result } = await renderHookSuspended(
           () => Device.useForm({ query: { key: testDevice.key } }),
           { wrapper },
         );
@@ -1768,9 +1891,12 @@ describe("queries", () => {
         );
 
         const useForm = Device.createForm(schemas, SCHEMA_VALUES);
-        const { result } = renderHook(() => useForm({ query: { key: dev.key } }), {
-          wrapper,
-        });
+        const { result } = await renderHookSuspended(
+          () => useForm({ query: { key: dev.key } }),
+          {
+            wrapper,
+          },
+        );
 
         await waitFor(() => {
           expect(result.current.form.value().name).toBe("schema-form-device");
@@ -1818,9 +1944,12 @@ describe("queries", () => {
           ...SCHEMA_VALUES,
           properties: { connection: { host: "" } },
         });
-        const { result } = renderHook(() => useForm({ query: { key: dev.key } }), {
-          wrapper,
-        });
+        const { result } = await renderHookSuspended(
+          () => useForm({ query: { key: dev.key } }),
+          {
+            wrapper,
+          },
+        );
 
         await waitFor(() => {
           expect(result.current.form.value().name).toBe("generic_cached_form_device");
@@ -1881,7 +2010,7 @@ describe("queries", () => {
         const foreignKey = id.create();
         const foreignSeen = { current: false };
         const useForm = Device.createForm(schemas, SCHEMA_VALUES);
-        const { result } = renderHook(
+        const { result } = await renderHookSuspended(
           () => {
             Device.useSetSynchronizer((changed) => {
               if (changed.key === foreignKey) foreignSeen.current = true;
@@ -1933,7 +2062,7 @@ describe("queries", () => {
 
         const latestProperties = { current: undefined as record.Unknown | undefined };
         const useForm = Device.createForm(schemas, SCHEMA_VALUES);
-        const { result } = renderHook(
+        const { result } = await renderHookSuspended(
           () => {
             Device.useSetSynchronizer((changed) => {
               if (changed.key === dev.key)
@@ -1977,9 +2106,12 @@ describe("queries", () => {
         );
 
         const useForm = Device.createForm(schemas, SCHEMA_VALUES);
-        const { result } = renderHook(() => useForm({ query: { key: dev.key } }), {
-          wrapper,
-        });
+        const { result } = await renderHookSuspended(
+          () => useForm({ query: { key: dev.key } }),
+          {
+            wrapper,
+          },
+        );
 
         await waitFor(() => {
           expect(result.current.form.value().name).toBe("self_updating_device");
