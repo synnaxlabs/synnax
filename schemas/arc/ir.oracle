@@ -59,17 +59,29 @@ Edges Edge[] {
 }
 
 ScopeMode enum {
-    unspecified = 0
-    parallel    = 1
-    sequential  = 2
+    unspecified = 0 {
+        @doc value "has no mode set."
+    }
+    parallel    = 1 {
+        @doc value "runs every member of the scope in strata."
+    }
+    sequential  = 2 {
+        @doc value "runs one step of the scope at a time."
+    }
 
     @doc value "defines the concurrency model of a Scope."
 }
 
 Liveness enum {
-    unspecified = 0
-    always      = 1
-    gated       = 2
+    unspecified = 0 {
+        @doc value "has no liveness set."
+    }
+    always      = 1 {
+        @doc value "keeps the scope active at all times."
+    }
+    gated       = 2 {
+        @doc value "activates the scope when one of its activations fires."
+    }
 
     @doc value "defines whether a Scope is continuously active or must be activated."
 }
