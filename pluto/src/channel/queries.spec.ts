@@ -8,7 +8,11 @@
 // included in the file licenses/APL.txt.
 
 import { channel, DataType } from "@synnaxlabs/client";
-import { createTestClient } from "@synnaxlabs/client/testutil";
+import {
+  createTestClient,
+  spyOnSend,
+  waitForStreamLive,
+} from "@synnaxlabs/client/testutil";
 import { id, sleep, TimeRange, TimeSpan, TimeStamp } from "@synnaxlabs/x";
 import { act, renderHook, waitFor } from "@testing-library/react";
 import { type FC, type PropsWithChildren } from "react";
@@ -952,6 +956,134 @@ describe("queries", () => {
         expect(result.current?.status?.message).toEqual("broken expression");
       });
     });
+
+    describe("calculated channel cached without a status", () => {
+      const createCalculated = async () => {
+        const source = await client.channels.create({
+          name: id.create(),
+          dataType: DataType.FLOAT32,
+          virtual: true,
+        });
+        const calc = await client.channels.create({
+          name: id.create(),
+          dataType: DataType.FLOAT32,
+          virtual: true,
+          expression: `return ${source.name} * 2`,
+        });
+        // The Core clears a new calculated channel's status: let that settle.
+        await sleep.sleep(TimeSpan.milliseconds(500));
+        return calc;
+      };
+
+      const createCalculatedWithStatus = async () => {
+        const calc = await createCalculated();
+        await client.statuses.set({
+          key: channel.statusKey(calc.key),
+          name: calc.name,
+          variant: "error",
+          message: "invalid expression",
+          time: TimeStamp.now(),
+          details: { channel: calc.key },
+        });
+        return calc;
+      };
+
+      it("should fetch the status after a status-free fetch", async () => {
+        const calc = await createCalculatedWithStatus();
+        const local = createTestClient();
+        await local.channels.retrieve([calc.key]);
+        const { result } = await renderHookSuspended(
+          () => Channel.use({ key: calc.key }),
+          { wrapper: await createAsyncSynnaxWrapper({ client: local }) },
+        );
+        expect(result.current?.status?.message).toEqual("invalid expression");
+      });
+
+      it("should fetch the status after a channel arrives on the stream", async () => {
+        const calc = await createCalculatedWithStatus();
+        const local = createTestClient();
+        await local.connect();
+        await waitForStreamLive(local.connection);
+        const name = id.create();
+        await client.channels.rename(calc.key, name);
+        await waitFor(() =>
+          expect(local.channels.store.get(calc.key)?.name).toBe(name),
+        );
+        const { result } = await renderHookSuspended(
+          () => Channel.use({ key: calc.key }),
+          { wrapper: await createAsyncSynnaxWrapper({ client: local }) },
+        );
+        expect(result.current?.status?.message).toEqual("invalid expression");
+      });
+
+      it("should fetch the status for a subscriber with no fetch", async () => {
+        const calc = await createCalculatedWithStatus();
+        const local = createTestClient();
+        await local.channels.retrieve([calc.key]);
+        const seen: (channel.Status | undefined)[] = [];
+        const { result } = renderHook(
+          () => {
+            const res = Channel.useResult({ key: calc.key });
+            if (res.data != null) seen.push(res.data.status);
+            return res;
+          },
+          { wrapper: await createAsyncSynnaxWrapper({ client: local }) },
+        );
+        await waitFor(() =>
+          expect(result.current.data?.status?.message).toEqual("invalid expression"),
+        );
+        expect(seen.every((status) => status != null)).toBe(true);
+      });
+
+      it("should fetch once when the channel has no status row", async () => {
+        const calc = await createCalculated();
+        await client.statuses.delete(channel.statusKey(calc.key));
+        const local = createTestClient();
+        await local.channels.retrieve([calc.key]);
+        const localWrapper = await createAsyncSynnaxWrapper({ client: local });
+        const send = spyOnSend(local);
+        const mount = async () =>
+          await renderHookSuspended(() => Channel.use({ key: calc.key }), {
+            wrapper: localWrapper,
+          });
+        const first = await mount();
+        expect(first.result.current?.status).toBeUndefined();
+        first.unmount();
+        const second = await mount();
+        expect(second.result.current?.key).toEqual(calc.key);
+        const statusRetrieves = send.mock.calls.filter(
+          ([target]) => target === "/status/retrieve",
+        );
+        expect(statusRetrieves).toHaveLength(1);
+      });
+
+      it("should not fetch for plain channels", async () => {
+        const plain = await Promise.all(
+          [0, 1, 2].map(
+            async () =>
+              await client.channels.create({
+                name: id.create(),
+                dataType: DataType.FLOAT32,
+                virtual: true,
+              }),
+          ),
+        );
+        const local = createTestClient();
+        await local.channels.retrieve(plain.map(({ key }) => key));
+        const localWrapper = await createAsyncSynnaxWrapper({ client: local });
+        const send = spyOnSend(local);
+        const { result } = renderHook(
+          () => plain.map(({ key }) => Channel.use({ key })),
+          { wrapper: localWrapper },
+        );
+        expect(result.current.map((ch) => ch?.key)).toEqual(
+          plain.map(({ key }) => key),
+        );
+        const unaryTargets = send.mock.calls.map(([target]) => target);
+        expect(unaryTargets).not.toContain("/channel/retrieve");
+        expect(unaryTargets).not.toContain("/status/retrieve");
+      });
+    });
   });
 
   describe("useMultiple", () => {
@@ -1444,7 +1576,7 @@ describe("queries", () => {
         expression: `return ${sourceChannel.name} + 1`,
       });
 
-      const { result } = renderHook(
+      const { result } = await renderHookSuspended(
         () => Channel.useCalculatedForm({ query: { key: existingCalculated.key } }),
         { wrapper },
       );
@@ -1527,7 +1659,7 @@ describe("queries", () => {
         expression: `return ${sourceChannel.name}`,
       });
 
-      const { result } = renderHook(
+      const { result } = await renderHookSuspended(
         () => {
           const form = Channel.useCalculatedForm({
             query: { key: testCalculated.key },
