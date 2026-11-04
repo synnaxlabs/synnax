@@ -422,6 +422,60 @@ Channel struct extends Base {
 			Expect(merged).To(ContainSubstring("Channel struct extends Base"))
 		})
 
+		It("Should reject a live doc when the current parent lost its doc", func(
+			ctx SpecContext,
+		) {
+			write("schemas/synnax/versions/channel/v2.oracle", `
+Mode = v0.Mode
+Payload = v0.Payload
+Event = v0.Event
+
+Base struct {
+    key uuid {
+        @doc value "identifies the channel."
+    }
+}
+
+Child struct extends Base {
+    name string
+
+    @go marshal
+}
+
+Channel struct {
+    name string
+    uses Mode
+
+    @go marshal
+}
+`)
+			write("schemas/synnax/versions/channel/v3.oracle", `
+Mode = v0.Mode
+Payload = v0.Payload
+Event = v0.Event
+Child = v2.Child
+Channel = v2.Channel
+
+Base struct {
+    key uuid
+    size int32
+}
+`)
+			r, chain := resolver()
+			Expect(versions.MergeLive(ctx, r, chain, `Child struct extends Base {
+    key uuid {
+        @doc value "identifies the child."
+    }
+    name string
+
+    @go marshal
+}
+`)).Error().To(SatisfyAll(
+				MatchError(validate.ErrValidation),
+				MatchError(ContainSubstring("Child.key")),
+			))
+		})
+
 		It("Should keep a doc on a declaration the chain removed", func(
 			ctx SpecContext,
 		) {

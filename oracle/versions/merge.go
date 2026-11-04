@@ -226,10 +226,10 @@ func checkErasedDocs(
 				return err
 			}
 			fields := resolution.UnifiedFields(def.Type, definer.Table)
-			if !slices.ContainsFunc(fields, func(f resolution.Field) bool {
-				_, documented := f.Domains["doc"]
-				return f.Name == field && !documented
-			}) {
+			i := slices.IndexFunc(fields, func(f resolution.Field) bool {
+				return f.Name == field
+			})
+			if i < 0 || inheritsDoc(name, fields[i], surf, merged) {
 				continue
 			}
 		}
@@ -253,6 +253,36 @@ func checkErasedDocs(
 		chain.LivePath(),
 		strings.Join(lines, "; "),
 	)
+}
+
+// inheritsDoc reports whether a parent of the named struct documents field in the
+// merged
+// output. A parent outside the chain cannot be in that output, so field's resolved doc
+// stands in for it.
+func inheritsDoc(
+	name string,
+	field resolution.Field,
+	surf map[string]Definition,
+	merged *liveContent,
+) bool {
+	form, ok := surf[name].Type.Form.(resolution.StructForm)
+	if !ok {
+		return false
+	}
+	for _, parent := range form.Extends {
+		bare := parent.Name[strings.LastIndex(parent.Name, ".")+1:]
+		if _, member := surf[bare]; !member {
+			if _, documented := field.Domains["doc"]; documented {
+				return true
+			}
+			continue
+		}
+		if merged.documented.Contains(bare+"."+field.Name) ||
+			inheritsDoc(bare, field, surf, merged) {
+			return true
+		}
+	}
+	return false
 }
 
 // chainNamespacePaths maps each dependency resource namespace a chain's files can
