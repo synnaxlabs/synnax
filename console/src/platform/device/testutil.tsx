@@ -85,6 +85,24 @@ export const createTestDevice = async (
   );
 };
 
+export const TEST_DEVICE_STATUS_MESSAGE = "Device reported";
+
+/** Writes the status a Driver reports for a device. */
+export const setTestDeviceStatus = async (
+  client: Synnax,
+  { key, name, rack }: Pick<device.Device, "key" | "name" | "rack">,
+): Promise<void> => {
+  await client.statuses.set(
+    status.create<typeof device.statusDetailsZ>({
+      key: device.statusKey(key),
+      name,
+      variant: "success",
+      message: TEST_DEVICE_STATUS_MESSAGE,
+      details: { rack, device: key },
+    }),
+  );
+};
+
 /**
  * Builds the ontology resource the tree hands to device context-menu items, carrying
  * the configured flag in its data payload.

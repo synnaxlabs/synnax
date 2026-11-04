@@ -53,10 +53,11 @@ var _ = Describe("Migration", func() {
 
 	It("Should lift stored logs and keep every other field", func(ctx SpecContext) {
 		stored := v2.Log{
-			Key:                uuid.New(),
-			Name:               "log",
-			TimestampPrecision: 2,
-			ChannelNamesHidden: true,
+			Key:                    uuid.New(),
+			Name:                   "log",
+			TimestampPrecision:     2,
+			ChannelNamesHidden:     true,
+			ReceiptTimestampHidden: true,
 			Channels: []v2.ChannelEntry{
 				{
 					Channel:   7,
@@ -87,6 +88,7 @@ var _ = Describe("Migration", func() {
 		Expect(got.Name).To(Equal(stored.Name))
 		Expect(got.TimestampPrecision).To(Equal(stored.TimestampPrecision))
 		Expect(got.ChannelNamesHidden).To(BeTrue())
+		Expect(got.TimestampsHidden).To(BeTrue())
 		Expect(got.Channels).To(Equal([]v3.ChannelEntry{
 			{
 				Channel:   7,

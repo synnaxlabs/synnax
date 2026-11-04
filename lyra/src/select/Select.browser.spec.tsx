@@ -8,11 +8,13 @@
 // included in the file licenses/APL.txt.
 
 import { describe, expect, it } from "vitest";
-import { userEvent } from "vitest/browser";
+import { page, userEvent } from "vitest/browser";
 
+import { Dialog } from "@/dialog";
 import { Select } from "@/select";
 import { computed, renderThemed, resolve } from "@/styletest";
 import { Text } from "@/text";
+import { Triggers } from "@/triggers";
 
 const TWO_LINE_KEYS = ["1", "2", "3", "4", "5", "6"];
 
@@ -50,7 +52,76 @@ const renderButtons = async (
   return (name) => getByRole("button", { name }).element();
 };
 
+const renderFixedLabel = async (): Promise<Record<string, Element>> => {
+  const { container } = await renderThemed(
+    <Dialog.Frame>
+      <Select.Frame<string, undefined> value="time" onChange={() => {}}>
+        <Select.SingleTrigger placeholder="Pick" />
+        <Select.Dialog>
+          <Select.Item itemKey="time">Time</Select.Item>
+        </Select.Dialog>
+      </Select.Frame>
+    </Dialog.Frame>,
+  );
+  const get = (selector: string): Element =>
+    container.querySelector(selector) as Element;
+  return {
+    label: get(".lyra-select__label"),
+    fixed: get(".lyra-select__fixed-label"),
+    caret: get(".lyra-caret-animated"),
+  };
+};
+
+const FOOTER_HEIGHT = 100;
+const KEYS = Array.from({ length: 30 }, (_, i) => `key-${i}`);
+
+const renderFooter = async (): Promise<Element> => {
+  const { getByText } = await renderThemed(
+    <Triggers.Provider>
+      <Dialog.Frame>
+        <Select.Frame<string, undefined> data={KEYS} onChange={() => {}}>
+          <Select.SingleTrigger placeholder="Pick" />
+          <Select.Dialog>
+            <Select.Body<string>
+              resourceName="key"
+              footer={<div id="footer" style={{ height: FOOTER_HEIGHT }} />}
+            >
+              {({ key, ...p }) => (
+                <Select.Item key={key} {...p}>
+                  {p.itemKey}
+                </Select.Item>
+              )}
+            </Select.Body>
+          </Select.Dialog>
+        </Select.Frame>
+      </Dialog.Frame>
+    </Triggers.Provider>,
+  );
+  await userEvent.click(getByText("Pick").element());
+  const dialog = page.getByRole("dialog");
+  await expect.element(dialog).toBeVisible();
+  await expect.poll(() => computed(dialog.element(), "opacity")).toBe("1");
+  return document.getElementById("footer") as Element;
+};
+
 describe("Select", () => {
+  describe("footer", () => {
+    it("should keep its height when the list overflows the dialog", async () => {
+      const footer = await renderFooter();
+      expect(footer.getBoundingClientRect().height).toBe(FOOTER_HEIGHT);
+    });
+  });
+
+  describe("fixed item label", () => {
+    it("should fill the trigger up to the caret", async () => {
+      const { label, fixed, caret } = await renderFixedLabel();
+      expect(fixed.getBoundingClientRect().width).toBe(
+        label.getBoundingClientRect().width,
+      );
+      expect(computed(caret, "margin-left")).toBe("0px");
+    });
+  });
+
   describe("text buttons", () => {
     it("should mark the chosen button in the subtle selection tier", async () => {
       const button = await renderButtons("text");
