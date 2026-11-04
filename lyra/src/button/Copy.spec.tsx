@@ -177,6 +177,26 @@ describe("Copy", () => {
       });
       expect(c.container.querySelector(".lyra-icon--copy")!).toBeTruthy();
     });
+
+    it("should leave no reset timer running after an unmount", async () => {
+      const c = render(<Button.Copy text="hello" />);
+      await act(async () => {
+        fireEvent.click(c.container.querySelector(".lyra-icon--copy")!);
+      });
+      expect(vi.getTimerCount()).toBe(1);
+      c.unmount();
+      expect(vi.getTimerCount()).toBe(0);
+    });
+
+    it("should start no reset timer when the copy ends after an unmount", async () => {
+      const text = Promise.withResolvers<string>();
+      const c = render(<Button.Copy text={() => text.promise} />);
+      fireEvent.click(c.container.querySelector(".lyra-icon--copy")!);
+      c.unmount();
+      await act(async () => text.resolve("hello"));
+      expect(writeText).toHaveBeenCalledWith("hello");
+      expect(vi.getTimerCount()).toBe(0);
+    });
   });
 
   describe("callbacks", () => {
