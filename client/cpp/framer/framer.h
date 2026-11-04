@@ -296,9 +296,10 @@ struct WriterConfig {
     /// @brief The channels to write to.
     std::vector<channel::Key> channels;
 
-    /// @brief sets the starting timestamp for the first sample in the writer. If
-    /// this timestamp overlaps with existing data for ANY of the provided channels,
-    /// the writer will fail to open.
+    /// @brief sets where the writer's control region begins. Defaults to the time the
+    /// writer opens on the Core. A writer fails to open when stored data on any of its
+    /// channels holds start. A writer that writes data channels without their index
+    /// needs a start, and it must be a sample of that index.
     x::telem::TimeStamp start;
 
     /// @brief The control authority to set for each channel. If this vector is of

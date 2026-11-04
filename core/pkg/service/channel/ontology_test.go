@@ -20,6 +20,7 @@ import (
 	. "github.com/synnaxlabs/synnax/pkg/service/channel/testutil"
 	"github.com/synnaxlabs/synnax/pkg/service/ontology"
 	"github.com/synnaxlabs/x/change"
+	"github.com/synnaxlabs/x/search"
 	"github.com/synnaxlabs/x/telem"
 	. "github.com/synnaxlabs/x/testutil"
 	"github.com/synnaxlabs/x/validate"
@@ -109,9 +110,12 @@ var _ = Describe("Ontology", Ordered, func() {
 				}
 				Expect(channelWriter.Create(ctx, &inlet)).To(Succeed())
 				Expect(channelWriter.Create(ctx, &outlet)).To(Succeed())
-				Expect(MustSucceed(svc.Search(ctx, db, "turbopump inlet", 10)).Keys).
-					To(Equal([]ontology.ID{inlet.OntologyID()}))
-				Expect(MustSucceed(svc.Search(ctx, db, "turbopump", 10)).Keys).
+				q := search.Query[ontology.ID]{Term: "turbopump inlet", Limit: 10}
+				Expect(
+					MustSucceed(svc.Search(ctx, db, q)).Keys,
+				).To(Equal([]ontology.ID{inlet.OntologyID()}))
+				q = search.Query[ontology.ID]{Term: "turbopump", Limit: 10}
+				Expect(MustSucceed(svc.Search(ctx, db, q)).Keys).
 					To(ConsistOf(inlet.OntologyID(), outlet.OntologyID()))
 			},
 		)

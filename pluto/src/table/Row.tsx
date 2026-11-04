@@ -172,13 +172,13 @@ const VariantCell = memo(
       dimensions.construct(width, height),
     );
     const shift = { x: shiftX, y: shiftY };
-    const handleChange = (config: table.CellConfig) => {
+    if (cell == null) return null;
+    const handleChange = (next: table.CellConfig) => {
       dispatch({
         key: resourceKey,
-        actions: [table.setCell({ cell: { key: cellKey, config } })],
+        actions: table.setChanged({ key: cellKey, base: cell, next }),
       });
     };
-    if (cell == null) return null;
     const Spec = Cell.resolveSpec(cell.variant);
     return (
       <Shift value={shift}>

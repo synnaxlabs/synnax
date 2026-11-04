@@ -34,6 +34,13 @@ type Writer struct {
 	dispatcher actions.Dispatcher[Key, Action]
 }
 
+// WithDispatchKey returns a copy of the writer that stamps dispatchKey onto the create
+// broadcasts it emits, so the client that sent the create recognizes its own echo.
+func (w Writer) WithDispatchKey(dispatchKey string) Writer {
+	w.dispatcher = w.dispatcher.WithDispatchKey(dispatchKey)
+	return w
+}
+
 // Create creates the given table within the project provided. If the table does not
 // have a key, a new key will be generated.
 func (w Writer) Create(ctx context.Context, projectKey project.Key, t *Table) error {
@@ -76,9 +83,11 @@ func (w Writer) Create(ctx context.Context, projectKey project.Key, t *Table) er
 			}
 		}
 	}
-	// Notify last: a create rejected by ontology validation must not be broadcast.
-	w.dispatcher.Notify(
-		ctx, t.Key, "", []Action{NewCreateAction(CreatePayload{Table: *t})},
+	w.dispatcher.NotifyOnCommit(
+		ctx,
+		w.tx,
+		t.Key,
+		NewCreateAction(CreatePayload{Table: *t}),
 	)
 	return nil
 }

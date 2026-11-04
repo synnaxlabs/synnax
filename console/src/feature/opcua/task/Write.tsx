@@ -13,13 +13,14 @@ import { Icon } from "@synnaxlabs/lyra/icon";
 import { Menu } from "@synnaxlabs/lyra/menu";
 import { Text } from "@synnaxlabs/lyra/text";
 import { Access } from "@synnaxlabs/pluto";
-import { caseconv, errors, primitive } from "@synnaxlabs/x";
+import { caseconv, deep, errors, primitive } from "@synnaxlabs/x";
 import { type FC } from "react";
 
 import { type HaulItem } from "@/feature/opcua/device/Browser";
 import { Select } from "@/feature/opcua/device/Select";
 import {
   type Device,
+  MAKE,
   migrateProperties,
   type Properties as DeviceProperties,
   SCHEMAS,
@@ -36,12 +37,9 @@ import { ContextMenu } from "@/platform/context-menu";
 import { Selector } from "@/platform/selector";
 import { Task } from "@/platform/task";
 
-const Properties = () => (
-  <>
-    <Select />
-    <Task.Fields.AutoStart />
-  </>
-);
+const path = deep.path<Task.Values<WriteSchemas>>();
+
+const Properties = () => <Select />;
 
 const convertHaulItemToChannel = ({ data }: HaulItem): WriteChannel => ({
   key: data.nodeId,
@@ -88,6 +86,7 @@ const resolve = (device: Device, { nodeId }: WriteChannel) => ({
 });
 
 const TaskForm: FC = createForm<WriteChannel>({
+  path: path.config.channels,
   convertHaulItemToChannel,
   getChannelKeyAndID,
   contextMenuItems,
@@ -172,12 +171,12 @@ export const Write = Task.wrapForm({
   schemas: WRITE_SCHEMAS,
   deployConfigZ: deployWriteConfigZ,
   type: "opc_write",
-  getInitialValues,
   onConfigure,
 });
 
 export const useCreateWrite = Task.createUseCreate({
   getInitialValues,
+  deviceMake: MAKE,
 });
 
 export const WriteSelectable = Selector.createSelectable({

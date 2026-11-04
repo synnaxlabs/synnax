@@ -378,6 +378,53 @@ TEST_F(TestScanTask, testScanChecksDeviceHealth) {
     EXPECT_EQ(devices[0].status.value().message, "Server connected");
 }
 
+/// @brief it should not open a session of its own when a task received a reply from the
+/// server since the last check, and open one when no task did.
+TEST_F(TestScanTask, testHealthCheckRidesTaskSession) {
+    Scanner scanner(ctx, task, conn_pool, store);
+    connection::Config cfg;
+    cfg.endpoint = "opc.tcp://localhost:4840";
+    synnax::device::Device dev;
+    dev.key = "ride-device";
+    dev.name = "Ride Device";
+    dev.make = "opc";
+    dev.rack = rack.key;
+    dev.properties = x::json::json{
+        {"connection", testutil::connection_json(cfg)},
+        {"channels", x::json::json::array()}
+    };
+    const auto task_conn = ASSERT_NIL_P(conn_pool->acquire(cfg, "[test] "));
+    const auto first = this->scan(scanner, dev);
+    EXPECT_EQ(first[0].status.value().message, "Server connected");
+    EXPECT_EQ(conn_pool->size(), 1);
+    const auto second = this->scan(scanner, dev);
+    EXPECT_EQ(second[0].status.value().message, "Server connected");
+    EXPECT_EQ(conn_pool->size(), 2);
+}
+
+/// @brief it should probe the server on each scan when no task gets replies, so the
+/// reply to its own probe does not hide an outage on the next scan.
+TEST_F(TestScanTask, testHealthCheckProbesEachScan) {
+    Scanner scanner(ctx, task, conn_pool, store);
+    connection::Config cfg;
+    cfg.endpoint = "opc.tcp://localhost:4840";
+    synnax::device::Device dev;
+    dev.key = "probe-device";
+    dev.name = "Probe Device";
+    dev.make = "opc";
+    dev.rack = rack.key;
+    dev.properties = x::json::json{
+        {"connection", testutil::connection_json(cfg)},
+        {"channels", x::json::json::array()}
+    };
+    const auto first = this->scan(scanner, dev);
+    EXPECT_EQ(first[0].status.value().message, "Server connected");
+    server->stop();
+    const auto second = this->scan(scanner, dev);
+    EXPECT_EQ(second[0].status.value().variant, synnax::status::VARIANT_WARNING);
+    EXPECT_EQ(second[0].status.value().message, "Failed to reach server");
+}
+
 /// @brief Tests that health check detects connection state changes (server up/down/up).
 TEST_F(TestScanTask, testHealthCheckDetectsConnectionStateChanges) {
     // Create device with connection properties
