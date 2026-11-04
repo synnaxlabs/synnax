@@ -175,22 +175,30 @@ func (u *Update) UnmarshalJSONFrom(dec *jsontext.Decoder) error {
 	var disc struct {
 		Type UpdateType `json:"group"`
 	}
-	if err := json.Unmarshal(data, &disc, opts); err != nil {
+	if err := json.Unmarshal(
+		data, &disc, opts, json.RejectUnknownMembers(false),
+	); err != nil {
 		return err
 	}
 	switch disc.Type {
 	case IdentityUpdateType:
-		var v IdentityUpdate
+		var v struct {
+			Type UpdateType `json:"group"`
+			IdentityUpdate
+		}
 		if err := json.Unmarshal(data, &v, opts); err != nil {
 			return err
 		}
-		u.Variant = v
+		u.Variant = v.IdentityUpdate
 	case ConfigurationUpdateType:
-		var v ConfigurationUpdate
+		var v struct {
+			Type UpdateType `json:"group"`
+			ConfigurationUpdate
+		}
 		if err := json.Unmarshal(data, &v, opts); err != nil {
 			return err
 		}
-		u.Variant = v
+		u.Variant = v.ConfigurationUpdate
 	default:
 		return errors.Newf("Update: unknown group %q", disc.Type)
 	}
