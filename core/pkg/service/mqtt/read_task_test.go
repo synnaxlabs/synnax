@@ -209,11 +209,14 @@ var _ = Describe("Read task", func() {
 				Eventually(func(g Gomega) {
 					stat := taskStatus(ctx, t)
 					g.Expect(stat.Variant).To(Equal(status.VariantWarning))
-					g.Expect(stat.Message).To(Equal("Failed to read some data"))
+					g.Expect(stat.Message).To(Equal("Skipped 1 of 1 message"))
 					g.Expect(stat.Description).To(Equal(
-						"rejected a message on topic plant/line4: " +
-							"field b: no value at /b",
+						"Message on topic plant/line4: field b: no value at /b",
 					))
+					g.Expect(stat.Details.Data).To(HaveKeyWithValue("stats", SatisfyAll(
+						HaveKeyWithValue("read", BeNumerically("==", 1)),
+						HaveKeyWithValue("skipped", BeNumerically("==", 1)),
+					)))
 					g.Expect(stat.Details.Running).To(BeTrue())
 				}).Should(Succeed())
 				broker.publish("plant/line4", `{"a":1,"b":2}`, false)
@@ -655,10 +658,10 @@ var _ = Describe("Read task", func() {
 			),
 			Entry("a channel of a data type that a field cannot write",
 				func(ctx context.Context) (msgpack.EncodedJSON, string) {
-					ch := createVirtual(ctx, telem.UUIDT)
+					ch := createVirtual(ctx, telem.BytesT)
 					return readConfig(dev, plainEntry("plant/x", field("v", ch, ""))),
 						"field v of topic plant/x: channel " + ch.Name +
-							": cannot convert a JSON value to uuid"
+							": cannot convert a JSON value to bytes"
 				},
 			),
 			Entry("fields of one topic on different indexes",

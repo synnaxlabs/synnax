@@ -33,11 +33,12 @@ type StatusHandler struct {
 	mu  sync.Mutex
 	// stat is the last status sent, seeded at construction before any send.
 	stat task.Status
-	// prior is the status text that the active warning replaced.
+	// prior is the status text and data that the active warning replaced.
 	prior struct {
 		variant     status.Variant
 		message     string
 		description string
+		data        msgpack.EncodedJSON
 	}
 }
 
@@ -74,21 +75,22 @@ func (h *StatusHandler) Send(
 	return h.write(ctx, stat)
 }
 
-// Warn records an unsolicited warning with a supporting description, leaving the
-// running state as it was. A warning equal to the active one writes nothing, so a
-// retry loop can call Warn on every attempt. A failed write leaves the active status as
-// it was, so the next call writes the warning again.
-func (h *StatusHandler) Warn(ctx context.Context, message, description string) error {
+// Warn records an unsolicited warning, leaving the running state as it was. A warning
+// with the message and description of the active one writes nothing, so a retry loop
+// can call Warn on every attempt. A failed write leaves the active status as it was, so
+// the next call writes the warning again.
+func (h *StatusHandler) Warn(ctx context.Context, w Warning) error {
 	h.mu.Lock()
 	defer h.mu.Unlock()
 	active := h.stat.Variant == status.VariantWarning
-	if active && h.stat.Message == message && h.stat.Description == description {
+	if active && h.stat.Message == w.Message && h.stat.Description == w.Description {
 		return nil
 	}
 	next := h.stat
 	next.Variant = status.VariantWarning
-	next.Message = message
-	next.Description = description
+	next.Message = w.Message
+	next.Description = w.Description
+	next.Details.Data = w.Data
 	next.Details.Cmd = NoCommand
 	next.Time = telem.Now()
 	if err := h.write(ctx, next); err != nil {
@@ -98,6 +100,7 @@ func (h *StatusHandler) Warn(ctx context.Context, message, description string) e
 		h.prior.variant = h.stat.Variant
 		h.prior.message = h.stat.Message
 		h.prior.description = h.stat.Description
+		h.prior.data = h.stat.Details.Data
 	}
 	h.stat = next
 	return nil
@@ -116,6 +119,7 @@ func (h *StatusHandler) ClearWarning(ctx context.Context) error {
 	next.Variant = h.prior.variant
 	next.Message = h.prior.message
 	next.Description = h.prior.description
+	next.Details.Data = h.prior.data
 	next.Details.Cmd = NoCommand
 	next.Time = telem.Now()
 	if err := h.write(ctx, next); err != nil {

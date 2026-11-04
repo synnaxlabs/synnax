@@ -17,6 +17,7 @@ import (
 	"net"
 	"slices"
 	"sync/atomic"
+	"time"
 
 	"github.com/synnaxlabs/synnax/pkg/distribution/framer/frame"
 	"github.com/synnaxlabs/synnax/pkg/service/channel"
@@ -75,7 +76,9 @@ type readGroup struct {
 
 // row is one record converted into a group's samples.
 type row struct {
-	ts telem.TimeStamp
+	// rec is the record that the row came from.
+	rec *kgo.Record
+	ts  telem.TimeStamp
 	// samples[i] is the series encoding of the sample for fields[i].
 	samples [][]byte
 }
@@ -96,12 +99,8 @@ type readTask struct {
 	closer io.Closer
 	// sCtx is the consumer's context. A consumer that fails cancels it.
 	sCtx signal.Context
-	// lastSkip is the last skip reported, so a repeated one is not rewritten.
-	lastSkip string
-	// skipped counts the records the current poll skipped, and skipReason is why the
-	// first was.
-	skipped    int
-	skipReason string
+	// skips counts the records of the current run that the task reads and skips.
+	skips *driver.Skips
 	// reassigned is set when the group assigns partitions, which replay from the last
 	// committed offset.
 	reassigned atomic.Bool
@@ -458,7 +457,7 @@ func (t *readTask) open(ctx context.Context) (err error) {
 	}
 	t.client = cl
 	t.sCtx = sCtx
-	t.lastSkip = ""
+	t.skips = driver.NewSkips("record")
 	t.disconnected = false
 	t.closer = xio.MultiCloser{
 		xio.CloserFunc(t.closeClient),
@@ -569,12 +568,16 @@ func (t *readTask) lastStored(
 // an error status.
 func (t *readTask) consume(ctx context.Context) error {
 	for {
-		fetches := t.client.PollFetches(ctx)
+		fetches := t.poll(ctx)
 		if ctx.Err() != nil || fetches.IsClientClosed() {
 			return nil
 		}
 		var fatal, transient error
 		fetches.EachError(func(topic string, partition int32, err error) {
+			// The deadline of poll ends a quiet poll, and is no failure.
+			if errors.Is(err, context.DeadlineExceeded) {
+				return
+			}
 			err = errors.Wrapf(err, "fetching %s/%d", topic, partition)
 			if isConnectionErr(err) {
 				transient = cmp.Or(transient, err)
@@ -593,11 +596,9 @@ func (t *readTask) consume(ctx context.Context) error {
 			)
 			return fatal
 		}
-		// A connection status replaces the last skip, so the next skip is reported
-		// again. Recovery is reported before the batch, so a skip in it stays visible.
+		// Recovery is reported before the batch, so a skip in it stays visible.
 		if transient != nil && !t.disconnected {
 			t.disconnected = true
-			t.lastSkip = ""
 			t.setStatus(
 				ctx,
 				driver.NoCommand,
@@ -609,7 +610,6 @@ func (t *readTask) consume(ctx context.Context) error {
 		}
 		if transient == nil && t.disconnected && fetches.NumRecords() > 0 {
 			t.disconnected = false
-			t.lastSkip = ""
 			t.setStatus(
 				ctx,
 				driver.NoCommand,
@@ -631,6 +631,17 @@ func (t *readTask) consume(ctx context.Context) error {
 			return err
 		}
 	}
+}
+
+// poll returns the next records. It returns early with a deadline error when the skip
+// warning must change.
+func (t *readTask) poll(ctx context.Context) kgo.Fetches {
+	if deadline, ok := t.skips.Deadline(); ok {
+		var cancel context.CancelFunc
+		ctx, cancel = context.WithDeadline(ctx, deadline)
+		defer cancel()
+	}
+	return t.client.PollFetches(ctx)
 }
 
 // unavailable are the broker errors for a broker or coordinator that is down or
@@ -679,7 +690,7 @@ func (t *readTask) process(ctx context.Context, fetches kgo.Fetches) error {
 			fr = g.appendFrame(fr, kept)
 		}
 	}
-	t.reportSkips(ctx)
+	t.reportSkips(ctx, time.Now())
 	if !fr.Empty() {
 		if _, err := t.writer.Write(fr); err != nil {
 			return errors.Wrap(err, "writing records")
@@ -690,7 +701,7 @@ func (t *readTask) process(ctx context.Context, fetches kgo.Fetches) error {
 }
 
 // convert parses rec into its group's samples. ok is false when the record is not
-// addressed to this task or was skipped with a status.
+// addressed to this task or was skipped.
 func (t *readTask) convert(rec *kgo.Record) (g *readGroup, r row, ok bool) {
 	g, ok = t.groups[string(rec.Key)]
 	if !ok {
@@ -698,21 +709,22 @@ func (t *readTask) convert(rec *kgo.Record) (g *readGroup, r row, ok bool) {
 			return nil, row{}, false
 		}
 	}
+	t.skips.Read()
 	if err := g.extractor.Extract(rec.Value, g.values, g.found); err != nil {
-		t.skip("Record is not JSON: " + err.Error())
+		t.skip(rec, "Record is not JSON: "+err.Error())
 		return nil, row{}, false
 	}
-	r = row{samples: make([][]byte, len(g.fields))}
+	r = row{rec: rec, samples: make([][]byte, len(g.fields))}
 	for i, f := range g.fields {
 		if !g.found[i] {
-			t.skip(fmt.Sprintf("Record has no value at %s", f.pointer))
+			t.skip(rec, fmt.Sprintf("Record has no value at %s", f.pointer))
 			return nil, row{}, false
 		}
 		sample, err := xjson.AppendSample(
 			nil, f.channel.DataType, g.values[i], f.format, f.enums,
 		)
 		if err != nil {
-			t.skip(fmt.Sprintf("Value at %s: %s", f.pointer, err))
+			t.skip(rec, fmt.Sprintf("Value at %s: %s", f.pointer, err))
 			return nil, row{}, false
 		}
 		r.samples[i] = sample
@@ -737,7 +749,7 @@ func (t *readTask) keep(g *readGroup, rows []row) []row {
 				continue
 			}
 			if g.stamp != -1 {
-				t.skip(fmt.Sprintf(
+				t.skip(r.rec, fmt.Sprintf(
 					"Record stamped %s is not after the last written %s for key %q",
 					r.ts, g.last, g.key,
 				))
@@ -772,38 +784,32 @@ func (g *readGroup) appendFrame(fr frame.Frame, rows []row) frame.Frame {
 	return fr.Extend(frame.NewMulti(g.keys, series))
 }
 
-// skip counts a skipped record and why for reportSkips.
-func (t *readTask) skip(reason string) {
-	if t.skipped == 0 {
-		t.skipReason = reason
-	}
-	t.skipped++
+// skip counts rec as skipped. reason says why.
+func (t *readTask) skip(rec *kgo.Record, reason string) {
+	t.skips.Skip(time.Now(), fmt.Sprintf(
+		"%s (partition %d, offset %d).", reason, rec.Partition, rec.Offset,
+	))
 }
 
-// reportSkips writes one status for the records the poll skipped, unless its reason
-// repeats the last one.
-func (t *readTask) reportSkips(ctx context.Context) {
-	n := t.skipped
-	if n == 0 {
+// reportSkips writes the skip warning at now, or clears it once it expires. It writes
+// nothing while the connection warning shows.
+func (t *readTask) reportSkips(ctx context.Context, now time.Time) {
+	w := t.skips.Warning(now)
+	if t.disconnected {
 		return
 	}
-	t.skipped = 0
-	if t.skipReason == t.lastSkip {
-		return
+	var err error
+	if w != nil {
+		err = t.status.Warn(ctx, *w)
+	} else {
+		err = t.status.ClearWarning(ctx)
 	}
-	t.lastSkip = t.skipReason
-	message := "Skipped record"
-	if n > 1 {
-		message = fmt.Sprintf("Skipped %d records", n)
+	if err != nil {
+		t.factoryCfg.L.Error("failed to write task warning",
+			zap.Stringer("task", t.task.Key),
+			zap.Error(err),
+		)
 	}
-	t.setStatus(
-		ctx,
-		driver.NoCommand,
-		status.VariantError,
-		true,
-		message,
-		t.skipReason,
-	)
 }
 
 // ackCurrent answers cmdKey with the task's current status, for a command that needs
