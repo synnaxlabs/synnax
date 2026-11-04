@@ -88,8 +88,8 @@ const record = (check: string, messages: string[]): void => {
   }
 };
 
-// An outage on an outside host proves nothing about the link, so it warns instead of
-// failing the run.
+// An outage or bot wall on an outside host proves nothing about the link, so it warns
+// instead of failing the run.
 const warnUnverified = (message: string): void => {
   if (process.stdout.isTTY) process.stdout.write("\r\x1b[2K");
   console.warn(`${styleText(["yellow", "bold"], "unverified")} ${message}`);
