@@ -11,11 +11,11 @@
 
 package versions
 
-import "github.com/synnaxlabs/synnax/pkg/service/group/versions/v0"
+import "github.com/synnaxlabs/synnax/pkg/service/group/versions/v1"
 
 // Key is a unique identifier for a group, represented as a UUID.
-type Key = v0.Key
+type Key = v1.Key
 
 // Group is a named collection container for organizing related resources. Groups
 // provide hierarchical organization through the ontology system.
-type Group = v0.Group
+type Group = v1.Group

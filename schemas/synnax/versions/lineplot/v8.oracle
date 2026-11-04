@@ -8,6 +8,7 @@
 // included in the file licenses/APL.txt.
 
 import "schemas/synnax/versions/channel/v0"
+import "schemas/synnax/versions/group/v1"
 import "schemas/synnax/versions/ranger/v1"
 import "schemas/x/versions/color/v0"
 
@@ -115,6 +116,9 @@ LinePlot struct {
     }
     rules    Rule[]       {
         @doc value "holds annotation rules drawn over the plot."
+    }
+    group    group.Key?   {
+        @doc value "is the group the line plot sits in, if any."
     }
 
     @go imex

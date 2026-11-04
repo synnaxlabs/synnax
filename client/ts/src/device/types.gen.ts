@@ -12,6 +12,7 @@
 import { type optional, record, zod } from "@synnaxlabs/x";
 import { z } from "zod";
 
+import { group } from "@/group";
 import { rack } from "@/rack";
 import { resource } from "@/resource";
 import { status } from "@/status";
@@ -59,6 +60,7 @@ export const deviceZ = <
     configured: z.boolean().default(false),
     properties: properties ?? record.unknownZ().default(() => ({})),
     status: statusZ.optional(),
+    group: group.keyZ.optional(),
     parent: resource.idZ.optional(),
   });
 export interface Device<
@@ -75,6 +77,7 @@ export interface Device<
   configured: boolean;
   properties: z.infer<Properties>;
   status?: Status;
+  group?: group.Key;
   parent?: resource.ID;
 }
 export type New<

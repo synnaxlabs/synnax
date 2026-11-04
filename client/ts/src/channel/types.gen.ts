@@ -12,6 +12,7 @@
 import { control, telem, TimeSpan, zod } from "@synnaxlabs/x";
 import { z } from "zod";
 
+import { group } from "@/group";
 import { node } from "@/node";
 import { resource } from "@/resource";
 import { status } from "@/status";
@@ -117,6 +118,8 @@ export const payloadZ = z.object({
   concurrency: control.concurrencyZ.default(control.Concurrency.exclusive),
   /** status is the current operational status of the channel. */
   status: statusZ.optional(),
+  /** group is the group the channel sits in, if any. */
+  group: group.keyZ.optional(),
 });
 export interface Payload extends z.infer<typeof payloadZ> {}
 export interface New extends z.input<typeof payloadZ> {}

@@ -16,6 +16,7 @@ from typing import override as _override
 
 from pydantic import BaseModel, Field
 
+from synnax import group as group_
 from synnax import node
 from synnax import status as status_
 from synnax.resource import ID
@@ -90,6 +91,7 @@ class Payload(BaseModel):
         concurrency: Sets the policy for concurrent writes to the channel's data. Only
             virtual channels can have a policy of shared concurrency.
         status: Is the current operational status of the channel.
+        group: Is the group the channel sits in, if any.
     """
 
     key: Key = Field(default=Key(0), ge=0, le=4294967295)
@@ -105,6 +107,7 @@ class Payload(BaseModel):
     operations: list[Operation] = Field(default_factory=list)
     concurrency: control.Concurrency = control.Concurrency.exclusive
     status: Status | None = None
+    group: group_.Key | None = None
 
     @_override
     def __hash__(self) -> int:

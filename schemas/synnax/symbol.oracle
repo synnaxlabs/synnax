@@ -7,6 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
+import "schemas/synnax/group"
 import "schemas/x/color"
 import "schemas/x/spatial"
 
@@ -111,16 +112,21 @@ Spec struct {
 }
 
 Symbol struct {
-    key  Key = create {
+    key   Key = create {
         @doc value "is the unique identifier for this symbol."
         @key
     }
-    name string {
+    name  string     {
         @doc value           "is a human-readable name for the symbol."
+        @search
         @validate min_length 1
     }
-    data Spec   {
+    data  Spec       {
         @doc value "is the complete symbol specification."
+    }
+    group group.Key? {
+        @doc value     "is the group the symbol sits in, if any."
+        @ref on_delete detach
     }
 
     @create
@@ -131,4 +137,5 @@ Symbol struct {
     @go imex
     @go marshal
     @resource type "schematic_symbol"
+    @retrieve
 }

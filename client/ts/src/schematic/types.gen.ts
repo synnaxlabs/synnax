@@ -22,6 +22,7 @@ import {
 import { z } from "zod";
 
 import { channel } from "@/channel";
+import { group } from "@/group";
 import { resource } from "@/resource";
 import { symbol } from "@/schematic/symbol";
 
@@ -3264,6 +3265,8 @@ export const schematicZ = z.object({
   configs: caseconv.preserveKeys(
     z.record(z.string(), elementConfigZ).default(() => ({})),
   ),
+  /** group is the group the schematic sits in, if any. */
+  group: group.keyZ.optional(),
 });
 export interface Schematic extends z.infer<typeof schematicZ> {}
 export interface New extends z.input<typeof schematicZ> {}

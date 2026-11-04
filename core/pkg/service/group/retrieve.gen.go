@@ -16,6 +16,7 @@ import (
 	"slices"
 
 	"github.com/synnaxlabs/gorp"
+	"github.com/synnaxlabs/synnax/pkg/service/resource"
 )
 
 // tableName names the Group table for references. Pass it as
@@ -35,6 +36,7 @@ type Retrieve struct {
 // onto the Retrieve so filter functions can resolve them off r.indexes
 // instead of relying on package-level state.
 type indexes struct {
+	parent *gorp.TargetReference[Key, Group]
 	search *gorp.SearchIndex[Key, Group]
 }
 
@@ -43,6 +45,18 @@ type indexes struct {
 // Service struct.
 func newIndexes() indexes {
 	return indexes{
+		parent: gorp.NewTargetReference(gorp.TargetReferenceConfig[Key, Group]{
+			Name:     "parent",
+			Tables:   []string{"group", "project", "rack"},
+			OnDelete: gorp.Cascade,
+			Acyclic:  true,
+			Targets: func(e *Group) []gorp.Target {
+				if e.Parent == nil {
+					return nil
+				}
+				return []gorp.Target{resourceTarget(*e.Parent)}
+			},
+		}),
 		search: gorp.NewSearchIndex[Key, Group](
 			"search",
 			func(e *Group) []string {
@@ -58,6 +72,19 @@ func (i indexes) all() []gorp.Index[Key, Group] {
 	return []gorp.Index[Key, Group]{
 		i.search,
 	}
+}
+
+// references returns the references packaged for registration via
+// gorp.TableConfig.References when opening the underlying table.
+func (i indexes) references() []gorp.Reference[Key, Group] {
+	return []gorp.Reference[Key, Group]{
+		i.parent,
+	}
+}
+
+// resourceTarget returns the gorp.Target of the resource that id identifies.
+func resourceTarget(id resource.ID) gorp.Target {
+	return gorp.Target{Table: string(id.Type), Key: id.Key}
 }
 
 // Filter is a per-service filter that is bound to the Retrieve when passed to
@@ -121,6 +148,38 @@ func MatchNames(vals ...string) Filter {
 		return gorp.Match(func(_ gorp.Context, e *Group) (bool, error) {
 			return slices.Contains(vals, e.Name), nil
 		})
+	}
+}
+
+// MatchScopes returns a filter for
+// groups whose Scope matches any of the
+// provided values.
+func MatchScopes(vals ...resource.Type) Filter {
+	return func(Retrieve) gorp.Filter[Key, Group] {
+		return gorp.Match(func(_ gorp.Context, e *Group) (bool, error) {
+			return slices.Contains(vals, e.Scope), nil
+		})
+	}
+}
+
+// MatchParents returns a filter for groups
+// whose Parent matches any of the provided
+// values.
+func MatchParents(vals ...resource.ID) Filter {
+	return func(r Retrieve) gorp.Filter[Key, Group] {
+		targets := make([]gorp.Target, len(vals))
+		for i, v := range vals {
+			targets[i] = resourceTarget(v)
+		}
+		return r.indexes.parent.Filter(targets...)
+	}
+}
+
+// MatchHasParent returns a filter for groups whose
+// Parent holds a target when has is true, and holds none when has is false.
+func MatchHasParent(has bool) Filter {
+	return func(r Retrieve) gorp.Filter[Key, Group] {
+		return r.indexes.parent.FilterHolding(has)
 	}
 }
 

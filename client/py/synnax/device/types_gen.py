@@ -16,6 +16,7 @@ from typing import override as _override
 
 from pydantic import BaseModel, Field, JsonValue
 
+from synnax import group as group_
 from synnax import rack as rack_
 from synnax import resource
 from synnax import status as status_
@@ -58,6 +59,7 @@ class Device(BaseModel):
         properties: Contains device-specific configuration properties stored as JSON.
             Structure varies by device make and model.
         status: Is the current operational status of the device.
+        group: Is the group the device sits in, if any.
         parent: Is an optional parent resource ID for hierarchical device organization
             (e.g., NI chassis containing modules).
     """
@@ -71,6 +73,7 @@ class Device(BaseModel):
     configured: bool = False
     properties: dict[str, JsonValue] = Field(default_factory=dict)
     status: Status | None = None
+    group: group_.Key | None = None
     parent: resource.ID | None = None
 
     @_override

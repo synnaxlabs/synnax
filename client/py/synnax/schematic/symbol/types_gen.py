@@ -17,6 +17,7 @@ from uuid import UUID, uuid4
 
 from pydantic import BaseModel, Field
 
+from synnax import group as group_
 from synnax.resource import ID
 from x import color, spatial
 
@@ -101,11 +102,13 @@ class Symbol(BaseModel):
         key: Is the unique identifier for this symbol.
         name: Is a human-readable name for the symbol.
         data: Is the complete symbol specification.
+        group: Is the group the symbol sits in, if any.
     """
 
     key: Key = Field(default_factory=uuid4)
     name: str = Field(min_length=1)
     data: Spec
+    group: group_.Key | None = None
 
     @_override
     def __hash__(self) -> int:

@@ -7,6 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
+import "schemas/synnax/group"
 import "schemas/synnax/rack"
 import "schemas/synnax/resource"
 import "schemas/synnax/status"
@@ -98,6 +99,11 @@ Device struct<
     status     Status?      {
         @doc value  "is the current operational status of the device."
         @go marshal omit
+    }
+    group      group.Key?   {
+        @cpp omit
+        @doc value     "is the group the device sits in, if any."
+        @ref on_delete detach
     }
     parent     resource.ID? {
         @doc value  """

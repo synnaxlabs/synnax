@@ -18,6 +18,7 @@ from uuid import UUID, uuid4
 from pydantic import BaseModel, Field
 
 from synnax import channel as channel_
+from synnax import group as group_
 from synnax.resource import ID
 from x import color, text
 from x import notation as notation_
@@ -126,6 +127,7 @@ class Table(BaseModel):
         cells: Contains all cells in the table, keyed by cell key. Cell positions are
             derived from rows[*].cells[*] references; cells not referenced by any row
             are orphaned and will be pruned on the next structural edit.
+        group: Is the group the table sits in, if any.
     """
 
     key: Key = Field(default_factory=uuid4)
@@ -133,6 +135,7 @@ class Table(BaseModel):
     rows: list[Row] = Field(default_factory=list)
     columns: list[Column] = Field(default_factory=list)
     cells: dict[str, CellConfig] = Field(default_factory=dict)
+    group: group_.Key | None = None
 
     @_override
     def __hash__(self) -> int:

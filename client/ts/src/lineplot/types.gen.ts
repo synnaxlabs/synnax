@@ -13,6 +13,7 @@ import { color, spatial, text, uuid } from "@synnaxlabs/x";
 import { z } from "zod";
 
 import { channel } from "@/channel";
+import { group } from "@/group";
 import { ranger } from "@/ranger";
 import { resource } from "@/resource";
 
@@ -238,6 +239,8 @@ export const linePlotZ = z.object({
   lines: lineZ.array().default(() => []),
   /** rules holds annotation rules drawn over the plot. */
   rules: ruleZ.array().default(() => []),
+  /** group is the group the line plot sits in, if any. */
+  group: group.keyZ.optional(),
 });
 export interface LinePlot extends z.infer<typeof linePlotZ> {}
 export interface New extends z.input<typeof linePlotZ> {}

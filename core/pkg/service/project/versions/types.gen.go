@@ -11,11 +11,11 @@
 
 package versions
 
-import "github.com/synnaxlabs/synnax/pkg/service/project/versions/v2"
+import "github.com/synnaxlabs/synnax/pkg/service/project/versions/v3"
 
 // Key is a unique identifier for a project, represented as a UUID.
-type Key = v2.Key
+type Key = v3.Key
 
 // Project is a named, persistable container that groups the panels of the Console
 // application.
-type Project = v2.Project
+type Project = v3.Project

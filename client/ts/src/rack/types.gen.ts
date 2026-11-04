@@ -11,6 +11,7 @@
 
 import { z } from "zod";
 
+import { group } from "@/group";
 import { resource } from "@/resource";
 import { status } from "@/status";
 
@@ -42,6 +43,8 @@ export const payloadZ = z.object({
     .string()
     .array()
     .default(() => []),
+  /** group is the group the rack sits in, if any. */
+  group: group.keyZ.optional(),
 });
 export interface Payload extends z.infer<typeof payloadZ> {}
 

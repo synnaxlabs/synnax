@@ -17,6 +17,7 @@ from uuid import UUID
 
 from pydantic import BaseModel
 
+from synnax import resource
 from synnax.resource import ID
 
 Key: TypeAlias = UUID
@@ -29,10 +30,15 @@ class Group(BaseModel):
     Attributes:
         key: Is the unique identifier for this group.
         name: Is a human-readable name for the group.
+        scope: Is the type of resource the group's tree holds. It stays the same down a
+            chain of groups.
+        parent: Is the group, project, or rack the group sits in, if any.
     """
 
     key: Key
     name: str
+    scope: resource.Type
+    parent: resource.ID | None = None
 
     @_override
     def __hash__(self) -> int:

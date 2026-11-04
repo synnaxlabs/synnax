@@ -12,6 +12,7 @@
 import { color, spatial, uuid } from "@synnaxlabs/x";
 import { z } from "zod";
 
+import { group } from "@/group";
 import { resource } from "@/resource";
 
 /**
@@ -153,6 +154,8 @@ export const panelZ = z.object({
   icon: z.string().optional(),
   /** color is the color of the panel's icon. When null, the theme picks it. */
   color: color.colorZ.optional(),
+  /** group is the group the panel sits in, if any. */
+  group: group.keyZ.optional(),
 });
 export interface Panel extends z.infer<typeof panelZ> {}
 export interface New extends z.input<typeof panelZ> {}

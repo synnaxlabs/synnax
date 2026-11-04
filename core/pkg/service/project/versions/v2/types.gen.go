@@ -11,10 +11,7 @@
 
 package v2
 
-import (
-	v1 "github.com/synnaxlabs/synnax/pkg/service/project/versions/v1"
-	"github.com/synnaxlabs/x/validate"
-)
+import v1 "github.com/synnaxlabs/synnax/pkg/service/project/versions/v1"
 
 // Key is a unique identifier for a project, represented as a UUID.
 type Key = v1.Key
@@ -26,12 +23,4 @@ type Project struct {
 	Key Key `json:"key" msgpack:"key"`
 	// Name is a human-readable name for the project.
 	Name string `json:"name" msgpack:"name"`
-}
-
-// Validate returns an error wrapping validate.ErrValidation if any field violates its
-// schema constraints.
-func (p Project) Validate() error {
-	v := validate.New("Project")
-	v.NotEmptyString("name", p.Name)
-	return v.Error()
 }

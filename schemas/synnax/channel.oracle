@@ -7,6 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
+import "schemas/synnax/group"
 import "schemas/synnax/node"
 import "schemas/synnax/status"
 import "schemas/x/control"
@@ -23,7 +24,6 @@ Key uint32 {
         key (first 12 bits) and a local key (last 20 bits), enabling distributed
         assignment while maintaining global uniqueness.
     """
-    @go hand
     @go output    "core/pkg/service/channel"
     @ts to_number
 }
@@ -35,7 +35,6 @@ LocalKey uint20 {
         channel key within a node. Combined with a node.Key to form the global channel
         Key.
     """
-    @go hand
     @go output "core/pkg/service/channel"
     @py omit
 }
@@ -152,6 +151,10 @@ Channel struct {
             automatically configured as virtual.
         """
     }
+    group       group.Key?          {
+        @doc value     "is the group the channel sits in, if any."
+        @ref on_delete detach
+    }
 
     @cpp hand
     @doc value     """
@@ -246,6 +249,10 @@ APIChannel struct {
     }
     status      Status?             {
         @doc value "is the current operational status of the channel."
+    }
+    group       group.Key?          {
+        @cpp omit
+        @doc value "is the group the channel sits in, if any."
     }
 
     @cpp name      "Channel"

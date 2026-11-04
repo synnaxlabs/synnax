@@ -12,6 +12,8 @@
 package pb
 
 import (
+	"uuid"
+
 	"github.com/synnaxlabs/synnax/pkg/service/channel"
 	"github.com/synnaxlabs/synnax/pkg/service/node"
 	controlpb "github.com/synnaxlabs/x/control/pb"
@@ -98,6 +100,10 @@ func ChannelToPB(r channel.Channel) (*Channel, error) {
 		Concurrency: concurrencyVal,
 		Operations:  operationsVal,
 	}
+	if r.Group != nil {
+		v := r.Group.String()
+		pb.Group = &v
+	}
 	return pb, nil
 }
 
@@ -125,6 +131,13 @@ func ChannelFromPB(pb *Channel) (channel.Channel, error) {
 	r.Virtual = pb.Virtual
 	r.Internal = pb.Internal
 	r.Expression = pb.Expression
+	if pb.Group != nil {
+		v, err := uuid.Parse(*pb.Group)
+		if err != nil {
+			return channel.Channel{}, err
+		}
+		r.Group = &v
+	}
 	return r, nil
 }
 

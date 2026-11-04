@@ -17,6 +17,7 @@ from uuid import UUID, uuid4
 
 from pydantic import BaseModel, Field
 
+from synnax import group as group_
 from synnax import resource as resource_
 from synnax.resource import ID
 from x import color as color_
@@ -116,6 +117,7 @@ class Panel(BaseModel):
         icon: Is the key of the icon that marks the panel in lists. When null, the
             Console draws its default panel icon.
         color: Is the color of the panel's icon. When null, the theme picks it.
+        group: Is the group the panel sits in, if any.
     """
 
     key: Key = Field(default_factory=uuid4)
@@ -124,6 +126,7 @@ class Panel(BaseModel):
     parent: resource_.ID | None = None
     icon: str | None = None
     color: color_.Color | None = None
+    group: group_.Key | None = None
 
     @_override
     def __hash__(self) -> int:

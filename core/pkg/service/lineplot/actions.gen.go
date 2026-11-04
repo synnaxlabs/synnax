@@ -13,6 +13,7 @@ package lineplot
 
 import (
 	"github.com/synnaxlabs/synnax/pkg/service/channel"
+	"github.com/synnaxlabs/synnax/pkg/service/group"
 	"github.com/synnaxlabs/synnax/pkg/service/ranger"
 	"github.com/synnaxlabs/x/color"
 	"github.com/synnaxlabs/x/spatial"
@@ -23,6 +24,7 @@ import (
 const (
 	ActionTypeCreate                = "create"
 	ActionTypeRename                = "rename"
+	ActionTypeSetGroup              = "set_group"
 	ActionTypeSetTitleVisible       = "set_title_visible"
 	ActionTypeSetTitleLevel         = "set_title_level"
 	ActionTypeSetLegendHidden       = "set_legend_hidden"
@@ -66,6 +68,12 @@ type CreatePayload struct {
 // RenamePayload renames the line plot.
 type RenamePayload struct {
 	Name string `json:"name" msgpack:"name"`
+}
+
+// SetGroupPayload moves the line plot into a group, or out of its group when group is
+// empty. Emitted by the Core when it moves the line plot; clients never dispatch it.
+type SetGroupPayload struct {
+	Group *group.Key `json:"group,omitzero" msgpack:"group,omitempty"`
 }
 
 // SetTitleVisiblePayload sets whether the plot title is shown above the plot.
@@ -282,6 +290,7 @@ type Action struct {
 	Type                  string                        `json:"type" msgpack:"type"`
 	Create                *CreatePayload                `json:"create,omitzero" msgpack:"create,omitempty"`
 	Rename                *RenamePayload                `json:"rename,omitzero" msgpack:"rename,omitempty"`
+	SetGroup              *SetGroupPayload              `json:"set_group,omitzero" msgpack:"set_group,omitempty"`
 	SetTitleVisible       *SetTitleVisiblePayload       `json:"set_title_visible,omitzero" msgpack:"set_title_visible,omitempty"`
 	SetTitleLevel         *SetTitleLevelPayload         `json:"set_title_level,omitzero" msgpack:"set_title_level,omitempty"`
 	SetLegendHidden       *SetLegendHiddenPayload       `json:"set_legend_hidden,omitzero" msgpack:"set_legend_hidden,omitempty"`
@@ -334,6 +343,11 @@ func Reduce(state LinePlot, actions ...Action) (LinePlot, error) {
 				return state, union.MissingPayload(a.Type)
 			}
 			state, err = a.Rename.Handle(state)
+		case ActionTypeSetGroup:
+			if a.SetGroup == nil {
+				return state, union.MissingPayload(a.Type)
+			}
+			state, err = a.SetGroup.Handle(state)
 		case ActionTypeSetTitleVisible:
 			if a.SetTitleVisible == nil {
 				return state, union.MissingPayload(a.Type)
@@ -512,6 +526,11 @@ func NewCreateAction(p CreatePayload) Action {
 // NewRenameAction wraps a RenamePayload in an Action envelope.
 func NewRenameAction(p RenamePayload) Action {
 	return Action{Type: ActionTypeRename, Rename: &p}
+}
+
+// NewSetGroupAction wraps a SetGroupPayload in an Action envelope.
+func NewSetGroupAction(p SetGroupPayload) Action {
+	return Action{Type: ActionTypeSetGroup, SetGroup: &p}
 }
 
 // NewSetTitleVisibleAction wraps a SetTitleVisiblePayload in an Action envelope.

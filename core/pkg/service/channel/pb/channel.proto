@@ -73,4 +73,6 @@ message Channel {
   // expression is an Arc expression for calculated channels. If set, the channel is
   // automatically configured as virtual.
   string expression = 11;
+  // group is the group the channel sits in, if any.
+  optional string group = 12;
 }

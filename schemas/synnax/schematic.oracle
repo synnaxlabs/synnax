@@ -8,6 +8,7 @@
 // included in the file licenses/APL.txt.
 
 import "schemas/synnax/channel"
+import "schemas/synnax/group"
 import "schemas/synnax/symbol"
 import "schemas/x/border"
 import "schemas/x/color"
@@ -904,6 +905,10 @@ Schematic struct {
         """
         @ts preserve_keys
     }
+    group    group.Key?                 {
+        @doc value     "is the group the schematic sits in, if any."
+        @ref on_delete detach
+    }
 
     action Create {
         schematic Schematic
@@ -918,6 +923,15 @@ Schematic struct {
         name string
 
         @doc value "renames the schematic."
+    }
+
+    action SetGroup {
+        group group.Key?
+
+        @doc value """
+            moves the schematic into a group, or out of its group when group is empty.
+            Emitted by the Core when it moves the schematic; clients never dispatch it.
+        """
     }
 
     action SetNodePosition {

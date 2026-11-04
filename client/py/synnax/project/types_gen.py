@@ -17,6 +17,7 @@ from uuid import UUID, uuid4
 
 from pydantic import BaseModel, Field
 
+from synnax import group as group_
 from synnax.resource import ID
 
 Key: TypeAlias = UUID
@@ -29,10 +30,12 @@ class Project(BaseModel):
     Attributes:
         key: Is the unique identifier for this project.
         name: Is a human-readable name for the project.
+        group: Is the group the project sits in, if any.
     """
 
     key: Key = Field(default_factory=uuid4)
     name: str
+    group: group_.Key | None = None
 
     @_override
     def __hash__(self) -> int:

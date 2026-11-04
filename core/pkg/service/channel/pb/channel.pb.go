@@ -190,7 +190,9 @@ type Channel struct {
 	Operations []*Operation `protobuf:"bytes,10,rep,name=operations,proto3" json:"operations,omitempty"`
 	// expression is an Arc expression for calculated channels. If set, the channel is
 	// automatically configured as virtual.
-	Expression    string `protobuf:"bytes,11,opt,name=expression,proto3" json:"expression,omitempty"`
+	Expression string `protobuf:"bytes,11,opt,name=expression,proto3" json:"expression,omitempty"`
+	// group is the group the channel sits in, if any.
+	Group         *string `protobuf:"bytes,12,opt,name=group,proto3,oneof" json:"group,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -302,6 +304,13 @@ func (x *Channel) GetExpression() string {
 	return ""
 }
 
+func (x *Channel) GetGroup() string {
+	if x != nil && x.Group != nil {
+		return *x.Group
+	}
+	return ""
+}
+
 var File_core_pkg_service_channel_pb_channel_proto protoreflect.FileDescriptor
 
 const file_core_pkg_service_channel_pb_channel_proto_rawDesc = "" +
@@ -310,7 +319,7 @@ const file_core_pkg_service_channel_pb_channel_proto_rawDesc = "" +
 	"\tOperation\x125\n" +
 	"\x04type\x18\x01 \x01(\x0e2!.service.channel.pb.OperationTypeR\x04type\x12#\n" +
 	"\rreset_channel\x18\x02 \x01(\rR\fresetChannel\x12\x1a\n" +
-	"\bduration\x18\x03 \x01(\x03R\bduration\"\x87\x03\n" +
+	"\bduration\x18\x03 \x01(\x03R\bduration\"\xac\x03\n" +
 	"\aChannel\x12\x12\n" +
 	"\x04name\x18\x01 \x01(\tR\x04name\x12 \n" +
 	"\vleaseholder\x18\x02 \x01(\rR\vleaseholder\x12\x1b\n" +
@@ -328,7 +337,9 @@ const file_core_pkg_service_channel_pb_channel_proto_rawDesc = "" +
 	"operations\x12\x1e\n" +
 	"\n" +
 	"expression\x18\v \x01(\tR\n" +
-	"expression*\x8f\x01\n" +
+	"expression\x12\x19\n" +
+	"\x05group\x18\f \x01(\tH\x00R\x05group\x88\x01\x01B\b\n" +
+	"\x06_group*\x8f\x01\n" +
 	"\rOperationType\x12\x16\n" +
 	"\x12OPERATION_TYPE_MIN\x10\x00\x12\x16\n" +
 	"\x12OPERATION_TYPE_MAX\x10\x01\x12\x16\n" +
@@ -373,6 +384,7 @@ func file_core_pkg_service_channel_pb_channel_proto_init() {
 	if File_core_pkg_service_channel_pb_channel_proto != nil {
 		return
 	}
+	file_core_pkg_service_channel_pb_channel_proto_msgTypes[1].OneofWrappers = []any{}
 	type x struct{}
 	out := protoimpl.TypeBuilder{
 		File: protoimpl.DescBuilder{

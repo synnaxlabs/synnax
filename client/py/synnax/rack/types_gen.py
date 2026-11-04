@@ -16,6 +16,7 @@ from typing import override as _override
 
 from pydantic import BaseModel, Field
 
+from synnax import group as group_
 from synnax import status as status_
 from synnax.resource import ID
 
@@ -37,6 +38,7 @@ class Base(BaseModel):
         integrations: Is the list of hardware integrations this rack supports (e.g.,
             "ni", "opc", "labjack"). An empty or nil list means the rack supports no
             integrations.
+        group: Is the group the rack sits in, if any.
     """
 
     key: Key = Field(ge=0, le=4294967295)
@@ -44,6 +46,7 @@ class Base(BaseModel):
     embedded: bool = False
     status: Status | None = None
     integrations: list[str] = Field(default_factory=list)
+    group: group_.Key | None = None
 
     @_override
     def __hash__(self) -> int:

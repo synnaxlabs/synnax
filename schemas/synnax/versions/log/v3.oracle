@@ -8,6 +8,7 @@
 // included in the file licenses/APL.txt.
 
 import "schemas/synnax/versions/channel/v0"
+import "schemas/synnax/versions/group/v1"
 import "schemas/x/versions/color/v0"
 import "schemas/x/versions/notation/v0"
 
@@ -61,6 +62,9 @@ Log struct {
     }
     timestamps_hidden    bool = false {
         @doc value "is true when entry timestamps are hidden."
+    }
+    group                group.Key?     {
+        @doc value "is the group the log sits in, if any."
     }
 
     @doc value  """

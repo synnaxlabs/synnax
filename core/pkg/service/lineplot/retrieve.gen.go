@@ -15,6 +15,7 @@ import (
 	"context"
 
 	"github.com/synnaxlabs/gorp"
+	"github.com/synnaxlabs/synnax/pkg/service/group"
 )
 
 // tableName names the LinePlot table for references. Pass it as
@@ -34,6 +35,7 @@ type Retrieve struct {
 // onto the Retrieve so filter functions can resolve them off r.indexes
 // instead of relying on package-level state.
 type indexes struct {
+	group  *gorp.KeyReference[Key, LinePlot, group.Key]
 	search *gorp.SearchIndex[Key, LinePlot]
 }
 
@@ -42,6 +44,18 @@ type indexes struct {
 // Service struct.
 func newIndexes() indexes {
 	return indexes{
+		group: gorp.NewKeyReference(gorp.KeyReferenceConfig[Key, LinePlot, group.Key]{
+			Name:     "group",
+			Table:    "group",
+			OnDelete: gorp.Detach,
+			Targets: func(e *LinePlot) []group.Key {
+				if e.Group == nil {
+					return nil
+				}
+				return []group.Key{*e.Group}
+			},
+			Detach: func(e *LinePlot, _ group.Key) { e.Group = nil },
+		}),
 		search: gorp.NewSearchIndex[Key, LinePlot](
 			"search",
 			func(e *LinePlot) []string {
@@ -56,6 +70,14 @@ func newIndexes() indexes {
 func (i indexes) all() []gorp.Index[Key, LinePlot] {
 	return []gorp.Index[Key, LinePlot]{
 		i.search,
+	}
+}
+
+// references returns the references packaged for registration via
+// gorp.TableConfig.References when opening the underlying table.
+func (i indexes) references() []gorp.Reference[Key, LinePlot] {
+	return []gorp.Reference[Key, LinePlot]{
+		i.group,
 	}
 }
 
@@ -110,6 +132,38 @@ func MatchKeys(keys ...Key) Filter {
 	return func(Retrieve) gorp.Filter[Key, LinePlot] {
 		return gorp.MatchKeys[Key, LinePlot](keys...)
 	}
+}
+
+// MatchGroups returns a filter for lineplots
+// whose Group matches any of the provided
+// values.
+func MatchGroups(vals ...group.Key) Filter {
+	return func(r Retrieve) gorp.Filter[Key, LinePlot] {
+		return r.indexes.group.Filter(vals...)
+	}
+}
+
+// MatchHasGroup returns a filter for lineplots whose
+// Group holds a target when has is true, and holds none when has is false.
+func MatchHasGroup(has bool) Filter {
+	return func(r Retrieve) gorp.Filter[Key, LinePlot] {
+		return r.indexes.group.FilterHolding(has)
+	}
+}
+
+// setGroup returns an update that sets the Group of the
+// lineplots with keys to v.
+func setGroup(
+	table *gorp.Table[Key, LinePlot],
+	v *group.Key,
+	keys ...Key,
+) gorp.Update[Key, LinePlot] {
+	return table.NewUpdate().
+		Where(gorp.MatchKeys[Key, LinePlot](keys...)).
+		Change(func(_ gorp.Context, e LinePlot) LinePlot {
+			e.Group = v
+			return e
+		})
 }
 
 // Where applies the provided filter to the query, binding it to the Retrieve

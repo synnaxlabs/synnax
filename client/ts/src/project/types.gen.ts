@@ -12,6 +12,7 @@
 import { uuid } from "@synnaxlabs/x";
 import { z } from "zod";
 
+import { group } from "@/group";
 import { resource } from "@/resource";
 
 export const keyZ = z.uuid();
@@ -26,6 +27,8 @@ export const projectZ = z.object({
   key: keyZ.default(uuid.create),
   /** name is a human-readable name for the project. */
   name: z.string().min(1, "name is required"),
+  /** group is the group the project sits in, if any. */
+  group: group.keyZ.optional(),
 });
 export interface Project extends z.infer<typeof projectZ> {}
 export interface New extends z.input<typeof projectZ> {}

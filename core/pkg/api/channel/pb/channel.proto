@@ -58,4 +58,6 @@ message Channel {
   .x.control.pb.Concurrency concurrency = 12;
   // status is the current operational status of the channel.
   optional .service.status.pb.Status status = 13;
+  // group is the group the channel sits in, if any.
+  optional string group = 14;
 }

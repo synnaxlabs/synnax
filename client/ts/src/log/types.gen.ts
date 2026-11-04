@@ -13,6 +13,7 @@ import { color, notation, telem, uuid } from "@synnaxlabs/x";
 import { z } from "zod";
 
 import { channel } from "@/channel";
+import { group } from "@/group";
 import { resource } from "@/resource";
 
 /** TimestampConfig is per-channel timestamp display configuration. */
@@ -64,6 +65,8 @@ export const logZ = z.object({
   channelNamesHidden: z.boolean().default(false),
   /** timestampsHidden is true when entry timestamps are hidden. */
   timestampsHidden: z.boolean().default(false),
+  /** group is the group the log sits in, if any. */
+  group: group.keyZ.optional(),
 });
 export interface Log extends z.infer<typeof logZ> {}
 export interface New extends z.input<typeof logZ> {}

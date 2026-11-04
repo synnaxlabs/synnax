@@ -8,6 +8,7 @@
 // included in the file licenses/APL.txt.
 
 import "schemas/synnax/channel"
+import "schemas/synnax/group"
 import "schemas/x/color"
 import "schemas/x/notation"
 import "schemas/x/patch"
@@ -194,6 +195,10 @@ Table struct {
         """
         @ts preserve_keys
     }
+    group   group.Key?              {
+        @doc value     "is the group the table sits in, if any."
+        @ref on_delete detach
+    }
 
     action Create {
         table Table
@@ -208,6 +213,15 @@ Table struct {
         name string
 
         @doc value "renames the table."
+    }
+
+    action SetGroup {
+        group group.Key?
+
+        @doc value """
+            moves the table into a group, or out of its group when group is empty.
+            Emitted by the Core when it moves the table; clients never dispatch it.
+        """
     }
 
     action AddRow {

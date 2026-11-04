@@ -13,6 +13,7 @@ import { caseconv, color, id, notation, text, uuid } from "@synnaxlabs/x";
 import { z } from "zod";
 
 import { channel } from "@/channel";
+import { group } from "@/group";
 import { resource } from "@/resource";
 
 export const FLEX_ALIGNMENTS = ["start", "center", "end", "stretch"] as const;
@@ -166,6 +167,8 @@ export const tableZ = z.object({
    * orphaned and will be pruned on the next structural edit.
    */
   cells: caseconv.preserveKeys(z.record(z.string(), cellConfigZ).default(() => ({}))),
+  /** group is the group the table sits in, if any. */
+  group: group.keyZ.optional(),
 });
 export interface Table extends z.infer<typeof tableZ> {}
 export interface New extends z.input<typeof tableZ> {}

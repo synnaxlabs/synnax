@@ -18,6 +18,7 @@ from uuid import UUID, uuid4
 from pydantic import BaseModel, Field
 
 from synnax import channel as channel_
+from synnax import group as group_
 from synnax.resource import ID
 from synnax.schematic import symbol
 from x import border, spatial, text
@@ -1907,6 +1908,7 @@ class Schematic(BaseModel):
         edges: Contains all connections between nodes.
         configs: Contains per-element configuration keyed by node or edge key. The
             variant of each value selects the symbol or edge style it configures.
+        group: Is the group the schematic sits in, if any.
     """
 
     key: Key = Field(default_factory=uuid4)
@@ -1915,6 +1917,7 @@ class Schematic(BaseModel):
     nodes: list[Node] = Field(default_factory=list)
     edges: list[Edge] = Field(default_factory=list)
     configs: dict[str, ElementConfig] = Field(default_factory=dict)
+    group: group_.Key | None = None
 
     @_override
     def __hash__(self) -> int:

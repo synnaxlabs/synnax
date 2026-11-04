@@ -7,6 +7,8 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
+import "schemas/synnax/group"
+
 @go output "core/pkg/service/project"
 @py output "client/py/synnax/project"
 @ts output "client/ts/src/project"
@@ -16,14 +18,18 @@ Key = uuid {
 }
 
 Project struct {
-    key  Key = create {
+    key   Key = create {
         @doc value "is the unique identifier for this project."
         @key
     }
-    name string {
+    name  string     {
         @doc value         "is a human-readable name for the project."
         @search
         @validate required
+    }
+    group group.Key? {
+        @doc value     "is the group the project sits in, if any."
+        @ref on_delete detach
     }
 
     @create

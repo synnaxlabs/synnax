@@ -8,6 +8,7 @@
 // included in the file licenses/APL.txt.
 
 import "schemas/synnax/channel"
+import "schemas/synnax/group"
 import "schemas/x/color"
 import "schemas/x/notation"
 import "schemas/x/telem"
@@ -85,6 +86,10 @@ Log struct {
     timestamps_hidden    bool = false {
         @doc value "is true when entry timestamps are hidden."
     }
+    group                group.Key?     {
+        @doc value     "is the group the log sits in, if any."
+        @ref on_delete detach
+    }
 
     action Create {
         log Log
@@ -99,6 +104,15 @@ Log struct {
         name string
 
         @doc value "renames the log."
+    }
+
+    action SetGroup {
+        group group.Key?
+
+        @doc value """
+            moves the log into a group, or out of its group when group is empty. Emitted
+            by the Core when it moves the log; clients never dispatch it.
+        """
     }
 
     action AddChannel {

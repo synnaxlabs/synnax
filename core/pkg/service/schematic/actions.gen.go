@@ -12,6 +12,7 @@
 package schematic
 
 import (
+	"github.com/synnaxlabs/synnax/pkg/service/group"
 	"github.com/synnaxlabs/x/patch"
 	"github.com/synnaxlabs/x/spatial"
 	"github.com/synnaxlabs/x/union"
@@ -20,6 +21,7 @@ import (
 const (
 	ActionTypeCreate          = "create"
 	ActionTypeRename          = "rename"
+	ActionTypeSetGroup        = "set_group"
 	ActionTypeSetNodePosition = "set_node_position"
 	ActionTypeSetNode         = "set_node"
 	ActionTypeRemoveNode      = "remove_node"
@@ -41,6 +43,12 @@ type CreatePayload struct {
 // RenamePayload renames the schematic.
 type RenamePayload struct {
 	Name string `json:"name" msgpack:"name"`
+}
+
+// SetGroupPayload moves the schematic into a group, or out of its group when group is
+// empty. Emitted by the Core when it moves the schematic; clients never dispatch it.
+type SetGroupPayload struct {
+	Group *group.Key `json:"group,omitzero" msgpack:"group,omitempty"`
 }
 
 // SetNodePositionPayload moves a node to a new position.
@@ -116,6 +124,7 @@ type Action struct {
 	Type            string                  `json:"type" msgpack:"type"`
 	Create          *CreatePayload          `json:"create,omitzero" msgpack:"create,omitempty"`
 	Rename          *RenamePayload          `json:"rename,omitzero" msgpack:"rename,omitempty"`
+	SetGroup        *SetGroupPayload        `json:"set_group,omitzero" msgpack:"set_group,omitempty"`
 	SetNodePosition *SetNodePositionPayload `json:"set_node_position,omitzero" msgpack:"set_node_position,omitempty"`
 	SetNode         *SetNodePayload         `json:"set_node,omitzero" msgpack:"set_node,omitempty"`
 	RemoveNode      *RemoveNodePayload      `json:"remove_node,omitzero" msgpack:"remove_node,omitempty"`
@@ -146,6 +155,11 @@ func Reduce(state Schematic, actions ...Action) (Schematic, error) {
 				return state, union.MissingPayload(a.Type)
 			}
 			state, err = a.Rename.Handle(state)
+		case ActionTypeSetGroup:
+			if a.SetGroup == nil {
+				return state, union.MissingPayload(a.Type)
+			}
+			state, err = a.SetGroup.Handle(state)
 		case ActionTypeSetNodePosition:
 			if a.SetNodePosition == nil {
 				return state, union.MissingPayload(a.Type)
@@ -214,6 +228,11 @@ func NewCreateAction(p CreatePayload) Action {
 // NewRenameAction wraps a RenamePayload in an Action envelope.
 func NewRenameAction(p RenamePayload) Action {
 	return Action{Type: ActionTypeRename, Rename: &p}
+}
+
+// NewSetGroupAction wraps a SetGroupPayload in an Action envelope.
+func NewSetGroupAction(p SetGroupPayload) Action {
+	return Action{Type: ActionTypeSetGroup, SetGroup: &p}
 }
 
 // NewSetNodePositionAction wraps a SetNodePositionPayload in an Action envelope.

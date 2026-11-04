@@ -32,4 +32,6 @@ message Rack {
   // integrations is the list of hardware integrations this rack supports (e.g., "ni",
   // "opc", "labjack"). An empty or nil list means the rack supports no integrations.
   repeated string integrations = 5;
+  // group is the group the rack sits in, if any.
+  optional string group = 6;
 }

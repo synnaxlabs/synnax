@@ -12,6 +12,8 @@
 package pb
 
 import (
+	"uuid"
+
 	"github.com/synnaxlabs/synnax/pkg/service/rack"
 	statuspb "github.com/synnaxlabs/synnax/pkg/service/status/pb"
 )
@@ -30,6 +32,10 @@ func RackToPB(r rack.Rack) (*Rack, error) {
 		if err != nil {
 			return nil, err
 		}
+	}
+	if r.Group != nil {
+		v := r.Group.String()
+		pb.Group = &v
 	}
 	return pb, nil
 }
@@ -50,6 +56,13 @@ func RackFromPB(pb *Rack) (rack.Rack, error) {
 			return rack.Rack{}, err
 		}
 		r.Status = &val
+	}
+	if pb.Group != nil {
+		v, err := uuid.Parse(*pb.Group)
+		if err != nil {
+			return rack.Rack{}, err
+		}
+		r.Group = &v
 	}
 	return r, nil
 }

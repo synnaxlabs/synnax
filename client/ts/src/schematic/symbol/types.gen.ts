@@ -12,6 +12,7 @@
 import { color, spatial, uuid } from "@synnaxlabs/x";
 import { z } from "zod";
 
+import { group } from "@/group";
 import { resource } from "@/resource";
 
 /**
@@ -95,6 +96,8 @@ export const symbolZ = z.object({
   name: z.string().min(1),
   /** data is the complete symbol specification. */
   data: specZ,
+  /** group is the group the symbol sits in, if any. */
+  group: group.keyZ.optional(),
 });
 export interface Symbol extends z.infer<typeof symbolZ> {}
 export interface New extends z.input<typeof symbolZ> {}

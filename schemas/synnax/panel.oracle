@@ -7,6 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
+import "schemas/synnax/group"
 import "schemas/synnax/resource"
 import "schemas/x/color"
 import "schemas/x/spatial"
@@ -145,6 +146,10 @@ Panel struct {
     color  color.Color? {
         @doc value "is the color of the panel's icon. When null, the theme picks it."
     }
+    group  group.Key?   {
+        @doc value     "is the group the panel sits in, if any."
+        @ref on_delete detach
+    }
 
     action Create {
         panel Panel
@@ -159,6 +164,15 @@ Panel struct {
         name string
 
         @doc value "renames the panel."
+    }
+
+    action SetGroup {
+        group group.Key?
+
+        @doc value """
+            moves the panel into a group, or out of its group when group is empty.
+            Emitted by the Core when it moves the panel; clients never dispatch it.
+        """
     }
 
     action SetIcon {

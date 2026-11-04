@@ -7,6 +7,8 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
+import "schemas/synnax/resource"
+
 @go output "core/pkg/service/group"
 @py output "client/py/synnax/group"
 @ts output "client/ts/src/group"
@@ -16,15 +18,28 @@ Key = uuid {
 }
 
 Group struct {
-    key  Key    {
+    key    Key           {
         @doc value "is the unique identifier for this group."
         @key
     }
-    name string {
+    name   string        {
         @doc value         "is a human-readable name for the group."
         @filter
         @search
         @validate required
+    }
+    scope  resource.Type {
+        @doc value """
+            is the type of resource the group's tree holds. It stays the same down a
+            chain of groups.
+        """
+        @filter
+    }
+    parent resource.ID?  {
+        @doc value     "is the group, project, or rack the group sits in, if any."
+        @ref acyclic
+        @ref on_delete cascade
+        @ref types     group project rack
     }
 
     @doc value     """

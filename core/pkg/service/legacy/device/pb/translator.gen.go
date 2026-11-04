@@ -13,6 +13,7 @@ package pb
 
 import (
 	"encoding/json/v2"
+	"uuid"
 
 	"github.com/synnaxlabs/synnax/pkg/service/legacy/device"
 	"github.com/synnaxlabs/synnax/pkg/service/rack"
@@ -104,6 +105,10 @@ func DeviceToPB(
 			return nil, err
 		}
 	}
+	if r.Group != nil {
+		v := r.Group.String()
+		pb.Group = &v
+	}
 	if r.Parent != nil {
 		var err error
 		pb.Parent, err = resourcepb.IDToPB(*r.Parent)
@@ -137,6 +142,13 @@ func DeviceFromPB(
 			return device.Device{}, err
 		}
 		r.Status = &val
+	}
+	if pb.Group != nil {
+		v, err := uuid.Parse(*pb.Group)
+		if err != nil {
+			return device.Device{}, err
+		}
+		r.Group = &v
 	}
 	if pb.Parent != nil {
 		val, err := resourcepb.IDFromPB(pb.Parent)

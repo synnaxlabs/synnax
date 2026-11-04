@@ -13,6 +13,7 @@ package log
 
 import (
 	"github.com/synnaxlabs/synnax/pkg/service/channel"
+	"github.com/synnaxlabs/synnax/pkg/service/group"
 	"github.com/synnaxlabs/x/color"
 	"github.com/synnaxlabs/x/notation"
 	"github.com/synnaxlabs/x/telem"
@@ -22,6 +23,7 @@ import (
 const (
 	ActionTypeCreate                    = "create"
 	ActionTypeRename                    = "rename"
+	ActionTypeSetGroup                  = "set_group"
 	ActionTypeAddChannel                = "add_channel"
 	ActionTypeRemoveChannel             = "remove_channel"
 	ActionTypeSetChannelEntry           = "set_channel_entry"
@@ -47,6 +49,12 @@ type CreatePayload struct {
 // RenamePayload renames the log.
 type RenamePayload struct {
 	Name string `json:"name" msgpack:"name"`
+}
+
+// SetGroupPayload moves the log into a group, or out of its group when group is empty.
+// Emitted by the Core when it moves the log; clients never dispatch it.
+type SetGroupPayload struct {
+	Group *group.Key `json:"group,omitzero" msgpack:"group,omitempty"`
 }
 
 // AddChannelPayload appends a default channel entry for the given channel. No-op when
@@ -149,6 +157,7 @@ type Action struct {
 	Type                      string                            `json:"type" msgpack:"type"`
 	Create                    *CreatePayload                    `json:"create,omitzero" msgpack:"create,omitempty"`
 	Rename                    *RenamePayload                    `json:"rename,omitzero" msgpack:"rename,omitempty"`
+	SetGroup                  *SetGroupPayload                  `json:"set_group,omitzero" msgpack:"set_group,omitempty"`
 	AddChannel                *AddChannelPayload                `json:"add_channel,omitzero" msgpack:"add_channel,omitempty"`
 	RemoveChannel             *RemoveChannelPayload             `json:"remove_channel,omitzero" msgpack:"remove_channel,omitempty"`
 	SetChannelEntry           *SetChannelEntryPayload           `json:"set_channel_entry,omitzero" msgpack:"set_channel_entry,omitempty"`
@@ -183,6 +192,11 @@ func Reduce(state Log, actions ...Action) (Log, error) {
 				return state, union.MissingPayload(a.Type)
 			}
 			state, err = a.Rename.Handle(state)
+		case ActionTypeSetGroup:
+			if a.SetGroup == nil {
+				return state, union.MissingPayload(a.Type)
+			}
+			state, err = a.SetGroup.Handle(state)
 		case ActionTypeAddChannel:
 			if a.AddChannel == nil {
 				return state, union.MissingPayload(a.Type)
@@ -271,6 +285,11 @@ func NewCreateAction(p CreatePayload) Action {
 // NewRenameAction wraps a RenamePayload in an Action envelope.
 func NewRenameAction(p RenamePayload) Action {
 	return Action{Type: ActionTypeRename, Rename: &p}
+}
+
+// NewSetGroupAction wraps a SetGroupPayload in an Action envelope.
+func NewSetGroupAction(p SetGroupPayload) Action {
+	return Action{Type: ActionTypeSetGroup, SetGroup: &p}
 }
 
 // NewAddChannelAction wraps a AddChannelPayload in an Action envelope.

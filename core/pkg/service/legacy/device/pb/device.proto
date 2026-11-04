@@ -52,7 +52,9 @@ message Device {
   google.protobuf.Struct properties = 8;
   // status is the current operational status of the device.
   optional .service.status.pb.Status status = 9;
+  // group is the group the device sits in, if any.
+  optional string group = 10;
   // parent is an optional parent resource ID for hierarchical device organization
   // (e.g., NI chassis containing modules).
-  optional .service.resource.pb.ID parent = 10;
+  optional .service.resource.pb.ID parent = 11;
 }

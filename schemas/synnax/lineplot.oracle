@@ -8,6 +8,7 @@
 // included in the file licenses/APL.txt.
 
 import "schemas/synnax/channel"
+import "schemas/synnax/group"
 import "schemas/synnax/ranger"
 import "schemas/x/color"
 import "schemas/x/spatial"
@@ -302,6 +303,10 @@ LinePlot struct {
     rules    Rule[]       {
         @doc value "holds annotation rules drawn over the plot."
     }
+    group    group.Key?   {
+        @doc value     "is the group the line plot sits in, if any."
+        @ref on_delete detach
+    }
 
     action Create {
         line_plot LinePlot
@@ -316,6 +321,15 @@ LinePlot struct {
         name string
 
         @doc value "renames the line plot."
+    }
+
+    action SetGroup {
+        group group.Key?
+
+        @doc value """
+            moves the line plot into a group, or out of its group when group is empty.
+            Emitted by the Core when it moves the line plot; clients never dispatch it.
+        """
     }
 
     action SetTitleVisible {

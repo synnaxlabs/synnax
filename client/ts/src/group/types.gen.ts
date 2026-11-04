@@ -25,6 +25,13 @@ export const groupZ = z.object({
   key: keyZ,
   /** name is a human-readable name for the group. */
   name: z.string().min(1, "name is required"),
+  /**
+   * scope is the type of resource the group's tree holds. It stays the same down a
+   * chain of groups.
+   */
+  scope: resource.typeZ,
+  /** parent is the group, project, or rack the group sits in, if any. */
+  parent: resource.idZ.optional(),
 });
 export interface Group extends z.infer<typeof groupZ> {}
 

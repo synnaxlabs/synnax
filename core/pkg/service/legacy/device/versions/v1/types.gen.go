@@ -13,8 +13,7 @@ package v1
 
 import (
 	v0 "github.com/synnaxlabs/synnax/pkg/service/legacy/device/versions/v0"
-	"github.com/synnaxlabs/synnax/pkg/service/rack"
-	rackv1 "github.com/synnaxlabs/synnax/pkg/service/rack/versions/v1"
+	rack "github.com/synnaxlabs/synnax/pkg/service/rack/versions/v1"
 	"github.com/synnaxlabs/synnax/pkg/service/resource"
 	"github.com/synnaxlabs/synnax/pkg/service/status"
 	"github.com/synnaxlabs/x/encoding/msgpack"
@@ -44,7 +43,7 @@ type Device struct {
 	// Key is the unique identifier for this device.
 	Key Key `json:"key" msgpack:"key"`
 	// Rack is the key of the rack that owns this device.
-	Rack rackv1.Key `json:"rack" msgpack:"rack"`
+	Rack rack.Key `json:"rack" msgpack:"rack"`
 	// Location is the physical location or address of the device.
 	Location string `json:"location" msgpack:"location"`
 	// Make is the manufacturer of the device (e.g., 'LabJack', 'National Instruments').
@@ -70,11 +69,6 @@ type Device struct {
 // schema constraints.
 func (d Device) Validate() error {
 	v := validate.New("Device")
-	v.NonZero("rack", d.Rack)
-	v.NotEmptyString("location", d.Location)
-	v.NotEmptyString("make", d.Make)
-	v.NotEmptyString("model", d.Model)
-	v.NotEmptyString("name", d.Name)
 	if d.Parent != nil {
 		v.Exec(func() error { return validate.PathedError(d.Parent.Validate(), "parent") })
 	}

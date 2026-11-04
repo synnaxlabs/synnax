@@ -18,6 +18,7 @@ from uuid import UUID, uuid4
 from pydantic import BaseModel, Field
 
 from synnax import channel as channel_
+from synnax import group as group_
 from synnax.resource import ID
 from x import color as color_
 from x import notation as notation_
@@ -72,6 +73,7 @@ class Log(BaseModel):
         timestamp_precision: Is the precision of displayed timestamps (0-3).
         channel_names_hidden: Is true when channel names are hidden.
         timestamps_hidden: Is true when entry timestamps are hidden.
+        group: Is the group the log sits in, if any.
     """
 
     key: Key = Field(default_factory=uuid4)
@@ -80,6 +82,7 @@ class Log(BaseModel):
     timestamp_precision: int = Field(default=0, ge=0, le=3)
     channel_names_hidden: bool = False
     timestamps_hidden: bool = False
+    group: group_.Key | None = None
 
     @_override
     def __hash__(self) -> int:

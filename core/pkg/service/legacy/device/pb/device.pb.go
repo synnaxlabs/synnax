@@ -116,9 +116,11 @@ type Device struct {
 	Properties *structpb.Struct `protobuf:"bytes,8,opt,name=properties,proto3" json:"properties,omitempty"`
 	// status is the current operational status of the device.
 	Status *pb.Status `protobuf:"bytes,9,opt,name=status,proto3,oneof" json:"status,omitempty"`
+	// group is the group the device sits in, if any.
+	Group *string `protobuf:"bytes,10,opt,name=group,proto3,oneof" json:"group,omitempty"`
 	// parent is an optional parent resource ID for hierarchical device organization
 	// (e.g., NI chassis containing modules).
-	Parent        *pb1.ID `protobuf:"bytes,10,opt,name=parent,proto3,oneof" json:"parent,omitempty"`
+	Parent        *pb1.ID `protobuf:"bytes,11,opt,name=parent,proto3,oneof" json:"parent,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -216,6 +218,13 @@ func (x *Device) GetStatus() *pb.Status {
 	return nil
 }
 
+func (x *Device) GetGroup() string {
+	if x != nil && x.Group != nil {
+		return *x.Group
+	}
+	return ""
+}
+
 func (x *Device) GetParent() *pb1.ID {
 	if x != nil {
 		return x.Parent
@@ -231,7 +240,7 @@ const file_core_pkg_service_legacy_device_pb_device_proto_rawDesc = "" +
 	"\rStatusDetails\x12\x12\n" +
 	"\x04rack\x18\x01 \x01(\rR\x04rack\x120\n" +
 	"\x04data\x18\x02 \x01(\v2\x17.google.protobuf.StructH\x00R\x04data\x88\x01\x01B\a\n" +
-	"\x05_data\"\xe5\x02\n" +
+	"\x05_data\"\x8a\x03\n" +
 	"\x06Device\x12\x10\n" +
 	"\x03key\x18\x01 \x01(\tR\x03key\x12\x12\n" +
 	"\x04rack\x18\x02 \x01(\rR\x04rack\x12\x1a\n" +
@@ -245,10 +254,12 @@ const file_core_pkg_service_legacy_device_pb_device_proto_rawDesc = "" +
 	"\n" +
 	"properties\x18\b \x01(\v2\x17.google.protobuf.StructR\n" +
 	"properties\x126\n" +
-	"\x06status\x18\t \x01(\v2\x19.service.status.pb.StatusH\x00R\x06status\x88\x01\x01\x124\n" +
-	"\x06parent\x18\n" +
-	" \x01(\v2\x17.service.resource.pb.IDH\x01R\x06parent\x88\x01\x01B\t\n" +
-	"\a_statusB\t\n" +
+	"\x06status\x18\t \x01(\v2\x19.service.status.pb.StatusH\x00R\x06status\x88\x01\x01\x12\x19\n" +
+	"\x05group\x18\n" +
+	" \x01(\tH\x01R\x05group\x88\x01\x01\x124\n" +
+	"\x06parent\x18\v \x01(\v2\x17.service.resource.pb.IDH\x02R\x06parent\x88\x01\x01B\t\n" +
+	"\a_statusB\b\n" +
+	"\x06_groupB\t\n" +
 	"\a_parentB\xc5\x01\n" +
 	"\x15com.service.device.pbB\vDeviceProtoP\x01Z9github.com/synnaxlabs/synnax/pkg/service/legacy/device/pb\xa2\x02\x03SDP\xaa\x02\x11Service.Device.Pb\xca\x02\x11Service\\Device\\Pb\xe2\x02\x1dService\\Device\\Pb\\GPBMetadata\xea\x02\x13Service::Device::Pbb\x06proto3"
 
