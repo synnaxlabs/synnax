@@ -132,6 +132,17 @@ class TestOPCReadTask:
         )
         sy.opcua.ReadTask(createdTask)
 
+    def test_nan_fill_enabled_round_trip(self, client: sy.Synnax) -> None:
+        """Should keep nan_fill_enabled through a create and retrieve."""
+        task = sy.opcua.ReadTask(
+            name="test-task", device="some-device-key", nan_fill_enabled=True
+        )
+        created = client.tasks.create(
+            name="test-task", type="opc_read", config=task.config
+        )
+        retrieved = client.tasks.retrieve(key=created.key)
+        assert sy.opcua.ReadTask(retrieved).config.nan_fill_enabled is True
+
 
 @pytest.mark.opcua
 class TestOPCWriteTask:

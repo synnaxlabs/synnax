@@ -47,10 +47,10 @@ class Analog:
 
     def __init__(
         self,
-        *,
         layout: LayoutClient,
         name: str,
         device: str,
+        *,
         chan_type: str,
         port: int | None = None,
         terminal_config: TerminalConfig | None = None,

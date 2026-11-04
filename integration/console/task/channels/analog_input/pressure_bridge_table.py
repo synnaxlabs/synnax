@@ -36,10 +36,10 @@ class PressureBridgeTable(Analog):
 
     def __init__(
         self,
-        *,
         layout: LayoutClient,
         name: str,
         device: str,
+        *,
         pressure_units: Literal["Pascals", "PSI"] | None = None,
         bridge_configuration: (
             Literal["Full bridge", "Half bridge", "Quarter bridge"] | None

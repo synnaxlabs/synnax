@@ -7,12 +7,25 @@
 #  License, use of this software will be governed by the Apache License, Version 2.0,
 #  included in the file licenses/APL.txt.
 
+from typing import Required, TypedDict
+
 from playwright.sync_api import Locator, expect
 from playwright.sync_api import TimeoutError as PlaywrightTimeoutError
 
 import synnax as sy
 from console.base import ResourceClient
 from console.layout import LayoutClient
+
+
+class Spec(TypedDict, total=False):
+    """A channel to create through the Console form. The index is a channel name, as
+    the form selects it by name."""
+
+    name: Required[str]
+    data_type: sy.telem.CrudeDataType
+    is_index: bool
+    index: str
+    virtual: bool
 
 
 class ChannelClient(ResourceClient):
@@ -128,18 +141,11 @@ class ChannelClient(ResourceClient):
 
     def create_with_create_more(
         self,
-        channels: list[dict[str, str | int | bool]],
+        channels: list[Spec],
     ) -> list[str]:
         """Creates multiple channels using the 'Create more' checkbox.
 
-        Each channel dict should contain:
-            - name: The name for the channel (required)
-            - data_type: The data type (optional, default uses index type)
-            - is_index: Boolean for index channel (optional, default False)
-            - index: The key of the index channel (required if not is_index)
-            - virtual: Boolean for virtual channel (optional, default False)
-
-        :param channels: List of channel configuration dicts
+        :param channels: The channels to create.
         :returns: List of created channel names
         """
         if not channels:
@@ -148,12 +154,11 @@ class ChannelClient(ResourceClient):
         created_channels: list[str] = []
 
         for i, ch_config in enumerate(channels):
-            name = str(ch_config["name"])
+            name = ch_config["name"]
             data_type = ch_config.get("data_type", sy.DataType.UNKNOWN)
             is_index = ch_config.get("is_index", False)
-            index = ch_config.get("index", 0)
+            index = ch_config.get("index", "")
             virtual = ch_config.get("virtual", False)
-            index_str = str(index) if index != 0 else ""
 
             if is_index and data_type == sy.DataType.UNKNOWN:
                 data_type = sy.DataType.TIMESTAMP
@@ -175,7 +180,7 @@ class ChannelClient(ResourceClient):
             else:
                 if virtual:
                     self._select_kind("Virtual")
-                elif index == 0:
+                elif not index:
                     raise ValueError(
                         f"Index must be provided for non-index channel: {name}"
                     )
@@ -187,7 +192,7 @@ class ChannelClient(ResourceClient):
                 if not virtual:
                     self.layout.get_by_text("Select channel", exact=True).click()
                     self.layout.select_from_dropdown(
-                        index_str, placeholder="Search Channels"
+                        index, placeholder="Search Channels"
                     )
 
             is_last = i == len(channels) - 1

@@ -12,7 +12,7 @@ from typing import overload
 from pydantic import BaseModel, ConfigDict, Field
 
 from freighter import Empty, UnaryClient
-from synnax.exceptions import MultipleFoundError, NotFoundError
+from synnax.exceptions import MultipleFoundError, NotFoundError, ValidationError
 from synnax.label.types_gen import Key, Label
 from synnax.ontology.payload import ID, CrudeID
 from x import color as color_
@@ -85,8 +85,8 @@ class Client:
         self,
         labels: Label | list[Label] | None = None,
         *,
-        name: str = "",
-        color: color_.Crude = "",
+        name: str | None = None,
+        color: color_.Crude | None = None,
     ) -> Label | list[Label]:
         """Creates one or more labels. A label with the key of an existing label
         replaces it.
@@ -96,9 +96,13 @@ class Client:
         :param name: The name of the label to create when ``labels`` is omitted.
         :param color: The color of the label to create when ``labels`` is omitted.
         :returns: The created label, or a list of labels when ``labels`` is a list.
+        :raises ValidationError: If ``labels`` is omitted and ``name`` or ``color`` is
+            too.
         """
         is_single = not isinstance(labels, list)
         if labels is None:
+            if name is None or color is None:
+                raise ValidationError("A label needs a name and a color.")
             labels = Label(name=name, color=color_.Color(color))
         req = _CreateRequest(labels=normalize(labels))
         res = self._client.send("/label/create", req, _CreateResponse)
