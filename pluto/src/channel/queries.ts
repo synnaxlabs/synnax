@@ -219,6 +219,17 @@ export const useList = Flux.createList<ListQuery, channel.Key, channel.Channel>(
   getCached: ({ client, query }) => client.channels.getCached(query),
 });
 
+export const { useResult: useResultList } = Flux.createRetrieve<
+  ListQuery,
+  channel.Channel[]
+>({
+  name: PLURAL_RESOURCE_NAME,
+  normalizeQuery: (query) => ({ ...DEFAULT_LIST_PARAMS, ...query }),
+  retrieve: async ({ client, query }) => await client.channels.retrieve(query),
+  onChange: ({ client, query }, handler) => client.channels.onChange(query, handler),
+  getCached: ({ client, query }) => client.channels.getCached(query),
+});
+
 export interface RenameParams extends Pick<channel.Payload, "key" | "name"> {}
 
 export const { useUpdate: useRename } = Flux.createUpdate<RenameParams>({
@@ -288,7 +299,10 @@ export const { useUpdate: useDeleteAlias } = Flux.createUpdate<DeleteAliasParams
 
 type RetrieveGroupQuery = Record<string, never>;
 
-export const { use: useGroup } = Flux.createRetrieve<RetrieveGroupQuery, group.Group>({
+export const { use: useGroup, useResult: useResultGroup } = Flux.createRetrieve<
+  RetrieveGroupQuery,
+  group.Group
+>({
   name: "channel group",
   retrieve: async ({ client }) => await client.channels.retrieveGroup(),
 });

@@ -44,7 +44,8 @@ export interface BaseProps {
 
 export interface ContextMenuProps extends BaseProps {
   selection: {
-    parentID: ontology.ID;
+    /** Null when the top selected items sit under more than one parent. */
+    parentID: ontology.ID | null;
     rootID: ontology.ID;
     ids: ontology.ID[];
   };

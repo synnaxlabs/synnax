@@ -1776,6 +1776,13 @@ using {{$u.Name}} = std::variant<{{range $j, $v := $u.Variants}}{{if $j}}, {{end
 [[nodiscard]] std::pair<{{$u.ProtoType}}, x::errors::Error> to_proto(const {{$u.Name}}& value);
 std::pair<{{$u.Name}}, x::errors::Error> {{$u.SnakeName}}_from_proto(const {{$u.ProtoType}}& pb);
 {{- end}}
+{{- if $u.Base}}
+
+/// @brief returns the fields every variant of the union shares.
+[[nodiscard]] inline const {{$u.Base}}& base(const {{$u.Name}}& value) {
+    return std::visit([](const auto& v) -> const {{$u.Base}}& { return v; }, value);
+}
+{{- end}}
 {{- end}}
 {{- end}}
 {{- range $d := .SortedDecls}}

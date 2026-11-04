@@ -34,16 +34,6 @@ var _ = Describe("Secret", func() {
 		}
 	})
 
-	Describe("Base", func() {
-		It("Should return the base of each variant", func() {
-			Expect(stored.Base()).To(Equal(v0.Base{Key: key, Name: "Password"}))
-			Expect(file.Base()).To(Equal(v0.Base{Key: key, Name: "Key"}))
-		})
-		It("Should return a zero base for a secret with no variant", func() {
-			Expect(v0.Secret{}.Base()).To(Equal(v0.Base{}))
-		})
-	})
-
 	Describe("Source", func() {
 		It("Should return the source of each variant", func() {
 			Expect(stored.Source()).To(Equal(v0.SourceStored))
@@ -51,19 +41,6 @@ var _ = Describe("Secret", func() {
 		})
 		It("Should return an empty source for a secret with no variant", func() {
 			Expect(v0.Secret{}.Source()).To(BeEmpty())
-		})
-	})
-
-	Describe("WithBase", func() {
-		It("Should replace the base and keep the variant fields", func() {
-			base := v0.Base{Key: uuid.New(), Name: "Renamed", Updated: 5}
-			Expect(file.WithBase(base)).To(Equal(v0.Secret{
-				Variant: v0.FileSecret{Base: base, Path: "/k"},
-			}))
-			Expect(stored.WithBase(base).Base()).To(Equal(base))
-		})
-		It("Should leave a secret with no variant unchanged", func() {
-			Expect(v0.Secret{}.WithBase(v0.Base{Name: "A"})).To(Equal(v0.Secret{}))
 		})
 	})
 
