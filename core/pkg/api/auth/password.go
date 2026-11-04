@@ -44,13 +44,17 @@ type PasswordSetResponse struct {
 // SetPassword sets the password of the caller, or of another user when the caller may
 // update that user, and ends every session the old password opened. When the change
 // ends the caller's session, SetPassword opens a new one on the new password and
-// returns it. It returns a validation error when the subject is not a user, and an
-// error wrapping query.ErrNotFound when the user has no password.
+// returns it. It returns a validation error when the password method is off or the
+// subject is not a user, and an error wrapping query.ErrNotFound when the user has no
+// password.
 func (s *Service) SetPassword(
 	ctx context.Context,
 	tx gorp.Tx,
 	req PasswordSetRequest,
 ) (PasswordSetResponse, error) {
+	if err := s.auth.Accepts(auth.MethodPassword); err != nil {
+		return PasswordSetResponse{}, err
+	}
 	caller := GetSubject(ctx)
 	subject := lo.Ternary(req.Subject.IsZero(), caller, req.Subject)
 	if subject.Type != ontology.ResourceTypeUser {

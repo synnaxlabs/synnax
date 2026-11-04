@@ -357,11 +357,41 @@ func (keyDeleteRequestTranslator) Backward(
 	return auth.KeyDeleteRequest{Keys: keys}, nil
 }
 
+type (
+	methodsServer = grpc.UnaryServer[
+		struct{},
+		*emptypb.Empty,
+		auth.MethodsResponse,
+		*MethodsResponse,
+	]
+	methodsResponseTranslator struct{}
+)
+
+var _ grpc.ForwardTranslator[auth.MethodsResponse, *MethodsResponse] = (*methodsResponseTranslator)(
+	nil,
+)
+
+func (methodsResponseTranslator) Forward(
+	_ context.Context,
+	r auth.MethodsResponse,
+) (*MethodsResponse, error) {
+	return &MethodsResponse{
+		Methods: lo.Map(r.Methods, func(m svcauth.Method, _ int) string {
+			return string(m)
+		}),
+	}, nil
+}
+
 func New(t *api.Transport) grpc.BindableTransport {
 	login := &loginServer{
 		RequestTranslator:  loginRequestTranslator{},
 		ResponseTranslator: loginResponseTranslator{},
 		ServiceDesc:        &AuthLoginService_ServiceDesc,
+	}
+	methods := &methodsServer{
+		RequestTranslator:  grpc.EmptyTranslator{},
+		ResponseTranslator: methodsResponseTranslator{},
+		ServiceDesc:        &AuthMethodsService_ServiceDesc,
 	}
 	create := &sessionCreateServer{
 		RequestTranslator:  sessionCreateRequestTranslator{},
@@ -399,6 +429,7 @@ func New(t *api.Transport) grpc.BindableTransport {
 		ServiceDesc:        &AuthKeyDeleteService_ServiceDesc,
 	}
 	t.AuthLogin = login
+	t.AuthMethods = methods
 	t.AuthSessionCreate = create
 	t.AuthSessionRenew = renew
 	t.AuthSessionRetrieve = retrieve
@@ -415,5 +446,6 @@ func New(t *api.Transport) grpc.BindableTransport {
 		keyCreate,
 		keyRetrieve,
 		keyDelete,
+		methods,
 	}
 }

@@ -217,6 +217,30 @@ var _ = Describe("Service", func() {
 				))
 		})
 	})
+	Describe("Methods", func() {
+		It("Should list the accepted methods in order", func(ctx SpecContext) {
+			both := MustOpen(auth.OpenService(ctx, auth.ServiceConfig{
+				DB: db,
+				Authenticators: map[auth.Method]auth.Authenticator{
+					auth.MethodPassword: pw,
+					auth.MethodAPIKey:   pw,
+				},
+			}))
+			Expect(both.Methods()).To(Equal([]auth.Method{
+				auth.MethodAPIKey,
+				auth.MethodPassword,
+			}))
+		})
+	})
+	Describe("Accepts", func() {
+		It("Should accept a method with an authenticator", func() {
+			Expect(svc.Accepts(auth.MethodPassword)).To(Succeed())
+		})
+		It("Should refuse a method with no authenticator", func() {
+			Expect(svc.Accepts(auth.MethodAPIKey)).
+				To(MatchError(validate.ErrValidation))
+		})
+	})
 	Describe("Authenticate", func() {
 		It("Should return the session a token belongs to", func(ctx SpecContext) {
 			session, token := login(ctx)

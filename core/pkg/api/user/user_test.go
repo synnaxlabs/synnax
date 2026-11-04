@@ -21,6 +21,7 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/service/user"
 	"github.com/synnaxlabs/x/query"
 	. "github.com/synnaxlabs/x/testutil"
+	"github.com/synnaxlabs/x/validate"
 )
 
 // nonRootCtx returns a freighter.Context whose Subject is a freshly-created user
@@ -69,6 +70,26 @@ var _ = Describe("Service", func() {
 				MustSucceed(login(ctx, username, "p"))
 			},
 		)
+		It("Should refuse a user while passwords are off", func(ctx SpecContext) {
+			keysOnly := MustOpen(auth.OpenService(ctx, auth.ServiceConfig{
+				DB: db,
+				Authenticators: map[auth.Method]auth.Authenticator{
+					auth.MethodAPIKey: passwordSvc,
+				},
+			}))
+			noPasswords := MustSucceed(apiuser.NewService(apiuser.ServiceConfig{
+				RBAC:     rbacSvc,
+				User:     userSvc,
+				Password: passwordSvc,
+				Auth:     keysOnly,
+			}))
+			username := "should-not-exist-" + uuid.New().String()
+			Expect(noPasswords.Create(rootCtx(ctx), db, apiuser.CreateRequest{
+				Users: []apiuser.NewUser{{Username: username, Password: "p"}},
+			})).Error().To(MatchError(validate.ErrValidation))
+			Expect(login(ctx, username, "p")).Error().
+				To(MatchError(auth.ErrInvalidCredentials))
+		})
 		It("Should name a user after its username by default", func(ctx SpecContext) {
 			username := uuid.New().String()
 			res := MustSucceed(apiSvc.Create(rootCtx(ctx), db, apiuser.CreateRequest{

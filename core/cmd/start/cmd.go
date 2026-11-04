@@ -195,5 +195,18 @@ func GetCoreConfigFromViper(ins alamos.Instrumentation) (CoreConfig, error) {
 		enabledIntegrations:  viper.GetStringSlice(FlagEnableIntegrations),
 		disabledIntegrations: viper.GetStringSlice(FlagDisableIntegrations),
 		validateChannelNames: new(!viper.GetBool(FlagDisableChannelNameValidation)),
+		authMethods:          authMethodsFromViper(),
 	}, nil
+}
+
+// authMethodsFromViper returns nil when the setting is unset, so the default applies,
+// and keeps an explicit empty list so that validation rejects it.
+func authMethodsFromViper() []auth.Method {
+	if !viper.IsSet(FlagAuthMethods) {
+		return nil
+	}
+	return lo.Map(
+		viper.GetStringSlice(FlagAuthMethods),
+		func(m string, _ int) auth.Method { return auth.Method(m) },
+	)
 }
