@@ -32,12 +32,14 @@ import (
 var statusTypeOnly = ontology.ID{Type: ontology.ResourceTypeStatus}
 
 var _ = Describe("Service.Set", func() {
-	set := func(ctx SpecContext, statuses ...status.Status[any]) error {
+	set := func(
+		ctx SpecContext,
+		statuses ...status.Status[any],
+	) (apistatus.SetResponse, error) {
 		GinkgoHelper()
-		_, err := apiSvc.Set(
+		return apiSvc.Set(
 			AuthedCtx(ctx, author), db, apistatus.SetRequest{Statuses: statuses},
 		)
-		return err
 	}
 	newStatus := func(key status.Key, details any) status.Status[any] {
 		return status.Status[any]{
@@ -57,7 +59,7 @@ var _ = Describe("Service.Set", func() {
 		"Should reject details the resource cannot decode",
 		func(ctx SpecContext, resource string, details any) {
 			key := resource + ":" + uuid.New().String()
-			Expect(set(ctx, newStatus(key, details))).To(MatchError(
+			Expect(set(ctx, newStatus(key, details))).Error().To(MatchError(
 				And(
 					ContainSubstring("statuses.0.details"),
 					HaveSuffix("validation error"),
@@ -83,7 +85,8 @@ var _ = Describe("Service.Set", func() {
 		"Should accept details the resource can decode",
 		func(ctx SpecContext, resource string, details any) {
 			key := resource + ":" + uuid.New().String()
-			Expect(set(ctx, newStatus(key, details))).To(Succeed())
+			Expect(MustSucceed(set(ctx, newStatus(key, details))).Statuses).
+				To(HaveLen(1))
 		},
 		Entry("rack", "rack", map[string]any{"rack": 65537}),
 		Entry("rack with no details", "rack", nil),
@@ -103,7 +106,9 @@ var _ = Describe("Service.Set", func() {
 	It(
 		"Should accept free-form details under a non-resource key",
 		func(ctx SpecContext) {
-			Expect(set(ctx, newStatus(uuid.New().String(), "free form"))).To(Succeed())
+			Expect(MustSucceed(
+				set(ctx, newStatus(uuid.New().String(), "free form")),
+			).Statuses).To(HaveLen(1))
 		},
 	)
 
@@ -112,7 +117,7 @@ var _ = Describe("Service.Set", func() {
 		func(ctx SpecContext) {
 			valid := newStatus(uuid.New().String(), nil)
 			invalid := newStatus("rack:"+uuid.New().String(), "not an object")
-			Expect(set(ctx, valid, invalid)).To(MatchError(
+			Expect(set(ctx, valid, invalid)).Error().To(MatchError(
 				ContainSubstring("statuses.1.details"),
 			))
 			Expect(statusSvc.NewRetrieve[any]().
