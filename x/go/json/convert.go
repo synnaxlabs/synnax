@@ -16,6 +16,7 @@ import (
 	"strconv"
 	"strings"
 	"time"
+	"uuid"
 
 	"github.com/synnaxlabs/x/errors"
 	"github.com/synnaxlabs/x/telem"
@@ -146,7 +147,11 @@ type EnumMap map[string]float64
 // CheckToSample returns an error wrapping ErrConversion, naming dt, when AppendSample
 // cannot produce samples of dt.
 func CheckToSample(dt telem.DataType) error {
-	if numeric(dt) || dt == telem.TimestampT || dt == telem.StringT {
+	switch dt {
+	case telem.TimestampT, telem.StringT, telem.BooleanT, telem.UUIDT, telem.JSONT:
+		return nil
+	}
+	if numeric(dt) {
 		return nil
 	}
 	return errors.Wrapf(ErrConversion, "cannot convert a JSON value to %s", dt)
@@ -168,9 +173,11 @@ func numeric(dt telem.DataType) bool {
 //
 // Numbers, booleans (as 1 and 0), and numeric strings convert to numeric types. A
 // numeric string has the syntax of strconv.ParseFloat, which includes "NaN", "Inf", and
-// hexadecimal floats. A string found in enums converts to its mapped number. Any value
-// converts to a string, as its JSON text when it is not already a string. format
-// applies only when dt is telem.TimestampT.
+// hexadecimal floats. A string found in enums converts to its mapped number. A boolean
+// sample takes the values that convert to 0 or 1. Any value converts to a JSON sample
+// as its JSON text, and to a string sample as its JSON text unless it is a string. A
+// UUID sample takes a string that uuid.Parse accepts. format applies only when dt is
+// telem.TimestampT.
 //
 // AppendSample returns an error wrapping ErrConversion when the value has a fractional
 // part or is out of bounds for an integer type, or when the value and dt are
@@ -198,8 +205,11 @@ func AppendSample(
 	)
 }
 
-// errIncompatible marks a value whose JSON type can never convert to the target.
-var errIncompatible = errors.New("incompatible value and data type")
+var (
+	// errIncompatible marks a value whose JSON type can never convert to the target.
+	errIncompatible = errors.New("incompatible value and data type")
+	errNotUUID      = errors.New("not a valid UUID")
+)
 
 func appendSample(
 	dst []byte,
@@ -215,8 +225,9 @@ func appendSample(
 		}
 		return telem.ByteOrder.AppendUint64(dst, uint64(ts)), nil
 	}
-	if dt == telem.StringT {
-		if s, ok := value.(string); ok {
+	switch dt {
+	case telem.StringT, telem.JSONT:
+		if s, ok := value.(string); ok && dt == telem.StringT {
 			return appendVariableSample(dst, s), nil
 		}
 		text, err := Marshal(value)
@@ -224,6 +235,16 @@ func appendSample(
 			return dst, err
 		}
 		return appendVariableSample(dst, text), nil
+	case telem.UUIDT:
+		s, ok := value.(string)
+		if !ok {
+			return dst, errIncompatible
+		}
+		id, err := uuid.Parse(s)
+		if err != nil {
+			return dst, errNotUUID
+		}
+		return append(dst, id[:]...), nil
 	}
 	n, err := toNumber(value, dt, enums)
 	if err != nil {
@@ -479,6 +500,15 @@ func appendNumber(dst []byte, dt telem.DataType, n number) ([]byte, error) {
 			return dst, err
 		}
 		return appendUint(dst, dt, u)
+	case telem.BooleanT:
+		u, err := n.uint64()
+		if err != nil {
+			return dst, err
+		}
+		if u > 1 {
+			return dst, errOutOfBounds
+		}
+		return append(dst, byte(u)), nil
 	}
 	return dst, errIncompatible
 }
@@ -659,11 +689,20 @@ func (t Type) String() string {
 type ReverseEnumMap map[float64]string
 
 // CheckFromSample reports whether FromSample can convert samples of dt to target. It
-// returns an error wrapping ErrConversion when it cannot: a string sample converts
-// only to String, and timestamps and other non-numeric types do not convert.
+// returns an error wrapping ErrConversion when it cannot: a string, UUID, or JSON
+// sample converts only to String, and timestamps and bytes do not convert.
 func CheckFromSample(dt telem.DataType, target Type) error {
-	if numeric(dt) || (dt == telem.StringT && target == String) {
+	switch dt {
+	case telem.StringT, telem.UUIDT, telem.JSONT:
+		if target == String {
+			return nil
+		}
+	case telem.BooleanT:
 		return nil
+	default:
+		if numeric(dt) {
+			return nil
+		}
 	}
 	return errors.Wrapf(ErrConversion, "cannot convert %s to a JSON %s", dt, target)
 }
@@ -671,10 +710,11 @@ func CheckFromSample(dt telem.DataType, target Type) error {
 // FromSample converts one sample of dt to a value that Marshal encodes as target.
 // sample is the series encoding of the sample, as returned by Series.At.
 //
-// A numeric sample converts to a number, to a boolean that is true when the sample is
-// not zero, or to a string. The string is the label in enums when one matches, and
-// the shortest decimal text of the number otherwise. enums applies only when target
-// is String.
+// A numeric or boolean sample converts to a number, to a boolean that is true when
+// the sample is not zero, or to a string. The string is the label in enums when one
+// matches, and the shortest decimal text of the number otherwise. enums applies only
+// when target is String. A string or JSON sample converts to its text, and a UUID
+// sample to its canonical text.
 //
 // FromSample returns an error wrapping ErrConversion under the conditions of
 // CheckFromSample, and for a NaN or infinite sample, which JSON cannot represent.
@@ -687,8 +727,11 @@ func FromSample(
 	if err := CheckFromSample(dt, target); err != nil {
 		return nil, err
 	}
-	if dt == telem.StringT {
+	switch dt {
+	case telem.StringT, telem.JSONT:
 		return string(sample), nil
+	case telem.UUIDT:
+		return uuid.UUID(sample).String(), nil
 	}
 	n := readNumber(dt, sample)
 	if n.kind == kindFloat && (math.IsNaN(n.f) || math.IsInf(n.f, 0)) {
@@ -714,7 +757,7 @@ func FromSample(
 	return n.f, nil
 }
 
-// readNumber decodes a fixed-density numeric sample of dt.
+// readNumber decodes a fixed-density numeric or boolean sample of dt.
 func readNumber(dt telem.DataType, sample []byte) number {
 	switch dt {
 	case telem.Float64T:

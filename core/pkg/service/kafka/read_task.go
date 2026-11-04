@@ -29,6 +29,7 @@ import (
 	"github.com/synnaxlabs/x/control"
 	"github.com/synnaxlabs/x/errors"
 	xio "github.com/synnaxlabs/x/io"
+	xjson "github.com/synnaxlabs/x/json"
 	"github.com/synnaxlabs/x/set"
 	"github.com/synnaxlabs/x/signal"
 	"github.com/synnaxlabs/x/telem"
@@ -39,17 +40,25 @@ import (
 	"go.uber.org/zap"
 )
 
+// readField is an enabled field of a group, parsed for conversion.
+type readField struct {
+	// pointer is the text of the field's pointer, for skip reasons.
+	pointer string
+	channel channel.Channel
+	format  xjson.TimeFormat
+	enums   xjson.EnumMap
+}
+
 // readGroup is the set of fields sharing one record key, one index, and one writer.
 type readGroup struct {
 	// key is the record key the group claims; empty claims every unclaimed record.
 	key    string
-	fields []ReadField
-	// channels[i] is the channel fields[i] writes to.
-	channels []channel.Channel
+	fields []readField
 	// extractor resolves the fields' pointers in a record.
-	extractor *extractor
-	// found[i] is scratch space for whether a record holds fields[i].
-	found []bool
+	extractor *xjson.Extractor
+	// values and found are scratch space for the values of a record's fields.
+	values []any
+	found  []bool
 	// stamp is the position in fields of the field targeting the index channel, or
 	// -1 when records are stamped with their Kafka timestamp.
 	stamp int
@@ -67,8 +76,8 @@ type readGroup struct {
 // row is one record converted into a group's samples.
 type row struct {
 	ts telem.TimeStamp
-	// values[i] is the sample for fields[i].
-	values []any
+	// samples[i] is the series encoding of the sample for fields[i].
+	samples [][]byte
 }
 
 // readTask consumes a topic and writes record fields into channels.
@@ -179,6 +188,7 @@ func buildReadGroups(
 		}
 		claimed.Add(rec.RecordKey)
 		g := &readGroup{key: rec.RecordKey, stamp: -1, replaying: true}
+		var pointers []xjson.Pointer
 		for _, fld := range rec.Fields {
 			if fld.Disabled {
 				continue
@@ -191,12 +201,31 @@ func buildReadGroups(
 					fld.Key, fld.DataType, ch.Name, ch.DataType,
 				)
 			}
-			if ch.DataType == telem.TimestampT && fld.TimeFormat == nil {
-				return nil, errors.Wrapf(
-					validate.ErrValidation,
-					"field %q: time_format is required for timestamp channel %s",
-					fld.Key, ch.Name,
-				)
+			if err := xjson.CheckToSample(ch.DataType); err != nil {
+				return nil, errors.Wrapf(err, "field %q", fld.Key)
+			}
+			pointer, err := xjson.ParsePointer(fld.Pointer)
+			if err != nil {
+				return nil, errors.Wrapf(err, "field %q", fld.Key)
+			}
+			rf := readField{
+				pointer: fld.Pointer,
+				channel: ch,
+				enums:   enumMap(fld.EnumValues),
+			}
+			if ch.DataType == telem.TimestampT {
+				if fld.TimeFormat == nil {
+					return nil, errors.Wrapf(
+						validate.ErrValidation,
+						"field %q: time_format is required for timestamp channel %s",
+						fld.Key, ch.Name,
+					)
+				}
+				if rf.format, err = xjson.ParseTimeFormat(
+					string(*fld.TimeFormat),
+				); err != nil {
+					return nil, errors.Wrapf(err, "field %q", fld.Key)
+				}
 			}
 			if isIndex := fld.Key == rec.Index; isIndex != ch.IsIndex {
 				return nil, errors.Wrapf(
@@ -208,17 +237,14 @@ func buildReadGroups(
 			if fld.Key == rec.Index {
 				g.stamp = len(g.fields)
 			}
-			g.fields = append(g.fields, fld)
-			g.channels = append(g.channels, ch)
+			g.fields = append(g.fields, rf)
+			pointers = append(pointers, pointer)
 		}
 		if len(g.fields) == 0 {
 			continue
 		}
-		pointers := make([]string, len(g.fields))
-		for i, fld := range g.fields {
-			pointers[i] = fld.Pointer
-		}
-		g.extractor = newExtractor(pointers)
+		g.extractor = xjson.NewExtractor(pointers)
+		g.values = make([]any, len(g.fields))
 		g.found = make([]bool, len(g.fields))
 		if rec.Index != "" && g.stamp == -1 {
 			return nil, errors.Wrapf(
@@ -231,7 +257,8 @@ func buildReadGroups(
 	}
 	indexes := make(map[channel.Key]string, len(groups))
 	for _, g := range groups {
-		for i, ch := range g.channels {
+		for i, f := range g.fields {
+			ch := f.channel
 			index := ch.Index()
 			if ch.IsIndex {
 				index = ch.Key()
@@ -259,8 +286,8 @@ func buildReadGroups(
 		if g.index != 0 && g.stamp == -1 {
 			g.keys = append(g.keys, g.index)
 		}
-		for _, ch := range g.channels {
-			g.keys = append(g.keys, ch.Key())
+		for _, f := range g.fields {
+			g.keys = append(g.keys, f.channel.Key())
 		}
 	}
 	return groups, nil
@@ -671,33 +698,29 @@ func (t *readTask) convert(rec *kgo.Record) (g *readGroup, r row, ok bool) {
 			return nil, row{}, false
 		}
 	}
-	r = row{values: make([]any, len(g.fields))}
-	if err := g.extractor.extract(rec.Value, r.values, g.found); err != nil {
+	if err := g.extractor.Extract(rec.Value, g.values, g.found); err != nil {
 		t.skip("Record is not JSON: " + err.Error())
 		return nil, row{}, false
 	}
-	for i, fld := range g.fields {
-		if err := g.extractor.errs[i]; err != nil {
-			t.skip(err.Error())
-			return nil, row{}, false
-		}
+	r = row{samples: make([][]byte, len(g.fields))}
+	for i, f := range g.fields {
 		if !g.found[i] {
-			t.skip(fmt.Sprintf("Record has no value at %s", fld.Pointer))
+			t.skip(fmt.Sprintf("Record has no value at %s", f.pointer))
 			return nil, row{}, false
 		}
-		v, err := readSample(
-			r.values[i], g.channels[i].DataType, fld.TimeFormat, fld.EnumValues,
+		sample, err := xjson.AppendSample(
+			nil, f.channel.DataType, g.values[i], f.format, f.enums,
 		)
 		if err != nil {
-			t.skip(fmt.Sprintf("Value at %s: %s", fld.Pointer, err))
+			t.skip(fmt.Sprintf("Value at %s: %s", f.pointer, err))
 			return nil, row{}, false
 		}
-		r.values[i] = v
+		r.samples[i] = sample
 	}
 	if g.stamp == -1 {
 		r.ts = telem.NewTimeStamp(rec.Timestamp)
 	} else {
-		r.ts = r.values[g.stamp].(telem.TimeStamp)
+		r.ts = telem.TimeStamp(telem.ByteOrder.Uint64(r.samples[g.stamp]))
 	}
 	return g, r, true
 }
@@ -739,11 +762,10 @@ func (g *readGroup) appendFrame(fr frame.Frame, rows []row) frame.Frame {
 		}
 		series = append(series, telem.NewSeries(stamps))
 	}
-	for i, ch := range g.channels {
-		s := telem.Series{DataType: ch.DataType}
+	for i, f := range g.fields {
+		s := telem.Series{DataType: f.channel.DataType}
 		for _, r := range rows {
-			sample := telem.NewSeriesFromAny(r.values[i], ch.DataType)
-			s.Data = append(s.Data, sample.Data...)
+			s.Data = append(s.Data, r.samples[i]...)
 		}
 		series = append(series, s)
 	}

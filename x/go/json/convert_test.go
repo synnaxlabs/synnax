@@ -11,6 +11,7 @@ package json_test
 
 import (
 	"math"
+	"uuid"
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
@@ -98,6 +99,9 @@ var _ = Describe("Convert", func() {
 			Entry("uint8", telem.Uint8T),
 			Entry("timestamp", telem.TimestampT),
 			Entry("string", telem.StringT),
+			Entry("boolean", telem.BooleanT),
+			Entry("uuid", telem.UUIDT),
+			Entry("json", telem.JSONT),
 		)
 		DescribeTable("Should reject a data type that AppendSample cannot produce",
 			func(dt telem.DataType) {
@@ -109,8 +113,6 @@ var _ = Describe("Convert", func() {
 					)),
 				))
 			},
-			Entry("uuid", telem.UUIDT),
-			Entry("json", telem.JSONT),
 			Entry("bytes", telem.BytesT),
 		)
 	})
@@ -279,6 +281,55 @@ var _ = Describe("Convert", func() {
 			Entry("null as its JSON text", "null", "null"),
 		)
 
+		DescribeTable("Should convert to a boolean",
+			func(text string, expected bool) {
+				Expect(convert(text, telem.BooleanT, xjson.ISO8601, nil)).
+					To(telem.MatchSeriesData(telem.NewSeriesV(expected)))
+			},
+			Entry("true", "true", true),
+			Entry("false", "false", false),
+			Entry("one", "1", true),
+			Entry("a whole zero", "0.0", false),
+			Entry("a numeric string", `"1"`, true),
+		)
+
+		It("Should map a string through the enum map to a boolean", func() {
+			enums := xjson.EnumMap{"OPEN": 1, "CLOSED": 0}
+			Expect(convert(`"OPEN"`, telem.BooleanT, xjson.ISO8601, enums)).
+				To(telem.MatchSeriesData(telem.NewSeriesV(true)))
+		})
+
+		It("Should convert a string to a UUID", func() {
+			id := uuid.New()
+			Expect(convert(`"`+id.String()+`"`, telem.UUIDT, xjson.ISO8601, nil)).
+				To(telem.MatchSeriesData(telem.NewSeriesV(id)))
+		})
+
+		DescribeTable(
+			"Should convert to JSON as its JSON text",
+			func(text, expected string) {
+				data := MustSucceed(
+					xjson.AppendSample(
+						nil,
+						telem.JSONT,
+						decode(text),
+						xjson.ISO8601,
+						nil,
+					),
+				)
+				s := telem.Series{DataType: telem.JSONT, Data: data}
+				Expect(string(s.At(0))).To(Equal(expected))
+			},
+			Entry(
+				"an object with sorted names",
+				`{"b":1,"a":[true]}`,
+				`{"a":[true],"b":1}`,
+			),
+			Entry("a string", `"open"`, `"open"`),
+			Entry("a number with its exact digits", "9007199254740993",
+				"9007199254740993"),
+		)
+
 		DescribeTable("Should convert timestamps",
 			func(text string, format xjson.TimeFormat, expected telem.TimeStamp) {
 				Expect(convert(text, telem.TimestampT, format, nil)).
@@ -382,8 +433,14 @@ var _ = Describe("Convert", func() {
 				`cannot convert {"a":1} to float64`),
 			Entry("null for a number", "null", telem.Float64T, xjson.ISO8601,
 				"cannot convert null to float64"),
-			Entry("an unsupported target", "1", telem.UUIDT, xjson.ISO8601,
+			Entry("a number for a UUID", "1", telem.UUIDT, xjson.ISO8601,
 				"cannot convert 1 to uuid"),
+			Entry("a malformed UUID", `"abc"`, telem.UUIDT, xjson.ISO8601,
+				`cannot convert "abc" to uuid: not a valid UUID`),
+			Entry("above the boolean maximum", "2", telem.BooleanT, xjson.ISO8601,
+				"cannot convert 2 to boolean: value is out of bounds"),
+			Entry("an unsupported target", "1", telem.BytesT, xjson.ISO8601,
+				"cannot convert 1 to bytes"),
 			Entry("a number with the ISO 8601 format", "1700000000",
 				telem.TimestampT, xjson.ISO8601,
 				"numeric values cannot be converted with ISO 8601 format"),

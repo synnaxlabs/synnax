@@ -728,25 +728,13 @@ var _ = Describe("Read task", func() {
 		},
 	)
 
-	It("Should read one array element into fields that spell its index differently",
+	It("Should not read an array index written with a leading zero",
 		func(ctx SpecContext) {
 			index, data := createIndexed(ctx, telem.Float64T)
-			other := channel.Channel{
-				Name:       "other_" + uuid.New().String()[:8],
-				DataType:   telem.Float64T,
-				LocalIndex: index.LocalKey,
-			}
-			Expect(channelSvc.NewWriter(nil).Create(ctx, &other)).To(Succeed())
 			dev := createDevice(ctx, clusterProperties())
 			topic := newTopic()
 			fields := stampedFields(index, data)
-			fields[1].Pointer = "/vals/1"
-			fields = append(fields, kafka.ReadField{
-				Key:      "w",
-				Channel:  other.Key(),
-				Pointer:  "/vals/01",
-				DataType: telem.Float64T,
-			})
+			fields[1].Pointer = "/vals/01"
 			dt, t := configure(ctx, kafka.ReadConfig{
 				Device:  dev.Key,
 				Topic:   topic,
@@ -756,8 +744,9 @@ var _ = Describe("Read task", func() {
 			produceJSON(ctx, producer, topic, "", map[string]any{
 				"ts": 10e9, "vals": []any{1.0, 2.5},
 			})
-			Expect(floats(expectStored(ctx, data.Key(), 1))).To(Equal([]float64{2.5}))
-			Expect(floats(expectStored(ctx, other.Key(), 1))).To(Equal([]float64{2.5}))
+			Eventually(func() string { return taskStatus(ctx, t).Description }).
+				WithTimeout(15 * time.Second).
+				Should(Equal("Record has no value at /vals/01"))
 		},
 	)
 
@@ -799,26 +788,6 @@ var _ = Describe("Read task", func() {
 		produceJSON(ctx, producer, topic, "", map[string]any{"ts": 11e9, "v": 2.0})
 		Expect(floats(expectStored(ctx, data.Key(), 1))).To(Equal([]float64{2}))
 	})
-
-	It("Should skip a record when a pointer lacks its leading slash",
-		func(ctx SpecContext) {
-			index, data := createIndexed(ctx, telem.Float64T)
-			dev := createDevice(ctx, clusterProperties())
-			topic := newTopic()
-			fields := stampedFields(index, data)
-			fields[1].Pointer = "v"
-			dt, t := configure(ctx, kafka.ReadConfig{
-				Device:  dev.Key,
-				Topic:   topic,
-				Records: single(fields),
-			})
-			start(ctx, dt, t)
-			produceJSON(ctx, producer, topic, "", map[string]any{"ts": 10e9, "v": 1.0})
-			Eventually(func() string { return taskStatus(ctx, t).Description }).
-				WithTimeout(15 * time.Second).
-				Should(ContainSubstring(`pointer "v" must start with '/'`))
-		},
-	)
 
 	onOff := []http.EnumEntry{{Label: "OFF", Value: 0}, {Label: "ON", Value: 1}}
 	readUUID := uuid.MustParse("6f1c2a4e-8d3b-4f5a-9c7e-2b1d0e3f4a5b")
@@ -959,61 +928,80 @@ var _ = Describe("Read task", func() {
 		},
 		Entry("a number where an ISO 8601 timestamp is expected",
 			telem.Float64T, http.TimeFormatISO8601, nil,
-			map[string]any{"ts": 10, "v": 1.5}, "expected an ISO 8601 string"),
+			map[string]any{"ts": 10, "v": 1.5},
+			"Value at /ts: cannot convert 10 to timestamp: numeric values cannot be "+
+				"converted with ISO 8601 format"),
 		Entry("a malformed ISO 8601 timestamp",
 			telem.Float64T, http.TimeFormatISO8601, nil,
 			map[string]any{"ts": "yesterday", "v": 1.5},
-			"invalid ISO 8601 timestamp"),
-		Entry("a string where a numeric timestamp is expected",
-			telem.Float64T, http.TimeFormatUnixNs, nil,
-			map[string]any{"ts": "10", "v": 1.5}, "expected a number"),
+			`Value at /ts: cannot convert "yesterday" to timestamp: not a valid ISO `+
+				"8601 timestamp"),
 		Entry("an unknown enum label",
 			telem.Uint8T, http.TimeFormatUnixNs, onOff,
-			map[string]any{"ts": 10e9, "v": "MAYBE"}, "unknown enum label"),
+			map[string]any{"ts": 10e9, "v": "MAYBE"},
+			`Value at /v: cannot convert "MAYBE" to uint8: not a valid number`),
 		Entry("an object where a number is expected",
 			telem.Float64T, http.TimeFormatUnixNs, nil,
 			map[string]any{"ts": 10e9, "v": map[string]any{"x": 1}},
-			"expected a number or boolean"),
+			`Value at /v: cannot convert {"x":1} to float64`),
 		Entry("a null where a number is expected",
 			telem.Float64T, http.TimeFormatUnixNs, nil,
-			map[string]any{"ts": 10e9, "v": nil}, "expected a number or boolean"),
-		Entry("a number where a string is expected",
-			telem.StringT, http.TimeFormatUnixNs, nil,
-			map[string]any{"ts": 10e9, "v": 1}, "expected a string"),
-		Entry("a number where a UUID is expected",
-			telem.UUIDT, http.TimeFormatUnixNs, nil,
-			map[string]any{"ts": 10e9, "v": 1}, "expected a UUID string"),
+			map[string]any{"ts": 10e9, "v": nil},
+			"Value at /v: cannot convert null to float64"),
+		Entry(
+			"a number where a UUID is expected",
+			telem.UUIDT,
+			http.TimeFormatUnixNs,
+			nil,
+			map[string]any{
+				"ts": 10e9,
+				"v":  1,
+			},
+			"Value at /v: cannot convert 1 to uuid",
+		),
 		Entry("a malformed UUID",
 			telem.UUIDT, http.TimeFormatUnixNs, nil,
-			map[string]any{"ts": 10e9, "v": "not-a-uuid"}, "invalid UUID"),
+			map[string]any{"ts": 10e9, "v": "not-a-uuid"},
+			`Value at /v: cannot convert "not-a-uuid" to uuid: not a valid UUID`),
 		Entry("an integer beyond the channel's range",
 			telem.Uint8T, http.TimeFormatUnixNs, nil,
-			map[string]any{"ts": 10e9, "v": 256}, "256 is out of range for uint8"),
+			map[string]any{"ts": 10e9, "v": 256},
+			"Value at /v: cannot convert 256 to uint8: value is out of bounds"),
 		Entry("a negative integer into an unsigned channel",
 			telem.Uint32T, http.TimeFormatUnixNs, nil,
-			map[string]any{"ts": 10e9, "v": -1}, "-1 is out of range for uint32"),
-		Entry("a fraction into an integer channel",
-			telem.Int32T, http.TimeFormatUnixNs, nil,
-			map[string]any{"ts": 10e9, "v": 1.5}, "1.5 is not an integer"),
+			map[string]any{"ts": 10e9, "v": -1},
+			"Value at /v: cannot convert -1 to uint32: value is out of bounds"),
+		Entry(
+			"a fraction into an integer channel",
+			telem.Int32T,
+			http.TimeFormatUnixNs,
+			nil,
+			map[string]any{"ts": 10e9, "v": 1.5},
+			"Value at /v: cannot convert 1.5 to int32: value has a fractional "+
+				"component",
+		),
 		Entry("a float beyond the integer channel's range",
 			telem.Int64T, http.TimeFormatUnixNs, nil,
 			map[string]any{"ts": 10e9, "v": jsontext.Value("1e19")},
-			"1e+19 is out of range for int64"),
+			"Value at /v: cannot convert 1e19 to int64: value is out of bounds"),
 		Entry("a number beyond float32",
 			telem.Float32T, http.TimeFormatUnixNs, nil,
-			map[string]any{"ts": 10e9, "v": 1e39}, "1e+39 overflows float32"),
+			map[string]any{"ts": 10e9, "v": 1e39},
+			"Value at /v: cannot convert 1e+39 to float32: value is out of bounds"),
 		Entry("an enum value beyond the channel's range",
 			telem.Int8T, http.TimeFormatUnixNs,
 			[]http.EnumEntry{{Label: "BIG", Value: 200}},
-			map[string]any{"ts": 10e9, "v": "BIG"}, "200 is out of range for int8"),
+			map[string]any{"ts": 10e9, "v": "BIG"},
+			`Value at /v: cannot convert "BIG" to int8: value is out of bounds`),
 		Entry("an integer timestamp beyond the nanosecond range",
 			telem.Float64T, http.TimeFormatUnixMs, nil,
 			map[string]any{"ts": int64(1_000_000_000_000_000_000), "v": 1.5},
-			"1000000000000000000 is out of range for a unix_ms timestamp"),
+			"Value at /ts: cannot convert 1000000000000000000 to timestamp: value is "+
+				"out of bounds"),
 		Entry("a floating-point timestamp beyond the nanosecond range",
 			telem.Float64T, http.TimeFormatUnixSec, nil,
 			map[string]any{"ts": jsontext.Value("1e13"), "v": 1.5},
-			"1e+13 is out of range for a unix_sec timestamp"),
+			"Value at /ts: cannot convert 1e13 to timestamp: value is out of bounds"),
 	)
 
 	DescribeTable("Should reject an invalid config",
@@ -1047,7 +1035,26 @@ var _ = Describe("Read task", func() {
 		Entry("empty pointer",
 			func(_ context.Context, _, data channel.Channel) []kafka.ReadField {
 				return []kafka.ReadField{{Key: "v", Channel: data.Key()}}
-			}, "pointer"),
+			}, `field "v": pointer must not be empty`),
+		Entry("a pointer without a leading slash",
+			func(_ context.Context, _, data channel.Channel) []kafka.ReadField {
+				return []kafka.ReadField{{
+					Key:      "v",
+					Channel:  data.Key(),
+					Pointer:  "v",
+					DataType: telem.Float64T,
+				}}
+			}, `field "v": json pointer "v" must be empty or start with "/"`),
+		Entry("a bytes channel",
+			func(ctx context.Context, _, _ channel.Channel) []kafka.ReadField {
+				_, data := createIndexed(ctx, telem.BytesT)
+				return []kafka.ReadField{{
+					Key:      "v",
+					Channel:  data.Key(),
+					Pointer:  "/v",
+					DataType: telem.BytesT,
+				}}
+			}, `field "v": cannot convert a JSON value to bytes`),
 		Entry("data type mismatch",
 			func(_ context.Context, _, data channel.Channel) []kafka.ReadField {
 				return []kafka.ReadField{{

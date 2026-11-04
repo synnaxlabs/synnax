@@ -12,6 +12,7 @@ package kafka_test
 import (
 	"context"
 	"encoding/json/v2"
+	"math"
 	"time"
 	"uuid"
 
@@ -288,9 +289,12 @@ var _ = Describe("Write task", func() {
 		Entry("a channel pointer nested inside the value pointer",
 			kafka.Record{ValuePointer: "/value", ChannelPointer: new("/value/name")},
 			`record.channel_pointer "/value/name" overlap`),
-		Entry("a timestamp pointer lacking its leading slash",
+		Entry(
+			"a timestamp pointer lacking its leading slash",
 			kafka.Record{TimestampPointer: new("timestamp")},
-			`record.timestamp_pointer: pointer "timestamp" must start with '/'`),
+			`record.timestamp_pointer: json pointer "timestamp" must be empty or `+
+				`start with "/"`,
+		),
 		Entry("a field pointer that contains the value pointer",
 			kafka.Record{
 				ValuePointer: "/meta/value",
@@ -416,6 +420,9 @@ var _ = Describe("Write task", func() {
 		Entry("a UUID",
 			telem.UUIDT, telem.NewSeriesV(writeUUID),
 			kafka.WriteChannel{JSONType: http.JSONTypeString}, writeUUID.String()),
+		Entry("a value outside the enum as its number text",
+			telem.Uint8T, telem.NewSeriesV[uint8](5),
+			kafka.WriteChannel{JSONType: http.JSONTypeString, EnumValues: onOff}, "5"),
 	)
 
 	It("Should keep an int64 sample beyond float64 precision", func(ctx SpecContext) {
@@ -444,16 +451,44 @@ var _ = Describe("Write task", func() {
 			Expect(stat.Variant).To(Equal(status.VariantError))
 			Expect(stat.Details.Running).To(BeTrue())
 		},
-		Entry("a value outside the enum",
-			telem.Uint8T, telem.NewSeriesV[uint8](5),
-			kafka.WriteChannel{JSONType: http.JSONTypeString, EnumValues: onOff},
-			"no enum label for value 5"),
+		Entry("a NaN",
+			telem.Float64T, telem.NewSeriesV(math.NaN()), kafka.WriteChannel{},
+			"cannot convert NaN to JSON: value is not finite"),
+		Entry(
+			"an infinity",
+			telem.Float32T,
+			telem.NewSeriesV(float32(math.Inf(1))),
+			kafka.WriteChannel{},
+			"cannot convert +Inf to JSON: value is not finite",
+		),
+	)
+
+	DescribeTable("Should reject a JSON type that a channel cannot serialize as",
+		func(ctx SpecContext, dt telem.DataType, wc kafka.WriteChannel, msg string) {
+			_, data := createIndexed(ctx, dt)
+			dev := createDevice(ctx, clusterProperties())
+			wc.Key, wc.Channel = "c1", data.Key()
+			cfg := kafka.WriteConfig{
+				Device:   dev.Key,
+				Topic:    "t",
+				Channels: []kafka.WriteChannel{wc},
+			}
+			Expect(f.ConfigureTask(ctx, newTask(kafka.WriteTaskType, cfg), "cmd-1")).
+				Error().To(SatisfyAll(
+				MatchError(validate.ErrValidation),
+				MatchError(ContainSubstring(msg)),
+			))
+		},
 		Entry("a string as a number",
-			telem.StringT, telem.NewSeriesV("hi"), kafka.WriteChannel{},
-			"only serializes as a string"),
-		Entry("a UUID as a number",
-			telem.UUIDT, telem.NewSeriesV(writeUUID), kafka.WriteChannel{},
-			"only serializes as a string"),
+			telem.StringT, kafka.WriteChannel{JSONType: http.JSONTypeNumber},
+			`channel "c1": cannot convert string to a JSON number`),
+		Entry("a UUID as a boolean",
+			telem.UUIDT, kafka.WriteChannel{JSONType: http.JSONTypeBoolean},
+			`channel "c1": cannot convert uuid to a JSON boolean`),
+		Entry("enum values for a number",
+			telem.Uint8T,
+			kafka.WriteChannel{JSONType: http.JSONTypeNumber, EnumValues: onOff},
+			`channel "c1": enum values require the string JSON type`),
 	)
 
 	DescribeTable("Should reject an invalid config",

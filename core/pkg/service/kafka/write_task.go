@@ -11,8 +11,6 @@ package kafka
 
 import (
 	"context"
-	"encoding/json/v2"
-	"fmt"
 	"io"
 	"sync"
 
@@ -26,6 +24,7 @@ import (
 	"github.com/synnaxlabs/x/confluence"
 	"github.com/synnaxlabs/x/errors"
 	xio "github.com/synnaxlabs/x/io"
+	xjson "github.com/synnaxlabs/x/json"
 	"github.com/synnaxlabs/x/set"
 	"github.com/synnaxlabs/x/signal"
 	"github.com/synnaxlabs/x/telem"
@@ -34,10 +33,13 @@ import (
 	"go.uber.org/zap"
 )
 
-// writeChannel pairs a configured channel with its record.
+// writeChannel is an enabled channel of a write task, parsed for conversion.
 type writeChannel struct {
-	cfg WriteChannel
-	ch  channel.Channel
+	ch       channel.Channel
+	jsonType xjson.Type
+	// format encodes the samples of a timestamp channel.
+	format xjson.TimeFormat
+	enums  xjson.ReverseEnumMap
 }
 
 // writeTask produces one record per sample of each channel to a topic.
@@ -45,6 +47,7 @@ type writeTask struct {
 	factoryCfg FactoryConfig
 	task       task.Task
 	cfg        WriteConfig
+	layout     recordLayout
 	// status is the authority on this instance's current status.
 	status   *driver.StatusHandler
 	channels map[channel.Key]writeChannel
@@ -79,7 +82,8 @@ func (f *factory) configureWrite(
 	if cfg.Topic == "" {
 		return nil, errors.Wrap(validate.ErrValidation, "topic: must not be empty")
 	}
-	if err := validateDisjoint(outputPointers(cfg.Record)); err != nil {
+	layout, err := parseRecordLayout(cfg.Record)
+	if err != nil {
 		return nil, err
 	}
 	if _, err := resolveProperties(ctx, f.cfg.Device, cfg.Device); err != nil {
@@ -110,6 +114,7 @@ func (f *factory) configureWrite(
 		factoryCfg: f.cfg,
 		task:       t,
 		cfg:        cfg,
+		layout:     layout,
 		status:     driver.NewStatusHandler(f.cfg.DB, f.cfg.Status, t),
 		channels:   make(map[channel.Key]writeChannel, len(keys)),
 	}
@@ -118,24 +123,12 @@ func (f *factory) configureWrite(
 		if wc.Disabled {
 			continue
 		}
-		ch := channels[wc.Channel]
-		if ch.DataType == telem.TimestampT {
-			if wc.TimeFormat == nil {
-				return nil, errors.Wrapf(
-					validate.ErrValidation,
-					"channel %q: time_format is required for timestamp channel %s",
-					wc.Key, ch.Name,
-				)
-			}
-			if wc.JSONType != http.JSONTypeNumber || len(wc.EnumValues) > 0 {
-				return nil, errors.Wrapf(
-					validate.ErrValidation,
-					"channel %q: time_format alone encodes timestamp channel %s",
-					wc.Key, ch.Name,
-				)
-			}
+		parsed, err := parseWriteChannel(wc, channels[wc.Channel])
+		if err != nil {
+			return nil, errors.Wrapf(err, "channel %q", wc.Key)
 		}
-		wt.channels[wc.Channel] = writeChannel{cfg: wc, ch: ch}
+		ch := parsed.ch
+		wt.channels[wc.Channel] = parsed
 		for _, k := range []channel.Key{ch.Key(), ch.Index()} {
 			if k != 0 && !streamed.Contains(k) {
 				streamed.Add(k)
@@ -146,28 +139,41 @@ func (f *factory) configureWrite(
 	return wt, nil
 }
 
-// outputPointers lists every pointer a record of rec sets, labeled by its config entry.
-func outputPointers(rec Record) []labeledPointer {
-	pointers := []labeledPointer{{"record.value_pointer", rec.ValuePointer}}
-	if p := rec.ChannelPointer; p != nil {
-		pointers = append(pointers, labeledPointer{"record.channel_pointer", *p})
-	}
-	if p := rec.TimestampPointer; p != nil {
-		pointers = append(pointers, labeledPointer{"record.timestamp_pointer", *p})
-	}
-	for _, f := range rec.Fields {
-		var base http.BaseWriteField
-		switch v := f.Variant.(type) {
-		case http.StaticWriteField:
-			base = v.BaseWriteField
-		case http.GeneratedWriteField:
-			base = v.BaseWriteField
+// parseWriteChannel parses the conversion of wc, which writes ch.
+func parseWriteChannel(wc WriteChannel, ch channel.Channel) (writeChannel, error) {
+	parsed := writeChannel{ch: ch, enums: reverseEnumMap(wc.EnumValues)}
+	if ch.DataType == telem.TimestampT {
+		if wc.TimeFormat == nil {
+			return writeChannel{}, errors.Wrapf(
+				validate.ErrValidation,
+				"time_format is required for timestamp channel %s",
+				ch.Name,
+			)
 		}
-		pointers = append(pointers, labeledPointer{
-			fmt.Sprintf("field %q", base.Key), base.Pointer,
-		})
+		if wc.JSONType != http.JSONTypeNumber || len(wc.EnumValues) > 0 {
+			return writeChannel{}, errors.Wrapf(
+				validate.ErrValidation,
+				"time_format alone encodes timestamp channel %s",
+				ch.Name,
+			)
+		}
+		var err error
+		parsed.format, err = xjson.ParseTimeFormat(string(*wc.TimeFormat))
+		return parsed, err
 	}
-	return pointers
+	var err error
+	if parsed.jsonType, err = xjson.ParseType(string(wc.JSONType)); err != nil {
+		return writeChannel{}, err
+	}
+	if len(wc.EnumValues) > 0 && parsed.jsonType != xjson.String {
+		return writeChannel{}, errors.Wrap(
+			validate.ErrValidation, "enum values require the string JSON type",
+		)
+	}
+	if err = xjson.CheckFromSample(ch.DataType, parsed.jsonType); err != nil {
+		return writeChannel{}, err
+	}
+	return parsed, nil
 }
 
 // Exec implements driver.Task. Every command it handles ends in a status carrying the
@@ -384,38 +390,41 @@ func (t *writeTask) record(
 	i int,
 	ts telem.TimeStamp,
 ) (*kgo.Record, error) {
-	doc := make(map[string]any)
-	value, err := writeSample(s, i, wc.cfg)
+	var (
+		value any
+		err   error
+	)
+	if wc.ch.DataType == telem.TimestampT {
+		value = xjson.FromTimeStamp(s.ValueAt[telem.TimeStamp](i), wc.format)
+	} else if value, err = xjson.FromSample(
+		wc.ch.DataType, s.At(i), wc.jsonType, wc.enums,
+	); err != nil {
+		return nil, err
+	}
+	l := t.layout
+	doc, err := l.value.Set(nil, value)
 	if err != nil {
 		return nil, err
 	}
-	if err := pointerSet(doc, t.cfg.Record.ValuePointer, value); err != nil {
-		return nil, err
-	}
-	if p := t.cfg.Record.ChannelPointer; p != nil {
-		if err := pointerSet(doc, *p, wc.ch.Name); err != nil {
+	if len(l.channel) > 0 {
+		if doc, err = l.channel.Set(doc, wc.ch.Name); err != nil {
 			return nil, err
 		}
 	}
-	if p := t.cfg.Record.TimestampPointer; p != nil {
-		stamp, err := formatTimestamp(ts, t.cfg.Record.TimeFormat)
-		if err != nil {
-			return nil, err
-		}
-		if err := pointerSet(doc, *p, stamp); err != nil {
-			return nil, err
-		}
-	}
-	for _, f := range t.cfg.Record.Fields {
-		pointer, v, err := extraFieldValue(f, ts)
-		if err != nil {
-			return nil, err
-		}
-		if err := pointerSet(doc, pointer, v); err != nil {
+	if len(l.timestamp) > 0 {
+		if doc, err = l.timestamp.Set(
+			doc,
+			xjson.FromTimeStamp(ts, l.format),
+		); err != nil {
 			return nil, err
 		}
 	}
-	body, err := json.Marshal(doc)
+	for _, f := range l.fields {
+		if doc, err = f.pointer.Set(doc, f.generate(ts)); err != nil {
+			return nil, err
+		}
+	}
+	body, err := xjson.Marshal(doc)
 	if err != nil {
 		return nil, err
 	}

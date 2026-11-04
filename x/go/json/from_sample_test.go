@@ -11,6 +11,7 @@ package json_test
 
 import (
 	"math"
+	"uuid"
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
@@ -59,6 +60,10 @@ var _ = Describe("FromSample", func() {
 			Entry("int8 to string", telem.Int8T, xjson.String),
 			Entry("uint64 to boolean", telem.Uint64T, xjson.Boolean),
 			Entry("string to string", telem.StringT, xjson.String),
+			Entry("boolean to boolean", telem.BooleanT, xjson.Boolean),
+			Entry("boolean to number", telem.BooleanT, xjson.Number),
+			Entry("uuid to string", telem.UUIDT, xjson.String),
+			Entry("json to string", telem.JSONT, xjson.String),
 		)
 		DescribeTable("Should reject an unsupported conversion",
 			func(dt telem.DataType, target xjson.Type, message string) {
@@ -78,8 +83,12 @@ var _ = Describe("FromSample", func() {
 			Entry("timestamp to number",
 				telem.TimestampT, xjson.Number,
 				"cannot convert timestamp to a JSON number"),
-			Entry("uuid to string",
-				telem.UUIDT, xjson.String, "cannot convert uuid to a JSON string"),
+			Entry("uuid to number",
+				telem.UUIDT, xjson.Number, "cannot convert uuid to a JSON number"),
+			Entry("json to boolean",
+				telem.JSONT, xjson.Boolean, "cannot convert json to a JSON boolean"),
+			Entry("bytes to string",
+				telem.BytesT, xjson.String, "cannot convert bytes to a JSON string"),
 		)
 	})
 
@@ -109,7 +118,21 @@ var _ = Describe("FromSample", func() {
 			Entry("one", telem.NewSeriesV[uint8](1), "true"),
 			Entry("negative", telem.NewSeriesV[int32](-2), "true"),
 			Entry("fraction", telem.NewSeriesV(0.25), "true"),
+			Entry("a boolean", telem.NewSeriesV(true), "true"),
 		)
+		It("Should convert a boolean to a number", func() {
+			Expect(marshalSample(telem.NewSeriesV(true), xjson.Number, nil)).
+				To(Equal("1"))
+		})
+		It("Should convert a UUID to its canonical text", func() {
+			id := uuid.New()
+			Expect(marshalSample(telem.NewSeriesV(id), xjson.String, nil)).
+				To(Equal(`"` + id.String() + `"`))
+		})
+		It("Should convert JSON to its text", func() {
+			s := MustSucceed(telem.NewJSONSeriesV(map[string]any{"a": 1}))
+			Expect(marshalSample(s, xjson.String, nil)).To(Equal(`"{\"a\":1}"`))
+		})
 		DescribeTable(
 			"Should convert to a string",
 			func(s telem.Series, enums xjson.ReverseEnumMap, expected string) {
