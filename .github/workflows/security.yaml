@@ -65,7 +65,7 @@ jobs:
       - name: File the report
         env:
           LINEAR_API_KEY: ${{ secrets.LINEAR_API_KEY }}
-          SLACK_WEBHOOK_URL: ${{ secrets.SLACK_SECURITY_WEBHOOK_URL }}
+          SLACK_WEBHOOK_URL: ${{ secrets.SLACK_NIGHTLY_WEBHOOK_URL }}
           RUN_URL:
             ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{
             github.run_id }}
