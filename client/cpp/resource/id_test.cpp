@@ -7,32 +7,32 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-#include "client/cpp/ontology/id.h"
+#include "client/cpp/resource/id.h"
 #include "x/cpp/testutil/testutil.h"
 
-namespace synnax::ontology {
+namespace synnax::resource {
 /// @brief it should construct an ID with type and key.
-TEST(OntologyID, testConstruction) {
+TEST(ResourceID, testConstruction) {
     const ID id{.type = "channel", .key = "42"};
     EXPECT_EQ(id.type, "channel");
     EXPECT_EQ(id.key, "42");
 }
 
 /// @brief it should convert an ID to string format "type:key".
-TEST(OntologyID, testStringConversion) {
+TEST(ResourceID, testStringConversion) {
     const ID id{.type = "channel", .key = "42"};
     EXPECT_EQ(id.string(), "channel:42");
 }
 
 /// @brief it should parse a valid ID string "channel:42".
-TEST(OntologyID, testParseValidID) {
+TEST(ResourceID, testParseValidID) {
     const auto id = ASSERT_NIL_P(ID::parse("channel:42"));
     EXPECT_EQ(id.type, "channel");
     EXPECT_EQ(id.key, "42");
 }
 
 /// @brief it should parse a valid ID with UUID key.
-TEST(OntologyID, testParseValidIDWithUUID) {
+TEST(ResourceID, testParseValidIDWithUUID) {
     const auto id = ASSERT_NIL_P(
         ID::parse("group:748d31e2-5732-4cb5-8bc9-64d4ad51efe8")
     );
@@ -41,33 +41,33 @@ TEST(OntologyID, testParseValidIDWithUUID) {
 }
 
 /// @brief it should fail to parse an ID without a colon separator.
-TEST(OntologyID, testParseMalformed) {
+TEST(ResourceID, testParseMalformed) {
     auto [id, err] = ID::parse("malformed");
     EXPECT_TRUE(err);
     EXPECT_TRUE(err.matches(x::errors::VALIDATION));
 }
 
 /// @brief it should fail to parse an ID with only a colon.
-TEST(OntologyID, testParseOnlyColon) {
+TEST(ResourceID, testParseOnlyColon) {
     auto [id, err] = ID::parse(":");
     EXPECT_TRUE(err);
     EXPECT_TRUE(err.matches(x::errors::VALIDATION));
 }
 
 /// @brief it should fail to parse an ID with empty type.
-TEST(OntologyID, testParseEmptyType) {
+TEST(ResourceID, testParseEmptyType) {
     ASSERT_OCCURRED_AS_P(ID::parse(":42"), x::errors::VALIDATION);
 }
 
 /// @brief it should support round-trip string conversion: parse(id.string()) == id.
-TEST(OntologyID, testStringRoundTrip) {
+TEST(ResourceID, testStringRoundTrip) {
     const ID original{.type = "channel", .key = "42"};
     const auto parsed = ASSERT_NIL_P(ID::parse(original.string()));
     EXPECT_EQ(parsed, original);
 }
 
 /// @brief it should compare two IDs for equality.
-TEST(OntologyID, testEqualityOperator) {
+TEST(ResourceID, testEqualityOperator) {
     const ID id1{.type = "channel", .key = "42"};
     const ID id2{.type = "channel", .key = "42"};
     const ID id3{.type = "channel", .key = "43"};
@@ -79,7 +79,7 @@ TEST(OntologyID, testEqualityOperator) {
 }
 
 /// @brief it should compare two IDs for inequality.
-TEST(OntologyID, testInequalityOperator) {
+TEST(ResourceID, testInequalityOperator) {
     const ID id1{.type = "channel", .key = "42"};
     const ID id2{.type = "channel", .key = "42"};
     const ID id3{.type = "channel", .key = "43"};
@@ -89,7 +89,7 @@ TEST(OntologyID, testInequalityOperator) {
 }
 
 /// @brief it should parse a vector of ID strings.
-TEST(OntologyID, testParseIDs) {
+TEST(ResourceID, testParseIDs) {
     const std::vector<std::string> strs = {
         "channel:42",
         "group:748d31e2-5732-4cb5-8bc9-64d4ad51efe8",
@@ -106,13 +106,13 @@ TEST(OntologyID, testParseIDs) {
 }
 
 /// @brief it should fail to parse a vector with an invalid ID.
-TEST(OntologyID, testParseIDsWithInvalid) {
+TEST(ResourceID, testParseIDsWithInvalid) {
     const std::vector<std::string> strs = {"channel:42", "malformed", "user:admin"};
     ASSERT_OCCURRED_AS_P(parse_ids(strs), x::errors::VALIDATION);
 }
 
 /// @brief it should convert a vector of IDs to strings.
-TEST(OntologyID, testIDsToStrings) {
+TEST(ResourceID, testIDsToStrings) {
     const std::vector<ID> ids = {
         ID{.type = "channel", .key = "42"},
         ID{.type = "group", .key = "748d31e2-5732-4cb5-8bc9-64d4ad51efe8"},
@@ -126,38 +126,38 @@ TEST(OntologyID, testIDsToStrings) {
 }
 
 /// @brief it should return true for a default-constructed (empty) ID.
-TEST(OntologyID, testIsZeroDefault) {
+TEST(ResourceID, testIsZeroDefault) {
     const ID id{};
     EXPECT_TRUE(id.is_zero());
 }
 
 /// @brief it should return false for an ID with type and key.
-TEST(OntologyID, testIsZeroNonEmpty) {
+TEST(ResourceID, testIsZeroNonEmpty) {
     const ID id{.type = "channel", .key = "42"};
     EXPECT_FALSE(id.is_zero());
 }
 
 /// @brief it should return false when only type is set.
-TEST(OntologyID, testIsZeroPartialType) {
+TEST(ResourceID, testIsZeroPartialType) {
     const ID id{.type = "channel", .key = ""};
     EXPECT_FALSE(id.is_zero());
 }
 
 /// @brief it should return false when only key is set.
-TEST(OntologyID, testIsZeroPartialKey) {
+TEST(ResourceID, testIsZeroPartialKey) {
     const ID id{.type = "", .key = "42"};
     EXPECT_FALSE(id.is_zero());
 }
 
 /// @brief it should verify ROOT_ID constant.
-TEST(OntologyID, testRootIDConstant) {
+TEST(ResourceID, testRootIDConstant) {
     EXPECT_EQ(ROOT_ID.type, "builtin");
     EXPECT_EQ(ROOT_ID.key, "root");
     EXPECT_EQ(ROOT_ID.string(), "builtin:root");
 }
 
 /// @brief it should parse an ID from JSON.
-TEST(OntologyID, testParseFromJSON) {
+TEST(ResourceID, testParseFromJSON) {
     x::json::json j = {{"type", "channel"}, {"key", "42"}};
     x::json::Parser parser(j);
     const auto id = ID::parse(parser);
@@ -166,7 +166,7 @@ TEST(OntologyID, testParseFromJSON) {
 }
 
 /// @brief it should serialize an ID to JSON.
-TEST(OntologyID, testToJSON) {
+TEST(ResourceID, testToJSON) {
     const ID id{.type = "channel", .key = "42"};
     const auto j = id.to_json();
     EXPECT_EQ(j["type"], "channel");
@@ -174,7 +174,7 @@ TEST(OntologyID, testToJSON) {
 }
 
 /// @brief it should round-trip an ID through JSON.
-TEST(OntologyID, testJSONRoundTrip) {
+TEST(ResourceID, testJSONRoundTrip) {
     const ID original{.type = "group", .key = "abc-123"};
     const auto j = original.to_json();
     x::json::Parser parser(j);
@@ -183,7 +183,7 @@ TEST(OntologyID, testJSONRoundTrip) {
 }
 
 /// @brief it should round-trip an ID through protobuf.
-TEST(OntologyID, testProtoRoundTrip) {
+TEST(ResourceID, testProtoRoundTrip) {
     const ID original{.type = "channel", .key = "42"};
     const auto pb = ASSERT_NIL_P(original.to_proto());
     const auto parsed = ASSERT_NIL_P(ID::from_proto(pb));
@@ -191,7 +191,7 @@ TEST(OntologyID, testProtoRoundTrip) {
 }
 
 /// @brief it should return an error for an unrecognized type in to_proto.
-TEST(OntologyID, testToProtoUnrecognizedType) {
+TEST(ResourceID, testToProtoUnrecognizedType) {
     const ID id{.type = "nonexistent", .key = "42"};
     const auto [pb, err] = id.to_proto();
     ASSERT_TRUE(err);
@@ -199,7 +199,7 @@ TEST(OntologyID, testToProtoUnrecognizedType) {
 }
 
 /// @brief it should convert a zero ID to protobuf and back.
-TEST(OntologyID, testProtoRoundTripBuiltinType) {
+TEST(ResourceID, testProtoRoundTripBuiltinType) {
     const ID original{.type = "builtin", .key = "root"};
     const auto pb = ASSERT_NIL_P(original.to_proto());
     const auto parsed = ASSERT_NIL_P(ID::from_proto(pb));

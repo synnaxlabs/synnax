@@ -22,8 +22,8 @@ cc_library(
     deps = [
         "//client/cpp/device:key",
         "//client/cpp/errors",
-        "//client/cpp/ontology",
         "//client/cpp/rack:key",
+        "//client/cpp/resource",
         "//client/cpp/status",
         "//core/pkg/service/task:task_grpc",
         "//core/pkg/transport/grpc:api_grpc",

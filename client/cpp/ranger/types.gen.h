@@ -17,8 +17,8 @@
 #include <vector>
 
 #include "client/cpp/label/types.gen.h"
-#include "client/cpp/ontology/id.h"
 #include "client/cpp/ranger/kv/kv.h"
+#include "client/cpp/resource/id.h"
 #include "x/cpp/color/color.h"
 #include "x/cpp/errors/errors.h"
 #include "x/cpp/json/json.h"
@@ -64,9 +64,9 @@ struct Range {
     ranger::kv::Client kv;
 };
 
-const synnax::ontology::ID ONTOLOGY_TYPE("range", "");
+const synnax::resource::ID RESOURCE_TYPE("range", "");
 
-inline synnax::ontology::ID ontology_id(const Key &key) {
-    return synnax::ontology::ID("range", key.to_string());
+inline synnax::resource::ID resource_id(const Key &key) {
+    return synnax::resource::ID("range", key.to_string());
 }
 }

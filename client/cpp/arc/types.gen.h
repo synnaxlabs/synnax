@@ -15,7 +15,7 @@
 #include <string>
 #include <utility>
 
-#include "client/cpp/ontology/id.h"
+#include "client/cpp/resource/id.h"
 #include "x/cpp/errors/errors.h"
 #include "x/cpp/json/json.h"
 #include "x/cpp/uuid/uuid.h"
@@ -62,9 +62,9 @@ struct Arc {
     from_proto(const ::service::arc::pb::Arc &pb);
 };
 
-const synnax::ontology::ID ONTOLOGY_TYPE("arc", "");
+const synnax::resource::ID RESOURCE_TYPE("arc", "");
 
-inline synnax::ontology::ID ontology_id(const Key &key) {
-    return synnax::ontology::ID("arc", key.to_string());
+inline synnax::resource::ID resource_id(const Key &key) {
+    return synnax::resource::ID("arc", key.to_string());
 }
 }

@@ -62,14 +62,14 @@ map_device_keys(const std::vector<Device> &devices) {
 /// @param device The device.
 /// @returns A unique key for status updates, derived from the device key.
 inline std::string status_key(const Device &device) {
-    return ontology_id(device.key).string();
+    return resource_id(device.key).string();
 }
 
 /// @brief Options for retrieving devices.
 struct RetrieveOptions {
     /// @brief Whether to include status information in the retrieved devices.
     bool include_status = false;
-    /// @brief Whether to include parent ontology ID in the retrieved devices.
+    /// @brief Whether to include parent resource ID in the retrieved devices.
     bool include_parent = false;
 };
 

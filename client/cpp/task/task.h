@@ -51,7 +51,7 @@ using DeleteClient = freighter::
 /// @param task The task.
 /// @returns A unique key for status updates, derived from the task key.
 inline std::string status_key(const Task &task) {
-    return ontology_id(task.key).string();
+    return resource_id(task.key).string();
 }
 
 /// @brief Stream output operator for Task.

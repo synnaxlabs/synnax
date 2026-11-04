@@ -7,10 +7,10 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-#include "client/cpp/ontology/id.h"
-#include "client/cpp/ontology/proto.gen.h"
+#include "client/cpp/resource/id.h"
+#include "client/cpp/resource/proto.gen.h"
 
-namespace synnax::ontology {
+namespace synnax::resource {
 std::string ID::string() const {
     return this->type + ":" + this->key;
 }
@@ -62,16 +62,16 @@ x::json::json ID::to_json() const {
     return j;
 }
 
-std::pair<ID, x::errors::Error> ID::from_proto(const ::service::ontology::pb::ID &pb) {
-    auto [type_str, err] = resource_type_from_pb(pb.type());
+std::pair<ID, x::errors::Error> ID::from_proto(const ::service::resource::pb::ID &pb) {
+    auto [type_str, err] = type_from_pb(pb.type());
     if (!err.ok()) return {ID{}, err};
     return {ID{.type = type_str, .key = pb.key()}, x::errors::NIL};
 }
 
-std::pair<::service::ontology::pb::ID, x::errors::Error> ID::to_proto() const {
-    auto [rt, err] = resource_type_to_pb(this->type);
+std::pair<::service::resource::pb::ID, x::errors::Error> ID::to_proto() const {
+    auto [rt, err] = type_to_pb(this->type);
     if (!err.ok()) return {{}, err};
-    ::service::ontology::pb::ID pb;
+    ::service::resource::pb::ID pb;
     pb.set_type(rt);
     pb.set_key(this->key);
     return {pb, x::errors::NIL};

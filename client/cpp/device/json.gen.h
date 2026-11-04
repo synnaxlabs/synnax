@@ -14,8 +14,8 @@
 #include <string>
 
 #include "client/cpp/device/types.gen.h"
-#include "client/cpp/ontology/types.gen.h"
 #include "client/cpp/rack/key.h"
+#include "client/cpp/resource/types.gen.h"
 #include "client/cpp/status/json.gen.h"
 #include "x/cpp/json/json.h"
 
@@ -48,7 +48,7 @@ inline Device Device::parse(x::json::Parser parser) {
         .configured = parser.field<bool>("configured", false),
         .properties = parser.field<x::json::json::object_t>("properties"),
         .status = parser.field<std::optional<Status>>("status"),
-        .parent = parser.field<std::optional<::synnax::ontology::ID>>("parent"),
+        .parent = parser.field<std::optional<::synnax::resource::ID>>("parent"),
     };
 }
 

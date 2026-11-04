@@ -16,8 +16,8 @@
 #include <type_traits>
 #include <utility>
 
-#include "client/cpp/ontology/id.h"
 #include "client/cpp/rack/key.h"
+#include "client/cpp/resource/id.h"
 #include "client/cpp/status/types.gen.h"
 #include "x/cpp/errors/errors.h"
 #include "x/cpp/json/json.h"
@@ -79,7 +79,7 @@ struct Device {
     std::optional<Status> status;
     /// @brief parent is an optional parent resource ID for hierarchical device
     /// organization (e.g., NI chassis containing modules).
-    std::optional<::synnax::ontology::ID> parent;
+    std::optional<::synnax::resource::ID> parent;
 
     static Device parse(x::json::Parser parser);
     [[nodiscard]] x::json::json to_json() const;
@@ -91,9 +91,9 @@ struct Device {
     from_proto(const ::service::device::pb::Device &pb);
 };
 
-const synnax::ontology::ID ONTOLOGY_TYPE("device", "");
+const synnax::resource::ID RESOURCE_TYPE("device", "");
 
-inline synnax::ontology::ID ontology_id(const Key &key) {
-    return synnax::ontology::ID("device", key);
+inline synnax::resource::ID resource_id(const Key &key) {
+    return synnax::resource::ID("device", key);
 }
 }

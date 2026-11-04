@@ -136,7 +136,7 @@ TEST(stateTests, RenamedRack) {
     auto hb = driver::rack::status::Task::configure(ctx, task);
     ASSERT_NE(hb, nullptr);
     x::defer::defer stop([&hb]() { hb->stop(false); });
-    const auto key = synnax::rack::ontology_id(rack.key).string();
+    const auto key = synnax::rack::resource_id(rack.key).string();
     const auto next_beat_name = [&]() -> std::string {
         for (int i = 0; i < 50; i++) {
             auto [frm, err] = streamer.read();
@@ -226,7 +226,7 @@ TEST(stateTests, ResendsTaskStatusesUntilTheyReachTheCore) {
     auto client = std::make_shared<synnax::Synnax>(new_test_client());
     const synnax::rack::Rack rack{.key = 1, .name = "test_rack"};
     const auto transport = std::make_shared<ScriptedSetClient>(
-        synnax::rack::ontology_id(rack.key).string()
+        synnax::rack::resource_id(rack.key).string()
     );
     client->statuses = synnax::status::Client(nullptr, transport, nullptr, nullptr);
     const auto ctx = std::make_shared<driver::task::SynnaxContext>(
@@ -256,7 +256,7 @@ TEST(stateTests, ResendsTaskStatusesAfterALateHeartbeat) {
     auto client = std::make_shared<synnax::Synnax>(new_test_client());
     const synnax::rack::Rack rack{.key = 1, .name = "test_rack"};
     const auto transport = std::make_shared<SlowSetClient>(
-        synnax::rack::ontology_id(rack.key).string()
+        synnax::rack::resource_id(rack.key).string()
     );
     client->statuses = synnax::status::Client(nullptr, transport, nullptr, nullptr);
     const auto ctx = std::make_shared<driver::task::SynnaxContext>(

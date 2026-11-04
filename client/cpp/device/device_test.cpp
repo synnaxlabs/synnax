@@ -573,7 +573,7 @@ TEST(DeviceTests, testDeviceStatusKey) {
     ASSERT_EQ(device::status_key(d), "device:cat");
 }
 
-TEST(DeviceTests, testCreateWithParentOntologyID) {
+TEST(DeviceTests, testCreateWithParentResourceID) {
     const auto client = new_test_client();
     auto r = rack::Rack{.name = "test_rack"};
     ASSERT_NIL(client.racks.create(r));
@@ -588,7 +588,7 @@ TEST(DeviceTests, testCreateWithParentOntologyID) {
         .properties = {{"is_chassis", true}},
     };
     ASSERT_NIL(client.devices.create(chassis));
-    auto chassis_otg = synnax::ontology::ID{"device", chassis.key};
+    auto chassis_otg = synnax::resource::ID{"device", chassis.key};
     auto module = Device{
         .key = "module_" + rand,
         .rack = r.key,
@@ -620,7 +620,7 @@ TEST(DeviceTests, testCreateMultipleDevicesWithParent) {
         .properties = {{"is_chassis", true}},
     };
     ASSERT_NIL(client.devices.create(chassis));
-    auto chassis_otg = synnax::ontology::ID{"device", chassis.key};
+    auto chassis_otg = synnax::resource::ID{"device", chassis.key};
     auto mod1 = Device{
         .key = "mod1_" + rand,
         .rack = r.key,
@@ -664,7 +664,7 @@ TEST(DeviceTests, testRetrieveIncludeParent) {
         .name = "chassis_include_" + rand,
     };
     ASSERT_NIL(client.devices.create(chassis));
-    const auto chassis_id = synnax::ontology::ID{"device", chassis.key};
+    const auto chassis_id = synnax::resource::ID{"device", chassis.key};
     auto child = Device{
         .key = "child_include_" + rand,
         .rack = r.key,
