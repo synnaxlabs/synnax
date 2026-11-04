@@ -48,6 +48,8 @@ class Base(BaseModel):
         integrations: Is the list of hardware integrations this rack supports (e.g.,
             "ni", "opc", "labjack"). An empty or nil list means the rack supports no
             integrations.
+        version: Is the version of the Driver that runs the rack, written at each
+            connect. Absent until a Driver reports it.
     """
 
     key: Key = Field(ge=0, le=4294967295)
@@ -55,6 +57,7 @@ class Base(BaseModel):
     embedded: bool = False
     status: Status | None = None
     integrations: list[str] = Field(default_factory=list)
+    version: str | None = None
 
     @_override
     def __hash__(self) -> int:

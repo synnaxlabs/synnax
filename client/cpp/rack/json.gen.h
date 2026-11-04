@@ -42,6 +42,7 @@ inline Rack Rack::parse(x::json::Parser parser) {
             "integrations",
             std::vector<std::string>{}
         ),
+        .version = parser.field<std::optional<std::string>>("version"),
     };
 }
 
@@ -52,6 +53,7 @@ inline x::json::json Rack::to_json() const {
     j["embedded"] = this->embedded;
     if (this->status.has_value()) j["status"] = this->status->to_json();
     j["integrations"] = this->integrations;
+    if (this->version.has_value()) j["version"] = *this->version;
     return j;
 }
 

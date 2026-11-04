@@ -81,6 +81,9 @@ func RackToPB(r rack.Rack) (*Rack, error) {
 			return nil, err
 		}
 	}
+	if r.Version != nil {
+		pb.Version = r.Version
+	}
 	return pb, nil
 }
 
@@ -100,6 +103,9 @@ func RackFromPB(pb *Rack) (rack.Rack, error) {
 			return rack.Rack{}, err
 		}
 		r.Status = &val
+	}
+	if pb.Version != nil {
+		r.Version = pb.Version
 	}
 	return r, nil
 }
