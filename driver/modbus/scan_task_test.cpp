@@ -59,9 +59,8 @@ TEST(ScanTask, testConnection) {
     ASSERT_EQ(ctx->statuses.size(), 1);
     auto first = ctx->statuses[0];
     EXPECT_EQ(first.variant, synnax::status::VARIANT_SUCCESS);
-    EXPECT_EQ(first.key, synnax::task::status_key(t));
+    EXPECT_EQ(first.owner, synnax::task::resource_id(t.key));
     EXPECT_EQ(first.details.cmd, cmd.key);
-    EXPECT_EQ(first.details.task, t.key);
     EXPECT_EQ(first.message, "Connected to device");
 }
 

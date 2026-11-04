@@ -119,12 +119,12 @@ x::errors::Error Scanner::check_device_health(synnax::device::Device &dev) {
     const auto parser = x::json::Parser(dev.properties);
     const auto props = device::Properties(parser);
     synnax::device::Status status{
-        .key = synnax::device::status_key(dev),
         .name = dev.name,
         .variant = synnax::status::VARIANT_SUCCESS,
         .message = "Server connected",
         .time = ::x::telem::TimeStamp::now(),
-        .details = {.rack = rack_key, .device = dev.key},
+        .details = {.rack = rack_key},
+        .owner = synnax::device::resource_id(dev.key),
     };
     if (parser.error()) {
         status.variant = synnax::status::VARIANT_WARNING;
@@ -231,15 +231,15 @@ void Scanner::certificates(
     const bool regenerate
 ) const {
     synnax::task::Status status{
-        .key = synnax::task::status_key(this->task),
         .name = this->task.name,
         .variant = synnax::status::VARIANT_ERROR,
-        .details = synnax::task::StatusDetails{
-            .task = task.key,
-            .running = true,
-            .cmd = cmd.key,
-            .config_hash = task.config_hash,
-        }
+        .details =
+            synnax::task::StatusDetails{
+                .running = true,
+                .cmd = cmd.key,
+                .config_hash = task.config_hash,
+            },
+        .owner = synnax::task::resource_id(this->task.key),
     };
     x::errors::Error err = x::errors::NIL;
     if (regenerate) err = this->store->regenerate().second;
@@ -326,14 +326,14 @@ void Scanner::browse_nodes(const synnax::task::Command &cmd) const {
     x::json::Parser parser(cmd.args);
     const ScanCommandArgs args(parser);
     synnax::task::Status status{
-        .key = synnax::task::status_key(this->task),
         .name = this->task.name,
         .variant = synnax::status::VARIANT_ERROR,
-        .details = synnax::task::StatusDetails{
-            .task = task.key,
-            .cmd = cmd.key,
-            .config_hash = task.config_hash,
-        }
+        .details =
+            synnax::task::StatusDetails{
+                .cmd = cmd.key,
+                .config_hash = task.config_hash,
+            },
+        .owner = synnax::task::resource_id(this->task.key),
     };
     if (!parser.ok()) {
         status.message = "Failed to parse scan command";
@@ -382,15 +382,15 @@ void Scanner::test_connection(const synnax::task::Command &cmd) const {
     x::json::Parser parser(cmd.args);
     const ScanCommandArgs args(parser);
     synnax::task::Status status{
-        .key = synnax::task::status_key(this->task),
         .name = this->task.name,
         .variant = synnax::status::VARIANT_ERROR,
-        .details = synnax::task::StatusDetails{
-            .task = task.key,
-            .running = true,
-            .cmd = cmd.key,
-            .config_hash = task.config_hash,
-        }
+        .details =
+            synnax::task::StatusDetails{
+                .running = true,
+                .cmd = cmd.key,
+                .config_hash = task.config_hash,
+            },
+        .owner = synnax::task::resource_id(this->task.key),
     };
     if (!parser.ok()) {
         status.message = "Failed to parse test command";

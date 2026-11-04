@@ -63,16 +63,16 @@ public:
 
     void run() override {
         synnax::task::Status stat{
-            .key = synnax::task::status_key(this->task),
             .name = this->task.name,
             .variant = ::synnax::status::VARIANT_SUCCESS,
             .message = "Started",
             .time = x::telem::TimeStamp::now(),
-            .details = synnax::task::StatusDetails{
-                .task = this->task.key,
-                .running = true,
-                .config_hash = this->task.config_hash,
-            }
+            .details =
+                synnax::task::StatusDetails{
+                    .running = true,
+                    .config_hash = this->task.config_hash,
+                },
+            .owner = synnax::task::resource_id(this->task.key),
         };
         this->ctx->set_status(stat);
         bool resend_pending = false;
@@ -80,16 +80,13 @@ public:
         while (breaker.running()) {
             this->loop.wait(breaker);
             synnax::rack::Status status{
-                .key = synnax::rack::resource_id(this->rack_key).string(),
                 .name = this->ctx->rack_name(),
                 .variant = ::synnax::status::VARIANT_SUCCESS,
                 .message = "Driver is running",
                 .time = x::telem::TimeStamp::now(),
-                .details = synnax::rack::StatusDetails{.rack = this->rack_key}
+                .owner = synnax::rack::resource_id(this->rack_key),
             };
-            if (const auto err = this->ctx->client->statuses
-                                     .set<synnax::rack::StatusDetails>(status);
-                err) {
+            if (const auto err = this->ctx->client->statuses.set(status); err) {
                 LOG(ERROR) << "[rack_status] error updating status: " << err;
                 // Task status writes also fail while the Core is out of reach.
                 resend_pending = true;
@@ -117,17 +114,17 @@ public:
 
     void stopped_with_err(const x::errors::Error &err) override {
         synnax::task::Status stat{
-            .key = synnax::task::status_key(this->task),
             .name = this->task.name,
             .variant = ::synnax::status::VARIANT_ERROR,
             .message = "Failed to report Driver status",
             .description = err.data,
             .time = x::telem::TimeStamp::now(),
-            .details = synnax::task::StatusDetails{
-                .task = this->task.key,
-                .running = false,
-                .config_hash = this->task.config_hash,
-            }
+            .details =
+                synnax::task::StatusDetails{
+                    .running = false,
+                    .config_hash = this->task.config_hash,
+                },
+            .owner = synnax::task::resource_id(this->task.key),
         };
         this->ctx->set_status(stat);
     }
@@ -163,14 +160,11 @@ public:
         auto [rack, rack_err] = ctx->client->racks.retrieve(rack_key);
         if (rack_err) {
             synnax::task::Status stat{
-                .key = synnax::task::status_key(task),
                 .name = TASK_NAME,
                 .variant = ::synnax::status::VARIANT_ERROR,
                 .message = "Failed to retrieve rack for status task",
                 .description = rack_err.data,
-                .details = synnax::task::StatusDetails{
-                    .task = task.key,
-                }
+                .owner = synnax::task::resource_id(task.key),
             };
             ctx->set_status(stat);
             return nullptr;

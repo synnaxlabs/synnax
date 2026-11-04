@@ -28,10 +28,10 @@ TEST(TestTaskStateHandler, testStartCommunication) {
     handler.send_start("cmd_key");
     ASSERT_GE(ctx->statuses.size(), 1);
     const auto first = ctx->statuses[0];
-    EXPECT_EQ(first.key, synnax::task::status_key(task));
+    EXPECT_TRUE(first.key.empty());
+    EXPECT_EQ(first.owner, synnax::task::resource_id(task.key));
     EXPECT_EQ(first.details.cmd, "cmd_key");
     EXPECT_EQ(first.name, "task1");
-    EXPECT_EQ(first.details.task, task.key);
     EXPECT_EQ(first.variant, synnax::status::VARIANT_SUCCESS);
     EXPECT_EQ(first.details.running, true);
     EXPECT_EQ(first.message, "Started task");
@@ -43,10 +43,9 @@ TEST(TestTaskStateHandler, testStartCommunication) {
     handler.send_start("cmd_key");
     ASSERT_GE(ctx->statuses.size(), 2);
     const auto second = ctx->statuses[1];
-    EXPECT_EQ(second.key, synnax::task::status_key(task));
+    EXPECT_EQ(second.owner, synnax::task::resource_id(task.key));
     EXPECT_EQ(second.details.cmd, "cmd_key");
     EXPECT_EQ(second.name, "task1");
-    EXPECT_EQ(second.details.task, task.key);
     EXPECT_EQ(second.variant, synnax::status::VARIANT_ERROR);
     EXPECT_EQ(second.details.running, false);
     EXPECT_EQ(second.message, "Failed to start task");
@@ -85,7 +84,7 @@ TEST(TestTaskStateHandler, testSendWarning) {
     ASSERT_GE(ctx->statuses.size(), 1);
     const auto first = ctx->statuses[0];
     EXPECT_EQ(first.name, "task1");
-    EXPECT_EQ(first.details.task, task.key);
+    EXPECT_EQ(first.owner, synnax::task::resource_id(task.key));
     EXPECT_EQ(first.variant, synnax::status::VARIANT_WARNING);
     EXPECT_EQ(first.message, "Test warning message");
 
@@ -96,7 +95,7 @@ TEST(TestTaskStateHandler, testSendWarning) {
     handler.send_warning("This warning should not be sent", "");
     ASSERT_EQ(ctx->statuses.size(), 2);
     const auto second = ctx->statuses[1];
-    EXPECT_EQ(second.details.task, task.key);
+    EXPECT_EQ(second.owner, synnax::task::resource_id(task.key));
     EXPECT_EQ(second.variant, synnax::status::VARIANT_ERROR);
     EXPECT_EQ(second.message, "Failed to start task");
     EXPECT_EQ(second.description, "task validation error");
@@ -115,7 +114,7 @@ TEST(TestTaskStateHandle, testClearWarning) {
     handler.send_warning("Test warning message", "");
     ASSERT_GE(ctx->statuses.size(), 1);
     const auto first = ctx->statuses[0];
-    EXPECT_EQ(first.details.task, task.key);
+    EXPECT_EQ(first.owner, synnax::task::resource_id(task.key));
     EXPECT_EQ(first.variant, synnax::status::VARIANT_WARNING);
     EXPECT_EQ(first.message, "Test warning message");
 
@@ -123,7 +122,7 @@ TEST(TestTaskStateHandle, testClearWarning) {
     handler.clear_warning();
     ASSERT_GE(ctx->statuses.size(), 2);
     const auto second = ctx->statuses[1];
-    EXPECT_EQ(second.details.task, task.key);
+    EXPECT_EQ(second.owner, synnax::task::resource_id(task.key));
     EXPECT_EQ(second.variant, synnax::status::VARIANT_SUCCESS);
     EXPECT_EQ(second.message, "Task running");
 
@@ -158,9 +157,8 @@ TEST(TestTaskStateHandler, testSendError) {
     );
     ASSERT_GE(ctx->statuses.size(), 1);
     const auto first = ctx->statuses[0];
-    EXPECT_EQ(first.key, synnax::task::status_key(task));
+    EXPECT_EQ(first.owner, synnax::task::resource_id(task.key));
     EXPECT_EQ(first.name, "task1");
-    EXPECT_EQ(first.details.task, task.key);
     EXPECT_EQ(first.variant, synnax::status::VARIANT_ERROR);
     EXPECT_EQ(first.details.running, false);
     EXPECT_EQ(first.message, "Failed to run Arc program");
@@ -184,9 +182,8 @@ TEST(TestTaskStateHandler, testStopCommunication) {
     handler.send_stop("cmd_key");
     ASSERT_GE(ctx->statuses.size(), 1);
     const auto first = ctx->statuses[0];
-    EXPECT_EQ(first.key, synnax::task::status_key(task));
+    EXPECT_EQ(first.owner, synnax::task::resource_id(task.key));
     EXPECT_EQ(first.details.cmd, "cmd_key");
-    EXPECT_EQ(first.details.task, task.key);
     EXPECT_EQ(first.variant, synnax::status::VARIANT_SUCCESS);
     EXPECT_EQ(first.details.running, false);
     EXPECT_EQ(first.message, "Stopped task");
@@ -198,9 +195,8 @@ TEST(TestTaskStateHandler, testStopCommunication) {
     handler.send_stop("cmd_key");
     ASSERT_GE(ctx->statuses.size(), 2);
     const auto second = ctx->statuses[1];
-    EXPECT_EQ(second.key, synnax::task::status_key(task));
+    EXPECT_EQ(second.owner, synnax::task::resource_id(task.key));
     EXPECT_EQ(second.details.cmd, "cmd_key");
-    EXPECT_EQ(second.details.task, task.key);
     EXPECT_EQ(second.variant, synnax::status::VARIANT_ERROR);
     EXPECT_EQ(second.details.running, false);
     EXPECT_EQ(second.message, "Failed to stop task");
@@ -221,9 +217,8 @@ TEST(TestTaskStateHandler, testAckReSendsCurrentStatus) {
     handler.ack("cmd_key_2", true);
     ASSERT_GE(ctx->statuses.size(), 3);
     const auto third = ctx->statuses[2];
-    EXPECT_EQ(third.key, synnax::task::status_key(task));
+    EXPECT_EQ(third.owner, synnax::task::resource_id(task.key));
     EXPECT_EQ(third.details.cmd, "cmd_key_2");
-    EXPECT_EQ(third.details.task, task.key);
     EXPECT_EQ(third.variant, synnax::status::VARIANT_WARNING);
     EXPECT_EQ(third.message, "Task degraded");
     EXPECT_EQ(third.details.running, true);
@@ -241,7 +236,7 @@ TEST(TestTaskStateHandler, testAckBeforeAnySend) {
     handler.ack("cmd_key", false);
     ASSERT_GE(ctx->statuses.size(), 1);
     const auto first = ctx->statuses[0];
-    EXPECT_EQ(first.key, synnax::task::status_key(task));
+    EXPECT_EQ(first.owner, synnax::task::resource_id(task.key));
     EXPECT_EQ(first.details.cmd, "cmd_key");
     EXPECT_EQ(first.variant, synnax::status::VARIANT_SUCCESS);
     EXPECT_EQ(first.message, "Task configured");

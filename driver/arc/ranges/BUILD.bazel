@@ -23,7 +23,6 @@ cc_library(
         "//driver/arc:reporter",
         "//x/cpp/color",
         "//x/cpp/errors",
-        "//x/cpp/mem",
         "//x/cpp/telem",
         "//x/cpp/uuid",
     ],

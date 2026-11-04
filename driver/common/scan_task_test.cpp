@@ -842,7 +842,7 @@ TEST(TestScanTask, TestStatePropagation) {
     dev1.name = "Device 1";
     dev1.rack = 1;
     dev1.status = synnax::device::Status{};
-    dev1.status->key = synnax::device::status_key(dev1);
+    dev1.status->owner = synnax::device::resource_id(dev1.key);
     dev1.status->variant = synnax::status::VARIANT_SUCCESS;
     dev1.status->details.rack = 1;
 
@@ -851,7 +851,7 @@ TEST(TestScanTask, TestStatePropagation) {
     dev2.name = "Device 2";
     dev2.rack = 2;
     dev2.status = synnax::device::Status{};
-    dev2.status->key = synnax::device::status_key(dev2);
+    dev2.status->owner = synnax::device::resource_id(dev2.key);
     dev2.status->variant = synnax::status::VARIANT_WARNING;
     dev2.status->description = "Sync manager watchdog";
     dev2.status->details.rack = 2;
@@ -899,14 +899,14 @@ TEST(TestScanTask, TestStatePropagation) {
     ASSERT_EQ(first_states.size(), 2);
 
     for (const auto &status: first_states) {
-        if (status.key == "device:device1") {
+        if (status.owner == synnax::device::resource_id(dev1.key)) {
             ASSERT_EQ(status.variant, synnax::status::VARIANT_SUCCESS);
             ASSERT_EQ(status.details.rack, 1);
-        } else if (status.key == "device:device2") {
+        } else if (status.owner == synnax::device::resource_id(dev2.key)) {
             ASSERT_EQ(status.variant, synnax::status::VARIANT_WARNING);
             ASSERT_EQ(status.details.rack, 2);
         } else
-            FAIL() << "Unexpected device key: " << status.key;
+            FAIL() << "Unexpected device status: " << status.name;
     }
 
     ASSERT_NIL(scan_task.scan());
@@ -915,20 +915,21 @@ TEST(TestScanTask, TestStatePropagation) {
     ASSERT_EQ(second_states.size(), 2);
 
     for (const auto &status: second_states) {
-        if (status.key == "device:device1") {
+        if (status.owner == synnax::device::resource_id(dev1.key)) {
             ASSERT_EQ(status.variant, synnax::status::VARIANT_SUCCESS);
             ASSERT_EQ(status.details.rack, 1);
-        } else if (status.key == "device:device2") {
+        } else if (status.owner == synnax::device::resource_id(dev2.key)) {
             ASSERT_EQ(status.variant, synnax::status::VARIANT_WARNING);
             ASSERT_EQ(status.details.rack, 2);
             ASSERT_EQ(status.message, "Device disconnected");
             ASSERT_EQ(status.description, "");
         } else
-            FAIL() << "Unexpected device key: " << status.key;
+            FAIL() << "Unexpected device status: " << status.name;
     }
 }
 
-/// @brief it should key and name the disconnect status of a device that had none.
+/// @brief it should name the disconnect status of a device that had none and set its
+/// owner.
 TEST(TestScanTask, DisconnectedDeviceWithoutStatus) {
     synnax::device::Device dev;
     dev.key = "device1";
@@ -960,7 +961,7 @@ TEST(TestScanTask, DisconnectedDeviceWithoutStatus) {
     ASSERT_EQ(cluster_api_ptr->propagated_statuses.size(), 1);
     ASSERT_EQ(cluster_api_ptr->propagated_statuses[0].size(), 1);
     const auto &status = cluster_api_ptr->propagated_statuses[0][0];
-    EXPECT_EQ(status.key, synnax::device::status_key(dev));
+    EXPECT_EQ(status.owner, synnax::device::resource_id(dev.key));
     EXPECT_EQ(status.name, "Device 1");
     EXPECT_EQ(status.variant, synnax::status::VARIANT_WARNING);
     EXPECT_EQ(status.message, "Device disconnected");

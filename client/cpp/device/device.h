@@ -58,13 +58,6 @@ map_device_keys(const std::vector<Device> &devices) {
     return map;
 }
 
-/// @brief Returns a unique status key for a device.
-/// @param device The device.
-/// @returns A unique key for status updates, derived from the device key.
-inline std::string status_key(const Device &device) {
-    return resource_id(device.key).string();
-}
-
 /// @brief Options for retrieving devices.
 struct RetrieveOptions {
     /// @brief Whether to include status information in the retrieved devices.

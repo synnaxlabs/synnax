@@ -114,9 +114,8 @@ TEST(TestCommonReadTask, testBasicOperation) {
     read_task.start(start_cmd_key);
     ASSERT_EVENTUALLY_EQ(ctx->statuses.size(), 1);
     auto start_state = ctx->statuses[0];
-    EXPECT_EQ(start_state.key, synnax::task::status_key(t));
+    EXPECT_EQ(start_state.owner, synnax::task::resource_id(t.key));
     EXPECT_EQ(start_state.details.cmd, start_cmd_key);
-    EXPECT_EQ(start_state.details.task, t.key);
     EXPECT_EQ(start_state.variant, synnax::status::VARIANT_SUCCESS);
     EXPECT_EQ(start_state.message, "Started task");
     ASSERT_EVENTUALLY_EQ(
@@ -126,9 +125,8 @@ TEST(TestCommonReadTask, testBasicOperation) {
     read_task.stop("stop_cmd", true);
     ASSERT_EVENTUALLY_EQ(ctx->statuses.size(), 2);
     auto stop_state = ctx->statuses[1];
-    EXPECT_EQ(stop_state.key, synnax::task::status_key(t));
+    EXPECT_EQ(stop_state.owner, synnax::task::resource_id(t.key));
     EXPECT_EQ(stop_state.details.cmd, "stop_cmd");
-    EXPECT_EQ(stop_state.details.task, t.key);
     EXPECT_EQ(stop_state.variant, synnax::status::VARIANT_SUCCESS);
 }
 
@@ -159,7 +157,7 @@ TEST(TestCommonReadTask, testStartWhileRunningAcks) {
     ASSERT_FALSE(read_task.start("start_cmd_2"));
     ASSERT_EVENTUALLY_EQ(ctx->statuses.size(), 2);
     auto ack_state = ctx->statuses[1];
-    EXPECT_EQ(ack_state.key, synnax::task::status_key(t));
+    EXPECT_EQ(ack_state.owner, synnax::task::resource_id(t.key));
     EXPECT_EQ(ack_state.details.cmd, "start_cmd_2");
     EXPECT_EQ(ack_state.variant, synnax::status::VARIANT_SUCCESS);
     EXPECT_EQ(ack_state.message, "Started task");
@@ -194,9 +192,8 @@ TEST(TestCommonReadTask, testErrorOnStart) {
     ASSERT_FALSE(read_task.start(start_cmd_key));
     ASSERT_EVENTUALLY_EQ(ctx->statuses.size(), 1);
     auto start_state = ctx->statuses[0];
-    EXPECT_EQ(start_state.key, synnax::task::status_key(t));
+    EXPECT_EQ(start_state.owner, synnax::task::resource_id(t.key));
     EXPECT_EQ(start_state.details.cmd, start_cmd_key);
-    EXPECT_EQ(start_state.details.task, t.key);
     EXPECT_EQ(start_state.variant, synnax::status::VARIANT_ERROR);
     EXPECT_EQ(start_state.message, "Failed to start task");
     EXPECT_EQ(start_state.description, "start error");
@@ -228,18 +225,16 @@ TEST(TestCommonReadTask, testErrorOnStop) {
     ASSERT_TRUE(read_task.start(start_cmd_key));
     ASSERT_EVENTUALLY_EQ(ctx->statuses.size(), 1);
     auto start_state = ctx->statuses[0];
-    EXPECT_EQ(start_state.key, synnax::task::status_key(t));
+    EXPECT_EQ(start_state.owner, synnax::task::resource_id(t.key));
     EXPECT_EQ(start_state.details.cmd, start_cmd_key);
-    EXPECT_EQ(start_state.details.task, t.key);
     EXPECT_EQ(start_state.variant, synnax::status::VARIANT_SUCCESS);
 
     const std::string stop_cmd_key = "stop_cmd";
     ASSERT_TRUE(read_task.stop(stop_cmd_key, true));
     ASSERT_EVENTUALLY_EQ(ctx->statuses.size(), 2);
     auto stop_state = ctx->statuses[1];
-    EXPECT_EQ(stop_state.key, synnax::task::status_key(t));
+    EXPECT_EQ(stop_state.owner, synnax::task::resource_id(t.key));
     EXPECT_EQ(stop_state.details.cmd, stop_cmd_key);
-    EXPECT_EQ(stop_state.details.task, t.key);
     EXPECT_EQ(stop_state.variant, synnax::status::VARIANT_ERROR);
     EXPECT_EQ(stop_state.message, "Failed to stop task");
     EXPECT_EQ(stop_state.description, "stop error");
@@ -271,9 +266,8 @@ TEST(TestCommonReadTask, testMultiStartStop) {
     ASSERT_TRUE(read_task.start(start_cmd_key1));
     ASSERT_EVENTUALLY_EQ(ctx->statuses.size(), 1);
     auto start_state1 = ctx->statuses[0];
-    EXPECT_EQ(start_state1.key, synnax::task::status_key(t));
+    EXPECT_EQ(start_state1.owner, synnax::task::resource_id(t.key));
     EXPECT_EQ(start_state1.details.cmd, start_cmd_key1);
-    EXPECT_EQ(start_state1.details.task, t.key);
     EXPECT_EQ(start_state1.variant, synnax::status::VARIANT_SUCCESS);
 
     ASSERT_EVENTUALLY_EQ(
@@ -285,9 +279,8 @@ TEST(TestCommonReadTask, testMultiStartStop) {
     ASSERT_TRUE(read_task.stop(stop_cmd_key1, true));
     ASSERT_EVENTUALLY_EQ(ctx->statuses.size(), 2);
     auto stop_state1 = ctx->statuses[1];
-    EXPECT_EQ(stop_state1.key, synnax::task::status_key(t));
+    EXPECT_EQ(stop_state1.owner, synnax::task::resource_id(t.key));
     EXPECT_EQ(stop_state1.details.cmd, stop_cmd_key1);
-    EXPECT_EQ(stop_state1.details.task, t.key);
     EXPECT_EQ(stop_state1.variant, synnax::status::VARIANT_SUCCESS);
 
     // Second start-stop cycle
@@ -295,9 +288,8 @@ TEST(TestCommonReadTask, testMultiStartStop) {
     ASSERT_TRUE(read_task.start(start_cmd_key2));
     ASSERT_EVENTUALLY_EQ(ctx->statuses.size(), 3);
     auto start_state2 = ctx->statuses[2];
-    EXPECT_EQ(start_state2.key, synnax::task::status_key(t));
+    EXPECT_EQ(start_state2.owner, synnax::task::resource_id(t.key));
     EXPECT_EQ(start_state2.details.cmd, start_cmd_key2);
-    EXPECT_EQ(start_state2.details.task, t.key);
     EXPECT_EQ(start_state2.variant, synnax::status::VARIANT_SUCCESS);
 
     ASSERT_EVENTUALLY_EQ(
@@ -309,9 +301,8 @@ TEST(TestCommonReadTask, testMultiStartStop) {
     ASSERT_TRUE(read_task.stop(stop_cmd_key2, true));
     ASSERT_EVENTUALLY_EQ(ctx->statuses.size(), 4);
     auto stop_state2 = ctx->statuses[3];
-    EXPECT_EQ(stop_state2.key, synnax::task::status_key(t));
+    EXPECT_EQ(stop_state2.owner, synnax::task::resource_id(t.key));
     EXPECT_EQ(stop_state2.details.cmd, stop_cmd_key2);
-    EXPECT_EQ(stop_state2.details.task, t.key);
     EXPECT_EQ(stop_state2.variant, synnax::status::VARIANT_SUCCESS);
 }
 
@@ -344,9 +335,8 @@ TEST(TestCommonReadTask, testReadError) {
     ASSERT_TRUE(read_task.start(start_cmd_key));
     ASSERT_EVENTUALLY_EQ(ctx->statuses.size(), 1);
     auto start_state = ctx->statuses[0];
-    EXPECT_EQ(start_state.key, synnax::task::status_key(t));
+    EXPECT_EQ(start_state.owner, synnax::task::resource_id(t.key));
     EXPECT_EQ(start_state.details.cmd, start_cmd_key);
-    EXPECT_EQ(start_state.details.task, t.key);
     EXPECT_EQ(start_state.variant, synnax::status::VARIANT_SUCCESS);
     EXPECT_EQ(start_state.message, "Started task");
 
@@ -356,8 +346,7 @@ TEST(TestCommonReadTask, testReadError) {
     );
     ASSERT_EVENTUALLY_EQ(ctx->statuses.size(), 2);
     auto run_err = ctx->statuses[1];
-    ASSERT_EQ(run_err.key, synnax::task::status_key(t));
-    ASSERT_EQ(run_err.details.task, t.key);
+    ASSERT_EQ(run_err.owner, synnax::task::resource_id(t.key));
     ASSERT_EQ(run_err.variant, synnax::status::VARIANT_ERROR);
     ASSERT_EQ(run_err.message, "Failed to read data");
     ASSERT_EQ(run_err.description, "read error");
@@ -365,9 +354,8 @@ TEST(TestCommonReadTask, testReadError) {
     ASSERT_FALSE(read_task.stop("stop_cmd", true));
     ASSERT_EVENTUALLY_EQ(ctx->statuses.size(), 3);
     auto stop_state = ctx->statuses[2];
-    EXPECT_EQ(stop_state.key, synnax::task::status_key(t));
+    EXPECT_EQ(stop_state.owner, synnax::task::resource_id(t.key));
     EXPECT_EQ(stop_state.details.cmd, "stop_cmd");
-    EXPECT_EQ(stop_state.details.task, t.key);
     EXPECT_EQ(stop_state.variant, synnax::status::VARIANT_ERROR);
     EXPECT_EQ(stop_state.message, "Failed to read data");
     EXPECT_EQ(stop_state.description, "read error");
@@ -403,9 +391,8 @@ TEST(TestCommonReadTask, testErrorOnFirstStartupNominalSecondStartup) {
     ASSERT_FALSE(read_task.start(start_cmd_key1));
     ASSERT_EVENTUALLY_EQ(ctx->statuses.size(), 1);
     auto start_state1 = ctx->statuses[0];
-    EXPECT_EQ(start_state1.key, synnax::task::status_key(t));
+    EXPECT_EQ(start_state1.owner, synnax::task::resource_id(t.key));
     EXPECT_EQ(start_state1.details.cmd, start_cmd_key1);
-    EXPECT_EQ(start_state1.details.task, t.key);
     EXPECT_EQ(start_state1.variant, synnax::status::VARIANT_ERROR);
     EXPECT_EQ(start_state1.message, "Failed to start task");
     EXPECT_EQ(start_state1.description, "first start error");
@@ -415,9 +402,8 @@ TEST(TestCommonReadTask, testErrorOnFirstStartupNominalSecondStartup) {
     ASSERT_TRUE(read_task.start(start_cmd_key2));
     ASSERT_EVENTUALLY_EQ(ctx->statuses.size(), 2);
     auto start_state2 = ctx->statuses[1];
-    EXPECT_EQ(start_state2.key, synnax::task::status_key(t));
+    EXPECT_EQ(start_state2.owner, synnax::task::resource_id(t.key));
     EXPECT_EQ(start_state2.details.cmd, start_cmd_key2);
-    EXPECT_EQ(start_state2.details.task, t.key);
     EXPECT_EQ(start_state2.variant, synnax::status::VARIANT_SUCCESS);
     EXPECT_EQ(start_state2.message, "Started task");
 
@@ -431,9 +417,8 @@ TEST(TestCommonReadTask, testErrorOnFirstStartupNominalSecondStartup) {
     ASSERT_TRUE(read_task.stop(stop_cmd_key, true));
     ASSERT_EVENTUALLY_EQ(ctx->statuses.size(), 3);
     auto stop_state = ctx->statuses[2];
-    EXPECT_EQ(stop_state.key, synnax::task::status_key(t));
+    EXPECT_EQ(stop_state.owner, synnax::task::resource_id(t.key));
     EXPECT_EQ(stop_state.details.cmd, stop_cmd_key);
-    EXPECT_EQ(stop_state.details.task, t.key);
     EXPECT_EQ(stop_state.variant, synnax::status::VARIANT_SUCCESS);
 }
 
@@ -471,9 +456,8 @@ TEST(TestCommonReadTask, testErrorOnFirstStopNominalSecondStop) {
     ASSERT_TRUE(read_task.start(start_cmd_key));
     ASSERT_EVENTUALLY_EQ(ctx->statuses.size(), 1);
     auto start_state = ctx->statuses[0];
-    EXPECT_EQ(start_state.key, synnax::task::status_key(t));
+    EXPECT_EQ(start_state.owner, synnax::task::resource_id(t.key));
     EXPECT_EQ(start_state.details.cmd, start_cmd_key);
-    EXPECT_EQ(start_state.details.task, t.key);
     EXPECT_EQ(start_state.variant, synnax::status::VARIANT_SUCCESS);
     EXPECT_EQ(start_state.message, "Started task");
 
@@ -487,9 +471,8 @@ TEST(TestCommonReadTask, testErrorOnFirstStopNominalSecondStop) {
     ASSERT_TRUE(read_task.stop(stop_cmd_key1, true));
     ASSERT_EVENTUALLY_EQ(ctx->statuses.size(), 2);
     auto stop_state1 = ctx->statuses[1];
-    EXPECT_EQ(stop_state1.key, synnax::task::status_key(t));
+    EXPECT_EQ(stop_state1.owner, synnax::task::resource_id(t.key));
     EXPECT_EQ(stop_state1.details.cmd, stop_cmd_key1);
-    EXPECT_EQ(stop_state1.details.task, t.key);
     EXPECT_EQ(stop_state1.variant, synnax::status::VARIANT_ERROR);
     EXPECT_EQ(stop_state1.message, "Failed to stop task");
     EXPECT_EQ(stop_state1.description, "first stop error");
@@ -499,9 +482,8 @@ TEST(TestCommonReadTask, testErrorOnFirstStopNominalSecondStop) {
     ASSERT_TRUE(read_task.start(start_cmd_key2));
     ASSERT_EVENTUALLY_EQ(ctx->statuses.size(), 3);
     auto start_state2 = ctx->statuses[2];
-    EXPECT_EQ(start_state2.key, synnax::task::status_key(t));
+    EXPECT_EQ(start_state2.owner, synnax::task::resource_id(t.key));
     EXPECT_EQ(start_state2.details.cmd, start_cmd_key2);
-    EXPECT_EQ(start_state2.details.task, t.key);
     EXPECT_EQ(start_state2.variant, synnax::status::VARIANT_SUCCESS);
 
     ASSERT_EVENTUALLY_EQ(
@@ -514,9 +496,8 @@ TEST(TestCommonReadTask, testErrorOnFirstStopNominalSecondStop) {
     ASSERT_TRUE(read_task.stop(stop_cmd_key2, true));
     ASSERT_EVENTUALLY_EQ(ctx->statuses.size(), 4);
     auto stop_state2 = ctx->statuses[3];
-    EXPECT_EQ(stop_state2.key, synnax::task::status_key(t));
+    EXPECT_EQ(stop_state2.owner, synnax::task::resource_id(t.key));
     EXPECT_EQ(stop_state2.details.cmd, stop_cmd_key2);
-    EXPECT_EQ(stop_state2.details.task, t.key);
     EXPECT_EQ(stop_state2.variant, synnax::status::VARIANT_SUCCESS);
 }
 
@@ -548,13 +529,13 @@ TEST(TestCommonReadTask, testTemporaryErrorWarning) {
     read_task.start("start_cmd");
     ASSERT_EVENTUALLY_EQ(ctx->statuses.size(), 1);
     auto start_state = ctx->statuses[0];
-    EXPECT_EQ(start_state.key, synnax::task::status_key(t));
+    EXPECT_EQ(start_state.owner, synnax::task::resource_id(t.key));
     EXPECT_EQ(start_state.details.cmd, "start_cmd");
     EXPECT_EQ(start_state.variant, synnax::status::VARIANT_SUCCESS);
 
     ASSERT_EVENTUALLY_GE(ctx->statuses.size(), 2);
     auto warning_state = ctx->statuses[1];
-    EXPECT_EQ(warning_state.key, synnax::task::status_key(t));
+    EXPECT_EQ(warning_state.owner, synnax::task::resource_id(t.key));
     EXPECT_EQ(warning_state.details.cmd, driver::task::NO_COMMAND);
     EXPECT_EQ(warning_state.variant, synnax::status::VARIANT_WARNING);
     EXPECT_EQ(warning_state.message, "Failed to read data");
@@ -568,7 +549,7 @@ TEST(TestCommonReadTask, testTemporaryErrorWarning) {
         std::chrono::milliseconds(10)
     );
     auto recovered_state = ctx->snapshot()[2];
-    EXPECT_EQ(recovered_state.key, synnax::task::status_key(t));
+    EXPECT_EQ(recovered_state.owner, synnax::task::resource_id(t.key));
     EXPECT_EQ(recovered_state.details.cmd, driver::task::NO_COMMAND);
     EXPECT_EQ(recovered_state.variant, synnax::status::VARIANT_SUCCESS);
     EXPECT_EQ(recovered_state.message, "Task running");
@@ -577,7 +558,7 @@ TEST(TestCommonReadTask, testTemporaryErrorWarning) {
 
     ASSERT_EVENTUALLY_GE(ctx->statuses.size(), 4);
     auto stop_state = ctx->statuses[3];
-    EXPECT_EQ(stop_state.key, synnax::task::status_key(t));
+    EXPECT_EQ(stop_state.owner, synnax::task::resource_id(t.key));
     EXPECT_EQ(stop_state.details.cmd, "stop_cmd");
     EXPECT_EQ(stop_state.variant, synnax::status::VARIANT_SUCCESS);
     EXPECT_EQ(stop_state.message, "Stopped task");

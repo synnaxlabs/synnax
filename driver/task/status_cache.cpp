@@ -17,9 +17,10 @@ StatusCache::StatusCache(synnax::status::Client client): client(std::move(client
 
 std::shared_ptr<StatusCache::Entry>
 StatusCache::entry_for(const synnax::task::Status &status) {
+    const auto &owner = status.owner.value();
     std::lock_guard lock{this->mu};
-    if (this->released.contains(status.details.task)) return nullptr;
-    auto &entry = this->entries[status.details.task];
+    if (this->released.contains(owner)) return nullptr;
+    auto &entry = this->entries[owner];
     if (entry != nullptr) return entry;
     // Filled before resend can reach it, so a re-send never sends an empty status.
     entry = std::make_shared<Entry>();
@@ -28,7 +29,7 @@ StatusCache::entry_for(const synnax::task::Status &status) {
     return entry;
 }
 
-x::errors::Error StatusCache::set(synnax::task::Status &status) {
+x::errors::Error StatusCache::set(const synnax::task::Status &status) {
     const auto entry = this->entry_for(status);
     if (entry == nullptr) return x::errors::NIL;
     std::lock_guard lock{entry->mu};
@@ -36,7 +37,10 @@ x::errors::Error StatusCache::set(synnax::task::Status &status) {
     if (entry->dropped) return x::errors::NIL;
     entry->status = status;
     entry->status.details.cmd.clear();
-    return this->client.set<synnax::task::StatusDetails>(status);
+    // The Core answers with the stored labels. A copy keeps them out of status, so a
+    // later write of status cannot restore a label that was removed.
+    auto sent = status;
+    return this->client.set<synnax::task::StatusDetails>(sent);
 }
 
 x::errors::Error StatusCache::resend() {
@@ -62,9 +66,10 @@ x::errors::Error StatusCache::resend() {
 }
 
 void StatusCache::drop(const synnax::task::Key &key) {
+    const auto owner = synnax::task::resource_id(key);
     std::lock_guard lock{this->mu};
-    this->released.insert(key);
-    const auto it = this->entries.find(key);
+    this->released.insert(owner);
+    const auto it = this->entries.find(owner);
     if (it == this->entries.end()) return;
     it->second->dropped = true;
     this->entries.erase(it);
@@ -72,6 +77,6 @@ void StatusCache::drop(const synnax::task::Key &key) {
 
 void StatusCache::claim(const synnax::task::Key &key) {
     std::lock_guard lock{this->mu};
-    this->released.erase(key);
+    this->released.erase(synnax::task::resource_id(key));
 }
 }

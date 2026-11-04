@@ -33,10 +33,10 @@ public:
     MockEchoTask(const std::shared_ptr<Context> &ctx, const synnax::task::Task &task):
         ctx(ctx), sy_task(task) {
         synnax::task::Status status{
-            .key = synnax::task::status_key(task),
             .variant = synnax::status::VARIANT_SUCCESS,
             .message = "configured",
-            .details = {.task = task.key, .config_hash = task.config_hash}
+            .details = {.config_hash = task.config_hash},
+            .owner = synnax::task::resource_id(task.key),
         };
         ctx->set_status(status);
     }
@@ -45,29 +45,23 @@ public:
 
     void exec(synnax::task::Command &cmd) override {
         synnax::task::Status status{
-            .key = synnax::task::status_key(sy_task),
             .variant = synnax::status::VARIANT_SUCCESS,
-            .details = {
-                .task = sy_task.key,
-                .running = true,
-                .cmd = cmd.key,
-                .config_hash = sy_task.config_hash,
-                .data = cmd.args
-            }
+            .details =
+                {.running = true,
+                 .cmd = cmd.key,
+                 .config_hash = sy_task.config_hash,
+                 .data = cmd.args},
+            .owner = synnax::task::resource_id(sy_task.key),
         };
         ctx->set_status(status);
     }
 
     void stop(bool) override {
         synnax::task::Status status{
-            .key = synnax::task::status_key(sy_task),
             .variant = synnax::status::VARIANT_SUCCESS,
             .message = "stopped",
-            .details = {
-                .task = sy_task.key,
-                .running = false,
-                .config_hash = sy_task.config_hash
-            }
+            .details = {.running = false, .config_hash = sy_task.config_hash},
+            .owner = synnax::task::resource_id(sy_task.key),
         };
         ctx->set_status(status);
     }
@@ -100,10 +94,9 @@ public:
         std::unique_lock lock(mu);
         cv.wait(lock, [&] { return done.load(); });
         synnax::task::Status status{
-            .key = synnax::task::status_key(task),
             .variant = synnax::status::VARIANT_SUCCESS,
             .message = "configured",
-            .details = {.task = task.key}
+            .owner = synnax::task::resource_id(task.key),
         };
         ctx->set_status(status);
     }
@@ -161,10 +154,9 @@ public:
     ):
         sy_task(task), state(std::move(state)) {
         synnax::task::Status status{
-            .key = synnax::task::status_key(task),
             .variant = synnax::status::VARIANT_SUCCESS,
             .message = "configured",
-            .details = {.task = task.key}
+            .owner = synnax::task::resource_id(task.key),
         };
         ctx->set_status(status);
     }
@@ -299,7 +291,7 @@ synnax::task::Status wait_for_task_status(
             for (const auto &j: frame.series->at(0).json_values()) {
                 auto parser = x::json::Parser(j);
                 auto s = synnax::task::Status::parse(parser);
-                if (s.details.task == task.key && pred(s)) {
+                if (s.owner == synnax::task::resource_id(task.key) && pred(s)) {
                     result = s;
                     return true;
                 }
@@ -378,7 +370,7 @@ protected:
                 for (const auto &j: frame.series->at(0).json_values()) {
                     auto parser = x::json::Parser(j);
                     auto s = synnax::task::Status::parse(parser);
-                    if (s.details.task == task.key &&
+                    if (s.owner == synnax::task::resource_id(task.key) &&
                         (any_rack || s.details.rack == rack.key))
                         received = true;
                 }
@@ -391,14 +383,15 @@ protected:
     }
 
     /// @brief reads the statuses that a Driver on this rack stamped at or after since,
-    /// keyed by task, until done returns true for them. Fails the spec after 5 seconds.
-    std::unordered_map<synnax::task::Key, synnax::task::Status> read_statuses_since(
+    /// keyed by owner, until done returns true for them. Fails the spec after 5
+    /// seconds.
+    std::unordered_map<synnax::resource::ID, synnax::task::Status> read_statuses_since(
         const x::telem::TimeStamp since,
-        const std::function<
-            bool(const std::unordered_map<synnax::task::Key, synnax::task::Status> &)>
-            &done
+        const std::function<bool(
+            const std::unordered_map<synnax::resource::ID, synnax::task::Status> &
+        )> &done
     ) {
-        std::unordered_map<synnax::task::Key, synnax::task::Status> statuses;
+        std::unordered_map<synnax::resource::ID, synnax::task::Status> statuses;
         std::promise<bool> ended;
         auto read_all = ended.get_future();
         std::thread reader([&] {
@@ -412,7 +405,7 @@ protected:
                     auto parser = x::json::Parser(j);
                     auto s = synnax::task::Status::parse(parser);
                     if (s.details.rack == rack.key && s.time >= since)
-                        statuses[s.details.task] = s;
+                        statuses[s.owner.value()] = s;
                 }
                 if (done(statuses)) {
                     ended.set_value(true);
@@ -451,7 +444,7 @@ TEST_F(TaskManagerTest, DeployOnStart) {
         return s.variant == synnax::status::VARIANT_SUCCESS &&
                s.message == "configured";
     });
-    ASSERT_EQ(s.details.task, task.key);
+    ASSERT_EQ(s.owner, synnax::task::resource_id(task.key));
     ASSERT_FALSE(task.config_hash.empty());
     ASSERT_EQ(s.details.config_hash, task.config_hash);
     ASSERT_EQ(s.details.rack, rack.key);
@@ -621,7 +614,7 @@ TEST_F(TaskManagerTest, StopOnShutdown) {
     auto s = WAIT_FOR_TASK_STATUS(streamer, task, [](const synnax::task::Status &s) {
         return s.message == "stopped";
     });
-    ASSERT_EQ(s.details.task, task.key);
+    ASSERT_EQ(s.owner, synnax::task::resource_id(task.key));
 }
 
 TEST_F(TaskManagerTest, IgnoresSnapshot) {
@@ -661,7 +654,7 @@ TEST_F(TaskManagerTest, ParallelConfig) {
     auto s = WAIT_FOR_TASK_STATUS(streamer, echo, [](const synnax::task::Status &s) {
         return s.message == "configured";
     });
-    ASSERT_EQ(s.details.task, echo.key);
+    ASSERT_EQ(s.owner, synnax::task::resource_id(echo.key));
 
     f->release();
     WAIT_FOR_TASK_STATUS(streamer, blocking, [](const synnax::task::Status &s) {
@@ -970,7 +963,10 @@ TEST_F(TaskManagerTest, PinnedStartWithStaleHashAndNoStatusClaimsNothing) {
         .config = x::json::json{{"rate", 50}},
     };
     ASSERT_NIL(rack.tasks.create(task));
-    ASSERT_NIL(client->statuses.del(synnax::task::status_key(task)));
+    const auto created = ASSERT_NIL_P(
+        rack.tasks.retrieve(task.key, {.include_status = true})
+    );
+    ASSERT_NIL(client->statuses.del(created.status.value().key));
     send_cmd(
         client,
         {.task = task.key,
@@ -1052,7 +1048,7 @@ TEST_F(TaskManagerTest, Timeout) {
         },
         5 * x::telem::SECOND
     );
-    ASSERT_EQ(s.details.task, task.key);
+    ASSERT_EQ(s.owner, synnax::task::resource_id(task.key));
     ASSERT_EQ(
         s.description,
         "The operation did not finish within " +
@@ -1163,10 +1159,9 @@ public:
     ):
         sy_task(task), destroyed(destroyed) {
         synnax::task::Status status{
-            .key = synnax::task::status_key(task),
             .variant = synnax::status::VARIANT_SUCCESS,
             .message = "configured",
-            .details = {.task = task.key}
+            .owner = synnax::task::resource_id(task.key),
         };
         ctx->set_status(status);
     }
@@ -1719,24 +1714,23 @@ TEST_F(SynnaxContextTest, ResendsLatestStatuses) {
     ASSERT_NIL(rack.tasks.create(running));
     ASSERT_NIL(rack.tasks.create(failed));
     synnax::task::Status configured{
-        .key = synnax::task::status_key(running),
         .variant = synnax::status::VARIANT_SUCCESS,
         .message = "Task configured",
-        .details = {.task = running.key},
+        .owner = synnax::task::resource_id(running.key),
     };
     ctx->set_status(configured);
     synnax::task::Status started{
-        .key = synnax::task::status_key(running),
         .variant = synnax::status::VARIANT_SUCCESS,
         .message = "Task started",
-        .details = {.task = running.key, .running = true, .cmd = "start-cmd"},
+        .details = {.running = true, .cmd = "start-cmd"},
+        .owner = synnax::task::resource_id(running.key),
     };
     ctx->set_status(started);
     synnax::task::Status error{
-        .key = synnax::task::status_key(failed),
         .variant = synnax::status::VARIANT_ERROR,
         .message = "Failed to start task",
-        .details = {.task = failed.key, .cmd = "start-cmd"},
+        .details = {.cmd = "start-cmd"},
+        .owner = synnax::task::resource_id(failed.key),
     };
     ctx->set_status(error);
 
@@ -1745,11 +1739,11 @@ TEST_F(SynnaxContextTest, ResendsLatestStatuses) {
     auto statuses = read_statuses_since(since, [](const auto &s) {
         return s.size() == 2;
     });
-    const auto &resent_running = statuses.at(running.key);
+    const auto &resent_running = statuses.at(synnax::task::resource_id(running.key));
     EXPECT_EQ(resent_running.message, "Task started");
     EXPECT_TRUE(resent_running.details.running);
     EXPECT_EQ(resent_running.details.cmd, NO_COMMAND);
-    const auto &resent_failed = statuses.at(failed.key);
+    const auto &resent_failed = statuses.at(synnax::task::resource_id(failed.key));
     EXPECT_EQ(resent_failed.variant, synnax::status::VARIANT_ERROR);
     EXPECT_EQ(resent_failed.message, "Failed to start task");
     EXPECT_EQ(resent_failed.details.cmd, NO_COMMAND);
@@ -1789,11 +1783,12 @@ TEST_F(TaskManagerTest, RackMoveDropsStatusFromResend) {
 
     const auto since = x::telem::TimeStamp::now();
     ASSERT_NIL(f->captured_ctx->resend_statuses());
+    const auto kept_owner = synnax::task::resource_id(kept.key);
     const auto statuses = read_statuses_since(since, [&](const auto &s) {
-        return s.contains(kept.key);
+        return s.contains(kept_owner);
     });
-    EXPECT_TRUE(statuses.at(kept.key).details.running);
-    EXPECT_FALSE(statuses.contains(moved.key));
+    EXPECT_TRUE(statuses.at(kept_owner).details.running);
+    EXPECT_FALSE(statuses.contains(synnax::task::resource_id(moved.key)));
     expect_no_driver_status(moved);
 }
 
@@ -1870,11 +1865,12 @@ TEST_F(TaskManagerTest, DeleteDropsStatusFromResend) {
 
     const auto since = x::telem::TimeStamp::now();
     ASSERT_NIL(f->captured_ctx->resend_statuses());
+    const auto kept_owner = synnax::task::resource_id(kept.key);
     const auto statuses = read_statuses_since(since, [&](const auto &s) {
-        return s.contains(kept.key);
+        return s.contains(kept_owner);
     });
-    EXPECT_TRUE(statuses.at(kept.key).details.running);
-    EXPECT_FALSE(statuses.contains(deleted.key));
+    EXPECT_TRUE(statuses.at(kept_owner).details.running);
+    EXPECT_FALSE(statuses.contains(synnax::task::resource_id(deleted.key)));
     expect_no_driver_status(deleted, true);
 }
 }

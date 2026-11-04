@@ -417,7 +417,7 @@ TEST(DeviceTests, testCreateDeviceWithStatus) {
         .variant = synnax::status::VARIANT_SUCCESS,
         .message = "Device is connected",
         .time = x::telem::TimeStamp::now(),
-        .details = device::StatusDetails{.rack = r.key, .device = d.key}
+        .details = device::StatusDetails{.rack = r.key}
     };
     ASSERT_NIL(client.devices.create(d));
     const auto d2 = ASSERT_NIL_P(
@@ -480,37 +480,28 @@ TEST(DeviceTests, testRetrieveDevicesWithStatus) {
 
 /// @brief it should correctly parse device::StatusDetails from JSON.
 TEST(DeviceStatusDetailsTests, testParseFromJSON) {
-    x::json::json j = {{"rack", 12345}, {"device", "device-abc-123"}};
+    x::json::json j = {{"rack", 12345}};
     const x::json::Parser parser(j);
     const auto details = device::StatusDetails::parse(parser);
     ASSERT_NIL(parser.error());
     ASSERT_EQ(details.rack, 12345);
-    ASSERT_EQ(details.device, "device-abc-123");
 }
 
 /// @brief it should correctly serialize device::StatusDetails to JSON.
 TEST(DeviceStatusDetailsTests, testToJSON) {
-    const device::StatusDetails details{
-        .rack = 67890,
-        .device = "device-xyz-456",
-    };
+    const device::StatusDetails details{.rack = 67890};
     const auto j = details.to_json();
     ASSERT_EQ(j["rack"], 67890);
-    ASSERT_EQ(j["device"], "device-xyz-456");
 }
 
 /// @brief it should round-trip device::StatusDetails through JSON.
 TEST(DeviceStatusDetailsTests, testRoundTrip) {
-    device::StatusDetails original{
-        .rack = 11111,
-        .device = "round-trip-device",
-    };
+    device::StatusDetails original{.rack = 11111};
     const auto j = original.to_json();
     x::json::Parser parser(j);
     auto recovered = device::StatusDetails::parse(parser);
     ASSERT_NIL(parser.error());
     ASSERT_EQ(recovered.rack, original.rack);
-    ASSERT_EQ(recovered.device, original.device);
 }
 
 /// @brief it should correctly parse a Device from JSON.
@@ -566,11 +557,6 @@ TEST(DeviceTests, testParseFromJSONDefaults) {
     ASSERT_EQ(d.make, "");
     ASSERT_EQ(d.model, "");
     ASSERT_EQ(d.configured, false);
-}
-
-TEST(DeviceTests, testDeviceStatusKey) {
-    const auto d = Device{.key = "cat"};
-    ASSERT_EQ(device::status_key(d), "device:cat");
 }
 
 TEST(DeviceTests, testCreateWithParentResourceID) {

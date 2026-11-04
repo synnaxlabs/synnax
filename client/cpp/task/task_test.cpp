@@ -270,17 +270,9 @@ TEST(TaskTests, testRetrieveTasksByTypes) {
     ASSERT_TRUE(found2);
 }
 
-TEST(TaskTests, testTaskStatusKey) {
-    const auto key = x::uuid::create();
-    const auto t = Task{.key = key};
-    ASSERT_EQ(task::status_key(t), "task:" + key.to_string());
-}
-
 /// @brief it should correctly parse StatusDetails from JSON.
 TEST(StatusDetailsTests, testParseFromJSON) {
-    const auto task_key = x::uuid::create();
     x::json::json j = {
-        {"task", task_key.to_string()},
         {"cmd", "start"},
         {"running", true},
         {"data", {{"routing_key", "rk"}}}
@@ -288,7 +280,6 @@ TEST(StatusDetailsTests, testParseFromJSON) {
     x::json::Parser parser(j);
     auto details = StatusDetails::parse(parser);
     ASSERT_NIL(parser.error());
-    ASSERT_EQ(details.task, task_key);
     ASSERT_EQ(details.cmd, "start");
     ASSERT_EQ(details.running, true);
     ASSERT_TRUE(details.data.has_value());
@@ -297,15 +288,12 @@ TEST(StatusDetailsTests, testParseFromJSON) {
 
 /// @brief it should correctly serialize StatusDetails to JSON.
 TEST(StatusDetailsTests, testToJSON) {
-    const auto task_key = x::uuid::create();
     StatusDetails details{
-        .task = task_key,
         .running = false,
         .cmd = "stop",
         .data = x::json::json{{"status", "completed"}},
     };
     const auto j = details.to_json();
-    ASSERT_EQ(j["task"], task_key.to_string());
     ASSERT_EQ(j["cmd"], "stop");
     ASSERT_EQ(j["running"], false);
     ASSERT_EQ(j["data"]["status"], "completed");
@@ -314,7 +302,6 @@ TEST(StatusDetailsTests, testToJSON) {
 /// @brief it should round-trip StatusDetails through JSON.
 TEST(StatusDetailsTests, testRoundTrip) {
     StatusDetails original{
-        .task = x::uuid::create(),
         .running = true,
         .cmd = "configure",
         .data = x::json::json{{"config", "test"}, {"version", 2}},
@@ -323,7 +310,6 @@ TEST(StatusDetailsTests, testRoundTrip) {
     x::json::Parser parser(j);
     auto recovered = StatusDetails::parse(parser);
     ASSERT_NIL(parser.error());
-    ASSERT_EQ(recovered.task, original.task);
     ASSERT_EQ(recovered.cmd, original.cmd);
     ASSERT_EQ(recovered.running, original.running);
     ASSERT_TRUE(recovered.data.has_value());
@@ -361,9 +347,7 @@ TEST(StatusDetailsTests, testToProtoReportsBadData) {
 
 /// @brief it should handle empty cmd field correctly.
 TEST(StatusDetailsTests, testEmptyCmd) {
-    const auto task_key = x::uuid::create();
     x::json::json j = {
-        {"task", task_key.to_string()},
         {"cmd", ""},
         {"running", true},
         {"data", x::json::json::object()}
@@ -371,7 +355,6 @@ TEST(StatusDetailsTests, testEmptyCmd) {
     x::json::Parser parser(j);
     auto details = StatusDetails::parse(parser);
     ASSERT_NIL(parser.error());
-    ASSERT_EQ(details.task, task_key);
     ASSERT_EQ(details.cmd, "");
     ASSERT_EQ(details.running, true);
 }

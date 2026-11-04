@@ -99,7 +99,6 @@ TEST(RackTests, testCreateRackWithStatusNotIncludedByDefault) {
             .variant = synnax::status::VARIANT_SUCCESS,
             .message = "Rack is healthy",
             .time = x::telem::TimeStamp::now(),
-            .details = StatusDetails{.rack = 123}
         }
     };
     ASSERT_NIL(client.racks.create(r));
@@ -119,7 +118,6 @@ TEST(RackTests, testCreateRackWithStatusIncluded) {
             .variant = synnax::status::VARIANT_SUCCESS,
             .message = "Rack is healthy",
             .time = x::telem::TimeStamp::now(),
-            .details = StatusDetails{.rack = 123}
         }
     };
     ASSERT_NIL(client.racks.create(r));
@@ -162,32 +160,6 @@ TEST(RackTests, testUpdateIntegrationsOnUpsert) {
     ASSERT_EQ(r2.integrations[0], "ni");
     ASSERT_EQ(r2.integrations[1], "opc");
     ASSERT_EQ(r2.integrations[2], "arc");
-}
-
-/// @brief it should correctly parse StatusDetails from JSON.
-TEST(StatusDetailsTests, testParseFromJSON) {
-    x::json::json j = {{"rack", 54321}};
-    const x::json::Parser parser(j);
-    const auto details = StatusDetails::parse(parser);
-    ASSERT_NIL(parser.error());
-    ASSERT_EQ(details.rack, 54321);
-}
-
-/// @brief it should correctly serialize StatusDetails to JSON.
-TEST(StatusDetailsTests, testToJSON) {
-    constexpr StatusDetails details{.rack = 98765};
-    const auto j = details.to_json();
-    ASSERT_EQ(j["rack"], 98765);
-}
-
-/// @brief it should round-trip StatusDetails through JSON.
-TEST(StatusDetailsTests, testRoundTrip) {
-    constexpr StatusDetails original{.rack = 11223};
-    const auto j = original.to_json();
-    const x::json::Parser parser(j);
-    const auto recovered = StatusDetails::parse(parser);
-    ASSERT_NIL(parser.error());
-    ASSERT_EQ(recovered.rack, original.rack);
 }
 
 /// @brief it should correctly stream output a rack.

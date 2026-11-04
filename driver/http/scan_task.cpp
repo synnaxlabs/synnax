@@ -119,16 +119,13 @@ void Scanner::set_device_status(
     const std::string &description
 ) const {
     dev.status = synnax::device::Status{
-        .key = synnax::device::status_key(dev),
         .name = dev.name,
         .variant = variant,
         .message = message,
         .description = description,
         .time = x::telem::TimeStamp::now(),
-        .details = {
-            .rack = this->task.rack,
-            .device = dev.key,
-        },
+        .details = {.rack = this->task.rack},
+        .owner = synnax::device::resource_id(dev.key),
     };
 }
 
@@ -203,15 +200,15 @@ void Scanner::test_connection(const synnax::task::Command &cmd) const {
     x::json::Parser parser(cmd.args);
     const ScanCommandArgs args(parser);
     synnax::task::Status status{
-        .key = synnax::task::status_key(this->task),
         .name = this->task.name,
         .variant = synnax::status::VARIANT_ERROR,
-        .details = synnax::task::StatusDetails{
-            .task = task.key,
-            .running = true,
-            .cmd = cmd.key,
-            .config_hash = task.config_hash,
-        }
+        .details =
+            synnax::task::StatusDetails{
+                .running = true,
+                .cmd = cmd.key,
+                .config_hash = task.config_hash,
+            },
+        .owner = synnax::task::resource_id(this->task.key),
     };
     if (!parser.ok()) {
         status.message = "Failed to parse test command";

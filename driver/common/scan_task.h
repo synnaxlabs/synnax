@@ -369,9 +369,8 @@ public:
         if (this->log_prefix.empty())
             throw std::invalid_argument("log_prefix must be provided in ScannerConfig");
         this->key = task.key;
-        this->status.key = synnax::task::status_key(task);
         this->status.name = task.name;
-        this->status.details.task = task.key;
+        this->status.owner = synnax::task::resource_id(task.key);
         this->status.details.config_hash = task.config_hash;
         this->status.variant = synnax::status::VARIANT_SUCCESS;
     }
@@ -590,8 +589,8 @@ public:
                 if (present.contains(key)) continue;
                 if (!dev.status.has_value())
                     dev.status = synnax::device::Status{
-                        .key = synnax::device::status_key(dev),
                         .name = dev.name,
+                        .owner = synnax::device::resource_id(dev.key),
                     };
                 dev.status->variant = synnax::status::VARIANT_WARNING;
                 dev.status->message = "Device disconnected";
