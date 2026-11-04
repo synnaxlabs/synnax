@@ -68,7 +68,7 @@ func OpenService(ctx context.Context, configs ...ServiceConfig) (*Service, error
 	s := &Service{cfg: cfg, indexes: newIndexes()}
 	if s.table, err = gorp.OpenTable(ctx, gorp.TableConfig[Key, Group]{
 		DB:              cfg.DB,
-		Name:            string(resource.TypeGroup),
+		Name:            tableName,
 		Indexes:         s.indexes.all(),
 		References:      s.indexes.references(),
 		Migrations:      versions.Migrations,
