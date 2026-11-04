@@ -71,12 +71,7 @@ export const License = ({
   const [label, setLabel] = useState(lic.label);
   const rename = useAction(async (next: string) => {
     setLabel(next);
-    try {
-      await post(`/api/licenses/${lic.key}/label`, { label: next });
-    } catch (err) {
-      setLabel(lic.label);
-      throw err;
-    }
+    await post(`/api/licenses/${lic.key}/label`, { label: next });
     reload();
   });
   const renamable = admin && lic.edition === "enterprise";
@@ -90,7 +85,7 @@ export const License = ({
       : undefined;
   return (
     <Page
-      title={label}
+      title={rename.error == null ? label : lic.label}
       titleID={LABEL_ID}
       onTitleChange={renamable ? rename.run : undefined}
       parent={parent}
