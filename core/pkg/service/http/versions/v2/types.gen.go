@@ -28,14 +28,23 @@ import (
 type Method string
 
 const (
-	MethodGet     Method = "GET"
-	MethodHead    Method = "HEAD"
-	MethodPost    Method = "POST"
-	MethodPut     Method = "PUT"
-	MethodDelete  Method = "DELETE"
-	MethodPatch   Method = "PATCH"
+	// MethodGet reads a resource.
+	MethodGet Method = "GET"
+	// MethodHead reads the headers of a resource, with no body.
+	MethodHead Method = "HEAD"
+	// MethodPost submits data to a resource.
+	MethodPost Method = "POST"
+	// MethodPut replaces a resource.
+	MethodPut Method = "PUT"
+	// MethodDelete removes a resource.
+	MethodDelete Method = "DELETE"
+	// MethodPatch changes part of a resource.
+	MethodPatch Method = "PATCH"
+	// MethodOptions asks which communication options a resource supports.
 	MethodOptions Method = "OPTIONS"
-	MethodTrace   Method = "TRACE"
+	// MethodTrace asks the server to echo the request it receives.
+	MethodTrace Method = "TRACE"
+	// MethodConnect opens a tunnel to the server.
 	MethodConnect Method = "CONNECT"
 )
 
@@ -54,11 +63,16 @@ func (m Method) IsValid() bool {
 type TimeFormat string
 
 const (
+	// TimeFormatISO8601 is an ISO 8601 string.
 	TimeFormatISO8601 TimeFormat = "iso8601"
+	// TimeFormatUnixSec is a count of seconds since the Unix epoch.
 	TimeFormatUnixSec TimeFormat = "unix_sec"
-	TimeFormatUnixMs  TimeFormat = "unix_ms"
-	TimeFormatUnixUs  TimeFormat = "unix_us"
-	TimeFormatUnixNs  TimeFormat = "unix_ns"
+	// TimeFormatUnixMs is a count of milliseconds since the Unix epoch.
+	TimeFormatUnixMs TimeFormat = "unix_ms"
+	// TimeFormatUnixUs is a count of microseconds since the Unix epoch.
+	TimeFormatUnixUs TimeFormat = "unix_us"
+	// TimeFormatUnixNs is a count of nanoseconds since the Unix epoch.
+	TimeFormatUnixNs TimeFormat = "unix_ns"
 )
 
 // IsValid reports whether t is one of the defined TimeFormat
@@ -200,8 +214,11 @@ func (r ReadConfig) Validate() error {
 type JSONType string
 
 const (
-	JSONTypeNumber  JSONType = "number"
-	JSONTypeString  JSONType = "string"
+	// JSONTypeNumber writes the value as a JSON number.
+	JSONTypeNumber JSONType = "number"
+	// JSONTypeString writes the value as a JSON string.
+	JSONTypeString JSONType = "string"
+	// JSONTypeBoolean writes the value as a JSON boolean.
 	JSONTypeBoolean JSONType = "boolean"
 )
 
@@ -220,7 +237,9 @@ func (j JSONType) IsValid() bool {
 type GeneratorType string
 
 const (
-	GeneratorTypeUUID      GeneratorType = "uuid"
+	// GeneratorTypeUUID produces a new UUID for each request.
+	GeneratorTypeUUID GeneratorType = "uuid"
+	// GeneratorTypeTimestamp produces the time of the request.
 	GeneratorTypeTimestamp GeneratorType = "timestamp"
 )
 

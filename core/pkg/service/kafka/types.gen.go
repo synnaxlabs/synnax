@@ -24,16 +24,21 @@ import (
 type StartOffset = versions.StartOffset
 
 const (
-	StartOffsetLatest   StartOffset = versions.StartOffsetLatest
+	// StartOffsetLatest starts at the end of the topic and reads only new records.
+	StartOffsetLatest StartOffset = versions.StartOffsetLatest
+	// StartOffsetEarliest starts at the oldest record the topic retains.
 	StartOffsetEarliest StartOffset = versions.StartOffsetEarliest
-	StartOffsetNone     StartOffset = versions.StartOffsetNone
+	// StartOffsetNone fails the start.
+	StartOffsetNone StartOffset = versions.StartOffsetNone
 )
 
 // RecordKey is the source of the key placed on every record a write task produces.
 type RecordKey = versions.RecordKey
 
 const (
-	RecordKeyNone        RecordKey = versions.RecordKeyNone
+	// RecordKeyNone writes records with no key.
+	RecordKeyNone RecordKey = versions.RecordKeyNone
+	// RecordKeyChannelName uses the name of the source channel as the key.
 	RecordKeyChannelName RecordKey = versions.RecordKeyChannelName
 )
 
