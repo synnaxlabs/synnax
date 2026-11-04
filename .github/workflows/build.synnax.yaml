@@ -277,7 +277,8 @@ jobs:
     name: Build (${{ matrix.os }})
     needs: setup
     if: needs.setup.outputs.matrix != '[]'
-    timeout-minutes: 75
+    # Hosted macOS builds the Driver with no Bazel cache. One build ran past 75 minutes.
+    timeout-minutes: ${{ matrix.os == 'macos-latest' && 120 || 75 }}
     permissions:
       actions: read
       contents: write
