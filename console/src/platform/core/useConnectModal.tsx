@@ -14,12 +14,15 @@ import { Icon } from "@synnaxlabs/lyra/icon";
 import { type Input } from "@synnaxlabs/lyra/input";
 import { Modal } from "@synnaxlabs/lyra/modal";
 import { Nav } from "@synnaxlabs/lyra/nav";
+import { deep } from "@synnaxlabs/x";
 import { type z } from "zod";
 
 import { CSS } from "@/platform/css";
 import { Modals } from "@/platform/modals";
 import { Triggers } from "@/platform/triggers";
 import { Session } from "@/session";
+
+const path = deep.path<z.infer<typeof FORM_SCHEMA>>();
 
 export interface ConnectModalParams {
   /** The Core being edited. Absent when adding a new one. */
@@ -85,7 +88,7 @@ const Connect = ({ coreKey, close }: Modals.ContentProps<ConnectModalParams, voi
       <Form.Form<typeof FORM_SCHEMA> {...methods}>
         <Modal.Body gap="tiny" align="stretch">
           <Form.TextField
-            path="name"
+            path={path.name}
             inputProps={{
               autoFocus: true,
               variant: "text",
@@ -95,9 +98,9 @@ const Connect = ({ coreKey, close }: Modals.ContentProps<ConnectModalParams, voi
             }}
           />
           <Flex.Box x align="stretch">
-            <Form.TextField path="host" grow inputProps={HOST_FIELD_PROPS} />
-            <Form.NumericField path="port" />
-            <Form.CheckboxField path="secure" />
+            <Form.TextField path={path.host} grow inputProps={HOST_FIELD_PROPS} />
+            <Form.NumericField path={path.port} />
+            <Form.CheckboxField path={path.secure} />
           </Flex.Box>
         </Modal.Body>
       </Form.Form>

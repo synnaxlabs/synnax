@@ -27,14 +27,14 @@ std::pair<common::ConfigureResult, x::errors::Error> configure_read(
     auto [manager, manager_err] = devs.get();
     if (manager_err) return {std::move(result), manager_err};
     std::unique_ptr<common::Source> source;
-    if (cfg.has_thermocouples())
+    if (cfg.polled())
         source = std::make_unique<UnarySource>(manager, std::move(cfg));
     else
         source = std::make_unique<StreamSource>(manager, std::move(cfg));
     result.task = std::make_unique<common::ReadTask>(
         task,
         ctx,
-        x::breaker::default_config(task.name),
+        common::unlimited_retry_config(task.name),
         std::move(source)
     );
     return {std::move(result), x::errors::NIL};
@@ -54,7 +54,7 @@ std::pair<common::ConfigureResult, x::errors::Error> configure_write(
     result.task = std::make_unique<common::WriteTask>(
         task,
         ctx,
-        x::breaker::default_config(task.name),
+        common::unlimited_retry_config(task.name),
         std::make_unique<WriteSink>(manager, std::move(cfg))
     );
     return {std::move(result), x::errors::NIL};

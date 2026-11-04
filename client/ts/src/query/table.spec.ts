@@ -1583,6 +1583,15 @@ describe("Table", () => {
       expect(table.get("a")).toEqual(item("a", "renamed"));
       expect(table.get("b")).toEqual(item("b", "fetched"));
     });
+
+    it("should skip ingesting every entry after a reset past the stamp", () => {
+      const table = fetchTable(async () => []);
+      table.set([item("a", "old-cluster")]);
+      const since = table.stamp();
+      table.reset();
+      table.ingest([item("a", "old-cluster"), item("b", "old-cluster")], { since });
+      expect(table.keys()).toEqual([]);
+    });
   });
 });
 

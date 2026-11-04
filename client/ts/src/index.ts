@@ -34,6 +34,7 @@ export {
   DisconnectedError,
   ExpiredLicenseError,
   InvalidLicenseError,
+  InvalidTokenError,
   isConnectionError,
   LicenseError,
   LicenseFingerprintError,
@@ -56,12 +57,14 @@ export { Frame } from "@/framer/frame";
 export { group } from "@/group";
 export { http } from "@/http";
 export { imex } from "@/imex";
+export { kafka } from "@/kafka";
 export { label } from "@/label";
 export { labjack } from "@/labjack";
 export { license } from "@/license";
 export { lineplot } from "@/lineplot";
 export { log } from "@/log";
 export { modbus } from "@/modbus";
+export { mqtt } from "@/mqtt";
 export { ni } from "@/ni";
 export { node } from "@/node";
 export { ontology } from "@/ontology";

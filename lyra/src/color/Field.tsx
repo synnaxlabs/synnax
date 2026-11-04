@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { type color } from "@synnaxlabs/x";
+import { type color, type deep } from "@synnaxlabs/x";
 import { type ReactElement } from "react";
 
 import { Input, type InputProps } from "@/color/Input";
@@ -18,8 +18,8 @@ export interface FieldProps
   extends
     Omit<BaseInput.ItemProps, "children" | "onChange">,
     Pick<InputProps, "size" | "onlyChangeOnBlur"> {
-  /** Dot-separated path into the form values. */
-  path: string;
+  /** The path into the form values. */
+  path: deep.Target<color.Crude | undefined>;
   /** The color the theme paints while the field is absent. */
   fallback: color.Crude;
 }
@@ -38,7 +38,7 @@ export const Field = ({
   padHelpText = false,
   ...rest
 }: FieldProps): ReactElement => {
-  const value = Form.useFieldValue<color.Crude>(path, { optional: true });
+  const value = Form.useFieldValue(path, { optional: true });
   const { set } = Form.useContext();
   return (
     <BaseInput.Item label={label} align={align} padHelpText={padHelpText} {...rest}>

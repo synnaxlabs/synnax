@@ -10,9 +10,13 @@
 #pragma once
 
 #include <cstddef>
+#include <limits>
+#include <map>
 #include <memory>
+#include <optional>
 #include <set>
 #include <string>
+#include <tuple>
 #include <utility>
 #include <vector>
 
@@ -77,6 +81,9 @@ struct ReadTaskConfig : common::BaseReadTaskConfig {
     const bool array_mode;
     /// @brief the number of samples in each array when array_mode is true.
     const size_t array_size;
+    /// @brief whether a bad value of a float channel writes NaN. Otherwise, a bad value
+    /// skips the read for every channel on the same index.
+    const bool nan_fill_enabled;
     /// @brief keys of the index channels for the input channels.
     /// Dynamically populated by querying the core.
     std::set<synnax::channel::Key> index_keys;
@@ -84,6 +91,9 @@ struct ReadTaskConfig : common::BaseReadTaskConfig {
     std::vector<std::unique_ptr<InputChan>> channels;
     /// @brief the number of samples to read on each iteration.
     const size_t samples_per_chan;
+    /// @brief the index of each channel, in the order of channels. An index channel is
+    /// its own index.
+    std::vector<synnax::channel::Key> indexes;
 
     /// @brief Move constructor to allow transfer of ownership
     ReadTaskConfig(ReadTaskConfig &&other) noexcept:
@@ -91,9 +101,11 @@ struct ReadTaskConfig : common::BaseReadTaskConfig {
         device_key(other.device_key),
         array_mode(other.array_mode),
         array_size(other.array_size),
+        nan_fill_enabled(other.nan_fill_enabled),
         index_keys(std::move(other.index_keys)),
         channels(std::move(other.channels)),
-        samples_per_chan(other.samples_per_chan) {}
+        samples_per_chan(other.samples_per_chan),
+        indexes(std::move(other.indexes)) {}
 
     /// @brief delete copy constructor and copy assignment to prevent accidental
     /// copies.
@@ -113,6 +125,7 @@ struct ReadTaskConfig : common::BaseReadTaskConfig {
         device_key(parser.field<std::string>("device")),
         array_mode(parser.field<bool>("array_mode", false)),
         array_size(parser.field<std::size_t>("array_size", 1)),
+        nan_fill_enabled(parser.field<bool>("nan_fill_enabled", false)),
         // Array mode never uses samples_per_chan and its stream rate may be zero.
         samples_per_chan(this->array_mode ? 0 : this->sample_rate / this->stream_rate) {
         parser.iter("channels", [&](x::json::Parser &cp) {
@@ -141,6 +154,7 @@ struct ReadTaskConfig : common::BaseReadTaskConfig {
         for (std::size_t i = 0; i < sy_channels.size(); i++) {
             auto ch = sy_channels[i];
             if (ch.index != 0) this->index_keys.insert(ch.index);
+            this->indexes.push_back(ch.is_index ? ch.key : ch.index);
             this->channels[i]->ch = ch;
         }
         for (const auto &ch: sy_channels) {
@@ -188,38 +202,107 @@ static types::ReadRequestBuilder create_read_request(const ReadTaskConfig &cfg) 
     return builder;
 }
 
+/// @brief the problems with the values of one read, reported as one task warning.
+class Quality {
+    std::vector<std::string> problems;
+    bool bad = false;
+
+public:
+    /// @brief records a bad value, or a value that failed to convert.
+    void add_bad(const std::string &problem) {
+        this->bad = true;
+        this->problems.push_back(problem);
+    }
+
+    /// @brief records an uncertain value.
+    void add_uncertain(const std::string &problem) {
+        this->problems.push_back(problem);
+    }
+
+    [[nodiscard]] common::Warning warning() const {
+        if (this->problems.empty()) return {};
+        return {
+            .message = this->bad ? "Received bad values" : "Received uncertain values",
+            .description = x::strings::join(this->problems, " "),
+        };
+    }
+};
+
+/// @returns NaN as a sample of the data type, or nothing if the data type holds no NaN.
+inline std::optional<x::telem::SampleValue> nan(const x::telem::DataType &dt) {
+    if (dt != x::telem::FLOAT32_T && dt != x::telem::FLOAT64_T) return std::nullopt;
+    return dt.cast(std::numeric_limits<double>::quiet_NaN());
+}
+
 class BaseReadTaskSource : public common::Source {
 protected:
     const ReadTaskConfig cfg;
-    std::shared_ptr<synnax::Synnax> client;
-    std::shared_ptr<connection::Pool> pool;
-    /// @brief the device's connection settings as of the last start.
-    connection::Config conn_cfg;
+    device::Connector connector;
     connection::Pool::Connection connection;
+    /// @brief the error of the connection attempt at start, which the first read
+    /// returns instead of connecting again.
+    x::errors::Error start_err;
     types::ReadRequestBuilder request_builder;
 
-    /// @brief reads the value of every channel. When the read fails after the client
-    /// certificate changed, connects again with the new certificate and reads again.
+    x::errors::Error connect() {
+        auto [conn, err] = this->connector.connect();
+        if (err) return err;
+        this->connection = std::move(conn);
+        return x::errors::NIL;
+    }
+
+    /// @returns the value of channel i that convert gives from result, or nothing when
+    /// the value is bad or fails to convert. Adds the problems of the value to q.
+    template<typename T, typename Convert>
+    std::optional<T> value(
+        const std::size_t i,
+        const UA_DataValue &result,
+        Quality &q,
+        const Convert &convert
+    ) const {
+        const auto &name = this->cfg.channels[i]->ch.name;
+        if (UA_StatusCode_isBad(result.status)) {
+            q.add_bad(errors::channel_status(name, result.status));
+            return std::nullopt;
+        }
+        if (UA_StatusCode_isUncertain(result.status))
+            q.add_uncertain(errors::channel_status(name, result.status));
+        auto [v, err] = convert(result.value);
+        if (!err) return std::move(v);
+        q.add_bad(name + ": " + err.data + ".");
+        return std::nullopt;
+    }
+
+    /// @returns the NaN that replaces a bad value of channel i, or nothing when NaN
+    /// fill is off or the channel's data type holds no NaN, which skips the channel's
+    /// index.
+    [[nodiscard]] std::optional<x::telem::SampleValue> fill(const std::size_t i) const {
+        if (!this->cfg.nan_fill_enabled) return std::nullopt;
+        return nan(this->cfg.channels[i]->ch.data_type);
+    }
+
+    /// @brief reads the value of every channel. Connects first when the task has no
+    /// connection, and drops a connection that is lost so the next read connects again.
+    /// When the read fails after the client certificate changed, connects again with
+    /// the new certificate and reads again.
     std::pair<types::ReadResponse, x::errors::Error> read_values() {
-        types::ReadResponse res(UA_Client_Service_read(
-            this->connection.get(),
-            this->request_builder.build()
-        ));
-        auto err = errors::parse(res.get().responseHeader.serviceResult);
+        if (!this->connection) {
+            if (this->start_err)
+                return {
+                    types::ReadResponse(),
+                    std::exchange(this->start_err, x::errors::NIL)
+                };
+            if (auto err = this->connect()) return {types::ReadResponse(), err};
+        }
+        const auto &req = this->request_builder.build();
+        auto [res, err] = this->connection.read(req);
         if (!err) return {std::move(res), x::errors::NIL};
-        auto [refreshed, refresh_err] = this->pool->refresh(
-            this->connection,
-            this->conn_cfg,
-            "[opc.read] "
-        );
-        if (refresh_err) return {std::move(res), refresh_err};
-        if (!refreshed) return {std::move(res), err};
-        types::ReadResponse retry(UA_Client_Service_read(
-            this->connection.get(),
-            this->request_builder.build()
-        ));
-        err = errors::parse(retry.get().responseHeader.serviceResult);
-        return {std::move(retry), err};
+        auto [refreshed, refresh_err] = this->connector.refresh(this->connection);
+        if (refreshed) std::tie(res, err) = this->connection.read(req);
+        if (refresh_err) err = refresh_err;
+        if (err.matches(errors::UNREACHABLE))
+            this->connection = connection::Pool::Connection(nullptr, nullptr, "");
+        return {std::move(res), err};
     }
 
     BaseReadTaskSource(
@@ -228,8 +311,12 @@ protected:
         ReadTaskConfig cfg
     ):
         cfg(std::move(cfg)),
-        client(std::move(client)),
-        pool(std::move(pool)),
+        connector(
+            std::move(client),
+            std::move(pool),
+            this->cfg.device_key,
+            "[opc.read] "
+        ),
         connection(nullptr, nullptr, ""),
         request_builder(create_read_request(this->cfg)) {}
 
@@ -238,23 +325,23 @@ public:
         return this->cfg.writer_config();
     }
 
-    /// @brief retrieves the device again, so a changed endpoint or trusted server
-    /// certificate takes effect on restart.
+    /// @brief retrieves the device again, so a changed trusted server certificate takes
+    /// effect on restart. A server that is off or refuses Sessions does not stop the
+    /// start, since the reads connect again.
     x::errors::Error start() override {
-        auto [conn_cfg, conn_err] = device::retrieve_connection(
-            *this->client,
-            this->cfg.device_key
-        );
-        if (conn_err) return conn_err;
-        this->conn_cfg = std::move(conn_cfg);
-        auto [c, err] = this->pool->acquire(this->conn_cfg, "[opc.read] ");
+        auto [c, err] = this->connector.start();
+        if (err.matches(driver::errors::TEMPORARY_HARDWARE_ERROR)) {
+            this->start_err = err;
+            return x::errors::NIL;
+        }
         if (err) return err;
-        connection = std::move(c);
+        this->connection = std::move(c);
         return x::errors::NIL;
     }
 
     x::errors::Error stop() override {
-        connection = connection::Pool::Connection(nullptr, nullptr, "");
+        this->connection = connection::Pool::Connection(nullptr, nullptr, "");
+        this->start_err = x::errors::NIL;
         return x::errors::NIL;
     }
 };
@@ -291,57 +378,55 @@ public:
         const auto start = this->sample_clock.wait(breaker);
         auto [ua_res, read_err] = this->read_values();
         if (res.error = read_err; res.error) return res;
-        common::initialize_frame(
-            fr,
-            this->cfg.channels,
-            this->cfg.index_keys,
-            this->cfg.array_size
-        );
-        std::vector<std::string> error_messages;
-        for (std::size_t i = 0; i < ua_res.get().resultsSize; ++i) {
-            auto &result = ua_res.get().results[i];
-            const auto &ch = cfg.channels[i];
-            if (res.error = errors::parse(result.status); res.error) {
-                res.error = driver::errors::wrap_channel_error(
-                    res.error,
-                    ch->ch.name,
-                    types::NodeId::to_string(ch->node.get())
-                );
-                return res;
-            }
-            auto &s = fr.series->at(i);
-            s.clear();
-            auto [written, err] = telem::ua_array_write_to_series(
-                s,
-                &result.value,
-                this->cfg.array_size,
-                ch->ch.name
+        fr.clear();
+        Quality quality;
+        std::vector<std::optional<x::telem::Series>> values;
+        values.reserve(this->cfg.channels.size());
+        std::set<synnax::channel::Key> skipped;
+        const auto &results = ua_res.get();
+        for (std::size_t i = 0; i < this->cfg.channels.size(); ++i) {
+            const auto &ch = this->cfg.channels[i]->ch;
+            auto series = this->value<x::telem::Series>(
+                i,
+                results.results[i],
+                quality,
+                [&](const UA_Variant &v) {
+                    x::telem::Series s(ch.data_type, this->cfg.array_size);
+                    auto err = telem::ua_array_write_to_series(
+                                   s,
+                                   &v,
+                                   this->cfg.array_size,
+                                   ch.name
+                    )
+                                   .second;
+                    return std::pair{std::move(s), err};
+                }
             );
-            if (err || written == 0)
-                error_messages.push_back(
-                    err ? err.data
-                        : "Invalid OPC UA array data detected for channel " +
-                              ch->ch.name
+            if (!series.has_value())
+                if (const auto fill = this->fill(i); fill.has_value()) {
+                    series.emplace(ch.data_type, this->cfg.array_size);
+                    for (std::size_t j = 0; j < this->cfg.array_size; ++j)
+                        series->write(*fill);
+                }
+            if (!series.has_value()) skipped.insert(this->cfg.indexes[i]);
+            values.push_back(std::move(series));
+        }
+        for (std::size_t i = 0; i < values.size(); ++i)
+            if (values[i].has_value() && !skipped.contains(this->cfg.indexes[i]))
+                fr.emplace(
+                    this->cfg.channels[i]->synnax_key,
+                    std::move(values[i].value())
                 );
-        }
-        if (!error_messages.empty()) {
-            fr.clear();
-            res.warning = {
-                .message = "Skipped invalid data",
-                .description = x::strings::join(error_messages, "; "),
-            };
-            return res;
-        }
         // Stamping ahead of the clock would make the next run of this task open its
         // writer inside data this run already wrote.
-        common::generate_index_data(
-            fr,
-            this->cfg.index_keys,
-            start,
-            this->sample_clock.end(),
-            this->cfg.array_size,
-            this->cfg.channels.size()
-        );
+        const auto end = this->sample_clock.end();
+        for (const auto &idx: this->cfg.index_keys)
+            if (!skipped.contains(idx))
+                fr.emplace(
+                    idx,
+                    x::telem::Series::linspace(start, end, this->cfg.array_size)
+                );
+        res.warning = quality.warning();
         return res;
     }
 };
@@ -349,6 +434,35 @@ public:
 class UnaryReadTaskSource final : public BaseReadTaskSource {
     /// @brief regulates the rate individual samples are read at.
     x::loop::Timer timer;
+    /// @brief the samples of each channel in the current read.
+    std::vector<std::vector<x::telem::SampleValue>> samples;
+    /// @brief the stamps of each generated index in the current read.
+    std::map<synnax::channel::Key, std::vector<x::telem::TimeStamp>> stamps;
+
+    /// @brief adds the value of each channel at ts, skipping every channel on the index
+    /// of a channel with a bad value.
+    void collect(const UA_ReadResponse &res, const x::telem::TimeStamp ts, Quality &q) {
+        std::vector<std::optional<x::telem::SampleValue>> values;
+        values.reserve(this->cfg.channels.size());
+        std::set<synnax::channel::Key> skipped;
+        for (std::size_t i = 0; i < this->cfg.channels.size(); ++i) {
+            const auto &dt = this->cfg.channels[i]->ch.data_type;
+            auto sample = this->value<x::telem::SampleValue>(
+                i,
+                res.results[i],
+                q,
+                [&dt](const UA_Variant &v) { return telem::to_sample(v, dt); }
+            );
+            if (!sample.has_value()) sample = this->fill(i);
+            if (!sample.has_value()) skipped.insert(this->cfg.indexes[i]);
+            values.push_back(std::move(sample));
+        }
+        for (std::size_t i = 0; i < values.size(); ++i)
+            if (!skipped.contains(this->cfg.indexes[i]))
+                this->samples[i].push_back(std::move(values[i].value()));
+        for (auto &[idx, idx_stamps]: this->stamps)
+            if (!skipped.contains(idx)) idx_stamps.push_back(ts);
+    }
 
 public:
     UnaryReadTaskSource(
@@ -357,61 +471,41 @@ public:
         ReadTaskConfig cfg
     ):
         BaseReadTaskSource(std::move(client), std::move(pool), std::move(cfg)),
-        timer(this->cfg.sample_rate) {}
+        timer(this->cfg.sample_rate),
+        samples(this->cfg.channels.size()) {
+        for (const auto &idx: this->cfg.index_keys)
+            this->stamps[idx] = {};
+    }
 
     common::ReadResult
     read(x::breaker::Breaker &breaker, ::x::telem::Frame &fr) override {
         common::ReadResult res;
-        common::initialize_frame(
-            fr,
-            this->cfg.channels,
-            this->cfg.index_keys,
-            this->cfg.samples_per_chan
-        );
-        for (auto [k, s]: fr)
+        for (auto &s: this->samples)
             s.clear();
+        for (auto &[_, s]: this->stamps)
+            s.clear();
+        Quality quality;
         for (std::size_t i = 0; i < this->cfg.samples_per_chan; i++) {
             const auto start = ::x::telem::TimeStamp::now();
             auto [ua_res, read_err] = this->read_values();
             if (res.error = read_err; res.error) return res;
-            bool skip_sample = false;
-            for (std::size_t j = 0; j < ua_res.get().resultsSize; ++j) {
-                UA_DataValue &result = ua_res.get().results[j];
-                const auto &ch = this->cfg.channels[j];
-                if (res.error = errors::parse(result.status); res.error) {
-                    res.error = driver::errors::wrap_channel_error(
-                        res.error,
-                        ch->ch.name,
-                        types::NodeId::to_string(ch->node.get())
-                    );
-                    return res;
-                }
-                auto [written, write_err] = telem::write_to_series(
-                    fr.series->at(j),
-                    result.value
-                );
-                if (write_err) {
-                    skip_sample = true;
-                    res.warning = {
-                        .message = "Skipped invalid data",
-                        .description = "Invalid OPC UA data detected for channel " +
-                                       ch->ch.name + ": " + write_err.data,
-                    };
-                    break;
-                }
-            }
-            if (skip_sample) {
-                fr.clear();
-                return res;
-            }
             const auto end = ::x::telem::TimeStamp::now();
-            const auto ts = ::x::telem::TimeStamp::midpoint(start, end);
-            for (std::size_t j = this->cfg.channels.size(); j < fr.size(); j++)
-                fr.series->at(j).write(ts);
+            this->collect(ua_res, ::x::telem::TimeStamp::midpoint(start, end), quality);
             this->timer.wait(breaker);
         }
-        // Do not write empty frames
-        if (!fr.series->empty() && fr.series->at(0).empty()) { fr.clear(); }
+        fr.clear();
+        for (std::size_t i = 0; i < this->samples.size(); ++i)
+            if (!this->samples[i].empty())
+                fr.emplace(
+                    this->cfg.channels[i]->synnax_key,
+                    telem::to_series(
+                        this->cfg.channels[i]->ch.data_type,
+                        this->samples[i]
+                    )
+                );
+        for (const auto &[idx, idx_stamps]: this->stamps)
+            if (!idx_stamps.empty()) fr.emplace(idx, x::telem::Series(idx_stamps));
+        res.warning = quality.warning();
         return res;
     }
 

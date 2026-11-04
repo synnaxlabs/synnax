@@ -33,8 +33,6 @@ import { ContextMenu } from "@/platform/context-menu";
 import { CSS } from "@/platform/css";
 import { Task } from "@/platform/task";
 
-const CHANNELS_PATH = "config.channels";
-
 const DEVICE_MENU_KEY = "device";
 
 const lineKey = (port: number, line: number): string => `${port}/${line}`;
@@ -108,7 +106,10 @@ const DeviceSection = ({
   );
 };
 
-interface DevicePortsProps<C extends Task.Channel> extends Task.Views.PortsProps {
+interface DevicePortsProps<C extends Task.Channel> extends Omit<
+  Task.Views.PortsProps<C>,
+  "path"
+> {
   device: Device;
   kind: PortKind<C>;
   channels: C[];
@@ -197,7 +198,8 @@ const AddDevice = ({ rack, exclude, onAdd }: AddDeviceProps): ReactElement => (
   />
 );
 
-export interface PortsViewProps<C extends Task.Channel> extends Task.Views.PortsProps {
+export interface PortsViewProps<C extends Task.Channel> extends Task.Views
+  .PortsProps<C> {
   kind: PortKind<C>;
   /** The devices the task uses. They show in the order of their first channels. */
   devices: Device[];
@@ -217,6 +219,7 @@ export interface PortsViewProps<C extends Task.Channel> extends Task.Views.Ports
  * click on a free port adds a channel on it.
  */
 export const PortsView = <C extends Task.Channel>({
+  path,
   kind,
   devices,
   deviceOf,
@@ -226,11 +229,11 @@ export const PortsView = <C extends Task.Channel>({
   onSelect,
 }: PortsViewProps<C>): ReactElement => {
   const { get } = Form.useContext();
-  const { push, remove } = Form.useFieldList<string, C>(CHANNELS_PATH);
-  const channels = Form.useFieldValue<C[]>(CHANNELS_PATH);
+  const { push, remove } = Form.useFieldList(path);
+  const channels = Form.useFieldValue(path);
   const editable = !Task.useIsPreview();
   const add = (device: device.Key, port?: number) => {
-    const channel = create(get<C[]>(CHANNELS_PATH).value, device, port);
+    const channel = create(get(path).value, device, port);
     push(channel);
     onSelect([channel.key]);
   };
@@ -268,8 +271,8 @@ export const PortsView = <C extends Task.Channel>({
   );
 };
 
-export interface LinesViewProps<C extends DigitalChannel>
-  extends Task.Views.PortsProps {
+export interface LinesViewProps<C extends DigitalChannel> extends Task.Views
+  .PortsProps<C> {
   device: Device;
   direction: "input" | "output";
   /** Creates a channel on the line, or on the lowest free line. */
@@ -284,6 +287,7 @@ export interface LinesViewProps<C extends DigitalChannel>
  * on it.
  */
 export const LinesView = <C extends DigitalChannel>({
+  path,
   device,
   direction,
   create,
@@ -292,14 +296,14 @@ export const LinesView = <C extends DigitalChannel>({
   onSelect,
 }: LinesViewProps<C>): ReactElement => {
   const { get } = Form.useContext();
-  const { push } = Form.useFieldList<string, C>(CHANNELS_PATH);
-  const channels = Form.useFieldValue<C[]>(CHANNELS_PATH);
+  const { push } = Form.useFieldList(path);
+  const channels = Form.useFieldValue(path);
   const editable = !Task.useIsPreview();
   const { hardware } = device.properties;
   const ports = hardware == null ? [] : digitalPorts(hardware, direction);
   const claims = lineClaims(channels);
   const add = (placement: LinePlacement = {}) => {
-    const channel = create(get<C[]>(CHANNELS_PATH).value, placement);
+    const channel = create(get(path).value, placement);
     push(channel);
     onSelect([channel.key]);
   };

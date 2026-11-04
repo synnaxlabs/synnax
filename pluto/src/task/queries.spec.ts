@@ -9,7 +9,7 @@
 
 import { group, ontology, rack, status, task } from "@synnaxlabs/client";
 import { createTestClient } from "@synnaxlabs/client/testutil";
-import { id } from "@synnaxlabs/x";
+import { deep, id } from "@synnaxlabs/x";
 import { act, renderHook, waitFor } from "@testing-library/react";
 import { type PropsWithChildren } from "react";
 import { beforeEach, describe, expect, it } from "vitest";
@@ -815,13 +815,13 @@ describe("queries", () => {
   describe("createForm", async () => {
     const testRack = await client.racks.create({ name: "testRack" });
     const statusData = z.object({ errorCode: z.number().optional() });
-    const useForm = Task.createForm({
-      schemas: {
-        type: z.literal("pagerduty_alert"),
-        config: z.object({ routingKey: z.string() }),
-        statusData: statusData.nullish(),
-      },
-    });
+    const schemas = {
+      type: z.literal("pagerduty_alert"),
+      config: z.object({ routingKey: z.string() }),
+      statusData: statusData.nullish(),
+    };
+    const useForm = Task.createForm({ schemas });
+    const path = deep.path<z.infer<Task.FormSchema<typeof schemas>>>();
 
     const createTask = async (): Promise<task.Task> =>
       await testRack.createTask({
@@ -850,7 +850,7 @@ describe("queries", () => {
     it("should show the config hash of an edit once the Core applies it", async () => {
       const t = await createTask();
       const { result } = await renderForm(t.key);
-      act(() => result.current.form.set("config.routingKey", "cat"));
+      act(() => result.current.form.set(path.config.routingKey, "cat"));
       await act(async () => {
         expect(await result.current.flush()).toBe(true);
         await client.tasks.settled(t.key);
@@ -858,7 +858,7 @@ describe("queries", () => {
       const stored = await createTestClient().tasks.retrieve(t.key);
       expect(stored.config).toMatchObject({ routingKey: "cat" });
       expect(stored.configHash).not.toBe(t.configHash);
-      expect(result.current.form.get("configHash").value).toBe(stored.configHash);
+      expect(result.current.form.get(path.configHash).value).toBe(stored.configHash);
     });
 
     it("should show a status update without touching a field", async () => {
@@ -882,13 +882,12 @@ describe("queries", () => {
         await client.statuses.set(taskStatus);
       });
       await waitFor(() => {
-        const s =
-          result.current.form.get<task.Status<typeof statusData>>("status").value;
+        const s = result.current.form.get(path.status).value;
         expect(s?.variant).toEqual("error");
         expect(s?.message).toEqual("Task error");
         expect(s?.details.data?.errorCode).toEqual(500);
       });
-      expect(result.current.form.get("status").touched).toBe(false);
+      expect(result.current.form.get(path.status).touched).toBe(false);
     });
 
     it("should show a task that another client writes whole", async () => {
@@ -902,23 +901,23 @@ describe("queries", () => {
         });
       });
       await waitFor(() => {
-        expect(result.current.form.get("name").value).toEqual("written");
-        expect(result.current.form.get("config.routingKey").value).toEqual("remote");
+        expect(result.current.form.get(path.name).value).toEqual("written");
+        expect(result.current.form.get(path.config.routingKey).value).toEqual("remote");
       });
-      expect(result.current.form.get("name").touched).toBe(false);
+      expect(result.current.form.get(path.name).touched).toBe(false);
     });
 
     it("should keep a local edit over a whole write from another client", async () => {
       const t = await createTask();
       const { result } = await renderForm(t.key);
-      act(() => result.current.form.set("config.routingKey", "local"));
+      act(() => result.current.form.set(path.config.routingKey, "local"));
       await act(async () => {
         await createTestClient().tasks.create({ ...t.payload, name: "renamed" });
       });
       await waitFor(() =>
-        expect(result.current.form.get("name").value).toEqual("renamed"),
+        expect(result.current.form.get(path.name).value).toEqual("renamed"),
       );
-      expect(result.current.form.get("config.routingKey").value).toEqual("local");
+      expect(result.current.form.get(path.config.routingKey).value).toEqual("local");
       await act(async () => expect(await result.current.flush()).toBe(true));
       const stored = await createTestClient().tasks.retrieve(t.key);
       expect(stored.name).toEqual("renamed");

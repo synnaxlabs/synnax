@@ -230,6 +230,7 @@ func (s *Service) NewRetrieve[D any]() Retrieve[D] {
 // with no stored status gets nil.
 func (s *Service) Join[D any](
 	ctx context.Context,
+	tx gorp.Tx,
 	ids []ontology.ID,
 ) ([]*Status[D], error) {
 	var statuses []Status[D]
@@ -237,7 +238,7 @@ func (s *Service) Join[D any](
 		SkipMissingKeys().
 		Where(MatchKeys[D](ontology.IDsToKeys(ids)...)).
 		Entries(&statuses).
-		Exec(ctx, nil); err != nil {
+		Exec(ctx, tx); err != nil {
 		return nil, err
 	}
 	byKey := make(map[Key]*Status[D], len(statuses))

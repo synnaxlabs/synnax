@@ -250,7 +250,7 @@ func (s *Service) Retrieve(
 		objects = append(objects, alias.OntologyIDs(*req.RangeKey, aliased)...)
 	}
 	if req.Request.IncludeStatus {
-		statuses, err := s.status.Join[struct{}](ctx, ids)
+		statuses, err := s.status.Join[struct{}](ctx, nil, ids)
 		if err != nil {
 			return RetrieveResponse{}, err
 		}

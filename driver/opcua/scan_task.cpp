@@ -134,25 +134,30 @@ x::errors::Error Scanner::check_device_health(synnax::device::Device &dev) {
         return parser.error();
     }
     const auto &cfg = props.connection;
-
-    auto [conn, conn_err] = this->conn_pool->acquire(cfg, SCAN_LOG_PREFIX);
-    if (conn_err) {
-        status.message = failure_message(conn_err, cfg, "Failed to reach server");
-        status.variant = conn_err.matches(errors::SECURITY)
-                           ? synnax::status::VARIANT_ERROR
-                           : synnax::status::VARIANT_WARNING;
-        status.description = conn_err.data;
-        dev.status = status;
-        return x::errors::NIL;
-    }
-
-    if (cfg.secured() && !cfg.certificate_validation_disabled &&
-        !cfg.server_certificate.has_value())
-        if (const auto cert = connection::server_certificate(conn.get())) {
-            LOG(INFO) << SCAN_LOG_PREFIX << "trusting server certificate "
-                      << cert->thumbprint() << " for " << dev.name;
-            dev.properties["connection"]["server_certificate"] = cert->pem();
+    const auto previous = this->checked[dev.key];
+    const bool pin = cfg.secured() && !cfg.certificate_validation_disabled &&
+                     !cfg.server_certificate.has_value();
+    if (pin || this->conn_pool->last_reply(cfg) <= previous) {
+        auto [conn, conn_err] = this->conn_pool->acquire(cfg, SCAN_LOG_PREFIX);
+        // Marked after the acquire, so its own reply does not skip the next probe.
+        this->checked[dev.key] = x::telem::TimeStamp::now();
+        if (conn_err) {
+            status.message = failure_message(conn_err, cfg, "Failed to reach server");
+            status.variant = conn_err.matches(errors::SECURITY)
+                               ? synnax::status::VARIANT_ERROR
+                               : synnax::status::VARIANT_WARNING;
+            status.description = conn_err.data;
+            dev.status = status;
+            return x::errors::NIL;
         }
+        if (pin)
+            if (const auto cert = connection::server_certificate(conn.get())) {
+                LOG(INFO) << SCAN_LOG_PREFIX << "trusting server certificate "
+                          << cert->thumbprint() << " for " << dev.name;
+                dev.properties["connection"]["server_certificate"] = cert->pem();
+            }
+    } else
+        this->checked[dev.key] = x::telem::TimeStamp::now();
 
     const auto accepted = this->renewal.accepted.find(dev.key);
     if (cfg.secured() && cfg.certificate_validation_disabled) {
@@ -260,13 +265,19 @@ void Scanner::certificates(
 struct ScanContext {
     std::shared_ptr<UA_Client> client;
     std::shared_ptr<std::vector<types::Node>> channels;
+    /// @brief the error of a request that failed during the browse.
+    x::errors::Error err;
 };
 
+// open62541 combines the returned statuses with a bitwise OR, so a failure is kept in
+// the context instead.
 static UA_StatusCode
 node_iter(UA_NodeId child_id, UA_Boolean is_inverse, UA_NodeId _, void *raw_ctx) {
-    if (is_inverse) return UA_STATUSCODE_GOOD;
     auto *ctx = static_cast<ScanContext *>(raw_ctx);
+    if (is_inverse || ctx->err) return UA_STATUSCODE_GOOD;
     auto *const ua_client = ctx->client.get();
+    // A read on a lost connection would open a new one outside the pool.
+    if (ctx->err = connection::lost(ua_client); ctx->err) return UA_STATUSCODE_GOOD;
 
     UA_ReadValueId ids[3];
     UA_ReadValueId_init(&ids[0]);
@@ -285,10 +296,9 @@ node_iter(UA_NodeId child_id, UA_Boolean is_inverse, UA_NodeId _, void *raw_ctx)
     req.nodesToReadSize = 3;
 
     types::ReadResponse res(UA_Client_Service_read(ua_client, req));
-    UA_StatusCode status = res.get().responseHeader.serviceResult;
-    if (status != UA_STATUSCODE_GOOD) { return status; }
-    if (!res.get().results[0].hasValue) { return res.get().results[0].status; }
-    if (!res.get().results[1].hasValue) { return res.get().results[1].status; }
+    ctx->err = errors::parse(res.get().responseHeader.serviceResult);
+    if (ctx->err || !res.get().results[0].hasValue || !res.get().results[1].hasValue)
+        return UA_STATUSCODE_GOOD;
     UA_NodeClass cls = *static_cast<UA_NodeClass *>(res.get().results[0].value.data);
     auto [ns_index, b_name] = *static_cast<UA_QualifiedName *>(
         res.get().results[1].value.data
@@ -309,7 +319,7 @@ node_iter(UA_NodeId child_id, UA_Boolean is_inverse, UA_NodeId _, void *raw_ctx)
         types::node_class_to_string(cls),
         is_array
     );
-    return status;
+    return UA_STATUSCODE_GOOD;
 }
 
 void Scanner::browse_nodes(const synnax::task::Command &cmd) const {
@@ -345,12 +355,19 @@ void Scanner::browse_nodes(const synnax::task::Command &cmd) const {
         std::make_shared<std::vector<types::Node>>(),
     });
 
-    UA_Client_forEachChildNodeCall(
+    auto browse_err = errors::parse(UA_Client_forEachChildNodeCall(
         scan_ctx->client.get(),
         args.node.get(),
         node_iter,
         scan_ctx.get()
-    );
+    ));
+    if (!browse_err) browse_err = scan_ctx->err;
+    if (browse_err) {
+        status.message = "Failed to browse nodes";
+        status.description = browse_err.data;
+        ctx->set_status(status);
+        return;
+    }
 
     x::json::json channels = x::json::json::array();
     for (const auto &ch: *scan_ctx->channels)

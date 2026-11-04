@@ -9,7 +9,7 @@
 
 import { arc, type rack, status, task } from "@synnaxlabs/client";
 import { Theming } from "@synnaxlabs/lyra/theming";
-import { compare, type record, verbs, xy } from "@synnaxlabs/x";
+import { compare, deep, type record, verbs, xy } from "@synnaxlabs/x";
 import z from "zod";
 
 import { Node } from "@/arc/graph/node";
@@ -191,6 +191,8 @@ export const formSchema = z.object({
   mode: arc.modeZ,
 });
 
+export const formPath = deep.path<z.infer<typeof formSchema>>();
+
 export const ZERO_FORM_VALUES: z.infer<typeof formSchema> = {
   name: "",
   mode: "text",
@@ -204,7 +206,7 @@ export const useForm = Flux.createForm<FormQuery, typeof formSchema>({
   initialValues: ZERO_FORM_VALUES,
   update: async ({ client, value, set }) => {
     const res = await client.arcs.create(value());
-    set("key", res.key);
+    set(formPath.key, res.key);
   },
 });
 

@@ -9,12 +9,13 @@
 
 from __future__ import annotations
 
-from typing import overload
+from typing import overload, override
 from uuid import UUID
 
-from pydantic import PrivateAttr
+from pydantic import BaseModel, PrivateAttr
 
-from synnax import framer, node
+from freighter import Empty, UnaryClient
+from synnax import framer, group, node
 from synnax.channel.payload import (
     Key,
     Params,
@@ -184,9 +185,11 @@ class Channel(Payload):
             )
         return self._cached_frame_client
 
+    @override
     def __hash__(self) -> int:
         return hash(self.key)
 
+    @override
     def __eq__(self, other: object) -> bool:
         if not isinstance(other, Channel):
             return NotImplemented
@@ -207,9 +210,14 @@ class Channel(Payload):
         )
 
 
+class _RetrieveGroupResponse(BaseModel):
+    group: group.Group
+
+
 class Client:
     """The core py class for executing channel operations against a Synnax cluster."""
 
+    _client: UnaryClient
     _frame_client: framer.Client
     _retriever: Retriever
     _creator: Writer
@@ -217,10 +225,12 @@ class Client:
     def __init__(
         self,
         *,
+        client: UnaryClient,
         frame_client: framer.Client,
         retriever: Retriever,
         creator: Writer,
     ):
+        self._client = client
         self._frame_client = frame_client
         self._retriever = retriever
         self._creator = creator
@@ -362,7 +372,11 @@ class Client:
     @overload
     def retrieve(
         self,
-        channel: list[Key] | tuple[Key] | list[str] | tuple[str] | None = None,
+        channel: list[Key]
+        | tuple[Key, ...]
+        | list[str]
+        | tuple[str, ...]
+        | None = None,
         *,
         where: Where | None = None,
         search_term: str = "",
@@ -480,7 +494,7 @@ class Client:
 
     @overload
     def rename(
-        self, keys: list[Key] | tuple[Key], names: list[str] | tuple[str]
+        self, keys: list[Key] | tuple[Key, ...], names: list[str] | tuple[str, ...]
     ) -> None:
         """Renames one or more channels in the cluster.
 
@@ -491,8 +505,8 @@ class Client:
 
     def rename(
         self,
-        keys: Key | list[Key] | tuple[Key],
-        names: str | list[str] | tuple[str],
+        keys: Key | list[Key] | tuple[Key, ...],
+        names: str | list[str] | tuple[str, ...],
     ) -> None:
         """Renames one or more channels in the cluster.
 
@@ -501,6 +515,15 @@ class Client:
         :returns: None.
         """
         self._creator.rename(normalize(keys), normalize(names))
+
+    def retrieve_group(self) -> group.Group:
+        """Retrieves the group that holds every channel by default.
+
+        :returns: The channel group.
+        """
+        return self._client.send(
+            "/channel/retrieve-group", Empty(), _RetrieveGroupResponse
+        ).group
 
     def _sugar(self, channels: list[Payload]) -> list[Channel]:
         return [

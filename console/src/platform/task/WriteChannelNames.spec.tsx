@@ -7,11 +7,14 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
+import { deep } from "@synnaxlabs/x";
 import { screen, waitFor } from "@testing-library/react";
 import { describe, expect, it } from "vitest";
 
 import { Task } from "@/platform/task";
 import { renderInTaskForm } from "@/platform/task/testutil";
+
+const path = deep.path<{ config: { cmdName: string; stateName: string } }>();
 
 describe("WriteChannelNames", () => {
   it("should render default names for both command and state channels", async () => {
@@ -19,8 +22,8 @@ describe("WriteChannelNames", () => {
       <Task.WriteChannelNames
         cmdChannel={0}
         stateChannel={0}
-        cmdNamePath="config.cmdName"
-        stateNamePath="config.stateName"
+        cmdNamePath={path.config.cmdName}
+        stateNamePath={path.config.stateName}
         itemKey="chan1"
       />,
       { values: { config: { cmdName: "", stateName: "" } } },
@@ -34,8 +37,8 @@ describe("WriteChannelNames", () => {
       <Task.WriteChannelNames
         cmdChannel={0}
         stateChannel={0}
-        cmdNamePath="config.cmdName"
-        stateNamePath="config.stateName"
+        cmdNamePath={path.config.cmdName}
+        stateNamePath={path.config.stateName}
         itemKey="chan1"
       />,
       { values: { config: { cmdName: "My Command", stateName: "My State" } } },

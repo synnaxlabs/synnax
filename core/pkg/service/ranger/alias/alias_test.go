@@ -335,9 +335,9 @@ var _ = Describe("Alias", Ordered, func() {
 			})
 
 		It("Should find aliases through the ontology search", func(ctx SpecContext) {
-			Expect(otg.Search(ctx, tx, "turbopump inlet")).To(Equal([]ontology.ID{
-				alias.OntologyID(r.Key, inlet.Key()),
-			}))
+			Expect(otg.Search(
+				ctx, tx, ontology.SearchQuery{Term: "turbopump inlet"},
+			)).To(Equal([]ontology.ID{alias.OntologyID(r.Key, inlet.Key())}))
 		})
 
 		It(
@@ -345,13 +345,16 @@ var _ = Describe("Alias", Ordered, func() {
 			func(ctx SpecContext) {
 				id := alias.OntologyID(r.Key, inlet.Key())
 				Expect(tx.Commit(ctx)).To(Succeed())
-				Expect(otg.Search(ctx, nil, "turbopump inlet")).To(ContainElement(id))
+				Expect(otg.Search(
+					ctx, nil, ontology.SearchQuery{Term: "turbopump inlet"},
+				)).To(ContainElement(id))
 				del := DeferClose(db.OpenTx())
 				Expect(aliasSvc.NewWriter(del).Delete(ctx, r.Key, inlet.Key())).
 					To(Succeed())
 				Expect(del.Commit(ctx)).To(Succeed())
-				Expect(otg.Search(ctx, nil, "turbopump inlet")).
-					ToNot(ContainElement(id))
+				Expect(otg.Search(
+					ctx, nil, ontology.SearchQuery{Term: "turbopump inlet"},
+				)).ToNot(ContainElement(id))
 			},
 		)
 	})

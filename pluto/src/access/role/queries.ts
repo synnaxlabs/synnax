@@ -9,7 +9,7 @@
 
 import { access, type ontology, query, type Synnax, user } from "@synnaxlabs/client";
 import { type List } from "@synnaxlabs/lyra/list";
-import { type destructor, verbs } from "@synnaxlabs/x";
+import { deep, type destructor, verbs } from "@synnaxlabs/x";
 import { z } from "zod";
 
 import { Flux } from "@/flux";
@@ -153,6 +153,8 @@ export const changeRoleFormSchema = z.object({
   key: user.keyZ,
   role: access.role.keyZ,
 });
+
+export const changeRoleFormPath = deep.path<z.infer<typeof changeRoleFormSchema>>();
 
 const retrieveUserRole = async (
   client: Synnax,

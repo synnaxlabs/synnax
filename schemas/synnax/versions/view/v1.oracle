@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import "schemas/synnax/versions/ranger/v1"
+import "schemas/synnax/versions/label/v0"
 import "schemas/synnax/versions/status/v1"
 
 Key = v0.Key
@@ -25,26 +25,38 @@ Base struct {
     @go marshal
 }
 
-Type enum {
-    range  = "range"
-    status = "status"
+RangeQuery struct {
+    has_labels label.Key[] = [] {
+        @doc value "restricts the view to ranges carrying any of these labels."
+    }
 
-    @doc value "names the resource that a view lists."
+    @doc value  "filters the ranges shown by a range view."
+    @go marshal
 }
 
-View union on type Type extends Base {
+StatusQuery struct {
+    has_labels label.Key[] = [] {
+        @doc value "restricts the view to statuses carrying any of these labels."
+    }
+    variants   status.Variant[] = [] {
+        @doc value "restricts the view to statuses of these variants."
+    }
+
+    @doc value  "filters the statuses shown by a status view."
+    @go marshal
+}
+
+View union on type extends Base {
     range {
-        where ranger.Where? {
-            @doc value "selects the ranges the view shows. An absent where shows all."
+        query RangeQuery {
+            @doc value "filters the ranges the view shows."
         }
 
         @doc value "is a saved view of ranges."
     }
     status {
-        where status.Where? {
-            @doc value """
-                selects the statuses the view shows. An absent where shows all.
-            """
+        query StatusQuery {
+            @doc value "filters the statuses the view shows."
         }
 
         @doc value "is a saved view of statuses."
@@ -52,7 +64,7 @@ View union on type Type extends Base {
 
     @doc value  """
         is a saved, named filter over a list of resources. The type selects the resource
-        the view lists and the shape of its where.
+        the view lists and the shape of its query.
     """
     @go marshal
     @go migrate
