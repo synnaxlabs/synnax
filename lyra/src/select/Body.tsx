@@ -15,9 +15,10 @@ import { CSS } from "@/css";
 import { Flex } from "@/flex";
 import { Items, type ItemsProps } from "@/select/Items";
 import { List as SelectList } from "@/select/List";
-import { plural, searchPlaceholder } from "@/select/placeholder";
+import { searchPlaceholder } from "@/select/placeholder";
 import { Search, type SearchProps } from "@/select/Search";
 import { Status } from "@/status";
+import { Text } from "@/text";
 
 /** Props for {@link Body}. */
 export interface BodyProps<K extends record.Key>
@@ -50,7 +51,7 @@ export const EmptyContent = ({
   if (emptyContent != null && typeof emptyContent !== "string") return emptyContent;
   return (
     <Status.Summary center variant="disabled" hideIcon>
-      {emptyContent ?? `No ${plural(resourceName)} found`}
+      {emptyContent ?? `No ${Text.plural(resourceName)} found`}
     </Status.Summary>
   );
 };

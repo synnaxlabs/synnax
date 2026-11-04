@@ -22,6 +22,7 @@ interface OpenConfirmParams {
   items: { name: string } | { name: string }[];
   type?: string;
   title?: string;
+  icon?: string;
   description?: string;
 }
 
@@ -29,10 +30,11 @@ const openConfirm = async ({
   items,
   type = "Channel",
   title,
+  icon,
   description,
 }: OpenConfirmParams): Promise<ModalOpenerHandle<Promise<boolean>>> =>
   await renderModalOpener(
-    () => useConfirmDelete({ type, title, description }),
+    () => useConfirmDelete({ type, title, icon, description }),
     [items],
   );
 
@@ -99,5 +101,14 @@ describe("useConfirmDelete", () => {
   it("should pluralize an irregular resource type", async () => {
     await openConfirm({ items: [{ name: "a" }, { name: "b" }], type: "Policy" });
     await screen.findByText("Are you sure you want to delete 2 policies?");
+  });
+
+  it("should keep the capitals of an acronym resource type", async () => {
+    await openConfirm({
+      items: [{ name: "a" }, { name: "b" }],
+      type: "ICD",
+      icon: "Library",
+    });
+    await screen.findByText("Are you sure you want to delete 2 ICDs?");
   });
 });

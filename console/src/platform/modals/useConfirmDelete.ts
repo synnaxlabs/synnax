@@ -8,8 +8,8 @@
 // included in the file licenses/APL.txt.
 
 import { Icon } from "@synnaxlabs/lyra/icon";
+import { Text } from "@synnaxlabs/lyra/text";
 import { array } from "@synnaxlabs/x";
-import { plural } from "pluralize";
 
 import { useConfirm } from "@/platform/modals/useConfirm";
 
@@ -42,7 +42,9 @@ export const useConfirmDelete = ({
   const confirm = useConfirm();
   return async (items_: ConfirmDeleteItem | ConfirmDeleteItem[]): Promise<boolean> => {
     const items = array.toArray(items_);
-    let message = `Are you sure you want to delete ${items.length} ${plural(type.toLowerCase())}?`;
+    // An acronym such as ICD keeps its capitals mid-sentence.
+    const noun = type === type.toUpperCase() ? type : type.toLowerCase();
+    let message = `Are you sure you want to delete ${items.length} ${Text.plural(noun)}?`;
     if (items.length === 1)
       message = `Are you sure you want to delete ${items[0].name}?`;
     return (

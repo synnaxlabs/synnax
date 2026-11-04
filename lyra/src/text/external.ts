@@ -8,4 +8,5 @@
 // included in the file licenses/APL.txt.
 
 export * from "@/text/Editable";
+export * from "@/text/plural";
 export * from "@/text/Text";

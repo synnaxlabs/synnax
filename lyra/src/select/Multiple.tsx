@@ -16,7 +16,8 @@ import { Body, type BodyProps } from "@/select/Body";
 import { Dialog } from "@/select/Dialog";
 import { Frame, type MultipleFrameProps } from "@/select/Frame";
 import { MultipleTrigger, type MultipleTriggerProps } from "@/select/MultipleTrigger";
-import { plural, usePlaceholder } from "@/select/placeholder";
+import { usePlaceholder } from "@/select/placeholder";
+import { Text } from "@/text";
 
 export interface MultipleProps<
   K extends record.Key,
@@ -77,7 +78,7 @@ export const Multiple = <K extends record.Key, E extends record.Keyed<K> | undef
   preview,
   ...rest
 }: MultipleProps<K, E>): ReactElement => {
-  const placeholder = usePlaceholder(plural(resourceName));
+  const placeholder = usePlaceholder(Text.plural(resourceName));
   return (
     <BaseDialog.Frame variant={variant} {...rest}>
       <Frame<K, E>
@@ -97,7 +98,7 @@ export const Multiple = <K extends record.Key, E extends record.Keyed<K> | undef
           createHaulItem={createHaulItem}
           icon={icon}
           placeholder={placeholder}
-          aria-label={caseconv.capitalize(plural(resourceName))}
+          aria-label={caseconv.capitalize(Text.plural(resourceName))}
           disabled={disabled}
           preview={preview}
           {...triggerProps}
