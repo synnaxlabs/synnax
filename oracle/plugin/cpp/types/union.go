@@ -45,6 +45,9 @@ type unionData struct {
 	ProtoType string
 	// HasProto marks a union that translates to and from a protobuf message.
 	HasProto bool
+	// Base is the struct every variant inherits (e.g. "BaseAIChannel"), set only when
+	// resolver.SharedBase finds one. The union then gets base() accessors.
+	Base string
 }
 
 // unionVariantData is the template view of one variant for the dispatch alias.
@@ -86,6 +89,11 @@ func (p *Plugin) processUnion(
 			data.AddInternal("x/cpp/errors/errors.h")
 			data.AddInternal(fmt.Sprintf("%s/%s.pb.h", pbOutputPath, entry.Namespace))
 		}
+	}
+
+	if base, ok := resolver.SharedBase(form, "cpp", data.table); ok {
+		parent, _ := base.Resolve(data.table)
+		ud.Base = p.resolveExtendsType(base, parent, data)
 	}
 
 	enumType, _, borrows := resolution.Dealias(form.Enum, data.table)

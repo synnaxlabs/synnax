@@ -1715,6 +1715,32 @@ func (u {{.Name}}) Validate() error {
 	return nil
 }
 {{- end}}
+{{- if .Base}}
+
+// Base returns the fields every variant shares, or the zero value if Variant is nil.
+func (u {{.Name}}) Base() {{.Base}} {
+	switch variant := u.Variant.(type) {
+{{- range .Variants}}
+	case {{.TypeName}}:
+		return variant.{{$u.BaseField}}
+{{- end}}
+	}
+	return {{.Base}}{}
+}
+
+// SetBase replaces the fields every variant shares. It panics if Variant is nil.
+func (u *{{.Name}}) SetBase(base {{.Base}}) {
+	switch variant := u.Variant.(type) {
+{{- range .Variants}}
+	case {{.TypeName}}:
+		variant.{{$u.BaseField}} = base
+		u.Variant = variant
+{{- end}}
+	default:
+		panic(errors.Newf("{{.Name}}: cannot set the base of variant %T", variant))
+	}
+}
+{{- end}}
 {{- end}}
 {{- end}}
 `),

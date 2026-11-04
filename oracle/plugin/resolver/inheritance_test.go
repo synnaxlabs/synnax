@@ -562,4 +562,117 @@ var _ = Describe("Inheritance", func() {
 			Expect(fieldNames(declared)).ToNot(ContainElement("name"))
 		})
 	})
+
+	Describe("SharedBase", func() {
+		It("Should return the base every variant inherits", func(ctx SpecContext) {
+			form, _, table := analyzeUnion(ctx, `
+				@go output "pkg/test"
+
+				Base struct {
+					port string = ""
+				}
+
+				Payload struct {
+					scale float64 = 1
+				}
+
+				Chan union on type extends Base {
+					named Payload
+					builtin {
+						units string = "c"
+					}
+				}
+			`, "Chan", "builtin")
+			base := MustBeOk(resolver.SharedBase(form, "go", table))
+			Expect(base.Name).To(Equal("test.Base"))
+		})
+
+		It("Should return the base for a variant that adds a base of its own", func(
+			ctx SpecContext,
+		) {
+			form, _, table := analyzeUnion(ctx, `
+				@go output "pkg/test"
+
+				Base struct {
+					port string = ""
+				}
+
+				Extra struct {
+					scale float64 = 1
+				}
+
+				Chan union on type extends Base {
+					builtin extends Extra {}
+				}
+			`, "Chan", "builtin")
+			base := MustBeOk(resolver.SharedBase(form, "go", table))
+			Expect(base.Name).To(Equal("test.Base"))
+		})
+
+		It("Should not return a base when a variant drops one of its fields", func(
+			ctx SpecContext,
+		) {
+			form, _, table := analyzeUnion(ctx, `
+				@go output "pkg/test"
+
+				Base struct {
+					port string = ""
+					name string = ""
+				}
+
+				Chan union on type extends Base {
+					analog {}
+					builtin {
+						-port
+					}
+				}
+			`, "Chan", "builtin")
+			_, ok := resolver.SharedBase(form, "go", table)
+			Expect(ok).To(BeFalse())
+		})
+
+		It("Should not return a base when the union extends two", func(
+			ctx SpecContext,
+		) {
+			form, _, table := analyzeUnion(ctx, `
+				@go output "pkg/test"
+
+				Base struct {
+					port string = ""
+				}
+
+				Extra struct {
+					scale float64 = 1
+				}
+
+				Chan union on type extends Base, Extra {
+					builtin {}
+				}
+			`, "Chan", "builtin")
+			_, ok := resolver.SharedBase(form, "go", table)
+			Expect(ok).To(BeFalse())
+		})
+
+		It("Should not return a base absent from the language", func(
+			ctx SpecContext,
+		) {
+			form, _, table := analyzeUnion(ctx, `
+				@go output "pkg/test"
+				@cpp output "cpp/test"
+
+				Base struct {
+					port string = ""
+					@cpp omit
+				}
+
+				Chan union on type extends Base {
+					builtin {}
+				}
+			`, "Chan", "builtin")
+			_, ok := resolver.SharedBase(form, "cpp", table)
+			Expect(ok).To(BeFalse())
+			base := MustBeOk(resolver.SharedBase(form, "go", table))
+			Expect(base.Name).To(Equal("test.Base"))
+		})
+	})
 })
