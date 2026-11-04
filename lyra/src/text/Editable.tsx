@@ -20,6 +20,7 @@ import {
 import { CSS as PCSS } from "@/css";
 import { useCombinedRefs, useSyncedRef } from "@/hooks/ref";
 import { type Input } from "@/input";
+import { paintHighlight } from "@/text/highlight";
 import { Text, type TextProps } from "@/text/Text";
 import { triggerReflow } from "@/util/reflow";
 
@@ -123,6 +124,7 @@ export const Editable = ({
   allowEmpty = false,
   style,
   outline = true,
+  highlight,
   ...rest
 }: EditableProps): ReactElement => {
   const [editable, setEditable] = useState(false);
@@ -211,6 +213,8 @@ export const Editable = ({
     if (ref.current == null || !editable) return;
     triggerReflow(ref.current);
     const { current: el } = ref;
+    // An edit runs over plain text, so the tint marks go.
+    el.replaceChildren(el.textContent);
     el.focus();
     const range = document.createRange();
     range.selectNodeContents(el);
@@ -224,10 +228,10 @@ export const Editable = ({
     if (ref.current == null || editable) return;
     const { current: committed } = committedRef;
     if (committed != null && value === committed.replaced)
-      ref.current.textContent = committed.text;
+      paintHighlight(ref.current, committed.text, highlight);
     else {
       committedRef.current = null;
-      ref.current.textContent = value;
+      paintHighlight(ref.current, value, highlight);
     }
   });
 
