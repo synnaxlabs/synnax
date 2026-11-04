@@ -49,6 +49,7 @@
 
         & > .console-layout-selector__section {
             display: grid;
+            grid-column: span var(--pluto-section-span);
             grid-template-rows: auto auto;
             grid-template-columns: subgrid;
             row-gap: 1.5rem;

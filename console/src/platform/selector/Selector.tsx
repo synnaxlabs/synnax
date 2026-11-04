@@ -10,6 +10,7 @@
 import "@/platform/selector/Selector.css";
 
 import { type panel } from "@synnaxlabs/client";
+import { type CSS as PCSS } from "@synnaxlabs/lyra/css";
 import { Flex } from "@synnaxlabs/lyra/flex";
 import { Icon } from "@synnaxlabs/lyra/icon";
 import { Input } from "@synnaxlabs/lyra/input";
@@ -92,6 +93,11 @@ const useShown = (sections: Section[], tabKey?: panel.TabKey): Shown => {
 };
 
 const NO_SUBSCRIBE = (): destructor.Destructor => destructor.NOOP;
+
+/** Spans as many grid columns as the section has cards. */
+const sectionSpan = (section: Section): PCSS.VarProperties => ({
+  "--pluto-section-span": section.selectables?.length ?? 1,
+});
 
 interface BodyProps extends Omit<CreateParams, "tabTitle"> {
   tabKey?: panel.TabKey;
@@ -201,7 +207,7 @@ const Body = ({
             <div
               key={section.key}
               className={sectionClass(section)}
-              style={{ gridColumn: `span ${section.selectables?.length ?? 1}` }}
+              style={sectionSpan(section)}
             >
               {heading(section)}
               {section.selectables?.map((s) => item(s, "card"))}
