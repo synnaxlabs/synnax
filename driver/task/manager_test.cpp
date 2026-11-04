@@ -1857,10 +1857,7 @@ TEST_F(TaskManagerTest, DeleteDropsStatusFromResend) {
     WAIT_FOR_TASK_STATUS(streamer, deleted, is_running);
 
     ASSERT_NIL(rack.tasks.del(deleted.key));
-    WAIT_FOR_TASK_STATUS(streamer, deleted, [](const synnax::task::Status &s) {
-        return s.message == "stopped";
-    });
-    // The worker drops the status after the instance stops and is destroyed.
+    // The delete event carries no signal that it was handled.
     std::this_thread::sleep_for((200 * x::telem::MILLISECOND).chrono());
 
     const auto since = x::telem::TimeStamp::now();

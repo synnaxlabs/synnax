@@ -14,6 +14,7 @@
 #include <vector>
 
 #include "client/cpp/errors/errors.h"
+#include "client/cpp/resource/id.h"
 #include "client/cpp/status/json.gen.h"
 #include "client/cpp/status/proto.gen.h"
 #include "client/cpp/status/types.gen.h"
@@ -157,19 +158,27 @@ public:
         retrieve(const std::vector<std::string> &keys) const {
         grpc::status::RetrieveRequest req;
         req.mutable_keys()->Add(keys.begin(), keys.end());
-        auto [res, err] = this->retrieve_client->send("/status/retrieve", req);
-        if (err) return {std::vector<synnax::status::Status<Details>>(), err};
-        std::vector<synnax::status::Status<Details>> statuses;
-        statuses.reserve(res.statuses_size());
-        for (const auto &pb_status: res.statuses()) {
-            auto [decoded, decode_err] = synnax::status::Status<Details>::from_proto(
-                pb_status
-            );
-            if (decode_err)
-                return {std::vector<synnax::status::Status<Details>>(), decode_err};
-            statuses.push_back(decoded);
-        }
-        return {statuses, x::errors::NIL};
+        return this->send_retrieve<Details>(req);
+    }
+
+    /// @brief Retrieves the status that owner holds.
+    /// @tparam Details The type of custom details expected in the retrieved status.
+    /// @returns the status and a NOT_FOUND error when owner holds no status.
+    template<typename Details = x::json::json>
+    [[nodiscard]] std::pair<synnax::status::Status<Details>, x::errors::Error>
+    retrieve_by_owner(const synnax::resource::ID &owner) const {
+        auto [owner_pb, owner_err] = owner.to_proto();
+        if (owner_err) return {synnax::status::Status<Details>{}, owner_err};
+        grpc::status::RetrieveRequest req;
+        *req.add_owners() = owner_pb;
+        auto [statuses, err] = this->send_retrieve<Details>(req);
+        if (err) return {synnax::status::Status<Details>{}, err};
+        if (statuses.empty())
+            return {
+                synnax::status::Status<Details>{},
+                errors::not_found_error("status", "owner " + owner.string())
+            };
+        return {statuses[0], x::errors::NIL};
     }
 
     /// @brief Deletes a status with the given key.
@@ -223,6 +232,24 @@ public:
     }
 
 private:
+    template<typename Details>
+    std::pair<std::vector<synnax::status::Status<Details>>, x::errors::Error>
+    send_retrieve(grpc::status::RetrieveRequest &req) const {
+        auto [res, err] = this->retrieve_client->send("/status/retrieve", req);
+        if (err) return {std::vector<synnax::status::Status<Details>>(), err};
+        std::vector<synnax::status::Status<Details>> statuses;
+        statuses.reserve(res.statuses_size());
+        for (const auto &pb_status: res.statuses()) {
+            auto [decoded, decode_err] = synnax::status::Status<Details>::from_proto(
+                pb_status
+            );
+            if (decode_err)
+                return {std::vector<synnax::status::Status<Details>>(), decode_err};
+            statuses.push_back(decoded);
+        }
+        return {statuses, x::errors::NIL};
+    }
+
     std::shared_ptr<RetrieveClient> retrieve_client;
     std::shared_ptr<SetClient> set_client;
     std::shared_ptr<DeleteClient> delete_client;

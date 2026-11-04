@@ -707,14 +707,17 @@ void Manager::refuse_pinned_start(
     status.details.cmd = cmd.key;
     // The live instance runs on as it was, so the status keeps the stored running state
     // and config hash.
-    auto [stored, err] = this->rack.tasks.retrieve(tsk.key, {.include_status = true});
-    if (err) {
+    auto [stored, err] = this->ctx->client->statuses
+                             .retrieve_by_owner<synnax::task::StatusDetails>(
+                                 *status.owner
+                             );
+    if (err && !err.matches(x::errors::NOT_FOUND)) {
         LOG(ERROR) << "failed to retrieve status of task " << tsk << ": " << err;
         return;
     }
-    if (stored.status.has_value()) {
-        status.details.running = stored.status->details.running;
-        status.details.config_hash = stored.status->details.config_hash;
+    if (!err) {
+        status.details.running = stored.details.running;
+        status.details.config_hash = stored.details.config_hash;
     }
     this->ctx->set_status(status);
 }

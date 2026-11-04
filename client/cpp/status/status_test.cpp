@@ -183,6 +183,35 @@ TEST(StatusTest, SetOwnedStatusUpdatesOwnerStatus) {
     EXPECT_EQ(retrieved.variant, synnax::status::VARIANT_WARNING);
 }
 
+/// @brief it should retrieve the status that an owner holds.
+TEST(StatusTest, RetrieveByOwner) {
+    const auto client = new_test_client();
+    auto r = synnax::rack::Rack{.name = "status_retrieve_owner_rack"};
+    ASSERT_NIL(client.racks.create(r));
+    Status<x::json::json> s;
+    s.variant = synnax::status::VARIANT_INFO;
+    s.message = "Owned";
+    s.time = x::telem::TimeStamp::now();
+    s.owner = synnax::rack::resource_id(r.key);
+    ASSERT_NIL(client.statuses.set(s));
+    const auto retrieved = ASSERT_NIL_P(
+        client.statuses.retrieve_by_owner(synnax::rack::resource_id(r.key))
+    );
+    EXPECT_EQ(retrieved.key, s.key);
+    EXPECT_EQ(retrieved.message, "Owned");
+}
+
+/// @brief it should return a not found error for an owner that holds no status.
+TEST(StatusTest, RetrieveByOwnerNotFound) {
+    const auto client = new_test_client();
+    ASSERT_OCCURRED_AS_P(
+        client.statuses.retrieve_by_owner(
+            synnax::resource::ID{.type = "task", .key = x::uuid::create().to_string()}
+        ),
+        x::errors::NOT_FOUND
+    );
+}
+
 /// @brief it should return a not found error for non-existent status.
 TEST(StatusTest, RetrieveNonExistentStatus) {
     const auto client = new_test_client();
