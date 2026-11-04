@@ -334,7 +334,7 @@ Reach for these, in order of how close they are to production:
 | Component/hook that hits data, against a live cluster | `createConsoleWrapper({ client })` + `renderHook`/`render`                  | `@/testutil` + `createTestClient()`                          |
 | Component/hook needing the provider stack, no network | `renderWithConsole` / `renderHookWithConsole`                               | `@/testutil`                                                 |
 | A deep-link resource hook                             | `renderLinkHook`                                                            | `@/testutil`                                                 |
-| Pure reducer/selector                                 | minimal single-slice `configureStore` inline                                | `@reduxjs/toolkit`                                           |
+| Pure reducer/selector                                 | minimal single-slice `createMinimalStore` inline                            | `@/testutil`                                                 |
 | Flux queries without console slices                   | `createSynnaxWrapper` / `createAsyncSynnaxWrapper`                          | `@/testutil`                                                 |
 | Modal opener/prompt hooks                             | `renderModalOpener` / `renderModalHook` / `closeOf` / `findButton`          | `@/platform/modals/testutil`                                 |
 | Virtualized list rendering (needs fake sizes)         | automatic, no pixel asserts anywhere                                        | `@/testutil/setuptests`                                      |

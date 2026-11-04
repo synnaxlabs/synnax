@@ -10,7 +10,7 @@
 import { type channel } from "@synnaxlabs/client";
 import { Form } from "@synnaxlabs/lyra/form";
 import { Input } from "@synnaxlabs/lyra/input";
-import { type notation } from "@synnaxlabs/x";
+import { deep, type notation } from "@synnaxlabs/x";
 import { type ReactElement } from "react";
 
 import { Channel } from "@/channel";
@@ -24,9 +24,11 @@ interface ValueTelemFormT {
   notation?: notation.Notation;
 }
 
+const path = deep.path<ValueTelemFormT>();
+
 /** TelemForm renders telemetry sections; place it inside `Form.Sections`. */
 export const TelemForm = (): ReactElement => {
-  const { value, onChange } = Form.useField<ValueTelemFormT>("");
+  const { value, onChange } = Form.useField(path);
 
   const handleSourceChange = (key: channel.Key | null): void =>
     onChange({ ...value, channel: key ?? undefined });

@@ -7,10 +7,10 @@
 #  License, use of this software will be governed by the Apache License, Version 2.0,
 #  included in the file licenses/APL.txt.
 
-from typing import Any, Literal
+from typing import Literal, Unpack
 
 from console.layout import LayoutClient
-from console.task.channels.analog import Analog
+from console.task.channels.analog import Analog, Options
 
 
 class Current(Analog):
@@ -31,13 +31,13 @@ class Current(Analog):
 
     def __init__(
         self,
-        *,
         layout: LayoutClient,
         name: str,
         device: str,
-        shunt_resistor: Literal["DefaultInternalExternal"] | None = None,
+        *,
+        shunt_resistor: Literal["Default", "Internal", "External"] | None = None,
         resistance: float | None = None,
-        **kwargs: Any,
+        **kwargs: Unpack[Options],
     ) -> None:
         super().__init__(
             layout=layout,

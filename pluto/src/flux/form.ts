@@ -358,13 +358,14 @@ export const createForm = <
       onHasTouched,
       mode,
     });
-    const noNotifySet = (path: string, value: unknown, options?: Form.SetOptions) =>
+    const noNotifySet: Form.SetFunc = (path, value, options) =>
       form.set(path, value, { ...options, ...DEFAULT_SET_OPTIONS });
     const pendingPaths = () => new Set([...unsaved.current, ...sending.current]);
-    const listenerSet = (path: string, value: unknown, options?: Form.SetOptions) => {
+    const listenerSet: Form.SetFunc = (target, value, options) => {
+      const path = String(target);
       const pending = pendingPaths();
       if (covers(pending, path)) return;
-      noNotifySet(path, keepPending(form.value(), path, value, pending), options);
+      noNotifySet(target, keepPending(form.value(), path, value, pending), options);
     };
     const resetKeeping = (pending: () => Set<string>) => (next?: z.infer<Schema>) =>
       form.reset(next == null ? next : keepPending(form.value(), "", next, pending()));
