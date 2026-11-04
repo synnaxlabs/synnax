@@ -12,7 +12,6 @@ package kafka
 import (
 	"bytes"
 	"encoding/json/jsontext"
-	"encoding/json/v2"
 	"io"
 	"strconv"
 
@@ -25,9 +24,13 @@ type pathNode struct {
 	fields []int
 	// names holds the next step by object member name.
 	names map[string]*pathNode
-	// indexes holds the next steps by array index. A pointer token such as "01" and
+	// tokens holds the steps array index tokens take. A pointer token such as "01" and
 	// "1" both address index 1, so one index can hold several steps.
-	indexes map[int][]*pathNode
+	tokens map[int][]*pathNode
+	// elements holds the next step by array index, merged from tokens.
+	elements map[int]*pathNode
+	// children is this node without its fields, for walking a value already read.
+	children *pathNode
 }
 
 func (n *pathNode) child(token string) *pathNode {
@@ -39,142 +42,33 @@ func (n *pathNode) child(token string) *pathNode {
 		c = &pathNode{}
 		n.names[token] = c
 		if i, err := strconv.Atoi(token); err == nil && i >= 0 {
-			if n.indexes == nil {
-				n.indexes = make(map[int][]*pathNode)
+			if n.tokens == nil {
+				n.tokens = make(map[int][]*pathNode)
 			}
-			n.indexes[i] = append(n.indexes[i], c)
+			n.tokens[i] = append(n.tokens[i], c)
 		}
 	}
 	return c
 }
 
-// extractor resolves a fixed set of JSON pointers in one pass over a document. It
-// decodes only the values the pointers address and skips the rest. It is not safe
-// for concurrent use.
-type extractor struct {
-	root pathNode
-	// errs[i] is the error of the malformed pointer of field i.
-	errs   []error
-	reader bytes.Reader
-	dec    jsontext.Decoder
-}
-
-func newExtractor(pointers []string) *extractor {
-	e := &extractor{errs: make([]error, len(pointers))}
-	for i, p := range pointers {
-		tokens, err := pointerTokens(p)
-		if err != nil {
-			e.errs[i] = err
-			continue
-		}
-		n := &e.root
-		for _, t := range tokens {
-			n = n.child(t)
-		}
-		n.fields = append(n.fields, i)
+// resolve computes the walk's lookups for n and every node below it.
+func (n *pathNode) resolve() {
+	for _, c := range n.names {
+		c.resolve()
 	}
-	return e
-}
-
-// extract resolves every pointer in doc into values and found, which must have one
-// entry per pointer. A value is decoded as json.Unmarshal into an any would, with
-// integers as int64 or uint64. It returns an error when doc is not one valid JSON
-// document.
-func (e *extractor) extract(doc []byte, values []any, found []bool) error {
-	clear(found)
-	e.reader.Reset(doc)
-	// Names the pointers do not address may repeat; a repeated addressed value is
-	// caught in walk.
-	e.dec.Reset(&e.reader, jsontext.AllowDuplicateNames(true))
-	if err := e.walk(&e.dec, &e.root, values, found); err != nil {
-		return err
+	if n.tokens != nil {
+		n.elements = make(map[int]*pathNode, len(n.tokens))
 	}
-	if _, err := e.dec.ReadToken(); err != io.EOF {
-		if err == nil {
-			err = errors.New("unexpected data after the top-level value")
+	for i, cs := range n.tokens {
+		c := cs[0]
+		if len(cs) > 1 {
+			c = merge(cs)
+			c.resolve()
 		}
-		return err
+		n.elements[i] = c
 	}
-	return nil
-}
-
-func (e *extractor) walk(
-	dec *jsontext.Decoder,
-	n *pathNode,
-	values []any,
-	found []bool,
-) error {
-	if len(n.fields) > 0 {
-		raw, err := dec.ReadValue()
-		if err != nil {
-			return err
-		}
-		v, err := decodeValue(raw)
-		if err != nil {
-			return err
-		}
-		for _, f := range n.fields {
-			if found[f] {
-				return errors.Newf("duplicate value at %s", dec.StackPointer())
-			}
-			values[f], found[f] = v, true
-		}
-		if n.names == nil {
-			return nil
-		}
-		sub := jsontext.NewDecoder(bytes.NewReader(raw))
-		return e.walk(sub, &pathNode{names: n.names, indexes: n.indexes}, values, found)
-	}
-	switch dec.PeekKind() {
-	case '{':
-		if n.names == nil {
-			return dec.SkipValue()
-		}
-		if _, err := dec.ReadToken(); err != nil {
-			return err
-		}
-		for dec.PeekKind() != '}' {
-			name, err := dec.ReadToken()
-			if err != nil {
-				return err
-			}
-			if c, ok := n.names[name.String()]; ok {
-				err = e.walk(dec, c, values, found)
-			} else {
-				err = dec.SkipValue()
-			}
-			if err != nil {
-				return err
-			}
-		}
-		_, err := dec.ReadToken()
-		return err
-	case '[':
-		if n.indexes == nil {
-			return dec.SkipValue()
-		}
-		if _, err := dec.ReadToken(); err != nil {
-			return err
-		}
-		for i := 0; dec.PeekKind() != ']'; i++ {
-			cs := n.indexes[i]
-			var err error
-			switch len(cs) {
-			case 0:
-				err = dec.SkipValue()
-			case 1:
-				err = e.walk(dec, cs[0], values, found)
-			default:
-				err = e.walk(dec, merge(cs), values, found)
-			}
-			if err != nil {
-				return err
-			}
-		}
-		_, err := dec.ReadToken()
-		return err
-	default:
-		return dec.SkipValue()
+	if len(n.fields) > 0 && n.names != nil {
+		n.children = &pathNode{names: n.names, elements: n.elements}
 	}
 }
 
@@ -192,36 +86,190 @@ func merge(nodes []*pathNode) *pathNode {
 			}
 			m.names[name] = c
 		}
-		for i, cs := range n.indexes {
-			if m.indexes == nil {
-				m.indexes = make(map[int][]*pathNode)
+		for i, cs := range n.tokens {
+			if m.tokens == nil {
+				m.tokens = make(map[int][]*pathNode)
 			}
-			m.indexes[i] = append(m.indexes[i], cs...)
+			m.tokens[i] = append(m.tokens[i], cs...)
 		}
 	}
 	return m
 }
 
-// decodeValue decodes one JSON value as json.Unmarshal into an any does, keeping
-// integers as int64 or uint64.
-func decodeValue(raw jsontext.Value) (any, error) {
-	switch raw.Kind() {
-	case '0':
-		return parseNumber(string(raw))
-	case 't':
-		return true, nil
-	case 'f':
-		return false, nil
-	case 'n':
-		return nil, nil
-	case '"':
-		s, err := jsontext.AppendUnquote(nil, raw)
-		return string(s), err
+// documentDecoder decodes one JSON document held in memory.
+type documentDecoder struct {
+	doc []byte
+	buf bytes.Buffer
+	dec jsontext.Decoder
+}
+
+func (d *documentDecoder) reset(doc []byte, opts []jsontext.Options) {
+	d.doc = doc
+	d.buf = *bytes.NewBuffer(doc)
+	d.dec.Reset(&d.buf, opts...)
+}
+
+// readValue reads the next value, returned as a slice of doc that stays valid across
+// later reads, unlike the slice the decoder returns.
+func (d *documentDecoder) readValue() (jsontext.Value, error) {
+	raw, err := d.dec.ReadValue()
+	if err != nil {
+		return nil, err
+	}
+	end := d.dec.InputOffset()
+	return jsontext.Value(d.doc[end-int64(len(raw)) : end]), nil
+}
+
+// extractor resolves a fixed set of JSON pointers in one pass over a document. It
+// neither copies nor decodes the values the pointers address. It is not safe for
+// concurrent use.
+type extractor struct {
+	root *pathNode
+	// errs[i] is the error of the malformed pointer of field i.
+	errs []error
+	// decoders[i] decodes at nesting level i. A pointer that addresses a value inside
+	// another pointer's value adds a level.
+	decoders []*documentDecoder
+	// opts allow repeats of the names no pointer addresses. A repeated addressed
+	// value is caught in walk.
+	opts []jsontext.Options
+	// name is scratch space for an object member name holding an escape.
+	name []byte
+}
+
+func newExtractor(pointers []string) *extractor {
+	e := &extractor{
+		root:     &pathNode{},
+		errs:     make([]error, len(pointers)),
+		decoders: []*documentDecoder{{}},
+		opts:     []jsontext.Options{jsontext.AllowDuplicateNames(true)},
+	}
+	for i, p := range pointers {
+		tokens, err := pointerTokens(p)
+		if err != nil {
+			e.errs[i] = err
+			continue
+		}
+		n := e.root
+		for _, t := range tokens {
+			n = n.child(t)
+		}
+		n.fields = append(n.fields, i)
+	}
+	e.root.resolve()
+	return e
+}
+
+// extract resolves every pointer in doc into values, which must have one zeroed entry
+// per pointer. A pointer doc does not hold leaves its entry nil. Each value is a slice
+// of doc. It returns an error when doc is not one valid JSON document.
+func (e *extractor) extract(doc []byte, values []jsontext.Value) error {
+	d := e.decoders[0]
+	d.reset(doc, e.opts)
+	if err := e.walk(d, e.root, values, 0); err != nil {
+		return err
+	}
+	if _, err := d.dec.ReadToken(); err != io.EOF {
+		if err == nil {
+			err = errors.New("unexpected data after the top-level value")
+		}
+		return err
+	}
+	return nil
+}
+
+func (e *extractor) walk(
+	d *documentDecoder,
+	n *pathNode,
+	values []jsontext.Value,
+	level int,
+) error {
+	if len(n.fields) > 0 {
+		raw, err := d.readValue()
+		if err != nil {
+			return err
+		}
+		for _, f := range n.fields {
+			if values[f] != nil {
+				return errors.Newf("duplicate value at %s", d.dec.StackPointer())
+			}
+			values[f] = raw
+		}
+		if n.children == nil {
+			return nil
+		}
+		level++
+		if level == len(e.decoders) {
+			e.decoders = append(e.decoders, &documentDecoder{})
+		}
+		sub := e.decoders[level]
+		sub.reset(raw, e.opts)
+		return e.walk(sub, n.children, values, level)
+	}
+	dec := &d.dec
+	switch dec.PeekKind() {
+	case '{':
+		if n.names == nil {
+			return dec.SkipValue()
+		}
+		if _, err := dec.ReadToken(); err != nil {
+			return err
+		}
+		for dec.PeekKind() != '}' {
+			name, err := dec.ReadValue()
+			if err != nil {
+				return err
+			}
+			c, err := e.member(n, name)
+			if err != nil {
+				return err
+			}
+			if c != nil {
+				err = e.walk(d, c, values, level)
+			} else {
+				err = dec.SkipValue()
+			}
+			if err != nil {
+				return err
+			}
+		}
+		_, err := dec.ReadToken()
+		return err
+	case '[':
+		if n.elements == nil {
+			return dec.SkipValue()
+		}
+		if _, err := dec.ReadToken(); err != nil {
+			return err
+		}
+		for i := 0; dec.PeekKind() != ']'; i++ {
+			var err error
+			if c, ok := n.elements[i]; ok {
+				err = e.walk(d, c, values, level)
+			} else {
+				err = dec.SkipValue()
+			}
+			if err != nil {
+				return err
+			}
+		}
+		_, err := dec.ReadToken()
+		return err
 	default:
-		var v any
-		if err := json.Unmarshal(raw, &v, preciseNumbers); err != nil {
+		return dec.SkipValue()
+	}
+}
+
+// member returns the step n takes on the object member with the quoted name, or nil
+// when no pointer addresses it.
+func (e *extractor) member(n *pathNode, quoted jsontext.Value) (*pathNode, error) {
+	name := quoted[1 : len(quoted)-1]
+	if bytes.IndexByte(name, '\\') >= 0 {
+		var err error
+		if e.name, err = jsontext.AppendUnquote(e.name[:0], quoted); err != nil {
 			return nil, err
 		}
-		return v, nil
+		name = e.name
 	}
+	return n.names[string(name)], nil
 }

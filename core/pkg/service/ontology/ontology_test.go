@@ -46,8 +46,7 @@ func (*emittingService) RetrieveResource(
 func (*emittingService) Search(
 	context.Context,
 	gorp.Tx,
-	string,
-	int,
+	search.Query[ontology.ID],
 ) (search.Result[ontology.ID], error) {
 	return search.Result[ontology.ID]{}, nil
 }
@@ -73,8 +72,7 @@ func (*textService) RetrieveResource(
 func (s *textService) Search(
 	_ context.Context,
 	tx gorp.Tx,
-	term string,
-	limit int,
+	q search.Query[ontology.ID],
 ) (search.Result[ontology.ID], error) {
 	s.tx = tx
 	if s.err != nil {
@@ -84,9 +82,13 @@ func (s *textService) Search(
 	for _, k := range s.keys {
 		idx.Set(k, k)
 	}
-	return search.MapKeys(idx.Search(term, limit), func(k string) ontology.ID {
-		return ontology.ID{Type: s.typ, Key: k}
-	}), nil
+	id := func(k string) ontology.ID { return ontology.ID{Type: s.typ, Key: k} }
+	res := idx.Search(search.Query[string]{
+		Term:   q.Term,
+		Except: func(k string) bool { return q.Except != nil && q.Except(id(k)) },
+		Limit:  q.Limit,
+	})
+	return search.MapKeys(res, id), nil
 }
 
 var _ = Describe("Ontology", func() {
@@ -221,7 +223,9 @@ var _ = Describe("Ontology", func() {
 				typ:  ontology.ResourceTypeRack,
 				keys: []string{"turbopump", "valve"},
 			})
-			Expect(o.Search(ctx, nil, "turbopump")).To(Equal([]ontology.ID{
+			Expect(
+				o.Search(ctx, nil, ontology.SearchQuery{Term: "turbopump"}),
+			).To(Equal([]ontology.ID{
 				{Type: ontology.ResourceTypeRack, Key: "turbopump"},
 				{Type: ontology.ResourceTypeUser, Key: "turbopump inlet"},
 			}))
@@ -234,21 +238,23 @@ var _ = Describe("Ontology", func() {
 			o.RegisterService(
 				&textService{typ: ontology.ResourceTypeRack, keys: valves(80)},
 			)
-			Expect(o.Search(ctx, nil, "valve")).To(HaveLen(100))
+			Expect(
+				o.Search(ctx, nil, ontology.SearchQuery{Term: "valve"}),
+			).To(HaveLen(100))
 		})
 
 		It("Should match no builtin resource", func(ctx SpecContext) {
-			Expect(o.Search(ctx, nil, "root")).To(BeEmpty())
+			Expect(o.Search(ctx, nil, ontology.SearchQuery{Term: "root"})).To(BeEmpty())
 		})
 
 		It("Should pass tx to every service, or the DB when tx is nil",
 			func(ctx SpecContext) {
 				svc := &textService{typ: ontology.ResourceTypeUser}
 				o.RegisterService(svc)
-				MustSucceed(o.Search(ctx, nil, "valve"))
+				MustSucceed(o.Search(ctx, nil, ontology.SearchQuery{Term: "valve"}))
 				Expect(svc.tx).To(BeIdenticalTo(d))
 				tx := DeferClose(d.OpenTx())
-				MustSucceed(o.Search(ctx, tx, "valve"))
+				MustSucceed(o.Search(ctx, tx, ontology.SearchQuery{Term: "valve"}))
 				Expect(svc.tx).To(BeIdenticalTo(tx))
 			})
 
@@ -262,15 +268,133 @@ var _ = Describe("Ontology", func() {
 					typ:  ontology.ResourceTypeUser,
 					keys: []string{"valve inlet"},
 				})
-				Expect(o.Search(ctx, nil, "valve")).To(Equal([]ontology.ID{
+				Expect(
+					o.Search(ctx, nil, ontology.SearchQuery{Term: "valve"}),
+				).To(Equal([]ontology.ID{
 					{Type: ontology.ResourceTypeUser, Key: "valve"},
 				}))
 			})
 
+		It(
+			"Should search only the services for the given types",
+			func(ctx SpecContext) {
+				o.RegisterService(&textService{
+					typ:  ontology.ResourceTypeUser,
+					keys: []string{"valve"},
+				})
+				o.RegisterService(&textService{
+					typ:  ontology.ResourceTypeRack,
+					keys: []string{"valve"},
+				})
+				Expect(o.Search(ctx, nil, ontology.SearchQuery{
+					Term:  "valve",
+					Types: []ontology.ResourceType{ontology.ResourceTypeRack},
+				})).To(Equal([]ontology.ID{{Type: ontology.ResourceTypeRack, Key: "valve"}}))
+			},
+		)
+
+		It(
+			"Should page through the matches with Limit and Offset",
+			func(ctx SpecContext) {
+				o.RegisterService(&textService{
+					typ:  ontology.ResourceTypeUser,
+					keys: []string{"valve", "valve inlet", "valve inlet feed"},
+				})
+				id := func(key string) ontology.ID {
+					return ontology.ID{Type: ontology.ResourceTypeUser, Key: key}
+				}
+				Expect(
+					o.Search(ctx, nil, ontology.SearchQuery{Term: "valve", Limit: 2}),
+				).
+					To(Equal([]ontology.ID{id("valve"), id("valve inlet")}))
+				Expect(o.Search(ctx, nil, ontology.SearchQuery{
+					Term:   "valve",
+					Limit:  2,
+					Offset: 2,
+				})).To(Equal([]ontology.ID{id("valve inlet feed")}))
+				Expect(
+					o.Search(ctx, nil, ontology.SearchQuery{Term: "valve", Offset: 5}),
+				).
+					To(BeEmpty())
+			},
+		)
+
+		It("Should reject a negative limit or offset", func(ctx SpecContext) {
+			Expect(o.Search(ctx, nil, ontology.SearchQuery{Term: "valve", Limit: -1})).
+				Error().To(MatchError("limit: must be greater than or equal to 0"))
+			Expect(o.Search(ctx, nil, ontology.SearchQuery{Term: "valve", Offset: -1})).
+				Error().To(MatchError("offset: must be greater than or equal to 0"))
+		})
+
+		It("Should keep only the descendants of Root", func(ctx SpecContext) {
+			o.RegisterService(&textService{
+				typ:  ontology.ResourceTypeUser,
+				keys: []string{"valve a", "valve b", "valve c", "valve root"},
+			})
+			id := func(key string) ontology.ID {
+				return ontology.ID{Type: ontology.ResourceTypeUser, Key: key}
+			}
+			group := ontology.ID{Type: ontology.ResourceTypeGroup, Key: "group"}
+			w := o.NewWriter(nil)
+			Expect(w.DefineResources(
+				ctx,
+				id("valve a"),
+				id("valve b"),
+				id("valve c"),
+				id("valve root"),
+				group,
+			)).To(Succeed())
+			Expect(w.DefineRelationships(
+				ctx, id("valve root"), ontology.RelationshipTypeParentOf, group,
+			)).To(Succeed())
+			Expect(w.DefineRelationships(
+				ctx, group, ontology.RelationshipTypeParentOf, id("valve a"),
+			)).To(Succeed())
+			Expect(w.DefineRelationships(
+				ctx, id("valve root"), ontology.RelationshipTypeParentOf, id("valve b"),
+			)).To(Succeed())
+			Expect(o.Search(ctx, nil, ontology.SearchQuery{
+				Term:  "valve",
+				Root:  id("valve root"),
+				Limit: 1,
+			})).To(Equal([]ontology.ID{id("valve a")}))
+			Expect(o.Search(ctx, nil, ontology.SearchQuery{
+				Term: "valve",
+				Root: id("valve root"),
+			})).To(Equal([]ontology.ID{id("valve a"), id("valve b")}))
+		})
+
+		It(
+			"Should return a partial match under Root when a full match is outside it",
+			func(ctx SpecContext) {
+				o.RegisterService(&textService{
+					typ:  ontology.ResourceTypeUser,
+					keys: []string{"pressure", "pressure tank", "root"},
+				})
+				id := func(key string) ontology.ID {
+					return ontology.ID{Type: ontology.ResourceTypeUser, Key: key}
+				}
+				w := o.NewWriter(nil)
+				Expect(w.DefineResources(
+					ctx, id("pressure"), id("pressure tank"), id("root"),
+				)).To(Succeed())
+				Expect(w.DefineRelationships(
+					ctx, id("root"), ontology.RelationshipTypeParentOf, id("pressure"),
+				)).To(Succeed())
+				Expect(o.Search(ctx, nil, ontology.SearchQuery{
+					Term: "pressure tank",
+					Root: id("root"),
+				})).To(Equal([]ontology.ID{id("pressure")}))
+			},
+		)
+
 		It("Should return the error of a service", func(ctx SpecContext) {
 			err := errors.New("search failed")
 			o.RegisterService(&textService{typ: ontology.ResourceTypeUser, err: err})
-			Expect(o.Search(ctx, nil, "valve")).Error().To(MatchError(err))
+			Expect(
+				o.Search(ctx, nil, ontology.SearchQuery{Term: "valve"}),
+			).Error().
+				To(MatchError(err))
 		})
 	})
 

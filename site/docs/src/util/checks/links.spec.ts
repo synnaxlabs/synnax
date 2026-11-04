@@ -71,6 +71,16 @@ describe("links", () => {
     });
   });
 
+  it.each([
+    "https://synnaxlabs.com/",
+    "https://www.synnaxlabs.com/company",
+    "https://portal.synnaxlabs.com/login",
+  ])("should not fetch %s", async (href) => {
+    const { failures, fetched } = await run(href, [href]);
+    expect(failures).toEqual([]);
+    expect(fetched).not.toContain(href);
+  });
+
   it("should fetch a link to another host as an external URL", async () => {
     const href = "https://example.com/page";
     const { failures, fetched } = await run(href, [href]);
