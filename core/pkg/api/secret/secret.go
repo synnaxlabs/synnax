@@ -342,7 +342,8 @@ type GrantCreateResponse struct {
 }
 
 // CreateGrant creates a grant that lets the rack read the secrets until the caller's
-// session ends or the grant is deleted. It requires create access on devices.
+// session ends or the grant is deleted. Only a user with create access on devices may
+// call it.
 func (s *Service) CreateGrant(
 	ctx context.Context,
 	tx gorp.Tx,
@@ -369,8 +370,8 @@ type GrantDeleteRequest struct {
 	Grants []grant.Key `json:"grants" msgpack:"grants"`
 }
 
-// DeleteGrants deletes the grants. Unknown keys are ignored. It requires create access
-// on devices.
+// DeleteGrants deletes the grants. Unknown keys are ignored. Only a user with create
+// access on devices may call it.
 func (s *Service) DeleteGrants(
 	ctx context.Context,
 	tx gorp.Tx,
@@ -382,9 +383,15 @@ func (s *Service) DeleteGrants(
 	return struct{}{}, s.grants.NewWriter(tx).Delete(ctx, req.Grants...)
 }
 
+var errGrantSubject = errors.Wrap(access.ErrDenied, "only a user can grant secrets")
+
 func (s *Service) enforceGrant(ctx context.Context, tx gorp.Tx) error {
+	subject := auth.GetSubject(ctx)
+	if subject.Type != ontology.ResourceTypeUser {
+		return errGrantSubject
+	}
 	return s.access.NewEnforcer(tx).Enforce(ctx, access.Request{
-		Subject: auth.GetSubject(ctx),
+		Subject: subject,
 		Action:  access.ActionCreate,
 		Objects: []ontology.ID{{Type: ontology.ResourceTypeDevice}},
 	})
