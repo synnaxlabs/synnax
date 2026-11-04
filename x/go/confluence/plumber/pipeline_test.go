@@ -23,6 +23,16 @@ import (
 	. "github.com/synnaxlabs/x/testutil"
 )
 
+// lateSource flows after a pause, so that a source that flowed first can exit.
+type lateSource struct {
+	*confluence.LinearTransform[int, int]
+}
+
+func (s *lateSource) Flow(ctx signal.Context, opts ...confluence.Option) {
+	time.Sleep(time.Millisecond)
+	s.LinearTransform.Flow(ctx, opts...)
+}
+
 var _ = Describe("Pipeline", func() {
 	var pipe *Pipeline
 	BeforeEach(func() { pipe = New() })
@@ -39,6 +49,53 @@ var _ = Describe("Pipeline", func() {
 			pipe.SetSink("sink", unarySink)
 			sink := MustSucceed(pipe.GetSink[int]("sink"))
 			Expect(sink).To(Equal(unarySink))
+		})
+	})
+
+	Describe("Shared outlets", func() {
+		// flowOnCanceled flows sources that share one stream on a canceled context,
+		// each
+		// with a value to send, and returns the error of the pipeline.
+		flowOnCanceled := func(sources int) error {
+			GinkgoHelper()
+			var (
+				pipe  = New()
+				addrs = make([]address.Address, sources)
+			)
+			for i := range sources {
+				addrs[i] = address.Newf("source_%d", i)
+				t := &confluence.LinearTransform[int, int]{}
+				t.Transform = func(_ context.Context, v int) (int, bool, error) {
+					return v, true, nil
+				}
+				in := confluence.NewStream[int](1)
+				in.Inlet() <- i
+				t.InFrom(in)
+				pipe.SetSource(addrs[i], &lateSource{t})
+			}
+			pipe.SetSink("sink", &confluence.UnarySink[int]{
+				Sink: func(context.Context, int) error { return nil },
+			})
+			MultiRouter[int]{
+				SourceTargets: addrs,
+				SinkTargets:   []address.Address{"sink"},
+				Capacity:      sources,
+				Stitch:        StitchUnary,
+			}.MustRoute(pipe)
+			sCtx, cancel := signal.Isolated()
+			cancel()
+			pipe.Flow(
+				sCtx,
+				confluence.CloseOutputInletsOnExit(),
+				confluence.RecoverWithErrOnPanic(),
+			)
+			return sCtx.Wait()
+		}
+
+		It("Should stay open until every source has flowed", func() {
+			for range 100 {
+				Expect(flowOnCanceled(2)).To(MatchError(context.Canceled))
+			}
 		})
 	})
 

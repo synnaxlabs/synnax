@@ -1650,10 +1650,10 @@ var _ = Describe("Iterator Behavior", func() {
 							[]cesium.ChannelKey{key},
 							[]telem.Series{telem.NewSeriesSecondsTSV(10, 11, 12)},
 						))).To(Succeed())
-						// A cancel races the sends, so one attempt can end without an
-						// ack
-						// or with the data sent. It reports whether the send failed.
+						// A cancel races the sends, so an attempt may prove nothing. It
+						// reports whether the send failed.
 						attempt := func() bool {
+							GinkgoHelper()
 							iter := MustSucceed(
 								subDB.NewStreamIterator(cesium.IteratorConfig{
 									Bounds:   telem.TimeRangeMax,
@@ -1688,13 +1688,25 @@ var _ = Describe("Iterator Behavior", func() {
 							}).Should(BeZero())
 							cancel()
 							failed := false
-							for res := range responses.Outlet() {
-								if res.Err != nil {
-									Expect(res.Err).To(MatchError(context.Canceled))
-									Expect(res.Ack).To(BeFalse())
-									failed = true
+							Eventually(func() bool {
+								for {
+									select {
+									case res, ok := <-responses.Outlet():
+										if !ok {
+											return true
+										}
+										if res.Err != nil {
+											Expect(
+												res.Err,
+											).To(MatchError(context.Canceled))
+											Expect(res.Ack).To(BeFalse())
+											failed = true
+										}
+									default:
+										return false
+									}
 								}
-							}
+							}).Should(BeTrue())
 							Expect(sCtx.Wait()).To(MatchError(context.Canceled))
 							return failed
 						}
