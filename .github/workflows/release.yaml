@@ -315,9 +315,12 @@ jobs:
             needs.resolve.outputs.core_driver_version }}).
           prerelease: ${{ inputs.prerelease }}
 
+  # A job with no status check skips when any ancestor skipped, so each job after
+  # draft-core has its own. Without one, a run with no Console or Driver skips the Core.
   build-core:
     name: Build Core
     needs: [resolve, draft-core]
+    if: ${{ !cancelled() && needs.draft-core.result == 'success' }}
     uses: ./.github/workflows/build.synnax.yaml
     permissions:
       actions: read
@@ -343,6 +346,7 @@ jobs:
   windows-installer:
     name: Build Windows installer
     needs: [resolve, build-core]
+    if: ${{ !cancelled() && needs.build-core.result == 'success' }}
     runs-on: windows-latest
     env:
       TAG: ${{ needs.resolve.outputs.core_tag }}
@@ -395,6 +399,7 @@ jobs:
   publish-core:
     name: Publish Core
     needs: [resolve, build-core, windows-installer]
+    if: ${{ !cancelled() && needs.windows-installer.result == 'success' }}
     runs-on: ubuntu-latest
     env:
       TAG: ${{ needs.resolve.outputs.core_tag }}
