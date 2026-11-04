@@ -9,7 +9,7 @@
 
 import { Icon } from "@synnaxlabs/lyra/icon";
 import { Input } from "@synnaxlabs/lyra/input";
-import { Text } from "@synnaxlabs/lyra/text";
+import { plural } from "pluralize";
 import { type ReactElement, useState } from "react";
 
 import { useContext, useFormContext } from "@/platform/view/context";
@@ -32,7 +32,7 @@ export const Search = (): ReactElement | null => {
       variant="text"
       value={value}
       onChange={handleChange}
-      placeholder={`Search ${Text.plural(resourceType)}...`}
+      placeholder={`Search ${plural(resourceType)}...`}
     />
   );
 };
