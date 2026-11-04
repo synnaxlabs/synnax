@@ -18,7 +18,9 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/service/auth"
 	"github.com/synnaxlabs/synnax/pkg/service/ontology"
 	"github.com/synnaxlabs/synnax/pkg/service/rack"
+	"github.com/synnaxlabs/synnax/pkg/service/status"
 	"github.com/synnaxlabs/x/query"
+	"github.com/synnaxlabs/x/telem"
 	. "github.com/synnaxlabs/x/testutil"
 )
 
@@ -33,6 +35,41 @@ func retrieveRack(ctx SpecContext, key rack.Key) rack.Rack {
 }
 
 var _ = Describe("Create", func() {
+	It("Should reply with the status of a new rack", func(ctx SpecContext) {
+		u := createUser(ctx)
+		grant(
+			ctx,
+			access.ActionCreate,
+			u.OntologyID(),
+			ontology.ID{Type: ontology.ResourceTypeRack},
+		)
+		res := MustSucceed(apiSvc.Create(
+			AuthedCtx(ctx, u), nil,
+			apirack.CreateRequest{Racks: []rack.Rack{{Name: "New"}}},
+		))
+		Expect(res.Racks).To(HaveLen(1))
+		r := res.Racks[0]
+		Expect(r.Status).ToNot(BeNil())
+		Expect(r.Status.Key).To(Equal(rack.StatusKey(r.Key)))
+		Expect(r.Status.Variant).To(Equal(status.VariantWarning))
+	})
+	It("Should reply with the live status of an existing rack", func(ctx SpecContext) {
+		r := rack.Rack{Name: "Existing"}
+		Expect(svc.Rack.NewWriter(nil).Create(ctx, &r)).To(Succeed())
+		Expect(svc.Status.NewWriter(nil).Set(ctx, &rack.Status{
+			Key:     rack.StatusKey(r.Key),
+			Name:    r.Name,
+			Time:    telem.Now(),
+			Variant: status.VariantSuccess,
+			Message: "Rack is running",
+			Details: rack.StatusDetails{Rack: r.Key},
+		})).To(Succeed())
+		res := MustSucceed(apiSvc.Create(
+			SubjectCtx(ctx, r.OntologyID()), nil,
+			apirack.CreateRequest{Racks: []rack.Rack{r}},
+		))
+		Expect(res.Racks[0].Status.Message).To(Equal("Rack is running"))
+	})
 	It("Should let a rack with the Driver role save itself", func(ctx SpecContext) {
 		r := rack.Rack{Name: "Self"}
 		Expect(svc.Rack.NewWriter(nil).Create(ctx, &r)).To(Succeed())

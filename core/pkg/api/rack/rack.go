@@ -137,7 +137,34 @@ func (s *Service) Create(
 	if err := s.rack.NewWriter(tx).CreateMany(ctx, &req.Racks); err != nil {
 		return CreateResponse{}, err
 	}
+	if err := s.attachStatuses(ctx, tx, req.Racks); err != nil {
+		return CreateResponse{}, err
+	}
 	return CreateResponse(req), nil
+}
+
+func (s *Service) attachStatuses(
+	ctx context.Context,
+	tx gorp.Tx,
+	racks []rack.Rack,
+) error {
+	ids := rack.OntologyIDsFromRacks(racks)
+	statuses := make([]rack.Status, 0, len(racks))
+	// A status row can be missing, so the resource keeps a nil status.
+	if err := errors.Skip(s.status.NewRetrieve[rack.StatusDetails]().
+		Where(status.MatchKeys[rack.StatusDetails](ontology.IDsToKeys(ids)...)).
+		Entries(&statuses).
+		Exec(ctx, tx), query.ErrNotFound); err != nil {
+		return err
+	}
+	statusByKey := make(map[status.Key]*rack.Status, len(statuses))
+	for i := range statuses {
+		statusByKey[statuses[i].Key] = &statuses[i]
+	}
+	for i, id := range ids {
+		racks[i].Status = statusByKey[id.String()]
+	}
+	return nil
 }
 
 // enforceCreate requires the update action on each rack that already exists, and the
@@ -251,21 +278,8 @@ func (s *Service) Retrieve(
 	}
 
 	if req.IncludeStatus {
-		ids := rack.OntologyIDsFromRacks(resRacks)
-		statuses := make([]rack.Status, 0, len(resRacks))
-		// A status row can be missing, so the resource keeps a nil status.
-		if err := errors.Skip(s.status.NewRetrieve[rack.StatusDetails]().
-			Where(status.MatchKeys[rack.StatusDetails](ontology.IDsToKeys(ids)...)).
-			Entries(&statuses).
-			Exec(ctx, nil), query.ErrNotFound); err != nil {
+		if err := s.attachStatuses(ctx, nil, resRacks); err != nil {
 			return RetrieveResponse{}, err
-		}
-		statusByKey := make(map[status.Key]*rack.Status, len(statuses))
-		for i := range statuses {
-			statusByKey[statuses[i].Key] = &statuses[i]
-		}
-		for i, id := range ids {
-			resRacks[i].Status = statusByKey[id.String()]
 		}
 	}
 
