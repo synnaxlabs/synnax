@@ -77,7 +77,7 @@ Liveness enum {
         @doc value "has no liveness set."
     }
     always      = 1 {
-        @doc value "keeps the scope active at all times."
+        @doc value "activates the scope with its parent."
     }
     gated       = 2 {
         @doc value "activates the scope when one of its activations fires."

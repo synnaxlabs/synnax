@@ -82,7 +82,7 @@ State enum {
         @doc value "means a license covers the Core."
     }
     missing = "missing" {
-        @doc value "means the Core has no license."
+        @doc value "means no license applies to the Core."
     }
     expired = "expired" {
         @doc value "means the license no longer covers the Core."
