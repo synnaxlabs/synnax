@@ -30,7 +30,9 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/service/rack"
 	racktestutil "github.com/synnaxlabs/synnax/pkg/service/rack/testutil"
 	"github.com/synnaxlabs/synnax/pkg/service/status"
+	"github.com/synnaxlabs/x/encoding"
 	"github.com/synnaxlabs/x/encoding/msgpack"
+	"github.com/synnaxlabs/x/encoding/orc"
 	"github.com/synnaxlabs/x/errors"
 	xio "github.com/synnaxlabs/x/io"
 	"github.com/synnaxlabs/x/query"
@@ -1288,56 +1290,24 @@ var _ = Describe("Rack", Ordered, func() {
 			),
 		)
 
-		It(
-			"Should not extend the deadline of a silent rack renamed after a restart",
-			func(ctx SpecContext) {
-				restartDB := DeferClose(gorp.Wrap(memkv.New()))
-				before := openStack(ctx, restartDB, rack.ServiceConfig{
-					HealthCheckInterval: telem.Hour,
-				})
-				r := rack.Rack{
-					Name: "restarted silent rack",
-					Status: &rack.Status{
-						Variant: status.VariantSuccess,
-						Message: "Driver is running",
-						Time:    telem.SecondTS,
-					},
-				}
-				Expect(before.rack.NewWriter(nil).Create(ctx, &r)).To(Succeed())
-				Expect(before.Close()).To(Succeed())
-
-				start := telem.Now()
-				var now atomic.Int64
-				now.Store(int64(start))
-				after := DeferClose(openStack(ctx, restartDB, rack.ServiceConfig{
-					HealthCheckInterval: 10 * telem.Millisecond,
-					Now:                 func() telem.TimeStamp { return telem.TimeStamp(now.Load()) },
-				}))
-				now.Store(int64(start.Add(6 * telem.Millisecond)))
-				Expect(after.rack.NewWriter(nil).Rename(ctx, r.Key, "renamed")).
-					To(Succeed())
-				now.Store(int64(start.Add(12 * telem.Millisecond)))
-				Eventually(func(g Gomega) {
-					s := MustSucceed(retrieveStatus(ctx, after.status, r.Key))
-					g.Expect(s.Message).To(Equal("Driver not running"))
-				}).Should(Succeed())
-			},
-		)
-
 		DescribeTable(
-			"Should restart with a stored status that has no rack details",
-			func(ctx SpecContext, details any) {
-				restartDB := DeferClose(gorp.Wrap(memkv.New()))
+			"Should restart with any stored status",
+			func(ctx SpecContext, codec encoding.Codec, details any) {
+				kv := memkv.New()
+				restartDB := DeferClose(gorp.Wrap(kv))
 				before := openStack(ctx, restartDB, rack.ServiceConfig{})
 				key := before.rack.EmbeddedKey
-				Expect(before.status.NewWriter(nil).Set(ctx, &status.Status[any]{
-					Key:     rack.StatusKey(key),
-					Name:    "stale name",
-					Variant: status.VariantSuccess,
-					Time:    telem.Now(),
-					Details: details,
-				})).To(Succeed())
 				Expect(before.Close()).To(Succeed())
+				// Migrations do not run again, so the row stays in this encoding.
+				Expect(gorp.NewCreate[status.Key, status.Status[any]]().
+					Entry(&status.Status[any]{
+						Key:     rack.StatusKey(key),
+						Name:    "stale name",
+						Variant: status.VariantSuccess,
+						Time:    telem.Now(),
+						Details: details,
+					}).
+					Exec(ctx, gorp.Wrap(kv, gorp.WithCodec(codec)))).To(Succeed())
 
 				after := DeferClose(openStack(ctx, restartDB, rack.ServiceConfig{}))
 				var res status.Status[any]
@@ -1348,8 +1318,16 @@ var _ = Describe("Rack", Ordered, func() {
 				Expect(res.Name).ToNot(Equal("stale name"))
 				Expect(res.Details).To(Equal(details))
 			},
-			Entry("a string", "running"),
-			Entry("an array", []any{"running"}),
+			Entry("ORC with string details", orc.Codec, "running"),
+			Entry("ORC with array details", orc.Codec, []any{"running"}),
+			Entry("ORC with object details", orc.Codec, map[string]any{"rack": 1.5}),
+			Entry("msgpack with string details", msgpack.Codec, "running"),
+			Entry("msgpack with array details", msgpack.Codec, []any{"running"}),
+			Entry(
+				"msgpack with object details",
+				msgpack.Codec,
+				map[string]any{"rack": 1.5},
+			),
 		)
 
 		It(

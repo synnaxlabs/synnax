@@ -10,6 +10,7 @@
 package status
 
 import (
+	"bytes"
 	"context"
 	"encoding/json"
 
@@ -17,7 +18,28 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/service/group"
 	"github.com/synnaxlabs/synnax/pkg/service/ontology"
 	"github.com/synnaxlabs/x/validate"
+	"github.com/vmihailenco/msgpack/v5"
 )
+
+// storedDetails carries the details of a stored status unchanged in either stored
+// encoding. Decoding JSON details as any would round numbers past float64 precision.
+type storedDetails struct{ value any }
+
+func (d storedDetails) MarshalJSON() ([]byte, error) { return json.Marshal(d.value) }
+
+func (d *storedDetails) UnmarshalJSON(b []byte) error {
+	d.value = json.RawMessage(bytes.Clone(b))
+	return nil
+}
+
+func (d storedDetails) EncodeMsgpack(e *msgpack.Encoder) error {
+	return e.Encode(d.value)
+}
+
+func (d *storedDetails) DecodeMsgpack(dec *msgpack.Decoder) (err error) {
+	d.value, err = dec.DecodeInterface()
+	return err
+}
 
 // Writer is used to create and update statuses within the DB. Every write touches both
 // the status entry and its ontology resource, and the two land together only when the
@@ -138,11 +160,9 @@ func (w Writer) Rename(ctx context.Context, key Key, name string) error {
 	if err := v.Error(); err != nil {
 		return err
 	}
-	// Raw details round-trip byte for byte. Decoding them as any would round numbers
-	// past float64 precision.
-	var s Status[json.RawMessage]
-	if err := gorp.NewRetrieve[Key, Status[json.RawMessage]]().
-		Where(gorp.MatchKeys[Key, Status[json.RawMessage]](key)).
+	var s Status[storedDetails]
+	if err := gorp.NewRetrieve[Key, Status[storedDetails]]().
+		Where(gorp.MatchKeys[Key, Status[storedDetails]](key)).
 		Entry(&s).
 		Exec(ctx, w.tx); err != nil {
 		return err

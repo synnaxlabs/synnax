@@ -19,6 +19,7 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/service/label"
 	"github.com/synnaxlabs/synnax/pkg/service/ontology"
 	"github.com/synnaxlabs/synnax/pkg/service/status"
+	"github.com/synnaxlabs/x/encoding/msgpack"
 	"github.com/synnaxlabs/x/kv"
 	"github.com/synnaxlabs/x/observe"
 	"github.com/synnaxlabs/x/query"
@@ -30,6 +31,7 @@ import (
 
 var _ = Describe("Status", Ordered, func() {
 	var (
+		store    kv.DB
 		db       *gorp.DB
 		svc      *status.Service
 		w        status.Writer
@@ -41,8 +43,9 @@ var _ = Describe("Status", Ordered, func() {
 		ShouldNotLeakGoroutines()
 		// Like the Core on the node that leases each write, the indexes see only the
 		// writes made through their table.
+		store = memkv.New()
 		db = DeferClose(gorp.Wrap(
-			memkv.New(),
+			store,
 			gorp.WithIndexObservable(observe.Noop[kv.TxReader]{}),
 		))
 		otg = MustOpen(ontology.Open(ctx, ontology.Config{
@@ -202,6 +205,38 @@ var _ = Describe("Status", Ordered, func() {
 						Entry(&res).
 						Exec(ctx, tx)).To(Succeed())
 					expected := *s
+					expected.Name = "After"
+					Expect(res).To(Equal(expected))
+				},
+			)
+			It(
+				"Should rename a status stored as msgpack, keeping every other field",
+				func(ctx SpecContext) {
+					type details struct {
+						Count int64 `json:"count" msgpack:"count"`
+					}
+					s := status.Status[details]{
+						Name:    "Before",
+						Key:     "rename-msgpack-key",
+						Variant: status.VariantSuccess,
+						Time:    telem.Now(),
+						Details: details{Count: 9007199254740993},
+					}
+					Expect(gorp.NewCreate[status.Key, status.Status[details]]().
+						Entry(&s).
+						Exec(ctx, gorp.Wrap(store, gorp.WithCodec(msgpack.Codec)))).
+						To(Succeed())
+					DeferCleanup(func(ctx SpecContext) {
+						Expect(svc.NewWriter(nil).Delete(ctx, s.Key)).To(Succeed())
+					})
+					Expect(svc.NewWriter(nil).Rename(ctx, s.Key, "After")).
+						To(Succeed())
+					var res status.Status[details]
+					Expect(svc.NewRetrieve[details]().
+						Where(status.MatchKeys[details](s.Key)).
+						Entry(&res).
+						Exec(ctx, nil)).To(Succeed())
+					expected := s
 					expected.Name = "After"
 					Expect(res).To(Equal(expected))
 				},

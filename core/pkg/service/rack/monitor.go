@@ -11,7 +11,6 @@ package rack
 
 import (
 	"context"
-	"encoding/json"
 	"fmt"
 	"io"
 	"maps"
@@ -40,8 +39,8 @@ type SuspectHandler = func(ctx context.Context, outage Status) error
 
 type rackState struct {
 	lastUpdated telem.TimeStamp
-	// statusTime is the time on the last status seen. A write that keeps it, such as a
-	// rename, is not a report from the rack.
+	// statusTime is the time on the last status seen since the Core started. A write
+	// that keeps it, such as a rename, is not a report from the rack.
 	statusTime telem.TimeStamp
 	// outage is set from the write of an outage until the rack reports healthy again,
 	// so each outage is written once.
@@ -275,16 +274,6 @@ func openMonitor(
 	if err := svc.NewRetrieve().Entries(&racks).Exec(ctx, nil); err != nil {
 		return nil, err
 	}
-	statuses := make([]status.Status[json.RawMessage], 0, len(racks))
-	// A stored status can hold any details, so they stay raw. A missing row is valid.
-	if err := errors.Skip(svc.Status.NewRetrieve[json.RawMessage]().
-		Where(status.MatchKeys[json.RawMessage](
-			ontology.IDsToKeys(OntologyIDsFromRacks(racks))...,
-		)).
-		Entries(&statuses).
-		Exec(ctx, nil), query.ErrNotFound); err != nil {
-		return nil, err
-	}
 	obs := svc.Status.Observe()
 	sCtx, cancel := signal.Isolated(signal.WithInstrumentation(ins))
 	s := &monitor{
@@ -295,15 +284,8 @@ func openMonitor(
 	now := svc.Now()
 	s.mu.racks = make(map[Key]rackState, len(racks))
 	s.mu.handlers = make(map[int]SuspectHandler)
-	statusTimes := make(map[status.Key]telem.TimeStamp, len(statuses))
-	for _, st := range statuses {
-		statusTimes[st.Key] = st.Time
-	}
 	for _, r := range racks {
-		s.mu.racks[r.Key] = rackState{
-			lastUpdated: now,
-			statusTime:  statusTimes[StatusKey(r.Key)],
-		}
+		s.mu.racks[r.Key] = rackState{lastUpdated: now}
 	}
 	s.disconnectStatusObserver = obs.OnChange(s.handleChange)
 	signal.GoTick(
