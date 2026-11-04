@@ -19,6 +19,8 @@ Tests Arc features not covered by arc_press_sequence:
 - Calculated channels (temp_error)
 """
 
+from itertools import pairwise
+
 from examples.simulators import SimDAQ, ThermalSimDAQ
 
 import synnax as sy
@@ -95,6 +97,7 @@ class ThermalMonitor(ArcCase):
         "end_thermal_test_cmd",
     ]
     sim_daq_class: type[SimDAQ] | None = ThermalSimDAQ
+    _started_at: sy.TimeStamp
 
     def setup(self) -> None:
         self._create_additional_channels()
@@ -106,10 +109,15 @@ class ThermalMonitor(ArcCase):
         create_indexed_pair(self.client, "peak_temp", data_type=sy.DataType.FLOAT32)
         create_indexed_pair(self.client, "temp_error", data_type=sy.DataType.FLOAT32)
 
+    def run(self) -> None:
+        self._started_at = sy.TimeStamp.now()
+        super().run()
+
     def verify_sequence_execution(self) -> None:
         self._verify_thermal_cycling()
         self._verify_stateful_variables()
         self._verify_abort_transition()
+        self._verify_cycle_count_matches_edges()
 
     def _verify_thermal_cycling(self) -> None:
         self.log("Verifying thermal cycling behavior...")
@@ -179,3 +187,16 @@ class ThermalMonitor(ArcCase):
         self.log("Abort sequence confirmed: heater OFF, alarm ACTIVE")
 
         self.writer.write("force_overheat_cmd", 0)
+
+    def _verify_cycle_count_matches_edges(self) -> None:
+        """Fail if the runtime missed a rising edge of heater_cmd. The abort ended the
+        heater loop, so the stored edge count is final. The wait covers an edge whose
+        count is still in flight.
+        """
+        stored = self.client.read(
+            sy.TimeRange(self._started_at, sy.TimeStamp.now()), "heater_cmd"
+        )
+        samples = [0.0, *(to_float(s) for s in stored)]
+        edges = sum(prev == 0 and cur == 1 for prev, cur in pairwise(samples))
+        self.log(f"Stored heater_cmd rising edges: {edges}")
+        self.wait_for_eq("cycle_count", edges)
