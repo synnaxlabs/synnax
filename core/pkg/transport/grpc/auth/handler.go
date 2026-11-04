@@ -261,20 +261,20 @@ func (sessionDeleteRequestTranslator) Backward(
 
 type (
 	keyCreateServer = grpc.UnaryServer[
-		auth.KeyCreateRequest,
-		*KeyCreateRequest,
-		auth.KeyCreateResponse,
-		*KeyCreateResponse,
+		auth.APIKeyCreateRequest,
+		*APIKeyCreateRequest,
+		auth.APIKeyCreateResponse,
+		*APIKeyCreateResponse,
 	]
 	keyRetrieveServer = grpc.UnaryServer[
-		auth.KeyRetrieveRequest,
-		*KeyRetrieveRequest,
-		auth.KeyRetrieveResponse,
-		*KeyRetrieveResponse,
+		auth.APIKeyRetrieveRequest,
+		*APIKeyRetrieveRequest,
+		auth.APIKeyRetrieveResponse,
+		*APIKeyRetrieveResponse,
 	]
 	keyDeleteServer = grpc.UnaryServer[
-		auth.KeyDeleteRequest,
-		*KeyDeleteRequest,
+		auth.APIKeyDeleteRequest,
+		*APIKeyDeleteRequest,
 		struct{},
 		*emptypb.Empty,
 	]
@@ -289,19 +289,19 @@ type (
 )
 
 var (
-	_ grpc.BackwardTranslator[auth.KeyCreateRequest, *KeyCreateRequest] = (*keyCreateRequestTranslator)(
+	_ grpc.BackwardTranslator[auth.APIKeyCreateRequest, *APIKeyCreateRequest] = (*keyCreateRequestTranslator)(
 		nil,
 	)
-	_ grpc.ForwardTranslator[auth.KeyCreateResponse, *KeyCreateResponse] = (*keyCreateResponseTranslator)(
+	_ grpc.ForwardTranslator[auth.APIKeyCreateResponse, *APIKeyCreateResponse] = (*keyCreateResponseTranslator)(
 		nil,
 	)
-	_ grpc.BackwardTranslator[auth.KeyRetrieveRequest, *KeyRetrieveRequest] = (*keyRetrieveRequestTranslator)(
+	_ grpc.BackwardTranslator[auth.APIKeyRetrieveRequest, *APIKeyRetrieveRequest] = (*keyRetrieveRequestTranslator)(
 		nil,
 	)
-	_ grpc.ForwardTranslator[auth.KeyRetrieveResponse, *KeyRetrieveResponse] = (*keyRetrieveResponseTranslator)(
+	_ grpc.ForwardTranslator[auth.APIKeyRetrieveResponse, *APIKeyRetrieveResponse] = (*keyRetrieveResponseTranslator)(
 		nil,
 	)
-	_ grpc.BackwardTranslator[auth.KeyDeleteRequest, *KeyDeleteRequest] = (*keyDeleteRequestTranslator)(
+	_ grpc.BackwardTranslator[auth.APIKeyDeleteRequest, *APIKeyDeleteRequest] = (*keyDeleteRequestTranslator)(
 		nil,
 	)
 )
@@ -317,23 +317,26 @@ func apiKeyForward(k auth.APIKey) *APIKey {
 
 func (keyCreateRequestTranslator) Backward(
 	_ context.Context,
-	r *KeyCreateRequest,
-) (auth.KeyCreateRequest, error) {
-	return auth.KeyCreateRequest{Subject: subjectBackward(r.Subject), Name: r.Name}, nil
+	r *APIKeyCreateRequest,
+) (auth.APIKeyCreateRequest, error) {
+	return auth.APIKeyCreateRequest{
+		Subject: subjectBackward(r.Subject),
+		Name:    r.Name,
+	}, nil
 }
 
 func (keyCreateResponseTranslator) Forward(
 	_ context.Context,
-	r auth.KeyCreateResponse,
-) (*KeyCreateResponse, error) {
-	return &KeyCreateResponse{Token: r.Token, Key: apiKeyForward(r.Key)}, nil
+	r auth.APIKeyCreateResponse,
+) (*APIKeyCreateResponse, error) {
+	return &APIKeyCreateResponse{Token: r.Token, Key: apiKeyForward(r.Key)}, nil
 }
 
 func (keyRetrieveRequestTranslator) Backward(
 	_ context.Context,
-	r *KeyRetrieveRequest,
-) (auth.KeyRetrieveRequest, error) {
-	return auth.KeyRetrieveRequest{
+	r *APIKeyRetrieveRequest,
+) (auth.APIKeyRetrieveRequest, error) {
+	return auth.APIKeyRetrieveRequest{
 		Subjects: lo.Map(r.Subjects, func(s *Subject, _ int) ontology.ID {
 			return subjectBackward(s)
 		}),
@@ -342,9 +345,9 @@ func (keyRetrieveRequestTranslator) Backward(
 
 func (keyRetrieveResponseTranslator) Forward(
 	_ context.Context,
-	r auth.KeyRetrieveResponse,
-) (*KeyRetrieveResponse, error) {
-	return &KeyRetrieveResponse{
+	r auth.APIKeyRetrieveResponse,
+) (*APIKeyRetrieveResponse, error) {
+	return &APIKeyRetrieveResponse{
 		Keys: lo.Map(r.Keys, func(k auth.APIKey, _ int) *APIKey {
 			return apiKeyForward(k)
 		}),
@@ -353,17 +356,17 @@ func (keyRetrieveResponseTranslator) Forward(
 
 func (keyDeleteRequestTranslator) Backward(
 	_ context.Context,
-	r *KeyDeleteRequest,
-) (auth.KeyDeleteRequest, error) {
+	r *APIKeyDeleteRequest,
+) (auth.APIKeyDeleteRequest, error) {
 	keys := make([]uuid.UUID, 0, len(r.Keys))
 	for _, k := range r.Keys {
 		key, err := uuid.Parse(k)
 		if err != nil {
-			return auth.KeyDeleteRequest{}, err
+			return auth.APIKeyDeleteRequest{}, err
 		}
 		keys = append(keys, key)
 	}
-	return auth.KeyDeleteRequest{Keys: keys}, nil
+	return auth.APIKeyDeleteRequest{Keys: keys}, nil
 }
 
 type (
@@ -425,17 +428,17 @@ func New(t *api.Transport) grpc.BindableTransport {
 	keyCreate := &keyCreateServer{
 		RequestTranslator:  keyCreateRequestTranslator{},
 		ResponseTranslator: keyCreateResponseTranslator{},
-		ServiceDesc:        &AuthKeyCreateService_ServiceDesc,
+		ServiceDesc:        &AuthAPIKeyCreateService_ServiceDesc,
 	}
 	keyRetrieve := &keyRetrieveServer{
 		RequestTranslator:  keyRetrieveRequestTranslator{},
 		ResponseTranslator: keyRetrieveResponseTranslator{},
-		ServiceDesc:        &AuthKeyRetrieveService_ServiceDesc,
+		ServiceDesc:        &AuthAPIKeyRetrieveService_ServiceDesc,
 	}
 	keyDelete := &keyDeleteServer{
 		RequestTranslator:  keyDeleteRequestTranslator{},
 		ResponseTranslator: grpc.EmptyTranslator{},
-		ServiceDesc:        &AuthKeyDeleteService_ServiceDesc,
+		ServiceDesc:        &AuthAPIKeyDeleteService_ServiceDesc,
 	}
 	t.AuthLogin = login
 	t.AuthMethods = methods
@@ -443,9 +446,9 @@ func New(t *api.Transport) grpc.BindableTransport {
 	t.AuthSessionRenew = renew
 	t.AuthSessionRetrieve = retrieve
 	t.AuthSessionDelete = del
-	t.AuthKeyCreate = keyCreate
-	t.AuthKeyRetrieve = keyRetrieve
-	t.AuthKeyDelete = keyDelete
+	t.AuthAPIKeyCreate = keyCreate
+	t.AuthAPIKeyRetrieve = keyRetrieve
+	t.AuthAPIKeyDelete = keyDelete
 	return grpc.CompoundBindableTransport{
 		login,
 		create,

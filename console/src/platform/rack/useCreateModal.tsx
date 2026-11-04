@@ -35,7 +35,7 @@ const Create = (_: Modals.ContentProps<Record<never, never>, void>): ReactElemen
     afterSuccess: async ({ data }) => {
       if (mounted.current) return setToken(data.token);
       // unmounted before the key could be shown, so nobody holds its secret
-      await client?.auth.deleteKeys(data.key.key);
+      await client?.auth.deleteAPIKeys(data.key.key);
     },
   });
   // a user who cannot delete keys could not clean up a key created after a close

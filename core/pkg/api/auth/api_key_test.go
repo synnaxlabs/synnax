@@ -88,11 +88,11 @@ var _ = Describe("API keys", func() {
 		ctx context.Context,
 		token string,
 		subject ontology.ID,
-	) (apiauth.KeyCreateResponse, error) {
-		return apiSvc.CreateKey(
+	) (apiauth.APIKeyCreateResponse, error) {
+		return apiSvc.CreateAPIKey(
 			authed(ctx, token),
 			nil,
-			apiauth.KeyCreateRequest{Subject: subject, Name: "ci"},
+			apiauth.APIKeyCreateRequest{Subject: subject, Name: "ci"},
 		)
 	}
 	BeforeEach(func(ctx SpecContext) {
@@ -105,7 +105,7 @@ var _ = Describe("API keys", func() {
 		rack = ontology.ID{Type: ontology.ResourceTypeRack, Key: uuid.New().String()}
 		Expect(otg.NewWriter(nil).DefineResources(ctx, rack)).To(Succeed())
 	})
-	Describe("CreateKey", func() {
+	Describe("CreateAPIKey", func() {
 		It("Should create a key for the caller that logs in as the caller", func(
 			ctx SpecContext,
 		) {
@@ -170,29 +170,31 @@ var _ = Describe("API keys", func() {
 				To(MatchError(validate.ErrValidation))
 		})
 	})
-	Describe("RetrieveKeys", func() {
+	Describe("RetrieveAPIKeys", func() {
 		It("Should list the caller's own keys by default", func(ctx SpecContext) {
 			own := MustSucceed(create(ctx, bobToken, ontology.ID{})).Key
 			MustSucceed(create(ctx, rootToken, ontology.ID{}))
-			res := MustSucceed(apiSvc.RetrieveKeys(
+			res := MustSucceed(apiSvc.RetrieveAPIKeys(
 				authed(ctx, bobToken),
-				apiauth.KeyRetrieveRequest{},
+				apiauth.APIKeyRetrieveRequest{},
 			))
 			Expect(res.Keys).To(ConsistOf(own))
 		})
 		It("Should deny a user listing another subject's keys", func(ctx SpecContext) {
-			Expect(apiSvc.RetrieveKeys(
+			Expect(apiSvc.RetrieveAPIKeys(
 				authed(ctx, bobToken),
-				apiauth.KeyRetrieveRequest{Subjects: []ontology.ID{root.OntologyID()}},
+				apiauth.APIKeyRetrieveRequest{
+					Subjects: []ontology.ID{root.OntologyID()},
+				},
 			)).Error().To(MatchError(access.ErrDenied))
 		})
 	})
-	Describe("DeleteKeys", func() {
+	Describe("DeleteAPIKeys", func() {
 		del := func(ctx context.Context, token string, keys ...apikey.Key) error {
-			_, err := apiSvc.DeleteKeys(
+			_, err := apiSvc.DeleteAPIKeys(
 				authed(ctx, token),
 				nil,
-				apiauth.KeyDeleteRequest{Keys: keys},
+				apiauth.APIKeyDeleteRequest{Keys: keys},
 			)
 			return err
 		}

@@ -27,7 +27,7 @@ const recordKey = (token: string): auth.APIKeyKey | null => {
 const known = async (client: Synnax, token: string): Promise<boolean> => {
   const key = recordKey(token);
   if (key == null) return false;
-  const keys = await client.auth.retrieveKeys();
+  const keys = await client.auth.retrieveAPIKeys();
   return keys.some((k) => k.key === key);
 };
 
@@ -36,16 +36,16 @@ const create = async (
   client: Synnax,
   replaces: string | null,
 ): Promise<string | null> => {
-  const { token, key } = await client.auth.createKey({ name: NAME });
+  const { token, key } = await client.auth.createAPIKey({ name: NAME });
   let saved: boolean;
   try {
     saved = await saveAPIKey(token, replaces);
   } catch (e) {
-    await client.auth.deleteKeys(key.key).catch(console.error);
+    await client.auth.deleteAPIKeys(key.key).catch(console.error);
     throw errors.fromUnknown(e);
   }
   if (saved) return token;
-  await client.auth.deleteKeys(key.key);
+  await client.auth.deleteAPIKeys(key.key);
   return null;
 };
 
@@ -75,7 +75,7 @@ export const replace = async (client: Synnax): Promise<string> => {
   const saved = await retrieveAPIKey();
   const old = saved == null ? null : recordKey(saved);
   // The delete comes first, so a reset that fails never leaves the old key working.
-  if (old != null) await client.auth.deleteKeys(old);
+  if (old != null) await client.auth.deleteAPIKeys(old);
   // Another window reset the key first, so its new key is the one to use.
   return (await create(client, saved)) ?? (await ensure(client));
 };

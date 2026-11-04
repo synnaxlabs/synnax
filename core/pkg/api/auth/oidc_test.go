@@ -107,10 +107,10 @@ var _ = Describe("OIDC links", func() {
 				Key:  uuid.New().String(),
 			}
 			Expect(otg.NewWriter(nil).DefineResources(ctx, rack)).To(Succeed())
-			key := MustSucceed(apiSvc.CreateKey(
+			key := MustSucceed(apiSvc.CreateAPIKey(
 				authed(ctx, rootToken),
 				nil,
-				apiauth.KeyCreateRequest{Subject: rack, Name: "rack"},
+				apiauth.APIKeyCreateRequest{Subject: rack, Name: "rack"},
 			))
 			Expect(apiSvc.LinkOIDC(
 				authed(ctx, login(ctx, keyProof(key.Token))),

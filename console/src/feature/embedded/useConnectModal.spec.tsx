@@ -121,7 +121,7 @@ describe("Embedded connect from code dialog", () => {
 
   it("should count the sessions of the key", async () => {
     await deleteKeysCreatedByTest(client);
-    const { token } = await client.auth.createKey({ name: "counted" });
+    const { token } = await client.auth.createAPIKey({ name: "counted" });
     await createScriptClient(token).auth.retrieveSessions();
     await openConnect(token);
     expect(await screen.findByText("1 session")).toBeTruthy();
@@ -129,7 +129,7 @@ describe("Embedded connect from code dialog", () => {
 
   it("should count sessions opened since the dialog last closed", async () => {
     await deleteKeysCreatedByTest(client);
-    const { token } = await client.auth.createKey({ name: "reopened" });
+    const { token } = await client.auth.createAPIKey({ name: "reopened" });
     await openConnect(token);
     await screen.findByText("0 sessions");
     fireEvent.click(findDismissButton());
@@ -143,8 +143,8 @@ describe("Embedded connect from code dialog", () => {
 
   it("should show the key of a reset that another window saved first", async () => {
     await deleteKeysCreatedByTest(client);
-    const { token, key } = await client.auth.createKey({ name: "replaced" });
-    const { token: other } = await client.auth.createKey({ name: "other window" });
+    const { token, key } = await client.auth.createAPIKey({ name: "replaced" });
+    const { token: other } = await client.auth.createAPIKey({ name: "other window" });
     const before = (await retrieveKeyIDs(client)).filter((k) => k !== key.key);
     const writeText = stubClipboardWriteText();
     const { file, statuses } = await openConnect(token, (f, apiKey) => {
@@ -166,7 +166,7 @@ describe("Embedded connect from code dialog", () => {
 
   it("should end the old key before it saves the new one", async () => {
     await deleteKeysCreatedByTest(client);
-    const { token, key } = await client.auth.createKey({ name: "replaced" });
+    const { token, key } = await client.auth.createAPIKey({ name: "replaced" });
     let oldKeyAtSave: boolean | null = null;
     const { file } = await openConnect(token, async (_, apiKey) => {
       if (apiKey === token) return;
@@ -179,7 +179,7 @@ describe("Embedded connect from code dialog", () => {
 
   it("should replace the key after asking and end the sessions of the old one", async () => {
     await deleteKeysCreatedByTest(client);
-    const { token } = await client.auth.createKey({ name: "replaced" });
+    const { token } = await client.auth.createAPIKey({ name: "replaced" });
     const script = createScriptClient(token);
     await script.auth.retrieveSessions();
     const { file, statuses } = await openConnect(token);

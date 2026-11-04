@@ -46,24 +46,24 @@ describe("useModal", () => {
     await type("Key name", name);
     fireEvent.click(findButton("Create key"));
     await screen.findByText(name);
-    const [created] = await client.auth.retrieveKeys([id]);
+    const [created] = await client.auth.retrieveAPIKeys([id]);
     expect(created.name).toEqual(name);
     expect(screen.getByDisplayValue(/^syk_/)).toBeTruthy();
     fireEvent.click(getIconButton(document.body, "delete"));
     await screen.findByText("No API keys");
     expect(screen.queryByDisplayValue(/^syk_/)).toBeNull();
-    expect(await client.auth.retrieveKeys([id])).toHaveLength(0);
+    expect(await client.auth.retrieveAPIKeys([id])).toHaveLength(0);
   });
 
   it("should delete a key whose creation ends after the dialog closes", async () => {
     const client = createTestClient();
     const { user: subject } = await createTestUser(client);
     const id = user.ontologyID(subject.key);
-    const create = client.auth.createKey.bind(client.auth);
+    const create = client.auth.createAPIKey.bind(client.auth);
     let release = (): void => {};
     const gate = new Promise<void>((resolve) => (release = resolve));
     let createdKey: string | undefined;
-    vi.spyOn(client.auth, "createKey").mockImplementation(async (params) => {
+    vi.spyOn(client.auth, "createAPIKey").mockImplementation(async (params) => {
       await gate;
       const res = await create(params);
       createdKey = res.key.key;
@@ -77,7 +77,7 @@ describe("useModal", () => {
     release();
     await waitFor(() => expect(createdKey).toBeDefined());
     await waitFor(async () =>
-      expect((await client.auth.retrieveKeys([id])).map((k) => k.key)).not.toContain(
+      expect((await client.auth.retrieveAPIKeys([id])).map((k) => k.key)).not.toContain(
         createdKey,
       ),
     );
@@ -87,14 +87,14 @@ describe("useModal", () => {
     const client = createTestClient();
     const { user: subject } = await createTestUser(client);
     const id = user.ontologyID(subject.key);
-    const create = client.auth.createKey.bind(client.auth);
+    const create = client.auth.createAPIKey.bind(client.auth);
     let release = (): void => {};
     const gate = new Promise<void>((resolve) => (release = resolve));
-    vi.spyOn(client.auth, "createKey").mockImplementation(async (params) => {
+    vi.spyOn(client.auth, "createAPIKey").mockImplementation(async (params) => {
       await gate;
       return await create(params);
     });
-    vi.spyOn(client.auth, "deleteKeys").mockRejectedValue(new Error("denied"));
+    vi.spyOn(client.auth, "deleteAPIKeys").mockRejectedValue(new Error("denied"));
     let statuses: Status.NotificationSpec[] = [];
     await openModal(useModal, {
       client,
@@ -124,7 +124,7 @@ describe("useModal", () => {
     await type("Key name", name);
     fireEvent.click(findButton("Create key"));
     await screen.findByText(name);
-    expect(await client.auth.retrieveKeys([id])).toHaveLength(1);
+    expect(await client.auth.retrieveAPIKeys([id])).toHaveLength(1);
   });
 
   it("should hide key actions the caller has no permission for", async () => {
@@ -132,7 +132,7 @@ describe("useModal", () => {
     const r = await owner.racks.create({ name: uniqueName("rack") });
     const id = rack.ontologyID(r.key);
     const name = uniqueName("key");
-    await owner.auth.createKey({ subject: id, name });
+    await owner.auth.createAPIKey({ subject: id, name });
     const viewer = await createTestClientWithRole(owner, "Viewer");
     await openModal(useModal, { client: viewer, params: { subject: id } });
     await screen.findByText(name);

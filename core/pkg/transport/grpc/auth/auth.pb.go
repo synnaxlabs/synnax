@@ -877,7 +877,7 @@ func (x *APIKey) GetCreated() int64 {
 	return 0
 }
 
-type KeyCreateRequest struct {
+type APIKeyCreateRequest struct {
 	state         protoimpl.MessageState `protogen:"open.v1"`
 	Subject       *Subject               `protobuf:"bytes,1,opt,name=subject,proto3" json:"subject,omitempty"`
 	Name          string                 `protobuf:"bytes,2,opt,name=name,proto3" json:"name,omitempty"`
@@ -885,20 +885,20 @@ type KeyCreateRequest struct {
 	sizeCache     protoimpl.SizeCache
 }
 
-func (x *KeyCreateRequest) Reset() {
-	*x = KeyCreateRequest{}
+func (x *APIKeyCreateRequest) Reset() {
+	*x = APIKeyCreateRequest{}
 	mi := &file_core_pkg_transport_grpc_auth_auth_proto_msgTypes[15]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
 
-func (x *KeyCreateRequest) String() string {
+func (x *APIKeyCreateRequest) String() string {
 	return protoimpl.X.MessageStringOf(x)
 }
 
-func (*KeyCreateRequest) ProtoMessage() {}
+func (*APIKeyCreateRequest) ProtoMessage() {}
 
-func (x *KeyCreateRequest) ProtoReflect() protoreflect.Message {
+func (x *APIKeyCreateRequest) ProtoReflect() protoreflect.Message {
 	mi := &file_core_pkg_transport_grpc_auth_auth_proto_msgTypes[15]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
@@ -910,26 +910,26 @@ func (x *KeyCreateRequest) ProtoReflect() protoreflect.Message {
 	return mi.MessageOf(x)
 }
 
-// Deprecated: Use KeyCreateRequest.ProtoReflect.Descriptor instead.
-func (*KeyCreateRequest) Descriptor() ([]byte, []int) {
+// Deprecated: Use APIKeyCreateRequest.ProtoReflect.Descriptor instead.
+func (*APIKeyCreateRequest) Descriptor() ([]byte, []int) {
 	return file_core_pkg_transport_grpc_auth_auth_proto_rawDescGZIP(), []int{15}
 }
 
-func (x *KeyCreateRequest) GetSubject() *Subject {
+func (x *APIKeyCreateRequest) GetSubject() *Subject {
 	if x != nil {
 		return x.Subject
 	}
 	return nil
 }
 
-func (x *KeyCreateRequest) GetName() string {
+func (x *APIKeyCreateRequest) GetName() string {
 	if x != nil {
 		return x.Name
 	}
 	return ""
 }
 
-type KeyCreateResponse struct {
+type APIKeyCreateResponse struct {
 	state         protoimpl.MessageState `protogen:"open.v1"`
 	Token         string                 `protobuf:"bytes,1,opt,name=token,proto3" json:"token,omitempty"`
 	Key           *APIKey                `protobuf:"bytes,2,opt,name=key,proto3" json:"key,omitempty"`
@@ -937,20 +937,20 @@ type KeyCreateResponse struct {
 	sizeCache     protoimpl.SizeCache
 }
 
-func (x *KeyCreateResponse) Reset() {
-	*x = KeyCreateResponse{}
+func (x *APIKeyCreateResponse) Reset() {
+	*x = APIKeyCreateResponse{}
 	mi := &file_core_pkg_transport_grpc_auth_auth_proto_msgTypes[16]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
 
-func (x *KeyCreateResponse) String() string {
+func (x *APIKeyCreateResponse) String() string {
 	return protoimpl.X.MessageStringOf(x)
 }
 
-func (*KeyCreateResponse) ProtoMessage() {}
+func (*APIKeyCreateResponse) ProtoMessage() {}
 
-func (x *KeyCreateResponse) ProtoReflect() protoreflect.Message {
+func (x *APIKeyCreateResponse) ProtoReflect() protoreflect.Message {
 	mi := &file_core_pkg_transport_grpc_auth_auth_proto_msgTypes[16]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
@@ -962,46 +962,46 @@ func (x *KeyCreateResponse) ProtoReflect() protoreflect.Message {
 	return mi.MessageOf(x)
 }
 
-// Deprecated: Use KeyCreateResponse.ProtoReflect.Descriptor instead.
-func (*KeyCreateResponse) Descriptor() ([]byte, []int) {
+// Deprecated: Use APIKeyCreateResponse.ProtoReflect.Descriptor instead.
+func (*APIKeyCreateResponse) Descriptor() ([]byte, []int) {
 	return file_core_pkg_transport_grpc_auth_auth_proto_rawDescGZIP(), []int{16}
 }
 
-func (x *KeyCreateResponse) GetToken() string {
+func (x *APIKeyCreateResponse) GetToken() string {
 	if x != nil {
 		return x.Token
 	}
 	return ""
 }
 
-func (x *KeyCreateResponse) GetKey() *APIKey {
+func (x *APIKeyCreateResponse) GetKey() *APIKey {
 	if x != nil {
 		return x.Key
 	}
 	return nil
 }
 
-type KeyRetrieveRequest struct {
+type APIKeyRetrieveRequest struct {
 	state         protoimpl.MessageState `protogen:"open.v1"`
 	Subjects      []*Subject             `protobuf:"bytes,1,rep,name=subjects,proto3" json:"subjects,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
 
-func (x *KeyRetrieveRequest) Reset() {
-	*x = KeyRetrieveRequest{}
+func (x *APIKeyRetrieveRequest) Reset() {
+	*x = APIKeyRetrieveRequest{}
 	mi := &file_core_pkg_transport_grpc_auth_auth_proto_msgTypes[17]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
 
-func (x *KeyRetrieveRequest) String() string {
+func (x *APIKeyRetrieveRequest) String() string {
 	return protoimpl.X.MessageStringOf(x)
 }
 
-func (*KeyRetrieveRequest) ProtoMessage() {}
+func (*APIKeyRetrieveRequest) ProtoMessage() {}
 
-func (x *KeyRetrieveRequest) ProtoReflect() protoreflect.Message {
+func (x *APIKeyRetrieveRequest) ProtoReflect() protoreflect.Message {
 	mi := &file_core_pkg_transport_grpc_auth_auth_proto_msgTypes[17]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
@@ -1013,39 +1013,39 @@ func (x *KeyRetrieveRequest) ProtoReflect() protoreflect.Message {
 	return mi.MessageOf(x)
 }
 
-// Deprecated: Use KeyRetrieveRequest.ProtoReflect.Descriptor instead.
-func (*KeyRetrieveRequest) Descriptor() ([]byte, []int) {
+// Deprecated: Use APIKeyRetrieveRequest.ProtoReflect.Descriptor instead.
+func (*APIKeyRetrieveRequest) Descriptor() ([]byte, []int) {
 	return file_core_pkg_transport_grpc_auth_auth_proto_rawDescGZIP(), []int{17}
 }
 
-func (x *KeyRetrieveRequest) GetSubjects() []*Subject {
+func (x *APIKeyRetrieveRequest) GetSubjects() []*Subject {
 	if x != nil {
 		return x.Subjects
 	}
 	return nil
 }
 
-type KeyRetrieveResponse struct {
+type APIKeyRetrieveResponse struct {
 	state         protoimpl.MessageState `protogen:"open.v1"`
 	Keys          []*APIKey              `protobuf:"bytes,1,rep,name=keys,proto3" json:"keys,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
 
-func (x *KeyRetrieveResponse) Reset() {
-	*x = KeyRetrieveResponse{}
+func (x *APIKeyRetrieveResponse) Reset() {
+	*x = APIKeyRetrieveResponse{}
 	mi := &file_core_pkg_transport_grpc_auth_auth_proto_msgTypes[18]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
 
-func (x *KeyRetrieveResponse) String() string {
+func (x *APIKeyRetrieveResponse) String() string {
 	return protoimpl.X.MessageStringOf(x)
 }
 
-func (*KeyRetrieveResponse) ProtoMessage() {}
+func (*APIKeyRetrieveResponse) ProtoMessage() {}
 
-func (x *KeyRetrieveResponse) ProtoReflect() protoreflect.Message {
+func (x *APIKeyRetrieveResponse) ProtoReflect() protoreflect.Message {
 	mi := &file_core_pkg_transport_grpc_auth_auth_proto_msgTypes[18]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
@@ -1057,39 +1057,39 @@ func (x *KeyRetrieveResponse) ProtoReflect() protoreflect.Message {
 	return mi.MessageOf(x)
 }
 
-// Deprecated: Use KeyRetrieveResponse.ProtoReflect.Descriptor instead.
-func (*KeyRetrieveResponse) Descriptor() ([]byte, []int) {
+// Deprecated: Use APIKeyRetrieveResponse.ProtoReflect.Descriptor instead.
+func (*APIKeyRetrieveResponse) Descriptor() ([]byte, []int) {
 	return file_core_pkg_transport_grpc_auth_auth_proto_rawDescGZIP(), []int{18}
 }
 
-func (x *KeyRetrieveResponse) GetKeys() []*APIKey {
+func (x *APIKeyRetrieveResponse) GetKeys() []*APIKey {
 	if x != nil {
 		return x.Keys
 	}
 	return nil
 }
 
-type KeyDeleteRequest struct {
+type APIKeyDeleteRequest struct {
 	state         protoimpl.MessageState `protogen:"open.v1"`
 	Keys          []string               `protobuf:"bytes,1,rep,name=keys,proto3" json:"keys,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
 
-func (x *KeyDeleteRequest) Reset() {
-	*x = KeyDeleteRequest{}
+func (x *APIKeyDeleteRequest) Reset() {
+	*x = APIKeyDeleteRequest{}
 	mi := &file_core_pkg_transport_grpc_auth_auth_proto_msgTypes[19]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
 
-func (x *KeyDeleteRequest) String() string {
+func (x *APIKeyDeleteRequest) String() string {
 	return protoimpl.X.MessageStringOf(x)
 }
 
-func (*KeyDeleteRequest) ProtoMessage() {}
+func (*APIKeyDeleteRequest) ProtoMessage() {}
 
-func (x *KeyDeleteRequest) ProtoReflect() protoreflect.Message {
+func (x *APIKeyDeleteRequest) ProtoReflect() protoreflect.Message {
 	mi := &file_core_pkg_transport_grpc_auth_auth_proto_msgTypes[19]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
@@ -1101,12 +1101,12 @@ func (x *KeyDeleteRequest) ProtoReflect() protoreflect.Message {
 	return mi.MessageOf(x)
 }
 
-// Deprecated: Use KeyDeleteRequest.ProtoReflect.Descriptor instead.
-func (*KeyDeleteRequest) Descriptor() ([]byte, []int) {
+// Deprecated: Use APIKeyDeleteRequest.ProtoReflect.Descriptor instead.
+func (*APIKeyDeleteRequest) Descriptor() ([]byte, []int) {
 	return file_core_pkg_transport_grpc_auth_auth_proto_rawDescGZIP(), []int{19}
 }
 
-func (x *KeyDeleteRequest) GetKeys() []string {
+func (x *APIKeyDeleteRequest) GetKeys() []string {
 	if x != nil {
 		return x.Keys
 	}
@@ -1176,18 +1176,18 @@ const file_core_pkg_transport_grpc_auth_auth_proto_rawDesc = "" +
 	"\x03key\x18\x01 \x01(\tR\x03key\x12,\n" +
 	"\asubject\x18\x02 \x01(\v2\x12.grpc.auth.SubjectR\asubject\x12\x12\n" +
 	"\x04name\x18\x03 \x01(\tR\x04name\x12\x18\n" +
-	"\acreated\x18\x04 \x01(\x03R\acreated\"T\n" +
-	"\x10KeyCreateRequest\x12,\n" +
+	"\acreated\x18\x04 \x01(\x03R\acreated\"W\n" +
+	"\x13APIKeyCreateRequest\x12,\n" +
 	"\asubject\x18\x01 \x01(\v2\x12.grpc.auth.SubjectR\asubject\x12\x12\n" +
-	"\x04name\x18\x02 \x01(\tR\x04name\"N\n" +
-	"\x11KeyCreateResponse\x12\x14\n" +
+	"\x04name\x18\x02 \x01(\tR\x04name\"Q\n" +
+	"\x14APIKeyCreateResponse\x12\x14\n" +
 	"\x05token\x18\x01 \x01(\tR\x05token\x12#\n" +
-	"\x03key\x18\x02 \x01(\v2\x11.grpc.auth.APIKeyR\x03key\"D\n" +
-	"\x12KeyRetrieveRequest\x12.\n" +
-	"\bsubjects\x18\x01 \x03(\v2\x12.grpc.auth.SubjectR\bsubjects\"<\n" +
-	"\x13KeyRetrieveResponse\x12%\n" +
-	"\x04keys\x18\x01 \x03(\v2\x11.grpc.auth.APIKeyR\x04keys\"&\n" +
-	"\x10KeyDeleteRequest\x12\x12\n" +
+	"\x03key\x18\x02 \x01(\v2\x11.grpc.auth.APIKeyR\x03key\"G\n" +
+	"\x15APIKeyRetrieveRequest\x12.\n" +
+	"\bsubjects\x18\x01 \x03(\v2\x12.grpc.auth.SubjectR\bsubjects\"?\n" +
+	"\x16APIKeyRetrieveResponse\x12%\n" +
+	"\x04keys\x18\x01 \x03(\v2\x11.grpc.auth.APIKeyR\x04keys\")\n" +
+	"\x13APIKeyDeleteRequest\x12\x12\n" +
 	"\x04keys\x18\x01 \x03(\tR\x04keys2M\n" +
 	"\x10AuthLoginService\x129\n" +
 	"\x04Exec\x12\x17.grpc.auth.LoginRequest\x1a\x18.grpc.auth.LoginResponse2P\n" +
@@ -1200,13 +1200,13 @@ const file_core_pkg_transport_grpc_auth_auth_proto_rawDesc = "" +
 	"\x1aAuthSessionRetrieveService\x12M\n" +
 	"\x04Exec\x12!.grpc.auth.SessionRetrieveRequest\x1a\".grpc.auth.SessionRetrieveResponse2[\n" +
 	"\x18AuthSessionDeleteService\x12?\n" +
-	"\x04Exec\x12\x1f.grpc.auth.SessionDeleteRequest\x1a\x16.google.protobuf.Empty2Y\n" +
-	"\x14AuthKeyCreateService\x12A\n" +
-	"\x04Exec\x12\x1b.grpc.auth.KeyCreateRequest\x1a\x1c.grpc.auth.KeyCreateResponse2_\n" +
-	"\x16AuthKeyRetrieveService\x12E\n" +
-	"\x04Exec\x12\x1d.grpc.auth.KeyRetrieveRequest\x1a\x1e.grpc.auth.KeyRetrieveResponse2S\n" +
-	"\x14AuthKeyDeleteService\x12;\n" +
-	"\x04Exec\x12\x1b.grpc.auth.KeyDeleteRequest\x1a\x16.google.protobuf.EmptyB\x95\x01\n" +
+	"\x04Exec\x12\x1f.grpc.auth.SessionDeleteRequest\x1a\x16.google.protobuf.Empty2b\n" +
+	"\x17AuthAPIKeyCreateService\x12G\n" +
+	"\x04Exec\x12\x1e.grpc.auth.APIKeyCreateRequest\x1a\x1f.grpc.auth.APIKeyCreateResponse2h\n" +
+	"\x19AuthAPIKeyRetrieveService\x12K\n" +
+	"\x04Exec\x12 .grpc.auth.APIKeyRetrieveRequest\x1a!.grpc.auth.APIKeyRetrieveResponse2Y\n" +
+	"\x17AuthAPIKeyDeleteService\x12>\n" +
+	"\x04Exec\x12\x1e.grpc.auth.APIKeyDeleteRequest\x1a\x16.google.protobuf.EmptyB\x95\x01\n" +
 	"\rcom.grpc.authB\tAuthProtoP\x01Z4github.com/synnaxlabs/synnax/pkg/transport/grpc/auth\xa2\x02\x03GAX\xaa\x02\tGrpc.Auth\xca\x02\tGrpc\\Auth\xe2\x02\x15Grpc\\Auth\\GPBMetadata\xea\x02\n" +
 	"Grpc::Authb\x06proto3"
 
@@ -1239,11 +1239,11 @@ var file_core_pkg_transport_grpc_auth_auth_proto_goTypes = []any{
 	(*SessionRetrieveResponse)(nil), // 12: grpc.auth.SessionRetrieveResponse
 	(*SessionDeleteRequest)(nil),    // 13: grpc.auth.SessionDeleteRequest
 	(*APIKey)(nil),                  // 14: grpc.auth.APIKey
-	(*KeyCreateRequest)(nil),        // 15: grpc.auth.KeyCreateRequest
-	(*KeyCreateResponse)(nil),       // 16: grpc.auth.KeyCreateResponse
-	(*KeyRetrieveRequest)(nil),      // 17: grpc.auth.KeyRetrieveRequest
-	(*KeyRetrieveResponse)(nil),     // 18: grpc.auth.KeyRetrieveResponse
-	(*KeyDeleteRequest)(nil),        // 19: grpc.auth.KeyDeleteRequest
+	(*APIKeyCreateRequest)(nil),     // 15: grpc.auth.APIKeyCreateRequest
+	(*APIKeyCreateResponse)(nil),    // 16: grpc.auth.APIKeyCreateResponse
+	(*APIKeyRetrieveRequest)(nil),   // 17: grpc.auth.APIKeyRetrieveRequest
+	(*APIKeyRetrieveResponse)(nil),  // 18: grpc.auth.APIKeyRetrieveResponse
+	(*APIKeyDeleteRequest)(nil),     // 19: grpc.auth.APIKeyDeleteRequest
 	(*emptypb.Empty)(nil),           // 20: google.protobuf.Empty
 }
 var file_core_pkg_transport_grpc_auth_auth_proto_depIdxs = []int32{
@@ -1258,28 +1258,28 @@ var file_core_pkg_transport_grpc_auth_auth_proto_depIdxs = []int32{
 	6,  // 8: grpc.auth.SessionRetrieveRequest.subjects:type_name -> grpc.auth.Subject
 	7,  // 9: grpc.auth.SessionRetrieveResponse.sessions:type_name -> grpc.auth.Session
 	6,  // 10: grpc.auth.APIKey.subject:type_name -> grpc.auth.Subject
-	6,  // 11: grpc.auth.KeyCreateRequest.subject:type_name -> grpc.auth.Subject
-	14, // 12: grpc.auth.KeyCreateResponse.key:type_name -> grpc.auth.APIKey
-	6,  // 13: grpc.auth.KeyRetrieveRequest.subjects:type_name -> grpc.auth.Subject
-	14, // 14: grpc.auth.KeyRetrieveResponse.keys:type_name -> grpc.auth.APIKey
+	6,  // 11: grpc.auth.APIKeyCreateRequest.subject:type_name -> grpc.auth.Subject
+	14, // 12: grpc.auth.APIKeyCreateResponse.key:type_name -> grpc.auth.APIKey
+	6,  // 13: grpc.auth.APIKeyRetrieveRequest.subjects:type_name -> grpc.auth.Subject
+	14, // 14: grpc.auth.APIKeyRetrieveResponse.keys:type_name -> grpc.auth.APIKey
 	1,  // 15: grpc.auth.AuthLoginService.Exec:input_type -> grpc.auth.LoginRequest
 	20, // 16: grpc.auth.AuthMethodsService.Exec:input_type -> google.protobuf.Empty
 	8,  // 17: grpc.auth.AuthSessionCreateService.Exec:input_type -> grpc.auth.SessionCreateRequest
 	20, // 18: grpc.auth.AuthSessionRenewService.Exec:input_type -> google.protobuf.Empty
 	11, // 19: grpc.auth.AuthSessionRetrieveService.Exec:input_type -> grpc.auth.SessionRetrieveRequest
 	13, // 20: grpc.auth.AuthSessionDeleteService.Exec:input_type -> grpc.auth.SessionDeleteRequest
-	15, // 21: grpc.auth.AuthKeyCreateService.Exec:input_type -> grpc.auth.KeyCreateRequest
-	17, // 22: grpc.auth.AuthKeyRetrieveService.Exec:input_type -> grpc.auth.KeyRetrieveRequest
-	19, // 23: grpc.auth.AuthKeyDeleteService.Exec:input_type -> grpc.auth.KeyDeleteRequest
+	15, // 21: grpc.auth.AuthAPIKeyCreateService.Exec:input_type -> grpc.auth.APIKeyCreateRequest
+	17, // 22: grpc.auth.AuthAPIKeyRetrieveService.Exec:input_type -> grpc.auth.APIKeyRetrieveRequest
+	19, // 23: grpc.auth.AuthAPIKeyDeleteService.Exec:input_type -> grpc.auth.APIKeyDeleteRequest
 	2,  // 24: grpc.auth.AuthLoginService.Exec:output_type -> grpc.auth.LoginResponse
 	4,  // 25: grpc.auth.AuthMethodsService.Exec:output_type -> grpc.auth.MethodsResponse
 	9,  // 26: grpc.auth.AuthSessionCreateService.Exec:output_type -> grpc.auth.SessionCreateResponse
 	10, // 27: grpc.auth.AuthSessionRenewService.Exec:output_type -> grpc.auth.SessionRenewResponse
 	12, // 28: grpc.auth.AuthSessionRetrieveService.Exec:output_type -> grpc.auth.SessionRetrieveResponse
 	20, // 29: grpc.auth.AuthSessionDeleteService.Exec:output_type -> google.protobuf.Empty
-	16, // 30: grpc.auth.AuthKeyCreateService.Exec:output_type -> grpc.auth.KeyCreateResponse
-	18, // 31: grpc.auth.AuthKeyRetrieveService.Exec:output_type -> grpc.auth.KeyRetrieveResponse
-	20, // 32: grpc.auth.AuthKeyDeleteService.Exec:output_type -> google.protobuf.Empty
+	16, // 30: grpc.auth.AuthAPIKeyCreateService.Exec:output_type -> grpc.auth.APIKeyCreateResponse
+	18, // 31: grpc.auth.AuthAPIKeyRetrieveService.Exec:output_type -> grpc.auth.APIKeyRetrieveResponse
+	20, // 32: grpc.auth.AuthAPIKeyDeleteService.Exec:output_type -> google.protobuf.Empty
 	24, // [24:33] is the sub-list for method output_type
 	15, // [15:24] is the sub-list for method input_type
 	15, // [15:15] is the sub-list for extension type_name

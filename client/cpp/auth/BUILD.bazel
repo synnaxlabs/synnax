@@ -35,8 +35,8 @@ cc_test(
 )
 
 cc_test(
-    name = "key_test",
-    srcs = ["key_test.cpp"],
+    name = "api_key_test",
+    srcs = ["api_key_test.cpp"],
     tags = ["requires-core"],
     deps = [
         "//client/cpp:synnax",
