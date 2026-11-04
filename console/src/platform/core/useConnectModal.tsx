@@ -17,6 +17,7 @@ import { Nav } from "@synnaxlabs/lyra/nav";
 import { deep } from "@synnaxlabs/x";
 import { type z } from "zod";
 
+import { addressOf } from "@/platform/core/token";
 import { CSS } from "@/platform/css";
 import { Modals } from "@/platform/modals";
 import { Triggers } from "@/platform/triggers";
@@ -69,16 +70,21 @@ const Connect = ({ coreKey, close }: Modals.ContentProps<ConnectModalParams, voi
   const handleSubmit = (): void => {
     if (!methods.validate()) return;
     const data = methods.value();
-    if (isEdit && existing != null)
+    if (isEdit && existing != null) {
+      const { username, password, lastLogin, token } = existing;
+      const moved = addressOf(existing) !== addressOf({ ...data, username });
       dispatch(
         Session.Core.set({
           ...data,
           key: coreKey,
-          username: existing.username,
-          password: existing.password,
+          username,
+          password,
+          lastLogin,
+          // a token must never reach an address that did not issue it
+          token: moved ? undefined : token,
         }),
       );
-    else dispatch(Session.Core.set({ ...data, username: "", password: "" }));
+    } else dispatch(Session.Core.set({ ...data, username: "", password: "" }));
     close();
   };
 
