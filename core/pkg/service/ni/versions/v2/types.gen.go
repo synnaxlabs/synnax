@@ -424,14 +424,19 @@ func (t ThermocoupleType) IsValid() bool {
 	}
 }
 
+// CJCType is the "source" value that selects a variant of CJC.
 type CJCType string
 
 const (
-	BuiltInCJCType  CJCType = "built_in"
+	// BuiltInCJCType reads the reference temperature from the device's own sensor.
+	BuiltInCJCType CJCType = "built_in"
+	// ConstValCJCType uses a fixed reference temperature.
 	ConstValCJCType CJCType = "const_val"
-	ChanCJCType     CJCType = "chan"
+	// ChanCJCType reads the reference temperature from another channel.
+	ChanCJCType CJCType = "chan"
 )
 
+// CJCVariant is implemented by every CJC variant.
 type CJCVariant interface {
 	isCJCVariant()
 }
@@ -537,7 +542,11 @@ func (u *CJC) UnmarshalJSONFrom(dec *jsontext.Decoder) error {
 		}
 		u.Variant = v.ChanCJC
 	default:
-		return errors.Newf("CJC: unknown source %q", disc.Type)
+		return errors.Wrapf(
+			validate.ErrValidation,
+			"CJC: unknown source %q",
+			disc.Type,
+		)
 	}
 	return nil
 }
@@ -600,16 +609,23 @@ func (c ChargeUnits) IsValid() bool {
 	}
 }
 
+// ScaleType is the "type" value that selects a variant of Scale.
 type ScaleType string
 
 const (
-	LinearScaleType     ScaleType = "linear"
-	MapScaleType        ScaleType = "map"
-	TableScaleType      ScaleType = "table"
+	// LinearScaleType maps raw values to engineering units with a slope and intercept.
+	LinearScaleType ScaleType = "linear"
+	// MapScaleType maps a raw range linearly onto a scaled range.
+	MapScaleType ScaleType = "map"
+	// TableScaleType maps raw values to engineering units via a lookup table.
+	TableScaleType ScaleType = "table"
+	// PolynomialScaleType maps raw values to engineering units with a polynomial.
 	PolynomialScaleType ScaleType = "polynomial"
-	NoneScaleType       ScaleType = "none"
+	// NoneScaleType applies no scaling; the raw value is used directly.
+	NoneScaleType ScaleType = "none"
 )
 
+// ScaleVariant is implemented by every Scale variant.
 type ScaleVariant interface {
 	isScaleVariant()
 }
@@ -867,7 +883,11 @@ func (u *Scale) UnmarshalJSONFrom(dec *jsontext.Decoder) error {
 		}
 		u.Variant = v.NoneScale
 	default:
-		return errors.Newf("Scale: unknown type %q", disc.Type)
+		return errors.Wrapf(
+			validate.ErrValidation,
+			"Scale: unknown type %q",
+			disc.Type,
+		)
 	}
 	return nil
 }
@@ -1166,41 +1186,82 @@ type BaseAIChannel struct {
 	Device device.Key `json:"device" msgpack:"device"`
 }
 
+// AIChannelType is the "type" value that selects a variant of AIChannel.
 type AIChannelType string
 
 const (
-	AIVoltageChannelType                   AIChannelType = "ai_voltage"
-	AIAccelChannelType                     AIChannelType = "ai_accel"
-	AIBridgeChannelType                    AIChannelType = "ai_bridge"
-	AICurrentChannelType                   AIChannelType = "ai_current"
-	AIForceBridgeTableChannelType          AIChannelType = "ai_force_bridge_table"
-	AIForceBridgeTwoPointLinChannelType    AIChannelType = "ai_force_bridge_two_point_lin"
-	AIForceIEPEChannelType                 AIChannelType = "ai_force_iepe"
-	AIMicrophoneChannelType                AIChannelType = "ai_microphone"
-	AIPressureBridgeTableChannelType       AIChannelType = "ai_pressure_bridge_table"
+	// AIVoltageChannelType reads a voltage.
+	AIVoltageChannelType AIChannelType = "ai_voltage"
+	// AIAccelChannelType reads acceleration from an accelerometer.
+	AIAccelChannelType AIChannelType = "ai_accel"
+	// AIBridgeChannelType reads a generic bridge-based sensor.
+	AIBridgeChannelType AIChannelType = "ai_bridge"
+	// AICurrentChannelType reads a current.
+	AICurrentChannelType AIChannelType = "ai_current"
+	// AIForceBridgeTableChannelType reads force from a bridge with a calibration table.
+	AIForceBridgeTableChannelType AIChannelType = "ai_force_bridge_table"
+	// AIForceBridgeTwoPointLinChannelType reads force from a bridge with two-point
+	// linear calibration.
+	AIForceBridgeTwoPointLinChannelType AIChannelType = "ai_force_bridge_two_point_lin"
+	// AIForceIEPEChannelType reads force from an IEPE sensor.
+	AIForceIEPEChannelType AIChannelType = "ai_force_iepe"
+	// AIMicrophoneChannelType reads sound pressure from a microphone.
+	AIMicrophoneChannelType AIChannelType = "ai_microphone"
+	// AIPressureBridgeTableChannelType reads pressure from a bridge with a calibration
+	// table.
+	AIPressureBridgeTableChannelType AIChannelType = "ai_pressure_bridge_table"
+	// AIPressureBridgeTwoPointLinChannelType reads pressure from a bridge with
+	// two-point linear calibration.
 	AIPressureBridgeTwoPointLinChannelType AIChannelType = "ai_pressure_bridge_two_point_lin"
-	AIResistanceChannelType                AIChannelType = "ai_resistance"
-	AIRTDChannelType                       AIChannelType = "ai_rtd"
-	AIStrainGaugeChannelType               AIChannelType = "ai_strain_gauge"
-	AITempBuiltinChannelType               AIChannelType = "ai_temp_builtin"
-	AIThermocoupleChannelType              AIChannelType = "ai_thermocouple"
-	AITorqueBridgeTableChannelType         AIChannelType = "ai_torque_bridge_table"
-	AITorqueBridgeTwoPointLinChannelType   AIChannelType = "ai_torque_bridge_two_point_lin"
-	AIVelocityIEPEChannelType              AIChannelType = "ai_velocity_iepe"
-	AIAccel4WireDCVoltageChannelType       AIChannelType = "ai_accel_4_wire_dc_voltage"
-	AIAccelChargeChannelType               AIChannelType = "ai_accel_charge"
-	AIChargeChannelType                    AIChannelType = "ai_charge"
-	AICurrentRMSChannelType                AIChannelType = "ai_current_rms"
-	AIForceBridgePolynomialChannelType     AIChannelType = "ai_force_bridge_polynomial"
-	AIFreqVoltageChannelType               AIChannelType = "ai_freq_voltage"
-	AIPressureBridgePolynomialChannelType  AIChannelType = "ai_pressure_bridge_polynomial"
-	AIThermistorIexChannelType             AIChannelType = "ai_thermistor_iex"
-	AIThermistorVexChannelType             AIChannelType = "ai_thermistor_vex"
-	AITorqueBridgePolynomialChannelType    AIChannelType = "ai_torque_bridge_polynomial"
-	AIVoltageRMSChannelType                AIChannelType = "ai_voltage_rms"
-	AIVoltageWithExcitChannelType          AIChannelType = "ai_voltage_with_excit"
+	// AIResistanceChannelType reads a resistance.
+	AIResistanceChannelType AIChannelType = "ai_resistance"
+	// AIRTDChannelType reads temperature from an RTD.
+	AIRTDChannelType AIChannelType = "ai_rtd"
+	// AIStrainGaugeChannelType reads strain from a strain gauge.
+	AIStrainGaugeChannelType AIChannelType = "ai_strain_gauge"
+	// AITempBuiltinChannelType reads temperature from the device's built-in sensor.
+	AITempBuiltinChannelType AIChannelType = "ai_temp_builtin"
+	// AIThermocoupleChannelType reads temperature from a thermocouple.
+	AIThermocoupleChannelType AIChannelType = "ai_thermocouple"
+	// AITorqueBridgeTableChannelType reads torque from a bridge with a calibration
+	// table.
+	AITorqueBridgeTableChannelType AIChannelType = "ai_torque_bridge_table"
+	// AITorqueBridgeTwoPointLinChannelType reads torque from a bridge with two-point
+	// linear calibration.
+	AITorqueBridgeTwoPointLinChannelType AIChannelType = "ai_torque_bridge_two_point_lin"
+	// AIVelocityIEPEChannelType reads velocity from an IEPE sensor.
+	AIVelocityIEPEChannelType AIChannelType = "ai_velocity_iepe"
+	// AIAccel4WireDCVoltageChannelType reads acceleration from a 4-wire DC-voltage
+	// accelerometer.
+	AIAccel4WireDCVoltageChannelType AIChannelType = "ai_accel_4_wire_dc_voltage"
+	// AIAccelChargeChannelType reads acceleration from a charge-mode accelerometer.
+	AIAccelChargeChannelType AIChannelType = "ai_accel_charge"
+	// AIChargeChannelType reads a raw charge.
+	AIChargeChannelType AIChannelType = "ai_charge"
+	// AICurrentRMSChannelType reads RMS current.
+	AICurrentRMSChannelType AIChannelType = "ai_current_rms"
+	// AIForceBridgePolynomialChannelType reads force from a bridge with polynomial
+	// calibration.
+	AIForceBridgePolynomialChannelType AIChannelType = "ai_force_bridge_polynomial"
+	// AIFreqVoltageChannelType reads frequency from a voltage signal.
+	AIFreqVoltageChannelType AIChannelType = "ai_freq_voltage"
+	// AIPressureBridgePolynomialChannelType reads pressure from a bridge with
+	// polynomial calibration.
+	AIPressureBridgePolynomialChannelType AIChannelType = "ai_pressure_bridge_polynomial"
+	// AIThermistorIexChannelType reads temperature from a current-excited thermistor.
+	AIThermistorIexChannelType AIChannelType = "ai_thermistor_iex"
+	// AIThermistorVexChannelType reads temperature from a voltage-excited thermistor.
+	AIThermistorVexChannelType AIChannelType = "ai_thermistor_vex"
+	// AITorqueBridgePolynomialChannelType reads torque from a bridge with polynomial
+	// calibration.
+	AITorqueBridgePolynomialChannelType AIChannelType = "ai_torque_bridge_polynomial"
+	// AIVoltageRMSChannelType reads RMS voltage.
+	AIVoltageRMSChannelType AIChannelType = "ai_voltage_rms"
+	// AIVoltageWithExcitChannelType reads a voltage with excitation.
+	AIVoltageWithExcitChannelType AIChannelType = "ai_voltage_with_excit"
 )
 
+// AIChannelVariant is implemented by every AIChannel variant.
 type AIChannelVariant interface {
 	isAIChannelVariant()
 }
@@ -2822,7 +2883,11 @@ func (u *AIChannel) UnmarshalJSONFrom(dec *jsontext.Decoder) error {
 		}
 		u.Variant = v.AIVoltageWithExcitChannel
 	default:
-		return errors.Newf("AIChannel: unknown type %q", disc.Type)
+		return errors.Wrapf(
+			validate.ErrValidation,
+			"AIChannel: unknown type %q",
+			disc.Type,
+		)
 	}
 	return nil
 }
@@ -3254,22 +3319,35 @@ type BaseCIChannel struct {
 	Device device.Key `json:"device" msgpack:"device"`
 }
 
+// CIChannelType is the "type" value that selects a variant of CIChannel.
 type CIChannelType string
 
 const (
-	CIFrequencyChannelType       CIChannelType = "ci_frequency"
-	CIEdgeCountChannelType       CIChannelType = "ci_edge_count"
-	CIPeriodChannelType          CIChannelType = "ci_period"
-	CIPulseWidthChannelType      CIChannelType = "ci_pulse_width"
-	CISemiPeriodChannelType      CIChannelType = "ci_semi_period"
-	CITwoEdgeSepChannelType      CIChannelType = "ci_two_edge_sep"
-	CIVelocityLinearChannelType  CIChannelType = "ci_velocity_linear"
+	// CIFrequencyChannelType measures signal frequency.
+	CIFrequencyChannelType CIChannelType = "ci_frequency"
+	// CIEdgeCountChannelType counts signal edges.
+	CIEdgeCountChannelType CIChannelType = "ci_edge_count"
+	// CIPeriodChannelType measures signal period.
+	CIPeriodChannelType CIChannelType = "ci_period"
+	// CIPulseWidthChannelType measures pulse width.
+	CIPulseWidthChannelType CIChannelType = "ci_pulse_width"
+	// CISemiPeriodChannelType measures semi-period.
+	CISemiPeriodChannelType CIChannelType = "ci_semi_period"
+	// CITwoEdgeSepChannelType measures the separation between two edges.
+	CITwoEdgeSepChannelType CIChannelType = "ci_two_edge_sep"
+	// CIVelocityLinearChannelType measures linear velocity from an encoder.
+	CIVelocityLinearChannelType CIChannelType = "ci_velocity_linear"
+	// CIVelocityAngularChannelType measures angular velocity from an encoder.
 	CIVelocityAngularChannelType CIChannelType = "ci_velocity_angular"
-	CIPositionLinearChannelType  CIChannelType = "ci_position_linear"
+	// CIPositionLinearChannelType measures linear position from an encoder.
+	CIPositionLinearChannelType CIChannelType = "ci_position_linear"
+	// CIPositionAngularChannelType measures angular position from an encoder.
 	CIPositionAngularChannelType CIChannelType = "ci_position_angular"
-	CIDutyCycleChannelType       CIChannelType = "ci_duty_cycle"
+	// CIDutyCycleChannelType measures the duty cycle of a signal.
+	CIDutyCycleChannelType CIChannelType = "ci_duty_cycle"
 )
 
+// CIChannelVariant is implemented by every CIChannel variant.
 type CIChannelVariant interface {
 	isCIChannelVariant()
 }
@@ -3961,7 +4039,11 @@ func (u *CIChannel) UnmarshalJSONFrom(dec *jsontext.Decoder) error {
 		}
 		u.Variant = v.CIDutyCycleChannel
 	default:
-		return errors.Newf("CIChannel: unknown type %q", disc.Type)
+		return errors.Wrapf(
+			validate.ErrValidation,
+			"CIChannel: unknown type %q",
+			disc.Type,
+		)
 	}
 	return nil
 }
@@ -4145,14 +4227,19 @@ type BaseAOChannel struct {
 	Port int32 `json:"port" msgpack:"port"`
 }
 
+// AOChannelType is the "type" value that selects a variant of AOChannel.
 type AOChannelType string
 
 const (
+	// AOCurrentChannelType drives a current output.
 	AOCurrentChannelType AOChannelType = "ao_current"
+	// AOFuncGenChannelType drives a function-generator output.
 	AOFuncGenChannelType AOChannelType = "ao_func_gen"
+	// AOVoltageChannelType drives a voltage output.
 	AOVoltageChannelType AOChannelType = "ao_voltage"
 )
 
+// AOChannelVariant is implemented by every AOChannel variant.
 type AOChannelVariant interface {
 	isAOChannelVariant()
 }
@@ -4312,7 +4399,11 @@ func (u *AOChannel) UnmarshalJSONFrom(dec *jsontext.Decoder) error {
 		}
 		u.Variant = v.AOVoltageChannel
 	default:
-		return errors.Newf("AOChannel: unknown type %q", disc.Type)
+		return errors.Wrapf(
+			validate.ErrValidation,
+			"AOChannel: unknown type %q",
+			disc.Type,
+		)
 	}
 	return nil
 }
