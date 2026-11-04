@@ -34,7 +34,11 @@ const (
 // CellConfig is the per-cell configuration stored in the table cells map. The variant
 // selects which Pluto cell component renders the cell.
 type CellConfig = v2.CellConfig
+
+// CellConfigVariant is implemented by every CellConfig variant.
 type CellConfigVariant = v2.CellConfigVariant
+
+// CellConfigType is the "variant" value that selects a variant of CellConfig.
 type CellConfigType = v2.CellConfigType
 
 const (

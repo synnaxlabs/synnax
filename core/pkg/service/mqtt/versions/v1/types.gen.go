@@ -142,13 +142,17 @@ type BaseReadEntry struct {
 	Disabled bool `json:"disabled" msgpack:"disabled"`
 }
 
+// ReadEntryType is the "type" value that selects a variant of ReadEntry.
 type ReadEntryType string
 
 const (
-	PlainReadEntryType     ReadEntryType = "plain"
+	// PlainReadEntryType reads JSON payloads from one topic.
+	PlainReadEntryType ReadEntryType = "plain"
+	// SparkplugReadEntryType reads one Sparkplug B tag.
 	SparkplugReadEntryType ReadEntryType = "sparkplug"
 )
 
+// ReadEntryVariant is implemented by every ReadEntry variant.
 type ReadEntryVariant interface {
 	isReadEntryVariant()
 }
@@ -283,7 +287,11 @@ func (u *ReadEntry) UnmarshalJSONFrom(dec *jsontext.Decoder) error {
 		}
 		u.Variant = v.SparkplugReadEntry
 	default:
-		return errors.Newf("ReadEntry: unknown type %q", disc.Type)
+		return errors.Wrapf(
+			validate.ErrValidation,
+			"ReadEntry: unknown type %q",
+			disc.Type,
+		)
 	}
 	return nil
 }
@@ -450,13 +458,18 @@ type BaseWriteField struct {
 	Pointer string `json:"pointer" msgpack:"pointer"`
 }
 
+// WriteFieldType is the "type" value that selects a variant of WriteField.
 type WriteFieldType string
 
 const (
-	StaticWriteFieldType    WriteFieldType = "static"
+	// StaticWriteFieldType places a fixed value in the payload.
+	StaticWriteFieldType WriteFieldType = "static"
+	// GeneratedWriteFieldType places a freshly generated UUID or timestamp in the
+	// payload.
 	GeneratedWriteFieldType WriteFieldType = "generated"
 )
 
+// WriteFieldVariant is implemented by every WriteField variant.
 type WriteFieldVariant interface {
 	isWriteFieldVariant()
 }
@@ -578,7 +591,11 @@ func (u *WriteField) UnmarshalJSONFrom(dec *jsontext.Decoder) error {
 		}
 		u.Variant = v.GeneratedWriteField
 	default:
-		return errors.Newf("WriteField: unknown type %q", disc.Type)
+		return errors.Wrapf(
+			validate.ErrValidation,
+			"WriteField: unknown type %q",
+			disc.Type,
+		)
 	}
 	return nil
 }
@@ -641,13 +658,17 @@ type BaseWriteTarget struct {
 	Disabled bool `json:"disabled" msgpack:"disabled"`
 }
 
+// WriteTargetType is the "type" value that selects a variant of WriteTarget.
 type WriteTargetType string
 
 const (
-	PlainWriteTargetType     WriteTargetType = "plain"
+	// PlainWriteTargetType publishes a JSON payload to one topic.
+	PlainWriteTargetType WriteTargetType = "plain"
+	// SparkplugWriteTargetType sends a Sparkplug B command for one tag.
 	SparkplugWriteTargetType WriteTargetType = "sparkplug"
 )
 
+// WriteTargetVariant is implemented by every WriteTarget variant.
 type WriteTargetVariant interface {
 	isWriteTargetVariant()
 }
@@ -793,7 +814,11 @@ func (u *WriteTarget) UnmarshalJSONFrom(dec *jsontext.Decoder) error {
 		}
 		u.Variant = v.SparkplugWriteTarget
 	default:
-		return errors.Newf("WriteTarget: unknown type %q", disc.Type)
+		return errors.Wrapf(
+			validate.ErrValidation,
+			"WriteTarget: unknown type %q",
+			disc.Type,
+		)
 	}
 	return nil
 }

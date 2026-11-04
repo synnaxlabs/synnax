@@ -20,6 +20,7 @@ import (
 	task "github.com/synnaxlabs/synnax/pkg/service/task/versions/v2"
 	"github.com/synnaxlabs/x/errors"
 	telem "github.com/synnaxlabs/x/telem/versions/v0"
+	"github.com/synnaxlabs/x/validate"
 )
 
 // RegisterValue interprets one or more 16-bit registers as a single typed value.
@@ -53,15 +54,23 @@ type BaseReadChannel struct {
 	Address uint16 `json:"address" msgpack:"address"`
 }
 
+// ReadChannelType is the "type" value that selects a variant of ReadChannel.
 type ReadChannelType string
 
 const (
-	CoilReadChannelType            ReadChannelType = "coil"
-	DiscreteInputReadChannelType   ReadChannelType = "discrete_input"
+	// CoilReadChannelType reads a single bit from a coil.
+	CoilReadChannelType ReadChannelType = "coil"
+	// DiscreteInputReadChannelType reads a single bit from a discrete input.
+	DiscreteInputReadChannelType ReadChannelType = "discrete_input"
+	// HoldingRegisterReadChannelType reads a typed value from one or more holding
+	// registers.
 	HoldingRegisterReadChannelType ReadChannelType = "holding_register"
-	InputRegisterReadChannelType   ReadChannelType = "input_register"
+	// InputRegisterReadChannelType reads a typed value from one or more input
+	// registers.
+	InputRegisterReadChannelType ReadChannelType = "input_register"
 )
 
+// ReadChannelVariant is implemented by every ReadChannel variant.
 type ReadChannelVariant interface {
 	isReadChannelVariant()
 }
@@ -203,7 +212,11 @@ func (u *ReadChannel) UnmarshalJSONFrom(dec *jsontext.Decoder) error {
 		}
 		u.Variant = v.InputRegisterReadChannel
 	default:
-		return errors.Newf("ReadChannel: unknown type %q", disc.Type)
+		return errors.Wrapf(
+			validate.ErrValidation,
+			"ReadChannel: unknown type %q",
+			disc.Type,
+		)
 	}
 	return nil
 }
@@ -270,13 +283,18 @@ type BaseWriteChannel struct {
 	Address uint16 `json:"address" msgpack:"address"`
 }
 
+// WriteChannelType is the "type" value that selects a variant of WriteChannel.
 type WriteChannelType string
 
 const (
-	CoilWriteChannelType            WriteChannelType = "coil"
+	// CoilWriteChannelType writes a single bit to a coil.
+	CoilWriteChannelType WriteChannelType = "coil"
+	// HoldingRegisterWriteChannelType writes a typed value to one or more holding
+	// registers.
 	HoldingRegisterWriteChannelType WriteChannelType = "holding_register"
 )
 
+// WriteChannelVariant is implemented by every WriteChannel variant.
 type WriteChannelVariant interface {
 	isWriteChannelVariant()
 }
@@ -366,7 +384,11 @@ func (u *WriteChannel) UnmarshalJSONFrom(dec *jsontext.Decoder) error {
 		}
 		u.Variant = v.HoldingRegisterWriteChannel
 	default:
-		return errors.Newf("WriteChannel: unknown type %q", disc.Type)
+		return errors.Wrapf(
+			validate.ErrValidation,
+			"WriteChannel: unknown type %q",
+			disc.Type,
+		)
 	}
 	return nil
 }
