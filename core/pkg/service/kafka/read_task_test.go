@@ -15,11 +15,13 @@ import (
 	"encoding/json/v2"
 	"math"
 	"slices"
+	"sync"
 	"time"
 	"uuid"
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
+	"github.com/synnaxlabs/gorp"
 	"github.com/synnaxlabs/synnax/pkg/service/channel"
 	"github.com/synnaxlabs/synnax/pkg/service/driver"
 	"github.com/synnaxlabs/synnax/pkg/service/framer"
@@ -31,6 +33,7 @@ import (
 	"github.com/synnaxlabs/x/telem"
 	. "github.com/synnaxlabs/x/testutil"
 	"github.com/synnaxlabs/x/validate"
+	"github.com/twmb/franz-go/pkg/kadm"
 	"github.com/twmb/franz-go/pkg/kerr"
 	"github.com/twmb/franz-go/pkg/kfake"
 	"github.com/twmb/franz-go/pkg/kgo"
@@ -373,6 +376,142 @@ var _ = Describe("Read task", func() {
 		},
 	)
 
+	// failFetch makes the next fetch of topic fail. A control handles one request, and
+	// a consumer another spec left behind can still fetch, so only a fetch of this
+	// topic
+	// fails. A fetch in a session names no topics, so the control resets the session to
+	// make the consumer name them.
+	failFetch := func(ctx context.Context, topic string) {
+		GinkgoHelper()
+		id := topicID(ctx, producer, topic)
+		cluster.ControlKey(
+			int16(kmsg.Fetch),
+			func(req kmsg.Request) (kmsg.Response, error, bool) {
+				fetch := req.(*kmsg.FetchRequest)
+				if fetch.SessionEpoch > 0 && len(fetch.Topics) == 0 {
+					cluster.KeepControl()
+					res := req.ResponseKind().(*kmsg.FetchResponse)
+					res.ErrorCode = kerr.FetchSessionIDNotFound.Code
+					return res, nil, true
+				}
+				ours := slices.ContainsFunc(
+					fetch.Topics,
+					func(rt kmsg.FetchRequestTopic) bool {
+						return rt.TopicID == id || rt.Topic == topic
+					},
+				)
+				if !ours {
+					return nil, nil, false
+				}
+				cluster.DropControl()
+				res := req.ResponseKind().(*kmsg.FetchResponse)
+				for _, rt := range fetch.Topics {
+					st := kmsg.NewFetchResponseTopic()
+					st.Topic, st.TopicID = rt.Topic, rt.TopicID
+					for _, rp := range rt.Partitions {
+						sp := kmsg.NewFetchResponseTopicPartition()
+						sp.Partition = rp.Partition
+						sp.ErrorCode = kerr.TopicAuthorizationFailed.Code
+						st.Partitions = append(st.Partitions, sp)
+					}
+					res.Topics = append(res.Topics, st)
+				}
+				return res, nil, true
+			},
+		)
+	}
+
+	// failWrite makes the task's next write fail with a record stamped at the last
+	// representable time, which leaves no room for a domain end.
+	failWrite := func(ctx context.Context, topic string) {
+		GinkgoHelper()
+		doc := map[string]any{"ts": int64(math.MaxInt64), "v": 9.0}
+		produceJSON(ctx, producer, topic, "", doc)
+	}
+
+	// dropRecords removes the records of topic, so a consumer that starts next does not
+	// replay one that failed its write.
+	dropRecords := func(ctx context.Context, topic string) {
+		GinkgoHelper()
+		var offsets kadm.Offsets
+		offsets.AddOffset(topic, 0, -1, -1)
+		res := MustSucceed(kadm.NewClient(producer).DeleteRecords(ctx, offsets))
+		Expect(res.Error()).To(Succeed())
+	}
+
+	DescribeTable("Should restart a consumer that fails while start is called",
+		func(ctx SpecContext, fail func(context.Context, string)) {
+			gated := &gatedDB{
+				DB:      db.KV(),
+				held:    make(chan struct{}),
+				release: make(chan struct{}),
+			}
+			f = newFactory(kafka.FactoryConfig{DB: gorp.Wrap(gated)})
+			index, data := createIndexed(ctx, telem.Float64T)
+			dev := createDevice(ctx, clusterProperties())
+			topic := newTopic()
+			dt, t := configure(ctx, kafka.ReadConfig{
+				Device:  dev.Key,
+				Topic:   topic,
+				Records: single(stampedFields(index, data)),
+			})
+			// Cleanup runs in reverse, so a failed spec opens the gate before the stop
+			// waits on the consumer that holds it.
+			release := sync.OnceFunc(func() { close(gated.release) })
+			DeferCleanup(release)
+			start(ctx, dt, t)
+			gated.gated.Store(true)
+			fail(ctx, topic)
+			Eventually(gated.held).WithTimeout(15 * time.Second).Should(BeClosed())
+			Expect(taskStatus(ctx, t).Message).To(Equal("Started task"))
+			dropRecords(ctx, topic)
+			started := make(chan error, 1)
+			go func() {
+				started <- dt.Exec(
+					ctx,
+					task.Command{Task: t.Key, Type: "start", Key: "cmd-3"},
+				)
+			}()
+			Consistently(started).ShouldNot(Receive())
+			release()
+			Eventually(started).WithTimeout(15 * time.Second).Should(Receive(BeNil()))
+			stat := taskStatus(ctx, t)
+			Expect(stat.Variant).To(Equal(status.VariantSuccess))
+			Expect(stat.Message).To(Equal("Started task"))
+			Expect(stat.Details.Cmd).To(Equal("cmd-3"))
+			Expect(stat.Details.Running).To(BeTrue())
+			produceJSON(ctx, producer, topic, "", map[string]any{"ts": 30e9, "v": 3.0})
+			Expect(floats(expectStored(ctx, data.Key(), 1))).To(Equal([]float64{3}))
+		},
+		Entry("failed fetch", failFetch),
+		Entry("failed write", failWrite),
+	)
+
+	It("Should consume again when started after a failed write",
+		func(ctx SpecContext) {
+			index, data := createIndexed(ctx, telem.Float64T)
+			dev := createDevice(ctx, clusterProperties())
+			topic := newTopic()
+			dt, t := configure(ctx, kafka.ReadConfig{
+				Device:  dev.Key,
+				Topic:   topic,
+				Records: single(stampedFields(index, data)),
+			})
+			start(ctx, dt, t)
+			failWrite(ctx, topic)
+			Eventually(func(g Gomega) {
+				stat := taskStatus(ctx, t)
+				g.Expect(stat.Variant).To(Equal(status.VariantError))
+				g.Expect(stat.Message).To(Equal("Failed to process records"))
+				g.Expect(stat.Details.Running).To(BeFalse())
+			}).WithTimeout(15 * time.Second).Should(Succeed())
+			dropRecords(ctx, topic)
+			start(ctx, dt, t)
+			produceJSON(ctx, producer, topic, "", map[string]any{"ts": 10e9, "v": 1.0})
+			Expect(floats(expectStored(ctx, data.Key(), 1))).To(Equal([]float64{1}))
+		},
+	)
+
 	It("Should consume again when started after a failed fetch",
 		func(ctx SpecContext) {
 			index, data := createIndexed(ctx, telem.Float64T)
@@ -384,37 +523,7 @@ var _ = Describe("Read task", func() {
 				Records: single(stampedFields(index, data)),
 			})
 			start(ctx, dt, t)
-			// A control handles one request, and a consumer another spec left
-			// behind can still fetch, so only a fetch of this topic fails.
-			id := topicID(ctx, producer, topic)
-			cluster.ControlKey(
-				int16(kmsg.Fetch),
-				func(req kmsg.Request) (kmsg.Response, error, bool) {
-					fetch := req.(*kmsg.FetchRequest)
-					ours := slices.ContainsFunc(
-						fetch.Topics,
-						func(rt kmsg.FetchRequestTopic) bool {
-							return rt.TopicID == id || rt.Topic == topic
-						},
-					)
-					if !ours {
-						return nil, nil, false
-					}
-					res := req.ResponseKind().(*kmsg.FetchResponse)
-					for _, rt := range fetch.Topics {
-						st := kmsg.NewFetchResponseTopic()
-						st.Topic, st.TopicID = rt.Topic, rt.TopicID
-						for _, rp := range rt.Partitions {
-							sp := kmsg.NewFetchResponseTopicPartition()
-							sp.Partition = rp.Partition
-							sp.ErrorCode = kerr.TopicAuthorizationFailed.Code
-							st.Partitions = append(st.Partitions, sp)
-						}
-						res.Topics = append(res.Topics, st)
-					}
-					return res, nil, true
-				},
-			)
+			failFetch(ctx, topic)
 			Eventually(func() string { return taskStatus(ctx, t).Message }).
 				WithTimeout(15 * time.Second).Should(Equal("Failed to fetch records"))
 			start(ctx, dt, t)
