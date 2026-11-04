@@ -21,21 +21,25 @@ export const CHECK_DELAY = TimeSpan.milliseconds(500);
 
 export interface UseCheckParams {
   /** The form that edits the ICD. */
-  form: Pick<Form.ContextValue, "bind" | "setStatus"> & { value: () => icd.New };
+  form: Pick<Form.ContextValue, "bind" | "setStatus" | "clearStatus"> & {
+    value: () => icd.New;
+  };
 }
 
 /**
- * Checks the ICD in the form when it stays unchanged for {@link CHECK_DELAY} after an
- * edit, and puts each problem the check finds on the form path it names. An edit clears
- * the problems until the next check.
+ * Checks the ICD in the form when the hook mounts, and again when the form stays
+ * unchanged for {@link CHECK_DELAY} after an edit. Puts each problem a check finds on
+ * the form path it names, and clears the problems the previous check found. An edit
+ * clears the problem on the edited path until the next check.
  */
 export const useCheck = ({ form }: UseCheckParams): void => {
   const client = Synnax.use();
-  const { bind, value, setStatus } = form;
+  const { bind, value, setStatus, clearStatus } = form;
   const handleError = Status.useErrorHandler();
   useEffect(() => {
     if (client == null) return;
     let checked: icd.New | null = null;
+    let marked: deep.Target<unknown>[] = [];
     let timer: ReturnType<typeof setTimeout> | undefined;
     const run = () =>
       handleError(async () => {
@@ -44,8 +48,10 @@ export const useCheck = ({ form }: UseCheckParams): void => {
         const problems = await client.icds.check(v);
         // The form changed while the check ran, so its problems are out of date.
         if (!deep.equal(value(), v)) return;
-        markProblems(problems, v, setStatus);
+        marked.forEach(clearStatus);
+        marked = markProblems(problems, v, setStatus);
       }, "Failed to check");
+    run();
     const unbind = bind(() => {
       if (deep.equal(value(), checked)) return;
       clearTimeout(timer);
@@ -55,5 +61,5 @@ export const useCheck = ({ form }: UseCheckParams): void => {
       clearTimeout(timer);
       unbind();
     };
-  }, [client, bind, value, setStatus, handleError]);
+  }, [client, bind, value, setStatus, clearStatus, handleError]);
 };

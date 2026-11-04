@@ -54,6 +54,31 @@ describe("ICD.useCheck", () => {
     );
   });
 
+  it("should show the problems the ICD has when it mounts", async () => {
+    values.messages[1].name = "Mode";
+    const { result } = renderHook(() => useChecked(values), { wrapper });
+    await waitFor(() =>
+      expect(result.current.get(mode)?.status).toMatchObject({
+        variant: "error",
+        message: 'duplicate message name "Mode"',
+      }),
+    );
+  });
+
+  it("should clear a problem that an edit on another path fixes", async () => {
+    values.messages[1].name = "Mode";
+    const { result } = renderHook(() => useChecked(values), { wrapper });
+    await waitFor(() =>
+      expect(result.current.get(mode)?.status.variant).toEqual("error"),
+    );
+    act(() =>
+      result.current.set(ICD.formPath.messages[values.messages[0].key].name, "Other"),
+    );
+    await waitFor(() =>
+      expect(result.current.get(mode)?.status.variant).not.toEqual("error"),
+    );
+  });
+
   it("should clear the problems on the next edit", async () => {
     const { result } = renderHook(() => useChecked(values), { wrapper });
     act(() => result.current.set(mode, "Mode"));
@@ -67,28 +92,31 @@ describe("ICD.useCheck", () => {
   it("should check once after a burst of edits", async () => {
     const check = vi.spyOn(client.icds, "check");
     const { result } = renderHook(() => useChecked(values), { wrapper });
+    await waitFor(() => expect(check).toHaveBeenCalledOnce());
     act(() => {
       result.current.set(mode, "A");
       result.current.set(mode, "AB");
       result.current.set(mode, "ABC");
     });
-    await waitFor(() => expect(check).toHaveBeenCalledOnce());
-    expect(check.mock.calls[0][0].messages?.[1].name).toEqual("ABC");
+    await waitFor(() => expect(check).toHaveBeenCalledTimes(2));
+    expect(check.mock.calls[1][0].messages?.[1].name).toEqual("ABC");
   });
 
   it("should drop a result when the form changed while the check ran", async () => {
     let release: () => void = () => {};
     const gate = new Promise<void>((resolve) => (release = resolve));
-    const check = vi.spyOn(client.icds, "check").mockImplementationOnce(async () => {
+    const check = vi.spyOn(client.icds, "check");
+    const { result } = renderHook(() => useChecked(values), { wrapper });
+    await waitFor(() => expect(check).toHaveBeenCalledOnce());
+    check.mockImplementationOnce(async () => {
       await gate;
       return [{ path: "messages.1.name", message: "out of date" }];
     });
-    const { result } = renderHook(() => useChecked(values), { wrapper });
     act(() => result.current.set(mode, "A"));
-    await waitFor(() => expect(check).toHaveBeenCalledOnce());
+    await waitFor(() => expect(check).toHaveBeenCalledTimes(2));
     act(() => result.current.set(mode, "B"));
     await act(async () => release());
-    await waitFor(() => expect(check).toHaveBeenCalledTimes(2));
+    await waitFor(() => expect(check).toHaveBeenCalledTimes(3));
     expect(result.current.get(mode)?.status.variant).not.toEqual("error");
   });
 });

@@ -22,13 +22,17 @@ const toFormPath = (path: string, value: unknown): deep.Target<unknown> =>
     .split(".")
     .reduce<deep.Path<unknown>>((target, part) => target[part], deep.path<unknown>());
 
-/** Puts each problem as an error status on the form path it names in the value. */
+/**
+ * Puts each problem as an error status on the form path it names in the value.
+ * @returns the form paths it marked.
+ */
 export const markProblems = (
   problems: icd.Problem[],
   value: unknown,
   setStatus: Form.ContextValue["setStatus"],
-): void =>
-  problems.forEach(({ path, message }) => {
+): deep.Target<unknown>[] =>
+  problems.map(({ path, message }) => {
     const formPath = toFormPath(path, value);
     setStatus(formPath, { key: String(formPath), variant: "error", message });
+    return formPath;
   });
