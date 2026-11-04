@@ -384,15 +384,63 @@ var _ = Describe("Delete", func() {
 		elapsed := time.Since(start)
 		Expect(elapsed).To(BeNumerically(">=", timeout))
 		Expect(elapsed).To(BeNumerically("<", 2*timeout))
+		stopped := make([]task.Key, 0, len(tasks))
 		for range tasks {
 			var cmd task.Command
 			Eventually(commands).Should(Receive(&cmd))
-			Expect(keys).To(ContainElement(cmd.Task))
+			Expect(cmd.Type).To(Equal("stop"))
+			stopped = append(stopped, cmd.Task)
 		}
+		Expect(stopped).To(ConsistOf(keys))
+		Consistently(commands, 100*time.Millisecond).ShouldNot(Receive())
 		for _, key := range keys {
 			expectGone(ctx, key)
 		}
 	})
+	It("Should stop only the requested task", func(ctx SpecContext) {
+		target := createRunningTask(ctx, true)
+		other := createRunningTask(ctx, true)
+		grant(ctx, access.ActionDelete, u.OntologyID(), target.OntologyID())
+		forged := task.Status{
+			Key:     target.OntologyID().String(),
+			Variant: status.VariantSuccess,
+			Message: "Task is running",
+			Time:    telem.Now(),
+			Details: task.StatusDetails{Task: other.Key, Running: true},
+		}
+		Expect(svc.Status.NewWriter(nil).Set(ctx, &forged)).To(Succeed())
+		commands := streamCommands(ctx)
+		Expect(withTimeout(100*time.Millisecond).Delete(
+			AuthedCtx(ctx, u), nil, apitask.DeleteRequest{Keys: []task.Key{target.Key}},
+		)).Error().ToNot(HaveOccurred())
+		var cmd task.Command
+		Eventually(commands).Should(Receive(&cmd))
+		Expect(cmd.Task).To(Equal(target.Key))
+		Consistently(commands, 100*time.Millisecond).ShouldNot(Receive())
+		expectGone(ctx, target.Key)
+	})
+	DescribeTable(
+		"Should keep the task when the caller cancels",
+		func(ctx SpecContext, after time.Duration) {
+			t := createRunningTask(ctx, true)
+			grant(ctx, access.ActionDelete, u.OntologyID(), t.OntologyID())
+			reqCtx, cancel := context.WithCancel(ctx)
+			defer time.AfterFunc(after, cancel).Stop()
+			if after == 0 {
+				cancel()
+			}
+			Expect(withTimeout(10*time.Second).Delete(
+				AuthedCtx(
+					reqCtx,
+					u,
+				), nil, apitask.DeleteRequest{Keys: []task.Key{t.Key}},
+			),
+			).Error().To(MatchError(context.Canceled))
+			Expect(retrieveTask(ctx, t.Key).Key).To(Equal(t.Key))
+		},
+		Entry("before the stop", time.Duration(0)),
+		Entry("during the wait", 50*time.Millisecond),
+	)
 	DescribeTable(
 		"Should not wait for a task that is not running",
 		func(ctx SpecContext, create func(SpecContext) task.Task) {

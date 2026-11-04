@@ -69,12 +69,13 @@ func (s *Service) retrieveRunning(
 	ctx context.Context,
 	keys []task.Key,
 ) ([]task.Key, error) {
+	// Status details are caller-provided, so a stop target must come from keys.
+	byStatus := lo.SliceToMap(keys, func(k task.Key) (string, task.Key) {
+		return task.OntologyID(k).String(), k
+	})
 	var statuses []task.Status
 	if err := s.status.NewRetrieve[task.StatusDetails]().
-		Where(status.MatchKeys[task.StatusDetails](lo.Map(
-			keys,
-			func(k task.Key, _ int) string { return task.OntologyID(k).String() },
-		)...)).
+		Where(status.MatchKeys[task.StatusDetails](lo.Keys(byStatus)...)).
 		Entries(&statuses).
 		Exec(ctx, nil); errors.Skip(err, query.ErrNotFound) != nil {
 		return nil, err
@@ -82,7 +83,7 @@ func (s *Service) retrieveRunning(
 	running := make([]task.Key, 0, len(statuses))
 	for _, stat := range statuses {
 		if stat.Details.Running {
-			running = append(running, stat.Details.Task)
+			running = append(running, byStatus[stat.Key])
 		}
 	}
 	return running, nil
@@ -103,7 +104,9 @@ func (s *Service) sendStops(ctx context.Context, keys []task.Key) error {
 	if err != nil {
 		return err
 	}
-	w, err := s.framer.OpenWriter(ctx, framer.WriterConfig{
+	// A writer stops serving requests when its context ends, and a request sent to it
+	// then blocks. Detaching keeps a canceled caller from hanging the delete.
+	w, err := s.framer.OpenWriter(context.WithoutCancel(ctx), framer.WriterConfig{
 		Keys:  channel.Keys{s.task.CommandChannelKey()},
 		Start: telem.Now(),
 	})
