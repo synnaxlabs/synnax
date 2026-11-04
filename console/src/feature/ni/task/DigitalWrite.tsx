@@ -36,7 +36,7 @@ import {
   type DOChannel,
 } from "@/feature/ni/task/types";
 import { Device as PlatformDevice } from "@/platform/device";
-import { Selector } from "@/platform/selector";
+import { type Selector } from "@/platform/selector";
 import { Task } from "@/platform/task";
 
 const root = deep.path<Task.Values<DigitalWriteSchemas>>();
@@ -246,9 +246,10 @@ export const useCreateDigitalWrite = Task.createUseCreate({
   deviceMake: MAKE,
 });
 
-export const DigitalWriteSelectable = Selector.createSelectable({
+export const DigitalWriteSelectable: Selector.Selectable = {
   type: DIGITAL_WRITE_TYPE,
   title: "NI digital write task",
+  label: "Digital write",
   icon: <Icon.Logo.NI />,
   useOnSelect: useCreateDigitalWrite,
-});
+};

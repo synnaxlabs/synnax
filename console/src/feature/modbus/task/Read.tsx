@@ -47,7 +47,7 @@ import {
   type TypedReadChannel,
   UNSUPPORTED_READ_DATA_TYPES,
 } from "@/feature/modbus/task/types";
-import { Selector } from "@/platform/selector";
+import { type Selector } from "@/platform/selector";
 import { Task } from "@/platform/task";
 
 const path = deep.path<Task.Values<ReadSchemas>>();
@@ -254,9 +254,10 @@ export const useCreateRead = Task.createUseCreate({
   deviceMake: MAKE,
 });
 
-export const ReadSelectable = Selector.createSelectable({
+export const ReadSelectable: Selector.Selectable = {
   type: READ_TYPE,
   title: "Modbus read task",
+  label: "Read",
   icon: <Icon.Logo.Modbus />,
   useOnSelect: useCreateRead,
-});
+};

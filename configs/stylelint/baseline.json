@@ -124,7 +124,7 @@
       "lyra-resize__handle"
     ],
     "console/src/platform/notifications/Feed.css": ["lyra-btn"],
-    "console/src/platform/selector/Selector.css": ["lyra-btn", "lyra-icon"],
+    "console/src/platform/selector/Selector.css": ["lyra-icon"],
     "console/src/platform/shell/Shell.css": [
       "lyra--square",
       "lyra-header",

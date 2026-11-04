@@ -37,7 +37,7 @@ import {
 } from "@/feature/ni/task/types";
 import { useChannelDevice } from "@/feature/ni/task/usePort";
 import { Device as PlatformDevice } from "@/platform/device";
-import { Selector } from "@/platform/selector";
+import { type Selector } from "@/platform/selector";
 import { Task } from "@/platform/task";
 
 const root = deep.path<Task.Values<AnalogReadSchemas>>();
@@ -293,9 +293,10 @@ export const useCreateAnalogRead = Task.createUseCreate({
   deviceMake: MAKE,
 });
 
-export const AnalogReadSelectable = Selector.createSelectable({
+export const AnalogReadSelectable: Selector.Selectable = {
   type: ANALOG_READ_TYPE,
   title: "NI analog read task",
+  label: "Analog read",
   icon: <Icon.Logo.NI />,
   useOnSelect: useCreateAnalogRead,
-});
+};

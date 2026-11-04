@@ -13,22 +13,125 @@
     container-type: size;
     overflow-y: auto;
     justify-content: safe center;
-    padding-block: 5rem;
+    padding: 5rem 4rem;
 
-    & > .lyra-icon {
-        height: var(--pluto-height-medium);
-        width: var(--pluto-height-medium);
+    .console-layout-selector__body {
+        width: min(100%, 140rem);
+        gap: 6rem;
     }
 
-    & .lyra-btn {
-        width: 100px;
+    /* The search reads as the page heading: large text over a hairline. */
+    .console-layout-selector__header {
+        display: flex;
+        flex-direction: column;
+        gap: 2rem;
+        padding-bottom: 1rem;
+        margin-bottom: -1rem;
+        border-bottom: var(--pluto-border-width) solid var(--pluto-gray-l6);
+        transition: border-color var(--pluto-btn-transition);
+
+        /* The hairline takes the focus color while the search has focus. */
+        &:focus-within {
+            border-bottom-color: var(--pluto-primary-z);
+        }
     }
 
-    .console-layout-selector__items {
-        max-width: 500px;
+    .console-layout-selector__heading {
+        display: block;
+        grid-column: 1 / -1;
+        margin-bottom: 0.5rem;
+    }
 
-        & .lyra-btn {
-            flex-basis: 185px;
+    .console-layout-selector__primary {
+        display: grid;
+        grid-template-columns: repeat(5, minmax(0, 1fr));
+        gap: 2rem;
+
+        & > .console-layout-selector__section {
+            display: grid;
+            grid-template-rows: auto auto;
+            grid-template-columns: subgrid;
+            row-gap: 1.5rem;
+        }
+    }
+
+    .console-layout-selector__card-label {
+        min-width: 0;
+        max-width: 100%;
+    }
+
+    /* Tasks: one column of menu items per integration. */
+    .console-layout-selector__groups {
+        columns: 4 24rem;
+        column-gap: 4rem;
+    }
+
+    .console-layout-selector__heading + .console-layout-selector__groups {
+        margin-top: 2rem;
+    }
+
+    .console-layout-selector__group {
+        break-inside: avoid;
+        padding-bottom: 3rem;
+    }
+
+    .console-layout-selector__group-name {
+        gap: 1.25rem;
+        height: 4rem;
+        margin-bottom: 0.5rem;
+
+        & > .lyra-icon {
+            width: 2.75rem;
+            height: 2.75rem;
+            color: var(--pluto-gray-l10);
+        }
+    }
+
+    /* Aligns each task label with its integration name. */
+    .console-layout-selector__actions {
+        padding-left: 2.5rem;
+    }
+
+    .console--dimmed > .console-layout-selector__heading,
+    .console-layout-selector__group.console--dimmed
+        > .console-layout-selector__group-name,
+    .console-layout-selector__group.console--dimmed
+        > .console-layout-selector__group-name
+        > .lyra-icon {
+        color: var(--pluto-text-disabled);
+    }
+
+    /* Five cards stay in one row while they fit. Small cards drop the description. */
+    @container (width < 124rem) {
+        .console-layout-selector__description {
+            display: none;
+        }
+    }
+
+    /* Narrow panes stack the cards as rows. */
+    @container (width < 92rem) {
+        /* A flex parent turns the sections' subgrids into single columns. */
+        .console-layout-selector__primary {
+            display: flex;
+            flex-direction: column;
+            gap: 4rem;
+        }
+
+        & .console-layout-selector__item--card {
+            flex-direction: row;
+            gap: 2rem;
+            align-items: center;
+            padding: 1.5rem 2rem;
+        }
+
+        .console-layout-selector__description {
+            display: block;
+        }
+    }
+
+    @container (height < 90rem) {
+        .console-layout-selector__title {
+            display: none;
         }
     }
 }

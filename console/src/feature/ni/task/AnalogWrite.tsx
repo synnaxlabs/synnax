@@ -39,7 +39,7 @@ import {
   deployAnalogWriteConfigZ,
 } from "@/feature/ni/task/types";
 import { Device as PlatformDevice } from "@/platform/device";
-import { Selector } from "@/platform/selector";
+import { type Selector } from "@/platform/selector";
 import { Task } from "@/platform/task";
 
 const root = deep.path<Task.Values<AnalogWriteSchemas>>();
@@ -280,9 +280,10 @@ export const useCreateAnalogWrite = Task.createUseCreate({
   deviceMake: MAKE,
 });
 
-export const AnalogWriteSelectable = Selector.createSelectable({
+export const AnalogWriteSelectable: Selector.Selectable = {
   type: ANALOG_WRITE_TYPE,
   title: "NI analog write task",
+  label: "Analog write",
   icon: <Icon.Logo.NI />,
   useOnSelect: useCreateAnalogWrite,
-});
+};

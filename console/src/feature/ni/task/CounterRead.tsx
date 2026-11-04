@@ -35,7 +35,7 @@ import {
 } from "@/feature/ni/task/types";
 import { useChannelDevice } from "@/feature/ni/task/usePort";
 import { Device as PlatformDevice } from "@/platform/device";
-import { Selector } from "@/platform/selector";
+import { type Selector } from "@/platform/selector";
 import { Task } from "@/platform/task";
 
 const root = deep.path<Task.Values<CounterReadSchemas>>();
@@ -271,9 +271,10 @@ export const useCreateCounterRead = Task.createUseCreate({
   deviceMake: MAKE,
 });
 
-export const CounterReadSelectable = Selector.createSelectable({
+export const CounterReadSelectable: Selector.Selectable = {
   type: COUNTER_READ_TYPE,
   title: "NI counter read task",
+  label: "Counter read",
   icon: <Icon.Logo.NI />,
   useOnSelect: useCreateCounterRead,
-});
+};

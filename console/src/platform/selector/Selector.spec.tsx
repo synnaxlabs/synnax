@@ -9,63 +9,130 @@
 
 import { Icon } from "@synnaxlabs/lyra/icon";
 import { fireEvent, screen } from "@testing-library/react";
-import { describe, expect, it, vi } from "vitest";
+import { describe, expect, it, type Mock, vi } from "vitest";
 
 import { Selector } from "@/platform/selector";
 import { renderWithConsole } from "@/testutil";
 
+const createSelectable = (
+  title: string,
+  rest: Partial<Selector.Selectable> = {},
+): Selector.Selectable & { onSelect: Mock } => {
+  const onSelect = vi.fn();
+  return {
+    type: title.toLowerCase(),
+    title,
+    icon: <Icon.Add />,
+    useOnSelect: () => onSelect,
+    onSelect,
+    ...rest,
+  };
+};
+
+const renderSelector = async (sections: Selector.Section[]) => {
+  const { Content } = Selector.create({
+    sections,
+    tabTitle: "Create",
+    text: "Choose one",
+    icon: <Icon.Add />,
+    searchPlaceholder: "Search animals",
+  });
+  await renderWithConsole(<Content />);
+  return screen.getByPlaceholderText("Search animals");
+};
+
+const disabled = (name: string): boolean =>
+  screen.getByRole("button", { name }).getAttribute("aria-disabled") === "true";
+
 describe("Selector.create", () => {
-  it("renders one item per selectable and routes the click to that item's callback", async () => {
-    const onCat = vi.fn();
-    const onDog = vi.fn();
-    const cat = Selector.createSelectable({
-      type: "cat",
-      title: "Cat",
-      icon: <Icon.Add />,
-      useOnSelect: () => onCat,
-    });
-    const dog = Selector.createSelectable({
-      type: "dog",
-      title: "Dog",
-      icon: <Icon.Add />,
-      useOnSelect: () => onDog,
-    });
-    const { Content } = Selector.create({
-      selectables: [cat, dog],
-      tabTitle: "Create",
-      text: "Choose one",
-      icon: <Icon.Add />,
-    });
-    await renderWithConsole(<Content />);
-    expect(screen.getByText("Choose one")).toBeTruthy();
-    expect(screen.getByText("Cat")).toBeTruthy();
-    fireEvent.click(screen.getByText("Dog"));
-    expect(onDog).toHaveBeenCalledTimes(1);
-    expect(onCat).not.toHaveBeenCalled();
+  it("should call the onSelect of the clicked item with no arguments", async () => {
+    const cat = createSelectable("Cat");
+    const dog = createSelectable("Dog");
+    await renderSelector([{ key: "pets", selectables: [cat, dog] }]);
+    fireEvent.click(screen.getByRole("button", { name: "Dog" }));
+    // A create hook takes optional arguments, so the click event must not reach it.
+    expect(dog.onSelect).toHaveBeenCalledExactlyOnceWith();
+    expect(cat.onSelect).not.toHaveBeenCalled();
   });
 
-  it("hides selectables whose useVisible returns false", async () => {
-    const cat = Selector.createSelectable({
-      type: "cat",
-      title: "Cat",
-      icon: <Icon.Add />,
-      useOnSelect: () => vi.fn(),
+  it("should leave out an item whose useVisible returns false", async () => {
+    const dog = createSelectable("Dog", { useVisible: () => false });
+    await renderSelector([
+      { key: "pets", selectables: [createSelectable("Cat"), dog] },
+    ]);
+    expect(screen.getByRole("button", { name: "Cat" })).toBeTruthy();
+    expect(screen.queryByRole("button", { name: "Dog" })).toBeNull();
+  });
+
+  it("should leave out a section whose useVisible returns false", async () => {
+    await renderSelector([
+      { key: "pets", title: "Pets", selectables: [createSelectable("Cat")] },
+      {
+        key: "farm",
+        title: "Farm",
+        useVisible: () => false,
+        selectables: [createSelectable("Cow")],
+      },
+    ]);
+    expect(screen.getByText("Pets")).toBeTruthy();
+    expect(screen.queryByText("Farm")).toBeNull();
+    expect(screen.queryByRole("button", { name: "Cow" })).toBeNull();
+  });
+
+  it("should show the short label of an item in a group", async () => {
+    const food = createSelectable("Cat food", { label: "Food" });
+    await renderSelector([
+      {
+        key: "shop",
+        groups: [{ key: "cat", title: "Cat", icon: <Icon.Add />, selectables: [food] }],
+      },
+    ]);
+    expect(screen.getByRole("button", { name: "Cat food" }).textContent).toBe("Food");
+  });
+
+  describe("search", () => {
+    const renderAnimals = async () => {
+      const animals = ["Cat", "Camel", "Dog"].map((title) => createSelectable(title));
+      const search = await renderSelector([{ key: "pets", selectables: animals }]);
+      const press = (code: string): void => {
+        fireEvent.keyDown(search, { key: code, code });
+        fireEvent.keyUp(search, { key: code, code });
+      };
+      const [cat, camel, dog] = animals;
+      return { cat, camel, dog, search, press };
+    };
+
+    it("should disable the items that do not match", async () => {
+      const { search } = await renderAnimals();
+      fireEvent.change(search, { target: { value: "ca" } });
+      expect(disabled("Cat")).toBe(false);
+      expect(disabled("Camel")).toBe(false);
+      expect(disabled("Dog")).toBe(true);
     });
-    const dog = Selector.createSelectable({
-      type: "dog",
-      title: "Dog",
-      icon: <Icon.Add />,
-      useOnSelect: () => vi.fn(),
-      useVisible: () => false,
+
+    it("should pick the first match with Enter", async () => {
+      const { cat, dog, search, press } = await renderAnimals();
+      fireEvent.change(search, { target: { value: "do" } });
+      press("Enter");
+      expect(dog.onSelect).toHaveBeenCalledOnce();
+      expect(cat.onSelect).not.toHaveBeenCalled();
     });
-    const { Content } = Selector.create({
-      selectables: [cat, dog],
-      tabTitle: "Create",
-      text: "Choose one",
-      icon: <Icon.Add />,
+
+    it("should pick the next match with the down arrow and Enter", async () => {
+      const { cat, camel, search, press } = await renderAnimals();
+      fireEvent.change(search, { target: { value: "ca" } });
+      press("ArrowDown");
+      press("Enter");
+      expect(camel.onSelect).toHaveBeenCalledOnce();
+      expect(cat.onSelect).not.toHaveBeenCalled();
     });
-    await renderWithConsole(<Content />);
-    expect(screen.getByText("Cat")).toBeTruthy();
-    expect(screen.queryByText("Dog")).toBeNull();
+
+    it("should clear the search on Escape", async () => {
+      const { search } = await renderAnimals();
+      fireEvent.change(search, { target: { value: "ca" } });
+      fireEvent.keyDown(search, { key: "Escape", code: "Escape" });
+      expect(search).toHaveProperty("value", "");
+      expect(disabled("Dog")).toBe(false);
+    });
   });
 });
