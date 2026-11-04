@@ -12,6 +12,7 @@ package kafka_test
 import (
 	"context"
 	"encoding/json/v2"
+	"sync/atomic"
 	"testing"
 	"time"
 	"uuid"
@@ -34,6 +35,7 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/service/status"
 	"github.com/synnaxlabs/synnax/pkg/service/task"
 	"github.com/synnaxlabs/x/encoding/msgpack"
+	"github.com/synnaxlabs/x/kv"
 	"github.com/synnaxlabs/x/telem"
 	. "github.com/synnaxlabs/x/testutil"
 	"github.com/twmb/franz-go/pkg/kfake"
@@ -118,6 +120,29 @@ var _ = BeforeSuite(func(ctx SpecContext) {
 })
 
 var _ = ShouldNotLeakGoroutinesPerSpec()
+
+// gatedDB is a kv.DB that, once gated, holds the next commit until release closes.
+type gatedDB struct {
+	kv.DB
+	gated   atomic.Bool
+	held    chan struct{}
+	release chan struct{}
+}
+
+func (d *gatedDB) OpenTx() kv.Tx { return gatedTx{Tx: d.DB.OpenTx(), db: d} }
+
+type gatedTx struct {
+	kv.Tx
+	db *gatedDB
+}
+
+func (t gatedTx) Commit(ctx context.Context, opts ...any) error {
+	if t.db.gated.CompareAndSwap(true, false) {
+		close(t.db.held)
+		<-t.db.release
+	}
+	return t.Tx.Commit(ctx, opts...)
+}
 
 // newFactory opens a Kafka factory over the suite's services.
 func newFactory(cfgs ...kafka.FactoryConfig) driver.Factory {
