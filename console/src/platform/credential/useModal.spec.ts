@@ -207,6 +207,25 @@ describe("useModal", () => {
       .toBe(true);
   });
 
+  it("should keep a typed password when the username changes", async () => {
+    const client = createTestClient();
+    const { user: subject } = await createTestUser(client, {
+      username: uniqueName("user"),
+    });
+    await openModal(Credential.useModal, {
+      client,
+      params: { subject: user.ontologyID(subject.key) },
+    });
+    await type("New password", "changed123");
+    await type("Username", uniqueName("renamed"));
+    fireEvent.click(findButton("Set username"));
+    await screen.findByText("Successfully changed username");
+    expect(screen.getByPlaceholderText("New password")).toHaveProperty(
+      "value",
+      "changed123",
+    );
+  });
+
   it("should change another user's username", async () => {
     const client = createTestClient();
     const { user: subject, password } = await createTestUser(client, {
