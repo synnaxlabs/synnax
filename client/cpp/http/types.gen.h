@@ -198,11 +198,6 @@ WriteField parse_write_field(x::json::Parser parser);
     return std::visit([](const auto &v) -> const BaseWriteField & { return v; }, value);
 }
 
-/// @brief returns the fields every variant of the union shares, for assignment.
-[[nodiscard]] inline BaseWriteField &base(WriteField &value) {
-    return std::visit([](auto &v) -> BaseWriteField & { return v; }, value);
-}
-
 /// @brief ReadEndpoint is a single HTTP endpoint polled by a read task.
 struct ReadEndpoint {
     /// @brief key uniquely identifies the endpoint within the task.

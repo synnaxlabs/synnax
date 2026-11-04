@@ -151,10 +151,9 @@ analyzer rejects a variant without a member and a member without a variant.
 ## Union bases
 
 When a union extends one base struct and every variant inherits it, Oracle generates
-accessors for the base: `Base()` and `SetBase(b)` on the Go wrapper, and
-`base(const U&)` and `base(U&)` in the C++ namespace. Never write these by hand. A union
-with no base, with two or more bases, or with a variant that drops a base field
-(`-port`) gets none.
+accessors for the base: `Base()` and `SetBase(b)` on the Go wrapper, and a read-only
+`base(const U&)` in the C++ namespace. Never write these by hand. A union with no base,
+with two or more bases, or with a variant that drops a base field (`-port`) gets none.
 
 - `Base()` returns the zero base when `Variant` is nil. A nil variant is valid decoded
   input (`null`), and readers such as validators must not crash on it.

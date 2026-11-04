@@ -174,11 +174,6 @@ ReadChannel parse_read_channel(x::json::Parser parser);
     );
 }
 
-/// @brief returns the fields every variant of the union shares, for assignment.
-[[nodiscard]] inline BaseReadChannel &base(ReadChannel &value) {
-    return std::visit([](auto &v) -> BaseReadChannel & { return v; }, value);
-}
-
 /// @brief CoilWriteChannel writes a single bit to a coil.
 struct CoilWriteChannel : public BaseWriteChannel {
     std::string type = "coil";
@@ -220,11 +215,6 @@ WriteChannel parse_write_channel(x::json::Parser parser);
         [](const auto &v) -> const BaseWriteChannel & { return v; },
         value
     );
-}
-
-/// @brief returns the fields every variant of the union shares, for assignment.
-[[nodiscard]] inline BaseWriteChannel &base(WriteChannel &value) {
-    return std::visit([](auto &v) -> BaseWriteChannel & { return v; }, value);
 }
 
 /// @brief ReadConfig configures a Modbus read task.

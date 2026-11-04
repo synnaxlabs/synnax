@@ -46,7 +46,7 @@ type unionData struct {
 	// HasProto marks a union that translates to and from a protobuf message.
 	HasProto bool
 	// Base is the struct every variant inherits (e.g. "BaseAIChannel"), set only when
-	// resolver.SharedBase finds one. The union then gets base() accessors.
+	// resolver.SharedBase finds one. The union then gets a base() accessor.
 	Base string
 }
 

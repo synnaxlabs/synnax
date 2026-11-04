@@ -2423,7 +2423,7 @@ var _ = Describe("C++ Union Generation", func() {
 	)
 
 	It(
-		"Should emit base accessors for a union whose variants share one base",
+		"Should emit a base accessor for a union whose variants share one base",
 		func(ctx SpecContext) {
 			source := `
 			@cpp output "out"
@@ -2439,14 +2439,12 @@ var _ = Describe("C++ Union Generation", func() {
 			resp := MustGenerate(ctx, source, "ni", loader, cppPlugin)
 			ExpectContent(resp, "types.gen.h").
 				ToContain(
-					"[[nodiscard]] inline const BaseAIChan& "+
-						"base(const AIChannel& value) {\n"+
-						"    return std::visit([](const auto& v) -> const BaseAIChan& "+
+					"[[nodiscard]] inline const BaseAIChan& " +
+						"base(const AIChannel& value) {\n" +
+						"    return std::visit([](const auto& v) -> const BaseAIChan& " +
 						"{ return v; }, value);\n}",
-					"[[nodiscard]] inline BaseAIChan& base(AIChannel& value) {\n"+
-						"    return std::visit([](auto& v) -> BaseAIChan& "+
-						"{ return v; }, value);\n}",
-				)
+				).
+				ToNotContain("base(AIChannel& value)")
 		},
 	)
 
@@ -2472,15 +2470,14 @@ var _ = Describe("C++ Union Generation", func() {
 			resp := MustGenerate(ctx, source, "ni", loader, cppPlugin)
 			ExpectContent(resp, "ni/types.gen.h").
 				ToContain(
-					"inline const ::x::common::BaseAIChan& "+
+					"inline const ::x::common::BaseAIChan& " +
 						"base(const AIChannel& value)",
-					"inline ::x::common::BaseAIChan& base(AIChannel& value)",
 				)
 		},
 	)
 
 	DescribeTable(
-		"Should not emit base accessors without one base every variant shares",
+		"Should not emit a base accessor without one base every variant shares",
 		func(ctx SpecContext, source string) {
 			resp := MustGenerate(ctx, source, "ni", loader, cppPlugin)
 			ExpectContent(resp, "types.gen.h").
