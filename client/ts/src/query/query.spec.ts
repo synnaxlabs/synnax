@@ -827,6 +827,64 @@ describe("Answers", () => {
       stop();
     });
 
+    it("shares one fetch between a subscriber and a read", async () => {
+      const table = newTable();
+      table.set(rec("a", 0));
+      const fetch = vi.fn(async () => ["a"]);
+      const space = coveringSpace(table, fetch);
+      const stop = space.onChange(qA, () => {});
+      await space.retrieve(qA);
+      await wait(150);
+      expect(fetch).toHaveBeenCalledTimes(1);
+      stop();
+    });
+
+    it("joins a subscriber's fetch from a read", async () => {
+      const table = newTable();
+      table.set(rec("a", 0));
+      let release = (): void => {};
+      const held = new Promise<void>((resolve) => (release = resolve));
+      const fetch = vi.fn(async () => {
+        await held;
+        return ["a"];
+      });
+      const space = coveringSpace(table, fetch);
+      const stop = space.onChange(qA, () => {});
+      await wait(150);
+      const reading = space.retrieve(qA);
+      release();
+      await reading;
+      expect(fetch).toHaveBeenCalledTimes(1);
+      stop();
+    });
+
+    it("reports a failed subscriber fetch and retries on the next read", async () => {
+      const table = newTable();
+      table.set(rec("a", 0));
+      const fetch = vi
+        .fn<() => Promise<string[]>>()
+        .mockRejectedValueOnce(new Error("boom"))
+        .mockResolvedValue(["a"]);
+      const onError = vi.fn();
+      const space = new Space<Q, number, string, Rec>(
+        {
+          name: "thing",
+          table,
+          fetch,
+          compose: (records) => records[0]?.value ?? 0,
+          keyOf: (query) => query.k,
+          covers: (record) => record.value > 0,
+          single: true,
+        },
+        { onError },
+      );
+      const stop = space.onChange(qA, () => {});
+      await vi.waitFor(() => expect(onError).toHaveBeenCalledTimes(1));
+      await expect(space.retrieve(qA)).resolves.toEqual(0);
+      expect(fetch).toHaveBeenCalledTimes(2);
+      stop();
+    });
+
     it("leaves an entry written during a fetch to that fetch", async () => {
       const table = newTable();
       const fetch = vi.fn(async () => {

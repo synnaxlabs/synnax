@@ -671,6 +671,12 @@ export class Space<
     return promise;
   }
 
+  /** Starts a fetch that subscribers have no caller for and that reads join. */
+  private fetchUncovered(query: Query<P, K, D, V>): void {
+    if (query.state.variant === "loading") return;
+    this.fetch(query).catch((exc: unknown) => this.report(exc));
+  }
+
   /** Never rejects: a failed refetch leaves the previous answer in place. */
   private async refetch(query: Query<P, K, D, V>): Promise<void> {
     if (query.refetchTimer != null) {
@@ -804,7 +810,7 @@ export class Space<
           if (this.covers(table.get(key) as V, params)) {
             query.state = { variant: "ready", keys: [key] };
             this.touch(query);
-          } else this.scheduleRefetch(query);
+          } else this.fetchUncovered(query);
         else if (status === "tombstoned" && query.state.variant !== "deleted") {
           query.state = { variant: "deleted", key };
           this.touch(query);
@@ -815,8 +821,7 @@ export class Space<
           if (event.variant === "set") {
             const { variant } = query.state;
             if (variant !== "ready" && !this.covers(event.value, params)) {
-              // A fetch in flight settles the query itself.
-              if (variant !== "loading") this.scheduleRefetch(query);
+              this.fetchUncovered(query);
               return;
             }
             query.state = { variant: "ready", keys: [key] };
