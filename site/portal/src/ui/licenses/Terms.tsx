@@ -150,7 +150,7 @@ export const TermsFields = (): ReactElement => {
       <Flex.Box y gap="small">
         <Form.Field path={path.term} label="Term" padHelpText={false}>
           {(p) => (
-            <Select.Simple<TermChoice> {...p} resourceName="Term">
+            <Select.Simple<TermChoice> {...p} resourceName="term">
               <Select.Item itemKey="subscription">Subscription</Select.Item>
               <Select.Item itemKey="updates">Perpetual with updates</Select.Item>
               <Select.Item itemKey="perpetual">Perpetual</Select.Item>
