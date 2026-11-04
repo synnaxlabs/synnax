@@ -236,4 +236,112 @@ var _ = Describe("@ref", func() {
 			)))
 		},
 	)
+
+	Describe("@retrieve indexes", func() {
+		status := func(fields, retrieve string) string {
+			return `
+			import "schemas/label"
+			import "schemas/resource"
+
+			@go output "core/pkg/service/status"
+
+			Key = string
+
+			Status struct<Details?> {
+				key Key {
+					@key
+				}
+				details Details
+				tag     label.Key?
+				source  resource.ID?
+				` + fields + `
+				` + retrieve + `
+			}
+		`
+		}
+
+		It(
+			"Should generate only the indexes of a generic type over any",
+			func(ctx SpecContext) {
+				resp := MustGenerate(ctx, status(`
+				labels label.Key[] @ref on_delete detach
+				owner resource.ID? {
+					@ref {
+						on_delete cascade
+						types     label
+						unique
+					}
+				}
+			`, "@retrieve indexes"), "status", loader, p)
+				ExpectContent(resp, "retrieve.gen.go").
+					ToContain(
+						"labels *gorp.Reference[Key, Status[any]]",
+						"owner *gorp.Reference[Key, Status[any]]",
+						"Targets: func(e *Status[any]) []gorp.Target {",
+						"Detach: func(e *Status[any], t gorp.Target) {",
+						"func (i indexes) references() []*gorp.Reference[Key, Status[any]]",
+						"func resourceTarget(id resource.ID) gorp.Target {",
+					).
+					ToNotContain(
+						"type Retrieve struct",
+						"type Filter",
+						"func MatchKeys",
+						`"context"`,
+					)
+			},
+		)
+
+		It("Should accept a primitive key type", func(ctx SpecContext) {
+			resp := MustGenerate(ctx, `
+				import "schemas/label"
+
+				@go output "core/pkg/service/alias"
+
+				Alias struct {
+					tag  label.Key @ref on_delete cascade
+					name string
+
+					@retrieve indexes
+					@retrieve key "string"
+				}
+			`, "alias", loader, p)
+			ExpectContent(resp, "retrieve.gen.go").
+				ToContain("tag *gorp.Reference[string, Alias]").
+				ToNotContain(`"github.com/synnaxlabs/synnax/pkg/service/label"`)
+		})
+
+		DescribeTable(
+			"Should reject",
+			func(ctx SpecContext, fields, retrieve, message string) {
+				req := MustGenerateRequest(
+					ctx,
+					status(fields, retrieve),
+					"status",
+					loader,
+				)
+				Expect(
+					p.Generate(req),
+				).Error().
+					To(MatchError(ContainSubstring(message)))
+			},
+			Entry(
+				"a generic type with a generated Retrieve",
+				`labels label.Key[] @ref on_delete detach`,
+				"@retrieve",
+				"core/pkg/service/status: status.Status: a generic @retrieve type needs @retrieve indexes",
+			),
+			Entry(
+				"a filter with no generated Retrieve",
+				`name string @filter`,
+				"@retrieve indexes",
+				"@filter field name needs a generated Retrieve, not @retrieve indexes",
+			),
+			Entry(
+				"a type with no index",
+				`name string`,
+				"@retrieve indexes",
+				"@retrieve indexes needs a field with @index, @ref, or @search",
+			),
+		)
+	})
 })

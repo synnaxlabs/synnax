@@ -205,12 +205,17 @@ type retrieveInfo struct {
 	// TableName is the type's @resource type, which names its table for references.
 	TableName string
 	GoName    string
+	// EntryType is the Go type of a table entry: GoName, instantiated over any for each
+	// type parameter without a default.
+	EntryType string
 	KeyType   string
 	IsCustom  bool // user defines the struct (@retrieve custom)
-	Filters   []filterInfo
-	Indexes   []indexInfo
-	Refs      []refInfo
-	Search    []searchInfo
+	// IndexesOnly is true when only the indexes are generated (@retrieve indexes).
+	IndexesOnly bool
+	Filters     []filterInfo
+	Indexes     []indexInfo
+	Refs        []refInfo
+	Search      []searchInfo
 }
 
 // HasSearch reports whether the retrieve declared any @search fields.
@@ -306,8 +311,9 @@ func generateRetrieveFile(
 		return nil, nil
 	}
 
-	// Always need context and gorp.
-	imps.AddExternal("context")
+	if lo.SomeBy(infos, func(i retrieveInfo) bool { return !i.IndexesOnly }) {
+		imps.AddExternal("context")
+	}
 	imps.AddInternal(
 		"gorp",
 		gomod.ResolveImportPath("gorp", repoRoot, gomod.DefaultModulePrefix),
@@ -354,7 +360,8 @@ func extractRetrieveInfo(
 		"key",
 	); keyTypeName != "" {
 		qualified := keyTypeName
-		if typ.Namespace != "" && !strings.Contains(keyTypeName, ".") {
+		if typ.Namespace != "" && !strings.Contains(keyTypeName, ".") &&
+			!resolution.IsPrimitive(keyTypeName) {
 			qualified = typ.Namespace + "." + keyTypeName
 		}
 		keyRef := resolution.TypeRef{Name: qualified}
@@ -376,6 +383,27 @@ func extractRetrieveInfo(
 	goName := naming.GetGoName(typ)
 
 	isCustom := plugindomain.HasExprFromType(typ, "retrieve", "custom")
+	indexesOnly := plugindomain.HasExprFromType(typ, "retrieve", "indexes")
+	entryType := goName
+	if form, ok := typ.Form.(resolution.StructForm); ok {
+		if params := resolution.NonDefaultedTypeParams(
+			form.TypeParams,
+		); len(
+			params,
+		) > 0 {
+			if !indexesOnly {
+				return nil, errors.Newf(
+					"%s: a generic @retrieve type needs @retrieve indexes",
+					typ.QualifiedName,
+				)
+			}
+			args := make([]string, len(params))
+			for i := range args {
+				args[i] = "any"
+			}
+			entryType = goName + "[" + strings.Join(args, ", ") + "]"
+		}
+	}
 
 	// Collect @filter and @index fields. A field may carry both: in that
 	// case, MatchX / MatchXs are generated to route through the index.
@@ -432,7 +460,7 @@ func extractRetrieveInfo(
 					field.Name,
 				)
 			}
-			info, err := extractRef(typ, field, ownTable, rt, r, ctx)
+			info, err := extractRef(typ, field, ownTable, rt, indexesOnly, r, ctx)
 			if err != nil {
 				return nil, err
 			}
@@ -449,6 +477,13 @@ func extractRetrieveInfo(
 		}
 		if !hasFilter && !hasIndex {
 			continue
+		}
+		if hasFilter && indexesOnly {
+			return nil, errors.Newf(
+				"%s: @filter field %s needs a generated Retrieve, not @retrieve indexes",
+				typ.QualifiedName,
+				field.Name,
+			)
 		}
 
 		primitive := key.ResolvePrimitive(field.Type, table)
@@ -516,16 +551,25 @@ func extractRetrieveInfo(
 		}
 	}
 
-	return &retrieveInfo{
-		TableName: ownTable,
-		GoName:    goName,
-		KeyType:   keyType,
-		IsCustom:  isCustom,
-		Filters:   filters,
-		Indexes:   indexes,
-		Refs:      refs,
-		Search:    search,
-	}, nil
+	info := &retrieveInfo{
+		TableName:   ownTable,
+		GoName:      goName,
+		EntryType:   entryType,
+		KeyType:     keyType,
+		IsCustom:    isCustom,
+		IndexesOnly: indexesOnly,
+		Filters:     filters,
+		Indexes:     indexes,
+		Refs:        refs,
+		Search:      search,
+	}
+	if indexesOnly && !info.HasIndexes() {
+		return nil, errors.Newf(
+			"%s: @retrieve indexes needs a field with @index, @ref, or @search",
+			typ.QualifiedName,
+		)
+	}
+	return info, nil
 }
 
 // retrieveFields returns a struct's fields, or the fields a union shares through its
@@ -662,7 +706,7 @@ import (
 // gorp.TableConfig.Name.
 const tableName = "{{$ret.TableName}}"
 {{end}}
-{{- if not $ret.IsCustom}}
+{{- if not (or $ret.IsCustom $ret.IndexesOnly)}}
 // Retrieve is used to retrieve {{$ret.GoName}} records from the database using a
 // builder pattern for constructing queries.
 type Retrieve struct {
@@ -681,13 +725,13 @@ type Retrieve struct {
 // instead of relying on package-level state.
 type indexes struct {
 {{- range $idx := $ret.Indexes}}
-	{{$idx.StructField}} *gorp.{{if $idx.IsSorted}}SortedIndex{{else}}LookupIndex{{end}}[{{$ret.KeyType}}, {{$ret.GoName}}, {{$idx.GoType}}]
+	{{$idx.StructField}} *gorp.{{if $idx.IsSorted}}SortedIndex{{else}}LookupIndex{{end}}[{{$ret.KeyType}}, {{$ret.EntryType}}, {{$idx.GoType}}]
 {{- end}}
 {{- range $ref := $ret.Refs}}
-	{{$ref.StructField}} *gorp.Reference[{{$ret.KeyType}}, {{$ret.GoName}}]
+	{{$ref.StructField}} *gorp.Reference[{{$ret.KeyType}}, {{$ret.EntryType}}]
 {{- end}}
 {{- if $ret.HasSearch}}
-	search *gorp.SearchIndex[{{$ret.KeyType}}, {{$ret.GoName}}]
+	search *gorp.SearchIndex[{{$ret.KeyType}}, {{$ret.EntryType}}]
 {{- end}}
 }
 
@@ -697,13 +741,13 @@ type indexes struct {
 func newIndexes() indexes {
 	return indexes{
 {{- range $idx := $ret.Indexes}}
-		{{$idx.StructField}}: gorp.{{if $idx.IsSorted}}NewSortedIndex{{else}}NewLookupIndex{{end}}[{{$ret.KeyType}}, {{$ret.GoName}}, {{$idx.GoType}}](
+		{{$idx.StructField}}: gorp.{{if $idx.IsSorted}}NewSortedIndex{{else}}NewLookupIndex{{end}}[{{$ret.KeyType}}, {{$ret.EntryType}}, {{$idx.GoType}}](
 			"{{$idx.FieldName}}",
-			func(e *{{$ret.GoName}}) {{$idx.GoType}} { return e.{{$idx.GoName}} },
+			func(e *{{$ret.EntryType}}) {{$idx.GoType}} { return e.{{$idx.GoName}} },
 		),
 {{- end}}
 {{- range $ref := $ret.Refs}}
-		{{$ref.StructField}}: gorp.NewReference(gorp.ReferenceConfig[{{$ret.KeyType}}, {{$ret.GoName}}]{
+		{{$ref.StructField}}: gorp.NewReference(gorp.ReferenceConfig[{{$ret.KeyType}}, {{$ret.EntryType}}]{
 			Name:     "{{$ref.FieldName}}",
 			Tables:   []string{ {{- $ref.QuotedTables -}} },
 			OnDelete: gorp.{{$ref.OnDelete}},
@@ -713,7 +757,7 @@ func newIndexes() indexes {
 {{- if $ref.Acyclic}}
 			Acyclic:  true,
 {{- end}}
-			Targets: func(e *{{$ret.GoName}}) []gorp.Target {
+			Targets: func(e *{{$ret.EntryType}}) []gorp.Target {
 {{- if $ref.IsSlice}}
 				targets := make([]gorp.Target, len(e.{{$ref.GoName}}))
 				for i, v := range e.{{$ref.GoName}} {
@@ -731,21 +775,21 @@ func newIndexes() indexes {
 			},
 {{- if eq $ref.OnDelete "Detach"}}
 {{- if $ref.IsSlice}}
-			Detach: func(e *{{$ret.GoName}}, t gorp.Target) {
+			Detach: func(e *{{$ret.EntryType}}, t gorp.Target) {
 				e.{{$ref.GoName}} = slices.DeleteFunc(e.{{$ref.GoName}}, func(v {{$ref.ElemGoType}}) bool {
 					return {{$ref.TargetOf "v"}} == t
 				})
 			},
 {{- else}}
-			Detach: func(e *{{$ret.GoName}}, _ gorp.Target) { e.{{$ref.GoName}} = nil },
+			Detach: func(e *{{$ret.EntryType}}, _ gorp.Target) { e.{{$ref.GoName}} = nil },
 {{- end}}
 {{- end}}
 		}),
 {{- end}}
 {{- if $ret.HasSearch}}
-		search: gorp.NewSearchIndex[{{$ret.KeyType}}, {{$ret.GoName}}](
+		search: gorp.NewSearchIndex[{{$ret.KeyType}}, {{$ret.EntryType}}](
 			"search",
-			func(e *{{$ret.GoName}}) []string {
+			func(e *{{$ret.EntryType}}) []string {
 				return []string{
 {{- range $i, $f := $ret.Search}}{{if $i}}, {{end}}{{if $f.IsString}}e.{{$f.GoName}}{{else}}string(e.{{$f.GoName}}){{end}}{{end -}}
 				}
@@ -757,8 +801,8 @@ func newIndexes() indexes {
 
 // all returns the indexes packaged as a heterogeneous slice for registration
 // via gorp.TableConfig.Indexes when opening the underlying table.
-func (i indexes) all() []gorp.Index[{{$ret.KeyType}}, {{$ret.GoName}}] {
-	return []gorp.Index[{{$ret.KeyType}}, {{$ret.GoName}}]{
+func (i indexes) all() []gorp.Index[{{$ret.KeyType}}, {{$ret.EntryType}}] {
+	return []gorp.Index[{{$ret.KeyType}}, {{$ret.EntryType}}]{
 {{- range $idx := $ret.Indexes}}
 		i.{{$idx.StructField}},
 {{- end}}
@@ -771,8 +815,8 @@ func (i indexes) all() []gorp.Index[{{$ret.KeyType}}, {{$ret.GoName}}] {
 
 // references returns the references packaged for registration via
 // gorp.TableConfig.References when opening the underlying table.
-func (i indexes) references() []*gorp.Reference[{{$ret.KeyType}}, {{$ret.GoName}}] {
-	return []*gorp.Reference[{{$ret.KeyType}}, {{$ret.GoName}}]{
+func (i indexes) references() []*gorp.Reference[{{$ret.KeyType}}, {{$ret.EntryType}}] {
+	return []*gorp.Reference[{{$ret.KeyType}}, {{$ret.EntryType}}]{
 {{- range $ref := $ret.Refs}}
 		i.{{$ref.StructField}},
 {{- end}}
@@ -786,7 +830,7 @@ func resourceTarget(id {{$ret.IDGoType}}) gorp.Target {
 	return gorp.Target{Table: string(id.Type), Key: id.Key}
 }
 {{- end}}
-{{- if $ret.HasSortedIndex}}
+{{- if and $ret.HasSortedIndex (not $ret.IndexesOnly)}}
 
 // Order is a per-service sort handle that is bound to the Retrieve when
 // passed to OrderBy. Construct one via an OrderByX free function (e.g.
@@ -823,6 +867,8 @@ func OrderBy{{$idx.GoName}}(dir gorp.Direction, cursor ...{{$idx.GoType}}) Order
 {{- end}}
 {{- end}}
 {{- end}}
+
+{{- if not $ret.IndexesOnly}}
 
 // Filter is a per-service filter that is bound to the Retrieve when passed to
 // Where. Pure filters ignore the Retrieve argument; service-bound filters read
@@ -992,5 +1038,6 @@ func (r Retrieve) Count(ctx context.Context, tx gorp.Tx) (int, error) {
 func (r Retrieve) Exists(ctx context.Context, tx gorp.Tx) (bool, error) {
 	return r.gorp.Exists(ctx, gorp.OverrideTx(r.baseTX, tx))
 }
+{{- end}}
 {{end}}`),
 )

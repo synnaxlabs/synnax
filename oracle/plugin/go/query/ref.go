@@ -104,6 +104,7 @@ func extractRef(
 	field resolution.Field,
 	ownTable string,
 	rt resourceTypes,
+	indexesOnly bool,
 	r *resolver.Resolver,
 	ctx *resolver.Context,
 ) (refInfo, error) {
@@ -133,13 +134,17 @@ func extractRef(
 		FieldName:   field.Name,
 		GoName:      naming.GetFieldName(field),
 		StructField: naming.LowerFirst(naming.GetFieldName(field)),
-		ElemGoType:  r.ResolveTypeRef(elem, ctx),
 		OnDelete:    onDelete,
 		Unique:      plugindomain.HasExprFromField(field, "ref", "unique"),
 		Acyclic:     plugindomain.HasExprFromField(field, "ref", "acyclic"),
 		IsOptional:  isOptional,
 		IsSlice:     isSlice,
 		IsID:        elem.Name == resourceIDType,
+	}
+	// Resolving the type adds its import, which only filters, detach, and resource
+	// targets use.
+	if !indexesOnly || isSlice || info.IsID {
+		info.ElemGoType = r.ResolveTypeRef(elem, ctx)
 	}
 	if info.IsID {
 		if len(types) == 0 {
