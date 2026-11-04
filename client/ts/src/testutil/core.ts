@@ -322,10 +322,7 @@ export class SyntheticCore {
       const { key } = this.virtual;
       // The Core streams each frame of a free channel with no index at alignment 0.
       this.raw(key, from, to).forEach((s) =>
-        index.push(
-          key,
-          new Series({ ...seriesProps(s), timeRange: TimeRange.ZERO, alignment: 0n }),
-        ),
+        index.push(key, new Series({ ...seriesProps(s), alignment: 0n })),
       );
     }
     this.streamers.forEach((s) => {

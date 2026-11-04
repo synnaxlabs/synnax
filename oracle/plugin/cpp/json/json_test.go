@@ -89,6 +89,26 @@ var _ = Describe("C++ JSON Plugin", func() {
 			)
 		})
 
+		DescribeTable(
+			"Should start the JSON of a struct as an object",
+			func(ctx SpecContext, decls string) {
+				source := `
+				@cpp output "client/cpp/types"
+			` + decls
+				resp := MustGenerate(ctx, source, "types", loader, jsonPlugin)
+				ExpectContent(resp, "json.gen.h").
+					ToContain("x::json::json j = x::json::json::object();").
+					ToNotContain("x::json::json j;")
+			},
+			Entry("for a plain struct", "Unit struct {\n name string?\n}"),
+			Entry("for a generic struct", "Status struct<D> {\n details D?\n}"),
+			Entry(
+				"for a struct that extends another",
+				"Base struct {\n name string?\n}\n"+
+					"Unit struct extends Base {\n scale float64?\n}",
+			),
+		)
+
 		Context("array alias fields (e.g., Params -> Param[])", func() {
 			It(
 				"Should generate correct parsing for array alias fields",

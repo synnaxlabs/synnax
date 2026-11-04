@@ -64,8 +64,10 @@ describe("Select keyboard hover", () => {
       );
       return dialog ? <Dialog.Frame visible>{content}</Dialog.Frame> : content;
     };
-    const { result } = renderHook(() => Select.useContext<string>(), { wrapper });
-    return { hover: () => result.current.getState().hover };
+    const { result, unmount } = renderHook(() => Select.useContext<string>(), {
+      wrapper,
+    });
+    return { hover: () => result.current.getState().hover, unmount };
   };
 
   const keyDown = (code: string): void => {
@@ -173,6 +175,17 @@ describe("Select keyboard hover", () => {
         vi.advanceTimersByTime(1000);
       });
       expect(hover()).toBe("alpha");
+    });
+
+    it("should stop repeating after it unmounts", () => {
+      const { hover, unmount } = renderHover(DATA, vi.fn());
+      keyDown("ArrowDown");
+      act(() => {
+        vi.advanceTimersByTime(300);
+      });
+      expect(hover()).toBe("bravo");
+      unmount();
+      expect(vi.getTimerCount()).toBe(0);
     });
   });
 
