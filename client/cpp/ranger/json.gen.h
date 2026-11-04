@@ -36,7 +36,7 @@ inline Range Range::parse(x::json::Parser parser) {
 }
 
 inline x::json::json Range::to_json() const {
-    x::json::json j;
+    x::json::json j = x::json::json::object();
     j["key"] = this->key.to_json();
     j["name"] = this->name;
     j["time_range"] = this->time_range.to_json();
