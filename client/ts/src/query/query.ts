@@ -749,13 +749,15 @@ export class Space<
     query.teardown = teardown;
     const { table, keyOf, matches, watch: watches } = this.config;
     const { params } = query;
-    // Rules 2 and 3 build membership from events, and an unmaintained query
-    // received none, so its answer must be reconfirmed. Rule 1 re-seeds from the
-    // table below and needs no network.
+    const key = keyOf?.(params);
+    const entry = key == null ? undefined : table.get(key);
+    // Rules 2 and 3 build membership from events, and an unmaintained query received
+    // none, so its answer must be reconfirmed. Rule 1 re-seeds from the table below and
+    // needs no network, unless the entry does not cover the query.
     if (
       query.unmaintained === true &&
       query.state.variant === "ready" &&
-      keyOf?.(params) == null
+      (key == null || (entry != null && !this.covers(entry, params)))
     )
       this.scheduleRefetch(query);
     query.unmaintained = false;
@@ -776,7 +778,7 @@ export class Space<
       }
     }
 
-    if (this.isServerComputed(params) || (keyOf?.(params) == null && matches == null)) {
+    if (this.isServerComputed(params) || (key == null && matches == null)) {
       // Rule 3: server-computed — any relevant event triggers a debounced
       // wholesale refetch; membership is never patched locally. A change to a
       // current member's entry notifies immediately, so optimistic writes render
@@ -801,7 +803,6 @@ export class Space<
       return;
     }
 
-    const key = keyOf?.(params);
     if (key != null) {
       // Rule 1: exact-key — track one entry; deletion flips the answer. An entry
       // already in the table answers the query without a fetch. The state is a

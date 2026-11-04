@@ -933,6 +933,63 @@ describe("Answers", () => {
       expect(seen.at(-1)).toEqual(0);
       stop();
     });
+
+    describe("after an unmaintained gap", () => {
+      // The fetch answers with the server's current value, which the table never
+      // receives while nothing maintains the query.
+      const gapSpace = (table: query.Table<string, Rec>) => {
+        const server = { value: 0 };
+        const fetch = vi.fn(async () => {
+          table.set(rec("a", server.value));
+          return ["a"];
+        });
+        const space = coveringSpace(table, fetch, { teardownGrace: TimeSpan.ZERO });
+        return { server, fetch, space };
+      };
+
+      it("refetches an uncovered answer for a new subscriber", async () => {
+        const table = newTable();
+        table.set(rec("a", 0));
+        const { server, fetch, space } = gapSpace(table);
+        const stop = space.onChange(qA, () => {});
+        await space.retrieve(qA);
+        stop();
+        server.value = -1;
+        const seen: query.Cached<number>[] = [];
+        const stopAgain = space.onChange(qA, (result) => {
+          if (result !== undefined) seen.push(result);
+        });
+        await expect.poll(() => space.getCached(qA)).toEqual(-1);
+        expect(seen.at(-1)).toEqual(-1);
+        expect(fetch).toHaveBeenCalledTimes(2);
+        stopAgain();
+      });
+
+      it("refetches an uncovered answer for a new read", async () => {
+        const table = newTable();
+        table.set(rec("a", 0));
+        const { server, fetch, space } = gapSpace(table);
+        const stop = space.onChange(qA, () => {});
+        await space.retrieve(qA);
+        stop();
+        server.value = -1;
+        await expect(space.retrieve(qA)).resolves.toEqual(-1);
+        expect(fetch).toHaveBeenCalledTimes(2);
+      });
+
+      it("does not refetch a covered answer for a new subscriber", async () => {
+        const table = newTable();
+        table.set(rec("a", 1));
+        const { fetch, space } = gapSpace(table);
+        space.onChange(qA, () => {})();
+        const stop = space.onChange(qA, () => {});
+        // Past the refetch debounce: a scheduled reconfirm would have landed.
+        await wait(150);
+        expect(fetch).not.toHaveBeenCalled();
+        expect(space.getCached(qA)).toEqual(1);
+        stop();
+      });
+    });
   });
 
   describe("deletion", () => {
