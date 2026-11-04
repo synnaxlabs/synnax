@@ -34,10 +34,10 @@ class VelocityIEPE(Analog):
 
     def __init__(
         self,
-        *,
         layout: LayoutClient,
         name: str,
         device: str,
+        *,
         velocity_units: Literal["m/s", "in/s"] | None = None,
         sensitivity: float | None = None,
         sensitivity_units: Literal["mV/mm/s", "mV/in/s"] | None = None,
