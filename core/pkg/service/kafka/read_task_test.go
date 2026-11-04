@@ -71,13 +71,13 @@ var _ = Describe("Read task", func() {
 		return dt, t
 	}
 
+	// start starts the task. The first poll can already have replaced the start status
+	// with a skip, which keeps the task running.
 	start := func(ctx context.Context, dt driver.Task, t task.Task) {
 		GinkgoHelper()
 		Expect(dt.Exec(ctx, task.Command{Task: t.Key, Type: "start", Key: "cmd-2"})).
 			To(Succeed())
-		stat := taskStatus(ctx, t)
-		Expect(stat.Variant).To(Equal(status.VariantSuccess))
-		Expect(stat.Details.Running).To(BeTrue())
+		Expect(taskStatus(ctx, t).Details.Running).To(BeTrue())
 	}
 
 	// stored returns every sample persisted in key.
@@ -540,9 +540,7 @@ var _ = Describe("Read task", func() {
 			Topic:   topic,
 			Records: single(stampedFields(index, data)),
 		})
-		// The first poll can report the skips before the start status is read.
-		Expect(dt.Exec(ctx, task.Command{Task: t.Key, Type: "start", Key: "cmd-2"})).
-			To(Succeed())
+		start(ctx, dt, t)
 		Eventually(func() string { return taskStatus(ctx, t).Message }).
 			WithTimeout(15 * time.Second).Should(Equal("Skipped 3 records"))
 		Expect(taskStatus(ctx, t).Description).To(Equal("Record has no value at /v"))

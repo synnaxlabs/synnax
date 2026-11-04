@@ -445,6 +445,20 @@ describe("Tree keys", () => {
     expect(selected()).toEqual(["b"]);
   });
 
+  it("should move from the item a modifier click deselected", () => {
+    render(
+      <Component nodes={[{ key: "a" }, { key: "b" }, { key: "c" }, { key: "d" }]} />,
+    );
+    fireEvent.click(row("a"));
+    fireEvent.keyDown(window, { code: "Control" });
+    fireEvent.click(row("c"));
+    fireEvent.click(row("c"));
+    fireEvent.keyUp(window, { code: "Control" });
+    expect(selected()).toEqual(["a"]);
+    press("ArrowDown");
+    expect(selected()).toEqual(["d"]);
+  });
+
   it("should extend a shift-click range from the item the keys moved to", () => {
     render(
       <Component nodes={[{ key: "a" }, { key: "b" }, { key: "c" }, { key: "d" }]} />,

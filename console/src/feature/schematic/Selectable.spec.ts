@@ -9,12 +9,13 @@
 
 import { schematic } from "@synnaxlabs/client";
 import { RoleClients } from "@synnaxlabs/client/testutil";
-import { fireEvent, render, screen, waitFor } from "@testing-library/react";
+import { waitFor } from "@testing-library/react";
 import { describe, expect, it } from "vitest";
 
 import { Schematic } from "@/feature/schematic";
 import { client, testProjectKey } from "@/feature/schematic/testutil";
 import { createActiveState } from "@/platform/project/testutil";
+import { renderVisible, select } from "@/platform/selector/testutil";
 import { Session } from "@/session";
 import { documentIn } from "@/session/window/testutil";
 import { assertDefined, createConsoleWrapper, resolveFocusedTab } from "@/testutil";
@@ -22,7 +23,7 @@ import { assertDefined, createConsoleWrapper, resolveFocusedTab } from "@/testut
 const roles = new RoleClients(client);
 
 describe("schematic/Selectable", () => {
-  it("creates a schematic in the active project and opens its tab when clicked", async () => {
+  it("creates a schematic in the active project and opens its tab when selected", async () => {
     const proj = await client.projects.retrieve(await testProjectKey());
     const { wrapper, store } = await createConsoleWrapper({
       client,
@@ -30,8 +31,7 @@ describe("schematic/Selectable", () => {
     });
     const Selectable = Schematic.SELECTABLES[0];
     expect(Selectable.type).toBe(schematic.TYPE_ONTOLOGY_ID.type);
-    render(<Selectable />, { wrapper });
-    fireEvent.click(await screen.findByText("Schematic"));
+    select(Selectable, wrapper);
     const tab = await resolveFocusedTab(store, client, (t) => t.variant === "resource");
     if (tab.variant !== "resource") throw new Error("expected a resource tab");
     expect(tab.resource.type).toBe(schematic.TYPE_ONTOLOGY_ID.type);
@@ -55,21 +55,28 @@ describe("schematic/Selectable permissions", () => {
     return Selectable;
   };
 
-  it("should offer the tile to an engineer", async () => {
-    const Selectable = findSelectable();
+  it("should be visible to an engineer", async () => {
     const { wrapper } = await createConsoleWrapper({
       client: await roles.get("Engineer"),
     });
-    render(<Selectable />, { wrapper });
-    expect(await screen.findByText("Schematic")).toBeTruthy();
+    const { result } = renderVisible(
+      findSelectable(),
+      schematic.TYPE_ONTOLOGY_ID,
+      wrapper,
+    );
+    await waitFor(() => expect(result.current.visible).toBe(true));
   });
 
-  it("should withhold the tile from a viewer", async () => {
-    const Selectable = findSelectable();
+  it("should not be visible to a viewer", async () => {
     const { wrapper } = await createConsoleWrapper({
       client: await roles.get("Viewer"),
     });
-    const { container } = render(<Selectable />, { wrapper });
-    await waitFor(() => expect(container.textContent).toBe(""));
+    const { result } = renderVisible(
+      findSelectable(),
+      schematic.TYPE_ONTOLOGY_ID,
+      wrapper,
+    );
+    await waitFor(() => expect(result.current.loaded).toBe(true));
+    expect(result.current.visible).toBe(false);
   });
 });
