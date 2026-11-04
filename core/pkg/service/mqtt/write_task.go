@@ -143,16 +143,15 @@ func newWriteTarget(target PlainWriteTarget, ch channel.Channel) (writeTarget, e
 	}
 	fields := []xjson.TemplateField{{Pointer: pointer}}
 	t.slots = []slot{{kind: slotValue}}
-	for _, v := range target.Fields {
+	for _, wf := range target.Fields {
 		var (
-			field xjson.TemplateField
-			s     slot
+			pointer string
+			field   xjson.TemplateField
+			s       slot
 		)
-		switch v := v.Variant.(type) {
+		switch v := wf.Variant.(type) {
 		case StaticWriteField:
-			if field.Pointer, err = xjson.ParsePointer(v.Pointer); err != nil {
-				return writeTarget{}, errors.Wrap(err, path)
-			}
+			pointer = v.Pointer
 			if !matchesJSONType(v.Value, v.JSONType) {
 				return writeTarget{}, errors.Wrapf(
 					validate.ErrValidation,
@@ -167,9 +166,7 @@ func newWriteTarget(target PlainWriteTarget, ch channel.Channel) (writeTarget, e
 				)
 			}
 		case GeneratedWriteField:
-			if field.Pointer, err = xjson.ParsePointer(v.Pointer); err != nil {
-				return writeTarget{}, errors.Wrap(err, path)
-			}
+			pointer = v.Pointer
 			s.kind = slotUUID
 			if v.Generator == GeneratorTypeTimestamp {
 				s.kind = slotTimestamp
@@ -185,6 +182,9 @@ func newWriteTarget(target PlainWriteTarget, ch channel.Channel) (writeTarget, e
 			)
 		default:
 			panic(errors.Newf("mqtt: unknown write field variant %T", v))
+		}
+		if field.Pointer, err = xjson.ParsePointer(pointer); err != nil {
+			return writeTarget{}, errors.Wrap(err, path)
 		}
 		if len(field.Pointer) == 0 {
 			return writeTarget{}, errors.Wrapf(

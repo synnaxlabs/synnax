@@ -50,8 +50,6 @@ type readGroup struct {
 	fields []ReadField
 	// channels[i] is the channel fields[i] writes to.
 	channels []channel.Channel
-	// pointers[i] is the parsed pointer of fields[i].
-	pointers []xjson.Pointer
 	// extractor resolves the fields' pointers in a record.
 	extractor *xjson.Extractor
 	// values[i] is scratch space for the JSON value of fields[i] in a record.
@@ -190,6 +188,7 @@ func buildReadGroups(
 		}
 		claimed.Add(rec.RecordKey)
 		g := &readGroup{key: rec.RecordKey, stamp: -1, replaying: true}
+		var pointers []xjson.Pointer
 		for _, fld := range rec.Fields {
 			if fld.Disabled {
 				continue
@@ -229,13 +228,13 @@ func buildReadGroups(
 			}
 			g.fields = append(g.fields, fld)
 			g.channels = append(g.channels, ch)
-			g.pointers = append(g.pointers, pointer)
+			pointers = append(pointers, pointer)
 			g.columns = append(g.columns, newColumn(dec, ch.DataType))
 		}
 		if len(g.fields) == 0 {
 			continue
 		}
-		g.extractor = xjson.NewExtractor(g.pointers)
+		g.extractor = xjson.NewExtractor(pointers)
 		g.values = make([]jsontext.Value, len(g.fields))
 		if rec.Index != "" && g.stamp == -1 {
 			return nil, errors.Wrapf(

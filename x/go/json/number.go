@@ -33,6 +33,8 @@ type number struct {
 	i    int64
 	u    uint64
 	f    float64
+	// fraction is true when the text of a float had a fraction that f may round away.
+	fraction bool
 }
 
 // parseNumber converts the text of a JSON number into an int64 or uint64 when it is an
@@ -46,11 +48,124 @@ func parseNumber(text []byte) (number, error) {
 			return number{kind: uintNumber, u: u}, nil
 		}
 	}
+	d, ok := parseDecimal(text, 0)
+	if !ok {
+		return number{}, invalidNumber(text)
+	}
+	// A negative zero keeps its sign as a float.
+	if !d.fraction && !d.overflow && d.magnitude != 0 {
+		switch {
+		case !d.negative && d.magnitude <= math.MaxInt64:
+			return number{kind: intNumber, i: int64(d.magnitude)}, nil
+		case !d.negative:
+			return number{kind: uintNumber, u: d.magnitude}, nil
+		case d.magnitude <= 1<<63:
+			return number{kind: intNumber, i: int64(-d.magnitude)}, nil
+		}
+	}
 	f, err := strconv.ParseFloat(string(text), 64)
 	if err != nil {
-		return number{}, errors.Wrapf(validate.ErrValidation, "invalid number %q", text)
+		return number{}, invalidNumber(text)
 	}
-	return number{kind: floatNumber, f: f}, nil
+	return number{kind: floatNumber, f: f, fraction: d.fraction}, nil
+}
+
+func invalidNumber(text []byte) error {
+	return errors.Wrapf(validate.ErrValidation, "invalid number %q", text)
+}
+
+// decimal is the magnitude of a decimal number times a power of ten, truncated toward
+// zero.
+type decimal struct {
+	magnitude uint64
+	negative  bool
+	// fraction is true when the truncation dropped a digit other than zero.
+	fraction bool
+	// overflow is true when the magnitude does not fit a uint64.
+	overflow bool
+}
+
+// maxExponent bounds the exponent parseDecimal reads. Any larger one overflows or
+// truncates to zero.
+const maxExponent = 1 << 20
+
+// parseDecimal returns the decimal number text times 10^scale. ok is false when text is
+// not a decimal number.
+func parseDecimal(text []byte, scale int) (d decimal, ok bool) {
+	if len(text) > 0 && (text[0] == '-' || text[0] == '+') {
+		d.negative, text = text[0] == '-', text[1:]
+	}
+	exp := 0
+	if i := bytes.IndexAny(text, "eE"); i >= 0 {
+		if exp, ok = parseExponent(text[i+1:]); !ok {
+			return decimal{}, false
+		}
+		text = text[:i]
+	}
+	whole, frac := text, []byte(nil)
+	if i := bytes.IndexByte(text, '.'); i >= 0 {
+		whole, frac = text[:i], text[i+1:]
+	}
+	if len(whole)+len(frac) == 0 || !isDigits(whole) || !isDigits(frac) {
+		return decimal{}, false
+	}
+	// The value is the digits of whole and frac times 10^shift.
+	shift := exp + scale - len(frac)
+	count := len(whole) + len(frac)
+	for i := range count {
+		c := byte(0)
+		if i < len(whole) {
+			c = whole[i] - '0'
+		} else {
+			c = frac[i-len(whole)] - '0'
+		}
+		if i >= count+shift {
+			d.fraction = d.fraction || c != 0
+			continue
+		}
+		if d.magnitude > (math.MaxUint64-uint64(c))/10 {
+			d.overflow = true
+			return d, true
+		}
+		d.magnitude = d.magnitude*10 + uint64(c)
+	}
+	for i := 0; d.magnitude != 0 && i < shift; i++ {
+		if d.magnitude > math.MaxUint64/10 {
+			d.overflow = true
+			return d, true
+		}
+		d.magnitude *= 10
+	}
+	return d, true
+}
+
+// parseExponent parses the signed decimal exponent of a number, clamped to
+// ±maxExponent.
+func parseExponent(text []byte) (int, bool) {
+	negative := false
+	if len(text) > 0 && (text[0] == '-' || text[0] == '+') {
+		negative, text = text[0] == '-', text[1:]
+	}
+	if len(text) == 0 || !isDigits(text) {
+		return 0, false
+	}
+	e := 0
+	for _, c := range text {
+		e = min(e*10+int(c-'0'), maxExponent)
+	}
+	if negative {
+		return -e, true
+	}
+	return e, true
+}
+
+func isDigits(text []byte) bool {
+	for _, c := range text {
+		if c < '0' || c > '9' {
+			return false
+		}
+	}
+	return true
 }
 
 func (n number) float() float64 {
@@ -136,7 +251,7 @@ func checkFits(n number, dt telem.DataType) error {
 	case uintNumber:
 		fits = n.u <= hi
 	default:
-		if n.f != math.Trunc(n.f) {
+		if n.fraction || n.f != math.Trunc(n.f) {
 			return errors.Wrapf(validate.ErrValidation, "%s is not an integer", n)
 		}
 		// float64(hi)+1 rounds to the first value past hi for every integer type.

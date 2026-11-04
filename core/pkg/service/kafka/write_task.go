@@ -291,26 +291,27 @@ func templateFields(rec Record) ([]xjson.TemplateField, []slot, error) {
 		}
 	}
 	for _, field := range rec.Fields {
-		var err error
+		var (
+			base    http.BaseWriteField
+			literal []byte
+			s       slot
+			err     error
+		)
 		switch v := field.Variant.(type) {
 		case http.StaticWriteField:
-			label := fmt.Sprintf("field %q", v.Key)
-			literal, mErr := xjson.Marshal(v.Value)
-			if mErr != nil {
-				return nil, nil, errors.Wrap(mErr, label)
-			}
-			err = add(label, v.Pointer, literal, slot{})
+			base = v.BaseWriteField
+			literal, err = xjson.Marshal(v.Value)
 		case http.GeneratedWriteField:
-			label := fmt.Sprintf("field %q", v.Key)
-			s, gErr := generatorSlot(v)
-			if gErr != nil {
-				return nil, nil, errors.Wrap(gErr, label)
-			}
-			err = add(label, v.Pointer, nil, s)
+			base = v.BaseWriteField
+			s, err = generatorSlot(v)
 		default:
 			return nil, nil, errors.Newf("unknown write field variant %T", v)
 		}
+		label := fmt.Sprintf("field %q", base.Key)
 		if err != nil {
+			return nil, nil, errors.Wrap(err, label)
+		}
+		if err = add(label, base.Pointer, literal, s); err != nil {
 			return nil, nil, err
 		}
 	}

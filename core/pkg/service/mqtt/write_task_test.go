@@ -221,6 +221,23 @@ var _ = Describe("Write task", func() {
 			},
 		)
 
+		It(
+			"Should write the members of a payload in config order",
+			func(ctx SpecContext) {
+				ch := createVirtual(ctx, telem.Int32T)
+				start(ctx, writeConfig(dev, plainTarget(
+					"plant/order/set", ch, "/reading/value", "number",
+					staticField("/source", "string", "plc"),
+					staticField("/reading/unit", "string", "rpm"),
+				)))
+				command(ctx, ch, telem.NewSeriesV[int32](1200), func(g Gomega) {
+					g.Expect(payloads("plant/order/set")).To(ContainElement(
+						`{"reading":{"value":1200,"unit":"rpm"},"source":"plc"}`,
+					))
+				})
+			},
+		)
+
 		It("Should publish one message for each sample of a command frame",
 			func(ctx SpecContext) {
 				ch := createVirtual(ctx, telem.Int32T)
@@ -478,7 +495,8 @@ var _ = Describe("Write task", func() {
 					unit := staticField("/reading/unit", "string", "rpm")
 					target := plainTarget("plant/x", ch, "/reading", "number", unit)
 					return writeConfig(dev, target),
-						`target plant/x: pointers "/reading" and "/reading/unit" overlap`
+						`target plant/x: pointers "/reading" and "/reading/unit" ` +
+							`overlap`
 				},
 			),
 			Entry("two fields at one pointer",
