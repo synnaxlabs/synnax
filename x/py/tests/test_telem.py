@@ -693,6 +693,10 @@ class TestRate:
         [
             (sy.TimeSpan.MILLISECOND, sy.Rate(1000)),
             (1000, sy.Rate(1000.0)),
+            (np.float64(10), sy.Rate(10)),
+            (np.float32(10), sy.Rate(10)),
+            (np.int64(10), sy.Rate(10)),
+            (np.uint8(10), sy.Rate(10)),
         ],
     )
     def test_construction(self, crude: sy.CrudeRate, expected: sy.Rate) -> None:
@@ -791,6 +795,16 @@ class TestRate:
 
 
 @pytest.mark.telem
+class TestDensity:
+    @pytest.mark.parametrize("crude", [8, np.int64(8), np.uint8(8), sy.Density(8)])
+    def test_construction(self, crude: sy.CrudeDensity) -> None:
+        """Should build a density from an int or a NumPy integer"""
+        density = sy.Density(crude)
+        assert density == 8
+        assert type(density) is sy.Density
+
+
+@pytest.mark.telem
 class TestDataType:
     @pytest.mark.parametrize(
         ("crude", "expected"),
@@ -805,10 +819,24 @@ class TestDataType:
             (uuid.uuid4(), sy.DataType.UUID),
             (np.dtype("datetime64[ns]"), sy.DataType.TIMESTAMP),
             (np.datetime64, sy.DataType.TIMESTAMP),
+            (np.dtype("datetime64[us]"), sy.DataType.TIMESTAMP),
+            (np.dtype("<U3"), sy.DataType.STRING),
+            (np.array(["a", "bc"]).dtype, sy.DataType.STRING),
+            ([np.datetime64(1, "s")], sy.DataType.TIMESTAMP),
+            ([np.float32(1), np.float32(2)], sy.DataType.FLOAT32),
         ],
     )
     def test_construction(self, crude: sy.CrudeDataType, expected: sy.DataType) -> None:
         assert sy.DataType(crude) == expected
+
+    @pytest.mark.parametrize(
+        "crude",
+        [np.float16, np.dtype(np.float16), np.float16(1), [np.float16(1)]],
+    )
+    def test_construction_float16(self, crude: sy.CrudeDataType) -> None:
+        """Should reject float16 with an error that names the type"""
+        with pytest.raises(TypeError, match="float16"):
+            sy.DataType(crude)
 
     def test_string(self) -> None:
         """Should return the string representation of the data type"""
