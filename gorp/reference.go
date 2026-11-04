@@ -12,6 +12,7 @@ package gorp
 import (
 	"slices"
 
+	"github.com/samber/lo"
 	"github.com/synnaxlabs/gorp/internal/index"
 	"github.com/synnaxlabs/gorp/internal/key"
 	"github.com/synnaxlabs/x/errors"
@@ -164,11 +165,17 @@ func (r *Reference[K, E]) announce(entry *E) uint64 {
 func (r *Reference[K, E]) withdraw(handle uint64) { r.store.Withdraw(handle) }
 
 // Get returns the keys of the entries that hold any of targets, with the changes
-// staged against tx applied. Pass a nil tx to read committed state only. Get blocks
-// until the index has finished populating, and returns ErrIndexInvalid if population
-// failed.
+// staged against tx applied. Pass a nil tx to skip staged changes. Get includes the
+// keys of a commit in flight, which can fail, so check each key against storage. Get
+// blocks until the index has finished populating, and returns ErrIndexInvalid if
+// population failed.
 func (r *Reference[K, E]) Get(tx Tx, targets ...Target) ([]K, error) {
-	return r.store.Get(scopeOf(tx), targets...)
+	committing := r.store.Committing(targets...)
+	keys, err := r.store.Get(scopeOf(tx), targets...)
+	if err != nil || len(committing) == 0 {
+		return keys, err
+	}
+	return lo.Uniq(append(keys, committing...)), nil
 }
 
 // Filter returns a Filter matching entries that hold any of targets. It sees the

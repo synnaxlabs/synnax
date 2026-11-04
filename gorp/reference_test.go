@@ -10,11 +10,14 @@
 package gorp_test
 
 import (
+	"context"
+	"iter"
 	"slices"
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	"github.com/synnaxlabs/gorp"
+	"github.com/synnaxlabs/x/change"
 	"github.com/synnaxlabs/x/encoding/msgpack"
 	"github.com/synnaxlabs/x/kv"
 	"github.com/synnaxlabs/x/observe"
@@ -327,6 +330,27 @@ var _ = Describe("Reference", func() {
 				Set(ctx, refDevice{Key: "b", Rack: 9})).To(Succeed())
 			Expect(deviceRef[0].Get(db, gorp.To("rack", uint32(9)))).
 				To(ConsistOf("a"))
+		})
+	})
+
+	Describe("Get", func() {
+		BeforeEach(func(ctx SpecContext) {
+			open(ctx, gorp.WithIndexObservable(observe.Noop[kv.TxReader]{}))
+		})
+
+		It("Should find an entry from an observer of its commit", func(ctx SpecContext) {
+			createRack(ctx, 1)
+			var found []string
+			DeferCleanup(devices.Observe().OnChange(func(
+				context.Context,
+				iter.Seq[change.Change[string, refDevice]],
+			) {
+				found = MustSucceed(deviceRef[0].Get(nil, gorp.To("rack", uint32(1))))
+			}))
+			Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
+				return devices.NewCreate().Entry(&refDevice{Key: "a", Rack: 1}).Exec(ctx, tx)
+			})).To(Succeed())
+			Expect(found).To(Equal([]string{"a"}))
 		})
 	})
 
