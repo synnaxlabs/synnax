@@ -98,7 +98,7 @@ class RegisterBit(BaseModel):
         bit: Is the bit index, from 0 (least significant) to 15.
     """
 
-    bit: int = Field(le=15, default=0, ge=0)
+    bit: int = Field(default=0, ge=0, le=15)
 
 
 class CoilReadChannel(BaseReadChannel):
