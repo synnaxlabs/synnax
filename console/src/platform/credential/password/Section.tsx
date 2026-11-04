@@ -66,16 +66,16 @@ const CreateForm = ({ subject, onChange, onMessage }: FormProps): ReactElement =
   );
 };
 
-interface RenameFormProps extends FormProps {
+interface RenameFormProps extends Pick<FormProps, "subject" | "onMessage"> {
   username: string;
 }
 
 const RenameForm = ({
   subject,
   username: initial,
-  onChange,
   onMessage,
 }: RenameFormProps): ReactElement => {
+  const [saved, setSaved] = useState(initial);
   const [username, setUsername] = useState(initial);
   const handleUsername = (value: string) => {
     setUsername(value);
@@ -83,8 +83,8 @@ const RenameForm = ({
   };
   const rename = Credential.Password.useRename({
     afterSuccess: () => {
+      setSaved(username);
       onMessage("Successfully changed username");
-      onChange();
     },
   });
   return (
@@ -99,7 +99,7 @@ const RenameForm = ({
         className={CSS.BE("credential", "action")}
         variant="filled"
         status={status.keepVariants(rename.variant, "loading")}
-        disabled={username === "" || username === initial}
+        disabled={username === "" || username === saved}
         onClick={() => rename.update({ subject, username })}
       >
         Set username
@@ -156,7 +156,6 @@ const Form = ({ subject, onChange, onMessage }: FormProps): ReactElement | null 
       <RenameForm
         subject={subject}
         username={passwords.data[0].username}
-        onChange={onChange}
         onMessage={onMessage}
       />
       <SetForm subject={subject} onMessage={onMessage} />
