@@ -17,6 +17,10 @@ import (
 	"github.com/synnaxlabs/gorp"
 )
 
+// tableName names the User table for references. Pass it as
+// gorp.TableConfig.Name.
+const tableName = "user"
+
 // Retrieve is used to retrieve User records from the database using a
 // builder pattern for constructing queries.
 type Retrieve struct {

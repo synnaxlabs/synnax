@@ -17,6 +17,10 @@ import (
 	"github.com/synnaxlabs/gorp"
 )
 
+// tableName names the Schematic table for references. Pass it as
+// gorp.TableConfig.Name.
+const tableName = "schematic"
+
 // Retrieve is used to retrieve Schematic records from the database using a
 // builder pattern for constructing queries.
 type Retrieve struct {

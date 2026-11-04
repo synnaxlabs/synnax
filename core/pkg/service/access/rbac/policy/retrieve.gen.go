@@ -18,6 +18,10 @@ import (
 	"github.com/synnaxlabs/gorp"
 )
 
+// tableName names the Policy table for references. Pass it as
+// gorp.TableConfig.Name.
+const tableName = "policy"
+
 // indexes bundles the per-Service secondary indexes registered on the
 // Policy table. Each index is constructed via newIndexes and threaded
 // onto the Retrieve so filter functions can resolve them off r.indexes

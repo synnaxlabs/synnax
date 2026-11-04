@@ -19,6 +19,10 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/service/rack"
 )
 
+// tableName names the Device table for references. Pass it as
+// gorp.TableConfig.Name.
+const tableName = "device"
+
 // Retrieve is used to retrieve Device records from the database using a
 // builder pattern for constructing queries.
 type Retrieve struct {

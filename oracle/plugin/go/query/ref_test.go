@@ -88,10 +88,7 @@ var _ = Describe("@ref", func() {
 		"Should register a reference to the key of another resource",
 		func(ctx SpecContext) {
 			resp := MustGenerate(ctx, device(`
-			rack rack.Key {
-				@ref on_delete restrict
-				@filter
-			}
+			rack rack.Key @ref on_delete restrict
 		`), "device", loader, p)
 			ExpectContent(resp, "retrieve.gen.go").
 				ToContain(
@@ -102,6 +99,8 @@ var _ = Describe("@ref", func() {
 					"OnDelete: gorp.Restrict,",
 					`return []gorp.Target{gorp.To("rack", e.Rack)}`,
 					"func (i indexes) references() []*gorp.Reference[Key, Device]",
+					`const tableName = "device"`,
+					`"github.com/synnaxlabs/synnax/core/pkg/service/rack"`,
 					"func MatchRacks(vals ...rack.Key) Filter",
 					`targets[i] = gorp.To("rack", v)`,
 					"return r.indexes.rack.Filter(targets...)",
@@ -131,10 +130,7 @@ var _ = Describe("@ref", func() {
 
 	It("Should detach a deleted target from an array", func(ctx SpecContext) {
 		resp := MustGenerate(ctx, device(`
-			labels label.Key[] {
-				@ref on_delete detach
-				@filter
-			}
+			labels label.Key[] @ref on_delete detach
 		`), "device", loader, p)
 		ExpectContent(resp, "retrieve.gen.go").
 			ToContain(
@@ -165,6 +161,8 @@ var _ = Describe("@ref", func() {
 					`Tables:   []string{"rack", "device"},`,
 					"Unique:   true,",
 					"return []gorp.Target{resourceTarget(*e.Owner)}",
+					"func MatchOwners(vals ...resource.ID) Filter",
+					"targets[i] = resourceTarget(v)",
 					"func resourceTarget(id resource.ID) gorp.Target {",
 					"return gorp.Target{Table: string(id.Type), Key: id.Key}",
 				)
@@ -213,7 +211,12 @@ var _ = Describe("@ref", func() {
 				@ref on_delete restrict
 				@index lookup
 			}`,
-			"@ref field rack already has an index, so it cannot carry @index"),
+			"@ref field rack has its own index and filter, so it cannot carry @index"),
+		Entry("with a filter", `rack rack.Key {
+				@ref on_delete restrict
+				@filter
+			}`,
+			"@ref field rack has its own index and filter, so it cannot carry @index"),
 	)
 
 	It(

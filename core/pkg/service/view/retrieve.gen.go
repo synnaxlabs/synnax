@@ -17,6 +17,10 @@ import (
 	"github.com/synnaxlabs/gorp"
 )
 
+// tableName names the View table for references. Pass it as
+// gorp.TableConfig.Name.
+const tableName = "view"
+
 // Filter is a per-service filter that is bound to the Retrieve when passed to
 // Where. Pure filters ignore the Retrieve argument; service-bound filters read
 // from it (e.g. r.indexes, r.label, r.hostProvider) to evaluate. Use Match to

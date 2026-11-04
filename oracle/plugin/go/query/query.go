@@ -202,13 +202,15 @@ type searchInfo struct {
 
 // retrieveInfo holds extracted data about a @retrieve-annotated struct.
 type retrieveInfo struct {
-	GoName   string
-	KeyType  string
-	IsCustom bool // user defines the struct (@retrieve custom)
-	Filters  []filterInfo
-	Indexes  []indexInfo
-	Refs     []refInfo
-	Search   []searchInfo
+	// TableName is the type's @resource type, which names its table for references.
+	TableName string
+	GoName    string
+	KeyType   string
+	IsCustom  bool // user defines the struct (@retrieve custom)
+	Filters   []filterInfo
+	Indexes   []indexInfo
+	Refs      []refInfo
+	Search    []searchInfo
 }
 
 // HasSearch reports whether the retrieve declared any @search fields.
@@ -421,11 +423,11 @@ func extractRetrieveInfo(
 				IsString: textType.Name == "string",
 			})
 		}
-		var ref *refInfo
 		if hasRef {
-			if hasIndex {
+			if hasIndex || hasFilter {
 				return nil, errors.Newf(
-					"%s: @ref field %s already has an index, so it cannot carry @index",
+					"%s: @ref field %s has its own index and filter, so it cannot "+
+						"carry @index or @filter",
 					typ.QualifiedName,
 					field.Name,
 				)
@@ -435,7 +437,15 @@ func extractRetrieveInfo(
 				return nil, err
 			}
 			refs = append(refs, info)
-			ref = &info
+			filters = append(filters, filterInfo{
+				FieldName:  field.Name,
+				GoName:     info.GoName,
+				GoType:     info.ElemGoType,
+				ElemGoType: info.ElemGoType,
+				IsSlice:    info.IsSlice,
+				Ref:        &info,
+			})
+			continue
 		}
 		if !hasFilter && !hasIndex {
 			continue
@@ -481,7 +491,6 @@ func extractRetrieveInfo(
 				IsBool:         isBool,
 				IsSlice:        isSlice,
 				IndexFieldName: structField,
-				Ref:            ref,
 			})
 		}
 	}
@@ -508,13 +517,14 @@ func extractRetrieveInfo(
 	}
 
 	return &retrieveInfo{
-		GoName:   goName,
-		KeyType:  keyType,
-		IsCustom: isCustom,
-		Filters:  filters,
-		Indexes:  indexes,
-		Refs:     refs,
-		Search:   search,
+		TableName: ownTable,
+		GoName:    goName,
+		KeyType:   keyType,
+		IsCustom:  isCustom,
+		Filters:   filters,
+		Indexes:   indexes,
+		Refs:      refs,
+		Search:    search,
 	}, nil
 }
 
@@ -647,6 +657,11 @@ import (
 )
 {{- end}}
 {{range $ret := .Retrieves}}
+{{- if $ret.TableName}}
+// tableName names the {{$ret.GoName}} table for references. Pass it as
+// gorp.TableConfig.Name.
+const tableName = "{{$ret.TableName}}"
+{{end}}
 {{- if not $ret.IsCustom}}
 // Retrieve is used to retrieve {{$ret.GoName}} records from the database using a
 // builder pattern for constructing queries.
