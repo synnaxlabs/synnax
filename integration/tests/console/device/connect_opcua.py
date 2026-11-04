@@ -46,7 +46,9 @@ class ConnectOPCUA(OPCUACase):
         # Toasts stack over the modal footer and swallow the click.
         self.console.layout.notifications.close_all()
         modal.get_by_role("button", name="Connect", exact=True).click(timeout=5000)
-        modal.get_by_role("button", name="Trust", exact=True).click(timeout=TIMEOUT)
+        modal.get_by_role("button", name="Trust and connect", exact=True).click(
+            timeout=TIMEOUT
+        )
         modal.wait_for(state="hidden", timeout=TIMEOUT)
 
         dev = self.client.devices.retrieve(name=name)
