@@ -1017,6 +1017,71 @@ var _ = Describe("Rack", Ordered, func() {
 		)
 
 		It(
+			"Should change only the status name when create renames a rack",
+			func(ctx SpecContext) {
+				r := rack.Rack{
+					Name: "old name",
+					Status: &rack.Status{
+						Variant:     status.VariantSuccess,
+						Message:     "Rack is connected",
+						Description: "All integrations are running",
+						Time:        telem.SecondTS,
+					},
+				}
+				Expect(writer.Create(ctx, &r)).To(Succeed())
+				retrieve := func() rack.Status {
+					GinkgoHelper()
+					var s rack.Status
+					Expect(stat.NewRetrieve[rack.StatusDetails]().
+						Where(status.MatchKeys[rack.StatusDetails](
+							rack.StatusKey(r.Key),
+						)).
+						Entry(&s).
+						Exec(ctx, tx)).To(Succeed())
+					return s
+				}
+				expected := retrieve()
+				expected.Name = "new name"
+
+				renamed := rack.Rack{Key: r.Key, Name: "new name"}
+				Expect(writer.Create(ctx, &renamed)).To(Succeed())
+
+				Expect(retrieve()).To(Equal(expected))
+			},
+		)
+
+		It(
+			"Should not write the status on a create that keeps the rack name",
+			func(ctx SpecContext) {
+				frozenNow.Store(int64(telem.Now()))
+				r := rack.Rack{Name: "unchanged rack"}
+				Expect(noTxWriter.Create(ctx, &r)).To(Succeed())
+				var writes atomic.Int32
+				DeferCleanup(stat.Observe().OnChange(func(
+					_ context.Context,
+					t gorp.TxReader[status.Key, status.Status[any]],
+				) {
+					for ch := range t {
+						if ch.Key == rack.StatusKey(r.Key) {
+							writes.Add(1)
+						}
+					}
+				}))
+				Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
+					return svc.NewWriter(tx).Create(ctx, &rack.Rack{
+						Key:  r.Key,
+						Name: r.Name,
+					})
+				})).To(Succeed())
+				Consistently(
+					writes.Load,
+					50*telem.Millisecond.Duration(),
+					5*telem.Millisecond.Duration(),
+				).Should(BeZero())
+			},
+		)
+
+		It(
 			"Should mark a rack as dead when it doesn't receive a status within the health check interval",
 			func(ctx SpecContext) {
 				r := rack.Rack{Name: "dead test rack"}

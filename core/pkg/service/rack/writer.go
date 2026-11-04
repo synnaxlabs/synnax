@@ -60,25 +60,32 @@ func resolveStatus(r *Rack) *Status {
 	return &stat
 }
 
-// healStatus restores a rack's status row if it has gone missing (e.g. deleted
-// out-of-band) without clobbering a live one. Racks are re-created on every scan cycle,
-// so on a no-op update the default "unknown" status must not overwrite a status the
-// driver has already reported; it is only written when no row exists.
-func (w Writer) healStatus(
-	ctx context.Context,
-	stat *Status,
-) error {
-	if exists, err := gorp.NewRetrieve[string, Status]().
+// writeStatus writes the status provided on r. With none, it keeps the stored row and
+// changes only its name. The default status is written only if no row exists, because
+// a stored row may be a live status from the Driver.
+func (w Writer) writeStatus(ctx context.Context, r *Rack) error {
+	stat := resolveStatus(r)
+	if r.Status != nil {
+		return w.status.Set(ctx, stat)
+	}
+	var stored Status
+	err := gorp.NewRetrieve[string, Status]().
 		Where(gorp.MatchKeys[string, Status](stat.Key)).
-		Exists(ctx, w.tx); err != nil || exists {
+		Entry(&stored).
+		Exec(ctx, w.tx)
+	if errors.Is(err, query.ErrNotFound) {
+		return w.status.Set(ctx, stat)
+	}
+	if err != nil || stored.Name == r.Name {
 		return err
 	}
-	return w.status.Set(ctx, stat)
+	return w.status.Rename(ctx, stat.Key, r.Name)
 }
 
-// Create creates or updates a rack. If the rack key is zero or a rack with the key
-// does not exist, a new rack will be created. If a status is provided on the rack,
-// it will be used instead of the default "unknown" status.
+// Create creates or updates a rack. If the rack key is zero or a rack with the key does
+// not exist, a new rack will be created. A status provided on the rack replaces the
+// stored status. With no provided status, the stored status stays and takes the rack's
+// name, and only a rack with no stored status gets the default "unknown" status.
 func (w Writer) Create(ctx context.Context, r *Rack) error {
 	var err error
 	if r.Key.IsZero() {
@@ -113,12 +120,7 @@ func (w Writer) Create(ctx context.Context, r *Rack) error {
 			return err
 		}
 	}
-	stat := resolveStatus(r)
-	if r.Status != nil {
-		if err = w.status.Set(ctx, stat); err != nil {
-			return err
-		}
-	} else if err = w.healStatus(ctx, stat); err != nil {
+	if err = w.writeStatus(ctx, r); err != nil {
 		return err
 	}
 	return w.otg.DefineRelationships(
