@@ -266,8 +266,8 @@ export class Client extends query.Retriever<
     const sugared = array
       .toArray(payloads)
       .map(
-        ({ key, name, status, integrations, embedded }) =>
-          new Rack(key, name, this.cfg.tasks, status, integrations, embedded),
+        ({ key, name, status, integrations, embedded, version }) =>
+          new Rack(key, name, this.cfg.tasks, status, integrations, embedded, version),
       );
     return isSingle ? sugared[0] : sugared;
   }
@@ -333,6 +333,7 @@ export class Rack {
   status?: Status;
   integrations: string[];
   embedded: boolean;
+  version?: string;
   private readonly tasks: task.Client;
 
   constructor(
@@ -342,6 +343,7 @@ export class Rack {
     status?: Status,
     integrations: string[] = [],
     embedded: boolean = false,
+    version?: string,
   ) {
     this.key = key;
     this.name = name;
@@ -349,6 +351,7 @@ export class Rack {
     this.status = status;
     this.integrations = integrations;
     this.embedded = embedded;
+    this.version = version;
   }
 
   async listTasks(): Promise<task.Task[]> {
@@ -380,6 +383,7 @@ export class Rack {
       status: this.status,
       integrations: this.integrations,
       embedded: this.embedded,
+      version: this.version,
     };
   }
 }
