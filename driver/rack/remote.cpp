@@ -9,6 +9,7 @@
 
 #include <algorithm>
 #include <charconv>
+#include <tuple>
 
 #include "absl/log/log.h"
 
@@ -23,12 +24,15 @@ namespace {
 const std::string RACK_SUBJECT_TYPE = "rack";
 const std::string API_KEY_NAME = "synnax-driver";
 
-std::pair<x::uuid::UUID, x::errors::Error>
-retrieve_cluster_key(const synnax::Synnax &client) {
-    const auto state = client.connectivity->check();
+/// check_core returns the state of a connectivity check and the cluster key it reports,
+/// or an error when the check does not reach the Core.
+std::tuple<synnax::connection::State, x::uuid::UUID, x::errors::Error>
+check_core(const synnax::Synnax &client) {
+    auto state = client.connectivity->check();
     if (state.status != synnax::connection::Status::CONNECTED)
-        return {x::uuid::UUID(), state.error};
-    return x::uuid::UUID::parse(state.cluster_key);
+        return {state, x::uuid::UUID(), state.error};
+    auto [cluster_key, err] = x::uuid::UUID::parse(state.cluster_key);
+    return {state, cluster_key, err};
 }
 
 std::pair<synnax::rack::Rack, x::errors::Error>
@@ -41,7 +45,7 @@ create_rack(const synnax::Synnax &client) {
 x::errors::Error Config::enroll() {
     const auto client = synnax::Synnax(this->connection);
     if (const auto err = client.auth->authenticate()) return err;
-    const auto [cluster_key, key_err] = retrieve_cluster_key(client);
+    const auto [core, cluster_key, key_err] = check_core(client);
     if (key_err) return key_err;
     std::pair<synnax::rack::Rack, x::errors::Error> res;
     bool created = false;
@@ -91,7 +95,7 @@ x::errors::Error Config::enroll() {
 x::errors::Error Config::load_remote() {
     const auto client = synnax::Synnax(this->connection);
     if (const auto err = client.auth->authenticate()) return err;
-    const auto [cluster_key, key_err] = retrieve_cluster_key(client);
+    const auto [core, cluster_key, key_err] = check_core(client);
     if (key_err) return key_err;
     const auto subject = client.auth->current_session().subject;
     synnax::rack::Key rack_key = this->remote_info.rack_key;
@@ -109,7 +113,7 @@ x::errors::Error Config::load_remote() {
     this->rack = rack;
     this->rack.version = SYNNAX_DRIVER_VERSION;
     this->remote_info.cluster_key = cluster_key;
-    if (const auto core = client.connectivity->state(); !core.client_server_compatible)
+    if (!core.client_server_compatible)
         this->incompatible_core_version = core.node_version;
     // A config can name an integration that this build leaves out.
     const auto built = built_integrations();
