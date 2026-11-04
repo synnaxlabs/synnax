@@ -120,9 +120,12 @@ jobs:
 
       - name: Install packages
         if: runner.os == 'Linux' && inputs.apt_packages != ''
+        env:
+          PACKAGES: ${{ inputs.apt_packages }}
         run: |
           sudo apt-get update
-          sudo apt-get install -y ${{ inputs.apt_packages }}
+          # shellcheck disable=SC2086 # Splits the package list into arguments.
+          sudo apt-get install -y $PACKAGES
 
       - name: Install Rust
         if: inputs.rust
@@ -153,8 +156,11 @@ jobs:
 
       - name: Check formatting
         if: runner.os == 'Linux' && inputs.directories != ''
+        env:
+          DIRECTORIES: ${{ inputs.directories }}
         run: |
-          for directory in ${{ inputs.directories }}; do
+          # shellcheck disable=SC2086 # Splits the directory list into arguments.
+          for directory in $DIRECTORIES; do
             scripts/check_clang_format.sh "$directory"
           done
 
@@ -178,9 +184,13 @@ jobs:
         env:
           # The HTTP/2 client in Go stalls Bazelisk downloads on the Mac build bots.
           GODEBUG: http2client=0
-        run: >-
-          bazel test ${{ inputs.sanitizers && '--config=asan' || '' }} --test_output=all
-          ${{ inputs.targets }} ${{ steps.tags.outputs.flag }} ${{ inputs.test_flags }}
+          TARGETS: ${{ inputs.targets }}
+          TAG_FLAG: ${{ steps.tags.outputs.flag }}
+          TEST_FLAGS: ${{ inputs.test_flags }}
+        run: |
+          # shellcheck disable=SC2086 # Splits the flag list into arguments.
+          bazel test ${{ inputs.sanitizers && '--config=asan' || '' }} \
+            --test_output=all $TARGETS $TAG_FLAG $TEST_FLAGS
 
       # The Ubuntu build bots have 16 GB and no swap. A sanitized compile takes up to
       # 3.5 GB, so eight at once reach the OOM killer, which takes the runner down with
@@ -188,24 +198,32 @@ jobs:
       - name: Test (Ubuntu)
         if: runner.os == 'Linux'
         shell: bash
+        env:
+          TARGETS: ${{ inputs.targets }}
+          TAG_FLAG: ${{ steps.tags.outputs.flag }}
+          TEST_FLAGS: ${{ inputs.test_flags }}
         run: |
           lsan="$GITHUB_WORKSPACE/scripts/sanitizers/lsan_suppressions.txt"
           # shellcheck disable=SC2086 # Splits the flag list into arguments.
           bazel test $BAZEL_REMOTE_CACHE_FLAGS --jobs=4 \
             ${{ inputs.sanitizers && '--config=asan-leak' || '' }} --test_output=all \
             --test_env=LSAN_OPTIONS=suppressions="$lsan" \
-            ${{ inputs.targets }} ${{ steps.tags.outputs.flag }} \
-            ${{ inputs.test_flags }}
+            $TARGETS $TAG_FLAG \
+            $TEST_FLAGS
 
       - name: Test (Windows)
         if: runner.os == 'Windows'
         shell: bash
+        env:
+          TARGETS: ${{ inputs.targets }}
+          TAG_FLAG: ${{ steps.tags.outputs.flag }}
+          TEST_FLAGS: ${{ inputs.test_flags }}
         run: |
           export MSYS_NO_PATHCONV=1
           # shellcheck disable=SC2086 # Splits the flag list into arguments.
           scripts/run_bazel.sh test $BAZEL_REMOTE_CACHE_FLAGS --test_output=all \
-            ${{ inputs.targets }} ${{ steps.tags.outputs.flag }} \
-            ${{ inputs.test_flags }}
+            $TARGETS $TAG_FLAG \
+            $TEST_FLAGS
 
       - name: Clean build caches (Ubuntu)
         if: always() && runner.os == 'Linux'
@@ -227,9 +245,12 @@ jobs:
 
       - name: Install packages
         if: inputs.apt_packages != ''
+        env:
+          PACKAGES: ${{ inputs.apt_packages }}
         run: |
           sudo apt-get update
-          sudo apt-get install -y ${{ inputs.apt_packages }}
+          # shellcheck disable=SC2086 # Splits the package list into arguments.
+          sudo apt-get install -y $PACKAGES
 
       - name: Install Rust
         if: inputs.rust
@@ -250,10 +271,12 @@ jobs:
 
       # Each clang-tidy action peaks near 1 GB, and the build bots have 16 GB.
       - name: Lint
+        env:
+          TARGETS: ${{ inputs.targets }}
         run: |
           # shellcheck disable=SC2086 # Splits the flag list into arguments.
           bazel build $BAZEL_REMOTE_CACHE_FLAGS --jobs=8 --config=clang-tidy \
-            --keep_going ${{ inputs.targets }}
+            --keep_going $TARGETS
 
       - name: Clean build caches
         if: always()

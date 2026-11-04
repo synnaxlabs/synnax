@@ -139,8 +139,9 @@ jobs:
           PYTHONIOENCODING: utf-8
           PAGERDUTY_ROUTING_KEY: ${{ secrets.PAGERDUTY_ROUTING_KEY }}
           PAGERDUTY_API_KEY: ${{ secrets.PAGERDUTY_API_KEY }}
+          TC_ARGS: ${{ matrix.target || inputs.flags }}
         run: >-
-          uv run test-conductor --name tc_win ${{ matrix.target || inputs.flags }}
+          uv run test-conductor --name tc_win %TC_ARGS%
 
       - name: Test conductor (Ubuntu)
         if: runner.os == 'Linux'
@@ -150,8 +151,10 @@ jobs:
         env:
           PAGERDUTY_ROUTING_KEY: ${{ secrets.PAGERDUTY_ROUTING_KEY }}
           PAGERDUTY_API_KEY: ${{ secrets.PAGERDUTY_API_KEY }}
-        run: >-
-          uv run test-conductor --name tc_unix ${{ matrix.target || inputs.flags }}
+          TC_ARGS: ${{ matrix.target || inputs.flags }}
+        run: |
+          # shellcheck disable=SC2086 # Splits the flags into arguments.
+          uv run test-conductor --name tc_unix $TC_ARGS
 
       # A failed measurement must not fail the tests it measured.
       - name: Report resource use

@@ -158,6 +158,8 @@ jobs:
 
       - name: Install Core as the Desktop sidecar
         if: inputs.desktop
+        env:
+          VERSION: ${{ inputs.version }}
         run: |
           # Tauri resolves a sidecar by the Rust host triple.
           TRIPLE="$(rustc -vV | sed -n 's/^host: //p')"
@@ -165,7 +167,7 @@ jobs:
           case "$TRIPLE" in *windows*) EXT=".exe" ;; esac
           mkdir -p console/src-tauri/binaries
           SIDECAR="console/src-tauri/binaries/synnax-core-${TRIPLE}${EXT}"
-          cp "core-artifact/synnax-v${{ inputs.version }}${EXT}" "$SIDECAR"
+          cp "core-artifact/synnax-v${VERSION}${EXT}" "$SIDECAR"
           chmod +x "$SIDECAR"
 
       # Only the dependencies build here. The Console's own vite build runs inside

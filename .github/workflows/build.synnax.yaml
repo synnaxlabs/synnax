@@ -216,11 +216,13 @@ jobs:
       - name: Get version
         id: version
         working-directory: core
+        env:
+          INPUT_VERSION: ${{ inputs.version }}
         run: |
-          if [ -n "${{ inputs.version }}" ]; then
+          if [ -n "$INPUT_VERSION" ]; then
             # Extract pure version by removing any suffix (-rc, -branch, etc.)
-            PURE_VERSION=$(echo "${{ inputs.version }}" | sed 's/-.*$//')
-            echo "VERSION=${{ inputs.version }}" >> "$GITHUB_OUTPUT"
+            PURE_VERSION=$(echo "$INPUT_VERSION" | sed 's/-.*$//')
+            echo "VERSION=$INPUT_VERSION" >> "$GITHUB_OUTPUT"
             echo "PURE_VERSION=${PURE_VERSION}" >> "$GITHUB_OUTPUT"
           else
             # A dev build stays 0.0 so clients pair with it, and names the newest
@@ -274,12 +276,17 @@ jobs:
 
       - name: Generate Go build tags
         id: go-tags
+        env:
+          CONSOLE: ${{ inputs.console }}
+          CONSOLE_RELEASE: ${{ inputs.console_release }}
+          DRIVER: ${{ inputs.driver }}
+          DRIVER_RELEASE: ${{ inputs.driver_release }}
         run: |
           TAGS=""
-          if [ "${{ inputs.console }}" = "true" ] || [ -n "${{ inputs.console_release }}" ]; then
+          if [ "$CONSOLE" = "true" ] || [ -n "$CONSOLE_RELEASE" ]; then
             TAGS="console"
           fi
-          if [ "${{ inputs.driver }}" = "true" ] || [ -n "${{ inputs.driver_release }}" ]; then
+          if [ "$DRIVER" = "true" ] || [ -n "$DRIVER_RELEASE" ]; then
             TAGS="${TAGS:+$TAGS,}driver"
           fi
           if [ -n "$TAGS" ]; then TAGS="-tags $TAGS"; fi
@@ -674,9 +681,11 @@ jobs:
       - name: Download Driver release
         if: inputs.driver_release != '' && inputs.core
         shell: bash
+        env:
+          RELEASE: ${{ inputs.driver_release }}
         run: |
           mkdir -p core/pkg/driver/assets
-          gh release download "${{ inputs.driver_release }}" \
+          gh release download "$RELEASE" \
             --pattern "synnax-driver-v*-${{ matrix.os-name }}${{ matrix.executable }}" \
             --output core/pkg/driver/assets/driver${{ matrix.executable }}
           chmod +x core/pkg/driver/assets/driver${{ matrix.executable }}
@@ -684,9 +693,11 @@ jobs:
       - name: Download Console release
         if: inputs.console_release != '' && inputs.core
         shell: bash
+        env:
+          RELEASE: ${{ inputs.console_release }}
         run: |
           mkdir -p core/pkg/console/dist
-          gh release download "${{ inputs.console_release }}" \
+          gh release download "$RELEASE" \
             --pattern "console-web-*.tar.gz" --output console-web.tar.gz
           tar -xzf console-web.tar.gz -C core/pkg/console/dist
 
@@ -1068,9 +1079,10 @@ jobs:
         if: inputs.driver_release != ''
         env:
           GH_TOKEN: ${{ github.token }}
+          RELEASE: ${{ inputs.driver_release }}
         run: |
           mkdir -p core/pkg/driver/assets
-          gh release download "${{ inputs.driver_release }}" \
+          gh release download "$RELEASE" \
             --pattern "synnax-driver-v*-linux" --output core/pkg/driver/assets/driver
           chmod +x core/pkg/driver/assets/driver
 
@@ -1078,9 +1090,10 @@ jobs:
         if: inputs.console_release != ''
         env:
           GH_TOKEN: ${{ github.token }}
+          RELEASE: ${{ inputs.console_release }}
         run: |
           mkdir -p core/pkg/console/dist
-          gh release download "${{ inputs.console_release }}" \
+          gh release download "$RELEASE" \
             --pattern "console-web-*.tar.gz" --output console-web.tar.gz
           tar -xzf console-web.tar.gz -C core/pkg/console/dist
 

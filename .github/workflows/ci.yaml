@@ -498,7 +498,7 @@ jobs:
       core_image: ${{ needs.core-image.outputs.image }}
       sanitizers: false
       targets: //client/cpp/framer:framer_test //driver/ethercat/...
-      test_flags: --config=tsan --run_under="setarch -R"
+      test_flags: --config=tsan-no-aslr
       test_tags: -hardware
     secrets: inherit
 
