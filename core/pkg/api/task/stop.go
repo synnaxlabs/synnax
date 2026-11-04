@@ -20,9 +20,11 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/service/framer"
 	"github.com/synnaxlabs/synnax/pkg/service/status"
 	"github.com/synnaxlabs/synnax/pkg/service/task"
+	"github.com/synnaxlabs/x/confluence"
 	"github.com/synnaxlabs/x/encoding/msgpack"
 	"github.com/synnaxlabs/x/errors"
 	"github.com/synnaxlabs/x/query"
+	"github.com/synnaxlabs/x/signal"
 	"github.com/synnaxlabs/x/telem"
 )
 
@@ -104,15 +106,49 @@ func (s *Service) sendStops(ctx context.Context, keys []task.Key) error {
 	if err != nil {
 		return err
 	}
-	// A writer stops serving requests when its context ends, and a request sent to it
-	// then blocks. Detaching keeps a canceled caller from hanging the delete.
-	w, err := s.framer.OpenWriter(context.WithoutCancel(ctx), framer.WriterConfig{
+	sw, err := s.framer.NewStreamWriter(ctx, framer.WriterConfig{
 		Keys:  channel.Keys{s.task.CommandChannelKey()},
 		Start: telem.Now(),
 	})
 	if err != nil {
 		return err
 	}
-	_, err = w.Write(frame.NewUnary(s.task.CommandChannelKey(), series))
-	return errors.Combine(err, w.Close())
+	var (
+		requests  = confluence.NewStream[framer.WriterRequest]()
+		responses = confluence.NewStream[framer.WriterResponse]()
+	)
+	sw.InFrom(requests)
+	sw.OutTo(responses)
+	// A routine never starts under a canceled context, and then never closes its
+	// outlets. The writer runs apart from ctx, and every wait on it selects on ctx.
+	sCtx, cancel := signal.Isolated()
+	defer cancel()
+	sw.Flow(
+		sCtx, confluence.CloseOutputInletsOnExit(), confluence.RecoverWithErrOnPanic(),
+	)
+	sCtx.Go(func(context.Context) error {
+		for res := range responses.Outlet() {
+			if res.Err != nil {
+				return res.Err
+			}
+		}
+		return nil
+	}, signal.RecoverWithErrOnPanic())
+	select {
+	case <-ctx.Done():
+		return ctx.Err()
+	case <-sCtx.Stopped():
+		return sCtx.Wait()
+	case requests.Inlet() <- framer.WriterRequest{
+		Command: framer.WriterCommandWrite,
+		Frame:   frame.NewUnary(s.task.CommandChannelKey(), series),
+	}:
+	}
+	requests.Close()
+	select {
+	case <-ctx.Done():
+		return ctx.Err()
+	case <-sCtx.Stopped():
+		return sCtx.Wait()
+	}
 }
