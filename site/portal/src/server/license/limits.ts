@@ -14,6 +14,11 @@ import { type License } from "@/server/db/schema";
 
 export const MAX_NAME_LENGTH = 64;
 
+export const MAX_LABEL_LENGTH = 256;
+
+// File systems cap a name at 255 bytes, which a long label would pass.
+const MAX_FILENAME_STEM_LENGTH = 128;
+
 /** VERSION_PATTERN matches a major.minor Core version, like 0.62. */
 export const VERSION_PATTERN = /^\d+\.\d+$/;
 
@@ -31,7 +36,8 @@ export const filename = (label: string, machine?: string | null): string => {
   const stem = [label, machine ?? ""]
     .map(slug)
     .filter((s) => s !== "")
-    .join("-");
+    .join("-")
+    .slice(0, MAX_FILENAME_STEM_LENGTH);
   return `${stem === "" ? "synnax" : stem}.${KEY_FILE_EXTENSION}`;
 };
 

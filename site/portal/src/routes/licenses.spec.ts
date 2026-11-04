@@ -30,7 +30,7 @@ import {
 } from "@/server/db/schema";
 import { type Memory, openMemory } from "@/server/db/testutil";
 import { ADMIN_ROLE, type Team } from "@/server/directory";
-import { MAX_NAME_LENGTH } from "@/server/license/limits";
+import { MAX_LABEL_LENGTH } from "@/server/license/limits";
 import { issued, restored, revoked } from "@/server/license/notice";
 import { HASH_A, HASH_B, NOW } from "@/server/license/testutil";
 import { PER_ACTOR, PER_ORGANIZATION } from "@/server/ratelimit";
@@ -441,6 +441,15 @@ describe("license routes", () => {
       );
     });
 
+    it("should reject a label over the length limit", async () => {
+      h.signIn(STAFF);
+      await expectError(
+        await post({ ...TERMS, label: "x".repeat(MAX_LABEL_LENGTH + 1) }),
+        400,
+        `The label must be at most ${MAX_LABEL_LENGTH} characters`,
+      );
+    });
+
     it("should reject a maximum version that is not major.minor", async () => {
       h.signIn(STAFF);
       await expectError(
@@ -601,11 +610,18 @@ describe("license routes", () => {
     it("should reject a label over the length limit", async () => {
       h.signIn(ADMIN);
       await expectError(
-        await post("x".repeat(MAX_NAME_LENGTH + 1)),
+        await post("x".repeat(MAX_LABEL_LENGTH + 1)),
         400,
-        `The label must be at most ${MAX_NAME_LENGTH} characters`,
+        `The label must be at most ${MAX_LABEL_LENGTH} characters`,
       );
       expect(await licenses()).toEqual([lic]);
+    });
+
+    it("should accept a label at the length limit", async () => {
+      h.signIn(ADMIN);
+      const label = "x".repeat(MAX_LABEL_LENGTH);
+      expect((await post(label)).status).toBe(200);
+      expect((await licenses())[0].label).toBe(label);
     });
 
     it("should let a team admin rename and record the change", async () => {

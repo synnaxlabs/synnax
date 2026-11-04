@@ -23,7 +23,7 @@ import { badRequest, notFound } from "@/server/errors";
 import { requireEnterprise } from "@/server/license/activate";
 import { build } from "@/server/license/claims";
 import { DENIAL_MESSAGES, deny } from "@/server/license/deny";
-import { MAX_NAME_LENGTH, VERSION_PATTERN } from "@/server/license/limits";
+import { MAX_LABEL_LENGTH, VERSION_PATTERN } from "@/server/license/limits";
 import { sign, type Signer } from "@/server/license/sign";
 
 /** Terms are the fields staff set when issuing a license and may change later. */
@@ -61,9 +61,15 @@ export const readTerms = (body: Record<string, string>): Terms => {
   };
 };
 
+const requireLabel = (label: string): void => {
+  if (label === "") throw badRequest("Give the license a label");
+  if (label.length > MAX_LABEL_LENGTH)
+    throw badRequest(`The label must be at most ${MAX_LABEL_LENGTH} characters`);
+};
+
 /** validate checks the term rules a license must satisfy and throws a 400 if not. */
 export const validate = (args: Terms & { now: Date }): void => {
-  if (args.label === "") throw badRequest("Give the license a label");
+  requireLabel(args.label);
   if (!Number.isInteger(args.nodes) || args.nodes < 1)
     throw badRequest("Nodes must be a whole number of at least 1");
   if (!Number.isInteger(args.channels) || args.channels < 0)
@@ -205,9 +211,7 @@ export const amend = async (
  */
 export const readLabel = (raw: string | undefined): string => {
   const label = (raw ?? "").trim();
-  if (label === "") throw badRequest("Give the license a label");
-  if (label.length > MAX_NAME_LENGTH)
-    throw badRequest(`The label must be at most ${MAX_NAME_LENGTH} characters`);
+  requireLabel(label);
   return label;
 };
 
