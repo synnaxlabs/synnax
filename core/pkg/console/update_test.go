@@ -77,8 +77,8 @@ var _ = Describe("Update", func() {
 		}
 	})
 
-	// open binds a Console with the web assets and the given update files to a new
-	// app, so every spec also checks that the update routes win over the app shell.
+	// open also binds the web assets, so every spec checks that the update routes win
+	// over the app shell.
 	open := func(fsys fstest.MapFS, insecure bool) *fiber.App {
 		GinkgoHelper()
 		cons := MustSucceed(console.New(console.Config{
@@ -88,7 +88,6 @@ var _ = Describe("Update", func() {
 		}))
 		app := fiber.New()
 		cons.BindTo(app)
-		DeferCleanup(app.Shutdown)
 		return app
 	}
 
@@ -225,12 +224,22 @@ var _ = Describe("Update", func() {
 		Entry("with a manifest but none of its files", "latest.json", ".gitkeep"),
 	)
 
-	It("Should fail to open a malformed manifest", func() {
-		Expect(console.New(console.Config{
-			UpdateFS: fstest.MapFS{"latest.json": {Data: []byte("{")}},
-			Insecure: new(false),
-		})).Error().To(MatchError(
-			ContainSubstring("failed to parse the Console update manifest"),
-		))
-	})
+	DescribeTable("Should fail to open a manifest that cannot be parsed",
+		func(data, msg string) {
+			Expect(console.New(console.Config{
+				UpdateFS: fstest.MapFS{"latest.json": {Data: []byte(data)}},
+				Insecure: new(false),
+			})).Error().To(MatchError(ContainSubstring(msg)))
+		},
+		Entry(
+			"with malformed JSON",
+			"{",
+			"failed to parse the Console update manifest",
+		),
+		Entry(
+			"with a malformed URL",
+			`{"platforms": {"darwin-aarch64": {"url": "%zz"}}}`,
+			"failed to parse the URL of darwin-aarch64",
+		),
+	)
 })
