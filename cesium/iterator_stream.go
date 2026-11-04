@@ -248,7 +248,10 @@ func (s *streamIterator) execWithResponse(
 			fr = fr.Extend(i.Value())
 		}
 	}
-	return ok, s.send(ctx, seqNum, fr)
+	if err = s.send(ctx, seqNum, fr); err != nil {
+		return false, err
+	}
+	return ok, nil
 }
 
 // readInChunks runs a Next or Prev with a fixed span. It reads the range of each
@@ -301,7 +304,7 @@ func (s *streamIterator) readInChunks(
 			}
 		}
 		if err = s.send(ctx, req.SeqNum, chunk); err != nil {
-			return ok, err
+			return false, err
 		}
 		if end >= last {
 			return ok, nil
