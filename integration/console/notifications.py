@@ -7,6 +7,7 @@
 #  License, use of this software will be governed by the Apache License, Version 2.0,
 #  included in the file licenses/APL.txt.
 
+from collections.abc import Callable
 from typing import Literal, NotRequired, TypedDict
 
 from playwright.sync_api import Locator, Page, expect
@@ -55,8 +56,9 @@ _NOTIFICATIONS: TypeAdapter[list[Notification]] = TypeAdapter(list[Notification]
 class NotificationsClient:
     """Notifications management for Console UI automation."""
 
-    def __init__(self, page: Page):
+    def __init__(self, page: Page, *, new_timer: Callable[[], sy.Timer] = sy.Timer):
         self.page = page
+        self._new_timer = new_timer
 
     def _all(self) -> Locator:
         """All visible notifications. Each notification carries role=status."""
@@ -151,7 +153,7 @@ class NotificationsClient:
         :param target: The element to click.
         :raises PlaywrightTimeoutError: If the click does not land in about 10 seconds.
         """
-        timer = sy.Timer()
+        timer = self._new_timer()
         while True:
             self.close_all()
             try:
