@@ -9,12 +9,15 @@
 
 import { createTestClient, RoleClients } from "@synnaxlabs/client/testutil";
 import { Menu } from "@synnaxlabs/lyra/menu";
+import { deep } from "@synnaxlabs/x";
 import { act, fireEvent, screen, waitFor } from "@testing-library/react";
 import { describe, expect, it } from "vitest";
 
 import { Task } from "@/platform/task";
 import { renderInTaskFormWithClient } from "@/platform/task/testutil";
 import { awaitTextEditing, commitTextEdit } from "@/testutil";
+
+const path = deep.path<{ config: { name: string } }>();
 
 const client = createTestClient();
 const roles = new RoleClients(client);
@@ -25,7 +28,7 @@ describe("ReadChannelContextMenuItem", () => {
       <>
         <Task.ChannelName
           channel={0}
-          namePath="config.name"
+          namePath={path.config.name}
           id={Task.getChannelNameID("ch1")}
         />
         <Menu.Menu>
@@ -38,7 +41,7 @@ describe("ReadChannelContextMenuItem", () => {
     const el = await awaitTextEditing(Task.getChannelNameID("ch1"));
     act(() => commitTextEdit(el, "name_after"));
     await waitFor(() =>
-      expect(form.current?.get("config.name").value).toBe("name_after"),
+      expect(form.current?.get(path.config.name).value).toBe("name_after"),
     );
   });
 

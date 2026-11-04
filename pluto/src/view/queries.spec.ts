@@ -9,13 +9,15 @@
 
 import { NotFoundError } from "@synnaxlabs/client";
 import { createTestClient } from "@synnaxlabs/client/testutil";
-import { uuid } from "@synnaxlabs/x";
+import { deep, uuid } from "@synnaxlabs/x";
 import { act, renderHook, waitFor } from "@testing-library/react";
 import { type FC, type PropsWithChildren } from "react";
 import { beforeAll, describe, expect, it } from "vitest";
 
 import { createAsyncSynnaxWrapper } from "@/testutil/Synnax";
 import { View } from "@/view";
+
+const path = View.formPath;
 
 const client = createTestClient();
 const label = uuid.create();
@@ -125,8 +127,8 @@ describe("View queries", () => {
     it("should create a new view", async () => {
       const { result } = renderHook(() => View.useForm({ query: null }), { wrapper });
       act(() => {
-        result.current.form.set("name", "new-view");
-        result.current.form.set("where", { labels: [label] });
+        result.current.form.set(path.name, "new-view");
+        result.current.form.set(path.where, { labels: [label] });
         result.current.save({ signal: controller.signal });
       });
       await waitFor(() => {
@@ -151,8 +153,13 @@ describe("View queries", () => {
       await waitFor(() => expect(result.current.variant).toEqual("success"));
       expect(result.current.form.value()).toEqual(view);
       act(() => {
-        result.current.form.set("name", "edited-view");
-        result.current.form.set("where.variant", { in: ["warning"] });
+        result.current.form.set(path.name, "edited-view");
+        result.current.form.set(
+          deep.present(deep.variant(path, "type", "status").where).variant,
+          {
+            in: ["warning"],
+          },
+        );
         result.current.save({ signal: controller.signal });
       });
       await waitFor(() => {

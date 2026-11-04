@@ -173,6 +173,7 @@ func (s *Service) Retrieve(
 	if req.IncludeStatus {
 		statuses, err := s.status.Join[task.StatusDetails](
 			ctx,
+			nil,
 			task.OntologyIDsFromTasks(res.Tasks),
 		)
 		if err != nil {

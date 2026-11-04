@@ -13,10 +13,13 @@ import { Form } from "@synnaxlabs/lyra/form";
 import { Icon } from "@synnaxlabs/lyra/icon";
 import { Tag } from "@synnaxlabs/lyra/tag";
 import { Label } from "@synnaxlabs/pluto";
+import { deep } from "@synnaxlabs/x";
 import { type ReactElement } from "react";
 
 import { Errors } from "@/platform/errors";
 import { View } from "@/platform/view";
+
+const path = deep.path<{ where?: { labels?: label.Key[] } }>();
 
 interface TagsProps {
   keys: label.Key[];
@@ -43,7 +46,7 @@ const Tags = ({ keys, onClose }: TagsProps): ReactElement => {
 
 export const Chips = (): ReactElement | null => {
   const { editable } = View.useContext();
-  const field = Form.useField<label.Key[] | undefined>("where.labels", {
+  const field = Form.useField(deep.present(path.where).labels, {
     optional: true,
   });
   const labels = field?.value;

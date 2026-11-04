@@ -34,6 +34,15 @@ Holder struct<T> {
 	set filter.Set<T>
 }
 
+Box struct<T = string> {
+	value T
+}
+
+Pair struct<K, V = string> {
+	key   K
+	value V
+}
+
 Thing struct {
 	key       filter.Set<Key>
 	raw       filter.Set<uuid>
@@ -44,6 +53,8 @@ Thing struct {
 	labels    filter.Set<map<string, Detail>>
 	direction filter.Ordered<filter.Direction>
 	name      filter.String
+	box       Box<int32>
+	pair      Pair<int32, int64>
 }
 `
 
@@ -133,6 +144,22 @@ var _ = Describe("Of", func() {
 		"Should leave a use over a type parameter to the generic struct's message",
 		func() {
 			_, ok := instance.Of(fieldOf("thing.Holder", "set").Type, "thing", table)
+			Expect(ok).To(BeFalse())
+		},
+	)
+
+	It("Should give a defaulted type parameter its default", func() {
+		inst := MustBeOk(
+			instance.Of(fieldOf("thing.Thing", "pair").Type, "thing", table),
+		)
+		Expect(inst.Name).To(Equal("Int32Pair"))
+		Expect(inst.Fields[1].Type.Name).To(Equal("string"))
+	})
+
+	It(
+		"Should leave a use that only overrides defaults to the generic struct's message",
+		func() {
+			_, ok := instance.Of(fieldOf("thing.Thing", "box").Type, "thing", table)
 			Expect(ok).To(BeFalse())
 		},
 	)

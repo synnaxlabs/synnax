@@ -8,7 +8,7 @@
 // included in the file licenses/APL.txt.
 
 import { query, view } from "@synnaxlabs/client";
-import { type optional, verbs } from "@synnaxlabs/x";
+import { deep, type optional, verbs } from "@synnaxlabs/x";
 import { useEffect } from "react";
 import { z } from "zod";
 
@@ -57,6 +57,8 @@ export const formSchema: z.ZodType<FormValues> = z.discriminatedUnion("type", [
   view.rangeViewZ.partial({ key: true }),
   view.statusViewZ.partial({ key: true }),
 ]);
+
+export const formPath = deep.path<FormValues>();
 
 const ZERO_VALUES: FormValues = { name: "", type: "range" };
 export type FormQuery = view.RetrieveSingleParams;

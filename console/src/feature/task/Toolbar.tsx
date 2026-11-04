@@ -137,9 +137,10 @@ const Content = () => {
           </Toolbar.Title>
           {hasCreatePermission && (
             <Toolbar.Actions>
-              <Toolbar.Action tooltip="Create task" onClick={() => openSelector()}>
-                <Icon.Add />
-              </Toolbar.Action>
+              <Toolbar.CreateAction
+                tooltip="Create task"
+                onClick={() => openSelector()}
+              />
             </Toolbar.Actions>
           )}
         </Toolbar.Header>

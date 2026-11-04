@@ -13,7 +13,7 @@ import warnings
 from collections.abc import Generator, Iterable, Mapping, Sequence
 from contextlib import contextmanager
 from typing import Protocol as BaseProtocol
-from typing import TypeVar, overload
+from typing import TypeVar, overload, override
 from uuid import UUID, uuid4
 
 from pydantic import BaseModel, JsonValue, ValidationError
@@ -39,9 +39,9 @@ from synnax.task.types_gen import (
     Where,
     ontology_id,
 )
-from synnax.telem import TimeSpan
-from x import filter
-from x.lists import all_none, override
+from synnax.telem import CrudeTimeSpan, TimeSpan
+from x import filter, lists
+from x.lists import all_none
 from x.timing import Timer
 
 
@@ -202,7 +202,7 @@ class Task:
         type_: str,
         *,
         args: Mapping[str, object] | None = None,
-        timeout: float | TimeSpan = 5,
+        timeout: CrudeTimeSpan = 5,
     ) -> Status:
         """Executes a command on the task and waits for the driver to acknowledge the
         command with a state.
@@ -274,7 +274,7 @@ P = TypeVar("P", bound=Protocol)
 class StarterStopperMixin:
     _internal: Task
 
-    def start(self, *, timeout: float | TimeSpan = 5) -> None:
+    def start(self, *, timeout: CrudeTimeSpan = 5) -> None:
         """Starts the task and blocks until the Synnax cluster has acknowledged the
         command or the specified timeout has elapsed.
 
@@ -284,7 +284,7 @@ class StarterStopperMixin:
         """
         self._internal.execute_command_sync("start", timeout=timeout)
 
-    def stop(self, *, timeout: float | TimeSpan = 5) -> None:
+    def stop(self, *, timeout: CrudeTimeSpan = 5) -> None:
         """Stops the task and blocks until the Synnax cluster has acknowledged the
         command or the specified timeout has elapsed.
 
@@ -295,7 +295,7 @@ class StarterStopperMixin:
         self._internal.execute_command_sync("stop", timeout=timeout)
 
     @contextmanager
-    def run(self, *, timeout: float | TimeSpan = 5) -> Generator[None, None, None]:
+    def run(self, *, timeout: CrudeTimeSpan = 5) -> Generator[None, None, None]:
         """Context manager that starts the task before entering the block and stops the
         task after exiting the block. This is useful for ensuring that the task is
         properly stopped even if an exception occurs during execution.
@@ -315,17 +315,20 @@ class JSONConfigMixin[C: BaseModel](Protocol):
     def name(self) -> str:
         return self._internal.name
 
+    @override
     @property
     def key(self) -> Key:
         """Implements the Protocol interface."""
         return self._internal.key
 
+    @override
     def to_payload(self) -> Payload:
         """Implements the Protocol interface."""
         pld = self._internal.to_payload()
         pld.config = to_jsonable_python(self.config, by_alias=True, exclude_none=True)
         return pld
 
+    @override
     def set_internal(self, task: Task) -> None:
         """Implements the Protocol interface."""
         self._internal = task
@@ -336,7 +339,7 @@ class Client:
     _frame_client: FrameClient
     _default_rack: Rack | None
     _racks: RackClient
-    _device_client: DeviceClient | None
+    _device_client: DeviceClient
     instrumentation: Instrumentation = NOOP
 
     def __init__(
@@ -345,7 +348,7 @@ class Client:
         client: UnaryClient,
         frame_client: FrameClient,
         rack_client: RackClient,
-        device_client: DeviceClient | None = None,
+        device_client: DeviceClient,
         instrumentation: Instrumentation = NOOP,
     ) -> None:
         self._client = client
@@ -422,15 +425,20 @@ class Client:
 
     def configure(self, task: P) -> P:
         """Saves the task's configuration to the cluster. The config is deployed
-        to the driver on the next start command.
+        to the driver on the next start command. A task with no rack goes on the rack
+        of the device that its config names, or on the embedded rack when it names no
+        device.
 
         :param task: The task to save.
         :returns: The saved task with its key and rack populated.
+        :raises NotFoundError: If the config names a device that does not exist.
         """
-        # Call task-specific device property update (e.g., for Modbus, OPC UA, LabJack)
-        if self._device_client is not None:
-            task.update_device_properties(self._device_client)
-        pld = self.maybe_assign_def_rack(task.to_payload())
+        task.update_device_properties(self._device_client)
+        pld = task.to_payload()
+        device = pld.config.get("device")
+        if pld.rack == 0 and isinstance(device, str) and device:
+            pld.rack = self._device_client.retrieve(key=device).rack
+        pld = self.maybe_assign_def_rack(pld)
         req = _CreateRequest(tasks=[pld])
         tasks = self._exec_create(req)
         task.set_internal(self.sugar(tasks)[0])
@@ -524,9 +532,9 @@ class Client:
                 "key, name, and type cannot be combined with list filters; use "
                 "keys, names, or types instead"
             )
-        keys = override(key, keys)
-        names = override(name, names)
-        types = override(type, types)
+        keys = lists.override(key, keys)
+        names = lists.override(name, names)
+        types = lists.override(type, types)
         flat = Where(
             key=None if keys is None else filter.Set[Key](in_=keys),
             name=None if names is None else filter.String(in_=names),

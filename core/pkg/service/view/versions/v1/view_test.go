@@ -17,11 +17,9 @@ import (
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	"github.com/synnaxlabs/synnax/pkg/service/ontology"
-	rangerv1 "github.com/synnaxlabs/synnax/pkg/service/ranger/versions/v1"
 	statusv1 "github.com/synnaxlabs/synnax/pkg/service/status/versions/v1"
 	v1 "github.com/synnaxlabs/synnax/pkg/service/view/versions/v1"
 	"github.com/synnaxlabs/x/encoding/orc"
-	filter "github.com/synnaxlabs/x/filter/versions/v0"
 	. "github.com/synnaxlabs/x/testutil"
 )
 
@@ -29,51 +27,10 @@ var _ = Describe("View", func() {
 	var (
 		key    uuid.UUID
 		ranges v1.View
-		status v1.View
 	)
 	BeforeEach(func() {
 		key = uuid.New()
 		ranges = v1.View{Variant: v1.RangeView{Base: v1.Base{Key: key, Name: "Ranges"}}}
-		status = v1.View{
-			Variant: v1.StatusView{Base: v1.Base{Key: key, Name: "Statuses"}},
-		}
-	})
-
-	Describe("Base", func() {
-		It("Should return the base of each variant", func() {
-			Expect(ranges.Base()).To(Equal(v1.Base{Key: key, Name: "Ranges"}))
-			Expect(status.Base()).To(Equal(v1.Base{Key: key, Name: "Statuses"}))
-		})
-		It("Should return a zero base for a view with no variant", func() {
-			Expect(v1.View{}.Base()).To(Equal(v1.Base{}))
-		})
-	})
-
-	Describe("Type", func() {
-		It("Should return the type of each variant", func() {
-			Expect(ranges.Type()).To(Equal(v1.RangeViewType))
-			Expect(status.Type()).To(Equal(v1.StatusViewType))
-		})
-		It("Should return an empty type for a view with no variant", func() {
-			Expect(v1.View{}.Type()).To(BeEmpty())
-		})
-	})
-
-	Describe("WithKey", func() {
-		It("Should set the key of each variant", func() {
-			next := uuid.New()
-			Expect(ranges.WithKey(next).GorpKey()).To(Equal(next))
-			Expect(status.WithKey(next).GorpKey()).To(Equal(next))
-			Expect(ranges.GorpKey()).To(Equal(key))
-		})
-	})
-
-	Describe("WithName", func() {
-		It("Should set the name of each variant", func() {
-			Expect(ranges.WithName("Renamed").Base().Name).To(Equal("Renamed"))
-			Expect(status.WithName("Renamed").Base().Name).To(Equal("Renamed"))
-			Expect(ranges.Base().Name).ToNot(Equal("Renamed"))
-		})
 	})
 
 	Describe("GorpKey", func() {
@@ -105,31 +62,29 @@ var _ = Describe("View", func() {
 				Expect(decoded).To(Equal(v))
 			},
 			Entry("range", v1.View{Variant: v1.RangeView{
-				Base: v1.Base{Key: uuid.New(), Name: "Ranges"},
-				Where: &rangerv1.Where{Or: []rangerv1.Where{
-					{Labels: []uuid.UUID{uuid.New()}},
-					{Not: &rangerv1.Where{Name: &filter.String{Eq: new("Run")}}},
-				}},
+				Base:  v1.Base{Key: uuid.New(), Name: "Ranges"},
+				Query: v1.RangeQuery{HasLabels: []uuid.UUID{uuid.New()}},
 			}}),
 			Entry("status", v1.View{Variant: v1.StatusView{
 				Base: v1.Base{Key: uuid.New(), Name: "Statuses"},
-				Where: &statusv1.Where{Variant: &filter.Set[statusv1.Variant]{
-					In: []statusv1.Variant{statusv1.VariantError},
-				}},
+				Query: v1.StatusQuery{
+					HasLabels: []uuid.UUID{},
+					Variants:  []statusv1.Variant{statusv1.VariantError},
+				},
 			}}),
 		)
 
-		It("Should put the type beside the base and where fields", func() {
-			key, label := uuid.New(), uuid.New()
+		It("Should put the type beside the base and query fields", func() {
+			key := uuid.New()
 			b := MustSucceed(json.Marshal(v1.View{Variant: v1.RangeView{
 				Base:  v1.Base{Key: key, Name: "Ranges"},
-				Where: &rangerv1.Where{Labels: []uuid.UUID{label}},
+				Query: v1.RangeQuery{HasLabels: []uuid.UUID{}},
 			}}))
 			Expect(b).To(MatchJSON(`{
 				"type": "range",
 				"key": "` + key.String() + `",
 				"name": "Ranges",
-				"where": {"labels": ["` + label.String() + `"]}
+				"query": {"has_labels": []}
 			}`))
 		})
 
@@ -181,19 +136,14 @@ var _ = Describe("View", func() {
 				}
 			},
 			Entry("range", v1.View{Variant: v1.RangeView{
-				Base: v1.Base{Key: uuid.New(), Name: "Ranges"},
-				Where: &rangerv1.Where{Or: []rangerv1.Where{
-					{Labels: []uuid.UUID{uuid.New()}},
-					{Not: &rangerv1.Where{Name: &filter.String{Eq: new("Run")}}},
-				}},
+				Base:  v1.Base{Key: uuid.New(), Name: "Ranges"},
+				Query: v1.RangeQuery{HasLabels: []uuid.UUID{uuid.New()}},
 			}}),
 			Entry("status", v1.View{Variant: v1.StatusView{
 				Base: v1.Base{Key: uuid.New(), Name: "Statuses"},
-				Where: &statusv1.Where{
-					Labels: []uuid.UUID{uuid.New()},
-					Variant: &filter.Set[statusv1.Variant]{
-						Eq: new(statusv1.VariantError),
-					},
+				Query: v1.StatusQuery{
+					HasLabels: []uuid.UUID{uuid.New()},
+					Variants:  []statusv1.Variant{statusv1.VariantError},
 				},
 			}}),
 		)

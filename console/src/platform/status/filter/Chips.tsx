@@ -12,15 +12,17 @@ import { Flex } from "@synnaxlabs/lyra/flex";
 import { Form } from "@synnaxlabs/lyra/form";
 import { Status } from "@synnaxlabs/lyra/status";
 import { Tag } from "@synnaxlabs/lyra/tag";
-import { caseconv } from "@synnaxlabs/x";
+import { caseconv, deep } from "@synnaxlabs/x";
 import { type ReactElement } from "react";
 
 import { getSelected } from "@/platform/status/filter/selected";
 import { View } from "@/platform/view";
 
+const path = deep.path<{ where?: { variant?: status.Where["variant"] } }>();
+
 export const Chips = (): ReactElement | null => {
   const { editable } = View.useContext();
-  const field = Form.useField<status.Where["variant"]>("where.variant", {
+  const field = Form.useField(deep.present(path.where).variant, {
     optional: true,
   });
   const variants = getSelected(field?.value);

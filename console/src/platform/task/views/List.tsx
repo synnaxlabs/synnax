@@ -20,10 +20,20 @@ import {
 import { LIST_CHANNEL_COLUMNS } from "@/platform/task/views/ListChannelItem";
 import { type PortsProps, type View, ViewSwitch } from "@/platform/task/views/Ports";
 
-export interface ListProps<C extends Channel> extends Pick<
-  ChannelListProps<C>,
-  "createChannel" | "listItem" | "contextMenuItems" | "resolve" | "header" | "checkable"
-> {
+export interface ListProps<C extends Channel>
+  extends
+    Pick<
+      ChannelListProps<C>,
+      | "listItem"
+      | "contextMenuItems"
+      | "path"
+      | "resolve"
+      | "header"
+      | "checkable"
+      | "emptyContent"
+      | "addLabel"
+    >,
+    Required<Pick<ChannelListProps<C>, "createChannel">> {
   /**
    * The task's own columns, for items that are `ListChannelItem`s. The arrow and
    * channel columns follow them.
@@ -33,7 +43,7 @@ export interface ListProps<C extends Channel> extends Pick<
    * The channels by port. The header becomes a "Channels" title with a "List" and
    * "Ports" switch that shows it.
    */
-  ports?: Component.RenderProp<PortsProps>;
+  ports?: Component.RenderProp<PortsProps<C>>;
 }
 
 export const List = <C extends Channel>({
@@ -57,7 +67,7 @@ export const List = <C extends Channel>({
       columns={columns && [...columns, ...LIST_CHANNEL_COLUMNS]}
       ports={
         ports != null && view === "ports"
-          ? ports({ selected, onSelect: setSelected })
+          ? ports({ path: rest.path, selected, onSelect: setSelected })
           : undefined
       }
       selected={selected}

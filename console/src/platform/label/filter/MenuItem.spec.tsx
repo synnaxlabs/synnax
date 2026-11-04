@@ -7,9 +7,10 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { type label, ranger } from "@synnaxlabs/client";
+import { ranger } from "@synnaxlabs/client";
 import { createTestClient } from "@synnaxlabs/client/testutil";
 import { Form } from "@synnaxlabs/lyra/form";
+import { deep } from "@synnaxlabs/x";
 import { fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { type ReactElement } from "react";
 import { describe, expect, it } from "vitest";
@@ -19,6 +20,8 @@ import { Label } from "@/platform/label";
 import { searchAndClickLabel } from "@/platform/label/testutil";
 import { createConsoleWrapper, uniqueName } from "@/testutil";
 
+const path = deep.path<z.infer<typeof schema>>();
+
 const schema = z.object({ where: ranger.whereZ.optional() });
 
 const Fixture = (): ReactElement => {
@@ -26,7 +29,7 @@ const Fixture = (): ReactElement => {
   return (
     <Form.Form<typeof schema> {...methods}>
       <Label.Filter.MenuItem />
-      <Form.Field<label.Key[] | undefined> path="where.labels" showLabel={false}>
+      <Form.Field path={deep.present(path.where).labels} showLabel={false}>
         {({ value }) => <span>{`value:${value?.join(",") ?? "none"}`}</span>}
       </Form.Field>
     </Form.Form>

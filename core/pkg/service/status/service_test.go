@@ -399,7 +399,7 @@ var _ = Describe("Dispatch", Ordered, func() {
 					Time:    telem.Now(),
 				})).To(Succeed())
 				joined := MustSucceed(
-					svc.Join[any](ctx, []ontology.ID{missing, stored}),
+					svc.Join[any](ctx, nil, []ontology.ID{missing, stored}),
 				)
 				Expect(joined).To(HaveLen(2))
 				Expect(joined[0]).To(BeNil())

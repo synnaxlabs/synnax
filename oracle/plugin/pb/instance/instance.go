@@ -14,6 +14,7 @@
 package instance
 
 import (
+	"slices"
 	"strings"
 
 	"github.com/samber/lo"
@@ -23,15 +24,17 @@ import (
 // Instance is a use of a generic struct whose type arguments are concrete and include
 // at least one that an Any cannot hold.
 type Instance struct {
-	// Name is the message name: the type arguments' names, then the struct's name.
-	// filter.Set<uuid> is UuidSet, and Box<map<string, Valve>> is StringValveMapBox. An
-	// argument from another namespace takes that namespace's name first, so
-	// channel.Key is ChannelKey.
+	// Name is the message name: the names of the type arguments without a default,
+	// then the struct's name. filter.Set<uuid> is UuidSet, and Box<map<string, Valve>>
+	// is StringValveMapBox. An argument from another namespace takes that namespace's
+	// name first, so channel.Key is ChannelKey.
 	Name string
 	// Generic is the generic struct.
 	Generic resolution.Type
 	// Ref is the use of Generic, with its type arguments. It holds no aliases, so a use
-	// through an alias is the same instance as a use of its target.
+	// through an alias is the same instance as a use of its target. The argument for a
+	// defaulted type parameter is its default, since Go, C++, and protobuf ignore an
+	// override.
 	Ref resolution.TypeRef
 	// Fields are the fields of Generic with the type arguments substituted.
 	Fields []resolution.Field
@@ -50,16 +53,19 @@ func Of(
 		return Instance{}, false
 	}
 	form, ok := generic.Form.(resolution.StructForm)
-	if !ok || !form.IsGeneric() || len(ref.TypeArgs) == 0 ||
-		lo.SomeBy(ref.TypeArgs, holdsTypeParam) ||
-		lo.EveryBy(ref.TypeArgs, func(arg resolution.TypeRef) bool {
+	if !ok || !form.IsGeneric() {
+		return Instance{}, false
+	}
+	ref, named := applyDefaults(ref, form.TypeParams, table)
+	if len(named.TypeArgs) == 0 || lo.SomeBy(named.TypeArgs, holdsTypeParam) ||
+		lo.EveryBy(named.TypeArgs, func(arg resolution.TypeRef) bool {
 			return fitsAny(arg, table)
 		}) {
 		return Instance{}, false
 	}
 	args := resolution.TypeArgMap(form.TypeParams, ref.TypeArgs)
 	return Instance{
-		Name:    name(ref, namespace, table),
+		Name:    name(named, namespace, table),
 		Generic: generic,
 		Ref:     ref,
 		Fields: lo.Map(
@@ -70,6 +76,26 @@ func Of(
 			},
 		),
 	}, true
+}
+
+// applyDefaults returns ref with the argument for each defaulted type parameter set to
+// its default, and ref with only the arguments for the other type parameters.
+func applyDefaults(
+	ref resolution.TypeRef,
+	params []resolution.TypeParam,
+	table *resolution.Table,
+) (applied, named resolution.TypeRef) {
+	applied, named = ref, ref
+	applied.TypeArgs = slices.Clone(ref.TypeArgs)
+	named.TypeArgs = nil
+	for i, arg := range ref.TypeArgs {
+		if i < len(params) && params[i].HasDefault() {
+			applied.TypeArgs[i] = dealias(*params[i].Default, table)
+		} else {
+			named.TypeArgs = append(named.TypeArgs, arg)
+		}
+	}
+	return applied, named
 }
 
 func dealias(ref resolution.TypeRef, table *resolution.Table) resolution.TypeRef {

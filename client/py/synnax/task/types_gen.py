@@ -12,6 +12,7 @@
 from __future__ import annotations
 
 from typing import TypeAlias
+from typing import override as _override
 from uuid import UUID, uuid4
 
 from pydantic import BaseModel, ConfigDict, Field, JsonValue
@@ -34,6 +35,7 @@ class KeyedConfig(BaseModel):
 
     key: UUID = Field(default_factory=uuid4)
 
+    @_override
     def __hash__(self) -> int:
         return hash(self.key)
 
@@ -119,6 +121,7 @@ class StartConfig(KeyedConfig):
 
     auto_start: bool = False
 
+    @_override
     def __hash__(self) -> int:
         return hash(self.key)
 
@@ -134,6 +137,7 @@ class ScanConfig(KeyedConfig):
     rate: telem.Rate = telem.Rate(0.200000)
     disabled: bool = False
 
+    @_override
     def __hash__(self) -> int:
         return hash(self.key)
 
@@ -170,6 +174,7 @@ class PersistConfig(StartConfig):
 
     data_saving_disabled: bool = False
 
+    @_override
     def __hash__(self) -> int:
         return hash(self.key)
 
@@ -206,6 +211,7 @@ class Payload(BaseModel):
     snapshot: bool = False
     status: Status | None = None
 
+    @_override
     def __hash__(self) -> int:
         return hash(self.key)
 
@@ -221,6 +227,7 @@ class ReadConfig(PersistConfig):
     sample_rate: telem.Rate = telem.Rate(10)
     stream_rate: telem.Rate = telem.Rate(5)
 
+    @_override
     def __hash__(self) -> int:
         return hash(self.key)
 
@@ -234,6 +241,7 @@ class WriteConfig(PersistConfig):
 
     device: device_.Key = ""
 
+    @_override
     def __hash__(self) -> int:
         return hash(self.key)
 

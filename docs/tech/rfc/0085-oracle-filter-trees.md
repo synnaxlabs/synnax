@@ -14,8 +14,8 @@ retrieve request and response, in Go, TypeScript, Python, C++, and protobuf. It 
 generates a Go interpreter that turns a filter into the service's existing matchers, an
 `Apply` that runs a request on a retrieve, and a TypeScript `matches` that keeps cached
 lists live. Saved views store filters. The flat filter fields on retrieve requests go
-away. Endpoints and handlers stay hand-written. Clients build filters with a builder
-that Oracle generates, and a key or a name still retrieves one record.
+away. Endpoints and handlers stay hand-written. Clients write a filter as a partial
+record of the entity, and a key or a name still retrieves one record.
 
 ## 1 Motivation
 
@@ -226,9 +226,9 @@ accept `filter` definitions; they still reject actions.
 The view writer checks a stored `where` with the target's `MatchWhere`, and rejects a
 view of an unknown variant.
 
-View v1 (#3306) is in no stable release. The change edits v1 in place if it lands before
-the next stable release, and mints v2 otherwise. `has_labels` maps to the `labels` line
-with the same meaning.
+Core v0.60.0 shipped view v1 (#3306) with `query`, so the change mints view v2. Its
+migration maps `has_labels` to the `labels` line with the same meaning, and an empty
+`query` to an absent `where`.
 
 ### 2.6 Single-record retrieves
 
@@ -250,98 +250,105 @@ Three rules shape the client API. The common call is the shortest. The same name
 structure work in every language, in that language's idiom. A mistake fails in the
 editor, not on the Core.
 
-Most calls want one record or a few, by key or by name. Every client takes a key, a
-name, or a list of either: `retrieve("pressure_1")`. Other calls pass conditions and
-options from a builder that Oracle generates. `retrieve` turns them into the request of
-§2.2, so the cache, the wire, and saved views see only the request.
+A filter is a partial record. A call names fields of the entity and gives each a value,
+and the client turns them into the `where` of §2.2. Nothing is exported per entity.
+
+- **A plain value**: Matches records whose field equals it. On a list field, such as
+  `labels`, it matches records that hold it.
+- **A list**: Matches records whose field equals any element. On a list field, it
+  matches records that hold any element.
+- **An operator**: An object of the operators in §2.1. TypeScript writes an object
+  (`{ startsWith: "Hot" }`), Python a dict (`{"starts_with": "Hot"}`), and C++ the
+  operator struct (`x::filter::String{.starts_with = "Hot"}`). C++ names the type, since
+  one field cannot take both a plain value and a bare designated list.
 
 ```ts
 await client.channels.retrieve("pressure_1");
-await client.channels.retrieve(
-  channel.name.contains("pressure", { caseInsensitive: true }),
-  channel.limit(20),
-);
-await client.ranges.retrieve(
-  ranger.or(ranger.name.startsWith("Hotfire"), ranger.labels.has(anomaly.key)),
-  ranger.overlaps(lastWeek),
-);
-await client.tasks.retrieve(
-  task.type.eq("ni_analog_read"),
-  task.rack.eq(rack.key),
-  task.one(),
-);
+await client.tasks.retrieve({ type: "ni_analog_read", rack: rack.key });
+await client.channels.retrieve({
+  name: { contains: "pressure", caseInsensitive: true },
+  limit: 20,
+});
+await client.ranges.retrieve({
+  or: [{ name: { startsWith: "Hotfire" } }, { labels: anomaly.key }],
+  overlaps: lastWeek,
+});
 ```
 
 ```python
 client.channels.retrieve("pressure_1")
+client.tasks.retrieve(type="ni_analog_read", rack=rack.key)
 client.channels.retrieve(
-    channel.name.contains("pressure", case_insensitive=True), limit=20
+    name={"contains": "pressure", "case_insensitive": True}, limit=20
 )
 client.ranges.retrieve(
-    ranger.name.starts_with("Hotfire") | ranger.labels.has(anomaly.key),
-    ranger.overlaps(last_week),
-)
-client.tasks.retrieve(
-    task.type.eq("ni_analog_read"), task.rack.eq(rack.key), one=True
+    or_=[{"name": {"starts_with": "Hotfire"}}, {"labels": anomaly.key}],
+    overlaps=last_week,
 )
 ```
 
 ```cpp
 client.channels.retrieve("pressure_1");
+rack.tasks.retrieve({.type = "ni_analog_read", .rack = rack.key});
 client.channels.retrieve(
-    channel::name.contains("pressure", {.case_insensitive = true}),
-    channel::limit(20)
+    {.name = x::filter::String{.contains = "pressure", .case_insensitive = true}},
+    {.limit = 20}
 );
 client.ranges.retrieve(
-    ranger::name.starts_with("Hotfire") || ranger::labels.has(anomaly.key),
-    ranger::overlaps(last_week)
-);
-client.tasks.retrieve(
-    task::type.eq("ni_analog_read"), task::rack.eq(rack.key), task::one()
+    ranger::Where{.name = x::filter::String{.starts_with = "Hotfire"}} ||
+    ranger::Where{.labels = {anomaly.key}}
 );
 ```
 
-- **Conditions**: A condition is `entity.line.operator(value)`. A line has the operators
-  of its type in §2.1, except that a `T[]` line has `has(v)` and `hasAny(vs)` in place
-  of `any`. A typed line of type `bool` or `T[]` has the operators of a bare line of
-  that type. Any other typed line is a function named after the line, such as
-  `ranger.overlaps(lastWeek)` and `label.for(id)`.
-- **Combining**: All conditions in one call must match. `entity.and`, `entity.or`, and
-  `entity.not` nest them. Python adds `&`, `|`, and `~`, and C++ adds `&&`, `||`, and
-  `!`.
-- **Options**: `limit`, `offset`, `search`, `one`, and one option for each `include_*`
-  field, such as `ranger.includeLabels()`. They are arguments next to the conditions,
-  never methods on a condition, so a limit cannot sit inside an `or`. Python takes
-  options as keywords (`limit=20`, `one=True`), as its `retrieve` does today.
-- **One record**: `one()` comes last. It makes `retrieve` return one record by the rule
-  of §2.6. It rejects a limit or an offset, since a page could hide a second match.
-- **Shortcuts**: A key or a name returns one record by the same rule, and a list of
-  either returns a list. A shortcut also takes include options. Python keeps its shipped
-  `key=` and `name=` keywords. In TypeScript and C++, a device takes only a key: a
-  device key is free text, so a name can look like a key.
-- **Stored trees**: `entity.where(tree)` turns a stored `where`, such as a saved view's,
-  into a condition. TypeScript `retrieve` also takes a whole request, which Pluto
-  queries pass through the cache.
-- **Values**: A value that can be absent (`undefined`, `None`) is a type error. Each
-  call returns a new value and changes nothing.
-- **Types**: A condition carries its entity. A range condition passed to the channel
-  client fails to compile in TypeScript and C++, and fails `mypy` in Python.
+- **Fields and options**: TypeScript takes one object and Python takes keywords. Both
+  hold filter fields and the options `limit`, `offset`, `searchTerm`, `one`, and each
+  `include*` field, side by side. The client splits them. No field can collide with an
+  option, since the filter definition reserves the option names (§2.0). C++ takes a
+  `Where` and an options struct, since `Where` is a generated struct.
+- **Combining**: All fields in one call must match. TypeScript nests with the `and`,
+  `or`, and `not` keys, and Python with the `and_`, `or_`, and `not_` keys. C++ combines
+  `Where` values with `&&`, `||`, and `!`.
+- **Shortcuts**: A key or a name as the first argument returns one record by the rule of
+  §2.6, and a list of either returns a list. Options follow it:
+  `retrieve("pressure_1", { includeStatus: true })`, `include_status=True` in Python,
+  and `{.include_status = true}` in C++. In TypeScript and C++, a device takes only a
+  key, since a device key is free text and a name can look like a key.
+- **One record**: A plain `key` or `name` value in a filter returns one record by the
+  rule of §2.6. A list or an operator on those fields returns a list. Any other filter
+  returns a list unless `one` is set. `one` rejects a limit or an offset, since a page
+  could hide a second match. C++ picks a return type when it compiles, so
+  `{.name = "x"}` returns a list there, and a filter that returns one record takes the
+  tag `x::filter::one` before the options.
+- **Absent values**: A field whose value is `undefined` or `None` throws, since dropping
+  it would match every record.
+- **The tree**: The shorthand is only input. Saved views, the cache, and errors hold the
+  tree of §2.0. TypeScript turns the shorthand into the tree with the generated Zod
+  input, Python with the generated Pydantic model, and C++ with the generated field
+  type, which takes a value or a list and keeps the `std::optional` interface. A stored
+  tree, such as a saved view's `where`, goes into a call as it is.
+- **Types**: A field that the entity does not have, or a value of the wrong type, fails
+  to compile in TypeScript and C++, and fails `mypy` in Python. Python types each dict
+  with a generated `TypedDict`. Pydantic also rejects an unknown key at run time, so
+  code that no type checker reads still fails.
 - **Names**: Names differ only by casing across languages. A name that a language
   reserves takes a trailing underscore there: Python `and_`, `or_`, `not_`, `in_`, and
-  `for_`, and C++ `and_`, `or_`, `not_`, and `for_`.
+  `for_`, and C++ `and_`, `or_`, `not_`, and `for_`. A Python dict key is not reserved,
+  so it takes none: `or_=[...]`, but `{"or": [...]}` and `{"in": [...]}`.
+- **Shipped fields**: For one minor release, TypeScript and Python still take the flat
+  fields that they shipped, such as `names` and `hasLabels` (`has_labels=` in Python).
+  Each one warns with its new name, through `console.warn` and a `FutureWarning`. C++
+  has no such release.
 
-Each choice follows prior art. Lines with named operators follow sqlpp11, SeaORM, Prisma
-8, and Polars. Variadic `and`, `or`, and `not` functions follow Drizzle, Prisma 8,
-TanStack DB, Ibis, and Arrow; Polars, Ibis, and Arrow spell them `and_` where the words
-are reserved. Python `&`, `|`, and `~` follow Polars, PySpark, and SQLAlchemy, and C++
-`&&`, `||`, and `!` follow sqlpp11. Options as arguments next to conditions follow the
-Firestore web SDK (`query(ref, where(...), limit(10))`). A query passed to the client,
-not one that runs itself, follows MongoDB (`find(filter)`), Arrow, and Firestore. `one`
-follows SQLAlchemy `one()`, LINQ `Single`, and Rails `sole`. The case flag follows
-Elasticsearch's `case_insensitive`. Names that differ only by casing follow the MongoDB
-driver specifications and Polars in Python and Node. We differ in one place: Python
-takes options as keywords, since its `retrieve` already does, and the Azure SDK
-guidelines rank consistency inside a language above consistency across languages.
+Each choice follows prior art. A partial record with operator objects follows Prisma,
+Drizzle v2, the Linear SDK, Hasura, and Directus. Plain values for equality follow
+Prisma and MongoDB, and Python keyword fields follow Django. Typed dicts follow the
+Stripe, Anthropic, and Prisma Python clients, which copy their TypeScript clients the
+same way. Stripe's `created` takes a plain value or an operator dict, as here. C++ `&&`,
+`||`, and `!` follow sqlpp11 and ODB. Drizzle throws on `undefined` in a filter, since
+an absent value once dropped a condition and returned the wrong user. `one` follows
+SQLAlchemy `one()`, LINQ `Single`, and Rails `sole`. The case flag follows
+Elasticsearch's `case_insensitive`. We differ in one place: no C++ library we checked
+writes a filter as designated initializers, so the C++ form rests only on C++20 rules.
 
 ## 3 Implementation phases
 
@@ -394,15 +401,17 @@ and its flat fields go away together, since a client must match the Core's versi
   retrieve, since more than one is not an error there.
 - **Phase 7: Text operators.** `contains`, `starts_with`, and `case_insensitive` on
   `filter.String`, in the interpreter, the TypeScript `matches`, and the case table.
-- **Phase 8: The TypeScript builder.** An Oracle plugin generates the lines, the entity
-  functions, and the options of §2.7. Every TypeScript `retrieve` takes conditions and
-  options, and every entity with a name takes the key and name shortcuts.
-- **Phase 9: The Python builder.** The same, with keyword options. Every entity takes a
-  key or a name as its first argument. A docs page teaches the builder in both
-  languages.
-- **Phase 10: The C++ builder.** The same, with a variadic `retrieve`. Include options
-  replace each client's `RetrieveOptions`, and `retrieve` replaces the `retrieve_by_*`
-  methods.
+- **Phase 8: TypeScript partial records.** The TypeScript type plugin generates filter
+  inputs that take plain values and lists. Every `retrieve` takes the flat form of §2.7,
+  and the Console and Pluto move to it. The shipped flat fields warn for one release.
+- **Phase 9: Python partial records.** The Python type plugin generates a `TypedDict`
+  beside each filter and operator model, and the models take plain values, lists, and
+  dicts. `retrieve` takes fields as keywords, and the plural keywords warn for one
+  release. A docs page teaches filters in both languages.
+- **Phase 10: C++ partial records.** The C++ type plugin generates filter fields that
+  take plain values, lists, and operator structs, with `&&`, `||`, and `!`, and
+  `x::filter` gets `one`. `retrieve` takes a `Where` and options, and replaces
+  `RetrieveOptions` and the `retrieve_by_*` methods. The Driver moves to it.
 - **Phase 11: Empty operators.** The generated matcher rejects an operator object that
   sets no operator, with specs in the Core and the TypeScript client.
 - **Phase 12: Filter sentences.** TypeScript, Python, and C++ each get a `describe` that
@@ -417,9 +426,9 @@ and its flat fields go away together, since a client must match the Core's versi
 | 5     | Move every other entity to filter trees                  | `schemas`, `core`, `client`, `pluto`, `console`           | 4          |
 | 6     | Check single-record retrieves in every client            | `client`, `driver`                                        | 5          |
 | 7     | Add text operators to string filters                     | `schemas/x`, `x`, `client/ts`                             | 6          |
-| 8     | Generate the TypeScript query builder                    | `oracle/plugin/ts`, `client/ts`, `console`                | 7          |
-| 9     | Generate the Python query builder                        | `oracle/plugin/py`, `client/py`, `site/docs`              | 8          |
-| 10    | Generate the C++ query builder                           | `oracle/plugin/cpp`, `client/cpp`, `driver`               | 9          |
+| 8     | Write TypeScript filters as partial records              | `oracle/plugin/ts`, `client/ts`, `pluto`, `console`       | 7          |
+| 9     | Write Python filters as partial records                  | `oracle/plugin/py`, `x/py`, `client/py`, `site/docs`      | 8          |
+| 10    | Write C++ filters as partial records                     | `oracle/plugin/cpp`, `x/cpp`, `client/cpp`, `driver`      | 9          |
 | 11    | Reject filter operators that set no operator             | `oracle/plugin/go/filter`, `core`, `client/ts`            | 10         |
 | 12    | Describe filters in single-record errors                 | `x`, `client`, `driver`, `console`                        | 11         |
 
@@ -465,32 +474,39 @@ and its flat fields go away together, since a client must match the Core's versi
     rule once.
 11. **Name patterns in the clients, rejected**: Each client would hold its own copy of
     the rule, and the C++ client had none.
-12. **Object literals as the client API, rejected**: One condition nests three levels
-    (`{ where: { name: { eq: n } } }`). C++ cannot write the tree inline: designated
-    initializers do not reach into `std::optional`, and `not` needs `x::mem::indirect`.
-    The builder writes the same tree in one line.
-13. **Calling a line for equality, rejected**: `device.make("NI")` hides the operator.
-    No builder we checked does it, and implicit equality causes the worst filter bugs:
+12. **A generated builder, rejected**: Each entity exported its lines, `and`, `or`,
+    `not`, and option helpers: 245 exports in TypeScript alone, each a thin wrapper over
+    the tree. The Console never called it, since Flux parameters must be data, and it
+    wrote 146 `where` objects. Of the libraries we checked, only Ent and the deprecated
+    Prisma Go client generate an `or` per entity.
+13. **A callback that receives the fields, rejected**: `retrieve((r) => r.name.eq(n))`,
+    as in Kysely, Convex, and Zero, removes the exports. In Python the lambda only
+    carries a namespace that a module already gives, and TypeScript keeps a second form
+    beside the data that the Console passes.
+14. **Equality through an operator only, rejected**: `{ type: { eq: t } }` makes the
+    most common filter the longest. The real risk of a plain value is an absent one:
     Prisma ignores an `undefined` key, so a delete by `{ id: undefined }` deletes every
-    record.
-14. **`and` and `or` as methods, rejected**: `and`, `or`, and `not` are keywords in
-    Python and C++, so `a.and(b)` cannot port. A chain also nests left to right, so
-    `a.or(b).and(c)` means `(a or b) and c`.
-15. **Options as methods on a condition, rejected**: `name.eq("a").limit(5)` inside an
-    `or` has no meaning, and blocking it needs a second condition type. As arguments,
-    the mistake cannot be written. The trade is real: a chain extends a query across
-    functions more easily, but a list of arguments does the same (`retrieve(...parts)`).
-16. **Case-insensitive operators, rejected**: `containsIgnoreCase` and its siblings
+    record. The client throws on `undefined` and `None` instead.
+15. **A `where` key around the fields, rejected**: `{ where: { type: t }, limit: 20 }`
+    nests one level for no gain. Prisma and Drizzle need the key, since their records
+    can have a field named `limit`. A filter definition here reserves the option names.
+16. **Operator functions in Python and C++, rejected**: `sy.filter.contains("x")` is a
+    second vocabulary beside the operator objects of §2.1, and each language exports it.
+    A Python dict and a C++ operator struct have the same fields as the TypeScript
+    object.
+17. **Python `&`, `|`, and `~`, rejected**: A dict already merges with `|`, so `a | b`
+    on two dicts would silently merge them. The `or_` key reads as TypeScript does.
+18. **Case-insensitive operators, rejected**: `containsIgnoreCase` and its siblings
     double the text operators. One flag covers all of them. Prisma's flag fails on
     databases that cannot run it, but the Core runs every match itself.
-17. **Lower-casing to ignore case, rejected**: Go `ToLower`, JavaScript `toLowerCase`,
+19. **Lower-casing to ignore case, rejected**: Go `ToLower`, JavaScript `toLowerCase`,
     and the `(?i)` flag disagree on letters such as the Greek final sigma and the long
     s, so the Core and the cache would disagree on a record. Simple case folding is the
     rule of the regex engines in both languages.
-18. **Errors that print the filter as JSON or as builder code, rejected**: JSON lists
-    every unset field, and builder code differs by language and nests `and_` and `or_`
-    calls. A sentence reads the same in every client.
-19. **An empty retrieve as an error, rejected**: SQL, Prisma, MongoDB, and Kubernetes
+20. **Errors that print the filter as JSON or as code, rejected**: JSON lists every
+    unset field, and code differs by language. A sentence reads the same in every
+    client.
+21. **An empty retrieve as an error, rejected**: SQL, Prisma, MongoDB, and Kubernetes
     all return every record for an empty query, and an empty `and` matching every record
     keeps the tree rules free of special cases. No delete or update takes a filter, so
     an empty filter cannot destroy data.
@@ -498,7 +514,3 @@ and its flat fields go away together, since a client must match the Core's versi
 ## 6 Open questions
 
 1. **Optional fields**: Whether bare lines on optional fields get an `is set` operator.
-2. **The search option name**: `search` in TypeScript and C++, against Python's shipped
-   `search_term=`.
-3. **`name_patterns` in the builder**: Whether the channel builder exposes the line, or
-   only the names shortcut sends it.
