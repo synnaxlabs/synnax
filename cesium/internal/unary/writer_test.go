@@ -11,6 +11,7 @@ package unary_test
 
 import (
 	"os"
+	"strconv"
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
@@ -1544,6 +1545,44 @@ var _ = Describe("Writer Behavior", Ordered, func() {
 						},
 					)
 				})
+				It(
+					"Should close a writer while another waits for a file descriptor",
+					func(ctx SpecContext) {
+						open := func(i int) *unary.Writer {
+							GinkgoHelper()
+							start := telem.TimeStamp(i+1) * telem.SecondTS
+							w, _ := MustSucceed2(db.OpenWriter(ctx, unary.WriterConfig{
+								Start:   start,
+								End:     start + telem.SecondTS,
+								Subject: control.Subject{Key: strconv.Itoa(i)},
+							}))
+							return w
+						}
+						writers := make([]*unary.Writer, 100)
+						for i := range writers {
+							writers[i] = open(i)
+						}
+						opened := make(chan *unary.Writer, 1)
+						go func() {
+							defer GinkgoRecover()
+							opened <- open(len(writers))
+						}()
+						Consistently(opened, "50ms").ShouldNot(Receive())
+						closed := make(chan struct{})
+						go func() {
+							defer GinkgoRecover()
+							defer close(closed)
+							MustSucceed(writers[0].Close())
+						}()
+						Eventually(closed).Should(BeClosed())
+						var waiting *unary.Writer
+						Eventually(opened).Should(Receive(&waiting))
+						MustSucceed(waiting.Close())
+						for _, w := range writers[1:] {
+							MustSucceed(w.Close())
+						}
+					},
+				)
 				Describe("ErrOnUnauthorizedOpen", func() {
 					It(
 						"Should return an error if the write does not acquire control",
