@@ -30,6 +30,7 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/api/panel"
 	"github.com/synnaxlabs/synnax/pkg/api/project"
 	apirack "github.com/synnaxlabs/synnax/pkg/api/rack"
+	apiranger "github.com/synnaxlabs/synnax/pkg/api/ranger"
 	"github.com/synnaxlabs/synnax/pkg/api/schematic"
 	"github.com/synnaxlabs/synnax/pkg/api/schematic/symbol"
 	apistatus "github.com/synnaxlabs/synnax/pkg/api/status"
@@ -76,6 +77,10 @@ func Bind(layer *api.Layer) []grpc.BindableTransport {
 
 	// AUTH
 	t.AuthChangePassword = noop.UnaryServer[apiauth.ChangePasswordRequest, struct{}]{}
+	t.AuthPasswordSet = noop.UnaryServer[
+		apiauth.PasswordSetRequest,
+		apiauth.PasswordSetResponse,
+	]{}
 
 	// LICENSE
 	t.LicenseRetrieve = noop.UnaryServer[license.RetrieveRequest, license.RetrieveResponse]{}
@@ -129,6 +134,12 @@ func Bind(layer *api.Layer) []grpc.BindableTransport {
 	t.StatusRename = noop.UnaryServer[apistatus.RenameRequest, struct{}]{}
 	t.ViewRename = noop.UnaryServer[view.RenameRequest, struct{}]{}
 
+	// TASK
+	t.TaskDispatch = noop.UnaryServer[apitask.DispatchRequest, apitask.DispatchResponse]{}
+
+	// RANGE
+	t.RangeDispatch = noop.UnaryServer[apiranger.DispatchRequest, struct{}]{}
+
 	// SCHEMATIC
 	t.SchematicCreate = noop.UnaryServer[schematic.CreateRequest, schematic.CreateResponse]{}
 	t.SchematicDelete = noop.UnaryServer[schematic.DeleteRequest, struct{}]{}
@@ -181,6 +192,7 @@ func Bind(layer *api.Layer) []grpc.BindableTransport {
 	t.LabelDelete = noop.UnaryServer[label.DeleteRequest, struct{}]{}
 	t.LabelAdd = noop.UnaryServer[label.AddRequest, struct{}]{}
 	t.LabelRemove = noop.UnaryServer[label.RemoveRequest, struct{}]{}
+	t.LabelDispatch = noop.UnaryServer[label.DispatchRequest, struct{}]{}
 
 	// ACCESS
 	t.AccessCreatePolicy = noop.UnaryServer[access.CreatePolicyRequest, access.CreatePolicyResponse]{}

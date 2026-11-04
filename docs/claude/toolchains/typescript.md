@@ -28,8 +28,8 @@ orchestration.
 
 ### Console dev login
 
-Local server: host `localhost`, port `9090`, user `synnax`, password `seldon`. The login
-form shows placeholders but does NOT pre-fill — actually type the values.
+Host and port of your Core, user `synnax`, password `seldon`. The login form shows
+placeholders but does NOT pre-fill — actually type the values.
 
 ## Style
 

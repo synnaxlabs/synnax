@@ -54,6 +54,16 @@
     }
 }
 
+/* A fixed item's label fills the trigger, so its content can push a part, such as an
+   auto chip, to the trailing edge. */
+.lyra-dialog__trigger > .lyra-select__label:has(> .lyra-select__fixed-label) {
+    flex-grow: 1;
+
+    > .lyra-select__fixed-label {
+        min-width: 100%;
+    }
+}
+
 /* The icon or caret alone sizes this box. The clear button covers it at the same size
    and takes its place while the trigger is hovered, so the trigger keeps its layout. */
 .lyra-select-single-trigger__icon {
@@ -91,9 +101,12 @@
     visibility: hidden;
 }
 
-/* A shadow trigger reads as its value. An open menu keeps its box, so the menu points at
-   the field. The caret keeps its space while hidden, so the label never moves. */
+/* A shadow trigger reads as its value, with its text inset like a shadow input's. An
+   open menu keeps its box, so the menu points at the field. The caret keeps its space
+   while hidden, so the label never moves. */
 .lyra-btn.lyra-dialog__trigger.lyra--shadow {
+    padding-inline: 1.5rem;
+
     --pluto-bg: transparent;
     --pluto-border-color: transparent;
     --pluto-hover-bg: var(--pluto-fill-hover);

@@ -51,6 +51,8 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/api/task"
 	"github.com/synnaxlabs/synnax/pkg/api/user"
 	"github.com/synnaxlabs/synnax/pkg/api/view"
+	svcchannel "github.com/synnaxlabs/synnax/pkg/service/channel"
+	svctask "github.com/synnaxlabs/synnax/pkg/service/task"
 	xconfig "github.com/synnaxlabs/x/config"
 )
 
@@ -70,6 +72,8 @@ type Transport struct {
 	AuthKeyCreate       freighter.UnaryServer[auth.KeyCreateRequest, auth.KeyCreateResponse]
 	AuthKeyRetrieve     freighter.UnaryServer[auth.KeyRetrieveRequest, auth.KeyRetrieveResponse]
 	AuthKeyDelete       freighter.UnaryServer[auth.KeyDeleteRequest, struct{}]
+	// AuthPasswordSet sets the caller's password or another user's.
+	AuthPasswordSet freighter.UnaryServer[auth.PasswordSetRequest, auth.PasswordSetResponse]
 	// USER
 	UserRename         freighter.UnaryServer[user.RenameRequest, struct{}]
 	UserChangeUsername freighter.UnaryServer[user.ChangeUsernameRequest, struct{}]
@@ -102,6 +106,8 @@ type Transport struct {
 	RangeDelete   freighter.UnaryServer[ranger.DeleteRequest, struct{}]
 	RangeRename   freighter.UnaryServer[ranger.RenameRequest, struct{}]
 	RangeSetEnd   freighter.UnaryServer[ranger.SetEndRequest, struct{}]
+	// RangeDispatch applies path actions to a range.
+	RangeDispatch freighter.UnaryServer[ranger.DispatchRequest, struct{}]
 	// KV
 	KVGet    freighter.UnaryServer[kv.GetRequest, kv.GetResponse]
 	KVSet    freighter.UnaryServer[kv.SetRequest, struct{}]
@@ -170,6 +176,8 @@ type Transport struct {
 	LabelDelete   freighter.UnaryServer[label.DeleteRequest, struct{}]
 	LabelAdd      freighter.UnaryServer[label.AddRequest, struct{}]
 	LabelRemove   freighter.UnaryServer[label.RemoveRequest, struct{}]
+	// LabelDispatch applies path actions to a label.
+	LabelDispatch freighter.UnaryServer[label.DispatchRequest, struct{}]
 	// RACK
 	RackCreate   freighter.UnaryServer[rack.CreateRequest, rack.CreateResponse]
 	RackRetrieve freighter.UnaryServer[rack.RetrieveRequest, rack.RetrieveResponse]
@@ -183,6 +191,8 @@ type Transport struct {
 	TaskCopy     freighter.UnaryServer[task.CopyRequest, task.CopyResponse]
 	// TaskRename renames a task.
 	TaskRename freighter.UnaryServer[task.RenameRequest, struct{}]
+	// TaskDispatch applies path actions to a task.
+	TaskDispatch freighter.UnaryServer[task.DispatchRequest, task.DispatchResponse]
 	// DEVICE
 	DeviceCreate   freighter.UnaryServer[device.CreateRequest, device.CreateResponse]
 	DeviceRetrieve freighter.UnaryServer[device.RetrieveRequest, device.RetrieveResponse]
@@ -310,6 +320,7 @@ func (l *Layer) BindTo(t Transport) {
 		t.AuthKeyCreate,
 		t.AuthKeyRetrieve,
 		t.AuthKeyDelete,
+		t.AuthPasswordSet,
 
 		// USER
 		t.UserRename,
@@ -353,6 +364,7 @@ func (l *Layer) BindTo(t Transport) {
 		t.RangeDelete,
 		t.RangeRename,
 		t.RangeSetEnd,
+		t.RangeDispatch,
 
 		// KV
 		t.KVGet,
@@ -421,6 +433,7 @@ func (l *Layer) BindTo(t Transport) {
 		t.LabelDelete,
 		t.LabelAdd,
 		t.LabelRemove,
+		t.LabelDispatch,
 
 		// RACK
 		t.RackCreate,
@@ -434,6 +447,7 @@ func (l *Layer) BindTo(t Transport) {
 		t.TaskDelete,
 		t.TaskCopy,
 		t.TaskRename,
+		t.TaskDispatch,
 
 		// DEVICE
 		t.DeviceCreate,
@@ -497,6 +511,7 @@ func (l *Layer) BindTo(t Transport) {
 	t.AuthKeyCreate.BindHandler(fgorp.CreateWriteUnaryHandler(db, l.Auth.CreateKey))
 	t.AuthKeyRetrieve.BindHandler(l.Auth.RetrieveKeys)
 	t.AuthKeyDelete.BindHandler(fgorp.CreateWriteUnaryHandler(db, l.Auth.DeleteKeys))
+	t.AuthPasswordSet.BindHandler(fgorp.CreateWriteUnaryHandler(db, l.Auth.SetPassword))
 
 	// LICENSE
 	t.LicenseRetrieve.BindHandler(l.License.Retrieve)
@@ -554,6 +569,7 @@ func (l *Layer) BindTo(t Transport) {
 	t.RangeDelete.BindHandler(fgorp.CreateWriteUnaryHandler(db, l.Range.Delete))
 	t.RangeRename.BindHandler(fgorp.CreateWriteUnaryHandler(db, l.Range.Rename))
 	t.RangeSetEnd.BindHandler(fgorp.CreateWriteUnaryHandler(db, l.Range.SetEnd))
+	t.RangeDispatch.BindHandler(fgorp.CreateWriteUnaryHandler(db, l.Range.Dispatch))
 
 	// KV
 	t.KVGet.BindHandler(l.KV.Get)
@@ -636,6 +652,7 @@ func (l *Layer) BindTo(t Transport) {
 	t.LabelDelete.BindHandler(fgorp.CreateWriteUnaryHandler(db, l.Label.Delete))
 	t.LabelAdd.BindHandler(fgorp.CreateWriteUnaryHandler(db, l.Label.Add))
 	t.LabelRemove.BindHandler(fgorp.CreateWriteUnaryHandler(db, l.Label.Remove))
+	t.LabelDispatch.BindHandler(fgorp.CreateWriteUnaryHandler(db, l.Label.Dispatch))
 
 	// RACK
 	t.RackCreate.BindHandler(fgorp.CreateWriteUnaryHandler(db, l.Rack.Create))
@@ -649,6 +666,7 @@ func (l *Layer) BindTo(t Transport) {
 	t.TaskDelete.BindHandler(fgorp.CreateWriteUnaryHandler(db, l.Task.Delete))
 	t.TaskCopy.BindHandler(fgorp.CreateWriteUnaryHandler(db, l.Task.Copy))
 	t.TaskRename.BindHandler(fgorp.CreateWriteUnaryHandler(db, l.Task.Rename))
+	t.TaskDispatch.BindHandler(fgorp.CreateWriteUnaryHandler(db, l.Task.Dispatch))
 
 	// DEVICE
 	t.DeviceCreate.BindHandler(fgorp.CreateWriteUnaryHandler(db, l.Device.Create))
@@ -749,6 +767,9 @@ func NewLayer(cfgs ...LayerConfig) (*Layer, error) {
 		Framer:          cfg.Service.Framer,
 		Channel:         cfg.Service.Channel,
 		RBAC:            cfg.Service.RBAC,
+		Records: map[svcchannel.Key]framer.RecordOf{
+			cfg.Service.Task.ActionChannelKey(): svctask.ActionRecord,
+		},
 	}); err != nil {
 		return nil, err
 	}

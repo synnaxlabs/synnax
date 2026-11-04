@@ -165,7 +165,8 @@ WriteChannel parse_write_channel(x::json::Parser parser);
 /// @brief AnalogReadChannel reads a voltage from an analog input port.
 struct AnalogReadChannel : public BaseReadChannel {
     std::string type = "analog";
-    /// @brief range is the upper bound of the voltage input range, in Volts.
+    /// @brief range is the largest voltage magnitude the channel reads, in Volts. The
+    /// channel uses the smallest range of the device that covers it.
     double range = 10;
     /// @brief neg_chan is the negative channel for differential readings on T7 devices.
     /// 199 selects single-ended.
@@ -198,8 +199,9 @@ struct ThermocoupleReadChannel : public BaseReadChannel {
     /// devices. 199 selects single-ended.
     std::int32_t neg_chan = 199;
     /// @brief cjc_source selects the cold-junction-compensation source: the device
-    /// sensor ('TEMPERATURE_DEVICE_K'), ambient air ('TEMPERATURE_AIR_K'), or an AIN
-    /// port (e.g. 'AIN2').
+    /// sensor ('TEMPERATURE_DEVICE_K', which on a T8 is the sensor at the
+    /// thermocouple's own terminal), ambient air ('TEMPERATURE_AIR_K', not on a T8), or
+    /// an AIN port (e.g. 'AIN2').
     std::string cjc_source = "TEMPERATURE_DEVICE_K";
     /// @brief cjc_slope is the CJC voltage-to-temperature slope, in Kelvin per Volt.
     double cjc_slope = 1;

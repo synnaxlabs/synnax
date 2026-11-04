@@ -22,17 +22,10 @@ import {
 import { assert, describe, expect, it, vi } from "vitest";
 
 import { type channel } from "@/channel";
-import { UnexpectedError, UnsupportedError, ValidationError } from "@/errors";
+import { framer } from "@/framer";
 import { domainOf, offsetOf, RAW_LEVEL, rawIndex } from "@/framer/cache/block";
 import { index as tileIndex, tileRange, tileSpan } from "@/framer/cache/grid";
-import { type Feed, type FeedOptions } from "@/framer/feed";
-import { Frame } from "@/framer/frame";
-import {
-  type PointsRequest,
-  type Snapshot,
-  type SubscribeRequest,
-  type Subscription,
-} from "@/framer/subscription";
+import { UnexpectedError, UnsupportedError, ValidationError } from "@/index";
 import { SyntheticCore, type SyntheticCoreProps } from "@/testutil";
 
 // More points than any window here holds samples, so every sample draws.
@@ -43,7 +36,7 @@ const PERIOD = RATE.period.valueOf();
 const START = TimeStamp.seconds(1_000_000);
 const POLL = { timeout: 5000, interval: 5 };
 
-const OPTIONS: FeedOptions = {
+const OPTIONS: framer.FeedOptions = {
   batchDebounce: TimeSpan.milliseconds(5),
   removalDelay: TimeSpan.ZERO,
   breaker: {
@@ -51,6 +44,9 @@ const OPTIONS: FeedOptions = {
     maxInterval: TimeSpan.milliseconds(50),
   },
 };
+
+// Stream reopens fail while a spec holds the Core down.
+const quiet = (): void => {};
 
 const createCore = (props: Partial<SyntheticCoreProps> = {}): SyntheticCore =>
   new SyntheticCore({
@@ -60,19 +56,23 @@ const createCore = (props: Partial<SyntheticCoreProps> = {}): SyntheticCore =>
     ...props,
   });
 
-const raw = (keys: channel.Key[], span: TimeSpan): SubscribeRequest => ({
+const raw = (keys: channel.Key[], span: TimeSpan): framer.SubscribeRequest => ({
   keys,
   window: dynamicWindow(span),
   limit: { variant: "points", count: EXACT, aggregation: "min_max" },
 });
 
 // Returns the series of the channel once the subscription loads them.
-const loaded = async (sub: Subscription, key: channel.Key): Promise<Series[]> => {
+const loaded = async (
+  sub: framer.Subscription,
+  key: channel.Key,
+): Promise<Series[]> => {
   await expect.poll(() => sub.value(key).status.variant, POLL).toBe("success");
   return sub.value(key).series.series;
 };
 
-const timesOf = (snap: Snapshot): bigint[] => Array.from(snap.series) as bigint[];
+const timesOf = (snap: framer.Snapshot): bigint[] =>
+  Array.from(snap.series) as bigint[];
 
 // Waits for the stream of history changes that the feed opens for its first
 // subscription.
@@ -81,7 +81,7 @@ const historyStreamed = async (core: SyntheticCore): Promise<void> =>
 
 // Opens the feed's stream of history changes, so reads after it fetch blocks that the
 // changes can keep valid.
-const listen = async (core: SyntheticCore, feed: Feed): Promise<void> => {
+const listen = async (core: SyntheticCore, feed: framer.Feed): Promise<void> => {
   feed.subscribe(raw([], TimeSpan.seconds(1))).close();
   await historyStreamed(core);
 };
@@ -111,7 +111,7 @@ const expectComplete = (times: bigint[]): void => {
 // frames once. Lag is how far the newest written sample trails the Core's clock.
 const settled = async (
   core: SyntheticCore,
-  sub: Subscription,
+  sub: framer.Subscription,
   key: channel.Key,
   span: TimeSpan,
   lag: TimeSpan = TimeSpan.ZERO,
@@ -135,7 +135,7 @@ const settled = async (
 // to the newest frames once, at contiguous block alignments.
 const settledData = async (
   core: SyntheticCore,
-  sub: Subscription,
+  sub: framer.Subscription,
   key: channel.Key,
   span: TimeSpan,
   lag: TimeSpan = TimeSpan.ZERO,
@@ -248,7 +248,10 @@ describe("Feed.subscribe", () => {
   describe("history read failure", () => {
     // Returns the x series of the snapshot that holds each y series' alignments, with
     // the timestamps the y series pairs with.
-    const pairsOf = (x: Snapshot, y: Snapshot): Array<[Series, bigint[]]> =>
+    const pairsOf = (
+      x: framer.Snapshot,
+      y: framer.Snapshot,
+    ): Array<[Series, bigint[]]> =>
       y.series.series.map((ys) => {
         const xs = x.series.series.find(
           (s) =>
@@ -426,7 +429,7 @@ describe("Feed.subscribe", () => {
         // A writer fills an earlier span in a domain of its own.
         const at = sub.value(index).series.series[0].timeRange.start.sub(PERIOD);
         core.stream(
-          new Frame(
+          new framer.Frame(
             index,
             new Series({
               data: new BigInt64Array([at.valueOf()]),
@@ -968,7 +971,7 @@ describe("Feed.subscribe", () => {
 
     it("should report reconnecting during an outage and fill it after", async () => {
       const core = createCore();
-      const feed = core.openFeed(OPTIONS);
+      const feed = core.openFeed({ ...OPTIONS, onRetry: quiet });
       const span = TimeSpan.seconds(30);
       const sub = feed.subscribe(raw([core.index.key], span));
       const stop = tick(core);
@@ -992,6 +995,7 @@ describe("Feed.subscribe", () => {
       const raw: TimeRange[] = [];
       const feed = core.openFeed({
         ...OPTIONS,
+        onRetry: quiet,
         readRemote: async (tr, keys, reduction) => {
           if (reduction == null) raw.push(tr);
           return core.read(tr, keys, reduction);
@@ -1184,7 +1188,7 @@ describe("Feed.subscribe", () => {
 
     it("should count no streamed sample again after the stream reconnects", async () => {
       const core = createCore();
-      const feed = core.openFeed(OPTIONS);
+      const feed = core.openFeed({ ...OPTIONS, onRetry: quiet });
       const key = core.index.key;
       const sub = feed.subscribe({
         keys: [key],
@@ -1215,7 +1219,7 @@ describe("Feed.subscribe", () => {
 
     it("should read the newest samples again after the stream reconnects", async () => {
       const core = createCore();
-      const feed = core.openFeed(OPTIONS);
+      const feed = core.openFeed({ ...OPTIONS, onRetry: quiet });
       const key = core.index.key;
       const sub = feed.subscribe({
         keys: [key],
@@ -1323,6 +1327,7 @@ describe("Feed.subscribe", () => {
       const { promise: released, resolve: release } = Promise.withResolvers<void>();
       const feed = core.openFeed({
         ...OPTIONS,
+        onRetry: quiet,
         readLatest: async (keys, count, tr) => {
           if (held) {
             waiting = true;
@@ -1377,7 +1382,7 @@ describe("Feed.subscribe", () => {
           timeRange: new TimeRange(START, START.add(TimeSpan.NANOSECOND)),
           alignment: 9n << 32n,
         });
-        core.stream(new Frame(key, older));
+        core.stream(new framer.Frame(key, older));
         core.advance(TimeSpan.milliseconds(10));
         await expect
           .poll(() => timesOf(sub.value(key)).at(-1), POLL)
@@ -1679,7 +1684,7 @@ describe("Feed.subscribe", () => {
         },
       });
       const { key } = core.data[0];
-      const request = (count: number): SubscribeRequest => ({
+      const request = (count: number): framer.SubscribeRequest => ({
         keys: [key],
         limit: { variant: "latest", count },
       });
@@ -1707,8 +1712,113 @@ describe("Feed.subscribe", () => {
     });
   });
 
+  describe("timeAt", () => {
+    it("should time a latest request's samples by the Core's stamps", async () => {
+      const core = createCore();
+      const feed = core.openFeed(OPTIONS);
+      const key = core.data[0].key;
+      const sub = feed.subscribe({
+        keys: [key],
+        limit: { variant: "latest", count: 10 },
+      });
+      // Returns the time of each of the newest 10 samples, oldest first.
+      const timed = (): (bigint | undefined)[] =>
+        sub
+          .value(key)
+          .series.series.flatMap((s) =>
+            Array.from({ length: s.length }, (_, i) =>
+              sub.timeAt(key, s.alignment + BigInt(i))?.valueOf(),
+            ),
+          )
+          .slice(-10);
+      const expected = (): bigint[] =>
+        Array.from({ length: 10 }, (_, i) => newestOf(core) - BigInt(9 - i) * PERIOD);
+      try {
+        await expect.poll(timed, POLL).toEqual(expected());
+        core.advance(TimeSpan.seconds(1));
+        await expect.poll(timed, POLL).toEqual(expected());
+      } finally {
+        sub.close();
+        await feed.close();
+      }
+    });
+
+    it("should read the index again after the stream reconnects", async () => {
+      const core = createCore();
+      const { key: index } = core.index;
+      let short = true;
+      const feed = core.openFeed({
+        ...OPTIONS,
+        // The stream fails to open again while the Core is down.
+        onRetry: () => {},
+        readLatest: async (keys, count, tr) => {
+          const frame = core.readLatest(keys, count, tr);
+          return short && keys.length === 1 && keys[0] === index
+            ? new framer.Frame()
+            : frame;
+        },
+      });
+      const key = core.data[0].key;
+      const sub = feed.subscribe({
+        keys: [key],
+        limit: { variant: "latest", count: 10_000 },
+      });
+      try {
+        await expect.poll(() => sub.value(key).status.variant, POLL).toBe("success");
+        const [{ alignment }] = sub.value(key).series.series;
+        for (let i = 0; i < 3; i++) {
+          expect(sub.timeAt(key, alignment)).toBeNull();
+          await sleep.sleep(TimeSpan.milliseconds(20));
+          core.advance(TimeSpan.seconds(5), false);
+        }
+        short = false;
+        expect(sub.timeAt(key, alignment)).toBeNull();
+        await sleep.sleep(TimeSpan.milliseconds(20));
+        expect(sub.timeAt(key, alignment)).toBeNull();
+        core.disconnect();
+        await expect
+          .poll(() => sub.value(key).status, POLL)
+          .toMatchObject({ variant: "warning", message: "reconnecting" });
+        core.reconnect();
+        await expect.poll(() => sub.timeAt(key, alignment), POLL).not.toBeNull();
+      } finally {
+        sub.close();
+        await feed.close();
+      }
+    });
+
+    it("should return null for a points request", async () => {
+      const core = createCore();
+      const feed = core.openFeed(OPTIONS);
+      const key = core.data[0].key;
+      const sub = feed.subscribe(raw([key], TimeSpan.seconds(1)));
+      try {
+        const [series] = await loaded(sub, key);
+        expect(sub.timeAt(key, series.alignment)).toBeNull();
+      } finally {
+        sub.close();
+        await feed.close();
+      }
+    });
+
+    it("should throw for a channel not in the request", async () => {
+      const core = createCore();
+      const feed = core.openFeed(OPTIONS);
+      const sub = feed.subscribe({
+        keys: [core.data[0].key],
+        limit: { variant: "latest", count: 1 },
+      });
+      try {
+        expect(() => sub.timeAt(core.index.key, 0n)).toThrow(UnexpectedError);
+      } finally {
+        sub.close();
+        await feed.close();
+      }
+    });
+  });
+
   describe("update and status", () => {
-    const createStatic = (key: channel.Key): PointsRequest => ({
+    const createStatic = (key: channel.Key): framer.PointsRequest => ({
       keys: [key],
       window: staticWindow(new TimeRange(START, START.add(TimeSpan.minutes(8)))),
       limit: { variant: "points", count: 100, aggregation: "min_max" },
@@ -1981,7 +2091,7 @@ describe("Feed.subscribe", () => {
         const core = createCore({ lag: TimeSpan.minutes(5) });
         const feed = core.openFeed(OPTIONS);
         const key = core.data[0].key;
-        const request: PointsRequest = {
+        const request: framer.PointsRequest = {
           keys: [key],
           window: staticWindow(
             new TimeRange(
@@ -1992,7 +2102,7 @@ describe("Feed.subscribe", () => {
           limit: { variant: "points", count, aggregation: "min_max" },
         };
         // Returns the samples that a subscription to the window draws.
-        const load = async (f: Feed): Promise<number[]> => {
+        const load = async (f: framer.Feed): Promise<number[]> => {
           const sub = f.subscribe(request);
           try {
             await expect
@@ -2112,7 +2222,7 @@ describe("Feed.subscribe", () => {
       const { feed, release, reads } = createHeld(core, (_, keys) =>
         keys.includes(key),
       );
-      const request: SubscribeRequest = {
+      const request: framer.SubscribeRequest = {
         keys: [key],
         window,
         limit: { variant: "points", count: 100, aggregation: "min_max" },
