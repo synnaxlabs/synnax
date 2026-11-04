@@ -19,29 +19,32 @@ class TestGroupClient:
     """Tests for the group client."""
 
     def test_create(self, client: sy.Synnax) -> None:
-        """Should create a group under the root."""
+        """Should create a top-level group in a scope."""
         name = str(uuid4())
-        g = client.groups.create(sy.ontology.ROOT_ID, name)
+        g = client.groups.create(name, scope="channel")
         assert g.key is not None
         assert g.name == name
+        assert g.scope == "channel"
+        assert g.parent is None
 
     def test_create_nested(self, client: sy.Synnax) -> None:
-        """Should create a group nested under another group."""
-        parent = client.groups.create(sy.ontology.ROOT_ID, str(uuid4()))
-        child = client.groups.create(sy.group.resource_id(parent.key), str(uuid4()))
-        assert child.key is not None
-        children = client.ontology.retrieve_children(sy.group.resource_id(parent.key))
-        assert children == [sy.group.resource_id(child.key)]
+        """Should create a group nested under another group with its scope."""
+        parent = client.groups.create(str(uuid4()), scope="channel")
+        child = client.groups.create(
+            str(uuid4()), parent=sy.group.resource_id(parent.key)
+        )
+        assert child.scope == "channel"
+        assert child.parent == sy.group.resource_id(parent.key)
 
     def test_retrieve(self, client: sy.Synnax) -> None:
         """Should retrieve a group by its key."""
-        g = client.groups.create(sy.ontology.ROOT_ID, str(uuid4()))
+        g = client.groups.create(str(uuid4()), scope="channel")
         assert client.groups.retrieve(g.key) == g
 
     def test_retrieve_multiple(self, client: sy.Synnax) -> None:
         """Should retrieve multiple groups by their keys."""
-        g1 = client.groups.create(sy.ontology.ROOT_ID, str(uuid4()))
-        g2 = client.groups.create(sy.ontology.ROOT_ID, str(uuid4()))
+        g1 = client.groups.create(str(uuid4()), scope="channel")
+        g2 = client.groups.create(str(uuid4()), scope="channel")
         groups = client.groups.retrieve(keys=[g1.key, g2.key])
         assert sorted(g.name for g in groups) == sorted([g1.name, g2.name])
 
@@ -52,24 +55,30 @@ class TestGroupClient:
 
     def test_rename(self, client: sy.Synnax) -> None:
         """Should rename an existing group."""
-        g = client.groups.create(sy.ontology.ROOT_ID, str(uuid4()))
+        g = client.groups.create(str(uuid4()), scope="channel")
         new_name = str(uuid4())
         client.groups.rename(g.key, new_name)
         assert client.groups.retrieve(g.key).name == new_name
 
+    def test_set_parent(self, client: sy.Synnax) -> None:
+        """Should move a group under another group and back to the top level."""
+        parent = client.groups.create(str(uuid4()), scope="channel")
+        g = client.groups.create(str(uuid4()), scope="channel")
+        client.groups.set_parent([g.key], sy.group.resource_id(parent.key))
+        assert client.groups.retrieve(g.key).parent == sy.group.resource_id(parent.key)
+        client.groups.set_parent([g.key])
+        assert client.groups.retrieve(g.key).parent is None
+
     def test_delete(self, client: sy.Synnax) -> None:
         """Should delete a group."""
-        g = client.groups.create(sy.ontology.ROOT_ID, str(uuid4()))
+        g = client.groups.create(str(uuid4()), scope="channel")
         client.groups.delete([g.key])
-        children = client.ontology.retrieve_children(sy.ontology.ROOT_ID)
-        assert all(c.key != str(g.key) for c in children)
+        with pytest.raises(sy.NotFoundError):
+            client.groups.retrieve(g.key)
 
     def test_delete_multiple(self, client: sy.Synnax) -> None:
         """Should delete multiple groups at once."""
-        g1 = client.groups.create(sy.ontology.ROOT_ID, str(uuid4()))
-        g2 = client.groups.create(sy.ontology.ROOT_ID, str(uuid4()))
+        g1 = client.groups.create(str(uuid4()), scope="channel")
+        g2 = client.groups.create(str(uuid4()), scope="channel")
         client.groups.delete([g1.key, g2.key])
-        children = client.ontology.retrieve_children(sy.ontology.ROOT_ID)
-        keys = {c.key for c in children}
-        assert str(g1.key) not in keys
-        assert str(g2.key) not in keys
+        assert client.groups.retrieve(keys=[g1.key, g2.key]) == []

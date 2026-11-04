@@ -12,10 +12,10 @@ from __future__ import annotations
 from typing import overload, override
 from uuid import UUID
 
-from pydantic import BaseModel, PrivateAttr
+from pydantic import PrivateAttr
 
-from freighter import Empty, UnaryClient
-from synnax import framer, group
+from freighter import UnaryClient
+from synnax import framer
 from synnax.channel.payload import (
     Key,
     NormalizedNameResult,
@@ -206,10 +206,6 @@ class Channel(Payload):
             expression=self.expression,
             operations=self.operations,
         )
-
-
-class _RetrieveGroupResponse(BaseModel):
-    group: group.Group
 
 
 class Client:
@@ -493,15 +489,6 @@ class Client:
         :returns: None.
         """
         self._creator.rename(normalize(keys), normalize(names))
-
-    def retrieve_group(self) -> group.Group:
-        """Retrieves the group that holds every channel by default.
-
-        :returns: The channel group.
-        """
-        return self._client.send(
-            "/channel/retrieve-group", Empty(), _RetrieveGroupResponse
-        ).group
 
     def _sugar(self, channels: list[Payload]) -> list[Channel]:
         return [

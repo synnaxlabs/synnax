@@ -13,14 +13,27 @@ import { beforeAll, describe, expect, it, onTestFinished, test, vi } from "vites
 
 import { group } from "@/group";
 import { ontology } from "@/ontology";
+import { project } from "@/project";
 import { query } from "@/query";
 import { resource } from "@/resource";
+import { schematic } from "@/schematic";
 import { createTestClient, expectLive } from "@/testutil";
 
 const client = createTestClient();
 const remote = createTestClient();
 
 const randomName = (): string => `group-${Math.random()}`;
+
+// Creates a group, linked under the parent by an ontology edge when one is given.
+const createGroup = async (
+  parent?: resource.ID,
+  name: string = randomName(),
+): Promise<resource.ID> => {
+  const g = await client.groups.create({ scope: "channel", name });
+  const gID = group.resourceID(g.key);
+  if (parent != null) await client.ontology.addChildren(parent, gID);
+  return gID;
+};
 
 describe("Ontology", () => {
   describe("parseIDs", () => {
@@ -131,47 +144,37 @@ describe("Ontology", () => {
   describe("retrieve", () => {
     test("retrieve", async () => {
       const name = randomName();
-      const g = await client.groups.create({ parent: ontology.ROOT_ID, name });
+      const g = await client.groups.create({ scope: "channel", name });
       const g2 = await client.ontology.retrieve(group.resourceID(g.key));
       expect(g2.name).toEqual(name);
     });
     test("retrieve by string ID", async () => {
       const name = randomName();
-      const g = await client.groups.create({ parent: ontology.ROOT_ID, name });
+      const g = await client.groups.create({ scope: "channel", name });
       const g2 = await client.ontology.retrieve(`group:${g.key}`);
       expect(g2.name).toEqual(name);
     });
     test("retrieve children", async () => {
+      const proj = await client.projects.create({ name: randomName() });
       const name = randomName();
-      const g = await client.groups.create({ parent: ontology.ROOT_ID, name });
-      const name2 = randomName();
-      await client.groups.create({
-        parent: group.resourceID(g.key),
-        name: name2,
-      });
+      await client.schematics.create(proj.key, { name });
       const children = await client.ontology.children.retrieve({
-        ids: group.resourceID(g.key),
+        ids: project.resourceID(proj.key),
       });
-      expect(children.length).toEqual(1);
-      expect(children[0].name).toEqual(name2);
+      expect(children.map((c) => c.name)).toEqual([name]);
     });
     test("retrieve parents", async () => {
       const name = randomName();
-      const g = await client.groups.create({ parent: ontology.ROOT_ID, name });
-      const name2 = randomName();
-      const g2 = await client.groups.create({
-        parent: group.resourceID(g.key),
-        name: name2,
-      });
+      const proj = await client.projects.create({ name });
+      const s = await client.schematics.create(proj.key, { name: randomName() });
       const parents = await client.ontology.parents.retrieve({
-        ids: group.resourceID(g2.key),
+        ids: schematic.resourceID(s.key),
       });
-      expect(parents.length).toEqual(1);
-      expect(parents[0].name).toEqual(name);
+      expect(parents.map((p) => p.name)).toEqual([name]);
     });
     test("retrieve by search term", async () => {
       const name = randomName();
-      const g = await client.groups.create({ parent: ontology.ROOT_ID, name });
+      const g = await client.groups.create({ scope: "channel", name });
       await expect
         .poll(async () => {
           const results = await client.ontology.retrieve({ searchTerm: name });
@@ -181,20 +184,17 @@ describe("Ontology", () => {
     });
     test("retrieve by search term under a root", async () => {
       const name = randomName();
-      const parent = await client.groups.create({
-        parent: ontology.ROOT_ID,
-        name: randomName(),
-      });
-      const parentID = group.resourceID(parent.key);
-      const inside = await client.groups.create({ parent: parentID, name });
-      await client.groups.create({ parent: ontology.ROOT_ID, name });
+      const proj = await client.projects.create({ name: randomName() });
+      const other = await client.projects.create({ name: randomName() });
+      const inside = await client.schematics.create(proj.key, { name });
+      await client.schematics.create(other.key, { name });
       await expect
         .poll(async () =>
           (
             await client.ontology.retrieve({
               searchTerm: name,
-              root: parentID,
-              types: ["group"],
+              root: project.resourceID(proj.key),
+              types: ["schematic"],
             })
           ).map((r) => r.id.key),
         )
@@ -239,7 +239,7 @@ describe("Ontology", () => {
     });
     test("retrieve by search term for the given types only", async () => {
       const name = randomName();
-      const g = await client.groups.create({ parent: ontology.ROOT_ID, name });
+      const g = await client.groups.create({ scope: "channel", name });
       const found = async (types: resource.Type[]): Promise<boolean> =>
         (await client.ontology.retrieve({ searchTerm: name, types })).some(
           (r) => r.id.key === g.key,
@@ -249,13 +249,9 @@ describe("Ontology", () => {
     });
     test("page through search results with a limit and an offset", async () => {
       const token = `page${Math.random().toString(36).slice(2)}`;
-      const parent = await client.groups.create({
-        parent: ontology.ROOT_ID,
-        name: randomName(),
-      });
-      const root = group.resourceID(parent.key);
+      const root = await createGroup();
       for (const suffix of ["a", "b", "c"])
-        await client.groups.create({ parent: root, name: `${token} ${suffix}` });
+        await createGroup(root, `${token} ${suffix}`);
       const search = async (offset: number): Promise<number> =>
         (
           await client.ontology.retrieve({
@@ -276,23 +272,10 @@ describe("Ontology", () => {
       mid: resource.ID;
       leaf: resource.ID;
     }> => {
-      const top = await client.groups.create({
-        parent: ontology.ROOT_ID,
-        name: randomName(),
-      });
-      const mid = await client.groups.create({
-        parent: group.resourceID(top.key),
-        name: randomName(),
-      });
-      const leaf = await client.groups.create({
-        parent: group.resourceID(mid.key),
-        name: randomName(),
-      });
-      return {
-        top: group.resourceID(top.key),
-        mid: group.resourceID(mid.key),
-        leaf: group.resourceID(leaf.key),
-      };
+      const top = await createGroup();
+      const mid = await createGroup(top);
+      const leaf = await createGroup(mid);
+      return { top, mid, leaf };
     };
 
     // Resolves once the stream delivers a change made after every earlier write, so no
@@ -300,10 +283,11 @@ describe("Ontology", () => {
     const drainStream = async (): Promise<void> => {
       await client.connect();
       const probe = await remote.groups.create({
-        parent: ontology.ROOT_ID,
+        scope: "channel",
         name: randomName(),
       });
       const probeID = group.resourceID(probe.key);
+      await remote.ontology.addChildren(ontology.ROOT_ID, probeID);
       const link = ontology.relationshipToString({
         from: ontology.ROOT_ID,
         type: ontology.PARENT_OF_RELATIONSHIP_TYPE,
@@ -349,8 +333,7 @@ describe("Ontology", () => {
 
     it("should return a path for each parent", async () => {
       const { top, mid, leaf } = await createChain();
-      const side = await client.groups.create({ parent: top, name: randomName() });
-      const sideID = group.resourceID(side.key);
+      const sideID = await createGroup(top);
       await client.ontology.addChildren(sideID, leaf);
       const { paths } = await client.ontology.ancestors.retrieve({
         ids: leaf,
@@ -364,10 +347,10 @@ describe("Ontology", () => {
 
     it("should drop a cached parent link that the Core no longer has", async () => {
       const { top, mid, leaf } = await createChain();
-      const side = await client.groups.create({ parent: top, name: randomName() });
+      const side = await createGroup(top);
       // A link whose delete the cache missed, as across a reconnect.
       const stale: ontology.Relationship = {
-        from: group.resourceID(side.key),
+        from: side,
         type: ontology.PARENT_OF_RELATIONSHIP_TYPE,
         to: leaf,
       };
@@ -411,8 +394,7 @@ describe("Ontology", () => {
 
       it("should follow a remote move", async () => {
         const { top, mid, leaf } = await createChain();
-        const side = await client.groups.create({ parent: top, name: randomName() });
-        const sideID = group.resourceID(side.key);
+        const sideID = await createGroup(top);
         const params = { ids: leaf, root: top };
         const handler = vi.fn();
         const off = client.ontology.ancestors.onChange(params, handler);
@@ -477,10 +459,10 @@ describe("Ontology", () => {
   describe("write", () => {
     test("add children", async () => {
       const name = randomName();
-      const g = await client.groups.create({ parent: ontology.ROOT_ID, name });
+      const g = await client.groups.create({ scope: "channel", name });
       const name2 = randomName();
       const g2 = await client.groups.create({
-        parent: ontology.ROOT_ID,
+        scope: "channel",
         name: name2,
       });
       await client.ontology.addChildren(
@@ -495,10 +477,10 @@ describe("Ontology", () => {
     });
     test("remove children", async () => {
       const name = randomName();
-      const g = await client.groups.create({ parent: ontology.ROOT_ID, name });
+      const g = await client.groups.create({ scope: "channel", name });
       const name2 = randomName();
       const g2 = await client.groups.create({
-        parent: ontology.ROOT_ID,
+        scope: "channel",
         name: name2,
       });
       await client.ontology.addChildren(
@@ -515,30 +497,14 @@ describe("Ontology", () => {
       expect(children.length).toEqual(0);
     });
     test("move children", async () => {
-      const name = randomName();
-      const g = await client.groups.create({ parent: ontology.ROOT_ID, name });
-      const name2 = randomName();
-      const g2 = await client.groups.create({
-        parent: ontology.ROOT_ID,
-        name: name2,
-      });
-      await client.ontology.moveChildren(
-        ontology.ROOT_ID,
-        group.resourceID(g.key),
-        group.resourceID(g2.key),
-      );
-
-      const children = await client.ontology.children.retrieve({
-        ids: group.resourceID(g.key),
-      });
-      expect(children.length).toEqual(1);
-      // Other specs write to the root concurrently, so only the two groups this test
-      // owns can be asserted on.
-      const rootKeys = (
-        await client.ontology.children.retrieve({ ids: ontology.ROOT_ID })
-      ).map(({ key }) => key);
-      expect(rootKeys).toContain(resource.idToString(group.resourceID(g.key)));
-      expect(rootKeys).not.toContain(resource.idToString(group.resourceID(g2.key)));
+      const from = await createGroup();
+      const to = await createGroup();
+      const child = await createGroup(from);
+      await client.ontology.moveChildren(from, to, child);
+      const childKeys = async (ids: resource.ID): Promise<string[]> =>
+        (await client.ontology.children.retrieve({ ids })).map(({ key }) => key);
+      expect(await childKeys(to)).toEqual([resource.idToString(child)]);
+      expect(await childKeys(from)).toEqual([]);
     });
   });
 
@@ -551,12 +517,12 @@ describe("Ontology", () => {
     describe("children", () => {
       it("reflects remote child changes on an unsubscribed repeat retrieve", async () => {
         const parent = await client.groups.create({
-          parent: ontology.ROOT_ID,
+          scope: "channel",
           name: randomName(),
         });
         const parentID = group.resourceID(parent.key);
         const child = await client.groups.create({
-          parent: ontology.ROOT_ID,
+          scope: "channel",
           name: randomName(),
         });
         const childID = group.resourceID(child.key);
@@ -586,15 +552,8 @@ describe("Ontology", () => {
 
     describe("getCached", () => {
       it("returns undefined before a children retrieve and the answer after", async () => {
-        const parent = await client.groups.create({
-          parent: ontology.ROOT_ID,
-          name: randomName(),
-        });
-        const parentID = group.resourceID(parent.key);
-        const child = await client.groups.create({
-          parent: parentID,
-          name: randomName(),
-        });
+        const parentID = await createGroup();
+        const child = await createGroup(parentID);
         const params = { ids: parentID };
         expect(client.ontology.children.getCached(params)).toBeUndefined();
         await client.ontology.children.retrieve(params);
@@ -605,18 +564,13 @@ describe("Ontology", () => {
 
     describe("onChange", () => {
       it("delivers remotely added children through relationship composition", async () => {
-        const parent = await client.groups.create({
-          parent: ontology.ROOT_ID,
-          name: randomName(),
-        });
-        const parentID = group.resourceID(parent.key);
-        const params = { ids: parentID };
+        const proj = await client.projects.create({ name: randomName() });
+        const params = { ids: project.resourceID(proj.key) };
         const handler = vi.fn();
         const off = client.ontology.children.onChange(params, handler);
         try {
           expect(await client.ontology.children.retrieve(params)).toHaveLength(0);
-          const child = await remote.groups.create({
-            parent: parentID,
+          const child = await remote.schematics.create(proj.key, {
             name: randomName(),
           });
           await expect

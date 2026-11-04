@@ -13,13 +13,11 @@ from pydantic import BaseModel, Field
 
 from freighter import Empty, UnaryClient
 from synnax import group
-from synnax.resource import ID, CrudeID
 from synnax.schematic.symbol.types_gen import Key, Symbol
 from x.lists import normalize
 
 
 class _CreateRequest(BaseModel):
-    parent: ID
     symbols: list[Symbol]
 
 
@@ -45,10 +43,6 @@ class _DeleteRequest(BaseModel):
     keys: list[Key]
 
 
-class _RetrieveGroupResponse(BaseModel):
-    group: group.Group
-
-
 class _DeleteGroupRequest(BaseModel):
     key: group.Key
 
@@ -65,26 +59,23 @@ class Client:
         self._client = client
 
     @overload
-    def create(self, symbols: Symbol, *, parent: CrudeID) -> Symbol: ...
+    def create(self, symbols: Symbol) -> Symbol: ...
 
     @overload
-    def create(self, symbols: list[Symbol], *, parent: CrudeID) -> list[Symbol]: ...
+    def create(self, symbols: list[Symbol]) -> list[Symbol]: ...
 
-    def create(
-        self, symbols: Symbol | list[Symbol], *, parent: CrudeID
-    ) -> Symbol | list[Symbol]:
-        """Creates one or more symbols under a parent resource.
+    def create(self, symbols: Symbol | list[Symbol]) -> Symbol | list[Symbol]:
+        """Creates one or more symbols. A symbol's ``group`` places it; a symbol with
+        no group sits in none.
 
         :param symbols: A single symbol or a list of them.
-        :param parent: The resource ID of the resource to create the symbols under,
-            such as the group from ``retrieve_group``.
         :returns: The created symbol, or a list of created symbols when ``symbols`` is
             a list.
         """
         is_single = not isinstance(symbols, list)
         res = self._client.send(
             "/schematic/symbol/create",
-            _CreateRequest(parent=ID(parent), symbols=normalize(symbols)),
+            _CreateRequest(symbols=normalize(symbols)),
             _CreateResponse,
         )
         return res.symbols[0] if is_single else res.symbols
@@ -145,18 +136,8 @@ class Client:
             "/schematic/symbol/delete", _DeleteRequest(keys=normalize(keys)), Empty
         )
 
-    def retrieve_group(self) -> group.Group:
-        """Retrieves the group that holds every symbol by default.
-
-        :returns: The symbol group.
-        """
-        return self._client.send(
-            "/schematic/symbol/retrieve-group", Empty(), _RetrieveGroupResponse
-        ).group
-
     def delete_group(self, key: group.Key) -> None:
-        """Deletes a group and every symbol in it in one transaction. A child that is
-        not a symbol moves to the group from ``retrieve_group``.
+        """Deletes a group and every symbol in it in one transaction.
 
         :param key: The key of the group to delete.
         """

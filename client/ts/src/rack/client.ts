@@ -11,6 +11,7 @@ import { type UnaryClient } from "@synnaxlabs/freighter";
 import { array, deep, primitive } from "@synnaxlabs/x";
 import { z } from "zod";
 
+import { group } from "@/group";
 import { type ontology } from "@/ontology";
 import { query } from "@/query";
 import {
@@ -31,7 +32,7 @@ import { checkForMultipleOrNoResults } from "@/util/retrieve";
 export const SET_CHANNEL_NAME = "sy_rack_set";
 export const DELETE_CHANNEL_NAME = "sy_rack_delete";
 
-const retrieveReqZ = z.object({
+const retrieveReqZ = group.memberFilterZ.extend({
   keys: keyZ.array().optional(),
   names: z.string().array().optional(),
   integration: z.string().optional(),
@@ -81,6 +82,14 @@ const createResZ = z.object({ racks: payloadZ.array() });
 const deleteReqZ = z.object({ keys: keyZ.array() });
 const emptyResZ = z.object({});
 const renameReqZ = z.object({ key: keyZ, name: z.string() });
+const setGroupReqZ = group.moveReqZ(keyZ);
+
+/**
+ * Builds a request that moves the racks into the group, or out of their group when it
+ * is null or undefined.
+ */
+export const setGroupRequest = (keys: Key | Key[], to?: group.Key | null) =>
+  group.moveRequest("/rack/set-group", keys, to);
 
 /** Query fields only the server can evaluate. */
 const SERVER_FIELDS = ["searchTerm", "limit", "offset", "hostIsNode"] as const;
@@ -103,22 +112,23 @@ const singleQueryZ = z
 const stripStatus = ({ status: _, ...rack }: Payload): Omit<Payload, "status"> => rack;
 
 /**
- * Client-side matching for a request: key and name sets and payload-held
- * flags. Server-computed shapes (search, pagination, host resolution) never
- * reach this filter; they refetch instead.
+ * Client-side matching for a request: key, name, and group sets and payload-held flags.
+ * Server-computed shapes (search, pagination, host resolution) never reach this filter;
+ * they refetch instead.
  */
 const requestFilter = (
   req: RetrieveRequest,
 ): ((r: Omit<Payload, "status">) => boolean) => {
   const keySet = primitive.isNonZero(req.keys) ? new Set(req.keys) : undefined;
   const nameSet = primitive.isNonZero(req.names) ? new Set(req.names) : undefined;
+  const inGroup = group.createMemberMatcher(req);
   return (r) => {
     if (keySet != null && !keySet.has(r.key)) return false;
     if (nameSet != null && !nameSet.has(r.name)) return false;
     if (req.integration != null && !r.integrations.includes(req.integration))
       return false;
     if (req.embedded != null && r.embedded !== req.embedded) return false;
-    return true;
+    return inGroup(r);
   };
 };
 
@@ -232,6 +242,25 @@ export class Client extends query.Retriever<
     rename();
   }
 
+  /**
+   * Moves the racks into the group, or out of their group when it is null or undefined.
+   */
+  async setGroup(
+    keys: Key | Key[],
+    to?: group.Key | null,
+    opts: query.WriteOptions = {},
+  ): Promise<void> {
+    const { endpoint, payload } = setGroupRequest(keys, to);
+    const move = () => group.moveCached(this.store, payload.keys, payload.group);
+    await query.optimistic({
+      rollbacks: [move()],
+      onOptimistic: opts.onOptimistic,
+      commit: async () =>
+        await this.cfg.unary.send(endpoint, payload, setGroupReqZ, emptyResZ),
+    });
+    move();
+  }
+
   async create(rack: New): Promise<Rack>;
   async create(racks: New[]): Promise<Rack[]>;
   async create(rack: New | New[]): Promise<Rack | Rack[]> {
@@ -259,8 +288,8 @@ export class Client extends query.Retriever<
     const sugared = array
       .toArray(payloads)
       .map(
-        ({ key, name, status, integrations, embedded }) =>
-          new Rack(key, name, this.cfg.tasks, status, integrations, embedded),
+        ({ key, name, status, integrations, embedded, group: g }) =>
+          new Rack(key, name, this.cfg.tasks, status, integrations, embedded, g),
       );
     return isSingle ? sugared[0] : sugared;
   }
@@ -324,6 +353,7 @@ export class Rack {
   status?: Status;
   integrations: string[];
   embedded: boolean;
+  group?: group.Key;
   private readonly tasks: task.Client;
 
   constructor(
@@ -333,6 +363,7 @@ export class Rack {
     status?: Status,
     integrations: string[] = [],
     embedded: boolean = false,
+    groupKey?: group.Key,
   ) {
     this.key = key;
     this.name = name;
@@ -340,6 +371,7 @@ export class Rack {
     this.status = status;
     this.integrations = integrations;
     this.embedded = embedded;
+    this.group = groupKey;
   }
 
   async listTasks(): Promise<task.Task[]> {
@@ -371,6 +403,7 @@ export class Rack {
       status: this.status,
       integrations: this.integrations,
       embedded: this.embedded,
+      group: this.group,
     };
   }
 }

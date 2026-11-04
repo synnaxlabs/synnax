@@ -110,6 +110,8 @@ export class Channel {
   readonly concurrency: control.Concurrency;
   /** The status of the channel. */
   readonly status?: status.Status;
+  /** The group the channel sits in, if any. */
+  readonly group?: group.Key;
 
   constructor({
     dataType,
@@ -126,6 +128,7 @@ export class Channel {
     expression = "",
     operations = [],
     concurrency = control.Concurrency.exclusive,
+    group: groupKey,
   }: New & { frameClient?: framer.Client }) {
     this.key = zod.parse(keyZ, key, { label: "channel key" });
     this.name = name;
@@ -141,6 +144,7 @@ export class Channel {
       label: "channel operations",
     });
     this.concurrency = concurrency;
+    this.group = groupKey;
     if (argsStatus != null)
       this.status = zod.parse(statusZ, argsStatus, { label: "channel status" });
     this.frameClient = frameClient ?? null;
@@ -173,6 +177,7 @@ export class Channel {
         status: this.status,
         operations: this.operations,
         concurrency: this.concurrency,
+        group: this.group,
       },
       { label: "channel payload" },
     );
@@ -205,7 +210,7 @@ export class Channel {
 }
 
 /** Zod schema for {@link RetrieveRequest}. */
-export const retrieveRequestZ = z.object({
+export const retrieveRequestZ = group.memberFilterZ.extend({
   nodeKey: zod.uint12.optional(),
   keys: keyZ.array().optional(),
   names: z.string().array().optional(),
@@ -228,9 +233,15 @@ export type RetrieveOptions = Omit<RetrieveRequest, "keys" | "names" | "search">
 
 const retrieveResZ = z.object({ channels: payloadZ.array().default(() => []) });
 
-const retrieveGroupReqZ = z.object({});
+const setGroupReqZ = group.moveReqZ(keyZ);
+const emptyResZ = z.object({});
 
-const retrieveGroupResZ = z.object({ group: group.groupZ });
+/**
+ * Builds a request that moves the channels into the group, or out of their group when
+ * it is null or undefined.
+ */
+export const setGroupRequest = (keys: Key | Key[], to?: group.Key | null) =>
+  group.moveRequest("/channel/set-group", keys, to);
 
 /** Names one channel. Give a `rangeKey` to resolve its alias in that range. */
 export type RetrieveSingleParams = { key: Key; rangeKey?: ranger.Key };
@@ -272,7 +283,9 @@ const isKeysOnly = (
   req.virtual == null &&
   req.isIndex == null &&
   req.internal == null &&
-  req.legacyCalculated == null;
+  req.legacyCalculated == null &&
+  req.groups == null &&
+  req.grouped == null;
 
 const isNamesOnly = (
   req: NormalizedRequest,
@@ -288,7 +301,9 @@ const isNamesOnly = (
   req.virtual == null &&
   req.isIndex == null &&
   req.internal == null &&
-  req.legacyCalculated == null;
+  req.legacyCalculated == null &&
+  req.groups == null &&
+  req.grouped == null;
 
 const NAME_LITERAL_PATTERN = /^[a-zA-Z_][a-zA-Z0-9_]*$/;
 
@@ -318,8 +333,10 @@ const requestFilter = (req: NormalizedRequest): ((ch: Channel) => boolean) => {
   const nameMatchers = primitive.isNonZero(req.names)
     ? req.names.map(createNameMatcher)
     : undefined;
+  const inGroup = group.createMemberMatcher(req);
   return (ch) => {
     if (keySet != null && !keySet.has(ch.key)) return false;
+    if (!inGroup(ch)) return false;
     if (nameMatchers != null && !nameMatchers.some((m) => m(ch.name))) return false;
     if (primitive.isNonZero(req.nodeKey) && ch.leaseholder !== req.nodeKey)
       return false;
@@ -662,6 +679,40 @@ export class Client extends query.Retriever<
     rename();
   }
 
+  /**
+   * Moves the channels into the group, or out of their group when it is null or
+   * undefined.
+   */
+  async setGroup(
+    keys: Key | Key[],
+    to?: group.Key | null,
+    opts: query.WriteOptions = {},
+  ): Promise<void> {
+    const { endpoint, payload } = setGroupRequest(keys, to);
+    const move = () => payload.keys.map((key) => this.moveThrough(key, payload.group));
+    await query.optimistic({
+      rollbacks: move(),
+      onOptimistic: opts.onOptimistic,
+      commit: async () =>
+        await this.cfg.unary.send(endpoint, payload, setGroupReqZ, emptyResZ),
+    });
+    move();
+  }
+
+  /**
+   * Sets the group of the cached channel, skipping when absent. Returns a rollback that
+   * restores only the group.
+   */
+  private moveThrough(key: Key, to?: group.Key): destructor.Destructor {
+    const prev = this.store.get(key)?.group;
+    const set = (g?: group.Key) =>
+      this.store.set(key, (p) =>
+        p == null ? undefined : this.sugar({ ...p.payload, group: g }),
+      );
+    set(to);
+    return () => set(prev);
+  }
+
   /** Renames the cached channel, skipping when absent. Returns a rollback. */
   private renameThrough(key: Key, name: string): destructor.Destructor {
     return this.store.set(key, (p) =>
@@ -676,16 +727,6 @@ export class Client extends query.Retriever<
     if (Array.isArray(payloads))
       return payloads.map((p) => new Channel({ ...p, frameClient }));
     return new Channel({ ...payloads, frameClient });
-  }
-
-  async retrieveGroup(): Promise<group.Group> {
-    const res = await this.cfg.unary.send(
-      "/channel/retrieve-group",
-      {},
-      retrieveGroupReqZ,
-      retrieveGroupResZ,
-    );
-    return res.group;
   }
 
   /** Rebuilds a cached channel with its cached status attached. */

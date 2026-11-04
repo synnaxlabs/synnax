@@ -24,6 +24,7 @@ import { z } from "zod";
 import { access } from "@/access";
 import { arc } from "@/arc";
 import { auth } from "@/auth";
+import { batch } from "@/batch";
 import { channel } from "@/channel";
 import { connection } from "@/connection";
 import { control } from "@/control";
@@ -159,6 +160,7 @@ export default class Synnax extends framer.Client {
   readonly logs: log.Client;
   readonly tables: table.Client;
   readonly groups: group.Client;
+  readonly batch: batch.Client;
   readonly imex: imex.Client;
   private readonly cache: query.Cache;
   private readonly transport: Transport;
@@ -332,11 +334,8 @@ export default class Synnax extends framer.Client {
       statuses: this.statuses,
     });
     this.views = new view.Client({ unary, cache, ontology: this.ontology });
-    this.groups = new group.Client({
-      unary,
-      ontology: this.ontology,
-      cache,
-    });
+    this.groups = new group.Client({ unary, cache });
+    this.batch = new batch.Client(unary);
     this.schematics = new schematic.Client({
       unary,
       file: this.transport.file,

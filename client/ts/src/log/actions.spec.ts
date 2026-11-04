@@ -394,3 +394,25 @@ describe("log reducer", () => {
     });
   });
 });
+
+describe("setGroup", () => {
+  const G1 = "11111111-1111-4111-8111-111111111111";
+  const G2 = "22222222-2222-4222-8222-222222222222";
+  it("should move the document into the group", () => {
+    const doc = createEmpty();
+    expect(log.reduceAll(doc, [log.setGroup({ group: G1 })]).next.group).toEqual(G1);
+  });
+  it("should move the document out of its group", () => {
+    const doc = createEmpty({ group: G1 });
+    expect(log.reduceAll(doc, [log.setGroup({})]).next.group).toBeUndefined();
+  });
+  it("should restore the previous group through its inverse", () => {
+    const doc = createEmpty({ group: G1 });
+    const { next, inverse } = log.reduceAll(doc, [log.setGroup({ group: G2 })]);
+    expect(log.reduceAll(next, inverse).next.group).toEqual(G1);
+  });
+  it("should target nothing, so it never enters the undo stack", () => {
+    const doc = createEmpty();
+    expect(log.reduceAll(doc, [log.setGroup({ group: G1 })]).targets).toEqual([]);
+  });
+});

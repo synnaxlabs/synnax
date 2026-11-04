@@ -15,6 +15,7 @@ import {
 import { array, type destructor, primitive, record, zod } from "@synnaxlabs/x";
 import { z } from "zod";
 
+import { group } from "@/group";
 import { imex } from "@/imex";
 import { type ontology } from "@/ontology";
 import {
@@ -30,7 +31,7 @@ import { query } from "@/query";
 export const SET_CHANNEL_NAME = "sy_project_set";
 export const DELETE_CHANNEL_NAME = "sy_project_delete";
 
-const retrieveReqZ = z.object({
+const retrieveReqZ = group.memberFilterZ.extend({
   keys: keyZ.array().optional(),
   searchTerm: z.string().optional(),
   offset: z.int().optional(),
@@ -43,6 +44,7 @@ const createReqZ = z.object({ projects: projectZ.array() });
 const renameReqZ = z.object({ key: keyZ, name: z.string() });
 const deleteReqZ = z.object({ keys: keyZ.array() });
 const exportReqZ = z.object({ key: keyZ, encoding: imex.encodingZ });
+const setGroupReqZ = group.moveReqZ(keyZ);
 
 const importParamsZ = z.object({ fileName: z.string().min(1) });
 
@@ -61,12 +63,20 @@ export interface ImportOptions {
 }
 
 /**
- * Client-side matching for a request: key sets. Server-computed shapes
+ * Builds a request that moves the projects into the group, or out of their group when
+ * it is null or undefined.
+ */
+export const setGroupRequest = (keys: Key | Key[], to?: group.Key | null) =>
+  group.moveRequest("/project/set-group", keys, to);
+
+/**
+ * Client-side matching for a request: key and group sets. Server-computed shapes
  * (search, limit/offset) never reach this filter; they refetch instead.
  */
 const requestFilter = (req: RetrieveRequest): ((p: Project) => boolean) => {
   const keySet = primitive.isNonZero(req.keys) ? new Set(req.keys) : undefined;
-  return (p) => keySet == null || keySet.has(p.key);
+  const inGroup = group.createMemberMatcher(req);
+  return (p) => (keySet == null || keySet.has(p.key)) && inGroup(p);
 };
 
 export interface ClientConfig {
@@ -168,6 +178,26 @@ export class Client extends query.Retriever<typeof retrieveMultiParamsZ, Key, Pr
         ),
     });
     drop();
+  }
+
+  /**
+   * Moves the projects into the group, or out of their group when it is null or
+   * undefined.
+   */
+  async setGroup(
+    keys: Key | Key[],
+    to?: group.Key | null,
+    opts: query.WriteOptions = {},
+  ): Promise<void> {
+    const { endpoint, payload } = setGroupRequest(keys, to);
+    const move = () => group.moveCached(this.store, payload.keys, payload.group);
+    await query.optimistic({
+      rollbacks: [move()],
+      onOptimistic: opts.onOptimistic,
+      commit: async () =>
+        await this.cfg.unary.send(endpoint, payload, setGroupReqZ, emptyResZ),
+    });
+    move();
   }
 
   /**

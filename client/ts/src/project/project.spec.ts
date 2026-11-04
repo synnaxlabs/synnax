@@ -10,7 +10,6 @@
 import { id, uuid } from "@synnaxlabs/x";
 import { describe, expect, test } from "vitest";
 
-import { group } from "@/group";
 import { NotFoundError } from "@/index";
 import { log } from "@/log";
 import { project } from "@/project";
@@ -113,11 +112,7 @@ describe("Project", () => {
         name: "Propulsion",
       });
       const l = await client.logs.create(proj.key, { name: "Pressure" });
-      await client.ontology.moveChildren(
-        project.resourceID(proj.key),
-        group.resourceID(g.key),
-        log.resourceID(l.key),
-      );
+      await client.logs.setGroup(l.key, g.key);
       const archive = await download(proj.key);
       expect(archive).toContain("Propulsion/Pressure.json");
     });
@@ -170,23 +165,18 @@ describe("Project", () => {
         name: "Propulsion",
       });
       const l = await client.logs.create(src.key, { name: "Pressure" });
-      await client.ontology.moveChildren(
-        project.resourceID(src.key),
-        group.resourceID(g.key),
-        log.resourceID(l.key),
-      );
+      await client.logs.setGroup(l.key, g.key);
       const stream = await client.projects.export(src.key, { encoding: "JSON" });
       const bundle = new Uint8Array(await new Response(stream).arrayBuffer());
       const imported = await client.projects.import(bundle, {
         fileName: `${src.name}.zip`,
       });
-      const children = await client.ontology.retrieveChildren(
-        project.resourceID(imported.key),
-      );
-      expect(children).toHaveLength(1);
-      expect(children[0].name).toEqual("Propulsion");
-      const grandChildren = await client.ontology.retrieveChildren(children[0].id);
-      expect(grandChildren.map(({ name }) => name)).toEqual(["Pressure"]);
+      const groups = await client.groups.retrieve({
+        parents: [project.resourceID(imported.key)],
+      });
+      expect(groups.map(({ name }) => name)).toEqual(["Propulsion"]);
+      const logs = await client.logs.retrieve({ groups: [groups[0].key] });
+      expect(logs.map(({ name }) => name)).toEqual(["Pressure"]);
     });
 
     test("rejects a bundle without a manifest", async () => {

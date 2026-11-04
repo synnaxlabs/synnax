@@ -12,7 +12,7 @@ import { array, type destructor, errors, primitive, zod } from "@synnaxlabs/x";
 import { z } from "zod";
 
 import { actions } from "@/actions";
-import { type group } from "@/group";
+import { group } from "@/group";
 import { type ontology } from "@/ontology";
 import { project } from "@/project";
 import { query } from "@/query";
@@ -45,8 +45,8 @@ const copyReqZ = z.object({
   snapshot: z.boolean(),
 });
 
-const retrieveReqZ = z.object({
-  keys: keyZ.array(),
+const retrieveReqZ = group.memberFilterZ.extend({
+  keys: keyZ.array().optional(),
   ignoreNotFoundError: z.boolean().optional(),
 });
 const retrieveMultiParamsZ = retrieveReqZ.or(query.keyListZ(keyZ));
@@ -73,14 +73,20 @@ const createResZ = z.object({ schematics: schematicZ.array() });
 
 const copyResZ = z.object({ schematic: schematicZ });
 const emptyResZ = z.object({});
+const setGroupReqZ = group.moveReqZ(keyZ);
 
 /**
- * Client-side matching for a request: exact for key sets, the only shape a
- * schematic request carries.
+ * Builds a request that moves the schematics into the group, or out of their group when
+ * it is null or undefined.
  */
+export const setGroupRequest = (keys: Key | Key[], to?: group.Key | null) =>
+  group.moveRequest("/schematic/set-group", keys, to);
+
+/** Client-side matching for a request: key and group sets. */
 const requestFilter = (req: RetrieveRequest): ((s: Schematic) => boolean) => {
   const keySet = primitive.isNonZero(req.keys) ? new Set(req.keys) : undefined;
-  return (s) => keySet == null || keySet.has(s.key);
+  const inGroup = group.createMemberMatcher(req);
+  return (s) => (keySet == null || keySet.has(s.key)) && inGroup(s);
 };
 
 export interface ClientConfig {
@@ -276,6 +282,26 @@ export class Client extends query.Retriever<
         ),
     });
     drop();
+  }
+
+  /**
+   * Moves the schematics into the group, or out of their group when it is null or
+   * undefined.
+   */
+  async setGroup(
+    keys: Key | Key[],
+    to?: group.Key | null,
+    opts: query.WriteOptions = {},
+  ): Promise<void> {
+    const { endpoint, payload } = setGroupRequest(keys, to);
+    const move = () => group.moveCached(this.store, payload.keys, payload.group);
+    await query.optimistic({
+      rollbacks: [move()],
+      onOptimistic: opts.onOptimistic,
+      commit: async () =>
+        await this.cfg.unary.send(endpoint, payload, setGroupReqZ, emptyResZ),
+    });
+    move();
   }
 
   /** Subscribes to every schematic delete delivered to the cache. */

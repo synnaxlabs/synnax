@@ -12,7 +12,6 @@ import { describe, expect, it } from "vitest";
 
 import { group } from "@/group";
 import { AccessDeniedError } from "@/index";
-import { ontology } from "@/ontology";
 import { createTestClient, createTestClientWithPolicy } from "@/testutil";
 
 const client = createTestClient();
@@ -26,7 +25,7 @@ describe("group", () => {
         actions: ["create"],
       });
       await userClient.groups.create({
-        parent: ontology.ROOT_ID,
+        scope: "channel",
         name: `test-${id.create()}`,
       });
     });
@@ -39,7 +38,7 @@ describe("group", () => {
       });
       await expect(
         userClient.groups.create({
-          parent: ontology.ROOT_ID,
+          scope: "channel",
           name: `test-${id.create()}`,
         }),
       ).rejects.toSatisfy(AccessDeniedError.matches);
@@ -52,7 +51,7 @@ describe("group", () => {
         actions: ["delete", "retrieve"],
       });
       const randomGroup = await client.groups.create({
-        parent: ontology.ROOT_ID,
+        scope: "channel",
         name: `test-${id.create()}`,
       });
       await userClient.groups.delete(randomGroup.key);
@@ -65,7 +64,7 @@ describe("group", () => {
         actions: [],
       });
       const randomGroup = await client.groups.create({
-        parent: ontology.ROOT_ID,
+        scope: "channel",
         name: `test-${id.create()}`,
       });
       await expect(userClient.groups.delete(randomGroup.key)).rejects.toSatisfy(

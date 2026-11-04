@@ -8,10 +8,11 @@
 // included in the file licenses/APL.txt.
 
 import { type UnaryClient } from "@synnaxlabs/freighter";
-import { array, type destructor, errors, zod } from "@synnaxlabs/x";
+import { array, type destructor, errors, primitive, zod } from "@synnaxlabs/x";
 import { z } from "zod";
 
 import { actions } from "@/actions";
+import { group } from "@/group";
 import { type ontology } from "@/ontology";
 import { project } from "@/project";
 import { query } from "@/query";
@@ -37,8 +38,8 @@ export const DELETE_CHANNEL_NAME = "sy_table_delete";
 
 const deleteReqZ = z.object({ keys: keyZ.array() });
 
-const retrieveReqZ = z.object({
-  keys: keyZ.array(),
+const retrieveReqZ = group.memberFilterZ.extend({
+  keys: keyZ.array().optional(),
   ignoreNotFoundError: z.boolean().optional(),
 });
 const retrieveMultiParamsZ = retrieveReqZ.or(query.keyListZ(keyZ));
@@ -63,14 +64,20 @@ const createReqZ = z.object({
 const createResZ = z.object({ tables: tableZ.array() });
 
 const emptyResZ = z.object({});
+const setGroupReqZ = group.moveReqZ(keyZ);
 
 /**
- * Client-side matching for a request: exact for the requested key set, the
- * only field a request carries.
+ * Builds a request that moves the tables into the group, or out of their group when it
+ * is null or undefined.
  */
+export const setGroupRequest = (keys: Key | Key[], to?: group.Key | null) =>
+  group.moveRequest("/table/set-group", keys, to);
+
+/** Client-side matching for a request: key and group sets. */
 const requestFilter = (req: RetrieveRequest): ((t: Table) => boolean) => {
-  const keySet = new Set(req.keys);
-  return (t) => keySet.has(t.key);
+  const keySet = primitive.isNonZero(req.keys) ? new Set(req.keys) : undefined;
+  const inGroup = group.createMemberMatcher(req);
+  return (t) => (keySet == null || keySet.has(t.key)) && inGroup(t);
 };
 
 export interface ClientConfig {
@@ -253,6 +260,26 @@ export class Client extends query.Retriever<typeof retrieveMultiParamsZ, Key, Ta
         ),
     });
     drop();
+  }
+
+  /**
+   * Moves the tables into the group, or out of their group when it is null or
+   * undefined.
+   */
+  async setGroup(
+    keys: Key | Key[],
+    to?: group.Key | null,
+    opts: query.WriteOptions = {},
+  ): Promise<void> {
+    const { endpoint, payload } = setGroupRequest(keys, to);
+    const move = () => group.moveCached(this.store, payload.keys, payload.group);
+    await query.optimistic({
+      rollbacks: [move()],
+      onOptimistic: opts.onOptimistic,
+      commit: async () =>
+        await this.cfg.unary.send(endpoint, payload, setGroupReqZ, emptyResZ),
+    });
+    move();
   }
 
   /** Subscribes to every table delete delivered to the cache. */

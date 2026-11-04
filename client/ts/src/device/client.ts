@@ -21,6 +21,7 @@ import {
   resourceID,
   statusZ,
 } from "@/device/types.gen";
+import { group } from "@/group";
 import { type ontology } from "@/ontology";
 import { query } from "@/query";
 import { keyZ as rackKeyZ } from "@/rack/types.gen";
@@ -51,8 +52,16 @@ const createResZ = <
 const deleteReqZ = z.object({ keys: keyZ.array() });
 const emptyResZ = z.object({});
 const renameReqZ = z.object({ key: keyZ, name: z.string() });
+const setGroupReqZ = group.moveReqZ(keyZ);
 
-const retrieveRequestZ = z.object({
+/**
+ * Builds a request that moves the devices into the group, or out of their group when it
+ * is null or undefined. The group must sit under each device's rack.
+ */
+export const setGroupRequest = (keys: Key | Key[], to?: group.Key | null) =>
+  group.moveRequest("/device/set-group", keys, to);
+
+const retrieveRequestZ = group.memberFilterZ.extend({
   keys: keyZ.array().optional(),
   names: z.string().array().optional(),
   makes: z.string().array().optional(),
@@ -137,9 +146,9 @@ export const toUpdate = <D extends Pick<Device, "status" | "parent">>({
 }: D): Omit<D, "status" | "parent"> => device;
 
 /**
- * Client-side matching for a request: key, name, make, model, location, and
- * rack sets. Server-computed shapes (search, pagination, parent resolution)
- * never reach this filter; they refetch instead.
+ * Client-side matching for a request: key, name, make, model, location, rack, and group
+ * sets. Server-computed shapes (search, pagination, parent resolution) never reach this
+ * filter; they refetch instead.
  */
 const requestFilter = (
   req: RetrieveRequest,
@@ -152,6 +161,7 @@ const requestFilter = (
     ? new Set(req.locations)
     : undefined;
   const rackSet = primitive.isNonZero(req.racks) ? new Set(req.racks) : undefined;
+  const inGroup = group.createMemberMatcher(req);
   return (d) => {
     if (keySet != null && !keySet.has(d.key)) return false;
     if (nameSet != null && !nameSet.has(d.name)) return false;
@@ -159,7 +169,7 @@ const requestFilter = (
     if (modelSet != null && !modelSet.has(d.model)) return false;
     if (locationSet != null && !locationSet.has(d.location)) return false;
     if (rackSet != null && !rackSet.has(d.rack)) return false;
-    return true;
+    return inGroup(d);
   };
 };
 
@@ -380,6 +390,27 @@ export class Client extends query.Retriever<
         ),
     });
     rename();
+  }
+
+  /**
+   * Moves the devices into the group, or out of their group when it is null or
+   * undefined.
+   * @throws {ValidationError} if the group does not sit under a device's rack.
+   */
+  async setGroup(
+    keys: Key | Key[],
+    to?: group.Key | null,
+    opts: query.WriteOptions = {},
+  ): Promise<void> {
+    const { endpoint, payload } = setGroupRequest(keys, to);
+    const move = () => group.moveCached(this.store, payload.keys, payload.group);
+    await query.optimistic({
+      rollbacks: [move()],
+      onOptimistic: opts.onOptimistic,
+      commit: async () =>
+        await this.cfg.unary.send(endpoint, payload, setGroupReqZ, emptyResZ),
+    });
+    move();
   }
 
   /** Subscribes to every device set delivered to the cache. Statuses excluded. */

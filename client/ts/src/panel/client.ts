@@ -12,6 +12,7 @@ import { array, type destructor, errors, primitive, zod } from "@synnaxlabs/x";
 import { z } from "zod";
 
 import { actions } from "@/actions";
+import { group } from "@/group";
 import { ontology } from "@/ontology";
 import { createOf, kindOf, reduceAll } from "@/panel/actions";
 import {
@@ -35,7 +36,7 @@ import { resource } from "@/resource";
 export const SET_CHANNEL_NAME = "sy_panel_set";
 export const DELETE_CHANNEL_NAME = "sy_panel_delete";
 
-const retrieveReqZ = z.object({
+const retrieveReqZ = group.memberFilterZ.extend({
   keys: keyZ.array().optional(),
   parent: resource.idZ.optional(),
   searchTerm: z.string().optional(),
@@ -51,6 +52,14 @@ const deleteReqZ = z.object({ keys: keyZ.array() });
 const retrieveResZ = z.object({ panels: panelZ.array().default(() => []) });
 const createResZ = z.object({ panels: panelZ.array() });
 const emptyResZ = z.object({});
+const setGroupReqZ = group.moveReqZ(keyZ);
+
+/**
+ * Builds a request that moves the panels into the group, or out of their group when it
+ * is null or undefined.
+ */
+export const setGroupRequest = (keys: Key | Key[], to?: group.Key | null) =>
+  group.moveRequest("/panel/set-group", keys, to);
 
 const isChildOf = (rel: ontology.Relationship, parent: resource.ID): boolean =>
   ontology.matchRelationship(rel, {
@@ -60,12 +69,13 @@ const isChildOf = (rel: ontology.Relationship, parent: resource.ID): boolean =>
   });
 
 /**
- * Client-side matching for a request: exact for key sets. Server-computed
- * shapes (search, limit/offset) never reach this filter; they refetch instead.
+ * Client-side matching for a request: key and group sets. Server-computed shapes
+ * (search, limit/offset) never reach this filter; they refetch instead.
  */
 const requestFilter = (req: RetrieveRequest): ((p: Panel) => boolean) => {
   const keySet = primitive.isNonZero(req.keys) ? new Set(req.keys) : undefined;
-  return (p) => keySet == null || keySet.has(p.key);
+  const inGroup = group.createMemberMatcher(req);
+  return (p) => (keySet == null || keySet.has(p.key)) && inGroup(p);
 };
 
 export interface ClientConfig {
@@ -278,6 +288,26 @@ export class Client extends query.Retriever<typeof retrieveMultiParamsZ, Key, Pa
         ),
     });
     drop();
+  }
+
+  /**
+   * Moves the panels into the group, or out of their group when it is null or
+   * undefined.
+   */
+  async setGroup(
+    keys: Key | Key[],
+    to?: group.Key | null,
+    opts: query.WriteOptions = {},
+  ): Promise<void> {
+    const { endpoint, payload } = setGroupRequest(keys, to);
+    const move = () => group.moveCached(this.store, payload.keys, payload.group);
+    await query.optimistic({
+      rollbacks: [move()],
+      onOptimistic: opts.onOptimistic,
+      commit: async () =>
+        await this.cfg.unary.send(endpoint, payload, setGroupReqZ, emptyResZ),
+    });
+    move();
   }
 
   /** Subscribes to every panel delete delivered to the cache. */

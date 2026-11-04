@@ -119,10 +119,21 @@ describe("Client", () => {
       await expect(read).rejects.toThrow(/cannot open iterator on virtual channel/);
     });
   });
-  describe("retrieveGroup", () => {
-    it("should correctly retrieve the main channel group", async () => {
-      const group = await client.channels.retrieveGroup();
-      expect(group.name).toEqual("Channels");
+  describe("setGroup", () => {
+    it("should move channels into a group and back out", async () => {
+      const ch = await client.channels.create({
+        name: id.create(),
+        dataType: "float32",
+        virtual: true,
+      });
+      const g = await client.groups.create({ name: id.create(), scope: "channel" });
+      await client.channels.setGroup(ch.key, g.key);
+      expect((await client.channels.retrieve(ch.key)).group).toEqual(g.key);
+      expect(
+        (await client.channels.retrieve({ groups: [g.key] })).map((c) => c.key),
+      ).toEqual([ch.key]);
+      await client.channels.setGroup(ch.key, null);
+      expect(await client.channels.retrieve({ groups: [g.key] })).toEqual([]);
     });
   });
   describe("readLatestN", () => {
