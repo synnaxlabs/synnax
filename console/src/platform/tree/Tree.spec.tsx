@@ -1140,6 +1140,24 @@ describe("Tree.Tree search", () => {
     expect(await findTreeRow(names.golf)).toBeTruthy();
   });
 
+  it("should show every child of a matched group that matches again", async () => {
+    const { root, tok, names } = await createSearchTree();
+    await renderSearchable(root);
+    searchTree(tok);
+    await findTreeRow(itemName(names.charlie));
+    fireEvent.click(getIconButton(document.body, "tree-view"));
+    await findTreeRow(names.golf);
+    const field = screen.getByPlaceholderText(/^Search /);
+    fireEvent.change(field, { target: { value: names.echo } });
+    await waitFor(() =>
+      expect(
+        screen.queryByText(names.golf, { ignore: ".console-tree--hidden *" }),
+      ).toBeNull(),
+    );
+    fireEvent.change(field, { target: { value: tok } });
+    expect(await findTreeRow(names.golf)).toBeTruthy();
+  });
+
   it("should bring the tree back as it was when the search closes", async () => {
     const { root, tok, names } = await createSearchTree();
     await renderSearchable(root);

@@ -462,14 +462,20 @@ const Internal = ({
     releaseChildren(
       [...watchedRef.current.keys()].filter((key) => results.fixed.has(key)),
     );
-    setNodes((prev) =>
-      keepWatchedChildren(
-        prev,
-        results.nodes,
-        watchedRef.current,
-        placeholders.hasItem,
+    const next = keepWatchedChildren(
+      nodesRef.current,
+      results.nodes,
+      watchedRef.current,
+      placeholders.hasItem,
+    );
+    // A group the results leave out loses its watch, so it loads its children again
+    // when it comes back.
+    releaseChildren(
+      [...watchedRef.current.keys()].filter(
+        (key) => Base.findNode({ tree: next, key }) == null,
       ),
     );
+    setNodes(next);
     // An open group that starts to match gets no expand, so it loads its children here.
     expanded
       .filter(
