@@ -349,6 +349,7 @@ var _ = Describe("Service", func() {
 			return t
 		}
 		retrieveRunning := func(g Gomega, ctx SpecContext, t task.Task) bool {
+			GinkgoHelper()
 			var stat task.Status
 			g.Expect(svc.Status.NewRetrieve[task.StatusDetails]().
 				Where(status.MatchKeys[task.StatusDetails](t.OntologyID().String())).
