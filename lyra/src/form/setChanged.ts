@@ -14,12 +14,14 @@ import { type ContextValue } from "@/form/Context";
 const sameKeys = (a: string[], b: string[]): boolean =>
   a.length === b.length && a.every((key, i) => key === b[i]);
 
-const child = (path: string, key: string): string =>
-  path === "" ? key : `${path}.${key}`;
+type Writer = Pick<ContextValue, "batch" | "set">;
 
-type Target = Pick<ContextValue, "batch" | "set">;
-
-const write = (ctx: Target, path: string, prev: unknown, next: unknown): void => {
+const write = (
+  ctx: Writer,
+  path: deep.Path<unknown>,
+  prev: unknown,
+  next: unknown,
+): void => {
   if (prev === next) return;
   if (array.isKeyed(prev) && array.isKeyed(next)) {
     const keys = next.map(({ key }) => key);
@@ -29,14 +31,14 @@ const write = (ctx: Target, path: string, prev: unknown, next: unknown): void =>
         keys,
       )
     ) {
-      next.forEach((entry, i) => write(ctx, child(path, keys[i]), prev[i], entry));
+      next.forEach((entry, i) => write(ctx, path[keys[i]], prev[i], entry));
       return;
     }
   }
   if (narrow.isPlainObject(prev) && narrow.isPlainObject(next)) {
     const keys = Object.keys(next);
     if (sameKeys(Object.keys(prev).sort(), [...keys].sort())) {
-      keys.forEach((key) => write(ctx, child(path, key), prev[key], next[key]));
+      keys.forEach((key) => write(ctx, path[key], prev[key], next[key]));
       return;
     }
   }
@@ -51,8 +53,8 @@ const write = (ctx: Target, path: string, prev: unknown, next: unknown): void =>
  * set whole.
  */
 export const setChanged = (
-  ctx: Target,
-  path: string,
+  ctx: Writer,
+  path: deep.Target<unknown>,
   base: unknown,
   next: unknown,
-): void => ctx.batch(() => write(ctx, path, base, next));
+): void => ctx.batch(() => write(ctx, deep.widen<unknown>(path), base, next));

@@ -24,7 +24,7 @@ import { beforeAll, describe, expect, it, vi } from "vitest";
 import { type z } from "zod";
 
 import { framer } from "@/framer";
-import { MultipleFoundError, NotFoundError } from "@/index";
+import { MultipleFoundError, NotFoundError, type Synnax } from "@/index";
 import { label } from "@/label";
 import { ontology } from "@/ontology";
 import { query } from "@/query";
@@ -679,6 +679,65 @@ describe("cached reads", () => {
       await client.ranges.retrieve(b.key);
       const res = await client.ranges.retrieve([a.key, b.key]);
       expect(res.map((r) => r.key)).toEqual([a.key, b.key]);
+    });
+  });
+
+  describe("writes during a fetch", () => {
+    const cachedName = (c: Synnax, key: ranger.Key): string | undefined => {
+      const cached = c.ranges.getCached(key);
+      return query.isLive(cached) ? cached.name : undefined;
+    };
+
+    const expectRenameKept = async (
+      fetch: (local: Synnax, rng: ranger.Range) => Promise<unknown>,
+    ) => {
+      const rng = await createRange();
+      const local = createTestClient();
+      await local.connect();
+      await waitForStreamLive(local.connection);
+      await local.ranges.retrieve(rng.key);
+      const { responded, release } = holdResponses(local, "/range/retrieve");
+      const fetching = fetch(local, rng);
+      await responded;
+      const renamed = `qry-renamed-${id.create()}`;
+      await remote.ranges.rename(rng.key, renamed);
+      await expect.poll(() => cachedName(local, rng.key)).toBe(renamed);
+      release();
+      await fetching;
+      expect(cachedName(local, rng.key)).toBe(renamed);
+    };
+
+    it("does not fetch a parent that arrives with its child", async () => {
+      const token = `fam_${id.create()}`;
+      const parent = await createRange(client, { name: `${token} parent` });
+      await createRange(client, {
+        name: `${token} child`,
+        parent: { key: parent.key },
+      });
+      const local = createTestClient();
+      const send = spyOnSend(local);
+      const found = await local.ranges.retrieve({ searchTerm: token });
+      expect(found).toHaveLength(2);
+      // Goes through the same fetch queue, so any parent backfill has gone out first.
+      await local.ranges.retrieve((await createRange()).key);
+      const parentFetches = send.mock.calls.filter(
+        ([target, req]) =>
+          target === "/range/retrieve" &&
+          (req as ranger.RetrieveRequest).where?.key?.in?.includes(parent.key) === true,
+      );
+      expect(parentFetches).toHaveLength(0);
+    });
+
+    it("keeps a change that streams in during a search", async () => {
+      await expectRenameKept(
+        async (local, rng) => await local.ranges.retrieve({ searchTerm: rng.name }),
+      );
+    });
+
+    it("keeps a change that streams in during a retrieve by name", async () => {
+      await expectRenameKept(
+        async (local, rng) => await local.ranges.retrieve(rng.name),
+      );
     });
   });
 

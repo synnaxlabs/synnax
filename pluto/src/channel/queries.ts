@@ -11,6 +11,7 @@ import { channel, DataType, type group, query, type ranger } from "@synnaxlabs/c
 import {
   array,
   control,
+  deep,
   type optional,
   primitive,
   TimeSpan,
@@ -47,6 +48,8 @@ export const formSchema = channel.payloadZ
     path: ["index"],
   });
 
+export const formPath = deep.path<z.infer<typeof formSchema>>();
+
 export const calculatedFormSchema = formSchema.safeExtend({
   expression: z
     .string()
@@ -55,6 +58,8 @@ export const calculatedFormSchema = formSchema.safeExtend({
       message: "Expression must contain a return statement",
     }),
 });
+
+export const calculatedFormPath = deep.path<z.infer<typeof calculatedFormSchema>>();
 
 const ZERO_OPERATION: channel.Operation = {
   type: "none",
@@ -154,7 +159,7 @@ const updateForm = async ({
   const values = value();
   if (values.requires != null) delete values.requires;
   const ch = await client.channels.create(values);
-  set("key", ch.key);
+  set(formPath.key, ch.key);
 };
 
 export type FormQuery = RetrieveQuery;

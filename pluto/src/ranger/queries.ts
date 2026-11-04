@@ -9,7 +9,7 @@
 
 import { label, type ontology, ranger } from "@synnaxlabs/client";
 import { type List } from "@synnaxlabs/lyra/list";
-import { type NumericTimeRange, primitive, verbs } from "@synnaxlabs/x";
+import { deep, type NumericTimeRange, primitive, verbs } from "@synnaxlabs/x";
 import { useEffect } from "react";
 import { z } from "zod";
 
@@ -117,6 +117,8 @@ export const createFormSchema = z.object({
   timeRange: timeRangeZ,
 });
 
+export const createFormPath = deep.path<z.infer<typeof createFormSchema>>();
+
 const ZERO_CREATE_FORM_VALUES: z.infer<typeof createFormSchema> = {
   name: "",
   labels: [],
@@ -154,6 +156,8 @@ export const formSchema = z.object({
   name: z.string().min(1, "Name is required"),
   timeRange: timeRangeZ,
 });
+
+export const formPath = deep.path<z.infer<typeof formSchema>>();
 
 /** A form over the name and time range of a cached range. */
 export const useForm = Flux.createDocumentForm<
@@ -207,6 +211,8 @@ export const useListMetaData = Flux.createList<
 });
 
 export const kvPairFormSchema = ranger.kv.pairZ;
+
+export const kvPairFormPath = deep.path<z.infer<typeof kvPairFormSchema>>();
 
 const ZERO_KV_PAIR_FORM_VALUES: z.infer<typeof kvPairFormSchema> = {
   key: "",

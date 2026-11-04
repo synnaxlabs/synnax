@@ -17,6 +17,8 @@ import { Symbol } from "@/schematic/symbol";
 import { renderHookSuspended } from "@/testutil/render";
 import { createAsyncSynnaxWrapper } from "@/testutil/Synnax";
 
+const path = Symbol.formPath;
+
 describe("Symbol queries", () => {
   let controller: AbortController;
   const client = createTestClient();
@@ -269,15 +271,15 @@ describe("Symbol queries", () => {
       const { result } = renderHook(() => Symbol.useForm({ query: null }), { wrapper });
 
       await act(async () => {
-        result.current.form.set("name", "created-symbol");
-        result.current.form.set("data.svg", "<svg>created</svg>");
-        result.current.form.set("parent", group.ontologyID(parent.key));
+        result.current.form.set(path.name, "created-symbol");
+        result.current.form.set(path.data.svg, "<svg>created</svg>");
+        result.current.form.set(path.parent, group.ontologyID(parent.key));
         result.current.save();
       });
 
       const key = await waitFor(async () => {
         expect(result.current.variant).toEqual("success");
-        const key = result.current.form.get<string>("key", { optional: true })?.value;
+        const key = result.current.form.get(path.key, { optional: true })?.value;
         expect(key).toBeDefined();
         return key;
       });
@@ -325,9 +327,9 @@ describe("Symbol queries", () => {
           () => Symbol.useForm({ query: { key: symbol.key } }),
           { wrapper },
         );
-        expect(result.current.form.get("name").value).toBe("warm-symbol");
-        expect(result.current.form.get("data.svg").value).toBe("<svg>warm</svg>");
-        expect(result.current.form.get("parent").value).toEqual(
+        expect(result.current.form.get(path.name).value).toBe("warm-symbol");
+        expect(result.current.form.get(path.data.svg).value).toBe("<svg>warm</svg>");
+        expect(result.current.form.get(path.parent).value).toEqual(
           group.ontologyID(parent.key),
         );
       } finally {
@@ -364,16 +366,18 @@ describe("Symbol queries", () => {
       );
 
       await waitFor(() => {
-        expect(result.current.form.get("name").value).toBe("original-name");
-        expect(result.current.form.get("parent").value).toEqual(
+        expect(result.current.form.get(path.name).value).toBe("original-name");
+        expect(result.current.form.get(path.parent).value).toEqual(
           group.ontologyID(parent.key),
         );
-        expect(result.current.form.get("data.svg").value).toBe("<svg>original</svg>");
+        expect(result.current.form.get(path.data.svg).value).toBe(
+          "<svg>original</svg>",
+        );
       });
 
       await act(async () => {
-        result.current.form.set("name", "updated-name");
-        result.current.form.set("data.svg", "<svg>updated</svg>");
+        result.current.form.set(path.name, "updated-name");
+        result.current.form.set(path.data.svg, "<svg>updated</svg>");
         result.current.save();
       });
 

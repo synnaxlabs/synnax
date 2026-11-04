@@ -154,9 +154,7 @@ const Actions = (): ReactElement | null => {
         </Toolbar.Action>
       )}
       {hasCreatePermission && (
-        <Toolbar.Action tooltip="Create status" onClick={() => openCreate()}>
-          <Icon.Add />
-        </Toolbar.Action>
+        <Toolbar.CreateAction tooltip="Create status" onClick={() => openCreate()} />
       )}
     </Toolbar.Actions>
   );

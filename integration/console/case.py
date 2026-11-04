@@ -8,7 +8,7 @@
 #  included in the file licenses/APL.txt.
 
 import random
-from typing import Any, cast
+from typing import Unpack
 from urllib.request import urlopen
 from uuid import uuid4
 
@@ -24,8 +24,8 @@ from playwright.sync_api import TimeoutError as PlaywrightTimeoutError
 
 import synnax as sy
 from console.console import Console
-from framework.models import DEFAULT_CONNECTION, STATUS, SynnaxConnection
-from framework.test_case import TestCase
+from framework.models import STATUS
+from framework.test_case import Config, TestCase, param
 
 
 class ConsoleCase(TestCase):
@@ -45,14 +45,8 @@ class ConsoleCase(TestCase):
     default_nav_timeout: int
     console: Console
 
-    def __init__(
-        self,
-        *,
-        synnax_connection: SynnaxConnection = DEFAULT_CONNECTION,
-        name: str,
-        **params: Any,
-    ) -> None:
-        super().__init__(synnax_connection=synnax_connection, name=name, **params)
+    def __init__(self, **kwargs: Unpack[Config]) -> None:
+        super().__init__(**kwargs)
         self.playwright = None
         self._cleanup_pages: list[str] = []
         self._project: sy.Project | None = None
@@ -74,15 +68,15 @@ class ConsoleCase(TestCase):
         self._bootstrap_project()
 
     def _launch_browser(self) -> None:
-        headed = self.params.get("headed", self.options.headed)
-        slow_mo = self.params.get("slow_mo", self.options.slow_mo)
-        default_timeout = self.params.get("default_timeout", 15000)  # 15s
-        default_nav_timeout = self.params.get("default_nav_timeout", 15000)  # 15s
+        headed = param(self.params, "headed", self.options.headed)
+        slow_mo = param(self.params, "slow_mo", self.options.slow_mo)
+        default_timeout = param(self.params, "default_timeout", 15000)  # 15s
+        default_nav_timeout = param(self.params, "default_nav_timeout", 15000)  # 15s
 
         # Open page
         self.log(f"Opening browser in {'headed' if headed else 'headless'} mode")
         self.playwright = sync_playwright().start()
-        browser_engine = self.determine_browser()
+        browser_engine = self.determine_browser(self.playwright)
         # Playwright cannot drive the File System Access save picker, so remove the
         # local pickers; exports then fall back to plain downloads, which
         # expect_download captures. Inputs (expect_file_chooser) are unaffected.
@@ -208,7 +202,7 @@ class ConsoleCase(TestCase):
             # debugging aid, not a correctness requirement.
             self.log(f"Failed to stop trace: {e}")
 
-    def determine_browser(self) -> BrowserType:
+    def determine_browser(self, playwright: Playwright) -> BrowserType:
         """
         Provide random coverage for all browsers.
         """
@@ -216,8 +210,7 @@ class ConsoleCase(TestCase):
         # SY-2928
         # Firefox failing in CI only
         # Webkit failing on Win in CI
-        browsers = ["chromium"]
+        browsers = [playwright.chromium]
         selected = random.choice(browsers)
-        self.log(f"Randomly selected browser: {selected}")
-        browser_attr = getattr(self.playwright, selected)
-        return cast(BrowserType, browser_attr)
+        self.log(f"Randomly selected browser: {selected.name}")
+        return selected

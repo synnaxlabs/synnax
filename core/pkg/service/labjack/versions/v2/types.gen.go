@@ -267,7 +267,8 @@ type ReadChannelVariant interface {
 // AnalogReadChannel reads a voltage from an analog input port.
 type AnalogReadChannel struct {
 	BaseReadChannel
-	// Range is the upper bound of the voltage input range, in Volts.
+	// Range is the largest voltage magnitude the channel reads, in Volts. The channel
+	// uses the smallest range of the device that covers it.
 	Range float64 `json:"range" msgpack:"range"`
 	// NegChan is the negative channel for differential readings on T7 devices. 199
 	// selects single-ended.
@@ -318,7 +319,8 @@ type ThermocoupleReadChannel struct {
 	// selects single-ended.
 	NegChan int32 `json:"neg_chan" msgpack:"neg_chan"`
 	// CjcSource selects the cold-junction-compensation source: the device sensor
-	// ('TEMPERATURE_DEVICE_K'), ambient air ('TEMPERATURE_AIR_K'), or an AIN port (e.g.
+	// ('TEMPERATURE_DEVICE_K', which on a T8 is the sensor at the thermocouple's own
+	// terminal), ambient air ('TEMPERATURE_AIR_K', not on a T8), or an AIN port (e.g.
 	// 'AIN2').
 	CjcSource string `json:"cjc_source" msgpack:"cjc_source"`
 	// CjcSlope is the CJC voltage-to-temperature slope, in Kelvin per Volt.

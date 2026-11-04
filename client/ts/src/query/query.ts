@@ -179,6 +179,11 @@ export interface SpaceConfig<
   /** Rule 1: the single key a query addresses, or null when it doesn't. */
   keyOf?: (params: P) => K | null;
   /**
+   * Rule 1: whether a table entry alone answers the query. Defaults to true. A query
+   * its entry does not cover fetches, and the query then holds that answer.
+   */
+  covers?: (record: V, params: P) => boolean;
+  /**
    * The exact key set a keys-only query addresses, or null when it doesn't. Lets
    * getCached compose the answer straight from the table (params order, deduped,
    * tombstoned members omitted) and lets maintenance seed a ready answer on
@@ -353,7 +358,10 @@ export class Space<
     if (key != null) {
       const { table } = this.config;
       const entry = table.get(key);
-      if (entry != null) return this.entryAnswerOf(entry, params);
+      if (entry != null)
+        return this.covers(entry, params)
+          ? this.entryAnswerOf(entry, params)
+          : undefined;
       const tombstone = table.getTombstone(key);
       if (tombstone == null) return undefined;
       return this.deletedOf(tombstone, params);
@@ -537,6 +545,10 @@ export class Space<
     return undefined;
   }
 
+  private covers(entry: V, params: P): boolean {
+    return this.config.covers?.(entry, params) !== false;
+  }
+
   /** Composes a rule-1 answer for a read with no live query, interned per entry
    *  and params. The memo dies with the entry it is keyed on, which a table
    *  replaces on every content change. */
@@ -663,6 +675,12 @@ export class Space<
     const loading: QueryState<K, D> = { variant: "loading", promise };
     query.state = loading;
     return promise;
+  }
+
+  /** Starts a fetch that subscribers have no caller for and that reads join. */
+  private fetchUncovered(query: Query<P, K, D, V>): void {
+    if (query.state.variant === "loading") return;
+    this.fetch(query).catch((exc: unknown) => this.report(exc));
   }
 
   /** Never rejects: a failed refetch leaves the previous answer in place. */
@@ -795,18 +813,26 @@ export class Space<
       // query owns an in-flight promise its own settle will resolve.
       if (query.state.variant !== "loading") {
         const status = table.status(key);
-        if (status === "present" && query.state.variant !== "ready") {
-          query.state = { variant: "ready", keys: [key] };
-          this.touch(query);
-        } else if (status === "tombstoned" && query.state.variant !== "deleted") {
+        if (status === "present" && query.state.variant !== "ready")
+          if (this.covers(table.get(key) as V, params)) {
+            query.state = { variant: "ready", keys: [key] };
+            this.touch(query);
+          } else this.fetchUncovered(query);
+        else if (status === "tombstoned" && query.state.variant !== "deleted") {
           query.state = { variant: "deleted", key };
           this.touch(query);
         }
       }
       teardown.push(
         table.subscribe((event) => {
-          if (event.variant === "set") query.state = { variant: "ready", keys: [key] };
-          else
+          if (event.variant === "set") {
+            const { variant } = query.state;
+            if (variant !== "ready" && !this.covers(event.value, params)) {
+              this.fetchUncovered(query);
+              return;
+            }
+            query.state = { variant: "ready", keys: [key] };
+          } else
             query.state =
               table.status(key) === "tombstoned"
                 ? { variant: "deleted", key }

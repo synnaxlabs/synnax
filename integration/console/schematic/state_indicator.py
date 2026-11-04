@@ -7,9 +7,8 @@
 #  License, use of this software will be governed by the Apache License, Version 2.0,
 #  included in the file licenses/APL.txt.
 
-from typing import Any
 
-from console.schematic.symbol import Symbol
+from console.schematic.symbol import Option, Symbol
 
 
 class StateIndicator(Symbol):
@@ -22,7 +21,7 @@ class StateIndicator(Symbol):
         *,
         label: str,
         channel_name: str,
-        options: list[dict[str, Any]] | None = None,
+        options: list[Option] | None = None,
     ):
         """Initialize a state indicator symbol with configuration.
 
@@ -43,18 +42,15 @@ class StateIndicator(Symbol):
         self,
         *,
         channel_name: str | None = None,
-        options: list[dict[str, Any]] | None = None,
-        **kwargs: Any,
-    ) -> dict[str, Any]:
+        options: list[Option] | None = None,
+    ) -> None:
         self.click()
-        applied_properties: dict[str, Any] = {}
 
         if channel_name is not None:
             self.set_label(channel_name)
             self.open_properties_tab()
             self.page.get_by_text("Telemetry").click()
             self.set_channel(section="State", channel_name=channel_name)
-            applied_properties["channel"] = channel_name
 
         if options is not None and len(options) > 0:
             self.click()
@@ -71,9 +67,6 @@ class StateIndicator(Symbol):
                 name_input.fill(option["name"])
                 value_input = last_item.locator("input").nth(1)
                 value_input.fill(str(option["value"]))
-            applied_properties["options"] = options
-
-        return applied_properties
 
     def get_label(self) -> str:
         """Read the currently displayed state label text.

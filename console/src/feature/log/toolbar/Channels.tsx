@@ -8,7 +8,6 @@
 // included in the file licenses/APL.txt.
 
 import { type channel, log } from "@synnaxlabs/client";
-import { Button } from "@synnaxlabs/lyra/button";
 import { Color } from "@synnaxlabs/lyra/color";
 import { Flex } from "@synnaxlabs/lyra/flex";
 import { Icon } from "@synnaxlabs/lyra/icon";
@@ -125,7 +124,8 @@ const ChannelRow = ({
             <Input.Numeric
               value={precision}
               onChange={handlePrecisionChange}
-              placeholder="Auto"
+              onClear={() => handlePrecisionChange()}
+              endContent={precision == null ? <Input.AutoChip /> : undefined}
               bounds={PRECISION_BOUNDS}
               disabled={disabled}
               shrink={false}
@@ -135,18 +135,12 @@ const ChannelRow = ({
               className={CSS.BE("log", "channel-precision")}
               showDragHandle={false}
             >
-              <Button.Button
-                variant="outlined"
-                disabled={disabled || precision == null}
-                onClick={() => handlePrecisionChange()}
-                tooltip={
-                  precision == null
-                    ? "Type a number to disable auto precision"
-                    : "Enable auto precision"
-                }
-              >
-                <Icon.Auto />
-              </Button.Button>
+              {precision != null && (
+                <Input.AutoButton
+                  disabled={disabled}
+                  onClick={() => handlePrecisionChange()}
+                />
+              )}
             </Input.Numeric>
           </>
         )}

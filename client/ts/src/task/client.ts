@@ -438,7 +438,13 @@ export class Client extends query.Retriever<
       encode: (task, action) => encode(task.payload, action),
       createOf: (action) => {
         const created = createOf(action);
-        return created == null ? undefined : this.sugar(created);
+        if (created == null) return undefined;
+        // The status streams on its own channel and can land after the task, so the
+        // status the create carries fills in until it does.
+        const carried =
+          action.type === "create" ? action.create.task.status : undefined;
+        if (carried != null) statusStore.ingest(carried, { mode: "if-absent" });
+        return this.sugar(created);
       },
     });
     cache.listen(dispatcher.listener(ACTION_CHANNEL_NAME, scopedActionZ));

@@ -368,22 +368,46 @@ again.
 
 <Divider.Divider x />
 
-## No configuration file was found
+## No connection parameters were given
 
 ```
-ValidationError: No options provided and no configuration file was found. Please provide options or login via the CLI using the `sy login` command.
+ValidationError: No connection parameters were given and none are saved. Open Synnax Desktop, log in with `sy login`, or give a host and a port.
 ```
 
 <Problem.Body>
 <Problem.Cause>
 
-You created a Python client with no arguments, and there is no saved login.
+You created a Python client with no arguments. There is no saved login, and Synnax
+Desktop has not run on this computer.
 
 </Problem.Cause>
 <Problem.Fix>
 
-Run `sy login`, or give the connection values to `sy.Synnax`. See
+Open Synnax Desktop, run `sy login`, or give the connection values to `sy.Synnax`. See
 [Connect to a Core](/reference/client/connect).
+
+</Problem.Fix>
+</Problem.Body>
+
+<Divider.Divider x />
+
+## Synnax Desktop is not running
+
+```
+Synnax Desktop is not running. Open it and try again. To connect to another Core, give a host and a port.
+```
+
+<Problem.Body>
+<Problem.Cause>
+
+You created a Python client with no arguments, and it found the Core of
+[Synnax Desktop](/reference/client/connect#connect-to-synnax-desktop). Synnax Desktop is
+closed, or its Core has not started.
+
+</Problem.Cause>
+<Problem.Fix>
+
+Open Synnax Desktop and wait until the workspace shows, then run the script again.
 
 </Problem.Fix>
 </Problem.Body>

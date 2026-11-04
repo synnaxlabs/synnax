@@ -13,6 +13,7 @@ export * from "@/platform/device/checkFound";
 export * from "@/platform/device/Configure";
 export * from "@/platform/device/ConfigureMenuItem";
 export * from "@/platform/device/ConnectFooter";
+export * from "@/platform/device/ConnectFrame";
 export * from "@/platform/device/createConnectModal";
 export * from "@/platform/device/EditConnectionMenuItem";
 export * from "@/platform/device/Empty";
