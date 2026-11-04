@@ -15,6 +15,7 @@
 #include <mutex>
 #include <optional>
 #include <string>
+#include <thread>
 #include <unordered_map>
 #include <utility>
 #include <vector>
@@ -28,6 +29,7 @@
 
 #include "driver/opcua/certificate/certificate.h"
 #include "driver/opcua/certificate/store.h"
+#include "driver/opcua/types/types.h"
 
 namespace driver::opcua::connection {
 /// @brief the configuration for an OPC UA connection.
@@ -52,13 +54,12 @@ struct Config {
     std::optional<certificate::Certificate> server_certificate;
     /// @brief whether the connection accepts any server certificate.
     bool certificate_validation_disabled = false;
-    /// @brief SecureChannel lifetime in milliseconds. 0 = use default (2 hours).
-    /// For testing, can be set to short values like 10000 (10 seconds).
+    /// @brief the SecureChannel lifetime in milliseconds. 0 selects 10 minutes.
     uint32_t secure_channel_lifetime_ms = 0;
-    /// @brief Session timeout in milliseconds. 0 = use default (4 hours).
-    /// For testing, can be set to short values like 20000 (20 seconds).
+    /// @brief the Session timeout in milliseconds. 0 selects 20 minutes.
     uint32_t session_timeout_ms = 0;
-    /// @brief General client timeout in milliseconds. 0 = use default (2 hours).
+    /// @brief the timeout of each request and connection attempt in milliseconds. 0
+    /// selects 5 seconds.
     uint32_t client_timeout_ms = 0;
 
     Config() = default;
@@ -131,9 +132,16 @@ resolve_security(const Config &cfg, certificate::Store &store);
 std::pair<std::shared_ptr<UA_Client>, x::errors::Error>
 connect(const Config &cfg, const Security &sec, std::string log_prefix);
 
-/// @brief connects the client again with the security it was created with.
+/// @brief closes the client's channel and connects it again with the security it was
+/// created with. The server activates the client's Session again, or the client creates
+/// a new one if the server dropped it.
 x::errors::Error
 reconnect(const std::shared_ptr<UA_Client> &client, const std::string &endpoint);
+
+/// @returns errors::NO_CONNECTION if the client has no open channel or no active
+/// Session. Check it before each service call: a call on a lost connection connects
+/// again by itself, outside the Pool's breaker.
+x::errors::Error lost(UA_Client *client);
 
 /// @returns the certificate that the server presented on the client's last
 /// connection attempt, or nothing if the connection is not secured.
@@ -179,7 +187,24 @@ public:
         [[nodiscard]] std::shared_ptr<UA_Client> shared() const { return client_; }
         explicit operator bool() const { return client_ != nullptr; }
 
+        /// @brief reads the attributes that req names.
+        /// @returns errors::NO_CONNECTION without sending req when the connection is
+        /// lost, or the error of the service result.
+        [[nodiscard]] std::pair<types::ReadResponse, x::errors::Error>
+        read(const UA_ReadRequest &req) const;
+
+        /// @brief writes the values in req.
+        /// @returns errors::NO_CONNECTION without sending req when the connection is
+        /// lost, or the error of the service result.
+        [[nodiscard]] std::pair<types::WriteResponse, x::errors::Error>
+        write(const UA_WriteRequest &req) const;
+
     private:
+        /// @returns the error of the service result of a call. A call that fails for a
+        /// lost connection closes the channel, so the next acquire connects again at
+        /// once instead of probing first. Any other result records a reply.
+        [[nodiscard]] x::errors::Error check(UA_StatusCode result) const;
+
         std::shared_ptr<UA_Client> client_;
         Pool *pool_;
         std::string key_;
@@ -187,16 +212,35 @@ public:
         friend class Pool;
     };
 
+    /// @brief how long a Pool keeps idle connections and pauses failed attempts.
+    struct Timing {
+        /// @brief how long a connection stays open while no one uses it.
+        std::chrono::milliseconds idle_timeout = IDLE_TIMEOUT;
+        /// @brief the first pause of the attempts to a server after three failures in a
+        /// row.
+        std::chrono::milliseconds min_cooldown = MIN_COOLDOWN;
+        /// @brief the longest pause. Each pause in a row doubles up to it.
+        std::chrono::milliseconds max_cooldown = MAX_COOLDOWN;
+    };
+
     /// @param store the source of the Driver certificate for secured connections.
     explicit Pool(std::shared_ptr<certificate::Store> store);
-    ~Pool() = default;
+    Pool(std::shared_ptr<certificate::Store> store, Timing timing);
+    /// @brief blocks while it sends CloseSession for each connection.
+    ~Pool();
 
     Pool(const Pool &) = delete;
     Pool &operator=(const Pool &) = delete;
 
-    /// @brief returns a connection to the server, reusing an idle one with the same
-    /// configuration and client identity. A new connection with no server
+    /// @brief returns a connection to the server. It reuses an idle connection with the
+    /// same configuration and client identity, and connects a lost one again in place,
+    /// so the server keeps one Session for it. A new connection with no server
     /// certificate in its Config trusts the first one that the server presents.
+    ///
+    /// The Pool makes one connection attempt to a server at a time. After three
+    /// failures in a row, it refuses attempts for a cooldown that starts at
+    /// Timing::min_cooldown and doubles up to Timing::max_cooldown. A connection that
+    /// no one uses for Timing::idle_timeout closes.
     std::pair<Connection, x::errors::Error>
     acquire(const Config &cfg, const std::string &log_prefix);
 
@@ -209,27 +253,38 @@ public:
     std::pair<bool, x::errors::Error>
     refresh(Connection &conn, const Config &cfg, const std::string &log_prefix);
 
+    /// @returns the time of the last reply from the server on a connection with the
+    /// configuration, or a zero timestamp if none replied.
+    x::telem::TimeStamp last_reply(const Config &cfg) const;
+
     size_t size() const;
     size_t available_count(const std::string &endpoint) const;
 
 private:
+    static constexpr int BREAKER_THRESHOLD = 3;
+    static constexpr std::chrono::seconds MIN_COOLDOWN{5};
+    static constexpr std::chrono::seconds MAX_COOLDOWN{30};
+    static constexpr std::chrono::seconds IDLE_TIMEOUT{60};
+
     struct Entry {
         std::shared_ptr<UA_Client> client;
         bool in_use;
         /// @brief whether the connection uses a replaced client certificate. A retired
         /// connection closes when it is released.
         bool retired;
+        /// @brief when the connection was last released.
+        std::chrono::steady_clock::time_point idle_since;
     };
 
-    /// @brief Per-endpoint circuit breaker state. Tracks consecutive
-    /// connection failures and enforces a cooldown period after
-    /// BREAKER_THRESHOLD failures to prevent session exhaustion.
+    /// @brief the connection attempts to one server. Failures in a row open the
+    /// breaker, which refuses attempts until cooldown_until, so that a server that
+    /// refuses Sessions is not flooded with them.
     struct BreakerState {
         int consecutive_failures = 0;
         std::chrono::steady_clock::time_point cooldown_until;
-        /// @brief True while a thread is actively connecting. Other
-        /// threads wait on connect_cv instead of creating parallel
-        /// connections that could exhaust the server's session table.
+        /// @brief the next pause, or zero for the first one.
+        std::chrono::milliseconds cooldown{0};
+        /// @brief true while a thread connects. Other threads wait on connect_cv.
         bool connecting = false;
         /// @brief the trusted server certificate of the counted failures. A new
         /// one resets the count.
@@ -239,22 +294,41 @@ private:
         /// @returns the error for an acquire that the open breaker refuses. A
         /// security error repeats, since waiting does not fix it.
         [[nodiscard]] x::errors::Error open_error() const;
+        [[nodiscard]] bool open() const;
+        void failed(
+            const x::errors::Error &err,
+            const Timing &timing,
+            const std::string &log_prefix
+        );
+        void succeeded();
     };
 
-    static constexpr int BREAKER_THRESHOLD = 3;
-    static constexpr std::chrono::milliseconds BREAKER_COOLDOWN{5000};
-
     std::shared_ptr<certificate::Store> store;
+    Timing timing;
     mutable std::mutex mutex_;
-    /// @brief notified when a connecting thread finishes, waking threads
-    /// that are waiting for a reusable connection.
+    /// @brief notified when a connecting thread finishes.
     std::condition_variable connect_cv;
+    /// @brief notified when a connection goes idle or the Pool closes.
+    std::condition_variable idle_cv;
+    bool closing = false;
     std::unordered_map<std::string, std::vector<Entry>> connections_;
     std::unordered_map<std::string, BreakerState> breakers;
     /// @brief the key of the client certificate that each group of settings uses now.
     std::unordered_map<std::string, std::string> current_keys;
+    /// @brief the time of the last reply from each server, by pool key.
+    std::unordered_map<std::string, x::telem::TimeStamp> replies;
 
     void release(const std::string &key, const std::shared_ptr<UA_Client> &client);
+
+    /// @brief records a reply from the server of key. Requires mutex_ not held.
+    void replied(const std::string &key);
+
+    /// @brief marks an idle entry of key that trusts cfg as in use, preferring one with
+    /// an active Session. Requires mutex_.
+    std::shared_ptr<UA_Client> take(const std::string &key, const Config &cfg);
+
+    /// @brief marks the entry of client as idle again. Requires mutex_.
+    void put_back(const std::string &key, const std::shared_ptr<UA_Client> &client);
 
     /// @brief records key as the client certificate that settings uses now. Removes
     /// the idle connections of the certificate it replaces and retires the ones in use.
@@ -262,17 +336,12 @@ private:
     std::vector<std::shared_ptr<UA_Client>>
     retire(const std::string &settings, const std::string &key);
 
-    /// @brief collects stale (non-activated) connections under the lock,
-    /// then sends CloseSession outside the lock to free server-side
-    /// session slots that would otherwise be orphaned.
-    void cleanup_stale_entries(const std::string &key, const std::string &log_prefix);
+    /// @brief closes each connection that no one used for the idle timeout, outside
+    /// mutex_, until the Pool closes.
+    void evict();
 
-    /// @brief Performs connection maintenance via run_iterate and verifies
-    /// session state.
-    x::errors::Error run_iterate_checked(
-        const std::shared_ptr<UA_Client> &client,
-        const std::string &log_prefix
-    );
+    /// @brief runs evict. It starts last, after the members it uses.
+    std::thread evictor;
 
     friend class Connection;
 };

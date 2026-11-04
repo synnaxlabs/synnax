@@ -126,6 +126,17 @@ const stripStatus = ({ status: _, ...device }: Device): Omit<Device, "status"> =
   device;
 
 /**
+ * Removes the fields that make the Core write a device's status and parent. Use it to
+ * send a retrieved device or a create reply back to {@link Client.create}: a reply
+ * carries a parent, and the Core writes the status of any device sent with one.
+ */
+export const toUpdate = <D extends Pick<Device, "status" | "parent">>({
+  status: _status,
+  parent: _parent,
+  ...device
+}: D): Omit<D, "status" | "parent"> => device;
+
+/**
  * Client-side matching for a request: key, name, make, model, location, and
  * rack sets. Server-computed shapes (search, pagination, parent resolution)
  * never reach this filter; they refetch instead.
@@ -321,6 +332,8 @@ export class Client extends query.Retriever<
       .toArray(devices)
       .map((device) => deviceZ(schemas).parse(device) as Device);
     const apply = () => [this.store.set(normalized.map(stripStatus))];
+    // A status streamed during the request is newer than the reply.
+    const since = this.cfg.statusStore.stamp();
     const res = await query.optimistic({
       rollbacks: apply(),
       onOptimistic: opts.onOptimistic,
@@ -331,6 +344,9 @@ export class Client extends query.Retriever<
           createReqZ(schemas),
           createResZ(schemas),
         ),
+    });
+    res.devices.forEach(({ status: st }) => {
+      if (st != null) this.cfg.statusStore.ingest(st, { since });
     });
     this.store.set(res.devices.map(stripStatus));
     return isSingle ? res.devices[0] : res.devices;

@@ -124,9 +124,7 @@ const Actions = ({ handleCreate }: ActionsProps): ReactElement | null => {
         </Toolbar.Action>
       )}
       {hasCreatePermission && (
-        <Toolbar.Action tooltip="Create Arc automation" onClick={handleCreate}>
-          <Icon.Add />
-        </Toolbar.Action>
+        <Toolbar.CreateAction tooltip="Create Arc automation" onClick={handleCreate} />
       )}
     </Toolbar.Actions>
   );

@@ -333,7 +333,12 @@ export const createForm: CreateForm = (
         data.key = uuid.create();
         set(formPath.key, data.key);
       }
-      await client.devices.create(data as device.New, schemas);
+      // A status under the device's key was read from the Core. A beforeSave hook that
+      // reports a new status creates it under its own key.
+      const reported =
+        data.status != null && data.status.key !== device.statusKey(data.key);
+      const sent = reported ? data : device.toUpdate(data);
+      await client.devices.create(sent as device.New, schemas);
     },
     mountListeners: ({ client, query: { key }, reset, set }) => {
       if (primitive.isZero(key)) return [];
