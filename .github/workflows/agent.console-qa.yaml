@@ -84,7 +84,7 @@ jobs:
     permissions:
       issues: read
     env:
-      SLACK_WEBHOOK_URL: ${{ secrets.SLACK_CONSOLE_QA_WEBHOOK_URL }}
+      SLACK_WEBHOOK_URL: ${{ secrets.SLACK_NIGHTLY_WEBHOOK_URL }}
     steps:
       - name: Post the issue link
         if: env.SLACK_WEBHOOK_URL != ''

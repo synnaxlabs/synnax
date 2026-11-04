@@ -152,6 +152,31 @@ func (u View) Validate() error {
 	return nil
 }
 
+// Base returns the fields every variant shares, or the zero value if Variant is nil.
+func (u View) Base() Base {
+	switch variant := u.Variant.(type) {
+	case RangeView:
+		return variant.Base
+	case StatusView:
+		return variant.Base
+	}
+	return Base{}
+}
+
+// SetBase replaces the fields every variant shares. It panics if Variant is nil.
+func (u *View) SetBase(base Base) {
+	switch variant := u.Variant.(type) {
+	case RangeView:
+		variant.Base = base
+		u.Variant = variant
+	case StatusView:
+		variant.Base = base
+		u.Variant = variant
+	default:
+		panic(errors.Newf("View: cannot set the base of variant %T", variant))
+	}
+}
+
 // Base carries the fields shared by every view variant.
 type Base struct {
 	// Key is the unique identifier for this view.
