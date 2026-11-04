@@ -205,8 +205,8 @@ the device write carries only its key.
 
 ### 3.7 Console
 
-A Secrets toolbar lists secrets and certificates in two groups, with "Used by", Replace,
-and Delete. Every connect form uses two shared fields:
+A Credentials toolbar lists secrets and certificates in two groups, with "Used by",
+Replace, and Delete. Every connect form uses two shared fields:
 
 - **Secret field**: Shows the name and "Set on <date>". It picks from the list, or adds
   a secret from a typed value.
@@ -304,5 +304,4 @@ change, so they are separate phases.
 
 ## 7 Open questions
 
-- The toolbar's name.
 - The expiry warning lead time, 30 days here.
