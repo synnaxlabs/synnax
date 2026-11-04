@@ -9,10 +9,12 @@
 
 from __future__ import annotations
 
+import copy
 import json
 import uuid
 from collections.abc import Callable, Iterator
 from datetime import datetime
+from itertools import islice
 from types import UnionType
 from typing import (
     Any,
@@ -71,6 +73,11 @@ def _encode_samples(samples: list[Any], data_type: DataType) -> bytes:
         if len(uuids) != len(samples):
             raise TypeError("[Series] - a UUID series accepts only UUIDs")
         return b"".join(d.bytes for d in uuids)
+    if data_type == DataType.BYTES:
+        parts = [d for d in samples if isinstance(d, bytes)]
+        if len(parts) != len(samples):
+            raise TypeError("[Series] - a bytes series accepts only bytes")
+        return _encode_variable(parts)
     return np.array(samples, dtype=data_type.np).tobytes()
 
 
@@ -468,10 +475,44 @@ class Series(ArrayOperators, Generic[T]):
         """
         return self.__array__(dtype=dtype, copy=copy)
 
-    def __getitem__(self, index: int) -> T:
+    @overload
+    def __getitem__(self, index: int) -> T: ...
+
+    @overload
+    def __getitem__(self, index: slice) -> Series[T]: ...
+
+    def __getitem__(self, index: int | slice) -> T | Series[T]:
+        if isinstance(index, slice):
+            return self._slice(index)
         if index < 0 and self.data_type.is_variable:
             index += len(self)
         return self._codec.get(self.data, index)
+
+    def _slice(self, index: slice) -> Series[T]:
+        start, stop, step = index.indices(len(self))
+        if step < 1:
+            raise ValueError(
+                "[Series] - a slice step must be positive, as a Series needs "
+                "increasing alignments"
+            )
+        if self.data_type.is_variable:
+            view = memoryview(self.data)
+            data = b"".join(
+                view[s - _VARIABLE_LENGTH_PREFIX_SIZE : e]
+                for s, e in islice(_variable_spans(self.data), start, stop, step)
+            )
+        else:
+            density = int(self.data_type.density)
+            samples = np.frombuffer(self.data, np.uint8).reshape(-1, density)
+            data = samples[start:stop:step].tobytes()
+        sliced = copy.copy(self)
+        sliced.data = data
+        sliced.alignment = Alignment(
+            int(self.alignment) + start * self.alignment_multiple
+        )
+        sliced.alignment_multiple = self.alignment_multiple * step
+        sliced._len_cache = None
+        return sliced
 
     def __iter__(self) -> Iterator[T]:
         return self._codec.iter(self.data)
@@ -563,6 +604,7 @@ CrudeSeries: TypeAlias = (
     | list[int]
     | list[bool]
     | list[str]
+    | list[bytes]
     | list[dict[str, Any]]
     | list[uuid.UUID]
     | list[TimeStamp]

@@ -49,6 +49,8 @@ class ReadTask(
     :param array_size: The number of samples in each array when array_mode is True.
     :param channels: The OPC UA nodes to read from and the Synnax channels to write
         their data to.
+    :param nan_fill_enabled: Whether to write NaN for a bad value of a float channel.
+        When False, a bad value skips the sample for every channel on its index.
     """
 
     TYPE = "opc_read"
@@ -67,6 +69,7 @@ class ReadTask(
         array_mode: bool = False,
         array_size: int = 1,
         channels: Sequence[ReadChannel] | None = None,
+        nan_fill_enabled: bool = False,
     ) -> None:
         if internal is not None:
             self._internal = internal
@@ -82,6 +85,7 @@ class ReadTask(
             array_mode=array_mode,
             array_size=array_size,
             channels=list(channels) if channels is not None else [],
+            nan_fill_enabled=nan_fill_enabled,
         )
         task.assign_keys(self.config.channels)
 

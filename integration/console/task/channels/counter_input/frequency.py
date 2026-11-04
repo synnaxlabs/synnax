@@ -31,10 +31,10 @@ class Frequency(Counter):
 
     def __init__(
         self,
-        *,
         layout: LayoutClient,
         name: str,
         device: str,
+        *,
         edge: Literal["Rising", "Falling"] | None = None,
         units: Literal["Hz", "Ticks", "Custom"] | None = None,
         terminal: str | None = None,

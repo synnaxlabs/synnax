@@ -12,8 +12,7 @@
     "console/src/feature/arc/editor/SelectPerformance.css": [
       "lyra--visible",
       "lyra-icon",
-      "lyra-select__dialog",
-      "lyra-select__label"
+      "lyra-select__dialog"
     ],
     "console/src/feature/arc/editor/TaskControls.css": ["lyra-btn", "pluto-editor"],
     "console/src/feature/arc/editor/toolbar/graph/Toolbar.css": [

@@ -178,14 +178,12 @@ export type SetChannelNamesHiddenPayload = z.infer<
   typeof setChannelNamesHiddenPayloadZ
 >;
 
-/** SetReceiptTimestampHidden sets whether the receipt timestamp column is hidden. */
-export const setReceiptTimestampHiddenPayloadZ = z.object({
-  receiptTimestampHidden: z.boolean(),
+/** SetTimestampsHidden sets whether entry timestamps are hidden. */
+export const setTimestampsHiddenPayloadZ = z.object({
+  timestampsHidden: z.boolean(),
 });
 
-export type SetReceiptTimestampHiddenPayload = z.infer<
-  typeof setReceiptTimestampHiddenPayloadZ
->;
+export type SetTimestampsHiddenPayload = z.infer<typeof setTimestampsHiddenPayloadZ>;
 
 export type Action =
   | { type: "create"; create: CreatePayload }
@@ -215,10 +213,7 @@ export type Action =
       type: "set_channel_names_hidden";
       setChannelNamesHidden: SetChannelNamesHiddenPayload;
     }
-  | {
-      type: "set_receipt_timestamp_hidden";
-      setReceiptTimestampHidden: SetReceiptTimestampHiddenPayload;
-    };
+  | { type: "set_timestamps_hidden"; setTimestampsHidden: SetTimestampsHiddenPayload };
 
 export const actionZ: z.ZodType<Action> = z.discriminatedUnion("type", [
   z.object({ type: z.literal("create"), create: createPayloadZ }),
@@ -264,8 +259,8 @@ export const actionZ: z.ZodType<Action> = z.discriminatedUnion("type", [
     setChannelNamesHidden: setChannelNamesHiddenPayloadZ,
   }),
   z.object({
-    type: z.literal("set_receipt_timestamp_hidden"),
-    setReceiptTimestampHidden: setReceiptTimestampHiddenPayloadZ,
+    type: z.literal("set_timestamps_hidden"),
+    setTimestampsHidden: setTimestampsHiddenPayloadZ,
   }),
 ]);
 
@@ -394,12 +389,12 @@ export const setChannelNamesHidden = (
   }),
 });
 
-export const setReceiptTimestampHidden = (
-  payload: z.input<typeof setReceiptTimestampHiddenPayloadZ>,
+export const setTimestampsHidden = (
+  payload: z.input<typeof setTimestampsHiddenPayloadZ>,
 ): Action => ({
-  type: "set_receipt_timestamp_hidden",
-  setReceiptTimestampHidden: zod.parse(setReceiptTimestampHiddenPayloadZ, payload, {
-    label: "log set_receipt_timestamp_hidden action payload",
+  type: "set_timestamps_hidden",
+  setTimestampsHidden: zod.parse(setTimestampsHiddenPayloadZ, payload, {
+    label: "log set_timestamps_hidden action payload",
   }),
 });
 
@@ -450,9 +445,9 @@ export interface Handlers {
     state: Draft<Log>,
     payload: SetChannelNamesHiddenPayload,
   ) => HandlerResult;
-  setReceiptTimestampHidden: (
+  setTimestampsHidden: (
     state: Draft<Log>,
-    payload: SetReceiptTimestampHiddenPayload,
+    payload: SetTimestampsHiddenPayload,
   ) => HandlerResult;
 }
 
@@ -492,11 +487,8 @@ export const createReduceAll = (handlers: Handlers) =>
         return handlers.setTimestampPrecision(state, action.setTimestampPrecision);
       case "set_channel_names_hidden":
         return handlers.setChannelNamesHidden(state, action.setChannelNamesHidden);
-      case "set_receipt_timestamp_hidden":
-        return handlers.setReceiptTimestampHidden(
-          state,
-          action.setReceiptTimestampHidden,
-        );
+      case "set_timestamps_hidden":
+        return handlers.setTimestampsHidden(state, action.setTimestampsHidden);
     }
   });
 

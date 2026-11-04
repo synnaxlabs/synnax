@@ -138,26 +138,21 @@ func (idx *Index[K]) Delete(key K) {
 	idx.free = append(idx.free, id)
 }
 
-// Search returns the entries that match every word of term, closest match first. When
-// no entry matches every word, it returns the entries that match any word. It reads
-// only the first 64 words of term, and returns at most limit entries, or every entry
-// when limit is 0.
-func (idx *Index[K]) Search(term string, limit int) Result[K] {
-	return idx.search(term, nil, limit)
+// Query is a search of an [Index].
+type Query[K comparable] struct {
+	// Term is the text to match. Only its first 64 words count.
+	Term string
+	// Except, when non-nil, leaves out the keys for which it returns true. It leaves
+	// them out before the search checks whether any entry matches every word.
+	Except func(K) bool
+	// Limit is the maximum number of keys to return. Zero returns every key.
+	Limit int
 }
 
-// SearchExcept is Search with the keys for which except returns true left out. It
-// leaves them out before it checks whether any entry matches every word.
-func (idx *Index[K]) SearchExcept(
-	term string,
-	except func(K) bool,
-	limit int,
-) Result[K] {
-	return idx.search(term, except, limit)
-}
-
-func (idx *Index[K]) search(term string, except func(K) bool, limit int) Result[K] {
-	words := tokenize(firstWords(term, maxQueryWords))
+// Search returns the entries that match every word of q.Term, closest match first.
+// When no entry matches every word, it returns the entries that match any word.
+func (idx *Index[K]) Search(q Query[K]) Result[K] {
+	words := tokenize(firstWords(q.Term, maxQueryWords))
 	if len(words) == 0 {
 		return Result[K]{}
 	}
@@ -172,20 +167,20 @@ func (idx *Index[K]) search(term string, except func(K) bool, limit int) Result[
 	}
 	complete := false
 	for _, m := range s.matches {
-		if m.matched == uint32(len(words)) && idx.kept(m.id, except) {
+		if m.matched == uint32(len(words)) && idx.kept(m.id, q.Except) {
 			s.ranked = append(s.ranked, idx.rank(m.id, m.score))
 			complete = true
 		}
 	}
 	if !complete {
 		for _, m := range s.matches {
-			if idx.kept(m.id, except) {
+			if idx.kept(m.id, q.Except) {
 				s.ranked = append(s.ranked, idx.rank(m.id, m.score))
 			}
 		}
 	}
 	slices.Sort(s.ranked)
-	kept := s.ranked[:limited(len(s.ranked), limit)]
+	kept := s.ranked[:limited(len(s.ranked), q.Limit)]
 	res := Result[K]{
 		Keys:     make([]K, len(kept)),
 		ranks:    make([]uint32, len(kept)),
