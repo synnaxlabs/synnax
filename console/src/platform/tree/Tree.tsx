@@ -170,6 +170,9 @@ const keepLoadedChildren = (
     return existing == null ? node : { ...node, children: existing.children };
   });
 
+const keysOf = (resources: ontology.Resource[]): Set<string> =>
+  new Set(resources.map(({ id }) => resource.idToString(id)));
+
 // A list of children is whole only once every source has answered.
 const combine = (
   answers: Array<ontology.Resource[] | undefined>,
@@ -224,10 +227,17 @@ const Internal = ({ root, emptyContent }: InternalProps): ReactElement => {
       ? null
       : combine(resolveSources(client, root, undefined).map((s) => s.getCached())),
   );
-  // Every resource an answer has delivered.
+  // The resources that the latest answers deliver.
   const answered = List.useMapData<string, ontology.Resource>({
     initialData: seed ?? [],
   });
+  // The keys of each parent's latest answer, by parent key.
+  const answerKeysRef = useInitializerRef(
+    () =>
+      new Map<string, Set<string>>(
+        seed == null ? [] : [[resource.idToString(root), keysOf(seed)]],
+      ),
+  );
   const [nodes, setNodes, nodesRef] = useCombinedStateAndRef<Base.Node<string>[]>(() =>
     seed == null ? [] : toNodes(seed, resolveItem),
   );
@@ -252,14 +262,21 @@ const Internal = ({ root, emptyContent }: InternalProps): ReactElement => {
   };
 
   const applyAnswer = (parent: resource.ID, resources: ontology.Resource[]) => {
+    const parentKey = resource.idToString(parent);
+    const delivered = keysOf(resources);
+    const previous = answerKeysRef.current.get(parentKey) ?? new Set<string>();
+    answerKeysRef.current.set(parentKey, delivered);
     answered.setItem(resources);
+    // A resource leaves with the last answer that delivered it, so a deleted resource
+    // stops resolving.
+    const answers = [...answerKeysRef.current.values()];
+    const left = [...previous].filter((key) => !answers.some((keys) => keys.has(key)));
+    if (left.length > 0) answered.deleteItem(left);
     const next = toNodes(resources, resolveItem);
     const nextKeys = new Set(next.map(({ key }) => key));
     // A placeholder stands in only until the Core delivers the real resource, which
     // the answer carries.
-    const settled = resource
-      .idToString(resources.map(({ id }) => id))
-      .filter(placeholders.hasItem);
+    const settled = [...delivered].filter(placeholders.hasItem);
     if (settled.length > 0) placeholders.deleteItem(settled);
     // The answer is the authority on its parent's membership. A node it omits
     // survives only while a placeholder backs it, since an optimistic row the Core
@@ -280,7 +297,7 @@ const Internal = ({ root, emptyContent }: InternalProps): ReactElement => {
       // tree; a missing parent means the update is stale.
       ...Base.updateNodeChildren({
         tree: prevNodes,
-        parent: resource.idToString(parent),
+        parent: parentKey,
         throwOnMissing: false,
         updater: merge,
       }),
