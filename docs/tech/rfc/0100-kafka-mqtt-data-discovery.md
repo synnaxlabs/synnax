@@ -107,10 +107,12 @@ Browse labels each topic's format from its newest payloads: JSON, Schema Registr
 its raw bytes and cannot be mapped.
 
 The Kafka scan task moves onto `driver.Scanner`
-(`core/pkg/service/driver/scan_task.go:36`) and keeps only health checks. The MQTT
-`test_connection` and `browse` commands (`core/pkg/service/mqtt/scan_task.go:30,38`) are
-deleted. The TS client gains route methods under `client.kafka` and `client.mqtt`, in
-the shape of `client/ts/src/arc/client.ts`.
+(`core/pkg/service/driver/scan_task.go:36`) in Phase 1, and keeps `test_connection`
+while the connect form still sends it. When the forms move onto the routes, Phase 4
+deletes that command and the MQTT `test_connection` and `browse` commands
+(`core/pkg/service/mqtt/scan_task.go:30,38`), so both scan tasks keep only health
+checks. The TS client gains route methods under `client.kafka` and `client.mqtt`, in the
+shape of `client/ts/src/arc/client.ts`.
 
 ### 4.1 Inference
 
@@ -163,11 +165,12 @@ uses the same `Extractor`.
 | `limit`       | Most channels the rule makes                                                    |
 
 On a record with a new name, the task looks up `<prefix><name>`. When it is absent, the
-task creates it and its index, `<prefix><name>_time`, through `channel.Service.Create`
-(`core/pkg/distribution/channel/create.go:27`). Each channel gets its own index, because
-keys arrive at different times and a frame that writes to an index must hold every
-channel of that index (`mqtt/read_task.go:198-200`). This is the first Core task that
-creates channels. The Console still creates the channels of fields.
+task creates it and its index, `<prefix><name>_time`, through `channel.Writer.Create`
+(`core/pkg/service/channel/writer.go:78`), which also adds them to the ontology. Each
+channel gets its own index, because keys arrive at different times and a frame that
+writes to an index must hold every channel of that index (`mqtt/read_task.go:198-200`).
+This is the first Core task that creates channels. The Console still creates the
+channels of fields.
 
 A key that a `record` entry names skips the rule. After `limit` channels, a new key is a
 bad record: "Rule channel limit reached".
@@ -234,7 +237,7 @@ both read configs without a migration. Phases 5 to 7 come after the ICD cutover 
 | 1     | Move Kafka onto `x/go/json` and `driver.Scanner`    | `x/go/json`, `core/pkg/service/kafka`, `core/pkg/service/mqtt`                                                                                                                                                                              | -          |
 | 2     | Warn on bad records with counts                     | `core/pkg/service/driver`, `core/pkg/service/kafka`, `core/pkg/service/mqtt`                                                                                                                                                                | 1          |
 | 3     | Add test, browse, and sample routes with inference  | `x/go/json`, `core/pkg/api/kafka`, `core/pkg/api/mqtt`, `core/pkg/service/kafka`, `core/pkg/service/mqtt`, `core/pkg/transport`, `client/ts/src/kafka`, `client/ts/src/mqtt`                                                                | 1          |
-| 4     | Move the connect forms and Add data onto the routes | `console/src/feature/kafka/device`, `console/src/feature/mqtt`, `console/src/platform/task`                                                                                                                                                 | 3          |
+| 4     | Move the connect forms and Add data onto the routes | `core/pkg/service/kafka`, `core/pkg/service/mqtt`, `console/src/feature/kafka/device`, `console/src/feature/mqtt`, `console/src/platform/task`                                                                                              | 3          |
 | 5     | Add the Kafka Add data dialog with inferred fields  | `console/src/feature/kafka/task`, `console/src/feature/mqtt/task`, `console/src/platform/task`                                                                                                                                              | 4          |
 | 6     | Preview drafts through the task's own parsing       | `core/pkg/api/kafka`, `core/pkg/api/mqtt`, `core/pkg/service/kafka`, `core/pkg/service/mqtt`, `client/ts/src/kafka`, `client/ts/src/mqtt`, `console/src/platform/task`                                                                      | 2, 5       |
 | 7     | Add rule entries for Kafka and MQTT                 | `schemas/synnax/kafka.oracle`, `schemas/synnax/mqtt.oracle`, `core/pkg/service/kafka`, `core/pkg/service/mqtt`, `client/ts/src/kafka`, `client/ts/src/mqtt`, `client/py/synnax/kafka`, `client/py/synnax/mqtt`, `console/src/platform/task` | 6          |
