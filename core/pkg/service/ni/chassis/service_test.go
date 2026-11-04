@@ -30,6 +30,7 @@ import (
 	"github.com/synnaxlabs/x/change"
 	"github.com/synnaxlabs/x/errors"
 	"github.com/synnaxlabs/x/query"
+	"github.com/synnaxlabs/x/search"
 	"github.com/synnaxlabs/x/set"
 	. "github.com/synnaxlabs/x/testutil"
 	"github.com/synnaxlabs/x/validate"
@@ -520,7 +521,10 @@ var _ = Describe("Service", func() {
 
 		It("Should find a chassis by its name", func(ctx SpecContext) {
 			c := create(ctx)
-			res := MustSucceed(svc.Search(ctx, tx, c.Name, 10))
+			res := MustSucceed(svc.Search(ctx, tx, search.Query[ontology.ID]{
+				Term:  c.Name,
+				Limit: 10,
+			}))
 			Expect(res.Keys).To(ContainElement(chassis.OntologyID(c.Key)))
 		})
 	})
