@@ -332,6 +332,8 @@ func (t *readTask) start(ctx context.Context, cmdKey string) error {
 		return err
 	}
 	t.setStatus(ctx, cmdKey, status.VariantSuccess, true, "Started task", "")
+	// The consumer writes statuses too, so it starts after this one to not be replaced.
+	t.sCtx.Go(t.consume, signal.RecoverWithErrOnPanic(), signal.CancelOnFail())
 	return nil
 }
 
@@ -382,8 +384,8 @@ func (t *readTask) group() string {
 	return "kafka-" + t.task.Key.String()
 }
 
-// open connects the consumer and starts the fetch loop. It writes no statuses: start
-// owns them.
+// open connects the consumer. It writes no statuses and does not start the fetch loop:
+// start owns both.
 func (t *readTask) open(ctx context.Context) (err error) {
 	props, err := resolveProperties(ctx, t.factoryCfg.Device, t.cfg.Device)
 	if err != nil {
@@ -447,7 +449,6 @@ func (t *readTask) open(ctx context.Context) (err error) {
 		xio.CloserFunc(t.closeClient),
 		signal.NewHardShutdown(sCtx, cancel),
 	}
-	sCtx.Go(t.consume, signal.RecoverWithErrOnPanic(), signal.CancelOnFail())
 	return nil
 }
 

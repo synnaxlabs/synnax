@@ -9,6 +9,7 @@
 
 import random
 
+from console.task.channels import counter_input
 from console.task.counter_read import CounterRead
 from tests.console.task.ni_rack_case import NIRackCase
 
@@ -73,7 +74,7 @@ class NICounterReadForms(NIRackCase):
     def verify_edge_count_inputs(self, ni_ci: CounterRead, *, device_name: str) -> None:
         """Validate Edge Count inputs"""
         self.log("Configuring channels of type Edge Count")
-        channel_type = "Edge count"
+        channel_type = counter_input.EdgeCount
 
         ni_ci.add_channel(
             name="EdgeCount_1",
@@ -101,7 +102,7 @@ class NICounterReadForms(NIRackCase):
     def verify_frequency_inputs(self, ni_ci: CounterRead, *, device_name: str) -> None:
         """Validate Frequency inputs"""
         self.log("Configuring channels of type Frequency")
-        channel_type = "Frequency"
+        channel_type = counter_input.Frequency
 
         ni_ci.add_channel(
             name="Frequency_1",
@@ -131,7 +132,7 @@ class NICounterReadForms(NIRackCase):
     def verify_period_inputs(self, ni_ci: CounterRead, *, device_name: str) -> None:
         """Validate Period inputs"""
         self.log("Configuring channels of type Period")
-        channel_type = "Period"
+        channel_type = counter_input.Period
 
         ni_ci.add_channel(
             name="Period_1",
@@ -171,7 +172,7 @@ class NICounterReadForms(NIRackCase):
     ) -> None:
         """Validate Pulse Width inputs"""
         self.log("Configuring channels of type Pulse Width")
-        channel_type = "Pulse width"
+        channel_type = counter_input.PulseWidth
 
         ni_ci.add_channel(
             name="PulseWidth_1",
@@ -202,7 +203,7 @@ class NICounterReadForms(NIRackCase):
     ) -> None:
         """Validate Semi Period inputs"""
         self.log("Configuring channels of type Semi Period")
-        channel_type = "Semi period"
+        channel_type = counter_input.SemiPeriod
 
         ni_ci.add_channel(
             name="SemiPeriod_1",
@@ -230,7 +231,7 @@ class NICounterReadForms(NIRackCase):
     ) -> None:
         """Validate Two Edge Separation inputs"""
         self.log("Configuring channels of type Two Edge Separation")
-        channel_type = "Two edge separation"
+        channel_type = counter_input.TwoEdgeSeparation
 
         ni_ci.add_channel(
             name="TwoEdgeSep_1",
@@ -256,7 +257,7 @@ class NICounterReadForms(NIRackCase):
     ) -> None:
         """Validate Linear Velocity inputs"""
         self.log("Configuring channels of type Velocity Linear")
-        channel_type = "Velocity linear"
+        channel_type = counter_input.LinearVelocity
 
         ni_ci.add_channel(
             name="LinearVelocity_1",
@@ -290,7 +291,7 @@ class NICounterReadForms(NIRackCase):
     ) -> None:
         """Validate Angular Velocity inputs"""
         self.log("Configuring channels of type Velocity Angular")
-        channel_type = "Velocity angular"
+        channel_type = counter_input.AngularVelocity
 
         ni_ci.add_channel(
             name="AngularVelocity_1",
@@ -324,7 +325,7 @@ class NICounterReadForms(NIRackCase):
     ) -> None:
         """Validate Linear Position inputs"""
         self.log("Configuring channels of type Position Linear")
-        channel_type = "Position linear"
+        channel_type = counter_input.LinearPosition
 
         ni_ci.add_channel(
             name="LinearPosition_1",
@@ -365,7 +366,7 @@ class NICounterReadForms(NIRackCase):
     ) -> None:
         """Validate Angular Position inputs"""
         self.log("Configuring channels of type Position Angular")
-        channel_type = "Position angular"
+        channel_type = counter_input.AngularPosition
 
         ni_ci.add_channel(
             name="AngularPosition_1",
@@ -404,7 +405,7 @@ class NICounterReadForms(NIRackCase):
     def verify_duty_cycle_inputs(self, ni_ci: CounterRead, *, device_name: str) -> None:
         """Validate Duty Cycle inputs"""
         self.log("Configuring channels of type Duty Cycle")
-        channel_type = "Duty cycle"
+        channel_type = counter_input.DutyCycle
 
         ni_ci.add_channel(
             name="DutyCycle_1",

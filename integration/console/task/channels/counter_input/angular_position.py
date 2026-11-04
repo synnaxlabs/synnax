@@ -34,10 +34,10 @@ class AngularPosition(Counter):
 
     def __init__(
         self,
-        *,
         layout: LayoutClient,
         name: str,
         device: str,
+        *,
         units: Literal["Degrees", "Radians", "Ticks"] | None = None,
         decoding_type: Literal["X1", "X2", "X4", "Two pulse"] | None = None,
         pulses_per_rev: int | None = None,
