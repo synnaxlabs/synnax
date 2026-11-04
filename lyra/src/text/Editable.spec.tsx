@@ -92,6 +92,7 @@ describe("Editable", () => {
     it("should keep the start of text pasted over the limit", () => {
       const text = renderField(3);
       text.textContent = "abcdefgh";
+      window.getSelection()?.collapse(text.firstChild, 8);
       fireEvent.input(text);
       expect(text.textContent).toBe("abc");
     });
