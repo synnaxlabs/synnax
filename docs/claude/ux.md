@@ -234,6 +234,24 @@ bound, a log precision, or the line plot X channel.
 - A number never clips, because a clipped number reads as a different valid number.
 - A flex child that holds cut text needs `min-width: 0`.
 
+### Pickers
+
+- A card that creates something shows the item's own icon in a large icon tile, then its
+  name and a short description. Never draw a custom illustration or a preview of the
+  result: line art and colored drawings were both rejected.
+- A card is a Lyra `card` button, alone or in `Select.Buttons`. It rests halfway between
+  gray steps 1 and 2, hovers halfway between steps 2 and 3, and presses to step 3. It
+  has a gray step 6 border and the medium radius. Its icon tile has fill step 3 and
+  border step 5, so the tile stands out from the card. An outlined button's fill is too
+  strong for a card, and its tiny radius too sharp.
+- The header is a quiet title (h4, gray step 10, weight 450) over a huge borderless
+  search across the content width, with a gray step 8 search icon and a gray step 6
+  hairline under it. The hairline takes the primary color while the search has focus,
+  because a picker that is not a dialog loses focus, and typed keys then go elsewhere.
+- A search disables each item that does not match it and leaves it in place, so the
+  layout does not move. The arrow keys and the pointer move one highlight, and Enter
+  picks the highlighted item.
+
 ### Menus and selects
 
 - Context menus use 12 px text in 24 px items.
