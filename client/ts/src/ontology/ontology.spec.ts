@@ -260,6 +260,28 @@ describe("Ontology", () => {
       };
     };
 
+    // Resolves once the stream delivers a change made after every earlier write, so no
+    // late echo of those writes lands during a spec. The read of id opens the stream.
+    const drainStream = async (id: ontology.ID): Promise<void> => {
+      await client.ontology.retrieve(id);
+      const probe = await remote.groups.create({
+        parent: ontology.ROOT_ID,
+        name: randomName(),
+      });
+      const probeID = group.ontologyID(probe.key);
+      const link = ontology.relationshipToString({
+        from: ontology.ROOT_ID,
+        type: ontology.PARENT_OF_RELATIONSHIP_TYPE,
+        to: probeID,
+      });
+      await expect
+        .poll(() => client.ontology.cache.relationships.get(link))
+        .toBeDefined();
+      await expect
+        .poll(() => client.ontology.cache.resources.get(ontology.idToString(probeID)))
+        .toBeDefined();
+    };
+
     it("should return the resources and the path above each ID", async () => {
       const { top, mid, leaf } = await createChain();
       const { resources, paths } = await client.ontology.ancestors.retrieve({
@@ -272,13 +294,12 @@ describe("Ontology", () => {
     });
 
     it("should cache the resources of the IDs", async () => {
-      const { leaf } = await createChain();
+      const { top, leaf } = await createChain();
+      await drainStream(top);
       const key = ontology.idToString(leaf);
-      expect(client.ontology.cache.resources.get(key)).toBeUndefined();
+      client.ontology.cache.resources.evict(key);
       await client.ontology.ancestors.retrieve({ ids: leaf });
-      expect(
-        client.ontology.cache.resources.get(ontology.idToString(leaf)),
-      ).toMatchObject({ id: leaf });
+      expect(client.ontology.cache.resources.get(key)).toMatchObject({ id: leaf });
     });
 
     it("should stop the walk at the root", async () => {
@@ -324,6 +345,30 @@ describe("Ontology", () => {
         root: top,
       });
       expect(paths[ontology.idToString(leaf)]).toEqual([[mid]]);
+    });
+
+    it("should keep a link deleted while the request is in flight", async () => {
+      const { top, mid, leaf } = await createChain();
+      const key = ontology.relationshipToString({
+        from: mid,
+        type: ontology.PARENT_OF_RELATIONSHIP_TYPE,
+        to: leaf,
+      });
+      await drainStream(top);
+      const request = client.ontology.ancestors.retrieve({ ids: leaf, root: top });
+      client.ontology.cache.relationships.delete(key);
+      await request;
+      expect(client.ontology.cache.relationships.get(key)).toBeUndefined();
+    });
+
+    it("should keep a rename written while the request is in flight", async () => {
+      const { top, mid, leaf } = await createChain();
+      const resource = await client.ontology.retrieve(mid);
+      await drainStream(top);
+      const request = client.ontology.ancestors.retrieve({ ids: leaf, root: top });
+      client.ontology.cache.resources.set({ ...resource, name: "renamed" });
+      await request;
+      expect(client.ontology.cache.resources.get(resource.key)?.name).toBe("renamed");
     });
 
     describe("onChange", () => {

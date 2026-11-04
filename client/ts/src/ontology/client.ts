@@ -512,6 +512,7 @@ export class Client extends query.Retriever<
 
   private async fetchAncestors({ ids, root }: AncestorRequest): Promise<string[]> {
     const table = this.cache.relationships;
+    const resourcesStamp = this.cache.resources.stamp();
     // A link written while the request is in flight is newer than the answer.
     const written = new Set<string>();
     const stopWatching = table.subscribe(({ key }) => written.add(key));
@@ -529,7 +530,10 @@ export class Client extends query.Retriever<
     const { resources, ancestors = [], relationships = [] } = res;
     // The resources of the IDs come back too, so a reader can render them with no
     // second request.
-    this.writeResources([...resources, ...ancestors]);
+    this.cache.resources.ingest(
+      [...resources, ...ancestors].map((r) => this.mergeFieldData(r)),
+      { mode: "set", since: resourcesStamp },
+    );
     // The answer holds every parent link of each resource the walk passed, so a cached
     // link it lacks was deleted while the cache missed the change.
     const passed = [...resources.map((r) => r.id), ...relationships.map((r) => r.from)];
@@ -546,7 +550,9 @@ export class Client extends query.Retriever<
     // and each one finds the path above it already cached.
     relationships
       .toReversed()
-      .forEach((rel) => table.set(relationshipToString(rel), rel));
+      .map((rel) => ({ rel, key: relationshipToString(rel) }))
+      .filter(({ key }) => !written.has(key))
+      .forEach(({ rel, key }) => table.set(key, rel));
     return [...new Set([...resources, ...ancestors].map((r) => r.key))];
   }
 
