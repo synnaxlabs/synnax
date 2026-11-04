@@ -7,7 +7,8 @@
 # License, use of this software will be governed by the Apache License, Version 2.0,
 # included in the file licenses/APL.txt.
 
-# Turns auto-merge on or off for each pull request event; auto_merge.sh holds the rule.
+# Turns auto-merge on or off when Relay - Pull request dispatches it; auto_merge.sh holds
+# the rule.
 # Only main and release branches require CI and the Review gate. GitHub turns auto-merge
 # off when someone without write access pushes, so a push turns it on again. A merge
 # that GITHUB_TOKEN starts triggers no workflows, so an App token turns auto-merge on.
@@ -18,16 +19,6 @@
 name: Merge - Auto
 
 on:
-  pull_request_target:
-    types:
-      - opened
-      - reopened
-      - synchronize
-      - edited
-      - labeled
-      - unlabeled
-      - ready_for_review
-      - converted_to_draft
   workflow_dispatch:
     inputs:
       pr:
@@ -38,7 +29,7 @@ on:
 permissions: {}
 
 concurrency:
-  group: ${{ github.workflow }}-${{ github.event.pull_request.number || inputs.pr }}
+  group: ${{ github.workflow }}-${{ inputs.pr }}
   cancel-in-progress: false
 
 jobs:
@@ -53,8 +44,8 @@ jobs:
           app-id: ${{ secrets.CLAUDE_CODE_APP_ID }}
           private-key: ${{ secrets.CLAUDE_CODE_APP_PRIVATE_KEY }}
 
-      # A pull_request_target checkout takes the base branch, so a pull request cannot
-      # edit the script that decides its auto-merge.
+      # A dispatch runs from the default branch, so a pull request cannot edit the script
+      # that decides its auto-merge.
       - name: Checkout repository
         uses: actions/checkout@v7
         with:
@@ -65,5 +56,5 @@ jobs:
       - name: Turn auto-merge on or off
         env:
           GH_TOKEN: ${{ steps.token.outputs.token }}
-          PR: ${{ github.event.pull_request.number || inputs.pr }}
+          PR: ${{ inputs.pr }}
         run: .github/scripts/auto_merge.sh "$PR"

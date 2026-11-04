@@ -50,3 +50,9 @@ jobs:
 
       - name: Start Merge - Auto
         run: gh workflow run merge.auto.yaml --ref "$REF" -f pr="$PR"
+
+      - name: Start Agent - Shepherd
+        if:
+          github.event.action == 'unlabeled' && github.event.label.name ==
+          'agent/needs-human'
+        run: gh workflow run agent.shepherd.yaml --ref "$REF" -f pr="$PR"
