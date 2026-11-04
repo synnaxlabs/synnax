@@ -74,11 +74,10 @@ jobs:
           previous_tag: ${{ inputs.previous_tag }}
           config: .github/release/core.yml
           notes: >-
-            Embeds [Console v${{ inputs.console_version }}](${{ github.server_url
-            }}/${{ github.repository }}/releases/tag/console/v${{
-            inputs.console_version }}) and [Driver v${{ inputs.driver_version }}](${{
-            github.server_url }}/${{ github.repository }}/releases/tag/driver/v${{
-            inputs.driver_version }}).
+            Embeds [Console v${{ inputs.console_version }}](${{ github.server_url }}/${{
+            github.repository }}/releases/tag/console/v${{ inputs.console_version }})
+            and [Driver v${{ inputs.driver_version }}](${{ github.server_url }}/${{
+            github.repository }}/releases/tag/driver/v${{ inputs.driver_version }}).
 
   build-core:
     name: Build Core
