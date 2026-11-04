@@ -16,7 +16,7 @@ import { caseconv, deep } from "@synnaxlabs/x";
  * path of the value it names: camel case parts, and element keys in place of array
  * indexes.
  */
-export const toFormPath = (path: string, value: unknown): deep.Target<unknown> =>
+const toFormPath = (path: string, value: unknown): deep.Target<unknown> =>
   deep
     .resolvePath(caseconv.snakeToCamel(path.split(".")).join("."), value)
     .split(".")
