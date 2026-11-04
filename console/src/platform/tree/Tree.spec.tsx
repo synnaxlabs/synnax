@@ -1172,6 +1172,45 @@ describe("Tree.Tree search", () => {
     expect(screen.queryByPlaceholderText("Search groups")).toBeNull();
   });
 
+  describe("keys", () => {
+    const results = (): HTMLElement => {
+      const tree = document.querySelector<HTMLElement>(
+        ".lyra-tree:not(.console-tree--hidden)",
+      );
+      if (tree == null) throw new Error("no results tree");
+      return tree;
+    };
+    const arrowDown = { key: "ArrowDown", code: "ArrowDown" };
+
+    it("should move into the results on ArrowDown and back on Escape", async () => {
+      const { root, tok, names } = await createSearchTree();
+      await renderSearchable(root);
+      searchTree(tok);
+      await findTreeRow(itemName(names.charlie));
+      const field = screen.getByPlaceholderText("Search groups");
+      fireEvent.keyDown(field, arrowDown);
+      fireEvent.keyUp(results(), arrowDown);
+      expect(document.activeElement).toBe(results());
+      const [first] = results().querySelectorAll(".lyra-tree__item");
+      expect(first.getAttribute("aria-selected")).toBe("true");
+      fireEvent.keyDown(results(), { key: "Escape", code: "Escape" });
+      expect(document.activeElement).toBe(field);
+      expect(hiddenTrees()).toBe(1);
+    });
+
+    it("should keep the focus in the field when nothing matches", async () => {
+      const { root } = await createSearchTree();
+      await renderSearchable(root);
+      const term = uniqueToken();
+      searchTree(term);
+      await screen.findByText(`No groups match “${term}”`);
+      const field = screen.getByPlaceholderText("Search groups");
+      field.focus();
+      fireEvent.keyDown(field, arrowDown);
+      expect(document.activeElement).toBe(field);
+    });
+  });
+
   it("should show a message when nothing matches", async () => {
     const { root } = await createSearchTree();
     await renderSearchable(root);

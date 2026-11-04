@@ -21,6 +21,7 @@ import {
   type KeyboardEvent,
   type ReactElement,
   type ReactNode,
+  type RefObject,
   use,
 } from "react";
 
@@ -126,6 +127,10 @@ export interface Search {
   close: () => void;
   setTerm: (term: string) => void;
   setLayout: (layout: SearchLayout) => void;
+  /** Takes the focus back from the results on Escape. */
+  fieldRef: RefObject<HTMLInputElement | null>;
+  /** Takes the focus from the field on ArrowDown. */
+  resultsRef: RefObject<HTMLDivElement | null>;
 }
 
 /** Runs the search of the tree under root. A null root searches nothing. */
@@ -150,8 +155,37 @@ export interface SearchFieldProps {
 
 /** Takes the place of the header title while the search is open. */
 export const SearchField = ({ search }: SearchFieldProps): ReactElement => {
-  const { term, setTerm, layout, setLayout, close, loading, noun } = search;
+  const {
+    term,
+    setTerm,
+    layout,
+    setLayout,
+    close,
+    loading,
+    noun,
+    answer,
+    fieldRef,
+    resultsRef,
+  } = search;
+  const enterResults = (e: KeyboardEvent<HTMLInputElement>) => {
+    const results = resultsRef.current;
+    if (results == null || answer?.variant !== "success") return;
+    if (answer.results.nodes.length === 0) return;
+    if (e.shiftKey || e.altKey || e.ctrlKey || e.metaKey) return;
+    e.preventDefault();
+    results.focus();
+    // The results answer the key that moved the focus, so it selects a match.
+    results.dispatchEvent(
+      new window.KeyboardEvent("keydown", {
+        key: e.key,
+        code: e.code,
+        bubbles: true,
+        cancelable: true,
+      }),
+    );
+  };
   const handleKeyDown = (e: KeyboardEvent<HTMLInputElement>) => {
+    if (e.key === "ArrowDown") return enterResults(e);
     if (e.key !== "Escape") return;
     e.stopPropagation();
     close();
@@ -159,6 +193,7 @@ export const SearchField = ({ search }: SearchFieldProps): ReactElement => {
   return (
     <>
       <Input.Text
+        ref={fieldRef}
         className={CSS.BE("tree-search", "field")}
         size="small"
         level="p"
