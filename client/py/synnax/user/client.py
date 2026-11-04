@@ -14,13 +14,13 @@ from pydantic import BaseModel, Field
 
 from freighter import Empty, UnaryClient
 from synnax.exceptions import NotFoundError
-from synnax.user.payload import New, User
+from synnax.user.types_gen import User
 from x.lists import normalize
 from x.params import require_named_params
 
 
 class _CreateRequest(BaseModel):
-    users: list[New]
+    users: list[User]
 
 
 class _CreateResponse(BaseModel):
@@ -54,25 +54,25 @@ class Client:
     def create(self, *, name: str, key: UUID | None = None) -> User: ...
 
     @overload
-    def create(self, *, user: New) -> User: ...
+    def create(self, *, user: User) -> User: ...
 
     @overload
-    def create(self, *, users: list[New]) -> list[User]: ...
+    def create(self, *, users: list[User]) -> list[User]: ...
 
-    @require_named_params(example_params=("user", "New(name='Hari Seldon')"))
+    @require_named_params(example_params=("user", "User(name='Hari Seldon')"))
     def create(
         self,
         *,
         name: str | None = None,
         key: UUID | None = None,
-        user: New | None = None,
-        users: list[New] | None = None,
+        user: User | None = None,
+        users: list[User] | None = None,
     ) -> User | list[User]:
         """Creates users with no password. Give a user its first password with
         client.auth.passwords.create.
         """
         if name is not None:
-            user = New(name=name, key=key)
+            user = User(name=name) if key is None else User(name=name, key=key)
         single = user is not None
         if user is not None:
             users = [user]

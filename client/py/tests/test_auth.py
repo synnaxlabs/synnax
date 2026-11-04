@@ -333,11 +333,13 @@ class TestPasswords:
         admin = sy.Synnax(host=host, port=port, username=username, password=password)
         user = admin.users.create(name="First Password")
         new_username = str(uuid4())
-        admin.auth.passwords.create(new_username, "first", subject=user.ontology_id)
+        admin.auth.passwords.create(
+            new_username, "first", subject=sy.user.ontology_id(user.key)
+        )
         client = sy.Synnax(
             host=host, port=port, username=new_username, password="first"
         )
-        assert client.auth.subject == user.ontology_id
+        assert client.auth.subject == sy.user.ontology_id(user.key)
         client.close()
         admin.close()
 
@@ -349,7 +351,9 @@ class TestPasswords:
         admin = sy.Synnax(host=host, port=port, username=username, password=password)
         user = admin.users.create(name="Repeated Username")
         with pytest.raises(sy.AuthError):
-            admin.auth.passwords.create(username, "p", subject=user.ontology_id)
+            admin.auth.passwords.create(
+                username, "p", subject=sy.user.ontology_id(user.key)
+            )
         admin.close()
 
     def test_retrieve_own(self, login_info: tuple[str, int, str, str]) -> None:
@@ -360,7 +364,7 @@ class TestPasswords:
         user = create_user(admin, new_username, "test")
         client = sy.Synnax(host=host, port=port, username=new_username, password="test")
         assert client.auth.passwords.retrieve() == [
-            Password(subject=user.ontology_id, username=new_username)
+            Password(subject=sy.user.ontology_id(user.key), username=new_username)
         ]
         client.close()
         admin.close()
@@ -372,7 +376,9 @@ class TestPasswords:
         new_username = str(uuid4())
         user = create_user(admin, new_username, "test")
         res = admin.auth.passwords.retrieve(usernames=[new_username, str(uuid4())])
-        assert res == [Password(subject=user.ontology_id, username=new_username)]
+        assert res == [
+            Password(subject=sy.user.ontology_id(user.key), username=new_username)
+        ]
         admin.close()
 
     def test_retrieve_by_subject(self, login_info: tuple[str, int, str, str]) -> None:
@@ -381,8 +387,10 @@ class TestPasswords:
         admin = sy.Synnax(host=host, port=port, username=username, password=password)
         new_username = str(uuid4())
         user = create_user(admin, new_username, "test")
-        res = admin.auth.passwords.retrieve(subjects=[user.ontology_id])
-        assert res == [Password(subject=user.ontology_id, username=new_username)]
+        res = admin.auth.passwords.retrieve(subjects=[sy.user.ontology_id(user.key)])
+        assert res == [
+            Password(subject=sy.user.ontology_id(user.key), username=new_username)
+        ]
         admin.close()
 
     def test_rename(self, login_info: tuple[str, int, str, str]) -> None:
@@ -393,9 +401,9 @@ class TestPasswords:
         admin = sy.Synnax(host=host, port=port, username=username, password=password)
         user = create_user(admin, str(uuid4()), "test")
         new_username = str(uuid4())
-        admin.auth.passwords.rename(new_username, subject=user.ontology_id)
+        admin.auth.passwords.rename(new_username, subject=sy.user.ontology_id(user.key))
         client = sy.Synnax(host=host, port=port, username=new_username, password="test")
-        assert client.auth.subject == user.ontology_id
+        assert client.auth.subject == sy.user.ontology_id(user.key)
         client.close()
         admin.close()
 
@@ -409,7 +417,7 @@ class TestPasswords:
         new_username = str(uuid4())
         client.auth.passwords.rename(new_username)
         assert client.auth.passwords.retrieve() == [
-            Password(subject=user.ontology_id, username=new_username)
+            Password(subject=sy.user.ontology_id(user.key), username=new_username)
         ]
         client.close()
         admin.close()
@@ -422,5 +430,5 @@ class TestPasswords:
         admin = sy.Synnax(host=host, port=port, username=username, password=password)
         user = create_user(admin, str(uuid4()), "test")
         with pytest.raises(sy.AuthError):
-            admin.auth.passwords.rename(username, subject=user.ontology_id)
+            admin.auth.passwords.rename(username, subject=sy.user.ontology_id(user.key))
         admin.close()

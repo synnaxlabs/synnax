@@ -13,7 +13,7 @@ from __future__ import annotations
 
 from typing import TypeAlias
 from typing import override as _override
-from uuid import UUID
+from uuid import UUID, uuid4
 
 from pydantic import BaseModel, Field
 
@@ -33,7 +33,7 @@ class User(BaseModel):
             users cannot be deleted.
     """
 
-    key: Key
+    key: Key = Field(default_factory=uuid4)
     name: str = Field(min_length=1)
     root_user: bool = False
 

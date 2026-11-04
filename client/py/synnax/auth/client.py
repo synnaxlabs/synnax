@@ -26,7 +26,7 @@ from synnax import ontology
 from synnax.auth import apikey, password, session
 from synnax.auth.types_gen import PasswordProof, Proof, Session
 from synnax.exceptions import ExpiredToken, InvalidToken, SessionEnded
-from synnax.user.payload import User
+from synnax.user import User
 from synnax.util.send_required import send_required
 
 _API_KEY_PREFIX = "syk_"
