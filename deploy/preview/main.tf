@@ -83,13 +83,14 @@ data "aws_ssm_parameter" "ami" {
 }
 
 resource "aws_ecr_repository" "preview" {
-  #checkov:skip=CKV_AWS_51:A redeploy of one commit pushes the same tag again.
-  #checkov:skip=CKV_AWS_136:Images hold public code, so AES256 is enough.
   name                 = "synnax-preview"
-  image_tag_mutability = "MUTABLE"
+  image_tag_mutability = "IMMUTABLE"
   force_delete         = true
   image_scanning_configuration {
     scan_on_push = true
+  }
+  encryption_configuration {
+    encryption_type = "KMS"
   }
 }
 
@@ -112,16 +113,7 @@ resource "aws_ecr_lifecycle_policy" "preview" {
 
 resource "aws_security_group" "preview" {
   name        = "synnax-preview"
-  description = "HTTP and HTTPS to Caddy"
-  #checkov:skip=CKV_AWS_260:Caddy serves previews and the ACME challenge on port 80.
-  #checkov:skip=CKV_AWS_382:The host pulls images and packages from the internet.
-  ingress {
-    description = "HTTP to Caddy"
-    from_port   = 80
-    to_port     = 80
-    protocol    = "tcp"
-    cidr_blocks = ["0.0.0.0/0"]
-  }
+  description = "HTTPS to Caddy"
   ingress {
     description = "HTTPS to Caddy"
     from_port   = 443
@@ -129,11 +121,13 @@ resource "aws_security_group" "preview" {
     protocol    = "tcp"
     cidr_blocks = ["0.0.0.0/0"]
   }
+  # AWS APIs, image registries, packages, and ACME all use HTTPS. The VPC resolver and
+  # Amazon Time Sync need no rule.
   egress {
-    description = "All outbound traffic"
-    from_port   = 0
-    to_port     = 0
-    protocol    = "-1"
+    description = "HTTPS to AWS, registries, and ACME"
+    from_port   = 443
+    to_port     = 443
+    protocol    = "tcp"
     cidr_blocks = ["0.0.0.0/0"]
   }
 }
@@ -186,10 +180,10 @@ resource "aws_iam_instance_profile" "host" {
 }
 
 resource "aws_instance" "host" {
-  #checkov:skip=CKV_AWS_126:A disposable preview host needs no detailed monitoring.
-  #checkov:skip=CKV_AWS_135:T3 instances are EBS optimized by default.
   ami                         = data.aws_ssm_parameter.ami.value
   instance_type               = var.instance_type
+  ebs_optimized               = true
+  monitoring                  = true
   iam_instance_profile        = aws_iam_instance_profile.host.name
   vpc_security_group_ids      = [aws_security_group.preview.id]
   user_data_replace_on_change = true
@@ -215,7 +209,7 @@ resource "aws_instance" "host" {
 }
 
 resource "aws_eip" "host" {
-  #checkov:skip=CKV2_AWS_19:aws_eip_association.host attaches it.
+  domain = "vpc"
 }
 
 resource "aws_eip_association" "host" {
