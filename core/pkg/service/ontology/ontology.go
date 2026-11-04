@@ -26,6 +26,7 @@ package ontology
 import (
 	"context"
 	"iter"
+	"slices"
 
 	"github.com/synnaxlabs/alamos"
 	"github.com/synnaxlabs/gorp"
@@ -186,23 +187,71 @@ func (o *Ontology) RegisterService(svc Service) {
 	)
 }
 
-// searchLimit is the maximum number of IDs that Search returns.
+// searchLimit is the number of IDs that Search returns when a SearchQuery sets no
+// Limit.
 const searchLimit = 100
 
-// Search returns the IDs of the resources of every registered type whose text matches
-// term, closest match first. It returns at most 100 IDs. Search reads the changes
-// staged against tx, falling back to the underlying database when tx is nil.
-func (o *Ontology) Search(ctx context.Context, tx gorp.Tx, term string) ([]ID, error) {
+// SearchQuery selects the resources that [Ontology.Search] returns.
+type SearchQuery struct {
+	// Term is the text that a resource must match.
+	Term string
+	// Types limits the search to resources of these types. Empty searches every type.
+	Types []ResourceType
+	// Root, when non-zero, limits the search to the descendants of Root.
+	Root ID
+	// Limit is the maximum number of IDs to return. Zero returns at most 100.
+	Limit int
+	// Offset is the number of closest matches to skip.
+	Offset int
+}
+
+// Search returns the IDs of the resources that match q, closest match first. Search
+// reads the changes staged against tx, falling back to the underlying database when tx
+// is nil. A negative limit or offset is a validation error.
+func (o *Ontology) Search(
+	ctx context.Context,
+	tx gorp.Tx,
+	q SearchQuery,
+) ([]ID, error) {
+	v := validate.New("ontology.search")
+	v.GreaterThanEq("limit", q.Limit, 0)
+	v.GreaterThanEq("offset", q.Offset, 0)
+	if err := v.Error(); err != nil {
+		return nil, err
+	}
 	tx = o.cfg.DB.OverrideTx(tx)
-	results := make([]search.Result[ID], len(o.services))
-	for i, svc := range o.services {
-		res, err := svc.Search(ctx, tx, term, searchLimit)
+	limit := q.Limit
+	if limit == 0 {
+		limit = searchLimit
+	}
+	var (
+		scope  *descendants
+		except func(ID) bool
+	)
+	if !q.Root.IsZero() {
+		scope = o.newDescendants(tx, q.Root)
+		except = scope.except
+	}
+	results := make([]search.Result[ID], 0, len(o.services))
+	for _, svc := range o.services {
+		if len(q.Types) > 0 && !slices.Contains(q.Types, svc.Type()) {
+			continue
+		}
+		res, err := svc.Search(ctx, tx, search.Query[ID]{
+			Term:   q.Term,
+			Except: except,
+			Limit:  q.Offset + limit,
+		})
 		if err != nil {
 			return nil, err
 		}
-		results[i] = res
+		if scope != nil && scope.err != nil {
+			return nil, scope.err
+		}
+		results = append(results, res)
 	}
-	return search.Merge(searchLimit, results...).Keys, nil
+	keys := search.Merge(q.Offset+limit, results...).Keys
+	return keys[min(q.Offset, len(keys)):], nil
 }
 
 // Close closes the ontology and all of its observers and releases all resources.

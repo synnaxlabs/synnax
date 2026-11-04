@@ -82,15 +82,14 @@ var _ = Describe("Read task", func() {
 		Expect(stat.Details.Running).To(BeTrue())
 	}
 
-	// read returns every sample persisted in key, asserting through g.
-	read := func(g Gomega, ctx context.Context, key channel.Key) telem.Series {
+	// stored returns every sample persisted in key.
+	stored := func(ctx context.Context, key channel.Key) telem.Series {
 		GinkgoHelper()
-		it, err := framerSvc.OpenIterator(ctx, framer.IteratorConfig{
+		it := MustSucceed(framerSvc.OpenIterator(ctx, framer.IteratorConfig{
 			Keys:   channel.Keys{key},
 			Bounds: telem.TimeRangeMax,
-		})
-		g.Expect(err).To(Succeed())
-		defer func() { g.Expect(it.Close()).To(Succeed()) }()
+		}))
+		defer func() { Expect(it.Close()).To(Succeed()) }()
 		var s telem.Series
 		if !it.SeekFirst() {
 			return s
@@ -101,20 +100,14 @@ var _ = Describe("Read task", func() {
 				s.Data = append(s.Data, ser.Data...)
 			}
 		}
-		g.Expect(it.Error()).To(Succeed())
+		Expect(it.Error()).To(Succeed())
 		return s
 	}
 
-	stored := func(ctx context.Context, key channel.Key) telem.Series {
-		GinkgoHelper()
-		return read(Default, ctx, key)
-	}
-
-	// expectStored waits until key holds n samples. A read can fail while a commit is
-	// in flight (SY-5459), so a failed read retries.
+	// expectStored waits until key holds n samples.
 	expectStored := func(ctx context.Context, key channel.Key, n int64) telem.Series {
 		GinkgoHelper()
-		Eventually(func(g Gomega) int64 { return read(g, ctx, key).Len() }).
+		Eventually(func() int64 { return stored(ctx, key).Len() }).
 			WithTimeout(15 * time.Second).Should(Equal(n))
 		return stored(ctx, key)
 	}
@@ -779,6 +772,236 @@ var _ = Describe("Read task", func() {
 		got := jsontext.Value(expectStored(ctx, data.Key(), 1).At(0))
 		Expect(got.Canonicalize()).To(Succeed())
 		Expect(string(got)).To(Equal(`{"limits":[1,2.5],"mode":"auto"}`))
+	})
+
+	Context("Records that convert differently within one poll", func() {
+		// startText starts a task that reads /s into a string channel and /v into a
+		// float channel on one index, after records are produced, so they share a poll.
+		startText := func(
+			ctx context.Context,
+			records ...*kgo.Record,
+		) (data, text channel.Channel) {
+			GinkgoHelper()
+			var index channel.Channel
+			index, data = createIndexed(ctx, telem.Float64T)
+			text = channel.Channel{
+				Name:       data.Name + "_text",
+				DataType:   telem.StringT,
+				LocalIndex: index.LocalKey,
+			}
+			Expect(channelSvc.NewWriter(nil).Create(ctx, &text)).To(Succeed())
+			fields := stampedFields(index, data)
+			fields = slices.Insert(fields, 1, kafka.ReadField{
+				Key:      "s",
+				Channel:  text.Key(),
+				Pointer:  "/s",
+				DataType: telem.StringT,
+			})
+			dev := createDevice(ctx, clusterProperties())
+			topic := newTopic()
+			for _, rec := range records {
+				rec.Topic = topic
+			}
+			Expect(producer.ProduceSync(ctx, records...).FirstErr()).To(Succeed())
+			dt, t := configure(ctx, kafka.ReadConfig{
+				Device:  dev.Key,
+				Topic:   topic,
+				Records: single(fields),
+			})
+			start(ctx, dt, t)
+			return data, text
+		}
+
+		texts := func(s telem.Series) []string {
+			var out []string
+			for sample := range s.Samples() {
+				out = append(out, string(sample))
+			}
+			return out
+		}
+
+		It("Should drop every sample of a record that fails on a later field",
+			func(ctx SpecContext) {
+				data, text := startText(ctx,
+					&kgo.Record{Value: []byte(`{"ts":10e9,"s":"first","v":1}`)},
+					&kgo.Record{Value: []byte(`{"ts":11e9,"s":"bad","v":"none"}`)},
+					&kgo.Record{Value: []byte(`{"ts":12e9,"s":"last","v":3}`)},
+				)
+				Expect(
+					floats(expectStored(ctx, data.Key(), 2)),
+				).To(Equal([]float64{1, 3}))
+				Expect(texts(expectStored(ctx, text.Key(), 2))).
+					To(Equal([]string{"first", "last"}))
+			},
+		)
+
+		It("Should reorder samples of varying size by timestamp",
+			func(ctx SpecContext) {
+				data, text := startText(ctx,
+					&kgo.Record{Value: []byte(`{"ts":12e9,"s":"c","v":3}`)},
+					&kgo.Record{Value: []byte(`{"ts":10e9,"s":"longest","v":1}`)},
+					&kgo.Record{Value: []byte(`{"ts":11e9,"s":"\u00e9\n","v":2}`)},
+				)
+				Expect(floats(expectStored(ctx, data.Key(), 3))).
+					To(Equal([]float64{1, 2, 3}))
+				Expect(texts(expectStored(ctx, text.Key(), 3))).
+					To(Equal([]string{"longest", "é\n", "c"}))
+			},
+		)
+	})
+
+	It("Should match an object member whose name holds an escape",
+		func(ctx SpecContext) {
+			index, data := createIndexed(ctx, telem.Float64T)
+			dev := createDevice(ctx, clusterProperties())
+			topic := newTopic()
+			dt, t := configure(ctx, kafka.ReadConfig{
+				Device:  dev.Key,
+				Topic:   topic,
+				Records: single(stampedFields(index, data)),
+			})
+			start(ctx, dt, t)
+			rec := &kgo.Record{Topic: topic, Value: []byte(`{"ts":10e9,"\u0076":2.5}`)}
+			Expect(producer.ProduceSync(ctx, rec).FirstErr()).To(Succeed())
+			Expect(floats(expectStored(ctx, data.Key(), 1))).To(Equal([]float64{2.5}))
+		},
+	)
+
+	It("Should read a value inside another field's value", func(ctx SpecContext) {
+		index, data := createIndexed(ctx, telem.JSONT)
+		inner := channel.Channel{
+			Name:       data.Name + "_inner",
+			DataType:   telem.Float64T,
+			LocalIndex: index.LocalKey,
+		}
+		Expect(channelSvc.NewWriter(nil).Create(ctx, &inner)).To(Succeed())
+		fields := stampedFields(index, data)
+		fields[1].DataType = telem.JSONT
+		fields = append(fields, kafka.ReadField{
+			Key:      "inner",
+			Channel:  inner.Key(),
+			Pointer:  "/v/a/b",
+			DataType: telem.Float64T,
+		})
+		dev := createDevice(ctx, clusterProperties())
+		topic := newTopic()
+		dt, t := configure(ctx, kafka.ReadConfig{
+			Device:  dev.Key,
+			Topic:   topic,
+			Records: single(fields),
+		})
+		start(ctx, dt, t)
+		rec := &kgo.Record{
+			Topic: topic,
+			Value: []byte(`{"ts":10e9,"v": { "a": { "b": 7.5 } } }`),
+		}
+		Expect(producer.ProduceSync(ctx, rec).FirstErr()).To(Succeed())
+		Expect(floats(expectStored(ctx, inner.Key(), 1))).To(Equal([]float64{7.5}))
+		Expect(string(expectStored(ctx, data.Key(), 1).At(0))).
+			To(Equal(`{"a":{"b":7.5}}`))
+	})
+
+	// startSingle starts a task reading /v of each record into a channel of dt, and
+	// produces body.
+	startSingle := func(
+		ctx context.Context,
+		dt telem.DataType,
+		body string,
+	) (data channel.Channel, t task.Task) {
+		GinkgoHelper()
+		var index channel.Channel
+		index, data = createIndexed(ctx, dt)
+		dev := createDevice(ctx, clusterProperties())
+		topic := newTopic()
+		fields := stampedFields(index, data)
+		fields[1].DataType = dt
+		var dtask driver.Task
+		dtask, t = configure(ctx, kafka.ReadConfig{
+			Device:  dev.Key,
+			Topic:   topic,
+			Records: single(fields),
+		})
+		start(ctx, dtask, t)
+		rec := &kgo.Record{Topic: topic, Value: []byte(body)}
+		Expect(producer.ProduceSync(ctx, rec).FirstErr()).To(Succeed())
+		return data, t
+	}
+
+	DescribeTable("Should store a JSON value as the record spells it",
+		func(ctx SpecContext, value, expected string) {
+			data, _ := startSingle(ctx, telem.JSONT, `{"ts":10e9,"v":`+value+`}`)
+			Expect(string(expectStored(ctx, data.Key(), 1).At(0))).To(Equal(expected))
+		},
+		Entry("a fraction with a trailing zero", `1.0`, `1.0`),
+		Entry("a number past the range of a float", `1e999`, `1e999`),
+		Entry("members out of order", `{"z":1,"a":2}`, `{"z":1,"a":2}`),
+		Entry("spaces inside a value", `{ "a" : [ 1 , 2 ] }`, `{"a":[1,2]}`),
+	)
+
+	It("Should skip a number past the range of a numeric channel",
+		func(ctx SpecContext) {
+			_, t := startSingle(ctx, telem.Float64T, `{"ts":10e9,"v":1e999}`)
+			Eventually(func() string { return taskStatus(ctx, t).Description }).
+				WithTimeout(15 * time.Second).
+				Should(ContainSubstring("Value at /v: "))
+			Expect(
+				taskStatus(ctx, t).Description,
+			).To(ContainSubstring("invalid number"))
+		},
+	)
+
+	DescribeTable(
+		"Should encode a number in an integer channel",
+		func(
+			ctx SpecContext,
+			dt telem.DataType,
+			value string,
+			expected telem.Series,
+		) {
+			body := `{"ts":10e9,"v":` + value + `}`
+			data, _ := startSingle(ctx, dt, body)
+			Expect(expectStored(ctx, data.Key(), 1).Data).To(Equal(expected.Data))
+		},
+		Entry("a negative int8", telem.Int8T, `-2`, telem.NewSeriesV[int8](-2)),
+		Entry("a negative int16", telem.Int16T, `-300`, telem.NewSeriesV[int16](-300)),
+		Entry(
+			"a negative int32",
+			telem.Int32T,
+			`-70000`,
+			telem.NewSeriesV[int32](-70000),
+		),
+		Entry("a negative int64", telem.Int64T, `-5000000000`,
+			telem.NewSeriesV[int64](-5000000000)),
+		Entry("the largest uint8", telem.Uint8T, `255`, telem.NewSeriesV[uint8](255)),
+		Entry("the largest uint16", telem.Uint16T, `65535`,
+			telem.NewSeriesV[uint16](65535)),
+		Entry("the largest uint32", telem.Uint32T, `4294967295`,
+			telem.NewSeriesV[uint32](4294967295)),
+		Entry("the largest uint64", telem.Uint64T, `18446744073709551615`,
+			telem.NewSeriesV[uint64](18446744073709551615)),
+		Entry("a negative whole float", telem.Int16T, `-3.0`,
+			telem.NewSeriesV[int16](-3)),
+		Entry("a float past the range of an int64", telem.Uint64T, `1e19`,
+			telem.NewSeriesV[uint64](10000000000000000000)),
+	)
+
+	It("Should skip a JSON value that repeats a member", func(ctx SpecContext) {
+		index, data := createIndexed(ctx, telem.JSONT)
+		dev := createDevice(ctx, clusterProperties())
+		topic := newTopic()
+		fields := stampedFields(index, data)
+		fields[1].DataType = telem.JSONT
+		dt, t := configure(ctx, kafka.ReadConfig{
+			Device:  dev.Key,
+			Topic:   topic,
+			Records: single(fields),
+		})
+		start(ctx, dt, t)
+		rec := &kgo.Record{Topic: topic, Value: []byte(`{"ts":10e9,"v":{"a":1,"a":2}}`)}
+		Expect(producer.ProduceSync(ctx, rec).FirstErr()).To(Succeed())
+		Eventually(func() string { return taskStatus(ctx, t).Description }).
+			WithTimeout(15 * time.Second).
+			Should(ContainSubstring("duplicate object member name"))
 	})
 
 	It("Should skip a record with data after its JSON value", func(ctx SpecContext) {
