@@ -7,9 +7,9 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { http, type Synnax, type task } from "@synnaxlabs/client";
+import { channel, http, type Synnax, type task } from "@synnaxlabs/client";
 import { createTestClient } from "@synnaxlabs/client/testutil";
-import { fireEvent, screen, waitFor } from "@testing-library/react";
+import { fireEvent, screen, waitFor, within } from "@testing-library/react";
 import { describe, expect, it } from "vitest";
 import { type z } from "zod";
 
@@ -20,6 +20,7 @@ import {
   commitFieldInput,
   createChannelReadOnlyClient,
   deployAndAwaitTask,
+  findChannelListItem,
   renderTaskFormTab,
   type RenderTaskFormTabOptions,
   selectFromDropdown,
@@ -379,5 +380,24 @@ describe("Write", () => {
     });
     expect(updated.properties.write["/cmd"]).toBe(configuredCh.key);
     expect(updated.properties.write["/stored"]).toBe(storedCh.key);
+  });
+});
+
+describe("Write channel names", () => {
+  const client = createTestClient();
+
+  it("should show the name deploying gives each command channel in the list", async () => {
+    const dev = await createHTTPDevice(client);
+    const config = createWriteConfig(dev.key, [
+      createWriteEndpoint("ep1", "/valve", { dataType: "uint8" }),
+      { ...createWriteEndpoint("ep2", "/off", { dataType: "uint8" }), disabled: true },
+    ]);
+    const draft = await createDraft(client, config);
+    await renderWrite({ client, taskKey: draft.key });
+    const escape = channel.escapeInvalidName;
+    const on = await findChannelListItem(`${escape(dev.name)}${escape("/valve")}_cmd`);
+    expect(within(on).getByRole("img", { name: "New channel" })).toBeTruthy();
+    const off = await findChannelListItem(`${escape(dev.name)}${escape("/off")}_cmd`);
+    expect(within(off).queryByRole("img", { name: "New channel" })).toBeNull();
   });
 });

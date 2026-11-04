@@ -7,6 +7,8 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
+import { DataType, type Synnax } from "@synnaxlabs/client";
+import { createTestClient } from "@synnaxlabs/client/testutil";
 import { Component } from "@synnaxlabs/lyra/component";
 import { Form } from "@synnaxlabs/lyra/form";
 import { type Status } from "@synnaxlabs/lyra/status";
@@ -16,8 +18,8 @@ import { Profiler } from "react";
 import { describe, expect, it } from "vitest";
 
 import { Task } from "@/platform/task";
-import { renderInTaskForm } from "@/platform/task/testutil";
-import { CaptureStatuses } from "@/testutil";
+import { renderInTaskForm, renderInTaskFormWithClient } from "@/platform/task/testutil";
+import { CaptureStatuses, uniqueName } from "@/testutil";
 
 type Field = Task.Views.GroupField;
 
@@ -77,14 +79,16 @@ const createField = (): Omit<Field, "key"> => field("", "");
 
 interface RenderOptions extends Partial<Task.Views.GroupTreeProps<Item, Field>> {
   mode?: "preview";
+  /** Resolves the channels of the groups and fields. */
+  client?: Synnax;
 }
 
-const renderTree = (
+const renderTree = async (
   groups: Item[],
-  { mode, ...props }: RenderOptions = {},
+  { mode, client, ...props }: RenderOptions = {},
   onStatuses?: (statuses: Status.NotificationSpec[]) => void,
-) =>
-  renderInTaskForm(
+) => {
+  const ui = (
     <>
       <Task.Views.GroupTree<Item, Field>
         path={path.config.groups}
@@ -100,9 +104,12 @@ const renderTree = (
         {...props}
       />
       {onStatuses != null && <CaptureStatuses onStatuses={onStatuses} />}
-    </>,
-    { values: { config: { groups } }, mode },
+    </>
   );
+  const options = { values: { config: { groups } }, mode };
+  if (client == null) return await renderInTaskForm(ui, options);
+  return await renderInTaskFormWithClient(ui, { ...options, client });
+};
 
 const GROUP: Group = {
   key: "g",
@@ -349,5 +356,41 @@ describe("GroupTree", () => {
     fireEvent.change(input, { target: { value: "/value2" } });
     await screen.findAllByText("/value2");
     expect(updates).toEqual([]);
+  });
+
+  describe("with a live client", () => {
+    const client = createTestClient();
+
+    const createDeleted = async (): Promise<number> => {
+      const ch = await client.channels.create({
+        name: uniqueName("gone"),
+        dataType: DataType.FLOAT32,
+        virtual: true,
+      });
+      await client.channels.delete(ch.key);
+      return ch.key;
+    };
+
+    it("should mark a field and a leaf whose channels are gone", async () => {
+      const fieldChannel = await createDeleted();
+      const leafChannel = await createDeleted();
+      await renderTree(
+        [
+          {
+            ...GROUP,
+            fields: [field("ts", "/time"), field("v", "/value", fieldChannel)],
+          },
+          { ...LEAF, channel: leafChannel, disabled: true },
+        ],
+        { client, groupsSwitchable: true },
+      );
+      const icons = await screen.findAllByRole("img", { name: "Channel not found" });
+      expect(icons).toHaveLength(2);
+      fireEvent.pointerOver(icons[1], { pointerType: "mouse" });
+      expect((await screen.findByRole("tooltip")).textContent).toBe(
+        "Channel not foundIt may have been deleted. Deploying the task does not " +
+          "create a disabled channel.",
+      );
+    });
   });
 });
