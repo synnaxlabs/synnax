@@ -138,6 +138,7 @@ type gatedTx struct {
 }
 
 func (t gatedTx) Commit(ctx context.Context, opts ...any) error {
+	GinkgoHelper()
 	// A task commits on its own goroutine, where a failed assertion needs a recover.
 	defer GinkgoRecover()
 	if t.db.gated.CompareAndSwap(true, false) {
