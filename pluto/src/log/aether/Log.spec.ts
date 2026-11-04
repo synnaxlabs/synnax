@@ -140,6 +140,17 @@ describe("log/aether/Log", () => {
       expect(log.state.empty).toBe(false);
     });
 
+    it("should be blank only while loading with no entries", () => {
+      const { log, source } = setup([]);
+      source.status = telem.LOADING_STATUS;
+      source.notify();
+      expect(log.state.blank).toBe(true);
+      source.push(makeEntry(0));
+      source.notify();
+      expect(log.state.blank).toBe(false);
+      expect(log.state.loading).toBe(true);
+    });
+
     it("should set loading while the source loads", () => {
       const { log, source } = setup([]);
       expect(log.state.loading).toBe(false);
