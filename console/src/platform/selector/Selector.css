@@ -60,6 +60,18 @@
         max-width: 100%;
     }
 
+    /* Only the cursor marks an item. The pointer moves the cursor, but after an arrow key
+       the pointer can rest on an item that Enter does not pick. */
+    .console-layout-selector__item--card:not(.console--hovered),
+    .console-layout-selector__item--action:not(.console--hovered) {
+        --pluto-hover-bg: var(--pluto-bg);
+        --pluto-hover-border-color: var(--pluto-border-color);
+    }
+
+    .console-layout-selector__item--action:not(.console--hovered) {
+        --pluto-text-color: var(--pluto-gray-l9);
+    }
+
     /* Tasks: one column of menu items per integration. */
     .console-layout-selector__groups {
         columns: 4 24rem;

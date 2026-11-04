@@ -44,6 +44,9 @@ const renderSelector = async (sections: Selector.Section[]) => {
 const disabled = (name: string): boolean =>
   screen.getByRole("button", { name }).getAttribute("aria-disabled") === "true";
 
+const marked = (name: string): boolean =>
+  screen.getByRole("button", { name }).classList.contains("console--hovered");
+
 describe("Selector.create", () => {
   it("should call the onSelect of the clicked item with no arguments", async () => {
     const cat = createSelectable("Cat");
@@ -125,6 +128,17 @@ describe("Selector.create", () => {
       press("Enter");
       expect(camel.onSelect).toHaveBeenCalledOnce();
       expect(cat.onSelect).not.toHaveBeenCalled();
+    });
+
+    it("should move the mark off the pointer item with the down arrow", async () => {
+      const { press } = await renderAnimals();
+      const cat = screen.getByRole("button", { name: "Cat" });
+      fireEvent.pointerMove(cat, { pointerType: "mouse", clientX: 1 });
+      fireEvent.pointerMove(cat, { pointerType: "mouse", clientX: 2 });
+      expect(marked("Cat")).toBe(true);
+      press("ArrowDown");
+      expect(marked("Cat")).toBe(false);
+      expect(marked("Camel")).toBe(true);
     });
 
     it("should clear the search on Escape", async () => {
