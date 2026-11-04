@@ -376,7 +376,11 @@ export const Table = ({
     <div className={CSS.BE("input", "table-scroll")}>
       <table
         ref={table}
-        className={CSS.cls(CSS.BE("input", "table"), className)}
+        className={CSS.cls(
+          CSS.BE("input", "table"),
+          columns.every(({ width }) => width != null) && CSS.M("sized"),
+          className,
+        )}
         style={tableStyle}
         onPaste={handlePaste}
         onKeyDown={handleKeyDown}

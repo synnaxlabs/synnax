@@ -22,15 +22,16 @@
     width: 100%;
 
     /* The table takes the width its columns need, past which its container scrolls. */
-    min-width: calc(
-        var(--pluto-input-table-columns-width) + var(--pluto-input-table-action-width)
-    );
+    min-width: var(--pluto-input-table-width);
     table-layout: fixed;
     border-collapse: separate;
     border-spacing: 0;
 
     --pluto-input-table-gutter-width: 5rem;
     --pluto-input-table-action-width: 5rem;
+    --pluto-input-table-width: calc(
+        var(--pluto-input-table-columns-width) + var(--pluto-input-table-action-width)
+    );
 
     /* Inner lines are separators. The outer edge is a control border, as on inputs. */
     --pluto-table-line: var(--pluto-gray-l6);
@@ -42,11 +43,16 @@
     );
 
     &:has(> colgroup > .lyra-input__table-gutter) {
-        min-width: calc(
+        --pluto-input-table-width: calc(
             var(--pluto-input-table-columns-width) +
                 var(--pluto-input-table-action-width) +
                 var(--pluto-input-table-gutter-width)
         );
+    }
+
+    /* Columns that all declare a width keep it, so the table does not stretch. */
+    &.lyra--sized {
+        width: var(--pluto-input-table-width);
     }
 
     & .lyra-input__table-action {
