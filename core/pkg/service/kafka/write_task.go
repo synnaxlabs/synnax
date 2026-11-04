@@ -158,8 +158,12 @@ func parseWriteChannel(wc WriteChannel, ch channel.Channel) (writeChannel, error
 			)
 		}
 		var err error
-		parsed.format, err = xjson.ParseTimeFormat(string(*wc.TimeFormat))
-		return parsed, err
+		if parsed.format, err = xjson.ParseTimeFormat(
+			string(*wc.TimeFormat),
+		); err != nil {
+			return writeChannel{}, err
+		}
+		return parsed, nil
 	}
 	var err error
 	if parsed.jsonType, err = xjson.ParseType(string(wc.JSONType)); err != nil {
