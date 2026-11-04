@@ -167,6 +167,8 @@ var _ = Describe("Index", func() {
 		Entry("a word split by '-'", "gse-ai", "ai"),
 		Entry("a word split by '.'", "gse.ai", "ai"),
 		Entry("a word split by '/'", "plant/line2/temp", "line2"),
+		Entry("a capital 'İ' as an 'i'", "İl", "il"),
+		Entry("a final capital 'Σ' as a 'σ'", "ΟΣ", "οσ"),
 		Entry("a word split by a tab", "gse\tai", "ai"),
 	)
 

@@ -33,6 +33,8 @@ describe("search", () => {
         ["a word split by '.'", "gse.ai", "ai"],
         ["a word split by a tab", "gse\tai", "ai"],
         ["a word split by '/'", "plant/line2/temp", "line2"],
+        ["a capital 'İ' as an 'i'", "İl", "il"],
+        ["a final capital 'Σ' as a 'σ'", "ΟΣ", "οσ"],
         [
           "a word at the end of a long name",
           "plant/area_one/line_two/station_three/sensor_temperature",

@@ -27,9 +27,16 @@ const truncate = (token: string): string => {
     : token;
 };
 
+// Lowercases each rune alone, as Go's strings.ToLower does. String.toLowerCase turns
+// "İ" into "i" and a combining dot, and a final "Σ" into "ς".
+const lower = (text: string): string =>
+  Array.from(text, (rune) => {
+    const [first] = rune.toLowerCase();
+    return first;
+  }).join("");
+
 const tokenize = (text: string): string[] =>
-  text
-    .toLowerCase()
+  lower(text)
     .split(SEPARATOR)
     .filter((token) => token !== "")
     .map(truncate);
