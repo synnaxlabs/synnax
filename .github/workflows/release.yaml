@@ -234,7 +234,7 @@ jobs:
           app: Synnax
 
       - name: Publish release
-        run: gh release edit "$TAG" --draft=false
+        run: gh release edit "$TAG" --draft=false --latest=false
 
   draft-driver:
     name: Draft Driver
@@ -282,7 +282,7 @@ jobs:
       TAG: ${{ needs.resolve.outputs.driver_tag }}
     steps:
       - name: Publish release
-        run: gh release edit "$TAG" --draft=false
+        run: gh release edit "$TAG" --draft=false --latest=false
 
   # The Core embeds the Console and Driver, so it waits for the ones this run releases
   # and never runs after one fails.
@@ -399,8 +399,13 @@ jobs:
     env:
       TAG: ${{ needs.resolve.outputs.core_tag }}
     steps:
+      # The repo has one Latest badge, and a publish takes it by default. It belongs to
+      # the newest stable Core, so a Console, Driver, or Desktop publish declines it.
       - name: Publish release
-        run: gh release edit "$TAG" --draft=false
+        env:
+          LATEST:
+            ${{ inputs.prerelease && 'false' || needs.resolve.outputs.core_latest }}
+        run: gh release edit "$TAG" --draft=false --latest="$LATEST"
 
   deploy-docs:
     name: Deploy docs
