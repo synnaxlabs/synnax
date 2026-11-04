@@ -10,6 +10,7 @@
 import { type FileTransport, type UploadBody } from "@synnaxlabs/freighter";
 import { z } from "zod";
 
+import { group } from "@/group";
 import { resource } from "@/resource";
 
 /**
@@ -33,10 +34,11 @@ export interface Options {
 /** The standard options for a JSON import or export. */
 export const JSON_OPTIONS: Options = { encoding: "JSON" };
 
-/** The wire shape of the per-import request params. Both fields are required. */
+/** The wire shape of the per-import request params. */
 const importParamsZ = z.object({
   fileName: z.string().min(1),
-  parent: resource.idZ.transform((id) => resource.idToString(id)),
+  parent: resource.idZ.transform((id) => resource.idToString(id)).optional(),
+  group: group.keyZ.optional(),
 });
 
 /** Options for a single import call. */
@@ -48,11 +50,13 @@ export interface ImportOptions extends Options {
    */
   fileName: string;
   /**
-   * The ontology resource to create the imported resource under — a project for project
-   * items, a group for symbols. The Core creates the resource and its parent
-   * relationship in a single transaction, so a parenting failure rolls back the import.
+   * The resource to create the imported resource under, such as the project of a
+   * project item. The Core creates the resource and its parent relationship in a single
+   * transaction, so a parenting failure rolls back the import. Symbols take no parent.
    */
-  parent: resource.ID;
+  parent?: resource.ID;
+  /** The group to put the imported resource in, if any. */
+  group?: group.Key;
 }
 
 /**
@@ -96,7 +100,7 @@ export class Client {
    * sent as-is.
    * @param options - the import options, including the wire format of source, the
    * source file's name (used to name the resource when the file carries no name), and
-   * the parent resource to create the resource under.
+   * the parent resource to create the resource under, and the group to put it in.
    * @returns the new resource's resource ID as stamped by the Core.
    */
   async import(

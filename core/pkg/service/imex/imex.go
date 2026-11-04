@@ -384,8 +384,8 @@ func flattenStruct(rv reflect.Value, m map[string]any) {
 }
 
 // ImportOptions carries the per-request settings for an import that arrive out-of-band
-// from the envelope body — transport metadata like the source file's name and the
-// desired parent resource.
+// from the envelope body — transport metadata like the source file's name, the parent
+// resource, and the group.
 type ImportOptions struct {
 	// FileName is the name of the file the envelope was read from, possibly carrying
 	// directory segments. When the envelope body has no `name` field, the file's base
@@ -393,10 +393,9 @@ type ImportOptions struct {
 	// `name` in the body always wins. The registry applies the fallback before the
 	// envelope reaches an Importer.
 	FileName string
-	// Parent is the ontology resource to create the imported resource under — a project
-	// for workspace items, a group for symbols. Required: Service.Import rejects a zero
-	// Parent. The registry passes it through untouched; each Importer decides how the
-	// parent applies to its resource type.
+	// Parent is the resource to create the imported resource under, such as the project
+	// of a workspace item. The registry passes it through untouched; each Importer
+	// decides how the parent applies to its resource type, and whether it needs one.
 	Parent resource.ID
 	// Group is the group a groupable resource sits in, or nil for none. An importer
 	// ignores any group the envelope carries.

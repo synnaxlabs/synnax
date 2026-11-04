@@ -652,15 +652,19 @@ var _ = Describe("Service", func() {
 				)).To(Succeed())
 			})
 
-			It("Should reject a zero parent", func(ctx SpecContext) {
-				Expect(svc.Import(
+			It("Should import a resource with no parent", func(ctx SpecContext) {
+				id := MustSucceed(svc.Import(
 					ctx, db,
 					sampleEnvelope("No Parent", resource.TypeChannel),
 					imex.ImportOptions{},
-				)).Error().To(SatisfyAll(
-					MatchError(ContainSubstring("parent")),
-					MatchError(ContainSubstring("required")),
 				))
+				var parents []ontology.Resource
+				Expect(otg.NewRetrieve().
+					WhereIDs(id).
+					TraverseTo(ontology.ParentsTraverser).
+					Entries(&parents).
+					Exec(ctx, nil)).To(Succeed())
+				Expect(parents).To(BeEmpty())
 			})
 
 			It(

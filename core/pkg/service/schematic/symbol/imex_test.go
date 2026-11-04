@@ -27,12 +27,12 @@ import (
 	. "github.com/synnaxlabs/x/testutil"
 )
 
-// createImportGroup creates a symbol group in the per-spec tx and returns its ID.
-func createImportGroup(ctx context.Context) resource.ID {
+// createImportGroup creates a symbol group in the per-spec tx and returns its key.
+func createImportGroup(ctx context.Context) *group.Key {
 	GinkgoHelper()
 	g := group.Group{Name: "Imported", Scope: resource.TypeSchematicSymbol}
 	Expect(groupSvc.NewWriter(tx).Create(ctx, &g)).To(Succeed())
-	return g.ResourceID()
+	return &g.Key
 }
 
 var _ = Describe("ImEx", func() {
@@ -95,14 +95,14 @@ var _ = Describe("ImEx", func() {
 		importAndRetrieve := func(
 			ctx SpecContext,
 			path string,
-			parent resource.ID,
+			g *group.Key,
 		) symbol.Symbol {
 			GinkgoHelper()
 			id := MustSucceed(imexSvc.Import(
 				ctx,
 				tx,
 				LoadEnvelope(path),
-				imex.ImportOptions{Parent: parent},
+				imex.ImportOptions{Group: g},
 			))
 			Expect(id.Type).To(Equal(resource.TypeSchematicSymbol))
 			key := MustSucceed(uuid.Parse(id.Key))
@@ -166,34 +166,23 @@ var _ = Describe("ImEx", func() {
 			},
 		)
 
-		It("Should reject a zero parent", func(ctx SpecContext) {
+		It("Should put the imported symbol in the given group", func(ctx SpecContext) {
+			g := createImportGroup(ctx)
+			res := importAndRetrieve(ctx, "versions/testdata/import_v2.json", g)
+			Expect(res.Group).To(Equal(g))
+		})
+
+		It("Should put the imported symbol in no group", func(ctx SpecContext) {
+			res := importAndRetrieve(ctx, "versions/testdata/import_v2.json", nil)
+			Expect(res.Group).To(BeNil())
+		})
+
+		It("Should reject a group that does not exist", func(ctx SpecContext) {
 			Expect(imexSvc.Import(
 				ctx, tx,
 				LoadEnvelope("versions/testdata/import_v2.json"),
-				imex.ImportOptions{},
-			)).Error().To(SatisfyAll(
-				MatchError(ContainSubstring("parent")),
-				MatchError(ContainSubstring("required")),
-			))
-		})
-
-		It("Should put the imported symbol in the parent group", func(ctx SpecContext) {
-			parent := createImportGroup(ctx)
-			res := importAndRetrieve(ctx, "versions/testdata/import_v2.json", parent)
-			Expect(
-				res.Group,
-			).To(Equal(new(MustSucceed(group.KeyFromResourceID(parent)))))
-		})
-
-		It("Should reject a parent that is not a group", func(ctx SpecContext) {
-			Expect(imexSvc.Import(
-				ctx, tx,
-				LoadEnvelope("versions/testdata/import_v2.json"),
-				imex.ImportOptions{Parent: resource.ID{Type: "project", Key: "p1"}},
-			)).Error().To(SatisfyAll(
-				MatchError(ContainSubstring("parent: must be a group")),
-				MatchError(ContainSubstring("validation error")),
-			))
+				imex.ImportOptions{Group: new(uuid.New())},
+			)).Error().To(MatchError(ContainSubstring("does not exist")))
 		})
 
 		It(
@@ -201,7 +190,7 @@ var _ = Describe("ImEx", func() {
 			func(ctx SpecContext) {
 				Expect(imexSvc.Import(ctx, tx,
 					LoadEnvelope("versions/testdata/import_bad_version.json"),
-					imex.ImportOptions{Parent: createImportGroup(ctx)},
+					imex.ImportOptions{Group: createImportGroup(ctx)},
 				)).Error().To(SatisfyAll(
 					MatchError(ContainSubstring("schematic_symbol version 99")),
 					MatchError(ContainSubstring("newer than this Core supports")),
@@ -218,7 +207,7 @@ var _ = Describe("ImEx", func() {
 					LoadEnvelope(
 						"versions/testdata/import_v2.json",
 					),
-					imex.ImportOptions{Parent: createImportGroup(ctx)},
+					imex.ImportOptions{Group: createImportGroup(ctx)},
 				))
 				Expect(id.Key).ToNot(Equal("11111111-2222-3333-4444-555555555555"))
 			},
@@ -248,7 +237,7 @@ var _ = Describe("ImEx", func() {
 					ctx,
 					tx,
 					WireRoundTrip(env),
-					imex.ImportOptions{Parent: createImportGroup(ctx)},
+					imex.ImportOptions{Group: createImportGroup(ctx)},
 				))
 				key := MustSucceed(uuid.Parse(id.Key))
 				Expect(key).ToNot(Equal(original.Key))

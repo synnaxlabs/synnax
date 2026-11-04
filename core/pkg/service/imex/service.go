@@ -143,18 +143,15 @@ func (s *Service) ResolveType(envelope Envelope) (string, error) {
 
 // Import routes envelope to its Importer, persists it on tx, and returns the created
 // resource's ID. The opts.FileName fallback is applied before routing; opts then
-// reaches the importer untouched. It returns a validation error scoped to "parent" when
-// opts.Parent is zero, to "type" when nothing is registered, and to "name" when the
-// envelope is still nameless after the fallback.
+// reaches the importer untouched. It returns a validation error scoped to "type" when
+// nothing is registered, and to "name" when the envelope is still nameless after the
+// fallback.
 func (s *Service) Import(
 	ctx context.Context,
 	tx gorp.Tx,
 	envelope Envelope,
 	opts ImportOptions,
 ) (resource.ID, error) {
-	if opts.Parent.IsZero() {
-		return resource.ID{}, validate.PathedError(validate.ErrRequired, "parent")
-	}
 	if envelope.Type == "" {
 		typ, err := s.ResolveType(envelope)
 		if err != nil {

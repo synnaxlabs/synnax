@@ -10,7 +10,7 @@
 from typing import Literal
 
 from freighter import FileTransport
-from synnax import resource
+from synnax import group, resource
 from x.fs import FilePath
 
 Encoding = Literal["JSON"]
@@ -30,7 +30,13 @@ class Client:
     def __init__(self, file_transport: FileTransport) -> None:
         self._file_transport = file_transport
 
-    def import_(self, source: FilePath, *, parent: resource.ID) -> resource.ID:
+    def import_(
+        self,
+        source: FilePath,
+        *,
+        parent: resource.ID | None = None,
+        group: group.Key | None = None,
+    ) -> resource.ID:
         """Imports the resource at source and returns its new resource ID.
 
         The source file's name travels with the request: when the file's contents carry
@@ -38,14 +44,20 @@ class Client:
         file, with the extension stripped. A ``name`` in the file always wins.
 
         :param source: a file path streamed from disk.
-        :param parent: the ontology resource to create the imported resource under — a
-            project for project items, a group for symbols. The Core creates the
-            resource and its parent relationship in a single transaction, so a parenting
-            failure rolls the import back.
+        :param parent: the resource to create the imported resource under, such as the
+            project of a project item. The Core creates the resource and its parent
+            relationship in a single transaction, so a parenting failure rolls the
+            import back. Symbols take no parent.
+        :param group: the group to put the imported resource in, if any.
         :returns: the new resource's resource ID.
         """
+        params: dict[str, str] = {}
+        if parent is not None:
+            params["parent"] = str(parent)
+        if group is not None:
+            params["group"] = str(group)
         return self._file_transport.upload(
-            "/imex/import", source, resource.ID, params={"parent": str(parent)}
+            "/imex/import", source, resource.ID, params=params
         )
 
     def export(self, id: resource.ID, dest: FilePath) -> None:

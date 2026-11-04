@@ -176,6 +176,24 @@ describe("Imex", () => {
       expect(children.map((child) => child.id.key)).toContain(oid.key);
     });
 
+    it("should put the imported resource in the given group", async () => {
+      const proj = await client.projects.create({ name: `imex-proj-${id.create()}` });
+      const g = await client.groups.create({
+        parent: project.resourceID(proj.key),
+        scope: "log",
+        name: `imex-group-${id.create()}`,
+      });
+      const name = `imex-${id.create()}`;
+      const oid = await client.imex.import(toBlob(logEnvelope(name)), {
+        encoding: "JSON",
+        fileName: `${name}.json`,
+        parent: project.resourceID(proj.key),
+        group: g.key,
+      });
+      const l = await client.logs.retrieve({ key: oid.key });
+      expect(l.group).toEqual(g.key);
+    });
+
     it("should throw an error when the parent does not exist", async () => {
       const name = `imex-${id.create()}`;
       await expect(

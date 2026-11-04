@@ -14,12 +14,12 @@ import { Synnax } from "@synnaxlabs/pluto";
 import { Import } from "@/platform/import";
 import { Runtime } from "@/platform/runtime";
 
-export const useImport = (): ((parentGroup: group.Key) => void) => {
+export const useImport = (): ((groupKey: group.Key) => void) => {
   const client = Synnax.use();
   const handleError = Status.useErrorHandler();
   const addStatus = Status.useAdder();
   const importBatch = Import.useImportBatch();
-  return (parentGroup: group.Key) => {
+  return (groupKey: group.Key) => {
     handleError(async () => {
       if (client == null) throw new DisconnectedError();
       const files = await Runtime.pickFiles({
@@ -28,7 +28,6 @@ export const useImport = (): ((parentGroup: group.Key) => void) => {
         multiple: true,
       });
       if (files == null) return;
-      const parent = group.resourceID(parentGroup);
       await importBatch({
         items: files.map((file) => ({ name: file.path, read: file.read })),
         // The created ID is swallowed: symbols live in the symbol tree, not tabs.
@@ -36,7 +35,7 @@ export const useImport = (): ((parentGroup: group.Key) => void) => {
           await client.imex.import(await file.read(), {
             ...imex.JSON_OPTIONS,
             fileName: file.name,
-            parent,
+            group: groupKey,
           });
         },
         onSuccess: ({ name }) =>

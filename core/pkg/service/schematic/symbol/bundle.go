@@ -177,7 +177,7 @@ func (s *Service) ImportGroup(
 			tx,
 			name,
 			files[name],
-			g.ResourceID(),
+			g.Key,
 		); err != nil {
 			return group.Group{}, err
 		}
@@ -257,14 +257,14 @@ func validateMemberNames(members []string) error {
 	return nil
 }
 
-// importMember decodes one member file and imports it under parent through the leaf
+// importMember decodes one member file and imports it into group g through the leaf
 // registry. Every error names the member's file.
 func (s *Service) importMember(
 	ctx context.Context,
 	tx gorp.Tx,
 	name string,
 	data []byte,
-	parent resource.ID,
+	g group.Key,
 ) error {
 	var env imex.Envelope
 	if err := imex.Codec.Decode(ctx, data, &env); err != nil {
@@ -283,7 +283,7 @@ func (s *Service) importMember(
 	env.Type = typ
 	if _, err = s.cfg.ImEx.Import(ctx, tx, env, imex.ImportOptions{
 		FileName: name,
-		Parent:   parent,
+		Group:    &g,
 	}); err != nil {
 		return errors.Wrap(err, name)
 	}
