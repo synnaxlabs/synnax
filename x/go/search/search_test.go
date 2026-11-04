@@ -169,6 +169,7 @@ var _ = Describe("Index", func() {
 		Entry("a word split by '/'", "plant/line2/temp", "line2"),
 		Entry("a capital 'İ' as an 'i'", "İl", "il"),
 		Entry("a final capital 'Σ' as a 'σ'", "ΟΣ", "οσ"),
+		Entry("a word split by a next line", "plant\u0085temp", "temp"),
 		Entry("a word split by a tab", "gse\tai", "ai"),
 	)
 
@@ -209,7 +210,8 @@ var _ = Describe("Index", func() {
 		),
 	)
 
-	DescribeTable("Not matching",
+	DescribeTable(
+		"Not matching",
 		func(text, term string) {
 			idx.Set(1, text)
 			Expect(idx.Search(search.Query[int]{Term: term}).Keys).To(BeEmpty())
@@ -218,6 +220,11 @@ var _ = Describe("Index", func() {
 		Entry("a short term two edits away", "Channel", "nn"),
 		Entry("an empty term", "test", ""),
 		Entry("a term of only separators", "test", " _-."),
+		Entry(
+			"a word joined by a zero width no-break space",
+			"plant\uFEFFtemp",
+			"temp",
+		),
 	)
 
 	DescribeTable(
