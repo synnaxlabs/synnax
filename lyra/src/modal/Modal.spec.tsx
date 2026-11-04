@@ -100,6 +100,14 @@ describe("Modal", () => {
       expect(onVisibleChange).toHaveBeenCalledWith(false);
     });
 
+    it("should not close the dialog from a disabled close button", () => {
+      const { onVisibleChange } = renderModal(
+        <Modal.Header closeDisabled>Title</Modal.Header>,
+      );
+      fireEvent.click(screen.getByLabelText("Close"));
+      expect(onVisibleChange).not.toHaveBeenCalled();
+    });
+
     it("should omit the close button when hidden", () => {
       renderModal(<Modal.Header closeHidden>Title</Modal.Header>);
       expect(screen.queryByLabelText("Close")).toBeNull();

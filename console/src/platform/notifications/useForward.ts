@@ -31,8 +31,9 @@ export interface Rule {
   /** @returns the kind of a status on one of the feature's keys. */
   kind: (status: status.Status) => Kind;
   /**
-   * @returns whether the thing that a state is about is in use. Runs only when a
-   * problem starts on the key. Leave it out when the thing is always in use.
+   * @returns whether the thing that a state is about is in use. Runs when a problem
+   * starts on the key, and on each later write while the thing is not in use. Leave it
+   * out when the thing is always in use.
    */
   inUse?: (params: InUseParams) => Promise<boolean>;
   /** Whether a warning notifies only if its problem is still open after 5 s. */
@@ -153,7 +154,8 @@ const createForwarder = ({ client, rules, add }: ForwarderParams): Forwarder => 
     }
     if (!bad) return;
     const problem = problems.get(stat.key);
-    if (problem == null) {
+    if (problem == null || problem.inUse === false) {
+      close(stat.key);
       open(stat, owner);
       return;
     }
