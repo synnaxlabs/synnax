@@ -209,31 +209,38 @@ export const useCursor = <K extends record.Key>({
     moveTo(to, order.indexOf(to) < at ? "bottom" : "top");
   };
   const activate = (): void => {
-    const key = resolve(getOrder());
+    const order = getOrder();
+    const key = resolve(order);
     if (key == null) return;
-    if (hovering) click(key);
-    else doubleClick(key);
+    if (hovering) return click(key);
+    // A modifier click can deselect the key the cursor rests on.
+    const target = selected.includes(key)
+      ? key
+      : startOf(order, cursor, initialHover, selected);
+    if (target != null) doubleClick(target);
   };
-  // The repeat timer outlives the render that started it, so it reads the latest step.
+  // The repeat outlives the render that started it, so it reads the latest step.
   const stepRef = useSyncedRef(step);
-  const timerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const stopRef = useRef<(() => void) | null>(null);
   const release = (): void => {
-    if (timerRef.current != null) clearInterval(timerRef.current);
-    timerRef.current = null;
+    stopRef.current?.();
+    stopRef.current = null;
   };
-  useEffect(
-    () => () => {
-      if (timerRef.current != null) clearInterval(timerRef.current);
-    },
-    [],
-  );
+  useEffect(() => () => stopRef.current?.(), []);
   const press = (key: CursorKey): void => {
     release();
     if (key === "Enter") return activate();
     stepRef.current(key, false);
-    timerRef.current = setTimeout(() => {
-      timerRef.current = setInterval(() => stepRef.current(key, true), REPEAT_INTERVAL);
+    let timer = setTimeout(() => {
+      timer = setInterval(() => stepRef.current(key, true), REPEAT_INTERVAL);
     }, REPEAT_DELAY);
+    // A window that loses focus while a key is held never sees the release.
+    const stop = (): void => {
+      clearInterval(timer);
+      window.removeEventListener("blur", stop);
+    };
+    window.addEventListener("blur", stop);
+    stopRef.current = stop;
   };
 
   const handleTrigger = ({ triggers, stage, target }: Triggers.UseEvent): void => {

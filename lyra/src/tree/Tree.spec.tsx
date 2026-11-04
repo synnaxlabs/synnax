@@ -411,6 +411,33 @@ describe("Tree keys", () => {
     expect(row("a").getAttribute("aria-expanded")).toBe("true");
   });
 
+  it("should stop a held key when the window loses focus", () => {
+    vi.useFakeTimers();
+    onTestFinished(() => {
+      vi.useRealTimers();
+    });
+    render(<Component />);
+    fireEvent.keyDown(tree(), { key: "ArrowDown", code: "ArrowDown" });
+    fireEvent.blur(window);
+    act(() => {
+      vi.advanceTimersByTime(1000);
+    });
+    expect(selected()).toEqual(["a"]);
+  });
+
+  it("should double-click a selected item on Enter after a click deselects", () => {
+    const onDoubleClick = vi.fn();
+    render(<Component onDoubleClick={onDoubleClick} />);
+    fireEvent.click(row("b"));
+    fireEvent.keyDown(window, { code: "Control" });
+    fireEvent.click(row("c"));
+    fireEvent.click(row("c"));
+    fireEvent.keyUp(window, { code: "Control" });
+    expect(selected()).toEqual(["b"]);
+    press("Enter");
+    expect(onDoubleClick).toHaveBeenCalledExactlyOnceWith("b");
+  });
+
   it("should move from the item clicked last", () => {
     render(<Component />);
     fireEvent.click(row("c"));
