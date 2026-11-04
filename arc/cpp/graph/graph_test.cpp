@@ -25,4 +25,15 @@ TEST(Graph, ParsesEmptyObject) {
     EXPECT_TRUE(graph.nodes.empty());
     EXPECT_TRUE(graph.inputs.empty());
 }
+
+/// @brief it should bind one error for content that is not an object.
+TEST(Graph, RejectsNonObjectContent) {
+    for (const x::json::json &bad:
+         {x::json::json(false), x::json::json("bad"), x::json::json::array()}) {
+        x::json::Parser parser(x::json::json{{"graph", bad}});
+        parser.field<Graph>("graph");
+        ASSERT_EQ(parser.errors->size(), 1);
+        EXPECT_EQ(parser.errors->at(0)["message"], "expected an object");
+    }
+}
 }
