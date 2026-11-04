@@ -29,8 +29,8 @@ on:
         description: The commit that run classified
         required: true
         type: string
-      pr:
-        description: Pull request number
+      group:
+        description: Concurrency group of the pull request branch
         required: true
         type: string
 
@@ -39,7 +39,7 @@ permissions: {}
 # One run per pull request branch at a time, so an older run never writes after a newer
 # one. A newer queued run replaces an older queued one.
 concurrency:
-  group: label-classify-${{ inputs.pr }}
+  group: label-classify-${{ inputs.group }}
   cancel-in-progress: false
 
 jobs:

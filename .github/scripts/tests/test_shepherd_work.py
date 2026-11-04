@@ -42,7 +42,7 @@ class Harness:
             "api */pulls/7", {"head": {"sha": "head"}, "mergeable_state": state}
         )
 
-    def runs(self, *conclusions: str) -> None:
+    def runs(self, *conclusions: str | None) -> None:
         runs = [{"id": i + 1, "conclusion": c} for i, c in enumerate(conclusions)]
         self.gh.serve("api */actions/*", {"workflow_runs": runs})
 

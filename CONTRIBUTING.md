@@ -36,9 +36,10 @@ person dispatches every release ([RFC 0058](docs/tech/rfc/0058-release-workflow.
 
 ### Pull requests from forks
 
-Workflows that hold write access start only from a branch of this repository, so a fork
-gets no automation. A maintainer adds the review tier label, then starts the gate with
-`gh workflow run check.review.yaml -f pr=<number>` after each change.
+Workflows that hold write access start only from a branch of this repository, so a
+fork's pull request cannot start them. `Relay - Sweep` starts the gate and auto-merge
+for a fork or for Dependabot every 15 minutes. A maintainer adds the review tier label
+to a fork's pull request.
 
 ## Review tiers
 

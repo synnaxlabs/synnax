@@ -1,0 +1,48 @@
+# Copyright 2026 Synnax Labs, Inc.
+#
+# Use of this software is governed by the Business Source License included in the file
+# licenses/BSL.txt.
+#
+# As of the Change Date specified in that file, in accordance with the Business Source
+# License, use of this software will be governed by the Apache License, Version 2.0,
+# included in the file licenses/APL.txt.
+
+# Starts the review gate and auto-merge for pull requests the other relays cannot reach:
+# a fork or Dependabot gets a token that cannot dispatch. It runs from the default
+# branch and reads pull requests only through the API.
+
+name: Relay - Sweep
+
+on:
+  schedule:
+    - cron: "*/15 * * * *"
+  workflow_dispatch:
+
+permissions: {}
+
+concurrency:
+  group: relay-sweep
+  cancel-in-progress: false
+
+jobs:
+  sweep:
+    name: Sweep pull requests
+    runs-on: ubuntu-latest
+    permissions:
+      actions: write
+      pull-requests: read
+    steps:
+      - name: Start the workflows
+        env:
+          GH_REPO: ${{ github.repository }}
+          GH_TOKEN: ${{ github.token }}
+          REF: ${{ github.event.repository.default_branch }}
+        run: |
+          gh pr list --state open --limit 200 \
+            --json number,isCrossRepository,author \
+            --jq '.[] | select(.isCrossRepository or .author.login == "app/dependabot")
+              | .number' |
+            while read -r pr; do
+              gh workflow run check.review.yaml --ref "$REF" -f pr="$pr"
+              gh workflow run merge.auto.yaml --ref "$REF" -f pr="$pr"
+            done
