@@ -25,7 +25,7 @@ import { Selector as Base } from "@/platform/selector";
 
 const withTaskVisibility = (Selectable: Base.Selectable): Base.Selectable => {
   const WrappedSelectable: Base.Selectable = (props) => {
-    const hasCreatePermission = Access.useCreateGranted(task.TYPE_ONTOLOGY_ID);
+    const hasCreatePermission = Access.useCreateGranted(task.TYPE_RESOURCE_ID);
     if (!hasCreatePermission) return null;
     return <Selectable {...props} />;
   };

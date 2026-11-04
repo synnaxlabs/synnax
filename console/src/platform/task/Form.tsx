@@ -125,7 +125,7 @@ export const wrapForm = <S extends task.Schemas = task.Schemas>({
 
     // The form saves on every edit, so a subject who cannot write the task gets it
     // read-only rather than fields that revert once the save is refused.
-    const canEdit = Access.useUpdateGranted(task.ontologyID(taskKey));
+    const canEdit = Access.useUpdateGranted(task.resourceID(taskKey));
 
     const deployChecked = useRef(false);
 

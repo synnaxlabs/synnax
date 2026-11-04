@@ -66,7 +66,7 @@ describe("arc/Explorer", () => {
     const arc = await createArc();
     await renderExplorer(
       await createTestClientWithGrants(client, {
-        retrieve: [clientArc.TYPE_ONTOLOGY_ID],
+        retrieve: [clientArc.TYPE_RESOURCE_ID],
       }),
     );
     fireEvent.change(screen.getByRole("textbox"), { target: { value: arc.name } });

@@ -11,19 +11,20 @@ import { type UnaryClient } from "@synnaxlabs/freighter";
 import { array, deep, primitive } from "@synnaxlabs/x";
 import { z } from "zod";
 
-import { ontology } from "@/ontology";
+import { type ontology } from "@/ontology";
 import { query } from "@/query";
 import {
   type Key,
   keyZ,
   type New,
   newZ,
-  ontologyID,
   type Payload,
   payloadZ,
+  resourceID,
   type Status,
   statusZ,
 } from "@/rack/types.gen";
+import { resource } from "@/resource";
 import { type status } from "@/status";
 import { type task } from "@/task";
 import { checkForMultipleOrNoResults } from "@/util/retrieve";
@@ -208,7 +209,7 @@ export class Client extends query.Retriever<
   async delete(keys: Key | Key[], opts: query.WriteOptions = {}): Promise<void> {
     const keysArr = array.toArray(keys);
     const drop = () => [
-      this.cfg.ontology.cache.deleteResources(ontologyID(keysArr)),
+      this.cfg.ontology.cache.deleteResources(resourceID(keysArr)),
       this.store.delete(keysArr),
     ];
     await query.optimistic({
@@ -228,7 +229,7 @@ export class Client extends query.Retriever<
   async rename(key: Key, name: string, opts: query.WriteOptions = {}): Promise<void> {
     const rename = () => [
       query.partialUpdate(this.store, key, { name }),
-      this.cfg.ontology.cache.renameResource(ontologyID(key), name),
+      this.cfg.ontology.cache.renameResource(resourceID(key), name),
     ];
     await query.optimistic({
       rollbacks: rename(),
@@ -384,4 +385,4 @@ export class Rack {
   }
 }
 
-export const statusKey = (key: Key): string => ontology.idToString(ontologyID(key));
+export const statusKey = (key: Key): string => resource.idToString(resourceID(key));

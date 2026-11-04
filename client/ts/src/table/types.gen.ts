@@ -13,7 +13,7 @@ import { caseconv, color, id, notation, text, uuid } from "@synnaxlabs/x";
 import { z } from "zod";
 
 import { channel } from "@/channel";
-import { ontology } from "@/ontology";
+import { resource } from "@/resource";
 
 export const FLEX_ALIGNMENTS = ["start", "center", "end", "stretch"] as const;
 export const flexAlignmentZ = z.enum(FLEX_ALIGNMENTS);
@@ -170,5 +170,5 @@ export const tableZ = z.object({
 export interface Table extends z.infer<typeof tableZ> {}
 export interface New extends z.input<typeof tableZ> {}
 
-export const ontologyID = ontology.createIDFactory<Key>("table");
-export const TYPE_ONTOLOGY_ID = ontologyID("");
+export const resourceID = resource.createIDFactory<Key>("table");
+export const TYPE_RESOURCE_ID = resourceID("");

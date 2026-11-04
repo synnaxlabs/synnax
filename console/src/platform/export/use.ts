@@ -10,7 +10,7 @@
 import {
   DisconnectedError,
   imex,
-  type ontology,
+  type resource,
   type Synnax as Client,
 } from "@synnaxlabs/client";
 import { Status } from "@synnaxlabs/lyra/status";
@@ -47,14 +47,14 @@ export const use = (): ((params: Params) => void) => {
 };
 
 /**
- * Returns a callback that exports the resource identified by the given ontology ID,
+ * Returns a callback that exports the resource identified by the given resource ID,
  * streaming its Core-serialized JSON envelope to a file named after the resource.
  */
-export const useResource = (): ((id: ontology.ID) => void) => {
+export const useResource = (): ((id: resource.ID) => void) => {
   const client = Synnax.use();
   const export_ = use();
   const handleError = Status.useErrorHandler();
-  return (id: ontology.ID) => {
+  return (id: resource.ID) => {
     handleError(async () => {
       if (client == null) throw new DisconnectedError();
       const { name } = await client.ontology.retrieve(id);

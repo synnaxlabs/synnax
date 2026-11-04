@@ -88,7 +88,7 @@ describe("Status", () => {
         parent: ontology.ROOT_ID,
         name: "Parent Group",
       });
-      const parentOntologyID = group.ontologyID(parentGroup.key);
+      const parentResourceID = group.resourceID(parentGroup.key);
       const s = await client.statuses.set(
         {
           name: "Child Status",
@@ -97,13 +97,13 @@ describe("Status", () => {
           message: "Status with parent",
           time: TimeStamp.now(),
         },
-        { parent: parentOntologyID },
+        { parent: parentResourceID },
       );
 
       expect(s.key).toBe("child-status");
 
       const resources = await client.ontology.children.retrieve({
-        ids: parentOntologyID,
+        ids: parentResourceID,
       });
 
       const statusResource = resources.find((r) => r.id.key === "child-status");
@@ -540,7 +540,7 @@ describe("Status", () => {
         message: "Test",
         time: TimeStamp.now(),
       });
-      await client.labels.label(status.ontologyID(stat.key), [label1.key, label2.key], {
+      await client.labels.label(status.resourceID(stat.key), [label1.key, label2.key], {
         replace: true,
       });
 
@@ -575,20 +575,20 @@ describe("Status", () => {
           time: TimeStamp.now(),
         },
       ]);
-      await client.labels.label(status.ontologyID(member), [lbl.key]);
+      await client.labels.label(status.resourceID(member), [lbl.key]);
       const params = { hasLabels: [lbl.key] };
       const off = client.statuses.onChange(params, () => {});
       try {
         const initial = await client.statuses.retrieve(params);
         expect(initial.map((s) => s.key)).toEqual([member]);
-        await client.labels.label(status.ontologyID(joiner), [lbl.key]);
+        await client.labels.label(status.resourceID(joiner), [lbl.key]);
         await expect
           .poll(() => {
             const cached = client.statuses.getCached(params);
             return query.isLive(cached) && cached.some((s) => s.key === joiner);
           })
           .toBe(true);
-        await client.labels.remove(status.ontologyID(member), [lbl.key]);
+        await client.labels.remove(status.resourceID(member), [lbl.key]);
         await expect
           .poll(() => {
             const cached = client.statuses.getCached(params);

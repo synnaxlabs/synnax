@@ -13,8 +13,8 @@ import { caseconv, type optional, record, uuid } from "@synnaxlabs/x";
 import { z } from "zod";
 
 import { device } from "@/device";
-import { ontology } from "@/ontology";
 import { rack } from "@/rack";
+import { resource } from "@/resource";
 import { status } from "@/status";
 
 /** KeyedConfig is the base for every stored task configuration record. */
@@ -165,5 +165,5 @@ export type New<S extends PayloadSchemas = PayloadSchemas> = optional.Optional<
   status?: status.New<ReturnType<typeof statusDetailsZ>>;
 };
 
-export const ontologyID = ontology.createIDFactory<Key>("task");
-export const TYPE_ONTOLOGY_ID = ontologyID("");
+export const resourceID = resource.createIDFactory<Key>("task");
+export const TYPE_RESOURCE_ID = resourceID("");

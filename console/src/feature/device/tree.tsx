@@ -33,7 +33,7 @@ const useDelete = Tree.createUseDelete({
 
 const useRename = Tree.createUseRename({
   useUpdate: Device.useRename,
-  ontologyID: device.ontologyID,
+  resourceID: device.resourceID,
   convertKey: String,
 });
 
@@ -42,9 +42,9 @@ const TreeContextMenu: Tree.ContextMenu = (props) => {
     selection: { ids, rootID },
     state,
   } = props;
-  const ontologyIDs = ids.map((id) => device.ontologyID(id.key));
-  const hasUpdatePermission = Access.useUpdateGranted(ontologyIDs);
-  const hasDeletePermission = Access.useDeleteGranted(ontologyIDs);
+  const resourceIDs = ids.map((id) => device.resourceID(id.key));
+  const hasUpdatePermission = Access.useUpdateGranted(resourceIDs);
+  const hasDeletePermission = Access.useDeleteGranted(resourceIDs);
   const singleResource = ids.length === 1;
   const first = Tree.useResource(state, ids[0]);
   const handleDelete = useDelete(props);
@@ -82,7 +82,7 @@ const TreeContextMenu: Tree.ContextMenu = (props) => {
               onClick={() =>
                 handleLink({
                   name: first.name,
-                  ontologyID: device.ontologyID(first.id.key),
+                  resourceID: device.resourceID(first.id.key),
                 })
               }
             />

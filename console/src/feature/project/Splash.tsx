@@ -48,8 +48,8 @@ const LogOutAction = (): ReactElement => {
 export const Splash = (): ReactElement => {
   const dispatch = Session.useDispatch();
   const activeCore = Session.Core.useSelectSelected();
-  const hasRetrievePermission = Access.useRetrieveGranted(project.TYPE_ONTOLOGY_ID);
-  const hasCreatePermission = Access.useCreateGranted(project.TYPE_ONTOLOGY_ID);
+  const hasRetrievePermission = Access.useRetrieveGranted(project.TYPE_RESOURCE_ID);
+  const hasCreatePermission = Access.useCreateGranted(project.TYPE_RESOURCE_ID);
   const openCreate = PlatformProject.useCreateModal();
   const openSample = useOpenSample();
   const sampleVisible = Session.Runtime.CORE_EMBEDDED && hasCreatePermission;

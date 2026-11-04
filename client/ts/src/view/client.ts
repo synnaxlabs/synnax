@@ -11,13 +11,14 @@ import { type UnaryClient } from "@synnaxlabs/freighter";
 import { array, type destructor, primitive } from "@synnaxlabs/x";
 import { z } from "zod";
 
-import { ontology } from "@/ontology";
+import { type ontology } from "@/ontology";
 import { query } from "@/query";
+import { resource } from "@/resource";
 import {
   type Key,
   keyZ,
   type New,
-  ontologyID,
+  resourceID,
   type View,
   viewTypeZ,
   viewZ,
@@ -112,7 +113,7 @@ export class Client extends query.Retriever<typeof retrieveMultiParamsZ, Key, Vi
   async rename(key: Key, name: string, opts: query.WriteOptions = {}): Promise<void> {
     const rename = () => [
       query.partialUpdate(this.store, key, { name }),
-      this.cfg.ontology.cache.renameResource(ontologyID(key), name),
+      this.cfg.ontology.cache.renameResource(resourceID(key), name),
     ];
     await query.optimistic({
       rollbacks: rename(),
@@ -125,11 +126,11 @@ export class Client extends query.Retriever<typeof retrieveMultiParamsZ, Key, Vi
 
   async delete(keys: Key | Key[], opts: query.WriteOptions = {}): Promise<void> {
     const keysArr = array.toArray(keys);
-    const ids = ontologyID(keysArr);
+    const ids = resourceID(keysArr);
     const drop = () => [
       this.cfg.ontology.cache.deleteRelationships(ids),
       this.store.delete(keysArr),
-      this.cfg.ontology.cache.resources.delete(ontology.idToString(ids)),
+      this.cfg.ontology.cache.resources.delete(resource.idToString(ids)),
     ];
     await query.optimistic({
       rollbacks: drop(),

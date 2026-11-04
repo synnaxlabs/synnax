@@ -15,9 +15,9 @@ import { LinePlot } from "@/platform/lineplot";
 import { Selector } from "@/platform/selector";
 
 export const Selectable = Selector.createSelectable({
-  type: lineplot.TYPE_ONTOLOGY_ID.type,
+  type: lineplot.TYPE_RESOURCE_ID.type,
   title: "Line plot",
   icon: <Icon.LinePlot />,
   useOnSelect: LinePlot.useCreate,
-  useVisible: () => Access.useCreateGranted(lineplot.TYPE_ONTOLOGY_ID),
+  useVisible: () => Access.useCreateGranted(lineplot.TYPE_RESOURCE_ID),
 });

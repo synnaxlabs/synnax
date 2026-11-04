@@ -14,6 +14,7 @@ import { group } from "@/group";
 import { NotFoundError } from "@/index";
 import { ontology } from "@/ontology";
 import { query } from "@/query";
+import { type resource } from "@/resource";
 import { type schematic } from "@/schematic";
 import { createTestClient, expectLive } from "@/testutil";
 
@@ -26,12 +27,12 @@ const SYMBOL_DATA: schematic.symbol.New["data"] = {
   variant: "sensor",
 };
 
-const createParent = async (): Promise<ontology.ID> => {
+const createParent = async (): Promise<resource.ID> => {
   const parent = await client.groups.create({
     parent: ontology.ROOT_ID,
     name: `symbol-parent-${id.create()}`,
   });
-  return group.ontologyID(parent.key);
+  return group.resourceID(parent.key);
 };
 
 describe("Symbol Client", () => {
@@ -52,7 +53,7 @@ describe("Symbol Client", () => {
           handles: [],
           variant: "sensor",
         },
-        parent: group.ontologyID(symbolGroup.key),
+        parent: group.resourceID(symbolGroup.key),
       });
       expect(symbol.name).toBe("Test Symbol");
       expect(symbol.key).toBeDefined();
@@ -70,7 +71,7 @@ describe("Symbol Client", () => {
             data: { svg: "<svg></svg>", states: [], handles: [], variant: "sensor" },
           },
         ],
-        parent: group.ontologyID(symbolGroup.key),
+        parent: group.resourceID(symbolGroup.key),
       });
       expect(symbols).toHaveLength(2);
       expect(symbols[0].name).toBe("Symbol 1");
@@ -83,7 +84,7 @@ describe("Symbol Client", () => {
       const created = await client.schematics.symbols.create({
         name: "Retrieve Test",
         data: { svg: "<svg></svg>", states: [], handles: [], variant: "sensor" },
-        parent: group.ontologyID(symbolGroup.key),
+        parent: group.resourceID(symbolGroup.key),
       });
 
       const retrieved = await client.schematics.symbols.retrieve(created.key);
@@ -103,7 +104,7 @@ describe("Symbol Client", () => {
             data: { svg: "<svg></svg>", states: [], handles: [], variant: "sensor" },
           },
         ],
-        parent: group.ontologyID(symbolGroup.key),
+        parent: group.resourceID(symbolGroup.key),
       });
 
       const retrieved = await client.schematics.symbols.retrieve({
@@ -120,7 +121,7 @@ describe("Symbol Client", () => {
           name,
           data: { svg: "<svg></svg>", states: [], handles: [], variant: "sensor" },
         })),
-        parent: group.ontologyID(symbolGroup.key),
+        parent: group.resourceID(symbolGroup.key),
       });
       await expect
         .poll(async () => {
@@ -246,7 +247,7 @@ describe("Symbol Client", () => {
       const symbol = await client.schematics.symbols.create({
         name: "Original Name",
         data: { svg: "<svg></svg>", states: [], handles: [], variant: "sensor" },
-        parent: group.ontologyID(symbolGroup.key),
+        parent: group.resourceID(symbolGroup.key),
       });
 
       await client.schematics.symbols.rename(symbol.key, "New Name");
@@ -261,7 +262,7 @@ describe("Symbol Client", () => {
       const symbol = await client.schematics.symbols.create({
         name: "Delete Test",
         data: { svg: "<svg></svg>", states: [], handles: [], variant: "sensor" },
-        parent: group.ontologyID(symbolGroup.key),
+        parent: group.resourceID(symbolGroup.key),
       });
 
       await client.schematics.symbols.delete(symbol.key);
@@ -273,7 +274,7 @@ describe("Symbol Client", () => {
       const symbol = await client.schematics.symbols.create({
         name: "Delete Scan Pin",
         data: { svg: "<svg></svg>", states: [], handles: [], variant: "sensor" },
-        parent: group.ontologyID(symbolGroup.key),
+        parent: group.resourceID(symbolGroup.key),
       });
       const spy = vi.spyOn(client.ontology.cache.relationships, "delete");
       await client.schematics.symbols.delete(symbol.key);
@@ -308,7 +309,7 @@ describe("Symbol Client", () => {
       await client.schematics.symbols.create({
         name: "Inlet",
         data: SYMBOL_DATA,
-        parent: group.ontologyID(exported.key),
+        parent: group.resourceID(exported.key),
       });
       const archive = await download(exported.key);
       expect(archive.startsWith("PK")).toBe(true);
@@ -321,7 +322,7 @@ describe("Symbol Client", () => {
         parent: ontology.ROOT_ID,
         name: `symbol-export-${id.create()}`,
       });
-      const parent = group.ontologyID(exported.key);
+      const parent = group.resourceID(exported.key);
       await client.groups.create({ parent, name: "Nested" });
       await client.schematics.symbols.create({
         name: "Inlet",
@@ -344,7 +345,7 @@ describe("Symbol Client", () => {
       await client.schematics.symbols.create({
         name: "Inlet",
         data: SYMBOL_DATA,
-        parent: group.ontologyID(exported.key),
+        parent: group.resourceID(exported.key),
       });
       const stream = await client.schematics.symbols.exportGroup(exported.key, {
         encoding: "JSON",
@@ -354,7 +355,7 @@ describe("Symbol Client", () => {
       expect(imported.key).not.toEqual(exported.key);
       expect(imported.name).toEqual(exported.name);
       const symbols = await client.schematics.symbols.retrieve({
-        parent: group.ontologyID(imported.key),
+        parent: group.resourceID(imported.key),
       });
       expect(symbols).toHaveLength(1);
       expect(symbols[0].name).toEqual("Inlet");
@@ -372,7 +373,7 @@ describe("Symbol Client", () => {
       const imported = await client.schematics.symbols.importGroup(bundle);
       const permanent = await client.schematics.symbols.retrieveGroup();
       const children = await client.groups.retrieve({
-        parent: group.ontologyID(permanent.key),
+        parent: group.resourceID(permanent.key),
       });
       expect(children.map(({ key }) => key)).toContain(imported.key);
     });
@@ -388,7 +389,7 @@ describe("Symbol Client", () => {
   });
 
   describe("deleteGroup", () => {
-    const createTarget = async (parent: ontology.ID = ontology.ROOT_ID) =>
+    const createTarget = async (parent: resource.ID = ontology.ROOT_ID) =>
       await client.groups.create({ parent, name: `symbol-delete-${id.create()}` });
 
     it("should delete the group's symbols", async () => {
@@ -398,7 +399,7 @@ describe("Symbol Client", () => {
           { name: "Inlet", data: SYMBOL_DATA },
           { name: "Outlet", data: SYMBOL_DATA },
         ],
-        parent: group.ontologyID(target.key),
+        parent: group.resourceID(target.key),
       });
       await client.schematics.symbols.deleteGroup(target.key);
       await expect(client.schematics.symbols.retrieve(symbols[0].key)).rejects.toThrow(
@@ -443,7 +444,7 @@ describe("Symbol Client", () => {
       const target = await createTarget();
       await client.schematics.symbols.create({
         symbols: [{ name: "Inlet", data: SYMBOL_DATA }],
-        parent: group.ontologyID(target.key),
+        parent: group.resourceID(target.key),
       });
       const rels = client.ontology.cache.relationships;
       const getSpy = vi.spyOn(rels, "get");
@@ -457,7 +458,7 @@ describe("Symbol Client", () => {
 
     it("should drop the deleted symbols from parent subscribers", async () => {
       const target = await createTarget();
-      const parent = group.ontologyID(target.key);
+      const parent = group.resourceID(target.key);
       await client.schematics.symbols.create({
         name: "Inlet",
         data: SYMBOL_DATA,
@@ -484,12 +485,12 @@ describe("Symbol Client", () => {
         throw WRITE_FAILED;
       };
 
-      const createPopulated = async (parent: ontology.ID = ontology.ROOT_ID) => {
+      const createPopulated = async (parent: resource.ID = ontology.ROOT_ID) => {
         const target = await createTarget(parent);
         const symbol = await client.schematics.symbols.create({
           name: "Inlet",
           data: SYMBOL_DATA,
-          parent: group.ontologyID(target.key),
+          parent: group.resourceID(target.key),
         });
         return { target, symbol };
       };
@@ -542,7 +543,7 @@ describe("Symbol Client", () => {
 
     it("should skip a resource that is not a symbol", async () => {
       const target = await createTarget();
-      const parent = group.ontologyID(target.key);
+      const parent = group.resourceID(target.key);
       const created = await client.schematics.symbols.create({
         name: "Inlet",
         data: SYMBOL_DATA,
@@ -556,7 +557,7 @@ describe("Symbol Client", () => {
       // The stray survives the delete under the permanent symbol group.
       const root = await client.schematics.symbols.retrieveGroup();
       const parents = await client.ontology.retrieveParents(
-        group.ontologyID(stray.key),
+        group.resourceID(stray.key),
       );
       expect(parents.map((p) => p.id.key)).toEqual([root.key]);
     });

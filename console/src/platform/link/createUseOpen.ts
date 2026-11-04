@@ -7,13 +7,13 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { type ontology } from "@synnaxlabs/client";
+import { type resource } from "@synnaxlabs/client";
 
 import { type UseHandler } from "@/platform/link/types";
 import { Panel } from "@/platform/panel";
 
 /** Creates a handler that opens the linked resource of the given type in a tab. */
-export const createUseOpenResourceTab = (type: ontology.ResourceType): UseHandler => {
+export const createUseOpenResourceTab = (type: resource.Type): UseHandler => {
   const useOpenResourceTab: UseHandler = () => {
     const openTab = Panel.useOpenTab();
     return async ({ key }) => openTab({ variant: "resource", resource: { type, key } });

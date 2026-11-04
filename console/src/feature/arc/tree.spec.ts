@@ -41,10 +41,10 @@ const createArcInGroup = async () => {
     name: uniqueName("arcgrp"),
   });
   await client.ontology.addChildren(
-    group.ontologyID(grp.key),
-    clientArc.ontologyID(arc.key),
+    group.resourceID(grp.key),
+    clientArc.resourceID(arc.key),
   );
-  return { arc, root: group.ontologyID(grp.key) };
+  return { arc, root: group.resourceID(grp.key) };
 };
 
 describe("arc/ontology", () => {

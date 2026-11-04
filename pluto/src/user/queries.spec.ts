@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { type ontology } from "@synnaxlabs/client";
+import { type resource } from "@synnaxlabs/client";
 import { createTestClient, TEST_CREDENTIALS } from "@synnaxlabs/client/testutil";
 import { id } from "@synnaxlabs/x";
 import { act, renderHook, waitFor } from "@testing-library/react";
@@ -140,7 +140,7 @@ describe("User queries", () => {
       });
 
       await waitFor(() => expect(result.current).not.toBeNull());
-      const res = await client.ontology.retrieve(result.current as ontology.ID);
+      const res = await client.ontology.retrieve(result.current as resource.ID);
       expect(res.name).toBe("Users");
     });
   });

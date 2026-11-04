@@ -53,9 +53,9 @@ afterEach(() => {
 const Item = Schematic.TREE_ITEMS.schematic;
 
 describe("Schematic.TREE_ITEMS", () => {
-  it("hauls a mosaic tab create item keyed by the ontology id", async () => {
+  it("hauls a mosaic tab create item keyed by the resource id", async () => {
     const s = await createSchematic();
-    const id = schematic.ontologyID(s.key);
+    const id = schematic.resourceID(s.key);
     const items = Item.haulItems(createResource(id, s.name));
     expect(items).toHaveLength(1);
     expect(items[0].key).toContain(s.key);
@@ -66,7 +66,7 @@ describe("Schematic.TREE_ITEMS", () => {
       const s = await createSchematic();
       const { store } = await renderOntologyTree({
         client,
-        root: project.ontologyID(await testProjectKey()),
+        root: project.resourceID(await testProjectKey()),
         items: Schematic.TREE_ITEMS,
       });
       fireEvent.doubleClick(await findTreeRow(s.name));
@@ -87,7 +87,7 @@ describe("Schematic snapshot to the active range", () => {
     const { wrapper } = await createConsoleWrapper({ client, store });
     const Menu = Item.ContextMenu;
     assertDefined(Menu);
-    const id = schematic.ontologyID(s.key);
+    const id = schematic.resourceID(s.key);
     const statuses: Status.NotificationSpec[] = [];
     render(
       <>
@@ -105,7 +105,7 @@ describe("Schematic snapshot to the active range", () => {
     fireEvent.click(await screen.findByText(`Snapshot to ${rng.name}`));
     await waitFor(async () => {
       const children = await client.ontology.children.retrieve({
-        ids: ranger.ontologyID(rng.key),
+        ids: ranger.resourceID(rng.key),
       });
       expect(children.map((c) => c.name)).toContain(`${s.name} (Snapshot)`);
     });
@@ -190,7 +190,7 @@ describe("permission to write the schematic", () => {
     await renderTreeContextMenu(Item.ContextMenu, {
       client,
       resources: [
-        createResource(schematic.ontologyID(s.key), s.name, { snapshot: false }),
+        createResource(schematic.resourceID(s.key), s.name, { snapshot: false }),
       ],
     });
     expect(await screen.findByText("Reload Console")).toBeTruthy();
@@ -202,7 +202,7 @@ describe("permission to write the schematic", () => {
     await renderTreeContextMenu(Item.ContextMenu, {
       client: await roles.get("Viewer"),
       resources: [
-        createResource(schematic.ontologyID(s.key), s.name, { snapshot: false }),
+        createResource(schematic.resourceID(s.key), s.name, { snapshot: false }),
       ],
     });
     expect(await screen.findByText("Copy properties")).toBeTruthy();

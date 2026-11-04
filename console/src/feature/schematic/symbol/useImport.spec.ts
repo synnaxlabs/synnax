@@ -32,7 +32,7 @@ afterEach(() => {
 const createSymbolGroup = async (): Promise<group.Group> => {
   const root = await client.schematics.symbols.retrieveGroup();
   return await client.groups.create({
-    parent: group.ontologyID(root.key),
+    parent: group.resourceID(root.key),
     name: uniqueName("symbol_grp"),
   });
 };
@@ -62,7 +62,7 @@ describe("Schematic.Symbol.useImport", () => {
         ),
       ).toBe(true),
     );
-    expect(await childNames(group.ontologyID(grp.key))).toContain(name);
+    expect(await childNames(group.resourceID(grp.key))).toContain(name);
   });
 
   it("surfaces a per-file error when a picked file is not a valid symbol", async () => {
@@ -88,7 +88,7 @@ describe("Schematic.Symbol.useImport", () => {
         ),
       ).toBe(true),
     );
-    expect(await childNames(group.ontologyID(grp.key))).toHaveLength(0);
+    expect(await childNames(group.resourceID(grp.key))).toHaveLength(0);
   });
 
   it("imports nothing when the picker is cancelled", async () => {
@@ -106,6 +106,6 @@ describe("Schematic.Symbol.useImport", () => {
     picker.cancel();
     await act(async () => {});
     expect(result.current.notifications.statuses).toHaveLength(0);
-    expect(await childNames(group.ontologyID(grp.key))).toHaveLength(0);
+    expect(await childNames(group.resourceID(grp.key))).toHaveLength(0);
   });
 });

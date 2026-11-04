@@ -18,7 +18,7 @@ const CreateCommand = Command.create({
   name: "Create log",
   icon: <Log.CreateIcon />,
   useOnSelect: PlatformLog.useCreate,
-  useVisible: () => Access.useCreateGranted(log.TYPE_ONTOLOGY_ID),
+  useVisible: () => Access.useCreateGranted(log.TYPE_RESOURCE_ID),
 });
 
 export const COMMANDS = [CreateCommand];

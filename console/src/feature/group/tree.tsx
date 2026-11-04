@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { group, ontology } from "@synnaxlabs/client";
+import { group, ontology, resource } from "@synnaxlabs/client";
 import { Icon } from "@synnaxlabs/lyra/icon";
 import { Menu } from "@synnaxlabs/lyra/menu";
 import { Tree as PTree } from "@synnaxlabs/lyra/tree";
@@ -21,7 +21,7 @@ import { Tree } from "@/platform/tree";
 
 const useRename = Tree.createUseRename({
   useUpdate: Group.useRename,
-  ontologyID: group.ontologyID,
+  resourceID: group.resourceID,
   convertKey: String,
 });
 
@@ -45,10 +45,10 @@ const TreeContextMenu: Tree.ContextMenu = (props) => {
   const rename = useRename(props);
   const isSingle = ids.length === 1;
   const isZeroDepth =
-    PTree.getDepth(ontology.idToString(firstID), shape) === 0 &&
-    ontology.idsEqual(rootID, ontology.ROOT_ID);
+    PTree.getDepth(resource.idToString(firstID), shape) === 0 &&
+    resource.idsEqual(rootID, ontology.ROOT_ID);
   const isDelete = ids.every((id) => {
-    const node = PTree.findNode({ tree: nodes, key: ontology.idToString(id) });
+    const node = PTree.findNode({ tree: nodes, key: resource.idToString(id) });
     return node?.children == null || node?.children.length === 0;
   });
   const ungroupIcon = isDelete ? <Icon.Delete /> : <Icon.Group />;
@@ -77,7 +77,7 @@ const TreeContextMenu: Tree.ContextMenu = (props) => {
         <>
           <Link.CopyContextMenuItem
             onClick={() =>
-              handleLink({ name: getResource(firstID).name, ontologyID: firstID })
+              handleLink({ name: getResource(firstID).name, resourceID: firstID })
             }
           />
           <Tree.CopyPropertiesContextMenuItem {...props} />
@@ -111,11 +111,11 @@ const baseUngroup = Flux.createUpdate<UngroupParams>({
     const { selection, prevNodes } = args;
     if (prevNodes == null) return args;
     const resourceIDStrings = new Set(
-      selection.ids.map((id) => ontology.idToString(id)),
+      selection.ids.map((id) => resource.idToString(id)),
     );
     for (const id of selection.ids) {
       const children =
-        PTree.findNode({ tree: prevNodes, key: ontology.idToString(id) })?.children ??
+        PTree.findNode({ tree: prevNodes, key: resource.idToString(id) })?.children ??
         [];
       const childKeys = ontology.parseIDs(
         children.map(({ key }) => key).filter((k) => !resourceIDStrings.has(k)),
@@ -134,18 +134,18 @@ const beforeUngroup = async ({ data }: Flux.BeforeUpdateParams<UngroupParams>) =
   } = data;
   // Sort the groups by depth that way deeper nested groups are ungrouped first.
   const byDepth = PTree.compareDepth(shape);
-  selection.ids.sort((a, b) => byDepth(ontology.idToString(a), ontology.idToString(b)));
+  selection.ids.sort((a, b) => byDepth(resource.idToString(a), resource.idToString(b)));
   const prevNodes = PTree.deepCopy(nodes);
   const nextNodes = [
     ...selection.ids.reduce(
       (acc, id) => {
-        const key = ontology.idToString(id);
+        const key = resource.idToString(id);
         const children = PTree.findNode({ tree: nodes, key })?.children ?? [];
         acc = PTree.moveNode({
           tree: acc,
-          destination: ontology.idsEqual(selection.parentID, selection.rootID)
+          destination: resource.idsEqual(selection.parentID, selection.rootID)
             ? null
-            : ontology.idToString(selection.parentID),
+            : resource.idToString(selection.parentID),
           keys: children.map((c) => c.key),
         });
         acc = PTree.removeNode({ tree: acc, keys: key });

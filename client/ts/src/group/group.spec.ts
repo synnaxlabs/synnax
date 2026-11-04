@@ -30,15 +30,15 @@ describe("Group", () => {
         name: `test-parent-key${id.create()}`,
       });
       const g = await client.groups.create({
-        parent: group.ontologyID(parent.key),
+        parent: group.resourceID(parent.key),
         name: `original-name-${id.create()}`,
       });
       await client.groups.create({
-        parent: group.ontologyID(parent.key),
+        parent: group.resourceID(parent.key),
         key: g.key,
         name: "updated-name",
       });
-      const g2 = await client.ontology.retrieve(group.ontologyID(g.key));
+      const g2 = await client.ontology.retrieve(group.resourceID(g.key));
       expect(g2.name).toEqual("updated-name");
     });
   });
@@ -48,7 +48,7 @@ describe("Group", () => {
       const g = await client.groups.create({ parent: ontology.ROOT_ID, name });
       const newName = `group-${Math.random()}`;
       await client.groups.rename(g.key, newName);
-      const g2 = await client.ontology.retrieve(group.ontologyID(g.key));
+      const g2 = await client.ontology.retrieve(group.resourceID(g.key));
       expect(g2.name).toEqual(newName);
     });
   });
@@ -58,7 +58,7 @@ describe("Group", () => {
       const g = await client.groups.create({ parent: ontology.ROOT_ID, name });
       await client.groups.delete(g.key);
       await expect(
-        async () => await client.ontology.retrieve(group.ontologyID(g.key)),
+        async () => await client.ontology.retrieve(group.resourceID(g.key)),
       ).rejects.toThrow(NotFoundError);
     });
   });

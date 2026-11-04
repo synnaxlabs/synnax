@@ -22,7 +22,7 @@ const roles = new RoleClients(client);
 describe("arc/Selectable", () => {
   it("opens the arc create modal when the tile is clicked", async () => {
     const Selectable = Arc.SELECTABLES.find(
-      (s) => s.type === arc.TYPE_ONTOLOGY_ID.type,
+      (s) => s.type === arc.TYPE_RESOURCE_ID.type,
     );
     assertDefined(Selectable, "no selectable registered for the arc editor");
     const { wrapper } = await createConsoleWrapper({ client });
@@ -41,7 +41,7 @@ describe("arc/Selectable", () => {
 describe("arc/Selectable permissions", () => {
   const findSelectable = () => {
     const Selectable = Arc.SELECTABLES.find(
-      (s) => s.type === arc.TYPE_ONTOLOGY_ID.type,
+      (s) => s.type === arc.TYPE_RESOURCE_ID.type,
     );
     assertDefined(Selectable, "no selectable registered for arc");
     return Selectable;

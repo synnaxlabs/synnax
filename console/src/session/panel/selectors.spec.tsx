@@ -692,7 +692,7 @@ describe("panel selectors", () => {
       const { key: created } = await client.panels.create({
         key,
         name: uniqueName("panel"),
-        parent: project.ontologyID(projectKey),
+        parent: project.resourceID(projectKey),
         root: { variant: "leaf", tabs: [] },
       });
       return created;

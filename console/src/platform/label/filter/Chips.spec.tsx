@@ -61,7 +61,7 @@ describe("Label.Filter.Chips", () => {
     });
     // Warm the subject's policy and role caches so the edit affordance's permission
     // check does not wait on the network mid-test.
-    await awaitGranted(client, view.ontologyID(uuid.create()), "update");
+    await awaitGranted(client, view.resourceID(uuid.create()), "update");
     const { wrapper } = await createConsoleWrapper({ client });
     render(<Fixture hasLabels={[kept.key, removed.key]} />, { wrapper });
     await waitFor(() => expect(screen.getByText(removed.name)).toBeTruthy());

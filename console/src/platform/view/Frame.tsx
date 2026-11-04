@@ -69,7 +69,7 @@ export const Frame = ({ resourceType, icon, children }: FrameProps): ReactElemen
   if (getItem == null) throw new UnexpectedError("No item getter found");
   const staticViewKeys = staticViews.map((v) => v.key);
   const [selected, setSelected] = useState(staticViews[0].key);
-  const hasUpdatePermission = Access.useUpdateGranted(view.ontologyID(selected));
+  const hasUpdatePermission = Access.useUpdateGranted(view.resourceID(selected));
   const [editable, setEditable] = useState(false);
   const getInitialView = () => {
     const view = getItem(selected);
@@ -140,7 +140,7 @@ const Selector = ({
   const { getItem } = listProps;
   if (getItem == null) throw new UnexpectedError("No item getter found");
   const contextMenuProps = Menu.useContextMenu();
-  const hasCreatePermission = Access.useCreateGranted(view.TYPE_ONTOLOGY_ID);
+  const hasCreatePermission = Access.useCreateGranted(view.TYPE_RESOURCE_ID);
   const renameModal = Modals.useRename();
   const { update: create } = PView.useCreate({
     beforeUpdate: async ({ data, rollbacks }: Flux.BeforeUpdateParams<view.New>) => {
@@ -222,9 +222,9 @@ const ContextMenu = ({ keys }: Menu.ContextMenuMenuProps): ReactElement | null =
     },
   });
   const canRename =
-    Access.useUpdateGranted(view.ontologyID(editableKeys)) && editableKeys.length === 1;
+    Access.useUpdateGranted(view.resourceID(editableKeys)) && editableKeys.length === 1;
   const canDelete =
-    Access.useDeleteGranted(view.ontologyID(editableKeys)) && editableKeys.length > 0;
+    Access.useDeleteGranted(view.resourceID(editableKeys)) && editableKeys.length > 0;
   return (
     <PlatformContextMenu.Menu>
       {canRename && (
@@ -278,7 +278,7 @@ interface ItemProps {
 const Item = ({ itemKey }: ItemProps): ReactElement | null => {
   const item = List.useItem<view.Key, View>(itemKey);
   const { update: rename } = PView.useRename();
-  const canRename = Access.useUpdateGranted(view.ontologyID(itemKey));
+  const canRename = Access.useUpdateGranted(view.resourceID(itemKey));
   const handleRename = (name: string) => rename({ key: itemKey, name });
   if (item == null) return null;
   const { name } = item;

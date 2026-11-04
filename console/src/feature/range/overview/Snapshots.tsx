@@ -83,7 +83,7 @@ export interface SnapshotsProps {
 
 export const Snapshots: FC<SnapshotsProps> = ({ rangeKey }) => {
   const { data, getItem, subscribe, retrieve, status } = Ontology.useListChildren({
-    initialQuery: { id: ranger.ontologyID(rangeKey) },
+    initialQuery: { id: ranger.resourceID(rangeKey) },
     filter: (item) => item.data?.snapshot === true,
   });
   const { fetchMore } = List.usePager({ retrieve });

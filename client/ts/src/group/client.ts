@@ -11,10 +11,11 @@ import { type UnaryClient } from "@synnaxlabs/freighter";
 import { array, zod } from "@synnaxlabs/x";
 import z from "zod";
 
-import { type Group, groupZ, type Key, keyZ, ontologyID } from "@/group/types.gen";
+import { type Group, groupZ, type Key, keyZ, resourceID } from "@/group/types.gen";
 import { ontology } from "@/ontology";
-import { idZ as ontologyIDZ } from "@/ontology/payload";
 import { query } from "@/query";
+import { type resource } from "@/resource";
+import { idZ as resourceIDZ } from "@/resource/payload";
 
 export const SET_CHANNEL_NAME = "sy_group_set";
 export const DELETE_CHANNEL_NAME = "sy_group_delete";
@@ -22,7 +23,7 @@ export const DELETE_CHANNEL_NAME = "sy_group_delete";
 const resZ = z.object({ group: groupZ });
 
 const createReqZ = z.object({
-  parent: ontologyIDZ,
+  parent: resourceIDZ,
   key: keyZ.optional(),
   name: z.string(),
 });
@@ -34,7 +35,7 @@ const deleteReqZ = z.object({ keys: z.array(keyZ) });
 export interface CreateParams extends z.infer<typeof createReqZ> {}
 
 const retrieveChildrenParamsZ = z.object({
-  parent: ontologyIDZ,
+  parent: resourceIDZ,
   offset: z.int().optional(),
   limit: z.int().optional(),
 });
@@ -45,7 +46,7 @@ export type RetrieveParams = RetrieveSingleParams | RetrieveChildrenParams;
 
 interface ChildrenRequest extends z.infer<typeof retrieveChildrenParamsZ> {}
 
-const isChildOf = (rel: ontology.Relationship, parent: ontology.ID): boolean =>
+const isChildOf = (rel: ontology.Relationship, parent: resource.ID): boolean =>
   ontology.matchRelationship(rel, {
     from: parent,
     type: ontology.PARENT_OF_RELATIONSHIP_TYPE,
@@ -115,7 +116,7 @@ export class Client extends query.Retriever<
     const rel: ontology.Relationship = {
       from: params.parent,
       type: ontology.PARENT_OF_RELATIONSHIP_TYPE,
-      to: ontologyID(res.group.key),
+      to: resourceID(res.group.key),
     };
     this.cfg.ontology.cache.relationships.set(ontology.relationshipToString(rel), rel);
     return res.group;
@@ -124,7 +125,7 @@ export class Client extends query.Retriever<
   async rename(key: Key, name: string, opts: query.WriteOptions = {}): Promise<void> {
     const rename = () => [
       query.partialUpdate(this.store, key, { name }),
-      this.cfg.ontology.cache.renameResource(ontologyID(key), name),
+      this.cfg.ontology.cache.renameResource(resourceID(key), name),
     ];
     await query.optimistic({
       rollbacks: rename(),
@@ -157,12 +158,12 @@ export class Client extends query.Retriever<
     drop();
   }
 
-  private isCachedChild(parent: ontology.ID, key: Key): boolean {
+  private isCachedChild(parent: resource.ID, key: Key): boolean {
     return this.cfg.ontology.cache.relationships.has(
       ontology.relationshipToString({
         from: parent,
         type: ontology.PARENT_OF_RELATIONSHIP_TYPE,
-        to: ontologyID(key),
+        to: resourceID(key),
       }),
     );
   }
@@ -175,7 +176,7 @@ export class Client extends query.Retriever<
 
   private async execRetrieveKeys(keys: Key[]): Promise<Group[]> {
     const res = await this.requireOntology().retrieve({
-      ids: keys.map((key) => ontologyID(key)),
+      ids: keys.map((key) => resourceID(key)),
     });
     return res.map((r) => zod.parse(groupZ, r.data, { label: "group" }));
   }
@@ -193,7 +194,7 @@ export class Client extends query.Retriever<
       const rel: ontology.Relationship = {
         from: parent,
         type: ontology.PARENT_OF_RELATIONSHIP_TYPE,
-        to: ontologyID(g.key),
+        to: resourceID(g.key),
       };
       rels.set(ontology.relationshipToString(rel), rel);
     });

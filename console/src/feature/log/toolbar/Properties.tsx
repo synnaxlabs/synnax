@@ -24,7 +24,7 @@ export const Properties = (): ReactElement => {
   const channelNamesHidden = Log.useIsHidingChannelNames();
   const timestampsHidden = Log.useIsHidingTimestamps();
   const timestampPrecision = Log.useTimestampPrecision();
-  const hasEditPermission = Access.useUpdateGranted(log.ontologyID(key));
+  const hasEditPermission = Access.useUpdateGranted(log.resourceID(key));
 
   const handlePrecisionChange = (timestampPrecision: number) =>
     dispatch(log.setTimestampPrecision({ timestampPrecision }));

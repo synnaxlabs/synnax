@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { log, type ontology, type panel } from "@synnaxlabs/client";
+import { log, type panel, type resource } from "@synnaxlabs/client";
 import { createTestClient } from "@synnaxlabs/client/testutil";
 import { Status } from "@synnaxlabs/lyra/status";
 import { act, waitFor } from "@testing-library/react";
@@ -19,12 +19,12 @@ import { renderHookWithConsole, type TestStore, uniqueName } from "@/testutil";
 
 const client = createTestClient();
 
-const createLogID = async (): Promise<ontology.ID> => {
+const createLogID = async (): Promise<resource.ID> => {
   const proj = await client.projects.create({
     name: uniqueName("project"),
   });
   const created = await client.logs.create(proj.key, { name: uniqueName("log") });
-  return log.ontologyID(created.key);
+  return log.resourceID(created.key);
 };
 
 const renderImportBatch = async () => {

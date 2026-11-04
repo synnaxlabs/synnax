@@ -94,7 +94,7 @@ export const createUseCreate = <S extends task.Schemas = task.Schemas>({
         });
         openTab({
           variant: "resource",
-          resource: task.ontologyID(created.key),
+          resource: task.resourceID(created.key),
           key: tabKey,
         });
       }, "Failed to create task");

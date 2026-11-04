@@ -29,12 +29,12 @@ describe("schematic/Selectable", () => {
       preloadedState: { [Session.Project.SLICE_NAME]: createActiveState(proj) },
     });
     const Selectable = Schematic.SELECTABLES[0];
-    expect(Selectable.type).toBe(schematic.TYPE_ONTOLOGY_ID.type);
+    expect(Selectable.type).toBe(schematic.TYPE_RESOURCE_ID.type);
     render(<Selectable />, { wrapper });
     fireEvent.click(await screen.findByText("Schematic"));
     const tab = await resolveFocusedTab(store, client, (t) => t.variant === "resource");
     if (tab.variant !== "resource") throw new Error("expected a resource tab");
-    expect(tab.resource.type).toBe(schematic.TYPE_ONTOLOGY_ID.type);
+    expect(tab.resource.type).toBe(schematic.TYPE_RESOURCE_ID.type);
     const key = tab.resource.key;
     const created = await client.schematics.retrieve(key);
     expect(created.name).toBe("Schematic");
@@ -49,7 +49,7 @@ describe("schematic/Selectable", () => {
 describe("schematic/Selectable permissions", () => {
   const findSelectable = () => {
     const Selectable = Schematic.SELECTABLES.find(
-      (s) => s.type === schematic.TYPE_ONTOLOGY_ID.type,
+      (s) => s.type === schematic.TYPE_RESOURCE_ID.type,
     );
     assertDefined(Selectable, "no selectable registered for schematic");
     return Selectable;

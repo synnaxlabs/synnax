@@ -14,6 +14,7 @@ import { beforeAll, describe, expect, it, onTestFinished, test, vi } from "vites
 import { group } from "@/group";
 import { ontology } from "@/ontology";
 import { query } from "@/query";
+import { resource } from "@/resource";
 import { createTestClient, expectLive } from "@/testutil";
 
 const client = createTestClient();
@@ -24,13 +25,13 @@ const randomName = (): string => `group-${Math.random()}`;
 describe("Ontology", () => {
   describe("parseIDs", () => {
     it("should parse a single ID object", () => {
-      const id: ontology.ID = { type: "group", key: "test-key" };
+      const id: resource.ID = { type: "group", key: "test-key" };
       const result = ontology.parseIDs(id);
       expect(result).toEqual([id]);
     });
 
     it("should parse an array of ID objects", () => {
-      const ids: ontology.ID[] = [
+      const ids: resource.ID[] = [
         { type: "group", key: "test-key-1" },
         { type: "channel", key: "test-key-2" },
       ];
@@ -54,7 +55,7 @@ describe("Ontology", () => {
     });
 
     it("should reject an invalid resource type without throwing", () => {
-      expect(ontology.idZ.validate("nonsense:key")).toBe(false);
+      expect(resource.idZ.validate("nonsense:key")).toBe(false);
     });
 
     it("should extract ID from a single Resource object", () => {
@@ -135,7 +136,7 @@ describe("Ontology", () => {
     test("retrieve", async () => {
       const name = randomName();
       const g = await client.groups.create({ parent: ontology.ROOT_ID, name });
-      const g2 = await client.ontology.retrieve(group.ontologyID(g.key));
+      const g2 = await client.ontology.retrieve(group.resourceID(g.key));
       expect(g2.name).toEqual(name);
     });
     test("retrieve by string ID", async () => {
@@ -149,11 +150,11 @@ describe("Ontology", () => {
       const g = await client.groups.create({ parent: ontology.ROOT_ID, name });
       const name2 = randomName();
       await client.groups.create({
-        parent: group.ontologyID(g.key),
+        parent: group.resourceID(g.key),
         name: name2,
       });
       const children = await client.ontology.children.retrieve({
-        ids: group.ontologyID(g.key),
+        ids: group.resourceID(g.key),
       });
       expect(children.length).toEqual(1);
       expect(children[0].name).toEqual(name2);
@@ -163,11 +164,11 @@ describe("Ontology", () => {
       const g = await client.groups.create({ parent: ontology.ROOT_ID, name });
       const name2 = randomName();
       const g2 = await client.groups.create({
-        parent: group.ontologyID(g.key),
+        parent: group.resourceID(g.key),
         name: name2,
       });
       const parents = await client.ontology.parents.retrieve({
-        ids: group.ontologyID(g2.key),
+        ids: group.resourceID(g2.key),
       });
       expect(parents.length).toEqual(1);
       expect(parents[0].name).toEqual(name);
@@ -188,7 +189,7 @@ describe("Ontology", () => {
         parent: ontology.ROOT_ID,
         name: randomName(),
       });
-      const parentID = group.ontologyID(parent.key);
+      const parentID = group.resourceID(parent.key);
       const inside = await client.groups.create({ parent: parentID, name });
       await client.groups.create({ parent: ontology.ROOT_ID, name });
       await expect
@@ -217,7 +218,7 @@ describe("Ontology", () => {
       const cache = new query.Cache({ openStreamer: null, onError: () => {} });
       onTestFinished(async () => await cache.close());
       const ont = new ontology.Client({ unary, cache });
-      const root: ontology.ID = { type: "group", key: "root" };
+      const root: resource.ID = { type: "group", key: "root" };
       const params = { searchTerm: "match", root, types: ["group" as const] };
       vi.useFakeTimers();
       onTestFinished(() => {
@@ -243,7 +244,7 @@ describe("Ontology", () => {
     test("retrieve by search term for the given types only", async () => {
       const name = randomName();
       const g = await client.groups.create({ parent: ontology.ROOT_ID, name });
-      const found = async (types: ontology.ResourceType[]): Promise<boolean> =>
+      const found = async (types: resource.Type[]): Promise<boolean> =>
         (await client.ontology.retrieve({ searchTerm: name, types })).some(
           (r) => r.id.key === g.key,
         );
@@ -256,7 +257,7 @@ describe("Ontology", () => {
         parent: ontology.ROOT_ID,
         name: randomName(),
       });
-      const root = group.ontologyID(parent.key);
+      const root = group.resourceID(parent.key);
       for (const suffix of ["a", "b", "c"])
         await client.groups.create({ parent: root, name: `${token} ${suffix}` });
       const search = async (offset: number): Promise<number> =>
@@ -275,26 +276,26 @@ describe("Ontology", () => {
 
   describe("ancestors", () => {
     const createChain = async (): Promise<{
-      top: ontology.ID;
-      mid: ontology.ID;
-      leaf: ontology.ID;
+      top: resource.ID;
+      mid: resource.ID;
+      leaf: resource.ID;
     }> => {
       const top = await client.groups.create({
         parent: ontology.ROOT_ID,
         name: randomName(),
       });
       const mid = await client.groups.create({
-        parent: group.ontologyID(top.key),
+        parent: group.resourceID(top.key),
         name: randomName(),
       });
       const leaf = await client.groups.create({
-        parent: group.ontologyID(mid.key),
+        parent: group.resourceID(mid.key),
         name: randomName(),
       });
       return {
-        top: group.ontologyID(top.key),
-        mid: group.ontologyID(mid.key),
-        leaf: group.ontologyID(leaf.key),
+        top: group.resourceID(top.key),
+        mid: group.resourceID(mid.key),
+        leaf: group.resourceID(leaf.key),
       };
     };
 
@@ -306,7 +307,7 @@ describe("Ontology", () => {
         parent: ontology.ROOT_ID,
         name: randomName(),
       });
-      const probeID = group.ontologyID(probe.key);
+      const probeID = group.resourceID(probe.key);
       const link = ontology.relationshipToString({
         from: ontology.ROOT_ID,
         type: ontology.PARENT_OF_RELATIONSHIP_TYPE,
@@ -316,7 +317,7 @@ describe("Ontology", () => {
         .poll(() => client.ontology.cache.relationships.get(link))
         .toBeDefined();
       await expect
-        .poll(() => client.ontology.cache.resources.get(ontology.idToString(probeID)))
+        .poll(() => client.ontology.cache.resources.get(resource.idToString(probeID)))
         .toBeDefined();
     };
 
@@ -326,15 +327,15 @@ describe("Ontology", () => {
         ids: leaf,
       });
       expect(resources.map((r) => r.key).sort()).toEqual(
-        ontology.idToString([top, mid]).sort(),
+        resource.idToString([top, mid]).sort(),
       );
-      expect(paths[ontology.idToString(leaf)]).toEqual([[top, mid]]);
+      expect(paths[resource.idToString(leaf)]).toEqual([[top, mid]]);
     });
 
     it("should cache the resources of the IDs", async () => {
       const { leaf } = await createChain();
       await drainStream();
-      const key = ontology.idToString(leaf);
+      const key = resource.idToString(leaf);
       client.ontology.cache.resources.evict(key);
       await client.ontology.ancestors.retrieve({ ids: leaf });
       expect(client.ontology.cache.resources.get(key)).toMatchObject({ id: leaf });
@@ -346,23 +347,23 @@ describe("Ontology", () => {
         ids: leaf,
         root: top,
       });
-      expect(resources.map((r) => r.key)).toEqual([ontology.idToString(mid)]);
-      expect(paths[ontology.idToString(leaf)]).toEqual([[mid]]);
+      expect(resources.map((r) => r.key)).toEqual([resource.idToString(mid)]);
+      expect(paths[resource.idToString(leaf)]).toEqual([[mid]]);
     });
 
     it("should return a path for each parent", async () => {
       const { top, mid, leaf } = await createChain();
       const side = await client.groups.create({ parent: top, name: randomName() });
-      const sideID = group.ontologyID(side.key);
+      const sideID = group.resourceID(side.key);
       await client.ontology.addChildren(sideID, leaf);
       const { paths } = await client.ontology.ancestors.retrieve({
         ids: leaf,
         root: top,
       });
-      expect(paths[ontology.idToString(leaf)]).toEqual(
+      expect(paths[resource.idToString(leaf)]).toEqual(
         expect.arrayContaining([[mid], [sideID]]),
       );
-      expect(paths[ontology.idToString(leaf)]).toHaveLength(2);
+      expect(paths[resource.idToString(leaf)]).toHaveLength(2);
     });
 
     it("should drop a cached parent link that the Core no longer has", async () => {
@@ -370,7 +371,7 @@ describe("Ontology", () => {
       const side = await client.groups.create({ parent: top, name: randomName() });
       // A link whose delete the cache missed, as across a reconnect.
       const stale: ontology.Relationship = {
-        from: group.ontologyID(side.key),
+        from: group.resourceID(side.key),
         type: ontology.PARENT_OF_RELATIONSHIP_TYPE,
         to: leaf,
       };
@@ -382,7 +383,7 @@ describe("Ontology", () => {
         ids: leaf,
         root: top,
       });
-      expect(paths[ontology.idToString(leaf)]).toEqual([[mid]]);
+      expect(paths[resource.idToString(leaf)]).toEqual([[mid]]);
     });
 
     it("should keep a link deleted while the request is in flight", async () => {
@@ -415,7 +416,7 @@ describe("Ontology", () => {
       it("should follow a remote move", async () => {
         const { top, mid, leaf } = await createChain();
         const side = await client.groups.create({ parent: top, name: randomName() });
-        const sideID = group.ontologyID(side.key);
+        const sideID = group.resourceID(side.key);
         const params = { ids: leaf, root: top };
         const handler = vi.fn();
         const off = client.ontology.ancestors.onChange(params, handler);
@@ -426,7 +427,7 @@ describe("Ontology", () => {
             .poll(() => {
               const cached = client.ontology.ancestors.getCached(params);
               return query.isLive(cached)
-                ? cached.paths[ontology.idToString(leaf)]
+                ? cached.paths[resource.idToString(leaf)]
                 : null;
             })
             .toEqual([[sideID]]);
@@ -447,7 +448,7 @@ describe("Ontology", () => {
             .poll(() => {
               const cached = client.ontology.ancestors.getCached(params);
               return query.isLive(cached)
-                ? cached.paths[ontology.idToString(leaf)]
+                ? cached.paths[resource.idToString(leaf)]
                 : null;
             })
             .toEqual([[]]);
@@ -487,11 +488,11 @@ describe("Ontology", () => {
         name: name2,
       });
       await client.ontology.addChildren(
-        group.ontologyID(g.key),
-        group.ontologyID(g2.key),
+        group.resourceID(g.key),
+        group.resourceID(g2.key),
       );
       const children = await client.ontology.children.retrieve({
-        ids: group.ontologyID(g.key),
+        ids: group.resourceID(g.key),
       });
       expect(children.length).toEqual(1);
       expect(children[0].name).toEqual(name2);
@@ -505,15 +506,15 @@ describe("Ontology", () => {
         name: name2,
       });
       await client.ontology.addChildren(
-        group.ontologyID(g.key),
-        group.ontologyID(g2.key),
+        group.resourceID(g.key),
+        group.resourceID(g2.key),
       );
       await client.ontology.removeChildren(
-        group.ontologyID(g.key),
-        group.ontologyID(g2.key),
+        group.resourceID(g.key),
+        group.resourceID(g2.key),
       );
       const children = await client.ontology.children.retrieve({
-        ids: group.ontologyID(g.key),
+        ids: group.resourceID(g.key),
       });
       expect(children.length).toEqual(0);
     });
@@ -527,12 +528,12 @@ describe("Ontology", () => {
       });
       await client.ontology.moveChildren(
         ontology.ROOT_ID,
-        group.ontologyID(g.key),
-        group.ontologyID(g2.key),
+        group.resourceID(g.key),
+        group.resourceID(g2.key),
       );
 
       const children = await client.ontology.children.retrieve({
-        ids: group.ontologyID(g.key),
+        ids: group.resourceID(g.key),
       });
       expect(children.length).toEqual(1);
       // Other specs write to the root concurrently, so only the two groups this test
@@ -540,8 +541,8 @@ describe("Ontology", () => {
       const rootKeys = (
         await client.ontology.children.retrieve({ ids: ontology.ROOT_ID })
       ).map(({ key }) => key);
-      expect(rootKeys).toContain(ontology.idToString(group.ontologyID(g.key)));
-      expect(rootKeys).not.toContain(ontology.idToString(group.ontologyID(g2.key)));
+      expect(rootKeys).toContain(resource.idToString(group.resourceID(g.key)));
+      expect(rootKeys).not.toContain(resource.idToString(group.resourceID(g2.key)));
     });
   });
 
@@ -557,12 +558,12 @@ describe("Ontology", () => {
           parent: ontology.ROOT_ID,
           name: randomName(),
         });
-        const parentID = group.ontologyID(parent.key);
+        const parentID = group.resourceID(parent.key);
         const child = await client.groups.create({
           parent: ontology.ROOT_ID,
           name: randomName(),
         });
-        const childID = group.ontologyID(child.key);
+        const childID = group.resourceID(child.key);
         expect(await client.ontology.children.retrieve({ ids: parentID })).toHaveLength(
           0,
         );
@@ -593,7 +594,7 @@ describe("Ontology", () => {
           parent: ontology.ROOT_ID,
           name: randomName(),
         });
-        const parentID = group.ontologyID(parent.key);
+        const parentID = group.resourceID(parent.key);
         const child = await client.groups.create({
           parent: parentID,
           name: randomName(),
@@ -612,7 +613,7 @@ describe("Ontology", () => {
           parent: ontology.ROOT_ID,
           name: randomName(),
         });
-        const parentID = group.ontologyID(parent.key);
+        const parentID = group.resourceID(parent.key);
         const params = { ids: parentID };
         const handler = vi.fn();
         const off = client.ontology.children.onChange(params, handler);
@@ -893,12 +894,12 @@ describe("Ontology", () => {
 
   describe("idToString", () => {
     it("should convert an ID to a string", () => {
-      const result = ontology.idToString({ type: "group", key: "one" });
+      const result = resource.idToString({ type: "group", key: "one" });
       expect(result).toEqual("group:one");
     });
 
     it("should convert an array of IDs to strings", () => {
-      const result = ontology.idToString([
+      const result = resource.idToString([
         { type: "group", key: "one" },
         { type: "channel", key: "two" },
       ]);
@@ -906,24 +907,24 @@ describe("Ontology", () => {
     });
 
     it("should pass through string IDs", () => {
-      const result = ontology.idToString("group:one");
+      const result = resource.idToString("group:one");
       expect(result).toEqual("group:one");
     });
 
     it("should validate string IDs that get passed", () => {
       expect(() => {
-        ontology.idToString("dog");
+        resource.idToString("dog");
       }).toThrow();
     });
 
     it("should pass through an array of string IDs", () => {
-      const result = ontology.idToString(["group:one", "channel:two"]);
+      const result = resource.idToString(["group:one", "channel:two"]);
       expect(result).toEqual(["group:one", "channel:two"]);
     });
 
     it("should validate an array of string IDs that get passed", () => {
       expect(() => {
-        ontology.idToString(["group:one", "channel:two", "dog"]);
+        resource.idToString(["group:one", "channel:two", "dog"]);
       }).toThrow();
     });
   });
@@ -936,7 +937,7 @@ describe("store", () => {
       name: `cache-test-${id.create()}`,
       color: "#E774D0",
     });
-    const resourceKey = ontology.idToString({ type: "label", key: label.key });
+    const resourceKey = resource.idToString({ type: "label", key: label.key });
     await expect
       .poll(() => client.ontology.cache.resources.get(resourceKey))
       .toBeDefined();
@@ -962,8 +963,8 @@ describe("store", () => {
 });
 
 describe("deleteRelationships", () => {
-  const groupID = (key: string): ontology.ID => ({ type: "group", key });
-  const rel = (from: ontology.ID, to: ontology.ID): ontology.Relationship => ({
+  const groupID = (key: string): resource.ID => ({ type: "group", key });
+  const rel = (from: resource.ID, to: resource.ID): ontology.Relationship => ({
     from,
     type: ontology.PARENT_OF_RELATIONSHIP_TYPE,
     to,
@@ -972,10 +973,10 @@ describe("deleteRelationships", () => {
     const root = new query.Cache({ openStreamer: null });
     const indexes = {
       byTo: new query.LookupIndex<string, ontology.Relationship>((r) =>
-        ontology.idToString(r.to),
+        resource.idToString(r.to),
       ),
       byFrom: new query.LookupIndex<string, ontology.Relationship>((r) =>
-        ontology.idToString(r.from),
+        resource.idToString(r.from),
       ),
     };
     const relationships = root.createTable<string, ontology.Relationship>({

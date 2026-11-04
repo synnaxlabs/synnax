@@ -21,7 +21,7 @@ import { Tree } from "@/platform/tree";
 const Actions = (): ReactElement | null => {
   const openCreate = PlatformChannel.useCreateModal();
   const openCalculated = PlatformChannel.useCalculatedModal();
-  const hasCreatePermission = Access.useCreateGranted(channel.TYPE_ONTOLOGY_ID);
+  const hasCreatePermission = Access.useCreateGranted(channel.TYPE_RESOURCE_ID);
   if (!hasCreatePermission) return null;
   return (
     <Toolbar.Actions>
@@ -53,13 +53,13 @@ const Content = (): ReactElement => (
 
 const Body = (): ReactElement => {
   const g = Channel.useGroup({});
-  const root = group.ontologyID(g.key);
+  const root = group.resourceID(g.key);
   return <Tree.Tree root={root} emptyContent={<EmptyContent />} />;
 };
 
 const EmptyContent = (): ReactElement => {
   const openCreate = PlatformChannel.useCreateModal();
-  const hasCreatePermission = Access.useCreateGranted(channel.TYPE_ONTOLOGY_ID);
+  const hasCreatePermission = Access.useCreateGranted(channel.TYPE_RESOURCE_ID);
   return (
     <Empty.Action
       message="No channels"
@@ -77,5 +77,5 @@ export const TOOLBAR: Nav.Toolbar = {
   trigger: ["C"],
   initialSize: 300,
   sizeBounds: { lower: 175, upper: 400 },
-  useVisible: () => Access.useRetrieveGranted(channel.TYPE_ONTOLOGY_ID),
+  useVisible: () => Access.useRetrieveGranted(channel.TYPE_RESOURCE_ID),
 };

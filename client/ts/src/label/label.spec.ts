@@ -64,17 +64,17 @@ describe("Label", () => {
     it("should set a label on an item", async () => {
       const l1 = await client.labels.create({ name: "Label One", color: "#E774D0" });
       const l2 = await client.labels.create({ name: "Label Two", color: "#E774D0" });
-      await client.labels.label(label.ontologyID(l1.key), [l2.key]);
-      const labels = await client.labels.retrieve({ for: label.ontologyID(l1.key) });
+      await client.labels.label(label.resourceID(l1.key), [l2.key]);
+      const labels = await client.labels.retrieve({ for: label.resourceID(l1.key) });
       expect(labels).toHaveLength(1);
       expect(labels[0].key).toEqual(l2.key);
     });
     it("should replace the labels on an item", async () => {
       const l1 = await client.labels.create({ name: "Label One", color: "#E774D0" });
       const l2 = await client.labels.create({ name: "Label Two", color: "#E774D0" });
-      await client.labels.label(label.ontologyID(l1.key), [l2.key]);
-      await client.labels.label(label.ontologyID(l1.key), [l1.key], { replace: true });
-      const labels = await client.labels.retrieve({ for: label.ontologyID(l1.key) });
+      await client.labels.label(label.resourceID(l1.key), [l2.key]);
+      await client.labels.label(label.resourceID(l1.key), [l1.key], { replace: true });
+      const labels = await client.labels.retrieve({ for: label.resourceID(l1.key) });
       expect(labels).toHaveLength(1);
       expect(labels[0].key).toEqual(l1.key);
     });
@@ -129,18 +129,18 @@ describe("cached reads", () => {
       name: `qry-attached-${id.create()}`,
       color: "#E774D0",
     });
-    const params = { for: label.ontologyID(item.key) };
+    const params = { for: label.resourceID(item.key) };
     const off = client.labels.onChange(params, vi.fn());
     try {
       await client.labels.retrieve(params);
-      await remote.labels.label(label.ontologyID(item.key), [lbl.key]);
+      await remote.labels.label(label.resourceID(item.key), [lbl.key]);
       await expect
         .poll(() => {
           const cached = client.labels.getCached(params);
           return query.isLive(cached) && cached.some((l) => l.key === lbl.key);
         })
         .toBe(true);
-      await remote.labels.remove(label.ontologyID(item.key), [lbl.key]);
+      await remote.labels.remove(label.resourceID(item.key), [lbl.key]);
       await expect
         .poll(() => {
           const cached = client.labels.getCached(params);

@@ -35,7 +35,7 @@ export const useCreate = ({ project, tabKey }: UseCreateProps = {}): ((
       dispatch(Session.Schematic.create({ key, editable: true }));
       openTab({
         variant: "resource",
-        resource: schematic.ontologyID(key),
+        resource: schematic.resourceID(key),
         key: tabKey,
       });
     },

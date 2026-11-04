@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { DisconnectedError, group, ontology } from "@synnaxlabs/client";
+import { DisconnectedError, group, ontology, resource } from "@synnaxlabs/client";
 import { createTestClient } from "@synnaxlabs/client/testutil";
 import { id } from "@synnaxlabs/x";
 import { act, renderHook, waitFor } from "@testing-library/react";
@@ -28,28 +28,28 @@ describe("Ontology Queries", () => {
         name: "parent",
       });
       const child1 = await client.groups.create({
-        parent: group.ontologyID(parent.key),
+        parent: group.resourceID(parent.key),
         name: "child1",
       });
       const child2 = await client.groups.create({
-        parent: group.ontologyID(parent.key),
+        parent: group.resourceID(parent.key),
         name: "child2",
       });
       await client.ontology.addChildren(
-        group.ontologyID(parent.key),
-        group.ontologyID(child1.key),
-        group.ontologyID(child2.key),
+        group.resourceID(parent.key),
+        group.resourceID(child1.key),
+        group.resourceID(child2.key),
       );
 
       const { result } = renderHook(
         () =>
           Ontology.useListChildren({
-            initialQuery: { id: group.ontologyID(parent.key) },
+            initialQuery: { id: group.resourceID(parent.key) },
           }),
         { wrapper },
       );
       act(() => {
-        result.current.retrieve({ id: group.ontologyID(parent.key) });
+        result.current.retrieve({ id: group.resourceID(parent.key) });
       });
       await waitFor(() => {
         expect(result.current.data).toHaveLength(2);
@@ -62,22 +62,22 @@ describe("Ontology Queries", () => {
         name: "parent",
       });
       await client.groups.create({
-        parent: group.ontologyID(parent.key),
+        parent: group.resourceID(parent.key),
         name: "child1",
       });
       await client.groups.create({
-        parent: group.ontologyID(parent.key),
+        parent: group.resourceID(parent.key),
         name: "child2",
       });
       const { result } = renderHook(
         () =>
           Ontology.useListChildren({
-            initialQuery: { id: group.ontologyID(parent.key) },
+            initialQuery: { id: group.resourceID(parent.key) },
           }),
         { wrapper },
       );
       act(() => {
-        result.current.retrieve({ id: group.ontologyID(parent.key) });
+        result.current.retrieve({ id: group.resourceID(parent.key) });
       });
       await waitFor(() => {
         expect(result.current.data).toHaveLength(2);
@@ -88,11 +88,11 @@ describe("Ontology Queries", () => {
           name: "alternateParent",
         });
         await client.groups.create({
-          parent: group.ontologyID(parent.key),
+          parent: group.resourceID(parent.key),
           name: "child3",
         });
         await client.groups.create({
-          parent: group.ontologyID(alternateParent.key),
+          parent: group.resourceID(alternateParent.key),
           name: "child4",
         });
       });
@@ -107,34 +107,34 @@ describe("Ontology Queries", () => {
         name: "parent",
       });
       const child1 = await client.groups.create({
-        parent: group.ontologyID(parent.key),
+        parent: group.resourceID(parent.key),
         name: "child1",
       });
       const child2 = await client.groups.create({
-        parent: group.ontologyID(parent.key),
+        parent: group.resourceID(parent.key),
         name: "child2",
       });
       await client.ontology.addChildren(
-        group.ontologyID(parent.key),
-        group.ontologyID(child1.key),
-        group.ontologyID(child2.key),
+        group.resourceID(parent.key),
+        group.resourceID(child1.key),
+        group.resourceID(child2.key),
       );
       const { result } = renderHook(
         () =>
           Ontology.useListChildren({
-            initialQuery: { id: group.ontologyID(parent.key) },
+            initialQuery: { id: group.resourceID(parent.key) },
           }),
         { wrapper },
       );
       act(() => {
-        result.current.retrieve({ id: group.ontologyID(parent.key) });
+        result.current.retrieve({ id: group.resourceID(parent.key) });
       });
       await waitFor(() => {
         expect(result.current.data).toHaveLength(2);
       });
       await client.ontology.removeChildren(
-        group.ontologyID(parent.key),
-        group.ontologyID(child1.key),
+        group.resourceID(parent.key),
+        group.resourceID(child1.key),
       );
       await waitFor(() => {
         expect(result.current.data).toHaveLength(1);
@@ -175,13 +175,13 @@ describe("Ontology Queries", () => {
       );
 
       const groupIDStrings = groups.map((g) =>
-        ontology.idToString(group.ontologyID(g.key)),
+        resource.idToString(group.resourceID(g.key)),
       );
 
       const { result } = renderHook(
         () =>
           Ontology.useResourceList({
-            filter: (r) => groupIDStrings.includes(ontology.idToString(r.id)),
+            filter: (r) => groupIDStrings.includes(resource.idToString(r.id)),
             useCachedList: false,
           }),
         {
@@ -194,7 +194,7 @@ describe("Ontology Queries", () => {
           limit: 2,
           offset: 1,
           types: ["group"],
-          ids: groups.map((g) => group.ontologyID(g.key)),
+          ids: groups.map((g) => group.resourceID(g.key)),
         });
       });
 
@@ -255,7 +255,7 @@ describe("Ontology Queries", () => {
 
       await waitFor(() => {
         const item = result.current.getItem(
-          ontology.idToString(group.ontologyID(newGroup.key)),
+          resource.idToString(group.resourceID(newGroup.key)),
         );
         expect(item?.name).toBe(newGroupName);
       });
@@ -269,16 +269,16 @@ describe("Ontology Queries", () => {
         name: "parent",
       });
       await client.groups.create({
-        parent: group.ontologyID(parent.key),
+        parent: group.resourceID(parent.key),
         name: "child1",
       });
       await client.groups.create({
-        parent: group.ontologyID(parent.key),
+        parent: group.resourceID(parent.key),
         name: "child2",
       });
 
       const { result } = await renderHookSuspended(
-        () => Ontology.useChildren({ id: group.ontologyID(parent.key) }),
+        () => Ontology.useChildren({ id: group.resourceID(parent.key) }),
         { wrapper },
       );
 
@@ -295,7 +295,7 @@ describe("Ontology Queries", () => {
       });
 
       const { result } = await renderHookSuspended(
-        () => Ontology.useChildren({ id: group.ontologyID(parent.key) }),
+        () => Ontology.useChildren({ id: group.resourceID(parent.key) }),
         { wrapper },
       );
 
@@ -317,7 +317,7 @@ describe("Ontology Queries", () => {
         name: "parent1",
       });
       await client.groups.create({
-        parent: group.ontologyID(parent1.key),
+        parent: group.resourceID(parent1.key),
         name: "p1-child",
       });
 
@@ -326,11 +326,11 @@ describe("Ontology Queries", () => {
         name: "parent2",
       });
       await client.groups.create({
-        parent: group.ontologyID(parent2.key),
+        parent: group.resourceID(parent2.key),
         name: "p2-child1",
       });
       await client.groups.create({
-        parent: group.ontologyID(parent2.key),
+        parent: group.resourceID(parent2.key),
         name: "p2-child2",
       });
 
@@ -338,13 +338,13 @@ describe("Ontology Queries", () => {
         ({ id }) => Ontology.useChildren({ id }),
         {
           wrapper,
-          initialProps: { id: group.ontologyID(parent1.key) },
+          initialProps: { id: group.resourceID(parent1.key) },
         },
       );
 
       await waitFor(() => expect(result.current).toHaveLength(1));
 
-      await act(async () => rerender({ id: group.ontologyID(parent2.key) }));
+      await act(async () => rerender({ id: group.resourceID(parent2.key) }));
 
       await waitFor(() => expect(result.current).toHaveLength(2));
     });

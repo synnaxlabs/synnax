@@ -12,7 +12,7 @@
 import { color, spatial, uuid } from "@synnaxlabs/x";
 import { z } from "zod";
 
-import { ontology } from "@/ontology";
+import { resource } from "@/resource";
 
 /**
  * Region is a visual styling area within a symbol state, targeting specific SVG
@@ -99,5 +99,5 @@ export const symbolZ = z.object({
 export interface Symbol extends z.infer<typeof symbolZ> {}
 export interface New extends z.input<typeof symbolZ> {}
 
-export const ontologyID = ontology.createIDFactory<Key>("schematic_symbol");
-export const TYPE_ONTOLOGY_ID = ontologyID("");
+export const resourceID = resource.createIDFactory<Key>("schematic_symbol");
+export const TYPE_RESOURCE_ID = resourceID("");

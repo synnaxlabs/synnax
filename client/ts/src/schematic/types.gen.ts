@@ -22,7 +22,7 @@ import {
 import { z } from "zod";
 
 import { channel } from "@/channel";
-import { ontology } from "@/ontology";
+import { resource } from "@/resource";
 import { symbol } from "@/schematic/symbol";
 
 export const FLEX_ALIGNMENTS = ["start", "center", "end", "stretch"] as const;
@@ -3268,5 +3268,5 @@ export const schematicZ = z.object({
 export interface Schematic extends z.infer<typeof schematicZ> {}
 export interface New extends z.input<typeof schematicZ> {}
 
-export const ontologyID = ontology.createIDFactory<Key>("schematic");
-export const TYPE_ONTOLOGY_ID = ontologyID("");
+export const resourceID = resource.createIDFactory<Key>("schematic");
+export const TYPE_RESOURCE_ID = resourceID("");

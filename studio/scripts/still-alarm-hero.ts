@@ -256,7 +256,7 @@ export default async (session: capture.CaptureSession): Promise<void> => {
     for (const { name, label } of ALARMS) {
       const key = labels.get(label);
       if (key == null) throw new Error(`no label named "${label}"`);
-      await client.labels.label(status.ontologyID(alarmKey(name)), [key]);
+      await client.labels.label(status.resourceID(alarmKey(name)), [key]);
     }
 
     await capture.login(session, world.project);

@@ -13,6 +13,7 @@ import {
   log,
   type ontology,
   project,
+  type resource,
   schematic,
   table,
 } from "@synnaxlabs/client";
@@ -60,7 +61,7 @@ const useDelete = Tree.createUseDelete({
 
 const useRename = Tree.createUseRename({
   useUpdate: Base.useRename,
-  ontologyID: project.ontologyID,
+  resourceID: project.resourceID,
   convertKey: String,
 });
 
@@ -88,12 +89,12 @@ const TreeContextMenu: Tree.ContextMenu = (props): ReactElement => {
   const hasUpdatePermission = Access.useUpdateGranted(ids);
   const hasDeletePermission = Access.useDeleteGranted(ids);
   const hasLinePlotCreatePermission = Access.useCreateGranted(
-    lineplot.TYPE_ONTOLOGY_ID,
+    lineplot.TYPE_RESOURCE_ID,
   );
-  const hasLogCreatePermission = Access.useCreateGranted(log.TYPE_ONTOLOGY_ID);
-  const hasTableCreatePermission = Access.useCreateGranted(table.TYPE_ONTOLOGY_ID);
+  const hasLogCreatePermission = Access.useCreateGranted(log.TYPE_RESOURCE_ID);
+  const hasTableCreatePermission = Access.useCreateGranted(table.TYPE_RESOURCE_ID);
   const hasSchematicCreatePermission = Access.useCreateGranted(
-    schematic.TYPE_ONTOLOGY_ID,
+    schematic.TYPE_RESOURCE_ID,
   );
   return (
     <ContextMenu.Menu>
@@ -154,7 +155,7 @@ const TreeContextMenu: Tree.ContextMenu = (props): ReactElement => {
             }
           />
           <Link.CopyContextMenuItem
-            onClick={() => handleLink({ name: first.name, ontologyID: first.id })}
+            onClick={() => handleLink({ name: first.name, resourceID: first.id })}
           />
           <Tree.CopyPropertiesContextMenuItem {...props} />
         </>
@@ -183,7 +184,7 @@ const useOnSelect = (): ((resource: ontology.Resource) => void) => {
   };
 };
 
-const VALID_CHILDREN: ontology.ResourceType[] = [
+const VALID_CHILDREN: resource.Type[] = [
   "schematic",
   "lineplot",
   "log",

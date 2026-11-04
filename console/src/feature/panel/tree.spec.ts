@@ -25,11 +25,11 @@ const renderPanelTree = async (
   const pan = await client.panels.create({
     ...appearance,
     name: uniqueName("panel"),
-    parent: project.ontologyID(key),
+    parent: project.resourceID(key),
   });
   await renderOntologyTree({
     client,
-    root: project.ontologyID(key),
+    root: project.resourceID(key),
     items: Panel.TREE_ITEMS,
   });
   return pan;

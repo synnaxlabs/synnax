@@ -15,7 +15,7 @@ import { useConnectModal } from "@/feature/device/Connect";
 import { HARDWARE } from "@/feature/device/integrations";
 import { Command } from "@/platform/command";
 
-const useVisible = () => Access.useCreateGranted(device.TYPE_ONTOLOGY_ID);
+const useVisible = () => Access.useCreateGranted(device.TYPE_RESOURCE_ID);
 
 const ConnectCommand = Command.create({
   key: "device_connect",

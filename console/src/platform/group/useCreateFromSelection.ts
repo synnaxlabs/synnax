@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { group, ontology } from "@synnaxlabs/client";
+import { group, type ontology, resource } from "@synnaxlabs/client";
 import { List } from "@synnaxlabs/lyra/list";
 import { Text } from "@synnaxlabs/lyra/text";
 import { Tree as PTree } from "@synnaxlabs/lyra/tree";
@@ -34,7 +34,7 @@ const base = Flux.createUpdate<CreateParams>({
     await client.groups.create({ parent: parentID, name, key });
     await client.ontology.moveChildren(
       parentID,
-      group.ontologyID(key),
+      group.resourceID(key),
       ...resourcesToGroup,
     );
     return data;
@@ -50,16 +50,16 @@ const beforeUpdate = async ({
     state: { nodes, setNodes, setSelection, shape, setResource },
     group: { key },
   } = data;
-  const newID = group.ontologyID(key);
-  const newIDString = ontology.idToString(newID);
+  const newID = group.resourceID(key);
+  const newIDString = resource.idToString(newID);
   const resourcesToGroup = getResourcesToGroup(selection.ids, shape);
   const prevNodes = PTree.deepCopy(nodes);
   rollbacks.push(() => setNodes(prevNodes));
   const res: ontology.Resource = { key: newIDString, id: newID, name: "" };
   setResource(res);
-  const destination = ontology.idsEqual(selection.rootID, selection.parentID)
+  const destination = resource.idsEqual(selection.rootID, selection.parentID)
     ? null
-    : ontology.idToString(selection.parentID);
+    : resource.idToString(selection.parentID);
   let nextNodes = PTree.setNode({
     tree: nodes,
     destination,
@@ -68,7 +68,7 @@ const beforeUpdate = async ({
   nextNodes = PTree.moveNode({
     tree: nextNodes,
     destination: newIDString,
-    keys: resourcesToGroup.map((id) => ontology.idToString(id)),
+    keys: resourcesToGroup.map((id) => resource.idToString(id)),
   });
   setNodes([...nextNodes]);
   setSelection([newIDString]);

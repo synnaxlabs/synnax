@@ -11,19 +11,20 @@ import { LABELED_BY_ONTOLOGY_RELATIONSHIP_TYPE } from "@/label/payload";
 import { type Key, type Label } from "@/label/types.gen";
 import { ontology } from "@/ontology";
 import { type query } from "@/query";
+import { type resource } from "@/resource";
 
-/** Reports whether the relationship labels the given ontology ID. */
-export const matchLabeledBy = (rel: ontology.Relationship, id: ontology.ID): boolean =>
+/** Reports whether the relationship labels the given resource ID. */
+export const matchLabeledBy = (rel: ontology.Relationship, id: resource.ID): boolean =>
   ontology.matchRelationship(rel, {
     from: id,
     type: LABELED_BY_ONTOLOGY_RELATIONSHIP_TYPE,
   });
 
-/** Returns the cached labels attached to the given ontology ID. */
+/** Returns the cached labels attached to the given resource ID. */
 export const cachedLabelsOf = (
   cache: ontology.Cache,
   labels: query.Table<Key, Label>,
-  id: ontology.ID,
+  id: resource.ID,
 ): Label[] =>
   labels.get(
     cache

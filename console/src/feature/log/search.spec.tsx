@@ -31,7 +31,7 @@ describe("log/search", () => {
   it("opens the log as a tab when the search result is selected", async () => {
     const key = uuid.create();
     const name = uniqueName("log");
-    const resource = createResource(log.ontologyID(key), name);
+    const resource = createResource(log.resourceID(key), name);
     const SearchListItem = Log.SEARCH_LIST_ITEMS.log;
     if (SearchListItem == null) throw new Error("log SearchListItem is not defined");
     const Harness = (): ReactElement => {

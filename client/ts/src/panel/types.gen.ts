@@ -12,7 +12,7 @@
 import { color, spatial, uuid } from "@synnaxlabs/x";
 import { z } from "zod";
 
-import { ontology } from "@/ontology";
+import { resource } from "@/resource";
 
 /**
  * View is an inline, self-describing view with no backing Core document. Used for
@@ -48,7 +48,7 @@ export const resourceTabZ = tabBaseZ.extend({
    * resource is the visualization resource displayed by this tab, set via
    * SetTabResource.
    */
-  resource: ontology.idZ,
+  resource: resource.idZ,
 });
 export interface ResourceTab extends z.infer<typeof resourceTabZ> {}
 
@@ -145,7 +145,7 @@ export const panelZ = z.object({
    * parent is the parent resource for the panel in the ontology. Required on create and
    * absent on retrieve.
    */
-  parent: ontology.idZ.optional(),
+  parent: resource.idZ.optional(),
   /**
    * icon is the key of the icon that marks the panel in lists. When null, the Console
    * draws its default panel icon.
@@ -157,5 +157,5 @@ export const panelZ = z.object({
 export interface Panel extends z.infer<typeof panelZ> {}
 export interface New extends z.input<typeof panelZ> {}
 
-export const ontologyID = ontology.createIDFactory<Key>("panel");
-export const TYPE_ONTOLOGY_ID = ontologyID("");
+export const resourceID = resource.createIDFactory<Key>("panel");
+export const TYPE_RESOURCE_ID = resourceID("");

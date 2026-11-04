@@ -532,7 +532,7 @@ describe("auth", () => {
         password: "old",
         name: "Set Password",
       });
-      return { username, subject: user.ontologyID(u.key) };
+      return { username, subject: user.resourceID(u.key) };
     };
 
     it("should let an owner set another user's password", async () => {

@@ -24,7 +24,7 @@ export interface ChildRangesProps {
 
 export const ChildRanges: FC<ChildRangesProps> = ({ rangeKey }) => {
   const openCreate = Range.useCreateModal();
-  const hasCreatePermission = Access.useCreateGranted(ranger.TYPE_ONTOLOGY_ID);
+  const hasCreatePermission = Access.useCreateGranted(ranger.TYPE_RESOURCE_ID);
   const { data, getItem, subscribe, retrieve, answered } = Ranger.useListChildren({
     initialQuery: { key: rangeKey },
   });

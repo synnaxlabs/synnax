@@ -12,7 +12,7 @@
 import { uuid } from "@synnaxlabs/x";
 import { z } from "zod";
 
-import { ontology } from "@/ontology";
+import { resource } from "@/resource";
 
 export const keyZ = z.uuid();
 export type Key = z.infer<typeof keyZ>;
@@ -30,5 +30,5 @@ export const projectZ = z.object({
 export interface Project extends z.infer<typeof projectZ> {}
 export interface New extends z.input<typeof projectZ> {}
 
-export const ontologyID = ontology.createIDFactory<Key>("project");
-export const TYPE_ONTOLOGY_ID = ontologyID("");
+export const resourceID = resource.createIDFactory<Key>("project");
+export const TYPE_RESOURCE_ID = resourceID("");

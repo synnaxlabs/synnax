@@ -21,7 +21,7 @@ describe("Link.useCopyToClipboard", () => {
     writeText = stubClipboardWriteText();
   });
 
-  it("copies a cluster link when no ontology ID is given", async () => {
+  it("copies a cluster link when no resource ID is given", async () => {
     const { result } = await renderHookWithConsole(() => Link.useCopyToClipboard());
     act(() => result.current({ clusterKey: "abc", name: "My Core" }));
     await waitFor(() => expect(writeText).toHaveBeenCalledWith("synnax://cluster/abc"));
@@ -33,7 +33,7 @@ describe("Link.useCopyToClipboard", () => {
       result.current({
         clusterKey: "abc",
         name: "My Range",
-        ontologyID: { type: "range", key: "r1" },
+        resourceID: { type: "range", key: "r1" },
       }),
     );
     await waitFor(() =>

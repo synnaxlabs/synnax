@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { group, ontology } from "@synnaxlabs/client";
+import { group, ontology, resource } from "@synnaxlabs/client";
 import { createTestClient, RoleClients } from "@synnaxlabs/client/testutil";
 import { Tree as PTree } from "@synnaxlabs/lyra/tree";
 import { fireEvent, screen, waitFor } from "@testing-library/react";
@@ -22,11 +22,11 @@ const roles = new RoleClients(client);
 
 const Item = Group.TREE_ITEMS.group;
 
-const createGroup = async (parent: ontology.ID) =>
+const createGroup = async (parent: resource.ID) =>
   await client.groups.create({ parent, name: uniqueName("group") });
 
 const groupResource = (key: string, name: string) =>
-  createResource(group.ontologyID(key), name);
+  createResource(group.resourceID(key), name);
 
 describe("group ontology service", () => {
   it("should always accept drops and haul the group's own id", () => {
@@ -60,13 +60,13 @@ describe("group ontology service", () => {
 
   it("should ungroup a nested group, moving its children to the parent", async () => {
     const parent = await createGroup(ontology.ROOT_ID);
-    const child = await createGroup(group.ontologyID(parent.key));
-    const grandchild = await createGroup(group.ontologyID(child.key));
-    const parentID = group.ontologyID(parent.key);
-    const childID = group.ontologyID(child.key);
-    const grandchildID = group.ontologyID(grandchild.key);
+    const child = await createGroup(group.resourceID(parent.key));
+    const grandchild = await createGroup(group.resourceID(child.key));
+    const parentID = group.resourceID(parent.key);
+    const childID = group.resourceID(child.key);
+    const grandchildID = group.resourceID(grandchild.key);
     const [parentKey, childKey, grandchildKey] = [parentID, childID, grandchildID].map(
-      (id) => ontology.idToString(id),
+      (id) => resource.idToString(id),
     );
     const nodes: PTree.Node<string>[] = [
       {
@@ -98,11 +98,11 @@ describe("group ontology service", () => {
 
   it("should label ungroup as delete for a childless nested group", async () => {
     const parent = await createGroup(ontology.ROOT_ID);
-    const child = await createGroup(group.ontologyID(parent.key));
-    const parentID = group.ontologyID(parent.key);
-    const childID = group.ontologyID(child.key);
+    const child = await createGroup(group.resourceID(parent.key));
+    const parentID = group.resourceID(parent.key);
+    const childID = group.resourceID(child.key);
     const [parentKey, childKey] = [parentID, childID].map((id) =>
-      ontology.idToString(id),
+      resource.idToString(id),
     );
     const nodes: PTree.Node<string>[] = [
       { key: parentKey, children: [{ key: childKey }] },

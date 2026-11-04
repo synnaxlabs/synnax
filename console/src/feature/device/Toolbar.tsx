@@ -20,7 +20,7 @@ import { Tree } from "@/platform/tree";
 
 const Content = (): ReactElement => {
   const openConnect = useConnectModal();
-  const canCreate = Access.useCreateGranted(device.TYPE_ONTOLOGY_ID);
+  const canCreate = Access.useCreateGranted(device.TYPE_RESOURCE_ID);
   const groupID = Device.useGroupID({});
   return (
     <Toolbar.Content>
@@ -62,5 +62,5 @@ export const TOOLBAR: Nav.Toolbar = {
   initialSize: 300,
   sizeBounds: { lower: 175, upper: 400 },
   trigger: ["D"],
-  useVisible: () => Access.useRetrieveGranted(device.TYPE_ONTOLOGY_ID),
+  useVisible: () => Access.useRetrieveGranted(device.TYPE_RESOURCE_ID),
 };

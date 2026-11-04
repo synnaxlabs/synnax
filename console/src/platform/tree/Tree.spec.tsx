@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { group, ontology, type Synnax as Client } from "@synnaxlabs/client";
+import { group, ontology, resource, type Synnax as Client } from "@synnaxlabs/client";
 import { createTestClient, RoleClients } from "@synnaxlabs/client/testutil";
 import { Haul } from "@synnaxlabs/lyra/haul";
 import { Tree as PTree } from "@synnaxlabs/lyra/tree";
@@ -51,7 +51,7 @@ const createWrapper = async (items: Tree.Items = {}, as: Client = client) => {
 };
 
 const renderTree = async (
-  root: ontology.ID | null,
+  root: resource.ID | null,
   items: Tree.Items = {},
   as: Client = client,
 ) => render(<Tree.Tree root={root} />, { wrapper: await createWrapper(items, as) });
@@ -82,15 +82,15 @@ describe("Tree.Tree", () => {
     });
     const groupName = uniqueName("parent");
     const created = await client.groups.create({
-      parent: group.ontologyID(root.key),
+      parent: group.resourceID(root.key),
       name: groupName,
     });
     const childName = uniqueName("child");
     const child = await client.groups.create({
-      parent: group.ontologyID(created.key),
+      parent: group.resourceID(created.key),
       name: childName,
     });
-    await renderTree(group.ontologyID(root.key));
+    await renderTree(group.resourceID(root.key));
     await screen.findByText(groupName);
     expandTreeRow(groupName);
     await waitFor(() => expect(screen.getByText(childName)).toBeTruthy());
@@ -103,19 +103,19 @@ describe("Tree.Tree", () => {
       name: uniqueName("container"),
     });
     const parent = await client.groups.create({
-      parent: group.ontologyID(container.key),
+      parent: group.resourceID(container.key),
       name: uniqueName("parent"),
     });
     const child = await client.groups.create({
-      parent: group.ontologyID(parent.key),
+      parent: group.resourceID(parent.key),
       name: uniqueName("child"),
     });
     const grandchild = await client.groups.create({
-      parent: group.ontologyID(child.key),
+      parent: group.resourceID(child.key),
       name: uniqueName("grandchild"),
     });
-    const parentID = group.ontologyID(parent.key);
-    await renderTree(group.ontologyID(container.key));
+    const parentID = group.resourceID(parent.key);
+    await renderTree(group.resourceID(container.key));
     await screen.findByText(parent.name);
     expandTreeRow(parent.name);
     await screen.findByText(child.name);
@@ -137,17 +137,17 @@ describe("Tree.Tree", () => {
       parent: ontology.ROOT_ID,
       name: uniqueName("container"),
     });
-    const containerID = group.ontologyID(container.key);
+    const containerID = group.resourceID(container.key);
     const first = await client.groups.create({
       parent: containerID,
       name: uniqueName("first"),
     });
-    const firstID = group.ontologyID(first.key);
+    const firstID = group.resourceID(first.key);
     const second = await client.groups.create({
       parent: containerID,
       name: uniqueName("second"),
     });
-    const secondID = group.ontologyID(second.key);
+    const secondID = group.resourceID(second.key);
     await client.groups.create({ parent: firstID, name: uniqueName("seed") });
     await client.groups.create({ parent: secondID, name: uniqueName("seed") });
     await renderTree(containerID);
@@ -173,11 +173,11 @@ describe("Tree.Tree", () => {
       name: uniqueName("container"),
     });
     const parent = await client.groups.create({
-      parent: group.ontologyID(container.key),
+      parent: group.resourceID(container.key),
       name: uniqueName("parent"),
     });
     await client.groups.create({
-      parent: group.ontologyID(parent.key),
+      parent: group.resourceID(parent.key),
       name: uniqueName("child"),
     });
     const SPINNING = "spinning";
@@ -185,7 +185,7 @@ describe("Tree.Tree", () => {
       group: Tree.createItem({
         type: "group",
         ContextMenu: ({ selection: { ids }, state }: Tree.ContextMenuProps) => (
-          <button onClick={() => state.expand(ontology.idToString(ids[0]))}>
+          <button onClick={() => state.expand(resource.idToString(ids[0]))}>
             expand again
           </button>
         ),
@@ -197,7 +197,7 @@ describe("Tree.Tree", () => {
         ),
       }),
     };
-    await renderTree(group.ontologyID(container.key), items);
+    await renderTree(group.resourceID(container.key), items);
     await screen.findByText(parent.name);
     expandTreeRow(parent.name);
     await waitFor(() => expect(screen.queryByText(SPINNING)).toBeNull());
@@ -214,13 +214,13 @@ describe("Tree.Tree", () => {
       parent: ontology.ROOT_ID,
       name: uniqueName("container"),
     });
-    const containerID = group.ontologyID(container.key);
+    const containerID = group.resourceID(container.key);
     const parent = await client.groups.create({
       parent: containerID,
       name: uniqueName("parent"),
     });
     const child = await client.groups.create({
-      parent: group.ontologyID(parent.key),
+      parent: group.resourceID(parent.key),
       name: uniqueName("child"),
     });
     // Toolbars build the root id inline, so every render hands the tree a new
@@ -230,7 +230,7 @@ describe("Tree.Tree", () => {
       return (
         <>
           <button onClick={() => setRenders((prev) => prev + 1)}>rerender</button>
-          <Tree.Tree root={group.ontologyID(container.key)} />
+          <Tree.Tree root={group.resourceID(container.key)} />
         </>
       );
     };
@@ -250,7 +250,7 @@ describe("Tree.Tree", () => {
       parent: ontology.ROOT_ID,
       name: uniqueName("parent"),
     });
-    const parentID = group.ontologyID(parent.key);
+    const parentID = group.resourceID(parent.key);
     const child = await client.groups.create({
       parent: parentID,
       name: uniqueName("child"),
@@ -284,7 +284,7 @@ describe("Tree.Tree", () => {
       parent: ontology.ROOT_ID,
       name: uniqueName("empty"),
     });
-    const emptyID = group.ontologyID(empty.key);
+    const emptyID = group.resourceID(empty.key);
     const content = <p>{NO_CHILDREN}</p>;
     const { rerender } = render(
       <Tree.Tree key="first" root={emptyID} emptyContent={content} />,
@@ -315,7 +315,7 @@ describe("Tree.Tree", () => {
       parent: ontology.ROOT_ID,
       name: uniqueName("empty"),
     });
-    const emptyID = group.ontologyID(empty.key);
+    const emptyID = group.resourceID(empty.key);
     render(<Tree.Tree root={emptyID} emptyContent={<p>{NO_CHILDREN}</p>} />, {
       wrapper: await createWrapper(),
     });
@@ -330,12 +330,12 @@ describe("Tree.Tree", () => {
       parent: ontology.ROOT_ID,
       name: uniqueName("container"),
     });
-    const containerID = group.ontologyID(container.key);
+    const containerID = group.resourceID(container.key);
     const parent = await client.groups.create({
       parent: containerID,
       name: uniqueName("parent"),
     });
-    const parentID = group.ontologyID(parent.key);
+    const parentID = group.resourceID(parent.key);
     const child = await client.groups.create({
       parent: parentID,
       name: uniqueName("child"),
@@ -358,7 +358,7 @@ describe("Tree.Tree", () => {
   describe("large trees", () => {
     const CHILD_COUNT = 150;
     const ITEM_HEIGHT = 27;
-    let parentID: ontology.ID;
+    let parentID: resource.ID;
     let names: string[];
 
     beforeAll(async () => {
@@ -366,7 +366,7 @@ describe("Tree.Tree", () => {
         parent: ontology.ROOT_ID,
         name: uniqueName("populated"),
       });
-      parentID = group.ontologyID(parent.key);
+      parentID = group.resourceID(parent.key);
       names = Array.from({ length: CHILD_COUNT }, (_, i) =>
         // Zero padded so the tree's alphabetical sort matches creation order.
         uniqueName(`child-${String(i).padStart(3, "0")}`),
@@ -427,8 +427,8 @@ describe("Tree.Tree", () => {
         name: uniqueName("root"),
       });
       const name = uniqueName("grp");
-      await client.groups.create({ parent: group.ontologyID(root.key), name });
-      const { container } = await renderTree(group.ontologyID(root.key));
+      await client.groups.create({ parent: group.resourceID(root.key), name });
+      const { container } = await renderTree(group.resourceID(root.key));
       await screen.findByText(name);
       const tree = container.querySelector(".lyra-tree");
       expect(tree).not.toBeNull();
@@ -442,7 +442,7 @@ describe("Tree.Tree", () => {
         parent: ontology.ROOT_ID,
         name: uniqueName("parent"),
       });
-      const parentID = group.ontologyID(parent.key);
+      const parentID = group.resourceID(parent.key);
       const childName = uniqueName("child");
       const child = await client.groups.create({ parent: parentID, name: childName });
       const menuSpy = vi.fn();
@@ -460,8 +460,8 @@ describe("Tree.Tree", () => {
       const [props] = menuSpy.mock.calls[0] as [Tree.ContextMenuProps];
       expect(props.selection.ids).toHaveLength(1);
       expect(props.selection.ids[0].key).toBe(child.key);
-      expect(ontology.idsEqual(props.selection.rootID, parentID)).toBe(true);
-      expect(ontology.idsEqual(props.selection.parentID, parentID)).toBe(true);
+      expect(resource.idsEqual(props.selection.rootID, parentID)).toBe(true);
+      expect(resource.idsEqual(props.selection.parentID, parentID)).toBe(true);
     });
 
     it("should drop a deleted resource from the selection backing the menu", async () => {
@@ -469,7 +469,7 @@ describe("Tree.Tree", () => {
         parent: ontology.ROOT_ID,
         name: uniqueName("parent"),
       });
-      const parentID = group.ontologyID(parent.key);
+      const parentID = group.resourceID(parent.key);
       const doomed = await client.groups.create({
         parent: parentID,
         name: uniqueName("doomed"),
@@ -510,7 +510,7 @@ describe("Tree.Tree", () => {
         parent: ontology.ROOT_ID,
         name: uniqueName("parent"),
       });
-      const parentID = group.ontologyID(parent.key);
+      const parentID = group.resourceID(parent.key);
       const doomed = await client.groups.create({
         parent: parentID,
         name: uniqueName("doomed"),
@@ -544,14 +544,14 @@ describe("Tree.Tree", () => {
     });
     const childName = uniqueName("child");
     await client.groups.create({
-      parent: group.ontologyID(parent.key),
+      parent: group.resourceID(parent.key),
       name: childName,
     });
     const onSelect = vi.fn();
     const items: Tree.Items = {
       group: Tree.createItem({ type: "group", useOnSelect: () => onSelect }),
     };
-    await renderTree(group.ontologyID(parent.key), items);
+    await renderTree(group.resourceID(parent.key), items);
     const item = await screen.findByText(childName);
     fireEvent.doubleClick(item);
     await waitFor(() => expect(onSelect).toHaveBeenCalled());
@@ -564,7 +564,7 @@ describe("Tree.Tree", () => {
       parent: ontology.ROOT_ID,
       name: uniqueName("container"),
     });
-    const containerID = group.ontologyID(container.key);
+    const containerID = group.resourceID(container.key);
     const source = await client.groups.create({
       parent: containerID,
       name: uniqueName("source"),
@@ -574,7 +574,7 @@ describe("Tree.Tree", () => {
       name: uniqueName("dest"),
     });
     const moved = await client.groups.create({
-      parent: group.ontologyID(source.key),
+      parent: group.resourceID(source.key),
       name: uniqueName("moved"),
     });
     const items: Tree.Items = {
@@ -588,13 +588,13 @@ describe("Tree.Tree", () => {
     fireEvent.drop(getTreeRow(destination.name));
     await waitFor(async () => {
       const children = await client.ontology.children.retrieve({
-        ids: group.ontologyID(destination.key),
+        ids: group.resourceID(destination.key),
       });
       expect(children.map((c) => c.id.key)).toContain(moved.key);
     });
     await waitFor(async () => {
       const children = await client.ontology.children.retrieve({
-        ids: group.ontologyID(source.key),
+        ids: group.resourceID(source.key),
       });
       expect(children.map((c) => c.id.key)).not.toContain(moved.key);
     });
@@ -605,19 +605,19 @@ describe("Tree.Tree", () => {
       group: Tree.createItem({ type: "group", canDrop: () => true }),
     };
 
-    const createGroup = async (parent: ontology.ID, label: string) =>
+    const createGroup = async (parent: resource.ID, label: string) =>
       await client.groups.create({ parent, name: uniqueName(label) });
 
-    const childKeysOf = async (id: ontology.ID): Promise<string[]> => {
+    const childKeysOf = async (id: resource.ID): Promise<string[]> => {
       const children = await client.ontology.children.retrieve({ ids: id });
       return children.map((c) => c.id.key);
     };
 
     it("should move only the parent when a parent and its own child are selected", async () => {
       const container = await createGroup(ontology.ROOT_ID, "container");
-      const containerID = group.ontologyID(container.key);
+      const containerID = group.resourceID(container.key);
       const folder = await createGroup(containerID, "folder");
-      const folderID = group.ontologyID(folder.key);
+      const folderID = group.resourceID(folder.key);
       const report = await createGroup(folderID, "report");
       const dest = await createGroup(containerID, "dest");
       await renderOntologyTree({ client, root: containerID, items: DROPPABLE });
@@ -631,20 +631,20 @@ describe("Tree.Tree", () => {
       fireEvent.dragStart(getTreeRow(folder.name));
       fireEvent.drop(getTreeRow(dest.name));
       await waitFor(async () =>
-        expect(await childKeysOf(group.ontologyID(dest.key))).toContain(folder.key),
+        expect(await childKeysOf(group.resourceID(dest.key))).toContain(folder.key),
       );
       // The report rides along inside the folder. Moving it explicitly would
       // re-parent it onto the destination as a sibling of its own folder.
-      expect(await childKeysOf(group.ontologyID(dest.key))).not.toContain(report.key);
+      expect(await childKeysOf(group.resourceID(dest.key))).not.toContain(report.key);
       expect(await childKeysOf(folderID)).toContain(report.key);
     });
 
     it("should move both when the selection spans depths but neither contains the other", async () => {
       const container = await createGroup(ontology.ROOT_ID, "container");
-      const containerID = group.ontologyID(container.key);
+      const containerID = group.resourceID(container.key);
       const loose = await createGroup(containerID, "loose");
       const folder = await createGroup(containerID, "folder");
-      const folderID = group.ontologyID(folder.key);
+      const folderID = group.resourceID(folder.key);
       const nested = await createGroup(folderID, "nested");
       const dest = await createGroup(containerID, "dest");
       await renderOntologyTree({ client, root: containerID, items: DROPPABLE });
@@ -656,21 +656,21 @@ describe("Tree.Tree", () => {
       fireEvent.dragStart(getTreeRow(loose.name));
       fireEvent.drop(getTreeRow(dest.name));
       await waitFor(async () =>
-        expect(await childKeysOf(group.ontologyID(dest.key))).toContain(loose.key),
+        expect(await childKeysOf(group.resourceID(dest.key))).toContain(loose.key),
       );
       // Deeper does not mean contained: nested is selected in its own right.
-      expect(await childKeysOf(group.ontologyID(dest.key))).toContain(nested.key);
+      expect(await childKeysOf(group.resourceID(dest.key))).toContain(nested.key);
       expect(await childKeysOf(folderID)).not.toContain(nested.key);
     });
 
     it("should detach each item from its own parent when the selection spans parents", async () => {
       const container = await createGroup(ontology.ROOT_ID, "container");
-      const containerID = group.ontologyID(container.key);
+      const containerID = group.resourceID(container.key);
       const folderA = await createGroup(containerID, "folderA");
-      const folderAID = group.ontologyID(folderA.key);
+      const folderAID = group.resourceID(folderA.key);
       const reportA = await createGroup(folderAID, "reportA");
       const folderB = await createGroup(containerID, "folderB");
-      const folderBID = group.ontologyID(folderB.key);
+      const folderBID = group.resourceID(folderB.key);
       const reportB = await createGroup(folderBID, "reportB");
       const dest = await createGroup(containerID, "dest");
       await renderOntologyTree({ client, root: containerID, items: DROPPABLE });
@@ -684,9 +684,9 @@ describe("Tree.Tree", () => {
       fireEvent.dragStart(getTreeRow(reportA.name));
       fireEvent.drop(getTreeRow(dest.name));
       await waitFor(async () =>
-        expect(await childKeysOf(group.ontologyID(dest.key))).toContain(reportA.key),
+        expect(await childKeysOf(group.resourceID(dest.key))).toContain(reportA.key),
       );
-      expect(await childKeysOf(group.ontologyID(dest.key))).toContain(reportB.key);
+      expect(await childKeysOf(group.resourceID(dest.key))).toContain(reportB.key);
       expect(await childKeysOf(folderAID)).not.toContain(reportA.key);
       // reportB left folderB, not the parent that reportA happened to have.
       expect(await childKeysOf(folderBID)).not.toContain(reportB.key);
@@ -698,7 +698,7 @@ describe("Tree.Tree", () => {
       parent: ontology.ROOT_ID,
       name: uniqueName("parent"),
     });
-    const parentID = group.ontologyID(parent.key);
+    const parentID = group.resourceID(parent.key);
     await renderTree(parentID);
     const childName = uniqueName("child");
     await client.groups.create({ parent: parentID, name: childName });
@@ -712,10 +712,10 @@ describe("Tree.Tree", () => {
     });
     const name = uniqueName("grp");
     const created = await client.groups.create({
-      parent: group.ontologyID(container.key),
+      parent: group.resourceID(container.key),
       name,
     });
-    await renderTree(group.ontologyID(container.key));
+    await renderTree(group.resourceID(container.key));
     await screen.findByText(name);
     await client.groups.delete(created.key);
     await waitFor(() => expect(screen.queryByText(name)).toBeNull());
@@ -731,7 +731,7 @@ describe("Tree.Tree", () => {
         parent: ontology.ROOT_ID,
         name: uniqueName("container"),
       });
-      const containerID = group.ontologyID(container.key);
+      const containerID = group.resourceID(container.key);
       const folder = await client.groups.create({
         parent: containerID,
         name: uniqueName("folder"),
@@ -749,7 +749,7 @@ describe("Tree.Tree", () => {
       fireEvent.dragStart(getTreeRow(folder.name));
       fireEvent.drop(getTreeRow(dest.name));
       const children = await client.ontology.children.retrieve({
-        ids: group.ontologyID(dest.key),
+        ids: group.resourceID(dest.key),
       });
       expect(children.map((c) => c.id.key)).not.toContain(folder.key);
     });
@@ -777,7 +777,7 @@ describe("Tree.Tree", () => {
       });
       const childName = uniqueName("child");
       const child = await client.groups.create({
-        parent: group.ontologyID(container.key),
+        parent: group.resourceID(container.key),
         name: childName,
       });
       const foreign = await client.groups.create({
@@ -785,7 +785,7 @@ describe("Tree.Tree", () => {
         name: uniqueName("foreign"),
       });
       const counts = new Map<string, number>();
-      await renderTree(group.ontologyID(container.key), countingItems(counts));
+      await renderTree(group.resourceID(container.key), countingItems(counts));
       await screen.findByText(childName);
       const before = counts.get(childName) ?? 0;
       await client.groups.rename(foreign.key, uniqueName("foreign-renamed"));
@@ -803,11 +803,11 @@ describe("Tree.Tree", () => {
       });
       const childName = uniqueName("child");
       const child = await client.groups.create({
-        parent: group.ontologyID(container.key),
+        parent: group.resourceID(container.key),
         name: childName,
       });
       const counts = new Map<string, number>();
-      await renderTree(group.ontologyID(container.key), countingItems(counts));
+      await renderTree(group.resourceID(container.key), countingItems(counts));
       await screen.findByText(childName);
       const seenSet = vi.fn<(relationship: ontology.Relationship) => void>();
       const seenDelete = vi.fn<(relationship: ontology.Relationship) => void>();
@@ -818,7 +818,7 @@ describe("Tree.Tree", () => {
         parent: ontology.ROOT_ID,
         name: uniqueName("foreign"),
       });
-      const foreignKey = group.ontologyID(foreign.key).key;
+      const foreignKey = group.resourceID(foreign.key).key;
       await waitFor(() =>
         expect(seenSet.mock.calls.some(([rel]) => rel.to.key === foreignKey)).toBe(
           true,
@@ -848,15 +848,15 @@ describe("Tree.Tree", () => {
       const firstName = `${base}-b`;
       const lastName = `${base}-c`;
       await client.groups.create({
-        parent: group.ontologyID(container.key),
+        parent: group.resourceID(container.key),
         name: firstName,
       });
       const moved = await client.groups.create({
-        parent: group.ontologyID(container.key),
+        parent: group.resourceID(container.key),
         name: lastName,
       });
       const counts = new Map<string, number>();
-      await renderTree(group.ontologyID(container.key), countingItems(counts));
+      await renderTree(group.resourceID(container.key), countingItems(counts));
       await screen.findByText(firstName);
       await screen.findByText(lastName);
       const renamed = `${base}-a`;

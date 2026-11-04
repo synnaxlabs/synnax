@@ -25,7 +25,7 @@ import {
   scopedActionZ,
 } from "@/arc/actions.gen";
 import { type Performance, performanceZ } from "@/arc/task/types.gen";
-import { type Arc, arcZ, type Key, keyZ, type New, ontologyID } from "@/arc/types.gen";
+import { type Arc, arcZ, type Key, keyZ, type New, resourceID } from "@/arc/types.gen";
 import { NotFoundError } from "@/errors";
 import { ontology } from "@/ontology";
 import { query } from "@/query";
@@ -117,7 +117,7 @@ const requestFilter = (req: RetrieveRequest): ((a: Arc) => boolean) => {
 
 const isTaskChild = (rel: ontology.Relationship, arcKey: Key): boolean =>
   ontology.matchRelationship(rel, {
-    from: ontologyID(arcKey),
+    from: resourceID(arcKey),
     type: ontology.PARENT_OF_RELATIONSHIP_TYPE,
     to: { type: "task" },
   });
@@ -211,9 +211,9 @@ export class Client extends query.Retriever<
       matches: (t, q) =>
         this.cfg.ontology.cache.relationships.has(
           ontology.relationshipToString({
-            from: ontologyID(q),
+            from: resourceID(q),
             type: ontology.PARENT_OF_RELATIONSHIP_TYPE,
-            to: task.ontologyID(t.key),
+            to: task.resourceID(t.key),
           }),
         ),
       watch: [
@@ -446,7 +446,7 @@ export class Client extends query.Retriever<
     let children: ontology.Resource[];
     try {
       children = await this.cfg.ontology.children.retrieve({
-        ids: ontologyID(arcKey),
+        ids: resourceID(arcKey),
         types: ["task"],
       });
     } catch (e) {

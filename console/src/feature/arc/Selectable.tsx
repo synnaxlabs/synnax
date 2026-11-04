@@ -18,6 +18,6 @@ export const Selectable = Selector.createSelectable({
   title: "Arc automation",
   icon: <Icon.Arc />,
   useOnSelect: Arc.useCreate,
-  type: arc.TYPE_ONTOLOGY_ID.type,
-  useVisible: () => Access.useCreateGranted(arc.TYPE_ONTOLOGY_ID),
+  type: arc.TYPE_RESOURCE_ID.type,
+  useVisible: () => Access.useCreateGranted(arc.TYPE_RESOURCE_ID),
 });

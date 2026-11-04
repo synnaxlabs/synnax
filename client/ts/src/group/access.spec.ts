@@ -22,7 +22,7 @@ describe("group", () => {
     it("should allow the caller to create groups with the correct policy", async () => {
       const userClient = await createTestClientWithPolicy(client, {
         name: "test",
-        objects: [group.ontologyID("")],
+        objects: [group.resourceID("")],
         actions: ["create"],
       });
       await userClient.groups.create({
@@ -34,7 +34,7 @@ describe("group", () => {
     it("should deny access when no create policy exists", async () => {
       const userClient = await createTestClientWithPolicy(client, {
         name: "test",
-        objects: [group.ontologyID("")],
+        objects: [group.resourceID("")],
         actions: [],
       });
       await expect(
@@ -48,7 +48,7 @@ describe("group", () => {
     it("should allow the caller to delete groups with the correct policy", async () => {
       const userClient = await createTestClientWithPolicy(client, {
         name: "test",
-        objects: [group.ontologyID("")],
+        objects: [group.resourceID("")],
         actions: ["delete", "retrieve"],
       });
       const randomGroup = await client.groups.create({
@@ -61,7 +61,7 @@ describe("group", () => {
     it("should deny access when no delete policy exists", async () => {
       const userClient = await createTestClientWithPolicy(client, {
         name: "test",
-        objects: [group.ontologyID("")],
+        objects: [group.resourceID("")],
         actions: [],
       });
       const randomGroup = await client.groups.create({

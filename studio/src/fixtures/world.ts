@@ -396,10 +396,10 @@ const hardware = async (
   });
   await client.panels.create({
     name: "Hardware",
-    parent: project.ontologyID(proj),
+    parent: project.resourceID(proj),
     root: {
       variant: "leaf",
-      tabs: [{ variant: "resource", resource: task.ontologyID(acquire.key) }],
+      tabs: [{ variant: "resource", resource: task.resourceID(acquire.key) }],
     },
   });
   return { rack, task: acquire };

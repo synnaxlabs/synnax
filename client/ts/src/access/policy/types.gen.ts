@@ -13,7 +13,7 @@ import { uuid } from "@synnaxlabs/x";
 import { z } from "zod";
 
 import { access } from "@/access/action";
-import { ontology } from "@/ontology";
+import { resource } from "@/resource";
 
 export const keyZ = z.uuid();
 export type Key = z.infer<typeof keyZ>;
@@ -29,7 +29,7 @@ export const policyZ = z.object({
   /** name is a human-readable name for the policy. */
   name: z.string().min(1, "name is required"),
   /** objects is the list of ontology resources this policy applies to. */
-  objects: ontology.idZ.array().default(() => []),
+  objects: resource.idZ.array().default(() => []),
   /** actions is the list of actions this policy permits. */
   actions: access.actionZ.array().default(() => []),
   /** internal is true if this is a built-in system policy that cannot be deleted. */
@@ -38,5 +38,5 @@ export const policyZ = z.object({
 export interface Policy extends z.infer<typeof policyZ> {}
 export interface New extends z.input<typeof policyZ> {}
 
-export const ontologyID = ontology.createIDFactory<Key>("policy");
-export const TYPE_ONTOLOGY_ID = ontologyID("");
+export const resourceID = resource.createIDFactory<Key>("policy");
+export const TYPE_RESOURCE_ID = resourceID("");

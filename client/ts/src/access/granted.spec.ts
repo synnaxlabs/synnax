@@ -31,7 +31,7 @@ const wait = (ms: number) => new Promise<void>((resolve) => setTimeout(resolve, 
 const client = createTestClient();
 
 const RETRIEVE_RANGES: GrantedQuery = {
-  objects: ranger.TYPE_ONTOLOGY_ID,
+  objects: ranger.TYPE_RESOURCE_ID,
   action: "retrieve",
 };
 
@@ -46,22 +46,22 @@ const createSubjectWithPolicy = async (pol: policy.New) => {
     name: id.create(),
     description: "test",
   });
-  await client.ontology.addChildren(role.ontologyID(r.key), policy.ontologyID(p.key));
+  await client.ontology.addChildren(role.resourceID(r.key), policy.resourceID(p.key));
   await client.access.roles.assign({ user: u.key, role: r.key });
-  return { subject: user.ontologyID(u.key), policy: p, role: r };
+  return { subject: user.resourceID(u.key), policy: p, role: r };
 };
 
 describe("Granted", () => {
   it("answers a fetched question and warms role links", async () => {
     const { subject } = await createSubjectWithPolicy({
       name: id.create(),
-      objects: [ranger.TYPE_ONTOLOGY_ID],
+      objects: [ranger.TYPE_RESOURCE_ID],
       actions: ["retrieve"],
     });
     expect(await client.access.granted.retrieve(subject, RETRIEVE_RANGES)).toBe(true);
     expect(
       await client.access.granted.retrieve(subject, {
-        objects: ranger.TYPE_ONTOLOGY_ID,
+        objects: ranger.TYPE_RESOURCE_ID,
         action: "delete",
       }),
     ).toBe(false);
@@ -74,16 +74,16 @@ describe("Granted", () => {
   it("warms role links with one batched request for every policy", async () => {
     const { subject, role: r } = await createSubjectWithPolicy({
       name: id.create(),
-      objects: [ranger.TYPE_ONTOLOGY_ID],
+      objects: [ranger.TYPE_RESOURCE_ID],
       actions: ["retrieve"],
     });
     const extras = await client.access.policies.create([
-      { name: id.create(), objects: [user.TYPE_ONTOLOGY_ID], actions: ["retrieve"] },
-      { name: id.create(), objects: [user.TYPE_ONTOLOGY_ID], actions: ["create"] },
+      { name: id.create(), objects: [user.TYPE_RESOURCE_ID], actions: ["retrieve"] },
+      { name: id.create(), objects: [user.TYPE_RESOURCE_ID], actions: ["create"] },
     ]);
     await client.ontology.addChildren(
-      role.ontologyID(r.key),
-      ...extras.map((p) => policy.ontologyID(p.key)),
+      role.resourceID(r.key),
+      ...extras.map((p) => policy.resourceID(p.key)),
     );
     const spy = vi.spyOn(client.ontology.parents, "retrieve");
     const policies = await client.access.policies.retrieveForSubject(subject);
@@ -95,7 +95,7 @@ describe("Granted", () => {
   it("evaluates a repeated query object once until the policies change", async () => {
     const { subject } = await createSubjectWithPolicy({
       name: id.create(),
-      objects: [ranger.TYPE_ONTOLOGY_ID],
+      objects: [ranger.TYPE_RESOURCE_ID],
       actions: ["retrieve"],
     });
     const q = { ...RETRIEVE_RANGES };
@@ -119,7 +119,7 @@ describe("Granted", () => {
   it("re-evaluates the verdict when a policy is removed", async () => {
     const { subject, policy: p } = await createSubjectWithPolicy({
       name: id.create(),
-      objects: [ranger.TYPE_ONTOLOGY_ID],
+      objects: [ranger.TYPE_RESOURCE_ID],
       actions: ["retrieve"],
     });
     const q = { ...RETRIEVE_RANGES };
@@ -138,7 +138,7 @@ describe("Granted", () => {
   it("notifies only when the verdict flips", async () => {
     const { subject, policy: p } = await createSubjectWithPolicy({
       name: id.create(),
-      objects: [ranger.TYPE_ONTOLOGY_ID],
+      objects: [ranger.TYPE_RESOURCE_ID],
       actions: ["retrieve"],
     });
     const handler = vi.fn();
@@ -152,7 +152,7 @@ describe("Granted", () => {
     // Policy churn that cannot change the answer must not reach the handler.
     await client.access.policies.create({
       name: id.create(),
-      objects: [user.TYPE_ONTOLOGY_ID],
+      objects: [user.TYPE_RESOURCE_ID],
       actions: ["create"],
     });
     await wait(500);

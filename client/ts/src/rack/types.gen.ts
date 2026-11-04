@@ -11,7 +11,7 @@
 
 import { z } from "zod";
 
-import { ontology } from "@/ontology";
+import { resource } from "@/resource";
 import { status } from "@/status";
 
 export const keyZ = z.uint32();
@@ -57,5 +57,5 @@ export const newZ = payloadZ.omit({ embedded: true, key: true }).extend({
 });
 export interface New extends z.input<typeof newZ> {}
 
-export const ontologyID = ontology.createIDFactory<Key>("rack");
-export const TYPE_ONTOLOGY_ID = ontologyID(0);
+export const resourceID = resource.createIDFactory<Key>("rack");
+export const TYPE_RESOURCE_ID = resourceID(0);

@@ -41,7 +41,7 @@ export const MissingForm = (): ReactElement => {
     if (createGroupKey == null) return;
     const missingKey = form.get(path.specKey, { optional: true })?.value;
     openEditModal({
-      parent: group.ontologyID(createGroupKey),
+      parent: group.resourceID(createGroupKey),
       createKey: missingKey,
     });
   };
@@ -66,7 +66,7 @@ export const MissingForm = (): ReactElement => {
           <Group.SelectSingle
             value={createGroupKey}
             onChange={setCreateGroupKey}
-            initialQuery={{ parent: group.ontologyID(symbolGroup.key) }}
+            initialQuery={{ parent: group.resourceID(symbolGroup.key) }}
             className={CSS.B("schematic-missing-symbol-select-group")}
             grow
           />

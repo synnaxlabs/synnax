@@ -70,7 +70,7 @@ const windowKey = ({ window }: ranger.WindowRef): string =>
 const FavoriteItem = (props: List.ItemProps<string>): ReactElement | null => {
   const range = Range.useResolve(props.itemKey);
   const { data: parent } = Ranger.useResultParent({
-    id: ranger.ontologyID(props.itemKey),
+    id: ranger.resourceID(props.itemKey),
   });
   if (range == null || range.variant === "dynamic") return null;
   return (

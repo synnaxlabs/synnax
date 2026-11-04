@@ -69,7 +69,7 @@ export const ChangeIdentifierMenuItem = ({
   handleError,
 }: ChangeIdentifierMenuItemProps) => {
   const first = Tree.useResource(state, ids[0]);
-  const hasUpdatePermission = Access.useUpdateGranted(device.ontologyID(ids[0].key));
+  const hasUpdatePermission = Access.useUpdateGranted(device.resourceID(ids[0].key));
   if (
     ids.length !== 1 ||
     first == null ||

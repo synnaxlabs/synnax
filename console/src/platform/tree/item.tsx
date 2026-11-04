@@ -9,7 +9,7 @@
 
 import "@/platform/tree/item.css";
 
-import { ontology } from "@synnaxlabs/client";
+import { type ontology, type resource } from "@synnaxlabs/client";
 import { type Haul } from "@synnaxlabs/lyra/haul";
 import { Icon } from "@synnaxlabs/lyra/icon";
 import { List } from "@synnaxlabs/lyra/list";
@@ -40,7 +40,7 @@ export interface Content extends FC<ContentProps> {}
 // static, render-independent behavior for its resource type (children, drag, context
 // menu, visibility) as properties, read imperatively by the Tree.
 export interface Item extends FC<ItemProps> {
-  type: ontology.ResourceType;
+  type: resource.Type;
   hasChildren: boolean;
   canDrop: Haul.CanDrop;
   haulItems: (resource: ontology.Resource) => Haul.Item[];
@@ -48,7 +48,7 @@ export interface Item extends FC<ItemProps> {
   visible?: (resource: ontology.Resource) => boolean;
 }
 
-export interface Items extends Partial<Record<ontology.ResourceType, Item>> {}
+export interface Items extends Partial<Record<resource.Type, Item>> {}
 
 const DefaultRow = ({
   onDoubleClick,
@@ -60,7 +60,7 @@ const DefaultRow = ({
   <Base.Item {...rest} onDoubleClick={onDoubleClick}>
     {icon}
     <Text.MaybeEditable
-      id={List.itemNameID(ontology.idToString(resource.id))}
+      id={List.itemNameID(resource.key)}
       value={resource.name}
       onChange
       allowDoubleClick={false}
@@ -73,7 +73,7 @@ const DefaultRow = ({
 const noop = (): void => {};
 
 export interface CreateItemParams {
-  type: ontology.ResourceType;
+  type: resource.Type;
   icon?: Icon.ReactElement | ((resource: ontology.Resource) => Icon.ReactElement);
   useOnSelect?: () => (resource: ontology.Resource) => void;
   hasChildren?: boolean;

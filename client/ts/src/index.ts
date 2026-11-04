@@ -74,6 +74,7 @@ export { project } from "@/project";
 export { query } from "@/query";
 export { rack } from "@/rack";
 export { ranger } from "@/ranger";
+export { resource } from "@/resource";
 export { schematic } from "@/schematic";
 export { status } from "@/status";
 export type { StatusZodObject } from "@/status/types.gen";

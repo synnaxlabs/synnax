@@ -41,21 +41,21 @@ describe("Group queries", () => {
         name: "test-parent",
       });
       const group1 = await client.groups.create({
-        parent: group.ontologyID(parent.key),
+        parent: group.resourceID(parent.key),
         name: "group1",
       });
       const group2 = await client.groups.create({
-        parent: group.ontologyID(parent.key),
+        parent: group.resourceID(parent.key),
         name: "group2",
       });
 
       const { result } = renderHook(
-        () => Group.useList({ initialQuery: { parent: group.ontologyID(parent.key) } }),
+        () => Group.useList({ initialQuery: { parent: group.resourceID(parent.key) } }),
         { wrapper },
       );
 
       act(() => {
-        result.current.retrieve({ parent: group.ontologyID(parent.key) });
+        result.current.retrieve({ parent: group.resourceID(parent.key) });
       });
 
       await waitFor(() => {
@@ -96,7 +96,7 @@ describe("Group queries", () => {
       await Promise.all(
         Array.from({ length: 5 }, (_, i) =>
           client.groups.create({
-            parent: group.ontologyID(parent.key),
+            parent: group.resourceID(parent.key),
             name: `group${i}`,
           }),
         ),
@@ -106,7 +106,7 @@ describe("Group queries", () => {
         () =>
           Group.useList({
             initialQuery: {
-              parent: group.ontologyID(parent.key),
+              parent: group.resourceID(parent.key),
               limit: 2,
               offset: 1,
             },
@@ -116,7 +116,7 @@ describe("Group queries", () => {
 
       act(() => {
         result.current.retrieve({
-          parent: group.ontologyID(parent.key),
+          parent: group.resourceID(parent.key),
           limit: 2,
           offset: 1,
         });
@@ -142,20 +142,20 @@ describe("Group queries", () => {
         name: `test-parent-live-${uniqueId}`,
       });
       await client.groups.create({
-        parent: group.ontologyID(parent.key),
+        parent: group.resourceID(parent.key),
         name: "initial-group",
       });
 
       const { result } = renderHook(
         () =>
           Group.useList({
-            initialQuery: { parent: group.ontologyID(parent.key) },
+            initialQuery: { parent: group.resourceID(parent.key) },
           }),
         { wrapper },
       );
 
       act(() => {
-        result.current.retrieve({ parent: group.ontologyID(parent.key) });
+        result.current.retrieve({ parent: group.resourceID(parent.key) });
       });
 
       await waitFor(() => {
@@ -165,7 +165,7 @@ describe("Group queries", () => {
 
       await act(async () => {
         await client.groups.create({
-          parent: group.ontologyID(parent.key),
+          parent: group.resourceID(parent.key),
           name: "new-group",
         });
       });
@@ -196,7 +196,7 @@ describe("Group queries", () => {
         await result.current.updateAsync({
           key: uuid.create(),
           name: "created-group",
-          parent: group.ontologyID(parent.key),
+          parent: group.resourceID(parent.key),
         });
       });
 
@@ -207,7 +207,7 @@ describe("Group queries", () => {
       });
 
       const retrieved = await client.ontology.retrieve(
-        group.ontologyID(result.current.data?.key as string),
+        group.resourceID(result.current.data?.key as string),
       );
       expect(retrieved.name).toBe("created-group");
     });
@@ -218,7 +218,7 @@ describe("Group queries", () => {
         name: "test-parent-key",
       });
       const g = await client.groups.create({
-        parent: group.ontologyID(parent.key),
+        parent: group.resourceID(parent.key),
         name: "original-name",
       });
 
@@ -228,11 +228,11 @@ describe("Group queries", () => {
         await result.current.updateAsync({
           key: g.key,
           name: "updated-name",
-          parent: group.ontologyID(parent.key),
+          parent: group.resourceID(parent.key),
         });
       });
 
-      const retrieved = await client.ontology.retrieve(group.ontologyID(g.key));
+      const retrieved = await client.ontology.retrieve(group.resourceID(g.key));
       expect(retrieved.name).toBe("updated-name");
     });
   });
@@ -244,7 +244,7 @@ describe("Group queries", () => {
         name: "test-parent-rename",
       });
       const testGroup = await client.groups.create({
-        parent: group.ontologyID(parent.key),
+        parent: group.resourceID(parent.key),
         name: "original-name",
       });
 
@@ -258,7 +258,7 @@ describe("Group queries", () => {
         expect(result.current.variant).toEqual("success");
       });
 
-      const retrieved = await client.ontology.retrieve(group.ontologyID(testGroup.key));
+      const retrieved = await client.ontology.retrieve(group.resourceID(testGroup.key));
       expect(retrieved.name).toBe("new-name");
     });
   });
@@ -270,7 +270,7 @@ describe("Group queries", () => {
         name: "test-parent-delete",
       });
       const testGroup = await client.groups.create({
-        parent: group.ontologyID(parent.key),
+        parent: group.resourceID(parent.key),
         name: "to-be-deleted",
       });
 
@@ -285,7 +285,7 @@ describe("Group queries", () => {
       });
 
       await expect(
-        client.ontology.retrieve(group.ontologyID(testGroup.key)),
+        client.ontology.retrieve(group.resourceID(testGroup.key)),
       ).rejects.toThrow();
     });
 
@@ -323,20 +323,20 @@ describe("Group queries", () => {
         name: "test-parent-cache",
       });
       const g = await client.groups.create({
-        parent: group.ontologyID(parent.key),
+        parent: group.resourceID(parent.key),
         name: "cached-group",
       });
 
       const { result: result1 } = renderHook(
         () =>
           Group.useList({
-            initialQuery: { parent: group.ontologyID(parent.key) },
+            initialQuery: { parent: group.resourceID(parent.key) },
           }),
         { wrapper },
       );
 
       act(() => {
-        result1.current.retrieve({ parent: group.ontologyID(parent.key) });
+        result1.current.retrieve({ parent: group.resourceID(parent.key) });
       });
 
       await waitFor(() => {
@@ -347,13 +347,13 @@ describe("Group queries", () => {
       const { result: result2 } = renderHook(
         () =>
           Group.useList({
-            initialQuery: { parent: group.ontologyID(parent.key) },
+            initialQuery: { parent: group.resourceID(parent.key) },
           }),
         { wrapper },
       );
 
       act(() => {
-        result2.current.retrieve({ parent: group.ontologyID(parent.key) });
+        result2.current.retrieve({ parent: group.resourceID(parent.key) });
       });
 
       await waitFor(() => {
@@ -369,20 +369,20 @@ describe("Group queries", () => {
         name: "test-parent-listener-delete",
       });
       const g = await client.groups.create({
-        parent: group.ontologyID(parent.key),
+        parent: group.resourceID(parent.key),
         name: "listener-delete-group",
       });
 
       const { result } = renderHook(
         () =>
           Group.useList({
-            initialQuery: { parent: group.ontologyID(parent.key) },
+            initialQuery: { parent: group.resourceID(parent.key) },
           }),
         { wrapper },
       );
 
       act(() => {
-        result.current.retrieve({ parent: group.ontologyID(parent.key) });
+        result.current.retrieve({ parent: group.resourceID(parent.key) });
       });
 
       await waitFor(() => {
@@ -409,20 +409,20 @@ describe("Group queries", () => {
         name: "test-parent-reparent-2",
       });
       const g = await client.groups.create({
-        parent: group.ontologyID(parent1.key),
+        parent: group.resourceID(parent1.key),
         name: "movable-group",
       });
 
       const { result } = renderHook(
         () =>
           Group.useList({
-            initialQuery: { parent: group.ontologyID(parent2.key) },
+            initialQuery: { parent: group.resourceID(parent2.key) },
           }),
         { wrapper },
       );
 
       act(() => {
-        result.current.retrieve({ parent: group.ontologyID(parent2.key) });
+        result.current.retrieve({ parent: group.resourceID(parent2.key) });
       });
 
       await waitFor(() => {
@@ -432,9 +432,9 @@ describe("Group queries", () => {
 
       await act(async () => {
         await client.ontology.moveChildren(
-          group.ontologyID(parent1.key),
-          group.ontologyID(parent2.key),
-          group.ontologyID(g.key),
+          group.resourceID(parent1.key),
+          group.resourceID(parent2.key),
+          group.resourceID(g.key),
         );
       });
 
@@ -457,20 +457,20 @@ describe("Group queries", () => {
         name: "test-parent-remove-2",
       });
       const g = await client.groups.create({
-        parent: group.ontologyID(parent1.key),
+        parent: group.resourceID(parent1.key),
         name: "moving-away-group",
       });
 
       const { result } = renderHook(
         () =>
           Group.useList({
-            initialQuery: { parent: group.ontologyID(parent1.key) },
+            initialQuery: { parent: group.resourceID(parent1.key) },
           }),
         { wrapper },
       );
 
       act(() => {
-        result.current.retrieve({ parent: group.ontologyID(parent1.key) });
+        result.current.retrieve({ parent: group.resourceID(parent1.key) });
       });
 
       await waitFor(() => {
@@ -481,9 +481,9 @@ describe("Group queries", () => {
 
       await act(async () => {
         await client.ontology.moveChildren(
-          group.ontologyID(parent1.key),
-          group.ontologyID(parent2.key),
-          group.ontologyID(g.key),
+          group.resourceID(parent1.key),
+          group.resourceID(parent2.key),
+          group.resourceID(g.key),
         );
       });
 

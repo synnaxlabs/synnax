@@ -64,7 +64,7 @@ const roles = new RoleClients(client);
 const resourceTab = (): panel.Tab => ({
   variant: "resource",
   key: uuid.create(),
-  resource: schematic.ontologyID(uuid.create()),
+  resource: schematic.resourceID(uuid.create()),
 });
 
 const viewTab = (): panel.Tab => ({
@@ -298,7 +298,7 @@ describe("Panel.TabMenuItems", () => {
     it("opens the picker on the tab the menu was opened on", async () => {
       const projectKey = (await client.projects.create({ name: uniqueName("project") }))
         .key;
-      const parent = project.ontologyID(projectKey);
+      const parent = project.resourceID(projectKey);
       const [front, moved] = [resourceTab(), resourceTab()];
       const source = await client.panels.create({
         key: uuid.create(),
@@ -418,12 +418,12 @@ describe("Panel.TabMenuItems permissions", () => {
     const tab = resourceTab();
     const editor = await createTestClientWithGrants(client, {
       retrieve: [
-        panel.TYPE_ONTOLOGY_ID,
-        project.TYPE_ONTOLOGY_ID,
-        schematic.TYPE_ONTOLOGY_ID,
-        group.TYPE_ONTOLOGY_ID,
+        panel.TYPE_RESOURCE_ID,
+        project.TYPE_RESOURCE_ID,
+        schematic.TYPE_RESOURCE_ID,
+        group.TYPE_RESOURCE_ID,
       ],
-      update: [panel.TYPE_ONTOLOGY_ID, schematic.TYPE_ONTOLOGY_ID],
+      update: [panel.TYPE_RESOURCE_ID, schematic.TYPE_RESOURCE_ID],
     });
     const wrapper = await setupAs(editor, tab);
     renderMenu(wrapper, [tab.key]);

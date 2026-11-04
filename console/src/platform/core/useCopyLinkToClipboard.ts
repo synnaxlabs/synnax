@@ -7,14 +7,14 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { type ontology } from "@synnaxlabs/client";
+import { type resource } from "@synnaxlabs/client";
 
 import { Link } from "@/platform/link";
 import { Session } from "@/session";
 
 export interface CopyLinkToClipboardParams {
   name: string;
-  ontologyID: ontology.ID;
+  resourceID: resource.ID;
 }
 
 export interface CopyLinkToClipboard {

@@ -48,7 +48,7 @@ interface NameProps extends Omit<ChannelNameProps, "defaultName" | "namePath"> {
 }
 
 const Name = ({ channel, name, onDraftRename, className, ...rest }: NameProps) => {
-  const canRename = Access.useUpdateGranted(clientChannel.TYPE_ONTOLOGY_ID);
+  const canRename = Access.useUpdateGranted(clientChannel.TYPE_RESOURCE_ID);
   const isPreview = useIsPreview();
   const { update } = Channel.useRename();
   const handleRename = (name: string) => {

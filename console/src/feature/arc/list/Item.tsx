@@ -23,13 +23,13 @@ export interface ItemProps extends List.ItemProps<arc.Key> {
 export const Item = ({ onRename, textIdPrefix = "text", ...props }: ItemProps) => {
   const { itemKey } = props;
   const item = List.useItem<arc.Key, arc.Arc>(itemKey);
-  const canRename = Access.useUpdateGranted(arc.ontologyID(itemKey));
+  const canRename = Access.useUpdateGranted(arc.resourceID(itemKey));
   const openTab = Panel.useOpenTab();
 
   if (item == null) return null;
   const { name } = item;
   const handleActivate = () =>
-    openTab({ variant: "resource", resource: arc.ontologyID(itemKey) });
+    openTab({ variant: "resource", resource: arc.resourceID(itemKey) });
 
   return (
     <Select.Item<arc.Key>

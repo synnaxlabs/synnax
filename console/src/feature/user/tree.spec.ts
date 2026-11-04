@@ -37,7 +37,7 @@ const createUser = async () =>
   await client.users.create({ username: uniqueName("user"), password: "pwd12345" });
 
 const userResource = (key: string, name: string, rootUser = false) =>
-  createResource(user.ontologyID(key), name, { root_user: rootUser });
+  createResource(user.resourceID(key), name, { root_user: rootUser });
 
 const renderMenu = async (
   resources: ReturnType<typeof userResource>[],
@@ -107,10 +107,10 @@ describe("user ontology service", () => {
       name: "",
       rootUser: false,
     };
-    const items = Item.haulItems(createResource(user.ontologyID("u1"), "u", data));
+    const items = Item.haulItems(createResource(user.resourceID("u1"), "u", data));
     expect(items).toHaveLength(1);
     expect(items[0].key).toBe("u1");
-    expect(Item.haulItems(createResource(user.ontologyID("u2"), "u2"))).toHaveLength(0);
+    expect(Item.haulItems(createResource(user.resourceID("u2"), "u2"))).toHaveLength(0);
   });
 });
 
@@ -127,12 +127,12 @@ describe("rename", () => {
       name: uniqueName("usergrp"),
     });
     await client.ontology.addChildren(
-      group.ontologyID(grp.key),
-      user.ontologyID(u.key),
+      group.resourceID(grp.key),
+      user.resourceID(u.key),
     );
     await renderOntologyTree({
       client,
-      root: group.ontologyID(grp.key),
+      root: group.resourceID(grp.key),
       items: User.TREE_ITEMS,
     });
     await openTreeRowContextMenu(u.name);

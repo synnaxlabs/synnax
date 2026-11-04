@@ -9,8 +9,8 @@
 
 import { type location, type spatial } from "@synnaxlabs/x";
 
-import { type ontology } from "@/ontology";
 import { type LeafNode, type Node, type Tab, type TabKey } from "@/panel/types.gen";
+import { type resource } from "@/resource";
 
 // Nodes in the panel tree are identified by path-derived numeric keys: the root
 // is ROOT_NODE_KEY, and a split's children are childNodeKey(key, "first" | "last").
@@ -64,13 +64,13 @@ export const findTab = (node: Node | undefined, key?: string): Tab | undefined =
 
 /**
  * findTabByResource returns the tab whose resource variant displays the given
- * ontology ID, or null when no tab backs that resource. A resource may back at
+ * resource ID, or null when no tab backs that resource. A resource may back at
  * most one tab per panel, so openers use this to select the existing tab
  * instead of inserting a duplicate.
  */
 export const findTabByResource = (
   node: Node | undefined,
-  resource: ontology.ID,
+  resource: resource.ID,
 ): Tab | undefined => {
   if (node == null) return undefined;
   if (node.variant === "leaf")

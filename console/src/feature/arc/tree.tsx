@@ -25,7 +25,7 @@ import { Session } from "@/session";
 
 const useRename = Tree.createUseRename({
   useUpdate: Arc.useRename,
-  ontologyID: arc.ontologyID,
+  resourceID: arc.resourceID,
   convertKey: String,
 });
 
@@ -79,7 +79,7 @@ const TreeContextMenu: Tree.ContextMenu = (props) => {
       {singleResource && (
         <Link.CopyContextMenuItem
           onClick={() =>
-            handleLink({ name: getResource(firstID).name, ontologyID: firstID })
+            handleLink({ name: getResource(firstID).name, resourceID: firstID })
           }
         />
       )}

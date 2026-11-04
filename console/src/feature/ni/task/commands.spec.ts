@@ -49,7 +49,7 @@ describe("NI.Task Commands", () => {
     await selectCommand("Create NI analog read task");
     const tab = await resolveFocusedTab(store, client);
     if (tab.variant !== "resource") throw new Error("expected a resource tab");
-    expect(tab.resource.type).toBe(task.TYPE_ONTOLOGY_ID.type);
+    expect(tab.resource.type).toBe(task.TYPE_RESOURCE_ID.type);
     const created = await client.tasks.retrieve({ key: tab.resource.key });
     expect(created.type).toBe(NI.Task.ANALOG_READ_TYPE);
   });

@@ -13,7 +13,7 @@ import { uuid } from "@synnaxlabs/x";
 import { z } from "zod";
 
 import { label } from "@/label";
-import { ontology } from "@/ontology";
+import { resource } from "@/resource";
 import { status } from "@/status";
 
 /** RangeQuery filters the ranges shown by a range view. */
@@ -79,5 +79,5 @@ export const VIEW_SCHEMAS: {
 };
 export type New = z.input<typeof viewZ>;
 
-export const ontologyID = ontology.createIDFactory<Key>("view");
-export const TYPE_ONTOLOGY_ID = ontologyID("");
+export const resourceID = resource.createIDFactory<Key>("view");
+export const TYPE_RESOURCE_ID = resourceID("");

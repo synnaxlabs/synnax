@@ -13,7 +13,7 @@ import { color, telem, zod } from "@synnaxlabs/x";
 import { z } from "zod";
 
 import { label } from "@/label";
-import { ontology } from "@/ontology";
+import { resource } from "@/resource";
 
 export const keyZ = z.uuid();
 export type Key = z.infer<typeof keyZ>;
@@ -94,5 +94,5 @@ export const newZ = payloadZ
   });
 export interface New extends z.input<typeof newZ> {}
 
-export const ontologyID = ontology.createIDFactory<Key>("range");
-export const TYPE_ONTOLOGY_ID = ontologyID("");
+export const resourceID = resource.createIDFactory<Key>("range");
+export const TYPE_RESOURCE_ID = resourceID("");

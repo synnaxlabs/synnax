@@ -9,8 +9,9 @@
 
 import {
   NotFoundError,
-  ontology,
+  type ontology,
   query,
+  resource,
   type Synnax as Client,
 } from "@synnaxlabs/client";
 import { Component } from "@synnaxlabs/lyra/component";
@@ -52,7 +53,7 @@ import { useResources } from "@/platform/tree/useResource";
 import { type Action, type State } from "@/session/store";
 
 interface InternalProps {
-  root: ontology.ID;
+  root: resource.ID;
   emptyContent?: ReactNode;
 }
 
@@ -89,8 +90,8 @@ const SelectionContextMenu = ({ menu: M, ...props }: SelectionContextMenuProps) 
 
 const TreeItem = ({ onDrop: _, ...rest }: Base.ItemProps<string>) => {
   const { itemKey } = rest;
-  const id = ontology.parseID(itemKey);
-  const resource = List.useItem<string, ontology.Resource>(itemKey);
+  const id = resource.parseID(itemKey);
+  const ontologyResource = List.useItem<string, ontology.Resource>(itemKey);
   const Item = useItems()[id.type] ?? DefaultItem;
   const { onDrop, subscribeLoading, getLoading, onDragStart, onDragEnd } =
     useContext("Tree.itemRenderProp");
@@ -115,7 +116,7 @@ const TreeItem = ({ onDrop: _, ...rest }: Base.ItemProps<string>) => {
       if (source.type !== Base.HAUL_TYPE || keys.includes(itemKey)) return false;
       return Access.updateGranted({
         client,
-        id: Base.filterHaulItems(entities).map(({ key }) => ontology.idZ.parse(key)),
+        id: Base.filterHaulItems(entities).map(({ key }) => resource.idZ.parse(key)),
       });
     },
     onDrop: (props) => onDrop(itemKey, props) ?? [],
@@ -124,7 +125,7 @@ const TreeItem = ({ onDrop: _, ...rest }: Base.ItemProps<string>) => {
 
   // The virtualizer has already reserved this row's slot. Rendering nothing would
   // leave a gap, so the row stays empty until the resource loads.
-  if (resource == null) return <Base.Item {...rest} />;
+  if (ontologyResource == null) return <Base.Item {...rest} />;
 
   return (
     <Item
@@ -135,7 +136,7 @@ const TreeItem = ({ onDrop: _, ...rest }: Base.ItemProps<string>) => {
       {...onDropDrops}
       onDragLeave={() => setDraggingOver(false)}
       onDragEnd={onDragEnd}
-      resource={resource}
+      resource={ontologyResource}
       loading={loading}
     />
   );
@@ -171,7 +172,7 @@ const keepLoadedChildren = (
 
 const toNodes = (
   resources: ontology.Resource[],
-  resolveItem: (type: ontology.ResourceType) => Item,
+  resolveItem: (type: resource.Type) => Item,
 ): Base.Node<string>[] =>
   resources
     .filter((r) => {
@@ -179,13 +180,13 @@ const toNodes = (
       return svc.visible == null || svc.visible(r);
     })
     .map((r) => ({
-      key: ontology.idToString(r.id),
+      key: resource.idToString(r.id),
       children: resolveItem(r.id.type).hasChildren ? [] : undefined,
     }));
 
 const Internal = ({ root, emptyContent }: InternalProps): ReactElement => {
   const items = useItems();
-  const resolveItem = (type: ontology.ResourceType): Item => items[type] ?? DefaultItem;
+  const resolveItem = (type: resource.Type): Item => items[type] ?? DefaultItem;
   const [selected, setSelected, selectedRef] = useCombinedStateAndRef<string[]>([]);
   const loadingRef = useRef<string | false>(false);
   const handleError = Status.useErrorHandler();
@@ -223,12 +224,12 @@ const Internal = ({ root, emptyContent }: InternalProps): ReactElement => {
     };
   };
 
-  const applyAnswer = (parent: ontology.ID, resources: ontology.Resource[]) => {
+  const applyAnswer = (parent: resource.ID, resources: ontology.Resource[]) => {
     const next = toNodes(resources, resolveItem);
     const nextKeys = new Set(next.map(({ key }) => key));
     // A placeholder stands in only until the Core delivers the real resource, which
     // the answer carries.
-    const settled = ontology
+    const settled = resource
       .idToString(resources.map(({ id }) => id))
       .filter(placeholders.hasItem);
     if (settled.length > 0) placeholders.deleteItem(settled);
@@ -241,7 +242,7 @@ const Internal = ({ root, emptyContent }: InternalProps): ReactElement => {
       ),
       ...keepLoadedChildren(prevChildren, next),
     ];
-    if (ontology.idsEqual(parent, root)) {
+    if (resource.idsEqual(parent, root)) {
       setNodes(merge);
       setAnswered(true);
       return;
@@ -251,7 +252,7 @@ const Internal = ({ root, emptyContent }: InternalProps): ReactElement => {
       // tree; a missing parent means the update is stale.
       ...Base.updateNodeChildren({
         tree: prevNodes,
-        parent: ontology.idToString(parent),
+        parent: resource.idToString(parent),
         throwOnMissing: false,
         updater: merge,
       }),
@@ -275,9 +276,9 @@ const Internal = ({ root, emptyContent }: InternalProps): ReactElement => {
   /** Live children subscriptions, keyed by the parent they answer for. */
   const watchedRef = useInitializerRef(() => new Map<string, destructor.Destructor>());
 
-  const watchChildren = async (parent: ontology.ID): Promise<void> => {
+  const watchChildren = async (parent: resource.ID): Promise<void> => {
     if (client == null) return;
-    const key = ontology.idToString(parent);
+    const key = resource.idToString(parent);
     // An already-watched parent has nothing to wait for, and no fetch will come
     // along to end the wait.
     if (watchedRef.current.has(key)) {
@@ -315,7 +316,7 @@ const Internal = ({ root, emptyContent }: InternalProps): ReactElement => {
   useEffect(() => {
     void watchChildren(root);
     return () => releaseChildren([...watchedRef.current.keys()]);
-  }, [client, ontology.idToString(root)]);
+  }, [client, resource.idToString(root)]);
 
   // Selection drives the context menu, and a key with no node poisons every later
   // right-click, so a node that leaves the tree leaves the selection with it.
@@ -336,19 +337,19 @@ const Internal = ({ root, emptyContent }: InternalProps): ReactElement => {
       return;
     }
     setLoading(clicked);
-    void watchChildren(ontology.parseID(clicked));
+    void watchChildren(resource.parseID(clicked));
   };
 
-  const getResource = ((id: ontology.ID | ontology.ID[] | string | string[]) => {
+  const getResource = ((id: resource.ID | resource.ID[] | string | string[]) => {
     const isSingle = !Array.isArray(id);
     const ids = array.toArray(id);
-    const resources = ontology
+    const resources = resource
       .idToString(ids)
       .map(getResourceByKey)
       .filter((r) => r != null);
     if (isSingle) {
       if (resources[0] == null)
-        throw new NotFoundError(`Resource ${ontology.idToString(id)} not found`);
+        throw new NotFoundError(`Resource ${resource.idToString(id)} not found`);
       return resources[0];
     }
 
@@ -417,7 +418,7 @@ const Internal = ({ root, emptyContent }: InternalProps): ReactElement => {
     const dropped = Base.filterHaulItems(items);
     const isValidDrop = dropped.length > 0 && source.type === Base.HAUL_TYPE;
     if (!isValidDrop) return [];
-    const destination = ontology.parseID(key);
+    const destination = resource.parseID(key);
     const svc = resolveItem(destination.type);
     if (!svc.canDrop({ source, items })) return [];
 
@@ -429,18 +430,18 @@ const Internal = ({ root, emptyContent }: InternalProps): ReactElement => {
     if (moved.length === 0) return [];
 
     // Each item leaves its own parent: a selection can span several.
-    const bySource = new Map<string, ontology.ID[]>();
+    const bySource = new Map<string, resource.ID[]>();
     moved.forEach(({ key }) => {
       const parent = Base.findNodeParent({ tree: nodesSnapshot, key });
-      const sourceKey = parent?.key ?? ontology.idToString(root);
+      const sourceKey = parent?.key ?? resource.idToString(root);
       const ids = bySource.get(sourceKey) ?? [];
-      ids.push(ontology.parseID(key));
+      ids.push(resource.parseID(key));
       bySource.set(sourceKey, ids);
     });
     contract(...moved.map(({ key }) => key));
     bySource.forEach((ids, sourceKey) =>
       moveChildren({
-        source: ontology.parseID(sourceKey),
+        source: resource.parseID(sourceKey),
         destination,
         ids,
       }),
@@ -453,14 +454,14 @@ const Internal = ({ root, emptyContent }: InternalProps): ReactElement => {
   const handleDragStart = (itemKey: string) => {
     if (selectedRef.current.includes(itemKey)) {
       const selectedHaulItems = getResource(selectedRef.current).flatMap((res) => {
-        const items: Haul.Item[] = [Base.createHaulItem(ontology.idToString(res.id))];
+        const items: Haul.Item[] = [Base.createHaulItem(resource.idToString(res.id))];
         const svcItems = resolveItem(res.id.type).haulItems(res);
         if (svcItems != null) items.push(...svcItems);
         return items;
       });
       return startDrag(selectedHaulItems);
     }
-    const haulItems = resolveItem(ontology.parseID(itemKey).type).haulItems(
+    const haulItems = resolveItem(resource.parseID(itemKey).type).haulItems(
       getResource(itemKey),
     );
     startDrag([Base.createHaulItem(itemKey), ...haulItems]);
@@ -478,7 +479,7 @@ const Internal = ({ root, emptyContent }: InternalProps): ReactElement => {
     // we pull directly from the list selected state.
     else keys = selected;
 
-    const ids = keys.map((key) => ontology.parseID(key));
+    const ids = keys.map((key) => resource.parseID(key));
 
     // We want to find the parent of the node with the lowest depth, since we
     // might be selecting nodes AND their children.
@@ -487,9 +488,9 @@ const Internal = ({ root, emptyContent }: InternalProps): ReactElement => {
     // the other ones. We need to change this function to implement recursion.
     const parent = Base.findNodeParent({ tree: nodes, key: shallowest });
 
-    const parentID = parent == null ? root : ontology.parseID(parent.key);
+    const parentID = parent == null ? root : resource.parseID(parent.key);
 
-    const firstID = ontology.parseID(shallowest);
+    const firstID = resource.parseID(shallowest);
 
     const props: ContextMenuProps = {
       selection: {
@@ -547,7 +548,7 @@ const Internal = ({ root, emptyContent }: InternalProps): ReactElement => {
 };
 
 export interface TreeProps {
-  root?: ontology.ID | null;
+  root?: resource.ID | null;
   emptyContent?: ReactNode;
 }
 

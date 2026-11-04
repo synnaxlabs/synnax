@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { ontology, ranger, schematic } from "@synnaxlabs/client";
+import { ranger, resource, schematic } from "@synnaxlabs/client";
 import { Icon } from "@synnaxlabs/lyra/icon";
 import { List } from "@synnaxlabs/lyra/list";
 import { Menu } from "@synnaxlabs/lyra/menu";
@@ -45,9 +45,9 @@ const useCopy = (props: Tree.ContextMenuProps): (() => void) => {
   const rename = Base.useRename();
   const copy = Base.useCopy({
     afterSuccess: async ({ data }: Flux.AfterSuccessParams<schematic.Schematic>) => {
-      const id = schematic.ontologyID(data.key);
+      const id = schematic.resourceID(data.key);
       const [name, renamed] = await Text.asyncEdit(
-        List.itemNameID(ontology.idToString(id)),
+        List.itemNameID(resource.idToString(id)),
       );
       if (!renamed) return;
       await rename.updateAsync({ key: data.key, name });
@@ -95,14 +95,14 @@ const useRangeSnapshot = () => {
       key: id.key,
       name: getResource(id).name,
     }));
-    const parentID = ranger.ontologyID(rng.key);
+    const parentID = ranger.resourceID(rng.key);
     update({ schematics, parentID });
   };
 };
 
 const useRename = Tree.createUseRename({
   useUpdate: Base.useRename,
-  ontologyID: schematic.ontologyID,
+  resourceID: schematic.resourceID,
   convertKey: String,
 });
 
@@ -112,7 +112,7 @@ const TreeContextMenu: Tree.ContextMenu = (props) => {
     state,
   } = props;
   const activeRange = Range.useResolve();
-  const hasCreatePermission = Access.useCreateGranted(schematic.TYPE_ONTOLOGY_ID);
+  const hasCreatePermission = Access.useCreateGranted(schematic.TYPE_RESOURCE_ID);
   const hasDeletePermission = Access.useDeleteGranted(ids);
   const handleDelete = useDelete(props);
   const hasUpdatePermission = Access.useUpdateGranted(ids);
@@ -154,7 +154,7 @@ const TreeContextMenu: Tree.ContextMenu = (props) => {
         <>
           <Export.ContextMenuItem onClick={() => handleExport(first.id)} />
           <Link.CopyContextMenuItem
-            onClick={() => handleLink({ name: first.name, ontologyID: firstID })}
+            onClick={() => handleLink({ name: first.name, resourceID: firstID })}
           />
           <Tree.CopyPropertiesContextMenuItem {...props} />
         </>
@@ -172,7 +172,7 @@ const TreeItem = Tree.createItem({
   icon: <Icon.Schematic />,
   hasChildren: false,
   useOnSelect: Panel.useOpenResource,
-  haulItems: ({ id }) => [Mosaic.createTabCreateHaulItem(ontology.idToString(id))],
+  haulItems: ({ id }) => [Mosaic.createTabCreateHaulItem(resource.idToString(id))],
   ContextMenu: TreeContextMenu,
 });
 

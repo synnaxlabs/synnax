@@ -15,7 +15,7 @@ import { z } from "zod";
 import { graph } from "@/arc/graph";
 import { program } from "@/arc/program";
 import { text } from "@/arc/text";
-import { ontology } from "@/ontology";
+import { resource } from "@/resource";
 
 export const MODES = ["text", "graph"] as const;
 export const modeZ = z.enum(MODES);
@@ -48,5 +48,5 @@ export const arcZ = z.object({
 export interface Arc extends z.infer<typeof arcZ> {}
 export interface New extends z.input<typeof arcZ> {}
 
-export const ontologyID = ontology.createIDFactory<Key>("arc");
-export const TYPE_ONTOLOGY_ID = ontologyID("");
+export const resourceID = resource.createIDFactory<Key>("arc");
+export const TYPE_RESOURCE_ID = resourceID("");

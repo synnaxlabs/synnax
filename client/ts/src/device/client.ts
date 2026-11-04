@@ -18,12 +18,13 @@ import {
   type Key,
   keyZ,
   type New,
-  ontologyID,
+  resourceID,
   statusZ,
 } from "@/device/types.gen";
-import { ontology } from "@/ontology";
+import { type ontology } from "@/ontology";
 import { query } from "@/query";
 import { keyZ as rackKeyZ } from "@/rack/types.gen";
+import { resource } from "@/resource";
 import { type status } from "@/status";
 import { checkForMultipleOrNoResults } from "@/util/retrieve";
 
@@ -357,7 +358,7 @@ export class Client extends query.Retriever<
   async delete(keys: Key | Key[], opts: query.WriteOptions = {}): Promise<void> {
     const keysArr = array.toArray(keys);
     const drop = () => [
-      this.cfg.ontology.cache.deleteResources(ontologyID(keysArr)),
+      this.cfg.ontology.cache.deleteResources(resourceID(keysArr)),
       this.store.delete(keysArr),
     ];
     await query.optimistic({
@@ -377,7 +378,7 @@ export class Client extends query.Retriever<
   async rename(key: Key, name: string, opts: query.WriteOptions = {}): Promise<void> {
     const rename = () => [
       query.partialUpdate(this.store, key, { name }),
-      this.cfg.ontology.cache.renameResource(ontologyID(key), name),
+      this.cfg.ontology.cache.renameResource(resourceID(key), name),
     ];
     await query.optimistic({
       rollbacks: rename(),
@@ -456,4 +457,4 @@ export class Client extends query.Retriever<
   }
 }
 
-export const statusKey = (key: Key): string => ontology.idToString(ontologyID(key));
+export const statusKey = (key: Key): string => resource.idToString(resourceID(key));

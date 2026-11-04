@@ -7,16 +7,16 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { ontology } from "@synnaxlabs/client";
+import { resource } from "@synnaxlabs/client";
 import { Tree } from "@synnaxlabs/lyra/tree";
 
 export const getResourcesToGroup = (
-  ids: ontology.ID[],
+  ids: resource.ID[],
   shape: Tree.Shape,
-): ontology.ID[] => {
-  const strIDs = ids.map((id) => ontology.idToString(id));
+): resource.ID[] => {
+  const strIDs = ids.map((id) => resource.idToString(id));
   const nodesOfMinDepth = Tree.getAllNodesOfMinDepth(
     Tree.filterShape(shape, (key) => strIDs.includes(key)),
   );
-  return ids.filter((id) => nodesOfMinDepth.includes(ontology.idToString(id)));
+  return ids.filter((id) => nodesOfMinDepth.includes(resource.idToString(id)));
 };

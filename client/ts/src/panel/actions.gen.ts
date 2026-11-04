@@ -13,8 +13,8 @@ import { type Draft } from "immer";
 import { z } from "zod";
 
 import { actions } from "@/actions";
-import { ontology } from "@/ontology";
 import { keyZ, type Panel, panelZ, tabKeyZ, tabZ, viewZ } from "@/panel/types.gen";
+import { resource } from "@/resource";
 
 /**
  * Create replaces the document with the given created state. Emitted by the Core on
@@ -134,7 +134,7 @@ export type ResizeSplitPayload = z.infer<typeof resizeSplitPayloadZ>;
  */
 export const setTabResourcePayloadZ = z.object({
   key: tabKeyZ,
-  resource: ontology.idZ,
+  resource: resource.idZ,
 });
 
 export type SetTabResourcePayload = z.infer<typeof setTabResourcePayloadZ>;

@@ -42,7 +42,7 @@ const setup = async () => {
     parent: ontology.ROOT_ID,
     name: uniqueName("parent"),
   });
-  const parentID = group.ontologyID(parent.key);
+  const parentID = group.resourceID(parent.key);
   const a = await client.groups.create({
     parent: parentID,
     name: uniqueName("child_a"),
@@ -70,7 +70,7 @@ const setup = async () => {
 const expectGrouped = async (key: group.Key, members: group.Group[]): Promise<void> =>
   await waitFor(async () => {
     const grouped = await client.ontology.children.retrieve({
-      ids: group.ontologyID(key),
+      ids: group.resourceID(key),
     });
     expect(grouped.map((c) => c.id.key).sort()).toEqual(
       members.map((m) => m.key).sort(),
@@ -102,12 +102,12 @@ describe("useCreateFromSelection", () => {
       parent: ontology.ROOT_ID,
       name: uniqueName("parent"),
     });
-    const parentID = group.ontologyID(parent.key);
+    const parentID = group.resourceID(parent.key);
     const sub = await client.groups.create({
       parent: parentID,
       name: uniqueName("sub"),
     });
-    const subID = group.ontologyID(sub.key);
+    const subID = group.resourceID(sub.key);
     const a = await client.groups.create({ parent: subID, name: uniqueName("nest_a") });
     const b = await client.groups.create({ parent: subID, name: uniqueName("nest_b") });
     const items: Tree.Items = {
@@ -142,7 +142,7 @@ describe("useCreateFromSelection", () => {
       parent: ontology.ROOT_ID,
       name: uniqueName("parent"),
     });
-    const parentID = group.ontologyID(parent.key);
+    const parentID = group.resourceID(parent.key);
     const names = Array.from({ length: 150 }, (_, i) =>
       uniqueName(`child-${String(i).padStart(3, "0")}`),
     );

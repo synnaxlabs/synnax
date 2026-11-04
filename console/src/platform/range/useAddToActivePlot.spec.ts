@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { lineplot, type ontology, type panel, schematic } from "@synnaxlabs/client";
+import { lineplot, type panel, type resource, schematic } from "@synnaxlabs/client";
 import { createPanelParent, createTestClient } from "@synnaxlabs/client/testutil";
 import { MAIN_WINDOW } from "@synnaxlabs/drift";
 import { Panel as PPanel } from "@synnaxlabs/pluto";
@@ -39,7 +39,7 @@ const createTestPlot = async (): Promise<lineplot.LinePlot> => {
 // panel selected and the tab focused in the session store.
 const createFocusedPanel = async (
   store: TestStore,
-  resource: ontology.ID,
+  resource: resource.ID,
 ): Promise<panel.Panel> => {
   const tabKey = uuid.create();
   const created = await client.panels.create({
@@ -82,7 +82,7 @@ describe("Range.useAddToActivePlot", () => {
     const range = await createTestRange(client);
     const plot = await createTestPlot();
     const { wrapper, store } = await createConsoleWrapper({ client });
-    const doc = await createFocusedPanel(store, lineplot.ontologyID(plot.key));
+    const doc = await createFocusedPanel(store, lineplot.resourceID(plot.key));
     const result = await renderAddToActivePlot(wrapper, doc.key);
     act(() => result.current.add([range.key]));
     await waitFor(() =>
@@ -102,7 +102,7 @@ describe("Range.useAddToActivePlot", () => {
     const otherPlot = await createTestPlot();
     const inactiveDoc = await createFocusedPanel(
       inactive.store,
-      schematic.ontologyID(uuid.create()),
+      schematic.resourceID(uuid.create()),
     );
     const skippedResult = await renderAddToActivePlot(
       inactive.wrapper,
@@ -115,7 +115,7 @@ describe("Range.useAddToActivePlot", () => {
     const active = await createConsoleWrapper({ client });
     const activeDoc = await createFocusedPanel(
       active.store,
-      lineplot.ontologyID(plot.key),
+      lineplot.resourceID(plot.key),
     );
     const addedResult = await renderAddToActivePlot(active.wrapper, activeDoc.key);
     act(() => addedResult.current.add([added.key]));

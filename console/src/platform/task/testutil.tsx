@@ -67,13 +67,13 @@ import {
 const defaultClient = createTestClient();
 
 const TASK_FORM_READS = [
-  task.TYPE_ONTOLOGY_ID,
-  device.TYPE_ONTOLOGY_ID,
-  rack.TYPE_ONTOLOGY_ID,
-  channel.TYPE_ONTOLOGY_ID,
-  panel.TYPE_ONTOLOGY_ID,
-  project.TYPE_ONTOLOGY_ID,
-  group.TYPE_ONTOLOGY_ID,
+  task.TYPE_RESOURCE_ID,
+  device.TYPE_RESOURCE_ID,
+  rack.TYPE_RESOURCE_ID,
+  channel.TYPE_RESOURCE_ID,
+  panel.TYPE_RESOURCE_ID,
+  project.TYPE_RESOURCE_ID,
+  group.TYPE_RESOURCE_ID,
 ];
 
 /**
@@ -83,7 +83,7 @@ const TASK_FORM_READS = [
 export const createChannelReadOnlyClient = async (client: Client): Promise<Client> =>
   await createTestClientWithGrants(client, {
     retrieve: TASK_FORM_READS,
-    update: [task.TYPE_ONTOLOGY_ID],
+    update: [task.TYPE_RESOURCE_ID],
   });
 
 /**
@@ -249,7 +249,7 @@ export const awaitTaskResourceTab = async ({
     };
     visit(doc.root);
     const match = tabs.find(
-      (t) => t.variant === "resource" && t.resource.type === task.TYPE_ONTOLOGY_ID.type,
+      (t) => t.variant === "resource" && t.resource.type === task.TYPE_RESOURCE_ID.type,
     );
     if (match == null || match.variant !== "resource")
       throw new Error("task resource tab not found");
@@ -433,7 +433,7 @@ export const renderTaskFormTab = async (
   const tab: panel.Tab = {
     variant: "resource",
     key: uuid.create(),
-    resource: task.ontologyID(taskKey),
+    resource: task.resourceID(taskKey),
   };
   const created = await createSelectedPanel(store, client, [tab]);
   if (as !== client) {

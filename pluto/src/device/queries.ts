@@ -7,7 +7,13 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { device, ontology, query as clientQuery, type query } from "@synnaxlabs/client";
+import {
+  device,
+  ontology,
+  query as clientQuery,
+  type query,
+  type resource,
+} from "@synnaxlabs/client";
 import { deep, primitive, type record, uuid, verbs, zod } from "@synnaxlabs/x";
 import { useEffect } from "react";
 import { type z } from "zod";
@@ -241,7 +247,7 @@ export type UseRetrieveGroupParams = Record<string, never>;
 
 export const { use: useGroupID } = Flux.createRetrieve<
   UseRetrieveGroupParams,
-  ontology.ID | undefined
+  resource.ID | undefined
 >({
   name: "device group",
   retrieve: async ({ client }) => {

@@ -142,8 +142,8 @@ const deriveCommandChannelName = ({ name }: EdgeTag): string =>
 const ContextMenuItem = ({ channels, keys }: Task.ContextMenuItemProps<EdgeTag>) => {
   const handleError = Status.useErrorHandler();
   const { set } = PForm.useContext();
-  const canCreate = Access.useCreateGranted(channel.TYPE_ONTOLOGY_ID);
-  const canRename = Access.useUpdateGranted(channel.TYPE_ONTOLOGY_ID);
+  const canCreate = Access.useCreateGranted(channel.TYPE_RESOURCE_ID);
+  const canRename = Access.useUpdateGranted(channel.TYPE_RESOURCE_ID);
   const withoutCommands = channels.filter((tag) => !isWritable(tag));
   const withCommands = channels.filter(isWritable);
 

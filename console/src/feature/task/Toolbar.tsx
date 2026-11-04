@@ -48,7 +48,7 @@ import { Toolbar } from "@/platform/toolbar";
 
 const EmptyContent = () => {
   const openSelector = useOpenSelector();
-  const hasCreatePermission = Access.useCreateGranted(task.TYPE_ONTOLOGY_ID);
+  const hasCreatePermission = Access.useCreateGranted(task.TYPE_RESOURCE_ID);
   return (
     <Empty.Action
       message="No tasks"
@@ -72,7 +72,7 @@ const Content = () => {
   const menuProps = Menu.useContextMenu();
   const openTab = Panel.useOpenTab();
   const openSelector = useOpenSelector();
-  const hasCreatePermission = Access.useCreateGranted(task.TYPE_ONTOLOGY_ID);
+  const hasCreatePermission = Access.useCreateGranted(task.TYPE_RESOURCE_ID);
   const { data, getItem, subscribe, retrieve, answered } = Task.useList({
     initialQuery: INITIAL_QUERY,
     filter,
@@ -112,7 +112,7 @@ const Content = () => {
   const handleDisableDataSaving = (keys: task.Key[]) =>
     keys.forEach((key) => setDataSaving({ key, dataSaving: false }));
   const handleEdit = (key: task.Key) =>
-    openTab({ variant: "resource", resource: task.ontologyID(key) });
+    openTab({ variant: "resource", resource: task.resourceID(key) });
   const contextMenu: NonNullable<Menu.ContextMenuProps["menu"]> = ({ keys }) => (
     <ContextMenu
       keys={keys}
@@ -187,7 +187,7 @@ export const TOOLBAR: Nav.Toolbar = {
   tooltip: "Tasks",
   initialSize: 300,
   sizeBounds: { lower: 225, upper: 400 },
-  useVisible: () => Access.useRetrieveGranted(task.TYPE_ONTOLOGY_ID),
+  useVisible: () => Access.useRetrieveGranted(task.TYPE_RESOURCE_ID),
 };
 
 interface TaskListItemProps extends List.ItemProps<task.Key> {
@@ -207,7 +207,7 @@ const TaskListItem = ({
   const { itemKey } = rest;
   const { getIcon, parseType } = PlatformTask.useRegistry();
   const task_ = List.useItem<task.Key, task.Task>(itemKey);
-  const hasUpdatePermission = Access.useUpdateGranted(task.ontologyID(itemKey));
+  const hasUpdatePermission = Access.useUpdateGranted(task.resourceID(itemKey));
   const canControl = Framer.useCanCommand();
   const details = task_?.status?.details;
   let variant = task_?.status?.variant;
@@ -328,10 +328,10 @@ const ContextMenu = ({
   const selectedTasks = Store.useItems({ keys, subscribe, getItem });
   const activeRange = Range.useResolve();
   const snapshotToActiveRange = useRangeSnapshot();
-  const ontologyIDs = task.ontologyID(keys);
-  const hasCreatePermission = Access.useCreateGranted(task.TYPE_ONTOLOGY_ID);
-  const hasDeletePermission = Access.useDeleteGranted(ontologyIDs);
-  const hasUpdatePermission = Access.useUpdateGranted(ontologyIDs);
+  const resourceIDs = task.resourceID(keys);
+  const hasCreatePermission = Access.useCreateGranted(task.TYPE_RESOURCE_ID);
+  const hasDeletePermission = Access.useDeleteGranted(resourceIDs);
+  const hasUpdatePermission = Access.useUpdateGranted(resourceIDs);
   const canControl = Framer.useCanCommand();
 
   const canStart = selectedTasks.some(
@@ -377,7 +377,7 @@ const ContextMenu = ({
         message: "Failed to copy link",
         description: "The task no longer exists.",
       });
-    copyLinkToClipboard({ name, ontologyID: task.ontologyID(key) });
+    copyLinkToClipboard({ name, resourceID: task.resourceID(key) });
   };
   const showSnapshotToActiveRange =
     activeRange?.variant === "persisted" && selectedTasks.length > 0;
@@ -448,7 +448,7 @@ const ContextMenu = ({
           key="snapshot"
           onClick={() =>
             snapshotToActiveRange({
-              tasks: selectedTasks.map(({ name, ontologyID: { key } }) => ({
+              tasks: selectedTasks.map(({ name, resourceID: { key } }) => ({
                 key,
                 name,
               })),
@@ -460,7 +460,7 @@ const ContextMenu = ({
       {isSingle && (
         <>
           <Export.ContextMenuItem
-            onClick={() => handleExport(task.ontologyID(keys[0]))}
+            onClick={() => handleExport(task.resourceID(keys[0]))}
           />
           <Link.CopyContextMenuItem onClick={() => handleLink(keys[0])} />
         </>

@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { group, ontology } from "@synnaxlabs/client";
+import { group, ontology, resource } from "@synnaxlabs/client";
 import { Icon } from "@synnaxlabs/lyra/icon";
 import { Menu } from "@synnaxlabs/lyra/menu";
 import { Tree } from "@synnaxlabs/lyra/tree";
@@ -15,8 +15,8 @@ import { Access } from "@synnaxlabs/pluto";
 import { type ReactElement } from "react";
 
 export interface ContextMenuItemProps extends Omit<Menu.ItemProps, "itemKey"> {
-  ids: ontology.ID[];
-  rootID: ontology.ID;
+  ids: resource.ID[];
+  rootID: resource.ID;
   shape: Tree.Shape;
 }
 
@@ -26,7 +26,7 @@ export const ContextMenuItem = ({
   rootID,
   ...rest
 }: ContextMenuItemProps): ReactElement | null => {
-  const hasCreatePermission = Access.useCreateGranted(group.TYPE_ONTOLOGY_ID);
+  const hasCreatePermission = Access.useCreateGranted(group.TYPE_RESOURCE_ID);
   if (!hasCreatePermission || !canGroupSelection(ids, shape, rootID)) return null;
   return (
     <Menu.Item itemKey="group" {...rest}>
@@ -37,16 +37,16 @@ export const ContextMenuItem = ({
 };
 
 const canGroupSelection = (
-  selection: ontology.ID[],
+  selection: resource.ID[],
   shape: Tree.Shape,
-  rootID: ontology.ID,
+  rootID: resource.ID,
 ): boolean => {
-  const strIDs = selection.map((id) => ontology.idToString(id));
+  const strIDs = selection.map((id) => resource.idToString(id));
   const filteredShape = Tree.filterShape(shape, (key) => strIDs.includes(key));
   const nodeKeysOfMinDepth = Tree.getAllNodesOfMinDepth(filteredShape);
   if (nodeKeysOfMinDepth.length < 1) return false;
   const isZeroDepth =
     Tree.getDepth(nodeKeysOfMinDepth[0], shape) === 0 &&
-    ontology.idsEqual(rootID, ontology.ROOT_ID);
+    resource.idsEqual(rootID, ontology.ROOT_ID);
   return !isZeroDepth;
 };

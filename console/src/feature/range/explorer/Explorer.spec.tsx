@@ -49,7 +49,7 @@ const expectFocusedRange = async (store: TestStore, key: string): Promise<void> 
   const tab = await resolveFocusedTab(store, client);
   if (tab.variant !== "resource")
     throw new Error("focused tab is not a range resource");
-  expect(tab.resource.type).toBe(ranger.TYPE_ONTOLOGY_ID.type);
+  expect(tab.resource.type).toBe(ranger.TYPE_RESOURCE_ID.type);
   expect(tab.resource.key).toBe(key);
 };
 
@@ -219,15 +219,15 @@ describe("range/Explorer permissions", () => {
     await createTestClientWithGrants(client, {
       ...grants,
       retrieve: [
-        ranger.TYPE_ONTOLOGY_ID,
-        view.TYPE_ONTOLOGY_ID,
-        label.TYPE_ONTOLOGY_ID,
-        group.TYPE_ONTOLOGY_ID,
-        project.TYPE_ONTOLOGY_ID,
-        panel.TYPE_ONTOLOGY_ID,
+        ranger.TYPE_RESOURCE_ID,
+        view.TYPE_RESOURCE_ID,
+        label.TYPE_RESOURCE_ID,
+        group.TYPE_RESOURCE_ID,
+        project.TYPE_RESOURCE_ID,
+        panel.TYPE_RESOURCE_ID,
       ],
-      update: [view.TYPE_ONTOLOGY_ID, ...(grants.update ?? [])],
-      create: [view.TYPE_ONTOLOGY_ID, ...(grants.create ?? [])],
+      update: [view.TYPE_RESOURCE_ID, ...(grants.update ?? [])],
+      create: [view.TYPE_RESOURCE_ID, ...(grants.create ?? [])],
     });
 
   it("should withhold the create button from a subject who cannot create ranges", async () => {
@@ -244,7 +244,7 @@ describe("range/Explorer permissions", () => {
   });
 
   it("should offer the create button to a subject who may create ranges", async () => {
-    await renderExplorer(await createEditor({ create: [ranger.TYPE_ONTOLOGY_ID] }));
+    await renderExplorer(await createEditor({ create: [ranger.TYPE_RESOURCE_ID] }));
     await enableEditing();
     expect(await findToolbarIconButton("add")).toBeTruthy();
   });
@@ -265,9 +265,9 @@ describe("range/Explorer permissions", () => {
       const rng = await createTestRange(client);
       await renderExplorer(
         await createEditor({
-          create: [ranger.TYPE_ONTOLOGY_ID],
-          update: [ranger.TYPE_ONTOLOGY_ID],
-          delete: [ranger.TYPE_ONTOLOGY_ID],
+          create: [ranger.TYPE_RESOURCE_ID],
+          update: [ranger.TYPE_RESOURCE_ID],
+          delete: [ranger.TYPE_RESOURCE_ID],
         }),
       );
       fireEvent.contextMenu(await revealRange(rng.name));

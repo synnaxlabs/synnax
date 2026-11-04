@@ -68,7 +68,7 @@ const createProjectPanel = async (
     key,
     ...rest,
     name: uniqueName(name),
-    parent: project.ontologyID(projectKey),
+    parent: project.resourceID(projectKey),
     root: { variant: "leaf", tabs: [tab] },
   });
 
@@ -509,11 +509,11 @@ describe("Panel.Selector", () => {
       const viewer = await createTestClientWithPolicy(client, {
         name: uuid.create(),
         objects: [
-          panel.TYPE_ONTOLOGY_ID,
-          project.TYPE_ONTOLOGY_ID,
-          user.TYPE_ONTOLOGY_ID,
-          access.role.TYPE_ONTOLOGY_ID,
-          access.policy.TYPE_ONTOLOGY_ID,
+          panel.TYPE_RESOURCE_ID,
+          project.TYPE_RESOURCE_ID,
+          user.TYPE_RESOURCE_ID,
+          access.role.TYPE_RESOURCE_ID,
+          access.policy.TYPE_RESOURCE_ID,
         ],
         actions: ["retrieve"],
       });
@@ -664,11 +664,11 @@ describe("Panel.Selector", () => {
       const viewer = await createTestClientWithPolicy(client, {
         name: uuid.create(),
         objects: [
-          panel.TYPE_ONTOLOGY_ID,
-          project.TYPE_ONTOLOGY_ID,
-          user.TYPE_ONTOLOGY_ID,
-          access.role.TYPE_ONTOLOGY_ID,
-          access.policy.TYPE_ONTOLOGY_ID,
+          panel.TYPE_RESOURCE_ID,
+          project.TYPE_RESOURCE_ID,
+          user.TYPE_RESOURCE_ID,
+          access.role.TYPE_RESOURCE_ID,
+          access.policy.TYPE_RESOURCE_ID,
         ],
         actions: ["retrieve"],
       });

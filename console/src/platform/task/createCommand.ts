@@ -21,7 +21,7 @@ export interface CreateCommandParams {
   useOnSelect: UseCreate;
 }
 
-const useVisible = () => Access.useCreateGranted(task.TYPE_ONTOLOGY_ID);
+const useVisible = () => Access.useCreateGranted(task.TYPE_RESOURCE_ID);
 
 /** Creates a palette command that creates a task of the given type and opens it. */
 export const createCommand = (params: CreateCommandParams): Command.Command =>

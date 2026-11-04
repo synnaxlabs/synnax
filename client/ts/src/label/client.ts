@@ -24,6 +24,7 @@ import { matchLabeledBy } from "@/label/store";
 import { type Key, keyZ, type Label, labelZ, type New } from "@/label/types.gen";
 import { ontology } from "@/ontology";
 import { query } from "@/query";
+import { resource } from "@/resource";
 
 export const ACTION_CHANNEL_NAME = "sy_label_action_set";
 export const DELETE_CHANNEL_NAME = "sy_label_delete";
@@ -32,7 +33,7 @@ const createReqZ = z.object({ labels: labelZ.array(), dispatchKey: z.string() })
 const createResZ = z.object({ labels: labelZ.array() });
 const deleteReqZ = z.object({ keys: keyZ.array() });
 const setReqZ = z.object({
-  id: ontology.idZ,
+  id: resource.idZ,
   labels: keyZ.array(),
   replace: z.boolean().optional(),
 });
@@ -47,7 +48,7 @@ const emptyResZ = z.object({});
 const retrieveRequestZ = z.object({
   keys: keyZ.array().optional(),
   names: z.string().array().optional(),
-  for: ontology.idZ.optional(),
+  for: resource.idZ.optional(),
   searchTerm: z.string().optional(),
   offset: z.int().optional(),
   limit: z.int().optional(),
@@ -128,7 +129,7 @@ export class Client extends query.Retriever<typeof retrieveMultiParamsZ, Key, La
   }
 
   async label(
-    id: ontology.ID,
+    id: resource.ID,
     labels: Key[],
     opts: SetOptions & query.WriteOptions = {},
   ): Promise<void> {
@@ -157,7 +158,7 @@ export class Client extends query.Retriever<typeof retrieveMultiParamsZ, Key, La
   }
 
   async remove(
-    id: ontology.ID,
+    id: resource.ID,
     labels: Key[],
     opts: query.WriteOptions = {},
   ): Promise<void> {
@@ -273,7 +274,7 @@ export class Client extends query.Retriever<typeof retrieveMultiParamsZ, Key, La
     };
   }
 
-  private isLabelOf(id: ontology.ID, key: Key): boolean {
+  private isLabelOf(id: resource.ID, key: Key): boolean {
     return this.cfg.ontology.cache.relationships.has(
       ontology.relationshipToString(labeledByRel(id, key)),
     );
@@ -282,11 +283,11 @@ export class Client extends query.Retriever<typeof retrieveMultiParamsZ, Key, La
 
 const retrieveResponseZ = z.object({ labels: labelZ.array().default(() => []) });
 
-const labeledByRel = (id: ontology.ID, key: Key): ontology.Relationship => ({
+const labeledByRel = (id: resource.ID, key: Key): ontology.Relationship => ({
   from: id,
   type: LABELED_BY_ONTOLOGY_RELATIONSHIP_TYPE,
-  to: ontologyID(key),
+  to: resourceID(key),
 });
 
-export const ontologyID = ontology.createIDFactory<Key>("label");
-export const TYPE_ONTOLOGY_ID = ontologyID("");
+export const resourceID = resource.createIDFactory<Key>("label");
+export const TYPE_RESOURCE_ID = resourceID("");

@@ -9,10 +9,10 @@
 
 import {
   NotFoundError,
-  type ontology,
   panel,
   project,
   query,
+  type resource,
   UnexpectedError,
 } from "@synnaxlabs/client";
 import { array, compare, deep, type optional, verbs } from "@synnaxlabs/x";
@@ -39,7 +39,7 @@ export const { use, useEnsure, useInvalidate, useResult, createSelector } =
 export type RetrieveKeysByProjectQuery = { project: project.Key };
 
 const childrenOf = (projectKey: project.Key): panel.RetrieveRequest => ({
-  parent: project.ontologyID(projectKey),
+  parent: project.resourceID(projectKey),
 });
 
 const keysOf = (panels: panel.Panel[]): panel.Key[] => panels.map(({ key }) => key);
@@ -70,7 +70,7 @@ export interface KeyParams {
 }
 
 const useCanEditBase = ({ key }: KeyParams): boolean =>
-  Access.useUpdateGranted(panel.ontologyID(key));
+  Access.useUpdateGranted(panel.resourceID(key));
 
 /**
  * Reports whether the subject may restructure the panel. Every mosaic gesture, from
@@ -218,12 +218,12 @@ export const useTabType = bindTabHook(
   }),
 );
 
-// useTabResource selects the ontology ID displayed by the active resource tab.
+// useTabResource selects the resource ID displayed by the active resource tab.
 // Resource renderers call this to learn their own document key. Throws
 // UnexpectedError when the active tab is not a resource tab: only renderers mounted
 // for a resource tab may call this, so a wrong-variant read is a programmer bug.
 export const useTabResource = bindTabHook(
-  createSelector<ontology.ID, TabContentParams>(({ root }, params) => {
+  createSelector<resource.ID, TabContentParams>(({ root }, params) => {
     const tab = requireTab(root, params);
     if (tab.variant !== "resource")
       throw new UnexpectedError(`attempted to select resource on view tab ${tab.key}`);
@@ -298,11 +298,11 @@ export const useRedo = Scope.bindHook(useRedoBase);
 // deleting console closes its own tabs while remote consoles tombstone theirs.
 // removeTab on an absent tab is a no-op, so redundant calls are harmless.
 export const useCloseResourceTabs = (): ((
-  ids: ontology.ID | ontology.ID[],
+  ids: resource.ID | resource.ID[],
 ) => void) => {
   const client = Synnax.use();
   const { dispatch } = useDispatch();
-  return (ids: ontology.ID | ontology.ID[]) =>
+  return (ids: resource.ID | resource.ID[]) =>
     client?.panels.listCached().forEach((p) => {
       const actions = array
         .toArray(ids)
@@ -359,10 +359,10 @@ export const useMoveTabToPanel = (): ((
 // useSetCurrentTabResource swaps the current tab's content to the given resource,
 // clearing any view. The selector flow uses this to fill the tab in place once the
 // user picks a visualization.
-export const useSetCurrentTabResource = (): ((resource: ontology.ID) => void) => {
+export const useSetCurrentTabResource = (): ((resource: resource.ID) => void) => {
   const dispatch = useSingleDispatch();
   const tabKey = TabScope.use();
-  return (resource: ontology.ID) =>
+  return (resource: resource.ID) =>
     dispatch(panel.setTabResource({ key: tabKey, resource }));
 };
 

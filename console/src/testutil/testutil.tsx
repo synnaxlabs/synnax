@@ -11,9 +11,9 @@ import { type EnhancedStore } from "@reduxjs/toolkit";
 import {
   type access,
   type connection,
-  type ontology,
   panel,
   type project,
+  type resource,
   type Synnax as Client,
   type SynnaxParams,
 } from "@synnaxlabs/client";
@@ -350,7 +350,7 @@ export const createConsoleWrapper = async ({
  */
 export const awaitGranted = async (
   client: Client,
-  id: ontology.ID,
+  id: resource.ID,
   action: access.Action = "create",
 ): Promise<void> => {
   const { wrapper } = await createConsoleWrapper({ client });

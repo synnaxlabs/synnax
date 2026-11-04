@@ -37,7 +37,7 @@ describe("schematic_symbol", () => {
           handles: [],
           variant: "sensor",
         },
-        parent: group.ontologyID(symbolGroup.key),
+        parent: group.resourceID(symbolGroup.key),
       });
       await expect(
         userClient.schematics.symbols.retrieve(randomSymbol.key),
@@ -47,7 +47,7 @@ describe("schematic_symbol", () => {
     it("should allow the caller to retrieve symbols with the correct policy", async () => {
       const userClient = await createTestClientWithPolicy(client, {
         name: "test",
-        objects: [symbol.ontologyID("")],
+        objects: [symbol.resourceID("")],
         actions: ["retrieve"],
       });
       const symbolGroup = await client.groups.create({
@@ -62,7 +62,7 @@ describe("schematic_symbol", () => {
           handles: [],
           variant: "sensor",
         },
-        parent: group.ontologyID(symbolGroup.key),
+        parent: group.resourceID(symbolGroup.key),
       });
       const retrieved = await userClient.schematics.symbols.retrieve(randomSymbol.key);
       expect(retrieved.key).toBe(randomSymbol.key);
@@ -72,7 +72,7 @@ describe("schematic_symbol", () => {
     it("should allow the caller to create symbols with the correct policy", async () => {
       const userClient = await createTestClientWithPolicy(client, {
         name: "test",
-        objects: [symbol.ontologyID(""), group.ontologyID("")],
+        objects: [symbol.resourceID(""), group.resourceID("")],
         actions: ["create", "update"],
       });
       const symbolGroup = await client.groups.create({
@@ -87,14 +87,14 @@ describe("schematic_symbol", () => {
           handles: [],
           variant: "sensor",
         },
-        parent: group.ontologyID(symbolGroup.key),
+        parent: group.resourceID(symbolGroup.key),
       });
     });
 
     it("should deny access when no create policy exists", async () => {
       const userClient = await createTestClientWithPolicy(client, {
         name: "test",
-        objects: [symbol.ontologyID("")],
+        objects: [symbol.resourceID("")],
         actions: [],
       });
       const symbolGroup = await client.groups.create({
@@ -110,7 +110,7 @@ describe("schematic_symbol", () => {
             handles: [],
             variant: "sensor",
           },
-          parent: group.ontologyID(symbolGroup.key),
+          parent: group.resourceID(symbolGroup.key),
         }),
       ).rejects.toSatisfy(AccessDeniedError.matches);
     });
@@ -118,7 +118,7 @@ describe("schematic_symbol", () => {
     it("should allow the caller to delete symbols with the correct policy", async () => {
       const userClient = await createTestClientWithPolicy(client, {
         name: "test",
-        objects: [symbol.ontologyID("")],
+        objects: [symbol.resourceID("")],
         actions: ["delete", "retrieve"],
       });
       const symbolGroup = await client.groups.create({
@@ -133,7 +133,7 @@ describe("schematic_symbol", () => {
           handles: [],
           variant: "sensor",
         },
-        parent: group.ontologyID(symbolGroup.key),
+        parent: group.resourceID(symbolGroup.key),
       });
       await userClient.schematics.symbols.delete(randomSymbol.key);
       await expect(
@@ -144,7 +144,7 @@ describe("schematic_symbol", () => {
     it("should deny access when no delete policy exists", async () => {
       const userClient = await createTestClientWithPolicy(client, {
         name: "test",
-        objects: [symbol.ontologyID("")],
+        objects: [symbol.resourceID("")],
         actions: [],
       });
       const symbolGroup = await client.groups.create({
@@ -159,7 +159,7 @@ describe("schematic_symbol", () => {
           handles: [],
           variant: "sensor",
         },
-        parent: group.ontologyID(symbolGroup.key),
+        parent: group.resourceID(symbolGroup.key),
       });
       await expect(
         userClient.schematics.symbols.delete(randomSymbol.key),

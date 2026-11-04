@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { ontology, type Synnax as Client } from "@synnaxlabs/client";
+import { type ontology, resource, type Synnax as Client } from "@synnaxlabs/client";
 import { type List } from "@synnaxlabs/lyra/list";
 import { type verbs } from "@synnaxlabs/x";
 import { useEffect } from "react";
@@ -27,7 +27,7 @@ export const useResourceSetSynchronizer = (
 };
 
 export const useResourceDeleteSynchronizer = (
-  onDelete: (id: ontology.ID) => void,
+  onDelete: (id: resource.ID) => void,
 ): void => {
   const client = Synnax.use();
   useEffect(() => client?.ontology.onResourceDelete(onDelete), [client, onDelete]);
@@ -48,7 +48,7 @@ export const useRelationshipDeleteSynchronizer = (
 };
 
 type DependentQuery = List.PagerParams & {
-  id?: ontology.ID;
+  id?: resource.ID;
 };
 
 const dependentSpace = (client: Client, direction: ontology.RelationshipDirection) =>
@@ -65,7 +65,7 @@ export const createDependentsListHook = (
       return await dependentSpace(client, direction).retrieve({ ids: id });
     },
     retrieveByKey: async ({ client, key }) =>
-      await client.ontology.retrieve(ontology.parseID(key)),
+      await client.ontology.retrieve(resource.parseID(key)),
     onChange: ({ client, query: { id } }, handler) => {
       if (id == null) return () => {};
       return dependentSpace(client, direction).onChange({ ids: id }, handler);
@@ -75,7 +75,7 @@ export const createDependentsListHook = (
       return dependentSpace(client, direction).getCached({ ids: id });
     },
     onChangeByKey: ({ client, key }, handler) =>
-      client.ontology.onChange(ontology.parseID(key), handler),
+      client.ontology.onChange(resource.parseID(key), handler),
   });
 
 export const useListChildren = createDependentsListHook(
@@ -89,17 +89,17 @@ export const useResourceList = Flux.createList<ListQuery, string, ontology.Resou
   name: PLURAL_RESOURCE_RESOURCE_NAME,
   retrieve: async ({ client, query }) => await client.ontology.retrieve(query),
   retrieveByKey: async ({ client, key }) =>
-    await client.ontology.retrieve(ontology.parseID(key)),
+    await client.ontology.retrieve(resource.parseID(key)),
   onChange: ({ client, query }, handler) => client.ontology.onChange(query, handler),
   getCached: ({ client, query }) => client.ontology.getCached(query),
   onChangeByKey: ({ client, key }, handler) =>
-    client.ontology.onChange(ontology.parseID(key), handler),
+    client.ontology.onChange(resource.parseID(key), handler),
 });
 
 export interface MoveChildrenParams {
-  source: ontology.ID;
-  destination: ontology.ID;
-  ids: ontology.ID[];
+  source: resource.ID;
+  destination: resource.ID;
+  ids: resource.ID[];
 }
 
 const MOVE_VERBS: verbs.Verbs = {
@@ -122,7 +122,7 @@ export const { useUpdate: useMoveChildren } = Flux.createUpdate<MoveChildrenPara
 export type RetrieveChildrenQuery = {
   [K in keyof ontology.RetrieveOptions]: ontology.RetrieveOptions[K];
 } & {
-  id: ontology.ID;
+  id: resource.ID;
 };
 
 export const { use: useChildren } = Flux.createRetrieve<
@@ -139,7 +139,7 @@ export const { use: useChildren } = Flux.createRetrieve<
 });
 
 type RetrieveResourceQuery = {
-  ids: ontology.ID[];
+  ids: resource.ID[];
 };
 
 export const { use: useResource } = Flux.createRetrieve<

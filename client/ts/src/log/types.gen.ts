@@ -13,7 +13,7 @@ import { color, notation, telem, uuid } from "@synnaxlabs/x";
 import { z } from "zod";
 
 import { channel } from "@/channel";
-import { ontology } from "@/ontology";
+import { resource } from "@/resource";
 
 /** TimestampConfig is per-channel timestamp display configuration. */
 export const timestampConfigZ = z.object({
@@ -68,5 +68,5 @@ export const logZ = z.object({
 export interface Log extends z.infer<typeof logZ> {}
 export interface New extends z.input<typeof logZ> {}
 
-export const ontologyID = ontology.createIDFactory<Key>("log");
-export const TYPE_ONTOLOGY_ID = ontologyID("");
+export const resourceID = resource.createIDFactory<Key>("log");
+export const TYPE_RESOURCE_ID = resourceID("");

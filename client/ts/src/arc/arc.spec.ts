@@ -108,8 +108,8 @@ describe("arc", () => {
         config: {},
       });
       await client.ontology.addChildren(
-        arc.ontologyID(arcKey),
-        task.ontologyID(tsk.key),
+        arc.resourceID(arcKey),
+        task.resourceID(tsk.key),
       );
       return tsk;
     };
@@ -292,7 +292,7 @@ describe("arc", () => {
       if (tsk == null) throw new Error("expected a deployment task");
       const userClient = await createTestClientWithPolicy(client, {
         name: "test",
-        objects: [arc.ontologyID(""), task.ontologyID("")],
+        objects: [arc.resourceID(""), task.resourceID("")],
         actions: ["retrieve"],
       });
       await expect(

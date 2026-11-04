@@ -22,8 +22,8 @@ export type RetrieveQuery = {
 };
 
 const parentsQuery = (key: user.Key): ontology.DependentParams => ({
-  ids: user.ontologyID(key),
-  types: [access.role.TYPE_ONTOLOGY_ID.type],
+  ids: user.resourceID(key),
+  types: [access.role.TYPE_RESOURCE_ID.type],
 });
 
 const retrieveForUser = async (

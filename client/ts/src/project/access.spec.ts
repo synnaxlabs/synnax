@@ -34,7 +34,7 @@ describe("project", () => {
     it("should allow the caller to retrieve projects with the correct policy", async () => {
       const userClient = await createTestClientWithPolicy(client, {
         name: "test",
-        objects: [project.ontologyID("")],
+        objects: [project.resourceID("")],
         actions: ["retrieve"],
       });
       const randomProject = await client.projects.create({
@@ -48,7 +48,7 @@ describe("project", () => {
     it("should allow the caller to create projects with the correct policy", async () => {
       const userClient = await createTestClientWithPolicy(client, {
         name: "test",
-        objects: [project.ontologyID("")],
+        objects: [project.resourceID("")],
         actions: ["create"],
       });
       await userClient.projects.create({
@@ -59,7 +59,7 @@ describe("project", () => {
     it("should deny access when no create policy exists", async () => {
       const userClient = await createTestClientWithPolicy(client, {
         name: "test",
-        objects: [project.ontologyID("")],
+        objects: [project.resourceID("")],
         actions: [],
       });
       await expect(
@@ -72,7 +72,7 @@ describe("project", () => {
     it("should allow the caller to delete projects with the correct policy", async () => {
       const userClient = await createTestClientWithPolicy(client, {
         name: "test",
-        objects: [project.ontologyID("")],
+        objects: [project.resourceID("")],
         actions: ["delete"],
       });
       const randomProject = await client.projects.create({
@@ -87,7 +87,7 @@ describe("project", () => {
     it("should deny access when no delete policy exists", async () => {
       const userClient = await createTestClientWithPolicy(client, {
         name: "test",
-        objects: [project.ontologyID("")],
+        objects: [project.resourceID("")],
         actions: [],
       });
       const randomProject = await client.projects.create({

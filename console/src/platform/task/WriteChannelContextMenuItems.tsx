@@ -25,7 +25,7 @@ const WriteChannelContextMenuItems: React.FC<WriteChannelContextMenuItemsProps> 
   keys,
 }) => {
   const key = keys[0];
-  const canRename = Access.useUpdateGranted(clientChannel.TYPE_ONTOLOGY_ID);
+  const canRename = Access.useUpdateGranted(clientChannel.TYPE_RESOURCE_ID);
   const channel = channels.find((ch) => ch.key === key);
   if (channel == null || !canRename) return null;
   const handleRename = (type: WriteChannelType) =>

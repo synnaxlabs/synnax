@@ -11,7 +11,7 @@
 
 import { z } from "zod";
 
-import { ontology } from "@/ontology";
+import { resource } from "@/resource";
 
 export const keyZ = z.uuid();
 export type Key = z.infer<typeof keyZ>;
@@ -28,5 +28,5 @@ export const groupZ = z.object({
 });
 export interface Group extends z.infer<typeof groupZ> {}
 
-export const ontologyID = ontology.createIDFactory<Key>("group");
-export const TYPE_ONTOLOGY_ID = ontologyID("");
+export const resourceID = resource.createIDFactory<Key>("group");
+export const TYPE_RESOURCE_ID = resourceID("");

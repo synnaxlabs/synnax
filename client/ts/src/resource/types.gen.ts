@@ -11,7 +11,7 @@
 
 import { z } from "zod";
 
-export const RESOURCE_TYPES = [
+export const TYPES = [
   "arc",
   "builtin",
   "channel",
@@ -37,5 +37,5 @@ export const RESOURCE_TYPES = [
   "user",
   "view",
 ] as const;
-export const resourceTypeZ = z.enum(RESOURCE_TYPES);
-export type ResourceType = z.infer<typeof resourceTypeZ>;
+export const typeZ = z.enum(TYPES);
+export type Type = z.infer<typeof typeZ>;

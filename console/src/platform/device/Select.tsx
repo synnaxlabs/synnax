@@ -72,7 +72,7 @@ export const Select = ({
   connect,
 }: SelectProps) => {
   const client = Synnax.use();
-  const canConnect = Access.useCreateGranted(device.TYPE_ONTOLOGY_ID);
+  const canConnect = Access.useCreateGranted(device.TYPE_RESOURCE_ID);
   const handleError = Status.useErrorHandler();
   const handleDeviceChange = (key: device.Key, { set }: Form.ContextValue) => {
     if (client == null || primitive.isZero(key)) return;

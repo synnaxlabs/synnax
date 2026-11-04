@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { group, ontology, type schematic } from "@synnaxlabs/client";
+import { group, ontology, type resource, type schematic } from "@synnaxlabs/client";
 import { createTestClient } from "@synnaxlabs/client/testutil";
 import { act, render, waitFor } from "@testing-library/react";
 import { type FC, type PropsWithChildren } from "react";
@@ -39,12 +39,12 @@ describe("Static", () => {
 
   const createSymbol = async (
     svg: string,
-  ): Promise<{ symbol: schematic.symbol.Symbol; parent: ontology.ID }> => {
+  ): Promise<{ symbol: schematic.symbol.Symbol; parent: resource.ID }> => {
     const group_ = await client.groups.create({
       parent: ontology.ROOT_ID,
       name: `custom-Static-${Math.random().toString(36).slice(2, 8)}`,
     });
-    const parent = group.ontologyID(group_.key);
+    const parent = group.resourceID(group_.key);
     const symbol = await client.schematics.symbols.create({
       name: "sym",
       parent,

@@ -25,18 +25,19 @@ import {
   type Key,
   keyZ,
   type New,
-  ontologyID,
   type Panel,
   panelZ,
+  resourceID,
 } from "@/panel/types.gen";
 import { query } from "@/query";
+import { resource } from "@/resource";
 
 export const SET_CHANNEL_NAME = "sy_panel_set";
 export const DELETE_CHANNEL_NAME = "sy_panel_delete";
 
 const retrieveReqZ = z.object({
   keys: keyZ.array().optional(),
-  parent: ontology.idZ.optional(),
+  parent: resource.idZ.optional(),
   searchTerm: z.string().optional(),
   offset: z.int().optional(),
   limit: z.int().optional(),
@@ -51,7 +52,7 @@ const retrieveResZ = z.object({ panels: panelZ.array().default(() => []) });
 const createResZ = z.object({ panels: panelZ.array() });
 const emptyResZ = z.object({});
 
-const isChildOf = (rel: ontology.Relationship, parent: ontology.ID): boolean =>
+const isChildOf = (rel: ontology.Relationship, parent: resource.ID): boolean =>
   ontology.matchRelationship(rel, {
     from: parent,
     type: ontology.PARENT_OF_RELATIONSHIP_TYPE,
@@ -136,12 +137,12 @@ export class Client extends query.Retriever<typeof retrieveMultiParamsZ, Key, Pa
     return this.store.get();
   }
 
-  private isCachedChild(parent: ontology.ID, key: Key): boolean {
+  private isCachedChild(parent: resource.ID, key: Key): boolean {
     return this.cfg.ontology.cache.relationships.has(
       ontology.relationshipToString({
         from: parent,
         type: ontology.PARENT_OF_RELATIONSHIP_TYPE,
-        to: ontologyID(key),
+        to: resourceID(key),
       }),
     );
   }
@@ -185,7 +186,7 @@ export class Client extends query.Retriever<typeof retrieveMultiParamsZ, Key, Pa
     const rename = (): destructor.Destructor => {
       const prev = this.store.get(key)?.name ?? name;
       query.partialUpdate(this.store, key, { name });
-      const resource = this.cfg.ontology.cache.renameResource(ontologyID(key), name);
+      const resource = this.cfg.ontology.cache.renameResource(resourceID(key), name);
       return () => {
         query.partialUpdate(this.store, key, { name: prev });
         resource();
@@ -262,7 +263,7 @@ export class Client extends query.Retriever<typeof retrieveMultiParamsZ, Key, Pa
   async delete(keys: Key | Key[], opts: query.WriteOptions = {}): Promise<void> {
     const keysArr = array.toArray(keys);
     const drop = () => [
-      this.cfg.ontology.cache.deleteResources(ontologyID(keysArr)),
+      this.cfg.ontology.cache.deleteResources(resourceID(keysArr)),
       this.store.delete(keysArr),
     ];
     await query.optimistic({

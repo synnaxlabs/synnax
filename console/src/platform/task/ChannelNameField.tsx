@@ -48,7 +48,7 @@ export const ChannelNameField = ({
 const Existing = ({ channel: key }: { channel: channel.Key }) => {
   const { data: name = "" } = Channel.useResultName({ key });
   const { update } = Channel.useRename();
-  const canRename = Access.useUpdateGranted(channel.TYPE_ONTOLOGY_ID);
+  const canRename = Access.useUpdateGranted(channel.TYPE_RESOURCE_ID);
   const isPreview = useIsPreview();
   const handleChange = (next: string) => {
     if (next.length > 0 && next !== name) update({ key, name: next });

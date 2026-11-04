@@ -19,7 +19,7 @@ const ConnectServerCommand = Command.create({
   name: "Connect OPC UA server",
   icon: <Icon.Logo.OPCUA />,
   useOnSelect: useConnectModal,
-  useVisible: () => Access.useCreateGranted(device.TYPE_ONTOLOGY_ID),
+  useVisible: () => Access.useCreateGranted(device.TYPE_RESOURCE_ID),
 });
 
 export const COMMANDS = [ConnectServerCommand];

@@ -30,7 +30,7 @@ const setup = async () => {
     parent: ontology.ROOT_ID,
     name: uniqueName("parent"),
   });
-  const parentID = group.ontologyID(parent.key);
+  const parentID = group.resourceID(parent.key);
   const child = await client.groups.create({
     parent: parentID,
     name: uniqueName("child"),
@@ -65,7 +65,7 @@ describe("useCreateEmpty", () => {
       parent: ontology.ROOT_ID,
       name: uniqueName("parent"),
     });
-    const parentID = group.ontologyID(parent.key);
+    const parentID = group.resourceID(parent.key);
     const child = await client.groups.create({
       parent: parentID,
       name: uniqueName("child"),
@@ -99,7 +99,7 @@ describe("useCreateEmpty", () => {
     });
     await waitFor(async () => {
       const children = await client.ontology.children.retrieve({
-        ids: group.ontologyID(child.key),
+        ids: group.resourceID(child.key),
       });
       const created = children.find((c) => c.name === name);
       expect(created).toBeDefined();

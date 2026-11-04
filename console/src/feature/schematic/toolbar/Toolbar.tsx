@@ -218,10 +218,10 @@ const Internal = (): ReactElement => {
               gap="small"
               className={CSS.BE("schematic", "toolbar", "actions")}
             >
-              <Export.ToolbarButton id={schematic.ontologyID(key)} />
+              <Export.ToolbarButton id={schematic.resourceID(key)} />
               <Core.CopyLinkToolbarButton
                 name={name}
-                ontologyID={schematic.ontologyID(key)}
+                resourceID={schematic.resourceID(key)}
               />
             </Flex.Box>
             {canEdit && (

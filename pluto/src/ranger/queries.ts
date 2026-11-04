@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { label, type ontology, ranger } from "@synnaxlabs/client";
+import { label, ranger, type resource } from "@synnaxlabs/client";
 import { type List } from "@synnaxlabs/lyra/list";
 import { deep, type NumericTimeRange, primitive, verbs } from "@synnaxlabs/x";
 import { useEffect } from "react";
@@ -68,7 +68,7 @@ export const useListChildren = Flux.createList<
 });
 
 export type RetrieveParentQuery = {
-  id: ontology.ID;
+  id: resource.ID;
 };
 
 export const { use: useParent, useResult: useResultParent } = Flux.createRetrieve<
@@ -143,7 +143,7 @@ export const useCreateForm = Flux.createForm<null, typeof createFormSchema>({
     });
     await Label.setLabelsFor({
       client,
-      data: { id: rng.ontologyID, labels: value.labels },
+      data: { id: rng.resourceID, labels: value.labels },
     });
     reset({
       ...value,
@@ -176,7 +176,7 @@ export const useForm = Flux.createDocumentForm<
 });
 
 export const useLabels = (key: ranger.Key | null): label.Label[] | undefined =>
-  Label.useResultLabelsOf(key == null ? null : { id: ranger.ontologyID(key) }).data;
+  Label.useResultLabelsOf(key == null ? null : { id: ranger.resourceID(key) }).data;
 
 export { type ListQuery } from "@/ranger/aether/queries";
 

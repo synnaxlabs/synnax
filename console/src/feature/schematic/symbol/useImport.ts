@@ -28,7 +28,7 @@ export const useImport = (): ((parentGroup: group.Key) => void) => {
         multiple: true,
       });
       if (files == null) return;
-      const parent = group.ontologyID(parentGroup);
+      const parent = group.resourceID(parentGroup);
       await importBatch({
         items: files.map((file) => ({ name: file.path, read: file.read })),
         // The created ID is swallowed: symbols live in the symbol tree, not tabs.
