@@ -20,3 +20,28 @@ export const UNLICENSED_STATUS: connection.Status = {
     error: new MissingLicenseError(license.STATE_MESSAGES.missing),
   },
 };
+
+/** A connection from a client 0.61.0 to a Core 0.60.1. */
+export const INCOMPATIBLE_STATUS: connection.Status = {
+  ...connection.DEFAULT_STATUS,
+  variant: "success",
+  message: "Connected",
+  details: {
+    ...connection.DEFAULT_STATUS.details,
+    authenticated: true,
+    clientVersion: "0.61.0",
+    nodeVersion: "0.60.1",
+    clientServerCompatible: false,
+  },
+};
+
+/** An unlicensed Core 0.60.1, as a check from a client 0.61.0 reports it. */
+export const INCOMPATIBLE_UNLICENSED_STATUS: connection.Status = {
+  ...UNLICENSED_STATUS,
+  details: {
+    ...UNLICENSED_STATUS.details,
+    clientVersion: "0.61.0",
+    nodeVersion: "0.60.1",
+    clientServerCompatible: false,
+  },
+};

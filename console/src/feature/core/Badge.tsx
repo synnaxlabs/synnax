@@ -129,11 +129,6 @@ const Content = (): ReactElement => {
             {`Core v${details.nodeVersion}`}
           </Text.Text>
         )}
-        {details.nodeVersion != null && !details.clientServerCompatible && (
-          <Text.Text level="small" status="warning">
-            {`Incompatible with client v${details.clientVersion}`}
-          </Text.Text>
-        )}
         {details.nodeVersion != null && <License.Summary />}
         {details.clockSkewExceeded && (
           <Text.Text level="small" status="warning">
