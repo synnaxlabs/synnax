@@ -50,12 +50,13 @@ const (
 	KindVariable Kind = versions.KindVariable
 	// KindNumericConstant constrains a type parameter to any numeric type.
 	KindNumericConstant Kind = versions.KindNumericConstant
-	// KindIntegerConstant constrains a type parameter to any integer type.
+	// KindIntegerConstant constrains a type parameter to an integer literal, which can
+	// resolve to any numeric type.
 	KindIntegerConstant Kind = versions.KindIntegerConstant
 	// KindFloatConstant constrains a type parameter to any floating-point type.
 	KindFloatConstant Kind = versions.KindFloatConstant
-	// KindExactIntegerFloatConstant constrains a type parameter to float literals that
-	// hold exact integers.
+	// KindExactIntegerFloatConstant constrains a type parameter to a float literal that
+	// holds an exact integer, which can resolve to any numeric type.
 	KindExactIntegerFloatConstant Kind = versions.KindExactIntegerFloatConstant
 	// KindFunction is a function type.
 	KindFunction Kind = versions.KindFunction
