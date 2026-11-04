@@ -99,6 +99,7 @@ import {
   MdBorderColor,
   MdCalculate,
   MdCalendarToday,
+  MdCode,
   MdComment,
   MdCommit,
   MdComputer,
@@ -167,6 +168,8 @@ import {
   MdRotateRight,
   MdSaveAlt,
   MdSensors,
+  MdSettingsEthernet,
+  MdSettingsInputSvideo,
   MdShield,
   MdSquare,
   MdSquareFoot,
@@ -187,6 +190,7 @@ import {
   PiFileCsv,
   PiMagnifyingGlassBold,
   PiSelectionPlusBold,
+  PiTreeViewBold,
   PiUploadSimple,
   PiWaveSawtoothBold,
   PiWaveSineBold,
@@ -202,7 +206,9 @@ import {
 } from "react-icons/ri";
 import { RxComponentBoolean, RxReset } from "react-icons/rx";
 import {
+  SiApachekafka,
   SiCplusplus,
+  SiMqtt,
   SiNpm,
   SiPagerduty,
   SiPnpm,
@@ -258,6 +264,7 @@ import { Fitting } from "@/icon/Fitting";
 import { type IconProps, type ReactElement, wrapSVGIcon } from "@/icon/Icon";
 import { LabJack } from "@/icon/LabJack";
 import { Modbus } from "@/icon/Modbus";
+import { New } from "@/icon/New";
 import { NI } from "@/icon/NI";
 import { OPCUA } from "@/icon/OPCUA";
 import { Process } from "@/icon/Process";
@@ -367,6 +374,7 @@ export const NPM = wrapSVGIcon(SiNpm, "npm");
 export const PNPM = wrapSVGIcon(SiPnpm, "pnpm");
 export const Yarn = wrapSVGIcon(SiYarn, "yarn");
 export const QuestionMark = wrapSVGIcon(MdQuestionMark, "question-mark");
+export const Code = wrapSVGIcon(MdCode, "code");
 export const Menu = wrapSVGIcon(GiHamburgerMenu, "menu");
 export const Sidebar = wrapSVGIcon(TbLayoutSidebar, "sidebar");
 export const Logo = {
@@ -377,6 +385,7 @@ export const Logo = {
   LinkedIn: wrapSVGIcon(AiFillLinkedin, "logo-linkedin"),
   Linux: wrapSVGIcon(FaLinux, "logo-linux"),
   Modbus,
+  MQTT: wrapSVGIcon(SiMqtt, "logo-mqtt"),
   NI,
   OPCUA,
   PagerDuty: wrapSVGIcon(SiPagerduty, "logo-pagerduty"),
@@ -384,6 +393,7 @@ export const Logo = {
   EtherCAT,
   // Crops the view box to the mark, which fills only a thin strip of the original.
   HTTP: wrapSVGIcon((props) => <MdHttp {...props} viewBox="1 9 22 6" />, "logo-http"),
+  Kafka: wrapSVGIcon(SiApachekafka, "logo-kafka"),
 };
 export const Arrow = {
   Right: wrapSVGIcon(TbArrowRight, "arrow-right"),
@@ -425,6 +435,7 @@ export const Rename = wrapSVGIcon(BiRename, "rename");
 export const Snapshot = wrapSVGIcon(MdPictureInPicture, "snapshot");
 export const Sync = wrapSVGIcon(AiOutlineSync, "sync");
 export const Search = wrapSVGIcon(PiMagnifyingGlassBold, "search");
+export const TreeView = wrapSVGIcon(PiTreeViewBold, "tree-view");
 export const Auto = wrapSVGIcon(MdAutoAwesome, "auto");
 export const Table = wrapSVGIcon(FiTable, "table");
 export const Insert = {
@@ -465,6 +476,8 @@ export const TextAlign = {
 export const Connect = wrapSVGIcon(TbPlugConnected, "connect");
 export const Disconnect = wrapSVGIcon(TbPlugConnectedX, "disconnect");
 export const Hardware = wrapSVGIcon(MdHardware, "hardware");
+export const Network = wrapSVGIcon(MdSettingsEthernet, "network");
+export const Serial = wrapSVGIcon(MdSettingsInputSvideo, "serial");
 export const Save = wrapSVGIcon(MdSaveAlt, "save");
 export const Database = wrapSVGIcon(TbDatabase, "database");
 export const DatabaseOff = wrapSVGIcon(TbDatabaseOff, "database-off");
@@ -631,6 +644,7 @@ const icons = {
   PNPM,
   Yarn,
   QuestionMark,
+  Code,
   Menu,
   Sidebar,
   Logo,
@@ -657,6 +671,8 @@ const icons = {
   Connect,
   Disconnect,
   Hardware,
+  Network,
+  Serial,
   Save,
   Database,
   DatabaseOff,
@@ -719,6 +735,7 @@ const icons = {
   Map,
   Linear,
   None,
+  New,
   Constant,
   Terminal,
   TerminalOutline,

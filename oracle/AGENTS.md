@@ -130,7 +130,8 @@ not, whether the schema itself can tell.
   client forgets a rule, but cannot forget a shape.
 - **`X?`**: the field applies only in some cases, and the deciding fact is outside the
   message, such as a channel data type. No schema can settle it, so absence is the
-  honest encoding.
+  honest encoding. On the wire, an absent field is left out of the JSON, never sent as
+  `null`.
 
 Never fake absence with a value. No `none` enum member, no empty string meaning "not
 applicable". A sentinel claims the question was answered when it was not, and it makes
@@ -146,6 +147,19 @@ a declared enum already names the same set, borrow it:
 every language, the variant constants are the enum's members, and no `<Union>Type` is
 emitted. The enum must be a string enum whose values are exactly the variant names; the
 analyzer rejects a variant without a member and a member without a variant.
+
+## Union bases
+
+When a union extends one base struct and every variant inherits it, Oracle generates
+accessors for the base: `Base()` and `SetBase(b)` on the Go wrapper, and a read-only
+`base(const U&)` in the C++ namespace. Never write these by hand. A union with no base,
+with two or more bases, or with a variant that drops a base field (`-port`) gets none.
+
+- `Base()` returns the zero base when `Variant` is nil. A nil variant is valid decoded
+  input (`null`), and readers such as validators must not crash on it.
+- `SetBase` panics when `Variant` is nil. There is no variant to hold the base, and a
+  dropped write would lose data with no error.
+- C++ has no nil case, because a `std::variant` always holds an alternative.
 
 ## Default groups
 

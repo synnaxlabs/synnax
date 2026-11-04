@@ -165,7 +165,9 @@ const fetchMode = async (fetch: Options["fetch"]): Promise<Mode> => {
  * Starts PostHog. A visitor who has not answered sees the card in Europe, and gets
  * cookies everywhere else. Until they answer, and after they reject, PostHog counts
  * them without cookies. A `[data-consent]` element accepts, rejects, or opens the card.
- * PostHog never receives the query or fragment of a page URL.
+ * A click on a `[data-event]` element sends that event, with the element's
+ * `data-location` as its `location`. PostHog never receives the query or fragment of a
+ * page URL.
  */
 export const start = async ({
   posthog,
@@ -193,6 +195,15 @@ export const start = async ({
       posthog().opt_out_capturing();
       card.hidden = true;
     } else throw new Error(`unknown consent action: ${action}`);
+  });
+  document.addEventListener("click", (e) => {
+    if (!(e.target instanceof Element)) return;
+    const tracked = e.target.closest<HTMLElement>("[data-event]");
+    if (tracked == null) return;
+    const { event, location } = tracked.dataset;
+    if (event == null || location == null)
+      throw new Error("every [data-event] element needs a data-location");
+    posthog().capture(event, { location }, { transport: "sendBeacon" });
   });
   const init = (notice: boolean): void =>
     posthog().init(KEY, {

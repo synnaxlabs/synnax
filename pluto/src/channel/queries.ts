@@ -11,6 +11,7 @@ import { channel, DataType, type group, query, type ranger } from "@synnaxlabs/c
 import {
   array,
   control,
+  deep,
   type optional,
   primitive,
   TimeSpan,
@@ -47,6 +48,8 @@ export const formSchema = channel.payloadZ
     path: ["index"],
   });
 
+export const formPath = deep.path<z.infer<typeof formSchema>>();
+
 export const calculatedFormSchema = formSchema.safeExtend({
   expression: z
     .string()
@@ -55,6 +58,8 @@ export const calculatedFormSchema = formSchema.safeExtend({
       message: "Expression must contain a return statement",
     }),
 });
+
+export const calculatedFormPath = deep.path<z.infer<typeof calculatedFormSchema>>();
 
 const ZERO_OPERATION: channel.Operation = {
   type: "none",
@@ -154,7 +159,7 @@ const updateForm = async ({
   const values = value();
   if (values.requires != null) delete values.requires;
   const ch = await client.channels.create(values);
-  set("key", ch.key);
+  set(formPath.key, ch.key);
 };
 
 export type FormQuery = RetrieveQuery;
@@ -211,6 +216,17 @@ export const useList = Flux.createList<ListQuery, channel.Key, channel.Channel>(
   onChange: ({ client, query }, handler) => client.channels.onChange(query, handler),
   onChangeByKey: ({ client, key, query: { rangeKey } }, handler) =>
     client.channels.onChange({ key, rangeKey }, handler),
+  getCached: ({ client, query }) => client.channels.getCached(query),
+});
+
+export const { useResult: useResultList } = Flux.createRetrieve<
+  ListQuery,
+  channel.Channel[]
+>({
+  name: PLURAL_RESOURCE_NAME,
+  normalizeQuery: (query) => ({ ...DEFAULT_LIST_PARAMS, ...query }),
+  retrieve: async ({ client, query }) => await client.channels.retrieve(query),
+  onChange: ({ client, query }, handler) => client.channels.onChange(query, handler),
   getCached: ({ client, query }) => client.channels.getCached(query),
 });
 
@@ -283,7 +299,10 @@ export const { useUpdate: useDeleteAlias } = Flux.createUpdate<DeleteAliasParams
 
 type RetrieveGroupQuery = Record<string, never>;
 
-export const { use: useGroup } = Flux.createRetrieve<RetrieveGroupQuery, group.Group>({
+export const { use: useGroup, useResult: useResultGroup } = Flux.createRetrieve<
+  RetrieveGroupQuery,
+  group.Group
+>({
   name: "channel group",
   retrieve: async ({ client }) => await client.channels.retrieveGroup(),
 });

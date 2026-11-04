@@ -1437,9 +1437,9 @@ func ({{$s.Receiver}} {{$s.Name}}) Validate() error {
 {{- else if eq .Kind "non_zero"}}
 	v.NonZero("{{.FieldName}}", {{$val}})
 {{- else if eq .Kind "min_len"}}
-	v.Ternaryf("{{.FieldName}}", len({{$val}}) < {{.Arg}}, "must be at least {{.Arg}} characters long")
+	v.MinLength("{{.FieldName}}", {{$val}}, {{.Arg}})
 {{- else if eq .Kind "max_len"}}
-	v.Ternaryf("{{.FieldName}}", len({{$val}}) > {{.Arg}}, "must be at most {{.Arg}} characters long")
+	v.MaxLength("{{.FieldName}}", {{$val}}, {{.Arg}})
 {{- else if eq .Kind "ge"}}
 	v.GreaterThanEq("{{.FieldName}}", {{$val}}, {{.Arg}})
 {{- else if eq .Kind "le"}}
@@ -1587,9 +1587,9 @@ func ({{$vt.Receiver}} {{$vt.TypeName}}) Validate() error {
 {{- else if eq .Kind "non_zero"}}
 	v.NonZero("{{.FieldName}}", {{$val}})
 {{- else if eq .Kind "min_len"}}
-	v.Ternaryf("{{.FieldName}}", len({{$val}}) < {{.Arg}}, "must be at least {{.Arg}} characters long")
+	v.MinLength("{{.FieldName}}", {{$val}}, {{.Arg}})
 {{- else if eq .Kind "max_len"}}
-	v.Ternaryf("{{.FieldName}}", len({{$val}}) > {{.Arg}}, "must be at most {{.Arg}} characters long")
+	v.MaxLength("{{.FieldName}}", {{$val}}, {{.Arg}})
 {{- else if eq .Kind "ge"}}
 	v.GreaterThanEq("{{.FieldName}}", {{$val}}, {{.Arg}})
 {{- else if eq .Kind "le"}}
@@ -1661,17 +1661,22 @@ func (u *{{.Name}}) UnmarshalJSONFrom(dec *jsontext.Decoder) error {
 	var disc struct {
 		Type {{.DiscType}} ` + "`" + `json:"{{.DiscJSONName}}"` + "`" + `
 	}
-	if err := json.Unmarshal(data, &disc, opts); err != nil {
+	if err := json.Unmarshal(
+		data, &disc, opts, json.RejectUnknownMembers(false),
+	); err != nil {
 		return err
 	}
 	switch disc.Type {
 {{- range .Variants}}
 	case {{.ConstName}}:
-		var v {{.TypeName}}
+		var v struct {
+			Type {{$u.DiscType}} ` + "`" + `json:"{{$u.DiscJSONName}}"` + "`" + `
+			{{.TypeName}}
+		}
 		if err := json.Unmarshal(data, &v, opts); err != nil {
 			return err
 		}
-		u.Variant = v
+		u.Variant = v.{{.TypeName}}
 {{- end}}
 	default:
 		return errors.Newf("{{.Name}}: unknown {{.DiscJSONName}} %q", disc.Type)
@@ -1708,6 +1713,32 @@ func (u {{.Name}}) Validate() error {
 {{- end}}
 	}
 	return nil
+}
+{{- end}}
+{{- if .Base}}
+
+// Base returns the fields every variant shares, or the zero value if Variant is nil.
+func (u {{.Name}}) Base() {{.Base}} {
+	switch variant := u.Variant.(type) {
+{{- range .Variants}}
+	case {{.TypeName}}:
+		return variant.{{$u.BaseField}}
+{{- end}}
+	}
+	return {{.Base}}{}
+}
+
+// SetBase replaces the fields every variant shares. It panics if Variant is nil.
+func (u *{{.Name}}) SetBase(base {{.Base}}) {
+	switch variant := u.Variant.(type) {
+{{- range .Variants}}
+	case {{.TypeName}}:
+		variant.{{$u.BaseField}} = base
+		u.Variant = variant
+{{- end}}
+	default:
+		panic(errors.Newf("{{.Name}}: cannot set the base of variant %T", variant))
+	}
 }
 {{- end}}
 {{- end}}

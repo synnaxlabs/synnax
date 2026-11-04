@@ -89,6 +89,26 @@ var _ = Describe("C++ JSON Plugin", func() {
 			)
 		})
 
+		DescribeTable(
+			"Should start the JSON of a struct as an object",
+			func(ctx SpecContext, decls string) {
+				source := `
+				@cpp output "client/cpp/types"
+			` + decls
+				resp := MustGenerate(ctx, source, "types", loader, jsonPlugin)
+				ExpectContent(resp, "json.gen.h").
+					ToContain("x::json::json j = x::json::json::object();").
+					ToNotContain("x::json::json j;")
+			},
+			Entry("for a plain struct", "Unit struct {\n name string?\n}"),
+			Entry("for a generic struct", "Status struct<D> {\n details D?\n}"),
+			Entry(
+				"for a struct that extends another",
+				"Base struct {\n name string?\n}\n"+
+					"Unit struct extends Base {\n scale float64?\n}",
+			),
+		)
+
 		Context("array alias fields (e.g., Params -> Param[])", func() {
 			It(
 				"Should generate correct parsing for array alias fields",
@@ -657,6 +677,40 @@ var _ = Describe("C++ JSON Plugin", func() {
 							`parser.field<std::optional<double>>("ratio")`,
 							`parser.field<std::optional<bool>>("enabled")`,
 							`parser.field<std::optional<std::string>>("label")`,
+						)
+				},
+			)
+
+			It(
+				"Should leave empty optional fields out of the JSON",
+				func(ctx SpecContext) {
+					source := `
+					@cpp output "client/cpp/types"
+
+					Units enum {
+						volts = "Volts"
+						amps  = "Amps"
+					}
+
+					Settings struct {
+						key      uint32
+						count    uint32?
+						label    string?
+						units    Units?
+						data     record?
+						metadata map<string, string>?
+					}
+				`
+					resp := MustGenerate(ctx, source, "types", loader, jsonPlugin)
+
+					ExpectContent(resp, "json.gen.h").
+						ToContain(
+							"\n    j[\"key\"] = this->key;\n",
+							"\n    if (this->count.has_value()) j[\"count\"] = *this->count;\n",
+							"\n    if (this->label.has_value()) j[\"label\"] = *this->label;\n",
+							"\n    if (this->units.has_value()) j[\"units\"] = *this->units;\n",
+							"\n    if (this->data.has_value()) j[\"data\"] = *this->data;\n",
+							"\n    if (this->metadata.has_value()) j[\"metadata\"] = *this->metadata;\n",
 						)
 				},
 			)

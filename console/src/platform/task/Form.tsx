@@ -13,7 +13,6 @@ import {
   type device,
   DisconnectedError,
   type rack,
-  type status,
   type Synnax,
   task,
 } from "@synnaxlabs/client";
@@ -22,8 +21,8 @@ import { Form as PForm } from "@synnaxlabs/lyra/form";
 import { Input } from "@synnaxlabs/lyra/input";
 import { Status } from "@synnaxlabs/lyra/status";
 import { Access, Synnax as PSynnax, Task as PTask } from "@synnaxlabs/pluto";
-import { deep, primitive, TimeSpan } from "@synnaxlabs/x";
-import { type FC } from "react";
+import { deep, primitive } from "@synnaxlabs/x";
+import { type FC, useRef } from "react";
 import { type z } from "zod";
 
 import { Analytics } from "@/platform/analytics";
@@ -32,7 +31,7 @@ import { Errors } from "@/platform/errors";
 import { Controls } from "@/platform/task/controls";
 import { ParentRangeButton } from "@/platform/task/ParentRangeButton";
 import { Rack } from "@/platform/task/Rack";
-import { useStatus } from "@/platform/task/useStatus";
+import { formPath } from "@/platform/task/types";
 import { UtilityButtons } from "@/platform/task/UtilityButtons";
 
 export interface OnConfigure<Config extends z.ZodType = z.ZodType> {
@@ -65,31 +64,18 @@ export interface WrapFormParams<S extends task.Schemas = task.Schemas> {
   onConfigure: OnConfigure<S["config"]>;
   schemas: S;
   /**
-   * Validates the config when the user deploys. Failures render as field
-   * errors and block the start command; warning-variant issues render but
-   * don't block. Shape schemas stay lax so drafts persist through autosave.
+   * Checks the config from the first deploy on, as a check the form runs on every edit.
+   * A deploy starts only when no field shows an error, so a warning never blocks one.
+   * Keep the shape schemas lax: a field whose value fails its shape schema stays unsent.
    */
   deployConfigZ: z.ZodType;
-  getInitialValues: GetInitialValues<S>;
   showHeader?: boolean;
   showControls?: boolean;
 }
 
-export const useIsRunning = <Schema extends z.ZodType>(
-  ctx?: PForm.ContextValue<Schema>,
-) => useStatus(ctx).details.running;
-
 export const useIsSnapshot = <Schema extends z.ZodType>(
   ctx?: PForm.ContextValue<Schema>,
-) => PForm.useFieldValue<boolean>("snapshot", { ctx });
-
-/**
- * Whether the surrounding task form renders read-only: the task is a snapshot or the
- * subject holds no update grant. Edit affordances gate on this, not on useIsSnapshot.
- */
-export const useIsPreview = <Schema extends z.ZodType>(
-  ctx?: PForm.ContextValue<Schema>,
-) => PForm.useContext<Schema>(ctx).mode === "preview";
+) => PForm.useFieldValue(formPath.snapshot, { ctx });
 
 interface HeaderProps {
   isSnapshot: boolean;
@@ -97,8 +83,13 @@ interface HeaderProps {
 
 const Header = ({ isSnapshot }: HeaderProps) => (
   <>
-    <Flex.Box x justify="between">
-      <PForm.Field<string> path="name" showLabel={false}>
+    <div className={CSS.BE("task-configure", "header")}>
+      <PForm.Field
+        path={formPath.name}
+        showLabel={false}
+        padHelpText={false}
+        className={CSS.BE("task-configure", "name")}
+      >
         {(p) => (
           <Input.Text
             variant="text"
@@ -109,22 +100,16 @@ const Header = ({ isSnapshot }: HeaderProps) => (
           />
         )}
       </PForm.Field>
-      <Flex.Box align="end" gap="small">
-        <UtilityButtons />
+      <div className={CSS.BE("task-configure", "rack")}>
         <Rack />
-      </Flex.Box>
-    </Flex.Box>
+      </div>
+      <div className={CSS.BE("task-configure", "actions")}>
+        <UtilityButtons />
+      </div>
+    </div>
     {!isSnapshot && <ParentRangeButton />}
   </>
 );
-
-// Numeric fields have drag handles that emit a change per pixel.
-const AUTO_SAVE_DEBOUNCE = TimeSpan.milliseconds(200);
-
-const issueVariant = (issue: z.core.$ZodIssue): status.Variant =>
-  issue.code === "custom" && issue.params != null && "variant" in issue.params
-    ? (issue.params.variant as status.Variant)
-    : "error";
 
 export const wrapForm = <S extends task.Schemas = task.Schemas>({
   Properties,
@@ -132,54 +117,59 @@ export const wrapForm = <S extends task.Schemas = task.Schemas>({
   schemas,
   type,
   deployConfigZ,
-  getInitialValues,
   onConfigure,
   showHeader = true,
   showControls = true,
 }: WrapFormParams<S>): FC<FormTabProps> => {
-  const useForm = PTask.createForm({ schemas, initialValues: getInitialValues({}) });
+  const useForm = PTask.createForm({ schemas });
   const Wrapped: FC<FormTabProps> = ({ taskKey }) => {
     const client = PSynnax.use();
     const handleError = Status.useErrorHandler();
     const { capture } = Analytics.use();
-    const { form, saveAsync } = useForm({
-      query: { key: taskKey },
-      autoSave: true,
-      autoSaveDebounce: AUTO_SAVE_DEBOUNCE,
-    });
+    const { form, flush } = useForm({ query: { key: taskKey } });
 
     // The form saves on every edit, so a subject who cannot write the task gets it
     // read-only rather than fields that revert once the save is refused.
     const canEdit = Access.useUpdateGranted(task.ontologyID(taskKey));
 
+    const deployChecked = useRef(false);
+
     const handleDeploy = () => {
       handleError(async () => {
         if (client == null) throw new DisconnectedError();
         if (canEdit) {
-          const { config, name } = form.value();
-          form.clearStatuses();
-          const result = deployConfigZ.safeParse(config);
-          if (!result.success) {
-            let blocked = false;
-            result.error.issues.forEach((issue) => {
-              const variant = issueVariant(issue);
-              if (variant !== "warning") blocked = true;
-              // Fields address array items by their key, not by their index.
-              const path = deep.resolvePath(
-                ["config", ...issue.path].join("."),
-                form.value(),
-              );
-              form.setStatus(path, { key: path, variant, message: issue.message });
-            });
-            if (blocked) return;
+          if (!(await flush())) return;
+          if (!deployChecked.current) {
+            form.addCheck(formPath.config, deployConfigZ);
+            deployChecked.current = true;
           }
-          const [newConfig, newRack] = await onConfigure(client, config, name);
-          // Tracked sets, so the result of a save still in flight cannot revert them.
-          form.set("config", newConfig);
-          if (primitive.isNonZero(newRack)) form.set("rack", newRack);
-          if (!(await saveAsync())) return;
+          await form.validateAsync();
+          if (form.getStatuses().some(({ variant }) => variant === "error")) return;
+          const { config, name, rack } = form.value();
+          // The form's values are the cached task, and onConfigure changes its config.
+          const [newConfig, newRack] = await onConfigure(
+            client,
+            deep.copy(config),
+            name,
+          );
+          // Another client can edit the task while onConfigure runs, so only the
+          // values onConfigure changed are written.
+          form.batch(() => {
+            PForm.setChanged(form, formPath.config, config, newConfig);
+            if (primitive.isNonZero(newRack))
+              PForm.setChanged(form, formPath.rack, rack, newRack);
+          });
+          if (!(await flush())) return;
+          await client.tasks.settled(taskKey);
         }
-        await client.tasks.executeCommand({ task: taskKey, type: "start" });
+        // A pinned start runs only the config this form shows. The Driver refuses it
+        // when another client changed the config since.
+        await client.tasks.executeCommand({
+          task: taskKey,
+          type: "start",
+          configHash: form.value().configHash,
+          pinned: true,
+        });
         capture("task_started", { type });
       }, "Failed to start task");
     };

@@ -12,8 +12,7 @@
     "console/src/feature/arc/editor/SelectPerformance.css": [
       "lyra--visible",
       "lyra-icon",
-      "lyra-select__dialog",
-      "lyra-select__label"
+      "lyra-select__dialog"
     ],
     "console/src/feature/arc/editor/TaskControls.css": ["lyra-btn", "pluto-editor"],
     "console/src/feature/arc/editor/toolbar/graph/Toolbar.css": [
@@ -27,9 +26,6 @@
     "console/src/feature/core/Badge.css": ["lyra-btn"],
     "console/src/feature/embedded/Guard.css": ["lyra-orbital"],
     "console/src/feature/http/device/Connect.css": [
-      "lyra--direction-y",
-      "lyra-form-sections",
-      "lyra-input__switch",
       "lyra-tabs__content",
       "lyra-tabs__selector"
     ],
@@ -39,10 +35,6 @@
     "console/src/feature/ni/task/DigitalChannelList.css": [
       "lyra--selected",
       "lyra-list__item"
-    ],
-    "console/src/feature/opcua/device/Connect.css": [
-      "lyra--direction-y",
-      "lyra-form-sections"
     ],
     "console/src/feature/opcua/task/Task.css": ["lyra-header"],
     "console/src/feature/panel/Mosaic.css": [
@@ -138,7 +130,7 @@
       "lyra-list__item",
       "lyra-orbital__stage"
     ],
-    "console/src/platform/task/Form.css": ["lyra-header", "lyra-list__scroll"],
+    "console/src/platform/task/Form.css": ["lyra-header"],
     "console/src/platform/task/views/GroupTree.css": [
       "lyra--selected",
       "lyra-btn",

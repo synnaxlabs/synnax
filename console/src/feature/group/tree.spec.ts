@@ -14,8 +14,7 @@ import { fireEvent, screen, waitFor } from "@testing-library/react";
 import { describe, expect, it } from "vitest";
 
 import { Group } from "@/feature/group";
-import { renderTreeContextMenu } from "@/platform/tree/menuTestutil";
-import { createResource } from "@/platform/tree/testutil";
+import { createResource, renderTreeContextMenu } from "@/platform/tree/testutil";
 import { assertDefined, uniqueName } from "@/testutil";
 
 const client = createTestClient();
@@ -94,6 +93,78 @@ describe("group ontology service", () => {
       const children = await client.ontology.children.retrieve({ ids: parentID });
       expect(children.some((r) => r.name === grandchild.name)).toBe(true);
       expect(children.some((r) => r.name === child.name)).toBe(false);
+    });
+  });
+
+  it("should move every child of an ungrouped group, not only the shown ones", async () => {
+    const parent = await createGroup(ontology.ROOT_ID);
+    const child = await createGroup(group.ontologyID(parent.key));
+    const shown = await createGroup(group.ontologyID(child.key));
+    const unshown = await createGroup(group.ontologyID(child.key));
+    const parentID = group.ontologyID(parent.key);
+    const childID = group.ontologyID(child.key);
+    const [parentKey, childKey, shownKey] = [
+      parentID,
+      childID,
+      group.ontologyID(shown.key),
+    ].map((id) => ontology.idToString(id));
+    // A search in the groups layout shows only the matching children.
+    const nodes: PTree.Node<string>[] = [
+      { key: parentKey, children: [{ key: childKey, children: [{ key: shownKey }] }] },
+    ];
+    const shape = PTree.flatten({ nodes, expanded: [parentKey, childKey] });
+    assertDefined(Item.ContextMenu);
+    await renderTreeContextMenu(Item.ContextMenu, {
+      client,
+      resources: [
+        groupResource(parent.key, parent.name),
+        groupResource(child.key, child.name),
+        groupResource(shown.key, shown.name),
+      ],
+      selected: [childID],
+      parentID,
+      stateOverrides: { nodes, shape },
+    });
+    fireEvent.click(await screen.findByText("Ungroup"));
+    await waitFor(async () => {
+      const children = await client.ontology.children.retrieve({ ids: parentID });
+      expect(children.map((r) => r.name).sort()).toEqual(
+        [shown.name, unshown.name].sort(),
+      );
+    });
+  });
+
+  it("should ungroup a nested group shown at the top of flat search results", async () => {
+    const root = await createGroup(ontology.ROOT_ID);
+    const parent = await createGroup(group.ontologyID(root.key));
+    const child = await createGroup(group.ontologyID(parent.key));
+    const grandchild = await createGroup(group.ontologyID(child.key));
+    const parentID = group.ontologyID(parent.key);
+    const childID = group.ontologyID(child.key);
+    const [childKey, grandchildKey] = [childID, group.ontologyID(grandchild.key)].map(
+      (id) => ontology.idToString(id),
+    );
+    // Flat results show the match at the top, without its real parent.
+    const nodes: PTree.Node<string>[] = [
+      { key: childKey, children: [{ key: grandchildKey }] },
+    ];
+    const shape = PTree.flatten({ nodes, expanded: [childKey] });
+    assertDefined(Item.ContextMenu);
+    await renderTreeContextMenu(Item.ContextMenu, {
+      client,
+      resources: [
+        groupResource(child.key, child.name),
+        groupResource(grandchild.key, grandchild.name),
+      ],
+      selected: [childID],
+      rootID: group.ontologyID(root.key),
+      parentID,
+      stateOverrides: { nodes, shape },
+    });
+    fireEvent.click(await screen.findByText("Ungroup"));
+    await waitFor(async () => {
+      const children = await client.ontology.children.retrieve({ ids: parentID });
+      expect(children.map((r) => r.name)).toEqual([grandchild.name]);
     });
   });
 

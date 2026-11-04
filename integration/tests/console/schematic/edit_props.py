@@ -9,8 +9,7 @@
 
 import synnax as sy
 from console.case import ConsoleCase
-from console.schematic import Button, Symbol, Value
-from console.schematic.schematic import PropertyDict, Schematic
+from console.schematic import Button, PropertyDict, Schematic, Symbol, Value
 
 CHANNEL_NAME = "button_cmd"
 INDEX_NAME = "button_idx"
@@ -108,7 +107,7 @@ class EditProps(ConsoleCase):
         assert schematic.get_control_status() is True, (
             "Control status mismatch! Expected: True"
         )
-        assert schematic.control_legend_visible is True, (
+        assert schematic.control_legend_visible() is True, (
             "Control legend should be visible"
         )
 
@@ -123,7 +122,7 @@ class EditProps(ConsoleCase):
         )
         schematic.set_properties(show_control_legend=False)
         schematic.acquire_control()
-        assert schematic.control_legend_visible is False, (
+        assert schematic.control_legend_visible() is False, (
             "Control legend should not be visible"
         )
 

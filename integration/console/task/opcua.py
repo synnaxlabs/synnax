@@ -13,11 +13,13 @@ import re
 
 from playwright.sync_api import Locator, expect
 
+from console.page import PageType
 from console.task_page import TaskPage
 
 SERVER_FIELD_LABEL = "OPC UA server"
 _BROWSER_SELECTOR = ".console-opc-browser"
 _BROWSER_LOADING_SELECTOR = ".console-opc-browser__loading-icon"
+_BROWSER_FILTER_PLACEHOLDER = "Filter, or enter a node ID"
 
 
 class OPCUATask(TaskPage):
@@ -65,11 +67,16 @@ class OPCUATask(TaskPage):
         """
         channel_list = self._channel_list()
         channel_list.wait_for(state="visible", timeout=5000)
+        search = self._browser().get_by_placeholder(_BROWSER_FILTER_PLACEHOLDER)
         for name in node_names:
+            # The Browser renders only the rows in view, so a filter brings each node
+            # into view.
+            search.fill(name)
             node = self._node(name)
             node.wait_for(state="visible", timeout=15000)
             self.layout.drag(node, channel_list)
             self._channel_row(name).first.wait_for(state="visible", timeout=5000)
+        search.fill("")
 
     def disable_channel(self, node_name: str) -> None:
         """Disable a listed channel via its context menu."""
@@ -83,12 +90,12 @@ class OPCUATask(TaskPage):
 class OPCUARead(OPCUATask):
     """OPC UA read task page."""
 
-    page_type = "OPC UA read task"
+    page_type: PageType = "OPC UA read task"
     pluto_label: str = ".console-task-configure--opc_read"
 
 
 class OPCUAWrite(OPCUATask):
     """OPC UA write task page."""
 
-    page_type = "OPC UA write task"
+    page_type: PageType = "OPC UA write task"
     pluto_label: str = ".console-task-configure--opc_write"

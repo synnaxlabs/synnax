@@ -7,6 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
+#include <algorithm>
 #include <filesystem>
 #include <fstream>
 #include <string>
@@ -183,6 +184,7 @@ TEST_F(TestScanTask, testBasicScan) {
     bool found_uint16 = false;
     bool found_float = false;
     bool found_double = false;
+    bool found_double_array = false;
 
     for (const auto &ch: channels) {
         ASSERT_TRUE(ch.contains("name"));
@@ -193,7 +195,7 @@ TEST_F(TestScanTask, testBasicScan) {
         const auto name = ch["name"].get<std::string>();
         if (name == "TestBoolean") {
             found_boolean = true;
-            EXPECT_EQ(ch["data_type"], "uint8");
+            EXPECT_EQ(ch["data_type"], "boolean");
             EXPECT_EQ(ch["node_class"], "Variable");
         } else if (name == "TestUInt16") {
             found_uint16 = true;
@@ -207,6 +209,11 @@ TEST_F(TestScanTask, testBasicScan) {
             found_double = true;
             EXPECT_EQ(ch["data_type"], "float64");
             EXPECT_EQ(ch["node_class"], "Variable");
+            EXPECT_FALSE(ch["is_array"].get<bool>());
+        } else if (name == "TestDoubleArray") {
+            found_double_array = true;
+            EXPECT_EQ(ch["data_type"], "float64");
+            EXPECT_TRUE(ch["is_array"].get<bool>());
         }
     }
 
@@ -214,6 +221,7 @@ TEST_F(TestScanTask, testBasicScan) {
     EXPECT_TRUE(found_uint16);
     EXPECT_TRUE(found_float);
     EXPECT_TRUE(found_double);
+    EXPECT_TRUE(found_double_array);
 }
 
 /// @brief it should reuse pooled connections for multiple scans.
@@ -333,6 +341,129 @@ TEST_F(TestScanTask, testInvalidConnection) {
     EXPECT_EQ(state.message, "Failed to connect to server");
 }
 
+/// @returns a command of type for the server at endpoint.
+synnax::task::Command
+command(const std::string &type, const std::string &endpoint, x::json::json args = {}) {
+    connection::Config conn_cfg;
+    conn_cfg.endpoint = endpoint;
+    args["connection"] = testutil::connection_json(conn_cfg);
+    return {.type = type, .key = type + "_cmd", .args = args};
+}
+
+/// @brief it should browse from a node ID with no namespace, and print node IDs with
+/// the URI of their namespace.
+TEST_F(TestScanTask, testBrowsePrintsNamespaceURIs) {
+    Scanner scanner(ctx, task, conn_pool, store);
+    auto cmd = command(
+        BROWSE_CMD_TYPE,
+        "opc.tcp://localhost:4840",
+        {{"node_id", "i=85"}}
+    );
+    ASSERT_TRUE(scanner.exec(cmd, task, ctx));
+    ASSERT_EQ(ctx->statuses.size(), 1);
+    const auto &state = ctx->statuses[0];
+    ASSERT_EQ(state.variant, synnax::status::VARIANT_SUCCESS) << state.description;
+    const x::json::json data = state.details.data.value();
+    EXPECT_FALSE(data.at("truncated").get<bool>());
+    const auto &channels = data.at("channels");
+    const auto it = std::ranges::find_if(channels, [](const auto &ch) {
+        return ch["name"] == "TestBoolean";
+    });
+    ASSERT_NE(it, channels.end());
+    EXPECT_EQ((*it)["node_id"], "nsu=urn:open62541.server.application;s=TestBoolean");
+}
+
+/// @brief it should print the URI of a namespace that the server added after the
+/// connection opened.
+TEST_F(TestScanTask, testBrowsePrintsNamespaceAddedAfterConnect) {
+    Scanner scanner(ctx, task, conn_pool, store);
+    auto cmd = command(
+        BROWSE_CMD_TYPE,
+        "opc.tcp://localhost:4840",
+        {{"node_id", "i=85"}}
+    );
+    ASSERT_TRUE(scanner.exec(cmd, task, ctx));
+    UA_Float value = 5.0f;
+    UA_Variant variant;
+    UA_Variant_setScalar(&variant, &value, &UA_TYPES[UA_TYPES_FLOAT]);
+    server->add_namespace(
+        "urn:late",
+        {{0, "Late", &UA_TYPES[UA_TYPES_FLOAT], variant, "Late"}}
+    );
+    ASSERT_TRUE(scanner.exec(cmd, task, ctx));
+    ASSERT_EQ(ctx->statuses.size(), 2);
+    const auto &state = ctx->statuses[1];
+    ASSERT_EQ(state.variant, synnax::status::VARIANT_SUCCESS) << state.description;
+    const auto channels = x::json::json(state.details.data.value()).at("channels");
+    const auto it = std::ranges::find_if(channels, [](const auto &ch) {
+        return ch["name"] == "Late";
+    });
+    ASSERT_NE(it, channels.end());
+    EXPECT_EQ((*it)["node_id"], "nsu=urn:late;s=Late");
+    EXPECT_EQ(conn_pool->size(), 1);
+}
+
+/// @brief it should fail to browse from a node in a namespace that the server lacks.
+TEST_F(TestScanTask, testBrowseUnknownNamespace) {
+    Scanner scanner(ctx, task, conn_pool, store);
+    auto cmd = command(
+        BROWSE_CMD_TYPE,
+        "opc.tcp://localhost:4840",
+        {{"node_id", "nsu=urn:missing;i=85"}}
+    );
+    ASSERT_TRUE(scanner.exec(cmd, task, ctx));
+    ASSERT_EQ(ctx->statuses.size(), 1);
+    const auto &state = ctx->statuses[0];
+    EXPECT_EQ(state.variant, synnax::status::VARIANT_ERROR);
+    EXPECT_EQ(state.message, "Failed to browse nodes");
+    EXPECT_EQ(state.description, "The server has no namespace urn:missing.");
+}
+
+/// @brief it should list the endpoints of a server without opening a Session, and close
+/// its channel.
+TEST_F(TestScanTask, testGetEndpoints) {
+    const auto server_id = ASSERT_NIL_P(testutil::create_server_identity());
+    start_secured_server(server_id);
+    Scanner scanner(ctx, task, conn_pool, store);
+    auto cmd = command(GET_ENDPOINTS_CMD_TYPE, "opc.tcp://localhost:4871");
+    ASSERT_TRUE(scanner.exec(cmd, task, ctx));
+    ASSERT_EQ(ctx->statuses.size(), 1);
+    const auto &state = ctx->statuses[0];
+    ASSERT_EQ(state.variant, synnax::status::VARIANT_SUCCESS) << state.description;
+    EXPECT_EQ(state.message, "Received endpoints");
+    const auto endpoints = x::json::json(state.details.data.value()).at("endpoints");
+    const auto find = [&](const std::string &mode, const std::string &policy) {
+        return std::ranges::find_if(endpoints, [&](const auto &e) {
+            return e["security_mode"] == mode && e["security_policy"] == policy;
+        });
+    };
+    const auto none = find("None", "None");
+    ASSERT_NE(none, endpoints.end());
+    EXPECT_FALSE((*none)["url"].get<std::string>().empty());
+    const auto tokens = (*none)["user_token_types"].get<std::vector<std::string>>();
+    EXPECT_NE(std::ranges::find(tokens, "anonymous"), tokens.end());
+    const auto secured = find("SignAndEncrypt", "Basic256Sha256");
+    ASSERT_NE(secured, endpoints.end());
+    EXPECT_GT(
+        (*secured)["security_level"].get<int>(),
+        (*none)["security_level"].get<int>()
+    );
+    EXPECT_NE(find("Sign", "Basic256Sha256"), endpoints.end());
+    EXPECT_EQ(conn_pool->size(), 0);
+    EXPECT_EQ(secured_server->sessions_created.load(), 0);
+    ASSERT_EVENTUALLY_EQ(secured_server->channels.load(), 0);
+}
+
+/// @brief it should fail to list the endpoints of a server that does not answer.
+TEST_F(TestScanTask, testGetEndpointsUnreachable) {
+    Scanner scanner(ctx, task, conn_pool, store);
+    auto cmd = command(GET_ENDPOINTS_CMD_TYPE, "opc.tcp://localhost:9999");
+    ASSERT_TRUE(scanner.exec(cmd, task, ctx));
+    ASSERT_EQ(ctx->statuses.size(), 1);
+    EXPECT_EQ(ctx->statuses[0].variant, synnax::status::VARIANT_ERROR);
+    EXPECT_EQ(ctx->statuses[0].message, "Failed to get endpoints");
+}
+
 /// @brief Tests that Scanner::config() returns correct values.
 TEST_F(TestScanTask, testConfigReturnsCorrectValues) {
     const Scanner scanner(ctx, task, conn_pool, store);
@@ -376,6 +507,53 @@ TEST_F(TestScanTask, testScanChecksDeviceHealth) {
     ASSERT_EQ(devices.size(), 1);
     EXPECT_EQ(devices[0].status.value().variant, synnax::status::VARIANT_SUCCESS);
     EXPECT_EQ(devices[0].status.value().message, "Server connected");
+}
+
+/// @brief it should not open a session of its own when a task received a reply from the
+/// server since the last check, and open one when no task did.
+TEST_F(TestScanTask, testHealthCheckRidesTaskSession) {
+    Scanner scanner(ctx, task, conn_pool, store);
+    connection::Config cfg;
+    cfg.endpoint = "opc.tcp://localhost:4840";
+    synnax::device::Device dev;
+    dev.key = "ride-device";
+    dev.name = "Ride Device";
+    dev.make = "opc";
+    dev.rack = rack.key;
+    dev.properties = x::json::json{
+        {"connection", testutil::connection_json(cfg)},
+        {"channels", x::json::json::array()}
+    };
+    const auto task_conn = ASSERT_NIL_P(conn_pool->acquire(cfg, "[test] "));
+    const auto first = this->scan(scanner, dev);
+    EXPECT_EQ(first[0].status.value().message, "Server connected");
+    EXPECT_EQ(conn_pool->size(), 1);
+    const auto second = this->scan(scanner, dev);
+    EXPECT_EQ(second[0].status.value().message, "Server connected");
+    EXPECT_EQ(conn_pool->size(), 2);
+}
+
+/// @brief it should probe the server on each scan when no task gets replies, so the
+/// reply to its own probe does not hide an outage on the next scan.
+TEST_F(TestScanTask, testHealthCheckProbesEachScan) {
+    Scanner scanner(ctx, task, conn_pool, store);
+    connection::Config cfg;
+    cfg.endpoint = "opc.tcp://localhost:4840";
+    synnax::device::Device dev;
+    dev.key = "probe-device";
+    dev.name = "Probe Device";
+    dev.make = "opc";
+    dev.rack = rack.key;
+    dev.properties = x::json::json{
+        {"connection", testutil::connection_json(cfg)},
+        {"channels", x::json::json::array()}
+    };
+    const auto first = this->scan(scanner, dev);
+    EXPECT_EQ(first[0].status.value().message, "Server connected");
+    server->stop();
+    const auto second = this->scan(scanner, dev);
+    EXPECT_EQ(second[0].status.value().variant, synnax::status::VARIANT_WARNING);
+    EXPECT_EQ(second[0].status.value().message, "Failed to reach server");
 }
 
 /// @brief Tests that health check detects connection state changes (server up/down/up).
@@ -498,6 +676,32 @@ TEST_F(TestScanTask, testTestConnectionUntrustedCertificate) {
     ASSERT_EQ(ctx->statuses.size(), 2);
     EXPECT_EQ(ctx->statuses[1].variant, synnax::status::VARIANT_SUCCESS);
     EXPECT_EQ(ctx->statuses[1].message, "Connected to server");
+}
+
+/// @brief it should mark a reply when the server rejects the Driver certificate.
+TEST_F(TestScanTask, testTestConnectionDriverCertificateRejected) {
+    const auto server_id = ASSERT_NIL_P(testutil::create_server_identity());
+    const auto other_id = ASSERT_NIL_P(testutil::create_server_identity());
+    start_secured_server(server_id, {other_id.certificate});
+    Scanner scanner(ctx, task, conn_pool, store);
+    auto conn_cfg = secured_config();
+    conn_cfg.server_certificate = server_id.certificate;
+    synnax::task::Command cmd{
+        .task = task.key,
+        .type = TEST_CONNECTION_CMD_TYPE,
+        .key = "rejected_cmd",
+        .args = {{"connection", testutil::connection_json(conn_cfg)}},
+    };
+    ASSERT_TRUE(scanner.exec(cmd, task, ctx));
+    ASSERT_EQ(ctx->statuses.size(), 1);
+    const auto &status = ctx->statuses[0];
+    EXPECT_EQ(status.variant, synnax::status::VARIANT_ERROR);
+    EXPECT_EQ(status.message, "Server rejected the Driver certificate");
+    ASSERT_TRUE(status.details.data.has_value());
+    EXPECT_EQ(
+        x::json::json(status.details.data.value()),
+        x::json::json({{"client_certificate_rejected", true}})
+    );
 }
 
 /// @brief it should trust the first certificate of a secured device that trusts
@@ -721,5 +925,521 @@ TEST_F(TestScanTask, testRenewalFailureIsPartialScan) {
         "Failed to renew the Driver certificate: Failed to parse " + corrupt.string()
     );
     ASSERT_EQ(scanned.size(), 1);
+}
+/// @brief browses the node at path in the server on port 4881, and returns the status.
+synnax::task::Status browse_node(
+    const std::shared_ptr<task::MockContext> &ctx,
+    const synnax::task::Task &task,
+    const std::shared_ptr<connection::Pool> &pool,
+    const std::shared_ptr<certificate::Store> &store,
+    const std::string &node_id,
+    const std::string &field
+) {
+    connection::Config conn_cfg;
+    conn_cfg.endpoint = "opc.tcp://localhost:4881";
+    conn_cfg.security_mode = "None";
+    conn_cfg.security_policy = "None";
+    Scanner scanner(ctx, task, pool, store);
+    const auto before = ctx->statuses.size();
+    synnax::task::Command cmd{
+        .task = task.key,
+        .type = BROWSE_CMD_TYPE,
+        .key = "browse_cmd",
+        .args = {
+            {"connection", testutil::connection_json(conn_cfg)},
+            {"node_id", node_id},
+            {"field", field},
+        },
+    };
+    EXPECT_TRUE(scanner.exec(cmd, task, ctx));
+    EXPECT_EQ(ctx->statuses.size(), before + 1);
+    return ctx->statuses.back();
+}
+
+/// @brief starts a server that holds a TestMotor node, of the Motor structure type, and
+/// a TestSensor node, whose structure holds an array.
+std::unique_ptr<testutil::Server> start_motor_server() {
+    auto cfg = testutil::ServerConfig::create_default();
+    cfg.port = 4881;
+    cfg.motor = testutil::Motor{
+        .speed = 1500.0,
+        .running = true,
+        .position = {.x = 1.5F, .y = 2.5F},
+    };
+    cfg.sensor = std::vector<UA_Double>{1.5, 2.5};
+    auto server = std::make_unique<testutil::Server>(cfg);
+    server->start();
+    EXPECT_TRUE(server->wait_until_ready());
+    return server;
+}
+
+/// @brief it should list the members of a structure variable, with their fields, and
+/// not the type definition of the variable.
+TEST_F(TestScanTask, testBrowsesStructureMembers) {
+    const auto motor_server = start_motor_server();
+    const auto
+        status = browse_node(ctx, task, conn_pool, store, "NS=1;S=TestMotor", "");
+    ASSERT_EQ(status.variant, synnax::status::VARIANT_SUCCESS) << status.description;
+    const auto &channels = status.details.data.value().at("channels");
+    ASSERT_EQ(channels.size(), 3);
+    EXPECT_EQ(channels[0]["name"], "Speed");
+    EXPECT_EQ(channels[0]["field"], "Speed");
+    EXPECT_EQ(channels[0]["data_type"], "float64");
+    EXPECT_EQ(channels[0]["node_id"], "NS=1;S=TestMotor");
+    EXPECT_EQ(channels[0]["node_class"], "Variable");
+    EXPECT_EQ(channels[1]["field"], "Running");
+    EXPECT_EQ(channels[1]["data_type"], "boolean");
+    EXPECT_EQ(channels[2]["field"], "Position");
+    motor_server->stop();
+}
+
+/// @brief it should list the members of a nested structure member.
+TEST_F(TestScanTask, testBrowsesNestedMembers) {
+    const auto motor_server = start_motor_server();
+    const auto status = browse_node(
+        ctx,
+        task,
+        conn_pool,
+        store,
+        "NS=1;S=TestMotor",
+        "Position"
+    );
+    ASSERT_EQ(status.variant, synnax::status::VARIANT_SUCCESS) << status.description;
+    const auto &channels = status.details.data.value().at("channels");
+    ASSERT_EQ(channels.size(), 2);
+    EXPECT_EQ(channels[0]["field"], "Position.X");
+    EXPECT_EQ(channels[0]["data_type"], "float32");
+    EXPECT_EQ(channels[1]["field"], "Position.Y");
+    motor_server->stop();
+}
+
+/// @brief it should list a member that holds an array, and no members of it.
+TEST_F(TestScanTask, testBrowsesArrayMember) {
+    const auto motor_server = start_motor_server();
+    const auto
+        sensor = browse_node(ctx, task, conn_pool, store, "NS=1;S=TestSensor", "");
+    ASSERT_EQ(sensor.variant, synnax::status::VARIANT_SUCCESS) << sensor.description;
+    const auto &members = sensor.details.data.value().at("channels");
+    ASSERT_EQ(members.size(), 1);
+    EXPECT_EQ(members[0]["field"], "Readings");
+    EXPECT_TRUE(members[0]["is_array"].get<bool>());
+    const auto readings = browse_node(
+        ctx,
+        task,
+        conn_pool,
+        store,
+        "NS=1;S=TestSensor",
+        "Readings"
+    );
+    ASSERT_EQ(readings.variant, synnax::status::VARIANT_SUCCESS)
+        << readings.description;
+    EXPECT_TRUE(readings.details.data.value().at("channels").empty());
+    motor_server->stop();
+}
+
+/// @brief it should list the children of a structure variable whose type does not
+/// build, and warn that its members do not list.
+TEST_F(TestScanTask, testBrowsesChildrenOfUnbuiltStructure) {
+    auto cfg = testutil::ServerConfig::create_default();
+    cfg.port = 4881;
+    cfg.broken = testutil::Broken{};
+    testutil::Server server(cfg);
+    server.start();
+    ASSERT_TRUE(server.wait_until_ready());
+    const auto
+        status = browse_node(ctx, task, conn_pool, store, "NS=1;S=TestBroken", "");
+    EXPECT_EQ(status.variant, synnax::status::VARIANT_WARNING);
+    EXPECT_EQ(status.message, "Failed to list structure members");
+    EXPECT_EQ(
+        status.description,
+        "cannot decode Broken: the server did not define the type of a member"
+    );
+    const auto &channels = status.details.data.value().at("channels");
+    const auto it = std::ranges::find_if(channels, [](const auto &ch) {
+        return ch["name"] == "TestBrokenChild";
+    });
+    ASSERT_NE(it, channels.end()) << channels.dump();
+    EXPECT_EQ(
+        (*it)["node_id"],
+        "nsu=urn:open62541.server.application;s=TestBrokenChild"
+    );
+    server.stop();
+}
+
+/// @brief it should fail to list the members of a node that holds no structure.
+TEST_F(TestScanTask, testRejectsFieldOfScalar) {
+    const auto motor_server = start_motor_server();
+    const auto
+        status = browse_node(ctx, task, conn_pool, store, "NS=1;S=TestDouble", "Speed");
+    EXPECT_EQ(status.variant, synnax::status::VARIANT_ERROR);
+    EXPECT_EQ(status.message, "Failed to browse nodes");
+    EXPECT_EQ(status.description, "Double has no member Speed");
+    motor_server->stop();
+}
+
+/// @returns the status of a command of type with args to the server on port.
+synnax::task::Status run_command(
+    const std::shared_ptr<task::MockContext> &ctx,
+    const synnax::task::Task &task,
+    const std::shared_ptr<connection::Pool> &pool,
+    const std::shared_ptr<certificate::Store> &store,
+    const std::string &type,
+    const int port,
+    x::json::json args
+) {
+    Scanner scanner(ctx, task, pool, store);
+    auto cmd = command(
+        type,
+        "opc.tcp://localhost:" + std::to_string(port),
+        std::move(args)
+    );
+    const auto before = ctx->statuses.size();
+    EXPECT_TRUE(scanner.exec(cmd, task, ctx));
+    EXPECT_EQ(ctx->statuses.size(), before + 1);
+    return ctx->statuses.back();
+}
+
+/// @brief starts a server whose Generated folder holds the variables and empty folders.
+std::unique_ptr<testutil::Server>
+start_generated_server(const std::uint32_t variables, const std::uint32_t folders = 0) {
+    auto cfg = testutil::ServerConfig::create_default();
+    cfg.port = 4882;
+    cfg.generated_variables = variables;
+    cfg.generated_folders = folders;
+    cfg.max_nodes_per_browse = 1000;
+    auto server = std::make_unique<testutil::Server>(cfg);
+    server->start();
+    EXPECT_TRUE(server->wait_until_ready());
+    return server;
+}
+
+/// @brief it should find the variables under a folder at any depth, with their paths
+/// from below the folder, and visit a folder that a cycle reaches only once.
+TEST_F(TestScanTask, testBrowseVariables) {
+    const auto generated = start_generated_server(3);
+    const auto status = run_command(
+        ctx,
+        task,
+        conn_pool,
+        store,
+        BROWSE_VARIABLES_CMD_TYPE,
+        4882,
+        {{"node_id", "NS=1;S=Generated"}}
+    );
+    ASSERT_EQ(status.variant, synnax::status::VARIANT_SUCCESS) << status.description;
+    EXPECT_EQ(status.message, "Found variables");
+    const x::json::json data = status.details.data.value();
+    EXPECT_FALSE(data.at("truncated").get<bool>());
+    EXPECT_TRUE(data.at("skipped").empty());
+    const auto &channels = data.at("channels");
+    ASSERT_EQ(channels.size(), 4);
+    EXPECT_EQ(channels[0]["name"], "V0");
+    EXPECT_EQ(channels[0]["path"], x::json::json::array({"V0"}));
+    EXPECT_EQ(channels[0]["data_type"], "float64");
+    EXPECT_EQ(channels[0]["node_class"], "Variable");
+    EXPECT_EQ(
+        channels[0]["node_id"],
+        "nsu=urn:open62541.server.application;s=Generated.V0"
+    );
+    EXPECT_EQ(channels[2]["path"], x::json::json::array({"V2"}));
+    EXPECT_EQ(channels[3]["name"], "Deep");
+    EXPECT_EQ(channels[3]["path"], x::json::json::array({"Inner", "Deep"}));
+    generated->stop();
+}
+
+/// @brief it should return why it skipped a node that failed to browse.
+TEST_F(TestScanTask, testBrowseVariablesReturnsSkippedErrors) {
+    const auto generated = start_generated_server(1);
+    const auto status = run_command(
+        ctx,
+        task,
+        conn_pool,
+        store,
+        BROWSE_VARIABLES_CMD_TYPE,
+        4882,
+        {{"node_id", "NS=1;S=Missing"}}
+    );
+    ASSERT_EQ(status.variant, synnax::status::VARIANT_SUCCESS) << status.description;
+    const x::json::json data = status.details.data.value();
+    EXPECT_TRUE(data.at("channels").empty());
+    const auto &skipped = data.at("skipped");
+    ASSERT_EQ(skipped.size(), 1);
+    const auto text = skipped[0].get<std::string>();
+    EXPECT_TRUE(text.starts_with("NS=1;S=Missing: ")) << text;
+    generated->stop();
+}
+
+/// @brief it should stop at the most variables that it returns, and say so.
+TEST_F(TestScanTask, testBrowseVariablesStopsAtLimit) {
+    const auto generated = start_generated_server(MAX_VARIABLES + 1);
+    const auto status = run_command(
+        ctx,
+        task,
+        conn_pool,
+        store,
+        BROWSE_VARIABLES_CMD_TYPE,
+        4882,
+        {{"node_id", "NS=1;S=Generated"}}
+    );
+    ASSERT_EQ(status.variant, synnax::status::VARIANT_SUCCESS) << status.description;
+    const x::json::json data = status.details.data.value();
+    EXPECT_TRUE(data.at("truncated").get<bool>());
+    EXPECT_EQ(data.at("channels").size(), MAX_VARIABLES);
+    generated->stop();
+}
+
+/// @brief it should return the first children of a node that has more than the most
+/// that a browse lists, and say so.
+TEST_F(TestScanTask, testBrowseStopsAtChildLimit) {
+    const auto generated = start_generated_server(connection::MAX_CHILDREN + 1);
+    const auto status = run_command(
+        ctx,
+        task,
+        conn_pool,
+        store,
+        BROWSE_CMD_TYPE,
+        4882,
+        {{"node_id", "NS=1;S=Generated"}}
+    );
+    ASSERT_EQ(status.variant, synnax::status::VARIANT_SUCCESS) << status.description;
+    const x::json::json data = status.details.data.value();
+    EXPECT_TRUE(data.at("truncated").get<bool>());
+    EXPECT_EQ(data.at("channels").size(), connection::MAX_CHILDREN);
+    generated->stop();
+}
+
+/// @brief starts a server whose Generated folder holds the variables, which waits 100
+/// ms before it handles each request and takes the type of one variable in each Read.
+std::unique_ptr<testutil::Server> start_slow_server(const std::uint32_t variables) {
+    auto cfg = testutil::ServerConfig::create_default();
+    cfg.port = 4882;
+    cfg.generated_variables = variables;
+    cfg.max_nodes_per_read = 2;
+    auto server = std::make_unique<testutil::Server>(cfg);
+    server->start();
+    EXPECT_TRUE(server->wait_until_ready());
+    server->probe_delay = 100 * x::telem::MILLISECOND;
+    return server;
+}
+
+/// @brief it should return the nodes that it typed before the 10 s that the Console
+/// waits, and say that it stopped early.
+TEST_F(TestScanTask, testBrowseStopsAtDeadline) {
+    const auto slow = start_slow_server(300);
+    const auto start = std::chrono::steady_clock::now();
+    const auto status = run_command(
+        ctx,
+        task,
+        conn_pool,
+        store,
+        BROWSE_CMD_TYPE,
+        4882,
+        {{"node_id", "NS=1;S=Generated"}}
+    );
+    EXPECT_LT(std::chrono::steady_clock::now() - start, std::chrono::seconds(10));
+    ASSERT_EQ(status.variant, synnax::status::VARIANT_SUCCESS) << status.description;
+    const x::json::json data = status.details.data.value();
+    EXPECT_TRUE(data.at("truncated").get<bool>());
+    EXPECT_GT(data.at("channels").size(), 0);
+    EXPECT_LT(data.at("channels").size(), 301);
+    slow->stop();
+}
+
+/// @brief it should return the variables that it typed before the 30 s that the Console
+/// waits, and say that it stopped early.
+TEST_F(TestScanTask, testBrowseVariablesStopsAtDeadline) {
+    const auto slow = start_slow_server(300);
+    const auto start = std::chrono::steady_clock::now();
+    const auto status = run_command(
+        ctx,
+        task,
+        conn_pool,
+        store,
+        BROWSE_VARIABLES_CMD_TYPE,
+        4882,
+        {{"node_id", "NS=1;S=Generated"}}
+    );
+    EXPECT_LT(std::chrono::steady_clock::now() - start, std::chrono::seconds(30));
+    ASSERT_EQ(status.variant, synnax::status::VARIANT_SUCCESS) << status.description;
+    const x::json::json data = status.details.data.value();
+    EXPECT_TRUE(data.at("truncated").get<bool>());
+    EXPECT_GT(data.at("channels").size(), 0);
+    EXPECT_LT(data.at("channels").size(), 301);
+    slow->stop();
+}
+
+/// @brief it should stop at the most objects that it browses, and say so.
+TEST_F(TestScanTask, testBrowseVariablesStopsAtObjectLimit) {
+    const auto generated = start_generated_server(1, MAX_OBJECTS);
+    const auto status = run_command(
+        ctx,
+        task,
+        conn_pool,
+        store,
+        BROWSE_VARIABLES_CMD_TYPE,
+        4882,
+        {{"node_id", "NS=1;S=Generated"}}
+    );
+    ASSERT_EQ(status.variant, synnax::status::VARIANT_SUCCESS) << status.description;
+    const x::json::json data = status.details.data.value();
+    EXPECT_TRUE(data.at("truncated").get<bool>());
+    EXPECT_EQ(data.at("channels")[0]["name"], "V0");
+    generated->stop();
+}
+
+/// @brief it should read the attributes and the value of a variable.
+TEST_F(TestScanTask, testReadNode) {
+    const auto status = run_command(
+        ctx,
+        task,
+        conn_pool,
+        store,
+        READ_NODE_CMD_TYPE,
+        4840,
+        {{"node_id", "NS=1;S=TestDouble"}}
+    );
+    ASSERT_EQ(status.variant, synnax::status::VARIANT_SUCCESS) << status.description;
+    EXPECT_EQ(status.message, "Read node");
+    const x::json::json data = status.details.data.value();
+    EXPECT_EQ(data["node_class"], "Variable");
+    EXPECT_EQ(data["browse_name"], "TestDouble");
+    EXPECT_EQ(data["display_name"], "TestDouble");
+    EXPECT_EQ(data["type_name"], "Double");
+    EXPECT_EQ(data["value_rank"], UA_VALUERANK_SCALAR);
+    EXPECT_TRUE(data["readable"].get<bool>());
+    EXPECT_TRUE(data["writable"].get<bool>());
+    EXPECT_FALSE(data["history_readable"].get<bool>());
+    EXPECT_EQ(data["status"], "Good");
+    EXPECT_DOUBLE_EQ(std::stod(data["value"].get<std::string>()), 2.71828);
+    EXPECT_TRUE(data.contains("server_timestamp"));
+    const auto &node = data["node"];
+    EXPECT_EQ(node["name"], "TestDouble");
+    EXPECT_EQ(node["data_type"], "float64");
+    EXPECT_EQ(node["node_id"], "nsu=urn:open62541.server.application;s=TestDouble");
+    EXPECT_FALSE(node["is_array"].get<bool>());
+    EXPECT_EQ(node["field"], "");
+}
+
+/// @brief it should read the dimensions and every element of an array variable.
+TEST_F(TestScanTask, testReadNodeArray) {
+    const auto status = run_command(
+        ctx,
+        task,
+        conn_pool,
+        store,
+        READ_NODE_CMD_TYPE,
+        4840,
+        {{"node_id", "NS=1;S=TestDoubleArray"}}
+    );
+    ASSERT_EQ(status.variant, synnax::status::VARIANT_SUCCESS) << status.description;
+    const x::json::json data = status.details.data.value();
+    EXPECT_EQ(data["value_rank"], UA_VALUERANK_ONE_DIMENSION);
+    ASSERT_EQ(data["array_dimensions"].size(), 1);
+    const auto value = x::json::json::parse(data["value"].get<std::string>());
+    ASSERT_TRUE(value.is_array());
+    EXPECT_EQ(value.size(), data["array_dimensions"][0].get<size_t>());
+    EXPECT_TRUE(data["node"]["is_array"].get<bool>());
+}
+
+/// @brief it should read a node that is not a variable without a value.
+TEST_F(TestScanTask, testReadNodeObject) {
+    const auto status = run_command(
+        ctx,
+        task,
+        conn_pool,
+        store,
+        READ_NODE_CMD_TYPE,
+        4840,
+        {{"node_id", "i=85"}}
+    );
+    ASSERT_EQ(status.variant, synnax::status::VARIANT_SUCCESS) << status.description;
+    const x::json::json data = status.details.data.value();
+    EXPECT_EQ(data["node_class"], "Object");
+    EXPECT_EQ(data["browse_name"], "Objects");
+    EXPECT_FALSE(data.contains("value"));
+    EXPECT_FALSE(data.contains("type_name"));
+    EXPECT_EQ(data["node"]["node_class"], "Object");
+}
+
+/// @brief it should decode a structure value that the client does not know, and read
+/// one member of it.
+TEST_F(TestScanTask, testReadNodeStructure) {
+    const auto motor_server = start_motor_server();
+    const auto whole = run_command(
+        ctx,
+        task,
+        conn_pool,
+        store,
+        READ_NODE_CMD_TYPE,
+        4881,
+        {{"node_id", "NS=1;S=TestMotor"}}
+    );
+    ASSERT_EQ(whole.variant, synnax::status::VARIANT_SUCCESS) << whole.description;
+    const x::json::json motor = whole.details.data.value();
+    EXPECT_EQ(motor["type_name"], "Motor");
+    const auto value = x::json::json::parse(motor["value"].get<std::string>());
+    EXPECT_DOUBLE_EQ(value["Speed"].get<double>(), 1500.0);
+    EXPECT_TRUE(value["Running"].get<bool>());
+    EXPECT_DOUBLE_EQ(value["Position"]["Y"].get<double>(), 2.5);
+
+    const auto member = run_command(
+        ctx,
+        task,
+        conn_pool,
+        store,
+        READ_NODE_CMD_TYPE,
+        4881,
+        {{"node_id", "NS=1;S=TestMotor"}, {"field", "Position.Y"}}
+    );
+    ASSERT_EQ(member.variant, synnax::status::VARIANT_SUCCESS) << member.description;
+    const x::json::json y = member.details.data.value();
+    EXPECT_EQ(y["type_name"], "Float");
+    EXPECT_DOUBLE_EQ(std::stod(y["value"].get<std::string>()), 2.5);
+    EXPECT_EQ(y["node"]["name"], "Y");
+    EXPECT_EQ(y["node"]["field"], "Position.Y");
+    EXPECT_EQ(y["node"]["data_type"], "float32");
+    motor_server->stop();
+}
+
+/// @brief it should read a member that holds an array, with its elements.
+TEST_F(TestScanTask, testReadNodeArrayMember) {
+    const auto motor_server = start_motor_server();
+    const auto status = run_command(
+        ctx,
+        task,
+        conn_pool,
+        store,
+        READ_NODE_CMD_TYPE,
+        4881,
+        {{"node_id", "NS=1;S=TestSensor"}, {"field", "Readings"}}
+    );
+    ASSERT_EQ(status.variant, synnax::status::VARIANT_SUCCESS) << status.description;
+    const x::json::json readings = status.details.data.value();
+    EXPECT_EQ(readings["type_name"], "Double");
+    EXPECT_EQ(readings["value_rank"], UA_VALUERANK_ONE_DIMENSION);
+    EXPECT_EQ(readings["value"], "[1.5, 2.5]");
+    EXPECT_EQ(readings["node"]["field"], "Readings");
+    EXPECT_EQ(readings["node"]["data_type"], "float64");
+    EXPECT_TRUE(readings["node"]["is_array"].get<bool>());
+    motor_server->stop();
+}
+
+/// @brief it should fail to read a node that the server does not have.
+TEST_F(TestScanTask, testReadNodeUnknown) {
+    const auto status = run_command(
+        ctx,
+        task,
+        conn_pool,
+        store,
+        READ_NODE_CMD_TYPE,
+        4840,
+        {{"node_id", "NS=1;S=Missing"}}
+    );
+    EXPECT_EQ(status.variant, synnax::status::VARIANT_ERROR);
+    EXPECT_EQ(status.message, "Failed to read node");
+    EXPECT_EQ(
+        status.description,
+        "The node id refers to a node that does not exist in the server address space."
+    );
 }
 }

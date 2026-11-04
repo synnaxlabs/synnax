@@ -11,11 +11,14 @@ package task
 
 import (
 	"context"
+	"time"
 
 	"github.com/synnaxlabs/gorp"
 	"github.com/synnaxlabs/synnax/pkg/api/auth"
 	"github.com/synnaxlabs/synnax/pkg/service/access"
 	"github.com/synnaxlabs/synnax/pkg/service/access/rbac"
+	"github.com/synnaxlabs/synnax/pkg/service/actions"
+	"github.com/synnaxlabs/synnax/pkg/service/framer"
 	"github.com/synnaxlabs/synnax/pkg/service/ontology"
 	"github.com/synnaxlabs/synnax/pkg/service/rack"
 	"github.com/synnaxlabs/synnax/pkg/service/status"
@@ -41,12 +44,21 @@ type ServiceConfig struct {
 	//
 	// [REQUIRED]
 	RBAC *rbac.Service
+	// Framer sends stop commands to the running tasks of a delete.
+	//
+	// [REQUIRED]
+	Framer *framer.Service
+	// StopTimeout caps how long one delete request waits for its running tasks to
+	// stop. Keep it under the 5 second default read timeout of the Python client.
+	//
+	// [OPTIONAL] - Defaults to 4 seconds.
+	StopTimeout time.Duration
 }
 
 var (
 	_ config.Config[ServiceConfig] = ServiceConfig{}
 	// DefaultServiceConfig is the default configuration for the task API service.
-	DefaultServiceConfig = ServiceConfig{}
+	DefaultServiceConfig = ServiceConfig{StopTimeout: 4 * time.Second}
 )
 
 // Override implements config.Config.
@@ -54,6 +66,8 @@ func (c ServiceConfig) Override(other ServiceConfig) ServiceConfig {
 	c.Task = override.Nil(c.Task, other.Task)
 	c.Status = override.Nil(c.Status, other.Status)
 	c.RBAC = override.Nil(c.RBAC, other.RBAC)
+	c.Framer = override.Nil(c.Framer, other.Framer)
+	c.StopTimeout = override.Numeric(c.StopTimeout, other.StopTimeout)
 	return c
 }
 
@@ -63,13 +77,17 @@ func (c ServiceConfig) Validate() error {
 	v.NotNil("task", c.Task)
 	v.NotNil("status", c.Status)
 	v.NotNil("rbac", c.RBAC)
+	v.NotNil("framer", c.Framer)
+	v.Positive("stop_timeout", c.StopTimeout)
 	return v.Error()
 }
 
 type Service struct {
-	access *rbac.Service
-	task   *task.Service
-	status *status.Service
+	access      *rbac.Service
+	task        *task.Service
+	status      *status.Service
+	framer      *framer.Service
+	stopTimeout time.Duration
 }
 
 func NewService(cfgs ...ServiceConfig) (*Service, error) {
@@ -78,9 +96,11 @@ func NewService(cfgs ...ServiceConfig) (*Service, error) {
 		return nil, err
 	}
 	return &Service{
-		task:   cfg.Task,
-		status: cfg.Status,
-		access: cfg.RBAC,
+		task:        cfg.Task,
+		status:      cfg.Status,
+		access:      cfg.RBAC,
+		framer:      cfg.Framer,
+		stopTimeout: cfg.StopTimeout,
 	}, nil
 }
 
@@ -92,6 +112,9 @@ type (
 type (
 	CreateRequest struct {
 		Tasks []task.Task `json:"tasks" msgpack:"tasks"`
+		// DispatchKey is stamped onto the create broadcasts so the sender skips its
+		// echo.
+		DispatchKey string `json:"dispatch_key" msgpack:"dispatch_key"`
 	}
 	CreateResponse struct {
 		Tasks []task.Task `json:"tasks" msgpack:"tasks"`
@@ -110,10 +133,50 @@ func (s *Service) Create(
 	}); err != nil {
 		return CreateResponse{}, err
 	}
-	if err := s.task.NewWriter(tx).CreateMany(ctx, &req.Tasks); err != nil {
+	if err := s.task.NewWriter(tx).
+		WithDispatchKey(req.DispatchKey).
+		CreateMany(ctx, &req.Tasks); err != nil {
 		return CreateResponse{}, err
 	}
-	return CreateResponse(req), nil
+	return CreateResponse{Tasks: req.Tasks}, nil
+}
+
+// DispatchRequest carries an action sequence to apply to a single task. DispatchKey is
+// a client-generated identifier for the batch, echoed on the broadcast so the sender
+// recognizes its own echo.
+type DispatchRequest = actions.DispatchRequest[task.Key, task.Action]
+
+// DispatchResponse carries the actions the Core added to a dispatch: a set of the new
+// config hash, after a set of the stored config when storing changed it.
+type DispatchResponse = actions.DispatchResponse[task.Action]
+
+// Dispatch applies the action sequence to the target task atomically. Subscribers to
+// the task action signals receive the sequence after the transaction commits. The
+// response holds no actions for a subject that cannot read the task, because they can
+// carry its stored config.
+func (s *Service) Dispatch(
+	ctx context.Context,
+	tx gorp.Tx,
+	req DispatchRequest,
+) (DispatchResponse, error) {
+	enforcer := s.access.NewEnforcer(tx)
+	request := access.Request{
+		Subject: auth.GetSubject(ctx),
+		Action:  access.ActionUpdate,
+		Objects: []ontology.ID{task.OntologyID(req.Key)},
+	}
+	if err := enforcer.Enforce(ctx, request); err != nil {
+		return DispatchResponse{}, err
+	}
+	computed, err := s.task.Dispatch(ctx, req.Key, req.DispatchKey, req.Actions)
+	if err != nil {
+		return DispatchResponse{}, err
+	}
+	request.Action = access.ActionRetrieve
+	if err = enforcer.Enforce(ctx, request); err != nil {
+		return DispatchResponse{}, errors.Skip(err, access.ErrDenied)
+	}
+	return DispatchResponse{Actions: computed}, nil
 }
 
 type (
@@ -233,13 +296,19 @@ func (s *Service) Rename(
 	}); err != nil {
 		return struct{}{}, err
 	}
-	return struct{}{}, s.task.NewWriter(tx).Rename(ctx, req.Key, req.Name)
+	_, err := s.task.Dispatch(ctx, req.Key, "", []task.Action{
+		task.NewSetAction(task.SetPayload{Path: []string{"name"}, Value: req.Name}),
+	})
+	return struct{}{}, err
 }
 
 type DeleteRequest struct {
 	Keys []task.Key `json:"keys" msgpack:"keys"`
 }
 
+// Delete stops the running tasks in req, then deletes every task in req. The stops take
+// at most StopTimeout in total. A task that does not stop in time is still deleted, and
+// it can hold its channels open until its Driver removes it.
 func (s *Service) Delete(
 	ctx context.Context,
 	tx gorp.Tx,
@@ -250,6 +319,9 @@ func (s *Service) Delete(
 		Action:  access.ActionDelete,
 		Objects: task.OntologyIDs(req.Keys),
 	}); err != nil {
+		return struct{}{}, err
+	}
+	if err := s.stopRunning(ctx, req.Keys); err != nil {
 		return struct{}{}, err
 	}
 	w := s.task.NewWriter(tx)

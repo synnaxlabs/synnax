@@ -10,6 +10,8 @@
 package driver_test
 
 import (
+	"context"
+	"sync"
 	"uuid"
 
 	. "github.com/onsi/ginkgo/v2"
@@ -18,8 +20,39 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/service/driver"
 	"github.com/synnaxlabs/synnax/pkg/service/status"
 	"github.com/synnaxlabs/synnax/pkg/service/task"
+	"github.com/synnaxlabs/x/encoding/msgpack"
+	"github.com/synnaxlabs/x/errors"
+	"github.com/synnaxlabs/x/query"
 	"github.com/synnaxlabs/x/telem"
 )
+
+type statusCall = func(context.Context, *driver.StatusHandler) error
+
+func replyFirst(ctx context.Context, h *driver.StatusHandler) error {
+	return h.Reply(
+		ctx,
+		"cmd-1",
+		status.VariantSuccess,
+		"Command executed successfully",
+		msgpack.EncodedJSON{"attempts": 3.0},
+	)
+}
+
+func ackFirst(ctx context.Context, h *driver.StatusHandler) error {
+	return h.Ack(ctx, "cmd-1", true)
+}
+
+func sendFirst(ctx context.Context, h *driver.StatusHandler) error {
+	return h.Send(ctx, "cmd-1", status.VariantSuccess, true, "Started task", "")
+}
+
+func stopSecond(ctx context.Context, h *driver.StatusHandler) error {
+	return h.Send(ctx, "cmd-2", status.VariantSuccess, false, "Stopped task", "")
+}
+
+func warnSecond(ctx context.Context, h *driver.StatusHandler) error {
+	return h.Warn(ctx, "Connection lost", "The broker closed the connection.")
+}
 
 var _ = Describe("StatusHandler", func() {
 	var (
@@ -37,6 +70,32 @@ var _ = Describe("StatusHandler", func() {
 		}
 		handler = driver.NewStatusHandler(db, statusSvc, t)
 	})
+
+	// setUnreadable stores a status under the key of t whose details are not task
+	// details, so the handler fails to read it back and every write fails.
+	setUnreadable := func(ctx SpecContext) {
+		GinkgoHelper()
+		Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
+			w := statusSvc.NewWriter(tx)
+			if err := w.Delete(ctx, t.OntologyID().String()); err != nil {
+				return err
+			}
+			return w.Set(ctx, &status.Status[string]{
+				Key:     t.OntologyID().String(),
+				Name:    t.Name,
+				Time:    telem.Now(),
+				Variant: status.VariantInfo,
+				Details: "not task details",
+			})
+		})).To(Succeed())
+	}
+
+	deleteStored := func(ctx SpecContext) {
+		GinkgoHelper()
+		Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
+			return statusSvc.NewWriter(tx).Delete(ctx, t.OntologyID().String())
+		})).To(Succeed())
+	}
 
 	retrieve := func(ctx SpecContext) task.Status {
 		GinkgoHelper()
@@ -138,6 +197,95 @@ var _ = Describe("StatusHandler", func() {
 		)
 	})
 
+	Describe("Warn deduplication", func() {
+		It("should write nothing for a warning equal to the active one",
+			func(ctx SpecContext) {
+				Expect(handler.Warn(ctx, "Broker unreachable", "dial timeout")).
+					To(Succeed())
+				first := retrieve(ctx).Time
+				Expect(handler.Warn(ctx, "Broker unreachable", "dial timeout")).
+					To(Succeed())
+				Expect(retrieve(ctx).Time).To(Equal(first))
+			},
+		)
+		It(
+			"should write a warning again after its write failed",
+			func(ctx SpecContext) {
+				setUnreadable(ctx)
+				Expect(handler.Warn(ctx, "Broker unreachable", "dial timeout")).
+					To(MatchError(ContainSubstring("failed to decode")))
+				deleteStored(ctx)
+				Expect(handler.Warn(ctx, "Broker unreachable", "dial timeout")).
+					To(Succeed())
+				stat := retrieve(ctx)
+				Expect(stat.Variant).To(Equal(status.VariantWarning))
+				Expect(stat.Message).To(Equal("Broker unreachable"))
+				Expect(stat.Description).To(Equal("dial timeout"))
+			},
+		)
+		It("should write a warning whose description changed", func(ctx SpecContext) {
+			Expect(handler.Warn(ctx, "Broker unreachable", "dial timeout")).
+				To(Succeed())
+			Expect(handler.Warn(ctx, "Broker unreachable", "refused")).To(Succeed())
+			Expect(retrieve(ctx).Description).To(Equal("refused"))
+		})
+	})
+
+	Describe("ClearWarning", func() {
+		It("should restore the status that the warning replaced",
+			func(ctx SpecContext) {
+				Expect(handler.Send(
+					ctx,
+					"cmd-1",
+					status.VariantError,
+					true,
+					"Failed to send event",
+					"outage",
+				)).To(Succeed())
+				Expect(handler.Warn(ctx, "Broker unreachable", "dial timeout")).
+					To(Succeed())
+				Expect(handler.Warn(ctx, "Broker unreachable", "refused")).
+					To(Succeed())
+				Expect(handler.ClearWarning(ctx)).To(Succeed())
+				stat := retrieve(ctx)
+				Expect(stat.Variant).To(Equal(status.VariantError))
+				Expect(stat.Message).To(Equal("Failed to send event"))
+				Expect(stat.Description).To(Equal("outage"))
+				Expect(stat.Details.Running).To(BeTrue())
+				Expect(stat.Details.Cmd).To(Equal(driver.NoCommand))
+			},
+		)
+		It(
+			"should clear a warning again after its write failed",
+			func(ctx SpecContext) {
+				Expect(handler.Warn(ctx, "Broker unreachable", "dial timeout")).
+					To(Succeed())
+				setUnreadable(ctx)
+				Expect(handler.ClearWarning(ctx)).
+					To(MatchError(ContainSubstring("failed to decode")))
+				deleteStored(ctx)
+				Expect(handler.ClearWarning(ctx)).To(Succeed())
+				stat := retrieve(ctx)
+				Expect(stat.Variant).To(Equal(status.VariantSuccess))
+				Expect(stat.Message).To(Equal("Task configured"))
+			},
+		)
+		It("should write nothing when no warning is active", func(ctx SpecContext) {
+			Expect(handler.Send(
+				ctx,
+				"cmd-1",
+				status.VariantError,
+				false,
+				"Failed to run task",
+				"boom",
+			)).To(Succeed())
+			Expect(handler.ClearWarning(ctx)).To(Succeed())
+			stat := retrieve(ctx)
+			Expect(stat.Variant).To(Equal(status.VariantError))
+			Expect(stat.Details.Cmd).To(Equal("cmd-1"))
+		})
+	})
+
 	Describe("Ack", func() {
 		It("should attribute the current status to the command unchanged",
 			func(ctx SpecContext) {
@@ -185,6 +333,134 @@ var _ = Describe("StatusHandler", func() {
 			},
 			Entry("running", true),
 			Entry("stopped", false),
+		)
+	})
+
+	Describe("Reply", func() {
+		It("should answer the command with data and keep the running state",
+			func(ctx SpecContext) {
+				Expect(handler.Send(
+					ctx,
+					"cmd-1",
+					status.VariantSuccess,
+					true,
+					"Started task",
+					"",
+				)).To(Succeed())
+				Expect(handler.Reply(
+					ctx,
+					"cmd-2",
+					status.VariantError,
+					"connection refused",
+					msgpack.EncodedJSON{"attempts": 3.0},
+				)).To(Succeed())
+				stat := retrieve(ctx)
+				Expect(stat.Variant).To(Equal(status.VariantError))
+				Expect(stat.Message).To(Equal("connection refused"))
+				Expect(stat.Details.Cmd).To(Equal("cmd-2"))
+				Expect(stat.Details.Running).To(BeTrue())
+				Expect(stat.Details.Data).To(HaveKeyWithValue("attempts", 3.0))
+			},
+		)
+		It("should not carry the reply into later statuses", func(ctx SpecContext) {
+			Expect(handler.Reply(
+				ctx,
+				"cmd-2",
+				status.VariantError,
+				"connection refused",
+				msgpack.EncodedJSON{"attempts": 3.0},
+			)).To(Succeed())
+			Expect(handler.Ack(ctx, "cmd-3", false)).To(Succeed())
+			stat := retrieve(ctx)
+			Expect(stat.Variant).To(Equal(status.VariantSuccess))
+			Expect(stat.Message).To(Equal("Task configured"))
+			Expect(stat.Details.Data).To(BeEmpty())
+		})
+	})
+
+	DescribeTable("should store the status of the last transition",
+		func(
+			ctx SpecContext,
+			first, second statusCall,
+			variant status.Variant,
+			message, cmd string,
+			running bool,
+		) {
+			gated := &gatedDB{
+				DB:      db.KV(),
+				held:    make(chan struct{}),
+				release: make(chan struct{}),
+			}
+			handler := driver.NewStatusHandler(gorp.Wrap(gated), statusSvc, t)
+			Expect(handler.Send(
+				ctx, "cmd-0", status.VariantSuccess, true, "Started task", "",
+			)).To(Succeed())
+			// Cleanup opens the gate for a spec that fails before the release below.
+			release := sync.OnceFunc(func() { close(gated.release) })
+			DeferCleanup(release)
+			gated.gated.Store(true)
+			firstDone, secondDone := make(chan error, 1), make(chan error, 1)
+			go func() { firstDone <- first(ctx, handler) }()
+			Eventually(gated.held).Should(BeClosed())
+			go func() { secondDone <- second(ctx, handler) }()
+			Consistently(secondDone).ShouldNot(Receive())
+			release()
+			Eventually(firstDone).Should(Receive(BeNil()))
+			Eventually(secondDone).Should(Receive(BeNil()))
+			stat := retrieve(ctx)
+			Expect(stat.Variant).To(Equal(variant))
+			Expect(stat.Message).To(Equal(message))
+			Expect(stat.Details.Cmd).To(Equal(cmd))
+			Expect(stat.Details.Running).To(Equal(running))
+			Expect(stat.Details.Data).To(BeEmpty())
+		},
+		Entry("when a stop passes a Reply",
+			replyFirst, stopSecond,
+			status.VariantSuccess, "Stopped task", "cmd-2", false,
+		),
+		Entry("when a stop passes an Ack",
+			ackFirst, stopSecond,
+			status.VariantSuccess, "Stopped task", "cmd-2", false,
+		),
+		Entry("when a warning passes a Send",
+			sendFirst, warnSecond,
+			status.VariantWarning, "Connection lost", driver.NoCommand, true,
+		),
+	)
+
+	Describe("ConfigReporter", func() {
+		cfgErr := errors.New("bad config")
+		reporter := func() driver.ConfigReporter {
+			return driver.ConfigReporter{DB: db, Status: statusSvc}
+		}
+		It("should answer the command with an error status", func(ctx SpecContext) {
+			reporter().Report(ctx, t, "cmd-9", false, cfgErr)
+			stat := retrieve(ctx)
+			Expect(stat.Variant).To(Equal(status.VariantError))
+			Expect(stat.Message).To(Equal("Failed to configure task"))
+			Expect(stat.Description).To(Equal("bad config"))
+			Expect(stat.Details.Cmd).To(Equal("cmd-9"))
+			Expect(stat.Details.Running).To(BeFalse())
+		})
+		It("should write an error status for a task that starts automatically",
+			func(ctx SpecContext) {
+				reporter().Report(ctx, t, driver.NoCommand, true, cfgErr)
+				stat := retrieve(ctx)
+				Expect(stat.Variant).To(Equal(status.VariantError))
+				Expect(stat.Message).To(Equal("Failed to configure task"))
+				Expect(stat.Description).To(Equal("bad config"))
+				Expect(stat.Details.Cmd).To(Equal(driver.NoCommand))
+			},
+		)
+		It("should write no status at boot for a task that does not start",
+			func(ctx SpecContext) {
+				reporter().Report(ctx, t, driver.NoCommand, false, cfgErr)
+				Expect(statusSvc.NewRetrieve[task.StatusDetails]().
+					Where(status.MatchKeys[task.StatusDetails](
+						t.OntologyID().String(),
+					)).
+					Exec(ctx, nil)).To(MatchError(query.ErrNotFound))
+			},
 		)
 	})
 })

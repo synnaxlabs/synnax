@@ -8,11 +8,11 @@
 // included in the file licenses/APL.txt.
 
 import { color, id, TimeStamp, uuid } from "@synnaxlabs/x";
-import { describe, expect, it } from "vitest";
+import { describe, expect, it, onTestFinished, vi } from "vitest";
 import z from "zod";
 
-import { NotFoundError } from "@/errors";
 import { group } from "@/group";
+import { NotFoundError } from "@/index";
 import { ontology } from "@/ontology";
 import { query } from "@/query";
 import { status } from "@/status";
@@ -694,6 +694,43 @@ describe("Status", () => {
     });
   });
 
+  describe("onWrite", () => {
+    const createListener = async () => {
+      const local = createTestClient();
+      onTestFinished(async () => await local.close());
+      await local.connect();
+      await waitForStreamLive(local.connection);
+      const handler = vi.fn<(written: status.Status) => void>();
+      onTestFinished(local.statuses.onWrite(handler));
+      const keys = () => handler.mock.calls.map(([written]) => written.key);
+      return { local, keys };
+    };
+
+    const createStatus = async (): Promise<status.Status> =>
+      await client.statuses.set({
+        key: id.create(),
+        name: "onWrite",
+        variant: "warning",
+        message: "Written",
+        time: TimeStamp.now(),
+      });
+
+    it("should call the handler with a status another client writes", async () => {
+      const { keys } = await createListener();
+      const written = await createStatus();
+      await expect.poll(keys).toContain(written.key);
+    });
+
+    it("should skip a status that a retrieve brings into the cache", async () => {
+      const fetched = await createStatus();
+      const { local, keys } = await createListener();
+      await local.statuses.retrieve({ key: fetched.key });
+      const later = await createStatus();
+      await expect.poll(keys).toContain(later.key);
+      expect(keys()).not.toContain(fetched.key);
+    });
+  });
+
   describe("status variants", () => {
     it("should support all status variants", async () => {
       const variants: status.Variant[] = [
@@ -770,6 +807,15 @@ describe("fromException", () => {
     const s = status.fromException(new CustomError("boom"), HEADING);
     expect(s.message).toBe(HEADING);
     expect(s.description).toBe("Failed to parse task config. the formatted breakdown");
+  });
+
+  it("should leave out a toStatus() message that repeats the heading", () => {
+    const s = status.fromException(
+      new CustomError("boom"),
+      "Failed to parse task config",
+    );
+    expect(s.message).toBe("Failed to parse task config");
+    expect(s.description).toBe("the formatted breakdown");
   });
 
   it("should keep the error text when toStatus() gives no description", () => {

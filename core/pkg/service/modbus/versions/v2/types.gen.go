@@ -197,46 +197,66 @@ func (u *ReadChannel) UnmarshalJSONFrom(dec *jsontext.Decoder) error {
 	var disc struct {
 		Type ReadChannelType `json:"type"`
 	}
-	if err := json.Unmarshal(data, &disc, opts); err != nil {
+	if err := json.Unmarshal(
+		data, &disc, opts, json.RejectUnknownMembers(false),
+	); err != nil {
 		return err
 	}
 	switch disc.Type {
 	case CoilReadChannelType:
-		var v CoilReadChannel
+		var v struct {
+			Type ReadChannelType `json:"type"`
+			CoilReadChannel
+		}
 		if err := json.Unmarshal(data, &v, opts); err != nil {
 			return err
 		}
-		u.Variant = v
+		u.Variant = v.CoilReadChannel
 	case DiscreteInputReadChannelType:
-		var v DiscreteInputReadChannel
+		var v struct {
+			Type ReadChannelType `json:"type"`
+			DiscreteInputReadChannel
+		}
 		if err := json.Unmarshal(data, &v, opts); err != nil {
 			return err
 		}
-		u.Variant = v
+		u.Variant = v.DiscreteInputReadChannel
 	case HoldingRegisterReadChannelType:
-		var v HoldingRegisterReadChannel
+		var v struct {
+			Type ReadChannelType `json:"type"`
+			HoldingRegisterReadChannel
+		}
 		if err := json.Unmarshal(data, &v, opts); err != nil {
 			return err
 		}
-		u.Variant = v
+		u.Variant = v.HoldingRegisterReadChannel
 	case InputRegisterReadChannelType:
-		var v InputRegisterReadChannel
+		var v struct {
+			Type ReadChannelType `json:"type"`
+			InputRegisterReadChannel
+		}
 		if err := json.Unmarshal(data, &v, opts); err != nil {
 			return err
 		}
-		u.Variant = v
+		u.Variant = v.InputRegisterReadChannel
 	case HoldingRegisterBitReadChannelType:
-		var v HoldingRegisterBitReadChannel
+		var v struct {
+			Type ReadChannelType `json:"type"`
+			HoldingRegisterBitReadChannel
+		}
 		if err := json.Unmarshal(data, &v, opts); err != nil {
 			return err
 		}
-		u.Variant = v
+		u.Variant = v.HoldingRegisterBitReadChannel
 	case InputRegisterBitReadChannelType:
-		var v InputRegisterBitReadChannel
+		var v struct {
+			Type ReadChannelType `json:"type"`
+			InputRegisterBitReadChannel
+		}
 		if err := json.Unmarshal(data, &v, opts); err != nil {
 			return err
 		}
-		u.Variant = v
+		u.Variant = v.InputRegisterBitReadChannel
 	default:
 		return errors.Newf("ReadChannel: unknown type %q", disc.Type)
 	}
@@ -266,6 +286,51 @@ func (u ReadChannel) Validate() error {
 		return variant.Validate()
 	}
 	return nil
+}
+
+// Base returns the fields every variant shares, or the zero value if Variant is nil.
+func (u ReadChannel) Base() BaseReadChannel {
+	switch variant := u.Variant.(type) {
+	case CoilReadChannel:
+		return variant.BaseReadChannel
+	case DiscreteInputReadChannel:
+		return variant.BaseReadChannel
+	case HoldingRegisterReadChannel:
+		return variant.BaseReadChannel
+	case InputRegisterReadChannel:
+		return variant.BaseReadChannel
+	case HoldingRegisterBitReadChannel:
+		return variant.BaseReadChannel
+	case InputRegisterBitReadChannel:
+		return variant.BaseReadChannel
+	}
+	return BaseReadChannel{}
+}
+
+// SetBase replaces the fields every variant shares. It panics if Variant is nil.
+func (u *ReadChannel) SetBase(base BaseReadChannel) {
+	switch variant := u.Variant.(type) {
+	case CoilReadChannel:
+		variant.BaseReadChannel = base
+		u.Variant = variant
+	case DiscreteInputReadChannel:
+		variant.BaseReadChannel = base
+		u.Variant = variant
+	case HoldingRegisterReadChannel:
+		variant.BaseReadChannel = base
+		u.Variant = variant
+	case InputRegisterReadChannel:
+		variant.BaseReadChannel = base
+		u.Variant = variant
+	case HoldingRegisterBitReadChannel:
+		variant.BaseReadChannel = base
+		u.Variant = variant
+	case InputRegisterBitReadChannel:
+		variant.BaseReadChannel = base
+		u.Variant = variant
+	default:
+		panic(errors.Newf("ReadChannel: cannot set the base of variant %T", variant))
+	}
 }
 
 // BaseWriteChannel carries the fields every Modbus write channel shares.
@@ -364,28 +429,39 @@ func (u *WriteChannel) UnmarshalJSONFrom(dec *jsontext.Decoder) error {
 	var disc struct {
 		Type WriteChannelType `json:"type"`
 	}
-	if err := json.Unmarshal(data, &disc, opts); err != nil {
+	if err := json.Unmarshal(
+		data, &disc, opts, json.RejectUnknownMembers(false),
+	); err != nil {
 		return err
 	}
 	switch disc.Type {
 	case CoilWriteChannelType:
-		var v CoilWriteChannel
+		var v struct {
+			Type WriteChannelType `json:"type"`
+			CoilWriteChannel
+		}
 		if err := json.Unmarshal(data, &v, opts); err != nil {
 			return err
 		}
-		u.Variant = v
+		u.Variant = v.CoilWriteChannel
 	case HoldingRegisterWriteChannelType:
-		var v HoldingRegisterWriteChannel
+		var v struct {
+			Type WriteChannelType `json:"type"`
+			HoldingRegisterWriteChannel
+		}
 		if err := json.Unmarshal(data, &v, opts); err != nil {
 			return err
 		}
-		u.Variant = v
+		u.Variant = v.HoldingRegisterWriteChannel
 	case HoldingRegisterBitWriteChannelType:
-		var v HoldingRegisterBitWriteChannel
+		var v struct {
+			Type WriteChannelType `json:"type"`
+			HoldingRegisterBitWriteChannel
+		}
 		if err := json.Unmarshal(data, &v, opts); err != nil {
 			return err
 		}
-		u.Variant = v
+		u.Variant = v.HoldingRegisterBitWriteChannel
 	default:
 		return errors.Newf("WriteChannel: unknown type %q", disc.Type)
 	}
@@ -410,6 +486,36 @@ func (u WriteChannel) Validate() error {
 		return variant.Validate()
 	}
 	return nil
+}
+
+// Base returns the fields every variant shares, or the zero value if Variant is nil.
+func (u WriteChannel) Base() BaseWriteChannel {
+	switch variant := u.Variant.(type) {
+	case CoilWriteChannel:
+		return variant.BaseWriteChannel
+	case HoldingRegisterWriteChannel:
+		return variant.BaseWriteChannel
+	case HoldingRegisterBitWriteChannel:
+		return variant.BaseWriteChannel
+	}
+	return BaseWriteChannel{}
+}
+
+// SetBase replaces the fields every variant shares. It panics if Variant is nil.
+func (u *WriteChannel) SetBase(base BaseWriteChannel) {
+	switch variant := u.Variant.(type) {
+	case CoilWriteChannel:
+		variant.BaseWriteChannel = base
+		u.Variant = variant
+	case HoldingRegisterWriteChannel:
+		variant.BaseWriteChannel = base
+		u.Variant = variant
+	case HoldingRegisterBitWriteChannel:
+		variant.BaseWriteChannel = base
+		u.Variant = variant
+	default:
+		panic(errors.Newf("WriteChannel: cannot set the base of variant %T", variant))
+	}
 }
 
 // ReadConfig configures a Modbus read task.

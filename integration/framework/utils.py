@@ -23,7 +23,8 @@ import tempfile
 import uuid
 from collections.abc import Iterator
 from contextlib import contextmanager
-from typing import Any
+
+from pydantic import JsonValue, TypeAdapter
 
 import synnax as sy
 from x.telem import to_float
@@ -139,7 +140,7 @@ def read_latest_value(client: sy.Synnax, channel_name: str) -> float | None:
     try:
         for attempt in range(3):
             latest = client.read_latest(channel_name)
-            if latest is not None and len(latest) > 0:
+            if len(latest) > 0:
                 return to_float(latest[-1])
             now = sy.TimeStamp.now()
             recent_range = sy.TimeRange(now - sy.TimeSpan.SECOND * 3, now)
@@ -282,8 +283,20 @@ def assert_link_format(
             ) from None
 
 
+_JSON_OBJECT: TypeAdapter[dict[str, JsonValue]] = TypeAdapter(dict[str, JsonValue])
+
+
+def read_json_object(path: str) -> dict[str, JsonValue]:
+    """Read a JSON file that holds an object.
+
+    :raises pydantic.ValidationError: If the file does not hold a JSON object.
+    """
+    with open(path, encoding="utf-8") as f:
+        return _JSON_OBJECT.validate_json(f.read())
+
+
 def assert_envelope(
-    exported: dict[str, Any],
+    exported: dict[str, JsonValue],
     *,
     envelope_type: str,
     min_version: int,

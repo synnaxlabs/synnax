@@ -27,11 +27,14 @@ func WriteDomain(
 	tr telem.TimeRange,
 	data []byte,
 ) (err error) {
-	w, err := db.OpenWriter(ctx, domain.WriterConfig{Start: tr.Start, End: tr.End})
+	w, err := db.OpenWriter(ctx, domain.WriterConfig{End: tr.End})
 	if err != nil {
 		return err
 	}
 	defer func() { err = errors.Combine(err, w.Close()) }()
+	if err = w.SetStart(tr.Start); err != nil {
+		return err
+	}
 	if _, err = w.Write(data); err != nil {
 		return err
 	}

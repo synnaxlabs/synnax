@@ -34,7 +34,7 @@ inline Operation Operation::parse(x::json::Parser parser) {
 }
 
 inline x::json::json Operation::to_json() const {
-    x::json::json j;
+    x::json::json j = x::json::json::object();
     j["type"] = this->type;
     j["reset_channel"] = this->reset_channel;
     j["duration"] = this->duration.nanoseconds();
@@ -66,14 +66,14 @@ inline Channel Channel::parse(x::json::Parser parser) {
 }
 
 inline x::json::json Channel::to_json() const {
-    x::json::json j;
+    x::json::json j = x::json::json::object();
     j["key"] = this->key;
     j["name"] = this->name;
     j["leaseholder"] = this->leaseholder;
     j["data_type"] = this->data_type;
     j["is_index"] = this->is_index;
     j["index"] = this->index;
-    j["alias"] = this->alias;
+    if (this->alias.has_value()) j["alias"] = *this->alias;
     j["virtual"] = this->is_virtual;
     j["internal"] = this->internal;
     j["expression"] = this->expression;

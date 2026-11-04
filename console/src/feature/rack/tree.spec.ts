@@ -22,9 +22,15 @@ import { fireEvent, type RenderOptions, screen, waitFor } from "@testing-library
 import { describe, expect, it } from "vitest";
 
 import { NI } from "@/feature/ni";
+import { OPCUA } from "@/feature/opcua";
+import { SERVER_CERTIFICATE } from "@/feature/opcua/testutil";
 import { Rack } from "@/feature/rack";
-import { findModalButton, renderTreeContextMenu } from "@/platform/tree/menuTestutil";
-import { createResource } from "@/platform/tree/testutil";
+import { answerNextCommand } from "@/platform/task/testutil";
+import {
+  createResource,
+  findModalButton,
+  renderTreeContextMenu,
+} from "@/platform/tree/testutil";
 import { assertDefined, createTestClientWithGrants, uniqueName } from "@/testutil";
 
 const client = createTestClient();
@@ -47,6 +53,19 @@ const createNIRackWithScanner = async () => {
     },
     NI.Task.SCAN_SCHEMAS,
   );
+  return { rack: r, scanTask };
+};
+
+const createOPCUARackWithScanner = async () => {
+  const r = await client.racks.create({
+    name: uniqueName("opcua_rack"),
+    integrations: [OPCUA.Device.INTEGRATION],
+  });
+  const scanTask = await r.createTask({
+    name: uniqueName("opcua_scanner"),
+    type: OPCUA.Task.SCAN_TYPE,
+    config: {},
+  });
   return { rack: r, scanTask };
 };
 
@@ -141,6 +160,29 @@ describe("rack ontology service", () => {
     expect(screen.queryByText("Toggle NI device scanner")).toBeNull();
   });
 
+  it("should hide the OPC UA Driver certificate for a rack without the OPC UA integration", async () => {
+    const r = await createRack();
+    await renderMenu([r]);
+    await screen.findByText("Rename");
+    expect(screen.queryByText("Show OPC UA Driver certificate")).toBeNull();
+  });
+
+  it("should open the OPC UA Driver certificate of the rack", async () => {
+    const { rack: r, scanTask } = await createOPCUARackWithScanner();
+    const { answered } = await answerNextCommand(client, scanTask, {
+      type: OPCUA.Task.GET_CERTIFICATE_COMMAND_TYPE,
+      data: { current: SERVER_CERTIFICATE },
+    });
+    await renderMenu([r]);
+    fireEvent.click(await screen.findByText("Show OPC UA Driver certificate"));
+    await answered;
+    expect(
+      await screen.findByText(
+        "FF:65:16:FC:E0:22:F9:7F:23:B6:F6:79:17:9D:B7:FE:68:CB:2D:9C",
+      ),
+    ).toBeTruthy();
+  });
+
   it("should toggle the NI scanner's disabled flag from the rack context menu", async () => {
     const { rack: r, scanTask } = await createNIRackWithScanner();
     await renderMenu([r]);
@@ -163,6 +205,13 @@ describe("permission to write the rack", () => {
     expect(screen.queryByText("Rename")).toBeNull();
     expect(screen.queryByText("Create Arc automation")).toBeNull();
     expect(screen.queryByText("Delete")).toBeNull();
+  });
+
+  it("should withhold the OPC UA Driver certificate from a viewer", async () => {
+    const { rack: r } = await createOPCUARackWithScanner();
+    await renderMenu([r], await roles.get("Viewer"));
+    expect(await screen.findByText("Copy properties")).toBeTruthy();
+    expect(screen.queryByText("Show OPC UA Driver certificate")).toBeNull();
   });
 
   it("should withhold the scanner toggle from a subject who cannot create tasks", async () => {

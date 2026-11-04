@@ -15,7 +15,7 @@ import { Flex } from "@synnaxlabs/lyra/flex";
 import { Header } from "@synnaxlabs/lyra/header";
 import { useResize } from "@synnaxlabs/lyra/hooks";
 import { Icon } from "@synnaxlabs/lyra/icon";
-import { box } from "@synnaxlabs/x";
+import { box, type deep } from "@synnaxlabs/x";
 import { type MouseEvent, type ReactNode, useEffect, useRef, useState } from "react";
 
 import { CSS } from "@/platform/css";
@@ -26,8 +26,10 @@ export interface PanesProps {
   listTitle: string;
   /** The list column's items, below the header. */
   list: ReactNode;
+  /** Sits at the end of the list's header, such as a switch between views. */
+  listActions?: ReactNode;
   /** The form path of the selected item, or null when nothing is selected. */
-  detailsPath: string | null;
+  detailsPath: deep.Target<unknown> | null;
   /** Names the selected item in the details header. */
   title?: ReactNode;
   /** The details body, or a placeholder when nothing is selected. */
@@ -46,6 +48,7 @@ const NARROW_WIDTH = 560;
 export const Panes = ({
   listTitle,
   list,
+  listActions,
   detailsPath,
   title,
   children,
@@ -54,7 +57,9 @@ export const Panes = ({
   const narrowRef = useRef(narrow);
   // Null while closed. Open, it holds the selection it opened at; once the selection
   // moves on, the drawer reads as closed without an effect to close it.
-  const [drawer, setDrawer] = useState<{ at: string | null } | null>(null);
+  const [drawer, setDrawer] = useState<{ at: deep.Target<unknown> | null } | null>(
+    null,
+  );
   // A mode switch lands without motion: transitions are off for the commit that
   // switches and back on two frames later, once the new position has painted.
   const [snap, setSnap] = useState(false);
@@ -129,6 +134,7 @@ export const Panes = ({
               {listTitle}
             </Header.Title>
           </Flex.Box>
+          {listActions != null && <Header.Actions>{listActions}</Header.Actions>}
         </Header.Header>
         {list}
       </Flex.Box>
@@ -140,11 +146,7 @@ export const Panes = ({
         className={CSS.BE("panes", "details")}
         onClickCapture={backdrop ? handleDetailsClickCapture : undefined}
       >
-        <DetailsHeader
-          path={detailsPath ?? ""}
-          disabled={detailsPath == null}
-          start={visible ? undefined : toggle}
-        >
+        <DetailsHeader path={detailsPath} start={visible ? undefined : toggle}>
           {title}
         </DetailsHeader>
         {children}

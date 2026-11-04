@@ -7,7 +7,7 @@
 #  License, use of this software will be governed by the Apache License, Version 2.0,
 #  included in the file licenses/APL.txt.
 
-from examples.simulators import PressSimDAQ
+from examples.simulators import PressSimDAQ, SimDAQ
 
 from console.case import ConsoleCase
 from console.schematic import Button, Schematic, Valve
@@ -19,7 +19,7 @@ class SimplePressValves(SimDaqCase, ConsoleCase):
     Test a basic press control sequence using valves and buttons
     """
 
-    sim_daq_class = PressSimDAQ
+    sim_daq_class: type[SimDAQ] | None = PressSimDAQ
 
     def setup(self) -> None:
         self.set_manual_timeout(90)

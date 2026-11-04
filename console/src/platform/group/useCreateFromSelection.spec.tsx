@@ -15,13 +15,20 @@ import { describe, expect, it } from "vitest";
 
 import { Group } from "@/platform/group";
 import { Tree } from "@/platform/tree";
-import { expandTreeRow, getTreeRow } from "@/platform/tree/menuTestutil";
-import { findTreeRow, renderOntologyTree } from "@/platform/tree/treeTestutil";
+import {
+  expandTreeRow,
+  findTreeRow,
+  getTreeRow,
+  itemName,
+  renderOntologyTree,
+  searchTree,
+} from "@/platform/tree/testutil";
 import {
   awaitTextEditingElement,
   awaitTextEditingExit,
   commitTextEdit,
   uniqueName,
+  uniqueToken,
   withControlHeld,
 } from "@/testutil";
 
@@ -32,6 +39,8 @@ const GroupSelectionMenu = (props: Tree.ContextMenuProps): ReactElement => {
   return <button onClick={() => createFromSelection(props)}>group selection</button>;
 };
 GroupSelectionMenu.displayName = "GroupSelectionMenu";
+
+const useGroupSearch = Tree.createSearch({ noun: "groups" });
 
 const setup = async () => {
   const parent = await client.groups.create({
@@ -129,6 +138,87 @@ describe("useCreateFromSelection", () => {
       expect(subChildren).toHaveLength(1);
       expect(subChildren[0].name).toBe(name);
       newKey = subChildren[0].id.key;
+    });
+    await expectGrouped(newKey, [a, b]);
+  });
+
+  it("should group search results under their real parent", async () => {
+    const tok = uniqueToken();
+    const parent = await client.groups.create({
+      parent: ontology.ROOT_ID,
+      name: uniqueName("parent"),
+    });
+    const parentID = group.ontologyID(parent.key);
+    const sub = await client.groups.create({
+      parent: parentID,
+      name: uniqueName("sub"),
+    });
+    const subID = group.ontologyID(sub.key);
+    const a = await client.groups.create({ parent: subID, name: `${tok} a` });
+    const b = await client.groups.create({ parent: subID, name: `${tok} b` });
+    const items: Tree.Items = {
+      group: Tree.createItem({ type: "group", ContextMenu: GroupSelectionMenu }),
+    };
+    await renderOntologyTree({ client, root: parentID, items, search: useGroupSearch });
+    searchTree(tok);
+    fireEvent.click(await findTreeRow(itemName(a.name)));
+    const rowB = await findTreeRow(itemName(b.name));
+    withControlHeld(() => fireEvent.click(rowB));
+    fireEvent.contextMenu(rowB);
+    fireEvent.click(await screen.findByText("group selection"));
+    const editable = await awaitTextEditingElement();
+    const name = uniqueName("grp");
+    await act(async () => {
+      commitTextEdit(editable, name);
+    });
+    let newKey = "";
+    await waitFor(async () => {
+      const subChildren = await client.ontology.children.retrieve({ ids: subID });
+      expect(subChildren).toHaveLength(1);
+      expect(subChildren[0].name).toBe(name);
+      newKey = subChildren[0].id.key;
+    });
+    await expectGrouped(newKey, [a, b]);
+  });
+
+  it("should keep the new group in search results while a match arrives", async () => {
+    const tok = uniqueToken();
+    const parent = await client.groups.create({
+      parent: ontology.ROOT_ID,
+      name: uniqueName("parent"),
+    });
+    const parentID = group.ontologyID(parent.key);
+    const sub = await client.groups.create({
+      parent: parentID,
+      name: uniqueName("sub"),
+    });
+    const subID = group.ontologyID(sub.key);
+    const a = await client.groups.create({ parent: subID, name: `${tok} a` });
+    const b = await client.groups.create({ parent: subID, name: `${tok} b` });
+    const items: Tree.Items = {
+      group: Tree.createItem({ type: "group", ContextMenu: GroupSelectionMenu }),
+    };
+    await renderOntologyTree({ client, root: parentID, items, search: useGroupSearch });
+    searchTree(tok);
+    fireEvent.click(await findTreeRow(itemName(a.name)));
+    const rowB = await findTreeRow(itemName(b.name));
+    withControlHeld(() => fireEvent.click(rowB));
+    fireEvent.contextMenu(rowB);
+    fireEvent.click(await screen.findByText("group selection"));
+    await awaitTextEditingElement();
+    const late = await client.groups.create({ parent: subID, name: `${tok} c` });
+    await findTreeRow(itemName(late.name));
+    const name = uniqueName("grp");
+    const editable = await awaitTextEditingElement();
+    await act(async () => {
+      commitTextEdit(editable, name);
+    });
+    let newKey = "";
+    await waitFor(async () => {
+      const children = await client.ontology.children.retrieve({ ids: subID });
+      const created = children.find((c) => c.name === name);
+      expect(created).toBeDefined();
+      newKey = created?.id.key ?? "";
     });
     await expectGrouped(newKey, [a, b]);
   });

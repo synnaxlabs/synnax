@@ -3183,8 +3183,9 @@ var _ = Describe("Go Union Generation", func() {
 					`func (u *Scale) UnmarshalJSONFrom(dec *jsontext.Decoder) error {`,
 					`Type ScaleType `+"`"+`json:"type"`+"`",
 					`case LinearScaleType:`,
-					`var v LinearScale`,
-					`u.Variant = v`,
+					`json.RejectUnknownMembers(false)`,
+					"LinearScale\n\t\t}",
+					`u.Variant = v.LinearScale`,
 				)
 		},
 	)
@@ -3322,6 +3323,121 @@ var _ = Describe("Go Union Generation", func() {
 					`VoltageFields`,
 				)
 		},
+	)
+
+	It(
+		"Should generate Base and SetBase for a union whose variants share one base",
+		func(ctx SpecContext) {
+			source := `
+			@go output "out"
+
+			BaseAIChan struct { port int32 }
+			VoltageFields struct { minVal float64 }
+
+			AIChannel union on type extends BaseAIChan {
+				ai_voltage VoltageFields
+				ai_current { units string }
+			}
+		`
+			resp := MustGenerate(ctx, source, "ni", loader, goPlugin)
+			ExpectContent(resp, "types.gen.go").
+				ToContain(
+					"func (u AIChannel) Base() BaseAIChan {\n"+
+						"\tswitch variant := u.Variant.(type) {\n"+
+						"\tcase AIVoltageChannel:\n"+
+						"\t\treturn variant.BaseAIChan\n"+
+						"\tcase AICurrentChannel:\n"+
+						"\t\treturn variant.BaseAIChan\n"+
+						"\t}\n"+
+						"\treturn BaseAIChan{}\n"+
+						"}",
+					"func (u *AIChannel) SetBase(base BaseAIChan) {\n"+
+						"\tswitch variant := u.Variant.(type) {\n"+
+						"\tcase AIVoltageChannel:\n"+
+						"\t\tvariant.BaseAIChan = base\n"+
+						"\t\tu.Variant = variant\n"+
+						"\tcase AICurrentChannel:\n"+
+						"\t\tvariant.BaseAIChan = base\n"+
+						"\t\tu.Variant = variant\n"+
+						"\tdefault:\n"+
+						"\t\tpanic(errors.Newf(\"AIChannel: cannot set the base of "+
+						"variant %T\", variant))\n"+
+						"\t}\n"+
+						"}",
+				)
+		},
+	)
+
+	It(
+		"Should qualify the Base return type of a base from another namespace",
+		func(ctx SpecContext) {
+			loader.Add("schemas/common", `
+			@go output "core/common"
+
+			BaseAIChan struct { port int32 }
+		`)
+			source := `
+			import "schemas/common"
+
+			@go output "core/ni"
+
+			AIChannel union on type extends common.BaseAIChan {
+				ai_voltage { minVal float64 }
+			}
+		`
+			resp := MustGenerate(ctx, source, "ni", loader, goPlugin)
+			ExpectContent(resp, "ni/types.gen.go").
+				ToContain(
+					"func (u AIChannel) Base() common.BaseAIChan {",
+					"\t\treturn variant.BaseAIChan\n",
+					"\treturn common.BaseAIChan{}\n",
+					"func (u *AIChannel) SetBase(base common.BaseAIChan) {",
+					"\t\tvariant.BaseAIChan = base\n",
+				)
+		},
+	)
+
+	DescribeTable(
+		"Should not generate Base or SetBase without one base every variant shares",
+		func(ctx SpecContext, source string) {
+			resp := MustGenerate(ctx, source, "ni", loader, goPlugin)
+			ExpectContent(resp, "types.gen.go").
+				ToContain("type AIChannel struct {").
+				ToNotContain(") Base() ", ") SetBase(")
+		},
+		Entry("no base", `
+			@go output "out"
+
+			AIChannel union on type {
+				ai_voltage { minVal float64 }
+			}
+		`),
+		Entry("two bases", `
+			@go output "out"
+
+			BaseAIChan struct { port int32 }
+			Range struct { minVal float64 }
+
+			AIChannel union on type extends BaseAIChan, Range {
+				ai_voltage {}
+			}
+		`),
+		Entry("a variant that omits a base field", `
+			@go output "out"
+
+			BaseAIChan struct {
+				port int32
+				enabled bool
+			}
+
+			AIChannel union on type extends BaseAIChan {
+				ai_voltage { minVal float64 }
+				ai_temp_builtin {
+					-port
+					units string
+				}
+			}
+		`),
 	)
 
 	It(
@@ -3506,16 +3622,21 @@ func (u *rtScale) UnmarshalJSONFrom(dec *jsontext.Decoder) error {
 	var disc struct {
 		Type rtScaleType `json:"type"`
 	}
-	if err := json.Unmarshal(data, &disc, opts); err != nil {
+	if err := json.Unmarshal(
+		data, &disc, opts, json.RejectUnknownMembers(false),
+	); err != nil {
 		return err
 	}
 	switch disc.Type {
 	case rtLinearScaleType:
-		var v rtLinearScale
+		var v struct {
+			Type rtScaleType `json:"type"`
+			rtLinearScale
+		}
 		if err := json.Unmarshal(data, &v, opts); err != nil {
 			return err
 		}
-		u.Variant = v
+		u.Variant = v.rtLinearScale
 	default:
 		return gotesterrors.Newf("rtScale: unknown type %q", disc.Type)
 	}
@@ -3588,6 +3709,21 @@ var _ = Describe("Union codec round trip", func() {
 		Expect(got.Port).To(Equal(int32(7)))
 		Expect(got.MinVal).To(Equal(-10.0))
 		Expect(got.Scale.Variant.(rtLinearScale).Slope).To(Equal(1.5))
+	})
+
+	It("Should decode a union when unknown members are rejected", func() {
+		data := []byte(`{"type":"linear","slope":2}`)
+		var out rtScale
+		Expect(json.Unmarshal(data, &out, json.RejectUnknownMembers(true))).
+			To(Succeed())
+		Expect(out.Variant.(rtLinearScale).Slope).To(Equal(2.0))
+	})
+
+	It("Should reject an unknown member of a union variant", func() {
+		data := []byte(`{"type":"linear","slope":2,"offset":1}`)
+		var out rtScale
+		Expect(json.Unmarshal(data, &out, json.RejectUnknownMembers(true))).
+			To(MatchError(ContainSubstring(`unknown object member name "offset"`)))
 	})
 })
 

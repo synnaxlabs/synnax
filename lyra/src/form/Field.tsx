@@ -7,7 +7,13 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { caseconv, deep, type optional, type record } from "@synnaxlabs/x";
+import {
+  caseconv,
+  deep,
+  type optional,
+  type record,
+  type TimeSpan,
+} from "@synnaxlabs/x";
 import { type FC, type ReactElement } from "react";
 
 import { type RenderProp, renderProp } from "@/component/renderProp";
@@ -22,8 +28,8 @@ interface FieldChild<I, O>
 /** Props for {@link Field}. */
 export type FieldProps<I = string | number, O = I> = UseFieldOptions<I, O> &
   Omit<Input.ItemProps, "children" | "onChange" | "defaultValue"> & {
-    /** Dot-separated path into the form values. */
-    path: string;
+    /** The path into the form values. */
+    path: deep.Target<I>;
     /** Renders the input. Defaults to a text input. */
     children?: RenderProp<FieldChild<I, O>>;
     /** Whether to hold room for help text, so the layout does not jump. */
@@ -45,8 +51,8 @@ export type FieldT<I, O = I> = (props: FieldProps<I, O>) => ReactElement | null;
  * One labeled row of a form: its label, its input, and its validation message. The
  * label falls back to the last path element in sentence case.
  *
- * @example <Form.Field path="range.name" />
- * @example <Form.Field path="rate">{(p) => <Input.Numeric {...p} />}</Form.Field>
+ * @example <Form.Field path={path.range.name} />
+ * @example <Form.Field path={path.rate}>{(p) => <Input.Numeric {...p} />}</Form.Field>
  */
 export const Field = <I = string | number, O = I>({
   path,
@@ -63,7 +69,8 @@ export const Field = <I = string | number, O = I>({
   const field = useField<I, O>(path, { onChange, optional: !visible });
   const markable = emptiable ?? children == null;
   if (field == null || !visible) return null;
-  if (label == null) label = caseconv.toSentence(deep.element(path, -1));
+  const key = String(path);
+  if (label == null) label = caseconv.toSentence(deep.element(key, -1));
   const helpText = field.status.message;
   const { onChange: fieldOnChange, value } = field;
   const childrenProps: FieldChild<I, O> = { onChange: fieldOnChange, value };
@@ -77,7 +84,7 @@ export const Field = <I = string | number, O = I>({
       required={markable && field.required && field.preview !== true}
       className={CSS.cls(
         className,
-        CSS.BE("field", path.split(".").join("-")),
+        CSS.BE("field", key.split(".").join("-")),
         CSS.M(field.status.variant),
       )}
       {...rest}
@@ -90,7 +97,6 @@ export const Field = <I = string | number, O = I>({
 };
 
 export interface FieldBuilderProps<I, O, P extends {}> {
-  fieldKey?: string;
   fieldProps?: Partial<FieldProps<I, O>>;
   inputProps: Omit<P, "value" | "onChange">;
 }
@@ -100,9 +106,10 @@ export type BuiltFieldProps<
   O,
   P extends {},
   OptionalFields extends keyof Omit<P, "value" | "onChange"> = never,
-> = FieldProps<I, O> & {
+> = Omit<FieldProps<I, O>, "path"> & {
+  /** The path into the form values. A built field takes an optional value. */
+  path: deep.Target<I | undefined>;
   inputProps?: optional.Optional<Omit<P, "value" | "onChange">, OptionalFields>;
-  fieldKey?: string;
 };
 
 /**
@@ -125,21 +132,15 @@ export const fieldBuilder =
     defaults: Partial<FieldProps<I, O>> = {},
   ) =>
   ({
-    fieldKey: baseFieldKey,
     fieldProps,
     inputProps: baseInputProps,
   }: FieldBuilderProps<I, O, P>): FC<BuiltFieldProps<I, O, P, OptionalFields>> => {
-    const C = ({
-      inputProps,
-      path,
-      fieldKey = baseFieldKey,
-      ...rest
-    }: BuiltFieldProps<I, O, P>) => (
+    const C = ({ inputProps, path, ...rest }: BuiltFieldProps<I, O, P>) => (
       <Field<I, O>
         {...defaults}
         {...fieldProps}
         {...rest}
-        path={fieldKey ? `${path}.${fieldKey}` : path}
+        path={path as deep.Target<I>}
       >
         {(cp) => <Component {...cp} {...baseInputProps} {...(inputProps as P)} />}
       </Field>
@@ -167,11 +168,94 @@ export const buildSwitchField = fieldBuilder<boolean, boolean, Input.SwitchProps
 );
 export const SwitchField = buildSwitchField({ inputProps: {} });
 
+export interface CheckboxFieldProps extends BuiltFieldProps<
+  boolean,
+  boolean,
+  Input.CheckboxProps
+> {
+  /**
+   * Checks the box when the stored value is false, for a flag that names the
+   * non-default condition, such as `dataSavingDisabled` under "Data saving".
+   */
+  inverted?: boolean;
+}
+
+/** A checkbox field, for a setting that the form saves on a button. */
+export const CheckboxField = ({
+  inverted = false,
+  inputProps,
+  path,
+  ...rest
+}: CheckboxFieldProps): ReactElement | null => (
+  <Field<boolean> {...rest} path={path as deep.Target<boolean>}>
+    {({ value, onChange, ...p }) => (
+      <Input.Checkbox
+        {...p}
+        {...inputProps}
+        value={inverted ? !value : value}
+        onChange={(v) => onChange(inverted ? !v : v)}
+      />
+    )}
+  </Field>
+);
+
 export type DateTimeFieldProps = BuiltFieldProps<number, number, Input.DateTimeProps>;
 export const buildDateTimeField = fieldBuilder<number, number, Input.DateTimeProps>(
   Input.DateTime,
 );
 export const DateTimeField = buildDateTimeField({ inputProps: {} });
+
+export interface TimeSpanFieldProps extends BuiltFieldProps<
+  number | undefined,
+  number | undefined,
+  Omit<Input.TimeSpanProps, "unit" | "inline" | "check" | "onClear">
+> {
+  /** The unit of the stored number, and of a number typed alone. */
+  unit: TimeSpan;
+  /** The shortest and longest spans the field accepts. */
+  bounds?: { lower?: TimeSpan; upper?: TimeSpan };
+}
+
+/**
+ * A duration field, typed in place. It stores a number of `unit`. An emptiable field
+ * stores undefined when emptied, and any other field reverts.
+ *
+ * @example <Form.TimeSpanField path={path.timeoutMs} unit={TimeSpan.MILLISECOND} />
+ */
+export const TimeSpanField = ({
+  unit,
+  bounds,
+  inputProps,
+  path,
+  label,
+  emptiable,
+  ...rest
+}: TimeSpanFieldProps): ReactElement | null => {
+  const name = label ?? caseconv.toSentence(deep.element(String(path), -1));
+  const check = (span: TimeSpan): string | null => {
+    if (bounds?.lower != null && span.lessThan(bounds.lower))
+      return `${name} must be ${Input.formatTimeSpan(bounds.lower)} or more`;
+    if (bounds?.upper != null && span.greaterThan(bounds.upper))
+      return `${name} must be ${Input.formatTimeSpan(bounds.upper)} or less`;
+    return null;
+  };
+  return (
+    <Field<number | undefined> {...rest} label={name} emptiable={emptiable} path={path}>
+      {({ value, onChange, ...p }) => (
+        <Input.TimeSpan
+          {...p}
+          {...inputProps}
+          inline
+          unit={unit}
+          value={value == null ? undefined : Number(unit.mult(value).valueOf())}
+          onChange={(ns) => onChange(ns / Number(unit.valueOf()))}
+          onClear={emptiable === true ? () => onChange(undefined) : undefined}
+          check={bounds == null ? undefined : check}
+        />
+      )}
+    </Field>
+  );
+};
 
 export type SelectFieldProps<K extends record.Key> = BuiltFieldProps<
   K,

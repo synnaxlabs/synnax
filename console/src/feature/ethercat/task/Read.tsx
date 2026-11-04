@@ -11,10 +11,10 @@ import { Component } from "@synnaxlabs/lyra/component";
 import { Flex } from "@synnaxlabs/lyra/flex";
 import { Form as PForm } from "@synnaxlabs/lyra/form";
 import { Icon } from "@synnaxlabs/lyra/icon";
-import { primitive } from "@synnaxlabs/x";
+import { deep, primitive } from "@synnaxlabs/x";
 import { type FC } from "react";
 
-import { useSlavesByKeys } from "@/feature/ethercat/device/queries";
+import { useResultSlave, useSlavesByKeys } from "@/feature/ethercat/device/queries";
 import {
   ReadChannelDetails,
   ReadDetailsTitle,
@@ -28,38 +28,50 @@ import {
   addressKey,
   createReadChannel,
   deployReadConfigZ,
-  getEntryChannelName,
+  entryAt,
   getPortLabel,
   hasEntry,
   READ_SCHEMAS,
   READ_TYPE,
   type ReadChannel,
+  readChannelName,
   type ReadSchemas,
 } from "@/feature/ethercat/task/types";
 import { Selector } from "@/platform/selector";
 import { Task } from "@/platform/task";
 
+const path = deep.path<Task.Values<ReadSchemas>>();
+
 const Properties = () => (
-  <Flex.Box x grow>
+  <Flex.Box x grow wrap>
     <Task.Fields.SampleRate />
     <Task.Fields.StreamRate />
-    <Task.Fields.DataSaving />
-    <Task.Fields.AutoStart />
   </Flex.Box>
 );
 
 const ChannelListItem = (props: Task.ChannelListItemProps) => {
   const { itemKey } = props;
-  const path = `config.channels.${itemKey}`;
-  const ch = PForm.useFieldValue<ReadChannel>(path);
+  const entry = path.config.channels[itemKey];
+  const ch = PForm.useFieldValue(entry);
+  const { data: slave } = useResultSlave(
+    primitive.isZero(ch.device) ? null : { key: ch.device },
+  );
   return (
     <Task.Views.ListAndDetailsChannelItem
       {...props}
       nameDirection="y"
       port={getPortLabel(ch)}
       status={ch.type === "unresolved" ? "error" : undefined}
-      path={path}
+      path={entry}
       channel={ch.channel}
+      defaultName={
+        slave != null &&
+        hasEntry(ch) &&
+        entryAt(slave.properties.pdos.inputs, ch) != null
+          ? readChannelName(slave, ch)
+          : undefined
+      }
+      skipped={ch.disabled}
       hasTareButton={false}
       canTare={false}
       portMaxChars={10}
@@ -74,7 +86,7 @@ const detailsTitle = Component.renderProp(ReadDetailsTitle);
 const listItem = Component.renderProp(ChannelListItem);
 
 const Form: FC = () => {
-  const slaves = useSlavesByKeys(Task.useChannelDeviceKeys());
+  const slaves = useSlavesByKeys(Task.useChannelDeviceKeys(path.config.channels));
   const resolve = (ch: ReadChannel) => {
     const slave = slaves?.find(({ key }) => key === ch.device);
     if (slave == null || !hasEntry(ch)) return null;
@@ -82,6 +94,7 @@ const Form: FC = () => {
   };
   return (
     <Task.Views.ListAndDetails<ReadChannel>
+      path={path.config.channels}
       listItem={listItem}
       details={channelDetails}
       detailsTitle={detailsTitle}
@@ -119,12 +132,9 @@ const onConfigure: Task.OnConfigure<ReadSchemas["config"]> = async (client, conf
 
     if (toCreate.length > 0) {
       modified = true;
-      const { identifier, pdos } = slave.properties;
       const created = await client.channels.create(
         toCreate.map((ch) => ({
-          name: primitive.isNonZero(ch.name)
-            ? ch.name
-            : getEntryChannelName(identifier, pdos.inputs, ch),
+          name: readChannelName(slave, ch),
           dataType: ch.dataType,
           index: slave.properties.readIndex,
         })),
@@ -151,7 +161,6 @@ export const Read = Task.wrapForm({
   schemas: READ_SCHEMAS,
   deployConfigZ: deployReadConfigZ,
   type: "ethercat_read",
-  getInitialValues,
   onConfigure,
 });
 

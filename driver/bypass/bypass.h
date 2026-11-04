@@ -131,8 +131,16 @@ public:
     void push(x::telem::Frame frame) {
         {
             std::lock_guard lock(this->mu);
-            while (this->queue.size() >= this->cap)
+            while (this->queue.size() >= this->cap) {
+                const auto &oldest = this->queue.front();
+                LOG_FIRST_N(WARNING, 10)
+                    << "[bus] subscription to " << this->keys.size()
+                    << " channels is full at " << this->cap
+                    << " frames: dropped oldest frame with " << oldest.size()
+                    << " channels, first channel "
+                    << (oldest.empty() ? 0 : oldest.channels->front());
                 this->queue.pop_front();
+            }
             this->queue.push_back(std::move(frame));
             this->cv.notify_one();
             if (this->on_push) this->on_push();

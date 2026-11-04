@@ -8,7 +8,12 @@
 // included in the file licenses/APL.txt.
 
 #include <filesystem>
+#include <mutex>
 
+#include "absl/log/globals.h"
+#include "absl/log/log_entry.h"
+#include "absl/log/log_sink.h"
+#include "absl/log/log_sink_registry.h"
 #include "gtest/gtest.h"
 
 #include "client/cpp/synnax.h"
@@ -21,6 +26,35 @@
 #include "driver/opcua/testutil/testutil.h"
 
 namespace driver::opcua::connection {
+/// @brief enables VLOG(1) and captures the text of every log line while in scope.
+class CaptureSink final : public absl::LogSink {
+    int prev_vlog_level;
+    std::mutex mu;
+    std::vector<std::string> lines;
+
+public:
+    CaptureSink(): prev_vlog_level(absl::SetGlobalVLogLevel(1)) {
+        absl::AddLogSink(this);
+    }
+
+    ~CaptureSink() override {
+        absl::RemoveLogSink(this);
+        absl::SetGlobalVLogLevel(this->prev_vlog_level);
+    }
+
+    void Send(const absl::LogEntry &entry) override {
+        std::lock_guard lock(this->mu);
+        this->lines.emplace_back(entry.text_message());
+    }
+
+    [[nodiscard]] bool contains(const std::string &substr) {
+        std::lock_guard lock(this->mu);
+        return std::ranges::any_of(this->lines, [&](const std::string &line) {
+            return line.contains(substr);
+        });
+    }
+};
+
 /// @brief it should establish basic connection and read node value.
 TEST(ConnectionTest, testBasicConn) {
     UA_Variant float_val;
@@ -33,13 +67,13 @@ TEST(ConnectionTest, testBasicConn) {
 
     testutil::ServerConfig server_cfg;
     server_cfg.test_nodes = {node};
-    server_cfg.port = 4840;
+    server_cfg.port = 4849;
 
     testutil::Server server(server_cfg);
     server.start();
 
     Config cfg;
-    cfg.endpoint = "opc.tcp://localhost:4840";
+    cfg.endpoint = "opc.tcp://localhost:4849";
     cfg.security_mode = "None";
     cfg.security_policy = "None";
 
@@ -57,6 +91,29 @@ TEST(ConnectionTest, testBasicConn) {
     server.stop();
 
     UA_Variant_clear(&float_val);
+}
+
+/// @brief it should log open62541 messages with their UA_String arguments formatted.
+TEST(ConnectionTest, testLogFormatsUAString) {
+    testutil::ServerConfig server_cfg = testutil::ServerConfig::create_default();
+    server_cfg.port = 4850;
+    testutil::Server server(server_cfg);
+    server.start();
+    ASSERT_TRUE(server.wait_until_ready());
+
+    Config cfg;
+    cfg.endpoint = "opc.tcp://localhost:4850";
+    cfg.security_mode = "None";
+    cfg.security_policy = "None";
+
+    CaptureSink logs;
+    auto client = ASSERT_NIL_P(connect(cfg, {}, "test"));
+    EXPECT_TRUE(logs.contains(
+        "for SecurityPolicy http://opcfoundation.org/UA/SecurityPolicy#None and a "
+        "revised lifetime of"
+    ));
+
+    server.stop();
 }
 
 /// @brief it should return unreachable error when connection is refused.
@@ -155,7 +212,7 @@ TEST(ConnectionTest, serverStopDuringConnection) {
 
     UA_ReadValueId ids[1];
     UA_ReadValueId_init(&ids[0]);
-    ids[0].nodeId = node_id; // Implicit conversion to const UA_NodeId&
+    ids[0].nodeId = node_id.resolve({}).value();
     ids[0].attributeId = UA_ATTRIBUTEID_VALUE;
 
     UA_ReadRequest req;
@@ -262,10 +319,7 @@ TEST(ConnectionTest, usernamePasswordWithoutEncryption) {
     cfg.username = "any_user";
     cfg.password = "any_password";
 
-    ASSERT_OCCURRED_AS_P(
-        connect(cfg, {}, "test"),
-        opcua::errors::IDENTITY_TOKEN_REJECTED
-    );
+    ASSERT_OCCURRED_AS_P(connect(cfg, {}, "test"), opcua::errors::SESSION_REJECTED);
 
     server.stop();
 }
@@ -287,10 +341,7 @@ TEST(ConnectionTest, emptyUsernameWithPassword) {
     cfg.username = "";
     cfg.password = "password";
 
-    ASSERT_OCCURRED_AS_P(
-        connect(cfg, {}, "test"),
-        opcua::errors::IDENTITY_TOKEN_REJECTED
-    );
+    ASSERT_OCCURRED_AS_P(connect(cfg, {}, "test"), opcua::errors::SESSION_REJECTED);
 
     server.stop();
 }
@@ -312,10 +363,7 @@ TEST(ConnectionTest, usernameWithEmptyPassword) {
     cfg.username = "username";
     cfg.password = "";
 
-    ASSERT_OCCURRED_AS_P(
-        connect(cfg, {}, "test"),
-        opcua::errors::IDENTITY_TOKEN_REJECTED
-    );
+    ASSERT_OCCURRED_AS_P(connect(cfg, {}, "test"), opcua::errors::SESSION_REJECTED);
 
     server.stop();
 }

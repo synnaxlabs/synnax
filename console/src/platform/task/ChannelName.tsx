@@ -7,57 +7,74 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import {
-  type channel,
-  channel as clientChannel,
-  NotFoundError,
-  type status,
-} from "@synnaxlabs/client";
+import "@/platform/task/ChannelName.css";
+
+import { type channel, channel as clientChannel } from "@synnaxlabs/client";
 import { Flex } from "@synnaxlabs/lyra/flex";
 import { Form } from "@synnaxlabs/lyra/form";
 import { Text } from "@synnaxlabs/lyra/text";
-import { Tooltip } from "@synnaxlabs/lyra/tooltip";
-import { Access, Channel, Flux } from "@synnaxlabs/pluto";
-import { type optional, primitive } from "@synnaxlabs/x";
+import { Access, Channel } from "@synnaxlabs/pluto";
+import { type deep, type optional, primitive } from "@synnaxlabs/x";
 import { type ReactElement } from "react";
 
 import { CSS } from "@/platform/css";
-import { useIsPreview } from "@/platform/task/Form";
+import {
+  type Anchor,
+  type Deploy,
+  isMissing,
+  Message,
+  MISSING_DESCRIPTIONS,
+  NEW_DESCRIPTION,
+  SKIPPED_DESCRIPTION,
+  STATE_MESSAGES,
+  StateIcon,
+} from "@/platform/task/ChannelState";
+import { useIsPreview } from "@/platform/task/useIsPreview";
 import { Session } from "@/session";
 
 export interface ChannelNameProps extends optional.Optional<
-  Omit<Text.MaybeEditableProps, "value">,
+  Omit<Text.MaybeEditableProps, "value" | "onChange">,
   "level"
 > {
   channel: channel.Key;
-  /** The name configure will give the channel; shown as a preview while it is 0. */
+  /** The name deploying the task gives the channel; shown while the form has none. */
   defaultName?: string;
-  namePath: string;
+  /**
+   * Holds the name deploying the task gives the channel, shown until the channel
+   * resolves. Required while the channel is 0, unless the channel is picked.
+   */
+  namePath?: deep.Target<string | undefined>;
+  /** Leads the name. A new or missing channel shows its state icon in its place. */
+  icon?: ReactElement;
+  /** Deploying the task does not create the channel, because it is disabled. */
+  skipped?: boolean;
+  /**
+   * The form picks an existing channel, so deploying the task never creates one, and
+   * the name is read only.
+   */
+  picked?: boolean;
 }
 
-interface NameProps extends Omit<ChannelNameProps, "defaultName"> {
+const NO_CHANNEL = "No channel";
+
+interface NameProps extends Omit<
+  ChannelNameProps,
+  "channel" | "defaultName" | "namePath" | "icon" | "skipped" | "picked"
+> {
   name: string;
+  /** Takes a rename. Without it, the name is read only. */
+  onRename?: (name: string) => void;
 }
 
-const Name = ({ channel, namePath, name, className, ...rest }: NameProps) => {
-  // Use optional values here because for some reason, the namePath is not always
-  // populated. Eventually we should strongly type the Form so we don't need to worry
-  // about this.
-  const onChange = Form.useField<string>(namePath, { optional: true })?.onChange;
-  const canRename = Access.useUpdateGranted(clientChannel.TYPE_ONTOLOGY_ID);
+const Name = ({ name, onRename, className, ...rest }: NameProps) => {
   const isPreview = useIsPreview();
-  const { update } = Channel.useRename();
-  const handleRename = (name: string) => {
-    if (channel === 0) return onChange?.(name);
-    update({ key: channel, name });
-  };
   return (
     <Text.MaybeEditable
       className={CSS.cls(className, CSS.BE("task", "channel-name"))}
       level="small"
       value={name}
-      onChange={handleRename}
-      disabled={isPreview || (channel !== 0 && !canRename)}
+      onChange={onRename}
+      disabled={isPreview}
       allowDoubleClick={false}
       overflow="fade"
       {...rest}
@@ -65,83 +82,152 @@ const Name = ({ channel, namePath, name, className, ...rest }: NameProps) => {
   );
 };
 
-/** The name the form carries for a channel whose record isn't in hand. */
-const Unresolved = ({
-  defaultName = "No channel",
-  namePath,
-  ...rest
-}: ChannelNameProps) => {
-  const formName = Form.useFieldValue<string>(namePath, { optional: true });
-  const name = primitive.isNonZero(formName) ? formName : defaultName;
-  return <Name namePath={namePath} name={name} {...rest} />;
-};
-
-const Resolved = (props: ChannelNameProps) => {
-  const { channel, defaultName: _, ...rest } = props;
-  const range = Session.Range.useSelectSelectedKey();
-  const result = Channel.useResultAlias({ key: channel, rangeKey: range ?? undefined });
-  if (result.variant === "success")
-    return <Name channel={channel} name={result.data} {...rest} />;
-  if (result.variant === "error")
-    return (
-      <Message variant="error" {...describe(result.status.details.error)}>
-        <Unresolved {...props} status="error" />
-      </Message>
-    );
-  const status = result.variant === "loading" ? "loading" : undefined;
-  return <Unresolved {...props} status={status} />;
-};
-
-interface MessageProps {
-  variant: status.Variant;
-  message: string;
-  description?: string;
-  children: Tooltip.DialogProps["children"][1];
+interface StoredProps extends Omit<NameProps, "name" | "onRename"> {
+  namePath: deep.Target<string | undefined>;
+  defaultName?: string;
 }
 
-const TOOLTIP_LOCATION = { y: "center" } as const;
-
-const Message = ({ variant, message, description, children }: MessageProps) => (
-  <Tooltip.Dialog location={TOOLTIP_LOCATION}>
-    <Flex.Box y gap="small" className={CSS.B("task-channel-name")}>
-      <Text.Text status={variant} level="p" color={10} weight={500}>
-        {message}
-      </Text.Text>
-      {primitive.isNonZero(description) && (
-        <Text.Text level="small" color={9} weight={450}>
-          {description}
-        </Text.Text>
-      )}
-    </Flex.Box>
-    {children}
-  </Tooltip.Dialog>
-);
-
-const MISSING_DESCRIPTION =
-  "It may have been deleted. Configuring the task creates a new channel.";
-
-const describe = (error: Error): Pick<MessageProps, "message" | "description"> => {
-  if (Flux.DeletedError.matches(error) || NotFoundError.matches(error.cause))
-    return {
-      message: "Channel not found",
-      description: MISSING_DESCRIPTION,
-    };
-  return { message: "Failed to retrieve channel", description: error.message };
+/** The name the form carries for a channel whose record isn't in hand. */
+const Stored = ({ namePath, defaultName = NO_CHANNEL, ...rest }: StoredProps) => {
+  // Use optional values here because for some reason, the namePath is not always
+  // populated.
+  const field = Form.useField(namePath, { optional: true });
+  const name = primitive.isNonZero(field?.value) ? field.value : defaultName;
+  return <Name {...rest} name={name} onRename={field?.onChange} />;
 };
 
-export const ChannelName = (props: ChannelNameProps): ReactElement => {
-  if (props.channel === 0) {
-    if (props.defaultName != null)
-      return (
-        <Message variant="info" message="Created when the task is configured">
-          <Unresolved {...props} color={8} />
-        </Message>
-      );
+interface UnresolvedProps extends Omit<StoredProps, "namePath" | "defaultName"> {
+  namePath?: deep.Target<string | undefined>;
+  defaultName: string;
+}
+
+const Unresolved = ({ namePath, defaultName, ...rest }: UnresolvedProps) =>
+  namePath == null ? (
+    <Name {...rest} name={defaultName} />
+  ) : (
+    <Stored {...rest} namePath={namePath} defaultName={defaultName} />
+  );
+
+// A plain function, not a component, so a wrapping tooltip's handlers reach the DOM.
+const lead = (icon: ReactElement | undefined, name: Anchor): Anchor =>
+  icon == null ? (
+    name
+  ) : (
+    <Flex.Box x align="center" gap="small" className={CSS.BE("task", "channel-lead")}>
+      {icon}
+      {name}
+    </Flex.Box>
+  );
+
+interface ResolvedProps extends Omit<ChannelNameProps, "skipped" | "picked"> {
+  deploy: Deploy;
+}
+
+const Resolved = ({
+  channel,
+  namePath,
+  defaultName = NO_CHANNEL,
+  icon,
+  deploy,
+  ...rest
+}: ResolvedProps) => {
+  const canRename = Access.useUpdateGranted(clientChannel.TYPE_ONTOLOGY_ID);
+  const { update } = Channel.useRename();
+  const range = Session.Range.useSelectSelectedKey();
+  const result = Channel.useResultAlias({ key: channel, rangeKey: range ?? undefined });
+  if (result.variant === "success") {
+    const handleRename =
+      deploy === "never" || !canRename
+        ? undefined
+        : (name: string) => update({ key: channel, name });
+    return lead(icon, <Name {...rest} name={result.data} onRename={handleRename} />);
+  }
+  const unresolved = { ...rest, namePath, defaultName };
+  if (isMissing(result))
     return (
-      <Message variant="warning" message="No channel selected">
-        <Unresolved {...props} status="warning" />
+      <Message
+        variant="warning"
+        message={STATE_MESSAGES.missing}
+        description={MISSING_DESCRIPTIONS[deploy]}
+      >
+        {lead(
+          <StateIcon state="missing" />,
+          <Unresolved
+            {...unresolved}
+            defaultName={deploy === "never" ? STATE_MESSAGES.missing : defaultName}
+            color={8}
+          />,
+        )}
       </Message>
     );
-  }
-  return <Resolved {...props} />;
+  if (result.variant !== "error")
+    return lead(icon, <Unresolved {...unresolved} status="loading" />);
+  return (
+    <Message
+      variant="error"
+      message="Failed to retrieve channel"
+      description={result.status.details.error.message}
+    >
+      {lead(icon, <Unresolved {...unresolved} status="error" />)}
+    </Message>
+  );
+};
+
+interface UnboundProps extends StoredProps {
+  icon?: ReactElement;
+  skipped: boolean;
+}
+
+const Unbound = ({ namePath, defaultName, icon, skipped, ...rest }: UnboundProps) => {
+  const stored = Form.useFieldValue(namePath, { optional: true });
+  if (defaultName == null && !primitive.isNonZero(stored))
+    return (
+      <Message
+        variant="info"
+        message={NO_CHANNEL}
+        description={
+          skipped ? SKIPPED_DESCRIPTION : "Deploying the task creates and names it."
+        }
+      >
+        {lead(icon, <Stored {...rest} namePath={namePath} color={8} />)}
+      </Message>
+    );
+  const name = <Stored {...rest} namePath={namePath} defaultName={defaultName} />;
+  if (skipped)
+    return (
+      <Message
+        variant="info"
+        message="Skipped channel"
+        description={SKIPPED_DESCRIPTION}
+      >
+        {lead(icon, name)}
+      </Message>
+    );
+  return (
+    <Message variant="info" message={STATE_MESSAGES.new} description={NEW_DESCRIPTION}>
+      {lead(<StateIcon state="new" />, name)}
+    </Message>
+  );
+};
+
+const deployOf = (skipped: boolean, picked: boolean): Deploy => {
+  if (picked) return "never";
+  return skipped ? "skips" : "creates";
+};
+
+export const ChannelName = ({
+  channel,
+  namePath,
+  defaultName,
+  icon,
+  skipped = false,
+  picked = false,
+  ...rest
+}: ChannelNameProps): ReactElement => {
+  const named = { ...rest, namePath, defaultName, icon };
+  if (channel !== 0)
+    return <Resolved {...named} channel={channel} deploy={deployOf(skipped, picked)} />;
+  if (picked) return lead(icon, <Name {...rest} name={NO_CHANNEL} color={8} />);
+  if (namePath == null) throw new Error("ChannelName needs a namePath for channel 0");
+  return <Unbound {...named} namePath={namePath} skipped={skipped} />;
 };

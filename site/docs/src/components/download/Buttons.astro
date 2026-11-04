@@ -29,9 +29,12 @@ export interface Props {
     label: string;
     /** Sets the buttons apart from the text around them. */
     prominent?: boolean;
+    /** Where the buttons sit. If set, a click sends `<product>_download_clicked`. */
+    location?: string;
 }
 
-const { product, version, platforms, label, prominent = false } = Astro.props;
+const { product, version, platforms, label, prominent = false, location } = Astro.props;
+const event = location == null ? undefined : `${product}_download_clicked`;
 ---
 
 <Flex.Box
@@ -49,6 +52,8 @@ const { product, version, platforms, label, prominent = false } = Astro.props;
                 size="large"
                 level="p"
                 className="docs-cta"
+                data-event={event}
+                data-location={location}
             >
                 <PlatformIcon />
                 {label}

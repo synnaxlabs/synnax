@@ -16,13 +16,43 @@
     contain: layout size style;
     background: var(--pluto-gray-l0);
 
-    .console-rack-name {
-        max-width: 200px;
+    /* The buttons rise into the top padding, so the rack under them adds no height. */
+    .console-task-configure__header {
+        display: grid;
+        grid-template-columns: minmax(0, 1fr) auto;
+        grid-template-areas:
+            "name actions"
+            "name rack";
+        align-items: center;
+        column-gap: 2rem;
     }
 
+    .console-task-configure__name {
+        grid-area: name;
+    }
+
+    .console-task-configure__actions {
+        grid-area: actions;
+        margin-top: -3rem;
+    }
+
+    /* The rack takes the width of the buttons and never widens their column. */
+    .console-task-configure__rack {
+        grid-area: rack;
+        display: flex;
+        justify-content: end;
+        min-width: 0;
+        contain: inline-size;
+
+        &:empty {
+            display: none;
+        }
+    }
+
+    /* A task whose channel table needs more room sets a larger maximum. */
     > div {
         padding: 5rem;
-        max-width: 1000px;
+        max-width: var(--console-task-form-max-width, 1000px);
         overflow-y: auto;
         width: 100%;
 
@@ -43,10 +73,6 @@
 
         .console-channel-list {
             overflow: hidden;
-
-            & .lyra-list__scroll {
-                overflow-x: hidden;
-            }
         }
 
         .console-channel-list:only-child {
@@ -76,8 +102,20 @@
             padding: 3rem 2rem;
         }
 
-        .console-rack-name {
-            max-width: 120px;
+        /* The name takes a line of its own under the rack and the buttons. */
+        .console-task-configure__header {
+            grid-template-areas:
+                "rack actions"
+                "name name";
+            row-gap: 1rem;
+        }
+
+        .console-task-configure__actions {
+            margin-top: 0;
+        }
+
+        .console-task-configure__rack {
+            justify-content: start;
         }
 
         .console-state-channel {

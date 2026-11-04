@@ -30,10 +30,10 @@ inline StatusDetails StatusDetails::parse(x::json::Parser parser) {
 }
 
 inline x::json::json StatusDetails::to_json() const {
-    x::json::json j;
+    x::json::json j = x::json::json::object();
     j["rack"] = this->rack;
     j["device"] = this->device;
-    j["data"] = this->data;
+    if (this->data.has_value()) j["data"] = *this->data;
     return j;
 }
 
@@ -53,7 +53,7 @@ inline Device Device::parse(x::json::Parser parser) {
 }
 
 inline x::json::json Device::to_json() const {
-    x::json::json j;
+    x::json::json j = x::json::json::object();
     j["key"] = this->key;
     j["rack"] = this->rack;
     j["location"] = this->location;

@@ -12,22 +12,22 @@ import { Component } from "@synnaxlabs/lyra/component";
 import { Flex } from "@synnaxlabs/lyra/flex";
 import { Form as PForm } from "@synnaxlabs/lyra/form";
 import { Icon } from "@synnaxlabs/lyra/icon";
-import { errors, primitive, strings, unique } from "@synnaxlabs/x";
+import { deep, errors, primitive, strings, unique } from "@synnaxlabs/x";
 import { type FC } from "react";
 
 import { useByKeys } from "@/feature/ni/device/queries";
-import { SCHEMAS } from "@/feature/ni/device/types";
+import { type Device, MAKE, SCHEMAS } from "@/feature/ni/device/types";
 import { AIChannelForm } from "@/feature/ni/task/AIChannelForm";
+import { analogReadHardwareZ } from "@/feature/ni/task/checks";
 import { createNextAIChannel } from "@/feature/ni/task/createChannel";
-import {
-  getAIChannelDeviceKey,
-  getAIChannelSuffix,
-} from "@/feature/ni/task/getAIChannelDeviceKey";
+import { DetailsTitle as Title } from "@/feature/ni/task/DetailsTitle";
+import { getAIChannelDeviceKey } from "@/feature/ni/task/getAIChannelDeviceKey";
+import { ANALOG_INPUT, holdState } from "@/feature/ni/task/ports";
+import { PortsView } from "@/feature/ni/task/PortsView";
 import {
   AI_CHANNEL_TYPE_ICONS,
   AI_CHANNEL_TYPE_NAMES,
   type AIChannel,
-  type AIChannelType,
   ANALOG_READ_SCHEMAS,
   ANALOG_READ_TYPE,
   analogReadConfigZ,
@@ -35,17 +35,21 @@ import {
   channelPort,
   deployAnalogReadConfigZ,
 } from "@/feature/ni/task/types";
+import { useChannelDevice } from "@/feature/ni/task/usePort";
 import { Device as PlatformDevice } from "@/platform/device";
 import { Selector } from "@/platform/selector";
 import { Task } from "@/platform/task";
+
+const root = deep.path<Task.Values<AnalogReadSchemas>>();
+
+// Each device has its own ports.
+const portOf = (c: AIChannel): string => `${c.device}/${getAIChannelDeviceKey(c)}`;
 
 const Properties = () => (
   <>
     <Task.Fields.SampleRate />
     <Flex.Box x grow>
       <Task.Fields.StreamRate />
-      <Task.Fields.DataSaving />
-      <Task.Fields.AutoStart />
     </Flex.Box>
   </>
 );
@@ -59,13 +63,15 @@ interface ChannelListItemProps extends Task.ChannelListItemProps {
 const NO_PORT = "NA";
 
 const ChannelListItem = ({ onTare, ...rest }: ChannelListItemProps) => {
-  const path = `config.channels.${rest.itemKey}`;
-  const value = PForm.useFieldValue<AIChannel>(path);
+  const entry = root.config.channels[rest.itemKey];
+  const value = PForm.useFieldValue(entry);
+  const device = useChannelDevice(entry);
   const { type, channel, disabled } = value;
   const isSnapshot = Task.useIsSnapshot();
   const isRunning = Task.useIsRunning();
   const hasTareButton = channel !== 0 && !isSnapshot;
   const canTare = !disabled && isRunning;
+  const skipped = Task.useSkipped(root.config.channels, rest.itemKey, portOf);
   const Icon = AI_CHANNEL_TYPE_ICONS[type];
   return (
     <Task.Views.ListAndDetailsChannelItem
@@ -73,37 +79,65 @@ const ChannelListItem = ({ onTare, ...rest }: ChannelListItemProps) => {
       port={channelPort(value) ?? NO_PORT}
       canTare={canTare}
       onTare={onTare}
-      path={path}
+      path={entry}
       hasTareButton={hasTareButton}
       channel={channel}
+      defaultName={device == null ? undefined : ANALOG_INPUT.name(value, device)}
+      skipped={skipped}
       icon={{ icon: <Icon />, name: AI_CHANNEL_TYPE_NAMES[type] }}
       portMaxChars={2}
     />
   );
 };
 
-const ChannelDetails = ({ path }: Task.Views.DetailsProps) => {
-  const type = PForm.useFieldValue<AIChannelType>(`${path}.type`);
-  return <AIChannelForm type={type} prefix={path} />;
+const ChannelDetails = ({ path }: Task.Views.DetailsProps<AIChannel>) => {
+  const type = PForm.useFieldValue(path.type);
+  return <AIChannelForm type={type} path={path} channelsPath={root.config.channels} />;
 };
 
 const channelDetails = Component.renderProp(ChannelDetails);
 
-const DetailsTitle = ({ path }: Task.Views.DetailsProps) => {
-  const value = PForm.useFieldValue<AIChannel>(path);
+const DetailsTitle = ({ path }: Task.Views.DetailsProps<AIChannel>) => {
+  const value = PForm.useFieldValue(path);
+  const channels = PForm.useFieldValue(root.config.channels);
+  const device = useChannelDevice(path);
+  const hardware = device?.properties.hardware;
   const Icon = AI_CHANNEL_TYPE_ICONS[value.type];
+  const port = channelPort(value);
+  const own = channels.filter((c) => c.device === value.device);
+  const skipped = Task.useSkipped(root.config.channels, value.key, portOf);
   return (
-    <Task.Views.ItemLabel kind={AI_CHANNEL_TYPE_NAMES[value.type]} icon={<Icon />}>
-      Port {channelPort(value) ?? NO_PORT}
-    </Task.Views.ItemLabel>
+    <Title
+      port={
+        port == null
+          ? null
+          : {
+              label: String(port),
+              state: holdState(ANALOG_INPUT, own, value, hardware),
+              disabled: value.disabled,
+            }
+      }
+      type={{ icon: <Icon />, name: AI_CHANNEL_TYPE_NAMES[value.type] }}
+      channel={value.channel}
+      namePath={path.name}
+      defaultName={device == null ? undefined : ANALOG_INPUT.name(value, device)}
+      skipped={skipped}
+      model={device?.model}
+    />
   );
 };
 
 const detailsTitle = Component.renderProp(DetailsTitle);
 
+const deviceOf = (c: AIChannel) => c.device;
+
+const hasPortList = (devices: Device[]): boolean =>
+  devices.some(({ properties }) => properties.hardware != null);
+
 const Form: FC = () => {
   const [tare, allowTare, handleTare] = Task.useTare<AIChannel>();
-  const devices = useByKeys(Task.useChannelDeviceKeys());
+  const devices = useByKeys(Task.useChannelDeviceKeys(root.config.channels));
+  PForm.useCheck(root.config, analogReadHardwareZ(devices ?? []));
   const resolve = (ch: AIChannel) => {
     const dev = devices?.find(({ key }) => key === ch.device);
     if (dev == null) return null;
@@ -114,16 +148,41 @@ const Form: FC = () => {
   const listItem = ({ key, ...rest }: Task.ChannelListItemProps) => (
     <ChannelListItem key={key} {...rest} onTare={tare} />
   );
+  const ports =
+    devices != null && hasPortList(devices)
+      ? (props: Task.Views.PortsProps<AIChannel>) => (
+          <PortsView<AIChannel>
+            {...props}
+            kind={ANALOG_INPUT}
+            devices={devices}
+            deviceOf={deviceOf}
+            create={(channels, device, port) =>
+              // A channel on a port never copies one with no port, such as the built-in
+              // sensor.
+              createNextAIChannel(
+                channels.filter((c) => "port" in c),
+                { device, port },
+                devices,
+              )
+            }
+            rack={devices[0].rack}
+          />
+        )
+      : undefined;
   return (
     <Task.Views.ListAndDetails<AIChannel>
+      path={root.config.channels}
       listItem={listItem}
       details={channelDetails}
       detailsTitle={detailsTitle}
-      createChannel={createNextAIChannel}
+      createChannel={(channels, copy) =>
+        createNextAIChannel(channels, { copy }, devices)
+      }
       onTare={handleTare}
       allowTare={allowTare}
       contextMenuItems={Task.readChannelContextMenuItem}
       resolve={resolve}
+      ports={ports}
     />
   );
 };
@@ -184,10 +243,10 @@ const onConfigure: Task.OnConfigure<typeof analogReadConfigZ> = async (
         dev.properties.analogInput.channels = {};
       }
       const toCreate: AIChannel[] = [];
-      for (const channel of config.channels) {
+      for (const channel of Task.firstPerPort(config.channels, portOf)) {
         if (channel.device !== dev.key) continue;
-        const exKey =
-          dev.properties.analogInput.channels[getAIChannelDeviceKey(channel)];
+        const key = getAIChannelDeviceKey(channel);
+        const exKey = dev.properties.analogInput.channels[key];
         if (primitive.isZero(exKey)) toCreate.push(channel);
         else
           try {
@@ -201,9 +260,7 @@ const onConfigure: Task.OnConfigure<typeof analogReadConfigZ> = async (
         modified = true;
         const channels = await client.channels.create(
           toCreate.map((c) => ({
-            name: primitive.isNonZero(c.name)
-              ? c.name
-              : `${identifier}_ai_${getAIChannelSuffix(c)}`,
+            name: ANALOG_INPUT.name(c, dev),
             dataType: "float32",
             index: dev.properties.analogInput.index,
           })),
@@ -231,12 +288,12 @@ export const AnalogRead = Task.wrapForm({
   schemas: ANALOG_READ_SCHEMAS,
   deployConfigZ: deployAnalogReadConfigZ,
   type: "ni_analog_read",
-  getInitialValues,
   onConfigure,
 });
 
 export const useCreateAnalogRead = Task.createUseCreate({
   getInitialValues,
+  deviceMake: MAKE,
 });
 
 export const AnalogReadSelectable = Selector.createSelectable({
