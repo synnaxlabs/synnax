@@ -22,6 +22,7 @@ import (
 	"github.com/synnaxlabs/x/errors"
 	"github.com/synnaxlabs/x/override"
 	"github.com/synnaxlabs/x/query"
+	"github.com/synnaxlabs/x/set"
 	"github.com/synnaxlabs/x/validate"
 )
 
@@ -85,9 +86,17 @@ type (
 		Parents             bool                    `json:"parents"                msgpack:"parents"`
 		ExcludeFieldData    bool                    `json:"exclude_field_data"     msgpack:"exclude_field_data"`
 		IgnoreNotFoundError bool                    `json:"ignore_not_found_error" msgpack:"ignore_not_found_error"`
+		// Root limits a search to the descendants of Root, and ends the Ancestors walk
+		// at Root.
+		Root ontology.ID `json:"root" msgpack:"root"`
+		// Ancestors adds the resources and parent relationships on every path from the
+		// retrieved resources up to Root, or up to the ontology root.
+		Ancestors bool `json:"ancestors" msgpack:"ancestors"`
 	}
 	RetrieveResponse struct {
-		Resources []ontology.Resource `json:"resources" msgpack:"resources"`
+		Resources     []ontology.Resource     `json:"resources"               msgpack:"resources"`
+		Ancestors     []ontology.Resource     `json:"ancestors,omitempty"     msgpack:"ancestors,omitempty"`
+		Relationships []ontology.Relationship `json:"relationships,omitempty" msgpack:"relationships,omitempty"`
 	}
 )
 
@@ -97,7 +106,13 @@ func (s *Service) Retrieve(
 ) (RetrieveResponse, error) {
 	resources := make([]ontology.Resource, 0)
 	if req.SearchTerm != "" {
-		ids, err := s.ontology.Search(ctx, nil, req.SearchTerm)
+		ids, err := s.ontology.Search(ctx, nil, ontology.SearchQuery{
+			Term:   req.SearchTerm,
+			Types:  req.Types,
+			Root:   req.Root,
+			Limit:  req.Limit,
+			Offset: req.Offset,
+		})
 		if err != nil {
 			return RetrieveResponse{}, err
 		}
@@ -141,14 +156,66 @@ func (s *Service) Retrieve(
 			return RetrieveResponse{}, err
 		}
 	}
+	res := RetrieveResponse{Resources: resources}
+	if req.Ancestors {
+		var err error
+		if res.Relationships, err = s.ontology.Ancestors(
+			nil,
+			req.Root,
+			ontology.ResourceIDs(resources)...,
+		); err != nil {
+			return RetrieveResponse{}, err
+		}
+		if res.Ancestors, err = s.retrieveAncestors(
+			ctx,
+			req,
+			res.Relationships,
+		); err != nil {
+			return RetrieveResponse{}, err
+		}
+	}
 	if err := s.access.NewEnforcer(nil).Enforce(ctx, access.Request{
 		Subject: auth.GetSubject(ctx),
 		Action:  access.ActionRetrieve,
-		Objects: ontology.ResourceIDs(resources),
+		Objects: append(
+			ontology.ResourceIDs(resources),
+			ontology.ResourceIDs(res.Ancestors)...,
+		),
 	}); err != nil {
 		return RetrieveResponse{}, err
 	}
-	return RetrieveResponse{Resources: resources}, nil
+	return res, nil
+}
+
+// retrieveAncestors returns the resources that rels lead up to, leaving out the end of
+// the walk: req.Root, or the ontology root.
+func (s *Service) retrieveAncestors(
+	ctx context.Context,
+	req RetrieveRequest,
+	rels []ontology.Relationship,
+) ([]ontology.Resource, error) {
+	ids := make([]ontology.ID, 0, len(rels))
+	seen := make(set.Set[ontology.ID], len(rels))
+	for _, rel := range rels {
+		if rel.From == req.Root || rel.From == ontology.RootID ||
+			seen.Contains(rel.From) {
+			continue
+		}
+		seen.Add(rel.From)
+		ids = append(ids, rel.From)
+	}
+	ancestors := make([]ontology.Resource, 0, len(ids))
+	if len(ids) == 0 {
+		return ancestors, nil
+	}
+	if err := s.ontology.NewRetrieve().
+		WhereIDs(ids...).
+		ExcludeFieldData(req.ExcludeFieldData).
+		Entries(&ancestors).
+		Exec(ctx, nil); err != nil {
+		return nil, err
+	}
+	return ancestors, nil
 }
 
 type AddChildrenRequest struct {

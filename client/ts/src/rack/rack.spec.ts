@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { id, TimeStamp, zod } from "@synnaxlabs/x";
+import { id, sleep, TimeStamp, zod } from "@synnaxlabs/x";
 import { describe, expect, it, onTestFinished } from "vitest";
 
 import { NotFoundError } from "@/index";
@@ -57,6 +57,18 @@ describe("Rack", () => {
       expect(retrieved.status?.message).toBe("Custom rack status");
       expect(retrieved.status?.description).toBe("Rack is running");
       expect(retrieved.status?.details?.rack).toBe(r.key);
+    });
+    it("should return the status of a new rack", async () => {
+      const r = await client.racks.create({ name: "created-status" });
+      expect(r.status?.key).toBe(rack.statusKey(r.key));
+    });
+    it("should answer a cached status query for a new rack", async () => {
+      const local = createTestClient();
+      await local.connect();
+      const r = await local.racks.create({ name: "cached-status" });
+      const cached = local.racks.getCached({ key: r.key, includeStatus: true });
+      expect(cached).toBeInstanceOf(rack.Rack);
+      expect((cached as rack.Rack).status?.key).toBe(rack.statusKey(r.key));
     });
   });
   describe("update", () => {
@@ -325,6 +337,111 @@ describe("Rack", () => {
       } finally {
         stop();
       }
+    });
+    describe("rack cached without a status", () => {
+      // Outlasts the query layer's refetch debounce.
+      const REFETCH_WINDOW = 150;
+      const retrieves = (send: ReturnType<typeof spyOnSend>) =>
+        send.mock.calls.filter(([target]) => target === "/rack/retrieve");
+
+      it("should fetch the status after a status-free read", async () => {
+        const r = await client.racks.create({ name: "status-free-read" });
+        const local = createTestClient();
+        await local.racks.retrieve(r.key);
+        const params = { key: r.key, includeStatus: true };
+        expect(local.racks.getCached(params)).toBeUndefined();
+        const retrieved = await local.racks.retrieve(params);
+        expect(retrieved.status?.key).toBe(rack.statusKey(r.key));
+      });
+      it("should fetch the status after a rack arrives on the stream", async () => {
+        const r = await client.racks.create({ name: "stream-cached" });
+        const local = createTestClient();
+        const stop = local.racks.onChange(r.key, () => {});
+        await waitForStreamLive(local.connection);
+        try {
+          await client.racks.create({ key: r.key, name: "stream-cached-renamed" });
+          await expect
+            .poll(() => {
+              const cached = local.racks.getCached(r.key);
+              return query.isLive(cached) ? cached.name : undefined;
+            })
+            .toBe("stream-cached-renamed");
+          const params = { key: r.key, includeStatus: true };
+          expect(local.racks.getCached(params)).toBeUndefined();
+          const retrieved = await local.racks.retrieve(params);
+          expect(retrieved.status?.key).toBe(rack.statusKey(r.key));
+        } finally {
+          stop();
+        }
+      });
+      it("should fetch the status for a subscriber with no fetch", async () => {
+        const r = await client.racks.create({ name: "subscribed" });
+        const local = createTestClient();
+        await local.racks.retrieve(r.key);
+        const seen: (rack.Status | undefined)[] = [];
+        const stop = local.racks.onChange(
+          { key: r.key, includeStatus: true },
+          (cached) => {
+            if (query.isLive(cached)) seen.push(cached.status);
+          },
+        );
+        try {
+          await expect.poll(() => seen.at(-1)?.key).toBe(rack.statusKey(r.key));
+          expect(seen.every((st) => st != null)).toBe(true);
+        } finally {
+          stop();
+        }
+      });
+      it("should send one fetch when a read follows a subscribe", async () => {
+        const r = await client.racks.create({ name: "subscribe-then-read" });
+        const local = createTestClient();
+        await local.racks.retrieve(r.key);
+        await waitForStreamLive(local.connection);
+        const send = spyOnSend(local);
+        const params = { key: r.key, includeStatus: true };
+        const stop = local.racks.onChange(params, () => {});
+        try {
+          const retrieved = await local.racks.retrieve(params);
+          expect(retrieved.status?.key).toBe(rack.statusKey(r.key));
+          await sleep.sleep(REFETCH_WINDOW);
+          expect(retrieves(send)).toHaveLength(1);
+        } finally {
+          stop();
+        }
+      });
+      it("should join a subscriber's fetch that is in flight", async () => {
+        const r = await client.racks.create({ name: "read-joins-subscriber" });
+        const local = createTestClient();
+        await local.racks.retrieve(r.key);
+        await waitForStreamLive(local.connection);
+        const { responded, release } = holdResponses(local, "/rack/retrieve");
+        const send = spyOnSend(local);
+        const params = { key: r.key, includeStatus: true };
+        const stop = local.racks.onChange(params, () => {});
+        try {
+          await responded;
+          const reading = local.racks.retrieve(params);
+          release();
+          const retrieved = await reading;
+          expect(retrieved.status?.key).toBe(rack.statusKey(r.key));
+          await sleep.sleep(REFETCH_WINDOW);
+          expect(retrieves(send)).toHaveLength(1);
+        } finally {
+          stop();
+        }
+      });
+      it("should keep the answer of a fetch that found no status", async () => {
+        const r = await client.racks.create({ name: "no-status-row" });
+        await client.statuses.delete(rack.statusKey(r.key));
+        const local = createTestClient();
+        await local.racks.retrieve(r.key);
+        const params = { key: r.key, includeStatus: true };
+        const retrieved = await local.racks.retrieve(params);
+        expect(retrieved.status).toBeUndefined();
+        const cached = local.racks.getCached(params);
+        expect(cached).toBeInstanceOf(rack.Rack);
+        expect((cached as rack.Rack).status).toBeUndefined();
+      });
     });
     // Task and device statuses both name their rack in their details, and both parse
     // against the rack status schema, so only the key tells them apart.
