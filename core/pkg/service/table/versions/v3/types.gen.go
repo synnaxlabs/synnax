@@ -25,9 +25,13 @@ type Key = v2.Key
 type FlexAlignment = v2.FlexAlignment
 
 const (
-	FlexAlignmentStart   FlexAlignment = v2.FlexAlignmentStart
-	FlexAlignmentCenter  FlexAlignment = v2.FlexAlignmentCenter
-	FlexAlignmentEnd     FlexAlignment = v2.FlexAlignmentEnd
+	// FlexAlignmentStart aligns content to the start.
+	FlexAlignmentStart FlexAlignment = v2.FlexAlignmentStart
+	// FlexAlignmentCenter aligns content to the center.
+	FlexAlignmentCenter FlexAlignment = v2.FlexAlignmentCenter
+	// FlexAlignmentEnd aligns content to the end.
+	FlexAlignmentEnd FlexAlignment = v2.FlexAlignmentEnd
+	// FlexAlignmentStretch stretches content to fill the available space.
 	FlexAlignmentStretch FlexAlignment = v2.FlexAlignmentStretch
 )
 
