@@ -128,6 +128,18 @@ describe("oidc", () => {
     });
   });
 
+  describe("authorizeDesktop", () => {
+    it("should return the proof without opening a session", async () => {
+      const proofs = tauri.proofs.length;
+      expect(await Core.authorizeDesktop(LOGIN)).toMatchObject({
+        provider: "idp",
+        code: "abc",
+        redirectUri: "http://127.0.0.1:4242/callback",
+      });
+      expect(tauri.proofs).toHaveLength(proofs);
+    });
+  });
+
   describe("beginBrowserLogin", () => {
     it("should save the verifier for the page the provider returns to", async () => {
       await Core.beginBrowserLogin("alpha", LOGIN);
@@ -140,11 +152,25 @@ describe("oidc", () => {
     });
   });
 
+  describe("pendingPurpose", () => {
+    it("should report no purpose when no login is in progress", () => {
+      expect(Core.pendingPurpose()).toBeUndefined();
+    });
+
+    it("should tell a link from a login", async () => {
+      await Core.beginBrowserLogin("alpha", LOGIN);
+      expect(Core.pendingPurpose()).toBe("login");
+      await Core.beginBrowserLogin("alpha", LOGIN, "user");
+      expect(Core.pendingPurpose()).toBe("link");
+    });
+  });
+
   describe("completeBrowserLogin", () => {
-    const pending = (state: string) =>
+    const pending = (state: string, purpose: Core.Purpose = "login") =>
       sessionStorage.setItem(
         "synnax-oidc-login",
         JSON.stringify({
+          purpose,
           core: "alpha",
           provider: "idp",
           verifier: "verifier",
@@ -162,6 +188,7 @@ describe("oidc", () => {
       pending("s");
       window.history.replaceState(null, "", "/?code=abc&state=s");
       expect(Core.completeBrowserLogin()).toEqual({
+        purpose: "login",
         core: "alpha",
         credentials: {
           provider: "idp",
@@ -172,6 +199,12 @@ describe("oidc", () => {
       });
       expect(window.location.search).toBe("");
       expect(sessionStorage.getItem("synnax-oidc-login")).toBeNull();
+    });
+
+    it("should report the purpose the login began with", () => {
+      pending("s", "link");
+      window.history.replaceState(null, "", "/?code=abc&state=s");
+      expect(Core.completeBrowserLogin()?.purpose).toBe("link");
     });
 
     it("should reject a redirect for another login", () => {

@@ -7,8 +7,9 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { channel } from "@synnaxlabs/client";
+import { channel, connection } from "@synnaxlabs/client";
 import { createTestClient, createTestUser } from "@synnaxlabs/client/testutil";
+import { type Status } from "@synnaxlabs/lyra/status";
 import { Access, Synnax } from "@synnaxlabs/pluto";
 import {
   act,
@@ -23,6 +24,7 @@ import { describe, expect, it, onTestFinished } from "vitest";
 
 import { Auth } from "@/feature/auth";
 import { Core } from "@/feature/core";
+import { LOCAL_SUBJECT, type OIDCServer, serveOIDC } from "@/platform/core/testutil";
 import { findButton } from "@/platform/modals/testutil";
 import { Session } from "@/session";
 import {
@@ -31,7 +33,9 @@ import {
   createCoreState,
 } from "@/session/core/testutil";
 import {
+  CaptureStatuses,
   createSessionConsoleWrapper,
+  createStatusConsoleWrapper,
   pinLocationOrigin,
   renderWithConsole,
   type TestStore,
@@ -81,6 +85,7 @@ describe("auth guard", () => {
     sessionStorage.setItem(
       "synnax-oidc-login",
       JSON.stringify({
+        purpose: "login",
         core: CORE_KEY,
         provider: "company-sso",
         verifier: "verifier",
@@ -103,6 +108,117 @@ describe("auth guard", () => {
       }),
     );
     expect(window.location.search).toBe("");
+  });
+
+  describe("a provider link's return", () => {
+    const PROVIDER = "company-sso";
+    const VERIFIER = "verifier";
+    const REDIRECT_URI = "https://core.example.com/";
+
+    const returnFromProvider = (
+      search: string,
+      core = CORE_KEY,
+      subject = LOCAL_SUBJECT.key,
+    ): void => {
+      sessionStorage.setItem(
+        "synnax-oidc-login",
+        JSON.stringify({
+          purpose: "link",
+          subject,
+          core,
+          provider: PROVIDER,
+          verifier: VERIFIER,
+          state: "state",
+          redirectUri: REDIRECT_URI,
+        }),
+      );
+      window.history.replaceState(null, "", search);
+      onTestFinished(() => {
+        sessionStorage.clear();
+        window.history.replaceState(null, "", "/");
+      });
+    };
+
+    const renderReturn = async ({ address }: OIDCServer) => {
+      let statuses: Status.NotificationSpec[] = [];
+      const { wrapper, store } = await createStatusConsoleWrapper({
+        client: createTestClient(address),
+        status: connection.DEFAULT_STATUS,
+        preloadedState: {
+          [Session.Core.SLICE_NAME]: { ...CoreState(), selected: CORE_KEY },
+        },
+      });
+      render(
+        <>
+          <CaptureStatuses onStatuses={(next) => (statuses = next)} />
+          <Auth.Guard>
+            <span>authenticated content</span>
+          </Auth.Guard>
+        </>,
+        { wrapper },
+      );
+      return { store, statuses: () => statuses.map((s) => s.message) };
+    };
+
+    it("should link the account and keep the session", async () => {
+      const server = await serveOIDC();
+      returnFromProvider("/?code=abc&state=state");
+      const { store, statuses } = await renderReturn(server);
+      await waitFor(() => expect(statuses()).toContain("Linked provider account"));
+      expect(server.linked).toEqual([
+        {
+          provider: PROVIDER,
+          code: "abc",
+          verifier: VERIFIER,
+          redirect_uri: REDIRECT_URI,
+        },
+      ]);
+      const core = store.getState()[Session.Core.SLICE_NAME].cores[CORE_KEY];
+      expect(core.oidc).toBeUndefined();
+      expect(Session.Core.selectSelectedKey(store.getState())).toBe(CORE_KEY);
+      expect(window.location.search).toBe("");
+      expect(screen.getByText("authenticated content")).toBeTruthy();
+    });
+
+    it("should report a link the Core refuses", async () => {
+      const server = await serveOIDC({ linkRefused: true });
+      returnFromProvider("/?code=abc&state=state");
+      const { statuses } = await renderReturn(server);
+      await waitFor(() =>
+        expect(statuses()).toContain("Failed to link provider account"),
+      );
+      expect(statuses()).not.toContain("Linked provider account");
+    });
+
+    it("should report the provider's refusal as a failed link", async () => {
+      const server = await serveOIDC();
+      returnFromProvider("/?error=access_denied&state=state");
+      const { statuses } = await renderReturn(server);
+      await waitFor(() =>
+        expect(statuses()).toContain("Failed to link provider account"),
+      );
+      expect(server.linked).toEqual([]);
+    });
+
+    it("should refuse a link another user started", async () => {
+      const server = await serveOIDC();
+      returnFromProvider("/?code=abc&state=state", CORE_KEY, "another-user");
+      const { statuses } = await renderReturn(server);
+      await waitFor(() =>
+        expect(statuses()).toContain("Failed to link provider account"),
+      );
+      expect(server.linked).toEqual([]);
+    });
+
+    it("should refuse a link that another Core started", async () => {
+      const server = await serveOIDC();
+      returnFromProvider("/?code=abc&state=state", "another-core");
+      const { statuses } = await renderReturn(server);
+      await waitFor(() =>
+        expect(statuses()).toContain("Failed to link provider account"),
+      );
+      expect(server.linked).toEqual([]);
+    });
   });
 
   it("should render the login screen when no Core is selected", async () => {
