@@ -9,19 +9,16 @@
 
 import "@/platform/credential/useModal.css";
 
-import { type auth, type ontology, status, TimeStamp } from "@synnaxlabs/client";
-import { Button } from "@synnaxlabs/lyra/button";
+import { type ontology } from "@synnaxlabs/client";
 import { Flex } from "@synnaxlabs/lyra/flex";
 import { Icon } from "@synnaxlabs/lyra/icon";
-import { Input } from "@synnaxlabs/lyra/input";
 import { Modal } from "@synnaxlabs/lyra/modal";
 import { Nav } from "@synnaxlabs/lyra/nav";
 import { Status } from "@synnaxlabs/lyra/status";
-import { Text } from "@synnaxlabs/lyra/text";
-import { Access, Credential, Synnax } from "@synnaxlabs/pluto";
-import { type ReactElement, useEffect, useRef, useState } from "react";
+import { type ReactElement, useState } from "react";
 
-import { Token } from "@/platform/credential/Token";
+import { APIKey } from "@/platform/credential/apikey";
+import { Password } from "@/platform/credential/password";
 import { CSS } from "@/platform/css";
 import { Modals } from "@/platform/modals";
 
@@ -30,193 +27,6 @@ export interface ModalParams {
   subject: ontology.ID;
   title?: string | string[];
 }
-
-const sessionsLabel = (sessions: number | null): string => {
-  if (sessions == null) return "sessions unknown";
-  return `${sessions} live ${sessions === 1 ? "session" : "sessions"}`;
-};
-
-interface APIKeyRowProps {
-  apiKey: auth.apiKey.APIKey;
-  /** The key's live sessions, or null when they could not be retrieved. */
-  sessions: number | null;
-  onDelete?: (key: auth.apiKey.Key) => void;
-}
-
-const APIKeyRow = ({ apiKey, sessions, onDelete }: APIKeyRowProps): ReactElement => (
-  <Flex.Box x align="center" justify="between">
-    <Flex.Box y gap="tiny">
-      <Text.Text weight={500}>
-        {apiKey.name === "" ? "Unnamed key" : apiKey.name}
-      </Text.Text>
-      <Text.Text level="small" color={9}>
-        {`Created ${new TimeStamp(apiKey.created).toString("dateTime", "local")} · ${sessionsLabel(sessions)}`}
-      </Text.Text>
-    </Flex.Box>
-    {onDelete != null && (
-      <Button.Button
-        variant="text"
-        tooltip="Delete key"
-        onClick={() => onDelete(apiKey.key)}
-      >
-        <Icon.Delete />
-      </Button.Button>
-    )}
-  </Flex.Box>
-);
-
-interface APIKeyListProps extends Pick<ModalParams, "subject"> {
-  onDelete?: (key: auth.apiKey.Key) => void;
-}
-
-const APIKeyList = ({ subject, onDelete }: APIKeyListProps): ReactElement => {
-  const keys = Credential.useResultAPIKeys({ subject });
-  const sessions = Credential.useResultSessions({ subject });
-  const sessionCount = (key: auth.apiKey.Key): number | null =>
-    sessions.variant === "success"
-      ? sessions.data.filter((s) => s.credential === key).length
-      : null;
-  return (
-    <>
-      {keys.variant === "error" && (
-        <Text.Text status="error">{keys.status.message}</Text.Text>
-      )}
-      {keys.data?.map((k) => (
-        <APIKeyRow
-          key={k.key}
-          apiKey={k}
-          sessions={sessionCount(k.key)}
-          onDelete={onDelete}
-        />
-      ))}
-      {keys.data?.length === 0 && (
-        <Text.Text level="small" color={9}>
-          No API keys
-        </Text.Text>
-      )}
-    </>
-  );
-};
-
-const APIKeys = ({ subject }: Pick<ModalParams, "subject">): ReactElement => {
-  const client = Synnax.use();
-  // The Core checks permissions only for another subject's keys.
-  const own = client?.auth.subject?.key === subject.key;
-  const canCreate = Access.useUpdateGranted(subject) || own;
-  const canDelete = Access.useDeleteGranted(subject) || own;
-  const query = { subject };
-  const invalidateAPIKeys = Credential.useInvalidateAPIKeys();
-  const invalidateSessions = Credential.useInvalidateSessions();
-  const [name, setName] = useState("");
-  const [created, setCreated] = useState<Credential.CreateAPIKeyResult | null>(null);
-  // These reads have no live updates, so a remount is what fetches them again.
-  const [generation, setGeneration] = useState(0);
-  const refresh = () => {
-    invalidateAPIKeys(query);
-    invalidateSessions(query);
-    setGeneration((g) => g + 1);
-  };
-  const handleError = Status.useErrorHandler();
-  const mounted = useRef(true);
-  const create = Credential.useCreateAPIKey({
-    afterSuccess: ({ data }) => {
-      // a closed dialog can never show the token, so the key is of no use
-      if (!mounted.current) {
-        handleError(async () => {
-          await client?.auth.apiKeys.delete(data.key.key);
-          // a reopened dialog may have listed the key before this delete finished
-          invalidateAPIKeys(query);
-        }, "Failed to delete an unused API key");
-        return;
-      }
-      setCreated(data);
-      setName("");
-      refresh();
-    },
-  });
-  const del = Credential.useDeleteAPIKey({
-    afterSuccess: ({ data }) => {
-      setCreated((c) => (c?.key.key === data ? null : c));
-      refresh();
-    },
-  });
-  // Drop the answers on close so the next open shows sessions opened or ended since.
-  useEffect(() => {
-    mounted.current = true;
-    return () => {
-      mounted.current = false;
-      invalidateAPIKeys(query);
-      invalidateSessions(query);
-    };
-  }, []);
-  return (
-    <Flex.Box y>
-      <Text.Text level="h5">API keys</Text.Text>
-      <Flex.Box y className={CSS.BE("credential", "keys")}>
-        <APIKeyList
-          key={generation}
-          subject={subject}
-          onDelete={canDelete ? (k) => del.update(k) : undefined}
-        />
-      </Flex.Box>
-      {canCreate && (
-        <Flex.Box x>
-          <Input.Text value={name} onChange={setName} placeholder="Key name" full="x" />
-          <Button.Button
-            className={CSS.BE("credential", "action")}
-            variant="filled"
-            status={status.keepVariants(create.variant, "loading")}
-            onClick={() => create.update({ subject, name })}
-          >
-            Create key
-          </Button.Button>
-        </Flex.Box>
-      )}
-      {created != null && <Token token={created.token} />}
-    </Flex.Box>
-  );
-};
-
-interface PasswordProps extends Pick<ModalParams, "subject"> {
-  onChanged: (changed: boolean) => void;
-}
-
-const Password = ({ subject, onChanged }: PasswordProps): ReactElement => {
-  const [password, setPassword] = useState("");
-  const set = Credential.useSetPassword({
-    afterSuccess: () => {
-      setPassword("");
-      onChanged(true);
-    },
-  });
-  const handlePassword = (value: string) => {
-    setPassword(value);
-    onChanged(false);
-  };
-  return (
-    <Flex.Box y>
-      <Text.Text level="h5">Password</Text.Text>
-      <Flex.Box x>
-        <Input.Text
-          value={password}
-          onChange={handlePassword}
-          placeholder="New password"
-          type="password"
-          full="x"
-        />
-        <Button.Button
-          className={CSS.BE("credential", "action")}
-          variant="filled"
-          status={status.keepVariants(set.variant, "loading")}
-          disabled={password === ""}
-          onClick={() => set.update({ subject, password })}
-        >
-          Set password
-        </Button.Button>
-      </Flex.Box>
-    </Flex.Box>
-  );
-};
 
 const Credentials = ({
   subject,
@@ -228,9 +38,9 @@ const Credentials = ({
       <Modal.Header icon={<Icon.Lock />}>{title ?? "Credentials"}</Modal.Header>
       <Modal.Body>
         <Flex.Box y gap="large">
-          <APIKeys subject={subject} />
+          <APIKey.Section subject={subject} />
           {subject.type === "user" && (
-            <Password subject={subject} onChanged={setPasswordChanged} />
+            <Password.Section subject={subject} onChanged={setPasswordChanged} />
           )}
         </Flex.Box>
       </Modal.Body>

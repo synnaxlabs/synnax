@@ -194,7 +194,7 @@ interface SessionCountProps {
 }
 
 const SessionCount = ({ apiKey, subject }: SessionCountProps): ReactElement | null => {
-  const sessions = Credential.useResultSessions({ subject });
+  const sessions = Credential.Session.useResult({ subject });
   if (sessions.variant !== "success" && sessions.variant !== "error") return null;
   return (
     <Text.Text color={9}>
@@ -212,7 +212,7 @@ const ConnectModal = (): ReactElement => {
   const handleError = Status.useErrorHandler();
   const addStatus = Status.useAdder();
   const confirm = Modals.useConfirm();
-  const invalidateSessions = Credential.useInvalidateSessions();
+  const invalidateSessions = Credential.Session.useInvalidate();
   const [apiKey, setAPIKey] = useState<string | null>(null);
   const subject = client?.auth.subject;
   // Sessions have no live updates: drop the cached answer before a new count mounts.
