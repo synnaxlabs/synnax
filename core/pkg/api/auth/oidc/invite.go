@@ -45,7 +45,6 @@ type CreateInviteResponse struct {
 // error wrapping query.ErrNotFound when the user does not exist.
 func (s *Service) CreateInvite(
 	ctx context.Context,
-	tx gorp.Tx,
 	req CreateInviteRequest,
 ) (CreateInviteResponse, error) {
 	if err := s.auth.Accepts(svcauth.MethodOIDC); err != nil {
@@ -60,16 +59,16 @@ func (s *Service) CreateInvite(
 	}
 	if err := s.enforce(
 		ctx,
-		tx,
+		nil,
 		access.ActionUpdate,
 		[]ontology.ID{req.Subject},
 	); err != nil {
 		return CreateInviteResponse{}, err
 	}
-	if _, err := s.retrieveUser(ctx, tx, req.Subject); err != nil {
+	if _, err := s.retrieveUser(ctx, nil, req.Subject); err != nil {
 		return CreateInviteResponse{}, err
 	}
-	i, token, err := s.invite.NewWriter(tx).Create(ctx, req.Subject)
+	i, token, err := s.invite.Create(ctx, req.Subject)
 	if err != nil {
 		return CreateInviteResponse{}, err
 	}

@@ -85,10 +85,22 @@ func Bind(layer *api.Layer) []grpc.BindableTransport {
 	t.AuthOIDCLink = noop.UnaryServer[apioidc.LinkRequest, apioidc.LinkResponse]{}
 	t.AuthOIDCRetrieve = noop.UnaryServer[apioidc.RetrieveRequest, apioidc.RetrieveResponse]{}
 	t.AuthOIDCUnlink = noop.UnaryServer[apioidc.UnlinkRequest, struct{}]{}
-	t.AuthOIDCInviteCreate = noop.UnaryServer[apioidc.CreateInviteRequest, apioidc.CreateInviteResponse]{}
-	t.AuthOIDCInviteRetrieve = noop.UnaryServer[apioidc.RetrieveInvitesRequest, apioidc.RetrieveInvitesResponse]{}
-	t.AuthOIDCInviteDelete = noop.UnaryServer[apioidc.DeleteInvitesRequest, struct{}]{}
-	t.AuthOIDCInviteRedeem = noop.UnaryServer[apioidc.RedeemInviteRequest, apisession.CreateResponse]{}
+	t.AuthOIDCInviteCreate = noop.UnaryServer[
+		apioidc.CreateInviteRequest,
+		apioidc.CreateInviteResponse,
+	]{}
+	t.AuthOIDCInviteRetrieve = noop.UnaryServer[
+		apioidc.RetrieveInvitesRequest,
+		apioidc.RetrieveInvitesResponse,
+	]{}
+	t.AuthOIDCInviteDelete = noop.UnaryServer[
+		apioidc.DeleteInvitesRequest,
+		struct{},
+	]{}
+	t.AuthOIDCInviteRedeem = noop.UnaryServer[
+		apioidc.RedeemInviteRequest,
+		apisession.CreateResponse,
+	]{}
 	t.AuthPasswordCreate = noop.UnaryServer[apipassword.CreateRequest, struct{}]{}
 	t.AuthPasswordRetrieve = noop.UnaryServer[apipassword.RetrieveRequest, apipassword.RetrieveResponse]{}
 	t.AuthPasswordRename = noop.UnaryServer[apipassword.RenameRequest, struct{}]{}

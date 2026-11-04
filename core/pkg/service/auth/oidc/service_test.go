@@ -566,7 +566,7 @@ var _ = Describe("Service", func() {
 					Provider: p, ID: uuid.New().String(),
 				}))
 			}
-			MustSucceed2(invites.NewWriter(nil).Create(ctx, subject))
+			MustSucceed2(invites.Create(ctx, subject))
 			Expect(svc.DeleteFor(ctx, nil, subject)).To(Succeed())
 			Expect(
 				svc.NewRetrieve().Where(oidc.MatchSubjects(subject)).Exists(ctx, nil),

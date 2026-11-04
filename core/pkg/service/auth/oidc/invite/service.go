@@ -13,6 +13,7 @@ package invite
 
 import (
 	"context"
+	"crypto/sha256"
 	"crypto/subtle"
 	"sync"
 	"time"
@@ -20,6 +21,7 @@ import (
 	"github.com/synnaxlabs/alamos"
 	"github.com/synnaxlabs/gorp"
 	"github.com/synnaxlabs/synnax/pkg/service/auth"
+	"github.com/synnaxlabs/synnax/pkg/service/ontology"
 	"github.com/synnaxlabs/x/config"
 	"github.com/synnaxlabs/x/errors"
 	"github.com/synnaxlabs/x/override"
@@ -73,9 +75,9 @@ type Service struct {
 	cfg     ServiceConfig
 	table   *gorp.Table[Key, Invite]
 	indexes indexes
-	// redeeming spans the commit: a Gorp transaction does not stop two others from
-	// reading and deleting one invite.
-	redeeming sync.Mutex
+	// committing spans each Create and Redeem through its commit: a Gorp transaction
+	// does not stop a stale delete from removing a newer write.
+	committing sync.Mutex
 }
 
 // OpenService opens a [Service] with the given configurations.
@@ -116,6 +118,49 @@ func (s *Service) MatchLive() Filter {
 	})
 }
 
+// Create stores a new invite for subject in place of any earlier one, and returns it
+// with its token, the only copy of its secret. It commits on its own and runs one at a
+// time with Redeem on a Core, so a redeem of the earlier invite cannot delete the new
+// one. It makes no identity check: the caller authorizes the change. It returns a
+// validation error when subject is invalid.
+func (s *Service) Create(
+	ctx context.Context,
+	subject ontology.ID,
+) (Invite, string, error) {
+	i := Invite{
+		Key:     keyOf(subject),
+		Subject: subject,
+		Expiry:  telem.NewTimeStamp(s.cfg.Clock.Now().Add(Lifetime)),
+	}
+	if err := i.Validate(); err != nil {
+		return Invite{}, "", err
+	}
+	token, hash, err := auth.NewToken(prefix, i.Key)
+	if err != nil {
+		return Invite{}, "", err
+	}
+	i.Hash = hash
+	s.committing.Lock()
+	defer s.committing.Unlock()
+	if err = s.cfg.DB.WithTx(ctx, func(tx gorp.Tx) error {
+		return s.table.NewCreate().Entry(&i).Exec(ctx, tx)
+	}); err != nil {
+		return Invite{}, "", err
+	}
+	return i, token, nil
+}
+
+// keyOf is the same for every invite to subject, so a new invite overwrites the last
+// one, even when two are created at once.
+func keyOf(subject ontology.ID) Key {
+	sum := sha256.Sum256([]byte(subject.String()))
+	var k Key
+	copy(k[:], sum[:16])
+	k[6] = k[6]&0x0f | 0x80
+	k[8] = k[8]&0x3f | 0x80
+	return k
+}
+
 // Redeem deletes the invite that token names and runs f with it, in one transaction
 // that commits when f returns nil. Redeems run one at a time on a Core, so a token
 // works once. It returns [auth.ErrInvalidCredentials] for a malformed, unknown, used,
@@ -129,8 +174,8 @@ func (s *Service) Redeem(
 	if err != nil {
 		return auth.ErrInvalidCredentials
 	}
-	s.redeeming.Lock()
-	defer s.redeeming.Unlock()
+	s.committing.Lock()
+	defer s.committing.Unlock()
 	return s.cfg.DB.WithTx(ctx, func(tx gorp.Tx) error {
 		var i Invite
 		if err := s.NewRetrieve().

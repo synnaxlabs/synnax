@@ -10,7 +10,7 @@
 import { device, type ontology, rack, status, type Synnax } from "@synnaxlabs/client";
 import { Form } from "@synnaxlabs/lyra/form";
 import { Menu as PMenu } from "@synnaxlabs/lyra/menu";
-import { id } from "@synnaxlabs/x";
+import { deep, id } from "@synnaxlabs/x";
 import { render, type RenderResult } from "@testing-library/react";
 import { type FC, type PropsWithChildren, type ReactElement } from "react";
 import { describe, expect, it } from "vitest";
@@ -20,6 +20,8 @@ import { Modals } from "@/platform/modals";
 import { createResource } from "@/platform/tree/testutil";
 import { Session } from "@/session";
 import { createConsoleWrapper, type TestStore, uniqueName } from "@/testutil";
+
+const path = deep.path<z.infer<typeof deviceFormSchema>>();
 
 export interface CreateTestDeviceOptions extends Partial<
   Pick<device.New, "name" | "configured" | "properties" | "make" | "model" | "rack">
@@ -159,7 +161,7 @@ const DeviceFormFixture = ({
     <Form.Form<typeof deviceFormSchema> {...methods}>
       {children}
       {selectableKey != null && (
-        <button onClick={() => methods.set("config.device", selectableKey)}>
+        <button onClick={() => methods.set(path.config.device, selectableKey)}>
           select device
         </button>
       )}

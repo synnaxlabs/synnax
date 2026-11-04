@@ -50,16 +50,17 @@ import {
   getBySelector,
 } from "@/testutil";
 
-// the local auth server answers outside any act
-disableActEnvironment();
-
 // Dead ports: the list checks each Core, and no assertion here reads the result.
 const ALPHA = createCore("alpha", { name: "Alpha", port: 9098, username: "ada" });
 const BETA = createCore("beta", { name: "Beta", port: 9099, username: "grace" });
 
 const serveCore = async (
   ...args: Parameters<typeof serveAuth>
-): Promise<Session.Core.Core> => ({ ...ALPHA, ...(await serveAuth(...args)) });
+): Promise<Session.Core.Core> => {
+  // the local auth server answers outside any act
+  disableActEnvironment();
+  return { ...ALPHA, ...(await serveAuth(...args)) };
+};
 
 const PROVIDER: auth.OIDCLogin = {
   provider: "company-sso",
