@@ -1,0 +1,36 @@
+/*
+ * Copyright 2026 Synnax Labs, Inc.
+ *
+ * Use of this software is governed by the Business Source License included in the file
+ * licenses/BSL.txt.
+ *
+ * As of the Change Date specified in that file, in accordance with the Business Source
+ * License, use of this software will be governed by the Apache License, Version 2.0,
+ * included in the file licenses/APL.txt.
+ */
+
+/* As tall as a control, so the field label centers on the line. */
+.console-opc-certificate__line {
+    display: flex;
+    align-items: center;
+    min-height: var(--pluto-height-medium);
+}
+
+/* The actions sit close to the bottom right corner. */
+.console-opc-certificate {
+    padding: 2rem 1rem 1rem 2rem;
+}
+
+/* The icon buttons sit as close to the top as to the right and the bottom. */
+.console-opc-certificate--inline {
+    padding-top: 1rem;
+}
+
+.console-opc-certificate__value {
+    overflow-wrap: anywhere;
+    user-select: text;
+}
+
+.console-opc-driver-certificate {
+    width: 120rem;
+}

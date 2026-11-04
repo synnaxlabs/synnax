@@ -198,7 +198,7 @@ const RecordDetails = ({ path }: Task.Views.GroupProps<ReadRecord>) => (
 const RECORD_KEY_INPUT_PROPS = { placeholder: "Any key" } as const;
 
 const FieldDetails = ({ groupKey, path }: Task.Views.FieldProps<ReadField>) => {
-  const { channel: key, dataType, pointer } = PForm.useFieldValue(path);
+  const { channel: key, dataType, pointer, disabled } = PForm.useFieldValue(path);
   const recordKey = PForm.useFieldValue(root.config.records[groupKey].recordKey);
   const dev = useFromConfig();
   const isTimestamp = DataType.TIMESTAMP.equals(dataType);
@@ -227,6 +227,7 @@ const FieldDetails = ({ groupKey, path }: Task.Views.FieldProps<ReadField>) => {
           defaultName={
             dev == null ? "" : defaultChannelName(dev.name, recordKey, pointer)
           }
+          skipped={disabled}
         />
       </PForm.Section>
       {enumerable && <Task.Payload.EnumMappingSection path={path.enumValues} />}

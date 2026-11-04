@@ -12,6 +12,7 @@ package kafka
 import (
 	"cmp"
 	"context"
+	"encoding/json/jsontext"
 	"fmt"
 	"io"
 	"net"
@@ -29,7 +30,6 @@ import (
 	"github.com/synnaxlabs/x/control"
 	"github.com/synnaxlabs/x/errors"
 	xio "github.com/synnaxlabs/x/io"
-	xjson "github.com/synnaxlabs/x/json"
 	"github.com/synnaxlabs/x/set"
 	"github.com/synnaxlabs/x/signal"
 	"github.com/synnaxlabs/x/telem"
@@ -40,25 +40,21 @@ import (
 	"go.uber.org/zap"
 )
 
-// readField is an enabled field of a group, parsed for conversion.
-type readField struct {
-	// pointer is the text of the field's pointer, for skip reasons.
-	pointer string
-	channel channel.Channel
-	format  xjson.TimeFormat
-	enums   xjson.EnumMap
-}
-
 // readGroup is the set of fields sharing one record key, one index, and one writer.
 type readGroup struct {
 	// key is the record key the group claims; empty claims every unclaimed record.
 	key    string
-	fields []readField
+	fields []ReadField
+	// channels[i] is the channel fields[i] writes to.
+	channels []channel.Channel
 	// extractor resolves the fields' pointers in a record.
-	extractor *xjson.Extractor
-	// values and found are scratch space for the values of a record's fields.
-	values []any
-	found  []bool
+	extractor *extractor
+	// values[i] is scratch space for the JSON value of fields[i] in a record.
+	values []jsontext.Value
+	// columns[i] holds the current poll's samples of fields[i].
+	columns []column
+	// rows are the current poll's records, which columns hold in arrival order.
+	rows []row
 	// stamp is the position in fields of the field targeting the index channel, or
 	// -1 when records are stamped with their Kafka timestamp.
 	stamp int
@@ -76,8 +72,8 @@ type readGroup struct {
 // row is one record converted into a group's samples.
 type row struct {
 	ts telem.TimeStamp
-	// samples[i] is the series encoding of the sample for fields[i].
-	samples [][]byte
+	// pos is the record's position in the group's columns.
+	pos int
 }
 
 // readTask consumes a topic and writes record fields into channels.
@@ -107,6 +103,8 @@ type readTask struct {
 	reassigned atomic.Bool
 	// disconnected is true from a connection failure until records arrive again.
 	disconnected bool
+	// marks is the offsets the current poll consumed by partition.
+	marks map[string]map[int32]kgo.EpochOffset
 }
 
 var _ driver.Task = (*readTask)(nil)
@@ -136,6 +134,7 @@ func (f *factory) configureRead(ctx context.Context, t task.Task) (*readTask, er
 		cfg:        cfg,
 		status:     driver.NewStatusHandler(f.cfg.DB, f.cfg.Status, t),
 		groups:     groups,
+		marks:      map[string]map[int32]kgo.EpochOffset{cfg.Topic: {}},
 	}, nil
 }
 
@@ -188,7 +187,6 @@ func buildReadGroups(
 		}
 		claimed.Add(rec.RecordKey)
 		g := &readGroup{key: rec.RecordKey, stamp: -1, replaying: true}
-		var pointers []xjson.Pointer
 		for _, fld := range rec.Fields {
 			if fld.Disabled {
 				continue
@@ -201,31 +199,12 @@ func buildReadGroups(
 					fld.Key, fld.DataType, ch.Name, ch.DataType,
 				)
 			}
-			if err := xjson.CheckToSample(ch.DataType); err != nil {
-				return nil, errors.Wrapf(err, "field %q", fld.Key)
-			}
-			pointer, err := xjson.ParsePointer(fld.Pointer)
-			if err != nil {
-				return nil, errors.Wrapf(err, "field %q", fld.Key)
-			}
-			rf := readField{
-				pointer: fld.Pointer,
-				channel: ch,
-				enums:   enumMap(fld.EnumValues),
-			}
-			if ch.DataType == telem.TimestampT {
-				if fld.TimeFormat == nil {
-					return nil, errors.Wrapf(
-						validate.ErrValidation,
-						"field %q: time_format is required for timestamp channel %s",
-						fld.Key, ch.Name,
-					)
-				}
-				if rf.format, err = xjson.ParseTimeFormat(
-					string(*fld.TimeFormat),
-				); err != nil {
-					return nil, errors.Wrapf(err, "field %q", fld.Key)
-				}
+			if ch.DataType == telem.TimestampT && fld.TimeFormat == nil {
+				return nil, errors.Wrapf(
+					validate.ErrValidation,
+					"field %q: time_format is required for timestamp channel %s",
+					fld.Key, ch.Name,
+				)
 			}
 			if isIndex := fld.Key == rec.Index; isIndex != ch.IsIndex {
 				return nil, errors.Wrapf(
@@ -237,15 +216,22 @@ func buildReadGroups(
 			if fld.Key == rec.Index {
 				g.stamp = len(g.fields)
 			}
-			g.fields = append(g.fields, rf)
-			pointers = append(pointers, pointer)
+			g.fields = append(g.fields, fld)
+			g.channels = append(g.channels, ch)
 		}
 		if len(g.fields) == 0 {
 			continue
 		}
-		g.extractor = xjson.NewExtractor(pointers)
-		g.values = make([]any, len(g.fields))
-		g.found = make([]bool, len(g.fields))
+		pointers := make([]string, len(g.fields))
+		for i, fld := range g.fields {
+			pointers[i] = fld.Pointer
+		}
+		g.extractor = newExtractor(pointers)
+		g.values = make([]jsontext.Value, len(g.fields))
+		g.columns = make([]column, len(g.fields))
+		for i, fld := range g.fields {
+			g.columns[i] = newColumn(fld, g.channels[i].DataType)
+		}
 		if rec.Index != "" && g.stamp == -1 {
 			return nil, errors.Wrapf(
 				validate.ErrValidation,
@@ -257,8 +243,7 @@ func buildReadGroups(
 	}
 	indexes := make(map[channel.Key]string, len(groups))
 	for _, g := range groups {
-		for i, f := range g.fields {
-			ch := f.channel
+		for i, ch := range g.channels {
 			index := ch.Index()
 			if ch.IsIndex {
 				index = ch.Key()
@@ -286,8 +271,8 @@ func buildReadGroups(
 		if g.index != 0 && g.stamp == -1 {
 			g.keys = append(g.keys, g.index)
 		}
-		for _, f := range g.fields {
-			g.keys = append(g.keys, f.channel.Key())
+		for _, ch := range g.channels {
+			g.keys = append(g.keys, ch.Key())
 		}
 	}
 	return groups, nil
@@ -667,71 +652,104 @@ func (t *readTask) process(ctx context.Context, fetches kgo.Fetches) error {
 			g.replaying = g.index != 0
 		}
 	}
-	rows := make(map[*readGroup][]row)
-	fetches.EachRecord(func(rec *kgo.Record) {
-		if g, r, ok := t.convert(rec); ok {
-			rows[g] = append(rows[g], r)
+	for _, g := range t.groups {
+		g.reset()
+	}
+	marks := t.marks[t.cfg.Topic]
+	clear(marks)
+	fetches.EachPartition(func(p kgo.FetchTopicPartition) {
+		for _, rec := range p.Records {
+			t.convert(rec)
+		}
+		if len(p.Records) > 0 {
+			last := p.Records[len(p.Records)-1]
+			head := kgo.EpochOffset{Epoch: last.LeaderEpoch, Offset: last.Offset + 1}
+			if cur, ok := marks[p.Partition]; !ok || cur.Less(head) {
+				marks[p.Partition] = head
+			}
 		}
 	})
-	var fr frame.Frame
-	for g, rs := range rows {
-		if kept := t.keep(g, rs); len(kept) > 0 {
-			fr = g.appendFrame(fr, kept)
+	var keys, size int
+	for _, g := range t.groups {
+		t.keep(g)
+		if len(g.rows) > 0 {
+			keys += len(g.keys)
+			size += g.size()
 		}
 	}
 	t.reportSkips(ctx)
-	if !fr.Empty() {
-		if _, err := t.writer.Write(fr); err != nil {
+	if keys > 0 {
+		if _, err := t.writer.Write(t.frame(keys, size)); err != nil {
 			return errors.Wrap(err, "writing records")
 		}
 	}
-	t.client.MarkCommitRecords(fetches.Records()...)
+	if len(marks) > 0 {
+		t.client.MarkCommitOffsets(t.marks)
+	}
 	return nil
 }
 
-// convert parses rec into its group's samples. ok is false when the record is not
-// addressed to this task or was skipped with a status.
-func (t *readTask) convert(rec *kgo.Record) (g *readGroup, r row, ok bool) {
-	g, ok = t.groups[string(rec.Key)]
-	if !ok {
-		if g, ok = t.groups[""]; !ok {
-			return nil, row{}, false
+// frame builds the frame of the current poll out of one allocation of series data. The
+// relay reads a frame after Write returns, so nothing in it can be reused.
+func (t *readTask) frame(keyCount, size int) frame.Frame {
+	keys := make(channel.Keys, 0, keyCount)
+	series := make([]telem.Series, 0, keyCount)
+	data := make([]byte, 0, size)
+	for _, g := range t.groups {
+		if len(g.rows) > 0 {
+			keys = append(keys, g.keys...)
+			series, data = g.appendSeries(series, data)
 		}
 	}
-	if err := g.extractor.Extract(rec.Value, g.values, g.found); err != nil {
-		t.skip("Record is not JSON: " + err.Error())
-		return nil, row{}, false
-	}
-	r = row{samples: make([][]byte, len(g.fields))}
-	for i, f := range g.fields {
-		if !g.found[i] {
-			t.skip(fmt.Sprintf("Record has no value at %s", f.pointer))
-			return nil, row{}, false
-		}
-		sample, err := xjson.AppendSample(
-			nil, f.channel.DataType, g.values[i], f.format, f.enums,
-		)
-		if err != nil {
-			t.skip(fmt.Sprintf("Value at %s: %s", f.pointer, err))
-			return nil, row{}, false
-		}
-		r.samples[i] = sample
-	}
-	if g.stamp == -1 {
-		r.ts = telem.NewTimeStamp(rec.Timestamp)
-	} else {
-		r.ts = telem.TimeStamp(telem.ByteOrder.Uint64(r.samples[g.stamp]))
-	}
-	return g, r, true
+	return frame.NewMulti(keys, series)
 }
 
-// keep sorts rows by timestamp and drops the replay. A body-stamped regression is
-// dropped with a status. Kafka timestamps only count milliseconds, so a regression of
-// one moves to a nanosecond past the last written stamp.
-func (t *readTask) keep(g *readGroup, rows []row) []row {
-	slices.SortStableFunc(rows, func(a, b row) int { return cmp.Compare(a.ts, b.ts) })
-	kept := rows[:0]
-	for _, r := range rows {
+// convert parses rec into its group's samples. A record that is not addressed to this
+// task leaves nothing, and neither does one that is skipped with a status.
+func (t *readTask) convert(rec *kgo.Record) {
+	g, ok := t.groups[string(rec.Key)]
+	if !ok {
+		if g, ok = t.groups[""]; !ok {
+			return
+		}
+	}
+	clear(g.values)
+	if err := g.extractor.extract(rec.Value, g.values); err != nil {
+		t.skip("Record is not JSON: " + err.Error())
+		return
+	}
+	r := row{ts: telem.NewTimeStamp(rec.Timestamp), pos: len(g.rows)}
+	for i, fld := range g.fields {
+		if err := g.extractor.errs[i]; err != nil {
+			t.skip(err.Error())
+			g.truncate(r.pos)
+			return
+		}
+		if g.values[i] == nil {
+			t.skip(fmt.Sprintf("Record has no value at %s", fld.Pointer))
+			g.truncate(r.pos)
+			return
+		}
+		col := &g.columns[i]
+		if err := col.append(g.values[i]); err != nil {
+			t.skip(fmt.Sprintf("Value at %s: %s", fld.Pointer, err))
+			g.truncate(r.pos)
+			return
+		}
+		if i == g.stamp {
+			r.ts = telem.TimeStamp(telem.ByteOrder.Uint64(col.sample(r.pos)))
+		}
+	}
+	g.rows = append(g.rows, r)
+}
+
+// keep sorts the group's rows by timestamp and drops the replay. A body-stamped
+// regression is dropped with a status. Kafka timestamps only count milliseconds, so a
+// regression of one moves to a nanosecond past the last written stamp.
+func (t *readTask) keep(g *readGroup) {
+	slices.SortStableFunc(g.rows, func(a, b row) int { return cmp.Compare(a.ts, b.ts) })
+	kept := g.rows[:0]
+	for _, r := range g.rows {
 		if r.ts <= g.last {
 			if g.replaying {
 				continue
@@ -749,27 +767,62 @@ func (t *readTask) keep(g *readGroup, rows []row) []row {
 		g.last = r.ts
 		kept = append(kept, r)
 	}
-	return kept
+	g.rows = kept
 }
 
-// appendFrame appends the series rows make for the group's keys to fr.
-func (g *readGroup) appendFrame(fr frame.Frame, rows []row) frame.Frame {
-	series := make([]telem.Series, 0, len(g.keys))
-	if g.index != 0 && g.stamp == -1 {
-		stamps := make([]telem.TimeStamp, len(rows))
-		for i, r := range rows {
-			stamps[i] = r.ts
-		}
-		series = append(series, telem.NewSeries(stamps))
+func (g *readGroup) reset() {
+	g.rows = g.rows[:0]
+	g.truncate(0)
+}
+
+func (g *readGroup) truncate(n int) {
+	for i := range g.columns {
+		g.columns[i].truncate(n)
 	}
-	for i, f := range g.fields {
-		s := telem.Series{DataType: f.channel.DataType}
-		for _, r := range rows {
-			s.Data = append(s.Data, r.samples[i]...)
-		}
-		series = append(series, s)
+}
+
+// stamped returns true when the group's index samples come from Kafka timestamps.
+func (g *readGroup) stamped() bool { return g.index != 0 && g.stamp == -1 }
+
+func (g *readGroup) size() int {
+	var n int
+	if g.stamped() {
+		n = len(g.rows) * int(telem.TimestampT.Density())
 	}
-	return fr.Extend(frame.NewMulti(g.keys, series))
+	for i := range g.columns {
+		n += g.columns[i].size(g.rows)
+	}
+	return n
+}
+
+// appendSeries appends a series per group key to series. Their data is appended to
+// data, and each series is capped so that an append to it cannot reach the next one.
+func (g *readGroup) appendSeries(
+	series []telem.Series,
+	data []byte,
+) ([]telem.Series, []byte) {
+	if g.stamped() {
+		start := len(data)
+		for _, r := range g.rows {
+			data = telem.ByteOrder.AppendUint64(data, uint64(r.ts))
+		}
+		series = append(series, telem.Series{
+			DataType: telem.TimestampT,
+			Data:     data[start:len(data):len(data)],
+		})
+	}
+	for i := range g.columns {
+		c := &g.columns[i]
+		start := len(data)
+		for _, r := range g.rows {
+			data = append(data, c.sample(r.pos)...)
+		}
+		series = append(series, telem.Series{
+			DataType: c.dataType,
+			Data:     data[start:len(data):len(data)],
+		})
+	}
+	return series, data
 }
 
 // skip counts a skipped record and why for reportSkips.

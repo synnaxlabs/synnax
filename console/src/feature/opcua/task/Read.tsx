@@ -9,15 +9,20 @@
 
 import "@/feature/opcua/task/Task.css";
 
-import { channel, NotFoundError, type Synnax } from "@synnaxlabs/client";
+import {
+  channel,
+  device as clientDevice,
+  NotFoundError,
+  type Synnax,
+} from "@synnaxlabs/client";
 import { Component } from "@synnaxlabs/lyra/component";
 import { Flex } from "@synnaxlabs/lyra/flex";
 import { Form as PForm } from "@synnaxlabs/lyra/form";
 import { Icon } from "@synnaxlabs/lyra/icon";
+import { Select as PSelect } from "@synnaxlabs/lyra/select";
 import { caseconv, DataType, deep, errors, primitive } from "@synnaxlabs/x";
 import { type FC, type ReactElement } from "react";
 
-import { type HaulItem } from "@/feature/opcua/device/Browser";
 import { Select } from "@/feature/opcua/device/Select";
 import {
   type Device,
@@ -33,11 +38,13 @@ import {
 } from "@/feature/opcua/task/Form";
 import {
   deployReadConfigZ,
+  nodeIdentity,
   READ_SCHEMAS,
   READ_TYPE,
   type ReadChannel,
   type ReadConfig,
   type ReadSchemas,
+  type ScannedNode,
 } from "@/feature/opcua/task/types";
 import { CSS } from "@/platform/css";
 import { Selector } from "@/platform/selector";
@@ -45,10 +52,32 @@ import { Task } from "@/platform/task";
 
 const path = deep.path<Task.Values<ReadSchemas>>();
 
-const getChannelByNodeID = (props: DeviceProperties, nodeId: string): channel.Key =>
-  props.read.channels[nodeId] ??
-  props.read.channels[caseconv.snakeToCamel(nodeId)] ??
-  0;
+type ChannelSource = Pick<ReadChannel, "nodeId" | "field">;
+
+const findField = (props: DeviceProperties, { nodeId, field }: ChannelSource) =>
+  props.read.fields.find((f) => f.nodeId === nodeId && f.field === field);
+
+const getChannel = (props: DeviceProperties, source: ChannelSource) =>
+  source.field === ""
+    ? (props.read.channels[source.nodeId] ??
+      props.read.channels[caseconv.snakeToCamel(source.nodeId)] ??
+      0)
+    : (findField(props, source)?.channel ?? 0);
+
+const setChannel = (
+  props: DeviceProperties,
+  source: ChannelSource,
+  key: channel.Key,
+) => {
+  const { nodeId, field } = source;
+  if (field === "") {
+    props.read.channels[nodeId] = key;
+    return;
+  }
+  const existing = findField(props, source);
+  if (existing != null) existing.channel = key;
+  else props.read.fields.push({ nodeId, field, channel: key });
+};
 
 const IsIndexItem = ({ path }: ExtraItemProps<ReadChannel>): ReactElement => {
   const dataType = PForm.useFieldValue(path.dataType, { optional: true });
@@ -66,15 +95,16 @@ const IsIndexItem = ({ path }: ExtraItemProps<ReadChannel>): ReactElement => {
 
 const isIndexItem = Component.renderProp(IsIndexItem);
 
+type SamplingMode = "scalar" | "array";
+
 const Properties = (): ReactElement => {
   const arrayMode = PForm.useFieldValue(path.config.arrayMode);
   return (
     <>
       <Select />
-      <Flex.Box x>
-        <Task.Fields.SampleRate />
-        <PForm.CheckboxField
-          label="Array sampling"
+      <Flex.Box x wrap>
+        <PForm.Field<boolean>
+          label="Sampling mode"
           path={path.config.arrayMode}
           onChange={(value, { set }) => {
             // always set the array size to 1 for either the default in array mode or an
@@ -82,7 +112,18 @@ const Properties = (): ReactElement => {
             set(path.config.arraySize, 1);
             if (!value) set(path.config.streamRate, 25);
           }}
-        />
+        >
+          {({ value, onChange }) => (
+            <PSelect.Buttons<SamplingMode>
+              value={value ? "array" : "scalar"}
+              onChange={(mode: SamplingMode) => onChange(mode === "array")}
+            >
+              <PSelect.Item itemKey="scalar">Scalar</PSelect.Item>
+              <PSelect.Item itemKey="array">Array</PSelect.Item>
+            </PSelect.Buttons>
+          )}
+        </PForm.Field>
+        <Task.Fields.SampleRate />
         {arrayMode ? (
           <PForm.NumericField
             label="Array size"
@@ -98,14 +139,15 @@ const Properties = (): ReactElement => {
   );
 };
 
-const convertHaulItemToChannel = ({ data }: HaulItem): ReadChannel => ({
-  key: data.nodeId,
-  nodeName: data.name,
-  nodeId: data.nodeId,
+const convertNodeToChannel = (node: ScannedNode): ReadChannel => ({
+  key: node.field === "" ? node.nodeId : nodeIdentity(node),
+  nodeName: node.name,
+  nodeId: node.nodeId,
+  field: node.field,
   channel: 0,
   disabled: false,
   isIndex: false,
-  dataType: data.dataType,
+  dataType: node.dataType,
   name: "",
 });
 
@@ -114,17 +156,18 @@ const getChannelKeyAndID: ChannelKeyAndIDGetter<ReadChannel> = ({ channel, key }
   id: Task.getChannelNameID(key),
 });
 
-const resolve = (device: Device, { nodeId }: ReadChannel) => ({
-  channel: getChannelByNodeID(device.properties, nodeId),
+const resolve = (device: Device, ch: ReadChannel) => ({
+  channel: getChannel(device.properties, ch),
 });
 
 const TaskForm: FC = createForm<ReadChannel>({
   path: path.config.channels,
-  convertHaulItemToChannel,
+  convertNodeToChannel,
   getChannelKeyAndID,
   contextMenuItems: Task.readChannelContextMenuItem,
   children: isIndexItem,
   resolve,
+  indexed: true,
 });
 
 const getInitialValues: Task.GetInitialValues<ReadSchemas> = ({
@@ -151,10 +194,7 @@ const determineIndexChannel = async ({
 }: DetermineIndexChannelParams): Promise<channel.Key> => {
   const indexChannelInTaskConfig = config.channels.find(({ isIndex }) => isIndex);
   if (indexChannelInTaskConfig) {
-    const existingIndex = getChannelByNodeID(
-      device.properties,
-      indexChannelInTaskConfig.nodeId,
-    );
+    const existingIndex = getChannel(device.properties, indexChannelInTaskConfig);
     if (existingIndex)
       try {
         const { isIndex, key, name } = await client.channels.retrieve(existingIndex);
@@ -164,7 +204,7 @@ const determineIndexChannel = async ({
           );
         if (!device.properties.read.indexes.includes(key))
           device.properties.read.indexes.push(key);
-        device.properties.read.channels[indexChannelInTaskConfig.nodeId] = key;
+        setChannel(device.properties, indexChannelInTaskConfig, key);
         return key;
       } catch (e) {
         if (!NotFoundError.matches(e)) throw errors.fromUnknown(e);
@@ -175,13 +215,13 @@ const determineIndexChannel = async ({
       isIndex: true,
     });
     device.properties.read.indexes.push(key);
-    device.properties.read.channels[indexChannelInTaskConfig.nodeId] = key;
+    setChannel(device.properties, indexChannelInTaskConfig, key);
     return key;
   }
 
   // if one of the channels already exists, just use that channels index channel.
-  for (const { nodeId } of config.channels) {
-    const existingChannelKey = getChannelByNodeID(device.properties, nodeId);
+  for (const ch of config.channels) {
+    const existingChannelKey = getChannel(device.properties, ch);
     if (existingChannelKey)
       try {
         const { index } = await client.channels.retrieve(existingChannelKey);
@@ -226,7 +266,7 @@ const onConfigure: Task.OnConfigure<ReadSchemas["config"]> = async (
 
   const toCreate: ReadChannel[] = [];
   for (const ch of config.channels) {
-    const exKey = getChannelByNodeID(device.properties, ch.nodeId);
+    const exKey = getChannel(device.properties, ch);
     if (!exKey) {
       toCreate.push(ch);
       continue;
@@ -252,15 +292,13 @@ const onConfigure: Task.OnConfigure<ReadSchemas["config"]> = async (
         index,
       })),
     );
-    channels.forEach(
-      ({ key }, i) => (device.properties.read.channels[toCreate[i].nodeId] = key),
-    );
+    channels.forEach(({ key }, i) => setChannel(device.properties, toCreate[i], key));
   }
   config.channels = config.channels.map((c) => ({
     ...c,
-    channel: getChannelByNodeID(device.properties, c.nodeId),
+    channel: getChannel(device.properties, c),
   }));
-  await client.devices.create(device, SCHEMAS);
+  await client.devices.create(clientDevice.toUpdate(device), SCHEMAS);
   return [config, device.rack];
 };
 

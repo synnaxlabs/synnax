@@ -10,9 +10,11 @@
 import {
   DataType,
   dynamicWindow,
+  MultiSeries,
   Rate,
   Series,
   sleep,
+  staticWindow,
   TimeRange,
   TimeSpan,
   TimeStamp,
@@ -20,6 +22,8 @@ import {
 } from "@synnaxlabs/x";
 import { describe, expect, it, vi } from "vitest";
 
+import { type channel } from "@/channel";
+import { UnsupportedError } from "@/errors";
 import { framer } from "@/framer";
 import { domainOf } from "@/framer/cache/block";
 import { Joins } from "@/framer/cache/join";
@@ -31,11 +35,13 @@ import { SyntheticCore } from "@/testutil";
 const START = TimeStamp.seconds(1_000_000);
 const POLL = { timeout: 5000, interval: 5 };
 
-// Wires a latest to the Core as a feed does, counting its reads. onRead runs before
-// each read, which waits for it.
+// Wires a latest to the Core as a feed does, counting its reads. Each read waits for
+// onRead and each lookup for onRetrieve, and readOf replaces what a read returns.
 const createLatest = (
   core: SyntheticCore,
-  onRead: () => void | Promise<void> = () => {},
+  onRead: (key: channel.Key) => void | Promise<void> = () => {},
+  readOf: (key: channel.Key, read: MultiSeries) => MultiSeries = (_, read) => read,
+  onRetrieve: () => void | Promise<void> = () => {},
 ) => {
   const store = new Store({ now: core.now });
   const streamer = new MultiplexedStreamer({
@@ -49,13 +55,16 @@ const createLatest = (
   const props: LatestProps = {
     store,
     streamer,
-    retrieveChannels: core.retrieveChannels,
+    retrieveChannels: async (keys) => {
+      await onRetrieve();
+      return await core.retrieveChannels(keys);
+    },
     now: core.now,
     breaker: { baseInterval: TimeSpan.milliseconds(10) },
     readLatest: async (key, count, tr) => {
-      await onRead();
+      await onRead(key);
       reads++;
-      return core.readLatest([key], count, tr).get(key);
+      return readOf(key, core.readLatest([key], count, tr).get(key));
     },
   };
   const open = (
@@ -410,6 +419,576 @@ describe("Latest", () => {
       latest.close();
       await close();
     }
+  });
+
+  describe("timeAt", () => {
+    // Returns the alignment of every sample the latest holds.
+    const alignmentsOf = (latest: Latest): bigint[] =>
+      latest
+        .value()
+        .series.series.flatMap((s) =>
+          Array.from({ length: s.length }, (_, i) => s.alignment + BigInt(i)),
+        );
+
+    // Returns the time of each held sample, or null for a sample timeAt misses.
+    const timedOf = (latest: Latest): (bigint | null)[] =>
+      alignmentsOf(latest).map((a) => latest.timeAt(a)?.valueOf() ?? null);
+
+    // Returns true when every held sample is timed, one period apart, and the newest
+    // ends the snapshot.
+    const timedInOrder = (latest: Latest): boolean => {
+      const period = Rate.hz(100).period.valueOf();
+      const times = timedOf(latest);
+      const end = latest.value().time?.valueOf();
+      return (
+        times.length > 0 &&
+        times.every((t, i) => t != null && (i === 0 || t - times[i - 1]! === period)) &&
+        times.at(-1)! + 1n === end
+      );
+    };
+
+    // A write the Core stamps 1ns per sample, at alignments Cesium gives in a row.
+    const write = (alignment: bigint, length: number, stamp: TimeStamp): Series =>
+      new Series({
+        data: new Float32Array(length),
+        dataType: DataType.FLOAT32,
+        alignment,
+        timeRange: stamp.spanRange(TimeSpan.nanoseconds(length)),
+      });
+
+    it("should time a stored channel's read and streamed samples from its index", async () => {
+      const core = createCore();
+      const { open, close } = createLatest(core);
+      const latest = open(100);
+      try {
+        await expect.poll(() => timedInOrder(latest), POLL).toBe(true);
+        core.advance(TimeSpan.milliseconds(100));
+        await expect.poll(() => latest.value().series.series.length, POLL).toBe(2);
+        await expect.poll(() => timedInOrder(latest), POLL).toBe(true);
+      } finally {
+        latest.close();
+        await close();
+      }
+    });
+
+    it("should time samples streamed before the index streams", async () => {
+      const core = createCore();
+      const { open, close } = createLatest(core);
+      const latest = open(100);
+      try {
+        await expect.poll(() => latest.value().status.variant, POLL).toBe("success");
+        core.advance(TimeSpan.milliseconds(100));
+        await expect.poll(() => latest.value().series.series.length, POLL).toBe(2);
+        expect(core.streams(core.index.key)).toBe(false);
+        await expect.poll(() => timedInOrder(latest), POLL).toBe(true);
+      } finally {
+        latest.close();
+        await close();
+      }
+    });
+
+    it("should time a channel's samples while another writer writes its index", async () => {
+      const core = createCore();
+      const { open, close } = createLatest(core);
+      const { key: index } = core.index;
+      const { key } = core.data[0];
+      const latest = open(10, undefined, key);
+      // Past the Core's clock, so a read of the index finds nothing there.
+      const start = core.now().add(TimeSpan.hours(1));
+      const own = 7n << 32n;
+      const other = 8n << 32n;
+      // Returns n index samples from start, one millisecond apart.
+      const times = (alignment: bigint, from: TimeStamp, n: number): Series =>
+        new Series({
+          data: BigInt64Array.from({ length: n }, (_, i) =>
+            from.add(TimeSpan.milliseconds(i)).valueOf(),
+          ),
+          dataType: DataType.TIMESTAMP,
+          alignment,
+          timeRange: from.range(from.add(TimeSpan.milliseconds(n))),
+        });
+      try {
+        await expect.poll(() => latest.value().status.variant, POLL).toBe("success");
+        latest.timeAt(0n);
+        await expect.poll(() => core.streams(index), POLL).toBe(true);
+        const written = times(own, start, 2);
+        const data = new Series({
+          data: new Float32Array(2),
+          dataType: DataType.FLOAT32,
+          alignment: own,
+          timeRange: written.timeRange,
+        });
+        core.stream(new framer.Frame([index, key], [written, data]));
+        core.stream(
+          new framer.Frame(index, times(other, start.add(TimeSpan.seconds(1)), 1_000)),
+        );
+        await expect.poll(() => latest.timeAt(own), POLL).toEqual(start);
+        expect(latest.timeAt(own + 1n)).toEqual(start.add(TimeSpan.milliseconds(1)));
+      } finally {
+        latest.close();
+        await close();
+      }
+    });
+
+    it("should forget the stamps of the samples it drops", async () => {
+      const core = createCore();
+      const { open, close } = createLatest(core);
+      const latest = open(10);
+      try {
+        await expect.poll(() => timedInOrder(latest), POLL).toBe(true);
+        const [{ alignment }] = latest.value().series.series;
+        core.advance(TimeSpan.seconds(1));
+        await expect
+          .poll(() => latest.value().series.series[0].alignment, POLL)
+          .not.toBe(alignment);
+        expect(latest.timeAt(alignment)).toBeNull();
+      } finally {
+        latest.close();
+        await close();
+      }
+    });
+
+    it("should wait to read the index again after a read that does not stamp", async () => {
+      const core = createCore();
+      let short = true;
+      const { open, close, reads } = createLatest(core, undefined, (key, read) =>
+        short && key === core.index.key ? new MultiSeries([]) : read,
+      );
+      const latest = open(100);
+      try {
+        await expect.poll(() => latest.value().status.variant, POLL).toBe("success");
+        const [{ alignment }] = latest.value().series.series;
+        const before = reads();
+        expect(latest.timeAt(alignment)).toBeNull();
+        await expect.poll(reads, POLL).toBe(before + 1);
+        await sleep.sleep(TimeSpan.milliseconds(20));
+        expect(latest.timeAt(alignment)).toBeNull();
+        await sleep.sleep(TimeSpan.milliseconds(20));
+        expect(reads()).toBe(before + 1);
+        short = false;
+        core.advance(TimeSpan.seconds(4), false);
+        expect(latest.timeAt(alignment)).toBeNull();
+        await sleep.sleep(TimeSpan.milliseconds(20));
+        expect(reads()).toBe(before + 1);
+        core.advance(TimeSpan.seconds(1), false);
+        await expect.poll(() => latest.timeAt(alignment), POLL).not.toBeNull();
+        expect(reads()).toBe(before + 2);
+      } finally {
+        latest.close();
+        await close();
+      }
+    });
+
+    it("should read the index for a series at most three times", async () => {
+      const core = createCore();
+      const { open, close, reads } = createLatest(core, undefined, (key, read) =>
+        key === core.index.key ? new MultiSeries([]) : read,
+      );
+      const latest = open(100);
+      try {
+        await expect.poll(() => latest.value().status.variant, POLL).toBe("success");
+        const [{ alignment }] = latest.value().series.series;
+        const before = reads();
+        for (let i = 0; i < 4; i++) {
+          expect(latest.timeAt(alignment)).toBeNull();
+          await sleep.sleep(TimeSpan.milliseconds(20));
+          core.advance(TimeSpan.seconds(5), false);
+        }
+        expect(reads()).toBe(before + 3);
+      } finally {
+        latest.close();
+        await close();
+      }
+    });
+
+    it("should stop reading the index once the Core refuses it", async () => {
+      const core = createCore();
+      const { open, close, reads } = createLatest(core, undefined, (key, read) => {
+        if (key === core.index.key) throw new UnsupportedError("index read refused");
+        return read;
+      });
+      const latest = open(100);
+      try {
+        await expect.poll(() => latest.value().status.variant, POLL).toBe("success");
+        const [{ alignment }] = latest.value().series.series;
+        const before = reads();
+        expect(latest.timeAt(alignment)).toBeNull();
+        await expect.poll(reads, POLL).toBe(before + 1);
+        await sleep.sleep(TimeSpan.milliseconds(20));
+        core.advance(TimeSpan.seconds(5), false);
+        expect(latest.timeAt(alignment)).toBeNull();
+        await sleep.sleep(TimeSpan.milliseconds(20));
+        expect(reads()).toBe(before + 1);
+      } finally {
+        latest.close();
+        await close();
+      }
+    });
+
+    it("should time an index channel's samples from their own values", async () => {
+      const core = createCore();
+      const { open, close } = createLatest(core);
+      const latest = open(100, undefined, core.index.key);
+      try {
+        await expect.poll(() => latest.value().status.variant, POLL).toBe("success");
+        expect(timedOf(latest)).toEqual(timesOf(latest));
+      } finally {
+        latest.close();
+        await close();
+      }
+    });
+
+    it("should time the samples of each write to a channel with no index 1ns apart", async () => {
+      const core = createCore(true);
+      const { open, close } = createLatest(core);
+      const key = core.virtual!.key;
+      const latest = open(100, undefined, key);
+      const stamps = [0, 1, 2].map((i) => START.add(TimeSpan.seconds(i)));
+      try {
+        await expect.poll(() => latest.value().status.variant, POLL).toBe("success");
+        await expect.poll(() => core.streams(key), POLL).toBe(true);
+        core.stream(new framer.Frame(key, write(10n, 2, stamps[0])));
+        core.stream(new framer.Frame(key, write(12n, 1, stamps[1])));
+        core.stream(new framer.Frame(key, write(13n, 2, stamps[2])));
+        await expect.poll(() => latest.value().series.length, POLL).toBe(5);
+        // The second and third writes share one buffer, and keep their own stamps.
+        expect(latest.value().series.series).toHaveLength(2);
+        const [t0, t1, t2] = stamps.map((t) => t.valueOf());
+        expect(timedOf(latest)).toEqual([t0, t0 + 1n, t1, t2, t2 + 1n]);
+      } finally {
+        latest.close();
+        await close();
+      }
+    });
+
+    it("should stream the index only once timeAt needs it", async () => {
+      const core = createCore();
+      const { open, close } = createLatest(core);
+      const latest = open(100);
+      try {
+        await expect.poll(() => latest.value().status.variant, POLL).toBe("success");
+        expect(core.streams(core.index.key)).toBe(false);
+        latest.timeAt(0n);
+        await expect.poll(() => core.streams(core.index.key), POLL).toBe(true);
+      } finally {
+        latest.close();
+        await close();
+      }
+    });
+
+    it("should release the index's stream on close", async () => {
+      const core = createCore();
+      const { open, close } = createLatest(core);
+      const latest = open(100);
+      try {
+        await expect.poll(() => latest.value().status.variant, POLL).toBe("success");
+        latest.timeAt(0n);
+        await expect.poll(() => core.streams(core.index.key), POLL).toBe(true);
+        latest.close();
+        await expect.poll(() => core.streams(core.index.key), POLL).toBe(false);
+      } finally {
+        await close();
+      }
+    });
+
+    it("should time the samples an update adds", async () => {
+      const core = createCore();
+      const { open, close } = createLatest(core);
+      const latest = open(10);
+      // Returns true once the latest holds at least count samples, each one timed.
+      const timed = (count: number): boolean => {
+        const times = timedOf(latest);
+        return times.length >= count && times.every((t) => t != null);
+      };
+      try {
+        await expect.poll(() => timed(10), POLL).toBe(true);
+        latest.update(undefined, 200);
+        await expect.poll(() => timed(200), POLL).toBe(true);
+      } finally {
+        latest.close();
+        await close();
+      }
+    });
+
+    it("should time every write of a count past the buffer size", async () => {
+      const core = createCore(true);
+      const { open, close } = createLatest(core);
+      const key = core.virtual!.key;
+      const count = 70_000;
+      const latest = open(count, undefined, key);
+      const stampOf = (i: number): TimeStamp => START.add(TimeSpan.milliseconds(i));
+      try {
+        await expect.poll(() => latest.value().status.variant, POLL).toBe("success");
+        await expect.poll(() => core.streams(key), POLL).toBe(true);
+        const writes = Array.from({ length: count }, (_, i) =>
+          write(BigInt(i), 1, stampOf(i)),
+        );
+        core.stream(new framer.Frame(new Array(count).fill(key), writes));
+        await expect.poll(() => latest.value().series.length, POLL).toBe(count);
+        expect(latest.timeAt(0n)).toEqual(stampOf(0));
+        expect(latest.timeAt(BigInt(count - 1))).toEqual(stampOf(count - 1));
+      } finally {
+        latest.close();
+        await close();
+      }
+    });
+
+    it("should keep each write's stamp when the load lands after it", async () => {
+      const core = createCore(true);
+      let release: () => void = () => {};
+      const released = new Promise<void>((resolve) => (release = resolve));
+      const { open, close } = createLatest(core, undefined, undefined, async () => {
+        await released;
+      });
+      const key = core.virtual!.key;
+      const latest = open(100, undefined, key);
+      const stamps = [0, 1, 2].map((i) => START.add(TimeSpan.seconds(i)));
+      try {
+        await expect.poll(() => core.streams(key), POLL).toBe(true);
+        stamps.forEach((t, i) =>
+          core.stream(new framer.Frame(key, write(10n + 2n * BigInt(i), 2, t))),
+        );
+        await expect.poll(() => latest.value().series.length, POLL).toBe(6);
+        // The last two writes share one buffer, which the load closes as it lands.
+        expect(latest.value().series.series).toHaveLength(2);
+        release();
+        await expect.poll(() => latest.value().status.variant, POLL).toBe("success");
+        const [t0, t1, t2] = stamps.map((t) => t.valueOf());
+        expect(timedOf(latest)).toEqual([t0, t0 + 1n, t1, t1 + 1n, t2, t2 + 1n]);
+      } finally {
+        latest.close();
+        await close();
+      }
+    });
+
+    // Returns a gate that holds the index reads while closed, and counts them.
+    const createGate = (core: SyntheticCore) => {
+      let release: () => void = () => {};
+      let held: Promise<void> | null = null;
+      const gate = {
+        calls: 0,
+        close: () => {
+          held = new Promise((resolve) => (release = resolve));
+        },
+        open: () => release(),
+        onRead: async (key: channel.Key) => {
+          if (key !== core.index.key) return;
+          gate.calls++;
+          if (held != null) await held;
+        },
+      };
+      return gate;
+    };
+
+    it("should stamp a live buffer that grows while its index read runs", async () => {
+      const core = createCore();
+      const gate = createGate(core);
+      const { open, close } = createLatest(core, gate.onRead);
+      const latest = open(1_000);
+      try {
+        await expect.poll(() => latest.value().status.variant, POLL).toBe("success");
+        // The first streamed series stays apart from the read's, and the next one
+        // starts the leading buffer.
+        core.advance(TimeSpan.milliseconds(100));
+        core.advance(TimeSpan.milliseconds(100));
+        await expect.poll(() => latest.value().series.series.length, POLL).toBe(3);
+        const leading = latest.value().series.series[2];
+        const { alignment, length } = leading;
+        gate.close();
+        expect(latest.timeAt(alignment)).toBeNull();
+        await expect.poll(() => gate.calls, POLL).toBe(1);
+        core.advance(TimeSpan.milliseconds(100));
+        await expect.poll(() => leading.length, POLL).toBeGreaterThan(length);
+        gate.open();
+        await expect.poll(() => latest.timeAt(alignment), POLL).not.toBeNull();
+        await expect.poll(() => timedInOrder(latest), POLL).toBe(true);
+      } finally {
+        latest.close();
+        await close();
+      }
+    });
+
+    it("should read the index once while a read of it runs", async () => {
+      const core = createCore();
+      const gate = createGate(core);
+      const { open, close } = createLatest(core, gate.onRead);
+      const latest = open(100);
+      try {
+        await expect.poll(() => latest.value().status.variant, POLL).toBe("success");
+        const [{ alignment }] = latest.value().series.series;
+        gate.close();
+        expect(latest.timeAt(alignment)).toBeNull();
+        expect(latest.timeAt(alignment + 1n)).toBeNull();
+        expect(latest.timeAt(alignment)).toBeNull();
+        await sleep.sleep(TimeSpan.milliseconds(20));
+        expect(gate.calls).toBe(1);
+        gate.open();
+        await expect.poll(() => latest.timeAt(alignment), POLL).not.toBeNull();
+        expect(gate.calls).toBe(1);
+      } finally {
+        latest.close();
+        await close();
+      }
+    });
+
+    it("should ignore an index read that lands after close", async () => {
+      const core = createCore();
+      const gate = createGate(core);
+      const { open, close } = createLatest(core, gate.onRead);
+      let notified = 0;
+      const latest = open(100, () => notified++);
+      try {
+        await expect.poll(() => latest.value().status.variant, POLL).toBe("success");
+        const [{ alignment }] = latest.value().series.series;
+        gate.close();
+        latest.timeAt(alignment);
+        await expect.poll(() => gate.calls, POLL).toBe(1);
+        latest.close();
+        const before = notified;
+        gate.open();
+        await sleep.sleep(TimeSpan.milliseconds(20));
+        expect(notified).toBe(before);
+        expect(latest.timeAt(alignment)).toBeNull();
+      } finally {
+        await close();
+      }
+    });
+
+    it("should not read the index for samples with no time range", async () => {
+      const core = new SyntheticCore({
+        rate: Rate.hz(100),
+        start: START,
+        now: START.add(TimeSpan.minutes(10)),
+        dataUntimed: true,
+      });
+      const gate = createGate(core);
+      const { open, close } = createLatest(core, gate.onRead);
+      const latest = open(1_000);
+      try {
+        await expect.poll(() => latest.value().status.variant, POLL).toBe("success");
+        core.advance(TimeSpan.milliseconds(100));
+        await expect.poll(() => latest.value().series.series.length, POLL).toBe(2);
+        const untimed = latest.value().series.series[1];
+        expect(untimed.timeRange.isZero).toBe(true);
+        expect(latest.timeAt(untimed.alignment)).toBeNull();
+        await sleep.sleep(TimeSpan.milliseconds(20));
+        expect(gate.calls).toBe(0);
+      } finally {
+        latest.close();
+        await close();
+      }
+    });
+
+    it("should read the index again after a read fails", async () => {
+      const core = createCore();
+      let failing = true;
+      const { open, close, reads } = createLatest(core, undefined, (key, read) => {
+        if (failing && key === core.index.key) throw new Error("connection lost");
+        return read;
+      });
+      const latest = open(100);
+      try {
+        await expect.poll(() => latest.value().status.variant, POLL).toBe("success");
+        const [{ alignment }] = latest.value().series.series;
+        const before = reads();
+        expect(latest.timeAt(alignment)).toBeNull();
+        await expect.poll(reads, POLL).toBe(before + 1);
+        await sleep.sleep(TimeSpan.milliseconds(20));
+        failing = false;
+        core.advance(TimeSpan.seconds(5), false);
+        await expect.poll(() => latest.timeAt(alignment), POLL).not.toBeNull();
+        expect(reads()).toBe(before + 2);
+      } finally {
+        latest.close();
+        await close();
+      }
+    });
+
+    it("should keep its write stamps while a static window rejects later writes", async () => {
+      const core = createCore(true);
+      const { open, close } = createLatest(core);
+      const key = core.virtual!.key;
+      const end = START.add(TimeSpan.seconds(10));
+      const latest = open(2, undefined, key, staticWindow(new TimeRange(START, end)));
+      const [t0, t1] = [1, 2].map((i) => START.add(TimeSpan.seconds(i)));
+      try {
+        await expect.poll(() => latest.value().status.variant, POLL).toBe("success");
+        await expect.poll(() => core.streams(key), POLL).toBe(true);
+        core.stream(new framer.Frame(key, write(10n, 1, t0)));
+        core.stream(new framer.Frame(key, write(11n, 1, t1)));
+        await expect.poll(() => latest.value().series.length, POLL).toBe(2);
+        for (let i = 0; i < 5; i++)
+          core.stream(
+            new framer.Frame(
+              key,
+              write(12n + BigInt(i), 1, end.add(TimeSpan.seconds(i))),
+            ),
+          );
+        await sleep.sleep(TimeSpan.milliseconds(20));
+        expect(latest.value().series.length).toBe(2);
+        expect(timedOf(latest)).toEqual([t0.valueOf(), t1.valueOf()]);
+      } finally {
+        latest.close();
+        await close();
+      }
+    });
+
+    it("should stamp the writes after a data type change", async () => {
+      const core = createCore(true);
+      const { open, close } = createLatest(core);
+      const key = core.virtual!.key;
+      const latest = open(100, undefined, key);
+      const [t0, t1] = [0, 1].map((i) => START.add(TimeSpan.seconds(i)));
+      try {
+        await expect.poll(() => latest.value().status.variant, POLL).toBe("success");
+        await expect.poll(() => core.streams(key), POLL).toBe(true);
+        core.stream(new framer.Frame(key, write(10n, 2, t0)));
+        await expect.poll(() => latest.value().series.length, POLL).toBe(2);
+        const retyped = new Series({
+          data: new Float64Array(2),
+          dataType: DataType.FLOAT64,
+          alignment: 12n,
+          timeRange: t1.spanRange(TimeSpan.nanoseconds(2)),
+        });
+        core.stream(new framer.Frame(key, retyped));
+        await expect
+          .poll(() => latest.value().series.series[0]?.dataType.toString(), POLL)
+          .toBe(DataType.FLOAT64.toString());
+        expect(timedOf(latest)).toEqual([t1.valueOf(), t1.valueOf() + 1n]);
+        expect(latest.timeAt(10n)).toBeNull();
+      } finally {
+        latest.close();
+        await close();
+      }
+    });
+
+    it("should return null for an alignment it does not hold", async () => {
+      const core = createCore(true);
+      const { open, close } = createLatest(core);
+      const stored = open(100);
+      const key = core.virtual!.key;
+      const unindexed = open(100, undefined, key);
+      try {
+        await expect
+          .poll(() => {
+            const times = timedOf(stored);
+            return times.length > 0 && times.every((t) => t != null);
+          }, POLL)
+          .toBe(true);
+        expect(stored.timeAt(0n)).toBeNull();
+        await expect.poll(() => unindexed.value().status.variant, POLL).toBe("success");
+        await expect.poll(() => core.streams(key), POLL).toBe(true);
+        core.stream(new framer.Frame(key, write(10n, 2, START)));
+        await expect.poll(() => unindexed.timeAt(10n), POLL).toEqual(START);
+        expect(unindexed.timeAt(11n)).toEqual(START.add(TimeSpan.NANOSECOND));
+        expect(unindexed.timeAt(9n)).toBeNull();
+        expect(unindexed.timeAt(12n)).toBeNull();
+      } finally {
+        stored.close();
+        unindexed.close();
+        await close();
+      }
+    });
   });
 
   it("should end the load's wait for the stream's ack on close", async () => {

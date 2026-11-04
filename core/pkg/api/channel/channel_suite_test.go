@@ -43,6 +43,8 @@ var (
 	channelSvc *channel.Service
 	statusSvc  *status.Service
 	rbacSvc    *rbac.Service
+	rangerSvc  *ranger.Service
+	aliasSvc   *alias.Service
 	apiSvc     *apichannel.Service
 	author     user.User
 )
@@ -85,13 +87,13 @@ var _ = BeforeSuite(func(ctx SpecContext) {
 		Group:        groupSvc,
 		Status:       statusSvc,
 	}))
-	rangerSvc := MustOpen(ranger.OpenService(ctx, ranger.ServiceConfig{
+	rangerSvc = MustOpen(ranger.OpenService(ctx, ranger.ServiceConfig{
 		DB:       node.DB,
 		Ontology: otg,
 		Group:    groupSvc,
 		Label:    labelSvc,
 	}))
-	aliasSvc := MustOpen(alias.OpenService(ctx, alias.ServiceConfig{
+	aliasSvc = MustOpen(alias.OpenService(ctx, alias.ServiceConfig{
 		DB:              node.DB,
 		Ontology:        otg,
 		Channel:         channelSvc,

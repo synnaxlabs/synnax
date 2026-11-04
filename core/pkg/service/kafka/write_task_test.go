@@ -289,12 +289,9 @@ var _ = Describe("Write task", func() {
 		Entry("a channel pointer nested inside the value pointer",
 			kafka.Record{ValuePointer: "/value", ChannelPointer: new("/value/name")},
 			`record.channel_pointer "/value/name" overlap`),
-		Entry(
-			"a timestamp pointer lacking its leading slash",
+		Entry("a timestamp pointer lacking its leading slash",
 			kafka.Record{TimestampPointer: new("timestamp")},
-			`record.timestamp_pointer: json pointer "timestamp" must be empty or `+
-				`start with "/"`,
-		),
+			`record.timestamp_pointer: pointer "timestamp" must start with '/'`),
 		Entry("a field pointer that contains the value pointer",
 			kafka.Record{
 				ValuePointer: "/meta/value",
@@ -420,9 +417,6 @@ var _ = Describe("Write task", func() {
 		Entry("a UUID",
 			telem.UUIDT, telem.NewSeriesV(writeUUID),
 			kafka.WriteChannel{JSONType: http.JSONTypeString}, writeUUID.String()),
-		Entry("a value outside the enum as its number text",
-			telem.Uint8T, telem.NewSeriesV[uint8](5),
-			kafka.WriteChannel{JSONType: http.JSONTypeString, EnumValues: onOff}, "5"),
 	)
 
 	It("Should keep an int64 sample beyond float64 precision", func(ctx SpecContext) {
@@ -433,6 +427,66 @@ var _ = Describe("Write task", func() {
 		recs := consume(ctx, topic, 1)
 		Expect(string(recs[0].Value)).To(ContainSubstring(`"value":9007199254740993`))
 	})
+
+	It("Should write record members in config order", func(ctx SpecContext) {
+		index, data := createIndexed(ctx, telem.Float64T)
+		dev := createDevice(ctx, clusterProperties())
+		topic := uniqueTopic()
+		startTask(ctx, kafka.WriteConfig{
+			Device: dev.Key,
+			Topic:  topic,
+			Record: kafka.Record{
+				ValuePointer:     "/payload/value",
+				ChannelPointer:   new("/channel"),
+				TimestampPointer: new("/meta/sent"),
+				TimeFormat:       http.TimeFormatUnixNs,
+				Fields: []http.WriteField{
+					{Variant: http.StaticWriteField{
+						BaseWriteField: http.BaseWriteField{
+							Key: "unit", Pointer: "/payload/unit",
+						},
+						JSONType: http.JSONTypeString,
+						Value:    "psi",
+					}},
+					{Variant: http.StaticWriteField{
+						BaseWriteField: http.BaseWriteField{
+							Key: "source", Pointer: "/meta/source",
+						},
+						JSONType: http.JSONTypeString,
+						Value:    "synnax",
+					}},
+				},
+			},
+			Channels: []kafka.WriteChannel{{Key: "c1", Channel: data.Key()}},
+		})
+		start := 10 * telem.SecondTS
+		writeFrame(ctx, index, data, []telem.TimeStamp{start},
+			telem.NewSeriesV[float64](1.5))
+		recs := consume(ctx, topic, 1)
+		Expect(string(recs[0].Value)).To(Equal(
+			`{"payload":{"value":1.5,"unit":"psi"},"channel":"` + data.Name +
+				`","meta":{"sent":10000000000,"source":"synnax"}}`,
+		))
+	})
+
+	DescribeTable("Should write a number in its shortest JSON form",
+		func(ctx SpecContext, value float64, expected string) {
+			index, data, topic, _ := startOne(ctx, telem.Float64T, kafka.WriteChannel{})
+			writeFrame(ctx, index, data,
+				[]telem.TimeStamp{telem.TimeStamp(10 * telem.Second)},
+				telem.NewSeriesV(value))
+			recs := consume(ctx, topic, 1)
+			Expect(string(recs[0].Value)).To(Equal(`{"value":` + expected + `}`))
+		},
+		Entry("a whole number", 100000.0, "100000"),
+		Entry("a fraction", 0.1, "0.1"),
+		Entry("negative zero", math.Copysign(0, -1), "-0"),
+		Entry("the largest plain number", 1e20, "100000000000000000000"),
+		Entry("the first exponent past it", 1e21, "1e+21"),
+		Entry("the smallest plain number", 1e-6, "0.000001"),
+		Entry("a one-digit negative exponent", 1e-7, "1e-7"),
+		Entry("a two-digit negative exponent", 1.5e-10, "1.5e-10"),
+	)
 
 	DescribeTable("Should report a sample that does not serialize",
 		func(
@@ -451,44 +505,22 @@ var _ = Describe("Write task", func() {
 			Expect(stat.Variant).To(Equal(status.VariantError))
 			Expect(stat.Details.Running).To(BeTrue())
 		},
-		Entry("a NaN",
+		Entry("a value outside the enum",
+			telem.Uint8T, telem.NewSeriesV[uint8](5),
+			kafka.WriteChannel{JSONType: http.JSONTypeString, EnumValues: onOff},
+			"no enum label for value 5"),
+		Entry("NaN as a number",
 			telem.Float64T, telem.NewSeriesV(math.NaN()), kafka.WriteChannel{},
-			"cannot convert NaN to JSON: value is not finite"),
-		Entry(
-			"an infinity",
-			telem.Float32T,
-			telem.NewSeriesV(float32(math.Inf(1))),
-			kafka.WriteChannel{},
-			"cannot convert +Inf to JSON: value is not finite",
-		),
-	)
-
-	DescribeTable("Should reject a JSON type that a channel cannot serialize as",
-		func(ctx SpecContext, dt telem.DataType, wc kafka.WriteChannel, msg string) {
-			_, data := createIndexed(ctx, dt)
-			dev := createDevice(ctx, clusterProperties())
-			wc.Key, wc.Channel = "c1", data.Key()
-			cfg := kafka.WriteConfig{
-				Device:   dev.Key,
-				Topic:    "t",
-				Channels: []kafka.WriteChannel{wc},
-			}
-			Expect(f.ConfigureTask(ctx, newTask(kafka.WriteTaskType, cfg), "cmd-1")).
-				Error().To(SatisfyAll(
-				MatchError(validate.ErrValidation),
-				MatchError(ContainSubstring(msg)),
-			))
-		},
+			"NaN is not a JSON number"),
+		Entry("infinity as a number",
+			telem.Float64T, telem.NewSeriesV(math.Inf(1)), kafka.WriteChannel{},
+			"+Inf is not a JSON number"),
 		Entry("a string as a number",
-			telem.StringT, kafka.WriteChannel{JSONType: http.JSONTypeNumber},
-			`channel "c1": cannot convert string to a JSON number`),
-		Entry("a UUID as a boolean",
-			telem.UUIDT, kafka.WriteChannel{JSONType: http.JSONTypeBoolean},
-			`channel "c1": cannot convert uuid to a JSON boolean`),
-		Entry("enum values for a number",
-			telem.Uint8T,
-			kafka.WriteChannel{JSONType: http.JSONTypeNumber, EnumValues: onOff},
-			`channel "c1": enum values require the string JSON type`),
+			telem.StringT, telem.NewSeriesV("hi"), kafka.WriteChannel{},
+			"only serializes as a string"),
+		Entry("a UUID as a number",
+			telem.UUIDT, telem.NewSeriesV(writeUUID), kafka.WriteChannel{},
+			"only serializes as a string"),
 	)
 
 	DescribeTable("Should reject an invalid config",
@@ -551,17 +583,5 @@ var _ = Describe("Write task", func() {
 					}},
 				}
 			}, "time_format alone encodes"),
-		Entry("timestamp channel with an unknown time format",
-			func(data channel.Channel) kafka.WriteConfig {
-				return kafka.WriteConfig{
-					Topic: "t",
-					Channels: []kafka.WriteChannel{{
-						Key:        "c1",
-						Channel:    data.Key(),
-						TimeFormat: new(http.TimeFormat("unix_days")),
-						JSONType:   http.JSONTypeNumber,
-					}},
-				}
-			}, `channel "c1": unknown time format "unix_days"`),
 	)
 })
