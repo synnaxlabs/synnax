@@ -15,6 +15,7 @@ import { Credential } from "@synnaxlabs/pluto";
 import { type ReactElement, useEffect, useState } from "react";
 
 import { Common } from "@/platform/credential/common";
+import { Modals } from "@/platform/modals";
 
 interface LiveProps {
   subject: ontology.ID;
@@ -102,6 +103,8 @@ export const Invite = ({ subject, onMessage }: InviteProps): ReactElement => {
       handleChange("Successfully revoked invite");
     },
   });
+  // Closing during a create would lose the only copy of the code.
+  Modals.useLock(create.variant === "loading");
   const handleCreate = () => {
     onMessage(null);
     create.update(subject);

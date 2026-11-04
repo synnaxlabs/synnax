@@ -52,7 +52,7 @@ import {
   type ServeOIDCParams,
 } from "@/platform/core/testutil";
 import { Credential } from "@/platform/credential";
-import { findButton, openModal } from "@/platform/modals/testutil";
+import { findButton, findDismissButton, openModal } from "@/platform/modals/testutil";
 import { Session } from "@/session";
 import { createCore } from "@/session/core/testutil";
 import {
@@ -231,6 +231,18 @@ describe("OIDC section", () => {
       await screen.findByText("Provider accounts");
       await waitFor(() => expect(server.policyReads).toBeGreaterThan(0));
       await expectAlways(() => expect(screen.queryByText(CREATE)).toBeNull());
+    });
+
+    it("should block closing while an invite is being created", async () => {
+      const hold = createHold("/auth/oidc/invite/create");
+      const { client, server } = await open({ userActions: ["update"], hold });
+      await openLocal(client, OTHER_USER);
+      fireEvent.click(await screen.findByText(CREATE));
+      await waitFor(() => expect(server.held).toBe(1));
+      fireEvent.click(findDismissButton());
+      expect(screen.queryByText(CREATE)).not.toBeNull();
+      hold.release();
+      await screen.findByDisplayValue(/^syi_/);
     });
 
     it("should show a new invite's code until the dialog closes", async () => {
