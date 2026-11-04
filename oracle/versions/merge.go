@@ -194,21 +194,18 @@ func MergeLive(
 	if err != nil {
 		return "", errors.Wrapf(err, "failed to parse merged %s.oracle", livePath)
 	}
-	if err := checkErasedDocs(ctx, r, chain, surf, lc, merged); err != nil {
+	if err := checkErasedDocs(chain, surf, lc, merged); err != nil {
 		return "", err
 	}
 	return license(ctx, r.RepoRoot(), formatted)
 }
 
 // checkErasedDocs fails when the merge dropped a live doc from a declaration that it
-// kept, inherited fields included. A doc that only differs from the chain's is not
-// reported, because it cannot be told apart from an edit to the version file.
+// kept, including a field inherited from within the chain. A doc that only differs from
+// the chain's is not reported, because it cannot be told apart from an edit to the
+// version file.
 func checkErasedDocs(
-	ctx context.Context,
-	r *Resolver,
-	chain Chain,
-	surf map[string]Definition,
-	live, merged *liveContent,
+	chain Chain, surf map[string]Definition, live, merged *liveContent,
 ) error {
 	byFile := make(map[string][]string)
 	for path := range live.documented {
@@ -221,15 +218,8 @@ func checkErasedDocs(
 			continue
 		}
 		if !merged.declared.Contains(path) {
-			definer, err := r.File(ctx, chain.LivePath(), def.Version)
-			if err != nil {
-				return err
-			}
-			fields := resolution.UnifiedFields(def.Type, definer.Table)
-			i := slices.IndexFunc(fields, func(f resolution.Field) bool {
-				return f.Name == field
-			})
-			if i < 0 || inheritsDoc(name, fields[i], surf, merged) {
+			found, documented := inheritedField(name, field, chain, surf, merged)
+			if !found || documented {
 				continue
 			}
 		}
@@ -255,34 +245,35 @@ func checkErasedDocs(
 	)
 }
 
-// inheritsDoc reports whether a parent of the named struct documents field in the
-// merged
-// output. A parent outside the chain cannot be in that output, so field's resolved doc
-// stands in for it.
-func inheritsDoc(
-	name string,
-	field resolution.Field,
+// inheritedField reports whether the named struct has field in the merged output, and
+// whether the declaring struct documents it there. A parent from another resource is
+// not in that output, so its fields are not found.
+func inheritedField(
+	name, field string,
+	chain Chain,
 	surf map[string]Definition,
 	merged *liveContent,
-) bool {
+) (found, documented bool) {
 	form, ok := surf[name].Type.Form.(resolution.StructForm)
-	if !ok {
-		return false
+	if !ok || slices.Contains(form.OmittedFields, field) {
+		return false, false
+	}
+	if _, own := form.Field(field); own {
+		return true, merged.documented.Contains(name + "." + field)
 	}
 	for _, parent := range form.Extends {
-		bare := parent.Name[strings.LastIndex(parent.Name, ".")+1:]
-		if _, member := surf[bare]; !member {
-			if _, documented := field.Domains["doc"]; documented {
-				return true
-			}
+		ns, bare, qualified := strings.Cut(parent.Name, ".")
+		if !qualified {
+			bare = ns
+		} else if !versionNS.MatchString(ns) && ns != chain.Resource {
 			continue
 		}
-		if merged.documented.Contains(bare+"."+field.Name) ||
-			inheritsDoc(bare, field, surf, merged) {
-			return true
+		found, documented = inheritedField(bare, field, chain, surf, merged)
+		if found {
+			return found, documented
 		}
 	}
-	return false
+	return false, false
 }
 
 // chainNamespacePaths maps each dependency resource namespace a chain's files can

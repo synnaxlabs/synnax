@@ -476,6 +476,103 @@ Base struct {
 			))
 		})
 
+		It("Should accept a live doc on a field the current parent removed", func(
+			ctx SpecContext,
+		) {
+			write("schemas/synnax/versions/channel/v2.oracle", `
+Mode = v0.Mode
+Payload = v0.Payload
+Event = v0.Event
+
+Base struct {
+    key uuid {
+        @doc value "identifies the channel."
+    }
+    size int32
+}
+
+Child struct extends Base {
+    name string
+
+    @go marshal
+}
+
+Channel struct {
+    name string
+    uses Mode
+
+    @go marshal
+}
+`)
+			write("schemas/synnax/versions/channel/v3.oracle", `
+Mode = v0.Mode
+Payload = v0.Payload
+Event = v0.Event
+Child = v2.Child
+Channel = v2.Channel
+
+Base struct {
+    size int32
+}
+`)
+			r, chain := resolver()
+			merged := MustSucceed(
+				versions.MergeLive(ctx, r, chain, `Child struct extends Base {
+    key uuid {
+        @doc value "identifies the channel."
+    }
+    name string
+
+    @go marshal
+}
+`),
+			)
+			Expect(merged).ToNot(ContainSubstring("key"))
+		})
+
+		It("Should not follow a parent from another resource", func(ctx SpecContext) {
+			write("schemas/synnax/other.oracle", `
+Base struct {
+    key uuid {
+        @doc value "identifies the record."
+    }
+}
+`)
+			write("schemas/synnax/versions/channel/v2.oracle", `
+import "schemas/synnax/other"
+
+Mode = v0.Mode
+Payload = v0.Payload
+Event = v0.Event
+
+Base struct extends other.Base {
+    name string
+
+    @go marshal
+}
+
+Channel struct {
+    name string
+    uses Mode
+
+    @go marshal
+}
+`)
+			r, chain := resolver()
+			merged := MustSucceed(
+				versions.MergeLive(ctx, r, chain, `Base struct extends other.Base {
+    key uuid {
+        @doc value "identifies the record."
+    }
+    name string
+
+    @go marshal
+}
+`),
+			)
+			Expect(merged).To(ContainSubstring("Base struct extends other.Base"))
+		})
+
 		It("Should keep a doc on a declaration the chain removed", func(
 			ctx SpecContext,
 		) {
