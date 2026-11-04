@@ -14,8 +14,11 @@ import { layers, lyraLayers } from "@synnaxlabs/vite-plugin";
 import { defineConfig } from "astro/config";
 import path from "path";
 
+import { schema } from "./src/util/env";
+
 export default defineConfig({
   integrations: [integration(), react()],
+  env: { schema },
   adapter: vercel(),
   // Pictures from the CDN are fetched and re-encoded at build time.
   image: { domains: ["synnax.nyc3.cdn.digitaloceanspaces.com"] },

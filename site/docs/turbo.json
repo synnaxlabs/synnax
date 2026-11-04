@@ -4,6 +4,7 @@
   "tasks": {
     "build": {
       "inputs": ["src/**", "astro.config.ts", "tsconfig*.json", "package.json"],
+      "env": ["VERCEL_ENV", "FLAG_*"],
       "passThroughEnv": ["DOCS_GITHUB_TOKEN"]
     },
     "lint": {

@@ -1,0 +1,87 @@
+---
+layout: "@/layouts/Blog.astro"
+title: "Welcoming Rigetti Computing"
+description: "We’re excited to welcome Rigetti Computing as a Synnax customer."
+# A placeholder until Rigetti sets a date.
+published: "2026-11-02"
+author: "Emiliano Bonilla"
+authorImage: "https://synnax.nyc3.cdn.digitaloceanspaces.com/eb_headshot.png"
+authorLink: "https://www.linkedin.com/in/emiliano-bonilla-8a0a95187/"
+flag: "rigetti"
+---
+
+import { Icon } from "@synnaxlabs/lyra/icon";
+import Card from "@/components/card/Card.astro";
+import Grid from "@/components/card/Grid.astro";
+import Figure from "@/components/rigetti/Figure.astro";
+import Quote from "@/components/rigetti/Quote.astro";
+import { mdxOverrides } from "@/components/mdxOverrides";
+export const components = mdxOverrides;
+
+<Figure direction="instrument" id="partnership-post-hero" />
+
+Rigetti Computing builds and operates superconducting quantum computers at near absolute
+zero temperatures.
+
+Reliably running experiments on novel processors requires precise control, warmup, and
+cooldown of quantum dilution refrigerators.
+
+Rigetti is adopting Synnax to simplify and accelerate the process of operating these
+fridges. Together, we're optimizing automated warmup and cooldown procedures, simulating
+critical workflows before deployment, and building tools to improve operational
+visibility.
+
+All of this serves one objective: faster turnaround times to run more experiments on the
+latest quantum technologies.
+
+<Quote by="Carlos Orozco Gonzalez, Rigetti Computing">
+  As our fridge fleet grows, maintaining custom Python scripts becomes increasingly
+  painful. Synnax gives us a path forward: Arc sequences have been easy to build, and
+  the pilot support was so good that we felt spoiled.
+</Quote>
+
+## Why warmup and cooldown matter
+
+Dilution refrigerators keep quantum processors operating at a fraction of a degree above
+absolute zero. To change a processor, operators warm the fridge to room temperature,
+make the swap, and then cool it back down. Both warmup and cooldown require long,
+complex procedures of pump, valve, heater, and gas-handling steps. Pressure,
+temperature, and other critical variables need to be carefully monitored throughout
+these processes.
+
+Experiments cannot be run on a fridge while it is cooling down or warming up. Every hour
+of efficiency extracted from these processes means more time for engineers to run
+critical tests on chips.
+
+<Figure direction="cycle" id="partnership-post-cycle" />
+
+## What this looks like in Synnax
+
+Each part of the work above maps to a part of Synnax.
+
+<Grid columns={3}>
+  <Card
+    href="/reference/control/arc/test-sequences"
+    title="Automate procedures"
+    description="Write each procedure as Arc stages, with checks that abort when a value is unsafe."
+  >
+    <Icon.Arc slot="icon" />
+  </Card>
+  <Card
+    href="/reference/visualize/schematics"
+    title="See the system live"
+    description="Watch live pressures, temperatures, and valve states on schematics, plots, and alarms."
+  >
+    <Icon.Schematic slot="icon" />
+  </Card>
+  <Card
+    href="/reference/get-started/sample-project"
+    title="Test before hardware"
+    description="Run a sequence against a simulator that writes the same channels as the hardware."
+  >
+    <Icon.Play slot="icon" />
+  </Card>
+</Grid>
+
+If your team runs long, safety-critical procedures on hardware,
+[talk to an engineer](https://www.synnaxlabs.com/#contact) about running ops in Synnax.

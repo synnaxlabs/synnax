@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { FLAG_MQTT, VERCEL_ENV } from "astro:env/client";
+import { FLAG_MQTT, FLAG_RIGETTI, VERCEL_ENV } from "astro:env/client";
 
 // Preview deploys show every flagged surface, so reviewers see dark work.
 const PREVIEW = VERCEL_ENV === "preview";
@@ -28,6 +28,9 @@ export const FLAGS = {
   // Emiliano Bonilla. SY-4876. Hides the MQTT pages until MQTT ships in the Console,
   // which removes the flag and links the pages from the other hardware pages.
   mqtt: flag(FLAG_MQTT),
+  // Emiliano Bonilla. Hides the Rigetti announcement until Rigetti approves it, which
+  // removes the flag.
+  rigetti: flag(FLAG_RIGETTI),
 } satisfies Record<string, boolean>;
 
 export type Flag = keyof typeof FLAGS;

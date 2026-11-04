@@ -19,6 +19,8 @@ import StreamProcess from "@/components/stream/StreamProcess.astro";
 import CalcChannels from "@/components/stream/CalcChannels.astro";
 import Alarms from "@/components/stream/Alarms.astro";
 import Contact from "@/components/contact/Contact.astro";
+import RigettiBanner from "@/components/rigetti/Banner.astro";
+import { enabled } from "@/flags";
 
 import { Divider } from "@synnaxlabs/lyra/divider";
 import logo from "@synnaxlabs/lyra/static/logo/icon-white-favicon.svg";
@@ -67,6 +69,11 @@ const structuredData = {
     />
     <Hero />
     <Divider.Divider direction="x" />
+    {enabled("rigetti") && (
+        <div class="partnership-placement" id="partnership">
+            <RigettiBanner />
+        </div>
+    )}
     <Visualize />
     <Divider.Divider direction="x" />
     <Automate />
@@ -83,3 +90,12 @@ const structuredData = {
     <Divider.Divider direction="x" />
     <Contact />
 </Layout>
+
+<style>
+    .partnership-placement {
+        max-width: var(--max-width);
+        margin: 0 auto;
+        padding: var(--space-xl) var(--content-padding) 0;
+        scroll-margin-top: calc(var(--nav-height) + 24px);
+    }
+</style>

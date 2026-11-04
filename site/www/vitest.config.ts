@@ -10,6 +10,8 @@
 import { getViteConfig } from "astro/config";
 import { type ViteUserConfigFn } from "vitest/config";
 
+import { schema } from "./src/util/env";
+
 const config: ViteUserConfigFn = getViteConfig(
   {
     test: {
@@ -19,7 +21,7 @@ const config: ViteUserConfigFn = getViteConfig(
       restoreMocks: true,
     },
   },
-  { root: import.meta.dirname },
+  { root: import.meta.dirname, env: { schema } },
 );
 
 export default config;

@@ -1,0 +1,201 @@
+---
+// Copyright 2026 Synnax Labs, Inc.
+//
+// Use of this software is governed by the Business Source License included in the file
+// licenses/BSL.txt.
+//
+// As of the Change Date specified in that file, in accordance with the Business Source
+// License, use of this software will be governed by the Apache License, Version 2.0,
+// included in the file licenses/APL.txt.
+
+// The logo is the masthead SVG from https://www.rigetti.com/, unchanged.
+import { DOCS_URL } from "astro:env/client";
+import { Button } from "@synnaxlabs/lyra/button";
+import { Text } from "@synnaxlabs/lyra/text";
+import Arrow from "@/components/common/Arrow.astro";
+import logo from "./logo.svg?raw";
+
+const href = new URL("/blog/rigetti", DOCS_URL).href;
+---
+
+<aside class="partnership-banner" aria-label="Partnership announcement">
+    <a class="partnership-banner__link" href={href}>
+        <span
+            class="partnership-banner__logo"
+            role="img"
+            aria-label="Rigetti Computing"
+            set:html={logo}
+        />
+        <div class="partnership-banner__content">
+            <Text.Text level="p" variant="code" color={8} weight={500}>
+                Partnership
+            </Text.Text>
+            <Text.Text
+                level="h4"
+                color={10}
+                weight={400}
+                className="partnership-banner__copy"
+            >
+                We’re excited to welcome Rigetti Computing as a Synnax customer.
+            </Text.Text>
+        </div>
+        <Button.Button
+            el="div"
+            size="huge"
+            level="p"
+            className="partnership-banner__cta"
+        >
+            Read the announcement
+            <Arrow direction="right" />
+        </Button.Button>
+    </a>
+</aside>
+
+<style>
+    .partnership-banner {
+        --banner-base: light-dark(#e5eaf0, #101923);
+        --banner-line: light-dark(#a6bac45c, #b7d3e52b);
+        position: relative;
+        isolation: isolate;
+        width: 100%;
+        border: 1px solid var(--banner-line);
+        border-radius: 2rem;
+        overflow: hidden;
+        font-family: var(--pluto-font-family);
+        background:
+            radial-gradient(
+                ellipse 56% 160% at 100% 0%,
+                light-dark(#00b5ad38, #00b5ad26),
+                transparent 88%
+            ),
+            radial-gradient(
+                ellipse 34% 170% at 73% 130%,
+                light-dark(#ffc50418, #ffc50409),
+                transparent 85%
+            ),
+            radial-gradient(
+                ellipse 40% 170% at 33% 110%,
+                light-dark(#ef476f18, #ef476f12),
+                transparent 85%
+            ),
+            radial-gradient(
+                ellipse 48% 180% at 0% 100%,
+                light-dark(#10007f24, #10007f25),
+                transparent 90%
+            ),
+            radial-gradient(
+                ellipse 62% 180% at 20% 0%,
+                light-dark(#0084e92c, #3774d02e),
+                transparent 90%
+            ),
+            var(--banner-base);
+    }
+
+    /* Fixed monochrome grain, contained to the color field. */
+    .partnership-banner::before {
+        content: "";
+        position: absolute;
+        inset: 0;
+        z-index: 0;
+        pointer-events: none;
+        opacity: 0.24;
+        mix-blend-mode: soft-light;
+        background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='180' height='180'%3E%3Cfilter id='grain'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='.88' numOctaves='3' seed='7' stitchTiles='stitch'/%3E%3CfeColorMatrix type='saturate' values='0'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23grain)'/%3E%3C/svg%3E");
+    }
+
+    a.partnership-banner__link {
+        position: relative;
+        z-index: 1;
+        display: grid;
+        grid-template-columns: 170px minmax(0, 1fr) auto;
+        align-items: center;
+        gap: clamp(4rem, 3vw, 7rem);
+        min-height: 190px;
+        padding: clamp(4rem, 3.2vw, 7rem);
+        text-decoration: none;
+    }
+
+    a.partnership-banner__link:focus-visible {
+        outline: 2px solid var(--pluto-primary-z);
+        outline-offset: -4px;
+        border-radius: inherit;
+    }
+
+    .partnership-banner__logo {
+        color: #00b5ad;
+        display: block;
+        width: 170px;
+        line-height: 0;
+    }
+
+    .partnership-banner__logo :global(svg) {
+        display: block;
+        width: 100%;
+        height: auto;
+    }
+
+    .partnership-banner__content {
+        display: flex;
+        flex-direction: column;
+        gap: 2rem;
+        padding-left: clamp(4rem, 3vw, 7rem);
+        border-left: 1px solid var(--banner-line);
+
+        & :global(.partnership-banner__copy) {
+            max-width: 540px;
+        }
+    }
+
+    /* The look of the hero buttons. */
+    .partnership-banner :global(.partnership-banner__cta) {
+        padding: 0 3rem 0 3.5rem;
+        font-size: 2.5rem;
+        font-weight: 550;
+        border-radius: var(--pluto-border-radius-small);
+        white-space: nowrap;
+    }
+
+    /* The whole banner is the link, so the button shows its hover with the banner. */
+    a.partnership-banner__link:hover :global(.partnership-banner__cta) {
+        --pluto-btn-bg: var(--pluto-hover-bg);
+        --pluto-btn-border-color: var(--pluto-hover-border-color);
+    }
+
+    @media (width < 1000px) {
+        a.partnership-banner__link {
+            grid-template-columns: 150px minmax(0, 1fr);
+            row-gap: 4rem;
+        }
+
+        .partnership-banner__logo {
+            width: 150px;
+            grid-row: 1 / 3;
+        }
+
+        .partnership-banner :global(.partnership-banner__cta) {
+            grid-column: 2;
+            margin-left: clamp(4rem, 3vw, 7rem);
+        }
+    }
+
+    @media (width < 600px) {
+        a.partnership-banner__link {
+            grid-template-columns: minmax(0, 1fr);
+        }
+
+        .partnership-banner__logo {
+            grid-row: auto;
+            width: 140px;
+        }
+
+        .partnership-banner__content {
+            border-left: none;
+            padding-left: 0;
+        }
+
+        .partnership-banner :global(.partnership-banner__cta) {
+            grid-column: 1;
+            margin-left: 0;
+        }
+    }
+</style>

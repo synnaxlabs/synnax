@@ -8,12 +8,14 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
+import { enabled } from "@/flags";
 import Root from "@/layouts/Root.astro";
 import { Flex } from "@synnaxlabs/lyra/flex";
 import IndexHero from "@/components/hero/Index.astro";
 import BlogArtwork from "@/components/hero/BlogArtwork.astro";
 import OneBillionRowsTile from "@/components/blog/OneBillionRowsTile.astro";
 import ArcTile from "@/components/blog/ArcTile.astro";
+import RigettiTile from "@/components/blog/RigettiTile.astro";
 ---
 
 <Root
@@ -32,6 +34,7 @@ import ArcTile from "@/components/blog/ArcTile.astro";
                 <BlogArtwork slot="art" />
             </IndexHero>
             <Flex.Box direction="y" className="blog-entries" gap={6}>
+                {enabled("rigetti") && <RigettiTile />}
                 <ArcTile />
                 <OneBillionRowsTile />
             </Flex.Box>
