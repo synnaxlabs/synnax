@@ -760,7 +760,7 @@ describe("log/aether/Log", () => {
       const entries = Array.from({ length: 50 }, (_, i) => makeEntry(i));
       const { log } = setup(entries);
       log.render();
-      const expectedStart = Math.max(0, entries.length - log.visibleLineCount);
+      const expectedStart = entries.length - log.visibleLineCount + 1;
       expect(log.state.visibleStart).toBe(expectedStart);
     });
 
@@ -788,7 +788,7 @@ describe("log/aether/Log", () => {
         ),
       );
       expect(log.render()).toBeTypeOf("function");
-      expect(log.state.rowEntries).toEqual([0, 1]);
+      expect(log.state.rowEntries).toEqual([0, 0, 1]);
     });
 
     it("should render the correct slice when scrolled back", () => {
@@ -854,7 +854,7 @@ describe("log/aether/Log", () => {
         selectionEnd: 0,
       });
       log.render();
-      expect(log.state.selectedText).toMatch(/^\d{2}:\d{2}:\d{2} {2}log {3}v$/);
+      expect(log.state.selectedText).toMatch(/\d{2}:\d{2}:\d{2} {2}log {3}v$/);
     });
 
     it("should apply precision formatting when channelConfig has precision", () => {
@@ -1209,6 +1209,69 @@ describe("log/aether/Log", () => {
     });
   });
 
+  describe("days", () => {
+    const entry = (date: string): LogEntry => ({
+      channelKey: 1,
+      timestamp: new TimeStamp(new Date(date)),
+      value: "v",
+    });
+    const shown = (recorder: ReturnType<typeof canvasTest.record>): string[] =>
+      recorder.lower2d.calls
+        .filter(({ op }) => op === "fillText")
+        .map(({ args }) => String(args[0]));
+
+    it("should name the day above the first entry", () => {
+      const { log, recorder } = setup([entry("2026-11-04T12:00:00")]);
+      log.render();
+      expect(shown(recorder)).toContain("Wed, Nov 4, 2026");
+    });
+
+    it("should show a day row where the day changes", () => {
+      const entries = [entry("2026-11-03T23:00:00"), entry("2026-11-04T01:00:00")];
+      const { log, recorder } = setup(entries);
+      log.render();
+      const texts = shown(recorder);
+      expect(texts).toContain("Tue, Nov 3, 2026");
+      expect(texts).toContain("Wed, Nov 4, 2026");
+    });
+
+    it("should show one day row for entries of one day", () => {
+      const entries = [entry("2026-11-04T01:00:00"), entry("2026-11-04T23:00:00")];
+      const { log, recorder } = setup(entries);
+      log.render();
+      expect(shown(recorder).filter((t) => t.includes("2026"))).toHaveLength(1);
+    });
+
+    it("should show no day rows when timestamps are hidden", () => {
+      const { log, recorder } = setup([entry("2026-11-04T12:00:00")], REGION_500, {
+        timestampsHidden: true,
+      });
+      log.render();
+      expect(shown(recorder).filter((t) => t.includes("2026"))).toHaveLength(0);
+    });
+
+    it("should keep the date on copied lines", () => {
+      const entries = [entry("2026-01-05T01:00:00"), entry("2026-01-05T23:00:00")];
+      const { log } = setup(entries, REGION_500, {
+        selectionStart: 0,
+        selectionEnd: 1,
+      });
+      log.render();
+      expect(log.state.selectedLines[0].text).toMatch(/^2026-01-05 01:00:00/);
+    });
+
+    it("should keep dates off copied lines when timestamps are hidden", () => {
+      const { log } = setup([entry("2026-01-05T12:00:00")], REGION_500, {
+        timestampsHidden: true,
+        channelNamesHidden: true,
+        selectionStart: 0,
+        selectionEnd: 0,
+      });
+      log.render();
+      expect(log.state.selectedLines[0].text).toBe("v");
+    });
+  });
+
   describe("selectedText and selectedLines", () => {
     it("should clear selectedText when selection is negative", () => {
       const entries = Array.from({ length: 5 }, (_, i) => makeEntry(i));
@@ -1363,7 +1426,11 @@ describe("log/aether/Log", () => {
       const regHeight = box.height(REGION_500);
       const thumb = findThumb(recorder);
       assert(thumb != null);
-      expect(thumb.height).toBeCloseTo((regHeight / log.totalHeight) * regHeight);
+      // The day row takes one row of the view.
+      const shown = (log.visibleLineCount - 1) / log.visibleLineCount;
+      expect(thumb.height).toBeCloseTo(
+        (regHeight / log.totalHeight) * regHeight * shown,
+      );
     });
 
     it("should floor the thumb height when the content dwarfs the region", () => {
@@ -1397,7 +1464,7 @@ describe("log/aether/Log", () => {
       scrollTo(updateState, 100_000);
       recorder.clear();
       log.render();
-      expect(log.scrollState.offset).toBe(log.visibleLineCount);
+      expect(log.scrollState.offset).toBe(log.visibleLineCount - 1);
       const thumb = findThumb(recorder);
       assert(thumb != null);
       expect(thumb.y).toBeCloseTo(box.top(REGION_OFFSET));
