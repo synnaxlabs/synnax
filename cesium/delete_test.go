@@ -1453,7 +1453,7 @@ var _ = Describe("Delete", func() {
 							)
 							Expect(
 								err,
-							).To(MatchError(ContainSubstring("overlaps with a controlled region")))
+							).To(MatchError(ContainSubstring("cannot access time range")))
 
 							By("Closing the writer and asserting we can now delete")
 							Expect(w.Close()).To(Succeed())

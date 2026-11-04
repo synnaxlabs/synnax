@@ -36,7 +36,7 @@ var _ = Describe("Stored v7 line plots", func() {
 			Expect(gorp.Migrate(ctx, gorp.MigrateConfig{
 				DB:         db,
 				Namespace:  "LinePlot",
-				Migrations: versions.Migrations[:len(versions.Migrations)-1],
+				Migrations: versions.Migrations[:len(versions.Migrations)-2],
 			})).To(Succeed())
 			saved := ranger.Range{
 				Key:       uuid.New(),

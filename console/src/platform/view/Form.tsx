@@ -17,6 +17,8 @@ import { type PropsWithChildren, type ReactElement, useState } from "react";
 
 import { FormContext, useContext } from "@/platform/view/context";
 
+const path = PView.formPath;
+
 export type Query = List.PagerParams;
 
 export interface FormProps<
@@ -62,7 +64,7 @@ export const Form = <K extends record.Key, E extends record.Keyed<K>, Q extends 
   });
   const { get: getField } = form;
   const handleSet = (view: view.View) => {
-    if (view.key !== getField<string>("key").value) return;
+    if (view.key !== getField(path.key).value) return;
     updateQuery(view.query);
   };
   PView.useSetSynchronizer(handleSet);

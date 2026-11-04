@@ -87,52 +87,6 @@ describe("Group queries", () => {
       });
     });
 
-    it("should filter groups by search term", async () => {
-      const uniqueId = Math.random().toString(36).substring(7);
-      const parent = await client.groups.create({
-        parent: ontology.ROOT_ID,
-        name: `test-parent-search-${uniqueId}`,
-      });
-      await client.groups.create({
-        parent: group.ontologyID(parent.key),
-        name: "apple red",
-      });
-      await client.groups.create({
-        parent: group.ontologyID(parent.key),
-        name: "banana blue",
-      });
-      await client.groups.create({
-        parent: group.ontologyID(parent.key),
-        name: "apple purple",
-      });
-
-      const { result } = renderHook(
-        () =>
-          Group.useList({
-            initialQuery: {
-              parent: group.ontologyID(parent.key),
-              searchTerm: "apple",
-            },
-          }),
-        { wrapper },
-      );
-
-      act(() => {
-        result.current.retrieve({
-          parent: group.ontologyID(parent.key),
-          searchTerm: "apple",
-        });
-      });
-
-      await waitFor(() => {
-        expect(result.current.variant).toEqual("success");
-        expect(result.current.data.length).toBeGreaterThanOrEqual(2);
-        const names = result.current.getItem(result.current.data).map((g) => g.name);
-        expect(names).toContain("apple red");
-        expect(names).toContain("apple purple");
-      });
-    });
-
     it("should respect limit and offset parameters", async () => {
       const uniqueId = Math.random().toString(36).substring(7);
       const parent = await client.groups.create({

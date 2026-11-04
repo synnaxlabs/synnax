@@ -51,6 +51,7 @@ var (
 	apiSvc        *apiframer.Service
 	framerSvc     *svcframer.Service
 	channelWriter channel.Writer
+	channelSvc    *channel.Service
 	rbacSvc       *rbac.Service
 	userSvc       *user.Service
 	root          user.User
@@ -83,6 +84,7 @@ var _ = BeforeSuite(func(ctx SpecContext) {
 	}))
 	framerSvc = svc.Framer
 	channelWriter = svc.Channel.NewWriter(nil)
+	channelSvc = svc.Channel
 	rbacSvc = svc.RBAC
 	userSvc = svc.User
 	apiSvc = MustSucceed(apiframer.NewService(apiframer.ServiceConfig{

@@ -20,18 +20,19 @@ import {
   renderSchematicTree,
   testProjectKey,
 } from "@/feature/schematic/testutil";
-import { renderTreeContextMenu } from "@/platform/tree/menuTestutil";
-
-const roles = new RoleClients(client);
-import { findButton } from "@/platform/modals/testutil";
-import { createTestRange } from "@/platform/range/testutil";
 import {
   createBaseProps,
   createResource,
   createSelection,
   createState,
+  findTreeRow,
+  renderOntologyTree,
+  renderTreeContextMenu,
 } from "@/platform/tree/testutil";
-import { findTreeRow, renderOntologyTree } from "@/platform/tree/treeTestutil";
+
+const roles = new RoleClients(client);
+import { findButton } from "@/platform/modals/testutil";
+import { createTestRange } from "@/platform/range/testutil";
 import { Session } from "@/session";
 import {
   assertDefined,

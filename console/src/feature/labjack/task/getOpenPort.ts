@@ -20,6 +20,7 @@ import {
   PORTS,
   type PortType,
 } from "@/feature/labjack/device/types";
+import { claims, terminal } from "@/feature/labjack/task/ports";
 import { type Channel } from "@/feature/labjack/task/types";
 
 // This is a bit of a confusing type, but basically it maps the port type (AI, AO, DI,
@@ -39,9 +40,9 @@ export const getOpenPort = <T extends PortType>(
   model: Model,
   types: T[],
 ): Port<T> | null => {
-  const portsInUse = new Set(channels.map(({ port }) => port));
+  const taken = claims(channels, model);
   for (const type of types) {
-    const port = PORTS[model][type].find(({ key }) => !portsInUse.has(key));
+    const port = PORTS[model][type].find((p) => !taken.has(terminal(p)));
     if (port != null) return port as Port<T>;
   }
   return null;
