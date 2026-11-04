@@ -11,8 +11,10 @@
 # in any other file still reports.
 
 rules:
-  # These run from the base branch and read pull requests through the API as data. None
-  # checks out or runs pull request code.
+  # These run from the base branch. Three read pull requests only through the API, as
+  # data. agent.shepherd.yaml checks out a pull request for its agent only after
+  # agent_gate.sh passes: the head must be in this repository, and an agent must have
+  # opened it or it must have the agent/autofix label.
   dangerous-triggers:
     ignore:
       - agent.shepherd.yaml
