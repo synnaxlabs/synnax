@@ -19,7 +19,6 @@ import (
 	"sync"
 	"time"
 
-	"github.com/samber/lo"
 	"github.com/synnaxlabs/alamos"
 	"github.com/synnaxlabs/gorp"
 	"github.com/synnaxlabs/synnax/pkg/service/ontology"
@@ -40,6 +39,9 @@ type SuspectHandler = func(ctx context.Context, outage Status) error
 
 type rackState struct {
 	lastUpdated telem.TimeStamp
+	// statusTime is the time on the last status seen. A write that keeps it, such as a
+	// rename, is not a report from the rack.
+	statusTime telem.TimeStamp
 	// outage is set from the write of an outage until the rack reports healthy again,
 	// so each outage is written once.
 	outage *Status
@@ -243,9 +245,12 @@ func (m *monitor) handleChange(
 		}
 		isHealthy := ch.Value.Variant == status.VariantSuccess ||
 			ch.Value.Variant == status.VariantInfo
-		if isHealthy || !lo.HasKey(m.mu.racks, key) {
-			m.mu.racks[key] = rackState{lastUpdated: m.svc.Now()}
+		state, known := m.mu.racks[key]
+		if !known || (isHealthy && ch.Value.Time != state.statusTime) {
+			state = rackState{lastUpdated: m.svc.Now()}
 		}
+		state.statusTime = ch.Value.Time
+		m.mu.racks[key] = state
 	}
 }
 
@@ -269,6 +274,16 @@ func openMonitor(
 	if err := svc.NewRetrieve().Entries(&racks).Exec(ctx, nil); err != nil {
 		return nil, err
 	}
+	statuses := make([]Status, 0, len(racks))
+	// A rack with no status row has no status time to compare.
+	if err := errors.Skip(svc.Status.NewRetrieve[StatusDetails]().
+		Where(status.MatchKeys[StatusDetails](
+			ontology.IDsToKeys(OntologyIDsFromRacks(racks))...,
+		)).
+		Entries(&statuses).
+		Exec(ctx, nil), query.ErrNotFound); err != nil {
+		return nil, err
+	}
 	obs := svc.Status.Observe()
 	sCtx, cancel := signal.Isolated(signal.WithInstrumentation(ins))
 	s := &monitor{
@@ -281,6 +296,9 @@ func openMonitor(
 	s.mu.handlers = make(map[int]SuspectHandler)
 	for _, r := range racks {
 		s.mu.racks[r.Key] = rackState{lastUpdated: now}
+	}
+	for _, st := range statuses {
+		s.mu.racks[st.Details.Rack] = rackState{lastUpdated: now, statusTime: st.Time}
 	}
 	s.disconnectStatusObserver = obs.OnChange(s.handleChange)
 	signal.GoTick(

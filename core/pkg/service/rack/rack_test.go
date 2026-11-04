@@ -1247,6 +1247,83 @@ var _ = Describe("Rack", Ordered, func() {
 			},
 		)
 
+		DescribeTable(
+			"Should not extend the deadline of a silent rack on a rename",
+			func(
+				ctx SpecContext,
+				rename func(context.Context, rack.Writer, rack.Key, string) error,
+			) {
+				start := telem.Now()
+				frozenNow.Store(int64(start))
+				r := rack.Rack{
+					Name: "silent rack",
+					Status: &rack.Status{
+						Variant: status.VariantSuccess,
+						Message: "Driver is running",
+						Time:    start,
+					},
+				}
+				Expect(noTxWriter.Create(ctx, &r)).To(Succeed())
+				frozenNow.Store(int64(start.Add(6 * telem.Millisecond)))
+				Expect(rename(ctx, noTxWriter, r.Key, "renamed silent rack")).
+					To(Succeed())
+				frozenNow.Store(int64(start.Add(12 * telem.Millisecond)))
+				Eventually(func(g Gomega) {
+					s := MustSucceed(retrieveStatus(ctx, stat, r.Key))
+					g.Expect(s.Message).To(Equal("Driver not running"))
+					g.Expect(s.Name).To(Equal("renamed silent rack"))
+				}).Should(Succeed())
+			},
+			Entry(
+				"through Create",
+				func(ctx context.Context, w rack.Writer, k rack.Key, n string) error {
+					return w.Create(ctx, &rack.Rack{Key: k, Name: n})
+				},
+			),
+			Entry(
+				"through Rename",
+				func(ctx context.Context, w rack.Writer, k rack.Key, n string) error {
+					return w.Rename(ctx, k, n)
+				},
+			),
+		)
+
+		It(
+			"Should not extend the deadline of a silent rack renamed after a restart",
+			func(ctx SpecContext) {
+				restartDB := DeferClose(gorp.Wrap(memkv.New()))
+				before := openStack(ctx, restartDB, rack.ServiceConfig{
+					HealthCheckInterval: telem.Hour,
+				})
+				r := rack.Rack{
+					Name: "restarted silent rack",
+					Status: &rack.Status{
+						Variant: status.VariantSuccess,
+						Message: "Driver is running",
+						Time:    telem.SecondTS,
+					},
+				}
+				Expect(before.rack.NewWriter(nil).Create(ctx, &r)).To(Succeed())
+				Expect(before.Close()).To(Succeed())
+
+				start := telem.Now()
+				var now atomic.Int64
+				now.Store(int64(start))
+				after := DeferClose(openStack(ctx, restartDB, rack.ServiceConfig{
+					HealthCheckInterval: 10 * telem.Millisecond,
+					Now:                 func() telem.TimeStamp { return telem.TimeStamp(now.Load()) },
+				}))
+				now.Store(int64(start.Add(6 * telem.Millisecond)))
+				Expect(after.rack.NewWriter(nil).Rename(ctx, r.Key, "renamed")).
+					To(Succeed())
+				now.Store(int64(start.Add(12 * telem.Millisecond)))
+				Eventually(func(g Gomega) {
+					s := MustSucceed(retrieveStatus(ctx, after.status, r.Key))
+					g.Expect(s.Message).To(Equal("Driver not running"))
+				}).Should(Succeed())
+			},
+		)
+
 		It(
 			"Should mark a stored healthy rack as dead when it is silent after a restart",
 			func(ctx SpecContext) {
