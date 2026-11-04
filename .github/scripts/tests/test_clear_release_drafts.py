@@ -81,6 +81,8 @@ def harness(tmp_path: Path) -> Harness:
 
 
 class TestClearReleaseDrafts:
+    """Tests for clearing draft releases from a tag before a new draft."""
+
     def test_deletes_a_draft_by_id(self, harness: Harness) -> None:
         harness.serve([release(1, "core/v0.60.1", draft=False), release(7)])
         assert harness.run().returncode == 0
