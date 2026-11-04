@@ -140,34 +140,41 @@ func (s *forNode) Reset(node.Context) {
 
 var _ node.Node = (*forNode)(nil)
 
+// Next walks the batch sample by sample. A sample that holds the value for
+// duration since its last change is sent with its own stamp, so one batch can
+// carry several confirmations.
 func (s *forNode) Next(ctx node.Context) {
-	if s.RefreshInputs() {
-		inputData := s.Input(s.inputIdx)
-		inputTime := s.InputTime(s.inputIdx)
-		if inputData.Len() > 0 {
-			for i := int64(0); i < inputData.Len(); i++ {
-				currentValue := inputData.At(int(i))
-				currentTime := inputTime.ValueAt[telem.TimeStamp](int(i))
-				if s.value == nil || !bytes.Equal(s.value, currentValue) {
-					s.value = bytes.Clone(currentValue)
-					s.lastChanged = currentTime
-					s.refreshDuration()
-				}
-			}
-		}
-	}
-
-	if s.value == nil {
+	if !s.RefreshInputs() {
 		return
 	}
-	if telem.TimeSpan(ctx.Now-s.lastChanged) >= s.duration {
-		if s.lastSent == nil || !bytes.Equal(s.lastSent, s.value) {
-			out := s.Output(0)
-			out.Resize(1)
-			copy(out.Data, s.value)
-			*s.OutputTime(0) = telem.NewSeriesV(ctx.Now)
-			s.lastSent = bytes.Clone(s.value)
-			s.Emit(ctx, 0)
+	inputData := s.Input(s.inputIdx)
+	inputTime := s.InputTime(s.inputIdx)
+	var (
+		held   []byte
+		stamps []telem.TimeStamp
+	)
+	for i := range int(inputData.Len()) {
+		current := inputData.At(i)
+		stamp := inputTime.ValueAt[telem.TimeStamp](i)
+		if s.value == nil || !bytes.Equal(s.value, current) {
+			s.value = bytes.Clone(current)
+			s.lastChanged = stamp
+			s.refreshDuration()
 		}
+		if telem.TimeSpan(stamp-s.lastChanged) < s.duration ||
+			bytes.Equal(s.lastSent, s.value) {
+			continue
+		}
+		held = append(held, s.value...)
+		stamps = append(stamps, stamp)
+		s.lastSent = bytes.Clone(s.value)
 	}
+	if len(stamps) == 0 {
+		return
+	}
+	out := s.Output(0)
+	out.Resize(int64(len(stamps)))
+	copy(out.Data, held)
+	*s.OutputTime(0) = telem.NewSeriesV(stamps...)
+	s.Emit(ctx, 0)
 }

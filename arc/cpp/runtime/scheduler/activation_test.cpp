@@ -59,10 +59,9 @@ TEST_F(SchedulerTest, GatedScopeActivatesOnceHandleFires) {
     EXPECT_EQ(stage_node.reset_called, 1);
 }
 
-// Stopping a program calls Scheduler::reset outside any cycle, so the context it
-// hands nodes still holds the last cycle's stamp. The stage re-activation on the
-// next run resets the node again from inside a cycle, so nothing carries the old
-// stamp into a value a downstream node can read.
+// Stopping a program calls Scheduler::reset outside any cycle, which hands nodes a
+// zero cycle instead of the last cycle's stamp. The stage re-activation on the next
+// run resets the node again from inside that cycle.
 TEST_F(SchedulerTest, ReactivationAfterResetStampsFromTheNewCycle) {
     mock("trigger", {true});
     auto &stage_node = mock("stage_node");
@@ -85,8 +84,8 @@ TEST_F(SchedulerTest, ReactivationAfterResetStampsFromTheNewCycle) {
     ASSERT_EQ(stage_node.reset_now.size(), 1);
     EXPECT_EQ(stage_node.reset_now[0], first);
 
-    s->reset();
-    EXPECT_EQ(stage_node.reset_now.back(), first);
+    (*s).reset();
+    EXPECT_EQ(stage_node.reset_now.back(), x::telem::TimeStamp(0));
 
     const auto second = x::telem::TimeStamp(9 * x::telem::SECOND);
     s->next(
