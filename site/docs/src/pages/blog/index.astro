@@ -14,6 +14,7 @@ import IndexHero from "@/components/hero/Index.astro";
 import BlogArtwork from "@/components/hero/BlogArtwork.astro";
 import OneBillionRowsTile from "@/components/blog/OneBillionRowsTile.astro";
 import ArcTile from "@/components/blog/ArcTile.astro";
+import DesktopTile from "@/components/blog/DesktopTile.astro";
 ---
 
 <Root
@@ -32,6 +33,7 @@ import ArcTile from "@/components/blog/ArcTile.astro";
                 <BlogArtwork slot="art" />
             </IndexHero>
             <Flex.Box direction="y" className="blog-entries" gap={6}>
+                <DesktopTile />
                 <ArcTile />
                 <OneBillionRowsTile />
             </Flex.Box>
