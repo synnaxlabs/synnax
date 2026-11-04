@@ -228,6 +228,12 @@ the description. After `not_after`, it is the error "Certificate expired". Each 
 check gives a device that uses the certificate the same status, so RFC 0092 toasts it
 only when the device is in use.
 
+The CA and node certificates in the Core's certs folder (RFC 0045) get the same
+statuses, so a site learns before its Core stops taking connections. `synnax cert ca`
+makes a CA that is valid for one year (`core/pkg/security/cert/x509.go:29`). These
+certificates stay out of the store, because the Core needs them before it opens its
+database.
+
 ### 3.9 Migration and clients
 
 v0.60.1 shipped the OPC UA, HTTP, and PagerDuty fields. At first start, each
@@ -255,6 +261,7 @@ change, so they are separate phases.
 | 4     | Add the file integration and remote file browser       | `driver/file`, `driver/rack`, `core/pkg/service/file`, `core/pkg/service/layer.go`, `console/src/feature/file`                                                                                  | 3          |
 | 5     | Move Kafka and MQTT to secrets and certificates        | `core/pkg/service/kafka`, `core/pkg/service/mqtt`, `schemas/synnax`, `console/src/feature/kafka`, `console/src/feature/mqtt`, `client/py`                                                       | 3          |
 | 6     | Move OPC UA and HTTP to secrets and certificates       | `driver/opcua`, `driver/http`, `client/cpp`, `core/pkg/service/opcua`, `core/pkg/service/http`, `console/src/feature/opcua`, `console/src/feature/http`, `client/py`, `integration/tests`       | 4          |
+| 7     | Report the expiry of the Core's own certificates       | `core/pkg/service/certificate`, `core/pkg/security/cert`, `core/pkg/service/layer.go`                                                                                                           | 2          |
 
 ## 5 Resolved decisions
 
@@ -294,7 +301,8 @@ change, so they are separate phases.
 
 ## 6 What this RFC does not cover
 
-- Core listener certificates (RFC 0045) and cluster encryption (RFC 0009).
+- Core listener certificates (RFC 0045), other than their expiry (§3.8), and cluster
+  encryption (RFC 0009).
 - External secret providers such as Vault. A `vault` source next to `stored` and `file`
   fits later, and so does a secrets key that a key service holds (§3.2).
 - The Driver's own OPC UA certificate, which stays in the Driver's directory.
