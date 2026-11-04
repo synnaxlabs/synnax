@@ -48,6 +48,20 @@ const LICENSE: License = {
   revokedAt: null,
 };
 
+const RENAMED = {
+  event: {
+    key: crypto.randomUUID(),
+    at: NOW.toISOString(),
+    kind: "amend",
+    actor: "user_ada",
+    organization: ACME.key,
+    license: LICENSE.key,
+    activation: null,
+    detail: { label: { from: "Test rig", to: "Renamed rig" } },
+  },
+  actor: "Ada",
+};
+
 const renderLicense = (props: Partial<Licenses.LicenseProps> = {}): void => {
   render(
     <Licenses.License
@@ -105,9 +119,10 @@ describe("Licenses.License", () => {
   it("should post the label an admin edits in place", async () => {
     const fetch = vi
       .spyOn(globalThis, "fetch")
-      .mockImplementation(async () => new Response(null, { status: 204 }));
+      .mockImplementation(async () => Response.json(RENAMED));
     renderLicense();
     await commit("Renamed rig");
+    expect(await screen.findByText("License changed by Ada")).toBeTruthy();
     expect(fetch).toHaveBeenCalledWith(
       `/api/licenses/${LICENSE.key}/label`,
       expect.objectContaining({
@@ -125,8 +140,8 @@ describe("Licenses.License", () => {
   });
 
   it("should return the title to plain text after a rename", async () => {
-    vi.spyOn(globalThis, "fetch").mockImplementation(
-      async () => new Response(null, { status: 204 }),
+    vi.spyOn(globalThis, "fetch").mockImplementation(async () =>
+      Response.json(RENAMED),
     );
     renderLicense();
     await commit("Renamed rig");

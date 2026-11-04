@@ -13,6 +13,7 @@ import { type Store } from "@/server/db/db";
 import {
   activation,
   type Edition,
+  type Event,
   event,
   type License,
   license,
@@ -220,12 +221,13 @@ export interface RenameArgs {
 /**
  * rename changes a license's label, and works whatever state its terms are in. License
  * keys do not carry the label, so machines holding a seat need no new one.
+ * @returns the event it recorded, or nothing when the label did not change.
  * @throws {HTTPError} 400 for a Desktop license.
  */
 export const rename = async (
   store: Store,
   { licenseKey, label, actor, now }: RenameArgs,
-): Promise<void> => {
+): Promise<Event | undefined> =>
   await store.transact(async (tx) => {
     const [before] = await tx
       .select()
@@ -234,22 +236,25 @@ export const rename = async (
       .for("update");
     if (before == null) throw notFound("License");
     requireEnterprise(before);
-    if (before.label === label) return;
+    if (before.label === label) return undefined;
     const [after] = await tx
       .update(license)
       .set({ label })
       .where(eq(license.key, licenseKey))
       .returning();
-    await tx.insert(event).values({
-      at: now,
-      kind: "amend",
-      actor,
-      organization: after.organization,
-      license: after.key,
-      detail: changes(before, after),
-    });
+    const [recorded] = await tx
+      .insert(event)
+      .values({
+        at: now,
+        kind: "amend",
+        actor,
+        organization: after.organization,
+        license: after.key,
+        detail: changes(before, after),
+      })
+      .returning();
+    return recorded;
   });
-};
 
 export interface RevokeArgs {
   licenseKey: string;

@@ -611,7 +611,11 @@ describe("license routes", () => {
     it("should let a team admin rename and record the change", async () => {
       h.signIn(ADMIN);
       const res = await post("  Renamed rig  ");
-      expect(res.status).toBe(204);
+      expect(res.status).toBe(200);
+      expect(await body(res)).toMatchObject({
+        event: { kind: "amend", actor: ADMIN },
+        actor: ADMIN,
+      });
       expect(await licenses()).toEqual([{ ...lic, label: "Renamed rig" }]);
       expect(await events()).toEqual([
         expect.objectContaining({
@@ -626,13 +630,13 @@ describe("license routes", () => {
 
     it("should let staff rename a license on a team they are not on", async () => {
       h.signIn(STAFF);
-      expect((await post("Renamed rig")).status).toBe(204);
+      expect((await post("Renamed rig")).status).toBe(200);
       expect((await licenses())[0].label).toBe("Renamed rig");
     });
 
     it("should record nothing when the label does not change", async () => {
       h.signIn(ADMIN);
-      expect((await post(lic.label)).status).toBe(204);
+      expect(await body(await post(lic.label))).toEqual({ event: null, actor: ADMIN });
       expect(await events()).toEqual([]);
     });
 
@@ -642,7 +646,7 @@ describe("license routes", () => {
         organization: acme.key,
         expiresAt: new Date("2020-01-01T00:00:00Z"),
       });
-      expect((await post("Renamed rig", expired.key)).status).toBe(204);
+      expect((await post("Renamed rig", expired.key)).status).toBe(200);
     });
 
     it("should refuse a Desktop license", async () => {
@@ -663,7 +667,7 @@ describe("license routes", () => {
         organization: acme.key,
         revokedAt: new Date("2026-09-02T00:00:00Z"),
       });
-      expect((await post("Renamed rig", revoked.key)).status).toBe(204);
+      expect((await post("Renamed rig", revoked.key)).status).toBe(200);
     });
   });
 

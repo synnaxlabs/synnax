@@ -23,7 +23,7 @@ import {
 import { deny } from "@/server/license/deny";
 import { channels, term } from "@/server/license/limits";
 import { activatePath } from "@/shell";
-import { post, reload } from "@/ui/api";
+import { post } from "@/ui/api";
 import { Fact, Facts } from "@/ui/Facts";
 import {
   date,
@@ -55,25 +55,43 @@ export interface LicenseProps {
 
 const LABEL_ID = "license-label";
 
+interface Renamed {
+  event: (Omit<Event, "at"> & { at: string }) | null;
+  actor: string;
+}
+
 const MACHINE_COLUMNS = "minmax(0, 2fr) 14rem 14rem 6rem";
 
 /** License shows a license: its terms, the machines holding seats, and its history. */
 export const License = ({
-  license: lic,
+  license: stored,
   organization,
   activations,
-  events,
-  actors,
+  events: loadedEvents,
+  actors: loadedActors,
   staff,
   admin,
   now,
 }: LicenseProps): ReactElement => {
-  const [label, setLabel] = useState(lic.label);
+  const [label, setLabel] = useState(stored.label);
+  const [events, setEvents] = useState(loadedEvents);
+  const [actors, setActors] = useState(loadedActors);
   const [renaming, setRenaming] = useState(false);
+  const lic = { ...stored, label };
   const rename = useAction(async (next: string) => {
     setLabel(next);
-    await post(`/api/licenses/${lic.key}/label`, { label: next });
-    reload();
+    try {
+      const { event, actor } = await post<Renamed>(`/api/licenses/${lic.key}/label`, {
+        label: next,
+      });
+      if (event == null) return;
+      setEvents((prev) => [{ ...event, at: new Date(event.at) }, ...prev]);
+      setActors((prev) => ({ ...prev, [event.actor]: actor }));
+      document.title = document.title.replace(label, next);
+    } catch (err) {
+      setLabel(label);
+      throw err as Error;
+    }
   });
   const startRenaming = (): void => {
     setRenaming(true);
@@ -91,7 +109,7 @@ export const License = ({
       : undefined;
   return (
     <Page
-      title={rename.error == null ? label : lic.label}
+      title={label}
       titleID={LABEL_ID}
       onTitleChange={renaming ? rename.run : undefined}
       parent={parent}

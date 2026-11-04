@@ -14,7 +14,10 @@ import { form, handle } from "@/respond";
 import { forbidden } from "@/server/errors";
 import { readLabel, rename } from "@/server/license/issue";
 
-/** POST changes what a license is called. Team admins and staff only. */
+/**
+ * POST changes what a license is called and answers with the event it recorded and the
+ * name of its actor. Team admins and staff only.
+ */
 export const POST: APIRoute = async (context) =>
   await handle(async () => {
     const key = context.params.key ?? "";
@@ -24,11 +27,11 @@ export const POST: APIRoute = async (context) =>
     if (!isAdmin(organization, session))
       throw forbidden("Only a team admin can rename a license");
     const body = await form(context);
-    await rename(portal.store, {
+    const event = await rename(portal.store, {
       licenseKey: key,
       label: readLabel(body.label),
       actor: session.userID,
       now: portal.now(),
     });
-    return new Response(null, { status: 204 });
+    return Response.json({ event: event ?? null, actor: session.name });
   });
