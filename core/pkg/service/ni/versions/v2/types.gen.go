@@ -28,34 +28,62 @@ import (
 type Units string
 
 const (
-	UnitsVolts                  Units = "Volts"
-	UnitsAmps                   Units = "Amps"
-	UnitsDegF                   Units = "DegF"
-	UnitsDegC                   Units = "DegC"
-	UnitsDegR                   Units = "DegR"
-	UnitsKelvins                Units = "Kelvins"
-	UnitsStrain                 Units = "Strain"
-	UnitsOhms                   Units = "Ohms"
-	UnitsHz                     Units = "Hz"
-	UnitsSeconds                Units = "Seconds"
-	UnitsMeters                 Units = "Meters"
-	UnitsInches                 Units = "Inches"
-	UnitsDegrees                Units = "Degrees"
-	UnitsRadians                Units = "Radians"
-	UnitsG                      Units = "g"
+	// UnitsVolts is volts.
+	UnitsVolts Units = "Volts"
+	// UnitsAmps is amperes.
+	UnitsAmps Units = "Amps"
+	// UnitsDegF is degrees Fahrenheit.
+	UnitsDegF Units = "DegF"
+	// UnitsDegC is degrees Celsius.
+	UnitsDegC Units = "DegC"
+	// UnitsDegR is degrees Rankine.
+	UnitsDegR Units = "DegR"
+	// UnitsKelvins is kelvins.
+	UnitsKelvins Units = "Kelvins"
+	// UnitsStrain is strain.
+	UnitsStrain Units = "Strain"
+	// UnitsOhms is ohms.
+	UnitsOhms Units = "Ohms"
+	// UnitsHz is hertz.
+	UnitsHz Units = "Hz"
+	// UnitsSeconds is seconds.
+	UnitsSeconds Units = "Seconds"
+	// UnitsMeters is meters.
+	UnitsMeters Units = "Meters"
+	// UnitsInches is inches.
+	UnitsInches Units = "Inches"
+	// UnitsDegrees is degrees.
+	UnitsDegrees Units = "Degrees"
+	// UnitsRadians is radians.
+	UnitsRadians Units = "Radians"
+	// UnitsG is acceleration in g.
+	UnitsG Units = "g"
+	// UnitsMetersPerSecondSquared is meters per second squared.
 	UnitsMetersPerSecondSquared Units = "MetersPerSecondSquared"
-	UnitsNewtons                Units = "Newtons"
-	UnitsPounds                 Units = "Pounds"
-	UnitsKilogramForce          Units = "KilogramForce"
-	UnitsPoundsPerSquareInch    Units = "PoundsPerSquareInch"
-	UnitsBar                    Units = "Bar"
-	UnitsPascals                Units = "Pascals"
-	UnitsVoltsPerVolt           Units = "VoltsPerVolt"
-	UnitsMVoltsPerVolt          Units = "mVoltsPerVolt"
-	UnitsNewtonMeters           Units = "NewtonMeters"
-	UnitsInchPounds             Units = "InchPounds"
-	UnitsInchOunces             Units = "InchOunces"
-	UnitsFootPounds             Units = "FootPounds"
+	// UnitsNewtons is newtons.
+	UnitsNewtons Units = "Newtons"
+	// UnitsPounds is pounds.
+	UnitsPounds Units = "Pounds"
+	// UnitsKilogramForce is kilograms of force.
+	UnitsKilogramForce Units = "KilogramForce"
+	// UnitsPoundsPerSquareInch is pounds per square inch.
+	UnitsPoundsPerSquareInch Units = "PoundsPerSquareInch"
+	// UnitsBar is bar.
+	UnitsBar Units = "Bar"
+	// UnitsPascals is pascals.
+	UnitsPascals Units = "Pascals"
+	// UnitsVoltsPerVolt is volts per volt.
+	UnitsVoltsPerVolt Units = "VoltsPerVolt"
+	// UnitsMVoltsPerVolt is millivolts per volt.
+	UnitsMVoltsPerVolt Units = "mVoltsPerVolt"
+	// UnitsNewtonMeters is newton meters.
+	UnitsNewtonMeters Units = "NewtonMeters"
+	// UnitsInchPounds is inch-pounds.
+	UnitsInchPounds Units = "InchPounds"
+	// UnitsInchOunces is inch-ounces.
+	UnitsInchOunces Units = "InchOunces"
+	// UnitsFootPounds is foot-pounds.
+	UnitsFootPounds Units = "FootPounds"
 )
 
 // IsValid reports whether u is one of the defined Units
@@ -73,8 +101,10 @@ func (u Units) IsValid() bool {
 type AccelSensitivityUnits string
 
 const (
+	// AccelSensitivityUnitsMVoltsPerG is millivolts per g.
 	AccelSensitivityUnitsMVoltsPerG AccelSensitivityUnits = "mVoltsPerG"
-	AccelSensitivityUnitsVoltsPerG  AccelSensitivityUnits = "VoltsPerG"
+	// AccelSensitivityUnitsVoltsPerG is volts per g.
+	AccelSensitivityUnitsVoltsPerG AccelSensitivityUnits = "VoltsPerG"
 )
 
 // IsValid reports whether a is one of the defined AccelSensitivityUnits
@@ -93,8 +123,13 @@ func (a AccelSensitivityUnits) IsValid() bool {
 type AccelChargeSensitivityUnits string
 
 const (
-	AccelChargeSensitivityUnitsPicoCoulombsPerG                      AccelChargeSensitivityUnits = "PicoCoulombsPerG"
+	// AccelChargeSensitivityUnitsPicoCoulombsPerG is picocoulombs per g.
+	AccelChargeSensitivityUnitsPicoCoulombsPerG AccelChargeSensitivityUnits = "PicoCoulombsPerG"
+	// AccelChargeSensitivityUnitsPicoCoulombsPerMetersPerSecondSquared is picocoulombs
+	// per meter per second squared.
 	AccelChargeSensitivityUnitsPicoCoulombsPerMetersPerSecondSquared AccelChargeSensitivityUnits = "PicoCoulombsPerMetersPerSecondSquared"
+	// AccelChargeSensitivityUnitsPicoCoulombsPerInchesPerSecondSquared is picocoulombs
+	// per inch per second squared.
 	AccelChargeSensitivityUnitsPicoCoulombsPerInchesPerSecondSquared AccelChargeSensitivityUnits = "PicoCoulombsPerInchesPerSecondSquared"
 )
 
@@ -113,8 +148,11 @@ func (a AccelChargeSensitivityUnits) IsValid() bool {
 type AccelUnits string
 
 const (
-	AccelUnitsG                      AccelUnits = "g"
+	// AccelUnitsG is acceleration in g.
+	AccelUnitsG AccelUnits = "g"
+	// AccelUnitsMetersPerSecondSquared is meters per second squared.
 	AccelUnitsMetersPerSecondSquared AccelUnits = "MetersPerSecondSquared"
+	// AccelUnitsInchesPerSecondSquared is inches per second squared.
 	AccelUnitsInchesPerSecondSquared AccelUnits = "InchesPerSecondSquared"
 )
 
@@ -133,8 +171,11 @@ func (a AccelUnits) IsValid() bool {
 type ForceUnits string
 
 const (
-	ForceUnitsNewtons       ForceUnits = "Newtons"
-	ForceUnitsPounds        ForceUnits = "Pounds"
+	// ForceUnitsNewtons is newtons.
+	ForceUnitsNewtons ForceUnits = "Newtons"
+	// ForceUnitsPounds is pounds.
+	ForceUnitsPounds ForceUnits = "Pounds"
+	// ForceUnitsKilogramForce is kilograms of force.
 	ForceUnitsKilogramForce ForceUnits = "KilogramForce"
 )
 
@@ -153,8 +194,10 @@ func (f ForceUnits) IsValid() bool {
 type ElectricalUnits string
 
 const (
+	// ElectricalUnitsMVoltsPerVolt is millivolts per volt.
 	ElectricalUnitsMVoltsPerVolt ElectricalUnits = "mVoltsPerVolt"
-	ElectricalUnitsVoltsPerVolt  ElectricalUnits = "VoltsPerVolt"
+	// ElectricalUnitsVoltsPerVolt is volts per volt.
+	ElectricalUnitsVoltsPerVolt ElectricalUnits = "VoltsPerVolt"
 )
 
 // IsValid reports whether e is one of the defined ElectricalUnits
@@ -172,9 +215,12 @@ func (e ElectricalUnits) IsValid() bool {
 type ExcitationSource string
 
 const (
+	// ExcitationSourceInternal is an internal excitation source.
 	ExcitationSourceInternal ExcitationSource = "Internal"
+	// ExcitationSourceExternal is an external excitation source.
 	ExcitationSourceExternal ExcitationSource = "External"
-	ExcitationSourceNone     ExcitationSource = "None"
+	// ExcitationSourceNone uses no excitation.
+	ExcitationSourceNone ExcitationSource = "None"
 )
 
 // IsValid reports whether e is one of the defined ExcitationSource
@@ -192,10 +238,15 @@ func (e ExcitationSource) IsValid() bool {
 type TerminalConfig string
 
 const (
+	// TerminalConfigCfgDefault uses the default terminal configuration of the port.
 	TerminalConfigCfgDefault TerminalConfig = "Cfg_Default"
-	TerminalConfigRse        TerminalConfig = "RSE"
-	TerminalConfigNrse       TerminalConfig = "NRSE"
-	TerminalConfigDiff       TerminalConfig = "Diff"
+	// TerminalConfigRse is referenced single ended.
+	TerminalConfigRse TerminalConfig = "RSE"
+	// TerminalConfigNrse is non-referenced single ended.
+	TerminalConfigNrse TerminalConfig = "NRSE"
+	// TerminalConfigDiff is differential.
+	TerminalConfigDiff TerminalConfig = "Diff"
+	// TerminalConfigPseudoDiff is pseudo-differential.
 	TerminalConfigPseudoDiff TerminalConfig = "PseudoDiff"
 )
 
@@ -214,8 +265,11 @@ func (t TerminalConfig) IsValid() bool {
 type BridgeConfig string
 
 const (
-	BridgeConfigFullBridge    BridgeConfig = "FullBridge"
-	BridgeConfigHalfBridge    BridgeConfig = "HalfBridge"
+	// BridgeConfigFullBridge is a full bridge.
+	BridgeConfigFullBridge BridgeConfig = "FullBridge"
+	// BridgeConfigHalfBridge is a half bridge.
+	BridgeConfigHalfBridge BridgeConfig = "HalfBridge"
+	// BridgeConfigQuarterBridge is a quarter bridge.
 	BridgeConfigQuarterBridge BridgeConfig = "QuarterBridge"
 )
 
@@ -235,8 +289,11 @@ func (b BridgeConfig) IsValid() bool {
 type ShuntResistorLocation string
 
 const (
-	ShuntResistorLocationDefault  ShuntResistorLocation = "Default"
+	// ShuntResistorLocationDefault uses the default location.
+	ShuntResistorLocationDefault ShuntResistorLocation = "Default"
+	// ShuntResistorLocationInternal uses an internal shunt resistor.
 	ShuntResistorLocationInternal ShuntResistorLocation = "Internal"
+	// ShuntResistorLocationExternal uses an external shunt resistor.
 	ShuntResistorLocationExternal ShuntResistorLocation = "External"
 )
 
@@ -255,8 +312,10 @@ func (s ShuntResistorLocation) IsValid() bool {
 type ForceSensitivityUnits string
 
 const (
+	// ForceSensitivityUnitsMVoltsPerNewton is millivolts per newton.
 	ForceSensitivityUnitsMVoltsPerNewton ForceSensitivityUnits = "mVoltsPerNewton"
-	ForceSensitivityUnitsMVoltsPerPound  ForceSensitivityUnits = "mVoltsPerPound"
+	// ForceSensitivityUnitsMVoltsPerPound is millivolts per pound.
+	ForceSensitivityUnitsMVoltsPerPound ForceSensitivityUnits = "mVoltsPerPound"
 )
 
 // IsValid reports whether f is one of the defined ForceSensitivityUnits
@@ -274,9 +333,12 @@ func (f ForceSensitivityUnits) IsValid() bool {
 type PressureUnits string
 
 const (
+	// PressureUnitsPoundsPerSquareInch is pounds per square inch.
 	PressureUnitsPoundsPerSquareInch PressureUnits = "PoundsPerSquareInch"
-	PressureUnitsPascals             PressureUnits = "Pascals"
-	PressureUnitsBar                 PressureUnits = "Bar"
+	// PressureUnitsPascals is pascals.
+	PressureUnitsPascals PressureUnits = "Pascals"
+	// PressureUnitsBar is bar.
+	PressureUnitsBar PressureUnits = "Bar"
 )
 
 // IsValid reports whether p is one of the defined PressureUnits
@@ -294,10 +356,14 @@ func (p PressureUnits) IsValid() bool {
 type TorqueUnits string
 
 const (
+	// TorqueUnitsNewtonMeters is newton meters.
 	TorqueUnitsNewtonMeters TorqueUnits = "NewtonMeters"
-	TorqueUnitsInchOunces   TorqueUnits = "InchOunces"
-	TorqueUnitsInchPounds   TorqueUnits = "InchPounds"
-	TorqueUnitsFootPounds   TorqueUnits = "FootPounds"
+	// TorqueUnitsInchOunces is inch-ounces.
+	TorqueUnitsInchOunces TorqueUnits = "InchOunces"
+	// TorqueUnitsInchPounds is inch-pounds.
+	TorqueUnitsInchPounds TorqueUnits = "InchPounds"
+	// TorqueUnitsFootPounds is foot-pounds.
+	TorqueUnitsFootPounds TorqueUnits = "FootPounds"
 )
 
 // IsValid reports whether t is one of the defined TorqueUnits
@@ -315,8 +381,11 @@ func (t TorqueUnits) IsValid() bool {
 type ResistanceConfig string
 
 const (
+	// ResistanceConfigWire2 uses two wires.
 	ResistanceConfigWire2 ResistanceConfig = "2Wire"
+	// ResistanceConfigWire3 uses three wires.
 	ResistanceConfigWire3 ResistanceConfig = "3Wire"
+	// ResistanceConfigWire4 uses four wires.
 	ResistanceConfigWire4 ResistanceConfig = "4Wire"
 )
 
@@ -335,10 +404,14 @@ func (r ResistanceConfig) IsValid() bool {
 type TemperatureUnits string
 
 const (
-	TemperatureUnitsDegC    TemperatureUnits = "DegC"
-	TemperatureUnitsDegF    TemperatureUnits = "DegF"
+	// TemperatureUnitsDegC is degrees Celsius.
+	TemperatureUnitsDegC TemperatureUnits = "DegC"
+	// TemperatureUnitsDegF is degrees Fahrenheit.
+	TemperatureUnitsDegF TemperatureUnits = "DegF"
+	// TemperatureUnitsKelvins is kelvins.
 	TemperatureUnitsKelvins TemperatureUnits = "Kelvins"
-	TemperatureUnitsDegR    TemperatureUnits = "DegR"
+	// TemperatureUnitsDegR is degrees Rankine.
+	TemperatureUnitsDegR TemperatureUnits = "DegR"
 )
 
 // IsValid reports whether t is one of the defined TemperatureUnits
@@ -546,7 +619,9 @@ func (u *CJC) UnmarshalJSONFrom(dec *jsontext.Decoder) error {
 type VelocityUnits string
 
 const (
+	// VelocityUnitsMetersPerSecond is meters per second.
 	VelocityUnitsMetersPerSecond VelocityUnits = "MetersPerSecond"
+	// VelocityUnitsInchesPerSecond is inches per second.
 	VelocityUnitsInchesPerSecond VelocityUnits = "InchesPerSecond"
 )
 
@@ -566,7 +641,10 @@ func (v VelocityUnits) IsValid() bool {
 type VelocitySensitivityUnits string
 
 const (
-	VelocitySensitivityUnitsMVoltsPerMmPerSecond   VelocitySensitivityUnits = "MillivoltsPerMillimeterPerSecond"
+	// VelocitySensitivityUnitsMVoltsPerMmPerSecond is millivolts per millimeter per
+	// second.
+	VelocitySensitivityUnitsMVoltsPerMmPerSecond VelocitySensitivityUnits = "MillivoltsPerMillimeterPerSecond"
+	// VelocitySensitivityUnitsMVoltsPerInchPerSecond is millivolts per inch per second.
 	VelocitySensitivityUnitsMVoltsPerInchPerSecond VelocitySensitivityUnits = "MilliVoltsPerInchPerSecond"
 )
 
@@ -585,7 +663,9 @@ func (v VelocitySensitivityUnits) IsValid() bool {
 type ChargeUnits string
 
 const (
-	ChargeUnitsCoulombs     ChargeUnits = "Coulombs"
+	// ChargeUnitsCoulombs is coulombs.
+	ChargeUnitsCoulombs ChargeUnits = "Coulombs"
+	// ChargeUnitsPicoCoulombs is picocoulombs.
 	ChargeUnitsPicoCoulombs ChargeUnits = "PicoCoulombs"
 )
 
