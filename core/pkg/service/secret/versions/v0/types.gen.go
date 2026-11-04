@@ -180,3 +180,28 @@ func (u Secret) Validate() error {
 	}
 	return nil
 }
+
+// Base returns the fields every variant shares, or the zero value if Variant is nil.
+func (u Secret) Base() Base {
+	switch variant := u.Variant.(type) {
+	case StoredSecret:
+		return variant.Base
+	case FileSecret:
+		return variant.Base
+	}
+	return Base{}
+}
+
+// SetBase replaces the fields every variant shares. It panics if Variant is nil.
+func (u *Secret) SetBase(base Base) {
+	switch variant := u.Variant.(type) {
+	case StoredSecret:
+		variant.Base = base
+		u.Variant = variant
+	case FileSecret:
+		variant.Base = base
+		u.Variant = variant
+	default:
+		panic(errors.Newf("Secret: cannot set the base of variant %T", variant))
+	}
+}

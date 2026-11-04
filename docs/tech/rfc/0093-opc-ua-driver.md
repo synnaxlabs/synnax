@@ -84,9 +84,11 @@ connects:
 - **Pool key**: The key includes the password, so a wrong password cannot reuse a
   session that logged in with the right one (`driver/opcua/connection/pool.cpp:30-36`).
 - **Idle sessions**: An entry idle for 60 s closes with CloseSession.
-- **Server facts**: On each new session, the pool reads the namespace array, the
-  operation limits, and `ServerStatus.StartTime`. A new start time means the server
-  restarted, and node IDs resolve again (§2.5).
+- **Server facts**: On each connect, the pool reads the namespace array and the
+  operation limits. `MaxNodesPerRead` comes first in a request of its own, and the rest
+  keep to that limit. A server with no namespace array fails the connect. This read is
+  also the health check of the connection. A restart drops the connection, so the next
+  connect reads the facts again and node IDs resolve again (§2.5).
 - **Health**: The scanner probes a device only when no task on it got a reply since the
   last scan, as in Modbus RFC 0091 §2.7. A secured device with no pinned server
   certificate always probes, so the scanner can pin it.
@@ -155,32 +157,52 @@ A failed conversion counts as a Bad value.
 
 ### 2.5 Node IDs
 
-New channels store `nsu=<uri>;` IDs. `ns=` stays valid. At each new session the Driver
+New channels store `nsu=<uri>;` IDs. `ns=` stays valid. At each connect the Driver
 resolves every ID through the namespace array, and an unknown URI is a missing node
-(§2.2). Stored `NS=` IDs and device property keys are not rewritten: only the server
-knows its URIs, and #3168 keeps those keys stable. The Console parser and the Python
-client accept both forms.
+(§2.2). While a URI is unknown, each read and write reads the namespace array again, so
+a namespace that the server adds while it runs resolves on the same session. A second
+patch to open62541 sends the server's indexes as they are: open62541 1.5 maps each index
+through a table that it makes once per client, and a later namespace has no entry.
+Stored `NS=` IDs and device property keys are not rewritten: only the server knows its
+URIs, and #3168 keeps those keys stable. A node dragged again in the `nsu=` form gets a
+new key and a new channel. The Python client accepts both forms. The Console has no
+parser and passes IDs to the Driver as they are.
 
 ### 2.6 Data types and writes
 
-- **Types come from the node**: The browser reads `DataType`, `ValueRank`, and
-  `ArrayDimensions` instead of the current value. A Boolean node gets a `boolean`
-  channel (SY-4536). Existing `uint8` channels keep working, because reads cast to the
-  channel type.
-- **Writes convert to the node's type**: The Driver reads each target's `DataType` at
-  start and converts the command to it. A value out of range, or a string that does not
-  parse, warns and is not sent. A `uint8` or `boolean` command to a Boolean node stays
-  valid, as a spec pins today.
+- **Types come from the node**: The browser reads `DataType` and `ValueRank`. It reads
+  the current value only when the type is abstract or unknown, or the rank allows both a
+  scalar and an array. `ArrayDimensions` comes with the node details (§2.10). A Boolean
+  node gets a `boolean` channel (SY-4536), and an enumeration an `int32` channel.
+  Existing `uint8` channels keep working, because reads cast to the channel type.
+- **Writes convert to the node's type**: The Driver reads each target's `DataType` on
+  each new connection and converts the command to it. A value out of range, or a string
+  that does not parse, warns with the channel name and is not sent. A `uint8` or
+  `boolean` command to a Boolean node stays valid, as a spec pins today. A node whose
+  type the server does not give takes the channel's type, and `uint8` now maps to Byte,
+  not Boolean.
 - **Fixed conversions**: Strings, DateTime, ByteString, and Guid read and write as
   `string`, `timestamp`, `bytes`, and `uuid`. Each array node checks its length against
   `array_size`.
 
 ### 2.7 Structures
 
-Each new session calls `UA_Client_getRemoteDataTypes` and gives the result to the
-client, so structures decode. The browser lists a structure's members under its node. A
-read channel gets a `field`: the dot path of member names, such as `Motor.Speed`. Each
-member is its own channel on the task's index.
+A read channel gets a `field`: the path of member names from the node's value, joined by
+`.`, such as `Speed` or `Position.Y`. A `&` escapes the next character. Each member is
+its own channel on the task's index, and the channels of one node share one read. Device
+properties map fields to channels in `read.fields`, by node ID and field.
+
+On each new connection the task reads the `DataType` of its field nodes and the
+`DataTypeDefinition` of each type the client does not know, with the types its members
+use. A new `driver/opcua/structure` package builds open62541 types from the definitions
+and decodes the values. The browser lists a structure's members under its node, by the
+same read. Array mode rejects a field, and the Console does not add members to a write
+task.
+
+`UA_Client_getRemoteDataTypes` is rejected. It reads without the connected check of §2.1
+and does not split at the operation limits (§2.3). It also sets the types on the client,
+which the pool later gives to other tasks. The trade is real: the Driver keeps about 450
+lines of definition decoding.
 
 ### 2.8 Events
 
@@ -201,17 +223,27 @@ Output arguments are not stored.
 
 ### 2.10 Browser and task building
 
-- **Complete browse**: Browse with BrowseNext, split at `MaxNodesPerBrowse`. The task
-  releases its continuation points when it stops. A failed node shows its error and
-  leaves the rest of the tree alone.
-- **Node details**: Each node shows its class, data type, access (read, write, history),
-  and its value on demand.
-- **Find**: A search over the loaded tree, and a field that jumps to a node ID in either
-  form.
-- **Bulk add**: Dropping a folder adds the variables under it, up to 1000, with a
-  confirmation. Default names come from the browse path below the dropped folder,
-  converted to valid channel names, so same-named nodes do not collide (SY-3035).
-- **CSV**: The channel list exports to CSV and imports from it.
+- **Complete browse**: `Connection::browse` follows forward hierarchical references, so
+  a variable no longer lists its type definition. It follows each continuation point
+  with BrowseNext until the server returns every child, splits at `MaxNodesPerBrowse`,
+  and releases the points when it stops early. The types of all children come from two
+  batched reads, not one read per child. A failed node shows its error and leaves the
+  rest of the tree alone.
+- **Node details**: A `read_node` scanner command reads the class, data type, shape,
+  access (read, write, history), minimum sampling interval, and the value with its
+  status and timestamps. The value is JSON text, with a structure decoded by its member
+  names. The Console reads it when a node is selected, and again on request.
+- **Find**: A search over the loaded tree. A node ID typed in either form and entered
+  reads that node into the details, from which it drags like a tree node.
+- **Bulk add**: Dropping a folder runs `browse_variables`, which searches objects
+  breadth first, at most 10,000 of them, and returns up to 1,000 variables with their
+  browse paths. The Console confirms the count. Default names join the folder's name and
+  the path below it, converted to valid channel names, so same-named nodes do not
+  collide, even across drops (SY-3035).
+- **CSV**: The channel list exports to CSV and imports from it, with the columns `name`,
+  `node_id`, `field`, `data_type`, `enabled`, and, for a read task, `index`. Only
+  `node_id` is required. An import adds the nodes the task does not have. One row that
+  is not valid fails the import, and the error names the row.
 - **Connect dialog**: The dialog calls GetEndpoints through the scanner and lists each
   endpoint with its security mode, policy, and login types. An Advanced section holds
   the timeouts.
@@ -219,10 +251,9 @@ Output arguments are not stored.
 ### 2.11 Testing
 
 The test server (`driver/opcua/testutil/server.h`) gets the faults each phase handles: a
-restart with a new start time, a dropped channel, a session limit with a count of open
-sessions, Bad and Uncertain nodes, namespace reorders, history, events, methods, and
-custom structures. The failed-login spec counts the server's sessions after repeated
-wrong passwords.
+restart, a dropped channel, a session limit with a count of open sessions, Bad and
+Uncertain nodes, namespace reorders, history, events, methods, and custom structures.
+The failed-login spec counts the server's sessions after repeated wrong passwords.
 
 ## 3 Implementation phases
 
@@ -244,15 +275,15 @@ Compatibility: every new field is optional, and stored `ns=` IDs keep working. T
 longer stop on outages or bad values, and a write task drops commands while
 disconnected. These go in the release notes.
 
-| Phase | Scope                                                   | Touches                                                                                                              | Depends on |
-| ----- | ------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------- | ---------- |
-| 1     | Upgrade open62541 to 1.5                                | `vendor/open62541`, `driver/opcua`                                                                                   | -          |
-| 2     | Recover OPC UA tasks from outages and bad values        | `vendor/open62541`, `driver/opcua`, `driver/pipeline`, `schemas`, `oracle`, `console/src/feature/opcua`, `site/docs` | 1          |
-| 3     | Read OPC UA nodes by namespace URI within server limits | `driver/opcua`, `console/src/feature/opcua`, `client/py/synnax/opcua`, `site/docs`                                   | 2          |
-| 4     | Convert OPC UA writes and read structures               | `schemas`, `driver/opcua`, `console/src/feature/opcua`, `client/py/synnax/opcua`, `site/docs`                        | 3          |
-| 5     | Show OPC UA node details and add folders in bulk        | `driver/opcua`, `console/src/feature/opcua`, `site/docs`                                                             | 4          |
-| 6     | Add OPC UA event tasks and method calls                 | `schemas`, `driver/opcua`, `console/src/feature/opcua`, `client/py/synnax/opcua`, `site/docs`                        | 3          |
-| 7     | Add the OPC UA On change read mode                      | `schemas`, `client/cpp/framer`, `driver/opcua`, `console/src/feature/opcua`, `client/py/synnax/opcua`, `site/docs`   | 3          |
+| Phase | Scope                                                   | Touches                                                                                                                 | Depends on |
+| ----- | ------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------- | ---------- |
+| 1     | Upgrade open62541 to 1.5                                | `vendor/open62541`, `driver/opcua`                                                                                      | -          |
+| 2     | Recover OPC UA tasks from outages and bad values        | `vendor/open62541`, `driver/opcua`, `driver/pipeline`, `schemas`, `oracle`, `console/src/feature/opcua`, `site/docs`    | 1          |
+| 3     | Read OPC UA nodes by namespace URI within server limits | `driver/opcua`, `console/src/feature/opcua`, `client/py/synnax/opcua`, `site/docs`                                      | 2          |
+| 4     | Convert OPC UA writes and read structures               | `schemas`, `core/pkg/service/opcua`, `driver/opcua`, `console/src/feature/opcua`, `client/py/synnax/opcua`, `site/docs` | 3          |
+| 5     | Show OPC UA node details and add folders in bulk        | `driver/opcua`, `console/src/feature/opcua`, `site/docs`                                                                | 4          |
+| 6     | Add OPC UA event tasks and method calls                 | `schemas`, `driver/opcua`, `console/src/feature/opcua`, `client/py/synnax/opcua`, `site/docs`                           | 3          |
+| 7     | Add the OPC UA On change read mode                      | `schemas`, `client/cpp/framer`, `driver/opcua`, `console/src/feature/opcua`, `client/py/synnax/opcua`, `site/docs`      | 3          |
 
 ## 4 What this RFC does not cover
 

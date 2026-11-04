@@ -46,7 +46,7 @@ func (w Writer) Create(ctx context.Context, s *Secret, value []byte) error {
 		base.Key = uuid.New()
 	}
 	base.Updated = w.now()
-	*s = s.WithBase(base)
+	s.SetBase(base)
 	if stored, ok := s.Variant.(StoredSecret); ok {
 		stored.Value = w.aead.Seal(nil, nil, value, base.Key[:])
 		s.Variant = stored
@@ -74,7 +74,7 @@ func (w Writer) Rename(ctx context.Context, key Key, name string) error {
 		ChangeErr(func(_ gorp.Context, s Secret) (Secret, error) {
 			base := s.Base()
 			base.Name = name
-			s = s.WithBase(base)
+			s.SetBase(base)
 			if err := s.Validate(); err != nil {
 				return Secret{}, err
 			}
