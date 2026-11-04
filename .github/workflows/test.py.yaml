@@ -126,10 +126,10 @@ jobs:
         working-directory: ${{ inputs.directory }}
     steps:
       - name: Checkout repository
-        uses: actions/checkout@v7
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
 
       - name: Install uv
-        uses: astral-sh/setup-uv@v10.3.0
+        uses: astral-sh/setup-uv@1c37ad07a6a961277cf70c0d37d6f313000f5884 # v10.3.0
         with:
           version: latest-known
 
@@ -182,7 +182,7 @@ jobs:
 
       - name: Upload coverage
         if: inputs.test && inputs.coverage_flag != '' && matrix.python != 'oldest'
-        uses: codecov/codecov-action@v7
+        uses: codecov/codecov-action@303a32d7a59b442fa8d48b6a1cc6825c09c847a5 # v7
         with:
           fail_ci_if_error: true
           flags: ${{ inputs.coverage_flag }}

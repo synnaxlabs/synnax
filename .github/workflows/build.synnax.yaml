@@ -185,7 +185,7 @@ jobs:
       GO_BUILD_TAGS: ${{ steps.go-tags.outputs.GO_BUILD_TAGS }}
     steps:
       - name: Checkout repository
-        uses: actions/checkout@v7
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
         with:
           fetch-depth: 0
 
@@ -318,7 +318,7 @@ jobs:
     runs-on: ${{ matrix.os }}
     steps:
       - name: Checkout repository
-        uses: actions/checkout@v7
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
 
       # Only the Bazel Driver build reads the vendored submodules.
       - name: Update submodules
@@ -339,7 +339,7 @@ jobs:
 
       - name: Setup Bazel
         if: inputs.driver && (env.DRIVER_REF_RUN_ID == '' || inputs.nilinuxrt)
-        uses: bazel-contrib/setup-bazel@0.19.1
+        uses: bazel-contrib/setup-bazel@104e3eea9447cdaa4b00d0fb46191a3985d26ab3 # 0.19.1
         with:
           # Use S3 cache instead of github cache.
           bazelisk-cache: false
@@ -348,7 +348,7 @@ jobs:
 
       - name: Install Rust
         if: inputs.driver && env.DRIVER_REF_RUN_ID == ''
-        uses: actions-rust-lang/setup-rust-toolchain@v2
+        uses: actions-rust-lang/setup-rust-toolchain@a188e68d0fd2bd36ad51dccb2b07ba6e75105f30 # v2
         with:
           # A cache save deletes rustup from ~/.cargo/bin, which the build bots keep.
           cache-bin: false
@@ -368,7 +368,7 @@ jobs:
         if:
           inputs.driver && env.DRIVER_REF_RUN_ID == '' && inputs.debug && matrix.os ==
           'windows-build-bot'
-        uses: actions/upload-artifact@v7
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7
         with:
           name:
             ${{ inputs.use_simple_artifact_names &&
@@ -401,7 +401,7 @@ jobs:
         if:
           inputs.driver && env.DRIVER_REF_RUN_ID == '' && inputs.debug &&
           startsWith(matrix.os, 'macos')
-        uses: actions/upload-artifact@v7
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7
         with:
           name:
             ${{ inputs.use_simple_artifact_names && 'synnax-driver-debug-symbols-macos'
@@ -430,7 +430,7 @@ jobs:
         if:
           inputs.driver && inputs.nilinuxrt && inputs.debug && matrix.os ==
           'ubuntu-build-bot'
-        uses: actions/upload-artifact@v7
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7
         with:
           name:
             ${{ inputs.use_simple_artifact_names &&
@@ -443,7 +443,7 @@ jobs:
 
       - name: Upload NI Linux Real-Time Driver as artifact
         if: inputs.driver && inputs.nilinuxrt && matrix.os == 'ubuntu-build-bot'
-        uses: actions/upload-artifact@v7
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7
         with:
           name:
             ${{ inputs.use_simple_artifact_names && 'synnax-driver-nilinuxrt' ||
@@ -498,7 +498,7 @@ jobs:
         if:
           inputs.driver && env.DRIVER_REF_RUN_ID == '' && inputs.debug && matrix.os ==
           'ubuntu-build-bot'
-        uses: actions/upload-artifact@v7
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7
         with:
           name:
             ${{ inputs.use_simple_artifact_names && 'synnax-driver-debug-symbols-linux'
@@ -606,7 +606,7 @@ jobs:
         if:
           inputs.driver && env.DRIVER_REF_RUN_ID != '' && inputs.core &&
           env.CORE_REF_RUN_ID == ''
-        uses: actions/download-artifact@v8
+        uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8
         with:
           name: synnax-driver-${{ matrix.os-name }}
           path: ${{ runner.temp }}/cached-driver
@@ -632,7 +632,7 @@ jobs:
 
       - name: Upload Driver as artifact
         if: inputs.driver && env.DRIVER_REF_RUN_ID == ''
-        uses: actions/upload-artifact@v7
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7
         with:
           name:
             ${{ inputs.use_simple_artifact_names && format('synnax-driver-{0}',
@@ -646,7 +646,7 @@ jobs:
 
       - name: Upload Driver to release
         if: inputs.driver && inputs.release_tag != ''
-        uses: nick-fields/retry@v4
+        uses: nick-fields/retry@ad984534de44a9489a53aefd81eb77f87c70dc60 # v4
         with:
           shell: bash
           timeout_minutes: 5
@@ -717,7 +717,7 @@ jobs:
         if:
           inputs.console && env.CONSOLE_REF_RUN_ID != '' && inputs.core &&
           env.CORE_REF_RUN_ID == ''
-        uses: actions/download-artifact@v8
+        uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8
         with:
           name: synnax-console-assets-${{ matrix.os-name }}
           path: console/dist
@@ -726,7 +726,7 @@ jobs:
 
       - name: Upload Console assets as artifact
         if: inputs.console && env.CONSOLE_REF_RUN_ID == ''
-        uses: actions/upload-artifact@v7
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7
         with:
           name:
             ${{ inputs.use_simple_artifact_names && format('synnax-console-assets-{0}',
@@ -768,14 +768,14 @@ jobs:
       - name: Restore the Go toolchain
         id: go-restore
         if: inputs.core && env.CORE_REF_RUN_ID == '' && matrix.os == 'windows-build-bot'
-        uses: actions/cache/restore@v6
+        uses: actions/cache/restore@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6
         with:
           path: ${{ steps.go-toolchain.outputs.path }}
           key: ${{ steps.go-toolchain.outputs.key }}
 
       - name: Set up Go
         if: inputs.core && env.CORE_REF_RUN_ID == ''
-        uses: actions/setup-go@v7
+        uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e # v7
         with:
           go-version-file: core/go.mod
           # Don't use github cache. Local cache is faster.
@@ -786,7 +786,7 @@ jobs:
         if:
           steps.go-restore.outcome == 'success' && steps.go-restore.outputs.cache-hit !=
           'true' && github.event_name != 'merge_group'
-        uses: actions/cache/save@v6
+        uses: actions/cache/save@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6
         with:
           path: ${{ steps.go-toolchain.outputs.path }}
           key: ${{ steps.go-toolchain.outputs.key }}
@@ -884,7 +884,7 @@ jobs:
 
       - name: Upload Core binary as artifact
         if: inputs.core && env.CORE_REF_RUN_ID == ''
-        uses: actions/upload-artifact@v7
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7
         with:
           name:
             ${{ inputs.use_simple_artifact_names && format('synnax-core-{0}',
@@ -902,7 +902,7 @@ jobs:
 
       - name: Upload Core to release
         if: inputs.core && inputs.release_tag != ''
-        uses: nick-fields/retry@v4
+        uses: nick-fields/retry@ad984534de44a9489a53aefd81eb77f87c70dc60 # v4
         with:
           shell: bash
           timeout_minutes: 5
@@ -941,7 +941,7 @@ jobs:
     steps:
       - name: Download cached Driver
         if: inputs.driver && env.DRIVER_REF_RUN_ID != ''
-        uses: actions/download-artifact@v8
+        uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8
         with:
           name: synnax-driver-${{ matrix.os-name }}
           path: driver-in
@@ -957,7 +957,7 @@ jobs:
 
       - name: Upload Driver as artifact
         if: inputs.driver && env.DRIVER_REF_RUN_ID != ''
-        uses: actions/upload-artifact@v7
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7
         with:
           name:
             ${{ inputs.use_simple_artifact_names && format('synnax-driver-{0}',
@@ -971,7 +971,7 @@ jobs:
 
       - name: Download cached Console assets
         if: inputs.console && env.CONSOLE_REF_RUN_ID != ''
-        uses: actions/download-artifact@v8
+        uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8
         with:
           name: synnax-console-assets-${{ matrix.os-name }}
           path: console-dist
@@ -980,7 +980,7 @@ jobs:
 
       - name: Upload Console assets as artifact
         if: inputs.console && env.CONSOLE_REF_RUN_ID != ''
-        uses: actions/upload-artifact@v7
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7
         with:
           name:
             ${{ inputs.use_simple_artifact_names && format('synnax-console-assets-{0}',
@@ -992,7 +992,7 @@ jobs:
 
       - name: Download cached Core
         if: inputs.core && env.CORE_REF_RUN_ID != ''
-        uses: actions/download-artifact@v8
+        uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8
         with:
           name: synnax-core-${{ matrix.os-name }}
           path: core-in
@@ -1008,7 +1008,7 @@ jobs:
 
       - name: Upload Core binary as artifact
         if: inputs.core && env.CORE_REF_RUN_ID != ''
-        uses: actions/upload-artifact@v7
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7
         with:
           name:
             ${{ inputs.use_simple_artifact_names && format('synnax-core-{0}',
@@ -1031,11 +1031,11 @@ jobs:
       packages: write
     steps:
       - name: Checkout repository
-        uses: actions/checkout@v7
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
 
       - name: Download Linux Driver artifact
         if: inputs.driver
-        uses: actions/download-artifact@v8
+        uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8
         with:
           name:
             ${{ inputs.use_simple_artifact_names && 'synnax-driver-linux' ||
@@ -1057,7 +1057,7 @@ jobs:
 
       - name: Download Console assets
         if: inputs.console
-        uses: actions/download-artifact@v8
+        uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8
         with:
           name:
             ${{ inputs.use_simple_artifact_names && 'synnax-console-assets-linux' ||
@@ -1085,17 +1085,17 @@ jobs:
           tar -xzf console-web.tar.gz -C core/pkg/console/dist
 
       - name: Set up Docker Buildx
-        uses: docker/setup-buildx-action@v4
+        uses: docker/setup-buildx-action@f87e5991a6d7451dcb8d9637bfbc97413f497069 # v4
 
       - name: Login to Docker Hub
         if: inputs.release_tag != ''
-        uses: docker/login-action@v4
+        uses: docker/login-action@81c6f93d4bc991e510b342a00b419b3bb4efc5c6 # v4
         with:
           username: ${{ secrets.DOCKER_USERNAME }}
           password: ${{ secrets.DOCKER_PASSWORD }}
 
       - name: Login to GitHub Container Registry
-        uses: docker/login-action@v4
+        uses: docker/login-action@81c6f93d4bc991e510b342a00b419b3bb4efc5c6 # v4
         with:
           registry: ghcr.io
           username: ${{ github.actor }}
@@ -1108,7 +1108,7 @@ jobs:
           "$GITHUB_OUTPUT"
 
       - name: Build and push Docker images
-        uses: docker/build-push-action@v7
+        uses: docker/build-push-action@c3c9e263c25d99ce0380d002d59b67737d91b0dc # v7
         with:
           context: .
           file: ./core/Dockerfile
