@@ -24,9 +24,8 @@ import { EnabledCheckbox } from "@/platform/task/EnabledCheckbox";
 import { getChannelNameID } from "@/platform/task/getChannelNameID";
 import { type Channel } from "@/platform/task/types";
 
-/** The arrow and channel columns that follow a task's own columns. */
+/** The channel column that follows a task's own columns. */
 export const LIST_CHANNEL_COLUMNS: List.Column[] = [
-  { width: "2.5rem" },
   { name: "Channel", width: "minmax(24rem, 1fr)" },
 ];
 
@@ -39,7 +38,7 @@ export interface ListChannelItemProps extends List.ItemProps<string> {
   path: deep.Target<ItemChannel>;
   /** The bound channel, or 0 when none exists yet. */
   channel: channel.Key;
-  /** The name a new channel takes when the task first runs. */
+  /** The name deploying the task gives a new channel. */
   defaultName?: string;
   /** One {@link List.Cell} for each of the task's own columns. */
   children: ReactNode;
@@ -73,7 +72,6 @@ export const ListChannelItem = ({
     >
       <List.Cells className={CSS.BE("list-channel-item", "cells")}>
         {children}
-        <Icon.Arrow.Right className={CSS.BE("list-channel-item", "flow")} />
         <Flex.Box
           x
           align="center"
@@ -86,6 +84,7 @@ export const ListChannelItem = ({
             namePath={item.name}
             defaultName={defaultName}
             id={getChannelNameID(rest.itemKey)}
+            icon={<Icon.Arrow.Right className={CSS.BE("list-channel-item", "flow")} />}
           />
           <EnabledCheckbox path={item.disabled} />
         </Flex.Box>
