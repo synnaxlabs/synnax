@@ -45,10 +45,15 @@ type Writer struct {
 // only when the public key is unchanged. A file certificate takes no privateKey, and
 // replacing a stored certificate with one deletes the old key secret.
 func (w Writer) Create(ctx context.Context, c *Certificate, privateKey []byte) error {
+	if c.Variant == nil {
+		v := validate.New("certificate")
+		v.Ternary("source", true, "required")
+		return v.Error()
+	}
 	base := c.Base()
 	if base.Key == uuid.Nil() {
 		base.Key = uuid.New()
-		*c = c.WithBase(base)
+		c.SetBase(base)
 	}
 	if err := c.Validate(); err != nil {
 		return err
@@ -86,10 +91,6 @@ func (w Writer) Create(ctx context.Context, c *Certificate, privateKey []byte) e
 			return err
 		}
 		orphanedKey = prevStored.PrivateKey
-	default:
-		v := validate.New("certificate")
-		v.Ternary("source", true, "required")
-		return v.Error()
 	}
 	if err = w.table.NewCreate().Entry(c).Exec(ctx, w.tx); err != nil {
 		return err
@@ -177,7 +178,8 @@ func (w Writer) Rename(ctx context.Context, key Key, name string) error {
 		ChangeErr(func(_ gorp.Context, c Certificate) (Certificate, error) {
 			base := c.Base()
 			base.Name = name
-			renamed = c.WithBase(base)
+			c.SetBase(base)
+			renamed = c
 			if err := renamed.Validate(); err != nil {
 				return Certificate{}, err
 			}

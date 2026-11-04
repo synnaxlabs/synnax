@@ -17,18 +17,6 @@ import (
 
 var _ gorp.Entry[Key] = Certificate{}
 
-// Base returns the fields shared by every variant of the certificate. A certificate
-// with no variant has a zero Base.
-func (c Certificate) Base() Base {
-	switch variant := c.Variant.(type) {
-	case StoredCertificate:
-		return variant.Base
-	case FileCertificate:
-		return variant.Base
-	}
-	return Base{}
-}
-
 // Source returns where the contents of the certificate live, or an empty source if the
 // certificate has no variant.
 func (c Certificate) Source() secret.Source {
@@ -53,19 +41,6 @@ func (c Certificate) Details() (Details, bool) {
 		}
 	}
 	return Details{}, false
-}
-
-// WithBase returns a copy of the certificate with its shared fields set to base.
-func (c Certificate) WithBase(base Base) Certificate {
-	switch variant := c.Variant.(type) {
-	case StoredCertificate:
-		variant.Base = base
-		c.Variant = variant
-	case FileCertificate:
-		variant.Base = base
-		c.Variant = variant
-	}
-	return c
 }
 
 // GorpKey returns the certificate's storage key.
