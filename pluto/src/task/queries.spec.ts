@@ -230,7 +230,7 @@ describe("queries", () => {
       await waitFor(() => expect(result.current.variant).toEqual("success"));
 
       const taskStatus: task.Status = status.create<task.StatusDetailsZodObject>({
-        key: id.create(),
+        owner: task.resourceID(testTask.key),
         variant: "error",
         message: "Task failed",
         details: {

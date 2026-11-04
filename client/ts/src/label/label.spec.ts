@@ -10,7 +10,6 @@
 import { color, id } from "@synnaxlabs/x";
 import { beforeAll, describe, expect, it, vi } from "vitest";
 
-import { ValidationError } from "@/errors";
 import { label } from "@/label";
 import { query } from "@/query";
 import { status } from "@/status";
@@ -108,7 +107,7 @@ describe("Label", () => {
       ]);
       await expect(
         client.labels.label(label.resourceID(l1.key), [l2.key]),
-      ).rejects.toThrow(ValidationError);
+      ).rejects.toThrow("id: a label cannot have labels");
     });
 
     it("should detach a deleted label from the statuses that hold it", async () => {

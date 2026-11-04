@@ -402,7 +402,7 @@ class TestStatusOwner:
         """Should keep only the statuses the given resources own."""
         channels = [
             client.channels.create(
-                name=f"test_{uuid4()}",
+                name=f"test_{uuid4().hex}",
                 virtual=True,
                 data_type=sy.DataType.FLOAT64,
             )

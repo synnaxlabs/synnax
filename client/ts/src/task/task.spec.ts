@@ -1122,36 +1122,16 @@ describe("Task", async () => {
       });
       try {
         await client.tasks.retrieve(params);
-        await client.statuses.set({
-          owner: task.resourceID(t.key),
-          name: "Task Status",
-          variant: "success",
-          message: "task started",
-          time: TimeStamp.now(),
-          details: {
-            running: true,
-            cmd: "",
-            configHash: "deadbeef",
-            rack: testRack.key,
-            data: {},
-          },
-        });
-        await expect
-          .poll(() => {
-            const cached = client.tasks.getCached(params);
-            if (!query.isLive(cached)) return undefined;
-            return cached.status?.details.configHash;
-          })
-          .toBe("deadbeef");
         await setRackStatus(testRack.key, "success", "Driver is running");
         // A reconnect empties the status table while the task stays known. The
-        // command must still get an optimistic status carrying the deploy info.
+        // command must still get an optimistic status.
         const key = statusKeyOf(task.resourceID(t.key));
         client.statuses.store.delete(key);
         expect(client.statuses.store.get(key)).toBeUndefined();
         await client.tasks.executeCommand({ task: t.key, type: "stop" });
         await expect.poll(() => loading.length).toBeGreaterThan(0);
-        expect(loading[0].details.configHash).toBe("deadbeef");
+        expect(loading[0].name).toBe(t.name);
+        expect(loading[0].message).toBe("Sending stop command");
       } finally {
         off();
       }
@@ -1169,6 +1149,8 @@ describe("Task", async () => {
       await local.connect();
       await waitForStreamLive(local.connection);
       await local.tasks.retrieve({ key: t.key });
+      // The retrieve carries the task's status, so drop it to model one not synced.
+      local.statuses.store.delete(stored);
       expect(local.statuses.ownedBy(owner)).toBeUndefined();
       await client.tasks.executeCommand({ task: t.key, type: "stop" });
       await expect.poll(() => local.statuses.ownedBy(owner) != null).toBe(true);

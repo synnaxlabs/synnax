@@ -888,17 +888,21 @@ describe("cached reads", () => {
         Array.from({ length: 3 }, () => createRange(client, { parent: parent.key })),
       );
       const send = spyOnSend(client);
-      const page = await client.ranges.children.retrieve({
-        key: parent.key,
-        limit: 2,
-      });
-      expect(page).toHaveLength(2);
-      expect(send).toHaveBeenCalledWith(
-        "/range/retrieve",
-        expect.objectContaining({ parents: [parent.key], limit: 2 }),
-        expect.anything(),
-        expect.anything(),
-      );
+      try {
+        const page = await client.ranges.children.retrieve({
+          key: parent.key,
+          limit: 2,
+        });
+        expect(page).toHaveLength(2);
+        expect(send).toHaveBeenCalledWith(
+          "/range/retrieve",
+          expect.objectContaining({ parents: [parent.key], limit: 2 }),
+          expect.anything(),
+          expect.anything(),
+        );
+      } finally {
+        send.mockRestore();
+      }
     });
   });
 

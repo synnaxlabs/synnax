@@ -196,7 +196,7 @@ describe("Status", () => {
       expect(observer.statuses.ownedBy(owner)?.key).toEqual(created.key);
     });
 
-    it("should drop a local status once the Core sets the owner's status", async () => {
+    it("should replace a local status with the status the Core sets", async () => {
       const owner = await createOwner();
       const local = status.create({ owner, variant: "loading", message: "local" });
       client.statuses.setLocal(local);
@@ -205,8 +205,12 @@ describe("Status", () => {
         variant: "info",
         message: "a",
       });
-      expect(client.statuses.getCached(local.key)).toBeUndefined();
-      expect(client.statuses.ownedBy(owner)?.key).toEqual(created.key);
+      expect(created.key).toEqual(local.key);
+      expect(client.statuses.ownedBy(owner)).toMatchObject({
+        key: created.key,
+        variant: "info",
+        message: "a",
+      });
     });
   });
 
