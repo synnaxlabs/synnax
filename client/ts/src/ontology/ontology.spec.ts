@@ -261,9 +261,9 @@ describe("Ontology", () => {
     };
 
     // Resolves once the stream delivers a change made after every earlier write, so no
-    // late echo of those writes lands during a spec. The read of id opens the stream.
-    const drainStream = async (id: ontology.ID): Promise<void> => {
-      await client.ontology.retrieve(id);
+    // late echo of those writes lands during a spec.
+    const drainStream = async (): Promise<void> => {
+      await client.connect();
       const probe = await remote.groups.create({
         parent: ontology.ROOT_ID,
         name: randomName(),
@@ -294,8 +294,8 @@ describe("Ontology", () => {
     });
 
     it("should cache the resources of the IDs", async () => {
-      const { top, leaf } = await createChain();
-      await drainStream(top);
+      const { leaf } = await createChain();
+      await drainStream();
       const key = ontology.idToString(leaf);
       client.ontology.cache.resources.evict(key);
       await client.ontology.ancestors.retrieve({ ids: leaf });
@@ -354,7 +354,7 @@ describe("Ontology", () => {
         type: ontology.PARENT_OF_RELATIONSHIP_TYPE,
         to: leaf,
       });
-      await drainStream(top);
+      await drainStream();
       const request = client.ontology.ancestors.retrieve({ ids: leaf, root: top });
       client.ontology.cache.relationships.delete(key);
       await request;
@@ -364,7 +364,7 @@ describe("Ontology", () => {
     it("should keep a rename written while the request is in flight", async () => {
       const { top, mid, leaf } = await createChain();
       const resource = await client.ontology.retrieve(mid);
-      await drainStream(top);
+      await drainStream();
       const request = client.ontology.ancestors.retrieve({ ids: leaf, root: top });
       client.ontology.cache.resources.set({ ...resource, name: "renamed" });
       await request;
