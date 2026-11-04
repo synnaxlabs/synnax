@@ -162,7 +162,7 @@ export const Provider = ({
     current && state.status.details.authenticated ? pageClient.auth.token : undefined;
   let workerParams: SynnaxParams | null = null;
   if (connParams != null && token != null) {
-    const shared = record.omit(connParams, "username", "password", "token");
+    const shared = record.omit(connParams, "username", "password", "oidc", "token");
     workerParams =
       token === "" ? { ...shared, sessionCookie: true } : { ...shared, token };
   }

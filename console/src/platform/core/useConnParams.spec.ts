@@ -81,6 +81,23 @@ describe("Core.useConnParams", () => {
     expect(result.current).not.toHaveProperty("key");
   });
 
+  it("should log in with an OpenID Connect code the user just received", async () => {
+    const oidc = {
+      provider: "idp",
+      code: "code",
+      verifier: "verifier",
+      redirectUri: "https://example.com:9095/",
+    };
+    const { result } = await renderParams({ ...CORE, username: "", oidc });
+    expect(result.current).toMatchObject({ oidc });
+    expect(result.current).not.toHaveProperty("username");
+  });
+
+  it("should leave out an empty username once the code is spent", async () => {
+    const { result } = await renderParams({ ...CORE, username: "" });
+    expect(result.current?.username).toBeUndefined();
+  });
+
   it("should log in with a password the user entered", async () => {
     const { result } = await renderParams({ ...CORE, password: "typed" });
     expect(result.current?.password).toBe("typed");
