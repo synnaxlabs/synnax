@@ -57,7 +57,7 @@ export const Message = ({ path }: MessageProps): ReactElement => {
   const binary = deep.variant(payloadPath, "format", "binary");
   const text = deep.variant(payloadPath, "format", "text");
   const json = deep.variant(payloadPath, "format", "json");
-  const { set } = Form.useContext();
+  const { set, mode } = Form.useContext();
   const format = Form.useFieldValue(payloadPath.format);
   const handleFormatChange = (next: icd.PayloadType) => {
     if (next !== format) set(payloadPath, createPayload(next));
@@ -71,6 +71,7 @@ export const Message = ({ path }: MessageProps): ReactElement => {
             <Select.Buttons<icd.PayloadType>
               value={format}
               onChange={handleFormatChange}
+              preview={mode === "preview"}
             >
               <Select.Item<icd.PayloadType> itemKey="binary">Binary</Select.Item>
               <Select.Item<icd.PayloadType> itemKey="text">Text</Select.Item>

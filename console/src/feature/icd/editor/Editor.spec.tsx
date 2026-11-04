@@ -7,8 +7,12 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { icd } from "@synnaxlabs/client";
-import { createTestClient, spyOnSend } from "@synnaxlabs/client/testutil";
+import { icd, type Synnax } from "@synnaxlabs/client";
+import {
+  createTestClient,
+  createTestClientWithRole,
+  spyOnSend,
+} from "@synnaxlabs/client/testutil";
 import { Menu } from "@synnaxlabs/lyra/menu";
 import { Panel as PlutoPanel } from "@synnaxlabs/pluto";
 import { uuid } from "@synnaxlabs/x";
@@ -25,8 +29,8 @@ import {
   renderSuspended,
 } from "@/testutil";
 
-const renderEditor = async (ic: icd.ICD): Promise<void> => {
-  const { wrapper } = await createConsoleWrapper({ client });
+const renderEditor = async (ic: icd.ICD, as: Synnax = client): Promise<void> => {
+  const { wrapper } = await createConsoleWrapper({ client: as });
   const { panelKey, tabKey } = await createResourceTab(client, icd.ontologyID(ic.key));
   await primePanel(wrapper, panelKey);
   await renderSuspended(
@@ -131,7 +135,7 @@ describe("ICD editor", () => {
     const ic = await createICD([createMessage([], "Message 1")]);
     await renderEditor(ic);
     await findMessageItem("Message 1");
-    fireEvent.click(screen.getByRole("button", { name: "Add message" }));
+    fireEvent.click(await screen.findByRole("button", { name: "Add message" }));
     await findMessageItem("Message 2");
     await waitFor(async () =>
       expect(await retrieveNames(ic.key)).toEqual(["Message 1", "Message 2"]),
@@ -358,6 +362,17 @@ describe("ICD editor", () => {
         ],
       }),
     );
+  });
+
+  it("should show a viewer the ICD without the controls that edit it", async () => {
+    const ic = await createICD([createMessage([createBinaryField("Mode", 0)])]);
+    await renderEditor(ic, await createTestClientWithRole(client, "Viewer"));
+    expect(await screen.findByText("Mode")).toBeTruthy();
+    expect(screen.getByText("Binary")).toBeTruthy();
+    expect(screen.queryByText("JSON")).toBeNull();
+    expect(screen.queryByRole("button", { name: "Add row" })).toBeNull();
+    expect(screen.queryByText("Add message")).toBeNull();
+    expect(screen.queryByRole("button", { name: "Import" })).toBeNull();
   });
 
   it("should add a tagged field before it has a tag", async () => {

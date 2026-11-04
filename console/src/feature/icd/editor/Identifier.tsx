@@ -157,7 +157,7 @@ export interface IdentifierProps {
 
 /** Picks how a binary message selects the frames that belong to it. */
 export const Identifier = ({ path }: IdentifierProps): ReactElement => {
-  const { set } = Form.useContext();
+  const { set, mode } = Form.useContext();
   const type = Form.useFieldValue(deep.present(path.identifier).type, {
     optional: true,
   });
@@ -173,6 +173,7 @@ export const Identifier = ({ path }: IdentifierProps): ReactElement => {
         value={type ?? "none"}
         onChange={handleChange}
         variant="floating"
+        preview={mode === "preview"}
       >
         {types.map((t) => (
           <Select.Item key={t} itemKey={t}>

@@ -389,6 +389,7 @@ export const Fields = ({ path, encoding }: FieldsProps): ReactElement => {
         onRemove={handleRemove}
         createRow={createRow}
         rowLabel={(i) => (i + 1).toString()}
+        preview={ctx.mode === "preview"}
       >
         {columns.map((column, i) => renderColumn(column, i, fields))}
       </Input.Table>

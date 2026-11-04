@@ -40,7 +40,7 @@ export const FormattedField = <V,>({
   format,
   parse,
 }: FormattedFieldProps<V>): ReactElement => {
-  const { set } = Form.useContext();
+  const { set, mode } = Form.useContext();
   const state = Form.useFieldState(path, { optional });
   const value = state?.value;
   const handleChange = (text: string) => {
@@ -61,6 +61,7 @@ export const FormattedField = <V,>({
         placeholder={placeholder}
         endContent={unit}
         onlyChangeOnBlur
+        preview={mode === "preview"}
       />
     </Input.Item>
   );

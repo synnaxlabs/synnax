@@ -135,6 +135,7 @@ export interface MessagesProps {
 export const Messages = ({ selected, onSelect }: MessagesProps): ReactElement => {
   const messages = Form.useFieldList(ICD.formPath.messages);
   const { data, push, remove } = messages;
+  const { mode } = Form.useContext();
   const menuProps = Menu.useContextMenu();
   const handleAdd = () => {
     const message = createMessage(messages.value());
@@ -173,9 +174,11 @@ export const Messages = ({ selected, onSelect }: MessagesProps): ReactElement =>
           </List.Scroll>
         </Select.Frame>
       </Menu.ContextMenu>
-      <PlatformButton.CreateListItem size="small" onClick={handleAdd}>
-        Add message
-      </PlatformButton.CreateListItem>
+      {mode !== "preview" && (
+        <PlatformButton.CreateListItem size="small" onClick={handleAdd}>
+          Add message
+        </PlatformButton.CreateListItem>
+      )}
     </Flex.Box>
   );
 };
