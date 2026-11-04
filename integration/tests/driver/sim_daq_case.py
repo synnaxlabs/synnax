@@ -28,12 +28,11 @@ Usage with ConsoleCase:
         sim_daq_class = PressSimDAQ
 """
 
-from typing import Any
+from typing import Unpack
 
 from examples.simulators.simdaq import SimDAQ
 
-from framework.models import DEFAULT_CONNECTION, SynnaxConnection
-from framework.test_case import TestCase
+from framework.test_case import Config, TestCase
 
 
 class SimDaqCase(TestCase):
@@ -46,14 +45,8 @@ class SimDaqCase(TestCase):
     sim_daq_class: type[SimDAQ] | None = None
     sim_daq: SimDAQ | None
 
-    def __init__(
-        self,
-        *,
-        synnax_connection: SynnaxConnection = DEFAULT_CONNECTION,
-        name: str,
-        **params: Any,
-    ) -> None:
-        super().__init__(synnax_connection=synnax_connection, name=name, **params)
+    def __init__(self, **kwargs: Unpack[Config]) -> None:
+        super().__init__(**kwargs)
         # Not all test cases need a simulator (e.g. edge_cases).
         sim_cls = self.sim_daq_class
         if sim_cls is not None:

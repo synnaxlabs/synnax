@@ -732,13 +732,6 @@ export class Client extends query.Retriever<
     this.writeRelationships(range);
   }
 
-  private hydrate(range: Range): void {
-    if (this.store.status(range.key) === "tombstoned") return;
-    this.store.ingest(range);
-    if (range.labels != null) this.cfg.labels.store.ingest(range.labels);
-    this.writeRelationships(range);
-  }
-
   private writeRelationships(range: Range): void {
     const id = ontologyID(range.key);
     if (range.labels != null)
@@ -766,13 +759,20 @@ export class Client extends query.Retriever<
     }
   }
 
-  // One batch per table, so each table flushes once.
-  private hydrateMany(ranges: Range[]): void {
+  // One batch per table, so each table flushes once. The ranges go first, so the
+  // relationship backfill finds parents in this response. A range written after since
+  // keeps that write, since the fetch predates it.
+  private hydrateMany(ranges: Range[], since: query.Stamp): void {
     this.store.batch(() =>
       this.cfg.labels.store.batch(() =>
-        this.cfg.ontology.cache.relationships.batch(() =>
-          ranges.forEach((r) => this.hydrate(r)),
-        ),
+        this.cfg.ontology.cache.relationships.batch(() => {
+          this.store.ingest(ranges, { since });
+          ranges.forEach((r) => {
+            if (this.store.status(r.key) === "tombstoned") return;
+            if (r.labels != null) this.cfg.labels.store.ingest(r.labels);
+            this.writeRelationships(r);
+          });
+        }),
       ),
     );
   }
@@ -782,12 +782,13 @@ export class Client extends query.Retriever<
    * their relationships through. Powers the table's fetch primitive.
    */
   private async fetchThrough(keys: Key[]): Promise<Range[]> {
+    const since = this.store.stamp();
     const ranges = await this.execRetrieve({
       ...BASE_REQUEST,
       keys,
       ignoreNotFoundError: true,
     });
-    this.hydrateMany(ranges);
+    this.hydrateMany(ranges, since);
     return ranges;
   }
 
@@ -799,9 +800,10 @@ export class Client extends query.Retriever<
       checkForMultipleOrNoResults("Range", query, ranges, true);
       return this.composeOne(ranges[0]);
     }
+    const since = this.store.stamp();
     const ranges = await this.execRetrieve({ ...BASE_REQUEST, names: [query] });
     checkForMultipleOrNoResults("Range", query, ranges, true);
-    this.hydrate(ranges[0]);
+    this.hydrateMany(ranges, since);
     return ranges[0];
   }
 
@@ -824,8 +826,9 @@ export class Client extends query.Retriever<
 
   private async fetchRequest(query: RetrieveRequest): Promise<Range[]> {
     if (isKeysOnly(query)) return await this.store.retrieve(query.keys);
+    const since = this.store.stamp();
     const ranges = await this.execRetrieve({ ...BASE_REQUEST, ...query });
-    this.hydrateMany(ranges);
+    this.hydrateMany(ranges, since);
     return ranges;
   }
 

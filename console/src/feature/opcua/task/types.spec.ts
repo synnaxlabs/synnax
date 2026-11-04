@@ -82,26 +82,62 @@ describe("OPC UA Read Task Config Validation", () => {
     );
   });
 
-  it("should reject a node ID used by multiple channels", () => {
+  it("should warn at each node ID used by multiple channels", () => {
     const result = OPCUA.Task.deployReadConfigZ.safeParse(
       createConfig([{ nodeId: "ns=1;s=dup" }, { nodeId: "ns=1;s=dup" }]),
     );
     expect(result.success).toBe(false);
-    expect(
-      result.error?.issues.some(({ message }) => message.includes("already been used")),
-    ).toBe(true);
+    expect(result.error?.issues).toEqual(
+      [0, 1].map((i) =>
+        expect.objectContaining({
+          path: ["channels", i, "nodeId"],
+          message: "This node ID has already been used elsewhere in the configuration",
+          params: { variant: "warning" },
+        }),
+      ),
+    );
   });
 
-  it("should reject multiple channels marked as index", () => {
+  it("should accept channels that read different fields of one node", () => {
+    const result = OPCUA.Task.deployReadConfigZ.safeParse(
+      createConfig([
+        { nodeId: "ns=1;s=motor", field: "Speed" },
+        { nodeId: "ns=1;s=motor", field: "Position.Y" },
+      ]),
+    );
+    expect(result.success).toBe(true);
+  });
+
+  it("should warn at each channel that reads the same field of one node", () => {
+    const result = OPCUA.Task.deployReadConfigZ.safeParse(
+      createConfig([
+        { nodeId: "ns=1;s=motor", field: "Speed" },
+        { nodeId: "ns=1;s=motor", field: "Speed" },
+      ]),
+    );
+    expect(result.error?.issues).toEqual(
+      [0, 1].map((i) =>
+        expect.objectContaining({
+          path: ["channels", i, "nodeId"],
+          message: "This field has already been used elsewhere in the configuration",
+        }),
+      ),
+    );
+  });
+
+  it("should reject each channel marked as index when there are several", () => {
     const result = OPCUA.Task.deployReadConfigZ.safeParse(
       createConfig([{ isIndex: true }, { isIndex: true }]),
     );
     expect(result.success).toBe(false);
-    expect(
-      result.error?.issues.some(({ message }) =>
-        message.includes("Only one channel can be marked as an index"),
+    expect(result.error?.issues).toEqual(
+      [0, 1].map((i) =>
+        expect.objectContaining({
+          path: ["channels", i, "isIndex"],
+          message: "Only one channel can be marked as an index channel",
+        }),
       ),
-    ).toBe(true);
+    );
   });
 
   it("should reject an array size larger than the sample rate", () => {
@@ -117,6 +153,21 @@ describe("OPC UA Read Task Config Validation", () => {
         message.includes("Sample rate must be greater than or equal to the array size"),
       ),
     ).toBe(true);
+  });
+
+  it("should reject an enabled structure field channel in array mode", () => {
+    const result = OPCUA.Task.deployReadConfigZ.safeParse({
+      ...createConfig([{ field: "Speed" }, { field: "Speed", disabled: true }, {}]),
+      arrayMode: true,
+      arraySize: 5,
+    });
+    expect(result.success).toBe(false);
+    expect(result.error?.issues).toEqual([
+      expect.objectContaining({
+        path: ["channels", 0, "nodeId"],
+        message: "Array sampling cannot read structure fields",
+      }),
+    ]);
   });
 
   it("should reject a non-positive array size", () => {
@@ -174,7 +225,7 @@ describe("OPC UA Write Task Config Validation", () => {
 
 describe("Scanned Nodes", () => {
   it("should default a scanned node's key to its node ID", () => {
-    const result = OPCUA.Task.SCAN_SCHEMAS.statusData.parse({
+    const result = OPCUA.Task.browseResponseZ.parse({
       channels: [
         {
           dataType: "float32",
@@ -185,19 +236,19 @@ describe("Scanned Nodes", () => {
         },
       ],
     });
-    expect(result).toMatchObject({ channels: [{ key: "ns=2;s=A" }] });
+    expect(result).toMatchObject({ channels: [{ key: "ns=2;s=A", field: "" }] });
   });
 });
 
 describe("Scan command replies", () => {
   it("should parse a certificate reply", () => {
     const reply = { current: SERVER_CERTIFICATE, next: SERVER_CERTIFICATE };
-    expect(OPCUA.Task.SCAN_SCHEMAS.statusData.parse(reply)).toEqual(reply);
+    expect(OPCUA.Task.certificatesResponseZ.parse(reply)).toEqual(reply);
   });
 
   it("should parse a failed test connection reply with the server certificate", () => {
     const reply = { serverCertificate: SERVER_CERTIFICATE };
-    expect(OPCUA.Task.SCAN_SCHEMAS.statusData.parse(reply)).toEqual(reply);
+    expect(OPCUA.Task.testConnectionResponseZ.parse(reply)).toEqual(reply);
   });
 });
 

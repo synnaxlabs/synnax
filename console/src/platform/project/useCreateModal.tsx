@@ -21,6 +21,8 @@ import { Selector } from "@/platform/selector";
 import { Triggers } from "@/platform/triggers";
 import { Session } from "@/session";
 
+const path = Project.formPath;
+
 const Create = ({ close }: Modals.ContentProps<Record<never, never>, void>) => {
   const client = Synnax.use();
   const dispatch = Session.useDispatch();
@@ -52,7 +54,7 @@ const Create = ({ close }: Modals.ContentProps<Record<never, never>, void>) => {
       <Modal.Header icon={<Icon.Project />}>Project.Create</Modal.Header>
       <Modal.Body>
         <Form.Form<typeof Project.formSchema> {...form}>
-          <Form.Field<string> path="name" showLabel={false} padHelpText={false}>
+          <Form.Field path={path.name} showLabel={false} padHelpText={false}>
             {(p) => (
               <Input.Text
                 placeholder="Project name"

@@ -8,14 +8,15 @@
 #  included in the file licenses/APL.txt.
 
 from dataclasses import dataclass
+from typing import Unpack
 
 from examples.opcua import OPCUASim
 
 import synnax as sy
 from console.case import ConsoleCase
 from console.task_page import TaskPage
-from framework.models import DEFAULT_CONNECTION, SynnaxConnection
 from framework.run_with_connection import run_scripts
+from framework.test_case import Config
 from framework.utils import assert_envelope, assert_link_format
 from tests.driver.simulator_case import SimulatorCase
 from x import random_name
@@ -77,14 +78,8 @@ class TaskLifecycle(SimulatorCase, ConsoleCase):
 
     sim_classes = [OPCUASim]
 
-    def __init__(
-        self,
-        *,
-        synnax_connection: SynnaxConnection = DEFAULT_CONNECTION,
-        name: str,
-        **params: object,
-    ) -> None:
-        super().__init__(synnax_connection=synnax_connection, name=name, **params)
+    def __init__(self, **kwargs: Unpack[Config]) -> None:
+        super().__init__(**kwargs)
         self._cleanup_tasks: list[str] = []
 
     def setup_tasks(self) -> None:
@@ -203,8 +198,11 @@ class TaskLifecycle(SimulatorCase, ConsoleCase):
         self.log(f"Testing: Export task '{t.name}'")
         exported = self.console.tasks.export(t.name)
         assert_envelope(exported, envelope_type=t.type, min_version=1, name=t.name)
-        assert "channels" in exported, "Exported JSON should contain 'channels'"
-        assert len(exported["channels"]) > 0, "Exported channels should not be empty"
+        channels = exported.get("channels")
+        assert isinstance(channels, (list, dict)), (
+            "Exported JSON should contain 'channels'"
+        )
+        assert len(channels) > 0, "Exported channels should not be empty"
 
     def test_open_task_config(self) -> None:
         """Open each task config via context menu and verify contents."""

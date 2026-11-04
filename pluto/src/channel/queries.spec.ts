@@ -19,6 +19,8 @@ import { Flux } from "@/flux";
 import { renderHookSuspended } from "@/testutil/render";
 import { createAsyncSynnaxWrapper } from "@/testutil/Synnax";
 
+const path = Channel.formPath;
+
 describe("queries", () => {
   let controller: AbortController;
   const client = createTestClient();
@@ -562,9 +564,9 @@ describe("queries", () => {
       const name = id.create();
 
       act(() => {
-        result.current.form.set("name", name);
-        result.current.form.set("dataType", DataType.FLOAT32.toString());
-        result.current.form.set("virtual", true);
+        result.current.form.set(path.name, name);
+        result.current.form.set(path.dataType, DataType.FLOAT32.toString());
+        result.current.form.set(path.virtual, true);
         result.current.save({ signal: controller.signal });
       });
 
@@ -586,9 +588,9 @@ describe("queries", () => {
 
       const name = id.create();
       act(() => {
-        result.current.form.set("name", name);
-        result.current.form.set("dataType", DataType.TIMESTAMP.toString());
-        result.current.form.set("isIndex", true);
+        result.current.form.set(path.name, name);
+        result.current.form.set(path.dataType, DataType.TIMESTAMP.toString());
+        result.current.form.set(path.isIndex, true);
         result.current.save({ signal: controller.signal });
       });
 
@@ -616,9 +618,9 @@ describe("queries", () => {
 
       const name = id.create();
       act(() => {
-        result.current.form.set("name", name);
-        result.current.form.set("dataType", DataType.FLOAT32.toString());
-        result.current.form.set("index", indexChannel.key);
+        result.current.form.set(path.name, name);
+        result.current.form.set(path.dataType, DataType.FLOAT32.toString());
+        result.current.form.set(path.index, indexChannel.key);
         result.current.save({ signal: controller.signal });
       });
 
@@ -654,7 +656,7 @@ describe("queries", () => {
       const updatedName = id.create();
 
       act(() => {
-        result.current.form.set("name", updatedName);
+        result.current.form.set(path.name, updatedName);
         result.current.save({ signal: controller.signal });
       });
 
@@ -713,13 +715,13 @@ describe("queries", () => {
       });
 
       act(() => {
-        result.current.form.set("name", id.create());
-        result.current.form.set("dataType", DataType.FLOAT32.toString());
-        result.current.form.set("isIndex", true);
+        result.current.form.set(path.name, id.create());
+        result.current.form.set(path.dataType, DataType.FLOAT32.toString());
+        result.current.form.set(path.isIndex, true);
       });
 
       expect(result.current.form.validate()).toBe(false);
-      expect(result.current.form.get("dataType").status.message).toContain(
+      expect(result.current.form.get(path.dataType).status.message).toContain(
         "Index channel must have data type TIMESTAMP",
       );
     });
@@ -730,15 +732,15 @@ describe("queries", () => {
       });
 
       act(() => {
-        result.current.form.set("name", id.create());
-        result.current.form.set("dataType", DataType.FLOAT32.toString());
-        result.current.form.set("isIndex", false);
-        result.current.form.set("index", 0);
-        result.current.form.set("virtual", false);
+        result.current.form.set(path.name, id.create());
+        result.current.form.set(path.dataType, DataType.FLOAT32.toString());
+        result.current.form.set(path.isIndex, false);
+        result.current.form.set(path.index, 0);
+        result.current.form.set(path.virtual, false);
       });
 
       expect(result.current.form.validate()).toBe(false);
-      expect(result.current.form.get("index").status.message).toContain(
+      expect(result.current.form.get(path.index).status.message).toContain(
         "Data channel must have an index",
       );
     });
@@ -749,12 +751,12 @@ describe("queries", () => {
       });
 
       act(() => {
-        result.current.form.set("name", "");
-        result.current.form.set("virtual", true);
+        result.current.form.set(path.name, "");
+        result.current.form.set(path.virtual, true);
       });
 
       expect(result.current.form.validate()).toBe(false);
-      expect(result.current.form.get("name").status.message).toContain(
+      expect(result.current.form.get(path.name).status.message).toContain(
         "Name is required",
       );
     });
@@ -771,13 +773,13 @@ describe("queries", () => {
       });
 
       act(() => {
-        result.current.form.set("name", "sensor_temp_123");
-        result.current.form.set("dataType", DataType.FLOAT32.toString());
-        result.current.form.set("index", indexChannel.key);
+        result.current.form.set(path.name, "sensor_temp_123");
+        result.current.form.set(path.dataType, DataType.FLOAT32.toString());
+        result.current.form.set(path.index, indexChannel.key);
       });
 
       expect(result.current.form.validate()).toBe(true);
-      expect(result.current.form.get("name").status.variant).not.toBe("error");
+      expect(result.current.form.get(path.name).status.variant).not.toBe("error");
     });
   });
 
@@ -949,6 +951,34 @@ describe("queries", () => {
         expect(result.current?.status?.variant).toEqual("error");
         expect(result.current?.status?.message).toEqual("broken expression");
       });
+    });
+  });
+
+  describe("useResultList", () => {
+    it("should search channels and follow a new match", async () => {
+      const token = `rl${Math.random().toString(36).slice(2)}`;
+      const first = await client.channels.create({
+        name: `${token}_a`,
+        dataType: DataType.FLOAT32,
+        virtual: true,
+      });
+      const { result } = renderHook(
+        () => Channel.useResultList({ searchTerm: token, limit: 10 }),
+        { wrapper },
+      );
+      await waitFor(() =>
+        expect(result.current.data?.map((c) => c.key)).toEqual([first.key]),
+      );
+      const second = await client.channels.create({
+        name: `${token}_b`,
+        dataType: DataType.FLOAT32,
+        virtual: true,
+      });
+      await waitFor(() =>
+        expect(result.current.data?.map((c) => c.key).sort()).toEqual(
+          [first.key, second.key].sort(),
+        ),
+      );
     });
   });
 
@@ -1410,10 +1440,10 @@ describe("queries", () => {
       const calculatedName = id.create();
 
       act(() => {
-        result.current.form.set("name", calculatedName);
-        result.current.form.set("dataType", DataType.FLOAT32.toString());
-        result.current.form.set("virtual", true);
-        result.current.form.set("expression", `return ${sourceChannel.name} * 2`);
+        result.current.form.set(path.name, calculatedName);
+        result.current.form.set(path.dataType, DataType.FLOAT32.toString());
+        result.current.form.set(path.virtual, true);
+        result.current.form.set(path.expression, `return ${sourceChannel.name} * 2`);
         result.current.save({ signal: controller.signal });
       });
 
@@ -1457,7 +1487,7 @@ describe("queries", () => {
       ]);
 
       act(() => {
-        result.current.form.set("expression", `return ${sourceChannel.name} * 3`);
+        result.current.form.set(path.expression, `return ${sourceChannel.name} * 3`);
         result.current.save({ signal: controller.signal });
       });
 
@@ -1474,12 +1504,12 @@ describe("queries", () => {
       });
 
       act(() => {
-        result.current.form.set("name", id.create());
-        result.current.form.set("expression", "");
+        result.current.form.set(path.name, id.create());
+        result.current.form.set(path.expression, "");
       });
 
       expect(result.current.form.validate()).toBe(false);
-      expect(result.current.form.get("expression").status.message).toContain(
+      expect(result.current.form.get(path.expression).status.message).toContain(
         "Expression must contain a return statement",
       );
     });
@@ -1490,12 +1520,12 @@ describe("queries", () => {
       });
 
       act(() => {
-        result.current.form.set("name", id.create());
-        result.current.form.set("expression", "sourceChannel * 2");
+        result.current.form.set(path.name, id.create());
+        result.current.form.set(path.expression, "sourceChannel * 2");
       });
 
       expect(result.current.form.validate()).toBe(false);
-      expect(result.current.form.get("expression").status.message).toContain(
+      expect(result.current.form.get(path.expression).status.message).toContain(
         "Expression must contain a return statement",
       );
     });

@@ -13,10 +13,20 @@ import { Select } from "@synnaxlabs/lyra/select";
 import { deep, type record } from "@synnaxlabs/x";
 import { type FC } from "react";
 
-import { AI_PORT_TYPE, type Model, PORTS } from "@/feature/labjack/device/types";
+import {
+  AI_PORT_TYPE,
+  GROUND_CHANNEL,
+  type Model,
+  negativeChannelOf,
+  PORTS,
+  T4_MODEL,
+  T7_MODEL,
+  T8_MODEL,
+} from "@/feature/labjack/device/types";
 import {
   AIR_CJC_SOURCE,
   DEVICE_CJC_SOURCE,
+  type ReadChannel,
   type ReadChannelType,
   type Scale,
   SCALE_SCHEMAS,
@@ -26,27 +36,12 @@ import {
 } from "@/feature/labjack/task/types";
 
 const MaxVoltageField = PForm.buildNumericField({
-  fieldKey: "range",
   fieldProps: { label: "Max voltage" },
   inputProps: { endContent: "V" },
 });
 
-const SelectScaleTypeField = PForm.buildSelectField<ScaleType>({
-  fieldKey: "type",
-  fieldProps: {
-    label: "Scale",
-    onChange: (value, { get, set, path }) => {
-      const prevType = get<ScaleType>(path).value;
-      if (prevType === value) return;
-      const next = SCALE_SCHEMAS[value].parse({ type: value });
-      const parentPath = path.slice(0, path.lastIndexOf("."));
-      const prevParent = get<Scale>(parentPath).value;
-      set(parentPath, {
-        ...deep.overrideValidItems(next, prevParent, SCALE_SCHEMAS[value]),
-        type: next.type,
-      });
-    },
-  },
+const SelectScaleType = PForm.buildSelectField<ScaleType>({
+  fieldProps: { label: "Scale" },
   inputProps: {
     resourceName: "scale type",
     children: (
@@ -68,42 +63,58 @@ const SelectScaleTypeField = PForm.buildSelectField<ScaleType>({
   },
 });
 
+interface CustomScaleFormProps {
+  path: deep.Path<Scale>;
+}
+
 const SCALE_FORMS: Record<ScaleType, FC<CustomScaleFormProps>> = {
-  linear: ({ prefix }) => (
-    <>
-      <PForm.NumericField path={`${prefix}.slope`} label="Slope" />
-      <PForm.NumericField path={`${prefix}.offset`} label="Offset" />
-    </>
-  ),
-  map: ({ prefix }) => (
-    <>
-      <PForm.NumericField path={`${prefix}.preScaledMin`} label="Pre-scaled min" />
-      <PForm.NumericField path={`${prefix}.preScaledMax`} label="Pre-scaled max" />
-      <PForm.NumericField path={`${prefix}.scaledMin`} label="Scaled min" />
-      <PForm.NumericField path={`${prefix}.scaledMax`} label="Scaled max" />
-    </>
-  ),
+  linear: ({ path }) => {
+    const { offset, slope } = deep.variant(path, "type", "linear");
+    return (
+      <>
+        <PForm.NumericField path={slope} label="Slope" />
+        <PForm.NumericField path={offset} label="Offset" />
+      </>
+    );
+  },
+  map: ({ path }) => {
+    const scale = deep.variant(path, "type", "map");
+    return (
+      <>
+        <PForm.NumericField path={scale.preScaledMin} label="Pre-scaled min" />
+        <PForm.NumericField path={scale.preScaledMax} label="Pre-scaled max" />
+        <PForm.NumericField path={scale.scaledMin} label="Scaled min" />
+        <PForm.NumericField path={scale.scaledMax} label="Scaled max" />
+      </>
+    );
+  },
   none: () => null,
 };
 
-interface CustomScaleFormProps {
-  prefix: string;
-}
-
-export const CustomScaleForm = ({ prefix }: CustomScaleFormProps) => {
-  const path = `${prefix}.scale`;
-  const scaleType = PForm.useFieldValue<ScaleType>(`${path}.type`);
+export const CustomScaleForm = ({ path }: CustomScaleFormProps) => {
+  const scaleType = PForm.useFieldValue(path.type);
   const Form = SCALE_FORMS[scaleType];
   return (
     <>
-      <SelectScaleTypeField path={path} />
-      <Form prefix={path} />
+      <SelectScaleType
+        path={path.type}
+        onChange={(value, { get, set }) => {
+          const prevType = get(path.type).value;
+          if (prevType === value) return;
+          const next = SCALE_SCHEMAS[value].parse({ type: value });
+          const prevParent = get(path).value;
+          set(path, {
+            ...deep.overrideValidItems(next, prevParent, SCALE_SCHEMAS[value]),
+            type: next.type,
+          } as Scale);
+        }}
+      />
+      <Form path={path} />
     </>
   );
 };
 
 const ThermocoupleTypeField = PForm.buildSelectField<ThermocoupleType>({
-  fieldKey: "thermocoupleType",
   fieldProps: { label: "Thermocouple type" },
   inputProps: {
     resourceName: "thermocouple type",
@@ -125,7 +136,6 @@ const ThermocoupleTypeField = PForm.buildSelectField<ThermocoupleType>({
 });
 
 const TemperatureUnitsField = PForm.buildSelectField<TemperatureUnits>({
-  fieldKey: "units",
   fieldProps: { label: "Temperature units" },
   inputProps: {
     resourceName: "temperature units",
@@ -151,8 +161,11 @@ const SelectCJCSourceField = ({ model, ...rest }: SelectCJCSourceFieldProps) => 
   const ports: record.KeyedNamed[] = PORTS[model][AI_PORT_TYPE];
   return (
     <Select.Simple<string> allowNone={false} {...rest} resourceName="CJC source">
-      <Select.Item itemKey={DEVICE_CJC_SOURCE}>Device</Select.Item>
-      <Select.Item itemKey={AIR_CJC_SOURCE}>Air</Select.Item>
+      {/* On a T8, the device source reads the sensor at the channel's own terminal. */}
+      <Select.Item itemKey={DEVICE_CJC_SOURCE}>
+        {model === T8_MODEL ? "Terminal" : "Device"}
+      </Select.Item>
+      {model !== T8_MODEL && <Select.Item itemKey={AIR_CJC_SOURCE}>Air</Select.Item>}
       {ports.map(({ key, name }) => (
         <Select.Item key={key} itemKey={key}>
           {name}
@@ -163,20 +176,58 @@ const SelectCJCSourceField = ({ model, ...rest }: SelectCJCSourceFieldProps) => 
 };
 
 interface FormProps {
-  path: string;
+  path: deep.Path<ReadChannel>;
   deviceModel: Model;
 }
 
-/** The signal fields for each channel type, or null for a type that has none. */
-export const FORMS: Record<ReadChannelType, FC<FormProps> | null> = {
-  analog: ({ path }) => <MaxVoltageField path={path} />,
-  digital: null,
-  thermocouple: ({ path, deviceModel }) => (
+interface NegativeChannelFieldProps {
+  port: deep.Path<string>;
+  negChan: deep.Path<number>;
+}
+
+/** The negative input of a T7 channel: ground, or the port's differential pair. */
+const NegativeChannelField = ({ port, negChan }: NegativeChannelFieldProps) => {
+  const pair = negativeChannelOf(PForm.useFieldValue(port));
+  return (
+    <PForm.Field path={negChan} label="Negative channel">
+      {({ value, onChange, preview }) => (
+        <Select.Simple<number>
+          allowNone={false}
+          value={value}
+          onChange={onChange}
+          preview={preview}
+          resourceName="negative channel"
+        >
+          <Select.Item itemKey={GROUND_CHANNEL}>Ground</Select.Item>
+          {pair != null && <Select.Item itemKey={pair}>{`AIN${pair}`}</Select.Item>}
+        </Select.Simple>
+      )}
+    </PForm.Field>
+  );
+};
+
+const AnalogForm = ({ path, deviceModel }: FormProps) => {
+  const channel = deep.variant(path, "type", "analog");
+  return (
     <>
-      <ThermocoupleTypeField path={path} />
-      <TemperatureUnitsField path={path} />
-      <PForm.NumericField fieldKey="negChan" path={path} label="Negative channel" />
-      <PForm.Field<string> path={`${path}.cjcSource`} label="CJC source">
+      <MaxVoltageField path={channel.range} />
+      {deviceModel === T7_MODEL && (
+        <NegativeChannelField port={channel.port} negChan={channel.negChan} />
+      )}
+    </>
+  );
+};
+
+const ThermocoupleForm = ({ path, deviceModel }: FormProps) => {
+  const channel = deep.variant(path, "type", "thermocouple");
+  return (
+    <>
+      <ThermocoupleTypeField path={channel.thermocoupleType} />
+      <TemperatureUnitsField path={channel.units} />
+      {deviceModel === T7_MODEL && (
+        <NegativeChannelField port={channel.port} negChan={channel.negChan} />
+      )}
+      <PForm.Field path={channel.cjcSource} label="CJC source">
         {({ value, onChange, preview }) => (
           <SelectCJCSourceField
             value={value}
@@ -186,8 +237,24 @@ export const FORMS: Record<ReadChannelType, FC<FormProps> | null> = {
           />
         )}
       </PForm.Field>
-      <PForm.NumericField fieldKey="cjcSlope" path={path} label="CJC slope" />
-      <PForm.NumericField fieldKey="cjcOffset" path={path} label="CJC offset" />
+      <PForm.NumericField path={channel.cjcSlope} label="CJC slope" />
+      <PForm.NumericField path={channel.cjcOffset} label="CJC offset" />
     </>
-  ),
+  );
+};
+
+const SIGNAL_FORMS: Record<ReadChannelType, FC<FormProps> | null> = {
+  analog: AnalogForm,
+  digital: null,
+  thermocouple: ThermocoupleForm,
+};
+
+/**
+ * The signal fields for each model and channel type, or null for a type that has none.
+ * The T4 has fixed input ranges and no thermocouple inputs.
+ */
+export const FORMS: Record<Model, Record<ReadChannelType, FC<FormProps> | null>> = {
+  [T4_MODEL]: { analog: null, digital: null, thermocouple: null },
+  [T7_MODEL]: SIGNAL_FORMS,
+  [T8_MODEL]: SIGNAL_FORMS,
 };

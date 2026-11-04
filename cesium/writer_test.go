@@ -3317,6 +3317,61 @@ var _ = Describe("Writer Behavior", func() {
 						Expect(w1.Close()).To(Succeed())
 						Expect(w2.Close()).To(Succeed())
 					})
+
+					It(
+						"Should serialize index writes across a control transfer",
+						func(ctx SpecContext) {
+							key := GenerateChannelKey()
+							Expect(db.CreateChannel(ctx, cesium.Channel{
+								Key:      key,
+								Name:     "Shackleton",
+								IsIndex:  true,
+								DataType: telem.TimestampT,
+							})).To(Succeed())
+							w1 := MustSucceed(db.OpenWriter(ctx, cesium.WriterConfig{
+								Channels:    []cesium.ChannelKey{key},
+								Start:       10 * telem.SecondTS,
+								Authorities: []control.Authority{100},
+								Sync:        new(true),
+							}))
+							started := make(chan struct{})
+							stopped := make(chan struct{})
+							go func() {
+								defer GinkgoRecover()
+								defer close(stopped)
+								for i := range telem.TimeStamp(1_000_000) {
+									if i == 10 {
+										close(started)
+									}
+									authorized := MustSucceed(w1.Write(
+										telem.UnaryFrame(
+											key,
+											telem.NewSeriesV(10*telem.SecondTS+i),
+										),
+									))
+									if !authorized {
+										return
+									}
+								}
+							}()
+							Eventually(started).Should(BeClosed())
+							w2 := MustSucceed(db.OpenWriter(ctx, cesium.WriterConfig{
+								Channels:    []cesium.ChannelKey{key},
+								Start:       20 * telem.SecondTS,
+								Authorities: []control.Authority{200},
+								Sync:        new(true),
+							}))
+							for i := range telem.TimeStamp(10) {
+								Expect(w2.Write(telem.UnaryFrame(
+									key,
+									telem.NewSeriesV(20*telem.SecondTS+i),
+								))).To(BeTrue())
+							}
+							Eventually(stopped).Should(BeClosed())
+							Expect(w1.Close()).To(Succeed())
+							Expect(w2.Close()).To(Succeed())
+						},
+					)
 				})
 			})
 
@@ -5137,6 +5192,101 @@ var _ = Describe("Writer Behavior", func() {
 		})
 	}
 })
+
+var _ = Describe("Writer commit order", func() {
+	It("Should keep data readable throughout a commit", func(ctx SpecContext) {
+		// Channels live in a map, so a wrong order cannot pass by luck at this size.
+		const (
+			dataChannelCount = 7
+			domainCount      = 5
+		)
+		var (
+			db       *cesium.DB
+			indexKey = GenerateChannelKey()
+			dataKeys = make([]cesium.ChannelKey, dataChannelCount)
+			channels = []cesium.Channel{{
+				Key:      indexKey,
+				Name:     "index",
+				IsIndex:  true,
+				DataType: telem.TimestampT,
+			}}
+			persistCount int
+			readErrs     []error
+		)
+		db = mustOpenDBOnFS(ctx, persistHookFS{
+			FS: FileSystems["memFS"](),
+			onPersist: func() {
+				persistCount++
+				_, err := db.Read(ctx, telem.TimeRangeMax, dataKeys...)
+				if err != nil {
+					readErrs = append(readErrs, err)
+				}
+			},
+		})
+		for i := range dataKeys {
+			dataKeys[i] = GenerateChannelKey()
+			channels = append(channels, cesium.Channel{
+				Key:      dataKeys[i],
+				Name:     fmt.Sprintf("data-%d", i),
+				Index:    indexKey,
+				DataType: telem.Int64T,
+			})
+		}
+		Expect(db.CreateChannel(ctx, channels...)).To(Succeed())
+		keys := append([]cesium.ChannelKey{indexKey}, dataKeys...)
+		for i := range domainCount {
+			start := telem.TimeStamp(i+1) * 10 * telem.SecondTS
+			series := []telem.Series{telem.NewSeriesV(start, start+telem.SecondTS)}
+			for range dataKeys {
+				series = append(series, telem.NewSeriesV[int64](1, 2))
+			}
+			// With auto commit off, Commit persists, so onPersist runs inside it.
+			w := MustSucceed(db.OpenWriter(ctx, cesium.WriterConfig{
+				Channels:         keys,
+				Start:            start,
+				EnableAutoCommit: new(false),
+			}))
+			MustSucceed(w.Write(telem.MultiFrame(keys, series)))
+			MustSucceed(w.Commit())
+			Expect(w.Close()).To(Succeed())
+			Expect(readErrs).To(BeEmpty())
+		}
+		Expect(persistCount).To(BeNumerically(">=", domainCount*len(keys)))
+	})
+})
+
+// persistHookFS calls onPersist as a channel starts to persist its domain pointers, the
+// only file Cesium truncates. The hook sees those pointers already published.
+type persistHookFS struct {
+	fs.FS
+	onPersist func()
+}
+
+func (f persistHookFS) Sub(name string) (fs.FS, error) {
+	sub, err := f.FS.Sub(name)
+	if err != nil {
+		return nil, err
+	}
+	return persistHookFS{FS: sub, onPersist: f.onPersist}, nil
+}
+
+func (f persistHookFS) Open(name string, flag int) (fs.File, error) {
+	file, err := f.FS.Open(name, flag)
+	if err != nil {
+		return nil, err
+	}
+	return persistHookFile{File: file, onPersist: f.onPersist}, nil
+}
+
+type persistHookFile struct {
+	fs.File
+	onPersist func()
+}
+
+func (f persistHookFile) Truncate(size int64) error {
+	f.onPersist()
+	return f.File.Truncate(size)
+}
 
 // alignmentSeed fixes the sequence the randomized alignment specs explore. Randomized
 // shapes cover far more interleavings than hand-written cases, but a live seed would

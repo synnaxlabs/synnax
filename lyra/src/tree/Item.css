@@ -42,7 +42,8 @@
             text-decoration: none;
         }
 
-        & .lyra-icon {
+        /* A button inside the row sizes its own icon. */
+        & .lyra-icon:not(.lyra-tree__item .lyra-btn *) {
             width: calc(var(--pluto-icon-aspect, 1) * var(--pluto-tree-item-icon-size));
             height: var(--pluto-tree-item-icon-size);
         }
