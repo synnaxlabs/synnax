@@ -10,6 +10,7 @@
 import { type label } from "@synnaxlabs/client";
 import { createTestClient } from "@synnaxlabs/client/testutil";
 import { Form } from "@synnaxlabs/lyra/form";
+import { deep } from "@synnaxlabs/x";
 import { render, screen, waitFor } from "@testing-library/react";
 import { type ReactElement } from "react";
 import { describe, expect, it } from "vitest";
@@ -18,6 +19,8 @@ import { z } from "zod";
 import { Label } from "@/platform/label";
 import { searchAndClickLabel } from "@/platform/label/testutil";
 import { createConsoleWrapper, uniqueName } from "@/testutil";
+
+const path = deep.path<z.infer<typeof schema>>();
 
 const schema = z.object({
   query: z.object({ hasLabels: z.array(z.string()) }),
@@ -28,7 +31,7 @@ const Fixture = ({ onValue }: { onValue?: (v: label.Key[]) => void }): ReactElem
   return (
     <Form.Form<typeof schema> {...methods}>
       <Label.Filter.MenuItem />
-      <Form.Field<label.Key[]> path="query.hasLabels" showLabel={false}>
+      <Form.Field path={path.query.hasLabels} showLabel={false}>
         {({ value }) => {
           onValue?.(value);
           return <span>{`value:${value.join(",")}`}</span>;

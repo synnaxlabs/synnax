@@ -11,7 +11,8 @@
 
 from __future__ import annotations
 
-from typing import TypeAlias
+from typing import Annotated, Literal, TypeAlias
+from typing import override as _override
 from uuid import UUID
 
 from pydantic import BaseModel, Field
@@ -48,8 +49,31 @@ class Payload(BaseModel):
     labels: list[label.Label] | None = None
     parent: Payload | None = None
 
+    @_override
     def __hash__(self) -> int:
         return hash(self.key)
+
+
+class KeyRef(BaseModel):
+    """Is a range saved in the Core."""
+
+    variant: Literal["key"] = "key"
+    key: Key
+
+
+class WindowRef(BaseModel):
+    """Is a window carried inline: rolling or fixed."""
+
+    variant: Literal["window"] = "window"
+    window: telem.Window
+
+
+# Is the range a visualization shows: a range saved in the Core, or an inline
+# window.
+Ref = Annotated[
+    KeyRef | WindowRef,
+    Field(discriminator="variant"),
+]
 
 
 Payload.model_rebuild()

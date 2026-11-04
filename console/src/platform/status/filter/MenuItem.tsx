@@ -14,8 +14,10 @@ import { type Input } from "@synnaxlabs/lyra/input";
 import { type position } from "@synnaxlabs/lyra/position";
 import { type Select } from "@synnaxlabs/lyra/select";
 import { Status } from "@synnaxlabs/pluto";
-import { location } from "@synnaxlabs/x";
+import { deep, location } from "@synnaxlabs/x";
 import { type ReactElement } from "react";
+
+const path = deep.path<{ query: { variants?: status.Variant[] } }>();
 
 const TRIGGER_PROPS: Select.MultipleTriggerProps<status.Variant> = {
   hideTags: true,
@@ -29,8 +31,9 @@ const DIALOG_LOCATION: position.LocationPreference = {
 
 export const MenuItem = (): ReactElement => (
   <Form.Field<status.Variant[] | undefined, status.Variant[]>
-    path="query.variants"
+    path={path.query.variants}
     showLabel={false}
+    showHelpText={false}
   >
     {selectVariantRenderProp}
   </Form.Field>

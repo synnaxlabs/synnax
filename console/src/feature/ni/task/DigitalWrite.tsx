@@ -10,19 +10,23 @@
 import { channel, NotFoundError } from "@synnaxlabs/client";
 import { Component } from "@synnaxlabs/lyra/component";
 import { Flex } from "@synnaxlabs/lyra/flex";
+import { Form as PForm } from "@synnaxlabs/lyra/form";
 import { Icon } from "@synnaxlabs/lyra/icon";
-import { errors, type optional, primitive } from "@synnaxlabs/x";
+import { deep, errors, type optional, primitive } from "@synnaxlabs/x";
 import { type FC } from "react";
 
 import { useFromConfig } from "@/feature/ni/device/queries";
 import { Select } from "@/feature/ni/device/Select";
-import { SCHEMAS } from "@/feature/ni/device/types";
+import { MAKE, SCHEMAS } from "@/feature/ni/device/types";
+import { digitalHardwareZ } from "@/feature/ni/task/checks";
 import { createNextDOChannel } from "@/feature/ni/task/createChannel";
 import {
   DigitalChannelList,
   type DigitalNameComponentProps,
 } from "@/feature/ni/task/DigitalChannelList";
 import { getDigitalChannelDeviceKey } from "@/feature/ni/task/getDigitalChannelDeviceKey";
+import { digitalOutputName } from "@/feature/ni/task/ports";
+import { LinesView } from "@/feature/ni/task/PortsView";
 import {
   deployDigitalWriteConfigZ,
   DIGITAL_WRITE_SCHEMAS,
@@ -35,13 +39,13 @@ import { Device as PlatformDevice } from "@/platform/device";
 import { Selector } from "@/platform/selector";
 import { Task } from "@/platform/task";
 
+const root = deep.path<Task.Values<DigitalWriteSchemas>>();
+
 const Properties = () => (
   <>
     <Select />
     <Flex.Box x>
       <Task.Fields.StateUpdateRate />
-      <Task.Fields.DataSaving />
-      <Task.Fields.AutoStart />
     </Flex.Box>
   </>
 );
@@ -58,8 +62,8 @@ const NameComponent = ({ path, ...rest }: NameComponentProps) => {
   return (
     <Task.WriteChannelNames
       {...rest}
-      cmdNamePath={`${path}.cmdChannelName`}
-      stateNamePath={`${path}.stateChannelName`}
+      cmdNamePath={path.cmdChannelName}
+      stateNamePath={path.stateChannelName}
     />
   );
 };
@@ -68,6 +72,7 @@ const name = Component.renderProp(NameComponent);
 
 const Form: FC = () => {
   const dev = useFromConfig();
+  PForm.useCheck(root.config, digitalHardwareZ(dev, "output"));
   const resolve = (ch: DOChannel) => {
     if (dev == null) return null;
     const pair =
@@ -76,11 +81,27 @@ const Form: FC = () => {
     return { cmdChannel: pair.command, stateChannel: pair.state };
   };
   return (
-    <DigitalChannelList
-      createChannel={createNextDOChannel}
+    <DigitalChannelList<DOChannel>
+      path={root.config.channels}
+      createChannel={(channels) => createNextDOChannel(channels, {}, dev)}
       name={name}
       contextMenuItems={Task.writeChannelContextMenuItems}
       resolve={resolve}
+      ports={
+        dev?.properties.hardware == null
+          ? undefined
+          : (props) => (
+              <LinesView<DOChannel>
+                {...props}
+                device={dev}
+                direction="output"
+                create={(channels, placement) =>
+                  createNextDOChannel(channels, placement, dev)
+                }
+                name={digitalOutputName}
+              />
+            )
+      }
     />
   );
 };
@@ -129,8 +150,12 @@ const onConfigure: Task.OnConfigure<typeof digitalWriteConfigZ> = async (
     }
     const commandsToCreate: DOChannel[] = [];
     const statesToCreate: DOChannel[] = [];
-    for (const channel of config.channels) {
+    // Channels on one port share its data channel, named by an enabled one if any.
+    const seen = new Set<string>();
+    for (const channel of Task.enabledFirst(config.channels)) {
       const key = getDigitalChannelDeviceKey(channel);
+      if (seen.has(key)) continue;
+      seen.add(key);
       const exPair = dev.properties.digitalOutput.channels[key];
       if (exPair == null) {
         commandsToCreate.push(channel);
@@ -212,13 +237,13 @@ export const DigitalWrite = Task.wrapForm({
   Form,
   schemas: DIGITAL_WRITE_SCHEMAS,
   deployConfigZ: deployDigitalWriteConfigZ,
-  getInitialValues,
   onConfigure,
   type: "ni_digital_write",
 });
 
 export const useCreateDigitalWrite = Task.createUseCreate({
   getInitialValues,
+  deviceMake: MAKE,
 });
 
 export const DigitalWriteSelectable = Selector.createSelectable({

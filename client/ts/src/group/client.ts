@@ -35,7 +35,6 @@ export interface CreateParams extends z.infer<typeof createReqZ> {}
 
 const retrieveChildrenParamsZ = z.object({
   parent: ontologyIDZ,
-  searchTerm: z.string().optional(),
   offset: z.int().optional(),
   limit: z.int().optional(),
 });

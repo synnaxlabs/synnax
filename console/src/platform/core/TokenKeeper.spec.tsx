@@ -7,7 +7,10 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
+import { type Synnax as Client } from "@synnaxlabs/client";
 import { createTestClient } from "@synnaxlabs/client/testutil";
+import { Synnax } from "@synnaxlabs/pluto";
+import { id } from "@synnaxlabs/x";
 import { clearMocks, mockIPC } from "@tauri-apps/api/mocks";
 import { act, render, waitFor } from "@testing-library/react";
 import { describe, expect, it, onTestFinished, vi } from "vitest";
@@ -21,7 +24,7 @@ vi.mock("@/session/runtime/runtime", async (importOriginal) => {
 
 import { Core } from "@/platform/core";
 import { Session } from "@/session";
-import { createCore, createCoreState } from "@/session/core/testutil";
+import { createCore, createCoreState, keychainAccount } from "@/session/core/testutil";
 import { createSessionConsoleWrapper, createStatusConsoleWrapper } from "@/testutil";
 
 /** Records the keychain writes and deletes the keeper issues. */
@@ -52,7 +55,7 @@ describe("Core.TokenKeeper", () => {
     expect(calls[0]).toMatchObject({
       cmd: "keychain_set",
       args: {
-        account: `http://synnax@localhost:9090#${core.key}`,
+        account: keychainAccount(core),
         secret: expect.stringMatching(/^sys_/),
       },
     });
@@ -65,8 +68,48 @@ describe("Core.TokenKeeper", () => {
     await waitFor(() => expect(calls).toHaveLength(1));
     expect(calls[0]).toEqual({
       cmd: "keychain_delete",
-      args: { account: `http://synnax@localhost:9090#${core.key}` },
+      args: { account: keychainAccount(core) },
     });
+  });
+
+  it("should save the new token after the user sets its own password", async () => {
+    const calls = recordKeychain();
+    const username = `keeper-${id.create()}`;
+    await createTestClient().users.create({
+      username,
+      password: "old",
+      name: "Keeper",
+    });
+    const core = createCore("Local", { username, password: "old" });
+    const grabbed: { client?: Client | null } = {};
+    const Grab = (): null => {
+      grabbed.client = Synnax.use();
+      return null;
+    };
+    const { wrapper } = await createSessionConsoleWrapper({
+      client: null,
+      preloadedState: createCoreState([core], core.key),
+    });
+    render(
+      <>
+        <Core.TokenKeeper />
+        <Grab />
+      </>,
+      { wrapper },
+    );
+    await waitFor(() => expect(calls).toHaveLength(1));
+    await act(async () => {
+      await grabbed.client?.auth.setPassword({
+        password: "new",
+        currentPassword: "old",
+      });
+    });
+    await waitFor(() => expect(calls).toHaveLength(2));
+    expect(calls[1]).toMatchObject({
+      cmd: "keychain_set",
+      args: { secret: grabbed.client?.auth.token },
+    });
+    expect(calls[1]).not.toEqual(calls[0]);
   });
 
   it("should leave the keychain alone while the client belongs to another Core", async () => {
@@ -103,7 +146,7 @@ describe("Core.TokenKeeper", () => {
     expect(calls).toHaveLength(1);
     expect(calls[0]).toMatchObject({
       cmd: "keychain_set",
-      args: { account: `http://synnax@localhost:9090#${first.key}` },
+      args: { account: keychainAccount(first) },
     });
   });
 });

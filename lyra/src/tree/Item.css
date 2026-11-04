@@ -28,16 +28,24 @@
     }
 
     .lyra-tree__item {
+        /* Icons size by the item's text level. */
+        --pluto-tree-item-icon-size: 2.5rem;
+
         min-height: 4.5rem;
         padding-right: 1.5rem;
+
+        &.lyra-text--small {
+            --pluto-tree-item-icon-size: 2rem;
+        }
 
         &:is(a) {
             text-decoration: none;
         }
 
-        & .lyra-icon {
-            width: calc(var(--pluto-icon-aspect, 1) * 2.5rem);
-            height: 2.5rem;
+        /* A button inside the row sizes its own icon. */
+        & .lyra-icon:not(.lyra-tree__item .lyra-btn *) {
+            width: calc(var(--pluto-icon-aspect, 1) * var(--pluto-tree-item-icon-size));
+            height: var(--pluto-tree-item-icon-size);
         }
 
         & .lyra-icon:not(.lyra-tree__expansion-indicator) {

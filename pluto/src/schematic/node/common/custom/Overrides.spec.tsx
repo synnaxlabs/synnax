@@ -10,10 +10,10 @@
 import { group, ontology, schematic } from "@synnaxlabs/client";
 import { createTestClient } from "@synnaxlabs/client/testutil";
 import { Form } from "@synnaxlabs/lyra/form";
-import { color } from "@synnaxlabs/x";
+import { color, deep } from "@synnaxlabs/x";
 import { act, fireEvent, render, waitFor } from "@testing-library/react";
 import { type FC, type PropsWithChildren, type ReactElement } from "react";
-import { beforeAll, describe, expect, it } from "vitest";
+import { assert, beforeAll, describe, expect, it } from "vitest";
 import { z } from "zod";
 
 import { Custom } from "@/schematic/node/common/custom";
@@ -23,6 +23,8 @@ const formSchema = z.object({
   specKey: z.string(),
   stateOverrides: schematic.symbol.stateZ.array(),
 });
+
+const path = deep.path<z.infer<typeof formSchema>>();
 
 const createState = (key: string, name: string): schematic.symbol.State => ({
   key,
@@ -100,7 +102,7 @@ describe("StateOverrideForm", () => {
     await waitFor(() => expect(getByText("Active Region")).toBeTruthy());
     // Swapping the overrides beneath the held selection must not crash the
     // region list; it falls back to the first remaining state.
-    act(() => form().set("stateOverrides", [createState("base", "Base")]));
+    act(() => form().set(path.stateOverrides, [createState("base", "Base")]));
     await waitFor(() => expect(getByText("Base Region")).toBeTruthy());
     expect(queryByText("Active Region")).toBeNull();
   });
@@ -133,6 +135,20 @@ describe("StateOverrideForm", () => {
       fireEvent.change(getByLabelText("Hex"), { target: { value: "ff0000" } });
       await waitFor(() =>
         expect(baseRegion(form())?.strokeColor).toEqual(color.construct("#ff0000")),
+      );
+    });
+
+    it("should reset a changed region to the symbol's definition", async () => {
+      const { container, form } = await renderRegion();
+      const stroke = path.stateOverrides.base.regions.main.strokeColor;
+      act(() => form().set(stroke, color.construct("#ff0000")));
+      const reset = container.querySelector<HTMLElement>(
+        ".pluto-schematic-region-reset",
+      );
+      assert(reset != null);
+      fireEvent.click(reset);
+      await waitFor(() =>
+        expect(baseRegion(form())?.strokeColor).toEqual(color.construct("#333333")),
       );
     });
 

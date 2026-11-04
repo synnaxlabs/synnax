@@ -70,9 +70,8 @@ func (c ChannelEntry) Validate() error {
 	return v.Error()
 }
 
-// Log is a timestamped event and message logging component. Logs display chronological
-// records of events, system messages, and audit trails with filtering and formatting
-// capabilities.
+// Log is a visualization that shows the samples of its channels as text, one line per
+// sample, in time order.
 type Log struct {
 	// Key is the unique identifier for this log.
 	Key Key `json:"key" msgpack:"key"`
@@ -84,8 +83,8 @@ type Log struct {
 	TimestampPrecision int32 `json:"timestamp_precision" msgpack:"timestamp_precision"`
 	// ChannelNamesHidden is true when channel names are hidden.
 	ChannelNamesHidden bool `json:"channel_names_hidden" msgpack:"channel_names_hidden"`
-	// ReceiptTimestampHidden is true when the receipt timestamp column is hidden.
-	ReceiptTimestampHidden bool `json:"receipt_timestamp_hidden" msgpack:"receipt_timestamp_hidden"`
+	// TimestampsHidden is true when entry timestamps are hidden.
+	TimestampsHidden bool `json:"timestamps_hidden" msgpack:"timestamps_hidden"`
 }
 
 // ApplyDefaults fills zero-valued fields with their schema-declared defaults.
