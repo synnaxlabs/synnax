@@ -7,9 +7,18 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
+import { type record } from "@synnaxlabs/x";
 import { act, fireEvent, render, renderHook } from "@testing-library/react";
-import { type PropsWithChildren, type ReactElement } from "react";
-import { beforeAll, describe, expect, it, onTestFinished, vi } from "vitest";
+import { type PropsWithChildren, type ReactElement, useState } from "react";
+import {
+  beforeAll,
+  beforeEach,
+  describe,
+  expect,
+  it,
+  onTestFinished,
+  vi,
+} from "vitest";
 
 import { Dialog } from "@/dialog";
 import { List } from "@/list";
@@ -93,6 +102,78 @@ describe("Select keyboard hover", () => {
   it("should move the hover index to 0 when the initial hover is beyond the length of the list", () => {
     const { hover } = renderHover(DATA, vi.fn(), { initialHover: 10 });
     expect(hover()).toBe("alpha");
+  });
+
+  const tap = (code: string): void => {
+    keyDown(code);
+    keyUp(code);
+  };
+
+  it("should move the hover to the ends on Home and End", () => {
+    const { hover } = renderHover(DATA, vi.fn());
+    tap("End");
+    expect(hover()).toBe("charlie");
+    tap("Home");
+    expect(hover()).toBe("alpha");
+  });
+
+  it("should leave Home and End to a focused text field", () => {
+    const { hover } = renderHover(DATA, vi.fn(), { initialHover: 1 });
+    const input = document.createElement("input");
+    document.body.appendChild(input);
+    onTestFinished(() => input.remove());
+    fireEvent.keyDown(input, { code: "End" });
+    expect(hover()).toBe("bravo");
+  });
+
+  it("should wrap around on a new press at either end", () => {
+    const { hover } = renderHover(DATA, vi.fn(), { initialHover: 2 });
+    tap("ArrowDown");
+    expect(hover()).toBe("alpha");
+    tap("ArrowUp");
+    expect(hover()).toBe("charlie");
+  });
+
+  describe("held key", () => {
+    beforeEach(() => {
+      vi.useFakeTimers();
+      onTestFinished(() => {
+        vi.useRealTimers();
+      });
+    });
+
+    it("should repeat until the last option, then stop", () => {
+      const { hover } = renderHover(DATA, vi.fn());
+      keyDown("ArrowDown");
+      expect(hover()).toBe("alpha");
+      act(() => {
+        vi.advanceTimersByTime(300);
+      });
+      expect(hover()).toBe("bravo");
+      act(() => {
+        vi.advanceTimersByTime(100);
+      });
+      expect(hover()).toBe("charlie");
+      act(() => {
+        vi.advanceTimersByTime(200);
+      });
+      expect(hover()).toBe("charlie");
+    });
+
+    it("should stop repeating when the keys turn off before the release", () => {
+      let enabled = true;
+      const { hover } = renderHover(DATA, vi.fn(), {
+        dialog: false,
+        enableTriggers: () => enabled,
+      });
+      keyDown("ArrowDown");
+      enabled = false;
+      keyUp("ArrowDown");
+      act(() => {
+        vi.advanceTimersByTime(1000);
+      });
+      expect(hover()).toBe("alpha");
+    });
   });
 
   describe("pointer", () => {
@@ -373,5 +454,84 @@ describe("Select keyboard hover", () => {
       expect(onChange).toHaveBeenCalledTimes(1);
       expect(onChange).toHaveBeenCalledWith("0");
     });
+  });
+});
+
+describe("Select keyboard selection", () => {
+  const DATA = ["alpha", "bravo", "charlie"];
+
+  const KeyList = ({ onDoubleClick }: { onDoubleClick: (key: string) => void }) => {
+    const keyboard = Select.useKeyboard();
+    return (
+      <List.Scroll tabIndex={0} aria-label="options" {...keyboard}>
+        <Select.Items<string>>
+          {({ key, ...rest }) => (
+            <Select.Item
+              key={key}
+              {...rest}
+              onDoubleClick={() => onDoubleClick(rest.itemKey)}
+            >
+              {rest.itemKey}
+            </Select.Item>
+          )}
+        </Select.Items>
+      </List.Scroll>
+    );
+  };
+
+  const Component = ({ onDoubleClick }: { onDoubleClick: (key: string) => void }) => {
+    const [value, setValue] = useState<string | null>(null);
+    return (
+      <Triggers.Provider>
+        <Select.Frame<string, record.Keyed<string>>
+          data={DATA}
+          value={value ?? undefined}
+          onChange={setValue}
+          allowNone
+          cursor="selection"
+        >
+          <KeyList onDoubleClick={onDoubleClick} />
+        </Select.Frame>
+      </Triggers.Provider>
+    );
+  };
+
+  const renderList = (onDoubleClick: (key: string) => void = vi.fn()) => {
+    const c = render(<Component onDoubleClick={onDoubleClick} />);
+    const list = c.getByLabelText("options");
+    const press = (code: string): void => {
+      fireEvent.keyDown(list, { code });
+      fireEvent.keyUp(list, { code });
+    };
+    const selected = (): string[] =>
+      c
+        .queryAllByRole("option", { selected: true })
+        .map(({ textContent }) => textContent ?? "");
+    return { press, selected };
+  };
+
+  it("should move the selection with the keys of the focused list", () => {
+    const { press, selected } = renderList();
+    press("ArrowDown");
+    press("ArrowDown");
+    expect(selected()).toEqual(["bravo"]);
+    press("Home");
+    expect(selected()).toEqual(["alpha"]);
+  });
+
+  it("should leave the selection alone on keys pressed elsewhere in the window", () => {
+    const { selected } = renderList();
+    fireEvent.keyDown(window, { code: "ArrowDown" });
+    expect(selected()).toEqual([]);
+  });
+
+  it("should double-click the selected item on Enter", () => {
+    const onDoubleClick = vi.fn();
+    const { press } = renderList(onDoubleClick);
+    press("Enter");
+    expect(onDoubleClick).not.toHaveBeenCalled();
+    press("ArrowDown");
+    press("Enter");
+    expect(onDoubleClick).toHaveBeenCalledExactlyOnceWith("alpha");
   });
 });

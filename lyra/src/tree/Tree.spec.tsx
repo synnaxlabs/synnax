@@ -9,7 +9,7 @@
 
 import { act, fireEvent, render, renderHook, screen } from "@testing-library/react";
 import { type KeyboardEvent } from "react";
-import { beforeAll, describe, expect, it, vi } from "vitest";
+import { beforeAll, describe, expect, it, onTestFinished, vi } from "vitest";
 
 import { type Haul } from "@/haul";
 import { List } from "@/list";
@@ -26,6 +26,7 @@ import {
   Tree,
   use,
 } from "@/tree/Tree";
+import { Triggers } from "@/triggers";
 
 const KEY = "node-1";
 const OTHER: Haul.Item = { type: "other_type", key: "other" };
@@ -278,27 +279,33 @@ describe("Tree keys", () => {
   );
 
   interface ComponentProps {
+    nodes?: Node[];
     onKeyDown?: (e: KeyboardEvent<HTMLDivElement>) => void;
+    onDoubleClick?: (key: string) => void;
   }
 
-  const Component = ({ onKeyDown }: ComponentProps) => {
-    const props = use({ nodes: NODES });
+  const Component = ({ nodes = NODES, onKeyDown, onDoubleClick }: ComponentProps) => {
+    const props = use({ nodes });
     return (
-      <Tree {...props} getItem={getItem} onKeyDown={onKeyDown}>
-        {({ key, ...rest }) => (
-          <Item key={key} {...rest}>
-            {key}
-            {key === "b" && <input aria-label="b name" />}
-          </Item>
-        )}
-      </Tree>
+      <Triggers.Provider>
+        <Tree {...props} getItem={getItem} onKeyDown={onKeyDown}>
+          {({ key, ...rest }) => (
+            <Item key={key} {...rest} onDoubleClick={() => onDoubleClick?.(key)}>
+              {key}
+              {key === "b" && <input aria-label="b name" />}
+            </Item>
+          )}
+        </Tree>
+      </Triggers.Provider>
     );
   };
 
   const tree = () => screen.getByRole("tree");
   const row = (name: string) => screen.getByRole("treeitem", { name });
-  const press = (key: string, init?: KeyboardEventInit) =>
-    fireEvent.keyDown(tree(), { key, ...init });
+  const press = (key: string, init?: KeyboardEventInit) => {
+    fireEvent.keyDown(tree(), { key, code: key, ...init });
+    fireEvent.keyUp(tree(), { key, code: key, ...init });
+  };
   const selected = () =>
     screen
       .queryAllByRole("treeitem", { selected: true })
@@ -332,14 +339,39 @@ describe("Tree keys", () => {
     expect(selected()).toEqual(["a"]);
   });
 
-  it("should stop at the first and last items", () => {
+  it("should wrap around on a new press at either end", () => {
     render(<Component />);
     press("End");
     press("ArrowDown");
-    expect(selected()).toEqual(["c"]);
-    press("Home");
-    press("ArrowUp");
     expect(selected()).toEqual(["a"]);
+    press("ArrowUp");
+    expect(selected()).toEqual(["c"]);
+  });
+
+  it("should stop a held key at the last item", () => {
+    vi.useFakeTimers();
+    onTestFinished(() => {
+      vi.useRealTimers();
+    });
+    render(<Component />);
+    fireEvent.keyDown(tree(), { key: "ArrowDown", code: "ArrowDown" });
+    act(() => {
+      vi.advanceTimersByTime(400);
+    });
+    expect(selected()).toEqual(["c"]);
+    act(() => {
+      vi.advanceTimersByTime(200);
+    });
+    expect(selected()).toEqual(["c"]);
+  });
+
+  it("should double-click the selected item on Enter", () => {
+    const onDoubleClick = vi.fn();
+    render(<Component onDoubleClick={onDoubleClick} />);
+    press("ArrowDown");
+    press("ArrowDown");
+    press("Enter");
+    expect(onDoubleClick).toHaveBeenCalledExactlyOnceWith("b");
   });
 
   it("should not expand a node that the selection moves onto", () => {
@@ -386,6 +418,18 @@ describe("Tree keys", () => {
     expect(selected()).toEqual(["b"]);
   });
 
+  it("should extend a shift-click range from the item the keys moved to", () => {
+    render(
+      <Component nodes={[{ key: "a" }, { key: "b" }, { key: "c" }, { key: "d" }]} />,
+    );
+    fireEvent.click(row("a"));
+    press("ArrowDown");
+    press("ArrowDown");
+    fireEvent.keyDown(window, { code: "Shift" });
+    fireEvent.click(row("d"), { shiftKey: true });
+    expect(selected()).toEqual(["c", "d"]);
+  });
+
   it("should leave a key pressed with a modifier alone", () => {
     render(<Component />);
     press("ArrowDown");
@@ -396,7 +440,10 @@ describe("Tree keys", () => {
 
   it("should leave a key typed into an element inside an item alone", () => {
     render(<Component />);
-    fireEvent.keyDown(screen.getByLabelText("b name"), { key: "ArrowDown" });
+    fireEvent.keyDown(screen.getByLabelText("b name"), {
+      key: "ArrowDown",
+      code: "ArrowDown",
+    });
     expect(selected()).toEqual([]);
   });
 
