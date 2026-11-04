@@ -7,16 +7,18 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { deep, type record } from "@synnaxlabs/x";
+import { deep, type record, TimeSpan } from "@synnaxlabs/x";
 import { act, fireEvent, render, renderHook, screen } from "@testing-library/react";
 import { type PropsWithChildren, type ReactElement } from "react";
 import { renderToString } from "react-dom/server";
-import { describe, expect, it, vi } from "vitest";
+import { beforeAll, describe, expect, it, vi } from "vitest";
 import { z } from "zod";
 
 import { Form } from "@/form";
 import { createLocalStore } from "@/form/store";
 import { Input } from "@/input";
+import { loadLanguage } from "@/input/time/suggest";
+import { mockBoundingClientRect } from "@/testutil/dom";
 
 const basicFormSchema = z
   .object({
@@ -776,6 +778,70 @@ describe("Form", () => {
     });
   });
 
+  describe("TimeSpanField", () => {
+    beforeAll(loadLanguage);
+    beforeAll(() => {
+      Element.prototype.getBoundingClientRect = mockBoundingClientRect(0, 0, 100, 100);
+    });
+    const spanSchema = z.object({
+      timeoutMs: z.number(),
+      keepAlive: z.number().optional(),
+    });
+    const span = deep.path<z.infer<typeof spanSchema>>();
+    const SpanForm = (props: PropsWithChildren): ReactElement => {
+      const methods = Form.use<typeof spanSchema>({
+        values: { timeoutMs: 1500, keepAlive: 30 },
+        schema: spanSchema,
+      });
+      return <Form.Form<typeof spanSchema> {...methods}>{props.children}</Form.Form>;
+    };
+    const edit = (input: HTMLElement, value: string): void => {
+      fireEvent.focus(input);
+      fireEvent.change(input, { target: { value } });
+      fireEvent.blur(input);
+    };
+
+    it("should show and store the number in its unit", () => {
+      const c = render(
+        <Form.TimeSpanField path={span.timeoutMs} unit={TimeSpan.MILLISECOND} />,
+        { wrapper: SpanForm },
+      );
+      const input = c.getByDisplayValue("1s 500ms");
+      edit(input, "250");
+      expect(c.getByDisplayValue("250ms")).toBeTruthy();
+    });
+
+    it("should name the bound a span crosses", () => {
+      const c = render(
+        <Form.TimeSpanField
+          path={span.timeoutMs}
+          label="Timeout"
+          unit={TimeSpan.MILLISECOND}
+          bounds={{ upper: TimeSpan.MINUTE }}
+        />,
+        { wrapper: SpanForm },
+      );
+      const input = c.getByDisplayValue("1s 500ms");
+      fireEvent.focus(input);
+      fireEvent.change(input, { target: { value: "5min" } });
+      expect(c.getByText("Timeout must be 1min or less")).toBeTruthy();
+    });
+
+    it("should store undefined when an emptiable field is emptied", () => {
+      const c = render(
+        <Form.TimeSpanField
+          path={span.keepAlive}
+          unit={TimeSpan.SECOND}
+          emptiable
+          inputProps={{ placeholder: "30s" }}
+        />,
+        { wrapper: SpanForm },
+      );
+      edit(c.getByDisplayValue("30s"), "");
+      expect(c.getByPlaceholderText("30s")).toHaveProperty("value", "");
+    });
+  });
+
   describe("CheckboxField", () => {
     const flagsSchema = z.object({
       enabled: z.boolean(),
@@ -843,8 +909,9 @@ describe("Form", () => {
     });
     it("should correctly push a value onto the start of the array", () => {
       const res = renderHook(() => Form.useFieldList(path.array), { wrapper });
-      res.result.current.push({ key: "key2", name: "Jane Doe" });
-      res.rerender();
+      act(() => {
+        res.result.current.push({ key: "key2", name: "Jane Doe" });
+      });
       expect(res.result.current.data).toEqual(["key1", "key2"]);
     });
 
@@ -858,10 +925,12 @@ describe("Form", () => {
 
     it("should correctly keep only the given index in the array", () => {
       const res = renderHook(() => Form.useFieldList(path.array), { wrapper });
-      res.result.current.push({ key: "key2", name: "Jane Doe" });
-      res.rerender();
-      res.result.current.keepOnly("key2");
-      res.rerender();
+      act(() => {
+        res.result.current.push({ key: "key2", name: "Jane Doe" });
+      });
+      act(() => {
+        res.result.current.keepOnly("key2");
+      });
       expect(res.result.current.data).toEqual(["key2"]);
     });
   });

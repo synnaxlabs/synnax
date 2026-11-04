@@ -9,7 +9,7 @@
 
 import "@/feature/labjack/task/Write.css";
 
-import { channel, NotFoundError } from "@synnaxlabs/client";
+import { channel, NotFoundError, type Synnax } from "@synnaxlabs/client";
 import { Component } from "@synnaxlabs/lyra/component";
 import { Flex } from "@synnaxlabs/lyra/flex";
 import { Form as PForm } from "@synnaxlabs/lyra/form";
@@ -66,7 +66,7 @@ const Properties = () => (
   </>
 );
 
-/** The name a channel shows by: its command channel's, or the one configuring gives. */
+/** The name a channel shows by: its command channel's, or the one deploying gives. */
 const commandName = (c: WriteChannel, identifier: string): string =>
   primitive.isNonZero(c.cmdChannelName)
     ? c.cmdChannelName
@@ -78,6 +78,9 @@ const stateName = (c: WriteChannel, identifier: string): string =>
     ? c.stateChannelName
     : `${identifier}_${c.port}_state`;
 
+const portOf = (c: WriteChannel): string =>
+  `${convertWriteChannelTypeToPortType(c.type)}/${c.port}`;
+
 interface ChannelListItemProps extends Task.ChannelListItemProps {
   device: Device;
 }
@@ -88,6 +91,7 @@ const ChannelListItem = ({ device, ...rest }: ChannelListItemProps) => {
   const entry = path.config.channels[rest.itemKey];
   const { get, set } = PForm.useContext();
   const item = PForm.useFieldValue(entry);
+  const skipped = Task.useSkipped(path.config.channels, rest.itemKey, portOf);
   const { port, type, cmdChannel, stateChannel } = item;
   return (
     <List.Item {...rest} full="x" justify="between">
@@ -147,6 +151,7 @@ const ChannelListItem = ({ device, ...rest }: ChannelListItemProps) => {
           stateNamePath={entry.stateChannelName}
           cmdDefaultName={commandName(item, identifier)}
           stateDefaultName={stateName(item, identifier)}
+          skipped={skipped}
         />
         <Task.EnabledCheckbox path={entry.disabled} />
       </Flex.Box>
@@ -248,6 +253,29 @@ const getInitialValues: Task.GetInitialValues<WriteSchemas> = ({
   return { name: "LabJack write task", type: WRITE_TYPE, config: cfg };
 };
 
+// Returns the index of a state channel the device maps that still exists, or 0 if there
+// is none. A client that maps channels without setting writeStateIndex, such as Python,
+// leaves the index only on the state channels.
+const retrieveMappedStateIndex = async (
+  client: Synnax,
+  dev: Device,
+): Promise<channel.Key> => {
+  const pairs = [
+    ...Object.values(dev.properties.AO.channels),
+    ...Object.values(dev.properties.DO.channels),
+  ];
+  for (const { state } of pairs) {
+    if (primitive.isZero(state)) continue;
+    try {
+      const { index } = await client.channels.retrieve(state);
+      if (!primitive.isZero(index)) return index;
+    } catch (e) {
+      if (!NotFoundError.matches(e)) throw errors.fromUnknown(e);
+    }
+  }
+  return 0;
+};
+
 const onConfigure: Task.OnConfigure<WriteSchemas["config"]> = async (
   client,
   config,
@@ -270,24 +298,24 @@ const onConfigure: Task.OnConfigure<WriteSchemas["config"]> = async (
   try {
     if (shouldCreateStateIndex) {
       modified = true;
-      const stateIndex = await client.channels.create({
-        name: `${identifier}_write_state_time`,
-        dataType: "timestamp",
-        isIndex: true,
-      });
-      dev.properties.writeStateIndex = stateIndex.key;
-      dev.properties.DO.channels = {};
-      dev.properties.AO.channels = {};
+      const mappedIndex = await retrieveMappedStateIndex(client, dev);
+      if (!primitive.isZero(mappedIndex)) dev.properties.writeStateIndex = mappedIndex;
+      else {
+        const stateIndex = await client.channels.create({
+          name: `${identifier}_write_state_time`,
+          dataType: "timestamp",
+          isIndex: true,
+        });
+        dev.properties.writeStateIndex = stateIndex.key;
+        dev.properties.DO.channels = {};
+        dev.properties.AO.channels = {};
+      }
     }
     const commandChannelsToCreate: WriteChannel[] = [];
     const stateChannelsToCreate: WriteChannel[] = [];
-    // Channels on one port share its data channels, named by an enabled one if any.
-    const seen = new Set<string>();
-    for (const channel of Task.enabledFirst(config.channels)) {
+    for (const channel of Task.firstPerPort(config.channels, portOf)) {
       const key = channel.port;
       const type = convertWriteChannelTypeToPortType(channel.type);
-      if (seen.has(`${type}/${key}`)) continue;
-      seen.add(`${type}/${key}`);
       const existingPair = dev.properties[type].channels[key];
       if (existingPair == null) {
         commandChannelsToCreate.push(channel);

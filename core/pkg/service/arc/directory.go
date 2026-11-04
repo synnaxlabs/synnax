@@ -122,10 +122,9 @@ func (d directories) OnChange(
 func (d directories) Search(
 	ctx context.Context,
 	tx gorp.Tx,
-	term string,
-	limit int,
+	q search.Query[ontology.ID],
 ) (search.Result[ontology.ID], error) {
-	return ontology.SearchIndex(ctx, tx, d.search, term, limit, directory.OntologyID)
+	return ontology.SearchIndex(ctx, tx, d.search, directory.OntologyID, q)
 }
 
 // openRoot returns the key of the root directory under the ontology root, creating it

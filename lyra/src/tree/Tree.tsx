@@ -17,7 +17,7 @@ import { useCombinedStateAndRef, useSyncedRef } from "@/hooks";
 import { List } from "@/list";
 import { Select } from "@/select";
 import { state } from "@/state";
-import { flatten, getNodeShape, type Node, type Shape } from "@/tree/base";
+import { findNode, flatten, type Node, type Shape } from "@/tree/base";
 import { Context } from "@/tree/Context";
 import { Triggers } from "@/triggers";
 
@@ -89,13 +89,15 @@ export const use = <K extends record.Key = string>({
     onChange: onSelectedChange,
   });
   const shape = flatten<K>({ nodes, expanded, sort });
-  const shapeRef = useSyncedRef(shape);
+  const nodesRef = useSyncedRef(nodes);
 
   const shiftRef = Triggers.useHeldRef({ triggers: SHIFT_TRIGGERS });
 
+  // A caller can show a shape other than this hook's, such as a filtered one, so the
+  // node is found in the whole tree.
   const handleToggle = (key: K): void => {
-    const n = getNodeShape(shapeRef.current, key);
-    if (n == null || !n.hasChildren) return;
+    const n = findNode({ tree: nodesRef.current, key });
+    if (n?.children == null) return;
     const currentlyExpanded = expandedRef.current;
     const action = currentlyExpanded.includes(key) ? "contract" : "expand";
     const nextExpanded =

@@ -289,7 +289,7 @@ var _ = Describe("Directories", func() {
 			a := createArc(ctx, "free", arc.TypeModule)
 			b := a.Base()
 			b.Name = "taken"
-			a = a.WithBase(b)
+			a.SetBase(b)
 			Expect(w.Create(ctx, &a)).To(MatchError(ContainSubstring("already used")))
 		})
 		It("Should reject a dispatched rename that duplicates a name", func(

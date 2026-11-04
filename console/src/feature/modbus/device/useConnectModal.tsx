@@ -11,17 +11,19 @@ import "@/feature/modbus/device/Connect.css";
 
 import { type device, status, TimeSpan } from "@synnaxlabs/client";
 import { Description } from "@synnaxlabs/lyra/description";
+import { Flex } from "@synnaxlabs/lyra/flex";
 import { Form } from "@synnaxlabs/lyra/form";
 import { Icon } from "@synnaxlabs/lyra/icon";
 import { Input } from "@synnaxlabs/lyra/input";
 import { Modal } from "@synnaxlabs/lyra/modal";
 import { Select } from "@synnaxlabs/lyra/select";
 import { Status } from "@synnaxlabs/lyra/status";
-import { Tabs } from "@synnaxlabs/lyra/tabs";
 import { Device as PDevice, type Flux } from "@synnaxlabs/pluto";
-import { deep } from "@synnaxlabs/x";
-import { type ReactElement, useState } from "react";
+import { deep, Density } from "@synnaxlabs/x";
+import { type ReactElement } from "react";
 
+import { ByteOrderOption } from "@/feature/modbus/device/ByteOrder";
+import { MENU_PROPS, TRIGGER_PROPS } from "@/feature/modbus/device/Option";
 import {
   BAUD_RATES,
   BYTE_ORDERS,
@@ -171,7 +173,6 @@ export const Connect = ({
   const transport = Form.useFieldValue(connectionPath.transport, {
     ctx: form,
   });
-  const [tab, setTab] = useState("unit");
 
   // The transports share no address fields, so a switch starts the address over.
   const renderTransport = ({ value, onChange }: Input.Control<Transport>) => {
@@ -191,7 +192,7 @@ export const Connect = ({
   };
 
   return (
-    <Modal.Frame className={CSS.B("modbus-connect")}>
+    <PlatformDevice.ConnectFrame className={CSS.B("modbus-connect")}>
       <Modal.Header icon={<Icon.Logo.Modbus />}>{HEADER}</Modal.Header>
       <Modal.Body gap="large">
         <Form.Form<PDevice.FormSchema<typeof SCHEMAS>> {...form}>
@@ -211,7 +212,7 @@ export const Connect = ({
                 {renderTransport}
               </Form.Field>
               {transport === "tcp" ? (
-                <>
+                <Flex.Box x>
                   <Form.TextField
                     path={tcp.host}
                     label="Host"
@@ -224,98 +225,97 @@ export const Connect = ({
                     padHelpText={false}
                     inputProps={PORT_INPUT_PROPS}
                   />
-                </>
+                </Flex.Box>
               ) : (
                 <>
-                  <Form.TextField
-                    path={serial.serialPort}
-                    label="Serial port"
-                    padHelpText={false}
-                    inputProps={SERIAL_PORT_INPUT_PROPS}
-                  />
-                  <BaudRateField path={serial.baudRate} />
-                  <ParityField path={serial.parity} />
-                  <StopBitsField path={serial.stopBits} />
+                  <Flex.Box x>
+                    <Form.TextField
+                      path={serial.serialPort}
+                      label="Serial port"
+                      padHelpText={false}
+                      inputProps={SERIAL_PORT_INPUT_PROPS}
+                    />
+                    <BaudRateField path={serial.baudRate} />
+                  </Flex.Box>
+                  <Flex.Box x>
+                    <ParityField path={serial.parity} />
+                    <StopBitsField path={serial.stopBits} />
+                  </Flex.Box>
                 </>
               )}
+              <Flex.Box x>
+                <Form.NumericField
+                  path={connectionPath.unitId}
+                  label="Unit ID"
+                  padHelpText={false}
+                  inputProps={UNIT_ID_INPUT_PROPS[transport]}
+                />
+                <ByteOrderField />
+              </Flex.Box>
               <PlatformDevice.RackField integration={INTEGRATION} />
             </Form.Section>
           </Form.Sections>
-          <Tabs.Frame value={tab} onChange={setTab} empty={false} gap="large">
-            <Tabs.Selector variant="chip" className={SELECTOR_CLASS}>
-              <Tabs.Tab itemKey="unit">Unit</Tabs.Tab>
-              <Tabs.Tab itemKey="advanced">Advanced</Tabs.Tab>
-              {deviceKey != null && (
-                <Tabs.Tab itemKey="diagnostics">Diagnostics</Tabs.Tab>
-              )}
-            </Tabs.Selector>
-            <Tabs.Content itemKey="unit" className={CONTENT_CLASS}>
-              <Form.Sections className={SECTIONS_CLASS}>
-                <Form.Section>
-                  <Form.NumericField
-                    path={connectionPath.unitId}
-                    label="Unit ID"
-                    padHelpText={false}
-                    inputProps={UNIT_ID_INPUT_PROPS[transport]}
-                  />
-                  <ByteOrderField />
-                </Form.Section>
-              </Form.Sections>
-            </Tabs.Content>
-            <Tabs.Content itemKey="advanced" className={CONTENT_CLASS}>
-              <Form.Sections className={SECTIONS_CLASS}>
-                <Form.Section title="Timing">
-                  <Form.NumericField
-                    path={connectionPath.timeoutMs}
-                    label="Timeout"
-                    padHelpText={false}
-                    inputProps={TIMEOUT_INPUT_PROPS}
-                  />
-                  <Form.NumericField
-                    path={connectionPath.retries}
-                    label="Retries"
-                    padHelpText={false}
-                    inputProps={RETRIES_INPUT_PROPS}
-                  />
-                  <Form.NumericField
-                    path={path.properties.requests.delayMs}
-                    label="Request delay"
-                    padHelpText={false}
-                    inputProps={DELAY_INPUT_PROPS}
-                  />
-                </Form.Section>
-                <Form.Section title="Requests">
-                  <Form.NumericField
-                    path={path.properties.requests.maxRegisters}
-                    label="Max registers"
-                    padHelpText={false}
-                    inputProps={MAX_REGISTERS_INPUT_PROPS}
-                  />
-                  <Form.NumericField
-                    path={path.properties.requests.maxGap}
-                    label="Max gap"
-                    padHelpText={false}
-                    inputProps={MAX_GAP_INPUT_PROPS}
-                  />
-                  <Form.Field
-                    path={path.properties.requests.writeCodes}
-                    label="Write codes"
-                    padHelpText={false}
-                  >
-                    {(props) => <SelectWriteCodes {...props} />}
-                  </Form.Field>
-                  <Form.CheckboxField
-                    path={path.properties.requests.maskWriteSupported}
-                    label="Mask write (FC22)"
-                    padHelpText={false}
-                  />
-                </Form.Section>
-              </Form.Sections>
-            </Tabs.Content>
-            <Tabs.Content itemKey="diagnostics" className={CONTENT_CLASS}>
-              <Diagnostics />
-            </Tabs.Content>
-          </Tabs.Frame>
+          <Form.Sections className={SECTIONS_CLASS}>
+            <Form.Section title="Timing">
+              <Flex.Box x>
+                <Form.TimeSpanField
+                  path={connectionPath.timeoutMs}
+                  label="Timeout"
+                  unit={TimeSpan.MILLISECOND}
+                  bounds={TIMEOUT_BOUNDS}
+                  padHelpText={false}
+                />
+                <Form.NumericField
+                  path={connectionPath.retries}
+                  label="Retries"
+                  padHelpText={false}
+                  inputProps={RETRIES_INPUT_PROPS}
+                />
+                <Form.TimeSpanField
+                  path={path.properties.requests.delayMs}
+                  label="Request delay"
+                  unit={TimeSpan.MILLISECOND}
+                  bounds={DELAY_BOUNDS}
+                  padHelpText={false}
+                />
+              </Flex.Box>
+            </Form.Section>
+            <Form.Section title="Requests">
+              <Flex.Box x>
+                <Form.NumericField
+                  path={path.properties.requests.maxRegisters}
+                  label="Max registers"
+                  padHelpText={false}
+                  inputProps={MAX_REGISTERS_INPUT_PROPS}
+                />
+                <Form.NumericField
+                  path={path.properties.requests.maxGap}
+                  label="Max gap"
+                  padHelpText={false}
+                  inputProps={MAX_GAP_INPUT_PROPS}
+                />
+              </Flex.Box>
+              <Flex.Box x>
+                <Form.Field
+                  path={path.properties.requests.writeCodes}
+                  label="Write codes"
+                  padHelpText={false}
+                >
+                  {(props) => <SelectWriteCodes {...props} />}
+                </Form.Field>
+                <Form.CheckboxField
+                  path={path.properties.requests.maskWriteSupported}
+                  label="Mask write (FC22)"
+                  padHelpText={false}
+                />
+              </Flex.Box>
+            </Form.Section>
+            {deviceKey != null && (
+              <Form.Section title="Diagnostics">
+                <Diagnostics />
+              </Form.Section>
+            )}
+          </Form.Sections>
         </Form.Form>
       </Modal.Body>
       <PlatformDevice.ConnectFooter
@@ -325,7 +325,7 @@ export const Connect = ({
         onConnect={() => save()}
         onBack={onBack}
       />
-    </Modal.Frame>
+    </PlatformDevice.ConnectFrame>
   );
 };
 
@@ -334,8 +334,6 @@ export const useConnectModal = PlatformDevice.createConnectModal(Connect, INTEGR
 const HEADER = ["Device", "Connect", "Modbus server"];
 
 const SECTIONS_CLASS = CSS.BE("modbus-connect", "sections");
-const SELECTOR_CLASS = CSS.BE("modbus-connect", "selector");
-const CONTENT_CLASS = CSS.BE("modbus-connect", "content");
 
 const NAME_INPUT_PROPS = {
   level: "h2",
@@ -346,10 +344,7 @@ const NAME_INPUT_PROPS = {
 
 const HOST_INPUT_PROPS = { autoFocus: true, placeholder: "localhost" } as const;
 
-const PORT_INPUT_PROPS = {
-  bounds: { lower: 1, upper: 65535 },
-  style: { width: "23rem" },
-} as const;
+const PORT_INPUT_PROPS = { bounds: { lower: 1, upper: 65535 } } as const;
 
 const SERIAL_PORT_INPUT_PROPS = {
   autoFocus: true,
@@ -357,36 +352,21 @@ const SERIAL_PORT_INPUT_PROPS = {
 } as const;
 
 const UNIT_ID_INPUT_PROPS = {
-  tcp: { bounds: { lower: 0, upper: 255 }, style: { width: "23rem" } },
-  rtu: { bounds: { lower: 1, upper: 247 }, style: { width: "23rem" } },
+  tcp: { bounds: { lower: 0, upper: 255 } },
+  rtu: { bounds: { lower: 1, upper: 247 } },
 } as const;
 
-const TIMEOUT_INPUT_PROPS = {
-  bounds: { lower: 1, upper: 60000 },
-  endContent: "ms",
-  style: { width: "23rem" },
-} as const;
+const TIMEOUT_BOUNDS = { lower: TimeSpan.MILLISECOND, upper: TimeSpan.MINUTE };
 
-const RETRIES_INPUT_PROPS = {
-  bounds: { lower: 0, upper: 10 },
-  style: { width: "23rem" },
-} as const;
+const RETRIES_INPUT_PROPS = { bounds: { lower: 0, upper: 10 } } as const;
 
-const DELAY_INPUT_PROPS = {
-  bounds: { lower: 0, upper: 5000 },
-  endContent: "ms",
-  style: { width: "23rem" },
-} as const;
+const DELAY_BOUNDS = { upper: TimeSpan.seconds(5) };
 
 const MAX_REGISTERS_INPUT_PROPS = {
   bounds: { lower: 1, upper: 125 },
-  style: { width: "23rem" },
 } as const;
 
-const MAX_GAP_INPUT_PROPS = {
-  bounds: { lower: 0, upper: 65535 },
-  style: { width: "23rem" },
-} as const;
+const MAX_GAP_INPUT_PROPS = { bounds: { lower: 0, upper: 65535 } } as const;
 
 const formatResponse = (span: TimeSpan): string => `${span.milliseconds.toFixed(1)} ms`;
 
@@ -424,13 +404,6 @@ const Diagnostics = (): ReactElement => {
 const SWAP_BYTES_PATH = connectionPath.swapBytes;
 const SWAP_WORDS_PATH = connectionPath.swapWords;
 
-const BYTE_ORDER_NAMES: Record<ByteOrder, string> = {
-  ABCD: "Big-endian",
-  BADC: "Byte swap",
-  CDAB: "Word swap",
-  DCBA: "Little-endian",
-};
-
 // One select over the two stored swap settings.
 const ByteOrderField = (): ReactElement => {
   const ctx = Form.useContext();
@@ -448,10 +421,12 @@ const ByteOrderField = (): ReactElement => {
         onChange={handleChange}
         allowNone={false}
         resourceName="byte order"
+        triggerProps={TRIGGER_PROPS}
+        dialogProps={MENU_PROPS}
       >
         {BYTE_ORDERS.map((order) => (
           <Select.Item<ByteOrder> key={order} itemKey={order}>
-            {`${BYTE_ORDER_NAMES[order]} (${order})`}
+            <ByteOrderOption order={order} size={Density.BIT32.valueOf()} />
           </Select.Item>
         ))}
       </Select.Simple>
@@ -461,8 +436,14 @@ const ByteOrderField = (): ReactElement => {
 
 const SelectTransport = (props: Select.ButtonsProps<Transport>) => (
   <Select.Buttons<Transport> {...props}>
-    <Select.Item<Transport> itemKey="tcp">TCP</Select.Item>
-    <Select.Item<Transport> itemKey="rtu">Serial</Select.Item>
+    <Select.Item<Transport> itemKey="tcp">
+      <Icon.Network />
+      TCP
+    </Select.Item>
+    <Select.Item<Transport> itemKey="rtu">
+      <Icon.Serial />
+      Serial
+    </Select.Item>
   </Select.Buttons>
 );
 

@@ -879,6 +879,7 @@ func NewLayer(cfgs ...LayerConfig) (*Layer, error) {
 		Task:   cfg.Service.Task,
 		Status: cfg.Service.Status,
 		RBAC:   cfg.Service.RBAC,
+		Framer: cfg.Service.Framer,
 	}); err != nil {
 		return nil, err
 	}

@@ -44,6 +44,8 @@ import { Task } from "@/platform/task";
 
 const root = deep.path<Task.Values<AnalogWriteSchemas>>();
 
+const portOf = (c: AOChannel): string => c.port.toString();
+
 const Properties = () => (
   <>
     <Select />
@@ -58,6 +60,7 @@ const ChannelListItem = (props: Task.ChannelListItemProps) => {
   const entry = root.config.channels[itemKey];
   const item = PForm.useFieldValue(entry);
   const device = useFromConfig();
+  const skipped = Task.useSkipped(root.config.channels, itemKey, portOf);
   if (item == null) return null;
   const { port, cmdChannel, stateChannel, type } = item;
   const Icon = AO_CHANNEL_TYPE_ICONS[type];
@@ -69,6 +72,7 @@ const ChannelListItem = (props: Task.ChannelListItemProps) => {
       channel={cmdChannel}
       defaultName={device == null ? undefined : ANALOG_OUTPUT.name(item, device)}
       stateChannel={stateChannel}
+      skipped={skipped}
       stateDefaultName={
         device == null ? undefined : analogOutputStateName(item, device)
       }
@@ -91,6 +95,7 @@ const DetailsTitle = ({ path }: Task.Views.DetailsProps<AOChannel>) => {
   const value = PForm.useFieldValue(path);
   const channels = PForm.useFieldValue(root.config.channels);
   const device = useFromConfig();
+  const skipped = Task.useSkipped(root.config.channels, value.key, portOf);
   const Icon = AO_CHANNEL_TYPE_ICONS[value.type];
   return (
     <Title
@@ -103,6 +108,7 @@ const DetailsTitle = ({ path }: Task.Views.DetailsProps<AOChannel>) => {
       channel={value.cmdChannel}
       namePath={path.cmdChannelName}
       defaultName={device == null ? undefined : ANALOG_OUTPUT.name(value, device)}
+      skipped={skipped}
       model={device?.model}
     />
   );
@@ -189,12 +195,8 @@ const onConfigure: Task.OnConfigure<typeof analogWriteConfigZ> = async (
     }
     const commandsToCreate: AOChannel[] = [];
     const statesToCreate: AOChannel[] = [];
-    // Channels on one port share its data channel, named by an enabled one if any.
-    const seen = new Set<string>();
-    for (const channel of Task.enabledFirst(config.channels)) {
-      const key = channel.port.toString();
-      if (seen.has(key)) continue;
-      seen.add(key);
+    for (const channel of Task.firstPerPort(config.channels, portOf)) {
+      const key = portOf(channel);
       const exPair = dev.properties.analogOutput.channels[key];
       if (exPair == null) {
         commandsToCreate.push(channel);

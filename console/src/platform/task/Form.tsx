@@ -32,7 +32,6 @@ import { Controls } from "@/platform/task/controls";
 import { ParentRangeButton } from "@/platform/task/ParentRangeButton";
 import { Rack } from "@/platform/task/Rack";
 import { formPath } from "@/platform/task/types";
-import { useStatus } from "@/platform/task/useStatus";
 import { UtilityButtons } from "@/platform/task/UtilityButtons";
 
 export interface OnConfigure<Config extends z.ZodType = z.ZodType> {
@@ -74,10 +73,6 @@ export interface WrapFormParams<S extends task.Schemas = task.Schemas> {
   showControls?: boolean;
 }
 
-export const useIsRunning = <Schema extends z.ZodType>(
-  ctx?: PForm.ContextValue<Schema>,
-) => useStatus(ctx).details.running;
-
 export const useIsSnapshot = <Schema extends z.ZodType>(
   ctx?: PForm.ContextValue<Schema>,
 ) => PForm.useFieldValue(formPath.snapshot, { ctx });
@@ -88,8 +83,13 @@ interface HeaderProps {
 
 const Header = ({ isSnapshot }: HeaderProps) => (
   <>
-    <Flex.Box x justify="between">
-      <PForm.Field path={formPath.name} showLabel={false} padHelpText={false} grow>
+    <div className={CSS.BE("task-configure", "header")}>
+      <PForm.Field
+        path={formPath.name}
+        showLabel={false}
+        padHelpText={false}
+        className={CSS.BE("task-configure", "name")}
+      >
         {(p) => (
           <Input.Text
             variant="text"
@@ -100,13 +100,13 @@ const Header = ({ isSnapshot }: HeaderProps) => (
           />
         )}
       </PForm.Field>
-      <Flex.Box align="end" gap="small" className={CSS.BE("task-configure", "actions")}>
+      <div className={CSS.BE("task-configure", "rack")}>
+        <Rack />
+      </div>
+      <div className={CSS.BE("task-configure", "actions")}>
         <UtilityButtons />
-        <div className={CSS.BE("task-configure", "rack")}>
-          <Rack />
-        </div>
-      </Flex.Box>
-    </Flex.Box>
+      </div>
+    </div>
     {!isSnapshot && <ParentRangeButton />}
   </>
 );

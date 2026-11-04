@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { type ontology, project, query, type Synnax } from "@synnaxlabs/client";
+import { ontology, project, query, type Synnax } from "@synnaxlabs/client";
 import { array, deep, type record, verbs } from "@synnaxlabs/x";
 import type z from "zod";
 
@@ -130,11 +130,12 @@ const findProjectAncestor = async (
   client: Flux.RetrieveParams<RetrieveChildrenQuery>["client"],
   resourceID: ontology.ID,
 ): Promise<ontology.ID | null> => {
-  const parents = await client.ontology.parents.retrieve({ ids: resourceID });
-  for (const parent of parents) {
-    if (parent.id.type === "project") return parent.id;
-    if (parent.id.type === "group") return await findProjectAncestor(client, parent.id);
-  }
+  const { paths } = await client.ontology.ancestors.retrieve({ ids: resourceID });
+  for (const path of paths[ontology.idToString(resourceID)] ?? [])
+    for (const id of path.toReversed()) {
+      if (id.type === "project") return id;
+      if (id.type !== "group") break;
+    }
   return null;
 };
 

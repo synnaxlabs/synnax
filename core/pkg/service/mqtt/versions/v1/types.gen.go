@@ -288,17 +288,6 @@ func (u *ReadEntry) UnmarshalJSONFrom(dec *jsontext.Decoder) error {
 	return nil
 }
 
-// Base returns the fields that every variant of ReadEntry shares.
-func (u ReadEntry) Base() BaseReadEntry {
-	switch v := u.Variant.(type) {
-	case PlainReadEntry:
-		return v.BaseReadEntry
-	case SparkplugReadEntry:
-		return v.BaseReadEntry
-	}
-	return BaseReadEntry{}
-}
-
 // ApplyDefaults fills the active variant's zero-valued fields with their
 // schema-declared defaults.
 func (u *ReadEntry) ApplyDefaults() {
@@ -320,6 +309,31 @@ func (u ReadEntry) Validate() error {
 		return variant.Validate()
 	}
 	return nil
+}
+
+// Base returns the fields every variant shares, or the zero value if Variant is nil.
+func (u ReadEntry) Base() BaseReadEntry {
+	switch variant := u.Variant.(type) {
+	case PlainReadEntry:
+		return variant.BaseReadEntry
+	case SparkplugReadEntry:
+		return variant.BaseReadEntry
+	}
+	return BaseReadEntry{}
+}
+
+// SetBase replaces the fields every variant shares. It panics if Variant is nil.
+func (u *ReadEntry) SetBase(base BaseReadEntry) {
+	switch variant := u.Variant.(type) {
+	case PlainReadEntry:
+		variant.BaseReadEntry = base
+		u.Variant = variant
+	case SparkplugReadEntry:
+		variant.BaseReadEntry = base
+		u.Variant = variant
+	default:
+		panic(errors.Newf("ReadEntry: cannot set the base of variant %T", variant))
+	}
 }
 
 // ReadConfig configures an MQTT read task, which subscribes to topics and Sparkplug B
@@ -569,17 +583,6 @@ func (u *WriteField) UnmarshalJSONFrom(dec *jsontext.Decoder) error {
 	return nil
 }
 
-// Base returns the fields that every variant of WriteField shares.
-func (u WriteField) Base() BaseWriteField {
-	switch v := u.Variant.(type) {
-	case StaticWriteField:
-		return v.BaseWriteField
-	case GeneratedWriteField:
-		return v.BaseWriteField
-	}
-	return BaseWriteField{}
-}
-
 // ApplyDefaults fills the active variant's zero-valued fields with their
 // schema-declared defaults.
 func (u *WriteField) ApplyDefaults() {
@@ -603,6 +606,31 @@ func (u WriteField) Validate() error {
 		return variant.Validate()
 	}
 	return nil
+}
+
+// Base returns the fields every variant shares, or the zero value if Variant is nil.
+func (u WriteField) Base() BaseWriteField {
+	switch variant := u.Variant.(type) {
+	case StaticWriteField:
+		return variant.BaseWriteField
+	case GeneratedWriteField:
+		return variant.BaseWriteField
+	}
+	return BaseWriteField{}
+}
+
+// SetBase replaces the fields every variant shares. It panics if Variant is nil.
+func (u *WriteField) SetBase(base BaseWriteField) {
+	switch variant := u.Variant.(type) {
+	case StaticWriteField:
+		variant.BaseWriteField = base
+		u.Variant = variant
+	case GeneratedWriteField:
+		variant.BaseWriteField = base
+		u.Variant = variant
+	default:
+		panic(errors.Newf("WriteField: cannot set the base of variant %T", variant))
+	}
 }
 
 // BaseWriteTarget carries the fields every write target shares.
@@ -770,17 +798,6 @@ func (u *WriteTarget) UnmarshalJSONFrom(dec *jsontext.Decoder) error {
 	return nil
 }
 
-// Base returns the fields that every variant of WriteTarget shares.
-func (u WriteTarget) Base() BaseWriteTarget {
-	switch v := u.Variant.(type) {
-	case PlainWriteTarget:
-		return v.BaseWriteTarget
-	case SparkplugWriteTarget:
-		return v.BaseWriteTarget
-	}
-	return BaseWriteTarget{}
-}
-
 // ApplyDefaults fills the active variant's zero-valued fields with their
 // schema-declared defaults.
 func (u *WriteTarget) ApplyDefaults() {
@@ -804,6 +821,31 @@ func (u WriteTarget) Validate() error {
 		return variant.Validate()
 	}
 	return nil
+}
+
+// Base returns the fields every variant shares, or the zero value if Variant is nil.
+func (u WriteTarget) Base() BaseWriteTarget {
+	switch variant := u.Variant.(type) {
+	case PlainWriteTarget:
+		return variant.BaseWriteTarget
+	case SparkplugWriteTarget:
+		return variant.BaseWriteTarget
+	}
+	return BaseWriteTarget{}
+}
+
+// SetBase replaces the fields every variant shares. It panics if Variant is nil.
+func (u *WriteTarget) SetBase(base BaseWriteTarget) {
+	switch variant := u.Variant.(type) {
+	case PlainWriteTarget:
+		variant.BaseWriteTarget = base
+		u.Variant = variant
+	case SparkplugWriteTarget:
+		variant.BaseWriteTarget = base
+		u.Variant = variant
+	default:
+		panic(errors.Newf("WriteTarget: cannot set the base of variant %T", variant))
+	}
 }
 
 // WriteConfig configures an MQTT write task, which publishes a message whenever a value

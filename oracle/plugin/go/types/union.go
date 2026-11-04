@@ -54,9 +54,10 @@ type unionData struct {
 	// NeedsValidate reports that at least one variant carries a Validate method, so the
 	// wrapper emits one that dispatches on the active variant.
 	NeedsValidate bool
-	// Base is the rendered type of the one base every variant embeds, and BaseField its
-	// field selector. The wrapper emits a Base accessor only when Base is set.
-	Base      string
+	// Base is the struct every variant embeds (e.g. "BaseAIChannel"), set only when
+	// resolver.SharedBase finds one. The wrapper then emits Base and SetBase.
+	Base string
+	// BaseField is the selector of Base's embedded field in each variant.
 	BaseField string
 }
 
@@ -158,6 +159,14 @@ func processUnion(entry resolution.Type, data *templateData) unionData {
 		return out
 	}
 	baseEmbeds := embedBases(form.Extends)
+	if base, ok := resolver.SharedBase(form, "go", data.table); ok {
+		parent, resolved := base.Resolve(data.table)
+		if !resolved {
+			panic(fmt.Sprintf("union %s extends unresolved base %s", name, base.Name))
+		}
+		ud.Base = resolveExtendsType(base, parent, data)
+		ud.BaseField = embedFieldName(ud.Base)
+	}
 
 	for _, v := range form.Variants {
 		vd := unionVariantData{
@@ -246,10 +255,6 @@ func processUnion(entry resolution.Type, data *templateData) unionData {
 	}
 	if ud.NeedsValidate {
 		data.AddExternal(validateImportPath)
-	}
-	if _, ok := resolver.SharedBase(form, "go", data.table); ok {
-		ud.Base = baseEmbeds[0].rendered
-		ud.BaseField = embedFieldName(ud.Base)
 	}
 	return ud
 }

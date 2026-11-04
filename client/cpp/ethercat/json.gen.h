@@ -40,7 +40,7 @@ inline BaseReadChannel BaseReadChannel::parse(x::json::Parser parser) {
 }
 
 inline x::json::json BaseReadChannel::to_json() const {
-    x::json::json j;
+    x::json::json j = x::json::json::object();
     j["key"] = this->key;
     j["name"] = this->name;
     j["disabled"] = this->disabled;
@@ -69,7 +69,7 @@ inline BaseWriteChannel BaseWriteChannel::parse(x::json::Parser parser) {
 }
 
 inline x::json::json BaseWriteChannel::to_json() const {
-    x::json::json j;
+    x::json::json j = x::json::json::object();
     j["key"] = this->key;
     j["name"] = this->name;
     j["disabled"] = this->disabled;
@@ -98,7 +98,7 @@ inline ReadConfig ReadConfig::parse(x::json::Parser parser) {
 }
 
 inline x::json::json ReadConfig::to_json() const {
-    x::json::json j;
+    x::json::json j = x::json::json::object();
     for (auto &[k, v]: ::synnax::task::ReadConfig::to_json().items())
         j[k] = v;
     {
@@ -135,7 +135,7 @@ inline WriteConfig WriteConfig::parse(x::json::Parser parser) {
 }
 
 inline x::json::json WriteConfig::to_json() const {
-    x::json::json j;
+    x::json::json j = x::json::json::object();
     for (auto &[k, v]: ::synnax::task::PersistConfig::to_json().items())
         j[k] = v;
     j["state_rate"] = this->state_rate;
@@ -158,7 +158,7 @@ inline ScanConfig ScanConfig::parse(x::json::Parser parser) {
 }
 
 inline x::json::json ScanConfig::to_json() const {
-    x::json::json j;
+    x::json::json j = x::json::json::object();
     for (auto &[k, v]: ::synnax::task::ScanConfig::to_json().items())
         j[k] = v;
     return j;
@@ -175,7 +175,7 @@ inline EntryReadChannel EntryReadChannel::parse(x::json::Parser parser) {
 }
 
 inline x::json::json EntryReadChannel::to_json() const {
-    x::json::json j;
+    x::json::json j = x::json::json::object();
     for (auto &[k, v]: BaseReadChannel::to_json().items())
         j[k] = v;
     j["index"] = this->index;
@@ -194,7 +194,7 @@ inline UnresolvedReadChannel UnresolvedReadChannel::parse(x::json::Parser parser
 }
 
 inline x::json::json UnresolvedReadChannel::to_json() const {
-    x::json::json j;
+    x::json::json j = x::json::json::object();
     for (auto &[k, v]: BaseReadChannel::to_json().items())
         j[k] = v;
     j["pdo"] = this->pdo;
@@ -213,7 +213,7 @@ inline EntryWriteChannel EntryWriteChannel::parse(x::json::Parser parser) {
 }
 
 inline x::json::json EntryWriteChannel::to_json() const {
-    x::json::json j;
+    x::json::json j = x::json::json::object();
     for (auto &[k, v]: BaseWriteChannel::to_json().items())
         j[k] = v;
     j["index"] = this->index;
@@ -232,7 +232,7 @@ inline UnresolvedWriteChannel UnresolvedWriteChannel::parse(x::json::Parser pars
 }
 
 inline x::json::json UnresolvedWriteChannel::to_json() const {
-    x::json::json j;
+    x::json::json j = x::json::json::object();
     for (auto &[k, v]: BaseWriteChannel::to_json().items())
         j[k] = v;
     j["pdo"] = this->pdo;

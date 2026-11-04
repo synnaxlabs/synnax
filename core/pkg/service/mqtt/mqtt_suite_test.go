@@ -44,7 +44,6 @@ import (
 	racktestutil "github.com/synnaxlabs/synnax/pkg/service/rack/testutil"
 	"github.com/synnaxlabs/synnax/pkg/service/status"
 	"github.com/synnaxlabs/x/errors"
-	"github.com/synnaxlabs/x/set"
 	. "github.com/synnaxlabs/x/testutil"
 )
 
@@ -146,7 +145,9 @@ type testBroker struct {
 }
 
 // connectHook records the client ID and the keep-alive interval of each connection to a
-// test broker.
+// test broker. It removes the earlier client of an ID before the new one attaches.
+// Mochi can end the cleanup of a client that left after its successor attached, and
+// that cleanup then deletes the successor, which drops every message sent to it.
 type connectHook struct {
 	mochi.HookBase
 	broker *testBroker
@@ -157,6 +158,10 @@ func (h *connectHook) ID() string { return "connect" }
 func (h *connectHook) Provides(b byte) bool { return b == mochi.OnConnect }
 
 func (h *connectHook) OnConnect(cl *mochi.Client, pk packets.Packet) error {
+	if old, ok := h.broker.server.Clients.Get(cl.ID); ok && !old.Net.Inline {
+		old.Stop(packets.ErrSessionTakenOver)
+		h.broker.listener.awaitServed(old.Net.Conn)
+	}
 	h.broker.mu.Lock()
 	defer h.broker.mu.Unlock()
 	h.broker.clientIDs = append(h.broker.clientIDs, cl.ID)
@@ -184,6 +189,30 @@ func (h *openHook) OnACLCheck(_ *mochi.Client, topic string, write bool) bool {
 	return write || !slices.Contains(h.refused, topic)
 }
 
+// unackedHook leaves the publishes on topic unanswered, so that each stays in flight,
+// until released is set.
+type unackedHook struct {
+	mochi.HookBase
+	topic    string
+	held     atomic.Int64
+	released atomic.Bool
+}
+
+func (h *unackedHook) ID() string { return "unacked" }
+
+func (h *unackedHook) Provides(b byte) bool { return b == mochi.OnPublish }
+
+func (h *unackedHook) OnPublish(
+	_ *mochi.Client,
+	pk packets.Packet,
+) (packets.Packet, error) {
+	if pk.TopicName != h.topic || h.released.Load() {
+		return pk, nil
+	}
+	h.held.Add(1)
+	return pk, packets.ErrRejectPacket
+}
+
 // tcpListener returns from Close only after every connection it accepted is done. Mochi
 // counts a connection in Listeners.ClientsWg from the goroutine that serves it, so a
 // connection accepted during Server.Close races the Wait of that group.
@@ -192,7 +221,9 @@ type tcpListener struct {
 	mu struct {
 		sync.Mutex
 		closed bool
-		conns  set.Set[net.Conn]
+		// conns holds each connection that is served, with a channel that closes
+		// when mochi is done with it.
+		conns map[net.Conn]chan struct{}
 	}
 	serving sync.WaitGroup
 	// closeErr holds the errors of the connections that Close closed.
@@ -201,43 +232,56 @@ type tcpListener struct {
 
 func newTCPListener(cfg listeners.Config) *tcpListener {
 	l := &tcpListener{TCP: listeners.NewTCP(cfg)}
-	l.mu.conns = set.New[net.Conn]()
+	l.mu.conns = make(map[net.Conn]chan struct{})
 	return l
 }
 
 func (l *tcpListener) Serve(establish listeners.EstablishFn) {
 	l.TCP.Serve(func(id string, c net.Conn) error {
+		// Mochi runs its hooks for c on this goroutine.
+		defer GinkgoRecover()
 		l.mu.Lock()
 		if l.mu.closed {
 			l.mu.Unlock()
 			return c.Close()
 		}
-		l.mu.conns.Add(c)
+		served := make(chan struct{})
+		l.mu.conns[c] = served
 		l.serving.Add(1)
 		l.mu.Unlock()
 		defer func() {
 			l.mu.Lock()
-			l.mu.conns.Remove(c)
+			delete(l.mu.conns, c)
 			l.mu.Unlock()
+			close(served)
 			l.serving.Done()
 		}()
 		return establish(id, c)
 	})
 }
 
+// awaitServed blocks until mochi is done with c.
+func (l *tcpListener) awaitServed(c net.Conn) {
+	GinkgoHelper()
+	l.mu.Lock()
+	served, ok := l.mu.conns[c]
+	l.mu.Unlock()
+	if ok {
+		Eventually(served).Should(BeClosed())
+	}
+}
+
 func (l *tcpListener) Close(closeClients listeners.CloseFn) {
 	l.mu.Lock()
 	l.mu.closed = true
-	l.mu.Unlock()
-	l.TCP.Close(closeClients)
-	l.mu.Lock()
-	// A connection that has not sent its CONNECT packet yet has no client to close.
-	// Mochi closes the connection of each client it disconnected.
 	for c := range l.mu.conns {
 		l.closeErr = errors.Combine(l.closeErr, errors.Skip(c.Close(), net.ErrClosed))
 	}
 	l.mu.Unlock()
+	// Clients.GetByListener takes its read lock two times, so mochi deadlocks when it
+	// closes its clients while one of them leaves. Every client must be gone first.
 	l.serving.Wait()
+	l.TCP.Close(closeClients)
 }
 
 // brokerOptions selects what a test broker requires of its clients.

@@ -335,7 +335,8 @@ func (s *Service) LSP(
 func materialize(a Arc) Arc {
 	b := a.Base()
 	b.Text = b.Text.Materialize()
-	return a.WithBase(b)
+	a.SetBase(b)
+	return a
 }
 
 // compile compiles the text of an automation into its program and leaves a module as

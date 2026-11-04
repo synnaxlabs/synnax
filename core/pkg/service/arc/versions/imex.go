@@ -62,7 +62,8 @@ func DecodeImExEnvelope(ctx context.Context, env imex.Envelope) (Arc, error) {
 	// fallback the imex service applies. Console-era decodes drop it, so it is stamped
 	// here for every path.
 	b.Name = env.Name
-	return a.WithBase(b), nil
+	a.SetBase(b)
+	return a, nil
 }
 
 // withVariantType replaces the file type in env's body with the Arc type it names, or

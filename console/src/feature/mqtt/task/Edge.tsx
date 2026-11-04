@@ -73,8 +73,8 @@ const renderSelectChannel = Component.renderProp((p: PChannel.SelectSingleProps)
 const TagListItem = (props: Task.ChannelListItemProps) => {
   const { itemKey } = props;
   const path = root.config.tags[itemKey];
-  const commandChannel = PForm.useFieldValue(path.commandChannel);
-  const commandChannelName = PForm.useFieldValue(path.commandChannelName);
+  const tag = PForm.useFieldValue(path);
+  const { commandChannel, commandChannelName } = tag;
   const client = Synnax.use();
   const handleError = Status.useErrorHandler();
 
@@ -119,7 +119,8 @@ const TagListItem = (props: Task.ChannelListItemProps) => {
           <Task.ChannelName
             channel={commandChannel}
             namePath={path.commandChannelName}
-            defaultName={commandChannelName ?? undefined}
+            defaultName={deriveCommandChannelName(tag)}
+            skipped={tag.disabled}
             id={Task.getChannelNameID(itemKey, "cmd")}
           />
         )}

@@ -55,28 +55,6 @@ var _ = Describe("Arc", func() {
 		})
 	})
 
-	Describe("WithBase", func() {
-		renamed := base
-		renamed.Name = "renamed"
-
-		It("Should replace the base and keep an automation's program", func() {
-			got := automation.WithBase(renamed)
-			a, ok := got.Variant.(v4.AutomationArc)
-			Expect(ok).To(BeTrue())
-			Expect(a.Base).To(Equal(renamed))
-			Expect(a.Program).ToNot(BeNil())
-		})
-
-		It("Should replace the base of a module", func() {
-			got := module.WithBase(renamed)
-			Expect(got.Variant).To(Equal(v4.ModuleArc{Base: renamed}))
-		})
-
-		It("Should leave an Arc without a variant unchanged", func() {
-			Expect(v4.Arc{}.WithBase(renamed)).To(Equal(v4.Arc{}))
-		})
-	})
-
 	Describe("ExportBody", func() {
 		It("Should carry the Arc's type as the file type header", func() {
 			var body map[string]any

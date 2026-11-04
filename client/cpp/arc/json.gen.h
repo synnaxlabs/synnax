@@ -34,7 +34,7 @@ inline Base Base::parse(x::json::Parser parser) {
 }
 
 inline x::json::json Base::to_json() const {
-    x::json::json j;
+    x::json::json j = x::json::json::object();
     j["key"] = this->key.to_json();
     j["name"] = this->name;
     j["mode"] = this->mode;
@@ -52,7 +52,7 @@ inline AutomationArc AutomationArc::parse(x::json::Parser parser) {
 }
 
 inline x::json::json AutomationArc::to_json() const {
-    x::json::json j;
+    x::json::json j = x::json::json::object();
     for (auto &[k, v]: Base::to_json().items())
         j[k] = v;
     if (this->program.has_value()) j["program"] = this->program->to_json();
@@ -68,7 +68,7 @@ inline ModuleArc ModuleArc::parse(x::json::Parser parser) {
 }
 
 inline x::json::json ModuleArc::to_json() const {
-    x::json::json j;
+    x::json::json j = x::json::json::object();
     for (auto &[k, v]: Base::to_json().items())
         j[k] = v;
     j["type"] = this->type;

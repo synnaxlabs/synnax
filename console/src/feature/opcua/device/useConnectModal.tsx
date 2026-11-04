@@ -11,6 +11,7 @@ import "@/feature/opcua/device/Connect.css";
 
 import { type device, status, TimeSpan } from "@synnaxlabs/client";
 import { Component } from "@synnaxlabs/lyra/component";
+import { Flex } from "@synnaxlabs/lyra/flex";
 import { Form } from "@synnaxlabs/lyra/form";
 import { Icon } from "@synnaxlabs/lyra/icon";
 import { Input } from "@synnaxlabs/lyra/input";
@@ -24,7 +25,9 @@ import {
   DriverCertificate,
   ServerCertificate,
 } from "@/feature/opcua/device/Certificate";
-import { retrieveScanTask } from "@/feature/opcua/device/retrieveScanTask";
+import { commandTimeout } from "@/feature/opcua/device/commandTimeout";
+import { Endpoints } from "@/feature/opcua/device/Endpoints";
+import { sendScanCommand } from "@/feature/opcua/device/scanCommand";
 import {
   SelectSecurityMode,
   type SelectSecurityModeProps,
@@ -46,14 +49,13 @@ import {
 import {
   type CertificateInfo,
   TEST_CONNECTION_COMMAND_TYPE,
+  testConnectionResponseZ,
 } from "@/feature/opcua/task/types";
 import { Analytics } from "@/platform/analytics";
 import { CSS } from "@/platform/css";
 import { Device as PlatformDevice } from "@/platform/device";
 
 const path = deep.path<Device>();
-
-const TEST_CONNECTION_TIMEOUT = TimeSpan.seconds(10);
 
 const INITIAL_VALUES: Device = {
   key: "",
@@ -92,6 +94,9 @@ export const Connect = ({
   const { capture } = Analytics.use();
   const [serverCertificateOffer, setServerCertificateOffer] =
     useState<CertificateInfo | null>(null);
+  const [clientCertificateRejection, setClientCertificateRejection] = useState<
+    string | null
+  >(null);
   const [clientCertificateSource, setClientCertificateSource] =
     useState<ClientCertificateSource | null>(null);
 
@@ -104,17 +109,22 @@ export const Connect = ({
     PDevice.FormSchema<typeof SCHEMAS>
   >) => {
     setServerCertificateOffer(null);
-    const scanTask = await retrieveScanTask(client, get(path.rack).value);
-    const scanStatus = await scanTask.executeCommandSync({
+    setClientCertificateRejection(null);
+    const connection = get(path.properties.connection).value;
+    const scanStatus = await sendScanCommand(client, get(path.rack).value, {
       type: TEST_CONNECTION_COMMAND_TYPE,
-      timeout: TEST_CONNECTION_TIMEOUT,
-      args: { connection: get(path.properties.connection).value },
+      timeout: commandTimeout(connection),
+      args: { connection },
     });
     if (scanStatus.variant === "error") {
-      const data = scanStatus.details?.data;
-      if (data != null && "serverCertificate" in data && data.serverCertificate != null)
-        setServerCertificateOffer(data.serverCertificate);
-      throw status.toError(scanStatus);
+      const reply = testConnectionResponseZ.safeParse(scanStatus.details?.data);
+      if (reply.success && reply.data.serverCertificate != null)
+        setServerCertificateOffer(reply.data.serverCertificate);
+      else if (reply.success && reply.data.clientCertificateRejected === true)
+        setClientCertificateRejection(scanStatus.description);
+      else throw status.toError(scanStatus);
+      // The certificate fields show the details, so the footer keeps only the message.
+      throw status.toError({ ...scanStatus, description: "" });
     }
     // Since we just scanned successfully, we create a default healthy status for the
     // device that can then be overwritten by the scanner if we lose connection.
@@ -175,9 +185,15 @@ export const Connect = ({
 
   const handleSourceChange = (next: ClientCertificateSource) => {
     setClientCertificateSource(next);
+    setClientCertificateRejection(null);
     if (next !== "driver") return;
     setField(path.properties.connection.clientCertificate, "");
     setField(path.properties.connection.clientPrivateKey, "");
+  };
+
+  const handleEndpointSelect = (mode: SecurityMode, policy: SecurityPolicy) => {
+    setField(path.properties.connection.securityMode, mode);
+    setField(path.properties.connection.securityPolicy, policy);
   };
 
   const handleTrust = (offer: CertificateInfo) => {
@@ -198,11 +214,16 @@ export const Connect = ({
       else if (getField(policyPath).value === NO_SECURITY_POLICY)
         setField(policyPath, BASIC256_SHA256_SECURITY_POLICY);
     };
-    return <SelectSecurityMode {...rest} onChange={handleChange} />;
+    return (
+      <Flex.Box x justify="between" align="start" grow>
+        <SelectSecurityMode {...rest} onChange={handleChange} />
+        <Endpoints rack={rackKey} onSelect={handleEndpointSelect} />
+      </Flex.Box>
+    );
   };
 
   return (
-    <Modal.Frame className={CSS.B("opc-connect")}>
+    <PlatformDevice.ConnectFrame>
       <Modal.Header icon={<Icon.Logo.OPCUA />}>{HEADER}</Modal.Header>
       <Modal.Body gap="large">
         <Form.Form<PDevice.FormSchema<typeof SCHEMAS>> {...form}>
@@ -221,20 +242,13 @@ export const Connect = ({
                 inputProps={ENDPOINT_INPUT_PROPS}
               />
               <PlatformDevice.RackField integration={INTEGRATION} />
-            </Form.Section>
-            <Form.Section title="Authentication">
-              <Form.TextField
+              <Form.Field
                 path={path.properties.connection.username}
                 label="Username"
                 padHelpText={false}
-                inputProps={USERNAME_INPUT_PROPS}
-              />
-              <Form.TextField
-                path={path.properties.connection.password}
-                label="Password"
-                padHelpText={false}
-                inputProps={PASSWORD_INPUT_PROPS}
-              />
+              >
+                {renderLogin}
+              </Form.Field>
             </Form.Section>
             <Form.Section title="Security">
               <Form.Field
@@ -245,27 +259,35 @@ export const Connect = ({
                 {renderSecurityMode}
               </Form.Field>
               {hasSecurity && (
+                <Form.Field
+                  path={path.properties.connection.securityPolicy}
+                  label="Policy"
+                  padHelpText={false}
+                >
+                  {renderSecurityPolicy}
+                </Form.Field>
+              )}
+              {hasSecurity && (
                 <>
-                  <Form.Field
-                    path={path.properties.connection.securityPolicy}
-                    label="Policy"
-                    padHelpText={false}
+                  <Input.Item
+                    label="Client certificate"
+                    status={clientCertificateRejection == null ? undefined : "error"}
+                    helpText={clientCertificateRejection ?? undefined}
                   >
-                    {renderSecurityPolicy}
-                  </Form.Field>
-                  <Input.Item label="Client certificate">
-                    <Select.Buttons<ClientCertificateSource>
-                      value={source}
-                      onChange={handleSourceChange}
-                    >
-                      <Select.Item<ClientCertificateSource> itemKey="driver">
-                        Driver certificate
-                      </Select.Item>
-                      <Select.Item<ClientCertificateSource> itemKey="files">
-                        Files on the Driver computer
-                      </Select.Item>
-                    </Select.Buttons>
-                    {source === "driver" && <DriverCertificate rack={rackKey} />}
+                    <Flex.Box y gap={2}>
+                      <Select.Buttons<ClientCertificateSource>
+                        value={source}
+                        onChange={handleSourceChange}
+                      >
+                        <Select.Item<ClientCertificateSource> itemKey="driver">
+                          Driver certificate
+                        </Select.Item>
+                        <Select.Item<ClientCertificateSource> itemKey="files">
+                          Files on the Driver computer
+                        </Select.Item>
+                      </Select.Buttons>
+                      {source === "driver" && <DriverCertificate rack={rackKey} />}
+                    </Flex.Box>
                   </Input.Item>
                   {source === "files" && (
                     <>
@@ -294,6 +316,31 @@ export const Connect = ({
                 </>
               )}
             </Form.Section>
+            <Form.Section title="Advanced">
+              <Flex.Box x>
+                <Form.TimeSpanField
+                  path={path.properties.connection.clientTimeoutMs}
+                  label="Request timeout"
+                  unit={TimeSpan.MILLISECOND}
+                  bounds={TIMING_BOUNDS}
+                  padHelpText={false}
+                />
+                <Form.TimeSpanField
+                  path={path.properties.connection.sessionTimeoutMs}
+                  label="Session timeout"
+                  unit={TimeSpan.MILLISECOND}
+                  bounds={TIMING_BOUNDS}
+                  padHelpText={false}
+                />
+                <Form.TimeSpanField
+                  path={path.properties.connection.secureChannelLifetimeMs}
+                  label="Channel lifetime"
+                  unit={TimeSpan.MILLISECOND}
+                  bounds={TIMING_BOUNDS}
+                  padHelpText={false}
+                />
+              </Flex.Box>
+            </Form.Section>
           </Form.Sections>
         </Form.Form>
       </Modal.Body>
@@ -304,7 +351,7 @@ export const Connect = ({
         onConnect={() => save()}
         onBack={onBack}
       />
-    </Modal.Frame>
+    </PlatformDevice.ConnectFrame>
   );
 };
 
@@ -322,6 +369,21 @@ const SecurityPolicyField = ({ value, onChange }: Input.Control<SecurityPolicy>)
 );
 
 const renderSecurityPolicy = Component.renderProp(SecurityPolicyField);
+
+/** The username, with the password beside it at the same width. */
+const LoginField = ({ value, onChange }: Input.Control<string | undefined>) => (
+  <div className={CSS.BE("opc-connect", "login")}>
+    <Input.Text value={value ?? ""} onChange={onChange} placeholder="Anonymous" />
+    <Form.TextField
+      path={path.properties.connection.password}
+      label="Password"
+      padHelpText={false}
+      inputProps={PASSWORD_INPUT_PROPS}
+    />
+  </div>
+);
+
+const renderLogin = Component.renderProp(LoginField);
 
 const VALIDATION_PATH = path.properties.connection.certificateValidationDisabled;
 
@@ -352,8 +414,8 @@ const ENDPOINT_INPUT_PROPS = {
   autoFocus: true,
 } as const;
 
-const USERNAME_INPUT_PROPS = { placeholder: "Anonymous" } as const;
-
 const PATH_INPUT_PROPS = { placeholder: "Path on the Driver computer" } as const;
 
-const PASSWORD_INPUT_PROPS = { type: "password" } as const;
+const PASSWORD_INPUT_PROPS = { type: "password", placeholder: "None" } as const;
+
+const TIMING_BOUNDS = { lower: TimeSpan.MILLISECOND };

@@ -36,7 +36,8 @@ func (CreatePayload) Handle(Arc) (Arc, error) {
 func (p RenamePayload) Handle(state Arc) (Arc, error) {
 	b := state.Base()
 	b.Name = p.Name
-	return state.WithBase(b), nil
+	state.SetBase(b)
+	return state, nil
 }
 
 // Handle inserts the node if no node with the same key exists, otherwise
@@ -46,11 +47,13 @@ func (p SetNodePayload) Handle(state Arc) (Arc, error) {
 	for i := range b.Graph.Nodes {
 		if b.Graph.Nodes[i].Key == p.Node.Key {
 			b.Graph.Nodes[i] = p.Node
-			return state.WithBase(b), nil
+			state.SetBase(b)
+			return state, nil
 		}
 	}
 	b.Graph.Nodes = append(b.Graph.Nodes, p.Node)
-	return state.WithBase(b), nil
+	state.SetBase(b)
+	return state, nil
 }
 
 // Handle moves the named node to the given canvas position. No-op if no node
@@ -63,7 +66,8 @@ func (p SetNodePositionPayload) Handle(state Arc) (Arc, error) {
 			break
 		}
 	}
-	return state.WithBase(b), nil
+	state.SetBase(b)
+	return state, nil
 }
 
 // Handle merges the payload inputs into the entry for the given key in
@@ -79,10 +83,12 @@ func (p SetNodeInputsPayload) Handle(state Arc) (Arc, error) {
 		maps.Copy(merged, existing)
 		maps.Copy(merged, p.Inputs)
 		b.Graph.Inputs[p.Key] = merged
-		return state.WithBase(b), nil
+		state.SetBase(b)
+		return state, nil
 	}
 	b.Graph.Inputs[p.Key] = p.Inputs
-	return state.WithBase(b), nil
+	state.SetBase(b)
+	return state, nil
 }
 
 // Handle removes the node with the matching key along with any edges connected
@@ -107,7 +113,8 @@ func (p RemoveNodePayload) Handle(state Arc) (Arc, error) {
 		kept = append(kept, e)
 	}
 	b.Graph.Edges = kept
-	return state.WithBase(b), nil
+	state.SetBase(b)
+	return state, nil
 }
 
 // Handle appends the character insertion to the Arc's replicated text document. The
@@ -119,7 +126,8 @@ func (p InsertCharPayload) Handle(state Arc) (Arc, error) {
 		b.Text.Doc.Inserts,
 		crdt.Insert{ID: p.ID, Origin: p.Origin, Side: p.Side, Char: p.Char},
 	)
-	return state.WithBase(b), nil
+	state.SetBase(b)
+	return state, nil
 }
 
 // Handle appends the edge to the graph. No-op when an edge with the same source
@@ -133,7 +141,8 @@ func (p AddEdgePayload) Handle(state Arc) (Arc, error) {
 		}
 	}
 	b.Graph.Edges = append(b.Graph.Edges, p.Edge)
-	return state.WithBase(b), nil
+	state.SetBase(b)
+	return state, nil
 }
 
 // Handle removes the edge with the given key, if present.
@@ -147,7 +156,8 @@ func (p RemoveEdgePayload) Handle(state Arc) (Arc, error) {
 		kept = append(kept, e)
 	}
 	b.Graph.Edges = kept
-	return state.WithBase(b), nil
+	state.SetBase(b)
+	return state, nil
 }
 
 // Handle rewrites the endpoints of the edge with the given key, preserving its
@@ -161,7 +171,8 @@ func (p ReconnectEdgePayload) Handle(state Arc) (Arc, error) {
 			break
 		}
 	}
-	return state.WithBase(b), nil
+	state.SetBase(b)
+	return state, nil
 }
 
 // Handle appends the character deletion to the Arc's replicated text document. See
@@ -169,7 +180,8 @@ func (p ReconnectEdgePayload) Handle(state Arc) (Arc, error) {
 func (p DeleteCharPayload) Handle(state Arc) (Arc, error) {
 	b := state.Base()
 	b.Text.Doc.Deletes = append(b.Text.Doc.Deletes, crdt.Delete{ID: p.ID})
-	return state.WithBase(b), nil
+	state.SetBase(b)
+	return state, nil
 }
 
 // Handle drops the insert and delete operations of the given already-deleted characters
@@ -197,7 +209,8 @@ func (p ForgetCharsPayload) Handle(state Arc) (Arc, error) {
 	}
 	b.Text.Doc.Inserts = keptInserts
 	b.Text.Doc.Deletes = keptDeletes
-	return state.WithBase(b), nil
+	state.SetBase(b)
+	return state, nil
 }
 
 // lastEdits records the cluster time of each Arc's most recent character edit. The
@@ -347,5 +360,6 @@ func edit(state Arc, a patch.Action) (Arc, error) {
 		return Arc{}, err
 	}
 	b.Graph.Inputs = inputs
-	return state.WithBase(b), nil
+	state.SetBase(b)
+	return state, nil
 }

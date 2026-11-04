@@ -74,7 +74,7 @@ struct TaskConfig : ::synnax::task::PersistConfig {
                 x::errors::Error(
                     x::errors::VALIDATION,
                     "Modules cannot be deployed independently. Import \"" +
-                        std::get<synnax::arc::ModuleArc>(arc_data).name +
+                        synnax::arc::base(arc_data).name +
                         "\" from an automation instead."
                 )
             };

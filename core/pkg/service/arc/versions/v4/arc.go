@@ -42,20 +42,6 @@ func (a Arc) Type() Type {
 	return ""
 }
 
-// WithBase returns a copy of the Arc whose variant holds b. An Arc without a variant
-// is returned unchanged.
-func (a Arc) WithBase(b Base) Arc {
-	switch v := a.Variant.(type) {
-	case AutomationArc:
-		v.Base = b
-		a.Variant = v
-	case ModuleArc:
-		v.Base = b
-		a.Variant = v
-	}
-	return a
-}
-
 // fileTypePrefix precedes the Arc's type in the type header of its file.
 const fileTypePrefix = "arc-"
 

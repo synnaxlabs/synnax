@@ -21,6 +21,7 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/service/ontology"
 	"github.com/synnaxlabs/synnax/pkg/service/task"
 	"github.com/synnaxlabs/x/query"
+	"github.com/synnaxlabs/x/validate"
 )
 
 var _ = Describe("Writer", func() {
@@ -61,6 +62,13 @@ var _ = Describe("Writer", func() {
 			Expect(parents).To(HaveLen(1))
 			Expect(parents[0].ID.Type).To(Equal(ontology.ResourceTypeArcDirectory))
 			Expect(parents[0].Name).To(Equal("Arcs"))
+		})
+
+		It("Should reject an Arc that is neither an automation nor a module", func(
+			ctx SpecContext,
+		) {
+			Expect(svc.NewWriter(tx).Create(ctx, &arc.Arc{})).
+				To(MatchError(validate.ErrValidation))
 		})
 
 		It("Should reject a change of type", func(ctx SpecContext) {
@@ -145,7 +153,7 @@ var _ = Describe("Writer", func() {
 			Expect(svc.NewWriter(tx).Create(ctx, &a)).To(Succeed())
 			b := a.Base()
 			b.Name = "updated-arc"
-			a = a.WithBase(b)
+			a.SetBase(b)
 			Expect(svc.NewWriter(tx).Create(ctx, &a)).To(Succeed())
 			var retrieved arc.Arc
 			Expect(

@@ -939,6 +939,85 @@ Node union on variant {
 		)
 	})
 
+	Describe("Length rules", func() {
+		DescribeTable(
+			"Should reject a length rule on a field that is not a string",
+			func(ctx SpecContext, source string) {
+				_, diag := Analyze(ctx, source, "test", loader)
+				Expect(diag.Ok()).To(BeFalse())
+				Expect(diag.String()).To(ContainSubstring(
+					"test.Entry.value has a length rule, but its type is not a string",
+				))
+			},
+			Entry("a uuid with max_length", `
+				Entry struct {
+					value uuid { @validate max_length 64 }
+				}
+			`),
+			Entry("a uuid with min_length 1", `
+				Entry struct {
+					value uuid { @validate min_length 1 }
+				}
+			`),
+			Entry("a number", `
+				Entry struct {
+					value int32 { @validate min_length 2 }
+				}
+			`),
+			Entry("an array of strings", `
+				Entry struct {
+					value string[] { @validate max_length 64 }
+				}
+			`),
+			Entry("an alias of uuid", `
+				Key = uuid
+				Entry struct {
+					value Key { @validate max_length 64 }
+				}
+			`),
+			Entry("an override of an inherited uuid field", `
+				Parent struct {
+					value uuid
+				}
+				Entry struct extends Parent {
+					value? { @validate max_length 64 }
+				}
+			`),
+		)
+
+		DescribeTable(
+			"Should accept a length rule on a string field",
+			func(ctx SpecContext, source string) {
+				_, diag := Analyze(ctx, source, "test", loader)
+				Expect(diag.Ok()).To(BeTrue(), diag.String())
+			},
+			Entry("a string", `
+				Entry struct {
+					value string {
+						@validate {
+							min_length 1
+							max_length 64
+						}
+					}
+				}
+			`),
+			Entry("an alias of string", `
+				Name = string
+				Entry struct {
+					value Name { @validate max_length 64 }
+				}
+			`),
+			Entry("an override of an inherited string field", `
+				Parent struct {
+					value string
+				}
+				Entry struct extends Parent {
+					value? { @validate max_length 64 }
+				}
+			`),
+		)
+	})
+
 	Describe("Imports", func() {
 		It("Should error on an unused import", func(ctx SpecContext) {
 			loader.Add("schemas/dep", `

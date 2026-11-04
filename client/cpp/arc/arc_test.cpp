@@ -25,11 +25,6 @@ namespace synnax::arc {
 std::mt19937 gen_rand = random_generator("Arc Tests");
 // NOLINTEND(cppcoreguidelines-avoid-non-const-global-variables)
 
-/// @brief returns the fields that every variant of arc shares.
-const Base &base_of(const Arc &arc) {
-    return std::visit([](const auto &v) -> const Base & { return v; }, arc);
-}
-
 std::string random_arc_name(const std::string &prefix) {
     std::uniform_int_distribution<> dis(10000, 99999);
     return prefix + "_" + std::to_string(dis(gen_rand));
@@ -43,8 +38,8 @@ TEST(TestArc, testCreate) {
     std::get<AutomationArc>(arc).text.raw = "// Simple Arc program";
 
     ASSERT_NIL(client.arcs.create(arc));
-    ASSERT_EQ(base_of(arc).name, name);
-    ASSERT_NE(base_of(arc).key, x::uuid::NIL);
+    ASSERT_EQ(base(arc).name, name);
+    ASSERT_NE(base(arc).key, x::uuid::NIL);
 }
 
 /// @brief it should create an Arc program using the convenience method.
@@ -52,8 +47,8 @@ TEST(TestArc, testCreateConvenience) {
     const auto client = new_test_client();
     const auto name = random_arc_name("convenience_arc");
     auto arc = ASSERT_NIL_P(client.arcs.create(name));
-    ASSERT_EQ(base_of(arc).name, name);
-    ASSERT_NE(base_of(arc).key, x::uuid::NIL);
+    ASSERT_EQ(base(arc).name, name);
+    ASSERT_NE(base(arc).key, x::uuid::NIL);
 }
 
 /// @brief it should create multiple Arc programs.
@@ -68,10 +63,10 @@ TEST(TestArc, testCreateMany) {
     ASSERT_NIL(client.arcs.create(arcs));
 
     for (const auto &arc: arcs)
-        ASSERT_NE(base_of(arc).key, x::uuid::NIL);
-    ASSERT_TRUE(base_of(arcs[0]).name.starts_with("arc1_"));
-    ASSERT_TRUE(base_of(arcs[1]).name.starts_with("arc2_"));
-    ASSERT_TRUE(base_of(arcs[2]).name.starts_with("arc3_"));
+        ASSERT_NE(base(arc).key, x::uuid::NIL);
+    ASSERT_TRUE(base(arcs[0]).name.starts_with("arc1_"));
+    ASSERT_TRUE(base(arcs[1]).name.starts_with("arc2_"));
+    ASSERT_TRUE(base(arcs[2]).name.starts_with("arc3_"));
 }
 
 /// @brief it should create a module and retrieve it as a module.
@@ -80,7 +75,7 @@ TEST(TestArc, testModule) {
     Arc arc = ModuleArc{{.name = random_arc_name("module_test"), .mode = MODE_TEXT}};
     ASSERT_NIL(client.arcs.create(arc));
     auto retrieved = ASSERT_NIL_P(
-        client.arcs.retrieve_by_key(base_of(arc).key, RetrieveOptions{.compile = true})
+        client.arcs.retrieve_by_key(base(arc).key, RetrieveOptions{.compile = true})
     );
     ASSERT_TRUE(std::holds_alternative<ModuleArc>(retrieved));
 }
@@ -93,8 +88,8 @@ TEST(TestArc, testRetrieveByName) {
     ASSERT_NIL(client.arcs.create(created));
 
     auto retrieved = ASSERT_NIL_P(client.arcs.retrieve_by_name(name));
-    ASSERT_EQ(base_of(retrieved).key, base_of(created).key);
-    ASSERT_EQ(base_of(retrieved).name, name);
+    ASSERT_EQ(base(retrieved).key, base(created).key);
+    ASSERT_EQ(base(retrieved).name, name);
 }
 
 /// @brief it should retrieve an Arc program by key.
@@ -104,9 +99,9 @@ TEST(TestArc, testRetrieveByKey) {
     Arc created = AutomationArc{{.name = name, .mode = MODE_TEXT}};
     ASSERT_NIL(client.arcs.create(created));
 
-    auto retrieved = ASSERT_NIL_P(client.arcs.retrieve_by_key(base_of(created).key));
-    ASSERT_EQ(base_of(retrieved).key, base_of(created).key);
-    ASSERT_EQ(base_of(retrieved).name, name);
+    auto retrieved = ASSERT_NIL_P(client.arcs.retrieve_by_key(base(created).key));
+    ASSERT_EQ(base(retrieved).key, base(created).key);
+    ASSERT_EQ(base(retrieved).name, name);
 }
 
 /// @brief it should retrieve multiple Arc programs by names.
@@ -133,7 +128,7 @@ TEST(TestArc, testRetrieveByKeys) {
     };
     ASSERT_NIL(client.arcs.create(arcs));
 
-    std::vector<x::uuid::UUID> keys = {base_of(arcs[0]).key, base_of(arcs[1]).key};
+    std::vector<x::uuid::UUID> keys = {base(arcs[0]).key, base(arcs[1]).key};
     auto retrieved = ASSERT_NIL_P(client.arcs.retrieve_by_keys(keys));
     ASSERT_EQ(retrieved.size(), 2);
 }
@@ -146,10 +141,10 @@ TEST(TestArc, testDelete) {
     };
     ASSERT_NIL(client.arcs.create(arc));
 
-    ASSERT_NIL(client.arcs.del(base_of(arc).key));
+    ASSERT_NIL(client.arcs.del(base(arc).key));
 
     ASSERT_OCCURRED_AS_P(
-        client.arcs.retrieve_by_key(base_of(arc).key),
+        client.arcs.retrieve_by_key(base(arc).key),
         x::errors::NOT_FOUND
     );
 }
@@ -163,7 +158,7 @@ TEST(TestArc, testDeleteMany) {
     };
     ASSERT_NIL(client.arcs.create(arcs));
 
-    std::vector<x::uuid::UUID> keys = {base_of(arcs[0]).key, base_of(arcs[1]).key};
+    std::vector<x::uuid::UUID> keys = {base(arcs[0]).key, base(arcs[1]).key};
     ASSERT_NIL(client.arcs.del(keys));
 
     auto retrieved = ASSERT_OCCURRED_AS_P(
@@ -182,8 +177,8 @@ TEST(TestArc, testProgramField) {
 
     ASSERT_NIL(client.arcs.create(arc));
 
-    auto retrieved = ASSERT_NIL_P(client.arcs.retrieve_by_key(base_of(arc).key));
-    ASSERT_EQ(base_of(retrieved).key, base_of(arc).key);
+    auto retrieved = ASSERT_NIL_P(client.arcs.retrieve_by_key(base(arc).key));
+    ASSERT_EQ(base(retrieved).key, base(arc).key);
     ASSERT_FALSE(std::get<AutomationArc>(retrieved).program.has_value());
 }
 
@@ -220,10 +215,8 @@ func calc() {val f32} f32 {
 
     RetrieveOptions options;
     options.compile = true;
-    auto retrieved = ASSERT_NIL_P(
-        client.arcs.retrieve_by_key(base_of(arc).key, options)
-    );
-    ASSERT_EQ(base_of(retrieved).key, base_of(arc).key);
+    auto retrieved = ASSERT_NIL_P(client.arcs.retrieve_by_key(base(arc).key, options));
+    ASSERT_EQ(base(retrieved).key, base(arc).key);
     const auto &program = std::get<AutomationArc>(retrieved).program.value();
 
     // Verify the module was compiled - should have WASM bytes
@@ -274,7 +267,7 @@ sequence main {
     ASSERT_NIL(client.arcs.create(arc));
 
     auto retrieved = ASSERT_NIL_P(client.arcs.retrieve_by_key(
-        base_of(arc).key,
+        base(arc).key,
         synnax::arc::RetrieveOptions{
             .compile = true,
         }

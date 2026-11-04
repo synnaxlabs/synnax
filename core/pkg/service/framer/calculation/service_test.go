@@ -82,7 +82,10 @@ var _ = Describe("Calculation", Ordered, func() {
 		if indexChannels != nil {
 			writerKeys = append(writerKeys, channel.KeysFromChannels(*indexChannels)...)
 		}
+		// A failed assertion skips the rest of a cleanup, so the streamer is stopped
+		// in its own cleanup. A leaked streamer blocks the relay from closing.
 		sCtx, cancel := signal.Isolated()
+		DeferCleanup(cancel)
 		w := MustSucceed(dist.Framer.OpenWriter(
 			ctx,
 			framer.WriterConfig{
@@ -110,7 +113,6 @@ var _ = Describe("Calculation", Ordered, func() {
 		return w, sOutlet, func() {
 			Expect(rm.Close(ctx)).To(Succeed())
 			Expect(w.Close()).To(Succeed())
-			cancel()
 		}
 	}
 
@@ -657,6 +659,7 @@ var _ = Describe("Calculation", Ordered, func() {
 				rm := c.OpenRequestManager()
 				Expect(rm.Set(ctx, channel.Keys{calc.Key()})).To(Succeed())
 				sCtx, cancel := signal.Isolated()
+				defer cancel()
 				w := MustSucceed(dist.Framer.OpenWriter(ctx, framer.WriterConfig{
 					Start: 1 * telem.SecondTS,
 					Keys:  channel.Keys{base.Key(), sig.Key()},
@@ -664,7 +667,6 @@ var _ = Describe("Calculation", Ordered, func() {
 				defer func() {
 					Expect(rm.Close(ctx)).To(Succeed())
 					Expect(w.Close()).To(Succeed())
-					cancel()
 				}()
 				strm := MustSucceed(dist.Framer.NewStreamer(framer.StreamerConfig{
 					Keys:        channel.Keys{calc.Key()},

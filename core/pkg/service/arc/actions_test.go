@@ -46,7 +46,8 @@ func withGraph(nodes graph.Nodes, edges graph.Edges) arc.Arc {
 func withInputs(a arc.Arc, inputs map[string]msgpack.EncodedJSON) arc.Arc {
 	b := a.Base()
 	b.Graph.Inputs = inputs
-	return a.WithBase(b)
+	a.SetBase(b)
+	return a
 }
 
 var _ = Describe("Reducer", func() {
@@ -412,7 +413,7 @@ var _ = Describe("Path actions", func() {
 		)
 		b := state.Base()
 		b.Name = "Press"
-		state = state.WithBase(b)
+		state.SetBase(b)
 	})
 	set := func(path []string, value any) arc.Action {
 		return arc.NewSetAction(arc.SetPayload{Path: path, Value: value})

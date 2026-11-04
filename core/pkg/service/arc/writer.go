@@ -73,6 +73,11 @@ func validateType(stored, next Type) error {
 // Create creates the given Arc. If the Arc does not have a key,
 // a new key will be generated.
 func (w Writer) Create(ctx context.Context, a *Arc) error {
+	if a.Variant == nil {
+		return errors.Wrap(
+			validate.ErrValidation, "an Arc must be an automation or a module",
+		)
+	}
 	var (
 		existing Arc
 		exists   bool
@@ -94,7 +99,7 @@ func (w Writer) Create(ctx context.Context, a *Arc) error {
 	if len(b.Text.Doc.Inserts) == 0 && b.Text.Raw != "" {
 		b.Text.Doc = text.Create(b.Text.Raw)
 	}
-	*a = a.WithBase(b)
+	a.SetBase(b)
 	if err = a.Validate(); err != nil {
 		return err
 	}

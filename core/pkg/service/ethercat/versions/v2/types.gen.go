@@ -128,15 +128,29 @@ func (u *ReadChannel) UnmarshalJSONFrom(dec *jsontext.Decoder) error {
 	return nil
 }
 
-// Base returns the fields that every variant of ReadChannel shares.
+// Base returns the fields every variant shares, or the zero value if Variant is nil.
 func (u ReadChannel) Base() BaseReadChannel {
-	switch v := u.Variant.(type) {
+	switch variant := u.Variant.(type) {
 	case EntryReadChannel:
-		return v.BaseReadChannel
+		return variant.BaseReadChannel
 	case UnresolvedReadChannel:
-		return v.BaseReadChannel
+		return variant.BaseReadChannel
 	}
 	return BaseReadChannel{}
+}
+
+// SetBase replaces the fields every variant shares. It panics if Variant is nil.
+func (u *ReadChannel) SetBase(base BaseReadChannel) {
+	switch variant := u.Variant.(type) {
+	case EntryReadChannel:
+		variant.BaseReadChannel = base
+		u.Variant = variant
+	case UnresolvedReadChannel:
+		variant.BaseReadChannel = base
+		u.Variant = variant
+	default:
+		panic(errors.Newf("ReadChannel: cannot set the base of variant %T", variant))
+	}
 }
 
 // BaseWriteChannel carries the fields every EtherCAT write channel shares.
@@ -246,15 +260,29 @@ func (u *WriteChannel) UnmarshalJSONFrom(dec *jsontext.Decoder) error {
 	return nil
 }
 
-// Base returns the fields that every variant of WriteChannel shares.
+// Base returns the fields every variant shares, or the zero value if Variant is nil.
 func (u WriteChannel) Base() BaseWriteChannel {
-	switch v := u.Variant.(type) {
+	switch variant := u.Variant.(type) {
 	case EntryWriteChannel:
-		return v.BaseWriteChannel
+		return variant.BaseWriteChannel
 	case UnresolvedWriteChannel:
-		return v.BaseWriteChannel
+		return variant.BaseWriteChannel
 	}
 	return BaseWriteChannel{}
+}
+
+// SetBase replaces the fields every variant shares. It panics if Variant is nil.
+func (u *WriteChannel) SetBase(base BaseWriteChannel) {
+	switch variant := u.Variant.(type) {
+	case EntryWriteChannel:
+		variant.BaseWriteChannel = base
+		u.Variant = variant
+	case UnresolvedWriteChannel:
+		variant.BaseWriteChannel = base
+		u.Variant = variant
+	default:
+		panic(errors.Newf("WriteChannel: cannot set the base of variant %T", variant))
+	}
 }
 
 // ReadConfig configures an EtherCAT read task. Each channel addresses a PDO entry on

@@ -263,25 +263,6 @@ func (u *ReadChannel) UnmarshalJSONFrom(dec *jsontext.Decoder) error {
 	return nil
 }
 
-// Base returns the fields that every variant of ReadChannel shares.
-func (u ReadChannel) Base() BaseReadChannel {
-	switch v := u.Variant.(type) {
-	case CoilReadChannel:
-		return v.BaseReadChannel
-	case DiscreteInputReadChannel:
-		return v.BaseReadChannel
-	case HoldingRegisterReadChannel:
-		return v.BaseReadChannel
-	case InputRegisterReadChannel:
-		return v.BaseReadChannel
-	case HoldingRegisterBitReadChannel:
-		return v.BaseReadChannel
-	case InputRegisterBitReadChannel:
-		return v.BaseReadChannel
-	}
-	return BaseReadChannel{}
-}
-
 // ApplyDefaults fills the active variant's zero-valued fields with their
 // schema-declared defaults.
 func (u *ReadChannel) ApplyDefaults() {
@@ -305,6 +286,51 @@ func (u ReadChannel) Validate() error {
 		return variant.Validate()
 	}
 	return nil
+}
+
+// Base returns the fields every variant shares, or the zero value if Variant is nil.
+func (u ReadChannel) Base() BaseReadChannel {
+	switch variant := u.Variant.(type) {
+	case CoilReadChannel:
+		return variant.BaseReadChannel
+	case DiscreteInputReadChannel:
+		return variant.BaseReadChannel
+	case HoldingRegisterReadChannel:
+		return variant.BaseReadChannel
+	case InputRegisterReadChannel:
+		return variant.BaseReadChannel
+	case HoldingRegisterBitReadChannel:
+		return variant.BaseReadChannel
+	case InputRegisterBitReadChannel:
+		return variant.BaseReadChannel
+	}
+	return BaseReadChannel{}
+}
+
+// SetBase replaces the fields every variant shares. It panics if Variant is nil.
+func (u *ReadChannel) SetBase(base BaseReadChannel) {
+	switch variant := u.Variant.(type) {
+	case CoilReadChannel:
+		variant.BaseReadChannel = base
+		u.Variant = variant
+	case DiscreteInputReadChannel:
+		variant.BaseReadChannel = base
+		u.Variant = variant
+	case HoldingRegisterReadChannel:
+		variant.BaseReadChannel = base
+		u.Variant = variant
+	case InputRegisterReadChannel:
+		variant.BaseReadChannel = base
+		u.Variant = variant
+	case HoldingRegisterBitReadChannel:
+		variant.BaseReadChannel = base
+		u.Variant = variant
+	case InputRegisterBitReadChannel:
+		variant.BaseReadChannel = base
+		u.Variant = variant
+	default:
+		panic(errors.Newf("ReadChannel: cannot set the base of variant %T", variant))
+	}
 }
 
 // BaseWriteChannel carries the fields every Modbus write channel shares.
@@ -442,19 +468,6 @@ func (u *WriteChannel) UnmarshalJSONFrom(dec *jsontext.Decoder) error {
 	return nil
 }
 
-// Base returns the fields that every variant of WriteChannel shares.
-func (u WriteChannel) Base() BaseWriteChannel {
-	switch v := u.Variant.(type) {
-	case CoilWriteChannel:
-		return v.BaseWriteChannel
-	case HoldingRegisterWriteChannel:
-		return v.BaseWriteChannel
-	case HoldingRegisterBitWriteChannel:
-		return v.BaseWriteChannel
-	}
-	return BaseWriteChannel{}
-}
-
 // ApplyDefaults fills the active variant's zero-valued fields with their
 // schema-declared defaults.
 func (u *WriteChannel) ApplyDefaults() {
@@ -473,6 +486,36 @@ func (u WriteChannel) Validate() error {
 		return variant.Validate()
 	}
 	return nil
+}
+
+// Base returns the fields every variant shares, or the zero value if Variant is nil.
+func (u WriteChannel) Base() BaseWriteChannel {
+	switch variant := u.Variant.(type) {
+	case CoilWriteChannel:
+		return variant.BaseWriteChannel
+	case HoldingRegisterWriteChannel:
+		return variant.BaseWriteChannel
+	case HoldingRegisterBitWriteChannel:
+		return variant.BaseWriteChannel
+	}
+	return BaseWriteChannel{}
+}
+
+// SetBase replaces the fields every variant shares. It panics if Variant is nil.
+func (u *WriteChannel) SetBase(base BaseWriteChannel) {
+	switch variant := u.Variant.(type) {
+	case CoilWriteChannel:
+		variant.BaseWriteChannel = base
+		u.Variant = variant
+	case HoldingRegisterWriteChannel:
+		variant.BaseWriteChannel = base
+		u.Variant = variant
+	case HoldingRegisterBitWriteChannel:
+		variant.BaseWriteChannel = base
+		u.Variant = variant
+	default:
+		panic(errors.Newf("WriteChannel: cannot set the base of variant %T", variant))
+	}
 }
 
 // ReadConfig configures a Modbus read task.

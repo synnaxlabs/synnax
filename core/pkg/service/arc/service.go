@@ -161,8 +161,13 @@ type Service struct {
 
 // NewRoot builds the production analysis root: the STL, status, and ranges modules
 // plus the Core channel resolver. tx is consulted for channel lookups; nil uses the DB.
+// A root resolves each channel name the same way for its lifetime, so build one per
+// analysis or compile.
 func (s *Service) NewRoot(tx gorp.Tx) *symbol.Symbol {
-	return symbol.NewRoot(s.cfg.Channel.NewArcSymbolResolver(tx), standardSymbols())
+	return symbol.NewRoot(
+		channel.NewConsistentResolver(s.cfg.Channel.NewArcSymbolResolver(tx)),
+		standardSymbols(),
+	)
 }
 
 func standardSymbols() []*symbol.Symbol {

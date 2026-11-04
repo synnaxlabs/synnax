@@ -161,17 +161,6 @@ func (u *ReadChannel) UnmarshalJSONFrom(dec *jsontext.Decoder) error {
 	return nil
 }
 
-// Base returns the fields that every variant of ReadChannel shares.
-func (u ReadChannel) Base() BaseReadChannel {
-	switch v := u.Variant.(type) {
-	case AutomaticReadChannel:
-		return v.BaseReadChannel
-	case ManualReadChannel:
-		return v.BaseReadChannel
-	}
-	return BaseReadChannel{}
-}
-
 // ApplyDefaults fills the active variant's zero-valued fields with their
 // schema-declared defaults.
 func (u *ReadChannel) ApplyDefaults() {
@@ -179,6 +168,31 @@ func (u *ReadChannel) ApplyDefaults() {
 	case ManualReadChannel:
 		variant.ApplyDefaults()
 		u.Variant = variant
+	}
+}
+
+// Base returns the fields every variant shares, or the zero value if Variant is nil.
+func (u ReadChannel) Base() BaseReadChannel {
+	switch variant := u.Variant.(type) {
+	case AutomaticReadChannel:
+		return variant.BaseReadChannel
+	case ManualReadChannel:
+		return variant.BaseReadChannel
+	}
+	return BaseReadChannel{}
+}
+
+// SetBase replaces the fields every variant shares. It panics if Variant is nil.
+func (u *ReadChannel) SetBase(base BaseReadChannel) {
+	switch variant := u.Variant.(type) {
+	case AutomaticReadChannel:
+		variant.BaseReadChannel = base
+		u.Variant = variant
+	case ManualReadChannel:
+		variant.BaseReadChannel = base
+		u.Variant = variant
+	default:
+		panic(errors.Newf("ReadChannel: cannot set the base of variant %T", variant))
 	}
 }
 
@@ -305,17 +319,6 @@ func (u *WriteChannel) UnmarshalJSONFrom(dec *jsontext.Decoder) error {
 	return nil
 }
 
-// Base returns the fields that every variant of WriteChannel shares.
-func (u WriteChannel) Base() BaseWriteChannel {
-	switch v := u.Variant.(type) {
-	case AutomaticWriteChannel:
-		return v.BaseWriteChannel
-	case ManualWriteChannel:
-		return v.BaseWriteChannel
-	}
-	return BaseWriteChannel{}
-}
-
 // ApplyDefaults fills the active variant's zero-valued fields with their
 // schema-declared defaults.
 func (u *WriteChannel) ApplyDefaults() {
@@ -323,6 +326,31 @@ func (u *WriteChannel) ApplyDefaults() {
 	case ManualWriteChannel:
 		variant.ApplyDefaults()
 		u.Variant = variant
+	}
+}
+
+// Base returns the fields every variant shares, or the zero value if Variant is nil.
+func (u WriteChannel) Base() BaseWriteChannel {
+	switch variant := u.Variant.(type) {
+	case AutomaticWriteChannel:
+		return variant.BaseWriteChannel
+	case ManualWriteChannel:
+		return variant.BaseWriteChannel
+	}
+	return BaseWriteChannel{}
+}
+
+// SetBase replaces the fields every variant shares. It panics if Variant is nil.
+func (u *WriteChannel) SetBase(base BaseWriteChannel) {
+	switch variant := u.Variant.(type) {
+	case AutomaticWriteChannel:
+		variant.BaseWriteChannel = base
+		u.Variant = variant
+	case ManualWriteChannel:
+		variant.BaseWriteChannel = base
+		u.Variant = variant
+	default:
+		panic(errors.Newf("WriteChannel: cannot set the base of variant %T", variant))
 	}
 }
 

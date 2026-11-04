@@ -165,17 +165,6 @@ func (u *Arc) UnmarshalJSONFrom(dec *jsontext.Decoder) error {
 	return nil
 }
 
-// Base returns the fields that every variant of Arc shares.
-func (u Arc) Base() Base {
-	switch v := u.Variant.(type) {
-	case AutomationArc:
-		return v.Base
-	case ModuleArc:
-		return v.Base
-	}
-	return Base{}
-}
-
 // Validate returns an error wrapping validate.ErrValidation if the active variant
 // violates its schema constraints.
 func (u Arc) Validate() error {
@@ -186,6 +175,31 @@ func (u Arc) Validate() error {
 		return variant.Validate()
 	}
 	return nil
+}
+
+// Base returns the fields every variant shares, or the zero value if Variant is nil.
+func (u Arc) Base() Base {
+	switch variant := u.Variant.(type) {
+	case AutomationArc:
+		return variant.Base
+	case ModuleArc:
+		return variant.Base
+	}
+	return Base{}
+}
+
+// SetBase replaces the fields every variant shares. It panics if Variant is nil.
+func (u *Arc) SetBase(base Base) {
+	switch variant := u.Variant.(type) {
+	case AutomationArc:
+		variant.Base = base
+		u.Variant = variant
+	case ModuleArc:
+		variant.Base = base
+		u.Variant = variant
+	default:
+		panic(errors.Newf("Arc: cannot set the base of variant %T", variant))
+	}
 }
 
 // Type specifies whether an Arc runs on a rack as an automation or holds code for other

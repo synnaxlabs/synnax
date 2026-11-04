@@ -104,6 +104,11 @@ Arc parse_arc(x::json::Parser parser);
 to_proto(const Arc &value);
 std::pair<Arc, x::errors::Error> arc_from_proto(const ::service::arc::pb::Arc &pb);
 
+/// @brief returns the fields every variant of the union shares.
+[[nodiscard]] inline const Base &base(const Arc &value) {
+    return std::visit([](const auto &v) -> const Base & { return v; }, value);
+}
+
 const synnax::ontology::ID ONTOLOGY_TYPE("arc", "");
 
 inline synnax::ontology::ID ontology_id(const Key &key) {
