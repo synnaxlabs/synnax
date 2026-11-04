@@ -28,9 +28,11 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/service/status"
 	"github.com/synnaxlabs/synnax/pkg/storage"
 	"github.com/synnaxlabs/synnax/pkg/storage/ts"
+	"github.com/synnaxlabs/x/confluence"
 	xfs "github.com/synnaxlabs/x/io/fs"
 	. "github.com/synnaxlabs/x/io/fs/testutil"
 	"github.com/synnaxlabs/x/query"
+	"github.com/synnaxlabs/x/signal"
 	"github.com/synnaxlabs/x/telem"
 	. "github.com/synnaxlabs/x/testutil"
 	"github.com/synnaxlabs/x/testutil/memkv"
@@ -209,6 +211,30 @@ var _ = Describe("StreamIterator", Ordered, func() {
 				Expect(v.Series[1].Alignment).To(Equal(telem.NewAlignment(1, 0)))
 				Expect(iter.Next(iterator.AutoSpan)).To(BeFalse())
 				Expect(iter.Close()).To(Succeed())
+			})
+
+			It("Should exit on cancel when nothing reads its responses", func(
+				ctx SpecContext,
+			) {
+				calculation := &channel.Channel{
+					Name:       "unread_output",
+					DataType:   telem.Float32T,
+					Expression: "return sensor_1",
+				}
+				Expect(channelWriter.Create(ctx, calculation)).To(Succeed())
+				stream := MustSucceed(iteratorSvc.NewStream(ctx, iterator.Config{
+					Keys:   []channel.Key{calculation.Key()},
+					Bounds: telem.TimeRangeMax,
+				}))
+				sCtx, cancel := signal.Isolated()
+				defer cancel()
+				requests, _ := confluence.Attach(stream)
+				stream.Flow(sCtx, confluence.CloseOutputInletsOnExit())
+				requests.Inlet() <- iterator.Request{Command: iterator.CommandSeekFirst}
+				Consistently(sCtx.Stopped()).ShouldNot(BeClosed())
+				cancel()
+				Eventually(sCtx.Stopped()).Should(BeClosed())
+				Expect(sCtx.Wait()).To(MatchError(context.Canceled))
 			})
 
 			It("Should carry calculation state across domains", func(

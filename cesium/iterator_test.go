@@ -1635,6 +1635,79 @@ var _ = Describe("Iterator Behavior", func() {
 					},
 				)
 
+				DescribeTable(
+					"Should not acknowledge a read whose data it failed to send",
+					func(ctx SpecContext, span telem.TimeSpan) {
+						subDB := mustOpenDBOnFS(ctx, openFS())
+						key := GenerateChannelKey()
+						Expect(subDB.CreateChannel(ctx, cesium.Channel{
+							Key:      key,
+							Name:     "Scott",
+							DataType: telem.TimestampT,
+							IsIndex:  true,
+						})).To(Succeed())
+						Expect(subDB.Write(ctx, 10*telem.SecondTS, telem.MultiFrame(
+							[]cesium.ChannelKey{key},
+							[]telem.Series{telem.NewSeriesSecondsTSV(10, 11, 12)},
+						))).To(Succeed())
+						// A cancel races the sends, so one attempt can end without an
+						// ack
+						// or with the data sent. It reports whether the send failed.
+						attempt := func() bool {
+							iter := MustSucceed(
+								subDB.NewStreamIterator(cesium.IteratorConfig{
+									Bounds:   telem.TimeRangeMax,
+									Channels: []channel.Key{key},
+								}),
+							)
+							var (
+								sCtx, cancel = signal.Isolated()
+								requests     = confluence.NewStream[cesium.IteratorRequest](
+									1,
+								)
+								responses = confluence.NewStream[cesium.IteratorResponse](
+									1,
+								)
+							)
+							defer cancel()
+							iter.InFrom(requests)
+							iter.OutTo(responses)
+							iter.Flow(sCtx, confluence.CloseOutputInletsOnExit())
+							requests.Inlet() <- cesium.IteratorRequest{
+								Command: cesium.IteratorCommandSeekFirst,
+							}
+							Eventually(responses.Outlet()).Should(Receive())
+							// A full stream holds the data of the read back.
+							responses.Inlet() <- cesium.IteratorResponse{}
+							requests.Inlet() <- cesium.IteratorRequest{
+								Command: cesium.IteratorCommandNext,
+								Span:    span,
+							}
+							Eventually(func() int {
+								return len(requests.Outlet())
+							}).Should(BeZero())
+							cancel()
+							failed := false
+							for res := range responses.Outlet() {
+								if res.Err != nil {
+									Expect(res.Err).To(MatchError(context.Canceled))
+									Expect(res.Ack).To(BeFalse())
+									failed = true
+								}
+							}
+							Expect(sCtx.Wait()).To(MatchError(context.Canceled))
+							return failed
+						}
+						Eventually(
+							attempt,
+						).WithTimeout(30 * time.Second).
+							Should(BeTrue())
+						Expect(subDB.Close()).To(Succeed())
+					},
+					Entry("automatic span", cesium.AutoSpan),
+					Entry("fixed span", telem.Second),
+				)
+
 				// openFaulty writes five samples to an index and a data channel through
 				// a fault-injecting file system and returns the keys of both.
 				openFaulty := func(

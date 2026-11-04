@@ -10,6 +10,7 @@
 package cesium_test
 
 import (
+	"context"
 	"fmt"
 	"math"
 	"strconv"
@@ -63,6 +64,29 @@ var _ = Describe("Delete", func() {
 						"Deleting a nonexistent channel should be idempotent",
 						func() {
 							Expect(db.DeleteChannel(999)).To(Succeed())
+						},
+					)
+					Specify(
+						"Deleting a time range with a canceled context",
+						func(ctx SpecContext) {
+							key := GenerateChannelKey()
+							Expect(db.CreateChannel(ctx, cesium.Channel{
+								Key:      key,
+								Name:     "Anaximander",
+								IsIndex:  true,
+								DataType: telem.TimestampT,
+							})).To(Succeed())
+							Expect(db.Write(ctx, 10*telem.SecondTS, telem.MultiFrame(
+								[]cesium.ChannelKey{key},
+								[]telem.Series{telem.NewSeriesSecondsTSV(10, 11, 12)},
+							))).To(Succeed())
+							canceled, cancel := context.WithCancel(ctx)
+							cancel()
+							Expect(db.DeleteTimeRange(
+								canceled, []cesium.ChannelKey{key}, telem.TimeRangeMax,
+							)).To(MatchError(context.Canceled))
+							fr := MustSucceed(db.Read(ctx, telem.TimeRangeMax, key))
+							Expect(fr.Get(key).Len()).To(Equal(int64(3)))
 						},
 					)
 					Specify("Deleting a channel with db closed", func(ctx SpecContext) {
