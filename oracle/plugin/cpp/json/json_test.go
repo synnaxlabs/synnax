@@ -477,7 +477,7 @@ var _ = Describe("C++ JSON Plugin", func() {
 					resp := MustGenerate(ctx, source, "task", loader, jsonPlugin)
 
 					ExpectContent(resp, "json.gen.h").
-						ToContain(`obj[std::to_string(key)] = item.to_json();`)
+						ToContain(`obj[x::json::map_key(key)] = item.to_json();`)
 				},
 			)
 			DescribeTable("Should reject a map of structs with an unsupported key",

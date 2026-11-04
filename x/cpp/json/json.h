@@ -56,6 +56,18 @@ struct is_string_parseable<
 template<typename K>
 inline constexpr bool is_string_parseable_v = is_string_parseable<K>::value;
 
+/// @brief returns the JSON object key for a map key. Accepts strings, integers, and
+/// types with a to_string member, such as x::uuid::UUID.
+template<typename K>
+std::string map_key(const K &key) {
+    if constexpr (std::is_same_v<K, std::string>)
+        return key;
+    else if constexpr (std::is_integral_v<K>)
+        return std::to_string(key);
+    else
+        return key.to_string();
+}
+
 /// @brief Type trait to detect std::map and std::unordered_map types with string,
 /// numeric, or string-parseable keys
 template<typename T>

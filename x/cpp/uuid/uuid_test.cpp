@@ -246,6 +246,12 @@ struct MapValue {
     }
 };
 
+/// @brief it should write a UUID map key as its string form.
+TEST(UUID, testMapKeyWrite) {
+    const auto key = create();
+    ASSERT_EQ(json::map_key(key), key.to_string());
+}
+
 /// @brief it should parse a map of structs keyed by UUID.
 TEST(UUID, testMapKeyParse) {
     const auto key = create();

@@ -964,9 +964,11 @@ func (p *Plugin) toJSONExprForField(
 		// JSON object keys are strings, and obj[key] with an integer key indexes an
 		// array.
 		key := "key"
-		switch resolution.PrimitiveBase(mapRef.TypeArgs[0], data.table) {
-		case "string":
-		case "uuid":
+		switch base := resolution.PrimitiveBase(mapRef.TypeArgs[0], data.table); {
+		case mapRef.TypeArgs[0].IsTypeParam():
+			key = "x::json::map_key(key)"
+		case base == "string":
+		case base == "uuid":
 			key = "key.to_string()"
 		default:
 			data.AddSystem("string")
