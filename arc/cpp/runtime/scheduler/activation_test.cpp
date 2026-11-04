@@ -7,6 +7,10 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
+#include <array>
+#include <cstring>
+#include <new>
+
 #include "gtest/gtest.h"
 
 #include "x/cpp/telem/telem.h"
@@ -94,6 +98,20 @@ TEST_F(SchedulerTest, ReactivationAfterResetStampsFromTheNewCycle) {
          .reason = node::RunReason::TimerTick}
     );
     EXPECT_EQ(stage_node.reset_now.back(), second);
+}
+
+// A build activates the root before any cycle runs. On reused heap memory, a stamp left
+// unset would reach every top-level source as an entry stamp no sample can pass.
+TEST_F(SchedulerTest, BuildActivatesRootWithZeroCycle) {
+    auto &n = mock("n");
+    auto ir = program_of({ir_node("n")}, {}, root_scope({ir::node_member("n")}));
+    alignas(Scheduler) std::array<unsigned char, sizeof(Scheduler)> storage;
+    std::memset(storage.data(), 0x7F, storage.size());
+    auto *s = new (storage.data()) Scheduler(std::move(ir), this->nodes);
+    const auto reset_now = n.reset_now;
+    s->~Scheduler();
+    ASSERT_EQ(reset_now.size(), 1);
+    EXPECT_EQ(reset_now[0], x::telem::TimeStamp(0));
 }
 
 // Anonymous top-level scopes cannot be referenced by `=>` from source, so the
