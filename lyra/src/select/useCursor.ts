@@ -170,10 +170,18 @@ export const useCursor = <K extends record.Key>({
   const hovering = cursor === "hover";
   // The key the cursor last moved to, which may since have left the options.
   const movedRef = useRef<K | undefined>(undefined);
+  // The selection when the cursor last moved. A selection that has since gained a key
+  // changed without the cursor, as when a duplicate selects its copy, so the cursor
+  // follows it. One that only lost keys keeps a key a modifier click deselected.
+  const movedFromRef = useRef<K[]>([]);
   const [current, setCurrent] = useState<K | undefined>(undefined);
+  const follows = (moved: K): boolean =>
+    hovering ||
+    selected.includes(moved) ||
+    selected.every((k) => movedFromRef.current.includes(k));
   const resolve = (order: K[]): K | undefined => {
     const moved = movedRef.current;
-    if (moved != null && order.includes(moved)) return moved;
+    if (moved != null && order.includes(moved) && follows(moved)) return moved;
     return startOf(order, cursor, initialHover, selected);
   };
   useEffect(() => {
@@ -189,6 +197,7 @@ export const useCursor = <K extends record.Key>({
 
   const moveTo = (key: K, direction: location.Y): void => {
     movedRef.current = key;
+    movedFromRef.current = selected;
     setCurrent(key);
     if (!hovering) select(key);
     scrollTo(key, direction);
@@ -310,7 +319,9 @@ export const useCursor = <K extends record.Key>({
     place(key);
   };
   const setCursor = (key: K): void => {
-    if (!hovering) place(key);
+    if (hovering) return;
+    movedFromRef.current = selected;
+    place(key);
   };
   return { hover: hovering ? current : undefined, setHover, setCursor, keyboard };
 };
