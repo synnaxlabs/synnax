@@ -11,6 +11,9 @@ package task_test
 
 import (
 	"context"
+	"encoding/json"
+	"strings"
+	"time"
 	"uuid"
 
 	. "github.com/onsi/ginkgo/v2"
@@ -19,10 +22,17 @@ import (
 	. "github.com/synnaxlabs/synnax/pkg/api/testutil"
 	"github.com/synnaxlabs/synnax/pkg/service/access"
 	"github.com/synnaxlabs/synnax/pkg/service/actions"
+	"github.com/synnaxlabs/synnax/pkg/service/channel"
+	"github.com/synnaxlabs/synnax/pkg/service/framer"
 	"github.com/synnaxlabs/synnax/pkg/service/ontology"
 	"github.com/synnaxlabs/synnax/pkg/service/pagerduty"
+	"github.com/synnaxlabs/synnax/pkg/service/status"
 	"github.com/synnaxlabs/synnax/pkg/service/task"
+	"github.com/synnaxlabs/synnax/pkg/service/user"
+	"github.com/synnaxlabs/x/confluence"
 	"github.com/synnaxlabs/x/query"
+	"github.com/synnaxlabs/x/signal"
+	"github.com/synnaxlabs/x/telem"
 	. "github.com/synnaxlabs/x/testutil"
 )
 
@@ -231,5 +241,127 @@ var _ = Describe("Retrieve", func() {
 		Expect(res.Tasks[0].Status).To(BeNil())
 		Expect(res.Tasks[1].Key).To(Equal(withStatus.Key))
 		Expect(res.Tasks[1].Status.Key).To(Equal(withStatus.OntologyID().String()))
+	})
+})
+
+func createRunningTask(ctx SpecContext, running bool) task.Task {
+	GinkgoHelper()
+	t := task.Task{
+		Type: pagerduty.AlertTaskType,
+		Rack: svc.Rack.EmbeddedKey,
+		Name: "Running",
+		Status: &task.Status{
+			Variant: status.VariantSuccess,
+			Message: "Task is running",
+			Time:    telem.Now(),
+			Details: task.StatusDetails{Running: running},
+		},
+	}
+	Expect(svc.Task.NewWriter(nil).Create(ctx, &t)).To(Succeed())
+	return t
+}
+
+// reportStopped writes the status a task writes when it stops.
+func reportStopped(ctx context.Context, t task.Task) {
+	GinkgoHelper()
+	stat := task.Status{
+		Key:     t.OntologyID().String(),
+		Variant: status.VariantSuccess,
+		Message: "Stopped task",
+		Time:    telem.Now(),
+		Details: task.StatusDetails{Task: t.Key},
+	}
+	Expect(svc.Status.NewWriter(nil).Set(ctx, &stat)).To(Succeed())
+}
+
+// streamCommands sends each command written to the task command channel on the returned
+// channel. It returns once the stream is live.
+func streamCommands(ctx SpecContext) <-chan task.Command {
+	GinkgoHelper()
+	streamer := MustSucceed(svc.Framer.NewStreamer(ctx, framer.StreamerConfig{
+		Keys:        channel.Keys{svc.Task.CommandChannelKey()},
+		SendOpenAck: true,
+	}))
+	requests, responses := confluence.Attach(streamer, 2)
+	sCtx, cancel := signal.Isolated()
+	shutdown := signal.NewHardShutdown(sCtx, cancel)
+	streamer.Flow(sCtx, confluence.CloseOutputInletsOnExit())
+	Eventually(responses.Outlet()).Should(Receive())
+	commands := make(chan task.Command, 16)
+	done := make(chan struct{})
+	go func() {
+		defer GinkgoRecover()
+		defer close(done)
+		for res := range responses.Outlet() {
+			for series := range res.Frame.Series() {
+				for sample := range series.Samples() {
+					var cmd task.Command
+					Expect(json.Unmarshal(sample, &cmd)).To(Succeed())
+					commands <- cmd
+				}
+			}
+		}
+	}()
+	DeferCleanup(func() {
+		requests.Close()
+		Eventually(done).Should(BeClosed())
+		Expect(shutdown.Close()).To(Succeed())
+	})
+	return commands
+}
+
+var _ = Describe("Delete", func() {
+	var u user.User
+	BeforeEach(func(ctx SpecContext) { u = createUser(ctx) })
+	withTimeout := func(timeout time.Duration) *apitask.Service {
+		GinkgoHelper()
+		return MustSucceed(apitask.NewService(apitask.ServiceConfig{
+			Task:        svc.Task,
+			Status:      svc.Status,
+			RBAC:        svc.RBAC,
+			Framer:      svc.Framer,
+			StopTimeout: timeout,
+		}))
+	}
+	expectGone := func(ctx SpecContext, key task.Key) {
+		GinkgoHelper()
+		var t task.Task
+		Expect(svc.Task.NewRetrieve().
+			Where(task.MatchKeys(key)).
+			Entry(&t).
+			Exec(ctx, nil)).To(MatchError(query.ErrNotFound))
+	}
+	It("Should release the channels of a running task", func(ctx SpecContext) {
+		t := createRunningTask(ctx, true)
+		grant(ctx, access.ActionDelete, u.OntologyID(), t.OntologyID())
+		ch := channel.Channel{
+			Name:        "task_" + strings.ReplaceAll(uuid.New().String(), "-", "_"),
+			DataType:    telem.TimestampT,
+			IsIndex:     true,
+			Leaseholder: 1,
+		}
+		Expect(svc.Channel.NewWriter(nil).Create(ctx, &ch)).To(Succeed())
+		w := MustSucceed(svc.Framer.OpenWriter(ctx, framer.WriterConfig{
+			Keys:  channel.Keys{ch.Key()},
+			Start: telem.Now(),
+		}))
+		commands := streamCommands(ctx)
+		driver := make(chan struct{})
+		go func() {
+			defer GinkgoRecover()
+			defer close(driver)
+			var cmd task.Command
+			Eventually(commands).Should(Receive(&cmd))
+			Expect(cmd.Task).To(Equal(t.Key))
+			Expect(cmd.Type).To(Equal("stop"))
+			Expect(w.Close()).To(Succeed())
+			reportStopped(ctx, t)
+		}()
+		Expect(withTimeout(10*time.Second).Delete(
+			AuthedCtx(ctx, u), nil, apitask.DeleteRequest{Keys: []task.Key{t.Key}},
+		)).Error().ToNot(HaveOccurred())
+		Expect(svc.Channel.NewWriter(nil).Delete(ctx, ch.Key(), false)).To(Succeed())
+		Eventually(driver).Should(BeClosed())
+		expectGone(ctx, t.Key)
 	})
 })
