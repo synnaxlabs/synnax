@@ -18,6 +18,7 @@ import {
   isMissing,
   Message,
   MISSING_DESCRIPTIONS,
+  NEW_DESCRIPTION,
   STATE_MESSAGES,
   StateIcon,
 } from "@/platform/task/ChannelState";
@@ -78,7 +79,7 @@ const Unbound = (props: StoredProps) => {
         <Message
           variant="info"
           message={STATE_MESSAGES.new}
-          description="Deploying the task creates it."
+          description={NEW_DESCRIPTION}
         >
           <StateIcon state="new" />
         </Message>

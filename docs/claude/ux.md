@@ -263,8 +263,8 @@ bound, a log precision, or the line plot X channel.
   data type unlocks too, because deploying creates a new channel.
 - A channel that the form picks, as in Kafka write, is never new. It reads "No channel"
   before a pick and "Channel not found" after its channel is deleted.
-- A channel name input shows the same state icons at its start. A field in a group tree
-  shows only the missing icon.
+- A channel name input shows the same state icons at its start. An item in a group tree
+  shows them at its end, before its switch, so the pointers keep one left edge.
 
 ### Table input
 

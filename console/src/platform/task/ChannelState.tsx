@@ -33,6 +33,8 @@ export const STATE_MESSAGES: Record<State, string> = {
   missing: "Channel not found",
 };
 
+export const NEW_DESCRIPTION = "Deploying the task creates it.";
+
 export const SKIPPED_DESCRIPTION =
   "Deploying the task does not create a disabled channel.";
 

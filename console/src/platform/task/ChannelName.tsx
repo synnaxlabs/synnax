@@ -24,6 +24,7 @@ import {
   isMissing,
   Message,
   MISSING_DESCRIPTIONS,
+  NEW_DESCRIPTION,
   SKIPPED_DESCRIPTION,
   STATE_MESSAGES,
   StateIcon,
@@ -203,11 +204,7 @@ const Unbound = ({ namePath, defaultName, icon, skipped, ...rest }: UnboundProps
       </Message>
     );
   return (
-    <Message
-      variant="info"
-      message={STATE_MESSAGES.new}
-      description="Deploying the task creates it."
-    >
+    <Message variant="info" message={STATE_MESSAGES.new} description={NEW_DESCRIPTION}>
       {lead(<StateIcon state="new" />, name)}
     </Message>
   );

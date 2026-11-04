@@ -358,6 +358,37 @@ describe("GroupTree", () => {
     expect(updates).toEqual([]);
   });
 
+  it("should mark the end of an item whose channel deploying creates, unless skipped", async () => {
+    await renderTree(
+      [
+        {
+          ...GROUP,
+          index: "",
+          fields: [field("a", "/a"), { ...field("b", "/b"), disabled: true }],
+        },
+        { ...GROUP, key: "off", index: "", disabled: true, fields: [field("c", "/c")] },
+        { ...LEAF, channel: 0 },
+      ],
+      { groupsSwitchable: true },
+    );
+    const newIcon = async (name: RegExp) =>
+      within(await screen.findByRole("treeitem", { name })).queryByRole("img", {
+        name: "New channel",
+      });
+    expect(await newIcon(/\/b/)).toBeNull();
+    expect(await newIcon(/\/c/)).toBeNull();
+    expect(await newIcon(/group-l/)).not.toBeNull();
+    const item = await screen.findByRole("treeitem", { name: /\/a/ });
+    const icon = within(item).getByRole("img", { name: "New channel" });
+    expect(within(item).getByText("/a").compareDocumentPosition(icon)).toBe(
+      Node.DOCUMENT_POSITION_FOLLOWING,
+    );
+    fireEvent.pointerOver(icon, { pointerType: "mouse" });
+    expect((await screen.findByRole("tooltip")).textContent).toBe(
+      "New channelDeploying the task creates it.",
+    );
+  });
+
   describe("with a live client", () => {
     const client = createTestClient();
 

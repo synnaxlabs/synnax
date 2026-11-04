@@ -29,6 +29,7 @@ import {
   isMissing,
   Message,
   MISSING_DESCRIPTIONS,
+  NEW_DESCRIPTION,
   STATE_MESSAGES,
   StateIcon,
 } from "@/platform/task/ChannelState";
@@ -189,16 +190,26 @@ const disabledPath = <F extends GroupField>(
     ? deep.present(groups[entry.groupKey].disabled)
     : deep.widen<GroupField>(entry.path).disabled;
 
-interface MissingProps {
+interface ChannelIconProps {
   channel: deep.Target<number>;
   /** Deploying the task skips the channel. */
   skipped: boolean;
 }
 
-/** Marks an item whose channel is gone. */
-const Missing = ({ channel, skipped }: MissingProps) => {
+/** Marks an item whose channel deploying creates, or whose channel is gone. */
+const ChannelIcon = ({ channel, skipped }: ChannelIconProps) => {
   const key = Form.useFieldValue(channel);
   const result = Channel.useResultName(primitive.isNonZero(key) ? { key } : null);
+  if (!primitive.isNonZero(key))
+    return skipped ? null : (
+      <Message
+        variant="info"
+        message={STATE_MESSAGES.new}
+        description={NEW_DESCRIPTION}
+      >
+        <StateIcon state="new" />
+      </Message>
+    );
   if (!isMissing(result)) return null;
   return (
     <Message
@@ -241,15 +252,15 @@ const GroupItem = <G extends Group<GroupField> | Leaf>(props: GroupItemProps<G>)
         off && CSS.M("off"),
       )}
     >
+      {label({ groupKey: itemKey, path: path[itemKey] })}
       {leaf && (
-        <Missing
+        <ChannelIcon
           channel={deep.present(
             deep.widen<AnyGroup<GroupField>[]>(path)[itemKey].channel,
           )}
           skipped={off}
         />
       )}
-      {label({ groupKey: itemKey, path: path[itemKey] })}
       {!leaf && !isPreview && (
         <Button.Button
           onClick={handleAdd}
@@ -318,8 +329,8 @@ const FieldItem = ({ path, groupDisabled, emptyLabel, ...props }: FieldItemProps
       {...props}
       className={CSS.cls(CSS.B("field-item"), disabled && CSS.M("off"))}
     >
-      <Missing channel={channel} skipped={disabled || groupOff} />
       <FieldLabel path={path} level="small" emptyLabel={emptyLabel} />
+      <ChannelIcon channel={channel} skipped={disabled || groupOff} />
       <EnabledCheckbox path={disabledField} />
     </Tree.Item>
   );
