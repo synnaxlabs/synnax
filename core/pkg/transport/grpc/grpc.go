@@ -161,7 +161,7 @@ func Bind(layer *api.Layer) []grpc.BindableTransport {
 	t.ICDCreate = noop.UnaryServer[icd.CreateRequest, icd.CreateResponse]{}
 	t.ICDRetrieve = noop.UnaryServer[icd.RetrieveRequest, icd.RetrieveResponse]{}
 	t.ICDCheck = noop.UnaryServer[icd.CheckRequest, icd.CheckResponse]{}
-	t.ICDRename = noop.UnaryServer[icd.RenameRequest, struct{}]{}
+	t.ICDDispatch = noop.UnaryServer[icd.DispatchRequest, struct{}]{}
 	t.ICDImport = noop.UnaryServer[icd.ImportRequest, icd.ImportResponse]{}
 	t.ICDDelete = noop.UnaryServer[icd.DeleteRequest, struct{}]{}
 

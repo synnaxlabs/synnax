@@ -9,5 +9,4 @@
 
 export * from "@/icd/Icons";
 export * from "@/icd/queries";
-export * from "@/icd/Select";
 export * from "@/icd/useCheck";

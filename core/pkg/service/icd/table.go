@@ -18,7 +18,6 @@ import (
 	"strings"
 	"uuid"
 
-	"github.com/synnaxlabs/synnax/pkg/service/icd/versions"
 	"github.com/synnaxlabs/x/errors"
 	"github.com/xuri/excelize/v2"
 )
@@ -43,13 +42,12 @@ const (
 )
 
 const (
-	maxStandardID = 0x7FF
 	// maxUnzipSize bounds the uncompressed size of an XLSX workbook.
 	maxUnzipSize = 64 << 20
 	utf8BOM      = "\ufeff"
 )
 
-func parseCSV(data []byte) ([]versions.Message, error) {
+func parseCSV(data []byte) ([]Message, error) {
 	r := csv.NewReader(bytes.NewReader(bytes.TrimPrefix(data, []byte(utf8BOM))))
 	r.FieldsPerRecord = -1
 	rows, err := r.ReadAll()
@@ -63,7 +61,7 @@ func parseCSV(data []byte) ([]versions.Message, error) {
 	return parseTable(rows)
 }
 
-func parseXLSX(data []byte) (messages []versions.Message, err error) {
+func parseXLSX(data []byte) (messages []Message, err error) {
 	f, err := excelize.OpenReader(
 		bytes.NewReader(data),
 		excelize.Options{UnzipSizeLimit: maxUnzipSize},
@@ -129,8 +127,8 @@ func (a *attr[T]) merge(column string, row int, v T) error {
 }
 
 type tableMessage struct {
-	message  versions.Message
-	payload  versions.BinaryPayload
+	message  Message
+	payload  BinaryPayload
 	id       attr[uint32]
 	extended attr[bool]
 	length   attr[uint16]
@@ -143,7 +141,7 @@ type table struct {
 	byName   map[string]*tableMessage
 }
 
-func parseTable(rows [][]string) ([]versions.Message, error) {
+func parseTable(rows [][]string) ([]Message, error) {
 	if len(rows) == 0 {
 		return nil, dataErrorf("missing header row")
 	}
@@ -159,14 +157,14 @@ func parseTable(rows [][]string) ([]versions.Message, error) {
 			return nil, err
 		}
 	}
-	messages := make([]versions.Message, 0, len(t.messages))
+	messages := make([]Message, 0, len(t.messages))
 	for _, m := range t.messages {
 		if m.id.set {
-			extended := m.id.value > maxStandardID
+			extended := m.id.value > maxStandardCANID
 			if m.extended.set {
 				extended = m.extended.value
 			}
-			m.payload.Identifier = &versions.Identifier{Variant: versions.CanIdentifier{
+			m.payload.Identifier = &Identifier{Variant: CanIdentifier{
 				ID:       m.id.value,
 				Extended: extended,
 			}}
@@ -176,7 +174,7 @@ func parseTable(rows [][]string) ([]versions.Message, error) {
 		if m.length.set {
 			m.payload.Length = new(m.length.value)
 		}
-		m.message.Payload = versions.Payload{Variant: m.payload}
+		m.message.Payload = Payload{Variant: m.payload}
 		messages = append(messages, m.message)
 	}
 	return messages, nil
@@ -231,7 +229,7 @@ func (t *table) readRow(row int, cells []string) error {
 	}
 	m, ok := t.byName[name]
 	if !ok {
-		m = &tableMessage{message: versions.Message{Key: uuid.New(), Name: name}}
+		m = &tableMessage{message: Message{Key: uuid.New(), Name: name}}
 		t.messages = append(t.messages, m)
 		t.byName[name] = m
 	}
@@ -277,13 +275,13 @@ func (t *table) readMessage(row int, cells []string, m *tableMessage) error {
 	return nil
 }
 
-func (t *table) readField(row int, cells []string) (versions.BinaryField, error) {
-	f := versions.BinaryField{
+func (t *table) readField(row int, cells []string) (BinaryField, error) {
+	f := BinaryField{
 		Key:       uuid.New(),
 		Name:      t.cell(cells, columnField),
 		Scale:     1,
 		Units:     t.cell(cells, columnUnits),
-		ByteOrder: versions.ByteOrderLittleEndian,
+		ByteOrder: ByteOrderLittleEndian,
 	}
 	if f.Name == "" {
 		return f, rowErrorf(row, columnField, "is required")
@@ -300,7 +298,7 @@ func (t *table) readField(row int, cells []string) (versions.BinaryField, error)
 	switch s := strings.ToLower(t.cell(cells, columnByteOrder)); s {
 	case "", "little_endian", "intel":
 	case "big_endian", "motorola":
-		f.ByteOrder = versions.ByteOrderBigEndian
+		f.ByteOrder = ByteOrderBigEndian
 	default:
 		return f, rowErrorf(row, columnByteOrder, "invalid byte order %q", s)
 	}

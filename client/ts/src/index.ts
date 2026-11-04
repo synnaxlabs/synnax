@@ -45,7 +45,6 @@ export {
   QueryError,
   RouteError,
   SessionEndedError,
-  StaleICDError,
   UnauthorizedError,
   UnexpectedError,
   UnsupportedError,

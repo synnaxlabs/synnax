@@ -309,7 +309,6 @@ func (t *TaggedTextField) ApplyDefaults() {
 // schema constraints.
 func (t TaggedTextField) Validate() error {
 	v := validate.New("TaggedTextField")
-	v.NotEmptyString("tag", t.Tag)
 	v.Exec(t.BaseField.Validate)
 	return v.Error()
 }
@@ -904,9 +903,6 @@ type ICD struct {
 	Name string `json:"name" msgpack:"name"`
 	// Messages are the messages the ICD holds.
 	Messages []Message `json:"messages" msgpack:"messages"`
-	// Hash is the hash of the messages as the Core last stored them. A write sends the
-	// hash it read, and the Core rejects the write when the ICD changed since.
-	Hash string `json:"hash" msgpack:"hash"`
 }
 
 // ApplyDefaults fills zero-valued fields with their schema-declared defaults.

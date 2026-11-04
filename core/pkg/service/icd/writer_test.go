@@ -17,7 +17,7 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/service/icd"
 	"github.com/synnaxlabs/synnax/pkg/service/ontology"
 	"github.com/synnaxlabs/x/query"
-	. "github.com/synnaxlabs/x/testutil"
+	"github.com/synnaxlabs/x/validate"
 )
 
 func binaryField(name string, startBit uint16, bitLength uint8) icd.BinaryField {
@@ -115,13 +115,6 @@ var _ = Describe("Writer", func() {
 			},
 		)
 
-		It("Should set the hash of the stored ICD", func(ctx SpecContext) {
-			ic := icd.ICD{Name: "Hashed"}
-			Expect(svc.NewWriter(tx).Create(ctx, &ic)).To(Succeed())
-			Expect(ic.Hash).To(Equal(MustSucceed(icd.Hash(ic))))
-			Expect(retrieveICD(ctx, ic.Key).Hash).To(Equal(ic.Hash))
-		})
-
 		It("Should create an ICD under the key a client chose", func(ctx SpecContext) {
 			key := uuid.New()
 			ic := icd.ICD{Key: key, Name: "Chosen"}
@@ -179,98 +172,28 @@ var _ = Describe("Writer", func() {
 			},
 		)
 
-		It(
-			"Should refuse an ICD with every problem Check finds",
-			func(ctx SpecContext) {
-				ic := icd.ICD{Messages: []icd.Message{
-					binaryMessage("State"),
-					binaryMessage("State"),
-				}}
-				Expect(svc.NewWriter(tx).Create(ctx, &ic)).To(MatchError(
-					"name: required: validation error\n" +
-						`messages.1.name: duplicate message name "State": validation error`,
-				))
-				Expect(svc.NewRetrieve().
-					Where(icd.MatchKeys(ic.Key)).
-					Exec(ctx, tx)).To(MatchError(query.ErrNotFound))
-			},
-		)
-	})
-
-	Describe("Stale saves", func() {
-		var ic icd.ICD
-		BeforeEach(func(ctx SpecContext) {
-			ic = icd.ICD{
-				Name: "Shared",
-				Messages: []icd.Message{
-					canMessage("Status", 0x100, binaryField("rpm", 0, 16)),
-				},
-			}
+		It("Should store an ICD with problems that Check finds", func(ctx SpecContext) {
+			ic := icd.ICD{Name: "Duplicates", Messages: []icd.Message{
+				binaryMessage("State"),
+				binaryMessage("State"),
+			}}
 			Expect(svc.NewWriter(tx).Create(ctx, &ic)).To(Succeed())
+			Expect(retrieveICD(ctx, ic.Key)).To(Equal(ic))
+			Expect(icd.Check(ic)).To(ConsistOf(validate.Problem{
+				Path:    "messages.1.name",
+				Message: `duplicate message name "State"`,
+			}))
 		})
 
-		It(
-			"Should reject a save that carries the hash of an older version",
-			func(ctx SpecContext) {
-				mine, theirs := ic, setScale(ic, 0, 0.5)
-				Expect(svc.NewWriter(tx).Create(ctx, &theirs)).To(Succeed())
-				mine = setScale(mine, 0, 2)
-				Expect(svc.NewWriter(tx).Create(ctx, &mine)).To(SatisfyAll(
-					MatchError(icd.ErrStale),
-					MatchError("ICD Shared: changed since it was read"),
-				))
-				stored := retrieveICD(ctx, ic.Key)
-				Expect(binaryFieldOf(stored.Messages[0], 0).Scale).To(Equal(0.5))
-			},
-		)
-
-		It("Should reject a replacement that carries no hash", func(ctx SpecContext) {
-			ic.Hash = ""
+		It("Should reject an ICD that breaks a rule of its schema", func(
+			ctx SpecContext,
+		) {
+			ic := icd.ICD{Messages: []icd.Message{binaryMessage("")}}
 			Expect(svc.NewWriter(tx).Create(ctx, &ic)).
-				To(MatchError(icd.ErrStale))
-		})
-
-		It(
-			"Should accept consecutive saves of the hash each returns",
-			func(ctx SpecContext) {
-				w := svc.NewWriter(tx)
-				ic = setScale(ic, 0, 2)
-				Expect(w.Create(ctx, &ic)).To(Succeed())
-				ic = setScale(ic, 0, 3)
-				Expect(w.Create(ctx, &ic)).To(Succeed())
-				Expect(binaryFieldOf(retrieveICD(ctx, ic.Key).Messages[0], 0).Scale).
-					To(Equal(3.0))
-			},
-		)
-
-		It("Should accept a save read before a rename", func(ctx SpecContext) {
-			read := ic
-			Expect(svc.NewWriter(tx).Rename(ctx, ic.Key, "Renamed")).To(Succeed())
-			read.Name = "Renamed"
-			Expect(svc.NewWriter(tx).Create(ctx, &read)).To(Succeed())
-			Expect(retrieveICD(ctx, ic.Key).Name).To(Equal("Renamed"))
-		})
-	})
-
-	Describe("Rename", func() {
-		It("Should rename an ICD and keep its hash", func(ctx SpecContext) {
-			ic := icd.ICD{Name: "Before"}
-			w := svc.NewWriter(tx)
-			Expect(w.Create(ctx, &ic)).To(Succeed())
-			Expect(w.Rename(ctx, ic.Key, "After")).To(Succeed())
-			res := retrieveICD(ctx, ic.Key)
-			Expect(res.Name).To(Equal("After"))
-			Expect(res.Hash).To(Equal(ic.Hash))
-		})
-
-		It("Should reject an empty name", func(ctx SpecContext) {
-			Expect(svc.NewWriter(tx).Rename(ctx, uuid.New(), "")).
-				To(MatchError(ContainSubstring("name: name is required: validation error")))
-		})
-
-		It("Should return not found for a missing ICD", func(ctx SpecContext) {
-			Expect(svc.NewWriter(tx).Rename(ctx, uuid.New(), "Name")).
-				To(MatchError(query.ErrNotFound))
+				To(MatchError("name: required\nmessages.0.name: required"))
+			Expect(svc.NewRetrieve().
+				Where(icd.MatchKeys(ic.Key)).
+				Exec(ctx, tx)).To(MatchError(query.ErrNotFound))
 		})
 	})
 

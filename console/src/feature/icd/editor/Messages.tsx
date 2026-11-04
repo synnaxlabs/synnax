@@ -38,6 +38,12 @@ const createMessage = (messages: icd.Message[]): icd.Message => ({
   payload: { format: "binary", fields: [] },
 });
 
+const FORMAT_ICONS: Record<icd.PayloadType, ReactElement> = {
+  binary: <Icon.Binary />,
+  text: <Icon.Text />,
+  json: <Icon.JSON />,
+};
+
 const count = (n: number, noun: string): string =>
   `${n} ${n === 1 ? noun : Text.plural(noun)}`;
 
@@ -82,7 +88,7 @@ const Item = (props: List.ItemRenderProps<string>): ReactElement | null => {
   return (
     <Select.Item {...props} justify="between" align="center" gap="small">
       <Flex.Box x align="center" gap="small" className={CSS.BE("icd-message", "label")}>
-        <Icon.Binary />
+        {FORMAT_ICONS[message.payload.format]}
         <Flex.Box y gap="tiny" className={CSS.BE("icd-message", "text")}>
           <Text.Text weight={500} overflow="fade">
             {message.name}

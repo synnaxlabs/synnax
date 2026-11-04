@@ -9,13 +9,12 @@
 
 import "@/feature/icd/editor/Editor.css";
 
-import { icd, StaleICDError } from "@synnaxlabs/client";
+import { icd } from "@synnaxlabs/client";
 import { Button } from "@synnaxlabs/lyra/button";
 import { Flex } from "@synnaxlabs/lyra/flex";
 import { Form } from "@synnaxlabs/lyra/form";
 import { Icon } from "@synnaxlabs/lyra/icon";
 import { Input } from "@synnaxlabs/lyra/input";
-import { Status } from "@synnaxlabs/lyra/status";
 import { Text } from "@synnaxlabs/lyra/text";
 import { Access, ICD, Panel } from "@synnaxlabs/pluto";
 import { type deep } from "@synnaxlabs/x";
@@ -47,7 +46,7 @@ interface BodyProps {
 
 const Body = ({ selected, onSelect }: BodyProps): ReactElement => {
   const { data } = Form.useFieldList(ICD.formPath.messages);
-  // Selected messages can vanish when a save or an import replaces the messages.
+  // Selected messages can vanish when another client or an import removes them.
   const present = selected.filter((key) => data.includes(key));
   const shown = present.length > 0 ? present : data.slice(0, 1);
   const current = shown.at(0);
@@ -72,41 +71,20 @@ const Body = ({ selected, onSelect }: BodyProps): ReactElement => {
   );
 };
 
-interface StaleProps {
-  onReload: () => void;
-}
-
-const Stale = ({ onReload }: StaleProps): ReactElement => (
-  <Flex.Box x align="center" gap="small" grow>
-    <Status.Summary
-      variant="warning"
-      message="This ICD changed after you opened it"
-      description="Reload to get the changes. Reload discards your unsaved edits."
-    />
-    <Button.Button variant="outlined" onClick={onReload}>
-      <Icon.Refresh />
-      Reload
-    </Button.Button>
-  </Flex.Box>
-);
-
-interface ContentProps {
-  onReload: () => void;
-}
-
-const Content = ({ onReload }: ContentProps): ReactElement => {
+/**
+ * Edits one ICD. Each edit reaches the Core at once, and edits from other clients show as
+ * they arrive. A check marks each problem shortly after an edit.
+ */
+export const Editor = (): ReactElement => {
   const { key } = Panel.useTabResource();
   const [selected, setSelected] = useState<string[]>([]);
   const canEdit = Access.useUpdateGranted(icd.ontologyID(key));
-  const { form, save, variant, status } = ICD.useForm({
+  const { form } = ICD.useForm({
     query: { key },
-    initialValues: { key, name: "", messages: [], hash: "" },
     mode: canEdit ? "normal" : "preview",
   });
   ICD.useCheck({ form });
-  const stale =
-    status.variant === "error" && StaleICDError.matches(status.details.error);
-  const handleImport = useImport({ onImport: (imported) => form.reset(imported) });
+  const handleImport = useImport();
   return (
     <Form.Form<typeof ICD.formSchema> {...form}>
       <Flex.Box y empty full className={CSS.B("icd-editor")}>
@@ -134,21 +112,10 @@ const Content = ({ onReload }: ContentProps): ReactElement => {
             )}
           </Form.Field>
           {canEdit && (
-            <Flex.Box x align="center" gap="small">
-              {stale && <Stale onReload={onReload} />}
-              <Button.Button variant="outlined" onClick={() => handleImport(key)}>
-                <Icon.Import />
-                Import
-              </Button.Button>
-              <Button.Button
-                variant="filled"
-                onClick={() => save()}
-                status={variant === "loading" ? "loading" : undefined}
-              >
-                <Icon.Save />
-                Save
-              </Button.Button>
-            </Flex.Box>
+            <Button.Button variant="outlined" onClick={() => handleImport(key)}>
+              <Icon.Import />
+              Import
+            </Button.Button>
           )}
         </Flex.Box>
         <Flex.Box x bordered grow empty className={CSS.BE("icd-editor", "body")}>
@@ -157,15 +124,4 @@ const Content = ({ onReload }: ContentProps): ReactElement => {
       </Flex.Box>
     </Form.Form>
   );
-};
-
-/**
- * Edits one ICD. Changes reach the Core when the user saves. A check marks each problem
- * shortly after an edit. A save of an ICD that changed elsewhere fails and offers a
- * reload.
- */
-export const Editor = (): ReactElement => {
-  const [generation, setGeneration] = useState(0);
-  // A new key remounts the form, so it reads the ICD again.
-  return <Content key={generation} onReload={() => setGeneration((g) => g + 1)} />;
 };

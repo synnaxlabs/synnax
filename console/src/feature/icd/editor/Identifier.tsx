@@ -164,6 +164,8 @@ export const Identifier = ({ path }: IdentifierProps): ReactElement => {
   const fields = Form.useFieldValue(path.fields);
   const handleChange = (next: Type) =>
     set(path.identifier, next === "none" ? undefined : create(next, fields));
+  // A field identifier must name a field, so it needs one to pick.
+  const types = TYPES.filter((t) => t !== "field" || fields.length > 0 || t === type);
   return (
     <Input.Item label="Identifier" padHelpText>
       <Select.Simple<Type>
@@ -172,7 +174,7 @@ export const Identifier = ({ path }: IdentifierProps): ReactElement => {
         onChange={handleChange}
         variant="floating"
       >
-        {TYPES.map((t) => (
+        {types.map((t) => (
           <Select.Item key={t} itemKey={t}>
             {NAMES[t]}
           </Select.Item>

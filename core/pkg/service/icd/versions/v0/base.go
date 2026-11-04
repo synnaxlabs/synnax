@@ -111,9 +111,8 @@ func (p Payload) FieldBases() []BaseField {
 
 // UpdateFieldBases calls update with the shared parts of each field of p, in field
 // order, and keeps what update leaves. It skips text fields with no encoding and JSON
-// fields with no type. It copies
-// the fields first, so values that shared them with p see no change. It does nothing
-// when p has no format.
+// fields with no type. It copies the fields first, so values that shared them with p
+// see no change. It does nothing when p has no format.
 func (p *Payload) UpdateFieldBases(update func(*BaseField)) {
 	switch v := p.Variant.(type) {
 	case BinaryPayload:

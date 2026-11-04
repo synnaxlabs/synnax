@@ -19,7 +19,7 @@ import { Synnax } from "@/synnax";
 /** How long the form must stay unchanged before a check runs. */
 export const CHECK_DELAY = TimeSpan.milliseconds(500);
 
-export interface UseCheckArgs {
+export interface UseCheckParams {
   /** The form that edits the ICD. */
   form: Pick<Form.ContextValue, "bind" | "setStatus"> & { value: () => icd.New };
 }
@@ -29,7 +29,7 @@ export interface UseCheckArgs {
  * edit, and puts each problem the check finds on the form path it names. An edit clears
  * the problems until the next check.
  */
-export const useCheck = ({ form }: UseCheckArgs): void => {
+export const useCheck = ({ form }: UseCheckParams): void => {
   const client = Synnax.use();
   const { bind, value, setStatus } = form;
   const handleError = Status.useErrorHandler();

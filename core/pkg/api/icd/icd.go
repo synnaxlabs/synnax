@@ -16,6 +16,7 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/api/auth"
 	"github.com/synnaxlabs/synnax/pkg/service/access"
 	"github.com/synnaxlabs/synnax/pkg/service/access/rbac"
+	"github.com/synnaxlabs/synnax/pkg/service/actions"
 	"github.com/synnaxlabs/synnax/pkg/service/icd"
 	"github.com/synnaxlabs/synnax/pkg/service/ontology"
 	"github.com/synnaxlabs/x/config"
@@ -78,14 +79,15 @@ type (
 
 type CreateRequest struct {
 	ICDs []ICD `json:"icds" msgpack:"icds"`
+	// DispatchKey is stamped onto the create broadcasts so the sender skips its echo.
+	DispatchKey string `json:"dispatch_key" msgpack:"dispatch_key"`
 }
 
 type CreateResponse struct {
 	ICDs []ICD `json:"icds" msgpack:"icds"`
 }
 
-// Create creates or replaces the given ICDs. A replacement must carry the hash of the
-// ICD as the caller read it, or Create returns an error wrapping icd.ErrStale.
+// Create creates the given ICDs, or replaces whole those whose keys exist.
 func (s *Service) Create(
 	ctx context.Context,
 	tx gorp.Tx,
@@ -98,10 +100,34 @@ func (s *Service) Create(
 	}); err != nil {
 		return CreateResponse{}, err
 	}
-	if err := s.internal.NewWriter(tx).CreateMany(ctx, &req.ICDs); err != nil {
+	if err := s.internal.NewWriter(tx).
+		WithDispatchKey(req.DispatchKey).
+		CreateMany(ctx, &req.ICDs); err != nil {
 		return CreateResponse{}, err
 	}
-	return CreateResponse(req), nil
+	return CreateResponse{ICDs: req.ICDs}, nil
+}
+
+// DispatchRequest carries an action sequence to apply to a single ICD. DispatchKey is a
+// client-generated identifier for the batch, echoed on the broadcast so the sender
+// recognizes its own echo.
+type DispatchRequest = actions.DispatchRequest[icd.Key, icd.Action]
+
+// Dispatch applies the action sequence to the target ICD atomically. Subscribers to the
+// ICD action signals receive the sequence after the transaction commits.
+func (s *Service) Dispatch(
+	ctx context.Context,
+	tx gorp.Tx,
+	req DispatchRequest,
+) (struct{}, error) {
+	if err := s.access.NewEnforcer(tx).Enforce(ctx, access.Request{
+		Subject: auth.GetSubject(ctx),
+		Action:  access.ActionUpdate,
+		Objects: []ontology.ID{icd.OntologyID(req.Key)},
+	}); err != nil {
+		return struct{}{}, err
+	}
+	return struct{}{}, s.internal.Dispatch(ctx, req.Key, req.DispatchKey, req.Actions)
 }
 
 type RetrieveRequest struct {
@@ -155,7 +181,7 @@ type CheckResponse struct {
 	Problems validate.Problems `json:"problems" msgpack:"problems"`
 }
 
-// Check returns every problem that would stop an ICD from saving, without storing it.
+// Check returns every problem in an ICD without storing it.
 func (s *Service) Check(ctx context.Context, req CheckRequest) (CheckResponse, error) {
 	if err := s.access.NewEnforcer(nil).Enforce(ctx, access.Request{
 		Subject: auth.GetSubject(ctx),
@@ -167,38 +193,19 @@ func (s *Service) Check(ctx context.Context, req CheckRequest) (CheckResponse, e
 	return CheckResponse{Problems: icd.Check(req.ICD)}, nil
 }
 
-type RenameRequest struct {
-	Name string `json:"name" msgpack:"name"`
-	Key  Key    `json:"key"  msgpack:"key"`
-}
-
-// Rename renames an ICD.
-func (s *Service) Rename(
-	ctx context.Context,
-	tx gorp.Tx,
-	req RenameRequest,
-) (struct{}, error) {
-	if err := s.access.NewEnforcer(tx).Enforce(ctx, access.Request{
-		Subject: auth.GetSubject(ctx),
-		Action:  access.ActionUpdate,
-		Objects: []ontology.ID{icd.OntologyID(req.Key)},
-	}); err != nil {
-		return struct{}{}, err
-	}
-	return struct{}{}, s.internal.NewWriter(tx).Rename(ctx, req.Key, req.Name)
-}
-
 type ImportRequest struct {
 	Key    Key        `json:"key"    msgpack:"key"`
 	Format icd.Format `json:"format" msgpack:"format"`
 	Data   []byte     `json:"data"   msgpack:"data"`
+	// DispatchKey is stamped onto the create broadcast so the sender skips its echo.
+	DispatchKey string `json:"dispatch_key" msgpack:"dispatch_key"`
 }
 
 type ImportResponse struct {
 	ICD ICD `json:"icd" msgpack:"icd"`
 }
 
-// Import replaces the entries of an ICD with those parsed from a DBC file or a field
+// Import replaces the messages of an ICD with those parsed from a DBC file or a field
 // table.
 func (s *Service) Import(
 	ctx context.Context,
@@ -212,7 +219,9 @@ func (s *Service) Import(
 	}); err != nil {
 		return ImportResponse{}, err
 	}
-	ic, err := s.internal.NewWriter(tx).Import(ctx, req.Key, req.Format, req.Data)
+	ic, err := s.internal.NewWriter(tx).
+		WithDispatchKey(req.DispatchKey).
+		Import(ctx, req.Key, req.Format, req.Data)
 	if err != nil {
 		return ImportResponse{}, err
 	}

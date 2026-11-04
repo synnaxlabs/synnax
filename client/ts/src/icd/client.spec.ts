@@ -7,10 +7,10 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { id } from "@synnaxlabs/x";
+import { id, uuid } from "@synnaxlabs/x";
 import { describe, expect, it } from "vitest";
 
-import { NotFoundError, PathError, StaleICDError, ValidationError } from "@/errors";
+import { NotFoundError, PathError } from "@/errors";
 import { icd } from "@/icd";
 import { createTestClient } from "@/testutil";
 
@@ -167,33 +167,15 @@ describe("icd", () => {
       expect(retrieved.messages[0]).toMatchObject({ key: status.key, name: "Renamed" });
     });
 
-    it("should reject a replacement that carries a stale hash", async () => {
-      const ic = await client.icds.create(createNew("Engine"));
-      await client.icds.create({ ...ic, messages: [] });
-      await expect(client.icds.create({ ...ic, messages: [] })).rejects.toEqual(
-        new StaleICDError("ICD Engine: changed since it was read"),
-      );
-    });
-
-    it("should accept a replacement read before a rename", async () => {
-      const ic = await client.icds.create(createNew());
-      await client.icds.rename(ic.key, "Renamed");
-      const saved = await client.icds.create({ ...ic, name: "Renamed", messages: [] });
-      expect(saved.messages).toEqual([]);
-    });
-
-    it("should reject duplicate message names", async () => {
-      const ic = createNew();
-      ic.messages = [
-        { name: "Mode", payload: { format: "binary" } },
-        { name: "Mode", payload: { format: "binary" } },
-      ];
-      await expect(client.icds.create(ic)).rejects.toThrow(
-        new PathError(
-          ["messages", "1", "name"],
-          new ValidationError('duplicate message name "Mode": validation error'),
-        ),
-      );
+    it("should store an ICD that has problems", async () => {
+      const ic = await client.icds.create({
+        name: "ICD",
+        messages: [
+          { name: "Mode", payload: { format: "binary" } },
+          { name: "Mode", payload: { format: "binary" } },
+        ],
+      });
+      expect((await client.icds.retrieve(ic.key)).messages).toHaveLength(2);
     });
   });
 
@@ -309,6 +291,77 @@ describe("icd", () => {
       const retrieved = await client.icds.retrieve(ic.key);
       expect(retrieved.name).toEqual("Renamed");
       expect(retrieved.messages).toEqual(ic.messages);
+    });
+  });
+
+  describe("dispatch", () => {
+    it("should set a value inside a message payload", async () => {
+      const ic = await client.icds.create(createNew());
+      const [msg] = ic.messages;
+      const [field] = msg.payload.fields;
+      const path = ["messages", msg.key, "payload", "fields", field.key, "bitLength"];
+      expect(await client.icds.dispatch(ic.key, icd.set({ path, value: 12 }))).toBe(
+        true,
+      );
+      const stored = await createTestClient().icds.retrieve(ic.key);
+      expect(stored.messages[0].payload.fields[0]).toMatchObject({ bitLength: 12 });
+    });
+
+    it("should insert and move messages", async () => {
+      const ic = await client.icds.create(createNew());
+      const line: icd.Message = {
+        key: uuid.create(),
+        name: "Line",
+        payload: { format: "text", delimiter: ",", prefix: "", fields: [] },
+      };
+      await client.icds.dispatch(ic.key, [
+        icd.insert({ path: ["messages"], value: line, after: ic.messages[0].key }),
+        icd.move({ path: ["messages"], key: line.key }),
+      ]);
+      const stored = await createTestClient().icds.retrieve(ic.key);
+      expect(stored.messages.map(({ name }) => name)).toEqual(["Line", "Status"]);
+    });
+
+    it("should remove a message", async () => {
+      const ic = await client.icds.create(createNew());
+      await client.icds.dispatch(
+        ic.key,
+        icd.remove({ path: ["messages"], key: ic.messages[0].key }),
+      );
+      expect((await createTestClient().icds.retrieve(ic.key)).messages).toEqual([]);
+    });
+
+    it("should store a dispatch that leaves problems", async () => {
+      const ic = await client.icds.create(createNew());
+      const [msg] = ic.messages;
+      const [state] = msg.payload.fields;
+      const path = ["messages", msg.key, "payload", "fields", state.key, "name"];
+      await client.icds.dispatch(ic.key, icd.set({ path, value: "temperature" }));
+      const stored = await createTestClient().icds.retrieve(ic.key);
+      expect(await client.icds.check(stored)).toEqual([
+        {
+          path: "messages.0.payload.fields.1.name",
+          message: 'duplicate field name "temperature"',
+        },
+      ]);
+    });
+
+    it("should drop a dispatch the Core refuses from the cached ICD", async () => {
+      const ic = await client.icds.create(createNew());
+      await expect(
+        client.icds.dispatch(ic.key, icd.set({ path: ["key"], value: uuid.create() })),
+      ).rejects.toThrow('unknown object member name "key"');
+      expect((await client.icds.retrieve(ic.key)).key).toEqual(ic.key);
+    });
+
+    it("should return false without a send when the ICD is not cached", async () => {
+      const ic = await client.icds.create(createNew());
+      expect(
+        await createTestClient().icds.dispatch(
+          ic.key,
+          icd.set({ path: ["name"], value: "Renamed" }),
+        ),
+      ).toBe(false);
     });
   });
 

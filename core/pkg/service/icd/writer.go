@@ -14,56 +14,61 @@ import (
 	"uuid"
 
 	"github.com/synnaxlabs/gorp"
+	"github.com/synnaxlabs/synnax/pkg/service/actions"
 	"github.com/synnaxlabs/synnax/pkg/service/ontology"
-	"github.com/synnaxlabs/x/errors"
-	"github.com/synnaxlabs/x/query"
-	"github.com/synnaxlabs/x/validate"
 )
 
 // Writer creates, updates, and deletes ICDs within a transaction.
 type Writer struct {
-	tx        gorp.Tx
-	otgWriter ontology.Writer
-	table     *gorp.Table[Key, ICD]
+	tx         gorp.Tx
+	otgWriter  ontology.Writer
+	table      *gorp.Table[Key, ICD]
+	dispatcher actions.Dispatcher[Key, Action]
 }
 
-// Create creates the ICD, or replaces it when an ICD with its key exists. A replacement
-// must carry the Hash of the ICD as the writer read it, or Create returns an error
-// wrapping ErrStale. Create assigns keys to the ICD, its messages, and their fields
-// where absent, and sets Hash to the hash of the stored ICD. It returns a path-scoped
-// validation error for each problem Check finds.
+// WithDispatchKey returns a copy of the writer that stamps dispatchKey onto the
+// broadcasts it emits, so the client that sent the write recognizes its own echo.
+func (w Writer) WithDispatchKey(dispatchKey string) Writer {
+	w.dispatcher = w.dispatcher.WithDispatchKey(dispatchKey)
+	return w
+}
+
+// Create creates the ICD, or replaces it whole when an ICD with its key exists. Create
+// assigns keys to the ICD, its messages, and their fields where absent. It returns a
+// path-scoped validation error when the ICD breaks a rule of its schema. Problems that
+// Check finds do not stop the save. After the transaction commits, Create broadcasts a
+// create action that carries the stored ICD.
 func (w Writer) Create(ctx context.Context, ic *ICD) error {
-	var prev *ICD
-	if ic.Key != uuid.Nil() {
-		existing, err := w.retrieve(ctx, ic.Key)
-		if err == nil {
-			prev = &existing
-		} else if !errors.Is(err, query.ErrNotFound) {
-			return err
-		}
-	}
-	if prev != nil {
-		if ic.Hash != prev.Hash {
-			return errors.Wrapf(ErrStale, "ICD %s", prev.Name)
-		}
-	} else if ic.Key == uuid.Nil() {
+	var (
+		exists bool
+		err    error
+	)
+	if ic.Key == uuid.Nil() {
 		ic.Key = uuid.New()
-	}
-	assignKeys(ic)
-	if err := Check(*ic).Err(); err != nil {
+	} else if exists, err = w.table.NewRetrieve().
+		Where(gorp.MatchKeys[Key, ICD](ic.Key)).
+		Exists(ctx, w.tx); err != nil {
 		return err
 	}
-	var err error
-	if ic.Hash, err = Hash(*ic); err != nil {
+	assignKeys(ic)
+	if err = ic.Validate(); err != nil {
 		return err
 	}
 	if err = w.table.NewCreate().Entry(ic).Exec(ctx, w.tx); err != nil {
 		return err
 	}
-	if prev != nil {
-		return nil
+	if !exists {
+		if err = w.otgWriter.DefineResources(ctx, ic.OntologyID()); err != nil {
+			return err
+		}
 	}
-	return w.otgWriter.DefineResources(ctx, ic.OntologyID())
+	w.dispatcher.NotifyOnCommit(
+		ctx,
+		w.tx,
+		ic.Key,
+		NewCreateAction(CreatePayload{ICD: *ic}),
+	)
+	return nil
 }
 
 // CreateMany creates or replaces each of the given ICDs as Create does.
@@ -77,46 +82,33 @@ func (w Writer) CreateMany(ctx context.Context, ics *[]ICD) error {
 }
 
 // Import replaces the messages of the ICD with the given key by those parsed from data
-// in the given format. Messages and fields keep their keys when their names match (see
-// Merge). Import returns the updated ICD, a path-scoped validation error when data or
-// the result is invalid, and an error wrapping query.ErrNotFound when no ICD has the
-// key.
+// in the given format. An imported message keeps the key of the message with its name,
+// and each of its fields keeps the key of that message's field with its name. Import
+// stores the result as Create does and returns it. It returns a path-scoped validation
+// error when data does not parse or the result breaks a rule of the ICD's schema, and
+// an error wrapping query.ErrNotFound when no ICD has the key.
 func (w Writer) Import(
 	ctx context.Context,
 	key Key,
 	format Format,
 	data []byte,
 ) (ICD, error) {
-	messages, err := Parse(format, data)
+	messages, err := parse(format, data)
 	if err != nil {
 		return ICD{}, err
 	}
-	existing, err := w.retrieve(ctx, key)
-	if err != nil {
+	var ic ICD
+	if err = w.table.NewRetrieve().
+		Where(gorp.MatchKeys[Key, ICD](key)).
+		Entry(&ic).
+		Exec(ctx, w.tx); err != nil {
 		return ICD{}, err
 	}
-	ic := Merge(existing, messages)
+	ic = merge(ic, messages)
 	if err = w.Create(ctx, &ic); err != nil {
 		return ICD{}, err
 	}
 	return ic, nil
-}
-
-// Rename changes the name of the ICD with the given key. It returns an error wrapping
-// query.ErrNotFound when no ICD has the key.
-func (w Writer) Rename(ctx context.Context, key Key, name string) error {
-	if name == "" {
-		return validate.PathedError(
-			errors.Wrap(validate.ErrValidation, "name is required"),
-			"name",
-		)
-	}
-	ic, err := w.retrieve(ctx, key)
-	if err != nil {
-		return err
-	}
-	ic.Name = name
-	return w.table.NewCreate().Entry(&ic).Exec(ctx, w.tx)
 }
 
 // Delete deletes the ICDs with the given keys. Delete is idempotent.
@@ -129,17 +121,26 @@ func (w Writer) Delete(ctx context.Context, keys ...Key) error {
 	return w.otgWriter.DeleteResources(ctx, OntologyIDs(keys)...)
 }
 
-func (w Writer) retrieve(ctx context.Context, key Key) (ICD, error) {
-	var ic ICD
-	err := w.table.NewRetrieve().
+// apply applies the actions to the ICD with the given key and stores the result.
+func (w Writer) apply(ctx context.Context, key Key, acts []Action) error {
+	return w.table.
+		NewUpdate().
 		Where(gorp.MatchKeys[Key, ICD](key)).
-		Entry(&ic).
+		ChangeErr(func(_ gorp.Context, ic ICD) (ICD, error) {
+			next, err := Reduce(ic, acts...)
+			if err != nil {
+				return ICD{}, err
+			}
+			if err = next.Validate(); err != nil {
+				return ICD{}, err
+			}
+			return next, nil
+		}).
 		Exec(ctx, w.tx)
-	return ic, err
 }
 
 // assignKeys gives a new key to every message and field that has none. It skips text
-// fields with no encoding, which Check rejects.
+// fields with no encoding and JSON fields with no type, which Check rejects.
 func assignKeys(ic *ICD) {
 	for i := range ic.Messages {
 		m := &ic.Messages[i]

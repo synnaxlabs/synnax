@@ -7,6 +7,8 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
+import "schemas/x/patch"
+
 @go output "core/pkg/service/icd"
 @py output "client/py/synnax/icd"
 @ts output "client/ts/src/icd"
@@ -160,10 +162,7 @@ TextField union on encoding extends BaseField {
     }
     tagged {
         tag string {
-            @doc value           """
-                is the text that comes just before the value in the line.
-            """
-            @validate min_length 1
+            @doc value "is the text that comes just before the value in the line."
         }
 
         @doc value "is a field read from the text that follows a tag."
@@ -284,11 +283,30 @@ ICD struct {
     messages Message[] = [] {
         @doc value "are the messages the ICD holds."
     }
-    hash     string = "" {
+
+    action Create {
+        icd ICD
+
         @doc value """
-            is the hash of the messages as the Core last stored them. A write sends the
-            hash it read, and the Core rejects the write when the ICD changed since.
+            replaces the ICD with the given created state. Emitted by the Core when an
+            ICD is created or overwritten whole; clients never dispatch it.
         """
+    }
+
+    action Set extends patch.Set {
+        @doc value "replaces the value at a path in the ICD."
+    }
+
+    action Remove extends patch.Remove {
+        @doc value "removes an entry from a list or a field from an object in the ICD."
+    }
+
+    action Insert extends patch.Insert {
+        @doc value "adds an entry to a list in the ICD."
+    }
+
+    action Move extends patch.Move {
+        @doc value "moves an entry in a list in the ICD."
     }
 
     @create

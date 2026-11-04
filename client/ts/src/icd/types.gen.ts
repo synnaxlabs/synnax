@@ -148,7 +148,7 @@ export interface DelimitedTextField extends z.infer<typeof delimitedTextFieldZ> 
 export const taggedTextFieldZ = baseFieldZ.extend({
   encoding: z.literal("tagged"),
   /** tag is the text that comes just before the value in the line. */
-  tag: z.string().min(1),
+  tag: z.string(),
 });
 export interface TaggedTextField extends z.infer<typeof taggedTextFieldZ> {}
 
@@ -299,11 +299,6 @@ export const icdZ = z.object({
   name: z.string().min(1),
   /** messages are the messages the ICD holds. */
   messages: messageZ.array().default(() => []),
-  /**
-   * hash is the hash of the messages as the Core last stored them. A write sends the
-   * hash it read, and the Core rejects the write when the ICD changed since.
-   */
-  hash: z.string().default(""),
 });
 export interface ICD extends z.infer<typeof icdZ> {}
 export interface New extends z.input<typeof icdZ> {}

@@ -279,7 +279,6 @@ func (icd ICD) EncodeOrc(w *orc.Writer) error {
 			}
 		}
 	}
-	w.String(icd.Hash)
 	return nil
 }
 
@@ -309,9 +308,6 @@ func (icd *ICD) DecodeOrc(r *orc.Reader) error {
 				}
 			}
 		}
-	}
-	if icd.Hash, err = r.String(); err != nil {
-		return err
 	}
 	return nil
 }

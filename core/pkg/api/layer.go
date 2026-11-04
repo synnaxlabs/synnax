@@ -169,7 +169,7 @@ type Transport struct {
 	ICDCreate   freighter.UnaryServer[icd.CreateRequest, icd.CreateResponse]
 	ICDRetrieve freighter.UnaryServer[icd.RetrieveRequest, icd.RetrieveResponse]
 	ICDCheck    freighter.UnaryServer[icd.CheckRequest, icd.CheckResponse]
-	ICDRename   freighter.UnaryServer[icd.RenameRequest, struct{}]
+	ICDDispatch freighter.UnaryServer[icd.DispatchRequest, struct{}]
 	ICDImport   freighter.UnaryServer[icd.ImportRequest, icd.ImportResponse]
 	ICDDelete   freighter.UnaryServer[icd.DeleteRequest, struct{}]
 	// PANEL
@@ -414,7 +414,7 @@ func (l *Layer) BindTo(t Transport) {
 		t.ICDCreate,
 		t.ICDRetrieve,
 		t.ICDCheck,
-		t.ICDRename,
+		t.ICDDispatch,
 		t.ICDImport,
 		t.ICDDelete,
 
@@ -635,7 +635,7 @@ func (l *Layer) BindTo(t Transport) {
 	t.ICDCreate.BindHandler(fgorp.CreateWriteUnaryHandler(db, l.ICD.Create))
 	t.ICDRetrieve.BindHandler(l.ICD.Retrieve)
 	t.ICDCheck.BindHandler(l.ICD.Check)
-	t.ICDRename.BindHandler(fgorp.CreateWriteUnaryHandler(db, l.ICD.Rename))
+	t.ICDDispatch.BindHandler(fgorp.CreateWriteUnaryHandler(db, l.ICD.Dispatch))
 	t.ICDImport.BindHandler(fgorp.CreateWriteUnaryHandler(db, l.ICD.Import))
 	t.ICDDelete.BindHandler(fgorp.CreateWriteUnaryHandler(db, l.ICD.Delete))
 

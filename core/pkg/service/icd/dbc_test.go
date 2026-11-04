@@ -66,16 +66,12 @@ func messageNamed(messages []icd.Message, name string) icd.Message {
 	return icd.Message{}
 }
 
-func binaryPayload(m icd.Message) icd.BinaryPayload {
-	return m.Payload.Variant.(icd.BinaryPayload)
-}
-
 func canIdentifier(m icd.Message) icd.CanIdentifier {
-	return binaryPayload(m).Identifier.Variant.(icd.CanIdentifier)
+	return binaryPayloadOf(m).Identifier.Variant.(icd.CanIdentifier)
 }
 
 func binaryFields(m icd.Message) []icd.BinaryField {
-	return binaryPayload(m).Fields
+	return binaryPayloadOf(m).Fields
 }
 
 func fieldNamed(m icd.Message, name string) icd.BinaryField {
@@ -94,7 +90,7 @@ func toExpected(messages []icd.Message) []expectedMessage {
 	GinkgoHelper()
 	var out []expectedMessage
 	for _, m := range messages {
-		p := binaryPayload(m)
+		p := binaryPayloadOf(m)
 		id := p.Identifier.Variant.(icd.CanIdentifier)
 		em := expectedMessage{
 			Name:     m.Name,
@@ -142,9 +138,9 @@ func readFixture(name string) ([]byte, expectedFile) {
 	return data, want
 }
 
-// FuzzParseDBC checks that any input either imports with resolved references or fails
+// FuzzImportDBC checks that any input either imports with resolved references or fails
 // with a validation error, and never panics.
-func FuzzParseDBC(f *testing.F) {
+func FuzzImportDBC(f *testing.F) {
 	paths, err := filepath.Glob(filepath.Join("testdata", "*.dbc"))
 	if err != nil {
 		f.Fatal(err)
@@ -166,10 +162,7 @@ BA_ "BusType" "CAN FD";
 BA_ "ProtocolType" "J1939";
 BA_ "VFrameFormat" BO_ 2364539904 3;
 `))
-	f.Fuzz(func(t *testing.T, data []byte) {
-		messages, err := icd.Parse(icd.FormatDBC, data)
-		checkImport(t, messages, err)
-	})
+	f.Fuzz(fuzzImport(f, icd.FormatDBC))
 }
 
 const dbcHeader = `VERSION ""
@@ -182,28 +175,30 @@ BU_: Ecu
 
 `
 
-var _ = Describe("Parse DBC", func() {
-	DescribeTable("Should decode each message as cantools does", func(name string) {
-		data, want := readFixture(name)
-		messages := MustSucceed(icd.Parse(icd.FormatDBC, data))
-		Expect(toExpected(messages)).To(Equal(want.Messages))
-	},
+var _ = Describe("Import DBC", func() {
+	DescribeTable(
+		"Should decode each message as cantools does",
+		func(ctx SpecContext, name string) {
+			data, want := readFixture(name)
+			messages := MustSucceed(importFile(ctx, icd.FormatDBC, data))
+			Expect(toExpected(messages)).To(Equal(want.Messages))
+		},
 		Entry("ids, byte orders, floats, and units", "basic"),
 		Entry("simple multiplexing", "multiplexed"),
 		Entry("extended multiplexing with SG_MUL_VAL_ ranges", "extended_multiplexed"),
 	)
 
-	It("Should read a file with CRLF line endings", func() {
+	It("Should read a file with CRLF line endings", func(ctx SpecContext) {
 		data, want := readFixture("extended_multiplexed")
 		crlf := bytes.ReplaceAll(data, []byte("\n"), []byte("\r\n"))
 		Expect(
-			toExpected(MustSucceed(icd.Parse(icd.FormatDBC, crlf))),
+			toExpected(MustSucceed(importFile(ctx, icd.FormatDBC, crlf))),
 		).To(Equal(want.Messages))
 	})
 
-	It("Should give every message and field a distinct key", func() {
+	It("Should give every message and field a distinct key", func(ctx SpecContext) {
 		data, _ := readFixture("basic")
-		messages := MustSucceed(icd.Parse(icd.FormatDBC, data))
+		messages := MustSucceed(importFile(ctx, icd.FormatDBC, data))
 		keys := make(set.Set[icd.MessageKey])
 		for _, m := range messages {
 			keys.Add(m.Key)
@@ -215,7 +210,7 @@ var _ = Describe("Parse DBC", func() {
 		Expect(keys).To(HaveLen(5 + 13))
 	})
 
-	It("Should read a VFrameFormat defined as an INT attribute", func() {
+	It("Should read a VFrameFormat defined as an INT attribute", func(ctx SpecContext) {
 		data := []byte(dbcHeader + `BO_ 256 Fast: 64 Ecu
  SG_ A : 0|8@1+ (1,0) [0|255] "" Ecu
 
@@ -223,14 +218,14 @@ BA_DEF_ BO_ "VFrameFormat" INT 0 15;
 BA_DEF_DEF_ "VFrameFormat" 0;
 BA_ "VFrameFormat" BO_ 256 14;
 `)
-		m := messageNamed(MustSucceed(icd.Parse(icd.FormatDBC, data)), "Fast")
+		m := messageNamed(MustSucceed(importFile(ctx, icd.FormatDBC, data)), "Fast")
 		Expect(canIdentifier(m).Fd).To(BeTrue())
 	})
 
 	DescribeTable("Should choose between CAN and CAN FD frames",
-		func(body string, fd bool) {
+		func(ctx SpecContext, body string, fd bool) {
 			data := []byte(dbcHeader + body)
-			m := messageNamed(MustSucceed(icd.Parse(icd.FormatDBC, data)), "M")
+			m := messageNamed(MustSucceed(importFile(ctx, icd.FormatDBC, data)), "M")
 			Expect(canIdentifier(m).Fd).To(Equal(fd))
 		},
 		Entry("FD for a message longer than 8 bytes with no VFrameFormat",
@@ -268,14 +263,14 @@ BA_ "BusType" "CAN";
 	)
 
 	DescribeTable("Should switch the bitrate of a CAN FD message by its CANFD_BRS",
-		func(body string, switched bool) {
+		func(ctx SpecContext, body string, switched bool) {
 			data := []byte(dbcHeader + `BO_ 256 M: 24 Ecu
  SG_ A : 0|8@1+ (1,0) [0|255] "" Ecu
 BO_ 257 Classic: 8 Ecu
  SG_ B : 0|8@1+ (1,0) [0|255] "" Ecu
 
 ` + body)
-			messages := MustSucceed(icd.Parse(icd.FormatDBC, data))
+			messages := MustSucceed(importFile(ctx, icd.FormatDBC, data))
 			Expect(canIdentifier(messageNamed(messages, "M")).BitrateSwitched).
 				To(Equal(switched))
 			Expect(canIdentifier(messageNamed(messages, "Classic")).BitrateSwitched).
@@ -303,9 +298,9 @@ BA_ "CANFD_BRS" BO_ 256 1;
 BA_DEF_DEF_ "VFrameFormat" "J1939PG";
 `
 	DescribeTable("Should match a J1939 message by its parameter group number",
-		func(body string, id, mask uint32) {
+		func(ctx SpecContext, body string, id, mask uint32) {
 			data := []byte(dbcHeader + body)
-			m := messageNamed(MustSucceed(icd.Parse(icd.FormatDBC, data)), "M")
+			m := messageNamed(MustSucceed(importFile(ctx, icd.FormatDBC, data)), "M")
 			Expect(canIdentifier(m)).To(Equal(icd.CanIdentifier{
 				ID:       id,
 				Extended: true,
@@ -338,32 +333,38 @@ BA_ "ProtocolType" "J1939";
 `, uint32(0x0CF00400), uint32(0x03FFFF00)),
 	)
 
-	It("Should match a standard message in a J1939 file exactly", func() {
-		data := []byte(dbcHeader + `BO_ 256 M: 8 Ecu
+	It(
+		"Should match a standard message in a J1939 file exactly",
+		func(ctx SpecContext) {
+			data := []byte(dbcHeader + `BO_ 256 M: 8 Ecu
  SG_ A : 0|8@1+ (1,0) [0|255] "" Ecu
 
 ` + j1939Formats)
-		m := messageNamed(MustSucceed(icd.Parse(icd.FormatDBC, data)), "M")
-		Expect(canIdentifier(m)).To(Equal(icd.CanIdentifier{ID: 0x100}))
-	})
+			m := messageNamed(MustSucceed(importFile(ctx, icd.FormatDBC, data)), "M")
+			Expect(canIdentifier(m)).To(Equal(icd.CanIdentifier{ID: 0x100}))
+		},
+	)
 
-	It("Should match a message that is not a J1939 group exactly", func() {
-		data := []byte(dbcHeader + `BO_ 2364539904 M: 8 Ecu
+	It(
+		"Should match a message that is not a J1939 group exactly",
+		func(ctx SpecContext) {
+			data := []byte(dbcHeader + `BO_ 2364539904 M: 8 Ecu
  SG_ A : 0|8@1+ (1,0) [0|255] "" Ecu
 
 BA_DEF_ "ProtocolType" STRING ;
 ` + j1939Formats + `BA_ "ProtocolType" "J1939";
 BA_ "VFrameFormat" BO_ 2364539904 1;
 `)
-		m := messageNamed(MustSucceed(icd.Parse(icd.FormatDBC, data)), "M")
-		Expect(canIdentifier(m)).To(Equal(icd.CanIdentifier{
-			ID:       0x0CF00400,
-			Extended: true,
-		}))
-	})
+			m := messageNamed(MustSucceed(importFile(ctx, icd.FormatDBC, data)), "M")
+			Expect(canIdentifier(m)).To(Equal(icd.CanIdentifier{
+				ID:       0x0CF00400,
+				Extended: true,
+			}))
+		},
+	)
 
 	DescribeTable("Should match J1939 messages that share a group by their addresses",
-		func(first, second, mask uint32) {
+		func(ctx SpecContext, first, second, mask uint32) {
 			data := []byte(dbcHeader + fmt.Sprintf(`BO_ %d M1: 8 Ecu
  SG_ A : 0|8@1+ (1,0) [0|255] "" Ecu
 
@@ -371,7 +372,7 @@ BO_ %d M2: 8 Ecu
  SG_ B : 0|8@1+ (1,0) [0|255] "" Ecu
 
 `, first|1<<31, second|1<<31) + j1939Formats)
-			messages := MustSucceed(icd.Parse(icd.FormatDBC, data))
+			messages := MustSucceed(importFile(ctx, icd.FormatDBC, data))
 			for name, id := range map[string]uint32{"M1": first, "M2": second} {
 				Expect(canIdentifier(messageNamed(messages, name))).To(Equal(
 					icd.CanIdentifier{ID: id, Extended: true, Mask: new(mask)},
@@ -386,50 +387,65 @@ BO_ %d M2: 8 Ecu
 			uint32(0x0C000003), uint32(0x0C00FF03), uint32(0x03FFFFFF)),
 	)
 
-	It("Should keep the range of a signal unless both of its limits are zero", func() {
-		data := []byte(dbcHeader + `BO_ 256 M: 8 Ecu
+	It(
+		"Should keep the range of a signal unless both of its limits are zero",
+		func(ctx SpecContext) {
+			data := []byte(dbcHeader + `BO_ 256 M: 8 Ecu
  SG_ A : 0|8@1+ (1,0) [0|0] "" Ecu
  SG_ B : 8|8@1- (0.5,-10) [-20|50] "" Ecu
  SG_ C : 16|8@1+ (1,0) [0|255] "" Ecu
 `)
-		m := messageNamed(MustSucceed(icd.Parse(icd.FormatDBC, data)), "M")
-		a, b, c := fieldNamed(m, "A"), fieldNamed(m, "B"), fieldNamed(m, "C")
-		Expect(a.Min).To(BeNil())
-		Expect(a.Max).To(BeNil())
-		Expect(b.Min).To(Equal(new(-20.0)))
-		Expect(b.Max).To(Equal(new(50.0)))
-		Expect(c.Min).To(Equal(new(0.0)))
-		Expect(c.Max).To(Equal(new(255.0)))
-	})
+			m := messageNamed(MustSucceed(importFile(ctx, icd.FormatDBC, data)), "M")
+			a, b, c := fieldNamed(m, "A"), fieldNamed(m, "B"), fieldNamed(m, "C")
+			Expect(a.Min).To(BeNil())
+			Expect(a.Max).To(BeNil())
+			Expect(b.Min).To(Equal(new(-20.0)))
+			Expect(b.Max).To(Equal(new(50.0)))
+			Expect(c.Min).To(Equal(new(0.0)))
+			Expect(c.Max).To(Equal(new(255.0)))
+		},
+	)
 
-	It("Should read the lines that follow an unknown definition", func() {
-		data := []byte(dbcHeader + `BO_ 256 Engine: 8 Ecu
+	It(
+		"Should read the lines that follow an unknown definition",
+		func(ctx SpecContext) {
+			data := []byte(dbcHeader + `BO_ 256 Engine: 8 Ecu
  SG_ A : 0|32@1- (1,0) [0|0] "" Ecu
 
 SIG_GROUP_ 256 Group 1 : A;
 SIG_VALTYPE_ 256 A : 1;
 `)
-		m := messageNamed(MustSucceed(icd.Parse(icd.FormatDBC, data)), "Engine")
-		Expect(binaryFields(m)[0].Float).To(BeTrue())
-	})
+			m := messageNamed(
+				MustSucceed(importFile(ctx, icd.FormatDBC, data)),
+				"Engine",
+			)
+			Expect(binaryFields(m)[0].Float).To(BeTrue())
+		},
+	)
 
-	It("Should not read definitions inside a multi-line comment", func() {
-		data := []byte(dbcHeader + `BO_ 256 Engine: 8 Ecu
+	It(
+		"Should not read definitions inside a multi-line comment",
+		func(ctx SpecContext) {
+			data := []byte(dbcHeader + `BO_ 256 Engine: 8 Ecu
  SG_ A : 0|8@1+ (1,0) [0|255] "" Ecu
 
 CM_ BO_ 256 "Spans lines,
 SG_MUL_VAL_ 256 A B 0-0;
 and ends here.";
 `)
-		Expect(
-			binaryFields(
-				messageNamed(MustSucceed(icd.Parse(icd.FormatDBC, data)), "Engine"),
-			),
-		).
-			To(HaveLen(1))
-	})
+			Expect(
+				binaryFields(
+					messageNamed(
+						MustSucceed(importFile(ctx, icd.FormatDBC, data)),
+						"Engine",
+					),
+				),
+			).
+				To(HaveLen(1))
+		},
+	)
 
-	It("Should name messages and signals by their long names", func() {
+	It("Should name messages and signals by their long names", func(ctx SpecContext) {
 		data := []byte(dbcHeader + `BO_ 256 Engine_Stat: 8 Ecu
  SG_ Mode : 0|8@1+ (1,0) [0|0] "" Ecu
  SG_ Rpm : 8|8@1+ (1,0) [0|0] "" Ecu
@@ -446,7 +462,7 @@ BA_ "SystemSignalLongSymbol" SG_ 256 Mode "Operating_Mode_Of_The_Engine_Control_
 BA_ "SystemSignalLongSymbol" SG_ 256 Gear "";
 BA_ "SystemSignalLongSymbol" SG_ 256 T "Multiplexor_Of_The_Engine_Status_Message";
 `)
-		messages := MustSucceed(icd.Parse(icd.FormatDBC, data))
+		messages := MustSucceed(importFile(ctx, icd.FormatDBC, data))
 		m := messageNamed(messages, "Engine_Status_From_The_Engine_Control_Unit")
 		fieldNamed(m, "Operating_Mode_Of_The_Engine_Control_Unit")
 		fieldNamed(m, "Rpm")
@@ -455,20 +471,25 @@ BA_ "SystemSignalLongSymbol" SG_ 256 T "Multiplexor_Of_The_Engine_Status_Message
 		Expect(fieldNamed(m, "U").Multiplexor).To(Equal(new(t.Key)))
 	})
 
-	It("Should accept signals that end at the last bit of the message", func() {
-		data := []byte(dbcHeader + `BO_ 256 M: 2 Ecu
+	It(
+		"Should accept signals that end at the last bit of the message",
+		func(ctx SpecContext) {
+			data := []byte(dbcHeader + `BO_ 256 M: 2 Ecu
  SG_ A : 8|8@1+ (1,0) [0|0] "" Ecu
  SG_ B : 7|8@0+ (1,0) [0|0] "" Ecu
  SG_ C : 7|16@0+ (1,0) [0|0] "" Ecu
 `)
-		Expect(binaryFields(messageNamed(
-			MustSucceed(icd.Parse(icd.FormatDBC, data)),
-			"M",
-		))).To(HaveLen(3))
-	})
+			Expect(binaryFields(messageNamed(
+				MustSucceed(importFile(ctx, icd.FormatDBC, data)),
+				"M",
+			))).To(HaveLen(3))
+		},
+	)
 
-	It("Should multiplex a switch that an SG_MUL_VAL_ line names", func() {
-		data := []byte(dbcHeader + `BO_ 2147483904 M: 8 Ecu
+	It(
+		"Should multiplex a switch that an SG_MUL_VAL_ line names",
+		func(ctx SpecContext) {
+			data := []byte(dbcHeader + `BO_ 2147483904 M: 8 Ecu
  SG_ A m1 : 16|8@1+ (1,0) [0|0] "" Ecu
  SG_ T M : 8|8@1+ (1,0) [0|0] "" Ecu
  SG_ S M : 0|8@1+ (1,0) [0|0] "" Ecu
@@ -476,24 +497,25 @@ BA_ "SystemSignalLongSymbol" SG_ 256 T "Multiplexor_Of_The_Engine_Status_Message
 SG_MUL_VAL_ 2147483904 A T 1-1;
 SG_MUL_VAL_ 2147483904 T S 0-0;
 `)
-		m := messageNamed(MustSucceed(icd.Parse(icd.FormatDBC, data)), "M")
-		a, t, s := fieldNamed(m, "A"), fieldNamed(m, "T"), fieldNamed(m, "S")
-		Expect(a.Multiplexor).To(Equal(new(t.Key)))
-		Expect(a.MultiplexValues).To(Equal([]int32{1}))
-		Expect(t.Multiplexor).To(Equal(new(s.Key)))
-		Expect(t.MultiplexValues).To(Equal([]int32{0}))
-		Expect(s.Multiplexor).To(BeNil())
-	})
+			m := messageNamed(MustSucceed(importFile(ctx, icd.FormatDBC, data)), "M")
+			a, t, s := fieldNamed(m, "A"), fieldNamed(m, "T"), fieldNamed(m, "S")
+			Expect(a.Multiplexor).To(Equal(new(t.Key)))
+			Expect(a.MultiplexValues).To(Equal([]int32{1}))
+			Expect(t.Multiplexor).To(Equal(new(s.Key)))
+			Expect(t.MultiplexValues).To(Equal([]int32{0}))
+			Expect(s.Multiplexor).To(BeNil())
+		},
+	)
 
 	DescribeTable("Should skip the message of independent signals, whatever its ID",
-		func(id string) {
+		func(ctx SpecContext, id string) {
 			data := []byte(dbcHeader + "BO_ " + id + ` VECTOR__INDEPENDENT_SIG_MSG: 0 X
  SG_ A : 0|8@1+ (1,0) [0|0] "" X
 
 BO_ 256 M: 8 Ecu
  SG_ B : 0|8@1+ (1,0) [0|0] "" Ecu
 `)
-			messages := MustSucceed(icd.Parse(icd.FormatDBC, data))
+			messages := MustSucceed(importFile(ctx, icd.FormatDBC, data))
 			Expect(messages).To(HaveLen(1))
 			Expect(messages[0].Name).To(Equal("M"))
 		},
@@ -501,13 +523,18 @@ BO_ 256 M: 8 Ecu
 		Entry("without the extended flag", "1073741824"),
 	)
 
-	DescribeTable("Should reject an invalid file", func(body, message string) {
-		err := MatchError(SatisfyAll(
-			HavePrefix("data: "+message),
-			HaveSuffix(": validation error"),
-		))
-		Expect(icd.Parse(icd.FormatDBC, []byte(dbcHeader+body))).Error().To(err)
-	},
+	DescribeTable(
+		"Should reject an invalid file",
+		func(ctx SpecContext, body, message string) {
+			err := MatchError(SatisfyAll(
+				HavePrefix("data: "+message),
+				HaveSuffix(": validation error"),
+			))
+			Expect(
+				importFile(ctx, icd.FormatDBC, []byte(dbcHeader+body)),
+			).Error().
+				To(err)
+		},
 		Entry("a syntax error", `BO_ 256 Engine 8 Ecu
 `, "line 9, column 16: expected token"),
 		Entry("a syntax error after an SG_MUL_VAL_ line", `BO_ 256 Engine: 8 Ecu

@@ -7,12 +7,16 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { NotFoundError, StaleICDError } from "@synnaxlabs/client";
-import { createTestClient } from "@synnaxlabs/client/testutil";
+import { type icd, NotFoundError } from "@synnaxlabs/client";
+import {
+  createTestClient,
+  spyOnSend,
+  waitForStreamLive,
+} from "@synnaxlabs/client/testutil";
 import { id, uuid } from "@synnaxlabs/x";
 import { act, renderHook, waitFor } from "@testing-library/react";
 import { type FC, type PropsWithChildren } from "react";
-import { assert, beforeEach, describe, expect, it } from "vitest";
+import { beforeEach, describe, expect, it } from "vitest";
 
 import { ICD } from "@/icd";
 import { renderHookSuspended } from "@/testutil/render";
@@ -122,122 +126,97 @@ describe("ICD queries", () => {
   });
 
   describe("useForm", () => {
-    it("should save the whole ICD", async () => {
+    beforeEach(async () => await waitForStreamLive(client.connection));
+
+    const renderForm = async (key: icd.Key) =>
+      await renderHookSuspended(() => ICD.useForm({ query: { key } }), { wrapper });
+
+    it("should show the cached ICD", async () => {
       const ic = await createICD();
-      const { result } = await renderHookSuspended(
-        () => ICD.useForm({ query: { key: ic.key } }),
-        { wrapper },
-      );
-      expect(result.current.form.value().messages).toEqual(ic.messages);
-      act(() =>
-        result.current.form.set(ICD.formPath.messages, [
-          ...ic.messages,
-          {
-            key: uuid.create(),
-            name: "Status",
-            payload: {
-              format: "binary",
-              fields: [
-                {
-                  key: uuid.create(),
-                  name: "state",
-                  startBit: 0,
-                  bitLength: 8,
-                  byteOrder: "little_endian",
-                  signed: false,
-                  float: false,
-                  scale: 1,
-                  offset: 0,
-                  units: "",
-                  multiplexValues: [],
-                },
-              ],
-            },
-          },
-        ]),
-      );
-      await act(async () => {
-        expect(await result.current.saveAsync()).toBe(true);
+      const { result } = await renderForm(ic.key);
+      expect(result.current.form.value()).toEqual({
+        name: ic.name,
+        messages: ic.messages,
       });
-      const retrieved = await client.icds.retrieve({ key: ic.key });
-      expect(retrieved.messages).toEqual(result.current.form.value().messages);
-      expect(retrieved.messages.map((m) => m.name)).toEqual(["State", "Status"]);
     });
 
-    it("should put each problem on the field it names and not save", async () => {
+    it("should send an edit to a message as a path action", async () => {
       const ic = await createICD();
       const [state] = ic.messages;
-      const { result } = await renderHookSuspended(
-        () => ICD.useForm({ query: { key: ic.key } }),
-        { wrapper },
-      );
+      const { result } = await renderForm(ic.key);
+      const send = spyOnSend(client);
+      act(() => result.current.form.set(ICD.formPath.messages[state.key].name, "Mode"));
+      await act(async () => expect(await result.current.flush()).toBe(true));
+      expect(send.mock.calls.map(([target]) => target)).toContain("/icd/dispatch");
+      const stored = await createTestClient().icds.retrieve({ key: ic.key });
+      expect(stored.messages[0]).toEqual({ ...state, name: "Mode" });
+    });
+
+    it("should insert a message", async () => {
+      const ic = await createICD();
+      const { result } = await renderForm(ic.key);
+      const status: icd.Message = {
+        key: uuid.create(),
+        name: "Status",
+        payload: { format: "text", delimiter: ",", prefix: "$", fields: [] },
+      };
       act(() =>
-        result.current.form.set(ICD.formPath.messages, [
-          state,
-          { ...state, key: uuid.create() },
+        result.current.form.insert(ICD.formPath.messages, status, ic.messages[0].key),
+      );
+      await act(async () => expect(await result.current.flush()).toBe(true));
+      const stored = await createTestClient().icds.retrieve({ key: ic.key });
+      expect(stored.messages.map(({ name }) => name)).toEqual(["State", "Status"]);
+    });
+
+    it("should store an edit that leaves a problem", async () => {
+      const ic = await createICD();
+      const { result } = await renderForm(ic.key);
+      act(() =>
+        result.current.form.insert(
+          ICD.formPath.messages,
+          { ...ic.messages[0], key: uuid.create() },
+          ic.messages[0].key,
+        ),
+      );
+      await act(async () => expect(await result.current.flush()).toBe(true));
+      const stored = await createTestClient().icds.retrieve({ key: ic.key });
+      expect(stored.messages.map(({ name }) => name)).toEqual(["State", "State"]);
+    });
+
+    it("should hold an empty name without sending it", async () => {
+      const ic = await createICD();
+      const { result } = await renderForm(ic.key);
+      act(() => result.current.form.set(ICD.formPath.name, ""));
+      await act(async () => expect(await result.current.flush()).toBe(false));
+      expect((await createTestClient().icds.retrieve({ key: ic.key })).name).toEqual(
+        ic.name,
+      );
+    });
+
+    it("should show a rename made elsewhere", async () => {
+      const ic = await createICD();
+      const { result } = await renderForm(ic.key);
+      await act(async () => await createTestClient().icds.rename(ic.key, "Renamed"));
+      await waitFor(() => expect(result.current.form.value().name).toEqual("Renamed"));
+    });
+
+    it("should show an import made elsewhere", async () => {
+      const ic = await createICD();
+      const { result } = await renderForm(ic.key);
+      const csv = "message,field,start_bit,bit_length\nEngine,Rpm,0,16";
+      await act(
+        async () =>
+          await createTestClient().icds.import(
+            ic.key,
+            new TextEncoder().encode(csv),
+            "csv",
+          ),
+      );
+      await waitFor(() =>
+        expect(result.current.form.value().messages.map(({ name }) => name)).toEqual([
+          "Engine",
         ]),
       );
-      await act(async () => {
-        expect(await result.current.saveAsync()).toBe(false);
-      });
-      const second = result.current.form.value().messages[1].key;
-      const status = result.current.form.get(ICD.formPath.messages[second].name).status;
-      expect(status).toMatchObject({
-        variant: "error",
-        message: 'duplicate message name "State"',
-      });
-      expect(result.current.status.description).toEqual("The ICD has 1 problem");
-      expect((await client.icds.retrieve({ key: ic.key })).messages).toEqual(
-        ic.messages,
-      );
-    });
-
-    it("should reject a save when the ICD changed elsewhere", async () => {
-      const ic = await createICD();
-      const { result } = await renderHookSuspended(
-        () => ICD.useForm({ query: { key: ic.key } }),
-        { wrapper },
-      );
-      await client.icds.create({ ...ic, messages: [] });
-      act(() =>
-        result.current.form.set(ICD.formPath.messages[ic.messages[0].key].name, "Mode"),
-      );
-      await act(async () => {
-        expect(await result.current.saveAsync()).toBe(false);
-      });
-      const { status } = result.current;
-      assert(status.variant === "error");
-      expect(StaleICDError.matches(status.details.error)).toBe(true);
-      expect((await client.icds.retrieve({ key: ic.key })).messages).toEqual([]);
-    });
-
-    it("should save after a rename made elsewhere", async () => {
-      const ic = await createICD();
-      const { result } = await renderHookSuspended(
-        () => ICD.useForm({ query: { key: ic.key } }),
-        { wrapper },
-      );
-      await client.icds.rename(ic.key, "Renamed");
-      await waitFor(() => expect(result.current.form.value().name).toEqual("Renamed"));
-      act(() =>
-        result.current.form.set(ICD.formPath.messages[ic.messages[0].key].name, "Mode"),
-      );
-      await act(async () => {
-        expect(await result.current.saveAsync()).toBe(true);
-      });
-      const retrieved = await client.icds.retrieve({ key: ic.key });
-      expect(retrieved.name).toEqual("Renamed");
-      expect(retrieved.messages[0].name).toEqual("Mode");
-    });
-
-    it("should take a rename made elsewhere", async () => {
-      const ic = await createICD();
-      const { result } = await renderHookSuspended(
-        () => ICD.useForm({ query: { key: ic.key } }),
-        { wrapper },
-      );
-      await client.icds.rename(ic.key, "Renamed");
-      await waitFor(() => expect(result.current.form.value().name).toEqual("Renamed"));
     });
   });
 });

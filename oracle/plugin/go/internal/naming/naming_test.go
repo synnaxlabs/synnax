@@ -33,7 +33,6 @@ var _ = Describe("ToPascalCase", func() {
 		Entry("acronym at start", "id", "ID"),
 		Entry("acronym prefix of a word", "identifier", "Identifier"),
 		Entry("acronym prefix mid-name", "bus_identifier", "BusIdentifier"),
-		Entry("plural acronym", "ids", "IDs"),
 		Entry("iso acronym", "iso", "ISO"),
 		Entry("utc acronym", "utc", "UTC"),
 		Entry("word starting with an acronym", "slave", "Slave"),

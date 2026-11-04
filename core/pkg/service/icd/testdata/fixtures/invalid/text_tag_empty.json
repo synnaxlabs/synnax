@@ -4,7 +4,7 @@
   "problems": [
     {
       "path": "messages.0.payload.fields.0.tag",
-      "message": "required"
+      "message": "tag is required"
     }
   ],
   "icd": {
@@ -32,7 +32,6 @@
           ]
         }
       }
-    ],
-    "hash": ""
+    ]
   }
 }

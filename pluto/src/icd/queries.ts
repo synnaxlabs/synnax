@@ -7,12 +7,11 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { icd, PathError, query, ValidationError } from "@synnaxlabs/client";
-import { deep, errors, verbs } from "@synnaxlabs/x";
+import { icd } from "@synnaxlabs/client";
+import { deep, verbs } from "@synnaxlabs/x";
 import { type z } from "zod";
 
 import { Flux } from "@/flux";
-import { markProblems, toFormPath } from "@/icd/problems";
 
 const RESOURCE_NAME = "ICD";
 const PLURAL_RESOURCE_NAME = "ICDs";
@@ -103,59 +102,18 @@ export const { useUpdate: useImport } = Flux.createUpdate<ImportParams, icd.ICD>
     await client.icds.import(key, data, format),
 });
 
-export const formSchema = icd.icdZ;
+export const formSchema = icd.icdZ.pick({ name: true, messages: true });
 
 export const formPath = deep.path<z.infer<typeof formSchema>>();
 
-const ZERO_FORM_VALUES: z.infer<typeof formSchema> = {
-  key: "",
-  name: "",
-  messages: [],
-  hash: "",
-};
-
 /**
- * Edits one ICD. A save checks the ICD first, puts each problem on the field it names,
- * and fails with a ValidationError when there are any. Otherwise it writes the whole
- * ICD with the hash the form read, so the Core replaces it and assigns keys to new
- * messages and fields. The save fails with a StaleICDError when the ICD changed since
- * the form read it.
+ * A form over the name and messages of a cached ICD. Each edit reaches the Core as a
+ * path action. Problems do not stop an edit: {@link useCheck} shows them.
  */
-export const useForm = Flux.createForm<RetrieveQuery, typeof formSchema>({
+export const useForm = Flux.createDocumentForm<icd.Key, icd.ICD, typeof formSchema>({
   name: RESOURCE_NAME,
   schema: formSchema,
-  initialValues: ZERO_FORM_VALUES,
-  retrieve: async ({ client, query: { key } }) => await client.icds.retrieve({ key }),
-  getCached: ({ client, query: { key } }) => {
-    const cached = client.icds.getCached({ key });
-    return query.isLive(cached) ? cached : undefined;
-  },
-  update: async ({ client, value, reset, setFieldStatus }) => {
-    const current = value();
-    const problems = await client.icds.check(current);
-    if (problems.length > 0) {
-      markProblems(problems, current, setFieldStatus);
-      const noun = problems.length === 1 ? "problem" : "problems";
-      throw new ValidationError(`The ICD has ${problems.length} ${noun}`);
-    }
-    try {
-      reset(await client.icds.create(current));
-    } catch (e) {
-      if (PathError.matchExact(e)) {
-        const path = toFormPath(e.path.join("."), current);
-        setFieldStatus(path, {
-          key: String(path),
-          variant: "error",
-          message: e.error.message,
-        });
-      }
-      throw errors.fromUnknown(e);
-    }
-  },
-  // The editor has no name field, so a rename made elsewhere must reach the form before
-  // a save writes the old name back.
-  mountListeners: ({ client, query: { key }, set }) =>
-    client.icds.onChange({ key }, (result) => {
-      if (query.isLive(result)) set(formPath.name, result.name);
-    }),
+  domain: (client) => client.icds,
+  useEnsure,
+  toValues: ({ name, messages }) => ({ name, messages }),
 });

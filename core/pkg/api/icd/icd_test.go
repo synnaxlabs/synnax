@@ -11,14 +11,17 @@ package icd_test
 
 import (
 	"os"
+	"uuid"
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	apiicd "github.com/synnaxlabs/synnax/pkg/api/icd"
 	. "github.com/synnaxlabs/synnax/pkg/api/testutil"
 	"github.com/synnaxlabs/synnax/pkg/service/access"
+	. "github.com/synnaxlabs/synnax/pkg/service/actions/testutil"
 	"github.com/synnaxlabs/synnax/pkg/service/icd"
 	"github.com/synnaxlabs/synnax/pkg/service/ontology"
+	"github.com/synnaxlabs/x/query"
 	. "github.com/synnaxlabs/x/testutil"
 	"github.com/synnaxlabs/x/validate"
 )
@@ -37,7 +40,26 @@ var _ = Describe("ICD", func() {
 			))
 			Expect(res.ICDs).To(HaveLen(1))
 			Expect(res.ICDs[0].Key).ToNot(BeZero())
-			Expect(res.ICDs[0].Hash).ToNot(BeEmpty())
+		})
+
+		It("Should stamp the dispatch key onto the create broadcast", func(
+			ctx SpecContext,
+		) {
+			u := createUser(ctx)
+			grantOn(ctx, u.OntologyID(), access.ActionCreate, icdType)
+			rec := &Recorder[icd.Key, icd.Action]{}
+			DeferCleanup(svc.ICD.ObserveActions().OnChange(rec.Record))
+			MustSucceed(apiSvc.Create(
+				AuthedCtx(ctx, u),
+				nil,
+				apiicd.CreateRequest{
+					ICDs:        []icd.ICD{{Name: "Bus"}},
+					DispatchKey: "dk-create",
+				},
+			))
+			frames := rec.Snapshot()
+			Expect(frames).To(HaveLen(1))
+			Expect(frames[0].DispatchKey).To(Equal("dk-create"))
 		})
 
 		It("Should reject a create that is not granted", func(ctx SpecContext) {
@@ -46,21 +68,6 @@ var _ = Describe("ICD", func() {
 				nil,
 				apiicd.CreateRequest{ICDs: []icd.ICD{{Name: "Bus"}}},
 			)).Error().To(MatchError(access.ErrDenied))
-		})
-
-		It("Should reject a save of an ICD that changed since it was read", func(
-			ctx SpecContext,
-		) {
-			ic := createICD(ctx, "Shared")
-			u := createUser(ctx)
-			grantOn(ctx, u.OntologyID(), access.ActionCreate, icdType)
-			stale := ic
-			stale.Hash = "0000000000000000"
-			Expect(apiSvc.Create(
-				AuthedCtx(ctx, u),
-				nil,
-				apiicd.CreateRequest{ICDs: []icd.ICD{stale}},
-			)).Error().To(MatchError(icd.ErrStale))
 		})
 	})
 
@@ -118,31 +125,43 @@ var _ = Describe("ICD", func() {
 		})
 	})
 
-	Describe("Rename", func() {
-		It("Should rename an ICD when update is granted", func(ctx SpecContext) {
+	Describe("Dispatch", func() {
+		rename := []icd.Action{icd.NewSetAction(icd.SetPayload{
+			Path:  []string{"name"},
+			Value: "New",
+		})}
+
+		It("Should apply the actions when update is granted", func(ctx SpecContext) {
 			ic := createICD(ctx, "Old")
 			u := createUser(ctx)
 			grantOn(ctx, u.OntologyID(), access.ActionUpdate, ic.OntologyID())
-			MustSucceed(apiSvc.Rename(
+			MustSucceed(apiSvc.Dispatch(
 				AuthedCtx(ctx, u),
 				nil,
-				apiicd.RenameRequest{Key: ic.Key, Name: "New"},
+				apiicd.DispatchRequest{Key: ic.Key, DispatchKey: "dk", Actions: rename},
 			))
-			var res icd.ICD
-			Expect(svc.ICD.NewRetrieve().
-				Where(icd.MatchKeys(ic.Key)).
-				Entry(&res).
-				Exec(ctx, nil)).To(Succeed())
-			Expect(res.Name).To(Equal("New"))
+			Expect(retrieveICD(ctx, ic.Key).Name).To(Equal("New"))
 		})
 
-		It("Should reject a rename that is not granted", func(ctx SpecContext) {
+		It("Should reject a dispatch that is not granted", func(ctx SpecContext) {
 			ic := createICD(ctx, "Fixed")
-			Expect(apiSvc.Rename(
+			Expect(apiSvc.Dispatch(
 				AuthedCtx(ctx, createUser(ctx)),
 				nil,
-				apiicd.RenameRequest{Key: ic.Key, Name: "New"},
+				apiicd.DispatchRequest{Key: ic.Key, DispatchKey: "dk", Actions: rename},
 			)).Error().To(MatchError(access.ErrDenied))
+			Expect(retrieveICD(ctx, ic.Key).Name).To(Equal("Fixed"))
+		})
+
+		It("Should return the dispatch error", func(ctx SpecContext) {
+			u := createUser(ctx)
+			key := uuid.New()
+			grantOn(ctx, u.OntologyID(), access.ActionUpdate, icd.OntologyID(key))
+			Expect(apiSvc.Dispatch(
+				AuthedCtx(ctx, u),
+				nil,
+				apiicd.DispatchRequest{Key: key, DispatchKey: "dk", Actions: rename},
+			)).Error().To(MatchError(query.ErrNotFound))
 		})
 	})
 
@@ -159,6 +178,33 @@ var _ = Describe("ICD", func() {
 			))
 			Expect(res.ICD.Key).To(Equal(ic.Key))
 			Expect(res.ICD.Messages).ToNot(BeEmpty())
+		})
+
+		It("Should stamp the dispatch key onto the create broadcast", func(
+			ctx SpecContext,
+		) {
+			ic := createICD(ctx, "Echo")
+			u := createUser(ctx)
+			grantOn(ctx, u.OntologyID(), access.ActionUpdate, ic.OntologyID())
+			rec := &Recorder[icd.Key, icd.Action]{}
+			DeferCleanup(svc.ICD.ObserveActions().OnChange(rec.Record))
+			data := MustSucceed(os.ReadFile("../../service/icd/testdata/basic.dbc"))
+			res := MustSucceed(apiSvc.Import(
+				AuthedCtx(ctx, u),
+				nil,
+				apiicd.ImportRequest{
+					Key:         ic.Key,
+					Format:      icd.FormatDBC,
+					Data:        data,
+					DispatchKey: "dk-import",
+				},
+			))
+			frames := rec.Snapshot()
+			Expect(frames).To(HaveLen(1))
+			Expect(frames[0].DispatchKey).To(Equal("dk-import"))
+			Expect(frames[0].Actions).To(Equal([]icd.Action{
+				icd.NewCreateAction(icd.CreatePayload{ICD: res.ICD}),
+			}))
 		})
 
 		It("Should reject an import that is not granted", func(ctx SpecContext) {

@@ -8,6 +8,7 @@
 // included in the file licenses/APL.txt.
 
 import { icd } from "@synnaxlabs/client";
+import { createTestClient, spyOnSend } from "@synnaxlabs/client/testutil";
 import { Menu } from "@synnaxlabs/lyra/menu";
 import { Panel as PlutoPanel } from "@synnaxlabs/pluto";
 import { uuid } from "@synnaxlabs/x";
@@ -46,10 +47,6 @@ const commit = async (column: string, row: number, value: string): Promise<void>
   const input = cell(column, row);
   fireEvent.change(input, { target: { value } });
   fireEvent.blur(input);
-};
-
-const save = async (): Promise<void> => {
-  fireEvent.click(await screen.findByRole("button", { name: "Save" }));
 };
 
 const createBinaryField = (name: string, startBit: number): icd.BinaryField => ({
@@ -92,6 +89,12 @@ const createJSONMessage = (fields: icd.JSONField[]): icd.Message => ({
   payload: { format: "json", fields },
 });
 
+const createTextMessage = (): icd.Message => ({
+  key: uuid.create(),
+  name: "Line",
+  payload: { format: "text", delimiter: ",", prefix: "", fields: [] },
+});
+
 const retrieveMessage = async (key: icd.Key): Promise<icd.Message> => {
   const [message] = (await client.icds.retrieve({ key })).messages;
   return message;
@@ -99,6 +102,13 @@ const retrieveMessage = async (key: icd.Key): Promise<icd.Message> => {
 
 const retrieveNames = async (key: icd.Key): Promise<string[]> =>
   (await client.icds.retrieve({ key })).messages.map(({ name }) => name);
+
+/** Edits the ICD through a client that the editor does not use. */
+const dispatchElsewhere = async (key: icd.Key, action: icd.Action): Promise<void> => {
+  const other = createTestClient();
+  await other.icds.retrieve({ key });
+  expect(await other.icds.dispatch(key, action)).toBe(true);
+};
 
 const findMessageItem = async (name: string): Promise<HTMLElement> => {
   const texts = await screen.findAllByText(name);
@@ -123,7 +133,6 @@ describe("ICD editor", () => {
     await findMessageItem("Message 1");
     fireEvent.click(screen.getByRole("button", { name: "Add message" }));
     await findMessageItem("Message 2");
-    await save();
     await waitFor(async () =>
       expect(await retrieveNames(ic.key)).toEqual(["Message 1", "Message 2"]),
     );
@@ -144,7 +153,6 @@ describe("ICD editor", () => {
     await removeFromContextMenu(c);
     await waitFor(() => expect(screen.queryByText("A")).toBeNull());
     expect(screen.queryByText("C")).toBeNull();
-    await save();
     await waitFor(async () => expect(await retrieveNames(ic.key)).toEqual(["B"]));
   });
 
@@ -153,7 +161,6 @@ describe("ICD editor", () => {
     const ic = await createICD([createMessage(fields)]);
     await renderEditor(ic);
     await commit("Start bit", 2, "16");
-    await save();
     await waitFor(async () => {
       const { payload } = await retrieveMessage(ic.key);
       expect(payload.fields.map(({ key }) => key)).toEqual(
@@ -173,7 +180,6 @@ describe("ICD editor", () => {
       ?.querySelector<HTMLButtonElement>("td:last-child button");
     if (remove == null) throw new Error("expected a remove button on row 1");
     fireEvent.click(remove);
-    await save();
     await waitFor(async () => {
       const { payload } = await retrieveMessage(ic.key);
       expect(payload.fields.map(({ key, name }) => ({ key, name }))).toEqual([
@@ -205,7 +211,6 @@ describe("ICD editor", () => {
     fireEvent.click(screen.getByLabelText("CAN FD"));
     await waitFor(() => expect(brs.checked).toBe(false));
     expect(brs.disabled).toBe(true);
-    await save();
     await waitFor(async () => {
       expect((await retrieveMessage(ic.key)).payload).toMatchObject({
         identifier: { fd: false, bitrateSwitched: false },
@@ -219,7 +224,6 @@ describe("ICD editor", () => {
     fireEvent.click(await screen.findByRole("button", { name: "Text" }));
     const delimiter = await screen.findByLabelText(/^Delimiter/);
     fireEvent.change(delimiter, { target: { value: ";" } });
-    await save();
     await waitFor(async () => {
       const { payload } = await retrieveMessage(ic.key);
       expect(payload).toEqual({
@@ -231,11 +235,10 @@ describe("ICD editor", () => {
     });
   });
 
-  it("should save the pointer of a JSON field", async () => {
+  it("should store the pointer of a JSON field", async () => {
     const ic = await createICD([createJSONMessage([createJSONField("Temp", "/temp")])]);
     await renderEditor(ic);
     await commit("Pointer", 1, "/sensors/0/temp");
-    await save();
     await waitFor(async () =>
       expect((await retrieveMessage(ic.key)).payload).toMatchObject({
         format: "json",
@@ -251,7 +254,6 @@ describe("ICD editor", () => {
     await renderEditor(ic);
     fireEvent.click(await screen.findByText("Number"));
     fireEvent.click(await screen.findByText("Timestamp (ms)"));
-    await save();
     await waitFor(async () =>
       expect((await retrieveMessage(ic.key)).payload.fields).toMatchObject([
         { type: "timestamp", format: "unix_ms", scale: 1 },
@@ -259,19 +261,7 @@ describe("ICD editor", () => {
     );
   });
 
-  it("should show a Core validation error on the field it names", async () => {
-    const ic = await createICD([
-      createMessage([createBinaryField("Rpm", 0), createBinaryField("Temp", 8)]),
-    ]);
-    await renderEditor(ic);
-    await commit("Scale", 2, "0");
-    await save();
-    expect(
-      await screen.findByText(/^Field 2: scale must be finite and non-zero/),
-    ).toBeTruthy();
-  });
-
-  it("should mark a problem shortly after an edit, with no save", async () => {
+  it("should store an edit that leaves a problem", async () => {
     const ic = await createICD([
       createMessage([createBinaryField("Rpm", 0), createBinaryField("Temp", 8)]),
     ]);
@@ -280,9 +270,23 @@ describe("ICD editor", () => {
     expect(
       await screen.findByText(/^Field 2: scale must be finite and non-zero/),
     ).toBeTruthy();
+    await waitFor(async () =>
+      expect((await retrieveMessage(ic.key)).payload.fields[1].scale).toBe(0),
+    );
   });
 
-  it("should mark a blank name shortly after an edit, with no save", async () => {
+  it("should mark a problem shortly after an edit", async () => {
+    const ic = await createICD([
+      createMessage([createBinaryField("Rpm", 0), createBinaryField("Temp", 8)]),
+    ]);
+    await renderEditor(ic);
+    await commit("Scale", 2, "0");
+    expect(
+      await screen.findByText(/^Field 2: scale must be finite and non-zero/),
+    ).toBeTruthy();
+  });
+
+  it("should mark a blank name shortly after an edit", async () => {
     const ic = await createICD([
       createMessage([createBinaryField("Rpm", 0), createBinaryField("Temp", 8)]),
     ]);
@@ -308,29 +312,80 @@ describe("ICD editor", () => {
     );
   });
 
-  it("should offer a reload when the ICD changed after it opened", async () => {
+  it("should show an edit made elsewhere", async () => {
     const rpm = createBinaryField("Rpm", 0);
     const ic = await createICD([createMessage([rpm])]);
     await renderEditor(ic);
     await screen.findByLabelText("Name 1");
     const [engine] = ic.messages;
-    await client.icds.create({
-      ...ic,
-      messages: [
-        {
-          ...engine,
-          payload: { format: "binary", fields: [{ ...rpm, name: "Speed" }] },
-        },
-      ],
-    });
-    await commit("Name", 1, "Idle");
-    await save();
-    expect(
-      await screen.findByText("This ICD changed after you opened it"),
-    ).toBeTruthy();
-    fireEvent.click(screen.getByRole("button", { name: "Reload" }));
+    await dispatchElsewhere(
+      ic.key,
+      icd.set({
+        path: ["messages", engine.key, "payload", "fields", rpm.key, "name"],
+        value: "Speed",
+      }),
+    );
     await waitFor(() => expect(cell("Name", 1).value).toBe("Speed"));
-    expect(screen.queryByText("This ICD changed after you opened it")).toBeNull();
+  });
+
+  it("should send a cell edit as an edit to its field", async () => {
+    const fields = [createBinaryField("Rpm", 0), createBinaryField("Temp", 8)];
+    const ic = await createICD([createMessage(fields)]);
+    await renderEditor(ic);
+    const [engine] = ic.messages;
+    await screen.findByLabelText("Start bit 2");
+    const send = spyOnSend(client);
+    await commit("Start bit", 2, "16");
+    await waitFor(() =>
+      expect(
+        send.mock.calls.find(([target]) => target === "/icd/dispatch")?.[1],
+      ).toMatchObject({
+        actions: [
+          {
+            type: "set",
+            set: {
+              path: [
+                "messages",
+                engine.key,
+                "payload",
+                "fields",
+                fields[1].key,
+                "start_bit",
+              ],
+              value: 16,
+            },
+          },
+        ],
+      }),
+    );
+  });
+
+  it("should add a tagged field before it has a tag", async () => {
+    const ic = await createICD([createTextMessage()]);
+    await renderEditor(ic);
+    const [, addTagged] = await screen.findAllByRole("button", { name: "Add row" });
+    fireEvent.click(addTagged);
+    await waitFor(async () =>
+      expect((await retrieveMessage(ic.key)).payload.fields).toMatchObject([
+        { encoding: "tagged", name: "Field 1", tag: "" },
+      ]),
+    );
+    expect(await screen.findByText(/^Field 1: tag is required/)).toBeTruthy();
+  });
+
+  it("should offer a field identifier only when the message has a field", async () => {
+    const ic = await createICD([createMessage([])]);
+    await renderEditor(ic);
+    fireEvent.click(await screen.findByRole("button", { name: /^Identifier/ }));
+    await screen.findByText("CAN");
+    expect(screen.queryByText("Field value")).toBeNull();
+  });
+
+  it("should offer a field identifier when the message has a field", async () => {
+    const ic = await createICD([createMessage([createBinaryField("Mode", 0)])]);
+    await renderEditor(ic);
+    fireEvent.click(await screen.findByRole("button", { name: /^Identifier/ }));
+    expect(await screen.findByText("Field value")).toBeTruthy();
   });
 
   it("should show the messages of an imported file", async () => {

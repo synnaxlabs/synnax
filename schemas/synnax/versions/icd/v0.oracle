@@ -272,12 +272,6 @@ ICD struct {
     messages Message[] = [] {
         @doc value "are the messages the ICD holds."
     }
-    hash     string = "" {
-        @doc value """
-            is the hash of the messages as the Core last stored them. A write sends the
-            hash it read, and the Core rejects the write when the ICD changed since.
-        """
-    }
 
     @doc value  """
         is an interface control document: the messages a system sends and receives, and

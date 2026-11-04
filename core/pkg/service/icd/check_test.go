@@ -35,6 +35,7 @@ type checkFixture struct {
 }
 
 func checkFixtureEntries(kind string) []TableEntry {
+	GinkgoHelper()
 	paths := MustSucceed(
 		filepath.Glob(filepath.Join("testdata", "fixtures", kind, "*.json")),
 	)
@@ -136,6 +137,14 @@ var _ = Describe("Check", func() {
 				textMessage("M", icd.TextField{}),
 			}},
 			"messages.0.payload.fields.0", "encoding is required",
+		),
+		Entry("tagged field without a tag",
+			icd.ICD{Name: "L", Messages: []icd.Message{
+				textMessage("M", icd.TextField{Variant: icd.TaggedTextField{
+					BaseField: icd.BaseField{Name: "temp", Scale: 1},
+				}}),
+			}},
+			"messages.0.payload.fields.0.tag", "tag is required",
 		),
 		Entry("JSON field without a type",
 			icd.ICD{Name: "L", Messages: []icd.Message{{

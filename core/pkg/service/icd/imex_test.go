@@ -60,7 +60,10 @@ var _ = Describe("ImEx", func() {
 			Entry(&res).
 			Exec(ctx, nil)).To(Succeed())
 		Expect(res.Name).To(Equal("Exported"))
-		Expect(res.Hash).To(Equal(ic.Hash))
+		Expect(res.Messages).To(HaveExactElements(SatisfyAll(
+			HaveField("Key", ic.Messages[0].Key),
+			HaveField("Name", "Status"),
+		)))
 	})
 
 	It(

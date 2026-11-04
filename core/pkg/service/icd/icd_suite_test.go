@@ -14,7 +14,12 @@ import (
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
+	"github.com/synnaxlabs/gorp"
+	"github.com/synnaxlabs/synnax/pkg/service/icd"
+	"github.com/synnaxlabs/synnax/pkg/service/imex"
+	"github.com/synnaxlabs/synnax/pkg/service/ontology"
 	. "github.com/synnaxlabs/x/testutil"
+	"github.com/synnaxlabs/x/testutil/memkv"
 )
 
 func TestICD(t *testing.T) {
@@ -23,3 +28,26 @@ func TestICD(t *testing.T) {
 }
 
 var _ = ShouldNotLeakGoroutinesPerSpec()
+
+var (
+	db      *gorp.DB
+	otg     *ontology.Ontology
+	svc     *icd.Service
+	imexSvc *imex.Service
+	tx      gorp.Tx
+)
+
+var (
+	_ = BeforeSuite(func(ctx SpecContext) {
+		ShouldNotLeakGoroutines()
+		db = DeferClose(gorp.Wrap(memkv.New()))
+		otg = MustOpen(ontology.Open(ctx, ontology.Config{DB: db}))
+		imexSvc = imex.NewService()
+		svc = MustOpen(icd.OpenService(ctx, icd.ServiceConfig{
+			DB:       db,
+			Ontology: otg,
+			ImEx:     imexSvc,
+		}))
+	})
+	_ = BeforeEach(func() { tx = DeferClose(db.OpenTx()) })
+)

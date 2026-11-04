@@ -144,7 +144,7 @@ class TaggedTextField(BaseField):
     """Is a field read from the text that follows a tag."""
 
     encoding: Literal["tagged"] = "tagged"
-    tag: str = Field(min_length=1)
+    tag: str
 
 
 # Is a field read from a text line.
@@ -240,14 +240,11 @@ class ICD(BaseModel):
         key: Is the unique identifier for the ICD.
         name: Is a human-readable name for the ICD.
         messages: Are the messages the ICD holds.
-        hash: Is the hash of the messages as the Core last stored them. A write sends
-            the hash it read, and the Core rejects the write when the ICD changed since.
     """
 
     key: Key = Field(default_factory=uuid4)
     name: str = Field(min_length=1)
     messages: list[Message] = Field(default_factory=list)
-    hash: str = ""
 
     @_override
     def __hash__(self) -> int:

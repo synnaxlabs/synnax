@@ -17,7 +17,6 @@ import (
 	"uuid"
 
 	"github.com/synnaxlabs/synnax/pkg/service/icd/internal/dbc"
-	"github.com/synnaxlabs/synnax/pkg/service/icd/versions"
 	"github.com/synnaxlabs/x/set"
 )
 
@@ -54,14 +53,13 @@ const (
 // and a binary field per signal. Value tables and value descriptions are skipped.
 // Extended multiplexing (m<N>M markers and SG_MUL_VAL_ ranges) is supported. A message
 // is CAN FD when its VFrameFormat says so, when it is longer than 8 bytes, or, in a
-// file
-// with no VFrameFormat, when the BusType is CAN FD. A CAN FD message switches bitrates
-// when its CANFD_BRS is 1. A J1939 group matches frames by its parameter group number,
-// and also by its addresses when other messages share the group. A signal keeps its
-// [min|max] range unless both are zero. Messages and signals take their long names when
-// the file gives them. Every message and field gets a new key. Errors are scoped to the
-// "data" path and name the line.
-func parseDBC(data []byte) ([]versions.Message, error) {
+// file with no VFrameFormat, when the BusType is CAN FD. A CAN FD message switches
+// bitrates when its CANFD_BRS is 1. A J1939 group matches frames by its parameter group
+// number, and also by its addresses when other messages share the group. A signal keeps
+// its [min|max] range unless both are zero. Messages and signals take their long names
+// when the file gives them. Every message and field gets a new key. Errors are scoped
+// to the "data" path and name the line.
+func parseDBC(data []byte) ([]Message, error) {
 	defs, err := dbc.Parse(data)
 	if err != nil {
 		return nil, dataErrorf("%s", err)
@@ -248,8 +246,8 @@ func (f dbcFile) isJ1939(id dbc.MessageID) bool {
 		format == "" && f.networkString(attrProtocol) == protocolJ1939)
 }
 
-func (f dbcFile) toMessages() ([]versions.Message, error) {
-	messages := make([]versions.Message, 0, len(f.messages))
+func (f dbcFile) toMessages() ([]Message, error) {
+	messages := make([]Message, 0, len(f.messages))
 	used := make(set.Set[signalRef])
 	for _, m := range f.messages {
 		msg, err := f.message(m, used)
@@ -277,9 +275,9 @@ func (f dbcFile) toMessages() ([]versions.Message, error) {
 func (f dbcFile) message(
 	m *dbc.MessageDef,
 	used set.Set[signalRef],
-) (versions.Message, error) {
+) (Message, error) {
 	if err := m.MessageID.Validate(); err != nil {
-		return versions.Message{}, dataErrorf(
+		return Message{}, dataErrorf(
 			"line %d: %s in message %s",
 			m.Pos.Line,
 			err,
@@ -287,27 +285,27 @@ func (f dbcFile) message(
 		)
 	}
 	if m.Size > math.MaxUint16 {
-		return versions.Message{}, dataErrorf(
+		return Message{}, dataErrorf(
 			"line %d: message %s is longer than %d bytes",
 			m.Pos.Line,
 			m.Name,
 			math.MaxUint16,
 		)
 	}
-	payload := versions.BinaryPayload{
-		Identifier: &versions.Identifier{Variant: f.identifier(m)},
+	payload := BinaryPayload{
+		Identifier: &Identifier{Variant: f.identifier(m)},
 		Length:     new(uint16(m.Size)),
-		Fields:     make([]versions.BinaryField, 0, len(m.Signals)),
+		Fields:     make([]BinaryField, 0, len(m.Signals)),
 	}
 	name := string(m.Name)
 	if long, ok := f.messageNames[m.MessageID]; ok {
 		name = long
 	}
-	keys := make(map[string]versions.FieldKey, len(m.Signals))
+	keys := make(map[string]FieldKey, len(m.Signals))
 	var switches []string
 	for _, s := range m.Signals {
 		if _, ok := keys[string(s.Name)]; ok {
-			return versions.Message{}, dataErrorf(
+			return Message{}, dataErrorf(
 				"line %d: message %s has more than one signal named %s",
 				s.Pos.Line,
 				m.Name,
@@ -323,7 +321,7 @@ func (f dbcFile) message(
 		ref := signalRef{message: m.MessageID, signal: string(s.Name)}
 		field, err := f.field(m, s, ref, keys[ref.signal])
 		if err != nil {
-			return versions.Message{}, err
+			return Message{}, err
 		}
 		// Some tools mark a multiplexed switch with M alone and name its multiplexor
 		// in an SG_MUL_VAL_ line.
@@ -331,17 +329,17 @@ func (f dbcFile) message(
 		if s.IsMultiplexed || (s.IsMultiplexerSwitch && named) {
 			mux, values, err := f.multiplexor(m, s, switches, keys, used)
 			if err != nil {
-				return versions.Message{}, err
+				return Message{}, err
 			}
 			field.Multiplexor = new(keys[mux])
 			field.MultiplexValues = values
 		}
 		payload.Fields = append(payload.Fields, field)
 	}
-	return versions.Message{
+	return Message{
 		Key:     uuid.New(),
 		Name:    name,
-		Payload: versions.Payload{Variant: payload},
+		Payload: Payload{Variant: payload},
 	}, nil
 }
 
@@ -349,10 +347,10 @@ func (f dbcFile) field(
 	m *dbc.MessageDef,
 	s dbc.SignalDef,
 	ref signalRef,
-	key versions.FieldKey,
-) (versions.BinaryField, error) {
+	key FieldKey,
+) (BinaryField, error) {
 	if s.StartBit > math.MaxUint16 || s.Size > math.MaxUint8 {
-		return versions.BinaryField{}, dataErrorf(
+		return BinaryField{}, dataErrorf(
 			"line %d: signal %s does not fit a message",
 			s.Pos.Line,
 			s.Name,
@@ -368,7 +366,7 @@ func (f dbcFile) field(
 			bits = 64
 		}
 		if bits != 0 && s.Size != bits {
-			return versions.BinaryField{}, dataErrorf(
+			return BinaryField{}, dataErrorf(
 				"line %d: signal %s is a %d-bit float but has %d bits",
 				vt.Pos.Line,
 				s.Name,
@@ -378,15 +376,15 @@ func (f dbcFile) field(
 		}
 		isFloat = bits != 0
 	}
-	byteOrder := versions.ByteOrderLittleEndian
+	byteOrder := ByteOrderLittleEndian
 	if s.IsBigEndian {
-		byteOrder = versions.ByteOrderBigEndian
+		byteOrder = ByteOrderBigEndian
 	}
 	name := string(s.Name)
 	if long, ok := f.signalNames[ref]; ok {
 		name = long
 	}
-	field := versions.BinaryField{
+	field := BinaryField{
 		Key:       key,
 		Name:      name,
 		Scale:     s.Factor,
@@ -399,7 +397,7 @@ func (f dbcFile) field(
 		Float:     isFloat,
 	}
 	if lastByte(field) >= int(m.Size) {
-		return versions.BinaryField{}, dataErrorf(
+		return BinaryField{}, dataErrorf(
 			"line %d: signal %s extends past the %d-byte message %s",
 			s.Pos.Line,
 			s.Name,
@@ -422,7 +420,7 @@ func (f dbcFile) multiplexor(
 	m *dbc.MessageDef,
 	s dbc.SignalDef,
 	switches []string,
-	keys map[string]versions.FieldKey,
+	keys map[string]FieldKey,
 	used set.Set[signalRef],
 ) (string, []int32, error) {
 	ref := signalRef{message: m.MessageID, signal: string(s.Name)}
@@ -501,9 +499,9 @@ func (f dbcFile) attr(name dbc.Identifier, id dbc.MessageID) (attrValue, bool) {
 }
 
 // identifier returns the CAN identifier of the message.
-func (f dbcFile) identifier(m *dbc.MessageDef) versions.CanIdentifier {
+func (f dbcFile) identifier(m *dbc.MessageDef) CanIdentifier {
 	format := f.frameFormat(m.MessageID)
-	id := versions.CanIdentifier{
+	id := CanIdentifier{
 		ID:       m.MessageID.ToCAN(),
 		Extended: m.MessageID.IsExtended(),
 		Fd: strings.HasSuffix(format, formatFDSuffix) || m.Size > maxCANLength ||

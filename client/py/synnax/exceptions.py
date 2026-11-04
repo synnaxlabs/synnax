@@ -146,12 +146,6 @@ class MultipleFoundError(QueryError):
     TYPE = _FREIGHTER_EXCEPTION_PREFIX + "query.multiple_results"
 
 
-class StaleICDError(Error):
-    """Raised when a save carries the hash of an ICD that changed since it was read."""
-
-    TYPE = _FREIGHTER_EXCEPTION_PREFIX + "icd.stale"
-
-
 class RouteError(Error):
     """Raised when an API routing error occurs, such as a 404."""
 
@@ -225,9 +219,6 @@ def _decode(registry: Registry, encoded: ExceptionPayload) -> Exception | None:
         if encoded.type.startswith(MultipleFoundError.TYPE):
             return MultipleFoundError(encoded.data)
         return QueryError(encoded.data)
-
-    if encoded.type.startswith(StaleICDError.TYPE):
-        return StaleICDError(encoded.data)
 
     if encoded.type.startswith(RouteError.TYPE):
         if encoded.data is None:

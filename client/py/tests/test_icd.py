@@ -170,46 +170,33 @@ class TestICD:
         assert icds[0].key != icds[1].key
 
     def test_create_replace(self, client: sy.Synnax) -> None:
-        """Should replace an ICD when the save carries the hash it read."""
+        """Should replace an ICD whole when one with its key exists."""
         ic = client.icds.create(create_icd())
-        read = client.icds.retrieve(key=ic.key)
-        renamed = read.messages[0].model_copy(update={"name": "Renamed"})
-        saved = client.icds.create(
-            sy.ICD(key=read.key, name=read.name, messages=[renamed], hash=read.hash)
-        )
-        assert saved.hash != read.hash
+        renamed = ic.messages[0].model_copy(update={"name": "Renamed"})
+        client.icds.create(sy.ICD(key=ic.key, name=ic.name, messages=[renamed]))
         retrieved = client.icds.retrieve(key=ic.key)
         assert len(retrieved.messages) == 1
         assert retrieved.messages[0].key == ic.messages[0].key
         assert retrieved.messages[0].name == "Renamed"
-        assert retrieved.hash == saved.hash
 
-    def test_create_stale(self, client: sy.Synnax) -> None:
-        """Should reject a save that carries a hash the ICD no longer has."""
-        ic = client.icds.create(create_icd("Engine"))
-        other = ic.model_copy(update={"messages": []})
-        client.icds.create(other)
-        with pytest.raises(sy.StaleICDError) as exc_info:
-            client.icds.create(ic)
-        assert str(exc_info.value) == "ICD Engine: changed since it was read"
-        assert client.icds.retrieve(key=ic.key).messages == []
-
-    def test_create_duplicate_message_names(self, client: sy.Synnax) -> None:
-        """Should reject messages that share a name."""
-        ic = sy.ICD(
-            name="Duplicates",
-            messages=[
-                sy.icd.Message(name="Mode", payload=sy.icd.BinaryPayload()),
-                sy.icd.Message(name="Mode", payload=sy.icd.BinaryPayload()),
-            ],
+    def test_create_with_problems(self, client: sy.Synnax) -> None:
+        """Should store an ICD with problems that a check finds."""
+        ic = client.icds.create(
+            sy.ICD(
+                name="Duplicates",
+                messages=[
+                    sy.icd.Message(name="Mode", payload=sy.icd.BinaryPayload()),
+                    sy.icd.Message(name="Mode", payload=sy.icd.BinaryPayload()),
+                ],
+            )
         )
-        with pytest.raises(sy.PathError) as exc_info:
-            client.icds.create(ic)
-        assert exc_info.value.path == ["messages", "1", "name"]
-        assert (
-            str(exc_info.value)
-            == 'messages.1.name: duplicate message name "Mode": validation error'
-        )
+        retrieved = client.icds.retrieve(key=ic.key)
+        assert [m.name for m in retrieved.messages] == ["Mode", "Mode"]
+        assert client.icds.check(retrieved) == [
+            sy.icd.Problem(
+                path="messages.1.name", message='duplicate message name "Mode"'
+            ),
+        ]
 
     def test_check_valid(self, client: sy.Synnax) -> None:
         """Should find no problems in a valid ICD."""

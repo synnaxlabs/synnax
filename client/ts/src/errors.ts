@@ -141,9 +141,6 @@ export class LicenseFingerprintError extends LicenseError.sub("fingerprint") {}
 /** Raised when a channel would exceed the license's channel cap. */
 export class LicenseLimitError extends LicenseError.sub("too_many") {}
 
-/** Raised when a save carries the hash of an ICD that changed since it was read. */
-export class StaleICDError extends SynnaxError.sub("icd").sub("stale") {}
-
 const decode = (payload: errors.Payload): Error | null => {
   if (!payload.type.startsWith(SynnaxError.TYPE)) return null;
   if (payload.type.startsWith(ValidationError.TYPE)) {
@@ -198,9 +195,6 @@ const decode = (payload: errors.Payload): Error | null => {
       return new LicenseLimitError(payload.data);
     return new LicenseError(payload.data);
   }
-
-  if (payload.type.startsWith(StaleICDError.TYPE))
-    return new StaleICDError(payload.data);
 
   return new UnexpectedError(payload.data);
 };

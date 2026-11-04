@@ -16,22 +16,13 @@ import { Runtime } from "@/platform/runtime";
 const formatOf = (path: string): icd.ImportFormat =>
   icd.importFormatZ.parse(path.split(".").at(-1)?.toLowerCase());
 
-export interface UseImportParams {
-  /** Called with the ICD the Core holds after the import. */
-  onImport?: (imported: icd.ICD) => void;
-}
-
 /**
  * @returns a function that asks for a DBC, CSV, or XLSX file and imports it into the
  * ICD with the given key. The file's extension selects the format.
  */
-export const useImport = ({ onImport }: UseImportParams = {}): ((
-  key: icd.Key,
-) => void) => {
+export const useImport = (): ((key: icd.Key) => void) => {
   const handleError = Status.useErrorHandler();
-  const { updateAsync } = ICD.useImport({
-    afterSuccess: ({ data }) => onImport?.(data),
-  });
+  const { updateAsync } = ICD.useImport();
   return (key: icd.Key) =>
     handleError(async () => {
       const file = await Runtime.pickFiles({

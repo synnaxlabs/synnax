@@ -8,14 +8,23 @@
 // included in the file licenses/APL.txt.
 
 import { type UnaryClient } from "@synnaxlabs/freighter";
-import { array, primitive, zod } from "@synnaxlabs/x";
+import { array, type destructor, errors, primitive, zod } from "@synnaxlabs/x";
 import { z } from "zod";
 
+import { actions } from "@/actions";
+import { createOf, encode, reduceAll } from "@/icd/actions";
+import {
+  type Action,
+  dispatchReqZ,
+  dispatchResZ,
+  scopedActionZ,
+  set,
+} from "@/icd/actions.gen";
 import { type ICD, icdZ, type Key, keyZ, type New, ontologyID } from "@/icd/types.gen";
 import { type ontology } from "@/ontology";
 import { query } from "@/query";
 
-export const SET_CHANNEL_NAME = "sy_icd_set";
+export const ACTION_CHANNEL_NAME = "sy_icd_action_set";
 export const DELETE_CHANNEL_NAME = "sy_icd_delete";
 
 const retrieveReqZ = z.object({
@@ -27,7 +36,7 @@ const retrieveReqZ = z.object({
 const retrieveMultiParamsZ = retrieveReqZ.or(query.keyListZ(keyZ));
 export interface RetrieveRequest extends z.infer<typeof retrieveReqZ> {}
 
-const createReqZ = z.object({ icds: icdZ.array() });
+const createReqZ = z.object({ icds: icdZ.array(), dispatchKey: z.string() });
 const createResZ = z.object({ icds: icdZ.array() });
 /** One rule an ICD breaks. */
 export const problemZ = z.object({
@@ -43,7 +52,6 @@ export interface Problem extends z.infer<typeof problemZ> {}
 
 const checkReqZ = z.object({ icd: icdZ });
 const checkResZ = z.object({ problems: problemZ.array() });
-const renameReqZ = z.object({ key: keyZ, name: z.string() });
 const deleteReqZ = z.object({ keys: keyZ.array() });
 const retrieveResZ = z.object({ icds: icdZ.array().default(() => []) });
 const emptyResZ = z.object({});
@@ -53,7 +61,12 @@ export const IMPORT_FORMATS = ["dbc", "csv", "xlsx"] as const;
 export const importFormatZ = z.enum(IMPORT_FORMATS);
 export type ImportFormat = z.infer<typeof importFormatZ>;
 
-const importReqZ = z.object({ key: keyZ, format: importFormatZ, data: z.string() });
+const importReqZ = z.object({
+  key: keyZ,
+  format: importFormatZ,
+  data: z.string(),
+  dispatchKey: z.string(),
+});
 const importResZ = z.object({ icd: icdZ });
 
 // btoa takes a binary string, and spreading a large array into fromCharCode overflows
@@ -85,17 +98,26 @@ export interface ClientConfig {
 export class Client extends query.Retriever<typeof retrieveMultiParamsZ, Key, ICD> {
   private readonly cfg: ClientConfig;
   private readonly store: query.Table<Key, ICD>;
+  private readonly dispatcher: actions.Controller<Key, ICD, Action>;
 
   constructor(cfg: ClientConfig) {
     const { cache } = cfg;
     const store = cache.createTable<Key, ICD>({
       name: "icds",
       fetch: async (keys) => await this.execRetrieve({ keys }),
-      listen: [
-        query.createSetListener(SET_CHANNEL_NAME, icdZ),
-        query.createDeleteListener(DELETE_CHANNEL_NAME, keyZ),
-      ],
+      listen: [query.createDeleteListener(DELETE_CHANNEL_NAME, keyZ)],
     });
+    // Every write to an ICD reaches the client as actions.
+    const dispatcher = new actions.Controller<Key, ICD, Action>({
+      store,
+      onError: cache.onError,
+      onEpoch: (callback) => cache.onEpoch(callback),
+      send: actions.sender(cfg.unary, "/icd/dispatch", dispatchReqZ, dispatchResZ),
+      reduce: reduceAll,
+      encode,
+      createOf,
+    });
+    cache.listen(dispatcher.listener(ACTION_CHANNEL_NAME, scopedActionZ));
     super(cache, {
       name: "icd",
       table: store,
@@ -107,13 +129,13 @@ export class Client extends query.Retriever<typeof retrieveMultiParamsZ, Key, IC
     });
     this.cfg = cfg;
     this.store = store;
+    this.dispatcher = dispatcher;
   }
 
   /**
-   * Creates the given ICDs, or replaces those whose keys already exist. A replacement
-   * must carry the hash of the ICD as the caller read it.
-   * @throws {ValidationError} if an ICD or one of its messages is invalid.
-   * @throws {StaleICDError} if a replaced ICD changed since the caller read it.
+   * Creates the given ICDs, or replaces those whose keys already exist. The Core gives
+   * keys to messages and fields that have none.
+   * @throws {ValidationError} if an ICD or one of its messages has a bad shape.
    */
   async create(icd: New, opts?: query.WriteOptions<ICD[]>): Promise<ICD>;
   async create(icds: New[], opts?: query.WriteOptions<ICD[]>): Promise<ICD[]>;
@@ -129,11 +151,15 @@ export class Client extends query.Retriever<typeof retrieveMultiParamsZ, Key, IC
       rollbacks: [this.store.set(optimistic)],
       onOptimistic: () => opts.onOptimistic?.(optimistic),
       commit: async () =>
-        await this.cfg.unary.send(
-          "/icd/create",
-          { icds: optimistic },
-          createReqZ,
-          createResZ,
+        await this.dispatcher.create(
+          optimistic.map(({ key }) => key),
+          async (dispatchKey) =>
+            await this.cfg.unary.send(
+              "/icd/create",
+              { icds: optimistic, dispatchKey },
+              createReqZ,
+              createResZ,
+            ),
         ),
     });
     this.store.set(res.icds);
@@ -141,8 +167,9 @@ export class Client extends query.Retriever<typeof retrieveMultiParamsZ, Key, IC
   }
 
   /**
-   * Checks an ICD against the rules a save enforces, without saving it.
-   * @returns Every problem in the ICD, or an empty array when it is valid. An ICD that
+   * Checks an ICD for problems, such as two fields that use the same bits. The Core
+   * stores an ICD that has problems.
+   * @returns Every problem in the ICD, or an empty array when it has none. An ICD that
    * breaks a rule of its schema returns only those problems, as the Core cannot read
    * it.
    */
@@ -172,28 +199,59 @@ export class Client extends query.Retriever<typeof retrieveMultiParamsZ, Key, IC
    * @throws {ValidationError} if the format is unknown or the document is invalid.
    */
   async import(key: Key, data: Uint8Array, format: ImportFormat): Promise<ICD> {
-    const res = await this.cfg.unary.send(
-      "/icd/import",
-      { key, format, data: encodeBase64(data) },
-      importReqZ,
-      importResZ,
+    const res = await this.dispatcher.create(
+      [key],
+      async (dispatchKey) =>
+        await this.cfg.unary.send(
+          "/icd/import",
+          { key, format, data: encodeBase64(data), dispatchKey },
+          importReqZ,
+          importResZ,
+        ),
     );
     this.store.set([res.icd]);
     return res.icd;
   }
 
   async rename(key: Key, name: string, opts: query.WriteOptions = {}): Promise<void> {
-    const rename = () => [
-      query.partialUpdate(this.store, key, { name }),
-      this.cfg.ontology.cache.renameResource(ontologyID(key), name),
-    ];
-    await query.optimistic({
-      rollbacks: rename(),
-      onOptimistic: opts.onOptimistic,
-      commit: async () =>
-        await this.cfg.unary.send("/icd/rename", { key, name }, renameReqZ, emptyResZ),
+    // Restores only the name, so the rollback cannot undo edits made after it.
+    const rename = (): destructor.Destructor => {
+      const prev = this.store.get(key)?.name ?? name;
+      query.partialUpdate(this.store, key, { name });
+      const resource = this.cfg.ontology.cache.renameResource(ontologyID(key), name);
+      return () => {
+        query.partialUpdate(this.store, key, { name: prev });
+        resource();
+      };
+    };
+    const rollback = rename();
+    try {
+      await opts.onOptimistic?.();
+    } catch (e) {
+      rollback();
+      throw errors.fromUnknown(e);
+    }
+    await this.dispatcher.send(key, [set({ path: ["name"], value: name })], {
+      rollback,
+      reapply: rename,
     });
     rename();
+  }
+
+  /**
+   * Applies actions to the cached ICD and sends them to the Core. Paths and values take
+   * the camelCase form of the cached ICD. Returns false without side effects when the
+   * ICD is not cached.
+   * @throws {Error} if the ICD cannot hold an action, before any send.
+   * @throws {Error} if the send fails, after the cached ICD drops the actions.
+   */
+  async dispatch(key: Key, actions: Action | Action[]): Promise<boolean> {
+    return await this.dispatcher.dispatch(key, array.toArray(actions));
+  }
+
+  /** Stages actions that commit atomically as one dispatch. */
+  beginTransaction(key: Key): actions.Transaction<Action> {
+    return this.dispatcher.transaction(key);
   }
 
   /** Deletes the ICDs with the given keys. */

@@ -194,19 +194,16 @@ var _ = Describe("Codec", func() {
 						}},
 					},
 				},
-				Hash: "test_29",
 			}),
 			Entry("zero values", v0.ICD{
 				Key:      uuid.Nil(),
 				Name:     "",
 				Messages: []v0.Message{},
-				Hash:     "",
 			}),
 			Entry("empty collections", v0.ICD{
 				Key:      uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef1234567801"),
 				Name:     "test_2",
 				Messages: []v0.Message{},
-				Hash:     "test_4",
 			}),
 		)
 	})
@@ -499,7 +496,6 @@ func BenchmarkEncodeDecodeICD(b *testing.B) {
 				}},
 			},
 		},
-		Hash: "test_29",
 	}
 	w := orc.NewWriter(0)
 	r := orc.NewReader(nil)
@@ -880,7 +876,6 @@ func FuzzDecodeICD(f *testing.F) {
 					}},
 				},
 			},
-			Hash: "test_29",
 		}
 		w := orc.NewWriter(0)
 		if err := seed.EncodeOrc(w); err != nil {
@@ -893,7 +888,6 @@ func FuzzDecodeICD(f *testing.F) {
 			Key:      uuid.Nil(),
 			Name:     "",
 			Messages: []v0.Message{},
-			Hash:     "",
 		}
 		w := orc.NewWriter(0)
 		if err := seed.EncodeOrc(w); err != nil {
@@ -906,7 +900,6 @@ func FuzzDecodeICD(f *testing.F) {
 			Key:      uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef1234567801"),
 			Name:     "test_2",
 			Messages: []v0.Message{},
-			Hash:     "test_4",
 		}
 		w := orc.NewWriter(0)
 		if err := seed.EncodeOrc(w); err != nil {

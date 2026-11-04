@@ -402,7 +402,10 @@ func Bind(layer *api.Layer, router *http.Router) {
 			router,
 			"/api/v1/icd/check",
 		),
-		ICDRename: unary[icd.RenameRequest, struct{}](router, "/api/v1/icd/rename"),
+		ICDDispatch: unary[icd.DispatchRequest, struct{}](
+			router,
+			"/api/v1/icd/dispatch",
+		),
 		ICDImport: unary[icd.ImportRequest, icd.ImportResponse](
 			router,
 			"/api/v1/icd/import",

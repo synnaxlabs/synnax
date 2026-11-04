@@ -12,7 +12,7 @@ import { Flex } from "@synnaxlabs/lyra/flex";
 import { Form } from "@synnaxlabs/lyra/form";
 import { Input } from "@synnaxlabs/lyra/input";
 import { Select } from "@synnaxlabs/lyra/select";
-import { deep, uuid } from "@synnaxlabs/x";
+import { deep, type record, uuid } from "@synnaxlabs/x";
 import { type ReactElement } from "react";
 
 type Field = icd.BinaryField | icd.TextField | icd.JSONField;
@@ -106,7 +106,10 @@ const VALUE_TYPE_NAMES: Record<ValueType, string> = {
   float: "Float",
 };
 
-const VALUE_TYPES = Object.keys(VALUE_TYPE_NAMES) as ValueType[];
+const BYTE_ORDER_NAMES: Record<icd.ByteOrder, string> = {
+  little_endian: "Little endian",
+  big_endian: "Big endian",
+};
 
 const valueTypeOf = ({ signed, float }: icd.BinaryField): ValueType => {
   if (float) return "float";
@@ -126,8 +129,6 @@ const JSON_TYPE_NAMES: Record<JSONType, string> = {
   unix_us: "Timestamp (µs)",
   unix_ns: "Timestamp (ns)",
 };
-
-const JSON_TYPES = Object.keys(JSON_TYPE_NAMES) as JSONType[];
 
 const jsonTypeOf = (field: icd.JSONField): JSONType =>
   field.type === "timestamp" ? field.format : field.type;
@@ -253,10 +254,9 @@ const uniqueFieldName = (fields: Field[]): string => {
 };
 
 /**
- * Rebuilds the fields a grid shows from its rows. Edits keep row positions, so each row
- * updates the field at its index and keeps that field's key, which other fields and
- * tasks reference. Only changed cells apply, so a cell that resets others keeps its
- * effect.
+ * Rebuilds the fields a grid shows from its rows. Each row updates the field at its
+ * index and keeps that field's key, which other fields and tasks reference. Only changed
+ * cells apply, so a cell that resets others keeps its effect.
  */
 const fieldsFromRows = (
   encoding: Encoding,
@@ -273,15 +273,53 @@ const fieldsFromRows = (
     ),
   );
 
-/** Writes the fields of one encoding back into their slots among all the fields. */
-const mergeFields = (all: Field[], encoding: Encoding, updated: Field[]): Field[] => {
-  let i = 0;
-  const merged = all.flatMap((field) => {
-    if (encodingOf(field) !== encoding) return [field];
-    return i < updated.length ? [updated[i++]] : [];
-  });
-  return [...merged, ...updated.slice(i)];
+/** A change to one of these replaces the whole field, as it changes the union member. */
+const DISCRIMINATORS = ["encoding", "type"] as const;
+
+/**
+ * Writes each changed property of a field as its own edit, so another client's edit to
+ * a different property of the field survives.
+ */
+const writeField = (
+  { set, remove }: Pick<Form.ContextValue, "set" | "remove">,
+  entry: deep.Path<unknown>,
+  prev: Field,
+  next: Field,
+): void => {
+  const before: record.Unknown = prev;
+  const after: record.Unknown = next;
+  if (DISCRIMINATORS.some((d) => before[d] !== after[d])) return set(entry, next);
+  for (const prop of new Set([...Object.keys(before), ...Object.keys(after)])) {
+    if (deep.equal(before[prop], after[prop])) continue;
+    if (after[prop] === undefined) remove(entry[prop]);
+    else set(entry[prop], after[prop]);
+  }
 };
+
+const selectColumn = (
+  { name, width }: Column<Field>,
+  index: number,
+  resourceName: string,
+  names: Record<string, string>,
+): ReactElement<Input.TableColumnProps> => (
+  <Input.TableColumn key={index} name={name} width={width} type="string">
+    {({ value, onChange, preview }) => (
+      <Select.Simple<string>
+        resourceName={resourceName}
+        value={value}
+        onChange={onChange}
+        preview={preview}
+        variant="floating"
+      >
+        {Object.entries(names).map(([key, label]) => (
+          <Select.Item key={key} itemKey={key}>
+            {label}
+          </Select.Item>
+        ))}
+      </Select.Simple>
+    )}
+  </Input.TableColumn>
+);
 
 const renderColumn = (
   column: Column<Field>,
@@ -295,83 +333,16 @@ const renderColumn = (
     case "text":
       return <Input.TableColumn key={index} name={name} width={width} type="string" />;
     case "type":
-      return (
-        <Input.TableColumn key={index} name={name} width={width} type="string">
-          {({ value, onChange, preview }) => (
-            <Select.Simple<string>
-              resourceName="type"
-              value={value}
-              onChange={onChange}
-              preview={preview}
-              variant="floating"
-            >
-              {VALUE_TYPES.map((type) => (
-                <Select.Item key={type} itemKey={type}>
-                  {VALUE_TYPE_NAMES[type]}
-                </Select.Item>
-              ))}
-            </Select.Simple>
-          )}
-        </Input.TableColumn>
-      );
+      return selectColumn(column, index, "type", VALUE_TYPE_NAMES);
     case "jsonType":
-      return (
-        <Input.TableColumn key={index} name={name} width={width} type="string">
-          {({ value, onChange, preview }) => (
-            <Select.Simple<string>
-              resourceName="type"
-              value={value}
-              onChange={onChange}
-              preview={preview}
-              variant="floating"
-            >
-              {JSON_TYPES.map((type) => (
-                <Select.Item key={type} itemKey={type}>
-                  {JSON_TYPE_NAMES[type]}
-                </Select.Item>
-              ))}
-            </Select.Simple>
-          )}
-        </Input.TableColumn>
-      );
+      return selectColumn(column, index, "type", JSON_TYPE_NAMES);
     case "byteOrder":
-      return (
-        <Input.TableColumn key={index} name={name} width={width} type="string">
-          {({ value, onChange, preview }) => (
-            <Select.Simple<string>
-              resourceName="byte order"
-              value={value}
-              onChange={onChange}
-              preview={preview}
-              variant="floating"
-            >
-              <Select.Item itemKey="little_endian">Little endian</Select.Item>
-              <Select.Item itemKey="big_endian">Big endian</Select.Item>
-            </Select.Simple>
-          )}
-        </Input.TableColumn>
-      );
+      return selectColumn(column, index, "byte order", BYTE_ORDER_NAMES);
     case "multiplexor":
-      return (
-        <Input.TableColumn key={index} name={name} width={width} type="string">
-          {({ value, onChange, preview }) => (
-            <Select.Simple<string>
-              resourceName="multiplexor"
-              value={value}
-              onChange={onChange}
-              preview={preview}
-              variant="floating"
-            >
-              <Select.Item itemKey={NONE}>None</Select.Item>
-              {fields.map(({ key, name }) => (
-                <Select.Item key={key} itemKey={key}>
-                  {name}
-                </Select.Item>
-              ))}
-            </Select.Simple>
-          )}
-        </Input.TableColumn>
-      );
+      return selectColumn(column, index, "multiplexor", {
+        [NONE]: "None",
+        ...Object.fromEntries(fields.map(({ key, name }) => [key, name])),
+      });
   }
 };
 
@@ -389,7 +360,8 @@ export interface FieldsProps {
 
 /** Edits the fields of one encoding in a message payload as a grid. */
 export const Fields = ({ path, encoding }: FieldsProps): ReactElement => {
-  const { set } = Form.useContext();
+  const ctx = Form.useContext();
+  const { push, remove } = Form.useFieldListUtils(path);
   const fields = Form.useFieldValue(path);
   const own = fields.filter((f) => encodingOf(f) === encoding);
   const status = Form.useStatuses(path).find(({ key }) =>
@@ -397,16 +369,13 @@ export const Fields = ({ path, encoding }: FieldsProps): ReactElement => {
   );
   const columns = COLUMNS[encoding] as Column<Field>[];
   const rows = own.map((f) => columns.map((c) => c.get(f)));
-  const handleChange = (next: Input.TableCell[][]) =>
-    set(
-      path,
-      mergeFields(fields, encoding, fieldsFromRows(encoding, columns, own, rows, next)),
-    );
-  const handleRemove = (index: number) =>
-    set(
-      path,
-      fields.filter(({ key }) => key !== own[index].key),
-    );
+  const handleChange = (next: Input.TableCell[][]) => {
+    const updated = fieldsFromRows(encoding, columns, own, rows, next);
+    const entries = deep.widen<unknown>(path);
+    own.forEach((field, i) => writeField(ctx, entries[field.key], field, updated[i]));
+    if (updated.length > own.length) push(updated.slice(own.length));
+  };
+  const handleRemove = (index: number) => remove(own[index].key);
   const createRow = () =>
     columns.map((c) => c.get(createField(encoding, uniqueFieldName(fields))));
   const failing = own.findIndex((f) => matchOwnField(status?.key, path, f));

@@ -63,6 +63,16 @@ func createICD(ctx SpecContext, name string) icd.ICD {
 	return ic
 }
 
+func retrieveICD(ctx SpecContext, key icd.Key) icd.ICD {
+	GinkgoHelper()
+	var ic icd.ICD
+	Expect(svc.ICD.NewRetrieve().
+		Where(icd.MatchKeys(key)).
+		Entry(&ic).
+		Exec(ctx, nil)).To(Succeed())
+	return ic
+}
+
 // grantOn grants the action on the given objects to the subject through a fresh role.
 // Writes commit directly so the enforcers, which read committed state, observe them.
 func grantOn(

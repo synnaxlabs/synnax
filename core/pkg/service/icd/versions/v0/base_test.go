@@ -53,8 +53,10 @@ var _ = Describe("Base", func() {
 			func(variant v0.JSONFieldVariant) {
 				f := v0.JSONField{Variant: variant}
 				b := v0.JSONBaseField{
-					BaseField: v0.BaseField{Key: uuid.New(), Name: "rpm", Scale: 2},
-					Pointer:   "/rpm",
+					Key:     uuid.New(),
+					Name:    "rpm",
+					Scale:   2,
+					Pointer: "/rpm",
 				}
 				f.SetBase(b)
 				Expect(f.Base()).To(Equal(b))
