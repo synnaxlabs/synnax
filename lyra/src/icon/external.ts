@@ -8,6 +8,7 @@
 // included in the file licenses/APL.txt.
 
 export * from "@/icon/AutoStart";
+export * from "@/icon/Axis";
 export * from "@/icon/Bridge";
 export * from "@/icon/Device";
 export * from "@/icon/Fitting";
