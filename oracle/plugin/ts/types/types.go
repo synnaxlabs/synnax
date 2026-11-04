@@ -2640,11 +2640,27 @@ func (p *Plugin) applyValidation(
 		if rules.Required {
 			zodType = fmt.Sprintf("%s.min(1, \"%s is required\")", zodType, fieldName)
 		}
+		// Zod's .min and .max count UTF-16 code units, but the other languages count
+		// code points. The two agree on whether a string is empty.
 		if rules.MinLength != nil {
-			zodType = fmt.Sprintf("%s.min(%d)", zodType, *rules.MinLength)
+			if *rules.MinLength > 1 {
+				addXImport(data, xImport{name: "zod", submodule: "zod"})
+				zodType = fmt.Sprintf(
+					"%s.check(zod.minLength(%d))",
+					zodType,
+					*rules.MinLength,
+				)
+			} else {
+				zodType = fmt.Sprintf("%s.min(%d)", zodType, *rules.MinLength)
+			}
 		}
 		if rules.MaxLength != nil {
-			zodType = fmt.Sprintf("%s.max(%d)", zodType, *rules.MaxLength)
+			addXImport(data, xImport{name: "zod", submodule: "zod"})
+			zodType = fmt.Sprintf(
+				"%s.check(zod.maxLength(%d))",
+				zodType,
+				*rules.MaxLength,
+			)
 		}
 		if rules.Pattern != nil {
 			if rules.PatternMessage != nil {
