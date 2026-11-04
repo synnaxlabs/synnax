@@ -342,12 +342,12 @@ export class State<Z extends z.ZodType> extends observe.Observer<void> {
     this.markStale(path);
   }
 
-  /** Clears the status of the path, or of every path when it is empty. */
-  clearStatus(path: string = "") {
-    if (path !== "") return this.deleteStatus(path);
+  /** Clears the status of the path, the root included, or of every path when absent. */
+  clearStatus(path?: string) {
+    if (path != null) return this.deleteStatus(path);
     this.statuses.clear();
     this.external.clear();
-    this.markStale(path);
+    this.markStale("");
   }
 
   /** Deletes the status of the path alone, even when the path is the root. */
