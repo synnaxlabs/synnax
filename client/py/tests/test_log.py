@@ -59,7 +59,7 @@ class TestClient:
         assert log.channels == []
         assert log.timestamp_precision == 0
         assert not log.channel_names_hidden
-        assert not log.receipt_timestamp_hidden
+        assert not log.timestamps_hidden
 
     def test_create_from_name(self, client: sy.Synnax, project: sy.Project) -> None:
         """Should create an empty log from a name."""

@@ -22,6 +22,7 @@ from synnax.control import ScheduledCommand
 from synnax.control.controller import Controller, _RemainsTrueFor
 from tests.channel import RetrieveCounter
 from x.strings import random_name
+from x.testutil import assert_eventually
 
 # Seconds to wait for a cross-thread handshake. Generous, so a slow Core cannot fail the
 # test, but bounded, so a broken run fails instead of hanging CI.
@@ -87,6 +88,23 @@ def acknowledge_valve_cycle(
         return False
     auto[state.key] = False
     return True
+
+
+def assert_echoed(auto: Controller, ch: int | str, value: float) -> None:
+    """Asserts that a command the controller wrote to ch comes back in its state.
+
+    wait_until cannot do this: it runs only on frames that arrive after it starts, and
+    the echo can arrive first.
+
+    :param auto: A controller reading and writing ch.
+    :param ch: The channel the command went to.
+    :param value: The commanded value.
+    """
+
+    def check() -> None:
+        assert auto.get(ch) == value
+
+    assert_eventually(check, timeout=HANDSHAKE_TIMEOUT)
 
 
 @pytest.mark.control
@@ -457,9 +475,7 @@ class TestController:
             name="Set By Attribute", read=[ch.key], write=[ch.key]
         ) as auto:
             auto.control_set_by_attribute = 42
-            assert auto.wait_until(
-                lambda c: c.get(ch.key) == 42, timeout=HANDSHAKE_TIMEOUT
-            )
+            assert_echoed(auto, ch.key, 42)
             assert "control_set_by_attribute" not in vars(auto)
 
     def test_acquire_raises_when_streamer_fails_to_open(
@@ -671,9 +687,7 @@ class TestControllerChannelResolution:
             counter.count = 0
             ctrl.set_authority({key: 200})
             ctrl.set({key: 7.0})
-            assert ctrl.wait_until(
-                lambda c: c.get(key) == 7.0, timeout=HANDSHAKE_TIMEOUT
-            )
+            assert_echoed(ctrl, key, 7.0)
             assert counter.count == 0
 
     def test_unacquired_channel_by_name(self, client: sy.Synnax) -> None:

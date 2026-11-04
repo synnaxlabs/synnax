@@ -954,6 +954,34 @@ describe("queries", () => {
     });
   });
 
+  describe("useResultList", () => {
+    it("should search channels and follow a new match", async () => {
+      const token = `rl${Math.random().toString(36).slice(2)}`;
+      const first = await client.channels.create({
+        name: `${token}_a`,
+        dataType: DataType.FLOAT32,
+        virtual: true,
+      });
+      const { result } = renderHook(
+        () => Channel.useResultList({ searchTerm: token, limit: 10 }),
+        { wrapper },
+      );
+      await waitFor(() =>
+        expect(result.current.data?.map((c) => c.key)).toEqual([first.key]),
+      );
+      const second = await client.channels.create({
+        name: `${token}_b`,
+        dataType: DataType.FLOAT32,
+        virtual: true,
+      });
+      await waitFor(() =>
+        expect(result.current.data?.map((c) => c.key).sort()).toEqual(
+          [first.key, second.key].sort(),
+        ),
+      );
+    });
+  });
+
   describe("useMultiple", () => {
     it("should retrieve multiple channels by keys", async () => {
       const ch1 = await client.channels.create({

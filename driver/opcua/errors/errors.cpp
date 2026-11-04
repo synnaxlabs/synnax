@@ -390,19 +390,36 @@ std::string status_code_description(UA_StatusCode code) {
     return "";
 }
 
-static bool is_connection_status_code(const UA_StatusCode &status) {
+namespace {
+bool is_connection_status_code(const UA_StatusCode &status) {
     return status == UA_STATUSCODE_BADTIMEOUT ||
+           status == UA_STATUSCODE_BADREQUESTTIMEOUT ||
            status == UA_STATUSCODE_BADNOTCONNECTED ||
+           status == UA_STATUSCODE_BADSERVERNOTCONNECTED ||
+           status == UA_STATUSCODE_BADCOMMUNICATIONERROR ||
            status == UA_STATUSCODE_BADSECURECHANNELCLOSED ||
+           status == UA_STATUSCODE_BADSECURECHANNELIDINVALID ||
+           status == UA_STATUSCODE_BADSECURECHANNELTOKENUNKNOWN ||
            status == UA_STATUSCODE_BADSESSIONIDINVALID ||
            status == UA_STATUSCODE_BADSESSIONCLOSED ||
            status == UA_STATUSCODE_BADSESSIONNOTACTIVATED ||
            status == UA_STATUSCODE_BADCONNECTIONREJECTED ||
            status == UA_STATUSCODE_BADDISCONNECT ||
-           status == UA_STATUSCODE_BADCONNECTIONCLOSED;
+           status == UA_STATUSCODE_BADCONNECTIONCLOSED ||
+           status == UA_STATUSCODE_BADSERVERHALTED ||
+           status == UA_STATUSCODE_BADSHUTDOWN ||
+           status == UA_STATUSCODE_BADTCPSERVERTOOBUSY;
 }
 
-x::errors::Error parse(const UA_StatusCode &status) {
+bool is_session_rejection(const UA_StatusCode &status) {
+    return status == UA_STATUSCODE_BADIDENTITYTOKENINVALID ||
+           status == UA_STATUSCODE_BADIDENTITYTOKENREJECTED ||
+           status == UA_STATUSCODE_BADUSERACCESSDENIED ||
+           status == UA_STATUSCODE_BADUSERSIGNATUREINVALID ||
+           status == UA_STATUSCODE_BADTOOMANYSESSIONS;
+}
+
+x::errors::Error to_error(const UA_StatusCode &status, const bool connecting) {
     if (status == UA_STATUSCODE_GOOD) return x::errors::NIL;
     const std::string status_name = UA_StatusCode_name(status);
     // The low 16 bits carry flags, not the condition the code names.
@@ -416,6 +433,23 @@ x::errors::Error parse(const UA_StatusCode &status) {
         );
     if (is_connection_status_code(condition))
         return {UNREACHABLE.sub(status_name), message};
+    if (connecting && is_session_rejection(condition))
+        return {SESSION_REJECTED.sub(status_name), message};
     return {CRITICAL.sub(status_name), message};
+}
+}
+
+x::errors::Error parse(const UA_StatusCode &status) {
+    return to_error(status, false);
+}
+
+x::errors::Error parse_connect(const UA_StatusCode &status) {
+    return to_error(status, true);
+}
+
+std::string channel_status(const std::string &name, const UA_StatusCode &status) {
+    std::string text = name + " returned " + UA_StatusCode_name(status) + ".";
+    if (UA_StatusCode_isBad(status)) text += " " + parse(status).data;
+    return text;
 }
 }

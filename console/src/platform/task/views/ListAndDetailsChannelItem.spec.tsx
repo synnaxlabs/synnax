@@ -87,24 +87,21 @@ describe("layouts.ListAndDetailsChannelItem", () => {
 
   it("should render command and state names when a state channel is present", async () => {
     await renderItem({ stateChannel: 13 });
-    await waitFor(() => expect(screen.getByText("No command channel")).toBeTruthy());
-    expect(screen.getByText("No state channel")).toBeTruthy();
-    expect(screen.queryByText("No channel")).toBeNull();
+    await waitFor(() => expect(screen.getAllByText("No channel")).toHaveLength(2));
   });
 
   it("should render a single channel name when no state channel is present", async () => {
     await renderItem();
-    await waitFor(() => expect(screen.getByText("No channel")).toBeTruthy());
-    expect(screen.queryByText("No command channel")).toBeNull();
+    await waitFor(() => expect(screen.getAllByText("No channel")).toHaveLength(1));
   });
 
-  it("should show the name configuring gives a channel that does not exist yet", async () => {
+  it("should show the name deploying gives a channel that does not exist yet", async () => {
     await renderItem({ channel: 0, defaultName: "dev1_ai_0" });
     await waitFor(() => expect(screen.getByText("dev1_ai_0")).toBeTruthy());
     expect(screen.queryByText("No channel")).toBeNull();
   });
 
-  it("should show the names configuring gives the command and state channels", async () => {
+  it("should show the names deploying gives the command and state channels", async () => {
     await renderItem({
       channel: 0,
       stateChannel: 0,
@@ -113,6 +110,6 @@ describe("layouts.ListAndDetailsChannelItem", () => {
     });
     await waitFor(() => expect(screen.getByText("dev1_ao_0_cmd")).toBeTruthy());
     expect(screen.getByText("dev1_ao_0_state")).toBeTruthy();
-    expect(screen.queryByText("No command channel")).toBeNull();
+    expect(screen.queryByText("No channel")).toBeNull();
   });
 });

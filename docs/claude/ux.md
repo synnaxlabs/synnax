@@ -81,8 +81,21 @@ outlined button) has fill l2 and border l4, and its caret has the disabled text 
 - Filled is the one primary action of a region: a footer, a card, or a form. Outlined is
   a secondary action next to it. Text buttons are for toolbars, inline actions, and
   menus.
+- In a resource toolbar header, each create action is outlined (`Toolbar.CreateAction`).
+  The other actions in that header are text buttons.
 - An icon-only button has a tooltip that names the action in a word ("Close"), then
   shows its keys.
+
+### Toolbar search
+
+- A search action in a resource toolbar header turns the title into a field. The search
+  glyph sits where the title icon was, and the term starts at the title text.
+- While the field is open, the header holds a toggle that shows the results in their
+  groups, and a close button. Esc or the close button ends the search, and the tree
+  comes back as it was.
+- In the flat layout, each match shows the name of its group at gray step 8. The start
+  of each word that the term matches takes the primary color.
+- At most 100 matches show. A closing line says when more exist.
 
 ### Keycaps
 
@@ -140,8 +153,18 @@ outlined button) has fill l2 and border l4, and its caret has the disabled text 
   a number or a duration. Wide later fields squeeze the first control.
 - A number or a duration field is 144 px (24 rem) wide wherever it sits. A form can set
   another width when its values need one.
+- A row of three fits the dialog with no overflow into its padding, so its labels are
+  short ("Channel lifetime", not "Secure channel lifetime").
+- Two text fields on one line, such as a username and a password, are equally wide. The
+  second sits in the control of the first, not in the later field columns. An empty
+  field shows what empty means: "Anonymous" for the username, "None" for the password.
 - A dialog shows its settings in sections, not tabs, while they fit with no scroll. The
   Modbus connect dialog has no tabs.
+- A section holds a whole topic, so a short topic joins its neighbor: the OPC UA login
+  sits in Connection, and its certificates sit in Security. An action that fills a field
+  sits beside that field ("Find endpoints" beside Mode), not on a line of its own.
+- A value in a dialog field, such as a thumbprint, sits on one line with its actions as
+  icon buttons at the end. Each icon button has a tooltip that names it.
 - A field in a row, or beside another field, has no help text. Its control shows the
   error, and the message shows on hover. A control with a border gets a red border. A
   control with no border, such as a text select or a button group, gets red text.
@@ -154,6 +177,25 @@ outlined button) has fill l2 and border l4, and its caret has the disabled text 
 - A range duration on the timeline keeps the popover editor (`Input.TimeSpan`), because
   it reads as a value, not as a form field.
 
+### Auto values
+
+An auto field holds a value that the Console picks until a person sets one: an axis
+bound, a log precision, or the line plot X channel.
+
+- The field shows the "Auto" chip (`Input.AutoChip`) at its end, where a unit sits.
+  Violet (`--pluto-auto-z`, `--pluto-auto-text`) means auto. Primary blue stays for
+  focus and selection.
+- The field never shows a value that it does not use, such as 0 for an auto bound. A
+  field with room shows the prompt "Enter a value to override". A narrow field shows
+  only the chip.
+- A set value removes the chip and shows the Auto button (`Input.AutoButton`): the Auto
+  icon in violet, with the tooltip "Auto". The button, or an empty field, puts the field
+  back in auto.
+- A select whose empty value is an auto mode shows the mode as a value ("Time") with the
+  chip, never "Select channel". The mode is a `Select.Item` in the select's `footer`, so
+  it stays under the list and the search never hides it. It has a one-line hint that
+  ends "Best for most needs." Its `label` leaves the hint out of the trigger.
+
 ### Task forms
 
 - Task-wide settings (Data saving, Auto start) are toggle buttons in the task footer,
@@ -165,6 +207,8 @@ outlined button) has fill l2 and border l4, and its caret has the disabled text 
   the way to enable the channel again.
 - A new task takes the only device of its make. With two or more, the device stays
   empty.
+- A task form is at most 1000 px wide. A task whose channel table needs more room sets
+  `--console-task-form-max-width`. Modbus uses 1200 px.
 - Port banks sit side by side in columns eight ports wide, each under its title. They
   wrap to one column in a narrow pane.
 - A port field that lists an accessory's ports, such as the 80 that a Mux80 adds to a
@@ -222,6 +266,28 @@ outlined button) has fill l2 and border l4, and its caret has the disabled text 
 - A heading over a field lines up with the field's text, not its box.
 - A record table that does not fit its pane scrolls sideways, and the headings scroll
   with it. Fields never shrink to fit: a cut value can read as another value.
+- A field whose glyph shows its value, such as the Modbus byte order, drops its name
+  when the form is below its maximum width. Its menu still names each option.
+- A task channel's icon shows its state, in place of the flow arrow in a record table:
+  the arrow for a channel that exists, a green `Icon.New` for one that deploying will
+  create, and an amber `Icon.None` for one that is missing, with its name in gray. The
+  two state circles look the same size: the tinted `Icon.New` disc is drawn a little
+  wider than the dashed ring, because a faint fill looks smaller. Each state but the
+  first has a tooltip that says what deploying does, below the name at its left edge.
+  The name never takes a state color.
+- A channel that deploying will create shows the name deploying gives it, from the
+  function that deploy uses. "No channel" in gray is only for a channel whose name
+  cannot be known yet.
+- A channel that deploying skips, such as a disabled one, shows no `Icon.New`. In a
+  list, its tooltip says that deploying skips it.
+- A missing channel shows the name deploying will use, and a rename edits that name. Its
+  data type unlocks too, because deploying creates a new channel.
+- A channel that the form picks, as in Kafka write, is never new. It reads "No channel"
+  before a pick and "Channel not found" after its channel is deleted.
+- A channel name input shows the same state icons at its start. An item in a group tree
+  shows them at its end, before its switch, so the pointers keep one left edge. Neither
+  shows an icon or a tooltip for a skipped channel: the tree strikes through the item or
+  its group.
 
 ### Table input
 
@@ -269,6 +335,26 @@ says why in a sentence, then gives the raw error.
 - A click on a range zooms to it and pauses the plot. A second click on that range goes
   back to the view and pause state from before. If the view changes between the two
   clicks, the second click zooms in again. Clicks nest, one level per click.
+
+### Plot range select
+
+- The dialog opens above the field. The Live row holds one chip per preset and an Off
+  chip, which shows while the plot has no live window.
+- A duration typed into the search (`15s`, `2h`, `1:30`) lists a live option at the top
+  of the list. Picking it replaces the live window. Enter sets it and closes the dialog.
+
+### Plot axes
+
+- The toolbar's axes sit in a `Properties.Rail` on the left, the same rail as the
+  schematic element config. Each tab shows `LinePlot.axisIcon`: a faint plot frame with
+  the axis side drawn solid. An inset band was rejected for the first style.
+
+### Plot data tab
+
+- The labels share one column as wide as the widest label, so every field starts at one
+  edge. X1, the field people change least, sits at the end of the Ranges row, as both
+  set the x axis. Below a toolbar width of 144rem it takes its own row at the bottom.
+- The X1 dialog floats, so it can be wider than its trigger.
 
 ## Interaction
 

@@ -7,7 +7,6 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { configureStore } from "@reduxjs/toolkit";
 import { type connection, type Synnax as Client } from "@synnaxlabs/client";
 import { Triggers } from "@synnaxlabs/lyra/triggers";
 import { type aether } from "@synnaxlabs/pluto/ether";
@@ -36,13 +35,14 @@ import { Session } from "@/session";
 import {
   type ConsolePreloadedState,
   createConsoleWrapper,
+  createMinimalStore,
   createSynnaxWrapper,
   type TestStore,
 } from "@/testutil";
 
 // Modal content mounts inside an error Boundary that reads the layout slice, so the
 // stack needs a Redux Provider even though modals themselves live in a separate store.
-const store = configureStore({
+const store = createMinimalStore({
   reducer: Session.reducer,
   preloadedState: deep.freeze(deep.copy(Session.ZERO_STATE)),
 });

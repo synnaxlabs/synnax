@@ -14,6 +14,7 @@ import { z } from "zod";
 import { device } from "@/device";
 import { NotFoundError } from "@/index";
 import { query } from "@/query";
+import { status } from "@/status";
 import { createTestClient, expectLive, spyOnSend, waitForStreamLive } from "@/testutil";
 
 const client = createTestClient();
@@ -67,6 +68,88 @@ describe("Device", async () => {
       expect(retrieved.status?.message).toBe("Custom device status");
       expect(retrieved.status?.description).toBe("Device is connected");
       expect(retrieved.status?.details?.device).toBe(d.key);
+    });
+    it("should answer a cached status query for new devices", async () => {
+      const local = createTestClient();
+      await local.connect();
+      const created = await local.devices.create(
+        ["cached-status-1", "cached-status-2"].map((name) => ({
+          key: id.create(),
+          rack: testRack.key,
+          location: "Dev1",
+          name,
+          make: "ni",
+          model: "dog",
+          properties: {},
+        })),
+      );
+      created.forEach(({ key }) => {
+        const cached = local.devices.getCached({ key, includeStatus: true });
+        expect(expectLive(cached).status?.key).toBe(device.statusKey(key));
+      });
+    });
+    it("should keep the live status of an existing device", async () => {
+      const local = createTestClient();
+      await local.connect();
+      const {
+        status: _,
+        parent: __,
+        ...d
+      } = await client.devices.create({
+        key: id.create(),
+        rack: testRack.key,
+        location: "Dev1",
+        name: "live-status",
+        make: "ni",
+        model: "dog",
+        properties: {},
+      });
+      await client.statuses.set(
+        status.create<typeof device.statusDetailsZ>({
+          key: device.statusKey(d.key),
+          variant: "success",
+          message: "Device is running",
+          details: { rack: d.rack, device: d.key },
+        }),
+      );
+      const created = await local.devices.create(d);
+      expect(created.status?.message).toBe("Device is running");
+      const cached = local.devices.getCached({ key: d.key, includeStatus: true });
+      expect(expectLive(cached).status?.message).toBe("Device is running");
+    });
+  });
+
+  describe("toUpdate", () => {
+    it("should keep the stored status when a create reply is sent back", async () => {
+      const key = id.create();
+      const reply = await client.devices.create({
+        rack: testRack.key,
+        location: "Dev1",
+        key,
+        name: "reply-sent-back",
+        make: "ni",
+        model: "dog",
+        properties: {},
+      });
+      await client.statuses.set<typeof device.statusDetailsZ>({
+        key: device.statusKey(key),
+        name: reply.name,
+        variant: "success",
+        message: "Device connected",
+        time: TimeStamp.now(),
+        details: { rack: testRack.key, device: key },
+      });
+      await client.devices.create(device.toUpdate(reply));
+      const { status } = await client.devices.retrieve({
+        key,
+        includeStatus: true,
+        schemas: {
+          properties: record.unknownZ(),
+          make: z.string(),
+          model: z.string(),
+        },
+      });
+      expect(status?.message).toBe("Device connected");
     });
   });
 
@@ -325,6 +408,93 @@ describe("Device", async () => {
             return status != null;
           })
           .toBe(true);
+      });
+
+      describe("device cached without a status", () => {
+        const createNew = (name: string): device.New => ({
+          key: id.create(),
+          rack: testRack.key,
+          location: "Dev1",
+          name,
+          make: "ni",
+          model: "dog",
+          properties: {},
+        });
+
+        it("should fetch the status after a status-free read", async () => {
+          const d = await client.devices.create(createNew("status-free-read"));
+          const local = createTestClient();
+          await local.devices.retrieve(d.key);
+          const params = { key: d.key, includeStatus: true };
+          expect(local.devices.getCached(params)).toBeUndefined();
+          const retrieved = await local.devices.retrieve(params);
+          expect(retrieved.status?.key).toBe(device.statusKey(d.key));
+        });
+
+        it("should fetch the status after a device arrives on the stream", async () => {
+          // A rack of its own, as a rack outage writes its devices' statuses.
+          const { key: rack } = await client.racks.create({ name: "stream-cached" });
+          const d = { ...createNew("stream-cached"), rack };
+          await client.devices.create(d);
+          const local = createTestClient();
+          const stop = local.devices.onChange(d.key, () => {});
+          await waitForStreamLive(local.connection);
+          try {
+            // An update that keeps the name and the parent writes no status.
+            await client.devices.create({ ...d, location: "Dev2" });
+            await expect
+              .poll(() => {
+                const cached = local.devices.getCached(d.key);
+                return query.isLive(cached) ? cached.location : undefined;
+              })
+              .toBe("Dev2");
+            const params = { key: d.key, includeStatus: true };
+            expect(local.devices.getCached(params)).toBeUndefined();
+            const retrieved = await local.devices.retrieve(params);
+            expect(retrieved.status?.key).toBe(device.statusKey(d.key));
+          } finally {
+            stop();
+          }
+        });
+
+        it("should fetch the status for a subscriber with no fetch", async () => {
+          const d = await client.devices.create(createNew("subscribed"));
+          const local = createTestClient();
+          await local.devices.retrieve(d.key);
+          const seen: (device.Status | undefined)[] = [];
+          const stop = local.devices.onChange(
+            { key: d.key, includeStatus: true },
+            (cached) => {
+              if (query.isLive(cached)) seen.push(cached.status);
+            },
+          );
+          try {
+            await expect.poll(() => seen.at(-1)?.key).toBe(device.statusKey(d.key));
+            expect(seen.every((st) => st != null)).toBe(true);
+          } finally {
+            stop();
+          }
+        });
+
+        it("should keep the answer of a fetch that found no status", async () => {
+          const d = await client.devices.create(createNew("no-status-row"));
+          await client.statuses.delete(device.statusKey(d.key));
+          const local = createTestClient();
+          await local.devices.retrieve(d.key);
+          const params = { key: d.key, includeStatus: true };
+          const retrieved = await local.devices.retrieve(params);
+          expect(retrieved.status).toBeUndefined();
+          const cached = local.devices.getCached(params);
+          expect(expectLive(cached).key).toBe(d.key);
+          expect(expectLive(cached).status).toBeUndefined();
+        });
+
+        it("should answer a status-free query from the cache", async () => {
+          const d = await client.devices.create(createNew("status-free-query"));
+          const local = createTestClient();
+          await local.devices.retrieve(d.key);
+          expect(expectLive(local.devices.getCached(d.key)).key).toBe(d.key);
+        });
       });
 
       it("should include status for multiple devices", async () => {

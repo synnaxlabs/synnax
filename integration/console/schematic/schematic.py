@@ -24,6 +24,7 @@ from console.schematic.symbol import (
     box_right,
     box_top,
 )
+from x.spatial import AngularDirection, OuterLocation
 
 _SymbolT = TypeVar("_SymbolT", bound=Symbol)
 
@@ -56,11 +57,6 @@ _ALIGNMENT_EXTRACTORS = {
 DistributionType = Literal[
     "horizontal",
     "vertical",
-]
-
-RotationType = Literal[
-    "clockwise",
-    "counterclockwise",
 ]
 
 
@@ -249,7 +245,7 @@ class Schematic(ConsolePage):
     def rotate(
         self,
         symbols: list[Symbol],
-        direction: RotationType,
+        direction: AngularDirection,
         *,
         group: bool = False,
     ) -> None:
@@ -291,9 +287,9 @@ class Schematic(ConsolePage):
         self,
         *,
         source_symbol: Symbol,
-        source_handle: str,
+        source_handle: OuterLocation,
         target_symbol: Symbol,
-        target_handle: str,
+        target_handle: OuterLocation,
     ) -> None:
         """Connect two symbols by dragging from source handle to target handle."""
         source_x, source_y = self.find_symbol_handle(source_symbol, source_handle)
@@ -304,7 +300,9 @@ class Schematic(ConsolePage):
         self.page.mouse.move(target_x, target_y, steps=10)
         self.page.mouse.up()
 
-    def find_symbol_handle(self, symbol: Symbol, handle: str) -> tuple[float, float]:
+    def find_symbol_handle(
+        self, symbol: Symbol, handle: OuterLocation
+    ) -> tuple[float, float]:
         """Calculate the coordinates of a symbol's connection handle."""
         symbol_box = symbol.locator.bounding_box()
         if not symbol_box:
@@ -336,9 +334,9 @@ class Schematic(ConsolePage):
         self,
         *,
         source_symbol: Symbol,
-        source_handle: str,
+        source_handle: OuterLocation,
         target_symbol: Symbol,
-        target_handle: str,
+        target_handle: OuterLocation,
     ) -> None:
         """Select the edge between two symbol handles by clicking its midpoint.
 
