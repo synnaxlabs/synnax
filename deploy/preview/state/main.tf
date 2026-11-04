@@ -30,6 +30,11 @@ provider "aws" {
 data "aws_caller_identity" "current" {}
 
 resource "aws_s3_bucket" "state" {
+  #checkov:skip=CKV2_AWS_61:Versioned state stays; nothing expires it.
+  #checkov:skip=CKV2_AWS_62:Nothing consumes events from a state bucket.
+  #checkov:skip=CKV_AWS_18:Previews hold no customer data, so no access log.
+  #checkov:skip=CKV_AWS_144:State for disposable previews needs no second region.
+  #checkov:skip=CKV_AWS_145:AES256 at rest is enough for preview state.
   bucket = "synnax-preview-terraform-${data.aws_caller_identity.current.account_id}"
 }
 
