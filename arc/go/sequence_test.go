@@ -6015,6 +6015,60 @@ var _ = Describe("Sequence", func() {
 			Expect(drainI64(out, 102)).To(Equal([]int64{1}))
 		})
 
+		It(
+			"Triggers an untriggered call from its computed input",
+			func(ctx SpecContext) {
+				resolver := channelSymbols(map[string]channelDef{
+					"count": {types.I64(), 100},
+					"out":   {types.I64(), 102},
+				})
+				h := newRuntimeHarness(ctx, `
+				func f(v i64) {} i64 {
+				    return v
+				}
+				f(count * 2) -> out`, resolver,
+					channels.Digest{Key: 100, DataType: telem.Int64T},
+					channels.Digest{Key: 102, DataType: telem.Int64T},
+				)
+				defer h.Close(ctx)
+
+				advance(h, ctx, telem.Millisecond)
+				out, _ := h.Flush()
+				Expect(drainI64(out, 102)).To(BeEmpty(), "no sample yet, no call")
+				h.Ingest(100, telem.NewSeriesV[int64](5))
+				advance(h, ctx, telem.Millisecond)
+				h.Ingest(100, telem.NewSeriesV[int64](7))
+				advance(h, ctx, telem.Millisecond)
+				out, _ = h.Flush()
+				Expect(drainI64(out, 102)).To(Equal([]int64{10, 14}))
+			},
+		)
+
+		It("Keeps a triggered call on its trigger alone", func(ctx SpecContext) {
+			resolver := channelSymbols(map[string]channelDef{
+				"trig":  {types.U8(), 99},
+				"count": {types.I64(), 100},
+				"out":   {types.I64(), 102},
+			})
+			h := newRuntimeHarness(ctx, `
+				func f(v i64) {n u8} i64 {
+				    return v
+				}
+				trig -> f(count * 2) -> out`, resolver,
+				channels.Digest{Key: 100, DataType: telem.Int64T},
+				channels.Digest{Key: 102, DataType: telem.Int64T},
+			)
+			defer h.Close(ctx)
+
+			h.Ingest(100, telem.NewSeriesV[int64](5))
+			advance(h, ctx, telem.Millisecond)
+			out, _ := h.Flush()
+			Expect(drainI64(out, 102)).To(BeEmpty(), "count alone must not fire f")
+			trigger(h, ctx, 99)
+			out, _ = h.Flush()
+			Expect(drainI64(out, 102)).To(Equal([]int64{10}))
+		})
+
 		It("Advances past a bare call with a computed input", func(ctx SpecContext) {
 			resolver := channelSymbols(map[string]channelDef{
 				"start_cmd": {types.U8(), 100},

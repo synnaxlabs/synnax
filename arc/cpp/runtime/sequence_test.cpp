@@ -3841,6 +3841,52 @@ TEST(ComputedCallInputsTest, PassesABareCallResultToAFunctionInput) {
     );
 }
 
+TEST(ComputedCallInputsTest, TriggersAnUntriggeredCallFromItsComputedInput) {
+    Sequence h(
+        R"(
+    func f(v i64) {} i64 {
+        return v
+    }
+    f(%count% * 2) -> %out%)",
+        {{"count", x::telem::INT64_T}, {"out", x::telem::INT64_T}}
+    );
+
+    h.advance(x::telem::MILLISECOND);
+    EXPECT_TRUE(collect<std::int64_t>(h.flush(), h.key("out")).empty())
+        << "no sample yet, no call";
+    h.ingest("count", x::telem::Series(std::int64_t(5)));
+    h.settle();
+    h.ingest("count", x::telem::Series(std::int64_t(7)));
+    h.settle();
+    EXPECT_EQ(
+        collect<std::int64_t>(h.flush(), h.key("out")),
+        (std::vector<std::int64_t>{10, 14})
+    );
+}
+
+TEST(ComputedCallInputsTest, KeepsATriggeredCallOnItsTriggerAlone) {
+    Sequence h(
+        R"(
+    func f(v i64) {n u8} i64 {
+        return v
+    }
+    %trig% -> f(%count% * 2) -> %out%)",
+        {{"trig", x::telem::UINT8_T},
+         {"count", x::telem::INT64_T},
+         {"out", x::telem::INT64_T}}
+    );
+
+    h.ingest("count", x::telem::Series(std::int64_t(5)));
+    h.settle();
+    EXPECT_TRUE(collect<std::int64_t>(h.flush(), h.key("out")).empty())
+        << "count alone must not fire f";
+    h.trigger("trig");
+    EXPECT_EQ(
+        collect<std::int64_t>(h.flush(), h.key("out")),
+        (std::vector<std::int64_t>{10})
+    );
+}
+
 TEST(ComputedCallInputsTest, AdvancesPastABareCallStepWithAComputedInput) {
     Sequence h(
         R"(

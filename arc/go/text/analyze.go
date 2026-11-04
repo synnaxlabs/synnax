@@ -638,8 +638,8 @@ func memberNodeKeys(members ir.Members) set.Set[string] {
 	return owned
 }
 
-// buildVariableNode builds sym's variable node. An unedged first param holds
-// value, the initial; value-variable assignments append edge-fed feeder params.
+// buildVariableNode builds sym's variable node. Its unedged first param holds the
+// initial value; value-variable assignments append edge-fed feeder params.
 func buildVariableNode(
 	sym *symbol.Symbol,
 	kg *keyGenerator,
@@ -1752,21 +1752,18 @@ func (p *flowChainProcessor) edgeKind() ir.EdgeKind {
 // injectImplicitTriggers creates channel read nodes for all channels referenced
 // in an expression when that expression is the first node in a flow statement.
 // This enables the shorthand syntax: `ox_pt_1 > 20 => do_something()`
-// which expands to: `ox_pt_1 -> ox_pt_1 > 20 => do_something()`
+// which expands to: `ox_pt_1 -> ox_pt_1 > 20 => do_something()`. A call's
+// computed inputs count too, so `f(count * 2)` expands to `count -> f(count * 2)`.
 func (p *flowChainProcessor) injectImplicitTriggers(
 	head antlr.ParserRuleContext,
 ) bool {
-	sym, err := p.ctx.Scope.Root().GetChildByParserRule(head)
-	if err != nil || sym.Kind == symbol.KindConstant {
-		return true // Constants don't need triggers
-	}
-
-	if len(sym.Channels.Read) == 0 {
-		return true // No channels referenced
+	reads := p.headChannelReads(head)
+	if len(reads) == 0 {
+		return true
 	}
 
 	// Create trigger node for each channel
-	for _, chName := range sym.Channels.Read {
+	for _, chName := range reads {
 		chanSym, err := p.ctx.Scope.Resolve(p.ctx, chName)
 		if err != nil {
 			continue
@@ -1788,6 +1785,31 @@ func (p *flowChainProcessor) injectImplicitTriggers(
 		}
 	}
 	return true
+}
+
+// headChannelReads returns the channels a flow head reads, through its own
+// expression or through a call's computed inputs. A constant reads none.
+func (p *flowChainProcessor) headChannelReads(
+	head antlr.ParserRuleContext,
+) map[uint32]string {
+	root := p.ctx.Scope.Root()
+	reads := make(map[uint32]string)
+	if sym, err := root.GetChildByParserRule(head); err == nil {
+		if sym.Kind == symbol.KindConstant {
+			return nil
+		}
+		maps.Copy(reads, sym.Channels.Read)
+	}
+	fn, ok := head.(parser.IFunctionContext)
+	if !ok {
+		return reads
+	}
+	for _, arg := range symbol.FunctionArguments(fn) {
+		if synth, err := root.GetChildByParserRule(arg.Expr); err == nil {
+			maps.Copy(reads, synth.Channels.Read)
+		}
+	}
+	return reads
 }
 
 func (p *flowChainProcessor) processFlowNode(flowNode parser.IFlowNodeContext) bool {
