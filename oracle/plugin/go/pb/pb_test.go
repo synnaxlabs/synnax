@@ -2380,6 +2380,9 @@ var _ = Describe("Go PB Plugin", func() {
 							// nil converter cannot pin the backward one.
 							"StatusToPB(*r.Status, nil)",
 							"StatusFromPB[struct{}](pb.Status, nil)",
+							// The generic translators skip the field of a nil
+							// converter.
+							"if translateD != nil {",
 						)
 				},
 			)

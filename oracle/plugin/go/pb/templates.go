@@ -417,7 +417,7 @@ func {{.Name}}FromPB(v {{.PBType}}) ({{.GoType}}, error) {
 {{- range .GenericTranslators}}
 
 // {{.Name}}ToPB converts {{.GoTypeShort}} to {{.PBTypeShort}} using provided type
-// converters.
+// converters.{{if .TypeParams}} A nil converter leaves its field empty.{{end}}
 func {{.Name}}ToPB{{if .TypeParams}}[{{range $i, $tp := .TypeParams}}{{if $i}}, {{end}}{{$tp.Name}} {{$tp.Constraint}}{{end}}]{{end}}(
 	r {{.GoType}},
 {{- range .TypeParams}}
@@ -425,9 +425,12 @@ func {{.Name}}ToPB{{if .TypeParams}}[{{range $i, $tp := .TypeParams}}{{if $i}}, 
 {{- end}}
 ) (*{{.PBType}}, error) {
 {{- range .TypeParamFields}}
-	{{lcFirst .GoName}}Any, err := {{.ForwardExpr}}
-	if err != nil {
-		return nil, err
+	var {{lcFirst .GoName}}Any *anypb.Any
+	if {{.Converter}} != nil {
+		var err error
+		if {{lcFirst .GoName}}Any, err = {{.ForwardExpr}}; err != nil {
+			return nil, err
+		}
 	}
 {{- end}}
 {{- range .ErrorFields}}
@@ -519,7 +522,7 @@ func {{.Name}}ToPB{{if .TypeParams}}[{{range $i, $tp := .TypeParams}}{{if $i}}, 
 }
 
 // {{.Name}}FromPB converts {{.PBTypeShort}} to {{.GoTypeShort}} using provided type
-// converters.
+// converters.{{if .TypeParams}} A nil converter leaves its field empty.{{end}}
 func {{.Name}}FromPB{{if .TypeParams}}[{{range $i, $tp := .TypeParams}}{{if $i}}, {{end}}{{$tp.Name}} {{$tp.Constraint}}{{end}}]{{end}}(
 	pb *{{.PBType}},
 {{- range .TypeParams}}
@@ -538,9 +541,10 @@ func {{.Name}}FromPB{{if .TypeParams}}[{{range $i, $tp := .TypeParams}}{{if $i}}
 	var err error
 {{- end}}
 {{- range .TypeParamFields}}
-	r.{{.GoName}}, err = {{.BackwardExpr}}
-	if err != nil {
-		return {{$goType}}{}, err
+	if {{.Converter}} != nil {
+		if r.{{.GoName}}, err = {{.BackwardExpr}}; err != nil {
+			return {{$goType}}{}, err
+		}
 	}
 {{- end}}
 {{- range .ErrorFields}}

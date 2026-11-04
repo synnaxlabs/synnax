@@ -64,14 +64,17 @@ func VariantFromPB(v Variant) (status.Variant, error) {
 }
 
 // StatusToPB converts Status to Status using provided type
-// converters.
+// converters. A nil converter leaves its field empty.
 func StatusToPB[Details any](
 	r status.Status[Details],
 	translateDetails func(Details) (*anypb.Any, error),
 ) (*Status, error) {
-	detailsAny, err := translateDetails(r.Details)
-	if err != nil {
-		return nil, err
+	var detailsAny *anypb.Any
+	if translateDetails != nil {
+		var err error
+		if detailsAny, err = translateDetails(r.Details); err != nil {
+			return nil, err
+		}
 	}
 	variantVal, err := VariantToPB(r.Variant)
 	if err != nil {
@@ -98,7 +101,7 @@ func StatusToPB[Details any](
 }
 
 // StatusFromPB converts Status to Status using provided type
-// converters.
+// converters. A nil converter leaves its field empty.
 func StatusFromPB[Details any](
 	pb *Status,
 	translateDetails func(*anypb.Any) (Details, error),
@@ -108,9 +111,10 @@ func StatusFromPB[Details any](
 		return r, nil
 	}
 	var err error
-	r.Details, err = translateDetails(pb.Details)
-	if err != nil {
-		return status.Status[Details]{}, err
+	if translateDetails != nil {
+		if r.Details, err = translateDetails(pb.Details); err != nil {
+			return status.Status[Details]{}, err
+		}
 	}
 	r.Variant, err = VariantFromPB(pb.Variant)
 	if err != nil {

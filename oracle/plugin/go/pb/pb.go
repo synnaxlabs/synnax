@@ -994,6 +994,7 @@ func (p *Plugin) processGenericFieldForTranslation(
 			PBName:           pbName,
 			ForwardExpr:      forwardExpr,
 			BackwardExpr:     backwardExpr,
+			Converter:        converterFunc,
 			IsOptional:       isOptional,
 			IsOptionalStruct: false,
 			HasError:         true,
@@ -2205,6 +2206,8 @@ type fieldTranslatorData struct {
 	PBName       string
 	ForwardExpr  string
 	BackwardExpr string
+	// Converter names the converter argument that translates a type parameter field.
+	Converter string
 	// BackwardCast is an optional cast for the backward assignment (e.g.,
 	// "(*rack.Status)").
 	BackwardCast     string
