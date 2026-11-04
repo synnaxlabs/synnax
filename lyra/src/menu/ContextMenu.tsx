@@ -33,7 +33,7 @@ import {
 } from "@/menu/types";
 import { position } from "@/position";
 import { Triggers } from "@/triggers";
-import { isMoveKey, moveIndex } from "@/util/move";
+import { ACTIVATION_KEYS, isMoveKey, moveIndex } from "@/util";
 
 interface ContextMenuState {
   visible: boolean;
@@ -247,15 +247,18 @@ const Internal = ({
 }: ContextMenuProps): ReactNode | null => {
   const menuStyle = { ...xy.css(position), ...style };
   // The move keys walk the focus through the items, which are buttons that Enter and
-  // Space click.
+  // Space click. The menu keeps these keys from a list behind it that answers window
+  // keys.
   const handleKeyDown = (e: KeyboardEvent<HTMLDivElement>) => {
     onKeyDown?.(e);
     if (e.defaultPrevented || e.altKey || e.ctrlKey || e.metaKey || e.shiftKey) return;
-    const key = Triggers.eventKey(e);
     const target = e.target as HTMLElement;
     // Keys typed into a field inside the menu keep their own meaning.
-    if (!isMoveKey(key) || (target !== e.currentTarget && !target.matches(MENU_ITEMS)))
-      return;
+    if (target !== e.currentTarget && !target.matches(MENU_ITEMS)) return;
+    if (ACTIVATION_KEYS.includes(e.key)) return e.stopPropagation();
+    const key = Triggers.eventKey(e);
+    if (!isMoveKey(key)) return;
+    e.stopPropagation();
     const items = Array.from(e.currentTarget.querySelectorAll<HTMLElement>(MENU_ITEMS));
     if (items.length === 0) return;
     e.preventDefault();

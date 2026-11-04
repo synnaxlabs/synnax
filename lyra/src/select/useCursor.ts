@@ -19,8 +19,7 @@ import { type KeyboardEvent, useEffect, useRef, useState } from "react";
 import { Dialog } from "@/dialog";
 import { useSyncedRef } from "@/hooks";
 import { Triggers } from "@/triggers";
-import { isInputOrContentEditable } from "@/util/event";
-import { moveIndex } from "@/util/move";
+import { isInputOrContentEditable, moveIndex } from "@/util";
 
 /**
  * What the arrow keys of a selection move. A hover is a highlight that the pointer

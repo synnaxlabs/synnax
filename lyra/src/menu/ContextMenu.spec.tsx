@@ -11,7 +11,9 @@ import { act, fireEvent, render, screen } from "@testing-library/react";
 import { type ReactElement } from "react";
 import { describe, expect, it, vi } from "vitest";
 
+import { List } from "@/list";
 import { Menu } from "@/menu";
+import { Select } from "@/select";
 import { Triggers } from "@/triggers";
 
 const TestMenu = (): ReactElement => {
@@ -115,6 +117,37 @@ const FocusMenu = (): ReactElement => {
   );
 };
 
+const ListMenu = ({ onChange }: { onChange: (key: string) => void }): ReactElement => {
+  const ctx = Menu.useContextMenu();
+  return (
+    <Menu.ContextMenu
+      menu={() => (
+        <Menu.Menu>
+          <Menu.Item itemKey="rename">Rename</Menu.Item>
+        </Menu.Menu>
+      )}
+      {...ctx}
+    >
+      <Select.Frame
+        data={["alpha", "bravo"]}
+        onChange={onChange}
+        initialHover={0}
+        enableTriggers
+      >
+        <List.Scroll>
+          <Select.Items<string>>
+            {({ key, ...rest }) => (
+              <Select.Item key={key} {...rest} onContextMenu={ctx.open}>
+                {rest.itemKey}
+              </Select.Item>
+            )}
+          </Select.Items>
+        </List.Scroll>
+      </Select.Frame>
+    </Menu.ContextMenu>
+  );
+};
+
 describe("ContextMenu", () => {
   it("should not display the menu by default", () => {
     render(<TestMenu />);
@@ -184,6 +217,25 @@ describe("ContextMenu", () => {
       if (document.activeElement == null) throw new Error("nothing has focus");
       fireEvent.keyDown(document.activeElement, { key, code: key, ...init });
     };
+
+    it("should keep its keys from a list behind it", () => {
+      const onChange = vi.fn();
+      render(
+        <Triggers.Provider>
+          <ListMenu onChange={onChange} />
+        </Triggers.Provider>,
+      );
+      fireEvent.contextMenu(screen.getByText("bravo"));
+      press("ArrowDown");
+      expect(focused()).toBe("Rename");
+      press("Enter");
+      expect(onChange).not.toHaveBeenCalled();
+      act(() => {
+        fireEvent.keyDown(window, { key: "Escape", code: "Escape" });
+      });
+      fireEvent.keyDown(window, { key: "Enter", code: "Enter" });
+      expect(onChange).toHaveBeenCalledExactlyOnceWith("alpha", expect.anything());
+    });
 
     it("should take the focus on open and give it back on Escape", () => {
       const opener = open();
