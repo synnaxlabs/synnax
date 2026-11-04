@@ -10,11 +10,9 @@
 package kafka
 
 import (
-	"encoding/json/jsontext"
-	"encoding/json/v2"
+	"bytes"
 	"math"
 	"strconv"
-	"strings"
 	"time"
 	"uuid"
 
@@ -24,38 +22,78 @@ import (
 	"github.com/synnaxlabs/x/validate"
 )
 
-// preciseNumbers decodes a JSON integer into an int64 or uint64, so large integers
-// and nanosecond timestamps survive the trip through an any.
-var preciseNumbers = json.WithUnmarshalers(json.UnmarshalFromFunc(
-	func(dec *jsontext.Decoder, v *any) error {
-		if dec.PeekKind() != '0' {
-			return errors.ErrUnsupported
-		}
-		raw, err := dec.ReadValue()
-		if err != nil {
-			return err
-		}
-		*v, err = parseNumber(string(raw))
-		return err
-	},
-))
+type numberKind uint8
+
+const (
+	intNumber numberKind = iota
+	uintNumber
+	floatNumber
+)
+
+// number is a sample or JSON number in the representation that loses no precision.
+type number struct {
+	kind numberKind
+	i    int64
+	u    uint64
+	f    float64
+}
 
 // parseNumber converts the text of a JSON number into an int64 or uint64 when it is an
 // integer that fits, and a float64 otherwise.
-func parseNumber(text string) (any, error) {
-	if !strings.ContainsAny(text, ".eE") {
-		if i, err := strconv.ParseInt(text, 10, 64); err == nil {
-			return i, nil
+func parseNumber(text []byte) (number, error) {
+	if !bytes.ContainsAny(text, ".eE") {
+		if i, err := strconv.ParseInt(string(text), 10, 64); err == nil {
+			return number{kind: intNumber, i: i}, nil
 		}
-		if u, err := strconv.ParseUint(text, 10, 64); err == nil {
-			return u, nil
+		if u, err := strconv.ParseUint(string(text), 10, 64); err == nil {
+			return number{kind: uintNumber, u: u}, nil
 		}
 	}
-	f, err := strconv.ParseFloat(text, 64)
+	f, err := strconv.ParseFloat(string(text), 64)
 	if err != nil {
-		return nil, errors.Wrapf(validate.ErrValidation, "invalid number %q", text)
+		return number{}, errors.Wrapf(validate.ErrValidation, "invalid number %q", text)
 	}
-	return f, nil
+	return number{kind: floatNumber, f: f}, nil
+}
+
+func (n number) float() float64 {
+	switch n.kind {
+	case intNumber:
+		return float64(n.i)
+	case uintNumber:
+		return float64(n.u)
+	default:
+		return n.f
+	}
+}
+
+func (n number) appendText(dst []byte) []byte {
+	switch n.kind {
+	case intNumber:
+		return strconv.AppendInt(dst, n.i, 10)
+	case uintNumber:
+		return strconv.AppendUint(dst, n.u, 10)
+	default:
+		return strconv.AppendFloat(dst, n.f, 'g', -1, 64)
+	}
+}
+
+func (n number) String() string { return string(n.appendText(nil)) }
+
+// bits returns n as a two's complement integer. Its low bytes are the encoding of n in
+// any integer type n fits in, so check fits first.
+func (n number) bits() uint64 {
+	switch n.kind {
+	case intNumber:
+		return uint64(n.i)
+	case uintNumber:
+		return n.u
+	default:
+		if n.f < 0 {
+			return uint64(int64(n.f))
+		}
+		return uint64(n.f)
+	}
 }
 
 // timeUnit returns the span one unit of a numeric time format counts.
@@ -74,139 +112,34 @@ func timeUnit(format http.TimeFormat) (telem.TimeSpan, error) {
 	}
 }
 
-// parseTimestamp converts a decoded JSON value encoded with format into a timestamp.
-func parseTimestamp(raw any, format http.TimeFormat) (telem.TimeStamp, error) {
-	if format == http.TimeFormatISO8601 {
-		s, ok := raw.(string)
-		if !ok {
-			return 0, errors.Wrapf(
-				validate.ErrValidation, "expected an ISO 8601 string, got %T", raw,
-			)
-		}
-		t, err := time.Parse(time.RFC3339Nano, s)
-		if err != nil {
-			return 0, errors.Wrapf(
-				validate.ErrValidation, "invalid ISO 8601 timestamp %q", s,
-			)
-		}
-		return telem.NewTimeStamp(t), nil
-	}
+func numericTimestamp(n number, format http.TimeFormat) (telem.TimeStamp, error) {
 	unit, err := timeUnit(format)
 	if err != nil {
 		return 0, err
 	}
-	switch n := raw.(type) {
-	case int64:
-		if n > math.MaxInt64/int64(unit) || n < math.MinInt64/int64(unit) {
+	switch n.kind {
+	case intNumber:
+		if n.i > math.MaxInt64/int64(unit) || n.i < math.MinInt64/int64(unit) {
 			return 0, timestampOutOfRange(n, format)
 		}
-		return telem.TimeStamp(n) * telem.TimeStamp(unit), nil
-	case uint64:
-		if n > math.MaxInt64/uint64(unit) {
-			return 0, timestampOutOfRange(n, format)
-		}
-		return telem.TimeStamp(n) * telem.TimeStamp(unit), nil
-	case float64:
+		return telem.TimeStamp(n.i) * telem.TimeStamp(unit), nil
+	case uintNumber:
+		// parseNumber only returns one past the range of an int64.
+		return 0, timestampOutOfRange(n, format)
+	default:
 		// math.MaxInt64 rounds up to 2^63 as a float64, so the bound is exclusive.
-		ns := n * float64(unit)
+		ns := n.f * float64(unit)
 		if math.IsNaN(ns) || ns < math.MinInt64 || ns >= math.MaxInt64 {
 			return 0, timestampOutOfRange(n, format)
 		}
 		return telem.TimeStamp(ns), nil
-	default:
-		return 0, errors.Wrapf(validate.ErrValidation, "expected a number, got %T", raw)
 	}
 }
 
-func timestampOutOfRange(n any, format http.TimeFormat) error {
+func timestampOutOfRange(n number, format http.TimeFormat) error {
 	return errors.Wrapf(
 		validate.ErrValidation, "%v is out of range for a %s timestamp", n, format,
 	)
-}
-
-// formatTimestamp encodes ts as a JSON value in format. Nanoseconds stay integral so
-// no precision is lost on the round trip.
-func formatTimestamp(ts telem.TimeStamp, format http.TimeFormat) (any, error) {
-	if format == http.TimeFormatISO8601 {
-		return ts.Time().UTC().Format(time.RFC3339Nano), nil
-	}
-	unit, err := timeUnit(format)
-	if err != nil {
-		return nil, err
-	}
-	if unit == telem.Nanosecond {
-		return int64(ts), nil
-	}
-	return float64(ts) / float64(unit), nil
-}
-
-// readSample converts raw, a decoded JSON value, into a sample of dt. enums map string
-// labels onto the numeric or boolean value stored, and timeFormat decodes timestamp
-// channels. It returns an error wrapping validate.ErrValidation when raw does not
-// convert.
-func readSample(
-	raw any,
-	dt telem.DataType,
-	timeFormat *http.TimeFormat,
-	enums []http.EnumEntry,
-) (any, error) {
-	if dt == telem.TimestampT {
-		if timeFormat == nil {
-			return nil, errors.Wrap(
-				validate.ErrValidation, "time_format: required for timestamp channels",
-			)
-		}
-		return parseTimestamp(raw, *timeFormat)
-	}
-	switch dt {
-	case telem.StringT:
-		s, ok := raw.(string)
-		if !ok {
-			return nil, errors.Wrapf(
-				validate.ErrValidation, "expected a string, got %T", raw,
-			)
-		}
-		return s, nil
-	case telem.JSONT:
-		return raw, nil
-	case telem.UUIDT:
-		s, ok := raw.(string)
-		if !ok {
-			return nil, errors.Wrapf(
-				validate.ErrValidation, "expected a UUID string, got %T", raw,
-			)
-		}
-		id, err := uuid.Parse(s)
-		if err != nil {
-			return nil, errors.Wrapf(validate.ErrValidation, "invalid UUID %q", s)
-		}
-		return id, nil
-	case telem.BytesT:
-		return nil, errors.Wrapf(validate.ErrValidation, "unsupported data type %s", dt)
-	}
-	switch v := raw.(type) {
-	case bool:
-		return v, nil
-	case float64, int64, uint64:
-		if err := checkFits(v, dt); err != nil {
-			return nil, err
-		}
-		return v, nil
-	case string:
-		for _, e := range enums {
-			if e.Label == v {
-				if err := checkFits(e.Value, dt); err != nil {
-					return nil, err
-				}
-				return e.Value, nil
-			}
-		}
-		return nil, errors.Wrapf(validate.ErrValidation, "unknown enum label %q", v)
-	default:
-		return nil, errors.Wrapf(
-			validate.ErrValidation, "expected a number or boolean, got %T", raw,
-		)
-	}
 }
 
 // integerBounds returns the range of the integer data type dt. ok is false when dt
@@ -234,35 +167,50 @@ func integerBounds(dt telem.DataType) (lo int64, hi uint64, ok bool) {
 	}
 }
 
-// checkFits returns an error wrapping validate.ErrValidation when n, an int64,
-// uint64, or float64, does not convert into dt without wrapping, truncating, or
-// overflowing to infinity.
-func checkFits(n any, dt telem.DataType) error {
-	if f, ok := n.(float64); ok && dt == telem.Float32T &&
-		math.Abs(f) > math.MaxFloat32 {
-		return errors.Wrapf(validate.ErrValidation, "%v overflows %s", f, dt)
+// checkFits returns an error wrapping validate.ErrValidation when n does not convert
+// into dt without wrapping, truncating, or overflowing to infinity.
+func checkFits(n number, dt telem.DataType) error {
+	if n.kind == floatNumber && dt == telem.Float32T &&
+		math.Abs(n.f) > math.MaxFloat32 {
+		return errors.Wrapf(validate.ErrValidation, "%s overflows %s", n, dt)
 	}
 	lo, hi, ok := integerBounds(dt)
 	if !ok {
 		return nil
 	}
-	fits := true
-	switch v := n.(type) {
-	case int64:
-		fits = v >= lo && (v < 0 || uint64(v) <= hi)
-	case uint64:
-		fits = v <= hi
-	case float64:
-		if v != math.Trunc(v) {
-			return errors.Wrapf(validate.ErrValidation, "%v is not an integer", v)
+	var fits bool
+	switch n.kind {
+	case intNumber:
+		fits = n.i >= lo && (n.i < 0 || uint64(n.i) <= hi)
+	case uintNumber:
+		fits = n.u <= hi
+	default:
+		if n.f != math.Trunc(n.f) {
+			return errors.Wrapf(validate.ErrValidation, "%s is not an integer", n)
 		}
 		// float64(hi)+1 rounds to the first value past hi for every integer type.
-		fits = v >= float64(lo) && v < float64(hi)+1
+		fits = n.f >= float64(lo) && n.f < float64(hi)+1
 	}
 	if !fits {
-		return errors.Wrapf(validate.ErrValidation, "%v is out of range for %s", n, dt)
+		return errors.Wrapf(validate.ErrValidation, "%s is out of range for %s", n, dt)
 	}
 	return nil
+}
+
+// formatTimestamp encodes ts as a JSON value in format. Nanoseconds stay integral so
+// no precision is lost on the round trip.
+func formatTimestamp(ts telem.TimeStamp, format http.TimeFormat) (any, error) {
+	if format == http.TimeFormatISO8601 {
+		return ts.Time().UTC().Format(time.RFC3339Nano), nil
+	}
+	unit, err := timeUnit(format)
+	if err != nil {
+		return nil, err
+	}
+	if unit == telem.Nanosecond {
+		return int64(ts), nil
+	}
+	return float64(ts) / float64(unit), nil
 }
 
 // sampleNumber returns sample i of a fixed-density series as a JSON number. Integer
