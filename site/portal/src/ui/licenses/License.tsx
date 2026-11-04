@@ -87,7 +87,7 @@ export const License = ({
       if (event == null) return;
       setEvents((prev) => [{ ...event, at: new Date(event.at) }, ...prev]);
       setActors((prev) => ({ ...prev, [event.actor]: actor }));
-      document.title = document.title.replace(label, next);
+      document.title = document.title.replace(label, () => next);
     } catch (err) {
       setLabel(label);
       throw err as Error;
@@ -126,7 +126,11 @@ export const License = ({
       actions={
         <>
           {admin && lic.edition === "enterprise" && (
-            <Button.Button variant="outlined" onClick={startRenaming}>
+            <Button.Button
+              variant="outlined"
+              onClick={startRenaming}
+              disabled={rename.loading}
+            >
               <Icon.Rename />
               Rename
             </Button.Button>

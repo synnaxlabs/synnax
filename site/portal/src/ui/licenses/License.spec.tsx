@@ -154,6 +154,29 @@ describe("Licenses.License", () => {
     );
   });
 
+  it("should keep dollar sequences in the tab title literal", async () => {
+    vi.spyOn(globalThis, "fetch").mockImplementation(async () =>
+      Response.json(RENAMED),
+    );
+    document.title = `${LICENSE.label} | Synnax`;
+    renderLicense();
+    await commit("Rig $&");
+    await waitFor(() => expect(document.title).toBe("Rig $& | Synnax"));
+  });
+
+  it("should refuse a second rename while one is saving", async () => {
+    let finish = (_: Response): void => {};
+    vi.spyOn(globalThis, "fetch").mockImplementation(
+      async () => await new Promise((resolve) => (finish = resolve)),
+    );
+    renderLicense();
+    await commit("Renamed rig");
+    const button = screen.getByText("Rename").closest("button");
+    await waitFor(() => expect(button?.getAttribute("aria-disabled")).toBe("true"));
+    await act(async () => finish(Response.json(RENAMED)));
+    await waitFor(() => expect(button?.getAttribute("aria-disabled")).toBeNull());
+  });
+
   it("should show why a rename failed", async () => {
     vi.spyOn(globalThis, "fetch").mockImplementation(async () =>
       Response.json(
