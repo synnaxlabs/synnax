@@ -38,6 +38,14 @@ type Writer struct {
 	table      *gorp.Table[Key, Task]
 	configs    config.Registry
 	dispatcher actions.Dispatcher[Key, Action]
+	linker     func(context.Context, gorp.Tx, Task) error
+}
+
+func (w Writer) link(ctx context.Context, t Task) error {
+	if w.linker == nil {
+		return nil
+	}
+	return w.linker(ctx, w.tx, t)
 }
 
 // WithDispatchKey returns a copy of the writer that stamps dispatchKey onto the
@@ -200,15 +208,17 @@ func (w Writer) Create(ctx context.Context, t *Task) error {
 		}
 	}
 	// Internal tasks get no group parent, keeping them out of the resource tree.
-	if t.Internal || exists {
-		return nil
+	if !t.Internal && !exists {
+		if err = w.otgWriter.DefineRelationships(
+			ctx,
+			w.group.OntologyID(),
+			ontology.RelationshipTypeParentOf,
+			otgID,
+		); err != nil {
+			return err
+		}
 	}
-	return w.otgWriter.DefineRelationships(
-		ctx,
-		w.group.OntologyID(),
-		ontology.RelationshipTypeParentOf,
-		otgID,
-	)
+	return w.link(ctx, *t)
 }
 
 // CreateMany creates the given tasks. If tasks with the same key already exist, they
@@ -290,6 +300,12 @@ func (w Writer) apply(ctx context.Context, key Key, acts []Action) ([]Action, er
 	}
 	if next.Name != prev.Name {
 		if err = w.renameStatus(ctx, key, next.Name); err != nil {
+			return nil, err
+		}
+	}
+	if !reflect.DeepEqual(stored, prev.Config) {
+		next.Config = stored
+		if err = w.link(ctx, next); err != nil {
 			return nil, err
 		}
 	}
@@ -394,6 +410,9 @@ func (w Writer) Copy(
 		} else if !errors.Is(err, query.ErrNotFound) {
 			return Task{}, err
 		}
+	}
+	if err := w.link(ctx, res); err != nil {
+		return Task{}, err
 	}
 	w.dispatcher.NotifyOnCommit(
 		ctx,

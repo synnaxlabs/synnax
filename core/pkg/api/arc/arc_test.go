@@ -329,7 +329,8 @@ var _ = Describe("Service", func() {
 			Expect(svc.Channel.NewWriter(nil).Create(ctx, &ch)).To(Succeed())
 			return ch
 		}
-		// createTask stores a child task of a on rackKey.
+		// createTask stores a task of a on rackKey as the Python client does: with the
+		// Arc in its config and no ontology call.
 		createTask := func(
 			ctx SpecContext,
 			a arc.Arc,
@@ -345,9 +346,6 @@ var _ = Describe("Service", func() {
 				Status: stat,
 			}
 			Expect(svc.Task.NewWriter(nil).Create(ctx, &t)).To(Succeed())
-			Expect(otg.NewWriter(nil).DefineRelationships(
-				ctx, a.OntologyID(), ontology.RelationshipTypeParentOf, t.OntologyID(),
-			)).To(Succeed())
 			return t
 		}
 		retrieveRunning := func(g Gomega, ctx SpecContext, t task.Task) bool {

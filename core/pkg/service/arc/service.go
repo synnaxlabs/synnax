@@ -252,9 +252,12 @@ func OpenService(
 	cleanup, ok := service.NewOpener(ctx, &s.closer)
 	defer func() { err = cleanup(err) }()
 	if s.table, err = gorp.OpenTable(ctx, gorp.TableConfig[Key, Arc]{
-		DB:              cfg.DB,
-		Indexes:         s.indexes.all(),
-		Migrations:      versions.Migrations,
+		DB:      cfg.DB,
+		Indexes: s.indexes.all(),
+		Migrations: slices.Concat(
+			versions.Migrations,
+			[]gorp.Migration{NewTaskLinkMigration(cfg.Ontology, cfg.Task)},
+		),
 		Instrumentation: cfg.Instrumentation,
 	}); !ok(err, s.table) {
 		return nil, err

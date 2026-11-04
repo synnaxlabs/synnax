@@ -121,7 +121,6 @@ class ArcCase(SimDaqCase, TestCase):
         )
         self._arcs.append(ArcTaskHandle(name=name, arc_key=arc.key, task=task))
         self.client.tasks.configure(task)
-        self.client.ontology.add_children(arc.ontology_id, task.ontology_id)
         if start:
             self.start_arc_task(task)
             self.log(f"Arc is running: {name}")
@@ -185,23 +184,30 @@ class ArcCase(SimDaqCase, TestCase):
         """Delete all tracked arcs and their tasks, then stop the simulator.
 
         Cleanup runs even on failure, and SimDaqCase.teardown always runs so the
-        simulator is stopped even when a cleanup step raises. Tasks are deleted
-        explicitly rather than relying on the arc-to-task cascade, since a
-        rejected configuration never links the two.
+        simulator is stopped even when a cleanup step raises. Deleting an Arc
+        deletes its task, which the Core links to the Arc when it stores the task.
         """
         try:
             for handle in reversed(self._arcs):
-                if handle.task.key is not None:
-                    with self._try_to(f"delete task {handle.name}"):
-                        self.client.tasks.delete(handle.task.key)
                 with self._try_to(f"delete arc {handle.name}"):
                     self.client.arcs.delete(handle.arc_key)
+                    self._assert_task_deleted(handle)
             if self.end_cmd_channel and self.sim_daq is not None:
                 self.log(f"Signaling simulator to stop via {self.end_cmd_channel}")
                 with self._try_to("signal simulator stop"):
                     self.writer.write(self.end_cmd_channel, 1)
         finally:
             super().teardown()
+
+    def _assert_task_deleted(self, handle: ArcTaskHandle) -> None:
+        """Raise AssertionError if the task of a deleted Arc still exists."""
+        if handle.task.key is None:
+            return
+        try:
+            self.client.tasks.retrieve(handle.task.key)
+        except sy.NotFoundError:
+            return
+        raise AssertionError(f"Task of deleted Arc {handle.name} still exists")
 
     @abstractmethod
     def verify_sequence_execution(self) -> None:

@@ -85,6 +85,12 @@ type ServiceConfig struct {
 	//
 	// [OPTIONAL]
 	ImExExcluded []string
+	// Link relates a stored task to the resources its config names, in the transaction
+	// of the write. Its error aborts the write. Writers call it after a write that can
+	// change a task's config.
+	//
+	// [OPTIONAL]
+	Link func(ctx context.Context, tx gorp.Tx, t Task) error
 	// Instrumentation is used for logging, tracing, and metrics.
 	//
 	// [OPTIONAL] - Defaults to noop instrumentation.
@@ -106,6 +112,7 @@ func (c ServiceConfig) Override(other ServiceConfig) ServiceConfig {
 	c.ImEx = override.Nil(c.ImEx, other.ImEx)
 	c.Configs = override.Zero(c.Configs, other.Configs)
 	c.ImExExcluded = override.Slice(c.ImExExcluded, other.ImExExcluded)
+	c.Link = override.Nil(c.Link, other.Link)
 	return c
 }
 
@@ -312,6 +319,7 @@ func (s *Service) NewWriter(tx gorp.Tx) Writer {
 		table:      s.table,
 		configs:    s.cfg.Configs,
 		dispatcher: s.state.Dispatcher(),
+		linker:     s.cfg.Link,
 	}
 }
 

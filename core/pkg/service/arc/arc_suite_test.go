@@ -106,6 +106,7 @@ var (
 			ImEx:         imexSvc,
 			Configs:      configs,
 			ImExExcluded: []string{arctask.Type},
+			Link:         arc.NewTaskLink(otg),
 		}))
 		testRack = &rack.Rack{Name: "Test Rack"}
 		Expect(rackSvc.NewWriter(db).Create(ctx, testRack)).To(Succeed())

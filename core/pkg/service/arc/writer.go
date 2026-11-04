@@ -137,7 +137,7 @@ func (w Writer) Delete(ctx context.Context, keys ...Key) error {
 }
 
 // TaskKeys returns the keys of the child tasks of the Arcs with the given keys. A
-// missing Arc has no tasks. A task with no ontology link to an Arc is not included.
+// missing Arc has no tasks.
 func (w Writer) TaskKeys(ctx context.Context, keys ...Key) ([]task.Key, error) {
 	var taskKeys []task.Key
 	for _, key := range keys {
@@ -257,16 +257,6 @@ func (w Writer) writeTask(
 	}
 	if err := w.tasks.NewWriter(w.tx).Create(ctx, &tsk); err != nil {
 		return nil, err
-	}
-	if len(existing) == 0 {
-		if err := w.otgWriter.DefineRelationships(
-			ctx,
-			OntologyID(a.Key),
-			ontology.RelationshipTypeParentOf,
-			tsk.OntologyID(),
-		); err != nil {
-			return nil, err
-		}
 	}
 	return &tsk, nil
 }

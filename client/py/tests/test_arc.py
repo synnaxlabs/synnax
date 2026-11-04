@@ -274,6 +274,25 @@ class TestArcTask:
         assert arc_task.config.arc_key == str(arc.key)
         assert arc_task.config.auto_start is False
 
+    def test_delete_arc_deletes_created_task(self, client: sy.Synnax) -> None:
+        """Should delete a task made with no ontology call when deleting its Arc."""
+        arc = client.arcs.create(name=f"test-arc-task-delete-{uuid4()}", mode="text")
+        task = sy.arc.Task(name=f"Test Arc Task {uuid4()}", arc_key=arc.key)
+        created = client.tasks.create(
+            name=task.name, type="arc", config=task.to_payload().config
+        )
+        client.arcs.delete(arc.key)
+        with pytest.raises(sy.NotFoundError):
+            client.tasks.retrieve(key=created.key)
+
+    def test_create_task_rejects_missing_arc(self, client: sy.Synnax) -> None:
+        """Should reject a task whose config names an Arc that does not exist."""
+        task = sy.arc.Task(name=f"Test Arc Task {uuid4()}", arc_key=uuid4())
+        with pytest.raises(sy.ValidationError, match="does not exist"):
+            client.tasks.create(
+                name=task.name, type="arc", config=task.to_payload().config
+            )
+
     def test_performance_defaults_to_auto(self) -> None:
         """Should default the performance level to auto."""
         task = sy.arc.Task(name="Test", arc_key=uuid4())
