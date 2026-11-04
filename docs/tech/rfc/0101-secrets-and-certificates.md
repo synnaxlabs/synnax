@@ -75,17 +75,18 @@ the ontology type `secret`. `value` carries `@go wire omit`, `@ts omit`, and `@p
 as the session hash does (`schemas/synnax/auth.oracle:33-38`), so no endpoint or signal
 can carry it. Secrets have no exporter. The Console shows `updated` as "Set on <date>".
 
-| Endpoint          | Caller               | Does                                   |
-| ----------------- | -------------------- | -------------------------------------- |
-| `secret/create`   | Can create secrets   | Saves a name and a value or path       |
-| `secret/retrieve` | Can retrieve secrets | Returns records without values         |
-| `secret/set`      | Can update secrets   | Renames, or replaces the value or path |
-| `secret/delete`   | Can delete secrets   | Refuses while anything uses the secret |
-| `secret/grant`    | Can create devices   | Returns a grant for a rack (§3.3)      |
-| `secret/resolve`  | A rack only          | Returns values (§3.3)                  |
+| Endpoint          | Caller               | Does                                       |
+| ----------------- | -------------------- | ------------------------------------------ |
+| `secret/create`   | Can create secrets   | Saves a value or path, or replaces it      |
+| `secret/retrieve` | Can retrieve secrets | Returns records without values             |
+| `secret/rename`   | Can update secrets   | Renames a secret                           |
+| `secret/delete`   | Can delete secrets   | Refuses while anything uses the secret     |
+| `secret/grant`    | Can create devices   | Returns a grant for a rack (§3.3)          |
+| `secret/resolve`  | A rack only          | Returns stored values; refuses file values |
 
 Owner and Engineer get every action on `secret` and `certificate`. Operator and Viewer
-retrieve them. The Driver role also retrieves and creates certificates, for pins (§3.6).
+retrieve them. The Driver role also retrieves secrets, and retrieves and creates
+certificates, for pins (§3.6).
 
 ### 3.1 Certificates
 
@@ -110,10 +111,11 @@ Certificate struct {
 The package is `core/pkg/service/certificate`. For a stored certificate, the Core parses
 `pem` with `crypto/x509` on every write and fills the details, so no client parses a
 certificate. A write may carry a private key as PEM: the Core checks that it matches the
-leaf and saves it as a secret in the same transaction. For a file certificate, the
-details come from the file browser (§3.5). Certificates are public: anyone who can
-retrieve one can download it as PEM or DER. The endpoints match the secret endpoints,
-without grant and resolve.
+leaf and saves it as a secret in the same transaction, so the caller must also be able
+to create secrets. A `pem` that holds a private key is refused, so a key never lands in
+the public record. For a file certificate, the details come from the file browser
+(§3.5). Certificates are public: anyone who can retrieve one can download it as PEM or
+DER. The endpoints match the secret endpoints, without grant and resolve.
 
 ### 3.2 Encryption key
 
@@ -217,10 +219,11 @@ uses. OPC UA's Trust button saves the offered certificate as an item.
 ### 3.8 Expiry
 
 Every hour, the certificate service writes each certificate's status under
-`certificate:<key>`, only on change. Within 30 days of `not_after` it is the warning
-"Certificate expires soon", with the date in the description. After, it is the error
-"Certificate expired". Each health check gives a device that uses the certificate the
-same status, so RFC 0092 toasts it only when the device is in use.
+`certificate:<key>`, only on change. It is the success "Certificate valid" until 30
+days before `not_after`. Then it is the warning "Certificate expires soon", with the
+date in the description. After `not_after`, it is the error "Certificate expired". Each
+health check gives a device that uses the certificate the same status, so RFC 0092
+toasts it only when the device is in use.
 
 ### 3.9 Migration and clients
 
