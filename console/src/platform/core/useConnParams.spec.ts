@@ -98,6 +98,12 @@ describe("Core.useConnParams", () => {
     expect(result.current?.username).toBeUndefined();
   });
 
+  it("should resume from a redeemed token on another origin", async () => {
+    pinLocationOrigin("http://localhost:5173");
+    const { result } = await renderParams({ ...CORE, token: "sys_invited" });
+    expect(result.current?.token).toBe("sys_invited");
+  });
+
   it("should log in with a password the user entered", async () => {
     const { result } = await renderParams({ ...CORE, password: "typed" });
     expect(result.current?.password).toBe("typed");

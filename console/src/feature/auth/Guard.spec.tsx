@@ -7,9 +7,10 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { channel, connection } from "@synnaxlabs/client";
+import { channel, connection, type Synnax as Client } from "@synnaxlabs/client";
 import { createTestClient, createTestUser } from "@synnaxlabs/client/testutil";
 import { type Status } from "@synnaxlabs/lyra/status";
+import { disableActEnvironment } from "@synnaxlabs/lyra/testutil";
 import { Access, Synnax } from "@synnaxlabs/pluto";
 import {
   act,
@@ -24,7 +25,13 @@ import { describe, expect, it, onTestFinished } from "vitest";
 
 import { Auth } from "@/feature/auth";
 import { Core } from "@/feature/core";
-import { LOCAL_SUBJECT, type OIDCServer, serveOIDC } from "@/platform/core/testutil";
+import { Core as PlatformCore } from "@/platform/core";
+import {
+  createHold,
+  LOCAL_SUBJECT,
+  type OIDCServer,
+  serveOIDC,
+} from "@/platform/core/testutil";
 import { findButton } from "@/platform/modals/testutil";
 import { Session } from "@/session";
 import {
@@ -34,6 +41,7 @@ import {
 } from "@/session/core/testutil";
 import {
   CaptureStatuses,
+  createConsoleWrapper,
   createSessionConsoleWrapper,
   createStatusConsoleWrapper,
   pinLocationOrigin,
@@ -218,6 +226,212 @@ describe("auth guard", () => {
         expect(statuses()).toContain("Failed to link provider account"),
       );
       expect(server.linked).toEqual([]);
+    });
+  });
+
+  describe("an invite's return", () => {
+    const CODE = "syi_code";
+    const REDEEM = "/auth/oidc/invite/redeem";
+
+    const beginReturn = (): void => {
+      sessionStorage.setItem(
+        "synnax-oidc-login",
+        JSON.stringify({
+          purpose: "invite",
+          invite: CODE,
+          core: CORE_KEY,
+          provider: "company-sso",
+          verifier: "verifier",
+          state: "state",
+          redirectUri: "https://core.example.com/",
+        }),
+      );
+      window.history.replaceState(null, "", "/?code=abc&state=state");
+      onTestFinished(() => {
+        sessionStorage.clear();
+        window.history.replaceState(null, "", "/");
+      });
+    };
+
+    const renderReturn = async (server: OIDCServer) => {
+      const core = { ...LOCAL, ...server.address };
+      beginReturn();
+      let statuses: Status.NotificationSpec[] = [];
+      const { wrapper, store } = await createStatusConsoleWrapper({
+        client: null,
+        status: connection.DEFAULT_STATUS,
+        preloadedState: {
+          [Session.Core.SLICE_NAME]: {
+            ...Session.Core.ZERO_SLICE_STATE,
+            cores: { [CORE_KEY]: core },
+          },
+        },
+      });
+      render(
+        <>
+          <CaptureStatuses onStatuses={(next) => (statuses = next)} />
+          <Auth.Guard>
+            <span>authenticated content</span>
+          </Auth.Guard>
+        </>,
+        { wrapper },
+      );
+      return { core, store, statuses: () => statuses };
+    };
+
+    // On a page the Core serves, with the Core selected and the production params.
+    const renderServedReturn = async (server: OIDCServer): Promise<Client[]> => {
+      const { host, port } = server.address;
+      pinLocationOrigin(`http://${host}:${port}`, "?code=abc&state=state");
+      beginReturn();
+      disableActEnvironment();
+      const { wrapper: Console } = await createConsoleWrapper({
+        client: null,
+        preloadedState: {
+          [Session.Core.SLICE_NAME]: {
+            ...Session.Core.ZERO_SLICE_STATE,
+            cores: { [CORE_KEY]: { ...LOCAL, ...server.address } },
+            selected: CORE_KEY,
+          },
+        },
+      });
+      const ConnParamsProvider = ({ children }: PropsWithChildren): ReactElement => {
+        const connParams = PlatformCore.useConnParams();
+        return <Synnax.Provider connParams={connParams}>{children}</Synnax.Provider>;
+      };
+      const clients: Client[] = [];
+      const RecordClient = (): null => {
+        const client = Synnax.use();
+        if (client != null && clients.at(-1) !== client) clients.push(client);
+        return null;
+      };
+      render(
+        <Console>
+          <ConnParamsProvider>
+            <Auth.Guard>
+              <RecordClient />
+            </Auth.Guard>
+          </ConnParamsProvider>
+        </Console>,
+      );
+      return clients;
+    };
+
+    it("should redeem the code instead of logging in or linking", async () => {
+      const server = await serveOIDC();
+      const { store } = await renderReturn(server);
+      await waitFor(() =>
+        expect(Session.Core.selectSelectedKey(store.getState())).toBe(CORE_KEY),
+      );
+      expect(server.redeemed).toEqual([
+        expect.objectContaining({
+          token: CODE,
+          cookie: false,
+          credentials: expect.objectContaining({ code: "abc" }),
+        }),
+      ]);
+      expect(server.sessionsCreated).toBe(0);
+      expect(server.linked).toEqual([]);
+      const record = store.getState()[Session.Core.SLICE_NAME].cores[CORE_KEY];
+      expect(record.oidc).toBeUndefined();
+      expect(record.token).toBe("sys_invited");
+      expect(window.location.search).toBe("");
+    });
+
+    it("should leave the session to a cookie on a page the Core serves", async () => {
+      const server = await serveOIDC();
+      pinLocationOrigin(
+        `http://${server.address.host}:${server.address.port}`,
+        "?code=abc&state=state",
+      );
+      const { store } = await renderReturn(server);
+      await waitFor(() =>
+        expect(Session.Core.selectSelectedKey(store.getState())).toBe(CORE_KEY),
+      );
+      expect(server.redeemed[0].cookie).toBe(true);
+      const record = store.getState()[Session.Core.SLICE_NAME].cores[CORE_KEY];
+      expect(record.token).toBeUndefined();
+    });
+
+    it("should replace a client that rejected the expired cookie", async () => {
+      const hold = createHold(REDEEM);
+      const clients = await renderServedReturn(
+        await serveOIDC({ cookieExpired: true, hold }),
+      );
+      await waitFor(() =>
+        expect(clients[0]?.connection.status.details.error).toBeInstanceOf(Error),
+      );
+      hold.release();
+      await waitFor(() => expect(clients).toHaveLength(2));
+      await waitFor(() => expect(clients[1].auth.authenticated).toBe(true));
+    });
+
+    // The previous user's cache and change stream must not reach the invited user.
+    it("should replace a client that another tab's cookie connected", async () => {
+      const hold = createHold(REDEEM);
+      const clients = await renderServedReturn(await serveOIDC({ hold }));
+      await waitFor(() => expect(clients[0]?.auth.authenticated).toBe(true));
+      hold.release();
+      await waitFor(() => expect(clients).toHaveLength(2));
+    });
+
+    it("should keep an edit made while the code redeems", async () => {
+      const hold = createHold(REDEEM);
+      const { core, store } = await renderReturn(await serveOIDC({ hold }));
+      act(() => {
+        store.dispatch(Session.Core.set({ ...core, name: "Renamed" }));
+      });
+      hold.release();
+      await waitFor(() =>
+        expect(Session.Core.selectSelectedKey(store.getState())).toBe(CORE_KEY),
+      );
+      const record = store.getState()[Session.Core.SLICE_NAME].cores[CORE_KEY];
+      expect(record.name).toBe("Renamed");
+      expect(record.token).toBe("sys_invited");
+    });
+
+    it.each([
+      ["is removed", (core: Session.Core.Core) => Session.Core.remove(core.key)],
+      [
+        "moves",
+        (core: Session.Core.Core) => Session.Core.set({ ...core, port: core.port + 1 }),
+      ],
+    ])("should stop when the Core %s while the code redeems", async (_, change) => {
+      const hold = createHold(REDEEM);
+      const { core, store, statuses } = await renderReturn(await serveOIDC({ hold }));
+      act(() => {
+        store.dispatch(change(core));
+      });
+      const changed = store.getState()[Session.Core.SLICE_NAME].cores[CORE_KEY];
+      hold.release();
+      await waitFor(() =>
+        expect(statuses()).toContainEqual(
+          expect.objectContaining({
+            message: "Failed to redeem invite code",
+            description: expect.stringContaining("Log in again."),
+          }),
+        ),
+      );
+      const { cores } = store.getState()[Session.Core.SLICE_NAME];
+      expect(cores[CORE_KEY]).toEqual(changed);
+      expect(Session.Core.selectSelectedKey(store.getState())).toBeUndefined();
+    });
+
+    it("should explain a refused code and open no session", async () => {
+      const server = await serveOIDC({ inviteRefused: true });
+      const { store, statuses } = await renderReturn(server);
+      await waitFor(() =>
+        expect(statuses()).toContainEqual(
+          expect.objectContaining({
+            message: "Failed to redeem invite code",
+            description:
+              "This invite code is not valid. Ask your administrator for a new one.",
+          }),
+        ),
+      );
+      expect(Session.Core.selectSelectedKey(store.getState())).toBeUndefined();
+      const record = store.getState()[Session.Core.SLICE_NAME].cores[CORE_KEY];
+      expect(record.token).toBeUndefined();
     });
   });
 

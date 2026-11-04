@@ -141,4 +141,29 @@ describe("Synnax.Provider", () => {
     expect(result.current).toBe(client);
     unmount();
   });
+
+  it("should replace its client after a login that changes no other parameter", () => {
+    let lastLogin = 1;
+    const wrapper = ({ children }: PropsWithChildren): ReactElement => (
+      <AetherProvider>
+        <Status.Aggregator>
+          <Synnax.Provider
+            connParams={{ host: "127.0.0.1", port: 1, sessionCookie: true, lastLogin }}
+          >
+            {children}
+          </Synnax.Provider>
+        </Status.Aggregator>
+      </AetherProvider>
+    );
+    const { result, rerender, unmount } = renderHook(Synnax.use, { wrapper });
+    const client = result.current;
+    expect(client).not.toBeNull();
+    rerender();
+    expect(result.current).toBe(client);
+    lastLogin = 2;
+    rerender();
+    expect(result.current).not.toBeNull();
+    expect(result.current).not.toBe(client);
+    unmount();
+  });
 });

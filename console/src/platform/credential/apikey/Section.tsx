@@ -17,7 +17,7 @@ import { Text } from "@synnaxlabs/lyra/text";
 import { Access, Credential, Synnax } from "@synnaxlabs/pluto";
 import { type ReactElement, useEffect, useRef, useState } from "react";
 
-import { Token } from "@/platform/credential/apikey/Token";
+import { Common } from "@/platform/credential/common";
 import { CSS } from "@/platform/css";
 
 const sessionsLabel = (sessions: number | null): string => {
@@ -168,7 +168,7 @@ export const Section = ({ subject }: SectionProps): ReactElement => {
           </Button.Button>
         </Flex.Box>
       )}
-      {created != null && <Token token={created.token} />}
+      {created != null && <Common.Token token={created.token} label="API key" />}
     </Flex.Box>
   );
 };

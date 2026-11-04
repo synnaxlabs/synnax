@@ -152,6 +152,18 @@ describe("oidc", () => {
     });
   });
 
+  describe("beginBrowserInvite", () => {
+    it("should keep the invite code for the page the provider returns to", async () => {
+      await Core.beginBrowserInvite("alpha", LOGIN, "syi_code");
+      const pending = JSON.parse(sessionStorage.getItem("synnax-oidc-login") ?? "{}");
+      expect(pending).toMatchObject({
+        purpose: "invite",
+        invite: "syi_code",
+        core: "alpha",
+      });
+    });
+  });
+
   describe("pendingPurpose", () => {
     it("should report no purpose when no login is in progress", () => {
       expect(Core.pendingPurpose()).toBeUndefined();
@@ -162,6 +174,8 @@ describe("oidc", () => {
       expect(Core.pendingPurpose()).toBe("login");
       await Core.beginBrowserLogin("alpha", LOGIN, "user");
       expect(Core.pendingPurpose()).toBe("link");
+      await Core.beginBrowserInvite("alpha", LOGIN, "syi_code");
+      expect(Core.pendingPurpose()).toBe("invite");
     });
   });
 
@@ -205,6 +219,19 @@ describe("oidc", () => {
       pending("s", "link");
       window.history.replaceState(null, "", "/?code=abc&state=s");
       expect(Core.completeBrowserLogin()?.purpose).toBe("link");
+    });
+
+    it("should hand back the invite code of an invite", async () => {
+      await Core.beginBrowserInvite("alpha", LOGIN, "syi_code");
+      const { state } = JSON.parse(
+        sessionStorage.getItem("synnax-oidc-login") ?? "{}",
+      ) as { state: string };
+      window.history.replaceState(null, "", `/?code=abc&state=${state}`);
+      expect(Core.completeBrowserLogin()).toMatchObject({
+        purpose: "invite",
+        invite: "syi_code",
+      });
+      expect(sessionStorage.getItem("synnax-oidc-login")).toBeNull();
     });
 
     it("should reject a redirect for another login", () => {

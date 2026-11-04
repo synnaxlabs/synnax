@@ -23,7 +23,7 @@ import {
 import { type Status } from "@synnaxlabs/lyra/status";
 import { expectAlways } from "@synnaxlabs/x/testutil";
 import { clearMocks, mockIPC, mockWindows } from "@tauri-apps/api/mocks";
-import { fireEvent, screen, waitFor } from "@testing-library/react";
+import { cleanup, fireEvent, screen, waitFor } from "@testing-library/react";
 import { createElement, type ReactNode } from "react";
 import {
   afterEach,
@@ -43,14 +43,16 @@ vi.mock("@/session/runtime/runtime", async (importOriginal) => {
 });
 
 import {
+  createHold,
   LOCAL_SUBJECT,
+  type LocalInvite,
   type OIDCServer,
   pointAtOIDC,
   serveOIDC,
   type ServeOIDCParams,
 } from "@/platform/core/testutil";
 import { Credential } from "@/platform/credential";
-import { findButton, openModal } from "@/platform/modals/testutil";
+import { findButton, findDismissButton, openModal } from "@/platform/modals/testutil";
 import { Session } from "@/session";
 import { createCore } from "@/session/core/testutil";
 import {
@@ -81,6 +83,12 @@ const createLink = (subject: ontology.ID): auth.oidc.Link => ({
 });
 
 const CORE = createCore("local");
+
+const createInvite = (subject: ontology.ID): LocalInvite => ({
+  key: crypto.randomUUID(),
+  subject,
+  expiry: 1,
+});
 
 const OTHER_USER = user.ontologyID("9f8e7d6c-5b4a-4392-8170-6f5e4d3c2b1a");
 
@@ -198,6 +206,114 @@ describe("OIDC section", () => {
     await expectAlways(() =>
       expect(screen.queryByText(`Link ${OTHER_PROVIDER.provider}`)).toBeNull(),
     );
+  });
+
+  describe("invites", () => {
+    const CREATE = "Create invite";
+    const REPLACE = "Replace invite";
+
+    it("should hide when the Core does not accept OIDC", async () => {
+      const { client, answered } = await serveAnswered({
+        methods: ["password"],
+        userActions: ["update"],
+      });
+      await openLocal(client, OTHER_USER);
+      await answered;
+      await expectAlways(() => expect(screen.queryByText(CREATE)).toBeNull());
+    });
+
+    it.each([
+      ["another user", OTHER_USER],
+      ["the caller", LOCAL_SUBJECT],
+    ])("should hide without update permission on %s", async (_, subject) => {
+      const { client, server } = await open({ userActions: ["retrieve"] });
+      await openLocal(client, subject);
+      await screen.findByText("Provider accounts");
+      await waitFor(() => expect(server.policyReads).toBeGreaterThan(0));
+      await expectAlways(() => expect(screen.queryByText(CREATE)).toBeNull());
+    });
+
+    it("should block closing while an invite is being created", async () => {
+      const hold = createHold("/auth/oidc/invite/create");
+      const { client, server } = await open({ userActions: ["update"], hold });
+      await openLocal(client, OTHER_USER);
+      fireEvent.click(await screen.findByText(CREATE));
+      await waitFor(() => expect(server.held).toBe(1));
+      fireEvent.click(findDismissButton());
+      expect(screen.queryByText(CREATE)).not.toBeNull();
+      hold.release();
+      await screen.findByDisplayValue(/^syi_/);
+    });
+
+    it("should show a new invite's code until the dialog closes", async () => {
+      const { client, server } = await open({ userActions: ["update"] });
+      await openLocal(client, OTHER_USER);
+      fireEvent.click(await screen.findByText(CREATE));
+      await waitFor(() => expect(server.invites).toHaveLength(1));
+      const token = `syi_${server.invites[0].key}`;
+      expect(await screen.findByDisplayValue(token)).toBeTruthy();
+      expect(
+        screen.getByText("Copy this invite code now. You won't see it again."),
+      ).toBeTruthy();
+      expect(await screen.findByText("Successfully created invite")).toBeTruthy();
+      cleanup();
+      await openLocal(client, OTHER_USER);
+      await screen.findByText(REPLACE);
+      expect(screen.queryByDisplayValue(token)).toBeNull();
+    });
+
+    it("should revoke a live invite and hide its code", async () => {
+      const old = createInvite(OTHER_USER);
+      const { client, server } = await open({
+        userActions: ["update"],
+        invites: [old],
+      });
+      await openLocal(client, OTHER_USER);
+      expect(await screen.findByText(/^Invite expires/)).toBeTruthy();
+      fireEvent.click(await screen.findByText(REPLACE));
+      await waitFor(() => expect(server.invites[0].key).not.toBe(old.key));
+      const token = `syi_${server.invites[0].key}`;
+      await screen.findByDisplayValue(token);
+      fireEvent.click(await screen.findByText("Revoke"));
+      await screen.findByText(CREATE);
+      expect(server.invites).toEqual([]);
+      expect(screen.queryByText(/^Invite expires/)).toBeNull();
+      expect(screen.queryByDisplayValue(token)).toBeNull();
+      expect(await screen.findByText("Successfully revoked invite")).toBeTruthy();
+    });
+
+    it("should say that a new invite replaces a live one", async () => {
+      const old = createInvite(OTHER_USER);
+      const { client, server } = await open({
+        userActions: ["update"],
+        invites: [old],
+      });
+      await openLocal(client, OTHER_USER);
+      fireEvent.click(await screen.findByText(REPLACE));
+      expect(screen.queryByText(CREATE)).toBeNull();
+      await waitFor(() => expect(server.invites[0].key).not.toBe(old.key));
+      expect(server.invites).toHaveLength(1);
+    });
+
+    it.each([
+      ["Revoke", REPLACE, "Successfully revoked invite"],
+      [REPLACE, "Revoke", "Successfully created invite"],
+    ])("should keep %s from running with %s", async (first, second, done) => {
+      const hold = createHold("/auth/oidc/invite/create", "/auth/oidc/invite/delete");
+      const { client, server } = await open({
+        userActions: ["update"],
+        invites: [createInvite(OTHER_USER)],
+        hold,
+      });
+      await openLocal(client, OTHER_USER);
+      await screen.findByText(/^Invite expires/);
+      fireEvent.click(await screen.findByText(first));
+      await waitFor(() => expect(server.held).toBe(1));
+      fireEvent.click(screen.getByText(second));
+      await expectAlways(() => expect(server.held).toBe(1));
+      hold.release();
+      expect(await screen.findByText(done)).toBeTruthy();
+    });
   });
 
   describe("with a Core's permissions", () => {

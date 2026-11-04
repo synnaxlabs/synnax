@@ -128,5 +128,48 @@ describe("useConnectModal", () => {
         expect(screen.queryByPlaceholderText("Synnax Core")).toBeNull(),
       );
     });
+
+    it("should keep the session when only the name changes", async () => {
+      const alpha = createCore("Alpha", { token: "sys_saved", lastLogin: 1 });
+      const { store } = await openConnect(
+        [{ coreKey: alpha.key }],
+        createCoreState([alpha], alpha.key),
+      );
+      fireEvent.change(nameInput(), { target: { value: "Alpha_Edited" } });
+      fireEvent.click(findButton("Save"));
+      await waitFor(() =>
+        expect(Session.Core.selectState(store.getState(), alpha.key)).toMatchObject({
+          name: "Alpha_Edited",
+          token: "sys_saved",
+          lastLogin: 1,
+        }),
+      );
+    });
+
+    it.each([
+      ["host", "beta.host", "9090"],
+      ["port", "alpha.host", "9091"],
+    ])("should forget the token when the %s changes", async (_, host, port) => {
+      const alpha = createCore("Alpha", {
+        host: "alpha.host",
+        port: 9090,
+        token: "sys_saved",
+      });
+      const { store } = await openConnect(
+        [{ coreKey: alpha.key }],
+        createCoreState([alpha], alpha.key),
+      );
+      fillForm("Alpha", host, port);
+      fireEvent.click(findButton("Save"));
+      await waitFor(() =>
+        expect(Session.Core.selectState(store.getState(), alpha.key)).toMatchObject({
+          host,
+          port: Number(port),
+        }),
+      );
+      expect(
+        Session.Core.selectState(store.getState(), alpha.key)?.token,
+      ).toBeUndefined();
+    });
   });
 });

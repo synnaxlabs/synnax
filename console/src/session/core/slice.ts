@@ -25,8 +25,14 @@ export const coreZ = synnaxParamsZ.pick({ host: true, secure: true }).extend({
    */
   oidc: synnaxParamsZ.shape.oidc,
   /**
-   * When a login on this machine last saved a session for the Core in the keychain.
-   * Each window reads the keychain again when it changes.
+   * The token of a session a browser redeemed for a Core that does not serve the page,
+   * so no cookie can hold it. It never reaches the disk.
+   */
+  token: synnaxParamsZ.shape.token,
+  /**
+   * When a login on this machine last saved a session for the Core in the keychain or
+   * a cookie. Each window reads the keychain again when it changes, and a browser page
+   * replaces its client.
    */
   lastLogin: z.number().optional(),
   key: z.string(),
@@ -193,10 +199,9 @@ const purgeSecrets = <S extends StoreState>(state: S): S => ({
   [SLICE_NAME]: {
     ...state[SLICE_NAME],
     cores: Object.fromEntries(
-      Object.entries(state[SLICE_NAME].cores).map(([key, { oidc: _, ...core }]) => [
-        key,
-        { ...core, password: "" },
-      ]),
+      Object.entries(state[SLICE_NAME].cores).map(
+        ([key, { oidc: _, token: __, ...core }]) => [key, { ...core, password: "" }],
+      ),
     ),
   },
 });

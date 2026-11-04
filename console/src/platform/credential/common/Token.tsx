@@ -17,24 +17,26 @@ import { type ReactElement } from "react";
 import { Clipboard } from "@/platform/clipboard";
 
 export interface TokenProps {
-  /** A new API key, shown once. */
+  /** A new secret, shown once. */
   token: string;
+  /** What the secret is, such as "API key". */
+  label: string;
 }
 
-/** Shows a new API key with a copy button and a warning that it is not shown again. */
-export const Token = ({ token }: TokenProps): ReactElement => {
+/** Shows a new secret with a copy button and a warning that it is not shown again. */
+export const Token = ({ token, label }: TokenProps): ReactElement => {
   const copy = Clipboard.useCopy();
   return (
     <Flex.Box y gap="tiny">
       <Text.Text level="small" status="warning">
-        Copy this key now. You won't see it again.
+        Copy this {label} now. You won't see it again.
       </Text.Text>
       <Flex.Box x align="center">
         <Input.Text value={token} onChange={() => {}} full="x" disabled />
         <Button.Button
           variant="text"
-          tooltip="Copy key"
-          onClick={() => copy(token, "API key")}
+          tooltip={`Copy ${label}`}
+          onClick={() => copy(token, label)}
         >
           <Icon.Copy />
         </Button.Button>
