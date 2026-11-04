@@ -551,5 +551,17 @@ var _ = Describe("Write task", func() {
 					}},
 				}
 			}, "time_format alone encodes"),
+		Entry("timestamp channel with an unknown time format",
+			func(data channel.Channel) kafka.WriteConfig {
+				return kafka.WriteConfig{
+					Topic: "t",
+					Channels: []kafka.WriteChannel{{
+						Key:        "c1",
+						Channel:    data.Key(),
+						TimeFormat: new(http.TimeFormat("unix_days")),
+						JSONType:   http.JSONTypeNumber,
+					}},
+				}
+			}, `channel "c1": unknown time format "unix_days"`),
 	)
 })
