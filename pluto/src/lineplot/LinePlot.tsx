@@ -9,6 +9,7 @@
 
 import { type channel, lineplot } from "@synnaxlabs/client";
 import { Haul } from "@synnaxlabs/lyra/haul";
+import { Icon } from "@synnaxlabs/lyra/icon";
 import { Triggers } from "@synnaxlabs/lyra/triggers";
 import {
   box,
@@ -71,6 +72,17 @@ const AXIS_LOCATIONS: Record<lineplot.AxisKey, location.Outer> = {
   x1: "bottom",
   x2: "top",
 };
+
+const LOCATION_ICONS: Record<location.Outer, Icon.ReactElement> = {
+  left: <Icon.Axis.Left />,
+  right: <Icon.Axis.Right />,
+  top: <Icon.Axis.Top />,
+  bottom: <Icon.Axis.Bottom />,
+};
+
+/** @returns an icon showing the side of the plot an axis sits on. */
+export const axisIcon = (key: lineplot.AxisKey): Icon.ReactElement =>
+  LOCATION_ICONS[AXIS_LOCATIONS[key]];
 
 interface UseUndoRedoTriggersProps {
   key: lineplot.Key;
@@ -418,24 +430,19 @@ const XAxis = ({
 
 interface UseViewportResetParams {
   key: lineplot.Key;
-  hold?: boolean;
 }
 
 const useViewportReset = ({
   key,
-  hold,
 }: UseViewportResetParams): RefObject<Viewport.UseRefValue | null> => {
   const lineCount = useLineCount({ key });
   const viewportRef = useRef<Viewport.UseRefValue | null>(null);
   const prevLineCount = useRef(lineCount);
-  const prevHold = useRef(hold);
   useEffect(() => {
     const linesAppeared = prevLineCount.current === 0 && lineCount !== 0;
-    const holdReleased = prevHold.current === true && hold === false;
     prevLineCount.current = lineCount;
-    prevHold.current = hold;
-    if (linesAppeared || holdReleased) viewportRef.current?.reset();
-  }, [lineCount, hold]);
+    if (linesAppeared) viewportRef.current?.reset();
+  }, [lineCount]);
   return viewportRef;
 };
 
@@ -489,9 +496,14 @@ export const LinePlot = ({
   const key = useKey();
   useUndoRedoTriggers({ key, enabled: enableTriggers });
   const xAxisKeys = useXAxisKeys({ key });
-  const viewportRef = useViewportReset({ key, hold: rest.hold });
+  const viewportRef = useViewportReset({ key });
   return (
-    <Frame ref={ref} loadingMessage={fetchingMessage(windows)} {...rest}>
+    <Frame
+      ref={ref}
+      viewportRef={viewportRef}
+      loadingMessage={fetchingMessage(windows)}
+      {...rest}
+    >
       {xAxisKeys.map((xAxisKey) => (
         <XAxis
           key={xAxisKey}

@@ -33,6 +33,14 @@
         }
     }
 
+    > .console-task-status--absent {
+        cursor: default;
+
+        &:hover {
+            background: none;
+        }
+    }
+
     .console-task-status__expand-indicator {
         position: absolute;
         top: 1.5rem;
