@@ -19,10 +19,7 @@ import {
   dispatchResZ,
   scopedActionZ,
 } from "@/label/actions.gen";
-import { LABELED_BY_ONTOLOGY_RELATIONSHIP_TYPE } from "@/label/payload";
-import { matchLabeledBy } from "@/label/store";
 import { type Key, keyZ, type Label, labelZ, type New } from "@/label/types.gen";
-import { ontology } from "@/ontology";
 import { query } from "@/query";
 import { resource } from "@/resource";
 
@@ -39,7 +36,7 @@ const setReqZ = z.object({
 });
 
 interface SetReq extends z.infer<typeof setReqZ> {}
-/** Options for `Client.set`. Set `replace` to swap the whole label set at once. */
+/** Options for `Client.label`. Set `replace` to swap the whole label set at once. */
 export interface SetOptions extends Pick<SetReq, "replace"> {}
 
 const removeReqZ = setReqZ.omit({ replace: true });
@@ -48,7 +45,6 @@ const emptyResZ = z.object({});
 const retrieveRequestZ = z.object({
   keys: keyZ.array().optional(),
   names: z.string().array().optional(),
-  for: resource.idZ.optional(),
   searchTerm: z.string().optional(),
   offset: z.int().optional(),
   limit: z.int().optional(),
@@ -58,7 +54,7 @@ const retrieveMultiParamsZ = retrieveRequestZ.or(query.keyListZ(keyZ));
 
 /** Names one label. */
 export type RetrieveSingleParams = { key: Key };
-/** Everything a multi-label retrieval can filter on, including the resource labeled. */
+/** Everything a multi-label retrieval can filter on. */
 export type RetrieveMultipleParams = z.input<typeof retrieveRequestZ>;
 /** Params for a label retrieval, single or multiple. */
 export type RetrieveParams = RetrieveSingleParams | RetrieveMultipleParams;
@@ -69,7 +65,6 @@ interface RetrieveRequest extends z.infer<typeof retrieveRequestZ> {}
 export interface ClientConfig {
   unary: UnaryClient;
   cache: query.Cache;
-  ontology: ontology.Client;
 }
 
 /**
@@ -84,8 +79,7 @@ export class Client extends query.Retriever<typeof retrieveMultiParamsZ, Key, La
   private readonly dispatcher: actions.Controller<Key, Label, Action>;
 
   constructor(cfg: ClientConfig) {
-    const { cache, ontology: ontologyClient } = cfg;
-    const { relationships } = ontologyClient.cache;
+    const { cache } = cfg;
     const store = cache.createTable<Key, Label>({
       name: "labels",
       fetch: async (keys) =>
@@ -109,18 +103,7 @@ export class Client extends query.Retriever<typeof retrieveMultiParamsZ, Key, La
       request: {
         schema: retrieveMultiParamsZ,
         fetch: async (req) => await this.execRetrieve(req),
-        matches: (label, req) => this.requestFilter(req)(label),
-        watch: [
-          query.watch(relationships, (event, req: RetrieveRequest) => {
-            if (req.for == null) return null;
-            const rel =
-              event.variant === "set"
-                ? event.value
-                : ontology.relationshipZ.parse(event.key);
-            if (!matchLabeledBy(rel, req.for)) return null;
-            return [rel.to.key];
-          }),
-        ],
+        matches: (label, req) => requestFilter(req)(label),
       },
     });
     this.cfg = cfg;
@@ -128,55 +111,26 @@ export class Client extends query.Retriever<typeof retrieveMultiParamsZ, Key, La
     this.dispatcher = dispatcher;
   }
 
-  async label(
-    id: resource.ID,
-    labels: Key[],
-    opts: SetOptions & query.WriteOptions = {},
-  ): Promise<void> {
-    await query.optimistic({
-      rollbacks: [
-        ...(opts.replace === true
-          ? [this.cfg.ontology.cache.relationships.delete((r) => matchLabeledBy(r, id))]
-          : []),
-        ...labels.map((key) => {
-          const rel = labeledByRel(id, key);
-          return this.cfg.ontology.cache.relationships.set(
-            ontology.relationshipToString(rel),
-            rel,
-          );
-        }),
-      ],
-      onOptimistic: opts.onOptimistic,
-      commit: async () =>
-        await this.cfg.unary.send(
-          "/label/set",
-          { id, labels, replace: opts.replace },
-          setReqZ,
-          emptyResZ,
-        ),
-    });
+  /**
+   * Attaches labels to the range or status that the ID names. The record keeps the
+   * labels it holds unless `replace` is set.
+   * @throws {ValidationError} if the ID does not name a range or a status.
+   */
+  async label(id: resource.ID, labels: Key[], opts: SetOptions = {}): Promise<void> {
+    await this.cfg.unary.send(
+      "/label/set",
+      { id, labels, replace: opts.replace },
+      setReqZ,
+      emptyResZ,
+    );
   }
 
-  async remove(
-    id: resource.ID,
-    labels: Key[],
-    opts: query.WriteOptions = {},
-  ): Promise<void> {
-    await query.optimistic({
-      rollbacks: [
-        this.cfg.ontology.cache.relationships.delete(
-          (r) => matchLabeledBy(r, id) && labels.includes(r.to.key),
-        ),
-      ],
-      onOptimistic: opts.onOptimistic,
-      commit: async () =>
-        await this.cfg.unary.send(
-          "/label/remove",
-          { id, labels },
-          removeReqZ,
-          emptyResZ,
-        ),
-    });
+  /**
+   * Detaches labels from the range or status that the ID names.
+   * @throws {ValidationError} if the ID does not name a range or a status.
+   */
+  async remove(id: resource.ID, labels: Key[]): Promise<void> {
+    await this.cfg.unary.send("/label/remove", { id, labels }, removeReqZ, emptyResZ);
   }
 
   async create(label: New, opts?: query.WriteOptions<Label[]>): Promise<Label>;
@@ -225,15 +179,7 @@ export class Client extends query.Retriever<typeof retrieveMultiParamsZ, Key, La
 
   async delete(keys: Key | Key[], opts: query.WriteOptions = {}): Promise<void> {
     const keysArr = array.toArray(keys);
-    const drop = () => [
-      this.store.delete(keysArr),
-      this.cfg.ontology.cache.relationships.delete(
-        (r) =>
-          r.type === LABELED_BY_ONTOLOGY_RELATIONSHIP_TYPE &&
-          r.to.type === "label" &&
-          keysArr.includes(r.to.key),
-      ),
-    ];
+    const drop = () => [this.store.delete(keysArr)];
     await query.optimistic({
       rollbacks: drop(),
       onOptimistic: opts.onOptimistic,
@@ -257,37 +203,20 @@ export class Client extends query.Retriever<typeof retrieveMultiParamsZ, Key, La
     );
     return res.labels;
   }
-
-  /**
-   * Client-side matching for a request: key sets, names, and labeled-entity
-   * membership via the relationship table. Server-computed shapes (search,
-   * limit/offset) never reach this filter; they refetch instead.
-   */
-  private requestFilter(req: RetrieveRequest): (l: Label) => boolean {
-    const keySet = primitive.isNonZero(req.keys) ? new Set(req.keys) : undefined;
-    const nameSet = primitive.isNonZero(req.names) ? new Set(req.names) : undefined;
-    return (l) => {
-      if (keySet != null && !keySet.has(l.key)) return false;
-      if (nameSet != null && !nameSet.has(l.name)) return false;
-      if (req.for != null && !this.isLabelOf(req.for, l.key)) return false;
-      return true;
-    };
-  }
-
-  private isLabelOf(id: resource.ID, key: Key): boolean {
-    return this.cfg.ontology.cache.relationships.has(
-      ontology.relationshipToString(labeledByRel(id, key)),
-    );
-  }
 }
 
 const retrieveResponseZ = z.object({ labels: labelZ.array().default(() => []) });
 
-const labeledByRel = (id: resource.ID, key: Key): ontology.Relationship => ({
-  from: id,
-  type: LABELED_BY_ONTOLOGY_RELATIONSHIP_TYPE,
-  to: resourceID(key),
-});
-
-export const resourceID = resource.createIDFactory<Key>("label");
-export const TYPE_RESOURCE_ID = resourceID("");
+/**
+ * Client-side matching for a request: key sets and names. Server-computed shapes
+ * (search, limit/offset) never reach this filter; they refetch instead.
+ */
+const requestFilter = (req: RetrieveRequest): ((l: Label) => boolean) => {
+  const keySet = primitive.isNonZero(req.keys) ? new Set(req.keys) : undefined;
+  const nameSet = primitive.isNonZero(req.names) ? new Set(req.names) : undefined;
+  return (l) => {
+    if (keySet != null && !keySet.has(l.key)) return false;
+    if (nameSet != null && !nameSet.has(l.name)) return false;
+    return true;
+  };
+};

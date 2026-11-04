@@ -131,18 +131,17 @@ describe("queries", () => {
       await waitFor(() => expect(result.current).not.toBeNull());
       expect(result.current?.key).toEqual(dev.key);
       const devStatus: device.Status = status.create<typeof device.statusDetailsZ>({
-        key: device.statusKey(dev.key),
+        owner: device.resourceID(dev.key),
         variant: "success",
         message: "Device is happy as a clam",
         details: {
           rack: rack.key,
-          device: dev.key,
         },
       });
       await client.statuses.set(devStatus);
       await waitFor(() => {
         expect(result.current?.status?.variant).toEqual("success");
-        expect(result.current?.status?.details.device).toEqual(dev.key);
+        expect(result.current?.status?.owner).toEqual(device.resourceID(dev.key));
         expect(result.current?.status?.message).toEqual("Device is happy as a clam");
       });
     });
@@ -163,12 +162,11 @@ describe("queries", () => {
       });
       await waitFor(() => expect(result.current).not.toBeNull());
       const devStatus: device.Status = status.create<typeof device.statusDetailsZ>({
-        key: device.statusKey(dev.key),
+        owner: device.resourceID(dev.key),
         variant: "success",
         message: "Device is connected",
         details: {
           rack: rack.key,
-          device: dev.key,
         },
       });
       await client.statuses.set(devStatus);
@@ -208,10 +206,10 @@ describe("queries", () => {
       await act(async () => {
         await client.statuses.set(
           status.create<typeof device.statusDetailsZ>({
-            key: device.statusKey(dev.key),
+            owner: device.resourceID(dev.key),
             variant: "success",
             message: "Device is happy as a clam",
-            details: { rack: rack.key, device: dev.key },
+            details: { rack: rack.key },
           }),
         );
       });
@@ -256,7 +254,7 @@ describe("queries", () => {
           () => Device.use({ key: dev.key }),
           { wrapper: await createAsyncSynnaxWrapper({ client: local }) },
         );
-        expect(result.current?.status?.key).toEqual(device.statusKey(dev.key));
+        expect(result.current?.status?.owner).toEqual(device.resourceID(dev.key));
       });
 
       it("should fetch the status after a device arrives on the stream", async () => {
@@ -277,7 +275,7 @@ describe("queries", () => {
           () => Device.use({ key: dev.key }),
           { wrapper: await createAsyncSynnaxWrapper({ client: local }) },
         );
-        expect(result.current?.status?.key).toEqual(device.statusKey(dev.key));
+        expect(result.current?.status?.owner).toEqual(device.resourceID(dev.key));
         stop();
       });
 
@@ -289,7 +287,9 @@ describe("queries", () => {
           wrapper: await createAsyncSynnaxWrapper({ client: local }),
         });
         await waitFor(() =>
-          expect(result.current.data?.status?.key).toEqual(device.statusKey(dev.key)),
+          expect(result.current.data?.status?.owner).toEqual(
+            device.resourceID(dev.key),
+          ),
         );
       });
 
@@ -301,12 +301,15 @@ describe("queries", () => {
         const { result } = await renderHookSuspended(() => use({ key: dev.key }), {
           wrapper: await createAsyncSynnaxWrapper({ client: local }),
         });
-        expect(result.current?.status?.key).toEqual(device.statusKey(dev.key));
+        expect(result.current?.status?.owner).toEqual(device.resourceID(dev.key));
       });
 
       it("should fetch once when the device has no status row", async () => {
         const dev = await createDevice("no-status-row");
-        await client.statuses.delete(device.statusKey(dev.key));
+        const [owned] = await client.statuses.retrieve({
+          owners: [device.resourceID(dev.key)],
+        });
+        await client.statuses.delete(owned.key);
         const local = createTestClient();
         await local.devices.retrieve(dev.key);
         const localWrapper = await createAsyncSynnaxWrapper({ client: local });
@@ -328,7 +331,10 @@ describe("queries", () => {
 
       it("should settle a hook with schemas when the device has no status row", async () => {
         const dev = await createDevice("typed-no-status-row");
-        await client.statuses.delete(device.statusKey(dev.key));
+        const [owned] = await client.statuses.retrieve({
+          owners: [device.resourceID(dev.key)],
+        });
+        await client.statuses.delete(owned.key);
         const local = createTestClient();
         await local.devices.retrieve(dev.key);
         const { use } = Device.createRetrieve(schemas);
@@ -648,10 +654,10 @@ describe("queries", () => {
       await waitFor(() => expect(result.current.list.variant).toEqual("success"));
 
       const devStatus: device.Status = status.create<typeof device.statusDetailsZ>({
-        key: device.statusKey(dev.key),
+        owner: device.resourceID(dev.key),
         variant: "error",
         message: "Device has issues",
-        details: { rack: rack.key, device: dev.key },
+        details: { rack: rack.key },
       });
       await act(async () => {
         await result.current.status.updateAsync({ statuses: devStatus });
@@ -1175,7 +1181,7 @@ describe("queries", () => {
 
       expect(devices).toHaveLength(1);
       expect(devices[0].status).toBeDefined();
-      expect(devices[0].status?.key).toEqual(device.statusKey(dev.key));
+      expect(devices[0].status?.owner).toEqual(device.resourceID(dev.key));
     });
 
     it("should fetch statuses for cached devices", async () => {
@@ -1464,10 +1470,10 @@ describe("queries", () => {
         });
 
         const devStatus: device.Status = status.create<typeof device.statusDetailsZ>({
-          key: device.statusKey(testDevice.key),
+          owner: device.resourceID(testDevice.key),
           variant: "warning",
           message: "Device is degraded",
-          details: { rack: rack.key, device: testDevice.key },
+          details: { rack: rack.key },
         });
         await client.statuses.set(devStatus);
 
@@ -1497,11 +1503,11 @@ describe("queries", () => {
         });
         await client.statuses.set(
           status.create<typeof device.statusDetailsZ>({
-            key: device.statusKey(testDevice.key),
+            owner: device.resourceID(testDevice.key),
             name: testDevice.name,
             message: "Device online",
             variant: "success",
-            details: { rack: rack.key, device: testDevice.key },
+            details: { rack: rack.key },
           }),
         );
         const { result } = renderHook(
@@ -1539,7 +1545,6 @@ describe("queries", () => {
               variant: "success",
               details: {
                 rack: get(path.rack).value,
-                device: get(path.key).value,
               },
             }),
           );

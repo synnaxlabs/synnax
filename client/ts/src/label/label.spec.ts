@@ -10,8 +10,10 @@
 import { color, id } from "@synnaxlabs/x";
 import { beforeAll, describe, expect, it, vi } from "vitest";
 
+import { ValidationError } from "@/errors";
 import { label } from "@/label";
 import { query } from "@/query";
+import { status } from "@/status";
 import { createTestClient, expectDeleted, expectLive, spyOnSend } from "@/testutil";
 
 const client = createTestClient();
@@ -61,22 +63,63 @@ describe("Label", () => {
   });
 
   describe("label", () => {
-    it("should set a label on an item", async () => {
-      const l1 = await client.labels.create({ name: "Label One", color: "#E774D0" });
-      const l2 = await client.labels.create({ name: "Label Two", color: "#E774D0" });
-      await client.labels.label(label.resourceID(l1.key), [l2.key]);
-      const labels = await client.labels.retrieve({ for: label.resourceID(l1.key) });
-      expect(labels).toHaveLength(1);
-      expect(labels[0].key).toEqual(l2.key);
+    const createStatus = async () =>
+      await client.statuses.set({ variant: "info", message: `st-${id.create()}` });
+    const labelsOf = async (key: status.Key): Promise<label.Key[]> =>
+      (await createTestClient().statuses.retrieve(key)).labels.toSorted();
+
+    it("should add labels to a status and keep the ones it holds", async () => {
+      const [l1, l2] = await client.labels.create([
+        { name: "Label One", color: "#E774D0" },
+        { name: "Label Two", color: "#E774D0" },
+      ]);
+      const st = await createStatus();
+      await client.labels.label(status.resourceID(st.key), [l1.key]);
+      await client.labels.label(status.resourceID(st.key), [l2.key]);
+      expect(await labelsOf(st.key)).toEqual([l1.key, l2.key].toSorted());
     });
-    it("should replace the labels on an item", async () => {
-      const l1 = await client.labels.create({ name: "Label One", color: "#E774D0" });
-      const l2 = await client.labels.create({ name: "Label Two", color: "#E774D0" });
-      await client.labels.label(label.resourceID(l1.key), [l2.key]);
-      await client.labels.label(label.resourceID(l1.key), [l1.key], { replace: true });
-      const labels = await client.labels.retrieve({ for: label.resourceID(l1.key) });
-      expect(labels).toHaveLength(1);
-      expect(labels[0].key).toEqual(l1.key);
+
+    it("should replace the labels on a status", async () => {
+      const [l1, l2] = await client.labels.create([
+        { name: "Label One", color: "#E774D0" },
+        { name: "Label Two", color: "#E774D0" },
+      ]);
+      const st = await createStatus();
+      await client.labels.label(status.resourceID(st.key), [l1.key]);
+      await client.labels.label(status.resourceID(st.key), [l2.key], { replace: true });
+      expect(await labelsOf(st.key)).toEqual([l2.key]);
+    });
+
+    it("should remove labels from a status", async () => {
+      const [l1, l2] = await client.labels.create([
+        { name: "Label One", color: "#E774D0" },
+        { name: "Label Two", color: "#E774D0" },
+      ]);
+      const st = await createStatus();
+      await client.labels.label(status.resourceID(st.key), [l1.key, l2.key]);
+      await client.labels.remove(status.resourceID(st.key), [l1.key]);
+      expect(await labelsOf(st.key)).toEqual([l2.key]);
+    });
+
+    it("should reject a resource that is not a range or a status", async () => {
+      const [l1, l2] = await client.labels.create([
+        { name: "Label One", color: "#E774D0" },
+        { name: "Label Two", color: "#E774D0" },
+      ]);
+      await expect(
+        client.labels.label(label.resourceID(l1.key), [l2.key]),
+      ).rejects.toThrow(ValidationError);
+    });
+
+    it("should detach a deleted label from the statuses that hold it", async () => {
+      const [kept, deleted] = await client.labels.create([
+        { name: "Kept", color: "#E774D0" },
+        { name: "Deleted", color: "#E774D0" },
+      ]);
+      const st = await createStatus();
+      await client.labels.label(status.resourceID(st.key), [kept.key, deleted.key]);
+      await client.labels.delete(deleted.key);
+      expect(await labelsOf(st.key)).toEqual([kept.key]);
     });
   });
 });
@@ -120,31 +163,30 @@ describe("cached reads", () => {
     }
   });
 
-  it("tracks remote label attachment and removal on a subscribed for: query", async () => {
-    const item = await client.labels.create({
-      name: `qry-item-${id.create()}`,
-      color: "#E774D0",
+  it("tracks a remote label attachment on a subscribed status", async () => {
+    const st = await client.statuses.set({
+      variant: "info",
+      message: `qry-item-${id.create()}`,
     });
     const lbl = await remote.labels.create({
       name: `qry-attached-${id.create()}`,
       color: "#E774D0",
     });
-    const params = { for: label.resourceID(item.key) };
-    const off = client.labels.onChange(params, vi.fn());
+    const off = client.statuses.onChange(st.key, vi.fn());
     try {
-      await client.labels.retrieve(params);
-      await remote.labels.label(label.resourceID(item.key), [lbl.key]);
+      await client.statuses.retrieve(st.key);
+      await remote.labels.label(status.resourceID(st.key), [lbl.key]);
       await expect
         .poll(() => {
-          const cached = client.labels.getCached(params);
-          return query.isLive(cached) && cached.some((l) => l.key === lbl.key);
+          const cached = client.statuses.getCached(st.key);
+          return query.isLive(cached) && cached.labels.includes(lbl.key);
         })
         .toBe(true);
-      await remote.labels.remove(label.resourceID(item.key), [lbl.key]);
+      await remote.labels.remove(status.resourceID(st.key), [lbl.key]);
       await expect
         .poll(() => {
-          const cached = client.labels.getCached(params);
-          return query.isLive(cached) && cached.every((l) => l.key !== lbl.key);
+          const cached = client.statuses.getCached(st.key);
+          return query.isLive(cached) && !cached.labels.includes(lbl.key);
         })
         .toBe(true);
     } finally {

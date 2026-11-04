@@ -42,12 +42,11 @@ export const createRunningRack = async (
     integrations: [integration],
   });
   await client.statuses.set(
-    status.create<typeof rack.statusDetailsZ>({
-      key: rack.statusKey(r.key),
+    status.create({
+      owner: rack.resourceID(r.key),
       name: r.name,
       variant: "success",
       message: "Driver is running",
-      details: { rack: r.key },
     }),
   );
   return r;
@@ -95,11 +94,11 @@ export const setTestDeviceStatus = async (
 ): Promise<void> => {
   await client.statuses.set(
     status.create<typeof device.statusDetailsZ>({
-      key: device.statusKey(key),
+      owner: device.resourceID(key),
       name,
       variant: "success",
       message: TEST_DEVICE_STATUS_MESSAGE,
-      details: { rack, device: key },
+      details: { rack },
     }),
   );
 };

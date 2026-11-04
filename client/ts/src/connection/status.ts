@@ -121,6 +121,7 @@ export const DEFAULT_STATUS: Status = {
   message: "Disconnected",
   description: "",
   time: TimeStamp.ZERO,
+  labels: [],
   details: DEFAULT_STATUS_DETAILS,
 };
 

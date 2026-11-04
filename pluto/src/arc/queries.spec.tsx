@@ -869,11 +869,10 @@ describe("Arc queries", () => {
       const taskStatus: task.Status = status.create<
         ReturnType<typeof task.statusDetailsZ>
       >({
-        key: task.statusKey(testTask.key),
+        owner: task.resourceID(testTask.key),
         variant: "error",
         message: "Task failed",
         details: {
-          task: testTask.key,
           running: false,
           cmd: "",
           configHash: "",
@@ -970,11 +969,10 @@ describe("Arc queries", () => {
     ): Promise<void> => {
       await client.statuses.set(
         status.create<ReturnType<typeof task.statusDetailsZ>>({
-          key: task.statusKey(tsk.key),
+          owner: task.resourceID(tsk.key),
           variant: "success",
           message: "Running",
           details: {
-            task: tsk.key,
             running: true,
             cmd: "",
             configHash: overrides.configHash ?? tsk.configHash,

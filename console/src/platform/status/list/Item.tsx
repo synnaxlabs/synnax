@@ -18,7 +18,7 @@ import { Status as Base } from "@synnaxlabs/lyra/status";
 import { Tag } from "@synnaxlabs/lyra/tag";
 import { Telem } from "@synnaxlabs/lyra/telem";
 import { Text } from "@synnaxlabs/lyra/text";
-import { Access, Status } from "@synnaxlabs/pluto";
+import { Access, Label, Status } from "@synnaxlabs/pluto";
 import { type ReactElement } from "react";
 
 import { Button } from "@/platform/button";
@@ -37,9 +37,12 @@ export const Item = (props: ItemProps): ReactElement | null => {
   const item = List.useItem<status.Key, status.Status>(itemKey);
   const canRename = Access.useUpdateGranted(status.resourceID(itemKey));
   const { update: rename } = Status.useRename();
+  const labels = Label.useResultMultiple(
+    item == null ? null : { keys: item.labels },
+  ).data;
 
   if (item == null) return null;
-  const { name, time, variant, message, labels } = item;
+  const { name, time, variant, message } = item;
 
   return (
     <Select.Item<status.Key>

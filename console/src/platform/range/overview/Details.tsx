@@ -71,7 +71,7 @@ interface LabelsProps {
 }
 
 const Labels = ({ rangeKey, preview }: LabelsProps): ReactElement => {
-  const value = (Ranger.useLabels(rangeKey) ?? []).map(({ key }) => key);
+  const value = Ranger.useResult({ key: rangeKey }).data?.labels ?? [];
   const { update } = PLabel.useEditFor();
   const handleChange = (next: label.Key[]): void =>
     update({

@@ -13,7 +13,7 @@ import { List } from "@synnaxlabs/lyra/list";
 import { Select } from "@synnaxlabs/lyra/select";
 import { Tag } from "@synnaxlabs/lyra/tag";
 import { Telem } from "@synnaxlabs/lyra/telem";
-import { Access, Ranger } from "@synnaxlabs/pluto";
+import { Access, Label, Ranger } from "@synnaxlabs/pluto";
 import { memo } from "react";
 
 import { CSS } from "@/platform/css";
@@ -41,9 +41,15 @@ const Base = ({
   const canEdit = Access.useUpdateGranted(ranger.resourceID(itemKey));
   const { update: rename } = Session.Range.useRename();
   const { update: setTimeRange } = Ranger.useSetTimeRange();
+  const parentKey = showParent ? item?.parent : undefined;
+  const parent = Ranger.useResult(parentKey == null ? null : { key: parentKey }).data;
+  const labelKeys = showLabels ? item?.labels : undefined;
+  const labels = Label.useResultMultiple(
+    labelKeys == null ? null : { keys: labelKeys },
+  ).data;
   if (item == null) return null;
 
-  const { name, parent, labels, timeRange } = item;
+  const { name, timeRange } = item;
 
   const handleActivate = () =>
     openTab({ variant: "resource", resource: ranger.resourceID(itemKey) });
@@ -74,7 +80,7 @@ const Base = ({
         />
       </Flex.Box>
       <Flex.Box x align="center" className={CSS.BE("range", "list-item-trailing")}>
-        {showLabels && labels != null && labels.length > 0 && (
+        {labels != null && labels.length > 0 && (
           <Tag.Tags variant="text">
             {labels.map(({ key, name, color }) => (
               <Tag.Tag key={key} color={color} size="small">

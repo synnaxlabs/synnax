@@ -77,12 +77,12 @@ export const openScanner = async (
     answer: async ({ variant = "success", message = "", data }) => {
       const cmd = await awaitCommand(streamer, scanTask.key);
       await client.statuses.set({
-        key: task.statusKey(scanTask.key),
+        owner: task.resourceID(scanTask.key),
         name: scanTask.name,
         variant,
         message,
         time: TimeStamp.now(),
-        details: { task: scanTask.key, running: true, cmd: cmd.key, data },
+        details: { running: true, cmd: cmd.key, data },
       });
       return cmd;
     },

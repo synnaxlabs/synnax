@@ -13,6 +13,8 @@ import { describe, expect, it } from "vitest";
 import { ranger } from "@/ranger";
 
 const KEY = "5a7d3e1c-2f4b-4c6d-8e9f-0a1b2c3d4e5f";
+const PARENT = "6b8e4f2d-3a5c-4d7e-9fa0-1b2c3d4e5f6a";
+const LABEL = "7c9f5a3e-4b6d-4e8f-a0b1-2c3d4e5f6a7b";
 
 const createRange = (): ranger.Payload =>
   ranger.payloadZ.parse({
@@ -91,7 +93,25 @@ describe("ranger.reduceAll", () => {
       expect(next.timeRange.end).toEqual(new TimeStamp(0));
     });
 
-    it("should throw for a path outside the name, time range, and color", () => {
+    it("should set the labels and return an inverse that restores them", () => {
+      const prev = createRange();
+      const { next, inverse } = ranger.reduceAll(prev, [
+        ranger.set({ path: ["labels"], value: [LABEL] }),
+      ]);
+      expect(next.labels).toEqual([LABEL]);
+      expect(ranger.reduceAll(next, inverse).next).toEqual(prev);
+    });
+
+    it("should set a parent the range does not have", () => {
+      const prev = createRange();
+      const { next, inverse } = ranger.reduceAll(prev, [
+        ranger.set({ path: ["parent"], value: PARENT }),
+      ]);
+      expect(next.parent).toBe(PARENT);
+      expect(ranger.reduceAll(next, inverse).next).toEqual(prev);
+    });
+
+    it("should throw for a path outside the fields that path actions edit", () => {
       expect(() =>
         ranger.reduceAll(createRange(), [ranger.set({ path: ["key"], value: "k" })]),
       ).toThrow(/key/);
@@ -105,6 +125,15 @@ describe("ranger.reduceAll", () => {
         ranger.remove({ path: [], key: "color" }),
       ]);
       expect(next).not.toHaveProperty("color");
+      expect(ranger.reduceAll(next, inverse).next).toEqual(prev);
+    });
+
+    it("should remove the parent", () => {
+      const prev = { ...createRange(), parent: PARENT };
+      const { next, inverse } = ranger.reduceAll(prev, [
+        ranger.remove({ path: [], key: "parent" }),
+      ]);
+      expect(next).not.toHaveProperty("parent");
       expect(ranger.reduceAll(next, inverse).next).toEqual(prev);
     });
   });

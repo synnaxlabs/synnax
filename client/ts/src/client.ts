@@ -259,13 +259,8 @@ export default class Synnax extends framer.Client {
     const unary = this.transport.unary;
     this.ontology = new ontology.Client({ unary, cache });
     this.license = new license.Client({ unary, connection: this.conn, cache });
-    this.labels = new label.Client({ unary, cache, ontology: this.ontology });
-    this.statuses = new status.Client({
-      unary,
-      cache,
-      ontology: this.ontology,
-      labels: this.labels,
-    });
+    this.labels = new label.Client({ unary, cache });
+    this.statuses = new status.Client({ unary, cache, ontology: this.ontology });
     this.ranges = new ranger.Client({
       framer: this,
       unary,
@@ -310,13 +305,13 @@ export default class Synnax extends framer.Client {
       unary,
       tasks: this.tasks,
       cache,
-      statusStore: this.statuses.store,
+      statuses: this.statuses,
       ontology: this.ontology,
     });
     this.devices = new device.Client({
       unary,
       cache,
-      statusStore: this.statuses.store,
+      statuses: this.statuses,
       ontology: this.ontology,
     });
     this.arcs = new arc.Client({
@@ -325,7 +320,7 @@ export default class Synnax extends framer.Client {
       ontology: this.ontology,
       tasks: this.tasks,
       cache,
-      statusStore: this.statuses.store,
+      statuses: this.statuses,
     });
     this.views = new view.Client({ unary, cache, ontology: this.ontology });
     this.groups = new group.Client({

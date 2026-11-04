@@ -234,7 +234,6 @@ describe("queries", () => {
         variant: "error",
         message: "Task failed",
         details: {
-          task: testTask.key,
           running: false,
           cmd: "",
           configHash: "",
@@ -276,11 +275,10 @@ describe("queries", () => {
       // command on a down rack shows its warning rather than a wait for an answer.
       await act(async () => {
         await client.statuses.set(
-          status.create<typeof rack.statusDetailsZ>({
-            key: rack.statusKey(testRack.key),
+          status.create({
+            owner: rack.resourceID(testRack.key),
             variant: "success",
             message: "Driver is running",
-            details: { rack: testRack.key },
           }),
         );
       });
@@ -344,11 +342,10 @@ describe("queries", () => {
       });
 
       const taskStatus: task.Status = status.create<task.StatusDetailsZodObject>({
-        key: task.statusKey(testTask.key),
+        owner: task.resourceID(testTask.key),
         variant: "success",
         message: "Task running",
         details: {
-          task: testTask.key,
           running: true,
           cmd: "",
           configHash: "",
@@ -424,11 +421,10 @@ describe("queries", () => {
 
       const _errorStatusDetailsZ = task.statusDetailsZ(z.object({ error: z.string() }));
       const newStatus = status.create<typeof _errorStatusDetailsZ>({
-        key: task.statusKey(testTask.key),
+        owner: task.resourceID(testTask.key),
         variant: "error",
         message: "Task failed",
         details: {
-          task: testTask.key,
           running: false,
           cmd: "",
           configHash: "",
@@ -843,11 +839,10 @@ describe("queries", () => {
       const { result } = await renderForm(t.key);
       const _errorStatusDetailsZ = task.statusDetailsZ(statusData);
       const taskStatus: task.Status = status.create<typeof _errorStatusDetailsZ>({
-        key: task.statusKey(t.key),
+        owner: task.resourceID(t.key),
         variant: "error",
         message: "Task error",
         details: {
-          task: t.key,
           running: false,
           cmd: "",
           configHash: "",
@@ -930,7 +925,6 @@ describe("queries", () => {
           variant: "success",
           message: "Command executed successfully",
           details: {
-            task: t.key,
             running: true,
             cmd: "",
             configHash: "",

@@ -503,12 +503,12 @@ describe("cached reads", () => {
         }),
       ]);
       // One status request needs both statuses to exist: the calculation
-      // engine only writes them once data flows, so seed them directly.
+      // engine only writes them once data flows, so create them directly.
       await Promise.all(
         created.map(
           async ({ key }) =>
             await client.statuses.set({
-              key: channel.statusKey(key),
+              owner: channel.resourceID(key),
               name: "Calculation Status",
               variant: "info",
               message: "calculating",

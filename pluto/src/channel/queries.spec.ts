@@ -871,7 +871,7 @@ describe("queries", () => {
       // let that settle so it does not race the status set below.
       await sleep.sleep(TimeSpan.milliseconds(500));
       await client.statuses.set({
-        key: channel.statusKey(calc.key),
+        owner: channel.resourceID(calc.key),
         name: calc.name,
         variant: "error",
         message: "invalid expression",
@@ -939,7 +939,7 @@ describe("queries", () => {
       await sleep.sleep(TimeSpan.milliseconds(500));
       await act(async () => {
         await client.statuses.set({
-          key: channel.statusKey(calc.key),
+          owner: channel.resourceID(calc.key),
           name: calc.name,
           variant: "error",
           message: "broken expression",

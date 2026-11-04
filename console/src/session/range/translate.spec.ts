@@ -22,6 +22,7 @@ const payload = (
   key,
   name,
   timeRange: new TimeRange(new TimeStamp(start), new TimeStamp(end)),
+  labels: [],
 });
 
 describe("range translate", () => {

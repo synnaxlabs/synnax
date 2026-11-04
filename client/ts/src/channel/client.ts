@@ -16,7 +16,6 @@ import {
   DataType,
   deep,
   type destructor,
-  errors,
   type MultiSeries,
   primitive,
   type TypedArray,
@@ -24,12 +23,7 @@ import {
 } from "@synnaxlabs/x";
 import { z } from "zod";
 
-import {
-  analyzeParams,
-  type Params,
-  type PrimitiveParams,
-  statusKey,
-} from "@/channel/payload";
+import { analyzeParams, type Params, type PrimitiveParams } from "@/channel/payload";
 import {
   type Key,
   keyZ,
@@ -43,7 +37,7 @@ import {
   statusZ,
 } from "@/channel/types.gen";
 import { type Writer } from "@/channel/writer";
-import { NotFoundError, ValidationError } from "@/errors";
+import { ValidationError } from "@/errors";
 import { type framer } from "@/framer";
 import { group } from "@/group";
 import { type ontology } from "@/ontology";
@@ -349,16 +343,6 @@ const requestFilter = (req: NormalizedRequest): ((ch: Channel) => boolean) => {
   };
 };
 
-// Channel statuses live in the status table under the "channel:<key>" status key.
-const affectedChannelKeys = (
-  event: query.TableEvent<status.Key, status.Status>,
-): Key[] | null => {
-  const [type, key] = event.key.split(":");
-  if (type !== "channel" || !primitive.isNonZero(key)) return null;
-  const parsed = keyZ.safeParse(key);
-  return parsed.success ? [parsed.data] : null;
-};
-
 /**
  * The main client class for executing channel operations against a Synnax Core. This
  * class should not be instantiated directly, and instead should be used through the
@@ -416,7 +400,12 @@ export class Client extends query.Retriever<
       source: store,
       compose: (record) => this.compose(record.payload),
       equal: (a, b) => deep.equal(a.payload, b.payload),
-      watch: [query.deriveWatch(statusStore, (event) => affectedChannelKeys(event))],
+      watch: [
+        query.deriveWatch(
+          statusStore,
+          (event) => statuses.ownerKeys(event, "channel")?.map(Number) ?? null,
+        ),
+      ],
     });
     const single = cache.queries<RetrieveSingleParams, Channel, Key, Channel>({
       name: "channel",
@@ -704,7 +693,7 @@ export class Client extends query.Retriever<
     const next: Payload = { ...payload, status: undefined, alias: undefined };
     if (isCalculated(payload)) {
       const parsed = statusZ.safeParse(
-        this.cfg.statuses.store.get(statusKey(payload.key)),
+        this.cfg.statuses.ownedBy(resourceID(payload.key)),
       );
       if (parsed.success) next.status = parsed.data;
     }
@@ -777,12 +766,8 @@ export class Client extends query.Retriever<
     }
     // A cached calculated channel without a cached status is ambiguous: the
     // status may not exist, or may simply never have been fetched.
-    if (ch.isCalculated && !this.cfg.statuses.store.has(statusKey(key)))
-      try {
-        await this.cfg.statuses.retrieve(statusKey(key));
-      } catch (e) {
-        if (!NotFoundError.matches(e)) throw errors.fromUnknown(e);
-      }
+    if (ch.isCalculated && this.cfg.statuses.ownedBy(resourceID(key)) == null)
+      await this.cfg.statuses.retrieveOwned([resourceID(key)]);
     if (rangeKey != null) await this.ensureAliases(rangeKey, [key]);
     return ch;
   }

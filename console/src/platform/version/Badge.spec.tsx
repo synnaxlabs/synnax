@@ -47,6 +47,7 @@ const MISMATCH_STATUS: connection.Status = {
   message: "Connected",
   description: "",
   time: TimeStamp.ZERO,
+  labels: [],
   details: {
     authenticated: true,
     streamLive: true,

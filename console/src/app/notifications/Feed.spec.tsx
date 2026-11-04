@@ -60,10 +60,10 @@ describe("Notifications.useForward", () => {
     await renderForward();
     const unusedMessage = await writeStatus(
       client,
-      task.statusKey(unused.key),
+      task.resourceID(unused.key),
       "error",
     );
-    const usedMessage = await writeStatus(client, task.statusKey(used.key), "error");
+    const usedMessage = await writeStatus(client, task.resourceID(used.key), "error");
     await screen.findByText(usedMessage);
     expect(screen.queryByText(unusedMessage)).toBeNull();
   });
@@ -75,7 +75,7 @@ describe("Notifications.useForward", () => {
     });
     const dev = await createTestDevice(client);
     await renderForward();
-    const message = await writeStatus(client, device.statusKey(dev.key), "warning");
+    const message = await writeStatus(client, device.resourceID(dev.key), "warning");
     await settleWrites(client);
     expect(screen.queryByText(message)).toBeNull();
     act(() => void vi.advanceTimersByTime(TimeSpan.seconds(5).milliseconds));

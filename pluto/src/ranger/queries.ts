@@ -25,10 +25,7 @@ const PLURAL_KV_RESOURCE_NAME = "metadata";
 const PLURAL_CHILDREN_RESOURCE_NAME = "child ranges";
 const PARENT_RESOURCE_NAME = "parent range";
 
-export type RetrieveQuery = Pick<
-  ranger.RetrieveRequest,
-  "includeLabels" | "includeParent"
-> & {
+export type RetrieveQuery = {
   key: ranger.Key;
 };
 
@@ -136,20 +133,14 @@ export const useCreateForm = Flux.createForm<null, typeof createFormSchema>({
   initialValues: ZERO_CREATE_FORM_VALUES,
   update: async ({ client, value: getValue, reset }) => {
     const value = getValue();
-    const parentKey = value.parent;
     const rng = await client.ranges.create({
       ...value,
-      parent: primitive.isNonZero(parentKey) ? { key: parentKey } : undefined,
-    });
-    await Label.setLabelsFor({
-      client,
-      data: { id: rng.resourceID, labels: value.labels },
+      parent: primitive.isNonZero(value.parent) ? value.parent : undefined,
     });
     reset({
       ...value,
       ...rng.payload,
       timeRange: rng.timeRange.numeric,
-      labels: value.labels,
       parent: value.parent,
     });
   },
@@ -175,8 +166,10 @@ export const useForm = Flux.createDocumentForm<
   toValues: ({ name, timeRange }) => ({ name, timeRange: timeRange.numeric }),
 });
 
-export const useLabels = (key: ranger.Key | null): label.Label[] | undefined =>
-  Label.useResultLabelsOf(key == null ? null : { id: ranger.resourceID(key) }).data;
+export const useLabels = (key: ranger.Key | null): label.Label[] | undefined => {
+  const labels = useResult(key == null ? null : { key }).data?.labels;
+  return Label.useResultMultiple(labels == null ? null : { keys: labels }).data;
+};
 
 export { type ListQuery } from "@/ranger/aether/queries";
 

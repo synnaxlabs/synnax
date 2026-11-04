@@ -18,11 +18,7 @@ const createRack = (key: rack.Key, integrations: string[], running: boolean) =>
     name: `Rack ${key}`,
     integrations,
     status: running
-      ? status.create<typeof rack.statusDetailsZ>({
-          variant: "success",
-          message: "Running",
-          details: { rack: key },
-        })
+      ? status.create({ variant: "success", message: "Running" })
       : undefined,
   });
 
