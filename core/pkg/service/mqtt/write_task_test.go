@@ -333,6 +333,36 @@ var _ = Describe("Write task", func() {
 				Expect(payloads("plant/outage")).ToNot(ContainElement(`{"v":1}`))
 			},
 		)
+
+		It("Should warn and keep running when the connection drops under a publish",
+			func(ctx SpecContext) {
+				ch := createVirtual(ctx, telem.Float64T)
+				target := plainTarget("plant/unacked", ch, "/v", "number")
+				target["qos"] = "at_least_once"
+				unacked := &unackedHook{topic: "plant/unacked"}
+				Expect(broker.server.AddHook(unacked, nil)).To(Succeed())
+				t := start(ctx, writeConfig(dev, target))
+				command(ctx, ch, telem.NewSeriesV(1.0), func(g Gomega) {
+					g.Expect(unacked.held.Load()).To(BeNumerically(">", 0))
+				})
+				unacked.released.Store(true)
+				broker.dropClients()
+				Eventually(func(g Gomega) {
+					stat := taskStatus(ctx, t)
+					g.Expect(stat.Variant).To(Equal(status.VariantWarning))
+					g.Expect(stat.Message).To(Equal("Failed to write data"))
+					g.Expect(stat.Details.Running).To(BeTrue())
+				}, 5*time.Second).Should(Succeed())
+				Eventually(
+					func() status.Variant { return taskStatus(ctx, t).Variant },
+					10*time.Second,
+				).
+					Should(Equal(status.VariantSuccess))
+				command(ctx, ch, telem.NewSeriesV(2.0), func(g Gomega) {
+					g.Expect(payloads("plant/unacked")).To(ContainElement(`{"v":2}`))
+				})
+			},
+		)
 	})
 
 	Describe("Configuration errors", func() {

@@ -164,6 +164,7 @@ const SparkplugEntryPane: FC<PaneProps<SparkplugReadEntry>> = ({
           channel={entry.channel}
           namePath={path.name}
           defaultName={sparkplugChannelName(deviceName, entry)}
+          skipped={entry.disabled}
         />
         <Task.Payload.DataTypeField
           path={path.dataType}
@@ -196,8 +197,10 @@ interface FieldPaneProps extends Task.Views.FieldProps<ReadField> {
 }
 
 const FieldPane: FC<FieldPaneProps> = ({ groupKey, path, deviceName }) => {
-  const { channel: fieldChannel, pointer } = PForm.useFieldValue(path);
-  const topic = PForm.useFieldValue(plainEntry(groupKey).topic);
+  const { channel: fieldChannel, pointer, disabled } = PForm.useFieldValue(path);
+  const entry = plainEntry(groupKey);
+  const topic = PForm.useFieldValue(entry.topic);
+  const entryDisabled = PForm.useFieldValue(entry.disabled);
   return (
     <Flex.Box y grow empty className={CSS.BE("details", "form")}>
       <PForm.Sections>
@@ -215,6 +218,7 @@ const FieldPane: FC<FieldPaneProps> = ({ groupKey, path, deviceName }) => {
             defaultName={
               namePrefix(deviceName, topic) + channel.escapeInvalidName(pointer)
             }
+            skipped={disabled || entryDisabled}
           />
         </PForm.Section>
         <Task.Payload.EnumMappingSection path={path.enumValues} />
