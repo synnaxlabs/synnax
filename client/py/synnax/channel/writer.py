@@ -7,6 +7,8 @@
 #  License, use of this software will be governed by the Apache License, Version 2.0,
 #  included in the file licenses/APL.txt.
 
+from uuid import UUID
+
 from pydantic import BaseModel
 
 from alamos import Instrumentation, trace
@@ -36,6 +38,11 @@ class _DeleteRequest(BaseModel):
 class _RenameRequest(BaseModel):
     keys: list[Key] | tuple[Key, ...]
     names: list[str] | tuple[str, ...]
+
+
+class _SetGroupRequest(BaseModel):
+    keys: list[Key]
+    group: UUID | None = None
 
 
 class Writer:
@@ -74,3 +81,8 @@ class Writer:
     ) -> None:
         req = _RenameRequest(keys=keys, names=names)
         self._client.send("/channel/rename", req, Empty)
+
+    @trace("debug")
+    def set_group(self, keys: list[Key], group: UUID | None) -> None:
+        req = _SetGroupRequest(keys=keys, group=group)
+        self._client.send("/channel/set-group", req, Empty)

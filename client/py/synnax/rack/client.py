@@ -8,11 +8,13 @@
 #  included in the file licenses/APL.txt.
 
 from typing import overload
+from uuid import UUID
 
 from pydantic import BaseModel, Field
 
 from alamos import NOOP, Instrumentation
 from freighter import Empty, UnaryClient
+from synnax import group
 from synnax.exceptions import NotFoundError
 from synnax.rack.types_gen import Key, Rack
 from x.lists import all_none, override
@@ -42,6 +44,8 @@ class _RetrieveRequest(BaseModel):
     search_term: str | None = None
     embedded: bool | None = None
     host_is_node: bool | None = None
+    groups: list[UUID] | None = None
+    grouped: bool | None = None
     offset: int | None = None
     limit: int | None = None
     include_status: bool = False
@@ -49,6 +53,11 @@ class _RetrieveRequest(BaseModel):
 
 class _RetrieveResponse(BaseModel):
     racks: list[Rack] = Field(default_factory=list)
+
+
+class _SetGroupRequest(BaseModel):
+    keys: list[Key]
+    group: UUID | None = None
 
 
 class Client:
@@ -66,7 +75,9 @@ class Client:
         self.instrumentation = instrumentation
 
     @overload
-    def create(self, *, key: int = 0, name: str = "") -> Rack: ...
+    def create(
+        self, *, key: int = 0, name: str = "", group: group.Key | None = None
+    ) -> Rack: ...
 
     @overload
     def create(self, racks: Rack) -> Rack: ...
@@ -80,10 +91,11 @@ class Client:
         *,
         key: int = 0,
         name: str = "",
+        group: group.Key | None = None,
     ) -> Rack | list[Rack]:
         is_single = True
         if racks is None:
-            racks = [Rack(key=key, name=name)]
+            racks = [Rack(key=key, name=name, group=group)]
         elif isinstance(racks, Rack):
             racks = [racks]
         else:
@@ -109,6 +121,15 @@ class Client:
         if self._embedded_rack is not None and self._embedded_rack.key == key:
             self._embedded_rack = None
 
+    def set_group(self, keys: list[Key], group: group.Key | None = None) -> None:
+        """Moves racks into a group, or out of their group when group is None.
+
+        :param keys: The keys of the racks to move.
+        :param group: The key of the group to move the racks into.
+        """
+        req = _SetGroupRequest(keys=keys, group=group)
+        self._client.send("/rack/set-group", req, Empty)
+
     @overload
     def retrieve(self, key: int, *, include_status: bool = False) -> Rack: ...
 
@@ -125,6 +146,8 @@ class Client:
         integration: str | None = None,
         embedded: bool | None = None,
         host_is_node: bool | None = None,
+        groups: list[group.Key] | None = None,
+        grouped: bool | None = None,
         limit: int | None = None,
         offset: int | None = None,
         include_status: bool = False,
@@ -141,6 +164,8 @@ class Client:
         integration: str | None = None,
         embedded: bool | None = None,
         host_is_node: bool | None = None,
+        groups: list[group.Key] | None = None,
+        grouped: bool | None = None,
         limit: int | None = None,
         offset: int | None = None,
         include_status: bool = False,
@@ -149,6 +174,9 @@ class Client:
         name is given, and a list otherwise.
 
         :param search_term: A fuzzy search term matched against rack names.
+        :param groups: Keeps racks in any of these groups.
+        :param grouped: Keeps only racks in a group when True, and only racks in no
+            group when False.
         :param limit: The maximum number of racks to return.
         :param offset: The number of racks to skip.
         :param include_status: Whether to populate each rack's status.
@@ -166,6 +194,8 @@ class Client:
             integration,
             embedded,
             host_is_node,
+            groups,
+            grouped,
             limit,
             offset,
         ):
@@ -184,6 +214,8 @@ class Client:
                 integration=integration,
                 host_is_node=host_is_node,
                 embedded=embedded,
+                groups=groups,
+                grouped=grouped,
                 include_status=include_status,
             ),
             _RetrieveResponse,

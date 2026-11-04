@@ -39,6 +39,8 @@ class Request(BaseModel):
     internal: bool | None = None
     range_key: UUID | None = None
     node_key: int | None = None
+    groups: list[UUID] | None = None
+    grouped: bool | None = None
     limit: int | None = None
     offset: int | None = None
     status_included: bool = Field(default=False, serialization_alias="include_status")

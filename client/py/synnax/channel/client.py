@@ -16,6 +16,7 @@ from pydantic import PrivateAttr
 
 from freighter import UnaryClient
 from synnax import framer
+from synnax import group as group_
 from synnax.channel.payload import (
     Key,
     NormalizedNameResult,
@@ -69,6 +70,7 @@ class Channel(Payload):
         alias: str | None = None,
         concurrency: control.Concurrency = control.Concurrency.exclusive,
         status: Status | None = None,
+        group: group_.Key | None = None,
         _frame_client: framer.Client | None = None,
         _client: Client | None = None,
     ) -> None:
@@ -94,6 +96,7 @@ class Channel(Payload):
         :param operations: A list of operations to apply to the channel. Operations
         include aggregations like min, max, avg over a time duration or triggered by
         a reset channel.
+        :param group: The group the channel sits in, if any.
         :returns: The created channel.
         :param _frame_client: The backing client for reading and writing data to and
         from the channel. This is provided by the Synnax py during calls to
@@ -117,6 +120,7 @@ class Channel(Payload):
             concurrency=concurrency,
             alias=alias,
             status=status,
+            group=group,
         )
         self._cached_frame_client = _frame_client
         self._client = _client
@@ -205,6 +209,7 @@ class Channel(Payload):
             internal=self.internal,
             expression=self.expression,
             operations=self.operations,
+            group=self.group,
         )
 
 
@@ -245,6 +250,7 @@ class Client:
         virtual: bool | None = None,
         expression: str = "",
         operations: list[Operation] | None = None,
+        group: group_.Key | None = None,
         retrieve_if_name_exists: bool = False,
     ) -> Channel: ...
 
@@ -270,6 +276,7 @@ class Client:
         virtual: bool | None = None,
         expression: str = "",
         operations: list[Operation] | None = None,
+        group: group_.Key | None = None,
         retrieve_if_name_exists: bool = False,
     ) -> Channel | list[Channel]:
         """Creates new channel(s) in the Synnax cluster.
@@ -290,6 +297,7 @@ class Client:
         automatically configured as virtual.
         set if expression is not an empty string. If expression is not an empty string,
         this should have at least one channel.
+        :param group: The group to create the channel in, if any.
         :param retrieve_if_name_exists: Boolean indicating whether to retrieve channels
         with the same name if they already exist in the cluster.
         :returns: The created channel.
@@ -325,6 +333,7 @@ class Client:
                     virtual=virtual if virtual is not None else len(expression) > 0,
                     expression=expression,
                     operations=operations,
+                    group=group,
                 )
             ]
         elif isinstance(channels, Channel):
@@ -357,6 +366,8 @@ class Client:
         internal: bool | None = None,
         range_key: UUID | None = None,
         node_key: int | None = None,
+        groups: list[group_.Key] | None = None,
+        grouped: bool | None = None,
         limit: int | None = None,
         offset: int | None = None,
         include_status: bool = False,
@@ -379,6 +390,8 @@ class Client:
         internal: bool | None = None,
         range_key: UUID | None = None,
         node_key: int | None = None,
+        groups: list[group_.Key] | None = None,
+        grouped: bool | None = None,
         limit: int | None = None,
         offset: int | None = None,
         include_status: bool = False,
@@ -396,6 +409,8 @@ class Client:
         internal: bool | None = None,
         range_key: UUID | None = None,
         node_key: int | None = None,
+        groups: list[group_.Key] | None = None,
+        grouped: bool | None = None,
         limit: int | None = None,
         offset: int | None = None,
         include_status: bool = False,
@@ -414,6 +429,9 @@ class Client:
         :param range_key: Sets each channel's alias from this range. With a search
             term, also matches channels by their alias in the range.
         :param node_key: Keeps channels whose leaseholder is this node.
+        :param groups: Keeps channels in any of these groups.
+        :param grouped: Keeps only channels in a group when True, and only channels in
+            no group when False.
         :param limit: The maximum number of channels to return.
         :param offset: The number of matching channels to skip.
         :param include_status: Attaches each channel's status. A channel with no
@@ -431,6 +449,8 @@ class Client:
             internal=internal,
             range_key=range_key,
             node_key=node_key,
+            groups=groups,
+            grouped=grouped,
             limit=limit,
             offset=offset,
             status_included=include_status,
@@ -489,6 +509,14 @@ class Client:
         :returns: None.
         """
         self._creator.rename(normalize(keys), normalize(names))
+
+    def set_group(self, keys: Key | list[Key], group: group_.Key | None = None) -> None:
+        """Moves channels into a group, or out of their group when group is None.
+
+        :param keys: The key of the channel to move, or a list of keys.
+        :param group: The key of the group to move the channels into.
+        """
+        self._creator.set_group(normalize(keys), group)
 
     def _sugar(self, channels: list[Payload]) -> list[Channel]:
         return [
