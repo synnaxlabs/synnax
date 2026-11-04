@@ -320,6 +320,21 @@ var _ = Describe("Service", func() {
 				"The certificate becomes valid on November 10, 2026.",
 			))
 		})
+		It("Should keep a certificate with no expiry valid", func(ctx SpecContext) {
+			e := newEnv(ctx, telem.Hour)
+			c := e.create(ctx, stored("Plant", newCertificateBetween(
+				newKey(),
+				"a",
+				start.Add(-time.Hour),
+				time.Date(9999, 12, 31, 23, 59, 59, 0, time.UTC),
+			)), nil)
+			details, ok := c.Details()
+			Expect(ok).To(BeTrue())
+			Expect(details.NotAfter).To(Equal(telem.TimeStampMax))
+			s := e.expiry(ctx, c.Base().Key)
+			Expect(s.Variant).To(Equal(status.VariantSuccess))
+			Expect(s.Message).To(Equal("Certificate valid"))
+		})
 		It(
 			"Should update the status on each check after it changes",
 			func(ctx SpecContext) {
