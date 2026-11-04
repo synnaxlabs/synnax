@@ -60,6 +60,33 @@ var _ = Describe("Signal", func() {
 				Expect(ctx.Wait()).To(Succeed())
 				Expect(routineErr).To(MatchError(context.Canceled))
 			})
+
+			It("Should release what the routine owns through its deferrals", func() {
+				ctx, cancel := signal.Isolated()
+				cancel()
+				released := false
+				ctx.Go(
+					func(ctx context.Context) error { return ctx.Err() },
+					signal.Defer(func() { released = true }),
+				)
+				Expect(ctx.Wait()).To(MatchError(context.Canceled))
+				Expect(released).To(BeTrue())
+			})
+
+			It("Should stop and record the routine as canceled", func() {
+				ctx, cancel := signal.Isolated()
+				cancel()
+				ctx.Go(
+					func(ctx context.Context) error { return ctx.Err() },
+					signal.WithKey("canceled"),
+				)
+				Expect(ctx.Wait()).To(MatchError(context.Canceled))
+				Eventually(ctx.Stopped()).Should(BeClosed())
+				routines := ctx.Routines()
+				Expect(routines).To(HaveLen(1))
+				Expect(routines[0].State).To(Equal(signal.RoutineStateContextCanceled))
+				Expect(routines[0].FailureReason).ToNot(HaveOccurred())
+			})
 		})
 
 		// Regression: when a routine fails with a genuine (non-context) error and

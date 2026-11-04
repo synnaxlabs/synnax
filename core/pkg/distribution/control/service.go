@@ -323,6 +323,12 @@ func (s *Service) addPeer(ctx context.Context, sCtx signal.Context, target node.
 	s.mu.peers[target] = &peer{states: make(map[channel.Key]State), stop: stop}
 	s.mu.Unlock()
 	stream, err := s.openPeerStream(peerCtx, target)
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	// Close stopped this peer, and it waits for sCtx, so no routine can start after it.
+	if s.mu.closed {
+		return
+	}
 	sCtx.Go(
 		func(context.Context) error {
 			return s.subscribeToPeer(peerCtx, target, stream, err)

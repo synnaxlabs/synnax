@@ -242,6 +242,38 @@ var _ = Describe("Driver", func() {
 			},
 			NodeTimeout(10*time.Second),
 		)
+
+		It(
+			"should configure no task when the context is already canceled",
+			func(ctx SpecContext) {
+				cfg := driver.Config{
+					DB:        node.DB,
+					Rack:      rackService,
+					Task:      taskService,
+					Framer:    framerSvc,
+					Channel:   channelSvc,
+					Status:    statusSvc,
+					Factories: []driver.Factory{&mockFactory{name: "test"}},
+					Host:      hostProvider,
+				}
+				Expect(MustSucceed(driver.Open(ctx, cfg)).Close()).To(Succeed())
+				t := newTask(embeddedRackKey(ctx))
+				Expect(taskWriter.Create(ctx, &t)).To(Succeed())
+				var configured atomic.Bool
+				cfg.Factories = []driver.Factory{&mockFactory{
+					name: "test",
+					configureFunc: func(context.Context, task.Task) (driver.Task, error) {
+						configured.Store(true)
+						return nil, driver.ErrTaskNotHandled
+					},
+				}}
+				cCtx, cancel := context.WithCancel(ctx)
+				cancel()
+				Expect(driver.Open(cCtx, cfg)).Error().To(MatchError(context.Canceled))
+				Expect(configured.Load()).To(BeFalse())
+			},
+			NodeTimeout(10*time.Second),
+		)
 	})
 
 	Describe("Initial tasks", func() {

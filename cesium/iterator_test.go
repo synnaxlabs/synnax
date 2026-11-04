@@ -10,6 +10,7 @@
 package cesium_test
 
 import (
+	"context"
 	"slices"
 	"strconv"
 	"time"
@@ -1567,6 +1568,72 @@ var _ = Describe("Iterator Behavior", func() {
 						Expect(i.Close()).To(Succeed())
 					}
 				})
+
+				It(
+					"Should release its channels when it flows in a canceled context",
+					func(ctx SpecContext) {
+						subDB := mustOpenDBOnFS(ctx, openFS())
+						key := GenerateChannelKey()
+						Expect(subDB.CreateChannel(ctx, cesium.Channel{
+							Key:      key,
+							Name:     "Nansen",
+							DataType: telem.TimestampT,
+							IsIndex:  true,
+						})).To(Succeed())
+						iter := MustSucceed(
+							subDB.NewStreamIterator(cesium.IteratorConfig{
+								Bounds:   telem.TimeRangeMax,
+								Channels: []channel.Key{key},
+							}),
+						)
+						sCtx, cancel := signal.Isolated()
+						cancel()
+						iter.InFrom(confluence.NewStream[cesium.IteratorRequest]())
+						iter.OutTo(confluence.NewStream[cesium.IteratorResponse]())
+						iter.Flow(sCtx)
+						Expect(sCtx.Wait()).To(MatchError(context.Canceled))
+						Expect(subDB.Close()).To(Succeed())
+					},
+				)
+
+				It(
+					"Should exit on cancel when nothing reads its responses",
+					func(ctx SpecContext) {
+						subDB := mustOpenDBOnFS(ctx, openFS())
+						key := GenerateChannelKey()
+						Expect(subDB.CreateChannel(ctx, cesium.Channel{
+							Key:      key,
+							Name:     "Shackleton",
+							DataType: telem.TimestampT,
+							IsIndex:  true,
+						})).To(Succeed())
+						Expect(subDB.Write(ctx, 10*telem.SecondTS, telem.MultiFrame(
+							[]cesium.ChannelKey{key},
+							[]telem.Series{telem.NewSeriesSecondsTSV(10, 11, 12)},
+						))).To(Succeed())
+						iter := MustSucceed(
+							subDB.NewStreamIterator(cesium.IteratorConfig{
+								Bounds:   telem.TimeRangeMax,
+								Channels: []channel.Key{key},
+							}),
+						)
+						var (
+							sCtx, cancel = signal.Isolated()
+							requests     = confluence.NewStream[cesium.IteratorRequest]()
+						)
+						iter.InFrom(requests)
+						iter.OutTo(confluence.NewStream[cesium.IteratorResponse]())
+						iter.Flow(sCtx)
+						requests.Inlet() <- cesium.IteratorRequest{
+							Command: cesium.IteratorCommandSeekFirst,
+						}
+						// The ack of the seek has no reader.
+						cancel()
+						Eventually(sCtx.Stopped()).Should(BeClosed())
+						Expect(sCtx.Wait()).To(MatchError(context.Canceled))
+						Expect(subDB.Close()).To(Succeed())
+					},
+				)
 
 				// openFaulty writes five samples to an index and a data channel through
 				// a fault-injecting file system and returns the keys of both.
