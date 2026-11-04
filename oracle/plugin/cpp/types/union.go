@@ -92,7 +92,10 @@ func (p *Plugin) processUnion(
 	}
 
 	if base, ok := resolver.SharedBase(form, "cpp", data.table); ok {
-		parent, _ := base.Resolve(data.table)
+		parent, resolved := base.Resolve(data.table)
+		if !resolved {
+			panic(fmt.Sprintf("union %s extends unresolved base %s", name, base.Name))
+		}
 		ud.Base = p.resolveExtendsType(base, parent, data)
 	}
 

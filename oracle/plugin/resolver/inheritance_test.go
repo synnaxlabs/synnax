@@ -627,8 +627,7 @@ var _ = Describe("Inheritance", func() {
 					}
 				}
 			`, "Chan", "builtin")
-			_, ok := resolver.SharedBase(form, "go", table)
-			Expect(ok).To(BeFalse())
+			Expect(resolver.SharedBase(form, "go", table)).To(BeZero())
 		})
 
 		It("Should not return a base when the union extends two", func(
@@ -649,8 +648,7 @@ var _ = Describe("Inheritance", func() {
 					builtin {}
 				}
 			`, "Chan", "builtin")
-			_, ok := resolver.SharedBase(form, "go", table)
-			Expect(ok).To(BeFalse())
+			Expect(resolver.SharedBase(form, "go", table)).To(BeZero())
 		})
 
 		It("Should not return a base absent from the language", func(
@@ -669,8 +667,7 @@ var _ = Describe("Inheritance", func() {
 					builtin {}
 				}
 			`, "Chan", "builtin")
-			_, ok := resolver.SharedBase(form, "cpp", table)
-			Expect(ok).To(BeFalse())
+			Expect(resolver.SharedBase(form, "cpp", table)).To(BeZero())
 			base := MustBeOk(resolver.SharedBase(form, "go", table))
 			Expect(base.Name).To(Equal("test.Base"))
 		})

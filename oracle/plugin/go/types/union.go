@@ -160,7 +160,10 @@ func processUnion(entry resolution.Type, data *templateData) unionData {
 	}
 	baseEmbeds := embedBases(form.Extends)
 	if base, ok := resolver.SharedBase(form, "go", data.table); ok {
-		parent, _ := base.Resolve(data.table)
+		parent, resolved := base.Resolve(data.table)
+		if !resolved {
+			panic(fmt.Sprintf("union %s extends unresolved base %s", name, base.Name))
+		}
 		ud.Base = resolveExtendsType(base, parent, data)
 		ud.BaseField = embedFieldName(ud.Base)
 	}
