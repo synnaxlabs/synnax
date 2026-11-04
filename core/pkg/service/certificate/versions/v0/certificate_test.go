@@ -40,16 +40,6 @@ var _ = Describe("Certificate", func() {
 		}}
 	})
 
-	Describe("Base", func() {
-		It("Should return the base of each variant", func() {
-			Expect(stored.Base()).To(Equal(v0.Base{Key: key, Name: "Plant"}))
-			Expect(file.Base()).To(Equal(v0.Base{Key: key, Name: "Plant file"}))
-		})
-		It("Should return a zero base for a certificate with no variant", func() {
-			Expect(v0.Certificate{}.Base()).To(Equal(v0.Base{}))
-		})
-	})
-
 	Describe("Source", func() {
 		It("Should return the source of each variant", func() {
 			Expect(stored.Source()).To(Equal(secret.SourceStored))
@@ -75,20 +65,6 @@ var _ = Describe("Certificate", func() {
 		})
 		It("Should report no details for a certificate with no variant", func() {
 			Expect(v0.Certificate{}.Details()).To(BeZero())
-		})
-	})
-
-	Describe("WithBase", func() {
-		It("Should replace the base and keep the variant fields", func() {
-			base := v0.Base{Key: uuid.New(), Name: "Renamed"}
-			Expect(file.WithBase(base)).To(Equal(v0.Certificate{
-				Variant: v0.FileCertificate{Base: base, CertificatePath: "/c.pem"},
-			}))
-			Expect(stored.WithBase(base).Base()).To(Equal(base))
-		})
-		It("Should leave a certificate with no variant unchanged", func() {
-			Expect(v0.Certificate{}.WithBase(v0.Base{Name: "A"})).
-				To(Equal(v0.Certificate{}))
 		})
 	})
 

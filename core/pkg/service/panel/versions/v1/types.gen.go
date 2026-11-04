@@ -159,6 +159,31 @@ func (u Tab) Validate() error {
 	return nil
 }
 
+// Base returns the fields every variant shares, or the zero value if Variant is nil.
+func (u Tab) Base() TabBase {
+	switch variant := u.Variant.(type) {
+	case ResourceTab:
+		return variant.TabBase
+	case ViewTab:
+		return variant.TabBase
+	}
+	return TabBase{}
+}
+
+// SetBase replaces the fields every variant shares. It panics if Variant is nil.
+func (u *Tab) SetBase(base TabBase) {
+	switch variant := u.Variant.(type) {
+	case ResourceTab:
+		variant.TabBase = base
+		u.Variant = variant
+	case ViewTab:
+		variant.TabBase = base
+		u.Variant = variant
+	default:
+		panic(errors.Newf("Tab: cannot set the base of variant %T", variant))
+	}
+}
+
 type NodeType string
 
 const (

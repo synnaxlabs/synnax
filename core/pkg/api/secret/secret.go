@@ -273,10 +273,10 @@ func (s *Service) fillUses(ctx context.Context, secrets []Secret) error {
 	for _, use := range uses {
 		resources[use.Secret] = append(resources[use.Secret], use.Resource)
 	}
-	for i, sec := range secrets {
-		base := sec.Base()
+	for i := range secrets {
+		base := secrets[i].Base()
 		base.Uses = resources[base.Key]
-		secrets[i] = sec.WithBase(base)
+		secrets[i].SetBase(base)
 	}
 	return nil
 }

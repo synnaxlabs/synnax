@@ -184,3 +184,28 @@ func (u Certificate) Validate() error {
 	}
 	return nil
 }
+
+// Base returns the fields every variant shares, or the zero value if Variant is nil.
+func (u Certificate) Base() Base {
+	switch variant := u.Variant.(type) {
+	case StoredCertificate:
+		return variant.Base
+	case FileCertificate:
+		return variant.Base
+	}
+	return Base{}
+}
+
+// SetBase replaces the fields every variant shares. It panics if Variant is nil.
+func (u *Certificate) SetBase(base Base) {
+	switch variant := u.Variant.(type) {
+	case StoredCertificate:
+		variant.Base = base
+		u.Variant = variant
+	case FileCertificate:
+		variant.Base = base
+		u.Variant = variant
+	default:
+		panic(errors.Newf("Certificate: cannot set the base of variant %T", variant))
+	}
+}

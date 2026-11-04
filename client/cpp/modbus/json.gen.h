@@ -38,7 +38,7 @@ inline RegisterValue RegisterValue::parse(x::json::Parser parser) {
 }
 
 inline x::json::json RegisterValue::to_json() const {
-    x::json::json j;
+    x::json::json j = x::json::json::object();
     j["data_type"] = this->data_type;
     if (this->bytes_swapped.has_value()) j["bytes_swapped"] = *this->bytes_swapped;
     if (this->words_swapped.has_value()) j["words_swapped"] = *this->words_swapped;
@@ -59,7 +59,7 @@ inline BaseReadChannel BaseReadChannel::parse(x::json::Parser parser) {
 }
 
 inline x::json::json BaseReadChannel::to_json() const {
-    x::json::json j;
+    x::json::json j = x::json::json::object();
     j["key"] = this->key;
     j["name"] = this->name;
     j["disabled"] = this->disabled;
@@ -82,7 +82,7 @@ inline BaseWriteChannel BaseWriteChannel::parse(x::json::Parser parser) {
 }
 
 inline x::json::json BaseWriteChannel::to_json() const {
-    x::json::json j;
+    x::json::json j = x::json::json::object();
     j["key"] = this->key;
     j["name"] = this->name;
     j["disabled"] = this->disabled;
@@ -109,7 +109,7 @@ inline ReadConfig ReadConfig::parse(x::json::Parser parser) {
 }
 
 inline x::json::json ReadConfig::to_json() const {
-    x::json::json j;
+    x::json::json j = x::json::json::object();
     for (auto &[k, v]: ::synnax::task::ReadConfig::to_json().items())
         j[k] = v;
     j["device"] = this->device;
@@ -139,7 +139,7 @@ inline WriteConfig WriteConfig::parse(x::json::Parser parser) {
 }
 
 inline x::json::json WriteConfig::to_json() const {
-    x::json::json j;
+    x::json::json j = x::json::json::object();
     for (auto &[k, v]: ::synnax::task::WriteConfig::to_json().items())
         j[k] = v;
     {
@@ -160,7 +160,7 @@ inline ScanConfig ScanConfig::parse(x::json::Parser parser) {
 }
 
 inline x::json::json ScanConfig::to_json() const {
-    x::json::json j;
+    x::json::json j = x::json::json::object();
     for (auto &[k, v]: ::synnax::task::ScanConfig::to_json().items())
         j[k] = v;
     return j;
@@ -173,7 +173,7 @@ inline RegisterBit RegisterBit::parse(x::json::Parser parser) {
 }
 
 inline x::json::json RegisterBit::to_json() const {
-    x::json::json j;
+    x::json::json j = x::json::json::object();
     j["bit"] = this->bit;
     return j;
 }
@@ -186,7 +186,7 @@ inline CoilReadChannel CoilReadChannel::parse(x::json::Parser parser) {
 }
 
 inline x::json::json CoilReadChannel::to_json() const {
-    x::json::json j;
+    x::json::json j = x::json::json::object();
     for (auto &[k, v]: BaseReadChannel::to_json().items())
         j[k] = v;
     j["type"] = this->type;
@@ -202,7 +202,7 @@ DiscreteInputReadChannel::parse(x::json::Parser parser) {
 }
 
 inline x::json::json DiscreteInputReadChannel::to_json() const {
-    x::json::json j;
+    x::json::json j = x::json::json::object();
     for (auto &[k, v]: BaseReadChannel::to_json().items())
         j[k] = v;
     j["type"] = this->type;
@@ -220,7 +220,7 @@ HoldingRegisterReadChannel::parse(x::json::Parser parser) {
 }
 
 inline x::json::json HoldingRegisterReadChannel::to_json() const {
-    x::json::json j;
+    x::json::json j = x::json::json::object();
     for (auto &[k, v]: BaseReadChannel::to_json().items())
         j[k] = v;
     for (auto &[k, v]: RegisterValue::to_json().items())
@@ -241,7 +241,7 @@ InputRegisterReadChannel::parse(x::json::Parser parser) {
 }
 
 inline x::json::json InputRegisterReadChannel::to_json() const {
-    x::json::json j;
+    x::json::json j = x::json::json::object();
     for (auto &[k, v]: BaseReadChannel::to_json().items())
         j[k] = v;
     for (auto &[k, v]: RegisterValue::to_json().items())
@@ -261,7 +261,7 @@ HoldingRegisterBitReadChannel::parse(x::json::Parser parser) {
 }
 
 inline x::json::json HoldingRegisterBitReadChannel::to_json() const {
-    x::json::json j;
+    x::json::json j = x::json::json::object();
     for (auto &[k, v]: BaseReadChannel::to_json().items())
         j[k] = v;
     for (auto &[k, v]: RegisterBit::to_json().items())
@@ -280,7 +280,7 @@ InputRegisterBitReadChannel::parse(x::json::Parser parser) {
 }
 
 inline x::json::json InputRegisterBitReadChannel::to_json() const {
-    x::json::json j;
+    x::json::json j = x::json::json::object();
     for (auto &[k, v]: BaseReadChannel::to_json().items())
         j[k] = v;
     for (auto &[k, v]: RegisterBit::to_json().items())
@@ -297,7 +297,7 @@ inline CoilWriteChannel CoilWriteChannel::parse(x::json::Parser parser) {
 }
 
 inline x::json::json CoilWriteChannel::to_json() const {
-    x::json::json j;
+    x::json::json j = x::json::json::object();
     for (auto &[k, v]: BaseWriteChannel::to_json().items())
         j[k] = v;
     j["type"] = this->type;
@@ -314,7 +314,7 @@ HoldingRegisterWriteChannel::parse(x::json::Parser parser) {
 }
 
 inline x::json::json HoldingRegisterWriteChannel::to_json() const {
-    x::json::json j;
+    x::json::json j = x::json::json::object();
     for (auto &[k, v]: BaseWriteChannel::to_json().items())
         j[k] = v;
     for (auto &[k, v]: RegisterValue::to_json().items())
@@ -333,7 +333,7 @@ HoldingRegisterBitWriteChannel::parse(x::json::Parser parser) {
 }
 
 inline x::json::json HoldingRegisterBitWriteChannel::to_json() const {
-    x::json::json j;
+    x::json::json j = x::json::json::object();
     for (auto &[k, v]: BaseWriteChannel::to_json().items())
         j[k] = v;
     for (auto &[k, v]: RegisterBit::to_json().items())
