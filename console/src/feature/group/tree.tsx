@@ -27,7 +27,7 @@ const useRename = Tree.createUseRename({
 
 const TreeContextMenu: Tree.ContextMenu = (props) => {
   const {
-    selection: { ids, rootID },
+    selection: { ids, rootID, parentID },
     state,
   } = props;
   const { getResource, nodes, shape } = state;
@@ -69,6 +69,7 @@ const TreeContextMenu: Tree.ContextMenu = (props) => {
           ids={ids}
           shape={shape}
           rootID={rootID}
+          parentID={parentID}
           onClick={() => createFromSelection(props)}
         />
       )}
@@ -84,7 +85,7 @@ const TreeContextMenu: Tree.ContextMenu = (props) => {
         </>
       )}
       <Menu.Divider />
-      {hasDeletePermission && !isZeroDepth && (
+      {hasDeletePermission && !isZeroDepth && parentID != null && (
         <Menu.Item itemKey="ungroup" onClick={() => ungroup.update(props)}>
           {ungroupIcon}
           {isDelete ? "Delete" : "Ungroup"}
@@ -94,6 +95,12 @@ const TreeContextMenu: Tree.ContextMenu = (props) => {
       <ContextMenu.ReloadConsoleItem />
     </ContextMenu.Menu>
   );
+};
+
+const parentOf = ({ parentID }: Tree.ContextMenuProps["selection"]): ontology.ID => {
+  if (parentID == null)
+    throw new Error("Cannot ungroup groups that sit under more than one parent");
+  return parentID;
 };
 
 interface UngroupParams extends Tree.ContextMenuProps {
@@ -110,17 +117,18 @@ const baseUngroup = Flux.createUpdate<UngroupParams>({
   update: async ({ client, data: args }) => {
     const { selection, prevNodes } = args;
     if (prevNodes == null) return args;
+    const parentID = parentOf(selection);
     const resourceIDStrings = new Set(
       selection.ids.map((id) => ontology.idToString(id)),
     );
     for (const id of selection.ids) {
-      const children =
-        PTree.findNode({ tree: prevNodes, key: ontology.idToString(id) })?.children ??
-        [];
-      const childKeys = ontology.parseIDs(
-        children.map(({ key }) => key).filter((k) => !resourceIDStrings.has(k)),
-      );
-      await client.ontology.moveChildren(id, selection.parentID, ...childKeys);
+      // The tree can hold only some of the children: a search shows only the matches,
+      // and a folded group loads none.
+      const children = await client.ontology.children.retrieve({ ids: id });
+      const childIDs = children
+        .map((child) => child.id)
+        .filter((child) => !resourceIDStrings.has(ontology.idToString(child)));
+      await client.ontology.moveChildren(id, parentID, ...childIDs);
     }
     await client.groups.delete(selection.ids.map((id) => id.key));
     return args;
@@ -132,6 +140,10 @@ const beforeUngroup = async ({ data }: Flux.BeforeUpdateParams<UngroupParams>) =
     selection,
     state: { shape, nodes, setNodes },
   } = data;
+  const parentKey = ontology.idToString(parentOf(selection));
+  // Flat search results do not show the real parent, so the children move to the top.
+  const destination =
+    PTree.findNode({ tree: nodes, key: parentKey }) == null ? null : parentKey;
   // Sort the groups by depth that way deeper nested groups are ungrouped first.
   const byDepth = PTree.compareDepth(shape);
   selection.ids.sort((a, b) => byDepth(ontology.idToString(a), ontology.idToString(b)));
@@ -143,9 +155,7 @@ const beforeUngroup = async ({ data }: Flux.BeforeUpdateParams<UngroupParams>) =
         const children = PTree.findNode({ tree: nodes, key })?.children ?? [];
         acc = PTree.moveNode({
           tree: acc,
-          destination: ontology.idsEqual(selection.parentID, selection.rootID)
-            ? null
-            : ontology.idToString(selection.parentID),
+          destination,
           keys: children.map((c) => c.key),
         });
         acc = PTree.removeNode({ tree: acc, keys: key });

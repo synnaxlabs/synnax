@@ -9,6 +9,7 @@
 
 import {
   type arc,
+  group,
   lineplot,
   type panel,
   project,
@@ -278,6 +279,23 @@ describe("Sample project", () => {
       streamer.close();
       await writer.close();
     }
+  });
+
+  it("should move the schematic back under the project on a reset", async () => {
+    const { sample, open, waitForOpened } = await openFromPalette();
+    const projectID = project.ontologyID(sample.project);
+    const schematicID = schematic.ontologyID(sample.schematic);
+    const folder = await client.groups.create({ parent: projectID, name: "Folder" });
+    const folderID = group.ontologyID(folder.key);
+    await client.ontology.moveChildren(projectID, folderID, schematicID);
+    await open();
+    fireEvent.click(await screen.findByRole("button", { name: "Reset" }));
+    await waitFor(async () => {
+      const parents = await client.ontology.parents.retrieve({ ids: schematicID });
+      expect(parents.map(({ id }) => id)).toEqual([projectID]);
+    });
+    await waitForOpened(sample);
+    await client.groups.delete(folder.key);
   });
 
   it("should relink the schematic and plot after a project delete", async () => {

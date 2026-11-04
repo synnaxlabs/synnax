@@ -30,7 +30,9 @@ import (
 type StatusHandler struct {
 	db  *gorp.DB
 	svc *status.Service
-	mu  sync.Mutex
+	// mu guards stat and prior. Every write holds it, so writes land in the order of
+	// the transitions they carry. A write must not call back into the handler.
+	mu sync.Mutex
 	// stat is the last status sent, seeded at construction before any send.
 	stat task.Status
 	// prior is the status text and data that the active warning replaced.
@@ -66,15 +68,14 @@ func (h *StatusHandler) Send(
 	description string,
 ) error {
 	h.mu.Lock()
+	defer h.mu.Unlock()
 	h.stat.Variant = variant
 	h.stat.Message = message
 	h.stat.Description = description
 	h.stat.Details.Data = nil
 	h.stat.Details.Running = running
 	h.stat.Details.Cmd = cmdKey
-	stat := h.stamp()
-	h.mu.Unlock()
-	return h.write(ctx, stat)
+	return h.write(ctx, h.stamp())
 }
 
 // Warn records an unsolicited warning, leaving the running state as it was. A warning
@@ -135,11 +136,10 @@ func (h *StatusHandler) ClearWarning(ctx context.Context) error {
 // state, for a command that needs no work.
 func (h *StatusHandler) Ack(ctx context.Context, cmdKey string, running bool) error {
 	h.mu.Lock()
+	defer h.mu.Unlock()
 	h.stat.Details.Running = running
 	h.stat.Details.Cmd = cmdKey
-	stat := h.stamp()
-	h.mu.Unlock()
-	return h.write(ctx, stat)
+	return h.write(ctx, h.stamp())
 }
 
 // Reply answers cmdKey with the result of a command that leaves the task state as it
@@ -153,8 +153,8 @@ func (h *StatusHandler) Reply(
 	data msgpack.EncodedJSON,
 ) error {
 	h.mu.Lock()
+	defer h.mu.Unlock()
 	stat := h.stamp()
-	h.mu.Unlock()
 	stat.Variant = variant
 	stat.Message = message
 	stat.Description = ""
@@ -163,7 +163,7 @@ func (h *StatusHandler) Reply(
 	return h.write(ctx, stat)
 }
 
-// stamp refreshes the status time and returns a copy to write outside the lock.
+// stamp refreshes the status time and returns a copy.
 func (h *StatusHandler) stamp() task.Status {
 	h.stat.Time = telem.Now()
 	return h.stat

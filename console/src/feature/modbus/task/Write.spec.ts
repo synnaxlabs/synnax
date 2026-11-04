@@ -619,6 +619,38 @@ describe("Write", () => {
   });
 
   describe("add channel", () => {
+    it("should give a new channel no channel of its own", async () => {
+      const dev = await createModbusDevice(client);
+      const bound = await client.channels.create({
+        name: `modbus_cmd_${id.create()}`,
+        dataType: "uint8",
+        virtual: true,
+      });
+      const draft = await createDraft(client, {
+        ...Modbus.Task.WRITE_SCHEMAS.config.parse({}),
+        device: dev.key,
+        channels: [
+          Modbus.Task.WRITE_CHANNEL_SCHEMAS.coil.parse({
+            type: "coil",
+            key: id.create(),
+            address: 10,
+            channel: bound.key,
+            name: "valve",
+          }),
+        ],
+      });
+      const { container } = await renderWrite({ client, taskKey: draft.key });
+      await screen.findByText(dev.name);
+      fireEvent.click(getIconButton(container, "add"));
+      await waitFor(async () => {
+        const saved = await client.tasks.retrieve({
+          key: draft.key,
+          schemas: Modbus.Task.WRITE_SCHEMAS,
+        });
+        expect(saved.config.channels[1]).toMatchObject({ channel: 0, name: "" });
+      });
+    });
+
     it.each([
       { bit: 3, address: 10, nextBit: 4 },
       { bit: 15, address: 11, nextBit: 0 },

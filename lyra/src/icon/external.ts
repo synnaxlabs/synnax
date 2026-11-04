@@ -13,6 +13,7 @@ export * from "@/icon/Bridge";
 export * from "@/icon/Device";
 export * from "@/icon/Fitting";
 export * from "@/icon/Icon";
+export * from "@/icon/New";
 export * from "@/icon/pickable";
 export * from "@/icon/Process";
 export * from "@/icon/Pump";

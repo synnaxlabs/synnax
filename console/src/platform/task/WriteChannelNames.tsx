@@ -20,11 +20,11 @@ export interface WriteChannelNamesProps extends Omit<
 > {
   cmdChannel: channel.Key;
   cmdNamePath: deep.Target<string | undefined>;
-  /** The name configuring the task gives the command channel. */
+  /** The name deploying the task gives the command channel. */
   cmdDefaultName?: string;
   stateChannel: channel.Key;
   stateNamePath: deep.Target<string | undefined>;
-  /** The name configuring the task gives the state channel. */
+  /** The name deploying the task gives the state channel. */
   stateDefaultName?: string;
   itemKey: string;
 }
@@ -32,10 +32,10 @@ export interface WriteChannelNamesProps extends Omit<
 export const WriteChannelNames = ({
   cmdChannel,
   cmdNamePath,
-  cmdDefaultName = "No command channel",
+  cmdDefaultName,
   stateNamePath,
   stateChannel,
-  stateDefaultName = "No state channel",
+  stateDefaultName,
   itemKey,
   ...rest
 }: WriteChannelNamesProps) => (

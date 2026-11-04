@@ -40,16 +40,21 @@ func (sf *server) handle(ctx context.Context, server ServerStream) error {
 
 	// Senders and receivers must be set up to distribution requests and responses
 	// to their storage counterparts.
+	storageCfg := req.Config.toStorage()
+	virtual, err := virtualKeys(ctx, sf.TS, storageCfg.Channels)
+	if err != nil {
+		return err
+	}
 	receiver := &freightfluence.TransformReceiver[ts.WriterRequest, Request]{
 		Receiver: server,
 	}
-	receiver.Transform = newRequestTranslator()
+	receiver.Transform = newRequestTranslator(virtual)
 	sender := &freightfluence.TransformSender[ts.WriterResponse, Response]{
 		Sender: freighter.SenderNopCloser[Response]{StreamSender: server},
 	}
 	sender.Transform = newResponseTranslator(sf.HostResolver.HostKey())
 
-	w, err := sf.TS.NewStreamWriter(ctx, req.Config.toStorage())
+	w, err := sf.TS.NewStreamWriter(ctx, storageCfg)
 	if err != nil {
 		return err
 	}

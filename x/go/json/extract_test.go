@@ -10,68 +10,75 @@
 package json_test
 
 import (
+	"encoding/json/jsontext"
+
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	xjson "github.com/synnaxlabs/x/json"
 	. "github.com/synnaxlabs/x/testutil"
 )
 
-// extract resolves pointers in doc and returns the values and whether each was found.
-func extract(doc string, pointers ...string) ([]any, []bool) {
+// pointers parses each text form into a Pointer.
+func pointers(texts ...string) []xjson.Pointer {
 	GinkgoHelper()
-	parsed := make([]xjson.Pointer, len(pointers))
-	for i, p := range pointers {
+	parsed := make([]xjson.Pointer, len(texts))
+	for i, p := range texts {
 		parsed[i] = MustSucceed(xjson.ParsePointer(p))
 	}
-	values, found := make([]any, len(pointers)), make([]bool, len(pointers))
-	Expect(xjson.NewExtractor(parsed).Extract([]byte(doc), values, found)).
+	return parsed
+}
+
+// extract resolves the pointers in doc and returns each value's text, with "-" for a
+// pointer that leads to no value.
+func extract(doc string, texts ...string) []string {
+	GinkgoHelper()
+	values := make([]jsontext.Value, len(texts))
+	Expect(xjson.NewExtractor(pointers(texts...)).Extract([]byte(doc), values)).
 		To(Succeed())
-	return values, found
+	out := make([]string, len(values))
+	for i, v := range values {
+		out[i] = "-"
+		if v != nil {
+			out[i] = string(v)
+		}
+	}
+	return out
 }
 
 var _ = Describe("Extractor", func() {
-	It("Should resolve each pointer to the value that Decode gives", func() {
-		doc := `{"n":9007199254740993,"s":"on","t":true,"z":null,"o":{"a":[1]}}`
-		values, found := extract(doc, "/n", "/s", "/t", "/z", "/o")
-		Expect(found).To(HaveEach(BeTrue()))
-		Expect(values).To(Equal([]any{
-			xjson.NumberText("9007199254740993"),
-			"on",
-			true,
-			nil,
-			map[string]any{"a": []any{xjson.NumberText("1")}},
+	It("Should resolve each pointer to the text of its value", func() {
+		doc := `{"n":9007199254740993,"s":"o\nn","t":true,"z":null,"o":{"a": [1]}}`
+		Expect(extract(doc, "/n", "/s", "/t", "/z", "/o")).To(Equal([]string{
+			"9007199254740993", `"o\nn"`, "true", "null", `{"a": [1]}`,
 		}))
 	})
 
 	It("Should resolve the root pointer to the whole document", func() {
-		values, found := extract(`[1,"a"]`, "")
-		Expect(found).To(Equal([]bool{true}))
-		Expect(values[0]).To(Equal([]any{xjson.NumberText("1"), "a"}))
+		Expect(extract(`[1,"a"]`, "")).To(Equal([]string{`[1,"a"]`}))
 	})
 
 	It("Should resolve a value and a value nested inside it", func() {
-		values, found := extract(`{"a":{"b":2}}`, "/a/b", "/a")
-		Expect(found).To(Equal([]bool{true, true}))
-		Expect(values[0]).To(Equal(xjson.NumberText("2")))
-		Expect(values[1]).To(Equal(map[string]any{"b": xjson.NumberText("2")}))
+		Expect(extract(`{"a":{"b":2}}`, "/a/b", "/a")).
+			To(Equal([]string{"2", `{"b":2}`}))
 	})
 
 	It("Should resolve array elements by index", func() {
-		values, found := extract(`{"a":[10,20,{"b":30}]}`, "/a/1", "/a/2/b")
-		Expect(found).To(Equal([]bool{true, true}))
-		Expect(values).To(Equal([]any{xjson.NumberText("20"), xjson.NumberText("30")}))
+		Expect(extract(`{"a":[10,20,{"b":30}]}`, "/a/1", "/a/2/b")).
+			To(Equal([]string{"20", "30"}))
 	})
 
 	It("Should resolve escaped tokens", func() {
-		values, found := extract(`{"a/b":1,"c~d":2}`, "/a~1b", "/c~0d")
-		Expect(found).To(Equal([]bool{true, true}))
-		Expect(values).To(Equal([]any{xjson.NumberText("1"), xjson.NumberText("2")}))
+		Expect(extract(`{"a/b":1,"c~d":2}`, "/a~1b", "/c~0d")).
+			To(Equal([]string{"1", "2"}))
 	})
 
-	DescribeTable("Should not find a pointer that leads to no value",
+	It("Should match an object member whose name holds an escape", func() {
+		Expect(extract(`{"\u0061":1}`, "/a")).To(Equal([]string{"1"}))
+	})
+
+	DescribeTable("Should find no value for a pointer that leads to none",
 		func(doc, pointer string) {
-			_, found := extract(doc, pointer)
-			Expect(found).To(Equal([]bool{false}))
+			Expect(extract(doc, pointer)).To(Equal([]string{"-"}))
 		},
 		Entry("a missing member", `{"a":1}`, "/b"),
 		Entry("an index past the end", `[1]`, "/1"),
@@ -81,41 +88,38 @@ var _ = Describe("Extractor", func() {
 	)
 
 	It("Should resolve a member name made of digits in an object", func() {
-		values, found := extract(`{"a":{"01":1}}`, "/a/01")
-		Expect(found).To(Equal([]bool{true}))
-		Expect(values[0]).To(Equal(xjson.NumberText("1")))
+		Expect(extract(`{"a":{"01":1}}`, "/a/01")).To(Equal([]string{"1"}))
 	})
 
-	It("Should keep the last of repeated names that no pointer addresses", func() {
-		values, found := extract(`{"x":1,"x":2,"a":3}`, "/a")
-		Expect(found).To(Equal([]bool{true}))
-		Expect(values[0]).To(Equal(xjson.NumberText("3")))
+	It("Should allow repeated names that no pointer addresses", func() {
+		Expect(extract(`{"x":1,"x":2,"a":3}`, "/a")).To(Equal([]string{"3"}))
 	})
 
-	It("Should replace invalid UTF-8 in a string", func() {
-		values, _ := extract("{\"a\":\"\xff\"}", "/a")
-		Expect(values[0]).To(Equal("�"))
+	It("Should clear the values of the last document", func() {
+		e := xjson.NewExtractor(pointers("/a"))
+		values := make([]jsontext.Value, 1)
+		Expect(e.Extract([]byte(`{"a":1}`), values)).To(Succeed())
+		Expect(e.Extract([]byte(`{"b":1}`), values)).To(Succeed())
+		Expect(values[0]).To(BeNil())
 	})
 
-	It("Should clear found values between documents", func() {
-		e := xjson.NewExtractor([]xjson.Pointer{{"a"}})
-		values, found := make([]any, 1), make([]bool, 1)
-		Expect(e.Extract([]byte(`{"a":1}`), values, found)).To(Succeed())
-		Expect(found[0]).To(BeTrue())
-		Expect(e.Extract([]byte(`{"b":1}`), values, found)).To(Succeed())
-		Expect(found[0]).To(BeFalse())
-	})
+	It("Should keep the values of a document valid while it reads a nested one",
+		func() {
+			Expect(extract(`{"a":{"b":[1,{"c":2}]},"d":3}`, "/a", "/a/b/1/c", "/d")).
+				To(Equal([]string{`{"b":[1,{"c":2}]}`, "2", "3"}))
+		},
+	)
 
 	DescribeTable("Should reject a document it cannot read",
 		func(doc, message string) {
-			e := xjson.NewExtractor([]xjson.Pointer{{"a"}})
-			values, found := make([]any, 1), make([]bool, 1)
-			Expect(e.Extract([]byte(doc), values, found)).
+			values := make([]jsontext.Value, 1)
+			Expect(xjson.NewExtractor(pointers("/a")).Extract([]byte(doc), values)).
 				To(MatchError(ContainSubstring(message)))
 		},
 		Entry("malformed JSON", `{"a":`, "unexpected EOF"),
 		Entry("data after the document", `{"a":1} 2`,
 			"unexpected data after the top-level value"),
 		Entry("a repeated addressed name", `{"a":1,"a":2}`, "duplicate value at /a"),
+		Entry("invalid UTF-8", "{\"a\":\"\xff\"}", "invalid UTF-8"),
 	)
 })

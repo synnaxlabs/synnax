@@ -7,12 +7,15 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { type Synnax, type task } from "@synnaxlabs/client";
+package json
 
-import { type SCAN_SCHEMAS, SCAN_TYPE } from "@/feature/opcua/task/types";
+import (
+	"encoding/json/jsontext"
+	"encoding/json/v2"
+)
 
-export const retrieveScanTask = async (
-  client: Synnax,
-  rack: number,
-): Promise<task.Task<typeof SCAN_SCHEMAS>> =>
-  await client.tasks.retrieve<typeof SCAN_SCHEMAS>({ type: SCAN_TYPE, rack });
+// Marshal encodes a document with its object names in sorted order. Invalid UTF-8
+// becomes the replacement character.
+func Marshal(doc any) ([]byte, error) {
+	return json.Marshal(doc, json.Deterministic(true), jsontext.AllowInvalidUTF8(true))
+}

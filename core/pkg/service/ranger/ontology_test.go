@@ -14,6 +14,7 @@ import (
 	. "github.com/onsi/gomega"
 	"github.com/synnaxlabs/synnax/pkg/service/ontology"
 	"github.com/synnaxlabs/synnax/pkg/service/ranger"
+	"github.com/synnaxlabs/x/search"
 	"github.com/synnaxlabs/x/telem"
 	. "github.com/synnaxlabs/x/testutil"
 )
@@ -35,9 +36,11 @@ var _ = Describe("Search", func() {
 	It("Should return the matching ranges, closest match first", func(ctx SpecContext) {
 		a := create(ctx, "turbopump test")
 		b := create(ctx, "turbopump")
-		Expect(MustSucceed(svc.Search(ctx, tx, "turbopump", 0)).Keys).
+		q := search.Query[ontology.ID]{Term: "turbopump"}
+		Expect(MustSucceed(svc.Search(ctx, tx, q)).Keys).
 			To(Equal([]ontology.ID{b, a}))
-		Expect(MustSucceed(svc.Search(ctx, tx, "turbopump", 1)).Keys).
+		q.Limit = 1
+		Expect(MustSucceed(svc.Search(ctx, tx, q)).Keys).
 			To(Equal([]ontology.ID{b}))
 	})
 
@@ -45,7 +48,8 @@ var _ = Describe("Search", func() {
 		"Should not match a staged range outside its transaction",
 		func(ctx SpecContext) {
 			create(ctx, "injector")
-			Expect(MustSucceed(svc.Search(ctx, db, "injector", 0)).Keys).To(BeEmpty())
+			q := search.Query[ontology.ID]{Term: "injector"}
+			Expect(MustSucceed(svc.Search(ctx, db, q)).Keys).To(BeEmpty())
 		},
 	)
 })

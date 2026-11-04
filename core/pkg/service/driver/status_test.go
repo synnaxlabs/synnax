@@ -10,6 +10,8 @@
 package driver_test
 
 import (
+	"context"
+	"sync"
 	"uuid"
 
 	. "github.com/onsi/ginkgo/v2"
@@ -23,6 +25,37 @@ import (
 	"github.com/synnaxlabs/x/query"
 	"github.com/synnaxlabs/x/telem"
 )
+
+type statusCall = func(context.Context, *driver.StatusHandler) error
+
+func replyFirst(ctx context.Context, h *driver.StatusHandler) error {
+	return h.Reply(
+		ctx,
+		"cmd-1",
+		status.VariantSuccess,
+		"Command executed successfully",
+		msgpack.EncodedJSON{"attempts": 3.0},
+	)
+}
+
+func ackFirst(ctx context.Context, h *driver.StatusHandler) error {
+	return h.Ack(ctx, "cmd-1", true)
+}
+
+func sendFirst(ctx context.Context, h *driver.StatusHandler) error {
+	return h.Send(ctx, "cmd-1", status.VariantSuccess, true, "Started task", "")
+}
+
+func stopSecond(ctx context.Context, h *driver.StatusHandler) error {
+	return h.Send(ctx, "cmd-2", status.VariantSuccess, false, "Stopped task", "")
+}
+
+func warnSecond(ctx context.Context, h *driver.StatusHandler) error {
+	return h.Warn(ctx, driver.Warning{
+		Message:     "Connection lost",
+		Description: "The broker closed the connection.",
+	})
+}
 
 var _ = Describe("StatusHandler", func() {
 	var (
@@ -458,6 +491,56 @@ var _ = Describe("StatusHandler", func() {
 			Expect(stat.Details.Data).To(BeEmpty())
 		})
 	})
+
+	DescribeTable("should store the status of the last transition",
+		func(
+			ctx SpecContext,
+			first, second statusCall,
+			variant status.Variant,
+			message, cmd string,
+			running bool,
+		) {
+			gated := &gatedDB{
+				DB:      db.KV(),
+				held:    make(chan struct{}),
+				release: make(chan struct{}),
+			}
+			handler := driver.NewStatusHandler(gorp.Wrap(gated), statusSvc, t)
+			Expect(handler.Send(
+				ctx, "cmd-0", status.VariantSuccess, true, "Started task", "",
+			)).To(Succeed())
+			// Cleanup opens the gate for a spec that fails before the release below.
+			release := sync.OnceFunc(func() { close(gated.release) })
+			DeferCleanup(release)
+			gated.gated.Store(true)
+			firstDone, secondDone := make(chan error, 1), make(chan error, 1)
+			go func() { firstDone <- first(ctx, handler) }()
+			Eventually(gated.held).Should(BeClosed())
+			go func() { secondDone <- second(ctx, handler) }()
+			Consistently(secondDone).ShouldNot(Receive())
+			release()
+			Eventually(firstDone).Should(Receive(BeNil()))
+			Eventually(secondDone).Should(Receive(BeNil()))
+			stat := retrieve(ctx)
+			Expect(stat.Variant).To(Equal(variant))
+			Expect(stat.Message).To(Equal(message))
+			Expect(stat.Details.Cmd).To(Equal(cmd))
+			Expect(stat.Details.Running).To(Equal(running))
+			Expect(stat.Details.Data).To(BeEmpty())
+		},
+		Entry("when a stop passes a Reply",
+			replyFirst, stopSecond,
+			status.VariantSuccess, "Stopped task", "cmd-2", false,
+		),
+		Entry("when a stop passes an Ack",
+			ackFirst, stopSecond,
+			status.VariantSuccess, "Stopped task", "cmd-2", false,
+		),
+		Entry("when a warning passes a Send",
+			sendFirst, warnSecond,
+			status.VariantWarning, "Connection lost", driver.NoCommand, true,
+		),
+	)
 
 	Describe("ConfigReporter", func() {
 		cfgErr := errors.New("bad config")
