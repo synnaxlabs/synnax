@@ -49,6 +49,30 @@ var _ = Describe("Proof MessagePack", func() {
 		Expect(msgpack.Codec.Decode(ctx, b, &decoded)).To(Succeed())
 		Expect(decoded).To(Equal(proof))
 	})
+	It("Should round trip an OIDC proof", func(ctx SpecContext) {
+		proof := auth.Proof{Variant: auth.OIDCProof{
+			OIDCCredentials: auth.OIDCCredentials{
+				Provider:    "idp",
+				Code:        "code",
+				Verifier:    "verifier",
+				RedirectURI: "http://127.0.0.1:4242/callback",
+			},
+		}}
+		b := MustSucceed(msgpack.Codec.Encode(ctx, proof))
+		var decoded auth.Proof
+		Expect(msgpack.Codec.Decode(ctx, b, &decoded)).To(Succeed())
+		Expect(decoded).To(Equal(proof))
+	})
+	It("Should reject an OIDC proof whose code is not a string", func(
+		ctx SpecContext,
+	) {
+		b := MustSucceed(msgpack.Codec.Encode(
+			ctx,
+			map[string]any{"method": "oidc", "code": []int{1}},
+		))
+		Expect(vmsgpack.Unmarshal(b, &auth.Proof{})).Error().
+			To(MatchError(ContainSubstring("msgpack")))
+	})
 	It("Should reject an API key proof whose key is not a string", func(
 		ctx SpecContext,
 	) {

@@ -170,11 +170,13 @@ development logging. Do not use it in production. For debug logs, use `--verbose
 
 </Field.Item>
 
-<Field.Item name="--auth-methods" default='"password,api_key"' env="SYNNAX_AUTH_METHODS">
+<Field.Item name="--auth-methods" default='"password,api_key,oidc"' env="SYNNAX_AUTH_METHODS">
 
-The login methods the Core accepts. The Core refuses a method that is off at login and
-when a credential is created or changed, and keeps its stored credentials. The Core does
-not start with `api_key` off while the embedded Driver is on.
+The login methods the Core accepts. The Core accepts `oidc` only when the configuration
+file sets at least one [OpenID Connect provider](#openid-connect-providers). The Core
+refuses a method that is off at login and when a credential is created or changed, and
+keeps its stored credentials. The Core does not start with `api_key` off while the
+embedded Driver is on.
 
 </Field.Item>
 
@@ -460,6 +462,51 @@ Fields of a listener:
   Binds the listener to the loopback interface only, so no other machine can reach it.
   The address host must be `localhost` or `127.0.0.1`. By default, a listener binds its
   port on every network interface.
+</Field.Item>
+
+</Field.List>
+
+### OpenID Connect providers
+
+The `oidc-providers` key lists the OpenID Connect providers that users log in through.
+It works only in a configuration file. A change needs a restart, and each node of a
+cluster needs the same list. The Core reads the endpoints of each provider from its
+discovery document at the first login, so the Core must reach the provider.
+
+```yaml
+oidc-providers:
+  - name: company-sso
+    issuer: https://sso.example.com
+    client-id: synnax
+    client-secret: secret
+```
+
+The first login of an account creates a user with the built-in Viewer role. The Core
+never links an account to an existing user because a name or email matches.
+
+Fields of a provider:
+
+<Field.List>
+
+<Field.Item name="name" id="oidc-provider-name" required>
+  The name of the provider. Unique across providers.
+</Field.Item>
+
+<Field.Item name="issuer" id="oidc-provider-issuer" required>
+  The issuer URL of the provider.
+</Field.Item>
+
+<Field.Item name="client-id" id="oidc-provider-client-id" required>
+  The client ID of the Core at the provider.
+</Field.Item>
+
+<Field.Item name="client-secret" id="oidc-provider-client-secret">
+  The client secret of the Core. Set it only when the provider requires one.
+</Field.Item>
+
+<Field.Item name="user-creation-disabled" id="oidc-provider-user-creation-disabled">
+  Stops the first login of an account from creating a user. An account can then log in
+  only after its user links it.
 </Field.Item>
 
 </Field.List>

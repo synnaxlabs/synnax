@@ -167,6 +167,51 @@ var _ = Describe("GetCoreConfigFromViper", func() {
 		})
 	})
 
+	Describe("OIDC providers", func() {
+		It("Should accept a list of providers", func() {
+			viper.Set(start.FlagOIDCProviders, []any{map[string]any{
+				"name":                   "idp",
+				"issuer":                 "https://idp.example.com",
+				"client-id":              "synnax",
+				"client-secret":          "secret",
+				"user-creation-disabled": true,
+			}})
+			MustSucceed(start.GetCoreConfigFromViper(alamos.Instrumentation{}))
+		})
+
+		It("Should reject a value that is not a list", func() {
+			viper.Set(start.FlagOIDCProviders, "idp")
+			Expect(start.GetCoreConfigFromViper(alamos.Instrumentation{})).Error().
+				To(And(
+					MatchError(validate.ErrValidation),
+					MatchError(ContainSubstring("oidc-providers must be a list")),
+				))
+		})
+
+		It("Should reject an entry that is not an object", func() {
+			viper.Set(start.FlagOIDCProviders, []any{"idp"})
+			Expect(start.GetCoreConfigFromViper(alamos.Instrumentation{})).Error().
+				To(MatchError(ContainSubstring("oidc-providers[0] must be an object")))
+		})
+
+		It("Should reject a setting of the wrong type", func() {
+			viper.Set(start.FlagOIDCProviders, []any{map[string]any{
+				"name":                   "idp",
+				"user-creation-disabled": "true",
+			}})
+			Expect(start.GetCoreConfigFromViper(alamos.Instrumentation{})).Error().
+				To(MatchError(ContainSubstring(
+					"oidc-providers[0].user-creation-disabled must be a bool, not string",
+				)))
+		})
+
+		It("Should reject an unknown setting", func() {
+			viper.Set(start.FlagOIDCProviders, []any{map[string]any{"secret": "x"}})
+			Expect(start.GetCoreConfigFromViper(alamos.Instrumentation{})).Error().
+				To(MatchError(ContainSubstring("oidc-providers[0].secret is not a setting")))
+		})
+	})
+
 	It("Should allow a Tailscale advertised listener in insecure mode", func() {
 		viper.Set(listener.FlagListen, []any{
 			map[string]any{

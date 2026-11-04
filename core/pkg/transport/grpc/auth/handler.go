@@ -145,6 +145,15 @@ func proofBackward(p *Proof) (svcauth.Proof, error) {
 		return svcauth.Proof{Variant: svcauth.APIKeyProof{
 			APIKeyCredentials: svcauth.APIKeyCredentials{Key: p.Key},
 		}}, nil
+	case svcauth.MethodOIDC:
+		return svcauth.Proof{Variant: svcauth.OIDCProof{
+			OIDCCredentials: svcauth.OIDCCredentials{
+				Provider:    p.Provider,
+				Code:        p.Code,
+				Verifier:    p.Verifier,
+				RedirectURI: p.RedirectUri,
+			},
+		}}, nil
 	default:
 		return svcauth.Proof{}, errors.Wrapf(
 			validate.ErrValidation,

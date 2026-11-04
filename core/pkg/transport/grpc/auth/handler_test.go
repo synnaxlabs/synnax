@@ -256,6 +256,29 @@ var _ = Describe("Auth", func() {
 				},
 			}}))
 		})
+		It("Should translate an OIDC proof", func(ctx SpecContext) {
+			Expect(
+				MustSucceed(create.RequestTranslator.Backward(
+					ctx,
+					&grpcauth.SessionCreateRequest{Proof: &grpcauth.Proof{
+						Method:      string(svcauth.MethodOIDC),
+						Provider:    "idp",
+						Code:        "code",
+						Verifier:    "verifier",
+						RedirectUri: "http://127.0.0.1:4242/callback",
+					}},
+				)),
+			).To(Equal(auth.SessionCreateRequest{Proof: svcauth.Proof{
+				Variant: svcauth.OIDCProof{
+					OIDCCredentials: svcauth.OIDCCredentials{
+						Provider:    "idp",
+						Code:        "code",
+						Verifier:    "verifier",
+						RedirectURI: "http://127.0.0.1:4242/callback",
+					},
+				},
+			}}))
+		})
 		It("Should reject a missing proof", func(ctx SpecContext) {
 			Expect(create.RequestTranslator.Backward(
 				ctx,

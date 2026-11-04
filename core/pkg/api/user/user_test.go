@@ -258,6 +258,19 @@ var _ = Describe("Service", func() {
 			},
 		)
 		It(
+			"Should report a user who has no password as not found",
+			func(ctx SpecContext) {
+				u := MustSucceed(writer.Create(ctx, user.User{
+					Name: "change-username-" + uuid.New().String(),
+				}))
+				Expect(apiSvc.ChangeUsername(
+					rootCtx(ctx),
+					db,
+					apiuser.ChangeUsernameRequest{Key: u.Key, Username: "new"},
+				)).Error().To(MatchError(query.ErrNotFound))
+			},
+		)
+		It(
 			"Should be a no-op when the target name already matches",
 			func(ctx SpecContext) {
 				username := "change-username-noop-" + uuid.New().String()

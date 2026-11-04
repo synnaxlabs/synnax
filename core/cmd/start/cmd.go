@@ -11,6 +11,7 @@ package start
 
 import (
 	"context"
+	"fmt"
 	"os"
 	"os/signal"
 	"strings"
@@ -25,9 +26,11 @@ import (
 	"github.com/synnaxlabs/synnax/cmd/listener"
 	"github.com/synnaxlabs/synnax/cmd/start/internal/stdin"
 	"github.com/synnaxlabs/synnax/pkg/service/auth"
+	"github.com/synnaxlabs/synnax/pkg/service/auth/oidc"
 	"github.com/synnaxlabs/x/address"
 	"github.com/synnaxlabs/x/errors"
 	xsignal "github.com/synnaxlabs/x/signal"
+	"github.com/synnaxlabs/x/validate"
 	"go.uber.org/zap"
 )
 
@@ -169,6 +172,10 @@ func GetCoreConfigFromViper(ins alamos.Instrumentation) (CoreConfig, error) {
 	if err != nil {
 		return CoreConfig{}, err
 	}
+	oidcProviders, err := parseOIDCProviders()
+	if err != nil {
+		return CoreConfig{}, err
+	}
 	return CoreConfig{
 		Instrumentation:     ins,
 		insecure:            new(viper.GetBool(FlagInsecure)),
@@ -195,8 +202,75 @@ func GetCoreConfigFromViper(ins alamos.Instrumentation) (CoreConfig, error) {
 		enabledIntegrations:  viper.GetStringSlice(FlagEnableIntegrations),
 		disabledIntegrations: viper.GetStringSlice(FlagDisableIntegrations),
 		validateChannelNames: new(!viper.GetBool(FlagDisableChannelNameValidation)),
+		oidcProviders:        oidcProviders,
 		authMethods:          authMethodsFromViper(),
 	}, nil
+}
+
+func parseOIDCProviders() ([]oidc.Provider, error) {
+	raw := viper.Get(FlagOIDCProviders)
+	if raw == nil {
+		return nil, nil
+	}
+	items, ok := raw.([]any)
+	if !ok {
+		return nil, errors.Wrapf(
+			validate.ErrValidation,
+			"%s must be a list",
+			FlagOIDCProviders,
+		)
+	}
+	providers := make([]oidc.Provider, len(items))
+	for i, item := range items {
+		m, ok := item.(map[string]any)
+		if !ok {
+			return nil, errors.Wrapf(
+				validate.ErrValidation,
+				"%s[%d] must be an object",
+				FlagOIDCProviders,
+				i,
+			)
+		}
+		var p oidc.Provider
+		for key, v := range m {
+			field := fmt.Sprintf("%s[%d].%s", FlagOIDCProviders, i, key)
+			var err error
+			switch key {
+			case "name":
+				p.Name, err = asType[string](field, v)
+			case "issuer":
+				p.Issuer, err = asType[string](field, v)
+			case "client-id":
+				p.ClientID, err = asType[string](field, v)
+			case "client-secret":
+				p.ClientSecret, err = asType[string](field, v)
+			case "user-creation-disabled":
+				p.UserCreationDisabled, err = asType[bool](field, v)
+			default:
+				err = errors.Wrapf(validate.ErrValidation, "%s is not a setting", field)
+			}
+			if err != nil {
+				return nil, err
+			}
+		}
+		providers[i] = p
+	}
+	return providers, nil
+}
+
+func asType[T any](field string, v any) (T, error) {
+	t, ok := v.(T)
+	if !ok {
+		var zero T
+		return zero, errors.Wrapf(
+			validate.ErrValidation,
+			"%s must be a %T, not %T",
+			field,
+			zero,
+			v,
+		)
+	}
+	return t, nil
 }
 
 // authMethodsFromViper returns nil when the setting is unset, so the default applies,

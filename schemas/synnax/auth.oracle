@@ -17,6 +17,7 @@ import "schemas/x/telem"
 Method enum {
     password = "password"
     api_key  = "api_key"
+    oidc     = "oidc"
 
     @doc value "names an authentication method."
 }
@@ -90,12 +91,39 @@ APIKeyCredentials struct {
     @doc value "is an API key presented at login."
 }
 
+OIDCCredentials struct {
+    provider     string {
+        @doc value         "is the name of the provider in the Core's settings."
+        @validate required
+    }
+    code         string {
+        @doc value         "is the authorization code the provider returned."
+        @validate required
+    }
+    verifier     string {
+        @doc value         "is the PKCE code verifier that matches the login request."
+        @validate required
+    }
+    redirect_uri string {
+        @doc value         "is the redirect URI the login request used."
+        @validate required
+    }
+
+    @doc value """
+        is an OpenID Connect authorization code presented at login. The Core exchanges
+        it with the provider.
+    """
+}
+
 Proof union on method Method {
     password Credentials {
         @doc value "proves a password."
     }
     api_key  APIKeyCredentials {
         @doc value "proves an API key."
+    }
+    oidc     OIDCCredentials {
+        @doc value "proves an OpenID Connect provider account."
     }
 
     @doc value """

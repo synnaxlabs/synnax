@@ -26,7 +26,7 @@ import (
 var acronyms = set.New(
 	"ai", "ao", "ci", "co", "di", "do",
 	"rtd", "iepe", "rms", "dc", "ac",
-	"api",
+	"api", "oidc",
 )
 
 // pascalAcronym converts a snake_case (or mixed-case) identifier to PascalCase, fully
