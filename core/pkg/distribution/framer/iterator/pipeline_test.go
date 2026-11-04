@@ -42,6 +42,7 @@ var _ = Describe("Pipeline", func() {
 		res.Acquire(1)
 		sCtx.Go(func(ctx context.Context) error {
 			defer res.Close()
+			defer GinkgoRecover()
 			return f(ctx, req, res)
 		})
 		return &iterator.Pipeline{
@@ -73,17 +74,18 @@ var _ = Describe("Pipeline", func() {
 			in confluence.Outlet[iterator.Request],
 			out confluence.Inlet[iterator.Response],
 		) error {
-			for req := range in.Outlet() {
-				out.Inlet() <- iterator.Response{
-					Variant: iterator.ResponseVariantData,
-					SeqNum:  req.SeqNum,
-				}
-				out.Inlet() <- iterator.Response{
-					Variant: iterator.ResponseVariantAck,
-					Ack:     true,
-					SeqNum:  req.SeqNum,
-				}
-			}
+			var req iterator.Request
+			Eventually(in.Outlet()).Should(Receive(&req))
+			Eventually(out.Inlet()).Should(BeSent(iterator.Response{
+				Variant: iterator.ResponseVariantData,
+				SeqNum:  req.SeqNum,
+			}))
+			Eventually(out.Inlet()).Should(BeSent(iterator.Response{
+				Variant: iterator.ResponseVariantAck,
+				Ack:     true,
+				SeqNum:  req.SeqNum,
+			}))
+			Eventually(in.Outlet()).Should(BeClosed())
 			return nil
 		})
 		var value []iterator.Response
@@ -123,7 +125,7 @@ var _ = Describe("Pipeline", func() {
 			in confluence.Outlet[iterator.Request],
 			_ confluence.Inlet[iterator.Response],
 		) error {
-			<-in.Outlet()
+			Eventually(in.Outlet()).Should(Receive())
 			return errRead
 		})
 		var value []iterator.Response
@@ -158,8 +160,7 @@ var _ = Describe("Pipeline", func() {
 			out confluence.Inlet[iterator.Response],
 		) error {
 			out.Close()
-			for range in.Outlet() {
-			}
+			Eventually(in.Outlet()).Should(BeClosed())
 			return errRead
 		})
 		var value []iterator.Response
