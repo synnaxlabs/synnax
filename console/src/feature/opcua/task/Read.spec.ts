@@ -23,6 +23,10 @@ import {
   dragNode,
 } from "@/feature/opcua/testutil";
 import {
+  setTestDeviceStatus,
+  TEST_DEVICE_STATUS_MESSAGE,
+} from "@/platform/device/testutil";
+import {
   answerCommand,
   answerNextCommand,
   awaitCommand,
@@ -260,6 +264,24 @@ describe("Read", () => {
     await deployAndAwaitTask(client, container, draft.key, OPCUA.Task.READ_SCHEMAS);
     await screen.findByText(motor);
     await screen.findByText(`${motor}_Position_X`);
+  });
+
+  it("should keep the status the device reported on deploy", async () => {
+    const dev = await createOPCDevice(client);
+    const ch = createReadChannel();
+    const draft = await createDraft(client, createReadConfig(dev.key, [ch]));
+    await setTestDeviceStatus(client, dev);
+    const { container } = await renderRead({ client, taskKey: draft.key });
+    await screen.findByText(new RegExp(ch.nodeName));
+
+    await deployAndAwaitTask(client, container, draft.key, OPCUA.Task.READ_SCHEMAS);
+
+    const deployed = await client.devices.retrieve({
+      key: dev.key,
+      includeStatus: true,
+      schemas: OPCUA.Device.SCHEMAS,
+    });
+    expect(deployed.status?.message).toBe(TEST_DEVICE_STATUS_MESSAGE);
   });
 
   it("should warn at a node that two channels read, and still deploy", async () => {

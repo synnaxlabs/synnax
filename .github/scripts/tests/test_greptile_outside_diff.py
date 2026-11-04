@@ -7,20 +7,16 @@
 #  License, use of this software will be governed by the Apache License, Version 2.0,
 #  included in the file licenses/APL.txt.
 
-import json
 import os
 import subprocess
 from pathlib import Path
 from typing import Any
 
 import pytest
+from scripts_common import FakeGH
 
 SCRIPT = Path(__file__).resolve().parents[1] / "greptile_outside_diff.sh"
 
-# Stands in for gh: serves the canned comments in FAKE_GH_DIR.
-FAKE_GH = """#!/usr/bin/env bash
-cat "$FAKE_GH_DIR/comments.json"
-"""
 
 GREPTILE = "greptile-apps[bot]"
 MARKER = "<!-- greptile_outside_diff -->\n\n<h3>Comments Outside Diff</h3>\n\n"
@@ -44,23 +40,16 @@ class Harness:
     """A fake gh serving one pull request's top-level comments."""
 
     def __init__(self, path: Path) -> None:
-        self.data = path / "gh"
-        self.data.mkdir()
-        bin_dir = path / "bin"
-        bin_dir.mkdir()
-        gh = bin_dir / "gh"
-        gh.write_text(FAKE_GH)
-        gh.chmod(0o755)
+        self.gh = FakeGH(path)
         self.env = {
             **os.environ,
-            "PATH": f"{bin_dir}:{os.environ['PATH']}",
-            "FAKE_GH_DIR": str(self.data),
+            "PATH": f"{self.gh.bin_dir}:{os.environ['PATH']}",
             "GITHUB_REPOSITORY": "synnaxlabs/synnax",
         }
         self.comments()
 
     def comments(self, *comments: dict[str, Any]) -> None:
-        (self.data / "comments.json").write_text(json.dumps(list(comments)))
+        self.gh.serve("api */comments*", list(comments))
 
     def run(self) -> str:
         result = subprocess.run(
