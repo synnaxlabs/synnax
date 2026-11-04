@@ -306,7 +306,8 @@ export class StreamMultiChannelLog
           ),
       ),
     );
-    if (read == null) return;
+    // A span whose times did not all arrive stays, and the next read tries it again.
+    if (read == null || read.some(({ missed }) => missed)) return;
     this.unread.shift();
     if (this.unread.every(({ counts }) => counts.size === 0)) this.unread = [];
     const groups = counts.flatMap(([key], i) =>
@@ -472,8 +473,12 @@ export class StreamMultiChannelLog
     this.failures.observe(worst);
     if (groups.length === 0) return statusChanged;
     if (!this.live) {
-      this.skip(groups);
-      return statusChanged;
+      const [{ start }] = this.unread;
+      const held = groups.filter(([{ timestamp }]) => timestamp.valueOf() <= start);
+      this.skip(groups.filter(([{ timestamp }]) => timestamp.valueOf() > start));
+      if (held.length === 0) return statusChanged;
+      this.insert(held);
+      return true;
     }
     this.insert(groups);
     this.evict();
@@ -487,7 +492,7 @@ export class StreamMultiChannelLog
     for (const [{ channelKey, timestamp }] of groups) {
       if (this.metas.get(channelKey)?.stored !== true) continue;
       const time = timestamp.valueOf();
-      let span = this.unread.at(-1)!;
+      let span = this.unread.find(({ end }) => time <= end) ?? this.unread.at(-1)!;
       const size = [...span.counts.values()].reduce((a, b) => a + b, 0);
       if (time > span.end && size >= OLDER_PAGE_SIZE) {
         span = { start: span.end, end: time, counts: new Map() };
@@ -616,7 +621,9 @@ export class StreamMultiChannelLog
     let at = this.maxEntries - headroom;
     const time = (i: number): bigint => entries[i].timestamp.valueOf();
     while (at > 0 && time(at) === time(at - 1)) at--;
-    if (at === 0) return;
+    // One time that fills the entries stays whole, since a read finds a time whole.
+    if (at === 0) at = bound(entries, time(0), false);
+    if (at === entries.length) return;
     const evicted = entries.splice(at);
     const end = evicted[evicted.length - 1].timestamp.valueOf();
     const counts = new Map<channel.Key, number>();
