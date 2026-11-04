@@ -40,8 +40,8 @@ type SuspectHandler = func(ctx context.Context, outage Status) error
 
 type rackState struct {
 	lastUpdated telem.TimeStamp
-	// outage is set from the write of an outage until the rack reports healthy again,
-	// so each outage is written once.
+	// outage is set from the write of an outage until the Driver reports again, so each
+	// outage is written once.
 	outage *Status
 	// pending holds the keys of the handlers that have not copied the outage.
 	pending set.Set[int]
@@ -157,7 +157,7 @@ func (m *monitor) writeOutages(ctx context.Context) error {
 	defer m.mu.Unlock()
 	for i := range statuses {
 		k := statuses[i].Details.Rack
-		// A healthy report that landed during the write starts a new period.
+		// A Driver report that landed during the write starts a new period.
 		if state, ok := m.mu.racks[k]; ok && state.lastUpdated == lastUpdated[k] {
 			state.outage = &statuses[i]
 			state.pending = set.New(slices.Collect(maps.Keys(m.mu.handlers))...)
@@ -241,9 +241,12 @@ func (m *monitor) handleChange(
 			delete(m.mu.racks, key)
 			continue
 		}
-		isHealthy := ch.Value.Variant == status.VariantSuccess ||
-			ch.Value.Variant == status.VariantInfo
-		if isHealthy || !lo.HasKey(m.mu.racks, key) {
+		// The Core writes only warnings to rack statuses, so a warning does not show
+		// that the Driver is running.
+		alive := ch.Value.Variant == status.VariantSuccess ||
+			ch.Value.Variant == status.VariantInfo ||
+			ch.Value.Variant == status.VariantError
+		if alive || !lo.HasKey(m.mu.racks, key) {
 			m.mu.racks[key] = rackState{lastUpdated: m.svc.Now()}
 		}
 	}
