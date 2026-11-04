@@ -33,7 +33,7 @@ import {
 import { use } from "@/feature/opcua/device/queries";
 import { type Device } from "@/feature/opcua/device/types";
 import { useConnectModal } from "@/feature/opcua/device/useConnectModal";
-import { type Channel } from "@/feature/opcua/task/types";
+import { type Channel, nodeIdentity } from "@/feature/opcua/task/types";
 import { CSS } from "@/platform/css";
 import { Device as PlatformDevice } from "@/platform/device";
 import { Task } from "@/platform/task";
@@ -145,7 +145,8 @@ interface ChannelListProps<C extends Channel> extends Pick<
 > {
   children: Component.RenderProp<ExtraItemProps<C>>;
   device: Device;
-  convertHaulItemToChannel: (item: HaulItem) => C;
+  /** @returns the channel of a dropped node, or null if the task cannot hold it. */
+  convertHaulItemToChannel: (item: HaulItem) => C | null;
   getChannelKeyAndID: ChannelKeyAndIDGetter<C>;
 }
 
@@ -163,9 +164,10 @@ const ChannelList = <C extends Channel>({
   const handleDrop = ({ items }: Haul.OnDropProps): Haul.Item[] => {
     const channels = ctx.get(path).value;
     const dropped = items.filter(isVariableHaulItem);
+    const existing = new Set(channels.map(nodeIdentity));
     const toAdd = dropped
-      .filter(({ data }) => !channels.some(({ nodeId }) => nodeId === data.nodeId))
-      .map(convertHaulItemToChannel);
+      .map(convertHaulItemToChannel)
+      .filter((ch): ch is C => ch != null && !existing.has(nodeIdentity(ch)));
     push(toAdd);
     return dropped;
   };

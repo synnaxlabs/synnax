@@ -22,7 +22,6 @@ import {
 import { createPanelParent, createTestClient } from "@synnaxlabs/client/testutil";
 import { Drift } from "@synnaxlabs/drift";
 import { Form as PForm } from "@synnaxlabs/lyra/form";
-import { Haul } from "@synnaxlabs/lyra/haul";
 import { type Status } from "@synnaxlabs/lyra/status";
 import { Panel as PlutoPanel } from "@synnaxlabs/pluto";
 import { id, sync, TimeSpan, TimeStamp, uuid } from "@synnaxlabs/x";
@@ -56,6 +55,7 @@ import {
   createTestClientWithGrants,
   createTestStore,
   findDialogTriggerByText,
+  HaulProvider,
   renderHookWithConsole,
   renderSuspended,
   renderWithConsole,
@@ -414,9 +414,9 @@ export interface RenderTaskFormTabResult extends RenderResult, CreatedPanel {
 
 /**
  * Renders a Task.wrapForm tab the way the task panel entry does: seeds a panel doc
- * whose single leaf holds a resource tab for the task, then mounts the form inside
- * the panel and tab scopes within the full console provider stack. A modal stack
- * renders beside the panel, as in a window, so dialogs the form opens mount.
+ * whose single leaf holds a resource tab for the task, then mounts the form inside the
+ * panel and tab scopes within the full console provider stack. The drag and drop
+ * provider and a modal stack render around the panel, as in a window.
  */
 export const renderTaskFormTab = async (
   Form: FC<FormTabProps>,
@@ -444,13 +444,13 @@ export const renderTaskFormTab = async (
   }
   const result = await renderSuspended(
     <Analytics.Provider sink={analytics}>
-      <Haul.Provider>
+      <HaulProvider>
         <Modals.Stack />
         <PanelScopes panelKey={created.panelKey} tabKey={tab.key}>
           <Form taskKey={taskKey} />
           {onStatuses != null && <CaptureStatuses onStatuses={onStatuses} />}
         </PanelScopes>
-      </Haul.Provider>
+      </HaulProvider>
     </Analytics.Provider>,
     { wrapper, onCaughtError },
   );
