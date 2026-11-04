@@ -15,6 +15,7 @@ import freighter
 import synnax as sy
 from freighter import Context, Empty, Next
 from freighter.mock import MockUnaryClient
+from synnax.auth import Password
 from synnax.auth.client import _SessionCreateResponse
 from synnax.exceptions import create_registry
 from tests.proxy import Proxy
@@ -349,4 +350,77 @@ class TestPasswords:
         user = admin.users.create(name="Repeated Username")
         with pytest.raises(sy.AuthError):
             admin.auth.create_password(username, "p", subject=user.ontology_id)
+        admin.close()
+
+    def test_retrieve_own(self, login_info: tuple[str, int, str, str]) -> None:
+        """Should retrieve the caller's own password by default."""
+        host, port, username, password = login_info
+        admin = sy.Synnax(host=host, port=port, username=username, password=password)
+        new_username = str(uuid4())
+        user = create_user(admin, new_username, "test")
+        client = sy.Synnax(host=host, port=port, username=new_username, password="test")
+        assert client.auth.retrieve_passwords() == [
+            Password(subject=user.ontology_id, username=new_username)
+        ]
+        client.close()
+        admin.close()
+
+    def test_retrieve_by_username(self, login_info: tuple[str, int, str, str]) -> None:
+        """Should retrieve a password by its username and ignore unknown ones."""
+        host, port, username, password = login_info
+        admin = sy.Synnax(host=host, port=port, username=username, password=password)
+        new_username = str(uuid4())
+        user = create_user(admin, new_username, "test")
+        res = admin.auth.retrieve_passwords(usernames=[new_username, str(uuid4())])
+        assert res == [Password(subject=user.ontology_id, username=new_username)]
+        admin.close()
+
+    def test_retrieve_by_subject(self, login_info: tuple[str, int, str, str]) -> None:
+        """Should retrieve a password by its subject."""
+        host, port, username, password = login_info
+        admin = sy.Synnax(host=host, port=port, username=username, password=password)
+        new_username = str(uuid4())
+        user = create_user(admin, new_username, "test")
+        res = admin.auth.retrieve_passwords(subjects=[user.ontology_id])
+        assert res == [Password(subject=user.ontology_id, username=new_username)]
+        admin.close()
+
+    def test_rename(self, login_info: tuple[str, int, str, str]) -> None:
+        """Should let an owner rename another user's password, and let a client log
+        in with the new username.
+        """
+        host, port, username, password = login_info
+        admin = sy.Synnax(host=host, port=port, username=username, password=password)
+        user = create_user(admin, str(uuid4()), "test")
+        new_username = str(uuid4())
+        admin.auth.rename_password(new_username, subject=user.ontology_id)
+        client = sy.Synnax(host=host, port=port, username=new_username, password="test")
+        assert client.auth.subject == user.ontology_id
+        client.close()
+        admin.close()
+
+    def test_rename_own(self, login_info: tuple[str, int, str, str]) -> None:
+        """Should let a user rename its own password and keep its session."""
+        host, port, username, password = login_info
+        admin = sy.Synnax(host=host, port=port, username=username, password=password)
+        old_username = str(uuid4())
+        user = create_user(admin, old_username, "test")
+        client = sy.Synnax(host=host, port=port, username=old_username, password="test")
+        new_username = str(uuid4())
+        client.auth.rename_password(new_username)
+        assert client.auth.retrieve_passwords() == [
+            Password(subject=user.ontology_id, username=new_username)
+        ]
+        client.close()
+        admin.close()
+
+    def test_rename_repeated_username(
+        self, login_info: tuple[str, int, str, str]
+    ) -> None:
+        """Should refuse a username another user holds."""
+        host, port, username, password = login_info
+        admin = sy.Synnax(host=host, port=port, username=username, password=password)
+        user = create_user(admin, str(uuid4()), "test")
+        with pytest.raises(sy.AuthError):
+            admin.auth.rename_password(username, subject=user.ontology_id)
         admin.close()

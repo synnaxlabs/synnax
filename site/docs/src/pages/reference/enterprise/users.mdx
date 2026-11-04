@@ -50,10 +50,12 @@ the root user.
 
 <Divider.Divider x />
 
-## Change a username
+## Rename a user
 
-In the **Users** toolbar, right-click the user and select **Change username**. You
-cannot change your own username.
+In the **Users** toolbar, right-click the user and select **Rename**. This changes the
+name the Console shows, not the username the user logs in with. To change the username,
+call `client.auth.rename_password` in Python or `client.auth.renamePassword` in
+TypeScript.
 
 <Divider.Divider x />
 

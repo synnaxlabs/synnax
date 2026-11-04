@@ -80,10 +80,9 @@ var _ = BeforeSuite(func(ctx SpecContext) {
 		User:     userSvc,
 	}))
 	apiSvc = MustSucceed(apiuser.NewService(apiuser.ServiceConfig{
-		RBAC:     rbacSvc,
-		User:     userSvc,
-		Password: passwordSvc,
-		Auth:     authSvc,
+		RBAC: rbacSvc,
+		User: userSvc,
+		Auth: authSvc,
 	}))
 	root = findRoot(ctx, userSvc)
 })

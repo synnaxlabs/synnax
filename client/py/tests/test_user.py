@@ -14,7 +14,6 @@ from uuid import uuid4 as uuid
 import pytest
 
 import synnax as sy
-from tests.user import create_user
 
 
 @pytest.fixture
@@ -66,12 +65,6 @@ class TestUserClient:
         assert len(repeated_user_list) == len(new_user_list)
         for i in range(len(repeated_user_list)):
             compare_users(repeated_user_list[i], new_user_list[i])
-
-    def test_change_username(self, client: sy.Synnax) -> None:
-        user = create_user(client, str(uuid()), "password")
-        username = str(uuid())
-        client.users.change_username(user.key, username)
-        assert client.users.retrieve(username=username).key == user.key
 
     def test_change_name(self, client: sy.Synnax, new_user: sy.user.New) -> None:
         user = client.users.create(user=new_user)

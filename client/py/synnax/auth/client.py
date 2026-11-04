@@ -23,7 +23,7 @@ from freighter import (
     UnaryClient,
 )
 from synnax import ontology
-from synnax.auth.types_gen import Proof, Session, SessionKey
+from synnax.auth.types_gen import PasswordProof, Proof, Session, SessionKey
 from synnax.exceptions import ExpiredToken, InvalidToken, SessionEnded
 from synnax.user.payload import User
 from synnax.util.send_required import send_required
@@ -121,6 +121,31 @@ class _PasswordCreateRequest(BaseModel):
     password: str
 
 
+class Password(BaseModel):
+    """A password as the API returns it: its subject and username, without its
+    hash.
+    """
+
+    subject: ontology.ID
+    """The user the password logs in as."""
+    username: str
+    """The name the password logs in with."""
+
+
+class _PasswordRetrieveRequest(BaseModel):
+    subjects: list[ontology.ID] = []
+    usernames: list[str] = []
+
+
+class _PasswordRetrieveResponse(BaseModel):
+    passwords: list[Password] = []
+
+
+class _PasswordRenameRequest(BaseModel):
+    subject: ontology.ID | None = None
+    username: str
+
+
 _METHODS_ENDPOINT = "/auth/methods"
 _SESSION_CREATE_ENDPOINT = "/auth/session/create"
 _SESSION_RENEW_ENDPOINT = "/auth/session/renew"
@@ -130,6 +155,8 @@ _KEY_CREATE_ENDPOINT = "/auth/key/create"
 _KEY_RETRIEVE_ENDPOINT = "/auth/key/retrieve"
 _KEY_DELETE_ENDPOINT = "/auth/key/delete"
 _PASSWORD_CREATE_ENDPOINT = "/auth/password/create"
+_PASSWORD_RETRIEVE_ENDPOINT = "/auth/password/retrieve"
+_PASSWORD_RENAME_ENDPOINT = "/auth/password/rename"
 
 _AUTHORIZATION_HEADER = "Authorization"
 _RETRY_ON_ERRORS = (InvalidToken, ExpiredToken, SessionEnded)
@@ -278,6 +305,48 @@ class Client:
             ),
             Empty,
         )
+
+    def retrieve_passwords(
+        self,
+        subjects: list[ontology.ID] | None = None,
+        usernames: list[str] | None = None,
+    ) -> list[Password]:
+        """Lists the caller's password, or those of the given subjects or usernames
+        when the caller may retrieve their subjects. Unknown subjects and usernames
+        are ignored.
+
+        :raises AccessDenied: if the caller may not retrieve another subject.
+        """
+        res = send_required(
+            self.client,
+            _PASSWORD_RETRIEVE_ENDPOINT,
+            _PasswordRetrieveRequest(
+                subjects=subjects or [], usernames=usernames or []
+            ),
+            _PasswordRetrieveResponse,
+        )
+        return res.passwords
+
+    def rename_password(
+        self, username: str, subject: ontology.ID | None = None
+    ) -> None:
+        """Changes the username of the subject's password, or of the caller's when
+        none is given. Sessions stay open.
+
+        :raises AuthError: if another user holds the username.
+        :raises AccessDenied: if the caller may not update the subject.
+        :raises NotFoundError: if the subject has no password.
+        :raises ValidationError: if the username is empty.
+        """
+        send_required(
+            self.client,
+            _PASSWORD_RENAME_ENDPOINT,
+            _PasswordRenameRequest(subject=subject, username=username),
+            Empty,
+        )
+        own = subject is None or subject == self.subject
+        if own and isinstance(self.proof, PasswordProof):
+            self.proof = self.proof.model_copy(update={"username": username})
 
     def logout(self) -> None:
         """Ends the client's own session and forgets it. A later request logs in
