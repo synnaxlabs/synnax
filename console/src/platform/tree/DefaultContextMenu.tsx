@@ -30,7 +30,7 @@ export const DefaultContextMenu = ({
   const hasCreatePermission = Access.useCreateGranted(group.TYPE_RESOURCE_ID);
   return (
     <ContextMenu.Menu>
-      {hasCreatePermission && (
+      {hasCreatePermission && Group.isScope(root.type) && (
         <Menu.Item itemKey="newGroup" onClick={createGroup}>
           <Icon.Group />
           New group

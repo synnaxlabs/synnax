@@ -16,7 +16,6 @@ import { useRangeSnapshot } from "@/feature/task/useRangeSnapshot";
 import { ContextMenu } from "@/platform/context-menu";
 import { Core } from "@/platform/core";
 import { Export } from "@/platform/export";
-import { Group } from "@/platform/group";
 import { Link } from "@/platform/link";
 import { Panel } from "@/platform/panel";
 import { Range } from "@/platform/range";
@@ -41,14 +40,13 @@ const useRename = Tree.createUseRename({
 
 const TreeContextMenu: Tree.ContextMenu = (props) => {
   const { selection, openTab, state } = props;
-  const { ids, rootID } = selection;
+  const { ids } = selection;
   const resources = Tree.useResources(state, ids);
   const handleDelete = useDelete(props);
   const handleLink = Core.useCopyLinkToClipboard();
   const handleExport = Export.useResource();
   const snap = useRangeSnapshot();
   const range = Range.useResolve();
-  const group = Group.useCreateFromSelection();
   const rename = useRename(props);
   const resourceIDs = ids.map((id) => task.resourceID(id.key));
   const hasCreatePermission = Access.useCreateGranted(task.TYPE_RESOURCE_ID);
@@ -66,16 +64,8 @@ const TreeContextMenu: Tree.ContextMenu = (props) => {
         </Menu.Item>
       )}
       <Menu.Divider />
-      {hasUpdatePermission && (
-        <>
-          {singleResource && <ContextMenu.RenameItem onClick={rename} />}
-          <Group.ContextMenuItem
-            ids={ids}
-            shape={state.shape}
-            rootID={rootID}
-            onClick={() => group(props)}
-          />
-        </>
+      {hasUpdatePermission && singleResource && (
+        <ContextMenu.RenameItem onClick={rename} />
       )}
       <Menu.Divider />
       {hasCreatePermission && hasNoSnapshots && range?.variant === "persisted" && (
@@ -111,7 +101,6 @@ const TreeContextMenu: Tree.ContextMenu = (props) => {
 const TreeItem = Tree.createItem({
   type: "task",
   icon: <Icon.Task />,
-  hasChildren: false,
   useOnSelect,
   haulItems: ({ id }) => [Mosaic.createTabCreateHaulItem(resource.idToString(id))],
   ContextMenu: TreeContextMenu,

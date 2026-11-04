@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { group, ontology, schematic } from "@synnaxlabs/client";
+import { schematic } from "@synnaxlabs/client";
 import { createTestClient } from "@synnaxlabs/client/testutil";
 import { Form } from "@synnaxlabs/lyra/form";
 import { color, deep } from "@synnaxlabs/x";
@@ -48,14 +48,9 @@ describe("StateOverrideForm", () => {
     wrapper = await createAsyncSynnaxWrapper({ client });
   });
 
-  const createSymbol = async () => {
-    const parent = await client.groups.create({
-      parent: ontology.ROOT_ID,
-      name: "state-override-form-spec",
-    });
-    return await client.schematics.symbols.create({
+  const createSymbol = async () =>
+    await client.schematics.symbols.create({
       name: "actuated",
-      parent: group.resourceID(parent.key),
       data: {
         svg:
           '<svg viewBox="0 0 10 10">' +
@@ -68,7 +63,6 @@ describe("StateOverrideForm", () => {
         previewViewport: { zoom: 1, position: { x: 0, y: 0 } },
       },
     });
-  };
 
   const renderForm = (specKey: string) => {
     let form!: Form.UseReturn<typeof formSchema>;

@@ -13,13 +13,14 @@ import {
   log,
   type ontology,
   project,
-  type resource,
+  resource,
   schematic,
   table,
 } from "@synnaxlabs/client";
 import { Icon } from "@synnaxlabs/lyra/icon";
 import { Menu } from "@synnaxlabs/lyra/menu";
 import { Status } from "@synnaxlabs/lyra/status";
+import { Tree as PTree } from "@synnaxlabs/lyra/tree";
 import {
   Access,
   LinePlot as PLinePlot,
@@ -184,21 +185,88 @@ const useOnSelect = (): ((resource: ontology.Resource) => void) => {
   };
 };
 
-const VALID_CHILDREN: resource.Type[] = [
+const VISUALIZATION_TYPES: resource.Type[] = [
   "schematic",
   "lineplot",
   "log",
   "table",
-  "group",
+  "panel",
 ];
+
+const DROPPABLE_TYPES = new Set<resource.Type>([...VISUALIZATION_TYPES, "group"]);
+
+/** Lists the projects that sit in a group. */
+export const GROUP_MEMBER: Group.Member = {
+  type: "project",
+  children: (client, key) =>
+    Tree.createSource(client.projects, { groups: [key] }, Tree.toResource("project")),
+};
+
+const children: Tree.Children = ({ client, id }) => {
+  if (resource.idsEqual(id, project.TYPE_RESOURCE_ID))
+    return [
+      Tree.createSource(
+        client.groups,
+        { scopes: ["project"], nested: false },
+        Tree.toResource("group"),
+      ),
+      Tree.createSource(
+        client.projects,
+        { grouped: false },
+        Tree.toResource("project"),
+      ),
+    ];
+  return [
+    Tree.createSource(client.groups, { parents: [id] }, Tree.toResource("group")),
+    // A project lists its visualizations through the ontology until PR 6.
+    Tree.createOntologySource(
+      client,
+      id,
+      VISUALIZATION_TYPES,
+      ({ data }) => data?.group == null,
+    ),
+  ];
+};
+
+const drop: Tree.Drop = async ({ client, destination, items }) => {
+  await client.batch.send(
+    Group.moveRequests(
+      items.map(({ id }) => id),
+      destination.id,
+    ),
+  );
+  // A visualization from another project moves its ontology edge until PR 6.
+  const bySource = new Map<string, resource.ID[]>();
+  items.forEach(({ id, ancestors }) => {
+    if (id.type === "group") return;
+    const source = ancestors.find(({ type }) => type === "project");
+    if (source == null || resource.idsEqual(source, destination.id)) return;
+    const key = resource.idToString(source);
+    bySource.set(key, [...(bySource.get(key) ?? []), id]);
+  });
+  await Promise.all(
+    [...bySource].map(
+      async ([source, ids]) =>
+        await client.ontology.moveChildren(
+          resource.parseID(source),
+          destination.id,
+          ...ids,
+        ),
+    ),
+  );
+};
 
 const TreeItem = Tree.createItem({
   type: "project",
   icon: <Icon.Project />,
   useOnSelect,
+  children,
   ContextMenu: TreeContextMenu,
   canDrop: ({ items }) =>
-    items.every(({ key }) => VALID_CHILDREN.some((c) => key.toString().includes(c))),
+    PTree.filterHaulItems(items).every(({ key }) =>
+      DROPPABLE_TYPES.has(resource.parseID(key).type),
+    ),
+  drop,
 });
 
 export const TREE_ITEMS = { project: TreeItem } satisfies Tree.Items;

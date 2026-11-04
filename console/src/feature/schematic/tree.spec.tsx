@@ -13,6 +13,7 @@ import { type Status } from "@synnaxlabs/lyra/status";
 import { fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { afterEach, describe, expect, it, vi } from "vitest";
 
+import { Project } from "@/feature/project";
 import { Schematic } from "@/feature/schematic";
 import {
   client,
@@ -67,7 +68,7 @@ describe("Schematic.TREE_ITEMS", () => {
       const { store } = await renderOntologyTree({
         client,
         root: project.resourceID(await testProjectKey()),
-        items: Schematic.TREE_ITEMS,
+        items: { ...Project.TREE_ITEMS, ...Schematic.TREE_ITEMS },
       });
       fireEvent.doubleClick(await findTreeRow(s.name));
       const tab = await resolveFocusedTab(store, client);

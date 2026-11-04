@@ -86,10 +86,16 @@ const TreeContextMenu: Tree.ContextMenu = (props) => {
   );
 };
 
+/** Lists the line plots that sit in a group. */
+export const GROUP_MEMBER: Group.Member = {
+  type: "lineplot",
+  children: (client, key) =>
+    Tree.createSource(client.lineplots, { groups: [key] }, Tree.toResource("lineplot")),
+};
+
 const TreeItem = Tree.createItem({
   type: "lineplot",
   icon: <Icon.LinePlot />,
-  hasChildren: false,
   useOnSelect: Panel.useOpenResource,
   haulItems: ({ id }) => [Mosaic.createTabCreateHaulItem(resource.idToString(id))],
   ContextMenu: TreeContextMenu,

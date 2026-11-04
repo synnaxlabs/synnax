@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { group, NotFoundError, ontology, type task } from "@synnaxlabs/client";
+import { NotFoundError, ontology, type task } from "@synnaxlabs/client";
 import { createTestClient, RoleClients } from "@synnaxlabs/client/testutil";
 import { type Status } from "@synnaxlabs/lyra/status";
 import { TimeSpan, TimeStamp } from "@synnaxlabs/x";
@@ -22,6 +22,7 @@ import { type Tree } from "@/platform/tree";
 import {
   createBaseProps,
   createExecutingHandleError,
+  createHostItems,
   createResource,
   createSelection,
   createState,
@@ -58,23 +59,12 @@ const createTask = async () => {
   });
 };
 
-const renderTaskTree = async (t: task.Task) => {
-  const [parent] = await client.ontology.parents.retrieve({ ids: t.resourceID });
-  const grp = await client.groups.create({
-    parent: ontology.ROOT_ID,
-    name: uniqueName("taskgrp"),
-  });
-  await client.ontology.moveChildren(
-    parent.id,
-    group.resourceID(grp.key),
-    t.resourceID,
-  );
-  return await renderOntologyTree({
+const renderTaskTree = async (t: task.Task) =>
+  await renderOntologyTree({
     client,
-    root: group.resourceID(grp.key),
-    items: Task.TREE_ITEMS,
+    root: ontology.ROOT_ID,
+    items: { ...Task.TREE_ITEMS, ...createHostItems([t.resourceID]) },
   });
-};
 
 interface CreateMenuPropsParams {
   tasks: task.Task[];
@@ -234,7 +224,7 @@ describe("permission to write the task", () => {
     expect(await screen.findByText("Reload Console")).toBeTruthy();
   });
 
-  it("should withhold rename, grouping, and delete from a viewer", async () => {
+  it("should withhold rename and delete from a viewer", async () => {
     const t = await createTask();
     await renderTreeContextMenu(Menu, {
       client: await roles.get("Viewer"),
@@ -242,7 +232,6 @@ describe("permission to write the task", () => {
     });
     expect(await screen.findByText("Export")).toBeTruthy();
     expect(screen.queryByText("Rename")).toBeNull();
-    expect(screen.queryByText("Group selection")).toBeNull();
     expect(screen.queryByText("Delete")).toBeNull();
   });
 });

@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { group, ontology } from "@synnaxlabs/client";
+import { group } from "@synnaxlabs/client";
 import { createTestClient } from "@synnaxlabs/client/testutil";
 import { uuid } from "@synnaxlabs/x";
 import { act, renderHook, waitFor } from "@testing-library/react";
@@ -37,7 +37,7 @@ describe("Group queries", () => {
   describe("useList", () => {
     it("should return a list of groups for a given parent", async () => {
       const parent = await client.groups.create({
-        parent: ontology.ROOT_ID,
+        scope: "channel",
         name: "test-parent",
       });
       const group1 = await client.groups.create({
@@ -50,12 +50,13 @@ describe("Group queries", () => {
       });
 
       const { result } = renderHook(
-        () => Group.useList({ initialQuery: { parent: group.resourceID(parent.key) } }),
+        () =>
+          Group.useList({ initialQuery: { parents: [group.resourceID(parent.key)] } }),
         { wrapper },
       );
 
       act(() => {
-        result.current.retrieve({ parent: group.resourceID(parent.key) });
+        result.current.retrieve({ parents: [group.resourceID(parent.key)] });
       });
 
       await waitFor(() => {
@@ -72,25 +73,40 @@ describe("Group queries", () => {
       expect(retrievedGroup2?.name).toBe("group2");
     });
 
-    it("should return an empty list when parent is not provided", async () => {
-      const { result } = renderHook(() => Group.useList({ initialQuery: {} }), {
+    it("should keep only the top-level groups of the queried scope", async () => {
+      const top = await client.groups.create({
+        scope: "channel",
+        name: `top-${uuid.create()}`,
+      });
+      const nested = await client.groups.create({
+        parent: group.resourceID(top.key),
+        name: "nested",
+      });
+      const other = await client.groups.create({
+        scope: "project",
+        name: `other-${uuid.create()}`,
+      });
+      const query: Group.ListQuery = { scopes: ["channel"], nested: false };
+      const { result } = renderHook(() => Group.useList({ initialQuery: query }), {
         wrapper,
       });
 
       act(() => {
-        result.current.retrieve({});
+        result.current.retrieve(query);
       });
 
       await waitFor(() => {
         expect(result.current.variant).toEqual("success");
-        expect(result.current.data).toHaveLength(0);
+        expect(result.current.data).toContain(top.key);
       });
+      expect(result.current.data).not.toContain(nested.key);
+      expect(result.current.data).not.toContain(other.key);
     });
 
     it("should respect limit and offset parameters", async () => {
       const uniqueId = Math.random().toString(36).substring(7);
       const parent = await client.groups.create({
-        parent: ontology.ROOT_ID,
+        scope: "channel",
         name: `test-parent-paginated-${uniqueId}`,
       });
       await Promise.all(
@@ -106,7 +122,7 @@ describe("Group queries", () => {
         () =>
           Group.useList({
             initialQuery: {
-              parent: group.resourceID(parent.key),
+              parents: [group.resourceID(parent.key)],
               limit: 2,
               offset: 1,
             },
@@ -116,7 +132,7 @@ describe("Group queries", () => {
 
       act(() => {
         result.current.retrieve({
-          parent: group.resourceID(parent.key),
+          parents: [group.resourceID(parent.key)],
           limit: 2,
           offset: 1,
         });
@@ -138,7 +154,7 @@ describe("Group queries", () => {
     it("should update when a new group is added", async () => {
       const uniqueId = Math.random().toString(36).substring(7);
       const parent = await client.groups.create({
-        parent: ontology.ROOT_ID,
+        scope: "channel",
         name: `test-parent-live-${uniqueId}`,
       });
       await client.groups.create({
@@ -149,13 +165,13 @@ describe("Group queries", () => {
       const { result } = renderHook(
         () =>
           Group.useList({
-            initialQuery: { parent: group.resourceID(parent.key) },
+            initialQuery: { parents: [group.resourceID(parent.key)] },
           }),
         { wrapper },
       );
 
       act(() => {
-        result.current.retrieve({ parent: group.resourceID(parent.key) });
+        result.current.retrieve({ parents: [group.resourceID(parent.key)] });
       });
 
       await waitFor(() => {
@@ -184,7 +200,7 @@ describe("Group queries", () => {
   describe("useCreate", () => {
     it("should create a new group", async () => {
       const parent = await client.groups.create({
-        parent: ontology.ROOT_ID,
+        scope: "channel",
         name: "test-parent-create",
       });
 
@@ -214,7 +230,7 @@ describe("Group queries", () => {
 
     it("should updated an existing group", async () => {
       const parent = await client.groups.create({
-        parent: ontology.ROOT_ID,
+        scope: "channel",
         name: "test-parent-key",
       });
       const g = await client.groups.create({
@@ -240,7 +256,7 @@ describe("Group queries", () => {
   describe("useRename", () => {
     it("should rename an existing group", async () => {
       const parent = await client.groups.create({
-        parent: ontology.ROOT_ID,
+        scope: "channel",
         name: "test-parent-rename",
       });
       const testGroup = await client.groups.create({
@@ -266,7 +282,7 @@ describe("Group queries", () => {
   describe("useDelete", () => {
     it("should delete an existing group", async () => {
       const parent = await client.groups.create({
-        parent: ontology.ROOT_ID,
+        scope: "channel",
         name: "test-parent-delete",
       });
       const testGroup = await client.groups.create({
@@ -291,7 +307,7 @@ describe("Group queries", () => {
 
     it("should run afterOptimistic before the delete commits", async () => {
       const testGroup = await client.groups.create({
-        parent: ontology.ROOT_ID,
+        scope: "channel",
         name: "optimistic-delete",
       });
       const order: string[] = [];
@@ -319,7 +335,7 @@ describe("Group queries", () => {
   describe("Flux store integration", () => {
     it("should cache retrieved groups", async () => {
       const parent = await client.groups.create({
-        parent: ontology.ROOT_ID,
+        scope: "channel",
         name: "test-parent-cache",
       });
       const g = await client.groups.create({
@@ -330,13 +346,13 @@ describe("Group queries", () => {
       const { result: result1 } = renderHook(
         () =>
           Group.useList({
-            initialQuery: { parent: group.resourceID(parent.key) },
+            initialQuery: { parents: [group.resourceID(parent.key)] },
           }),
         { wrapper },
       );
 
       act(() => {
-        result1.current.retrieve({ parent: group.resourceID(parent.key) });
+        result1.current.retrieve({ parents: [group.resourceID(parent.key)] });
       });
 
       await waitFor(() => {
@@ -347,13 +363,13 @@ describe("Group queries", () => {
       const { result: result2 } = renderHook(
         () =>
           Group.useList({
-            initialQuery: { parent: group.resourceID(parent.key) },
+            initialQuery: { parents: [group.resourceID(parent.key)] },
           }),
         { wrapper },
       );
 
       act(() => {
-        result2.current.retrieve({ parent: group.resourceID(parent.key) });
+        result2.current.retrieve({ parents: [group.resourceID(parent.key)] });
       });
 
       await waitFor(() => {
@@ -365,7 +381,7 @@ describe("Group queries", () => {
 
     it("should update cache when group is deleted via listener", async () => {
       const parent = await client.groups.create({
-        parent: ontology.ROOT_ID,
+        scope: "channel",
         name: "test-parent-listener-delete",
       });
       const g = await client.groups.create({
@@ -376,13 +392,13 @@ describe("Group queries", () => {
       const { result } = renderHook(
         () =>
           Group.useList({
-            initialQuery: { parent: group.resourceID(parent.key) },
+            initialQuery: { parents: [group.resourceID(parent.key)] },
           }),
         { wrapper },
       );
 
       act(() => {
-        result.current.retrieve({ parent: group.resourceID(parent.key) });
+        result.current.retrieve({ parents: [group.resourceID(parent.key)] });
       });
 
       await waitFor(() => {
@@ -401,11 +417,11 @@ describe("Group queries", () => {
 
     it("should add a group to the list when a group is re-parented", async () => {
       const parent1 = await client.groups.create({
-        parent: ontology.ROOT_ID,
+        scope: "channel",
         name: "test-parent-reparent-1",
       });
       const parent2 = await client.groups.create({
-        parent: ontology.ROOT_ID,
+        scope: "channel",
         name: "test-parent-reparent-2",
       });
       const g = await client.groups.create({
@@ -416,13 +432,13 @@ describe("Group queries", () => {
       const { result } = renderHook(
         () =>
           Group.useList({
-            initialQuery: { parent: group.resourceID(parent2.key) },
+            initialQuery: { parents: [group.resourceID(parent2.key)] },
           }),
         { wrapper },
       );
 
       act(() => {
-        result.current.retrieve({ parent: group.resourceID(parent2.key) });
+        result.current.retrieve({ parents: [group.resourceID(parent2.key)] });
       });
 
       await waitFor(() => {
@@ -449,11 +465,11 @@ describe("Group queries", () => {
 
     it("should remove a group from the list when a group is re-parented to a different parent", async () => {
       const parent1 = await client.groups.create({
-        parent: ontology.ROOT_ID,
+        scope: "channel",
         name: "test-parent-remove-1",
       });
       const parent2 = await client.groups.create({
-        parent: ontology.ROOT_ID,
+        scope: "channel",
         name: "test-parent-remove-2",
       });
       const g = await client.groups.create({
@@ -464,13 +480,13 @@ describe("Group queries", () => {
       const { result } = renderHook(
         () =>
           Group.useList({
-            initialQuery: { parent: group.resourceID(parent1.key) },
+            initialQuery: { parents: [group.resourceID(parent1.key)] },
           }),
         { wrapper },
       );
 
       act(() => {
-        result.current.retrieve({ parent: group.resourceID(parent1.key) });
+        result.current.retrieve({ parents: [group.resourceID(parent1.key)] });
       });
 
       await waitFor(() => {

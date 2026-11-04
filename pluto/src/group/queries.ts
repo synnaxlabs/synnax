@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { type group, type resource } from "@synnaxlabs/client";
+import { type group } from "@synnaxlabs/client";
 import { verbs } from "@synnaxlabs/x";
 
 import { Flux } from "@/flux";
@@ -20,37 +20,20 @@ export interface CreateParams extends group.CreateParams {}
 export const { useUpdate: useCreate } = Flux.createUpdate<CreateParams>({
   name: RESOURCE_NAME,
   verbs: verbs.CREATE,
-  update: async ({ data, client }) => {
-    const { parent } = data;
-    const res = await client.groups.create(data);
-    return { ...res, parent };
-  },
+  update: async ({ data, client }) => await client.groups.create(data),
 });
 
-export type ListQuery = {
-  parent?: resource.ID;
-  offset?: number;
-  limit?: number;
-};
+export type ListQuery = Pick<
+  group.RetrieveRequest,
+  "parents" | "scopes" | "nested" | "searchTerm" | "offset" | "limit"
+>;
 
 export const useList = Flux.createList<ListQuery, group.Key, group.Group>({
   name: PLURAL_RESOURCE_NAME,
-  retrieve: async ({ client, query }) => {
-    const { parent } = query;
-    if (parent == null) return [];
-    return await client.groups.retrieve({ ...query, parent });
-  },
+  retrieve: async ({ client, query }) => await client.groups.retrieve(query),
   retrieveByKey: async ({ client, key }) => await client.groups.retrieve(key),
-  onChange: ({ client, query }, handler) => {
-    const { parent } = query;
-    if (parent == null) return () => {};
-    return client.groups.onChange({ ...query, parent }, handler);
-  },
-  getCached: ({ client, query }) => {
-    const { parent } = query;
-    if (parent == null) return undefined;
-    return client.groups.getCached({ ...query, parent });
-  },
+  onChange: ({ client, query }, handler) => client.groups.onChange(query, handler),
+  getCached: ({ client, query }) => client.groups.getCached(query),
   onChangeByKey: ({ client, key }, handler) => client.groups.onChange(key, handler),
 });
 

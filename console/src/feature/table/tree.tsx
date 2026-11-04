@@ -85,10 +85,16 @@ const TreeContextMenu: Tree.ContextMenu = (props) => {
   );
 };
 
+/** Lists the tables that sit in a group. */
+export const GROUP_MEMBER: Group.Member = {
+  type: "table",
+  children: (client, key) =>
+    Tree.createSource(client.tables, { groups: [key] }, Tree.toResource("table")),
+};
+
 const TreeItem = Tree.createItem({
   type: "table",
   icon: <Icon.Table />,
-  hasChildren: false,
   useOnSelect: Panel.useOpenResource,
   haulItems: ({ id }) => [Mosaic.createTabCreateHaulItem(resource.idToString(id))],
   ContextMenu: TreeContextMenu,

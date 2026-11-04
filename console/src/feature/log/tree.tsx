@@ -85,10 +85,16 @@ const TreeContextMenu: Tree.ContextMenu = (props) => {
   );
 };
 
+/** Lists the logs that sit in a group. */
+export const GROUP_MEMBER: Group.Member = {
+  type: "log",
+  children: (client, key) =>
+    Tree.createSource(client.logs, { groups: [key] }, Tree.toResource("log")),
+};
+
 const TreeItem = Tree.createItem({
   type: "log",
   icon: <Icon.Log />,
-  hasChildren: false,
   useOnSelect: Panel.useOpenResource,
   haulItems: ({ id }) => [Mosaic.createTabCreateHaulItem(resource.idToString(id))],
   ContextMenu: TreeContextMenu,

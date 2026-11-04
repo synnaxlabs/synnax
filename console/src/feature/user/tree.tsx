@@ -110,7 +110,6 @@ const TreeItem = Tree.createItem({
   type: "user",
   icon: <Icon.User />,
   ContextMenu: TreeContextMenu,
-  hasChildren: false,
   haulItems: ({ data }) =>
     data == null ? [] : [User.createHaulItem(data as user.User)],
 });

@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { ontology, project, query, resource, type Synnax } from "@synnaxlabs/client";
+import { group, project, query, type resource, type Synnax } from "@synnaxlabs/client";
 import { array, deep, type record, verbs } from "@synnaxlabs/x";
 import type z from "zod";
 
@@ -72,19 +72,6 @@ export const { useUpdate: useRename } = Flux.createUpdate<RenameParams>({
   },
 });
 
-export type RetrieveGroupQuery = Record<string, never>;
-
-export const { use: useGroupID } = Flux.createRetrieve<
-  RetrieveGroupQuery,
-  resource.ID | undefined
->({
-  name: "project group",
-  retrieve: async ({ client }) => {
-    const res = await client.ontology.children.retrieve({ ids: ontology.ROOT_ID });
-    return res.find((r) => r.name === "Projects")?.id;
-  },
-});
-
 export const formSchema = project.projectZ.partial({ key: true });
 
 export const formPath = deep.path<z.infer<typeof formSchema>>();
@@ -117,39 +104,27 @@ export interface Child extends record.KeyedNamed {
   type: resource.Type;
 }
 
-const collectChildren = async (
-  client: Flux.RetrieveParams<RetrieveChildrenQuery>["client"],
-  parentID: resource.ID,
-  types: resource.Type[],
-  exclude?: string,
-): Promise<Child[]> => {
-  const children = await client.ontology.children.retrieve({
-    ids: parentID,
-    types: [...types, "group"],
-  });
-  const results = await Promise.all(
-    children.map(async (child): Promise<Child[]> => {
-      if (types.includes(child.id.type) && child.id.key !== exclude)
-        return [{ key: child.id.key, name: child.name, type: child.id.type }];
-      if (child.id.type === "group")
-        return await collectChildren(client, child.id, types, exclude);
-      return [];
-    }),
-  );
-  return results.flat();
-};
-
+// Until PR 6, a visualization outside every group finds its project through the
+// ontology.
 const findProjectAncestor = async (
-  client: Flux.RetrieveParams<RetrieveChildrenQuery>["client"],
-  resourceID: resource.ID,
+  client: Synnax,
+  id: resource.ID,
 ): Promise<resource.ID | null> => {
-  const { paths } = await client.ontology.ancestors.retrieve({ ids: resourceID });
-  for (const path of paths[resource.idToString(resourceID)] ?? [])
-    for (const id of path.toReversed()) {
-      if (id.type === "project") return id;
-      if (id.type !== "group") break;
-    }
-  return null;
+  const { data } = await client.ontology.retrieve(id);
+  const groupKey = group.keyZ.nullish().parse(data?.group);
+  if (groupKey == null) {
+    const parents = await client.ontology.parents.retrieve({
+      ids: id,
+      types: ["project"],
+    });
+    return parents[0]?.id ?? null;
+  }
+  const [start, ancestors] = await Promise.all([
+    client.groups.retrieve({ key: groupKey }),
+    client.groups.retrieveAncestors(groupKey),
+  ]);
+  const top = [start, ...ancestors].find(({ parent }) => parent?.type !== "group");
+  return top?.parent?.type === "project" ? top.parent : null;
 };
 
 /**
@@ -163,5 +138,10 @@ export const retrieveChildren = async (
   if (resourceID == null) return [];
   const projectID = await findProjectAncestor(client, resourceID);
   if (projectID == null) return [];
-  return await collectChildren(client, projectID, types, resourceID.key);
+  // Every visualization keeps its project's ontology edge, in a group or not, until PR
+  // 6.
+  const children = await client.ontology.children.retrieve({ ids: projectID, types });
+  return children
+    .filter(({ id }) => id.key !== resourceID.key)
+    .map(({ id, name }) => ({ key: id.key, name, type: id.type }));
 };

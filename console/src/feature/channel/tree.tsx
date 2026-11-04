@@ -247,9 +247,28 @@ const Content = ({ resource, icon: _, ...rest }: Tree.ContentProps) => {
   );
 };
 
+const toResource = (ch: channel.Channel): ontology.Resource =>
+  Tree.toResource("channel")(ch.payload);
+
+/** Lists the channels that sit in a group. */
+export const GROUP_MEMBER: Group.Member = {
+  type: "channel",
+  children: (client, key) =>
+    Tree.createSource(client.channels, { groups: [key] }, toResource),
+};
+
 const TreeItem = Tree.createItem({
   type: "channel",
   icon: <Icon.Channel />,
+  // Answers the root of the channel tree. A channel itself has no children.
+  children: ({ client }) => [
+    Tree.createSource(
+      client.groups,
+      { scopes: ["channel"], nested: false },
+      Tree.toResource("group"),
+    ),
+    Tree.createSource(client.channels, { grouped: false, internal: false }, toResource),
+  ],
   hasChildren: false,
   useOnSelect: useOpen,
   haulItems,

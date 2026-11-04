@@ -60,9 +60,8 @@ const renderSymbolsToolbar = async (as?: Client) =>
 const createRemoteSymbolGroup = async (
   symbolNames: string[],
 ): Promise<{ grp: group.Group; symbols: schematic.symbol.Symbol[] }> => {
-  const root = await client.schematics.symbols.retrieveGroup();
   const grp = await client.groups.create({
-    parent: group.resourceID(root.key),
+    scope: "schematic_symbol",
     name: uniqueName("remote_grp"),
   });
   const symbols: schematic.symbol.Symbol[] = [];
@@ -70,7 +69,7 @@ const createRemoteSymbolGroup = async (
     symbols.push(
       await client.schematics.symbols.create({
         ...createSymbolPayload(name),
-        parent: group.resourceID(grp.key),
+        group: grp.key,
       }),
     );
   return { grp, symbols };
@@ -201,8 +200,7 @@ describe("Schematic toolbar Symbols", () => {
     name.innerText = renamed;
     fireEvent.keyDown(name, { key: "Enter" });
     await waitFor(async () => {
-      const resource = await client.ontology.retrieve(group.resourceID(grp.key));
-      expect(resource.name).toBe(renamed);
+      expect((await client.groups.retrieve({ key: grp.key })).name).toBe(renamed);
     });
   });
 
@@ -244,13 +242,13 @@ describe("Schematic toolbar Symbols", () => {
     const name = uniqueName("new_grp");
     fireEvent.change(input, { target: { value: name } });
     fireEvent.click(screen.getByRole("button", { name: "Save" }));
-    const root = await client.schematics.symbols.retrieveGroup();
-    await waitFor(async () => {
-      const children = await client.ontology.children.retrieve({
-        ids: group.resourceID(root.key),
-      });
-      expect(children.map((c) => c.name)).toContain(name);
+    const [created] = await waitFor(async () => {
+      const found = await client.groups.retrieve({ searchTerm: name });
+      if (found[0]?.name !== name) throw new Error(`group ${name} not created`);
+      return found;
     });
+    expect(created.scope).toBe("schematic_symbol");
+    expect(created.parent).toBeUndefined();
   });
 });
 

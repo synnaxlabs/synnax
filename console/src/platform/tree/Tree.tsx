@@ -10,7 +10,6 @@
 import {
   NotFoundError,
   type ontology,
-  query,
   resource,
   type Synnax as Client,
 } from "@synnaxlabs/client";
@@ -22,7 +21,7 @@ import { List } from "@synnaxlabs/lyra/list";
 import { Menu } from "@synnaxlabs/lyra/menu";
 import { Status } from "@synnaxlabs/lyra/status";
 import { Tree as Base } from "@synnaxlabs/lyra/tree";
-import { Access, Ontology, Synnax } from "@synnaxlabs/pluto";
+import { Access, Synnax } from "@synnaxlabs/pluto";
 import { array, type destructor, type observe } from "@synnaxlabs/x";
 import {
   type DragEvent,
@@ -39,6 +38,7 @@ import { useStore } from "react-redux";
 import { ContextMenu } from "@/platform/context-menu";
 import { Errors } from "@/platform/errors";
 import { Panel } from "@/platform/panel";
+import { type Source } from "@/platform/tree/children";
 import { DefaultContextMenu } from "@/platform/tree/DefaultContextMenu";
 import { DefaultItem, type Item } from "@/platform/tree/item";
 import { MultipleSelectionContextMenu } from "@/platform/tree/MultipleSelectionContextMenu";
@@ -170,6 +170,18 @@ const keepLoadedChildren = (
     return existing == null ? node : { ...node, children: existing.children };
   });
 
+// A list of children is whole only once every source has answered.
+const combine = (
+  answers: Array<ontology.Resource[] | undefined>,
+): ontology.Resource[] | null => {
+  const combined: ontology.Resource[] = [];
+  for (const answer of answers) {
+    if (answer == null) return null;
+    combined.push(...answer);
+  }
+  return combined;
+};
+
 const toNodes = (
   resources: ontology.Resource[],
   resolveItem: (type: resource.Type) => Item,
@@ -191,40 +203,56 @@ const Internal = ({ root, emptyContent }: InternalProps): ReactElement => {
   const loadingRef = useRef<string | false>(false);
   const handleError = Status.useErrorHandler();
   const client = Synnax.use();
-  // The retained answer seeds the first render, not an effect: an effect runs
-  // after the commit paints, so the tree would still show one empty frame.
-  const [seed] = useState<Base.Node<string>[] | null>(() => {
-    const cached = client?.ontology.children.getCached({ ids: root });
-    return query.isLive(cached) ? toNodes(cached, resolveItem) : null;
-  });
-  const [nodes, setNodes, nodesRef] = useCombinedStateAndRef<Base.Node<string>[]>(
-    seed ?? [],
-  );
-  // An unanswered root has no children yet and no empty content: they are the
-  // same node list, and only the answer tells them apart.
-  const [answered, setAnswered] = useState(seed != null);
-  const loadingListenersRef = useInitializerRef(() => new Set<observe.Handler<void>>());
-
   // Placeholder resources back tree items (e.g. a just-created group awaiting its
   // inline rename) before the Core delivers the real resource.
   const placeholders = List.useMapData<string, ontology.Resource>();
 
+  const resolveSources = (
+    client: Client,
+    id: resource.ID,
+    res: ontology.Resource | undefined,
+  ): Source[] => {
+    const { children } = resolveItem(id.type);
+    if (children == null) throw new Error(`no children resolver for ${id.type}`);
+    return children({ client, id, resource: res });
+  };
+
+  // The retained answer seeds the first render, not an effect: an effect runs
+  // after the commit paints, so the tree would still show one empty frame.
+  const [seed] = useState<ontology.Resource[] | null>(() =>
+    client == null
+      ? null
+      : combine(resolveSources(client, root, undefined).map((s) => s.getCached())),
+  );
+  // Every resource an answer has delivered.
+  const answered = List.useMapData<string, ontology.Resource>({
+    initialData: seed ?? [],
+  });
+  const [nodes, setNodes, nodesRef] = useCombinedStateAndRef<Base.Node<string>[]>(() =>
+    seed == null ? [] : toNodes(seed, resolveItem),
+  );
+  // An unanswered root has no children yet and no empty content: they are the
+  // same node list, and only the answer tells them apart.
+  const [rootAnswered, setRootAnswered] = useState(seed != null);
+  const loadingListenersRef = useInitializerRef(() => new Set<observe.Handler<void>>());
+
   const getResourceByKey = (key: string): ontology.Resource | undefined =>
-    client?.ontology.cache.resources.get(key) ?? placeholders.getItem(key);
+    answered.getItem(key) ?? placeholders.getItem(key);
 
   const subscribeResource = (
     handler: () => void,
     key: string,
   ): destructor.Destructor => {
     const releasePlaceholder = placeholders.subscribe(handler, key);
-    const releaseCached = client?.ontology.cache.resources.subscribe(handler, key);
+    const releaseAnswered = answered.subscribe(handler, key);
     return () => {
       releasePlaceholder();
-      releaseCached?.();
+      releaseAnswered();
     };
   };
 
   const applyAnswer = (parent: resource.ID, resources: ontology.Resource[]) => {
+    answered.setItem(resources);
     const next = toNodes(resources, resolveItem);
     const nextKeys = new Set(next.map(({ key }) => key));
     // A placeholder stands in only until the Core delivers the real resource, which
@@ -244,7 +272,7 @@ const Internal = ({ root, emptyContent }: InternalProps): ReactElement => {
     ];
     if (resource.idsEqual(parent, root)) {
       setNodes(merge);
-      setAnswered(true);
+      setRootAnswered(true);
       return;
     }
     setNodes((prevNodes) => [
@@ -285,21 +313,37 @@ const Internal = ({ root, emptyContent }: InternalProps): ReactElement => {
       if (loadingRef.current === key) setLoading(false);
       return;
     }
-    // Subscribe before fetching. A change landing between the two would
-    // otherwise reach neither the answer nor the tree.
-    watchedRef.current.set(
-      key,
-      client.ontology.children.onChange({ ids: parent }, (answer) => {
-        if (query.isLive(answer)) applyAnswer(parent, answer);
-      }),
-    );
-    // A retained answer paints before the fetch that reconfirms it.
-    const cached = client.ontology.children.getCached({ ids: parent });
-    if (query.isLive(cached)) applyAnswer(parent, cached);
     try {
-      const resources = await client.ontology.children.retrieve({ ids: parent });
+      const sources = resolveSources(client, parent, getResourceByKey(key));
+      const answers: Array<ontology.Resource[] | undefined> = sources.map(
+        () => undefined,
+      );
+      const deliver = () => {
+        const combined = combine(answers);
+        if (combined != null) applyAnswer(parent, combined);
+      };
+      // Subscribe before fetching. A change landing between the two would otherwise
+      // reach neither the answer nor the tree.
+      const releases = sources.map((source, i) =>
+        source.onChange((answer) => {
+          answers[i] = answer;
+          deliver();
+        }),
+      );
+      watchedRef.current.set(key, () => releases.forEach((release) => release()));
+      // A retained answer paints before the fetch that reconfirms it.
+      sources.forEach((source, i) => {
+        if (answers[i] == null) answers[i] = source.getCached();
+      });
+      deliver();
+      const fetched = await Promise.all(
+        sources.map(async (source) => await source.retrieve()),
+      );
       // A release during the fetch means the answer is no longer wanted.
-      if (watchedRef.current.has(key)) applyAnswer(parent, resources);
+      if (watchedRef.current.has(key)) {
+        fetched.forEach((answer, i) => (answers[i] = answer));
+        deliver();
+      }
     } catch (e) {
       handleError(e, "Failed to retrieve resources");
     }
@@ -400,8 +444,6 @@ const Internal = ({ root, emptyContent }: InternalProps): ReactElement => {
   const addStatus = Status.useAdder();
   const store = useStore<State, Action>();
 
-  const { update: moveChildren } = Ontology.useMoveChildren({});
-
   const getBaseProps = (client: Client): BaseProps => ({
     client,
     store,
@@ -410,6 +452,17 @@ const Internal = ({ root, emptyContent }: InternalProps): ReactElement => {
     handleError,
   });
 
+  const findAncestors = (tree: Base.Node<string>[], key: string): resource.ID[] => {
+    const ancestors: resource.ID[] = [];
+    let parent = Base.findNodeParent({ tree, key });
+    while (parent != null) {
+      ancestors.push(resource.parseID(parent.key));
+      parent = Base.findNodeParent({ tree, key: parent.key });
+    }
+    ancestors.push(root);
+    return ancestors;
+  };
+
   const handleDrop = (
     key: string,
     { source, items }: Haul.OnDropProps,
@@ -417,10 +470,11 @@ const Internal = ({ root, emptyContent }: InternalProps): ReactElement => {
     const nodesSnapshot = nodesRef.current;
     const dropped = Base.filterHaulItems(items);
     const isValidDrop = dropped.length > 0 && source.type === Base.HAUL_TYPE;
-    if (!isValidDrop) return [];
-    const destination = resource.parseID(key);
-    const svc = resolveItem(destination.type);
-    if (!svc.canDrop({ source, items })) return [];
+    if (!isValidDrop || client == null) return [];
+    const destination = getResourceByKey(key);
+    if (destination == null) return [];
+    const { canDrop, drop } = resolveItem(destination.id.type);
+    if (drop == null || !canDrop({ source, items, destination })) return [];
 
     // An item inside another dragged item travels with it. Moving it explicitly
     // would re-parent it onto the destination as a sibling of its own parent.
@@ -428,23 +482,18 @@ const Internal = ({ root, emptyContent }: InternalProps): ReactElement => {
     const contained = findContainedKeys(nodesSnapshot, droppedKeys);
     const moved = dropped.filter(({ key }) => !contained.has(key));
     if (moved.length === 0) return [];
-
-    // Each item leaves its own parent: a selection can span several.
-    const bySource = new Map<string, resource.ID[]>();
-    moved.forEach(({ key }) => {
-      const parent = Base.findNodeParent({ tree: nodesSnapshot, key });
-      const sourceKey = parent?.key ?? resource.idToString(root);
-      const ids = bySource.get(sourceKey) ?? [];
-      ids.push(resource.parseID(key));
-      bySource.set(sourceKey, ids);
-    });
     contract(...moved.map(({ key }) => key));
-    bySource.forEach((ids, sourceKey) =>
-      moveChildren({
-        source: resource.parseID(sourceKey),
-        destination,
-        ids,
-      }),
+    handleError(
+      async () =>
+        await drop({
+          client,
+          destination,
+          items: moved.map(({ key }) => ({
+            id: resource.parseID(key),
+            ancestors: findAncestors(nodesSnapshot, key),
+          })),
+        }),
+      "Failed to move resources",
     );
     return moved;
   };
@@ -537,7 +586,7 @@ const Internal = ({ root, emptyContent }: InternalProps): ReactElement => {
         // Not getResource: it throws, and a resource may not be cached before
         // the tree attempts to render it.
         getItem={getItem}
-        emptyContent={answered ? emptyContent : null}
+        emptyContent={rootAnswered ? emptyContent : null}
         pinned={pinned}
         onContextMenu={menuProps.open}
       >

@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { channel, DataType, type group, query, type ranger } from "@synnaxlabs/client";
+import { channel, DataType, query, type ranger } from "@synnaxlabs/client";
 import {
   array,
   control,
@@ -284,11 +284,4 @@ export const { useUpdate: useDeleteAlias } = Flux.createUpdate<DeleteAliasParams
     });
     return data;
   },
-});
-
-type RetrieveGroupQuery = Record<string, never>;
-
-export const { use: useGroup } = Flux.createRetrieve<RetrieveGroupQuery, group.Group>({
-  name: "channel group",
-  retrieve: async ({ client }) => await client.channels.retrieveGroup(),
 });

@@ -13,6 +13,7 @@ import { waitFor } from "@testing-library/react";
 import { describe, expect, it } from "vitest";
 
 import { Panel } from "@/feature/panel";
+import { Project } from "@/feature/project";
 import { findTreeRow, renderOntologyTree } from "@/platform/tree/testutil";
 import { uniqueName } from "@/testutil";
 
@@ -30,7 +31,7 @@ const renderPanelTree = async (
   await renderOntologyTree({
     client,
     root: project.resourceID(key),
-    items: Panel.TREE_ITEMS,
+    items: { ...Project.TREE_ITEMS, ...Panel.TREE_ITEMS },
   });
   return pan;
 };

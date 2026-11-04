@@ -9,7 +9,7 @@
 
 import "@/platform/tree/item.css";
 
-import { type ontology, type resource } from "@synnaxlabs/client";
+import { type ontology, type resource, type Synnax } from "@synnaxlabs/client";
 import { type Haul } from "@synnaxlabs/lyra/haul";
 import { Icon } from "@synnaxlabs/lyra/icon";
 import { List } from "@synnaxlabs/lyra/list";
@@ -18,6 +18,7 @@ import { Tree as Base } from "@synnaxlabs/lyra/tree";
 import { type FC, type ReactElement } from "react";
 
 import { CSS } from "@/platform/css";
+import { type Children } from "@/platform/tree/children";
 import { type ContextMenu } from "@/platform/tree/types";
 
 // ItemProps are the props the Tree passes to a resource type's Item. The Item owns its
@@ -39,10 +40,39 @@ export interface Content extends FC<ContentProps> {}
 // Item renders a single resource row in the ontology tree. The component carries the
 // static, render-independent behavior for its resource type (children, drag, context
 // menu, visibility) as properties, read imperatively by the Tree.
+export interface CanDropProps extends Haul.DraggingState {
+  /** The resource the items would drop onto. */
+  destination: ontology.Resource;
+}
+
+/** Decides whether a node accepts the dragged items. */
+export interface CanDrop {
+  (props: CanDropProps): boolean;
+}
+
+export interface Dropped {
+  id: resource.ID;
+  /** The tree ancestors of the item, nearest first, ending with the tree root. */
+  ancestors: resource.ID[];
+}
+
+export interface DropProps {
+  client: Synnax;
+  destination: ontology.Resource;
+  items: Dropped[];
+}
+
+/** Moves the dropped items into a node. */
+export interface Drop {
+  (props: DropProps): Promise<void>;
+}
+
 export interface Item extends FC<ItemProps> {
   type: resource.Type;
   hasChildren: boolean;
-  canDrop: Haul.CanDrop;
+  children?: Children;
+  canDrop: CanDrop;
+  drop?: Drop;
   haulItems: (resource: ontology.Resource) => Haul.Item[];
   ContextMenu?: ContextMenu;
   visible?: (resource: ontology.Resource) => boolean;
@@ -76,8 +106,13 @@ export interface CreateItemParams {
   type: resource.Type;
   icon?: Icon.ReactElement | ((resource: ontology.Resource) => Icon.ReactElement);
   useOnSelect?: () => (resource: ontology.Resource) => void;
+  /** Lists the children of a node of this type, or of the tree root it names. */
+  children?: Children;
+  /** Whether a node of this type expands. Defaults to whether it lists children. */
   hasChildren?: boolean;
-  canDrop?: Haul.CanDrop;
+  canDrop?: CanDrop;
+  /** Moves dropped items into a node of this type. Required when canDrop can pass. */
+  drop?: Drop;
   haulItems?: (resource: ontology.Resource) => Haul.Item[];
   ContextMenu?: ContextMenu;
   visible?: (resource: ontology.Resource) => boolean;
@@ -88,8 +123,10 @@ export const createItem = ({
   type,
   icon,
   useOnSelect = () => noop,
-  hasChildren = true,
+  children,
+  hasChildren = children != null,
   canDrop = () => false,
+  drop,
   haulItems = () => [],
   ContextMenu,
   visible,
@@ -107,7 +144,9 @@ export const createItem = ({
   const item = Component as Item;
   item.type = type;
   item.hasChildren = hasChildren;
+  item.children = children;
   item.canDrop = canDrop;
+  item.drop = drop;
   item.haulItems = haulItems;
   item.ContextMenu = ContextMenu;
   item.visible = visible;

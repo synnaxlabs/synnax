@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { group, imex, type resource, schematic } from "@synnaxlabs/client";
+import { group, imex, schematic } from "@synnaxlabs/client";
 import { Button } from "@synnaxlabs/lyra/button";
 import { Component } from "@synnaxlabs/lyra/component";
 import { Flex } from "@synnaxlabs/lyra/flex";
@@ -190,7 +190,7 @@ const RemoteSymbolListContextMenu = ({
     },
   });
   const handleEdit = () => {
-    openEdit({ symbolKey: firstKey, parent: group.resourceID(rest.groupKey) });
+    openEdit({ symbolKey: firstKey });
   };
   return (
     <ContextMenu.Menu>
@@ -216,7 +216,7 @@ const RemoteSymbolListContextMenu = ({
 const useCreateSymbol = (selectedGroup: string) => {
   const openEdit = Symbol.Edit.useModal();
   const handleCreateSymbol = () => {
-    openEdit({ parent: group.resourceID(selectedGroup) });
+    openEdit({ group: selectedGroup });
   };
   return handleCreateSymbol;
 };
@@ -240,7 +240,7 @@ const RemoteListEmptyContent = ({
 
 const RemoteSymbolList = ({ groupKey }: SymbolListProps): ReactElement => {
   const listData = Schematic.Symbol.useList({
-    initialQuery: { parent: group.resourceID(groupKey) },
+    initialQuery: { groups: [groupKey] },
   });
   const { fetchMore } = List.usePager({ retrieve: listData.retrieve });
   useEffect(() => fetchMore(), [fetchMore]);
@@ -316,11 +316,10 @@ const ImportGroupIcon = Icon.createComposite(Icon.Group, {
 });
 
 export interface ActionsProps {
-  symbolGroupID: resource.ID;
   selectedGroup: string;
 }
 
-const Actions = ({ symbolGroupID, selectedGroup }: ActionsProps): ReactElement => {
+const Actions = ({ selectedGroup }: ActionsProps): ReactElement => {
   const { updateAsync } = Group.useCreate();
   const rename = Modals.useRename();
   const handleError = Status.useErrorHandler();
@@ -344,7 +343,7 @@ const Actions = ({ symbolGroupID, selectedGroup }: ActionsProps): ReactElement =
       await updateAsync({
         key: uuid.create(),
         name: result,
-        parent: symbolGroupID,
+        scope: schematic.symbol.TYPE_RESOURCE_ID.type,
       });
     }, "Failed to create group");
   };
@@ -353,7 +352,7 @@ const Actions = ({ symbolGroupID, selectedGroup }: ActionsProps): ReactElement =
 
   const handleCreateSymbol = () => {
     if (!isRemoteGroup) return;
-    openEdit({ parent: group.resourceID(selectedGroup) });
+    openEdit({ group: selectedGroup });
   };
 
   return (
@@ -404,9 +403,7 @@ const Actions = ({ symbolGroupID, selectedGroup }: ActionsProps): ReactElement =
   );
 };
 
-export interface GroupListProps extends Input.Control<group.Key> {
-  symbolGroupID?: resource.ID;
-}
+export interface GroupListProps extends Input.Control<group.Key> {}
 
 const GroupListContextMenu = ({
   keys,
@@ -453,18 +450,14 @@ const GroupListContextMenu = ({
 
 const groupListContextMenu = Component.renderProp(GroupListContextMenu);
 
-const GroupList = ({
-  value,
-  onChange,
-  symbolGroupID,
-}: GroupListProps): ReactElement => {
+const GroupList = ({ value, onChange }: GroupListProps): ReactElement => {
   const staticData = List.useStaticData<group.Key, group.Group>({
     data: Schematic.Node.GROUPS,
   });
-  const remoteData = Group.useList({ initialQuery: { parent: symbolGroupID } });
+  const remoteData = Group.useList({ initialQuery: Schematic.Symbol.GROUP_QUERY });
   useEffect(
-    () => remoteData.retrieve({ parent: symbolGroupID }),
-    [remoteData.retrieve, symbolGroupID],
+    () => remoteData.retrieve(Schematic.Symbol.GROUP_QUERY),
+    [remoteData.retrieve],
   );
   const listProps = List.useCombinedData<group.Key, group.Group>({
     first: staticData,
@@ -556,15 +549,11 @@ export const Symbols = ({ change }: SymbolsProps): ReactElement => {
   const isRemoteGroup = z.validate(group.keyZ, groupKey);
 
   const [searchTerm, setSearchTerm] = useState("");
-  const { data: symbolGroup } = Schematic.Symbol.useResultGroup({});
   const searchMode = searchTerm.length > 0;
   let symbolList = <StaticSymbolList key={groupKey} groupKey={groupKey} />;
   if (isRemoteGroup)
     symbolList = <RemoteSymbolList key={groupKey} groupKey={groupKey} />;
   else if (searchMode) symbolList = <SearchSymbolList searchTerm={searchTerm} />;
-  const symbolGroupKey = symbolGroup?.key;
-  const symbolGroupID =
-    symbolGroupKey == null ? undefined : group.resourceID(symbolGroupKey);
   return (
     <ChangeContext value={change}>
       <Flex.Box
@@ -584,14 +573,8 @@ export const Symbols = ({ change }: SymbolsProps): ReactElement => {
             flush
             className={CSS.BE("schematic", "symbols", "search")}
           />
-          <GroupList
-            value={groupKey}
-            onChange={setGroupKey}
-            symbolGroupID={symbolGroupID}
-          />
-          {symbolGroupID != null && (
-            <Actions symbolGroupID={symbolGroupID} selectedGroup={groupKey} />
-          )}
+          <GroupList value={groupKey} onChange={setGroupKey} />
+          <Actions selectedGroup={groupKey} />
         </Flex.Box>
         {symbolList}
       </Flex.Box>

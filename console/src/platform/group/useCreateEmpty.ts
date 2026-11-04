@@ -14,9 +14,11 @@ import { Tree as PTree } from "@synnaxlabs/lyra/tree";
 import { type Flux, Group } from "@synnaxlabs/pluto";
 import { uuid } from "@synnaxlabs/x";
 
+import { placement } from "@/platform/group/move";
 import { type Tree } from "@/platform/tree";
 
 export interface UseCreateEmptyProps {
+  /** The node to create the group under. */
   parent: resource.ID;
   root: resource.ID;
   state: Tree.TreeState;
@@ -37,9 +39,7 @@ export const useCreateEmpty = ({
       const res: ontology.Resource = { key: newIDString, id: newID, name: "" };
       const node: PTree.Node<string> = { key: newIDString, children: [] };
       setResource(res);
-      const destination = resource.idsEqual(data.parent, root)
-        ? null
-        : resource.idToString(data.parent);
+      const destination = data.parent == null ? null : resource.idToString(data.parent);
       if (destination != null) expand(destination);
       setNodes([...PTree.setNode({ tree, destination, additions: node })]);
       rollbacks.push(() =>
@@ -50,5 +50,5 @@ export const useCreateEmpty = ({
       return { ...data, key: newID.key, name };
     },
   });
-  return () => update({ key: uuid.create(), name: "", parent });
+  return () => update({ key: uuid.create(), name: "", ...placement(parent, root) });
 };

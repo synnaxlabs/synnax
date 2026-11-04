@@ -13,6 +13,7 @@ import { fireEvent, screen, waitFor } from "@testing-library/react";
 import { describe, expect, it } from "vitest";
 
 import { Log } from "@/feature/log";
+import { Project } from "@/feature/project";
 import {
   createResource,
   findModalButton,
@@ -87,7 +88,7 @@ describe("log ontology service", () => {
     const { store } = await renderOntologyTree({
       client,
       root: project.resourceID(proj.key),
-      items: Log.TREE_ITEMS,
+      items: { ...Project.TREE_ITEMS, ...Log.TREE_ITEMS },
     });
     fireEvent.doubleClick(await findTreeRow(l.name));
     const tab = await resolveFocusedTab(store, client);

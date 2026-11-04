@@ -1004,16 +1004,6 @@ describe("queries", () => {
     });
   });
 
-  describe("useGroupID", () => {
-    it("should retrieve the group ID", async () => {
-      const { result } = await renderHookSuspended(() => Device.useGroupID({}), {
-        wrapper,
-      });
-      await waitFor(() => expect(result.current?.type).toEqual("group"));
-      expect(result.current?.key).not.toBeFalsy();
-    });
-  });
-
   describe("useMultiple", () => {
     const createDevice = async (make: string) => {
       const rack = await client.racks.create({ name: "test" });

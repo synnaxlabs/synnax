@@ -9,7 +9,7 @@
 
 import { project } from "@synnaxlabs/client";
 import { Icon } from "@synnaxlabs/lyra/icon";
-import { Access, Project } from "@synnaxlabs/pluto";
+import { Access } from "@synnaxlabs/pluto";
 import { type ReactElement } from "react";
 
 import { Empty } from "@/platform/empty";
@@ -44,10 +44,9 @@ const Content = (): ReactElement => (
   </Toolbar.Content>
 );
 
-const Body = (): ReactElement => {
-  const groupID = Project.useGroupID({});
-  return <Tree.Tree root={groupID} emptyContent={<EmptyContent />} />;
-};
+const Body = (): ReactElement => (
+  <Tree.Tree root={project.TYPE_RESOURCE_ID} emptyContent={<EmptyContent />} />
+);
 
 const EmptyContent = () => {
   const openCreate = PlatformProject.useCreateModal();

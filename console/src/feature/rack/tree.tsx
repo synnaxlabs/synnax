@@ -9,7 +9,7 @@
 
 import "@/feature/rack/tree.css";
 
-import { arc, device, rack, task } from "@synnaxlabs/client";
+import { arc, device, rack, resource, task } from "@synnaxlabs/client";
 import { Icon } from "@synnaxlabs/lyra/icon";
 import { List } from "@synnaxlabs/lyra/list";
 import { Menu } from "@synnaxlabs/lyra/menu";
@@ -162,9 +162,38 @@ const TreeContextMenu: Tree.ContextMenu = (props) => {
   );
 };
 
+/** Lists the racks that sit in a group. */
+export const GROUP_MEMBER: Group.Member = {
+  type: "rack",
+  children: (client, key) =>
+    Tree.createSource(client.racks, { groups: [key] }, Device.toRackResource),
+};
+
+const DROPPABLE_TYPES = new Set<resource.Type>(["group", "device"]);
+
 const TreeItem = Tree.createItem({
   type: "rack",
   icon: <Icon.Rack />,
+  children: ({ client, id }) => [
+    Tree.createSource(client.groups, { parents: [id] }, Tree.toResource("group")),
+    Tree.createSource(
+      client.devices,
+      { racks: [Number(id.key)], grouped: false },
+      Tree.toResource("device"),
+    ),
+  ],
+  canDrop: ({ items }) =>
+    PTree.filterHaulItems(items).every(({ key }) =>
+      DROPPABLE_TYPES.has(resource.parseID(key).type),
+    ),
+  drop: async ({ client, destination, items }) => {
+    await client.batch.send(
+      Group.moveRequests(
+        items.map(({ id }) => id),
+        destination.id,
+      ),
+    );
+  },
   ContextMenu: TreeContextMenu,
   Content,
 });

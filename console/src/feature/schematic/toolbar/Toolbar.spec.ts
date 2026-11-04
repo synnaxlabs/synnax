@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { group, type schematic } from "@synnaxlabs/client";
+import { type schematic } from "@synnaxlabs/client";
 import { Schematic } from "@synnaxlabs/pluto";
 import { fireEvent, screen, waitFor, within } from "@testing-library/react";
 import { afterEach, describe, expect, it, vi } from "vitest";
@@ -270,11 +270,9 @@ describe("Toolbar", () => {
     });
 
     it("changes a symbol to a custom symbol", async () => {
-      const root = await client.schematics.symbols.retrieveGroup();
-      const symbol = await client.schematics.symbols.create({
-        ...createSymbolPayload(uniqueName("custom")),
-        parent: group.resourceID(root.key),
-      });
+      const symbol = await client.schematics.symbols.create(
+        createSymbolPayload(uniqueName("custom")),
+      );
       const { key } = await renderSelected({
         n1: Schematic.Node.createConfig({ variant: "valve" }),
       });

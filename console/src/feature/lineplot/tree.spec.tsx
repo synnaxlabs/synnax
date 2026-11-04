@@ -23,6 +23,7 @@ import { describe, expect, it } from "vitest";
 
 import { LinePlot } from "@/feature/lineplot";
 import { client, createPreloadedState, project } from "@/feature/lineplot/testutil";
+import { Project } from "@/feature/project";
 import {
   createBaseProps,
   createResource,
@@ -210,7 +211,7 @@ describe("lineplot/ontology", () => {
       const { store } = await renderOntologyTree({
         client,
         root: clientProject.resourceID(await project()),
-        items: LinePlot.TREE_ITEMS,
+        items: { ...Project.TREE_ITEMS, ...LinePlot.TREE_ITEMS },
       });
       fireEvent.doubleClick(await findTreeRow(plot.name));
       const tab = await resolveFocusedTab(store, client);

@@ -9,7 +9,6 @@
 
 import {
   type arc,
-  group,
   lineplot,
   type panel,
   project,
@@ -281,19 +280,20 @@ describe("Sample project", () => {
     }
   });
 
-  it("should move the schematic back under the project on a reset", async () => {
+  it("should move the schematic out of its group on a reset", async () => {
     const { sample, open, waitForOpened } = await openFromPalette();
-    const projectID = project.resourceID(sample.project);
-    const schematicID = schematic.resourceID(sample.schematic);
-    const folder = await client.groups.create({ parent: projectID, name: "Folder" });
-    const folderID = group.resourceID(folder.key);
-    await client.ontology.moveChildren(projectID, folderID, schematicID);
+    const folder = await client.groups.create({
+      parent: project.resourceID(sample.project),
+      name: "Folder",
+    });
+    await client.schematics.setGroup(sample.schematic, folder.key);
     await open();
     fireEvent.click(await screen.findByRole("button", { name: "Reset" }));
-    await waitFor(async () => {
-      const parents = await client.ontology.parents.retrieve({ ids: schematicID });
-      expect(parents.map(({ id }) => id)).toEqual([projectID]);
-    });
+    await waitFor(async () =>
+      expect(
+        (await client.schematics.retrieve(sample.schematic)).group,
+      ).toBeUndefined(),
+    );
     await waitForOpened(sample);
     await client.groups.delete(folder.key);
   });

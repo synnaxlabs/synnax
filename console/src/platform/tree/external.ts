@@ -7,6 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
+export * from "@/platform/tree/children";
 export * from "@/platform/tree/CopyPropertiesContextMenuItem";
 export * from "@/platform/tree/createUseDelete";
 export * from "@/platform/tree/createUseRename";

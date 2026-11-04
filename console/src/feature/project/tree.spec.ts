@@ -9,6 +9,8 @@
 
 import { NotFoundError, project } from "@synnaxlabs/client";
 import { createTestClient, RoleClients } from "@synnaxlabs/client/testutil";
+import { type Haul } from "@synnaxlabs/lyra/haul";
+import { Tree as PTree } from "@synnaxlabs/lyra/tree";
 import { fireEvent, screen, waitFor } from "@testing-library/react";
 import { afterEach, describe, expect, it, vi } from "vitest";
 
@@ -145,12 +147,9 @@ describe("project ontology service", () => {
 
   it("should select the project when the row is double-clicked", async () => {
     const p = await createProject();
-    const [parent] = await client.ontology.parents.retrieve({
-      ids: project.resourceID(p.key),
-    });
     const { store } = await renderOntologyTree({
       client,
-      root: parent.id,
+      root: project.TYPE_RESOURCE_ID,
       items: Project.TREE_ITEMS,
     });
     fireEvent.doubleClick(await findTreeRow(p.name));
@@ -159,16 +158,15 @@ describe("project ontology service", () => {
     );
   });
 
-  it("should only accept mosaic-compatible children on drop", () => {
-    const { canDrop } = Item;
-    const source = { key: "s", type: "t" };
-    expect(canDrop({ source, items: [{ key: "log:abc", type: "log" }] })).toBe(true);
-    expect(canDrop({ source, items: [{ key: "schematic:abc", type: "x" }] })).toBe(
-      true,
-    );
-    expect(canDrop({ source, items: [{ key: "channel:1", type: "channel" }] })).toBe(
-      false,
-    );
+  it("should only accept visualizations and groups on drop", () => {
+    const source: Haul.Item = { key: "tree", type: PTree.HAUL_TYPE };
+    const destination = projectResource("p1", "project");
+    const canDrop = (key: string): boolean =>
+      Item.canDrop({ source, items: [PTree.createHaulItem(key)], destination });
+    expect(canDrop("log:abc")).toBe(true);
+    expect(canDrop("schematic:abc")).toBe(true);
+    expect(canDrop("group:abc")).toBe(true);
+    expect(canDrop("channel:1")).toBe(false);
   });
 });
 

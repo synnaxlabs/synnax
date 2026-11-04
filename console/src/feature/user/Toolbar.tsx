@@ -7,9 +7,9 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { user } from "@synnaxlabs/client";
+import { access, user } from "@synnaxlabs/client";
 import { Icon } from "@synnaxlabs/lyra/icon";
-import { Access, User } from "@synnaxlabs/pluto";
+import { Access } from "@synnaxlabs/pluto";
 import { type ReactElement } from "react";
 
 import { Empty } from "@/platform/empty";
@@ -44,10 +44,9 @@ const Content = (): ReactElement => {
   );
 };
 
-const Body = (): ReactElement => {
-  const groupID = User.useGroupID({});
-  return <Tree.Tree root={groupID} emptyContent={<EmptyContent />} />;
-};
+const Body = (): ReactElement => (
+  <Tree.Tree root={access.role.TYPE_RESOURCE_ID} emptyContent={<EmptyContent />} />
+);
 
 const EmptyContent = (): ReactElement => {
   const openRegister = PlatformUser.useRegisterModal();

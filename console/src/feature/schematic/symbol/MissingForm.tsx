@@ -9,7 +9,7 @@
 
 import "@/feature/schematic/symbol/MissingForm.css";
 
-import { group, type schematic } from "@synnaxlabs/client";
+import { type group, type schematic } from "@synnaxlabs/client";
 import { Button } from "@synnaxlabs/lyra/button";
 import { Divider } from "@synnaxlabs/lyra/divider";
 import { Flex } from "@synnaxlabs/lyra/flex";
@@ -28,7 +28,6 @@ const path = deep.path<{ specKey: schematic.symbol.Key; stateOverrides: unknown[
 export const MissingForm = (): ReactElement => {
   const form = Form.useContext();
   const openEditModal = Edit.useModal();
-  const symbolGroup = Schematic.Symbol.useGroup({});
   const [createGroupKey, setCreateGroupKey] = useState<group.Key | undefined>(
     undefined,
   );
@@ -40,10 +39,7 @@ export const MissingForm = (): ReactElement => {
   const handleCreate = () => {
     if (createGroupKey == null) return;
     const missingKey = form.get(path.specKey, { optional: true })?.value;
-    openEditModal({
-      parent: group.resourceID(createGroupKey),
-      createKey: missingKey,
-    });
+    openEditModal({ group: createGroupKey, createKey: missingKey });
   };
   return (
     <Flex.Box
@@ -66,7 +62,7 @@ export const MissingForm = (): ReactElement => {
           <Group.SelectSingle
             value={createGroupKey}
             onChange={setCreateGroupKey}
-            initialQuery={{ parent: group.resourceID(symbolGroup.key) }}
+            initialQuery={Schematic.Symbol.GROUP_QUERY}
             className={CSS.B("schematic-missing-symbol-select-group")}
             grow
           />

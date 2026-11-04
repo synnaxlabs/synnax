@@ -69,7 +69,29 @@ const TreeItem = Tree.createItem({
   type: "role",
   icon: ({ name }) => ROLE_ICONS[name] ?? <Icon.Role />,
   ContextMenu: TreeContextMenu,
-  hasChildren: true,
+  children: ({ client, id }) =>
+    resource.idsEqual(id, access.role.TYPE_RESOURCE_ID)
+      ? [Tree.createSource(client.access.roles, {}, Tree.toResource("role"))]
+      : // A role lists its users through the ontology until PR 7.
+        [Tree.createOntologySource(client, id, ["user"])],
+  // Moving a user to another role moves its ontology edge until PR 7.
+  drop: async ({ client, destination, items }) => {
+    const bySource = new Map<string, resource.ID[]>();
+    items.forEach(({ id, ancestors: [source] }) => {
+      const key = resource.idToString(source);
+      bySource.set(key, [...(bySource.get(key) ?? []), id]);
+    });
+    await Promise.all(
+      [...bySource].map(
+        async ([source, ids]) =>
+          await client.ontology.moveChildren(
+            resource.parseID(source),
+            destination.id,
+            ...ids,
+          ),
+      ),
+    );
+  },
   canDrop: ({ items }) => {
     const resources = PTree.filterHaulItems(items);
     return (

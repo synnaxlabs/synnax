@@ -167,10 +167,20 @@ const TreeContextMenu: Tree.ContextMenu = (props) => {
   );
 };
 
+/** Lists the schematics that sit in a group. */
+export const GROUP_MEMBER: Group.Member = {
+  type: "schematic",
+  children: (client, key) =>
+    Tree.createSource(
+      client.schematics,
+      { groups: [key] },
+      Tree.toResource("schematic"),
+    ),
+};
+
 const TreeItem = Tree.createItem({
   type: "schematic",
   icon: <Icon.Schematic />,
-  hasChildren: false,
   useOnSelect: Panel.useOpenResource,
   haulItems: ({ id }) => [Mosaic.createTabCreateHaulItem(resource.idToString(id))],
   ContextMenu: TreeContextMenu,

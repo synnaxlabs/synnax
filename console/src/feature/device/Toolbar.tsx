@@ -9,7 +9,7 @@
 
 import { device } from "@synnaxlabs/client";
 import { Icon } from "@synnaxlabs/lyra/icon";
-import { Access, Device } from "@synnaxlabs/pluto";
+import { Access } from "@synnaxlabs/pluto";
 import { type ReactElement } from "react";
 
 import { useConnectModal } from "@/feature/device/Connect";
@@ -21,7 +21,6 @@ import { Tree } from "@/platform/tree";
 const Content = (): ReactElement => {
   const openConnect = useConnectModal();
   const canCreate = Access.useCreateGranted(device.TYPE_RESOURCE_ID);
-  const groupID = Device.useGroupID({});
   return (
     <Toolbar.Content>
       <Toolbar.Header>
@@ -40,7 +39,7 @@ const Content = (): ReactElement => {
       </Toolbar.Header>
       <Toolbar.Body>
         <Tree.Tree
-          root={groupID}
+          root={device.TYPE_RESOURCE_ID}
           emptyContent={
             <Empty.Action
               message="No devices"

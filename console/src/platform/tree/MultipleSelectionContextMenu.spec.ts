@@ -8,19 +8,21 @@
 // included in the file licenses/APL.txt.
 
 import {
+  channel,
+  DataType,
   group,
   label,
-  ontology,
-  ranger,
-  type resource,
   type Synnax as Client,
 } from "@synnaxlabs/client";
 import { createTestClient, RoleClients } from "@synnaxlabs/client/testutil";
 import { act, fireEvent, screen, waitFor } from "@testing-library/react";
 import { describe, expect, it } from "vitest";
 
-import { createTestRange } from "@/platform/range/testutil";
-import { getTreeRow, renderOntologyTree } from "@/platform/tree/testutil";
+import {
+  createScopeItems,
+  getTreeRow,
+  renderOntologyTree,
+} from "@/platform/tree/testutil";
 import {
   awaitTextEditingElement,
   commitTextEdit,
@@ -33,30 +35,37 @@ const client = createTestClient();
 const roles = new RoleClients(client);
 
 interface MixedSelection {
-  parentID: resource.ID;
   child: group.Group;
-  range: ranger.Range;
+  ch: channel.Channel;
 }
 
 const setupMixedSelection = async (as: Client = client): Promise<MixedSelection> => {
-  const parent = await client.groups.create({
-    parent: ontology.ROOT_ID,
-    name: uniqueName("parent"),
+  const container = await client.groups.create({
+    scope: "channel",
+    name: uniqueName("container"),
   });
-  const parentID = group.resourceID(parent.key);
   const child = await client.groups.create({
-    parent: parentID,
+    parent: group.resourceID(container.key),
     name: uniqueName("child"),
   });
-  const range = await createTestRange(client);
-  await client.ontology.addChildren(parentID, ranger.resourceID(range.key));
-  await renderOntologyTree({ client: as, projectClient: client, root: parentID });
+  const ch = await client.channels.create({
+    name: uniqueName("ch"),
+    dataType: DataType.FLOAT32,
+    virtual: true,
+    group: container.key,
+  });
+  await renderOntologyTree({
+    client: as,
+    projectClient: client,
+    root: channel.TYPE_RESOURCE_ID,
+    items: createScopeItems(container.key),
+  });
   await screen.findByText(child.name);
-  await screen.findByText(range.name);
+  await screen.findByText(ch.name);
   fireEvent.click(getTreeRow(child.name));
-  withControlHeld(() => fireEvent.click(getTreeRow(range.name)));
-  fireEvent.contextMenu(getTreeRow(range.name));
-  return { parentID, child, range };
+  withControlHeld(() => fireEvent.click(getTreeRow(ch.name)));
+  fireEvent.contextMenu(getTreeRow(ch.name));
+  return { child, ch };
 };
 
 describe("Tree.MultipleSelectionContextMenu", () => {
@@ -67,28 +76,24 @@ describe("Tree.MultipleSelectionContextMenu", () => {
   });
 
   it("should group the mixed selection under a new group when the group item is clicked", async () => {
-    const { parentID, child, range } = await setupMixedSelection();
+    const { child, ch } = await setupMixedSelection();
     fireEvent.click(await screen.findByText("Group selection"));
     const editable = await awaitTextEditingElement();
     const name = uniqueName("grp");
     await act(async () => {
       commitTextEdit(editable, name);
     });
-    let newKey = "";
-    await waitFor(async () => {
-      const siblings = await client.ontology.children.retrieve({ ids: parentID });
-      const created = siblings.find((c) => c.name === name);
-      expect(created).toBeDefined();
-      newKey = created?.id.key ?? "";
+    const created = await waitFor(async () => {
+      const [found] = await client.groups.retrieve({ searchTerm: name });
+      if (found?.name !== name) throw new Error(`group ${name} not created`);
+      return found;
     });
-    await waitFor(async () => {
-      const grouped = await client.ontology.children.retrieve({
-        ids: group.resourceID(newKey),
-      });
-      const keys = grouped.map((c) => c.id.key);
-      expect(keys).toContain(child.key);
-      expect(keys).toContain(range.key);
-    });
+    expect(created.scope).toBe("channel");
+    expect(created.parent).toBeUndefined();
+    expect((await client.groups.retrieve({ key: child.key })).parent).toEqual(
+      group.resourceID(created.key),
+    );
+    expect((await client.channels.retrieve(ch.key)).group).toBe(created.key);
   });
 });
 
@@ -103,10 +108,10 @@ describe("Tree.MultipleSelectionContextMenu permissions", () => {
     const writer = await createTestClientWithGrants(client, {
       retrieve: [
         group.TYPE_RESOURCE_ID,
-        ranger.TYPE_RESOURCE_ID,
+        channel.TYPE_RESOURCE_ID,
         label.TYPE_RESOURCE_ID,
       ],
-      update: [group.TYPE_RESOURCE_ID, ranger.TYPE_RESOURCE_ID],
+      update: [group.TYPE_RESOURCE_ID, channel.TYPE_RESOURCE_ID],
     });
     await setupMixedSelection(writer);
     await screen.findByText("Reload Console");

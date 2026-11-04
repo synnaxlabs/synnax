@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { group, NotFoundError, ontology, ranger } from "@synnaxlabs/client";
+import { NotFoundError, ontology, ranger } from "@synnaxlabs/client";
 import { createTestClient } from "@synnaxlabs/client/testutil";
 import { fireEvent, screen, waitFor } from "@testing-library/react";
 import { describe, expect, it } from "vitest";
@@ -16,6 +16,7 @@ import { Range } from "@/feature/range";
 import { findButton } from "@/platform/modals/testutil";
 import { createTestRange } from "@/platform/range/testutil";
 import {
+  createHostItems,
   createResource,
   findTreeRow,
   openTreeRowContextMenu,
@@ -33,27 +34,23 @@ const client = createTestClient();
 
 const Item = Range.TREE_ITEMS.range;
 
-const createRangeInGroup = async () => {
+const createHostedRange = async () => {
   const rng = await createTestRange(client);
-  const grp = await client.groups.create({
-    parent: ontology.ROOT_ID,
-    name: uniqueName("rnggrp"),
-  });
-  await client.ontology.addChildren(
-    group.resourceID(grp.key),
-    ranger.resourceID(rng.key),
-  );
-  return { rng, root: group.resourceID(grp.key) };
+  const items = {
+    ...Range.TREE_ITEMS,
+    ...createHostItems([ranger.resourceID(rng.key)]),
+  };
+  return { rng, items };
 };
 
 describe("range/ontology", () => {
   describe("onSelect", () => {
     it("adds the range to the session slice and places its overview", async () => {
-      const { rng, root } = await createRangeInGroup();
+      const { rng, items } = await createHostedRange();
       const { store } = await renderOntologyTree({
         client,
-        root,
-        items: Range.TREE_ITEMS,
+        root: ontology.ROOT_ID,
+        items,
       });
       fireEvent.doubleClick(await findTreeRow(rng.name));
       await waitFor(() =>
@@ -69,18 +66,18 @@ describe("range/ontology", () => {
 
   describe("context menu", () => {
     it("should offer Reload Console", async () => {
-      const { rng, root } = await createRangeInGroup();
-      await renderOntologyTree({ client, root, items: Range.TREE_ITEMS });
+      const { rng, items } = await createHostedRange();
+      await renderOntologyTree({ client, root: ontology.ROOT_ID, items });
       await openTreeRowContextMenu(rng.name);
       expect(await screen.findByText("Reload Console")).toBeTruthy();
     });
 
     it("renames the range in place and syncs the favorited copy", async () => {
-      const { rng, root } = await createRangeInGroup();
+      const { rng, items } = await createHostedRange();
       const { store } = await renderOntologyTree({
         client,
-        root,
-        items: Range.TREE_ITEMS,
+        root: ontology.ROOT_ID,
+        items,
       });
       store.dispatch(Session.Range.add(Session.Range.fromClient(rng.payload)));
       await openTreeRowContextMenu(rng.name);
@@ -94,11 +91,11 @@ describe("range/ontology", () => {
     });
 
     it("drops the favorited copy when the range is deleted", async () => {
-      const { rng, root } = await createRangeInGroup();
+      const { rng, items } = await createHostedRange();
       const { store } = await renderOntologyTree({
         client,
-        root,
-        items: Range.TREE_ITEMS,
+        root: ontology.ROOT_ID,
+        items,
       });
       store.dispatch(Session.Range.add(Session.Range.fromClient(rng.payload)));
       await openTreeRowContextMenu(rng.name);

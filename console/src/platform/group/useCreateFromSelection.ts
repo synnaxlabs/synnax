@@ -15,10 +15,11 @@ import { Flux, Group } from "@synnaxlabs/pluto";
 import { uuid, verbs } from "@synnaxlabs/x";
 
 import { getResourcesToGroup } from "@/platform/group/getResourcesToGroup";
+import { moveRequests, placement } from "@/platform/group/move";
 import { type Tree } from "@/platform/tree";
 
 interface CreateParams extends Tree.ContextMenuProps {
-  group: group.Group;
+  group: Pick<group.Group, "key" | "name">;
 }
 
 const base = Flux.createUpdate<CreateParams>({
@@ -26,17 +27,14 @@ const base = Flux.createUpdate<CreateParams>({
   verbs: verbs.CREATE,
   update: async ({ client, data }) => {
     const {
-      selection: { parentID, ids },
+      selection: { parentID, rootID, ids },
       state: { shape },
       group: { name, key },
     } = data;
-    const resourcesToGroup = getResourcesToGroup(ids, shape);
-    await client.groups.create({ parent: parentID, name, key });
-    await client.ontology.moveChildren(
-      parentID,
-      group.resourceID(key),
-      ...resourcesToGroup,
-    );
+    await client.batch.send([
+      group.createRequest({ key, name, ...placement(parentID, rootID) }),
+      ...moveRequests(getResourcesToGroup(ids, shape), group.resourceID(key)),
+    ]);
     return data;
   },
 });

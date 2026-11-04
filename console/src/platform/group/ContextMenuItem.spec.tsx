@@ -8,9 +8,9 @@
 // included in the file licenses/APL.txt.
 
 import {
+  access,
+  channel,
   group,
-  ontology,
-  ranger,
   resource,
   type Synnax as Client,
 } from "@synnaxlabs/client";
@@ -29,7 +29,7 @@ const client = createTestClient();
 const roles = new RoleClients(client);
 
 const parentID = group.resourceID(id.create());
-const childID = ranger.resourceID(id.create());
+const childID = channel.resourceID(1);
 const parentKey = resource.idToString(parentID);
 const childKey = resource.idToString(childID);
 
@@ -38,7 +38,7 @@ const shape: Tree.Shape = Tree.flatten({
   expanded: [parentKey],
 });
 
-const nestedRootID = group.resourceID(id.create());
+const rootID = channel.TYPE_RESOURCE_ID;
 
 const renderItems = async (ui: ReactElement) => {
   const { wrapper } = await createConsoleWrapper({ client });
@@ -50,11 +50,7 @@ describe("Group.ContextMenuItem", () => {
     const onChange = vi.fn();
     await renderItems(
       <PMenu.Menu onChange={onChange}>
-        <Group.ContextMenuItem
-          ids={[childID]}
-          rootID={ontology.ROOT_ID}
-          shape={shape}
-        />
+        <Group.ContextMenuItem ids={[childID]} rootID={rootID} shape={shape} />
       </PMenu.Menu>,
     );
     const item = await waitFor(() => screen.getByText("Group selection"));
@@ -62,24 +58,20 @@ describe("Group.ContextMenuItem", () => {
     await waitFor(() => expect(onChange).toHaveBeenCalledWith("group"));
   });
 
-  it("should show the group item for a top-level selection when the root is not the ontology root", async () => {
+  it("should show the group item for a top-level selection", async () => {
     await renderItems(
-      <Group.ContextMenuItem ids={[parentID]} rootID={nestedRootID} shape={shape} />,
+      <Group.ContextMenuItem ids={[parentID]} rootID={rootID} shape={shape} />,
     );
     await waitFor(() => expect(screen.getByText("Group selection")).toBeTruthy());
   });
 
-  it("should hide the group item for a top-level selection at the ontology root", async () => {
+  it("should hide the group item in a tree that holds no groups", async () => {
     await renderItems(
       <>
+        <Group.ContextMenuItem ids={[childID]} rootID={rootID} shape={shape} />
         <Group.ContextMenuItem
           ids={[childID]}
-          rootID={ontology.ROOT_ID}
-          shape={shape}
-        />
-        <Group.ContextMenuItem
-          ids={[parentID]}
-          rootID={ontology.ROOT_ID}
+          rootID={access.role.TYPE_RESOURCE_ID}
           shape={shape}
         />
       </>,
@@ -88,26 +80,18 @@ describe("Group.ContextMenuItem", () => {
   });
 
   it("should hide the group item when the selection is absent from the tree", async () => {
-    const absentID = ranger.resourceID(id.create());
+    const absentID = channel.resourceID(3);
     await renderItems(
       <>
-        <Group.ContextMenuItem
-          ids={[childID]}
-          rootID={ontology.ROOT_ID}
-          shape={shape}
-        />
-        <Group.ContextMenuItem
-          ids={[absentID]}
-          rootID={ontology.ROOT_ID}
-          shape={shape}
-        />
+        <Group.ContextMenuItem ids={[childID]} rootID={rootID} shape={shape} />
+        <Group.ContextMenuItem ids={[absentID]} rootID={rootID} shape={shape} />
       </>,
     );
     await waitFor(() => expect(screen.getAllByText("Group selection").length).toBe(1));
   });
 
   it("should show the group item for a multi-item selection sharing the same minimum depth", async () => {
-    const siblingID = ranger.resourceID(id.create());
+    const siblingID = channel.resourceID(2);
     const siblingKey = resource.idToString(siblingID);
     const multiShape: Tree.Shape = Tree.flatten({
       nodes: [{ key: parentKey, children: [{ key: childKey }, { key: siblingKey }] }],
@@ -116,7 +100,7 @@ describe("Group.ContextMenuItem", () => {
     await renderItems(
       <Group.ContextMenuItem
         ids={[childID, siblingID]}
-        rootID={ontology.ROOT_ID}
+        rootID={rootID}
         shape={multiShape}
       />,
     );
@@ -128,7 +112,7 @@ describe("Group.ContextMenuItem permissions", () => {
   const renderAs = async (as: Client) => {
     const { wrapper } = await createConsoleWrapper({ client: as });
     return render(
-      <Group.ContextMenuItem ids={[childID]} rootID={ontology.ROOT_ID} shape={shape} />,
+      <Group.ContextMenuItem ids={[childID]} rootID={rootID} shape={shape} />,
       { wrapper },
     );
   };

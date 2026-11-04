@@ -9,7 +9,6 @@
 
 import { type ontology, resource, type Synnax as Client } from "@synnaxlabs/client";
 import { type List } from "@synnaxlabs/lyra/list";
-import { type verbs } from "@synnaxlabs/x";
 import { useEffect } from "react";
 
 import { Flux } from "@/flux";
@@ -94,29 +93,6 @@ export const useResourceList = Flux.createList<ListQuery, string, ontology.Resou
   getCached: ({ client, query }) => client.ontology.getCached(query),
   onChangeByKey: ({ client, key }, handler) =>
     client.ontology.onChange(resource.parseID(key), handler),
-});
-
-export interface MoveChildrenParams {
-  source: resource.ID;
-  destination: resource.ID;
-  ids: resource.ID[];
-}
-
-const MOVE_VERBS: verbs.Verbs = {
-  present: "move",
-  participle: "moving",
-  past: "moved",
-};
-
-export const { useUpdate: useMoveChildren } = Flux.createUpdate<MoveChildrenParams>({
-  name: PLURAL_RESOURCE_RESOURCE_NAME,
-  verbs: MOVE_VERBS,
-  update: async ({ client, data, onOptimisticComplete }) => {
-    const { source, destination, ids } = data;
-    await onOptimisticComplete(data);
-    await client.ontology.moveChildren(source, destination, ...ids);
-    return data;
-  },
 });
 
 export type RetrieveChildrenQuery = {

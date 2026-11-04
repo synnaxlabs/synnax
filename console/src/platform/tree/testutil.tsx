@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { ontology, resource, type Synnax } from "@synnaxlabs/client";
+import { channel, group, ontology, resource, type Synnax } from "@synnaxlabs/client";
 import { Haul } from "@synnaxlabs/lyra/haul";
 import { type Status } from "@synnaxlabs/lyra/status";
 import { Tree as PTree } from "@synnaxlabs/lyra/tree";
@@ -106,6 +106,76 @@ export const createExecutingHandleError =
     })();
   };
 
+/** Lists the groups whose parent is the node. */
+export const listChildGroups: Tree.Children = ({ client, id }) => [
+  Tree.createSource(client.groups, { parents: [id] }, Tree.toResource("group")),
+];
+
+/**
+ * Builds a group item that lists its child groups and moves dropped groups into it.
+ * Params override any part of the item.
+ */
+export const createGroupItem = (
+  params: Partial<Tree.CreateItemParams> = {},
+): Tree.Item =>
+  Tree.createItem({
+    type: "group",
+    children: listChildGroups,
+    drop: async ({ client, destination, items }) =>
+      await client.groups.setParent(
+        items.map(({ id }) => id.key),
+        destination.id,
+      ),
+    ...params,
+  });
+
+const listMembers = (client: Synnax, key: group.Key): Tree.Source[] => [
+  ...listChildGroups({ client, id: group.resourceID(key) }),
+  Tree.createSource(client.channels, { groups: [key] }, (ch) =>
+    Tree.toResource("channel")(ch.payload),
+  ),
+];
+
+/**
+ * Builds the items of a tree rooted at the channel scope, which offers group creation.
+ * The root lists the groups and channels in the container group instead of the whole
+ * scope, and so does each group. groupParams override any part of the group item.
+ */
+export const createScopeItems = (
+  container: group.Key,
+  groupParams: Partial<Tree.CreateItemParams> = {},
+): Tree.Items => ({
+  channel: Tree.createItem({
+    type: "channel",
+    children: ({ client }) => listMembers(client, container),
+    hasChildren: false,
+  }),
+  group: createGroupItem({
+    children: ({ client, id }) => listMembers(client, id.key),
+    ...groupParams,
+  }),
+});
+
+/**
+ * Builds the item of a tree rooted at ontology.ROOT_ID that lists the resources with
+ * the given IDs, for specs whose resources sit in no group.
+ */
+export const createHostItems = (ids: resource.ID[]): Tree.Items => ({
+  [ontology.ROOT_ID.type]: Tree.createItem({
+    type: ontology.ROOT_ID.type,
+    children: ({ client }) => [
+      Tree.createSource(client.ontology, { ids }, (r: ontology.Resource) => r),
+    ],
+  }),
+});
+
+/** Returns the keys of the groups whose parent is the given resource. */
+export const retrieveChildGroupKeys = async (
+  client: Synnax,
+  parent: resource.ID,
+): Promise<string[]> =>
+  (await client.groups.retrieve({ parents: [parent] })).map(({ key }) => key);
+
 export interface CreateSelectionParams {
   ids: resource.ID[];
   rootID?: resource.ID;
@@ -115,7 +185,7 @@ export interface CreateSelectionParams {
 /** Builds the selection portion of {@link Tree.ContextMenuProps}. */
 export const createSelection = ({
   ids,
-  rootID = ontology.ROOT_ID,
+  rootID = channel.TYPE_RESOURCE_ID,
   parentID = rootID,
 }: CreateSelectionParams): Tree.ContextMenuProps["selection"] => ({
   ids: array.toArray(ids),

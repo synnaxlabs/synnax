@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { channel, group } from "@synnaxlabs/client";
+import { channel } from "@synnaxlabs/client";
 import { Icon } from "@synnaxlabs/lyra/icon";
 import { Access, Channel } from "@synnaxlabs/pluto";
 import { type ReactElement } from "react";
@@ -51,11 +51,9 @@ const Content = (): ReactElement => (
   </Toolbar.Content>
 );
 
-const Body = (): ReactElement => {
-  const g = Channel.useGroup({});
-  const root = group.resourceID(g.key);
-  return <Tree.Tree root={root} emptyContent={<EmptyContent />} />;
-};
+const Body = (): ReactElement => (
+  <Tree.Tree root={channel.TYPE_RESOURCE_ID} emptyContent={<EmptyContent />} />
+);
 
 const EmptyContent = (): ReactElement => {
   const openCreate = PlatformChannel.useCreateModal();

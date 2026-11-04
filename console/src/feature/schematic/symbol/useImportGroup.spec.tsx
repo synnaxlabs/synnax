@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { group, type ontology } from "@synnaxlabs/client";
+import { type group } from "@synnaxlabs/client";
 import { Haul } from "@synnaxlabs/lyra/haul";
 import { Status } from "@synnaxlabs/lyra/status";
 import {
@@ -23,10 +23,10 @@ import { afterEach, describe, expect, it, vi } from "vitest";
 
 import { Schematic } from "@/feature/schematic";
 import {
-  childNames,
   client,
   createLegacySymbolFile,
   createSymbolPayload,
+  symbolNames,
 } from "@/feature/schematic/testutil";
 import {
   createFile,
@@ -106,30 +106,27 @@ const awaitStatus = async (
   );
 };
 
-/** Returns the permanent symbol group's child groups with the given name. */
-const importedGroupsNamed = async (name: string): Promise<ontology.Resource[]> => {
-  const root = await client.schematics.symbols.retrieveGroup();
-  const groups = await client.ontology.children.retrieve({
-    ids: group.resourceID(root.key),
-  });
-  return groups.filter((g) => g.name === name);
-};
+/** Returns the top-level symbol groups with the given name. */
+const importedGroupsNamed = async (name: string): Promise<group.Group[]> =>
+  (
+    await client.groups.retrieve({
+      scopes: ["schematic_symbol"],
+      nested: false,
+      searchTerm: name,
+    })
+  ).filter((g) => g.name === name);
 
 /**
  * Creates a group with one symbol on the Core and exports it, returning the group's
  * name, the exported symbol's name, and the bundle's zip bytes.
  */
 const createExportedBundle = async () => {
-  const root = await client.schematics.symbols.retrieveGroup();
   const grp = await client.groups.create({
-    parent: group.resourceID(root.key),
+    scope: "schematic_symbol",
     name: uniqueName("zip_grp"),
   });
   const payload = createSymbolPayload(uniqueName("sym"));
-  await client.schematics.symbols.create({
-    ...payload,
-    parent: group.resourceID(grp.key),
-  });
+  await client.schematics.symbols.create({ ...payload, group: grp.key });
   const stream = await client.schematics.symbols.exportGroup(grp.key, {
     encoding: "JSON",
   });
@@ -163,9 +160,9 @@ describe("Schematic.Symbol.useImportGroup", () => {
       await awaitStatus(statuses, importedStatus(groupName));
       const groups = await importedGroupsNamed(groupName);
       expect(groups).toHaveLength(2);
-      const imported = groups.find((g) => g.id.key !== sourceKey);
+      const imported = groups.find((g) => g.key !== sourceKey);
       if (imported == null) throw new Error("imported group not found");
-      expect(await childNames(imported.id)).toContain(symbolName);
+      expect(await symbolNames(imported.key)).toContain(symbolName);
     });
 
     it("rejects a dropped file that is not a zip", async () => {
@@ -201,7 +198,7 @@ describe("Schematic.Symbol.useImportGroup", () => {
       await awaitStatus(statuses, importedStatus(groupName));
       const [imported] = await importedGroupsNamed(groupName);
       if (imported == null) throw new Error("imported group not found");
-      expect(await childNames(imported.id)).toContain(symbolName);
+      expect(await symbolNames(imported.key)).toContain(symbolName);
     });
 
     it("imports every symbol a legacy manifest declares", async () => {
@@ -232,7 +229,7 @@ describe("Schematic.Symbol.useImportGroup", () => {
       await awaitStatus(statuses, importedStatus(groupName));
       const [imported] = await importedGroupsNamed(groupName);
       if (imported == null) throw new Error("imported group not found");
-      expect(await childNames(imported.id)).toContain(symbolName);
+      expect(await symbolNames(imported.key)).toContain(symbolName);
     });
 
     it("raises an error when the picked folder has no manifest", async () => {
@@ -297,7 +294,7 @@ describe("Schematic.Symbol.useImportGroup", () => {
       await awaitStatus(statuses, importedStatus(groupName));
       const [imported] = await importedGroupsNamed(groupName);
       if (imported == null) throw new Error("imported group not found");
-      expect(await childNames(imported.id)).toContain(symbolName);
+      expect(await symbolNames(imported.key)).toContain(symbolName);
     });
   });
 });
