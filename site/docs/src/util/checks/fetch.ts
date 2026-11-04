@@ -60,10 +60,17 @@ interface Probe {
   dead: boolean;
 }
 
+// LinkedIn's bot wall answers 999 or 403 for live and dead pages alike, so its links
+// cannot be verified either way.
+const walled = (url: string, status: number): boolean =>
+  /(^|\.)linkedin\.com$/.test(new URL(url).hostname) &&
+  (status === 999 || status === 403);
+
 const failure = (url: string, last: number | string): Probe => ({
   reason: `${url}: ${describe(last)}`,
   hung: typeof last !== "number",
-  dead: typeof last === "number" ? last < 500 : last === "ENOTFOUND",
+  dead:
+    typeof last === "number" ? last < 500 && !walled(url, last) : last === "ENOTFOUND",
 });
 
 // A null body is a page that answered but cannot be verified (a 429): the link passes
@@ -112,11 +119,9 @@ const hasAnchor = (body: string, fragment: string): boolean =>
 // means the host dislikes the URL, and a dropped connection means it refuses HEAD
 // itself, which some hosts do at the TLS layer.
 const probe = async (url: string): Promise<Probe | null> => {
-  // LinkedIn's bot wall answers 999 for live and dead pages alike, so its links cannot
-  // be verified either way. A 429 on any host proves nothing about the link.
-  const linkedin = /(^|\.)linkedin\.com$/.test(new URL(url).hostname);
+  // A 429 on any host proves nothing about the link.
   const ok = (status: number): boolean =>
-    status < 400 || status === 429 || (linkedin && status === 999);
+    status < 400 || status === 429 || walled(url, status);
   let last: number | string = 0;
   for (let attempt = 1; attempt <= ATTEMPTS; attempt++) {
     last = await request(url, "HEAD");

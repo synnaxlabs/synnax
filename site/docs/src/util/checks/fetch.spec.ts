@@ -12,6 +12,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { createFetcher } from "@/util/checks/fetch";
 
 const LINK = "https://example.com/page";
+const LINKEDIN = "https://www.linkedin.com/company/synnaxlabs/";
 
 const response = (status: number): Response =>
   ({ status, body: null, text: async () => "" }) as unknown as Response;
@@ -71,6 +72,30 @@ describe("createFetcher", () => {
     expect(await fetcher()(LINK)).toBe(`${LINK}: HTTP 404`);
     expect(warnings).toEqual([]);
   });
+
+  it("should fail a link that answers 403", async () => {
+    stub(403);
+    const result = fetcher()(LINK);
+    await vi.advanceTimersByTimeAsync(3_000);
+    expect(await result).toBe(`${LINK}: HTTP 403`);
+  });
+
+  it.each([403, 999])("should pass a LinkedIn link that answers %i", async (status) => {
+    stub(status);
+    expect(await fetcher()(LINKEDIN)).toBeNull();
+    expect(warnings).toEqual([]);
+  });
+
+  it.each([403, 999])(
+    "should warn instead of failing on a LinkedIn anchor that answers %i",
+    async (status) => {
+      stub(status);
+      const result = fetcher()(`${LINKEDIN}#about`);
+      await vi.advanceTimersByTimeAsync(3_000);
+      expect(await result).toBeNull();
+      expect(warnings).toEqual([`${LINKEDIN}: HTTP ${status}`]);
+    },
+  );
 
   it("should fail a link whose host does not resolve", async () => {
     vi.stubGlobal("fetch", vi.fn().mockRejectedValue(networkError("ENOTFOUND")));
