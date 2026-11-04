@@ -126,6 +126,7 @@ describe("Licenses.License", () => {
     expect(
       await screen.findByText("Only a team admin can rename a license"),
     ).toBeTruthy();
+    expect(screen.getByRole("heading", { name: LICENSE.label })).toBeTruthy();
   });
 
   it("should not offer a member a rename", () => {

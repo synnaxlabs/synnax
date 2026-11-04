@@ -30,6 +30,7 @@ import {
 } from "@/server/db/schema";
 import { type Memory, openMemory } from "@/server/db/testutil";
 import { ADMIN_ROLE, type Team } from "@/server/directory";
+import { MAX_NAME_LENGTH } from "@/server/license/limits";
 import { issued, restored, revoked } from "@/server/license/notice";
 import { HASH_A, HASH_B, NOW } from "@/server/license/testutil";
 import { PER_ACTOR, PER_ORGANIZATION } from "@/server/ratelimit";
@@ -595,6 +596,16 @@ describe("license routes", () => {
     it("should require a label", async () => {
       h.signIn(ADMIN);
       await expectError(await post("   "), 400, "Give the license a label");
+    });
+
+    it("should reject a label over the length limit", async () => {
+      h.signIn(ADMIN);
+      await expectError(
+        await post("x".repeat(MAX_NAME_LENGTH + 1)),
+        400,
+        `The label must be at most ${MAX_NAME_LENGTH} characters`,
+      );
+      expect(await licenses()).toEqual([lic]);
     });
 
     it("should let a team admin rename and record the change", async () => {

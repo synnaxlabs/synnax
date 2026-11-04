@@ -12,7 +12,7 @@ import { Flex } from "@synnaxlabs/lyra/flex";
 import { Icon } from "@synnaxlabs/lyra/icon";
 import { Status } from "@synnaxlabs/lyra/status";
 import { Text } from "@synnaxlabs/lyra/text";
-import { type ReactElement } from "react";
+import { type ReactElement, useState } from "react";
 
 import {
   type Activation,
@@ -68,8 +68,15 @@ export const License = ({
   admin,
   now,
 }: LicenseProps): ReactElement => {
-  const rename = useAction(async (label: string) => {
-    await post(`/api/licenses/${lic.key}/label`, { label });
+  const [label, setLabel] = useState(lic.label);
+  const rename = useAction(async (next: string) => {
+    setLabel(next);
+    try {
+      await post(`/api/licenses/${lic.key}/label`, { label: next });
+    } catch (err) {
+      setLabel(lic.label);
+      throw err;
+    }
     reload();
   });
   const renamable = admin && lic.edition === "enterprise";
@@ -83,7 +90,7 @@ export const License = ({
       : undefined;
   return (
     <Page
-      title={lic.label}
+      title={label}
       titleID={LABEL_ID}
       onTitleChange={renamable ? rename.run : undefined}
       parent={parent}

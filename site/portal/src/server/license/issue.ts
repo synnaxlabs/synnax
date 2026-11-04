@@ -199,12 +199,14 @@ export const amend = async (
 };
 
 /**
- * readLabel trims a posted license label to its bound.
- * @throws {HTTPError} 400 when nothing is left of it.
+ * readLabel trims a posted license label.
+ * @throws {HTTPError} 400 when it is empty or over the length limit.
  */
 export const readLabel = (raw: string | undefined): string => {
-  const label = (raw ?? "").trim().slice(0, MAX_NAME_LENGTH);
+  const label = (raw ?? "").trim();
   if (label === "") throw badRequest("Give the license a label");
+  if (label.length > MAX_NAME_LENGTH)
+    throw badRequest(`The label must be at most ${MAX_NAME_LENGTH} characters`);
   return label;
 };
 
