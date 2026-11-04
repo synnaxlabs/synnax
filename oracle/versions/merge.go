@@ -201,29 +201,18 @@ func MergeLive(
 }
 
 // checkErasedDocs fails when the merge dropped a live doc from a declaration that it
-// kept, including a field inherited from within the chain. A doc that only differs from
-// the chain's is not reported, because it cannot be told apart from an edit to the
-// version file.
+// wrote. It does not report a doc that differs from the chain's, or one on a restated
+// inherited field: neither can be told apart from a change to the version files.
 func checkErasedDocs(
 	chain Chain, surf map[string]Definition, live, merged *liveContent,
 ) error {
 	byFile := make(map[string][]string)
 	for path := range live.documented {
-		if merged.documented.Contains(path) {
+		if !merged.declared.Contains(path) || merged.documented.Contains(path) {
 			continue
 		}
-		name, field, _ := strings.Cut(path, ".")
-		def, member := surf[name]
-		if !member {
-			continue
-		}
-		if !merged.declared.Contains(path) {
-			found, documented := inheritedField(name, field, chain, surf, merged)
-			if !found || documented {
-				continue
-			}
-		}
-		file := chain.FilePath(def.Version) + ".oracle"
+		name, _, _ := strings.Cut(path, ".")
+		file := chain.FilePath(surf[name].Version) + ".oracle"
 		byFile[file] = append(byFile[file], path)
 	}
 	if len(byFile) == 0 {
@@ -243,37 +232,6 @@ func checkErasedDocs(
 		chain.LivePath(),
 		strings.Join(lines, "; "),
 	)
-}
-
-// inheritedField reports whether the named struct has field in the merged output, and
-// whether the declaring struct documents it there. A parent from another resource is
-// not in that output, so its fields are not found.
-func inheritedField(
-	name, field string,
-	chain Chain,
-	surf map[string]Definition,
-	merged *liveContent,
-) (found, documented bool) {
-	form, ok := surf[name].Type.Form.(resolution.StructForm)
-	if !ok || slices.Contains(form.OmittedFields, field) {
-		return false, false
-	}
-	if _, own := form.Field(field); own {
-		return true, merged.documented.Contains(name + "." + field)
-	}
-	for _, parent := range form.Extends {
-		ns, bare, qualified := strings.Cut(parent.Name, ".")
-		if !qualified {
-			bare = ns
-		} else if !versionNS.MatchString(ns) && ns != chain.Resource {
-			continue
-		}
-		found, documented = inheritedField(bare, field, chain, surf, merged)
-		if found {
-			return found, documented
-		}
-	}
-	return false, false
 }
 
 // chainNamespacePaths maps each dependency resource namespace a chain's files can
