@@ -364,4 +364,73 @@ var _ = Describe("Delete", func() {
 		Eventually(driver).Should(BeClosed())
 		expectGone(ctx, t.Key)
 	})
+	It("Should stop a batch that never acks within one timeout", func(ctx SpecContext) {
+		const timeout = 300 * time.Millisecond
+		tasks := []task.Task{
+			createRunningTask(ctx, true),
+			createRunningTask(ctx, true),
+			createRunningTask(ctx, true),
+		}
+		keys := make([]task.Key, len(tasks))
+		for i, t := range tasks {
+			keys[i] = t.Key
+			grant(ctx, access.ActionDelete, u.OntologyID(), t.OntologyID())
+		}
+		commands := streamCommands(ctx)
+		start := time.Now()
+		Expect(withTimeout(timeout).Delete(
+			AuthedCtx(ctx, u), nil, apitask.DeleteRequest{Keys: keys},
+		)).Error().ToNot(HaveOccurred())
+		elapsed := time.Since(start)
+		Expect(elapsed).To(BeNumerically(">=", timeout))
+		Expect(elapsed).To(BeNumerically("<", 2*timeout))
+		for range tasks {
+			var cmd task.Command
+			Eventually(commands).Should(Receive(&cmd))
+			Expect(keys).To(ContainElement(cmd.Task))
+		}
+		for _, key := range keys {
+			expectGone(ctx, key)
+		}
+	})
+	DescribeTable(
+		"Should not wait for a task that is not running",
+		func(ctx SpecContext, create func(SpecContext) task.Task) {
+			t := create(ctx)
+			grant(ctx, access.ActionDelete, u.OntologyID(), t.OntologyID())
+			commands := streamCommands(ctx)
+			start := time.Now()
+			Expect(withTimeout(10*time.Second).Delete(
+				AuthedCtx(ctx, u), nil, apitask.DeleteRequest{Keys: []task.Key{t.Key}},
+			)).Error().ToNot(HaveOccurred())
+			Expect(time.Since(start)).To(BeNumerically("<", time.Second))
+			Consistently(commands, 100*time.Millisecond).ShouldNot(Receive())
+			expectGone(ctx, t.Key)
+		},
+		Entry("never started", func(ctx SpecContext) task.Task {
+			t := createTask(ctx)
+			Expect(svc.Status.NewWriter(nil).Delete(
+				ctx, t.OntologyID().String(),
+			)).To(Succeed())
+			return t
+		}),
+		Entry("stopped", func(ctx SpecContext) task.Task {
+			return createRunningTask(ctx, false)
+		}),
+		// The rack monitor clears the running flag of a task on a silent rack.
+		Entry("on an offline Driver", func(ctx SpecContext) task.Task {
+			t := createRunningTask(ctx, true)
+			reportStopped(ctx, t)
+			return t
+		}),
+	)
+	It("Should not stop a task the caller cannot delete", func(ctx SpecContext) {
+		t := createRunningTask(ctx, true)
+		commands := streamCommands(ctx)
+		Expect(apiSvc.Delete(
+			AuthedCtx(ctx, u), nil, apitask.DeleteRequest{Keys: []task.Key{t.Key}},
+		)).Error().To(MatchError(access.ErrDenied))
+		Consistently(commands, 100*time.Millisecond).ShouldNot(Receive())
+		Expect(retrieveTask(ctx, t.Key).Key).To(Equal(t.Key))
+	})
 })
