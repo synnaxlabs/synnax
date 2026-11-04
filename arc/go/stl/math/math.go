@@ -275,6 +275,7 @@ func (*Host) Create(nodeCfg node.Config) (node.Node, error) {
 			telem.NewSeriesV[telem.TimeStamp](1),
 		)
 	}
+	// The schema rejects a non-numeric window value; Next reads the live values.
 	var inputs WindowInputs
 	if err := windowInputsSchema.Parse(
 		nodeCfg.Node.Inputs.ValueMap(),
@@ -288,7 +289,6 @@ func (*Host) Create(nodeCfg node.Config) (node.Node, error) {
 		resetIdx:    resetIdx,
 		process:     reductionFn,
 		sampleCount: 0,
-		inputs:      inputs,
 	}, nil
 }
 
@@ -305,7 +305,6 @@ var windowInputsSchema = zyn.Object(map[string]zyn.Schema{
 type avgNode struct {
 	*node.State
 	process       reductionFn
-	inputs        WindowInputs
 	inputIdx      int
 	resetIdx      int
 	sampleCount   int64
@@ -349,15 +348,17 @@ func (r *avgNode) Next(ctx node.Context) {
 		}
 	}
 
-	if r.inputs.Duration > 0 && inputTime.Len() > 0 {
+	duration := telem.TimeSpan(r.NumericInput[int64](durationInputParam))
+	if duration > 0 && inputTime.Len() > 0 {
 		currentTime := inputTime.ValueAt[telem.TimeStamp](-1)
-		if telem.TimeSpan(currentTime-r.startTime) >= r.inputs.Duration {
+		if telem.TimeSpan(currentTime-r.startTime) >= duration {
 			shouldReset = true
 			r.startTime = currentTime
 		}
 	}
 
-	if r.inputs.Count > 0 && r.sampleCount >= r.inputs.Count {
+	count := r.NumericInput[int64](countInputParam)
+	if count > 0 && r.sampleCount >= count {
 		shouldReset = true
 	}
 

@@ -183,6 +183,20 @@ var _ = Describe("Time", func() {
 				))
 			},
 		)
+		It("Should allow a computed period at construction", func() {
+			cfg := node.Config{
+				Node: ir.Node{
+					Type: "interval",
+					Inputs: types.Params{{
+						Name:  "period",
+						Type:  types.VarRef(types.TimeSpan(), "p"),
+						Value: int64(0),
+					}},
+				},
+				State: s.Node("interval_1"),
+			}
+			Expect(MustSucceed(factory.Create(cfg))).ToNot(BeNil())
+		})
 		It(
 			"Should allow a zero var-bound period at construction",
 			func() {

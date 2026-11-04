@@ -5596,6 +5596,111 @@ var _ = Describe("Sequence", func() {
 		)
 	})
 
+	Describe("Computed STL inputs", func() {
+		// drainI64 collects every i64 value flushed to a channel in order.
+		drainI64 := func(fr telem.Frame[uint32], key uint32) []int64 {
+			var out []int64
+			for _, ser := range fr.Get(key).Series {
+				out = append(out, ser.Unmarshal[int64]()...)
+			}
+			return out
+		}
+		resolver := channelSymbols(map[string]channelDef{
+			"raw": {types.I64(), 100},
+			"log": {types.String(), 101},
+			"out": {types.I64(), 102},
+		})
+		digests := []channels.Digest{
+			{Key: 100, DataType: telem.Int64T},
+			{Key: 101, DataType: telem.StringT},
+			{Key: 102, DataType: telem.Int64T},
+		}
+		// ingestEach feeds raw one value per cycle and returns everything out emits.
+		ingestEach := func(ctx SpecContext, h *runtimeHarness, values ...int64) []int64 {
+			GinkgoHelper()
+			var got []int64
+			for _, v := range values {
+				h.Ingest(100, telem.NewSeriesV[int64](v))
+				advance(h, ctx, telem.Millisecond)
+				out, _ := h.Flush()
+				got = append(got, drainI64(out, 102)...)
+			}
+			return got
+		}
+		expectWaitOf20ms := func(ctx SpecContext, h *runtimeHarness) {
+			GinkgoHelper()
+			advance(h, ctx, telem.Millisecond)
+			advance(h, ctx, 12*telem.Millisecond)
+			out, _ := h.Flush()
+			Expect(drainStrings(out, 101)).To(BeEmpty(), "13 ms is short of 20 ms")
+			advance(h, ctx, 30*telem.Millisecond)
+			advance(h, ctx, 30*telem.Millisecond)
+			out, _ = h.Flush()
+			Expect(drainStrings(out, 101)).To(Equal([]string{"done"}))
+		}
+
+		It("Applies a computed count to a window average", func(ctx SpecContext) {
+			h := newRuntimeHarness(ctx, `
+				import math
+				raw -> math.avg(count=1 + 1) -> out`, resolver, digests...)
+			defer h.Close(ctx)
+			Expect(ingestEach(ctx, h, 2, 4, 6, 8)).To(Equal([]int64{2, 3, 6, 7}))
+		})
+
+		It("Applies a computed count to a window min", func(ctx SpecContext) {
+			h := newRuntimeHarness(ctx, `
+				import math
+				raw -> math.min(count=1 + 1) -> out`, resolver, digests...)
+			defer h.Close(ctx)
+			Expect(ingestEach(ctx, h, 5, 3, 4, 1)).To(Equal([]int64{5, 3, 4, 1}))
+		})
+
+		It("Waits for a computed duration", func(ctx SpecContext) {
+			h := newRuntimeHarness(ctx, `
+				import time
+				sequence main {
+				    sequence pause {
+				        time.wait(duration=10ms + 10ms)
+				    }
+				    "done" -> log
+				}
+				1 => main`, resolver, digests...)
+			defer h.Close(ctx)
+			expectWaitOf20ms(ctx, h)
+		})
+
+		It("Waits for a duration held in a computed variable", func(ctx SpecContext) {
+			h := newRuntimeHarness(ctx, `
+				import time
+				d := i64 ns(10ms * 2)
+				sequence main {
+				    sequence pause {
+				        time.wait(duration=d)
+				    }
+				    "done" -> log
+				}
+				1 => main`, resolver, digests...)
+			defer h.Close(ctx)
+			expectWaitOf20ms(ctx, h)
+		})
+
+		It("Fires an interval at a computed period", func(ctx SpecContext) {
+			h := newRuntimeHarness(ctx, `
+				import time
+				stage main {
+				    x u8 := 3
+				    time.interval(period=10ms + 10ms) -> `+`f"v={x}"`+` -> log
+				}
+				1 -> main`, resolver, digests...)
+			defer h.Close(ctx)
+			for elapsed := telem.TimeSpan(0); elapsed <= 50*telem.Millisecond; elapsed += 5 * telem.Millisecond {
+				advance(h, ctx, elapsed)
+			}
+			out, _ := h.Flush()
+			Expect(countOf(out, 101, "v=3")).To(Equal(3), "fires at 0, 20, and 40 ms")
+		})
+	})
+
 	Describe("Computed initializers", func() {
 		// drainI64 collects every i64 value flushed to a channel in order.
 		drainI64 := func(fr telem.Frame[uint32], key uint32) []int64 {

@@ -3884,6 +3884,109 @@ TEST(ComputedCallInputsTest, PassesAComputedInputToARoutedCall) {
     EXPECT_GT(got[0], started_at);
 }
 
+// A computed STL input is read live on each fire, not once at node creation.
+namespace computed_stl_inputs {
+std::vector<std::int64_t>
+ingest_each(Sequence &h, const std::vector<std::int64_t> &values) {
+    std::vector<std::int64_t> got;
+    for (const auto v: values) {
+        h.ingest("raw", x::telem::Series(v));
+        h.settle();
+        const auto part = collect<std::int64_t>(h.flush(), h.key("out"));
+        got.insert(got.end(), part.begin(), part.end());
+    }
+    return got;
+}
+
+void expect_wait_of_20ms(Sequence &h) {
+    h.advance(x::telem::MILLISECOND);
+    h.advance(12 * x::telem::MILLISECOND);
+    EXPECT_TRUE(collect<std::string>(h.flush(), h.key("log")).empty())
+        << "13 ms is short of 20 ms";
+    h.advance(30 * x::telem::MILLISECOND);
+    h.advance(30 * x::telem::MILLISECOND);
+    EXPECT_EQ(
+        collect<std::string>(h.flush(), h.key("log")),
+        (std::vector<std::string>{"done"})
+    );
+}
+}
+
+TEST(ComputedSTLInputsTest, AppliesAComputedCountToAWindowAverage) {
+    using namespace computed_stl_inputs;
+    Sequence h(
+        R"(
+    import math
+    %raw% -> math.avg(count=1 + 1) -> %out%)",
+        {{"raw", x::telem::INT64_T}, {"out", x::telem::INT64_T}}
+    );
+    EXPECT_EQ(ingest_each(h, {2, 4, 6, 8}), (std::vector<std::int64_t>{2, 3, 6, 7}));
+}
+
+TEST(ComputedSTLInputsTest, AppliesAComputedCountToAWindowMin) {
+    using namespace computed_stl_inputs;
+    Sequence h(
+        R"(
+    import math
+    %raw% -> math.min(count=1 + 1) -> %out%)",
+        {{"raw", x::telem::INT64_T}, {"out", x::telem::INT64_T}}
+    );
+    EXPECT_EQ(ingest_each(h, {5, 3, 4, 1}), (std::vector<std::int64_t>{5, 3, 4, 1}));
+}
+
+TEST(ComputedSTLInputsTest, WaitsForAComputedDuration) {
+    using namespace computed_stl_inputs;
+    Sequence h(
+        R"(
+    import time
+    sequence main {
+        sequence pause {
+            time.wait(duration=10ms + 10ms)
+        }
+        "done" -> %log%
+    }
+    1 => main)",
+        {{"log", x::telem::STRING_T}}
+    );
+    expect_wait_of_20ms(h);
+}
+
+TEST(ComputedSTLInputsTest, WaitsForADurationHeldInAComputedVariable) {
+    using namespace computed_stl_inputs;
+    Sequence h(
+        R"(
+    import time
+    d := i64 ns(10ms * 2)
+    sequence main {
+        sequence pause {
+            time.wait(duration=d)
+        }
+        "done" -> %log%
+    }
+    1 => main)",
+        {{"log", x::telem::STRING_T}}
+    );
+    expect_wait_of_20ms(h);
+}
+
+TEST(ComputedSTLInputsTest, FiresAnIntervalAtAComputedPeriod) {
+    Sequence h(
+        R"(
+    import time
+    stage main {
+        x u8 := 3
+        time.interval(period=10ms + 10ms) -> f"v={x}" -> %log%
+    }
+    1 -> main)",
+        {{"log", x::telem::STRING_T}}
+    );
+    for (auto elapsed = x::telem::TimeSpan(0); elapsed <= 50 * x::telem::MILLISECOND;
+         elapsed += 5 * x::telem::MILLISECOND)
+        h.advance(elapsed);
+    EXPECT_EQ(count_of(h.flush(), h.key("log"), "v=3"), 3)
+        << "fires at 0, 20, and 40 ms";
+}
+
 TEST(LateReactiveLocalsTest, FollowsAChannelReadThroughALaterDeclaredFunction) {
     Sequence h(
         R"(
