@@ -58,6 +58,18 @@ describe("Rack", () => {
       expect(retrieved.status?.description).toBe("Rack is running");
       expect(retrieved.status?.details?.rack).toBe(r.key);
     });
+    it("should return the status of a new rack", async () => {
+      const r = await client.racks.create({ name: "created-status" });
+      expect(r.status?.key).toBe(rack.statusKey(r.key));
+    });
+    it("should answer a cached status query for a new rack", async () => {
+      const local = createTestClient();
+      await local.connect();
+      const r = await local.racks.create({ name: "cached-status" });
+      const cached = local.racks.getCached({ key: r.key, includeStatus: true });
+      expect(cached).toBeInstanceOf(rack.Rack);
+      expect((cached as rack.Rack).status?.key).toBe(rack.statusKey(r.key));
+    });
   });
   describe("update", () => {
     it("should update a rack if the key is provided", async () => {

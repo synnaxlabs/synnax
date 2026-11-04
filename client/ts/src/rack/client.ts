@@ -241,12 +241,17 @@ export class Client extends query.Retriever<
   async create(racks: New[]): Promise<Rack[]>;
   async create(rack: New | New[]): Promise<Rack | Rack[]> {
     const isSingle = !Array.isArray(rack);
+    // A status streamed during the request is newer than the reply.
+    const since = this.cfg.statusStore.stamp();
     const res = await this.cfg.unary.send(
       "/rack/create",
       { racks: array.toArray(rack) },
       createReqZ,
       createResZ,
     );
+    res.racks.forEach(({ status: st }) => {
+      if (st != null) this.cfg.statusStore.ingest(st, { since });
+    });
     this.store.set(res.racks.map(stripStatus));
     const sugared = this.sugar(res.racks);
     return isSingle ? sugared[0] : sugared;
