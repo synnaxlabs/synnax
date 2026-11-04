@@ -15,6 +15,7 @@ import (
 	"github.com/synnaxlabs/oracle/plugin/cpp/json"
 	. "github.com/synnaxlabs/oracle/testutil"
 	. "github.com/synnaxlabs/x/testutil"
+	"github.com/synnaxlabs/x/validate"
 )
 
 var _ = Describe("C++ JSON Plugin", func() {
@@ -517,8 +518,9 @@ var _ = Describe("C++ JSON Plugin", func() {
 						pairs map<`+key+`, Pair>
 					}
 				`, "task", loader)
-					Expect(jsonPlugin.Generate(req)).Error().
-						To(MatchError(ContainSubstring("Task.pairs")))
+					_, err := jsonPlugin.Generate(req)
+					Expect(err).To(MatchError(ContainSubstring("Task.pairs")))
+					Expect(err).To(MatchError(validate.ErrValidation))
 				},
 				Entry("string enum", "Units"),
 				Entry("float", "float64"),

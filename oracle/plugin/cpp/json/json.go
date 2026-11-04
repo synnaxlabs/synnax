@@ -31,6 +31,7 @@ import (
 	"github.com/synnaxlabs/oracle/resolution"
 	"github.com/synnaxlabs/x/errors"
 	"github.com/synnaxlabs/x/set"
+	"github.com/synnaxlabs/x/validate"
 )
 
 var primitiveMapper = cppprimitives.Mapper()
@@ -396,7 +397,8 @@ func checkStructMapKey(
 		strings.HasPrefix(base, "uint") {
 		return nil
 	}
-	return errors.Newf(
+	return errors.Wrapf(
+		validate.ErrValidation,
 		"%s.%s: C++ cannot serialize a map of structs keyed by %s",
 		s.QualifiedName,
 		field.Name,
