@@ -8,34 +8,136 @@
 // included in the file licenses/APL.txt.
 
 import { certificate, secret } from "@synnaxlabs/client";
+import { Button } from "@synnaxlabs/lyra/button";
+import { Dialog } from "@synnaxlabs/lyra/dialog";
 import { Flex } from "@synnaxlabs/lyra/flex";
 import { Icon } from "@synnaxlabs/lyra/icon";
 import { List } from "@synnaxlabs/lyra/list";
 import { Menu } from "@synnaxlabs/lyra/menu";
 import { Select } from "@synnaxlabs/lyra/select";
 import { Text } from "@synnaxlabs/lyra/text";
+import { stopPropagation } from "@synnaxlabs/lyra/util";
 import { Access, Certificate, Secret } from "@synnaxlabs/pluto";
-import { TimeStamp } from "@synnaxlabs/x";
-import { type ReactElement, type ReactNode, useState } from "react";
+import { location, state, TimeStamp } from "@synnaxlabs/x";
+import { type ReactElement, type ReactNode, useEffect, useRef, useState } from "react";
 
 import {
   CertificateMenu,
   FallbackMenu,
   SecretMenu,
 } from "@/feature/secret/ContextMenu";
+import {
+  type SelectCertificate,
+  UsedBy,
+  UsesBoundary,
+  useUses,
+} from "@/feature/secret/UsedBy";
 import { type Lists as ListsData, useLists } from "@/feature/secret/useLists";
 import { describeCertificate, describeSecret } from "@/feature/secret/validity";
 import { CSS } from "@/platform/css";
 
-const SecretItem = (props: List.ItemProps<secret.Key>) => {
-  const { itemKey } = props;
+const POPOVER_LOCATION = {
+  targetCorner: location.BOTTOM_RIGHT,
+  dialogCorner: location.TOP_RIGHT,
+};
+
+// How long the popover stays open after the pointer leaves, so the pointer can cross
+// the gap from the count to the popover.
+const HOVER_CLOSE_DELAY = 150;
+
+const usedByDialogID = (key: secret.Key): string => `used-by-${key}`;
+
+type PopoverMode = "hover" | "pinned" | null;
+
+interface UsedByPopoverProps {
+  secretKey: secret.Key;
+  anchor: HTMLElement | null;
+  onSelectCertificate: SelectCertificate;
+}
+
+const UsedByPopover = ({
+  secretKey,
+  anchor,
+  onSelectCertificate,
+}: UsedByPopoverProps): ReactElement => {
+  const count = useUses(secretKey).length;
+  const [mode, setMode] = useState<PopoverMode>(null);
+  const closeTimer = useRef<ReturnType<typeof setTimeout> | undefined>(undefined);
+  useEffect(() => () => clearTimeout(closeTimer.current), []);
+  const cancelClose = () => clearTimeout(closeTimer.current);
+  const scheduleClose = () => {
+    cancelClose();
+    closeTimer.current = setTimeout(
+      () => setMode((m) => (m === "hover" ? null : m)),
+      HOVER_CLOSE_DELAY,
+    );
+  };
+  const handleEnter = () => {
+    cancelClose();
+    setMode((m) => m ?? "hover");
+  };
+  const handleVisibleChange = (arg: state.SetArg<boolean>) =>
+    setMode((m) => (state.executeSetter(arg, m != null) ? "pinned" : null));
+  const handleSelectCertificate = (key: certificate.Key) => {
+    setMode(null);
+    onSelectCertificate(key);
+  };
+  return (
+    <Dialog.Frame
+      id={usedByDialogID(secretKey)}
+      anchor={anchor}
+      visible={mode != null}
+      onVisibleChange={handleVisibleChange}
+      location={POPOVER_LOCATION}
+    >
+      {count > 0 && (
+        <Button.Button
+          variant="text"
+          size="tiny"
+          textColor={9}
+          className={CSS.BE("credentials", "count")}
+          onPointerEnter={handleEnter}
+          onPointerLeave={scheduleClose}
+          onClick={() => setMode("pinned")}
+          onDoubleClick={stopPropagation}
+        >
+          Used by {count}
+        </Button.Button>
+      )}
+      <Dialog.Dialog
+        background={1}
+        rounded="medium"
+        className={CSS.BE("credentials", "popover")}
+        onPointerEnter={cancelClose}
+        onPointerLeave={mode === "hover" ? scheduleClose : undefined}
+        onClick={stopPropagation}
+      >
+        <Text.Text level="small" color={9} className={CSS.BE("credentials", "label")}>
+          Used by
+        </Text.Text>
+        <UsesBoundary>
+          <UsedBy secretKey={secretKey} onSelectCertificate={handleSelectCertificate} />
+        </UsesBoundary>
+      </Dialog.Dialog>
+    </Dialog.Frame>
+  );
+};
+
+interface SecretItemProps extends List.ItemProps<secret.Key> {
+  onSelectCertificate: SelectCertificate;
+}
+
+const SecretItem = ({ onSelectCertificate, ...rest }: SecretItemProps) => {
+  const { itemKey } = rest;
   const s = List.useItem<secret.Key, secret.Secret>(itemKey);
   const canUpdate = Access.useUpdateGranted(secret.ontologyID(itemKey));
   const { update: rename } = Secret.useRename();
+  const [element, setElement] = useState<HTMLElement | null>(null);
   if (s == null) return null;
   return (
     <Select.Item
-      {...props}
+      {...rest}
+      ref={setElement}
       className={CSS.BE("credentials", "item")}
       align="center"
       gap="medium"
@@ -54,6 +156,13 @@ const SecretItem = (props: List.ItemProps<secret.Key>) => {
           {describeSecret(s)}
         </Text.Text>
       </Flex.Box>
+      <UsesBoundary>
+        <UsedByPopover
+          secretKey={itemKey}
+          anchor={element}
+          onSelectCertificate={onSelectCertificate}
+        />
+      </UsesBoundary>
     </Select.Item>
   );
 };
@@ -134,10 +243,15 @@ const Body = ({ secrets, certificates, emptyContent }: BodyProps): ReactElement 
   const secretMenu = Menu.useContextMenu();
   const certificateMenu = Menu.useContextMenu();
   const handleChange = (key: string | null) => setSelected(key ?? undefined);
+  const selectCertificate = (key: certificate.Key) => setSelected(key);
+  const openUsedBy = (key: secret.Key) => {
+    setSelected(key);
+    Dialog.open(usedByDialogID(key));
+  };
   const renderSecretMenu = ({ keys }: Menu.ContextMenuMenuProps) => {
     const s = keys.length === 1 ? secrets.getItem(keys[0]) : undefined;
     if (s == null) return <FallbackMenu />;
-    return <SecretMenu secret={s} onRename={renameByKey} />;
+    return <SecretMenu secret={s} onUsedBy={openUsedBy} onRename={renameByKey} />;
   };
   const renderCertificateMenu = ({ keys }: Menu.ContextMenuMenuProps) => {
     const c = keys.length === 1 ? certificates.getItem(keys[0]) : undefined;
@@ -170,7 +284,9 @@ const Body = ({ secrets, certificates, emptyContent }: BodyProps): ReactElement 
             <List.Items<secret.Key, secret.Secret>
               emptyContent={secrets.answered && EMPTY_SECRETS}
             >
-              {({ key, ...p }) => <SecretItem key={key} {...p} />}
+              {({ key, ...p }) => (
+                <SecretItem key={key} {...p} onSelectCertificate={selectCertificate} />
+              )}
             </List.Items>
           </List.Scroll>
         </Select.Frame>

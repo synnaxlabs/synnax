@@ -15,7 +15,7 @@ import { Icon } from "@synnaxlabs/lyra/icon";
 import { List } from "@synnaxlabs/lyra/list";
 import { Text } from "@synnaxlabs/lyra/text";
 import { Tree as Base } from "@synnaxlabs/lyra/tree";
-import { type FC, type ReactElement } from "react";
+import { type FC, type ReactElement, type ReactNode } from "react";
 
 import { CSS } from "@/platform/css";
 import { MatchGroup, useHighlight } from "@/platform/tree/search";
@@ -47,6 +47,14 @@ export interface Item extends FC<ItemProps> {
   haulItems: (resource: ontology.Resource) => Haul.Item[];
   ContextMenu?: ContextMenu;
   visible?: (resource: ontology.Resource) => boolean;
+  /** Returns the icon that the item shows for the resource. */
+  icon: (resource: ontology.Resource) => Icon.ReactElement | undefined;
+  /** Renders its children with the handler that a double click on the item runs. */
+  OnSelect: FC<OnSelectProps>;
+}
+
+export interface OnSelectProps {
+  children: (onSelect: (resource: ontology.Resource) => void) => ReactNode;
 }
 
 export interface Items extends Partial<Record<ontology.ResourceType, Item>> {}
@@ -102,16 +110,27 @@ export const createItem = ({
   Content: ContentComp,
 }: CreateItemParams): Item => {
   const Row = ContentComp ?? DefaultRow;
+  const resolveIcon = (resource: ontology.Resource): Icon.ReactElement | undefined =>
+    Icon.resolve(typeof icon === "function" ? icon(resource) : icon);
   const Component = (props: ItemProps): ReactElement => {
     const onSelect = useOnSelect();
     const handleDoubleClick = () => onSelect(props.resource);
-    const resolvedIcon = Icon.resolve(
-      typeof icon === "function" ? icon(props.resource) : icon,
+    return (
+      <Row
+        {...props}
+        icon={resolveIcon(props.resource)}
+        onDoubleClick={handleDoubleClick}
+      />
     );
-    return <Row {...props} icon={resolvedIcon} onDoubleClick={handleDoubleClick} />;
+  };
+  const OnSelect = ({ children }: OnSelectProps): ReactNode => {
+    const onSelect = useOnSelect();
+    return children(onSelect);
   };
   const item = Component as Item;
   item.type = type;
+  item.icon = resolveIcon;
+  item.OnSelect = OnSelect;
   item.hasChildren = hasChildren;
   item.canDrop = canDrop;
   item.haulItems = haulItems;

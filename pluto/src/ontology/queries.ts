@@ -138,7 +138,7 @@ export const { use: useChildren } = Flux.createRetrieve<
     client.ontology.children.getCached({ ids: id, ...options }),
 });
 
-export const { useResult: useResultResources } = Flux.createRetrieve<
+export const { use: useResources, useResult: useResultResources } = Flux.createRetrieve<
   ListQuery,
   ontology.Resource[]
 >({

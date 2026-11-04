@@ -10,12 +10,21 @@
 import { type certificate, NotFoundError, type secret } from "@synnaxlabs/client";
 import { CERTIFICATE, createTestClient } from "@synnaxlabs/client/testutil";
 import { type Status } from "@synnaxlabs/lyra/status";
-import { cleanup, fireEvent, render, screen, waitFor } from "@testing-library/react";
+import {
+  act,
+  cleanup,
+  fireEvent,
+  render,
+  screen,
+  waitFor,
+  within,
+} from "@testing-library/react";
 import { afterEach, assert, describe, expect, it } from "vitest";
 
 import { Secret } from "@/feature/secret";
 import { Modals } from "@/platform/modals";
 import { findButton } from "@/platform/modals/testutil";
+import { Tree } from "@/platform/tree";
 import {
   awaitTextEditing,
   CaptureStatuses,
@@ -74,14 +83,18 @@ const createCertificate = async () => {
 const renderToolbar = async () => {
   const { wrapper } = await createConsoleWrapper({ client });
   let statuses: Status.NotificationSpec[] = [];
-  render(
-    <>
-      {Secret.TOOLBAR.content}
-      <Modals.Stack />
-      <CaptureStatuses onStatuses={(s) => (statuses = s)} />
-    </>,
-    { wrapper },
-  );
+  // A list the client already holds renders its secrets at once, and each one
+  // suspends to read its uses.
+  await act(async () => {
+    render(
+      <Tree.Provider items={Secret.TREE_ITEMS}>
+        {Secret.TOOLBAR.content}
+        <Modals.Stack />
+        <CaptureStatuses onStatuses={(s) => (statuses = s)} />
+      </Tree.Provider>,
+      { wrapper },
+    );
+  });
   return { statuses: () => statuses };
 };
 
@@ -93,6 +106,14 @@ const confirmDelete = async (name: string): Promise<void> => {
   await clickAndSettle("Delete");
   await screen.findByText(`Are you sure you want to delete ${name}?`);
   fireEvent.click(findButton("Delete"));
+};
+
+const getOption = (name: string): HTMLElement => {
+  const option = screen
+    .getAllByRole("option")
+    .find((o) => within(o).queryByText(name) != null);
+  if (option == null) throw new Error(`no option for ${name}`);
+  return option;
 };
 
 describe("secret/Toolbar", () => {
@@ -173,5 +194,22 @@ describe("secret/Toolbar", () => {
         `"${c.name}" uses it: validation error`,
     );
     expect(await client.secrets.retrieve(privateKey.key)).toEqual(privateKey);
+  });
+
+  it("lists the users of a secret and selects a certificate from them", async () => {
+    const { certificate: c, privateKey } = await createCertificate();
+    await renderToolbar();
+    // Other specs can leave used secrets on the Core, so read the count of this key.
+    const count = await waitFor(() =>
+      within(getOption(privateKey.name)).getByText("Used by 1"),
+    );
+    await act(async () => {
+      fireEvent.click(count);
+    });
+    const dialog = await screen.findByRole("dialog");
+    fireEvent.click(await within(dialog).findByText(c.name));
+    await waitFor(() =>
+      expect(getOption(c.name).getAttribute("aria-selected")).toBe("true"),
+    );
   });
 });
