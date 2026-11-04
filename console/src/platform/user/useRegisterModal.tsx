@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { type access, status, UnexpectedError, user } from "@synnaxlabs/client";
+import { status, UnexpectedError, user } from "@synnaxlabs/client";
 import { Button } from "@synnaxlabs/lyra/button";
 import { Flex } from "@synnaxlabs/lyra/flex";
 import { Form } from "@synnaxlabs/lyra/form";
@@ -22,6 +22,8 @@ import { Core } from "@/platform/core";
 import { Credential } from "@/platform/credential";
 import { Modals } from "@/platform/modals";
 import { Triggers } from "@/platform/triggers";
+
+const path = User.formPath;
 
 const NAME_INPUT_PROPS: Partial<Input.TextProps> = {
   variant: "text",
@@ -69,8 +71,8 @@ const Register = ({ close }: Modals.ContentProps<Record<never, never>, void>) =>
   // Hidden fields must not fail validation.
   useEffect(() => {
     if (passwordAccepted) return;
-    form.set("username", "");
-    form.set("password", "");
+    form.set(path.username, "");
+    form.set(path.password, "");
   }, [passwordAccepted]);
 
   return (
@@ -79,20 +81,24 @@ const Register = ({ close }: Modals.ContentProps<Record<never, never>, void>) =>
       <Modal.Body>
         <Form.Form<typeof User.formSchema> {...form}>
           <Flex.Box y>
-            <Form.TextField path="name" label="Name" inputProps={NAME_INPUT_PROPS} />
             <Form.TextField
-              path="username"
+              path={path.name}
+              label="Name"
+              inputProps={NAME_INPUT_PROPS}
+            />
+            <Form.TextField
+              path={path.username}
               label="Username"
               visible={passwordAccepted}
               inputProps={USERNAME_INPUT_PROPS}
             />
             <Form.TextField
-              path="password"
+              path={path.password}
               label="Password"
               visible={passwordAccepted}
               inputProps={PASSWORD_INPUT_PROPS}
             />
-            <Form.Field<access.role.Key> path="role" label="Role">
+            <Form.Field path={path.role} label="Role">
               {({ value, onChange }) => (
                 <Access.Role.Select value={value} onChange={onChange} />
               )}

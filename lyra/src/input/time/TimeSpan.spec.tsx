@@ -14,6 +14,7 @@ import { beforeAll, describe, expect, it, vi } from "vitest";
 import { Input } from "@/input";
 import { loadLanguage } from "@/input/time/suggest";
 import { mockBoundingClientRect } from "@/testutil/dom";
+import { Triggers } from "@/triggers";
 
 const HOUR = Number(TimeSpan.HOUR.valueOf());
 
@@ -56,6 +57,85 @@ describe("Input.TimeSpan", () => {
     } finally {
       vi.useRealTimers();
     }
+  });
+
+  describe("inline", () => {
+    const field = (): HTMLInputElement => screen.getByRole<HTMLInputElement>("textbox");
+
+    it("should show the hint under the readings of the value", () => {
+      render(<Input.TimeSpan inline value={HOUR} onChange={vi.fn()} />);
+      fireEvent.focus(field());
+      expect(screen.getByText("1h")).toBeTruthy();
+      expect(
+        screen.getByText("Try 2h 30min, 1:30:00, 90, or an hour and a half"),
+      ).toBeTruthy();
+    });
+
+    it("should read a bare number in its unit and commit on blur", () => {
+      const onChange = vi.fn();
+      render(
+        <Input.TimeSpan
+          inline
+          unit={TimeSpan.MILLISECOND}
+          value={HOUR}
+          onChange={onChange}
+        />,
+      );
+      fireEvent.focus(field());
+      fireEvent.change(field(), { target: { value: "1000" } });
+      expect(screen.getByText("milliseconds")).toBeTruthy();
+      fireEvent.blur(field());
+      expect(onChange).toHaveBeenCalledWith(Number(TimeSpan.SECOND.valueOf()));
+    });
+
+    it("should discard the edit on Escape", () => {
+      const onChange = vi.fn();
+      render(
+        <Triggers.Provider>
+          <Input.TimeSpan inline value={HOUR} onChange={onChange} />
+        </Triggers.Provider>,
+      );
+      // A real focus, so the blur that Escape causes reaches the editor.
+      act(() => field().focus());
+      fireEvent.change(field(), { target: { value: "30s" } });
+      fireEvent.keyDown(field(), { key: "Escape", code: "Escape" });
+      expect(field().value).toBe("1h");
+      expect(onChange).not.toHaveBeenCalled();
+    });
+
+    it("should keep the committed span when a click outside also blurs the field", () => {
+      const onChange = vi.fn();
+      const onClear = vi.fn();
+      render(
+        <Input.TimeSpan inline value={HOUR} onChange={onChange} onClear={onClear} />,
+      );
+      fireEvent.focus(field());
+      fireEvent.change(field(), { target: { value: "5min" } });
+      fireEvent.pointerDown(document.body);
+      fireEvent.blur(field());
+      expect(onChange).toHaveBeenCalledExactlyOnceWith(
+        Number(TimeSpan.minutes(5).valueOf()),
+      );
+      expect(onClear).not.toHaveBeenCalled();
+    });
+
+    it("should show the span as text in a preview", () => {
+      render(<Input.TimeSpan inline preview value={HOUR} onChange={vi.fn()} />);
+      expect(screen.queryByRole("textbox")).toBeNull();
+      expect(screen.getByText("1h")).toBeTruthy();
+    });
+
+    it("should show why a span fails its check and not commit it", () => {
+      const onChange = vi.fn();
+      const check = (span: TimeSpan) =>
+        span.greaterThan(TimeSpan.MINUTE) ? "Timeout must be 1min or less" : null;
+      render(<Input.TimeSpan inline value={HOUR} onChange={onChange} check={check} />);
+      fireEvent.focus(field());
+      fireEvent.change(field(), { target: { value: "5min" } });
+      fireEvent.keyDown(field(), { key: "Enter" });
+      expect(screen.getByText("Timeout must be 1min or less")).toBeTruthy();
+      expect(onChange).not.toHaveBeenCalled();
+    });
   });
 
   it("should stay open on Enter when the text is not a duration", () => {

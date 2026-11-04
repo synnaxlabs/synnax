@@ -18,6 +18,8 @@ import { Role } from "@/access/role";
 import { renderHookSuspended } from "@/testutil/render";
 import { createAsyncSynnaxWrapper } from "@/testutil/Synnax";
 
+const path = Role.changeRoleFormPath;
+
 const client = createTestClient();
 
 describe("queries", () => {
@@ -411,7 +413,7 @@ describe("queries", () => {
       expect(result.current.form.value().role).toEqual(role1.key);
 
       act(() => {
-        result.current.form.set("role", role2.key);
+        result.current.form.set(path.role, role2.key);
       });
 
       await act(async () => {
@@ -444,7 +446,7 @@ describe("queries", () => {
       await waitFor(() => expect(result.current.variant).toEqual("success"));
 
       act(() => {
-        result.current.form.set("role", role.key);
+        result.current.form.set(path.role, role.key);
       });
 
       await act(async () => {
