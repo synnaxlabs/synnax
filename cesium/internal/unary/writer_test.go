@@ -11,7 +11,9 @@ package unary_test
 
 import (
 	"os"
+	"runtime"
 	"strconv"
+	"strings"
 	"time"
 
 	. "github.com/onsi/ginkgo/v2"
@@ -1546,29 +1548,48 @@ var _ = Describe("Writer Behavior", Ordered, func() {
 						},
 					)
 				})
-				It(
-					"Should close a writer while another waits for a file descriptor",
-					func(ctx SpecContext) {
-						open := func(i int) *unary.Writer {
-							GinkgoHelper()
-							start := telem.TimeStamp(i+1) * telem.SecondTS
-							w, _ := MustSucceed2(db.OpenWriter(ctx, unary.WriterConfig{
-								Start:   start,
-								End:     start + telem.SecondTS,
-								Subject: control.Subject{Key: strconv.Itoa(i)},
-							}))
-							return w
+				Describe("Waiting for a file descriptor", func() {
+					var (
+						writers []*unary.Writer
+						opened  chan *unary.Writer
+					)
+					open := func(ctx SpecContext, i int) *unary.Writer {
+						GinkgoHelper()
+						start := telem.TimeStamp(i+1) * telem.SecondTS
+						w, _ := MustSucceed2(db.OpenWriter(ctx, unary.WriterConfig{
+							Start:   start,
+							End:     start + telem.SecondTS,
+							Subject: control.Subject{Key: strconv.Itoa(i)},
+						}))
+						return w
+					}
+					acquiringWriter := func() bool {
+						buf := make([]byte, 1<<20)
+						buf = buf[:runtime.Stack(buf, true)]
+						return strings.Contains(string(buf), ").acquireWriter(")
+					}
+					closeWriters := func() {
+						GinkgoHelper()
+						var waiting *unary.Writer
+						Eventually(opened).Should(Receive(&waiting))
+						MustSucceed(waiting.Close())
+						for _, w := range writers[1:] {
+							MustSucceed(w.Close())
 						}
-						writers := make([]*unary.Writer, 100)
+					}
+					BeforeEach(func(ctx SpecContext) {
+						writers = make([]*unary.Writer, 100)
 						for i := range writers {
-							writers[i] = open(i)
+							writers[i] = open(ctx, i)
 						}
-						opened := make(chan *unary.Writer, 1)
+						opened = make(chan *unary.Writer, 1)
 						go func() {
 							defer GinkgoRecover()
-							opened <- open(len(writers))
+							opened <- open(ctx, len(writers))
 						}()
-						Consistently(opened, 50*time.Millisecond).ShouldNot(Receive())
+						Eventually(acquiringWriter).Should(BeTrue())
+					})
+					It("Should close a writer", func() {
 						closed := make(chan struct{})
 						go func() {
 							defer GinkgoRecover()
@@ -1576,14 +1597,22 @@ var _ = Describe("Writer Behavior", Ordered, func() {
 							MustSucceed(writers[0].Close())
 						}()
 						Eventually(closed).Should(BeClosed())
-						var waiting *unary.Writer
-						Eventually(opened).Should(Receive(&waiting))
-						MustSucceed(waiting.Close())
-						for _, w := range writers[1:] {
-							MustSucceed(w.Close())
-						}
-					},
-				)
+						closeWriters()
+					})
+					It("Should make WriteCursor wait for the opening writer", func() {
+						cursor := make(chan telem.Alignment, 1)
+						go func() {
+							defer GinkgoRecover()
+							cursor <- MustSucceed(db.WriteCursor(101 * telem.SecondTS))
+						}()
+						Consistently(cursor, 50*time.Millisecond).ShouldNot(Receive())
+						MustSucceed(writers[0].Close())
+						Eventually(
+							cursor,
+						).Should(Receive(Equal(alignment.Leading(101, 0))))
+						closeWriters()
+					})
+				})
 				Describe("ErrOnUnauthorizedOpen", func() {
 					It(
 						"Should return an error if the write does not acquire control",
