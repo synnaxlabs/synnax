@@ -215,6 +215,48 @@ class TestAgents:
         assert "## agent-ci: failed" in text
         assert "## zizmor: 0 findings" in text
 
+    @pytest.mark.parametrize("report", ["", "### **High**: Token never expires\n"])
+    def test_should_fail_a_report_it_cannot_read(
+        self,
+        tmp_path: Path,
+        monkeypatch: pytest.MonkeyPatch,
+        key: tuple[list[str], str],
+        report: str,
+    ) -> None:
+        """Should not count an empty or malformed report as a clean review."""
+        gpg, private = key
+        encrypt = [*gpg, "--armor", "--trust-model", "always", "--encrypt", "-r"]
+        armor = subprocess.check_output(
+            [*encrypt, "report@example.com"], input=report, text=True
+        )
+        jobs = {"authn": {"result": "success", "outputs": {"report": armor}}}
+        monkeypatch.setenv("AGENT_REPORTS", json.dumps(jobs))
+        monkeypatch.setenv("REPORT_PRIVATE_KEY", private)
+        write_scan(tmp_path, "zizmor", 0)
+        assert main([str(tmp_path), "--agents"]) == 1
+        assert "## agent-authn: failed" in (tmp_path / "report.md").read_text()
+
+    def test_should_keep_a_report_with_no_findings(
+        self,
+        tmp_path: Path,
+        monkeypatch: pytest.MonkeyPatch,
+        key: tuple[list[str], str],
+    ) -> None:
+        """Should accept the documented response and the line that follows it."""
+        gpg, private = key
+        encrypt = [*gpg, "--armor", "--trust-model", "always", "--encrypt", "-r"]
+        armor = subprocess.check_output(
+            [*encrypt, "report@example.com"],
+            input="No findings.\n\nI read every file.\n",
+            text=True,
+        )
+        jobs = {"authn": {"result": "success", "outputs": {"report": armor}}}
+        monkeypatch.setenv("AGENT_REPORTS", json.dumps(jobs))
+        monkeypatch.setenv("REPORT_PRIVATE_KEY", private)
+        write_scan(tmp_path, "zizmor", 0)
+        assert main([str(tmp_path), "--agents"]) == 0
+        assert "## agent-authn: 0 findings" in (tmp_path / "report.md").read_text()
+
     def test_should_report_every_agent_failed_when_the_key_is_bad(
         self, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
     ) -> None:

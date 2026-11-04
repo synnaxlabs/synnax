@@ -166,6 +166,10 @@ def read_agents(jobs: dict[str, Any], key: str) -> list[Scan]:
             findings = [
                 Finding(m[1], m[1].lower(), "", m[2]) for m in SEVERITY.finditer(body)
             ]
+            if not findings and not body.startswith("No findings."):
+                log = f"The report has no finding and no `No findings.`:\n\n{body}"
+                scans.append(Scan(name, 1, [], log))
+                continue
             scans.append(Scan(name, 0, findings, "", body))
         subprocess.run(["gpgconf", "--homedir", home, "--kill", "all"], check=True)
     return scans
