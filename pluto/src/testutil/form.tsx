@@ -8,13 +8,14 @@
 // included in the file licenses/APL.txt.
 
 import { Form } from "@synnaxlabs/lyra/form";
+import { type deep } from "@synnaxlabs/x";
 import { render, type RenderResult } from "@testing-library/react";
 import { type FC, type PropsWithChildren, type ReactElement, useEffect } from "react";
 import { type z } from "zod";
 
 export interface RenderFormResult extends RenderResult {
   /** Reads the form's current value at the path. */
-  value: (path: string) => unknown;
+  value: (path: deep.Target<unknown>) => unknown;
 }
 
 /**
@@ -27,7 +28,7 @@ export const renderForm = <Z extends z.ZodType>(
   schema: Z,
   wrapper?: FC<PropsWithChildren>,
 ): RenderFormResult => {
-  let read: (path: string) => unknown = () => undefined;
+  let read: RenderFormResult["value"] = () => undefined;
   const setRead = (next: typeof read): void => {
     read = next;
   };

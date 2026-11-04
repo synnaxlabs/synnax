@@ -27,7 +27,6 @@ import { createDiscoverModal, type Kind } from "@/feature/mqtt/task/discover/Dis
 import {
   createEntry,
   createSparkplugEntry,
-  ENTRIES_PATH,
   namePrefix,
 } from "@/feature/mqtt/task/entries";
 import { EntryLabel } from "@/feature/mqtt/task/EntryLabel";
@@ -52,33 +51,38 @@ import { Device as PlatformDevice } from "@/platform/device";
 import { Selector } from "@/platform/selector";
 import { Task } from "@/platform/task";
 
+const root = deep.path<Task.Values<ReadSchemas>>();
+
+const plainEntry = (key: string) =>
+  deep.variant(root.config.entries[key], "type", "plain");
+
 const Properties = () => <SelectDevice />;
 
 const POINTER_INPUT_PROPS = { placeholder: "/temperature" } as const;
 
 type TimingMode = "arrival" | "payload";
 
-const TimestampFields: FC<{ path: string }> = ({ path }) => {
-  const index = PForm.useFieldValue<string>(`${path}.index`);
+const TimestampFields: FC<{ path: deep.Path<PlainReadEntry> }> = ({ path }) => {
+  const index = PForm.useFieldValue(path.index);
   const { get, set } = PForm.useContext();
   const isPayloadTiming = index !== "";
 
   const handleChange = (mode: TimingMode) => {
-    const { fields, index } = get<PlainReadEntry>(path).value;
+    const { fields, index } = get(path).value;
     if (mode === "payload" && index === "") {
       const indexField: ReadField = {
         ...mqtt.readFieldZ.parse({}),
         dataType: DataType.TIMESTAMP.toString(),
         timeFormat: "unix_sec",
       };
-      set(`${path}.fields`, [...fields, indexField]);
-      set(`${path}.index`, indexField.key);
+      set(path.fields, [...fields, indexField]);
+      set(path.index, indexField.key);
     } else if (mode === "arrival" && index !== "") {
       set(
-        `${path}.fields`,
+        path.fields,
         fields.filter((f) => f.key !== index),
       );
-      set(`${path}.index`, "");
+      set(path.index, "");
     }
   };
 
@@ -96,13 +100,13 @@ const TimestampFields: FC<{ path: string }> = ({ path }) => {
       {isPayloadTiming && (
         <>
           <PForm.TextField
-            path={`${path}.fields.${index}.pointer`}
+            path={path.fields[index].pointer}
             label="Pointer"
             padHelpText={false}
             inputProps={TIMESTAMP_POINTER_INPUT_PROPS}
           />
           <Task.Payload.TimeFormatField
-            path={`${path}.fields.${index}.timeFormat`}
+            path={path.fields[index].timeFormat}
             label="Format"
           />
         </>
@@ -115,18 +119,18 @@ const TIMESTAMP_POINTER_INPUT_PROPS = { placeholder: "/timestamp" } as const;
 
 const TOPIC_INPUT_PROPS = { placeholder: "plant/line1/temperature" } as const;
 
-const PlainEntryPane: FC<{ path: string }> = ({ path }) => (
+const PlainEntryPane: FC<{ path: deep.Path<PlainReadEntry> }> = ({ path }) => (
   <PForm.Sections>
     <PForm.Section title="Subscription">
       <PForm.TextField
-        path={`${path}.topic`}
+        path={path.topic}
         label="Topic"
         padHelpText={false}
         inputProps={TOPIC_INPUT_PROPS}
       />
-      <QoSField path={`${path}.qos`} />
+      <QoSField path={path.qos} />
       <PForm.CheckboxField
-        path={`${path}.retainedIgnored`}
+        path={path.retainedIgnored}
         label="Ignore retained"
         padHelpText={false}
       />
@@ -140,13 +144,16 @@ const PlainEntryPane: FC<{ path: string }> = ({ path }) => (
 // A Sparkplug B DateTime tag reads into a timestamp channel.
 const SPARKPLUG_HIDDEN_DATA_TYPES = [DataType.UUID, DataType.JSON, DataType.BYTES];
 
-interface PaneProps {
-  path: string;
+interface PaneProps<E> {
+  path: deep.Path<E>;
   deviceName: string;
 }
 
-const SparkplugEntryPane: FC<PaneProps> = ({ path, deviceName }) => {
-  const entry = PForm.useFieldValue<SparkplugReadEntry>(path);
+const SparkplugEntryPane: FC<PaneProps<SparkplugReadEntry>> = ({
+  path,
+  deviceName,
+}) => {
+  const entry = PForm.useFieldValue(path);
   return (
     <PForm.Sections>
       <PForm.Section title="Tag">
@@ -155,11 +162,12 @@ const SparkplugEntryPane: FC<PaneProps> = ({ path, deviceName }) => {
       <PForm.Section title="Channel">
         <Task.ChannelNameField
           channel={entry.channel}
-          namePath={`${path}.name`}
+          namePath={path.name}
           defaultName={sparkplugChannelName(deviceName, entry)}
+          skipped={entry.disabled}
         />
         <Task.Payload.DataTypeField
-          path={`${path}.dataType`}
+          path={path.dataType}
           channel={entry.channel}
           hideDataTypes={SPARKPLUG_HIDDEN_DATA_TYPES}
         />
@@ -168,47 +176,52 @@ const SparkplugEntryPane: FC<PaneProps> = ({ path, deviceName }) => {
   );
 };
 
-const EntryPane: FC<PaneProps> = ({ path, deviceName }) => {
-  const type = PForm.useFieldValue<ReadEntry["type"]>(`${path}.type`);
+const EntryPane: FC<PaneProps<ReadEntry>> = ({ path, deviceName }) => {
+  const type = PForm.useFieldValue(path.type);
   return (
     <Flex.Box y grow empty className={CSS.BE("details", "form")}>
       {type === "plain" ? (
-        <PlainEntryPane path={path} />
+        <PlainEntryPane path={deep.variant(path, "type", "plain")} />
       ) : (
-        <SparkplugEntryPane path={path} deviceName={deviceName} />
+        <SparkplugEntryPane
+          path={deep.variant(path, "type", "sparkplug")}
+          deviceName={deviceName}
+        />
       )}
     </Flex.Box>
   );
 };
 
-interface FieldPaneProps extends Task.Views.FieldProps, Pick<PaneProps, "deviceName"> {}
+interface FieldPaneProps extends Task.Views.FieldProps<ReadField> {
+  deviceName: string;
+}
 
 const FieldPane: FC<FieldPaneProps> = ({ groupKey, path, deviceName }) => {
-  const { channel: fieldChannel, pointer } = PForm.useFieldValue<ReadField>(path);
-  const topic = PForm.useFieldValue<string>(`${ENTRIES_PATH}.${groupKey}.topic`);
+  const { channel: fieldChannel, pointer, disabled } = PForm.useFieldValue(path);
+  const entry = plainEntry(groupKey);
+  const topic = PForm.useFieldValue(entry.topic);
+  const entryDisabled = PForm.useFieldValue(entry.disabled);
   return (
     <Flex.Box y grow empty className={CSS.BE("details", "form")}>
       <PForm.Sections>
         <PForm.Section title="Field">
           <PForm.TextField
-            path={`${path}.pointer`}
+            path={path.pointer}
             label="Pointer"
             padHelpText={false}
             inputProps={POINTER_INPUT_PROPS}
           />
-          <Task.Payload.DataTypeField
-            path={`${path}.dataType`}
-            channel={fieldChannel}
-          />
+          <Task.Payload.DataTypeField path={path.dataType} channel={fieldChannel} />
           <Task.ChannelNameField
             channel={fieldChannel}
-            namePath={`${path}.name`}
+            namePath={path.name}
             defaultName={
               namePrefix(deviceName, topic) + channel.escapeInvalidName(pointer)
             }
+            skipped={disabled || entryDisabled}
           />
         </PForm.Section>
-        <Task.Payload.EnumMappingSection path={`${path}.enumValues`} />
+        <Task.Payload.EnumMappingSection path={path.enumValues} />
       </PForm.Sections>
     </Flex.Box>
   );
@@ -241,18 +254,18 @@ const DISCOVER_KIND: Kind<ReadEntry> = {
 
 const useDiscoverModal = createDiscoverModal(DISCOVER_KIND);
 
-const entryLabel = Component.renderProp(({ path }: Task.Views.GroupProps) => (
-  <EntryLabel path={path} />
-));
+const entryLabel = Component.renderProp(
+  ({ path }: Task.Views.GroupProps<ReadEntry>) => <EntryLabel path={path} />,
+);
 
 const Content = ({ device }: PlatformDevice.TaskFormContentProps<Device>) => {
-  const entries = PForm.useFieldValue<ReadEntry[]>(ENTRIES_PATH);
+  const entries = PForm.useFieldValue(root.config.entries);
   const discover = useDiscoverModal();
   const createEntries = async () => (await discover({ device, entries })) ?? [];
-  const entryDetails = ({ path }: Task.Views.GroupProps) => (
+  const entryDetails = ({ path }: Task.Views.GroupProps<ReadEntry>) => (
     <EntryPane path={path} deviceName={device.name} />
   );
-  const fieldDetails = (props: Task.Views.FieldProps) => (
+  const fieldDetails = (props: Task.Views.FieldProps<ReadField>) => (
     <FieldPane {...props} deviceName={device.name} />
   );
 
@@ -265,7 +278,7 @@ const Content = ({ device }: PlatformDevice.TaskFormContentProps<Device>) => {
   return (
     <Flex.Box x grow empty>
       <Task.Views.GroupTree<ReadEntry, ReadField>
-        path={ENTRIES_PATH}
+        path={root.config.entries}
         listTitle="Entries"
         emptyMessage="No entries"
         placeholder="Select an entry or field to configure"
@@ -278,14 +291,14 @@ const Content = ({ device }: PlatformDevice.TaskFormContentProps<Device>) => {
         groupDetails={entryDetails}
         fieldDetails={fieldDetails}
       />
-      <Task.BindChannels<ReadEntry> path={ENTRIES_PATH} resolve={resolve} />
+      <Task.BindChannels path={root.config.entries} resolve={resolve} />
       {entries.map(
         ({ key, type }) =>
           type === "plain" && (
             <Task.BindReadChannels
               key={key}
-              path={`${ENTRIES_PATH}.${key}`}
-              propertiesKeyField="topic"
+              path={plainEntry(key)}
+              propertiesKey={plainEntry(key).topic}
               read={device.properties.read}
             />
           ),

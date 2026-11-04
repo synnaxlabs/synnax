@@ -220,7 +220,12 @@ func BootupCore(
 		return err
 	}
 
-	workDir, closeWorkDir, err := openWorkDir()
+	cacheDir, err := os.UserCacheDir()
+	if !ok(err, nil) {
+		return errors.Wrap(err, "failed to resolve cache directory")
+	}
+	cacheDir = filepath.Join(cacheDir, "synnax", "core")
+	workDir, closeWorkDir, err := openWorkDir(cacheDir)
 	if !ok(err, closeWorkDir) {
 		return errors.Wrapf(err, "failed to resolve working directory")
 	}
@@ -374,6 +379,7 @@ func BootupCore(
 			Debug:               cfg.debug,
 			TrustAnchorsPEM:     driverTrustAnchors,
 			ParentDirname:       workDir,
+			BinaryDirname:       filepath.Join(cacheDir, "driver"),
 			TaskWorkerCount:     cfg.taskWorkerCount,
 			TaskShutdownTimeout: cfg.taskShutdownTimeout,
 			TaskPollInterval:    cfg.taskPollInterval,
@@ -424,19 +430,9 @@ func BootupCore(
 	return err
 }
 
-func openWorkDir() (string, io.Closer, error) {
-	cacheDir, err := os.UserCacheDir()
-	if err != nil {
-		return "", nil, err
-	}
-	dir := filepath.Join(
-		cacheDir,
-		"synnax",
-		"core",
-		"workdir",
-		strconv.Itoa(os.Getpid()),
-	)
-	if err = os.MkdirAll(dir, fs.UserRWX); err != nil {
+func openWorkDir(cacheDir string) (string, io.Closer, error) {
+	dir := filepath.Join(cacheDir, "workdir", strconv.Itoa(os.Getpid()))
+	if err := os.MkdirAll(dir, fs.UserRWX); err != nil {
 		return "", nil, err
 	}
 	return dir, xio.CloserFunc(func() error { return os.RemoveAll(dir) }), nil

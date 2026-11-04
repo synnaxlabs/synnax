@@ -522,6 +522,34 @@ var _ = Describe("Python Types Plugin", func() {
 				Entry("any", "any", "JsonValue"),
 			)
 
+			It(
+				"Should write the default before bounds in every field",
+				func(ctx SpecContext) {
+					source := `
+					@py output "out"
+
+					Test struct {
+						stated int32 = 1 {
+							@validate min 0
+							@validate max 3
+						}
+						implied_min uint8 = 2 {
+							@validate max 3
+						}
+						implied_max int32 = 3 {
+							@validate min 1
+						}
+					}
+				`
+					resp := MustGenerate(ctx, source, "test", loader, typesPlugin)
+					ExpectContent(resp, "types_gen.py").ToContain(
+						`stated: int = Field(default=1, ge=0, le=3)`,
+						`implied_min: int = Field(default=2, ge=0, le=3)`,
+						`implied_max: int = Field(default=3, ge=1, le=2147483647)`,
+					)
+				},
+			)
+
 			It("Should import Bytes from x.codec", func(ctx SpecContext) {
 				source := `
 					@py output "out"
@@ -1448,8 +1476,9 @@ var _ = Describe("Python Types Plugin", func() {
 					resp := MustGenerate(ctx, source, "channel", loader, typesPlugin)
 					ExpectContent(resp, "types_gen.py").
 						ToContain(
+							`from typing import TypeAlias, override as _override`,
 							`class Channel(BaseModel):`,
-							`def __hash__(self) -> int:`,
+							"@_override\n    def __hash__(self) -> int:",
 							`return hash(self.key)`,
 						)
 				},

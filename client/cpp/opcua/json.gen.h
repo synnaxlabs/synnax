@@ -58,6 +58,7 @@ inline ReadChannel ReadChannel::parse(x::json::Parser parser) {
         ::synnax::channel::Key(0)
     );
     result.is_index = parser.field<bool>("is_index", false);
+    result.field = parser.field<std::string>("field", "");
     return result;
 }
 
@@ -67,6 +68,7 @@ inline x::json::json ReadChannel::to_json() const {
         j[k] = v;
     j["channel"] = this->channel;
     j["is_index"] = this->is_index;
+    j["field"] = this->field;
     return j;
 }
 
@@ -108,6 +110,7 @@ inline ReadConfig ReadConfig::parse(x::json::Parser parser) {
         "channels",
         std::vector<ReadChannel>{}
     );
+    result.nan_fill_enabled = parser.field<bool>("nan_fill_enabled", false);
     return result;
 }
 
@@ -121,6 +124,7 @@ inline x::json::json ReadConfig::to_json() const {
     j["array_mode"] = this->array_mode;
     j["array_size"] = this->array_size;
     j["channels"] = x::json::to_array(this->channels);
+    j["nan_fill_enabled"] = this->nan_fill_enabled;
     return j;
 }
 

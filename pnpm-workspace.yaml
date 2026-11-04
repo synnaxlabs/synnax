@@ -54,9 +54,11 @@ lockfile:
 overrides:
   # GHSA-9wv6-86v2-598j. Lift when @vercel/routing-utils ships a fixed version.
   '@vercel/routing-utils>path-to-regexp': 6.3.0
-  # GHSA-p98j-92pf-mc4p and GHSA-6688-9rhm-gjv2. Lift when @codingame/monaco-vscode-api
-  # ships a fixed version.
-  '@codingame/monaco-vscode-api>dompurify': 3.4.16
+  # GHSA-cg2g-xh64-v4q7, GHSA-mrv2-3pqr-j5jr, and GHSA-c6gr-qvv4-5v3f. Lift when
+  # @codingame/monaco-vscode-api ships a fixed version.
+  '@codingame/monaco-vscode-api>dompurify': 3.4.17
+  # GHSA-mrhx-c7xc-m3w5. Lift when @vercel/oidc moves past @vercel/cli-config 0.3.1.
+  '@vercel/cli-config>zod': ^4.6.7
 
 catalogMode: strict
 catalogPrune: true
@@ -100,8 +102,8 @@ catalog:
   '@opentelemetry/api': ^1.9.1
   '@prettier/plugin-xml': ^3.4.2
   '@reduxjs/toolkit': ^2.13.0
-  '@remotion/bundler': ^4.0.536
-  '@remotion/renderer': ^4.0.536
+  '@remotion/bundler': ^4.0.540
+  '@remotion/renderer': ^4.0.540
   '@rolldown/plugin-babel': ^0.2.4
   '@stylistic/eslint-plugin': ^5.10.0
   '@synnaxlabs/alamos': workspace:^
@@ -207,7 +209,7 @@ catalog:
   react-redux: ^9.3.0
   remark: ^15.0.1
   remark-gfm: ^4.0.1
-  remotion: ^4.0.536
+  remotion: ^4.0.540
   resend: ^6.34.1
   rolldown: ~1.2.14
   satteri: ^0.10.5

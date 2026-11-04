@@ -12,6 +12,7 @@
 from __future__ import annotations
 
 from typing import Annotated, Literal
+from typing import override as _override
 from uuid import uuid4
 
 from pydantic import BaseModel, Field
@@ -55,6 +56,7 @@ class BaseReadChannel(BaseModel):
     channel: channel_.Key = Field(default=channel_.Key(0), ge=0, le=4294967295)
     address: int = Field(default=0, ge=0, le=65535)
 
+    @_override
     def __hash__(self) -> int:
         return hash(self.key)
 
@@ -76,6 +78,7 @@ class BaseWriteChannel(BaseModel):
     channel: channel_.Key = Field(default=channel_.Key(0), ge=0, le=4294967295)
     address: int = Field(default=0, ge=0, le=65535)
 
+    @_override
     def __hash__(self) -> int:
         return hash(self.key)
 
@@ -83,6 +86,7 @@ class BaseWriteChannel(BaseModel):
 class ScanConfig(task.ScanConfig):
     """Configures a Modbus scan task."""
 
+    @_override
     def __hash__(self) -> int:
         return hash(self.key)
 
@@ -94,7 +98,7 @@ class RegisterBit(BaseModel):
         bit: Is the bit index, from 0 (least significant) to 15.
     """
 
-    bit: int = Field(le=15, default=0, ge=0)
+    bit: int = Field(default=0, ge=0, le=15)
 
 
 class CoilReadChannel(BaseReadChannel):
@@ -185,6 +189,7 @@ class ReadConfig(task.ReadConfig):
     device: device_.Key = ""
     channels: list[ReadChannel] = Field(default_factory=list)
 
+    @_override
     def __hash__(self) -> int:
         return hash(self.key)
 
@@ -198,5 +203,6 @@ class WriteConfig(task.WriteConfig):
 
     channels: list[WriteChannel] = Field(default_factory=list)
 
+    @_override
     def __hash__(self) -> int:
         return hash(self.key)

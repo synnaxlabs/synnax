@@ -372,7 +372,53 @@ describe("Write", () => {
     );
   });
 
-  it("should show the names configuring gives each channel in the list", async () => {
+  it("should reuse the channels a device maps with no state index", async () => {
+    const stateIndex = await client.channels.create({
+      name: uniqueName("lj_state_time"),
+      dataType: "timestamp",
+      isIndex: true,
+    });
+    const state = await client.channels.create({
+      name: uniqueName("lj_state"),
+      dataType: "uint8",
+      index: stateIndex.key,
+    });
+    const cmdIndex = await client.channels.create({
+      name: uniqueName("lj_cmd_time"),
+      dataType: "timestamp",
+      isIndex: true,
+    });
+    const cmd = await client.channels.create({
+      name: uniqueName("lj_cmd"),
+      dataType: "uint8",
+      index: cmdIndex.key,
+    });
+    const dev = await createLabJackDevice(client, {
+      properties: {
+        DO: { channels: { DIO4: { command: cmd.key, state: state.key } } },
+      },
+    });
+    const draft = await createDraft(
+      client,
+      createConfig(dev.key, [createDigitalWriteChannel("DIO4")]),
+    );
+    const { container } = await renderWrite({ client, taskKey: draft.key });
+    const created = await deployAndAwaitTask(
+      client,
+      container,
+      draft.key,
+      LabJack.Task.WRITE_SCHEMAS,
+    );
+    expect(created.config.channels[0].cmdChannel).toBe(cmd.key);
+    expect(created.config.channels[0].stateChannel).toBe(state.key);
+    const updated = await client.devices.retrieve({
+      key: dev.key,
+      schemas: LabJack.Device.SCHEMAS,
+    });
+    expect(updated.properties.writeStateIndex).toBe(stateIndex.key);
+  });
+
+  it("should show the names deploying gives each channel in the list", async () => {
     const dev = await createLabJackDevice(client);
     const draft = await createDraft(
       client,
@@ -382,7 +428,7 @@ describe("Write", () => {
     const { identifier } = dev.properties;
     expect(await screen.findByText(`${identifier}_DIO4_cmd`)).toBeTruthy();
     expect(screen.getByText(`${identifier}_DIO4_state`)).toBeTruthy();
-    expect(screen.queryByText("No command channel")).toBeNull();
+    expect(screen.queryByText("No channel")).toBeNull();
   });
 
   it("should create the task with one channel", async () => {

@@ -22,7 +22,6 @@ import {
 import { createPanelParent, createTestClient } from "@synnaxlabs/client/testutil";
 import { Drift } from "@synnaxlabs/drift";
 import { Form as PForm } from "@synnaxlabs/lyra/form";
-import { Haul } from "@synnaxlabs/lyra/haul";
 import { type Status } from "@synnaxlabs/lyra/status";
 import { Panel as PlutoPanel } from "@synnaxlabs/pluto";
 import { id, sync, TimeSpan, TimeStamp, uuid } from "@synnaxlabs/x";
@@ -56,6 +55,7 @@ import {
   createTestClientWithGrants,
   createTestStore,
   findDialogTriggerByText,
+  HaulProvider,
   renderHookWithConsole,
   renderSuspended,
   renderWithConsole,
@@ -105,9 +105,10 @@ export type FormRef = { current: PForm.ContextValue<z.ZodType> | null };
 export const renderTaskFormHook = async <R,>(
   values: TaskFormValues,
   useValue: (ctx: PForm.ContextValue<z.ZodType>) => R,
+  schema?: z.ZodType,
 ) => {
   const useHarness = () => {
-    const ctx = PForm.use<z.ZodType>({ values });
+    const ctx = PForm.use<z.ZodType>({ values, schema });
     return { ctx, value: useValue(ctx) };
   };
   return await renderHookWithConsole(useHarness);
@@ -117,6 +118,8 @@ export interface TaskFormProviderProps extends PropsWithChildren {
   values: TaskFormValues;
   mode?: PForm.Mode;
   formRef?: FormRef;
+  /** Field schemas the form reads through, such as an optional field. */
+  schema?: z.ZodType;
 }
 
 /**
@@ -129,9 +132,10 @@ export const TaskFormProvider = ({
   values,
   mode,
   formRef,
+  schema,
   children,
 }: TaskFormProviderProps): ReactElement => {
-  const ctx = PForm.use<z.ZodType>({ values, mode });
+  const ctx = PForm.use<z.ZodType>({ values, mode, schema });
   useImperativeHandle(formRef, () => ctx, [ctx]);
   return <PForm.Form {...ctx}>{children}</PForm.Form>;
 };
@@ -272,7 +276,8 @@ export const createWithHook = async <S extends task.Schemas>(
   return await defaultClient.tasks.retrieve({ key, schemas });
 };
 
-export interface RenderInTaskFormOptions extends RenderWithConsoleOptions {
+export interface RenderInTaskFormOptions
+  extends RenderWithConsoleOptions, Pick<TaskFormProviderProps, "schema"> {
   values?: TaskFormValues;
   mode?: PForm.Mode;
 }
@@ -311,7 +316,7 @@ export const renderInTaskForm = async (
   ui: ReactElement,
   options: RenderInTaskFormOptions = {},
 ): Promise<RenderInTaskFormResult> => {
-  const { values, mode, ...rest } = options;
+  const { values, mode, schema, ...rest } = options;
   const formRef: FormRef = { current: null };
   const defaultConfig = DEFAULT_TASK_FORM_VALUES.config as TaskFormValues;
   const merged: TaskFormValues = {
@@ -322,7 +327,7 @@ export const renderInTaskForm = async (
   const tabKey = uuid.create();
   const result = await renderWithConsole(
     <PanelScopes panelKey={uuid.create()} tabKey={tabKey}>
-      <TaskFormProvider values={merged} mode={mode} formRef={formRef}>
+      <TaskFormProvider values={merged} mode={mode} formRef={formRef} schema={schema}>
         {ui}
       </TaskFormProvider>
     </PanelScopes>,
@@ -350,7 +355,15 @@ export const renderInTaskFormWithClient = async (
   ui: ReactElement,
   options: RenderInTaskFormWithClientOptions = {},
 ): Promise<RenderInTaskFormWithClientResult> => {
-  const { client = null, values, mode, preloadedState, store, ...rest } = options;
+  const {
+    client = null,
+    values,
+    mode,
+    schema,
+    preloadedState,
+    store,
+    ...rest
+  } = options;
   const formRef: FormRef = { current: null };
   const defaultConfig = DEFAULT_TASK_FORM_VALUES.config as TaskFormValues;
   const merged: TaskFormValues = {
@@ -367,7 +380,7 @@ export const renderInTaskFormWithClient = async (
   const tabKey = uuid.create();
   const result = await renderSuspended(
     <PanelScopes panelKey={panelKey} tabKey={tabKey}>
-      <TaskFormProvider values={merged} mode={mode} formRef={formRef}>
+      <TaskFormProvider values={merged} mode={mode} formRef={formRef} schema={schema}>
         {ui}
       </TaskFormProvider>
     </PanelScopes>,
@@ -401,9 +414,9 @@ export interface RenderTaskFormTabResult extends RenderResult, CreatedPanel {
 
 /**
  * Renders a Task.wrapForm tab the way the task panel entry does: seeds a panel doc
- * whose single leaf holds a resource tab for the task, then mounts the form inside
- * the panel and tab scopes within the full console provider stack. A modal stack
- * renders beside the panel, as in a window, so dialogs the form opens mount.
+ * whose single leaf holds a resource tab for the task, then mounts the form inside the
+ * panel and tab scopes within the full console provider stack. The drag and drop
+ * provider and a modal stack render around the panel, as in a window.
  */
 export const renderTaskFormTab = async (
   Form: FC<FormTabProps>,
@@ -431,13 +444,13 @@ export const renderTaskFormTab = async (
   }
   const result = await renderSuspended(
     <Analytics.Provider sink={analytics}>
-      <Haul.Provider>
+      <HaulProvider>
         <Modals.Stack />
         <PanelScopes panelKey={created.panelKey} tabKey={tab.key}>
           <Form taskKey={taskKey} />
           {onStatuses != null && <CaptureStatuses onStatuses={onStatuses} />}
         </PanelScopes>
-      </Haul.Provider>
+      </HaulProvider>
     </Analytics.Provider>,
     { wrapper, onCaughtError },
   );
@@ -592,6 +605,25 @@ export interface CommandAnswer extends Omit<CreateTaskStatusOverrides, "details"
 }
 
 /**
+ * Answers cmd as a Driver does, with a success status unless answer overrides its
+ * fields.
+ */
+export const answerCommand = async (
+  client: Client,
+  tsk: task.Task,
+  cmd: task.Command,
+  { data, ...answer }: Omit<CommandAnswer, "type"> = {},
+): Promise<void> => {
+  await client.tasks.create({
+    ...tsk.payload,
+    status: createTaskStatus({
+      ...answer,
+      details: { task: tsk.key, cmd: cmd.key, rack: tsk.rack, data },
+    }),
+  });
+};
+
+/**
  * Answers the next command sent to the task as a Driver does, with a success status
  * unless answer overrides its fields. Specs run without a Driver, so a caller that
  * waits for the answer otherwise times out. Resolves once it listens, with a promise
@@ -600,19 +632,13 @@ export interface CommandAnswer extends Omit<CreateTaskStatusOverrides, "details"
 export const answerNextCommand = async (
   client: Client,
   tsk: task.Task,
-  { type, data, ...answer }: CommandAnswer = {},
+  { type, ...answer }: CommandAnswer = {},
 ): Promise<{ answered: Promise<task.Command> }> => {
   const streamer = await client.openStreamer(task.COMMAND_CHANNEL_NAME);
   const respond = async (): Promise<task.Command> => {
     try {
       const cmd = await awaitCommand(streamer, tsk.key, type);
-      await client.tasks.create({
-        ...tsk.payload,
-        status: createTaskStatus({
-          ...answer,
-          details: { task: tsk.key, cmd: cmd.key, rack: tsk.rack, data },
-        }),
-      });
+      await answerCommand(client, tsk, cmd, answer);
       return cmd;
     } finally {
       streamer.close();

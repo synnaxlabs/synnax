@@ -12,6 +12,7 @@
 from __future__ import annotations
 
 from typing import Annotated, Literal
+from typing import override as _override
 from uuid import uuid4
 
 from pydantic import BaseModel, Field, JsonValue
@@ -127,6 +128,7 @@ class BaseReadEntry(BaseModel):
     key: str = Field(default_factory=lambda: str(uuid4()))
     disabled: bool = False
 
+    @_override
     def __hash__(self) -> int:
         return hash(self.key)
 
@@ -142,6 +144,7 @@ class BaseWriteField(BaseModel):
     key: str = Field(default_factory=lambda: str(uuid4()))
     pointer: str = ""
 
+    @_override
     def __hash__(self) -> int:
         return hash(self.key)
 
@@ -157,6 +160,7 @@ class BaseWriteTarget(BaseModel):
     key: str = Field(default_factory=lambda: str(uuid4()))
     disabled: bool = False
 
+    @_override
     def __hash__(self) -> int:
         return hash(self.key)
 
@@ -164,6 +168,7 @@ class BaseWriteTarget(BaseModel):
 class ScanConfig(task.ScanConfig):
     """Configures an MQTT scan task."""
 
+    @_override
     def __hash__(self) -> int:
         return hash(self.key)
 
@@ -192,6 +197,7 @@ class EdgeTag(BaseModel):
     command_channel: channel_.Key = Field(default=channel_.Key(0), ge=0, le=4294967295)
     command_channel_name: str | None = None
 
+    @_override
     def __hash__(self) -> int:
         return hash(self.key)
 
@@ -221,6 +227,7 @@ class ReadField(BaseModel):
     time_format: TimeFormat | None = None
     enum_values: list[EnumEntry] = Field(default_factory=list)
 
+    @_override
     def __hash__(self) -> int:
         return hash(self.key)
 
@@ -294,6 +301,7 @@ class EdgeConfig(task.StartConfig):
     authority: int = Field(default=0, ge=0, le=255)
     tags: list[EdgeTag] = Field(default_factory=list)
 
+    @_override
     def __hash__(self) -> int:
         return hash(self.key)
 
@@ -374,6 +382,7 @@ class ReadConfig(task.PersistConfig):
     device: device_.Key = ""
     entries: list[ReadEntry] = Field(default_factory=list)
 
+    @_override
     def __hash__(self) -> int:
         return hash(self.key)
 
@@ -390,5 +399,6 @@ class WriteConfig(task.StartConfig):
     device: device_.Key = ""
     targets: list[WriteTarget] = Field(default_factory=list)
 
+    @_override
     def __hash__(self) -> int:
         return hash(self.key)

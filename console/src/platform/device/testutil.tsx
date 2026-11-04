@@ -10,8 +10,9 @@
 import { device, type ontology, rack, status, type Synnax } from "@synnaxlabs/client";
 import { Form } from "@synnaxlabs/lyra/form";
 import { Menu as PMenu } from "@synnaxlabs/lyra/menu";
-import { id } from "@synnaxlabs/x";
-import { render, type RenderResult } from "@testing-library/react";
+import { Errors } from "@synnaxlabs/pluto";
+import { deep, id } from "@synnaxlabs/x";
+import { act, render, type RenderResult } from "@testing-library/react";
 import { type FC, type PropsWithChildren, type ReactElement } from "react";
 import { describe, expect, it } from "vitest";
 import { z } from "zod";
@@ -20,6 +21,8 @@ import { Modals } from "@/platform/modals";
 import { createResource } from "@/platform/tree/testutil";
 import { Session } from "@/session";
 import { createConsoleWrapper, type TestStore, uniqueName } from "@/testutil";
+
+const path = deep.path<z.infer<typeof deviceFormSchema>>();
 
 export interface CreateTestDeviceOptions extends Partial<
   Pick<device.New, "name" | "configured" | "properties" | "make" | "model" | "rack">
@@ -83,6 +86,24 @@ export const createTestDevice = async (
   );
 };
 
+export const TEST_DEVICE_STATUS_MESSAGE = "Device reported";
+
+/** Writes the status a Driver reports for a device. */
+export const setTestDeviceStatus = async (
+  client: Synnax,
+  { key, name, rack }: Pick<device.Device, "key" | "name" | "rack">,
+): Promise<void> => {
+  await client.statuses.set(
+    status.create<typeof device.statusDetailsZ>({
+      key: device.statusKey(key),
+      name,
+      variant: "success",
+      message: TEST_DEVICE_STATUS_MESSAGE,
+      details: { rack, device: key },
+    }),
+  );
+};
+
 /**
  * Builds the ontology resource the tree hands to device context-menu items, carrying
  * the configured flag in its data payload.
@@ -122,14 +143,20 @@ export const renderMenuItem = async (
     return null;
   };
   ModalStoreProbe.displayName = "ModalStoreProbe";
-  const rendered = render(
-    <>
-      <PMenu.Menu>{node}</PMenu.Menu>
-      <Modals.Stack />
-      <ModalStoreProbe />
-    </>,
-    { wrapper },
-  );
+  let rendered!: RenderResult;
+  // An item can suspend on a device fetch, and a tree bounds its menus the same way.
+  await act(async () => {
+    rendered = render(
+      <>
+        <Errors.SuspenseBoundary loading={null}>
+          <PMenu.Menu>{node}</PMenu.Menu>
+        </Errors.SuspenseBoundary>
+        <Modals.Stack />
+        <ModalStoreProbe />
+      </>,
+      { wrapper },
+    );
+  });
   if (captured.modals == null) throw new Error("modal store was not captured");
   return { ...rendered, store, wrapper, modals: captured.modals };
 };
@@ -159,7 +186,7 @@ const DeviceFormFixture = ({
     <Form.Form<typeof deviceFormSchema> {...methods}>
       {children}
       {selectableKey != null && (
-        <button onClick={() => methods.set("config.device", selectableKey)}>
+        <button onClick={() => methods.set(path.config.device, selectableKey)}>
           select device
         </button>
       )}
