@@ -34,6 +34,7 @@ var _ = Describe("Signals", Ordered, func() {
 		responses confluence.Outlet[framer.StreamerResponse]
 	)
 	BeforeAll(func(ctx SpecContext) {
+		ShouldNotLeakGoroutines()
 		layer = MustOpen(svctestutil.OpenLayer(ctx, testutil.NewNode(ctx)))
 	})
 	BeforeEach(func(ctx SpecContext) {
