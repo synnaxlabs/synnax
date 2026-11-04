@@ -466,9 +466,11 @@ var _ = Describe("Write task", func() {
 				func(ctx context.Context) (msgpack.EncodedJSON, string) {
 					ch := createVirtual(ctx, telem.Float64T)
 					unit := staticField("/unit", "string", "rpm")
+					unit["key"] = "unit"
 					target := plainTarget("plant/x", ch, "", "number", unit)
 					return writeConfig(dev, target),
-						`target plant/x: pointers "" and "/unit" overlap`
+						`target plant/x: channel.pointer "" and field "unit" "/unit" ` +
+							`overlap`
 				},
 			),
 			Entry("a static value that is not of its JSON type",
@@ -484,31 +486,34 @@ var _ = Describe("Write task", func() {
 				func(ctx context.Context) (msgpack.EncodedJSON, string) {
 					ch := createVirtual(ctx, telem.Float64T)
 					unit := staticField("/unit", "string", "rpm")
+					unit["key"] = "unit"
 					target := plainTarget("plant/x", ch, "/unit/value", "number", unit)
 					return writeConfig(dev, target),
-						`target plant/x: pointers "/unit" and "/unit/value" overlap`
+						`target plant/x: channel.pointer "/unit/value" and ` +
+							`field "unit" "/unit" overlap`
 				},
 			),
 			Entry("a channel value at the parent of a field",
 				func(ctx context.Context) (msgpack.EncodedJSON, string) {
 					ch := createVirtual(ctx, telem.Float64T)
 					unit := staticField("/reading/unit", "string", "rpm")
+					unit["key"] = "unit"
 					target := plainTarget("plant/x", ch, "/reading", "number", unit)
 					return writeConfig(dev, target),
-						`target plant/x: pointers "/reading" and "/reading/unit" ` +
-							`overlap`
+						`target plant/x: channel.pointer "/reading" and ` +
+							`field "unit" "/reading/unit" overlap`
 				},
 			),
 			Entry("two fields at one pointer",
 				func(ctx context.Context) (msgpack.EncodedJSON, string) {
 					ch := createVirtual(ctx, telem.Float64T)
-					target := plainTarget(
-						"plant/x", ch, "/v", "number",
-						staticField("/unit", "string", "rpm"),
-						staticField("/unit", "string", "rps"),
-					)
+					rpm := staticField("/unit", "string", "rpm")
+					rps := staticField("/unit", "string", "rps")
+					rpm["key"], rps["key"] = "rpm", "rps"
+					target := plainTarget("plant/x", ch, "/v", "number", rpm, rps)
 					return writeConfig(dev, target),
-						`target plant/x: pointers "/unit" and "/unit" overlap`
+						`target plant/x: field "rpm" "/unit" and field "rps" "/unit" ` +
+							`overlap`
 				},
 			),
 		)

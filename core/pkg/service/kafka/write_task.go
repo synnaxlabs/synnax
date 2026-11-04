@@ -169,7 +169,7 @@ func (f *factory) configureWrite(
 	}
 	tmpl, err := xjson.NewTemplate(fields)
 	if err != nil {
-		return nil, errors.Wrap(err, "record")
+		return nil, err
 	}
 	wt := &writeTask{
 		factoryCfg: f.cfg,
@@ -260,7 +260,10 @@ func templateFields(rec Record) ([]xjson.TemplateField, []slot, error) {
 		if len(p) == 0 {
 			return errors.Wrapf(validate.ErrValidation, "%s: must not be empty", label)
 		}
-		fields = append(fields, xjson.TemplateField{Pointer: p, Literal: literal})
+		fields = append(
+			fields,
+			xjson.TemplateField{Label: label, Pointer: p, Literal: literal},
+		)
 		slots = append(slots, s)
 		return nil
 	}
