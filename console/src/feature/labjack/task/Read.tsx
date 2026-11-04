@@ -55,7 +55,7 @@ import {
 } from "@/feature/labjack/task/types";
 import { useConfigure } from "@/feature/labjack/task/useConfigure";
 import { Device as PlatformDevice } from "@/platform/device";
-import { Selector } from "@/platform/selector";
+import { type Selector } from "@/platform/selector";
 import { Task } from "@/platform/task";
 
 const root = deep.path<Task.Values<ReadSchemas>>();
@@ -407,9 +407,10 @@ export const useCreateRead = Task.createUseCreate({
   deviceMake: MAKE,
 });
 
-export const ReadSelectable = Selector.createSelectable({
+export const ReadSelectable: Selector.Selectable = {
   type: READ_TYPE,
   title: "LabJack read task",
+  label: "Read",
   icon: <Icon.Logo.LabJack />,
   useOnSelect: useCreateRead,
-});
+};
