@@ -76,6 +76,13 @@ on:
         required: false
         type: boolean
         default: false
+    secrets:
+      CODECOV_TOKEN:
+        required: false
+      SYNNAX_LICENSE_TOKEN:
+        required: false
+      TURBO_TOKEN:
+        required: false
   workflow_dispatch:
     inputs: *inputs
 
