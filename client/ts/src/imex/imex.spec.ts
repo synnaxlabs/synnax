@@ -180,7 +180,6 @@ describe("Imex", () => {
       const proj = await client.projects.create({ name: `imex-proj-${id.create()}` });
       const g = await client.groups.create({
         parent: project.resourceID(proj.key),
-        scope: "log",
         name: `imex-group-${id.create()}`,
       });
       const name = `imex-${id.create()}`;

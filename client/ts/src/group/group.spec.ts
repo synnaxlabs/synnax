@@ -12,7 +12,7 @@ import { describe, expect, it } from "vitest";
 
 import { channel } from "@/channel";
 import { group } from "@/group";
-import { NotFoundError, ValidationError } from "@/index";
+import { NotFoundError } from "@/index";
 import { createTestClient } from "@/testutil";
 
 const client = createTestClient();
@@ -41,7 +41,7 @@ describe("Group", () => {
     it("should reject a top-level group with no scope", async () => {
       await expect(
         client.groups.create({ name: `group-${id.create()}` }),
-      ).rejects.toThrow(ValidationError);
+      ).rejects.toThrow("scope: invalid scope");
     });
     it("should update an existing group", async () => {
       const g = await createTopLevel();
@@ -104,7 +104,7 @@ describe("Group", () => {
       });
       await expect(
         client.groups.setParent(parent.key, group.resourceID(child.key)),
-      ).rejects.toThrow(ValidationError);
+      ).rejects.toThrow("would form a cycle");
     });
   });
   describe("delete", () => {
@@ -121,13 +121,15 @@ describe("Group", () => {
         name: "child",
         parent: group.resourceID(parent.key),
       });
-      await expect(client.groups.delete(parent.key)).rejects.toThrow(ValidationError);
+      await expect(client.groups.delete(parent.key)).rejects.toThrow(
+        "because it is not empty",
+      );
     });
   });
   describe("batch", () => {
     it("should create a group and move a channel into it at once", async () => {
       const ch = await client.channels.create({
-        name: `batch-${id.create()}`,
+        name: `batch_${id.create()}`,
         dataType: "float32",
         virtual: true,
       });
@@ -147,7 +149,7 @@ describe("Group", () => {
           group.createRequest({ key, name: "Rolled back", scope: "channel" }),
           group.setParentRequest(key, group.resourceID(key)),
         ]),
-      ).rejects.toThrow(ValidationError);
+      ).rejects.toThrow("would form a cycle");
       await expect(client.groups.retrieve({ key })).rejects.toThrow(NotFoundError);
     });
   });

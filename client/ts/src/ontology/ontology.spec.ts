@@ -272,7 +272,7 @@ describe("Ontology", () => {
       mid: resource.ID;
       leaf: resource.ID;
     }> => {
-      const top = await createGroup();
+      const top = await createGroup(ontology.ROOT_ID);
       const mid = await createGroup(top);
       const leaf = await createGroup(mid);
       return { top, mid, leaf };
