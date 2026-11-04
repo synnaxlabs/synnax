@@ -7,10 +7,11 @@
 # License, use of this software will be governed by the Apache License, Version 2.0,
 # included in the file licenses/APL.txt.
 
-# Starts a container by digest and publishes its port. A workflow calls this instead of
-# using `services`, because a service image cannot be both pinned and optional. Pass the
-# container's variables in the env of the calling step and name them in `variables`.
-# The caller removes the container: build bots outlive the job.
+# Starts a container by digest, publishes its port, and waits for its health check, if
+# it has one. A workflow calls this instead of using `services`, because a service image
+# cannot be both pinned and optional. Pass the container's variables in the env of the
+# calling step and name them in `variables`. The caller removes the container: build
+# bots outlive the job.
 
 name: Start service
 description: Start a container from a pinned image
@@ -50,3 +51,12 @@ runs:
         args=()
         for variable in $VARIABLES; do args+=(--env "$variable"); done
         docker run --detach --name "$NAME" --publish "$PORT:$PORT" "${args[@]}" "$IMAGE"
+        format='{{if .State.Health}}{{.State.Health.Status}}{{else}}none{{end}}'
+        for _ in $(seq 60); do
+          status=$(docker inspect --format "$format" "$NAME")
+          if [ "$status" = healthy ] || [ "$status" = none ]; then exit 0; fi
+          sleep 2
+        done
+        docker logs --tail 100 "$NAME" >&2
+        echo "$NAME did not become healthy" >&2
+        exit 1
