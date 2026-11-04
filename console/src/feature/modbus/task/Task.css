@@ -188,6 +188,11 @@
     bottom: -0.25rem;
 }
 
+.console-modbus__segment--selected {
+    z-index: 1;
+    box-shadow: var(--pluto-selected-ring);
+}
+
 /* A disabled channel keeps its addresses in stripes, as a calendar marks a tentative
    event. */
 .console-modbus__segment--disabled {

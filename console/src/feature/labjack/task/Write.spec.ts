@@ -26,7 +26,7 @@ import {
   renderTaskFormTab,
   type RenderTaskFormTabOptions,
 } from "@/platform/task/testutil";
-import { findDialogTriggerByText, getIconButton, uniqueName } from "@/testutil";
+import { findDialogTriggerByText, uniqueName } from "@/testutil";
 
 const client = createTestClient();
 
@@ -110,9 +110,9 @@ describe("Write", () => {
   it("should add a zero channel when the list is empty and Add is pressed", async () => {
     const dev = await createLabJackDevice(client);
     const draft = await createDraft(client, createConfig(dev.key, []));
-    const { container } = await renderWrite({ client, taskKey: draft.key });
+    await renderWrite({ client, taskKey: draft.key });
     await waitFor(() => expect(screen.getByText("No channels in task")).toBeTruthy());
-    fireEvent.click(getIconButton(container, "add"));
+    fireEvent.click(screen.getByRole("button", { name: "Add channel" }));
     await waitFor(() => expect(screen.getByText("FIO4")).toBeTruthy());
   });
 
@@ -122,9 +122,9 @@ describe("Write", () => {
       client,
       createConfig(dev.key, [createDigitalWriteChannel("DIO4")]),
     );
-    const { container } = await renderWrite({ client, taskKey: draft.key });
+    await renderWrite({ client, taskKey: draft.key });
     await waitFor(() => expect(screen.getByText("FIO4")).toBeTruthy());
-    fireEvent.click(getIconButton(container, "add"));
+    fireEvent.click(screen.getByRole("button", { name: "Add channel" }));
     await waitFor(() => expect(screen.getByText("FIO5")).toBeTruthy());
   });
 
@@ -152,6 +152,23 @@ describe("Write", () => {
         ["digital", "DIO8"],
       ]),
     );
+  });
+
+  it("should name the port a click in the port picker moves the channel to", async () => {
+    const dev = await createLabJackDevice(client);
+    const draft = await createDraft(
+      client,
+      createConfig(dev.key, [createDigitalWriteChannel("DIO4")]),
+    );
+    await renderWrite({ client, taskKey: draft.key });
+    fireEvent.click(await findDialogTriggerByText("FIO4"));
+    const dialog = await screen.findByRole("dialog");
+    const bank = within(dialog).getByRole("group", { name: "EIO0 to EIO7" });
+    const eio2 = within(bank).getByRole("button", { name: "EIO2" });
+    fireEvent.pointerOver(eio2, { pointerType: "mouse" });
+    const tooltip = await screen.findByRole("tooltip");
+    expect(tooltip.textContent).toBe("Move to EIO2");
+    expect(eio2.className).not.toContain("console-port-grid__cell--addable");
   });
 
   it("should offer no channel actions on a free port of the port picker", async () => {
@@ -215,6 +232,51 @@ describe("Write", () => {
       ]),
     );
     expect(screen.getByText("1 of 2 ports used")).toBeTruthy();
+  });
+
+  it("should name the port a click on a free port adds a channel on", async () => {
+    const dev = await createLabJackDevice(client);
+    const draft = await createDraft(
+      client,
+      createConfig(dev.key, [createDigitalWriteChannel("DIO4")]),
+    );
+    await renderWrite({ client, taskKey: draft.key });
+    const section = await screen.findByRole("group", { name: "Analog outputs" });
+    const dac1 = within(section).getByRole("button", { name: "DAC1" });
+    expect(dac1.className).toContain("console-port-grid__cell--addable");
+    fireEvent.pointerOver(dac1, { pointerType: "mouse" });
+    const tooltip = await screen.findByRole("tooltip");
+    expect(tooltip.textContent).toBe("Add a channel on DAC1");
+  });
+
+  it("should mark a channel's port while the pointer is on its item", async () => {
+    const dev = await createLabJackDevice(client);
+    const draft = await createDraft(
+      client,
+      createConfig(dev.key, [createAnalogWriteChannel("DAC1")]),
+    );
+    await renderWrite({ client, taskKey: draft.key });
+    const section = await screen.findByRole("group", { name: "Analog outputs" });
+    const dac1 = within(section).getByRole("button", { name: "DAC1" });
+    fireEvent.pointerEnter(screen.getByRole("option"));
+    expect(dac1.className).toContain("console-port-grid__cell--hovered");
+    fireEvent.pointerLeave(screen.getByRole("option"));
+    expect(dac1.className).not.toContain("console-port-grid__cell--hovered");
+  });
+
+  it("should mark a channel's item while the pointer is on its port", async () => {
+    const dev = await createLabJackDevice(client);
+    const draft = await createDraft(
+      client,
+      createConfig(dev.key, [createAnalogWriteChannel("DAC1")]),
+    );
+    await renderWrite({ client, taskKey: draft.key });
+    const section = await screen.findByRole("group", { name: "Analog outputs" });
+    const dac1 = within(section).getByRole("button", { name: "DAC1" });
+    fireEvent.pointerEnter(dac1);
+    expect(screen.getByRole("option").className).toContain("lyra--hovered");
+    fireEvent.pointerLeave(dac1);
+    expect(screen.getByRole("option").className).not.toContain("lyra--hovered");
   });
 
   it("should mark each channel on a port another channel uses", async () => {

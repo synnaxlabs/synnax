@@ -144,9 +144,8 @@ const DevicePorts = <C extends Task.Channel>({
   const ports = hardware == null ? [] : kind.ports(hardware);
   const claims = claimsOf(kind, channels, hardware);
   const names = ports.map(({ port }) => `${kind.prefix}${port}`);
-  const handleClick = (cell: Task.Port.Cell) => {
-    if (cell.channel != null) onSelect([cell.channel]);
-    else if (editable) onAdd(Number(cell.key));
+  const handleClick = ({ channel }: Task.Port.Cell) => {
+    if (channel != null) onSelect([channel]);
   };
   return (
     <DeviceSection
@@ -172,6 +171,7 @@ const DevicePorts = <C extends Task.Channel>({
               describe: Task.Port.describer(channels, (c) => kind.name(c, device)),
             })}
             onClick={handleClick}
+            onAdd={editable ? ({ key }) => onAdd(Number(key)) : undefined}
             onContextMenu={onContextMenu}
           />
         )
@@ -335,9 +335,8 @@ export const LinesView = <C extends DigitalChannel>({
       selected,
       describe,
     });
-  const handleClick = ({ key, channel }: Task.Port.Cell) => {
+  const handleClick = ({ channel }: Task.Port.Cell) => {
     if (channel != null) onSelect([channel]);
-    else if (editable) add(parse(key));
   };
   const lines = ports.flatMap(({ port, lines: n }) =>
     Array.from({ length: n }, (_, line) => lineName(port, line)),
@@ -388,6 +387,7 @@ export const LinesView = <C extends DigitalChannel>({
                     },
                   )}
                   onClick={handleClick}
+                  onAdd={editable ? ({ key }) => add(parse(key)) : undefined}
                   onContextMenu={onContextMenu}
                 />
               </Flex.Box>

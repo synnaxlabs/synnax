@@ -82,9 +82,8 @@ const Section = <P extends Port>({
     </ContextMenu.Menu>
   );
   const open = editable ? menu.open : undefined;
-  const handleClick = (cell: Task.Port.Cell) => {
-    if (cell.channel != null) onSelect([cell.channel]);
-    else if (editable) onAdd(portOf(cell.key));
+  const handleClick = ({ channel }: Task.Port.Cell) => {
+    if (channel != null) onSelect([channel]);
   };
   return (
     <Menu.ContextMenu {...menu} menu={renderMenu}>
@@ -123,6 +122,7 @@ const Section = <P extends Port>({
           describe={describe}
           compact={compact}
           onClick={handleClick}
+          onAdd={editable ? ({ key }) => onAdd(portOf(key)) : undefined}
           onContextMenu={open}
         />
       </Flex.Box>

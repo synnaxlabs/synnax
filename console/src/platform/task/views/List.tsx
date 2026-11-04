@@ -14,6 +14,7 @@ import { type List as PList } from "@synnaxlabs/lyra/list";
 import { useState } from "react";
 
 import { CSS } from "@/platform/css";
+import { HoverProvider } from "@/platform/task/port/Hovered";
 import { type Channel } from "@/platform/task/types";
 import {
   ChannelList,
@@ -49,7 +50,10 @@ export interface ListProps<C extends Channel>
    * "Ports" switch that shows it.
    */
   ports?: Component.RenderProp<PortsProps<C>>;
-  /** The channels by port, shown between the title and the items. */
+  /**
+   * The channels by port, shown between the title and the items. The pointer on an item
+   * marks its port, and the other way around.
+   */
   map?: Component.RenderProp<PortsProps<C>>;
 }
 
@@ -63,7 +67,7 @@ export const List = <C extends Channel>({
 }: ListProps<C>) => {
   const [selected, setSelected] = useState<string[]>([]);
   const [view, setView] = useState<View>("list");
-  return (
+  const list = (
     <ChannelList<C>
       {...rest}
       header={
@@ -90,4 +94,5 @@ export const List = <C extends Channel>({
       onSelect={setSelected}
     />
   );
+  return map == null ? list : <HoverProvider>{list}</HoverProvider>;
 };

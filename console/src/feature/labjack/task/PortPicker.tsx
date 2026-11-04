@@ -52,7 +52,7 @@ const Grid = <C extends Channel>({
       claims={claims(channels, model)}
       selected={[channel]}
       describe={Task.Port.describer(channels, name)}
-      onClick={(cell) => {
+      onMove={(cell) => {
         onChange(cell.key);
         close();
       }}

@@ -27,8 +27,6 @@ import { RegisterField } from "@/feature/modbus/task/Register";
 import {
   RegisterMap,
   RegisterMapProvider,
-  useHoveredRef,
-  useIsHovered,
   useOverlaps,
 } from "@/feature/modbus/task/RegisterMap";
 import {
@@ -125,8 +123,6 @@ const ChannelListItem = ({ itemKey, ...rest }: Task.ChannelListItemProps) => {
   const entry = path.config.channels[itemKey];
   const ch = PForm.useFieldValue(entry);
   const dev = useFromConfig();
-  const hovered = useIsHovered(itemKey);
-  const hoveredRef = useHoveredRef(itemKey);
   const overlapping = useOverlaps(path.config.channels, itemKey);
   return (
     <Task.Views.ListChannelItem
@@ -137,8 +133,6 @@ const ChannelListItem = ({ itemKey, ...rest }: Task.ChannelListItemProps) => {
       defaultName={
         dev == null ? undefined : commandName(channel.escapeInvalidName(dev.name), ch)
       }
-      ref={hoveredRef}
-      hovered={hovered}
     >
       <List.Cell>
         <RegisterField path={entry} schemas={WRITE_CHANNEL_SCHEMAS} />
@@ -185,8 +179,13 @@ const createMapChannel = (type: WriteChannelType, address: number): WriteChannel
 
 const listItem = Component.renderProp(ChannelListItem);
 
-const map = () => (
-  <RegisterMap path={path.config.channels} createChannel={createMapChannel} />
+const map = ({ selected, onSelect }: Task.Views.PortsProps<WriteChannel>) => (
+  <RegisterMap
+    path={path.config.channels}
+    createChannel={createMapChannel}
+    selected={selected}
+    onSelect={onSelect}
+  />
 );
 
 const Form: FC = () => {

@@ -27,16 +27,29 @@ import { CSS } from "@/platform/css";
 import { Task } from "@/platform/task";
 
 interface GridProps extends GroupsProps {
-  onClick: (cell: Task.Port.Cell) => void;
+  onClick?: (cell: Task.Port.Cell) => void;
+  /** Moves a channel to the port: the grid is a picker. */
+  onMove?: (cell: Task.Port.Cell) => void;
+  /** Adds a channel on a free port. */
+  onAdd?: (cell: Task.Port.Cell) => void;
   /** Opens a menu over a free port. */
   onContextMenu?: (e: MouseEvent) => void;
 }
 
-const Grid = ({ bank, onClick, onContextMenu, ...rest }: GridProps): ReactElement => (
+const Grid = ({
+  bank,
+  onClick,
+  onMove,
+  onAdd,
+  onContextMenu,
+  ...rest
+}: GridProps): ReactElement => (
   <Task.Port.Grid
     label={`${terminal(bank.ports[0])} to ${terminal(bank.ports[bank.ports.length - 1])}`}
     groups={groups({ bank, ...rest })}
     onClick={onClick}
+    onMove={onMove}
+    onAdd={onAdd}
     onContextMenu={onContextMenu}
   />
 );

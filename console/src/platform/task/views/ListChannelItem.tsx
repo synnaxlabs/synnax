@@ -22,6 +22,7 @@ import { CSS } from "@/platform/css";
 import { ChannelName } from "@/platform/task/ChannelName";
 import { EnabledCheckbox } from "@/platform/task/EnabledCheckbox";
 import { getChannelNameID } from "@/platform/task/getChannelNameID";
+import { useHoveredRef, useIsHovered } from "@/platform/task/port/Hovered";
 import { type Channel } from "@/platform/task/types";
 
 /** The channel column that follows a task's own columns. */
@@ -74,7 +75,7 @@ const ChannelCell = ({ children }: PropsWithChildren) => (
  * A channel of a task's record table: a checkbox, the task's fields, an arrow, then
  * the channel's name and enabled switch. A write channel shows its command and state
  * names. Only the checkbox and modifier clicks select it, so editing a field never
- * does.
+ * does. Under a list with a map, it shows as hovered while the pointer is on its port.
  */
 export const ListChannelItem = ({
   path,
@@ -89,6 +90,8 @@ export const ListChannelItem = ({
 }: ListChannelItemProps): ReactElement => {
   const item = deep.widen(path);
   const disabled = Form.useFieldValue(item.disabled, { optional: true });
+  const linked = useIsHovered(rest.itemKey);
+  const hoveredRef = useHoveredRef(rest.itemKey);
   const flow = <Icon.Arrow.Right className={CSS.BE("list-channel-item", "flow")} />;
   const enabled = <EnabledCheckbox path={item.disabled} />;
   let channels: ReactNode;
@@ -140,6 +143,9 @@ export const ListChannelItem = ({
   return (
     <Select.Item
       {...rest}
+      // Only a hovered port overrides the item's own hover, such as the keyboard's.
+      {...(linked && { hovered: true })}
+      ref={hoveredRef}
       checkable
       align="center"
       className={CSS.cls(
