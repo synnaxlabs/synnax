@@ -26,6 +26,12 @@ export interface LogSource extends Source<LogEntry[]> {
   setChannels?: (channels: channel.Key[]) => void;
   /** Reads entries older than the oldest one, if the channels store any. */
   loadOlder?: () => void;
+  /** Reads entries newer than the newest one, when the source is not live. */
+  loadNewer?: () => void;
+  /** Whether the entries end at the newest samples. A source without it is live. */
+  readonly live?: boolean;
+  /** Moves a source that is not live back to the newest samples. */
+  resume?: () => void;
 }
 
 export const logSourceSpecZ = sourceSpecZ.extend({ valueType: z.literal("log") });

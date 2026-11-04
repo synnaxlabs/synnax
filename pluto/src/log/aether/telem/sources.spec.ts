@@ -639,6 +639,27 @@ describe("StreamMultiChannelLog", () => {
         }, POLL)
         .toBe(count);
 
+    // Calls step until done holds.
+    const until = async (step: () => void, done: () => boolean): Promise<void> =>
+      await expect
+        .poll(() => {
+          step();
+          return done();
+        }, POLL)
+        .toBe(true);
+
+    // Expects the entries to be an unbroken run of the channel's stored samples.
+    const expectRun = (
+      core: SyntheticCore,
+      key: channel.Key,
+      log: StreamMultiChannelLog,
+    ): void => {
+      const values = valuesOf(entriesOf(log), key);
+      const stored = textOf(core, key, STORED * 2);
+      const from = stored.indexOf(values[0]);
+      expect(values).toEqual(stored.slice(from, from + values.length));
+    };
+
     it("should read older pages until it shows every stored sample", async () => {
       const core = deep();
       const [a] = core.data.map((c) => c.key);
@@ -766,35 +787,100 @@ describe("StreamMultiChannelLog", () => {
       await expect.poll(() => entriesOf(log).length, POLL).toBeLessThan(PAGE);
       release();
       held = false;
-      await expect
-        .poll(() => {
-          log.loadOlder();
-          return entriesOf(log).length;
-        }, POLL)
-        .toBe(PAGE + 500);
-      expect(valuesOf(entriesOf(log), a)).toEqual(textOf(core, a, PAGE + 500));
+      await until(
+        () => log.loadOlder(),
+        () => !log.live,
+      );
+      expectRun(core, a, log);
     });
 
-    it("should stop reading older pages once a page passes maxEntries", async () => {
+    it("should read older pages past maxEntries down to the first sample", async () => {
       const core = deep();
       const [a] = core.data.map((c) => c.key);
-      const log = open(core, connect(core), { channels: [a] }, undefined, PAGE + 1_500);
+      const max = PAGE + 1_500;
+      const log = open(core, connect(core), { channels: [a] }, undefined, max);
       await settle(log, PAGE);
-      await page(log, PAGE + 1_500);
-      const { reads } = core;
-      log.loadOlder();
-      await new Promise((resolve) => setTimeout(resolve, 50));
-      expect(core.reads).toBe(reads);
-      expect(valuesOf(entriesOf(log), a)).toEqual(textOf(core, a, PAGE + 1_500));
+      const [first] = textOf(core, a, STORED);
+      await until(
+        () => log.loadOlder(),
+        () => valuesOf(entriesOf(log), a)[0] === first,
+      );
+      expect(log.live).toBe(false);
+      expect(entriesOf(log).length).toBeLessThanOrEqual(max);
+      expectRun(core, a, log);
     });
 
-    it("should read the samples before the entries it evicted", async () => {
+    it("should read the entries it evicted when it reads older ones", async () => {
       const core = deep();
       const [a] = core.data.map((c) => c.key);
-      const log = open(core, connect(core), { channels: [a] }, undefined, 100);
-      await settle(log, 90);
-      await page(log, 100);
-      expect(valuesOf(entriesOf(log), a)).toEqual(textOf(core, a, 100));
+      const log = open(core, connect(core), { channels: [a] }, undefined, 2_000);
+      await settle(log, 1_800);
+      const held = entriesOf(log).length;
+      log.loadOlder();
+      await expect.poll(() => log.live, POLL).toBe(false);
+      expect(valuesOf(entriesOf(log), a)[0]).toBe(textOf(core, a, held + 999)[0]);
+      expectRun(core, a, log);
+    });
+
+    it("should read back to the newest samples, then go live", async () => {
+      const core = deep();
+      const [a] = core.data.map((c) => c.key);
+      const log = open(core, connect(core), { channels: [a] }, undefined, 2_000);
+      await settle(log, 1_800);
+      await until(
+        () => log.loadOlder(),
+        () => !log.live,
+      );
+      core.advance(TimeSpan.seconds(1));
+      await new Promise((resolve) => setTimeout(resolve, 20));
+      await until(
+        () => log.loadNewer(),
+        () => log.live,
+      );
+      expectRun(core, a, log);
+      expect(valuesOf(entriesOf(log), a).at(-1)).toBe(textOf(core, a, 1)[0]);
+      core.advance(TimeSpan.seconds(1));
+      await expect
+        .poll(() => valuesOf(entriesOf(log), a).at(-1), POLL)
+        .toBe(textOf(core, a, 1)[0]);
+    });
+
+    it("should find the samples that streamed past it while not live", async () => {
+      const core = deep();
+      const [a] = core.data.map((c) => c.key);
+      const log = open(core, connect(core), { channels: [a] }, undefined, 2_000);
+      await settle(log, 1_800);
+      await until(
+        () => log.loadOlder(),
+        () => !log.live,
+      );
+      const { length } = entriesOf(log);
+      core.advance(TimeSpan.seconds(300));
+      await new Promise((resolve) => setTimeout(resolve, 20));
+      expect(entriesOf(log)).toHaveLength(length);
+      await until(
+        () => log.loadNewer(),
+        () => log.live,
+      );
+      expectRun(core, a, log);
+      expect(valuesOf(entriesOf(log), a).at(-1)).toBe(textOf(core, a, 1)[0]);
+    });
+
+    it("should return to the newest samples when it resumes", async () => {
+      const core = deep();
+      const [a] = core.data.map((c) => c.key);
+      const log = open(core, connect(core), { channels: [a] }, undefined, 2_000);
+      await settle(log, 1_800);
+      await until(
+        () => log.loadOlder(),
+        () => !log.live,
+      );
+      log.resume();
+      expect(log.live).toBe(true);
+      await expect
+        .poll(() => valuesOf(entriesOf(log), a).at(-1), POLL)
+        .toBe(textOf(core, a, 1)[0]);
+      expectRun(core, a, log);
     });
 
     it("should report loading while a page reads", async () => {

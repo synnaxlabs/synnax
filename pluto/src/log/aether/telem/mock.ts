@@ -36,6 +36,22 @@ export class MockLogSource implements LogSource {
     this.loadOlderCalls++;
   }
 
+  /** The number of times the log asked for newer entries. */
+  loadNewerCalls = 0;
+
+  loadNewer(): void {
+    this.loadNewerCalls++;
+  }
+
+  live = true;
+
+  /** The number of times the log asked to return to the newest samples. */
+  resumeCalls = 0;
+
+  resume(): void {
+    this.resumeCalls++;
+  }
+
   setChannels(channels: channel.Key[]): void {
     this.activeChannels = new Set(channels);
   }
