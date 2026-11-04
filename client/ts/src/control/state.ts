@@ -10,8 +10,7 @@
 import { control } from "@synnaxlabs/x";
 import { z } from "zod";
 
-import { type channel } from "@/channel";
-import { keyZ } from "@/channel/types.gen";
+import { channel } from "@/channel";
 
 /** How strongly a writer claims a channel. The highest authority holds control. */
 export type Authority = control.Authority;
@@ -50,7 +49,7 @@ export const transferString = (t: Transfer): string => {
 };
 
 export const updateZ = z.object({
-  transfers: z.array(control.transferZ(keyZ)),
+  transfers: z.array(control.transferZ(channel.keyZ)),
 });
 
 export interface Update extends z.infer<typeof updateZ> {}

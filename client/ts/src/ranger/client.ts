@@ -37,9 +37,7 @@ import {
   scopedActionZ,
 } from "@/ranger/actions.gen";
 import { alias } from "@/ranger/alias";
-import { Client as AliasClient } from "@/ranger/alias/client";
 import { kv } from "@/ranger/kv";
-import { Client as KVClient } from "@/ranger/kv/client";
 import { type Name, type Params } from "@/ranger/payload";
 import {
   type Key,
@@ -120,8 +118,8 @@ const createTables = (
 
 interface RangeConstructionOptions {
   frameClient: framer.Client;
-  kv: KVClient;
-  aliaser: AliasClient;
+  kv: kv.Client;
+  aliaser: alias.Client;
   channels: framer.ChannelRetriever;
   labelClient: label.Client;
   ontologyClient: ontology.Client;
@@ -135,13 +133,13 @@ interface RangeConstructionOptions {
 export class Range {
   key: string;
   name: string;
-  readonly kv: KVClient;
+  readonly kv: kv.Client;
   readonly timeRange: TimeRange;
   readonly color?: color.Color;
   readonly parent?: Payload;
   readonly labels?: label.Label[];
   readonly channels: framer.ChannelRetriever;
-  private readonly aliaser: AliasClient;
+  private readonly aliaser: alias.Client;
   private readonly frameClient: framer.Client;
   private readonly labelClient: label.Client;
   private readonly ontologyClient: ontology.Client;
@@ -700,12 +698,12 @@ export class Client extends query.Retriever<
     });
   }
 
-  private createAliasClient(key: Key): AliasClient {
-    return new AliasClient(key, this.cfg.unary);
+  private createAliasClient(key: Key): alias.Client {
+    return new alias.Client(key, this.cfg.unary);
   }
 
-  private createKVClient(key: Key): KVClient {
-    return new KVClient(key, this.cfg.unary, this.kvPairs);
+  private createKVClient(key: Key): kv.Client {
+    return new kv.Client(key, this.cfg.unary, this.kvPairs);
   }
 
   /** Rebuilds a cached range with its cached labels and parent attached. */
@@ -883,7 +881,7 @@ export class Client extends query.Retriever<
     return result;
   }
 
-  getKV(range: Key): KVClient {
+  getKV(range: Key): kv.Client {
     return this.createKVClient(range);
   }
 

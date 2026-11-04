@@ -19,7 +19,7 @@ import {
   type Payload,
   payloadZ,
 } from "@/channel/types.gen";
-import { idToString } from "@/ontology/payload";
+import { ontology } from "@/ontology";
 import {
   analyzeParams as baseAnalyzeParams,
   type ParamAnalysisResult,
@@ -59,7 +59,8 @@ export const escapeInvalidName = (name: string, changeEmptyToUnderscore = false)
 };
 
 /** @returns the key of the status that reports on the given channel. */
-export const statusKey = (channel: Key): string => idToString(ontologyID(channel));
+export const statusKey = (channel: Key): string =>
+  ontology.idToString(ontologyID(channel));
 
 /**
  * Resolves channel params into a normalized array, reporting whether the caller named

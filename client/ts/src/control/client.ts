@@ -10,8 +10,7 @@
 import { type UnaryClient } from "@synnaxlabs/freighter";
 import { z } from "zod";
 
-import { type channel } from "@/channel";
-import { keyZ } from "@/channel/types.gen";
+import { channel } from "@/channel";
 import { type KeyedState, keyedStateZ, updateZ } from "@/control/state";
 import { query } from "@/query";
 
@@ -20,8 +19,8 @@ const CHANNEL_NAME = "sy_control";
 
 const RETRIEVE_ENDPOINT = "/control/retrieve";
 
-const retrieveRequestZ = z.object({ keys: keyZ.array().optional() });
-const retrieveMultiParamsZ = retrieveRequestZ.or(query.keyListZ(keyZ));
+const retrieveRequestZ = z.object({ keys: channel.keyZ.array().optional() });
+const retrieveMultiParamsZ = retrieveRequestZ.or(query.keyListZ(channel.keyZ));
 const retrieveResZ = z.object({ states: keyedStateZ.array().default(() => []) });
 
 export type RetrieveMultipleParams = z.input<typeof retrieveRequestZ>;
