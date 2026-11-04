@@ -74,11 +74,12 @@ type readGroup struct {
 
 // row is one record converted into a group's samples.
 type row struct {
-	// rec is the record that the row came from.
-	rec *kgo.Record
-	ts  telem.TimeStamp
+	ts telem.TimeStamp
 	// pos is the record's position in the group's columns.
 	pos int
+	// partition and offset locate the record in its topic.
+	partition int32
+	offset    int64
 }
 
 // readTask consumes a topic and writes record fields into channels.
@@ -753,20 +754,25 @@ func (t *readTask) convert(rec *kgo.Record) {
 		}
 	}
 	t.skips.Read()
+	r := row{
+		ts:        telem.NewTimeStamp(rec.Timestamp),
+		pos:       len(g.rows),
+		partition: rec.Partition,
+		offset:    rec.Offset,
+	}
 	if err := g.extractor.Extract(rec.Value, g.values); err != nil {
-		t.skip(rec, "Record is not JSON: "+err.Error())
+		t.skip(r, "Record is not JSON: "+err.Error())
 		return
 	}
-	r := row{rec: rec, ts: telem.NewTimeStamp(rec.Timestamp), pos: len(g.rows)}
 	for i, fld := range g.fields {
 		if g.values[i] == nil {
-			t.skip(rec, fmt.Sprintf("Record has no value at %s", fld.Pointer))
+			t.skip(r, fmt.Sprintf("Record has no value at %s", fld.Pointer))
 			g.truncate(r.pos)
 			return
 		}
 		col := &g.columns[i]
 		if err := col.append(g.values[i]); err != nil {
-			t.skip(rec, fmt.Sprintf("Value at %s: %s", fld.Pointer, err))
+			t.skip(r, fmt.Sprintf("Value at %s: %s", fld.Pointer, err))
 			g.truncate(r.pos)
 			return
 		}
@@ -789,7 +795,7 @@ func (t *readTask) keep(g *readGroup) {
 				continue
 			}
 			if g.stamp != -1 {
-				t.skip(r.rec, fmt.Sprintf(
+				t.skip(r, fmt.Sprintf(
 					"Record stamped %s is not after the last written %s for key %q",
 					r.ts, g.last, g.key,
 				))
@@ -859,10 +865,10 @@ func (g *readGroup) appendSeries(
 	return series, data
 }
 
-// skip counts rec as skipped. reason says why.
-func (t *readTask) skip(rec *kgo.Record, reason string) {
+// skip counts the record of r as skipped. reason says why.
+func (t *readTask) skip(r row, reason string) {
 	t.skips.Skip(time.Now(), fmt.Sprintf(
-		"%s (partition %d, offset %d).", reason, rec.Partition, rec.Offset,
+		"%s (partition %d, offset %d).", reason, r.partition, r.offset,
 	))
 }
 
