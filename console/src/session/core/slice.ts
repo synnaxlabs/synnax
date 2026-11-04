@@ -30,8 +30,9 @@ export const coreZ = synnaxParamsZ.pick({ host: true, secure: true }).extend({
    */
   token: synnaxParamsZ.shape.token,
   /**
-   * When a login on this machine last saved a session for the Core in the keychain.
-   * Each window reads the keychain again when it changes.
+   * When a login on this machine last saved a session for the Core in the keychain or
+   * a cookie. Each window reads the keychain again when it changes, and a browser page
+   * replaces its client.
    */
   lastLogin: z.number().optional(),
   key: z.string(),

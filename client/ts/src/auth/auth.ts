@@ -328,11 +328,6 @@ export class Client {
     this.apiKey = undefined;
     this.oidcCredentials = undefined;
     this.resumeToken = undefined;
-    this.resume();
-  }
-
-  /** Clears auth state, so the next request resumes a saved token or cookie. */
-  resume(): void {
     this.authState = { authenticated: false };
     this.authenticating = undefined;
     this.generation += 1;

@@ -10,6 +10,7 @@
 import { channel, connection, type Synnax as Client } from "@synnaxlabs/client";
 import { createTestClient, createTestUser } from "@synnaxlabs/client/testutil";
 import { type Status } from "@synnaxlabs/lyra/status";
+import { disableActEnvironment } from "@synnaxlabs/lyra/testutil";
 import { Access, Synnax } from "@synnaxlabs/pluto";
 import {
   act,
@@ -24,6 +25,7 @@ import { describe, expect, it, onTestFinished } from "vitest";
 
 import { Auth } from "@/feature/auth";
 import { Core } from "@/feature/core";
+import { Core as PlatformCore } from "@/platform/core";
 import {
   createHold,
   LOCAL_SUBJECT,
@@ -39,6 +41,7 @@ import {
 } from "@/session/core/testutil";
 import {
   CaptureStatuses,
+  createConsoleWrapper,
   createSessionConsoleWrapper,
   createStatusConsoleWrapper,
   pinLocationOrigin,
@@ -230,9 +233,7 @@ describe("auth guard", () => {
     const CODE = "syi_code";
     const REDEEM = "/auth/oidc/invite/redeem";
 
-    // a client means the Core is already selected
-    const renderReturn = async (server: OIDCServer, client: Client | null = null) => {
-      const core = { ...LOCAL, ...server.address };
+    const beginReturn = (): void => {
       sessionStorage.setItem(
         "synnax-oidc-login",
         JSON.stringify({
@@ -250,15 +251,19 @@ describe("auth guard", () => {
         sessionStorage.clear();
         window.history.replaceState(null, "", "/");
       });
+    };
+
+    const renderReturn = async (server: OIDCServer) => {
+      const core = { ...LOCAL, ...server.address };
+      beginReturn();
       let statuses: Status.NotificationSpec[] = [];
       const { wrapper, store } = await createStatusConsoleWrapper({
-        client,
+        client: null,
         status: connection.DEFAULT_STATUS,
         preloadedState: {
           [Session.Core.SLICE_NAME]: {
             ...Session.Core.ZERO_SLICE_STATE,
             cores: { [CORE_KEY]: core },
-            selected: client == null ? undefined : CORE_KEY,
           },
         },
       });
@@ -272,6 +277,44 @@ describe("auth guard", () => {
         { wrapper },
       );
       return { core, store, statuses: () => statuses };
+    };
+
+    // On a page the Core serves, with the Core selected and the production params.
+    const renderServedReturn = async (server: OIDCServer): Promise<Client[]> => {
+      const { host, port } = server.address;
+      pinLocationOrigin(`http://${host}:${port}`, "?code=abc&state=state");
+      beginReturn();
+      disableActEnvironment();
+      const { wrapper: Console } = await createConsoleWrapper({
+        client: null,
+        preloadedState: {
+          [Session.Core.SLICE_NAME]: {
+            ...Session.Core.ZERO_SLICE_STATE,
+            cores: { [CORE_KEY]: { ...LOCAL, ...server.address } },
+            selected: CORE_KEY,
+          },
+        },
+      });
+      const ConnParamsProvider = ({ children }: PropsWithChildren): ReactElement => {
+        const connParams = PlatformCore.useConnParams();
+        return <Synnax.Provider connParams={connParams}>{children}</Synnax.Provider>;
+      };
+      const clients: Client[] = [];
+      const RecordClient = (): null => {
+        const client = Synnax.use();
+        if (client != null && clients.at(-1) !== client) clients.push(client);
+        return null;
+      };
+      render(
+        <Console>
+          <ConnParamsProvider>
+            <Auth.Guard>
+              <RecordClient />
+            </Auth.Guard>
+          </ConnParamsProvider>
+        </Console>,
+      );
+      return clients;
     };
 
     it("should redeem the code instead of logging in or linking", async () => {
@@ -310,24 +353,26 @@ describe("auth guard", () => {
       expect(record.token).toBeUndefined();
     });
 
-    it("should reconnect a client that rejected the expired cookie", async () => {
-      const server = await serveOIDC({ cookieExpired: true });
-      pinLocationOrigin(
-        `http://${server.address.host}:${server.address.port}`,
-        "?code=abc&state=state",
+    it("should replace a client that rejected the expired cookie", async () => {
+      const hold = createHold(REDEEM);
+      const clients = await renderServedReturn(
+        await serveOIDC({ cookieExpired: true, hold }),
       );
-      const client = createTestClient({
-        ...server.address,
-        username: undefined,
-        password: undefined,
-        sessionCookie: true,
-      });
-      await expect
-        .poll(() => client.connection.status.details.error)
-        .toBeInstanceOf(Error);
-      expect(client.auth.authenticated).toBe(false);
-      await renderReturn(server, client);
-      await waitFor(() => expect(client.auth.authenticated).toBe(true));
+      await waitFor(() =>
+        expect(clients[0]?.connection.status.details.error).toBeInstanceOf(Error),
+      );
+      hold.release();
+      await waitFor(() => expect(clients).toHaveLength(2));
+      await waitFor(() => expect(clients[1].auth.authenticated).toBe(true));
+    });
+
+    // The previous user's cache and change stream must not reach the invited user.
+    it("should replace a client that another tab's cookie connected", async () => {
+      const hold = createHold(REDEEM);
+      const clients = await renderServedReturn(await serveOIDC({ hold }));
+      await waitFor(() => expect(clients[0]?.auth.authenticated).toBe(true));
+      hold.release();
+      await waitFor(() => expect(clients).toHaveLength(2));
     });
 
     it("should keep an edit made while the code redeems", async () => {

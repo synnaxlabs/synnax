@@ -9,6 +9,7 @@
 
 import { type SynnaxParams } from "@synnaxlabs/client";
 import { Status } from "@synnaxlabs/lyra/status";
+import { type Synnax } from "@synnaxlabs/pluto";
 import { useEffect, useState } from "react";
 
 import { accountOf, readToken } from "@/platform/core/token";
@@ -46,7 +47,7 @@ export const servesPage = ({
  * A saved session outlives the client. Fields that only describe the Core stay out, so
  * renaming it keeps the connection.
  */
-export const useConnParams = (): SynnaxParams | undefined => {
+export const useConnParams = (): Synnax.ConnParams | undefined => {
   const core = Session.Core.useSelectSelected();
   const handleError = Status.useErrorHandler();
   const [stored, setStored] = useState<StoredToken>();
@@ -84,7 +85,13 @@ export const useConnParams = (): SynnaxParams | undefined => {
       : { host, port, secure, oidc };
   if (Session.Runtime.ENGINE !== "tauri") {
     const cookie = servesPage(core);
-    return { ...params, token, sessionCookie: cookie, sessionPersistent: cookie };
+    return {
+      ...params,
+      token,
+      sessionCookie: cookie,
+      sessionPersistent: cookie,
+      lastLogin,
+    };
   }
   if (stored == null || stored.account !== account) return undefined;
   return { ...params, token: stored.token, sessionPersistent: true };

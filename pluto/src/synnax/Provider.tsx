@@ -44,8 +44,16 @@ export const use = () => useContext().client;
 
 export const useConnectionStatus = () => useContext().status;
 
+export interface ConnParams extends SynnaxParams {
+  /**
+   * When a login last opened a session. A new value replaces the client, because a
+   * session cookie changes hands without changing any other parameter.
+   */
+  lastLogin?: number;
+}
+
 export interface ProviderProps extends PropsWithChildren {
-  connParams?: SynnaxParams;
+  connParams?: ConnParams;
 }
 
 export const SERVER_VERSION_MISMATCH = "serverVersionMismatch";
@@ -162,7 +170,14 @@ export const Provider = ({
     current && state.status.details.authenticated ? pageClient.auth.token : undefined;
   let workerParams: SynnaxParams | null = null;
   if (connParams != null && token != null) {
-    const shared = record.omit(connParams, "username", "password", "oidc", "token");
+    const shared = record.omit(
+      connParams,
+      "username",
+      "password",
+      "oidc",
+      "token",
+      "lastLogin",
+    );
     workerParams =
       token === "" ? { ...shared, sessionCookie: true } : { ...shared, token };
   }

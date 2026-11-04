@@ -13,7 +13,6 @@ import { type auth } from "@synnaxlabs/client";
 import { Button } from "@synnaxlabs/lyra/button";
 import { Flex } from "@synnaxlabs/lyra/flex";
 import { Form } from "@synnaxlabs/lyra/form";
-import { useSyncedRef } from "@synnaxlabs/lyra/hooks";
 import { Icon } from "@synnaxlabs/lyra/icon";
 import { Input } from "@synnaxlabs/lyra/input";
 import { Status } from "@synnaxlabs/lyra/status";
@@ -79,7 +78,6 @@ const assertAddressKept = (core: ProviderCore, current?: ProviderCore): void => 
  */
 export const useCompleteBrowserLogin = (): void => {
   const client = Synnax.use();
-  const clientRef = useSyncedRef(client);
   const cores = Session.Core.useSelectMany();
   const selected = Session.Core.useSelectSelectedKey();
   const servingCore = Core.detectConnection();
@@ -128,18 +126,15 @@ export const useCompleteBrowserLogin = (): void => {
         handleError(async () => {
           const cookie = Core.servesPage(core);
           const token = await Core.redeemInvite(core, invite, credentials, cookie);
-          const state = store.getState();
-          const current = Session.Core.selectState(state, core.key);
+          const current = Session.Core.selectState(store.getState(), core.key);
           // a serving Core has no record until this login makes one
           if (saved != null) assertAddressKept(saved, current);
-          // the params stay the same, so the provider keeps the failed client
-          if (cookie && Session.Core.selectSelectedKey(state) === core.key)
-            clientRef.current?.resume();
           dispatch(
             Session.Core.set({
               ...(current ?? core),
               ...cleared,
               token: cookie ? undefined : token,
+              lastLogin: Date.now(),
             }),
           );
           dispatch(Session.Core.select(core.key));
