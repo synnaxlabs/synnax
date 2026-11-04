@@ -34,10 +34,10 @@ class Thermocouple(Analog):
 
     def __init__(
         self,
-        *,
         layout: LayoutClient,
         name: str,
         device: str,
+        *,
         temperature_units: (
             Literal["Celsius", "Fahrenheit", "Kelvin", "Rankine"] | None
         ) = None,

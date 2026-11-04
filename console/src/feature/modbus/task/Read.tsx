@@ -55,7 +55,7 @@ const path = deep.path<Task.Values<ReadSchemas>>();
 const Properties = () => (
   <>
     <SelectDevice />
-    <Flex.Box x grow>
+    <Flex.Box x grow wrap>
       <Task.Fields.SampleRate />
       <Task.Fields.StreamRate />
     </Flex.Box>
@@ -65,8 +65,12 @@ const Properties = () => (
 const COLUMNS: List.Column[] = [
   { name: "Type", width: "30rem", field: true },
   { name: "Address", width: "24rem", field: true },
-  { name: "Data type", width: "32rem", field: true },
-  { name: "Byte order", width: "27rem", field: true },
+  { name: "Data type", width: "26rem", field: true },
+  {
+    name: "Byte order",
+    width: "var(--console-modbus-byte-order-width, 27rem)",
+    field: true,
+  },
 ];
 
 const ChannelListItem = ({ itemKey, ...rest }: Task.ChannelListItemProps) => {

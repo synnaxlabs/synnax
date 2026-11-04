@@ -34,10 +34,10 @@ class Bridge(Analog):
 
     def __init__(
         self,
-        *,
         layout: LayoutClient,
         name: str,
         device: str,
+        *,
         units: Literal["mV/V", "V/V"] | None = None,
         configuration: (
             Literal["Full bridge", "Half bridge", "Quarter bridge"] | None

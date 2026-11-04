@@ -75,8 +75,7 @@ func (s *changeService) Type() ontology.ResourceType { return ontology.ResourceT
 func (*changeService) Search(
 	context.Context,
 	gorp.Tx,
-	string,
-	int,
+	search.Query[ontology.ID],
 ) (search.Result[ontology.ID], error) {
 	return search.Result[ontology.ID]{}, nil
 }

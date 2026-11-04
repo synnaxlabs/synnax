@@ -7,12 +7,19 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { type Synnax, type task } from "@synnaxlabs/client";
+package v2_test
 
-import { type SCAN_SCHEMAS, SCAN_TYPE } from "@/feature/opcua/task/types";
+import (
+	"testing"
 
-export const retrieveScanTask = async (
-  client: Synnax,
-  rack: number,
-): Promise<task.Task<typeof SCAN_SCHEMAS>> =>
-  await client.tasks.retrieve<typeof SCAN_SCHEMAS>({ type: SCAN_TYPE, rack });
+	. "github.com/onsi/ginkgo/v2"
+	. "github.com/onsi/gomega"
+	. "github.com/synnaxlabs/x/testutil"
+)
+
+func TestOPCUAV2(t *testing.T) {
+	RegisterFailHandler(Fail)
+	RunSpecs(t, "Service OPC UA v2 Suite", SuiteConfig())
+}
+
+var _ = ShouldNotLeakGoroutinesPerSpec()

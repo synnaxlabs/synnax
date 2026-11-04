@@ -28,10 +28,10 @@ class EdgeCount(Counter):
 
     def __init__(
         self,
-        *,
         layout: LayoutClient,
         name: str,
         device: str,
+        *,
         active_edge: Literal["Rising", "Falling"] | None = None,
         count_direction: Literal["Count up", "Count down", "Externally controlled"]
         | None = None,
