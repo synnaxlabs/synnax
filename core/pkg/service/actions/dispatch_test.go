@@ -12,6 +12,7 @@ package actions_test
 import (
 	"context"
 	"sync"
+	"time"
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
@@ -187,12 +188,18 @@ var _ = Describe("Transact", func() {
 
 	It("Should hold the key until fn returns", func(ctx SpecContext) {
 		entered, release := make(chan struct{}), make(chan struct{})
+		unblock := sync.OnceFunc(func() { close(release) })
+		DeferCleanup(unblock)
 		done := make(chan error, 1)
 		go func() {
 			done <- st.Transact(ctx, "c", func(gorp.Tx) error {
 				close(entered)
-				<-release
-				return nil
+				select {
+				case <-release:
+					return nil
+				case <-time.After(10 * time.Second):
+					return errors.New("timed out waiting for release")
+				}
 			})
 		}()
 		Eventually(entered).Should(BeClosed())
@@ -206,8 +213,8 @@ var _ = Describe("Transact", func() {
 				func(gorp.Tx) ([]testAction, error) { return nil, nil },
 			)
 		}()
-		Consistently(dispatched, "50ms").ShouldNot(Receive())
-		close(release)
+		Consistently(dispatched, 50*time.Millisecond).ShouldNot(Receive())
+		unblock()
 		Eventually(done).Should(Receive(BeNil()))
 		Eventually(dispatched).Should(Receive(BeNil()))
 	})
