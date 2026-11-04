@@ -866,6 +866,25 @@ describe("StreamMultiChannelLog", () => {
       expect(valuesOf(entriesOf(log), a).at(-1)).toBe(textOf(core, a, 1)[0]);
     });
 
+    it("should find samples that passed in one burst while not live", async () => {
+      const core = deep();
+      const [a] = core.data.map((c) => c.key);
+      const log = open(core, connect(core), { channels: [a] }, undefined, 2_000);
+      await settle(log, 1_800);
+      await until(
+        () => log.loadOlder(),
+        () => !log.live,
+      );
+      core.advance(TimeSpan.seconds(1_100));
+      await new Promise((resolve) => setTimeout(resolve, 20));
+      await until(
+        () => log.loadNewer(),
+        () => log.live,
+      );
+      expectRun(core, a, log);
+      expect(valuesOf(entriesOf(log), a).at(-1)).toBe(textOf(core, a, 1)[0]);
+    });
+
     it("should return to the newest samples when it resumes", async () => {
       const core = deep();
       const [a] = core.data.map((c) => c.key);

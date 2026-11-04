@@ -287,7 +287,18 @@ export class StreamMultiChannelLog
   }
 
   private async readNewer(client: telem.Client, span: Unread): Promise<void> {
-    const counts = [...span.counts].filter(([key]) => this.metas.has(key));
+    // A span counts what the log saw arrive, and an outage can hide more. A page that
+    // fills its count may hide samples, so the span splits, and one time reads more.
+    const middle = (span.start + span.end) / 2n;
+    const limit = middle > span.start ? PAGE_SIZE : Number.MAX_SAFE_INTEGER;
+    const counts = [...this.metas]
+      .filter(([, { stored }]) => stored)
+      .map(([key]): [channel.Key, number] => [
+        key,
+        Math.min(Math.max(span.counts.get(key) ?? 0, OLDER_PAGE_SIZE), limit) + 1,
+      ]);
+    const size = (): number => [...span.counts.values()].reduce((a, b) => a + b, 0);
+    const before = size();
     const range = new TimeRange(
       new TimeStamp(span.start + 1n),
       new TimeStamp(span.end + 1n),
@@ -306,8 +317,29 @@ export class StreamMultiChannelLog
           ),
       ),
     );
-    // A span whose times did not all arrive stays, and the next read tries it again.
-    if (read == null || read.some(({ missed }) => missed)) return;
+    if (read == null) return;
+    // A span stays when its times did not all arrive or a late sample changed the spans
+    // during the read, and the next read starts from the first span.
+    if (
+      this.unread[0] !== span ||
+      size() !== before ||
+      read.some(({ missed }) => missed)
+    ) {
+      this.notify();
+      return;
+    }
+    if (read.some(({ full }) => full)) {
+      const half = (start: bigint, end: bigint): Unread => ({
+        start,
+        end,
+        counts: new Map(span.counts),
+      });
+      if (middle > span.start)
+        this.unread.splice(0, 1, half(span.start, middle), half(middle, span.end));
+      else counts.forEach(([key, count]) => span.counts.set(key, count * 2));
+      this.notify();
+      return;
+    }
     this.unread.shift();
     if (this.unread.every(({ counts }) => counts.size === 0)) this.unread = [];
     const groups = counts.flatMap(([key], i) =>
@@ -478,6 +510,7 @@ export class StreamMultiChannelLog
       this.skip(groups.filter(([{ timestamp }]) => timestamp.valueOf() > start));
       if (held.length === 0) return statusChanged;
       this.insert(held);
+      this.evictNewest();
       return true;
     }
     this.insert(groups);
@@ -485,19 +518,15 @@ export class StreamMultiChannelLog
     return true;
   }
 
-  // Counts the streamed samples that a log which is not live leaves out, in spans small
-  // enough to read as one page. Spans end between two times.
+  // Counts the streamed samples that a log which is not live leaves out. Most join the
+  // last span, which a read splits when it holds more than one page.
   private skip(groups: LogEntry[][]): void {
-    groups.sort((a, b) => compareTimes(a[0], b[0]));
+    const last = this.unread.at(-1)!;
     for (const [{ channelKey, timestamp }] of groups) {
       if (this.metas.get(channelKey)?.stored !== true) continue;
       const time = timestamp.valueOf();
-      let span = this.unread.find(({ end }) => time <= end) ?? this.unread.at(-1)!;
-      const size = [...span.counts.values()].reduce((a, b) => a + b, 0);
-      if (time > span.end && size >= OLDER_PAGE_SIZE) {
-        span = { start: span.end, end: time, counts: new Map() };
-        this.unread.push(span);
-      }
+      const span =
+        time > last.start ? last : this.unread.find(({ end }) => time <= end)!;
       if (time > span.end) span.end = time;
       span.counts.set(channelKey, (span.counts.get(channelKey) ?? 0) + 1);
     }
