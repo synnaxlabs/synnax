@@ -34,6 +34,12 @@ func WithIndexObservable(obs observe.Observable[kv.TxReader]) Option {
 	return func(opts *options) { opts.IndexObservable = obs }
 }
 
+// WithMaxDeleteSize sets the most entries that one Delete may remove once references
+// cascade. A larger delete fails before it changes anything. The default is 1 << 20.
+func WithMaxDeleteSize(n int) Option {
+	return func(opts *options) { opts.MaxDeleteSize = n }
+}
+
 // options holds the configuration applied to a DB and inherited by
 // every Tx opened from it.
 type options struct {
@@ -43,10 +49,15 @@ type options struct {
 	// on tables opened against the DB. Per-table TableConfig.Observable
 	// takes precedence; when neither is set, the DB itself is used.
 	IndexObservable observe.Observable[kv.TxReader]
+	// MaxDeleteSize is the most entries one Delete may remove.
+	MaxDeleteSize int
 }
 
+func (o options) maxDeleteSize() int { return o.MaxDeleteSize }
+
 var defaultOptions = options{
-	Codec: encoding.NewDecodeFallbackCodec(orc.Codec, msgpack.Codec),
+	Codec:         encoding.NewDecodeFallbackCodec(orc.Codec, msgpack.Codec),
+	MaxDeleteSize: 1 << 20,
 }
 
 func newOptions(opts []Option) options {
@@ -59,5 +70,6 @@ func newOptions(opts []Option) options {
 
 func overrideOptions(o options) options {
 	o.Codec = override.Nil(defaultOptions.Codec, o.Codec)
+	o.MaxDeleteSize = override.Numeric(defaultOptions.MaxDeleteSize, o.MaxDeleteSize)
 	return o
 }

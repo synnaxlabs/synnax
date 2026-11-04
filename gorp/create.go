@@ -22,6 +22,9 @@ type Create[K Key, E Entry[K]] struct {
 	// indexes is the set of secondary indexes the query stages writes
 	// against. Nil means writes are not staged.
 	indexes []Index[K, E]
+	// table is the Table the query writes through. Nil for a query that no Table
+	// built.
+	table *Table[K, E]
 }
 
 // NewCreate opens a new Create query.
@@ -45,6 +48,10 @@ func (c Create[K, E]) Entry(entry *E) Create[K, E] {
 // encountered during execution.
 func (c Create[K, E]) Exec(ctx context.Context, tx Tx) error {
 	checkForNilTx("Create.Exec", tx)
+	if c.table != nil {
+		w := c.table.writer(tx, true)
+		return w.Set(ctx, c.entries.All()...)
+	}
 	w := wrapWriter(tx, c.keyPrefix, c.indexes)
 	return w.Set(ctx, c.entries.All()...)
 }

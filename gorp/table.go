@@ -13,6 +13,7 @@ import (
 	"context"
 	"io"
 	"iter"
+	"slices"
 
 	"github.com/synnaxlabs/alamos"
 	"github.com/synnaxlabs/gorp/internal/key"
@@ -38,6 +39,13 @@ type TableConfig[K Key, E Entry[K]] struct {
 	// table's observer pipeline for the lifetime of the table. See NewLookupIndex,
 	// NewSortedIndex, and NewSearchIndex for constructing index values.
 	Indexes []Index[K, E]
+	// Name names the table for references. A Reference names its target tables by
+	// this name, and two open tables on one DB cannot share it. Defaults to the name
+	// of E.
+	Name string
+	// References are the fields of E that hold the keys of other entries. See
+	// NewReference.
+	References []*Reference[K, E]
 	// Instrumentation is used for migration and populate logging.
 	alamos.Instrumentation
 }
@@ -48,8 +56,15 @@ type Table[K Key, E Entry[K]] struct {
 	db *DB
 	// keyPrefix is the gorp key prefix for entry type E.
 	keyPrefix []byte
-	// indexes is the set of secondary indexes registered on the Table.
+	// indexes is the set of secondary indexes registered on the Table, references
+	// included.
 	indexes []Index[K, E]
+	// name is the name of the table in the DB's registry.
+	name string
+	// references are the references registered on the Table.
+	references []*Reference[K, E]
+	// registered is true when the table is in the DB's registry.
+	registered bool
 	// disconnectObserver releases the index observer subscription. Nil when no observer
 	// was installed.
 	disconnectObserver func()
@@ -62,6 +77,10 @@ type Table[K Key, E Entry[K]] struct {
 // waits for it to exit, and releases related resources.
 func (t *Table[K, E]) Close() error {
 	var err error
+	if t.registered {
+		t.db.registry.unregister(t.name)
+		t.registered = false
+	}
 	if t.populateShutdown != nil {
 		err = t.populateShutdown.Close()
 		t.populateShutdown = nil
@@ -97,8 +116,20 @@ func OpenTable[K Key, E Entry[K]](
 	}); err != nil {
 		return nil, err
 	}
-	t := &Table[K, E]{db: cfg.DB, keyPrefix: key.Prefix[E](), indexes: cfg.Indexes}
-	if len(cfg.Indexes) == 0 {
+	t := &Table[K, E]{
+		db:         cfg.DB,
+		keyPrefix:  key.Prefix[E](),
+		indexes:    slices.Clone(cfg.Indexes),
+		name:       cfg.Name,
+		references: cfg.References,
+	}
+	if t.name == "" {
+		t.name = types.Name[E]()
+	}
+	if err := t.register(cfg.Name != ""); err != nil {
+		return nil, err
+	}
+	if len(t.indexes) == 0 {
 		return t, nil
 	}
 	// Acquire each index's populate lock synchronously before attaching the observer.
@@ -107,17 +138,17 @@ func OpenTable[K Key, E Entry[K]](
 	// leaving the bulk-load path to double-insert when the iterator later sees the same
 	// row.
 	var (
-		inserts  = make([]func(E), 0, len(cfg.Indexes))
-		finishes = make([]func(error), 0, len(cfg.Indexes))
+		inserts  = make([]func(E), 0, len(t.indexes))
+		finishes = make([]func(error), 0, len(t.indexes))
 	)
-	for _, idx := range cfg.Indexes {
+	for _, idx := range t.indexes {
 		insert, finish := idx.populate()
 		inserts = append(inserts, insert)
 		finishes = append(finishes, finish)
 	}
 	t.disconnectObserver = cfg.DB.attachIndexObserver(
 		override.Nil[observe.Observable[kv.TxReader]](cfg.DB, cfg.DB.IndexObservable),
-		cfg.Indexes,
+		t.indexes,
 	)
 	// Populate runs on an isolated signal context: the caller's ctx is the
 	// open-operation ctx (may be short-lived, e.g. an open timeout), but populate must
@@ -203,6 +234,7 @@ func (t *Table[K, E]) NewCreate() Create[K, E] {
 	c := NewCreate[K, E]()
 	c.keyPrefix = t.keyPrefix
 	c.indexes = t.indexes
+	c.table = t
 	return c
 }
 
@@ -220,6 +252,7 @@ func (t *Table[K, E]) NewUpdate() Update[K, E] {
 	u := NewUpdate[K, E]()
 	u.retrieve.keyPrefix = t.keyPrefix
 	u.indexes = t.indexes
+	u.table = t
 	return u
 }
 
@@ -230,5 +263,6 @@ func (t *Table[K, E]) NewDelete() Delete[K, E] {
 	d := NewDelete[K, E]()
 	d.retrieve.keyPrefix = t.keyPrefix
 	d.indexes = t.indexes
+	d.table = t
 	return d
 }

@@ -26,6 +26,8 @@ type Writer[K Key, E Entry[K]] struct {
 	// mutations for each Set / Delete call. Nil means no per-write index
 	// staging.
 	indexes []Index[K, E]
+	// table checks the references of each entry Set writes. Nil means no checks.
+	table *Table[K, E]
 }
 
 // WrapWriter wraps the given Tx to provide a strongly typed Writer that
@@ -74,6 +76,11 @@ func (w *Writer[K, E]) Delete(ctx context.Context, keys ...K) error {
 }
 
 func (w *Writer[K, E]) set(ctx context.Context, entry E) error {
+	if w.table != nil {
+		if err := w.table.check(ctx, w.tx, &entry); err != nil {
+			return err
+		}
+	}
 	data, err := w.tx.Encode(ctx, entry)
 	if err != nil {
 		return err

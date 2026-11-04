@@ -25,7 +25,7 @@ func Wrap(
 	kv kv.DB,
 	opts ...Option,
 ) *DB {
-	return &DB{DB: kv, options: newOptions(opts)}
+	return &DB{DB: kv, options: newOptions(opts), registry: newRegistry()}
 }
 
 // DB is a wrapper around a kv.DB that queries can be executed against. DB implements
@@ -38,6 +38,8 @@ type DB struct {
 	// options carries the encoding/instrumentation configuration applied
 	// to every Tx opened from this DB.
 	options
+	// registry holds the tables that take part in references.
+	registry *registry
 }
 
 var _ Tx = (*DB)(nil)
@@ -114,6 +116,8 @@ func OverrideTx(
 type Tx interface {
 	kv.Tx
 	encoding.Codec
+	// maxDeleteSize returns the most entries one Delete may remove.
+	maxDeleteSize() int
 	// txIdentity returns a state handle scoped to this transaction's
 	// lifetime. The handle is stable from open through Commit or Close,
 	// so callers may use the pointer as a map key. A nil return means

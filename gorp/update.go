@@ -26,6 +26,9 @@ type Update[K Key, E Entry[K]] struct {
 	// indexes is the set of secondary indexes the query stages writes
 	// against. Nil means writes are not staged.
 	indexes []Index[K, E]
+	// table is the Table the query writes through. Nil for a query that no Table
+	// built.
+	table *Table[K, E]
 }
 
 // NewUpdate opens a new Update query.
@@ -68,6 +71,10 @@ func (u Update[K, E]) Exec(ctx context.Context, tx Tx) (err error) {
 		); err != nil {
 			return err
 		}
+	}
+	if u.table != nil {
+		w := u.table.writer(tx, true)
+		return w.Set(ctx, entries...)
 	}
 	w := wrapWriter(tx, u.retrieve.keyPrefix, u.indexes)
 	return w.Set(ctx, entries...)

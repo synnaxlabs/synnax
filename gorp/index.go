@@ -98,12 +98,12 @@ func scopeOf(tx Tx) *txState {
 	return tx.txIdentity()
 }
 
-// indexFilter returns a Filter matching entries whose field, read by extract, is any of
-// values. The filter resolves its keys through store at Exec time and carries an eval
-// predicate for the sequential-scan fallback.
+// indexFilter returns a Filter matching entries that hold any of values. The filter
+// resolves its keys through store at Exec time and carries holds as the eval predicate
+// for the sequential-scan fallback.
 func indexFilter[K Key, E Entry[K], V comparable](
 	store indexStore[K, V],
-	extract func(e *E) V,
+	holds func(e *E, values []V) bool,
 	values []V,
 ) Filter[K, E] {
 	captured := append([]V(nil), values...)
@@ -125,9 +125,15 @@ func indexFilter[K Key, E Entry[K], V comparable](
 			return resolved[K, E]{keys: keyset.Hashed(keys)}, nil
 		},
 		eval: func(_ Context, e *E, _, _ []byte) (bool, error) {
-			return slices.Contains(captured, extract(e)), nil
+			return holds(e, captured), nil
 		},
 	}
+}
+
+// holdsValue returns a predicate reporting whether the field that extract reads is any
+// of values.
+func holdsValue[E any, V comparable](extract func(e *E) V) func(*E, []V) bool {
+	return func(e *E, values []V) bool { return slices.Contains(values, extract(e)) }
 }
 
 // LookupIndex is an in-memory exact-match secondary index on a field of type V
@@ -215,7 +221,7 @@ func (l *LookupIndex[K, E, V]) Get(tx Tx, values ...V) ([]K, error) {
 // back to a sequential scan using the eval predicate carried alongside the resolver, so
 // queries continue to return correct results at scan cost.
 func (l *LookupIndex[K, E, V]) Filter(values ...V) Filter[K, E] {
-	return indexFilter[K, E](l.store, l.extract, values)
+	return indexFilter[K, E](l.store, holdsValue(l.extract), values)
 }
 
 // SortedIndex is an ordered in-memory index on a field of type V extracted from entries
@@ -301,5 +307,5 @@ func (s *SortedIndex[K, E, V]) Get(tx Tx, values ...V) ([]K, error) {
 // a sequential scan when populate fails. See LookupIndex.Filter for the
 // populate-failure contract.
 func (s *SortedIndex[K, E, V]) Filter(values ...V) Filter[K, E] {
-	return indexFilter[K, E](s.store, s.extract, values)
+	return indexFilter[K, E](s.store, holdsValue(s.extract), values)
 }
