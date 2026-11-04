@@ -64,7 +64,13 @@ const retrieveRequestZ = group.memberFilterZ.extend({
   limit: z.int().optional(),
   offset: z.int().optional(),
   includeStatus: z.boolean().optional(),
-  includeParent: z.boolean().optional(),
+  /** Keeps only the devices held by any of these devices. */
+  parents: keyZ.array().optional(),
+  /**
+   * Keeps only the devices held by another device when true, and only the devices that
+   * sit directly on their rack when false.
+   */
+  nested: z.boolean().optional(),
 });
 const retrieveMultiParamsZ = retrieveRequestZ.or(query.keyListZ(keyZ));
 
@@ -109,7 +115,7 @@ type RetrieveSchemas<
 > = { schemas: DeviceSchemas<Properties, Make, Model> };
 
 /** Query fields only the server can evaluate. */
-const SERVER_FIELDS = ["searchTerm", "limit", "offset", "includeParent"] as const;
+const SERVER_FIELDS = ["searchTerm", "limit", "offset"] as const;
 
 /** Drops includeStatus when unset so equivalent queries hash identically. */
 const normalizeSingle = ({ key, includeStatus }: RetrieveSingleParams): SingleQuery =>
@@ -127,20 +133,18 @@ const stripStatus = ({ status: _, ...device }: Device): Omit<Device, "status"> =
   device;
 
 /**
- * Removes the fields that make the Core write a device's status and parent. Use it to
- * send a retrieved device or a create reply back to {@link Client.create}: a reply
- * carries a parent, and the Core writes the status of any device sent with one.
+ * Removes the status of a device. Use it to send a retrieved device or a create reply
+ * back to {@link Client.create} without replacing the status the Core holds.
  */
-export const toUpdate = <D extends Pick<Device, "status" | "parent">>({
-  status: _status,
-  parent: _parent,
+export const toUpdate = <D extends Pick<Device, "status">>({
+  status: _,
   ...device
-}: D): Omit<D, "status" | "parent"> => device;
+}: D): Omit<D, "status"> => device;
 
 /**
- * Client-side matching for a request: key, name, make, model, location, rack, and group
- * sets. Server-computed shapes (search, pagination, parent resolution) never reach this
- * filter; they refetch instead.
+ * Client-side matching for a request: key, name, make, model, location, rack, parent,
+ * nesting, and group sets. Server-computed shapes (search and pagination) never reach
+ * this filter; they refetch instead.
  */
 const requestFilter = (
   req: RetrieveRequest,
@@ -153,6 +157,7 @@ const requestFilter = (
     ? new Set(req.locations)
     : undefined;
   const rackSet = primitive.isNonZero(req.racks) ? new Set(req.racks) : undefined;
+  const parentSet = primitive.isNonZero(req.parents) ? new Set(req.parents) : undefined;
   const inGroup = group.createMemberMatcher(req);
   return (d) => {
     if (keySet != null && !keySet.has(d.key)) return false;
@@ -161,6 +166,9 @@ const requestFilter = (
     if (modelSet != null && !modelSet.has(d.model)) return false;
     if (locationSet != null && !locationSet.has(d.location)) return false;
     if (rackSet != null && !rackSet.has(d.rack)) return false;
+    if (parentSet != null && (d.parent == null || !parentSet.has(d.parent)))
+      return false;
+    if (req.nested != null && (d.parent != null) !== req.nested) return false;
     return inGroup(d);
   };
 };

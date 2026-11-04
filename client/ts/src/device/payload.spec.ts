@@ -104,14 +104,10 @@ describe("validation", () => {
     expect(result.properties).toEqual(VALID_DEVICE.properties);
   });
 
-  it("should accept a device with an optional parent resource ID", () => {
-    const result = device.deviceZ().safeParse({
-      ...VALID_DEVICE,
-      parent: { type: "rack", key: "rack-1" },
-    });
+  it("should accept a device with the key of its parent device", () => {
+    const result = device.deviceZ().safeParse({ ...VALID_DEVICE, parent: "chassis-1" });
     expect(result.success).toBe(true);
-    if (result.success)
-      expect(result.data.parent).toEqual({ type: "rack", key: "rack-1" });
+    if (result.success) expect(result.data.parent).toBe("chassis-1");
   });
 
   it("should accept a device without a parent", () => {
@@ -120,10 +116,10 @@ describe("validation", () => {
     if (result.success) expect(result.data.parent).toBeUndefined();
   });
 
-  it("should reject a device with an invalid parent type", () => {
+  it("should reject a parent that is not a device key", () => {
     const result = device.deviceZ().safeParse({
       ...VALID_DEVICE,
-      parent: { type: "invalid_type", key: "key-1" },
+      parent: { type: "rack", key: "rack-1" },
     });
     expect(result.success).toBe(false);
   });

@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { id, TimeSpan, TimeStamp, uuid } from "@synnaxlabs/x";
+import { id, TimeRange, TimeSpan, TimeStamp, uuid } from "@synnaxlabs/x";
 import { beforeAll, describe, expect, it, onTestFinished, vi } from "vitest";
 import { z } from "zod";
 
@@ -520,6 +520,23 @@ describe("Task", async () => {
       const copy = await client.tasks.copy(m.key, "New Name", false);
       expect(copy.name).toBe("New Name");
       expect(copy.config).toMatchObject({ routingKey: "dog" });
+    });
+
+    it("should place a snapshot in a range", async () => {
+      const m = await testRack.createTask({
+        name: "test",
+        config: { routingKey: "dog" },
+        type: "pagerduty_alert",
+      });
+      const rng = await client.ranges.create({
+        name: `snapshot-${id.create()}`,
+        timeRange: new TimeRange(TimeStamp.now(), TimeStamp.MAX),
+      });
+      const snap = await client.tasks.copy(m.key, "Snapshot", true, rng.key);
+      expect(snap.range).toEqual(rng.key);
+      expect((await snap.snapshottedTo())?.key).toEqual(rng.key);
+      const inRange = await client.tasks.retrieve({ ranges: [rng.key] });
+      expect(inRange.map(({ key }) => key)).toEqual([snap.key]);
     });
   });
 

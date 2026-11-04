@@ -102,16 +102,11 @@ describe("arc", () => {
   describe("task", () => {
     const attachTask = async (arcKey: arc.Key): Promise<task.Task> => {
       const rack = await client.racks.create({ name: `rack-${id.create()}` });
-      const tsk = await rack.createTask({
+      return await rack.createTask({
         name: `arc-task-${id.create()}`,
-        type: "arc",
-        config: {},
+        type: arc.TASK_TYPE,
+        config: { arcKey },
       });
-      await client.ontology.addChildren(
-        arc.resourceID(arcKey),
-        task.resourceID(tsk.key),
-      );
-      return tsk;
     };
 
     it("resolves null for an arc with no task", async () => {
@@ -121,6 +116,13 @@ describe("arc", () => {
 
     it("resolves null for an arc that does not exist", async () => {
       expect(await client.arcs.task.retrieve(uuid.create())).toBeNull();
+    });
+
+    it("resolves null for an arc whose task runs another arc", async () => {
+      const owner = await client.arcs.create(newTextArc(`task-own-${id.create()}`));
+      const other = await client.arcs.create(newTextArc(`task-other-${id.create()}`));
+      await attachTask(owner.key);
+      expect(await client.arcs.task.retrieve(other.key)).toBeNull();
     });
 
     it("retrieves the task attached to an arc and caches the answer", async () => {

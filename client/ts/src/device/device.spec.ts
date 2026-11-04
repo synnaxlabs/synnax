@@ -92,11 +92,7 @@ describe("Device", async () => {
     it("should keep the live status of an existing device", async () => {
       const local = createTestClient();
       await local.connect();
-      const {
-        status: _,
-        parent: __,
-        ...d
-      } = await client.devices.create({
+      const { status: _, ...d } = await client.devices.create({
         key: id.create(),
         rack: testRack.key,
         location: "Dev1",
@@ -325,6 +321,27 @@ describe("Device", async () => {
       expect(missing.status).toEqual("rejected");
       if (missing.status === "rejected")
         expect(NotFoundError.matches(missing.reason)).toBe(true);
+    });
+
+    it("should retrieve the devices a device holds", async () => {
+      const { key: rack } = await client.racks.create({ name: `nest-${id.create()}` });
+      const make = (name: string, parent?: device.Key): device.New => ({
+        key: id.create(),
+        rack,
+        location: name,
+        name,
+        make: "ni",
+        model: "dog",
+        properties: {},
+        parent,
+      });
+      const chassis = await client.devices.create(make("chassis"));
+      const module = await client.devices.create(make("module", chassis.key));
+      expect(module.parent).toEqual(chassis.key);
+      const held = await client.devices.retrieve({ parents: [chassis.key] });
+      expect(held.map(({ key }) => key)).toEqual([module.key]);
+      const top = await client.devices.retrieve({ racks: [rack], nested: false });
+      expect(top.map(({ key }) => key)).toEqual([chassis.key]);
     });
 
     it("should retrieve a device by its key", async () => {
