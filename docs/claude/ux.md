@@ -111,6 +111,8 @@ outlined button) has fill l2 and border l4, and its caret has the disabled text 
   edge holds only Back, a mode switch ("Create more"), or a status summary.
 - Esc closes the modal from any field. Validation never changes the status of the
   primary button; errors show at their fields.
+- Every step of the device connect flow is 930 px (155 rem) wide
+  (`PlatformDevice.ConnectFrame`), so the modal keeps its size between steps.
 - A confirmation is narrow. Its title names the action and the object ("Delete
   channel"), its body states the result once, and its button is the verb ("Delete").
 
@@ -130,6 +132,16 @@ outlined button) has fill l2 and border l4, and its caret has the disabled text 
   changes with state: "Index channel", not "Is index".
 - An error message is a sentence about its field ("Name is required"), never a raw
   schema message.
+- Fields that belong together share a row: host and port, username and password, the
+  timing settings. A row is a `Flex.Box x` of two or three fields in a stacked
+  `Form.Sections`. Its first label stays in the label column, and its later fields line
+  up with the later fields of every other row.
+- A row never starts with a checkbox. In a row of three, the later two fields are short:
+  a number or a duration. Wide later fields squeeze the first control.
+- A number or a duration field is 144 px (24 rem) wide wherever it sits. A form can set
+  another width when its values need one.
+- A dialog shows its settings in sections, not tabs, while they fit with no scroll. The
+  Modbus connect dialog has no tabs.
 - A field in a row, or beside another field, has no help text. Its control shows the
   error, and the message shows on hover. A control with a border gets a red border. A
   control with no border, such as a text select or a button group, gets red text.
@@ -153,6 +165,15 @@ outlined button) has fill l2 and border l4, and its caret has the disabled text 
   the way to enable the channel again.
 - A new task takes the only device of its make. With two or more, the device stays
   empty.
+- Port banks sit side by side in columns eight ports wide, each under its title. They
+  wrap to one column in a narrow pane.
+- A port field that lists an accessory's ports, such as the 80 that a Mux80 adds to a
+  LabJack T7, shows one bank at a time. A tab for each bank names its connector and its
+  port numbers ("X3 48–71"). The tabs wrap to a second line in a narrow pane. The field
+  opens on the bank of the channel's port, and the Ports view shows every bank.
+- As the Arc task controls get narrow, the Driver name keeps its space longest. Below
+  450 px, the performance select and redeploy show only their icons. Below 280 px, the
+  Driver select shows only its icon too.
 
 ### Overflow
 
@@ -177,6 +198,10 @@ outlined button) has fill l2 and border l4, and its caret has the disabled text 
 - An open select marks the current value and opens scrolled to it.
 - A field in a list item uses the `shadow` variant: no box at rest, a border on hover,
   and a box while open. Fields in forms and detail panes keep their box.
+- An option with a description shows the icon beside the name and the description under
+  the name. The dropdown is wide enough for each description on one line. Only a narrow
+  window wraps it, and it is never cut.
+- A select that shows only its icon is a square button, never a wide box.
 
 ### Lists with checkboxes
 
@@ -228,6 +253,22 @@ says why in a sentence, then gives the raw error.
   `--pluto-gray-l7`.
 - The copy button sits at the top right, centered on the first line. A one-line block
   centers its line in the box.
+
+### Plot ranges
+
+- Ranges are bars in a strip above the plot. Overlapping ranges stack in lanes by start,
+  longer first, so a parent sits above its children. Three lanes are 20 px and show the
+  name. Up to four more are 4 px, with no name.
+- A bar is its range color tinted over the background, with a 1 px border in the color.
+  The name is in the range hue, centered on its cap height, and fades at its end. A side
+  cut by the plot edge has square corners, and the name stays at the edge.
+- In the plot, each range draws its start and end lines. Only a range that holds no
+  other range gets a fill, so fills do not stack. A range with no color is not drawn.
+- Hover fills the range, dims the others, and shows its name, start, end, and duration.
+  The tooltip wraps a name past 240 px.
+- A click on a range zooms to it and pauses the plot. A second click on that range goes
+  back to the view and pause state from before. If the view changes between the two
+  clicks, the second click zooms in again. Clicks nest, one level per click.
 
 ## Interaction
 

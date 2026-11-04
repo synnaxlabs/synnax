@@ -9,11 +9,18 @@
  * included in the file licenses/APL.txt.
  */
 
-.console-opc-connect {
-    width: 155rem;
+.console-modbus__menu {
+    min-width: max-content;
+}
 
-    /* Fits the longest label, so the column holds still as fields show and hide. */
-    .lyra-form-sections.lyra--direction-y {
-        grid-template-columns: minmax(18rem, max-content) minmax(0, 1fr);
-    }
+.console-modbus__option-description {
+    margin-left: auto;
+    padding-left: 3rem;
+    color: var(--pluto-gray-l8);
+    font-size: var(--pluto-small-size);
+    font-variant-numeric: tabular-nums;
+}
+
+.console-modbus__trigger .console-modbus__option-description {
+    display: none;
 }
