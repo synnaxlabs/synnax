@@ -16,7 +16,8 @@ SY team, when it holds a finding or a failed scan, and posts the count and the i
 link to Slack. Prints no finding, because logs on a public repository are public.
 Exits non-zero when a scan failed.
 
-Environment for --publish: LINEAR_API_KEY, SLACK_WEBHOOK_URL, and RUN_URL.
+Environment for --publish: LINEAR_CLIENT_ID, LINEAR_CLIENT_SECRET, SLACK_WEBHOOK_URL,
+and RUN_URL.
 """
 
 import argparse
@@ -26,10 +27,13 @@ import sys
 import urllib.request
 from collections import defaultdict
 from collections.abc import Callable
+from contextlib import AbstractContextManager
 from dataclasses import dataclass
 from datetime import UTC, datetime
 from pathlib import Path
 from typing import Any
+
+from linear_app import linear_token
 
 LINEAR_URL = "https://api.linear.app/graphql"
 TEAM = "SY"
@@ -42,6 +46,8 @@ LIMIT = 60_000
 
 # Sends a JSON payload to a URL with headers and returns the response body.
 Send = Callable[[str, dict[str, Any], dict[str, str]], bytes]
+# Opens a Linear token for the length of a with block.
+OpenToken = Callable[[], AbstractContextManager[str]]
 
 
 @dataclass(frozen=True)
@@ -150,10 +156,11 @@ def post(url: str, payload: dict[str, Any], headers: dict[str, str]) -> bytes:
 
 
 def linear(
-    send: Send, key: str, query: str, variables: dict[str, Any]
+    send: Send, token: str, query: str, variables: dict[str, Any]
 ) -> dict[str, Any]:
     payload = {"query": query, "variables": variables}
-    body = json.loads(send(LINEAR_URL, payload, {"Authorization": key}))
+    headers = {"Authorization": f"Bearer {token}"}
+    body = json.loads(send(LINEAR_URL, payload, headers))
     if body.get("errors"):
         # The errors can quote the report, so they stay out of the log.
         raise RuntimeError("the Linear API returned errors")
@@ -161,17 +168,17 @@ def linear(
     return data
 
 
-def file_issue(send: Send, key: str, title: str, description: str) -> str:
+def file_issue(send: Send, token: str, title: str, description: str) -> str:
     """Files an issue in the SY team and returns its URL."""
     teams = linear(
         send,
-        key,
+        token,
         "query($key: String!) { teams(filter: {key: {eq: $key}}) { nodes { id } } }",
         {"key": TEAM},
     )["teams"]["nodes"]
     created = linear(
         send,
-        key,
+        token,
         "mutation($input: IssueCreateInput!) "
         "{ issueCreate(input: $input) { issue { url } } }",
         {
@@ -186,18 +193,27 @@ def file_issue(send: Send, key: str, title: str, description: str) -> str:
     return url
 
 
-def publish(send: Send, scans: list[Scan], report: str, env: dict[str, str]) -> None:
+def publish(
+    send: Send,
+    open_token: OpenToken,
+    scans: list[Scan],
+    report: str,
+    env: dict[str, str],
+) -> None:
     total = sum(len(s.findings) for s in scans)
     failed = sum(s.exit_code != 0 for s in scans)
     text = f"Weekly security audit: {total} findings, {failed} failed scans."
     if total or failed:
         date = datetime.now(UTC).date().isoformat()
         title = f"Security audit {date}: {total} findings"
-        text += " " + file_issue(send, env["LINEAR_API_KEY"], title, report)
+        with open_token() as token:
+            text += " " + file_issue(send, token, title, report)
     send(env["SLACK_WEBHOOK_URL"], {"text": text}, {})
 
 
-def main(argv: list[str], send: Send = post) -> int:
+def main(
+    argv: list[str], send: Send = post, open_token: OpenToken = linear_token
+) -> int:
     p = argparse.ArgumentParser()
     p.add_argument("out", type=Path)
     p.add_argument("--publish", action="store_true")
@@ -208,7 +224,7 @@ def main(argv: list[str], send: Send = post) -> int:
     report = render(scans, os.environ.get("RUN_URL", ""))
     (args.out / "report.md").write_text(report)
     if args.publish:
-        publish(send, scans, report, dict(os.environ))
+        publish(send, open_token, scans, report, dict(os.environ))
     failed = [s.name for s in scans if s.exit_code != 0]
     if failed:
         print(f"Failed scans: {', '.join(failed)}", file=sys.stderr)
