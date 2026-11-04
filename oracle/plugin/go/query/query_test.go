@@ -191,12 +191,13 @@ var _ = Describe("Go Query Plugin", func() {
 				`
 					req := MustGenerateRequest(ctx, source, "view", loader)
 					Expect(p.Generate(req)).Error().To(MatchError(ContainSubstring(
-						"view.View: @filter, @index, and @search are not supported " +
+						"view.View: @filter, @index, @ref, and @search are not supported " +
 							"on union fields (name)",
 					)))
 				},
 				Entry("filter", "@filter"),
 				Entry("index", "@index lookup"),
+				Entry("ref", "@ref on_delete restrict"),
 				Entry("search", "@search"),
 			)
 		})

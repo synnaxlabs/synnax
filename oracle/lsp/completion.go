@@ -182,6 +182,11 @@ var (
 			Detail: protocol.NewOptional("Index configuration for the field"),
 		},
 		{
+			Label:  "ref",
+			Kind:   protocol.CompletionItemKindProperty,
+			Detail: protocol.NewOptional("The field holds the keys of other resources"),
+		},
+		{
 			Label:  "go",
 			Kind:   protocol.CompletionItemKindProperty,
 			Detail: protocol.NewOptional("Go output configuration"),

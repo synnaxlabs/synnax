@@ -57,6 +57,9 @@ var hoverDocs = map[string]string{
 	"search": "**@search**\n\nRetrieve requests can search the text of this field.",
 	"index": "**@index**\n\nIndex configuration for the field.\n\n" +
 		"Expressions: `lookup`, `sorted`",
+	"ref": "**@ref**\n\nThe field holds the keys of other resources.\n\n" +
+		"Expressions: `on_delete cascade|restrict|detach` (required), " +
+		"`types` (required for resource IDs), `unique`, `acyclic`",
 	"resource": "**@resource**\n\nResource type.\n\nUse `@resource type \"name\"`.",
 	"go": "**@go**\n\nGo output configuration.\n\nUse `output \"path\"` " +
 		"to set the output directory; `marshal` to generate a codec; " +
