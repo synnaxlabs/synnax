@@ -153,10 +153,9 @@ var _ = Describe("Multi Node", Ordered, func() {
 					Exec(ctx, nil)).To(Succeed())
 			}).Should(Succeed())
 			Expect(writer2.Delete(ctx, key, false)).To(Succeed())
-			Eventually(func() error {
-				_, err := node2.Storage.TS.RetrieveChannel(ctx, key.StorageKey())
-				return err
-			}).Should(MatchError(query.ErrNotFound))
+			Expect(node2.Storage.TS.RetrieveChannel(ctx, key.StorageKey())).Error().To(
+				MatchError(query.ErrNotFound),
+			)
 			Eventually(func() error {
 				var res channel.Channel
 				return svc1.NewRetrieve().

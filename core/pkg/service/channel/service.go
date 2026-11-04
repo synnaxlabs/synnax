@@ -23,7 +23,6 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/service/cluster"
 	"github.com/synnaxlabs/synnax/pkg/service/ontology"
 	"github.com/synnaxlabs/synnax/pkg/service/status"
-	xchange "github.com/synnaxlabs/x/change"
 	"github.com/synnaxlabs/x/config"
 	"github.com/synnaxlabs/x/io"
 	"github.com/synnaxlabs/x/observe"
@@ -32,7 +31,6 @@ import (
 	"github.com/synnaxlabs/x/set"
 	"github.com/synnaxlabs/x/types"
 	"github.com/synnaxlabs/x/validate"
-	"go.uber.org/zap"
 )
 
 // LimitChecker returns an error when a count of external channels exceeds the limit.
@@ -144,10 +142,6 @@ func OpenService(ctx context.Context, cfgs ...ServiceConfig) (s *Service, err er
 	}); !ok(err, s.table) {
 		return nil, err
 	}
-	s.closer = append(
-		s.closer,
-		io.NoFailCloserFunc(s.table.Observe().OnChange(s.freeStorage)),
-	)
 	// Seed the external/non-virtual key set by scanning the table once at startup. This
 	// is the only call site that unavoidably walks the table — there is no index for
 	// (Internal, Virtual) and the cost is bounded by how many channels the cluster has
@@ -164,29 +158,6 @@ func OpenService(ctx context.Context, cfgs ...ServiceConfig) (s *Service, err er
 	s.mu.externalNonVirtualSet.Insert(KeysFromChannels(externalNonVirtualChannels)...)
 	cfg.Ontology.RegisterService(s)
 	return s, nil
-}
-
-// freeStorage deletes the storage of the deleted channels that this node leases. It
-// runs after the delete commits, so a cascade frees storage the same way a direct
-// delete does. A failure leaves the storage in place and is logged.
-func (s *Service) freeStorage(ctx context.Context, r gorp.TxReader[Key, Channel]) {
-	host := s.cfg.HostProvider.HostKey()
-	var keys Keys
-	for c := range r {
-		if c.Variant == xchange.VariantDelete && c.Key.Lease() == host {
-			keys = append(keys, c.Key)
-		}
-	}
-	if len(keys) == 0 {
-		return
-	}
-	if err := s.cfg.Channel.Delete(ctx, keys); err != nil {
-		s.cfg.L.Error(
-			"failed to free channel storage",
-			zap.Stringers("channels", keys),
-			zap.Error(err),
-		)
-	}
 }
 
 // newRetrieve returns a Retrieve without the channel limit validator. The create,

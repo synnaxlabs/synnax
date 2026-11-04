@@ -1183,13 +1183,11 @@ var _ = Describe("Writer", func() {
 				"Should not be able to retrieve the channel from the time-series DB",
 				func(ctx SpecContext) {
 					Expect(channelWriter.Delete(ctx, ch.Key(), true)).To(Succeed())
-					Eventually(func() error {
-						_, err := dist.Storage.TS.RetrieveChannels(
-							ctx,
-							ch.Key().StorageKey(),
-						)
-						return err
-					}).Should(MatchError(ts.ErrChannelNotFound))
+					Expect(
+						dist.Storage.TS.RetrieveChannels(ctx, ch.Key().StorageKey()),
+					).
+						Error().
+						To(MatchError(ts.ErrChannelNotFound))
 				},
 			)
 		})
@@ -1563,7 +1561,7 @@ var _ = Describe("Writer", func() {
 			},
 		)
 		It(
-			"Should free the channel limit when a channel held by a writer is deleted",
+			"Should not edit the channel limit if a deletion fails in TS",
 			func(ctx SpecContext) {
 				createdChannels := make([]channel.Channel, int(limit))
 				for i := range limit {
@@ -1580,14 +1578,15 @@ var _ = Describe("Writer", func() {
 					Keys: []channel.Key{createdChannels[0].Key()},
 				}))
 				Expect(limitWriter.Delete(ctx, createdChannels[0].Key(), false)).
-					To(Succeed())
+					To(MatchError(ContainSubstring("1 unclosed writers/iterators")))
 				newCh := channel.Channel{
 					IsIndex:     true,
 					DataType:    telem.TimestampT,
 					Name:        "NewAfterDelete",
 					Leaseholder: 1,
 				}
-				Expect(limitWriter.Create(ctx, &newCh)).To(Succeed())
+				Expect(limitWriter.Create(ctx, &newCh)).
+					To(MatchError(ContainSubstring("channel limit exceeded")))
 			},
 		)
 	})
