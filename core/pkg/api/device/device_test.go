@@ -153,7 +153,7 @@ var _ = Describe("Create", func() {
 				authed, nil, apidevice.CreateRequest{Devices: []device.Device{d}},
 			))
 			Expect(apiSvc.Create(
-				authed, nil, apidevice.CreateRequest{Devices: res.Devices},
+				authed, nil, apidevice.CreateRequest(res),
 			)).Error().ToNot(HaveOccurred())
 			var stored device.Status
 			Expect(svc.Status.NewRetrieve[device.StatusDetails]().
