@@ -1,0 +1,52 @@
+# Copyright 2026 Synnax Labs, Inc.
+#
+# Use of this software is governed by the Business Source License included in the file
+# licenses/BSL.txt.
+#
+# As of the Change Date specified in that file, in accordance with the Business Source
+# License, use of this software will be governed by the Apache License, Version 2.0,
+# included in the file licenses/APL.txt.
+
+# Starts a container by digest and publishes its port. A workflow calls this instead of
+# using `services`, because a service image cannot be both pinned and optional. Pass the
+# container's variables in the env of the calling step and name them in `variables`.
+# The caller removes the container: build bots outlive the job.
+
+name: Start service
+description: Start a container from a pinned image
+
+inputs:
+  name:
+    description: Container name
+    required: true
+  image:
+    description: Image reference, pinned by digest
+    required: true
+  port:
+    description: Port to publish on the host
+    required: true
+  token:
+    description: Token that can pull the image from GitHub Container Registry
+    required: true
+  variables:
+    description: Space-separated names of variables to pass to the container
+    required: false
+    default: ""
+
+runs:
+  using: composite
+  steps:
+    - name: Start the container
+      shell: bash
+      env:
+        IMAGE: ${{ inputs.image }}
+        NAME: ${{ inputs.name }}
+        PORT: ${{ inputs.port }}
+        TOKEN: ${{ inputs.token }}
+        VARIABLES: ${{ inputs.variables }}
+      run: |
+        docker login ghcr.io --username "$GITHUB_ACTOR" --password-stdin <<< "$TOKEN"
+        docker rm --force "$NAME" 2> /dev/null || true
+        args=()
+        for variable in $VARIABLES; do args+=(--env "$variable"); done
+        docker run --detach --name "$NAME" --publish "$PORT:$PORT" "${args[@]}" "$IMAGE"
