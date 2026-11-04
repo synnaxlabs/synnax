@@ -302,6 +302,13 @@ says why in a sentence, then gives the raw error.
   back to the view and pause state from before. If the view changes between the two
   clicks, the second click zooms in again. Clicks nest, one level per click.
 
+### Plot range select
+
+- The dialog opens above the field. The Live row holds one chip per preset and an Off
+  chip, which shows while the plot has no live window.
+- A duration typed into the search (`15s`, `2h`, `1:30`) lists a live option at the top
+  of the list. Picking it replaces the live window. Enter sets it and closes the dialog.
+
 ### Plot axes
 
 - The toolbar's axes sit in a `Properties.Rail` on the left, the same rail as the
