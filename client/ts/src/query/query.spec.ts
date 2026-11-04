@@ -1091,6 +1091,22 @@ describe("Answers", () => {
       await expect.poll(() => answers.getCached({ min: 3 })).toEqual([rec("a", 5)]);
     });
 
+    // Regression: a plain read settles an answer that no maintenance watched, so a
+    // member that appeared before the first subscriber was missing from its answer.
+    it("refetches an answer read before the first subscriber", async () => {
+      const table = newTable();
+      let members: Rec[] = [];
+      const fetch = vi.fn(async () => {
+        table.set(members);
+        return members.map(({ key }) => key);
+      });
+      const answers = listSpace(table, fetch);
+      expect(await answers.retrieve({ min: 3 })).toEqual([]);
+      members = [rec("a", 5)];
+      answers.onChange({ min: 3 }, vi.fn());
+      await expect.poll(() => answers.getCached({ min: 3 })).toEqual([rec("a", 5)]);
+    });
+
     // Regression: membership is patched only on a ready query, so a record that
     // started matching while the first fetch was in flight was dropped, and the
     // settling fetch then wrote its own keys over the answer.

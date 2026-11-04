@@ -251,8 +251,6 @@ interface Query<
   handlers: Set<ChangeHandler<D>>;
   /** Rule teardown; present exactly while the query is maintained. */
   teardown?: destructor.Destructor[];
-  /** Set when maintenance ends: changes since then went unobserved. */
-  unmaintained?: boolean;
   /** Keys whose membership a fetch in flight deferred; drained on settle. */
   pendingRechecks?: Set<K>;
   /** Set when a full limited answer lost a member: it may leave out matches until a
@@ -451,7 +449,6 @@ export class Space<
     query.idleSince = undefined;
     query.teardown?.forEach((d) => d());
     query.teardown = undefined;
-    query.unmaintained = true;
     query.pendingRechecks = undefined;
     query.refetchOnSettle = false;
     if (query.refetchTimer != null) {
@@ -744,16 +741,11 @@ export class Space<
     query.teardown = teardown;
     const { table, keyOf, matches, watch: watches } = this.config;
     const { params } = query;
-    // Rules 2 and 3 build membership from events, and an unmaintained query
-    // received none, so its answer must be reconfirmed. Rule 1 re-seeds from the
+    // Rules 2 and 3 build membership from events, and nothing delivered them to a
+    // ready answer before now, so it must be reconfirmed. Rule 1 re-seeds from the
     // table below and needs no network.
-    if (
-      query.unmaintained === true &&
-      query.state.variant === "ready" &&
-      keyOf?.(params) == null
-    )
+    if (query.state.variant === "ready" && keyOf?.(params) == null)
       this.scheduleRefetch(query);
-    query.unmaintained = false;
 
     // A keys-only query whose members the table already holds seeds a ready answer:
     // rules 2 and 3 gate notifications on a ready state, so without the seed an
