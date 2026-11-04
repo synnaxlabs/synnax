@@ -219,7 +219,7 @@ inline WriteEndpoint WriteEndpoint::parse(x::json::Parser parser) {
             "query_params",
             std::vector<QueryParam>{}
         ),
-        .channel = parser.field<ChannelField>("channel"),
+        .channel = parser.field<ChannelField>("channel", ChannelField{}),
         .fields = [&] {
             std::vector<WriteField> result;
             if (parser.has("fields"))

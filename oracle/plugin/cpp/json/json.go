@@ -604,6 +604,13 @@ func (p *Plugin) parseExprForField(
 				}
 				if field.Optional {
 					wrapperType = fmt.Sprintf("std::optional<%s>", wrapperType)
+				} else if isEmptyDefault(field.Default) {
+					return fmt.Sprintf(
+						`parser.field<%s>("%s", %s{})`,
+						wrapperType,
+						jsonName,
+						wrapperType,
+					)
 				}
 				return fmt.Sprintf(`parser.field<%s>("%s")`, wrapperType, jsonName)
 			}
@@ -771,6 +778,14 @@ func (p *Plugin) parseExprForField(
 					jsonName,
 				)
 			}
+			if isEmptyDefault(field.Default) {
+				return fmt.Sprintf(
+					`parser.field<%s>("%s", %s{})`,
+					structType,
+					jsonName,
+					structType,
+				)
+			}
 			return fmt.Sprintf(`parser.field<%s>("%s")`, structType, jsonName)
 		}
 		if union, ok := dealiasUnion(typeRef, data.table); ok {
@@ -839,6 +854,14 @@ func (p *Plugin) parseExprForField(
 							jsonName,
 						)
 					}
+					if isEmptyDefault(field.Default) {
+						return fmt.Sprintf(
+							`parser.field<%s>("%s", %s{})`,
+							aliasType,
+							jsonName,
+							aliasType,
+						)
+					}
 					return fmt.Sprintf(`parser.field<%s>("%s")`, aliasType, jsonName)
 				}
 			}
@@ -899,8 +922,30 @@ func (p *Plugin) parseExprForField(
 				defaultVal,
 			)
 		}
+		if isEmptyDefault(field.Default) {
+			return fmt.Sprintf(
+				`parser.field<%s>("%s", %s{})`,
+				cppType,
+				jsonName,
+				cppType,
+			)
+		}
 	}
 	return fmt.Sprintf(`parser.field<%s>("%s")`, cppType, jsonName)
+}
+
+// isEmptyDefault reports whether val is the empty composite default {} or [].
+func isEmptyDefault(val *resolution.ExpressionValue) bool {
+	if val == nil {
+		return false
+	}
+	switch val.Kind {
+	case resolution.ValueKindStruct:
+		return len(val.Fields) == 0
+	case resolution.ValueKindArray:
+		return len(val.Elements) == 0
+	}
+	return false
 }
 
 func (p *Plugin) toJSONExprForField(

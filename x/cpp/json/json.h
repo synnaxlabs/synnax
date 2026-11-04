@@ -136,6 +136,19 @@ class Parser {
     json config;
     /// @brief noop means the parser should fail fast.
     bool noop = false;
+    /// @brief true once a keyed lookup has reported a value that is not an object.
+    bool shape_reported = false;
+
+    /// @brief finds the value at path. Null reads as missing. Any other value that is
+    /// not an object binds one error, so a type with only defaulted fields cannot
+    /// accept malformed content.
+    json::iterator find(const std::string &path) {
+        if (!config.is_object() && !config.is_null() && !shape_reported) {
+            shape_reported = true;
+            field_err("", "expected an object");
+        }
+        return config.find(path);
+    }
 
     Parser(
         json config,
@@ -262,7 +275,7 @@ public:
     T field(const std::string &path) {
         if (noop) return T();
         if (path.empty()) return field<T>();
-        const auto iter = config.find(path);
+        const auto iter = find(path);
         if (iter == config.end()) {
             if constexpr (is_optional_v<T>) return std::nullopt;
             if constexpr (is_indirect_v<T>) return nullptr;
@@ -284,7 +297,7 @@ public:
     T field(const std::string &path, const T &default_value) {
         if (noop) return default_value;
 
-        const auto iter = config.find(path);
+        const auto iter = find(path);
         if (iter == config.end() || iter->is_null()) return default_value;
         return get<T>(path, iter);
     }
@@ -302,7 +315,7 @@ public:
         }
 
         for (const auto &path: paths) {
-            if (const auto iter = config.find(path); iter != config.end())
+            if (const auto iter = find(path); iter != config.end())
                 return get<T>(path, iter);
         }
 
@@ -320,7 +333,7 @@ public:
         if (paths.empty()) return default_value;
 
         for (const auto &path: paths) {
-            if (const auto iter = config.find(path); iter != config.end())
+            if (const auto iter = find(path); iter != config.end())
                 return get<T>(path, iter);
         }
 

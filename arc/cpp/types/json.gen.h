@@ -23,8 +23,8 @@ namespace arc::types {
 
 inline FunctionProperties FunctionProperties::parse(x::json::Parser parser) {
     return FunctionProperties{
-        .inputs = parser.field<Params>("inputs"),
-        .outputs = parser.field<Params>("outputs"),
+        .inputs = parser.field<Params>("inputs", Params{}),
+        .outputs = parser.field<Params>("outputs", Params{}),
     };
 }
 
