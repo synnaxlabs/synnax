@@ -62,21 +62,76 @@ func setLiveStatus(ctx SpecContext, d device.Device) {
 }
 
 var _ = Describe("Create", func() {
+	deviceType := ontology.ID{Type: ontology.ResourceTypeDevice}
 	authedCtx := func(ctx SpecContext) context.Context {
 		GinkgoHelper()
 		u := createUser(ctx)
-		grant(
-			ctx,
-			access.ActionCreate,
-			u.OntologyID(),
-			ontology.ID{Type: ontology.ResourceTypeDevice},
-		)
+		grant(ctx, access.ActionCreate, u.OntologyID(), deviceType)
+		grant(ctx, access.ActionRetrieve, u.OntologyID(), deviceType)
 		return AuthedCtx(ctx, u)
 	}
+	createStripped := func(ctx SpecContext, key string) device.Device {
+		GinkgoHelper()
+		d := createDevice(ctx, key)
+		setLiveStatus(ctx, d)
+		d.Status, d.Parent = nil, nil
+		return d
+	}
+	It(
+		"Should leave out each status when create is the only grant",
+		func(ctx SpecContext) {
+			u := createUser(ctx)
+			grant(ctx, access.ActionCreate, u.OntologyID(), deviceType)
+			hidden := createStripped(ctx, "create-only-hidden")
+			fresh := hidden
+			fresh.Key = "create-only-fresh"
+			res := MustSucceed(apiSvc.Create(
+				AuthedCtx(ctx, u), nil,
+				apidevice.CreateRequest{Devices: []device.Device{fresh, hidden}},
+			))
+			Expect(res.Devices).To(HaveLen(2))
+			Expect(res.Devices[0].Status).To(BeNil())
+			Expect(res.Devices[1].Status).To(BeNil())
+			Expect(retrieveDevice(ctx, fresh.Key).Key).To(Equal(fresh.Key))
+		},
+	)
+	It("Should leave out the status when read is not granted", func(ctx SpecContext) {
+		u := createUser(ctx)
+		hidden := createStripped(ctx, "create-update-hidden")
+		grant(ctx, access.ActionCreate, u.OntologyID(), deviceType)
+		grant(ctx, access.ActionUpdate, u.OntologyID(), hidden.OntologyID())
+		res := MustSucceed(apiSvc.Create(
+			AuthedCtx(ctx, u), nil,
+			apidevice.CreateRequest{Devices: []device.Device{hidden}},
+		))
+		Expect(res.Devices).To(HaveLen(1))
+		Expect(res.Devices[0].Status).To(BeNil())
+	})
+	It("Should reject a caller with only update access", func(ctx SpecContext) {
+		u := createUser(ctx)
+		d := createStripped(ctx, "update-only")
+		grant(ctx, access.ActionUpdate, u.OntologyID(), d.OntologyID())
+		Expect(apiSvc.Create(
+			AuthedCtx(ctx, u), nil,
+			apidevice.CreateRequest{Devices: []device.Device{d}},
+		)).Error().To(MatchError(access.ErrDenied))
+	})
+	It("Should check read access on each device in a batch", func(ctx SpecContext) {
+		u := createUser(ctx)
+		readable := createStripped(ctx, "batch-readable")
+		hidden := createStripped(ctx, "batch-hidden")
+		grant(ctx, access.ActionCreate, u.OntologyID(), deviceType)
+		grant(ctx, access.ActionRetrieve, u.OntologyID(), readable.OntologyID())
+		res := MustSucceed(apiSvc.Create(
+			AuthedCtx(ctx, u), nil,
+			apidevice.CreateRequest{Devices: []device.Device{readable, hidden}},
+		))
+		Expect(res.Devices).To(HaveLen(2))
+		Expect(res.Devices[0].Status.Message).To(Equal("Device is running"))
+		Expect(res.Devices[1].Status).To(BeNil())
+	})
 	It("Should reply with the stored status of each device", func(ctx SpecContext) {
-		existing := createDevice(ctx, "create-existing")
-		setLiveStatus(ctx, existing)
-		existing.Status, existing.Parent = nil, nil
+		existing := createStripped(ctx, "create-existing")
 		fresh := existing
 		fresh.Key = "create-fresh"
 		res := MustSucceed(apiSvc.Create(
@@ -92,9 +147,7 @@ var _ = Describe("Create", func() {
 	It(
 		"Should keep the live status when a reply is created again",
 		func(ctx SpecContext) {
-			d := createDevice(ctx, "create-round-trip")
-			setLiveStatus(ctx, d)
-			d.Status, d.Parent = nil, nil
+			d := createStripped(ctx, "create-round-trip")
 			authed := authedCtx(ctx)
 			res := MustSucceed(apiSvc.Create(
 				authed, nil, apidevice.CreateRequest{Devices: []device.Device{d}},
