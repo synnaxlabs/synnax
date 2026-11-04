@@ -11,21 +11,23 @@ package icd
 
 // merge returns existing with its messages replaced by imported. An imported message
 // that matches an existing message by name keeps the existing key, and each of its
-// fields keeps the key of the existing field with its name. All other values come from
+// fields keeps the key of the existing field with its name. Each existing message and
+// field matches once, so repeated names match in order. All other values come from
 // imported, and existing messages and fields that imported does not hold are dropped.
 // Multiplexor references between imported fields are rewritten to the kept keys. merge
 // does not modify its arguments.
 func merge(existing ICD, imported []Message) ICD {
-	old := make(map[string]Message, len(existing.Messages))
+	old := make(map[string][]Message, len(existing.Messages))
 	for _, m := range existing.Messages {
-		old[m.Name] = m
+		old[m.Name] = append(old[m.Name], m)
 	}
 	fieldKeys := make(map[FieldKey]FieldKey)
 	messages := make([]Message, len(imported))
 	for i, m := range imported {
-		if match, ok := old[m.Name]; ok {
-			m.Key = match.Key
-			keepFieldKeys(&m.Payload, match.Payload, fieldKeys)
+		if matches := old[m.Name]; len(matches) > 0 {
+			old[m.Name] = matches[1:]
+			m.Key = matches[0].Key
+			keepFieldKeys(&m.Payload, matches[0].Payload, fieldKeys)
 		}
 		messages[i] = m
 	}
@@ -43,14 +45,15 @@ func keepFieldKeys(
 	old Payload,
 	keys map[FieldKey]FieldKey,
 ) {
-	byName := make(map[string]FieldKey)
+	byName := make(map[string][]FieldKey)
 	for _, b := range old.FieldBases() {
-		byName[b.Name] = b.Key
+		byName[b.Name] = append(byName[b.Name], b.Key)
 	}
 	p.UpdateFieldBases(func(b *BaseField) {
-		if key, ok := byName[b.Name]; ok {
-			keys[b.Key] = key
-			b.Key = key
+		if matches := byName[b.Name]; len(matches) > 0 {
+			byName[b.Name] = matches[1:]
+			keys[b.Key] = matches[0]
+			b.Key = matches[0]
 		}
 	})
 }

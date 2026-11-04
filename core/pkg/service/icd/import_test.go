@@ -222,6 +222,17 @@ var _ = Describe("Import", func() {
 		Entry("multiplexor references", "extended_multiplexed"),
 	)
 
+	It("Should keep a key for each field that repeats a name", func(
+		ctx SpecContext,
+	) {
+		csv := "message,field,start_bit,bit_length\nm,a,0,8\nm,a,8,8\nm,b,16,8\n" +
+			"n,c,0,8\nn,c,8,8\n"
+		first := MustSucceed(importICD(ctx, ic.Key, icd.FormatCSV, csv))
+		second := MustSucceed(importICD(ctx, ic.Key, icd.FormatCSV, csv))
+		Expect(second).To(Equal(first))
+		Expect(messageKeys(second.Messages)).To(HaveLen(7))
+	})
+
 	It("Should drop missing messages and fields and add new ones", func(
 		ctx SpecContext,
 	) {
