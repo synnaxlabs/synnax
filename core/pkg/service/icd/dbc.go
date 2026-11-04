@@ -195,7 +195,7 @@ func newDBCFile(defs []dbc.Def) (dbcFile, error) {
 		case *dbc.MultiplexedValuesDef:
 			ref := signalRef{message: d.MessageID, signal: string(d.SignalName)}
 			if _, dup := f.mux[ref]; dup {
-				return f, dataErrorf(
+				return dbcFile{}, dataErrorf(
 					"line %d: duplicate SG_MUL_VAL_ for signal %s",
 					d.Pos.Line,
 					ref.signal,
@@ -203,7 +203,7 @@ func newDBCFile(defs []dbc.Def) (dbcFile, error) {
 			}
 			spec, err := newMuxSpec(d)
 			if err != nil {
-				return f, err
+				return dbcFile{}, err
 			}
 			f.mux[ref] = spec
 		}

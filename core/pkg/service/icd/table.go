@@ -284,15 +284,15 @@ func (t *table) readField(row int, cells []string) (BinaryField, error) {
 		ByteOrder: ByteOrderLittleEndian,
 	}
 	if f.Name == "" {
-		return f, rowErrorf(row, columnField, "is required")
+		return BinaryField{}, rowErrorf(row, columnField, "is required")
 	}
 	startBit, err := t.uint(row, cells, columnStartBit, 16)
 	if err != nil {
-		return f, err
+		return BinaryField{}, err
 	}
 	bitLength, err := t.uint(row, cells, columnBitLength, 8)
 	if err != nil {
-		return f, err
+		return BinaryField{}, err
 	}
 	f.StartBit, f.BitLength = uint16(startBit), uint8(bitLength)
 	switch s := strings.ToLower(t.cell(cells, columnByteOrder)); s {
@@ -300,37 +300,42 @@ func (t *table) readField(row int, cells []string) (BinaryField, error) {
 	case "big_endian", "motorola":
 		f.ByteOrder = ByteOrderBigEndian
 	default:
-		return f, rowErrorf(row, columnByteOrder, "invalid byte order %q", s)
+		return BinaryField{}, rowErrorf(
+			row,
+			columnByteOrder,
+			"invalid byte order %q",
+			s,
+		)
 	}
 	if s := t.cell(cells, columnSigned); s != "" {
 		if f.Signed, err = parseBool(row, columnSigned, s); err != nil {
-			return f, err
+			return BinaryField{}, err
 		}
 	}
 	if s := t.cell(cells, columnFloat); s != "" {
 		if f.Float, err = parseBool(row, columnFloat, s); err != nil {
-			return f, err
+			return BinaryField{}, err
 		}
 	}
 	scale, err := t.number(row, cells, columnScale)
 	if err != nil {
-		return f, err
+		return BinaryField{}, err
 	}
 	if scale != nil {
 		f.Scale = *scale
 	}
 	offset, err := t.number(row, cells, columnOffset)
 	if err != nil {
-		return f, err
+		return BinaryField{}, err
 	}
 	if offset != nil {
 		f.Offset = *offset
 	}
 	if f.Min, err = t.number(row, cells, columnMin); err != nil {
-		return f, err
+		return BinaryField{}, err
 	}
 	if f.Max, err = t.number(row, cells, columnMax); err != nil {
-		return f, err
+		return BinaryField{}, err
 	}
 	return f, nil
 }
