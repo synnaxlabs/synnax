@@ -81,4 +81,5 @@ class TestGroupClient:
         g1 = client.groups.create(str(uuid4()), scope="channel")
         g2 = client.groups.create(str(uuid4()), scope="channel")
         client.groups.delete([g1.key, g2.key])
-        assert client.groups.retrieve(keys=[g1.key, g2.key]) == []
+        with pytest.raises(sy.NotFoundError):
+            client.groups.retrieve(keys=[g1.key, g2.key])
