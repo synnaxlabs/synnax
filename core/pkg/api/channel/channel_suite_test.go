@@ -16,7 +16,7 @@ import (
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	apichannel "github.com/synnaxlabs/synnax/pkg/api/channel"
-	"github.com/synnaxlabs/synnax/pkg/distribution/mock"
+	"github.com/synnaxlabs/synnax/pkg/distribution/testutil"
 	"github.com/synnaxlabs/synnax/pkg/service/access"
 	"github.com/synnaxlabs/synnax/pkg/service/access/rbac"
 	"github.com/synnaxlabs/synnax/pkg/service/access/rbac/policy"
@@ -43,13 +43,15 @@ var (
 	channelSvc *channel.Service
 	statusSvc  *status.Service
 	rbacSvc    *rbac.Service
+	rangerSvc  *ranger.Service
+	aliasSvc   *alias.Service
 	apiSvc     *apichannel.Service
 	author     user.User
 )
 
 var _ = BeforeSuite(func(ctx SpecContext) {
 	ShouldNotLeakGoroutines()
-	node := mock.NewNode(ctx)
+	node := testutil.NewNode(ctx)
 	otg := MustOpen(ontology.Open(ctx, ontology.Config{DB: node.DB}))
 	groupSvc := MustOpen(group.OpenService(ctx, group.ServiceConfig{
 		DB:       node.DB,
@@ -85,13 +87,13 @@ var _ = BeforeSuite(func(ctx SpecContext) {
 		Group:        groupSvc,
 		Status:       statusSvc,
 	}))
-	rangerSvc := MustOpen(ranger.OpenService(ctx, ranger.ServiceConfig{
+	rangerSvc = MustOpen(ranger.OpenService(ctx, ranger.ServiceConfig{
 		DB:       node.DB,
 		Ontology: otg,
 		Group:    groupSvc,
 		Label:    labelSvc,
 	}))
-	aliasSvc := MustOpen(alias.OpenService(ctx, alias.ServiceConfig{
+	aliasSvc = MustOpen(alias.OpenService(ctx, alias.ServiceConfig{
 		DB:              node.DB,
 		Ontology:        otg,
 		Channel:         channelSvc,

@@ -22,8 +22,9 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/distribution/framer/frame"
 	"github.com/synnaxlabs/synnax/pkg/distribution/framer/iterator"
 	"github.com/synnaxlabs/synnax/pkg/distribution/framer/writer"
-	"github.com/synnaxlabs/synnax/pkg/distribution/mock"
 	"github.com/synnaxlabs/synnax/pkg/distribution/node"
+	"github.com/synnaxlabs/synnax/pkg/distribution/testutil"
+	"github.com/synnaxlabs/synnax/pkg/storage/ts"
 	"github.com/synnaxlabs/x/confluence"
 	"github.com/synnaxlabs/x/control"
 	"github.com/synnaxlabs/x/query"
@@ -83,7 +84,7 @@ var _ = Describe("Writer", func() {
 		)
 		BeforeAll(func(ctx SpecContext) {
 			ShouldNotLeakGoroutines()
-			node := mock.OpenNode(ctx)
+			node := testutil.OpenNode(ctx)
 			idxCh = channel.Channel{
 				Name:     "variable_time",
 				IsIndex:  true,
@@ -192,7 +193,7 @@ var _ = Describe("Writer", func() {
 		It(
 			"Should release peer control when the gateway writer fails to open",
 			func(ctx SpecContext) {
-				cluster := mock.NewCluster(ctx, 2)
+				cluster := testutil.NewCluster(ctx, 2)
 				dist := cluster.Nodes[1]
 				peerCh := channel.Channel{
 					Name:        "cleanup_peer",
@@ -371,11 +372,161 @@ var _ = Describe("Writer", func() {
 		)
 	})
 
+	Describe("End Domain", func() {
+		It(
+			"Should end the domains of indexes on each leaseholder",
+			func(ctx SpecContext) {
+				cluster := testutil.NewCluster(ctx, 2)
+				gw := cluster.Nodes[1]
+				createPair := func(name string, host node.Key) (channel.Key, channel.Key) {
+					GinkgoHelper()
+					idx := MustSucceed(gw.Channel.Create(ctx, []channel.Channel{{
+						Name:        name + "_time",
+						IsIndex:     true,
+						DataType:    telem.TimestampT,
+						Leaseholder: host,
+					}}))[0]
+					data := MustSucceed(gw.Channel.Create(ctx, []channel.Channel{{
+						Name:        name,
+						DataType:    telem.Int64T,
+						LocalIndex:  idx.LocalKey,
+						Leaseholder: host,
+					}}))[0]
+					return idx.Key(), data.Key()
+				}
+				localIdx, localData := createPair("local", 1)
+				peerIdx, peerData := createPair("peer", 2)
+				keys := channel.Keys{localIdx, localData, peerIdx, peerData}
+				frameAt := func(seconds ...telem.TimeStamp) frame.Frame {
+					stamps := make([]telem.TimeStamp, len(seconds))
+					values := make([]int64, len(seconds))
+					for i, s := range seconds {
+						stamps[i] = s * telem.SecondTS
+						values[i] = int64(s)
+					}
+					return frame.NewMulti(keys, []telem.Series{
+						telem.NewSeries(stamps),
+						telem.NewSeries(values),
+						telem.NewSeries(stamps),
+						telem.NewSeries(values),
+					})
+				}
+				w := MustSucceed(gw.Framer.OpenWriter(ctx, writer.Config{
+					Keys:  keys,
+					Start: 10 * telem.SecondTS,
+					Sync:  new(true),
+				}))
+				Expect(w.Write(frameAt(10, 11))).To(BeTrue())
+				MustSucceed(w.Commit())
+				Expect(w.EndDomain(channel.Keys{localIdx, peerIdx})).To(BeTrue())
+				Expect(w.Write(frameAt(20, 21))).To(BeTrue())
+				MustSucceed(w.Commit())
+				fill := MustSucceed(gw.Framer.OpenWriter(ctx, writer.Config{
+					Keys:  keys,
+					Start: 12 * telem.SecondTS,
+					Mode:  ts.WriterModePersistOnly,
+					Sync:  new(true),
+				}))
+				Expect(fill.Write(frameAt(12, 13))).To(BeTrue())
+				MustSucceed(fill.Commit())
+				Expect(fill.Close()).To(Succeed())
+				Expect(w.Close()).To(Succeed())
+			},
+		)
+		DescribeTable(
+			"Should return false when one node refuses",
+			func(ctx SpecContext, refusing int) {
+				gw := testutil.NewCluster(ctx, 2).Nodes[1]
+				keys := channel.KeysFromChannels(
+					MustSucceed(gw.Channel.Create(ctx, []channel.Channel{
+						{
+							Name:        "gateway_time",
+							IsIndex:     true,
+							DataType:    telem.TimestampT,
+							Leaseholder: 1,
+						},
+						{
+							Name:        "peer_time",
+							IsIndex:     true,
+							DataType:    telem.TimestampT,
+							Leaseholder: 2,
+						},
+					})),
+				)
+				w := MustSucceed(gw.Framer.OpenWriter(ctx, writer.Config{
+					ControlSubject: control.Subject{Key: "low"},
+					Keys:           keys,
+					Start:          10 * telem.SecondTS,
+					Authorities:    []control.Authority{1},
+					Sync:           new(true),
+				}))
+				holder := MustSucceed(gw.Framer.OpenWriter(ctx, writer.Config{
+					ControlSubject: control.Subject{Key: "high"},
+					Keys:           channel.Keys{keys[refusing]},
+					Start:          10 * telem.SecondTS,
+					Authorities:    []control.Authority{control.AuthorityAbsolute},
+					Sync:           new(true),
+				}))
+				Expect(holder.Write(frame.NewMulti(
+					channel.Keys{keys[refusing]},
+					[]telem.Series{telem.NewSeriesSecondsTSV(10)},
+				))).To(BeTrue())
+				Expect(w.EndDomain(keys)).To(BeFalse())
+				Expect(holder.Close()).To(Succeed())
+				Expect(w.Close()).To(Succeed())
+			},
+			Entry("on the gateway", 0),
+			Entry("on a peer", 1),
+		)
+		It("Should report a commit that fails", func(ctx SpecContext) {
+			gw := testutil.NewCluster(ctx, 1).Nodes[1]
+			idx := MustSucceed(gw.Channel.Create(ctx, []channel.Channel{{
+				Name:        "time",
+				IsIndex:     true,
+				DataType:    telem.TimestampT,
+				Leaseholder: 1,
+			}}))[0]
+			keys := channel.Keys{idx.Key()}
+			live := MustSucceed(gw.Framer.OpenWriter(ctx, writer.Config{
+				Keys:  keys,
+				Start: 10 * telem.SecondTS,
+				Sync:  new(true),
+			}))
+			fill := MustSucceed(gw.Framer.OpenWriter(ctx, writer.Config{
+				Keys:             keys,
+				Start:            1 * telem.SecondTS,
+				Mode:             ts.WriterModePersistOnly,
+				EnableAutoCommit: new(false),
+				Sync:             new(true),
+			}))
+			Expect(fill.Write(frame.NewMulti(keys, []telem.Series{
+				telem.NewSeriesSecondsTSV(1, 30),
+			}))).To(BeTrue())
+			Expect(fill.EndDomain(keys)).Error().To(And(
+				MatchError(validate.ErrValidation),
+				MatchError(ContainSubstring("cannot write to time range")),
+			))
+			Expect(fill.Close()).To(MatchError(validate.ErrValidation))
+			Expect(live.Close()).To(Succeed())
+		})
+		It("Should acknowledge a writer of free channels", func(ctx SpecContext) {
+			s := freeWriterScenario(ctx)
+			defer func() { Expect(s.Close()).To(Succeed()) }()
+			w := MustSucceed(s.dist.Framer.OpenWriter(ctx, writer.Config{
+				Keys:  s.keys,
+				Start: 10 * telem.SecondTS,
+				Sync:  new(true),
+			}))
+			Expect(w.EndDomain(s.keys)).To(BeTrue())
+			Expect(w.Close()).To(Succeed())
+		})
+	})
+
 	Describe("Auto-Index", func() {
 		It(
 			"Should auto-stamp from the leaseholder when the data channel lives on a peer",
 			func(ctx SpecContext) {
-				cluster := mock.NewCluster(ctx, 2)
+				cluster := testutil.NewCluster(ctx, 2)
 				gw := cluster.Nodes[1]
 				peer := node.Key(2)
 
@@ -494,6 +645,7 @@ var _ = Describe("Writer", func() {
 				))
 				Expect(writtenData.Alignment.SampleIndex()).To(BeEquivalentTo(0))
 				Expect(writtenIdx.Alignment).To(Equal(writtenData.Alignment))
+				Expect(writtenData.TimeRange).To(Equal(telem.TimeRangeZero))
 				data = telem.NewSeriesV[float32](3, 4)
 				idx = telem.NewSeriesSecondsTSV(12*telem.SecondTS, 13*telem.SecondTS)
 				Expect(writer.Write(frame.NewMulti(
@@ -509,6 +661,52 @@ var _ = Describe("Writer", func() {
 				Expect(writtenData.Alignment.DomainIndex()).To(Equal(groupDomain))
 				Expect(writtenData.Alignment.SampleIndex()).To(BeEquivalentTo(2))
 				Expect(writtenIdx.Alignment).To(Equal(writtenData.Alignment))
+			},
+		)
+
+		It(
+			"Should stamp index-less free channels with the gateway's clock",
+			func(ctx SpecContext) {
+				s := DeferClose(gatewayOnlyScenario(ctx))
+				ch := channel.Channel{
+					Name:        "free_unindexed",
+					DataType:    telem.Int64T,
+					Leaseholder: node.KeyFree,
+					Virtual:     true,
+				}
+				ch = MustSucceed(s.dist.Channel.Create(ctx, []channel.Channel{ch}))[0]
+				keys := channel.Keys{ch.Key()}
+				streamer := MustSucceed(s.dist.Framer.NewStreamer(framer.StreamerConfig{
+					Keys:        keys,
+					SendOpenAck: new(true),
+				}))
+				_, out := confluence.Attach(streamer, 10)
+				sCtx, cancel := signal.WithCancel(ctx)
+				defer cancel()
+				streamer.Flow(sCtx)
+				var res framer.StreamerResponse
+				Eventually(out.Outlet()).Should(Receive(&res))
+				s.dist.Framer.SetFreeIndexResolver(indexResolver{})
+				writer := MustOpen(s.dist.Framer.OpenWriter(ctx, writer.Config{
+					Keys:  keys,
+					Start: 10 * telem.SecondTS,
+					Sync:  new(true),
+				}))
+				data := telem.NewSeriesV[int64](1, 2)
+				data.TimeRange = telem.TimeRange{
+					Start: 1 * telem.SecondTS,
+					End:   2 * telem.SecondTS,
+				}
+				before := telem.Now()
+				Expect(writer.Write(frame.NewUnary(ch.Key(), data))).To(BeTrue())
+				Eventually(out.Outlet()).Should(Receive(&res))
+				after := telem.Now()
+				written := res.Frame.Get(ch.Key()).Series[0]
+				Expect(written).To(telem.MatchSeriesData(data))
+				Expect(written.TimeRange.Span()).To(Equal(2 * telem.Nanosecond))
+				Expect(written.TimeRange.Start).To(BeNumerically(">=", before))
+				Expect(written.TimeRange.Start).To(BeNumerically("<=", after))
+				Expect(written.Alignment).To(Equal(telem.Alignment(0)))
 			},
 		)
 
@@ -533,6 +731,234 @@ var _ = Describe("Writer", func() {
 			},
 		)
 	})
+
+	Describe("Virtual Write Stamps", func() {
+		// writeAndReceive writes the series to the keys in one frame and returns the
+		// series streamed for each key with the instants that bound the write.
+		writeAndReceive := func(
+			ctx SpecContext,
+			dist testutil.Node,
+			keys channel.Keys,
+			series ...telem.Series,
+		) (map[channel.Key][]telem.Series, telem.TimeStamp, telem.TimeStamp) {
+			GinkgoHelper()
+			unique := keys.Unique()
+			streamer := MustSucceed(dist.Framer.NewStreamer(framer.StreamerConfig{
+				Keys:        unique,
+				SendOpenAck: new(true),
+			}))
+			_, out := confluence.Attach(streamer, 10)
+			sCtx, cancel := signal.WithCancel(ctx)
+			DeferCleanup(cancel)
+			streamer.Flow(sCtx)
+			var res framer.StreamerResponse
+			Eventually(out.Outlet()).Should(Receive(&res))
+			w := MustOpen(dist.Framer.OpenWriter(ctx, writer.Config{
+				Keys:  unique,
+				Start: 10 * telem.SecondTS,
+				Sync:  new(true),
+			}))
+			for i := range series {
+				series[i].TimeRange = telem.TimeRange{
+					Start: 1 * telem.SecondTS,
+					End:   2 * telem.SecondTS,
+				}
+			}
+			before := telem.Now()
+			Expect(w.Write(frame.NewMulti(keys, series))).To(BeTrue())
+			received := make(map[channel.Key][]telem.Series, len(unique))
+			for n := 0; n < len(series); {
+				Eventually(out.Outlet()).Should(Receive(&res))
+				for _, k := range unique {
+					got := res.Frame.Get(k).Series
+					received[k] = append(received[k], got...)
+					n += len(got)
+				}
+			}
+			return received, before, telem.Now()
+		}
+
+		pairs := func(keys channel.Keys) []telem.Series {
+			series := make([]telem.Series, len(keys))
+			for i := range series {
+				series[i] = telem.NewSeriesV[int64](1, 2)
+			}
+			return series
+		}
+
+		DescribeTable(
+			"Should stamp each sample of a virtual series 1ns after the one before",
+			func(ctx SpecContext, open func(context.Context) scenario) {
+				s := DeferClose(open(ctx))
+				received, before, after := writeAndReceive(
+					ctx,
+					s.dist,
+					s.keys,
+					pairs(s.keys)...,
+				)
+				for _, k := range s.keys {
+					Expect(received[k]).To(HaveLen(1))
+					written := received[k][0]
+					Expect(
+						written,
+					).To(telem.MatchSeriesData(telem.NewSeriesV[int64](1, 2)))
+					Expect(written.TimeRange.Span()).To(Equal(2 * telem.Nanosecond))
+					Expect(written.TimeRange.Start).To(BeNumerically(">=", before))
+					Expect(written.TimeRange.Start).To(BeNumerically("<=", after))
+				}
+			},
+			Entry("Gateway", gatewayOnlyScenario),
+			Entry("Peer", peerOnlyScenario),
+			Entry("Gateway and peer", mixedScenario),
+			Entry("Free", freeWriterScenario),
+		)
+
+		DescribeTable(
+			"Should span a virtual series 1ns for each sample",
+			func(ctx SpecContext, length int) {
+				s := DeferClose(gatewayOnlyScenario(ctx))
+				series := make([]telem.Series, len(s.keys))
+				for i := range series {
+					series[i] = telem.NewSeries(make([]int64, length))
+				}
+				received, _, _ := writeAndReceive(ctx, s.dist, s.keys, series...)
+				for _, k := range s.keys {
+					Expect(
+						received[k][0].TimeRange.Span(),
+					).To(Equal(telem.TimeSpan(length) * telem.Nanosecond))
+				}
+			},
+			Entry("One sample", 1),
+			Entry("Three samples", 3),
+			Entry("A thousand samples", 1000),
+		)
+
+		It(
+			"Should span a variable-length virtual series 1ns for each sample",
+			func(ctx SpecContext) {
+				s := DeferClose(gatewayOnlyScenario(ctx))
+				ch := MustSucceed(s.dist.Channel.Create(ctx, []channel.Channel{{
+					Name:     "strings",
+					Virtual:  true,
+					DataType: telem.StringT,
+				}}))[0]
+				keys := channel.Keys{ch.Key()}
+				received, _, _ := writeAndReceive(
+					ctx,
+					s.dist,
+					keys,
+					telem.NewSeriesV("a", "bcdef"),
+				)
+				Expect(
+					received[ch.Key()][0].TimeRange.Span(),
+				).To(Equal(2 * telem.Nanosecond))
+			},
+		)
+
+		It(
+			"Should start every virtual series in one write at one instant",
+			func(ctx SpecContext) {
+				s := DeferClose(gatewayOnlyScenario(ctx))
+				received, _, _ := writeAndReceive(
+					ctx,
+					s.dist,
+					s.keys,
+					telem.NewSeriesV[int64](1),
+					telem.NewSeriesV[int64](1, 2),
+					telem.NewSeriesV[int64](1, 2, 3),
+				)
+				start := received[s.keys[0]][0].TimeRange.Start
+				for i, k := range s.keys {
+					Expect(received[k][0].TimeRange).To(Equal(
+						start.SpanRange(telem.TimeSpan(i+1) * telem.Nanosecond),
+					))
+				}
+			},
+		)
+
+		DescribeTable(
+			"Should stamp a channel's series in one frame 1ns for each sample, in order",
+			func(ctx SpecContext, open func(context.Context) scenario) {
+				s := DeferClose(open(ctx))
+				k := s.keys[0]
+				received, _, _ := writeAndReceive(
+					ctx,
+					s.dist,
+					channel.Keys{k, k},
+					telem.NewSeriesV[int64](1, 2),
+					telem.NewSeriesV[int64](3),
+				)
+				Expect(received[k]).To(HaveLen(2))
+				first, second := received[k][0].TimeRange, received[k][1].TimeRange
+				Expect(first.Span()).To(Equal(2 * telem.Nanosecond))
+				Expect(second).To(Equal(first.End.SpanRange(telem.Nanosecond)))
+			},
+			Entry("Gateway", gatewayOnlyScenario),
+			Entry("Peer", peerOnlyScenario),
+			Entry("Free", freeWriterScenario),
+		)
+
+		It(
+			"Should align indexed free channels and stamp index-less ones in one frame",
+			func(ctx SpecContext) {
+				s := DeferClose(gatewayOnlyScenario(ctx))
+				idx := MustSucceed(s.dist.Channel.Create(ctx, []channel.Channel{{
+					Name:        "mixed_time",
+					IsIndex:     true,
+					DataType:    telem.TimestampT,
+					Leaseholder: node.KeyFree,
+					Virtual:     true,
+				}}))[0]
+				created := MustSucceed(s.dist.Channel.Create(ctx, []channel.Channel{
+					{
+						Name:        "mixed_data",
+						DataType:    telem.Float32T,
+						Leaseholder: node.KeyFree,
+						Virtual:     true,
+						LocalIndex:  idx.LocalKey,
+					},
+					{
+						Name:        "mixed_unindexed",
+						DataType:    telem.Int64T,
+						Leaseholder: node.KeyFree,
+						Virtual:     true,
+					},
+				}))
+				data, unindexed := created[0], created[1]
+				s.dist.Framer.SetFreeIndexResolver(indexResolver{
+					idx.Key():  idx.Key(),
+					data.Key(): idx.Key(),
+				})
+				received, _, _ := writeAndReceive(
+					ctx,
+					s.dist,
+					channel.Keys{
+						idx.Key(),
+						data.Key(),
+						unindexed.Key(),
+						unindexed.Key(),
+					},
+					telem.NewSeriesSecondsTSV(10*telem.SecondTS, 11*telem.SecondTS),
+					telem.NewSeriesV[float32](1, 2),
+					telem.NewSeriesV[int64](1, 2),
+					telem.NewSeriesV[int64](3),
+				)
+				client := telem.TimeRange{
+					Start: 1 * telem.SecondTS,
+					End:   2 * telem.SecondTS,
+				}
+				writtenIdx, writtenData := received[idx.Key()][0], received[data.Key()][0]
+				Expect(writtenIdx.TimeRange).To(Equal(client))
+				Expect(writtenData.TimeRange).To(Equal(client))
+				Expect(writtenData.Alignment).To(Equal(writtenIdx.Alignment))
+				Expect(received[unindexed.Key()]).To(HaveLen(2))
+				first := received[unindexed.Key()][0].TimeRange
+				second := received[unindexed.Key()][1].TimeRange
+				Expect(first.Span()).To(Equal(2 * telem.Nanosecond))
+				Expect(second).To(Equal(first.End.SpanRange(telem.Nanosecond)))
+			},
+		)
+	})
 })
 
 // indexResolver resolves free channel indexes from a fixed key-to-index map.
@@ -552,7 +978,7 @@ func (r indexResolver) ResolveFreeIndexes(
 }
 
 type scenario struct {
-	dist   mock.Node
+	dist   testutil.Node
 	closer io.Closer
 	name   string
 	keys   channel.Keys
@@ -583,7 +1009,7 @@ func newChannelSet() []channel.Channel {
 func gatewayOnlyScenario(ctx context.Context) scenario {
 	GinkgoHelper()
 	channels := newChannelSet()
-	node := mock.OpenNode(ctx)
+	node := testutil.OpenNode(ctx)
 	channels = MustSucceed(node.Channel.Create(ctx, channels))
 	keys := channel.KeysFromChannels(channels)
 	return scenario{
@@ -597,7 +1023,7 @@ func gatewayOnlyScenario(ctx context.Context) scenario {
 func peerOnlyScenario(ctx context.Context) scenario {
 	GinkgoHelper()
 	channels := newChannelSet()
-	cluster := mock.OpenCluster(ctx, 4)
+	cluster := testutil.OpenCluster(ctx, 4)
 	dist := cluster.Nodes[1]
 	for i, ch := range channels {
 		ch.Leaseholder = node.Key(i + 2)
@@ -611,7 +1037,7 @@ func peerOnlyScenario(ctx context.Context) scenario {
 func mixedScenario(ctx context.Context) scenario {
 	GinkgoHelper()
 	channels := newChannelSet()
-	cluster := mock.OpenCluster(ctx, 3)
+	cluster := testutil.OpenCluster(ctx, 3)
 	dist := cluster.Nodes[1]
 	for i, ch := range channels {
 		ch.Leaseholder = node.Key(i + 1)
@@ -630,7 +1056,7 @@ func mixedScenario(ctx context.Context) scenario {
 func freeWriterScenario(ctx context.Context) scenario {
 	GinkgoHelper()
 	channels := newChannelSet()
-	cluster := mock.OpenCluster(ctx, 3)
+	cluster := testutil.OpenCluster(ctx, 3)
 	dist := cluster.Nodes[1]
 	for i, ch := range channels {
 		ch.Leaseholder = node.KeyFree

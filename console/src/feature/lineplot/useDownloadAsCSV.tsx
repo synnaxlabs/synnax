@@ -9,12 +9,11 @@
 
 import { type channel } from "@synnaxlabs/client";
 import { Icon } from "@synnaxlabs/lyra/icon";
-import { Status } from "@synnaxlabs/lyra/status";
 import { LinePlot } from "@synnaxlabs/pluto";
-import { TimeRange, TimeStamp, unique } from "@synnaxlabs/x";
+import { resolveWindow, TimeRange, TimeStamp, unique } from "@synnaxlabs/x";
 
 import { Framer } from "@/platform/framer";
-import { Range } from "@/platform/range";
+import { Session } from "@/session";
 
 // DownloadLine carries only the channels the CSV export pulls. CSV columns are
 // headed by the channel name, never the line's display label, so none is read.
@@ -30,7 +29,6 @@ export interface DownloadAsCSVParams {
 
 export const useDownloadAsCSV = (): ((params: DownloadAsCSVParams) => void) => {
   const openDownloadCSVModal = Framer.useDownloadCSVModal();
-  const handleError = Status.useErrorHandler();
   return ({ timeRanges, lines, name }) => {
     const channels = unique.unique(
       lines
@@ -38,16 +36,12 @@ export const useDownloadAsCSV = (): ((params: DownloadAsCSVParams) => void) => {
         .filter((v): v is channel.Key => v != null && v !== 0),
     );
     const timeRange = TimeRange.merge(...timeRanges);
-    handleError(
-      async () =>
-        await openDownloadCSVModal({
-          timeRange: timeRange.numeric,
-          name,
-          channels,
-          icon: <Icon.LinePlot />,
-        }),
-      `Failed to download CSV data for ${name}`,
-    );
+    openDownloadCSVModal({
+      timeRange: timeRange.numeric,
+      name,
+      channels,
+      icon: <Icon.LinePlot />,
+    });
   };
 };
 
@@ -56,18 +50,13 @@ export const useDownloadPlotAsCSV = (key: string): (() => void) => {
   const derived = LinePlot.useLines({ key });
   const ranges = LinePlot.useRanges({ key });
   const name = LinePlot.useName({ key });
-  const rangeKeys = unique.unique([...ranges.x1, ...ranges.x2]);
-  const resolved = Range.useResolveMultiple(rangeKeys);
+  const windows = Session.Range.useResolveWindows(ranges);
   return () => {
     const now = TimeStamp.now();
     const lines: DownloadLine[] = derived.map((d) => ({
       channels: { x: d.xChannel, y: d.yChannel },
     }));
-    const timeRanges = resolved.map((r) => {
-      if (r.variant === "dynamic")
-        return new TimeRange({ start: now.sub(r.span), end: now });
-      return new TimeRange(r.timeRange);
-    });
+    const timeRanges = windows.map((w) => resolveWindow(w, now));
     downloadAsCSV({ timeRanges, lines, name });
   };
 };

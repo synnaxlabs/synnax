@@ -33,8 +33,9 @@ type WriterConfig struct {
 	// [OPTIONAL] - Defaults to true.
 	EnableAutoCommit *bool
 	// Start marks the starting bound of the domain. This starting bound must not
-	// overlap with any existing domains within the DB.
-	// [REQUIRED]
+	// overlap with any existing domains within the DB. When Start is zero, OpenWriter
+	// checks nothing, and the writer cannot write until SetStart gives it a start.
+	// [OPTIONAL]
 	Start telem.TimeStamp
 	// End is an optional parameter that marks the ending bound of the domain. Defining
 	// this parameter will allow the writer to write data to the domain without needing
@@ -59,7 +60,14 @@ type WriterConfig struct {
 }
 
 var (
-	ErrWriterClosed     = resource.NewClosedError("domain.writer")
+	ErrWriterClosed = resource.NewClosedError("domain.writer")
+	// ErrNoStart is returned by Writer.Write when the writer has no start.
+	ErrNoStart = errors.New("domain writer has no start")
+	// ErrStartAfterWrite is returned by Writer.SetStart once the writer has written
+	// data.
+	ErrStartAfterWrite = errors.New(
+		"cannot set the start of a domain writer after it writes",
+	)
 	defaultWriterConfig = WriterConfig{
 		EnableAutoCommit:         new(true),
 		AutoIndexPersistInterval: 1 * telem.Second,
@@ -97,23 +105,6 @@ func (w WriterConfig) Override(other WriterConfig) WriterConfig {
 	return w
 }
 
-// Write writes the given data to the DB new telemetry domain occupying the provided
-// time range. If the time domain overlaps with any other domains in the DB, Write will
-// return an error.
-func Write(ctx context.Context, db *DB, tr telem.TimeRange, data []byte) (err error) {
-	w, err := db.OpenWriter(ctx, WriterConfig{Start: tr.Start, End: tr.End})
-	if err != nil {
-		return err
-	}
-	defer func() {
-		err = errors.Combine(err, w.Close())
-	}()
-	if _, err = w.Write(data); err != nil {
-		return err
-	}
-	return w.Commit(ctx, tr.End)
-}
-
 // Writer is used to write a telemetry domain to the DB. A Writer is opened using
 // DB.OpenWriter and a provided WriterConfig, which defines the starting bound of the
 // domain. If no other domain overlaps with the starting bound, the caller can write
@@ -145,7 +136,8 @@ type Writer struct {
 	fileSize telem.Size
 	// prevCommit is the timestamp for the previous Commit call made to the database.
 	prevCommit telem.TimeStamp
-	// len is the number of bytes written by all internal writers of the domain writer.
+	// len is the number of bytes written by all internal writers of the domain writer
+	// since it last ended a domain.
 	len int64
 	// lastIndexPersist stores the timestamp of the last time changes to index were
 	// flushed to disk.
@@ -157,6 +149,9 @@ type Writer struct {
 	// WriterConfig. If it does, then commits to the writer will use that end as the end
 	// of the domain.
 	presetEnd bool
+	// started denotes whether the writer has a start. A writer without one cannot
+	// write.
+	started bool
 	// closed denotes whether the writer is closed. A closed writer returns an error
 	// when attempts to Write or Commit with it are made.
 	closed bool
@@ -173,7 +168,8 @@ func (db *DB) OpenWriter(ctx context.Context, cfg WriterConfig) (*Writer, error)
 	if err != nil {
 		return nil, err
 	}
-	if db.idx.overlap(cfg.domain()) {
+	started := !cfg.Start.IsZero()
+	if started && db.idx.overlap(cfg.domain()) {
 		return nil, errors.Wrap(
 			NewRangeWriteConflictError(cfg.domain(), db.idx.timeRange()),
 			"cannot open writer because there is already data in the writer's time range",
@@ -193,21 +189,11 @@ func (db *DB) OpenWriter(ctx context.Context, cfg WriterConfig) (*Writer, error)
 		internal:         internal,
 		idx:              db.idx,
 		presetEnd:        !cfg.End.IsZero(),
+		started:          started,
 		lastIndexPersist: telem.Now(),
 		onClose: func() {
 			db.resourceCount.Add(-1)
 		},
-	}
-
-	// If we don't have a preset end, we defer to using the start of the next domain as
-	// the end of the new domain.
-	if !w.presetEnd {
-		ptr, ok := w.idx.getGE(ctx, cfg.Start)
-		if !ok {
-			w.End = telem.TimeStampMax
-		} else {
-			w.End = ptr.Start
-		}
 	}
 	return w, nil
 }
@@ -215,12 +201,74 @@ func (db *DB) OpenWriter(ctx context.Context, cfg WriterConfig) (*Writer, error)
 // Len returns the number of bytes written to the domain.
 func (w *Writer) Len() int64 { return w.len }
 
+// SetStart sets the start of the domain. It must be called before the first write,
+// and fails if stored data overlaps the domain that begins at start.
+func (w *Writer) SetStart(start telem.TimeStamp) error {
+	if w.closed {
+		return ErrWriterClosed
+	}
+	if w.len > 0 {
+		return ErrStartAfterWrite
+	}
+	if w.presetEnd && w.End.Before(start) {
+		return errors.Wrapf(
+			validate.ErrValidation,
+			"start timestamp %s must not be after the preset end timestamp %s",
+			start,
+			w.End,
+		)
+	}
+	cfg := w.WriterConfig
+	cfg.Start = start
+	if w.idx.overlap(cfg.domain()) {
+		return errors.Wrap(
+			NewRangeWriteConflictError(cfg.domain(), w.idx.timeRange()),
+			"cannot start writer because there is already data in the writer's time range",
+		)
+	}
+	w.Start = start
+	w.started = true
+	return nil
+}
+
+// Finish ends the writer's domain, discarding any uncommitted data. The writer then has
+// no start, and SetStart starts its next domain.
+func (w *Writer) Finish(ctx context.Context) error {
+	if w.closed {
+		return ErrWriterClosed
+	}
+	if err := w.switchFile(ctx); err != nil {
+		return err
+	}
+	w.prevCommit = 0
+	w.len = 0
+	w.started = false
+	return nil
+}
+
+func (w *Writer) switchFile(ctx context.Context) error {
+	if err := w.internal.Close(); err != nil {
+		return err
+	}
+	key, size, internal, err := w.fc.acquireWriter(ctx)
+	if err != nil {
+		return err
+	}
+	w.fileKey = key
+	w.internal = internal
+	w.fileSize = telem.Size(size)
+	return nil
+}
+
 // Writer writes binary telemetry to the domain. Write is not safe to call concurrently
 // with any other Writer methods. The contents of p are safe to modify after Write
 // returns.
 func (w *Writer) Write(p []byte) (int, error) {
 	if w.closed {
 		return 0, ErrWriterClosed
+	}
+	if !w.started {
+		return 0, ErrNoStart
 	}
 	n, err := w.internal.Write(p)
 	w.fileSize += telem.Size(n)
@@ -299,19 +347,9 @@ func (w *Writer) commit(
 	}
 
 	if switchingFile {
-		err = w.internal.Close()
-		if err != nil {
+		if err = w.switchFile(ctx); err != nil {
 			return span.Error(err)
 		}
-
-		newFileKey, newFileSize, newInternalWriter, err := w.fc.acquireWriter(ctx)
-		if err != nil {
-			return span.Error(err)
-		}
-
-		w.fileKey = newFileKey
-		w.internal = newInternalWriter
-		w.fileSize = telem.Size(newFileSize)
 		w.Start = commitEnd
 		w.prevCommit = 0
 		if w.OnRollover != nil {
@@ -352,9 +390,9 @@ func (w *Writer) Close() error {
 	}
 	if *w.EnableAutoCommit && w.AutoIndexPersistInterval > 0 {
 		w.idx.mu.RLock()
-		persistPointers := w.idx.indexPersist.prepare(w.idx.persistHead)
+		write := w.idx.indexPersist.prepare(w.idx.persistHead)
 		w.idx.mu.RUnlock()
-		return persistPointers()
+		return write.run()
 	}
 	return nil
 }

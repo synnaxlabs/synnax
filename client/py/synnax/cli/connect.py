@@ -7,13 +7,23 @@
 #  License, use of this software will be governed by the Apache License, Version 2.0,
 #  included in the file licenses/APL.txt.
 
+import socket
 import ssl
 from pathlib import Path
 
+from keyring.errors import KeyringError
+
 from freighter.exceptions import Unreachable
 from synnax import Synnax
+from synnax.auth import api_key_id
 from synnax.cli.flow import Context
-from synnax.config import load_options
+from synnax.config import (
+    DESKTOP_FILE_PATH,
+    DESKTOP_NOT_RUNNING_MSG,
+    Cluster,
+    Clusters,
+    load_desktop_options,
+)
 from synnax.exceptions import AuthError
 from synnax.options import Options
 
@@ -47,25 +57,93 @@ def prompt_client_options(ctx: Context) -> Options:
     )
 
 
-def from_context(ctx: Context, *, opts: Options | None = None) -> Synnax | None:
+def from_clusters(
+    ctx: Context, clusters: Clusters, desktop_file: Path = DESKTOP_FILE_PATH
+) -> Synnax | None:
+    """Connects to a Synnax server. Without saved connection parameters, it connects
+    to Synnax Desktop, or prompts the user when Synnax Desktop saved none either. A
+    saved password is replaced with an API key after the connection succeeds.
+
+    :param ctx: The context of the current flow.
+    :param clusters: The saved connection parameters.
+    :param desktop_file: The file where Synnax Desktop saves its connection
+        parameters.
+    :returns: The connected client, or None if the connection failed.
+    """
+    cluster = clusters.get()
+    if cluster is None:
+        opts = load_desktop_options(desktop_file)
+        if opts is None:
+            return from_context(ctx, opts=prompt_client_options(ctx))
+        ctx.console.info("Using Synnax Desktop.")
+        return from_context(ctx, opts=opts, unreachable=DESKTOP_NOT_RUNNING_MSG)
+    ctx.console.info("Using saved credentials.")
+    client = from_context(ctx, opts=cluster.options)
+    if client is not None and not cluster.options.api_key:
+        try:
+            save_api_key(client, opts=cluster.options, clusters=clusters)
+        except (OSError, KeyringError, AuthError, Unreachable) as e:
+            ctx.console.warn(f"Cannot replace the saved password with an API key: {e}")
+    return client
+
+
+def save_api_key(client: Synnax, *, opts: Options, clusters: Clusters) -> None:
+    """Creates an API key for the logged-in user and saves it with opts in place of
+    the username and password. Deletes the key when it is not saved, and, once the new
+    one is saved, deletes the key it replaces when the same account on the same Core
+    owns it.
+    """
+    previous = clusters.get()
+    token, key = client.auth.create_key(name=f"Python CLI on {socket.gethostname()}")
+    try:
+        clusters.set(
+            Cluster(
+                options=Options(
+                    host=opts.host,
+                    port=opts.port,
+                    secure=opts.secure,
+                    ca_cert=opts.ca_cert,
+                    api_key=token,
+                )
+            )
+        )
+    except (OSError, KeyringError):
+        # a failure after the save, such as a stale password that cannot be deleted,
+        # leaves the key in use
+        saved = clusters.get()
+        if saved is None or saved.options.api_key != token:
+            client.auth.delete_keys(key.key)
+        raise
+    if (
+        previous is None
+        or not previous.options.api_key
+        or (previous.options.host, previous.options.port) != (opts.host, opts.port)
+    ):
+        return
+    previous_key = api_key_id(previous.options.api_key)
+    # A key another account saved is not ours to delete.
+    if any(k.key == previous_key for k in client.auth.retrieve_keys()):
+        client.auth.delete_keys(previous_key)
+
+
+def from_context(
+    ctx: Context, *, opts: Options, unreachable: str | None = None
+) -> Synnax | None:
     """Connects to a Synnax server. Prints user-friendly messages to the console if
     the connection fails.
 
     :param ctx: The context of the current flow.
-    :param opts: The options to connect with. If None, loads the saved options, or
-        prompts the user for them if no configuration file exists.
+    :param opts: The options to connect with.
+    :param unreachable: The message to print when the server cannot be reached, in
+        place of one that names the address.
     :returns: The connected client, or None if the connection failed.
     """
-    if opts is None:
-        opts = load_options()
-        if opts is None:
-            opts = prompt_client_options(ctx)
-        else:
-            ctx.console.info("Using saved credentials.")
     try:
         client = Synnax(**opts.model_dump())
     except Unreachable:
-        ctx.console.error(f"Cannot reach Synnax server at {opts.host}:{opts.port}")
+        ctx.console.error(
+            unreachable or f"Cannot reach Synnax server at {opts.host}:{opts.port}"
+        )
         return None
     except AuthError:
         ctx.console.error("Invalid credentials")

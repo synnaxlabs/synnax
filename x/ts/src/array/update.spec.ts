@@ -12,6 +12,29 @@ import { describe, expect, it } from "vitest";
 import { array } from "@/array";
 import { type record } from "@/record";
 
+describe("isKeyed", () => {
+  it("should be true for a list of plain objects with string keys", () => {
+    expect(array.isKeyed([{ key: "a" }, { key: "b", value: 1 }])).toBe(true);
+  });
+
+  it("should be true for an empty list", () => {
+    expect(array.isKeyed([])).toBe(true);
+  });
+
+  it("should be false when an entry has no string key", () => {
+    expect(array.isKeyed([{ key: "a" }, { key: 1 }])).toBe(false);
+    expect(array.isKeyed([{ key: "a" }, { name: "b" }])).toBe(false);
+  });
+
+  it("should be false for an entry that is not a plain object", () => {
+    expect(array.isKeyed([new Map([["key", "a"]])])).toBe(false);
+  });
+
+  it("should be false for a value that is not a list", () => {
+    expect(array.isKeyed({ key: "a" })).toBe(false);
+  });
+});
+
 describe("upsertKeyed", () => {
   it("should update a keyed item in the array", () => {
     const arr: record.KeyedNamed[] = [

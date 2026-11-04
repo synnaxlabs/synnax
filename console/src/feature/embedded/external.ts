@@ -8,6 +8,7 @@
 // included in the file licenses/APL.txt.
 
 export * from "@/feature/embedded/commands";
+export * from "@/feature/embedded/ConnectButton";
 export * from "@/feature/embedded/Guard";
 export * from "@/feature/embedded/Indicator";
 export * from "@/feature/embedded/install";

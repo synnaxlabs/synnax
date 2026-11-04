@@ -18,7 +18,7 @@ import (
 	"github.com/synnaxlabs/freighter"
 	apiframer "github.com/synnaxlabs/synnax/pkg/api/framer"
 	"github.com/synnaxlabs/synnax/pkg/distribution"
-	"github.com/synnaxlabs/synnax/pkg/distribution/mock"
+	"github.com/synnaxlabs/synnax/pkg/distribution/testutil"
 	"github.com/synnaxlabs/synnax/pkg/security"
 	"github.com/synnaxlabs/synnax/pkg/service"
 	"github.com/synnaxlabs/synnax/pkg/service/access"
@@ -51,6 +51,7 @@ var (
 	apiSvc        *apiframer.Service
 	framerSvc     *svcframer.Service
 	channelWriter channel.Writer
+	channelSvc    *channel.Service
 	rbacSvc       *rbac.Service
 	userSvc       *user.Service
 	root          user.User
@@ -65,7 +66,7 @@ var _ = BeforeSuite(func(ctx SpecContext) {
 		KV: DeferClose(memkv.New()),
 		TS: DeferClose(MustSucceed(ts.Open(ctx, ts.Config{FS: faultyFS}))),
 	}
-	node := mock.NewCluster(ctx, 0).Provision(
+	node := testutil.NewCluster(ctx, 0).Provision(
 		ctx,
 		distribution.LayerConfig{Storage: store},
 	)
@@ -83,6 +84,7 @@ var _ = BeforeSuite(func(ctx SpecContext) {
 	}))
 	framerSvc = svc.Framer
 	channelWriter = svc.Channel.NewWriter(nil)
+	channelSvc = svc.Channel
 	rbacSvc = svc.RBAC
 	userSvc = svc.User
 	apiSvc = MustSucceed(apiframer.NewService(apiframer.ServiceConfig{

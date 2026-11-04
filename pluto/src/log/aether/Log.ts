@@ -38,7 +38,7 @@ export const logStateZ = log.logZ
     channels: true,
     timestampPrecision: true,
     channelNamesHidden: true,
-    receiptTimestampHidden: true,
+    timestampsHidden: true,
   })
   .extend({
     region: box.box,
@@ -106,6 +106,7 @@ interface InternalState {
   tsLen: number;
   selectionColor: color.Color;
   stopListeningTelem?: destructor.Destructor;
+  stopListeningRestore?: destructor.Destructor;
 }
 
 interface ScrollbackState {
@@ -169,6 +170,10 @@ export class Log extends aether.Leaf<typeof logStateZ, InternalState> {
   afterUpdate(ctx: aether.Context): void {
     const { internal: i } = this;
     i.render = render.Context.use(ctx);
+    i.stopListeningRestore?.();
+    i.stopListeningRestore = i.render.on2DRestore(() => {
+      if (this.state.visible) this.requestRender();
+    });
     i.theme = theming.use(ctx);
     i.draw2d = new Draw2D(i.render[CANVAS], i.theme);
     if (this.renderKey === "") this.renderKey = `${this.type}-${this.key}`;
@@ -290,7 +295,8 @@ export class Log extends aether.Leaf<typeof logStateZ, InternalState> {
   }
 
   afterDelete(): void {
-    const { telem, render: renderCtx } = this.internal;
+    const { telem, render: renderCtx, stopListeningRestore } = this.internal;
+    stopListeningRestore?.();
     telem.cleanup?.();
     renderCtx.erase(box.construct(this.state.region), xy.ZERO, CANVAS);
   }
@@ -491,11 +497,11 @@ export class Log extends aether.Leaf<typeof logStateZ, InternalState> {
     line: string;
     channelKey: string;
   } {
-    const { channelNamesHidden, receiptTimestampHidden, channelDataTypes } = this.state;
+    const { channelNamesHidden, timestampsHidden, channelDataTypes } = this.state;
     const { tsLen, configs } = this.internal;
     const chKeyStr = String(entry.channelKey);
     const cfg = configs[chKeyStr];
-    const ts = !receiptTimestampHidden
+    const ts = !timestampsHidden
       ? new TimeStamp(entry.timestamp).toString("preciseTime", "local").slice(0, tsLen)
       : "";
     let value = entry.value;
@@ -516,10 +522,9 @@ export class Log extends aether.Leaf<typeof logStateZ, InternalState> {
     const name = displayNames[chKeyStr] ?? chKeyStr;
     const pad = namePadding[chKeyStr] ?? "";
     let prefix: string;
-    if (!receiptTimestampHidden && !channelNamesHidden)
-      prefix = `${ts} [${name}]${pad}  `;
-    else if (!receiptTimestampHidden) prefix = `${ts}  `;
-    else if (!channelNamesHidden) prefix = `[${name}]${pad}  `;
+    if (!timestampsHidden && !channelNamesHidden) prefix = `${ts}  ${name}${pad}   `;
+    else if (!timestampsHidden) prefix = `${ts}   `;
+    else if (!channelNamesHidden) prefix = `${name}${pad}   `;
     else prefix = "";
     // Continuation lines (\n) keep the prefix's alignment width as whitespace.
     if (entry.continuation) prefix = " ".repeat(prefix.length);

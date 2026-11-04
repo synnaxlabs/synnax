@@ -13,12 +13,14 @@ import {
   DataType,
   lineplot,
   NotFoundError,
+  ontology,
   project,
   schematic,
   status,
   type Synnax,
   UnexpectedError,
 } from "@synnaxlabs/client";
+import { dynamicWindow, TimeSpan } from "@synnaxlabs/x";
 
 const NAME = "Sample project";
 
@@ -161,7 +163,7 @@ const createSchematic = (ch: Channels): schematic.New => ({
   },
 });
 
-const createLinePlot = (ch: Channels, range: string): lineplot.New => ({
+const createLinePlot = (ch: Channels): lineplot.New => ({
   key: KEYS.linePlot,
   name: "Tank pressure",
   channels: {
@@ -169,7 +171,7 @@ const createLinePlot = (ch: Channels, range: string): lineplot.New => ({
     y1: [ch[TANK_PT]],
     y2: [ch[PRESS_VLV_STATE], ch[VENT_VLV_STATE]],
   },
-  ranges: { x1: [range] },
+  ranges: [{ variant: "window", window: dynamicWindow(TimeSpan.seconds(30)) }],
 });
 
 const deploy = async (client: Synnax, key: arc.Key): Promise<void> => {
@@ -208,24 +210,28 @@ export interface Programs {
 
 /**
  * Creates the sample project and starts its Arc programs, replacing any old sample. The
- * line plot shows the range with key `range`.
+ * line plot shows the last 30 seconds.
  */
-export const create = async (
-  client: Synnax,
-  range: string,
-  programs: Programs,
-): Promise<void> => {
+export const create = async (client: Synnax, programs: Programs): Promise<void> => {
   const ch = await createChannels(client);
   await client.projects.create({ key: KEYS.project, name: NAME });
   await client.schematics.create(KEYS.project, createSchematic(ch));
-  await client.lineplots.create(KEYS.project, createLinePlot(ch, range));
-  // Overwriting an existing schematic or line plot does not link it to the project,
-  // which matters after the user deletes the project.
-  await client.ontology.addChildren(
-    project.ontologyID(KEYS.project),
+  await client.lineplots.create(KEYS.project, createLinePlot(ch));
+  // Overwriting an existing schematic or line plot does not link it to the project, and
+  // the user can have moved either one. Both go back under the project alone. The link
+  // comes first, so a failed reset cannot leave a view with no parent.
+  const projectID = project.ontologyID(KEYS.project);
+  const ids = [
     schematic.ontologyID(KEYS.schematic),
     lineplot.ontologyID(KEYS.linePlot),
-  );
+  ];
+  await client.ontology.addChildren(projectID, ...ids);
+  for (const id of ids) {
+    const parents = await client.ontology.parents.retrieve({ ids: id });
+    for (const { id: parent } of parents)
+      if (!ontology.idsEqual(parent, projectID))
+        await client.ontology.removeChildren(parent, id);
+  }
   await client.arcs.create([
     {
       key: KEYS.simulator,

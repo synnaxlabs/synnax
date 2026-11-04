@@ -11,6 +11,7 @@ package rack
 
 import (
 	"context"
+	"slices"
 
 	"github.com/synnaxlabs/gorp"
 	"github.com/synnaxlabs/synnax/pkg/api/auth"
@@ -26,6 +27,7 @@ import (
 	"github.com/synnaxlabs/x/errors"
 	"github.com/synnaxlabs/x/override"
 	"github.com/synnaxlabs/x/query"
+	"github.com/synnaxlabs/x/set"
 	"github.com/synnaxlabs/x/validate"
 )
 
@@ -129,17 +131,119 @@ func (s *Service) Create(
 	tx gorp.Tx,
 	req CreateRequest,
 ) (CreateResponse, error) {
-	if err := s.access.NewEnforcer(tx).Enforce(ctx, access.Request{
-		Subject: auth.GetSubject(ctx),
-		Action:  access.ActionCreate,
-		Objects: []ontology.ID{{Type: ontology.ResourceTypeRack}},
-	}); err != nil {
+	if err := s.enforceCreate(ctx, tx, req.Racks); err != nil {
 		return CreateResponse{}, err
 	}
 	if err := s.rack.NewWriter(tx).CreateMany(ctx, &req.Racks); err != nil {
 		return CreateResponse{}, err
 	}
+	if err := s.attachReadableStatuses(ctx, tx, req.Racks); err != nil {
+		return CreateResponse{}, err
+	}
 	return CreateResponse(req), nil
+}
+
+func (s *Service) attachReadableStatuses(
+	ctx context.Context,
+	tx gorp.Tx,
+	racks []rack.Rack,
+) error {
+	enforcer := s.access.NewEnforcer(tx)
+	subject := auth.GetSubject(ctx)
+	for i := range racks {
+		err := enforcer.Enforce(ctx, access.Request{
+			Subject: subject,
+			Action:  access.ActionRetrieve,
+			Objects: []ontology.ID{racks[i].OntologyID()},
+		})
+		// Create accepts update access, which does not grant read access.
+		if errors.Is(err, access.ErrDenied) {
+			racks[i].Status = nil
+			continue
+		}
+		if err != nil {
+			return err
+		}
+		if err := s.attachStatuses(ctx, tx, racks[i:i+1]); err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
+func (s *Service) attachStatuses(
+	ctx context.Context,
+	tx gorp.Tx,
+	racks []rack.Rack,
+) error {
+	ids := rack.OntologyIDsFromRacks(racks)
+	statuses := make([]rack.Status, 0, len(racks))
+	// A status row can be missing, so the resource keeps a nil status.
+	if err := errors.Skip(s.status.NewRetrieve[rack.StatusDetails]().
+		Where(status.MatchKeys[rack.StatusDetails](ontology.IDsToKeys(ids)...)).
+		Entries(&statuses).
+		Exec(ctx, tx), query.ErrNotFound); err != nil {
+		return err
+	}
+	statusByKey := make(map[status.Key]*rack.Status, len(statuses))
+	for i := range statuses {
+		statusByKey[statuses[i].Key] = &statuses[i]
+	}
+	for i, id := range ids {
+		racks[i].Status = statusByKey[id.String()]
+	}
+	return nil
+}
+
+// enforceCreate requires the update action on each rack that already exists, and the
+// create action when any rack is new, so a subject that may only update racks can
+// still save its own.
+func (s *Service) enforceCreate(
+	ctx context.Context,
+	tx gorp.Tx,
+	racks []rack.Rack,
+) error {
+	keys := make([]rack.Key, 0, len(racks))
+	for _, r := range racks {
+		if !r.Key.IsZero() {
+			keys = append(keys, r.Key)
+		}
+	}
+	var existing []rack.Rack
+	if len(keys) > 0 {
+		if err := s.rack.NewRetrieve().
+			Where(rack.MatchKeys(keys...)).
+			Entries(&existing).
+			Exec(ctx, tx); errors.Skip(err, query.ErrNotFound) != nil {
+			return err
+		}
+	}
+	enforcer := s.access.NewEnforcer(tx)
+	subject := auth.GetSubject(ctx)
+	if len(existing) > 0 {
+		if err := enforcer.Enforce(ctx, access.Request{
+			Subject: subject,
+			Action:  access.ActionUpdate,
+			Objects: rack.OntologyIDsFromRacks(existing),
+		}); err != nil {
+			return err
+		}
+	}
+	found := make(set.Set[rack.Key], len(existing))
+	for _, r := range existing {
+		found.Add(r.Key)
+	}
+	if !slices.ContainsFunc(
+		racks,
+		func(r rack.Rack) bool { return !found.Contains(r.Key) },
+	) {
+		return nil
+	}
+	return enforcer.Enforce(ctx, access.Request{
+		Subject: subject,
+		Action:  access.ActionCreate,
+		Objects: []ontology.ID{{Type: ontology.ResourceTypeRack}},
+	})
 }
 
 type (
@@ -202,21 +306,8 @@ func (s *Service) Retrieve(
 	}
 
 	if req.IncludeStatus {
-		ids := rack.OntologyIDsFromRacks(resRacks)
-		statuses := make([]rack.Status, 0, len(resRacks))
-		// A status row can be missing, so the resource keeps a nil status.
-		if err := errors.Skip(s.status.NewRetrieve[rack.StatusDetails]().
-			Where(status.MatchKeys[rack.StatusDetails](ontology.IDsToKeys(ids)...)).
-			Entries(&statuses).
-			Exec(ctx, nil), query.ErrNotFound); err != nil {
+		if err := s.attachStatuses(ctx, nil, resRacks); err != nil {
 			return RetrieveResponse{}, err
-		}
-		statusByKey := make(map[status.Key]*rack.Status, len(statuses))
-		for i := range statuses {
-			statusByKey[statuses[i].Key] = &statuses[i]
-		}
-		for i, id := range ids {
-			resRacks[i].Status = statusByKey[id.String()]
 		}
 	}
 

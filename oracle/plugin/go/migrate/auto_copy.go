@@ -431,6 +431,7 @@ func (c *collector) structFuncFromForms(
 			newExtends.Add(naming.GetGoName(newParent))
 		}
 	}
+	var copied []resolution.TypeRef
 	for _, ext := range oldSF.Extends {
 		oldParent, ok := c.resolveRef(ext)
 		if !ok {
@@ -441,8 +442,15 @@ func (c *collector) structFuncFromForms(
 			continue
 		}
 		c.addField(&fn, ext, recv+"."+name, name, false)
+		copied = append(copied, ext)
 	}
+	// A field that overrides only the default of a copied parent's field is that
+	// parent's field in Go, so the parent's copy carries it.
+	carried := resolver.DefaultOnlyOverrides(copied, oldSF.Fields, c.oldTable)
 	for _, oldField := range oldSF.Fields {
+		if carried.Contains(oldField.Name) {
+			continue
+		}
 		// A field omitted on either side never reaches the wire: a decoded old
 		// entry carries the zero value, and the encoder drops the new field.
 		// Copying would also couple versions whose memory-only types diverged.
@@ -530,7 +538,7 @@ func variantForm(
 		return resolution.StructForm{}
 	}
 	pform, _ := payload.Form.(resolution.StructForm)
-	inherited, declared := resolver.VariantBases(uf, v, table)
+	inherited, declared := resolver.VariantBases(uf, v, "go", table)
 	defaultOnly := resolver.DefaultOnlyOverrides(inherited, pform.Fields, table)
 	fields := slices.Clone(declared)
 	for _, f := range pform.Fields {

@@ -8,9 +8,9 @@
 #  included in the file licenses/APL.txt.
 
 import os
-from typing import Any
 
 import pagerduty
+from pydantic import BaseModel, TypeAdapter
 
 import synnax as sy
 from framework.test_case import TestCase
@@ -18,6 +18,18 @@ from x import random_name
 
 ROUTING_KEY = os.environ.get("PAGERDUTY_ROUTING_KEY")
 API_KEY = os.environ.get("PAGERDUTY_API_KEY")
+
+
+class _Incident(BaseModel):
+    """The fields of a PagerDuty incident that the test reads."""
+
+    id: str
+    title: str = ""
+    incident_key: str | None = None
+    status: str = ""
+
+
+_INCIDENTS: TypeAdapter[list[_Incident]] = TypeAdapter(list[_Incident])
 
 
 class PagerDutyAlert(TestCase):
@@ -120,7 +132,6 @@ class PagerDutyAlert(TestCase):
         streamer.close()
         if not configured:
             self.fail("Timed out waiting for Go driver to configure the task")
-            return
 
         # 5. Trigger an alert by setting the status to error
         self.open_alert_key = self.status_key
@@ -139,15 +150,15 @@ class PagerDutyAlert(TestCase):
         # 6. Poll PagerDuty for the incident (up to 10s, checking every 2s)
         self.log("Polling PagerDuty for triggered incident...")
 
-        def find_triggered_incidents() -> list[dict[str, Any]] | None:
-            incidents = self.rest.list_all(
-                "incidents", params={"statuses[]": "triggered"}
+        def find_triggered_incidents() -> list[_Incident] | None:
+            incidents = _INCIDENTS.validate_python(
+                self.rest.list_all("incidents", params={"statuses[]": "triggered"})
             )
             found = [
                 inc
                 for inc in incidents
-                if error_message in inc.get("title", "")
-                or self.status_key in (inc.get("incident_key") or "")
+                if error_message in inc.title
+                or self.status_key in (inc.incident_key or "")
             ]
             return found if found else None
 
@@ -161,7 +172,6 @@ class PagerDutyAlert(TestCase):
                 f"Expected to find a PagerDuty incident for '{self.status_key}', "
                 f"but none was found after 10s."
             )
-            return
         self.log(f"Found {len(matching)} matching incident(s) in PagerDuty")
 
         # 7. Resolve the status and verify PagerDuty resolves the incident
@@ -176,11 +186,13 @@ class PagerDutyAlert(TestCase):
         )
 
         self.log("Polling PagerDuty for incident resolution...")
-        incident_id = matching[0]["id"]
+        incident_id = matching[0].id
 
         def check_resolved() -> bool | None:
-            incident = self.rest.rget(f"/incidents/{incident_id}")
-            return True if incident.get("status") == "resolved" else None
+            incident = _Incident.model_validate(
+                self.rest.rget(f"/incidents/{incident_id}")
+            )
+            return True if incident.status == "resolved" else None
 
         resolved = sy.poll(
             check_resolved,

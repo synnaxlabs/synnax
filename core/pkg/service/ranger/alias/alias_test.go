@@ -16,7 +16,7 @@ import (
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	"github.com/synnaxlabs/gorp"
-	"github.com/synnaxlabs/synnax/pkg/distribution/mock"
+	"github.com/synnaxlabs/synnax/pkg/distribution/testutil"
 	"github.com/synnaxlabs/synnax/pkg/service/channel"
 	"github.com/synnaxlabs/synnax/pkg/service/group"
 	"github.com/synnaxlabs/synnax/pkg/service/label"
@@ -40,7 +40,7 @@ var _ = Describe("Alias", Ordered, func() {
 	)
 	BeforeAll(func(ctx SpecContext) {
 		ShouldNotLeakGoroutines()
-		node := mock.NewNode(ctx)
+		node := testutil.NewNode(ctx)
 		db = node.DB
 		otg = MustOpen(ontology.Open(ctx, ontology.Config{DB: node.DB}))
 		groupSvc := MustOpen(group.OpenService(ctx, group.ServiceConfig{
@@ -333,9 +333,9 @@ var _ = Describe("Alias", Ordered, func() {
 			})
 
 		It("Should find aliases through the ontology search", func(ctx SpecContext) {
-			Expect(otg.Search(ctx, tx, "turbopump inlet")).To(Equal([]ontology.ID{
-				alias.OntologyID(r.Key, inlet.Key()),
-			}))
+			Expect(otg.Search(
+				ctx, tx, ontology.SearchQuery{Term: "turbopump inlet"},
+			)).To(Equal([]ontology.ID{alias.OntologyID(r.Key, inlet.Key())}))
 		})
 
 		It(
@@ -343,13 +343,16 @@ var _ = Describe("Alias", Ordered, func() {
 			func(ctx SpecContext) {
 				id := alias.OntologyID(r.Key, inlet.Key())
 				Expect(tx.Commit(ctx)).To(Succeed())
-				Expect(otg.Search(ctx, nil, "turbopump inlet")).To(ContainElement(id))
+				Expect(otg.Search(
+					ctx, nil, ontology.SearchQuery{Term: "turbopump inlet"},
+				)).To(ContainElement(id))
 				del := DeferClose(db.OpenTx())
 				Expect(aliasSvc.NewWriter(del).Delete(ctx, r.Key, inlet.Key())).
 					To(Succeed())
 				Expect(del.Commit(ctx)).To(Succeed())
-				Expect(otg.Search(ctx, nil, "turbopump inlet")).
-					ToNot(ContainElement(id))
+				Expect(otg.Search(
+					ctx, nil, ontology.SearchQuery{Term: "turbopump inlet"},
+				)).ToNot(ContainElement(id))
 			},
 		)
 	})

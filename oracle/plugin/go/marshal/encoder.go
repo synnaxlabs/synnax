@@ -659,7 +659,7 @@ func buildUnionCodec(
 		var inlineFields []resolution.Field
 		if v.Inline {
 			pform := payload.Form.(resolution.StructForm)
-			inherited, declared := resolver.VariantBases(form, v, table)
+			inherited, declared := resolver.VariantBases(form, v, "go", table)
 			for _, ext := range inherited {
 				parent, ok := ext.Resolve(table)
 				if !ok {

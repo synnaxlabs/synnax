@@ -22,17 +22,24 @@ from synnax import (
     exceptions,
     framer,
     group,
+    label,
+    lineplot,
+    log,
+    panel,
     project,
     rack,
     ranger,
+    schematic,
     status,
+    table,
     task,
     user,
     view,
 )
 from synnax.access import Client as AccessClient
-from synnax.config import try_load_options_if_none_provided
+from synnax.config import DESKTOP_NOT_RUNNING_MSG, try_load_options_if_none_provided
 from synnax.control import Client as ControlClient
+from synnax.exceptions import ValidationError
 from synnax.imex import Client as ImexClient
 from synnax.license import Client as LicenseClient
 from synnax.ontology import Client as OntologyClient
@@ -65,6 +72,9 @@ class Synnax(framer.Client):
             secure=True,
             ca_cert="/path/to/ca.crt",
         )
+
+    With an API key::
+        client = sy.Synnax(host="synnax.example.com", port=9090, api_key="syk_...")
     """
 
     channels: channel.Client
@@ -82,9 +92,15 @@ class Synnax(framer.Client):
     statuses: status.Client
     arcs: arc.Client
     groups: group.Client
+    labels: label.Client
     views: view.Client
     imex: ImexClient
     projects: project.Client
+    tables: table.Client
+    line_plots: lineplot.Client
+    panels: panel.Client
+    logs: log.Client
+    schematics: schematic.Client
 
     _transport: Transport
 
@@ -103,15 +119,11 @@ class Synnax(framer.Client):
         instrumentation: Instrumentation = NOOP,
         clock_skew_threshold: TimeSpan = TimeSpan.SECOND,
         ca_cert: str | None = None,
+        api_key: str = "",
     ):
-        """Creates a new client. Connection parameters can be provided as arguments, or,
-        if none are provided, the client will attempt to load them from the Synnax
-        configuration file (~/.synnax/config.json) as well as credentials stored in the
-        operating system's keychain.
-
-        If using the client for data analysis/personal use, the easiest way to connect
-        is to use the `sy login` command, which will prompt and securely store your
-        credentials. The client can then be initialized without parameters.
+        """Creates a new client. Without a host, the client connects with the
+        credentials that `sy login` saved, or, if it saved none, to the Core of Synnax
+        Desktop on this computer.
 
         :param host: Hostname of a Core in the Synnax cluster.
         :param port: Port of the Core.
@@ -122,16 +134,23 @@ class Synnax(framer.Client):
             when ca_cert is None.
         :param clock_skew_threshold: The maximum allowable clock skew between this
             host and Synnax Core before a warning is issued. Defaults to 1 second.
+        :param api_key: API key to authenticate with, in place of a username and
+            password. Requires a host.
         :param ca_cert: The path to a PEM file of CA certificates that sign the Core's
             certificate, such as the ca.crt that the Core generates.
         """
-        opts = try_load_options_if_none_provided(
+        if api_key and (username or password):
+            raise ValidationError(
+                "give either an API key or a username and password, not both"
+            )
+        opts, embedded = try_load_options_if_none_provided(
             host=host,
             port=port,
             username=username,
             password=password,
             secure=secure,
             ca_cert=ca_cert,
+            api_key=api_key,
         )
         registry = exceptions.create_registry()
         self._transport = _configure_transport(
@@ -145,16 +164,27 @@ class Synnax(framer.Client):
         )
         self.auth = auth.Client(
             transport=self._transport.unary,
-            username=opts.username,
-            password=opts.password,
+            proof=(
+                auth.APIKeyProof(key=opts.api_key)
+                if opts.api_key
+                else auth.PasswordProof(username=opts.username, password=opts.password)
+            ),
         )
-        self.auth.authenticate()
+        try:
+            self.auth.authenticate()
+        except Unreachable as e:
+            if embedded:
+                raise Unreachable(
+                    target=e.target, message=DESKTOP_NOT_RUNNING_MSG
+                ) from e
+            raise
         self._transport.use(self.auth.middleware())
         self._transport.use_async(self.auth.async_middleware())
         self.connectivity = connection.Checker(
             client=self._transport.unary,
             client_version=_version("synnax"),
             clock_skew_threshold=clock_skew_threshold,
+            embedded=embedded,
         )
         # Not __del__: interpreter finalization would run it after daemon threads
         # are frozen, deadlocking stop()'s join. finalize runs at atexit, before
@@ -181,9 +211,13 @@ class Synnax(framer.Client):
             instrumentation=instrumentation,
         )
         self.groups = group.Client(self._transport.unary)
+        self.labels = label.Client(self._transport.unary)
         self.ontology = OntologyClient(client=self._transport.unary)
         self.channels = channel.Client(
-            frame_client=self, retriever=ch_retriever, creator=ch_creator
+            client=self._transport.unary,
+            frame_client=self,
+            retriever=ch_retriever,
+            creator=ch_creator,
         )
         range_retriever = RangeRetriever(
             client=self._transport.unary, instrumentation=instrumentation
@@ -200,6 +234,11 @@ class Synnax(framer.Client):
             client=self._transport.unary,
             file_transport=self._transport.file_transport,
         )
+        self.tables = table.Client(client=self._transport.unary)
+        self.line_plots = lineplot.Client(client=self._transport.unary)
+        self.panels = panel.Client(client=self._transport.unary, ontology=self.ontology)
+        self.logs = log.Client(self._transport.unary)
+        self.schematics = schematic.Client(client=self._transport.unary)
         self.tasks = task.Client(
             client=self._transport.unary,
             frame_client=self,
@@ -215,6 +254,7 @@ class Synnax(framer.Client):
             signals=self.signals,
             ontology=self.ontology,
             tasks=self.tasks,
+            labels=self.labels,
         )
         self.control = ControlClient(
             framer=self, channels=ch_retriever, client=self._transport.unary

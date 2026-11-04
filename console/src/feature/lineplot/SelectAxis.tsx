@@ -9,12 +9,14 @@
 
 import { type channel, lineplot } from "@synnaxlabs/client";
 import { Flex } from "@synnaxlabs/lyra/flex";
+import { Icon } from "@synnaxlabs/lyra/icon";
 import { Input } from "@synnaxlabs/lyra/input";
+import { Select } from "@synnaxlabs/lyra/select";
+import { Text } from "@synnaxlabs/lyra/text";
 import { Channel, LinePlot } from "@synnaxlabs/pluto";
 import { type ReactElement } from "react";
 
-import { CustomRangeInput } from "@/feature/lineplot/CustomRangeInput";
-import { Range } from "@/platform/range";
+import { CSS } from "@/platform/css";
 import { Session } from "@/session";
 
 const SEARCH_OPTIONS: channel.RetrieveOptions = {
@@ -59,6 +61,42 @@ export interface XAxisChannelSelectProps extends Omit<
   axisKey: lineplot.XAxisKey;
 }
 
+const CHIP_CLASS = CSS.BE("line-plot", "x-time-chip");
+
+const X_DIALOG_PROPS = { className: CSS.BE("line-plot", "x-dialog") };
+
+// Key 0 means no X channel: each Y channel plots against its own index channel.
+const TIME_OPTION = (
+  <Flex.Box className={CSS.BE("line-plot", "x-time")} full="x">
+    <Select.Item<channel.Key>
+      itemKey={0}
+      textValue="Time"
+      label={
+        <>
+          Time
+          <Input.AutoChip className={CHIP_CLASS} />
+        </>
+      }
+    >
+      <div className={CSS.BE("line-plot", "x-time-option")}>
+        <Icon.Time />
+        <Text.Text>
+          Time
+          <Input.AutoChip className={CHIP_CLASS} />
+        </Text.Text>
+        <Text.Text
+          className={CSS.BE("line-plot", "x-time-description")}
+          level="small"
+          color={9}
+          overflow="wrap"
+        >
+          Automatically uses each channel's time. Best for most needs.
+        </Text.Text>
+      </div>
+    </Select.Item>
+  </Flex.Box>
+);
+
 export const XAxisChannelSelect = ({
   axisKey,
   ...rest
@@ -75,31 +113,12 @@ export const XAxisChannelSelect = ({
         onChange={handleChange}
         allowNone
         initialQuery={{ ...SEARCH_OPTIONS, rangeKey }}
+        variant="floating"
         location="top"
+        icon={<Icon.Time />}
+        footer={TIME_OPTION}
+        dialogProps={X_DIALOG_PROPS}
       />
     </Input.Item>
-  );
-};
-
-export interface XAxisRangeSelectProps extends Omit<
-  Range.SelectMultipleInputItemProps,
-  "value" | "onChange"
-> {
-  axisKey: lineplot.XAxisKey;
-}
-
-export const XAxisRangeSelect = ({
-  axisKey,
-  ...rest
-}: XAxisRangeSelectProps): ReactElement => {
-  const value = LinePlot.useXAxisRanges({ axisKey });
-  const dispatch = LinePlot.useSingleDispatch();
-  const handleChange = (ranges: string[]) =>
-    dispatch(lineplot.setRanges({ axisKey, ranges }));
-  return (
-    <Flex.Box x grow>
-      <Range.SelectMultipleInputItem value={value} onChange={handleChange} {...rest} />
-      {value.includes(Range.CUSTOM_KEY) && <CustomRangeInput />}
-    </Flex.Box>
   );
 };

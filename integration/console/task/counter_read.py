@@ -7,81 +7,41 @@
 #  License, use of this software will be governed by the Apache License, Version 2.0,
 #  included in the file licenses/APL.txt.
 
-from typing import Any
+from collections.abc import Callable
+from typing import Concatenate, ParamSpec, TypeVar
 
+from console.layout import LayoutClient
+from console.page import PageType
 from console.task.channels.counter import Counter
-from console.task.channels.counter_input import (
-    AngularPosition,
-    AngularVelocity,
-    DutyCycle,
-    EdgeCount,
-    Frequency,
-    LinearPosition,
-    LinearVelocity,
-    Period,
-    PulseWidth,
-    SemiPeriod,
-    TwoEdgeSeparation,
-)
-from console.task.ni import NIChannel, NITask
+from console.task.ni import NITask
 
-# Valid channel types for NI Counter Read tasks
-_COUNTER_READ_CHANNEL_TYPES: dict[str, type[Counter]] = {
-    "Position angular": AngularPosition,
-    "Velocity angular": AngularVelocity,
-    "Duty cycle": DutyCycle,
-    "Edge count": EdgeCount,
-    "Frequency": Frequency,
-    "Position linear": LinearPosition,
-    "Velocity linear": LinearVelocity,
-    "Period": Period,
-    "Pulse width": PulseWidth,
-    "Semi period": SemiPeriod,
-    "Two edge separation": TwoEdgeSeparation,
-}
+_Channel = TypeVar("_Channel", bound=Counter)
+_P = ParamSpec("_P")
 
 
 class CounterRead(NITask):
     """NI Counter Read Task automation interface."""
 
-    page_type = "NI counter read task"
+    page_type: PageType = "NI counter read task"
     pluto_label: str = ".console-task-configure--ni_counter_read"
 
     def add_channel(
         self,
         name: str,
-        *,
-        chan_type: str,
+        chan_type: Callable[Concatenate[LayoutClient, str, str, _P], _Channel],
         device: str,
         dev_name: str | None = None,
-        **kwargs: Any,
-    ) -> NIChannel:
+        *args: _P.args,
+        **kwargs: _P.kwargs,
+    ) -> _Channel:
+        """Add a counter read channel to the task.
+
+        :param name: The channel name.
+        :param chan_type: The channel class. It must be valid for counter read tasks.
+        :param device: The device identifier.
+        :param dev_name: The device name. Defaults to the first 12 characters of name.
+        :param args: Channel-specific configuration.
+        :param kwargs: Channel-specific configuration.
+        :returns: The created channel.
         """
-        Add a counter read channel to the task.
-
-        Args:
-            name: Channel name
-            chan_type: Channel type (must be valid for counter read tasks)
-            device: Device identifier
-            dev_name: Optional device name
-            **kwargs: Additional channel-specific configuration
-
-        Returns:
-            The created channel instance
-
-        Raises:
-            ValueError: If channel type is not valid for counter read tasks
-        """
-        if chan_type not in _COUNTER_READ_CHANNEL_TYPES:
-            raise ValueError(
-                f"Invalid channel type for NI Counter Read: {chan_type}. "
-                f"Valid types: {list(_COUNTER_READ_CHANNEL_TYPES.keys())}"
-            )
-
-        return self._add_channel_helper(
-            name=name,
-            device=device,
-            dev_name=dev_name,
-            channel_class=_COUNTER_READ_CHANNEL_TYPES[chan_type],
-            **kwargs,
-        )
+        return self._add_channel(name, chan_type, device, dev_name, *args, **kwargs)

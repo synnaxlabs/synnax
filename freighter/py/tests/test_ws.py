@@ -11,6 +11,7 @@ import asyncio
 import threading
 import time
 from collections.abc import Iterator
+from typing import override
 from uuid import uuid4
 
 import pytest
@@ -39,14 +40,17 @@ class MyVerySpecialCustomCodec(Codec):
 
     base = JSONCodec()
 
+    @override
     def content_type(self) -> str:
         return "application/json"
 
+    @override
     def encode(self, data: BaseModel) -> bytes:
         if isinstance(data, WebsocketMessage):
             data.payload = Message(id=4200, message="the key to the universe")
         return self.base.encode(data)
 
+    @override
     def decode(self, data: bytes, pld_t: type[P]) -> P:
         return self.base.decode(data, pld_t)
 

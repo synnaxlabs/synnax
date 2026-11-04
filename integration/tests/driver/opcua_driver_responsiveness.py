@@ -32,6 +32,7 @@ from tests.driver.task import create_channel, create_index
 
 DEADLOCK_DURATION = 1 * sy.TimeSpan.SECOND
 HEALTH_TIMEOUT = 30 * sy.TimeSpan.SECOND
+STOP_TIMEOUT = 10 * sy.TimeSpan.SECOND
 
 
 def _create_read_channels(client: sy.Synnax, prefix: str) -> list[sy.opcua.ReadChannel]:
@@ -110,7 +111,6 @@ class OPCUADriverResponsiveness(OPCUAReadTaskCase):
     def run(self) -> None:
         if self.tsk is None:
             self.fail("Primary task not configured")
-            return
 
         all_tasks = [self.tsk, *self.extra_tasks]
 
@@ -139,14 +139,12 @@ class OPCUADriverResponsiveness(OPCUAReadTaskCase):
                 self.log(f"  Started {task.name}")
             except (TimeoutError, sy.UnexpectedError) as e:
                 self.fail(f"Phase 1: failed to start {task.name}: {e}")
-                return False
 
         for task in tasks:
             try:
                 task.stop(timeout=5)
             except (TimeoutError, sy.UnexpectedError) as e:
                 self.fail(f"Phase 1: failed to stop {task.name}: {e}")
-                return False
 
         return True
 
@@ -212,11 +210,23 @@ class OPCUADriverResponsiveness(OPCUAReadTaskCase):
                     os.kill(self.frozen_pid, signal.SIGCONT)
             except (OSError, psutil.NoSuchProcess, psutil.AccessDenied):
                 pass
+        # Task deletion does not wait for the Driver, so a running task keeps its writer
+        # open and the channel delete in the parent teardown fails.
+        with self._try_to("stop the OPC UA tasks"):
+            for task in (self.tsk, *self.extra_tasks):
+                if task is not None:
+                    task.stop(timeout=HEALTH_TIMEOUT)
         if self.modbus_task is not None:
             try:
                 self.client.tasks.delete(self.modbus_task.key)
             except sy.NotFoundError:
                 pass
+        # The OPC UA tasks run even while the server is frozen, and a running task
+        # holds writers that block the deletion of its channels.
+        for task in [self.tsk, *self.extra_tasks]:
+            if task is not None:
+                with self._try_to(f"stop {task.name}"):
+                    task.stop(timeout=STOP_TIMEOUT.seconds)
         for task in self.extra_tasks:
             try:
                 self.client.tasks.delete(task.key)

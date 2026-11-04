@@ -8,13 +8,14 @@
 #  included in the file licenses/APL.txt.
 
 import threading
-from typing import Any
+from typing import Unpack
 
 import numpy as np
 
 import synnax as sy
 from console.case import ConsoleCase
 from console.plot import Plot
+from framework.test_case import Config, param
 from framework.utils import create_indexed_channels
 
 CrudeFrame = dict[int, sy.TimeStamp | float | np.floating]
@@ -36,9 +37,10 @@ class CalcChannelStress(ConsoleCase):
     _stress_thread: threading.Thread | None = None
     _stop_event: threading.Event
 
-    def __init__(self, *, rate: int = 10, **params: Any) -> None:
-        params.pop("name", None)
-        super().__init__(name=f"calc_stress_{rate}hz", **params)
+    def __init__(self, **kwargs: Unpack[Config]) -> None:
+        rate = param(kwargs.get("params", {}), "rate", 10)
+        kwargs["name"] = f"calc_stress_{rate}hz"
+        super().__init__(**kwargs)
         self.rate = rate
         self._stop_event = threading.Event()
 
@@ -134,8 +136,9 @@ class CalcChannelStress(ConsoleCase):
                 sy.TimeStamp.now(),
                 channels=[ch.key for ch in all_channels],
             ) as writer:
-                i = 0
-                while loop.wait() and not self._stop_event.is_set():
+                for i, _ in enumerate(loop):
+                    if self._stop_event.is_set():
+                        break
                     current_time = sy.TimeStamp.now()
                     data_to_write: CrudeFrame = {timestamp_channel.key: current_time}
 
@@ -159,7 +162,6 @@ class CalcChannelStress(ConsoleCase):
                         data_to_write[ch.key] = ((j + 1) * 0.1 * i + j) % WRAP_THRESHOLD
 
                     writer.write(data_to_write)
-                    i += 1
 
         self._stress_thread = threading.Thread(target=write_loop, daemon=True)
         self._stress_thread.start()

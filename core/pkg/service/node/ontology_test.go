@@ -18,10 +18,11 @@ import (
 	. "github.com/onsi/gomega"
 	"github.com/synnaxlabs/aspen"
 	"github.com/synnaxlabs/gorp"
-	"github.com/synnaxlabs/synnax/pkg/distribution/mock"
+	"github.com/synnaxlabs/synnax/pkg/distribution/testutil"
 	"github.com/synnaxlabs/synnax/pkg/service/cluster"
 	"github.com/synnaxlabs/synnax/pkg/service/node"
 	"github.com/synnaxlabs/synnax/pkg/service/ontology"
+	"github.com/synnaxlabs/x/search"
 	. "github.com/synnaxlabs/x/testutil"
 	"github.com/synnaxlabs/x/testutil/memkv"
 )
@@ -45,14 +46,14 @@ func openTestService(
 }
 
 var (
-	testCluster *mock.Cluster
+	testCluster *testutil.Cluster
 	testSvc     *node.Service
 	testOtg     *ontology.Ontology
 )
 
 var _ = BeforeSuite(func(ctx SpecContext) {
 	ShouldNotLeakGoroutines()
-	testCluster = mock.NewCluster(ctx, 2)
+	testCluster = testutil.NewCluster(ctx, 2)
 	testSvc, testOtg = openTestService(ctx, testCluster.Nodes[1].Cluster)
 })
 
@@ -119,8 +120,10 @@ var _ = Describe("Ontology", func() {
 		Describe("Search", func() {
 			DescribeTable("Should search the nodes currently in the cluster",
 				func(ctx SpecContext, term string, limit int, expected []ontology.ID) {
-					Expect(MustSucceed(testSvc.Search(ctx, nil, term, limit)).Keys).
-						To(Equal(expected))
+					q := search.Query[ontology.ID]{Term: term, Limit: limit}
+					Expect(
+						MustSucceed(testSvc.Search(ctx, nil, q)).Keys,
+					).To(Equal(expected))
 				},
 				Entry("every node", "node", 10,
 					[]ontology.ID{node.OntologyID(1), node.OntologyID(2)}),
@@ -136,7 +139,7 @@ var _ = Describe("Ontology", func() {
 			It(
 				"Should translate cluster changes into ontology changes when a node joins",
 				func(ctx SpecContext) {
-					ephemeral := mock.NewCluster(ctx, 1)
+					ephemeral := testutil.NewCluster(ctx, 1)
 					ephemeralSvc, _ := openTestService(ctx, ephemeral.Nodes[1].Cluster)
 
 					received := make(chan ontology.Change, 8)
