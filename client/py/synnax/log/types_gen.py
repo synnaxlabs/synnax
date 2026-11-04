@@ -78,7 +78,7 @@ class Log(BaseModel):
     key: Key = Field(default_factory=uuid4)
     name: str
     channels: list[ChannelEntry] = Field(default_factory=list)
-    timestamp_precision: int = Field(ge=0, le=3, default=0)
+    timestamp_precision: int = Field(default=0, ge=0, le=3)
     channel_names_hidden: bool = False
     receipt_timestamp_hidden: bool = False
 

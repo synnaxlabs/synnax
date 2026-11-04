@@ -34,10 +34,10 @@ class Microphone(Analog):
 
     def __init__(
         self,
-        *,
         layout: LayoutClient,
         name: str,
         device: str,
+        *,
         sound_pressure_units: Literal["Pascals"] | None = None,
         sensitivity: float | None = None,
         max_sound_pressure_level: float | None = None,

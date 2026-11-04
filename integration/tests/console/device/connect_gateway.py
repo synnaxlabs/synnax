@@ -59,7 +59,7 @@ class ConnectGateway(ModbusCase):
         layout = self.console.layout
         self.fill_unit(2)
         layout.click_btn("Byte order")
-        layout.select_from_dropdown("Big-endian (ABCD)", exact=True)
+        layout.select_from_dropdown("Big-endian")
         devices.modal.get_by_label(re.compile(r"^Timeout\b")).fill("300")
         devices.fill_connect(
             name=name, host=ModbusGatewaySim.host, port=ModbusGatewaySim.port

@@ -268,7 +268,15 @@ export const createStore = async (opts: CreateStoreOptions = {}): Promise<Store>
   return await Drift.configureStore<State, Action>({
     runtime,
     preloadedState,
-    middleware: (def) => new Tuple(...def(), ...middleware),
+    // The checks run only in dev, where their timing warnings only track machine load.
+    middleware: (def) =>
+      new Tuple(
+        ...def({
+          immutableCheck: { warnAfter: Infinity },
+          serializableCheck: { warnAfter: Infinity },
+        }),
+        ...middleware,
+      ),
     reducer,
     enablePrerender,
     debug,
