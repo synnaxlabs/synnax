@@ -20,7 +20,9 @@ import (
 
 // Warning is the text and data of a task warning.
 type Warning struct {
-	Message     string
+	// Message says what happened in one short line.
+	Message string
+	// Description says why it happened and what to do now.
 	Description string
 	// Data goes in the details of the status.
 	Data msgpack.EncodedJSON

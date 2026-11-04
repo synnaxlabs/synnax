@@ -117,6 +117,24 @@ var _ = Describe("StatusHandler", func() {
 			Expect(stat.Variant).To(Equal(status.VariantSuccess))
 		})
 
+		It("should clear the data of a prior warning, which a later one cannot restore",
+			func(ctx SpecContext) {
+				Expect(handler.Warn(ctx, driver.Warning{
+					Message: "Skipped 1 of 1 record",
+					Data:    msgpack.EncodedJSON{"stats": "old"},
+				})).To(Succeed())
+				Expect(handler.Send(
+					ctx, "cmd-2", status.VariantSuccess, false, "Stopped task", "",
+				)).To(Succeed())
+				Expect(retrieve(ctx).Details.Data).To(BeEmpty())
+				Expect(handler.Warn(
+					ctx,
+					driver.Warning{Message: "Node failed", Description: "details"},
+				)).To(Succeed())
+				Expect(handler.ClearWarning(ctx)).To(Succeed())
+				Expect(retrieve(ctx).Details.Data).To(BeEmpty())
+			})
+
 		It("should write the description it is given", func(ctx SpecContext) {
 			Expect(handler.Send(
 				ctx,
