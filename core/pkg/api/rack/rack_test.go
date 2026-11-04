@@ -34,15 +34,27 @@ func retrieveRack(ctx SpecContext, key rack.Key) rack.Rack {
 	return r
 }
 
+func createRackWithStatus(ctx SpecContext, name string) rack.Rack {
+	GinkgoHelper()
+	r := rack.Rack{Name: name}
+	Expect(svc.Rack.NewWriter(nil).Create(ctx, &r)).To(Succeed())
+	Expect(svc.Status.NewWriter(nil).Set(ctx, &rack.Status{
+		Key:     rack.StatusKey(r.Key),
+		Name:    r.Name,
+		Time:    telem.Now(),
+		Variant: status.VariantSuccess,
+		Message: "Rack is running",
+		Details: rack.StatusDetails{Rack: r.Key},
+	})).To(Succeed())
+	return r
+}
+
 var _ = Describe("Create", func() {
 	It("Should reply with the status of a new rack", func(ctx SpecContext) {
 		u := createUser(ctx)
-		grant(
-			ctx,
-			access.ActionCreate,
-			u.OntologyID(),
-			ontology.ID{Type: ontology.ResourceTypeRack},
-		)
+		rackType := ontology.ID{Type: ontology.ResourceTypeRack}
+		grant(ctx, access.ActionCreate, u.OntologyID(), rackType)
+		grant(ctx, access.ActionRetrieve, u.OntologyID(), rackType)
 		res := MustSucceed(apiSvc.Create(
 			AuthedCtx(ctx, u), nil,
 			apirack.CreateRequest{Racks: []rack.Rack{{Name: "New"}}},
@@ -53,17 +65,58 @@ var _ = Describe("Create", func() {
 		Expect(r.Status.Key).To(Equal(rack.StatusKey(r.Key)))
 		Expect(r.Status.Variant).To(Equal(status.VariantWarning))
 	})
+	It(
+		"Should leave out the status when create is the only grant",
+		func(ctx SpecContext) {
+			u := createUser(ctx)
+			grant(
+				ctx,
+				access.ActionCreate,
+				u.OntologyID(),
+				ontology.ID{Type: ontology.ResourceTypeRack},
+			)
+			res := MustSucceed(apiSvc.Create(
+				AuthedCtx(ctx, u), nil,
+				apirack.CreateRequest{Racks: []rack.Rack{{Name: "New"}}},
+			))
+			Expect(res.Racks).To(HaveLen(1))
+			Expect(res.Racks[0].Key.IsZero()).To(BeFalse())
+			Expect(res.Racks[0].Status).To(BeNil())
+		},
+	)
+	It(
+		"Should leave out the status of a rack the caller can only update",
+		func(ctx SpecContext) {
+			u := createUser(ctx)
+			hidden := createRackWithStatus(ctx, "Hidden")
+			grant(ctx, access.ActionUpdate, u.OntologyID(), hidden.OntologyID())
+			res := MustSucceed(apiSvc.Create(
+				AuthedCtx(ctx, u), nil,
+				apirack.CreateRequest{Racks: []rack.Rack{hidden}},
+			))
+			Expect(res.Racks).To(HaveLen(1))
+			Expect(res.Racks[0].Status).To(BeNil())
+		},
+	)
+	It("Should check read access on each rack in a batch", func(ctx SpecContext) {
+		u := createUser(ctx)
+		readable := createRackWithStatus(ctx, "Readable")
+		hidden := createRackWithStatus(ctx, "Hidden")
+		grant(
+			ctx, access.ActionUpdate, u.OntologyID(),
+			readable.OntologyID(), hidden.OntologyID(),
+		)
+		grant(ctx, access.ActionRetrieve, u.OntologyID(), readable.OntologyID())
+		res := MustSucceed(apiSvc.Create(
+			AuthedCtx(ctx, u), nil,
+			apirack.CreateRequest{Racks: []rack.Rack{readable, hidden}},
+		))
+		Expect(res.Racks).To(HaveLen(2))
+		Expect(res.Racks[0].Status.Message).To(Equal("Rack is running"))
+		Expect(res.Racks[1].Status).To(BeNil())
+	})
 	It("Should reply with the live status of an existing rack", func(ctx SpecContext) {
-		r := rack.Rack{Name: "Existing"}
-		Expect(svc.Rack.NewWriter(nil).Create(ctx, &r)).To(Succeed())
-		Expect(svc.Status.NewWriter(nil).Set(ctx, &rack.Status{
-			Key:     rack.StatusKey(r.Key),
-			Name:    r.Name,
-			Time:    telem.Now(),
-			Variant: status.VariantSuccess,
-			Message: "Rack is running",
-			Details: rack.StatusDetails{Rack: r.Key},
-		})).To(Succeed())
+		r := createRackWithStatus(ctx, "Existing")
 		res := MustSucceed(apiSvc.Create(
 			SubjectCtx(ctx, r.OntologyID()), nil,
 			apirack.CreateRequest{Racks: []rack.Rack{r}},
