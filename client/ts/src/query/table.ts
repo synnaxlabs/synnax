@@ -73,7 +73,10 @@ export type Stamp = number;
 export interface IngestOptions {
   /** Overrides the table's declared hydrate mode. */
   mode?: HydrateMode;
-  /** Skips entries written after this stamp: the fetch predates those writes. */
+  /**
+   * Skips entries written after this stamp, and every entry if the table was reset
+   * after it: the fetch predates those writes.
+   */
   since?: Stamp;
 }
 
@@ -182,8 +185,8 @@ export class Table<
   > | null;
   private readonly indexes: Array<LookupIndex<Key, Value>>;
   private interceptor: Interceptor<Key, Value> | null = null;
-  private gen = 0;
   private writeSeq = 0;
+  private resetSeq = 0;
   // Holds a stamp only for present entries: applyDelete drops the key's stamp, so the
   // map never outgrows the entries.
   private readonly writeStamps = new Map<Key, Stamp>();
@@ -354,13 +357,13 @@ export class Table<
   }
 
   private writtenSince(key: Key, since: Stamp): boolean {
-    return (this.writeStamps.get(key) ?? 0) > since;
+    return this.resetSeq > since || (this.writeStamps.get(key) ?? 0) > since;
   }
 
   /**
    * Marks the current point in the table's write history. A fetch takes one before it
-   * starts and hands it to {@link ingest} so that writes landing while the fetch is in
-   * flight are not overwritten by its older records.
+   * starts and hands it to {@link ingest}, so its older records undo neither a write
+   * nor a reset that lands while it is in flight.
    */
   stamp(): Stamp {
     return this.writeSeq;
@@ -456,25 +459,23 @@ export class Table<
       const misses =
         opts.refresh === true ? keys : keys.filter((key) => !this.entries.has(key));
       if (misses.length > 0) {
-        const gen = this.gen;
         const since = this.stamp();
         const fetched = await this.fetchBatcher.enqueue(misses);
-        if (gen === this.gen)
-          if (opts.refresh === true) {
-            // A refresh is authoritative for its keys: cached entries the fetch omitted
-            // vanished from the cluster and are tombstoned.
-            const present = new Set<Key>(fetched.map(({ key }) => key));
-            const vanished = misses.filter(
-              (key) =>
-                !present.has(key) &&
-                this.entries.has(key) &&
-                !this.writtenSince(key, since),
-            );
-            this.batch(() => {
-              if (vanished.length > 0) this.delete(vanished);
-              if (fetched.length > 0) this.ingest(fetched, { mode: "set", since });
-            });
-          } else if (fetched.length > 0) this.ingest(fetched, { since });
+        if (opts.refresh === true) {
+          // A refresh is authoritative for its keys: cached entries the fetch omitted
+          // vanished from the cluster and are tombstoned.
+          const present = new Set<Key>(fetched.map(({ key }) => key));
+          const vanished = misses.filter(
+            (key) =>
+              !present.has(key) &&
+              this.entries.has(key) &&
+              !this.writtenSince(key, since),
+          );
+          this.batch(() => {
+            if (vanished.length > 0) this.delete(vanished);
+            if (fetched.length > 0) this.ingest(fetched, { mode: "set", since });
+          });
+        } else if (fetched.length > 0) this.ingest(fetched, { since });
       }
     }
     const seen = new Set<Key>();
@@ -567,12 +568,8 @@ export class Table<
     if (fetchEntries == null) return;
     const keys = this.keys();
     if (keys.length === 0) return;
-    const gen = this.gen;
     const since = this.stamp();
     const values = await fetchSurvivors(fetchEntries, keys);
-    // A reset mid-fetch means the cluster was replaced: writing the fetched entries
-    // would repopulate the cleared table with old-cluster records.
-    if (gen !== this.gen) return;
     const present = new Set<Key>(values.map(({ key }) => key));
     const vanished = keys.filter(
       (k) => !present.has(k) && !this.writtenSince(k, since),
@@ -590,7 +587,7 @@ export class Table<
    * runs discard their results.
    */
   reset(): void {
-    this.gen++;
+    this.resetSeq = ++this.writeSeq;
     this.entries.clear();
     this.tombstones.clear();
     this.writeStamps.clear();

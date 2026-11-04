@@ -110,14 +110,19 @@ export const renderTable = async (
     clientTable.ontologyID(created.key),
   );
   await primePanel(Wrapper, panelKey);
-  const result = render(
-    <PlutoPanel.Scope.Provider value={panelKey}>
-      <PlutoPanel.TabScope.Provider value={tabKey}>
-        <Component />
-        <Modals.Stack />
-      </PlutoPanel.TabScope.Provider>
-    </PlutoPanel.Scope.Provider>,
-    { wrapper: Wrapper },
-  );
+  // React counts a `use` read as a suspend even when it is cached. A sync act leaves
+  // the work it queues unflushed.
+  let result!: ReturnType<typeof render>;
+  await act(async () => {
+    result = render(
+      <PlutoPanel.Scope.Provider value={panelKey}>
+        <PlutoPanel.TabScope.Provider value={tabKey}>
+          <Component />
+          <Modals.Stack />
+        </PlutoPanel.TabScope.Provider>
+      </PlutoPanel.Scope.Provider>,
+      { wrapper: Wrapper },
+    );
+  });
   return { key: created.key, result, store };
 };

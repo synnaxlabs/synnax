@@ -7,10 +7,10 @@
 #  License, use of this software will be governed by the Apache License, Version 2.0,
 #  included in the file licenses/APL.txt.
 
-from typing import Any, Literal
+from typing import Literal, Unpack
 
 from console.layout import LayoutClient
-from console.task.channels.analog import Analog
+from console.task.channels.analog import Analog, Options
 
 
 class PressureBridgeTable(Analog):
@@ -36,10 +36,10 @@ class PressureBridgeTable(Analog):
 
     def __init__(
         self,
-        *,
         layout: LayoutClient,
         name: str,
         device: str,
+        *,
         pressure_units: Literal["Pascals", "PSI"] | None = None,
         bridge_configuration: (
             Literal["Full bridge", "Half bridge", "Quarter bridge"] | None
@@ -49,7 +49,7 @@ class PressureBridgeTable(Analog):
         excitation_value: float | None = None,
         physical_units: Literal["Pascals", "PSI"] | None = None,
         electrical_units: Literal["mV/V", "V/V"] | None = None,
-        **kwargs: Any,
+        **kwargs: Unpack[Options],
     ) -> None:
         super().__init__(
             layout=layout,

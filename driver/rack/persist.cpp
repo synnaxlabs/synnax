@@ -169,23 +169,28 @@ x::errors::Error secure_state(const std::filesystem::path &path, const bool dedi
 }
 #endif
 
+x::errors::Error rack::Config::secure_persisted_state(x::args::Parser &args) {
+#ifdef _WIN32
+    return x::errors::NIL;
+#else
+    return secure_state(
+        get_persisted_state_path(args),
+        args.field<std::string>("--state-file", "").empty()
+    );
+#endif
+}
+
 std::pair<std::shared_ptr<x::kv::KV>, x::errors::Error>
 open_kv(x::args::Parser &parser) {
-    const auto dedicated = parser.field<std::string>("--state-file", "").empty();
-    const auto path = std::filesystem::path(get_persisted_state_path(parser));
-#ifndef _WIN32
-    if (auto err = secure_state(path, dedicated)) return {nullptr, err};
-#endif
+    if (auto err = rack::Config::secure_persisted_state(parser)) return {nullptr, err};
     auto [kv, err] = x::kv::JSONFile::open_file(
         x::kv::JSONFileConfig{
-            .path = path,
+            .path = get_persisted_state_path(parser),
             .dir_mode = PERSISTED_STATE_DIR_PERMISSIONS,
             .file_mode = PERSISTED_STATE_FILE_PERMISSIONS,
         }
     );
-#ifndef _WIN32
-    if (!err) err = secure_state(path, dedicated);
-#endif
+    if (!err) err = rack::Config::secure_persisted_state(parser);
     return {kv, err};
 }
 

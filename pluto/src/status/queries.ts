@@ -8,7 +8,7 @@
 // included in the file licenses/APL.txt.
 
 import { label, type ontology, query, status, TimeStamp } from "@synnaxlabs/client";
-import { primitive, uuid, verbs } from "@synnaxlabs/x";
+import { deep, primitive, uuid, verbs } from "@synnaxlabs/x";
 import { useEffect } from "react";
 import type z from "zod";
 
@@ -110,6 +110,8 @@ export const formSchema = status.statusZ().omit({ labels: true }).safeExtend({
   labels: label.keyZ.array().optional(),
 });
 
+export const formPath = deep.path<z.infer<typeof formSchema>>();
+
 const INITIAL_VALUES: z.infer<typeof formSchema> = {
   key: "",
   variant: "success",
@@ -132,7 +134,7 @@ export const useForm = Flux.createForm<RetrieveQuery, typeof formSchema>({
     return { ...stat, labels: labels.map((l) => l.key) };
   },
   update: async ({ client, value, set }) => {
-    set("time", TimeStamp.now());
+    set(formPath.time, TimeStamp.now());
     const v = value();
     if (primitive.isZero(v.key)) v.key = uuid.create();
     const { labels: labelKeys, ...rest } = v;
@@ -142,7 +144,7 @@ export const useForm = Flux.createForm<RetrieveQuery, typeof formSchema>({
         client,
         data: { id: status.ontologyID(res.key), labels: labelKeys },
       });
-    set("key", res.key);
+    set(formPath.key, res.key);
   },
   mountListeners: ({ client, query: { key }, reset, abandon }) =>
     client.statuses.onChange(key, (result) => {

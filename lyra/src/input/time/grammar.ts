@@ -26,18 +26,22 @@ const BARE_NUMBER_RE = /^\d+(?:\.\d+)?$/;
 export interface ParsedTimeSpan {
   value: TimeSpan;
   /** The form the duration was typed in. */
-  kind: "units" | "clock" | "seconds";
+  kind: "units" | "clock" | "number";
 }
 
 /**
  * Parses a duration. Accepts unit runs ("30s", "2h 30m", "1.5h", "500ms", "250us"),
- * clock form ("1:30:00", "0:30", "00:00:30.250"), and a bare number of seconds.
+ * clock form ("1:30:00", "0:30", "00:00:30.250"), and a bare number of `unit`.
+ * @param unit - the unit of a bare number. Defaults to seconds.
  * @returns the span and the form it took, or null when the text is not a duration.
  */
-export const parseTimeSpan = (text: string): ParsedTimeSpan | null => {
+export const parseTimeSpan = (
+  text: string,
+  unit: TimeSpan = TimeSpan.SECOND,
+): ParsedTimeSpan | null => {
   const trimmed = text.trim();
   if (BARE_NUMBER_RE.test(trimmed))
-    return { value: TimeSpan.SECOND.mult(Number(trimmed)), kind: "seconds" };
+    return { value: unit.mult(Number(trimmed)), kind: "number" };
   const value = TimeSpan.parse(trimmed);
   if (value == null) return null;
   return { value, kind: trimmed.includes(":") ? "clock" : "units" };

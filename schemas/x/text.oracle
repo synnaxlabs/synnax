@@ -8,6 +8,7 @@
 // included in the file licenses/APL.txt.
 
 @go output "x/go/text"
+@py output "x/py/x/text"
 @ts output "x/ts/src/text"
 
 Level enum {
