@@ -82,15 +82,14 @@ var _ = Describe("Read task", func() {
 		Expect(stat.Details.Running).To(BeTrue())
 	}
 
-	// read returns every sample persisted in key, asserting through g.
-	read := func(g Gomega, ctx context.Context, key channel.Key) telem.Series {
+	// stored returns every sample persisted in key.
+	stored := func(ctx context.Context, key channel.Key) telem.Series {
 		GinkgoHelper()
-		it, err := framerSvc.OpenIterator(ctx, framer.IteratorConfig{
+		it := MustSucceed(framerSvc.OpenIterator(ctx, framer.IteratorConfig{
 			Keys:   channel.Keys{key},
 			Bounds: telem.TimeRangeMax,
-		})
-		g.Expect(err).To(Succeed())
-		defer func() { g.Expect(it.Close()).To(Succeed()) }()
+		}))
+		defer func() { Expect(it.Close()).To(Succeed()) }()
 		var s telem.Series
 		if !it.SeekFirst() {
 			return s
@@ -101,20 +100,14 @@ var _ = Describe("Read task", func() {
 				s.Data = append(s.Data, ser.Data...)
 			}
 		}
-		g.Expect(it.Error()).To(Succeed())
+		Expect(it.Error()).To(Succeed())
 		return s
 	}
 
-	stored := func(ctx context.Context, key channel.Key) telem.Series {
-		GinkgoHelper()
-		return read(Default, ctx, key)
-	}
-
-	// expectStored waits until key holds n samples. A read can fail while a commit is
-	// in flight (SY-5459), so a failed read retries.
+	// expectStored waits until key holds n samples.
 	expectStored := func(ctx context.Context, key channel.Key, n int64) telem.Series {
 		GinkgoHelper()
-		Eventually(func(g Gomega) int64 { return read(g, ctx, key).Len() }).
+		Eventually(func() int64 { return stored(ctx, key).Len() }).
 			WithTimeout(15 * time.Second).Should(Equal(n))
 		return stored(ctx, key)
 	}
