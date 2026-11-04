@@ -296,7 +296,10 @@ func (r Retrieve) Exec(ctx context.Context, tx gorp.Tx) error {
 		// If we only have keys and no filters, and don't need entries, skip execution
 		// entirely and use the keys directly.
 		if canSkipExec(cls, entriesBound, atLast) {
-			nextIDs = lo.Must(ParseIDs(cls.GetFilterKeys()))
+			var err error
+			if nextIDs, err = ParseIDs(cls.GetFilterKeys()); err != nil {
+				return err
+			}
 		} else {
 			// For intermediate clauses that don't have user-bound entries, we need to
 			// bind a temporary slice so gorp can store the query results. Without this,

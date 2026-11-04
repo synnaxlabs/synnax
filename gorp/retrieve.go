@@ -82,9 +82,6 @@ func (r Retrieve[K, E]) HasLimit() bool { return r.limit > 0 }
 // HasOffset returns true if an offset was set on the query.
 func (r Retrieve[K, E]) HasOffset() bool { return r.offset > 0 }
 
-// HasFilters returns true if any Where filters were added to the query.
-func (r Retrieve[K, E]) HasFilters() bool { return r.filter.present() }
-
 // IsBareKeys returns true if the filter is exactly Where(MatchKeys(...)), with no eval,
 // raw, or resolver filter layered on top.
 func (r Retrieve[K, E]) IsBareKeys() bool {

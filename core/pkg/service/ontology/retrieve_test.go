@@ -17,6 +17,7 @@ import (
 	"github.com/samber/lo"
 	"github.com/synnaxlabs/synnax/pkg/service/ontology"
 	"github.com/synnaxlabs/x/encoding/orc"
+	"github.com/synnaxlabs/x/validate"
 )
 
 var _ = Describe("Retrieve", func() {
@@ -163,6 +164,22 @@ var _ = Describe("Retrieve", func() {
 						Exec(ctx, tx),
 					).To(Succeed())
 					Expect(r).To(BeEmpty())
+				},
+			)
+
+			It(
+				"Should return a validation error when traversing from an ID with no type",
+				func(ctx SpecContext) {
+					var r []ontology.Resource
+					Expect(otg.NewRetrieve().
+						WhereIDs(ontology.ID{Key: "untyped"}).
+						TraverseTo(ontology.ChildrenTraverser).
+						Entries(&r).
+						Exec(ctx, tx),
+					).To(SatisfyAll(
+						MatchError(validate.ErrValidation),
+						MatchError(ContainSubstring("empty type")),
+					))
 				},
 			)
 
