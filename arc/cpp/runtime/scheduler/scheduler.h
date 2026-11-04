@@ -225,6 +225,7 @@ public:
     /// re-activates the root scope (scopes[0]). Used by the runtime when
     /// stopping a program so subsequent runs start from a clean state.
     void reset() {
+        this->ctx.cycle = node::Cycle{};
         std::ranges::fill(this->changed_flags, 0);
         std::ranges::fill(this->self_changed_flags, 0);
         std::ranges::fill(this->fired_flags, 0);
