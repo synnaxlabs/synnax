@@ -17,6 +17,7 @@ import {
   ExpiredTokenError,
   InvalidTokenError,
   SessionEndedError,
+  ValidationError,
 } from "@/errors";
 import {
   createTestClient,
@@ -153,6 +154,28 @@ describe("auth", () => {
           password: "x",
         }),
       ).rejects.toThrow(AuthError);
+    });
+  });
+
+  describe("redeemInvite", () => {
+    it("should refuse an invite while the Core accepts no provider", async () => {
+      await expect(
+        auth.redeemInvite(
+          auth.createTokenlessClient({
+            host: TEST_CLIENT_PARAMS.host,
+            port: TEST_CLIENT_PARAMS.port,
+          }),
+          {
+            token: "syi_token",
+            credentials: {
+              provider: "idp",
+              code: "code",
+              verifier: "verifier",
+              redirectUri: "http://127.0.0.1:4242/callback",
+            },
+          },
+        ),
+      ).rejects.toThrow(ValidationError);
     });
   });
 

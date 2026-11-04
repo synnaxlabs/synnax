@@ -12,6 +12,7 @@ package oidc_test
 import (
 	"context"
 	"testing"
+	"time"
 
 	"github.com/gofiber/fiber/v3"
 	. "github.com/onsi/ginkgo/v2"
@@ -24,12 +25,14 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/service/auth"
 	"github.com/synnaxlabs/synnax/pkg/service/auth/apikey"
 	"github.com/synnaxlabs/synnax/pkg/service/auth/oidc"
+	"github.com/synnaxlabs/synnax/pkg/service/auth/oidc/invite"
 	"github.com/synnaxlabs/synnax/pkg/service/auth/oidc/testutil"
 	"github.com/synnaxlabs/synnax/pkg/service/auth/password"
 	"github.com/synnaxlabs/synnax/pkg/service/group"
 	"github.com/synnaxlabs/synnax/pkg/service/ontology"
 	"github.com/synnaxlabs/synnax/pkg/service/user"
 	. "github.com/synnaxlabs/x/testutil"
+	timetestutil "github.com/synnaxlabs/x/time/testutil"
 )
 
 func TestOIDC(t *testing.T) {
@@ -47,6 +50,8 @@ var (
 	passwordSvc *password.Service
 	rbacSvc     *rbac.Service
 	oidcSvc     *oidc.Service
+	inviteSvc   *invite.Service
+	clock       *timetestutil.Clock
 	provider    *testutil.Provider
 	userSvc     *user.Service
 	apiSvc      *apioidc.Service
@@ -76,16 +81,26 @@ var _ = BeforeSuite(func(ctx SpecContext) {
 	apikeySvc = MustOpen(apikey.OpenService(ctx, apikey.ServiceConfig{DB: db}))
 	provider = testutil.NewProvider()
 	DeferCleanup(provider.Close)
+	clock = timetestutil.NewClock(time.Unix(1_700_000_000, 0))
+	inviteSvc = MustOpen(invite.OpenService(ctx, invite.ServiceConfig{
+		DB:    db,
+		Clock: clock,
+	}))
 	oidcSvc = MustOpen(oidc.OpenService(ctx, oidc.ServiceConfig{
 		DB:          db,
 		User:        userSvc,
 		Role:        rbacSvc.Role,
 		NewUserRole: rbacSvc.Builtin.ViewerKey,
-		Providers: []oidc.Provider{{
-			Name:     "idp",
-			Issuer:   provider.Issuer(),
-			ClientID: testutil.ClientID,
-		}},
+		Invite:      inviteSvc,
+		Providers: []oidc.Provider{
+			{Name: "idp", Issuer: provider.Issuer(), ClientID: testutil.ClientID},
+			{
+				Name:                 "closed",
+				Issuer:               provider.Issuer(),
+				ClientID:             testutil.ClientID,
+				UserCreationDisabled: true,
+			},
+		},
 	}))
 	authSvc = MustOpen(auth.OpenService(ctx, auth.ServiceConfig{
 		DB: db,
@@ -101,9 +116,11 @@ var _ = BeforeSuite(func(ctx SpecContext) {
 func newService(svc *auth.Service) *apioidc.Service {
 	GinkgoHelper()
 	return MustSucceed(apioidc.NewService(apioidc.ServiceConfig{
-		Auth: svc,
-		OIDC: oidcSvc,
-		RBAC: rbacSvc,
+		Auth:   svc,
+		OIDC:   oidcSvc,
+		Invite: inviteSvc,
+		User:   userSvc,
+		RBAC:   rbacSvc,
 	}))
 }
 

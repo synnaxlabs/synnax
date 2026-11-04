@@ -26,6 +26,7 @@ import (
 	"github.com/synnaxlabs/gorp"
 	"github.com/synnaxlabs/synnax/pkg/service/access/rbac/role"
 	"github.com/synnaxlabs/synnax/pkg/service/auth"
+	"github.com/synnaxlabs/synnax/pkg/service/auth/oidc/invite"
 	"github.com/synnaxlabs/synnax/pkg/service/ontology"
 	"github.com/synnaxlabs/synnax/pkg/service/user"
 	"github.com/synnaxlabs/x/config"
@@ -78,6 +79,10 @@ type ServiceConfig struct {
 	//
 	// [REQUIRED]
 	NewUserRole role.Key
+	// Invite holds the invites of users, which end when the users do.
+	//
+	// [REQUIRED]
+	Invite *invite.Service
 	// Providers are the providers the Core accepts logins from.
 	//
 	// [OPTIONAL] - Defaults to none.
@@ -98,6 +103,7 @@ func (c ServiceConfig) Override(other ServiceConfig) ServiceConfig {
 	c.User = override.Nil(c.User, other.User)
 	c.Role = override.Nil(c.Role, other.Role)
 	c.NewUserRole = override.UUID(c.NewUserRole, other.NewUserRole)
+	c.Invite = override.Nil(c.Invite, other.Invite)
 	c.Providers = override.Slice(c.Providers, other.Providers)
 	c.DiscoveryTimeout = override.Numeric(c.DiscoveryTimeout, other.DiscoveryTimeout)
 	return c
@@ -110,6 +116,7 @@ func (c ServiceConfig) Validate() error {
 	v.NotNil("user", c.User)
 	v.NotNil("role", c.Role)
 	v.Ternary("new_user_role", c.NewUserRole == uuid.Nil(), "must be set")
+	v.NotNil("invite", c.Invite)
 	v.Positive("discovery_timeout", c.DiscoveryTimeout)
 	names := make(set.Set[string], len(c.Providers))
 	for _, p := range c.Providers {
@@ -392,5 +399,8 @@ func (s *Service) DeleteFor(
 	tx gorp.Tx,
 	subjects ...ontology.ID,
 ) error {
+	if err := s.cfg.Invite.NewWriter(tx).DeleteFor(ctx, subjects...); err != nil {
+		return err
+	}
 	return s.NewWriter(tx).deleteFor(ctx, subjects...)
 }

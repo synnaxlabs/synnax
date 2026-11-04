@@ -10,6 +10,7 @@
 import { type UnaryClient } from "@synnaxlabs/freighter";
 import { z } from "zod";
 
+import { invite } from "@/auth/oidc/invite";
 import { type Link, type LinkKey, linkKeyZ, linkZ } from "@/auth/oidc/types.gen";
 import { type OIDCCredentials, oidcCredentialsZ } from "@/auth/types.gen";
 import { ontology } from "@/ontology";
@@ -26,10 +27,12 @@ const RETRIEVE_ENDPOINT = "/auth/oidc/retrieve";
 const UNLINK_ENDPOINT = "/auth/oidc/unlink";
 
 export class Client {
+  readonly invites: invite.Client;
   private readonly client: UnaryClient;
 
   constructor(client: UnaryClient) {
     this.client = client;
+    this.invites = new invite.Client(client);
   }
 
   /**

@@ -28,6 +28,7 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/api"
 	apiauth "github.com/synnaxlabs/synnax/pkg/api/auth"
 	apiapikey "github.com/synnaxlabs/synnax/pkg/api/auth/apikey"
+	apioidc "github.com/synnaxlabs/synnax/pkg/api/auth/oidc"
 	apipassword "github.com/synnaxlabs/synnax/pkg/api/auth/password"
 	apisession "github.com/synnaxlabs/synnax/pkg/api/auth/session"
 	"github.com/synnaxlabs/synnax/pkg/api/channel"
@@ -120,6 +121,26 @@ var _ = Describe("HTTP", func() {
 				Expect(res.StatusCode).ToNot(Equal(http.StatusNotFound))
 			},
 			Entry("unary auth login", http.MethodPost, "/api/v1/auth/login"),
+			Entry(
+				"unary invite create",
+				http.MethodPost,
+				"/api/v1/auth/oidc/invite/create",
+			),
+			Entry(
+				"unary invite retrieve",
+				http.MethodPost,
+				"/api/v1/auth/oidc/invite/retrieve",
+			),
+			Entry(
+				"unary invite delete",
+				http.MethodPost,
+				"/api/v1/auth/oidc/invite/delete",
+			),
+			Entry(
+				"unary invite redeem",
+				http.MethodPost,
+				"/api/v1/auth/oidc/invite/redeem",
+			),
 			Entry("unary channel create", http.MethodPost, "/api/v1/channel/create"),
 			Entry("unary frame delete", http.MethodPost, "/api/v1/frame/delete"),
 			Entry("unary frame read", http.MethodPost, "/api/v1/frame/read"),
@@ -222,6 +243,23 @@ var _ = Describe("HTTP", func() {
 			Expect(created.Token).To(HavePrefix("sys_"))
 		})
 
+		It("Should reach the invite redeem route without a session", func() {
+			status, body := post(
+				"/api/v1/auth/oidc/invite/redeem",
+				"",
+				apioidc.RedeemInviteRequest{},
+			)
+			Expect(status).To(Equal(http.StatusBadRequest), string(body))
+			Expect(string(body)).To(ContainSubstring("method oidc is not accepted"))
+		})
+		It("Should require a session to create an invite", func() {
+			_, body := post(
+				"/api/v1/auth/oidc/invite/create",
+				"",
+				apioidc.CreateInviteRequest{},
+			)
+			Expect(string(body)).To(ContainSubstring("invalid authorization token"))
+		})
 		It("Should list the accepted methods without a session", func() {
 			status, body := post("/api/v1/auth/methods", "", struct{}{})
 			Expect(status).To(Equal(http.StatusOK), string(body))

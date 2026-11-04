@@ -20,6 +20,7 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/service/auth"
 	"github.com/synnaxlabs/synnax/pkg/service/auth/apikey"
 	"github.com/synnaxlabs/synnax/pkg/service/auth/oidc"
+	"github.com/synnaxlabs/synnax/pkg/service/auth/oidc/invite"
 	"github.com/synnaxlabs/synnax/pkg/service/auth/oidc/testutil"
 	"github.com/synnaxlabs/synnax/pkg/service/auth/password"
 	"github.com/synnaxlabs/synnax/pkg/service/group"
@@ -76,6 +77,7 @@ var _ = BeforeSuite(func(ctx SpecContext) {
 		User:        userSvc,
 		Role:        rbacSvc.Role,
 		NewUserRole: rbacSvc.Builtin.ViewerKey,
+		Invite:      MustOpen(invite.OpenService(ctx, invite.ServiceConfig{DB: db})),
 		Providers: []oidc.Provider{{
 			Name:     "idp",
 			Issuer:   provider.Issuer(),
