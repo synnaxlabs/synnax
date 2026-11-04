@@ -427,6 +427,42 @@ var _ = Describe("Reference", func() {
 		})
 	})
 
+	Describe("Dependents", func() {
+		BeforeEach(func(ctx SpecContext) { open(ctx) })
+
+		It(
+			"Should list the entries of every table that hold a target",
+			func(ctx SpecContext) {
+				createRack(ctx, 1)
+				Expect(createDevice(ctx, refDevice{Key: "a", Rack: 1})).To(Succeed())
+				Expect(statuses.NewCreate().
+					Entry(&refStatus{Key: "s", Owner: &refOwner{Table: "rack", Key: "1"}}).
+					Exec(ctx, db)).To(Succeed())
+				Expect(racks.Dependents(db, 1)).To(ConsistOf(
+					gorp.Target{Table: "device", Key: "a"},
+					gorp.Target{Table: "status", Key: "s"},
+				))
+			},
+		)
+
+		It("Should return nothing for a target no entry holds", func(ctx SpecContext) {
+			createRack(ctx, 1)
+			Expect(racks.Dependents(db, 1)).To(BeEmpty())
+		})
+
+		It("Should see writes staged in the same transaction", func(ctx SpecContext) {
+			createRack(ctx, 1)
+			Expect(createDevice(ctx, refDevice{Key: "a", Rack: 1})).To(Succeed())
+			tx := db.OpenTx()
+			Expect(devices.NewDelete().
+				Where(gorp.MatchKeys[string, refDevice]("a")).
+				Exec(ctx, tx)).To(Succeed())
+			Expect(racks.Dependents(tx, 1)).To(BeEmpty())
+			Expect(racks.Dependents(db, 1)).To(HaveLen(1))
+			Expect(tx.Close()).To(Succeed())
+		})
+	})
+
 	Describe("Delete", func() {
 		BeforeEach(func(ctx SpecContext) { open(ctx) })
 

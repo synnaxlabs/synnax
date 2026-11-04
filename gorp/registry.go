@@ -113,6 +113,23 @@ func (r *registry) table(name string) (registeredTable, error) {
 }
 
 // deletePlan is the full effect of deleting a set of entries.
+// dependents returns the entries that hold target through any registered reference.
+func (r *registry) dependents(tx Tx, target Target) ([]Target, error) {
+	r.mu.RLock()
+	defer r.mu.RUnlock()
+	var out []Target
+	for _, ref := range r.referencing[target.Table] {
+		keys, err := ref.dependents(tx, target)
+		if err != nil {
+			return nil, err
+		}
+		for _, k := range keys {
+			out = append(out, Target{Table: ref.ownerTable(), Key: k})
+		}
+	}
+	return out, nil
+}
+
 type deletePlan struct {
 	// deletes holds the text keys to delete, by table name. It includes the entries
 	// the caller asked to delete.

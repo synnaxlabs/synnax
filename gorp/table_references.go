@@ -127,6 +127,12 @@ func (t *Table[K, E]) delete(ctx context.Context, tx Tx, keys []K) error {
 	return t.db.registry.apply(ctx, tx, plan)
 }
 
+// Dependents returns the entries of every open table that hold a reference to the entry
+// with key k, as seen by tx.
+func (t *Table[K, E]) Dependents(tx Tx, k K) ([]Target, error) {
+	return t.db.registry.dependents(tx, Target{Table: t.name, Key: FormatKey(k)})
+}
+
 // check validates the references e holds against tx.
 func (t *Table[K, E]) check(ctx context.Context, tx Tx, e *E) error {
 	for _, r := range t.references {
