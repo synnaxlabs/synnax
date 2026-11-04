@@ -9,7 +9,7 @@
 
 import { act, fireEvent, render, renderHook } from "@testing-library/react";
 import { type PropsWithChildren, type ReactElement } from "react";
-import { beforeAll, describe, expect, it, vi } from "vitest";
+import { afterEach, beforeAll, describe, expect, it, vi } from "vitest";
 
 import { Dialog } from "@/dialog";
 import { List } from "@/list";
@@ -55,8 +55,10 @@ describe("Select keyboard hover", () => {
       );
       return dialog ? <Dialog.Frame visible>{content}</Dialog.Frame> : content;
     };
-    const { result } = renderHook(() => Select.useContext<string>(), { wrapper });
-    return { hover: () => result.current.getState().hover };
+    const { result, unmount } = renderHook(() => Select.useContext<string>(), {
+      wrapper,
+    });
+    return { hover: () => result.current.getState().hover, unmount };
   };
 
   const keyDown = (code: string): void => {
@@ -147,6 +149,50 @@ describe("Select keyboard hover", () => {
       keyDown("ArrowDown");
       move("charlie", 2);
       expect(hover()).toBe("bravo");
+    });
+  });
+
+  describe("held arrow key", () => {
+    afterEach(() => {
+      vi.useRealTimers();
+    });
+
+    it("should repeat the move while the key is held", () => {
+      vi.useFakeTimers();
+      const { hover } = renderHover(DATA, vi.fn());
+      keyDown("ArrowDown");
+      act(() => {
+        vi.advanceTimersByTime(300);
+      });
+      keyUp("ArrowDown");
+      act(() => {
+        vi.advanceTimersByTime(1000);
+      });
+      expect(hover()).toBe("bravo");
+    });
+
+    it("should stop repeating when the key is released while the triggers are off", () => {
+      vi.useFakeTimers();
+      let enabled = true;
+      const { hover } = renderHover(DATA, vi.fn(), {
+        dialog: false,
+        enableTriggers: () => enabled,
+      });
+      keyDown("ArrowDown");
+      enabled = false;
+      keyUp("ArrowDown");
+      act(() => {
+        vi.advanceTimersByTime(1000);
+      });
+      expect(hover()).toBe("alpha");
+    });
+
+    it("should stop repeating when unmounted", () => {
+      vi.useFakeTimers();
+      const { unmount } = renderHover(DATA, vi.fn());
+      keyDown("ArrowDown");
+      unmount();
+      expect(vi.getTimerCount()).toBe(0);
     });
   });
 

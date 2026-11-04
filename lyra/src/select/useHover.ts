@@ -100,14 +100,17 @@ export const useHover = <K extends record.Key>({
   const { visible } = Dialog.useContext();
   const enabledRef = useSyncedRef<Triggers.Condition>(enableTriggers ?? visible);
   const intervalRef = useRef<NodeJS.Timeout | null>(null);
+  const stopRepeat = () => {
+    if (intervalRef.current == null) return;
+    clearInterval(intervalRef.current);
+    intervalRef.current = null;
+  };
+  useEffect(() => stopRepeat, [stopRepeat]);
 
   const handleTrigger = ({ triggers, stage }: Triggers.UseEvent) => {
-    if (!Triggers.resolveCondition(enabledRef.current)) return;
-    if (intervalRef.current != null) {
-      clearInterval(intervalRef.current);
-      intervalRef.current = null;
-    }
-    if (stage !== "start") return;
+    // A key released while the triggers are off must still end its repeat.
+    stopRepeat();
+    if (!Triggers.resolveCondition(enabledRef.current) || stage !== "start") return;
 
     if (Triggers.match(triggers, [SELECT_TRIGGER])) {
       const current = resolveHover(
