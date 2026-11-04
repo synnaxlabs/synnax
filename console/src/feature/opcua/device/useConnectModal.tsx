@@ -7,6 +7,8 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
+import "@/feature/opcua/device/Connect.css";
+
 import { type device, status, TimeSpan } from "@synnaxlabs/client";
 import { Component } from "@synnaxlabs/lyra/component";
 import { Flex } from "@synnaxlabs/lyra/flex";
@@ -23,6 +25,8 @@ import {
   DriverCertificate,
   ServerCertificate,
 } from "@/feature/opcua/device/Certificate";
+import { commandTimeout } from "@/feature/opcua/device/commandTimeout";
+import { Endpoints } from "@/feature/opcua/device/Endpoints";
 import { retrieveScanTask } from "@/feature/opcua/device/retrieveScanTask";
 import {
   SelectSecurityMode,
@@ -47,11 +51,10 @@ import {
   TEST_CONNECTION_COMMAND_TYPE,
 } from "@/feature/opcua/task/types";
 import { Analytics } from "@/platform/analytics";
+import { CSS } from "@/platform/css";
 import { Device as PlatformDevice } from "@/platform/device";
 
 const path = deep.path<Device>();
-
-const TEST_CONNECTION_TIMEOUT = TimeSpan.seconds(10);
 
 const INITIAL_VALUES: Device = {
   key: "",
@@ -103,10 +106,11 @@ export const Connect = ({
   >) => {
     setServerCertificateOffer(null);
     const scanTask = await retrieveScanTask(client, get(path.rack).value);
+    const connection = get(path.properties.connection).value;
     const scanStatus = await scanTask.executeCommandSync({
       type: TEST_CONNECTION_COMMAND_TYPE,
-      timeout: TEST_CONNECTION_TIMEOUT,
-      args: { connection: get(path.properties.connection).value },
+      timeout: commandTimeout(connection),
+      args: { connection },
     });
     if (scanStatus.variant === "error") {
       const data = scanStatus.details?.data;
@@ -178,6 +182,11 @@ export const Connect = ({
     setField(path.properties.connection.clientPrivateKey, "");
   };
 
+  const handleEndpointSelect = (mode: SecurityMode, policy: SecurityPolicy) => {
+    setField(path.properties.connection.securityMode, mode);
+    setField(path.properties.connection.securityPolicy, policy);
+  };
+
   const handleTrust = (offer: CertificateInfo) => {
     setField(path.properties.connection.serverCertificate, offer.pem);
     save();
@@ -237,6 +246,9 @@ export const Connect = ({
               </Flex.Box>
             </Form.Section>
             <Form.Section title="Security">
+              <Input.Item label="Endpoint security">
+                <Endpoints rack={rackKey} onSelect={handleEndpointSelect} />
+              </Input.Item>
               <Form.Field
                 path={path.properties.connection.securityMode}
                 label="Mode"
@@ -293,6 +305,31 @@ export const Connect = ({
                   <ValidationField />
                 </>
               )}
+            </Form.Section>
+            <Form.Section title="Advanced">
+              <Flex.Box x>
+                <Form.TimeSpanField
+                  path={path.properties.connection.clientTimeoutMs}
+                  label="Request timeout"
+                  unit={TimeSpan.MILLISECOND}
+                  bounds={TIMING_BOUNDS}
+                  padHelpText={false}
+                />
+                <Form.TimeSpanField
+                  path={path.properties.connection.sessionTimeoutMs}
+                  label="Session timeout"
+                  unit={TimeSpan.MILLISECOND}
+                  bounds={TIMING_BOUNDS}
+                  padHelpText={false}
+                />
+                <Form.TimeSpanField
+                  path={path.properties.connection.secureChannelLifetimeMs}
+                  label="Channel lifetime"
+                  unit={TimeSpan.MILLISECOND}
+                  bounds={TIMING_BOUNDS}
+                  padHelpText={false}
+                />
+              </Flex.Box>
             </Form.Section>
           </Form.Sections>
         </Form.Form>
@@ -356,4 +393,9 @@ const USERNAME_INPUT_PROPS = { placeholder: "Anonymous" } as const;
 
 const PATH_INPUT_PROPS = { placeholder: "Path on the Driver computer" } as const;
 
-const PASSWORD_INPUT_PROPS = { type: "password" } as const;
+const PASSWORD_INPUT_PROPS = {
+  type: "password",
+  className: CSS.BE("opc-connect", "password"),
+} as const;
+
+const TIMING_BOUNDS = { lower: TimeSpan.MILLISECOND };

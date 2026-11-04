@@ -132,6 +132,29 @@ resolve_security(const Config &cfg, certificate::Store &store);
 std::pair<std::shared_ptr<UA_Client>, x::errors::Error>
 connect(const Config &cfg, const Security &sec, std::string log_prefix);
 
+/// @brief a way that a server accepts connections.
+struct Endpoint {
+    /// @brief the URL of the endpoint.
+    std::string url;
+    /// @brief None, Sign, or SignAndEncrypt.
+    std::string security_mode;
+    /// @brief the name of the security policy, such as Basic256Sha256.
+    std::string security_policy;
+    /// @brief the ways a user can log in: anonymous, username, certificate, or
+    /// issued_token.
+    std::vector<std::string> user_token_types;
+    /// @brief how secure the server rates the endpoint. Higher is more secure.
+    uint8_t security_level = 0;
+
+    /// @returns the endpoint as JSON.
+    [[nodiscard]] x::json::json to_json() const;
+};
+
+/// @brief asks the server at cfg.endpoint for its endpoints. Opens a channel with no
+/// security and no Session, and closes it before it returns.
+/// @returns the error that errors::parse_connect gives if the request fails.
+std::pair<std::vector<Endpoint>, x::errors::Error> endpoints(const Config &cfg);
+
 /// @brief closes the client's channel and connects it again with the security it was
 /// created with. The server activates the client's Session again, or the client creates
 /// a new one if the server dropped it.
@@ -151,12 +174,30 @@ std::optional<certificate::Certificate> server_certificate(UA_Client *client);
 /// first one the server presented. Nothing if the client trusts any certificate.
 std::optional<certificate::Certificate> trusted_certificate(UA_Client *client);
 
+/// @brief what the Driver reads from a server at the start of each Session.
+struct Server {
+    /// @brief the namespace URIs of the server, by index.
+    std::vector<std::string> namespaces;
+    /// @brief the most nodes that one Read request can name. 0 means no limit.
+    uint32_t max_nodes_per_read = 0;
+    /// @brief the most nodes that one Write request can name. 0 means no limit.
+    uint32_t max_nodes_per_write = 0;
+};
+
 class Pool {
 public:
     class Connection {
     public:
-        Connection(std::shared_ptr<UA_Client> client, Pool *pool, std::string key):
-            client_(std::move(client)), pool_(pool), key_(std::move(key)) {}
+        Connection(
+            std::shared_ptr<UA_Client> client,
+            Pool *pool,
+            std::string key,
+            std::shared_ptr<const Server> server = nullptr
+        ):
+            client_(std::move(client)),
+            pool_(pool),
+            key_(std::move(key)),
+            server_(std::move(server)) {}
 
         ~Connection() {
             if (pool_ && client_) { pool_->release(key_, client_); }
@@ -168,7 +209,8 @@ public:
         Connection(Connection &&other) noexcept:
             client_(std::move(other.client_)),
             pool_(other.pool_),
-            key_(std::move(other.key_)) {
+            key_(std::move(other.key_)),
+            server_(std::move(other.server_)) {
             other.pool_ = nullptr;
         }
 
@@ -178,6 +220,7 @@ public:
                 client_ = std::move(other.client_);
                 pool_ = other.pool_;
                 key_ = std::move(other.key_);
+                server_ = std::move(other.server_);
                 other.pool_ = nullptr;
             }
             return *this;
@@ -187,17 +230,32 @@ public:
         [[nodiscard]] std::shared_ptr<UA_Client> shared() const { return client_; }
         explicit operator bool() const { return client_ != nullptr; }
 
-        /// @brief reads the attributes that req names.
+        /// @returns what the Driver read from the server when the client last
+        /// connected. Requires a connection from Pool::acquire, as do read and write.
+        [[nodiscard]] const Server &server() const { return *server_; }
+
+        /// @brief reads the attributes that req names, in as many requests as the
+        /// server's limit needs.
         /// @returns errors::NO_CONNECTION without sending req when the connection is
-        /// lost, or the error of the service result.
+        /// lost, the error of the service result, or errors::CRITICAL when the server
+        /// returns a result count that does not match req.
         [[nodiscard]] std::pair<types::ReadResponse, x::errors::Error>
         read(const UA_ReadRequest &req) const;
 
-        /// @brief writes the values in req.
+        /// @brief writes the values in req, in as many requests as the server's limit
+        /// needs.
         /// @returns errors::NO_CONNECTION without sending req when the connection is
-        /// lost, or the error of the service result.
+        /// lost, the error of the service result, or errors::CRITICAL when the server
+        /// returns a result count that does not match req.
         [[nodiscard]] std::pair<types::WriteResponse, x::errors::Error>
         write(const UA_WriteRequest &req) const;
+
+        /// @brief records the namespaces in value, a read of the NamespaceArray node,
+        /// as those of the server, for this connection and each later one on its
+        /// Session.
+        /// @returns true if the namespaces changed, or errors::CRITICAL if value holds
+        /// no namespace array.
+        std::pair<bool, x::errors::Error> update_namespaces(const UA_DataValue &value);
 
     private:
         /// @returns the error of the service result of a call. A call that fails for a
@@ -208,6 +266,7 @@ public:
         std::shared_ptr<UA_Client> client_;
         Pool *pool_;
         std::string key_;
+        std::shared_ptr<const Server> server_;
 
         friend class Pool;
     };
@@ -244,14 +303,13 @@ public:
     std::pair<Connection, x::errors::Error>
     acquire(const Config &cfg, const std::string &log_prefix);
 
-    /// @brief replaces conn with a new connection when the configuration now resolves
-    /// to another client certificate, such as after the Driver certificate changes.
-    /// The new connection trusts only the server certificate that conn trusts. Leaves
-    /// conn unchanged when the client certificate is the same or the new connection
-    /// fails.
-    /// @returns true if it replaced conn.
-    std::pair<bool, x::errors::Error>
-    refresh(Connection &conn, const Config &cfg, const std::string &log_prefix);
+    /// @brief connects again when the configuration now resolves to another client
+    /// certificate than conn uses, such as after the Driver certificate changes. The
+    /// new connection trusts only the server certificate that conn trusts.
+    /// @returns the new connection, or an empty one when the client certificate is the
+    /// same.
+    std::pair<Connection, x::errors::Error>
+    refresh(const Connection &conn, const Config &cfg, const std::string &log_prefix);
 
     /// @returns the time of the last reply from the server on a connection with the
     /// configuration, or a zero timestamp if none replied.
@@ -268,6 +326,8 @@ private:
 
     struct Entry {
         std::shared_ptr<UA_Client> client;
+        /// @brief what the Driver read from the server when the Session started.
+        std::shared_ptr<const Server> server;
         bool in_use;
         /// @brief whether the connection uses a replaced client certificate. A retired
         /// connection closes when it is released.
@@ -329,6 +389,9 @@ private:
 
     /// @brief marks the entry of client as idle again. Requires mutex_.
     void put_back(const std::string &key, const std::shared_ptr<UA_Client> &client);
+
+    /// @returns the entry of client. Requires mutex_ and an entry in use.
+    Entry &entry(const std::string &key, const std::shared_ptr<UA_Client> &client);
 
     /// @brief records key as the client certificate that settings uses now. Removes
     /// the idle connections of the certificate it replaces and retires the ones in use.
