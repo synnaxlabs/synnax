@@ -486,6 +486,21 @@ synnax cert node synnax.example.com
 
 <Divider.Divider x />
 
+## Restore
+
+The `restore` command lists the metadata backups in the data folder, or puts the named
+backup back. The Core makes a backup before a new version first opens the data. Stop the
+Core first. The command takes `--data` with the same default as `start`, and prints the
+Core version to run on the restored data. See
+[Go back to an earlier version](/reference/enterprise/upgrade#go-back-to-an-earlier-version).
+
+```bash
+synnax restore
+synnax restore 1793000000-0.60.1
+```
+
+<Divider.Divider x />
+
 ## Version
 
 The `version` command, or `synnax --version`, prints the version of the Core:
