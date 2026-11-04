@@ -202,7 +202,7 @@ interface FieldPaneProps {
 }
 
 const FieldPane: FC<FieldPaneProps> = ({ endpoint, path }) => {
-  const { channel: fieldChannel, pointer } = PForm.useFieldValue(path);
+  const { channel: fieldChannel, pointer, disabled } = PForm.useFieldValue(path);
   const defaultName = useDefaultChannelName(endpoint, pointer);
   return (
     <Flex.Box y grow empty className={CSS.B("endpoint-details")}>
@@ -219,6 +219,7 @@ const FieldPane: FC<FieldPaneProps> = ({ endpoint, path }) => {
             channel={fieldChannel}
             namePath={path.name}
             defaultName={defaultName}
+            skipped={disabled}
           />
         </PForm.Section>
         <Task.Payload.EnumMappingSection path={path.enumValues} />

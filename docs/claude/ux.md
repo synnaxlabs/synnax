@@ -207,6 +207,8 @@ bound, a log precision, or the line plot X channel.
   the way to enable the channel again.
 - A new task takes the only device of its make. With two or more, the device stays
   empty.
+- A task form is at most 1000 px wide. A task whose channel table needs more room sets
+  `--console-task-form-max-width`. Modbus uses 1200 px.
 - Port banks sit side by side in columns eight ports wide, each under its title. They
   wrap to one column in a narrow pane.
 - A port field that lists an accessory's ports, such as the 80 that a Mux80 adds to a
@@ -264,6 +266,28 @@ bound, a log precision, or the line plot X channel.
 - A heading over a field lines up with the field's text, not its box.
 - A record table that does not fit its pane scrolls sideways, and the headings scroll
   with it. Fields never shrink to fit: a cut value can read as another value.
+- A field whose glyph shows its value, such as the Modbus byte order, drops its name
+  when the form is below its maximum width. Its menu still names each option.
+- A task channel's icon shows its state, in place of the flow arrow in a record table:
+  the arrow for a channel that exists, a green `Icon.New` for one that deploying will
+  create, and an amber `Icon.None` for one that is missing, with its name in gray. The
+  two state circles look the same size: the tinted `Icon.New` disc is drawn a little
+  wider than the dashed ring, because a faint fill looks smaller. Each state but the
+  first has a tooltip that says what deploying does, below the name at its left edge.
+  The name never takes a state color.
+- A channel that deploying will create shows the name deploying gives it, from the
+  function that deploy uses. "No channel" in gray is only for a channel whose name
+  cannot be known yet.
+- A channel that deploying skips, such as a disabled one, shows no `Icon.New`. In a
+  list, its tooltip says that deploying skips it.
+- A missing channel shows the name deploying will use, and a rename edits that name. Its
+  data type unlocks too, because deploying creates a new channel.
+- A channel that the form picks, as in Kafka write, is never new. It reads "No channel"
+  before a pick and "Channel not found" after its channel is deleted.
+- A channel name input shows the same state icons at its start. An item in a group tree
+  shows them at its end, before its switch, so the pointers keep one left edge. Neither
+  shows an icon or a tooltip for a skipped channel: the tree strikes through the item or
+  its group.
 
 ### Table input
 
