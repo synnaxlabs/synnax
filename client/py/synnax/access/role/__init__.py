@@ -9,6 +9,6 @@
 
 
 from synnax.access.role.client import Client
-from synnax.access.role.types_gen import ONTOLOGY_TYPE, Role, ontology_id
+from synnax.access.role.types_gen import RESOURCE_TYPE, Role, resource_id
 
-__all__ = ["ONTOLOGY_TYPE", "Client", "Role", "ontology_id"]
+__all__ = ["RESOURCE_TYPE", "Client", "Role", "resource_id"]

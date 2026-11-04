@@ -785,7 +785,7 @@ class TestChannelRetrieveFilters:
         virt = create_channels[2]
         client.statuses.set(
             sy.Status(
-                key=str(virt.ontology_id),
+                key=str(virt.resource_id),
                 name=virt.name,
                 variant=sy.status.VARIANT_SUCCESS,
                 message="ok",

@@ -126,7 +126,7 @@ def _create_log(client: sy.Synnax, tmp_path: Path, proj: sy.Project, name: str) 
             }
         )
     )
-    client.imex.import_(path, parent=sy.project.ontology_id(proj.key))
+    client.imex.import_(path, parent=sy.project.resource_id(proj.key))
 
 
 def _member_names(bundle: Path) -> set[str]:
@@ -157,7 +157,7 @@ class TestProjectExportImport:
         assert imported.name == name
         assert client.projects.retrieve(key=imported.key).name == name
         children = client.ontology.retrieve_children(
-            sy.project.ontology_id(imported.key)
+            sy.project.resource_id(imported.key)
         )
         assert [child.type for child in children] == ["log"] * len(log_names)
         reexported = tmp_path / "reexported.zip"

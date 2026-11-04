@@ -20,7 +20,7 @@ from pydantic import BaseModel, Field, JsonValue
 from synnax import device as device_
 from synnax import rack as rack_
 from synnax import status as status_
-from synnax.ontology.payload import ID
+from synnax.resource.payload import ID
 from x import telem
 
 Key: TypeAlias = UUID
@@ -198,8 +198,8 @@ class WriteConfig(PersistConfig):
         return hash(self.key)
 
 
-ONTOLOGY_TYPE = ID(type="task")
+RESOURCE_TYPE = ID(type="task")
 
 
-def ontology_id(key: Key) -> ID:
+def resource_id(key: Key) -> ID:
     return ID(type="task", key=str(key))

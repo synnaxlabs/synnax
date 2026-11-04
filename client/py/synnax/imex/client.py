@@ -10,7 +10,7 @@
 from typing import Literal
 
 from freighter import FileTransport
-from synnax import ontology
+from synnax import resource
 from x.fs import FilePath
 
 Encoding = Literal["JSON"]
@@ -30,8 +30,8 @@ class Client:
     def __init__(self, file_transport: FileTransport) -> None:
         self._file_transport = file_transport
 
-    def import_(self, source: FilePath, *, parent: ontology.ID) -> ontology.ID:
-        """Imports the resource at source and returns its new ontology ID.
+    def import_(self, source: FilePath, *, parent: resource.ID) -> resource.ID:
+        """Imports the resource at source and returns its new resource ID.
 
         The source file's name travels with the request: when the file's contents carry
         no top-level ``name`` field, the Core names the imported resource after the
@@ -42,19 +42,19 @@ class Client:
             project for project items, a group for symbols. The Core creates the
             resource and its parent relationship in a single transaction, so a parenting
             failure rolls the import back.
-        :returns: the new resource's ontology ID.
+        :returns: the new resource's resource ID.
         """
         return self._file_transport.upload(
-            "/imex/import", source, ontology.ID, params={"parent": str(parent)}
+            "/imex/import", source, resource.ID, params={"parent": str(parent)}
         )
 
-    def export(self, id: ontology.ID, dest: FilePath) -> None:
+    def export(self, id: resource.ID, dest: FilePath) -> None:
         """Exports the resource identified by id, streaming it into dest.
 
         The response body is streamed straight into dest — the on-disk format is driven
         by the destination's extension.
 
-        :param id: the ontology ID of the resource to export.
+        :param id: the resource ID of the resource to export.
         :param dest: a file path to stream the response body into.
         """
         self._file_transport.download("/imex/export", id, dest=dest)

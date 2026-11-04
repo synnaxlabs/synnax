@@ -17,7 +17,7 @@ from uuid import UUID
 
 from pydantic import BaseModel
 
-from synnax.ontology.payload import ID
+from synnax.resource.payload import ID
 
 Key: TypeAlias = UUID
 
@@ -39,8 +39,8 @@ class Group(BaseModel):
         return hash(self.key)
 
 
-ONTOLOGY_TYPE = ID(type="group")
+RESOURCE_TYPE = ID(type="group")
 
 
-def ontology_id(key: Key) -> ID:
+def resource_id(key: Key) -> ID:
     return ID(type="group", key=str(key))

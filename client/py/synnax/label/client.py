@@ -14,15 +14,15 @@ from pydantic import BaseModel, ConfigDict, Field
 from freighter import Empty, UnaryClient
 from synnax.exceptions import MultipleFoundError, NotFoundError, ValidationError
 from synnax.label.types_gen import Key, Label
-from synnax.ontology.payload import ID, CrudeID
+from synnax.resource import ID, CrudeID
 from x import color as color_
 from x.lists import normalize
 
-ONTOLOGY_TYPE = ID(type="label")
+RESOURCE_TYPE = ID(type="label")
 
 
-def ontology_id(key: Key) -> ID:
-    """Returns the ontology ID of the label with the given key."""
+def resource_id(key: Key) -> ID:
+    """Returns the resource ID of the label with the given key."""
     return ID(key=str(key), type="label")
 
 
@@ -145,7 +145,7 @@ class Client:
         :param keys: The keys of the labels to retrieve.
         :param names: The names of the labels to retrieve.
         :param search_term: A fuzzy search term matched against label names.
-        :param for_: The ontology ID of a resource. Retrieves the labels on that
+        :param for_: The resource ID of a resource. Retrieves the labels on that
             resource and ignores every other filter.
         :param limit: The maximum number of labels to retrieve.
         :param offset: The number of labels to skip.
@@ -186,7 +186,7 @@ class Client:
     ) -> None:
         """Adds labels to a resource.
 
-        :param id: The ontology ID of the resource to label.
+        :param id: The resource ID of the resource to label.
         :param labels: A single label key or a list of keys to add.
         :param replace: If true, removes every other label from the resource.
         """
@@ -196,7 +196,7 @@ class Client:
     def remove(self, id: CrudeID, labels: Key | list[Key]) -> None:
         """Removes labels from a resource.
 
-        :param id: The ontology ID of the resource.
+        :param id: The resource ID of the resource.
         :param labels: A single label key or a list of keys to remove.
         """
         req = _RemoveRequest(id=ID(id), labels=normalize(labels))

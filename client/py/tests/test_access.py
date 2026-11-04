@@ -24,16 +24,16 @@ class TestAccessClient:
                 sy.Policy(
                     name="Test Policy 1",
                     objects=[
-                        sy.ontology.ID(type="channel", key=str(uuid.uuid4())),
-                        sy.ontology.ID(type="label", key=str(uuid.uuid4())),
+                        sy.resource.ID(type="channel", key=str(uuid.uuid4())),
+                        sy.resource.ID(type="label", key=str(uuid.uuid4())),
                     ],
                     actions=["create"],
                 ),
                 sy.Policy(
                     name="Test Policy 2",
                     objects=[
-                        sy.ontology.ID(type="channel", key=str(uuid.uuid4())),
-                        sy.ontology.ID(type="label", key=str(uuid.uuid4())),
+                        sy.resource.ID(type="channel", key=str(uuid.uuid4())),
+                        sy.resource.ID(type="label", key=str(uuid.uuid4())),
                     ],
                     actions=["create"],
                 ),
@@ -51,8 +51,8 @@ class TestAccessClient:
         p = sy.Policy(
             name="Single Test Policy",
             objects=[
-                sy.ontology.ID(type="channel", key=str(uuid.uuid4())),
-                sy.ontology.ID(type="label", key=str(uuid.uuid4())),
+                sy.resource.ID(type="channel", key=str(uuid.uuid4())),
+                sy.resource.ID(type="label", key=str(uuid.uuid4())),
             ],
             actions=["create"],
         )
@@ -70,7 +70,7 @@ class TestAccessClient:
         # For now, just verify the call completes without crashing
         try:
             res = client.access.policies.retrieve(
-                subjects=[sy.ontology.ID(type="channel", key="hehe")]
+                subjects=[sy.resource.ID(type="channel", key="hehe")]
             )
             assert isinstance(res, list)
         except sy.NotFoundError:
@@ -92,7 +92,7 @@ class TestAccessClient:
         created = client.access.policies.create(
             sy.Policy(
                 name="Test Non-Internal Policy",
-                objects=[sy.ontology.ID(type="channel", key=str(uuid.uuid4()))],
+                objects=[sy.resource.ID(type="channel", key=str(uuid.uuid4()))],
                 actions=["retrieve"],
             )
         )

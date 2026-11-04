@@ -17,7 +17,7 @@ from freighter import Empty, UnaryClient
 from synnax import rack as rack_
 from synnax.device.types_gen import Device, Key
 from synnax.exceptions import NotFoundError
-from synnax.ontology.payload import ID as OntologyID
+from synnax.resource import ID as ResourceID
 from x.lists import all_none, normalize, override
 
 
@@ -80,7 +80,7 @@ class Client:
         make: str = "",
         model: str = "",
         configured: bool = False,
-        parent: OntologyID | None = None,
+        parent: ResourceID | None = None,
         properties: dict[str, Any] | None = None,
     ) -> Device: ...
 
@@ -107,7 +107,7 @@ class Client:
         make: str = "",
         model: str = "",
         configured: bool = False,
-        parent: OntologyID | None = None,
+        parent: ResourceID | None = None,
         properties: dict[str, Any] | None = None,
     ) -> Device | list[Device]:
         is_single = not isinstance(devices, list)
@@ -292,7 +292,7 @@ class Client:
         :param limit: The maximum number of devices to return.
         :param offset: The number of devices to skip.
         :param include_status: Whether to populate each device's status.
-        :param include_parent: Whether to populate each device's parent ontology ID.
+        :param include_parent: Whether to populate each device's parent resource ID.
         :param ignore_not_found: Whether to return None instead of raising when a
             single device is requested and none matches.
         :raises ValueError: If two singular selectors are given, or one is

@@ -15,9 +15,9 @@ import synnax as sy
 
 
 @pytest.fixture
-def resource(client: sy.Synnax) -> sy.ontology.ID:
+def resource(client: sy.Synnax) -> sy.resource.ID:
     group = client.groups.create(sy.ontology.ROOT_ID, str(uuid4()))
-    return sy.group.ontology_id(group.key)
+    return sy.group.resource_id(group.key)
 
 
 @pytest.mark.label
@@ -126,7 +126,7 @@ class TestLabelClient:
 class TestLabelResource:
     """Tests for adding labels to and removing labels from a resource."""
 
-    def test_label(self, client: sy.Synnax, resource: sy.ontology.ID) -> None:
+    def test_label(self, client: sy.Synnax, resource: sy.resource.ID) -> None:
         """Should add labels to a resource."""
         a = client.labels.create(name=str(uuid4()), color="#FF0000")
         b = client.labels.create(name=str(uuid4()), color="#FF0000")
@@ -134,7 +134,7 @@ class TestLabelResource:
         res = client.labels.retrieve(for_=resource)
         assert {lbl.key for lbl in res} == {a.key, b.key}
 
-    def test_label_adds(self, client: sy.Synnax, resource: sy.ontology.ID) -> None:
+    def test_label_adds(self, client: sy.Synnax, resource: sy.resource.ID) -> None:
         """Should keep the existing labels of a resource when replace is false."""
         a = client.labels.create(name=str(uuid4()), color="#FF0000")
         b = client.labels.create(name=str(uuid4()), color="#FF0000")
@@ -143,7 +143,7 @@ class TestLabelResource:
         res = client.labels.retrieve(for_=resource)
         assert {lbl.key for lbl in res} == {a.key, b.key}
 
-    def test_label_replace(self, client: sy.Synnax, resource: sy.ontology.ID) -> None:
+    def test_label_replace(self, client: sy.Synnax, resource: sy.resource.ID) -> None:
         """Should remove every other label from the resource when replace is true."""
         a = client.labels.create(name=str(uuid4()), color="#FF0000")
         b = client.labels.create(name=str(uuid4()), color="#FF0000")
@@ -152,7 +152,7 @@ class TestLabelResource:
         res = client.labels.retrieve(for_=resource)
         assert [lbl.key for lbl in res] == [b.key]
 
-    def test_remove(self, client: sy.Synnax, resource: sy.ontology.ID) -> None:
+    def test_remove(self, client: sy.Synnax, resource: sy.resource.ID) -> None:
         """Should remove labels from a resource."""
         a = client.labels.create(name=str(uuid4()), color="#FF0000")
         b = client.labels.create(name=str(uuid4()), color="#FF0000")
@@ -162,21 +162,21 @@ class TestLabelResource:
         assert [lbl.key for lbl in res] == [b.key]
 
     def test_retrieve_for_string_id(
-        self, client: sy.Synnax, resource: sy.ontology.ID
+        self, client: sy.Synnax, resource: sy.resource.ID
     ) -> None:
-        """Should accept the ontology ID of the resource as a string."""
+        """Should accept the resource ID of the resource as a string."""
         lbl = client.labels.create(name=str(uuid4()), color="#FF0000")
         client.labels.label(str(resource), lbl.key)
         assert client.labels.retrieve(for_=str(resource)) == [lbl]
 
     def test_retrieve_for_unlabeled(
-        self, client: sy.Synnax, resource: sy.ontology.ID
+        self, client: sy.Synnax, resource: sy.resource.ID
     ) -> None:
         """Should retrieve no labels for a resource that has none."""
         assert client.labels.retrieve(for_=resource) == []
 
     def test_delete_removes_from_resource(
-        self, client: sy.Synnax, resource: sy.ontology.ID
+        self, client: sy.Synnax, resource: sy.resource.ID
     ) -> None:
         """Should remove a deleted label from every resource."""
         lbl = client.labels.create(name=str(uuid4()), color="#FF0000")

@@ -20,7 +20,7 @@ from pydantic import BaseModel, Field
 from synnax.arc import graph as graph_
 from synnax.arc import program as program_
 from synnax.arc import text as text_
-from synnax.ontology.payload import ID
+from synnax.resource.payload import ID
 
 MODE_TEXT: Literal["text"] = "text"
 
@@ -58,8 +58,8 @@ class Payload(BaseModel):
         return hash(self.key)
 
 
-ONTOLOGY_TYPE = ID(type="arc")
+RESOURCE_TYPE = ID(type="arc")
 
 
-def ontology_id(key: Key) -> ID:
+def resource_id(key: Key) -> ID:
     return ID(type="arc", key=str(key))

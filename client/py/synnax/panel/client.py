@@ -12,9 +12,9 @@ from typing import Literal, overload
 from pydantic import BaseModel, Field
 
 from freighter import Empty, UnaryClient
-from synnax import ontology
+from synnax import ontology, resource
 from synnax.exceptions import NotFoundError
-from synnax.panel.types_gen import ONTOLOGY_TYPE, Key, Panel
+from synnax.panel.types_gen import RESOURCE_TYPE, Key, Panel
 from x.lists import normalize
 
 
@@ -70,7 +70,7 @@ class Client:
         self._ontology = ontology
 
     @overload
-    def create(self, *, name: str, parent: ontology.ID) -> Panel: ...
+    def create(self, *, name: str, parent: resource.ID) -> Panel: ...
 
     @overload
     def create(self, panels: Panel) -> Panel: ...
@@ -83,14 +83,14 @@ class Client:
         panels: Panel | list[Panel] | None = None,
         *,
         name: str = "",
-        parent: ontology.ID | None = None,
+        parent: resource.ID | None = None,
     ) -> Panel | list[Panel]:
         """Create one or more panels.
 
         :param panels: A single panel or a list of them. When omitted, a panel is
             created from the ``name`` and ``parent`` keyword arguments.
         :param name: The name of the panel to create when ``panels`` is omitted.
-        :param parent: The ontology ID of the resource that owns the panel, such as a
+        :param parent: The resource ID of the resource that owns the panel, such as a
             project, when ``panels`` is omitted.
         :returns: The created panel, or a list of created panels when ``panels`` is a
             list.
@@ -129,7 +129,7 @@ class Client:
         self,
         *,
         keys: list[Key] | None = None,
-        parent: ontology.ID | None = None,
+        parent: resource.ID | None = None,
         search_term: str | None = None,
         limit: int | None = None,
         offset: int | None = None,
@@ -140,7 +140,7 @@ class Client:
         *,
         key: Key | None = None,
         keys: list[Key] | None = None,
-        parent: ontology.ID | None = None,
+        parent: resource.ID | None = None,
         search_term: str | None = None,
         limit: int | None = None,
         offset: int | None = None,
@@ -150,7 +150,7 @@ class Client:
         :param key: The key of a single panel to retrieve. When provided, a single
             panel is returned and NotFoundError is raised if it does not exist.
         :param keys: The keys of the panels to retrieve.
-        :param parent: The ontology ID of a resource, such as a project. Only the
+        :param parent: The resource ID of a resource, such as a project. Only the
             panels that are children of this resource are returned. Replaces ``keys``.
         :param search_term: A fuzzy search term matched against panel names.
         :param limit: The maximum number of panels to return.
@@ -165,7 +165,7 @@ class Client:
         if parent is not None:
             keys = []
             for child in self._ontology.retrieve_children(parent):
-                if child.type != ONTOLOGY_TYPE.type:
+                if child.type != RESOURCE_TYPE.type:
                     continue
                 if child.key is None:
                     raise ValueError(f"panel child of {parent} has no key")

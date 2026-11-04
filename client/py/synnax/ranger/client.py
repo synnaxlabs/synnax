@@ -25,16 +25,16 @@ from synnax.channel.retrieve import Retriever as ChannelRetriever
 from synnax.exceptions import ConfigurationError, MultipleFoundError, NotFoundError
 from synnax.framer.frame import K
 from synnax.ontology import Client as OntologyClient
-from synnax.ontology.payload import ID
 from synnax.ranger import alias as alias_
 from synnax.ranger import kv
 from synnax.ranger.retrieve import Request, Retriever
 from synnax.ranger.types_gen import (
     Key,
     Payload,
-    ontology_id,
+    resource_id,
 )
 from synnax.ranger.writer import Writer
+from synnax.resource import ID
 from synnax.signals.signals import Registry
 from synnax.state import Latest
 from synnax.task import Client as TaskClient
@@ -379,8 +379,8 @@ class Range(Payload):
         return results
 
     @property
-    def ontology_id(self) -> ID:
-        return ontology_id(self.key)
+    def resource_id(self) -> ID:
+        return resource_id(self.key)
 
     @property
     def meta_data(self) -> kv.Client:
@@ -504,7 +504,7 @@ class Range(Payload):
     @property
     def children(self) -> list[Range]:
         """Returns a list of child ranges of this range."""
-        res = self._ontology.retrieve_children(self.ontology_id)
+        res = self._ontology.retrieve_children(self.resource_id)
         range_children = [r for r in res if r.type == "range"]
         if len(range_children) == 0:
             return []
@@ -515,24 +515,24 @@ class Range(Payload):
 
     def retrieve_labels(self) -> list[label.Label]:
         """Retrieves the labels on the range from the Core."""
-        return self._label_client.retrieve(for_=self.ontology_id)
+        return self._label_client.retrieve(for_=self.resource_id)
 
     def add_label(self, *labels: label.Key) -> None:
         """Adds labels to the range.
 
         :param labels: The keys of the labels to add.
         """
-        self._label_client.label(self.ontology_id, list(labels))
+        self._label_client.label(self.resource_id, list(labels))
 
     def remove_label(self, *labels: label.Key) -> None:
         """Removes labels from the range.
 
         :param labels: The keys of the labels to remove.
         """
-        self._label_client.remove(self.ontology_id, list(labels))
+        self._label_client.remove(self.resource_id, list(labels))
 
     def snapshots(self) -> list[Task]:
-        res = self._ontology.retrieve_children(self.ontology_id)
+        res = self._ontology.retrieve_children(self.resource_id)
         tasks = [t for t in res if t.type == "task"]
         return self._tasks.retrieve(
             keys=[UUID(t.key) for t in tasks if t.key is not None]

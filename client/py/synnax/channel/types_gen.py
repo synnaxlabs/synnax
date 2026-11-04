@@ -18,7 +18,7 @@ from pydantic import BaseModel, Field
 
 from synnax import node
 from synnax import status as status_
-from synnax.ontology.payload import ID
+from synnax.resource.payload import ID
 from x import control, telem
 
 Key: TypeAlias = int
@@ -111,8 +111,8 @@ class Payload(BaseModel):
         return hash(self.key)
 
 
-ONTOLOGY_TYPE = ID(type="channel")
+RESOURCE_TYPE = ID(type="channel")
 
 
-def ontology_id(key: Key) -> ID:
+def resource_id(key: Key) -> ID:
     return ID(type="channel", key=str(key))

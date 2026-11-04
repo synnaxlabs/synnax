@@ -277,11 +277,11 @@ class TestStatusClient:
         assert created.description == "Detailed description"
 
     def test_set_with_parent(self, client: sy.Synnax) -> None:
-        """Should create status with a parent ontology ID."""
+        """Should create status with a parent resource ID."""
         parent_group = client.groups.create(
             parent=sy.ontology.ROOT_ID, name="Status Parent Group"
         )
-        parent_id = sy.group.ontology_id(parent_group.key)
+        parent_id = sy.group.resource_id(parent_group.key)
 
         status: sy.Status[None] = sy.Status(
             variant=sy.status.VARIANT_INFO, message="Child status"
@@ -294,10 +294,10 @@ class TestStatusClient:
         children = client.ontology.retrieve_children(parent_id_str)
         assert any(r.key == created.key for r in children)
 
-    def test_ontology_id_helper(self) -> None:
-        """Should create proper ontology ID."""
+    def test_resource_id_helper(self) -> None:
+        """Should create proper resource ID."""
         key = "test-status-key"
-        oid = sy.status.ontology_id(key)
+        oid = sy.status.resource_id(key)
 
         assert oid.type == "status"
         assert oid.key == key

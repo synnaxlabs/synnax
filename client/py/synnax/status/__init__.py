@@ -9,10 +9,10 @@
 
 from synnax.status.client import (
     DELETE_CHANNEL,
-    ONTOLOGY_TYPE,
+    RESOURCE_TYPE,
     SET_CHANNEL,
     Client,
-    ontology_id,
+    resource_id,
 )
 from synnax.status.types_gen import (
     VARIANT_DISABLED,
@@ -28,7 +28,7 @@ from synnax.status.types_gen import (
 
 __all__ = [
     "DELETE_CHANNEL",
-    "ONTOLOGY_TYPE",
+    "RESOURCE_TYPE",
     "SET_CHANNEL",
     "VARIANT_DISABLED",
     "VARIANT_ERROR",
@@ -40,5 +40,5 @@ __all__ = [
     "Key",
     "Status",
     "Variant",
-    "ontology_id",
+    "resource_id",
 ]

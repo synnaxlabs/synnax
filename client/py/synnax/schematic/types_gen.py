@@ -18,7 +18,7 @@ from uuid import UUID, uuid4
 from pydantic import BaseModel, Field
 
 from synnax import channel as channel_
-from synnax.ontology.payload import ID
+from synnax.resource.payload import ID
 from synnax.schematic import symbol
 from x import border, spatial, text
 from x import color as color_
@@ -1921,8 +1921,8 @@ class Schematic(BaseModel):
         return hash(self.key)
 
 
-ONTOLOGY_TYPE = ID(type="schematic")
+RESOURCE_TYPE = ID(type="schematic")
 
 
-def ontology_id(key: Key) -> ID:
+def resource_id(key: Key) -> ID:
     return ID(type="schematic", key=str(key))

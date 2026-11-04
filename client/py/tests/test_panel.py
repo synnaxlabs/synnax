@@ -55,25 +55,25 @@ class TestPanel:
         assert isinstance(p.root.last.tabs[0], panel.ViewTab)
         assert panel.Panel.model_validate_json(p.model_dump_json()) == p
 
-    def test_ontology_id(self) -> None:
-        """Should build the ontology ID of a panel."""
+    def test_resource_id(self) -> None:
+        """Should build the resource ID of a panel."""
         key = uuid4()
-        assert panel.ontology_id(key).type == panel.ONTOLOGY_TYPE.type
-        assert panel.ontology_id(key).key == str(key)
+        assert panel.resource_id(key).type == panel.RESOURCE_TYPE.type
+        assert panel.resource_id(key).key == str(key)
         p = panel.Panel(name="Ops")
         assert hash(p) == hash(p.key)
 
 
 @pytest.fixture
-def parent(client: sy.Synnax) -> sy.ontology.ID:
+def parent(client: sy.Synnax) -> sy.resource.ID:
     """Creates a project to own the panels of a test."""
     proj = client.projects.create(name="Panel Parent")
-    return sy.project.ontology_id(proj.key)
+    return sy.project.resource_id(proj.key)
 
 
 @pytest.mark.panel
 class TestClient:
-    def test_create(self, client: sy.Synnax, parent: sy.ontology.ID) -> None:
+    def test_create(self, client: sy.Synnax, parent: sy.resource.ID) -> None:
         """Should create a single panel with an empty root leaf."""
         p = client.panels.create(name="Test Panel", parent=parent)
         assert p.name == "Test Panel"
@@ -81,7 +81,7 @@ class TestClient:
         assert p.root.tabs == []
 
     def test_create_from_object(
-        self, client: sy.Synnax, parent: sy.ontology.ID
+        self, client: sy.Synnax, parent: sy.resource.ID
     ) -> None:
         """Should create a panel from a Panel object and keep its tree."""
         tab = sy.panel.ViewTab(type="docs")
@@ -97,7 +97,7 @@ class TestClient:
         assert len(retrieved.root.tabs) == 1
         assert retrieved.root.tabs[0].key == tab.key
 
-    def test_create_multiple(self, client: sy.Synnax, parent: sy.ontology.ID) -> None:
+    def test_create_multiple(self, client: sy.Synnax, parent: sy.resource.ID) -> None:
         """Should create multiple panels."""
         panels = client.panels.create(
             [
@@ -112,14 +112,14 @@ class TestClient:
         with pytest.raises(ValidationError):
             client.panels.create(sy.Panel(name="Orphan"))
 
-    def test_retrieve_by_key(self, client: sy.Synnax, parent: sy.ontology.ID) -> None:
+    def test_retrieve_by_key(self, client: sy.Synnax, parent: sy.resource.ID) -> None:
         """Should retrieve a panel by key."""
         created = client.panels.create(name="Retrieve Me", parent=parent)
         retrieved = client.panels.retrieve(key=created.key)
         assert retrieved.key == created.key
         assert retrieved.name == "Retrieve Me"
 
-    def test_retrieve_by_keys(self, client: sy.Synnax, parent: sy.ontology.ID) -> None:
+    def test_retrieve_by_keys(self, client: sy.Synnax, parent: sy.resource.ID) -> None:
         """Should retrieve multiple panels by keys."""
         p1 = client.panels.create(name="Panel A", parent=parent)
         p2 = client.panels.create(name="Panel B", parent=parent)
@@ -127,24 +127,24 @@ class TestClient:
         assert {p.key for p in panels} == {p1.key, p2.key}
 
     def test_retrieve_by_parent(
-        self, client: sy.Synnax, parent: sy.ontology.ID
+        self, client: sy.Synnax, parent: sy.resource.ID
     ) -> None:
         """Should retrieve only the panels that are children of the parent."""
         p1 = client.panels.create(name="Child 1", parent=parent)
         p2 = client.panels.create(name="Child 2", parent=parent)
         other = client.projects.create(name="Other Parent")
-        client.panels.create(name="Other", parent=sy.project.ontology_id(other.key))
+        client.panels.create(name="Other", parent=sy.project.resource_id(other.key))
         panels = client.panels.retrieve(parent=parent)
         assert {p.key for p in panels} == {p1.key, p2.key}
 
     def test_retrieve_by_parent_without_children(
-        self, client: sy.Synnax, parent: sy.ontology.ID
+        self, client: sy.Synnax, parent: sy.resource.ID
     ) -> None:
         """Should return no panels when the parent has no panel children."""
         assert client.panels.retrieve(parent=parent) == []
 
     def test_retrieve_with_search_term(
-        self, client: sy.Synnax, parent: sy.ontology.ID
+        self, client: sy.Synnax, parent: sy.resource.ID
     ) -> None:
         """Should search for panels by name."""
         prefix = "searchable-panel"
@@ -167,20 +167,20 @@ class TestClient:
         with pytest.raises(NotFoundError):
             client.panels.retrieve(key=UUID("7c3e9a52-4b1d-4f0e-9a6c-2d8b5e1f3a90"))
 
-    def test_rename(self, client: sy.Synnax, parent: sy.ontology.ID) -> None:
+    def test_rename(self, client: sy.Synnax, parent: sy.resource.ID) -> None:
         """Should rename a panel."""
         p = client.panels.create(name="Before Rename", parent=parent)
         client.panels.rename(p.key, "After Rename")
         assert client.panels.retrieve(key=p.key).name == "After Rename"
 
-    def test_delete(self, client: sy.Synnax, parent: sy.ontology.ID) -> None:
+    def test_delete(self, client: sy.Synnax, parent: sy.resource.ID) -> None:
         """Should delete a panel."""
         p = client.panels.create(name="To Delete", parent=parent)
         client.panels.delete(p.key)
         with pytest.raises(NotFoundError):
             client.panels.retrieve(key=p.key)
 
-    def test_delete_multiple(self, client: sy.Synnax, parent: sy.ontology.ID) -> None:
+    def test_delete_multiple(self, client: sy.Synnax, parent: sy.resource.ID) -> None:
         """Should delete multiple panels."""
         p1 = client.panels.create(name="Delete 1", parent=parent)
         p2 = client.panels.create(name="Delete 2", parent=parent)

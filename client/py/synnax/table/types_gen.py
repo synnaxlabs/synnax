@@ -18,7 +18,7 @@ from uuid import UUID, uuid4
 from pydantic import BaseModel, Field
 
 from synnax import channel as channel_
-from synnax.ontology.payload import ID
+from synnax.resource.payload import ID
 from x import color, text
 from x import notation as notation_
 
@@ -139,8 +139,8 @@ class Table(BaseModel):
         return hash(self.key)
 
 
-ONTOLOGY_TYPE = ID(type="table")
+RESOURCE_TYPE = ID(type="table")
 
 
-def ontology_id(key: Key) -> ID:
+def resource_id(key: Key) -> ID:
     return ID(type="table", key=str(key))

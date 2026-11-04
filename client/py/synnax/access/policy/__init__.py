@@ -14,7 +14,7 @@ from synnax.access.policy.payload import (
     ACTION_RETRIEVE,
     ACTION_UPDATE,
     Policy,
-    ontology_id,
+    resource_id,
 )
 
 __all__ = [
@@ -24,5 +24,5 @@ __all__ = [
     "ACTION_UPDATE",
     "Client",
     "Policy",
-    "ontology_id",
+    "resource_id",
 ]

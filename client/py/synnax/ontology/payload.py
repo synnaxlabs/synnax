@@ -9,41 +9,11 @@
 
 from __future__ import annotations
 
-from typing import cast, override
-
 from pydantic import BaseModel
 
-from synnax.ontology.types_gen import ResourceType
-
-
-class ID(BaseModel):
-    key: str | None = ""
-    type: ResourceType
-
-    def __init__(
-        self,
-        key: CrudeID | None = None,
-        *,
-        type: ResourceType | None = None,
-    ):
-        if isinstance(key, ID):
-            super().__init__(key=key.key, type=key.type)
-        elif type is None and key is not None:
-            type_str, key = key.split(":")
-            # cast satisfies mypy; pydantic validates the value against
-            # the ResourceType literal at runtime.
-            super().__init__(key=key, type=cast(ResourceType, type_str))
-        else:
-            super().__init__(key=key, type=type)
-
-    @override
-    def __str__(self) -> str:
-        return f"{self.type}:{self.key}"
-
+from synnax.resource import ID
 
 ROOT_ID = ID(key="root", type="builtin")
-
-CrudeID = str | ID
 
 
 class _Relationship(BaseModel):

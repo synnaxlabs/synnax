@@ -180,7 +180,7 @@ class TestTaskClient:
                 cmd = sy.task.Command.model_validate(f["sy_task_cmd"][0])
                 client.statuses.set(
                     sy.task.Status(
-                        key=str(sy.task.ontology_id(cmd.task)),
+                        key=str(sy.task.resource_id(cmd.task)),
                         variant=sy.status.VARIANT_SUCCESS,
                         message="Command executed.",
                         details=sy.task.StatusDetails(

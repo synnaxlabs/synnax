@@ -23,6 +23,7 @@ from synnax import (
     node,
     opcua,
     pagerduty,
+    resource,
     status,
 )
 from synnax.access.policy import Policy
@@ -235,6 +236,7 @@ __all__ = [
     "opcua",
     "pagerduty",
     "poll",
+    "resource",
     "sleep",
     "status",
 ]

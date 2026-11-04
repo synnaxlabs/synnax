@@ -17,7 +17,7 @@ from typing import override as _override
 from pydantic import BaseModel, Field
 
 from synnax import status as status_
-from synnax.ontology.payload import ID
+from synnax.resource.payload import ID
 
 Key: TypeAlias = int
 
@@ -77,8 +77,8 @@ class Rack(Base):
         return hash(self.key)
 
 
-ONTOLOGY_TYPE = ID(type="rack")
+RESOURCE_TYPE = ID(type="rack")
 
 
-def ontology_id(key: Key) -> ID:
+def resource_id(key: Key) -> ID:
     return ID(type="rack", key=str(key))

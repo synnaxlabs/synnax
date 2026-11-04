@@ -18,7 +18,7 @@ from uuid import UUID, uuid4
 from pydantic import BaseModel, Field
 
 from synnax import channel, ranger
-from synnax.ontology.payload import ID
+from synnax.resource.payload import ID
 from x import color as color_
 from x import spatial, text
 
@@ -289,8 +289,8 @@ class LinePlot(BaseModel):
         return hash(self.key)
 
 
-ONTOLOGY_TYPE = ID(type="lineplot")
+RESOURCE_TYPE = ID(type="lineplot")
 
 
-def ontology_id(key: Key) -> ID:
+def resource_id(key: Key) -> ID:
     return ID(type="lineplot", key=str(key))

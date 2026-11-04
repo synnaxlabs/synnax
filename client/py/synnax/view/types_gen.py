@@ -18,7 +18,7 @@ from uuid import UUID, uuid4
 from pydantic import BaseModel, Field
 
 from synnax import label, status
-from synnax.ontology.payload import ID
+from synnax.resource.payload import ID
 
 Key: TypeAlias = UUID
 
@@ -83,8 +83,8 @@ View = Annotated[
 ]
 
 
-ONTOLOGY_TYPE = ID(type="view")
+RESOURCE_TYPE = ID(type="view")
 
 
-def ontology_id(key: Key) -> ID:
+def resource_id(key: Key) -> ID:
     return ID(type="view", key=str(key))

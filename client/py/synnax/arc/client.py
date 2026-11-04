@@ -18,9 +18,9 @@ from freighter import Empty, UnaryClient
 from synnax.arc.graph import Graph
 from synnax.arc.program import Program
 from synnax.arc.text import Text
-from synnax.arc.types_gen import Key, Mode, Payload, ontology_id
+from synnax.arc.types_gen import Key, Mode, Payload, resource_id
 from synnax.exceptions import MultipleFoundError, NotFoundError
-from synnax.ontology.payload import ID
+from synnax.resource import ID
 from x.lists import normalize
 from x.uuid import NIL
 
@@ -82,8 +82,8 @@ class Arc(Payload):
         self._client = _client
 
     @property
-    def ontology_id(self) -> ID:
-        return ontology_id(self.key)
+    def resource_id(self) -> ID:
+        return resource_id(self.key)
 
     def to_payload(self) -> Payload:
         return Payload(

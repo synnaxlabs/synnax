@@ -17,9 +17,9 @@ from uuid import UUID, uuid4
 
 from pydantic import BaseModel, Field
 
-from synnax import ontology
+from synnax import resource
 from synnax.access import action
-from synnax.ontology.payload import ID
+from synnax.resource.payload import ID
 
 Key: TypeAlias = UUID
 
@@ -39,7 +39,7 @@ class Policy(BaseModel):
 
     key: Key = Field(default_factory=uuid4)
     name: str
-    objects: list[ontology.ID] = Field(default_factory=list)
+    objects: list[resource.ID] = Field(default_factory=list)
     actions: list[action.Action] = Field(default_factory=list)
     internal: bool = False
 
@@ -48,8 +48,8 @@ class Policy(BaseModel):
         return hash(self.key)
 
 
-ONTOLOGY_TYPE = ID(type="policy")
+RESOURCE_TYPE = ID(type="policy")
 
 
-def ontology_id(key: Key) -> ID:
+def resource_id(key: Key) -> ID:
     return ID(type="policy", key=str(key))

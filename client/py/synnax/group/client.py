@@ -15,7 +15,7 @@ from pydantic import BaseModel
 from freighter import Empty, UnaryClient
 from synnax.exceptions import NotFoundError
 from synnax.group.types_gen import Group
-from synnax.ontology.payload import ID, CrudeID
+from synnax.resource import ID, CrudeID
 
 
 class _CreateReq(BaseModel):
