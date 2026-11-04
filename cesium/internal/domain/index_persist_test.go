@@ -124,10 +124,14 @@ var _ = Describe("Index Persist", Ordered, func() {
 							Instrumentation: PanicLogger(),
 						}
 						cfg.OnHistoryChange = func(context.Context, telem.TimeRange) {
+							defer GinkgoRecover()
 							entered <- struct{}{}
-							<-released.Done()
+							Eventually(
+								released.Done(),
+								10*time.Second,
+							).Should(BeClosed())
 						}
-						ordered := MustSucceed(domain.Open(cfg))
+						ordered := MustOpen(domain.Open(cfg))
 						write := func(start telem.TimeStamp) error {
 							w, err := ordered.OpenWriter(ctx, domain.WriterConfig{
 								Start:            start,
@@ -158,11 +162,10 @@ var _ = Describe("Index Persist", Ordered, func() {
 
 						Expect(ordered.Close()).To(Succeed())
 						cfg.OnHistoryChange = nil
-						ordered = MustSucceed(domain.Open(cfg))
+						ordered = MustOpen(domain.Open(cfg))
 						Expect(MustSucceed(
 							testutil.ReadDomain(ctx, ordered, telem.TimeRangeMax),
 						)).To(HaveLen(3))
-						Expect(ordered.Close()).To(Succeed())
 					},
 				)
 			})
