@@ -117,7 +117,7 @@ shape of `client/ts/src/arc/client.ts`.
 ### 4.1 Inference
 
 `x/go/json` gains inference over sampled documents, beside its conversion code
-(`x/go/json/convert.go`). It knows JSON, not Kafka or MQTT.
+(`x/go/json/field.go`). It knows JSON, not Kafka or MQTT.
 
 - **Fields**: Each leaf becomes a JSON pointer.
 - **Types**: Types widen across the sample: `int64`, then `float64`, then `string`.
@@ -145,12 +145,11 @@ preview builds that decoder from the draft messages and runs it over a fresh sam
 response holds the samples per channel and each problem with its record: "`tank-1`
 records have no `/pressure_psi`". Problems use the run-time warning text (§4.5).
 
-Kafka parsing first moves onto `x/go/json`. Its pointer and conversion copies
-(`kafka/pointer.go`, most of `kafka/convert.go`) are deleted, and its one-pass extractor
-(`kafka/extract.go`) moves into `x/go/json` as `Extractor`. `x/go/json` gains boolean,
-UUID, and JSON channels, which Kafka read and wrote. The write task then writes Unix s,
-ms, and µs times as exact text, not `float64` (`kafka/convert.go:140`). The ICD decoder
-uses the same `Extractor`.
+Kafka and MQTT first share one JSON path. Kafka's allocation-free extractor, converter,
+and write template move into `x/go/json` as `Extractor`, `Decoder`, `Encoder`, and
+`Template`. MQTT moves onto them, and its decode-then-convert path is deleted. Typing is
+strict, as in Kafka: a number does not convert into a string channel. The ICD decoder
+uses the same `Extractor` and `Decoder`.
 
 ### 4.3 Rule entries
 
