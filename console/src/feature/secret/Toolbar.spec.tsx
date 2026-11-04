@@ -7,7 +7,12 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { type certificate, NotFoundError, type secret } from "@synnaxlabs/client";
+import {
+  certificate,
+  NotFoundError,
+  secret,
+  type Synnax as Client,
+} from "@synnaxlabs/client";
 import { CERTIFICATE, createTestClient } from "@synnaxlabs/client/testutil";
 import { type Status } from "@synnaxlabs/lyra/status";
 import { cleanup, fireEvent, render, screen, waitFor } from "@testing-library/react";
@@ -17,13 +22,16 @@ import { Secret } from "@/feature/secret";
 import { Modals } from "@/platform/modals";
 import { findButton } from "@/platform/modals/testutil";
 import {
+  assertDefined,
   awaitTextEditing,
   CaptureStatuses,
   clickAndSettle,
   commitTextEdit,
   createConsoleWrapper,
+  createTestClientWithGrants,
   getIconButton,
   openContextMenu,
+  renderHookWithConsole,
   uniqueName,
 } from "@/testutil";
 
@@ -71,8 +79,8 @@ const createCertificate = async () => {
   return { certificate: c, privateKey: await client.secrets.retrieve(c.privateKey) };
 };
 
-const renderToolbar = async () => {
-  const { wrapper } = await createConsoleWrapper({ client });
+const renderToolbar = async (as: Client = client) => {
+  const { wrapper } = await createConsoleWrapper({ client: as });
   let statuses: Status.NotificationSpec[] = [];
   render(
     <>
@@ -147,6 +155,18 @@ describe("secret/Toolbar", () => {
     expect(await retrieveByName(s.name)).toHaveLength(1);
   });
 
+  it("offers no replacement to a user who cannot create secrets", async () => {
+    const s = await createSecret();
+    const editor = await createTestClientWithGrants(client, {
+      retrieve: [secret.TYPE_ONTOLOGY_ID],
+      update: [secret.TYPE_ONTOLOGY_ID],
+    });
+    await renderToolbar(editor);
+    await openContextMenu(s.name);
+    await screen.findByText("Rename");
+    expect(screen.queryByText("Replace value")).toBeNull();
+  });
+
   it("deletes a secret after confirmation", async () => {
     const s = await createSecret();
     await renderToolbar();
@@ -173,5 +193,50 @@ describe("secret/Toolbar", () => {
         `"${c.name}" uses it: validation error`,
     );
     expect(await client.secrets.retrieve(privateKey.key)).toEqual(privateKey);
+  });
+
+  it("renames a certificate through the inline editor", async () => {
+    const { certificate: c } = await createCertificate();
+    await renderToolbar();
+    await openContextMenu(c.name);
+    await clickAndSettle("Rename");
+    const editor = await awaitTextEditing(`${c.key}-name`);
+    const renamed = uniqueName("renamed");
+    commitTextEdit(editor, renamed);
+    await waitFor(async () =>
+      expect((await client.certificates.retrieve(c.key)).name).toBe(renamed),
+    );
+  });
+
+  it("deletes a certificate after confirmation", async () => {
+    const { certificate: c } = await createCertificate();
+    await renderToolbar();
+    await confirmDelete(c.name);
+    await waitFor(async () => {
+      await expect(client.certificates.retrieve(c.key)).rejects.toSatisfy((e) =>
+        NotFoundError.matches(e),
+      );
+    });
+  });
+
+  it("lists only certificates to a user who cannot read secrets", async () => {
+    const { certificate: c, privateKey } = await createCertificate();
+    const reader = await createTestClientWithGrants(client, {
+      retrieve: [certificate.TYPE_ONTOLOGY_ID],
+    });
+    await renderToolbar(reader);
+    await screen.findByText(c.name);
+    expect(screen.queryByText("Secrets")).toBeNull();
+    expect(screen.queryByText(privateKey.name)).toBeNull();
+  });
+
+  it("shows the toolbar to a user who can read only certificates", async () => {
+    assertDefined(Secret.TOOLBAR.useVisible);
+    const { result } = await renderHookWithConsole(Secret.TOOLBAR.useVisible, {
+      client: await createTestClientWithGrants(client, {
+        retrieve: [certificate.TYPE_ONTOLOGY_ID],
+      }),
+    });
+    await waitFor(() => expect(result.current).toBe(true));
   });
 });

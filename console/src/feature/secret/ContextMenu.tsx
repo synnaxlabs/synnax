@@ -19,7 +19,6 @@ import { Modals } from "@/platform/modals";
 
 type Named = Pick<secret.Secret, "key" | "name">;
 
-/** Returns a function that confirms, then deletes, a secret. */
 const useDeleteSecret = (): ((s: Named) => void) => {
   const confirm = Modals.useConfirmDelete({ type: "Secret", title: "Delete secret" });
   const { update } = Secret.useDelete();
@@ -30,7 +29,6 @@ const useDeleteSecret = (): ((s: Named) => void) => {
   };
 };
 
-/** Returns a function that confirms, then deletes, a certificate. */
 const useDeleteCertificate = (): ((c: Named) => void) => {
   const confirm = Modals.useConfirmDelete({
     type: "Certificate",
@@ -53,13 +51,15 @@ export const SecretMenu = ({ secret: s, onRename }: SecretMenuProps): ReactEleme
   const id = secret.ontologyID(s.key);
   const canUpdate = Access.useUpdateGranted(id);
   const canDelete = Access.useDeleteGranted(id);
+  // The Core replaces a value as a create that overwrites the secret.
+  const canReplace = Access.useCreateGranted(secret.TYPE_ONTOLOGY_ID) && canUpdate;
   const openReplace = useCreateModal();
   const handleDelete = useDeleteSecret();
   return (
     <ContextMenu.Menu>
       {canUpdate && <ContextMenu.RenameItem onClick={() => onRename(s.key)} />}
       <Menu.Divider />
-      {canUpdate && s.source === "stored" && (
+      {canReplace && s.source === "stored" && (
         <Menu.Item itemKey="replace" onClick={() => openReplace({ secret: s })}>
           <Icon.Refresh />
           Replace value
