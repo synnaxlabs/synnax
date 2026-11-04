@@ -69,21 +69,32 @@ type DataType = versions.DataType
 type TimestampFormat = versions.TimestampFormat
 
 const (
-	TimestampFormatISO         TimestampFormat = versions.TimestampFormatISO
-	TimestampFormatISODate     TimestampFormat = versions.TimestampFormatISODate
-	TimestampFormatTime        TimestampFormat = versions.TimestampFormatTime
+	// TimestampFormatISO renders the full ISO 8601 timestamp.
+	TimestampFormatISO TimestampFormat = versions.TimestampFormatISO
+	// TimestampFormatISODate renders only the date of the ISO 8601 form.
+	TimestampFormatISODate TimestampFormat = versions.TimestampFormatISODate
+	// TimestampFormatTime renders the time of day to the second.
+	TimestampFormatTime TimestampFormat = versions.TimestampFormatTime
+	// TimestampFormatPreciseTime renders the time of day to the millisecond.
 	TimestampFormatPreciseTime TimestampFormat = versions.TimestampFormatPreciseTime
-	TimestampFormatDate        TimestampFormat = versions.TimestampFormatDate
+	// TimestampFormatDate renders the short month and the day.
+	TimestampFormatDate TimestampFormat = versions.TimestampFormatDate
+	// TimestampFormatPreciseDate renders the short month, the day, and the time to the
+	// millisecond.
 	TimestampFormatPreciseDate TimestampFormat = versions.TimestampFormatPreciseDate
-	TimestampFormatDateTime    TimestampFormat = versions.TimestampFormatDateTime
+	// TimestampFormatDateTime renders the short month, the day, and the time to the
+	// second.
+	TimestampFormatDateTime TimestampFormat = versions.TimestampFormatDateTime
 )
 
 // TimeZone is the time zone used when rendering timestamps.
 type TimeZone = versions.TimeZone
 
 const (
+	// TimeZoneLocal renders the time in the local time zone.
 	TimeZoneLocal TimeZone = versions.TimeZoneLocal
-	TimeZoneUTC   TimeZone = versions.TimeZoneUTC
+	// TimeZoneUTC renders the time in UTC.
+	TimeZoneUTC TimeZone = versions.TimeZoneUTC
 )
 
 // Alignment is a 64-bit index for positioning samples within multi-array structures.
@@ -92,14 +103,15 @@ const (
 type Alignment uint64
 
 // Aggregation selects how a limited read collapses each group of samples into points.
-// min_max keeps the lowest and highest sample of each group in the order they occurred,
-// average keeps the mean of each group, and decimate keeps the first sample of each
-// group.
 type Aggregation string
 
 const (
-	AggregationMinMax   Aggregation = "min_max"
-	AggregationAverage  Aggregation = "average"
+	// AggregationMinMax keeps the lowest and highest sample of each group in the order
+	// they occurred.
+	AggregationMinMax Aggregation = "min_max"
+	// AggregationAverage keeps the mean of each group.
+	AggregationAverage Aggregation = "average"
+	// AggregationDecimate keeps the first sample of each group.
 	AggregationDecimate Aggregation = "decimate"
 )
 

@@ -63,19 +63,30 @@ type DataType = v0.DataType
 type TimestampFormat = v0.TimestampFormat
 
 const (
-	TimestampFormatISO         TimestampFormat = v0.TimestampFormatISO
-	TimestampFormatISODate     TimestampFormat = v0.TimestampFormatISODate
-	TimestampFormatTime        TimestampFormat = v0.TimestampFormatTime
+	// TimestampFormatISO renders the full ISO 8601 timestamp.
+	TimestampFormatISO TimestampFormat = v0.TimestampFormatISO
+	// TimestampFormatISODate renders only the date of the ISO 8601 form.
+	TimestampFormatISODate TimestampFormat = v0.TimestampFormatISODate
+	// TimestampFormatTime renders the time of day to the second.
+	TimestampFormatTime TimestampFormat = v0.TimestampFormatTime
+	// TimestampFormatPreciseTime renders the time of day to the millisecond.
 	TimestampFormatPreciseTime TimestampFormat = v0.TimestampFormatPreciseTime
-	TimestampFormatDate        TimestampFormat = v0.TimestampFormatDate
+	// TimestampFormatDate renders the short month and the day.
+	TimestampFormatDate TimestampFormat = v0.TimestampFormatDate
+	// TimestampFormatPreciseDate renders the short month, the day, and the time to the
+	// millisecond.
 	TimestampFormatPreciseDate TimestampFormat = v0.TimestampFormatPreciseDate
-	TimestampFormatDateTime    TimestampFormat = v0.TimestampFormatDateTime
+	// TimestampFormatDateTime renders the short month, the day, and the time to the
+	// second.
+	TimestampFormatDateTime TimestampFormat = v0.TimestampFormatDateTime
 )
 
 // TimeZone is the time zone used when rendering timestamps.
 type TimeZone = v0.TimeZone
 
 const (
+	// TimeZoneLocal renders the time in the local time zone.
 	TimeZoneLocal TimeZone = v0.TimeZoneLocal
-	TimeZoneUTC   TimeZone = v0.TimeZoneUTC
+	// TimeZoneUTC renders the time in UTC.
+	TimeZoneUTC TimeZone = v0.TimeZoneUTC
 )
