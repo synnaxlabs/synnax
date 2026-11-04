@@ -230,12 +230,13 @@ type Transport struct {
 	// ViewRename renames a view.
 	ViewRename freighter.UnaryServer[view.RenameRequest, struct{}]
 	// SECRET
-	SecretCreate   freighter.UnaryServer[secret.CreateRequest, secret.CreateResponse]
-	SecretRetrieve freighter.UnaryServer[secret.RetrieveRequest, secret.RetrieveResponse]
-	SecretRename   freighter.UnaryServer[secret.RenameRequest, struct{}]
-	SecretDelete   freighter.UnaryServer[secret.DeleteRequest, struct{}]
-	SecretGrant    freighter.UnaryServer[secret.GrantRequest, secret.GrantResponse]
-	SecretResolve  freighter.UnaryServer[secret.ResolveRequest, secret.ResolveResponse]
+	SecretCreate      freighter.UnaryServer[secret.CreateRequest, secret.CreateResponse]
+	SecretRetrieve    freighter.UnaryServer[secret.RetrieveRequest, secret.RetrieveResponse]
+	SecretRename      freighter.UnaryServer[secret.RenameRequest, struct{}]
+	SecretDelete      freighter.UnaryServer[secret.DeleteRequest, struct{}]
+	SecretGrantCreate freighter.UnaryServer[secret.GrantCreateRequest, secret.GrantCreateResponse]
+	SecretGrantDelete freighter.UnaryServer[secret.GrantDeleteRequest, struct{}]
+	SecretResolve     freighter.UnaryServer[secret.ResolveRequest, secret.ResolveResponse]
 	// CERTIFICATE
 	CertificateCreate   freighter.UnaryServer[certificate.CreateRequest, certificate.CreateResponse]
 	CertificateRetrieve freighter.UnaryServer[certificate.RetrieveRequest, certificate.RetrieveResponse]
@@ -491,7 +492,8 @@ func (l *Layer) BindTo(t Transport) {
 		t.SecretRetrieve,
 		t.SecretRename,
 		t.SecretDelete,
-		t.SecretGrant,
+		t.SecretGrantCreate,
+		t.SecretGrantDelete,
 		t.SecretResolve,
 
 		// CERTIFICATE
@@ -732,7 +734,12 @@ func (l *Layer) BindTo(t Transport) {
 	t.SecretRetrieve.BindHandler(l.Secret.Retrieve)
 	t.SecretRename.BindHandler(fgorp.CreateWriteUnaryHandler(db, l.Secret.Rename))
 	t.SecretDelete.BindHandler(fgorp.CreateWriteUnaryHandler(db, l.Secret.Delete))
-	t.SecretGrant.BindHandler(fgorp.CreateWriteUnaryHandler(db, l.Secret.Grant))
+	t.SecretGrantCreate.BindHandler(
+		fgorp.CreateWriteUnaryHandler(db, l.Secret.CreateGrant),
+	)
+	t.SecretGrantDelete.BindHandler(
+		fgorp.CreateWriteUnaryHandler(db, l.Secret.DeleteGrants),
+	)
 	t.SecretResolve.BindHandler(l.Secret.Resolve)
 
 	// CERTIFICATE
@@ -956,9 +963,9 @@ func NewLayer(cfgs ...LayerConfig) (*Layer, error) {
 		return nil, err
 	}
 	if l.Secret, err = secret.NewService(secret.ServiceConfig{
-		Secret:      cfg.Service.Secret,
-		Certificate: cfg.Service.Certificate,
-		RBAC:        cfg.Service.RBAC,
+		Secret: cfg.Service.Secret,
+		Grant:  cfg.Service.Grant,
+		RBAC:   cfg.Service.RBAC,
 	}); err != nil {
 		return nil, err
 	}

@@ -10,27 +10,25 @@
 package secret_test
 
 import (
-	"crypto/ecdsa"
-	"crypto/elliptic"
-	"crypto/rand"
-	"crypto/x509"
-	"crypto/x509/pkix"
+	"context"
 	"encoding/json/v2"
-	"encoding/pem"
-	"math/big"
-	"time"
 	"uuid"
 
+	"github.com/gofiber/fiber/v3"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
+	"github.com/synnaxlabs/freighter"
+	apiauth "github.com/synnaxlabs/synnax/pkg/api/auth"
 	apisecret "github.com/synnaxlabs/synnax/pkg/api/secret"
 	. "github.com/synnaxlabs/synnax/pkg/api/testutil"
 	"github.com/synnaxlabs/synnax/pkg/service/access"
 	"github.com/synnaxlabs/synnax/pkg/service/access/rbac"
-	"github.com/synnaxlabs/synnax/pkg/service/certificate"
+	"github.com/synnaxlabs/synnax/pkg/service/auth"
 	"github.com/synnaxlabs/synnax/pkg/service/ontology"
 	"github.com/synnaxlabs/synnax/pkg/service/rack"
 	"github.com/synnaxlabs/synnax/pkg/service/secret"
+	"github.com/synnaxlabs/synnax/pkg/service/secret/grant"
+	"github.com/synnaxlabs/synnax/pkg/service/user"
 	"github.com/synnaxlabs/x/query"
 	. "github.com/synnaxlabs/x/testutil"
 )
@@ -58,37 +56,36 @@ func retrieveSecret(ctx SpecContext, key secret.Key) secret.Secret {
 	return s
 }
 
-// createCertificate creates a stored certificate with a private key.
-func createCertificate(ctx SpecContext) certificate.Certificate {
+// sessionCtx returns a request context for u that passed the auth middleware, and the
+// key of the session u opened for it.
+func sessionCtx(ctx context.Context, u user.User) (freighter.Context, auth.SessionKey) {
 	GinkgoHelper()
-	key := MustSucceed(ecdsa.GenerateKey(elliptic.P256(), rand.Reader))
-	tmpl := &x509.Certificate{
-		SerialNumber: big.NewInt(1),
-		Subject:      pkix.Name{CommonName: "plant"},
-		NotAfter:     time.Now().Add(time.Hour),
-	}
-	der := MustSucceed(
-		x509.CreateCertificate(rand.Reader, tmpl, tmpl, &key.PublicKey, key),
+	k, _ := MustSucceed2(svc.APIKey.NewWriter(nil).Create(ctx, u.OntologyID(), "c"))
+	session, token := MustSucceed2(
+		svc.Auth.NewWriter(nil).Open(ctx, u.OntologyID(), k.Key),
 	)
-	keyDER := MustSucceed(x509.MarshalPKCS8PrivateKey(key))
-	c := certificate.Certificate{Variant: certificate.StoredCertificate{
-		Base: certificate.Base{Name: "Plant"},
-		Pem:  string(pem.EncodeToMemory(&pem.Block{Type: "CERTIFICATE", Bytes: der})),
-	}}
-	Expect(svc.Certificate.NewWriter(nil).Create(
-		ctx,
-		&c,
-		pem.EncodeToMemory(&pem.Block{Type: "PRIVATE KEY", Bytes: keyDER}),
-	)).To(Succeed())
-	return c
+	fctx := freighter.Context{
+		Context: ctx,
+		Params:  freighter.Params{},
+		Variant: freighter.VariantUnary,
+	}
+	fctx.Set(fiber.HeaderAuthorization, "Bearer "+token)
+	var authed freighter.Context
+	MustSucceed(apiauth.Middleware(svc.Auth).Exec(fctx, freighter.FinalizerFunc(
+		func(c freighter.Context) (freighter.Context, error) {
+			authed = c
+			return c, nil
+		},
+	)))
+	return authed, session.Key
 }
 
 var _ = Describe("ServiceConfig", func() {
 	full := func() apisecret.ServiceConfig {
 		return apisecret.ServiceConfig{
-			Secret:      &secret.Service{},
-			Certificate: &certificate.Service{},
-			RBAC:        &rbac.Service{},
+			Secret: &secret.Service{},
+			Grant:  &grant.Service{},
+			RBAC:   &rbac.Service{},
 		}
 	}
 	DescribeTable("Should fail when a service is missing",
@@ -99,8 +96,8 @@ var _ = Describe("ServiceConfig", func() {
 		},
 		Entry("secret", func(c *apisecret.ServiceConfig) { c.Secret = nil },
 			"secret: must be non-nil"),
-		Entry("certificate", func(c *apisecret.ServiceConfig) { c.Certificate = nil },
-			"certificate: must be non-nil"),
+		Entry("grant", func(c *apisecret.ServiceConfig) { c.Grant = nil },
+			"grant: must be non-nil"),
 		Entry("rbac", func(c *apisecret.ServiceConfig) { c.RBAC = nil },
 			"rbac: must be non-nil"),
 	)
@@ -109,7 +106,7 @@ var _ = Describe("ServiceConfig", func() {
 		Expect(cfg.Validate()).To(Succeed())
 		merged := apisecret.ServiceConfig{}.Override(cfg)
 		Expect(merged.Secret).To(BeIdenticalTo(cfg.Secret))
-		Expect(merged.Certificate).To(BeIdenticalTo(cfg.Certificate))
+		Expect(merged.Grant).To(BeIdenticalTo(cfg.Grant))
 		Expect(merged.RBAC).To(BeIdenticalTo(cfg.RBAC))
 	})
 })
@@ -119,7 +116,7 @@ var _ = Describe("Service", func() {
 		It("Should create stored and file secrets and never return a value",
 			func(ctx SpecContext) {
 				u := createUser(ctx)
-				grant(ctx, u.OntologyID(), all, secretType)
+				allow(ctx, u.OntologyID(), all, secretType)
 				res := MustSucceed(apiSvc.Create(AuthedCtx(ctx, u), nil,
 					apisecret.CreateRequest{Secrets: []apisecret.Input{
 						{
@@ -143,7 +140,7 @@ var _ = Describe("Service", func() {
 			"Should replace the secret whose key the request gives",
 			func(ctx SpecContext) {
 				u := createUser(ctx)
-				grant(ctx, u.OntologyID(), all, secretType)
+				allow(ctx, u.OntologyID(), all, secretType)
 				s := createSecret(ctx, "Before", "a")
 				MustSucceed(apiSvc.Create(AuthedCtx(ctx, u), nil,
 					apisecret.CreateRequest{Secrets: []apisecret.Input{{
@@ -159,7 +156,7 @@ var _ = Describe("Service", func() {
 		DescribeTable("Should reject an invalid input",
 			func(ctx SpecContext, in apisecret.Input, msg string) {
 				u := createUser(ctx)
-				grant(ctx, u.OntologyID(), all, secretType)
+				allow(ctx, u.OntologyID(), all, secretType)
 				Expect(apiSvc.Create(AuthedCtx(ctx, u), nil,
 					apisecret.CreateRequest{Secrets: []apisecret.Input{in}},
 				)).Error().To(MatchError(ContainSubstring(msg)))
@@ -203,7 +200,7 @@ var _ = Describe("Service", func() {
 	Describe("Retrieve", func() {
 		It("Should retrieve secrets by key", func(ctx SpecContext) {
 			u := createUser(ctx)
-			grant(
+			allow(
 				ctx,
 				u.OntologyID(),
 				[]access.Action{access.ActionRetrieve},
@@ -229,7 +226,7 @@ var _ = Describe("Service", func() {
 		It("Should rename the secret when update is granted", func(ctx SpecContext) {
 			u := createUser(ctx)
 			s := createSecret(ctx, "Before", "a")
-			grant(
+			allow(
 				ctx,
 				u.OntologyID(),
 				[]access.Action{access.ActionUpdate},
@@ -253,7 +250,7 @@ var _ = Describe("Service", func() {
 		It("Should delete the secret when delete is granted", func(ctx SpecContext) {
 			u := createUser(ctx)
 			s := createSecret(ctx, "Password", "a")
-			grant(
+			allow(
 				ctx,
 				u.OntologyID(),
 				[]access.Action{access.ActionDelete},
@@ -275,24 +272,43 @@ var _ = Describe("Service", func() {
 		})
 	})
 
-	Describe("Grant and Resolve", func() {
+	Describe("Grants and Resolve", func() {
 		rk := rack.Key(7)
+		allowDevices := func(ctx SpecContext, u user.User) {
+			GinkgoHelper()
+			allow(ctx, u.OntologyID(), []access.Action{access.ActionCreate}, deviceType)
+		}
+		createGrant := func(
+			ctx freighter.Context,
+			keys ...secret.Key,
+		) apisecret.GrantCreateResponse {
+			GinkgoHelper()
+			return MustSucceed(
+				apiSvc.CreateGrant(ctx, nil, apisecret.GrantCreateRequest{
+					Rack:    rk,
+					Secrets: keys,
+				}),
+			)
+		}
+		retrieveGrant := func(ctx SpecContext, key grant.Key) grant.Grant {
+			GinkgoHelper()
+			var g grant.Grant
+			Expect(svc.Grant.NewRetrieve().
+				Where(grant.MatchKeys(key)).
+				Entry(&g).
+				Exec(ctx, nil)).To(Succeed())
+			return g
+		}
 
 		It("Should let the rack resolve the granted secrets in request order",
 			func(ctx SpecContext) {
 				u := createUser(ctx)
-				grant(
-					ctx,
-					u.OntologyID(),
-					[]access.Action{access.ActionCreate},
-					deviceType,
-				)
+				allowDevices(ctx, u)
 				a := createSecret(ctx, "A", "first")
 				b := createSecret(ctx, "B", "second")
 				keys := []secret.Key{b.Base().Key, a.Base().Key}
-				res := MustSucceed(apiSvc.Grant(AuthedCtx(ctx, u), nil,
-					apisecret.GrantRequest{Rack: rk, Secrets: keys},
-				))
+				uCtx, _ := sessionCtx(ctx, u)
+				res := createGrant(uCtx, keys...)
 				values := MustSucceed(apiSvc.Resolve(SubjectCtx(ctx, rk.OntologyID()),
 					apisecret.ResolveRequest{Keys: keys, Grant: res.Grant},
 				))
@@ -302,42 +318,89 @@ var _ = Describe("Service", func() {
 				}))
 			},
 		)
-		It("Should grant the private keys of certificates", func(ctx SpecContext) {
+		It("Should record the caller's session on the grant", func(ctx SpecContext) {
 			u := createUser(ctx)
-			grant(ctx, u.OntologyID(), []access.Action{access.ActionCreate}, deviceType)
-			c := createCertificate(ctx)
-			res := MustSucceed(apiSvc.Grant(AuthedCtx(ctx, u), nil,
-				apisecret.GrantRequest{
-					Rack:         rk,
-					Certificates: []certificate.Key{c.Base().Key},
-				},
-			))
-			key := *c.Variant.(certificate.StoredCertificate).PrivateKey
-			values := MustSucceed(apiSvc.Resolve(SubjectCtx(ctx, rk.OntologyID()),
-				apisecret.ResolveRequest{Keys: []secret.Key{key}, Grant: res.Grant},
-			))
-			Expect(values.Values[0].Value).To(ContainSubstring("PRIVATE KEY"))
+			allowDevices(ctx, u)
+			s := createSecret(ctx, "A", "v")
+			uCtx, session := sessionCtx(ctx, u)
+			res := createGrant(uCtx, s.Base().Key)
+			Expect(retrieveGrant(ctx, res.Grant)).To(Equal(grant.Grant{
+				Key:     res.Grant,
+				Rack:    rk.OntologyID(),
+				Secrets: []secret.Key{s.Base().Key},
+				Session: session,
+			}))
 		})
+		It(
+			"Should end the grant when the caller's session ends",
+			func(ctx SpecContext) {
+				u := createUser(ctx)
+				allowDevices(ctx, u)
+				s := createSecret(ctx, "A", "v")
+				uCtx, session := sessionCtx(ctx, u)
+				res := createGrant(uCtx, s.Base().Key)
+				Expect(svc.Auth.Logout(ctx, session)).To(Succeed())
+				Expect(apiSvc.Resolve(SubjectCtx(ctx, rk.OntologyID()),
+					apisecret.ResolveRequest{
+						Keys:  []secret.Key{s.Base().Key},
+						Grant: res.Grant,
+					},
+				)).Error().To(SatisfyAll(
+					MatchError(access.ErrDenied),
+					MatchError(ContainSubstring(
+						"grant "+res.Grant.String()+" has ended or does not exist",
+					)),
+				))
+			},
+		)
 		It("Should deny a grant to a user who cannot create devices",
 			func(ctx SpecContext) {
 				u := createUser(ctx)
-				grant(ctx, u.OntologyID(), all, secretType)
+				allow(ctx, u.OntologyID(), all, secretType)
 				s := createSecret(ctx, "A", "v")
-				Expect(apiSvc.Grant(
-					AuthedCtx(ctx, u),
-					nil,
-					apisecret.GrantRequest{
-						Rack:    rk,
-						Secrets: []secret.Key{s.Base().Key},
-					},
-				)).Error().To(MatchError(access.ErrDenied))
+				uCtx, _ := sessionCtx(ctx, u)
+				Expect(apiSvc.CreateGrant(uCtx, nil, apisecret.GrantCreateRequest{
+					Rack:    rk,
+					Secrets: []secret.Key{s.Base().Key},
+				})).Error().To(MatchError(access.ErrDenied))
+				Expect(svc.Grant.NewRetrieve().
+					Where(grant.MatchSessions(apiauth.GetSessionKey(uCtx))).
+					Count(ctx, nil)).To(BeZero())
+			},
+		)
+		It("Should delete grants", func(ctx SpecContext) {
+			u := createUser(ctx)
+			allowDevices(ctx, u)
+			s := createSecret(ctx, "A", "v")
+			uCtx, _ := sessionCtx(ctx, u)
+			res := createGrant(uCtx, s.Base().Key)
+			MustSucceed(apiSvc.DeleteGrants(uCtx, nil, apisecret.GrantDeleteRequest{
+				Grants: []grant.Key{res.Grant, uuid.New()},
+			}))
+			Expect(svc.Grant.NewRetrieve().
+				Where(grant.MatchKeys(res.Grant)).
+				Exec(ctx, nil)).To(MatchError(query.ErrNotFound))
+		})
+		It("Should deny a delete to a user who cannot create devices",
+			func(ctx SpecContext) {
+				owner := createUser(ctx)
+				allowDevices(ctx, owner)
+				s := createSecret(ctx, "A", "v")
+				ownerCtx, _ := sessionCtx(ctx, owner)
+				res := createGrant(ownerCtx, s.Base().Key)
+				u := createUser(ctx)
+				uCtx, _ := sessionCtx(ctx, u)
+				Expect(apiSvc.DeleteGrants(uCtx, nil, apisecret.GrantDeleteRequest{
+					Grants: []grant.Key{res.Grant},
+				})).Error().To(MatchError(access.ErrDenied))
+				Expect(retrieveGrant(ctx, res.Grant).Key).To(Equal(res.Grant))
 			},
 		)
 		It(
 			"Should deny resolve to a subject that is not a rack",
 			func(ctx SpecContext) {
 				u := createUser(ctx)
-				grant(ctx, u.OntologyID(), all, secretType)
+				allow(ctx, u.OntologyID(), all, secretType)
 				s := createSecret(ctx, "A", "v")
 				Expect(apiSvc.Resolve(AuthedCtx(ctx, u),
 					apisecret.ResolveRequest{Keys: []secret.Key{s.Base().Key}},
@@ -351,7 +414,10 @@ var _ = Describe("Service", func() {
 			s := createSecret(ctx, "A", "v")
 			Expect(apiSvc.Resolve(SubjectCtx(ctx, rk.OntologyID()),
 				apisecret.ResolveRequest{Keys: []secret.Key{s.Base().Key}},
-			)).Error().To(MatchError(access.ErrDenied))
+			)).Error().To(SatisfyAll(
+				MatchError(access.ErrDenied),
+				MatchError(ContainSubstring(`rack:7 cannot read secret "A"`)),
+			))
 		})
 	})
 })

@@ -63,6 +63,7 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/service/ranger/kv"
 	"github.com/synnaxlabs/synnax/pkg/service/schematic"
 	"github.com/synnaxlabs/synnax/pkg/service/secret"
+	"github.com/synnaxlabs/synnax/pkg/service/secret/grant"
 	"github.com/synnaxlabs/synnax/pkg/service/signals"
 	"github.com/synnaxlabs/synnax/pkg/service/status"
 	"github.com/synnaxlabs/synnax/pkg/service/table"
@@ -259,6 +260,8 @@ type Layer struct {
 	Status *status.Service
 	// View is used for managing views
 	View *view.Service
+	// Grant stores the grants that let a rack read secrets that nothing on it uses.
+	Grant *grant.Service
 	// Secret stores the hidden values that devices and tasks connect with.
 	Secret *secret.Service
 	// Certificate stores certificates and reports their expiry.
@@ -772,6 +775,13 @@ func OpenLayer(ctx context.Context, cfgs ...LayerConfig) (l *Layer, err error) {
 	); !ok(err, l.View) {
 		return nil, err
 	}
+	if l.Grant, err = grant.OpenService(ctx, grant.ServiceConfig{
+		Instrumentation: cfg.Child("grant"),
+		DB:              cfg.Distribution.DB,
+		Auth:            l.Auth,
+	}); !ok(err, l.Grant) {
+		return nil, err
+	}
 	if l.Secret, err = secret.OpenService(ctx, secret.ServiceConfig{
 		Instrumentation: cfg.Child("secret"),
 		DB:              cfg.Distribution.DB,
@@ -779,6 +789,7 @@ func OpenLayer(ctx context.Context, cfgs ...LayerConfig) (l *Layer, err error) {
 		Group:           l.Group,
 		Signals:         l.Signals,
 		Uses:            certificate.FindSecretUses,
+		Grant:           l.Grant,
 		EncryptionKey:   cfg.SecretsKey,
 	}); !ok(err, l.Secret) {
 		return nil, err

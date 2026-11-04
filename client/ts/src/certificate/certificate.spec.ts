@@ -83,7 +83,7 @@ describe("Certificate", () => {
       });
       await expect(create).rejects.toThrow(PathError);
       await expect(create).rejects.toThrow(
-        "private_key: private key does not match public key: validation error",
+        "private_key: does not match the certificate: validation error",
       );
     });
 
@@ -217,11 +217,12 @@ describe("Certificate", () => {
         pem: PEM,
         privateKey: PRIVATE_KEY,
       });
+      assert(c.source === "stored" && c.privateKey != null);
       const grant = await client.secrets.grant({
         rack: rack.key,
-        certificates: [c.key],
+        secrets: [c.privateKey],
       });
-      expect(grant).not.toHaveLength(0);
+      expect(grant).toHaveLength(36);
     });
   });
 });

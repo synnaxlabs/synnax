@@ -14,7 +14,6 @@ import (
 	"crypto"
 	"crypto/sha1"
 	"crypto/sha256"
-	"crypto/tls"
 	"crypto/x509"
 	"encoding/hex"
 	"encoding/pem"
@@ -77,24 +76,55 @@ func pemError(format string, args ...any) error {
 }
 
 // checkPrivateKey returns a validation error unless key is a PEM private key that
-// matches the leaf of chain.
-func checkPrivateKey(chain string, key []byte) error {
-	if _, err := tls.X509KeyPair([]byte(chain), key); err != nil {
-		return validate.PathedError(
-			errors.Wrap(
-				validate.ErrValidation,
-				strings.TrimPrefix(err.Error(), "tls: "),
-			),
-			"private_key",
-		)
+// matches leaf.
+func checkPrivateKey(leaf *x509.Certificate, key []byte) error {
+	block, _ := pem.Decode(key)
+	if block == nil || !strings.HasSuffix(block.Type, "PRIVATE KEY") {
+		return keyError("is not a PEM private key")
+	}
+	priv, ok := parsePrivateKey(block)
+	if !ok {
+		return keyError("is a key type Synnax cannot read")
+	}
+	if !samePublicKey(priv.Public(), leaf.PublicKey) {
+		return keyError("does not match the certificate")
 	}
 	return nil
 }
 
-// samePublicKey reports whether a and b hold the same public key.
-func samePublicKey(a, b *x509.Certificate) bool {
-	pub, ok := a.PublicKey.(interface{ Equal(crypto.PublicKey) bool })
-	return ok && pub.Equal(b.PublicKey)
+func parsePrivateKey(block *pem.Block) (crypto.Signer, bool) {
+	var (
+		key any
+		err error
+	)
+	switch block.Type {
+	case "PRIVATE KEY":
+		key, err = x509.ParsePKCS8PrivateKey(block.Bytes)
+	case "RSA PRIVATE KEY":
+		key, err = x509.ParsePKCS1PrivateKey(block.Bytes)
+	case "EC PRIVATE KEY":
+		key, err = x509.ParseECPrivateKey(block.Bytes)
+	default:
+		return nil, false
+	}
+	if err != nil {
+		return nil, false
+	}
+	signer, ok := key.(crypto.Signer)
+	return signer, ok
+}
+
+func keyError(msg string) error {
+	return validate.PathedError(
+		errors.Wrap(validate.ErrValidation, msg),
+		"private_key",
+	)
+}
+
+// samePublicKey reports whether a and b are the same public key.
+func samePublicKey(a, b crypto.PublicKey) bool {
+	pub, ok := a.(interface{ Equal(crypto.PublicKey) bool })
+	return ok && pub.Equal(b)
 }
 
 func newDetails(leaf *x509.Certificate) Details {

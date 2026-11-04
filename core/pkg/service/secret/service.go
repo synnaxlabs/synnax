@@ -18,6 +18,7 @@ import (
 	"github.com/synnaxlabs/gorp"
 	"github.com/synnaxlabs/synnax/pkg/service/group"
 	"github.com/synnaxlabs/synnax/pkg/service/ontology"
+	"github.com/synnaxlabs/synnax/pkg/service/secret/grant"
 	"github.com/synnaxlabs/synnax/pkg/service/signals"
 	"github.com/synnaxlabs/x/config"
 	xio "github.com/synnaxlabs/x/io"
@@ -50,15 +51,15 @@ type ServiceConfig struct {
 	//
 	// [REQUIRED]
 	Uses Finder
+	// Grant stores the grants that let a rack read secrets that nothing on it uses.
+	//
+	// [REQUIRED]
+	Grant *grant.Service
 	// Now returns the current time.
 	//
 	// [OPTIONAL] - Defaults to telem.Now.
 	Now func() telem.TimeStamp
 	alamos.Instrumentation
-	// GrantTTL is how long a grant lasts after Grant returns it.
-	//
-	// [OPTIONAL] - Defaults to 60 seconds.
-	GrantTTL telem.TimeSpan
 	// EncryptionKey protects the value of every stored secret. It encrypts the random
 	// data key that encrypts each value.
 	//
@@ -69,7 +70,7 @@ type ServiceConfig struct {
 var (
 	_ config.Config[ServiceConfig] = ServiceConfig{}
 	// DefaultServiceConfig is the default configuration for opening a Service.
-	DefaultServiceConfig = ServiceConfig{GrantTTL: 60 * telem.Second, Now: telem.Now}
+	DefaultServiceConfig = ServiceConfig{Now: telem.Now}
 )
 
 // Override implements config.Config.
@@ -80,8 +81,8 @@ func (c ServiceConfig) Override(other ServiceConfig) ServiceConfig {
 	c.Group = override.Nil(c.Group, other.Group)
 	c.Signals = override.Nil(c.Signals, other.Signals)
 	c.Uses = override.Nil(c.Uses, other.Uses)
+	c.Grant = override.Nil(c.Grant, other.Grant)
 	c.Now = override.Nil(c.Now, other.Now)
-	c.GrantTTL = override.Numeric(c.GrantTTL, other.GrantTTL)
 	c.EncryptionKey = override.If(
 		c.EncryptionKey,
 		other.EncryptionKey,
@@ -97,8 +98,8 @@ func (c ServiceConfig) Validate() error {
 	v.NotNil("ontology", c.Ontology)
 	v.NotNil("group", c.Group)
 	v.NotNil("uses", c.Uses)
+	v.NotNil("grant", c.Grant)
 	v.NotNil("now", c.Now)
-	v.Positive("grant_ttl", c.GrantTTL)
 	v.Ternary("encryption_key", c.EncryptionKey == EncryptionKey{}, "required")
 	return v.Error()
 }
@@ -106,13 +107,12 @@ func (c ServiceConfig) Validate() error {
 // Service stores secrets, encrypts their values, and gives each value only to a rack
 // that may read it.
 type Service struct {
-	aead     cipher.AEAD
-	group    group.Group
-	table    *gorp.Table[Key, Secret]
-	search   *gorp.SearchIndex[Key, Secret]
-	grantKey []byte
-	closer   xio.MultiCloser
-	cfg      ServiceConfig
+	aead   cipher.AEAD
+	group  group.Group
+	table  *gorp.Table[Key, Secret]
+	search *gorp.SearchIndex[Key, Secret]
+	closer xio.MultiCloser
+	cfg    ServiceConfig
 }
 
 // OpenService opens a Service with the given configuration. It returns an error when
@@ -125,11 +125,7 @@ func OpenService(ctx context.Context, cfgs ...ServiceConfig) (s *Service, err er
 	}
 	cleanup, ok := service.NewOpener(ctx, &s.closer)
 	defer func() { err = cleanup(err) }()
-	if s.aead, s.grantKey, err = openCipher(
-		ctx,
-		s.cfg.DB,
-		s.cfg.EncryptionKey,
-	); !ok(err, nil) {
+	if s.aead, err = openCipher(ctx, s.cfg.DB, s.cfg.EncryptionKey); !ok(err, nil) {
 		return nil, err
 	}
 	if s.group, err = s.cfg.Group.CreateOrRetrieve(

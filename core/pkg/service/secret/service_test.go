@@ -16,10 +16,13 @@ import (
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	"github.com/synnaxlabs/gorp"
+	"github.com/synnaxlabs/synnax/pkg/service/auth"
+	"github.com/synnaxlabs/synnax/pkg/service/auth/apikey"
 	"github.com/synnaxlabs/synnax/pkg/service/group"
 	"github.com/synnaxlabs/synnax/pkg/service/ontology"
 	"github.com/synnaxlabs/synnax/pkg/service/rack"
 	"github.com/synnaxlabs/synnax/pkg/service/secret"
+	"github.com/synnaxlabs/synnax/pkg/service/secret/grant"
 	"github.com/synnaxlabs/x/set"
 	"github.com/synnaxlabs/x/telem"
 	. "github.com/synnaxlabs/x/testutil"
@@ -29,11 +32,14 @@ import (
 // env is a secret service on its own in-memory DB, with uses and a clock that each spec
 // controls.
 type env struct {
-	db   *gorp.DB
-	otg  *ontology.Ontology
-	svc  *secret.Service
-	uses []secret.Use
-	now  telem.TimeStamp
+	db     *gorp.DB
+	otg    *ontology.Ontology
+	keys   *apikey.Service
+	auth   *auth.Service
+	grants *grant.Service
+	svc    *secret.Service
+	uses   []secret.Use
+	now    telem.TimeStamp
 }
 
 func (e *env) find(
@@ -65,18 +71,38 @@ func openService(
 		Ontology:      e.otg,
 		Group:         g,
 		Uses:          e.find,
+		Grant:         e.grants,
 		Now:           func() telem.TimeStamp { return e.now },
 		EncryptionKey: key,
 	})
 }
 
-// newStore returns an env with a DB and an ontology, and no service.
+// newStore returns an env with the services that a secret service needs, and no secret
+// service.
 func newStore(ctx SpecContext) *env {
 	GinkgoHelper()
 	e := &env{now: telem.SecondTS * 1000}
 	e.db = DeferClose(gorp.Wrap(memkv.New()))
 	e.otg = MustOpen(ontology.Open(ctx, ontology.Config{DB: e.db}))
+	e.keys = MustOpen(apikey.OpenService(ctx, apikey.ServiceConfig{DB: e.db}))
+	e.auth = MustOpen(auth.OpenService(ctx, auth.ServiceConfig{
+		DB:             e.db,
+		Authenticators: map[auth.Method]auth.Authenticator{auth.MethodAPIKey: e.keys},
+	}))
+	e.grants = MustOpen(grant.OpenService(ctx, grant.ServiceConfig{
+		DB:   e.db,
+		Auth: e.auth,
+	}))
 	return e
+}
+
+// login opens a session for a new user.
+func (e *env) login(ctx SpecContext) auth.Session {
+	GinkgoHelper()
+	user := ontology.ID{Type: ontology.ResourceTypeUser, Key: uuid.New().String()}
+	k, _ := MustSucceed2(e.keys.NewWriter(nil).Create(ctx, user, "Console"))
+	session, _ := MustSucceed2(e.auth.NewWriter(nil).Open(ctx, user, k.Key))
+	return session
 }
 
 func newEnv(ctx SpecContext) *env {
@@ -115,7 +141,7 @@ var _ = Describe("Service", func() {
 				e.svc = MustOpen(openService(ctx, e, key))
 				rk := rack.Key(1).OntologyID()
 				e.uses = []secret.Use{{Secret: s.Base().Key, Racks: []ontology.ID{rk}}}
-				Expect(e.svc.Resolve(ctx, nil, rk, "", s.Base().Key)).To(Equal(
+				Expect(e.svc.Resolve(ctx, nil, rk, uuid.Nil(), s.Base().Key)).To(Equal(
 					map[secret.Key][]byte{s.Base().Key: []byte("hunter2")},
 				))
 			},

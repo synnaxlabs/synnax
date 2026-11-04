@@ -175,7 +175,7 @@ describe("Secret", () => {
   });
 
   describe("grant", () => {
-    it("should grant a rack access to a secret", async () => {
+    it("should return the key of a new grant", async () => {
       const client = createTestClient();
       const rack = await client.racks.create({ name: "Grant rack" });
       const s = await client.secrets.create({
@@ -183,8 +183,37 @@ describe("Secret", () => {
         source: "stored",
         value: "abc",
       });
-      const grant = await client.secrets.grant({ rack: rack.key, secrets: [s.key] });
-      expect(grant).not.toHaveLength(0);
+      const first = await client.secrets.grant({ rack: rack.key, secrets: [s.key] });
+      const second = await client.secrets.grant({ rack: rack.key, secrets: [s.key] });
+      expect(first).toHaveLength(36);
+      expect(second).not.toEqual(first);
+    });
+
+    it("should throw a NotFoundError for a missing secret", async () => {
+      const client = createTestClient();
+      const rack = await client.racks.create({ name: "Grant rack" });
+      const key = uuid.create();
+      const grant = client.secrets.grant({ rack: rack.key, secrets: [key] });
+      await expect(grant).rejects.toThrow(NotFoundError);
+      await expect(grant).rejects.toThrow(`Secrets with keys [${key}] not found`);
+    });
+  });
+
+  describe("revoke", () => {
+    it("should revoke one grant or many, and ignore unknown keys", async () => {
+      const client = createTestClient();
+      const rack = await client.racks.create({ name: "Revoke rack" });
+      const s = await client.secrets.create({
+        name: "Revoke",
+        source: "stored",
+        value: "abc",
+      });
+      const first = await client.secrets.grant({ rack: rack.key, secrets: [s.key] });
+      const second = await client.secrets.grant({ rack: rack.key, secrets: [s.key] });
+      await expect(client.secrets.revoke(first)).resolves.toBeUndefined();
+      await expect(
+        client.secrets.revoke([first, second, uuid.create()]),
+      ).resolves.toBeUndefined();
     });
   });
 });

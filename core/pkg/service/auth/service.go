@@ -321,6 +321,12 @@ func (s *Service) held() []SessionKey {
 	return keys
 }
 
+// Observe returns an observable that notifies callers of changes to sessions, including
+// each session that ends.
+func (s *Service) Observe() observe.Observable[gorp.TxReader[SessionKey, Session]] {
+	return s.table.Observe()
+}
+
 // NewRetrieve opens a query for sessions.
 func (s *Service) NewRetrieve() Retrieve {
 	return Retrieve{gorp: s.table.NewRetrieve(), baseTX: s.cfg.DB, indexes: s.indexes}

@@ -10,10 +10,16 @@
 package certificate_test
 
 import (
+	"crypto/ecdsa"
+	"crypto/rand"
+	"crypto/rsa"
 	"crypto/sha1"
 	"crypto/sha256"
+	"crypto/x509"
+	"crypto/x509/pkix"
 	"encoding/hex"
 	"encoding/pem"
+	"math/big"
 	"time"
 	"uuid"
 
@@ -24,6 +30,7 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/service/status"
 	"github.com/synnaxlabs/x/query"
 	"github.com/synnaxlabs/x/telem"
+	. "github.com/synnaxlabs/x/testutil"
 	"github.com/synnaxlabs/x/validate"
 )
 
@@ -72,6 +79,43 @@ var _ = Describe("Writer", func() {
 				Exec(ctx, nil)).To(Succeed())
 			Expect(s.Base().Name).To(Equal("Plant private key"))
 			Expect(e.resolveKey(ctx, c)).To(Equal(encodeKey(key)))
+		})
+		DescribeTable("Should accept each PEM private key form",
+			func(ctx SpecContext, encode func(*ecdsa.PrivateKey) []byte) {
+				key := newKey()
+				c := e.create(
+					ctx,
+					stored("Plant", newCertificate(key, "a", time.Hour)),
+					encode(key),
+				)
+				Expect(e.resolveKey(ctx, c)).To(Equal(encode(key)))
+			},
+			Entry("PKCS #8", encodeKey),
+			Entry("SEC 1", func(key *ecdsa.PrivateKey) []byte {
+				der := MustSucceed(x509.MarshalECPrivateKey(key))
+				return pem.EncodeToMemory(
+					&pem.Block{Type: "EC PRIVATE KEY", Bytes: der},
+				)
+			}),
+		)
+		It("Should accept a PKCS #1 RSA private key", func(ctx SpecContext) {
+			key := MustSucceed(rsa.GenerateKey(rand.Reader, 2048))
+			tmpl := &x509.Certificate{
+				SerialNumber: big.NewInt(1),
+				Subject:      pkix.Name{CommonName: "rsa"},
+				NotBefore:    time.Now().Add(-time.Hour),
+				NotAfter:     time.Now().Add(time.Hour),
+			}
+			der := MustSucceed(
+				x509.CreateCertificate(rand.Reader, tmpl, tmpl, &key.PublicKey, key),
+			)
+			certPEM := pem.EncodeToMemory(&pem.Block{Type: "CERTIFICATE", Bytes: der})
+			keyPEM := pem.EncodeToMemory(&pem.Block{
+				Type:  "RSA PRIVATE KEY",
+				Bytes: x509.MarshalPKCS1PrivateKey(key),
+			})
+			c := e.create(ctx, stored("RSA", string(certPEM)), keyPEM)
+			Expect(e.resolveKey(ctx, c)).To(Equal(keyPEM))
 		})
 		It("Should ignore a private key secret the caller sets", func(ctx SpecContext) {
 			planted := uuid.New()
@@ -133,13 +177,30 @@ var _ = Describe("Writer", func() {
 				"a private key for another certificate",
 				func() string { return newCertificate(newKey(), "a", time.Hour) },
 				func() []byte { return encodeKey(newKey()) },
-				"private_key: private key does not match public key",
+				"private_key: does not match the certificate",
 			),
 			Entry(
 				"a private key that is not PEM",
 				func() string { return newCertificate(newKey(), "a", time.Hour) },
 				func() []byte { return []byte("not a key") },
-				"private_key: failed to find any PEM data in key input",
+				"private_key: is not a PEM private key",
+			),
+			Entry(
+				"a certificate in place of a private key",
+				func() string { return newCertificate(newKey(), "a", time.Hour) },
+				func() []byte { return []byte(newCertificate(newKey(), "b", time.Hour)) },
+				"private_key: is not a PEM private key",
+			),
+			Entry(
+				"a private key of a type Synnax cannot read",
+				func() string { return newCertificate(newKey(), "a", time.Hour) },
+				func() []byte {
+					return pem.EncodeToMemory(&pem.Block{
+						Type:  "OPENSSH PRIVATE KEY",
+						Bytes: []byte("key"),
+					})
+				},
+				"private_key: is a key type Synnax cannot read",
 			),
 		)
 		It("Should reject a certificate with no name", func(ctx SpecContext) {

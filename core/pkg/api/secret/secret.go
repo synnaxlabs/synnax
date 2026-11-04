@@ -16,10 +16,10 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/api/auth"
 	"github.com/synnaxlabs/synnax/pkg/service/access"
 	"github.com/synnaxlabs/synnax/pkg/service/access/rbac"
-	"github.com/synnaxlabs/synnax/pkg/service/certificate"
 	"github.com/synnaxlabs/synnax/pkg/service/ontology"
 	"github.com/synnaxlabs/synnax/pkg/service/rack"
 	"github.com/synnaxlabs/synnax/pkg/service/secret"
+	"github.com/synnaxlabs/synnax/pkg/service/secret/grant"
 	"github.com/synnaxlabs/x/config"
 	"github.com/synnaxlabs/x/errors"
 	"github.com/synnaxlabs/x/override"
@@ -32,10 +32,10 @@ type ServiceConfig struct {
 	//
 	// [REQUIRED]
 	Secret *secret.Service
-	// Certificate finds the private key secrets of the certificates a grant names.
+	// Grant stores the grants that let a rack read secrets that nothing on it uses.
 	//
 	// [REQUIRED]
-	Certificate *certificate.Service
+	Grant *grant.Service
 	// RBAC enforces access control on every request.
 	//
 	// [REQUIRED]
@@ -51,7 +51,7 @@ var (
 // Override implements config.Config.
 func (c ServiceConfig) Override(other ServiceConfig) ServiceConfig {
 	c.Secret = override.Nil(c.Secret, other.Secret)
-	c.Certificate = override.Nil(c.Certificate, other.Certificate)
+	c.Grant = override.Nil(c.Grant, other.Grant)
 	c.RBAC = override.Nil(c.RBAC, other.RBAC)
 	return c
 }
@@ -60,7 +60,7 @@ func (c ServiceConfig) Override(other ServiceConfig) ServiceConfig {
 func (c ServiceConfig) Validate() error {
 	v := validate.New("api.secret")
 	v.NotNil("secret", c.Secret)
-	v.NotNil("certificate", c.Certificate)
+	v.NotNil("grant", c.Grant)
 	v.NotNil("rbac", c.RBAC)
 	return v.Error()
 }
@@ -68,9 +68,9 @@ func (c ServiceConfig) Validate() error {
 // Service is the API for secrets. No endpoint returns a value except Resolve, which
 // only a rack may call.
 type Service struct {
-	access       *rbac.Service
-	internal     *secret.Service
-	certificates *certificate.Service
+	access   *rbac.Service
+	internal *secret.Service
+	grants   *grant.Service
 }
 
 // NewService opens a Service with the given configuration.
@@ -80,9 +80,9 @@ func NewService(cfgs ...ServiceConfig) (*Service, error) {
 		return nil, err
 	}
 	return &Service{
-		access:       cfg.RBAC,
-		internal:     cfg.Secret,
-		certificates: cfg.Certificate,
+		access:   cfg.RBAC,
+		internal: cfg.Secret,
+		grants:   cfg.Grant,
 	}, nil
 }
 
@@ -253,60 +253,71 @@ func (s *Service) Delete(
 	return struct{}{}, s.internal.NewWriter(tx).Delete(ctx, req.Keys...)
 }
 
-// GrantRequest names a rack and the items it may read before any device on the rack
-// uses them.
-type GrantRequest struct {
+// GrantCreateRequest names a rack and the secrets it may read before any device on the
+// rack uses them.
+type GrantCreateRequest struct {
 	// Secrets are the secrets the rack may read.
 	Secrets []Key `json:"secrets" msgpack:"secrets"`
-	// Certificates are certificates whose private key secrets the rack may read.
-	Certificates []certificate.Key `json:"certificates" msgpack:"certificates"`
 	// Rack is the rack that may read the secrets.
 	Rack rack.Key `json:"rack" msgpack:"rack"`
 }
 
-// GrantResponse holds a grant to send with a command to the rack.
-type GrantResponse struct {
-	Grant string `json:"grant" msgpack:"grant"`
+// GrantCreateResponse holds the key of a grant to send with a command to the rack.
+type GrantCreateResponse struct {
+	Grant grant.Key `json:"grant" msgpack:"grant"`
 }
 
-// Grant returns a grant that lets the rack read the secrets and the private keys of the
-// certificates for a short time. It requires create access on devices.
-func (s *Service) Grant(
+// CreateGrant creates a grant that lets the rack read the secrets until the caller's
+// session ends or the grant is deleted. It requires create access on devices.
+func (s *Service) CreateGrant(
 	ctx context.Context,
 	tx gorp.Tx,
-	req GrantRequest,
-) (GrantResponse, error) {
-	if err := s.access.NewEnforcer(tx).Enforce(ctx, access.Request{
+	req GrantCreateRequest,
+) (GrantCreateResponse, error) {
+	if err := s.enforceGrant(ctx, tx); err != nil {
+		return GrantCreateResponse{}, err
+	}
+	key, err := s.internal.Grant(
+		ctx,
+		tx,
+		req.Rack.OntologyID(),
+		auth.GetSessionKey(ctx),
+		req.Secrets...,
+	)
+	return GrantCreateResponse{Grant: key}, err
+}
+
+// GrantDeleteRequest selects the grants to delete.
+type GrantDeleteRequest struct {
+	Grants []grant.Key `json:"grants" msgpack:"grants"`
+}
+
+// DeleteGrants deletes the grants. Unknown keys are ignored. It requires create access
+// on devices.
+func (s *Service) DeleteGrants(
+	ctx context.Context,
+	tx gorp.Tx,
+	req GrantDeleteRequest,
+) (struct{}, error) {
+	if err := s.enforceGrant(ctx, tx); err != nil {
+		return struct{}{}, err
+	}
+	return struct{}{}, s.grants.NewWriter(tx).Delete(ctx, req.Grants...)
+}
+
+func (s *Service) enforceGrant(ctx context.Context, tx gorp.Tx) error {
+	return s.access.NewEnforcer(tx).Enforce(ctx, access.Request{
 		Subject: auth.GetSubject(ctx),
 		Action:  access.ActionCreate,
 		Objects: []ontology.ID{{Type: ontology.ResourceTypeDevice}},
-	}); err != nil {
-		return GrantResponse{}, err
-	}
-	keys := req.Secrets
-	if len(req.Certificates) != 0 {
-		var certs []certificate.Certificate
-		if err := s.certificates.NewRetrieve().
-			Where(certificate.MatchKeys(req.Certificates...)).
-			Entries(&certs).
-			Exec(ctx, tx); err != nil {
-			return GrantResponse{}, err
-		}
-		for _, c := range certs {
-			if stored, ok := c.Variant.(certificate.StoredCertificate); ok &&
-				stored.PrivateKey != nil {
-				keys = append(keys, *stored.PrivateKey)
-			}
-		}
-	}
-	grant, err := s.internal.Grant(ctx, tx, req.Rack.OntologyID(), keys...)
-	return GrantResponse{Grant: grant}, err
+	})
 }
 
 // ResolveRequest selects the secrets to resolve.
 type ResolveRequest struct {
-	// Grant is an optional grant for the calling rack.
-	Grant string `json:"grant" msgpack:"grant"`
+	// Grant is the key of an optional grant for the calling rack. A zero key names no
+	// grant.
+	Grant grant.Key `json:"grant" msgpack:"grant"`
 	// Keys selects the secrets to resolve.
 	Keys []Key `json:"keys" msgpack:"keys"`
 }

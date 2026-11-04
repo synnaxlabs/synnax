@@ -68,8 +68,7 @@ class TestCertificate:
         """Should reject a private key that does not match the certificate."""
         with pytest.raises(
             sy.PathError,
-            match=r"^private_key: private key does not match public key: "
-            r"validation error$",
+            match=r"^private_key: does not match the certificate: validation error$",
         ):
             client.certificates.create(
                 certificate.NewStored(

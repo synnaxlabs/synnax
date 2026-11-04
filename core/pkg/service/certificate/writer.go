@@ -135,7 +135,7 @@ func (w Writer) prepareStored(
 	c.Details = newDetails(leaf)
 	c.PrivateKey = prev.PrivateKey
 	if len(privateKey) != 0 {
-		if err = checkPrivateKey(chain, privateKey); err != nil {
+		if err = checkPrivateKey(leaf, privateKey); err != nil {
 			return c, err
 		}
 		key := secret.Secret{Variant: secret.StoredSecret{Base: secret.Base{
@@ -155,7 +155,7 @@ func (w Writer) prepareStored(
 	if err != nil {
 		return c, err
 	}
-	if !samePublicKey(prevLeaf, leaf) {
+	if !samePublicKey(prevLeaf.PublicKey, leaf.PublicKey) {
 		v := validate.New("certificate")
 		v.Ternary(
 			"private_key",

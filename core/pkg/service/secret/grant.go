@@ -11,107 +11,80 @@ package secret
 
 import (
 	"context"
-	"crypto/hmac"
-	"crypto/sha256"
-	"encoding/base64"
-	"encoding/json/v2"
 	"slices"
-	"strings"
+	"uuid"
 
 	"github.com/synnaxlabs/gorp"
 	"github.com/synnaxlabs/synnax/pkg/service/access"
+	"github.com/synnaxlabs/synnax/pkg/service/auth"
 	"github.com/synnaxlabs/synnax/pkg/service/ontology"
+	"github.com/synnaxlabs/synnax/pkg/service/secret/grant"
 	"github.com/synnaxlabs/x/errors"
+	"github.com/synnaxlabs/x/query"
 	"github.com/synnaxlabs/x/set"
 	"github.com/synnaxlabs/x/validate"
 )
 
-type grantClaims struct {
-	Rack    string `json:"rack"`
-	Secrets []Key  `json:"secrets"`
-	Expires int64  `json:"expires"`
-}
-
-// Grant returns a grant that lets rack read the secrets with the given keys until
-// GrantTTL passes, whether or not anything on the rack uses them. It returns
-// query.ErrNotFound when a secret does not exist.
+// Grant creates a grant that lets rack read the secrets with the given keys, whether or
+// not anything on the rack uses them, until session ends or the grant is deleted. It
+// returns query.ErrNotFound when a secret does not exist, and a validation error when
+// rack is not a rack, keys is empty, or session is zero.
 func (s *Service) Grant(
 	ctx context.Context,
 	tx gorp.Tx,
 	rack ontology.ID,
+	session auth.SessionKey,
 	keys ...Key,
-) (string, error) {
-	v := validate.New("secret.grant")
-	v.Ternaryf("rack", rack.Type != ontology.ResourceTypeRack, "%s is not a rack", rack)
-	v.NotEmptySlice("secrets", keys)
-	if err := v.Error(); err != nil {
-		return "", err
-	}
+) (grant.Key, error) {
 	if err := s.NewRetrieve().Where(MatchKeys(keys...)).Exec(ctx, tx); err != nil {
-		return "", err
+		return uuid.Nil(), err
 	}
-	claims, err := json.Marshal(grantClaims{
-		Rack:    rack.String(),
-		Secrets: keys,
-		Expires: int64(s.cfg.Now().Add(s.cfg.GrantTTL)),
-	})
-	if err != nil {
-		return "", err
+	g := grant.Grant{Rack: rack, Secrets: keys, Session: session}
+	if err := s.cfg.Grant.NewWriter(tx).Create(ctx, &g); err != nil {
+		return uuid.Nil(), err
 	}
-	enc := base64.RawURLEncoding
-	return enc.EncodeToString(claims) + "." + enc.EncodeToString(s.sign(claims)), nil
+	return g.Key, nil
 }
 
-func (s *Service) sign(claims []byte) []byte {
-	mac := hmac.New(sha256.New, s.grantKey)
-	mac.Write(claims)
-	return mac.Sum(nil)
-}
-
-var errInvalidGrant = errors.Wrap(access.ErrDenied, "grant is not valid")
-
-// granted returns the secrets that grant lets rack read. An empty grant lets rack read
-// nothing.
-func (s *Service) granted(grant string, rack ontology.ID) (set.Set[Key], error) {
-	if grant == "" {
-		return nil, nil
+// granted returns the secrets that the grant with key lets rack read. A zero key lets
+// rack read nothing.
+func (s *Service) granted(
+	ctx context.Context,
+	tx gorp.Tx,
+	rack ontology.ID,
+	key grant.Key,
+) (set.Set[Key], error) {
+	if key == uuid.Nil() {
+		return set.Set[Key]{}, nil
 	}
-	enc := base64.RawURLEncoding
-	encodedClaims, encodedSig, found := strings.Cut(grant, ".")
-	if !found {
-		return nil, errInvalidGrant
-	}
-	claims, err := enc.DecodeString(encodedClaims)
+	g, err := s.cfg.Grant.Get(ctx, tx, key)
 	if err != nil {
-		return nil, errInvalidGrant
+		if errors.Is(err, query.ErrNotFound) {
+			return nil, errors.Wrapf(
+				access.ErrDenied,
+				"grant %s has ended or does not exist",
+				key,
+			)
+		}
+		return nil, err
 	}
-	sig, err := enc.DecodeString(encodedSig)
-	if err != nil || !hmac.Equal(sig, s.sign(claims)) {
-		return nil, errInvalidGrant
-	}
-	var c grantClaims
-	if err = json.Unmarshal(claims, &c); err != nil {
-		return nil, errInvalidGrant
-	}
-	if c.Rack != rack.String() {
+	if g.Rack != rack {
 		return nil, errors.Wrapf(access.ErrDenied, "grant is not for %s", rack)
 	}
-	if int64(s.cfg.Now()) >= c.Expires {
-		return nil, errors.Wrap(access.ErrDenied, "grant expired")
-	}
-	return set.New(c.Secrets...), nil
+	return set.New(g.Secrets...), nil
 }
 
 // Resolve returns the plain text value of each stored secret with the given keys, for
 // rack to connect with. Rack may read a secret when something on the rack uses it, or
-// when grant names it. Grant may be empty. Resolve returns access.ErrDenied when rack
-// may not read a secret, query.ErrNotFound when a secret does not exist, and a
-// validation error for a file secret, whose value only the file holds.
+// when the grant with the given key names it. A zero grant key names no grant. Resolve
+// returns access.ErrDenied when rack may not read a secret or the grant has ended,
+// query.ErrNotFound when a secret does not exist, and a validation error for a file
+// secret, whose value only the file holds.
 func (s *Service) Resolve(
 	ctx context.Context,
 	tx gorp.Tx,
 	rack ontology.ID,
-	grant string,
+	grantKey grant.Key,
 	keys ...Key,
 ) (map[Key][]byte, error) {
 	var secrets []Secret
@@ -137,7 +110,7 @@ func (s *Service) Resolve(
 		base := sec.Base()
 		if !readable.Contains(base.Key) {
 			if granted == nil {
-				if granted, err = s.granted(grant, rack); err != nil {
+				if granted, err = s.granted(ctx, tx, rack, grantKey); err != nil {
 					return nil, err
 				}
 			}

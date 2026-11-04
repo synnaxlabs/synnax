@@ -13,9 +13,7 @@ import (
 	"context"
 	"crypto/aes"
 	"crypto/cipher"
-	"crypto/hkdf"
 	"crypto/rand"
-	"crypto/sha256"
 	"encoding/base64"
 	"os"
 	"strings"
@@ -84,35 +82,25 @@ func LoadEncryptionKey(path string) (EncryptionKey, error) {
 	return k, nil
 }
 
-const grantKeyInfo = "synnax secret grant"
-
 var dataKeyKey = []byte("sy_secret_data_key")
 
-// openCipher returns the AEAD for secret values and the key that signs grants, both
-// from a data key that db stores encrypted under k. The first call creates the data
-// key. It returns an error when k cannot decrypt the stored data key.
+// openCipher returns the AEAD for secret values, under a data key that db stores
+// encrypted under k. The first call creates the data key. It returns an error when k
+// cannot decrypt the stored data key.
 func openCipher(
 	ctx context.Context,
 	db *gorp.DB,
 	k EncryptionKey,
-) (cipher.AEAD, []byte, error) {
+) (cipher.AEAD, error) {
 	outer, err := newAEAD(k)
 	if err != nil {
-		return nil, nil, err
+		return nil, err
 	}
 	dataKey, err := loadDataKey(ctx, db, outer)
 	if err != nil {
-		return nil, nil, err
+		return nil, err
 	}
-	aead, err := newAEAD(dataKey)
-	if err != nil {
-		return nil, nil, err
-	}
-	grantKey, err := hkdf.Key(sha256.New, dataKey[:], nil, grantKeyInfo, sha256.Size)
-	if err != nil {
-		return nil, nil, err
-	}
-	return aead, grantKey, nil
+	return newAEAD(dataKey)
 }
 
 func newAEAD(k EncryptionKey) (cipher.AEAD, error) {

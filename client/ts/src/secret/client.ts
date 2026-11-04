@@ -46,13 +46,13 @@ const deleteReqZ = z.object({ keys: keyZ.array() });
 const renameReqZ = z.object({ key: keyZ, name: z.string() });
 const emptyResZ = z.object({});
 
-const grantReqZ = z.object({
-  rack: rack.keyZ,
-  secrets: keyZ.array().optional(),
-  certificates: z.uuid().array().optional(),
-});
-export interface GrantParams extends z.input<typeof grantReqZ> {}
-const grantResZ = z.object({ grant: z.string() });
+const grantKeyZ = z.uuid();
+/** GrantKey is the key of a grant that lets a rack read secrets. */
+export type GrantKey = z.infer<typeof grantKeyZ>;
+const grantCreateReqZ = z.object({ rack: rack.keyZ, secrets: keyZ.array() });
+export interface GrantParams extends z.input<typeof grantCreateReqZ> {}
+const grantCreateResZ = z.object({ grant: grantKeyZ });
+const grantDeleteReqZ = z.object({ grants: grantKeyZ.array() });
 
 const retrieveRequestZ = z.object({
   keys: keyZ.array().optional(),
@@ -171,19 +171,34 @@ export class Client extends query.Retriever<typeof retrieveMultiParamsZ, Key, Se
   }
 
   /**
-   * Lets a rack read secrets, and the private keys of certificates, for 60 seconds. Use
-   * it to test a connection before saving the device that uses them.
-   * @returns the grant to send to the rack with the command.
+   * Lets a rack read secrets that nothing on it uses yet, such as to test a connection
+   * before saving the device that uses them. The grant ends when it is revoked or when
+   * the client's session ends.
+   * @returns the key of the grant to send to the rack with the command.
    * @throws {AccessDeniedError} if the caller cannot create devices.
+   * @throws {NotFoundError} if a secret does not exist.
    */
-  async grant(params: GrantParams): Promise<string> {
+  async grant(params: GrantParams): Promise<GrantKey> {
     const res = await this.cfg.unary.send(
-      "/secret/grant",
+      "/secret/grant/create",
       params,
-      grantReqZ,
-      grantResZ,
+      grantCreateReqZ,
+      grantCreateResZ,
     );
     return res.grant;
+  }
+
+  /**
+   * Revokes grants. Unknown keys are ignored.
+   * @throws {AccessDeniedError} if the caller cannot create devices.
+   */
+  async revoke(grants: GrantKey | GrantKey[]): Promise<void> {
+    await this.cfg.unary.send(
+      "/secret/grant/delete",
+      { grants: array.toArray(grants) },
+      grantDeleteReqZ,
+      emptyResZ,
+    );
   }
 
   private async execRetrieve(params: RetrieveMultipleParams): Promise<Secret[]> {

@@ -44,9 +44,9 @@ var _ = BeforeSuite(func(ctx SpecContext) {
 	node := testutil.NewNode(ctx)
 	svc = MustOpen(svctestutil.OpenLayer(ctx, node))
 	apiSvc = MustSucceed(apisecret.NewService(apisecret.ServiceConfig{
-		Secret:      svc.Secret,
-		Certificate: svc.Certificate,
-		RBAC:        svc.RBAC,
+		Secret: svc.Secret,
+		Grant:  svc.Grant,
+		RBAC:   svc.RBAC,
 	}))
 })
 
@@ -58,8 +58,8 @@ func createUser(ctx SpecContext) user.User {
 	}))
 }
 
-// grant gives the subject the actions on the objects through a fresh role.
-func grant(
+// allow gives the subject the actions on the objects through a fresh role.
+func allow(
 	ctx SpecContext,
 	subject ontology.ID,
 	actions []access.Action,
