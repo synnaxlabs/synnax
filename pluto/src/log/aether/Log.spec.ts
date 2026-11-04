@@ -764,6 +764,21 @@ describe("log/aether/Log", () => {
       expect(log.state.selectedText).not.toContain("Sensor1");
     });
 
+    it("should put two spaces after the time and three before the value", () => {
+      const entries: LogEntry[] = [
+        { channelKey: 1, timestamp: TimeStamp.milliseconds(1000), value: "v" },
+      ];
+      const { log } = setup(entries, REGION_500, {
+        channelNamesHidden: false,
+        channels: [clientLog.channelEntryZ.parse({ channel: 1, color: color.ZERO })],
+        channelNames: { "1": "log" },
+        selectionStart: 0,
+        selectionEnd: 0,
+      });
+      log.render();
+      expect(log.state.selectedText).toMatch(/^\d{2}:\d{2}:\d{2} {2}log {3}v$/);
+    });
+
     it("should apply precision formatting when channelConfig has precision", () => {
       const entries: LogEntry[] = [
         {
@@ -842,7 +857,7 @@ describe("log/aether/Log", () => {
       ];
       const { log } = setup(entries, REGION_500, {
         channelNamesHidden: false,
-        receiptTimestampHidden: true,
+        timestampsHidden: true,
         channels: [clientLog.channelEntryZ.parse({ channel: 1, color: color.ZERO })],
         channelNames: { "1": "log" },
         selectionStart: 0,
@@ -850,13 +865,13 @@ describe("log/aether/Log", () => {
       });
       log.render();
       const lines = log.state.selectedLines.map((l) => l.text);
-      expect(lines[0]).toContain("[log]");
+      expect(lines[0]).toContain("log");
       expect(lines[0]).toContain("hello");
-      // Continuation: no [log], but leading whitespace preserves value alignment.
-      expect(lines[1]).not.toContain("[log]");
+      // Continuation: no name, but leading whitespace preserves value alignment.
+      expect(lines[1]).not.toContain("log");
       expect(lines[1]).toMatch(/^\s+world$/);
       expect(lines[1].indexOf("world")).toBe(lines[0].indexOf("hello"));
-      expect(lines[2]).toContain("[log]");
+      expect(lines[2]).toContain("log");
       expect(lines[2]).toContain("again");
     });
 
@@ -866,7 +881,7 @@ describe("log/aether/Log", () => {
       ];
       const { log } = setup(entries, REGION_500, {
         channelNamesHidden: false,
-        receiptTimestampHidden: true,
+        timestampsHidden: true,
         channels: [clientLog.channelEntryZ.parse({ channel: 1, color: color.ZERO })],
         channelNames: { "1": "log" },
         selectionStart: 0,
@@ -874,7 +889,7 @@ describe("log/aether/Log", () => {
       });
       log.render();
       const [line] = log.state.selectedLines.map((l) => l.text);
-      expect(line).toContain("[log]");
+      expect(line).toContain("log");
     });
 
     it("should render a three-line continuation group with consistent alignment", () => {
@@ -895,7 +910,7 @@ describe("log/aether/Log", () => {
       ];
       const { log } = setup(entries, REGION_500, {
         channelNamesHidden: false,
-        receiptTimestampHidden: false,
+        timestampsHidden: false,
         channels: [clientLog.channelEntryZ.parse({ channel: 1, color: color.ZERO })],
         channelNames: { "1": "sensor" },
         selectionStart: 0,
@@ -903,12 +918,12 @@ describe("log/aether/Log", () => {
       });
       log.render();
       const lines = log.state.selectedLines.map((l) => l.text);
-      expect(lines[0]).toContain("[sensor]");
+      expect(lines[0]).toContain("sensor");
       expect(lines[0]).toContain("first");
       const valueCol = lines[0].indexOf("first");
-      expect(lines[1]).not.toContain("[sensor]");
+      expect(lines[1]).not.toContain("sensor");
       expect(lines[1].indexOf("second")).toBe(valueCol);
-      expect(lines[2]).not.toContain("[sensor]");
+      expect(lines[2]).not.toContain("sensor");
       expect(lines[2].indexOf("third")).toBe(valueCol);
     });
 
@@ -924,7 +939,7 @@ describe("log/aether/Log", () => {
       ];
       const { log } = setup(entries, REGION_500, {
         channelNamesHidden: true,
-        receiptTimestampHidden: true,
+        timestampsHidden: true,
         channels: [clientLog.channelEntryZ.parse({ channel: 1, color: color.ZERO })],
         selectionStart: 0,
         selectionEnd: 1,
@@ -954,7 +969,7 @@ describe("log/aether/Log", () => {
       ];
       const { log } = setup(entries, REGION_500, {
         channelNamesHidden: false,
-        receiptTimestampHidden: true,
+        timestampsHidden: true,
         channels: [
           clientLog.channelEntryZ.parse({ channel: 1, color: color.ZERO }),
           clientLog.channelEntryZ.parse({ channel: 2, color: color.ZERO }),
@@ -965,13 +980,13 @@ describe("log/aether/Log", () => {
       });
       log.render();
       const lines = log.state.selectedLines.map((l) => l.text);
-      expect(lines[0]).toContain("[chA]");
+      expect(lines[0]).toContain("chA");
       expect(lines[0]).toContain("a1");
-      expect(lines[1]).not.toContain("[chA]");
+      expect(lines[1]).not.toContain("chA");
       expect(lines[1]).toContain("a2");
-      expect(lines[2]).toContain("[chB]");
+      expect(lines[2]).toContain("chB");
       expect(lines[2]).toContain("b1");
-      expect(lines[3]).not.toContain("[chB]");
+      expect(lines[3]).not.toContain("chB");
       expect(lines[3]).toContain("b2");
     });
 
@@ -987,7 +1002,7 @@ describe("log/aether/Log", () => {
       ];
       const { log } = setup(entries, REGION_500, {
         channelNamesHidden: false,
-        receiptTimestampHidden: true,
+        timestampsHidden: true,
         channels: [clientLog.channelEntryZ.parse({ channel: 1, color: color.ZERO })],
         channelNames: { "1": "log" },
         selectionStart: 0,
@@ -995,9 +1010,9 @@ describe("log/aether/Log", () => {
       });
       log.render();
       const lines = log.state.selectedLines.map((l) => l.text);
-      expect(lines[0]).toContain("[log]");
+      expect(lines[0]).toContain("log");
       expect(lines[0]).toContain("data");
-      expect(lines[1]).not.toContain("[log]");
+      expect(lines[1]).not.toContain("log");
       expect(lines[1]).toMatch(/^\s*$/);
       expect(lines[1].length).toBe(lines[0].indexOf("data"));
     });

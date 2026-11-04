@@ -1795,13 +1795,14 @@ type templateData struct {
 	processedEnums set.Set[string]
 	instances      set.Set[string]
 	*includes.Manager
-	table               *resolution.Table
-	jsonPaths           set.Set[string]
-	protoPaths          set.Set[string]
-	Namespace           string
-	rawNs               string
-	pbNamespace         string
-	Translators         []translatorData
+	table       *resolution.Table
+	jsonPaths   set.Set[string]
+	protoPaths  set.Set[string]
+	Namespace   string
+	rawNs       string
+	pbNamespace string
+	Translators []translatorData
+	// InstanceTranslators translate the generic uses that have their own message.
 	InstanceTranslators []instanceTranslatorData
 	UnionTranslators    []unionTranslatorData
 	EnumTranslators     []enumTranslatorData
@@ -1817,6 +1818,7 @@ type instanceTranslatorData struct {
 	CppType string
 	// PBType is the qualified protobuf message.
 	PBType string
+	// Fields translate the fields of the generic struct, with its type arguments set.
 	Fields []fieldTranslatorData
 }
 

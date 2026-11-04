@@ -10,7 +10,7 @@
 import "@/input/time/Time.css";
 
 import { state } from "@synnaxlabs/x";
-import { type ReactElement, type ReactNode, useMemo, useState } from "react";
+import { type ReactElement, type ReactNode, useMemo, useRef, useState } from "react";
 import { flushSync } from "react-dom";
 
 import { type Component } from "@/component";
@@ -62,7 +62,7 @@ export interface EditorProps<V> extends BaseProps {
    * walk the readings.
    */
   nudge?: (text: string, caret: number, steps: number) => string | null;
-  /** Shown while the field is blank. */
+  /** Shown while the field is blank, and always when the editor is inline. */
   hint: string;
   /** Shown when the text has no reading. */
   unreadMessage: string;
@@ -76,6 +76,17 @@ export interface EditorProps<V> extends BaseProps {
   effect?: Component.RenderProp<{ candidate: V }>;
   /** Renders one reading on one line. */
   children: Component.RenderProp<Suggestion<V>>;
+  /**
+   * Whether the text is typed in place, with only the readings in the dialog. Use it
+   * in forms. Defaults to false: the value reads as content, and the field opens in
+   * the dialog.
+   */
+  inline?: boolean;
+  /**
+   * Returns why a value cannot be committed, or null when it can. The editor drops
+   * readings that fail, and shows the first one's reason when none is left.
+   */
+  check?: (value: V) => string | null;
 }
 
 /** An open editor's state. The editor is closed while it has none. */
@@ -87,13 +98,16 @@ interface Draft {
   hoveredAction: string | null;
 }
 
+const DIALOG_CLASS = CSS.BE("time-editor", "dialog");
+
 const openDraft = (text: string): Draft => ({ text, selected: 0, hoveredAction: null });
 
 /**
  * A value that reads as content and edits in a connected dialog under it, the shape
  * of a select. The dialog holds a text field over the readings of its text. Enter or a
  * click outside commits the highlighted reading; Escape discards the edit; Enter on
- * text with no reading keeps the editor open. Hovering a reading highlights it.
+ * text with no reading keeps the editor open. Hovering a reading highlights it. An
+ * inline editor is a text field instead, and a blur also commits.
  */
 export const Editor = <V,>({
   label,
@@ -114,21 +128,34 @@ export const Editor = <V,>({
   status,
   tooltip,
   hideTooltip,
+  inline = false,
+  check,
   ...rest
 }: EditorProps<V>): ReactElement => {
-  const [draft, setDraft] = useState<Draft | null>(null);
+  const [draft, setDraftState] = useState<Draft | null>(null);
+  // Escape closes the edit, then blurs the field in the same event, before React
+  // renders again. The ref lets that blur see the edit is over.
+  const draftRef = useRef<Draft | null>(null);
+  const setDraft = (next: state.SetArg<Draft | null>): void => {
+    const value = state.executeSetter(next, draftRef.current);
+    draftRef.current = value;
+    setDraftState(value);
+  };
   const text = draft?.text;
   // A reading's key holds the time that suggest resolved. Without this memo, the
   // compiler reruns suggest on each hover, and each item remounts.
   // eslint-disable-next-line no-restricted-syntax
-  const suggestions = useMemo(
-    () => (text == null ? [] : suggest(text)),
-    [suggest, text],
-  );
+  const readings = useMemo(() => (text == null ? [] : suggest(text)), [suggest, text]);
+  const suggestions =
+    check == null ? readings : readings.filter((r) => check(r.value) == null);
+  const problem =
+    check != null && suggestions.length === 0 && readings.length > 0
+      ? check(readings[0].value)
+      : null;
   const selected = draft?.selected ?? 0;
   const chosen = suggestions[Math.min(selected, suggestions.length - 1)];
   const blank = text == null || text.trim().length === 0;
-  const unread = !blank && suggestions.length === 0;
+  const unread = !blank && readings.length === 0;
 
   const update = (patch: Partial<Draft>): void =>
     setDraft((prev) => (prev == null ? prev : { ...prev, ...patch }));
@@ -141,6 +168,7 @@ export const Editor = <V,>({
   };
 
   const finish = (): void => {
+    if (draftRef.current == null) return;
     if (blank) onClear?.();
     else if (chosen != null) onCommit(chosen.value);
     close();
@@ -151,9 +179,14 @@ export const Editor = <V,>({
     else finish();
   };
 
+  const open = (next: string): void => {
+    if (draftRef.current == null) setDraft(openDraft(next));
+    else setText(next);
+  };
+
   const handleKeyDown = (e: React.KeyboardEvent<HTMLInputElement>): void => {
     if (e.key === "Enter") {
-      if (!unread) finish();
+      if (!unread && problem == null) finish();
     } else if (e.key === "Escape") close();
     else if (e.key === "ArrowUp" || e.key === "ArrowDown") {
       e.preventDefault();
@@ -205,49 +238,89 @@ export const Editor = <V,>({
       variant="connected"
       visible={draft != null}
       onVisibleChange={handleVisibleChange}
-      className={CSS.cls(CSS.B("time-editor"), CSS.M(variant), className)}
+      className={CSS.cls(
+        CSS.B("time-editor"),
+        CSS.M(variant),
+        inline && CSS.M("inline"),
+        className,
+      )}
       style={style}
     >
-      <Dialog.Trigger
-        hideCaret
-        variant={variant === "outlined" ? "outlined" : "text"}
-        tooltipLocation="bottom"
-        className={CSS.BE("time-editor", "trigger")}
-        {...rest}
-        status={itemStatus.status}
-        aria-invalid={itemStatus["aria-invalid"]}
-        aria-describedby={itemStatus["aria-describedby"]}
-        tooltip={itemStatus.tooltip}
-        // The open editor covers the place a tooltip shows.
-        hideTooltip={draft != null ? true : itemStatus.hideTooltip}
+      {inline ? (
+        <Text
+          type="text"
+          variant={variant}
+          value={text ?? initialText}
+          onChange={open}
+          onFocus={(e) => {
+            open(initialText);
+            e.currentTarget.select();
+          }}
+          onBlur={(e) => {
+            const to = e.relatedTarget;
+            if (to instanceof Element && to.closest(`.${DIALOG_CLASS}`) != null) return;
+            finish();
+          }}
+          onKeyDown={handleKeyDown}
+          placeholder={fieldPlaceholder}
+          spellCheck={false}
+          disabled={rest.disabled}
+          preview={rest.preview}
+          status={status}
+          aria-invalid={rest["aria-invalid"]}
+          aria-describedby={rest["aria-describedby"]}
+          tooltip={tooltip}
+          // The open editor covers the place a tooltip shows.
+          hideTooltip={draft != null ? true : hideTooltip}
+          className={CSS.BE("time-editor", "field")}
+        />
+      ) : (
+        <Dialog.Trigger
+          hideCaret
+          variant={variant === "outlined" ? "outlined" : "text"}
+          tooltipLocation="bottom"
+          className={CSS.BE("time-editor", "trigger")}
+          {...rest}
+          status={itemStatus.status}
+          aria-invalid={itemStatus["aria-invalid"]}
+          aria-describedby={itemStatus["aria-describedby"]}
+          tooltip={itemStatus.tooltip}
+          // The open editor covers the place a tooltip shows.
+          hideTooltip={draft != null ? true : itemStatus.hideTooltip}
+        >
+          {label}
+        </Dialog.Trigger>
+      )}
+      <Dialog.Dialog
+        className={CSS.cls(DIALOG_CLASS, inline && CSS.M("inline"))}
+        bordered={false}
       >
-        {label}
-      </Dialog.Trigger>
-      <Dialog.Dialog className={CSS.BE("time-editor", "dialog")} bordered={false}>
         <ItemBoundary>
-          <Text
-            type="text"
-            flush
-            autoFocus
-            rounded
-            full="x"
-            size="medium"
-            value={text ?? ""}
-            onChange={setText}
-            onKeyDown={handleKeyDown}
-            onFocus={(e) => e.currentTarget.select()}
-            placeholder={fieldPlaceholder}
-            spellCheck={false}
-          />
+          {!inline && (
+            <Text
+              type="text"
+              flush
+              autoFocus
+              rounded
+              full="x"
+              size="medium"
+              value={text ?? ""}
+              onChange={setText}
+              onKeyDown={handleKeyDown}
+              onFocus={(e) => e.currentTarget.select()}
+              placeholder={fieldPlaceholder}
+              spellCheck={false}
+            />
+          )}
           <Flex.Box y empty bordered borderColor={6} rounded full="x">
             <Flex.Box y gap="tiny" className={CSS.BE("time-editor", "suggestions")}>
-              {blank && (
+              {problem != null && (
                 <BaseText.Text
                   level="small"
-                  color={9}
+                  status="error"
                   className={CSS.BE("time-editor", "note")}
                 >
-                  {hint}
+                  {problem}
                 </BaseText.Text>
               )}
               {unread && (
@@ -272,6 +345,16 @@ export const Editor = <V,>({
                     </Menu.Item>
                   ))}
                 </Menu.Menu>
+              )}
+              {/* An inline field opens on its value, so the hint stays. */}
+              {(blank || inline) && (
+                <BaseText.Text
+                  level="small"
+                  color={9}
+                  className={CSS.BE("time-editor", "note")}
+                >
+                  {hint}
+                </BaseText.Text>
               )}
             </Flex.Box>
             {actions != null && actions.length > 0 && (

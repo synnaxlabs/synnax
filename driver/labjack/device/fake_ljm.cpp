@@ -13,6 +13,8 @@
 
 namespace {
 constexpr int FAILURE = 1;
+/// @brief LJME_USING_DEFAULT_CALIBRATION, a warning.
+constexpr int USING_DEFAULT_CALIBRATION = 203;
 }
 
 #pragma GCC visibility push(default)
@@ -29,8 +31,28 @@ int LJM_Close(int) {
     return 0;
 }
 
-void LJM_ErrorToString(int, char *err_string) {
-    std::strcpy(err_string, "FAKE_FAILURE");
+int LJM_Open(int, int, const char *identifier, int *handle) {
+    if (std::strcmp(identifier, driver::labjack::device::DEFAULT_CALIBRATION_SERIAL) ==
+        0) {
+        *handle = driver::labjack::device::DEFAULT_CALIBRATION_HANDLE;
+        return USING_DEFAULT_CALIBRATION;
+    }
+    *handle = 0;
+    return 0;
+}
+
+int LJM_eReadName(const int handle, const char *, double *value) {
+    *value = driver::labjack::device::READ_VALUE;
+    return handle == driver::labjack::device::DEFAULT_CALIBRATION_HANDLE
+             ? USING_DEFAULT_CALIBRATION
+             : 0;
+}
+
+void LJM_ErrorToString(const int err, char *err_string) {
+    if (err == driver::labjack::device::STREAM_BUFFER_FULL_CODE)
+        std::strcpy(err_string, "STREAM_BUFFER_FULL");
+    else
+        std::strcpy(err_string, "FAKE_FAILURE");
 }
 }
 #pragma GCC visibility pop

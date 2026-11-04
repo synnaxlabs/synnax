@@ -15,20 +15,16 @@ import (
 	"github.com/synnaxlabs/alamos"
 	"github.com/synnaxlabs/gorp"
 	"github.com/synnaxlabs/gorp/migrate"
-	label "github.com/synnaxlabs/synnax/pkg/service/label/versions/v0"
 	"github.com/synnaxlabs/synnax/pkg/service/ontology"
-	ranger "github.com/synnaxlabs/synnax/pkg/service/ranger/versions/v1"
-	status "github.com/synnaxlabs/synnax/pkg/service/status/versions/v1"
 	v0 "github.com/synnaxlabs/synnax/pkg/service/view/versions/v0"
 	"github.com/synnaxlabs/x/errors"
-	filter "github.com/synnaxlabs/x/filter/versions/v0"
 	"go.uber.org/zap"
 )
 
-// NewMigration returns the migration that lifts stored views to v1. It turns the query
-// of every range and status view into a where. It deletes every view of another type,
-// and every view whose query does not decode into a valid where, along with the view's
-// ontology resource and relationships.
+// NewMigration returns the migration that lifts stored views to v1. It types the query
+// of every range and status view. It deletes every view of another type, and every view
+// whose query does not decode into a valid typed query, along with the view's ontology
+// resource and relationships.
 func NewMigration(otg *ontology.Ontology) gorp.Migration {
 	return migrate.New(
 		"v60_typed_views",
@@ -72,33 +68,19 @@ func NewMigration(otg *ontology.Ontology) gorp.Migration {
 	)
 }
 
-type rangeQuery struct {
-	HasLabels []label.Key `json:"has_labels"`
-}
-
-type statusQuery struct {
-	HasLabels []label.Key      `json:"has_labels"`
-	Variants  []status.Variant `json:"variants"`
-}
-
 // lift returns an error if v1 has no variant for the view's type or the view's query
-// does not decode into a valid where for the variant. An empty query becomes an absent
-// where.
+// does not decode into a valid query for the variant.
 func lift(old v0.View) (View, error) {
 	base := Base{Key: old.Key, Name: old.Name}
-	switch Type(old.Type) {
-	case TypeRange:
-		var q rangeQuery
+	switch ViewType(old.Type) {
+	case RangeViewType:
+		var q RangeQuery
 		if err := old.Query.Unmarshal(&q); err != nil {
 			return View{}, err
 		}
-		v := RangeView{Base: base}
-		if len(q.HasLabels) > 0 {
-			v.Where = &ranger.Where{Labels: q.HasLabels}
-		}
-		return View{Variant: v}, nil
-	case TypeStatus:
-		var q statusQuery
+		return View{Variant: RangeView{Base: base, Query: q}}, nil
+	case StatusViewType:
+		var q StatusQuery
 		if err := old.Query.Unmarshal(&q); err != nil {
 			return View{}, err
 		}
@@ -107,18 +89,7 @@ func lift(old v0.View) (View, error) {
 				return View{}, errors.Newf("invalid status variant %q", v)
 			}
 		}
-		var where status.Where
-		if len(q.HasLabels) > 0 {
-			where.Labels = q.HasLabels
-		}
-		if len(q.Variants) > 0 {
-			where.Variant = &filter.Set[status.Variant]{In: q.Variants}
-		}
-		v := StatusView{Base: base}
-		if where.Labels != nil || where.Variant != nil {
-			v.Where = &where
-		}
-		return View{Variant: v}, nil
+		return View{Variant: StatusView{Base: base, Query: q}}, nil
 	}
 	return View{}, errors.Newf("unsupported type %q", old.Type)
 }

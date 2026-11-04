@@ -97,7 +97,8 @@ type templateData struct {
 	*imports.Manager
 	// Record is the TypeScript type of a cached record.
 	Record string
-	Lines  []lineData
+	// Lines are the lines of the filter definition.
+	Lines []lineData
 }
 
 type lineData struct {

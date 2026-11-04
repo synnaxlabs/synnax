@@ -330,7 +330,11 @@ func (s *Service) onSuspectRack(ctx context.Context, rackStat rack.Status) error
 		Exec(ctx, nil); err != nil {
 		return errors.Wrap(err, "failed to retrieve tasks on suspect rack")
 	}
-	reported, err := s.cfg.Status.Join[StatusDetails](ctx, OntologyIDsFromTasks(tasks))
+	reported, err := s.cfg.Status.Join[StatusDetails](
+		ctx,
+		nil,
+		OntologyIDsFromTasks(tasks),
+	)
 	if err != nil {
 		return errors.Wrap(err, "failed to retrieve statuses on suspect rack")
 	}

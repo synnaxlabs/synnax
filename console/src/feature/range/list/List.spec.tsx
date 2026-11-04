@@ -80,8 +80,10 @@ describe("range/list/List", () => {
       getInputByNodePlaceholder(document.body, "Search Ranges..."),
     );
     fireEvent.change(input, { target: { value: target.name } });
-    await waitFor(() => expect(screen.getByText(target.name)).toBeTruthy());
-    expect(screen.queryByText(other.name)).toBeNull();
+    await waitFor(() => {
+      expect(screen.getByText(target.name)).toBeTruthy();
+      expect(screen.queryByText(other.name)).toBeNull();
+    });
   });
 
   it("offers Reload Console from a range's context menu", async () => {
@@ -105,7 +107,8 @@ describe("range/list/List", () => {
   it("should end a range on the Core from its stage selector", async () => {
     const container = await renderList();
     const rng = await showRange(container);
-    fireEvent.click(getIconButton(container, "in-progress"));
+    const item = within(container).getByLabelText(rng.name);
+    fireEvent.click(getIconButton(item, "in-progress"));
     fireEvent.click(await screen.findByText("Complete"));
     await waitFor(async () => {
       const { timeRange } = await client.ranges.retrieve(rng.key);

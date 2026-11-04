@@ -137,7 +137,57 @@ func (s *Service) Create(
 	if err := s.rack.NewWriter(tx).CreateMany(ctx, &req.Racks); err != nil {
 		return CreateResponse{}, err
 	}
+	if err := s.attachReadableStatuses(ctx, tx, req.Racks); err != nil {
+		return CreateResponse{}, err
+	}
 	return CreateResponse(req), nil
+}
+
+func (s *Service) attachReadableStatuses(
+	ctx context.Context,
+	tx gorp.Tx,
+	racks []rack.Rack,
+) error {
+	enforcer := s.access.NewEnforcer(tx)
+	subject := auth.GetSubject(ctx)
+	for i := range racks {
+		err := enforcer.Enforce(ctx, access.Request{
+			Subject: subject,
+			Action:  access.ActionRetrieve,
+			Objects: []ontology.ID{racks[i].OntologyID()},
+		})
+		// Create accepts update access, which does not grant read access.
+		if errors.Is(err, access.ErrDenied) {
+			racks[i].Status = nil
+			continue
+		}
+		if err != nil {
+			return err
+		}
+		if err := s.attachStatuses(ctx, tx, racks[i:i+1]); err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
+func (s *Service) attachStatuses(
+	ctx context.Context,
+	tx gorp.Tx,
+	racks []rack.Rack,
+) error {
+	statuses, err := s.status.Join[rack.StatusDetails](
+		ctx,
+		tx,
+		rack.OntologyIDsFromRacks(racks),
+	)
+	if err != nil {
+		return err
+	}
+	for i, st := range statuses {
+		racks[i].Status = st
+	}
+	return nil
 }
 
 // enforceCreate requires the update action on each rack that already exists, and the
@@ -204,15 +254,8 @@ func (s *Service) Retrieve(
 		return RetrieveResponse{}, err
 	}
 	if req.IncludeStatus {
-		statuses, err := s.status.Join[rack.StatusDetails](
-			ctx,
-			rack.OntologyIDsFromRacks(res.Racks),
-		)
-		if err != nil {
+		if err := s.attachStatuses(ctx, nil, res.Racks); err != nil {
 			return RetrieveResponse{}, err
-		}
-		for i, st := range statuses {
-			res.Racks[i].Status = st
 		}
 	}
 	if err := s.access.NewEnforcer(nil).Enforce(ctx, access.Request{

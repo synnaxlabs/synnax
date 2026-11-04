@@ -258,6 +258,27 @@ var _ = Describe("Service", func() {
 				})).To(Equal([]channel.Key{byName.Key()}))
 			})
 
+			It("Should apply the where to alias matches", func(ctx SpecContext) {
+				Expect(retrieve(ctx, apichannel.RetrieveRequest{
+					Where: &channel.Where{DataType: &filter.Set[telem.DataType]{
+						In: []telem.DataType{telem.Int64T},
+					}},
+					SearchTerm: term,
+				})).To(BeEmpty())
+			})
+
+			It("Should return a channel whose alias and name both match once", func(
+				ctx SpecContext,
+			) {
+				Expect(aliasSvc.NewWriter(nil).Set(
+					ctx, rng.Key, byName.Key(), term+" outlet",
+				)).To(Succeed())
+				Expect(retrieve(ctx, apichannel.RetrieveRequest{
+					Where:      both,
+					SearchTerm: term,
+				})).To(ConsistOf(byAlias.Key(), byName.Key()))
+			})
+
 			It("Should return no channel for a zero limit", func(ctx SpecContext) {
 				Expect(retrieve(ctx, apichannel.RetrieveRequest{
 					Where:      both,

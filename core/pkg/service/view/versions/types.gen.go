@@ -11,29 +11,29 @@
 
 package versions
 
-import "github.com/synnaxlabs/synnax/pkg/service/view/versions/v1"
+import "github.com/synnaxlabs/synnax/pkg/service/view/versions/v2"
 
 // Key is a unique identifier for a saved view configuration.
-type Key = v1.Key
+type Key = v2.Key
 
 // Type names the resource that a view lists.
-type Type = v1.Type
+type Type = v2.Type
 
 const (
-	TypeRange  Type = v1.TypeRange
-	TypeStatus Type = v1.TypeStatus
+	TypeRange  Type = v2.TypeRange
+	TypeStatus Type = v2.TypeStatus
 )
 
 // View is a saved, named filter over a list of resources. The type selects the resource
 // the view lists and the shape of its where.
-type View = v1.View
-type ViewVariant = v1.ViewVariant
+type View = v2.View
+type ViewVariant = v2.ViewVariant
 
 // RangeView is a saved view of ranges.
-type RangeView = v1.RangeView
+type RangeView = v2.RangeView
 
 // StatusView is a saved view of statuses.
-type StatusView = v1.StatusView
+type StatusView = v2.StatusView
 
 // Base carries the fields shared by every view variant.
-type Base = v1.Base
+type Base = v2.Base

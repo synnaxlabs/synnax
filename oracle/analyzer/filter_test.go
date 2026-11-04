@@ -494,6 +494,26 @@ var _ = Describe("Filter definitions", func() {
 				"filter Where: the target dep.Thing must be declared in the same schema",
 			))
 		})
+
+		It("Should reject a target with circular inheritance", func(ctx SpecContext) {
+			_, diag := Analyze(ctx, `
+				import "schemas/x/filter"
+
+				A struct extends B {
+					a string
+				}
+				B struct extends A {
+					b string
+				}
+				Where filter A {
+					a
+				}
+			`, "test", loader)
+			Expect(diag.Ok()).To(BeFalse())
+			Expect(diag.String()).To(ContainSubstring(
+				"filter Where: the target A has circular inheritance",
+			))
+		})
 	})
 
 	Describe("Retrieve request", func() {
