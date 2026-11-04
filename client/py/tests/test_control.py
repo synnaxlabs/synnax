@@ -10,7 +10,7 @@
 import asyncio
 import threading
 import time
-from collections.abc import Callable
+from collections.abc import Callable, Iterator
 from typing import cast
 
 import numpy as np
@@ -22,12 +22,15 @@ from synnax.control import ScheduledCommand
 from synnax.control.controller import Controller, _RemainsTrueFor
 from tests.channel import RetrieveCounter
 from x.strings import random_name
+from x.testutil import assert_eventually
 
 # Seconds to wait for a cross-thread handshake. Generous, so a slow Core cannot fail the
 # test, but bounded, so a broken run fails instead of hanging CI.
 HANDSHAKE_TIMEOUT = 5
 # A wait timeout long enough that only a stopped receiver can wake the wait in time.
 BLOCKED_WAIT = 30 * sy.TimeSpan.SECOND
+# Seconds a wait gets when no frame is coming, so only the first check can end it.
+QUIET_WAIT = 0.25
 
 
 def create_valve_set(
@@ -628,6 +631,146 @@ class TestController:
 
         assert assertions["seq_one_first_ack"] is False
         assert assertions["seq_one_second_ack"] is True
+
+
+@pytest.fixture
+def channel(client: sy.Synnax) -> sy.Channel:
+    return client.channels.create(
+        name=f"test_{random_name()}", virtual=True, data_type=sy.DataType.FLOAT64
+    )
+
+
+@pytest.fixture
+def held(client: sy.Synnax, channel: sy.Channel) -> Iterator[Controller]:
+    """A controller that holds 1 for channel, with no frames left to arrive."""
+    with client.control.acquire(
+        name="Held State", read=[channel.key], write=[channel.key]
+    ) as ctrl:
+        ctrl[channel.key] = 1
+
+        def check() -> None:
+            assert ctrl.get(channel.key) == 1
+
+        assert_eventually(check, timeout=HANDSHAKE_TIMEOUT)
+        yield ctrl
+
+
+@pytest.mark.control
+class TestWaitOnCurrentState:
+    """Tests that a wait checks the state the controller holds when the wait starts."""
+
+    def test_wait_until_passes_on_held_value(
+        self, held: Controller, channel: sy.Channel
+    ) -> None:
+        """Should return True on a value that arrived before the call."""
+        assert held.wait_until(lambda c: c[channel.key] == 1, timeout=QUIET_WAIT)
+
+    def test_wait_until_times_out_on_unmet_held_value(
+        self, held: Controller, channel: sy.Channel
+    ) -> None:
+        """Should keep waiting when the held value does not satisfy the condition."""
+        assert not held.wait_until(lambda c: c[channel.key] == 2, timeout=QUIET_WAIT)
+
+    def test_wait_while_returns_at_once_on_false_condition(
+        self, held: Controller, channel: sy.Channel
+    ) -> None:
+        """Should return True when the condition is false before the call."""
+        assert held.wait_while(lambda c: c[channel.key] == 2, timeout=QUIET_WAIT)
+
+    def test_wait_while_times_out_on_true_condition(
+        self, held: Controller, channel: sy.Channel
+    ) -> None:
+        """Should keep waiting while the held value keeps the condition true."""
+        assert not held.wait_while(lambda c: c[channel.key] == 1, timeout=QUIET_WAIT)
+
+    def test_wait_until_defined_passes_on_held_value(
+        self, held: Controller, channel: sy.Channel
+    ) -> None:
+        """Should return True for a channel that got its value before the call."""
+        assert held.wait_until_defined(channel.key, timeout=QUIET_WAIT)
+
+    @pytest.mark.parametrize(
+        "wait",
+        [Controller.wait_until, Controller.wait_while],
+        ids=["wait_until", "wait_while"],
+    )
+    def test_wait_raises_condition_error(
+        self, held: Controller, wait: Callable[..., bool]
+    ) -> None:
+        """Should raise an error from the check at the start of the wait."""
+
+        def cond(_: Controller) -> bool:
+            raise ValueError("bad condition")
+
+        with pytest.raises(ValueError, match="bad condition"):
+            wait(held, cond, timeout=QUIET_WAIT)
+
+    def test_wait_until_waits_for_first_value(
+        self, client: sy.Synnax, channel: sy.Channel
+    ) -> None:
+        """Should wait for a frame when the channel has no value yet."""
+        with client.control.acquire(
+            name="First Value", read=[channel.key], write=[channel.key]
+        ) as ctrl:
+            threading.Timer(QUIET_WAIT, lambda: ctrl.set(channel.key, 1)).start()
+            assert ctrl.wait_until(
+                lambda c: c[channel.key] == 1, timeout=HANDSHAKE_TIMEOUT
+            )
+
+    def test_wait_until_raises_undefined_channel_on_frame(
+        self, client: sy.Synnax, channel: sy.Channel
+    ) -> None:
+        """Should raise a KeyError from a frame, as only the first check defers it."""
+        undefined = client.channels.create(
+            name=f"test_{random_name()}", virtual=True, data_type=sy.DataType.FLOAT64
+        )
+        with client.control.acquire(
+            name="Undefined", read=[channel.key, undefined.key], write=[channel.key]
+        ) as ctrl:
+            threading.Timer(QUIET_WAIT, lambda: ctrl.set(channel.key, 1)).start()
+            with pytest.raises(KeyError, match="not found in controller state"):
+                ctrl.wait_until(
+                    lambda c: c[undefined.key] == 1, timeout=HANDSHAKE_TIMEOUT
+                )
+
+    def test_frame_during_check_is_kept(
+        self, held: Controller, channel: sy.Channel
+    ) -> None:
+        """Should hold a frame back until the check ends, then run the condition on it
+        on one thread at a time.
+        """
+        results: list[bool] = []
+        running = False
+        overlapped = False
+
+        def cond(c: Controller) -> bool:
+            nonlocal running, overlapped
+            overlapped = overlapped or running
+            running = True
+            if not results:
+                c.set(channel.key, 2)
+                time.sleep(QUIET_WAIT)
+            results.append(bool(c[channel.key] == 2))
+            running = False
+            return results[-1]
+
+        assert held.wait_until(cond, timeout=HANDSHAKE_TIMEOUT)
+        assert results == [False, True]
+        assert not overlapped
+
+    def test_remains_true_for_ignores_held_value(
+        self, held: Controller, channel: sy.Channel
+    ) -> None:
+        """Should count only frames that arrive after the call starts."""
+        calls = 0
+
+        def cond(c: Controller) -> bool:
+            nonlocal calls
+            calls += 1
+            return bool(c[channel.key] == 1)
+
+        assert not held.remains_true_for(cond, duration=QUIET_WAIT)
+        assert calls == 0
 
 
 @pytest.mark.control
