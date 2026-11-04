@@ -141,6 +141,14 @@ describe("Selector.create", () => {
       expect(marked("Camel")).toBe(true);
     });
 
+    it("should drop the mark when Escape leaves an empty search", async () => {
+      const { search, press } = await renderAnimals();
+      press("ArrowDown");
+      expect(marked("Cat")).toBe(true);
+      fireEvent.keyDown(search, { key: "Escape", code: "Escape" });
+      expect(marked("Cat")).toBe(false);
+    });
+
     it("should clear the search on Escape", async () => {
       const { search } = await renderAnimals();
       fireEvent.change(search, { target: { value: "ca" } });

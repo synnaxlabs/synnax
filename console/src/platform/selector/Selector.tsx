@@ -111,6 +111,9 @@ const Body = ({
   searchPlaceholder,
 }: BodyProps): ReactElement => {
   const [query, setQuery] = useState("");
+  // The arrow keys and Enter act only while the search has focus, so the cursor shows
+  // only then.
+  const [focused, setFocused] = useState(false);
   const rootRef = useRef<HTMLDivElement>(null);
   const searchRef = useRef<HTMLInputElement>(null);
   const attached = Portal.useAttached();
@@ -152,7 +155,7 @@ const Body = ({
         selectable={selectable}
         variant={variant}
         disabled={!matched.has(selectable.type)}
-        hovered={hover === selectable.type}
+        hovered={focused && hover === selectable.type}
         onSelect={onSelect}
         onHover={setHover}
       />
@@ -177,7 +180,14 @@ const Body = ({
   };
 
   return (
-    <Flex.Box y className={CSS.BE("layout-selector", "body")} ref={rootRef}>
+    <Flex.Box
+      y
+      className={CSS.cls(
+        CSS.BE("layout-selector", "body"),
+        focused && CSS.M("focused"),
+      )}
+      ref={rootRef}
+    >
       <div className={CSS.BE("layout-selector", "header")}>
         <Text.Text
           level="h4"
@@ -193,6 +203,8 @@ const Body = ({
           value={query}
           onChange={setQuery}
           onKeyDown={handleKeyDown}
+          onFocus={() => setFocused(true)}
+          onBlur={() => setFocused(false)}
           placeholder={searchPlaceholder}
           startContent={<Icon.Search color={8} />}
           className={CSS.BE("layout-selector", "search")}

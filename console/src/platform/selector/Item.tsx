@@ -52,7 +52,13 @@ export const Item = ({
   } as const;
   if (variant === "action")
     return (
-      <Button.Button variant="text" size="small" justify="start" {...props}>
+      <Button.Button
+        variant="text"
+        size="small"
+        textColor={9}
+        justify="start"
+        {...props}
+      >
         {label ?? title}
       </Button.Button>
     );
