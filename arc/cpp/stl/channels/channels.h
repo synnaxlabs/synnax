@@ -130,8 +130,8 @@ public:
 
             const bool generate_synthetic = index_data.empty();
             if (!generate_synthetic && i >= index_data.series.size()) {
-                VLOG(1) << "[arc.channels] channel " << this->curr_key
-                        << ": no index series for data series " << i;
+                LOG_FIRST_N(WARNING, 10) << "[arc.channels] channel " << this->curr_key
+                                         << ": no index series for data series " << i;
                 return x::errors::NIL;
             }
 
@@ -152,9 +152,10 @@ public:
                     );
                 time_series.alignment = ser.alignment;
             } else if (time_series.alignment != ser.alignment) {
-                VLOG(1) << "[arc.channels] channel " << this->curr_key
-                        << ": index alignment " << time_series.alignment.uint64()
-                        << " does not match data alignment " << lower.uint64();
+                LOG_FIRST_N(WARNING, 10)
+                    << "[arc.channels] channel " << this->curr_key
+                    << ": index alignment " << time_series.alignment.uint64()
+                    << " does not match data alignment " << lower.uint64();
                 return x::errors::NIL;
             }
 
