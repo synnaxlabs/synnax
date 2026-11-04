@@ -14,7 +14,6 @@ import (
 	. "github.com/onsi/gomega"
 	apistatus "github.com/synnaxlabs/synnax/pkg/api/status"
 	"github.com/synnaxlabs/synnax/pkg/service/access/rbac"
-	"github.com/synnaxlabs/synnax/pkg/service/label"
 	"github.com/synnaxlabs/synnax/pkg/service/status"
 )
 
@@ -22,7 +21,6 @@ var _ = Describe("ServiceConfig", func() {
 	full := func() apistatus.ServiceConfig {
 		return apistatus.ServiceConfig{
 			Status: &status.Service{},
-			Label:  &label.Service{},
 			RBAC:   &rbac.Service{},
 		}
 	}
@@ -45,11 +43,6 @@ var _ = Describe("ServiceConfig", func() {
 				"status: must be non-nil",
 			),
 			Entry(
-				"label",
-				func(c *apistatus.ServiceConfig) { c.Label = nil },
-				"label: must be non-nil",
-			),
-			Entry(
 				"rbac",
 				func(c *apistatus.ServiceConfig) { c.RBAC = nil },
 				"rbac: must be non-nil",
@@ -62,7 +55,6 @@ var _ = Describe("ServiceConfig", func() {
 			cfg := full()
 			merged := apistatus.ServiceConfig{}.Override(cfg)
 			Expect(merged.Status).To(BeIdenticalTo(cfg.Status))
-			Expect(merged.Label).To(BeIdenticalTo(cfg.Label))
 			Expect(merged.RBAC).To(BeIdenticalTo(cfg.RBAC))
 		})
 
@@ -70,7 +62,6 @@ var _ = Describe("ServiceConfig", func() {
 			cfg := full()
 			merged := cfg.Override(apistatus.ServiceConfig{})
 			Expect(merged.Status).To(BeIdenticalTo(cfg.Status))
-			Expect(merged.Label).To(BeIdenticalTo(cfg.Label))
 			Expect(merged.RBAC).To(BeIdenticalTo(cfg.RBAC))
 		})
 	})

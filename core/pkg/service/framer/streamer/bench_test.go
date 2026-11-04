@@ -71,9 +71,7 @@ func newBenchStreamerEnv(b *testing.B) *benchStreamerEnv {
 
 	statusSvc, err := status.OpenService(b.Context(), status.ServiceConfig{
 		DB:       node.DB,
-		Group:    groupSvc,
 		Ontology: otg,
-		Label:    labelSvc,
 	})
 	if err != nil {
 		b.Fatalf("failed to open status service: %v", err)

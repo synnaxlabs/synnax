@@ -18,7 +18,9 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/service/access/rbac"
 	"github.com/synnaxlabs/synnax/pkg/service/actions"
 	"github.com/synnaxlabs/synnax/pkg/service/label"
+	"github.com/synnaxlabs/synnax/pkg/service/ranger"
 	"github.com/synnaxlabs/synnax/pkg/service/resource"
+	"github.com/synnaxlabs/synnax/pkg/service/status"
 	"github.com/synnaxlabs/x/config"
 	"github.com/synnaxlabs/x/errors"
 	"github.com/synnaxlabs/x/override"
@@ -32,6 +34,14 @@ type ServiceConfig struct {
 	//
 	// [REQUIRED]
 	Label *label.Service
+	// Ranger stores the labels of ranges.
+	//
+	// [REQUIRED]
+	Ranger *ranger.Service
+	// Status stores the labels of statuses.
+	//
+	// [REQUIRED]
+	Status *status.Service
 	// RBAC enforces access control on every request.
 	//
 	// [REQUIRED]
@@ -47,6 +57,8 @@ var (
 // Override implements config.Config.
 func (c ServiceConfig) Override(other ServiceConfig) ServiceConfig {
 	c.Label = override.Nil(c.Label, other.Label)
+	c.Ranger = override.Nil(c.Ranger, other.Ranger)
+	c.Status = override.Nil(c.Status, other.Status)
 	c.RBAC = override.Nil(c.RBAC, other.RBAC)
 	return c
 }
@@ -55,6 +67,8 @@ func (c ServiceConfig) Override(other ServiceConfig) ServiceConfig {
 func (c ServiceConfig) Validate() error {
 	v := validate.New("api.label")
 	v.NotNil("label", c.Label)
+	v.NotNil("ranger", c.Ranger)
+	v.NotNil("status", c.Status)
 	v.NotNil("rbac", c.RBAC)
 	return v.Error()
 }
@@ -62,6 +76,8 @@ func (c ServiceConfig) Validate() error {
 type Service struct {
 	access   *rbac.Service
 	internal *label.Service
+	ranger   *ranger.Service
+	status   *status.Service
 }
 
 func NewService(cfgs ...ServiceConfig) (*Service, error) {
@@ -71,6 +87,8 @@ func NewService(cfgs ...ServiceConfig) (*Service, error) {
 	}
 	return &Service{
 		internal: cfg.Label,
+		ranger:   cfg.Ranger,
+		status:   cfg.Status,
 		access:   cfg.RBAC,
 	}, nil
 }
@@ -134,7 +152,6 @@ func (s *Service) Dispatch(
 }
 
 type RetrieveRequest struct {
-	For                 resource.ID `json:"for"                    msgpack:"for"`
 	SearchTerm          string      `json:"search_term"            msgpack:"search_term"`
 	Keys                []label.Key `json:"keys"                   msgpack:"keys"`
 	Names               []string    `json:"names"                  msgpack:"names"`
@@ -153,40 +170,32 @@ func (s *Service) Retrieve(
 	req RetrieveRequest,
 ) (RetrieveResponse, error) {
 	var res RetrieveResponse
-	if !req.For.IsZero() {
-		labels, err := s.internal.RetrieveFor(ctx, req.For, nil)
-		if err != nil {
-			return RetrieveResponse{}, err
-		}
-		res.Labels = labels
-	} else {
-		q := s.internal.NewRetrieve()
-		if req.SearchTerm != "" {
-			q = q.Search(req.SearchTerm)
-		}
-		if req.Limit > 0 {
-			q = q.Limit(req.Limit)
-		}
-		if req.Offset > 0 {
-			q = q.Offset(req.Offset)
-		}
-		if len(req.Keys) != 0 {
-			q = q.Where(label.MatchKeys(req.Keys...))
-		}
-		if len(req.Names) != 0 {
-			q = q.Where(label.MatchNames(req.Names...))
-		}
-		err := q.Entries(&res.Labels).Exec(ctx, nil)
-		if req.IgnoreNotFoundError && err != nil {
-			err = errors.Skip(err, query.ErrNotFound)
-		}
-		if err != nil {
-			return RetrieveResponse{}, err
-		}
+	q := s.internal.NewRetrieve()
+	if req.SearchTerm != "" {
+		q = q.Search(req.SearchTerm)
 	}
-	objects := label.ResourceIDsFromLabels(res.Labels)
-	if !req.For.IsZero() {
-		objects = append(objects, req.For)
+	if req.Limit > 0 {
+		q = q.Limit(req.Limit)
+	}
+	if req.Offset > 0 {
+		q = q.Offset(req.Offset)
+	}
+	if len(req.Keys) != 0 {
+		q = q.Where(label.MatchKeys(req.Keys...))
+	}
+	if len(req.Names) != 0 {
+		q = q.Where(label.MatchNames(req.Names...))
+	}
+	err := q.Entries(&res.Labels).Exec(ctx, nil)
+	if req.IgnoreNotFoundError && err != nil {
+		err = errors.Skip(err, query.ErrNotFound)
+	}
+	if err != nil {
+		return RetrieveResponse{}, err
+	}
+	objects := make([]resource.ID, len(res.Labels))
+	for i, l := range res.Labels {
+		objects[i] = l.ResourceID()
 	}
 	if err := s.access.NewEnforcer(nil).Enforce(ctx, access.Request{
 		Subject: auth.GetSubject(ctx),
@@ -217,6 +226,7 @@ func (s *Service) Delete(
 	return struct{}{}, s.internal.NewWriter(tx).Delete(ctx, req.Keys...)
 }
 
+// AddRequest adds labels to the range or status that ID names.
 type AddRequest struct {
 	ID      resource.ID `json:"id"      msgpack:"id"`
 	Labels  []label.Key `json:"labels"  msgpack:"labels"`
@@ -235,13 +245,22 @@ func (s *Service) Add(
 	}); err != nil {
 		return struct{}{}, err
 	}
-	w := s.internal.NewWriter(tx)
-	if req.Replace {
-		return struct{}{}, w.Replace(ctx, req.ID, req.Labels)
+	switch req.ID.Type {
+	case resource.TypeRange:
+		key, err := ranger.KeyFromResourceID(req.ID)
+		if err != nil {
+			return struct{}{}, err
+		}
+		return struct{}{}, s.ranger.NewWriter(tx).
+			SetLabels(ctx, key, req.Labels, req.Replace)
+	case resource.TypeStatus:
+		return struct{}{}, s.status.NewWriter(tx).
+			SetLabels(ctx, req.ID.Key, req.Labels, req.Replace)
 	}
-	return struct{}{}, w.Label(ctx, req.ID, req.Labels)
+	return struct{}{}, unlabeled(req.ID)
 }
 
+// RemoveRequest removes labels from the range or status that ID names.
 type RemoveRequest struct {
 	ID     resource.ID `json:"id"     msgpack:"id"`
 	Labels []label.Key `json:"labels" msgpack:"labels"`
@@ -259,5 +278,23 @@ func (s *Service) Remove(
 	}); err != nil {
 		return struct{}{}, err
 	}
-	return struct{}{}, s.internal.NewWriter(tx).RemoveLabel(ctx, req.ID, req.Labels)
+	switch req.ID.Type {
+	case resource.TypeRange:
+		key, err := ranger.KeyFromResourceID(req.ID)
+		if err != nil {
+			return struct{}{}, err
+		}
+		return struct{}{}, s.ranger.NewWriter(tx).RemoveLabels(ctx, key, req.Labels)
+	case resource.TypeStatus:
+		return struct{}{}, s.status.NewWriter(tx).
+			RemoveLabels(ctx, req.ID.Key, req.Labels)
+	}
+	return struct{}{}, unlabeled(req.ID)
+}
+
+func unlabeled(id resource.ID) error {
+	return validate.PathedError(
+		errors.Wrapf(validate.ErrValidation, "a %s cannot have labels", id.Type),
+		"id",
+	)
 }

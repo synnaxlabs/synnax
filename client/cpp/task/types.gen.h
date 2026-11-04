@@ -39,20 +39,9 @@ struct WriteConfig;
 
 using Key = x::uuid::UUID;
 
-/// @brief KeyedConfig is the base for every stored task configuration record.
-struct KeyedConfig {
-    /// @brief key is the unique identifier for the stored configuration record.
-    x::uuid::UUID key;
-
-    static KeyedConfig parse(x::json::Parser parser);
-    [[nodiscard]] x::json::json to_json() const;
-};
-
 /// @brief StatusDetails contains task-specific status details including execution
 /// state.
 struct StatusDetails {
-    /// @brief task is the key of the task this status pertains to.
-    Key task;
     /// @brief running is true if the task is currently executing.
     bool running = false;
     /// @brief cmd is the last command executed on this task.
@@ -73,6 +62,15 @@ struct StatusDetails {
     to_proto() const;
     static std::pair<StatusDetails, x::errors::Error>
     from_proto(const ::service::task::pb::StatusDetails &pb);
+};
+
+/// @brief KeyedConfig is the base for every stored task configuration record.
+struct KeyedConfig {
+    /// @brief key is the unique identifier for the stored configuration record.
+    x::uuid::UUID key;
+
+    static KeyedConfig parse(x::json::Parser parser);
+    [[nodiscard]] x::json::json to_json() const;
 };
 
 /// @brief Command is a command to execute on a task in the Driver system.
@@ -103,6 +101,8 @@ struct Command {
     from_proto(const ::service::task::pb::Command &pb);
 };
 
+using Status = ::synnax::status::Status<StatusDetails>;
+
 /// @brief StartConfig carries the configuration fields shared by every task.
 struct StartConfig : public KeyedConfig {
     /// @brief auto_start is true when the task should start as soon as it is
@@ -121,19 +121,6 @@ struct ScanConfig : public KeyedConfig {
     bool disabled = false;
 
     static ScanConfig parse(x::json::Parser parser);
-    [[nodiscard]] x::json::json to_json() const;
-};
-
-using Status = ::synnax::status::Status<StatusDetails>;
-
-/// @brief PersistConfig carries the configuration fields shared by tasks that write
-/// telemetry.
-struct PersistConfig : public StartConfig {
-    /// @brief data_saving_disabled is true when task telemetry is not persisted to
-    /// disk.
-    bool data_saving_disabled = false;
-
-    static PersistConfig parse(x::json::Parser parser);
     [[nodiscard]] x::json::json to_json() const;
 };
 
@@ -174,6 +161,17 @@ struct Task {
     to_proto() const;
     static std::pair<Task, x::errors::Error>
     from_proto(const ::service::task::pb::Task &pb);
+};
+
+/// @brief PersistConfig carries the configuration fields shared by tasks that write
+/// telemetry.
+struct PersistConfig : public StartConfig {
+    /// @brief data_saving_disabled is true when task telemetry is not persisted to
+    /// disk.
+    bool data_saving_disabled = false;
+
+    static PersistConfig parse(x::json::Parser parser);
+    [[nodiscard]] x::json::json to_json() const;
 };
 
 /// @brief ReadConfig carries the configuration fields shared by hardware acquisition

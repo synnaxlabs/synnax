@@ -44,8 +44,22 @@ func LegacyKeyKVKey(legacy v1.Key) []byte {
 	return []byte(LegacyKeyKVPrefix + strconv.FormatUint(uint64(legacy), 10))
 }
 
-// Migration re-keys stored tasks from legacy composite uint64 keys to UUIDs.
-var Migration = migrate.New("v56_task_uuid_key", migrateKeysToUUID)
+// MigrationConfig configures the migration that NewMigration returns.
+type MigrationConfig struct {
+	// Status rewrites the owners of task statuses.
+	Status *status.Service
+}
+
+// NewMigration returns the migration that re-keys stored tasks from legacy composite
+// uint64 keys to UUIDs.
+func NewMigration(cfg MigrationConfig) gorp.Migration {
+	return migrate.New(
+		"v56_task_uuid_key",
+		func(ctx context.Context, tx gorp.Tx, _ alamos.Instrumentation) error {
+			return migrateKeysToUUID(ctx, tx, cfg)
+		},
+	)
+}
 
 // resourceID returns the resource identifier for the task with the given key.
 func resourceID(key Key) resource.ID {
@@ -81,11 +95,7 @@ func hashConfig(config msgpack.EncodedJSON) (string, error) {
 // relationships are all rewritten; each legacy-to-UUID pair is staged in KV under
 // LegacyKeyKVPrefix for the panel migration. The whole re-key runs in one migration
 // transaction, so it commits atomically.
-func migrateKeysToUUID(
-	ctx context.Context,
-	tx gorp.Tx,
-	_ alamos.Instrumentation,
-) error {
+func migrateKeysToUUID(ctx context.Context, tx gorp.Tx, cfg MigrationConfig) error {
 	stale, err := collectEntries(
 		ctx,
 		gorp.WrapReader[v1.Key, v1.Task](tx),
@@ -126,7 +136,13 @@ func migrateKeysToUUID(
 	if err := gorp.WrapWriter[v1.Key, v1.Task](tx).Delete(ctx, oldKeys...); err != nil {
 		return err
 	}
-	if err := rewriteStatuses(ctx, tx, keys, byKey); err != nil {
+	if err := rewriteStatuses(
+		ctx,
+		cfg.Status.NewMigrationWriter(tx),
+		tx,
+		keys,
+		byKey,
+	); err != nil {
 		return err
 	}
 	if err := rewriteResources(ctx, tx, keys, byKey); err != nil {
@@ -153,41 +169,40 @@ func parseLegacyKey(key string) (v1.Key, bool) {
 	return v1.Key(n), true
 }
 
-// rewriteStatuses re-keys every task status row from "task:<legacy>" to "task:<uuid>"
-// and rewrites the task and rack references inside its details. A status row whose task
-// has no live record (already deleted pre-migration) is deleted rather than left stuck
-// under its legacy key forever.
+// rewriteStatuses points every task status owned by a legacy task key at the task's
+// UUID key, and rewrites the rack inside its details. A status whose task has no live
+// record (already deleted pre-migration) is deleted.
 func rewriteStatuses(
 	ctx context.Context,
+	w *gorp.Writer[status.Key, status.Status[any]],
 	tx gorp.Tx,
 	keys map[v1.Key]Key,
 	byKey map[Key]Task,
 ) error {
-	statusKeyPrefix := string(resource.TypeTask) + ":"
 	var stale []status.Status[v1.StatusDetails]
 	if err := gorp.NewRetrieve[string, status.Status[v1.StatusDetails]]().
-		WherePrefix([]byte(statusKeyPrefix)).
+		Where(gorp.Match(func(_ gorp.Context, s *status.Status[v1.StatusDetails]) (bool, error) {
+			return s.Owner != nil && s.Owner.Type == resource.TypeTask, nil
+		})).
 		Entries(&stale).
 		Exec(ctx, tx); err != nil {
 		return err
 	}
-	w := gorp.WrapWriter[string, Status](tx)
-	del := gorp.WrapWriter[string, status.Status[v1.StatusDetails]](tx)
 	for _, s := range stale {
-		oldKey := s.Key
-		legacy, ok := parseLegacyKey(strings.TrimPrefix(s.Key, statusKeyPrefix))
+		legacy, ok := parseLegacyKey(s.Owner.Key)
 		if !ok {
 			continue
 		}
 		key, ok := keys[legacy]
 		if !ok {
-			if err := del.Delete(ctx, oldKey); err != nil {
+			if err := w.Delete(ctx, s.Key); err != nil {
 				return err
 			}
 			continue
 		}
-		if err := w.Set(ctx, Status{
-			Key:         resourceID(key).String(),
+		if err := w.Set(ctx, status.Status[any]{
+			Key:         s.Key,
+			Owner:       new(resourceID(key)),
 			Name:        s.Name,
 			Variant:     s.Variant,
 			Message:     s.Message,
@@ -195,16 +210,12 @@ func rewriteStatuses(
 			Time:        s.Time,
 			Labels:      s.Labels,
 			Details: StatusDetails{
-				Task:    key,
 				Running: s.Details.Running,
 				Cmd:     s.Details.Cmd,
 				Rack:    byKey[key].Rack,
 				Data:    s.Details.Data,
 			},
 		}); err != nil {
-			return err
-		}
-		if err := del.Delete(ctx, oldKey); err != nil {
 			return err
 		}
 	}

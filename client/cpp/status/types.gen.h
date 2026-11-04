@@ -19,6 +19,7 @@
 #include <vector>
 
 #include "client/cpp/label/types.gen.h"
+#include "client/cpp/resource/id.h"
 #include "x/cpp/errors/errors.h"
 #include "x/cpp/json/json.h"
 #include "x/cpp/telem/types.gen.h"
@@ -38,12 +39,12 @@ using Key = std::string;
 
 /// @brief Status is a standardized message used to communicate state across the Synnax
 /// platform. Statuses support different severity variants and can carry
-/// component-specific details. A status is uniquely identified by a key and may carry a
-/// human-readable name and labels for categorization and filtering.
+/// component-specific details. A status is uniquely identified by a key, may name the
+/// resource that owns it, and may carry a human-readable name and labels.
 template<typename Details = std::monostate>
 struct Status {
-    /// @brief key is a unique identifier for this status, auto-generated if not
-    /// provided.
+    /// @brief key is a unique identifier for this status. The Core assigns a UUID when
+    /// a status has no key and its owner holds no status.
     Key key;
     /// @brief name is the name of what the status is about, such as a task, device, or
     /// rack. Empty when the status is not about a named thing.
@@ -64,8 +65,12 @@ struct Status {
     /// @brief details contains optional component-specific custom details for the
     /// status.
     Details details;
-    /// @brief labels contains optional labels for categorization and filtering.
-    std::optional<std::vector<::synnax::label::Label>> labels;
+    /// @brief labels are the keys of the labels attached to the status.
+    std::vector<::synnax::label::Key> labels = {};
+    /// @brief owner is the resource the status reports on, such as a task, device, or
+    /// rack. An owner holds at most one status. Empty for a status that no resource
+    /// owns.
+    std::optional<::synnax::resource::ID> owner;
 
     static Status parse(x::json::Parser parser);
     [[nodiscard]] x::json::json to_json() const;
@@ -76,4 +81,10 @@ struct Status {
     static std::pair<Status, x::errors::Error>
     from_proto(const ::service::status::pb::Status &pb);
 };
+
+const synnax::resource::ID RESOURCE_TYPE("status", "");
+
+inline synnax::resource::ID resource_id(const Key &key) {
+    return synnax::resource::ID("status", key);
+}
 }

@@ -179,18 +179,18 @@ func (s *Service) attachStatuses(
 	ids := rack.ResourceIDsFromRacks(racks)
 	statuses := make([]rack.Status, 0, len(racks))
 	// A status row can be missing, so the resource keeps a nil status.
-	if err := errors.Skip(s.status.NewRetrieve[rack.StatusDetails]().
-		Where(status.MatchKeys[rack.StatusDetails](resource.IDsToKeys(ids)...)).
+	if err := s.status.NewRetrieve[struct{}]().
+		Where(status.MatchOwners[struct{}](ids...)).
 		Entries(&statuses).
-		Exec(ctx, tx), query.ErrNotFound); err != nil {
+		Exec(ctx, tx); err != nil {
 		return err
 	}
-	statusByKey := make(map[status.Key]*rack.Status, len(statuses))
+	byOwner := make(map[resource.ID]*rack.Status, len(statuses))
 	for i := range statuses {
-		statusByKey[statuses[i].Key] = &statuses[i]
+		byOwner[*statuses[i].Owner] = &statuses[i]
 	}
 	for i, id := range ids {
-		racks[i].Status = statusByKey[id.String()]
+		racks[i].Status = byOwner[id]
 	}
 	return nil
 }

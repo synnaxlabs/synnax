@@ -149,6 +149,7 @@ var _ = Describe("ScanTask", func() {
 			Type: "mock",
 			Rack: rackKey,
 		}
+		createTask(ctx, t)
 		scanner = newMapScanner()
 	})
 
@@ -197,12 +198,12 @@ var _ = Describe("ScanTask", func() {
 
 	deviceStatus := func(ctx context.Context, dev device.Device) device.Status {
 		GinkgoHelper()
-		return retrieveStatus[device.StatusDetails](ctx, dev.ResourceID().String())
+		return retrieveStatus[device.StatusDetails](ctx, dev.ResourceID())
 	}
 
 	taskStatus := func(ctx context.Context) task.Status {
 		GinkgoHelper()
-		return retrieveStatus[task.StatusDetails](ctx, t.ResourceID().String())
+		return retrieveStatus[task.StatusDetails](ctx, t.ResourceID())
 	}
 
 	Describe("NewScanTask", func() {
@@ -231,7 +232,7 @@ var _ = Describe("ScanTask", func() {
 					stat := deviceStatus(ctx, up)
 					g.Expect(stat.Variant).To(Equal(status.VariantSuccess))
 					g.Expect(stat.Message).To(Equal("Broker connected"))
-					g.Expect(stat.Details.Device).To(Equal(up.Key))
+					g.Expect(stat.Owner).To(HaveValue(Equal(up.ResourceID())))
 					g.Expect(stat.Details.Rack).To(Equal(rackKey))
 				}).Should(Succeed())
 				stat := deviceStatus(ctx, down)
@@ -361,8 +362,9 @@ var _ = Describe("ScanTask", func() {
 
 		It("Should warn with the error of a scan that fails", func(ctx SpecContext) {
 			dev := createDevice(ctx, deviceMake)
+			statusKey := MustSucceed(statusSvc.NewWriter(nil).KeyOf(dev.ResourceID()))
 			st := openOn(
-				gorp.Wrap(refusingDB{DB: db.KV(), marker: []byte(dev.Key)}),
+				gorp.Wrap(refusingDB{DB: db.KV(), marker: []byte(statusKey)}),
 				time.Hour,
 			)
 			Expect(st.Start(ctx, driver.NoCommand)).To(Succeed())
@@ -429,13 +431,13 @@ var _ = Describe("ScanTask", func() {
 		It("Should not answer a command the scanner does not support",
 			func(ctx SpecContext) {
 				var writes atomic.Int32
-				key := t.ResourceID().String()
+				owner := t.ResourceID()
 				DeferCleanup(statusSvc.Observe().OnChange(func(
 					_ context.Context,
 					r gorp.TxReader[status.Key, status.Status[any]],
 				) {
 					for ch := range r {
-						if ch.Key == key {
+						if ch.Value.Owner != nil && *ch.Value.Owner == owner {
 							writes.Add(1)
 						}
 					}

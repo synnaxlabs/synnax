@@ -46,11 +46,12 @@ var _ = Describe("Dispatch", Ordered, func() {
 		g := MustOpen(group.OpenService(ctx, group.ServiceConfig{
 			DB: db, Ontology: otg,
 		}))
-		labelSvc := MustOpen(label.OpenService(ctx, label.ServiceConfig{
+		// Status labels reference the label table, so it must be open.
+		MustOpen(label.OpenService(ctx, label.ServiceConfig{
 			DB: db, Ontology: otg, Group: g,
 		}))
 		svc = MustOpen(status.OpenService(ctx, status.ServiceConfig{
-			DB: db, Ontology: otg, Group: g, Label: labelSvc,
+			DB: db, Ontology: otg,
 		}))
 	})
 

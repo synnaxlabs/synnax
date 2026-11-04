@@ -46,7 +46,6 @@ var _ = BeforeSuite(func(ctx SpecContext) {
 	apiSvc = MustSucceed(apiranger.NewService(apiranger.ServiceConfig{
 		RBAC:   svc.RBAC,
 		Ranger: svc.Ranger,
-		Label:  svc.Label,
 	}))
 })
 

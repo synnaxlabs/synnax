@@ -12,6 +12,7 @@ package ranger
 import (
 	"context"
 
+	"github.com/samber/lo"
 	"github.com/synnaxlabs/gorp"
 	"github.com/synnaxlabs/synnax/pkg/api/auth"
 	"github.com/synnaxlabs/synnax/pkg/service/access"
@@ -37,11 +38,11 @@ func rangeAccessResourceIDs(ranges []Range) []resource.ID {
 	ids := make([]resource.ID, 0, len(ranges))
 	for _, r := range ranges {
 		ids = append(ids, r.ResourceID())
-		ids = append(ids, label.ResourceIDsFromLabels(r.Labels)...)
+		ids = append(ids, label.ResourceIDs(r.Labels)...)
 		if r.Parent == nil {
 			continue
 		}
-		ids = append(ids, r.Parent.ResourceID())
+		ids = append(ids, ranger.ResourceID(*r.Parent))
 	}
 	return ids
 }
@@ -56,10 +57,6 @@ type ServiceConfig struct {
 	//
 	// [REQUIRED]
 	Ranger *ranger.Service
-	// Label stores and retrieves labels.
-	//
-	// [REQUIRED]
-	Label *label.Service
 }
 
 var (
@@ -72,7 +69,6 @@ var (
 func (c ServiceConfig) Override(other ServiceConfig) ServiceConfig {
 	c.RBAC = override.Nil(c.RBAC, other.RBAC)
 	c.Ranger = override.Nil(c.Ranger, other.Ranger)
-	c.Label = override.Nil(c.Label, other.Label)
 	return c
 }
 
@@ -81,14 +77,12 @@ func (c ServiceConfig) Validate() error {
 	v := validate.New("api.ranger")
 	v.NotNil("rbac", c.RBAC)
 	v.NotNil("ranger", c.Ranger)
-	v.NotNil("label", c.Label)
 	return v.Error()
 }
 
 type Service struct {
 	access   *rbac.Service
 	internal *ranger.Service
-	label    *label.Service
 }
 
 func NewService(cfgs ...ServiceConfig) (*Service, error) {
@@ -99,7 +93,6 @@ func NewService(cfgs ...ServiceConfig) (*Service, error) {
 	return &Service{
 		access:   cfg.RBAC,
 		internal: cfg.Ranger,
-		label:    cfg.Label,
 	}, nil
 }
 
@@ -162,11 +155,10 @@ type (
 		Names               []string        `json:"names"                  msgpack:"names"`
 		SearchTerm          string          `json:"search_term"            msgpack:"search_term"`
 		HasLabels           []label.Key     `json:"has_labels"             msgpack:"has_labels"`
+		Parents             []ranger.Key    `json:"parents"                msgpack:"parents"`
 		OverlapsWith        telem.TimeRange `json:"overlaps_with"          msgpack:"overlaps_with"`
 		Limit               int             `json:"limit"                  msgpack:"limit"`
 		Offset              int             `json:"offset"                 msgpack:"offset"`
-		IncludeLabels       bool            `json:"include_labels"         msgpack:"include_labels"`
-		IncludeParent       bool            `json:"include_parent"         msgpack:"include_parent"`
 		IgnoreNotFoundError bool            `json:"ignore_not_found_error" msgpack:"ignore_not_found_error"`
 	}
 	RetrieveResponse struct {
@@ -197,7 +189,14 @@ func (s *Service) Retrieve(
 		q = q.Where(ranger.MatchKeys(req.Keys...))
 	}
 	if hasLabels {
-		q = q.Where(ranger.MatchLabels(req.HasLabels...))
+		q = q.Where(
+			ranger.Or(lo.Map(req.HasLabels, func(k label.Key, _ int) ranger.Filter {
+				return ranger.MatchLabel(k)
+			})...),
+		)
+	}
+	if len(req.Parents) > 0 {
+		q = q.Where(ranger.MatchParents(req.Parents...))
 	}
 	if hasSearch {
 		q = q.Search(req.SearchTerm)
@@ -214,34 +213,6 @@ func (s *Service) Retrieve(
 	}
 	if err != nil {
 		return RetrieveResponse{}, err
-	}
-	if req.IncludeLabels {
-		for i, r := range ranges {
-			if ranges[i].Labels, err = s.label.
-				RetrieveFor(ctx, r.ResourceID(), nil); err != nil {
-				return RetrieveResponse{}, err
-			}
-		}
-	}
-	if req.IncludeParent {
-		for i, r := range ranges {
-			parentKey, err := s.internal.RetrieveParentKey(ctx, r.Key, nil)
-			if errors.Is(err, query.ErrNotFound) {
-				continue
-			}
-			if err != nil {
-				return RetrieveResponse{}, err
-			}
-			ranges[i].Parent = &ranger.Range{}
-			if err = s.
-				internal.
-				NewRetrieve().
-				Entry(ranges[i].Parent).
-				Where(ranger.MatchKeys(parentKey)).
-				Exec(ctx, nil); err != nil {
-				return RetrieveResponse{}, err
-			}
-		}
 	}
 	if err := s.access.NewEnforcer(nil).Enforce(ctx, access.Request{
 		Subject: auth.GetSubject(ctx),

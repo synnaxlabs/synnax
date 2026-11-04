@@ -11,6 +11,7 @@ syntax = "proto3";
 
 package grpc.status;
 
+import "core/pkg/service/resource/pb/resource.proto";
 import "core/pkg/service/status/pb/status.proto";
 import "google/protobuf/empty.proto";
 
@@ -33,7 +34,8 @@ service StatusSetByKeyOrNameService {
 }
 
 message SetRequest {
-  string parent = 1;
+  reserved 1;
+  reserved "parent";
   repeated service.status.pb.Status statuses = 2;
 }
 
@@ -46,10 +48,12 @@ message RetrieveRequest {
   string search_term = 2;
   int32 offset = 3;
   int32 limit = 4;
-  bool include_labels = 5;
+  reserved 5;
+  reserved "include_labels";
   repeated string has_labels = 6;
   repeated string variants = 7;
   bool ignore_not_found_error = 8;
+  repeated service.resource.pb.ID owners = 9;
 }
 
 message RetrieveResponse {

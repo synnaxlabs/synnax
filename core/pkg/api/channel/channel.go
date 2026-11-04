@@ -328,19 +328,18 @@ func (s *Service) Retrieve(
 	if req.IncludeStatus {
 		ids := channel.ResourceIDsFromChannels(resChannels)
 		statuses := make([]Status, 0, len(resChannels))
-		// Most channels have no status row, so a missing key is not an error.
 		if err := s.status.NewRetrieve[struct{}]().
-			Where(status.MatchKeys[struct{}](resource.IDsToKeys(ids)...)).
+			Where(status.MatchOwners[struct{}](ids...)).
 			Entries(&statuses).
-			Exec(ctx, nil); errors.Skip(err, query.ErrNotFound) != nil {
+			Exec(ctx, nil); err != nil {
 			return RetrieveResponse{}, err
 		}
-		statusByKey := make(map[string]Status, len(statuses))
+		byOwner := make(map[resource.ID]Status, len(statuses))
 		for _, stat := range statuses {
-			statusByKey[stat.Key] = stat
+			byOwner[*stat.Owner] = stat
 		}
 		for i := range oChannels {
-			if stat, ok := statusByKey[ids[i].String()]; ok {
+			if stat, ok := byOwner[ids[i]]; ok {
 				oChannels[i].Status = &stat
 			}
 		}

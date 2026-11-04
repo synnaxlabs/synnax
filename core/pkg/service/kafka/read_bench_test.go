@@ -335,7 +335,7 @@ func runBench(ctx SpecContext, sc benchScenario) benchResult {
 		StartOffset: kafka.StartOffsetEarliest,
 		Records:     benchRecords(groups, sc),
 	}
-	t := newTask(kafka.ReadTaskType, cfg)
+	t := newTask(ctx, kafka.ReadTaskType, cfg)
 	dt := MustSucceed(f.ConfigureTask(ctx, t, "cmd-1"))
 	DeferCleanup(func() { Expect(dt.Stop(false)).To(Succeed()) })
 	startTask := func() {

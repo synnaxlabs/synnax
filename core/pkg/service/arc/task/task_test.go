@@ -37,11 +37,15 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/service/framer"
 	"github.com/synnaxlabs/synnax/pkg/service/framer/iterator"
 	"github.com/synnaxlabs/synnax/pkg/service/group"
+	"github.com/synnaxlabs/synnax/pkg/service/imex"
 	"github.com/synnaxlabs/synnax/pkg/service/label"
 	"github.com/synnaxlabs/synnax/pkg/service/ontology"
+	"github.com/synnaxlabs/synnax/pkg/service/rack"
+	racktestutil "github.com/synnaxlabs/synnax/pkg/service/rack/testutil"
 	"github.com/synnaxlabs/synnax/pkg/service/ranger"
 	"github.com/synnaxlabs/synnax/pkg/service/status"
 	"github.com/synnaxlabs/synnax/pkg/service/task"
+	taskconfig "github.com/synnaxlabs/synnax/pkg/service/task/config"
 	"github.com/synnaxlabs/x/confluence"
 	"github.com/synnaxlabs/x/control"
 	"github.com/synnaxlabs/x/encoding/msgpack"
@@ -87,6 +91,7 @@ var _ = Describe("Task", Ordered, func() {
 		channelWriter channel.Writer
 		framerSvc     *framer.Service
 		rangerSvc     *ranger.Service
+		taskWriter    task.Writer
 	)
 
 	BeforeAll(func(ctx SpecContext) {
@@ -98,16 +103,14 @@ var _ = Describe("Task", Ordered, func() {
 			DB:       node.DB,
 			Ontology: otg,
 		}))
-		labelSvc := MustOpen(label.OpenService(ctx, label.ServiceConfig{
+		MustOpen(label.OpenService(ctx, label.ServiceConfig{
 			DB:       node.DB,
 			Ontology: otg,
 			Group:    groupSvc,
 		}))
 		statusSvc = MustOpen(status.OpenService(ctx, status.ServiceConfig{
 			DB:       node.DB,
-			Group:    groupSvc,
 			Ontology: otg,
-			Label:    labelSvc,
 		}))
 		channelSvc = MustOpen(channel.OpenService(ctx, channel.ServiceConfig{
 			Channel:      node.Channel,
@@ -133,9 +136,41 @@ var _ = Describe("Task", Ordered, func() {
 			DB:       node.DB,
 			Ontology: otg,
 			Group:    groupSvc,
-			Label:    labelSvc,
 		}))
+		rackSvc := MustOpen(rack.OpenService(ctx, rack.ServiceConfig{
+			DB:           node.DB,
+			Ontology:     otg,
+			Group:        groupSvc,
+			HostProvider: node.Cluster,
+			Status:       statusSvc,
+			DriverRole:   MustSucceed(racktestutil.CreateDriverRole(ctx, otg)),
+		}))
+		arcTaskSvc := MustOpen(arctask.OpenService(ctx, arctask.ServiceConfig{
+			DB: node.DB,
+		}))
+		taskSvc := MustOpen(task.OpenService(ctx, task.ServiceConfig{
+			DB:       node.DB,
+			Ontology: otg,
+			Group:    groupSvc,
+			Rack:     rackSvc,
+			Status:   statusSvc,
+			Channel:  channelSvc,
+			ImEx:     imex.NewService(),
+			Configs:  MustSucceed(taskconfig.NewRegistry(arcTaskSvc.Stores()...)),
+		}))
+		taskWriter = taskSvc.NewWriter(nil)
 	})
+
+	// createTask stores t so that it can own a status. It skips task.Writer, which
+	// writes a status of its own, so a spec sees only the statuses the factory writes.
+	createTask := func(ctx context.Context, t task.Task) {
+		GinkgoHelper()
+		Expect(gorp.NewCreate[task.Key, task.Task]().Entry(&t).Exec(ctx, db)).
+			To(Succeed())
+		DeferCleanup(func(ctx SpecContext) {
+			Expect(taskWriter.Delete(ctx, t.Key, true)).To(Succeed())
+		})
+	}
 
 	newFactoryWith := func(
 		getModule func(context.Context, uuid.UUID) (svcarc.Arc, error),
@@ -213,6 +248,7 @@ var _ = Describe("Task", Ordered, func() {
 			Type:   arctask.Type,
 			Config: configToMap(arctask.Config{ArcKey: uuid.New()}),
 		}
+		createTask(ctx, svcTask)
 		return MustSucceed(factory.ConfigureTask(ctx, svcTask, "cmd-1"))
 	}
 
@@ -366,6 +402,7 @@ var _ = Describe("Task", Ordered, func() {
 					Type:   "not-arc",
 					Config: map[string]any{},
 				}
+				createTask(ctx, svcTask)
 				Expect(factory.ConfigureTask(ctx, svcTask, "cmd-1")).Error().
 					To(MatchError(driver.ErrTaskNotHandled))
 			},
@@ -396,6 +433,7 @@ var _ = Describe("Task", Ordered, func() {
 				Type:   arctask.Type,
 				Config: map[string]any{"arc_key": "not-a-valid-uuid"},
 			}
+			createTask(ctx, svcTask)
 			Expect(factory.ConfigureTask(ctx, svcTask, "cmd-1")).Error().
 				To(MatchError(ContainSubstring(`"/arc_key": invalid uuid`)))
 		})
@@ -414,6 +452,7 @@ var _ = Describe("Task", Ordered, func() {
 				Type:   arctask.Type,
 				Config: configToMap(arctask.Config{ArcKey: uuid.New()}),
 			}
+			createTask(ctx, svcTask)
 			Expect(factory.ConfigureTask(ctx, svcTask, "cmd-1")).Error().
 				To(MatchError(query.ErrNotFound))
 		})
@@ -431,6 +470,7 @@ var _ = Describe("Task", Ordered, func() {
 					Type:   arctask.Type,
 					Config: configToMap(arctask.Config{ArcKey: uuid.New()}),
 				}
+				createTask(ctx, svcTask)
 				Expect(factory.ConfigureTask(ctx, svcTask, "cmd-1")).Error().
 					To(MatchError(ContainSubstring(
 						"period must be positive, got 0s",
@@ -453,11 +493,12 @@ var _ = Describe("Task", Ordered, func() {
 				Type:   arctask.Type,
 				Config: map[string]any{"arc_key": "not-a-valid-uuid"},
 			}
+			createTask(ctx, svcTask)
 			Expect(factory.ConfigureTask(ctx, svcTask, "cmd-1")).Error().
 				To(MatchError(ContainSubstring(`"/arc_key": invalid uuid`)))
 			var stat task.Status
 			Expect(statusSvc.NewRetrieve[task.StatusDetails]().
-				Where(status.MatchKeys[task.StatusDetails](svcTask.ResourceID().String())).
+				Where(status.MatchOwners[task.StatusDetails](svcTask.ResourceID())).
 				Entry(&stat).Exec(ctx, nil)).To(Succeed())
 			Expect(stat.Variant).To(BeEquivalentTo("error"))
 			Expect(stat.Message).To(Equal("Failed to configure task"))
@@ -480,11 +521,12 @@ var _ = Describe("Task", Ordered, func() {
 				Type:   arctask.Type,
 				Config: configToMap(arctask.Config{ArcKey: uuid.New()}),
 			}
+			createTask(ctx, svcTask)
 			Expect(factory.ConfigureTask(ctx, svcTask, "cmd-1")).Error().
 				To(MatchError(query.ErrNotFound))
 			var stat task.Status
 			Expect(statusSvc.NewRetrieve[task.StatusDetails]().
-				Where(status.MatchKeys[task.StatusDetails](svcTask.ResourceID().String())).
+				Where(status.MatchOwners[task.StatusDetails](svcTask.ResourceID())).
 				Entry(&stat).Exec(ctx, nil)).To(Succeed())
 			Expect(stat.Variant).To(BeEquivalentTo("error"))
 			Expect(stat.Message).To(Equal("Failed to configure task"))
@@ -507,6 +549,7 @@ var _ = Describe("Task", Ordered, func() {
 					Type:   arctask.Type,
 					Config: configToMap(arctask.Config{ArcKey: uuid.New()}),
 				}
+				createTask(ctx, svcTask)
 				t := MustSucceed(
 					newGraphFactory(simpleGraph(ch.Key())).
 						ConfigureTask(ctx, svcTask, "cmd-1"),
@@ -515,7 +558,7 @@ var _ = Describe("Task", Ordered, func() {
 				defer func() { Expect(t.Stop(true)).To(Succeed()) }()
 				var stat task.Status
 				Expect(statusSvc.NewRetrieve[task.StatusDetails]().
-					Where(status.MatchKeys[task.StatusDetails](svcTask.ResourceID().String())).
+					Where(status.MatchOwners[task.StatusDetails](svcTask.ResourceID())).
 					Entry(&stat).Exec(ctx, nil)).To(MatchError(query.ErrNotFound))
 			},
 		)
@@ -535,6 +578,7 @@ var _ = Describe("Task", Ordered, func() {
 					Type:   arctask.Type,
 					Config: configToMap(arctask.Config{ArcKey: uuid.New()}),
 				}
+				createTask(ctx, svcTask)
 				t := MustSucceed(
 					newGraphFactory(simpleGraph(ch.Key())).
 						ConfigureTask(ctx, svcTask, "cmd-1"),
@@ -548,7 +592,7 @@ var _ = Describe("Task", Ordered, func() {
 				})).To(Succeed())
 				var stat task.Status
 				Expect(statusSvc.NewRetrieve[task.StatusDetails]().
-					Where(status.MatchKeys[task.StatusDetails](svcTask.ResourceID().String())).
+					Where(status.MatchOwners[task.StatusDetails](svcTask.ResourceID())).
 					Entry(&stat).Exec(ctx, nil)).To(Succeed())
 				Expect(stat.Name).To(Equal(svcTask.Name))
 				Expect(stat.Details.Cmd).To(Equal("cmd-start"))
@@ -574,6 +618,7 @@ var _ = Describe("Task", Ordered, func() {
 						ArcKey:    uuid.New(),
 					}),
 				}
+				createTask(ctx, svcTask)
 				t := MustSucceed(newGraphFactory(
 					simpleGraph(ch.Key()),
 				).
@@ -582,7 +627,7 @@ var _ = Describe("Task", Ordered, func() {
 				defer func() { Expect(t.Stop(true)).To(Succeed()) }()
 				var stat task.Status
 				Expect(statusSvc.NewRetrieve[task.StatusDetails]().
-					Where(status.MatchKeys[task.StatusDetails](task.ResourceID(svcTask.Key).String())).
+					Where(status.MatchOwners[task.StatusDetails](task.ResourceID(svcTask.Key))).
 					Entry(&stat).Exec(ctx, nil)).To(Succeed())
 				Expect(stat.Variant).To(BeEquivalentTo("success"))
 				Expect(stat.Message).To(Equal("Started task"))
@@ -608,6 +653,7 @@ var _ = Describe("Task", Ordered, func() {
 						ArcKey:    uuid.New(),
 					}),
 				}
+				createTask(ctx, svcTask)
 				t := MustSucceed(newGraphFactory(
 					simpleGraph(ch.Key()),
 				).
@@ -616,7 +662,7 @@ var _ = Describe("Task", Ordered, func() {
 				Expect(t.Stop(false)).To(Succeed())
 				var stat task.Status
 				Expect(statusSvc.NewRetrieve[task.StatusDetails]().
-					Where(status.MatchKeys[task.StatusDetails](task.ResourceID(svcTask.Key).String())).
+					Where(status.MatchOwners[task.StatusDetails](task.ResourceID(svcTask.Key))).
 					Entry(&stat).Exec(ctx, nil)).To(Succeed())
 				Expect(stat.Message).To(Equal("Started task"))
 				Expect(stat.Details.Running).To(BeTrue())
@@ -640,11 +686,12 @@ var _ = Describe("Task", Ordered, func() {
 					Type:   arctask.Type,
 					Config: map[string]any{"arc_key": "not-a-valid-uuid"},
 				}
+				createTask(ctx, svcTask)
 				Expect(factory.ConfigureTask(ctx, svcTask, driver.NoCommand)).Error().
 					To(MatchError(ContainSubstring(`"/arc_key": invalid uuid`)))
 				var stat task.Status
 				Expect(statusSvc.NewRetrieve[task.StatusDetails]().
-					Where(status.MatchKeys[task.StatusDetails](task.ResourceID(svcTask.Key).String())).
+					Where(status.MatchOwners[task.StatusDetails](task.ResourceID(svcTask.Key))).
 					Entry(&stat).Exec(ctx, nil)).To(MatchError(query.ErrNotFound))
 			},
 		)
@@ -666,11 +713,12 @@ var _ = Describe("Task", Ordered, func() {
 					Type:   arctask.Type,
 					Config: configToMap(arctask.Config{ArcKey: uuid.New()}),
 				}
+				createTask(ctx, svcTask)
 				Expect(factory.ConfigureTask(ctx, svcTask, driver.NoCommand)).Error().
 					To(MatchError(query.ErrNotFound))
 				var stat task.Status
 				Expect(statusSvc.NewRetrieve[task.StatusDetails]().
-					Where(status.MatchKeys[task.StatusDetails](task.ResourceID(svcTask.Key).String())).
+					Where(status.MatchOwners[task.StatusDetails](task.ResourceID(svcTask.Key))).
 					Entry(&stat).Exec(ctx, nil)).To(MatchError(query.ErrNotFound))
 			},
 		)
@@ -695,11 +743,12 @@ var _ = Describe("Task", Ordered, func() {
 						ArcKey:    uuid.New(),
 					}),
 				}
+				createTask(ctx, svcTask)
 				Expect(factory.ConfigureTask(ctx, svcTask, driver.NoCommand)).Error().
 					To(MatchError(query.ErrNotFound))
 				var stat task.Status
 				Expect(statusSvc.NewRetrieve[task.StatusDetails]().
-					Where(status.MatchKeys[task.StatusDetails](task.ResourceID(svcTask.Key).String())).
+					Where(status.MatchOwners[task.StatusDetails](task.ResourceID(svcTask.Key))).
 					Entry(&stat).Exec(ctx, nil)).To(Succeed())
 				Expect(stat.Variant).To(BeEquivalentTo("error"))
 				Expect(stat.Message).To(Equal("Failed to configure task"))
@@ -723,6 +772,7 @@ var _ = Describe("Task", Ordered, func() {
 					Type:   arctask.Type,
 					Config: configToMap(arctask.Config{ArcKey: uuid.New()}),
 				}
+				createTask(ctx, svcTask)
 				t := MustSucceed(newGraphFactory(
 					simpleGraph(ch.Key()),
 				).
@@ -731,7 +781,7 @@ var _ = Describe("Task", Ordered, func() {
 				defer func() { Expect(t.Stop(true)).To(Succeed()) }()
 				var stat task.Status
 				Expect(statusSvc.NewRetrieve[task.StatusDetails]().
-					Where(status.MatchKeys[task.StatusDetails](task.ResourceID(svcTask.Key).String())).
+					Where(status.MatchOwners[task.StatusDetails](task.ResourceID(svcTask.Key))).
 					Entry(&stat).Exec(ctx, nil)).To(MatchError(query.ErrNotFound))
 			},
 		)
@@ -752,6 +802,7 @@ var _ = Describe("Task", Ordered, func() {
 					ArcKey:    uuid.New(),
 				}),
 			}
+			createTask(ctx, svcTask)
 			t := MustSucceed(newGraphFactory(
 				simpleGraph(ch.Key()),
 			).
@@ -760,7 +811,7 @@ var _ = Describe("Task", Ordered, func() {
 			defer func() { Expect(t.Stop(true)).To(Succeed()) }()
 			var stat task.Status
 			Expect(statusSvc.NewRetrieve[task.StatusDetails]().
-				Where(status.MatchKeys[task.StatusDetails](svcTask.ResourceID().String())).
+				Where(status.MatchOwners[task.StatusDetails](svcTask.ResourceID())).
 				Entry(&stat).Exec(ctx, nil)).To(Succeed())
 			Expect(stat.Variant).To(BeEquivalentTo("success"))
 			Expect(stat.Message).To(Equal("Started task"))
@@ -913,6 +964,7 @@ var _ = Describe("Task", Ordered, func() {
 					Type:   arctask.Type,
 					Config: configToMap(arctask.Config{ArcKey: uuid.New()}),
 				}
+				createTask(ctx, svcTask)
 				Expect(
 					newGraphFactory(badNodeGraph).ConfigureTask(ctx, svcTask, "cmd-1"),
 				).
@@ -941,14 +993,15 @@ var _ = Describe("Task", Ordered, func() {
 						Performance: "unknown",
 					}),
 				}
+				createTask(ctx, svcTask)
 				t := MustSucceed(newGraphFactory(simpleGraph(ch.Key())).
 					ConfigureTask(ctx, svcTask, "cmd-1"))
 				Expect(t.Exec(ctx, task.Command{Type: "start", Key: "cmd-start"})).
 					To(MatchError(`unknown performance "unknown"`))
 				var stat task.Status
 				Expect(statusSvc.NewRetrieve[task.StatusDetails]().
-					Where(status.MatchKeys[task.StatusDetails](
-						svcTask.ResourceID().String(),
+					Where(status.MatchOwners[task.StatusDetails](
+						svcTask.ResourceID(),
 					)).
 					Entry(&stat).Exec(ctx, nil)).To(Succeed())
 				Expect(stat.Variant).To(Equal(status.VariantError))
@@ -1115,6 +1168,7 @@ var _ = Describe("Task", Ordered, func() {
 				Type:   arctask.Type,
 				Config: configToMap(arctask.Config{ArcKey: uuid.New()}),
 			}
+			createTask(ctx, svcTask)
 			t := MustSucceed(
 				newTextFactory(ctx, prog).ConfigureTask(ctx, svcTask, "cmd-1"),
 			)
@@ -1180,6 +1234,7 @@ var _ = Describe("Task", Ordered, func() {
 					Type:   arctask.Type,
 					Config: configToMap(arctask.Config{ArcKey: uuid.New()}),
 				}
+				createTask(ctx, svcTask)
 				t := MustSucceed(
 					newTextFactory(ctx, prog).ConfigureTask(ctx, svcTask, "cmd-1"),
 				)
@@ -1243,6 +1298,7 @@ var _ = Describe("Task", Ordered, func() {
 					Type:   arctask.Type,
 					Config: configToMap(arctask.Config{ArcKey: uuid.New()}),
 				}
+				createTask(ctx, svcTask)
 				t := MustSucceed(
 					newTextFactory(ctx, prog).ConfigureTask(ctx, svcTask, "cmd-1"),
 				)
@@ -1305,6 +1361,7 @@ var _ = Describe("Task", Ordered, func() {
 					Type:   arctask.Type,
 					Config: configToMap(arctask.Config{ArcKey: uuid.New()}),
 				}
+				createTask(ctx, svcTask)
 				t := MustSucceed(
 					newTextFactory(ctx, prog).ConfigureTask(ctx, svcTask, "cmd-1"),
 				)
@@ -1377,6 +1434,7 @@ var _ = Describe("Task", Ordered, func() {
 					Type:   arctask.Type,
 					Config: configToMap(arctask.Config{ArcKey: uuid.New()}),
 				}
+				createTask(ctx, svcTask)
 				t := MustSucceed(
 					newTextFactory(ctx, prog).ConfigureTask(ctx, svcTask, "cmd-1"),
 				)
@@ -1454,6 +1512,7 @@ var _ = Describe("Task", Ordered, func() {
 					Type:   arctask.Type,
 					Config: configToMap(arctask.Config{ArcKey: uuid.New()}),
 				}
+				createTask(ctx, svcTask)
 				t := MustSucceed(
 					newTextFactory(ctx, prog).ConfigureTask(ctx, svcTask, "cmd-1"),
 				)
@@ -1519,6 +1578,7 @@ var _ = Describe("Task", Ordered, func() {
 					Type:   arctask.Type,
 					Config: configToMap(arctask.Config{ArcKey: uuid.New()}),
 				}
+				createTask(ctx, svcTask)
 				t := MustSucceed(
 					newTextFactory(ctx, prog).ConfigureTask(ctx, svcTask, "cmd-1"),
 				)
@@ -1591,6 +1651,7 @@ var _ = Describe("Task", Ordered, func() {
 					Type:   arctask.Type,
 					Config: configToMap(arctask.Config{ArcKey: uuid.New()}),
 				}
+				createTask(ctx, svcTask)
 				t := MustSucceed(
 					newTextFactory(ctx, prog).ConfigureTask(ctx, svcTask, "cmd-1"),
 				)
@@ -1668,6 +1729,7 @@ var _ = Describe("Task", Ordered, func() {
 					Type:   arctask.Type,
 					Config: configToMap(arctask.Config{ArcKey: uuid.New()}),
 				}
+				createTask(ctx, svcTask)
 				t := MustSucceed(
 					newTextFactory(ctx, prog).ConfigureTask(ctx, svcTask, "cmd-1"),
 				)
@@ -1742,6 +1804,7 @@ var _ = Describe("Task", Ordered, func() {
 					Type:   arctask.Type,
 					Config: configToMap(arctask.Config{ArcKey: uuid.New()}),
 				}
+				createTask(ctx, svcTask)
 				t := MustSucceed(
 					newTextFactory(ctx, prog).ConfigureTask(ctx, svcTask, "cmd-1"),
 				)
@@ -1814,6 +1877,7 @@ var _ = Describe("Task", Ordered, func() {
 					Type:   arctask.Type,
 					Config: configToMap(arctask.Config{ArcKey: uuid.New()}),
 				}
+				createTask(ctx, svcTask)
 				t := MustSucceed(
 					newTextFactory(ctx, prog).ConfigureTask(ctx, svcTask, "cmd-1"),
 				)
@@ -1889,6 +1953,7 @@ var _ = Describe("Task", Ordered, func() {
 					Type:   arctask.Type,
 					Config: configToMap(arctask.Config{ArcKey: uuid.New()}),
 				}
+				createTask(ctx, svcTask)
 				t := MustSucceed(
 					newTextFactory(ctx, prog).ConfigureTask(ctx, svcTask, "cmd-1"),
 				)
@@ -1999,6 +2064,7 @@ var _ = Describe("Task", Ordered, func() {
 					Type:   arctask.Type,
 					Config: configToMap(arctask.Config{ArcKey: uuid.New()}),
 				}
+				createTask(ctx, svcTask)
 				t := MustSucceed(
 					newGraphFactory(reportGraph).ConfigureTask(ctx, svcTask, "cmd-1"),
 				)
@@ -2015,11 +2081,10 @@ var _ = Describe("Task", Ordered, func() {
 				).To(BeTrue())
 				Expect(fw.Close()).To(Succeed())
 
-				taskKey := svcTask.ResourceID().String()
 				Eventually(func(g Gomega) {
 					var stat task.Status
 					g.Expect(statusSvc.NewRetrieve[task.StatusDetails]().
-						Where(status.MatchKeys[task.StatusDetails](taskKey)).
+						Where(status.MatchOwners[task.StatusDetails](svcTask.ResourceID())).
 						Entry(&stat).Exec(ctx, nil)).To(Succeed())
 					g.Expect(stat.Variant).To(BeEquivalentTo("warning"))
 					g.Expect(stat.Name).To(Equal("test-status-report"))
@@ -3386,6 +3451,7 @@ var _ = Describe("Task", Ordered, func() {
 					Type:   arctask.Type,
 					Config: configToMap(arctask.Config{ArcKey: uuid.New()}),
 				}
+				createTask(ctx, svcTask)
 				t := MustSucceed(
 					newTextFactory(ctx, prog).ConfigureTask(ctx, svcTask, "cmd-1"),
 				)
@@ -3408,7 +3474,7 @@ var _ = Describe("Task", Ordered, func() {
 				Eventually(func(g Gomega) {
 					var stat task.Status
 					g.Expect(statusSvc.NewRetrieve[task.StatusDetails]().
-						Where(status.MatchKeys[task.StatusDetails](svcTask.ResourceID().String())).
+						Where(status.MatchOwners[task.StatusDetails](svcTask.ResourceID())).
 						Entry(&stat).Exec(ctx, nil)).To(Succeed())
 					g.Expect(stat.Variant).To(BeEquivalentTo("warning"))
 					g.Expect(stat.Message).To(Equal("Node failed"))
@@ -3526,6 +3592,7 @@ var _ = Describe("Task", Ordered, func() {
 				Type:   arctask.Type,
 				Config: configToMap(arctask.Config{ArcKey: uuid.New()}),
 			}
+			createTask(ctx, svcTask)
 			t := MustSucceed(
 				newTextFactory(ctx, prog).ConfigureTask(ctx, svcTask, "cmd-1"),
 			)
@@ -3553,7 +3620,7 @@ var _ = Describe("Task", Ordered, func() {
 			Eventually(func(g Gomega) {
 				var stat task.Status
 				g.Expect(statusSvc.NewRetrieve[task.StatusDetails]().
-					Where(status.MatchKeys[task.StatusDetails](svcTask.ResourceID().String())).
+					Where(status.MatchOwners[task.StatusDetails](svcTask.ResourceID())).
 					Entry(&stat).Exec(ctx, nil)).To(Succeed())
 				g.Expect(stat.Variant).To(BeEquivalentTo("warning"))
 				g.Expect(stat.Description).

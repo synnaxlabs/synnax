@@ -33,52 +33,6 @@ const (
 	_ = protoimpl.EnforceVersion(protoimpl.MaxVersion - 20)
 )
 
-// StatusDetails contains rack-specific status details.
-type StatusDetails struct {
-	state protoimpl.MessageState `protogen:"open.v1"`
-	// rack is the key of the rack this status pertains to.
-	Rack          uint32 `protobuf:"varint,1,opt,name=rack,proto3" json:"rack,omitempty"`
-	unknownFields protoimpl.UnknownFields
-	sizeCache     protoimpl.SizeCache
-}
-
-func (x *StatusDetails) Reset() {
-	*x = StatusDetails{}
-	mi := &file_core_pkg_service_rack_pb_rack_proto_msgTypes[0]
-	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
-	ms.StoreMessageInfo(mi)
-}
-
-func (x *StatusDetails) String() string {
-	return protoimpl.X.MessageStringOf(x)
-}
-
-func (*StatusDetails) ProtoMessage() {}
-
-func (x *StatusDetails) ProtoReflect() protoreflect.Message {
-	mi := &file_core_pkg_service_rack_pb_rack_proto_msgTypes[0]
-	if x != nil {
-		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
-		if ms.LoadMessageInfo() == nil {
-			ms.StoreMessageInfo(mi)
-		}
-		return ms
-	}
-	return mi.MessageOf(x)
-}
-
-// Deprecated: Use StatusDetails.ProtoReflect.Descriptor instead.
-func (*StatusDetails) Descriptor() ([]byte, []int) {
-	return file_core_pkg_service_rack_pb_rack_proto_rawDescGZIP(), []int{0}
-}
-
-func (x *StatusDetails) GetRack() uint32 {
-	if x != nil {
-		return x.Rack
-	}
-	return 0
-}
-
 // Rack is a collection container for hardware devices and tasks running on a specific
 // Core. Racks are the integration point between the Core and physical hardware through
 // the Driver.
@@ -101,7 +55,7 @@ type Rack struct {
 
 func (x *Rack) Reset() {
 	*x = Rack{}
-	mi := &file_core_pkg_service_rack_pb_rack_proto_msgTypes[1]
+	mi := &file_core_pkg_service_rack_pb_rack_proto_msgTypes[0]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -113,7 +67,7 @@ func (x *Rack) String() string {
 func (*Rack) ProtoMessage() {}
 
 func (x *Rack) ProtoReflect() protoreflect.Message {
-	mi := &file_core_pkg_service_rack_pb_rack_proto_msgTypes[1]
+	mi := &file_core_pkg_service_rack_pb_rack_proto_msgTypes[0]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -126,7 +80,7 @@ func (x *Rack) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use Rack.ProtoReflect.Descriptor instead.
 func (*Rack) Descriptor() ([]byte, []int) {
-	return file_core_pkg_service_rack_pb_rack_proto_rawDescGZIP(), []int{1}
+	return file_core_pkg_service_rack_pb_rack_proto_rawDescGZIP(), []int{0}
 }
 
 func (x *Rack) GetKey() uint32 {
@@ -168,9 +122,7 @@ var File_core_pkg_service_rack_pb_rack_proto protoreflect.FileDescriptor
 
 const file_core_pkg_service_rack_pb_rack_proto_rawDesc = "" +
 	"\n" +
-	"#core/pkg/service/rack/pb/rack.proto\x12\x0fservice.rack.pb\x1a'core/pkg/service/status/pb/status.proto\"#\n" +
-	"\rStatusDetails\x12\x12\n" +
-	"\x04rack\x18\x01 \x01(\rR\x04rack\"\xaf\x01\n" +
+	"#core/pkg/service/rack/pb/rack.proto\x12\x0fservice.rack.pb\x1a'core/pkg/service/status/pb/status.proto\"\xaf\x01\n" +
 	"\x04Rack\x12\x10\n" +
 	"\x03key\x18\x01 \x01(\rR\x03key\x12\x12\n" +
 	"\x04name\x18\x02 \x01(\tR\x04name\x12\x1a\n" +
@@ -192,14 +144,13 @@ func file_core_pkg_service_rack_pb_rack_proto_rawDescGZIP() []byte {
 	return file_core_pkg_service_rack_pb_rack_proto_rawDescData
 }
 
-var file_core_pkg_service_rack_pb_rack_proto_msgTypes = make([]protoimpl.MessageInfo, 2)
+var file_core_pkg_service_rack_pb_rack_proto_msgTypes = make([]protoimpl.MessageInfo, 1)
 var file_core_pkg_service_rack_pb_rack_proto_goTypes = []any{
-	(*StatusDetails)(nil), // 0: service.rack.pb.StatusDetails
-	(*Rack)(nil),          // 1: service.rack.pb.Rack
-	(*pb.Status)(nil),     // 2: service.status.pb.Status
+	(*Rack)(nil),      // 0: service.rack.pb.Rack
+	(*pb.Status)(nil), // 1: service.status.pb.Status
 }
 var file_core_pkg_service_rack_pb_rack_proto_depIdxs = []int32{
-	2, // 0: service.rack.pb.Rack.status:type_name -> service.status.pb.Status
+	1, // 0: service.rack.pb.Rack.status:type_name -> service.status.pb.Status
 	1, // [1:1] is the sub-list for method output_type
 	1, // [1:1] is the sub-list for method input_type
 	1, // [1:1] is the sub-list for extension type_name
@@ -212,14 +163,14 @@ func file_core_pkg_service_rack_pb_rack_proto_init() {
 	if File_core_pkg_service_rack_pb_rack_proto != nil {
 		return
 	}
-	file_core_pkg_service_rack_pb_rack_proto_msgTypes[1].OneofWrappers = []any{}
+	file_core_pkg_service_rack_pb_rack_proto_msgTypes[0].OneofWrappers = []any{}
 	type x struct{}
 	out := protoimpl.TypeBuilder{
 		File: protoimpl.DescBuilder{
 			GoPackagePath: reflect.TypeOf(x{}).PkgPath(),
 			RawDescriptor: unsafe.Slice(unsafe.StringData(file_core_pkg_service_rack_pb_rack_proto_rawDesc), len(file_core_pkg_service_rack_pb_rack_proto_rawDesc)),
 			NumEnums:      0,
-			NumMessages:   2,
+			NumMessages:   1,
 			NumExtensions: 0,
 			NumServices:   0,
 		},

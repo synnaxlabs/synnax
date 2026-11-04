@@ -17,14 +17,7 @@ import { status } from "@/status";
 export const keyZ = z.uint32();
 export type Key = z.infer<typeof keyZ>;
 
-/** StatusDetails contains rack-specific status details. */
-export const statusDetailsZ = z.object({
-  /** rack is the key of the rack this status pertains to. */
-  rack: keyZ,
-});
-export interface StatusDetails extends z.infer<typeof statusDetailsZ> {}
-
-export const statusZ = status.statusZ({ details: statusDetailsZ });
+export const statusZ = status.statusZ();
 export type Status = z.infer<typeof statusZ>;
 
 /**

@@ -66,8 +66,6 @@ func newBenchIterEnv(b *testing.B) *benchIterEnv {
 	statusSvc, err := status.OpenService(b.Context(), status.ServiceConfig{
 		DB:       node.DB,
 		Ontology: otg,
-		Group:    groupSvc,
-		Label:    labelSvc,
 	})
 	if err != nil {
 		b.Fatalf("failed to open status service: %v", err)

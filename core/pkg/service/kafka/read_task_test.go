@@ -67,7 +67,7 @@ var _ = Describe("Read task", func() {
 		if cfg.StartOffset == "" {
 			cfg.StartOffset = kafka.StartOffsetEarliest
 		}
-		t := newTask(kafka.ReadTaskType, cfg)
+		t := newTask(ctx, kafka.ReadTaskType, cfg)
 		dt := MustSucceed(f.ConfigureTask(ctx, t, "cmd-1"))
 		DeferCleanup(func() { Expect(dt.Stop(false)).To(Succeed()) })
 		return dt, t
@@ -598,7 +598,7 @@ var _ = Describe("Read task", func() {
 		func(ctx SpecContext) {
 			index, data := createIndexed(ctx, telem.Float64T)
 			dev := createDevice(ctx, clusterProperties())
-			t := newTask(kafka.ReadTaskType, kafka.ReadConfig{
+			t := newTask(ctx, kafka.ReadTaskType, kafka.ReadConfig{
 				Device:      dev.Key,
 				Topic:       newTopic(),
 				StartOffset: kafka.StartOffsetNone,
@@ -1255,11 +1255,14 @@ var _ = Describe("Read task", func() {
 				Topic:   "t",
 				Records: single(build(ctx, index, data)),
 			}
-			Expect(f.ConfigureTask(ctx, newTask(kafka.ReadTaskType, cfg), "cmd-1")).
-				Error().To(SatisfyAll(
-				MatchError(validate.ErrValidation),
-				MatchError(ContainSubstring(msg)),
-			))
+			Expect(
+				f.ConfigureTask(ctx, newTask(ctx, kafka.ReadTaskType, cfg), "cmd-1"),
+			).
+				Error().
+				To(SatisfyAll(
+					MatchError(validate.ErrValidation),
+					MatchError(ContainSubstring(msg)),
+				))
 		},
 		Entry("no enabled field",
 			func(_ context.Context, _, data channel.Channel) []kafka.ReadField {
@@ -1364,13 +1367,16 @@ var _ = Describe("Read task", func() {
 					{Key: "r2", RecordKey: "b", Fields: field("w", other)},
 				},
 			}
-			Expect(f.ConfigureTask(ctx, newTask(kafka.ReadTaskType, cfg), "cmd-1")).
-				Error().To(SatisfyAll(
-				MatchError(validate.ErrValidation),
-				MatchError(
-					ContainSubstring("channels on one index belong in one record"),
-				),
-			))
+			Expect(
+				f.ConfigureTask(ctx, newTask(ctx, kafka.ReadTaskType, cfg), "cmd-1"),
+			).
+				Error().
+				To(SatisfyAll(
+					MatchError(validate.ErrValidation),
+					MatchError(
+						ContainSubstring("channels on one index belong in one record"),
+					),
+				))
 		},
 	)
 
@@ -1389,7 +1395,7 @@ var _ = Describe("Read task", func() {
 			Topic:   "t",
 			Records: []kafka.ReadRecord{first, second},
 		}
-		Expect(f.ConfigureTask(ctx, newTask(kafka.ReadTaskType, cfg), "cmd-1")).
+		Expect(f.ConfigureTask(ctx, newTask(ctx, kafka.ReadTaskType, cfg), "cmd-1")).
 			Error().To(SatisfyAll(
 			MatchError(validate.ErrValidation),
 			MatchError(ContainSubstring(`record key "a": claimed by more than one`)),

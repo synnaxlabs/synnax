@@ -16,22 +16,20 @@ import { rack } from "@/rack";
 import { resource } from "@/resource";
 import { status } from "@/status";
 
-export const keyZ = z.string();
-export type Key = z.infer<typeof keyZ>;
-
 /**
- * StatusDetails contains device-specific status details identifying the device and its
- * associated rack.
+ * StatusDetails contains device-specific status details, including the rack the device
+ * belongs to.
  */
 export const statusDetailsZ = z.object({
   /** rack is the key of the rack this device belongs to. */
   rack: rack.keyZ,
-  /** device is the device identifier. */
-  device: keyZ,
   /** data contains device-specific status data. */
   data: zod.nullToUndefined(record.unknownZ()),
 });
 export interface StatusDetails extends z.infer<typeof statusDetailsZ> {}
+
+export const keyZ = z.string();
+export type Key = z.infer<typeof keyZ>;
 
 export const statusZ = status.statusZ({ details: statusDetailsZ });
 export type Status = z.infer<typeof statusZ>;

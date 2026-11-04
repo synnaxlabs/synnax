@@ -325,8 +325,6 @@ func OpenLayer(ctx context.Context, cfgs ...LayerConfig) (l *Layer, err error) {
 			Instrumentation: cfg.Child("status"),
 			DB:              cfg.Distribution.DB,
 			Ontology:        l.Ontology,
-			Group:           l.Group,
-			Label:           l.Label,
 		},
 	); !ok(err, l.Status) {
 		return nil, err
@@ -530,7 +528,6 @@ func OpenLayer(ctx context.Context, cfgs ...LayerConfig) (l *Layer, err error) {
 		Ontology:        l.Ontology,
 		Group:           l.Group,
 		Signals:         l.Signals,
-		Label:           l.Label,
 	}); !ok(err, l.Ranger) {
 		return nil, err
 	}

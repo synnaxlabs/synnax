@@ -45,17 +45,15 @@ type Writer struct {
 func resolveStatus(r *Rack) *Status {
 	if r.Status == nil {
 		return &Status{
-			Key:     r.ResourceID().String(),
+			Owner:   new(r.ResourceID()),
 			Name:    r.Name,
 			Time:    telem.Now(),
 			Variant: status.VariantWarning,
 			Message: "Rack status unknown",
-			Details: StatusDetails{Rack: r.Key},
 		}
 	}
 	stat := *r.Status
-	stat.Key = r.ResourceID().String()
-	stat.Details.Rack = r.Key
+	stat.Owner = new(r.ResourceID())
 	stat.Name = r.Name
 	return &stat
 }
@@ -68,9 +66,7 @@ func (w Writer) healStatus(
 	ctx context.Context,
 	stat *Status,
 ) error {
-	if exists, err := gorp.NewRetrieve[string, Status]().
-		Where(gorp.MatchKeys[string, Status](stat.Key)).
-		Exists(ctx, w.tx); err != nil || exists {
+	if _, err := w.status.KeyOf(*stat.Owner); !errors.Is(err, query.ErrNotFound) {
 		return err
 	}
 	return w.status.Set(ctx, stat)
@@ -154,10 +150,14 @@ func (w Writer) Rename(ctx context.Context, key Key, name string) error {
 		return err
 	}
 	// A missing status row is valid: the next Create heals it.
-	return errors.Skip(w.status.Rename(ctx, StatusKey(key), name), query.ErrNotFound)
+	statusKey, err := w.status.KeyOf(key.ResourceID())
+	if err == nil {
+		err = w.status.Rename(ctx, statusKey, name)
+	}
+	return errors.Skip(err, query.ErrNotFound)
 }
 
-// DeleteGuard deletes the rack with the given key and its associated status if the
+// DeleteGuard deletes the rack with the given key, and with it its status, if the
 // provided guard function returns nil.
 func (w Writer) DeleteGuard(
 	ctx context.Context,
@@ -170,8 +170,5 @@ func (w Writer) DeleteGuard(
 		Exec(ctx, w.tx); err != nil {
 		return err
 	}
-	if err := w.otg.DeleteResources(ctx, key.ResourceID()); err != nil {
-		return err
-	}
-	return w.status.Delete(ctx, key.ResourceID().String())
+	return w.otg.DeleteResources(ctx, key.ResourceID())
 }

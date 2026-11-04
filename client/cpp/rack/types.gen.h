@@ -15,6 +15,7 @@
 #include <optional>
 #include <string>
 #include <utility>
+#include <variant>
 #include <vector>
 
 #include "client/cpp/resource/id.h"
@@ -27,7 +28,6 @@
 
 namespace synnax::rack {
 
-struct StatusDetails;
 struct Rack;
 
 /// @brief Key is a composite identifier for a rack. The high 16 bits contain the Core
@@ -35,22 +35,7 @@ struct Rack;
 /// Core named in its high bits, so writes route to the Core running its Driver.
 using Key = std::uint32_t;
 
-/// @brief StatusDetails contains rack-specific status details.
-struct StatusDetails {
-    /// @brief rack is the key of the rack this status pertains to.
-    Key rack = 0;
-
-    static StatusDetails parse(x::json::Parser parser);
-    [[nodiscard]] x::json::json to_json() const;
-
-    using proto_type = ::service::rack::pb::StatusDetails;
-    [[nodiscard]] std::pair<::service::rack::pb::StatusDetails, x::errors::Error>
-    to_proto() const;
-    static std::pair<StatusDetails, x::errors::Error>
-    from_proto(const ::service::rack::pb::StatusDetails &pb);
-};
-
-using Status = ::synnax::status::Status<StatusDetails>;
+using Status = ::synnax::status::Status<std::monostate>;
 
 /// @brief Rack is a collection container for hardware devices and tasks running on a
 /// specific Core. Racks are the integration point between the Core and physical

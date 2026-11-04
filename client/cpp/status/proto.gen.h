@@ -16,8 +16,8 @@
 #include <unordered_map>
 #include <utility>
 
-#include "client/cpp/label/json.gen.h"
-#include "client/cpp/label/proto.gen.h"
+#include "client/cpp/resource/proto.gen.h"
+#include "client/cpp/resource/types.gen.h"
 #include "client/cpp/status/json.gen.h"
 #include "client/cpp/status/types.gen.h"
 #include "x/cpp/errors/errors.h"
@@ -95,13 +95,13 @@ Status<Details>::to_proto() const {
             }
         }
     }
-    if (this->labels.has_value()) {
-        auto *wrapper = pb.mutable_labels();
-        for (const auto &item: *this->labels) {
-            auto [v, err] = item.to_proto();
-            if (err) return {{}, err};
-            *wrapper->add_values() = v;
-        }
+    for (const auto &item: this->labels) {
+        pb.add_labels(item.to_string());
+    }
+    if (this->owner.has_value()) {
+        auto [v, err] = this->owner->to_proto();
+        if (err) return {{}, err};
+        *pb.mutable_owner() = v;
     }
     return {pb, x::errors::NIL};
 }
@@ -132,13 +132,15 @@ Status<Details>::from_proto(const ::service::status::pb::Status &pb) {
         else
             cpp.details = Details::parse(x::json::Parser(v));
     }
-    if (pb.has_labels()) {
-        cpp.labels.emplace();
-        if (auto err = x::pb::from_proto_repeated<::synnax::label::Label>(
-                *cpp.labels,
-                pb.labels().values()
-            ))
-            return {{}, err};
+    for (const auto &item: pb.labels()) {
+        auto [v, err] = x::uuid::UUID::parse(item);
+        if (err) return {{}, err};
+        cpp.labels.push_back(v);
+    }
+    if (pb.has_owner()) {
+        auto [v, err] = ::synnax::resource::ID::from_proto(pb.owner());
+        if (err) return {{}, err};
+        cpp.owner = v;
     }
     return {cpp, x::errors::NIL};
 }

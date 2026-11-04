@@ -66,7 +66,7 @@ var _ = Describe("Scan task", func() {
 	// scan configures a scan task that checks its devices 50 times each second.
 	scan := func(ctx context.Context) (driver.Task, task.Task) {
 		GinkgoHelper()
-		t := newTask(rackKey, mqtt.ScanTaskType, msgpack.EncodedJSON{"rate": 50})
+		t := newTask(ctx, rackKey, mqtt.ScanTaskType, msgpack.EncodedJSON{"rate": 50})
 		return configure(ctx, factory, t), t
 	}
 
@@ -76,7 +76,7 @@ var _ = Describe("Scan task", func() {
 		GinkgoHelper()
 		ch := createVirtual(ctx, telem.Float64T)
 		return configure(ctx, factory, newTask(
-			rackKey, mqtt.ReadTaskType,
+			ctx, rackKey, mqtt.ReadTaskType,
 			readConfig(dev, plainEntry("plant/edit", field("v", ch, ""))),
 		))
 	}
@@ -97,7 +97,7 @@ var _ = Describe("Scan task", func() {
 
 	Describe("ConfigureTask", func() {
 		It("Should not handle a task of another integration", func(ctx SpecContext) {
-			t := newTask(rackKey, "opc_read", msgpack.EncodedJSON{})
+			t := newTask(ctx, rackKey, "opc_read", msgpack.EncodedJSON{})
 			Expect(factory.ConfigureTask(ctx, t, "configure")).Error().
 				To(MatchError(driver.ErrTaskNotHandled))
 		})
@@ -111,7 +111,7 @@ var _ = Describe("Scan task", func() {
 
 		It("Should not start a disabled scan task", func(ctx SpecContext) {
 			t := newTask(
-				rackKey, mqtt.ScanTaskType, msgpack.EncodedJSON{"disabled": true},
+				ctx, rackKey, mqtt.ScanTaskType, msgpack.EncodedJSON{"disabled": true},
 			)
 			configure(ctx, factory, t)
 			Expect(taskStatus(ctx, t).Details.Running).To(BeFalse())
@@ -177,7 +177,7 @@ var _ = Describe("Scan task", func() {
 				dev := createBrokerDevice(ctx, rackKey, broker.port, properties)
 				_, data := createIndexed(ctx, telem.Float64T)
 				read := configure(ctx, factory, newTask(
-					rackKey, mqtt.ReadTaskType,
+					ctx, rackKey, mqtt.ReadTaskType,
 					readConfig(dev, plainEntry("plant/tls", field("v", data[0], ""))),
 				))
 				Expect(read.Exec(ctx, task.Command{Type: "start", Key: "start"})).
@@ -200,7 +200,7 @@ var _ = Describe("Scan task", func() {
 				dev := createBrokerDevice(ctx, rackKey, broker.port, nil)
 				_, data := createIndexed(ctx, telem.Float64T)
 				read := configure(ctx, factory, newTask(
-					rackKey, mqtt.ReadTaskType,
+					ctx, rackKey, mqtt.ReadTaskType,
 					readConfig(dev, plainEntry("plant/scan", field("v", data[0], ""))),
 				))
 				Expect(read.Exec(ctx, task.Command{Type: "start", Key: "start"})).

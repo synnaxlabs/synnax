@@ -52,12 +52,12 @@ func retrieveDevice(ctx SpecContext, key string) device.Device {
 func setLiveStatus(ctx SpecContext, d device.Device) {
 	GinkgoHelper()
 	Expect(svc.Status.NewWriter(nil).Set(ctx, &device.Status{
-		Key:     d.ResourceID().String(),
+		Owner:   new(d.ResourceID()),
 		Name:    d.Name,
 		Time:    telem.Now(),
 		Variant: status.VariantSuccess,
 		Message: "Device is running",
-		Details: device.StatusDetails{Rack: d.Rack, Device: d.Key},
+		Details: device.StatusDetails{Rack: d.Rack},
 	})).To(Succeed())
 }
 
@@ -139,9 +139,9 @@ var _ = Describe("Create", func() {
 			apidevice.CreateRequest{Devices: []device.Device{fresh, existing}},
 		))
 		Expect(res.Devices).To(HaveLen(2))
-		Expect(res.Devices[0].Status.Key).To(Equal(fresh.ResourceID().String()))
+		Expect(res.Devices[0].Status.Owner).To(HaveValue(Equal(fresh.ResourceID())))
 		Expect(res.Devices[0].Status.Message).To(Equal("Device status unknown"))
-		Expect(res.Devices[1].Status.Key).To(Equal(existing.ResourceID().String()))
+		Expect(res.Devices[1].Status.Owner).To(HaveValue(Equal(existing.ResourceID())))
 		Expect(res.Devices[1].Status.Message).To(Equal("Device is running"))
 	})
 	It(
@@ -157,7 +157,7 @@ var _ = Describe("Create", func() {
 			)).Error().ToNot(HaveOccurred())
 			var stored device.Status
 			Expect(svc.Status.NewRetrieve[device.StatusDetails]().
-				Where(status.MatchKeys[device.StatusDetails](d.ResourceID().String())).
+				Where(status.MatchOwners[device.StatusDetails](d.ResourceID())).
 				Entry(&stored).
 				Exec(ctx, nil)).To(Succeed())
 			Expect(stored.Message).To(Equal("Device is running"))
@@ -212,8 +212,9 @@ var _ = Describe("Retrieve", func() {
 		u := createUser(ctx)
 		withStatus := createDevice(ctx, "retrieve-with-status")
 		withoutStatus := createDevice(ctx, "retrieve-without-status")
-		Expect(svc.Status.NewWriter(nil).Delete(
-			ctx, withoutStatus.ResourceID().String(),
+		w := svc.Status.NewWriter(nil)
+		Expect(w.Delete(
+			ctx, MustSucceed(w.KeyOf(withoutStatus.ResourceID())),
 		)).To(Succeed())
 		grant(
 			ctx, access.ActionRetrieve, u.ResourceID(),
@@ -230,6 +231,8 @@ var _ = Describe("Retrieve", func() {
 		Expect(res.Devices[0].Key).To(Equal(withoutStatus.Key))
 		Expect(res.Devices[0].Status).To(BeNil())
 		Expect(res.Devices[1].Key).To(Equal(withStatus.Key))
-		Expect(res.Devices[1].Status.Key).To(Equal(withStatus.ResourceID().String()))
+		Expect(
+			res.Devices[1].Status.Owner,
+		).To(HaveValue(Equal(withStatus.ResourceID())))
 	})
 })

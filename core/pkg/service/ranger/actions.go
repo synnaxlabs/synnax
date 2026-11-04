@@ -10,6 +10,7 @@
 package ranger
 
 import (
+	"github.com/synnaxlabs/synnax/pkg/service/label"
 	"github.com/synnaxlabs/x/color"
 	"github.com/synnaxlabs/x/errors"
 	"github.com/synnaxlabs/x/patch"
@@ -50,18 +51,31 @@ type document struct {
 	Name      string          `json:"name"`
 	TimeRange telem.TimeRange `json:"time_range"`
 	Color     *color.Color    `json:"color,omitzero"`
+	Labels    []label.Key     `json:"labels"`
+	Parent    *Key            `json:"parent,omitzero"`
 }
 
 // edit applies a path action to a copy of the range's document. A document that gains a
-// member it does not declare, such as a path to the range's labels, is rejected.
+// member it does not declare is rejected.
 func edit(r Range, apply func(map[string]any) error) (Range, error) {
 	d, err := patch.Edit(
-		document{Name: r.Name, TimeRange: r.TimeRange, Color: r.Color},
+		document{
+			Name:      r.Name,
+			TimeRange: r.TimeRange,
+			Color:     r.Color,
+			Labels:    r.Labels,
+			Parent:    r.Parent,
+		},
 		apply,
 	)
 	if err != nil {
 		return Range{}, err
 	}
+	// The JSON round trip turns nil labels into an empty list.
+	if len(d.Labels) == 0 {
+		d.Labels = nil
+	}
 	r.Name, r.TimeRange, r.Color = d.Name, d.TimeRange, d.Color
+	r.Labels, r.Parent = d.Labels, d.Parent
 	return r, nil
 }

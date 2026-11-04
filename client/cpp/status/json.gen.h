@@ -16,6 +16,7 @@
 #include <vector>
 
 #include "client/cpp/label/json.gen.h"
+#include "client/cpp/resource/types.gen.h"
 #include "client/cpp/status/types.gen.h"
 #include "x/cpp/json/json.h"
 #include "x/cpp/telem/types.gen.h"
@@ -33,9 +34,11 @@ Status<Details> Status<Details>::parse(x::json::Parser parser) {
         .description = parser.field<std::string>("description", ""),
         .time = parser.field<::x::telem::TimeStamp>("time"),
         .details = parser.field<Details>("details"),
-        .labels = parser.field<std::optional<std::vector<::synnax::label::Label>>>(
-            "labels"
+        .labels = parser.field<std::vector<::synnax::label::Key>>(
+            "labels",
+            std::vector<::synnax::label::Key>{}
         ),
+        .owner = parser.field<std::optional<::synnax::resource::ID>>("owner"),
     };
 }
 
@@ -54,7 +57,13 @@ x::json::json Status<Details>::to_json() const {
         j["details"] = nullptr;
     else
         j["details"] = this->details.to_json();
-    if (this->labels.has_value()) j["labels"] = x::json::to_array(*this->labels);
+    {
+        auto arr = x::json::json::array();
+        for (const auto &item: this->labels)
+            arr.push_back(item.to_json());
+        j["labels"] = arr;
+    }
+    if (this->owner.has_value()) j["owner"] = this->owner->to_json();
     return j;
 }
 

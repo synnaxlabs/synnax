@@ -16,6 +16,7 @@ import (
 	"github.com/synnaxlabs/gorp"
 	"github.com/synnaxlabs/synnax/pkg/service/pagerduty/versions"
 	"github.com/synnaxlabs/synnax/pkg/service/pagerduty/versions/legacy"
+	v1 "github.com/synnaxlabs/synnax/pkg/service/pagerduty/versions/v1"
 	"github.com/synnaxlabs/synnax/pkg/service/task/config"
 	xconfig "github.com/synnaxlabs/x/config"
 	xio "github.com/synnaxlabs/x/io"
@@ -74,6 +75,7 @@ func OpenService(ctx context.Context, cfgs ...ServiceConfig) (s *Service, err er
 			LegacyVersion:   legacy.LastVersion,
 			Ladder:          versions.TaskConfigLadder,
 			Legacy:          &legacy.Alert,
+			Migrations:      []gorp.Migration{v1.StatusKeysMigration},
 			SetEntryKey:     (*TaskConfig).SetKey,
 		},
 	); !ok(err, s.Alert) {

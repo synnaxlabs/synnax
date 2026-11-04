@@ -86,7 +86,7 @@ var _ = Describe("Edge task", func() {
 	// start configures and starts an edge task, and waits for its birth.
 	start := func(ctx context.Context, cfg msgpack.EncodedJSON) (driver.Task, task.Task) {
 		GinkgoHelper()
-		t := newTask(rackKey, mqtt.EdgeTaskType, cfg)
+		t := newTask(ctx, rackKey, mqtt.EdgeTaskType, cfg)
 		configured := configure(ctx, factory, t)
 		Expect(configured.Exec(ctx, task.Command{Type: "start", Key: "start"})).
 			To(Succeed())
@@ -529,7 +529,7 @@ var _ = Describe("Edge task", func() {
 					port:    port,
 					refused: []string{"spBv1.0/plant/NCMD/line1"},
 				})
-				t := newTask(rackKey, mqtt.EdgeTaskType, edgeConfig(
+				t := newTask(ctx, rackKey, mqtt.EdgeTaskType, edgeConfig(
 					dev,
 					edgeTag("temp", createVirtual(ctx, telem.Float64T), "double"),
 				))
@@ -777,7 +777,7 @@ var _ = Describe("Edge task", func() {
 				ch := createVirtual(ctx, telem.Float64T)
 				port := broker.port
 				broker.stop()
-				t := newTask(rackKey, mqtt.EdgeTaskType, edgeConfig(
+				t := newTask(ctx, rackKey, mqtt.EdgeTaskType, edgeConfig(
 					dev, edgeTag("temp", ch, "double"),
 				))
 				configured := configure(ctx, factory, t)
@@ -796,7 +796,7 @@ var _ = Describe("Edge task", func() {
 			ch := createVirtual(ctx, telem.Float64T)
 			port := broker.port
 			broker.stop()
-			t := newTask(rackKey, mqtt.EdgeTaskType, edgeConfig(
+			t := newTask(ctx, rackKey, mqtt.EdgeTaskType, edgeConfig(
 				dev, edgeTag("temp", ch, "double"),
 			))
 			configured := configure(ctx, factory, t)
@@ -828,7 +828,7 @@ var _ = Describe("Edge task", func() {
 			func(ctx SpecContext) {
 				moved := startBroker(0)
 				movedHost := startHost(moved, "plant", "line1")
-				t := newTask(rackKey, mqtt.EdgeTaskType, edgeConfig(
+				t := newTask(ctx, rackKey, mqtt.EdgeTaskType, edgeConfig(
 					dev, edgeTag("temp", createVirtual(ctx, telem.Float64T), "double"),
 				))
 				configured := configure(ctx, factory, t)
@@ -859,7 +859,7 @@ var _ = Describe("Edge task", func() {
 
 		It("Should start and stop many times without a leak", func(ctx SpecContext) {
 			ch := createVirtual(ctx, telem.Float64T)
-			t := newTask(rackKey, mqtt.EdgeTaskType, edgeConfig(
+			t := newTask(ctx, rackKey, mqtt.EdgeTaskType, edgeConfig(
 				dev, edgeTag("temp", ch, "double"),
 			))
 			configured := configure(ctx, factory, t)
@@ -896,7 +896,7 @@ var _ = Describe("Edge task", func() {
 			message string,
 		) {
 			GinkgoHelper()
-			t := newTask(rackKey, mqtt.EdgeTaskType, cfg)
+			t := newTask(ctx, rackKey, mqtt.EdgeTaskType, cfg)
 			Expect(factory.ConfigureTask(ctx, t, "configure")).Error().To(SatisfyAll(
 				MatchError(validate.ErrValidation),
 				MatchError(ContainSubstring(message)),

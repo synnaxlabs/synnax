@@ -207,8 +207,9 @@ var _ = Describe("Retrieve", func() {
 		u := createUser(ctx)
 		withStatus := createTask(ctx)
 		withoutStatus := createTask(ctx)
-		Expect(svc.Status.NewWriter(nil).Delete(
-			ctx, withoutStatus.ResourceID().String(),
+		w := svc.Status.NewWriter(nil)
+		Expect(w.Delete(
+			ctx, MustSucceed(w.KeyOf(withoutStatus.ResourceID())),
 		)).To(Succeed())
 		grant(
 			ctx, access.ActionRetrieve, u.ResourceID(),
@@ -222,6 +223,6 @@ var _ = Describe("Retrieve", func() {
 		Expect(res.Tasks[0].Key).To(Equal(withoutStatus.Key))
 		Expect(res.Tasks[0].Status).To(BeNil())
 		Expect(res.Tasks[1].Key).To(Equal(withStatus.Key))
-		Expect(res.Tasks[1].Status.Key).To(Equal(withStatus.ResourceID().String()))
+		Expect(res.Tasks[1].Status.Owner).To(HaveValue(Equal(withStatus.ResourceID())))
 	})
 })

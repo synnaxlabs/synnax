@@ -317,7 +317,7 @@ var _ = Describe("Legacy file import", Ordered, ContinueOnFailure, func() {
 			DB:       db,
 			Ontology: otg,
 		}))
-		labelSvc := MustOpen(label.OpenService(ctx, label.ServiceConfig{
+		MustOpen(label.OpenService(ctx, label.ServiceConfig{
 			DB:       db,
 			Ontology: otg,
 			Group:    groupSvc,
@@ -325,8 +325,6 @@ var _ = Describe("Legacy file import", Ordered, ContinueOnFailure, func() {
 		statusSvc := MustOpen(status.OpenService(ctx, status.ServiceConfig{
 			DB:       db,
 			Ontology: otg,
-			Group:    groupSvc,
-			Label:    labelSvc,
 		}))
 		rackSvc := MustOpen(rack.OpenService(ctx, rack.ServiceConfig{
 			DB:                  db,

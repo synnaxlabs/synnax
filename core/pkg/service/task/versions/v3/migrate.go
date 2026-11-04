@@ -31,6 +31,8 @@ import (
 
 // MigrationConfig is the configuration for NewMigration.
 type MigrationConfig struct {
+	// Status deletes the statuses of the tasks the migration removes.
+	Status *status.Service
 	// Ontology defines the task resources the migration creates and removes.
 	Ontology *ontology.Ontology
 	// Configs routes each task type to the store that owns its config records.
@@ -115,7 +117,7 @@ func migrateConfigsToRecords(
 	otgW := cfg.Ontology.NewWriter(tx)
 	for _, t := range tasks {
 		if retiredTypes.Contains(t.Type) {
-			if err := retire(ctx, tx, ins, otgW, t); err != nil {
+			if err := retire(ctx, tx, ins, otgW, cfg.Status, t); err != nil {
 				return err
 			}
 			continue
@@ -127,7 +129,7 @@ func migrateConfigsToRecords(
 		store, ok := cfg.Configs.Store(newType)
 		if !ok {
 			if err := quarantine(
-				ctx, tx, ins, otgW, t, "unknown task type "+t.Type,
+				ctx, tx, ins, otgW, cfg.Status, t, "unknown task type "+t.Type,
 			); err != nil {
 				return err
 			}
@@ -138,7 +140,7 @@ func migrateConfigsToRecords(
 		converted, err := store.Normalize(ctx, 0, t.Config)
 		if err != nil {
 			if err := quarantine(
-				ctx, tx, ins, otgW, t, unconvertibleReason(err),
+				ctx, tx, ins, otgW, cfg.Status, t, unconvertibleReason(err),
 			); err != nil {
 				return err
 			}
@@ -150,7 +152,7 @@ func migrateConfigsToRecords(
 				return err
 			}
 			if err := quarantine(
-				ctx, tx, ins, otgW, t, unconvertibleReason(err),
+				ctx, tx, ins, otgW, cfg.Status, t, unconvertibleReason(err),
 			); err != nil {
 				return err
 			}
@@ -183,6 +185,7 @@ func stageAndRemove(
 	tx gorp.Tx,
 	ins alamos.Instrumentation,
 	otgW ontology.Writer,
+	statuses *status.Service,
 	t v2.Task,
 ) error {
 	b, err := json.Marshal(t, json.Deterministic(true))
@@ -208,10 +211,17 @@ func stageAndRemove(
 		return err
 	}
 	taskID := resource.ID{Type: resource.TypeTask, Key: t.Key.String()}
-	statusKey := taskID.String()
-	if err := gorp.WrapWriter[string, status.Status[v2.StatusDetails]](tx).
-		Delete(ctx, statusKey); err != nil {
+	var held []status.Status[any]
+	if err := statuses.NewRetrieve[any]().
+		Where(status.MatchOwners[any](taskID)).
+		Entries(&held).
+		Exec(ctx, tx); err != nil {
 		return err
+	}
+	for _, s := range held {
+		if err := statuses.NewMigrationWriter(tx).Delete(ctx, s.Key); err != nil {
+			return err
+		}
 	}
 	return otgW.DeleteResources(ctx, taskID)
 }
@@ -229,10 +239,11 @@ func quarantine(
 	tx gorp.Tx,
 	ins alamos.Instrumentation,
 	otgW ontology.Writer,
+	statuses *status.Service,
 	t v2.Task,
 	reason string,
 ) error {
-	if err := stageAndRemove(ctx, tx, ins, otgW, t); err != nil {
+	if err := stageAndRemove(ctx, tx, ins, otgW, statuses, t); err != nil {
 		return err
 	}
 	ins.L.Warn(
@@ -251,9 +262,10 @@ func retire(
 	tx gorp.Tx,
 	ins alamos.Instrumentation,
 	otgW ontology.Writer,
+	statuses *status.Service,
 	t v2.Task,
 ) error {
-	if err := stageAndRemove(ctx, tx, ins, otgW, t); err != nil {
+	if err := stageAndRemove(ctx, tx, ins, otgW, statuses, t); err != nil {
 		return err
 	}
 	ins.L.Info(

@@ -18,7 +18,7 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/api"
 	"github.com/synnaxlabs/synnax/pkg/api/status"
 	"github.com/synnaxlabs/synnax/pkg/service/label"
-	"github.com/synnaxlabs/synnax/pkg/service/resource"
+	resourcepb "github.com/synnaxlabs/synnax/pkg/service/resource/pb"
 	svcstatus "github.com/synnaxlabs/synnax/pkg/service/status"
 	"github.com/synnaxlabs/synnax/pkg/service/status/pb"
 	xpb "github.com/synnaxlabs/x/pb"
@@ -91,26 +91,18 @@ func (setRequestTranslator) Forward(
 	if err != nil {
 		return nil, err
 	}
-	return &SetRequest{Parent: msg.Parent.String(), Statuses: statuses}, nil
+	return &SetRequest{Statuses: statuses}, nil
 }
 
 func (setRequestTranslator) Backward(
 	_ context.Context,
 	msg *SetRequest,
 ) (status.SetRequest, error) {
-	var parent resource.ID
-	if msg.Parent != "" {
-		var err error
-		parent, err = resource.ParseID(msg.Parent)
-		if err != nil {
-			return status.SetRequest{}, err
-		}
-	}
 	statuses, err := pb.StatusesFromPB(msg.Statuses, xpb.AnyFromPBAny)
 	if err != nil {
 		return status.SetRequest{}, err
 	}
-	return status.SetRequest{Parent: parent, Statuses: statuses}, nil
+	return status.SetRequest{Statuses: statuses}, nil
 }
 
 func (setResponseTranslator) Forward(
@@ -145,12 +137,16 @@ func (retrieveRequestTranslator) Forward(
 	variants := lo.Map(msg.Variants, func(v svcstatus.Variant, _ int) string {
 		return string(v)
 	})
+	owners, err := resourcepb.IDSToPB(msg.Owners)
+	if err != nil {
+		return nil, err
+	}
 	return &RetrieveRequest{
 		Keys:                msg.Keys,
+		Owners:              owners,
 		SearchTerm:          msg.SearchTerm,
 		Offset:              int32(msg.Offset),
 		Limit:               int32(msg.Limit),
-		IncludeLabels:       msg.IncludeLabels,
 		HasLabels:           hasLabels,
 		Variants:            variants,
 		IgnoreNotFoundError: msg.IgnoreNotFoundError,
@@ -173,14 +169,18 @@ func (retrieveRequestTranslator) Backward(
 	variants := lo.Map(msg.Variants, func(v string, _ int) svcstatus.Variant {
 		return svcstatus.Variant(v)
 	})
+	owners, err := resourcepb.IDSFromPB(msg.Owners)
+	if err != nil {
+		return status.RetrieveRequest{}, err
+	}
 	return status.RetrieveRequest{
 		Keys:                msg.Keys,
+		Owners:              owners,
 		SearchTerm:          msg.SearchTerm,
 		Offset:              int(msg.Offset),
 		Limit:               int(msg.Limit),
 		HasLabels:           hasLabelKeys,
 		Variants:            variants,
-		IncludeLabels:       msg.IncludeLabels,
 		IgnoreNotFoundError: msg.IgnoreNotFoundError,
 	}, nil
 }

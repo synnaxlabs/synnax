@@ -52,16 +52,14 @@ func newFramerConfig(ctx context.Context, n testutil.Node) framer.ServiceConfig 
 		DB:       n.DB,
 		Ontology: otg,
 	}))
-	labelSvc := MustOpen(label.OpenService(ctx, label.ServiceConfig{
+	MustOpen(label.OpenService(ctx, label.ServiceConfig{
 		DB:       n.DB,
 		Ontology: otg,
 		Group:    groupSvc,
 	}))
 	statusSvc := MustOpen(status.OpenService(ctx, status.ServiceConfig{
 		DB:       n.DB,
-		Label:    labelSvc,
 		Ontology: otg,
-		Group:    groupSvc,
 	}))
 	channelSvc := MustOpen(channel.OpenService(ctx, channel.ServiceConfig{
 		Channel:      n.Channel,

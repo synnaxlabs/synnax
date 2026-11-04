@@ -231,18 +231,18 @@ func (s *Service) Retrieve(
 		ids := task.ResourceIDsFromTasks(res.Tasks)
 		statuses := make([]task.Status, 0, len(res.Tasks))
 		// A status row can be missing, so the resource keeps a nil status.
-		if err := errors.Skip(s.status.NewRetrieve[task.StatusDetails]().
-			Where(status.MatchKeys[task.StatusDetails](resource.IDsToKeys(ids)...)).
+		if err := s.status.NewRetrieve[task.StatusDetails]().
+			Where(status.MatchOwners[task.StatusDetails](ids...)).
 			Entries(&statuses).
-			Exec(ctx, nil), query.ErrNotFound); err != nil {
+			Exec(ctx, nil); err != nil {
 			return RetrieveResponse{}, err
 		}
-		statusByKey := make(map[status.Key]*task.Status, len(statuses))
+		byOwner := make(map[resource.ID]*task.Status, len(statuses))
 		for i := range statuses {
-			statusByKey[statuses[i].Key] = &statuses[i]
+			byOwner[*statuses[i].Owner] = &statuses[i]
 		}
 		for i, id := range ids {
-			res.Tasks[i].Status = statusByKey[id.String()]
+			res.Tasks[i].Status = byOwner[id]
 		}
 	}
 	if err := s.access.NewEnforcer(nil).Enforce(ctx, access.Request{

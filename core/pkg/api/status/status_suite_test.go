@@ -66,11 +66,10 @@ var _ = BeforeSuite(func(ctx SpecContext) {
 		DB: db, Ontology: otg, Group: g, User: userSvc,
 	}))
 	statusSvc = MustOpen(status.OpenService(ctx, status.ServiceConfig{
-		DB: db, Ontology: otg, Group: g, Label: labelSvc,
+		DB: db, Ontology: otg,
 	}))
 	apiSvc = MustSucceed(apistatus.NewService(apistatus.ServiceConfig{
 		Status: statusSvc,
-		Label:  labelSvc,
 		RBAC:   rbacSvc,
 	}))
 	author = MustSucceed(

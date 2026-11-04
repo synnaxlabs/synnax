@@ -15,7 +15,6 @@ import (
 	"io"
 	"maps"
 	"slices"
-	"strings"
 	"sync"
 	"time"
 
@@ -113,10 +112,17 @@ func (m *monitor) writeOutages(ctx context.Context) error {
 	}
 
 	m.mu.Lock()
+	// A rack that is gone needs no health check.
+	for _, k := range stale {
+		if !slices.ContainsFunc(racks, func(r Rack) bool { return r.Key == k }) {
+			delete(m.mu.racks, k)
+		}
+	}
 	now = m.svc.Now()
 	var (
 		statuses    []Status
 		lastUpdated = make(map[Key]telem.TimeStamp, len(racks))
+		owners      = make([]Key, 0, len(racks))
 	)
 	for _, r := range racks {
 		state := m.mu.racks[r.Key]
@@ -124,8 +130,9 @@ func (m *monitor) writeOutages(ctx context.Context) error {
 			continue
 		}
 		lastUpdated[r.Key] = state.lastUpdated
+		owners = append(owners, r.Key)
 		statuses = append(statuses, Status{
-			Key:     r.ResourceID().String(),
+			Owner:   new(r.ResourceID()),
 			Name:    r.Name,
 			Variant: status.VariantWarning,
 			Time:    state.lastUpdated,
@@ -135,7 +142,6 @@ func (m *monitor) writeOutages(ctx context.Context) error {
 					"Driver is running and can reach the Core.",
 				r.Name,
 			),
-			Details: StatusDetails{Rack: r.Key},
 		})
 		m.L.Warn(
 			"driver not running",
@@ -155,8 +161,7 @@ func (m *monitor) writeOutages(ctx context.Context) error {
 	}
 	m.mu.Lock()
 	defer m.mu.Unlock()
-	for i := range statuses {
-		k := statuses[i].Details.Rack
+	for i, k := range owners {
 		// A healthy report that landed during the write starts a new period.
 		if state, ok := m.mu.racks[k]; ok && state.lastUpdated == lastUpdated[k] {
 			state.outage = &statuses[i]
@@ -229,16 +234,14 @@ func (m *monitor) handleChange(
 	m.mu.Lock()
 	defer m.mu.Unlock()
 	for ch := range t {
-		if !strings.HasPrefix(ch.Key, string(resource.TypeRack)) {
+		owner := ch.Value.Owner
+		if ch.Variant == xchange.VariantDelete || owner == nil ||
+			owner.Type != resource.TypeRack {
 			continue
 		}
-		key, err := parseKeyFromResourceIDString(ch.Key)
+		key, err := KeyFromResourceID(*owner)
 		if err != nil {
-			m.L.Error("failed to decode status key", zap.Error(err))
-			continue
-		}
-		if ch.Variant == xchange.VariantDelete {
-			delete(m.mu.racks, key)
+			m.L.Error("failed to decode status owner", zap.Error(err))
 			continue
 		}
 		isHealthy := ch.Value.Variant == status.VariantSuccess ||
@@ -247,14 +250,6 @@ func (m *monitor) handleChange(
 			m.mu.racks[key] = rackState{lastUpdated: m.svc.Now()}
 		}
 	}
-}
-
-func parseKeyFromResourceIDString(s status.Key) (Key, error) {
-	id, err := resource.ParseID(s)
-	if err != nil {
-		return 0, err
-	}
-	return KeyFromResourceID(id)
 }
 
 // openMonitor watches the health of every stored rack. A rack that sends no status

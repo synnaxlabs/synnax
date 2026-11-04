@@ -10,6 +10,7 @@
 package label_test
 
 import (
+	"context"
 	"uuid"
 
 	. "github.com/onsi/ginkgo/v2"
@@ -19,8 +20,11 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/service/access"
 	. "github.com/synnaxlabs/synnax/pkg/service/actions/testutil"
 	"github.com/synnaxlabs/synnax/pkg/service/label"
+	"github.com/synnaxlabs/synnax/pkg/service/ranger"
 	"github.com/synnaxlabs/synnax/pkg/service/resource"
+	"github.com/synnaxlabs/synnax/pkg/service/status"
 	"github.com/synnaxlabs/x/query"
+	"github.com/synnaxlabs/x/telem"
 	. "github.com/synnaxlabs/x/testutil"
 )
 
@@ -98,4 +102,116 @@ var _ = Describe("Create", func() {
 			Expect(frames[0].DispatchKey).To(Equal("dk-create"))
 		},
 	)
+})
+
+var _ = Describe("Add and Remove", func() {
+	authed := func(ctx SpecContext, types ...resource.Type) context.Context {
+		GinkgoHelper()
+		u := createUser(ctx)
+		ids := []resource.ID{{Type: resource.TypeLabel}}
+		for _, t := range types {
+			ids = append(ids, resource.ID{Type: t})
+		}
+		grant(ctx, access.ActionUpdate, u.ResourceID(), ids...)
+		return AuthedCtx(ctx, u)
+	}
+	createRange := func(ctx SpecContext) ranger.Range {
+		GinkgoHelper()
+		r := ranger.Range{Name: "Hot fire", TimeRange: telem.NewRangeSeconds(1, 2)}
+		Expect(svc.Ranger.NewWriter(nil).Create(ctx, &r)).To(Succeed())
+		DeferCleanup(func(ctx SpecContext) {
+			Expect(svc.Ranger.NewWriter(nil).Delete(ctx, r.Key)).To(Succeed())
+		})
+		return r
+	}
+	rangeLabels := func(ctx SpecContext, key ranger.Key) []label.Key {
+		GinkgoHelper()
+		var r ranger.Range
+		Expect(svc.Ranger.NewRetrieve().
+			Where(ranger.MatchKeys(key)).
+			Entry(&r).
+			Exec(ctx, nil)).To(Succeed())
+		return r.Labels
+	}
+
+	It("Should add labels to a range", func(ctx SpecContext) {
+		r, a, b := createRange(ctx), createLabel(ctx), createLabel(ctx)
+		actx := authed(ctx, resource.TypeRange)
+		Expect(apiSvc.Add(actx, nil, apilabel.AddRequest{
+			ID:     r.ResourceID(),
+			Labels: []label.Key{a.Key},
+		})).Error().ToNot(HaveOccurred())
+		Expect(apiSvc.Add(actx, nil, apilabel.AddRequest{
+			ID:     r.ResourceID(),
+			Labels: []label.Key{b.Key},
+		})).Error().ToNot(HaveOccurred())
+		Expect(rangeLabels(ctx, r.Key)).To(ConsistOf(a.Key, b.Key))
+	})
+
+	It("Should replace the labels of a range", func(ctx SpecContext) {
+		r, a, b := createRange(ctx), createLabel(ctx), createLabel(ctx)
+		actx := authed(ctx, resource.TypeRange)
+		Expect(apiSvc.Add(actx, nil, apilabel.AddRequest{
+			ID:     r.ResourceID(),
+			Labels: []label.Key{a.Key},
+		})).Error().ToNot(HaveOccurred())
+		Expect(apiSvc.Add(actx, nil, apilabel.AddRequest{
+			ID:      r.ResourceID(),
+			Labels:  []label.Key{b.Key},
+			Replace: true,
+		})).Error().ToNot(HaveOccurred())
+		Expect(rangeLabels(ctx, r.Key)).To(Equal([]label.Key{b.Key}))
+	})
+
+	It("Should add and remove the labels of a status", func(ctx SpecContext) {
+		a, b := createLabel(ctx), createLabel(ctx)
+		s := status.Status[any]{
+			Name:    "Alarm",
+			Variant: status.VariantInfo,
+			Time:    telem.Now(),
+		}
+		Expect(svc.Status.NewWriter(nil).Set(ctx, &s)).To(Succeed())
+		DeferCleanup(func(ctx SpecContext) {
+			Expect(svc.Status.NewWriter(nil).Delete(ctx, s.Key)).To(Succeed())
+		})
+		actx := authed(ctx, resource.TypeStatus)
+		Expect(apiSvc.Add(actx, nil, apilabel.AddRequest{
+			ID:     s.ResourceID(),
+			Labels: []label.Key{a.Key, b.Key},
+		})).Error().ToNot(HaveOccurred())
+		Expect(apiSvc.Remove(actx, nil, apilabel.RemoveRequest{
+			ID:     s.ResourceID(),
+			Labels: []label.Key{a.Key},
+		})).Error().ToNot(HaveOccurred())
+		var stored status.Status[any]
+		Expect(svc.Status.NewRetrieve[any]().
+			Where(status.MatchKeys[any](s.Key)).
+			Entry(&stored).
+			Exec(ctx, nil)).To(Succeed())
+		Expect(stored.Labels).To(Equal([]label.Key{b.Key}))
+	})
+
+	It("Should remove labels from a range", func(ctx SpecContext) {
+		r, a, b := createRange(ctx), createLabel(ctx), createLabel(ctx)
+		actx := authed(ctx, resource.TypeRange)
+		Expect(apiSvc.Add(actx, nil, apilabel.AddRequest{
+			ID:     r.ResourceID(),
+			Labels: []label.Key{a.Key, b.Key},
+		})).Error().ToNot(HaveOccurred())
+		Expect(apiSvc.Remove(actx, nil, apilabel.RemoveRequest{
+			ID:     r.ResourceID(),
+			Labels: []label.Key{a.Key},
+		})).Error().ToNot(HaveOccurred())
+		Expect(rangeLabels(ctx, r.Key)).To(Equal([]label.Key{b.Key}))
+	})
+
+	It("Should reject a resource that cannot have labels", func(ctx SpecContext) {
+		a := createLabel(ctx)
+		id := resource.ID{Type: resource.TypeChannel, Key: "1"}
+		actx := authed(ctx, resource.TypeChannel)
+		Expect(apiSvc.Add(actx, nil, apilabel.AddRequest{
+			ID:     id,
+			Labels: []label.Key{a.Key},
+		})).Error().To(MatchError(ContainSubstring("id: a channel cannot have labels")))
+	})
 })

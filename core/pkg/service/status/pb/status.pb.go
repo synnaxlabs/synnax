@@ -18,7 +18,7 @@
 package pb
 
 import (
-	pb "github.com/synnaxlabs/synnax/pkg/service/label/pb"
+	pb "github.com/synnaxlabs/synnax/pkg/service/resource/pb"
 	protoreflect "google.golang.org/protobuf/reflect/protoreflect"
 	protoimpl "google.golang.org/protobuf/runtime/protoimpl"
 	anypb "google.golang.org/protobuf/types/known/anypb"
@@ -93,57 +93,14 @@ func (Variant) EnumDescriptor() ([]byte, []int) {
 	return file_core_pkg_service_status_pb_status_proto_rawDescGZIP(), []int{0}
 }
 
-type LabelList struct {
-	state         protoimpl.MessageState `protogen:"open.v1"`
-	Values        []*pb.Label            `protobuf:"bytes,1,rep,name=values,proto3" json:"values,omitempty"`
-	unknownFields protoimpl.UnknownFields
-	sizeCache     protoimpl.SizeCache
-}
-
-func (x *LabelList) Reset() {
-	*x = LabelList{}
-	mi := &file_core_pkg_service_status_pb_status_proto_msgTypes[0]
-	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
-	ms.StoreMessageInfo(mi)
-}
-
-func (x *LabelList) String() string {
-	return protoimpl.X.MessageStringOf(x)
-}
-
-func (*LabelList) ProtoMessage() {}
-
-func (x *LabelList) ProtoReflect() protoreflect.Message {
-	mi := &file_core_pkg_service_status_pb_status_proto_msgTypes[0]
-	if x != nil {
-		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
-		if ms.LoadMessageInfo() == nil {
-			ms.StoreMessageInfo(mi)
-		}
-		return ms
-	}
-	return mi.MessageOf(x)
-}
-
-// Deprecated: Use LabelList.ProtoReflect.Descriptor instead.
-func (*LabelList) Descriptor() ([]byte, []int) {
-	return file_core_pkg_service_status_pb_status_proto_rawDescGZIP(), []int{0}
-}
-
-func (x *LabelList) GetValues() []*pb.Label {
-	if x != nil {
-		return x.Values
-	}
-	return nil
-}
-
 // Status is a standardized message used to communicate state across the Synnax
 // platform. Statuses support different severity variants and can carry
-// component-specific details. A status is uniquely identified by a key and may carry a
-// human-readable name and labels for categorization and filtering.
+// component-specific details. A status is uniquely identified by a key, may name the
+// resource that owns it, and may carry a human-readable name and labels.
 type Status struct {
 	state protoimpl.MessageState `protogen:"open.v1"`
-	// key is a unique identifier for this status, auto-generated if not provided.
+	// key is a unique identifier for this status. The Core assigns a UUID when a status
+	// has no key and its owner holds no status.
 	Key string `protobuf:"bytes,1,opt,name=key,proto3" json:"key,omitempty"`
 	// name is the name of what the status is about, such as a task, device, or rack.
 	// Empty when the status is not about a named thing.
@@ -162,15 +119,18 @@ type Status struct {
 	Time int64 `protobuf:"varint,6,opt,name=time,proto3" json:"time,omitempty"`
 	// details contains optional component-specific custom details for the status.
 	Details *anypb.Any `protobuf:"bytes,7,opt,name=details,proto3" json:"details,omitempty"`
-	// labels contains optional labels for categorization and filtering.
-	Labels        *LabelList `protobuf:"bytes,8,opt,name=labels,proto3" json:"labels,omitempty"`
+	// labels are the keys of the labels attached to the status.
+	Labels []string `protobuf:"bytes,8,rep,name=labels,proto3" json:"labels,omitempty"`
+	// owner is the resource the status reports on, such as a task, device, or rack. An
+	// owner holds at most one status. Empty for a status that no resource owns.
+	Owner         *pb.ID `protobuf:"bytes,9,opt,name=owner,proto3,oneof" json:"owner,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
 
 func (x *Status) Reset() {
 	*x = Status{}
-	mi := &file_core_pkg_service_status_pb_status_proto_msgTypes[1]
+	mi := &file_core_pkg_service_status_pb_status_proto_msgTypes[0]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -182,7 +142,7 @@ func (x *Status) String() string {
 func (*Status) ProtoMessage() {}
 
 func (x *Status) ProtoReflect() protoreflect.Message {
-	mi := &file_core_pkg_service_status_pb_status_proto_msgTypes[1]
+	mi := &file_core_pkg_service_status_pb_status_proto_msgTypes[0]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -195,7 +155,7 @@ func (x *Status) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use Status.ProtoReflect.Descriptor instead.
 func (*Status) Descriptor() ([]byte, []int) {
-	return file_core_pkg_service_status_pb_status_proto_rawDescGZIP(), []int{1}
+	return file_core_pkg_service_status_pb_status_proto_rawDescGZIP(), []int{0}
 }
 
 func (x *Status) GetKey() string {
@@ -247,9 +207,16 @@ func (x *Status) GetDetails() *anypb.Any {
 	return nil
 }
 
-func (x *Status) GetLabels() *LabelList {
+func (x *Status) GetLabels() []string {
 	if x != nil {
 		return x.Labels
+	}
+	return nil
+}
+
+func (x *Status) GetOwner() *pb.ID {
+	if x != nil {
+		return x.Owner
 	}
 	return nil
 }
@@ -258,9 +225,7 @@ var File_core_pkg_service_status_pb_status_proto protoreflect.FileDescriptor
 
 const file_core_pkg_service_status_pb_status_proto_rawDesc = "" +
 	"\n" +
-	"'core/pkg/service/status/pb/status.proto\x12\x11service.status.pb\x1a%core/pkg/service/label/pb/label.proto\x1a\x19google/protobuf/any.proto\"<\n" +
-	"\tLabelList\x12/\n" +
-	"\x06values\x18\x01 \x03(\v2\x17.service.label.pb.LabelR\x06values\"\x9a\x02\n" +
+	"'core/pkg/service/status/pb/status.proto\x12\x11service.status.pb\x1a+core/pkg/service/resource/pb/resource.proto\x1a\x19google/protobuf/any.proto\"\xba\x02\n" +
 	"\x06Status\x12\x10\n" +
 	"\x03key\x18\x01 \x01(\tR\x03key\x12\x12\n" +
 	"\x04name\x18\x02 \x01(\tR\x04name\x124\n" +
@@ -268,8 +233,10 @@ const file_core_pkg_service_status_pb_status_proto_rawDesc = "" +
 	"\amessage\x18\x04 \x01(\tR\amessage\x12 \n" +
 	"\vdescription\x18\x05 \x01(\tR\vdescription\x12\x12\n" +
 	"\x04time\x18\x06 \x01(\x03R\x04time\x12.\n" +
-	"\adetails\x18\a \x01(\v2\x14.google.protobuf.AnyR\adetails\x124\n" +
-	"\x06labels\x18\b \x01(\v2\x1c.service.status.pb.LabelListR\x06labels*\x83\x01\n" +
+	"\adetails\x18\a \x01(\v2\x14.google.protobuf.AnyR\adetails\x12\x16\n" +
+	"\x06labels\x18\b \x03(\tR\x06labels\x122\n" +
+	"\x05owner\x18\t \x01(\v2\x17.service.resource.pb.IDH\x00R\x05owner\x88\x01\x01B\b\n" +
+	"\x06_owner*\x83\x01\n" +
 	"\aVariant\x12\x13\n" +
 	"\x0fVARIANT_SUCCESS\x10\x00\x12\x10\n" +
 	"\fVARIANT_INFO\x10\x01\x12\x13\n" +
@@ -292,24 +259,22 @@ func file_core_pkg_service_status_pb_status_proto_rawDescGZIP() []byte {
 }
 
 var file_core_pkg_service_status_pb_status_proto_enumTypes = make([]protoimpl.EnumInfo, 1)
-var file_core_pkg_service_status_pb_status_proto_msgTypes = make([]protoimpl.MessageInfo, 2)
+var file_core_pkg_service_status_pb_status_proto_msgTypes = make([]protoimpl.MessageInfo, 1)
 var file_core_pkg_service_status_pb_status_proto_goTypes = []any{
 	(Variant)(0),      // 0: service.status.pb.Variant
-	(*LabelList)(nil), // 1: service.status.pb.LabelList
-	(*Status)(nil),    // 2: service.status.pb.Status
-	(*pb.Label)(nil),  // 3: service.label.pb.Label
-	(*anypb.Any)(nil), // 4: google.protobuf.Any
+	(*Status)(nil),    // 1: service.status.pb.Status
+	(*anypb.Any)(nil), // 2: google.protobuf.Any
+	(*pb.ID)(nil),     // 3: service.resource.pb.ID
 }
 var file_core_pkg_service_status_pb_status_proto_depIdxs = []int32{
-	3, // 0: service.status.pb.LabelList.values:type_name -> service.label.pb.Label
-	0, // 1: service.status.pb.Status.variant:type_name -> service.status.pb.Variant
-	4, // 2: service.status.pb.Status.details:type_name -> google.protobuf.Any
-	1, // 3: service.status.pb.Status.labels:type_name -> service.status.pb.LabelList
-	4, // [4:4] is the sub-list for method output_type
-	4, // [4:4] is the sub-list for method input_type
-	4, // [4:4] is the sub-list for extension type_name
-	4, // [4:4] is the sub-list for extension extendee
-	0, // [0:4] is the sub-list for field type_name
+	0, // 0: service.status.pb.Status.variant:type_name -> service.status.pb.Variant
+	2, // 1: service.status.pb.Status.details:type_name -> google.protobuf.Any
+	3, // 2: service.status.pb.Status.owner:type_name -> service.resource.pb.ID
+	3, // [3:3] is the sub-list for method output_type
+	3, // [3:3] is the sub-list for method input_type
+	3, // [3:3] is the sub-list for extension type_name
+	3, // [3:3] is the sub-list for extension extendee
+	0, // [0:3] is the sub-list for field type_name
 }
 
 func init() { file_core_pkg_service_status_pb_status_proto_init() }
@@ -317,13 +282,14 @@ func file_core_pkg_service_status_pb_status_proto_init() {
 	if File_core_pkg_service_status_pb_status_proto != nil {
 		return
 	}
+	file_core_pkg_service_status_pb_status_proto_msgTypes[0].OneofWrappers = []any{}
 	type x struct{}
 	out := protoimpl.TypeBuilder{
 		File: protoimpl.DescBuilder{
 			GoPackagePath: reflect.TypeOf(x{}).PkgPath(),
 			RawDescriptor: unsafe.Slice(unsafe.StringData(file_core_pkg_service_status_pb_status_proto_rawDesc), len(file_core_pkg_service_status_pb_status_proto_rawDesc)),
 			NumEnums:      1,
-			NumMessages:   2,
+			NumMessages:   1,
 			NumExtensions: 0,
 			NumServices:   0,
 		},

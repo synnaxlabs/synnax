@@ -1,0 +1,28 @@
+// Copyright 2026 Synnax Labs, Inc.
+//
+// Use of this software is governed by the Business Source License included in the file
+// licenses/BSL.txt.
+//
+// As of the Change Date specified in that file, in accordance with the Business Source
+// License, use of this software will be governed by the Apache License, Version 2.0,
+// included in the file licenses/APL.txt.
+
+package v2
+
+import (
+	"github.com/synnaxlabs/gorp"
+	"github.com/synnaxlabs/synnax/pkg/service/resource"
+)
+
+var _ gorp.Entry[Key] = Range{}
+
+// GorpKey implements gorp.Entry.
+func (r Range) GorpKey() Key { return r.Key }
+
+// SetOptions implements gorp.Entry.
+func (Range) SetOptions() []any { return nil }
+
+// ResourceID returns the semantic ID for this range to look it up from within the
+func (r Range) ResourceID() resource.ID {
+	return resource.ID{Type: resource.TypeRange, Key: r.Key.String()}
+}

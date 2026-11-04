@@ -32,10 +32,6 @@ type ServiceConfig struct {
 	//
 	// [REQUIRED]
 	Status *status.Service
-	// Label stores and retrieves labels.
-	//
-	// [REQUIRED]
-	Label *label.Service
 	// RBAC enforces access control on every request.
 	//
 	// [REQUIRED]
@@ -51,7 +47,6 @@ var (
 // Override implements config.Config.
 func (c ServiceConfig) Override(other ServiceConfig) ServiceConfig {
 	c.Status = override.Nil(c.Status, other.Status)
-	c.Label = override.Nil(c.Label, other.Label)
 	c.RBAC = override.Nil(c.RBAC, other.RBAC)
 	return c
 }
@@ -60,7 +55,6 @@ func (c ServiceConfig) Override(other ServiceConfig) ServiceConfig {
 func (c ServiceConfig) Validate() error {
 	v := validate.New("api.status")
 	v.NotNil("status", c.Status)
-	v.NotNil("label", c.Label)
 	v.NotNil("rbac", c.RBAC)
 	return v.Error()
 }
@@ -68,7 +62,6 @@ func (c ServiceConfig) Validate() error {
 type Service struct {
 	access   *rbac.Service
 	internal *status.Service
-	label    *label.Service
 }
 
 func NewService(cfgs ...ServiceConfig) (*Service, error) {
@@ -78,7 +71,6 @@ func NewService(cfgs ...ServiceConfig) (*Service, error) {
 	}
 	return &Service{
 		internal: cfg.Status,
-		label:    cfg.Label,
 		access:   cfg.RBAC,
 	}, nil
 }
@@ -87,22 +79,21 @@ func statusAccessResourceIDs(statuses []status.Status[any]) []resource.ID {
 	ids := make([]resource.ID, 0, len(statuses))
 	for _, s := range statuses {
 		ids = append(ids, s.ResourceID())
-		ids = append(ids, label.ResourceIDsFromLabels(s.Labels)...)
+		ids = append(ids, label.ResourceIDs(s.Labels)...)
 	}
 	return ids
 }
 
 // SetRequest is a request to set (create or update) statuses in the cluster.
 type SetRequest struct {
-	// Parent is the parent resource ID for the statuses.
-	Parent resource.ID `json:"parent" msgpack:"parent"`
-	// Statuses are the statuses to set.
+	// Statuses are the statuses to set. A status with an owner goes to the status its
+	// owner holds, whatever key it carries.
 	Statuses []status.Status[any] `json:"statuses" msgpack:"statuses"`
 }
 
 // SetResponse is a response to a SetRequest.
 type SetResponse struct {
-	// Statuses are the statuses that were set.
+	// Statuses are the statuses as stored, with their resolved keys and labels.
 	Statuses []status.Status[any] `json:"statuses" msgpack:"statuses"`
 }
 
@@ -119,11 +110,7 @@ func (s *Service) Set(
 	}); err != nil {
 		return SetResponse{}, err
 	}
-	if err := s.internal.NewWriter(tx).SetManyWithParent(
-		ctx,
-		&req.Statuses,
-		req.Parent,
-	); err != nil {
+	if err := s.internal.NewWriter(tx).SetMany(ctx, &req.Statuses); err != nil {
 		return SetResponse{}, err
 	}
 	return SetResponse{Statuses: req.Statuses}, nil
@@ -189,6 +176,8 @@ type RetrieveRequest struct {
 	SearchTerm string `json:"search_term" msgpack:"search_term"`
 	// Keys are the keys of the statuses to retrieve.
 	Keys []status.Key `json:"keys" msgpack:"keys"`
+	// Owners retrieves the statuses that the resources with the given IDs own.
+	Owners []resource.ID `json:"owners" msgpack:"owners"`
 	// HasLabels retrieves statuses that are labeled by one or more labels with the
 	// given keys.
 	HasLabels []label.Key `json:"has_labels" msgpack:"has_labels"`
@@ -198,8 +187,6 @@ type RetrieveRequest struct {
 	Limit int `json:"limit" msgpack:"limit"`
 	// Offset is the number of statuses to skip.
 	Offset int `json:"offset" msgpack:"offset"`
-	// IncludeLabels sets whether to fetch labels for the retrieved statuses.
-	IncludeLabels bool `json:"include_labels" msgpack:"include_labels"`
 	// IgnoreNotFoundError returns the statuses that do exist instead of an error when
 	// one or more of Keys names a status that does not.
 	IgnoreNotFoundError bool `json:"ignore_not_found_error" msgpack:"ignore_not_found_error"`
@@ -235,6 +222,9 @@ func (s *Service) Retrieve(
 	if len(req.Keys) != 0 {
 		q = q.Where(status.MatchKeys[any](req.Keys...))
 	}
+	if len(req.Owners) != 0 {
+		q = q.Where(status.MatchOwners[any](req.Owners...))
+	}
 	err := q.Entries(&resStatuses).Exec(ctx, nil)
 	if req.IgnoreNotFoundError && err != nil {
 		err = errors.Skip(err, query.ErrNotFound)
@@ -242,25 +232,14 @@ func (s *Service) Retrieve(
 	if err != nil {
 		return RetrieveResponse{}, err
 	}
-	res := RetrieveResponse{Statuses: resStatuses}
-	ids := statusAccessResourceIDs(res.Statuses)
-	if req.IncludeLabels {
-		for i, stat := range res.Statuses {
-			labels, err := s.label.RetrieveFor(ctx, stat.ResourceID(), nil)
-			if err != nil {
-				return RetrieveResponse{}, err
-			}
-			res.Statuses[i].Labels = labels
-		}
-	}
 	if err := s.access.NewEnforcer(nil).Enforce(ctx, access.Request{
 		Subject: auth.GetSubject(ctx),
 		Action:  access.ActionRetrieve,
-		Objects: ids,
+		Objects: statusAccessResourceIDs(resStatuses),
 	}); err != nil {
 		return RetrieveResponse{}, err
 	}
-	return res, nil
+	return RetrieveResponse{Statuses: resStatuses}, nil
 }
 
 // RenameRequest names the status to rename and the name to give it.

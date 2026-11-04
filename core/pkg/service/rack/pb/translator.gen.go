@@ -12,59 +12,9 @@
 package pb
 
 import (
-	"encoding/json/v2"
-
 	"github.com/synnaxlabs/synnax/pkg/service/rack"
 	statuspb "github.com/synnaxlabs/synnax/pkg/service/status/pb"
-	"google.golang.org/protobuf/encoding/protojson"
-	"google.golang.org/protobuf/proto"
-	"google.golang.org/protobuf/types/known/anypb"
-	"google.golang.org/protobuf/types/known/structpb"
 )
-
-// StatusDetailsToPB converts StatusDetails to StatusDetails.
-func StatusDetailsToPB(r rack.StatusDetails) (*StatusDetails, error) {
-	pb := &StatusDetails{
-		Rack: uint32(r.Rack),
-	}
-	return pb, nil
-}
-
-// StatusDetailsFromPB converts StatusDetails to StatusDetails.
-func StatusDetailsFromPB(pb *StatusDetails) (rack.StatusDetails, error) {
-	var r rack.StatusDetails
-	if pb == nil {
-		return r, nil
-	}
-	r.Rack = rack.Key(pb.Rack)
-	return r, nil
-}
-
-// StatusDetailsListToPB converts a slice of StatusDetails to StatusDetails.
-func StatusDetailsListToPB(rs []rack.StatusDetails) ([]*StatusDetails, error) {
-	result := make([]*StatusDetails, len(rs))
-	for i := range rs {
-		var err error
-		result[i], err = StatusDetailsToPB(rs[i])
-		if err != nil {
-			return nil, err
-		}
-	}
-	return result, nil
-}
-
-// StatusDetailsListFromPB converts a slice of StatusDetails to StatusDetails.
-func StatusDetailsListFromPB(pbs []*StatusDetails) ([]rack.StatusDetails, error) {
-	result := make([]rack.StatusDetails, len(pbs))
-	for i, pb := range pbs {
-		var err error
-		result[i], err = StatusDetailsFromPB(pb)
-		if err != nil {
-			return nil, err
-		}
-	}
-	return result, nil
-}
 
 // RackToPB converts Rack to Rack.
 func RackToPB(r rack.Rack) (*Rack, error) {
@@ -76,7 +26,7 @@ func RackToPB(r rack.Rack) (*Rack, error) {
 	}
 	if r.Status != nil {
 		var err error
-		pb.Status, err = statuspb.StatusToPB(*r.Status, StatusDetailsToPBAny)
+		pb.Status, err = statuspb.StatusToPB(*r.Status, nil)
 		if err != nil {
 			return nil, err
 		}
@@ -95,7 +45,7 @@ func RackFromPB(pb *Rack) (rack.Rack, error) {
 	r.Embedded = pb.Embedded
 	r.Integrations = pb.Integrations
 	if pb.Status != nil {
-		val, err := statuspb.StatusFromPB(pb.Status, StatusDetailsFromPBAny)
+		val, err := statuspb.StatusFromPB[struct{}](pb.Status, nil)
 		if err != nil {
 			return rack.Rack{}, err
 		}
@@ -126,63 +76,6 @@ func RacksFromPB(pbs []*Rack) ([]rack.Rack, error) {
 		if err != nil {
 			return nil, err
 		}
-	}
-	return result, nil
-}
-
-// StatusDetailsToPBAny converts StatusDetails to *anypb.Any for use with generic
-// translators. It wraps the value in structpb.Struct (JSON) for cross-language
-// compatibility.
-func StatusDetailsToPBAny(v rack.StatusDetails) (*anypb.Any, error) {
-	pb, err := StatusDetailsToPB(v)
-	if err != nil {
-		return nil, err
-	}
-	// Convert proto to JSON bytes, then to Struct for cross-language compatibility
-	jsonBytes, err := protojson.Marshal(pb)
-	if err != nil {
-		return nil, err
-	}
-	s := &structpb.Struct{}
-	if err := protojson.Unmarshal(jsonBytes, s); err != nil {
-		return nil, err
-	}
-	return anypb.New(s)
-}
-
-// StatusDetailsFromPBAny converts *anypb.Any to StatusDetails for use with generic
-// translators. It handles typed protos and JSON (google.protobuf.Value, or
-// google.protobuf.Struct from peers on releases before value packing) for
-// cross-language compatibility.
-func StatusDetailsFromPBAny(a *anypb.Any) (rack.StatusDetails, error) {
-	if a == nil {
-		return rack.StatusDetails{}, nil
-	}
-	// First try typed proto
-	var pb StatusDetails
-	if err := a.UnmarshalTo(&pb); err == nil {
-		return StatusDetailsFromPB(&pb)
-	}
-	// Fall back to JSON for cross-language compatibility
-	var (
-		msg proto.Message
-		v   structpb.Value
-		s   structpb.Struct
-	)
-	if err := a.UnmarshalTo(&v); err == nil {
-		msg = &v
-	} else if err := a.UnmarshalTo(&s); err != nil {
-		return rack.StatusDetails{}, err
-	} else {
-		msg = &s
-	}
-	jsonBytes, err := protojson.Marshal(msg)
-	if err != nil {
-		return rack.StatusDetails{}, err
-	}
-	var result rack.StatusDetails
-	if err := json.Unmarshal(jsonBytes, &result); err != nil {
-		return rack.StatusDetails{}, err
 	}
 	return result, nil
 }

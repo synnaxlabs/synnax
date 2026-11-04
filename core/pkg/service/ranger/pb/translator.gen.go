@@ -14,7 +14,8 @@ package pb
 import (
 	"uuid"
 
-	labelpb "github.com/synnaxlabs/synnax/pkg/service/label/pb"
+	"github.com/samber/lo"
+	"github.com/synnaxlabs/synnax/pkg/service/label"
 	"github.com/synnaxlabs/synnax/pkg/service/ranger"
 	colorpb "github.com/synnaxlabs/x/color/pb"
 	telempb "github.com/synnaxlabs/x/telem/pb"
@@ -30,6 +31,7 @@ func RangeToPB(r ranger.Range) (*Range, error) {
 		Name:      r.Name,
 		Key:       r.Key.String(),
 		TimeRange: timeRangeVal,
+		Labels:    lo.Map(r.Labels, func(u label.Key, _ int) string { return uuid.UUID(u).String() }),
 	}
 	if r.Color != nil {
 		var err error
@@ -38,19 +40,9 @@ func RangeToPB(r ranger.Range) (*Range, error) {
 			return nil, err
 		}
 	}
-	if r.Labels != nil {
-		vals, err := labelpb.LabelsToPB(r.Labels)
-		if err != nil {
-			return nil, err
-		}
-		pb.Labels = &LabelList{Values: vals}
-	}
 	if r.Parent != nil {
-		var err error
-		pb.Parent, err = RangeToPB(*r.Parent)
-		if err != nil {
-			return nil, err
-		}
+		v := r.Parent.String()
+		pb.Parent = &v
 	}
 	return pb, nil
 }
@@ -70,6 +62,20 @@ func RangeFromPB(pb *Range) (ranger.Range, error) {
 	if err != nil {
 		return ranger.Range{}, err
 	}
+	r.Labels, err = func() ([]label.Key, error) {
+		result := make([]label.Key, len(pb.Labels))
+		for i, s := range pb.Labels {
+			parsed, err := uuid.Parse(s)
+			if err != nil {
+				return nil, err
+			}
+			result[i] = label.Key(parsed)
+		}
+		return result, nil
+	}()
+	if err != nil {
+		return ranger.Range{}, err
+	}
 	r.Name = pb.Name
 	if pb.Color != nil {
 		val, err := colorpb.ColorFromPB(pb.Color)
@@ -78,19 +84,12 @@ func RangeFromPB(pb *Range) (ranger.Range, error) {
 		}
 		r.Color = &val
 	}
-	if pb.Labels != nil {
-		vals, err := labelpb.LabelsFromPB(pb.Labels.Values)
-		if err != nil {
-			return ranger.Range{}, err
-		}
-		r.Labels = vals
-	}
 	if pb.Parent != nil {
-		val, err := RangeFromPB(pb.Parent)
+		v, err := uuid.Parse(*pb.Parent)
 		if err != nil {
 			return ranger.Range{}, err
 		}
-		r.Parent = &val
+		r.Parent = &v
 	}
 	return r, nil
 }

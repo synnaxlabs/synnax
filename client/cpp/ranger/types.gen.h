@@ -22,7 +22,6 @@
 #include "x/cpp/color/color.h"
 #include "x/cpp/errors/errors.h"
 #include "x/cpp/json/json.h"
-#include "x/cpp/mem/indirect.h"
 #include "x/cpp/uuid/uuid.h"
 
 #include "core/pkg/service/ranger/pb/ranger.pb.h"
@@ -46,12 +45,11 @@ struct Range {
     /// @brief color is an optional display color for visual identification of the range
     /// in user interfaces.
     std::optional<::x::color::Color> color;
-    /// @brief labels contains optional labels attached to this range for categorization
-    /// and filtering.
-    std::optional<std::vector<::synnax::label::Label>> labels;
-    /// @brief parent is an optional parent range for hierarchical organization. Ranges
-    /// can be nested within other ranges.
-    x::mem::indirect<Range> parent;
+    /// @brief labels are the keys of the labels attached to the range.
+    std::vector<::synnax::label::Key> labels = {};
+    /// @brief parent is the key of the range this range is nested in. Empty for a
+    /// top-level range.
+    std::optional<Key> parent;
 
     static Range parse(x::json::Parser parser);
     [[nodiscard]] x::json::json to_json() const;

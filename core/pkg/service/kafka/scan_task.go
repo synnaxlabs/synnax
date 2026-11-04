@@ -196,13 +196,13 @@ func (t *scanTask) setDeviceStatus(
 		return
 	}
 	stat := device.Status{
-		Key:         dev.ResourceID().String(),
+		Owner:       new(dev.ResourceID()),
 		Name:        dev.Name,
 		Variant:     variant,
 		Message:     message,
 		Description: description,
 		Time:        telem.Now(),
-		Details:     device.StatusDetails{Rack: dev.Rack, Device: dev.Key},
+		Details:     device.StatusDetails{Rack: dev.Rack},
 	}
 	if err := t.factoryCfg.DB.WithTx(ctx, func(tx gorp.Tx) error {
 		return t.factoryCfg.Status.NewWriter(tx).Set(ctx, &stat)

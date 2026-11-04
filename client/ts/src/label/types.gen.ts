@@ -12,6 +12,8 @@
 import { color, uuid } from "@synnaxlabs/x";
 import { z } from "zod";
 
+import { resource } from "@/resource";
+
 export const keyZ = z.uuid();
 export type Key = z.infer<typeof keyZ>;
 
@@ -29,3 +31,6 @@ export const labelZ = z.object({
 });
 export interface Label extends z.infer<typeof labelZ> {}
 export interface New extends z.input<typeof labelZ> {}
+
+export const resourceID = resource.createIDFactory<Key>("label");
+export const TYPE_RESOURCE_ID = resourceID("");

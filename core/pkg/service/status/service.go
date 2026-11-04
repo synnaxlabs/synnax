@@ -11,14 +11,15 @@ package status
 
 import (
 	"context"
+	"slices"
 	"uuid"
 
 	"github.com/synnaxlabs/alamos"
 	"github.com/synnaxlabs/gorp"
-	"github.com/synnaxlabs/synnax/pkg/service/group"
-	"github.com/synnaxlabs/synnax/pkg/service/label"
 	"github.com/synnaxlabs/synnax/pkg/service/ontology"
+	"github.com/synnaxlabs/synnax/pkg/service/resource"
 	"github.com/synnaxlabs/synnax/pkg/service/status/versions"
+	v2 "github.com/synnaxlabs/synnax/pkg/service/status/versions/v2"
 	"github.com/synnaxlabs/x/config"
 	"github.com/synnaxlabs/x/errors"
 	xio "github.com/synnaxlabs/x/io"
@@ -35,20 +36,10 @@ type ServiceConfig struct {
 	//
 	// [REQUIRED]
 	DB *gorp.DB
-	// Ontology will be used to create relationships between statuses (parent-child) and
-	// with other resources within the Synnax cluster.
+	// Ontology serves statuses to ontology search and retrieval.
 	//
 	// [REQUIRED]
 	Ontology *ontology.Ontology
-	// Group is used to create the top level "Statuses" group that will be the default
-	// parent of all statuses.
-	//
-	// [REQUIRED]
-	Group *group.Service
-	// Label is used to create and manage labels for statuses.
-	//
-	// [REQUIRED]
-	Label *label.Service
 	alamos.Instrumentation
 }
 
@@ -58,8 +49,7 @@ var _ config.Config[ServiceConfig] = (*ServiceConfig)(nil)
 func (c ServiceConfig) Override(other ServiceConfig) ServiceConfig {
 	c.DB = override.Nil(c.DB, other.DB)
 	c.Ontology = override.Nil(c.Ontology, other.Ontology)
-	c.Group = override.Nil(c.Group, other.Group)
-	c.Label = override.Nil(c.Label, other.Label)
+	c.Instrumentation = override.Zero(c.Instrumentation, other.Instrumentation)
 	return c
 }
 
@@ -68,8 +58,6 @@ func (c ServiceConfig) Validate() error {
 	v := validate.New("service.status")
 	v.NotNil("db", c.DB)
 	v.NotNil("ontology", c.Ontology)
-	v.NotNil("group", c.Group)
-	v.NotNil("label", c.Label)
 	return v.Error()
 }
 
@@ -77,11 +65,10 @@ func (c ServiceConfig) Validate() error {
 // mechanisms for creating, retrieving, updating, and deleting statuses. It also
 // provides mechanisms for listening to changes in statuses.
 type Service struct {
-	cfg    ServiceConfig
-	closer xio.MultiCloser
-	table  *gorp.Table[Key, Status[any]]
-	search *gorp.SearchIndex[Key, Status[any]]
-	group  group.Group
+	cfg     ServiceConfig
+	closer  xio.MultiCloser
+	table   *gorp.Table[Key, Status[any]]
+	indexes indexes
 }
 
 // OpenService opens a new Service with the provided configuration. If error is nil, the
@@ -92,25 +79,20 @@ func OpenService(ctx context.Context, cfgs ...ServiceConfig) (s *Service, err er
 	if err != nil {
 		return nil, err
 	}
-	s = &Service{cfg: cfg, search: newSearchIndex()}
+	s = &Service{cfg: cfg, indexes: newIndexes()}
 	cleanup, ok := service.NewOpener(ctx, &s.closer)
 	defer func() { err = cleanup(err) }()
 	if s.table, err = gorp.OpenTable(
 		ctx,
 		gorp.TableConfig[Key, Status[any]]{
 			DB:              cfg.DB,
-			Indexes:         []gorp.Index[Key, Status[any]]{s.search},
+			Name:            string(resource.TypeStatus),
+			Indexes:         s.indexes.all(),
+			References:      s.indexes.references(),
 			Instrumentation: cfg.Instrumentation,
 			Migrations:      versions.Migrations,
 		},
 	); !ok(err, s.table) {
-		return nil, err
-	}
-	if s.group, err = cfg.Group.CreateOrRetrieve(
-		ctx,
-		"Statuses",
-		ontology.RootID,
-	); !ok(err, nil) {
 		return nil, err
 	}
 	cfg.Ontology.RegisterService(s)
@@ -202,6 +184,47 @@ func (s *Service) SetByKeyOrName(
 	return key, multipleMatches, nil
 }
 
+// SetMissing writes each of statuses whose owner holds no status, under the key that
+// v2.MigrateKey derives from the owner. Each status needs an owner. Like
+// NewMigrationWriter, it skips reference checks.
+func (s *Service) SetMissing[D any](
+	ctx context.Context,
+	tx gorp.Tx,
+	statuses []Status[D],
+) error {
+	owners := make([]resource.ID, len(statuses))
+	for i, st := range statuses {
+		owners[i] = *st.Owner
+	}
+	var held []Status[D]
+	if err := s.NewRetrieve[D]().
+		Where(MatchOwners[D](owners...)).
+		Entries(&held).
+		Exec(ctx, tx); err != nil {
+		return err
+	}
+	w := s.NewMigrationWriter(tx)
+	for _, st := range statuses {
+		if slices.ContainsFunc(held, func(h Status[D]) bool {
+			return *h.Owner == *st.Owner
+		}) {
+			continue
+		}
+		st.Key, _ = v2.MigrateKey(st.Owner.String())
+		if err := w.Set(ctx, st.ToAny()); err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
+// NewMigrationWriter returns a writer for the migrations of the tables that status
+// owners live in. Those migrations run before their tables open, so the writer skips
+// reference checks. Pass a nil tx to write directly against the service's DB.
+func (s *Service) NewMigrationWriter(tx gorp.Tx) *gorp.Writer[Key, Status[any]] {
+	return s.table.NewWriter(gorp.OverrideTx(s.cfg.DB, tx))
+}
+
 // NewWriter opens a Writer for statuses. Pass a nil tx to write directly against the
 // service's DB. A status write spans the entry and its ontology resource, so the two
 // land together only when tx does.
@@ -210,18 +233,16 @@ func (s *Service) NewWriter(tx gorp.Tx) Writer {
 	return Writer{
 		tx:        tx,
 		table:     s.table,
+		indexes:   s.indexes,
 		otgWriter: s.cfg.Ontology.NewWriter(tx),
-		otg:       s.cfg.Ontology,
-		group:     s.group,
 	}
 }
 
 // NewRetrieve opens a Retrieve query for statuses whose details are of type D.
 func (s *Service) NewRetrieve[D any]() Retrieve[D] {
 	return Retrieve[D]{
-		gorp:   gorp.NewRetrieve[Key, Status[D]](),
-		baseTX: s.cfg.DB,
-		search: s.search,
-		label:  s.cfg.Label,
+		gorp:    gorp.NewRetrieve[Key, Status[D]](),
+		baseTX:  s.cfg.DB,
+		indexes: s.indexes,
 	}
 }

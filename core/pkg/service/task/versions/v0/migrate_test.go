@@ -20,6 +20,7 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/service/label"
 	"github.com/synnaxlabs/synnax/pkg/service/ontology"
 	"github.com/synnaxlabs/synnax/pkg/service/status"
+	statusv2 "github.com/synnaxlabs/synnax/pkg/service/status/versions/v2"
 	v0 "github.com/synnaxlabs/synnax/pkg/service/task/versions/v0"
 	"github.com/synnaxlabs/x/telem"
 	. "github.com/synnaxlabs/x/testutil"
@@ -38,7 +39,7 @@ var _ = Describe("Migration", func() {
 			DB:       db,
 			Ontology: otg,
 		}))
-		labelSvc := MustOpen(label.OpenService(ctx, label.ServiceConfig{
+		MustOpen(label.OpenService(ctx, label.ServiceConfig{
 			DB:       db,
 			Ontology: otg,
 			Group:    groupSvc,
@@ -46,8 +47,6 @@ var _ = Describe("Migration", func() {
 		statusSvc = MustOpen(status.OpenService(ctx, status.ServiceConfig{
 			Ontology: otg,
 			DB:       db,
-			Group:    groupSvc,
-			Label:    labelSvc,
 		}))
 	})
 
@@ -73,9 +72,11 @@ var _ = Describe("Migration", func() {
 
 		var restoredStatus status.Status[v0.StatusDetails]
 		Expect(statusSvc.NewRetrieve[v0.StatusDetails]().
-			Where(status.MatchKeys[v0.StatusDetails](t.ResourceID().String())).
+			Where(status.MatchOwners[v0.StatusDetails](t.ResourceID())).
 			Entry(&restoredStatus).
 			Exec(ctx, nil)).To(Succeed())
+		key, _ := statusv2.MigrateKey(t.ResourceID().String())
+		Expect(restoredStatus.Key).To(Equal(key))
 		Expect(restoredStatus.Variant).To(Equal(status.VariantWarning))
 		Expect(restoredStatus.Message).To(Equal("Migration Test Task status unknown"))
 		Expect(restoredStatus.Details.Task).To(Equal(t.Key))
@@ -92,24 +93,27 @@ var _ = Describe("Migration", func() {
 				Entry(&t).
 				Exec(ctx, db)).To(Succeed())
 			existing := status.Status[v0.StatusDetails]{
-				Key:     t.ResourceID().String(),
+				Key:     "existing-task-status",
+				Owner:   new(t.ResourceID()),
 				Name:    t.Name,
 				Variant: status.VariantSuccess,
 				Message: "Started",
 				Time:    telem.Now(),
 				Details: v0.StatusDetails{Task: t.Key},
 			}
-			Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
-				return statusSvc.NewWriter(tx).Set(ctx, &existing)
-			})).To(Succeed())
+			// The task table is not open during its own migration, so the status skips
+			// reference checks.
+			Expect(statusSvc.NewMigrationWriter(nil).Set(ctx, existing.ToAny())).
+				To(Succeed())
 
 			runMigration(ctx)
 
 			var taskStatus status.Status[v0.StatusDetails]
 			Expect(statusSvc.NewRetrieve[v0.StatusDetails]().
-				Where(status.MatchKeys[v0.StatusDetails](t.ResourceID().String())).
+				Where(status.MatchOwners[v0.StatusDetails](t.ResourceID())).
 				Entry(&taskStatus).
 				Exec(ctx, nil)).To(Succeed())
+			Expect(taskStatus.Key).To(Equal(existing.Key))
 			Expect(taskStatus.Variant).To(Equal(status.VariantSuccess))
 			Expect(taskStatus.Message).To(Equal("Started"))
 		},
@@ -126,7 +130,7 @@ var _ = Describe("Status backfill", func() {
 				DB:       db,
 				Ontology: otg,
 			}))
-			labelSvc := MustOpen(label.OpenService(ctx, label.ServiceConfig{
+			MustOpen(label.OpenService(ctx, label.ServiceConfig{
 				DB:       db,
 				Ontology: otg,
 				Group:    groupSvc,
@@ -134,8 +138,6 @@ var _ = Describe("Status backfill", func() {
 			statusSvc := MustOpen(status.OpenService(ctx, status.ServiceConfig{
 				Ontology: otg,
 				DB:       db,
-				Group:    groupSvc,
-				Label:    labelSvc,
 			}))
 
 			taskKey := v0.Key(65537<<32 | 99)
@@ -151,7 +153,8 @@ var _ = Describe("Status backfill", func() {
 			// legacy data where the key was encoded as a MessagePack float64 instead of
 			// uint64.
 			legacyStatus := status.Status[any]{
-				Key:     taskKey.ResourceID().String(),
+				Key:     "legacy-task-status",
+				Owner:   new(taskKey.ResourceID()),
 				Name:    "Legacy Task",
 				Variant: status.VariantSuccess,
 				Message: "Started",
@@ -162,11 +165,8 @@ var _ = Describe("Status backfill", func() {
 					"cmd":     "start",
 				},
 			}
-			Expect(
-				db.WithTx(ctx, func(tx gorp.Tx) error {
-					return statusSvc.NewWriter(tx).Set(ctx, &legacyStatus)
-				}),
-			).To(Succeed())
+			Expect(statusSvc.NewMigrationWriter(nil).Set(ctx, legacyStatus)).
+				To(Succeed())
 
 			// The backfill reads existing statuses as Status[StatusDetails]. This would
 			// fail without the flex DecodeMsgpack on the Key type because the task key
@@ -180,9 +180,10 @@ var _ = Describe("Status backfill", func() {
 			// Verify the status is readable with the correct typed key.
 			var restoredStatus status.Status[v0.StatusDetails]
 			Expect(statusSvc.NewRetrieve[v0.StatusDetails]().
-				Where(status.MatchKeys[v0.StatusDetails](taskKey.ResourceID().String())).
+				Where(status.MatchOwners[v0.StatusDetails](taskKey.ResourceID())).
 				Entry(&restoredStatus).
 				Exec(ctx, nil)).To(Succeed())
+			Expect(restoredStatus.Key).To(Equal("legacy-task-status"))
 			Expect(restoredStatus.Details.Task).To(Equal(taskKey))
 			Expect(restoredStatus.Details.Running).To(BeTrue())
 		},

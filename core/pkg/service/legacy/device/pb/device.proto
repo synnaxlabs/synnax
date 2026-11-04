@@ -19,15 +19,13 @@ import "google/protobuf/struct.proto";
 
 option go_package = "github.com/synnaxlabs/synnax/pkg/service/legacy/device/pb";
 
-// StatusDetails contains device-specific status details identifying the device and its
-// associated rack.
+// StatusDetails contains device-specific status details, including the rack the device
+// belongs to.
 message StatusDetails {
   // rack is the key of the rack this device belongs to.
   uint32 rack = 1;
-  // device is the device identifier.
-  string device = 2;
   // data contains device-specific status data.
-  optional google.protobuf.Struct data = 3;
+  optional google.protobuf.Struct data = 2;
 }
 
 // Device is a physical piece of hardware connected to Synnax through the Driver system.

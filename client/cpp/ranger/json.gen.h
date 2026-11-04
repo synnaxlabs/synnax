@@ -28,10 +28,11 @@ inline Range Range::parse(x::json::Parser parser) {
         .name = parser.field<std::string>("name"),
         .time_range = parser.field<::x::telem::TimeRange>("time_range"),
         .color = parser.field<std::optional<::x::color::Color>>("color"),
-        .labels = parser.field<std::optional<std::vector<::synnax::label::Label>>>(
-            "labels"
+        .labels = parser.field<std::vector<::synnax::label::Key>>(
+            "labels",
+            std::vector<::synnax::label::Key>{}
         ),
-        .parent = parser.field<x::mem::indirect<Range>>("parent"),
+        .parent = parser.field<std::optional<Key>>("parent"),
     };
 }
 
@@ -41,7 +42,12 @@ inline x::json::json Range::to_json() const {
     j["name"] = this->name;
     j["time_range"] = this->time_range.to_json();
     if (this->color.has_value()) j["color"] = this->color->to_json();
-    if (this->labels.has_value()) j["labels"] = x::json::to_array(*this->labels);
+    {
+        auto arr = x::json::json::array();
+        for (const auto &item: this->labels)
+            arr.push_back(item.to_json());
+        j["labels"] = arr;
+    }
     if (this->parent.has_value()) j["parent"] = this->parent->to_json();
     return j;
 }

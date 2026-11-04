@@ -785,7 +785,6 @@ func NewLayer(cfgs ...LayerConfig) (*Layer, error) {
 	if l.Range, err = ranger.NewService(ranger.ServiceConfig{
 		RBAC:   cfg.Service.RBAC,
 		Ranger: cfg.Service.Ranger,
-		Label:  cfg.Service.Label,
 	}); err != nil {
 		return nil, err
 	}
@@ -838,8 +837,10 @@ func NewLayer(cfgs ...LayerConfig) (*Layer, error) {
 		return nil, err
 	}
 	if l.Label, err = label.NewService(label.ServiceConfig{
-		Label: cfg.Service.Label,
-		RBAC:  cfg.Service.RBAC,
+		Label:  cfg.Service.Label,
+		Ranger: cfg.Service.Ranger,
+		Status: cfg.Service.Status,
+		RBAC:   cfg.Service.RBAC,
 	}); err != nil {
 		return nil, err
 	}
@@ -882,7 +883,6 @@ func NewLayer(cfgs ...LayerConfig) (*Layer, error) {
 	}
 	if l.Status, err = status.NewService(status.ServiceConfig{
 		Status: cfg.Service.Status,
-		Label:  cfg.Service.Label,
 		RBAC:   cfg.Service.RBAC,
 	}); err != nil {
 		return nil, err

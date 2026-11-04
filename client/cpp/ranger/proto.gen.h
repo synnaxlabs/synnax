@@ -13,8 +13,6 @@
 
 #include <utility>
 
-#include "client/cpp/label/json.gen.h"
-#include "client/cpp/label/proto.gen.h"
 #include "client/cpp/ranger/json.gen.h"
 #include "client/cpp/ranger/types.gen.h"
 #include "x/cpp/color/json.gen.h"
@@ -42,19 +40,10 @@ Range::to_proto() const {
         if (err) return {{}, err};
         *pb.mutable_color() = v;
     }
-    if (this->labels.has_value()) {
-        auto *wrapper = pb.mutable_labels();
-        for (const auto &item: *this->labels) {
-            auto [v, err] = item.to_proto();
-            if (err) return {{}, err};
-            *wrapper->add_values() = v;
-        }
+    for (const auto &item: this->labels) {
+        pb.add_labels(item.to_string());
     }
-    if (this->parent.has_value()) {
-        auto [v, err] = this->parent->to_proto();
-        if (err) return {{}, err};
-        *pb.mutable_parent() = v;
-    }
+    if (this->parent.has_value()) pb.set_parent(this->parent->to_string());
     return {pb, x::errors::NIL};
 }
 
@@ -77,16 +66,13 @@ Range::from_proto(const ::service::ranger::pb::Range &pb) {
         if (err) return {{}, err};
         cpp.color = v;
     }
-    if (pb.has_labels()) {
-        cpp.labels.emplace();
-        if (auto err = x::pb::from_proto_repeated<::synnax::label::Label>(
-                *cpp.labels,
-                pb.labels().values()
-            ))
-            return {{}, err};
+    for (const auto &item: pb.labels()) {
+        auto [v, err] = x::uuid::UUID::parse(item);
+        if (err) return {{}, err};
+        cpp.labels.push_back(v);
     }
-    if (pb.has_parent()) {
-        auto [v, err] = Range::from_proto(pb.parent());
+    if (!pb.parent().empty()) {
+        auto [v, err] = x::uuid::UUID::parse(pb.parent());
         if (err) return {{}, err};
         cpp.parent = v;
     }

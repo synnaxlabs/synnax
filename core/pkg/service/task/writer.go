@@ -60,16 +60,14 @@ func resolveStatus(t *Task, provided *Status, existed bool) *Status {
 			variant = status.VariantDisabled
 		}
 		return &Status{
-			Key:     t.ResourceID().String(),
+			Owner:   new(t.ResourceID()),
 			Time:    telem.Now(),
 			Name:    t.Name,
 			Message: message,
 			Variant: variant,
-			Details: StatusDetails{Task: t.Key},
 		}
 	}
-	provided.Key = t.ResourceID().String()
-	provided.Details.Task = t.Key
+	provided.Owner = new(t.ResourceID())
 	provided.Name = t.Name
 	return provided
 }
@@ -80,10 +78,13 @@ func resolveStatus(t *Task, provided *Status, existed bool) *Status {
 // task's current name.
 func (w Writer) healStatus(ctx context.Context, stat *Status) (*Status, error) {
 	var existing Status
-	err := gorp.NewRetrieve[string, Status]().
-		Where(gorp.MatchKeys[string, Status](stat.Key)).
-		Entry(&existing).
-		Exec(ctx, w.tx)
+	key, err := w.status.KeyOf(*stat.Owner)
+	if err == nil {
+		err = gorp.NewRetrieve[string, Status]().
+			Where(gorp.MatchKeys[string, Status](key)).
+			Entry(&existing).
+			Exec(ctx, w.tx)
+	}
 	if err == nil {
 		if existing.Name != stat.Name {
 			if err = w.status.Rename(ctx, existing.Key, stat.Name); err != nil {
@@ -224,10 +225,11 @@ func (w Writer) CreateMany(ctx context.Context, tasks *[]Task) error {
 
 func (w Writer) renameStatus(ctx context.Context, key Key, name string) error {
 	// A missing status row is valid: the next Create heals it.
-	return errors.Skip(
-		w.status.Rename(ctx, ResourceID(key).String(), name),
-		query.ErrNotFound,
-	)
+	statusKey, err := w.status.KeyOf(ResourceID(key))
+	if err == nil {
+		err = w.status.Rename(ctx, statusKey, name)
+	}
+	return errors.Skip(err, query.ErrNotFound)
 }
 
 // apply applies the actions to the task with the given key and stores the result. It
@@ -330,10 +332,7 @@ func (w Writer) Delete(ctx context.Context, key Key, allowInternal bool) error {
 		Exec(ctx, w.tx); err != nil {
 		return err
 	}
-	if err := w.otgWriter.DeleteResources(ctx, ResourceID(key)); err != nil {
-		return err
-	}
-	return w.status.Delete(ctx, ResourceID(key).String())
+	return w.otgWriter.DeleteResources(ctx, ResourceID(key))
 }
 
 // DeleteByRacks deletes every task attached to the given racks, along with each task's

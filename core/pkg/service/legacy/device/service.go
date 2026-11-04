@@ -21,6 +21,7 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/service/legacy/device/versions"
 	"github.com/synnaxlabs/synnax/pkg/service/ontology"
 	"github.com/synnaxlabs/synnax/pkg/service/rack"
+	"github.com/synnaxlabs/synnax/pkg/service/resource"
 	"github.com/synnaxlabs/synnax/pkg/service/signals"
 	"github.com/synnaxlabs/synnax/pkg/service/status"
 	"github.com/synnaxlabs/x/config"
@@ -117,6 +118,7 @@ func OpenService(ctx context.Context, cfgs ...ServiceConfig) (s *Service, err er
 	defer func() { err = cleanup(err) }()
 	if s.table, err = gorp.OpenTable(ctx, gorp.TableConfig[Key, Device]{
 		DB:      cfg.DB,
+		Name:    string(resource.TypeDevice),
 		Indexes: s.indexes.all(),
 		Migrations: versions.NewMigrations(
 			versions.MigrationsConfig{Status: cfg.Status},
@@ -187,8 +189,12 @@ func (s *Service) Observe() observe.Observable[gorp.TxReader[Key, Device]] {
 }
 
 func (s *Service) onSuspectRack(ctx context.Context, rackStat rack.Status) error {
+	rackKey, err := rack.KeyFromResourceID(*rackStat.Owner)
+	if err != nil {
+		return err
+	}
 	var devices []Device
-	if err := s.NewRetrieve().Where(MatchRacks(rackStat.Details.Rack)).
+	if err := s.NewRetrieve().Where(MatchRacks(rackKey)).
 		Entries(&devices).
 		Exec(ctx, nil); err != nil {
 		return errors.Wrap(err, "failed to retrieve devices on suspect rack")
@@ -196,13 +202,13 @@ func (s *Service) onSuspectRack(ctx context.Context, rackStat rack.Status) error
 	statuses := make([]Status, len(devices))
 	for i, device := range devices {
 		statuses[i] = Status{
-			Key:         device.ResourceID().String(),
+			Owner:       new(device.ResourceID()),
 			Name:        device.Name,
 			Time:        telem.Now(),
 			Variant:     rackStat.Variant,
 			Message:     rackStat.Message,
 			Description: rackStat.Description,
-			Details:     StatusDetails{Rack: rackStat.Details.Rack, Device: device.Key},
+			Details:     StatusDetails{Rack: rackKey},
 		}
 	}
 	return s.cfg.DB.WithTx(ctx, func(tx gorp.Tx) error {

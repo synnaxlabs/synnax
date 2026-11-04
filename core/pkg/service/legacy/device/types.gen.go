@@ -16,8 +16,8 @@ import "github.com/synnaxlabs/synnax/pkg/service/legacy/device/versions"
 // Key is a unique identifier for the device
 type Key = versions.Key
 
-// StatusDetails contains device-specific status details identifying the device and its
-// associated rack.
+// StatusDetails contains device-specific status details, including the rack the device
+// belongs to.
 type StatusDetails = versions.StatusDetails
 
 // Status is device-specific status information including operational state and device

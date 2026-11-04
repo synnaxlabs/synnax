@@ -21,18 +21,7 @@ from synnax.resource import ID
 
 Key: TypeAlias = int
 
-
-class StatusDetails(BaseModel):
-    """Contains rack-specific status details.
-
-    Attributes:
-        rack: Is the key of the rack this status pertains to.
-    """
-
-    rack: Key = Field(ge=0, le=4294967295)
-
-
-Status: TypeAlias = status_.Status[StatusDetails]
+Status: TypeAlias = status_.Status
 
 
 class Base(BaseModel):

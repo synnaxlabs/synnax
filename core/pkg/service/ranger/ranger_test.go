@@ -34,7 +34,7 @@ var _ = Describe("Ranger", func() {
 			r := ranger.Range{
 				Name:      "Range",
 				TimeRange: telem.SecondTS.SpanRange(telem.Second),
-				Parent:    &parent,
+				Parent:    &parent.Key,
 			}
 			Expect(w.Create(ctx, &r)).To(Succeed())
 			pKey := MustSucceed(svc.RetrieveParentKey(ctx, r.Key, tx))
@@ -63,7 +63,7 @@ var _ = Describe("Ranger", func() {
 			r := ranger.Range{
 				Name:      "Range",
 				TimeRange: telem.SecondTS.SpanRange(telem.Second),
-				Parent:    &parent,
+				Parent:    &parent.Key,
 			}
 			Expect(w.Create(ctx, &r)).To(Succeed())
 			pKey := MustSucceed(svc.RetrieveParentKey(ctx, r.Key, tx))
@@ -152,12 +152,12 @@ var _ = Describe("Ranger", func() {
 			Expect(svc.NewWriter(tx).Create(ctx, r1)).To(Succeed())
 			Expect(svc.NewWriter(tx).Create(ctx, r2)).To(Succeed())
 			Expect(
-				labelSvc.NewWriter(tx).Label(ctx, r1.ResourceID(), []label.Key{l.Key}),
+				svc.NewWriter(tx).SetLabels(ctx, r1.Key, []label.Key{l.Key}, false),
 			).To(Succeed())
 			var results []ranger.Range
 			Expect(
 				svc.NewRetrieve().
-					Where(ranger.MatchLabels(l.Key)).
+					Where(ranger.MatchLabel(l.Key)).
 					Entries(&results).
 					Exec(ctx, tx),
 			).To(Succeed())
@@ -177,7 +177,7 @@ var _ = Describe("Ranger", func() {
 				var results []ranger.Range
 				Expect(
 					svc.NewRetrieve().
-						Where(ranger.MatchLabels(l.Key)).
+						Where(ranger.MatchLabel(l.Key)).
 						Entries(&results).
 						Exec(ctx, tx),
 				).To(Succeed())
@@ -207,17 +207,17 @@ var _ = Describe("Ranger", func() {
 				Expect(svc.NewWriter(tx).Create(ctx, rB)).To(Succeed())
 				Expect(svc.NewWriter(tx).Create(ctx, rNone)).To(Succeed())
 				Expect(
-					labelSvc.NewWriter(tx).
-						Label(ctx, rA.ResourceID(), []label.Key{la.Key}),
+					svc.NewWriter(tx).
+						SetLabels(ctx, rA.Key, []label.Key{la.Key}, false),
 				).To(Succeed())
 				Expect(
-					labelSvc.NewWriter(tx).
-						Label(ctx, rB.ResourceID(), []label.Key{lb.Key}),
+					svc.NewWriter(tx).
+						SetLabels(ctx, rB.Key, []label.Key{lb.Key}, false),
 				).To(Succeed())
 				var results []ranger.Range
 				Expect(
 					svc.NewRetrieve().
-						Where(ranger.MatchLabels(la.Key, lb.Key)).
+						Where(ranger.Or(ranger.MatchLabel(la.Key), ranger.MatchLabel(lb.Key))).
 						Entries(&results).
 						Exec(ctx, tx),
 				).To(Succeed())
@@ -227,7 +227,7 @@ var _ = Describe("Ranger", func() {
 			},
 		)
 		It(
-			"Should compose MatchOverlap and MatchLabels under And via Where",
+			"Should compose MatchOverlap and MatchLabel under And via Where",
 			func(ctx SpecContext) {
 				l := &label.Label{Name: "AndLabel"}
 				Expect(labelSvc.NewWriter(tx).Create(ctx, l)).To(Succeed())
@@ -256,12 +256,12 @@ var _ = Describe("Ranger", func() {
 				Expect(svc.NewWriter(tx).Create(ctx, rWrongTime)).To(Succeed())
 				Expect(svc.NewWriter(tx).Create(ctx, rWrongLabel)).To(Succeed())
 				Expect(
-					labelSvc.NewWriter(tx).
-						Label(ctx, rHit.ResourceID(), []label.Key{l.Key}),
+					svc.NewWriter(tx).
+						SetLabels(ctx, rHit.Key, []label.Key{l.Key}, false),
 				).To(Succeed())
 				Expect(
-					labelSvc.NewWriter(tx).
-						Label(ctx, rWrongTime.ResourceID(), []label.Key{l.Key}),
+					svc.NewWriter(tx).
+						SetLabels(ctx, rWrongTime.Key, []label.Key{l.Key}, false),
 				).To(Succeed())
 				var results []ranger.Range
 				Expect(svc.NewRetrieve().Where(ranger.And(
@@ -271,7 +271,7 @@ var _ = Describe("Ranger", func() {
 							End:   telem.TimeStamp(9 * telem.Second),
 						},
 					),
-					ranger.MatchLabels(l.Key),
+					ranger.MatchLabel(l.Key),
 				)).Entries(&results).Exec(ctx, tx)).To(Succeed())
 				Expect(results).To(HaveLen(1))
 				Expect(results[0].Key).To(Equal(rHit.Key))
@@ -333,14 +333,14 @@ var _ = Describe("Ranger", func() {
 			Expect(svc.NewWriter(tx).Create(ctx, rLabeled)).To(Succeed())
 			Expect(svc.NewWriter(tx).Create(ctx, rPlain)).To(Succeed())
 			Expect(
-				labelSvc.NewWriter(tx).
-					Label(ctx, rLabeled.ResourceID(), []label.Key{l.Key}),
+				svc.NewWriter(tx).
+					SetLabels(ctx, rLabeled.Key, []label.Key{l.Key}, false),
 			).To(Succeed())
 			var results []ranger.Range
 			Expect(svc.NewRetrieve().Where(
 				ranger.And(
 					ranger.MatchNames("NotLabeled", "NotPlain"),
-					ranger.Not(ranger.MatchLabels(l.Key)),
+					ranger.Not(ranger.MatchLabel(l.Key)),
 				),
 			).Entries(&results).Exec(ctx, tx)).To(Succeed())
 			Expect(results).To(HaveLen(1))

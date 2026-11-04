@@ -49,16 +49,14 @@ var _ = BeforeSuite(func(ctx SpecContext) {
 		Ontology: otg,
 	}))
 	db = node.DB
-	labelSvc := MustOpen(label.OpenService(ctx, label.ServiceConfig{
+	MustOpen(label.OpenService(ctx, label.ServiceConfig{
 		DB:       node.DB,
 		Ontology: otg,
 		Group:    groupSvc,
 	}))
 	statusSvc = MustOpen(status.OpenService(ctx, status.ServiceConfig{
 		DB:       node.DB,
-		Group:    groupSvc,
 		Ontology: otg,
-		Label:    labelSvc,
 	}))
 	channelSvc = MustOpen(channel.OpenService(ctx, channel.ServiceConfig{
 		Channel:      node.Channel,
@@ -83,7 +81,7 @@ func openGraph(ctx context.Context) *graph.Graph {
 func fetchStatus(ctx context.Context, key channel.Key) (calculation.Status, bool) {
 	var statuses []calculation.Status
 	err := statusSvc.NewRetrieve[struct{}]().
-		Where(status.MatchKeys[struct{}](channel.ResourceID(key).String())).
+		Where(status.MatchOwners[struct{}](channel.ResourceID(key))).
 		Entries(&statuses).
 		Exec(ctx, nil)
 	if err != nil || len(statuses) == 0 {
@@ -1082,7 +1080,7 @@ var _ = Describe("Graph", func() {
 				Expect(s.Variant).To(Equal(status.VariantError))
 				Expect(s.Message).To(Equal("Failed to compile calculation"))
 				Expect(s.Description).ToNot(BeEmpty())
-				Expect(s.Key).To(Equal(channel.ResourceID(calc.Key()).String()))
+				Expect(s.Owner).To(HaveValue(Equal(channel.ResourceID(calc.Key()))))
 				Expect(s.Name).To(Equal("st_detail"))
 			},
 		)
@@ -1105,8 +1103,7 @@ var _ = Describe("Graph", func() {
 			func(ctx SpecContext) {
 				openGraph(ctx)
 				calc := createBrokenCalc(ctx, "st_resource", "st_resource_dep")
-				expectStatus(ctx, calc.Key())
-				id := status.ResourceID(calculation.StatusKey(calc.Key()))
+				id := status.ResourceID(expectStatus(ctx, calc.Key()).Key)
 
 				By("The set defines the status resource")
 				var res []ontology.Resource
@@ -1139,14 +1136,6 @@ var _ = Describe("Graph", func() {
 				Expect(channelWriter.Delete(ctx, calc.Key(), false)).To(Succeed())
 
 				eventuallyExpectNoStatus(ctx, calc.Key())
-				id := status.ResourceID(calculation.StatusKey(calc.Key()))
-				Eventually(func() error {
-					return otg.NewRetrieve().
-						WhereIDs(id).
-						Entries(&[]ontology.Resource{}).
-						Exec(ctx, nil)
-				}, 2*time.Second, 10*time.Millisecond).
-					Should(MatchError(query.ErrNotFound))
 			},
 		)
 

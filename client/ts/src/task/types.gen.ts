@@ -17,29 +17,7 @@ import { rack } from "@/rack";
 import { resource } from "@/resource";
 import { status } from "@/status";
 
-/** KeyedConfig is the base for every stored task configuration record. */
-export const keyedConfigZ = z.object({
-  /** key is the unique identifier for the stored configuration record. */
-  key: z.uuid().default(uuid.create),
-});
-export interface KeyedConfig extends z.infer<typeof keyedConfigZ> {}
-
-export const keyZ = z.uuid();
-export type Key = z.infer<typeof keyZ>;
-
-export const startConfigZ = keyedConfigZ.extend({
-  autoStart: z.boolean().default(false),
-});
-export interface StartConfig extends z.infer<typeof startConfigZ> {}
-
-export const scanConfigZ = keyedConfigZ.extend({
-  rate: z.number().default(0.2),
-  disabled: z.boolean().default(false),
-});
-export interface ScanConfig extends z.infer<typeof scanConfigZ> {}
-
 export type StatusDetailsZodObject<Data extends z.ZodType = z.ZodNever> = z.ZodObject<{
-  task: typeof keyZ;
   running: z.ZodBoolean;
   cmd: z.ZodDefault<z.ZodString>;
   configHash: z.ZodDefault<z.ZodString>;
@@ -56,7 +34,6 @@ export const statusDetailsZ: StatusDetailsZFunction = <Data extends z.ZodType>(
   data?: Data,
 ) =>
   z.object({
-    task: keyZ,
     running: z.boolean(),
     cmd: z.string().default(""),
     configHash: z.string().default(""),
@@ -64,12 +41,38 @@ export const statusDetailsZ: StatusDetailsZFunction = <Data extends z.ZodType>(
     data: (data ?? z.unknown()).optional(),
   });
 export type StatusDetails<Data extends z.ZodType = z.ZodNever> = {
-  task: Key;
   running: boolean;
   cmd: string;
   configHash: string;
   rack: rack.Key;
 } & ([Data] extends [z.ZodNever] ? {} : { data?: z.infer<Data> });
+
+/** KeyedConfig is the base for every stored task configuration record. */
+export const keyedConfigZ = z.object({
+  /** key is the unique identifier for the stored configuration record. */
+  key: z.uuid().default(uuid.create),
+});
+export interface KeyedConfig extends z.infer<typeof keyedConfigZ> {}
+
+export const keyZ = z.uuid();
+export type Key = z.infer<typeof keyZ>;
+
+export const statusZ = <Data extends z.ZodType = z.ZodNever>(data?: Data) =>
+  status.statusZ({ details: statusDetailsZ(data) });
+export type Status<Data extends z.ZodType = z.ZodNever> = z.infer<
+  ReturnType<typeof statusZ<Data>>
+>;
+
+export const startConfigZ = keyedConfigZ.extend({
+  autoStart: z.boolean().default(false),
+});
+export interface StartConfig extends z.infer<typeof startConfigZ> {}
+
+export const scanConfigZ = keyedConfigZ.extend({
+  rate: z.number().default(0.2),
+  disabled: z.boolean().default(false),
+});
+export interface ScanConfig extends z.infer<typeof scanConfigZ> {}
 
 /** Command is a command to execute on a task in the Driver system. */
 export const commandZ = z.object({
@@ -94,28 +97,6 @@ export const commandZ = z.object({
   pinned: z.boolean().default(false),
 });
 export interface Command extends z.infer<typeof commandZ> {}
-
-export const persistConfigZ = startConfigZ.extend({
-  dataSavingDisabled: z.boolean().default(false),
-});
-export interface PersistConfig extends z.infer<typeof persistConfigZ> {}
-
-export const statusZ = <Data extends z.ZodType = z.ZodNever>(data?: Data) =>
-  status.statusZ({ details: statusDetailsZ(data) });
-export type Status<Data extends z.ZodType = z.ZodNever> = z.infer<
-  ReturnType<typeof statusZ<Data>>
->;
-
-export const readConfigZ = persistConfigZ.extend({
-  sampleRate: z.number().default(10),
-  streamRate: z.number().default(5),
-});
-export interface ReadConfig extends z.infer<typeof readConfigZ> {}
-
-export const writeConfigZ = persistConfigZ.extend({
-  device: device.keyZ.default(""),
-});
-export interface WriteConfig extends z.infer<typeof writeConfigZ> {}
 
 export interface PayloadSchemas<
   Type extends z.ZodType<string> = z.ZodType<string>,
@@ -158,12 +139,28 @@ export interface Payload<S extends PayloadSchemas = PayloadSchemas> {
   snapshot: boolean;
   status?: Status<S["statusData"]>;
 }
+
+export const persistConfigZ = startConfigZ.extend({
+  dataSavingDisabled: z.boolean().default(false),
+});
+export interface PersistConfig extends z.infer<typeof persistConfigZ> {}
 export type New<S extends PayloadSchemas = PayloadSchemas> = optional.Optional<
   Omit<Payload<S>, "status">,
   "key" | "rack" | "configHash" | "internal" | "snapshot"
 > & {
   status?: status.New<ReturnType<typeof statusDetailsZ>>;
 };
+
+export const readConfigZ = persistConfigZ.extend({
+  sampleRate: z.number().default(10),
+  streamRate: z.number().default(5),
+});
+export interface ReadConfig extends z.infer<typeof readConfigZ> {}
+
+export const writeConfigZ = persistConfigZ.extend({
+  device: device.keyZ.default(""),
+});
+export interface WriteConfig extends z.infer<typeof writeConfigZ> {}
 
 export const resourceID = resource.createIDFactory<Key>("task");
 export const TYPE_RESOURCE_ID = resourceID("");

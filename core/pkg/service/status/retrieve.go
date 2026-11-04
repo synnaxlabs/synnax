@@ -13,33 +13,39 @@ import (
 	"context"
 	"slices"
 
-	"github.com/samber/lo"
 	"github.com/synnaxlabs/gorp"
 	"github.com/synnaxlabs/synnax/pkg/service/label"
+	"github.com/synnaxlabs/synnax/pkg/service/resource"
 )
 
 // Retrieve is used to retrieve statuses from the cluster using a builder pattern.
 type Retrieve[D any] struct {
-	baseTX gorp.Tx
-	gorp   gorp.Retrieve[Key, Status[D]]
-	// search indexes the table, whose entries hold details of any type.
-	search *gorp.SearchIndex[Key, Status[any]]
-	label  *label.Service
+	baseTX  gorp.Tx
+	gorp    gorp.Retrieve[Key, Status[D]]
+	filters []Filter[D]
+	// indexes are on the table, whose entries hold details of any type.
+	indexes indexes
 }
 
 // Filter is a per-service filter that is bound to the Retrieve when passed to Where.
-// Pure filters ignore the Retrieve argument; service-bound filters read from it (e.g.
-// r.label) to evaluate. Use Match to construct one from a closure.
-type Filter[D any] func(r Retrieve[D]) gorp.Filter[Key, Status[D]]
+// It resolves when the query runs, against the query's transaction, so index-backed
+// filters see the transaction's own writes. Use Match to construct one from a closure.
+type Filter[D any] func(tx gorp.Tx, r Retrieve[D]) (gorp.Filter[Key, Status[D]], error)
+
+func pure[D any](f gorp.Filter[Key, Status[D]]) Filter[D] {
+	return func(gorp.Tx, Retrieve[D]) (gorp.Filter[Key, Status[D]], error) {
+		return f, nil
+	}
+}
 
 // Match wraps a closure that needs the Retrieve into a Filter.
 func Match[D any](
 	f func(gorp.Context, Retrieve[D], *Status[D]) (bool, error),
 ) Filter[D] {
-	return func(r Retrieve[D]) gorp.Filter[Key, Status[D]] {
+	return func(_ gorp.Tx, r Retrieve[D]) (gorp.Filter[Key, Status[D]], error) {
 		return gorp.Match(func(ctx gorp.Context, s *Status[D]) (bool, error) {
 			return f(ctx, r, s)
-		})
+		}), nil
 	}
 }
 
@@ -68,68 +74,78 @@ func (r Retrieve[D]) Entries(s *[]Status[D]) Retrieve[D] {
 	return r
 }
 
-// Where applies the provided filter to the query, binding it to the Retrieve so
-// service-bound filters can read from r.label. A status must match every chained Where.
+// Where applies the provided filter to the query. A status must match every chained
+// Where.
 func (r Retrieve[D]) Where(filter Filter[D]) Retrieve[D] {
-	r.gorp = r.gorp.Where(filter(r))
+	r.filters = append(slices.Clip(r.filters), filter)
 	return r
 }
 
 // MatchKeys returns a filter that restricts results to statuses whose key
 // matches any of the provided values.
 func MatchKeys[D any](keys ...Key) Filter[D] {
-	return func(_ Retrieve[D]) gorp.Filter[Key, Status[D]] {
-		return gorp.MatchKeys[Key, Status[D]](keys...)
-	}
+	return pure(gorp.MatchKeys[Key, Status[D]](keys...))
 }
 
 // MatchNames returns a filter for statuses whose name matches any of the provided
 // values.
 func MatchNames[D any](names ...string) Filter[D] {
-	return func(_ Retrieve[D]) gorp.Filter[Key, Status[D]] {
-		return gorp.Match(func(_ gorp.Context, s *Status[D]) (bool, error) {
-			return slices.Contains(names, s.Name), nil
-		})
-	}
+	return pure(gorp.Match(func(_ gorp.Context, s *Status[D]) (bool, error) {
+		return slices.Contains(names, s.Name), nil
+	}))
 }
 
 // MatchSearch returns a filter for statuses whose name matches term, closest match
 // first. An empty term matches no status. Only a Retrieve[any] can search, because the
 // search index holds details of any type.
 func MatchSearch(term string) Filter[any] {
-	return func(r Retrieve[any]) gorp.Filter[Key, Status[any]] {
-		return r.search.Filter(term)
+	return func(_ gorp.Tx, r Retrieve[any]) (gorp.Filter[Key, Status[any]], error) {
+		return r.indexes.search.Filter(term), nil
 	}
 }
 
 // MatchVariants returns a filter for statuses with the given variants.
 func MatchVariants[D any](variants ...Variant) Filter[D] {
-	return func(_ Retrieve[D]) gorp.Filter[Key, Status[D]] {
-		return gorp.Match(func(_ gorp.Context, s *Status[D]) (bool, error) {
-			return slices.Contains(variants, s.Variant), nil
-		})
-	}
+	return pure(gorp.Match(func(_ gorp.Context, s *Status[D]) (bool, error) {
+		return slices.Contains(variants, s.Variant), nil
+	}))
 }
 
 // MatchLabels returns a filter for statuses that have any of the provided labels.
-func MatchLabels[D any](matchLabels ...label.Key) Filter[D] {
-	return Match(func(ctx gorp.Context, r Retrieve[D], s *Status[D]) (bool, error) {
-		labels, err := r.label.RetrieveFor(ctx, s.ResourceID(), ctx.Tx)
-		if err != nil {
-			return false, err
-		}
-		labelKeys := lo.Map(
-			labels,
-			func(l label.Label, _ int) label.Key { return l.Key },
-		)
-		return lo.ContainsBy(labelKeys, func(l label.Key) bool {
-			return lo.Contains(matchLabels, l)
-		}), nil
-	})
+func MatchLabels[D any](labels ...label.Key) Filter[D] {
+	targets := make([]gorp.Target, len(labels))
+	for i, l := range labels {
+		targets[i] = gorp.To(string(resource.TypeLabel), l)
+	}
+	return func(tx gorp.Tx, r Retrieve[D]) (gorp.Filter[Key, Status[D]], error) {
+		keys, err := r.indexes.labels.Get(tx, targets...)
+		return gorp.MatchKeys[Key, Status[D]](keys...), err
+	}
+}
+
+// MatchOwners returns a filter for the statuses that the provided resources own.
+func MatchOwners[D any](owners ...resource.ID) Filter[D] {
+	targets := make([]gorp.Target, len(owners))
+	for i, o := range owners {
+		targets[i] = resourceTarget(o)
+	}
+	return func(tx gorp.Tx, r Retrieve[D]) (gorp.Filter[Key, Status[D]], error) {
+		keys, err := r.indexes.owner.Get(tx, targets...)
+		return gorp.MatchKeys[Key, Status[D]](keys...), err
+	}
 }
 
 // Exec executes the query and fills the results into the provided Status or slice of
 // Statuses.
 func (r Retrieve[D]) Exec(ctx context.Context, tx gorp.Tx) error {
-	return r.gorp.Exec(ctx, gorp.OverrideTx(r.baseTX, tx))
+	tx = gorp.OverrideTx(r.baseTX, tx)
+	q := r.gorp
+	for _, f := range r.filters {
+		filter, err := f(tx, r)
+		if err != nil {
+			return err
+		}
+		q = q.Where(filter)
+	}
+	return q.Exec(ctx, tx)
 }

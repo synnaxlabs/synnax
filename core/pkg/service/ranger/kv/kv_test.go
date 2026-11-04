@@ -10,6 +10,8 @@
 package kv_test
 
 import (
+	"uuid"
+
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	"github.com/synnaxlabs/gorp"
@@ -39,7 +41,7 @@ var _ = Describe("KV", Ordered, func() {
 			DB:       db,
 			Ontology: otg,
 		}))
-		lab := MustOpen(label.OpenService(ctx, label.ServiceConfig{
+		MustOpen(label.OpenService(ctx, label.ServiceConfig{
 			DB:       db,
 			Ontology: otg,
 			Group:    g,
@@ -48,7 +50,6 @@ var _ = Describe("KV", Ordered, func() {
 			DB:       db,
 			Ontology: otg,
 			Group:    g,
-			Label:    lab,
 		}))
 		kvSvc = MustOpen(kv.OpenService(ctx, kv.ServiceConfig{
 			DB: db,
@@ -132,6 +133,22 @@ var _ = Describe("KV", Ordered, func() {
 			kv.Pair{Range: r.Key, Key: "key1", Value: "value1"},
 			kv.Pair{Range: r.Key, Key: "key2", Value: "value2"},
 		))
+	})
+
+	It("Should reject a pair on a range that does not exist", func(ctx SpecContext) {
+		Expect(kvSvc.NewWriter(tx).SetMany(ctx, []kv.Pair{
+			{Range: uuid.New(), Key: "key", Value: "value"},
+		})).To(MatchError(ContainSubstring("range")))
+	})
+
+	It("Should delete the pairs of a deleted range", func(ctx SpecContext) {
+		r := &ranger.Range{Name: "Range", TimeRange: telem.NewRangeSeconds(5, 10)}
+		Expect(rangerSvc.NewWriter(tx).Create(ctx, r)).To(Succeed())
+		Expect(kvSvc.NewWriter(tx).SetMany(ctx, []kv.Pair{
+			{Range: r.Key, Key: "key", Value: "value"},
+		})).To(Succeed())
+		Expect(rangerSvc.NewWriter(tx).Delete(ctx, r.Key)).To(Succeed())
+		Expect(kvSvc.NewReader(tx).List(ctx, r.Key)).To(BeEmpty())
 	})
 
 	It("Should be able to list all key-value pairs in a range", func(ctx SpecContext) {

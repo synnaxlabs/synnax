@@ -77,7 +77,7 @@ var _ = Describe("Sparkplug B read entries", func() {
 	// its rebirth request.
 	start := func(ctx context.Context, cfg msgpack.EncodedJSON) task.Task {
 		GinkgoHelper()
-		t := newTask(rackKey, mqtt.ReadTaskType, cfg)
+		t := newTask(ctx, rackKey, mqtt.ReadTaskType, cfg)
 		configured := configure(ctx, factory, t)
 		before := node.births()
 		Expect(configured.Exec(ctx, task.Command{Type: "start", Key: "start"})).
@@ -253,7 +253,7 @@ var _ = Describe("Sparkplug B read entries", func() {
 			_, data := createIndexed(ctx, telem.Float64T)
 			node.setTags("", live(1))
 			configured := configure(ctx, factory, newTask(
-				rackKey,
+				ctx, rackKey,
 				mqtt.ReadTaskType,
 				readConfig(dev, tagEntry("plant", "line1", "", "temperature", data[0])),
 			))
@@ -674,7 +674,7 @@ var _ = Describe("Sparkplug B read entries", func() {
 		It("Should warn about an edge node that gives no birth", func(ctx SpecContext) {
 			_, data := createIndexed(ctx, telem.Float64T)
 			node.setSilent(true)
-			t := newTask(rackKey, mqtt.ReadTaskType, readConfig(
+			t := newTask(ctx, rackKey, mqtt.ReadTaskType, readConfig(
 				dev, tagEntry("plant", "line1", "", "temperature", data[0]),
 			))
 			configured := configure(ctx, factory, t)
@@ -800,7 +800,7 @@ var _ = Describe("Sparkplug B read entries", func() {
 				build func(ctx context.Context) (msgpack.EncodedJSON, string),
 			) {
 				cfg, message := build(ctx)
-				t := newTask(rackKey, mqtt.ReadTaskType, cfg)
+				t := newTask(ctx, rackKey, mqtt.ReadTaskType, cfg)
 				Expect(factory.ConfigureTask(ctx, t, "configure")).
 					Error().To(SatisfyAll(
 					MatchError(validate.ErrValidation),

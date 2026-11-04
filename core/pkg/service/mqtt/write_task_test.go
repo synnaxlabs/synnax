@@ -105,7 +105,7 @@ var _ = Describe("Write task", func() {
 
 	start := func(ctx context.Context, cfg msgpack.EncodedJSON) task.Task {
 		GinkgoHelper()
-		t := newTask(rackKey, mqtt.WriteTaskType, cfg)
+		t := newTask(ctx, rackKey, mqtt.WriteTaskType, cfg)
 		configured := configure(ctx, factory, t)
 		Expect(configured.Exec(ctx, task.Command{Type: "start", Key: "start"})).
 			To(Succeed())
@@ -342,7 +342,7 @@ var _ = Describe("Write task", func() {
 			message string,
 		) {
 			GinkgoHelper()
-			t := newTask(rackKey, mqtt.WriteTaskType, cfg)
+			t := newTask(ctx, rackKey, mqtt.WriteTaskType, cfg)
 			Expect(factory.ConfigureTask(ctx, t, "configure")).Error().
 				To(MatchError(ContainSubstring(message)))
 			stat := taskStatus(ctx, t)

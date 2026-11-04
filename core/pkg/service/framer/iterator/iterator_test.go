@@ -46,7 +46,7 @@ func openServices(
 		DB:       node.DB,
 		Ontology: otg,
 	}))
-	labelSvc := MustOpen(label.OpenService(ctx, label.ServiceConfig{
+	MustOpen(label.OpenService(ctx, label.ServiceConfig{
 		DB:       node.DB,
 		Ontology: otg,
 		Group:    groupSvc,
@@ -54,8 +54,6 @@ func openServices(
 	statusSvc := MustOpen(status.OpenService(ctx, status.ServiceConfig{
 		DB:       node.DB,
 		Ontology: otg,
-		Group:    groupSvc,
-		Label:    labelSvc,
 	}))
 	channelSvc := MustOpen(channel.OpenService(ctx, channel.ServiceConfig{
 		Channel:      node.Channel,

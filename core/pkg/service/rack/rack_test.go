@@ -68,8 +68,6 @@ func openStack(ctx context.Context, db *gorp.DB, cfg rack.ServiceConfig) stack {
 	stat := MustSucceed(status.OpenService(ctx, status.ServiceConfig{
 		Ontology: otg,
 		DB:       db,
-		Group:    g,
-		Label:    lbl,
 	}))
 	cfg.DB = db
 	cfg.Ontology = otg
@@ -155,11 +153,20 @@ func retrieveStatus(
 	stat *status.Service,
 	key rack.Key,
 ) (rack.Status, error) {
+	return retrieveStatusTx(ctx, stat, nil, key)
+}
+
+func retrieveStatusTx(
+	ctx context.Context,
+	stat *status.Service,
+	tx gorp.Tx,
+	key rack.Key,
+) (rack.Status, error) {
 	var s rack.Status
-	if err := stat.NewRetrieve[rack.StatusDetails]().
-		Where(status.MatchKeys[rack.StatusDetails](rack.StatusKey(key))).
+	if err := stat.NewRetrieve[struct{}]().
+		Where(status.MatchOwners[struct{}](key.ResourceID())).
 		Entry(&s).
-		Exec(ctx, nil); err != nil {
+		Exec(ctx, tx); err != nil {
 		return rack.Status{}, err
 	}
 	return s, nil
@@ -210,31 +217,6 @@ var _ = Describe("Rack", Ordered, func() {
 			},
 		)
 	})
-	Describe("StatusKey", func() {
-		It(
-			"Should return the resource ID string for a rack key",
-			func(ctx SpecContext) {
-				k := rack.NewKey(1, 2)
-				statusKey := rack.StatusKey(k)
-				Expect(statusKey).To(Equal(k.ResourceID().String()))
-			},
-		)
-		It(
-			"Should return consistent status keys for the same rack key",
-			func(ctx SpecContext) {
-				k := rack.NewKey(5, 10)
-				Expect(rack.StatusKey(k)).To(Equal(rack.StatusKey(k)))
-			},
-		)
-		It(
-			"Should return different status keys for different rack keys",
-			func(ctx SpecContext) {
-				k1 := rack.NewKey(1, 1)
-				k2 := rack.NewKey(1, 2)
-				Expect(rack.StatusKey(k1)).ToNot(Equal(rack.StatusKey(k2)))
-			},
-		)
-	})
 	Describe("Key msgpack decoding", func() {
 		codec := msgpack.Codec
 		DescribeTable("Should decode rack.Key from various types",
@@ -253,8 +235,11 @@ var _ = Describe("Rack", Ordered, func() {
 			Entry("float64", float64(65537), rack.Key(65537)),
 			Entry("float32", float32(1234), rack.Key(1234)),
 		)
+		type details struct {
+			Rack rack.Key `msgpack:"rack"`
+		}
 		It(
-			"Should decode StatusDetails with rack key as float64",
+			"Should decode a struct with a rack key as float64",
 			func(ctx SpecContext) {
 				type statusDetailsWithFloat struct {
 					Rack float64 `msgpack:"rack"`
@@ -263,13 +248,13 @@ var _ = Describe("Rack", Ordered, func() {
 					Rack: float64(65537),
 				}
 				data := MustSucceed(codec.Encode(ctx, original))
-				var decoded rack.StatusDetails
+				var decoded details
 				Expect(codec.Decode(ctx, data, &decoded)).To(Succeed())
 				Expect(decoded.Rack).To(Equal(rack.Key(65537)))
 			},
 		)
 		It(
-			"Should decode StatusDetails with rack key as string",
+			"Should decode a struct with a rack key as string",
 			func(ctx SpecContext) {
 				type statusDetailsWithString struct {
 					Rack string `msgpack:"rack"`
@@ -278,7 +263,7 @@ var _ = Describe("Rack", Ordered, func() {
 					Rack: "65537",
 				}
 				data := MustSucceed(codec.Encode(ctx, original))
-				var decoded rack.StatusDetails
+				var decoded details
 				Expect(codec.Decode(ctx, data, &decoded)).To(Succeed())
 				Expect(decoded.Rack).To(Equal(rack.Key(65537)))
 			},
@@ -752,15 +737,9 @@ var _ = Describe("Rack", Ordered, func() {
 				expected.Name = "Renamed Embedded"
 				Expect(after).To(Equal(expected))
 				Expect(after.Embedded).To(BeTrue())
-				var renamed rack.Status
-				Expect(stat.NewRetrieve[rack.StatusDetails]().
-					Where(status.MatchKeys[rack.StatusDetails](
-						rack.StatusKey(svc.EmbeddedKey),
-					)).
-					Entry(&renamed).
-					Exec(ctx, tx)).To(Succeed())
+				renamed := MustSucceed(retrieveStatusTx(ctx, stat, tx, svc.EmbeddedKey))
 				Expect(renamed.Name).To(Equal("Renamed Embedded"))
-				Expect(renamed.Details.Rack).To(Equal(svc.EmbeddedKey))
+				Expect(renamed.Owner).To(HaveValue(Equal(svc.EmbeddedKey.ResourceID())))
 			},
 		)
 		It("Should keep a rack's integrations", func(ctx SpecContext) {
@@ -822,11 +801,8 @@ var _ = Describe("Rack", Ordered, func() {
 					Entry(&res).
 					Exec(ctx, tx),
 			).To(MatchError(query.ErrNotFound))
-			var deletedStatus rack.Status
-			Expect(stat.NewRetrieve[rack.StatusDetails]().
-				Where(status.MatchKeys[rack.StatusDetails](r.ResourceID().String())).
-				Entry(&deletedStatus).
-				Exec(ctx, tx)).To(MatchError(query.ErrNotFound))
+			Expect(retrieveStatusTx(ctx, stat, tx, r.Key)).Error().
+				To(MatchError(query.ErrNotFound))
 		})
 
 		It("Should delete the rack's ontology resource", func(ctx SpecContext) {
@@ -933,8 +909,7 @@ var _ = Describe("Rack", Ordered, func() {
 			Expect(s.Message).To(Equal("Rack status unknown"))
 			Expect(s.Variant).To(Equal(status.VariantWarning))
 			Expect(s.Time).To(BeNumerically("~", telem.Now(), 3*telem.SecondTS))
-			Expect(s.Key).To(ContainSubstring(string(resource.TypeRack)))
-			Expect(s.Details.Rack).To(Equal(r.Key))
+			Expect(s.Owner).To(HaveValue(Equal(r.ResourceID())))
 		})
 
 		It(
@@ -952,14 +927,11 @@ var _ = Describe("Rack", Ordered, func() {
 				Expect(s.Message).To(Equal("Custom status message"))
 				Expect(s.Description).To(Equal("Custom description"))
 				Expect(s.Variant).To(Equal(status.VariantSuccess))
-				// Key should be auto-assigned to match resource ID
-				Expect(s.Key).To(Equal(r.ResourceID().String()))
+				Expect(s.Owner).To(HaveValue(Equal(r.ResourceID())))
 				// Time should be auto-filled
 				Expect(s.Time).To(BeNumerically("~", telem.Now(), 3*telem.SecondTS))
 				// Name should be auto-filled from rack name
 				Expect(s.Name).To(Equal(r.Name))
-				// Details.Rack should be auto-filled
-				Expect(s.Details.Rack).To(Equal(r.Key))
 			},
 		)
 
@@ -985,21 +957,17 @@ var _ = Describe("Rack", Ordered, func() {
 				r := rack.Rack{Name: "heal rack"}
 				Expect(writer.Create(ctx, &r)).To(Succeed())
 
-				Expect(stat.NewWriter(tx).
-					Delete(ctx, r.ResourceID().String())).To(Succeed())
-				Expect(stat.NewRetrieve[rack.StatusDetails]().
-					Where(status.MatchKeys[rack.StatusDetails](r.ResourceID().String())).
-					Exec(ctx, tx)).To(MatchError(query.ErrNotFound))
+				sw := stat.NewWriter(tx)
+				Expect(sw.Delete(ctx, MustSucceed(sw.KeyOf(r.ResourceID())))).
+					To(Succeed())
+				Expect(retrieveStatusTx(ctx, stat, tx, r.Key)).Error().
+					To(MatchError(query.ErrNotFound))
 
 				reconfigured := rack.Rack{Key: r.Key, Name: r.Name}
 				Expect(writer.Create(ctx, &reconfigured)).To(Succeed())
 
-				var healed rack.Status
-				Expect(stat.NewRetrieve[rack.StatusDetails]().
-					Where(status.MatchKeys[rack.StatusDetails](r.ResourceID().String())).
-					Entry(&healed).
-					Exec(ctx, tx)).To(Succeed())
-				Expect(healed.Details.Rack).To(Equal(r.Key))
+				healed := MustSucceed(retrieveStatusTx(ctx, stat, tx, r.Key))
+				Expect(healed.Owner).To(HaveValue(Equal(r.ResourceID())))
 			},
 		)
 
@@ -1020,11 +988,7 @@ var _ = Describe("Rack", Ordered, func() {
 				reconfigured := rack.Rack{Key: r.Key, Name: r.Name}
 				Expect(writer.Create(ctx, &reconfigured)).To(Succeed())
 
-				var preserved rack.Status
-				Expect(stat.NewRetrieve[rack.StatusDetails]().
-					Where(status.MatchKeys[rack.StatusDetails](r.ResourceID().String())).
-					Entry(&preserved).
-					Exec(ctx, tx)).To(Succeed())
+				preserved := MustSucceed(retrieveStatusTx(ctx, stat, tx, r.Key))
 				Expect(preserved.Variant).To(Equal(status.VariantSuccess))
 				Expect(preserved.Message).To(Equal("Rack is connected"))
 			},
@@ -1042,9 +1006,7 @@ var _ = Describe("Rack", Ordered, func() {
 					g.Expect(s.Variant).To(Equal(status.VariantWarning))
 					g.Expect(s.Time).
 						To(BeNumerically("~", telem.Now(), 3*telem.SecondTS))
-					g.Expect(s.Key).
-						To(ContainSubstring(string(resource.TypeRack)))
-					g.Expect(s.Details.Rack).To(Equal(r.Key))
+					g.Expect(s.Owner).To(HaveValue(Equal(r.ResourceID())))
 					g.Expect(s.Description).To(Equal(
 						"The Core has not heard from the Driver on dead test rack. " +
 							"Check that the Driver is running and can reach the Core.",
@@ -1067,12 +1029,11 @@ var _ = Describe("Rack", Ordered, func() {
 
 				Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
 					return stat.NewWriter(tx).Set(ctx, &rack.Status{
-						Key:     r.ResourceID().String(),
+						Owner:   new(r.ResourceID()),
 						Name:    r.Name,
 						Time:    telem.Now(),
 						Variant: status.VariantSuccess,
 						Message: "Running",
-						Details: rack.StatusDetails{Rack: r.Key},
 					})
 				})).To(Succeed())
 
@@ -1164,7 +1125,7 @@ var _ = Describe("Rack", Ordered, func() {
 				}
 				disconnect := svc.OnSuspect(
 					func(_ context.Context, s rack.Status) error {
-						if s.Details.Rack == r.Key {
+						if *s.Owner == r.ResourceID() {
 							alertMu.Lock()
 							alertCount++
 							alertMu.Unlock()
@@ -1178,12 +1139,11 @@ var _ = Describe("Rack", Ordered, func() {
 
 				Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
 					return stat.NewWriter(tx).Set(ctx, &rack.Status{
-						Key:     r.ResourceID().String(),
+						Owner:   new(r.ResourceID()),
 						Name:    r.Name,
 						Time:    telem.Now(),
 						Variant: status.VariantSuccess,
 						Message: "Running",
-						Details: rack.StatusDetails{Rack: r.Key},
 					})
 				})).To(Succeed())
 

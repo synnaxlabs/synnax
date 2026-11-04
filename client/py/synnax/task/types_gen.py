@@ -26,6 +26,25 @@ from x import telem
 Key: TypeAlias = UUID
 
 
+class StatusDetails(BaseModel):
+    """Contains task-specific status details including execution state.
+
+    Attributes:
+        running: Is true if the task is currently executing.
+        cmd: Is the last command executed on this task.
+        config_hash: Is the hash of the config the running task instance was built from.
+            Empty when no instance exists.
+        rack: Is the key of the rack running the task instance.
+        data: Contains task-specific status data.
+    """
+
+    running: bool
+    cmd: str = ""
+    config_hash: str = ""
+    rack: rack_.Key = Field(default=rack_.Key(0), ge=0, le=4294967295)
+    data: dict[str, JsonValue] | None = None
+
+
 class KeyedConfig(BaseModel):
     """Is the base for every stored task configuration record.
 
@@ -38,27 +57,6 @@ class KeyedConfig(BaseModel):
     @_override
     def __hash__(self) -> int:
         return hash(self.key)
-
-
-class StatusDetails(BaseModel):
-    """Contains task-specific status details including execution state.
-
-    Attributes:
-        task: Is the key of the task this status pertains to.
-        running: Is true if the task is currently executing.
-        cmd: Is the last command executed on this task.
-        config_hash: Is the hash of the config the running task instance was built from.
-            Empty when no instance exists.
-        rack: Is the key of the rack running the task instance.
-        data: Contains task-specific status data.
-    """
-
-    task: Key
-    running: bool
-    cmd: str = ""
-    config_hash: str = ""
-    rack: rack_.Key = Field(default=rack_.Key(0), ge=0, le=4294967295)
-    data: dict[str, JsonValue] | None = None
 
 
 class Command(BaseModel):
@@ -82,6 +80,9 @@ class Command(BaseModel):
     config_hash: str = ""
     args: dict[str, JsonValue] = Field(default_factory=dict)
     pinned: bool = False
+
+
+Status: TypeAlias = status_.Status[StatusDetails]
 
 
 class StartConfig(KeyedConfig):
@@ -108,23 +109,6 @@ class ScanConfig(KeyedConfig):
 
     rate: telem.Rate = telem.Rate(0.200000)
     disabled: bool = False
-
-    @_override
-    def __hash__(self) -> int:
-        return hash(self.key)
-
-
-Status: TypeAlias = status_.Status[StatusDetails]
-
-
-class PersistConfig(StartConfig):
-    """Carries the configuration fields shared by tasks that write telemetry.
-
-    Attributes:
-        data_saving_disabled: Is true when task telemetry is not persisted to disk.
-    """
-
-    data_saving_disabled: bool = False
 
     @_override
     def __hash__(self) -> int:
@@ -162,6 +146,20 @@ class Payload(BaseModel):
     internal: bool = False
     snapshot: bool = False
     status: Status | None = None
+
+    @_override
+    def __hash__(self) -> int:
+        return hash(self.key)
+
+
+class PersistConfig(StartConfig):
+    """Carries the configuration fields shared by tasks that write telemetry.
+
+    Attributes:
+        data_saving_disabled: Is true when task telemetry is not persisted to disk.
+    """
+
+    data_saving_disabled: bool = False
 
     @_override
     def __hash__(self) -> int:

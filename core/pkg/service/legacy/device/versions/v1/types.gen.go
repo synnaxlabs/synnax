@@ -24,13 +24,11 @@ import (
 // Key is a unique identifier for the device
 type Key = v0.Key
 
-// StatusDetails contains device-specific status details identifying the device and its
-// associated rack.
+// StatusDetails contains device-specific status details, including the rack the device
+// belongs to.
 type StatusDetails struct {
 	// Rack is the key of the rack this device belongs to.
 	Rack rack.Key `json:"rack" msgpack:"rack"`
-	// Device is the device identifier.
-	Device Key `json:"device" msgpack:"device"`
 	// Data contains device-specific status data.
 	Data msgpack.EncodedJSON `json:"data,omitzero" msgpack:"data,omitempty"`
 }

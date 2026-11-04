@@ -21,14 +21,19 @@ import (
 	"github.com/synnaxlabs/gorp"
 	arctask "github.com/synnaxlabs/synnax/pkg/service/arc/task"
 	arcversions "github.com/synnaxlabs/synnax/pkg/service/arc/task/versions"
+	"github.com/synnaxlabs/synnax/pkg/service/group"
+	"github.com/synnaxlabs/synnax/pkg/service/label"
 	"github.com/synnaxlabs/synnax/pkg/service/ontology"
 	racktask "github.com/synnaxlabs/synnax/pkg/service/rack/task"
 	"github.com/synnaxlabs/synnax/pkg/service/resource"
+	"github.com/synnaxlabs/synnax/pkg/service/status"
 	"github.com/synnaxlabs/synnax/pkg/service/task/config"
 	v2 "github.com/synnaxlabs/synnax/pkg/service/task/versions/v2"
 	v3 "github.com/synnaxlabs/synnax/pkg/service/task/versions/v3"
 	"github.com/synnaxlabs/x/encoding/msgpack"
 	"github.com/synnaxlabs/x/kv"
+	"github.com/synnaxlabs/x/query"
+	"github.com/synnaxlabs/x/telem"
 	. "github.com/synnaxlabs/x/testutil"
 	"github.com/synnaxlabs/x/testutil/memkv"
 )
@@ -44,14 +49,28 @@ var _ = Describe("QuarantineKVKey", func() {
 
 var _ = Describe("NewMigration", func() {
 	var (
-		memDB kv.DB
-		db    *gorp.DB
-		otg   *ontology.Ontology
+		memDB     kv.DB
+		db        *gorp.DB
+		otg       *ontology.Ontology
+		statusSvc *status.Service
 	)
 	BeforeEach(func(ctx SpecContext) {
 		memDB = memkv.New()
 		db = DeferClose(gorp.Wrap(memDB))
 		otg = MustOpen(ontology.Open(ctx, ontology.Config{DB: db}))
+		g := MustOpen(group.OpenService(ctx, group.ServiceConfig{
+			DB:       db,
+			Ontology: otg,
+		}))
+		MustOpen(label.OpenService(ctx, label.ServiceConfig{
+			DB:       db,
+			Ontology: otg,
+			Group:    g,
+		}))
+		statusSvc = MustOpen(status.OpenService(ctx, status.ServiceConfig{
+			DB:       db,
+			Ontology: otg,
+		}))
 	})
 
 	seed := func(ctx SpecContext, t v2.Task) {
@@ -72,6 +91,7 @@ var _ = Describe("NewMigration", func() {
 			Namespace: "Task",
 			Migrations: []gorp.Migration{
 				v3.NewMigration(v3.MigrationConfig{
+					Status:   statusSvc,
 					Ontology: otg,
 					Configs:  configs,
 				}),
@@ -200,8 +220,18 @@ var _ = Describe("NewMigration", func() {
 			Type:   "bogus",
 			Config: msgpack.EncodedJSON{"anything": true},
 		})
+		taskID := resource.ID{Type: resource.TypeTask, Key: key.String()}
+		Expect(statusSvc.NewMigrationWriter(nil).Set(ctx, status.Status[any]{
+			Key:     uuid.New().String(),
+			Owner:   &taskID,
+			Name:    "Bogus Task",
+			Variant: status.VariantSuccess,
+			Time:    telem.Now(),
+		})).To(Succeed())
 		run(ctx, openArcStore(ctx))
 
+		Expect(statusSvc.NewWriter(nil).KeyOf(taskID)).Error().
+			To(MatchError(query.ErrNotFound))
 		Expect(gorp.NewRetrieve[v2.Key, v2.Task]().
 			Where(gorp.MatchKeys[v2.Key, v2.Task](key)).
 			Exists(ctx, db)).To(BeFalse())

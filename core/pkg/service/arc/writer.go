@@ -310,7 +310,7 @@ func (w Writer) clearRack(ctx context.Context, taskKeys []task.Key) error {
 	for _, taskKey := range taskKeys {
 		var stat task.Status
 		err := w.status.NewRetrieve[task.StatusDetails]().
-			Where(status.MatchKeys[task.StatusDetails](task.ResourceID(taskKey).String())).
+			Where(status.MatchOwners[task.StatusDetails](task.ResourceID(taskKey))).
 			Entry(&stat).
 			Exec(ctx, w.tx)
 		if err != nil && !errors.Is(err, query.ErrNotFound) {

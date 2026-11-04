@@ -16,6 +16,7 @@
 package status
 
 import (
+	pb1 "github.com/synnaxlabs/synnax/pkg/service/resource/pb"
 	pb "github.com/synnaxlabs/synnax/pkg/service/status/pb"
 	protoreflect "google.golang.org/protobuf/reflect/protoreflect"
 	protoimpl "google.golang.org/protobuf/runtime/protoimpl"
@@ -34,7 +35,6 @@ const (
 
 type SetRequest struct {
 	state         protoimpl.MessageState `protogen:"open.v1"`
-	Parent        string                 `protobuf:"bytes,1,opt,name=parent,proto3" json:"parent,omitempty"`
 	Statuses      []*pb.Status           `protobuf:"bytes,2,rep,name=statuses,proto3" json:"statuses,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
@@ -68,13 +68,6 @@ func (x *SetRequest) ProtoReflect() protoreflect.Message {
 // Deprecated: Use SetRequest.ProtoReflect.Descriptor instead.
 func (*SetRequest) Descriptor() ([]byte, []int) {
 	return file_core_pkg_transport_grpc_status_status_proto_rawDescGZIP(), []int{0}
-}
-
-func (x *SetRequest) GetParent() string {
-	if x != nil {
-		return x.Parent
-	}
-	return ""
 }
 
 func (x *SetRequest) GetStatuses() []*pb.Status {
@@ -134,10 +127,10 @@ type RetrieveRequest struct {
 	SearchTerm          string                 `protobuf:"bytes,2,opt,name=search_term,json=searchTerm,proto3" json:"search_term,omitempty"`
 	Offset              int32                  `protobuf:"varint,3,opt,name=offset,proto3" json:"offset,omitempty"`
 	Limit               int32                  `protobuf:"varint,4,opt,name=limit,proto3" json:"limit,omitempty"`
-	IncludeLabels       bool                   `protobuf:"varint,5,opt,name=include_labels,json=includeLabels,proto3" json:"include_labels,omitempty"`
 	HasLabels           []string               `protobuf:"bytes,6,rep,name=has_labels,json=hasLabels,proto3" json:"has_labels,omitempty"`
 	Variants            []string               `protobuf:"bytes,7,rep,name=variants,proto3" json:"variants,omitempty"`
 	IgnoreNotFoundError bool                   `protobuf:"varint,8,opt,name=ignore_not_found_error,json=ignoreNotFoundError,proto3" json:"ignore_not_found_error,omitempty"`
+	Owners              []*pb1.ID              `protobuf:"bytes,9,rep,name=owners,proto3" json:"owners,omitempty"`
 	unknownFields       protoimpl.UnknownFields
 	sizeCache           protoimpl.SizeCache
 }
@@ -200,13 +193,6 @@ func (x *RetrieveRequest) GetLimit() int32 {
 	return 0
 }
 
-func (x *RetrieveRequest) GetIncludeLabels() bool {
-	if x != nil {
-		return x.IncludeLabels
-	}
-	return false
-}
-
 func (x *RetrieveRequest) GetHasLabels() []string {
 	if x != nil {
 		return x.HasLabels
@@ -226,6 +212,13 @@ func (x *RetrieveRequest) GetIgnoreNotFoundError() bool {
 		return x.IgnoreNotFoundError
 	}
 	return false
+}
+
+func (x *RetrieveRequest) GetOwners() []*pb1.ID {
+	if x != nil {
+		return x.Owners
+	}
+	return nil
 }
 
 type RetrieveResponse struct {
@@ -432,24 +425,23 @@ var File_core_pkg_transport_grpc_status_status_proto protoreflect.FileDescriptor
 
 const file_core_pkg_transport_grpc_status_status_proto_rawDesc = "" +
 	"\n" +
-	"+core/pkg/transport/grpc/status/status.proto\x12\vgrpc.status\x1a'core/pkg/service/status/pb/status.proto\x1a\x1bgoogle/protobuf/empty.proto\"[\n" +
+	"+core/pkg/transport/grpc/status/status.proto\x12\vgrpc.status\x1a+core/pkg/service/resource/pb/resource.proto\x1a'core/pkg/service/status/pb/status.proto\x1a\x1bgoogle/protobuf/empty.proto\"Q\n" +
 	"\n" +
-	"SetRequest\x12\x16\n" +
-	"\x06parent\x18\x01 \x01(\tR\x06parent\x125\n" +
-	"\bstatuses\x18\x02 \x03(\v2\x19.service.status.pb.StatusR\bstatuses\"D\n" +
+	"SetRequest\x125\n" +
+	"\bstatuses\x18\x02 \x03(\v2\x19.service.status.pb.StatusR\bstatusesJ\x04\b\x01\x10\x02R\x06parent\"D\n" +
 	"\vSetResponse\x125\n" +
-	"\bstatuses\x18\x01 \x03(\v2\x19.service.status.pb.StatusR\bstatuses\"\x8b\x02\n" +
+	"\bstatuses\x18\x01 \x03(\v2\x19.service.status.pb.StatusR\bstatuses\"\xab\x02\n" +
 	"\x0fRetrieveRequest\x12\x12\n" +
 	"\x04keys\x18\x01 \x03(\tR\x04keys\x12\x1f\n" +
 	"\vsearch_term\x18\x02 \x01(\tR\n" +
 	"searchTerm\x12\x16\n" +
 	"\x06offset\x18\x03 \x01(\x05R\x06offset\x12\x14\n" +
-	"\x05limit\x18\x04 \x01(\x05R\x05limit\x12%\n" +
-	"\x0einclude_labels\x18\x05 \x01(\bR\rincludeLabels\x12\x1d\n" +
+	"\x05limit\x18\x04 \x01(\x05R\x05limit\x12\x1d\n" +
 	"\n" +
 	"has_labels\x18\x06 \x03(\tR\thasLabels\x12\x1a\n" +
 	"\bvariants\x18\a \x03(\tR\bvariants\x123\n" +
-	"\x16ignore_not_found_error\x18\b \x01(\bR\x13ignoreNotFoundError\"I\n" +
+	"\x16ignore_not_found_error\x18\b \x01(\bR\x13ignoreNotFoundError\x12/\n" +
+	"\x06owners\x18\t \x03(\v2\x17.service.resource.pb.IDR\x06ownersJ\x04\b\x05\x10\x06R\x0einclude_labels\"I\n" +
 	"\x10RetrieveResponse\x125\n" +
 	"\bstatuses\x18\x01 \x03(\v2\x19.service.status.pb.StatusR\bstatuses\"#\n" +
 	"\rDeleteRequest\x12\x12\n" +
@@ -493,25 +485,27 @@ var file_core_pkg_transport_grpc_status_status_proto_goTypes = []any{
 	(*SetByKeyOrNameRequest)(nil),  // 5: grpc.status.SetByKeyOrNameRequest
 	(*SetByKeyOrNameResponse)(nil), // 6: grpc.status.SetByKeyOrNameResponse
 	(*pb.Status)(nil),              // 7: service.status.pb.Status
-	(*emptypb.Empty)(nil),          // 8: google.protobuf.Empty
+	(*pb1.ID)(nil),                 // 8: service.resource.pb.ID
+	(*emptypb.Empty)(nil),          // 9: google.protobuf.Empty
 }
 var file_core_pkg_transport_grpc_status_status_proto_depIdxs = []int32{
 	7, // 0: grpc.status.SetRequest.statuses:type_name -> service.status.pb.Status
 	7, // 1: grpc.status.SetResponse.statuses:type_name -> service.status.pb.Status
-	7, // 2: grpc.status.RetrieveResponse.statuses:type_name -> service.status.pb.Status
-	0, // 3: grpc.status.StatusSetService.Exec:input_type -> grpc.status.SetRequest
-	2, // 4: grpc.status.StatusRetrieveService.Exec:input_type -> grpc.status.RetrieveRequest
-	4, // 5: grpc.status.StatusDeleteService.Exec:input_type -> grpc.status.DeleteRequest
-	5, // 6: grpc.status.StatusSetByKeyOrNameService.Exec:input_type -> grpc.status.SetByKeyOrNameRequest
-	1, // 7: grpc.status.StatusSetService.Exec:output_type -> grpc.status.SetResponse
-	3, // 8: grpc.status.StatusRetrieveService.Exec:output_type -> grpc.status.RetrieveResponse
-	8, // 9: grpc.status.StatusDeleteService.Exec:output_type -> google.protobuf.Empty
-	6, // 10: grpc.status.StatusSetByKeyOrNameService.Exec:output_type -> grpc.status.SetByKeyOrNameResponse
-	7, // [7:11] is the sub-list for method output_type
-	3, // [3:7] is the sub-list for method input_type
-	3, // [3:3] is the sub-list for extension type_name
-	3, // [3:3] is the sub-list for extension extendee
-	0, // [0:3] is the sub-list for field type_name
+	8, // 2: grpc.status.RetrieveRequest.owners:type_name -> service.resource.pb.ID
+	7, // 3: grpc.status.RetrieveResponse.statuses:type_name -> service.status.pb.Status
+	0, // 4: grpc.status.StatusSetService.Exec:input_type -> grpc.status.SetRequest
+	2, // 5: grpc.status.StatusRetrieveService.Exec:input_type -> grpc.status.RetrieveRequest
+	4, // 6: grpc.status.StatusDeleteService.Exec:input_type -> grpc.status.DeleteRequest
+	5, // 7: grpc.status.StatusSetByKeyOrNameService.Exec:input_type -> grpc.status.SetByKeyOrNameRequest
+	1, // 8: grpc.status.StatusSetService.Exec:output_type -> grpc.status.SetResponse
+	3, // 9: grpc.status.StatusRetrieveService.Exec:output_type -> grpc.status.RetrieveResponse
+	9, // 10: grpc.status.StatusDeleteService.Exec:output_type -> google.protobuf.Empty
+	6, // 11: grpc.status.StatusSetByKeyOrNameService.Exec:output_type -> grpc.status.SetByKeyOrNameResponse
+	8, // [8:12] is the sub-list for method output_type
+	4, // [4:8] is the sub-list for method input_type
+	4, // [4:4] is the sub-list for extension type_name
+	4, // [4:4] is the sub-list for extension extendee
+	0, // [0:4] is the sub-list for field type_name
 }
 
 func init() { file_core_pkg_transport_grpc_status_status_proto_init() }

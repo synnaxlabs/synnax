@@ -71,9 +71,25 @@ var _ = Describe("Actions", func() {
 			res := MustSucceed(ranger.Reduce(base, set([]string{"color"}, "#ff0000")))
 			Expect(res.Color).To(Equal(new(MustSucceed(color.FromHex("#ff0000")))))
 		})
+		It("Should set the labels", func() {
+			l := uuid.New()
+			res := MustSucceed(ranger.Reduce(
+				base,
+				set([]string{"labels"}, []string{l.String()}),
+			))
+			Expect(res.Labels).To(Equal([]label.Key{l}))
+		})
+		It("Should set the parent", func() {
+			parent := uuid.New()
+			res := MustSucceed(ranger.Reduce(
+				base,
+				set([]string{"parent"}, parent.String()),
+			))
+			Expect(res.Parent).To(HaveValue(Equal(parent)))
+		})
 		It("Should keep the key, labels, and parent", func() {
-			base.Labels = []label.Label{{Key: uuid.New(), Name: "Nominal"}}
-			base.Parent = &ranger.Range{Key: uuid.New()}
+			base.Labels = []label.Key{uuid.New()}
+			base.Parent = new(uuid.New())
 			res := MustSucceed(ranger.Reduce(base, set([]string{"name"}, "Cold flow")))
 			Expect(res.Key).To(Equal(base.Key))
 			Expect(res.Labels).To(Equal(base.Labels))
@@ -86,7 +102,7 @@ var _ = Describe("Actions", func() {
 			))
 		},
 			Entry(
-				"a path outside the name, time range, and color",
+				"a path outside the document",
 				[]string{"key"},
 				uuid.New().String(),
 			),
@@ -106,6 +122,14 @@ var _ = Describe("Actions", func() {
 				ranger.NewRemoveAction(ranger.RemovePayload{Key: "color"}),
 			))
 			Expect(res.Color).To(BeNil())
+		})
+		It("Should remove the parent", func() {
+			base.Parent = new(uuid.New())
+			res := MustSucceed(ranger.Reduce(
+				base,
+				ranger.NewRemoveAction(ranger.RemovePayload{Key: "parent"}),
+			))
+			Expect(res.Parent).To(BeNil())
 		})
 		DescribeTable(
 			"Should reject the removal of",

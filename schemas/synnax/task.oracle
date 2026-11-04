@@ -24,9 +24,6 @@ Key = uuid {
 }
 
 StatusDetails struct<Data? = record> {
-    task        Key      {
-        @doc value "is the key of the task this status pertains to."
-    }
     running     bool     {
         @doc value "is true if the task is currently executing."
     }

@@ -11,6 +11,7 @@ package status_test
 
 import (
 	"context"
+	"uuid"
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
@@ -18,8 +19,10 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/service/group"
 	"github.com/synnaxlabs/synnax/pkg/service/label"
 	"github.com/synnaxlabs/synnax/pkg/service/ontology"
+	"github.com/synnaxlabs/synnax/pkg/service/rack"
 	"github.com/synnaxlabs/synnax/pkg/service/resource"
 	"github.com/synnaxlabs/synnax/pkg/service/status"
+	statusv2 "github.com/synnaxlabs/synnax/pkg/service/status/versions/v2"
 	"github.com/synnaxlabs/x/kv"
 	"github.com/synnaxlabs/x/observe"
 	"github.com/synnaxlabs/x/query"
@@ -36,6 +39,7 @@ var _ = Describe("Status", Ordered, func() {
 		w        status.Writer
 		labelSvc *label.Service
 		otg      *ontology.Ontology
+		racks    *gorp.Table[rack.Key, rack.Rack]
 		tx       gorp.Tx
 	)
 	BeforeAll(func(ctx SpecContext) {
@@ -60,16 +64,48 @@ var _ = Describe("Status", Ordered, func() {
 			Ontology: otg,
 			Group:    g,
 		}))
+		racks = MustOpen(gorp.OpenTable(ctx, gorp.TableConfig[rack.Key, rack.Rack]{
+			DB:   db,
+			Name: string(resource.TypeRack),
+		}))
 		svc = MustOpen(status.OpenService(ctx, status.ServiceConfig{
 			DB:       db,
 			Ontology: otg,
-			Label:    labelSvc,
-			Group:    g,
 		}))
 	})
 	openTx := func() {
 		tx = DeferClose(db.OpenTx())
 		w = svc.NewWriter(tx)
+	}
+	createRack := func(ctx SpecContext, key rack.Key) resource.ID {
+		GinkgoHelper()
+		Expect(racks.NewCreate().
+			Entry(&rack.Rack{Key: key, Name: "Rack"}).
+			Exec(ctx, tx)).To(Succeed())
+		return key.ResourceID()
+	}
+	createLabel := func(ctx SpecContext, name string) label.Key {
+		GinkgoHelper()
+		l := &label.Label{Name: name}
+		Expect(labelSvc.NewWriter(tx).Create(ctx, l)).To(Succeed())
+		return l.Key
+	}
+	retrieve := func(ctx SpecContext, key status.Key) status.Status[any] {
+		GinkgoHelper()
+		var s status.Status[any]
+		Expect(svc.NewRetrieve[any]().
+			Where(status.MatchKeys[any](key)).
+			Entry(&s).
+			Exec(ctx, tx)).To(Succeed())
+		return s
+	}
+	newStatus := func(key status.Key) status.Status[any] {
+		return status.Status[any]{
+			Key:     key,
+			Name:    "Status",
+			Variant: status.VariantInfo,
+			Time:    telem.Now(),
+		}
 	}
 
 	Describe("Writer", func() {
@@ -109,37 +145,173 @@ var _ = Describe("Status", Ordered, func() {
 				Expect(retrieved.Message).To(Equal("Updated message"))
 				Expect(retrieved.Variant).To(Equal(status.Variant("warning")))
 			})
-			Context("Parent Management", func() {
-				It("Should set a custom parent for the status", func(ctx SpecContext) {
-					parent := status.Status[any]{
-						Name:    "Parent Status",
-						Key:     "parent-key",
-						Variant: "info",
-						Message: "Parent status",
-						Time:    telem.Now(),
-					}
-					Expect(w.Set(ctx, &parent)).To(Succeed())
-
-					child := status.Status[any]{
-						Name:    "Child Status",
-						Key:     "child-key",
-						Variant: "info",
-						Message: "Child status",
-						Time:    telem.Now(),
-					}
-					Expect(
-						w.SetWithParent(ctx, &child, parent.ResourceID()),
-					).To(Succeed())
-
-					var res ontology.Resource
-					Expect(otg.NewRetrieve().
-						WhereIDs(child.ResourceID()).
-						TraverseTo(ontology.ParentsTraverser).
-						Entry(&res).
-						Exec(ctx, tx)).To(Succeed())
-					Expect(res.ID).To(Equal(parent.ResourceID()))
+			It(
+				"Should assign a UUID key to a status with no key",
+				func(ctx SpecContext) {
+					s := newStatus("")
+					Expect(w.Set(ctx, &s)).To(Succeed())
+					Expect(uuid.Parse(s.Key)).Error().ToNot(HaveOccurred())
+				},
+			)
+			Context("Owner", func() {
+				It(
+					"Should write to the status the owner holds, whatever the key",
+					func(ctx SpecContext) {
+						owner := createRack(ctx, 1)
+						first := newStatus("")
+						first.Owner = &owner
+						Expect(w.Set(ctx, &first)).To(Succeed())
+						second := newStatus("other-key")
+						second.Owner = &owner
+						second.Message = "Updated"
+						Expect(w.Set(ctx, &second)).To(Succeed())
+						Expect(second.Key).To(Equal(first.Key))
+						Expect(retrieve(ctx, first.Key).Message).To(Equal("Updated"))
+						Expect(svc.NewRetrieve[any]().
+							Where(status.MatchKeys[any]("other-key")).
+							Exec(ctx, tx)).To(MatchError(query.ErrNotFound))
+					},
+				)
+				It(
+					"Should keep the stored owner when a set has none",
+					func(ctx SpecContext) {
+						owner := createRack(ctx, 2)
+						s := newStatus("")
+						s.Owner = &owner
+						Expect(w.Set(ctx, &s)).To(Succeed())
+						next := newStatus(s.Key)
+						Expect(w.Set(ctx, &next)).To(Succeed())
+						Expect(next.Owner).To(HaveValue(Equal(owner)))
+						Expect(retrieve(ctx, s.Key).Owner).To(HaveValue(Equal(owner)))
+					},
+				)
+				It("Should reject an owner that does not exist", func(ctx SpecContext) {
+					s := newStatus("")
+					s.Owner = new(rack.Key(99).ResourceID())
+					Expect(w.Set(ctx, &s)).To(MatchError(ContainSubstring("owner")))
 				})
+				It(
+					"Should reject an owner whose type cannot hold a status",
+					func(ctx SpecContext) {
+						s := newStatus("")
+						s.Owner = new(label.ResourceID(createLabel(ctx, "Owner")))
+						Expect(w.Set(ctx, &s)).To(MatchError(ContainSubstring("owner")))
+					},
+				)
+				It(
+					"Should delete the status when its owner is deleted",
+					func(ctx SpecContext) {
+						owner := createRack(ctx, 3)
+						s := newStatus("")
+						s.Owner = &owner
+						Expect(w.Set(ctx, &s)).To(Succeed())
+						Expect(racks.NewDelete().
+							Where(gorp.MatchKeys[rack.Key, rack.Rack](3)).
+							Exec(ctx, tx)).To(Succeed())
+						Expect(svc.NewRetrieve[any]().
+							Where(status.MatchKeys[any](s.Key)).
+							Exec(ctx, tx)).To(MatchError(query.ErrNotFound))
+					},
+				)
 			})
+			Context("Labels", func() {
+				It(
+					"Should keep the stored labels and add the ones a set carries",
+					func(ctx SpecContext) {
+						a, b := createLabel(ctx, "A"), createLabel(ctx, "B")
+						s := newStatus("union-key")
+						s.Labels = []label.Key{a}
+						Expect(w.Set(ctx, &s)).To(Succeed())
+						next := newStatus("union-key")
+						next.Labels = []label.Key{b}
+						Expect(w.Set(ctx, &next)).To(Succeed())
+						Expect(next.Labels).To(ConsistOf(a, b))
+						Expect(retrieve(ctx, "union-key").Labels).To(ConsistOf(a, b))
+					},
+				)
+				It("Should reject a label that does not exist", func(ctx SpecContext) {
+					s := newStatus("missing-label-key")
+					s.Labels = []label.Key{uuid.New()}
+					Expect(w.Set(ctx, &s)).To(MatchError(ContainSubstring("labels")))
+				})
+				It(
+					"Should remove a deleted label from the statuses that hold it",
+					func(ctx SpecContext) {
+						a, b := createLabel(ctx, "A"), createLabel(ctx, "B")
+						s := newStatus("detach-key")
+						s.Labels = []label.Key{a, b}
+						Expect(w.Set(ctx, &s)).To(Succeed())
+						Expect(labelSvc.NewWriter(tx).Delete(ctx, a)).To(Succeed())
+						Expect(
+							retrieve(ctx, "detach-key").Labels,
+						).To(Equal([]label.Key{b}))
+					},
+				)
+			})
+		})
+
+		Describe("SetLabels", func() {
+			It("Should add labels to a status", func(ctx SpecContext) {
+				a, b := createLabel(ctx, "A"), createLabel(ctx, "B")
+				s := newStatus("set-labels-key")
+				s.Labels = []label.Key{a}
+				Expect(w.Set(ctx, &s)).To(Succeed())
+				Expect(w.SetLabels(ctx, "set-labels-key", []label.Key{b}, false)).
+					To(Succeed())
+				Expect(retrieve(ctx, "set-labels-key").Labels).To(ConsistOf(a, b))
+			})
+			It("Should replace the labels of a status", func(ctx SpecContext) {
+				a, b := createLabel(ctx, "A"), createLabel(ctx, "B")
+				s := newStatus("replace-labels-key")
+				s.Labels = []label.Key{a}
+				Expect(w.Set(ctx, &s)).To(Succeed())
+				Expect(w.SetLabels(ctx, "replace-labels-key", []label.Key{b}, true)).
+					To(Succeed())
+				Expect(
+					retrieve(ctx, "replace-labels-key").Labels,
+				).To(Equal([]label.Key{b}))
+			})
+			It(
+				"Should return a not found error for a missing status",
+				func(ctx SpecContext) {
+					Expect(w.SetLabels(ctx, "missing-key", nil, false)).
+						To(MatchError(query.ErrNotFound))
+				},
+			)
+		})
+
+		Describe("RemoveLabels", func() {
+			It("Should remove labels from a status", func(ctx SpecContext) {
+				a, b := createLabel(ctx, "A"), createLabel(ctx, "B")
+				s := newStatus("remove-labels-key")
+				s.Labels = []label.Key{a, b}
+				Expect(w.Set(ctx, &s)).To(Succeed())
+				Expect(w.RemoveLabels(ctx, "remove-labels-key", []label.Key{a})).
+					To(Succeed())
+				Expect(
+					retrieve(ctx, "remove-labels-key").Labels,
+				).To(Equal([]label.Key{b}))
+			})
+		})
+
+		Describe("KeyOf", func() {
+			It(
+				"Should return the key of the status an owner holds",
+				func(ctx SpecContext) {
+					owner := createRack(ctx, 4)
+					s := newStatus("")
+					s.Owner = &owner
+					Expect(w.Set(ctx, &s)).To(Succeed())
+					Expect(w.KeyOf(owner)).To(Equal(s.Key))
+				},
+			)
+			It(
+				"Should return a not found error for an owner with no status",
+				func(ctx SpecContext) {
+					Expect(w.KeyOf(createRack(ctx, 5))).Error().
+						To(MatchError(query.ErrNotFound))
+				},
+			)
 		})
 
 		Describe("SetMany", func() {
@@ -548,22 +720,13 @@ var _ = Describe("Status", Ordered, func() {
 			It(
 				"Should retrieve statuses that have any of the provided labels",
 				func(ctx SpecContext) {
-					l := &label.Label{Name: "status-label-a"}
-					Expect(labelSvc.NewWriter(tx).Create(ctx, l)).To(Succeed())
-					s := &status.Status[any]{
-						Key:     "labeled-status",
-						Name:    "Labeled",
-						Variant: status.VariantInfo,
-						Time:    telem.Now(),
-					}
-					Expect(svc.NewWriter(tx).Set(ctx, s)).To(Succeed())
-					Expect(
-						labelSvc.NewWriter(tx).
-							Label(ctx, s.ResourceID(), []label.Key{l.Key}),
-					).To(Succeed())
+					l := createLabel(ctx, "status-label-a")
+					s := newStatus("labeled-status")
+					s.Labels = []label.Key{l}
+					Expect(svc.NewWriter(tx).Set(ctx, &s)).To(Succeed())
 					var statuses []status.Status[any]
 					Expect(svc.NewRetrieve[any]().
-						Where(status.MatchLabels[any](l.Key)).
+						Where(status.MatchLabels[any](l)).
 						Entries(&statuses).
 						Exec(ctx, tx)).To(Succeed())
 					keys := make([]status.Key, len(statuses))
@@ -581,6 +744,35 @@ var _ = Describe("Status", Ordered, func() {
 					var statuses []status.Status[any]
 					Expect(svc.NewRetrieve[any]().
 						Where(status.MatchLabels[any](l.Key)).
+						Entries(&statuses).
+						Exec(ctx, tx)).To(Succeed())
+					Expect(statuses).To(BeEmpty())
+				},
+			)
+		})
+
+		Describe("MatchOwners", func() {
+			It("Should retrieve the statuses the owners hold", func(ctx SpecContext) {
+				a, b := createRack(ctx, 6), createRack(ctx, 7)
+				for _, owner := range []resource.ID{a, b} {
+					s := newStatus("")
+					s.Owner = &owner
+					Expect(w.Set(ctx, &s)).To(Succeed())
+				}
+				var statuses []status.Status[any]
+				Expect(svc.NewRetrieve[any]().
+					Where(status.MatchOwners[any](a)).
+					Entries(&statuses).
+					Exec(ctx, tx)).To(Succeed())
+				Expect(statuses).To(HaveLen(1))
+				Expect(statuses[0].Owner).To(HaveValue(Equal(a)))
+			})
+			It(
+				"Should match nothing for an owner with no status",
+				func(ctx SpecContext) {
+					var statuses []status.Status[any]
+					Expect(svc.NewRetrieve[any]().
+						Where(status.MatchOwners[any](createRack(ctx, 8))).
 						Entries(&statuses).
 						Exec(ctx, tx)).To(Succeed())
 					Expect(statuses).To(BeEmpty())
@@ -758,6 +950,26 @@ var _ = Describe("Status", Ordered, func() {
 				retrieveA.Entry(&retrieved).Exec(ctx, tx),
 			).To(MatchError(ContainSubstring("all codecs failed to decode")))
 		})
+	})
+
+	Describe("SetMissing", func() {
+		BeforeEach(openTx)
+		It(
+			"Should write a status for each owner that holds none",
+			func(ctx SpecContext) {
+				held, missing := createRack(ctx, 9), createRack(ctx, 10)
+				existing := newStatus("")
+				existing.Owner = &held
+				existing.Message = "Running"
+				Expect(w.Set(ctx, &existing)).To(Succeed())
+				backfill := []status.Status[any]{newStatus(""), newStatus("")}
+				backfill[0].Owner, backfill[1].Owner = &held, &missing
+				Expect(svc.SetMissing(ctx, tx, backfill)).To(Succeed())
+				Expect(retrieve(ctx, existing.Key).Message).To(Equal("Running"))
+				key, _ := statusv2.MigrateKey(missing.String())
+				Expect(w.KeyOf(missing)).To(Equal(key))
+			},
+		)
 	})
 
 	Describe("Observe", func() {

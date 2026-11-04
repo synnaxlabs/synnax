@@ -8,6 +8,7 @@
 // included in the file licenses/APL.txt.
 
 import "schemas/synnax/label"
+import "schemas/synnax/resource"
 import "schemas/x/telem"
 
 @cpp output "client/cpp/status"
@@ -35,7 +36,8 @@ Key = string {
 Status struct<Details?, V extends Variant = Variant> {
     key         Key = create {
         @doc value """
-            is a unique identifier for this status, auto-generated if not provided.
+            is a unique identifier for this status. The Core assigns a UUID when a
+            status has no key and its owner holds no status.
         """
         @key
     }
@@ -44,6 +46,7 @@ Status struct<Details?, V extends Variant = Variant> {
             is the name of what the status is about, such as a task, device, or rack.
             Empty when the status is not about a named thing.
         """
+        @search
     }
     variant     V               {
         @doc value """
@@ -73,19 +76,30 @@ Status struct<Details?, V extends Variant = Variant> {
         """
         @go marshal json_only
     }
-    labels      label.Label[]?  {
-        @doc value  "contains optional labels for categorization and filtering."
-        @go marshal omit
+    labels      label.Key[] = [] {
+        @doc value     "are the keys of the labels attached to the status."
+        @ref on_delete detach
+    }
+    owner       resource.ID?    {
+        @doc value     """
+            is the resource the status reports on, such as a task, device, or rack. An
+            owner holds at most one status. Empty for a status that no resource owns.
+        """
+        @ref on_delete cascade
+        @ref types     rack task device channel
+        @ref unique
     }
 
     @create
     @doc value         """
         is a standardized message used to communicate state across the Synnax platform.
         Statuses support different severity variants and can carry component-specific
-        details. A status is uniquely identified by a key and may carry a human-readable
-        name and labels for categorization and filtering.
+        details. A status is uniquely identified by a key, may name the resource that
+        owns it, and may carry a human-readable name and labels.
     """
     @go marshal
     @go to_any
+    @resource type     "status"
+    @retrieve indexes
     @ts concrete_types
 }

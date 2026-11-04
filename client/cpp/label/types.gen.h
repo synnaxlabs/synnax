@@ -14,6 +14,7 @@
 #include <string>
 #include <utility>
 
+#include "client/cpp/resource/id.h"
 #include "x/cpp/color/color.h"
 #include "x/cpp/errors/errors.h"
 #include "x/cpp/json/json.h"
@@ -47,4 +48,10 @@ struct Label {
     static std::pair<Label, x::errors::Error>
     from_proto(const ::service::label::pb::Label &pb);
 };
+
+const synnax::resource::ID RESOURCE_TYPE("label", "");
+
+inline synnax::resource::ID resource_id(const Key &key) {
+    return synnax::resource::ID("label", key.to_string());
+}
 }

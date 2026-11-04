@@ -12,11 +12,16 @@ package status
 import (
 	"context"
 	"encoding/json"
+	"slices"
+	"uuid"
 
+	"github.com/samber/lo"
 	"github.com/synnaxlabs/gorp"
-	"github.com/synnaxlabs/synnax/pkg/service/group"
+	"github.com/synnaxlabs/synnax/pkg/service/label"
 	"github.com/synnaxlabs/synnax/pkg/service/ontology"
 	"github.com/synnaxlabs/synnax/pkg/service/resource"
+	"github.com/synnaxlabs/x/errors"
+	"github.com/synnaxlabs/x/query"
 	"github.com/synnaxlabs/x/validate"
 )
 
@@ -26,106 +31,76 @@ import (
 type Writer struct {
 	tx        gorp.Tx
 	table     *gorp.Table[Key, Status[any]]
+	indexes   indexes
 	otgWriter ontology.Writer
-	otg       *ontology.Ontology
-	group     group.Group
 }
 
-// Set creates or updates a status within the DB. If the Status already has a key and
-// an existing Status already exists with that key, the existing status will be updated.
+// Set creates or updates a status. A status with an owner goes to the status its owner
+// holds, whatever key it carries. Otherwise, Set uses the status's key, or a new UUID
+// when the key is empty. An update keeps the stored labels and adds the ones s carries,
+// and keeps the stored owner when s has none. On return, s holds what was stored.
 func (w Writer) Set[D any](ctx context.Context, s *Status[D]) error {
-	return w.SetWithParent(ctx, s, resource.ID{})
-}
-
-// SetWithParent creates or updates a status as a child of the ontology.Resource with
-// the given ID. If the status already exists and a parent is provided, the existing
-// parent relationship will be deleted and a new parent relationship will be created. If
-// the status already exists and no parent is provided, the existing parent relationship
-// will be preserved. If an empty parent is provided, the status will be created under
-// the top level "Statuses" group.
-func (w Writer) SetWithParent[D any](
-	ctx context.Context,
-	s *Status[D],
-	parent resource.ID,
-) error {
-	hasParent := !parent.IsZero()
-	if !hasParent {
-		parent = w.group.ResourceID()
-	}
 	if err := w.validate(*s); err != nil {
 		return err
 	}
-	exists, err := gorp.NewRetrieve[Key, Status[D]]().Where(gorp.MatchKeys[Key, Status[D]](s.Key)).
-		Exists(ctx, w.tx)
-	if err != nil {
+	if err := w.resolve(ctx, s); err != nil {
 		return err
 	}
-	if err = w.table.NewCreate().Entry(new(s.ToAny())).Exec(ctx, w.tx); err != nil {
+	if err := w.table.NewCreate().Entry(new(s.ToAny())).Exec(ctx, w.tx); err != nil {
 		return err
 	}
-	otgID := s.ResourceID()
-	if err = w.otgWriter.DefineResources(ctx, otgID); err != nil {
-		return err
+	return w.otgWriter.DefineResources(ctx, s.ResourceID())
+}
+
+// SetMany calls Set for each status, in order.
+func (w Writer) SetMany[D any](ctx context.Context, statuses *[]Status[D]) error {
+	if statuses == nil {
+		return nil
 	}
-	// Status already exists and parent provided = delete incoming relationships and
-	// define new parent Status already exists and no parent provided = do nothing
-	// Status does not exist = define parent
-	if exists && hasParent {
-		if hasRel, err := w.otg.RelationshipExists(ctx, w.tx, ontology.Relationship{
-			From: parent,
-			Type: ontology.RelationshipTypeParentOf,
-			To:   otgID,
-		}); hasRel || err != nil {
-			return err
-		}
-		if err = w.otgWriter.DeleteIncomingRelationshipsOfType(
-			ctx,
-			otgID,
-			ontology.RelationshipTypeParentOf,
-		); err != nil {
-			return err
-		}
-		if err = w.otgWriter.DefineRelationships(
-			ctx, parent, ontology.RelationshipTypeParentOf, otgID,
-		); err != nil {
-			return err
-		}
-	} else if !exists {
-		if err = w.otgWriter.DefineRelationships(
-			ctx, parent, ontology.RelationshipTypeParentOf, otgID,
-		); err != nil {
+	for i := range *statuses {
+		if err := w.Set(ctx, &(*statuses)[i]); err != nil {
 			return err
 		}
 	}
 	return nil
 }
 
-// SetMany creates or updates multiple statuses within the DB. If any of the statuses
-// already exist, they will be updated.
-func (w Writer) SetMany[D any](ctx context.Context, statuses *[]Status[D]) error {
-	return w.SetManyWithParent(ctx, statuses, resource.ID{})
+// KeyOf returns the key of the status that owner holds. It returns query.ErrNotFound
+// when owner holds no status.
+func (w Writer) KeyOf(owner resource.ID) (Key, error) {
+	keys, err := w.indexes.owner.Get(w.tx, resourceTarget(owner))
+	if err != nil {
+		return "", err
+	}
+	if len(keys) == 0 {
+		return "", errors.Wrapf(query.ErrNotFound, "%s holds no status", owner)
+	}
+	return keys[0], nil
 }
 
-// SetManyWithParent creates or updates multiple statuses within the DB as child
-// statuses of the ontology.Resource with the given ID. If any of the statuses already
-// exist, they will be updated. If the status already exists and a parent is provided,
-// the existing parent relationship will be deleted and a new parent relationship will
-// be created. If the status already exists and no parent is provided, the existing
-// parent relationship will be preserved. If an empty parent is provided, the status
-// will be created under the top level "Statuses" group.
-func (w Writer) SetManyWithParent[D any](
-	ctx context.Context,
-	statuses *[]Status[D],
-	parent resource.ID,
-) error {
-	if statuses == nil {
-		return nil
-	}
-	for i, s := range *statuses {
-		if err := w.SetWithParent(ctx, &s, parent); err != nil {
+func (w Writer) resolve[D any](ctx context.Context, s *Status[D]) error {
+	if s.Owner != nil {
+		key, err := w.KeyOf(*s.Owner)
+		if err == nil {
+			s.Key = key
+		} else if !errors.Is(err, query.ErrNotFound) {
 			return err
 		}
-		(*statuses)[i] = s
+	}
+	if s.Key == "" {
+		s.Key = uuid.New().String()
+		return nil
+	}
+	stored, err := w.retrieveRaw(ctx, s.Key)
+	if errors.Is(err, query.ErrNotFound) {
+		return nil
+	}
+	if err != nil {
+		return err
+	}
+	s.Labels = lo.Union(stored.Labels, s.Labels)
+	if s.Owner == nil {
+		s.Owner = stored.Owner
 	}
 	return nil
 }
@@ -139,17 +114,59 @@ func (w Writer) Rename(ctx context.Context, key Key, name string) error {
 	if err := v.Error(); err != nil {
 		return err
 	}
-	// Raw details round-trip byte for byte. Decoding them as any would round numbers
-	// past float64 precision.
-	var s Status[json.RawMessage]
-	if err := gorp.NewRetrieve[Key, Status[json.RawMessage]]().
-		Where(gorp.MatchKeys[Key, Status[json.RawMessage]](key)).
-		Entry(&s).
-		Exec(ctx, w.tx); err != nil {
+	return w.update(ctx, key, func(s *Status[json.RawMessage]) { s.Name = name })
+}
+
+// SetLabels adds labels to the status with the given key. With replace, labels become
+// the status's only labels. It returns query.ErrNotFound if no status has the key.
+func (w Writer) SetLabels(
+	ctx context.Context,
+	key Key,
+	labels []label.Key,
+	replace bool,
+) error {
+	return w.update(ctx, key, func(s *Status[json.RawMessage]) {
+		if replace {
+			s.Labels = slices.Clone(labels)
+			return
+		}
+		s.Labels = lo.Union(s.Labels, labels)
+	})
+}
+
+// RemoveLabels removes labels from the status with the given key. It returns
+// query.ErrNotFound if no status has the key.
+func (w Writer) RemoveLabels(ctx context.Context, key Key, labels []label.Key) error {
+	return w.update(ctx, key, func(s *Status[json.RawMessage]) {
+		s.Labels = lo.Without(s.Labels, labels...)
+	})
+}
+
+// update rewrites the status with the given key. Raw details round-trip byte for byte,
+// where decoding them as any would round numbers past float64 precision.
+func (w Writer) update(
+	ctx context.Context,
+	key Key,
+	change func(*Status[json.RawMessage]),
+) error {
+	s, err := w.retrieveRaw(ctx, key)
+	if err != nil {
 		return err
 	}
-	s.Name = name
+	change(&s)
 	return w.table.NewCreate().Entry(new(s.ToAny())).Exec(ctx, w.tx)
+}
+
+func (w Writer) retrieveRaw(
+	ctx context.Context,
+	key Key,
+) (Status[json.RawMessage], error) {
+	var s Status[json.RawMessage]
+	err := gorp.NewRetrieve[Key, Status[json.RawMessage]]().
+		Where(gorp.MatchKeys[Key, Status[json.RawMessage]](key)).
+		Entry(&s).
+		Exec(ctx, w.tx)
+	return s, err
 }
 
 // Delete deletes the statuses with the given keys. Delete is idempotent.
@@ -164,7 +181,6 @@ func (w Writer) Delete(ctx context.Context, keys ...Key) error {
 
 func (w Writer) validate[D any](s Status[D]) error {
 	v := validate.New("status.status")
-	v.NotEmptyString("key", s.Key)
 	v.Positive("time", s.Time)
 	v.NotEmptyString("variant", s.Variant)
 	return v.Error()

@@ -39,12 +39,11 @@ func createRackWithStatus(ctx SpecContext, name string) rack.Rack {
 	r := rack.Rack{Name: name}
 	Expect(svc.Rack.NewWriter(nil).Create(ctx, &r)).To(Succeed())
 	Expect(svc.Status.NewWriter(nil).Set(ctx, &rack.Status{
-		Key:     rack.StatusKey(r.Key),
+		Owner:   new(r.ResourceID()),
 		Name:    r.Name,
 		Time:    telem.Now(),
 		Variant: status.VariantSuccess,
 		Message: "Rack is running",
-		Details: rack.StatusDetails{Rack: r.Key},
 	})).To(Succeed())
 	return r
 }
@@ -62,7 +61,7 @@ var _ = Describe("Create", func() {
 		Expect(res.Racks).To(HaveLen(1))
 		r := res.Racks[0]
 		Expect(r.Status).ToNot(BeNil())
-		Expect(r.Status.Key).To(Equal(rack.StatusKey(r.Key)))
+		Expect(r.Status.Owner).To(HaveValue(Equal(r.ResourceID())))
 		Expect(r.Status.Variant).To(Equal(status.VariantWarning))
 	})
 	It(
@@ -237,8 +236,9 @@ var _ = Describe("Retrieve", func() {
 		withoutStatus := rack.Rack{Name: "Without Status"}
 		Expect(svc.Rack.NewWriter(nil).Create(ctx, &withStatus)).To(Succeed())
 		Expect(svc.Rack.NewWriter(nil).Create(ctx, &withoutStatus)).To(Succeed())
-		Expect(svc.Status.NewWriter(nil).Delete(
-			ctx, rack.StatusKey(withoutStatus.Key),
+		w := svc.Status.NewWriter(nil)
+		Expect(w.Delete(
+			ctx, MustSucceed(w.KeyOf(withoutStatus.ResourceID())),
 		)).To(Succeed())
 		grant(
 			ctx, access.ActionRetrieve, u.ResourceID(),
@@ -252,7 +252,7 @@ var _ = Describe("Retrieve", func() {
 		Expect(res.Racks[0].Key).To(Equal(withoutStatus.Key))
 		Expect(res.Racks[0].Status).To(BeNil())
 		Expect(res.Racks[1].Key).To(Equal(withStatus.Key))
-		Expect(res.Racks[1].Status.Key).To(Equal(rack.StatusKey(withStatus.Key)))
+		Expect(res.Racks[1].Status.Owner).To(HaveValue(Equal(withStatus.ResourceID())))
 	})
 })
 

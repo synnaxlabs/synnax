@@ -18,7 +18,7 @@ from uuid import UUID
 from pydantic import BaseModel, Field
 
 from synnax import label
-from synnax.resource import ID
+from synnax.resource.payload import ID
 from x import color as color_
 from x import telem
 
@@ -36,18 +36,17 @@ class Payload(BaseModel):
             timestamps.
         color: Is an optional display color for visual identification of the range in
             user interfaces.
-        labels: Contains optional labels attached to this range for categorization and
-            filtering.
-        parent: Is an optional parent range for hierarchical organization. Ranges can be
-            nested within other ranges.
+        labels: Are the keys of the labels attached to the range.
+        parent: Is the key of the range this range is nested in. Empty for a top-level
+            range.
     """
 
     key: Key
     name: str = Field(min_length=1)
     time_range: telem.TimeRange
     color: color_.Color | None = None
-    labels: list[label.Label] | None = None
-    parent: Payload | None = None
+    labels: list[label.Key] = Field(default_factory=list)
+    parent: Key | None = None
 
     @_override
     def __hash__(self) -> int:
@@ -76,10 +75,7 @@ Ref = Annotated[
 ]
 
 
-Payload.model_rebuild()
-
-
-TYPE_RESOURCE_ID = ID(type="range")
+RESOURCE_TYPE = ID(type="range")
 
 
 def resource_id(key: Key) -> ID:

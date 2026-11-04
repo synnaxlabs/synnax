@@ -24,6 +24,7 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/service/imex"
 	"github.com/synnaxlabs/synnax/pkg/service/ontology"
 	"github.com/synnaxlabs/synnax/pkg/service/rack"
+	"github.com/synnaxlabs/synnax/pkg/service/resource"
 	"github.com/synnaxlabs/synnax/pkg/service/signals"
 	"github.com/synnaxlabs/synnax/pkg/service/status"
 	"github.com/synnaxlabs/synnax/pkg/service/task/config"
@@ -155,6 +156,7 @@ func OpenService(
 	defer func() { err = cleanup(err) }()
 	if s.table, err = gorp.OpenTable(ctx, gorp.TableConfig[Key, Task]{
 		DB:      cfg.DB,
+		Name:    string(resource.TypeTask),
 		Indexes: []gorp.Index[Key, Task]{s.search},
 		Migrations: versions.NewMigrations(versions.MigrationsConfig{
 			Status:   cfg.Status,
@@ -326,8 +328,12 @@ func (s *Service) NewRetrieve() Retrieve {
 }
 
 func (s *Service) onSuspectRack(ctx context.Context, rackStat rack.Status) error {
+	rackKey, err := rack.KeyFromResourceID(*rackStat.Owner)
+	if err != nil {
+		return err
+	}
 	var tasks []Task
-	if err := s.NewRetrieve().Where(MatchRacks(rackStat.Details.Rack)).
+	if err := s.NewRetrieve().Where(MatchRacks(rackKey)).
 		Entries(&tasks).
 		Exec(ctx, nil); err != nil {
 		return errors.Wrap(err, "failed to retrieve tasks on suspect rack")
@@ -335,14 +341,14 @@ func (s *Service) onSuspectRack(ctx context.Context, rackStat rack.Status) error
 	if len(tasks) == 0 {
 		return nil
 	}
-	byKey := make(map[string]Task, len(tasks))
+	byOwner := make(map[resource.ID]Task, len(tasks))
 	for _, tsk := range tasks {
-		byKey[tsk.ResourceID().String()] = tsk
+		byOwner[tsk.ResourceID()] = tsk
 	}
 	// A task without a status has never reported running, so it gets no copy.
 	var reported []Status
 	if err := s.cfg.Status.NewRetrieve[StatusDetails]().
-		Where(status.MatchKeys[StatusDetails](slices.Collect(maps.Keys(byKey))...)).
+		Where(status.MatchOwners[StatusDetails](slices.Collect(maps.Keys(byOwner))...)).
 		Entries(&reported).
 		Exec(ctx, nil); errors.Skip(err, query.ErrNotFound) != nil {
 		return errors.Wrap(err, "failed to retrieve statuses on suspect rack")
@@ -352,11 +358,12 @@ func (s *Service) onSuspectRack(ctx context.Context, rackStat rack.Status) error
 		if !prev.Details.Running {
 			continue
 		}
-		tsk := byKey[prev.Key]
+		tsk := byOwner[*prev.Owner]
 		// A silent rack does not undo the deploy the Driver reported, so the config
 		// hash is carried across.
 		statuses = append(statuses, Status{
 			Key:     prev.Key,
+			Owner:   prev.Owner,
 			Time:    telem.Now(),
 			Name:    tsk.Name,
 			Variant: rackStat.Variant,
@@ -367,9 +374,8 @@ func (s *Service) onSuspectRack(ctx context.Context, rackStat rack.Status) error
 				rackStat.Name,
 			),
 			Details: StatusDetails{
-				Task:       tsk.Key,
 				ConfigHash: prev.Details.ConfigHash,
-				Rack:       rackStat.Details.Rack,
+				Rack:       rackKey,
 			},
 		})
 	}

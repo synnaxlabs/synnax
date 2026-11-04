@@ -18,7 +18,8 @@ from uuid import uuid4
 from pydantic import BaseModel, Field, JsonValue
 from typing_extensions import TypeVar
 
-from synnax import label
+from synnax import label, resource
+from synnax.resource.payload import ID
 from x import telem
 
 VARIANT_SUCCESS: Literal["success"] = "success"
@@ -44,11 +45,12 @@ Key: TypeAlias = str
 class Status(BaseModel, Generic[Details]):
     """Is a standardized message used to communicate state across the Synnax platform.
     Statuses support different severity variants and can carry component-specific
-    details. A status is uniquely identified by a key and may carry a human-readable
-    name and labels for categorization and filtering.
+    details. A status is uniquely identified by a key, may name the resource that owns
+    it, and may carry a human-readable name and labels.
 
     Attributes:
-        key: Is a unique identifier for this status, auto-generated if not provided.
+        key: Is a unique identifier for this status. The Core assigns a UUID when a
+            status has no key and its owner holds no status.
         name: Is the name of what the status is about, such as a task, device, or rack.
             Empty when the status is not about a named thing.
         variant: Indicates the severity of the status. One of success, info, warning,
@@ -61,7 +63,9 @@ class Status(BaseModel, Generic[Details]):
             enough.
         time: Is the timestamp when the status was created.
         details: Contains optional component-specific custom details for the status.
-        labels: Contains optional labels for categorization and filtering.
+        labels: Are the keys of the labels attached to the status.
+        owner: Is the resource the status reports on, such as a task, device, or rack.
+            An owner holds at most one status. Empty for a status that no resource owns.
     """
 
     key: Key = Field(default_factory=lambda: str(uuid4()))
@@ -75,8 +79,16 @@ class Status(BaseModel, Generic[Details]):
         le=9223372036854775807,
     )
     details: Details | None = None
-    labels: list[label.Label] | None = None
+    labels: list[label.Key] = Field(default_factory=list)
+    owner: resource.ID | None = None
 
     @_override
     def __hash__(self) -> int:
         return hash(self.key)
+
+
+RESOURCE_TYPE = ID(type="status")
+
+
+def resource_id(key: Key) -> ID:
+    return ID(type="status", key=str(key))

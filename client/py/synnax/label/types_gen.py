@@ -17,6 +17,7 @@ from uuid import UUID, uuid4
 
 from pydantic import BaseModel, Field
 
+from synnax.resource.payload import ID
 from x import color as color_
 
 Key: TypeAlias = UUID
@@ -39,3 +40,10 @@ class Label(BaseModel):
     @_override
     def __hash__(self) -> int:
         return hash(self.key)
+
+
+RESOURCE_TYPE = ID(type="label")
+
+
+def resource_id(key: Key) -> ID:
+    return ID(type="label", key=str(key))
