@@ -21,7 +21,7 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/service/access/rbac"
 	"github.com/synnaxlabs/synnax/pkg/service/channel"
 	"github.com/synnaxlabs/synnax/pkg/service/framer"
-	"github.com/synnaxlabs/synnax/pkg/service/ontology"
+	"github.com/synnaxlabs/synnax/pkg/service/resource"
 	"github.com/synnaxlabs/x/address"
 	"github.com/synnaxlabs/x/config"
 	"github.com/synnaxlabs/x/confluence"
@@ -153,7 +153,7 @@ func (s *Service) Delete(
 	if err := s.access.NewEnforcer(tx).Enforce(ctx, access.Request{
 		Subject: auth.GetSubject(ctx),
 		Action:  access.ActionDelete,
-		Objects: framer.OntologyIDs(keys),
+		Objects: framer.ResourceIDs(keys),
 	}); err != nil {
 		return struct{}{}, err
 	}
@@ -240,7 +240,7 @@ func (s *Service) enforceRetrieve(ctx context.Context, keys channel.Keys) error 
 	return s.access.NewEnforcer(nil).Enforce(ctx, access.Request{
 		Subject: auth.GetSubject(ctx),
 		Action:  access.ActionRetrieve,
-		Objects: framer.OntologyIDs(keys),
+		Objects: framer.ResourceIDs(keys),
 	})
 }
 
@@ -355,7 +355,7 @@ func (s *Service) openIterator(
 	if err = s.access.NewEnforcer(nil).Enforce(ctx, access.Request{
 		Subject: auth.GetSubject(ctx),
 		Action:  access.ActionRetrieve,
-		Objects: framer.OntologyIDs(req.Keys),
+		Objects: framer.ResourceIDs(req.Keys),
 	}); err != nil {
 		return nil, err
 	}
@@ -436,7 +436,7 @@ func (s *Service) Stream(ctx context.Context, stream StreamerStream) error {
 
 func (s *Service) openStreamer(
 	ctx context.Context,
-	subject ontology.ID,
+	subject resource.ID,
 	stream StreamerStream,
 ) (framer.Streamer, StreamerRequest, error) {
 	req, err := stream.Receive()
@@ -446,7 +446,7 @@ func (s *Service) openStreamer(
 	if err = s.access.NewEnforcer(nil).Enforce(ctx, access.Request{
 		Subject: subject,
 		Action:  access.ActionRetrieve,
-		Objects: framer.OntologyIDs(req.Keys),
+		Objects: framer.ResourceIDs(req.Keys),
 	}); err != nil {
 		return nil, req, err
 	}
@@ -634,7 +634,7 @@ func (s *Service) Write(ctx context.Context, stream WriterStream) error {
 
 func (s *Service) openWriter(
 	ctx context.Context,
-	subject ontology.ID,
+	subject resource.ID,
 	stream WriterStream,
 ) (framer.StreamWriter, error) {
 	req, err := stream.Receive()
@@ -645,7 +645,7 @@ func (s *Service) openWriter(
 	if err = s.access.NewEnforcer(nil).Enforce(ctx, access.Request{
 		Subject: subject,
 		Action:  access.ActionCreate,
-		Objects: framer.OntologyIDs(req.Config.Keys),
+		Objects: framer.ResourceIDs(req.Config.Keys),
 	}); err != nil {
 		return nil, err
 	}

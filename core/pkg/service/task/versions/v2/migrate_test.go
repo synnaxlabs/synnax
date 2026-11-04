@@ -28,6 +28,7 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/service/pagerduty"
 	"github.com/synnaxlabs/synnax/pkg/service/rack"
 	racktestutil "github.com/synnaxlabs/synnax/pkg/service/rack/testutil"
+	"github.com/synnaxlabs/synnax/pkg/service/resource"
 	"github.com/synnaxlabs/synnax/pkg/service/status"
 	"github.com/synnaxlabs/synnax/pkg/service/task"
 	"github.com/synnaxlabs/synnax/pkg/service/task/config"
@@ -86,8 +87,8 @@ var _ = Describe("Migrations", func() {
 			Expect(gorp.NewCreate[v1.Key, v1.Task]().
 				Entry(&legacyTask).
 				Exec(ctx, db)).To(Succeed())
-			legacyID := ontology.ID{
-				Type: ontology.ResourceTypeTask,
+			legacyID := resource.ID{
+				Type: resource.TypeTask,
 				Key:  strconv.FormatUint(uint64(legacyKey), 10),
 			}
 			Expect(otg.NewWriter(nil).DefineResources(ctx, legacyID)).To(Succeed())
@@ -136,7 +137,7 @@ var _ = Describe("Migrations", func() {
 
 			var restoredStatus task.Status
 			Expect(stat.NewRetrieve[task.StatusDetails]().
-				Where(status.MatchKeys[task.StatusDetails](task.OntologyID(migrated.Key).String())).
+				Where(status.MatchKeys[task.StatusDetails](task.ResourceID(migrated.Key).String())).
 				Entry(&restoredStatus).
 				Exec(ctx, nil)).To(Succeed())
 			Expect(restoredStatus.Details.Task).To(Equal(migrated.Key))
@@ -144,7 +145,7 @@ var _ = Describe("Migrations", func() {
 			Expect(restoredStatus.Details.Cmd).To(Equal("start"))
 
 			Expect(otg.NewRetrieve().
-				WhereIDs(task.OntologyID(migrated.Key)).
+				WhereIDs(task.ResourceID(migrated.Key)).
 				Exists(ctx, nil)).To(BeTrue())
 			Expect(otg.NewRetrieve().WhereIDs(legacyID).Exists(ctx, nil)).To(BeFalse())
 

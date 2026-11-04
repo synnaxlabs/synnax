@@ -337,7 +337,7 @@ func (s *Service) onSuspectRack(ctx context.Context, rackStat rack.Status) error
 	}
 	byKey := make(map[string]Task, len(tasks))
 	for _, tsk := range tasks {
-		byKey[tsk.OntologyID().String()] = tsk
+		byKey[tsk.ResourceID().String()] = tsk
 	}
 	// A task without a status has never reported running, so it gets no copy.
 	var reported []Status

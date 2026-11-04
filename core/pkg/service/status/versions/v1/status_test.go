@@ -12,7 +12,7 @@ package v1_test
 import (
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
-	"github.com/synnaxlabs/synnax/pkg/service/ontology"
+	"github.com/synnaxlabs/synnax/pkg/service/resource"
 	v1 "github.com/synnaxlabs/synnax/pkg/service/status/versions/v1"
 	"github.com/synnaxlabs/x/telem"
 )
@@ -138,10 +138,10 @@ var _ = Describe("Status", func() {
 			Expect(v1.Status[any]{}.SetOptions()).To(BeNil())
 		})
 	})
-	Describe("OntologyID", func() {
-		It("Should return the status ontology identifier", func() {
-			Expect(v1.Status[any]{Key: "st-1"}.OntologyID()).To(Equal(ontology.ID{
-				Type: ontology.ResourceTypeStatus, Key: "st-1",
+	Describe("ResourceID", func() {
+		It("Should return the status resource identifier", func() {
+			Expect(v1.Status[any]{Key: "st-1"}.ResourceID()).To(Equal(resource.ID{
+				Type: resource.TypeStatus, Key: "st-1",
 			}))
 		})
 	})

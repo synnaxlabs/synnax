@@ -26,6 +26,7 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/service/pagerduty"
 	"github.com/synnaxlabs/synnax/pkg/service/panel"
 	"github.com/synnaxlabs/synnax/pkg/service/project"
+	"github.com/synnaxlabs/synnax/pkg/service/resource"
 	"github.com/synnaxlabs/synnax/pkg/service/task"
 	xjson "github.com/synnaxlabs/x/encoding/json"
 	"github.com/synnaxlabs/x/encoding/zip"
@@ -74,7 +75,7 @@ func createLinePlot(ctx SpecContext, proj project.Key, name string) lineplot.Lin
 	return lp
 }
 
-func createGroup(ctx SpecContext, name string, parent ontology.ID) group.Group {
+func createGroup(ctx SpecContext, name string, parent resource.ID) group.Group {
 	GinkgoHelper()
 	g := MustSucceed(groupSvc.NewWriter(nil).Create(ctx, name, parent))
 	DeferCleanup(func(ctx SpecContext) {
@@ -108,7 +109,7 @@ func createArc(ctx SpecContext, name, source string) arc.Arc {
 }
 
 func createPanel(
-	ctx SpecContext, name string, parent ontology.ID, root panel.Node,
+	ctx SpecContext, name string, parent resource.ID, root panel.Node,
 ) panel.Panel {
 	GinkgoHelper()
 	p := panel.Panel{Name: name, Root: root, Parent: &parent}
@@ -119,7 +120,7 @@ func createPanel(
 	return p
 }
 
-func moveToGroup(ctx SpecContext, child, from, to ontology.ID) {
+func moveToGroup(ctx SpecContext, child, from, to resource.ID) {
 	GinkgoHelper()
 	w := otg.NewWriter(nil)
 	Expect(w.DeleteRelationships(ctx, ontology.Relationship{
@@ -130,14 +131,14 @@ func moveToGroup(ctx SpecContext, child, from, to ontology.ID) {
 	)).To(Succeed())
 }
 
-func addToGroup(ctx SpecContext, child, to ontology.ID) {
+func addToGroup(ctx SpecContext, child, to resource.ID) {
 	GinkgoHelper()
 	Expect(otg.NewWriter(nil).DefineRelationships(
 		ctx, to, ontology.RelationshipTypeParentOf, child,
 	)).To(Succeed())
 }
 
-func resourceTab(id ontology.ID) panel.Tab {
+func resourceTab(id resource.ID) panel.Tab {
 	return panel.Tab{Variant: panel.ResourceTab{Key: uuid.New(), Resource: id}}
 }
 
@@ -147,7 +148,7 @@ func leaf(tabs ...panel.Tab) panel.Node {
 	}}
 }
 
-func childrenOf(ctx SpecContext, id ontology.ID) []ontology.Resource {
+func childrenOf(ctx SpecContext, id resource.ID) []ontology.Resource {
 	GinkgoHelper()
 	var children []ontology.Resource
 	Expect(otg.NewRetrieve().
@@ -179,7 +180,7 @@ var _ = Describe("Export", func() {
 		proj := createProject(ctx, "Test Stand 12")
 		l := createLog(ctx, proj.Key, "Metrics Log")
 		p := createPanel(
-			ctx, "Controls", proj.OntologyID(), leaf(resourceTab(l.OntologyID())),
+			ctx, "Controls", proj.ResourceID(), leaf(resourceTab(l.ResourceID())),
 		)
 		files, members := MustSucceed2(svc.Export(ctx, proj.Key, xjson.Codec))
 		Expect(files).To(HaveLen(3))
@@ -190,17 +191,17 @@ var _ = Describe("Export", func() {
 		Expect(root["tabs"]).To(ConsistOf(
 			HaveKeyWithValue("resource", "Metrics Log.json"),
 		))
-		Expect(members).To(ConsistOf(l.OntologyID(), p.OntologyID()))
+		Expect(members).To(ConsistOf(l.ResourceID(), p.ResourceID()))
 	})
 
 	It("Should place grouped members in nested directories", func(ctx SpecContext) {
 		proj := createProject(ctx, "Grouped")
-		outer := createGroup(ctx, "Propulsion", proj.OntologyID())
-		inner := createGroup(ctx, "Tanks", outer.OntologyID())
+		outer := createGroup(ctx, "Propulsion", proj.ResourceID())
+		inner := createGroup(ctx, "Tanks", outer.ResourceID())
 		l := createLog(ctx, proj.Key, "Pressure")
-		moveToGroup(ctx, l.OntologyID(), proj.OntologyID(), inner.OntologyID())
+		moveToGroup(ctx, l.ResourceID(), proj.ResourceID(), inner.ResourceID())
 		createPanel(
-			ctx, "Controls", proj.OntologyID(), leaf(resourceTab(l.OntologyID())),
+			ctx, "Controls", proj.ResourceID(), leaf(resourceTab(l.ResourceID())),
 		)
 		files, members := MustSucceed2(svc.Export(ctx, proj.Key, xjson.Codec))
 		Expect(files).To(HaveKey("Propulsion/Tanks/Pressure.json"))
@@ -208,12 +209,12 @@ var _ = Describe("Export", func() {
 		Expect(root["tabs"]).To(ConsistOf(
 			HaveKeyWithValue("resource", "Propulsion/Tanks/Pressure.json"),
 		))
-		Expect(members).To(ContainElements(outer.OntologyID(), inner.OntologyID()))
+		Expect(members).To(ContainElements(outer.ResourceID(), inner.ResourceID()))
 	})
 
 	It("Should drop a group with no exported members", func(ctx SpecContext) {
 		proj := createProject(ctx, "Sparse")
-		createGroup(ctx, "Empty Group", proj.OntologyID())
+		createGroup(ctx, "Empty Group", proj.ResourceID())
 		files, members := MustSucceed2(svc.Export(ctx, proj.Key, xjson.Codec))
 		Expect(files).To(HaveLen(1))
 		Expect(members).To(BeEmpty())
@@ -226,14 +227,14 @@ var _ = Describe("Export", func() {
 		createPanel(
 			ctx,
 			"Controls",
-			proj.OntologyID(),
-			leaf(resourceTab(l.OntologyID()), resourceTab(lp.OntologyID())),
+			proj.ResourceID(),
+			leaf(resourceTab(l.ResourceID()), resourceTab(lp.ResourceID())),
 		)
 		files, members := MustSucceed2(svc.Export(ctx, proj.Key, xjson.Codec))
 		Expect(files).To(HaveLen(3))
 		root := decode(files["Controls.json"])["root"].(map[string]any)
 		Expect(root["tabs"]).To(ConsistOf(HaveKeyWithValue("resource", "Kept.json")))
-		Expect(members).ToNot(ContainElement(lp.OntologyID()))
+		Expect(members).ToNot(ContainElement(lp.ResourceID()))
 	})
 
 	It("Should export the tasks a panel's tabs reference beside it", func(
@@ -242,7 +243,7 @@ var _ = Describe("Export", func() {
 		proj := createProject(ctx, "Panel Tasks")
 		t := createTask(ctx, "Sequence")
 		p := createPanel(
-			ctx, "Controls", proj.OntologyID(), leaf(resourceTab(t.OntologyID())),
+			ctx, "Controls", proj.ResourceID(), leaf(resourceTab(t.ResourceID())),
 		)
 		files, members := MustSucceed2(svc.Export(ctx, proj.Key, xjson.Codec))
 		Expect(files).To(HaveKey("Sequence.json"))
@@ -250,7 +251,7 @@ var _ = Describe("Export", func() {
 		Expect(root["tabs"]).To(ConsistOf(
 			HaveKeyWithValue("resource", "Sequence.json"),
 		))
-		Expect(members).To(ConsistOf(t.OntologyID(), p.OntologyID()))
+		Expect(members).To(ConsistOf(t.ResourceID(), p.ResourceID()))
 	})
 
 	It("Should export the Arcs a panel's tabs reference beside it", func(
@@ -259,7 +260,7 @@ var _ = Describe("Export", func() {
 		proj := createProject(ctx, "Panel Arcs")
 		a := createArc(ctx, "Startup", "x := 1")
 		p := createPanel(
-			ctx, "Controls", proj.OntologyID(), leaf(resourceTab(a.OntologyID())),
+			ctx, "Controls", proj.ResourceID(), leaf(resourceTab(a.ResourceID())),
 		)
 		files, members := MustSucceed2(svc.Export(ctx, proj.Key, xjson.Codec))
 		Expect(files).To(HaveKey("Startup.json"))
@@ -271,17 +272,17 @@ var _ = Describe("Export", func() {
 		Expect(root["tabs"]).To(ConsistOf(
 			HaveKeyWithValue("resource", "Startup.json"),
 		))
-		Expect(members).To(ConsistOf(a.OntologyID(), p.OntologyID()))
+		Expect(members).To(ConsistOf(a.ResourceID(), p.ResourceID()))
 	})
 
 	It("Should place a task referenced by two panels once", func(ctx SpecContext) {
 		proj := createProject(ctx, "Shared Task")
 		t := createTask(ctx, "Sequence")
 		createPanel(
-			ctx, "First", proj.OntologyID(), leaf(resourceTab(t.OntologyID())),
+			ctx, "First", proj.ResourceID(), leaf(resourceTab(t.ResourceID())),
 		)
 		createPanel(
-			ctx, "Second", proj.OntologyID(), leaf(resourceTab(t.OntologyID())),
+			ctx, "Second", proj.ResourceID(), leaf(resourceTab(t.ResourceID())),
 		)
 		files, members := MustSucceed2(svc.Export(ctx, proj.Key, xjson.Codec))
 		Expect(files).To(HaveLen(4))
@@ -292,16 +293,16 @@ var _ = Describe("Export", func() {
 				HaveKeyWithValue("resource", "Sequence.json"),
 			))
 		}
-		Expect(members).To(ContainElement(t.OntologyID()))
+		Expect(members).To(ContainElement(t.ResourceID()))
 	})
 
 	It("Should skip a task tab whose task no longer exists", func(ctx SpecContext) {
 		proj := createProject(ctx, "Dangling Task")
-		dangling := ontology.ID{
-			Type: ontology.ResourceTypeTask,
+		dangling := resource.ID{
+			Type: resource.TypeTask,
 			Key:  uuid.New().String(),
 		}
-		createPanel(ctx, "Controls", proj.OntologyID(), leaf(resourceTab(dangling)))
+		createPanel(ctx, "Controls", proj.ResourceID(), leaf(resourceTab(dangling)))
 		files, _ := MustSucceed2(svc.Export(ctx, proj.Key, xjson.Codec))
 		Expect(files).To(HaveLen(2))
 		root := decode(files["Controls.json"])["root"].(map[string]any)
@@ -310,17 +311,17 @@ var _ = Describe("Export", func() {
 
 	It("Should place a document with two parent groups once", func(ctx SpecContext) {
 		proj := createProject(ctx, "Dual Parent")
-		first := createGroup(ctx, "First", proj.OntologyID())
-		second := createGroup(ctx, "Second", proj.OntologyID())
+		first := createGroup(ctx, "First", proj.ResourceID())
+		second := createGroup(ctx, "Second", proj.ResourceID())
 		l := createLog(ctx, proj.Key, "Shared")
-		moveToGroup(ctx, l.OntologyID(), proj.OntologyID(), first.OntologyID())
-		addToGroup(ctx, l.OntologyID(), second.OntologyID())
+		moveToGroup(ctx, l.ResourceID(), proj.ResourceID(), first.ResourceID())
+		addToGroup(ctx, l.ResourceID(), second.ResourceID())
 		files, members := MustSucceed2(svc.Export(ctx, proj.Key, xjson.Codec))
 		// The manifest plus one placement: the first parent keeps the document, and the
 		// other group drops as empty.
 		Expect(files).To(HaveLen(2))
 		Expect(members).To(HaveLen(2))
-		Expect(members).To(ContainElement(l.OntologyID()))
+		Expect(members).To(ContainElement(l.ResourceID()))
 	})
 
 	It("Should suffix the second of two members in one directory that collide", func(
@@ -336,12 +337,12 @@ var _ = Describe("Export", func() {
 
 	It("Should suffix the second of two colliding groups", func(ctx SpecContext) {
 		proj := createProject(ctx, "Twin Groups")
-		g1 := createGroup(ctx, "Valves", proj.OntologyID())
-		g2 := createGroup(ctx, "valves", proj.OntologyID())
+		g1 := createGroup(ctx, "Valves", proj.ResourceID())
+		g2 := createGroup(ctx, "valves", proj.ResourceID())
 		l1 := createLog(ctx, proj.Key, "A")
 		l2 := createLog(ctx, proj.Key, "B")
-		moveToGroup(ctx, l1.OntologyID(), proj.OntologyID(), g1.OntologyID())
-		moveToGroup(ctx, l2.OntologyID(), proj.OntologyID(), g2.OntologyID())
+		moveToGroup(ctx, l1.ResourceID(), proj.ResourceID(), g1.ResourceID())
+		moveToGroup(ctx, l2.ResourceID(), proj.ResourceID(), g2.ResourceID())
 		files, _ := MustSucceed2(svc.Export(ctx, proj.Key, xjson.Codec))
 		Expect(files).To(HaveKey("Valves/A.json"))
 		Expect(files).To(HaveKey("valves (1)/B.json"))
@@ -349,10 +350,10 @@ var _ = Describe("Export", func() {
 
 	It("Should allow equal names in different directories", func(ctx SpecContext) {
 		proj := createProject(ctx, "Shadowed")
-		g := createGroup(ctx, "Propulsion", proj.OntologyID())
+		g := createGroup(ctx, "Propulsion", proj.ResourceID())
 		outerLog := createLog(ctx, proj.Key, "Pressure")
 		innerLog := createLog(ctx, proj.Key, "Pressure")
-		moveToGroup(ctx, innerLog.OntologyID(), proj.OntologyID(), g.OntologyID())
+		moveToGroup(ctx, innerLog.ResourceID(), proj.ResourceID(), g.ResourceID())
 		files, _ := MustSucceed2(svc.Export(ctx, proj.Key, xjson.Codec))
 		Expect(files).To(HaveKey("Pressure.json"))
 		Expect(files).To(HaveKey("Propulsion/Pressure.json"))
@@ -380,9 +381,9 @@ var _ = Describe("Export", func() {
 
 	It("Should allow a reserved name inside a group directory", func(ctx SpecContext) {
 		proj := createProject(ctx, "Nested Reserved")
-		g := createGroup(ctx, "Configs", proj.OntologyID())
+		g := createGroup(ctx, "Configs", proj.ResourceID())
 		l := createLog(ctx, proj.Key, "manifest")
-		moveToGroup(ctx, l.OntologyID(), proj.OntologyID(), g.OntologyID())
+		moveToGroup(ctx, l.ResourceID(), proj.ResourceID(), g.ResourceID())
 		files, _ := MustSucceed2(svc.Export(ctx, proj.Key, xjson.Codec))
 		Expect(files).To(HaveKey("Configs/manifest.json"))
 	})
@@ -418,9 +419,9 @@ func bundlePanel(name string, paths ...string) []byte {
 	}))
 }
 
-func retrievePanel(ctx SpecContext, id ontology.ID) panel.Panel {
+func retrievePanel(ctx SpecContext, id resource.ID) panel.Panel {
 	GinkgoHelper()
-	keys := MustSucceed(panel.KeysFromOntologyIDs([]ontology.ID{id}))
+	keys := MustSucceed(panel.KeysFromResourceIDs([]resource.ID{id}))
 	var p panel.Panel
 	Expect(panelSvc.NewRetrieve().
 		Where(panel.MatchKeys(keys...)).
@@ -429,7 +430,7 @@ func retrievePanel(ctx SpecContext, id ontology.ID) panel.Panel {
 	return p
 }
 
-func firstTabResource(p panel.Panel) ontology.ID {
+func firstTabResource(p panel.Panel) resource.ID {
 	GinkgoHelper()
 	l, ok := p.Root.Variant.(panel.LeafNode)
 	Expect(ok).To(BeTrue())
@@ -439,11 +440,11 @@ func firstTabResource(p panel.Panel) ontology.ID {
 	return r.Resource
 }
 
-// tabResources returns the ontology ID behind every resource tab in the leaf, in tab
+// tabResources returns the resource ID behind every resource tab in the leaf, in tab
 // order.
-func tabResources(l panel.LeafNode) []ontology.ID {
+func tabResources(l panel.LeafNode) []resource.ID {
 	GinkgoHelper()
-	ids := make([]ontology.ID, 0, len(l.Tabs))
+	ids := make([]resource.ID, 0, len(l.Tabs))
 	for _, t := range l.Tabs {
 		if r, ok := t.Variant.(panel.ResourceTab); ok {
 			ids = append(ids, r.Resource)
@@ -453,7 +454,7 @@ func tabResources(l panel.LeafNode) []ontology.ID {
 }
 
 func childOfType(
-	children []ontology.Resource, t ontology.ResourceType,
+	children []ontology.Resource, t resource.Type,
 ) ontology.Resource {
 	GinkgoHelper()
 	for _, c := range children {
@@ -513,7 +514,7 @@ var _ = Describe("Import", func() {
 			ctx SpecContext,
 		) {
 			proj := importProject(ctx, bundle())
-			children := childrenOf(ctx, project.OntologyID(proj.Key))
+			children := childrenOf(ctx, project.ResourceID(proj.Key))
 			Expect(children).To(ConsistOf(
 				HaveField("Name", "Event Log"),
 				HaveField("Name", "Duplicate"),
@@ -522,7 +523,7 @@ var _ = Describe("Import", func() {
 				HaveField("Name", "Subsystems"),
 			))
 			Expect(named(children, "Subsystems").ID.Type).
-				To(Equal(ontology.ResourceTypeGroup))
+				To(Equal(resource.TypeGroup))
 		})
 
 		It("Should recreate every nested directory as a group", func(
@@ -530,7 +531,7 @@ var _ = Describe("Import", func() {
 		) {
 			proj := importProject(ctx, bundle())
 			subsystems := named(
-				childrenOf(ctx, project.OntologyID(proj.Key)), "Subsystems",
+				childrenOf(ctx, project.ResourceID(proj.Key)), "Subsystems",
 			)
 			inner := childrenOf(ctx, subsystems.ID)
 			Expect(inner).To(ConsistOf(
@@ -551,7 +552,7 @@ var _ = Describe("Import", func() {
 			ctx SpecContext,
 		) {
 			proj := importProject(ctx, bundle())
-			children := childrenOf(ctx, project.OntologyID(proj.Key))
+			children := childrenOf(ctx, project.ResourceID(proj.Key))
 			overview := retrievePanel(ctx, named(children, "Overview").ID)
 			first, ok := overview.Root.Variant.(panel.SplitNode)
 			Expect(ok).To(BeTrue())
@@ -570,7 +571,7 @@ var _ = Describe("Import", func() {
 		It("Should keep a view tab's type", func(ctx SpecContext) {
 			proj := importProject(ctx, bundle())
 			overview := retrievePanel(ctx, named(
-				childrenOf(ctx, project.OntologyID(proj.Key)), "Overview",
+				childrenOf(ctx, project.ResourceID(proj.Key)), "Overview",
 			).ID)
 			split, ok := overview.Root.Variant.(panel.SplitNode)
 			Expect(ok).To(BeTrue())
@@ -586,7 +587,7 @@ var _ = Describe("Import", func() {
 		) {
 			proj := importProject(ctx, bundle())
 			overview := retrievePanel(ctx, named(
-				childrenOf(ctx, project.OntologyID(proj.Key)), "Overview",
+				childrenOf(ctx, project.ResourceID(proj.Key)), "Overview",
 			).ID)
 			split, ok := overview.Root.Variant.(panel.SplitNode)
 			Expect(ok).To(BeTrue())
@@ -595,7 +596,7 @@ var _ = Describe("Import", func() {
 			refs := tabResources(last)
 			Expect(refs).To(HaveLen(2))
 			arcID := refs[0]
-			Expect(arcID.Type).To(Equal(ontology.ResourceTypeArc))
+			Expect(arcID.Type).To(Equal(resource.TypeArc))
 			var a arc.Arc
 			Expect(arcSvc.NewRetrieve().
 				Where(arc.MatchKeys(MustSucceed(uuid.Parse(arcID.Key)))).
@@ -604,26 +605,26 @@ var _ = Describe("Import", func() {
 			Expect(a.Name).To(Equal("Startup Sequence"))
 			Expect(a.Text.Materialize().Raw).
 				To(Equal("stage chamber_pressure -> ok\n"))
-			Expect(refs[1].Type).To(Equal(ontology.ResourceTypeTask))
+			Expect(refs[1].Type).To(Equal(resource.TypeTask))
 		})
 
 		It("Should ignore the stray non-member file", func(ctx SpecContext) {
 			files := bundle()
 			Expect(files).To(HaveKey("README.md"))
 			proj := importProject(ctx, files)
-			Expect(childrenOf(ctx, project.OntologyID(proj.Key))).To(HaveLen(5))
+			Expect(childrenOf(ctx, project.ResourceID(proj.Key))).To(HaveLen(5))
 		})
 
 		It("Should report every resource kind the bundle creates", func(
 			ctx SpecContext,
 		) {
 			Expect(svc.ImportObjects(ctx, bundle())).To(ConsistOf(
-				ontology.ID{Type: ontology.ResourceTypeProject},
-				ontology.ID{Type: ontology.ResourceTypeLog},
-				ontology.ID{Type: ontology.ResourceTypeArc},
-				ontology.ID{Type: ontology.ResourceTypeTask},
-				ontology.ID{Type: ontology.ResourceTypePanel},
-				ontology.ID{Type: ontology.ResourceTypeGroup},
+				resource.ID{Type: resource.TypeProject},
+				resource.ID{Type: resource.TypeLog},
+				resource.ID{Type: resource.TypeArc},
+				resource.ID{Type: resource.TypeTask},
+				resource.ID{Type: resource.TypePanel},
+				resource.ID{Type: resource.TypeGroup},
 			))
 		})
 	})
@@ -632,32 +633,32 @@ var _ = Describe("Import", func() {
 		ctx SpecContext,
 	) {
 		src := createProject(ctx, "Test Stand 12")
-		g := createGroup(ctx, "Propulsion", src.OntologyID())
+		g := createGroup(ctx, "Propulsion", src.ResourceID())
 		grouped := createLog(ctx, src.Key, "Pressure")
-		moveToGroup(ctx, grouped.OntologyID(), src.OntologyID(), g.OntologyID())
+		moveToGroup(ctx, grouped.ResourceID(), src.ResourceID(), g.ResourceID())
 		createLog(ctx, src.Key, "Metrics")
 		createPanel(
 			ctx,
 			"Controls",
-			src.OntologyID(),
-			leaf(resourceTab(grouped.OntologyID())),
+			src.ResourceID(),
+			leaf(resourceTab(grouped.ResourceID())),
 		)
 		files, _ := MustSucceed2(svc.Export(ctx, src.Key, xjson.Codec))
 		proj := importProject(ctx, files)
 		Expect(proj.Key).ToNot(Equal(src.Key))
 		Expect(proj.Name).To(Equal("Test Stand 12"))
-		children := childrenOf(ctx, project.OntologyID(proj.Key))
+		children := childrenOf(ctx, project.ResourceID(proj.Key))
 		Expect(children).To(HaveLen(3))
-		newGroup := childOfType(children, ontology.ResourceTypeGroup)
+		newGroup := childOfType(children, resource.TypeGroup)
 		Expect(newGroup.Name).To(Equal("Propulsion"))
-		Expect(newGroup.ID).ToNot(Equal(g.OntologyID()))
-		rootLog := childOfType(children, ontology.ResourceTypeLog)
+		Expect(newGroup.ID).ToNot(Equal(g.ResourceID()))
+		rootLog := childOfType(children, resource.TypeLog)
 		Expect(rootLog.Name).To(Equal("Metrics"))
 		groupChildren := childrenOf(ctx, newGroup.ID)
 		Expect(groupChildren).To(HaveLen(1))
 		Expect(groupChildren[0].Name).To(Equal("Pressure"))
-		Expect(groupChildren[0].ID).ToNot(Equal(grouped.OntologyID()))
-		p := retrievePanel(ctx, childOfType(children, ontology.ResourceTypePanel).ID)
+		Expect(groupChildren[0].ID).ToNot(Equal(grouped.ResourceID()))
+		p := retrievePanel(ctx, childOfType(children, resource.TypePanel).ID)
 		Expect(p.Name).To(Equal("Controls"))
 		Expect(firstTabResource(p)).To(Equal(groupChildren[0].ID))
 	})
@@ -665,7 +666,7 @@ var _ = Describe("Import", func() {
 	It("Should name the project from the manifest", func(ctx SpecContext) {
 		proj := importProject(ctx, zip.Files{"manifest.json": bundleManifest("Named")})
 		Expect(proj.Name).To(Equal("Named"))
-		Expect(childrenOf(ctx, project.OntologyID(proj.Key))).To(BeEmpty())
+		Expect(childrenOf(ctx, project.ResourceID(proj.Key))).To(BeEmpty())
 	})
 
 	It("Should fall back to the file name when the manifest is nameless", func(
@@ -685,10 +686,10 @@ var _ = Describe("Import", func() {
 			"manifest.json":     bundleManifest("Grouped"),
 			"A/B/Pressure.json": bundleLog("Pressure"),
 		})
-		children := childrenOf(ctx, project.OntologyID(proj.Key))
+		children := childrenOf(ctx, project.ResourceID(proj.Key))
 		Expect(children).To(HaveLen(1))
 		outer := children[0]
-		Expect(outer.ID.Type).To(Equal(ontology.ResourceTypeGroup))
+		Expect(outer.ID.Type).To(Equal(resource.TypeGroup))
 		Expect(outer.Name).To(Equal("A"))
 		inners := childrenOf(ctx, outer.ID)
 		Expect(inners).To(HaveLen(1))
@@ -696,7 +697,7 @@ var _ = Describe("Import", func() {
 		logs := childrenOf(ctx, inners[0].ID)
 		Expect(logs).To(HaveLen(1))
 		Expect(logs[0].Name).To(Equal("Pressure"))
-		Expect(logs[0].ID.Type).To(Equal(ontology.ResourceTypeLog))
+		Expect(logs[0].ID.Type).To(Equal(resource.TypeLog))
 	})
 
 	It("Should place a panel under its directory's group", func(ctx SpecContext) {
@@ -705,29 +706,29 @@ var _ = Describe("Import", func() {
 			"Deck/Pressure.json": bundleLog("Pressure"),
 			"Deck/Controls.json": bundlePanel("Controls", "Deck/Pressure.json"),
 		})
-		children := childrenOf(ctx, project.OntologyID(proj.Key))
+		children := childrenOf(ctx, project.ResourceID(proj.Key))
 		Expect(children).To(HaveLen(1))
 		deck := childrenOf(ctx, children[0].ID)
 		Expect(deck).To(HaveLen(2))
-		p := retrievePanel(ctx, childOfType(deck, ontology.ResourceTypePanel).ID)
+		p := retrievePanel(ctx, childOfType(deck, resource.TypePanel).ID)
 		Expect(firstTabResource(p)).
-			To(Equal(childOfType(deck, ontology.ResourceTypeLog).ID))
+			To(Equal(childOfType(deck, resource.TypeLog).ID))
 	})
 
 	It("Should leave imported tasks under the rack", func(ctx SpecContext) {
 		src := createProject(ctx, "Panel Tasks")
 		t := createTask(ctx, "Sequence")
 		createPanel(
-			ctx, "Controls", src.OntologyID(), leaf(resourceTab(t.OntologyID())),
+			ctx, "Controls", src.ResourceID(), leaf(resourceTab(t.ResourceID())),
 		)
 		files, _ := MustSucceed2(svc.Export(ctx, src.Key, xjson.Codec))
 		proj := importProject(ctx, files)
-		children := childrenOf(ctx, project.OntologyID(proj.Key))
+		children := childrenOf(ctx, project.ResourceID(proj.Key))
 		Expect(children).To(HaveLen(1))
-		Expect(children[0].ID.Type).To(Equal(ontology.ResourceTypePanel))
+		Expect(children[0].ID.Type).To(Equal(resource.TypePanel))
 		newTaskID := firstTabResource(retrievePanel(ctx, children[0].ID))
-		Expect(newTaskID.Type).To(Equal(ontology.ResourceTypeTask))
-		Expect(newTaskID).ToNot(Equal(t.OntologyID()))
+		Expect(newTaskID.Type).To(Equal(resource.TypeTask))
+		Expect(newTaskID).ToNot(Equal(t.ResourceID()))
 		var res ontology.Resource
 		Expect(otg.NewRetrieve().
 			WhereIDs(newTaskID).
@@ -740,16 +741,16 @@ var _ = Describe("Import", func() {
 		src := createProject(ctx, "Panel Arcs")
 		a := createArc(ctx, "Startup", "x := 1")
 		createPanel(
-			ctx, "Controls", src.OntologyID(), leaf(resourceTab(a.OntologyID())),
+			ctx, "Controls", src.ResourceID(), leaf(resourceTab(a.ResourceID())),
 		)
 		files, _ := MustSucceed2(svc.Export(ctx, src.Key, xjson.Codec))
 		proj := importProject(ctx, files)
-		children := childrenOf(ctx, project.OntologyID(proj.Key))
+		children := childrenOf(ctx, project.ResourceID(proj.Key))
 		Expect(children).To(HaveLen(1))
-		Expect(children[0].ID.Type).To(Equal(ontology.ResourceTypePanel))
+		Expect(children[0].ID.Type).To(Equal(resource.TypePanel))
 		newArcID := firstTabResource(retrievePanel(ctx, children[0].ID))
-		Expect(newArcID.Type).To(Equal(ontology.ResourceTypeArc))
-		Expect(newArcID).ToNot(Equal(a.OntologyID()))
+		Expect(newArcID.Type).To(Equal(resource.TypeArc))
+		Expect(newArcID).ToNot(Equal(a.ResourceID()))
 		key := MustSucceed(uuid.Parse(newArcID.Key))
 		var res arc.Arc
 		Expect(arcSvc.NewRetrieve().
@@ -767,7 +768,7 @@ var _ = Describe("Import", func() {
 			"README.md":     []byte("# Tidy"),
 			".gitignore":    []byte("*.tmp"),
 		})
-		Expect(childrenOf(ctx, project.OntologyID(proj.Key))).To(HaveLen(1))
+		Expect(childrenOf(ctx, project.ResourceID(proj.Key))).To(HaveLen(1))
 	})
 
 	It("Should allow equal member names in different directories", func(
@@ -778,7 +779,7 @@ var _ = Describe("Import", func() {
 			"Pressure.json":   bundleLog("Pressure"),
 			"A/Pressure.json": bundleLog("Pressure"),
 		})
-		Expect(childrenOf(ctx, project.OntologyID(proj.Key))).To(HaveLen(2))
+		Expect(childrenOf(ctx, project.ResourceID(proj.Key))).To(HaveLen(2))
 	})
 
 	DescribeTable("Should reject an invalid bundle",
@@ -872,8 +873,8 @@ var _ = Describe("ImportObjects", func() {
 			"Flow.json":     bundleLog("Flow"),
 		}))
 		Expect(objects).To(ConsistOf(
-			ontology.ID{Type: ontology.ResourceTypeProject},
-			ontology.ID{Type: ontology.ResourceTypeLog},
+			resource.ID{Type: resource.TypeProject},
+			resource.ID{Type: resource.TypeLog},
 		))
 	})
 
@@ -886,10 +887,10 @@ var _ = Describe("ImportObjects", func() {
 			"Controls.json":  bundlePanel("Controls", "A/Metrics.json"),
 		}))
 		Expect(objects).To(ConsistOf(
-			ontology.ID{Type: ontology.ResourceTypeProject},
-			ontology.ID{Type: ontology.ResourceTypeLog},
-			ontology.ID{Type: ontology.ResourceTypePanel},
-			ontology.ID{Type: ontology.ResourceTypeGroup},
+			resource.ID{Type: resource.TypeProject},
+			resource.ID{Type: resource.TypeLog},
+			resource.ID{Type: resource.TypePanel},
+			resource.ID{Type: resource.TypeGroup},
 		))
 	})
 
@@ -935,7 +936,7 @@ var _ = Describe("Legacy import", func() {
 			"LAYOUT.json": legacyLayoutFile(nil),
 		})
 		Expect(proj.Name).To(Equal("Legacy Project"))
-		Expect(childrenOf(ctx, project.OntologyID(proj.Key))).To(BeEmpty())
+		Expect(childrenOf(ctx, project.ResourceID(proj.Key))).To(BeEmpty())
 	})
 
 	DescribeTable("Should name a layout's component file after the layout",
@@ -944,9 +945,9 @@ var _ = Describe("Legacy import", func() {
 				"LAYOUT.json": legacyLayoutFile(logLayout),
 				fileName:      legacyLogState(extra),
 			})
-			children := childrenOf(ctx, project.OntologyID(proj.Key))
+			children := childrenOf(ctx, project.ResourceID(proj.Key))
 			Expect(children).To(HaveLen(1))
-			Expect(children[0].ID.Type).To(Equal(ontology.ResourceTypeLog))
+			Expect(children[0].ID.Type).To(Equal(resource.TypeLog))
 			Expect(children[0].Name).To(Equal("Metrics"))
 		},
 		Entry("named after the layout", "Metrics.json", nil),
@@ -962,9 +963,9 @@ var _ = Describe("Legacy import", func() {
 				ctx,
 				zip.Files{"LAYOUT.json": layout, "k1.json": member},
 			)
-			children := childrenOf(ctx, project.OntologyID(proj.Key))
+			children := childrenOf(ctx, project.ResourceID(proj.Key))
 			Expect(children).To(HaveLen(1))
-			Expect(children[0].ID.Type).To(Equal(ontology.ResourceTypeLog))
+			Expect(children[0].ID.Type).To(Equal(resource.TypeLog))
 			Expect(children[0].Name).To(Equal(name))
 		},
 		Entry("in the layout file",
@@ -987,14 +988,14 @@ var _ = Describe("Legacy import", func() {
 				"m1": {"key": "m1", "type": "mosaic", "name": "Main"},
 			}),
 		})
-		Expect(childrenOf(ctx, project.OntologyID(proj.Key))).To(BeEmpty())
+		Expect(childrenOf(ctx, project.ResourceID(proj.Key))).To(BeEmpty())
 	})
 
 	It("Should import legacy task files through the leaf machinery", func(
 		ctx SpecContext,
 	) {
 		t := createTask(ctx, "Sequence")
-		env := MustSucceed(imexSvc.Export(ctx, task.OntologyID(t.Key)))
+		env := MustSucceed(imexSvc.Export(ctx, task.ResourceID(t.Key)))
 		proj := importLegacy(ctx, zip.Files{
 			"LAYOUT.json": legacyLayoutFile(map[string]map[string]any{
 				"t1": {"key": "t1", "type": "pagerduty_alert", "name": "Sequence"},
@@ -1002,7 +1003,7 @@ var _ = Describe("Legacy import", func() {
 			"Sequence.json": MustSucceed(json.Marshal(env)),
 		})
 		// The recreated task parents under the rack, so the project stays empty.
-		Expect(childrenOf(ctx, project.OntologyID(proj.Key))).To(BeEmpty())
+		Expect(childrenOf(ctx, project.ResourceID(proj.Key))).To(BeEmpty())
 		var tasks []task.Task
 		Expect(taskSvc.NewRetrieve().
 			Where(task.MatchNames("Sequence")).
@@ -1029,8 +1030,8 @@ var _ = Describe("Legacy import", func() {
 			"Metrics.json": legacyLogState(nil),
 		}))
 		Expect(objects).To(ConsistOf(
-			ontology.ID{Type: ontology.ResourceTypeProject},
-			ontology.ID{Type: ontology.ResourceTypeLog},
+			resource.ID{Type: resource.TypeProject},
+			resource.ID{Type: resource.TypeLog},
 		))
 	})
 })
@@ -1079,9 +1080,9 @@ var _ = Describe("Legacy tiling", func() {
 				"main": map[string]any{"root": legacyLeaf("k1", "k2")},
 			}),
 		}))
-		children := childrenOf(ctx, project.OntologyID(proj.Key))
+		children := childrenOf(ctx, project.ResourceID(proj.Key))
 		Expect(children).To(HaveLen(3))
-		p := retrievePanel(ctx, childOfType(children, ontology.ResourceTypePanel).ID)
+		p := retrievePanel(ctx, childOfType(children, resource.TypePanel).ID)
 		Expect(p.Name).To(Equal("Main"))
 		l, ok := p.Root.Variant.(panel.LeafNode)
 		Expect(ok).To(BeTrue())
@@ -1105,8 +1106,8 @@ var _ = Describe("Legacy tiling", func() {
 				}},
 			}),
 		}))
-		children := childrenOf(ctx, project.OntologyID(proj.Key))
-		p := retrievePanel(ctx, childOfType(children, ontology.ResourceTypePanel).ID)
+		children := childrenOf(ctx, project.ResourceID(proj.Key))
+		p := retrievePanel(ctx, childOfType(children, resource.TypePanel).ID)
 		split, ok := p.Root.Variant.(panel.SplitNode)
 		Expect(ok).To(BeTrue())
 		Expect(split.Direction).To(Equal(spatial.DirectionY))
@@ -1126,8 +1127,8 @@ var _ = Describe("Legacy tiling", func() {
 				}},
 			}),
 		}))
-		children := childrenOf(ctx, project.OntologyID(proj.Key))
-		p := retrievePanel(ctx, childOfType(children, ontology.ResourceTypePanel).ID)
+		children := childrenOf(ctx, project.ResourceID(proj.Key))
+		p := retrievePanel(ctx, childOfType(children, resource.TypePanel).ID)
 		split, ok := p.Root.Variant.(panel.SplitNode)
 		Expect(ok).To(BeTrue())
 		Expect(split.Direction).To(Equal(spatial.DirectionX))
@@ -1148,8 +1149,8 @@ var _ = Describe("Legacy tiling", func() {
 			"Metrics.json":  legacyLogState(nil),
 			"Pressure.json": legacyLogState(nil),
 		})
-		children := childrenOf(ctx, project.OntologyID(proj.Key))
-		p := retrievePanel(ctx, childOfType(children, ontology.ResourceTypePanel).ID)
+		children := childrenOf(ctx, project.ResourceID(proj.Key))
+		p := retrievePanel(ctx, childOfType(children, resource.TypePanel).ID)
 		l, ok := p.Root.Variant.(panel.LeafNode)
 		Expect(ok).To(BeTrue())
 		Expect(l.Tabs).To(HaveLen(1))
@@ -1170,10 +1171,10 @@ var _ = Describe("Legacy tiling", func() {
 				"w1":   map[string]any{"root": legacyLeaf("k2")},
 			}),
 		}))
-		children := childrenOf(ctx, project.OntologyID(proj.Key))
+		children := childrenOf(ctx, project.ResourceID(proj.Key))
 		names := make([]string, 0, 2)
 		for _, c := range children {
-			if c.ID.Type == ontology.ResourceTypePanel {
+			if c.ID.Type == resource.TypePanel {
 				names = append(names, c.Name)
 			}
 		}
@@ -1189,9 +1190,9 @@ var _ = Describe("Legacy tiling", func() {
 			}, map[string]any{"main": "garbage"}),
 			"Metrics.json": legacyLogState(nil),
 		})
-		children := childrenOf(ctx, project.OntologyID(proj.Key))
+		children := childrenOf(ctx, project.ResourceID(proj.Key))
 		Expect(children).To(HaveLen(1))
-		Expect(children[0].ID.Type).To(Equal(ontology.ResourceTypeLog))
+		Expect(children[0].ID.Type).To(Equal(resource.TypeLog))
 	})
 
 	It("Should list the panel type when the tiling converts", func(ctx SpecContext) {
@@ -1201,9 +1202,9 @@ var _ = Describe("Legacy tiling", func() {
 			}),
 		})))
 		Expect(objects).To(ConsistOf(
-			ontology.ID{Type: ontology.ResourceTypeProject},
-			ontology.ID{Type: ontology.ResourceTypeLog},
-			ontology.ID{Type: ontology.ResourceTypePanel},
+			resource.ID{Type: resource.TypeProject},
+			resource.ID{Type: resource.TypeLog},
+			resource.ID{Type: resource.TypePanel},
 		))
 	})
 })

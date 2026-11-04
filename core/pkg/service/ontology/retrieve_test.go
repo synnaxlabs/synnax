@@ -16,6 +16,7 @@ import (
 	. "github.com/onsi/gomega"
 	"github.com/samber/lo"
 	"github.com/synnaxlabs/synnax/pkg/service/ontology"
+	"github.com/synnaxlabs/synnax/pkg/service/resource"
 	"github.com/synnaxlabs/x/encoding/orc"
 	"github.com/synnaxlabs/x/query"
 )
@@ -38,7 +39,7 @@ var _ = Describe("Retrieve", func() {
 			Expect(res.Key).To(Equal("A"))
 		})
 		It("Should retrieve multiple resources by their Name", func(ctx SpecContext) {
-			ids := []ontology.ID{newSampleType("A"), newSampleType("B")}
+			ids := []resource.ID{newSampleType("A"), newSampleType("B")}
 			Expect(w.DefineResources(ctx, ids[0])).To(Succeed())
 			Expect(w.DefineResources(ctx, ids[1])).To(Succeed())
 			var r []ontology.Resource
@@ -398,7 +399,7 @@ var _ = Describe("Retrieve", func() {
 					Expect(otg.NewRetrieve().
 						WhereIDs(a).
 						TraverseTo(ontology.ChildrenTraverser).
-						WhereTypes(ontology.ResourceTypeChannel).
+						WhereTypes(resource.TypeChannel).
 						Entries(&r).
 						Exec(ctx, tx),
 					).To(Succeed())
@@ -448,10 +449,10 @@ var _ = Describe("Retrieve", func() {
 				Expect(otg.NewRetrieve().
 					WhereIDs(grandparent).
 					TraverseTo(ontology.ChildrenTraverser).
-					WhereTypes(ontology.ResourceTypeChannel).
+					WhereTypes(resource.TypeChannel).
 					// Intermediate filter, no Entries() bound
 					TraverseTo(ontology.ChildrenTraverser).
-					WhereTypes(ontology.ResourceTypeChannel).
+					WhereTypes(resource.TypeChannel).
 					Entries(&results). // Only final clause has entries
 					Exec(ctx, tx),
 				).To(Succeed())
@@ -491,9 +492,9 @@ var _ = Describe("Retrieve", func() {
 				Expect(otg.NewRetrieve().
 					WhereIDs(a).
 					TraverseTo(ontology.ChildrenTraverser).
-					WhereTypes(ontology.ResourceTypeChannel). // Intermediate filter #1
+					WhereTypes(resource.TypeChannel). // Intermediate filter #1
 					TraverseTo(ontology.ChildrenTraverser).
-					WhereTypes(ontology.ResourceTypeChannel). // Intermediate filter #2
+					WhereTypes(resource.TypeChannel). // Intermediate filter #2
 					TraverseTo(ontology.ChildrenTraverser).
 					Entries(&results). // Only final clause has entries
 					Exec(ctx, tx),
@@ -509,7 +510,7 @@ var _ = Describe("Retrieve", func() {
 
 	Describe("Limit + Offset", func() {
 		It("Should page through resources in order", func(ctx SpecContext) {
-			ids := make([]ontology.ID, 10)
+			ids := make([]resource.ID, 10)
 			for i := range ids {
 				Expect(
 					w.DefineResources(ctx, newSampleType(strconv.Itoa(i))),
@@ -548,19 +549,19 @@ var _ = Describe("Retrieve", func() {
 				Expect(w.DefineResources(ctx, b)).To(Succeed())
 				var r []ontology.Resource
 				Expect(otg.NewRetrieve().
-					WhereTypes(ontology.ResourceTypeChannel).
+					WhereTypes(resource.TypeChannel).
 					Entries(&r).
 					Exec(ctx, tx),
 				).To(Succeed())
 				Expect(len(r)).To(BeNumerically(">=", 2))
 				types := lo.Map(
 					r,
-					func(res ontology.Resource, _ int) ontology.ResourceType {
+					func(res ontology.Resource, _ int) resource.Type {
 						return res.ID.Type
 					},
 				)
 				for _, t := range types {
-					Expect(t).To(Equal(ontology.ResourceTypeChannel))
+					Expect(t).To(Equal(resource.TypeChannel))
 				}
 			},
 		)
@@ -571,7 +572,7 @@ var _ = Describe("Retrieve", func() {
 				Expect(
 					w.DefineResources(ctx, newSampleType("type-filter-C")),
 				).To(Succeed())
-				nonExistentType := ontology.ResourceType("nonexistent")
+				nonExistentType := resource.Type("nonexistent")
 				var r []ontology.Resource
 				Expect(otg.NewRetrieve().
 					WhereTypes(nonExistentType).
@@ -589,10 +590,10 @@ var _ = Describe("Retrieve", func() {
 				b := newSampleType("multi-type-B")
 				Expect(w.DefineResources(ctx, a)).To(Succeed())
 				Expect(w.DefineResources(ctx, b)).To(Succeed())
-				otherType := ontology.ResourceType("other")
+				otherType := resource.Type("other")
 				var r []ontology.Resource
 				Expect(otg.NewRetrieve().
-					WhereTypes(ontology.ResourceTypeChannel, otherType).
+					WhereTypes(resource.TypeChannel, otherType).
 					Entries(&r).
 					Exec(ctx, tx),
 				).To(Succeed())
@@ -600,7 +601,7 @@ var _ = Describe("Retrieve", func() {
 				for _, res := range r {
 					Expect(
 						res.ID.Type,
-					).To(BeElementOf(ontology.ResourceTypeChannel, otherType))
+					).To(BeElementOf(resource.TypeChannel, otherType))
 				}
 			},
 		)
@@ -613,7 +614,7 @@ var _ = Describe("Retrieve", func() {
 				).To(Succeed())
 				var r []ontology.Resource
 				Expect(otg.NewRetrieve().
-					WhereTypes(ontology.ResourceType("foo"), ontology.ResourceType("bar")).
+					WhereTypes(resource.Type("foo"), resource.Type("bar")).
 					Entries(&r).
 					Exec(ctx, tx),
 				).To(Succeed())
@@ -629,12 +630,12 @@ var _ = Describe("Retrieve", func() {
 			var r []ontology.Resource
 			Expect(otg.NewRetrieve().
 				WhereIDs(a, b).
-				WhereTypes(ontology.ResourceTypeChannel).
+				WhereTypes(resource.TypeChannel).
 				Entries(&r).
 				Exec(ctx, tx),
 			).To(Succeed())
 			Expect(r).To(HaveLen(2))
-			ids := lo.Map(r, func(res ontology.Resource, _ int) ontology.ID {
+			ids := lo.Map(r, func(res ontology.Resource, _ int) resource.ID {
 				return res.ID
 			})
 			Expect(ids).To(ContainElements(a, b))
@@ -650,7 +651,7 @@ var _ = Describe("Retrieve", func() {
 				// matching)
 				Expect(otg.NewRetrieve().
 					WhereIDs(a).
-					WhereTypes(ontology.ResourceType("different"), ontology.ResourceType("another")).
+					WhereTypes(resource.Type("different"), resource.Type("another")).
 					Entries(&r).
 					Exec(ctx, tx),
 				).To(Succeed())
@@ -671,7 +672,7 @@ var _ = Describe("Retrieve", func() {
 				}
 				var r []ontology.Resource
 				Expect(otg.NewRetrieve().
-					WhereTypes(ontology.ResourceTypeChannel).
+					WhereTypes(resource.TypeChannel).
 					Limit(3).
 					Entries(&r).
 					Exec(ctx, tx),
@@ -693,7 +694,7 @@ var _ = Describe("Retrieve", func() {
 				}
 				var r []ontology.Resource
 				Expect(otg.NewRetrieve().
-					WhereTypes(ontology.ResourceTypeChannel, ontology.ResourceType("other")).
+					WhereTypes(resource.TypeChannel, resource.Type("other")).
 					Limit(3).
 					Entries(&r).
 					Exec(ctx, tx),
@@ -706,16 +707,16 @@ var _ = Describe("Retrieve", func() {
 	Describe("RelationshipPrefix", func() {
 		It("Should return a prefix matching the relationship key format", func() {
 			prefix := ontology.RelationshipPrefix("parent")
-			id := ontology.ID{Type: ontology.ResourceTypeChannel, Key: "123"}
+			id := resource.ID{Type: resource.TypeChannel, Key: "123"}
 			Expect(string(prefix(id))).To(Equal("channel:123->parent->"))
 		})
 		It("Should produce a prefix that matches relationship GorpKeys", func() {
 			prefix := ontology.RelationshipPrefix(ontology.RelationshipTypeParentOf)
-			from := ontology.ID{Type: ontology.ResourceTypeRack, Key: "1"}
+			from := resource.ID{Type: resource.TypeRack, Key: "1"}
 			rel := ontology.Relationship{
 				From: from,
 				Type: ontology.RelationshipTypeParentOf,
-				To:   ontology.ID{Type: ontology.ResourceTypeDevice, Key: "2"},
+				To:   resource.ID{Type: resource.TypeDevice, Key: "2"},
 			}
 			key := rel.GorpKey()
 			p := prefix(from)
@@ -729,7 +730,7 @@ var _ = Describe("Retrieve", func() {
 			w.String("channel")
 			w.String("42")
 			id := ontology.ReadRawID(orc.Raw(w.Bytes()))
-			Expect(id.Type).To(Equal(ontology.ResourceTypeChannel))
+			Expect(id.Type).To(Equal(resource.TypeChannel))
 			Expect(id.Key).To(Equal("42"))
 		})
 
@@ -741,7 +742,7 @@ var _ = Describe("Retrieve", func() {
 				w.String("abc")
 				w.String("trailing")
 				id := ontology.ReadRawID(orc.Raw(w.Bytes()))
-				Expect(id.Type).To(Equal(ontology.ResourceTypeDevice))
+				Expect(id.Type).To(Equal(resource.TypeDevice))
 				Expect(id.Key).To(Equal("abc"))
 			},
 		)
@@ -750,7 +751,7 @@ var _ = Describe("Retrieve", func() {
 			w := orc.NewWriter(1)
 			w.String("c")
 			id := ontology.ReadRawID(orc.Raw(w.Bytes()))
-			Expect(id.Type).To(Equal(ontology.ResourceType("c")))
+			Expect(id.Type).To(Equal(resource.Type("c")))
 			Expect(id.Key).To(Equal(""))
 		})
 	})

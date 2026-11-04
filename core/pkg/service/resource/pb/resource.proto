@@ -11,36 +11,36 @@
 
 syntax = "proto3";
 
-package service.ontology.pb;
+package service.resource.pb;
 
-option go_package = "github.com/synnaxlabs/synnax/pkg/service/ontology/pb";
+option go_package = "github.com/synnaxlabs/synnax/pkg/service/resource/pb";
 
-// ResourceType is the type of the resource.
-enum ResourceType {
-  RESOURCE_TYPE_ARC = 0;
-  RESOURCE_TYPE_BUILTIN = 1;
-  RESOURCE_TYPE_CHANNEL = 2;
-  RESOURCE_TYPE_DEVICE = 3;
-  RESOURCE_TYPE_FRAMER = 4;
-  RESOURCE_TYPE_GROUP = 5;
-  RESOURCE_TYPE_LABEL = 6;
-  RESOURCE_TYPE_LINEPLOT = 7;
-  RESOURCE_TYPE_LOG = 8;
-  RESOURCE_TYPE_NODE = 9;
-  RESOURCE_TYPE_PANEL = 10;
-  RESOURCE_TYPE_POLICY = 11;
-  RESOURCE_TYPE_PROJECT = 12;
-  RESOURCE_TYPE_RACK = 13;
-  RESOURCE_TYPE_RANGE = 14;
-  RESOURCE_TYPE_RANGE_ALIAS = 15;
-  RESOURCE_TYPE_ROLE = 16;
-  RESOURCE_TYPE_SCHEMATIC = 17;
-  RESOURCE_TYPE_SCHEMATIC_SYMBOL = 18;
-  RESOURCE_TYPE_STATUS = 19;
-  RESOURCE_TYPE_TABLE = 20;
-  RESOURCE_TYPE_TASK = 21;
-  RESOURCE_TYPE_USER = 22;
-  RESOURCE_TYPE_VIEW = 23;
+// Type is the type of the resource.
+enum Type {
+  TYPE_ARC = 0;
+  TYPE_BUILTIN = 1;
+  TYPE_CHANNEL = 2;
+  TYPE_DEVICE = 3;
+  TYPE_FRAMER = 4;
+  TYPE_GROUP = 5;
+  TYPE_LABEL = 6;
+  TYPE_LINEPLOT = 7;
+  TYPE_LOG = 8;
+  TYPE_NODE = 9;
+  TYPE_PANEL = 10;
+  TYPE_POLICY = 11;
+  TYPE_PROJECT = 12;
+  TYPE_RACK = 13;
+  TYPE_RANGE = 14;
+  TYPE_RANGE_ALIAS = 15;
+  TYPE_ROLE = 16;
+  TYPE_SCHEMATIC = 17;
+  TYPE_SCHEMATIC_SYMBOL = 18;
+  TYPE_STATUS = 19;
+  TYPE_TABLE = 20;
+  TYPE_TASK = 21;
+  TYPE_USER = 22;
+  TYPE_VIEW = 23;
 }
 
 // ID is a unique identifier for a Resource. An example:
@@ -54,7 +54,7 @@ enum ResourceType {
 message ID {
   // type defines the type of resource the key refers to. For example, a channel is a
   // resource of type "channel". A user is a resource of type "user".
-  ResourceType type = 1;
+  Type type = 1;
   // key is the unique key identifying the resource within its type.
   string key = 2;
 }

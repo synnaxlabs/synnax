@@ -14,6 +14,7 @@ import (
 	"iter"
 
 	"github.com/synnaxlabs/gorp"
+	"github.com/synnaxlabs/synnax/pkg/service/resource"
 	"github.com/synnaxlabs/x/errors"
 	"github.com/synnaxlabs/x/observe"
 	"github.com/synnaxlabs/x/query"
@@ -23,7 +24,7 @@ import (
 var (
 	// RootID is the root resource in the ontology. All other resources are reachable by
 	// traversing the ontology from the root.
-	RootID       = ID{Type: ResourceTypeBuiltin, Key: "root"}
+	RootID       = resource.ID{Type: resource.TypeBuiltin, Key: "root"}
 	rootResource = Resource{ID: RootID, Name: "root"}
 )
 
@@ -31,15 +32,15 @@ type builtinService struct{ observe.Noop[iter.Seq[Change]] }
 
 var _ Service = (*builtinService)(nil)
 
-func (*builtinService) Type() ResourceType { return ResourceTypeBuiltin }
+func (*builtinService) Type() resource.Type { return resource.TypeBuiltin }
 
 // Search implements Service. No builtin resource is searchable.
 func (*builtinService) Search(
 	context.Context,
 	gorp.Tx,
-	search.Query[ID],
-) (search.Result[ID], error) {
-	return search.Result[ID]{}, nil
+	search.Query[resource.ID],
+) (search.Result[resource.ID], error) {
+	return search.Result[resource.ID]{}, nil
 }
 
 // RetrieveResource implements Service.

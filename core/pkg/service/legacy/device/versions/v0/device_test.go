@@ -13,7 +13,7 @@ import (
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	v0 "github.com/synnaxlabs/synnax/pkg/service/legacy/device/versions/v0"
-	"github.com/synnaxlabs/synnax/pkg/service/ontology"
+	"github.com/synnaxlabs/synnax/pkg/service/resource"
 )
 
 var _ = Describe("Device", func() {
@@ -29,10 +29,10 @@ var _ = Describe("Device", func() {
 		})
 	})
 
-	Describe("OntologyID", func() {
-		It("Should return the device ontology identifier", func() {
-			Expect(v0.Device{Key: "dev-1"}.OntologyID()).To(Equal(ontology.ID{
-				Type: ontology.ResourceTypeDevice, Key: "dev-1",
+	Describe("ResourceID", func() {
+		It("Should return the device resource identifier", func() {
+			Expect(v0.Device{Key: "dev-1"}.ResourceID()).To(Equal(resource.ID{
+				Type: resource.TypeDevice, Key: "dev-1",
 			}))
 		})
 	})

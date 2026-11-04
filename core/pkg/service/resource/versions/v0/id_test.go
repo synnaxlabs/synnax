@@ -12,7 +12,7 @@ package v0_test
 import (
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
-	v0 "github.com/synnaxlabs/synnax/pkg/service/ontology/versions/v0"
+	v0 "github.com/synnaxlabs/synnax/pkg/service/resource/versions/v0"
 )
 
 var _ = Describe("ID", func() {
@@ -24,13 +24,13 @@ var _ = Describe("ID", func() {
 			))
 		})
 		It("Should return nil if the resource ID is valid", func() {
-			id := v0.ID{Type: v0.ResourceTypeChannel, Key: "bar"}
+			id := v0.ID{Type: v0.TypeChannel, Key: "bar"}
 			Expect(id.Validate()).To(Succeed())
 		})
 	})
 	Describe("String", func() {
 		It("Should return the string representation of the ID", func() {
-			Expect(v0.ID{Key: "dog", Type: v0.ResourceTypeChannel}.String()).
+			Expect(v0.ID{Key: "dog", Type: v0.TypeChannel}.String()).
 				To(Equal("channel:dog"))
 		})
 	})
@@ -39,7 +39,7 @@ var _ = Describe("ID", func() {
 			Expect(v0.ID{}.IsZero()).To(BeTrue())
 		})
 		It("Should return false when the type is not empty", func() {
-			Expect(v0.ID{Type: v0.ResourceTypeChannel}.IsZero()).To(BeFalse())
+			Expect(v0.ID{Type: v0.TypeChannel}.IsZero()).To(BeFalse())
 		})
 		It("Should return false when the key is not empty", func() {
 			Expect(v0.ID{Key: "cat"}.IsZero()).To(BeFalse())
@@ -47,11 +47,11 @@ var _ = Describe("ID", func() {
 	})
 	Describe("IsType", func() {
 		It("Should return true if the Key is empty", func() {
-			Expect(v0.ID{Type: v0.ResourceTypeChannel}.IsType()).To(BeTrue())
+			Expect(v0.ID{Type: v0.TypeChannel}.IsType()).To(BeTrue())
 		})
 		It("Should return false if the Key is not empty", func() {
 			Expect(
-				v0.ID{Type: v0.ResourceTypeChannel, Key: "foo"}.IsType(),
+				v0.ID{Type: v0.TypeChannel, Key: "foo"}.IsType(),
 			).To(BeFalse())
 		})
 	})

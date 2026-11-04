@@ -14,8 +14,8 @@ import (
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
-	"github.com/synnaxlabs/synnax/pkg/service/ontology"
 	v2 "github.com/synnaxlabs/synnax/pkg/service/panel/versions/v2"
+	"github.com/synnaxlabs/synnax/pkg/service/resource"
 )
 
 var _ = Describe("Panel", func() {
@@ -31,11 +31,11 @@ var _ = Describe("Panel", func() {
 			Expect(v2.Panel{}.SetOptions()).To(BeNil())
 		})
 	})
-	Describe("OntologyID", func() {
-		It("Should return the panel ontology identifier", func() {
+	Describe("ResourceID", func() {
+		It("Should return the panel resource identifier", func() {
 			k := uuid.New()
-			Expect(v2.Panel{Key: k}.OntologyID()).To(Equal(ontology.ID{
-				Type: ontology.ResourceTypePanel, Key: k.String(),
+			Expect(v2.Panel{Key: k}.ResourceID()).To(Equal(resource.ID{
+				Type: resource.TypePanel, Key: k.String(),
 			}))
 		})
 	})

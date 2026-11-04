@@ -13,6 +13,7 @@ import (
 	"strings"
 
 	"github.com/synnaxlabs/synnax/pkg/service/ontology/versions"
+	"github.com/synnaxlabs/synnax/pkg/service/resource"
 	"github.com/synnaxlabs/x/errors"
 	"github.com/synnaxlabs/x/validate"
 )
@@ -37,11 +38,11 @@ func ParseRelationship(key string) (Relationship, error) {
 		r   Relationship
 		err error
 	)
-	if r.From, err = ParseID(split[0]); err != nil {
+	if r.From, err = resource.ParseID(split[0]); err != nil {
 		return Relationship{}, err
 	}
 	r.Type = RelationshipType(split[1])
-	if r.To, err = ParseID(split[2]); err != nil {
+	if r.To, err = resource.ParseID(split[2]); err != nil {
 		return Relationship{}, err
 	}
 	return r, nil

@@ -20,6 +20,7 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/service/ontology"
 	"github.com/synnaxlabs/synnax/pkg/service/ranger"
 	"github.com/synnaxlabs/synnax/pkg/service/ranger/alias/versions"
+	"github.com/synnaxlabs/synnax/pkg/service/resource"
 	"github.com/synnaxlabs/synnax/pkg/service/signals"
 	xchange "github.com/synnaxlabs/x/change"
 	"github.com/synnaxlabs/x/config"
@@ -144,7 +145,7 @@ var _ ontology.Service = (*Service)(nil)
 type change = xchange.Change[string, Alias]
 
 // Type implements ontology.Service.
-func (s *Service) Type() ontology.ResourceType { return ontology.ResourceTypeRangeAlias }
+func (s *Service) Type() resource.Type { return resource.TypeRangeAlias }
 
 // RetrieveResource implements ontology.Service.
 func (s *Service) RetrieveResource(
@@ -169,7 +170,7 @@ func (s *Service) RetrieveResource(
 func translateChange(c change) ontology.Change {
 	return ontology.Change{
 		Variant: c.Variant,
-		Key:     OntologyID(c.Value.Range, c.Value.Channel).String(),
+		Key:     ResourceID(c.Value.Range, c.Value.Channel).String(),
 		Value:   newResource(c.Value),
 	}
 }
@@ -188,12 +189,12 @@ func (s *Service) OnChange(
 func (s *Service) Search(
 	ctx context.Context,
 	tx gorp.Tx,
-	q search.Query[ontology.ID],
-) (search.Result[ontology.ID], error) {
-	return ontology.SearchIndex(ctx, tx, s.search, ontologyID, q)
+	q search.Query[resource.ID],
+) (search.Result[resource.ID], error) {
+	return ontology.SearchIndex(ctx, tx, s.search, resourceID, q)
 }
 
-// ontologyID returns the ontology ID of the alias with the given gorp key.
-func ontologyID(key string) ontology.ID {
-	return ontology.ID{Type: ontology.ResourceTypeRangeAlias, Key: key}
+// resourceID returns the resource ID of the alias with the given gorp key.
+func resourceID(key string) resource.ID {
+	return resource.ID{Type: resource.TypeRangeAlias, Key: key}
 }

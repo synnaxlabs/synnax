@@ -21,6 +21,7 @@ import (
 	. "github.com/synnaxlabs/synnax/pkg/service/actions/testutil"
 	"github.com/synnaxlabs/synnax/pkg/service/ontology"
 	"github.com/synnaxlabs/synnax/pkg/service/panel"
+	"github.com/synnaxlabs/synnax/pkg/service/resource"
 	"github.com/synnaxlabs/x/query"
 	. "github.com/synnaxlabs/x/testutil"
 	"github.com/synnaxlabs/x/validate"
@@ -36,12 +37,12 @@ func createPanel(ctx context.Context, name string) panel.Panel {
 	return p
 }
 
-func hasParent(ctx context.Context, parent ontology.ID, key panel.Key) bool {
+func hasParent(ctx context.Context, parent resource.ID, key panel.Key) bool {
 	GinkgoHelper()
 	return MustSucceed(otg.RelationshipExists(ctx, nil, ontology.Relationship{
 		From: parent,
 		Type: ontology.RelationshipTypeParentOf,
-		To:   panel.OntologyID(key),
+		To:   panel.ResourceID(key),
 	}))
 }
 
@@ -61,8 +62,8 @@ var _ = Describe("Service", func() {
 		It("Should create the panels under the provided parent", func(ctx SpecContext) {
 			u := newUser(ctx)
 			p := panel.Panel{Key: uuid.New(), Name: "with-parent", Parent: &parentID}
-			grant(ctx, u.OntologyID(), access.ActionCreate,
-				ontology.ID{Type: ontology.ResourceTypePanel}, parentID)
+			grant(ctx, u.ResourceID(), access.ActionCreate,
+				resource.ID{Type: resource.TypePanel}, parentID)
 			res := MustSucceed(
 				apiSvc.Create(AuthedCtx(ctx, u), nil, apipanel.CreateRequest{
 					Panels: []panel.Panel{p},
@@ -81,8 +82,8 @@ var _ = Describe("Service", func() {
 			ctx SpecContext,
 		) {
 			u := newUser(ctx)
-			grant(ctx, u.OntologyID(), access.ActionCreate,
-				ontology.ID{Type: ontology.ResourceTypePanel}, parentID)
+			grant(ctx, u.ResourceID(), access.ActionCreate,
+				resource.ID{Type: resource.TypePanel}, parentID)
 			rec := &Recorder[panel.Key, panel.Action]{}
 			DeferCleanup(panelSvc.OnAction(rec.Record))
 			p := panel.Panel{Key: uuid.New(), Name: "broadcast", Parent: &parentID}
@@ -101,8 +102,8 @@ var _ = Describe("Service", func() {
 			func(ctx SpecContext) {
 				u := newUser(ctx)
 				p := panel.Panel{Key: uuid.New(), Name: "no-parent"}
-				grant(ctx, u.OntologyID(), access.ActionCreate,
-					ontology.ID{Type: ontology.ResourceTypePanel})
+				grant(ctx, u.ResourceID(), access.ActionCreate,
+					resource.ID{Type: resource.TypePanel})
 				Expect(apiSvc.Create(AuthedCtx(ctx, u), nil, apipanel.CreateRequest{
 					Panels: []panel.Panel{p},
 				})).Error().To(MatchError(validate.ErrValidation))
@@ -115,7 +116,7 @@ var _ = Describe("Service", func() {
 			"Should return the panels matching the requested keys",
 			func(ctx SpecContext) {
 				p := createPanel(ctx, "retrievable")
-				grant(ctx, author.OntologyID(), access.ActionRetrieve, p.OntologyID())
+				grant(ctx, author.ResourceID(), access.ActionRetrieve, p.ResourceID())
 				res := MustSucceed(
 					apiSvc.Retrieve(AuthedCtx(ctx, author), apipanel.RetrieveRequest{
 						Keys: []panel.Key{p.Key},
@@ -142,8 +143,8 @@ var _ = Describe("Service", func() {
 			func(ctx SpecContext) {
 				p := createPanel(ctx, "partial-survivor")
 				missing := uuid.New()
-				grant(ctx, author.OntologyID(), access.ActionRetrieve,
-					panel.OntologyID(p.Key), panel.OntologyID(missing))
+				grant(ctx, author.ResourceID(), access.ActionRetrieve,
+					panel.ResourceID(p.Key), panel.ResourceID(missing))
 				res := MustSucceed(
 					apiSvc.Retrieve(AuthedCtx(ctx, author), apipanel.RetrieveRequest{
 						Keys:                []panel.Key{p.Key, missing},
@@ -171,8 +172,8 @@ var _ = Describe("Service", func() {
 		It("Should honor the limit and offset bounds", func(ctx SpecContext) {
 			a := createPanel(ctx, "page-a")
 			b := createPanel(ctx, "page-b")
-			grant(ctx, author.OntologyID(), access.ActionRetrieve,
-				a.OntologyID(), b.OntologyID())
+			grant(ctx, author.ResourceID(), access.ActionRetrieve,
+				a.ResourceID(), b.ResourceID())
 			res := MustSucceed(
 				apiSvc.Retrieve(AuthedCtx(ctx, author), apipanel.RetrieveRequest{
 					Keys:   []panel.Key{a.Key, b.Key},
@@ -210,7 +211,7 @@ var _ = Describe("Service", func() {
 			"Should apply the action sequence to the target panel",
 			func(ctx SpecContext) {
 				p := createPanel(ctx, "dispatch-ok")
-				grant(ctx, author.OntologyID(), access.ActionUpdate, p.OntologyID())
+				grant(ctx, author.ResourceID(), access.ActionUpdate, p.ResourceID())
 				Expect(
 					apiSvc.Dispatch(
 						AuthedCtx(ctx, author),
@@ -251,7 +252,7 @@ var _ = Describe("Service", func() {
 
 		It("Should delete the panels with the given keys", func(ctx SpecContext) {
 			p := createPanel(ctx, "deletable")
-			grant(ctx, author.OntologyID(), access.ActionDelete, p.OntologyID())
+			grant(ctx, author.ResourceID(), access.ActionDelete, p.ResourceID())
 			Expect(apiSvc.Delete(AuthedCtx(ctx, author), nil, apipanel.DeleteRequest{
 				Keys: []panel.Key{p.Key},
 			})).Error().To(Succeed())

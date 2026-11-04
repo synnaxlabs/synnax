@@ -23,13 +23,13 @@ import (
 var _ = Describe("AuthedCtx", func() {
 	It("Should install the user as the request subject", func(ctx SpecContext) {
 		u := user.User{Key: uuid.New(), Name: "author"}
-		Expect(auth.GetSubject(AuthedCtx(ctx, u))).To(Equal(u.OntologyID()))
+		Expect(auth.GetSubject(AuthedCtx(ctx, u))).To(Equal(u.ResourceID()))
 	})
 })
 
 var _ = Describe("SubjectCtx", func() {
 	It("Should install the subject as the request subject", func(ctx SpecContext) {
-		subject := rack.NewKey(1, 2).OntologyID()
+		subject := rack.NewKey(1, 2).ResourceID()
 		Expect(auth.GetSubject(SubjectCtx(ctx, subject))).To(Equal(subject))
 	})
 })

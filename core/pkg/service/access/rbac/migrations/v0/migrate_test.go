@@ -26,6 +26,7 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/service/auth/password"
 	"github.com/synnaxlabs/synnax/pkg/service/group"
 	"github.com/synnaxlabs/synnax/pkg/service/ontology"
+	"github.com/synnaxlabs/synnax/pkg/service/resource"
 	"github.com/synnaxlabs/synnax/pkg/service/user"
 	"github.com/synnaxlabs/x/encoding/msgpack"
 	. "github.com/synnaxlabs/x/testutil"
@@ -36,14 +37,14 @@ func userHasSpecificRole(
 	ctx context.Context,
 	tx gorp.Tx,
 	otg *ontology.Ontology,
-	userID ontology.ID,
+	userID resource.ID,
 	roleKey uuid.UUID,
 ) bool {
 	var roles []ontology.Resource
 	if err := otg.NewRetrieve().
 		WhereIDs(userID).
 		TraverseTo(ontology.ParentsTraverser).
-		WhereTypes(ontology.ResourceTypeRole).
+		WhereTypes(resource.TypeRole).
 		Entries(&roles).
 		Exec(ctx, tx); err != nil {
 		return false
@@ -105,17 +106,17 @@ var _ = Describe("Legacy Permission Migration", func() {
 			// Seed legacy policies with Subjects field
 			adminPolicy := policyv0.Policy{
 				Key:      uuid.New(),
-				Subjects: []ontology.ID{adminUser.OntologyID()},
-				Objects: []ontology.ID{
-					{Type: ontology.ResourceTypeUser},
+				Subjects: []resource.ID{adminUser.ResourceID()},
+				Objects: []resource.ID{
+					{Type: resource.TypeUser},
 					{Type: "policy"},
 				},
 				Actions: []access.Action{"all"},
 			}
 			schematicPolicy := policyv0.Policy{
 				Key:      uuid.New(),
-				Subjects: []ontology.ID{schematicUser.OntologyID()},
-				Objects:  []ontology.ID{{Type: "schematic"}},
+				Subjects: []resource.ID{schematicUser.ResourceID()},
+				Objects:  []resource.ID{{Type: "schematic"}},
 				Actions:  []access.Action{"all"},
 			}
 			Expect(tx.Commit(ctx)).To(Succeed())
@@ -177,7 +178,7 @@ var _ = Describe("Legacy Permission Migration", func() {
 					ctx,
 					tx2,
 					otg,
-					rootUser.OntologyID(),
+					rootUser.ResourceID(),
 					ownerRole.Key,
 				),
 			).To(BeTrue())
@@ -187,7 +188,7 @@ var _ = Describe("Legacy Permission Migration", func() {
 					ctx,
 					tx2,
 					otg,
-					adminUser.OntologyID(),
+					adminUser.ResourceID(),
 					ownerRole.Key,
 				),
 			).To(BeTrue())
@@ -197,7 +198,7 @@ var _ = Describe("Legacy Permission Migration", func() {
 					ctx,
 					tx2,
 					otg,
-					schematicUser.OntologyID(),
+					schematicUser.ResourceID(),
 					engineerRole.Key,
 				),
 			).To(BeTrue())
@@ -207,7 +208,7 @@ var _ = Describe("Legacy Permission Migration", func() {
 					ctx,
 					tx2,
 					otg,
-					regularUser.OntologyID(),
+					regularUser.ResourceID(),
 					operatorRole.Key,
 				),
 			).To(BeTrue())
@@ -324,7 +325,7 @@ var _ = Describe("Legacy Permission Migration", func() {
 			Name: "viewer",
 		}))
 		Expect(roleSvc.NewWriter(tx, true).AssignRole(
-			ctx, viewer.OntologyID(), builtinRoles.ViewerKey,
+			ctx, viewer.ResourceID(), builtinRoles.ViewerKey,
 		)).To(Succeed())
 		Expect(tx.Commit(ctx)).To(Succeed())
 		Expect(gorp.Migrate(ctx, gorp.MigrateConfig{
@@ -339,10 +340,10 @@ var _ = Describe("Legacy Permission Migration", func() {
 		})).To(Succeed())
 		check := DeferClose(db.OpenTx())
 		Expect(userHasSpecificRole(
-			ctx, check, otg, viewer.OntologyID(), builtinRoles.ViewerKey,
+			ctx, check, otg, viewer.ResourceID(), builtinRoles.ViewerKey,
 		)).To(BeTrue())
 		Expect(userHasSpecificRole(
-			ctx, check, otg, viewer.OntologyID(), builtinRoles.OperatorKey,
+			ctx, check, otg, viewer.ResourceID(), builtinRoles.OperatorKey,
 		)).To(BeFalse())
 	})
 })

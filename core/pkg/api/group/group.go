@@ -17,7 +17,7 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/service/access"
 	"github.com/synnaxlabs/synnax/pkg/service/access/rbac"
 	"github.com/synnaxlabs/synnax/pkg/service/group"
-	"github.com/synnaxlabs/synnax/pkg/service/ontology"
+	"github.com/synnaxlabs/synnax/pkg/service/resource"
 	"github.com/synnaxlabs/x/config"
 	"github.com/synnaxlabs/x/override"
 	"github.com/synnaxlabs/x/validate"
@@ -74,7 +74,7 @@ func NewService(cfgs ...ServiceConfig) (*Service, error) {
 
 type (
 	CreateRequest struct {
-		Parent ontology.ID `json:"parent" msgpack:"parent"`
+		Parent resource.ID `json:"parent" msgpack:"parent"`
 		Name   string      `json:"name"   msgpack:"name"`
 		Key    group.Key   `json:"key"    msgpack:"key"`
 	}
@@ -91,7 +91,7 @@ func (s *Service) Create(
 	if err := s.access.NewEnforcer(tx).Enforce(ctx, access.Request{
 		Subject: auth.GetSubject(ctx),
 		Action:  access.ActionCreate,
-		Objects: []ontology.ID{{Type: ontology.ResourceTypeGroup}},
+		Objects: []resource.ID{{Type: resource.TypeGroup}},
 	}); err != nil {
 		return CreateResponse{}, err
 	}
@@ -125,7 +125,7 @@ func (s *Service) Retrieve(
 	if err := s.access.NewEnforcer(nil).Enforce(ctx, access.Request{
 		Subject: auth.GetSubject(ctx),
 		Action:  access.ActionRetrieve,
-		Objects: group.OntologyIDsFromGroups(res.Groups),
+		Objects: group.ResourceIDsFromGroups(res.Groups),
 	}); err != nil {
 		return RetrieveResponse{}, err
 	}
@@ -144,7 +144,7 @@ func (s *Service) Delete(
 	if err := s.access.NewEnforcer(tx).Enforce(ctx, access.Request{
 		Subject: auth.GetSubject(ctx),
 		Action:  access.ActionDelete,
-		Objects: group.OntologyIDs(req.Keys),
+		Objects: group.ResourceIDs(req.Keys),
 	}); err != nil {
 		return struct{}{}, err
 	}
@@ -164,7 +164,7 @@ func (s *Service) Rename(
 	if err := s.access.NewEnforcer(tx).Enforce(ctx, access.Request{
 		Subject: auth.GetSubject(ctx),
 		Action:  access.ActionUpdate,
-		Objects: []ontology.ID{group.OntologyID(req.Key)},
+		Objects: []resource.ID{group.ResourceID(req.Key)},
 	}); err != nil {
 		return struct{}{}, err
 	}

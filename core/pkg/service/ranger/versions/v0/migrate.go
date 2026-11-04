@@ -19,6 +19,7 @@ import (
 	"github.com/synnaxlabs/gorp/migrate"
 	"github.com/synnaxlabs/synnax/pkg/service/group"
 	"github.com/synnaxlabs/synnax/pkg/service/ontology"
+	"github.com/synnaxlabs/synnax/pkg/service/resource"
 	"github.com/synnaxlabs/x/errors"
 	"github.com/synnaxlabs/x/query"
 	"github.com/synnaxlabs/x/telem"
@@ -83,9 +84,9 @@ func newMigration(cfg MigrationConfig) gorp.Migration {
 			var groups []ontology.Resource
 			if err = cfg.Ontology.
 				NewRetrieve().
-				WhereIDs(topLevelGroup.OntologyID()).
+				WhereIDs(topLevelGroup.ResourceID()).
 				TraverseTo(ontology.ChildrenTraverser).
-				WhereTypes(ontology.ResourceTypeGroup).
+				WhereTypes(resource.TypeGroup).
 				Entries(&groups).
 				Exec(ctx, tx); err != nil {
 				return err
@@ -98,7 +99,7 @@ func newMigration(cfg MigrationConfig) gorp.Migration {
 			otgWriter := cfg.Ontology.NewWriter(tx)
 			if err := otgWriter.DeleteOutgoingRelationshipsOfType(
 				ctx,
-				topLevelGroup.OntologyID(),
+				topLevelGroup.ResourceID(),
 				ontology.RelationshipTypeParentOf,
 			); err != nil {
 				return err
@@ -117,7 +118,7 @@ func newMigration(cfg MigrationConfig) gorp.Migration {
 					NewRetrieve().
 					WhereIDs(g.ID).
 					TraverseTo(ontology.ChildrenTraverser).
-					WhereTypes(ontology.ResourceTypeRange).
+					WhereTypes(resource.TypeRange).
 					ExcludeFieldData(true).
 					Entries(&childRanges).
 					Exec(ctx, tx); err != nil {
@@ -175,15 +176,15 @@ func newMigration(cfg MigrationConfig) gorp.Migration {
 				}
 				if err = otgWriter.DefineResources(
 					ctx,
-					newParentRange.OntologyID(),
+					newParentRange.ResourceID(),
 				); err != nil {
 					return err
 				}
 				if err = otgWriter.DefineRelationships(
 					ctx,
-					newParentRange.OntologyID(),
+					newParentRange.ResourceID(),
 					ontology.RelationshipTypeParentOf,
-					lo.Map(childRanges, func(r ontology.Resource, _ int) ontology.ID {
+					lo.Map(childRanges, func(r ontology.Resource, _ int) resource.ID {
 						return r.ID
 					})...,
 				); err != nil {

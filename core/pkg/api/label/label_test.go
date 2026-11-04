@@ -19,7 +19,7 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/service/access"
 	. "github.com/synnaxlabs/synnax/pkg/service/actions/testutil"
 	"github.com/synnaxlabs/synnax/pkg/service/label"
-	"github.com/synnaxlabs/synnax/pkg/service/ontology"
+	"github.com/synnaxlabs/synnax/pkg/service/resource"
 	"github.com/synnaxlabs/x/query"
 	. "github.com/synnaxlabs/x/testutil"
 )
@@ -49,7 +49,7 @@ var _ = Describe("Dispatch", func() {
 	It("Should apply the actions when update is granted", func(ctx SpecContext) {
 		u := createUser(ctx)
 		l := createLabel(ctx)
-		grant(ctx, access.ActionUpdate, u.OntologyID(), l.OntologyID())
+		grant(ctx, access.ActionUpdate, u.ResourceID(), l.ResourceID())
 		MustSucceed(apiSvc.Dispatch(
 			AuthedCtx(ctx, u),
 			nil,
@@ -70,7 +70,7 @@ var _ = Describe("Dispatch", func() {
 	It("Should return the dispatch error", func(ctx SpecContext) {
 		u := createUser(ctx)
 		key := uuid.New()
-		grant(ctx, access.ActionUpdate, u.OntologyID(), label.OntologyID(key))
+		grant(ctx, access.ActionUpdate, u.ResourceID(), label.ResourceID(key))
 		Expect(apiSvc.Dispatch(
 			AuthedCtx(ctx, u),
 			nil,
@@ -84,8 +84,8 @@ var _ = Describe("Create", func() {
 		"Should stamp the dispatch key onto the create broadcast",
 		func(ctx SpecContext) {
 			u := createUser(ctx)
-			grant(ctx, access.ActionCreate, u.OntologyID(), ontology.ID{
-				Type: ontology.ResourceTypeLabel,
+			grant(ctx, access.ActionCreate, u.ResourceID(), resource.ID{
+				Type: resource.TypeLabel,
 			})
 			rec := &Recorder[label.Key, label.Action]{}
 			DeferCleanup(svc.Label.ObserveActions().OnChange(rec.Record))

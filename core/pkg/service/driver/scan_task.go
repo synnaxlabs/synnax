@@ -348,12 +348,12 @@ func (t *ScanTask) scan(ctx context.Context) error {
 		for i, dev := range devices {
 			// A device with no status was deleted after the retrieve, or lost its
 			// status, which its next Create restores.
-			h, ok := stored[dev.OntologyID().String()]
+			h, ok := stored[dev.ResourceID().String()]
 			if !ok || h == results[i] {
 				continue
 			}
 			statuses = append(statuses, device.Status{
-				Key:         dev.OntologyID().String(),
+				Key:         dev.ResourceID().String(),
 				Name:        dev.Name,
 				Time:        now,
 				Variant:     results[i].variant,
@@ -385,7 +385,7 @@ func (t *ScanTask) storedHealth(
 ) (map[status.Key]health, error) {
 	keys := make([]status.Key, len(devices))
 	for i, dev := range devices {
-		keys[i] = dev.OntologyID().String()
+		keys[i] = dev.ResourceID().String()
 	}
 	var statuses []device.Status
 	if err := errors.Skip(

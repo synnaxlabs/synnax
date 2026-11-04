@@ -16,6 +16,7 @@ import (
 	"github.com/synnaxlabs/gorp"
 	"github.com/synnaxlabs/synnax/pkg/service/group"
 	"github.com/synnaxlabs/synnax/pkg/service/ontology"
+	"github.com/synnaxlabs/synnax/pkg/service/resource"
 	"github.com/synnaxlabs/x/validate"
 )
 
@@ -33,7 +34,7 @@ type Writer struct {
 // Set creates or updates a status within the DB. If the Status already has a key and
 // an existing Status already exists with that key, the existing status will be updated.
 func (w Writer) Set[D any](ctx context.Context, s *Status[D]) error {
-	return w.SetWithParent(ctx, s, ontology.ID{})
+	return w.SetWithParent(ctx, s, resource.ID{})
 }
 
 // SetWithParent creates or updates a status as a child of the ontology.Resource with
@@ -45,11 +46,11 @@ func (w Writer) Set[D any](ctx context.Context, s *Status[D]) error {
 func (w Writer) SetWithParent[D any](
 	ctx context.Context,
 	s *Status[D],
-	parent ontology.ID,
+	parent resource.ID,
 ) error {
 	hasParent := !parent.IsZero()
 	if !hasParent {
-		parent = w.group.OntologyID()
+		parent = w.group.ResourceID()
 	}
 	if err := w.validate(*s); err != nil {
 		return err
@@ -62,7 +63,7 @@ func (w Writer) SetWithParent[D any](
 	if err = w.table.NewCreate().Entry(new(s.ToAny())).Exec(ctx, w.tx); err != nil {
 		return err
 	}
-	otgID := s.OntologyID()
+	otgID := s.ResourceID()
 	if err = w.otgWriter.DefineResources(ctx, otgID); err != nil {
 		return err
 	}
@@ -102,7 +103,7 @@ func (w Writer) SetWithParent[D any](
 // SetMany creates or updates multiple statuses within the DB. If any of the statuses
 // already exist, they will be updated.
 func (w Writer) SetMany[D any](ctx context.Context, statuses *[]Status[D]) error {
-	return w.SetManyWithParent(ctx, statuses, ontology.ID{})
+	return w.SetManyWithParent(ctx, statuses, resource.ID{})
 }
 
 // SetManyWithParent creates or updates multiple statuses within the DB as child
@@ -115,7 +116,7 @@ func (w Writer) SetMany[D any](ctx context.Context, statuses *[]Status[D]) error
 func (w Writer) SetManyWithParent[D any](
 	ctx context.Context,
 	statuses *[]Status[D],
-	parent ontology.ID,
+	parent resource.ID,
 ) error {
 	if statuses == nil {
 		return nil
@@ -158,7 +159,7 @@ func (w Writer) Delete(ctx context.Context, keys ...Key) error {
 		Exec(ctx, w.tx); err != nil {
 		return err
 	}
-	return w.otgWriter.DeleteResources(ctx, OntologyIDs(keys)...)
+	return w.otgWriter.DeleteResources(ctx, ResourceIDs(keys)...)
 }
 
 func (w Writer) validate[D any](s Status[D]) error {

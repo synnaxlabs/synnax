@@ -11,15 +11,15 @@ package v1
 
 import (
 	"github.com/synnaxlabs/gorp"
-	"github.com/synnaxlabs/synnax/pkg/service/ontology"
+	"github.com/synnaxlabs/synnax/pkg/service/resource"
 )
 
 var _ gorp.Entry[Key] = User{}
 
-// OntologyID returns a unique identifier for the user for use within a resource
+// ResourceID returns a unique identifier for the user for use within a resource
 // ontology.
-func (u User) OntologyID() ontology.ID {
-	return ontology.ID{Type: ontology.ResourceTypeUser, Key: u.Key.String()}
+func (u User) ResourceID() resource.ID {
+	return resource.ID{Type: resource.TypeUser, Key: u.Key.String()}
 }
 
 // GorpKey implements gorp.Entry.

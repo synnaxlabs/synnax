@@ -17,6 +17,7 @@ import (
 	"github.com/samber/lo"
 	"github.com/synnaxlabs/gorp"
 	"github.com/synnaxlabs/synnax/pkg/service/ontology"
+	"github.com/synnaxlabs/synnax/pkg/service/resource"
 	xchange "github.com/synnaxlabs/x/change"
 	xiter "github.com/synnaxlabs/x/iter"
 	"github.com/synnaxlabs/x/observe"
@@ -24,32 +25,32 @@ import (
 	"github.com/synnaxlabs/x/zyn"
 )
 
-// OntologyID returns unique identifier for the table within the ontology.
-func OntologyID(k Key) ontology.ID {
-	return ontology.ID{Type: ontology.ResourceTypeTable, Key: k.String()}
+// ResourceID returns unique identifier for the table within the ontology.
+func ResourceID(k Key) resource.ID {
+	return resource.ID{Type: resource.TypeTable, Key: k.String()}
 }
 
-// OntologyIDs returns unique identifiers for the tables within the ontology.
-func OntologyIDs(keys []Key) []ontology.ID {
-	return lo.Map(keys, func(key Key, _ int) ontology.ID { return OntologyID(key) })
+// ResourceIDs returns unique identifiers for the tables within the ontology.
+func ResourceIDs(keys []Key) []resource.ID {
+	return lo.Map(keys, func(key Key, _ int) resource.ID { return ResourceID(key) })
 }
 
-// OntologyIDsFromTables returns the ontology IDs of the tables.
-func OntologyIDsFromTables(tables []Table) []ontology.ID {
-	return lo.Map(tables, func(t Table, _ int) ontology.ID { return t.OntologyID() })
+// ResourceIDsFromTables returns the resource IDs of the tables.
+func ResourceIDsFromTables(tables []Table) []resource.ID {
+	return lo.Map(tables, func(t Table, _ int) resource.ID { return t.ResourceID() })
 }
 
 var schema = zyn.Object(map[string]zyn.Schema{"key": zyn.UUID(), "name": zyn.String()})
 
 func newResource(t Table) ontology.Resource {
-	return ontology.NewResource(schema, t.OntologyID(), t.Name, t)
+	return ontology.NewResource(schema, t.ResourceID(), t.Name, t)
 }
 
 var _ ontology.Service = (*Service)(nil)
 
 type change = xchange.Change[Key, Table]
 
-func (s *Service) Type() ontology.ResourceType { return ontology.ResourceTypeTable }
+func (s *Service) Type() resource.Type { return resource.TypeTable }
 
 // RetrieveResource implements ontology.Service.
 func (s *Service) RetrieveResource(
@@ -74,7 +75,7 @@ func (s *Service) RetrieveResource(
 func translateChange(c change) ontology.Change {
 	return ontology.Change{
 		Variant: c.Variant,
-		Key:     OntologyID(c.Key).String(),
+		Key:     ResourceID(c.Key).String(),
 		Value:   newResource(c.Value),
 	}
 }
@@ -93,7 +94,7 @@ func (s *Service) OnChange(
 func (s *Service) Search(
 	ctx context.Context,
 	tx gorp.Tx,
-	q search.Query[ontology.ID],
-) (search.Result[ontology.ID], error) {
-	return ontology.SearchIndex(ctx, tx, s.indexes.search, OntologyID, q)
+	q search.Query[resource.ID],
+) (search.Result[resource.ID], error) {
+	return ontology.SearchIndex(ctx, tx, s.indexes.search, ResourceID, q)
 }

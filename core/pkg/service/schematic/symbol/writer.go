@@ -15,6 +15,7 @@ import (
 
 	"github.com/synnaxlabs/gorp"
 	"github.com/synnaxlabs/synnax/pkg/service/ontology"
+	"github.com/synnaxlabs/synnax/pkg/service/resource"
 )
 
 // Writer is used to create, update, and delete symbols within Synnax. The writer
@@ -35,7 +36,7 @@ type Writer struct {
 func (w Writer) Create(
 	ctx context.Context,
 	s *Symbol,
-	parent ontology.ID,
+	parent resource.ID,
 ) (err error) {
 	s.ApplyDefaults()
 	if err = s.Validate(); err != nil {
@@ -53,7 +54,7 @@ func (w Writer) Create(
 	if err = w.table.NewCreate().Entry(s).Exec(ctx, w.tx); err != nil {
 		return err
 	}
-	otgID := s.OntologyID()
+	otgID := s.ResourceID()
 	if err = w.otgWriter.DefineResources(ctx, otgID); err != nil {
 		return err
 	}
@@ -79,7 +80,7 @@ func (w Writer) Create(
 func (w Writer) CreateMany(
 	ctx context.Context,
 	symbols *[]Symbol,
-	parent ontology.ID,
+	parent resource.ID,
 ) error {
 	for i := range *symbols {
 		if err := w.Create(ctx, &(*symbols)[i], parent); err != nil {
@@ -107,5 +108,5 @@ func (w Writer) Delete(ctx context.Context, keys ...Key) error {
 		Exec(ctx, w.tx); err != nil {
 		return err
 	}
-	return w.otgWriter.DeleteResources(ctx, OntologyIDs(keys)...)
+	return w.otgWriter.DeleteResources(ctx, ResourceIDs(keys)...)
 }

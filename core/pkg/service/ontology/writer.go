@@ -16,6 +16,7 @@ import (
 
 	"github.com/samber/lo"
 	"github.com/synnaxlabs/gorp"
+	"github.com/synnaxlabs/synnax/pkg/service/resource"
 	"github.com/synnaxlabs/x/errors"
 	"github.com/synnaxlabs/x/graph"
 	"github.com/synnaxlabs/x/set"
@@ -32,8 +33,8 @@ type Writer struct {
 
 // DefineResources defines one or more new resources with the given [ID]s. If any of the
 // resources already exist, DefineResources does nothing for those.
-func (w Writer) DefineResources(ctx context.Context, ids ...ID) error {
-	resources, err := lo.MapErr(ids, func(id ID, _ int) (Resource, error) {
+func (w Writer) DefineResources(ctx context.Context, ids ...resource.ID) error {
+	resources, err := lo.MapErr(ids, func(id resource.ID, _ int) (Resource, error) {
 		if id.Key == "" {
 			return Resource{}, errors.Wrapf(validate.ErrValidation, "key is required")
 		}
@@ -50,8 +51,8 @@ func (w Writer) DefineResources(ctx context.Context, ids ...ID) error {
 
 // DeleteResources deletes one or more resources with the given [ID]s along with all of
 // their incoming and outgoing [Relationship]s.
-func (w Writer) DeleteResources(ctx context.Context, ids ...ID) error {
-	keys, err := lo.MapErr(ids, func(id ID, _ int) (string, error) {
+func (w Writer) DeleteResources(ctx context.Context, ids ...resource.ID) error {
+	keys, err := lo.MapErr(ids, func(id resource.ID, _ int) (string, error) {
 		if err := w.deleteIncomingRelationships(ctx, id); err != nil {
 			return "", err
 		}
@@ -74,9 +75,9 @@ func (w Writer) DeleteResources(ctx context.Context, ids ...ID) error {
 // already exists).
 func (w Writer) DefineRelationships(
 	ctx context.Context,
-	from ID,
+	from resource.ID,
 	relationshipType RelationshipType,
-	to ...ID,
+	to ...resource.ID,
 ) error {
 	if err := w.validateResourcesExist(ctx, from); err != nil {
 		return err
@@ -121,7 +122,7 @@ func (w Writer) DeleteRelationships(ctx context.Context, rels ...Relationship) e
 // has no outgoing relationships of the given type, DeleteOutgoingRelationshipsOfType
 // does nothing.
 func (w Writer) DeleteOutgoingRelationshipsOfType(
-	ctx context.Context, from ID, relationshipType RelationshipType,
+	ctx context.Context, from resource.ID, relationshipType RelationshipType,
 ) error {
 	prefix := from.String() + relationshipKeySep +
 		string(relationshipType) + relationshipKeySep
@@ -134,7 +135,10 @@ func (w Writer) DeleteOutgoingRelationshipsOfType(
 // given type from the given ID. Relationships already in the set are left untouched, so
 // observers only see the ones that change.
 func (w Writer) ReplaceOutgoingRelationshipsOfType(
-	ctx context.Context, from ID, relationshipType RelationshipType, to ...ID,
+	ctx context.Context,
+	from resource.ID,
+	relationshipType RelationshipType,
+	to ...resource.ID,
 ) error {
 	kept := set.New(to...)
 	prefix := from.String() + relationshipKeySep +
@@ -155,7 +159,7 @@ func (w Writer) ReplaceOutgoingRelationshipsOfType(
 // no incoming relationships of the given type, DeleteIncomingRelationshipsOfType does
 // nothing.
 func (w Writer) DeleteIncomingRelationshipsOfType(
-	ctx context.Context, to ID, relationshipType RelationshipType,
+	ctx context.Context, to resource.ID, relationshipType RelationshipType,
 ) error {
 	suffix := []byte(relationshipKeySep + string(relationshipType) +
 		relationshipKeySep + to.String())
@@ -167,7 +171,7 @@ func (w Writer) DeleteIncomingRelationshipsOfType(
 }
 
 func (w Writer) retrieveOutgoingRelationships(
-	ctx context.Context, key ID,
+	ctx context.Context, key resource.ID,
 ) ([]Resource, error) {
 	var relationships []Relationship
 	if err := w.relationshipTable.NewRetrieve().
@@ -178,14 +182,20 @@ func (w Writer) retrieveOutgoingRelationships(
 	}
 	return w.retrieveResources(
 		ctx,
-		lo.Map(relationships, func(rel Relationship, _ int) ID { return rel.To }),
+		lo.Map(
+			relationships,
+			func(rel Relationship, _ int) resource.ID { return rel.To },
+		),
 	)
 }
 
-func (w Writer) retrieveResources(ctx context.Context, ids []ID) ([]Resource, error) {
+func (w Writer) retrieveResources(
+	ctx context.Context,
+	ids []resource.ID,
+) ([]Resource, error) {
 	var resources []Resource
 	if err := w.resourceTable.NewRetrieve().
-		Where(gorp.MatchKeys[string, Resource](IDsToKeys(ids)...)).
+		Where(gorp.MatchKeys[string, Resource](resource.IDsToKeys(ids)...)).
 		Entries(&resources).
 		Exec(ctx, w.tx); err != nil {
 		return nil, err
@@ -194,9 +204,9 @@ func (w Writer) retrieveResources(ctx context.Context, ids []ID) ([]Resource, er
 }
 
 func (w Writer) retrieveDescendants(
-	ctx context.Context, id ID,
-) (map[ID]Resource, error) {
-	descendants := make(map[ID]Resource)
+	ctx context.Context, id resource.ID,
+) (map[resource.ID]Resource, error) {
+	descendants := make(map[resource.ID]Resource)
 	children, err := w.retrieveOutgoingRelationships(ctx, id)
 	if err != nil {
 		return nil, err
@@ -212,7 +222,7 @@ func (w Writer) retrieveDescendants(
 	return descendants, nil
 }
 
-func (w Writer) deleteIncomingRelationships(ctx context.Context, id ID) error {
+func (w Writer) deleteIncomingRelationships(ctx context.Context, id resource.ID) error {
 	suffix := []byte(relationshipKeySep + id.String())
 	return w.relationshipTable.NewDelete().
 		WhereRaw(func(key, _ []byte) (bool, error) {
@@ -221,7 +231,10 @@ func (w Writer) deleteIncomingRelationships(ctx context.Context, id ID) error {
 		Exec(ctx, w.tx)
 }
 
-func (w Writer) deleteOutgoingRelationships(ctx context.Context, from ID) error {
+func (w Writer) deleteOutgoingRelationships(
+	ctx context.Context,
+	from resource.ID,
+) error {
 	return w.relationshipTable.NewDelete().
 		WherePrefix([]byte(from.String()+relationshipKeySep)).
 		Exec(ctx, w.tx)
@@ -249,7 +262,8 @@ func (w Writer) checkRelationshipExists(
 	return exists, nil
 }
 
-func (w Writer) validateResourcesExist(ctx context.Context, ids ...ID) error {
+func (w Writer) validateResourcesExist(ctx context.Context, ids ...resource.ID) error {
 	return w.resourceTable.NewRetrieve().
-		Where(gorp.MatchKeys[string, Resource](IDsToKeys(ids)...)).Exec(ctx, w.tx)
+		Where(gorp.MatchKeys[string, Resource](resource.IDsToKeys(ids)...)).
+		Exec(ctx, w.tx)
 }

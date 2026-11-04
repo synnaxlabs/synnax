@@ -16,7 +16,7 @@ import (
 
 	"github.com/synnaxlabs/gorp"
 	"github.com/synnaxlabs/synnax/pkg/service/imex"
-	"github.com/synnaxlabs/synnax/pkg/service/ontology"
+	"github.com/synnaxlabs/synnax/pkg/service/resource"
 	"github.com/synnaxlabs/x/encoding/msgpack"
 	"github.com/synnaxlabs/x/errors"
 	"github.com/synnaxlabs/x/set"
@@ -33,7 +33,7 @@ var _ imex.Exporter = (*Service)(nil)
 // Routing to this exporter still happens under the coarse "task" ontology type via
 // Type. It returns query.ErrNotFound if no task exists for id.Key, and a validation
 // error if the task's type has no file form.
-func (s *Service) Export(ctx context.Context, id ontology.ID) (imex.Envelope, error) {
+func (s *Service) Export(ctx context.Context, id resource.ID) (imex.Envelope, error) {
 	key, err := uuid.Parse(id.Key)
 	if err != nil {
 		return imex.Envelope{}, err
@@ -93,33 +93,33 @@ func (s *Service) Import(
 	tx gorp.Tx,
 	env imex.Envelope,
 	_ imex.ImportOptions,
-) (ontology.ID, error) {
+) (resource.ID, error) {
 	store, ok := s.cfg.Configs.Store(env.Type)
 	if !ok {
 		if retiredTypes.Contains(env.Type) {
-			return ontology.ID{}, errors.Wrapf(
+			return resource.ID{}, errors.Wrapf(
 				validate.ErrValidation,
 				"task type %q was removed and can no longer be imported", env.Type,
 			)
 		}
-		return ontology.ID{}, errors.Wrapf(
+		return resource.ID{}, errors.Wrapf(
 			validate.ErrValidation, "unknown task type %q", env.Type,
 		)
 	}
 	body, err := env.Decode[map[string]any](ctx)
 	if err != nil {
-		return ontology.ID{}, err
+		return resource.ID{}, err
 	}
 	delete(body, "version")
 	delete(body, "type")
 	delete(body, "name")
 	config, err := store.Normalize(ctx, env.Version, msgpack.EncodedJSON(body))
 	if err != nil {
-		return ontology.ID{}, err
+		return resource.ID{}, err
 	}
 	t := Task{Name: env.Name, Type: env.Type, Config: config}
 	if err := s.NewWriter(tx).Create(ctx, &t); err != nil {
-		return ontology.ID{}, err
+		return resource.ID{}, err
 	}
-	return OntologyID(t.Key), nil
+	return ResourceID(t.Key), nil
 }

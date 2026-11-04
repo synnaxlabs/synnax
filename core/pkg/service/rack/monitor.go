@@ -22,7 +22,7 @@ import (
 	"github.com/samber/lo"
 	"github.com/synnaxlabs/alamos"
 	"github.com/synnaxlabs/gorp"
-	"github.com/synnaxlabs/synnax/pkg/service/ontology"
+	"github.com/synnaxlabs/synnax/pkg/service/resource"
 	"github.com/synnaxlabs/synnax/pkg/service/status"
 	xchange "github.com/synnaxlabs/x/change"
 	"github.com/synnaxlabs/x/errors"
@@ -125,7 +125,7 @@ func (m *monitor) writeOutages(ctx context.Context) error {
 		}
 		lastUpdated[r.Key] = state.lastUpdated
 		statuses = append(statuses, Status{
-			Key:     r.OntologyID().String(),
+			Key:     r.ResourceID().String(),
 			Name:    r.Name,
 			Variant: status.VariantWarning,
 			Time:    state.lastUpdated,
@@ -229,10 +229,10 @@ func (m *monitor) handleChange(
 	m.mu.Lock()
 	defer m.mu.Unlock()
 	for ch := range t {
-		if !strings.HasPrefix(ch.Key, string(ontology.ResourceTypeRack)) {
+		if !strings.HasPrefix(ch.Key, string(resource.TypeRack)) {
 			continue
 		}
-		key, err := parseKeyFromOntologyIDString(ch.Key)
+		key, err := parseKeyFromResourceIDString(ch.Key)
 		if err != nil {
 			m.L.Error("failed to decode status key", zap.Error(err))
 			continue
@@ -249,12 +249,12 @@ func (m *monitor) handleChange(
 	}
 }
 
-func parseKeyFromOntologyIDString(s status.Key) (Key, error) {
-	id, err := ontology.ParseID(s)
+func parseKeyFromResourceIDString(s status.Key) (Key, error) {
+	id, err := resource.ParseID(s)
 	if err != nil {
 		return 0, err
 	}
-	return KeyFromOntologyID(id)
+	return KeyFromResourceID(id)
 }
 
 // openMonitor watches the health of every stored rack. A rack that sends no status

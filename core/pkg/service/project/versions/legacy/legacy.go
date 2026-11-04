@@ -22,8 +22,8 @@ import (
 
 	"github.com/synnaxlabs/gorp"
 	"github.com/synnaxlabs/synnax/pkg/service/imex"
-	"github.com/synnaxlabs/synnax/pkg/service/ontology"
 	"github.com/synnaxlabs/synnax/pkg/service/panel"
+	"github.com/synnaxlabs/synnax/pkg/service/resource"
 	"github.com/synnaxlabs/x/encoding/zip"
 	"github.com/synnaxlabs/x/errors"
 	"github.com/synnaxlabs/x/set"
@@ -49,11 +49,11 @@ type layout struct {
 // importableTypes are the layout types whose component files import through the leaf
 // machinery: typeless visualization states and typed task configs.
 var importableTypes = set.New(
-	string(ontology.ResourceTypeArc),
-	string(ontology.ResourceTypeLineplot),
-	string(ontology.ResourceTypeLog),
-	string(ontology.ResourceTypeSchematic),
-	string(ontology.ResourceTypeTable),
+	string(resource.TypeArc),
+	string(resource.TypeLineplot),
+	string(resource.TypeLog),
+	string(resource.TypeSchematic),
+	string(resource.TypeTable),
 	"ethercat_read",
 	"ethercat_write",
 	"http_read",
@@ -187,9 +187,9 @@ func CreatePanels(
 	ctx context.Context,
 	tx gorp.Tx,
 	svc *panel.Service,
-	parent ontology.ID,
+	parent resource.ID,
 	layoutData []byte,
-	refs map[string]ontology.ID,
+	refs map[string]resource.ID,
 ) error {
 	var t tiling
 	if err := imex.Codec.Decode(ctx, layoutData, &t); err != nil {
@@ -245,7 +245,7 @@ func panelName(layouts map[string]layout, windowKey string) string {
 // convertNode converts a mosaic node into a panel tree node, resolving each tab through
 // refs. It returns nil when no tabs resolve; a split with one surviving side collapses
 // into it.
-func convertNode(n *mosaicNode, refs map[string]ontology.ID) *panel.Node {
+func convertNode(n *mosaicNode, refs map[string]resource.ID) *panel.Node {
 	if n == nil {
 		return nil
 	}
@@ -289,9 +289,9 @@ func HasPanels(ctx context.Context, layoutData []byte, members []Member) bool {
 	if err := imex.Codec.Decode(ctx, layoutData, &t); err != nil {
 		return false
 	}
-	refs := make(map[string]ontology.ID, len(members))
+	refs := make(map[string]resource.ID, len(members))
 	for _, m := range members {
-		refs[m.LayoutKey] = ontology.ID{}
+		refs[m.LayoutKey] = resource.ID{}
 	}
 	for _, m := range t.Mosaics {
 		if convertNode(m.Root, refs) != nil {

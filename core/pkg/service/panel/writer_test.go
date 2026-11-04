@@ -18,6 +18,7 @@ import (
 	. "github.com/synnaxlabs/synnax/pkg/service/actions/testutil"
 	"github.com/synnaxlabs/synnax/pkg/service/ontology"
 	"github.com/synnaxlabs/synnax/pkg/service/panel"
+	"github.com/synnaxlabs/synnax/pkg/service/resource"
 	"github.com/synnaxlabs/x/query"
 	"github.com/synnaxlabs/x/spatial"
 	. "github.com/synnaxlabs/x/testutil"
@@ -87,7 +88,7 @@ var _ = Describe("Writer", func() {
 			Entry("resource tab type outside the registry", func() panel.Node {
 				return leafNode(panel.Tab{Variant: panel.ResourceTab{
 					Key:      uuid.New(),
-					Resource: ontology.ID{Type: "user", Key: uuid.New().String()},
+					Resource: resource.ID{Type: "user", Key: uuid.New().String()},
 				}})
 			}, "resource tab cannot display a user"),
 			Entry("split size out of bounds", func() panel.Node {
@@ -105,10 +106,10 @@ var _ = Describe("Writer", func() {
 			Expect(svc.NewWriter(tx).Create(ctx, &p)).To(Succeed())
 			var resource ontology.Resource
 			Expect(otg.NewRetrieve().
-				WhereIDs(p.OntologyID()).
+				WhereIDs(p.ResourceID()).
 				Entry(&resource).
 				Exec(ctx, tx)).To(Succeed())
-			Expect(resource.ID).To(Equal(p.OntologyID()))
+			Expect(resource.ID).To(Equal(p.ResourceID()))
 			Expect(resource.Name).To(Equal("test"))
 		})
 
@@ -118,7 +119,7 @@ var _ = Describe("Writer", func() {
 			Expect(otg.RelationshipExists(ctx, tx, ontology.Relationship{
 				From: parentID,
 				Type: ontology.RelationshipTypeParentOf,
-				To:   p.OntologyID(),
+				To:   p.ResourceID(),
 			})).To(BeTrue())
 		})
 
@@ -130,7 +131,7 @@ var _ = Describe("Writer", func() {
 				Expect(otg.RelationshipExists(ctx, tx, ontology.Relationship{
 					From: parentID,
 					Type: ontology.RelationshipTypeParentOf,
-					To:   p.OntologyID(),
+					To:   p.ResourceID(),
 				})).To(BeFalse())
 			},
 		)
@@ -141,7 +142,7 @@ var _ = Describe("Writer", func() {
 				p := panel.Panel{Name: "draft"}
 				Expect(svc.NewWriter(tx).Create(ctx, &p)).To(Succeed())
 				Expect(otg.NewRetrieve().
-					WhereIDs(p.OntologyID()).
+					WhereIDs(p.ResourceID()).
 					Entry(&ontology.Resource{}).
 					Exec(ctx, tx)).To(Succeed())
 			},
@@ -214,7 +215,7 @@ var _ = Describe("Writer", func() {
 			other := MustSucceed(
 				groupSvc.CreateOrRetrieve(ctx, "other-parent", ontology.RootID),
 			).
-				OntologyID()
+				ResourceID()
 			ps := []panel.Panel{
 				{Name: "a", Parent: &parentID},
 				{Name: "b", Parent: &other},
@@ -223,12 +224,12 @@ var _ = Describe("Writer", func() {
 			Expect(otg.RelationshipExists(ctx, tx, ontology.Relationship{
 				From: parentID,
 				Type: ontology.RelationshipTypeParentOf,
-				To:   panel.OntologyID(ps[0].Key),
+				To:   panel.ResourceID(ps[0].Key),
 			})).To(BeTrue())
 			Expect(otg.RelationshipExists(ctx, tx, ontology.Relationship{
 				From: other,
 				Type: ontology.RelationshipTypeParentOf,
-				To:   panel.OntologyID(ps[1].Key),
+				To:   panel.ResourceID(ps[1].Key),
 			})).To(BeTrue())
 		})
 
@@ -268,7 +269,7 @@ var _ = Describe("Writer", func() {
 			p := panel.Panel{Name: "to-delete", Parent: &parentID}
 			Expect(svc.NewWriter(tx).Create(ctx, &p)).To(Succeed())
 			Expect(svc.NewWriter(tx).Delete(ctx, p.Key)).To(Succeed())
-			Expect(otg.NewRetrieve().WhereIDs(p.OntologyID()).
+			Expect(otg.NewRetrieve().WhereIDs(p.ResourceID()).
 				Entry(&ontology.Resource{}).
 				Exec(ctx, tx)).To(MatchError(query.ErrNotFound))
 		})

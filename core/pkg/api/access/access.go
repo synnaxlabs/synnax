@@ -19,7 +19,7 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/service/access/rbac"
 	"github.com/synnaxlabs/synnax/pkg/service/access/rbac/policy"
 	"github.com/synnaxlabs/synnax/pkg/service/access/rbac/role"
-	"github.com/synnaxlabs/synnax/pkg/service/ontology"
+	"github.com/synnaxlabs/synnax/pkg/service/resource"
 	"github.com/synnaxlabs/synnax/pkg/service/user"
 	"github.com/synnaxlabs/x/config"
 	"github.com/synnaxlabs/x/override"
@@ -79,7 +79,7 @@ func (s *Service) CreatePolicy(
 ) (CreatePolicyResponse, error) {
 	if err := s.internal.NewEnforcer(tx).Enforce(ctx, access.Request{
 		Subject: auth.GetSubject(ctx),
-		Objects: []ontology.ID{{Type: ontology.ResourceTypePolicy}},
+		Objects: []resource.ID{{Type: resource.TypePolicy}},
 		Action:  access.ActionCreate,
 	}); err != nil {
 		return CreatePolicyRequest{}, err
@@ -93,7 +93,7 @@ func (s *Service) CreatePolicy(
 
 type RetrievePolicyRequest struct {
 	Internal *bool         `json:"internal" msgpack:"internal"`
-	Subjects []ontology.ID `json:"subjects" msgpack:"subjects"`
+	Subjects []resource.ID `json:"subjects" msgpack:"subjects"`
 	Keys     []policy.Key  `json:"keys"     msgpack:"keys"`
 	Limit    int           `json:"limit"    msgpack:"limit"`
 	Offset   int           `json:"offset"   msgpack:"offset"`
@@ -136,7 +136,7 @@ func (s *Service) RetrievePolicy(
 	if err := s.internal.NewEnforcer(nil).Enforce(ctx, access.Request{
 		Subject: auth.GetSubject(ctx),
 		Action:  access.ActionRetrieve,
-		Objects: policy.OntologyIDsFromPolicies(res.Policies),
+		Objects: policy.ResourceIDsFromPolicies(res.Policies),
 	}); err != nil {
 		return RetrievePolicyResponse{}, err
 	}
@@ -154,7 +154,7 @@ func (s *Service) DeletePolicy(
 ) (struct{}, error) {
 	if err := s.internal.NewEnforcer(tx).Enforce(ctx, access.Request{
 		Subject: auth.GetSubject(ctx),
-		Objects: policy.OntologyIDs(req.Keys),
+		Objects: policy.ResourceIDs(req.Keys),
 		Action:  access.ActionDelete,
 	}); err != nil {
 		return struct{}{}, err
@@ -179,7 +179,7 @@ func (s *Service) CreateRole(
 ) (CreateRoleResponse, error) {
 	if err := s.internal.NewEnforcer(tx).Enforce(ctx, access.Request{
 		Subject: auth.GetSubject(ctx),
-		Objects: []ontology.ID{{Type: ontology.ResourceTypeRole}},
+		Objects: []resource.ID{{Type: resource.TypeRole}},
 		Action:  access.ActionCreate,
 	}); err != nil {
 		return CreateRoleResponse{}, err
@@ -231,7 +231,7 @@ func (s *Service) RetrieveRole(
 	if err := s.internal.NewEnforcer(nil).Enforce(ctx, access.Request{
 		Subject: auth.GetSubject(ctx),
 		Action:  access.ActionRetrieve,
-		Objects: role.OntologyIDsFromRoles(res.Roles),
+		Objects: role.ResourceIDsFromRoles(res.Roles),
 	}); err != nil {
 		return RetrieveRoleResponse{}, err
 	}
@@ -247,9 +247,9 @@ func (s *Service) DeleteRole(
 	tx gorp.Tx,
 	req DeleteRoleRequest,
 ) (struct{}, error) {
-	roleIDs := make([]ontology.ID, len(req.Keys))
+	roleIDs := make([]resource.ID, len(req.Keys))
 	for i, key := range req.Keys {
-		roleIDs[i] = role.OntologyID(key)
+		roleIDs[i] = role.ResourceID(key)
 	}
 	if err := s.internal.NewEnforcer(tx).Enforce(ctx, access.Request{
 		Subject: auth.GetSubject(ctx),
@@ -277,10 +277,10 @@ func (s *Service) AssignRole(
 	tx gorp.Tx,
 	req AssignRoleRequest,
 ) (struct{}, error) {
-	userID := user.OntologyID(req.User)
+	userID := user.ResourceID(req.User)
 	if err := s.internal.NewEnforcer(tx).Enforce(ctx, access.Request{
 		Subject: auth.GetSubject(ctx),
-		Objects: []ontology.ID{userID},
+		Objects: []resource.ID{userID},
 		Action:  access.ActionUpdate,
 	}); err != nil {
 		return struct{}{}, err
@@ -299,10 +299,10 @@ func (s *Service) UnassignRole(
 	tx gorp.Tx,
 	req UnassignRoleRequest,
 ) (struct{}, error) {
-	userID := user.OntologyID(req.User)
+	userID := user.ResourceID(req.User)
 	if err := s.internal.NewEnforcer(tx).Enforce(ctx, access.Request{
 		Subject: auth.GetSubject(ctx),
-		Objects: []ontology.ID{userID},
+		Objects: []resource.ID{userID},
 		Action:  access.ActionUpdate,
 	}); err != nil {
 		return struct{}{}, err

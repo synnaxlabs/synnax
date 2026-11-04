@@ -16,20 +16,20 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/distribution/framer/frame"
 	"github.com/synnaxlabs/synnax/pkg/service/access"
 	"github.com/synnaxlabs/synnax/pkg/service/channel"
-	"github.com/synnaxlabs/synnax/pkg/service/ontology"
+	"github.com/synnaxlabs/synnax/pkg/service/resource"
 	"github.com/synnaxlabs/x/errors"
 	"github.com/synnaxlabs/x/telem"
 )
 
 // RecordOf returns the record that a sample of a channel carries.
-type RecordOf func(sample []byte) (ontology.ID, error)
+type RecordOf func(sample []byte) (resource.ID, error)
 
 // recordSender sends a stream's responses without the samples of record channels that
 // its subject cannot read.
 type recordSender struct {
 	freighter.StreamSender[StreamerResponse]
 	ctx     context.Context
-	subject ontology.ID
+	subject resource.ID
 	service *Service
 }
 
@@ -86,7 +86,7 @@ func (s recordSender) keepReadable(
 		err = s.service.access.NewEnforcer(nil).Enforce(s.ctx, access.Request{
 			Subject: s.subject,
 			Action:  access.ActionRetrieve,
-			Objects: []ontology.ID{record},
+			Objects: []resource.ID{record},
 		})
 		if errors.Is(err, access.ErrDenied) {
 			continue

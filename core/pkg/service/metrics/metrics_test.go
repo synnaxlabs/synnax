@@ -22,6 +22,7 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/service/metrics"
 	"github.com/synnaxlabs/synnax/pkg/service/node"
 	"github.com/synnaxlabs/synnax/pkg/service/ontology"
+	"github.com/synnaxlabs/synnax/pkg/service/resource"
 	"github.com/synnaxlabs/x/confluence"
 	"github.com/synnaxlabs/x/signal"
 	"github.com/synnaxlabs/x/telem"
@@ -227,36 +228,36 @@ var _ = Describe("Metrics", func() {
 				).To(Succeed())
 
 				newGroup := MustSucceed(groupSvc.CreateOrRetrieve(
-					ctx, "Custom Metrics Group", channelSvc.Group().OntologyID(),
+					ctx, "Custom Metrics Group", channelSvc.Group().ResourceID(),
 				))
 
 				metricsGroup := MustSucceed(groupSvc.CreateOrRetrieve(
-					ctx, "Metrics", channelSvc.Group().OntologyID(),
+					ctx, "Metrics", channelSvc.Group().ResourceID(),
 				))
 				otgWriter := otg.NewWriter(nil)
 				Expect(otgWriter.DeleteRelationships(ctx, ontology.Relationship{
-					From: metricsGroup.OntologyID(),
+					From: metricsGroup.ResourceID(),
 					Type: ontology.RelationshipTypeParentOf,
-					To:   cpuChannel.OntologyID(),
+					To:   cpuChannel.ResourceID(),
 				})).To(Succeed())
 
 				Expect(otgWriter.DefineRelationships(
 					ctx,
-					newGroup.OntologyID(),
+					newGroup.ResourceID(),
 					ontology.RelationshipTypeParentOf,
-					cpuChannel.OntologyID(),
+					cpuChannel.ResourceID(),
 				)).To(Succeed())
 
 				var parents []ontology.Resource
 				Expect(otg.NewRetrieve().
-					WhereIDs(cpuChannel.OntologyID()).
+					WhereIDs(cpuChannel.ResourceID()).
 					TraverseTo(ontology.ParentsTraverser).
-					WhereTypes(ontology.ResourceTypeGroup).
+					WhereTypes(resource.TypeGroup).
 					Entries(&parents).
 					Exec(ctx, nil),
 				).To(Succeed())
 				Expect(parents).To(HaveLen(1))
-				Expect(parents[0].ID).To(Equal(newGroup.OntologyID()))
+				Expect(parents[0].ID).To(Equal(newGroup.ResourceID()))
 
 				Expect(svc.Close()).To(Succeed())
 
@@ -273,14 +274,14 @@ var _ = Describe("Metrics", func() {
 
 				var parentsAfterReopen []ontology.Resource
 				Expect(otg.NewRetrieve().
-					WhereIDs(cpuChannel.OntologyID()).
+					WhereIDs(cpuChannel.ResourceID()).
 					TraverseTo(ontology.ParentsTraverser).
-					WhereTypes(ontology.ResourceTypeGroup).
+					WhereTypes(resource.TypeGroup).
 					Entries(&parentsAfterReopen).
 					Exec(ctx, nil),
 				).To(Succeed())
 				Expect(parentsAfterReopen).To(HaveLen(1))
-				Expect(parentsAfterReopen[0].ID).To(Equal(newGroup.OntologyID()))
+				Expect(parentsAfterReopen[0].ID).To(Equal(newGroup.ResourceID()))
 
 				Expect(svc.Close()).To(Succeed())
 			},
@@ -308,21 +309,21 @@ var _ = Describe("Metrics", func() {
 				).To(Succeed())
 
 				metricsGroup := MustSucceed(groupSvc.CreateOrRetrieve(
-					ctx, "Metrics", channelSvc.Group().OntologyID(),
+					ctx, "Metrics", channelSvc.Group().ResourceID(),
 				))
 
 				otgWriter := otg.NewWriter(nil)
 				Expect(otgWriter.DeleteRelationships(ctx, ontology.Relationship{
-					From: metricsGroup.OntologyID(),
+					From: metricsGroup.ResourceID(),
 					Type: ontology.RelationshipTypeParentOf,
-					To:   memChannel.OntologyID(),
+					To:   memChannel.ResourceID(),
 				})).To(Succeed())
 
 				var parentsBefore []ontology.Resource
 				Expect(otg.NewRetrieve().
-					WhereIDs(memChannel.OntologyID()).
+					WhereIDs(memChannel.ResourceID()).
 					TraverseTo(ontology.ParentsTraverser).
-					WhereTypes(ontology.ResourceTypeGroup).
+					WhereTypes(resource.TypeGroup).
 					Entries(&parentsBefore).
 					Exec(ctx, nil),
 				).To(Succeed())
@@ -343,14 +344,14 @@ var _ = Describe("Metrics", func() {
 
 				var parentsAfterReopen []ontology.Resource
 				Expect(otg.NewRetrieve().
-					WhereIDs(memChannel.OntologyID()).
+					WhereIDs(memChannel.ResourceID()).
 					TraverseTo(ontology.ParentsTraverser).
-					WhereTypes(ontology.ResourceTypeGroup).
+					WhereTypes(resource.TypeGroup).
 					Entries(&parentsAfterReopen).
 					Exec(ctx, nil),
 				).To(Succeed())
 				Expect(parentsAfterReopen).To(HaveLen(1))
-				Expect(parentsAfterReopen[0].ID).To(Equal(metricsGroup.OntologyID()))
+				Expect(parentsAfterReopen[0].ID).To(Equal(metricsGroup.ResourceID()))
 
 				Expect(svc.Close()).To(Succeed())
 			},

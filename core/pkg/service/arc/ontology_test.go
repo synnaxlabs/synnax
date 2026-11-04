@@ -13,33 +13,33 @@ import (
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	"github.com/synnaxlabs/synnax/pkg/service/arc"
-	"github.com/synnaxlabs/synnax/pkg/service/ontology"
+	"github.com/synnaxlabs/synnax/pkg/service/resource"
 	"github.com/synnaxlabs/x/search"
 	. "github.com/synnaxlabs/x/testutil"
 )
 
 var _ = Describe("Search", func() {
-	create := func(ctx SpecContext, name string) ontology.ID {
+	create := func(ctx SpecContext, name string) resource.ID {
 		GinkgoHelper()
 		a := arc.Arc{Name: name, Mode: arc.ModeText}
 		Expect(svc.NewWriter(tx).Create(ctx, &a)).To(Succeed())
-		return arc.OntologyID(a.Key)
+		return arc.ResourceID(a.Key)
 	}
 
 	It("Should return the matching Arcs, closest match first", func(ctx SpecContext) {
 		a := create(ctx, "turbopump test")
 		b := create(ctx, "turbopump")
-		q := search.Query[ontology.ID]{Term: "turbopump"}
+		q := search.Query[resource.ID]{Term: "turbopump"}
 		Expect(MustSucceed(svc.Search(ctx, tx, q)).Keys).
-			To(Equal([]ontology.ID{b, a}))
+			To(Equal([]resource.ID{b, a}))
 		q.Limit = 1
 		Expect(MustSucceed(svc.Search(ctx, tx, q)).Keys).
-			To(Equal([]ontology.ID{b}))
+			To(Equal([]resource.ID{b}))
 	})
 
 	It("Should not match a staged Arc outside its transaction", func(ctx SpecContext) {
 		create(ctx, "injector")
-		q := search.Query[ontology.ID]{Term: "injector"}
+		q := search.Query[resource.ID]{Term: "injector"}
 		Expect(MustSucceed(svc.Search(ctx, db, q)).Keys).To(BeEmpty())
 	})
 })

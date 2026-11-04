@@ -12,7 +12,7 @@
 package panel
 
 import (
-	"github.com/synnaxlabs/synnax/pkg/service/ontology"
+	"github.com/synnaxlabs/synnax/pkg/service/resource"
 	"github.com/synnaxlabs/x/color"
 	"github.com/synnaxlabs/x/spatial"
 	"github.com/synnaxlabs/x/union"
@@ -120,7 +120,7 @@ type ResizeSplitPayload struct {
 // visualization.
 type SetTabResourcePayload struct {
 	Key      TabKey      `json:"key" msgpack:"key"`
-	Resource ontology.ID `json:"resource" msgpack:"resource"`
+	Resource resource.ID `json:"resource" msgpack:"resource"`
 }
 
 // SetTabViewPayload sets the inline view displayed by the tab with the given key,

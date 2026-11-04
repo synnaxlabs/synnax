@@ -18,7 +18,7 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/api"
 	"github.com/synnaxlabs/synnax/pkg/api/auth"
 	svcauth "github.com/synnaxlabs/synnax/pkg/service/auth"
-	"github.com/synnaxlabs/synnax/pkg/service/ontology"
+	"github.com/synnaxlabs/synnax/pkg/service/resource"
 	"github.com/synnaxlabs/synnax/pkg/service/user"
 	"github.com/synnaxlabs/x/errors"
 	"github.com/synnaxlabs/x/validate"
@@ -154,15 +154,15 @@ func proofBackward(p *Proof) (svcauth.Proof, error) {
 	}
 }
 
-func subjectForward(id ontology.ID) *Subject {
+func subjectForward(id resource.ID) *Subject {
 	return &Subject{Type: string(id.Type), Key: id.Key}
 }
 
-func subjectBackward(s *Subject) ontology.ID {
+func subjectBackward(s *Subject) resource.ID {
 	if s == nil {
-		return ontology.ID{}
+		return resource.ID{}
 	}
-	return ontology.ID{Type: ontology.ResourceType(s.Type), Key: s.Key}
+	return resource.ID{Type: resource.Type(s.Type), Key: s.Key}
 }
 
 func sessionForward(s svcauth.Session) *Session {
@@ -218,7 +218,7 @@ func (sessionRetrieveRequestTranslator) Backward(
 	r *SessionRetrieveRequest,
 ) (auth.SessionRetrieveRequest, error) {
 	return auth.SessionRetrieveRequest{
-		Subjects: lo.Map(r.Subjects, func(s *Subject, _ int) ontology.ID {
+		Subjects: lo.Map(r.Subjects, func(s *Subject, _ int) resource.ID {
 			return subjectBackward(s)
 		}),
 	}, nil
@@ -325,7 +325,7 @@ func (keyRetrieveRequestTranslator) Backward(
 	r *KeyRetrieveRequest,
 ) (auth.KeyRetrieveRequest, error) {
 	return auth.KeyRetrieveRequest{
-		Subjects: lo.Map(r.Subjects, func(s *Subject, _ int) ontology.ID {
+		Subjects: lo.Map(r.Subjects, func(s *Subject, _ int) resource.ID {
 			return subjectBackward(s)
 		}),
 	}, nil

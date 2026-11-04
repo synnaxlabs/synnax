@@ -97,7 +97,7 @@ var _ = Describe("Runner", func() {
 
 	retrieve := func(ctx context.Context) task.Status {
 		GinkgoHelper()
-		return retrieveStatus[task.StatusDetails](ctx, t.OntologyID().String())
+		return retrieveStatus[task.StatusDetails](ctx, t.ResourceID().String())
 	}
 
 	Describe("NewRunner", func() {

@@ -45,7 +45,7 @@ type Writer struct {
 func resolveStatus(r *Rack) *Status {
 	if r.Status == nil {
 		return &Status{
-			Key:     r.OntologyID().String(),
+			Key:     r.ResourceID().String(),
 			Name:    r.Name,
 			Time:    telem.Now(),
 			Variant: status.VariantWarning,
@@ -54,7 +54,7 @@ func resolveStatus(r *Rack) *Status {
 		}
 	}
 	stat := *r.Status
-	stat.Key = r.OntologyID().String()
+	stat.Key = r.ResourceID().String()
 	stat.Details.Rack = r.Key
 	stat.Name = r.Name
 	return &stat
@@ -99,14 +99,14 @@ func (w Writer) Create(ctx context.Context, r *Rack) error {
 	if err = w.table.NewCreate().Entry(r).Exec(ctx, w.tx); err != nil {
 		return err
 	}
-	otgID := r.OntologyID()
+	otgID := r.ResourceID()
 	if err = w.otg.DefineResources(ctx, otgID); err != nil {
 		return err
 	}
 	if !exists {
 		if err = w.otg.DefineRelationships(
 			ctx,
-			role.OntologyID(w.driverRole),
+			role.ResourceID(w.driverRole),
 			ontology.RelationshipTypeParentOf,
 			otgID,
 		); err != nil {
@@ -122,7 +122,7 @@ func (w Writer) Create(ctx context.Context, r *Rack) error {
 		return err
 	}
 	return w.otg.DefineRelationships(
-		ctx, w.group.OntologyID(), ontology.RelationshipTypeParentOf, otgID,
+		ctx, w.group.ResourceID(), ontology.RelationshipTypeParentOf, otgID,
 	)
 }
 
@@ -170,8 +170,8 @@ func (w Writer) DeleteGuard(
 		Exec(ctx, w.tx); err != nil {
 		return err
 	}
-	if err := w.otg.DeleteResources(ctx, key.OntologyID()); err != nil {
+	if err := w.otg.DeleteResources(ctx, key.ResourceID()); err != nil {
 		return err
 	}
-	return w.status.Delete(ctx, key.OntologyID().String())
+	return w.status.Delete(ctx, key.ResourceID().String())
 }

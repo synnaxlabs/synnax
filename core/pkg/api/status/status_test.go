@@ -18,7 +18,7 @@ import (
 	apistatus "github.com/synnaxlabs/synnax/pkg/api/status"
 	. "github.com/synnaxlabs/synnax/pkg/api/testutil"
 	"github.com/synnaxlabs/synnax/pkg/service/access"
-	"github.com/synnaxlabs/synnax/pkg/service/ontology"
+	"github.com/synnaxlabs/synnax/pkg/service/resource"
 	"github.com/synnaxlabs/synnax/pkg/service/status"
 	"github.com/synnaxlabs/x/query"
 	"github.com/synnaxlabs/x/telem"
@@ -26,10 +26,10 @@ import (
 	"github.com/synnaxlabs/x/validate"
 )
 
-// statusTypeOnly is the type-level ontology ID for granting access across all
+// statusTypeOnly is the type-level resource ID for granting access across all
 // statuses. Row-level grants must match the input key exactly; type-level grants
-// cover any input via the ontology.ID IsType matching rule.
-var statusTypeOnly = ontology.ID{Type: ontology.ResourceTypeStatus}
+// cover any input via the resource.ID IsType matching rule.
+var statusTypeOnly = resource.ID{Type: resource.TypeStatus}
 
 var _ = Describe("Service.SetByKeyOrName", func() {
 	Describe("authorized requests", func() {
@@ -37,7 +37,7 @@ var _ = Describe("Service.SetByKeyOrName", func() {
 			"Should create a UUID-keyed row named after the input when nothing matches",
 			func(ctx SpecContext) {
 				name := "api_set_fresh_" + uuid.New().String()
-				grantOn(ctx, author.OntologyID(),
+				grantOn(ctx, author.ResourceID(),
 					[]access.Action{access.ActionCreate},
 					statusTypeOnly)
 
@@ -79,9 +79,9 @@ var _ = Describe("Service.SetByKeyOrName", func() {
 						Key: key, Name: "api_uuid",
 					})
 				})).To(Succeed())
-				grantOn(ctx, author.OntologyID(),
+				grantOn(ctx, author.ResourceID(),
 					[]access.Action{access.ActionUpdate},
-					status.OntologyID(key))
+					status.ResourceID(key))
 
 				res := MustSucceed(
 					apiSvc.SetByKeyOrName(
@@ -115,7 +115,7 @@ var _ = Describe("Service.SetByKeyOrName", func() {
 						Key: uuid.New().String(), Name: name,
 					})
 				})).To(Succeed())
-				grantOn(ctx, author.OntologyID(),
+				grantOn(ctx, author.ResourceID(),
 					[]access.Action{access.ActionUpdate},
 					statusTypeOnly)
 
@@ -140,7 +140,7 @@ var _ = Describe("Service.SetByKeyOrName", func() {
 			"Should propagate a validation error for an unknown variant",
 			func(ctx SpecContext) {
 				name := "api_iv_" + uuid.New().String()
-				grantOn(ctx, author.OntologyID(),
+				grantOn(ctx, author.ResourceID(),
 					[]access.Action{access.ActionCreate},
 					statusTypeOnly)
 
@@ -158,7 +158,7 @@ var _ = Describe("Service.SetByKeyOrName", func() {
 		It(
 			"Should propagate a validation error for empty input",
 			func(ctx SpecContext) {
-				grantOn(ctx, author.OntologyID(),
+				grantOn(ctx, author.ResourceID(),
 					[]access.Action{access.ActionCreate},
 					statusTypeOnly)
 
@@ -203,9 +203,9 @@ var _ = Describe("Service.SetByKeyOrName", func() {
 			func(ctx SpecContext) {
 				name := "api_rowlevel_" + uuid.New().String()
 				anon := freshUser(ctx)
-				grantOn(ctx, anon.OntologyID(),
+				grantOn(ctx, anon.ResourceID(),
 					[]access.Action{access.ActionCreate},
-					status.OntologyID(uuid.New().String()))
+					status.ResourceID(uuid.New().String()))
 
 				Expect(
 					apiSvc.SetByKeyOrName(
@@ -246,7 +246,7 @@ var _ = Describe("Service.Retrieve", func() {
 		"Should omit missing keys from a multi-key retrieve instead of failing",
 		func(ctx SpecContext) {
 			s := createStatus(ctx, "api_partial_"+uuid.New().String())
-			grantOn(ctx, author.OntologyID(),
+			grantOn(ctx, author.ResourceID(),
 				[]access.Action{access.ActionRetrieve},
 				statusTypeOnly)
 
@@ -267,7 +267,7 @@ var _ = Describe("Service.Retrieve", func() {
 	It(
 		"Should return an empty result when every requested key is missing",
 		func(ctx SpecContext) {
-			grantOn(ctx, author.OntologyID(),
+			grantOn(ctx, author.ResourceID(),
 				[]access.Action{access.ActionRetrieve},
 				statusTypeOnly)
 
@@ -287,7 +287,7 @@ var _ = Describe("Service.Retrieve", func() {
 	It(
 		"Should return a not found error for a missing key without the flag",
 		func(ctx SpecContext) {
-			grantOn(ctx, author.OntologyID(),
+			grantOn(ctx, author.ResourceID(),
 				[]access.Action{access.ActionRetrieve},
 				statusTypeOnly)
 
@@ -303,7 +303,7 @@ var _ = Describe("Service.Retrieve", func() {
 		"Should return the statuses whose name matches the search term",
 		func(ctx SpecContext) {
 			s := createStatus(ctx, "cryostat pressure")
-			grantOn(ctx, author.OntologyID(),
+			grantOn(ctx, author.ResourceID(),
 				[]access.Action{access.ActionRetrieve},
 				statusTypeOnly)
 
@@ -342,9 +342,9 @@ var _ = Describe("Service.Rename", func() {
 	It("Should rename the status when update is granted", func(ctx SpecContext) {
 		u := freshUser(ctx)
 		s := createStatus(ctx)
-		grantOn(ctx, u.OntologyID(),
+		grantOn(ctx, u.ResourceID(),
 			[]access.Action{access.ActionUpdate},
-			status.OntologyID(s.Key))
+			status.ResourceID(s.Key))
 		Expect(apiSvc.Rename(
 			AuthedCtx(ctx, u), nil,
 			apistatus.RenameRequest{Key: s.Key, Name: "After"},
@@ -358,9 +358,9 @@ var _ = Describe("Service.Rename", func() {
 	It("Should reject an empty name", func(ctx SpecContext) {
 		u := freshUser(ctx)
 		s := createStatus(ctx)
-		grantOn(ctx, u.OntologyID(),
+		grantOn(ctx, u.ResourceID(),
 			[]access.Action{access.ActionUpdate},
-			status.OntologyID(s.Key))
+			status.ResourceID(s.Key))
 		Expect(apiSvc.Rename(
 			AuthedCtx(ctx, u), nil,
 			apistatus.RenameRequest{Key: s.Key, Name: ""},
@@ -371,9 +371,9 @@ var _ = Describe("Service.Rename", func() {
 	It("Should return a not found error for a missing status", func(ctx SpecContext) {
 		u := freshUser(ctx)
 		key := uuid.New().String()
-		grantOn(ctx, u.OntologyID(),
+		grantOn(ctx, u.ResourceID(),
 			[]access.Action{access.ActionUpdate},
-			status.OntologyID(key))
+			status.ResourceID(key))
 		Expect(apiSvc.Rename(
 			AuthedCtx(ctx, u), nil,
 			apistatus.RenameRequest{Key: key, Name: "After"},

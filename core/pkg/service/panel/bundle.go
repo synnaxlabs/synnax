@@ -15,8 +15,8 @@ import (
 
 	"github.com/samber/lo"
 	"github.com/synnaxlabs/synnax/pkg/service/imex"
-	"github.com/synnaxlabs/synnax/pkg/service/ontology"
 	"github.com/synnaxlabs/synnax/pkg/service/panel/versions"
+	"github.com/synnaxlabs/synnax/pkg/service/resource"
 	"github.com/synnaxlabs/x/color"
 	"github.com/synnaxlabs/x/errors"
 	"github.com/synnaxlabs/x/set"
@@ -33,7 +33,7 @@ type bundleBody struct {
 }
 
 // bundleResourceTab is the bundle wire form of a resource tab: resource holds the
-// target member's path from the bundle root instead of an ontology ID.
+// target member's path from the bundle root instead of a resource ID.
 type bundleResourceTab struct {
 	TabBase
 	Variant  TabType `json:"variant"`
@@ -57,11 +57,11 @@ type bundleSplit struct {
 }
 
 // EncodeBundle serializes p as a project-bundle member. Where the in-cluster tree holds
-// an ontology.ID, the bundle tree holds the target member's path from the bundle root,
+// a resource.ID, the bundle tree holds the target member's path from the bundle root,
 // taken from refs. A resource tab whose target refs does not name is removed, and
 // leaves emptied by removals are collapsed. View tabs pass through unchanged. It
 // returns a validation error when p has no name.
-func EncodeBundle(p Panel, refs map[ontology.ID]string) (imex.Envelope, error) {
+func EncodeBundle(p Panel, refs map[resource.ID]string) (imex.Envelope, error) {
 	root := stripNonMemberTabs(p.Root, refs)
 	collapseEmptyLeaves(&root)
 	node, err := bundleNode(root, refs)
@@ -70,7 +70,7 @@ func EncodeBundle(p Panel, refs map[ontology.ID]string) (imex.Envelope, error) {
 	}
 	env := imex.Envelope{
 		Version: versions.Latest,
-		Type:    string(ontology.ResourceTypePanel),
+		Type:    string(resource.TypePanel),
 		Name:    p.Name,
 	}
 	body := bundleBody{Root: node, Icon: p.Icon, Color: p.Color}
@@ -81,18 +81,18 @@ func EncodeBundle(p Panel, refs map[ontology.ID]string) (imex.Envelope, error) {
 }
 
 // DecodeBundle deserializes a project-bundle member produced by EncodeBundle. Where the
-// bundle tree holds a member path, the returned tree holds the ontology.ID refs maps
+// bundle tree holds a member path, the returned tree holds the resource.ID refs maps
 // that path to; a path refs does not hold is a validation error naming it. A version
 // above versions.Latest is a path-scoped validation error. The returned panel carries
 // no key or parent; the caller assigns both.
 func DecodeBundle(
 	ctx context.Context,
 	env imex.Envelope,
-	refs map[string]ontology.ID,
+	refs map[string]resource.ID,
 ) (Panel, error) {
 	if env.Version > versions.Latest {
 		return Panel{}, imex.NewErrUnsupportedVersion(
-			string(ontology.ResourceTypePanel), env.Version, versions.Latest,
+			string(resource.TypePanel), env.Version, versions.Latest,
 		)
 	}
 	body, err := env.Decode[bundleBody](ctx)
@@ -114,10 +114,10 @@ func DecodeBundle(
 	return Panel{Name: env.Name, Root: root, Icon: body.Icon, Color: body.Color}, nil
 }
 
-// resolveBundleNode rewrites each resource tab's bundle path to the ontology.ID refs
+// resolveBundleNode rewrites each resource tab's bundle path to the resource.ID refs
 // maps it to, returning the tree in the in-cluster wire form. A node the tree grammar
 // cannot hold is left for Node's decoder to reject.
-func resolveBundleNode(node any, refs map[string]ontology.ID) (any, error) {
+func resolveBundleNode(node any, refs map[string]resource.ID) (any, error) {
 	m, ok := node.(map[string]any)
 	if !ok {
 		return node, nil
@@ -160,15 +160,15 @@ func resolveBundleNode(node any, refs map[string]ontology.ID) (any, error) {
 
 // ResourceRefs returns the ID of every resource the tree's resource tabs reference,
 // each once. Order is unspecified.
-func ResourceRefs(root Node) []ontology.ID {
-	ids := set.New[ontology.ID]()
+func ResourceRefs(root Node) []resource.ID {
+	ids := set.New[resource.ID]()
 	collectResourceRefs(root, ids)
 	return lo.Keys(ids)
 }
 
 // collectResourceRefs adds the ID of every resource the tree's resource tabs reference
 // to ids.
-func collectResourceRefs(n Node, ids set.Set[ontology.ID]) {
+func collectResourceRefs(n Node, ids set.Set[resource.ID]) {
 	switch v := n.Variant.(type) {
 	case LeafNode:
 		for _, t := range v.Tabs {
@@ -184,7 +184,7 @@ func collectResourceRefs(n Node, ids set.Set[ontology.ID]) {
 
 // stripNonMemberTabs removes every resource tab whose target refs does not name,
 // leaving emptied leaves in place for collapseEmptyLeaves.
-func stripNonMemberTabs(n Node, refs map[ontology.ID]string) Node {
+func stripNonMemberTabs(n Node, refs map[resource.ID]string) Node {
 	switch v := n.Variant.(type) {
 	case LeafNode:
 		tabs := make([]Tab, 0, len(v.Tabs))
@@ -210,7 +210,7 @@ func stripNonMemberTabs(n Node, refs map[ontology.ID]string) Node {
 // bundleNode converts a node to its bundle wire form, rewriting each resource tab's
 // target to its path from refs. stripNonMemberTabs runs first, so a tab whose target
 // refs does not name is an invariant violation and errors.
-func bundleNode(n Node, refs map[ontology.ID]string) (any, error) {
+func bundleNode(n Node, refs map[resource.ID]string) (any, error) {
 	switch v := n.Variant.(type) {
 	case LeafNode:
 		tabs := make([]any, 0, len(v.Tabs))

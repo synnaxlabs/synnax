@@ -22,7 +22,7 @@ import (
 // and returns its key.
 func CreateDriverRole(ctx context.Context, otg *ontology.Ontology) (role.Key, error) {
 	k := uuid.New()
-	if err := otg.NewWriter(nil).DefineResources(ctx, role.OntologyID(k)); err != nil {
+	if err := otg.NewWriter(nil).DefineResources(ctx, role.ResourceID(k)); err != nil {
 		return uuid.Nil(), err
 	}
 	return k, nil

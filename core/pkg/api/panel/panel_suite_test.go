@@ -26,6 +26,7 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/service/group"
 	"github.com/synnaxlabs/synnax/pkg/service/ontology"
 	"github.com/synnaxlabs/synnax/pkg/service/panel"
+	"github.com/synnaxlabs/synnax/pkg/service/resource"
 	"github.com/synnaxlabs/synnax/pkg/service/user"
 	. "github.com/synnaxlabs/x/testutil"
 	"github.com/synnaxlabs/x/testutil/memkv"
@@ -44,7 +45,7 @@ var (
 	userSvc  *user.Service
 	apiSvc   *apipanel.Service
 	author   user.User
-	parentID ontology.ID
+	parentID resource.ID
 )
 
 var _ = BeforeSuite(func(ctx SpecContext) {
@@ -89,7 +90,7 @@ var _ = BeforeSuite(func(ctx SpecContext) {
 	parentID = MustSucceed(
 		groupSvc.CreateOrRetrieve(ctx, "panel-parent", ontology.RootID),
 	).
-		OntologyID()
+		ResourceID()
 })
 
 // newUser creates a fresh user. RBAC state is committed and shared across specs, so
@@ -109,9 +110,9 @@ func newUser(ctx SpecContext) user.User {
 // them.
 func grant(
 	ctx SpecContext,
-	subject ontology.ID,
+	subject resource.ID,
 	action access.Action,
-	objects ...ontology.ID,
+	objects ...resource.ID,
 ) {
 	GinkgoHelper()
 	roleWriter := rbacSvc.Role.NewWriter(nil, true)

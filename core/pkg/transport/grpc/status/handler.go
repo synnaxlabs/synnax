@@ -18,7 +18,7 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/api"
 	"github.com/synnaxlabs/synnax/pkg/api/status"
 	"github.com/synnaxlabs/synnax/pkg/service/label"
-	"github.com/synnaxlabs/synnax/pkg/service/ontology"
+	"github.com/synnaxlabs/synnax/pkg/service/resource"
 	svcstatus "github.com/synnaxlabs/synnax/pkg/service/status"
 	"github.com/synnaxlabs/synnax/pkg/service/status/pb"
 	xpb "github.com/synnaxlabs/x/pb"
@@ -98,10 +98,10 @@ func (setRequestTranslator) Backward(
 	_ context.Context,
 	msg *SetRequest,
 ) (status.SetRequest, error) {
-	var parent ontology.ID
+	var parent resource.ID
 	if msg.Parent != "" {
 		var err error
-		parent, err = ontology.ParseID(msg.Parent)
+		parent, err = resource.ParseID(msg.Parent)
 		if err != nil {
 			return status.SetRequest{}, err
 		}

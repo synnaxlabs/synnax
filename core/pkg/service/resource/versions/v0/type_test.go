@@ -12,13 +12,13 @@ package v0_test
 import (
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
-	v0 "github.com/synnaxlabs/synnax/pkg/service/ontology/versions/v0"
+	v0 "github.com/synnaxlabs/synnax/pkg/service/resource/versions/v0"
 )
 
-var _ = Describe("ResourceType", func() {
+var _ = Describe("Type", func() {
 	Describe("String", func() {
 		It("Should return the string representation of the type", func() {
-			Expect(v0.ResourceTypeChannel.String()).To(Equal("channel"))
+			Expect(v0.TypeChannel.String()).To(Equal("channel"))
 		})
 	})
 })

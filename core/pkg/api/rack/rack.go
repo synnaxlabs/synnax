@@ -19,8 +19,8 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/service/access/rbac"
 	svcauth "github.com/synnaxlabs/synnax/pkg/service/auth"
 	"github.com/synnaxlabs/synnax/pkg/service/legacy/device"
-	"github.com/synnaxlabs/synnax/pkg/service/ontology"
 	"github.com/synnaxlabs/synnax/pkg/service/rack"
+	"github.com/synnaxlabs/synnax/pkg/service/resource"
 	"github.com/synnaxlabs/synnax/pkg/service/status"
 	"github.com/synnaxlabs/synnax/pkg/service/task"
 	"github.com/synnaxlabs/x/config"
@@ -154,7 +154,7 @@ func (s *Service) attachReadableStatuses(
 		err := enforcer.Enforce(ctx, access.Request{
 			Subject: subject,
 			Action:  access.ActionRetrieve,
-			Objects: []ontology.ID{racks[i].OntologyID()},
+			Objects: []resource.ID{racks[i].ResourceID()},
 		})
 		// Create accepts update access, which does not grant read access.
 		if errors.Is(err, access.ErrDenied) {
@@ -176,11 +176,11 @@ func (s *Service) attachStatuses(
 	tx gorp.Tx,
 	racks []rack.Rack,
 ) error {
-	ids := rack.OntologyIDsFromRacks(racks)
+	ids := rack.ResourceIDsFromRacks(racks)
 	statuses := make([]rack.Status, 0, len(racks))
 	// A status row can be missing, so the resource keeps a nil status.
 	if err := errors.Skip(s.status.NewRetrieve[rack.StatusDetails]().
-		Where(status.MatchKeys[rack.StatusDetails](ontology.IDsToKeys(ids)...)).
+		Where(status.MatchKeys[rack.StatusDetails](resource.IDsToKeys(ids)...)).
 		Entries(&statuses).
 		Exec(ctx, tx), query.ErrNotFound); err != nil {
 		return err
@@ -224,7 +224,7 @@ func (s *Service) enforceCreate(
 		if err := enforcer.Enforce(ctx, access.Request{
 			Subject: subject,
 			Action:  access.ActionUpdate,
-			Objects: rack.OntologyIDsFromRacks(existing),
+			Objects: rack.ResourceIDsFromRacks(existing),
 		}); err != nil {
 			return err
 		}
@@ -242,7 +242,7 @@ func (s *Service) enforceCreate(
 	return enforcer.Enforce(ctx, access.Request{
 		Subject: subject,
 		Action:  access.ActionCreate,
-		Objects: []ontology.ID{{Type: ontology.ResourceTypeRack}},
+		Objects: []resource.ID{{Type: resource.TypeRack}},
 	})
 }
 
@@ -314,7 +314,7 @@ func (s *Service) Retrieve(
 	if err := s.access.NewEnforcer(nil).Enforce(ctx, access.Request{
 		Subject: auth.GetSubject(ctx),
 		Action:  access.ActionRetrieve,
-		Objects: rack.OntologyIDsFromRacks(resRacks),
+		Objects: rack.ResourceIDsFromRacks(resRacks),
 	}); err != nil {
 		return RetrieveResponse{}, err
 	}
@@ -338,7 +338,7 @@ func (s *Service) Rename(
 	if err := s.access.NewEnforcer(tx).Enforce(ctx, access.Request{
 		Subject: auth.GetSubject(ctx),
 		Action:  access.ActionUpdate,
-		Objects: []ontology.ID{req.Key.OntologyID()},
+		Objects: []resource.ID{req.Key.ResourceID()},
 	}); err != nil {
 		return struct{}{}, err
 	}
@@ -364,7 +364,7 @@ func (s *Service) Delete(
 	if err := s.access.NewEnforcer(tx).Enforce(ctx, access.Request{
 		Subject: auth.GetSubject(ctx),
 		Action:  access.ActionDelete,
-		Objects: rack.OntologyIDs(req.Keys),
+		Objects: rack.ResourceIDs(req.Keys),
 	}); err != nil {
 		return struct{}{}, err
 	}
@@ -404,5 +404,5 @@ func (s *Service) Delete(
 		return struct{}{}, err
 	}
 	return struct{}{}, s.auth.NewWriter(tx).
-		DeleteFor(ctx, rack.OntologyIDs(req.Keys)...)
+		DeleteFor(ctx, rack.ResourceIDs(req.Keys)...)
 }

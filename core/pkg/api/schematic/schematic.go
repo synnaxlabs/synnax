@@ -17,8 +17,8 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/service/access"
 	"github.com/synnaxlabs/synnax/pkg/service/access/rbac"
 	"github.com/synnaxlabs/synnax/pkg/service/actions"
-	"github.com/synnaxlabs/synnax/pkg/service/ontology"
 	"github.com/synnaxlabs/synnax/pkg/service/project"
+	"github.com/synnaxlabs/synnax/pkg/service/resource"
 	"github.com/synnaxlabs/synnax/pkg/service/schematic"
 	"github.com/synnaxlabs/x/config"
 	"github.com/synnaxlabs/x/errors"
@@ -94,7 +94,7 @@ func (s *Service) Create(
 	if err := s.access.NewEnforcer(tx).Enforce(ctx, access.Request{
 		Subject: auth.GetSubject(ctx),
 		Action:  access.ActionCreate,
-		Objects: []ontology.ID{{Type: ontology.ResourceTypeSchematic}},
+		Objects: []resource.ID{{Type: resource.TypeSchematic}},
 	}); err != nil {
 		return CreateResponse{}, err
 	}
@@ -122,7 +122,7 @@ func (s *Service) Dispatch(
 	if err := s.access.NewEnforcer(tx).Enforce(ctx, access.Request{
 		Subject: auth.GetSubject(ctx),
 		Action:  access.ActionUpdate,
-		Objects: []ontology.ID{schematic.OntologyID(req.Key)},
+		Objects: []resource.ID{schematic.ResourceID(req.Key)},
 	}); err != nil {
 		return struct{}{}, err
 	}
@@ -156,7 +156,7 @@ func (s *Service) Retrieve(
 	if err := s.access.NewEnforcer(nil).Enforce(ctx, access.Request{
 		Subject: auth.GetSubject(ctx),
 		Action:  access.ActionRetrieve,
-		Objects: schematic.OntologyIDsFromSchematics(res.Schematics),
+		Objects: schematic.ResourceIDsFromSchematics(res.Schematics),
 	}); err != nil {
 		return RetrieveResponse{}, err
 	}
@@ -175,7 +175,7 @@ func (s *Service) Delete(
 	if err := s.access.NewEnforcer(tx).Enforce(ctx, access.Request{
 		Subject: auth.GetSubject(ctx),
 		Action:  access.ActionDelete,
-		Objects: schematic.OntologyIDs(req.Keys),
+		Objects: schematic.ResourceIDs(req.Keys),
 	}); err != nil {
 		return struct{}{}, err
 	}
@@ -201,7 +201,7 @@ func (s *Service) Copy(
 	if err := s.access.NewEnforcer(tx).Enforce(ctx, access.Request{
 		Subject: auth.GetSubject(ctx),
 		Action:  access.ActionRetrieve,
-		Objects: []ontology.ID{schematic.OntologyID(req.Key)},
+		Objects: []resource.ID{schematic.ResourceID(req.Key)},
 	}); err != nil {
 		return CopyResponse{}, err
 	}
@@ -213,7 +213,7 @@ func (s *Service) Copy(
 	if err := s.access.NewEnforcer(tx).Enforce(ctx, access.Request{
 		Subject: auth.GetSubject(ctx),
 		Action:  access.ActionCreate,
-		Objects: []ontology.ID{schematic.OntologyID(res.Schematic.Key)},
+		Objects: []resource.ID{schematic.ResourceID(res.Schematic.Key)},
 	}); err != nil {
 		return CopyResponse{}, err
 	}

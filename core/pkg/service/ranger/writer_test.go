@@ -103,7 +103,7 @@ var _ = Describe("Writer", func() {
 				Expect(w.Create(ctx, r)).To(Succeed())
 				var res ontology.Resource
 				Expect(otg.NewRetrieve().
-					WhereIDs(parent.OntologyID()).
+					WhereIDs(parent.ResourceID()).
 					TraverseTo(ontology.ChildrenTraverser).
 					Entry(&res).
 					Exec(ctx, tx)).To(Succeed())
@@ -127,7 +127,7 @@ var _ = Describe("Writer", func() {
 					Expect(w.Create(ctx, r)).To(Succeed())
 					var res ontology.Resource
 					Expect(otg.NewRetrieve().
-						WhereIDs(parent.OntologyID()).
+						WhereIDs(parent.ResourceID()).
 						TraverseTo(ontology.ChildrenTraverser).
 						Entry(&res).
 						Exec(ctx, tx)).To(Succeed())
@@ -157,14 +157,14 @@ var _ = Describe("Writer", func() {
 					Expect(w.Create(ctx, r)).To(Succeed())
 					var res ontology.Resource
 					Expect(otg.NewRetrieve().
-						WhereIDs(parent2.OntologyID()).
+						WhereIDs(parent2.ResourceID()).
 						TraverseTo(ontology.ChildrenTraverser).
 						Entry(&res).
 						Exec(ctx, tx)).To(Succeed())
 					Expect(res.ID.Key).To(Equal(r.Key.String()))
 					var res2 ontology.Resource
 					Expect(otg.NewRetrieve().
-						WhereIDs(parent1.OntologyID()).
+						WhereIDs(parent1.ResourceID()).
 						TraverseTo(ontology.ChildrenTraverser).
 						Entry(&res2).
 						Exec(ctx, tx)).To(MatchError(query.ErrNotFound))
@@ -191,7 +191,7 @@ var _ = Describe("Writer", func() {
 					Expect(w.CreateMany(ctx, &[]ranger.Range{r1, r2})).To(Succeed())
 					var res []ontology.Resource
 					Expect(otg.NewRetrieve().
-						WhereIDs(parent.OntologyID()).
+						WhereIDs(parent.ResourceID()).
 						TraverseTo(ontology.ChildrenTraverser).
 						Entries(&res).
 						Exec(ctx, tx)).To(Succeed())
@@ -275,7 +275,7 @@ var _ = Describe("Writer", func() {
 					}
 					Expect(w.Create(ctx, r)).To(Succeed())
 					resolved := MustSucceed(
-						labelSvc.RetrieveFor(ctx, r.OntologyID(), tx),
+						labelSvc.RetrieveFor(ctx, r.ResourceID(), tx),
 					)
 					resolvedKeys := lo.Map(
 						resolved,
@@ -296,11 +296,11 @@ var _ = Describe("Writer", func() {
 					Expect(w.Create(ctx, r)).To(Succeed())
 					Expect(
 						labelSvc.NewWriter(tx).
-							Label(ctx, r.OntologyID(), []label.Key{l.Key}),
+							Label(ctx, r.ResourceID(), []label.Key{l.Key}),
 					).To(Succeed())
 					Expect(w.Create(ctx, r)).To(Succeed())
 					resolved := MustSucceed(
-						labelSvc.RetrieveFor(ctx, r.OntologyID(), tx),
+						labelSvc.RetrieveFor(ctx, r.ResourceID(), tx),
 					)
 					Expect(resolved).To(HaveLen(1))
 					Expect(resolved[0].Key).To(Equal(l.Key))
@@ -322,7 +322,7 @@ var _ = Describe("Writer", func() {
 					r.Labels = []label.Label{*l2}
 					Expect(w.Create(ctx, r)).To(Succeed())
 					resolved := MustSucceed(
-						labelSvc.RetrieveFor(ctx, r.OntologyID(), tx),
+						labelSvc.RetrieveFor(ctx, r.ResourceID(), tx),
 					)
 					keys := lo.Map(
 						resolved,

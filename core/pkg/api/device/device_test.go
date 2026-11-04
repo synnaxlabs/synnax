@@ -18,7 +18,7 @@ import (
 	. "github.com/synnaxlabs/synnax/pkg/api/testutil"
 	"github.com/synnaxlabs/synnax/pkg/service/access"
 	"github.com/synnaxlabs/synnax/pkg/service/legacy/device"
-	"github.com/synnaxlabs/synnax/pkg/service/ontology"
+	"github.com/synnaxlabs/synnax/pkg/service/resource"
 	"github.com/synnaxlabs/synnax/pkg/service/status"
 	"github.com/synnaxlabs/x/query"
 	"github.com/synnaxlabs/x/telem"
@@ -52,7 +52,7 @@ func retrieveDevice(ctx SpecContext, key string) device.Device {
 func setLiveStatus(ctx SpecContext, d device.Device) {
 	GinkgoHelper()
 	Expect(svc.Status.NewWriter(nil).Set(ctx, &device.Status{
-		Key:     d.OntologyID().String(),
+		Key:     d.ResourceID().String(),
 		Name:    d.Name,
 		Time:    telem.Now(),
 		Variant: status.VariantSuccess,
@@ -62,12 +62,12 @@ func setLiveStatus(ctx SpecContext, d device.Device) {
 }
 
 var _ = Describe("Create", func() {
-	deviceType := ontology.ID{Type: ontology.ResourceTypeDevice}
+	deviceType := resource.ID{Type: resource.TypeDevice}
 	authedCtx := func(ctx SpecContext) context.Context {
 		GinkgoHelper()
 		u := createUser(ctx)
-		grant(ctx, access.ActionCreate, u.OntologyID(), deviceType)
-		grant(ctx, access.ActionRetrieve, u.OntologyID(), deviceType)
+		grant(ctx, access.ActionCreate, u.ResourceID(), deviceType)
+		grant(ctx, access.ActionRetrieve, u.ResourceID(), deviceType)
 		return AuthedCtx(ctx, u)
 	}
 	createStripped := func(ctx SpecContext, key string) device.Device {
@@ -81,7 +81,7 @@ var _ = Describe("Create", func() {
 		"Should leave out each status when create is the only grant",
 		func(ctx SpecContext) {
 			u := createUser(ctx)
-			grant(ctx, access.ActionCreate, u.OntologyID(), deviceType)
+			grant(ctx, access.ActionCreate, u.ResourceID(), deviceType)
 			hidden := createStripped(ctx, "create-only-hidden")
 			fresh := hidden
 			fresh.Key = "create-only-fresh"
@@ -98,8 +98,8 @@ var _ = Describe("Create", func() {
 	It("Should leave out the status when read is not granted", func(ctx SpecContext) {
 		u := createUser(ctx)
 		hidden := createStripped(ctx, "create-update-hidden")
-		grant(ctx, access.ActionCreate, u.OntologyID(), deviceType)
-		grant(ctx, access.ActionUpdate, u.OntologyID(), hidden.OntologyID())
+		grant(ctx, access.ActionCreate, u.ResourceID(), deviceType)
+		grant(ctx, access.ActionUpdate, u.ResourceID(), hidden.ResourceID())
 		res := MustSucceed(apiSvc.Create(
 			AuthedCtx(ctx, u), nil,
 			apidevice.CreateRequest{Devices: []device.Device{hidden}},
@@ -110,7 +110,7 @@ var _ = Describe("Create", func() {
 	It("Should reject a caller with only update access", func(ctx SpecContext) {
 		u := createUser(ctx)
 		d := createStripped(ctx, "update-only")
-		grant(ctx, access.ActionUpdate, u.OntologyID(), d.OntologyID())
+		grant(ctx, access.ActionUpdate, u.ResourceID(), d.ResourceID())
 		Expect(apiSvc.Create(
 			AuthedCtx(ctx, u), nil,
 			apidevice.CreateRequest{Devices: []device.Device{d}},
@@ -120,8 +120,8 @@ var _ = Describe("Create", func() {
 		u := createUser(ctx)
 		readable := createStripped(ctx, "batch-readable")
 		hidden := createStripped(ctx, "batch-hidden")
-		grant(ctx, access.ActionCreate, u.OntologyID(), deviceType)
-		grant(ctx, access.ActionRetrieve, u.OntologyID(), readable.OntologyID())
+		grant(ctx, access.ActionCreate, u.ResourceID(), deviceType)
+		grant(ctx, access.ActionRetrieve, u.ResourceID(), readable.ResourceID())
 		res := MustSucceed(apiSvc.Create(
 			AuthedCtx(ctx, u), nil,
 			apidevice.CreateRequest{Devices: []device.Device{readable, hidden}},
@@ -139,9 +139,9 @@ var _ = Describe("Create", func() {
 			apidevice.CreateRequest{Devices: []device.Device{fresh, existing}},
 		))
 		Expect(res.Devices).To(HaveLen(2))
-		Expect(res.Devices[0].Status.Key).To(Equal(fresh.OntologyID().String()))
+		Expect(res.Devices[0].Status.Key).To(Equal(fresh.ResourceID().String()))
 		Expect(res.Devices[0].Status.Message).To(Equal("Device status unknown"))
-		Expect(res.Devices[1].Status.Key).To(Equal(existing.OntologyID().String()))
+		Expect(res.Devices[1].Status.Key).To(Equal(existing.ResourceID().String()))
 		Expect(res.Devices[1].Status.Message).To(Equal("Device is running"))
 	})
 	It(
@@ -157,7 +157,7 @@ var _ = Describe("Create", func() {
 			)).Error().ToNot(HaveOccurred())
 			var stored device.Status
 			Expect(svc.Status.NewRetrieve[device.StatusDetails]().
-				Where(status.MatchKeys[device.StatusDetails](d.OntologyID().String())).
+				Where(status.MatchKeys[device.StatusDetails](d.ResourceID().String())).
 				Entry(&stored).
 				Exec(ctx, nil)).To(Succeed())
 			Expect(stored.Message).To(Equal("Device is running"))
@@ -169,7 +169,7 @@ var _ = Describe("Rename", func() {
 	It("Should rename the device when update is granted", func(ctx SpecContext) {
 		u := createUser(ctx)
 		d := createDevice(ctx, "rename-granted")
-		grant(ctx, access.ActionUpdate, u.OntologyID(), d.OntologyID())
+		grant(ctx, access.ActionUpdate, u.ResourceID(), d.ResourceID())
 		Expect(apiSvc.Rename(
 			AuthedCtx(ctx, u), nil,
 			apidevice.RenameRequest{Key: d.Key, Name: "After"},
@@ -181,7 +181,7 @@ var _ = Describe("Rename", func() {
 	It("Should reject an empty name", func(ctx SpecContext) {
 		u := createUser(ctx)
 		d := createDevice(ctx, "rename-empty")
-		grant(ctx, access.ActionUpdate, u.OntologyID(), d.OntologyID())
+		grant(ctx, access.ActionUpdate, u.ResourceID(), d.ResourceID())
 		Expect(apiSvc.Rename(
 			AuthedCtx(ctx, u), nil,
 			apidevice.RenameRequest{Key: d.Key, Name: ""},
@@ -190,7 +190,7 @@ var _ = Describe("Rename", func() {
 	})
 	It("Should return a not found error for a missing device", func(ctx SpecContext) {
 		u := createUser(ctx)
-		grant(ctx, access.ActionUpdate, u.OntologyID(), device.OntologyID("missing"))
+		grant(ctx, access.ActionUpdate, u.ResourceID(), device.ResourceID("missing"))
 		Expect(apiSvc.Rename(
 			AuthedCtx(ctx, u), nil,
 			apidevice.RenameRequest{Key: "missing", Name: "After"},
@@ -213,11 +213,11 @@ var _ = Describe("Retrieve", func() {
 		withStatus := createDevice(ctx, "retrieve-with-status")
 		withoutStatus := createDevice(ctx, "retrieve-without-status")
 		Expect(svc.Status.NewWriter(nil).Delete(
-			ctx, withoutStatus.OntologyID().String(),
+			ctx, withoutStatus.ResourceID().String(),
 		)).To(Succeed())
 		grant(
-			ctx, access.ActionRetrieve, u.OntologyID(),
-			withStatus.OntologyID(), withoutStatus.OntologyID(),
+			ctx, access.ActionRetrieve, u.ResourceID(),
+			withStatus.ResourceID(), withoutStatus.ResourceID(),
 		)
 		res := MustSucceed(apiSvc.Retrieve(
 			AuthedCtx(ctx, u),
@@ -230,6 +230,6 @@ var _ = Describe("Retrieve", func() {
 		Expect(res.Devices[0].Key).To(Equal(withoutStatus.Key))
 		Expect(res.Devices[0].Status).To(BeNil())
 		Expect(res.Devices[1].Key).To(Equal(withStatus.Key))
-		Expect(res.Devices[1].Status.Key).To(Equal(withStatus.OntologyID().String()))
+		Expect(res.Devices[1].Status.Key).To(Equal(withStatus.ResourceID().String()))
 	})
 })

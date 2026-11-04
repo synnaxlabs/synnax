@@ -16,7 +16,7 @@ import (
 	"sync"
 
 	"github.com/synnaxlabs/gorp"
-	"github.com/synnaxlabs/synnax/pkg/service/ontology"
+	"github.com/synnaxlabs/synnax/pkg/service/resource"
 	"github.com/synnaxlabs/x/errors"
 	"github.com/synnaxlabs/x/filename"
 	"github.com/synnaxlabs/x/validate"
@@ -29,14 +29,14 @@ import (
 type Service struct {
 	mu        sync.RWMutex
 	importers map[string]Importer
-	exporters map[ontology.ResourceType]Exporter
+	exporters map[resource.Type]Exporter
 }
 
 // NewService creates a new, empty [Service], safe for concurrent use.
 func NewService() *Service {
 	return &Service{
 		importers: make(map[string]Importer),
-		exporters: make(map[ontology.ResourceType]Exporter),
+		exporters: make(map[resource.Type]Exporter),
 	}
 }
 
@@ -97,7 +97,7 @@ func typeTakenError(kind, typ string) error {
 // ImporterType returns the ontology resource type created by the Importer registered
 // under t. It returns a validation error scoped to the "type" field when no importer is
 // registered for t.
-func (s *Service) ImporterType(t string) (ontology.ResourceType, error) {
+func (s *Service) ImporterType(t string) (resource.Type, error) {
 	s.mu.RLock()
 	imp, ok := s.importers[t]
 	s.mu.RUnlock()
@@ -115,7 +115,7 @@ func notFoundError[T ~string](typ T, kind string) error {
 }
 
 // ExporterRegistered reports whether an Exporter is registered for t.
-func (s *Service) ExporterRegistered(t ontology.ResourceType) bool {
+func (s *Service) ExporterRegistered(t resource.Type) bool {
 	s.mu.RLock()
 	defer s.mu.RUnlock()
 	_, ok := s.exporters[t]
@@ -151,14 +151,14 @@ func (s *Service) Import(
 	tx gorp.Tx,
 	envelope Envelope,
 	opts ImportOptions,
-) (ontology.ID, error) {
+) (resource.ID, error) {
 	if opts.Parent.IsZero() {
-		return ontology.ID{}, validate.PathedError(validate.ErrRequired, "parent")
+		return resource.ID{}, validate.PathedError(validate.ErrRequired, "parent")
 	}
 	if envelope.Type == "" {
 		typ, err := s.ResolveType(envelope)
 		if err != nil {
-			return ontology.ID{}, err
+			return resource.ID{}, err
 		}
 		envelope.Type = typ
 	}
@@ -166,17 +166,17 @@ func (s *Service) Import(
 	importer, ok := s.importers[envelope.Type]
 	s.mu.RUnlock()
 	if !ok {
-		return ontology.ID{}, notFoundError(envelope.Type, "importer")
+		return resource.ID{}, notFoundError(envelope.Type, "importer")
 	}
 	if envelope.Name == "" {
 		envelope.Name = filename.Stem(opts.FileName)
 	}
 	if envelope.Name == "" {
-		return ontology.ID{}, newFieldError("name", "name must be a non-empty string")
+		return resource.ID{}, newFieldError("name", "name must be a non-empty string")
 	}
 	id, err := importer.Import(ctx, tx, envelope, opts)
 	if err != nil {
-		return ontology.ID{}, errors.Wrap(err, "import envelope")
+		return resource.ID{}, errors.Wrap(err, "import envelope")
 	}
 	return id, nil
 }
@@ -185,7 +185,7 @@ func (s *Service) Import(
 // a validation error scoped to the "type" field when no Exporter is registered.
 func (s *Service) Export(
 	ctx context.Context,
-	resource ontology.ID,
+	resource resource.ID,
 ) (Envelope, error) {
 	s.mu.RLock()
 	exporter, ok := s.exporters[resource.Type]

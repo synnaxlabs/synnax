@@ -18,8 +18,8 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/service/access/rbac"
 	"github.com/synnaxlabs/synnax/pkg/service/actions"
 	"github.com/synnaxlabs/synnax/pkg/service/log"
-	"github.com/synnaxlabs/synnax/pkg/service/ontology"
 	"github.com/synnaxlabs/synnax/pkg/service/project"
+	"github.com/synnaxlabs/synnax/pkg/service/resource"
 	"github.com/synnaxlabs/x/config"
 	"github.com/synnaxlabs/x/errors"
 	"github.com/synnaxlabs/x/override"
@@ -97,7 +97,7 @@ func (s *Service) Create(
 	if err := s.access.NewEnforcer(tx).Enforce(ctx, access.Request{
 		Subject: auth.GetSubject(ctx),
 		Action:  access.ActionCreate,
-		Objects: []ontology.ID{{Type: ontology.ResourceTypeLog}},
+		Objects: []resource.ID{{Type: resource.TypeLog}},
 	}); err != nil {
 		return CreateResponse{}, err
 	}
@@ -124,7 +124,7 @@ func (s *Service) Dispatch(
 	if err := s.access.NewEnforcer(tx).Enforce(ctx, access.Request{
 		Subject: auth.GetSubject(ctx),
 		Action:  access.ActionUpdate,
-		Objects: []ontology.ID{log.OntologyID(req.Key)},
+		Objects: []resource.ID{log.ResourceID(req.Key)},
 	}); err != nil {
 		return struct{}{}, err
 	}
@@ -158,7 +158,7 @@ func (s *Service) Retrieve(
 	if err := s.access.NewEnforcer(nil).Enforce(ctx, access.Request{
 		Subject: auth.GetSubject(ctx),
 		Action:  access.ActionRetrieve,
-		Objects: log.OntologyIDsFromLogs(res.Logs),
+		Objects: log.ResourceIDsFromLogs(res.Logs),
 	}); err != nil {
 		return RetrieveResponse{}, err
 	}
@@ -177,7 +177,7 @@ func (s *Service) Delete(
 	if err := s.access.NewEnforcer(tx).Enforce(ctx, access.Request{
 		Subject: auth.GetSubject(ctx),
 		Action:  access.ActionDelete,
-		Objects: log.OntologyIDs(req.Keys),
+		Objects: log.ResourceIDs(req.Keys),
 	}); err != nil {
 		return struct{}{}, err
 	}

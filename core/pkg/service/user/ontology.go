@@ -17,6 +17,7 @@ import (
 	"github.com/samber/lo"
 	"github.com/synnaxlabs/gorp"
 	"github.com/synnaxlabs/synnax/pkg/service/ontology"
+	"github.com/synnaxlabs/synnax/pkg/service/resource"
 	xchange "github.com/synnaxlabs/x/change"
 	xiter "github.com/synnaxlabs/x/iter"
 	"github.com/synnaxlabs/x/observe"
@@ -24,23 +25,23 @@ import (
 	"github.com/synnaxlabs/x/zyn"
 )
 
-// OntologyID returns a unique identifier for a User for use within a resource ontology.
-func OntologyID(key Key) ontology.ID {
-	return ontology.ID{Type: ontology.ResourceTypeUser, Key: key.String()}
+// ResourceID returns a unique identifier for a User for use within a resource ontology.
+func ResourceID(key Key) resource.ID {
+	return resource.ID{Type: resource.TypeUser, Key: key.String()}
 }
 
-// OntologyIDsFromKeys returns a slice of unique identifiers from a slice of keys
-func OntologyIDsFromKeys(keys []Key) []ontology.ID {
-	return lo.Map(keys, func(key Key, _ int) ontology.ID { return OntologyID(key) })
+// ResourceIDsFromKeys returns a slice of unique identifiers from a slice of keys
+func ResourceIDsFromKeys(keys []Key) []resource.ID {
+	return lo.Map(keys, func(key Key, _ int) resource.ID { return ResourceID(key) })
 }
 
-// OntologyIDsFromUsers returns a slice of unique identifiers for a slice of Users for
+// ResourceIDsFromUsers returns a slice of unique identifiers for a slice of Users for
 // use within a resource ontology.
-func OntologyIDsFromUsers(users []User) []ontology.ID {
-	return lo.Map(users, func(u User, _ int) ontology.ID { return u.OntologyID() })
+func ResourceIDsFromUsers(users []User) []resource.ID {
+	return lo.Map(users, func(u User, _ int) resource.ID { return u.ResourceID() })
 }
 
-func KeyFromOntologyID(id ontology.ID) (Key, error) { return uuid.Parse(id.Key) }
+func KeyFromResourceID(id resource.ID) (Key, error) { return uuid.Parse(id.Key) }
 
 var schema = zyn.Object(map[string]zyn.Schema{
 	"key":       zyn.UUID(),
@@ -50,7 +51,7 @@ var schema = zyn.Object(map[string]zyn.Schema{
 
 var _ ontology.Service = (*Service)(nil)
 
-func (s *Service) Type() ontology.ResourceType { return ontology.ResourceTypeUser }
+func (s *Service) Type() resource.Type { return resource.TypeUser }
 
 // RetrieveResource implements ontology.Service.
 func (s *Service) RetrieveResource(
@@ -77,7 +78,7 @@ type change = xchange.Change[Key, User]
 func translateChange(ch change) ontology.Change {
 	return ontology.Change{
 		Variant: ch.Variant,
-		Key:     OntologyID(ch.Key).String(),
+		Key:     ResourceID(ch.Key).String(),
 		Value:   newResource(ch.Value),
 	}
 }
@@ -93,14 +94,14 @@ func (s *Service) OnChange(
 }
 
 func newResource(u User) ontology.Resource {
-	return ontology.NewResource(schema, u.OntologyID(), u.Name, u)
+	return ontology.NewResource(schema, u.ResourceID(), u.Name, u)
 }
 
 // Search implements ontology.Service.
 func (s *Service) Search(
 	ctx context.Context,
 	tx gorp.Tx,
-	q search.Query[ontology.ID],
-) (search.Result[ontology.ID], error) {
-	return ontology.SearchIndex(ctx, tx, s.indexes.search, OntologyID, q)
+	q search.Query[resource.ID],
+) (search.Result[resource.ID], error) {
+	return ontology.SearchIndex(ctx, tx, s.indexes.search, ResourceID, q)
 }

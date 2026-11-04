@@ -21,6 +21,7 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/service/group"
 	"github.com/synnaxlabs/synnax/pkg/service/ontology"
 	v0 "github.com/synnaxlabs/synnax/pkg/service/ranger/versions/v0"
+	"github.com/synnaxlabs/synnax/pkg/service/resource"
 	"github.com/synnaxlabs/x/encoding/msgpack"
 	"github.com/synnaxlabs/x/query"
 	"github.com/synnaxlabs/x/telem"
@@ -70,7 +71,7 @@ var _ = Describe("Migration", func() {
 				gSvc.NewWriter(tx).Create(ctx, "Ranges", ontology.RootID),
 			)
 			subGroup := MustSucceed(
-				gSvc.NewWriter(tx).Create(ctx, "Subgroup", tlg.OntologyID()),
+				gSvc.NewWriter(tx).Create(ctx, "Subgroup", tlg.ResourceID()),
 			)
 
 			// Create two ranges and their ontology resources under the subgroup.
@@ -94,19 +95,19 @@ var _ = Describe("Migration", func() {
 			Expect(bareTable.NewCreate().Entry(&r2).Exec(ctx, tx)).To(Succeed())
 
 			otgWriter := otg.NewWriter(tx)
-			Expect(otgWriter.DefineResources(ctx, r1.OntologyID())).To(Succeed())
-			Expect(otgWriter.DefineResources(ctx, r2.OntologyID())).To(Succeed())
+			Expect(otgWriter.DefineResources(ctx, r1.ResourceID())).To(Succeed())
+			Expect(otgWriter.DefineResources(ctx, r2.ResourceID())).To(Succeed())
 			Expect(otgWriter.DefineRelationships(
 				ctx,
-				subGroup.OntologyID(),
+				subGroup.ResourceID(),
 				ontology.RelationshipTypeParentOf,
-				r1.OntologyID(),
+				r1.ResourceID(),
 			)).To(Succeed())
 			Expect(otgWriter.DefineRelationships(
 				ctx,
-				subGroup.OntologyID(),
+				subGroup.ResourceID(),
 				ontology.RelationshipTypeParentOf,
-				r2.OntologyID(),
+				r2.ResourceID(),
 			)).To(Succeed())
 
 			Expect(tx.Commit(ctx)).To(Succeed())
@@ -150,19 +151,19 @@ var _ = Describe("Migration", func() {
 			// The parent range should have r1 and r2 as children in the ontology.
 			var children []ontology.Resource
 			Expect(otg.NewRetrieve().
-				WhereIDs(parentRange.OntologyID()).
+				WhereIDs(parentRange.ResourceID()).
 				TraverseTo(ontology.ChildrenTraverser).
-				WhereTypes(ontology.ResourceTypeRange).
+				WhereTypes(resource.TypeRange).
 				ExcludeFieldData(true).
 				Entries(&children).
 				Exec(ctx, nil)).To(Succeed())
-			var childIDs []ontology.ID
+			var childIDs []resource.ID
 			for _, c := range children {
 				childIDs = append(childIDs, c.ID)
 			}
 			Expect(childIDs).To(ConsistOf(
-				r1.OntologyID(),
-				r2.OntologyID(),
+				r1.ResourceID(),
+				r2.ResourceID(),
 			))
 		},
 	)
@@ -176,7 +177,7 @@ var _ = Describe("Migration", func() {
 			tlg := MustSucceed(
 				gSvc.NewWriter(tx).Create(ctx, "Ranges", ontology.RootID),
 			)
-			MustSucceed(gSvc.NewWriter(tx).Create(ctx, "Subgroup", tlg.OntologyID()))
+			MustSucceed(gSvc.NewWriter(tx).Create(ctx, "Subgroup", tlg.ResourceID()))
 			Expect(tx.Commit(ctx)).To(Succeed())
 			Expect(tx.Close()).To(Succeed())
 			runMigration(ctx)

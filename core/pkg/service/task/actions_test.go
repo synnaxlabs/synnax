@@ -57,7 +57,7 @@ var _ = Describe("Actions", func() {
 					Path: []string{"name"}, Value: "Alarms",
 				})},
 			}))
-			Expect(task.ActionRecord(sample)).To(Equal(task.OntologyID(base.Key)))
+			Expect(task.ActionRecord(sample)).To(Equal(task.ResourceID(base.Key)))
 		})
 
 		It("Should return an error for a sample that is not a broadcast", func() {

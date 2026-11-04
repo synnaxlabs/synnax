@@ -7,7 +7,19 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-package v0
+package v0_test
 
-// String implements fmt.Stringer.
-func (r ResourceType) String() string { return string(r) }
+import (
+	"testing"
+
+	. "github.com/onsi/ginkgo/v2"
+	. "github.com/onsi/gomega"
+	. "github.com/synnaxlabs/x/testutil"
+)
+
+func TestResourceV0(t *testing.T) {
+	RegisterFailHandler(Fail)
+	RunSpecs(t, "Service Resource v0 Suite", SuiteConfig())
+}
+
+var _ = ShouldNotLeakGoroutinesPerSpec()

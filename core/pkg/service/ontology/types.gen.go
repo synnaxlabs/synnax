@@ -13,47 +13,7 @@ package ontology
 
 import "github.com/synnaxlabs/synnax/pkg/service/ontology/versions"
 
-// ResourceType is the type of the resource.
-type ResourceType = versions.ResourceType
-
-const (
-	ResourceTypeArc             ResourceType = versions.ResourceTypeArc
-	ResourceTypeBuiltin         ResourceType = versions.ResourceTypeBuiltin
-	ResourceTypeChannel         ResourceType = versions.ResourceTypeChannel
-	ResourceTypeDevice          ResourceType = versions.ResourceTypeDevice
-	ResourceTypeFramer          ResourceType = versions.ResourceTypeFramer
-	ResourceTypeGroup           ResourceType = versions.ResourceTypeGroup
-	ResourceTypeLabel           ResourceType = versions.ResourceTypeLabel
-	ResourceTypeLineplot        ResourceType = versions.ResourceTypeLineplot
-	ResourceTypeLog             ResourceType = versions.ResourceTypeLog
-	ResourceTypeNode            ResourceType = versions.ResourceTypeNode
-	ResourceTypePanel           ResourceType = versions.ResourceTypePanel
-	ResourceTypePolicy          ResourceType = versions.ResourceTypePolicy
-	ResourceTypeProject         ResourceType = versions.ResourceTypeProject
-	ResourceTypeRack            ResourceType = versions.ResourceTypeRack
-	ResourceTypeRange           ResourceType = versions.ResourceTypeRange
-	ResourceTypeRangeAlias      ResourceType = versions.ResourceTypeRangeAlias
-	ResourceTypeRole            ResourceType = versions.ResourceTypeRole
-	ResourceTypeSchematic       ResourceType = versions.ResourceTypeSchematic
-	ResourceTypeSchematicSymbol ResourceType = versions.ResourceTypeSchematicSymbol
-	ResourceTypeStatus          ResourceType = versions.ResourceTypeStatus
-	ResourceTypeTable           ResourceType = versions.ResourceTypeTable
-	ResourceTypeTask            ResourceType = versions.ResourceTypeTask
-	ResourceTypeUser            ResourceType = versions.ResourceTypeUser
-	ResourceTypeView            ResourceType = versions.ResourceTypeView
-)
-
 type RelationshipType = versions.RelationshipType
-
-// ID is a unique identifier for a Resource. An example:
-//
-// userID := ID{ Key: "748d31e2-5732-4cb5-8bc9-64d4ad51efe8", Type: "user", }
-//
-// The ID has two elements for several reasons. First, by storing the Type we know which
-// service to query for additional info on the Resource. Second, while a Key may be
-// unique for a particular resource (e.g. channel), it might not be unique across all
-// resources. We need something universally unique across the entire Synnax Core.
-type ID = versions.ID
 
 // Resource is a resource in the ontology system with its identifier, name, and optional
 // metadata.

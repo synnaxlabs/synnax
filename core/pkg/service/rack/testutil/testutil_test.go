@@ -25,7 +25,7 @@ var _ = Describe("CreateDriverRole", func() {
 		db := DeferClose(gorp.Wrap(memkv.New()))
 		otg := MustOpen(ontology.Open(ctx, ontology.Config{DB: db}))
 		k := MustSucceed(racktestutil.CreateDriverRole(ctx, otg))
-		Expect(otg.NewRetrieve().WhereIDs(role.OntologyID(k)).Exists(ctx, nil)).
+		Expect(otg.NewRetrieve().WhereIDs(role.ResourceID(k)).Exists(ctx, nil)).
 			To(BeTrue())
 	})
 })

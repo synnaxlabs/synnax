@@ -13,11 +13,12 @@ import (
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	"github.com/synnaxlabs/synnax/pkg/service/ontology"
+	"github.com/synnaxlabs/synnax/pkg/service/resource"
 	. "github.com/synnaxlabs/x/testutil"
 )
 
 var _ = Describe("Ancestors", func() {
-	parentOf := func(from, to ontology.ID) ontology.Relationship {
+	parentOf := func(from, to resource.ID) ontology.Relationship {
 		return ontology.Relationship{
 			From: from,
 			Type: ontology.RelationshipTypeParentOf,
@@ -25,7 +26,7 @@ var _ = Describe("Ancestors", func() {
 		}
 	}
 	var (
-		top, mid, side, leaf ontology.ID
+		top, mid, side, leaf resource.ID
 		w                    ontology.Writer
 	)
 	BeforeEach(func(ctx SpecContext) {
@@ -48,7 +49,7 @@ var _ = Describe("Ancestors", func() {
 
 	It("Should return every parent relationship up to the ontology root",
 		func() {
-			Expect(otg.Ancestors(tx, ontology.ID{}, leaf)).To(ConsistOf(
+			Expect(otg.Ancestors(tx, resource.ID{}, leaf)).To(ConsistOf(
 				parentOf(mid, leaf),
 				parentOf(top, mid),
 				parentOf(ontology.RootID, top),
@@ -97,10 +98,10 @@ var _ = Describe("Ancestors", func() {
 		})
 
 	It("Should return nothing for a resource with no parents", func() {
-		Expect(otg.Ancestors(tx, ontology.ID{}, side)).To(BeEmpty())
+		Expect(otg.Ancestors(tx, resource.ID{}, side)).To(BeEmpty())
 	})
 
 	It("Should read only committed state when tx is nil", func() {
-		Expect(MustSucceed(otg.Ancestors(nil, ontology.ID{}, leaf))).To(BeEmpty())
+		Expect(MustSucceed(otg.Ancestors(nil, resource.ID{}, leaf))).To(BeEmpty())
 	})
 })

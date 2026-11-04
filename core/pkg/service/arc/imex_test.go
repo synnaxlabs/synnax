@@ -22,14 +22,14 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/service/arc/versions"
 	"github.com/synnaxlabs/synnax/pkg/service/imex"
 	. "github.com/synnaxlabs/synnax/pkg/service/imex/testutil"
-	"github.com/synnaxlabs/synnax/pkg/service/ontology"
+	"github.com/synnaxlabs/synnax/pkg/service/resource"
 	"github.com/synnaxlabs/x/query"
 	. "github.com/synnaxlabs/x/testutil"
 )
 
 // testParent satisfies the registry's required-parent check; the Arc importer does not
 // parent imported resources, so the ID only has to be non-zero.
-var testParent = ontology.ID{Type: ontology.ResourceTypeProject, Key: "imex-parent"}
+var testParent = resource.ID{Type: resource.TypeProject, Key: "imex-parent"}
 
 var _ = Describe("ImEx", func() {
 	DescribeTable("Match",
@@ -47,7 +47,7 @@ var _ = Describe("ImEx", func() {
 		It("Should export an Arc as a versioned envelope", func(ctx SpecContext) {
 			a := arc.Arc{Name: "exported", Mode: arc.ModeText}
 			Expect(svc.NewWriter(nil).Create(ctx, &a)).To(Succeed())
-			env := MustSucceed(svc.Export(ctx, arc.OntologyID(a.Key)))
+			env := MustSucceed(svc.Export(ctx, arc.ResourceID(a.Key)))
 			Expect(env.Version).To(Equal(versions.Latest))
 			Expect(env.Type).To(Equal("arc"))
 			Expect(env.Name).To(Equal("exported"))
@@ -65,7 +65,7 @@ var _ = Describe("ImEx", func() {
 					Text: text.Text{Raw: "x := 1"},
 				}
 				Expect(svc.NewWriter(nil).Create(ctx, &a)).To(Succeed())
-				env := MustSucceed(svc.Export(ctx, arc.OntologyID(a.Key)))
+				env := MustSucceed(svc.Export(ctx, arc.ResourceID(a.Key)))
 				var body map[string]any
 				Expect(json.Unmarshal(MustSucceed(json.Marshal(env)), &body)).
 					To(Succeed())
@@ -78,12 +78,12 @@ var _ = Describe("ImEx", func() {
 		)
 
 		It("Should return not found for a missing key", func(ctx SpecContext) {
-			id := ontology.ID{Type: ontology.ResourceTypeArc, Key: uuid.New().String()}
+			id := resource.ID{Type: resource.TypeArc, Key: uuid.New().String()}
 			Expect(svc.Export(ctx, id)).Error().To(MatchError(query.ErrNotFound))
 		})
 
 		It("Should error on an invalid UUID key", func(ctx SpecContext) {
-			id := ontology.ID{Type: ontology.ResourceTypeArc, Key: "not-a-uuid"}
+			id := resource.ID{Type: resource.TypeArc, Key: "not-a-uuid"}
 			Expect(svc.Export(ctx, id)).Error().To(MatchError(ContainSubstring("uuid")))
 		})
 	})
@@ -94,7 +94,7 @@ var _ = Describe("ImEx", func() {
 		) arc.Arc {
 			GinkgoHelper()
 			id := MustSucceed(imexSvc.Import(ctx, db, LoadEnvelope(path), opts))
-			Expect(id.Type).To(Equal(ontology.ResourceTypeArc))
+			Expect(id.Type).To(Equal(resource.TypeArc))
 			key := MustSucceed(uuid.Parse(id.Key))
 			var res arc.Arc
 			Expect(svc.NewRetrieve().
@@ -245,7 +245,7 @@ var _ = Describe("ImEx", func() {
 				original := arc.Arc{Name: "round-trip", Mode: arc.ModeText}
 				original.Text.Raw = "b = 2"
 				Expect(svc.NewWriter(nil).Create(ctx, &original)).To(Succeed())
-				env := MustSucceed(svc.Export(ctx, arc.OntologyID(original.Key)))
+				env := MustSucceed(svc.Export(ctx, arc.ResourceID(original.Key)))
 				id := MustSucceed(imexSvc.Import(
 					ctx, db, WireRoundTrip(env), imex.ImportOptions{Parent: testParent},
 				))

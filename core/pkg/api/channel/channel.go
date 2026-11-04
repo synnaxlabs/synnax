@@ -23,9 +23,9 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/service/channel"
 	"github.com/synnaxlabs/synnax/pkg/service/group"
 	"github.com/synnaxlabs/synnax/pkg/service/node"
-	"github.com/synnaxlabs/synnax/pkg/service/ontology"
 	"github.com/synnaxlabs/synnax/pkg/service/ranger"
 	"github.com/synnaxlabs/synnax/pkg/service/ranger/alias"
+	"github.com/synnaxlabs/synnax/pkg/service/resource"
 	"github.com/synnaxlabs/synnax/pkg/service/status"
 	"github.com/synnaxlabs/x/config"
 	"github.com/synnaxlabs/x/errors"
@@ -175,7 +175,7 @@ func (s *Service) Create(
 	if err := s.access.NewEnforcer(tx).Enforce(ctx, access.Request{
 		Subject: auth.GetSubject(ctx),
 		Action:  access.ActionCreate,
-		Objects: []ontology.ID{{Type: ontology.ResourceTypeChannel}},
+		Objects: []resource.ID{{Type: resource.TypeChannel}},
 	}); err != nil {
 		return CreateResponse{}, err
 	}
@@ -326,11 +326,11 @@ func (s *Service) Retrieve(
 		}
 	}
 	if req.IncludeStatus {
-		ids := channel.OntologyIDsFromChannels(resChannels)
+		ids := channel.ResourceIDsFromChannels(resChannels)
 		statuses := make([]Status, 0, len(resChannels))
 		// Most channels have no status row, so a missing key is not an error.
 		if err := s.status.NewRetrieve[struct{}]().
-			Where(status.MatchKeys[struct{}](ontology.IDsToKeys(ids)...)).
+			Where(status.MatchKeys[struct{}](resource.IDsToKeys(ids)...)).
 			Entries(&statuses).
 			Exec(ctx, nil); errors.Skip(err, query.ErrNotFound) != nil {
 			return RetrieveResponse{}, err
@@ -348,7 +348,7 @@ func (s *Service) Retrieve(
 	if err := s.access.NewEnforcer(nil).Enforce(ctx, access.Request{
 		Subject: auth.GetSubject(ctx),
 		Action:  access.ActionRetrieve,
-		Objects: channel.OntologyIDsFromChannels(resChannels),
+		Objects: channel.ResourceIDsFromChannels(resChannels),
 	}); err != nil {
 		return RetrieveResponse{}, err
 	}
@@ -447,7 +447,7 @@ func (s *Service) Delete(
 		if err := s.access.NewEnforcer(tx).Enforce(ctx, access.Request{
 			Subject: auth.GetSubject(ctx),
 			Action:  access.ActionDelete,
-			Objects: channel.OntologyIDsFromKeys(req.Keys),
+			Objects: channel.ResourceIDsFromKeys(req.Keys),
 		}); err != nil {
 			return struct{}{}, err
 		}
@@ -466,7 +466,7 @@ func (s *Service) Delete(
 		if err := s.access.NewEnforcer(tx).Enforce(ctx, access.Request{
 			Subject: auth.GetSubject(ctx),
 			Action:  access.ActionDelete,
-			Objects: channel.OntologyIDsFromChannels(res),
+			Objects: channel.ResourceIDsFromChannels(res),
 		}); err != nil {
 			return struct{}{}, err
 		}
@@ -488,7 +488,7 @@ func (s *Service) Rename(
 	if err := s.access.NewEnforcer(tx).Enforce(ctx, access.Request{
 		Subject: auth.GetSubject(ctx),
 		Action:  access.ActionUpdate,
-		Objects: channel.OntologyIDsFromKeys(req.Keys),
+		Objects: channel.ResourceIDsFromKeys(req.Keys),
 	}); err != nil {
 		return struct{}{}, err
 	}
@@ -511,7 +511,7 @@ func (s *Service) RetrieveGroup(
 	if err := s.access.NewEnforcer(nil).Enforce(ctx, access.Request{
 		Subject: auth.GetSubject(ctx),
 		Action:  access.ActionRetrieve,
-		Objects: []ontology.ID{g.OntologyID()},
+		Objects: []resource.ID{g.ResourceID()},
 	}); err != nil {
 		return RetrieveGroupResponse{}, err
 	}

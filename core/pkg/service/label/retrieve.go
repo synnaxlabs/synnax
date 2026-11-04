@@ -15,6 +15,7 @@ import (
 	"github.com/samber/lo"
 	"github.com/synnaxlabs/gorp"
 	"github.com/synnaxlabs/synnax/pkg/service/ontology"
+	"github.com/synnaxlabs/synnax/pkg/service/resource"
 )
 
 // Retrieve is a builder for querying labels.
@@ -88,12 +89,12 @@ func (r Retrieve) Exec(ctx context.Context, tx gorp.Tx) error {
 	return r.gorp.Exec(ctx, gorp.OverrideTx(r.baseTx, tx))
 }
 
-// RetrieveFor retrieves all labels that are associated with the provided ontology ID.
+// RetrieveFor retrieves all labels that are associated with the provided resource ID.
 // If a tx is provided, RetrieveFor will use it to execute the query. Otherwise, it will
 // execute against the underlying gorp.DB.
 func (s *Service) RetrieveFor(
 	ctx context.Context,
-	id ontology.ID,
+	id resource.ID,
 	tx gorp.Tx,
 ) ([]Label, error) {
 	var labelResources []ontology.Resource
@@ -105,7 +106,7 @@ func (s *Service) RetrieveFor(
 		Exec(ctx, tx); err != nil {
 		return nil, err
 	}
-	keys, err := KeysFromOntologyIDs(ontology.ResourceIDs(labelResources))
+	keys, err := KeysFromResourceIDs(ontology.ResourceIDs(labelResources))
 	if err != nil {
 		return nil, err
 	}

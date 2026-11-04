@@ -184,7 +184,7 @@ var _ = Describe("Factory", func() {
 						To(MatchError(ContainSubstring("routing_key")))
 					var stat task.Status
 					Expect(statusSvc.NewRetrieve[task.StatusDetails]().
-						Where(status.MatchKeys[task.StatusDetails](t.OntologyID().String())).
+						Where(status.MatchKeys[task.StatusDetails](t.ResourceID().String())).
 						Entry(&stat).Exec(ctx, nil)).To(Succeed())
 					Expect(stat.Variant).To(BeEquivalentTo("error"))
 					Expect(stat.Details.Cmd).To(Equal("cmd-1"))
@@ -207,7 +207,7 @@ var _ = Describe("Factory", func() {
 					Expect(tsk).ToNot(BeNil())
 					var stat task.Status
 					Expect(statusSvc.NewRetrieve[task.StatusDetails]().
-						Where(status.MatchKeys[task.StatusDetails](t.OntologyID().String())).
+						Where(status.MatchKeys[task.StatusDetails](t.ResourceID().String())).
 						Entry(&stat).Exec(ctx, nil)).To(MatchError(query.ErrNotFound))
 					Expect(tsk.Stop(true)).To(Succeed())
 				},
@@ -229,7 +229,7 @@ var _ = Describe("Factory", func() {
 				Expect(tsk).ToNot(BeNil())
 				var stat task.Status
 				Expect(statusSvc.NewRetrieve[task.StatusDetails]().
-					Where(status.MatchKeys[task.StatusDetails](t.OntologyID().String())).
+					Where(status.MatchKeys[task.StatusDetails](t.ResourceID().String())).
 					Entry(&stat).Exec(ctx, nil)).To(Succeed())
 				Expect(stat.Variant).To(BeEquivalentTo("success"))
 				Expect(stat.Message).To(Equal("Started task"))
@@ -251,7 +251,7 @@ var _ = Describe("Factory", func() {
 						To(MatchError(ContainSubstring("routing_key")))
 					var stat task.Status
 					Expect(statusSvc.NewRetrieve[task.StatusDetails]().
-						Where(status.MatchKeys[task.StatusDetails](task.OntologyID(t.Key).String())).
+						Where(status.MatchKeys[task.StatusDetails](task.ResourceID(t.Key).String())).
 						Entry(&stat).Exec(ctx, nil)).To(MatchError(query.ErrNotFound))
 				},
 			)
@@ -271,7 +271,7 @@ var _ = Describe("Factory", func() {
 						To(MatchError(ContainSubstring("routing_key")))
 					var stat task.Status
 					Expect(statusSvc.NewRetrieve[task.StatusDetails]().
-						Where(status.MatchKeys[task.StatusDetails](task.OntologyID(t.Key).String())).
+						Where(status.MatchKeys[task.StatusDetails](task.ResourceID(t.Key).String())).
 						Entry(&stat).Exec(ctx, nil)).To(Succeed())
 					Expect(stat.Variant).To(BeEquivalentTo("error"))
 					Expect(stat.Message).To(Equal("Failed to configure task"))
@@ -294,7 +294,7 @@ var _ = Describe("Factory", func() {
 					Expect(tsk).ToNot(BeNil())
 					var stat task.Status
 					Expect(statusSvc.NewRetrieve[task.StatusDetails]().
-						Where(status.MatchKeys[task.StatusDetails](task.OntologyID(t.Key).String())).
+						Where(status.MatchKeys[task.StatusDetails](task.ResourceID(t.Key).String())).
 						Entry(&stat).Exec(ctx, nil)).To(Succeed())
 					Expect(stat.Variant).To(BeEquivalentTo("success"))
 					Expect(stat.Message).To(Equal("Started task"))

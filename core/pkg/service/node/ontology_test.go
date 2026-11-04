@@ -22,6 +22,7 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/service/cluster"
 	"github.com/synnaxlabs/synnax/pkg/service/node"
 	"github.com/synnaxlabs/synnax/pkg/service/ontology"
+	"github.com/synnaxlabs/synnax/pkg/service/resource"
 	"github.com/synnaxlabs/x/search"
 	. "github.com/synnaxlabs/x/testutil"
 	"github.com/synnaxlabs/x/testutil/memkv"
@@ -58,18 +59,18 @@ var _ = BeforeSuite(func(ctx SpecContext) {
 })
 
 var _ = Describe("Ontology", func() {
-	Describe("OntologyID", func() {
+	Describe("ResourceID", func() {
 		It(
 			"Should construct an ID with the node resource type and a stringified key",
 			func() {
-				id := node.OntologyID(7)
-				Expect(id.Type).To(Equal(ontology.ResourceTypeNode))
+				id := node.ResourceID(7)
+				Expect(id.Type).To(Equal(resource.TypeNode))
 				Expect(id.Key).To(Equal("7"))
 			},
 		)
 
 		It("Should round-trip the free node key", func() {
-			id := node.OntologyID(node.KeyFree)
+			id := node.ResourceID(node.KeyFree)
 			Expect(id.Key).To(Equal(strconv.Itoa(int(node.KeyFree))))
 		})
 	})
@@ -77,7 +78,7 @@ var _ = Describe("Ontology", func() {
 	Describe("Service", func() {
 		Describe("Type", func() {
 			It("Should report the node ontology resource type", func() {
-				Expect(testSvc.Type()).To(Equal(ontology.ResourceTypeNode))
+				Expect(testSvc.Type()).To(Equal(resource.TypeNode))
 			})
 		})
 
@@ -87,7 +88,7 @@ var _ = Describe("Ontology", func() {
 				res := MustSucceed(
 					testSvc.RetrieveResource(ctx, strconv.Itoa(int(host)), nil),
 				)
-				Expect(res.ID).To(Equal(node.OntologyID(host)))
+				Expect(res.ID).To(Equal(node.ResourceID(host)))
 				Expect(res.Name).To(Equal("Node 1"))
 			})
 
@@ -99,7 +100,7 @@ var _ = Describe("Ontology", func() {
 						strconv.Itoa(int(node.KeyFree)),
 						nil,
 					))
-					Expect(res.ID).To(Equal(node.OntologyID(node.KeyFree)))
+					Expect(res.ID).To(Equal(node.ResourceID(node.KeyFree)))
 				},
 			)
 
@@ -119,19 +120,19 @@ var _ = Describe("Ontology", func() {
 
 		Describe("Search", func() {
 			DescribeTable("Should search the nodes currently in the cluster",
-				func(ctx SpecContext, term string, limit int, expected []ontology.ID) {
-					q := search.Query[ontology.ID]{Term: term, Limit: limit}
+				func(ctx SpecContext, term string, limit int, expected []resource.ID) {
+					q := search.Query[resource.ID]{Term: term, Limit: limit}
 					Expect(
 						MustSucceed(testSvc.Search(ctx, nil, q)).Keys,
 					).To(Equal(expected))
 				},
 				Entry("every node", "node", 10,
-					[]ontology.ID{node.OntologyID(1), node.OntologyID(2)}),
+					[]resource.ID{node.ResourceID(1), node.ResourceID(2)}),
 				Entry("the closest node first", "node 2", 10,
-					[]ontology.ID{node.OntologyID(2), node.OntologyID(1)}),
+					[]resource.ID{node.ResourceID(2), node.ResourceID(1)}),
 				Entry("at most the limit", "node", 1,
-					[]ontology.ID{node.OntologyID(1)}),
-				Entry("no match", "valve", 10, []ontology.ID{}),
+					[]resource.ID{node.ResourceID(1)}),
+				Entry("no match", "valve", 10, []resource.ID{}),
 			)
 		})
 
@@ -157,7 +158,7 @@ var _ = Describe("Ontology", func() {
 
 					var change ontology.Change
 					Eventually(received).Should(Receive(&change))
-					Expect(change.Key).To(Equal(node.OntologyID(newKey).String()))
+					Expect(change.Key).To(Equal(node.ResourceID(newKey).String()))
 				},
 			)
 		})

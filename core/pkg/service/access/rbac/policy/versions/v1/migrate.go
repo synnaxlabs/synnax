@@ -13,7 +13,7 @@ import (
 	"context"
 
 	"github.com/synnaxlabs/gorp/migrate"
-	ontology "github.com/synnaxlabs/synnax/pkg/service/ontology/versions/v0"
+	"github.com/synnaxlabs/synnax/pkg/service/resource"
 )
 
 // Migration re-encodes stored policies from MessagePack to Orc.
@@ -27,7 +27,7 @@ var WorkspaceObjectsMigration = migrate.NewEntry(
 	func(_ context.Context, p Policy) (Policy, error) {
 		for i, obj := range p.Objects {
 			if obj.Type == "workspace" {
-				p.Objects[i].Type = ontology.ResourceTypeProject
+				p.Objects[i].Type = resource.TypeProject
 			}
 		}
 		return p, nil

@@ -109,6 +109,6 @@ func findRoot(ctx SpecContext, svc *user.Service) user.User {
 // passes.
 func rootCtx(ctx SpecContext) freighter.Context {
 	fctx := freighter.Context{Context: ctx, Params: freighter.Params{}}
-	fctx.Set("Subject", root.OntologyID())
+	fctx.Set("Subject", root.ResourceID())
 	return fctx
 }

@@ -23,7 +23,7 @@ import (
 	"github.com/synnaxlabs/alamos"
 	"github.com/synnaxlabs/gorp"
 	v3 "github.com/synnaxlabs/synnax/pkg/service/auth/versions/v3"
-	"github.com/synnaxlabs/synnax/pkg/service/ontology"
+	"github.com/synnaxlabs/synnax/pkg/service/resource"
 	"github.com/synnaxlabs/x/change"
 	"github.com/synnaxlabs/x/config"
 	"github.com/synnaxlabs/x/errors"
@@ -527,7 +527,7 @@ type Writer struct {
 
 // DeleteFor removes every credential of the given subjects through each authenticator,
 // then ends their sessions.
-func (w Writer) DeleteFor(ctx context.Context, subjects ...ontology.ID) error {
+func (w Writer) DeleteFor(ctx context.Context, subjects ...resource.ID) error {
 	for _, a := range w.svc.cfg.Authenticators {
 		if err := a.DeleteFor(ctx, w.tx, subjects...); err != nil {
 			return err
@@ -550,7 +550,7 @@ func (w Writer) RevokeCredential(ctx context.Context, credentials ...uuid.UUID) 
 // query.ErrNotFound when no authenticator holds the credential.
 func (w Writer) Open(
 	ctx context.Context,
-	subject ontology.ID,
+	subject resource.ID,
 	credential uuid.UUID,
 ) (Session, string, error) {
 	v, err := w.svc.version(ctx, w.tx, credential)

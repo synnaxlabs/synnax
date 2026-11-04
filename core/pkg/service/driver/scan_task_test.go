@@ -197,12 +197,12 @@ var _ = Describe("ScanTask", func() {
 
 	deviceStatus := func(ctx context.Context, dev device.Device) device.Status {
 		GinkgoHelper()
-		return retrieveStatus[device.StatusDetails](ctx, dev.OntologyID().String())
+		return retrieveStatus[device.StatusDetails](ctx, dev.ResourceID().String())
 	}
 
 	taskStatus := func(ctx context.Context) task.Status {
 		GinkgoHelper()
-		return retrieveStatus[task.StatusDetails](ctx, t.OntologyID().String())
+		return retrieveStatus[task.StatusDetails](ctx, t.ResourceID().String())
 	}
 
 	Describe("NewScanTask", func() {
@@ -429,7 +429,7 @@ var _ = Describe("ScanTask", func() {
 		It("Should not answer a command the scanner does not support",
 			func(ctx SpecContext) {
 				var writes atomic.Int32
-				key := t.OntologyID().String()
+				key := t.ResourceID().String()
 				DeferCleanup(statusSvc.Observe().OnChange(func(
 					_ context.Context,
 					r gorp.TxReader[status.Key, status.Status[any]],

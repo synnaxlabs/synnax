@@ -19,7 +19,7 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/service/access/rbac"
 	"github.com/synnaxlabs/synnax/pkg/service/access/rbac/policy"
 	"github.com/synnaxlabs/synnax/pkg/service/access/rbac/role"
-	"github.com/synnaxlabs/synnax/pkg/service/ontology"
+	"github.com/synnaxlabs/synnax/pkg/service/resource"
 	. "github.com/synnaxlabs/x/testutil"
 )
 
@@ -119,16 +119,16 @@ var _ = Describe("Service", func() {
 		var (
 			policyWriter policy.Writer
 			roleWriter   role.Writer
-			subject      ontology.ID
-			obj1         ontology.ID
-			obj2         ontology.ID
+			subject      resource.ID
+			obj1         resource.ID
+			obj2         resource.ID
 		)
 		BeforeEach(func(ctx SpecContext) {
 			policyWriter = rbacSvc.Policy.NewWriter(tx, true)
 			roleWriter = rbacSvc.Role.NewWriter(tx, true)
-			subject = ontology.ID{Type: "user", Key: uuid.New().String()}
-			obj1 = ontology.ID{Type: "channel", Key: "channel-1"}
-			obj2 = ontology.ID{Type: "channel", Key: "channel-2"}
+			subject = resource.ID{Type: "user", Key: uuid.New().String()}
+			obj1 = resource.ID{Type: "channel", Key: "channel-1"}
+			obj2 = resource.ID{Type: "channel", Key: "channel-2"}
 			Expect(otg.NewWriter(tx).DefineResources(ctx, subject)).To(Succeed())
 		})
 
@@ -139,7 +139,7 @@ var _ = Describe("Service", func() {
 
 				p := &policy.Policy{
 					Name:    "allow-read",
-					Objects: []ontology.ID{obj1},
+					Objects: []resource.ID{obj1},
 					Actions: []access.Action{access.ActionRetrieve},
 				}
 				Expect(policyWriter.Create(ctx, p)).To(Succeed())
@@ -148,7 +148,7 @@ var _ = Describe("Service", func() {
 
 				req := access.Request{
 					Subject: subject,
-					Objects: []ontology.ID{obj1},
+					Objects: []resource.ID{obj1},
 					Action:  access.ActionRetrieve,
 				}
 				Expect(rbacSvc.NewEnforcer(tx).Enforce(ctx, req)).To(Succeed())
@@ -157,7 +157,7 @@ var _ = Describe("Service", func() {
 			It("Should deny access when no policy exists", func(ctx SpecContext) {
 				req := access.Request{
 					Subject: subject,
-					Objects: []ontology.ID{obj1},
+					Objects: []resource.ID{obj1},
 					Action:  access.ActionRetrieve,
 				}
 				Expect(
@@ -170,7 +170,7 @@ var _ = Describe("Service", func() {
 			) {
 				req := access.Request{
 					Subject: subject,
-					Objects: []ontology.ID{obj1},
+					Objects: []resource.ID{obj1},
 					Action:  access.ActionRetrieve,
 				}
 				Expect(rbacSvc.NewEnforcer(tx).Enforce(ctx, req)).To(MatchError(
@@ -189,7 +189,7 @@ var _ = Describe("Service", func() {
 				Expect(roleWriter.Create(ctx, r)).To(Succeed())
 				p := &policy.Policy{
 					Name:    "allow-read-obj1",
-					Objects: []ontology.ID{obj1},
+					Objects: []resource.ID{obj1},
 					Actions: []access.Action{access.ActionRetrieve},
 				}
 				Expect(policyWriter.Create(ctx, p)).To(Succeed())
@@ -198,7 +198,7 @@ var _ = Describe("Service", func() {
 
 				req := access.Request{
 					Subject: subject,
-					Objects: []ontology.ID{obj1, obj2},
+					Objects: []resource.ID{obj1, obj2},
 					Action:  access.ActionRetrieve,
 				}
 				Expect(rbacSvc.NewEnforcer(tx).Enforce(ctx, req)).To(SatisfyAll(
@@ -214,7 +214,7 @@ var _ = Describe("Service", func() {
 
 				p := &policy.Policy{
 					Name:    "allow-all-actions",
-					Objects: []ontology.ID{obj1},
+					Objects: []resource.ID{obj1},
 					Actions: access.AllActions,
 				}
 				Expect(policyWriter.Create(ctx, p)).To(Succeed())
@@ -229,7 +229,7 @@ var _ = Describe("Service", func() {
 				} {
 					req := access.Request{
 						Subject: subject,
-						Objects: []ontology.ID{obj1},
+						Objects: []resource.ID{obj1},
 						Action:  action,
 					}
 					Expect(rbacSvc.NewEnforcer(tx).Enforce(ctx, req)).To(Succeed())
@@ -240,10 +240,10 @@ var _ = Describe("Service", func() {
 				r := &role.Role{Name: "test-role", Description: "Test role"}
 				Expect(roleWriter.Create(ctx, r)).To(Succeed())
 
-				typeWildcard := ontology.ID{Type: "channel"}
+				typeWildcard := resource.ID{Type: "channel"}
 				p := &policy.Policy{
 					Name:    "allow-all-channels",
-					Objects: []ontology.ID{typeWildcard},
+					Objects: []resource.ID{typeWildcard},
 					Actions: []access.Action{access.ActionRetrieve},
 				}
 				Expect(policyWriter.Create(ctx, p)).To(Succeed())
@@ -252,7 +252,7 @@ var _ = Describe("Service", func() {
 
 				req := access.Request{
 					Subject: subject,
-					Objects: []ontology.ID{obj1, obj2},
+					Objects: []resource.ID{obj1, obj2},
 					Action:  access.ActionRetrieve,
 				}
 				Expect(rbacSvc.NewEnforcer(tx).Enforce(ctx, req)).To(Succeed())
@@ -266,7 +266,7 @@ var _ = Describe("Service", func() {
 
 					p := &policy.Policy{
 						Name:    "allow-obj1",
-						Objects: []ontology.ID{obj1},
+						Objects: []resource.ID{obj1},
 						Actions: []access.Action{access.ActionRetrieve},
 					}
 					Expect(policyWriter.Create(ctx, p)).To(Succeed())
@@ -275,7 +275,7 @@ var _ = Describe("Service", func() {
 
 					req := access.Request{
 						Subject: subject,
-						Objects: []ontology.ID{obj1, obj2},
+						Objects: []resource.ID{obj1, obj2},
 						Action:  access.ActionRetrieve,
 					}
 					Expect(
@@ -295,7 +295,7 @@ var _ = Describe("Service", func() {
 
 				p := &policy.Policy{
 					Name:    "allow-read",
-					Objects: []ontology.ID{obj1},
+					Objects: []resource.ID{obj1},
 					Actions: []access.Action{access.ActionRetrieve},
 				}
 				Expect(policyWriter.Create(ctx, p)).To(Succeed())
@@ -304,7 +304,7 @@ var _ = Describe("Service", func() {
 
 				req := access.Request{
 					Subject: subject,
-					Objects: []ontology.ID{obj1},
+					Objects: []resource.ID{obj1},
 					Action:  access.ActionRetrieve,
 				}
 				Expect(rbacSvc.NewEnforcer(tx).Enforce(ctx, req)).To(Succeed())
@@ -319,7 +319,7 @@ var _ = Describe("Service", func() {
 
 				p := &policy.Policy{
 					Name:    "allow-read",
-					Objects: []ontology.ID{obj1},
+					Objects: []resource.ID{obj1},
 					Actions: []access.Action{access.ActionRetrieve},
 				}
 				Expect(policyWriter.Create(ctx, p)).To(Succeed())
@@ -328,7 +328,7 @@ var _ = Describe("Service", func() {
 
 				req := access.Request{
 					Subject: subject,
-					Objects: []ontology.ID{obj1},
+					Objects: []resource.ID{obj1},
 					Action:  access.ActionRetrieve,
 				}
 				Expect(rbacSvc.NewEnforcer(tx).Enforce(ctx, req)).To(Succeed())
@@ -349,14 +349,14 @@ var _ = Describe("Service", func() {
 		var (
 			policyWriter policy.Writer
 			roleWriter   role.Writer
-			subject      ontology.ID
-			obj          ontology.ID
+			subject      resource.ID
+			obj          resource.ID
 		)
 		BeforeEach(func(ctx SpecContext) {
 			policyWriter = rbacSvc.Policy.NewWriter(tx, true)
 			roleWriter = rbacSvc.Role.NewWriter(tx, true)
-			subject = ontology.ID{Type: "user", Key: uuid.New().String()}
-			obj = ontology.ID{Type: "channel", Key: uuid.New().String()}
+			subject = resource.ID{Type: "user", Key: uuid.New().String()}
+			obj = resource.ID{Type: "channel", Key: uuid.New().String()}
 			Expect(otg.NewWriter(tx).DefineResources(ctx, subject)).To(Succeed())
 		})
 
@@ -367,7 +367,7 @@ var _ = Describe("Service", func() {
 				Expect(roleWriter.Create(ctx, r)).To(Succeed())
 				p := &policy.Policy{
 					Name:    "read-only-policy-" + uuid.New().String(),
-					Objects: []ontology.ID{obj},
+					Objects: []resource.ID{obj},
 					Actions: []access.Action{access.ActionRetrieve},
 				}
 				Expect(policyWriter.Create(ctx, p)).To(Succeed())
@@ -376,7 +376,7 @@ var _ = Describe("Service", func() {
 
 				Expect(rbacSvc.NewEnforcer(tx).Enforce(ctx, access.Request{
 					Subject: subject,
-					Objects: []ontology.ID{obj},
+					Objects: []resource.ID{obj},
 					Action:  access.ActionUpdate,
 				})).To(MatchError(access.ErrDenied))
 			},
@@ -389,12 +389,12 @@ var _ = Describe("Service", func() {
 				Expect(roleWriter.Create(ctx, r)).To(Succeed())
 				retrievePolicy := &policy.Policy{
 					Name:    "retrieve-only-" + uuid.New().String(),
-					Objects: []ontology.ID{obj},
+					Objects: []resource.ID{obj},
 					Actions: []access.Action{access.ActionRetrieve},
 				}
 				updatePolicy := &policy.Policy{
 					Name:    "update-only-" + uuid.New().String(),
-					Objects: []ontology.ID{obj},
+					Objects: []resource.ID{obj},
 					Actions: []access.Action{access.ActionUpdate},
 				}
 				Expect(policyWriter.Create(ctx, retrievePolicy)).To(Succeed())
@@ -411,7 +411,7 @@ var _ = Describe("Service", func() {
 
 				Expect(rbacSvc.NewEnforcer(tx).Enforce(ctx, access.Request{
 					Subject: subject,
-					Objects: []ontology.ID{obj},
+					Objects: []resource.ID{obj},
 					Action:  access.ActionUpdate,
 				})).To(Succeed())
 			},
@@ -422,12 +422,12 @@ var _ = Describe("Service", func() {
 		var (
 			policyWriter policy.Writer
 			roleWriter   role.Writer
-			subject      ontology.ID
+			subject      resource.ID
 		)
 		BeforeEach(func(ctx SpecContext) {
 			policyWriter = rbacSvc.Policy.NewWriter(tx, true)
 			roleWriter = rbacSvc.Role.NewWriter(tx, true)
-			subject = ontology.ID{Type: "user", Key: uuid.New().String()}
+			subject = resource.ID{Type: "user", Key: uuid.New().String()}
 			Expect(otg.NewWriter(tx).DefineResources(ctx, subject)).To(Succeed())
 		})
 
@@ -441,13 +441,13 @@ var _ = Describe("Service", func() {
 
 			p1 := &policy.Policy{
 				Name:     "policy-1",
-				Objects:  []ontology.ID{{Type: "channel", Key: "ch1"}},
+				Objects:  []resource.ID{{Type: "channel", Key: "ch1"}},
 				Actions:  access.AllActions,
 				Internal: true,
 			}
 			p2 := &policy.Policy{
 				Name:    "policy-2",
-				Objects: []ontology.ID{{Type: "project", Key: "p1"}},
+				Objects: []resource.ID{{Type: "project", Key: "p1"}},
 				Actions: []access.Action{access.ActionRetrieve},
 			}
 			Expect(policyWriter.Create(ctx, p1)).To(Succeed())
@@ -458,17 +458,17 @@ var _ = Describe("Service", func() {
 			enforcer := rbacSvc.NewEnforcer(tx)
 			Expect(enforcer.Enforce(ctx, access.Request{
 				Subject: subject,
-				Objects: []ontology.ID{{Type: "channel", Key: "ch1"}},
+				Objects: []resource.ID{{Type: "channel", Key: "ch1"}},
 				Action:  access.ActionDelete,
 			})).To(Succeed())
 			Expect(enforcer.Enforce(ctx, access.Request{
 				Subject: subject,
-				Objects: []ontology.ID{{Type: "project", Key: "p1"}},
+				Objects: []resource.ID{{Type: "project", Key: "p1"}},
 				Action:  access.ActionRetrieve,
 			})).To(Succeed())
 			Expect(enforcer.Enforce(ctx, access.Request{
 				Subject: subject,
-				Objects: []ontology.ID{{Type: "project", Key: "p1"}},
+				Objects: []resource.ID{{Type: "project", Key: "p1"}},
 				Action:  access.ActionUpdate,
 			})).To(MatchError(access.ErrDenied))
 		})
@@ -476,7 +476,7 @@ var _ = Describe("Service", func() {
 		It("Should deny a subject with no assigned roles", func(ctx SpecContext) {
 			Expect(rbacSvc.NewEnforcer(tx).Enforce(ctx, access.Request{
 				Subject: subject,
-				Objects: []ontology.ID{{Type: "channel", Key: "ch1"}},
+				Objects: []resource.ID{{Type: "channel", Key: "ch1"}},
 				Action:  access.ActionRetrieve,
 			})).To(MatchError(access.ErrDenied))
 		})
@@ -487,12 +487,12 @@ var _ = Describe("Service", func() {
 			enforcer := rbacSvc.NewEnforcer(nil)
 			Expect(enforcer).ToNot(BeNil())
 
-			subject := ontology.ID{Type: "user", Key: uuid.New().String()}
-			obj := ontology.ID{Type: "channel", Key: "ch1"}
+			subject := resource.ID{Type: "user", Key: uuid.New().String()}
+			obj := resource.ID{Type: "channel", Key: "ch1"}
 			Expect(otg.NewWriter(nil).DefineResources(ctx, subject)).To(Succeed())
 			req := access.Request{
 				Subject: subject,
-				Objects: []ontology.ID{obj},
+				Objects: []resource.ID{obj},
 				Action:  access.ActionRetrieve,
 			}
 			Expect(enforcer.Enforce(ctx, req)).To(MatchError(access.ErrDenied))
@@ -504,8 +504,8 @@ var _ = Describe("Service", func() {
 
 			policyWriter := rbacSvc.Policy.NewWriter(tx, true)
 			roleWriter := rbacSvc.Role.NewWriter(tx, true)
-			subject := ontology.ID{Type: "user", Key: uuid.New().String()}
-			obj := ontology.ID{Type: "channel", Key: "ch1"}
+			subject := resource.ID{Type: "user", Key: uuid.New().String()}
+			obj := resource.ID{Type: "channel", Key: "ch1"}
 			Expect(otg.NewWriter(tx).DefineResources(ctx, subject)).To(Succeed())
 
 			r := &role.Role{Name: "test-role", Description: "Test role"}
@@ -513,7 +513,7 @@ var _ = Describe("Service", func() {
 
 			p := &policy.Policy{
 				Name:    "allow-read",
-				Objects: []ontology.ID{obj},
+				Objects: []resource.ID{obj},
 				Actions: []access.Action{access.ActionRetrieve},
 			}
 			Expect(policyWriter.Create(ctx, p)).To(Succeed())
@@ -522,7 +522,7 @@ var _ = Describe("Service", func() {
 
 			req := access.Request{
 				Subject: subject,
-				Objects: []ontology.ID{obj},
+				Objects: []resource.ID{obj},
 				Action:  access.ActionRetrieve,
 			}
 			Expect(enforcer.Enforce(ctx, req)).To(Succeed())

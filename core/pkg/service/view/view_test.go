@@ -17,6 +17,7 @@ import (
 	"github.com/synnaxlabs/gorp"
 	"github.com/synnaxlabs/synnax/pkg/service/group"
 	"github.com/synnaxlabs/synnax/pkg/service/ontology"
+	"github.com/synnaxlabs/synnax/pkg/service/resource"
 	"github.com/synnaxlabs/synnax/pkg/service/status"
 	"github.com/synnaxlabs/synnax/pkg/service/view"
 	"github.com/synnaxlabs/x/query"
@@ -307,11 +308,11 @@ var _ = Describe("View", func() {
 	})
 
 	Describe("Search", func() {
-		create := func(ctx SpecContext, name string) ontology.ID {
+		create := func(ctx SpecContext, name string) resource.ID {
 			GinkgoHelper()
 			v := rangeView(name)
 			Expect(w.Create(ctx, &v)).To(Succeed())
-			return view.OntologyID(v.GorpKey())
+			return view.ResourceID(v.GorpKey())
 		}
 
 		It(
@@ -319,12 +320,12 @@ var _ = Describe("View", func() {
 			func(ctx SpecContext) {
 				a := create(ctx, "turbopump test")
 				b := create(ctx, "turbopump")
-				q := search.Query[ontology.ID]{Term: "turbopump"}
+				q := search.Query[resource.ID]{Term: "turbopump"}
 				Expect(MustSucceed(svc.Search(ctx, tx, q)).Keys).
-					To(Equal([]ontology.ID{b, a}))
+					To(Equal([]resource.ID{b, a}))
 				q.Limit = 1
 				Expect(MustSucceed(svc.Search(ctx, tx, q)).Keys).
-					To(Equal([]ontology.ID{b}))
+					To(Equal([]resource.ID{b}))
 			},
 		)
 
@@ -332,7 +333,7 @@ var _ = Describe("View", func() {
 			"Should not match a staged view outside its transaction",
 			func(ctx SpecContext) {
 				create(ctx, "injector")
-				q := search.Query[ontology.ID]{Term: "injector"}
+				q := search.Query[resource.ID]{Term: "injector"}
 				Expect(MustSucceed(svc.Search(ctx, db, q)).Keys).To(BeEmpty())
 			},
 		)

@@ -16,7 +16,7 @@ import (
 	. "github.com/onsi/gomega"
 	"github.com/synnaxlabs/gorp"
 	gorptestutil "github.com/synnaxlabs/gorp/testutil"
-	"github.com/synnaxlabs/synnax/pkg/service/ontology"
+	"github.com/synnaxlabs/synnax/pkg/service/resource"
 	v0 "github.com/synnaxlabs/synnax/pkg/service/view/versions/v0"
 	"github.com/synnaxlabs/x/encoding/msgpack"
 	"github.com/synnaxlabs/x/query"
@@ -37,11 +37,11 @@ var _ = Describe("View", func() {
 			Expect(v0.View{}.SetOptions()).To(BeNil())
 		})
 	})
-	Describe("OntologyID", func() {
-		It("Should return the view ontology identifier", func() {
+	Describe("ResourceID", func() {
+		It("Should return the view resource identifier", func() {
 			k := uuid.New()
-			Expect(v0.View{Key: k}.OntologyID()).To(Equal(ontology.ID{
-				Type: ontology.ResourceTypeView, Key: k.String(),
+			Expect(v0.View{Key: k}.ResourceID()).To(Equal(resource.ID{
+				Type: resource.TypeView, Key: k.String(),
 			}))
 		})
 	})

@@ -22,7 +22,7 @@ import (
 	label "github.com/synnaxlabs/synnax/pkg/service/label/versions/v0"
 	v0 "github.com/synnaxlabs/synnax/pkg/service/legacy/device/versions/v0"
 	v1 "github.com/synnaxlabs/synnax/pkg/service/legacy/device/versions/v1"
-	ontology "github.com/synnaxlabs/synnax/pkg/service/ontology/versions/v0"
+	"github.com/synnaxlabs/synnax/pkg/service/resource"
 	"github.com/synnaxlabs/x/color"
 	"github.com/synnaxlabs/x/encoding/msgpack"
 	"github.com/synnaxlabs/x/telem"
@@ -69,7 +69,7 @@ var _ = Describe("MigrateDevice", func() {
 				Configured: true,
 				Properties: msgpack.EncodedJSON{"serial": "T7-001"},
 				Status:     &v0.Status{Name: "connected", Variant: "success"},
-				Parent:     &ontology.ID{Type: "device", Key: "DEV-PARENT"},
+				Parent:     &resource.ID{Type: "device", Key: "DEV-PARENT"},
 			})
 			Expect(migrated.Key).To(Equal(v1.Key("DEV-DIRECT-001")))
 			Expect(migrated.Rack).To(BeEquivalentTo(42))
@@ -139,7 +139,7 @@ var _ = Describe("MigrateDevice", func() {
 						},
 					},
 				},
-				Parent: &ontology.ID{Type: "device", Key: "DEV-SERIAL-PARENT"},
+				Parent: &resource.ID{Type: "device", Key: "DEV-SERIAL-PARENT"},
 			}
 			got := migrateSeed(ctx, seed)
 			Expect(got.Key).To(Equal(seed.Key))

@@ -18,8 +18,8 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/service/access"
 	"github.com/synnaxlabs/synnax/pkg/service/channel"
 	. "github.com/synnaxlabs/synnax/pkg/service/channel/testutil"
-	"github.com/synnaxlabs/synnax/pkg/service/ontology"
 	"github.com/synnaxlabs/synnax/pkg/service/ranger"
+	"github.com/synnaxlabs/synnax/pkg/service/resource"
 	"github.com/synnaxlabs/synnax/pkg/service/status"
 	"github.com/synnaxlabs/x/query"
 	"github.com/synnaxlabs/x/telem"
@@ -94,16 +94,16 @@ var _ = Describe("Service", func() {
 			BeforeEach(func(ctx SpecContext) {
 				grantOn(
 					ctx,
-					author.OntologyID(),
+					author.ResourceID(),
 					[]access.Action{access.ActionRetrieve},
-					ontology.ID{Type: ontology.ResourceTypeChannel},
+					resource.ID{Type: resource.TypeChannel},
 				)
 			})
 
 			setStatus := func(ctx SpecContext, ch channel.Channel) {
 				GinkgoHelper()
 				Expect(statusSvc.NewWriter(nil).Set(ctx, &apichannel.Status{
-					Key:     channel.OntologyID(ch.Key()).String(),
+					Key:     channel.ResourceID(ch.Key()).String(),
 					Name:    ch.Name,
 					Variant: status.VariantSuccess,
 					Message: "ok",
@@ -158,9 +158,9 @@ var _ = Describe("Service", func() {
 			BeforeEach(func(ctx SpecContext) {
 				grantOn(
 					ctx,
-					author.OntologyID(),
+					author.ResourceID(),
 					[]access.Action{access.ActionRetrieve},
-					ontology.ID{Type: ontology.ResourceTypeChannel},
+					resource.ID{Type: resource.TypeChannel},
 				)
 				rng = ranger.Range{Name: term, TimeRange: telem.NewRangeSeconds(1, 5)}
 				Expect(rangerSvc.NewWriter(nil).Create(ctx, &rng)).To(Succeed())

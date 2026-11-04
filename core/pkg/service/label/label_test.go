@@ -19,6 +19,7 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/service/group"
 	"github.com/synnaxlabs/synnax/pkg/service/label"
 	"github.com/synnaxlabs/synnax/pkg/service/ontology"
+	"github.com/synnaxlabs/synnax/pkg/service/resource"
 	"github.com/synnaxlabs/x/color"
 	"github.com/synnaxlabs/x/query"
 	"github.com/synnaxlabs/x/search"
@@ -132,8 +133,8 @@ var _ = Describe("Label", Ordered, func() {
 				Color: MustSucceed(color.FromHex("#000000")),
 			}
 			Expect(w.Create(ctx, labeled)).To(Succeed())
-			Expect(w.Label(ctx, labeled.OntologyID(), []label.Key{l.Key})).To(Succeed())
-			labels := MustSucceed(svc.RetrieveFor(ctx, labeled.OntologyID(), tx))
+			Expect(w.Label(ctx, labeled.ResourceID(), []label.Key{l.Key})).To(Succeed())
+			labels := MustSucceed(svc.RetrieveFor(ctx, labeled.ResourceID(), tx))
 			Expect(labels).To(HaveLen(1))
 			Expect(labels[0].Key).To(Equal(l.Key))
 		})
@@ -226,14 +227,14 @@ var _ = Describe("Label", Ordered, func() {
 				Color: MustSucceed(color.FromHex("#000000")),
 			}
 			Expect(w.Create(ctx, labeled)).To(Succeed())
-			Expect(w.Label(ctx, labeled.OntologyID(), []label.Key{l.Key})).To(Succeed())
-			labels := MustSucceed(svc.RetrieveFor(ctx, labeled.OntologyID(), tx))
+			Expect(w.Label(ctx, labeled.ResourceID(), []label.Key{l.Key})).To(Succeed())
+			labels := MustSucceed(svc.RetrieveFor(ctx, labeled.ResourceID(), tx))
 			Expect(labels).To(HaveLen(1))
 			Expect(labels[0].Key).To(Equal(l.Key))
 			Expect(
-				w.RemoveLabel(ctx, labeled.OntologyID(), []label.Key{l.Key}),
+				w.RemoveLabel(ctx, labeled.ResourceID(), []label.Key{l.Key}),
 			).To(Succeed())
-			labels = MustSucceed(svc.RetrieveFor(ctx, labeled.OntologyID(), tx))
+			labels = MustSucceed(svc.RetrieveFor(ctx, labeled.ResourceID(), tx))
 			Expect(labels).To(BeEmpty())
 		})
 	})
@@ -261,12 +262,12 @@ var _ = Describe("Label", Ordered, func() {
 					Expect(w.Create(ctx, l)).To(Succeed())
 				}
 				Expect(w.Label(
-					ctx, labeled.OntologyID(), []label.Key{kept.Key, removed.Key},
+					ctx, labeled.ResourceID(), []label.Key{kept.Key, removed.Key},
 				)).To(Succeed())
 				Expect(w.Replace(
-					ctx, labeled.OntologyID(), []label.Key{kept.Key, added.Key},
+					ctx, labeled.ResourceID(), []label.Key{kept.Key, added.Key},
 				)).To(Succeed())
-				labels := MustSucceed(svc.RetrieveFor(ctx, labeled.OntologyID(), tx))
+				labels := MustSucceed(svc.RetrieveFor(ctx, labeled.ResourceID(), tx))
 				Expect(lo.Map(labels, func(l label.Label, _ int) label.Key {
 					return l.Key
 				})).To(ConsistOf(kept.Key, added.Key))
@@ -283,19 +284,19 @@ var _ = Describe("Label", Ordered, func() {
 			}
 			Expect(w.Create(ctx, l)).To(Succeed())
 			Expect(w.Create(ctx, labeled)).To(Succeed())
-			Expect(w.Label(ctx, labeled.OntologyID(), []label.Key{l.Key})).To(Succeed())
-			Expect(w.Replace(ctx, labeled.OntologyID(), nil)).To(Succeed())
-			labels := MustSucceed(svc.RetrieveFor(ctx, labeled.OntologyID(), tx))
+			Expect(w.Label(ctx, labeled.ResourceID(), []label.Key{l.Key})).To(Succeed())
+			Expect(w.Replace(ctx, labeled.ResourceID(), nil)).To(Succeed())
+			labels := MustSucceed(svc.RetrieveFor(ctx, labeled.ResourceID(), tx))
 			Expect(labels).To(BeEmpty())
 		})
 	})
 
 	Describe("Search", func() {
-		create := func(ctx SpecContext, name string) ontology.ID {
+		create := func(ctx SpecContext, name string) resource.ID {
 			GinkgoHelper()
 			l := label.Label{Name: name, Color: MustSucceed(color.FromHex("#000000"))}
 			Expect(w.Create(ctx, &l)).To(Succeed())
-			return l.OntologyID()
+			return l.ResourceID()
 		}
 
 		It(
@@ -303,12 +304,12 @@ var _ = Describe("Label", Ordered, func() {
 			func(ctx SpecContext) {
 				a := create(ctx, "turbopump test")
 				b := create(ctx, "turbopump")
-				q := search.Query[ontology.ID]{Term: "turbopump"}
+				q := search.Query[resource.ID]{Term: "turbopump"}
 				Expect(MustSucceed(svc.Search(ctx, tx, q)).Keys).
-					To(Equal([]ontology.ID{b, a}))
+					To(Equal([]resource.ID{b, a}))
 				q.Limit = 1
 				Expect(MustSucceed(svc.Search(ctx, tx, q)).Keys).
-					To(Equal([]ontology.ID{b}))
+					To(Equal([]resource.ID{b}))
 			},
 		)
 
@@ -316,7 +317,7 @@ var _ = Describe("Label", Ordered, func() {
 			"Should not match a staged label outside its transaction",
 			func(ctx SpecContext) {
 				create(ctx, "injector")
-				q := search.Query[ontology.ID]{Term: "injector"}
+				q := search.Query[resource.ID]{Term: "injector"}
 				Expect(MustSucceed(svc.Search(ctx, db, q)).Keys).To(BeEmpty())
 			},
 		)

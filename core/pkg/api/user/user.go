@@ -18,7 +18,7 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/service/access/rbac"
 	svcauth "github.com/synnaxlabs/synnax/pkg/service/auth"
 	"github.com/synnaxlabs/synnax/pkg/service/auth/password"
-	"github.com/synnaxlabs/synnax/pkg/service/ontology"
+	"github.com/synnaxlabs/synnax/pkg/service/resource"
 	"github.com/synnaxlabs/synnax/pkg/service/user"
 	"github.com/synnaxlabs/x/config"
 	"github.com/synnaxlabs/x/errors"
@@ -122,7 +122,7 @@ func (s *Service) Create(
 	if err := s.access.NewEnforcer(tx).Enforce(ctx, access.Request{
 		Subject: auth.GetSubject(ctx),
 		Action:  access.ActionCreate,
-		Objects: []ontology.ID{{Type: ontology.ResourceTypeUser}},
+		Objects: []resource.ID{{Type: resource.TypeUser}},
 	}); err != nil {
 		return CreateResponse{}, err
 	}
@@ -138,7 +138,7 @@ func (s *Service) Create(
 		if err != nil {
 			return CreateResponse{}, err
 		}
-		if err := passwordW.Set(ctx, u.OntologyID(), nu.Credentials); err != nil {
+		if err := passwordW.Set(ctx, u.ResourceID(), nu.Credentials); err != nil {
 			return CreateResponse{}, err
 		}
 		newUsers[i] = u
@@ -166,7 +166,7 @@ func (s *Service) ChangeUsername(
 	}
 	var p password.Password
 	if err := s.password.NewRetrieve().
-		Where(password.MatchSubjects(user.OntologyID(req.Key))).
+		Where(password.MatchSubjects(user.ResourceID(req.Key))).
 		Entry(&p).
 		Exec(ctx, tx); err != nil {
 		return struct{}{}, err
@@ -177,12 +177,12 @@ func (s *Service) ChangeUsername(
 	if err := s.access.NewEnforcer(tx).Enforce(ctx, access.Request{
 		Subject: subject,
 		Action:  access.ActionUpdate,
-		Objects: []ontology.ID{user.OntologyID(req.Key)},
+		Objects: []resource.ID{user.ResourceID(req.Key)},
 	}); err != nil {
 		return struct{}{}, err
 	}
 	return struct{}{}, s.password.NewWriter(tx).
-		Rename(ctx, user.OntologyID(req.Key), req.Username)
+		Rename(ctx, user.ResourceID(req.Key), req.Username)
 }
 
 type RenameRequest struct {
@@ -199,7 +199,7 @@ func (s *Service) Rename(
 	if err := s.access.NewEnforcer(tx).Enforce(ctx, access.Request{
 		Subject: auth.GetSubject(ctx),
 		Action:  access.ActionUpdate,
-		Objects: []ontology.ID{user.OntologyID(req.Key)},
+		Objects: []resource.ID{user.ResourceID(req.Key)},
 	}); err != nil {
 		return struct{}{}, err
 	}
@@ -244,7 +244,7 @@ func (s *Service) Retrieve(
 	if err := s.access.NewEnforcer(nil).Enforce(ctx, access.Request{
 		Subject: auth.GetSubject(ctx),
 		Action:  access.ActionRetrieve,
-		Objects: user.OntologyIDsFromUsers(users),
+		Objects: user.ResourceIDsFromUsers(users),
 	}); err != nil {
 		return RetrieveResponse{}, err
 	}
@@ -264,10 +264,10 @@ func (s *Service) keysByUsername(
 	}
 	keys := make([]user.Key, 0, len(passwords))
 	for _, p := range passwords {
-		if p.Subject.Type != ontology.ResourceTypeUser {
+		if p.Subject.Type != resource.TypeUser {
 			continue
 		}
-		key, err := user.KeyFromOntologyID(p.Subject)
+		key, err := user.KeyFromResourceID(p.Subject)
 		if err != nil {
 			return nil, err
 		}
@@ -289,7 +289,7 @@ func (s *Service) Delete(
 	if err := s.access.NewEnforcer(tx).Enforce(ctx, access.Request{
 		Subject: auth.GetSubject(ctx),
 		Action:  access.ActionDelete,
-		Objects: user.OntologyIDsFromKeys(req.Keys),
+		Objects: user.ResourceIDsFromKeys(req.Keys),
 	}); err != nil {
 		return struct{}{}, err
 	}
@@ -297,5 +297,5 @@ func (s *Service) Delete(
 		return struct{}{}, err
 	}
 	return struct{}{}, s.auth.NewWriter(tx).
-		DeleteFor(ctx, user.OntologyIDsFromKeys(req.Keys)...)
+		DeleteFor(ctx, user.ResourceIDsFromKeys(req.Keys)...)
 }

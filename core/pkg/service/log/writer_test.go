@@ -72,9 +72,9 @@ var _ = Describe("Writer", func() {
 				l := log.Log{Name: "with-proj"}
 				Expect(svc.NewWriter(tx).Create(ctx, proj.Key, &l)).To(Succeed())
 				Expect(otg.RelationshipExists(ctx, tx, ontology.Relationship{
-					From: proj.OntologyID(),
+					From: proj.ResourceID(),
 					Type: ontology.RelationshipTypeParentOf,
-					To:   l.OntologyID(),
+					To:   l.ResourceID(),
 				})).To(BeTrue())
 			},
 		)
@@ -85,9 +85,9 @@ var _ = Describe("Writer", func() {
 				l := log.Log{Name: "no-proj"}
 				Expect(svc.NewWriter(tx).Create(ctx, uuid.Nil(), &l)).To(Succeed())
 				Expect(otg.RelationshipExists(ctx, tx, ontology.Relationship{
-					From: proj.OntologyID(),
+					From: proj.ResourceID(),
 					Type: ontology.RelationshipTypeParentOf,
-					To:   l.OntologyID(),
+					To:   l.ResourceID(),
 				})).To(BeFalse())
 			},
 		)
@@ -99,10 +99,10 @@ var _ = Describe("Writer", func() {
 				Expect(svc.NewWriter(tx).Create(ctx, uuid.Nil(), &l)).To(Succeed())
 				var resource ontology.Resource
 				Expect(otg.NewRetrieve().
-					WhereIDs(l.OntologyID()).
+					WhereIDs(l.ResourceID()).
 					Entry(&resource).
 					Exec(ctx, tx)).To(Succeed())
-				Expect(resource.ID).To(Equal(l.OntologyID()))
+				Expect(resource.ID).To(Equal(l.ResourceID()))
 			},
 		)
 
@@ -190,7 +190,7 @@ var _ = Describe("Writer", func() {
 			Expect(svc.NewWriter(tx).Create(ctx, proj.Key, &l)).To(Succeed())
 			Expect(svc.NewWriter(tx).Delete(ctx, l.Key)).To(Succeed())
 			Expect(otg.NewRetrieve().
-				WhereIDs(l.OntologyID()).
+				WhereIDs(l.ResourceID()).
 				Entry(&ontology.Resource{}).
 				Exec(ctx, tx)).To(MatchError(query.ErrNotFound))
 		})

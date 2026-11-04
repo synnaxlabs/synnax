@@ -17,7 +17,7 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/service/access"
 	"github.com/synnaxlabs/synnax/pkg/service/access/rbac"
 	"github.com/synnaxlabs/synnax/pkg/service/label"
-	"github.com/synnaxlabs/synnax/pkg/service/ontology"
+	"github.com/synnaxlabs/synnax/pkg/service/resource"
 	"github.com/synnaxlabs/synnax/pkg/service/status"
 	"github.com/synnaxlabs/x/config"
 	"github.com/synnaxlabs/x/errors"
@@ -83,19 +83,19 @@ func NewService(cfgs ...ServiceConfig) (*Service, error) {
 	}, nil
 }
 
-func statusAccessOntologyIDs(statuses []status.Status[any]) []ontology.ID {
-	ids := make([]ontology.ID, 0, len(statuses))
+func statusAccessResourceIDs(statuses []status.Status[any]) []resource.ID {
+	ids := make([]resource.ID, 0, len(statuses))
 	for _, s := range statuses {
-		ids = append(ids, s.OntologyID())
-		ids = append(ids, label.OntologyIDsFromLabels(s.Labels)...)
+		ids = append(ids, s.ResourceID())
+		ids = append(ids, label.ResourceIDsFromLabels(s.Labels)...)
 	}
 	return ids
 }
 
 // SetRequest is a request to set (create or update) statuses in the cluster.
 type SetRequest struct {
-	// Parent is the parent ontology ID for the statuses.
-	Parent ontology.ID `json:"parent" msgpack:"parent"`
+	// Parent is the parent resource ID for the statuses.
+	Parent resource.ID `json:"parent" msgpack:"parent"`
 	// Statuses are the statuses to set.
 	Statuses []status.Status[any] `json:"statuses" msgpack:"statuses"`
 }
@@ -115,7 +115,7 @@ func (s *Service) Set(
 	if err := s.access.NewEnforcer(tx).Enforce(ctx, access.Request{
 		Subject: auth.GetSubject(ctx),
 		Action:  access.ActionCreate,
-		Objects: statusAccessOntologyIDs(req.Statuses),
+		Objects: statusAccessResourceIDs(req.Statuses),
 	}); err != nil {
 		return SetResponse{}, err
 	}
@@ -171,7 +171,7 @@ func (s *Service) SetByKeyOrName(
 	if err := s.access.NewEnforcer(tx).Enforce(ctx, access.Request{
 		Subject: auth.GetSubject(ctx),
 		Action:  action,
-		Objects: []ontology.ID{st.OntologyID()},
+		Objects: []resource.ID{st.ResourceID()},
 	}); err != nil {
 		return SetByKeyOrNameResponse{}, err
 	}
@@ -243,10 +243,10 @@ func (s *Service) Retrieve(
 		return RetrieveResponse{}, err
 	}
 	res := RetrieveResponse{Statuses: resStatuses}
-	ids := statusAccessOntologyIDs(res.Statuses)
+	ids := statusAccessResourceIDs(res.Statuses)
 	if req.IncludeLabels {
 		for i, stat := range res.Statuses {
-			labels, err := s.label.RetrieveFor(ctx, stat.OntologyID(), nil)
+			labels, err := s.label.RetrieveFor(ctx, stat.ResourceID(), nil)
 			if err != nil {
 				return RetrieveResponse{}, err
 			}
@@ -280,7 +280,7 @@ func (s *Service) Rename(
 	if err := s.access.NewEnforcer(tx).Enforce(ctx, access.Request{
 		Subject: auth.GetSubject(ctx),
 		Action:  access.ActionUpdate,
-		Objects: []ontology.ID{status.OntologyID(req.Key)},
+		Objects: []resource.ID{status.ResourceID(req.Key)},
 	}); err != nil {
 		return struct{}{}, err
 	}
@@ -300,7 +300,7 @@ func (s *Service) Delete(
 	if err := s.access.NewEnforcer(tx).Enforce(ctx, access.Request{
 		Subject: auth.GetSubject(ctx),
 		Action:  access.ActionDelete,
-		Objects: status.OntologyIDs(req.Keys),
+		Objects: status.ResourceIDs(req.Keys),
 	}); err != nil {
 		return struct{}{}, err
 	}

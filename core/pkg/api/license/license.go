@@ -19,7 +19,7 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/service/access"
 	"github.com/synnaxlabs/synnax/pkg/service/access/rbac"
 	"github.com/synnaxlabs/synnax/pkg/service/license"
-	"github.com/synnaxlabs/synnax/pkg/service/ontology"
+	"github.com/synnaxlabs/synnax/pkg/service/resource"
 	"github.com/synnaxlabs/x/config"
 	"github.com/synnaxlabs/x/override"
 	"github.com/synnaxlabs/x/validate"
@@ -89,7 +89,7 @@ type (
 
 // objectID names the license as a builtin singleton, so the built-in roles' builtin
 // grants control access to it.
-var objectID = ontology.ID{Type: ontology.ResourceTypeBuiltin, Key: license.OntologyKey}
+var objectID = resource.ID{Type: resource.TypeBuiltin, Key: license.OntologyKey}
 
 // Retrieve returns the state of the Core's license, this machine's fingerprint, and the
 // license when one applies.
@@ -100,7 +100,7 @@ func (s *Service) Retrieve(
 	if err := s.access.NewEnforcer(nil).Enforce(ctx, access.Request{
 		Subject: auth.GetSubject(ctx),
 		Action:  access.ActionRetrieve,
-		Objects: []ontology.ID{objectID},
+		Objects: []resource.ID{objectID},
 	}); err != nil {
 		return RetrieveResponse{}, err
 	}
@@ -115,7 +115,7 @@ func (s *Service) Activate(
 	if err := s.access.NewEnforcer(nil).Enforce(ctx, access.Request{
 		Subject: auth.GetSubject(ctx),
 		Action:  access.ActionUpdate,
-		Objects: []ontology.ID{objectID},
+		Objects: []resource.ID{objectID},
 	}); err != nil {
 		return ActivateResponse{}, err
 	}
@@ -131,7 +131,7 @@ func (s *Service) Deactivate(
 	if err := s.access.NewEnforcer(nil).Enforce(ctx, access.Request{
 		Subject: auth.GetSubject(ctx),
 		Action:  access.ActionUpdate,
-		Objects: []ontology.ID{objectID},
+		Objects: []resource.ID{objectID},
 	}); err != nil {
 		return DeactivateResponse{}, err
 	}

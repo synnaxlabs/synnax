@@ -20,6 +20,7 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/service/ontology"
 	"github.com/synnaxlabs/synnax/pkg/service/panel"
 	"github.com/synnaxlabs/synnax/pkg/service/project"
+	"github.com/synnaxlabs/synnax/pkg/service/resource"
 	"github.com/synnaxlabs/synnax/pkg/service/task"
 	svctestutil "github.com/synnaxlabs/synnax/pkg/service/testutil"
 	. "github.com/synnaxlabs/x/testutil"
@@ -51,7 +52,7 @@ var _ = Describe("Legacy project bundles", func() {
 	}
 
 	childrenOf := func(
-		ctx SpecContext, l *service.Layer, id ontology.ID,
+		ctx SpecContext, l *service.Layer, id resource.ID,
 	) []ontology.Resource {
 		GinkgoHelper()
 		var children []ontology.Resource
@@ -63,8 +64,8 @@ var _ = Describe("Legacy project bundles", func() {
 		return children
 	}
 
-	typesOf := func(children []ontology.Resource) []ontology.ResourceType {
-		types := make([]ontology.ResourceType, len(children))
+	typesOf := func(children []ontology.Resource) []resource.Type {
+		types := make([]resource.Type, len(children))
 		for i, c := range children {
 			types[i] = c.ID.Type
 		}
@@ -81,11 +82,11 @@ var _ = Describe("Legacy project bundles", func() {
 
 		It("Should recreate both schematics and the table", func(ctx SpecContext) {
 			l, p := importBundle(ctx, path, "Test Stand.zip")
-			children := childrenOf(ctx, l, project.OntologyID(p.Key))
+			children := childrenOf(ctx, l, project.ResourceID(p.Key))
 			Expect(typesOf(children)).To(ContainElements(
-				ontology.ResourceTypeSchematic,
-				ontology.ResourceTypeSchematic,
-				ontology.ResourceTypeTable,
+				resource.TypeSchematic,
+				resource.TypeSchematic,
+				resource.TypeTable,
 			))
 		})
 
@@ -93,16 +94,16 @@ var _ = Describe("Legacy project bundles", func() {
 			ctx SpecContext,
 		) {
 			l, p := importBundle(ctx, path, "Test Stand.zip")
-			children := childrenOf(ctx, l, project.OntologyID(p.Key))
+			children := childrenOf(ctx, l, project.ResourceID(p.Key))
 			var panels []ontology.Resource
 			for _, c := range children {
-				if c.ID.Type == ontology.ResourceTypePanel {
+				if c.ID.Type == resource.TypePanel {
 					panels = append(panels, c)
 				}
 			}
 			Expect(panels).To(HaveLen(1))
-			keys := MustSucceed(panel.KeysFromOntologyIDs(
-				[]ontology.ID{panels[0].ID},
+			keys := MustSucceed(panel.KeysFromResourceIDs(
+				[]resource.ID{panels[0].ID},
 			))
 			var pnl panel.Panel
 			Expect(l.Panel.NewRetrieve().
@@ -120,18 +121,18 @@ var _ = Describe("Legacy project bundles", func() {
 			ctx SpecContext,
 		) {
 			l, p := importBundle(ctx, path, "Hardware.zip")
-			children := childrenOf(ctx, l, project.OntologyID(p.Key))
+			children := childrenOf(ctx, l, project.ResourceID(p.Key))
 			Expect(typesOf(children)).To(ContainElements(
-				ontology.ResourceTypeSchematic,
-				ontology.ResourceTypeLineplot,
+				resource.TypeSchematic,
+				resource.TypeLineplot,
 			))
-			Expect(typesOf(children)).ToNot(ContainElement(ontology.ResourceTypeLog))
+			Expect(typesOf(children)).ToNot(ContainElement(resource.TypeLog))
 			Expect(lo.Map(children, func(c ontology.Resource, _ int) string {
 				return c.Name
 			})).To(ContainElements("Line Plot", "Schematic"))
 			// A task parents under its rack's task group, never the project.
 			Expect(typesOf(children)).ToNot(ContainElement(
-				ontology.ResourceTypeTask,
+				resource.TypeTask,
 			))
 			var tasks []task.Task
 			Expect(l.Task.NewRetrieve().
@@ -171,9 +172,9 @@ var _ = Describe("Legacy project bundles", func() {
 			ctx SpecContext,
 		) {
 			l, p := importBundle(ctx, path, "Arc Workspace.zip")
-			children := childrenOf(ctx, l, project.OntologyID(p.Key))
+			children := childrenOf(ctx, l, project.ResourceID(p.Key))
 			Expect(typesOf(children)).To(ContainElement(
-				ontology.ResourceTypeSchematic,
+				resource.TypeSchematic,
 			))
 		})
 	})

@@ -14,6 +14,7 @@ import (
 
 	"github.com/synnaxlabs/gorp"
 	"github.com/synnaxlabs/synnax/pkg/service/ontology"
+	"github.com/synnaxlabs/synnax/pkg/service/resource"
 )
 
 type Retrieve struct {
@@ -31,19 +32,19 @@ type Retrieve struct {
 func (s *Service) ResolveSubjects(
 	ctx context.Context,
 	tx gorp.Tx,
-	subjects ...ontology.ID,
+	subjects ...resource.ID,
 ) ([]Key, error) {
 	tx = gorp.OverrideTx(s.cfg.DB, tx)
 	var policyResources []ontology.Resource
 	if err := s.cfg.Ontology.NewRetrieve().WhereIDs(subjects...).
 		ExcludeFieldData(true).
 		TraverseTo(ontology.ParentsTraverser).
-		WhereTypes(ontology.ResourceTypeRole).
+		WhereTypes(resource.TypeRole).
 		TraverseTo(ontology.ChildrenTraverser).
-		WhereTypes(ontology.ResourceTypePolicy).
+		WhereTypes(resource.TypePolicy).
 		Entries(&policyResources).
 		Exec(ctx, tx); err != nil {
 		return nil, err
 	}
-	return KeysFromOntologyIDs(ontology.ResourceIDs(policyResources))
+	return KeysFromResourceIDs(ontology.ResourceIDs(policyResources))
 }

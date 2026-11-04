@@ -12,7 +12,7 @@ package panel
 import (
 	"uuid"
 
-	"github.com/synnaxlabs/synnax/pkg/service/ontology"
+	"github.com/synnaxlabs/synnax/pkg/service/resource"
 	"github.com/synnaxlabs/x/errors"
 	"github.com/synnaxlabs/x/set"
 	"github.com/synnaxlabs/x/spatial"
@@ -51,13 +51,13 @@ var errInvalidSize = errors.Wrap(validate.ErrValidation, "split size must be in 
 // resourceTabTypes is the set of resource types a tab may display: the resource subset
 // of the Console renderer registry, promoted to a schema invariant.
 var resourceTabTypes = set.New(
-	ontology.ResourceTypeSchematic,
-	ontology.ResourceTypeLineplot,
-	ontology.ResourceTypeLog,
-	ontology.ResourceTypeTable,
-	ontology.ResourceTypeArc,
-	ontology.ResourceTypeTask,
-	ontology.ResourceTypeRange,
+	resource.TypeSchematic,
+	resource.TypeLineplot,
+	resource.TypeLog,
+	resource.TypeTable,
+	resource.TypeArc,
+	resource.TypeTask,
+	resource.TypeRange,
 )
 
 // validateTree checks the structural invariants every persisted panel tree must uphold:
@@ -66,13 +66,13 @@ var resourceTabTypes = set.New(
 // type in resourceTabTypes. Called before any tree is persisted, both for
 // caller-provided trees on create and for reduced trees on dispatch.
 func validateTree(root Node) error {
-	return validateNode(root, set.New[uuid.UUID](), set.New[ontology.ID]())
+	return validateNode(root, set.New[uuid.UUID](), set.New[resource.ID]())
 }
 
 func validateNode(
 	n Node,
 	seen set.Set[uuid.UUID],
-	seenResources set.Set[ontology.ID],
+	seenResources set.Set[resource.ID],
 ) error {
 	switch v := n.Variant.(type) {
 	case LeafNode:
@@ -248,8 +248,8 @@ func findTabAt(n Node, path int32, tabKey uuid.UUID) (int32, int, bool) {
 }
 
 // findTabByResource walks the tree to find the tab whose resource variant
-// displays the given ontology ID. Returns the tab and ok=true when present.
-func findTabByResource(root Node, resource ontology.ID) (Tab, bool) {
+// displays the given resource ID. Returns the tab and ok=true when present.
+func findTabByResource(root Node, resource resource.ID) (Tab, bool) {
 	switch v := root.Variant.(type) {
 	case LeafNode:
 		for _, t := range v.Tabs {

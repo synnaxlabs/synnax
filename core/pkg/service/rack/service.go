@@ -299,9 +299,9 @@ func newDriverRoleMigration(s *Service) gorp.Migration {
 			for _, r := range racks {
 				if err := w.DefineRelationships(
 					ctx,
-					role.OntologyID(s.DriverRole),
+					role.ResourceID(s.DriverRole),
 					ontology.RelationshipTypeParentOf,
-					r.OntologyID(),
+					r.ResourceID(),
 				); err != nil {
 					return err
 				}

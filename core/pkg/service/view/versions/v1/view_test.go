@@ -16,7 +16,7 @@ import (
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
-	"github.com/synnaxlabs/synnax/pkg/service/ontology"
+	"github.com/synnaxlabs/synnax/pkg/service/resource"
 	statusv1 "github.com/synnaxlabs/synnax/pkg/service/status/versions/v1"
 	v1 "github.com/synnaxlabs/synnax/pkg/service/view/versions/v1"
 	"github.com/synnaxlabs/x/encoding/orc"
@@ -86,10 +86,10 @@ var _ = Describe("View", func() {
 		})
 	})
 
-	Describe("OntologyID", func() {
-		It("Should return the view ontology identifier", func() {
-			Expect(ranges.OntologyID()).To(Equal(ontology.ID{
-				Type: ontology.ResourceTypeView, Key: key.String(),
+	Describe("ResourceID", func() {
+		It("Should return the view resource identifier", func() {
+			Expect(ranges.ResourceID()).To(Equal(resource.ID{
+				Type: resource.TypeView, Key: key.String(),
 			}))
 		})
 	})

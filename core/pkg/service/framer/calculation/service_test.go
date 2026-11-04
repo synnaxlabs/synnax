@@ -868,7 +868,7 @@ var _ = Describe("Calculation", Ordered, func() {
 					rm.Set(ctx, channel.KeysFromChannels([]channel.Channel{calc})),
 				).To(Succeed())
 				var st calculation.Status
-				statusKey := calc.OntologyID().String()
+				statusKey := calc.ResourceID().String()
 				Expect(statusSvc.NewRetrieve[struct{}]().
 					Where(status.MatchKeys[struct{}](statusKey)).
 					Entry(&st).
@@ -911,7 +911,7 @@ var _ = Describe("Calculation", Ordered, func() {
 				),
 				).To(Succeed())
 				var st calculation.Status
-				statusKey := calc.OntologyID().String()
+				statusKey := calc.ResourceID().String()
 				Eventually(func(g Gomega) {
 					g.Expect(statusSvc.NewRetrieve[struct{}]().
 						Where(status.MatchKeys[struct{}](statusKey)).
@@ -944,7 +944,7 @@ var _ = Describe("Calculation", Ordered, func() {
 				stored := func() (calculation.Status, error) {
 					var st calculation.Status
 					err := statusSvc.NewRetrieve[struct{}]().
-						Where(status.MatchKeys[struct{}](dep.OntologyID().String())).
+						Where(status.MatchKeys[struct{}](dep.ResourceID().String())).
 						Entry(&st).
 						Exec(ctx, nil)
 					return st, err
@@ -1039,7 +1039,7 @@ var _ = Describe("Calculation", Ordered, func() {
 				mu.Lock()
 				writes = nil
 				mu.Unlock()
-				statusKey := calc.OntologyID().String()
+				statusKey := calc.ResourceID().String()
 				DeferCleanup(statusSvc.Observe().OnChange(func(
 					_ context.Context,
 					r gorp.TxReader[status.Key, status.Status[any]],
@@ -1264,7 +1264,7 @@ var _ = Describe("Calculation", Ordered, func() {
 					stored := func() (calculation.Status, error) {
 						var st calculation.Status
 						err := statusSvc.NewRetrieve[struct{}]().
-							Where(status.MatchKeys[struct{}](calc.OntologyID().String())).
+							Where(status.MatchKeys[struct{}](calc.ResourceID().String())).
 							Entry(&st).
 							Exec(ctx, nil)
 						return st, err
@@ -1306,13 +1306,13 @@ var _ = Describe("Calculation", Ordered, func() {
 				flushChanges(ctx)
 				var st calculation.Status
 				Expect(statusSvc.NewRetrieve[struct{}]().
-					Where(status.MatchKeys[struct{}](calc.OntologyID().String())).
+					Where(status.MatchKeys[struct{}](calc.ResourceID().String())).
 					Entry(&st).
 					Exec(ctx, nil)).To(MatchError(query.ErrNotFound))
 			},
 		)
 
-		Specify("Should use channel ontology ID as status key", func(ctx SpecContext) {
+		Specify("Should use channel resource ID as status key", func(ctx SpecContext) {
 			base := channel.Channel{
 				Name:     UniqueChannelName(),
 				DataType: telem.Int64T,
@@ -1331,7 +1331,7 @@ var _ = Describe("Calculation", Ordered, func() {
 			rm := c.OpenRequestManager()
 			Expect(rm.Set(ctx, channel.Keys{calc.Key()})).To(Succeed())
 			var st calculation.Status
-			expectedKey := calc.OntologyID().String()
+			expectedKey := calc.ResourceID().String()
 			Expect(statusSvc.NewRetrieve[struct{}]().
 				Where(status.MatchKeys[struct{}](expectedKey)).
 				Entry(&st).

@@ -196,7 +196,7 @@ func (t *scanTask) setDeviceStatus(
 		return
 	}
 	stat := device.Status{
-		Key:         dev.OntologyID().String(),
+		Key:         dev.ResourceID().String(),
 		Name:        dev.Name,
 		Variant:     variant,
 		Message:     message,

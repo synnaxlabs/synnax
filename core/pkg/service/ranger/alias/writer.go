@@ -53,7 +53,7 @@ func (w Writer) Set(
 		Exec(ctx, w.tx); err != nil {
 		return err
 	}
-	return w.otgWriter.DefineResources(ctx, OntologyID(rng, ch))
+	return w.otgWriter.DefineResources(ctx, ResourceID(rng, ch))
 }
 
 // Delete deletes the alias for the given channel on the specified range.
