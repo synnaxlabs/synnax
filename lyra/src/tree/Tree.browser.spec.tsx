@@ -152,3 +152,63 @@ describe("Tree", () => {
     expect(rules("child").end).toBeLessThan(caretCenter("child"));
   });
 });
+
+const MANY_NODES: Tree.Node[] = Array.from({ length: 200 }, (_, i) => ({
+  key: `node-${i}`,
+}));
+
+const ManyComponent = (): ReactElement => {
+  const props = Tree.use({ nodes: MANY_NODES });
+  return (
+    <div style={{ height: 200 }}>
+      <Tree.Tree {...props} getItem={getItem}>
+        {({ key, ...rest }) => (
+          <Tree.Item key={key} {...rest}>
+            {key}
+          </Tree.Item>
+        )}
+      </Tree.Tree>
+    </div>
+  );
+};
+
+describe("Tree keys", () => {
+  const tree = (): HTMLElement => document.querySelector(".lyra-tree")!;
+  const selected = (key: string): boolean =>
+    document.getElementById(key)!.getAttribute("aria-selected") === "true";
+
+  it("should move the selection with the arrow keys after a click", async () => {
+    const { getByText } = await renderThemed(<Component />);
+    await userEvent.click(getByText("sibling", { exact: true }));
+    expect(document.activeElement).toBe(tree());
+    expect(getComputedStyle(document.getElementById("sibling")!).outlineStyle).toBe(
+      "none",
+    );
+    await userEvent.keyboard("{ArrowUp}");
+    expect(selected("grandchild")).toBe(true);
+    expect(selected("sibling")).toBe(false);
+  });
+
+  it("should bring the selection into view", async () => {
+    await renderThemed(<ManyComponent />);
+    await userEvent.click(document.getElementById("node-0")!);
+    await userEvent.keyboard("{End}");
+    await expect.poll(() => document.getElementById("node-199")).not.toBeNull();
+    const last = document.getElementById("node-199")!;
+    await expect
+      .poll(() => last.getBoundingClientRect().bottom)
+      .toBeLessThanOrEqual(tree().getBoundingClientRect().bottom);
+    expect(selected("node-199")).toBe(true);
+  });
+
+  it("should ring the selection while the tree has keyboard focus", async () => {
+    await renderThemed(<Component />);
+    await userEvent.tab();
+    expect(document.activeElement).toBe(tree());
+    await userEvent.keyboard("{ArrowDown}");
+    const item = getComputedStyle(document.getElementById("parent")!);
+    expect(item.outlineStyle).toBe("solid");
+    expect(item.outlineColor).toBe(resolve("var(--pluto-primary-z)"));
+    expect(getComputedStyle(tree()).outlineStyle).toBe("none");
+  });
+});

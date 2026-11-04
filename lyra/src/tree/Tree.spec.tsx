@@ -8,6 +8,7 @@
 // included in the file licenses/APL.txt.
 
 import { act, fireEvent, render, renderHook, screen } from "@testing-library/react";
+import { type KeyboardEvent } from "react";
 import { beforeAll, describe, expect, it, vi } from "vitest";
 
 import { type Haul } from "@/haul";
@@ -259,5 +260,151 @@ describe("Tree expansion", () => {
       action: "contract",
       clicked: "a",
     });
+  });
+});
+
+describe("Tree keys", () => {
+  beforeAll(() => mockGeometry(100, 100));
+
+  const NODES: Node[] = [
+    { key: "a", children: [{ key: "a1" }, { key: "a2" }] },
+    { key: "b" },
+    { key: "c" },
+  ];
+
+  const getItem = List.createGetItem(
+    (key: string) => ({ key, name: key }),
+    (keys: string[]) => keys.map((key) => ({ key, name: key })),
+  );
+
+  interface ComponentProps {
+    onKeyDown?: (e: KeyboardEvent<HTMLDivElement>) => void;
+  }
+
+  const Component = ({ onKeyDown }: ComponentProps) => {
+    const props = use({ nodes: NODES });
+    return (
+      <Tree {...props} getItem={getItem} onKeyDown={onKeyDown}>
+        {({ key, ...rest }) => (
+          <Item key={key} {...rest}>
+            {key}
+            {key === "b" && <input aria-label="b name" />}
+          </Item>
+        )}
+      </Tree>
+    );
+  };
+
+  const tree = () => screen.getByRole("tree");
+  const row = (name: string) => screen.getByRole("treeitem", { name });
+  const press = (key: string, init?: KeyboardEventInit) =>
+    fireEvent.keyDown(tree(), { key, ...init });
+  const selected = () =>
+    screen
+      .queryAllByRole("treeitem", { selected: true })
+      .map(({ textContent }) => textContent);
+
+  it("should take focus for its items", () => {
+    render(<Component />);
+    expect(tree().tabIndex).toBe(0);
+  });
+
+  it("should select the first item on the first ArrowDown", () => {
+    render(<Component />);
+    press("ArrowDown");
+    expect(selected()).toEqual(["a"]);
+  });
+
+  it("should move the selection down and up", () => {
+    render(<Component />);
+    press("ArrowDown");
+    press("ArrowDown");
+    expect(selected()).toEqual(["b"]);
+    press("ArrowUp");
+    expect(selected()).toEqual(["a"]);
+  });
+
+  it("should move the selection to the ends on Home and End", () => {
+    render(<Component />);
+    press("End");
+    expect(selected()).toEqual(["c"]);
+    press("Home");
+    expect(selected()).toEqual(["a"]);
+  });
+
+  it("should stop at the first and last items", () => {
+    render(<Component />);
+    press("End");
+    press("ArrowDown");
+    expect(selected()).toEqual(["c"]);
+    press("Home");
+    press("ArrowUp");
+    expect(selected()).toEqual(["a"]);
+  });
+
+  it("should not expand a node that the selection moves onto", () => {
+    render(<Component />);
+    press("ArrowDown");
+    expect(row("a").getAttribute("aria-expanded")).toBe("false");
+  });
+
+  it("should expand a collapsed node on ArrowRight, then move into it", () => {
+    render(<Component />);
+    press("ArrowDown");
+    press("ArrowRight");
+    expect(row("a").getAttribute("aria-expanded")).toBe("true");
+    expect(selected()).toEqual(["a"]);
+    press("ArrowRight");
+    expect(selected()).toEqual(["a1"]);
+  });
+
+  it("should collapse an expanded node on ArrowLeft", () => {
+    render(<Component />);
+    press("ArrowDown");
+    press("ArrowRight");
+    press("ArrowLeft");
+    expect(row("a").getAttribute("aria-expanded")).toBe("false");
+    expect(selected()).toEqual(["a"]);
+  });
+
+  it("should move to the parent on ArrowLeft", () => {
+    render(<Component />);
+    press("ArrowDown");
+    press("ArrowRight");
+    press("ArrowRight");
+    press("ArrowDown");
+    expect(selected()).toEqual(["a2"]);
+    press("ArrowLeft");
+    expect(selected()).toEqual(["a"]);
+    expect(row("a").getAttribute("aria-expanded")).toBe("true");
+  });
+
+  it("should move from the item clicked last", () => {
+    render(<Component />);
+    fireEvent.click(row("c"));
+    press("ArrowUp");
+    expect(selected()).toEqual(["b"]);
+  });
+
+  it("should leave a key pressed with a modifier alone", () => {
+    render(<Component />);
+    press("ArrowDown");
+    press("ArrowDown", { shiftKey: true });
+    press("ArrowDown", { metaKey: true });
+    expect(selected()).toEqual(["a"]);
+  });
+
+  it("should leave a key typed into an element inside an item alone", () => {
+    render(<Component />);
+    fireEvent.keyDown(screen.getByLabelText("b name"), { key: "ArrowDown" });
+    expect(selected()).toEqual([]);
+  });
+
+  it("should leave a key alone when the given handler prevents its default", () => {
+    const onKeyDown = vi.fn((e: KeyboardEvent<HTMLDivElement>) => e.preventDefault());
+    render(<Component onKeyDown={onKeyDown} />);
+    press("ArrowDown");
+    expect(onKeyDown).toHaveBeenCalledOnce();
+    expect(selected()).toEqual([]);
   });
 });

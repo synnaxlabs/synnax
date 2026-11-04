@@ -9,7 +9,7 @@
 
 import { act, fireEvent, render, renderHook } from "@testing-library/react";
 import { type PropsWithChildren, type ReactElement } from "react";
-import { beforeAll, describe, expect, it, vi } from "vitest";
+import { beforeAll, describe, expect, it, onTestFinished, vi } from "vitest";
 
 import { Dialog } from "@/dialog";
 import { List } from "@/list";
@@ -133,6 +133,14 @@ describe("Select keyboard hover", () => {
       const { hover } = renderHover(DATA, vi.fn(), { dialog: false });
       point("bravo");
       expect(hover()).toBeUndefined();
+    });
+
+    it("should not watch the pointer while the keyboard triggers are turned off", () => {
+      const listen = vi.spyOn(window, "addEventListener");
+      onTestFinished(() => listen.mockRestore());
+      renderHover(DATA, vi.fn(), { enableTriggers: false });
+      const events = listen.mock.calls.map(([type]) => type);
+      expect(events).not.toContain("pointermove");
     });
 
     it("should ignore the first move after the list opens", () => {

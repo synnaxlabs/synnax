@@ -8,7 +8,7 @@
 // included in the file licenses/APL.txt.
 
 import { type compare, type record, type state as xstate, unique } from "@synnaxlabs/x";
-import { type ReactElement } from "react";
+import { type KeyboardEvent, type ReactElement, useRef } from "react";
 
 import { type Component } from "@/component";
 import { CSS } from "@/css";
@@ -17,7 +17,7 @@ import { useCombinedStateAndRef, useSyncedRef } from "@/hooks";
 import { List } from "@/list";
 import { Select } from "@/select";
 import { state } from "@/state";
-import { findNode, flatten, type Node, type Shape } from "@/tree/base";
+import { findNode, flatten, type Node, type NodeShape, type Shape } from "@/tree/base";
 import { Context } from "@/tree/Context";
 import { Triggers } from "@/triggers";
 
@@ -166,6 +166,57 @@ export interface TreeProps<K extends record.Key, E extends record.Keyed<K>>
 
 const ITEM_HEIGHT = 27;
 
+const MOVE_KEYS = new Set([
+  "ArrowUp",
+  "ArrowDown",
+  "ArrowLeft",
+  "ArrowRight",
+  "Home",
+  "End",
+]);
+
+// Returns the index that a move key takes the cursor to from index at, or null when it
+// goes nowhere. An index of -1 means no cursor.
+const moveTarget = (nodes: NodeShape[], at: number, key: string): number | null => {
+  const last = nodes.length - 1;
+  if (key === "Home") return 0;
+  if (key === "End") return last;
+  if (at === -1) return 0;
+  const { depth } = nodes[at];
+  if (key === "ArrowUp") return Math.max(at - 1, 0);
+  if (key === "ArrowDown") return Math.min(at + 1, last);
+  if (key === "ArrowRight")
+    return at < last && nodes[at + 1].depth > depth ? at + 1 : null;
+  for (let i = at - 1; i >= 0; i--) if (nodes[i].depth < depth) return i;
+  return null;
+};
+
+interface ScrollProps extends List.ScrollProps {
+  /** Handles a move key and returns the index to bring into view, or null. */
+  onMove: (key: string) => number | null;
+}
+
+const Scroll = ({ onMove, onKeyDown, ...rest }: ScrollProps): ReactElement => {
+  const { scrollToIndex } = List.useScroller();
+  const handleKeyDown = (e: KeyboardEvent<HTMLDivElement>) => {
+    onKeyDown?.(e);
+    // Keys typed into an element inside an item, such as a name being edited, keep
+    // their own meaning.
+    if (e.defaultPrevented || e.target !== e.currentTarget || !MOVE_KEYS.has(e.key))
+      return;
+    if (e.altKey || e.ctrlKey || e.metaKey || e.shiftKey) return;
+    e.preventDefault();
+    const index = onMove(e.key);
+    if (index != null) scrollToIndex(index);
+  };
+  return <List.Scroll tabIndex={0} {...rest} onKeyDown={handleKeyDown} />;
+};
+
+/**
+ * Renders the nodes of a {@link Shape}. The tree takes focus for its items. While it
+ * has focus, Up and Down move the selection, Home and End move it to the ends, Right
+ * expands a node or moves into it, and Left collapses a node or moves to its parent.
+ */
 export const Tree = <K extends record.Key, E extends record.Keyed<K>>({
   shape,
   children,
@@ -197,6 +248,32 @@ export const Tree = <K extends record.Key, E extends record.Keyed<K>>({
   const keysRef = useSyncedRef(keys);
   const toggleAt = (index: number) => toggle(keysRef.current[index]);
   const contextValue = { nodes, toggle: toggleOn === "caret" ? toggleAt : undefined };
+  // The key the move keys start from: the last one clicked or moved to.
+  const cursorRef = useRef<K | undefined>(undefined);
+  const handleSelect: UseReturn<K>["onSelect"] = (next, extra) => {
+    if (extra.clicked != null) cursorRef.current = extra.clicked;
+    onSelect(next, extra);
+  };
+  const handleMove = (key: string): number | null => {
+    if (keys.length === 0) return null;
+    let at = cursorRef.current == null ? -1 : keys.indexOf(cursorRef.current);
+    if (at === -1) {
+      const selectedKeys = new Set(selected);
+      at = keys.findIndex((k) => selectedKeys.has(k));
+    }
+    if (at !== -1 && nodes[at].hasChildren) {
+      const { expanded } = nodes[at];
+      if ((key === "ArrowRight" && !expanded) || (key === "ArrowLeft" && expanded)) {
+        toggle(keys[at]);
+        return null;
+      }
+    }
+    const target = moveTarget(nodes, at, key);
+    if (target == null) return null;
+    cursorRef.current = keys[target];
+    onSelect([keys[target]], { clicked: null });
+    return target;
+  };
   return (
     <Context value={contextValue}>
       <Select.Frame
@@ -204,7 +281,7 @@ export const Tree = <K extends record.Key, E extends record.Keyed<K>>({
         value={selected}
         replaceOnSingle
         data={keys}
-        onChange={onSelect}
+        onChange={handleSelect}
         getItem={getItem}
         subscribe={subscribe}
         itemHeight={itemHeight}
@@ -214,8 +291,10 @@ export const Tree = <K extends record.Key, E extends record.Keyed<K>>({
         pinned={pinned}
         allowNone={allowNone}
         autoSelectOnNone={autoSelectOnNone}
+        // The tree reads its own keys, so the Select highlight stays off.
+        enableTriggers={false}
       >
-        <List.Scroll
+        <Scroll
           full="y"
           role="tree"
           className={CSS.cls(
@@ -223,10 +302,11 @@ export const Tree = <K extends record.Key, E extends record.Keyed<K>>({
             className,
             showRules && CSS.M("show-rules"),
           )}
+          onMove={handleMove}
           {...rest}
         >
           <List.Items<K, E> emptyContent={emptyContent}>{children}</List.Items>
-        </List.Scroll>
+        </Scroll>
       </Select.Frame>
     </Context>
   );

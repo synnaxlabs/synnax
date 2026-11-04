@@ -147,7 +147,7 @@ export const useHover = <K extends record.Key>({
   // Only a move to a new position moves the hover, or the arrow keys would scroll the
   // hover back under the pointer.
   const pointerMovedRef = useRef(false);
-  const tracking = enableTriggers != null || visible;
+  const tracking = typeof enableTriggers === "function" || (enableTriggers ?? visible);
   useEffect(() => {
     if (!tracking) return;
     let last: xy.XY | undefined;
