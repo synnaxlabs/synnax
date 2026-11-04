@@ -20,7 +20,9 @@ type Key = v3.Key
 type Mode = v3.Mode
 
 const (
-	ModeText  Mode = v3.ModeText
+	// ModeText stores the module as Arc source text.
+	ModeText Mode = v3.ModeText
+	// ModeGraph stores the module as a visual dataflow graph.
 	ModeGraph Mode = v3.ModeGraph
 )
 

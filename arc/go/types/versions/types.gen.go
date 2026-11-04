@@ -18,39 +18,68 @@ import "github.com/synnaxlabs/arc/types/versions/v1"
 type Kind = v1.Kind
 
 const (
-	KindInvalid                   Kind = v1.KindInvalid
-	KindU8                        Kind = v1.KindU8
-	KindU16                       Kind = v1.KindU16
-	KindU32                       Kind = v1.KindU32
-	KindU64                       Kind = v1.KindU64
-	KindI8                        Kind = v1.KindI8
-	KindI16                       Kind = v1.KindI16
-	KindI32                       Kind = v1.KindI32
-	KindI64                       Kind = v1.KindI64
-	KindF32                       Kind = v1.KindF32
-	KindF64                       Kind = v1.KindF64
-	KindString                    Kind = v1.KindString
-	KindChan                      Kind = v1.KindChan
-	KindSeries                    Kind = v1.KindSeries
-	KindVariable                  Kind = v1.KindVariable
-	KindNumericConstant           Kind = v1.KindNumericConstant
-	KindIntegerConstant           Kind = v1.KindIntegerConstant
-	KindFloatConstant             Kind = v1.KindFloatConstant
+	// KindInvalid marks a type that Arc cannot represent.
+	KindInvalid Kind = v1.KindInvalid
+	// KindU8 is an unsigned 8-bit integer.
+	KindU8 Kind = v1.KindU8
+	// KindU16 is an unsigned 16-bit integer.
+	KindU16 Kind = v1.KindU16
+	// KindU32 is an unsigned 32-bit integer.
+	KindU32 Kind = v1.KindU32
+	// KindU64 is an unsigned 64-bit integer.
+	KindU64 Kind = v1.KindU64
+	// KindI8 is a signed 8-bit integer.
+	KindI8 Kind = v1.KindI8
+	// KindI16 is a signed 16-bit integer.
+	KindI16 Kind = v1.KindI16
+	// KindI32 is a signed 32-bit integer.
+	KindI32 Kind = v1.KindI32
+	// KindI64 is a signed 64-bit integer.
+	KindI64 Kind = v1.KindI64
+	// KindF32 is a 32-bit float.
+	KindF32 Kind = v1.KindF32
+	// KindF64 is a 64-bit float.
+	KindF64 Kind = v1.KindF64
+	// KindString is a text string.
+	KindString Kind = v1.KindString
+	// KindChan is a channel of the element type.
+	KindChan Kind = v1.KindChan
+	// KindSeries is an array of the element type.
+	KindSeries Kind = v1.KindSeries
+	// KindVariable is a generic type parameter.
+	KindVariable Kind = v1.KindVariable
+	// KindNumericConstant constrains a type parameter to any numeric type.
+	KindNumericConstant Kind = v1.KindNumericConstant
+	// KindIntegerConstant constrains a type parameter to any integer type.
+	KindIntegerConstant Kind = v1.KindIntegerConstant
+	// KindFloatConstant constrains a type parameter to any floating-point type.
+	KindFloatConstant Kind = v1.KindFloatConstant
+	// KindExactIntegerFloatConstant constrains a type parameter to float literals that
+	// hold exact integers.
 	KindExactIntegerFloatConstant Kind = v1.KindExactIntegerFloatConstant
-	KindFunction                  Kind = v1.KindFunction
-	KindSequence                  Kind = v1.KindSequence
-	KindStage                     Kind = v1.KindStage
-	KindVarRef                    Kind = v1.KindVarRef
-	KindBool                      Kind = v1.KindBool
+	// KindFunction is a function type.
+	KindFunction Kind = v1.KindFunction
+	// KindSequence is a state machine.
+	KindSequence Kind = v1.KindSequence
+	// KindStage is a stage within a sequence.
+	KindStage Kind = v1.KindStage
+	// KindVarRef is a reference to the variable of a node.
+	KindVarRef Kind = v1.KindVarRef
+	// KindBool is a boolean.
+	KindBool Kind = v1.KindBool
 )
 
 // ChanDirection indicates read/write direction for channel-typed parameters.
 type ChanDirection = v1.ChanDirection
 
 const (
-	ChanDirectionNone      ChanDirection = v1.ChanDirectionNone
-	ChanDirectionRead      ChanDirection = v1.ChanDirectionRead
-	ChanDirectionWrite     ChanDirection = v1.ChanDirectionWrite
+	// ChanDirectionNone has no direction set.
+	ChanDirectionNone ChanDirection = v1.ChanDirectionNone
+	// ChanDirectionRead reads from the channel.
+	ChanDirectionRead ChanDirection = v1.ChanDirectionRead
+	// ChanDirectionWrite writes to the channel.
+	ChanDirectionWrite ChanDirection = v1.ChanDirectionWrite
+	// ChanDirectionReadWrite reads from and writes to the channel.
 	ChanDirectionReadWrite ChanDirection = v1.ChanDirectionReadWrite
 )
 
