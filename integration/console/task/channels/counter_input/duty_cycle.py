@@ -27,10 +27,10 @@ class DutyCycle(Counter):
 
     def __init__(
         self,
-        *,
         layout: LayoutClient,
         name: str,
         device: str,
+        *,
         edge: Literal["Rising", "Falling"] | None = None,
         terminal: str | None = None,
         **kwargs: Unpack[Options],

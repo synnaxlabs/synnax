@@ -38,10 +38,10 @@ class StrainGauge(Analog):
 
     def __init__(
         self,
-        *,
         layout: LayoutClient,
         name: str,
         device: str,
+        *,
         strain_configuration: (
             Literal[
                 "Full bridge I",
