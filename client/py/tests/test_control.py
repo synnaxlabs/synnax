@@ -633,6 +633,33 @@ class TestController:
         assert assertions["seq_one_second_ack"] is True
 
 
+class ObservedLock:
+    """Wraps a lock and reports when a thread reaches it.
+
+    :param lock: The lock to wrap.
+    :param thread: The thread to watch.
+    :param reached: Set just before thread tries to take the lock.
+    """
+
+    def __init__(
+        self,
+        lock: threading.Lock,
+        thread: threading.Thread,
+        reached: threading.Event,
+    ) -> None:
+        self.lock = lock
+        self.thread = thread
+        self.reached = reached
+
+    def __enter__(self) -> None:
+        if threading.current_thread() is self.thread:
+            self.reached.set()
+        self.lock.acquire()
+
+    def __exit__(self, *_: object) -> None:
+        self.lock.release()
+
+
 @pytest.fixture
 def channel(client: sy.Synnax) -> sy.Channel:
     return client.channels.create(
@@ -734,11 +761,21 @@ class TestWaitOnCurrentState:
                 )
 
     def test_frame_during_check_is_kept(
-        self, held: Controller, channel: sy.Channel
+        self,
+        held: Controller,
+        channel: sy.Channel,
+        monkeypatch: pytest.MonkeyPatch,
     ) -> None:
         """Should hold a frame back until the check ends, then run the condition on it
         on one thread at a time.
         """
+        receiver = held._receiver
+        frame = sy.Frame({channel.key: sy.Series([2.0], data_type=sy.DataType.FLOAT64)})
+        applier = threading.Thread(target=receiver._apply, args=(frame,), daemon=True)
+        reached = threading.Event()
+        monkeypatch.setattr(
+            receiver, "lock", ObservedLock(receiver.lock, applier, reached)
+        )
         results: list[bool] = []
         running = False
         overlapped = False
@@ -748,13 +785,14 @@ class TestWaitOnCurrentState:
             overlapped = overlapped or running
             running = True
             if not results:
-                c.set(channel.key, 2)
-                time.sleep(QUIET_WAIT)
+                applier.start()
+                assert reached.wait(HANDSHAKE_TIMEOUT)
             results.append(bool(c[channel.key] == 2))
             running = False
             return results[-1]
 
         assert held.wait_until(cond, timeout=HANDSHAKE_TIMEOUT)
+        applier.join(HANDSHAKE_TIMEOUT)
         assert results == [False, True]
         assert not overlapped
 
