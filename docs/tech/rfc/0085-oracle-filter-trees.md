@@ -226,9 +226,9 @@ accept `filter` definitions; they still reject actions.
 The view writer checks a stored `where` with the target's `MatchWhere`, and rejects a
 view of an unknown variant.
 
-View v1 (#3306) is in no stable release. The change edits v1 in place if it lands before
-the next stable release, and mints v2 otherwise. `has_labels` maps to the `labels` line
-with the same meaning.
+Core v0.60.0 shipped view v1 (#3306) with `query`, so the change mints view v2. Its
+migration maps `has_labels` to the `labels` line with the same meaning, and an empty
+`query` to an absent `where`.
 
 ### 2.6 Single-record retrieves
 
