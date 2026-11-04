@@ -227,7 +227,8 @@ func checkErasedDocs(
 			}
 			fields := resolution.UnifiedFields(def.Type, definer.Table)
 			if !slices.ContainsFunc(fields, func(f resolution.Field) bool {
-				return f.Name == field
+				_, documented := f.Domains["doc"]
+				return f.Name == field && !documented
 			}) {
 				continue
 			}

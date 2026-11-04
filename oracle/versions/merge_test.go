@@ -385,6 +385,43 @@ Channel struct extends Base {
 			))
 		})
 
+		It("Should accept a live restatement of a documented inherited field", func(
+			ctx SpecContext,
+		) {
+			write("schemas/synnax/versions/channel/v2.oracle", `
+Mode = v0.Mode
+Payload = v0.Payload
+Event = v0.Event
+
+Base struct {
+    key uuid {
+        @doc value "identifies the channel."
+    }
+}
+
+Channel struct extends Base {
+    name string
+    uses Mode
+
+    @go marshal
+}
+`)
+			r, chain := resolver()
+			merged := MustSucceed(
+				versions.MergeLive(ctx, r, chain, `Channel struct extends Base {
+    key uuid {
+        @doc value "identifies the channel."
+    }
+    name string
+    uses Mode
+
+    @go marshal
+}
+`),
+			)
+			Expect(merged).To(ContainSubstring("Channel struct extends Base"))
+		})
+
 		It("Should keep a doc on a declaration the chain removed", func(
 			ctx SpecContext,
 		) {
