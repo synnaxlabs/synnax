@@ -13,18 +13,8 @@ from pydantic import BaseModel
 
 from freighter import Empty, UnaryClient
 from synnax import ontology
+from synnax.auth.password.types_gen import Password
 from synnax.util.send_required import send_required
-
-
-class Password(BaseModel):
-    """A password as the API returns it: its subject and username, without its
-    hash.
-    """
-
-    subject: ontology.ID
-    """The user the password logs in as."""
-    username: str
-    """The name the password logs in with."""
 
 
 class _CreateRequest(BaseModel):

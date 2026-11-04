@@ -8,27 +8,12 @@
 // included in the file licenses/APL.txt.
 
 import { type UnaryClient } from "@synnaxlabs/freighter";
-import { TimeStamp, uuid } from "@synnaxlabs/x";
+import { uuid } from "@synnaxlabs/x";
 import { z } from "zod";
 
+import { type APIKey, apiKeyZ, type Key, keyZ } from "@/auth/apikey/types.gen";
 import { InvalidTokenError } from "@/errors";
 import { ontology } from "@/ontology";
-
-export const keyZ = z.uuid();
-export type Key = z.infer<typeof keyZ>;
-
-export const apiKeyZ = z.object({
-  /** key is the unique identifier for this API key. */
-  key: keyZ,
-  /** subject is the user or rack the key logs in as. */
-  subject: ontology.idZ,
-  /** name is a label that tells the subject's keys apart. */
-  name: z.string(),
-  /** created is when the key was created. */
-  created: TimeStamp.z,
-});
-/** APIKey is an API key as the API returns it: the stored record without its hash. */
-export interface APIKey extends z.infer<typeof apiKeyZ> {}
 
 const TOKEN_PREFIX = "syk_";
 /** A token holds the 16 bytes of the record key and a 32 byte secret. */

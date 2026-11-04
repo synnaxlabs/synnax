@@ -13,12 +13,19 @@ load("@rules_cc//cc:cc_test.bzl", "cc_test")
 cc_library(
     name = "auth",
     srcs = [],
-    hdrs = ["auth.h"],
+    hdrs = [
+        "auth.h",
+        "json.gen.h",
+        "types.gen.h",
+    ],
     visibility = ["//visibility:public"],
     deps = [
+        "//client/cpp/ontology",
         "//core/pkg/transport/grpc:api_grpc",
         "//freighter/cpp/grpc",
+        "//x/cpp/json",
         "//x/cpp/telem",
+        "//x/cpp/uuid",
         "@grpc//:grpc++",
     ],
 )
@@ -30,6 +37,7 @@ cc_test(
         "//client/cpp/auth",
         "//freighter/cpp/testutil",
         "//x/cpp/testutil",
+        "//x/cpp/uuid",
         "@googletest//:gtest_main",
     ],
 )

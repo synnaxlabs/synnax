@@ -14,15 +14,19 @@
 #include "client/cpp/auth/auth.h"
 #include "freighter/cpp/testutil/testutil.h"
 #include "x/cpp/testutil/testutil.h"
+#include "x/cpp/uuid/uuid.h"
 
 #include "core/pkg/transport/grpc/auth/auth.pb.h"
 
 namespace synnax::auth {
 namespace {
+const std::string CREDENTIAL = "8c1d2e4f-5a6b-4c7d-8e9f-0a1b2c3d4e5f";
+
 grpc::auth::SessionCreateResponse session_response(const std::string &token) {
     grpc::auth::SessionCreateResponse res;
     res.set_token(token);
     res.mutable_session()->set_key("3f3a1b0e-7c2e-4a8f-9d6b-2a1c5e8f0b41");
+    res.mutable_session()->set_credential(CREDENTIAL);
     res.mutable_session()->mutable_subject()->set_type("user");
     res.mutable_session()->mutable_subject()->set_key("u");
     return res;
@@ -216,8 +220,8 @@ TEST(TestAuth, Logout) {
     ASSERT_NIL(mw->logout());
     ASSERT_EQ(del->requests.size(), 1);
     ASSERT_EQ(del->requests[0].keys_size(), 1);
-    ASSERT_EQ(del->requests[0].keys(0), key);
-    ASSERT_EQ(mw->current_session().key, "");
+    ASSERT_EQ(del->requests[0].keys(0), key.to_string());
+    ASSERT_TRUE(mw->current_session().key.is_nil());
     ASSERT_NIL(mw->logout());
     ASSERT_EQ(del->requests.size(), 1);
 }
@@ -276,7 +280,7 @@ TEST(TestAuth, RenewForgetsEndedSession) {
     );
     ASSERT_NIL(mw->authenticate());
     ASSERT_OCCURRED_AS(mw->renew(), ERR_SESSION_ENDED);
-    ASSERT_EQ(mw->current_session().key, "");
+    ASSERT_TRUE(mw->current_session().key.is_nil());
     auto mock_client = freighter::testutil::UnaryClient<int, int>{1, x::errors::NIL};
     mock_client.use(mw);
     auto v = 1;
@@ -301,7 +305,7 @@ TEST(TestAuth, LogoutAfterSessionEnded) {
     );
     ASSERT_NIL(mw->authenticate());
     ASSERT_NIL(mw->logout());
-    ASSERT_EQ(mw->current_session().key, "");
+    ASSERT_TRUE(mw->current_session().key.is_nil());
 }
 
 /// @brief it should list sessions for the requested subjects.
@@ -311,7 +315,6 @@ TEST(TestAuth, RetrieveSessions) {
         grpc::auth::SessionCreateResponse>>(session_response("abc"), x::errors::NIL);
     grpc::auth::SessionRetrieveResponse res;
     *res.add_sessions() = session_response("abc").session();
-    res.mutable_sessions(0)->set_credential("c");
     auto mock_retrieve_client = std::make_unique<freighter::testutil::UnaryClient<
         grpc::auth::SessionRetrieveRequest,
         grpc::auth::SessionRetrieveResponse>>(res, x::errors::NIL);
@@ -326,7 +329,7 @@ TEST(TestAuth, RetrieveSessions) {
     ASSERT_EQ(sessions.size(), 1);
     ASSERT_EQ(sessions[0].key, mw->current_session().key);
     ASSERT_EQ(sessions[0].subject.key, "u");
-    ASSERT_EQ(sessions[0].credential, "c");
+    ASSERT_EQ(sessions[0].credential.to_string(), CREDENTIAL);
     ASSERT_EQ(retrieve->requests.size(), 1);
     ASSERT_EQ(retrieve->requests[0].subjects_size(), 1);
     ASSERT_EQ(retrieve->requests[0].subjects(0).type(), "user");
@@ -345,10 +348,11 @@ TEST(TestAuth, DeleteOtherSession) {
         std::move(mock_create_client),
         std::move(mock_delete_client)
     );
-    ASSERT_NIL(mw->delete_sessions({"other"}));
+    const auto other = x::uuid::create();
+    ASSERT_NIL(mw->delete_sessions({other}));
     ASSERT_EQ(del->requests.size(), 1);
-    ASSERT_EQ(del->requests[0].keys(0), "other");
-    ASSERT_NE(mw->current_session().key, "");
+    ASSERT_EQ(del->requests[0].keys(0), other.to_string());
+    ASSERT_FALSE(mw->current_session().key.is_nil());
 }
 
 /// @brief it should forget its own session when ending it.
@@ -365,6 +369,6 @@ TEST(TestAuth, DeleteOwnSession) {
     );
     ASSERT_NIL(mw->authenticate());
     ASSERT_NIL(mw->delete_sessions({mw->current_session().key}));
-    ASSERT_EQ(mw->current_session().key, "");
+    ASSERT_TRUE(mw->current_session().key.is_nil());
 }
 }

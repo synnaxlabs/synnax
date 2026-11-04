@@ -285,6 +285,37 @@ var _ = Describe("Table", func() {
 			Expect(sorted[1].Name).To(Equal("Derived"))
 		})
 
+		It("places the types of inherited fields before the child", func() {
+			key := resolution.Type{
+				Name: "Key", QualifiedName: "ns.Key", Namespace: "ns",
+				Form: resolution.AliasForm{Target: resolution.TypeRef{Name: "uuid"}},
+			}
+			parent := resolution.Type{
+				Name: "Parent", QualifiedName: "ns.Parent", Namespace: "ns",
+				Form: resolution.StructForm{
+					Fields: []resolution.Field{
+						{Name: "key", Type: resolution.TypeRef{Name: "ns.Key"}},
+					},
+				},
+			}
+			child := resolution.Type{
+				Name: "Child", QualifiedName: "ns.Child", Namespace: "ns",
+				Form: resolution.StructForm{
+					Extends: []resolution.TypeRef{{Name: "ns.Parent"}},
+				},
+			}
+			Expect(table.Add(key)).To(Succeed())
+			Expect(table.Add(parent)).To(Succeed())
+			Expect(table.Add(child)).To(Succeed())
+
+			sorted := table.TopologicalSort([]resolution.Type{
+				table.MustGet("ns.Child"),
+				table.MustGet("ns.Key"),
+			})
+			Expect(sorted[0].Name).To(Equal("Key"))
+			Expect(sorted[1].Name).To(Equal("Child"))
+		})
+
 		It("handles transitive dependencies", func() {
 			a := resolution.Type{
 				Name: "A", QualifiedName: "ns.A", Namespace: "ns",

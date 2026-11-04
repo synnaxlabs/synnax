@@ -19,7 +19,6 @@
 
 namespace driver::rack {
 namespace {
-const std::string RACK_SUBJECT_TYPE = "rack";
 const std::string API_KEY_NAME = "synnax-driver";
 
 std::pair<x::uuid::UUID, x::errors::Error>
@@ -60,7 +59,7 @@ x::errors::Error Config::enroll() {
     if (res.second) return res.second;
     auto [key, create_err] = client.api_keys.create(
         API_KEY_NAME,
-        {RACK_SUBJECT_TYPE, std::to_string(res.first.key)}
+        synnax::rack::ontology_id(res.first.key)
     );
     if (create_err) {
         // A retry creates another rack, so remove the one no key logs in as.
@@ -96,7 +95,7 @@ x::errors::Error Config::load_remote() {
     synnax::rack::Key rack_key = this->remote_info.rack_key;
     const auto *end = subject.key.data() + subject.key.size();
     if (!this->connection.api_key.empty() &&
-        (subject.type != RACK_SUBJECT_TYPE ||
+        (subject.type != synnax::rack::ONTOLOGY_TYPE.type ||
          std::from_chars(subject.key.data(), end, rack_key).ptr != end))
         return x::errors::Error(
             x::errors::VALIDATION,
