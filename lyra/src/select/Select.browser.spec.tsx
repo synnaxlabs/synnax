@@ -153,10 +153,12 @@ describe("Select", () => {
       );
     });
 
-    it("should rest an unchosen card on the page color", async () => {
+    it("should rest an unchosen card half a gray step above the page", async () => {
       const button = await renderButtons("card");
       const card = button("A much longer second option");
-      expect(computed(card, "background-color")).toBe(resolve("var(--pluto-gray-l0)"));
+      expect(computed(card, "background-color")).toBe(
+        resolve("var(--pluto-gray-l1-l2)"),
+      );
       expect(computed(card, "border-top-color")).toBe(resolve("var(--pluto-gray-l6)"));
     });
   });

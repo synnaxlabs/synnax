@@ -140,17 +140,6 @@ func (u *View) UnmarshalJSONFrom(dec *jsontext.Decoder) error {
 	return nil
 }
 
-// Base returns the Base of the active variant, or a zero Base when there is none.
-func (u View) Base() Base {
-	switch v := u.Variant.(type) {
-	case RangeView:
-		return v.Base
-	case StatusView:
-		return v.Base
-	}
-	return Base{}
-}
-
 // Type returns the type of the active variant, or an empty type when there is none.
 func (u View) Type() ViewType {
 	switch u.Variant.(type) {
@@ -172,6 +161,31 @@ func (u View) Validate() error {
 		return variant.Validate()
 	}
 	return nil
+}
+
+// Base returns the fields every variant shares, or the zero value if Variant is nil.
+func (u View) Base() Base {
+	switch variant := u.Variant.(type) {
+	case RangeView:
+		return variant.Base
+	case StatusView:
+		return variant.Base
+	}
+	return Base{}
+}
+
+// SetBase replaces the fields every variant shares. It panics if Variant is nil.
+func (u *View) SetBase(base Base) {
+	switch variant := u.Variant.(type) {
+	case RangeView:
+		variant.Base = base
+		u.Variant = variant
+	case StatusView:
+		variant.Base = base
+		u.Variant = variant
+	default:
+		panic(errors.Newf("View: cannot set the base of variant %T", variant))
+	}
 }
 
 // Base carries the fields shared by every view variant.

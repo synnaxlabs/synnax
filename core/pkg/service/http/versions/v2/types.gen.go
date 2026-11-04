@@ -416,18 +416,6 @@ func (u *WriteField) UnmarshalJSONFrom(dec *jsontext.Decoder) error {
 	return nil
 }
 
-// BaseWriteField returns the BaseWriteField of the active variant, or a zero
-// BaseWriteField when there is none.
-func (u WriteField) BaseWriteField() BaseWriteField {
-	switch v := u.Variant.(type) {
-	case StaticWriteField:
-		return v.BaseWriteField
-	case GeneratedWriteField:
-		return v.BaseWriteField
-	}
-	return BaseWriteField{}
-}
-
 // Type returns the type of the active variant, or an empty type when there is none.
 func (u WriteField) Type() WriteFieldType {
 	switch u.Variant.(type) {
@@ -462,6 +450,31 @@ func (u WriteField) Validate() error {
 		return variant.Validate()
 	}
 	return nil
+}
+
+// Base returns the fields every variant shares, or the zero value if Variant is nil.
+func (u WriteField) Base() BaseWriteField {
+	switch variant := u.Variant.(type) {
+	case StaticWriteField:
+		return variant.BaseWriteField
+	case GeneratedWriteField:
+		return variant.BaseWriteField
+	}
+	return BaseWriteField{}
+}
+
+// SetBase replaces the fields every variant shares. It panics if Variant is nil.
+func (u *WriteField) SetBase(base BaseWriteField) {
+	switch variant := u.Variant.(type) {
+	case StaticWriteField:
+		variant.BaseWriteField = base
+		u.Variant = variant
+	case GeneratedWriteField:
+		variant.BaseWriteField = base
+		u.Variant = variant
+	default:
+		panic(errors.Newf("WriteField: cannot set the base of variant %T", variant))
+	}
 }
 
 // WriteEndpoint is a single HTTP endpoint written to by a write task.

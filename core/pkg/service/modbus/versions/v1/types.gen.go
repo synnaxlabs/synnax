@@ -208,22 +208,6 @@ func (u *ReadChannel) UnmarshalJSONFrom(dec *jsontext.Decoder) error {
 	return nil
 }
 
-// BaseReadChannel returns the BaseReadChannel of the active variant, or a zero
-// BaseReadChannel when there is none.
-func (u ReadChannel) BaseReadChannel() BaseReadChannel {
-	switch v := u.Variant.(type) {
-	case CoilReadChannel:
-		return v.BaseReadChannel
-	case DiscreteInputReadChannel:
-		return v.BaseReadChannel
-	case HoldingRegisterReadChannel:
-		return v.BaseReadChannel
-	case InputRegisterReadChannel:
-		return v.BaseReadChannel
-	}
-	return BaseReadChannel{}
-}
-
 // Type returns the type of the active variant, or an empty type when there is none.
 func (u ReadChannel) Type() ReadChannelType {
 	switch u.Variant.(type) {
@@ -249,6 +233,41 @@ func (u *ReadChannel) ApplyDefaults() {
 	case InputRegisterReadChannel:
 		variant.ApplyDefaults()
 		u.Variant = variant
+	}
+}
+
+// Base returns the fields every variant shares, or the zero value if Variant is nil.
+func (u ReadChannel) Base() BaseReadChannel {
+	switch variant := u.Variant.(type) {
+	case CoilReadChannel:
+		return variant.BaseReadChannel
+	case DiscreteInputReadChannel:
+		return variant.BaseReadChannel
+	case HoldingRegisterReadChannel:
+		return variant.BaseReadChannel
+	case InputRegisterReadChannel:
+		return variant.BaseReadChannel
+	}
+	return BaseReadChannel{}
+}
+
+// SetBase replaces the fields every variant shares. It panics if Variant is nil.
+func (u *ReadChannel) SetBase(base BaseReadChannel) {
+	switch variant := u.Variant.(type) {
+	case CoilReadChannel:
+		variant.BaseReadChannel = base
+		u.Variant = variant
+	case DiscreteInputReadChannel:
+		variant.BaseReadChannel = base
+		u.Variant = variant
+	case HoldingRegisterReadChannel:
+		variant.BaseReadChannel = base
+		u.Variant = variant
+	case InputRegisterReadChannel:
+		variant.BaseReadChannel = base
+		u.Variant = variant
+	default:
+		panic(errors.Newf("ReadChannel: cannot set the base of variant %T", variant))
 	}
 }
 
@@ -367,18 +386,6 @@ func (u *WriteChannel) UnmarshalJSONFrom(dec *jsontext.Decoder) error {
 	return nil
 }
 
-// BaseWriteChannel returns the BaseWriteChannel of the active variant, or a zero
-// BaseWriteChannel when there is none.
-func (u WriteChannel) BaseWriteChannel() BaseWriteChannel {
-	switch v := u.Variant.(type) {
-	case CoilWriteChannel:
-		return v.BaseWriteChannel
-	case HoldingRegisterWriteChannel:
-		return v.BaseWriteChannel
-	}
-	return BaseWriteChannel{}
-}
-
 // Type returns the type of the active variant, or an empty type when there is none.
 func (u WriteChannel) Type() WriteChannelType {
 	switch u.Variant.(type) {
@@ -397,6 +404,31 @@ func (u *WriteChannel) ApplyDefaults() {
 	case HoldingRegisterWriteChannel:
 		variant.ApplyDefaults()
 		u.Variant = variant
+	}
+}
+
+// Base returns the fields every variant shares, or the zero value if Variant is nil.
+func (u WriteChannel) Base() BaseWriteChannel {
+	switch variant := u.Variant.(type) {
+	case CoilWriteChannel:
+		return variant.BaseWriteChannel
+	case HoldingRegisterWriteChannel:
+		return variant.BaseWriteChannel
+	}
+	return BaseWriteChannel{}
+}
+
+// SetBase replaces the fields every variant shares. It panics if Variant is nil.
+func (u *WriteChannel) SetBase(base BaseWriteChannel) {
+	switch variant := u.Variant.(type) {
+	case CoilWriteChannel:
+		variant.BaseWriteChannel = base
+		u.Variant = variant
+	case HoldingRegisterWriteChannel:
+		variant.BaseWriteChannel = base
+		u.Variant = variant
+	default:
+		panic(errors.Newf("WriteChannel: cannot set the base of variant %T", variant))
 	}
 }
 

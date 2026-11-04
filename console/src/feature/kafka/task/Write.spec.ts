@@ -9,7 +9,7 @@
 
 import { kafka, type Synnax, type task } from "@synnaxlabs/client";
 import { createTestClient } from "@synnaxlabs/client/testutil";
-import { fireEvent, screen, waitFor } from "@testing-library/react";
+import { fireEvent, screen, waitFor, within } from "@testing-library/react";
 import { describe, expect, it } from "vitest";
 
 import { Kafka } from "@/feature/kafka";
@@ -17,6 +17,7 @@ import { createKafkaDevice } from "@/feature/kafka/testutil";
 import {
   awaitEditableForm,
   deployAndAwaitTask,
+  findChannelListItem,
   renderTaskFormTab,
   type RenderTaskFormTabOptions,
   selectFromDropdown,
@@ -102,6 +103,40 @@ describe("Write", () => {
     expect(created.config.record.timestampPointer).toBeUndefined();
     expect(created.config.record.valuePointer).toBe("/value");
     expect(created.config.channels[0].channel).toBe(ch.key);
+  });
+
+  it("should show no channel, never a new one, before a channel is picked", async () => {
+    const dev = await createKafkaDevice(client);
+    const draft = await createDraft(client, {
+      ...Kafka.Task.WRITE_SCHEMAS.config.parse({}),
+      device: dev.key,
+      channels: [{ ...kafka.writeChannelZ.parse({}), key: "c1" }],
+    });
+    await renderWrite({ client, taskKey: draft.key });
+    const item = await findChannelListItem("No channel");
+    expect(within(item).queryByRole("img", { name: "New channel" })).toBeNull();
+  });
+
+  it("should mark a picked channel that no longer exists as not found", async () => {
+    const dev = await createKafkaDevice(client);
+    const gone = await client.channels.create({
+      name: uniqueName("kafka_gone"),
+      dataType: "float64",
+      virtual: true,
+    });
+    await client.channels.delete(gone.key);
+    const draft = await createDraft(client, {
+      ...Kafka.Task.WRITE_SCHEMAS.config.parse({}),
+      device: dev.key,
+      channels: [{ ...kafka.writeChannelZ.parse({}), key: "c1", channel: gone.key }],
+    });
+    await renderWrite({ client, taskKey: draft.key });
+    const item = await findChannelListItem("Channel not found");
+    const icon = within(item).getByRole("img", { name: "Channel not found" });
+    fireEvent.pointerOver(icon, { pointerType: "mouse" });
+    expect((await screen.findByRole("tooltip")).textContent).toBe(
+      "Channel not foundIt may have been deleted. Select another channel.",
+    );
   });
 
   it("should deploy when a disabled row's channel no longer exists", async () => {
