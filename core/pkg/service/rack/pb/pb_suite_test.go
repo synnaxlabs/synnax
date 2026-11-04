@@ -21,3 +21,5 @@ func TestPB(t *testing.T) {
 	RegisterFailHandler(Fail)
 	RunSpecs(t, "Service Rack PB Suite", SuiteConfig())
 }
+
+var _ = ShouldNotLeakGoroutinesPerSpec()

@@ -113,7 +113,7 @@ func (s *Service) Set(
 	if err := s.internal.NewWriter(tx).SetMany(ctx, &req.Statuses); err != nil {
 		return SetResponse{}, err
 	}
-	return SetResponse{Statuses: req.Statuses}, nil
+	return SetResponse(req), nil
 }
 
 // SetByKeyOrNameRequest is a request to upsert a status by key or by name.

@@ -26,6 +26,7 @@ import (
 	v1 "github.com/synnaxlabs/synnax/pkg/service/status/versions/v1"
 	"github.com/synnaxlabs/x/errors"
 	"github.com/synnaxlabs/x/query"
+	"github.com/synnaxlabs/x/set"
 )
 
 // namespace is the UUIDv5 namespace of the keys that MigrateKey derives. Changing it
@@ -105,7 +106,7 @@ func migrateStatuses(ctx context.Context, tx gorp.Tx, _ alamos.Instrumentation) 
 	var (
 		writer  = gorp.WrapWriter[Key, stored](tx)
 		moved   = make(map[resource.ID]resource.ID)
-		dropped = make(map[resource.ID]bool)
+		dropped = make(set.Set[resource.ID])
 	)
 	for _, o := range old {
 		id := resource.ID{Type: resource.TypeStatus, Key: o.Key}
@@ -116,7 +117,7 @@ func migrateStatuses(ctx context.Context, tx gorp.Tx, _ alamos.Instrumentation) 
 				return err
 			}
 			if !found {
-				dropped[id] = true
+				dropped.Add(id)
 				if err = writer.Delete(ctx, o.Key); err != nil {
 					return err
 				}
@@ -157,7 +158,7 @@ func moveResources(
 	ctx context.Context,
 	tx gorp.Tx,
 	moved map[resource.ID]resource.ID,
-	dropped map[resource.ID]bool,
+	dropped set.Set[resource.ID],
 ) error {
 	var (
 		reader = gorp.WrapReader[string, ontology.Resource](tx)
@@ -192,14 +193,14 @@ func moveRelationships(
 	writer *gorp.Writer[string, ontology.Relationship],
 	rels []ontology.Relationship,
 	moved map[resource.ID]resource.ID,
-	dropped map[resource.ID]bool,
+	dropped set.Set[resource.ID],
 ) error {
 	for _, rel := range rels {
 		if rel.Type == labeledBy && rel.From.Type == resource.TypeStatus {
 			continue
 		}
 		oldKey := rel.GorpKey()
-		if dropped[rel.From] || dropped[rel.To] {
+		if dropped.Contains(rel.From) || dropped.Contains(rel.To) {
 			if err := writer.Delete(ctx, oldKey); err != nil {
 				return err
 			}
