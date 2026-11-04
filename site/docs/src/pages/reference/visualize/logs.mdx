@@ -23,8 +23,9 @@ A log shows each new value of its channels as one line of text. Use a log to fol
 operator notes, the states of an automation, and slow sensors. A log can show channels
 of any data type, including text and JSON.
 
-A log shows only values that arrive while it is open. It does not read stored data. To
-see stored data, use a [line plot](/reference/visualize/line-plots).
+When a log opens, it shows the last 10,000 stored values of each channel, then each new
+value. A virtual channel stores no values, so its log shows only values that arrive
+while the log is open.
 
 <Divider.Divider x />
 
@@ -71,25 +72,22 @@ Then press **Ctrl+C**, or right-click and select **Copy**.
 
 On the **Properties** tab of the component toolbar:
 
-| Field                       | Default | Description                                               |
-| --------------------------- | ------- | --------------------------------------------------------- |
-| Show receipt timestamp      | On      | Shows the time that the Console received the value.       |
-| Receipt timestamp precision | 0       | The number of decimal places of the seconds, from 0 to 3. |
-| Show channel names          | On      | Shows the channel name, or its alias, before the value.   |
+| Field               | Default | Description                                               |
+| ------------------- | ------- | --------------------------------------------------------- |
+| Show timestamps     | On      | Shows the time of day of the sample, in local time.       |
+| Timestamp precision | 0       | The number of decimal places of the seconds, from 0 to 3. |
+| Show channel names  | On      | Shows the channel name, or its alias, before the value.   |
 
-The receipt timestamp is the time of day on your computer when the Console received the
-value. It is not the timestamp of the sample.
+The timestamp is the time of the sample from the channel's index. Lines show in the
+order of these times, across all channels. A virtual channel has no index, so its lines
+show the time that the Console received the value.
 
 <Divider.Divider x />
 
 ## Limits
 
-- A log keeps up to 100,000 lines and up to 7 days.
-- Lines live only in the Console. Closing the tab or reloading the Console clears them.
+- A log keeps up to 100,000 lines. Past that, it removes the oldest lines.
 - A value with more than one line of text shows as several lines.
-- When a log opens, it can show the last minute of values of a channel that a different
-  plot, schematic, or table already streams. These lines all show the time that the log
-  opened.
 
 <Divider.Divider x />
 
@@ -100,30 +98,13 @@ value. It is not the timestamp of the sample.
 <Problem.Body>
 <Problem.Cause>
 
-Nothing has written to the channels since the log opened. A log does not show stored
-data.
+The channels have no stored values, and nothing has written to them since the log
+opened.
 
 </Problem.Cause>
 <Problem.Fix>
 
-Check that a task, a script, or an Arc automation writes to the channels, or use a line
-plot for stored data.
-
-</Problem.Fix>
-</Problem.Body>
-
-### A line shows the wrong time
-
-<Problem.Body>
-<Problem.Cause>
-
-The receipt timestamp is the time that the Console received the value, not the time of
-the sample.
-
-</Problem.Cause>
-<Problem.Fix>
-
-To see when each sample was taken, plot the channel on a line plot.
+Check that a task, a script, or an Arc automation writes to the channels.
 
 </Problem.Fix>
 </Problem.Body>
