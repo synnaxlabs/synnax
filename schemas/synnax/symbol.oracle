@@ -130,5 +130,5 @@ Symbol struct {
     """
     @go imex
     @go marshal
-    @ontology type "schematic_symbol"
+    @resource type "schematic_symbol"
 }

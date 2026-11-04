@@ -8,7 +8,7 @@
 // included in the file licenses/APL.txt.
 
 import "schemas/synnax/access"
-import "schemas/synnax/ontology"
+import "schemas/synnax/resource"
 
 @go output "core/pkg/service/access/rbac/policy"
 @py output "client/py/synnax/access/policy"
@@ -29,7 +29,7 @@ Policy struct {
         @search
         @validate required
     }
-    objects  ontology.ID[]   {
+    objects  resource.ID[]   {
         @doc value "is the list of ontology resources this policy applies to."
     }
     actions  access.Action[] {
@@ -48,6 +48,6 @@ Policy struct {
     """
     @go marshal
     @go migrate
-    @ontology type   "policy"
+    @resource type   "policy"
     @retrieve custom
 }

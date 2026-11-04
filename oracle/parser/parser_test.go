@@ -587,7 +587,7 @@ var _ = Describe("Parser", func() {
 						self
 					}
 
-					@ontology type "range"
+					@resource type "range"
 				}
 			`))
 			Expect(schema.AllImportStmt()).To(HaveLen(1))

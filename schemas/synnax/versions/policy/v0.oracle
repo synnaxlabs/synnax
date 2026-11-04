@@ -8,15 +8,15 @@
 // included in the file licenses/APL.txt.
 
 import "schemas/synnax/versions/access/v0"
-import "schemas/synnax/versions/ontology/v0"
+import "schemas/synnax/versions/resource/v0"
 
 Key = uuid {
     @doc value "is a unique identifier for a policy, represented as a UUID."
 }
 
 Policy struct {
-    subjects ontology.ID[]
-    objects  ontology.ID[]
+    subjects resource.ID[]
+    objects  resource.ID[]
     actions  access.Action[]
     key      Key             {
         @key

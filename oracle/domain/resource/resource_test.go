@@ -7,13 +7,13 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-package ontology_test
+package resource_test
 
 import (
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	"github.com/synnaxlabs/oracle/domain/key"
-	"github.com/synnaxlabs/oracle/domain/ontology"
+	"github.com/synnaxlabs/oracle/domain/resource"
 	"github.com/synnaxlabs/oracle/resolution"
 )
 
@@ -22,48 +22,48 @@ var _ = Describe("Extract", func() {
 		types := []resolution.Type{{
 			Form: resolution.StructForm{},
 			Domains: map[string]resolution.Domain{
-				"ontology": {Expressions: []resolution.Expression{{
+				"resource": {Expressions: []resolution.Expression{{
 					Name:   "type",
 					Values: []resolution.ExpressionValue{{StringValue: "user"}},
 				}}},
 			},
 		}}
-		Expect(ontology.Extract(types, nil, nil, nil)).To(BeNil())
+		Expect(resource.Extract(types, nil, nil, nil)).To(BeNil())
 	})
 
-	It("should return nil when no type has ontology domain", func() {
+	It("should return nil when no type has resource domain", func() {
 		types := []resolution.Type{{
 			Form:    resolution.StructForm{},
 			Domains: map[string]resolution.Domain{},
 		}}
 		keyFields := []key.Field{{Name: "key", Primitive: "uuid"}}
-		Expect(ontology.Extract(types, keyFields, nil, nil)).To(BeNil())
+		Expect(resource.Extract(types, keyFields, nil, nil)).To(BeNil())
 	})
 
-	It("should return nil when ontology has no type expression", func() {
+	It("should return nil when resource has no type expression", func() {
 		types := []resolution.Type{{
 			Form: resolution.StructForm{},
 			Domains: map[string]resolution.Domain{
-				"ontology": {Expressions: []resolution.Expression{}},
+				"resource": {Expressions: []resolution.Expression{}},
 			},
 		}}
 		keyFields := []key.Field{{Name: "key", Primitive: "uuid"}}
-		Expect(ontology.Extract(types, keyFields, nil, nil)).To(BeNil())
+		Expect(resource.Extract(types, keyFields, nil, nil)).To(BeNil())
 	})
 
-	It("should extract ontology data", func() {
+	It("should extract resource data", func() {
 		types := []resolution.Type{{
 			Name: "User",
 			Form: resolution.StructForm{},
 			Domains: map[string]resolution.Domain{
-				"ontology": {Expressions: []resolution.Expression{{
+				"resource": {Expressions: []resolution.Expression{{
 					Name:   "type",
 					Values: []resolution.ExpressionValue{{StringValue: "user"}},
 				}}},
 			},
 		}}
 		keyFields := []key.Field{{Name: "key", Primitive: "uuid"}}
-		result := ontology.Extract(types, keyFields, nil, nil)
+		result := resource.Extract(types, keyFields, nil, nil)
 		Expect(result).NotTo(BeNil())
 		Expect(result.TypeName).To(Equal("user"))
 		Expect(result.StructName).To(Equal("User"))
@@ -89,13 +89,13 @@ var _ = Describe("Extract", func() {
 				Extends: []resolution.TypeRef{{Name: "view.Base"}},
 			},
 			Domains: map[string]resolution.Domain{
-				"ontology": {Expressions: []resolution.Expression{{
+				"resource": {Expressions: []resolution.Expression{{
 					Name:   "type",
 					Values: []resolution.ExpressionValue{{StringValue: "view"}},
 				}}},
 			},
 		}}
-		result := ontology.Extract(types, nil, nil, table)
+		result := resource.Extract(types, nil, nil, table)
 		Expect(result).NotTo(BeNil())
 		Expect(result.TypeName).To(Equal("view"))
 		Expect(result.StructName).To(Equal("View"))
@@ -129,13 +129,13 @@ var _ = Describe("Extract", func() {
 				Extends: []resolution.TypeRef{{Name: "view.Base"}},
 			},
 			Domains: map[string]resolution.Domain{
-				"ontology": {Expressions: []resolution.Expression{{
+				"resource": {Expressions: []resolution.Expression{{
 					Name:   "type",
 					Values: []resolution.ExpressionValue{{StringValue: "view"}},
 				}}},
 			},
 		}}
-		result := ontology.Extract(types, nil, nil, table)
+		result := resource.Extract(types, nil, nil, table)
 		Expect(result).NotTo(BeNil())
 		Expect(result.KeyField.Name).To(Equal("key"))
 	})
@@ -145,7 +145,7 @@ var _ = Describe("Extract", func() {
 			Name: "Skipped",
 			Form: resolution.StructForm{},
 			Domains: map[string]resolution.Domain{
-				"ontology": {Expressions: []resolution.Expression{{
+				"resource": {Expressions: []resolution.Expression{{
 					Name:   "type",
 					Values: []resolution.ExpressionValue{{StringValue: "user"}},
 				}}},
@@ -153,10 +153,10 @@ var _ = Describe("Extract", func() {
 		}}
 		keyFields := []key.Field{{Name: "key", Primitive: "uuid"}}
 		skip := func(t resolution.Type) bool { return t.Name == "Skipped" }
-		Expect(ontology.Extract(types, keyFields, skip, nil)).To(BeNil())
+		Expect(resource.Extract(types, keyFields, skip, nil)).To(BeNil())
 	})
 
-	It("should use first matching type with ontology domain", func() {
+	It("should use first matching type with resource domain", func() {
 		types := []resolution.Type{
 			{
 				Name:    "First",
@@ -167,7 +167,7 @@ var _ = Describe("Extract", func() {
 				Name: "Second",
 				Form: resolution.StructForm{},
 				Domains: map[string]resolution.Domain{
-					"ontology": {Expressions: []resolution.Expression{{
+					"resource": {Expressions: []resolution.Expression{{
 						Name:   "type",
 						Values: []resolution.ExpressionValue{{StringValue: "task"}},
 					}}},
@@ -175,7 +175,7 @@ var _ = Describe("Extract", func() {
 			},
 		}
 		keyFields := []key.Field{{Name: "key", Primitive: "uint32"}}
-		result := ontology.Extract(types, keyFields, nil, nil)
+		result := resource.Extract(types, keyFields, nil, nil)
 		Expect(result.StructName).To(Equal("Second"))
 		Expect(result.TypeName).To(Equal("task"))
 	})

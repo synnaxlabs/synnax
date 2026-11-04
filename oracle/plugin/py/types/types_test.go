@@ -1294,9 +1294,9 @@ var _ = Describe("Python Types Plugin", func() {
 			})
 		})
 
-		Context("ontology with @py hand", func() {
+		Context("resource with @py hand", func() {
 			It(
-				"Should generate ontology_id even when the struct is omitted",
+				"Should generate resource_id even when the struct is omitted",
 				func(ctx SpecContext) {
 					source := `
 					@py output "out"
@@ -1307,22 +1307,22 @@ var _ = Describe("Python Types Plugin", func() {
 						key Key @key
 						name string
 						@py hand
-						@ontology type "policy"
+						@resource type "policy"
 					}
 				`
 					resp := MustGenerate(ctx, source, "policy", loader, typesPlugin)
 					ExpectContent(resp, "types_gen.py").
 						ToContain(
-							`ONTOLOGY_TYPE = ID(type="policy")`,
-							`def ontology_id(key: Key) -> ID:`,
+							`RESOURCE_TYPE = ID(type="policy")`,
+							`def resource_id(key: Key) -> ID:`,
 						).
 						ToNotContain(`class Policy`)
 				},
 			)
 		})
 
-		Context("ontology on a union", func() {
-			It("Should generate ontology_id for a union", func(ctx SpecContext) {
+		Context("resource on a union", func() {
+			It("Should generate resource_id for a union", func(ctx SpecContext) {
 				source := `
 					@py output "out"
 
@@ -1339,21 +1339,21 @@ var _ = Describe("Python Types Plugin", func() {
 						second {
 							size int32
 						}
-						@ontology type "view"
+						@resource type "view"
 					}
 				`
 				resp := MustGenerate(ctx, source, "view", loader, typesPlugin)
 				ExpectContent(resp, "types_gen.py").
 					ToContain(
-						`ONTOLOGY_TYPE = ID(type="view")`,
-						`def ontology_id(key: Key) -> ID:`,
+						`RESOURCE_TYPE = ID(type="view")`,
+						`def resource_id(key: Key) -> ID:`,
 					)
 			})
 		})
 
-		Context("ontology on a union with a split base", func() {
+		Context("resource on a union with a split base", func() {
 			It(
-				"Should generate ontology_id when the base has another output",
+				"Should generate resource_id when the base has another output",
 				func(ctx SpecContext) {
 					source := `
 					@py output "out"
@@ -1369,12 +1369,12 @@ var _ = Describe("Python Types Plugin", func() {
 						first {
 							name string
 						}
-						@ontology type "view"
+						@resource type "view"
 					}
 				`
 					resp := MustGenerate(ctx, source, "view", loader, typesPlugin)
 					ExpectContent(resp, "out/types_gen.py").
-						ToContain(`ONTOLOGY_TYPE = ID(type="view")`)
+						ToContain(`RESOURCE_TYPE = ID(type="view")`)
 				},
 			)
 		})

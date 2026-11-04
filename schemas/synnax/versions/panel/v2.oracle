@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import "schemas/synnax/ontology"
+import "schemas/synnax/resource"
 import "schemas/x/versions/color/v1"
 
 TabKey = v0.TabKey
@@ -33,7 +33,7 @@ Panel struct {
     root   Node = { variant = "leaf", tabs = [] } {
         @doc value "is the root of the panel tree."
     }
-    parent ontology.ID? {
+    parent resource.ID? {
         @doc value  """
             is the parent resource for the panel in the ontology. Required on create and
             absent on retrieve.

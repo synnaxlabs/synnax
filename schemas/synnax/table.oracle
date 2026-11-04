@@ -370,6 +370,6 @@ Table struct {
     @go imex
     @go marshal
     @go migrate
-    @ontology type "table"
+    @resource type "table"
     @retrieve
 }

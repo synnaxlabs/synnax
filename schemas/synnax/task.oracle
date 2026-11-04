@@ -145,8 +145,8 @@ Task struct<
     """
     @go marshal
     @go migrate
-    @ontology type           "task"
     @py name                 "Payload"
+    @resource type           "task"
     @ts coalesce_type_params
     @ts concrete_types
     @ts name                 "Payload"

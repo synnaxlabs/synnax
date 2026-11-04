@@ -33,6 +33,6 @@ Project struct {
     """
     @go marshal
     @go migrate
-    @ontology type "project"
+    @resource type "project"
     @retrieve
 }

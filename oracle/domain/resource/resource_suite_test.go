@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-package ontology_test
+package resource_test
 
 import (
 	"testing"
@@ -17,9 +17,9 @@ import (
 	. "github.com/synnaxlabs/x/testutil"
 )
 
-func TestOntology(t *testing.T) {
+func TestResource(t *testing.T) {
 	RegisterFailHandler(Fail)
-	RunSpecs(t, "Domain Ontology Suite", SuiteConfig())
+	RunSpecs(t, "Domain Resource Suite", SuiteConfig())
 }
 
 var _ = ShouldNotLeakGoroutinesPerSpec()

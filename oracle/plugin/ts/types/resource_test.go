@@ -16,7 +16,7 @@ import (
 	. "github.com/synnaxlabs/oracle/testutil"
 )
 
-var _ = Describe("Ontology Generation", func() {
+var _ = Describe("Resource Generation", func() {
 	var (
 		loader *MockFileLoader
 		p      *types.Plugin
@@ -27,7 +27,7 @@ var _ = Describe("Ontology Generation", func() {
 		p = types.New(types.DefaultOptions())
 	})
 
-	It("Should emit ontology metadata with a uuid key", func(ctx SpecContext) {
+	It("Should emit resource metadata with a uuid key", func(ctx SpecContext) {
 		source := `
 			@ts output "out"
 
@@ -35,19 +35,19 @@ var _ = Describe("Ontology Generation", func() {
 				key  uuid @key
 				name string
 
-				@ontology type "policy"
+				@resource type "policy"
 			}
 		`
 		resp := MustGenerate(ctx, source, "policy", loader, p)
 		ExpectContent(resp, "types.gen.ts").
 			ToContain(
-				`ontology.createIDFactory`,
+				`resource.createIDFactory`,
 				`"policy"`,
-				`ontologyID`,
+				`resourceID`,
 			)
 	})
 
-	It("Should emit ontology metadata with a string key", func(ctx SpecContext) {
+	It("Should emit resource metadata with a string key", func(ctx SpecContext) {
 		source := `
 			@ts output "out"
 
@@ -55,14 +55,14 @@ var _ = Describe("Ontology Generation", func() {
 				key  string @key
 				name string
 
-				@ontology type "label"
+				@resource type "label"
 			}
 		`
 		resp := MustGenerate(ctx, source, "label", loader, p)
 		ExpectContent(resp, "types.gen.ts").
 			ToContain(
 				`"label"`,
-				`ontologyID`,
+				`resourceID`,
 			)
 	})
 
@@ -74,7 +74,7 @@ var _ = Describe("Ontology Generation", func() {
 				key  uint64 @key { @ts type "string" }
 				name string
 
-				@ontology type "item"
+				@resource type "item"
 			}
 		`
 		resp := MustGenerate(ctx, source, "item", loader, p)
@@ -96,7 +96,7 @@ var _ = Describe("Ontology Generation", func() {
 				key  Key @key
 				name string
 
-				@ontology type "item"
+				@resource type "item"
 			}
 		`
 			resp := MustGenerate(ctx, source, "item", loader, p)
@@ -105,7 +105,7 @@ var _ = Describe("Ontology Generation", func() {
 		},
 	)
 
-	It("Should emit ontology metadata for a union", func(ctx SpecContext) {
+	It("Should emit resource metadata for a union", func(ctx SpecContext) {
 		source := `
 			@ts output "out"
 
@@ -121,19 +121,19 @@ var _ = Describe("Ontology Generation", func() {
 					size int32
 				}
 
-				@ontology type "view"
+				@resource type "view"
 			}
 		`
 		resp := MustGenerate(ctx, source, "view", loader, p)
 		ExpectContent(resp, "types.gen.ts").
 			ToContain(
-				`export const ontologyID = ontology.createIDFactory<Key>("view");`,
-				`export const TYPE_ONTOLOGY_ID = ontologyID("");`,
+				`export const resourceID = resource.createIDFactory<Key>("view");`,
+				`export const TYPE_RESOURCE_ID = resourceID("");`,
 			)
 	})
 
 	It(
-		"Should emit ontology metadata for a union whose base has another output",
+		"Should emit resource metadata for a union whose base has another output",
 		func(ctx SpecContext) {
 			source := `
 			@ts output "out"
@@ -151,17 +151,17 @@ var _ = Describe("Ontology Generation", func() {
 					name string
 				}
 
-				@ontology type "view"
+				@resource type "view"
 			}
 		`
 			resp := MustGenerate(ctx, source, "view", loader, p)
 			ExpectContent(resp, "out/types.gen.ts").
-				ToContain(`export const ontologyID = ontology.createIDFactory<Key>("view");`)
+				ToContain(`export const resourceID = resource.createIDFactory<Key>("view");`)
 		},
 	)
 
 	It(
-		"Should not emit ontology metadata for structs without @ontology",
+		"Should not emit resource metadata for structs without @resource",
 		func(ctx SpecContext) {
 			source := `
 			@ts output "out"
@@ -173,7 +173,7 @@ var _ = Describe("Ontology Generation", func() {
 		`
 			resp := MustGenerate(ctx, source, "plain", loader, p)
 			content := MustContentOf(resp, "types.gen.ts")
-			Expect(content).ToNot(ContainSubstring("ontologyID"))
+			Expect(content).ToNot(ContainSubstring("resourceID"))
 		},
 	)
 })

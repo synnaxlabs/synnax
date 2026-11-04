@@ -205,7 +205,7 @@ Arc struct {
     @go imex
     @go marshal
     @go migrate
-    @ontology type "arc"
     @py name       "Payload"
+    @resource type "arc"
     @retrieve
 }

@@ -57,8 +57,7 @@ var hoverDocs = map[string]string{
 	"search": "**@search**\n\nRetrieve requests can search the text of this field.",
 	"index": "**@index**\n\nIndex configuration for the field.\n\n" +
 		"Expressions: `lookup`, `sorted`",
-	"ontology": "**@ontology**\n\nOntology resource type.\n\nUse " +
-		"`@ontology type \"name\"`.",
+	"resource": "**@resource**\n\nResource type.\n\nUse `@resource type \"name\"`.",
 	"go": "**@go**\n\nGo output configuration.\n\nUse `output \"path\"` " +
 		"to set the output directory; `marshal` to generate a codec; " +
 		"`migrate` to generate migrations.",
