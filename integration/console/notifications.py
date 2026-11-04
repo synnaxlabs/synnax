@@ -19,6 +19,10 @@ import synnax as sy
 # attached resolves at once.
 _SILENCE_TIMEOUT = 1000
 
+# Short enough that a new toast is cleared well before it expires on its own.
+_CLICK_ATTEMPT_TIMEOUT = 1000
+_CLICK_TIMEOUT = 10 * sy.TimeSpan.SECOND
+
 _READ_JS = """(elements) => elements.map((el) => {
   const text = (selector) => el.querySelector(selector)?.innerText.trim();
   const fields = {
@@ -137,6 +141,25 @@ class NotificationsClient:
             expect(buttons).to_have_count(0, timeout=2000)
         except AssertionError:
             pass
+
+    def clear_and_click(self, target: Locator) -> None:
+        """Clear notifications and click a target that they can cover.
+
+        A toast can land after the clear and outlive a single click timeout, so this
+        repeats both steps until the click lands.
+
+        :param target: The element to click.
+        :raises PlaywrightTimeoutError: If the click does not land in about 10 seconds.
+        """
+        timer = sy.Timer()
+        while True:
+            self.close_all()
+            try:
+                target.click(timeout=_CLICK_ATTEMPT_TIMEOUT)
+                return
+            except PlaywrightTimeoutError:
+                if timer.elapsed() >= _CLICK_TIMEOUT:
+                    raise
 
     def close_connection(self) -> bool:
         """Close the 'Connected to...' notification if present.
