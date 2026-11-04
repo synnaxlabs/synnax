@@ -15,15 +15,17 @@ import (
 	apistatus "github.com/synnaxlabs/synnax/pkg/api/status"
 	"github.com/synnaxlabs/synnax/pkg/service/access/rbac"
 	"github.com/synnaxlabs/synnax/pkg/service/label"
+	"github.com/synnaxlabs/synnax/pkg/service/ontology"
 	"github.com/synnaxlabs/synnax/pkg/service/status"
 )
 
 var _ = Describe("ServiceConfig", func() {
 	full := func() apistatus.ServiceConfig {
 		return apistatus.ServiceConfig{
-			Status: &status.Service{},
-			Label:  &label.Service{},
-			RBAC:   &rbac.Service{},
+			Status:   &status.Service{},
+			Label:    &label.Service{},
+			Ontology: &ontology.Ontology{},
+			RBAC:     &rbac.Service{},
 		}
 	}
 
@@ -50,6 +52,11 @@ var _ = Describe("ServiceConfig", func() {
 				"label: must be non-nil",
 			),
 			Entry(
+				"ontology",
+				func(c *apistatus.ServiceConfig) { c.Ontology = nil },
+				"ontology: must be non-nil",
+			),
+			Entry(
 				"rbac",
 				func(c *apistatus.ServiceConfig) { c.RBAC = nil },
 				"rbac: must be non-nil",
@@ -63,6 +70,7 @@ var _ = Describe("ServiceConfig", func() {
 			merged := apistatus.ServiceConfig{}.Override(cfg)
 			Expect(merged.Status).To(BeIdenticalTo(cfg.Status))
 			Expect(merged.Label).To(BeIdenticalTo(cfg.Label))
+			Expect(merged.Ontology).To(BeIdenticalTo(cfg.Ontology))
 			Expect(merged.RBAC).To(BeIdenticalTo(cfg.RBAC))
 		})
 
@@ -71,6 +79,7 @@ var _ = Describe("ServiceConfig", func() {
 			merged := cfg.Override(apistatus.ServiceConfig{})
 			Expect(merged.Status).To(BeIdenticalTo(cfg.Status))
 			Expect(merged.Label).To(BeIdenticalTo(cfg.Label))
+			Expect(merged.Ontology).To(BeIdenticalTo(cfg.Ontology))
 			Expect(merged.RBAC).To(BeIdenticalTo(cfg.RBAC))
 		})
 	})

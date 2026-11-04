@@ -68,9 +68,10 @@ var _ = BeforeSuite(func(ctx SpecContext) {
 		DB: db, Ontology: otg, Group: g, Label: labelSvc,
 	}))
 	apiSvc = MustSucceed(apistatus.NewService(apistatus.ServiceConfig{
-		Status: statusSvc,
-		Label:  labelSvc,
-		RBAC:   rbacSvc,
+		Status:   statusSvc,
+		Label:    labelSvc,
+		Ontology: otg,
+		RBAC:     rbacSvc,
 	}))
 	author = MustSucceed(
 		userSvc.NewWriter(nil).Create(ctx, user.User{Name: "test"}),

@@ -18,6 +18,7 @@ import (
 	apistatus "github.com/synnaxlabs/synnax/pkg/api/status"
 	. "github.com/synnaxlabs/synnax/pkg/api/testutil"
 	"github.com/synnaxlabs/synnax/pkg/service/access"
+	"github.com/synnaxlabs/synnax/pkg/service/label"
 	"github.com/synnaxlabs/synnax/pkg/service/ontology"
 	"github.com/synnaxlabs/synnax/pkg/service/status"
 	"github.com/synnaxlabs/x/query"
@@ -281,6 +282,65 @@ var _ = Describe("Service.Retrieve", func() {
 				),
 			)
 			Expect(res.Statuses).To(BeEmpty())
+		},
+	)
+
+	It(
+		"Should omit a status deleted while its labels are retrieved",
+		func(ctx SpecContext) {
+			kept := createStatus(ctx, "api_kept_"+uuid.New().String())
+			deleted := createStatus(ctx, "api_deleted_"+uuid.New().String())
+			grantOn(ctx, author.OntologyID(),
+				[]access.Action{access.ActionRetrieve},
+				statusTypeOnly)
+			// The state a concurrent delete leaves between the status read and the
+			// label read: the record is still read, and its resource is gone.
+			Expect(otg.NewWriter(nil).DeleteResources(ctx, deleted.OntologyID())).
+				To(Succeed())
+
+			res := MustSucceed(apiSvc.Retrieve(
+				AuthedCtx(ctx, author),
+				apistatus.RetrieveRequest{
+					Keys:                []status.Key{kept.Key, deleted.Key},
+					IncludeLabels:       true,
+					IgnoreNotFoundError: true,
+				},
+			))
+			Expect(res.Statuses).To(HaveExactElements(HaveField("Key", kept.Key)))
+		},
+	)
+
+	It(
+		"Should fail when a label of an existing status is missing",
+		func(ctx SpecContext) {
+			s := createStatus(ctx, "api_label_"+uuid.New().String())
+			l := label.Label{Name: "api_label_" + uuid.New().String()}
+			Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
+				w := labelSvc.NewWriter(tx)
+				if err := w.Create(ctx, &l); err != nil {
+					return err
+				}
+				return w.Label(ctx, s.OntologyID(), []label.Key{l.Key})
+			})).To(Succeed())
+			grantOn(ctx, author.OntologyID(),
+				[]access.Action{access.ActionRetrieve},
+				statusTypeOnly)
+			// The state a concurrent label delete leaves: the relationship is still
+			// read, and the label's resource is gone.
+			Expect(gorp.NewDelete[string, ontology.Resource]().
+				Where(gorp.MatchKeys[string, ontology.Resource](
+					ontology.IDsToKeys([]ontology.ID{l.OntologyID()})...,
+				)).
+				Exec(ctx, db)).To(Succeed())
+
+			Expect(apiSvc.Retrieve(
+				AuthedCtx(ctx, author),
+				apistatus.RetrieveRequest{
+					Keys:                []status.Key{s.Key},
+					IncludeLabels:       true,
+					IgnoreNotFoundError: true,
+				},
+			)).Error().To(MatchError(query.ErrNotFound))
 		},
 	)
 
