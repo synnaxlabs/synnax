@@ -659,12 +659,14 @@ export class Client {
    * @throws {ValidationError} when the username is empty.
    */
   async renamePassword(params: RenamePasswordParams): Promise<void> {
+    const generation = this.generation;
     await this.client.send(
       PASSWORD_RENAME_ENDPOINT,
       params,
       passwordRenameReqZ,
       emptyResZ,
     );
+    if (generation !== this.generation) return;
     const own = params.subject == null || params.subject.key === this.subject?.key;
     if (own && this.credentials != null) this.credentials.username = params.username;
   }
