@@ -15,7 +15,7 @@ from typing import Any
 
 import pytest
 
-from security_report import Finding, Send, main, read_findings
+from security_report import LINEAR_URL, Finding, Send, main, read_findings
 
 
 def result(rule: str, level: str, uri: str, line: int) -> dict[str, Any]:
@@ -124,7 +124,7 @@ class TestPublish:
 
         def send(url: str, payload: dict[str, Any], headers: dict[str, str]) -> bytes:
             sent.append((url, payload))
-            if url.startswith("https://api.linear.app"):
+            if url == LINEAR_URL:
                 assert headers == {"Authorization": "Bearer tok"}
             if "teams" in payload.get("query", ""):
                 return b'{"data": {"teams": {"nodes": [{"id": "team"}]}}}'
