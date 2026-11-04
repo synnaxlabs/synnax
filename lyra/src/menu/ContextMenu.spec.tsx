@@ -9,7 +9,7 @@
 
 import { act, fireEvent, render, screen } from "@testing-library/react";
 import { type ReactElement } from "react";
-import { describe, expect, it } from "vitest";
+import { describe, expect, it, vi } from "vitest";
 
 import { Menu } from "@/menu";
 import { Triggers } from "@/triggers";
@@ -141,6 +141,19 @@ describe("ContextMenu", () => {
     expect(screen.getByText("Action 1")).toBeTruthy();
     fireEvent.click(screen.getByText("Action 1"));
     expect(screen.queryByText("Action 1")).toBeNull();
+  });
+
+  it("should not open an outer context menu from a right click inside the menu", () => {
+    const outer = vi.fn();
+    render(
+      <div onContextMenu={outer}>
+        <TestMenu />
+      </div>,
+    );
+    fireEvent.contextMenu(screen.getByText("Right click me"));
+    expect(fireEvent.contextMenu(screen.getByText("Action 1"))).toBe(false);
+    expect(outer).not.toHaveBeenCalled();
+    expect(screen.getByText("Action 1")).toBeTruthy();
   });
 
   it("should keep the menu visible after a window resize", () => {

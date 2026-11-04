@@ -27,4 +27,4 @@ export * from "@/select/SingleTrigger";
 export * from "@/select/text";
 export type * from "@/select/use";
 export { hasModifier } from "@/select/use";
-export type * from "@/select/useCursor";
+export * from "@/select/useCursor";

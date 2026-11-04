@@ -21,7 +21,8 @@ import { useSyncedRef } from "@/hooks/ref";
 import { List } from "@/list";
 import { useRegistryContext } from "@/select/registry";
 import {
-  type Order,
+  type Cursor,
+  type SelectionOrder,
   useCursor,
   type UseCursorProps,
   type UseCursorReturn,
@@ -59,8 +60,8 @@ export interface UseSingleRequiredProps<K extends record.Key> {
 
 type CursorProps<K extends record.Key> = Pick<
   UseCursorProps<K>,
-  "initialHover" | "cursor" | "enableTriggers" | "moveX"
->;
+  "initialHover" | "enableTriggers" | "moveX"
+> & { cursor?: Cursor };
 
 type UseSingleInternalProps<K extends record.Key> =
   UseSingleAllowNoneProps<K> | UseSingleRequiredProps<K>;
@@ -104,7 +105,7 @@ export const hasModifier = (e: {
 /** Return value for the {@link useSingle} and {@link useMultiple} hooks. */
 export interface UseReturn<K extends record.Key> extends Omit<
   UseCursorReturn<K>,
-  "setCursor"
+  "setCursor" | "current"
 > {
   /** Applies a click on the given key, honoring the held modifier keys. */
   onSelect: (key: K) => void;
@@ -115,7 +116,7 @@ export interface UseReturn<K extends record.Key> extends Omit<
 }
 
 // The registry holds keys of every selection's type, so the order narrows them to K.
-const useOrder = <K extends record.Key>(): Order<K> => {
+const useOrder = <K extends record.Key>(): SelectionOrder<K> => {
   const registry = useRegistryContext("Select.Frame");
   const { data } = List.useData<K>();
   const { scrollToIndex } = List.useScroller();
@@ -176,7 +177,7 @@ export const useSingle = <K extends record.Key>({
   const order = useOrder<K>();
   const { getOrder, subscribe } = order;
   const setSelected = (keys: K[]): void => onChange(keys[0], { clicked: null });
-  const { setCursor, ...rest } = useCursor({
+  const { setCursor, current, ...rest } = useCursor({
     order,
     selected: value == null ? [] : [value],
     select: (key) => setSelected([key]),
@@ -208,6 +209,7 @@ export const useSingle = <K extends record.Key>({
     onChange(key, { clicked: key });
     if (closeDialogOnSelect) close();
   };
+  List.usePin(current);
   return { onSelect: handleSelect, setSelected, clear, ...rest };
 };
 
@@ -240,7 +242,7 @@ export const useMultiple = <K extends record.Key>({
     shiftValueRef.current = key;
     onChange([key], { clicked: null });
   };
-  const { setCursor, ...rest } = useCursor({
+  const { setCursor, current, ...rest } = useCursor({
     order,
     selected: value,
     select,
@@ -301,5 +303,6 @@ export const useMultiple = <K extends record.Key>({
   };
   const clear = (): void => onChange([], { clicked: null });
   const setSelected = (keys: K[]): void => onChange(keys, { clicked: null });
+  List.usePin(current);
   return { onSelect, setSelected, clear, ...rest };
 };

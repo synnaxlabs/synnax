@@ -8,12 +8,14 @@
 // included in the file licenses/APL.txt.
 
 // Package search is an in-memory full-text index. It matches each word of a query
-// against the tokens of an entry exactly, by prefix, or within one rune edit.
+// against the tokens of an entry exactly, by prefix, or, for a word of at least three
+// runes, within one rune edit.
 package search
 
 import (
 	"slices"
 	"sync"
+	"unicode/utf8"
 )
 
 // The match weights rank an exact word far above a prefix, and a prefix above a word
@@ -29,6 +31,9 @@ const (
 	retainedScratches = 4
 	// maxQueryWords is how many words of a term Search reads.
 	maxQueryWords = 64
+	// minFuzzyRunes is the shortest word matched within one edit. A shorter word is one
+	// edit from every word of its length, so "2" would match "1".
+	minFuzzyRunes = 3
 )
 
 // Index is a full-text index of entries keyed by K. It is safe for concurrent use.
@@ -226,6 +231,9 @@ func (s *scratch) match(t *trie, word string, w uint32) {
 		for _, e := range t.node(exact).edges {
 			s.addTree(t, e.node, w)
 		}
+	}
+	if utf8.RuneCountInString(word) < minFuzzyRunes {
+		return
 	}
 	s.fuzzy = t.fuzzy(root, word, s.fuzzy[:0])
 	for _, n := range s.fuzzy {

@@ -12,12 +12,13 @@ import { Icon } from "@synnaxlabs/lyra/icon";
 import { Access } from "@synnaxlabs/pluto";
 
 import { LinePlot } from "@/platform/lineplot";
-import { Selector } from "@/platform/selector";
+import { type Selector } from "@/platform/selector";
 
-export const Selectable = Selector.createSelectable({
+export const Selectable: Selector.Selectable = {
   type: lineplot.TYPE_ONTOLOGY_ID.type,
   title: "Line plot",
   icon: <Icon.LinePlot />,
+  description: "Live and past data",
   useOnSelect: LinePlot.useCreate,
   useVisible: () => Access.useCreateGranted(lineplot.TYPE_ONTOLOGY_ID),
-});
+};

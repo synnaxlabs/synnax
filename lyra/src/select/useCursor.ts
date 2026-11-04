@@ -18,7 +18,6 @@ import { type KeyboardEvent, useEffect, useRef, useState } from "react";
 
 import { Dialog } from "@/dialog";
 import { useSyncedRef } from "@/hooks";
-import { List } from "@/list";
 import { Triggers } from "@/triggers";
 import { isInputOrContentEditable } from "@/util/event";
 import { moveIndex } from "@/util/move";
@@ -32,27 +31,28 @@ import { moveIndex } from "@/util/move";
  */
 export type Cursor = "hover" | "selection";
 
-/** Reads and acts on the options of the enclosing frame by key. */
+/** Reads and acts on the options by key. */
 export interface Order<K extends record.Key> {
-  /** Changes identity whenever the data changes. */
+  /** Changes identity whenever the options change. */
   getOrder: () => K[];
   scrollTo: (key: K, direction: location.Y) => void;
   /** Clicks the option with the given key, as a mouse click would. */
   click: (key: K) => void;
+  /** Calls the listener whenever the options change but getOrder does not. */
+  subscribe: (listener: () => void) => destructor.Destructor;
+}
+
+/** An order whose options a selection cursor also opens and shows menus for. */
+export interface SelectionOrder<K extends record.Key> extends Order<K> {
   /** Double-clicks the option with the given key, as a mouse would. */
   doubleClick: (key: K) => void;
   /** Opens the context menu of the option with the given key, under the option. */
   contextMenu: (key: K) => void;
-  /** Calls the listener whenever the fixed items change. */
-  subscribe: (listener: () => void) => destructor.Destructor;
 }
 
-/** Props for {@link useCursor}. */
-export interface UseCursorProps<K extends record.Key> {
+interface BaseProps<K extends record.Key> {
   /** Position in the order a hover starts on. Defaults to none. */
   initialHover?: number;
-  /** What the arrow keys move. Defaults to a hover. */
-  cursor?: Cursor;
   /**
    * When to answer the keys. Defaults to the enclosing dialog's visibility for a hover,
    * and to always for the selection.
@@ -64,12 +64,24 @@ export interface UseCursorProps<K extends record.Key> {
    * Left and Right do nothing without it.
    */
   moveX?: (key: K, direction: location.X) => K | undefined;
+}
+
+interface HoverProps<K extends record.Key> extends BaseProps<K> {
+  cursor?: "hover";
   order: Order<K>;
-  /** The selection cursor starts on the first of these keys in the order. */
+}
+
+interface SelectionProps<K extends record.Key> extends BaseProps<K> {
+  cursor: "selection";
+  order: SelectionOrder<K>;
+  /** The cursor starts on the first of these keys in the order. */
   selected: K[];
   /** Replaces the selection with the given key. */
   select: (key: K) => void;
 }
+
+/** Props for {@link useCursor}. The cursor defaults to a hover. */
+export type UseCursorProps<K extends record.Key> = HoverProps<K> | SelectionProps<K>;
 
 /** Handlers for the focused element whose keys move a selection cursor. */
 export interface KeyboardHandlers {
@@ -90,6 +102,8 @@ export interface UseCursorReturn<K extends record.Key> {
   setHover: (key: K) => void;
   /** Moves a selection cursor onto a clicked key. A hover follows the pointer. */
   setCursor: (key: K) => void;
+  /** The key the cursor rests on. A list keeps it mounted with `List.usePin`. */
+  current: K | undefined;
   keyboard: KeyboardHandlers;
 }
 
@@ -127,14 +141,14 @@ const menuKey = (e: KeyboardEvent<HTMLElement>): "F10" | "ContextMenu" | null =>
 const REPEAT_DELAY = TimeSpan.milliseconds(200).milliseconds;
 const REPEAT_INTERVAL = TimeSpan.milliseconds(100).milliseconds;
 
-// Where the cursor rests when the key it last moved to is not among the options.
+// Where the cursor rests when the key it last moved to is not among the options. A
+// hover has no selection.
 const startOf = <K extends record.Key>(
   order: K[],
-  cursor: Cursor,
   initialHover: number,
-  selected: K[],
+  selected: K[] | undefined,
 ): K | undefined => {
-  if (cursor === "selection") {
+  if (selected != null) {
     if (selected.length === 0) return undefined;
     const keys = new Set(selected);
     return order.find((k) => keys.has(k));
@@ -144,36 +158,43 @@ const startOf = <K extends record.Key>(
 };
 
 /**
- * Moves a cursor through the options of the enclosing frame with the arrow keys, Home,
- * and End, and acts on it with Enter and the menu keys. The cursor is a hover or the
- * selection itself; see {@link Cursor}. Holding a key repeats it, and the frame scrolls
- * the cursor into view and keeps it mounted. The cursor is a key, so it survives
- * options appearing or disappearing around it.
+ * Moves a cursor through the options with the arrow keys, Home, and End, and acts on it
+ * with Enter and the menu keys. The cursor is a hover or the selection itself; see
+ * {@link Cursor}. Holding a key repeats it, and the order scrolls the cursor into view.
+ * The cursor is a key, so it survives options appearing or disappearing around it.
  */
-export const useCursor = <K extends record.Key>({
-  initialHover = -1,
-  cursor = "hover",
-  enableTriggers,
-  moveX,
-  order: { getOrder, subscribe, scrollTo, click, doubleClick, contextMenu },
-  selected,
-  select,
-}: UseCursorProps<K>): UseCursorReturn<K> => {
-  const hovering = cursor === "hover";
+export const useCursor = <K extends record.Key>(
+  props: UseCursorProps<K>,
+): UseCursorReturn<K> => {
+  const {
+    initialHover = -1,
+    enableTriggers,
+    moveX,
+    order: { getOrder, subscribe, scrollTo, click },
+  } = props;
+  const selection = props.cursor === "selection" ? props : null;
+  const hovering = selection == null;
   // The key the cursor last moved to, which may since have left the options.
   const movedRef = useRef<K | undefined>(undefined);
+  // The selection when the cursor last moved. A selection that has since gained a key
+  // changed without the cursor, as when a duplicate selects its copy, so the cursor
+  // follows it. One that only lost keys keeps a key a modifier click deselected.
+  const movedFromRef = useRef<K[]>([]);
   const [current, setCurrent] = useState<K | undefined>(undefined);
+  const follows = (moved: K): boolean =>
+    selection == null ||
+    selection.selected.includes(moved) ||
+    selection.selected.every((k) => movedFromRef.current.includes(k));
   const resolve = (order: K[]): K | undefined => {
     const moved = movedRef.current;
-    if (moved != null && order.includes(moved)) return moved;
-    return startOf(order, cursor, initialHover, selected);
+    if (moved != null && order.includes(moved) && follows(moved)) return moved;
+    return startOf(order, initialHover, selection?.selected);
   };
   useEffect(() => {
     const update = (): void => setCurrent(resolve(getOrder()));
     update();
     return subscribe(update);
   }, [subscribe, resolve, getOrder]);
-  List.usePin(current);
   const { visible } = Dialog.useContext();
   const enabledRef = useSyncedRef<Triggers.Condition>(
     enableTriggers ?? (hovering ? visible : true),
@@ -182,7 +203,10 @@ export const useCursor = <K extends record.Key>({
   const moveTo = (key: K, direction: location.Y): void => {
     movedRef.current = key;
     setCurrent(key);
-    if (!hovering) select(key);
+    if (selection != null) {
+      movedFromRef.current = selection.selected;
+      selection.select(key);
+    }
     scrollTo(key, direction);
   };
   const step = (key: Exclude<CursorKey, "Enter">, held: boolean): void => {
@@ -205,18 +229,19 @@ export const useCursor = <K extends record.Key>({
   const actionKey = (): K | undefined => {
     const order = getOrder();
     const key = resolve(order);
-    if (key == null || hovering || selected.includes(key)) return key;
-    return startOf(order, cursor, initialHover, selected);
+    if (key == null || selection == null || selection.selected.includes(key))
+      return key;
+    return startOf(order, initialHover, selection.selected);
   };
   const activate = (): void => {
     const key = actionKey();
     if (key == null) return;
-    if (hovering) click(key);
-    else doubleClick(key);
+    if (selection == null) click(key);
+    else selection.order.doubleClick(key);
   };
   const openMenu = (): void => {
     const key = actionKey();
-    if (key != null) contextMenu(key);
+    if (key != null) selection?.order.contextMenu(key);
   };
   // The repeat outlives the render that started it, so it reads the latest step.
   const stepRef = useSyncedRef(step);
@@ -322,7 +347,15 @@ export const useCursor = <K extends record.Key>({
     place(key);
   };
   const setCursor = (key: K): void => {
-    if (!hovering) place(key);
+    if (selection == null) return;
+    movedFromRef.current = selection.selected;
+    place(key);
   };
-  return { hover: hovering ? current : undefined, setHover, setCursor, keyboard };
+  return {
+    hover: hovering ? current : undefined,
+    setHover,
+    setCursor,
+    current,
+    keyboard,
+  };
 };

@@ -470,6 +470,29 @@ describe("Select keyboard hover", () => {
   });
 });
 
+describe("Select.useCursor", () => {
+  const OPTIONS = ["alpha", "bravo"];
+  const getOrder = () => OPTIONS;
+  const subscribe = () => () => {};
+
+  it("should move a hover through options outside a list", () => {
+    const click = vi.fn();
+    const { result } = renderHook(
+      () =>
+        Select.useCursor({
+          order: { getOrder, subscribe, scrollTo: vi.fn(), click },
+          enableTriggers: true,
+        }),
+      { wrapper: Triggers.Provider },
+    );
+    fireEvent.keyDown(window, { code: "ArrowDown" });
+    fireEvent.keyUp(window, { code: "ArrowDown" });
+    expect(result.current.hover).toBe("alpha");
+    fireEvent.keyDown(window, { code: "Enter" });
+    expect(click).toHaveBeenCalledExactlyOnceWith("alpha");
+  });
+});
+
 describe("Select keyboard selection", () => {
   const DATA = ["alpha", "bravo", "charlie"];
 
@@ -505,6 +528,7 @@ describe("Select keyboard selection", () => {
         >
           <KeyList onDoubleClick={onDoubleClick} />
         </Select.Frame>
+        <button onClick={() => setValue("bravo")}>Select bravo</button>
       </Triggers.Provider>
     );
   };
@@ -520,7 +544,8 @@ describe("Select keyboard selection", () => {
       c
         .queryAllByRole("option", { selected: true })
         .map(({ textContent }) => textContent ?? "");
-    return { press, selected };
+    const selectBravo = () => fireEvent.click(c.getByText("Select bravo"));
+    return { press, selected, selectBravo };
   };
 
   it("should move the selection with the keys of the focused list", () => {
@@ -536,6 +561,14 @@ describe("Select keyboard selection", () => {
     const { selected } = renderList();
     fireEvent.keyDown(window, { code: "ArrowDown" });
     expect(selected()).toEqual([]);
+  });
+
+  it("should move on from a selection that changes without the keys", () => {
+    const { press, selected, selectBravo } = renderList();
+    press("ArrowDown");
+    selectBravo();
+    press("ArrowDown");
+    expect(selected()).toEqual(["charlie"]);
   });
 
   it("should double-click the selected item on Enter", () => {
