@@ -194,22 +194,45 @@ const keepLoadedChildren = (
     return existing == null ? node : { ...node, children: existing.children };
   });
 
+// No answer holds a node the Core has not heard of yet, so a node that a placeholder
+// backs stays. The nodes moved under it leave the answer.
+const keepPlaceholders = (
+  prev: Base.Node<string>[],
+  next: Base.Node<string>[],
+  isPlaceholder: (key: string) => boolean,
+): Base.Node<string>[] => {
+  const nextKeys = new Set(next.map(({ key }) => key));
+  const kept = prev.filter(({ key }) => !nextKeys.has(key) && isPlaceholder(key));
+  const moved = new Set(Base.getDescendants(...kept).map(({ key }) => key));
+  return [...kept, ...next.filter(({ key }) => !moved.has(key))];
+};
+
 // A watched group keeps the children its answer gave, since they are every child and
 // not only the matches.
 const keepWatchedChildren = (
   prev: Base.Node<string>[],
   next: Base.Node<string>[],
   watched: Map<string, destructor.Destructor>,
+  isPlaceholder: (key: string) => boolean,
 ): Base.Node<string>[] =>
-  next.map((node) => {
-    const existing = prev.find(({ key }) => key === node.key);
-    if (existing?.children == null || node.children == null) return node;
-    if (watched.has(node.key)) return { ...node, children: existing.children };
-    return {
-      ...node,
-      children: keepWatchedChildren(existing.children, node.children, watched),
-    };
-  });
+  keepPlaceholders(
+    prev,
+    next.map((node) => {
+      const existing = prev.find(({ key }) => key === node.key);
+      if (existing?.children == null || node.children == null) return node;
+      if (watched.has(node.key)) return { ...node, children: existing.children };
+      return {
+        ...node,
+        children: keepWatchedChildren(
+          existing.children,
+          node.children,
+          watched,
+          isPlaceholder,
+        ),
+      };
+    }),
+    isPlaceholder,
+  );
 
 const toNodes = (
   resources: ontology.Resource[],
@@ -285,23 +308,19 @@ const Internal = ({
 
   const applyAnswer = (parent: ontology.ID, resources: ontology.Resource[]) => {
     const next = toNodes(resources, resolveItem);
-    const nextKeys = new Set(next.map(({ key }) => key));
     // A placeholder stands in only until the Core delivers the real resource, which
     // the answer carries.
     const settled = ontology
       .idToString(resources.map(({ id }) => id))
       .filter(placeholders.hasItem);
     if (settled.length > 0) placeholders.deleteItem(settled);
-    // The answer is the authority on its parent's membership. A node it omits
-    // survives only while a placeholder backs it, since an optimistic row the Core
-    // has not heard about yet cannot be in any answer.
+    // The answer is the authority on its parent's membership.
     const merge = (prevChildren: Base.Node<string>[]): Base.Node<string>[] => {
-      const merged = [
-        ...prevChildren.filter(
-          ({ key }) => !nextKeys.has(key) && placeholders.hasItem(key),
-        ),
-        ...keepLoadedChildren(prevChildren, next),
-      ];
+      const merged = keepPlaceholders(
+        prevChildren,
+        keepLoadedChildren(prevChildren, next),
+        placeholders.hasItem,
+      );
       // Results keep the order of the matches, so the tree does not sort them, and
       // the children of a group arrive sorted instead.
       return results == null ? merged : merged.sort(sort);
@@ -443,7 +462,14 @@ const Internal = ({
     releaseChildren(
       [...watchedRef.current.keys()].filter((key) => results.fixed.has(key)),
     );
-    setNodes((prev) => keepWatchedChildren(prev, results.nodes, watchedRef.current));
+    setNodes((prev) =>
+      keepWatchedChildren(
+        prev,
+        results.nodes,
+        watchedRef.current,
+        placeholders.hasItem,
+      ),
+    );
     // An open group that starts to match gets no expand, so it loads its children here.
     expanded
       .filter(
