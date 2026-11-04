@@ -301,7 +301,3 @@ change, so they are separate phases.
 - Credentials typed into HTTP task headers or query parameters. The device's API key
   auth sends a credential header.
 - Permissions on task commands in general.
-
-## 7 Open questions
-
-- The expiry warning lead time, 30 days here.
