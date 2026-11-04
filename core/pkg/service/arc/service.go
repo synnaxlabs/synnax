@@ -316,6 +316,7 @@ func (s *Service) NewWriter(tx gorp.Tx) Writer {
 		dispatcher: s.state.Dispatcher(),
 		sweeper:    s.sweeper,
 		taskSync:   s.taskSync,
+		resyncTask: s.resyncTask,
 	}
 }
 

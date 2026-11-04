@@ -226,9 +226,9 @@ var _ = Describe("UpdateTask", func() {
 		})
 
 		It("Should keep the performance on a content edit", func(ctx SpecContext) {
-			createArc(ctx, "a -> b")
-			w := svc.NewWriter(tx)
-			tsk := MustSucceed(w.UpdateTask(ctx, a.Key, arc.TaskUpdate{
+			a = arc.Arc{Name: "deployable", Mode: arc.ModeText, Text: newText("a -> b")}
+			Expect(writer.Create(ctx, &a)).To(Succeed())
+			tsk := MustSucceed(writer.UpdateTask(ctx, a.Key, arc.TaskUpdate{
 				Rack:        new(testRack.Key),
 				Performance: new(arctask.PerformanceHigh),
 			}))
@@ -239,7 +239,7 @@ var _ = Describe("UpdateTask", func() {
 				Mode: arc.ModeText,
 				Text: newText("a -> c"),
 			}
-			Expect(w.Create(ctx, &edited)).To(Succeed())
+			Expect(writer.Create(ctx, &edited)).To(Succeed())
 			after := retrieveTask(ctx, tsk.Key)
 			Expect(after.Config["hash"]).ToNot(Equal(before.Config["hash"]))
 			Expect(after.Config["performance"]).To(Equal("high"))
@@ -426,9 +426,8 @@ var _ = Describe("Task sync", func() {
 		"Should rewrite the task config when an overwrite changes the content",
 		func(ctx SpecContext) {
 			createArc(ctx, arc.ModeText)
-			w := svc.NewWriter(tx)
 			tsk := MustSucceed(
-				w.UpdateTask(ctx, a.Key, arc.TaskUpdate{Rack: new(testRack.Key)}),
+				writer.UpdateTask(ctx, a.Key, arc.TaskUpdate{Rack: new(testRack.Key)}),
 			)
 			before := retrieveTask(ctx, tsk.Key)
 			edited := arc.Arc{
@@ -437,7 +436,7 @@ var _ = Describe("Task sync", func() {
 				Mode: arc.ModeText,
 				Text: newText("a -> c"),
 			}
-			Expect(w.Create(ctx, &edited)).To(Succeed())
+			Expect(writer.Create(ctx, &edited)).To(Succeed())
 			Expect(retrieveTask(ctx, tsk.Key).ConfigHash).
 				ToNot(Equal(before.ConfigHash))
 		},

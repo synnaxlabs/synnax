@@ -10,6 +10,8 @@
 package arc_test
 
 import (
+	"context"
+	"sync/atomic"
 	"testing"
 
 	. "github.com/onsi/ginkgo/v2"
@@ -52,6 +54,8 @@ var (
 	testRack   *rack.Rack
 	imexSvc    *imex.Service
 	arcClock   = telem.Now
+	// onTaskLink runs inside a task write, before the write commits.
+	onTaskLink atomic.Pointer[func(task.Task)]
 )
 
 var (
@@ -106,7 +110,12 @@ var (
 			ImEx:         imexSvc,
 			Configs:      configs,
 			ImExExcluded: []string{arctask.Type},
-			Link:         arc.NewTaskLink(otg),
+			Link: func(ctx context.Context, tx gorp.Tx, t task.Task) error {
+				if hook := onTaskLink.Load(); hook != nil {
+					(*hook)(t)
+				}
+				return arc.NewTaskLink(otg)(ctx, tx, t)
+			},
 		}))
 		testRack = &rack.Rack{Name: "Test Rack"}
 		Expect(rackSvc.NewWriter(db).Create(ctx, testRack)).To(Succeed())

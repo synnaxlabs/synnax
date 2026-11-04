@@ -46,6 +46,7 @@ type Writer struct {
 	dispatcher actions.Dispatcher[Key, Action]
 	sweeper    textSweeper
 	taskSync   *debounce.Keyed[Key]
+	resyncTask func(context.Context, Key)
 }
 
 // WithDispatchKey returns a copy of the writer that stamps dispatchKey onto the create
@@ -85,8 +86,8 @@ func (w Writer) Create(ctx context.Context, a *Arc) error {
 		if err = w.otgWriter.DefineResources(ctx, a.OntologyID()); err != nil {
 			return err
 		}
-	} else if err = w.syncTask(ctx, *a); err != nil {
-		return err
+	} else {
+		gorp.OnCommit(w.tx, func() { w.resyncTask(ctx, a.Key) })
 	}
 	w.dispatcher.NotifyOnCommit(
 		ctx,
@@ -283,32 +284,25 @@ func (w Writer) retrieveTask(
 	return tsk, cfg, tsk.Config.Unmarshal(&cfg)
 }
 
-// syncTask rewrites each of the arc's tasks in place when an edit changed the arc's
-// semantic hash, keeping the task configs in step with the arc's content. A no-op for
-// arcs with no tasks and for edits, like graph layout moves, that hash equally.
-func (w Writer) syncTask(ctx context.Context, a Arc) error {
-	keys, err := w.childTaskKeys(ctx, a.Key)
-	if err != nil || len(keys) == 0 {
-		return err
-	}
-	hash, err := Hash(a)
+// syncTask rewrites the task with the given key in place when an edit changed the arc's
+// semantic hash, keeping the task config in step with the arc's content. A no-op for a
+// task that moved to another arc and for edits, like graph layout moves, that hash
+// equally. The caller must hold the task's lock through the commit.
+func (w Writer) syncTask(ctx context.Context, a Arc, key task.Key) error {
+	tsk, cfg, err := w.retrieveTask(ctx, key)
 	if err != nil {
 		return err
 	}
-	for _, key := range keys {
-		tsk, cfg, err := w.retrieveTask(ctx, key)
-		if err != nil {
-			return err
-		}
-		if cfg.Hash == hash {
-			continue
-		}
-		cfg.Hash = hash
-		if _, err = w.writeTask(ctx, a, key, tsk.Rack, cfg); err != nil {
-			return err
-		}
+	if cfg.ArcKey != uuid.Nil() && cfg.ArcKey != a.Key {
+		return nil
 	}
-	return nil
+	hash, err := Hash(a)
+	if err != nil || cfg.Hash == hash {
+		return err
+	}
+	cfg.Hash = hash
+	_, err = w.writeTask(ctx, a, key, tsk.Rack, cfg)
+	return err
 }
 
 func (w Writer) clearRack(ctx context.Context, taskKeys []task.Key) error {

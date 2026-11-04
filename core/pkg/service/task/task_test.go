@@ -562,6 +562,32 @@ var _ = Describe("Task", Ordered, func() {
 		})
 	})
 
+	Describe("Transact", func() {
+		It("Should commit the writes of fn", func(ctx SpecContext) {
+			t := task.Task{Key: uuid.New(), Name: "transact", Type: "pagerduty_alert"}
+			Expect(svc.Transact(ctx, t.Key, func(tx gorp.Tx) error {
+				return gorp.NewCreate[task.Key, task.Task]().Entry(&t).Exec(ctx, tx)
+			})).To(Succeed())
+			Expect(svc.NewRetrieve().
+				Where(task.MatchKeys(t.Key)).
+				Exec(ctx, nil)).To(Succeed())
+		})
+		It("Should abort when fn fails", func(ctx SpecContext) {
+			t := task.Task{Key: uuid.New(), Name: "transact", Type: "pagerduty_alert"}
+			Expect(svc.Transact(ctx, t.Key, func(tx gorp.Tx) error {
+				if err := gorp.NewCreate[task.Key, task.Task]().
+					Entry(&t).
+					Exec(ctx, tx); err != nil {
+					return err
+				}
+				return validate.ErrValidation
+			})).To(MatchError(validate.ErrValidation))
+			Expect(svc.NewRetrieve().
+				Where(task.MatchKeys(t.Key)).
+				Exec(ctx, nil)).To(MatchError(query.ErrNotFound))
+		})
+	})
+
 	Describe("Copy", func() {
 		It("Should copy a task", func(ctx SpecContext) {
 			m := &task.Task{

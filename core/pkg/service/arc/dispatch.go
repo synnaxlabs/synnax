@@ -78,20 +78,28 @@ func (s *Service) Dispatch(
 	})
 }
 
-// resyncTask rewrites the Arc's task configs from its current content. It runs on the
-// task-sync debouncer, so it has no caller to return errors to and logs them instead. A
-// cancelled context (the service closed) and a deleted Arc are not errors.
+// resyncTask rewrites the Arc's task configs from its current content, holding each
+// task's lock through the commit so that a sync cannot overwrite a task.Dispatch. It
+// runs on the task-sync debouncer and after an Arc write commits, so it has no caller
+// to return errors to and logs them instead. A cancelled context (the service closed)
+// and a deleted Arc or task are not errors.
 func (s *Service) resyncTask(ctx context.Context, key Key) {
-	err := s.cfg.DB.WithTx(ctx, func(tx gorp.Tx) error {
-		var a Arc
-		if err := s.table.NewRetrieve().
-			Where(gorp.MatchKeys[Key, Arc](key)).
-			Entry(&a).
-			Exec(ctx, tx); err != nil {
-			return err
+	taskKeys, err := s.NewWriter(nil).childTaskKeys(ctx, key)
+	for _, taskKey := range taskKeys {
+		if err != nil {
+			break
 		}
-		return s.NewWriter(tx).syncTask(ctx, a)
-	})
+		err = errors.Skip(s.cfg.Task.Transact(ctx, taskKey, func(tx gorp.Tx) error {
+			var a Arc
+			if err := s.table.NewRetrieve().
+				Where(gorp.MatchKeys[Key, Arc](key)).
+				Entry(&a).
+				Exec(ctx, tx); err != nil {
+				return err
+			}
+			return s.NewWriter(tx).syncTask(ctx, a, taskKey)
+		}), query.ErrNotFound)
+	}
 	if err == nil || errors.Is(err, context.Canceled) ||
 		errors.Is(err, query.ErrNotFound) {
 		return

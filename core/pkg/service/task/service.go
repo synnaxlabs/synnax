@@ -296,6 +296,17 @@ func (s *Service) Dispatch(
 	return added, nil
 }
 
+// Transact runs fn in its own transaction, serialized with Dispatch on the task with
+// the given key through the commit. Use it for a read-then-write of a task that a
+// concurrent Dispatch must not interleave with. fn must not call Dispatch on key.
+func (s *Service) Transact(
+	ctx context.Context,
+	key Key,
+	fn func(gorp.Tx) error,
+) error {
+	return s.state.Transact(ctx, key, fn)
+}
+
 func (s *Service) CommandChannelKey() channel.Key {
 	return s.commandChannelKey
 }

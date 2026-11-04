@@ -11,6 +11,8 @@ package arc_test
 
 import (
 	"context"
+	"sync/atomic"
+	"time"
 	"uuid"
 
 	. "github.com/onsi/ginkgo/v2"
@@ -165,17 +167,18 @@ var _ = Describe("Task links", func() {
 		It(
 			"Should sync the task and its copy after an Arc edit",
 			func(ctx SpecContext) {
-				t := createTask(ctx, tx, a.Key)
-				c := MustSucceed(taskSvc.NewWriter(tx).Copy(ctx, t.Key, "copy", false))
-				a.Text = newText("c -> d")
-				Expect(svc.NewWriter(tx).Create(ctx, &a)).To(Succeed())
-				hash := MustSucceed(arc.Hash(a))
+				linked := newArc(ctx, nil)
+				t := createTask(ctx, nil, linked.Key)
+				c := MustSucceed(taskSvc.NewWriter(nil).Copy(ctx, t.Key, "copy", false))
+				linked.Text = newText("c -> d")
+				Expect(svc.NewWriter(nil).Create(ctx, &linked)).To(Succeed())
+				hash := MustSucceed(arc.Hash(linked))
 				for _, key := range []task.Key{t.Key, c.Key} {
 					var stored task.Task
 					Expect(taskSvc.NewRetrieve().
 						Where(task.MatchKeys(key)).
 						Entry(&stored).
-						Exec(ctx, tx)).To(Succeed())
+						Exec(ctx, nil)).To(Succeed())
 					Expect(stored.Config).To(HaveKeyWithValue("hash", hash))
 				}
 			},
@@ -189,6 +192,34 @@ var _ = Describe("Task links", func() {
 				Where(task.MatchKeys(c.Key)).
 				Exec(ctx, tx)).To(Succeed())
 		})
+	})
+
+	Describe("Sync", func() {
+		It(
+			"Should not undo a task move that lands during a sync",
+			func(ctx SpecContext) {
+				first, second := newArc(ctx, nil), newArc(ctx, nil)
+				t := createTask(ctx, nil, first.Key)
+				var fired atomic.Bool
+				moved := make(chan error, 1)
+				hook := func(written task.Task) {
+					if written.Key != t.Key || !fired.CompareAndSwap(false, true) {
+						return
+					}
+					go func() { moved <- setArcKey(ctx, t, second.Key) }()
+					time.Sleep(100 * time.Millisecond)
+				}
+				onTaskLink.Store(&hook)
+				DeferCleanup(func() { onTaskLink.Store(nil) })
+				first.Text = newText("c -> d")
+				Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
+					return svc.NewWriter(tx).Create(ctx, &first)
+				})).To(Succeed())
+				Eventually(moved).Should(Receive(BeNil()))
+				Expect(taskKeys(ctx, nil, first.Key)).To(BeEmpty())
+				Expect(taskKeys(ctx, nil, second.Key)).To(ConsistOf([]task.Key{t.Key}))
+			},
+		)
 	})
 
 	Describe("NewTaskLink", func() {
