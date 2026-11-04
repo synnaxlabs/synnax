@@ -111,57 +111,60 @@ var _ = Describe("Index Persist", Ordered, func() {
 					)).To(HaveLen(workers * commits))
 				})
 
-				It("Should run writes in the order they prepare", func(ctx SpecContext) {
-					entered := make(chan struct{}, 1)
-					released, release := context.WithTimeout(ctx, 10*time.Second)
-					DeferCleanup(release)
-					cfg := domain.Config{
-						FS:              openFS(),
-						FileSize:        5 * telem.Byte,
-						GCThreshold:     0,
-						Instrumentation: PanicLogger(),
-					}
-					cfg.OnHistoryChange = func(context.Context, telem.TimeRange) {
-						entered <- struct{}{}
-						<-released.Done()
-					}
-					ordered := MustSucceed(domain.Open(cfg))
-					write := func(start telem.TimeStamp) error {
-						w, err := ordered.OpenWriter(ctx, domain.WriterConfig{
-							Start:            start,
-							End:              start + 1,
-							EnableAutoCommit: new(false),
-						})
-						if err != nil {
-							return err
+				It(
+					"Should run writes in the order they prepare",
+					func(ctx SpecContext) {
+						entered := make(chan struct{}, 1)
+						released, release := context.WithTimeout(ctx, 10*time.Second)
+						DeferCleanup(release)
+						cfg := domain.Config{
+							FS:              openFS(),
+							FileSize:        5 * telem.Byte,
+							GCThreshold:     0,
+							Instrumentation: PanicLogger(),
 						}
-						if _, err = w.Write([]byte{1}); err != nil {
-							return err
+						cfg.OnHistoryChange = func(context.Context, telem.TimeRange) {
+							entered <- struct{}{}
+							<-released.Done()
 						}
-						if err = w.Commit(ctx, start+1); err != nil {
-							return err
+						ordered := MustSucceed(domain.Open(cfg))
+						write := func(start telem.TimeStamp) error {
+							w, err := ordered.OpenWriter(ctx, domain.WriterConfig{
+								Start:            start,
+								End:              start + 1,
+								EnableAutoCommit: new(false),
+							})
+							if err != nil {
+								return err
+							}
+							if _, err = w.Write([]byte{1}); err != nil {
+								return err
+							}
+							if err = w.Commit(ctx, start+1); err != nil {
+								return err
+							}
+							return w.Close()
 						}
-						return w.Close()
-					}
-					Expect(write(20 * telem.SecondTS)).To(Succeed())
+						Expect(write(20 * telem.SecondTS)).To(Succeed())
 
-					older, newer := make(chan error, 1), make(chan error, 1)
-					go func() { older <- write(10 * telem.SecondTS) }()
-					Eventually(entered).Should(Receive())
-					go func() { newer <- write(30 * telem.SecondTS) }()
-					Consistently(newer, 50*time.Millisecond).ShouldNot(Receive())
-					release()
-					Eventually(older).Should(Receive(BeNil()))
-					Eventually(newer).Should(Receive(BeNil()))
+						older, newer := make(chan error, 1), make(chan error, 1)
+						go func() { older <- write(10 * telem.SecondTS) }()
+						Eventually(entered).Should(Receive())
+						go func() { newer <- write(30 * telem.SecondTS) }()
+						Consistently(newer, 50*time.Millisecond).ShouldNot(Receive())
+						release()
+						Eventually(older).Should(Receive(BeNil()))
+						Eventually(newer).Should(Receive(BeNil()))
 
-					Expect(ordered.Close()).To(Succeed())
-					cfg.OnHistoryChange = nil
-					ordered = MustSucceed(domain.Open(cfg))
-					Expect(MustSucceed(
-						testutil.ReadDomain(ctx, ordered, telem.TimeRangeMax),
-					)).To(HaveLen(3))
-					Expect(ordered.Close()).To(Succeed())
-				})
+						Expect(ordered.Close()).To(Succeed())
+						cfg.OnHistoryChange = nil
+						ordered = MustSucceed(domain.Open(cfg))
+						Expect(MustSucceed(
+							testutil.ReadDomain(ctx, ordered, telem.TimeRangeMax),
+						)).To(HaveLen(3))
+						Expect(ordered.Close()).To(Succeed())
+					},
+				)
 			})
 
 			Describe("Happy path", func() {

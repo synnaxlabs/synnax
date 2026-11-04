@@ -94,8 +94,8 @@ type pointerPersist struct {
 	sync.Mutex
 	// buffers holds *[]byte. Overlapping prepares each need their own buffer.
 	buffers sync.Pool
-	// tickets counts prepared writes. A run waits for nextTicket to reach its ticket, so
-	// a stale snapshot cannot truncate a newer one.
+	// tickets counts prepared writes. A run waits for nextTicket to reach its ticket,
+	// so a stale snapshot cannot truncate a newer one.
 	tickets    atomic.Uint64
 	ticketDone sync.Cond
 	nextTicket uint64
