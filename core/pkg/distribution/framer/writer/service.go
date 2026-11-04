@@ -292,7 +292,8 @@ func (cfg ServiceConfig) Override(other ServiceConfig) ServiceConfig {
 type FreeIndexResolver interface {
 	// ResolveFreeIndexes returns the index channel key for each free channel in keys
 	// that has an index. Free frames are stamped with per-index alignments derived from
-	// this map. Any error is propagated to the caller opening the writer.
+	// this map, and a free channel it leaves out counts its own alignments. Any error
+	// is propagated to the caller opening the writer.
 	ResolveFreeIndexes(
 		context.Context, channel.Keys,
 	) (map[channel.Key]channel.Key, error)
@@ -418,7 +419,7 @@ func (s *Service) NewStream(ctx context.Context, cfgs ...Config) (StreamWriter, 
 		if freeIndexes, err = (*rp).ResolveFreeIndexes(ctx, freeKeys); err != nil {
 			return nil, err
 		}
-		freeAlignments, err = s.freeWriteAlignments.reserve(freeIndexes)
+		freeAlignments, err = s.freeWriteAlignments.reserve(freeKeys, freeIndexes)
 		if err != nil {
 			return nil, err
 		}

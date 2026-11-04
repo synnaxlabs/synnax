@@ -36,7 +36,7 @@ import {
   type DigitalReadSchemas,
 } from "@/feature/ni/task/types";
 import { Device as PlatformDevice } from "@/platform/device";
-import { Selector } from "@/platform/selector";
+import { type Selector } from "@/platform/selector";
 import { Task } from "@/platform/task";
 
 const root = deep.path<Task.Values<DigitalReadSchemas>>();
@@ -204,9 +204,10 @@ export const useCreateDigitalRead = Task.createUseCreate({
   deviceMake: MAKE,
 });
 
-export const DigitalReadSelectable = Selector.createSelectable({
+export const DigitalReadSelectable: Selector.Selectable = {
   type: DIGITAL_READ_TYPE,
   title: "NI digital read task",
+  label: "Digital read",
   icon: <Icon.Logo.NI />,
   useOnSelect: useCreateDigitalRead,
-});
+};
