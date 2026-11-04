@@ -35,6 +35,7 @@ describe("search", () => {
         ["a word split by '/'", "plant/line2/temp", "line2"],
         ["a capital 'İ' as an 'i'", "İl", "il"],
         ["a final capital 'Σ' as a 'σ'", "ΟΣ", "οσ"],
+        ["a word split by a next line", "plant\u0085temp", "temp"],
         [
           "a word at the end of a long name",
           "plant/area_one/line_two/station_three/sensor_temperature",
@@ -52,6 +53,7 @@ describe("search", () => {
         ["a short term two edits away", "Channel", "nn"],
         ["an empty term", "test", ""],
         ["a term of only separators", "test", " _-./"],
+        ["a word joined by a zero width no-break space", "plant\uFEFFtemp", "temp"],
       ])("should not match %s", (_, text, term) => {
         idx.set(1, text);
         expect(idx.search(term)).toEqual([]);

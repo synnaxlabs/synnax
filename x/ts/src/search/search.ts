@@ -18,7 +18,8 @@ const MAX_TOKEN_RUNES = 255;
 // A shorter word is one edit from every word of its length, so "2" would match "1".
 const MIN_FUZZY_RUNES = 3;
 
-const SEPARATOR = /[\s_\-./]+/u;
+// White_Space is the set Go's unicode.IsSpace uses. \s differs on U+0085 and U+FEFF.
+const SEPARATOR = /[\p{White_Space}_\-./]+/u;
 
 const truncate = (token: string): string => {
   const runes = Array.from(token);
