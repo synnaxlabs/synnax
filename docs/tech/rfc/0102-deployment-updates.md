@@ -140,11 +140,13 @@ Synnax Desktop keeps its own updater, because its Core is embedded.
 
 ### 3.4 The mismatch screen
 
-The TypeScript client sets the declared reason `"incompatible"`
-(`client/ts/src/connection/status.ts:31`) when `isCompatible` fails (`:277-287`).
-`Version.Guard` sits beside `License.Guard` in `console/src/app/window/Guard.tsx` and
-shows a full window in place of the workspace: "Console 0.61.0 cannot work with Core
-0.60.1". The actions are "Update Console" (the §3.3 update, up or down), "Open in
+Every check of the TypeScript client already reports `clientServerCompatible`
+(`client/ts/src/connection/status.ts:307`), and the client keeps checking. When it is
+false, `Version.Guard` in `console/src/app/window/Guard.tsx` shows a full window in
+place of the workspace: "Console 0.61.0 cannot work with Core 0.60.1". The guard sits
+outside `License.Guard`: on an unlicensed Core, the user opens the matching web Console
+to activate the license. When the Core reports a matching version, the screen lifts by
+itself. The actions are "Update Console" (the §3.3 update, up or down), "Open in
 browser" (the Console that the Core serves, which always matches), and the Core list.
 The mismatch warning, its notification actions
 (`console/src/feature/core/notifications.tsx:22-47`), and the "Version mismatch" badge
@@ -204,7 +206,7 @@ the most risk, so it goes last. Each phase updates the docs pages that it change
 
 | Phase | Scope                                                   | Touches                                                                                                           | Depends on |
 | ----- | ------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------- | ---------- |
-| 1     | Block the Console when its minor differs from the Core  | `client/ts/src/connection`, `pluto/src/synnax`, `console/src/app/window`, `console/src/platform/version`          | -          |
+| 1     | Block the Console when its minor differs from the Core  | `pluto/src/synnax`, `console/src/app/window`, `console/src/feature/version`, `console/src/platform/version`       | -          |
 | 2     | Add Core backups, restore, and the downgrade check      | `core/pkg/storage`, `core/cmd`, `console/src-tauri/src/supervisor`                                                | -          |
 | 3     | Report Driver versions and stop tasks on a mismatch     | `schemas/synnax/rack.oracle`, `driver/rack`, `driver/task`, `console/src/feature/rack`                            | -          |
 | 4     | Serve the matching Console update from the Core         | `core/pkg/console`, `.github/workflows/build.synnax.yaml`                                                         | -          |
