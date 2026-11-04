@@ -8,6 +8,7 @@
 // included in the file licenses/APL.txt.
 
 import { Form as Base } from "@synnaxlabs/lyra/form";
+import { deep } from "@synnaxlabs/x";
 import { fireEvent, render } from "@testing-library/react";
 import {
   type PropsWithChildren,
@@ -21,6 +22,8 @@ import { z } from "zod";
 import { Form } from "@/schematic/node/common/form";
 
 const schema = z.object({ scale: z.number() });
+
+const path = deep.path<z.infer<typeof schema>>();
 
 interface FormHandle {
   get: () => number;
@@ -37,16 +40,16 @@ interface HostProps extends PropsWithChildren {
 const Host = ({ initial = 1, children, ref }: HostProps): ReactElement => {
   const methods = Base.use({ values: { scale: initial }, schema });
   const inner = useRef<FormHandle>({
-    get: () => methods.get<number>("scale").value,
-    set: (v) => methods.set("scale", v),
+    get: () => methods.get(path.scale).value,
+    set: (v) => methods.set(path.scale, v),
   });
   useImperativeHandle(ref, () => ({
-    get: () => methods.get<number>("scale").value,
-    set: (v) => methods.set("scale", v),
+    get: () => methods.get(path.scale).value,
+    set: (v) => methods.set(path.scale, v),
   }));
   inner.current = {
-    get: () => methods.get<number>("scale").value,
-    set: (v) => methods.set("scale", v),
+    get: () => methods.get(path.scale).value,
+    set: (v) => methods.set(path.scale, v),
   };
   return <Base.Form<typeof schema> {...methods}>{children}</Base.Form>;
 };
@@ -59,7 +62,7 @@ describe("Form.ScaleField", () => {
     it("should display the underlying decimal scaled by 100", () => {
       const { container } = render(
         <Host initial={0.5}>
-          <Form.ScaleField path="scale" />
+          <Form.ScaleField path={path.scale} />
         </Host>,
       );
       expect(findInput(container).value).toBe("50");
@@ -68,7 +71,7 @@ describe("Form.ScaleField", () => {
     it("should round the displayed value to the nearest integer", () => {
       const { container } = render(
         <Host initial={1.234}>
-          <Form.ScaleField path="scale" />
+          <Form.ScaleField path={path.scale} />
         </Host>,
       );
       // Math.round(1.234 * 100) = 123
@@ -78,7 +81,7 @@ describe("Form.ScaleField", () => {
     it("should display 100 for a unit decimal value", () => {
       const { container } = render(
         <Host initial={1}>
-          <Form.ScaleField path="scale" />
+          <Form.ScaleField path={path.scale} />
         </Host>,
       );
       expect(findInput(container).value).toBe("100");
@@ -87,7 +90,7 @@ describe("Form.ScaleField", () => {
     it("should display the lower bound when the underlying value is at it", () => {
       const { container } = render(
         <Host initial={0.05}>
-          <Form.ScaleField path="scale" />
+          <Form.ScaleField path={path.scale} />
         </Host>,
       );
       expect(findInput(container).value).toBe("5");
@@ -99,7 +102,7 @@ describe("Form.ScaleField", () => {
       const ref: { current: FormHandle | null } = { current: null };
       const { container } = render(
         <Host initial={1} ref={ref}>
-          <Form.ScaleField path="scale" />
+          <Form.ScaleField path={path.scale} />
         </Host>,
       );
       const input = findInput(container);
@@ -112,7 +115,7 @@ describe("Form.ScaleField", () => {
       const ref: { current: FormHandle | null } = { current: null };
       const { container } = render(
         <Host initial={1} ref={ref}>
-          <Form.ScaleField path="scale" />
+          <Form.ScaleField path={path.scale} />
         </Host>,
       );
       const input = findInput(container);
@@ -126,7 +129,7 @@ describe("Form.ScaleField", () => {
       const ref: { current: FormHandle | null } = { current: null };
       const { container } = render(
         <Host initial={1} ref={ref}>
-          <Form.ScaleField path="scale" />
+          <Form.ScaleField path={path.scale} />
         </Host>,
       );
       const input = findInput(container);
@@ -140,7 +143,7 @@ describe("Form.ScaleField", () => {
       const ref: { current: FormHandle | null } = { current: null };
       const { container } = render(
         <Host initial={1} ref={ref}>
-          <Form.ScaleField path="scale" />
+          <Form.ScaleField path={path.scale} />
         </Host>,
       );
       const input = findInput(container);
@@ -156,7 +159,7 @@ describe("Form.ScaleField", () => {
       const ref: { current: FormHandle | null } = { current: null };
       const { container, rerender } = render(
         <Host initial={1.5} ref={ref}>
-          <Form.ScaleField path="scale" />
+          <Form.ScaleField path={path.scale} />
         </Host>,
       );
       const input = findInput(container);
@@ -166,7 +169,7 @@ describe("Form.ScaleField", () => {
       expect(ref.current?.get()).toBe(1.5);
       rerender(
         <Host initial={1.5} ref={ref}>
-          <Form.ScaleField path="scale" />
+          <Form.ScaleField path={path.scale} />
         </Host>,
       );
       // After a rerender, display still reads 150.
@@ -178,7 +181,7 @@ describe("Form.ScaleField", () => {
     it("should render with the Scale label", () => {
       const { container } = render(
         <Host initial={1}>
-          <Form.ScaleField path="scale" />
+          <Form.ScaleField path={path.scale} />
         </Host>,
       );
       expect(container.textContent).toContain("Scale");
@@ -187,7 +190,7 @@ describe("Form.ScaleField", () => {
     it("should append a percent sign as the trailing content", () => {
       const { container } = render(
         <Host initial={1}>
-          <Form.ScaleField path="scale" />
+          <Form.ScaleField path={path.scale} />
         </Host>,
       );
       // The end content "%" is rendered alongside the input as an addon.

@@ -9,13 +9,13 @@
 
 import { Form as Base } from "@synnaxlabs/lyra/form";
 import { Input } from "@synnaxlabs/lyra/input";
-import { type border, xy } from "@synnaxlabs/x";
+import { type border, type deep, xy } from "@synnaxlabs/x";
 import { type ReactElement } from "react";
 
 import { PERCENT_BORDER_RADIUS_INPUT_PROPS } from "@/schematic/node/common/form/input";
 
 export interface RadiusFieldsProps {
-  path: string;
+  path: deep.Target<border.Radius | undefined>;
 }
 
 /**
@@ -24,7 +24,7 @@ export interface RadiusFieldsProps {
  * renderer clips against them; no symbol has ever varied the radius by corner.
  */
 export const RadiusFields = ({ path }: RadiusFieldsProps): ReactElement | null => {
-  const field = Base.useField<border.Radius | undefined>(path, { optional: true });
+  const field = Base.useField(path, { optional: true });
   if (field == null) return null;
   const corner = field.value?.topLeft ?? xy.ZERO;
   const set = (next: xy.XY): void =>

@@ -9,10 +9,11 @@
 
 import { Form } from "@synnaxlabs/lyra/form";
 import { Input } from "@synnaxlabs/lyra/input";
+import { type deep } from "@synnaxlabs/x";
 import { type ReactElement } from "react";
 
 export interface CoefficientsFieldProps {
-  path: string;
+  path: deep.Path<number[]>;
   label: string;
 }
 
@@ -26,7 +27,7 @@ export const CoefficientsField = ({
   path,
   label,
 }: CoefficientsFieldProps): ReactElement => {
-  const { value, onChange, preview, status } = Form.useField<number[]>(path);
+  const { value, onChange, preview, status } = Form.useField(path);
   const rows = value.map((coeff) => [coeff]);
   return (
     <Input.Item
