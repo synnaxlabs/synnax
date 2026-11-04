@@ -1,0 +1,137 @@
+# Copyright 2026 Synnax Labs, Inc.
+#
+# Use of this software is governed by the Business Source License included in the file
+# licenses/BSL.txt.
+#
+# As of the Change Date specified in that file, in accordance with the Business Source
+# License, use of this software will be governed by the Apache License, Version 2.0,
+# included in the file licenses/APL.txt.
+
+# Brings agent pull requests to done. A failed CI run, a submitted review, or a removed
+# agent/needs-human label wakes it for one pull request. GitHub sends no event when a
+# pull request becomes conflicted, so a push to main, an hourly schedule, and a dispatch
+# with no pull request scan for conflicted ones. Every wake runs Agent - Shepherd run,
+# which finds the work left and calls the agent. Every trigger runs this file from main,
+# so no pull request code runs with secrets outside the agent workflow.
+
+name: Agent - Shepherd
+
+on:
+  pull_request_target:
+    types:
+      - unlabeled
+  workflow_run:
+    workflows:
+      - CI
+      - Agent - Review submitted
+    types:
+      - completed
+  push:
+    branches:
+      - main
+  schedule:
+    - cron: "17 * * * *"
+  workflow_dispatch:
+    inputs:
+      pr:
+        description: Pull request number; empty scans for conflicted pull requests
+        required: false
+        type: string
+
+permissions: {}
+
+# A burst of pushes to main queues one pending scan instead of one per push.
+concurrency:
+  group:
+    ${{ github.event_name != 'workflow_run' && github.event_name !=
+    'pull_request_target' && !inputs.pr && 'agent-shepherd-scan' || github.run_id }}
+  cancel-in-progress: false
+
+jobs:
+  resolve:
+    name: Resolve
+    if:
+      (github.event_name != 'workflow_run' && github.event_name !=
+      'pull_request_target') || (github.event_name == 'pull_request_target' &&
+      github.event.label.name == 'agent/needs-human') || (github.event_name ==
+      'workflow_run' && github.event.workflow_run.head_repository.full_name ==
+      github.repository && ((github.event.workflow_run.name == 'CI' &&
+      github.event.workflow_run.event == 'pull_request' &&
+      github.event.workflow_run.conclusion == 'failure' &&
+      github.event.workflow_run.pull_requests[0]) || (github.event.workflow_run.name ==
+      'Agent - Review submitted' && github.event.workflow_run.conclusion == 'success')))
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      issues: read
+      pull-requests: read
+    outputs:
+      prs: ${{ steps.prs.outputs.prs }}
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v7
+
+      # The scan passes only pull requests the gate would not skip. The cap plays no
+      # part in a skip.
+      - name: List the pull requests
+        id: prs
+        env:
+          GH_TOKEN: ${{ github.token }}
+          AGENT_LOGINS: ${{ vars.AGENT_LOGINS }}
+          # A review run can list no pull requests, so its run name holds the number.
+          EVENT_PR:
+            ${{ github.event.pull_request.number || github.event.workflow_run.name ==
+            'CI' && github.event.workflow_run.pull_requests[0].number ||
+            github.event.workflow_run.display_title }}
+          INPUT_PR: ${{ inputs.pr }}
+        run: |
+          PR=${EVENT_PR:-$INPUT_PR}
+          # shellcheck disable=SC2016 # The GraphQL query uses GraphQL variables.
+          if [ -n "$PR" ]; then
+            [[ "$PR" =~ ^[0-9]+$ ]] || { echo "pr must be a number" >&2; exit 1; }
+            PRS="[$PR]"
+          else
+            PRS=$(gh api graphql --paginate -f o="$GITHUB_REPOSITORY_OWNER" \
+              -f r="${GITHUB_REPOSITORY#*/}" \
+              -f query='query($o: String!, $r: String!, $endCursor: String) {
+                repository(owner: $o, name: $r) {
+                  pullRequests(states: OPEN, first: 100, after: $endCursor) {
+                    pageInfo { hasNextPage endCursor }
+                    nodes { number mergeable isCrossRepository }
+                  }
+                }
+              }' --jq '.data.repository.pullRequests.nodes[]
+                | select(.mergeable == "CONFLICTING" and (.isCrossRepository | not))
+                | .number' |
+              while read -r pr; do
+                verdict=$(.github/scripts/agent_gate.sh "$pr" shepherd 1)
+                echo "#$pr: $verdict" >&2
+                [ "${verdict%% *}" = skip ] || echo "$pr"
+              done | jq -cs .)
+          fi
+          echo "Pull requests: $PRS"
+          echo "prs=$PRS" >> "$GITHUB_OUTPUT"
+
+  shepherd:
+    name: Shepherd
+    needs: resolve
+    if: needs.resolve.outputs.prs != '[]'
+    strategy:
+      fail-fast: false
+      matrix:
+        pr: ${{ fromJSON(needs.resolve.outputs.prs) }}
+    # Shared by every wake, so one run at a time works on a pull request. A newer queued
+    # run replaces an older one, and finds all of its work.
+    concurrency:
+      group: agent-pr-${{ matrix.pr }}
+      cancel-in-progress: false
+    permissions:
+      actions: write
+      contents: read
+      id-token: write
+      issues: write
+      pull-requests: write
+    uses: ./.github/workflows/agent.shepherd.run.yaml
+    with:
+      pr: ${{ matrix.pr }}
+    secrets: inherit
