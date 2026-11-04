@@ -65,7 +65,7 @@ export default async (session: capture.CaptureSession): Promise<void> => {
       text: true,
       zoom: false,
     });
-    const precision = capture.field(page, "Receipt timestamp precision");
+    const precision = capture.field(page, "Timestamp precision");
     await session.waitFor(precision);
     await session.hold(600);
     await session.click(precision, { zoom: false });

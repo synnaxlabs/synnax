@@ -18,7 +18,8 @@ import argparse
 import json
 import sys
 from pathlib import Path
-from typing import Any
+
+from pydantic import JsonValue
 
 
 def load_channel_mapping(mapping_path: Path) -> dict[int, int]:
@@ -38,8 +39,8 @@ def load_channel_mapping(mapping_path: Path) -> dict[int, int]:
 
 
 def transform_value(
-    value: Any, *, key_map: dict[int, int], stats: dict[str, int]
-) -> Any:
+    value: JsonValue, *, key_map: dict[int, int], stats: dict[str, int]
+) -> JsonValue:
     """Recursively transform values, replacing config keys with synnax keys.
 
     Args:

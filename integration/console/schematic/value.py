@@ -10,6 +10,7 @@
 import re
 
 from console.schematic.symbol import PropertyDict, Symbol
+from x.notation import Notation
 
 
 class Value(Symbol):
@@ -22,7 +23,7 @@ class Value(Symbol):
         *,
         label: str,
         channel_name: str,
-        notation: str | None = None,
+        notation: Notation | None = None,
         precision: int | None = None,
         averaging_window: int | None = None,
         stale_color: str | None = None,
@@ -64,7 +65,7 @@ class Value(Symbol):
         self,
         *,
         channel_name: str | None = None,
-        notation: str | None = None,
+        notation: Notation | None = None,
         precision: int | None = None,
         averaging_window: int | None = None,
         stale_color: str | None = None,
