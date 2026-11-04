@@ -16,6 +16,7 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/api/access"
 	apiarc "github.com/synnaxlabs/synnax/pkg/api/arc"
 	apiauth "github.com/synnaxlabs/synnax/pkg/api/auth"
+	apicertificate "github.com/synnaxlabs/synnax/pkg/api/certificate"
 	apichannel "github.com/synnaxlabs/synnax/pkg/api/channel"
 	apidevice "github.com/synnaxlabs/synnax/pkg/api/device"
 	apiframer "github.com/synnaxlabs/synnax/pkg/api/framer"
@@ -32,6 +33,7 @@ import (
 	apiranger "github.com/synnaxlabs/synnax/pkg/api/ranger"
 	"github.com/synnaxlabs/synnax/pkg/api/schematic"
 	"github.com/synnaxlabs/synnax/pkg/api/schematic/symbol"
+	apisecret "github.com/synnaxlabs/synnax/pkg/api/secret"
 	apistatus "github.com/synnaxlabs/synnax/pkg/api/status"
 	"github.com/synnaxlabs/synnax/pkg/api/table"
 	apitask "github.com/synnaxlabs/synnax/pkg/api/task"
@@ -196,6 +198,20 @@ func Bind(layer *api.Layer) []grpc.BindableTransport {
 	t.AccessRetrieveRole = noop.UnaryServer[access.RetrieveRoleRequest, access.RetrieveRoleResponse]{}
 	t.AccessAssignRole = noop.UnaryServer[access.AssignRoleRequest, struct{}]{}
 	t.AccessUnassignRole = noop.UnaryServer[access.UnassignRoleRequest, struct{}]{}
+
+	// SECRET
+	t.SecretCreate = noop.UnaryServer[apisecret.CreateRequest, apisecret.CreateResponse]{}
+	t.SecretRetrieve = noop.UnaryServer[apisecret.RetrieveRequest, apisecret.RetrieveResponse]{}
+	t.SecretRename = noop.UnaryServer[apisecret.RenameRequest, struct{}]{}
+	t.SecretDelete = noop.UnaryServer[apisecret.DeleteRequest, struct{}]{}
+	t.SecretGrant = noop.UnaryServer[apisecret.GrantRequest, apisecret.GrantResponse]{}
+	t.SecretResolve = noop.UnaryServer[apisecret.ResolveRequest, apisecret.ResolveResponse]{}
+
+	// CERTIFICATE
+	t.CertificateCreate = noop.UnaryServer[apicertificate.CreateRequest, apicertificate.CreateResponse]{}
+	t.CertificateRetrieve = noop.UnaryServer[apicertificate.RetrieveRequest, apicertificate.RetrieveResponse]{}
+	t.CertificateRename = noop.UnaryServer[apicertificate.RenameRequest, struct{}]{}
+	t.CertificateDelete = noop.UnaryServer[apicertificate.DeleteRequest, struct{}]{}
 
 	// IMPORT/EXPORT
 	t.ImExImport = noop.UnaryServer[imex.ImportRequest, imex.ImportResponse]{}

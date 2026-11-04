@@ -25,6 +25,7 @@ import (
 	"github.com/synnaxlabs/synnax/cmd/listener"
 	"github.com/synnaxlabs/synnax/cmd/start/internal/stdin"
 	"github.com/synnaxlabs/synnax/pkg/service/auth"
+	"github.com/synnaxlabs/synnax/pkg/service/secret"
 	"github.com/synnaxlabs/x/address"
 	"github.com/synnaxlabs/x/errors"
 	xsignal "github.com/synnaxlabs/x/signal"
@@ -169,6 +170,12 @@ func GetCoreConfigFromViper(ins alamos.Instrumentation) (CoreConfig, error) {
 	if err != nil {
 		return CoreConfig{}, err
 	}
+	var secretsKey secret.EncryptionKey
+	if v := viper.GetString(FlagSecretsKey); v != "" {
+		if secretsKey, err = secret.ParseEncryptionKey(v); err != nil {
+			return CoreConfig{}, errors.Wrapf(err, "invalid --%s", FlagSecretsKey)
+		}
+	}
 	return CoreConfig{
 		Instrumentation:     ins,
 		insecure:            new(viper.GetBool(FlagInsecure)),
@@ -180,6 +187,8 @@ func GetCoreConfigFromViper(ins alamos.Instrumentation) (CoreConfig, error) {
 		listeners:           listeners,
 		peers:               peers,
 		dataPath:            viper.GetString(FlagData),
+		secretsKey:          secretsKey,
+		secretsKeyFile:      viper.GetString(FlagSecretsKeyFile),
 		slowConsumerTimeout: viper.GetDuration(FlagSlowConsumerTimeout),
 		sessionIdleTimeout:  viper.GetDuration(FlagSessionIdleTimeout),
 		rootCredentials: auth.Credentials{

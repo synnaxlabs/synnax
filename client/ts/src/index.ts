@@ -14,6 +14,7 @@ export { actions } from "@/actions";
 export { arc } from "@/arc";
 export type { Param } from "@/arc/types/types.gen";
 export { auth } from "@/auth";
+export { certificate } from "@/certificate";
 export { channel } from "@/channel";
 export { Channel, isCalculated } from "@/channel/client";
 export {
@@ -75,6 +76,7 @@ export { query } from "@/query";
 export { rack } from "@/rack";
 export { ranger } from "@/ranger";
 export { schematic } from "@/schematic";
+export { secret } from "@/secret";
 export { status } from "@/status";
 export type { StatusZodObject } from "@/status/types.gen";
 export { table } from "@/table";

@@ -38,6 +38,8 @@ const (
 	FlagTaskWorkerCount              = "task-worker-count"
 	FlagDisableChannelNameValidation = "disable-channel-name-validation"
 	FlagStopOnStdinClose             = "stop-on-stdin-close"
+	FlagSecretsKey                   = "secrets-key"
+	FlagSecretsKeyFile               = "secrets-key-file"
 )
 
 // AddFlags adds the start flags to the given command.
@@ -125,6 +127,16 @@ func AddFlags(cmd *cobra.Command) {
 		FlagDisableChannelNameValidation,
 		false,
 		"Disable channel name validation (allows special characters, spaces, etc.)",
+	)
+	cmd.Flags().String(
+		FlagSecretsKey,
+		"",
+		"Base64 key that encrypts stored secrets. Prefer the SYNNAX_SECRETS_KEY environment variable",
+	)
+	cmd.Flags().String(
+		FlagSecretsKeyFile,
+		"",
+		"File that holds the base64 key that encrypts stored secrets. Defaults to secrets.key in the data directory",
 	)
 	cmd.Flags().String(FlagLicenseKey, "", "License key")
 	cmd.Flags().String(

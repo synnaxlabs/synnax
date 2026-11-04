@@ -10,6 +10,7 @@
 package start_test
 
 import (
+	"encoding/base64"
 	"io/fs"
 	"path/filepath"
 	"time"
@@ -174,6 +175,29 @@ var _ = Describe("GetCoreConfigFromViper", func() {
 			Expect(start.GetCoreConfigFromViper(alamos.Instrumentation{})).
 				Error().
 				To(MatchError(fs.ErrNotExist))
+		})
+	})
+
+	Describe("Secrets key", func() {
+		BeforeEach(func() {
+			DeferCleanup(func() { viper.Set(start.FlagSecretsKey, "") })
+		})
+
+		It("Should accept a base64 key", func() {
+			viper.Set(start.FlagSecretsKey, base64.StdEncoding.EncodeToString(
+				make([]byte, 32),
+			))
+			MustSucceed(start.GetCoreConfigFromViper(alamos.Instrumentation{}))
+		})
+
+		It("Should name the flag when the key is not valid", func() {
+			viper.Set(start.FlagSecretsKey, "short")
+			Expect(start.GetCoreConfigFromViper(alamos.Instrumentation{})).
+				Error().
+				To(And(
+					MatchError(validate.ErrValidation),
+					MatchError(ContainSubstring("invalid --secrets-key")),
+				))
 		})
 	})
 })

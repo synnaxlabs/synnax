@@ -25,6 +25,7 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/service/auth/apikey"
 	"github.com/synnaxlabs/synnax/pkg/service/auth/password"
 	passwordversions "github.com/synnaxlabs/synnax/pkg/service/auth/password/versions"
+	"github.com/synnaxlabs/synnax/pkg/service/certificate"
 	"github.com/synnaxlabs/synnax/pkg/service/channel"
 	calcgraph "github.com/synnaxlabs/synnax/pkg/service/channel/calculation/graph"
 	channelsignals "github.com/synnaxlabs/synnax/pkg/service/channel/signals"
@@ -61,6 +62,7 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/service/ranger/alias"
 	"github.com/synnaxlabs/synnax/pkg/service/ranger/kv"
 	"github.com/synnaxlabs/synnax/pkg/service/schematic"
+	"github.com/synnaxlabs/synnax/pkg/service/secret"
 	"github.com/synnaxlabs/synnax/pkg/service/signals"
 	"github.com/synnaxlabs/synnax/pkg/service/status"
 	"github.com/synnaxlabs/synnax/pkg/service/table"
@@ -112,6 +114,10 @@ type LayerConfig struct {
 	//
 	// [OPTIONAL] - Defaults to license.DefaultServiceConfig.
 	License license.ServiceConfig
+	// SecretsKey encrypts the value of every stored secret.
+	//
+	// [REQUIRED]
+	SecretsKey secret.EncryptionKey
 	// ValidateChannelNames enables channel name validation during creation and
 	// renaming. When false, channels may have names with spaces, special characters,
 	// etc.
@@ -148,6 +154,11 @@ func (c LayerConfig) Override(other LayerConfig) LayerConfig {
 	c.ValidateChannelNames = override.Nil(
 		c.ValidateChannelNames, other.ValidateChannelNames,
 	)
+	c.SecretsKey = override.If(
+		c.SecretsKey,
+		other.SecretsKey,
+		other.SecretsKey != secret.EncryptionKey{},
+	)
 	return c
 }
 
@@ -156,6 +167,7 @@ func (c LayerConfig) Validate() error {
 	v := validate.New("service")
 	v.NotNil("distribution", c.Distribution)
 	v.NotNil("security", c.Security)
+	v.Ternary("secrets_key", c.SecretsKey == secret.EncryptionKey{}, "required")
 	return v.Error()
 }
 
@@ -246,6 +258,10 @@ type Layer struct {
 	Status *status.Service
 	// View is used for managing views
 	View *view.Service
+	// Secret stores the hidden values that devices and tasks connect with.
+	Secret *secret.Service
+	// Certificate stores certificates and reports their expiry.
+	Certificate *certificate.Service
 	// ImEx is the central import/export registry.
 	ImEx *imex.Service
 	// Node publishes the cluster's nodes as resources in the ontology.
@@ -753,6 +769,28 @@ func OpenLayer(ctx context.Context, cfgs ...LayerConfig) (l *Layer, err error) {
 			Group:           l.Group,
 		},
 	); !ok(err, l.View) {
+		return nil, err
+	}
+	if l.Secret, err = secret.OpenService(ctx, secret.ServiceConfig{
+		Instrumentation: cfg.Child("secret"),
+		DB:              cfg.Distribution.DB,
+		Ontology:        l.Ontology,
+		Group:           l.Group,
+		Signals:         l.Signals,
+		Uses:            certificate.FindSecretUses,
+		EncryptionKey:   cfg.SecretsKey,
+	}); !ok(err, l.Secret) {
+		return nil, err
+	}
+	if l.Certificate, err = certificate.OpenService(ctx, certificate.ServiceConfig{
+		Instrumentation: cfg.Child("certificate"),
+		DB:              cfg.Distribution.DB,
+		Ontology:        l.Ontology,
+		Group:           l.Group,
+		Secret:          l.Secret,
+		Status:          l.Status,
+		Signals:         l.Signals,
+	}); !ok(err, l.Certificate) {
 		return nil, err
 	}
 	if l.Metrics, err = metrics.OpenService(

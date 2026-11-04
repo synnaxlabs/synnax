@@ -1,0 +1,135 @@
+#  Copyright 2026 Synnax Labs, Inc.
+#
+#  Use of this software is governed by the Business Source License included in the file
+#  licenses/BSL.txt.
+#
+#  As of the Change Date specified in that file, in accordance with the Business Source
+#  License, use of this software will be governed by the Apache License, Version 2.0,
+#  included in the file licenses/APL.txt.
+
+from typing import overload
+
+from pydantic import BaseModel, Field
+
+from freighter import Empty, UnaryClient
+from synnax.certificate.payload import New
+from synnax.certificate.types_gen import Certificate, Key
+from synnax.exceptions import NotFoundError
+from x.lists import normalize
+
+
+class _CreateRequest(BaseModel):
+    certificates: list[New]
+
+
+class _CreateResponse(BaseModel):
+    certificates: list[Certificate]
+
+
+class _RenameRequest(BaseModel):
+    key: Key
+    name: str
+
+
+class _DeleteRequest(BaseModel):
+    keys: list[Key]
+
+
+class _RetrieveRequest(BaseModel):
+    keys: list[Key] | None = None
+    search_term: str | None = None
+    limit: int | None = None
+    offset: int | None = None
+
+
+class _RetrieveResponse(BaseModel):
+    certificates: list[Certificate] = Field(default_factory=list)
+
+
+class Client:
+    _client: UnaryClient
+
+    def __init__(self, *, client: UnaryClient) -> None:
+        self._client = client
+
+    @overload
+    def create(self, certificates: New) -> Certificate: ...
+
+    @overload
+    def create(self, certificates: list[New]) -> list[Certificate]: ...
+
+    def create(self, certificates: New | list[New]) -> Certificate | list[Certificate]:
+        """Creates certificates, or replaces the certificates whose keys exist.
+
+        :param certificates: The certificates to create.
+        :returns: The saved certificates.
+        :raises ValidationError: If a PEM does not parse, or a private key does not
+            match its certificate.
+        """
+        is_single = not isinstance(certificates, list)
+        req = _CreateRequest(certificates=normalize(certificates))
+        res = self._client.send("/certificate/create", req, _CreateResponse)
+        return res.certificates[0] if is_single else res.certificates
+
+    def delete(self, keys: Key | list[Key]) -> None:
+        """Deletes certificates.
+
+        :param keys: The keys of the certificates to delete.
+        :raises ValidationError: If a device uses one of the certificates.
+        """
+        self._client.send(
+            "/certificate/delete", _DeleteRequest(keys=normalize(keys)), Empty
+        )
+
+    def rename(self, key: Key, name: str) -> None:
+        """Renames a certificate.
+
+        :param key: The key of the certificate to rename.
+        :param name: The new name for the certificate.
+        :raises NotFoundError: If no certificate has the given key.
+        """
+        self._client.send(
+            "/certificate/rename", _RenameRequest(key=key, name=name), Empty
+        )
+
+    @overload
+    def retrieve(self, *, key: Key) -> Certificate: ...
+
+    @overload
+    def retrieve(
+        self,
+        *,
+        keys: list[Key] | None = None,
+        search_term: str | None = None,
+        limit: int | None = None,
+        offset: int | None = None,
+    ) -> list[Certificate]: ...
+
+    def retrieve(
+        self,
+        *,
+        key: Key | None = None,
+        keys: list[Key] | None = None,
+        search_term: str | None = None,
+        limit: int | None = None,
+        offset: int | None = None,
+    ) -> Certificate | list[Certificate]:
+        """Retrieves certificates.
+
+        :raises NotFoundError: If key is given and no certificate has it.
+        """
+        is_single = key is not None
+        if key is not None:
+            keys = [key]
+        res = self._client.send(
+            "/certificate/retrieve",
+            _RetrieveRequest(
+                keys=keys, search_term=search_term, limit=limit, offset=offset
+            ),
+            _RetrieveResponse,
+        )
+        if not is_single:
+            return res.certificates
+        if len(res.certificates) == 0:
+            raise NotFoundError("Certificate not found")
+        return res.certificates[0]

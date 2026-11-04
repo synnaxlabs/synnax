@@ -15,6 +15,7 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/api/access"
 	"github.com/synnaxlabs/synnax/pkg/api/arc"
 	"github.com/synnaxlabs/synnax/pkg/api/auth"
+	"github.com/synnaxlabs/synnax/pkg/api/certificate"
 	"github.com/synnaxlabs/synnax/pkg/api/channel"
 	"github.com/synnaxlabs/synnax/pkg/api/connectivity"
 	"github.com/synnaxlabs/synnax/pkg/api/control"
@@ -34,6 +35,7 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/api/ranger/kv"
 	"github.com/synnaxlabs/synnax/pkg/api/schematic"
 	"github.com/synnaxlabs/synnax/pkg/api/schematic/symbol"
+	"github.com/synnaxlabs/synnax/pkg/api/secret"
 	"github.com/synnaxlabs/synnax/pkg/api/status"
 	"github.com/synnaxlabs/synnax/pkg/api/table"
 	"github.com/synnaxlabs/synnax/pkg/api/task"
@@ -619,6 +621,50 @@ func Bind(layer *api.Layer, router *http.Router) {
 		ViewRename: unary[view.RenameRequest, struct{}](
 			router,
 			"/api/v1/view/rename",
+		),
+
+		// SECRET
+		SecretCreate: unary[secret.CreateRequest, secret.CreateResponse](
+			router,
+			"/api/v1/secret/create",
+		),
+		SecretRetrieve: unary[secret.RetrieveRequest, secret.RetrieveResponse](
+			router,
+			"/api/v1/secret/retrieve",
+		),
+		SecretRename: unary[secret.RenameRequest, struct{}](
+			router,
+			"/api/v1/secret/rename",
+		),
+		SecretDelete: unary[secret.DeleteRequest, struct{}](
+			router,
+			"/api/v1/secret/delete",
+		),
+		SecretGrant: unary[secret.GrantRequest, secret.GrantResponse](
+			router,
+			"/api/v1/secret/grant",
+		),
+		SecretResolve: unary[secret.ResolveRequest, secret.ResolveResponse](
+			router,
+			"/api/v1/secret/resolve",
+		),
+
+		// CERTIFICATE
+		CertificateCreate: unary[certificate.CreateRequest, certificate.CreateResponse](
+			router,
+			"/api/v1/certificate/create",
+		),
+		CertificateRetrieve: unary[certificate.RetrieveRequest, certificate.RetrieveResponse](
+			router,
+			"/api/v1/certificate/retrieve",
+		),
+		CertificateRename: unary[certificate.RenameRequest, struct{}](
+			router,
+			"/api/v1/certificate/rename",
+		),
+		CertificateDelete: unary[certificate.DeleteRequest, struct{}](
+			router,
+			"/api/v1/certificate/delete",
 		),
 
 		// IMPORT/EXPORT
