@@ -173,8 +173,8 @@ jobs:
         env:
           PACKAGE: ${{ inputs.package }}
         run: >-
-          pnpm install-browsers:"$PACKAGE" ${{ runner.os == 'Linux' &&
-          '--with-deps' || '' }}
+          pnpm install-browsers:"$PACKAGE" ${{ runner.os == 'Linux' && '--with-deps' ||
+          '' }}
 
       - name: Test
         if: inputs.test
