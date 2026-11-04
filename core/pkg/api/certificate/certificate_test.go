@@ -208,6 +208,34 @@ var _ = Describe("Service", func() {
 				Expect(retrieveCertificate(ctx, c.Base().Key)).To(Equal(c))
 			},
 		)
+		It("Should deny a request that also replaces a certificate",
+			func(ctx SpecContext) {
+				u := createUser(ctx)
+				grant(ctx, u.OntologyID(), create, certificateType)
+				c := createCertificate(ctx, "Plant")
+				Expect(apiSvc.Create(AuthedCtx(ctx, u), nil,
+					apicertificate.CreateRequest{Certificates: []apicertificate.Input{
+						{
+							Key:             uuid.New(),
+							Source:          secret.SourceFile,
+							Name:            "New",
+							CertificatePath: "/etc/plant/new.pem",
+						},
+						{
+							Key:             c.Base().Key,
+							Source:          secret.SourceFile,
+							Name:            "Replaced",
+							CertificatePath: "/etc/plant/cert.pem",
+						},
+					}},
+				)).Error().To(SatisfyAll(
+					MatchError(access.ErrDenied),
+					MatchError(u.OntologyID().String()+" cannot update "+
+						c.OntologyID().String()+": access denied: auth error"),
+				))
+				Expect(retrieveCertificate(ctx, c.Base().Key)).To(Equal(c))
+			},
+		)
 		It("Should let an Owner replace a certificate", func(ctx SpecContext) {
 			u := createUser(ctx)
 			Expect(svc.RBAC.Role.NewWriter(nil, true).AssignRole(
