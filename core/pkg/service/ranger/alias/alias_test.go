@@ -63,7 +63,6 @@ var _ = Describe("Alias", Ordered, func() {
 			DB:           node.DB,
 			HostProvider: node.Cluster,
 			Ontology:     otg,
-			Group:        groupSvc,
 			Status:       statusSvc,
 		}))
 		rangerSvc = MustOpen(ranger.OpenService(ctx, ranger.ServiceConfig{

@@ -15,9 +15,12 @@ import (
 
 	"github.com/synnaxlabs/gorp"
 	"github.com/synnaxlabs/synnax/pkg/service/actions"
+	"github.com/synnaxlabs/synnax/pkg/service/group"
 	v8 "github.com/synnaxlabs/synnax/pkg/service/lineplot/versions/v8"
 	"github.com/synnaxlabs/synnax/pkg/service/ontology"
 	"github.com/synnaxlabs/synnax/pkg/service/project"
+	"github.com/synnaxlabs/x/errors"
+	"github.com/synnaxlabs/x/query"
 )
 
 type Writer struct {
@@ -46,11 +49,16 @@ func (w Writer) Create(
 	if lp.Key == uuid.Nil() {
 		lp.Key = uuid.New()
 	} else {
-		exists, err = w.table.NewRetrieve().
+		var stored LinePlot
+		err = w.table.NewRetrieve().
 			Where(gorp.MatchKeys[Key, LinePlot](lp.Key)).
-			Exists(ctx, w.tx)
-		if err != nil {
+			Entry(&stored).
+			Exec(ctx, w.tx)
+		if errors.Skip(err, query.ErrNotFound) != nil {
 			return err
+		}
+		if exists = err == nil; exists {
+			lp.Group = stored.Group
 		}
 	}
 	// Materialize lines for any channel/range bindings supplied at creation so a plot
@@ -85,6 +93,28 @@ func (w Writer) Create(
 		lp.Key,
 		NewCreateAction(CreatePayload{LinePlot: *lp}),
 	)
+	return nil
+}
+
+// SetGroup moves the line plots with keys into g, or out of their group when g is nil.
+func (w Writer) SetGroup(ctx context.Context, g *group.Key, keys ...Key) error {
+	if err := w.table.NewUpdate().
+		Where(gorp.MatchKeys[Key, LinePlot](keys...)).
+		Change(func(_ gorp.Context, e LinePlot) LinePlot {
+			e.Group = g
+			return e
+		}).
+		Exec(ctx, w.tx); err != nil {
+		return err
+	}
+	for _, k := range keys {
+		w.dispatcher.NotifyOnCommit(
+			ctx,
+			w.tx,
+			k,
+			NewSetGroupAction(SetGroupPayload{Group: g}),
+		)
+	}
 	return nil
 }
 

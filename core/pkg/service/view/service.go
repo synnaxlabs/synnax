@@ -15,7 +15,6 @@ import (
 
 	"github.com/synnaxlabs/alamos"
 	"github.com/synnaxlabs/gorp"
-	"github.com/synnaxlabs/synnax/pkg/service/group"
 	"github.com/synnaxlabs/synnax/pkg/service/ontology"
 	"github.com/synnaxlabs/synnax/pkg/service/signals"
 	"github.com/synnaxlabs/synnax/pkg/service/view/versions"
@@ -32,9 +31,6 @@ type ServiceConfig struct {
 	// Ontology will be used to create relationships between views (parent-child) and
 	// with other resources within the Synnax cluster.
 	Ontology *ontology.Ontology
-	// Group is used to create the top level "Views" group that will be the default
-	// parent of all views.
-	Group *group.Service
 	// Signals is used to publish signals when views are created, updated, or deleted.
 	Signals *signals.Provider
 	alamos.Instrumentation
@@ -47,7 +43,6 @@ func (c ServiceConfig) Override(other ServiceConfig) ServiceConfig {
 	c.Instrumentation = override.Zero(c.Instrumentation, other.Instrumentation)
 	c.DB = override.Nil(c.DB, other.DB)
 	c.Ontology = override.Nil(c.Ontology, other.Ontology)
-	c.Group = override.Nil(c.Group, other.Group)
 	c.Signals = override.Nil(c.Signals, other.Signals)
 	return c
 }
@@ -57,7 +52,6 @@ func (c ServiceConfig) Validate() error {
 	v := validate.New("view.service")
 	v.NotNil("db", c.DB)
 	v.NotNil("ontology", c.Ontology)
-	v.NotNil("group", c.Group)
 	return v.Error()
 }
 
@@ -66,7 +60,6 @@ func (c ServiceConfig) Validate() error {
 // mechanisms for listening to changes in views.
 type Service struct {
 	cfg    ServiceConfig
-	group  group.Group
 	table  *gorp.Table[Key, View]
 	search *gorp.SearchIndex[Key, View]
 	closer xio.MultiCloser
@@ -82,16 +75,6 @@ func OpenService(ctx context.Context, cfgs ...ServiceConfig) (s *Service, err er
 	}
 	cleanup, ok := service.NewOpener(ctx, &s.closer)
 	defer func() { err = cleanup(err) }()
-	if s.group, err = s.cfg.Group.CreateOrRetrieve(
-		ctx,
-		"Views",
-		ontology.RootID,
-	); !ok(
-		err,
-		nil,
-	) {
-		return nil, err
-	}
 	if s.table, err = gorp.OpenTable(ctx, gorp.TableConfig[Key, View]{
 		DB:              s.cfg.DB,
 		Indexes:         []gorp.Index[Key, View]{s.search},
@@ -127,7 +110,6 @@ func (s *Service) NewWriter(tx gorp.Tx) Writer {
 		tx:        gorp.OverrideTx(s.cfg.DB, tx),
 		otg:       s.cfg.Ontology,
 		otgWriter: s.cfg.Ontology.NewWriter(tx),
-		group:     s.group,
 		table:     s.table,
 	}
 }

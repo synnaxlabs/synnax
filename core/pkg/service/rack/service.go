@@ -20,7 +20,6 @@ import (
 	"github.com/synnaxlabs/gorp/migrate"
 	"github.com/synnaxlabs/synnax/pkg/service/access/rbac/role"
 	"github.com/synnaxlabs/synnax/pkg/service/cluster"
-	"github.com/synnaxlabs/synnax/pkg/service/group"
 	"github.com/synnaxlabs/synnax/pkg/service/ontology"
 	"github.com/synnaxlabs/synnax/pkg/service/rack/versions"
 	"github.com/synnaxlabs/synnax/pkg/service/status"
@@ -51,10 +50,6 @@ type ServiceConfig struct {
 	//
 	// [REQUIRED]
 	Ontology *ontology.Ontology
-	// Group is used to create rack related groups of ontology resources.
-	//
-	// [REQUIRED]
-	Group *group.Service
 	// Status is used to define and process statuses for racks.
 	//
 	// [REQUIRED]
@@ -92,7 +87,6 @@ func (c ServiceConfig) Override(other ServiceConfig) ServiceConfig {
 	c.Instrumentation = override.Zero(c.Instrumentation, other.Instrumentation)
 	c.DB = override.Nil(c.DB, other.DB)
 	c.Ontology = override.Nil(c.Ontology, other.Ontology)
-	c.Group = override.Nil(c.Group, other.Group)
 	c.HostProvider = override.Nil(c.HostProvider, other.HostProvider)
 	c.Status = override.Nil(c.Status, other.Status)
 	c.DriverRole = override.UUID(c.DriverRole, other.DriverRole)
@@ -109,7 +103,6 @@ func (c ServiceConfig) Validate() error {
 	v := validate.New("rack")
 	v.NotNil("db", c.DB)
 	v.NotNil("ontology", c.Ontology)
-	v.NotNil("group", c.Group)
 	v.NotNil("host", c.HostProvider)
 	v.NotNil("status", c.Status)
 	v.Ternary("driver_role", c.DriverRole == uuid.Nil(), "must be set")
@@ -120,7 +113,6 @@ func (c ServiceConfig) Validate() error {
 type Service struct {
 	closer          xio.MultiCloser
 	localKeyCounter *kv.AtomicInt64Counter
-	group           group.Group
 	monitor         *monitor
 	table           *gorp.Table[Key, Rack]
 	indexes         indexes
@@ -140,9 +132,10 @@ func OpenService(
 	cleanup, ok := service.NewOpener(ctx, &s.closer)
 	defer func() { err = cleanup(err) }()
 	if s.table, err = gorp.OpenTable(ctx, gorp.TableConfig[Key, Rack]{
-		DB:      cfg.DB,
-		Name:    tableName,
-		Indexes: s.indexes.all(),
+		DB:         cfg.DB,
+		Name:       tableName,
+		Indexes:    s.indexes.all(),
+		References: s.indexes.references(),
 		Migrations: versions.NewMigrations(versions.MigrationsConfig{
 			HostProvider: cfg.HostProvider,
 			Status:       cfg.Status,
@@ -157,16 +150,6 @@ func OpenService(
 		Namespace:       "rack.roles",
 		Migrations:      []gorp.Migration{newDriverRoleMigration(s)},
 	}); !ok(err, nil) {
-		return nil, err
-	}
-	if s.group, err = cfg.Group.CreateOrRetrieve(
-		ctx,
-		"Devices",
-		ontology.RootID,
-	); !ok(
-		err,
-		nil,
-	) {
 		return nil, err
 	}
 	counterKey := []byte(cfg.HostProvider.HostKey().String() + ".rack.counter")
@@ -272,7 +255,6 @@ func (s *Service) NewWriter(tx gorp.Tx) Writer {
 		tx:         tx,
 		otg:        s.Ontology.NewWriter(tx),
 		newKey:     s.newKey,
-		group:      s.group,
 		status:     s.Status.NewWriter(tx),
 		statuses:   s.Status,
 		table:      s.table,

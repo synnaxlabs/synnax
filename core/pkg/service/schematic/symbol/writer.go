@@ -14,8 +14,10 @@ import (
 	"uuid"
 
 	"github.com/synnaxlabs/gorp"
+	"github.com/synnaxlabs/synnax/pkg/service/group"
 	"github.com/synnaxlabs/synnax/pkg/service/ontology"
-	"github.com/synnaxlabs/synnax/pkg/service/resource"
+	"github.com/synnaxlabs/x/errors"
+	"github.com/synnaxlabs/x/query"
 )
 
 // Writer is used to create, update, and delete symbols within Synnax. The writer
@@ -25,75 +27,63 @@ import (
 type Writer struct {
 	tx        gorp.Tx
 	otgWriter ontology.Writer
-	otg       *ontology.Ontology
 	table     *gorp.Table[Key, Symbol]
 }
 
-// Create creates the given symbol as a child of the ontology.Resource with the given
-// parent ID. If the symbol does not have a key, a new key will be generated. If the
-// symbol already exists, it will be updated and the existing parent relationship will
-// be deleted and replaced with the new parent relationship.
-func (w Writer) Create(
-	ctx context.Context,
-	s *Symbol,
-	parent resource.ID,
-) (err error) {
+// Create creates the given symbol. If the symbol does not have a key, a new key will be
+// generated. An existing symbol keeps its group, and a new symbol takes s.Group.
+func (w Writer) Create(ctx context.Context, s *Symbol) error {
 	s.ApplyDefaults()
-	if err = s.Validate(); err != nil {
+	if err := s.Validate(); err != nil {
 		return err
 	}
-	var exists bool
 	if s.Key == uuid.Nil() {
 		s.Key = uuid.New()
 	} else {
-		exists, err = w.table.NewRetrieve().Where(MatchKeys(s.Key)).Exists(ctx, w.tx)
-		if err != nil {
+		var stored Symbol
+		err := w.table.NewRetrieve().
+			Where(gorp.MatchKeys[Key, Symbol](s.Key)).
+			Entry(&stored).
+			Exec(ctx, w.tx)
+		if errors.Skip(err, query.ErrNotFound) != nil {
 			return err
 		}
-	}
-	if err = w.table.NewCreate().Entry(s).Exec(ctx, w.tx); err != nil {
-		return err
-	}
-	otgID := s.ResourceID()
-	if err = w.otgWriter.DefineResources(ctx, otgID); err != nil {
-		return err
-	}
-	// Symbol already exists = delete incoming relationships and define new parent
-	// Symbol does not exist = define parent
-	if exists {
-		if err = w.otgWriter.DeleteIncomingRelationshipsOfType(
-			ctx,
-			otgID,
-			ontology.RelationshipTypeParentOf,
-		); err != nil {
-			return err
+		if err == nil {
+			s.Group = stored.Group
 		}
 	}
-	return w.otgWriter.DefineRelationships(
-		ctx, parent, ontology.RelationshipTypeParentOf, otgID,
-	)
+	if err := w.table.NewCreate().Entry(s).Exec(ctx, w.tx); err != nil {
+		return err
+	}
+	return w.otgWriter.DefineResources(ctx, s.ResourceID())
 }
 
-// CreateMany creates the given symbols as children of the ontology.Resource with the
-// given parent ID. If symbols with the same key already exist, they will be
-// overwritten.
-func (w Writer) CreateMany(
-	ctx context.Context,
-	symbols *[]Symbol,
-	parent resource.ID,
-) error {
+// CreateMany creates the given symbols. If symbols with the same key already exist,
+// they will be overwritten.
+func (w Writer) CreateMany(ctx context.Context, symbols *[]Symbol) error {
 	for i := range *symbols {
-		if err := w.Create(ctx, &(*symbols)[i], parent); err != nil {
+		if err := w.Create(ctx, &(*symbols)[i]); err != nil {
 			return err
 		}
 	}
 	return nil
 }
 
+// SetGroup moves the symbols with keys into g, or out of their group when g is nil.
+func (w Writer) SetGroup(ctx context.Context, g *group.Key, keys ...Key) error {
+	return w.table.NewUpdate().
+		Where(gorp.MatchKeys[Key, Symbol](keys...)).
+		Change(func(_ gorp.Context, s Symbol) Symbol {
+			s.Group = g
+			return s
+		}).
+		Exec(ctx, w.tx)
+}
+
 // Rename renames the symbol with the given key to the provided name.
 func (w Writer) Rename(ctx context.Context, key Key, name string) error {
 	return w.table.NewUpdate().
-		Where(MatchKeys(key)).
+		Where(gorp.MatchKeys[Key, Symbol](key)).
 		Change(func(_ gorp.Context, s Symbol) Symbol {
 			s.Name = name
 			return s
@@ -104,7 +94,7 @@ func (w Writer) Rename(ctx context.Context, key Key, name string) error {
 // Delete deletes the symbols with the given keys.
 func (w Writer) Delete(ctx context.Context, keys ...Key) error {
 	if err := w.table.NewDelete().
-		Where(MatchKeys(keys...)).
+		Where(gorp.MatchKeys[Key, Symbol](keys...)).
 		Exec(ctx, w.tx); err != nil {
 		return err
 	}

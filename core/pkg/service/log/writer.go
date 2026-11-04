@@ -15,8 +15,11 @@ import (
 
 	"github.com/synnaxlabs/gorp"
 	"github.com/synnaxlabs/synnax/pkg/service/actions"
+	"github.com/synnaxlabs/synnax/pkg/service/group"
 	"github.com/synnaxlabs/synnax/pkg/service/ontology"
 	"github.com/synnaxlabs/synnax/pkg/service/project"
+	"github.com/synnaxlabs/x/errors"
+	"github.com/synnaxlabs/x/query"
 )
 
 // Writer is used to create, update, and delete logs within Synnax. The writer executes
@@ -49,11 +52,16 @@ func (w Writer) Create(ctx context.Context, projectKey project.Key, l *Log) erro
 	if l.Key == uuid.Nil() {
 		l.Key = uuid.New()
 	} else {
-		if exists, err = w.
-			table.
-			NewRetrieve().
-			Where(gorp.MatchKeys[Key, Log](l.Key)).Exists(ctx, w.tx); err != nil {
+		var stored Log
+		err = w.table.NewRetrieve().
+			Where(gorp.MatchKeys[Key, Log](l.Key)).
+			Entry(&stored).
+			Exec(ctx, w.tx)
+		if errors.Skip(err, query.ErrNotFound) != nil {
 			return err
+		}
+		if exists = err == nil; exists {
+			l.Group = stored.Group
 		}
 	}
 	l.ApplyDefaults()
@@ -85,6 +93,28 @@ func (w Writer) Create(ctx context.Context, projectKey project.Key, l *Log) erro
 		l.Key,
 		NewCreateAction(CreatePayload{Log: *l}),
 	)
+	return nil
+}
+
+// SetGroup moves the logs with keys into g, or out of their group when g is nil.
+func (w Writer) SetGroup(ctx context.Context, g *group.Key, keys ...Key) error {
+	if err := w.table.NewUpdate().
+		Where(gorp.MatchKeys[Key, Log](keys...)).
+		Change(func(_ gorp.Context, e Log) Log {
+			e.Group = g
+			return e
+		}).
+		Exec(ctx, w.tx); err != nil {
+		return err
+	}
+	for _, k := range keys {
+		w.dispatcher.NotifyOnCommit(
+			ctx,
+			w.tx,
+			k,
+			NewSetGroupAction(SetGroupPayload{Group: g}),
+		)
+	}
 	return nil
 }
 

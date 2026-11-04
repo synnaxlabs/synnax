@@ -44,7 +44,7 @@ type ServiceConfig struct {
 	//
 	// [REQUIRED]
 	Ontology *ontology.Ontology
-	// Group is used to create device related groups of ontology resources.
+	// Group checks that a device's group sits under the device's rack.
 	//
 	// [REQUIRED]
 	Group *group.Service
@@ -87,8 +87,8 @@ func (c ServiceConfig) Validate() error {
 	v := validate.New("device")
 	v.NotNil("db", c.DB)
 	v.NotNil("ontology", c.Ontology)
-	v.NotNil("status", c.Status)
 	v.NotNil("group", c.Group)
+	v.NotNil("status", c.Status)
 	v.NotNil("rack", c.Rack)
 	return v.Error()
 }
@@ -101,7 +101,6 @@ type Service struct {
 	closer  xio.MultiCloser
 	table   *gorp.Table[Key, Device]
 	indexes indexes
-	group   group.Group
 }
 
 // OpenService opens a new device service using the provided configuration. If error
@@ -116,24 +115,15 @@ func OpenService(ctx context.Context, cfgs ...ServiceConfig) (s *Service, err er
 	cleanup, ok := service.NewOpener(ctx, &s.closer)
 	defer func() { err = cleanup(err) }()
 	if s.table, err = gorp.OpenTable(ctx, gorp.TableConfig[Key, Device]{
-		DB:      cfg.DB,
-		Name:    tableName,
-		Indexes: s.indexes.all(),
+		DB:         cfg.DB,
+		Name:       tableName,
+		Indexes:    s.indexes.all(),
+		References: s.indexes.references(),
 		Migrations: versions.NewMigrations(
 			versions.MigrationsConfig{Status: cfg.Status},
 		),
 		Instrumentation: cfg.Instrumentation,
 	}); !ok(err, s.table) {
-		return nil, err
-	}
-	if s.group, err = cfg.Group.CreateOrRetrieve(
-		ctx,
-		"Devices",
-		ontology.RootID,
-	); !ok(
-		err,
-		nil,
-	) {
 		return nil, err
 	}
 	cfg.Ontology.RegisterService(s)
@@ -154,11 +144,6 @@ func OpenService(ctx context.Context, cfgs ...ServiceConfig) (s *Service, err er
 // Close closes the device service and releases any resources that it may have acquired.
 func (s *Service) Close() error { return s.closer.Close() }
 
-// RootGroup returns the permanent group for devices. Note that racks will be children
-// of this group, and devices will be children of racks (or children of groups that are
-// children of racks).
-func (s *Service) RootGroup() group.Group { return s.group }
-
 // NewWriter opens a new Writer to create, update, and delete devices. If tx is not nil,
 // the writer will use that transaction. If tx is nil, the writer will execute
 // operations directly against the underlying gorp.DB.
@@ -167,7 +152,7 @@ func (s *Service) NewWriter(tx gorp.Tx) Writer {
 	return Writer{
 		tx:       tx,
 		otg:      s.cfg.Ontology.NewWriter(tx),
-		group:    s.group,
+		group:    s.cfg.Group,
 		status:   s.cfg.Status.NewWriter(tx),
 		statuses: s.cfg.Status,
 		table:    s.table,

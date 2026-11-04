@@ -20,7 +20,6 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/service/access/rbac/migrations"
 	"github.com/synnaxlabs/synnax/pkg/service/access/rbac/policy"
 	"github.com/synnaxlabs/synnax/pkg/service/access/rbac/role"
-	"github.com/synnaxlabs/synnax/pkg/service/group"
 	"github.com/synnaxlabs/synnax/pkg/service/ontology"
 	"github.com/synnaxlabs/synnax/pkg/service/resource"
 	"github.com/synnaxlabs/synnax/pkg/service/signals"
@@ -55,11 +54,6 @@ type ServiceConfig struct {
 	//
 	// [OPTIONAL] - Defaults to nil.
 	Signals *signals.Provider
-	// Group is the top-level group service used to create the built-in "Roles" and
-	// "Policies" groups that own the corresponding resources in the ontology.
-	//
-	// [REQUIRED]
-	Group *group.Service
 	// User is the user service used to load existing root users so the Owner role can
 	// be assigned to them during startup.
 	//
@@ -75,7 +69,6 @@ func (c ServiceConfig) Override(other ServiceConfig) ServiceConfig {
 	c.DB = override.Nil(c.DB, other.DB)
 	c.Ontology = override.Nil(c.Ontology, other.Ontology)
 	c.Signals = override.Nil(c.Signals, other.Signals)
-	c.Group = override.Nil(c.Group, other.Group)
 	c.User = override.Nil(c.User, other.User)
 	return c
 }
@@ -85,7 +78,6 @@ func (c ServiceConfig) Validate() error {
 	v := validate.New("rbac")
 	v.NotNil("db", c.DB)
 	v.NotNil("ontology", c.Ontology)
-	v.NotNil("group", c.Group)
 	v.NotNil("user", c.User)
 	return v.Error()
 }
@@ -128,7 +120,6 @@ func OpenService(
 		DB:              cfg.DB,
 		Ontology:        cfg.Ontology,
 		Signals:         cfg.Signals,
-		Group:           cfg.Group,
 	}); !ok(err, s.Role) {
 		return nil, err
 	}

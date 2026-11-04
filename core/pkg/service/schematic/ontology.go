@@ -48,6 +48,7 @@ var schema = zyn.Object(map[string]zyn.Schema{
 	"key":      zyn.UUID(),
 	"name":     zyn.String(),
 	"snapshot": zyn.Bool(),
+	"group":    zyn.UUID().Optional(),
 })
 
 func newResource(s Schematic) ontology.Resource {

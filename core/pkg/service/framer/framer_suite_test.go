@@ -66,7 +66,6 @@ func newFramerConfig(ctx context.Context, n testutil.Node) framer.ServiceConfig 
 		DB:           n.DB,
 		HostProvider: n.Cluster,
 		Ontology:     otg,
-		Group:        groupSvc,
 		Status:       statusSvc,
 	}))
 	graph := MustOpen(calcgraph.Open(ctx, calcgraph.Config{

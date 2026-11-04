@@ -37,6 +37,14 @@ func (CreatePayload) Handle(Log) (Log, error) {
 	)
 }
 
+// Handle rejects a client dispatch. The Core moves a log into a group through its
+// writer and emits this action itself.
+func (SetGroupPayload) Handle(Log) (Log, error) {
+	return Log{}, errors.Wrap(
+		validate.ErrValidation, "only the Core dispatches a log group change",
+	)
+}
+
 // Handle replaces the log's name.
 func (p RenamePayload) Handle(state Log) (Log, error) {
 	state.Name = p.Name

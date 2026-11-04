@@ -16,13 +16,14 @@ import (
 	"github.com/synnaxlabs/gorp"
 	"github.com/synnaxlabs/synnax/pkg/service/group"
 	"github.com/synnaxlabs/synnax/pkg/service/ontology"
+	"github.com/synnaxlabs/x/errors"
+	"github.com/synnaxlabs/x/query"
 	"github.com/synnaxlabs/x/validate"
 )
 
 type Writer struct {
 	tx    gorp.Tx
 	otg   ontology.Writer
-	group group.Group
 	table *gorp.Table[Key, Project]
 }
 
@@ -32,6 +33,18 @@ func (w Writer) Create(
 ) (err error) {
 	if p.Key == uuid.Nil() {
 		p.Key = uuid.New()
+	} else {
+		var stored Project
+		err = w.table.NewRetrieve().
+			Where(gorp.MatchKeys[Key, Project](p.Key)).
+			Entry(&stored).
+			Exec(ctx, w.tx)
+		if errors.Skip(err, query.ErrNotFound) != nil {
+			return err
+		}
+		if err == nil {
+			p.Group = stored.Group
+		}
 	}
 	if err = p.Validate(); err != nil {
 		return err
@@ -39,19 +52,18 @@ func (w Writer) Create(
 	if err = w.table.NewCreate().Entry(p).Exec(ctx, w.tx); err != nil {
 		return err
 	}
-	otgID := p.ResourceID()
-	if err := w.otg.DefineResources(ctx, otgID); err != nil {
-		return err
-	}
-	if err := w.otg.DefineRelationships(
-		ctx,
-		w.group.ResourceID(),
-		ontology.RelationshipTypeParentOf,
-		otgID,
-	); err != nil {
-		return err
-	}
-	return err
+	return w.otg.DefineResources(ctx, p.ResourceID())
+}
+
+// SetGroup moves the projects with keys into g, or out of their group when g is nil.
+func (w Writer) SetGroup(ctx context.Context, g *group.Key, keys ...Key) error {
+	return w.table.NewUpdate().
+		Where(gorp.MatchKeys[Key, Project](keys...)).
+		Change(func(_ gorp.Context, p Project) Project {
+			p.Group = g
+			return p
+		}).
+		Exec(ctx, w.tx)
 }
 
 // CreateMany creates the given projects. If projects with the same key already

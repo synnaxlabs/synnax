@@ -16,6 +16,7 @@ import (
 	. "github.com/onsi/gomega"
 	"github.com/samber/lo"
 	"github.com/synnaxlabs/gorp"
+	"github.com/synnaxlabs/synnax/pkg/service/group"
 	"github.com/synnaxlabs/synnax/pkg/service/ontology"
 	"github.com/synnaxlabs/synnax/pkg/service/resource"
 	"github.com/synnaxlabs/synnax/pkg/service/schematic/symbol"
@@ -39,13 +40,13 @@ var _ = Describe("Writer", func() {
 					},
 				},
 			}
-			Expect(svc.NewWriter(tx).Create(ctx, &sym, proj.ResourceID())).To(Succeed())
+			Expect(svc.NewWriter(tx).Create(ctx, &sym)).To(Succeed())
 			Expect(sym.Key).ToNot(Equal(uuid.Nil()))
 		})
 
 		DescribeTable("Should reject a symbol that fails schema validation",
 			func(ctx SpecContext, sym symbol.Symbol, msg string) {
-				Expect(svc.NewWriter(tx).Create(ctx, &sym, proj.ResourceID())).
+				Expect(svc.NewWriter(tx).Create(ctx, &sym)).
 					To(MatchError(ContainSubstring(msg)))
 			},
 			Entry("missing name", symbol.Symbol{
@@ -74,7 +75,7 @@ var _ = Describe("Writer", func() {
 				Name: "defaults",
 				Data: symbol.Spec{SVG: "<svg/>", Variant: "valve"},
 			}
-			Expect(svc.NewWriter(tx).Create(ctx, &sym, proj.ResourceID())).To(Succeed())
+			Expect(svc.NewWriter(tx).Create(ctx, &sym)).To(Succeed())
 			// Defaults are stamped on the caller's struct.
 			Expect(sym.Data.Scale).To(Equal(1.0))
 
@@ -93,7 +94,7 @@ var _ = Describe("Writer", func() {
 				Name: "predefined-key-symbol",
 				Data: symbol.Spec{SVG: "<svg>...</svg>", Variant: "valve"},
 			}
-			Expect(svc.NewWriter(tx).Create(ctx, &sym, proj.ResourceID())).To(Succeed())
+			Expect(svc.NewWriter(tx).Create(ctx, &sym)).To(Succeed())
 			Expect(sym.Key).To(Equal(key))
 		})
 
@@ -107,7 +108,7 @@ var _ = Describe("Writer", func() {
 					Data: symbol.Spec{SVG: "<svg>original</svg>", Variant: "valve"},
 				}
 				Expect(
-					svc.NewWriter(tx).Create(ctx, &sym1, proj.ResourceID()),
+					svc.NewWriter(tx).Create(ctx, &sym1),
 				).To(Succeed())
 
 				sym2 := symbol.Symbol{
@@ -116,7 +117,7 @@ var _ = Describe("Writer", func() {
 					Data: symbol.Spec{SVG: "<svg>updated</svg>", Variant: "valve"},
 				}
 				Expect(
-					svc.NewWriter(tx).Create(ctx, &sym2, proj.ResourceID()),
+					svc.NewWriter(tx).Create(ctx, &sym2),
 				).To(Succeed())
 
 				var retrieved symbol.Symbol
@@ -131,56 +132,80 @@ var _ = Describe("Writer", func() {
 			},
 		)
 
-		It("Should properly set ontology relationships", func(ctx SpecContext) {
+		It("Should define the symbol's ontology resource", func(ctx SpecContext) {
 			sym := symbol.Symbol{
 				Name: "ontology-test",
 				Data: symbol.Spec{SVG: "<svg>...</svg>", Variant: "valve"},
 			}
-			Expect(svc.NewWriter(tx).Create(ctx, &sym, proj.ResourceID())).To(Succeed())
-
+			Expect(svc.NewWriter(tx).Create(ctx, &sym)).To(Succeed())
 			var res []ontology.Resource
 			Expect(otg.NewRetrieve().
-				WhereIDs(proj.ResourceID()).
-				TraverseTo(ontology.ChildrenTraverser).
+				WhereIDs(sym.ResourceID()).
 				Entries(&res).
 				Exec(ctx, tx)).To(Succeed())
+			Expect(res).To(HaveLen(1))
+		})
 
-			keys := lo.Map(
-				res,
-				func(r ontology.Resource, _ int) string { return r.ID.Key },
-			)
-			Expect(keys).To(ContainElement(sym.Key.String()))
+		It("Should create a symbol in a group", func(ctx SpecContext) {
+			g := group.Group{Name: "Valves", Scope: resource.TypeSchematicSymbol}
+			Expect(groupSvc.NewWriter(tx).Create(ctx, &g)).To(Succeed())
+			sym := symbol.Symbol{
+				Name:  "group-test",
+				Data:  symbol.Spec{SVG: "<svg>...</svg>", Variant: "valve"},
+				Group: &g.Key,
+			}
+			Expect(svc.NewWriter(tx).Create(ctx, &sym)).To(Succeed())
+			var res []symbol.Symbol
+			Expect(svc.NewRetrieve().
+				Where(symbol.MatchGroups(g.Key)).
+				Entries(&res).
+				Exec(ctx, tx)).To(Succeed())
+			Expect(res).To(HaveLen(1))
+			Expect(res[0].Key).To(Equal(sym.Key))
 		})
 
 		It(
-			"Should create a Symbol under the permanent symbols group if provided",
+			"Should keep the group of a symbol that already exists",
 			func(ctx SpecContext) {
+				g := group.Group{Name: "Kept", Scope: resource.TypeSchematicSymbol}
+				Expect(groupSvc.NewWriter(tx).Create(ctx, &g)).To(Succeed())
 				sym := symbol.Symbol{
-					Name: "group-test",
-					Data: symbol.Spec{SVG: "<svg>...</svg>", Variant: "valve"},
+					Name:  "kept",
+					Data:  symbol.Spec{SVG: "<svg/>", Variant: "valve"},
+					Group: &g.Key,
 				}
-				groupResourceID := resource.ID{
-					Type: "group",
-					Key:  svc.Group().Key.String(),
-				}
-				Expect(
-					svc.NewWriter(tx).Create(ctx, &sym, groupResourceID),
-				).To(Succeed())
-
-				var res []ontology.Resource
-				Expect(otg.NewRetrieve().
-					WhereIDs(groupResourceID).
-					TraverseTo(ontology.ChildrenTraverser).
-					Entries(&res).
-					Exec(ctx, tx)).To(Succeed())
-
-				keys := lo.Map(
-					res,
-					func(r ontology.Resource, _ int) string { return r.ID.Key },
-				)
-				Expect(keys).To(ContainElement(sym.Key.String()))
+				Expect(svc.NewWriter(tx).Create(ctx, &sym)).To(Succeed())
+				sym.Group = nil
+				sym.Name = "kept-renamed"
+				Expect(svc.NewWriter(tx).Create(ctx, &sym)).To(Succeed())
+				Expect(sym.Group).To(Equal(&g.Key))
 			},
 		)
+	})
+
+	Describe("SetGroup", func() {
+		It("Should move symbols into a group and back out", func(ctx SpecContext) {
+			g := group.Group{Name: "Moved", Scope: resource.TypeSchematicSymbol}
+			Expect(groupSvc.NewWriter(tx).Create(ctx, &g)).To(Succeed())
+			sym := symbol.Symbol{
+				Name: "moved",
+				Data: symbol.Spec{SVG: "<svg/>", Variant: "valve"},
+			}
+			w := svc.NewWriter(tx)
+			Expect(w.Create(ctx, &sym)).To(Succeed())
+			Expect(w.SetGroup(ctx, &g.Key, sym.Key)).To(Succeed())
+			retrieve := func() symbol.Symbol {
+				var res symbol.Symbol
+				Expect(svc.NewRetrieve().
+					Where(symbol.MatchKeys(sym.Key)).
+					Entry(&res).
+					Exec(ctx, tx)).To(Succeed())
+				return res
+			}
+			Expect(retrieve().Group).To(Equal(&g.Key))
+			Expect(w.SetGroup(ctx, nil, sym.Key)).To(Succeed())
+			Expect(retrieve().Group).To(BeNil())
+		})
 	})
 
 	Describe("CreateMany", func() {
@@ -196,7 +221,7 @@ var _ = Describe("Writer", func() {
 				},
 			}
 			Expect(
-				svc.NewWriter(tx).CreateMany(ctx, &symbols, proj.ResourceID()),
+				svc.NewWriter(tx).CreateMany(ctx, &symbols),
 			).To(Succeed())
 
 			var retrieved []symbol.Symbol
@@ -214,7 +239,7 @@ var _ = Describe("Writer", func() {
 				Name: "original-name",
 				Data: symbol.Spec{SVG: "<svg>...</svg>", Variant: "valve"},
 			}
-			Expect(svc.NewWriter(tx).Create(ctx, &sym, proj.ResourceID())).To(Succeed())
+			Expect(svc.NewWriter(tx).Create(ctx, &sym)).To(Succeed())
 			Expect(svc.NewWriter(tx).Rename(ctx, sym.Key, "new-name")).To(Succeed())
 
 			var res symbol.Symbol
@@ -239,7 +264,7 @@ var _ = Describe("Writer", func() {
 				Name: "data-preservation-test",
 				Data: originalData,
 			}
-			Expect(svc.NewWriter(tx).Create(ctx, &sym, proj.ResourceID())).To(Succeed())
+			Expect(svc.NewWriter(tx).Create(ctx, &sym)).To(Succeed())
 			Expect(svc.NewWriter(tx).Rename(ctx, sym.Key, "renamed")).To(Succeed())
 
 			var res symbol.Symbol
@@ -259,7 +284,7 @@ var _ = Describe("Writer", func() {
 				Name: "to-delete",
 				Data: symbol.Spec{SVG: "<svg>...</svg>", Variant: "valve"},
 			}
-			Expect(svc.NewWriter(tx).Create(ctx, &sym, proj.ResourceID())).To(Succeed())
+			Expect(svc.NewWriter(tx).Create(ctx, &sym)).To(Succeed())
 			Expect(svc.NewWriter(tx).Delete(ctx, sym.Key)).To(Succeed())
 
 			var res symbol.Symbol
@@ -285,13 +310,13 @@ var _ = Describe("Writer", func() {
 			}
 
 			Expect(
-				svc.NewWriter(tx).Create(ctx, &sym1, proj.ResourceID()),
+				svc.NewWriter(tx).Create(ctx, &sym1),
 			).To(Succeed())
 			Expect(
-				svc.NewWriter(tx).Create(ctx, &sym2, proj.ResourceID()),
+				svc.NewWriter(tx).Create(ctx, &sym2),
 			).To(Succeed())
 			Expect(
-				svc.NewWriter(tx).Create(ctx, &sym3, proj.ResourceID()),
+				svc.NewWriter(tx).Create(ctx, &sym3),
 			).To(Succeed())
 
 			Expect(svc.NewWriter(tx).Delete(ctx, sym1.Key, sym2.Key)).To(Succeed())
@@ -305,41 +330,18 @@ var _ = Describe("Writer", func() {
 			Expect(res[0].Key).To(Equal(sym3.Key))
 		})
 
-		It("Should remove ontology relationships when deleting", func(ctx SpecContext) {
+		It("Should remove the ontology resource when deleting", func(ctx SpecContext) {
 			sym := symbol.Symbol{
 				Name: "ontology-delete-test",
 				Data: symbol.Spec{SVG: "<svg>...</svg>", Variant: "valve"},
 			}
-			Expect(svc.NewWriter(tx).Create(ctx, &sym, proj.ResourceID())).To(Succeed())
-
-			// Verify it exists in ontology
-			var resBefore []ontology.Resource
-			Expect(otg.NewRetrieve().
-				WhereIDs(proj.ResourceID()).
-				TraverseTo(ontology.ChildrenTraverser).
-				Entries(&resBefore).
-				Exec(ctx, tx)).To(Succeed())
-			keysBefore := lo.Map(
-				resBefore,
-				func(r ontology.Resource, _ int) string { return r.ID.Key },
-			)
-			Expect(keysBefore).To(ContainElement(sym.Key.String()))
-
-			// Delete the symbol
+			Expect(svc.NewWriter(tx).Create(ctx, &sym)).To(Succeed())
 			Expect(svc.NewWriter(tx).Delete(ctx, sym.Key)).To(Succeed())
-
-			// Verify it's removed from ontology
-			var resAfter []ontology.Resource
+			var res []ontology.Resource
 			Expect(otg.NewRetrieve().
-				WhereIDs(proj.ResourceID()).
-				TraverseTo(ontology.ChildrenTraverser).
-				Entries(&resAfter).
-				Exec(ctx, tx)).To(Succeed())
-			keysAfter := lo.Map(
-				resAfter,
-				func(r ontology.Resource, _ int) string { return r.ID.Key },
-			)
-			Expect(keysAfter).ToNot(ContainElement(sym.Key.String()))
+				WhereIDs(sym.ResourceID()).
+				Entries(&res).
+				Exec(ctx, tx)).To(MatchError(query.ErrNotFound))
 		})
 	})
 })

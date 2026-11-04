@@ -18,6 +18,7 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/service/group"
 	"github.com/synnaxlabs/synnax/pkg/service/imex"
 	"github.com/synnaxlabs/synnax/pkg/service/ontology"
+	"github.com/synnaxlabs/synnax/pkg/service/resource"
 	"github.com/synnaxlabs/synnax/pkg/service/schematic/symbol/versions"
 	"github.com/synnaxlabs/synnax/pkg/service/signals"
 	"github.com/synnaxlabs/x/config"
@@ -42,8 +43,7 @@ type ServiceConfig struct {
 	//
 	// [REQUIRED]
 	Ontology *ontology.Ontology
-	// Group is used to create and manage the permanent group for symbols, and to delete
-	// the groups that hold them.
+	// Group creates and deletes the groups that hold symbols.
 	//
 	// [REQUIRED]
 	Group *group.Service
@@ -83,11 +83,10 @@ func (c ServiceConfig) Validate() error {
 
 // Service is the primary service for retrieving and modifying symbols from Synnax.
 type Service struct {
-	cfg    ServiceConfig
-	closer xio.MultiCloser
-	group  group.Group
-	table  *gorp.Table[Key, Symbol]
-	search *gorp.SearchIndex[Key, Symbol]
+	cfg     ServiceConfig
+	closer  xio.MultiCloser
+	table   *gorp.Table[Key, Symbol]
+	indexes indexes
 }
 
 // OpenService instantiates a new symbol service using the provided configurations. Each
@@ -98,22 +97,17 @@ func OpenService(ctx context.Context, cfgs ...ServiceConfig) (s *Service, err er
 	if err != nil {
 		return nil, err
 	}
-	s = &Service{cfg: cfg, search: newSearchIndex()}
+	s = &Service{cfg: cfg, indexes: newIndexes()}
 	cleanup, ok := service.NewOpener(ctx, &s.closer)
 	defer func() { err = cleanup(err) }()
 	if s.table, err = gorp.OpenTable(ctx, gorp.TableConfig[Key, Symbol]{
 		DB:              cfg.DB,
-		Indexes:         []gorp.Index[Key, Symbol]{s.search},
+		Name:            string(resource.TypeSchematicSymbol),
+		Indexes:         s.indexes.all(),
+		References:      s.indexes.references(),
 		Migrations:      versions.Migrations,
 		Instrumentation: cfg.Instrumentation,
 	}); !ok(err, s.table) {
-		return nil, err
-	}
-	if s.group, err = cfg.Group.CreateOrRetrieve(
-		ctx,
-		"Schematic Symbols",
-		ontology.RootID,
-	); !ok(err, nil) {
 		return nil, err
 	}
 	cfg.Ontology.RegisterService(s)
@@ -140,7 +134,6 @@ func (s *Service) NewWriter(tx gorp.Tx) Writer {
 	return Writer{
 		tx:        tx,
 		otgWriter: s.cfg.Ontology.NewWriter(tx),
-		otg:       s.cfg.Ontology,
 		table:     s.table,
 	}
 }
@@ -148,14 +141,11 @@ func (s *Service) NewWriter(tx gorp.Tx) Writer {
 // NewRetrieve opens a new query build for retrieving symbols from Synnax.
 func (s *Service) NewRetrieve() Retrieve {
 	return Retrieve{
-		gorp:   s.table.NewRetrieve(),
-		baseTX: s.cfg.DB,
-		search: s.search,
+		gorp:    s.table.NewRetrieve(),
+		baseTX:  s.cfg.DB,
+		indexes: s.indexes,
 	}
 }
-
-// Group returns the permanent group for schematic symbols.
-func (s *Service) Group() group.Group { return s.group }
 
 // Close closes the symbol service, shutting down signal publishers.
 func (s *Service) Close() error { return s.closer.Close() }

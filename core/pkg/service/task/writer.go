@@ -18,7 +18,6 @@ import (
 	"github.com/samber/lo"
 	"github.com/synnaxlabs/gorp"
 	"github.com/synnaxlabs/synnax/pkg/service/actions"
-	"github.com/synnaxlabs/synnax/pkg/service/group"
 	"github.com/synnaxlabs/synnax/pkg/service/ontology"
 	"github.com/synnaxlabs/synnax/pkg/service/rack"
 	"github.com/synnaxlabs/synnax/pkg/service/status"
@@ -33,7 +32,6 @@ type Writer struct {
 	tx         gorp.Tx
 	otgWriter  ontology.Writer
 	otg        *ontology.Ontology
-	group      group.Group
 	status     status.Writer
 	statuses   *status.Service
 	table      *gorp.Table[Key, Task]
@@ -193,21 +191,10 @@ func (w Writer) Create(ctx context.Context, t *Task) error {
 	if err != nil {
 		return err
 	}
-	if !exists {
-		if err = w.otgWriter.DefineResources(ctx, otgID); err != nil {
-			return err
-		}
-	}
-	// Internal tasks get no group parent, keeping them out of the resource tree.
-	if t.Internal || exists {
+	if exists {
 		return nil
 	}
-	return w.otgWriter.DefineRelationships(
-		ctx,
-		w.group.ResourceID(),
-		ontology.RelationshipTypeParentOf,
-		otgID,
-	)
+	return w.otgWriter.DefineResources(ctx, otgID)
 }
 
 // CreateMany creates the given tasks. If tasks with the same key already exist, they

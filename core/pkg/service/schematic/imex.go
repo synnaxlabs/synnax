@@ -47,6 +47,7 @@ func (s *Service) Import(
 	if err != nil {
 		return resource.ID{}, err
 	}
+	sch.Group = opts.Group
 	if err = s.NewWriter(tx).Create(ctx, proj, &sch); err != nil {
 		return resource.ID{}, err
 	}

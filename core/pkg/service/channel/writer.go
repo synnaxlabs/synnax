@@ -47,7 +47,6 @@ type Writer struct {
 type createOptions struct {
 	retrieveIfNameExists                        bool
 	overwriteIfNameExistsAndDifferentProperties bool
-	createWithoutGroupRelationship              bool
 }
 
 // CreateOption configures the behavior of a Create or CreateMany call.
@@ -69,10 +68,15 @@ func OverwriteIfNameExistsAndDifferentProperties() CreateOption {
 	}
 }
 
-// CreateWithoutGroupRelationship returns a CreateOption that skips creating the
-// ontology relationship between the channel and its group.
-func CreateWithoutGroupRelationship() CreateOption {
-	return func(o *createOptions) { o.createWithoutGroupRelationship = true }
+// SetGroup moves the channels with keys into g, or out of their group when g is nil.
+func (w Writer) SetGroup(ctx context.Context, g *group.Key, keys ...Key) error {
+	return w.svc.table.NewUpdate().
+		Where(gorp.MatchKeys[Key, Channel](keys...)).
+		Change(func(_ gorp.Context, c Channel) Channel {
+			c.Group = g
+			return c
+		}).
+		Exec(ctx, w.tx)
 }
 
 // Create creates a single channel, inferring the DataType if it is calculated.
@@ -147,16 +151,17 @@ func (w Writer) ChangeDataType(
 		Exec(ctx, w.tx)
 }
 
-// Delete deletes the channel with the given key, along with its storage and ontology
-// resources. Unless allowInternal is true, deleting an internal channel returns an
-// error.
+// Delete deletes the channel with the given key and its ontology resource. Its storage
+// is freed after the delete commits. Unless allowInternal is true, deleting an internal
+// channel returns an error.
 func (w Writer) Delete(ctx context.Context, key Key, allowInternal bool) error {
 	return w.DeleteMany(ctx, []Key{key}, allowInternal)
 }
 
-// DeleteMany deletes the channels with the given keys, along with their storage and
-// ontology resources. Unless allowInternal is true, deleting any internal channel
-// returns an error and no channels are deleted.
+// DeleteMany deletes the channels with the given keys and their ontology resources.
+// Their storage is freed after the delete commits. Deleting an index channel that still
+// indexes a channel the delete keeps returns a validation error. Unless allowInternal
+// is true, deleting any internal channel returns an error and no channels are deleted.
 func (w Writer) DeleteMany(ctx context.Context, keys []Key, allowInternal bool) error {
 	return w.delete(ctx, keys, allowInternal)
 }
@@ -453,23 +458,10 @@ func (w Writer) create(
 
 	*_channels = channels
 
-	// Register ontology resources and the group parent relationship for the created
-	// channels.
 	externalIDs := lo.FilterMap(channels, func(ch Channel, _ int) (resource.ID, bool) {
 		return ResourceID(ch.Key()), !ch.Internal
 	})
-	if err := w.otg.DefineResources(ctx, externalIDs...); err != nil {
-		return err
-	}
-	if opts.createWithoutGroupRelationship {
-		return nil
-	}
-	return w.otg.DefineRelationships(
-		ctx,
-		group.ResourceID(w.svc.group.Key),
-		ontology.RelationshipTypeParentOf,
-		externalIDs...,
-	)
+	return w.otg.DefineResources(ctx, externalIDs...)
 }
 
 // allocateAndWrite enforces the channel limit, then allocates keys and storage for the
@@ -625,9 +617,10 @@ func (w Writer) validateChannelNames(
 }
 
 func (w Writer) delete(ctx context.Context, keys Keys, allowInternal bool) error {
+	deleted := set.New(keys...)
 	if err := w.svc.table.NewDelete().
 		Where(gorp.MatchKeys[Key, Channel](keys...)).
-		Guard(func(_ gorp.Context, c Channel) error {
+		Guard(func(ctx gorp.Context, c Channel) error {
 			if c.Internal && !allowInternal {
 				return errors.Wrapf(
 					validate.ErrValidation,
@@ -635,17 +628,32 @@ func (w Writer) delete(ctx context.Context, keys Keys, allowInternal bool) error
 					c.Name,
 				)
 			}
+			if !c.IsIndex || c.Virtual {
+				return nil
+			}
+			var indexed []Channel
+			if err := w.svc.newRetrieve().
+				Where(MatchIndexes(c.Key())).
+				Entries(&indexed).
+				Exec(ctx, ctx.Tx); err != nil {
+				return err
+			}
+			for _, d := range indexed {
+				if !d.Virtual && d.Key() != c.Key() && !deleted.Contains(d.Key()) {
+					return errors.Wrapf(
+						validate.ErrValidation,
+						"cannot delete channel %q because it indexes data in channel %q",
+						c.Name,
+						d.Name,
+					)
+				}
+			}
 			return nil
 		}).
 		Exec(ctx, w.tx); err != nil {
 		return err
 	}
 	if err := w.otg.DeleteResources(ctx, ResourceIDsFromKeys(keys)...); err != nil {
-		return err
-	}
-	// Storage deletion goes last, as it is the only operation that can fail without an
-	// atomic guarantee.
-	if err := w.svc.cfg.Channel.Delete(ctx, keys); err != nil {
 		return err
 	}
 	w.svc.mu.Lock()

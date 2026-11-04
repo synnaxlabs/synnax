@@ -15,6 +15,7 @@ import (
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
+	"github.com/synnaxlabs/synnax/pkg/service/group"
 	"github.com/synnaxlabs/synnax/pkg/service/log"
 	"github.com/synnaxlabs/synnax/pkg/service/ontology"
 	"github.com/synnaxlabs/synnax/pkg/service/panel"
@@ -153,9 +154,8 @@ var _ = Describe("CreatePanels", func() {
 		refs   map[string]resource.ID
 	)
 	BeforeEach(func(ctx SpecContext) {
-		g := MustSucceed(
-			groupSvc.NewWriter(tx).Create(ctx, "Legacy Parent", ontology.RootID),
-		)
+		g := group.Group{Name: "Legacy Parent", Scope: resource.TypeProject}
+		Expect(groupSvc.NewWriter(tx).Create(ctx, &g)).To(Succeed())
 		parent = g.ResourceID()
 		l := log.Log{Name: "Metrics"}
 		Expect(logSvc.NewWriter(tx).Create(ctx, project.Key{}, &l)).To(Succeed())

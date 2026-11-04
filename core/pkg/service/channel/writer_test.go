@@ -209,28 +209,6 @@ var _ = Describe("Writer", func() {
 				ch.Leaseholder = 1
 				Expect(channelWriter.Create(ctx, &ch)).To(Succeed())
 			})
-			It(
-				"Should create the channel without a group relationship",
-				func(ctx SpecContext) {
-					ch.Name = UniqueChannelName()
-					Expect(
-						channelWriter.Create(
-							ctx,
-							&ch,
-							channel.CreateWithoutGroupRelationship(),
-						),
-					).To(Succeed())
-					entries := []ontology.Resource{}
-					Expect(otg.
-						NewRetrieve().
-						WhereIDs(ch.ResourceID()).
-						TraverseTo(ontology.ParentsTraverser).
-						Entries(&entries).
-						Exec(ctx, nil),
-					).To(Succeed())
-					Expect(entries).To(BeEmpty())
-				},
-			)
 			Context("error cases", func() {
 				It(
 					"Should return an error if the name is invalid",
@@ -1205,11 +1183,13 @@ var _ = Describe("Writer", func() {
 				"Should not be able to retrieve the channel from the time-series DB",
 				func(ctx SpecContext) {
 					Expect(channelWriter.Delete(ctx, ch.Key(), true)).To(Succeed())
-					Expect(
-						dist.Storage.TS.RetrieveChannels(ctx, ch.Key().StorageKey()),
-					).
-						Error().
-						To(MatchError(ts.ErrChannelNotFound))
+					Eventually(func() error {
+						_, err := dist.Storage.TS.RetrieveChannels(
+							ctx,
+							ch.Key().StorageKey(),
+						)
+						return err
+					}).Should(MatchError(ts.ErrChannelNotFound))
 				},
 			)
 		})
@@ -1583,7 +1563,7 @@ var _ = Describe("Writer", func() {
 			},
 		)
 		It(
-			"Should not edit the channel limit if a deletion fails in TS",
+			"Should free the channel limit when a channel held by a writer is deleted",
 			func(ctx SpecContext) {
 				createdChannels := make([]channel.Channel, int(limit))
 				for i := range limit {
@@ -1600,15 +1580,14 @@ var _ = Describe("Writer", func() {
 					Keys: []channel.Key{createdChannels[0].Key()},
 				}))
 				Expect(limitWriter.Delete(ctx, createdChannels[0].Key(), false)).
-					To(MatchError(ContainSubstring("1 unclosed writers/iterators")))
+					To(Succeed())
 				newCh := channel.Channel{
 					IsIndex:     true,
 					DataType:    telem.TimestampT,
 					Name:        "NewAfterDelete",
 					Leaseholder: 1,
 				}
-				Expect(limitWriter.Create(ctx, &newCh)).
-					To(MatchError(ContainSubstring("channel limit exceeded")))
+				Expect(limitWriter.Create(ctx, &newCh)).To(Succeed())
 			},
 		)
 	})

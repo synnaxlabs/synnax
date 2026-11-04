@@ -61,7 +61,6 @@ var _ = BeforeSuite(func(ctx SpecContext) {
 		DB:           mockNode.DB,
 		HostProvider: mockNode.Cluster,
 		Ontology:     otg,
-		Group:        groupSvc,
 		Status:       statusSvc,
 	}))
 	channelWriter = channelSvc.NewWriter(nil)

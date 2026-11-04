@@ -62,7 +62,6 @@ var _ = Describe("Device", func() {
 		rackSvc = MustOpen(rack.OpenService(ctx, rack.ServiceConfig{
 			DB:           db,
 			Ontology:     otg,
-			Group:        groupSvc,
 			HostProvider: testutil.NewStaticHostProvider(1),
 			Status:       stat,
 			DriverRole:   MustSucceed(racktestutil.CreateDriverRole(ctx, otg)),
@@ -1171,7 +1170,6 @@ var _ = Describe("Device", func() {
 			rackSvc := MustOpen(rack.OpenService(ctx, rack.ServiceConfig{
 				DB:           db,
 				Ontology:     otg,
-				Group:        groupSvc,
 				HostProvider: testutil.NewStaticHostProvider(1),
 				Status:       stat,
 				DriverRole:   MustSucceed(racktestutil.CreateDriverRole(ctx, otg)),
@@ -1228,7 +1226,6 @@ var _ = Describe("Device", func() {
 				rackSvc := MustOpen(rack.OpenService(ctx, rack.ServiceConfig{
 					DB:                  db,
 					Ontology:            otg,
-					Group:               groupSvc,
 					HostProvider:        testutil.NewStaticHostProvider(1),
 					Status:              stat,
 					HealthCheckInterval: 10 * telem.Millisecond,

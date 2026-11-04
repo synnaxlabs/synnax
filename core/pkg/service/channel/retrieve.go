@@ -98,3 +98,11 @@ func formatNameMatcher(name string) func(name string) bool {
 	}
 	return rx.MatchString
 }
+
+// MatchGrouped returns a filter for channels that sit in a group when grouped is true,
+// and for channels in no group when grouped is false.
+func MatchGrouped(grouped bool) Filter {
+	return Match(func(_ gorp.Context, _ Retrieve, e *Channel) (bool, error) {
+		return (e.Group != nil) == grouped, nil
+	})
+}

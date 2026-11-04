@@ -12,6 +12,7 @@ package project_test
 import (
 	"encoding/json/v2"
 	"maps"
+	"slices"
 	"uuid"
 
 	. "github.com/onsi/ginkgo/v2"
@@ -31,6 +32,7 @@ import (
 	xjson "github.com/synnaxlabs/x/encoding/json"
 	"github.com/synnaxlabs/x/encoding/zip"
 	"github.com/synnaxlabs/x/query"
+	"github.com/synnaxlabs/x/set"
 	"github.com/synnaxlabs/x/spatial"
 	. "github.com/synnaxlabs/x/testutil"
 	"github.com/synnaxlabs/x/validate"
@@ -77,7 +79,8 @@ func createLinePlot(ctx SpecContext, proj project.Key, name string) lineplot.Lin
 
 func createGroup(ctx SpecContext, name string, parent resource.ID) group.Group {
 	GinkgoHelper()
-	g := MustSucceed(groupSvc.NewWriter(nil).Create(ctx, name, parent))
+	g := group.Group{Name: name, Parent: &parent}
+	Expect(groupSvc.NewWriter(nil).Create(ctx, &g)).To(Succeed())
 	DeferCleanup(func(ctx SpecContext) {
 		Expect(groupSvc.NewWriter(nil).Delete(ctx, g.Key)).To(Succeed())
 	})
@@ -120,22 +123,9 @@ func createPanel(
 	return p
 }
 
-func moveToGroup(ctx SpecContext, child, from, to resource.ID) {
+func moveToGroup(ctx SpecContext, l log.Log, g group.Group) {
 	GinkgoHelper()
-	w := otg.NewWriter(nil)
-	Expect(w.DeleteRelationships(ctx, ontology.Relationship{
-		From: from, Type: ontology.RelationshipTypeParentOf, To: child,
-	})).To(Succeed())
-	Expect(w.DefineRelationships(
-		ctx, to, ontology.RelationshipTypeParentOf, child,
-	)).To(Succeed())
-}
-
-func addToGroup(ctx SpecContext, child, to resource.ID) {
-	GinkgoHelper()
-	Expect(otg.NewWriter(nil).DefineRelationships(
-		ctx, to, ontology.RelationshipTypeParentOf, child,
-	)).To(Succeed())
+	Expect(logSvc.NewWriter(nil).SetGroup(ctx, &g.Key, l.Key)).To(Succeed())
 }
 
 func resourceTab(id resource.ID) panel.Tab {
@@ -148,15 +138,58 @@ func leaf(tabs ...panel.Tab) panel.Node {
 	}}
 }
 
+// childrenOf returns what the project tree shows under id: the groups and ungrouped
+// members of a project, or the groups and members of a group.
 func childrenOf(ctx SpecContext, id resource.ID) []ontology.Resource {
 	GinkgoHelper()
+	var ids []resource.ID
+	if id.Type == resource.TypeProject {
+		var groups []group.Group
+		Expect(groupSvc.NewRetrieve().
+			Where(group.MatchParents(id)).
+			Entries(&groups).
+			Exec(ctx, tx)).To(Succeed())
+		ids = group.ResourceIDsFromGroups(groups)
+		grouped := set.New[resource.ID]()
+		for _, g := range groups {
+			grouped.Add(descendants(ctx, g.Key)...)
+		}
+		var members []ontology.Resource
+		Expect(otg.NewRetrieve().
+			WhereIDs(id).
+			TraverseTo(ontology.ChildrenTraverser).
+			Entries(&members).
+			Exec(ctx, tx)).To(Succeed())
+		for _, m := range members {
+			if !grouped.Contains(m.ID) {
+				ids = append(ids, m.ID)
+			}
+		}
+	} else {
+		key := MustSucceed(group.KeyFromResourceID(id))
+		ids = MustSucceed(groupSvc.Children(tx, key))
+	}
+	if len(ids) == 0 {
+		return nil
+	}
 	var children []ontology.Resource
-	Expect(otg.NewRetrieve().
-		WhereIDs(id).
-		TraverseTo(ontology.ChildrenTraverser).
-		Entries(&children).
-		Exec(ctx, tx)).To(Succeed())
+	Expect(otg.NewRetrieve().WhereIDs(ids...).Entries(&children).Exec(ctx, tx)).
+		To(Succeed())
 	return children
+}
+
+// descendants returns every group and member that sits under the group with key.
+func descendants(ctx SpecContext, key group.Key) []resource.ID {
+	GinkgoHelper()
+	children := MustSucceed(groupSvc.Children(tx, key))
+	out := slices.Clone(children)
+	for _, c := range children {
+		if c.Type == resource.TypeGroup {
+			inner := MustSucceed(group.KeyFromResourceID(c))
+			out = append(out, descendants(ctx, inner)...)
+		}
+	}
+	return out
 }
 
 var _ = Describe("Export", func() {
@@ -199,7 +232,7 @@ var _ = Describe("Export", func() {
 		outer := createGroup(ctx, "Propulsion", proj.ResourceID())
 		inner := createGroup(ctx, "Tanks", outer.ResourceID())
 		l := createLog(ctx, proj.Key, "Pressure")
-		moveToGroup(ctx, l.ResourceID(), proj.ResourceID(), inner.ResourceID())
+		moveToGroup(ctx, l, inner)
 		createPanel(
 			ctx, "Controls", proj.ResourceID(), leaf(resourceTab(l.ResourceID())),
 		)
@@ -309,21 +342,6 @@ var _ = Describe("Export", func() {
 		Expect(root["tabs"]).To(BeEmpty())
 	})
 
-	It("Should place a document with two parent groups once", func(ctx SpecContext) {
-		proj := createProject(ctx, "Dual Parent")
-		first := createGroup(ctx, "First", proj.ResourceID())
-		second := createGroup(ctx, "Second", proj.ResourceID())
-		l := createLog(ctx, proj.Key, "Shared")
-		moveToGroup(ctx, l.ResourceID(), proj.ResourceID(), first.ResourceID())
-		addToGroup(ctx, l.ResourceID(), second.ResourceID())
-		files, members := MustSucceed2(svc.Export(ctx, proj.Key, xjson.Codec))
-		// The manifest plus one placement: the first parent keeps the document, and the
-		// other group drops as empty.
-		Expect(files).To(HaveLen(2))
-		Expect(members).To(HaveLen(2))
-		Expect(members).To(ContainElement(l.ResourceID()))
-	})
-
 	It("Should suffix the second of two members in one directory that collide", func(
 		ctx SpecContext,
 	) {
@@ -341,8 +359,8 @@ var _ = Describe("Export", func() {
 		g2 := createGroup(ctx, "valves", proj.ResourceID())
 		l1 := createLog(ctx, proj.Key, "A")
 		l2 := createLog(ctx, proj.Key, "B")
-		moveToGroup(ctx, l1.ResourceID(), proj.ResourceID(), g1.ResourceID())
-		moveToGroup(ctx, l2.ResourceID(), proj.ResourceID(), g2.ResourceID())
+		moveToGroup(ctx, l1, g1)
+		moveToGroup(ctx, l2, g2)
 		files, _ := MustSucceed2(svc.Export(ctx, proj.Key, xjson.Codec))
 		Expect(files).To(HaveKey("Valves/A.json"))
 		Expect(files).To(HaveKey("valves (1)/B.json"))
@@ -353,7 +371,7 @@ var _ = Describe("Export", func() {
 		g := createGroup(ctx, "Propulsion", proj.ResourceID())
 		outerLog := createLog(ctx, proj.Key, "Pressure")
 		innerLog := createLog(ctx, proj.Key, "Pressure")
-		moveToGroup(ctx, innerLog.ResourceID(), proj.ResourceID(), g.ResourceID())
+		moveToGroup(ctx, innerLog, g)
 		files, _ := MustSucceed2(svc.Export(ctx, proj.Key, xjson.Codec))
 		Expect(files).To(HaveKey("Pressure.json"))
 		Expect(files).To(HaveKey("Propulsion/Pressure.json"))
@@ -383,7 +401,7 @@ var _ = Describe("Export", func() {
 		proj := createProject(ctx, "Nested Reserved")
 		g := createGroup(ctx, "Configs", proj.ResourceID())
 		l := createLog(ctx, proj.Key, "manifest")
-		moveToGroup(ctx, l.ResourceID(), proj.ResourceID(), g.ResourceID())
+		moveToGroup(ctx, l, g)
 		files, _ := MustSucceed2(svc.Export(ctx, proj.Key, xjson.Codec))
 		Expect(files).To(HaveKey("Configs/manifest.json"))
 	})
@@ -636,7 +654,7 @@ var _ = Describe("Import", func() {
 		src := createProject(ctx, "Test Stand 12")
 		g := createGroup(ctx, "Propulsion", src.ResourceID())
 		grouped := createLog(ctx, src.Key, "Pressure")
-		moveToGroup(ctx, grouped.ResourceID(), src.ResourceID(), g.ResourceID())
+		moveToGroup(ctx, grouped, g)
 		createLog(ctx, src.Key, "Metrics")
 		createPanel(
 			ctx,

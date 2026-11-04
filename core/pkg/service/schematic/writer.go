@@ -15,9 +15,12 @@ import (
 
 	"github.com/synnaxlabs/gorp"
 	"github.com/synnaxlabs/synnax/pkg/service/actions"
+	"github.com/synnaxlabs/synnax/pkg/service/group"
 	"github.com/synnaxlabs/synnax/pkg/service/ontology"
 	"github.com/synnaxlabs/synnax/pkg/service/project"
 	"github.com/synnaxlabs/synnax/pkg/service/resource"
+	"github.com/synnaxlabs/x/errors"
+	"github.com/synnaxlabs/x/query"
 )
 
 // Writer is used to create, update, and delete schematics within Synnax. The writer
@@ -50,11 +53,16 @@ func (w Writer) Create(
 	if s.Key == uuid.Nil() {
 		s.Key = uuid.New()
 	} else {
-		exists, err = w.table.NewRetrieve().
+		var stored Schematic
+		err = w.table.NewRetrieve().
 			Where(gorp.MatchKeys[Key, Schematic](s.Key)).
-			Exists(ctx, w.tx)
-		if err != nil {
+			Entry(&stored).
+			Exec(ctx, w.tx)
+		if errors.Skip(err, query.ErrNotFound) != nil {
 			return err
+		}
+		if exists = err == nil; exists {
+			s.Group = stored.Group
 		}
 	}
 	s.ApplyDefaults()
@@ -86,6 +94,28 @@ func (w Writer) Create(
 		s.Key,
 		NewCreateAction(CreatePayload{Schematic: *s}),
 	)
+	return nil
+}
+
+// SetGroup moves the schematics with keys into g, or out of their group when g is nil.
+func (w Writer) SetGroup(ctx context.Context, g *group.Key, keys ...Key) error {
+	if err := w.table.NewUpdate().
+		Where(gorp.MatchKeys[Key, Schematic](keys...)).
+		Change(func(_ gorp.Context, e Schematic) Schematic {
+			e.Group = g
+			return e
+		}).
+		Exec(ctx, w.tx); err != nil {
+		return err
+	}
+	for _, k := range keys {
+		w.dispatcher.NotifyOnCommit(
+			ctx,
+			w.tx,
+			k,
+			NewSetGroupAction(SetGroupPayload{Group: g}),
+		)
+	}
 	return nil
 }
 

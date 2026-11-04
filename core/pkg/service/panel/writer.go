@@ -15,7 +15,10 @@ import (
 
 	"github.com/synnaxlabs/gorp"
 	"github.com/synnaxlabs/synnax/pkg/service/actions"
+	"github.com/synnaxlabs/synnax/pkg/service/group"
 	"github.com/synnaxlabs/synnax/pkg/service/ontology"
+	"github.com/synnaxlabs/x/errors"
+	"github.com/synnaxlabs/x/query"
 )
 
 type Writer struct {
@@ -33,7 +36,7 @@ func (w Writer) WithDispatchKey(dispatchKey string) Writer {
 }
 
 // Create creates a new panel. If the panel's key is uuid.Nil(), a new key is generated.
-// The panel is registered with the ontology.
+// An existing panel keeps its group. The panel is registered with the ontology.
 //
 // Set p.Parent to attach the panel to a parent resource in the ontology; when nil or
 // zero, the panel has no parent. Parent is not persisted on the record; parenthood
@@ -44,6 +47,18 @@ func (w Writer) Create(
 ) (err error) {
 	if p.Key == uuid.Nil() {
 		p.Key = uuid.New()
+	} else {
+		var stored Panel
+		err = w.table.NewRetrieve().
+			Where(gorp.MatchKeys[Key, Panel](p.Key)).
+			Entry(&stored).
+			Exec(ctx, w.tx)
+		if errors.Skip(err, query.ErrNotFound) != nil {
+			return err
+		}
+		if err == nil {
+			p.Group = stored.Group
+		}
 	}
 	// Default a freshly-created panel to a single empty leaf so action dispatchers
 	// always operate against a well-formed tree.
@@ -79,6 +94,28 @@ func (w Writer) Create(
 		p.Key,
 		NewCreateAction(CreatePayload{Panel: *p}),
 	)
+	return nil
+}
+
+// SetGroup moves the panels with keys into g, or out of their group when g is nil.
+func (w Writer) SetGroup(ctx context.Context, g *group.Key, keys ...Key) error {
+	if err := w.table.NewUpdate().
+		Where(gorp.MatchKeys[Key, Panel](keys...)).
+		Change(func(_ gorp.Context, e Panel) Panel {
+			e.Group = g
+			return e
+		}).
+		Exec(ctx, w.tx); err != nil {
+		return err
+	}
+	for _, k := range keys {
+		w.dispatcher.NotifyOnCommit(
+			ctx,
+			w.tx,
+			k,
+			NewSetGroupAction(SetGroupPayload{Group: g}),
+		)
+	}
 	return nil
 }
 

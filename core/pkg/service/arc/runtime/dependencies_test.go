@@ -57,7 +57,6 @@ var _ = Describe("Dependencies", Ordered, func() {
 			DB:           node.DB,
 			HostProvider: node.Cluster,
 			Ontology:     otg,
-			Group:        groupSvc,
 			Status:       statusSvc,
 		}))
 		channelWriter = channelSvc.NewWriter(nil)

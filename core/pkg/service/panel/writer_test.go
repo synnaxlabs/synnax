@@ -225,7 +225,7 @@ var _ = Describe("Writer", func() {
 
 		It("Should parent each panel to its own parent", func(ctx SpecContext) {
 			other := MustSucceed(
-				groupSvc.CreateOrRetrieve(ctx, "other-parent", ontology.RootID),
+				groupSvc.CreateOrRetrieve(ctx, "other-parent", resource.TypeProject),
 			).
 				ResourceID()
 			tx := DeferClose(db.OpenTx())

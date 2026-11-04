@@ -43,6 +43,25 @@ var _ = Describe("Migration", func() {
 			Ontology: otg,
 		}))
 	})
+	// createLegacyGroup creates a group and the parent edge a pre-v0.54 Core wrote for
+	// it.
+	createLegacyGroup := func(
+		ctx context.Context,
+		tx gorp.Tx,
+		name string,
+		parent resource.ID,
+	) group.Group {
+		GinkgoHelper()
+		g := group.Group{Name: name, Scope: resource.TypeBuiltin}
+		Expect(gSvc.NewWriter(tx).Create(ctx, &g)).To(Succeed())
+		Expect(otg.NewWriter(tx).DefineRelationships(
+			ctx,
+			parent,
+			ontology.RelationshipTypeParentOf,
+			g.ResourceID(),
+		)).To(Succeed())
+		return g
+	}
 	runMigration := func(ctx context.Context) {
 		GinkgoHelper()
 		Expect(gorp.Migrate(ctx, gorp.MigrateConfig{
@@ -67,12 +86,8 @@ var _ = Describe("Migration", func() {
 			tx := db.OpenTx()
 
 			// Create the "Ranges" group and a subgroup.
-			tlg := MustSucceed(
-				gSvc.NewWriter(tx).Create(ctx, "Ranges", ontology.RootID),
-			)
-			subGroup := MustSucceed(
-				gSvc.NewWriter(tx).Create(ctx, "Subgroup", tlg.ResourceID()),
-			)
+			tlg := createLegacyGroup(ctx, tx, "Ranges", ontology.RootID)
+			subGroup := createLegacyGroup(ctx, tx, "Subgroup", tlg.ResourceID())
 
 			// Create two ranges and their ontology resources under the subgroup.
 			r1 := v0.Range{
@@ -174,10 +189,8 @@ var _ = Describe("Migration", func() {
 				ctx, []byte("sy_ranger_migration_performed"), []byte{1},
 			)).To(Succeed())
 			tx := db.OpenTx()
-			tlg := MustSucceed(
-				gSvc.NewWriter(tx).Create(ctx, "Ranges", ontology.RootID),
-			)
-			MustSucceed(gSvc.NewWriter(tx).Create(ctx, "Subgroup", tlg.ResourceID()))
+			tlg := createLegacyGroup(ctx, tx, "Ranges", ontology.RootID)
+			createLegacyGroup(ctx, tx, "Subgroup", tlg.ResourceID())
 			Expect(tx.Commit(ctx)).To(Succeed())
 			Expect(tx.Close()).To(Succeed())
 			runMigration(ctx)

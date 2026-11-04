@@ -329,7 +329,6 @@ var _ = Describe("Legacy file import", Ordered, ContinueOnFailure, func() {
 		rackSvc := MustOpen(rack.OpenService(ctx, rack.ServiceConfig{
 			DB:                  db,
 			Ontology:            otg,
-			Group:               groupSvc,
 			HostProvider:        testutil.NewStaticHostProvider(1),
 			Status:              statusSvc,
 			HealthCheckInterval: 10 * telem.Millisecond,
@@ -388,7 +387,6 @@ var _ = Describe("Legacy file import", Ordered, ContinueOnFailure, func() {
 		svc = MustOpen(task.OpenService(ctx, task.ServiceConfig{
 			DB:       db,
 			Ontology: otg,
-			Group:    groupSvc,
 			Rack:     rackSvc,
 			Status:   statusSvc,
 			ImEx:     imexSvc,

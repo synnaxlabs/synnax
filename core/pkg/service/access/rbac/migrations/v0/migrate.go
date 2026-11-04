@@ -74,12 +74,24 @@ func NewMigration(cfg MigrationConfig) gorp.Migration {
 				userResourceID := u.ResourceID()
 				policies := policyByUser[userResourceID.String()]
 				roleKey := determineRole(u, policies, cfg.Roles)
-				if err = otgWriter.DeleteRelationships(ctx, ontology.Relationship{
-					From: cfg.Role.UsersGroup().ResourceID(),
-					Type: ontology.RelationshipTypeParentOf,
-					To:   userResourceID,
-				}); err != nil {
+				var groups []ontology.Resource
+				if err = cfg.Ontology.NewRetrieve().
+					WhereIDs(userResourceID).
+					TraverseTo(ontology.ParentsTraverser).
+					WhereTypes(resource.TypeGroup).
+					ExcludeFieldData(true).
+					Entries(&groups).
+					Exec(ctx, tx); err != nil {
 					return err
+				}
+				for _, g := range groups {
+					if err = otgWriter.DeleteRelationships(ctx, ontology.Relationship{
+						From: g.ID,
+						Type: ontology.RelationshipTypeParentOf,
+						To:   userResourceID,
+					}); err != nil {
+						return err
+					}
 				}
 				if err = roleWriter.AssignRole(
 					ctx,

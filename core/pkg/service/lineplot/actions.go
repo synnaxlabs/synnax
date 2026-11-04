@@ -28,6 +28,14 @@ func (CreatePayload) Handle(LinePlot) (LinePlot, error) {
 	)
 }
 
+// Handle rejects a client dispatch. The Core moves a line plot into a group through its
+// writer and emits this action itself.
+func (SetGroupPayload) Handle(LinePlot) (LinePlot, error) {
+	return LinePlot{}, errors.Wrap(
+		validate.ErrValidation, "only the Core dispatches a line plot group change",
+	)
+}
+
 // Handle replaces the line plot's name.
 func (p RenamePayload) Handle(state LinePlot) (LinePlot, error) {
 	state.Name = p.Name

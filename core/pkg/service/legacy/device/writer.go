@@ -15,10 +15,12 @@ import (
 	"github.com/synnaxlabs/gorp"
 	"github.com/synnaxlabs/synnax/pkg/service/group"
 	"github.com/synnaxlabs/synnax/pkg/service/ontology"
+	"github.com/synnaxlabs/synnax/pkg/service/resource"
 	"github.com/synnaxlabs/synnax/pkg/service/status"
 	"github.com/synnaxlabs/x/errors"
 	"github.com/synnaxlabs/x/query"
 	"github.com/synnaxlabs/x/telem"
+	"github.com/synnaxlabs/x/validate"
 )
 
 // Writer is used to create, update, and delete devices within Synnax. The writer
@@ -28,7 +30,7 @@ import (
 type Writer struct {
 	tx       gorp.Tx
 	otg      ontology.Writer
-	group    group.Group
+	group    *group.Service
 	status   status.Writer
 	statuses *status.Service
 	table    *gorp.Table[Key, Device]
@@ -116,6 +118,21 @@ func (w Writer) Create(ctx context.Context, device *Device) error {
 		return err
 	}
 	exists := !isNotFound
+	if exists {
+		device.Group = existing.Group
+		if device.Rack != existing.Rack {
+			device.Group = nil
+		}
+	}
+	if device.Group != nil {
+		if err = w.checkGroup(
+			ctx,
+			*device.Group,
+			device.Rack.ResourceID(),
+		); err != nil {
+			return err
+		}
+	}
 	if err = w.table.
 		NewCreate().
 		Entry(device).
@@ -161,6 +178,43 @@ func (w Writer) CreateMany(ctx context.Context, devices *[]Device) error {
 		if err := w.Create(ctx, &(*devices)[i]); err != nil {
 			return err
 		}
+	}
+	return nil
+}
+
+// SetGroup moves the devices with keys into g, or out of their group when g is nil. It
+// returns a validation error when g does not sit under a device's rack.
+func (w Writer) SetGroup(ctx context.Context, g *group.Key, keys ...Key) error {
+	return w.table.NewUpdate().
+		Where(gorp.MatchKeys[Key, Device](keys...)).
+		ChangeErr(func(ctx gorp.Context, d Device) (Device, error) {
+			d.Group = g
+			if g == nil {
+				return d, nil
+			}
+			return d, w.checkGroup(ctx, *g, d.Rack.ResourceID())
+		}).
+		Exec(ctx, w.tx)
+}
+
+// checkGroup returns a validation error when the group with key does not sit under the
+// rack with ID rackID.
+func (w Writer) checkGroup(
+	ctx context.Context,
+	key group.Key,
+	rackID resource.ID,
+) error {
+	top, err := w.group.TopParent(ctx, w.tx, key)
+	if errors.Skip(err, query.ErrNotFound) != nil {
+		return err
+	}
+	if top == nil || *top != rackID {
+		return validate.PathedError(errors.Wrapf(
+			validate.ErrValidation,
+			"group %s does not sit under rack %s",
+			key,
+			rackID.Key,
+		), "group")
 	}
 	return nil
 }

@@ -42,7 +42,11 @@ func ResourceIDsFromLinePlots(linePlots []LinePlot) []resource.ID {
 	})
 }
 
-var schema = zyn.Object(map[string]zyn.Schema{"key": zyn.UUID(), "name": zyn.String()})
+var schema = zyn.Object(map[string]zyn.Schema{
+	"key":   zyn.UUID(),
+	"name":  zyn.String(),
+	"group": zyn.UUID().Optional(),
+})
 
 func newResource(linePlot LinePlot) ontology.Resource {
 	return ontology.NewResource(

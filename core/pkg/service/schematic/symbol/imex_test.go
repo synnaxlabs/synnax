@@ -10,6 +10,7 @@
 package symbol_test
 
 import (
+	"context"
 	"uuid"
 
 	. "github.com/onsi/ginkgo/v2"
@@ -18,7 +19,6 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/service/group"
 	"github.com/synnaxlabs/synnax/pkg/service/imex"
 	. "github.com/synnaxlabs/synnax/pkg/service/imex/testutil"
-	"github.com/synnaxlabs/synnax/pkg/service/ontology"
 	"github.com/synnaxlabs/synnax/pkg/service/resource"
 	"github.com/synnaxlabs/synnax/pkg/service/schematic/symbol"
 	"github.com/synnaxlabs/synnax/pkg/service/schematic/symbol/versions"
@@ -26,6 +26,14 @@ import (
 	"github.com/synnaxlabs/x/query"
 	. "github.com/synnaxlabs/x/testutil"
 )
+
+// createImportGroup creates a symbol group in the per-spec tx and returns its ID.
+func createImportGroup(ctx context.Context) resource.ID {
+	GinkgoHelper()
+	g := group.Group{Name: "Imported", Scope: resource.TypeSchematicSymbol}
+	Expect(groupSvc.NewWriter(tx).Create(ctx, &g)).To(Succeed())
+	return g.ResourceID()
+}
 
 var _ = Describe("ImEx", func() {
 	DescribeTable("Match",
@@ -47,7 +55,7 @@ var _ = Describe("ImEx", func() {
 			// Export reads committed data, so the symbol must be deleted to keep the
 			// shared DB's counts intact.
 			Expect(
-				svc.NewWriter(nil).Create(ctx, &sym, proj.ResourceID()),
+				svc.NewWriter(nil).Create(ctx, &sym),
 			).To(Succeed())
 			DeferCleanup(func(ctx SpecContext) {
 				Expect(svc.NewWriter(nil).Delete(ctx, sym.Key)).To(Succeed())
@@ -84,13 +92,17 @@ var _ = Describe("ImEx", func() {
 		// symbol counts stay intact for the other specs.
 		var tx gorp.Tx
 		BeforeEach(func() { tx = DeferClose(db.OpenTx()) })
-		importAndRetrieve := func(ctx SpecContext, path string) symbol.Symbol {
+		importAndRetrieve := func(
+			ctx SpecContext,
+			path string,
+			parent resource.ID,
+		) symbol.Symbol {
 			GinkgoHelper()
 			id := MustSucceed(imexSvc.Import(
 				ctx,
 				tx,
 				LoadEnvelope(path),
-				imex.ImportOptions{Parent: svc.Group().ResourceID()},
+				imex.ImportOptions{Parent: parent},
 			))
 			Expect(id.Type).To(Equal(resource.TypeSchematicSymbol))
 			key := MustSucceed(uuid.Parse(id.Key))
@@ -105,7 +117,11 @@ var _ = Describe("ImEx", func() {
 		It(
 			"Should import a server export carrying snake_case keys",
 			func(ctx SpecContext) {
-				res := importAndRetrieve(ctx, "versions/testdata/import_v2.json")
+				res := importAndRetrieve(
+					ctx,
+					"versions/testdata/import_v2.json",
+					createImportGroup(ctx),
+				)
 				Expect(res.Name).To(Equal("Server Symbol"))
 				Expect(res.Data.SVG).To(Equal("<svg><rect/></svg>"))
 				Expect(res.Data.Variant).To(Equal("valve"))
@@ -127,7 +143,11 @@ var _ = Describe("ImEx", func() {
 		It(
 			"Should import a Console export carrying camelCase keys",
 			func(ctx SpecContext) {
-				res := importAndRetrieve(ctx, "versions/testdata/import_console.json")
+				res := importAndRetrieve(
+					ctx,
+					"versions/testdata/import_console.json",
+					createImportGroup(ctx),
+				)
 				Expect(res.Name).To(Equal("Console Symbol"))
 				Expect(res.Data.Variant).To(Equal("sensor"))
 				Expect(res.Data.Scale).To(Equal(2.0))
@@ -157,23 +177,13 @@ var _ = Describe("ImEx", func() {
 			))
 		})
 
-		It(
-			"Should parent the imported symbol under the given parent group",
-			func(ctx SpecContext) {
-				parent := group.ResourceID(uuid.New())
-				Expect(otg.NewWriter(tx).DefineResources(ctx, parent)).To(Succeed())
-				id := MustSucceed(imexSvc.Import(
-					ctx, tx,
-					LoadEnvelope("versions/testdata/import_v2.json"),
-					imex.ImportOptions{Parent: parent},
-				))
-				Expect(otg.RelationshipExists(ctx, tx, ontology.Relationship{
-					From: parent,
-					Type: ontology.RelationshipTypeParentOf,
-					To:   id,
-				})).To(BeTrue())
-			},
-		)
+		It("Should put the imported symbol in the parent group", func(ctx SpecContext) {
+			parent := createImportGroup(ctx)
+			res := importAndRetrieve(ctx, "versions/testdata/import_v2.json", parent)
+			Expect(
+				res.Group,
+			).To(Equal(new(MustSucceed(group.KeyFromResourceID(parent)))))
+		})
 
 		It("Should reject a parent that is not a group", func(ctx SpecContext) {
 			Expect(imexSvc.Import(
@@ -191,7 +201,7 @@ var _ = Describe("ImEx", func() {
 			func(ctx SpecContext) {
 				Expect(imexSvc.Import(ctx, tx,
 					LoadEnvelope("versions/testdata/import_bad_version.json"),
-					imex.ImportOptions{Parent: svc.Group().ResourceID()},
+					imex.ImportOptions{Parent: createImportGroup(ctx)},
 				)).Error().To(SatisfyAll(
 					MatchError(ContainSubstring("schematic_symbol version 99")),
 					MatchError(ContainSubstring("newer than this Core supports")),
@@ -208,7 +218,7 @@ var _ = Describe("ImEx", func() {
 					LoadEnvelope(
 						"versions/testdata/import_v2.json",
 					),
-					imex.ImportOptions{Parent: svc.Group().ResourceID()},
+					imex.ImportOptions{Parent: createImportGroup(ctx)},
 				))
 				Expect(id.Key).ToNot(Equal("11111111-2222-3333-4444-555555555555"))
 			},
@@ -227,7 +237,7 @@ var _ = Describe("ImEx", func() {
 						StrokeScaled: true,
 					},
 				}
-				Expect(svc.NewWriter(nil).Create(ctx, &original, proj.ResourceID())).
+				Expect(svc.NewWriter(nil).Create(ctx, &original)).
 					To(Succeed())
 				DeferCleanup(func(ctx SpecContext) {
 					Expect(svc.NewWriter(nil).Delete(ctx, original.Key)).To(Succeed())
@@ -238,7 +248,7 @@ var _ = Describe("ImEx", func() {
 					ctx,
 					tx,
 					WireRoundTrip(env),
-					imex.ImportOptions{Parent: svc.Group().ResourceID()},
+					imex.ImportOptions{Parent: createImportGroup(ctx)},
 				))
 				key := MustSucceed(uuid.Parse(id.Key))
 				Expect(key).ToNot(Equal(original.Key))

@@ -18,6 +18,7 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/service/actions"
 	"github.com/synnaxlabs/synnax/pkg/service/imex"
 	"github.com/synnaxlabs/synnax/pkg/service/ontology"
+	"github.com/synnaxlabs/synnax/pkg/service/resource"
 	"github.com/synnaxlabs/synnax/pkg/service/signals"
 	"github.com/synnaxlabs/x/config"
 	"github.com/synnaxlabs/x/io"
@@ -102,7 +103,9 @@ func OpenService(ctx context.Context, cfgs ...ServiceConfig) (s *Service, err er
 	defer func() { err = cleanup(err) }()
 	if s.table, err = gorp.OpenTable(ctx, gorp.TableConfig[Key, LinePlot]{
 		DB:              cfg.DB,
+		Name:            string(resource.TypeLineplot),
 		Indexes:         s.indexes.all(),
+		References:      s.indexes.references(),
 		Migrations:      migrations,
 		Instrumentation: cfg.Instrumentation,
 	}); !ok(err, s.table) {

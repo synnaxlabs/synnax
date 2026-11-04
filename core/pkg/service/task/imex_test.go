@@ -68,7 +68,6 @@ func openStack(ctx context.Context, rackName string, excluded ...string) stack {
 	rackSvc := MustOpen(rack.OpenService(ctx, rack.ServiceConfig{
 		DB:                  db,
 		Ontology:            otg,
-		Group:               groupSvc,
 		HostProvider:        testutil.NewStaticHostProvider(1),
 		Status:              statusSvc,
 		HealthCheckInterval: 10 * telem.Millisecond,
@@ -79,7 +78,6 @@ func openStack(ctx context.Context, rackName string, excluded ...string) stack {
 	taskSvc := MustOpen(task.OpenService(ctx, task.ServiceConfig{
 		DB:           db,
 		Ontology:     otg,
-		Group:        groupSvc,
 		Rack:         rackSvc,
 		Status:       statusSvc,
 		ImEx:         imexSvc,

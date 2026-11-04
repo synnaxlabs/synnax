@@ -76,7 +76,6 @@ func newBenchIterEnv(b *testing.B) *benchIterEnv {
 		DB:           node.DB,
 		HostProvider: node.Cluster,
 		Ontology:     otg,
-		Group:        groupSvc,
 		Status:       statusSvc,
 	})
 	if err != nil {

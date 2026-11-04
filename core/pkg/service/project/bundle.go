@@ -17,6 +17,7 @@ import (
 	"strings"
 
 	"github.com/synnaxlabs/gorp"
+	"github.com/synnaxlabs/synnax/pkg/service/group"
 	"github.com/synnaxlabs/synnax/pkg/service/imex"
 	"github.com/synnaxlabs/synnax/pkg/service/ontology"
 	"github.com/synnaxlabs/synnax/pkg/service/panel"
@@ -57,11 +58,10 @@ var unreachedTypes = set.New(
 // A child that is not a panel, a group, or a type the leaf registry exports is skipped,
 // along with every panel tab that references it. The tasks and Arcs a panel's tabs
 // reference export into the panel's directory, since the walk never reaches them
-// otherwise. A member with multiple parents in the project keeps its first placement
-// and is skipped on later encounters, and a group with no exported descendants is
-// dropped. Two members of one directory that resolve to one file name, or a member
-// claiming a reserved root file name, keep distinct names through a numeric suffix. It
-// returns query.ErrNotFound if no project has key.
+// otherwise. A group with no exported descendants is dropped. Two members of one
+// directory that resolve to one file name, or a member claiming a reserved root file
+// name, keep distinct names through a numeric suffix. It returns query.ErrNotFound if
+// no project has key.
 func (s *Service) Export(
 	ctx context.Context,
 	key Key,
@@ -82,6 +82,9 @@ func (s *Service) Export(
 		ext:     encoder.Extension(),
 		visited: set.New[resource.ID](),
 		refs:    map[resource.ID]string{},
+	}
+	if w.grouped, err = s.groupedMembers(ctx, tx, ResourceID(key)); err != nil {
+		return nil, nil, err
 	}
 	manifestFileName := imex.ManifestBaseName + w.ext
 	claims := imex.NewClaims(manifestFileName)
@@ -132,6 +135,9 @@ type bundleWalk struct {
 	panels []bundlePanel
 	// groups holds every group that contributed a directory to the artifact.
 	groups []resource.ID
+	// grouped holds every member that sits in one of the project's groups, so the walk
+	// places it in its group's directory and not at the bundle root.
+	grouped set.Set[resource.ID]
 }
 
 // bundlePanel pairs a member panel's document with its path from the bundle root.
@@ -161,12 +167,8 @@ func (w *bundleWalk) directory(
 	prefix string,
 	claims *imex.Claims,
 ) error {
-	var children []ontology.Resource
-	if err := w.svc.cfg.Ontology.NewRetrieve().
-		WhereIDs(parent).
-		TraverseTo(ontology.ChildrenTraverser).
-		Entries(&children).
-		Exec(ctx, w.tx); err != nil {
+	children, err := w.children(ctx, parent)
+	if err != nil {
 		return err
 	}
 	imex.SortResources(children)
@@ -222,6 +224,89 @@ func (w *bundleWalk) directory(
 		}
 	}
 	return nil
+}
+
+// children returns the resources in the directory of parent: the groups and members of
+// a group, or the groups and ungrouped members of the project.
+func (w *bundleWalk) children(
+	ctx context.Context,
+	parent resource.ID,
+) ([]ontology.Resource, error) {
+	var ids []resource.ID
+	if parent.Type == resource.TypeProject {
+		var groups []group.Group
+		if err := w.svc.cfg.Group.NewRetrieve().
+			Where(group.MatchParents(parent)).
+			Entries(&groups).
+			Exec(ctx, w.tx); err != nil {
+			return nil, err
+		}
+		ids = group.ResourceIDsFromGroups(groups)
+		// PR 6 replaces the ontology read with a project field on each member.
+		var members []ontology.Resource
+		if err := w.svc.cfg.Ontology.NewRetrieve().
+			WhereIDs(parent).
+			TraverseTo(ontology.ChildrenTraverser).
+			ExcludeFieldData(true).
+			Entries(&members).
+			Exec(ctx, w.tx); err != nil {
+			return nil, err
+		}
+		for _, m := range members {
+			if !w.grouped.Contains(m.ID) {
+				ids = append(ids, m.ID)
+			}
+		}
+	} else {
+		key, err := group.KeyFromResourceID(parent)
+		if err != nil {
+			return nil, err
+		}
+		if ids, err = w.svc.cfg.Group.Children(w.tx, key); err != nil {
+			return nil, err
+		}
+	}
+	if len(ids) == 0 {
+		return nil, nil
+	}
+	var children []ontology.Resource
+	err := w.svc.cfg.Ontology.NewRetrieve().
+		WhereIDs(ids...).
+		Entries(&children).
+		Exec(ctx, w.tx)
+	return children, err
+}
+
+// groupedMembers returns every member of the groups under the project with id, as seen
+// by tx.
+func (s *Service) groupedMembers(
+	ctx context.Context,
+	tx gorp.Tx,
+	id resource.ID,
+) (set.Set[resource.ID], error) {
+	var (
+		members = set.New[resource.ID]()
+		next    = []resource.ID{id}
+	)
+	for len(next) > 0 {
+		var groups []group.Group
+		if err := s.cfg.Group.NewRetrieve().
+			Where(group.MatchParents(next...)).
+			Entries(&groups).
+			Exec(ctx, tx); err != nil {
+			return nil, err
+		}
+		next = next[:0]
+		for _, g := range groups {
+			children, err := s.cfg.Group.Children(tx, g.Key)
+			if err != nil {
+				return nil, err
+			}
+			members.Add(children...)
+			next = append(next, g.ResourceID())
+		}
+	}
+	return members, nil
 }
 
 // retrievePanel reads the panel document behind id on the walk's transaction.
@@ -341,10 +426,7 @@ func (s *Service) Import(
 	if err != nil {
 		return Project{}, err
 	}
-	var (
-		refs      = make(map[string]resource.ID, len(members))
-		otgWriter = s.cfg.Ontology.NewWriter(tx)
-	)
+	refs := make(map[string]resource.ID, len(members))
 	for _, m := range members {
 		if m.env.Type == string(resource.TypePanel) {
 			continue
@@ -352,29 +434,12 @@ func (s *Service) Import(
 		id, err := s.cfg.ImEx.Import(ctx, tx, m.env, imex.ImportOptions{
 			FileName: m.path,
 			Parent:   projID,
+			Group:    groups[path.Dir(m.path)],
 		})
 		if err != nil {
 			return Project{}, errors.Wrap(err, m.path)
 		}
 		refs[m.path] = id
-		dir := path.Dir(m.path)
-		// An unreached type entered the bundle through a panel reference, so it stays
-		// where its importer put it rather than under the directory that held it.
-		if dir == "." || unreachedTypes.Contains(id.Type) {
-			continue
-		}
-		if err = otgWriter.DeleteRelationships(ctx, ontology.Relationship{
-			From: projID,
-			Type: ontology.RelationshipTypeParentOf,
-			To:   id,
-		}); err != nil {
-			return Project{}, err
-		}
-		if err = otgWriter.DefineRelationships(
-			ctx, groups[dir], ontology.RelationshipTypeParentOf, id,
-		); err != nil {
-			return Project{}, err
-		}
 	}
 	panelWriter := s.cfg.Panel.NewWriter(tx)
 	for _, m := range members {
@@ -388,11 +453,8 @@ func (s *Service) Import(
 		if p.Name == "" {
 			p.Name = filename.Stem(m.path)
 		}
-		parent := projID
-		if dir := path.Dir(m.path); dir != "." {
-			parent = groups[dir]
-		}
-		p.Parent = &parent
+		p.Parent = &projID
+		p.Group = groups[path.Dir(m.path)]
 		if err = panelWriter.Create(ctx, &p); err != nil {
 			return Project{}, errors.Wrap(err, m.path)
 		}
@@ -623,13 +685,13 @@ func validateMemberPaths(paths []string) error {
 }
 
 // createGroups recreates each bundle directory as a group, outer before inner, and
-// returns each directory's group resource ID keyed by path ("." is the project).
+// returns each directory's group key keyed by path. The bundle root (".") has no group.
 func (s *Service) createGroups(
 	ctx context.Context,
 	tx gorp.Tx,
 	projID resource.ID,
 	members []importMember,
-) (map[string]resource.ID, error) {
+) (map[string]*group.Key, error) {
 	dirs := set.New[string]()
 	for _, m := range members {
 		for dir := path.Dir(m.path); dir != "."; dir = path.Dir(dir) {
@@ -637,16 +699,19 @@ func (s *Service) createGroups(
 		}
 	}
 	var (
-		groups = map[string]resource.ID{".": projID}
+		groups = map[string]*group.Key{".": nil}
 		writer = s.cfg.Group.NewWriter(tx)
 	)
 	for _, dir := range slices.Sorted(maps.Keys(dirs)) {
-		name := dir[strings.LastIndexByte(dir, '/')+1:]
-		g, err := writer.Create(ctx, name, groups[path.Dir(dir)])
-		if err != nil {
+		parent := projID
+		if outer := groups[path.Dir(dir)]; outer != nil {
+			parent = group.ResourceID(*outer)
+		}
+		g := group.Group{Name: dir[strings.LastIndexByte(dir, '/')+1:], Parent: &parent}
+		if err := writer.Create(ctx, &g); err != nil {
 			return nil, errors.Wrap(err, dir)
 		}
-		groups[dir] = g.ResourceID()
+		groups[dir] = &g.Key
 	}
 	return groups, nil
 }

@@ -31,7 +31,6 @@ var _ = Describe("ServiceConfig", func() {
 		cfg = rbac.ServiceConfig{
 			DB:       db,
 			Ontology: otg,
-			Group:    groupSvc,
 			User:     userSvc,
 		}
 	})
@@ -42,7 +41,6 @@ var _ = Describe("ServiceConfig", func() {
 				result := rbac.ServiceConfig{}.Override(cfg)
 				Expect(result.DB).To(Equal(db))
 				Expect(result.Ontology).To(Equal(otg))
-				Expect(result.Group).To(Equal(groupSvc))
 				Expect(result.User).To(Equal(userSvc))
 			},
 		)
@@ -52,7 +50,6 @@ var _ = Describe("ServiceConfig", func() {
 				result := cfg.Override(rbac.ServiceConfig{})
 				Expect(result.DB).To(Equal(db))
 				Expect(result.Ontology).To(Equal(otg))
-				Expect(result.Group).To(Equal(groupSvc))
 				Expect(result.User).To(Equal(userSvc))
 			},
 		)
@@ -78,11 +75,6 @@ var _ = Describe("ServiceConfig", func() {
 				"ontology: must be non-nil",
 			),
 			Entry(
-				"group",
-				func(c *rbac.ServiceConfig) { c.Group = nil },
-				"group: must be non-nil",
-			),
-			Entry(
 				"user",
 				func(c *rbac.ServiceConfig) { c.User = nil },
 				"user: must be non-nil",
@@ -99,7 +91,6 @@ var _ = Describe("Service", func() {
 			s := MustSucceed(rbac.OpenService(ctx, rbac.ServiceConfig{
 				DB:       db,
 				Ontology: otg,
-				Group:    groupSvc,
 				User:     userSvc,
 			}))
 			Expect(s).ToNot(BeNil())

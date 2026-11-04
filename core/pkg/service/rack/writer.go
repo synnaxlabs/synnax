@@ -31,7 +31,6 @@ type Writer struct {
 	// the ontology.
 	otg ontology.Writer
 	// group is the base group that racks will be created under.
-	group group.Group
 	// newKey returns a new key for a rack.
 	newKey func(context.Context) (Key, error)
 	// status is used to write status updates.
@@ -79,8 +78,9 @@ func (w Writer) healStatus(
 }
 
 // Create creates or updates a rack. If the rack key is zero or a rack with the key
-// does not exist, a new rack will be created. If a status is provided on the rack,
-// it will be used instead of the default "unknown" status.
+// does not exist, a new rack will be created. An existing rack keeps its group. If a
+// status is provided on the rack, it will be used instead of the default "unknown"
+// status.
 func (w Writer) Create(ctx context.Context, r *Rack) error {
 	var err error
 	if r.Key.IsZero() {
@@ -92,11 +92,17 @@ func (w Writer) Create(ctx context.Context, r *Rack) error {
 	if err = r.Validate(); err != nil {
 		return err
 	}
-	exists, err := w.table.NewRetrieve().
+	var existing Rack
+	err = w.table.NewRetrieve().
 		Where(gorp.MatchKeys[Key, Rack](r.Key)).
-		Exists(ctx, w.tx)
-	if err != nil {
+		Entry(&existing).
+		Exec(ctx, w.tx)
+	if errors.Skip(err, query.ErrNotFound) != nil {
 		return err
+	}
+	exists := err == nil
+	if exists {
+		r.Group = existing.Group
 	}
 	if err = w.table.NewCreate().Entry(r).Exec(ctx, w.tx); err != nil {
 		return err
@@ -123,9 +129,18 @@ func (w Writer) Create(ctx context.Context, r *Rack) error {
 	} else if err = w.healStatus(ctx, stat); err != nil {
 		return err
 	}
-	return w.otg.DefineRelationships(
-		ctx, w.group.ResourceID(), ontology.RelationshipTypeParentOf, otgID,
-	)
+	return nil
+}
+
+// SetGroup moves the racks with keys into g, or out of their group when g is nil.
+func (w Writer) SetGroup(ctx context.Context, g *group.Key, keys ...Key) error {
+	return w.table.NewUpdate().
+		Where(gorp.MatchKeys[Key, Rack](keys...)).
+		Change(func(_ gorp.Context, r Rack) Rack {
+			r.Group = g
+			return r
+		}).
+		Exec(ctx, w.tx)
 }
 
 // CreateMany creates the given racks. If racks with the same key already exist, they

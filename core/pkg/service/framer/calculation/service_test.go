@@ -138,7 +138,6 @@ var _ = Describe("Calculation", Ordered, func() {
 			DB:           dist.DB,
 			HostProvider: dist.Cluster,
 			Ontology:     otg,
-			Group:        groupSvc,
 			Status:       statusSvc,
 		}))
 		channelWriter = channelSvc.NewWriter(nil)

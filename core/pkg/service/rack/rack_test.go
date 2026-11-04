@@ -71,7 +71,6 @@ func openStack(ctx context.Context, db *gorp.DB, cfg rack.ServiceConfig) stack {
 	}))
 	cfg.DB = db
 	cfg.Ontology = otg
-	cfg.Group = g
 	cfg.HostProvider = testutil.NewStaticHostProvider(1)
 	cfg.Status = stat
 	cfg.DriverRole = MustSucceed(racktestutil.CreateDriverRole(ctx, otg))

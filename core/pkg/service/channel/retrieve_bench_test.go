@@ -71,7 +71,6 @@ func newBenchEnv(b *testing.B, count int) *benchEnv {
 		DB:           node.DB,
 		HostProvider: node.Cluster,
 		Ontology:     otg,
-		Group:        groupSvc,
 		Status:       statusSvc,
 	})
 	if err != nil {

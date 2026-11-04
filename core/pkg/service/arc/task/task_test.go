@@ -117,7 +117,6 @@ var _ = Describe("Task", Ordered, func() {
 			DB:           node.DB,
 			HostProvider: node.Cluster,
 			Ontology:     otg,
-			Group:        groupSvc,
 			Status:       statusSvc,
 		}))
 		channelWriter = channelSvc.NewWriter(nil)
@@ -140,7 +139,6 @@ var _ = Describe("Task", Ordered, func() {
 		rackSvc := MustOpen(rack.OpenService(ctx, rack.ServiceConfig{
 			DB:           node.DB,
 			Ontology:     otg,
-			Group:        groupSvc,
 			HostProvider: node.Cluster,
 			Status:       statusSvc,
 			DriverRole:   MustSucceed(racktestutil.CreateDriverRole(ctx, otg)),
@@ -151,7 +149,6 @@ var _ = Describe("Task", Ordered, func() {
 		taskSvc := MustOpen(task.OpenService(ctx, task.ServiceConfig{
 			DB:       node.DB,
 			Ontology: otg,
-			Group:    groupSvc,
 			Rack:     rackSvc,
 			Status:   statusSvc,
 			Channel:  channelSvc,

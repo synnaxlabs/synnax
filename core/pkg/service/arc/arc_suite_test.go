@@ -76,13 +76,11 @@ var _ = BeforeSuite(func(ctx SpecContext) {
 		DB:           node.DB,
 		HostProvider: node.Cluster,
 		Ontology:     otg,
-		Group:        groupSvc,
 		Status:       statusSvc,
 	}))
 	rackSvc = MustOpen(rack.OpenService(ctx, rack.ServiceConfig{
 		DB:                  db,
 		Ontology:            otg,
-		Group:               groupSvc,
 		HostProvider:        testutil.NewStaticHostProvider(1),
 		Status:              statusSvc,
 		HealthCheckInterval: 10 * telem.Millisecond,
@@ -96,7 +94,6 @@ var _ = BeforeSuite(func(ctx SpecContext) {
 	taskSvc = MustOpen(task.OpenService(ctx, task.ServiceConfig{
 		DB:           db,
 		Ontology:     otg,
-		Group:        groupSvc,
 		Rack:         rackSvc,
 		Status:       statusSvc,
 		ImEx:         imexSvc,

@@ -20,6 +20,7 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/service/ontology"
 	"github.com/synnaxlabs/synnax/pkg/service/panel"
 	"github.com/synnaxlabs/synnax/pkg/service/project/versions"
+	"github.com/synnaxlabs/synnax/pkg/service/resource"
 	"github.com/synnaxlabs/synnax/pkg/service/signals"
 	"github.com/synnaxlabs/x/config"
 	xio "github.com/synnaxlabs/x/io"
@@ -76,7 +77,6 @@ type Service struct {
 	closer  xio.MultiCloser
 	table   *gorp.Table[Key, Project]
 	indexes indexes
-	group   group.Group
 }
 
 func OpenService(
@@ -91,20 +91,15 @@ func OpenService(
 	cleanup, ok := service.NewOpener(ctx, &s.closer)
 	defer func() { err = cleanup(err) }()
 	if s.table, err = gorp.OpenTable(ctx, gorp.TableConfig[Key, Project]{
-		DB:      cfg.DB,
-		Indexes: s.indexes.all(),
+		DB:         cfg.DB,
+		Name:       string(resource.TypeProject),
+		Indexes:    s.indexes.all(),
+		References: s.indexes.references(),
 		Migrations: versions.NewMigrations(
 			versions.MigrationsConfig{Ontology: cfg.Ontology},
 		),
 		Instrumentation: cfg.Instrumentation,
 	}); !ok(err, s.table) {
-		return nil, err
-	}
-	if s.group, err = cfg.Group.CreateOrRetrieve(
-		ctx,
-		"Projects",
-		ontology.RootID,
-	); !ok(err, nil) {
 		return nil, err
 	}
 	cfg.Ontology.RegisterService(s)
@@ -127,7 +122,6 @@ func (s *Service) NewWriter(tx gorp.Tx) Writer {
 	return Writer{
 		tx:    gorp.OverrideTx(s.cfg.DB, tx),
 		otg:   s.cfg.Ontology.NewWriter(tx),
-		group: s.group,
 		table: s.table,
 	}
 }

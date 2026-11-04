@@ -93,7 +93,6 @@ var _ = BeforeSuite(func(ctx SpecContext) {
 	rackSvc = MustOpen(rack.OpenService(ctx, rack.ServiceConfig{
 		DB:           db,
 		Ontology:     otg,
-		Group:        groupSvc,
 		HostProvider: testutil.NewStaticHostProvider(1),
 		Status:       statusSvc,
 		DriverRole:   MustSucceed(racktestutil.CreateDriverRole(ctx, otg)),
@@ -110,7 +109,6 @@ var _ = BeforeSuite(func(ctx SpecContext) {
 		DB:           db,
 		HostProvider: core.Cluster,
 		Ontology:     otg,
-		Group:        groupSvc,
 		Status:       statusSvc,
 	}))
 	channelGraph := MustOpen(calcgraph.Open(ctx, calcgraph.Config{
@@ -128,7 +126,6 @@ var _ = BeforeSuite(func(ctx SpecContext) {
 	taskSvc := MustOpen(task.OpenService(ctx, task.ServiceConfig{
 		DB:       db,
 		Ontology: otg,
-		Group:    groupSvc,
 		Rack:     rackSvc,
 		Status:   statusSvc,
 		Channel:  channelSvc,

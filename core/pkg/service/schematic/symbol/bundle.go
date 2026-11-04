@@ -10,6 +10,7 @@
 package symbol
 
 import (
+	"cmp"
 	"context"
 	"slices"
 	"strings"
@@ -18,7 +19,6 @@ import (
 	"github.com/synnaxlabs/gorp"
 	"github.com/synnaxlabs/synnax/pkg/service/group"
 	"github.com/synnaxlabs/synnax/pkg/service/imex"
-	"github.com/synnaxlabs/synnax/pkg/service/ontology"
 	"github.com/synnaxlabs/synnax/pkg/service/resource"
 	"github.com/synnaxlabs/x/encoding"
 	"github.com/synnaxlabs/x/encoding/json"
@@ -36,24 +36,38 @@ const (
 
 // ExportGroup serializes every symbol in the group identified by key into a flat file
 // namespace: one envelope per symbol, encoded by encoder, beside a manifest naming the
-// group. File names are sanitized and deduplicated. It also returns the sorted ontology
-// IDs of the exported symbols so a caller can enforce access on them. Children that are
-// not schematic symbols are skipped with a warning. It returns query.ErrNotFound if no
-// group has key.
+// group. File names are sanitized and deduplicated. It also returns the sorted resource
+// IDs of the exported symbols so a caller can enforce access on them. It returns
+// query.ErrNotFound if no group has key.
 func (s *Service) ExportGroup(
 	ctx context.Context,
 	key group.Key,
 	encoder encoding.FileEncoder,
 ) (zip.Files, []resource.ID, error) {
-	root, children, err := s.retrieveGroup(ctx, nil, key)
-	if err != nil {
+	var (
+		g       group.Group
+		symbols []Symbol
+	)
+	if err := s.cfg.Group.NewRetrieve().
+		Where(group.MatchKeys(key)).
+		Entry(&g).
+		Exec(ctx, nil); err != nil {
 		return nil, nil, err
 	}
-	symbols, skipped := partitionSymbols(children)
-	s.warnSkipped(root.Name, skipped)
-	imex.SortResources(symbols)
-	members := lo.Map(symbols, func(r ontology.Resource, _ int) resource.ID {
-		return r.ID
+	if err := s.NewRetrieve().
+		Where(MatchGroups(key)).
+		Entries(&symbols).
+		Exec(ctx, nil); err != nil {
+		return nil, nil, err
+	}
+	slices.SortFunc(symbols, func(a, b Symbol) int {
+		return cmp.Or(
+			cmp.Compare(a.Name, b.Name),
+			cmp.Compare(a.Key.String(), b.Key.String()),
+		)
+	})
+	members := lo.Map(symbols, func(sym Symbol, _ int) resource.ID {
+		return sym.ResourceID()
 	})
 	ext := encoder.Extension()
 	manifestFileName := imex.ManifestBaseName + ext
@@ -61,13 +75,13 @@ func (s *Service) ExportGroup(
 		files  = make(zip.Files, len(symbols)+1)
 		claims = imex.NewClaims(manifestFileName)
 	)
-	for _, child := range symbols {
-		fileName, err := filename.Sanitize(child.Name, ext)
+	for _, sym := range symbols {
+		fileName, err := filename.Sanitize(sym.Name, ext)
 		if err != nil {
 			return nil, nil, err
 		}
 		fileName = claims.Claim(fileName, ext)
-		env, err := s.Export(ctx, child.ID)
+		env, err := s.Export(ctx, sym.ResourceID())
 		if err != nil {
 			return nil, nil, err
 		}
@@ -78,7 +92,7 @@ func (s *Service) ExportGroup(
 	manifest, err := encoder.Encode(ctx, imex.Manifest{
 		Version: manifestVersion,
 		Type:    manifestType,
-		Name:    root.Name,
+		Name:    g.Name,
 	})
 	if err != nil {
 		return nil, nil, err
@@ -95,8 +109,8 @@ type legacyGroupManifest struct {
 	} `json:"symbols"`
 }
 
-// ImportGroup creates a group named by the manifest under the permanent symbol group,
-// then imports every member into it on tx. Bundles are JSON: the manifest is
+// ImportGroup creates a top-level symbol group named by the manifest, then imports
+// every member into it on tx. Bundles are JSON: the manifest is
 // manifest.json and members are the JSON files beside it. A version 1 manifest lists
 // its members; version 2 infers them from the files beside the manifest. It returns a
 // validation error naming the offending file for a missing or invalid manifest, member
@@ -153,8 +167,8 @@ func (s *Service) ImportGroup(
 	if err = validateMemberNames(members); err != nil {
 		return group.Group{}, err
 	}
-	g, err := s.cfg.Group.NewWriter(tx).Create(ctx, manifest.Name, s.group.ResourceID())
-	if err != nil {
+	g := group.Group{Name: manifest.Name, Scope: resource.TypeSchematicSymbol}
+	if err = s.cfg.Group.NewWriter(tx).Create(ctx, &g); err != nil {
 		return group.Group{}, err
 	}
 	for _, name := range members {

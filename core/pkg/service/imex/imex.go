@@ -27,6 +27,7 @@ import (
 	"strings"
 
 	"github.com/synnaxlabs/gorp"
+	"github.com/synnaxlabs/synnax/pkg/service/group"
 	"github.com/synnaxlabs/synnax/pkg/service/resource"
 	"github.com/synnaxlabs/x/encoding"
 	xjson "github.com/synnaxlabs/x/encoding/json"
@@ -397,6 +398,9 @@ type ImportOptions struct {
 	// Parent. The registry passes it through untouched; each Importer decides how the
 	// parent applies to its resource type.
 	Parent resource.ID
+	// Group is the group a groupable resource sits in, or nil for none. An importer
+	// ignores any group the envelope carries.
+	Group *group.Key
 }
 
 // Importer materializes a resource from an Envelope and persists it. The envelope's

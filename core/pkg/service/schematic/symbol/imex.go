@@ -33,7 +33,7 @@ func (*Service) Match(body map[string]any) bool {
 	return ok
 }
 
-// Import decodes env into a Symbol created under opts.Parent, which must be a group.
+// Import decodes env into a Symbol created in the group opts.Parent identifies.
 // The key on the wire is discarded so every import mints a new resource. An unknown
 // envelope version is a path-scoped validation error.
 func (s *Service) Import(
@@ -42,14 +42,16 @@ func (s *Service) Import(
 	env imex.Envelope,
 	opts imex.ImportOptions,
 ) (resource.ID, error) {
-	if _, err := group.KeyFromResourceID(opts.Parent); err != nil {
+	g, err := group.KeyFromResourceID(opts.Parent)
+	if err != nil {
 		return resource.ID{}, validate.PathedError(err, "parent")
 	}
 	sym, err := versions.DecodeImExEnvelope(ctx, env)
 	if err != nil {
 		return resource.ID{}, err
 	}
-	if err = s.NewWriter(tx).Create(ctx, &sym, opts.Parent); err != nil {
+	sym.Group = &g
+	if err = s.NewWriter(tx).Create(ctx, &sym); err != nil {
 		return resource.ID{}, err
 	}
 	return sym.ResourceID(), nil

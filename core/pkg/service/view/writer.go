@@ -15,7 +15,6 @@ import (
 	"uuid"
 
 	"github.com/synnaxlabs/gorp"
-	"github.com/synnaxlabs/synnax/pkg/service/group"
 	"github.com/synnaxlabs/synnax/pkg/service/ontology"
 	"github.com/synnaxlabs/x/validate"
 )
@@ -25,7 +24,6 @@ type Writer struct {
 	tx        gorp.Tx
 	otgWriter ontology.Writer
 	otg       *ontology.Ontology
-	group     group.Group
 	table     *gorp.Table[Key, View]
 }
 
@@ -43,16 +41,7 @@ func (w Writer) Create(ctx context.Context, view *View) error {
 		Exec(ctx, w.tx); err != nil {
 		return err
 	}
-	otgID := view.ResourceID()
-	if err := w.otgWriter.DefineResources(ctx, otgID); err != nil {
-		return err
-	}
-	return w.otgWriter.DefineRelationships(
-		ctx,
-		w.group.ResourceID(),
-		ontology.RelationshipTypeParentOf,
-		otgID,
-	)
+	return w.otgWriter.DefineResources(ctx, view.ResourceID())
 }
 
 // CreateMany creates or updates multiple views within the DB. If any of the views

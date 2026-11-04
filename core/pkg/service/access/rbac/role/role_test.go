@@ -76,7 +76,7 @@ var _ = Describe("Writer", func() {
 			Expect(res.Name).To(Equal(r.Name))
 		})
 
-		It("Should create relationship to Users group", func(ctx SpecContext) {
+		It("Should not put the role in a group", func(ctx SpecContext) {
 			r := &role.Role{
 				Name:        "operator",
 				Description: "Operator role",
@@ -90,7 +90,7 @@ var _ = Describe("Writer", func() {
 				WhereTypes("group").
 				Entries(&parents).
 				Exec(ctx, tx)).To(Succeed())
-			Expect(parents).ToNot(BeEmpty())
+			Expect(parents).To(BeEmpty())
 		})
 
 		It(

@@ -13,7 +13,9 @@ import (
 	"context"
 
 	"github.com/synnaxlabs/gorp/migrate"
+	groupv1 "github.com/synnaxlabs/synnax/pkg/service/group/versions/v1"
 	v2 "github.com/synnaxlabs/synnax/pkg/service/log/versions/v2"
+	"github.com/synnaxlabs/synnax/pkg/service/resource"
 )
 
 // MigrateLog lifts a v2 log to v3.
@@ -45,3 +47,12 @@ func MigrateChannelEntry(
 
 // Migration lifts stored logs from v2 to v3.
 var Migration = migrate.NewEntry("v60_optional_channel_precision", MigrateLog)
+
+// MembersMigration sets the group of each stored log from the ontology edge
+// that placed it in a group.
+var MembersMigration = groupv1.NewMembersMigration(groupv1.MembersConfig[Key, Log]{
+	Name:         "v61_log_group_membership",
+	Type:         resource.TypeLog,
+	SetGroup:     func(e *Log, g groupv1.Key) { e.Group = &g },
+	ProjectOwned: true,
+})

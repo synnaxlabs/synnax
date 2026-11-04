@@ -82,7 +82,6 @@ func newBenchStreamerEnv(b *testing.B) *benchStreamerEnv {
 		DB:           node.DB,
 		HostProvider: node.Cluster,
 		Ontology:     otg,
-		Group:        groupSvc,
 		Status:       statusSvc,
 	})
 	if err != nil {
