@@ -41,7 +41,7 @@ Status<Details> Status<Details>::parse(x::json::Parser parser) {
 
 template<typename Details>
 x::json::json Status<Details>::to_json() const {
-    x::json::json j;
+    x::json::json j = x::json::json::object();
     j["key"] = this->key;
     j["name"] = this->name;
     j["variant"] = this->variant;

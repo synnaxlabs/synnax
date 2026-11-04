@@ -82,7 +82,7 @@ jobs:
         env:
           REPORT: ${{ needs.agent.outputs.report }}
           RESULT: ${{ needs.agent.result }}
-          SLACK_WEBHOOK_URL: ${{ secrets.SLACK_AGENT_REPORT_WEBHOOK_URL }}
+          SLACK_WEBHOOK_URL: ${{ secrets.SLACK_NIGHTLY_WEBHOOK_URL }}
         run: |
           if [ "$RESULT" != success ] || [ -z "$REPORT" ]; then
             REPORT="The weekly lint pass did not finish ($RESULT)."

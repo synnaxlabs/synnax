@@ -14,7 +14,7 @@ import { Icon } from "@synnaxlabs/lyra/icon";
 import { deep, primitive } from "@synnaxlabs/x";
 import { type FC } from "react";
 
-import { useSlavesByKeys } from "@/feature/ethercat/device/queries";
+import { useResultSlave, useSlavesByKeys } from "@/feature/ethercat/device/queries";
 import {
   WriteChannelDetails,
   WriteDetailsTitle,
@@ -28,6 +28,7 @@ import {
   addressKey,
   createWriteChannel,
   deployWriteConfigZ,
+  entryAt,
   type EntryWriteChannel,
   getEntryChannelName,
   getPortLabel,
@@ -36,6 +37,7 @@ import {
   WRITE_SCHEMAS,
   WRITE_TYPE,
   type WriteChannel,
+  writeChannelNames,
   type WriteSchemas,
 } from "@/feature/ethercat/task/types";
 import { Selector } from "@/platform/selector";
@@ -44,7 +46,7 @@ import { Task } from "@/platform/task";
 const path = deep.path<Task.Values<WriteSchemas>>();
 
 const Properties = () => (
-  <Flex.Box x grow>
+  <Flex.Box x grow wrap>
     <PForm.NumericField
       path={path.config.executionRate}
       label="Execution rate"
@@ -60,6 +62,13 @@ const ChannelListItem = (props: Task.ChannelListItemProps) => {
   const { itemKey } = props;
   const entry = path.config.channels[itemKey];
   const ch = PForm.useFieldValue(entry);
+  const { data: slave } = useResultSlave(
+    primitive.isZero(ch.device) ? null : { key: ch.device },
+  );
+  const names =
+    slave != null && hasEntry(ch) && entryAt(slave.properties.pdos.outputs, ch) != null
+      ? writeChannelNames(slave, ch)
+      : undefined;
   return (
     <Task.Views.ListAndDetailsChannelItem
       {...props}
@@ -67,7 +76,10 @@ const ChannelListItem = (props: Task.ChannelListItemProps) => {
       status={ch.type === "unresolved" ? "error" : undefined}
       path={entry}
       channel={ch.cmdChannel}
+      defaultName={names?.cmd}
       stateChannel={ch.stateChannel}
+      stateDefaultName={names?.state}
+      skipped={ch.disabled}
       hasTareButton={false}
       canTare={false}
       nameDirection="y"
@@ -156,9 +168,7 @@ const onConfigure: Task.OnConfigure<WriteSchemas["config"]> = async (
 
       const cmdChannels = await client.channels.create(
         cmdToCreate.map((ch, i) => ({
-          name: primitive.isNonZero(ch.cmdChannelName)
-            ? ch.cmdChannelName
-            : `${baseName(ch)}_cmd`,
+          name: writeChannelNames(slave, ch).cmd,
           dataType: ch.dataType,
           index: cmdIndexes[i].key,
         })),
@@ -173,9 +183,7 @@ const onConfigure: Task.OnConfigure<WriteSchemas["config"]> = async (
       modified = true;
       const stateChannels = await client.channels.create(
         stateToCreate.map((ch) => ({
-          name: primitive.isNonZero(ch.stateChannelName)
-            ? ch.stateChannelName
-            : `${baseName(ch)}_state`,
+          name: writeChannelNames(slave, ch).state,
           dataType: ch.dataType,
           index: slave.properties.writeStateIndex,
         })),
