@@ -19,6 +19,10 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/service/resource"
 )
 
+// tableName names the Status table for references. Pass it as
+// gorp.TableConfig.Name.
+const tableName = "status"
+
 // indexes bundles the per-Service secondary indexes registered on the
 // Status table. Each index is constructed via newIndexes and threaded
 // onto the Retrieve so filter functions can resolve them off r.indexes

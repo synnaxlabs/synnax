@@ -14,16 +14,16 @@ import "schemas/synnax/versions/rack/v1"
 Key = v0.Key
 
 StatusDetails struct {
-    rack   rack.Key {
+    rack rack.Key {
         @doc value "is the key of the rack this device belongs to."
     }
-    data   record?  {
+    data record?  {
         @doc value "contains device-specific status data."
     }
 
     @doc value """
-        contains device-specific status details, including the rack the device
-        belongs to.
+        contains device-specific status details, including the rack the device belongs
+        to.
     """
 }
 

@@ -86,7 +86,7 @@ func OpenService(ctx context.Context, cfgs ...ServiceConfig) (s *Service, err er
 		ctx,
 		gorp.TableConfig[Key, Status[any]]{
 			DB:              cfg.DB,
-			Name:            string(resource.TypeStatus),
+			Name:            tableName,
 			Indexes:         s.indexes.all(),
 			References:      s.indexes.references(),
 			Instrumentation: cfg.Instrumentation,

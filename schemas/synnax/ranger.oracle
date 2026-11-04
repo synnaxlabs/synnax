@@ -47,7 +47,6 @@ Range struct {
     }
     labels     label.Key[] = [] {
         @doc value     "are the keys of the labels attached to the range."
-        @filter
         @ref on_delete detach
     }
     parent     Key?            {
@@ -55,7 +54,6 @@ Range struct {
             is the key of the range this range is nested in. Empty for a top-level
             range.
         """
-        @filter
         @ref acyclic
         @ref on_delete cascade
     }
