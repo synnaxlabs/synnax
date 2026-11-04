@@ -32,7 +32,6 @@ class FakeGH:
         self.bin_dir = path / "bin"
         self.bin_dir.mkdir()
         self._routes: dict[str, list[Any]] = {}
-        self._failures: dict[str, tuple[str, int]] = {}
         (self.bin_dir / _ROUTES).write_text("{}")
         (self.bin_dir / _FAILURES).write_text("{}")
         (self.bin_dir / _CALLS).touch()
@@ -57,8 +56,9 @@ class FakeGH:
     def fail(self, pattern: str, message: str, *, times: int = 1) -> None:
         """Fails the next `times` calls that match `pattern`, printing `message` to
         stderr. A failure comes before any served route."""
-        self._failures[pattern] = (message, times)
-        (self.bin_dir / _FAILURES).write_text(json.dumps(self._failures))
+        failures = json.loads((self.bin_dir / _FAILURES).read_text())
+        failures[pattern] = [message, times]
+        (self.bin_dir / _FAILURES).write_text(json.dumps(failures))
 
     def calls(self) -> list[list[str]]:
         """Returns the arguments of each call so far, oldest first."""
