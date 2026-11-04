@@ -14,7 +14,8 @@
 # review/bot, not review/human, and is not a draft. When a pull request stops
 # qualifying, it turns off only auto-merge that the bot turned on; auto-merge that a
 # person turned on stays on. GitHub does not allow auto-merge on a pull request in a
-# stack, so the script leaves a stacked pull request unchanged. Prints the decision.
+# stack, so the script leaves a stacked pull request unchanged. A closed or merged pull
+# request needs no change, and GitHub rejects both calls on one. Prints the decision.
 
 set -euo pipefail
 
@@ -23,16 +24,18 @@ REPO=${GITHUB_REPOSITORY:?GITHUB_REPOSITORY is not set}
 BOT=${BOT:-synnax-claude-code[bot]}
 
 # shellcheck disable=SC2016 # The jq program uses jq variables.
-read -r stacked want enabled ours < <(
+read -r state stacked want enabled ours < <(
     gh api "repos/$REPO/pulls/$PR" --jq '[.labels[].name] as $l
         | (.draft == false and any($l[]; . == "review/bot")
             and all($l[]; . != "review/human")
             and (.base.ref == "main" or (.base.ref | startswith("release/"))))
           as $want
         | (.auto_merge.enabled_by.login == "'"$BOT"'") as $ours
-        | "\(.stack != null) \($want) \(.auto_merge != null) \($ours)"'
+        | "\(.state) \(.stack != null) \($want) \(.auto_merge != null) \($ours)"'
 )
-if [ "$stacked" = true ]; then
+if [ "$state" != open ]; then
+    echo "unchanged: the pull request is $state"
+elif [ "$stacked" = true ]; then
     echo "unchanged: the pull request is in a stack"
 elif [ "$want" = true ] && [ "$enabled" = false ]; then
     gh pr merge "$PR" --repo "$REPO" --auto --squash
