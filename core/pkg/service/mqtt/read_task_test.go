@@ -655,10 +655,10 @@ var _ = Describe("Read task", func() {
 			),
 			Entry("a channel of a data type that a field cannot write",
 				func(ctx context.Context) (msgpack.EncodedJSON, string) {
-					ch := createVirtual(ctx, telem.UUIDT)
+					ch := createVirtual(ctx, telem.BytesT)
 					return readConfig(dev, plainEntry("plant/x", field("v", ch, ""))),
 						"field v of topic plant/x: channel " + ch.Name +
-							": cannot convert a JSON value to uuid"
+							": cannot convert a JSON value to bytes"
 				},
 			),
 			Entry("fields of one topic on different indexes",
