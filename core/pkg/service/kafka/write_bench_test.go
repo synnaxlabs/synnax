@@ -135,11 +135,10 @@ func runWriteBench(ctx SpecContext, sc writeBenchScenario) {
 	stamp := func(frameI, sampleI int) telem.TimeStamp {
 		return base + telem.TimeStamp(frameI*sc.samples+sampleI)*telem.MillisecondTS
 	}
-	w := MustSucceed(framerSvc.OpenWriter(ctx, framer.WriterConfig{
+	w := MustOpen(framerSvc.OpenWriter(ctx, framer.WriterConfig{
 		Keys:  keys,
 		Start: base,
 	}))
-	DeferCleanup(func() { Expect(w.Close()).To(Succeed()) })
 	stamps := make([]telem.TimeStamp, sc.samples)
 	values := make([]float64, sc.samples)
 
@@ -182,8 +181,8 @@ func runWriteBench(ctx SpecContext, sc writeBenchScenario) {
 			} `json:"meta"`
 		}
 		Expect(json.Unmarshal(rec.Value, &doc)).To(Succeed())
-		c, ok := byName[doc.Channel]
-		Expect(ok).To(BeTrue())
+		Expect(byName).To(HaveKey(doc.Channel))
+		c := byName[doc.Channel]
 		Expect(string(rec.Key)).To(Equal(doc.Channel))
 		i := seen[c]
 		seen[c]++
