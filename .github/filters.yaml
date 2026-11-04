@@ -403,6 +403,7 @@ ci_scripts:
   - .github/scripts/**
   - .github/workflows/ci.yaml
   - deploy/preview/**
+  - scripts/common/**
 
 scripts:
   - *py

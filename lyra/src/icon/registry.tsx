@@ -168,6 +168,8 @@ import {
   MdRotateRight,
   MdSaveAlt,
   MdSensors,
+  MdSettingsEthernet,
+  MdSettingsInputSvideo,
   MdShield,
   MdSquare,
   MdSquareFoot,
@@ -471,6 +473,8 @@ export const TextAlign = {
 export const Connect = wrapSVGIcon(TbPlugConnected, "connect");
 export const Disconnect = wrapSVGIcon(TbPlugConnectedX, "disconnect");
 export const Hardware = wrapSVGIcon(MdHardware, "hardware");
+export const Network = wrapSVGIcon(MdSettingsEthernet, "network");
+export const Serial = wrapSVGIcon(MdSettingsInputSvideo, "serial");
 export const Save = wrapSVGIcon(MdSaveAlt, "save");
 export const Database = wrapSVGIcon(TbDatabase, "database");
 export const DatabaseOff = wrapSVGIcon(TbDatabaseOff, "database-off");
@@ -664,6 +668,8 @@ const icons = {
   Connect,
   Disconnect,
   Hardware,
+  Network,
+  Serial,
   Save,
   Database,
   DatabaseOff,
