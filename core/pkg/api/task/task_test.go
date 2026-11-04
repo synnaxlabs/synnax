@@ -11,18 +11,31 @@ package task_test
 
 import (
 	"context"
+	"encoding/json"
+	"strings"
+	"sync"
+	"sync/atomic"
+	"time"
 	"uuid"
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	apitask "github.com/synnaxlabs/synnax/pkg/api/task"
 	. "github.com/synnaxlabs/synnax/pkg/api/testutil"
+	"github.com/synnaxlabs/synnax/pkg/distribution/framer/frame"
 	"github.com/synnaxlabs/synnax/pkg/service/access"
 	"github.com/synnaxlabs/synnax/pkg/service/actions"
+	"github.com/synnaxlabs/synnax/pkg/service/channel"
+	"github.com/synnaxlabs/synnax/pkg/service/framer"
 	"github.com/synnaxlabs/synnax/pkg/service/ontology"
 	"github.com/synnaxlabs/synnax/pkg/service/pagerduty"
+	"github.com/synnaxlabs/synnax/pkg/service/status"
 	"github.com/synnaxlabs/synnax/pkg/service/task"
+	"github.com/synnaxlabs/synnax/pkg/service/user"
+	"github.com/synnaxlabs/x/confluence"
 	"github.com/synnaxlabs/x/query"
+	"github.com/synnaxlabs/x/signal"
+	"github.com/synnaxlabs/x/telem"
 	. "github.com/synnaxlabs/x/testutil"
 )
 
@@ -232,4 +245,272 @@ var _ = Describe("Retrieve", func() {
 		Expect(res.Tasks[1].Key).To(Equal(withStatus.Key))
 		Expect(res.Tasks[1].Status.Key).To(Equal(withStatus.OntologyID().String()))
 	})
+})
+
+func createRunningTask(ctx SpecContext, running bool) task.Task {
+	GinkgoHelper()
+	t := task.Task{
+		Type: pagerduty.AlertTaskType,
+		Rack: svc.Rack.EmbeddedKey,
+		Name: "Running",
+		Status: &task.Status{
+			Variant: status.VariantSuccess,
+			Message: "Task is running",
+			Time:    telem.Now(),
+			Details: task.StatusDetails{Running: running},
+		},
+	}
+	Expect(svc.Task.NewWriter(nil).Create(ctx, &t)).To(Succeed())
+	return t
+}
+
+// reportStopped writes the status a task writes when it stops.
+func reportStopped(ctx context.Context, t task.Task) {
+	GinkgoHelper()
+	stat := task.Status{
+		Key:     t.OntologyID().String(),
+		Variant: status.VariantSuccess,
+		Message: "Stopped task",
+		Time:    telem.Now(),
+		Details: task.StatusDetails{Task: t.Key},
+	}
+	Expect(svc.Status.NewWriter(nil).Set(ctx, &stat)).To(Succeed())
+}
+
+// streamCommands sends each command written to the task command channel on the returned
+// channel. It returns once the stream is live.
+func streamCommands(ctx SpecContext) <-chan task.Command {
+	GinkgoHelper()
+	streamer := MustSucceed(svc.Framer.NewStreamer(ctx, framer.StreamerConfig{
+		Keys:        channel.Keys{svc.Task.CommandChannelKey()},
+		SendOpenAck: true,
+	}))
+	requests, responses := confluence.Attach(streamer, 2)
+	sCtx, cancel := signal.Isolated()
+	shutdown := signal.NewHardShutdown(sCtx, cancel)
+	streamer.Flow(sCtx, confluence.CloseOutputInletsOnExit())
+	Eventually(responses.Outlet()).Should(Receive())
+	commands := make(chan task.Command, 16)
+	done := make(chan struct{})
+	go func() {
+		defer GinkgoRecover()
+		defer close(done)
+		for res := range responses.Outlet() {
+			for series := range res.Frame.Series() {
+				for sample := range series.Samples() {
+					var cmd task.Command
+					Expect(json.Unmarshal(sample, &cmd)).To(Succeed())
+					commands <- cmd
+				}
+			}
+		}
+	}()
+	DeferCleanup(func() {
+		requests.Close()
+		Eventually(done).Should(BeClosed())
+		Expect(shutdown.Close()).To(Succeed())
+	})
+	return commands
+}
+
+// stallFreeWrites fills the free write queue of the Core behind a streamer that never
+// reads, and leaves writers parked on it. A new write then waits behind every one of
+// them.
+func stallFreeWrites(ctx SpecContext) {
+	GinkgoHelper()
+	ch := channel.Channel{
+		Name:     "stall_" + strings.ReplaceAll(uuid.New().String(), "-", "_"),
+		DataType: telem.Float64T,
+		Virtual:  true,
+	}
+	Expect(svc.Channel.NewWriter(nil).Create(ctx, &ch)).To(Succeed())
+	streamer := MustSucceed(svc.Framer.NewStreamer(ctx, framer.StreamerConfig{
+		Keys:        channel.Keys{ch.Key()},
+		SendOpenAck: true,
+	}))
+	requests, responses := confluence.Attach(streamer, 1)
+	sCtx, cancel := signal.Isolated()
+	shutdown := signal.NewHardShutdown(sCtx, cancel)
+	streamer.Flow(sCtx, confluence.CloseOutputInletsOnExit())
+	Eventually(responses.Outlet()).Should(Receive())
+	var (
+		written atomic.Int64
+		stopped atomic.Bool
+		parked  sync.WaitGroup
+	)
+	for range 128 {
+		// Ginkgo cancels ctx when the spec ends, which is before the cleanup stops the
+		// writers.
+		w := MustSucceed(svc.Framer.OpenWriter(sCtx, framer.WriterConfig{
+			Keys:  channel.Keys{ch.Key()},
+			Start: telem.Now(),
+		}))
+		parked.Go(func() {
+			defer GinkgoRecover()
+			for !stopped.Load() {
+				fr := frame.NewUnary(ch.Key(), telem.NewSeriesV(1.0))
+				Expect(w.Write(fr)).To(BeTrue())
+				written.Add(1)
+			}
+			Expect(w.Close()).To(Succeed())
+		})
+	}
+	Eventually(func(g Gomega) {
+		before := written.Load()
+		time.Sleep(100 * time.Millisecond)
+		g.Expect(written.Load() - before).To(BeNumerically("<", 10))
+	}).WithTimeout(30 * time.Second).Should(Succeed())
+	DeferCleanup(func() {
+		stopped.Store(true)
+		requests.Close()
+		confluence.Drain(responses)
+		parked.Wait()
+		Expect(shutdown.Close()).To(Succeed())
+	})
+}
+
+var _ = Describe("Delete", func() {
+	var u user.User
+	BeforeEach(func(ctx SpecContext) { u = createUser(ctx) })
+	withTimeout := func(timeout time.Duration) *apitask.Service {
+		GinkgoHelper()
+		return MustSucceed(apitask.NewService(apitask.ServiceConfig{
+			Task:        svc.Task,
+			Status:      svc.Status,
+			RBAC:        svc.RBAC,
+			Framer:      svc.Framer,
+			StopTimeout: timeout,
+		}))
+	}
+	expectGone := func(ctx SpecContext, key task.Key) {
+		GinkgoHelper()
+		var t task.Task
+		Expect(svc.Task.NewRetrieve().
+			Where(task.MatchKeys(key)).
+			Entry(&t).
+			Exec(ctx, nil)).To(MatchError(query.ErrNotFound))
+	}
+	It("Should release the channels of a running task", func(ctx SpecContext) {
+		t := createRunningTask(ctx, true)
+		grant(ctx, access.ActionDelete, u.OntologyID(), t.OntologyID())
+		ch := channel.Channel{
+			Name:        "task_" + strings.ReplaceAll(uuid.New().String(), "-", "_"),
+			DataType:    telem.TimestampT,
+			IsIndex:     true,
+			Leaseholder: 1,
+		}
+		Expect(svc.Channel.NewWriter(nil).Create(ctx, &ch)).To(Succeed())
+		w := MustSucceed(svc.Framer.OpenWriter(ctx, framer.WriterConfig{
+			Keys:  channel.Keys{ch.Key()},
+			Start: telem.Now(),
+		}))
+		commands := streamCommands(ctx)
+		driver := make(chan struct{})
+		go func() {
+			defer GinkgoRecover()
+			defer close(driver)
+			var cmd task.Command
+			Eventually(commands).Should(Receive(&cmd))
+			Expect(cmd.Task).To(Equal(t.Key))
+			Expect(cmd.Type).To(Equal("stop"))
+			Expect(w.Close()).To(Succeed())
+			reportStopped(ctx, t)
+		}()
+		Expect(withTimeout(10*time.Second).Delete(
+			AuthedCtx(ctx, u), nil, apitask.DeleteRequest{Keys: []task.Key{t.Key}},
+		)).Error().ToNot(HaveOccurred())
+		Expect(svc.Channel.NewWriter(nil).Delete(ctx, ch.Key(), false)).To(Succeed())
+		Eventually(driver).Should(BeClosed())
+		expectGone(ctx, t.Key)
+	})
+	It(
+		"Should return within the timeout when a stop cannot be written",
+		func(ctx SpecContext) {
+			const timeout = 200 * time.Millisecond
+			t := createRunningTask(ctx, true)
+			grant(ctx, access.ActionDelete, u.OntologyID(), t.OntologyID())
+			stallFreeWrites(ctx)
+			start := time.Now()
+			Expect(withTimeout(timeout).Delete(
+				AuthedCtx(ctx, u), nil, apitask.DeleteRequest{Keys: []task.Key{t.Key}},
+			)).Error().ToNot(HaveOccurred())
+			Expect(time.Since(start)).To(BeNumerically("<", 2*timeout))
+			expectGone(ctx, t.Key)
+		},
+	)
+	It("Should stop only the requested task", func(ctx SpecContext) {
+		target := createRunningTask(ctx, true)
+		other := createRunningTask(ctx, true)
+		grant(ctx, access.ActionDelete, u.OntologyID(), target.OntologyID())
+		forged := task.Status{
+			Key:     target.OntologyID().String(),
+			Variant: status.VariantSuccess,
+			Message: "Task is running",
+			Time:    telem.Now(),
+			Details: task.StatusDetails{Task: other.Key, Running: true},
+		}
+		Expect(svc.Status.NewWriter(nil).Set(ctx, &forged)).To(Succeed())
+		commands := streamCommands(ctx)
+		Expect(withTimeout(100*time.Millisecond).Delete(
+			AuthedCtx(ctx, u), nil, apitask.DeleteRequest{Keys: []task.Key{target.Key}},
+		)).Error().ToNot(HaveOccurred())
+		var cmd task.Command
+		Eventually(commands).Should(Receive(&cmd))
+		Expect(cmd.Task).To(Equal(target.Key))
+		Consistently(commands, 100*time.Millisecond).ShouldNot(Receive())
+		expectGone(ctx, target.Key)
+	})
+	DescribeTable(
+		"Should keep the task when the caller cancels",
+		func(ctx SpecContext, after time.Duration) {
+			t := createRunningTask(ctx, true)
+			grant(ctx, access.ActionDelete, u.OntologyID(), t.OntologyID())
+			reqCtx, cancel := context.WithCancel(ctx)
+			defer time.AfterFunc(after, cancel).Stop()
+			if after == 0 {
+				cancel()
+			}
+			Expect(withTimeout(10*time.Second).Delete(
+				AuthedCtx(
+					reqCtx,
+					u,
+				), nil, apitask.DeleteRequest{Keys: []task.Key{t.Key}},
+			),
+			).Error().To(MatchError(context.Canceled))
+			Expect(retrieveTask(ctx, t.Key).Key).To(Equal(t.Key))
+		},
+		Entry("before the stop", time.Duration(0)),
+		Entry("during the wait", 50*time.Millisecond),
+	)
+	DescribeTable(
+		"Should not wait for a task that is not running",
+		func(ctx SpecContext, create func(SpecContext) task.Task) {
+			t := create(ctx)
+			grant(ctx, access.ActionDelete, u.OntologyID(), t.OntologyID())
+			commands := streamCommands(ctx)
+			start := time.Now()
+			Expect(withTimeout(10*time.Second).Delete(
+				AuthedCtx(ctx, u), nil, apitask.DeleteRequest{Keys: []task.Key{t.Key}},
+			)).Error().ToNot(HaveOccurred())
+			Expect(time.Since(start)).To(BeNumerically("<", time.Second))
+			Consistently(commands, 100*time.Millisecond).ShouldNot(Receive())
+			expectGone(ctx, t.Key)
+		},
+		Entry("never started", func(ctx SpecContext) task.Task {
+			t := createTask(ctx)
+			Expect(svc.Status.NewWriter(nil).Delete(
+				ctx, t.OntologyID().String(),
+			)).To(Succeed())
+			return t
+		}),
+		Entry("stopped", func(ctx SpecContext) task.Task {
+			return createRunningTask(ctx, false)
+		}),
+		// The rack monitor clears the running flag of a task on a silent rack.
+		Entry("on an offline Driver", func(ctx SpecContext) task.Task {
+			t := createRunningTask(ctx, true)
+			reportStopped(ctx, t)
+			return t
+		}),
+	)
 })

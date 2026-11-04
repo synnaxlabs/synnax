@@ -189,6 +189,30 @@ func (h *openHook) OnACLCheck(_ *mochi.Client, topic string, write bool) bool {
 	return write || !slices.Contains(h.refused, topic)
 }
 
+// unackedHook leaves the publishes on topic unanswered, so that each stays in flight,
+// until released is set.
+type unackedHook struct {
+	mochi.HookBase
+	topic    string
+	held     atomic.Int64
+	released atomic.Bool
+}
+
+func (h *unackedHook) ID() string { return "unacked" }
+
+func (h *unackedHook) Provides(b byte) bool { return b == mochi.OnPublish }
+
+func (h *unackedHook) OnPublish(
+	_ *mochi.Client,
+	pk packets.Packet,
+) (packets.Packet, error) {
+	if pk.TopicName != h.topic || h.released.Load() {
+		return pk, nil
+	}
+	h.held.Add(1)
+	return pk, packets.ErrRejectPacket
+}
+
 // tcpListener returns from Close only after every connection it accepted is done. Mochi
 // counts a connection in Listeners.ClientsWg from the goroutine that serves it, so a
 // connection accepted during Server.Close races the Wait of that group.
