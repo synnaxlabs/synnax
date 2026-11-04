@@ -595,17 +595,43 @@ export class Log extends aether.Leaf<typeof logStateZ, InternalState> {
     const clearScissor = renderCtx.scissor(reg, xy.ZERO, [CANVAS]);
     this.renderSelection(draw2d, rowEntries, lh);
     this.renderElements(draw2d, rows, lh);
-    this.renderScrollbar(draw2d);
+    this.renderScrollbar(draw2d, rows);
     clearScissor();
     const eraseRegion = box.copy(this.state.region);
     return ({ canvases }) =>
       renderCtx.erase(eraseRegion, this.state.overshoot, ...canvases);
   }
 
-  private renderScrollbar(draw2d: Draw2D): void {
+  // Returns where the rows sit in the times the source stores, from 0 to 1, or null
+  // when the source does not know its oldest time.
+  private timeShare(rows: Row[]): { top: number; bottom: number } | null {
+    const range = this.internal.telem.wrapped.timeRange;
+    if (range == null || rows.length === 0) return null;
+    const start = range.start.valueOf();
+    const total = Number(range.end.valueOf() - start);
+    if (total <= 0) return null;
+    const share = (row: Row): number =>
+      Number(this.entries[row.entry].timestamp.valueOf() - start) / total;
+    const clamp = (value: number): number =>
+      bounds.clamp({ lower: 0, upper: 1 }, value);
+    return { top: clamp(share(rows[0])), bottom: clamp(share(rows[rows.length - 1])) };
+  }
+
+  private renderScrollbar(draw2d: Draw2D, rows: Row[]): void {
     if (!this.state.scrolling) return;
     const reg = this.state.region;
     const regHeight = box.height(reg);
+    const shown = this.timeShare(rows);
+    // A view that spans the stored times can still hide lines, which only line counts
+    // can place.
+    if (shown != null && shown.bottom - shown.top < SCROLLBAR_RENDER_THRESHOLD) {
+      const proportional = (shown.bottom - shown.top) * regHeight;
+      const height = Math.max(proportional, SCROLLBAR_MIN_HEIGHT);
+      const outside = shown.top + 1 - shown.bottom;
+      const progress = outside <= 0 ? 0 : shown.top / outside;
+      this.drawThumb(draw2d, box.top(reg) + progress * (regHeight - height), height);
+      return;
+    }
     const { totalHeight } = this;
     if (totalHeight <= 0) return;
     const top = this.calcTop(this.internal.lineHeight);
@@ -627,7 +653,15 @@ export class Log extends aether.Leaf<typeof logStateZ, InternalState> {
       scrollRange <= 0
         ? 0
         : bounds.clamp({ lower: 0, upper: 1 }, distFromEnd / scrollRange);
-    const y = box.bottom(reg) - height - progress * (regHeight - height);
+    this.drawThumb(
+      draw2d,
+      box.bottom(reg) - height - progress * (regHeight - height),
+      height,
+    );
+  }
+
+  private drawThumb(draw2d: Draw2D, y: number, height: number): void {
+    const reg = this.state.region;
     draw2d.container({
       region: box.construct(
         { x: box.right(reg) - SCROLLBAR_WIDTH, y },

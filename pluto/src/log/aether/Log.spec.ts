@@ -9,7 +9,7 @@
 
 import { log as clientLog } from "@synnaxlabs/client";
 import { theme } from "@synnaxlabs/lyra/theme";
-import { box, color, TimeStamp } from "@synnaxlabs/x";
+import { box, color, TimeRange, TimeStamp } from "@synnaxlabs/x";
 import { assert, beforeEach, describe, expect, it, vi } from "vitest";
 
 import { Log, logStateZ, SELECT_ALL_END } from "@/log/aether/Log";
@@ -1124,6 +1124,50 @@ describe("log/aether/Log", () => {
       expect(lines[1]).not.toContain("log");
       expect(lines[1]).toMatch(/^\s*$/);
       expect(lines[1].length).toBe(lines[0].indexOf("data"));
+    });
+  });
+
+  describe("time-based scrollbar", () => {
+    const paused = (wheelPos: number) => {
+      const entries = Array.from({ length: 200 }, (_, i) => makeEntry(i));
+      const { log, recorder, source, updateState } = setup(entries);
+      source.timeRange = new TimeRange(
+        TimeStamp.milliseconds(-1_000_000),
+        entries[199].timestamp,
+      );
+      updateState({ scrolling: false, empty: false });
+      updateState({ scrolling: true, empty: false, wheelPos: 0 });
+      if (wheelPos !== 0) updateState({ scrolling: true, empty: false, wheelPos });
+      recorder.clear();
+      log.render();
+      return findThumb(recorder);
+    };
+
+    it("should pin the thumb to the bottom at the newest time", () => {
+      const thumb = paused(0);
+      assert(thumb != null);
+      expect(thumb.y + thumb.height).toBeCloseTo(box.bottom(REGION_500), 0);
+    });
+
+    it("should keep the thumb when the view spans the times but hides lines", () => {
+      const entries = Array.from({ length: 200 }, (_, i) => ({
+        ...makeEntry(i),
+        timestamp: TimeStamp.milliseconds(i === 199 ? 2_000 : 1_000),
+      }));
+      const { log, recorder, source, updateState } = setup(entries);
+      source.timeRange = new TimeRange(entries[0].timestamp, entries[199].timestamp);
+      updateState({ scrolling: false, empty: false });
+      updateState({ scrolling: true, empty: false, wheelPos: 0 });
+      recorder.clear();
+      log.render();
+      expect(findThumb(recorder)).not.toBeNull();
+    });
+
+    it("should sit by time, not by the lines held", () => {
+      // The oldest entry held is most of the way down the stored times.
+      const thumb = paused(100_000);
+      assert(thumb != null);
+      expect(thumb.y).toBeGreaterThan(box.height(REGION_500) * 0.75);
     });
   });
 

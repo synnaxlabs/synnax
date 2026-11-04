@@ -121,6 +121,7 @@ export class Client {
       openStreamer: async (config) => await this.openStreamer(config),
       readLatest: async (keys, count, tr) =>
         await this.readLatestNFrame(keys, count, tr),
+      readFirst: async (keys) => await this.readFirstFrame(keys),
     });
   }
 
@@ -277,6 +278,19 @@ export class Client {
     const fr = await this.readLatestNFrame(channels, n);
     if (single) return fr.get(channels as channel.Key | channel.Name);
     return fr;
+  }
+
+  private async readFirstFrame(channels: channel.Params): Promise<Frame> {
+    const i = await this.openIterator(TimeRange.MAX, channels, { chunkSize: 1 });
+    const frame = new Frame();
+    try {
+      await i.seekFirst();
+      await i.next(AUTO_SPAN);
+      frame.push(i.value);
+    } finally {
+      await i.close();
+    }
+    return frame;
   }
 
   private async readLatestNFrame(

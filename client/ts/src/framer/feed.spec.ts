@@ -9,6 +9,7 @@
 
 import { Unreachable } from "@synnaxlabs/freighter";
 import {
+  DataType,
   dynamicWindow,
   id,
   Rate,
@@ -331,6 +332,37 @@ describe("Feed", () => {
     } finally {
       sub.close();
     }
+  });
+
+  describe("firstTime", () => {
+    const createIndex = async (): Promise<channel.Channel> =>
+      await client.channels.create({
+        name: id.create(),
+        dataType: DataType.TIMESTAMP,
+        isIndex: true,
+      });
+
+    it("should return the oldest first time of the indexes", async () => {
+      const [a, b] = await Promise.all([createIndex(), createIndex()]);
+      const older = TimeStamp.seconds(100);
+      const newer = TimeStamp.seconds(200);
+      await client.write(older, a.key, [older, older.add(TimeSpan.SECOND)]);
+      await client.write(newer, b.key, [newer]);
+      const first = await feed.firstTime([a.key, b.key]);
+      expect(first?.valueOf()).toBe(older.valueOf());
+    });
+
+    it("should skip an index with no samples", async () => {
+      const [a, b] = await Promise.all([createIndex(), createIndex()]);
+      const start = TimeStamp.seconds(300);
+      await client.write(start, a.key, [start]);
+      expect((await feed.firstTime([a.key, b.key]))?.valueOf()).toBe(start.valueOf());
+    });
+
+    it("should return null when no index has samples", async () => {
+      const index = await createIndex();
+      expect(await feed.firstTime([index.key])).toBeNull();
+    });
   });
 
   it("should throw when a closed feed subscribes", async () => {
