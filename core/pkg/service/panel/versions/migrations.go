@@ -79,4 +79,4 @@ func migratePanel(ctx context.Context, p0 v0.Panel) (Panel, error) {
 // highest version an import accepts. It tracks the stored schema version, which the
 // bundle body mirrors: the same fields, with each resource reference in the tree
 // rewritten to a bundle path.
-const Latest = v2.Version
+const Latest = v3.Version

@@ -18,7 +18,7 @@ import (
 // Version is the portable schema version of the Panel shape this package defines. A
 // panel has no single-resource file form, so it is hand-written rather than generated
 // from a @go imex marker.
-const Version imex.Version = 2
+const Version imex.Version = 3
 
 var _ gorp.Entry[Key] = Panel{}
 
