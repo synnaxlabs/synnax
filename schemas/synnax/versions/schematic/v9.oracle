@@ -688,7 +688,9 @@ NodeConfig union on variant {
 
         @doc value "is the configuration for live string display symbols."
     }
-    switch                             ToggleSymbolConfig
+    switch                             ToggleSymbolConfig {
+        @doc value "is the configuration for switch symbols."
+    }
     text_box extends LabeledConfig {
         text_color        color.Color?  {
             @doc value "is the text color."
@@ -751,30 +753,78 @@ NodeConfig union on variant {
 
         @doc value "is the configuration for live telemetry value symbols."
     }
-    agitator                           ToggleSymbolConfig
-    cross_beam_agitator                ToggleSymbolConfig
-    flat_blade_agitator                ToggleSymbolConfig
-    heat_exchanger_general             StaticSymbolConfig
-    heat_exchanger_m                   StaticSymbolConfig
-    heat_exchanger_straight_tube       StaticSymbolConfig
-    helical_agitator                   ToggleSymbolConfig
-    paddle_agitator                    ToggleSymbolConfig
-    propeller_agitator                 ToggleSymbolConfig
-    rotary_mixer                       ToggleSymbolConfig
-    static_mixer                       StaticSymbolConfig
-    cavity_pump                        ToggleSymbolConfig
-    centrifugal_compressor             ToggleSymbolConfig
-    compressor                         ToggleSymbolConfig
-    diaphragm_pump                     ToggleSymbolConfig
-    ejection_pump                      ToggleSymbolConfig
-    ejector_compressor                 ToggleSymbolConfig
-    liquid_ring_compressor             ToggleSymbolConfig
-    piston_pump                        ToggleSymbolConfig
-    pump                               ToggleSymbolConfig
-    roller_vane_compressor             ToggleSymbolConfig
-    screw_pump                         ToggleSymbolConfig
-    turbo_compressor                   ToggleSymbolConfig
-    vacuum_pump                        ToggleSymbolConfig
+    agitator                           ToggleSymbolConfig {
+        @doc value "is the configuration for agitator symbols."
+    }
+    cross_beam_agitator                ToggleSymbolConfig {
+        @doc value "is the configuration for cross beam agitator symbols."
+    }
+    flat_blade_agitator                ToggleSymbolConfig {
+        @doc value "is the configuration for flat blade agitator symbols."
+    }
+    heat_exchanger_general             StaticSymbolConfig {
+        @doc value "is the configuration for general heat exchanger symbols."
+    }
+    heat_exchanger_m                   StaticSymbolConfig {
+        @doc value "is the configuration for M-type heat exchanger symbols."
+    }
+    heat_exchanger_straight_tube       StaticSymbolConfig {
+        @doc value "is the configuration for straight tube heat exchanger symbols."
+    }
+    helical_agitator                   ToggleSymbolConfig {
+        @doc value "is the configuration for helical agitator symbols."
+    }
+    paddle_agitator                    ToggleSymbolConfig {
+        @doc value "is the configuration for paddle agitator symbols."
+    }
+    propeller_agitator                 ToggleSymbolConfig {
+        @doc value "is the configuration for propeller agitator symbols."
+    }
+    rotary_mixer                       ToggleSymbolConfig {
+        @doc value "is the configuration for rotary mixer symbols."
+    }
+    static_mixer                       StaticSymbolConfig {
+        @doc value "is the configuration for static mixer symbols."
+    }
+    cavity_pump                        ToggleSymbolConfig {
+        @doc value "is the configuration for cavity pump symbols."
+    }
+    centrifugal_compressor             ToggleSymbolConfig {
+        @doc value "is the configuration for centrifugal compressor symbols."
+    }
+    compressor                         ToggleSymbolConfig {
+        @doc value "is the configuration for compressor symbols."
+    }
+    diaphragm_pump                     ToggleSymbolConfig {
+        @doc value "is the configuration for diaphragm pump symbols."
+    }
+    ejection_pump                      ToggleSymbolConfig {
+        @doc value "is the configuration for ejection pump symbols."
+    }
+    ejector_compressor                 ToggleSymbolConfig {
+        @doc value "is the configuration for ejector compressor symbols."
+    }
+    liquid_ring_compressor             ToggleSymbolConfig {
+        @doc value "is the configuration for liquid ring compressor symbols."
+    }
+    piston_pump                        ToggleSymbolConfig {
+        @doc value "is the configuration for piston pump symbols."
+    }
+    pump                               ToggleSymbolConfig {
+        @doc value "is the configuration for pump symbols."
+    }
+    roller_vane_compressor             ToggleSymbolConfig {
+        @doc value "is the configuration for roller vane compressor symbols."
+    }
+    screw_pump                         ToggleSymbolConfig {
+        @doc value "is the configuration for screw pump symbols."
+    }
+    turbo_compressor                   ToggleSymbolConfig {
+        @doc value "is the configuration for turbo compressor symbols."
+    }
+    vacuum_pump                        ToggleSymbolConfig {
+        @doc value "is the configuration for vacuum pump symbols."
+    }
     burst_disc                         StaticSymbolConfig
     flame_arrestor                     StaticSymbolConfig
     flame_arrestor_detonation          StaticSymbolConfig
