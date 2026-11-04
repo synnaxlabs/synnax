@@ -18,6 +18,7 @@ import { Status } from "@synnaxlabs/lyra/status";
 import { Text } from "@synnaxlabs/lyra/text";
 import { ICD } from "@synnaxlabs/pluto";
 import { uuid } from "@synnaxlabs/x";
+import pluralize from "pluralize";
 import { type ReactElement } from "react";
 
 import { formatHex } from "@/feature/icd/editor/FormattedField";
@@ -43,9 +44,6 @@ const FORMAT_ICONS: Record<icd.PayloadType, ReactElement> = {
   text: <Icon.Text />,
   json: <Icon.JSON />,
 };
-
-const count = (n: number, noun: string): string =>
-  `${n} ${n === 1 ? noun : Text.plural(noun)}`;
 
 const describeIdentifier = ({
   identifier,
@@ -75,7 +73,7 @@ const describeMatch = ({ payload }: icd.Message): string | null => {
 
 /** @returns a one-line summary of how frames match a message and what it holds. */
 const describe = (message: icd.Message): string => {
-  const fields = count(message.payload.fields.length, "field");
+  const fields = pluralize("field", message.payload.fields.length, true);
   const match = describeMatch(message);
   return match == null ? fields : `${match} · ${fields}`;
 };

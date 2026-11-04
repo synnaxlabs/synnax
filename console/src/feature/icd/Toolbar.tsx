@@ -41,7 +41,11 @@ const ContextMenu = ({ keys, getItem }: ContextMenuProps): ReactElement => {
   const openResource = Panel.useOpenResource();
   const handleImport = useImport();
   const handleLink = Core.useCopyLinkToClipboard();
-  const confirm = Modals.useConfirmDelete({ type: "ICD", icon: "Library" });
+  const confirm = Modals.useConfirmDelete({
+    type: "ICD",
+    plural: "ICDs",
+    icon: "Library",
+  });
   const { update: del } = ICD.useDelete({
     beforeUpdate: async ({ data }: Flux.BeforeUpdateParams<ICD.DeleteParams>) => {
       const icds = getItem(array.toArray(data));
