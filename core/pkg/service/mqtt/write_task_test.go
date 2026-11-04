@@ -283,8 +283,7 @@ var _ = Describe("Write task", func() {
 					g.Expect(stat.Variant).To(Equal(status.VariantWarning))
 					g.Expect(stat.Message).To(Equal("Failed to write data"))
 					g.Expect(stat.Description).To(Equal(
-						"target plant/nan: cannot convert NaN to JSON: value is not " +
-							"finite: json conversion failed: validation error",
+						"target plant/nan: NaN is not a JSON number: validation error",
 					))
 					g.Expect(stat.Details.Running).To(BeTrue())
 				})
@@ -432,7 +431,7 @@ var _ = Describe("Write task", func() {
 					ch := createVirtual(ctx, telem.StringT)
 					return writeConfig(dev, plainTarget("plant/x", ch, "", "number")),
 						"target plant/x: channel " + ch.Name +
-							": cannot convert string to a JSON number"
+							": data type string only serializes as a string"
 				},
 			),
 			Entry("enum values for a JSON type that is not string",
@@ -452,8 +451,7 @@ var _ = Describe("Write task", func() {
 					unit := staticField("/unit", "string", "rpm")
 					target := plainTarget("plant/x", ch, "", "number", unit)
 					return writeConfig(dev, target),
-						"a channel value that is the whole payload " +
-							"allows no other fields"
+						`target plant/x: pointers "" and "/unit" overlap`
 				},
 			),
 			Entry("a static value that is not of its JSON type",
@@ -471,7 +469,7 @@ var _ = Describe("Write task", func() {
 					unit := staticField("/unit", "string", "rpm")
 					target := plainTarget("plant/x", ch, "/unit/value", "number", unit)
 					return writeConfig(dev, target),
-						"target plant/x: two fields set /unit"
+						`target plant/x: pointers "/unit" and "/unit/value" overlap`
 				},
 			),
 			Entry("a channel value at the parent of a field",
@@ -480,7 +478,7 @@ var _ = Describe("Write task", func() {
 					unit := staticField("/reading/unit", "string", "rpm")
 					target := plainTarget("plant/x", ch, "/reading", "number", unit)
 					return writeConfig(dev, target),
-						"target plant/x: two fields set /reading"
+						`target plant/x: pointers "/reading" and "/reading/unit" overlap`
 				},
 			),
 			Entry("two fields at one pointer",
@@ -492,7 +490,7 @@ var _ = Describe("Write task", func() {
 						staticField("/unit", "string", "rps"),
 					)
 					return writeConfig(dev, target),
-						"target plant/x: two fields set /unit"
+						`target plant/x: pointers "/unit" and "/unit" overlap`
 				},
 			),
 		)

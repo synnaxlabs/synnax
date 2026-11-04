@@ -11,6 +11,7 @@ package mqtt
 
 import (
 	"context"
+	"encoding/json/jsontext"
 	"slices"
 	"strings"
 	"time"
@@ -61,11 +62,10 @@ func validateTopic(topic string) error {
 
 // readField is one value to extract from a payload.
 type readField struct {
-	enums   xjson.EnumMap
+	decoder *xjson.Decoder
 	name    string
 	pointer xjson.Pointer
 	channel channel.Key
-	format  xjson.TimeFormat
 	// dataType is the data type of the channel, which the Core is the authority on.
 	dataType telem.DataType
 }
@@ -84,6 +84,11 @@ type readTopic struct {
 	indexField      int
 	qos             byte
 	retainedIgnored bool
+	extractor       *xjson.Extractor
+	// values[i] is the value of fields[i] in the last payload.
+	values []jsontext.Value
+	// text holds a payload that is not JSON as a JSON string.
+	text []byte
 }
 
 // newReadTopic validates entry against channels, which holds every channel that a
@@ -91,15 +96,15 @@ type readTopic struct {
 func newReadTopic(
 	entry PlainReadEntry,
 	channels map[channel.Key]channel.Channel,
-) (readTopic, error) {
-	t := readTopic{
+) (*readTopic, error) {
+	t := &readTopic{
 		topic:           entry.Topic,
 		qos:             qosLevel(entry.Qos),
 		retainedIgnored: entry.RetainedIgnored,
 		indexField:      -1,
 	}
 	if err := validateTopic(entry.Topic); err != nil {
-		return readTopic{}, err
+		return nil, err
 	}
 	indexSet := false
 	for _, f := range entry.Fields {
@@ -109,19 +114,16 @@ func newReadTopic(
 		path := "field " + f.Name + " of topic " + entry.Topic
 		ch, ok := channels[f.Channel]
 		if !ok {
-			return readTopic{}, errors.Wrapf(
+			return nil, errors.Wrapf(
 				validate.ErrValidation,
 				"%s: channel %d does not exist",
 				path,
 				f.Channel,
 			)
 		}
-		if err := xjson.CheckToSample(ch.DataType); err != nil {
-			return readTopic{}, errors.Wrapf(err, "%s: channel %s", path, ch.Name)
-		}
 		pointer, err := xjson.ParsePointer(f.Pointer)
 		if err != nil {
-			return readTopic{}, errors.Wrap(err, path)
+			return nil, errors.Wrap(err, path)
 		}
 		field := readField{
 			name:     f.Name,
@@ -129,43 +131,41 @@ func newReadTopic(
 			channel:  f.Channel,
 			dataType: ch.DataType,
 		}
+		xf := xjson.Field{DataType: ch.DataType, Enums: enums(f.EnumValues)}
 		if ch.DataType == telem.TimestampT {
 			if f.TimeFormat == nil {
-				return readTopic{}, errors.Wrapf(
+				return nil, errors.Wrapf(
 					validate.ErrValidation,
 					"%s: a timestamp channel requires a time format", path,
 				)
 			}
-			if field.format, err = xjson.ParseTimeFormat(
+			if xf.TimeFormat, err = xjson.ParseTimeFormat(
 				string(*f.TimeFormat),
 			); err != nil {
-				return readTopic{}, errors.Wrap(err, path)
+				return nil, errors.Wrap(err, path)
 			}
 		}
-		if len(f.EnumValues) > 0 {
-			field.enums = make(xjson.EnumMap, len(f.EnumValues))
-			for _, e := range f.EnumValues {
-				field.enums[e.Label] = e.Value
-			}
+		if field.decoder, err = xjson.NewDecoder(xf); err != nil {
+			return nil, errors.Wrapf(err, "%s: channel %s", path, ch.Name)
 		}
 		if !indexSet {
 			t.index, indexSet = ch.Index(), true
 		} else if ch.Index() != t.index {
-			return readTopic{}, errors.Wrapf(
+			return nil, errors.Wrapf(
 				validate.ErrValidation,
 				"%s: every channel of a topic must share one index channel", path,
 			)
 		}
 		if f.Key == entry.Index {
 			if !ch.IsIndex {
-				return readTopic{}, errors.Wrapf(
+				return nil, errors.Wrapf(
 					validate.ErrValidation,
 					"%s: the index field must write to an index channel", path,
 				)
 			}
 			t.indexField = len(t.fields)
 		} else if ch.IsIndex {
-			return readTopic{}, errors.Wrapf(
+			return nil, errors.Wrapf(
 				validate.ErrValidation,
 				"%s: only the index field can write to an index channel", path,
 			)
@@ -173,12 +173,12 @@ func newReadTopic(
 		t.fields = append(t.fields, field)
 	}
 	if len(t.fields) == 0 {
-		return readTopic{}, errors.Wrapf(
+		return nil, errors.Wrapf(
 			validate.ErrValidation, "topic %s has no enabled fields", entry.Topic,
 		)
 	}
 	if entry.Index != "" && t.indexField == -1 {
-		return readTopic{}, errors.Wrapf(
+		return nil, errors.Wrapf(
 			validate.ErrValidation,
 			"topic %s: index field %s does not exist or is disabled",
 			entry.Topic, entry.Index,
@@ -187,22 +187,47 @@ func newReadTopic(
 	if t.index != 0 {
 		t.keys = append(t.keys, t.index)
 	}
+	pointers := make([]xjson.Pointer, len(t.fields))
 	for i, f := range t.fields {
+		pointers[i] = f.pointer
 		if i != t.indexField {
 			t.keys = append(t.keys, f.channel)
 		}
 	}
+	t.extractor = xjson.NewExtractor(pointers)
+	t.values = make([]jsontext.Value, len(t.fields))
 	return t, nil
+}
+
+// enums returns entries in the form xjson takes.
+func enums(entries []EnumEntry) []xjson.Enum {
+	out := make([]xjson.Enum, len(entries))
+	for i, e := range entries {
+		out[i] = xjson.Enum{Label: e.Label, Value: e.Value}
+	}
+	return out
+}
+
+// extract finds the value of each field in payload. A payload that is not JSON is taken
+// as a bare string, such as ON.
+func (t *readTopic) extract(payload []byte) error {
+	err := t.extractor.Extract(payload, t.values)
+	if err == nil ||
+		jsontext.Value(payload).IsValid(jsontext.AllowDuplicateNames(true)) {
+		return err
+	}
+	if t.text, err = jsontext.AppendQuote(t.text[:0], payload); err != nil {
+		return err
+	}
+	return t.extractor.Extract(t.text, t.values)
 }
 
 // convert turns one payload into one sample for each channel of the topic, as a series
 // in the order of keys. It converts every field or none, because a frame that writes to
 // an index must hold every channel of that index.
-func (t readTopic) convert(msg message) ([]telem.Series, telem.TimeStamp, error) {
-	doc, err := xjson.Decode(msg.payload)
-	if err != nil {
-		// A payload that is not JSON is taken as a bare string, such as ON.
-		doc = string(msg.payload)
+func (t *readTopic) convert(msg message) ([]telem.Series, telem.TimeStamp, error) {
+	if err := t.extract(msg.payload); err != nil {
+		return nil, 0, err
 	}
 	var (
 		stamp  = msg.received
@@ -212,11 +237,10 @@ func (t readTopic) convert(msg message) ([]telem.Series, telem.TimeStamp, error)
 		series = append(series, telem.Series{DataType: telem.TimestampT})
 	}
 	for i, f := range t.fields {
-		value, ok := f.pointer.Get(doc)
-		if !ok {
+		if t.values[i] == nil {
 			return nil, 0, errors.Newf("field %s: no value at %s", f.name, f.pointer)
 		}
-		data, err := xjson.AppendSample(nil, f.dataType, value, f.format, f.enums)
+		data, err := f.decoder.Append(nil, t.values[i])
 		if err != nil {
 			return nil, 0, errors.Wrapf(err, "field %s", f.name)
 		}
@@ -269,7 +293,7 @@ func (b *batch) result() driver.Batch {
 // readSource is the driver.Source of an MQTT read task.
 type readSource struct {
 	pool   *pool
-	topics map[string]readTopic
+	topics map[string]*readTopic
 	// tags holds the Sparkplug B tags of the task.
 	tags map[tagID]readTag
 	// lastStamp is the last timestamp of each index channel, stored or written by any

@@ -7,14 +7,13 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-package kafka
+package json
 
 import (
 	"bytes"
 	"math"
 	"strconv"
 
-	"github.com/synnaxlabs/synnax/pkg/service/http"
 	"github.com/synnaxlabs/x/errors"
 	"github.com/synnaxlabs/x/telem"
 	"github.com/synnaxlabs/x/validate"
@@ -94,54 +93,8 @@ func (n number) bits() uint64 {
 	}
 }
 
-// timeUnit returns the span one unit of a numeric time format counts.
-func timeUnit(format http.TimeFormat) (telem.TimeSpan, error) {
-	switch format {
-	case http.TimeFormatUnixSec:
-		return telem.Second, nil
-	case http.TimeFormatUnixMs:
-		return telem.Millisecond, nil
-	case http.TimeFormatUnixUs:
-		return telem.Microsecond, nil
-	case http.TimeFormatUnixNs:
-		return telem.Nanosecond, nil
-	default:
-		return 0, errors.Wrapf(validate.ErrValidation, "unknown time format %q", format)
-	}
-}
-
-func numericTimestamp(n number, format http.TimeFormat) (telem.TimeStamp, error) {
-	unit, err := timeUnit(format)
-	if err != nil {
-		return 0, err
-	}
-	switch n.kind {
-	case intNumber:
-		if n.i > math.MaxInt64/int64(unit) || n.i < math.MinInt64/int64(unit) {
-			return 0, timestampOutOfRange(n, format)
-		}
-		return telem.TimeStamp(n.i) * telem.TimeStamp(unit), nil
-	case uintNumber:
-		// parseNumber only returns one past the range of an int64.
-		return 0, timestampOutOfRange(n, format)
-	default:
-		// math.MaxInt64 rounds up to 2^63 as a float64, so the bound is exclusive.
-		ns := n.f * float64(unit)
-		if math.IsNaN(ns) || ns < math.MinInt64 || ns >= math.MaxInt64 {
-			return 0, timestampOutOfRange(n, format)
-		}
-		return telem.TimeStamp(ns), nil
-	}
-}
-
-func timestampOutOfRange(n number, format http.TimeFormat) error {
-	return errors.Wrapf(
-		validate.ErrValidation, "%v is out of range for a %s timestamp", n, format,
-	)
-}
-
-// integerBounds returns the range of the integer data type dt. ok is false when dt
-// is not an integer type.
+// integerBounds returns the range of the integer data type dt. ok is false when dt is
+// not an integer type.
 func integerBounds(dt telem.DataType) (lo int64, hi uint64, ok bool) {
 	switch dt {
 	case telem.Int8T:
@@ -193,4 +146,93 @@ func checkFits(n number, dt telem.DataType) error {
 		return errors.Wrapf(validate.ErrValidation, "%s is out of range for %s", n, dt)
 	}
 	return nil
+}
+
+// appendNumber appends n as a sample of dt, which must be numeric or boolean. Check
+// that n fits dt first.
+func appendNumber(dst []byte, dt telem.DataType, n number) []byte {
+	order := telem.ByteOrder
+	switch dt {
+	case telem.Float64T:
+		return order.AppendUint64(dst, math.Float64bits(n.float()))
+	case telem.Float32T:
+		return order.AppendUint32(dst, math.Float32bits(float32(n.float())))
+	case telem.BooleanT:
+		if n.float() != 0 {
+			return append(dst, 1)
+		}
+		return append(dst, 0)
+	default:
+		end := len(dst) + int(dt.Density())
+		return order.AppendUint64(dst, n.bits())[:end]
+	}
+}
+
+// sampleNumber reads sample, a sample of the numeric or boolean data type dt.
+func sampleNumber(dt telem.DataType, sample []byte) number {
+	order := telem.ByteOrder
+	switch dt {
+	case telem.Float64T:
+		return number{kind: floatNumber, f: math.Float64frombits(order.Uint64(sample))}
+	case telem.Float32T:
+		f := float64(math.Float32frombits(order.Uint32(sample)))
+		return number{kind: floatNumber, f: f}
+	case telem.Int64T:
+		return number{kind: intNumber, i: int64(order.Uint64(sample))}
+	case telem.Int32T:
+		return number{kind: intNumber, i: int64(int32(order.Uint32(sample)))}
+	case telem.Int16T:
+		return number{kind: intNumber, i: int64(int16(order.Uint16(sample)))}
+	case telem.Int8T:
+		return number{kind: intNumber, i: int64(int8(sample[0]))}
+	case telem.Uint64T:
+		return number{kind: uintNumber, u: order.Uint64(sample)}
+	case telem.Uint32T:
+		return number{kind: uintNumber, u: uint64(order.Uint32(sample))}
+	case telem.Uint16T:
+		return number{kind: uintNumber, u: uint64(order.Uint16(sample))}
+	case telem.Uint8T:
+		return number{kind: uintNumber, u: uint64(sample[0])}
+	default:
+		n := number{kind: intNumber}
+		if sample[0] != 0 {
+			n.i = 1
+		}
+		return n
+	}
+}
+
+// appendJSONNumber appends n as a JSON number. A float takes the shortest form that
+// round trips, and integers stay exact.
+func appendJSONNumber(dst []byte, n number) ([]byte, error) {
+	if n.kind != floatNumber {
+		return n.appendText(dst), nil
+	}
+	if math.IsNaN(n.f) || math.IsInf(n.f, 0) {
+		return nil, errors.Wrapf(validate.ErrValidation, "%s is not a JSON number", n)
+	}
+	format := byte('f')
+	if abs := math.Abs(n.f); abs != 0 && (abs < 1e-6 || abs >= 1e21) {
+		format = 'e'
+	}
+	dst = strconv.AppendFloat(dst, n.f, format, -1, 64)
+	// A JSON number writes an exponent without padding: e-9, not e-09.
+	if l := len(dst); format == 'e' && l >= 4 && dst[l-4] == 'e' && dst[l-3] == '-' &&
+		dst[l-2] == '0' {
+		dst[l-2] = dst[l-1]
+		dst = dst[:l-1]
+	}
+	return dst, nil
+}
+
+// numeric reports whether dt holds numbers: an integer, float, or boolean type.
+func numeric(dt telem.DataType) bool {
+	switch dt {
+	case telem.Float64T, telem.Float32T, telem.BooleanT,
+		telem.Int64T, telem.Int32T, telem.Int16T, telem.Int8T,
+		telem.Uint64T, telem.Uint32T, telem.Uint16T, telem.Uint8T:
+		return true
+	default:
+		return false
+	}
 }

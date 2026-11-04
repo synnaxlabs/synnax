@@ -11,7 +11,6 @@ package mqtt
 
 import (
 	"context"
-	"slices"
 	"uuid"
 
 	"github.com/synnaxlabs/synnax/pkg/service/channel"
@@ -40,25 +39,27 @@ type target interface {
 	String() string
 }
 
-// extraField is a static or generated field of a payload.
-type extraField struct {
-	// static is the JSON text of a fixed value. It is decoded for each payload, so
-	// that payloads never share a mutable value. Empty for a generated field.
-	static    []byte
-	pointer   xjson.Pointer
-	generator GeneratorType
-	format    xjson.TimeFormat
+type slotKind uint8
+
+const (
+	slotValue slotKind = iota
+	slotTimestamp
+	slotUUID
+)
+
+// slot is how a payload fills one slot of its template.
+type slot struct {
+	kind   slotKind
+	format xjson.TimeFormat
 }
 
 // writeTarget is one plain write target, ready to convert samples into payloads.
 type writeTarget struct {
-	enums    xjson.ReverseEnumMap
 	topic    string
-	pointer  xjson.Pointer
-	extras   []extraField
-	dataType telem.DataType
-	format   xjson.TimeFormat
-	jsonType xjson.Type
+	template xjson.Template
+	// slots[i] fills the slot of template field i.
+	slots    []slot
+	encoder  *xjson.Encoder
 	qos      byte
 	retained bool
 }
@@ -70,13 +71,34 @@ func (t writeTarget) String() string { return "target " + t.topic }
 
 // publication implements target.
 func (t writeTarget) publication(series telem.Series, i int) (publication, error) {
-	payload, err := t.payload(series, i)
+	payload, err := t.template.Append(nil, payloadSlots{t: t, sample: series.At(i)})
 	if err != nil {
 		return publication{}, err
 	}
 	return publication{
 		topic: t.topic, payload: payload, qos: t.qos, retained: t.retained,
 	}, nil
+}
+
+// payloadSlots fills the slots of the payload of one sample.
+type payloadSlots struct {
+	t      writeTarget
+	sample []byte
+}
+
+// AppendSlot implements xjson.Slots.
+func (p payloadSlots) AppendSlot(dst []byte, field int) ([]byte, error) {
+	s := p.t.slots[field]
+	switch s.kind {
+	case slotValue:
+		return p.t.encoder.Append(dst, p.sample)
+	case slotTimestamp:
+		return xjson.AppendTimeStamp(dst, telem.Now(), s.format), nil
+	default:
+		dst = append(dst, '"')
+		dst, err := uuid.New().AppendText(dst)
+		return append(dst, '"'), err
+	}
 }
 
 func parseTimeFormat(format *TimeFormat) (xjson.TimeFormat, error) {
@@ -93,71 +115,67 @@ func newWriteTarget(target PlainWriteTarget, ch channel.Channel) (writeTarget, e
 		topic:    target.Topic,
 		qos:      qosLevel(target.Qos),
 		retained: target.Retained,
-		dataType: ch.DataType,
 	}
-	err := validateTopic(target.Topic)
-	if err != nil {
+	if err := validateTopic(target.Topic); err != nil {
 		return writeTarget{}, err
 	}
-	if t.pointer, err = xjson.ParsePointer(target.Channel.Pointer); err != nil {
+	pointer, err := xjson.ParsePointer(target.Channel.Pointer)
+	if err != nil {
 		return writeTarget{}, errors.Wrap(err, path)
 	}
-	if t.jsonType, err = xjson.ParseType(string(target.Channel.JSONType)); err != nil {
+	f := xjson.Field{DataType: ch.DataType, Enums: enums(target.Channel.EnumValues)}
+	if f.Type, err = xjson.ParseType(string(target.Channel.JSONType)); err != nil {
 		return writeTarget{}, errors.Wrap(err, path)
 	}
 	if ch.DataType == telem.TimestampT {
-		if t.format, err = parseTimeFormat(target.Channel.TimeFormat); err != nil {
+		if f.TimeFormat, err = parseTimeFormat(target.Channel.TimeFormat); err != nil {
 			return writeTarget{}, errors.Wrap(err, path)
 		}
-	} else if err = xjson.CheckFromSample(ch.DataType, t.jsonType); err != nil {
-		return writeTarget{}, errors.Wrapf(err, "%s: channel %s", path, ch.Name)
 	}
-	if len(target.Channel.EnumValues) > 0 {
-		if t.jsonType != xjson.String {
-			return writeTarget{}, errors.Wrapf(
-				validate.ErrValidation,
-				"%s: enum values require the string JSON type", path,
-			)
-		}
-		t.enums = make(xjson.ReverseEnumMap, len(target.Channel.EnumValues))
-		for _, e := range target.Channel.EnumValues {
-			t.enums[e.Value] = e.Label
-		}
-	}
-	if len(t.pointer) == 0 && len(target.Fields) > 0 {
+	if len(f.Enums) > 0 && f.Type != xjson.String {
 		return writeTarget{}, errors.Wrapf(
 			validate.ErrValidation,
-			"%s: a channel value that is the whole payload allows no other fields",
-			path,
+			"%s: enum values require the string JSON type", path,
 		)
 	}
-	for _, f := range target.Fields {
-		var extra extraField
-		switch field := f.Variant.(type) {
+	if t.encoder, err = xjson.NewEncoder(f); err != nil {
+		return writeTarget{}, errors.Wrapf(err, "%s: channel %s", path, ch.Name)
+	}
+	fields := []xjson.TemplateField{{Pointer: pointer}}
+	t.slots = []slot{{kind: slotValue}}
+	for _, v := range target.Fields {
+		var (
+			field xjson.TemplateField
+			s     slot
+		)
+		switch v := v.Variant.(type) {
 		case StaticWriteField:
-			if extra.pointer, err = xjson.ParsePointer(field.Pointer); err != nil {
+			if field.Pointer, err = xjson.ParsePointer(v.Pointer); err != nil {
 				return writeTarget{}, errors.Wrap(err, path)
 			}
-			if !matchesJSONType(field.Value, field.JSONType) {
+			if !matchesJSONType(v.Value, v.JSONType) {
 				return writeTarget{}, errors.Wrapf(
 					validate.ErrValidation,
 					"%s: static value at %s is not a %s",
-					path, field.Pointer, field.JSONType,
+					path, v.Pointer, v.JSONType,
 				)
 			}
-			if extra.static, err = xjson.Marshal(field.Value); err != nil {
+			if field.Literal, err = xjson.Marshal(v.Value); err != nil {
 				return writeTarget{}, errors.Wrapf(
 					validate.ErrValidation,
-					"%s: static value at %s is not JSON", path, field.Pointer,
+					"%s: static value at %s is not JSON", path, v.Pointer,
 				)
 			}
 		case GeneratedWriteField:
-			if extra.pointer, err = xjson.ParsePointer(field.Pointer); err != nil {
+			if field.Pointer, err = xjson.ParsePointer(v.Pointer); err != nil {
 				return writeTarget{}, errors.Wrap(err, path)
 			}
-			extra.generator = field.Generator
-			if extra.format, err = parseTimeFormat(field.TimeFormat); err != nil {
-				return writeTarget{}, errors.Wrap(err, path)
+			s.kind = slotUUID
+			if v.Generator == GeneratorTypeTimestamp {
+				s.kind = slotTimestamp
+				if s.format, err = parseTimeFormat(v.TimeFormat); err != nil {
+					return writeTarget{}, errors.Wrap(err, path)
+				}
 			}
 		case nil:
 			return writeTarget{}, errors.Wrapf(
@@ -166,30 +184,18 @@ func newWriteTarget(target PlainWriteTarget, ch channel.Channel) (writeTarget, e
 				path,
 			)
 		default:
-			panic(errors.Newf("mqtt: unknown write field variant %T", field))
+			panic(errors.Newf("mqtt: unknown write field variant %T", v))
 		}
-		if len(extra.pointer) == 0 {
+		if len(field.Pointer) == 0 {
 			return writeTarget{}, errors.Wrapf(
 				validate.ErrValidation, "%s: a field requires a pointer", path,
 			)
 		}
-		t.extras = append(t.extras, extra)
+		fields = append(fields, field)
+		t.slots = append(t.slots, s)
 	}
-	// A pointer that holds another replaces or blocks the value set there.
-	pointers := []xjson.Pointer{t.pointer}
-	for _, extra := range t.extras {
-		for _, p := range pointers {
-			shorter, longer := p, extra.pointer
-			if len(shorter) > len(longer) {
-				shorter, longer = longer, shorter
-			}
-			if slices.Equal(shorter, longer[:len(shorter)]) {
-				return writeTarget{}, errors.Wrapf(
-					validate.ErrValidation, "%s: two fields set %s", path, shorter,
-				)
-			}
-		}
-		pointers = append(pointers, extra.pointer)
+	if t.template, err = xjson.NewTemplate(fields); err != nil {
+		return writeTarget{}, errors.Wrap(err, path)
 	}
 	return t, nil
 }
@@ -206,42 +212,6 @@ func matchesJSONType(value any, t JSONType) bool {
 	default:
 		return false
 	}
-}
-
-// payload returns the JSON payload for sample i of series.
-func (t writeTarget) payload(series telem.Series, i int) ([]byte, error) {
-	var (
-		value any
-		err   error
-	)
-	if t.dataType == telem.TimestampT {
-		value = xjson.FromTimeStamp(series.ValueAt[telem.TimeStamp](i), t.format)
-	} else if value, err = xjson.FromSample(
-		t.dataType, series.At(i), t.jsonType, t.enums,
-	); err != nil {
-		return nil, err
-	}
-	var doc any
-	for _, extra := range t.extras {
-		var extraValue any
-		switch {
-		case extra.static != nil:
-			if extraValue, err = xjson.Decode(extra.static); err != nil {
-				return nil, err
-			}
-		case extra.generator == GeneratorTypeTimestamp:
-			extraValue = xjson.FromTimeStamp(telem.Now(), extra.format)
-		default:
-			extraValue = uuid.New().String()
-		}
-		if doc, err = extra.pointer.Set(doc, extraValue); err != nil {
-			return nil, err
-		}
-	}
-	if doc, err = t.pointer.Set(doc, value); err != nil {
-		return nil, err
-	}
-	return xjson.Marshal(doc)
 }
 
 // writeSink is the driver.Sink of an MQTT write task.
