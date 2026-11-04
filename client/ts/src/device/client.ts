@@ -321,6 +321,8 @@ export class Client extends query.Retriever<
       .toArray(devices)
       .map((device) => deviceZ(schemas).parse(device) as Device);
     const apply = () => [this.store.set(normalized.map(stripStatus))];
+    // A status streamed during the request is newer than the reply.
+    const since = this.cfg.statusStore.stamp();
     const res = await query.optimistic({
       rollbacks: apply(),
       onOptimistic: opts.onOptimistic,
@@ -331,6 +333,9 @@ export class Client extends query.Retriever<
           createReqZ(schemas),
           createResZ(schemas),
         ),
+    });
+    res.devices.forEach(({ status: st }) => {
+      if (st != null) this.cfg.statusStore.ingest(st, { since });
     });
     this.store.set(res.devices.map(stripStatus));
     return isSingle ? res.devices[0] : res.devices;

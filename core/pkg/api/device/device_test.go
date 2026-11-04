@@ -10,13 +10,18 @@
 package device_test
 
 import (
+	"context"
+
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	apidevice "github.com/synnaxlabs/synnax/pkg/api/device"
 	. "github.com/synnaxlabs/synnax/pkg/api/testutil"
 	"github.com/synnaxlabs/synnax/pkg/service/access"
 	"github.com/synnaxlabs/synnax/pkg/service/legacy/device"
+	"github.com/synnaxlabs/synnax/pkg/service/ontology"
+	"github.com/synnaxlabs/synnax/pkg/service/status"
 	"github.com/synnaxlabs/x/query"
+	"github.com/synnaxlabs/x/telem"
 	. "github.com/synnaxlabs/x/testutil"
 )
 
@@ -43,6 +48,69 @@ func retrieveDevice(ctx SpecContext, key string) device.Device {
 		Exec(ctx, nil)).To(Succeed())
 	return d
 }
+
+func setLiveStatus(ctx SpecContext, d device.Device) {
+	GinkgoHelper()
+	Expect(svc.Status.NewWriter(nil).Set(ctx, &device.Status{
+		Key:     d.OntologyID().String(),
+		Name:    d.Name,
+		Time:    telem.Now(),
+		Variant: status.VariantSuccess,
+		Message: "Device is running",
+		Details: device.StatusDetails{Rack: d.Rack, Device: d.Key},
+	})).To(Succeed())
+}
+
+var _ = Describe("Create", func() {
+	authedCtx := func(ctx SpecContext) context.Context {
+		GinkgoHelper()
+		u := createUser(ctx)
+		grant(
+			ctx,
+			access.ActionCreate,
+			u.OntologyID(),
+			ontology.ID{Type: ontology.ResourceTypeDevice},
+		)
+		return AuthedCtx(ctx, u)
+	}
+	It("Should reply with the stored status of each device", func(ctx SpecContext) {
+		existing := createDevice(ctx, "create-existing")
+		setLiveStatus(ctx, existing)
+		existing.Status, existing.Parent = nil, nil
+		fresh := existing
+		fresh.Key = "create-fresh"
+		res := MustSucceed(apiSvc.Create(
+			authedCtx(ctx), nil,
+			apidevice.CreateRequest{Devices: []device.Device{fresh, existing}},
+		))
+		Expect(res.Devices).To(HaveLen(2))
+		Expect(res.Devices[0].Status.Key).To(Equal(fresh.OntologyID().String()))
+		Expect(res.Devices[0].Status.Message).To(Equal("Device status unknown"))
+		Expect(res.Devices[1].Status.Key).To(Equal(existing.OntologyID().String()))
+		Expect(res.Devices[1].Status.Message).To(Equal("Device is running"))
+	})
+	It(
+		"Should keep the live status when a reply is created again",
+		func(ctx SpecContext) {
+			d := createDevice(ctx, "create-round-trip")
+			setLiveStatus(ctx, d)
+			d.Status, d.Parent = nil, nil
+			authed := authedCtx(ctx)
+			res := MustSucceed(apiSvc.Create(
+				authed, nil, apidevice.CreateRequest{Devices: []device.Device{d}},
+			))
+			Expect(apiSvc.Create(
+				authed, nil, apidevice.CreateRequest{Devices: res.Devices},
+			)).Error().ToNot(HaveOccurred())
+			var stored device.Status
+			Expect(svc.Status.NewRetrieve[device.StatusDetails]().
+				Where(status.MatchKeys[device.StatusDetails](d.OntologyID().String())).
+				Entry(&stored).
+				Exec(ctx, nil)).To(Succeed())
+			Expect(stored.Message).To(Equal("Device is running"))
+		},
+	)
+})
 
 var _ = Describe("Rename", func() {
 	It("Should rename the device when update is granted", func(ctx SpecContext) {
