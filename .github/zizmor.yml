@@ -7,8 +7,8 @@
 # License, use of this software will be governed by the Apache License, Version 2.0,
 # included in the file licenses/APL.txt.
 
-# Findings reviewed and accepted. Every entry gives its reason. Except for a disabled
-# rule, a new use of a rule in any other file still reports.
+# Findings reviewed and accepted. Every entry gives its reason, and a new use of a rule
+# in any other file still reports.
 
 rules:
   # These run from the base branch and read pull requests through the API as data. None
@@ -26,8 +26,3 @@ rules:
       - test.cpp.yaml
       - test.py.yaml
       - test.ts.yaml
-  # Every caller passes secrets to a workflow in this repository, and a workflow reads
-  # only the secrets it names. A hand-kept list across 80 calls would blank a secret
-  # without an error when it drifts.
-  secrets-inherit:
-    disable: true
