@@ -168,8 +168,15 @@ jobs:
           GH_REPO: ${{ github.repository }}
           GH_TOKEN: ${{ github.token }}
           HEAD_SHA: ${{ github.event.pull_request.head.sha }}
-          PR: ${{ github.event.pull_request.number }}
+          HEAD_REF: ${{ github.event.pull_request.head.ref }}
           REF: ${{ github.event.repository.default_branch }}
         run: |
-          gh workflow run label.classify.yaml --ref "$REF" -f pr="$PR" \
-            -f run_id="$GITHUB_RUN_ID" -f head_sha="$HEAD_SHA"
+          state=$(gh api "repos/$GH_REPO/actions/workflows/label.classify.yaml" \
+            --jq .state)
+          if [ "$state" != active ]; then
+            echo "Label - Classify is $state"
+            exit 0
+          fi
+          gh workflow run label.classify.yaml --ref "$REF" \
+            -f group="$GH_REPO-$HEAD_REF" -f run_id="$GITHUB_RUN_ID" \
+            -f head_sha="$HEAD_SHA"

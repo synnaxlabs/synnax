@@ -33,8 +33,8 @@ on:
         description: The commit that run classified
         required: true
         type: string
-      pr:
-        description: Pull request number
+      group:
+        description: Concurrency group of the pull request branch
         required: true
         type: string
 
@@ -44,7 +44,7 @@ permissions: {}
 # one. A newer queued run replaces an older queued one.
 concurrency:
   group:
-    label-classify-${{ inputs.pr || format('{0}-{1}',
+    label-classify-${{ inputs.group || format('{0}-{1}',
     github.event.workflow_run.head_repository.full_name,
     github.event.workflow_run.head_branch) }}
   cancel-in-progress: false
