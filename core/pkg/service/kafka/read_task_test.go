@@ -379,7 +379,8 @@ var _ = Describe("Read task", func() {
 	// failFetch makes the next fetch of topic fail. A control handles one request, and
 	// a consumer another spec left behind can still fetch, so only a fetch of this
 	// topic
-	// fails.
+	// fails. A fetch in a session names no topics, so the control resets the session to
+	// make the consumer name them.
 	failFetch := func(ctx context.Context, topic string) {
 		GinkgoHelper()
 		id := topicID(ctx, producer, topic)
@@ -387,6 +388,12 @@ var _ = Describe("Read task", func() {
 			int16(kmsg.Fetch),
 			func(req kmsg.Request) (kmsg.Response, error, bool) {
 				fetch := req.(*kmsg.FetchRequest)
+				if fetch.SessionEpoch > 0 && len(fetch.Topics) == 0 {
+					cluster.KeepControl()
+					res := req.ResponseKind().(*kmsg.FetchResponse)
+					res.ErrorCode = kerr.FetchSessionIDNotFound.Code
+					return res, nil, true
+				}
 				ours := slices.ContainsFunc(
 					fetch.Topics,
 					func(rt kmsg.FetchRequestTopic) bool {
@@ -396,6 +403,7 @@ var _ = Describe("Read task", func() {
 				if !ours {
 					return nil, nil, false
 				}
+				cluster.DropControl()
 				res := req.ResponseKind().(*kmsg.FetchResponse)
 				for _, rt := range fetch.Topics {
 					st := kmsg.NewFetchResponseTopic()
