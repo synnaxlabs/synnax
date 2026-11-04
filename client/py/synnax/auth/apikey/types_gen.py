@@ -12,6 +12,7 @@
 from __future__ import annotations
 
 from typing import TypeAlias
+from typing import override as _override
 from uuid import UUID, uuid4
 
 from pydantic import BaseModel, Field
@@ -37,5 +38,6 @@ class APIKey(BaseModel):
     name: str
     created: telem.TimeStamp = Field(ge=-9223372036854775808, le=9223372036854775807)
 
+    @_override
     def __hash__(self) -> int:
         return hash(self.key)

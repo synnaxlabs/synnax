@@ -32,8 +32,6 @@ import { ContextMenu } from "@/platform/context-menu";
 import { CSS } from "@/platform/css";
 import { Task } from "@/platform/task";
 
-const CHANNELS_PATH = "config.channels";
-
 const TITLES: Record<PortType, string> = {
   [AI_PORT_TYPE]: "Analog inputs",
   [AO_PORT_TYPE]: "Analog outputs",
@@ -120,8 +118,8 @@ const Section = <P extends Port>({
   );
 };
 
-export interface PortsViewProps<C extends Channel, P extends Port>
-  extends Task.Views.PortsProps {
+export interface PortsViewProps<C extends Channel, P extends Port> extends Task.Views
+  .PortsProps<C> {
   model: Model;
   /** The ports the task's channels can use. Each type shows in a section of its own. */
   ports: P[];
@@ -136,6 +134,7 @@ export interface PortsViewProps<C extends Channel, P extends Port>
  * adds a channel on it.
  */
 export const PortsView = <C extends Channel, P extends Port>({
+  path,
   model,
   ports,
   create,
@@ -144,13 +143,13 @@ export const PortsView = <C extends Channel, P extends Port>({
   onSelect,
 }: PortsViewProps<C, P>): ReactElement => {
   const { get } = Form.useContext();
-  const { push } = Form.useFieldList<string, C>(CHANNELS_PATH);
-  const channels = Form.useFieldValue<C[]>(CHANNELS_PATH);
+  const { push } = Form.useFieldList(path);
+  const channels = Form.useFieldValue(path);
   const editable = !Task.useIsPreview();
   const portClaims = claims(channels, model);
   const types = [...new Set(ports.map(({ type }) => type))];
   const add = (port: P) => {
-    const channel = create(get<C[]>(CHANNELS_PATH).value, port);
+    const channel = create(get(path).value, port);
     push(channel);
     onSelect([channel.key]);
   };

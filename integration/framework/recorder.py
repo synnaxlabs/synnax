@@ -21,7 +21,7 @@ or collect_task_status; standalone callers can use the context manager form.
 
 import threading
 from collections.abc import Callable
-from typing import Any, Self
+from typing import Self
 
 from pydantic import ValidationError
 
@@ -90,7 +90,7 @@ class Recorder:
         if self._thread is not None:
             self._thread.join(timeout=_CLOSE_TIMEOUT)
 
-    def _record(self, raw: Any) -> bool:
+    def _record(self, raw: object) -> bool:
         """Decode raw and store it, returning True if stored. Runs under _cond."""
         raise NotImplementedError
 
@@ -153,7 +153,7 @@ class Notifications(Recorder):
         """
         return self._wait_for(lambda: any(text in t for t in self._texts), timeout)
 
-    def _record(self, raw: Any) -> bool:
+    def _record(self, raw: object) -> bool:
         try:
             status = sy.Status.model_validate(raw)
         except ValidationError:
@@ -207,7 +207,7 @@ class TaskStatus(Recorder):
             status is not None and status.details is not None and status.details.running
         )
 
-    def _record(self, raw: Any) -> bool:
+    def _record(self, raw: object) -> bool:
         try:
             status = sy.task.Status.model_validate(raw)
         except ValidationError:

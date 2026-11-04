@@ -19,7 +19,7 @@ import { type Input } from "@synnaxlabs/lyra/input";
 import { Status } from "@synnaxlabs/lyra/status";
 import { type Triggers } from "@synnaxlabs/lyra/triggers";
 import { Synnax } from "@synnaxlabs/pluto";
-import { errors } from "@synnaxlabs/x";
+import { deep, errors } from "@synnaxlabs/x";
 import { type ReactElement, useEffect, useRef, useState } from "react";
 import { z } from "zod";
 
@@ -28,6 +28,8 @@ import { Core } from "@/platform/core";
 import { CSS } from "@/platform/css";
 import { Shell as PlatformShell } from "@/platform/shell";
 import { Session } from "@/session";
+
+const path = deep.path<z.infer<typeof credentialsZ>>();
 
 const LOG_IN_TRIGGER: Triggers.Trigger = ["Enter"];
 
@@ -213,12 +215,12 @@ export const Login = (): ReactElement => {
                 <>
                   <Flex.Box y full="x" empty>
                     <Form.TextField
-                      path="username"
+                      path={path.username}
                       required={false}
                       inputProps={USERNAME_INPUT_PROPS}
                     />
                     <Form.TextField
-                      path="password"
+                      path={path.password}
                       required={false}
                       inputProps={PASSWORD_INPUT_PROPS}
                     />
