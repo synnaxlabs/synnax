@@ -11,6 +11,7 @@ package validate
 
 import (
 	"reflect"
+	"unicode/utf8"
 
 	"github.com/samber/lo"
 	"github.com/synnaxlabs/x/errors"
@@ -141,4 +142,26 @@ func (v *Validator) NotEmptySlice[T any](field string, value []T) bool {
 // NotEmptyString returns true and attaches an error to v if the string is empty.
 func (v *Validator) NotEmptyString[T ~string](field string, value T) bool {
 	return v.Ternary(field, value == "", "required")
+}
+
+// MinLength returns true and attaches an error to v if the string has fewer than min
+// Unicode code points.
+func (v *Validator) MinLength[T ~string](field string, value T, min int) bool {
+	return v.Ternaryf(
+		field,
+		utf8.RuneCountInString(string(value)) < min,
+		"must be at least %d characters long",
+		min,
+	)
+}
+
+// MaxLength returns true and attaches an error to v if the string has more than max
+// Unicode code points.
+func (v *Validator) MaxLength[T ~string](field string, value T, max int) bool {
+	return v.Ternaryf(
+		field,
+		utf8.RuneCountInString(string(value)) > max,
+		"must be at most %d characters long",
+		max,
+	)
 }

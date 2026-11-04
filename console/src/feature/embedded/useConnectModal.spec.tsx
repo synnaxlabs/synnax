@@ -8,7 +8,7 @@
 // included in the file licenses/APL.txt.
 
 import { AuthError } from "@synnaxlabs/client";
-import { createTestClient, TEST_CLIENT_PARAMS } from "@synnaxlabs/client/testutil";
+import { TEST_CLIENT_PARAMS } from "@synnaxlabs/client/testutil";
 import { type Status } from "@synnaxlabs/lyra/status";
 import { stubClipboardWriteText } from "@synnaxlabs/lyra/testutil";
 import { act, fireEvent, render, screen, waitFor } from "@testing-library/react";
@@ -18,12 +18,12 @@ import { Command } from "@/feature/command";
 import { Embedded } from "@/feature/embedded";
 import {
   clearSupervisor,
+  createDesktopUser,
   createDesktopWrapper,
   createDiscoveryFile,
   createScriptClient,
   deleteKeysCreatedByTest,
   type DiscoveryFile,
-  LIVE,
   mockSupervisor,
   retrieveKeyIDs,
 } from "@/feature/embedded/testutil";
@@ -32,14 +32,14 @@ import { CaptureStatuses, getIconButton } from "@/testutil";
 
 const { host, port } = TEST_CLIENT_PARAMS;
 
-const client = createTestClient();
+const { client, live } = await createDesktopUser();
 
 /** Opens the dialog from the palette and waits until it shows the saved key. */
 const openConnect = async (
   ...args: Parameters<typeof createDiscoveryFile>
 ): Promise<{ file: DiscoveryFile; statuses: () => Status.NotificationSpec[] }> => {
   const { file, handlers } = createDiscoveryFile(...args);
-  mockSupervisor(() => LIVE, handlers);
+  mockSupervisor(() => live, handlers);
   const { wrapper } = await createDesktopWrapper();
   let statuses: Status.NotificationSpec[] = [];
   render(
@@ -89,7 +89,7 @@ describe("Embedded connect from code dialog", () => {
   it("should open from the top bar button", async () => {
     await deleteKeysCreatedByTest(client);
     const { handlers } = createDiscoveryFile();
-    mockSupervisor(() => LIVE, handlers);
+    mockSupervisor(() => live, handlers);
     const { wrapper } = await createDesktopWrapper();
     const { container } = render(<Embedded.ConnectButton />, { wrapper });
     fireEvent.click(getIconButton(container, "code"));

@@ -222,3 +222,26 @@ func VariantBases(
 	}
 	return inherited, declared
 }
+
+// SharedBase returns the one base that every variant of a union inherits in lang. ok is
+// false when the union extends no base or more than one, or when a variant flattens the
+// base (see VariantBases), since that variant holds no copy of the base to return.
+func SharedBase(
+	form resolution.UnionForm,
+	lang string,
+	table *resolution.Table,
+) (base resolution.TypeRef, ok bool) {
+	if len(form.Extends) != 1 {
+		return resolution.TypeRef{}, false
+	}
+	base = form.Extends[0]
+	for _, v := range form.Variants {
+		inherited, _ := VariantBases(form, v, lang, table)
+		if !slices.ContainsFunc(inherited, func(ref resolution.TypeRef) bool {
+			return ref.Name == base.Name
+		}) {
+			return resolution.TypeRef{}, false
+		}
+	}
+	return base, true
+}

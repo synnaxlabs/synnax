@@ -67,13 +67,13 @@ TEST(ConnectionTest, testBasicConn) {
 
     testutil::ServerConfig server_cfg;
     server_cfg.test_nodes = {node};
-    server_cfg.port = 4840;
+    server_cfg.port = 4849;
 
     testutil::Server server(server_cfg);
     server.start();
 
     Config cfg;
-    cfg.endpoint = "opc.tcp://localhost:4840";
+    cfg.endpoint = "opc.tcp://localhost:4849";
     cfg.security_mode = "None";
     cfg.security_policy = "None";
 
@@ -212,7 +212,7 @@ TEST(ConnectionTest, serverStopDuringConnection) {
 
     UA_ReadValueId ids[1];
     UA_ReadValueId_init(&ids[0]);
-    ids[0].nodeId = node_id; // Implicit conversion to const UA_NodeId&
+    ids[0].nodeId = node_id.resolve({}).value();
     ids[0].attributeId = UA_ATTRIBUTEID_VALUE;
 
     UA_ReadRequest req;

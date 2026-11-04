@@ -296,6 +296,35 @@ var _ = Describe("Python Types Plugin", func() {
 			},
 		)
 
+		It(
+			"Should emit native Field length constraints, which count code points",
+			func(ctx SpecContext) {
+				source := `
+				@py output "out"
+
+				User struct {
+					name string @validate {
+						min_length 2
+						max_length 64
+					}
+					alias string? @validate max_length 64
+				}
+			`
+				table, diag := Analyze(ctx, source, "user", loader)
+				Expect(diag.Ok()).To(BeTrue())
+				resp := MustSucceed(typesPlugin.Generate(&plugin.Request{
+					Resolutions: table,
+				}))
+				content := string(resp.Files[0].Content)
+				Expect(content).To(ContainSubstring(
+					`name: str = Field(min_length=2, max_length=64)`,
+				))
+				Expect(content).To(ContainSubstring(
+					`alias: str | None = Field(default=None, max_length=64)`,
+				))
+			},
+		)
+
 		It("Should generate IntEnum for integer enums", func(ctx SpecContext) {
 			source := `
 				@py output "out"
