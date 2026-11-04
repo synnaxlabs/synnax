@@ -718,8 +718,9 @@ func (a *attachment) subscribe(ctx context.Context, filter string, qos byte) err
 	return refused
 }
 
-// publish sends one message. It returns errNotConnected when the connection is down:
-// a command that waits out an outage is stale when it arrives.
+// publish sends one message. It returns errNotConnected when the connection is down,
+// and a temporary error when the connection drops under the message: a command that
+// waits out an outage is stale when it arrives.
 func (a *attachment) publish(
 	ctx context.Context,
 	topic string,
@@ -734,7 +735,10 @@ func (a *attachment) publish(
 	if client == nil {
 		return errNotConnected
 	}
-	return wait(ctx, client.Publish(topic, qos, retained, payload))
+	if err := wait(ctx, client.Publish(topic, qos, retained, payload)); err != nil {
+		return errors.Mark(err, driver.ErrTemporary)
+	}
+	return nil
 }
 
 // close removes the attachment and the subscriptions that no other attachment uses.
