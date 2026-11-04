@@ -219,11 +219,11 @@ uses. OPC UA's Trust button saves the offered certificate as an item.
 ### 3.8 Expiry
 
 Every hour, the certificate service writes each certificate's status under
-`certificate:<key>`, only on change. It is the success "Certificate valid" until 30
-days before `not_after`. Then it is the warning "Certificate expires soon", with the
-date in the description. After `not_after`, it is the error "Certificate expired". Each
-health check gives a device that uses the certificate the same status, so RFC 0092
-toasts it only when the device is in use.
+`certificate:<key>`, only on change. It is the success "Certificate valid" until 30 days
+before `not_after`. Then it is the warning "Certificate expires soon", with the date in
+the description. After `not_after`, it is the error "Certificate expired". Each health
+check gives a device that uses the certificate the same status, so RFC 0092 toasts it
+only when the device is in use.
 
 ### 3.9 Migration and clients
 
