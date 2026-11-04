@@ -170,7 +170,9 @@ export class Client {
    * @throws {ValidationError} when the username is empty.
    */
   async rename(params: RenameParams): Promise<void> {
+    const generation = this.config.generation();
     await this.client.send(RENAME_ENDPOINT, params, renameReqZ, emptyResZ);
+    if (generation !== this.config.generation()) return;
     this.config.onChange(params.subject, { username: params.username });
   }
 }
