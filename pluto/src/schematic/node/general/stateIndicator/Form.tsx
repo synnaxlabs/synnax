@@ -11,6 +11,7 @@ import { type channel, type schematic } from "@synnaxlabs/client";
 import { Form as Base } from "@synnaxlabs/lyra/form";
 import { Input } from "@synnaxlabs/lyra/input";
 import { Tabs } from "@synnaxlabs/lyra/tabs";
+import { deep } from "@synnaxlabs/x";
 import { type ReactElement } from "react";
 
 import { Channel } from "@/channel";
@@ -20,9 +21,10 @@ import { type FormProps } from "@/schematic/node/spec";
 import { Properties } from "@/vis/properties";
 import { Staleness } from "@/vis/staleness";
 
-const StateIndicatorTelemForm = ({ path }: { path: string }): ReactElement => {
-  const { value, onChange } =
-    Base.useField<Pick<schematic.StateIndicatorNodeConfig, "channel">>(path);
+const path = deep.path<schematic.StateIndicatorNodeConfig>();
+
+const StateIndicatorTelemForm = (): ReactElement => {
+  const { value, onChange } = Base.useField(path);
 
   const handleSourceChange = (v: channel.Key | null): void =>
     onChange({ ...value, channel: v ?? undefined });
@@ -54,13 +56,13 @@ export const StateIndicatorForm = ({ tab, onTabChange }: FormProps): ReactElemen
     <Tabs.Content itemKey="style">
       <Base.Sections x>
         <Base.Section title="Label">
-          <Label.Form path="label" />
+          <Label.Form path={path.label} />
         </Base.Section>
         <Base.Section title="Appearance">
-          <Form.ColorField path="strokeColor" label="Stroke" />
+          <Form.ColorField path={path.strokeColor} label="Stroke" />
           <Form.SizeField />
           <Base.NumericField
-            path="inlineSize"
+            path={path.inlineSize}
             label="Width"
             padHelpText={false}
             inputProps={Form.VALUE_WIDTH_INPUT_PROPS}
@@ -69,10 +71,10 @@ export const StateIndicatorForm = ({ tab, onTabChange }: FormProps): ReactElemen
       </Base.Sections>
     </Tabs.Content>
     <Tabs.Content itemKey="telemetry">
-      <StateIndicatorTelemForm path="" />
+      <StateIndicatorTelemForm />
     </Tabs.Content>
     <Tabs.Content itemKey="options">
-      <Form.StateMappingForm path="options" showColor />
+      <Form.StateMappingForm path={path.options} showColor />
     </Tabs.Content>
   </Properties.Tabs>
 );

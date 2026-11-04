@@ -8,6 +8,7 @@
 #  included in the file licenses/APL.txt.
 
 import random
+from typing import override
 
 import synnax as sy
 from examples.simulators.simdaq import SimDAQ
@@ -24,6 +25,7 @@ class ThermalSimDAQ(SimDAQ):
     COOL_RATE = 0.4
     NOISE = 0.1
 
+    @override
     def _create_channels(self) -> None:
         self.log("Creating channels...")
         client = self.client
@@ -103,6 +105,7 @@ class ThermalSimDAQ(SimDAQ):
         )
         self.log("Channels created successfully")
 
+    @override
     def _run_loop(self) -> None:
         self.log("Starting simulation loop...")
         loop = sy.Loop(sy.Rate.HZ * 50)

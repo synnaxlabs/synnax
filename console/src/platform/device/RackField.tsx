@@ -10,7 +10,10 @@
 import { type rack } from "@synnaxlabs/client";
 import { Form } from "@synnaxlabs/lyra/form";
 import { Rack } from "@synnaxlabs/pluto";
+import { deep } from "@synnaxlabs/x";
 import { type ReactElement } from "react";
+
+const path = deep.path<{ rack: rack.Key }>();
 
 export interface RackFieldProps {
   /** The integration the rack must run, such as "opc". */
@@ -19,7 +22,7 @@ export interface RackFieldProps {
 
 /** The form's "rack" field: the Driver that makes the connection. */
 export const RackField = ({ integration }: RackFieldProps): ReactElement => (
-  <Form.Field<rack.Key> path="rack" label="Connect from" required>
+  <Form.Field path={path.rack} label="Connect from" required>
     {({ value, onChange }) => (
       <Rack.SelectSingle
         value={value}

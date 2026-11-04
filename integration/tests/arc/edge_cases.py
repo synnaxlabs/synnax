@@ -236,14 +236,15 @@ start_edge_case_cmd -> bad()
 
 
 @dataclass
-class ExecContextCase:
+class Case:
     label: str
     source: str
-    wait_substr: str
+    wait_substr: str = ""
+    expect: list[str] = field(default_factory=list)
 
 
 EXEC_CONTEXT_CASES = [
-    ExecContextCase(
+    Case(
         "FlowInFunc",
         ARC_FLOW_IN_FUNC,
         "cannot be called inside a func block",
@@ -296,30 +297,23 @@ start_edge_case_cmd -> get_now()
 """
 
 
-@dataclass
-class ImportCase:
-    label: str
-    source: str
-    wait_substr: str
-
-
 IMPORT_CASES = [
-    ImportCase(
+    Case(
         "Missing",
         ARC_IMPORT_MISSING,
         'module "time" is not imported',
     ),
-    ImportCase(
+    Case(
         "Unused",
         ARC_IMPORT_UNUSED,
         'imported module "time" is unused',
     ),
-    ImportCase(
+    Case(
         "UnknownModule",
         ARC_IMPORT_UNKNOWN,
         'unknown module "banana"',
     ),
-    ImportCase(
+    Case(
         "Duplicate",
         ARC_IMPORT_DUPLICATE,
         "duplicate import",
@@ -341,15 +335,8 @@ producer() -> consumer()
 """
 
 
-@dataclass
-class TypeMismatchCase:
-    label: str
-    source: str
-    wait_substr: str
-
-
 TYPE_MISMATCH_CASES = [
-    TypeMismatchCase(
+    Case(
         "UnitMismatchPsiBar",
         ARC_UNIT_MISMATCH_PSI_BAR,
         "does not match",
@@ -375,20 +362,13 @@ ch1 > 0.0 => select() -> {
 """
 
 
-@dataclass
-class RoutingTableCase:
-    label: str
-    source: str
-    wait_substr: str
-
-
 ROUTING_TABLE_CASES = [
-    RoutingTableCase(
+    Case(
         "TransitionIntoTable",
         ARC_TRANSITION_INTO_ROUTING_TABLE,
         "cannot feed a routing table",
     ),
-    RoutingTableCase(
+    Case(
         "TransitionIntoSelect",
         ARC_TRANSITION_INTO_SELECT,
         "cannot feed select",
@@ -472,23 +452,15 @@ CHANNEL_VIRTUAL = [
 ]
 
 
-@dataclass
-class CircularCase:
-    label: str
-    source: str
-    wait_substr: str
-    expect: list[str] = field(default_factory=list)
-
-
 CIRCULAR_CASES = [
-    CircularCase("SelfRec", ARC_SELF_REC, "self_rec -> self_rec"),
-    CircularCase(
+    Case("SelfRec", ARC_SELF_REC, "self_rec -> self_rec"),
+    Case(
         "AllBranches",
         ARC_ALL_BRANCHES,
         "circular function call",
         expect=["ping", "pong"],
     ),
-    CircularCase(
+    Case(
         "TangledWeb",
         ARC_TANGLED_WEB,
         "circular function call",
@@ -497,15 +469,9 @@ CIRCULAR_CASES = [
 ]
 
 
-@dataclass
-class GuardedCase:
-    label: str
-    source: str
-
-
 GUARDED_CASES = [
-    GuardedCase("SelfRec", ARC_GUARDED_SELF_REC),
-    GuardedCase("TangledWeb", ARC_GUARDED_TANGLED_WEB),
+    Case("SelfRec", ARC_GUARDED_SELF_REC),
+    Case("TangledWeb", ARC_GUARDED_TANGLED_WEB),
 ]
 
 
@@ -596,7 +562,6 @@ class EdgeCases(ArcCase):
         )
         if message is None:
             self.fail(f"[{name_prefix}] deploy unexpectedly succeeded")
-            return
         assert substr in message, (
             f"[{name_prefix}] expected '{substr}' in error, got: {message}"
         )
@@ -617,7 +582,7 @@ class EdgeCases(ArcCase):
                 expect=case.expect,
             )
 
-    def _assert_guarded_configures(self, case: GuardedCase) -> None:
+    def _assert_guarded_configures(self, case: Case) -> None:
         self.log(f"[Guarded {case.label}] Testing guarded recursion")
         self.load_arc(case.source, name_prefix=f"Guard{case.label}")
 

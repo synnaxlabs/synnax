@@ -107,8 +107,13 @@ func NewService(cfgs ...ServiceConfig) (*Service, error) {
 type (
 	CreateRequest struct {
 		Arcs []Arc `json:"arcs" msgpack:"arcs"`
+		// DispatchKey is stamped onto the create broadcasts so the sender skips its
+		// echo.
+		DispatchKey string `json:"dispatch_key" msgpack:"dispatch_key"`
 	}
-	CreateResponse = CreateRequest
+	CreateResponse struct {
+		Arcs []Arc `json:"arcs" msgpack:"arcs"`
+	}
 )
 
 func (s *Service) Create(
@@ -123,13 +128,15 @@ func (s *Service) Create(
 	}); err != nil {
 		return CreateResponse{}, err
 	}
-	if err := s.internal.NewWriter(tx).CreateMany(ctx, &req.Arcs); err != nil {
+	if err := s.internal.NewWriter(tx).
+		WithDispatchKey(req.DispatchKey).
+		CreateMany(ctx, &req.Arcs); err != nil {
 		return CreateResponse{}, err
 	}
 	for i := range req.Arcs {
 		req.Arcs[i].Text = req.Arcs[i].Text.Materialize()
 	}
-	return CreateResponse(req), nil
+	return CreateResponse{Arcs: req.Arcs}, nil
 }
 
 type DeleteRequest struct {

@@ -1,0 +1,28 @@
+/*
+ * Copyright 2026 Synnax Labs, Inc.
+ *
+ * Use of this software is governed by the Business Source License included in the file
+ * licenses/BSL.txt.
+ *
+ * As of the Change Date specified in that file, in accordance with the Business Source
+ * License, use of this software will be governed by the Apache License, Version 2.0,
+ * included in the file licenses/APL.txt.
+ */
+
+/* Violet keeps auto apart from the primary blue of focus and selection. */
+.lyra-input-auto-chip {
+    display: inline-flex;
+    flex-shrink: 0;
+    align-items: center;
+    height: 3rem;
+    padding: 0 1rem;
+    border-radius: var(--pluto-border-radius-small);
+    font-size: var(--pluto-tiny-size);
+    line-height: 1;
+    color: var(--pluto-auto-text);
+    background: var(--pluto-auto-z-15);
+}
+
+.lyra-btn.lyra-input-auto-button:not(.lyra--disabled) {
+    color: var(--pluto-auto-text);
+}

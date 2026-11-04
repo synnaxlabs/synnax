@@ -15,10 +15,12 @@ warnings.filterwarnings("ignore", message=".*timed out while closing connection.
 
 import traceback
 from abc import ABC, abstractmethod
-from collections.abc import Callable, Iterator
+from collections.abc import Callable, Iterator, Mapping
 from contextlib import contextmanager
 from pathlib import Path
-from typing import Any, Literal, NoReturn, overload
+from typing import Literal, NoReturn, NotRequired, TypedDict, TypeVar, overload
+
+from pydantic import JsonValue
 
 import synnax as sy
 from framework.log_client import LogClient, LogMode, SynnaxChannelSink
@@ -32,7 +34,7 @@ from framework.models import (
 )
 from framework.recorder import Notifications, TaskStatus
 from framework.streamer import Streamer
-from framework.telemetry import TelemetryWriter
+from framework.telemetry import Sample, TelemetryWriter
 from framework.utils import (
     create_indexed_channel,
     create_time_index,
@@ -53,6 +55,38 @@ def _numeric(value: int | float | str) -> float:
     if isinstance(value, str):
         raise TypeError(f"Expected a numeric channel value, got {value!r}")
     return value
+
+
+_Param = TypeVar("_Param", bool, int, float, str)
+
+
+def param(params: Mapping[str, JsonValue], key: str, default: _Param) -> _Param:
+    """Returns the test definition parameter named key, or default if params does not
+    hold it. An int parameter passes for a float default, but a bool never passes for an
+    int or float default.
+
+    :raises TypeError: If the parameter does not have the type of default.
+    """
+    value = params.get(key, default)
+    if type(default) is float and type(value) is int:
+        value = float(value)
+    if isinstance(value, bool) != isinstance(default, bool) or not isinstance(
+        value, type(default)
+    ):
+        raise TypeError(
+            f"Parameter {key!r} is {value!r}; expected {type(default).__name__}"
+        )
+    return value
+
+
+class Config(TypedDict):
+    """The arguments of TestCase.__init__, for subclasses that forward them."""
+
+    name: str
+    results_dir: Path
+    synnax_connection: NotRequired[SynnaxConnection]
+    options: NotRequired[RunOptions]
+    params: NotRequired[dict[str, JsonValue]]
 
 
 class TestCase(ABC):
@@ -97,13 +131,13 @@ class TestCase(ABC):
         name: str,
         options: RunOptions = DEFAULT_OPTIONS,
         results_dir: Path,
-        **params: Any,
+        params: dict[str, JsonValue] | None = None,
     ) -> None:
         """Initialize test case with Synnax server connection."""
         self.synnax_connection = synnax_connection
         self.options = options
         self.results_dir = results_dir
-        self.params = params
+        self.params = {} if params is None else params
         self.start_time: sy.TimeStamp = sy.TimeStamp.now()
         self._manual_timeout: sy.CrudeTimeSpan | None = self.DEFAULT_MANUAL_TIMEOUT
         self.read_timeout: sy.CrudeTimeSpan = self.DEFAULT_READ_TIMEOUT
@@ -145,7 +179,7 @@ class TestCase(ABC):
 
         self.time_index = create_time_index(self.client, self._ch_time)
 
-        self.tlm: dict[str, Any] = {
+        self.tlm: dict[str, Sample] = {
             self._ch_time: sy.TimeStamp.now(),
         }
 
@@ -155,7 +189,7 @@ class TestCase(ABC):
         )
 
     def _update_tlm(
-        self, tlm: dict[str, object], now: sy.TimeStamp, uptime: float
+        self, tlm: dict[str, Sample], now: sy.TimeStamp, uptime: float
     ) -> None:
         tlm[self._ch_time] = now
         tlm[self._ch_uptime] = uptime
@@ -247,7 +281,7 @@ class TestCase(ABC):
         self,
         name: str,
         data_type: sy.DataType,
-        initial_value: Any = None,
+        initial_value: Sample,
         *,
         append_name: bool = True,
     ) -> None:
@@ -314,7 +348,7 @@ class TestCase(ABC):
         """Cleanup after test execution. Overrides must call super().teardown()
         so mixin cleanups (e.g. HardwareCase) run."""
 
-    def write_tlm(self, channel: str, value: Any = None) -> None:
+    def write_tlm(self, channel: str, value: Sample) -> None:
         """Write values to telemetry dictionary."""
         self.tlm[channel] = value
 
@@ -363,7 +397,6 @@ class TestCase(ABC):
                 f"Actual: {actual_value}\n"
                 f"Timeout: {timeout_span}"
             )
-            return
 
         timer = sy.Timer()
         while self.should_continue:

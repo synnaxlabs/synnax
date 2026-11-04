@@ -10,6 +10,7 @@
 import operator
 import uuid
 from collections.abc import Callable
+from datetime import timedelta, timezone
 from typing import Any, Literal, assert_type
 
 import numpy as np
@@ -386,6 +387,54 @@ class TestSeries:
         """Should infer a timestamp series from a single TimeStamp"""
         assert telem.Series(telem.TimeStamp(5)).data_type == telem.DataType.TIMESTAMP
 
+    def test_construction_from_np_strings(self) -> None:
+        """Should build a string series from a NumPy string array"""
+        s = telem.Series(np.array(["a", "bc", ""]))
+        assert s.data_type == telem.DataType.STRING
+        assert list(s) == ["a", "bc", ""]
+
+    @pytest.mark.parametrize(
+        "crude",
+        [
+            np.array([1, 2], dtype="datetime64[s]"),
+            pd.Series(np.array([1, 2], dtype="datetime64[s]")),
+            [np.datetime64(1, "s"), np.datetime64(2, "s")],
+        ],
+    )
+    def test_construction_from_datetime64_unit(self, crude: telem.CrudeSeries) -> None:
+        """Should convert datetime64 samples of any unit to nanoseconds"""
+        s = telem.Series(crude)
+        assert s.data_type == telem.DataType.TIMESTAMP
+        assert list(s) == [telem.TimeStamp(10**9), telem.TimeStamp(2 * 10**9)]
+
+    @pytest.mark.parametrize("data_type", [None, telem.DataType.TIMESTAMP])
+    def test_construction_from_tz_aware_pd_series(
+        self, data_type: telem.DataType | None
+    ) -> None:
+        """Should convert a time zone aware pandas series to UTC nanoseconds"""
+        times = pd.to_datetime([1, 2], unit="s", utc=True).tz_convert(
+            timezone(timedelta(hours=-5))
+        )
+        s = telem.Series(pd.Series(times), data_type=data_type)
+        assert s.data_type == telem.DataType.TIMESTAMP
+        assert list(s) == [telem.TimeStamp(10**9), telem.TimeStamp(2 * 10**9)]
+
+    def test_construction_from_datetime64_out_of_range(self) -> None:
+        """Should reject a datetime64 that does not fit in nanoseconds"""
+        with pytest.raises(OverflowError):
+            telem.Series(np.array(["3000-01-01"], dtype="datetime64[s]"))
+
+    def test_construction_from_datetime64_list(self) -> None:
+        """Should build a timestamp series from a list of datetime64"""
+        s = telem.Series([np.datetime64(1, "s")])
+        assert s[0] == telem.TimeStamp(10**9)
+
+    def test_construction_from_datetime64_scalar(self) -> None:
+        """Should build a timestamp series from one datetime64"""
+        s = telem.Series(np.datetime64(1, "ms"))
+        assert s.data_type == telem.DataType.TIMESTAMP
+        assert s[0] == telem.TimeStamp(10**6)
+
     def test_uuid_list_rejects_non_uuid(self) -> None:
         """Should reject a value that is not a UUID instead of dropping it"""
         values: list[Any] = [uuid.uuid4(), "not-a-uuid"]
@@ -558,6 +607,104 @@ class TestVariableLengthSeries:
 
         encoded = json.dumps({"a": 1}).encode("utf-8")
         assert s.size == 4 + len(encoded)
+
+    def test_bytes_from_list(self) -> None:
+        """Should build a bytes series from a list of bytes"""
+        values = [b"ab", b"", b"\x00\xff"]
+        s = telem.Series(values)
+        assert s.data_type == telem.DataType.BYTES
+        assert len(s) == 3
+        assert s[0] == b"ab"
+        assert s[-1] == b"\x00\xff"
+        assert list(s) == values
+
+    def test_bytes_rejects_non_bytes(self) -> None:
+        """Should reject a sample that is not bytes in a bytes series"""
+        with pytest.raises(TypeError, match="accepts only bytes"):
+            telem.Series(["a"], data_type=telem.DataType.BYTES)
+
+
+@pytest.mark.telem
+@pytest.mark.series
+class TestSeriesSlice:
+    @pytest.mark.parametrize(
+        "values",
+        [
+            [1.0, 2.0, 3.0, 4.0],
+            ["a", "bc", "", "def"],
+            [b"a", b"bc", b"", b"def"],
+            [{"a": 1}, {"b": 2}, {}, {"c": [3]}],
+            [uuid.UUID(int=i) for i in range(4)],
+        ],
+    )
+    @pytest.mark.parametrize(
+        "index",
+        [
+            slice(None),
+            slice(1, 3),
+            slice(-2, None),
+            slice(None, -1),
+            slice(3, 1),
+            slice(10, 20),
+            slice(None, None, 2),
+            slice(1, None, 3),
+            slice(1, 3, 2),
+            slice(3, 1, 2),
+        ],
+    )
+    def test_slice_matches_list(self, values: list[Any], index: slice) -> None:
+        """Should hold the samples that the same slice of a list holds"""
+        s = telem.Series(values)
+        sliced = s[index]
+        assert isinstance(sliced, telem.Series)
+        assert sliced.data_type == s.data_type
+        assert list(sliced) == values[index]
+        assert len(sliced) == len(values[index])
+
+    def test_slice_offsets_alignment(self) -> None:
+        """Should offset the alignment by the start times the alignment multiple"""
+        tr = telem.TimeRange(0, 10)
+        s = telem.Series(
+            ["a", "b", "c"], time_range=tr, alignment=(1, 10), alignment_multiple=2
+        )
+        sliced = s[1:]
+        assert sliced.alignment == telem.Alignment(1, 12)
+        assert sliced.alignment_multiple == 2
+        assert sliced.time_range == tr
+
+    @pytest.mark.parametrize("values", [[1, 2, 3, 4, 5, 6, 7], list("abcdefg")])
+    def test_slice_step_scales_alignment_multiple(self, values: list[Any]) -> None:
+        """Should multiply the alignment multiple by the step"""
+        s = telem.Series(values, alignment=(1, 10), alignment_multiple=2)
+        sliced = s[1::3]
+        assert list(sliced) == values[1::3]
+        assert sliced.alignment == telem.Alignment(1, 12)
+        assert sliced.alignment_multiple == 6
+        assert sliced.alignment_bounds.upper == int(telem.Alignment(1, 12)) + 2 * 6
+
+    def test_slice_step_survives_payload_round_trip(self) -> None:
+        """Should keep the alignment multiple of a stepped slice in a payload"""
+        adapter = TypeAdapter(telem.Series)
+        sliced = telem.Series([1.0, 2.0, 3.0, 4.0], alignment_multiple=2)[::2]
+        decoded = adapter.validate_python(adapter.dump_python(sliced))
+        assert list(decoded) == [1.0, 3.0]
+        assert decoded.alignment_multiple == 4
+
+    @pytest.mark.parametrize(
+        "data_type",
+        [telem.DataType.FLOAT64, telem.DataType.UUID, telem.DataType.STRING],
+    )
+    def test_slice_empty_series(self, data_type: telem.DataType) -> None:
+        """Should slice an empty series into another empty series"""
+        s = telem.Series(b"", data_type=data_type)
+        assert len(s[:]) == 0
+        assert len(s[::2][1:]) == 0
+
+    @pytest.mark.parametrize("step", [-1, -2])
+    def test_slice_rejects_negative_step(self, step: int) -> None:
+        """Should reject a negative slice step"""
+        with pytest.raises(ValueError, match="increasing alignments"):
+            telem.Series([1, 2, 3])[::step]
 
 
 @pytest.mark.telem

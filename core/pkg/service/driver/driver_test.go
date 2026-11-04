@@ -32,6 +32,7 @@ import (
 	"github.com/synnaxlabs/x/query"
 	"github.com/synnaxlabs/x/telem"
 	. "github.com/synnaxlabs/x/testutil"
+	"github.com/synnaxlabs/x/validate"
 )
 
 var _ = Describe("Driver", func() {
@@ -241,6 +242,72 @@ var _ = Describe("Driver", func() {
 			},
 			NodeTimeout(10*time.Second),
 		)
+	})
+
+	Describe("Initial tasks", func() {
+		retrieveAlertTasks := func(ctx context.Context) []task.Task {
+			GinkgoHelper()
+			var tasks []task.Task
+			Expect(taskService.NewRetrieve().
+				Where(task.And(
+					task.MatchRacks(embeddedRackKey(ctx)),
+					task.MatchTypes(pagerduty.AlertTaskType),
+				)).
+				Entries(&tasks).
+				Exec(ctx, nil)).To(Succeed())
+			return tasks
+		}
+
+		It("should create and configure a task once per rack", func(ctx SpecContext) {
+			d := openDriver(ctx, &mockFactory{name: "test"})
+			for _, t := range retrieveAlertTasks(ctx) {
+				Expect(taskWriter.Delete(ctx, t.Key, true)).To(Succeed())
+			}
+			Expect(d.Close()).To(Succeed())
+
+			var configured sync.Map
+			factory := &mockFactory{
+				name: "test",
+				initialTasks: []task.Task{
+					{Name: "Scanner", Type: pagerduty.AlertTaskType},
+				},
+				configureFunc: func(_ context.Context, t task.Task) (driver.Task, error) {
+					configured.Store(t.Key, true)
+					return &mockTask{key: t.Key}, nil
+				},
+			}
+			d = openDriver(ctx, factory)
+			tasks := retrieveAlertTasks(ctx)
+			Expect(tasks).To(HaveLen(1))
+			Expect(tasks[0].Name).To(Equal("Scanner"))
+			Expect(tasks[0].Internal).To(BeTrue())
+			MustBeOk(configured.Load(tasks[0].Key))
+			Expect(d.Close()).To(Succeed())
+
+			openDriver(ctx, factory)
+			Expect(retrieveAlertTasks(ctx)).To(HaveLen(1))
+		})
+
+		It("should fail to open when the task type is unknown", func(ctx SpecContext) {
+			Expect(driver.Open(ctx, driver.Config{
+				DB:      node.DB,
+				Rack:    rackService,
+				Task:    taskService,
+				Framer:  framerSvc,
+				Channel: channelSvc,
+				Status:  statusSvc,
+				Factories: []driver.Factory{&mockFactory{
+					name:         "test",
+					initialTasks: []task.Task{{Name: "Scanner", Type: "unknown_scan"}},
+				}},
+				Host: hostProvider,
+			})).Error().To(SatisfyAll(
+				MatchError(validate.ErrValidation),
+				MatchError(
+					ContainSubstring("failed to create initial unknown_scan task"),
+				),
+			))
+		})
 	})
 
 	Describe("Task Management", func() {
@@ -536,6 +603,144 @@ var _ = Describe("Driver", func() {
 				Expect(stoppedSilently.Load()).To(BeTrue())
 			},
 		)
+
+		Describe("Pinned start", func() {
+			var (
+				configured *atomic.Int32
+				t          task.Task
+			)
+			BeforeEach(func(ctx SpecContext) {
+				count, key := &atomic.Int32{}, &atomic.Value{}
+				configured = count
+				openDriver(ctx, &mockFactory{
+					name: "test",
+					configureFunc: func(
+						_ context.Context,
+						cfgTask task.Task,
+					) (driver.Task, error) {
+						if cfgTask.Key == key.Load() {
+							count.Add(1)
+						}
+						return &mockTask{key: cfgTask.Key}, nil
+					},
+				})
+				t = newTask(embeddedRackKey(ctx))
+				key.Store(t.Key)
+				Expect(taskWriter.Create(ctx, &t)).To(Succeed())
+			})
+			retrieveStatus := func(ctx context.Context, g Gomega) task.Status {
+				GinkgoHelper()
+				var stat task.Status
+				g.Expect(statusSvc.NewRetrieve[task.StatusDetails]().
+					Where(status.MatchKeys[task.StatusDetails](
+						t.OntologyID().String(),
+					)).
+					Entry(&stat).
+					Exec(ctx, nil)).To(Succeed())
+				return stat
+			}
+
+			It("should start a task whose stored config has the pinned hash", func(
+				ctx SpecContext,
+			) {
+				writeCommand(ctx, task.Command{
+					Task:       t.Key,
+					Type:       "start",
+					Key:        "cmd-pinned",
+					ConfigHash: t.ConfigHash,
+					Pinned:     true,
+				})
+				Eventually(configured.Load).Should(Equal(int32(1)))
+			})
+
+			It("should refuse a start whose pinned hash is stale", func(
+				ctx SpecContext,
+			) {
+				writeCommand(ctx, task.Command{
+					Task:       t.Key,
+					Type:       "start",
+					Key:        "cmd-stale",
+					ConfigHash: "stale",
+					Pinned:     true,
+				})
+				Eventually(func(g Gomega) {
+					stat := retrieveStatus(ctx, g)
+					g.Expect(stat.Details.Cmd).To(Equal("cmd-stale"))
+					g.Expect(stat.Variant).To(Equal(status.VariantWarning))
+					g.Expect(stat.Message).To(Equal("Config changed"))
+					g.Expect(stat.Description).
+						To(ContainSubstring("Review the task, then start it again."))
+				}).Should(Succeed())
+				Expect(configured.Load()).To(BeZero())
+			})
+
+			It("should keep the running state and config hash of a refused start", func(
+				ctx SpecContext,
+			) {
+				details := task.NewStatusDetails(t, true)
+				details.ConfigHash = "deployed"
+				Expect(statusSvc.NewWriter(nil).Set(ctx, &task.Status{
+					Key:     t.OntologyID().String(),
+					Name:    t.Name,
+					Time:    telem.Now(),
+					Variant: status.VariantSuccess,
+					Message: "Task running",
+					Details: details,
+				})).To(Succeed())
+				writeCommand(ctx, task.Command{
+					Task:       t.Key,
+					Type:       "start",
+					Key:        "cmd-stale",
+					ConfigHash: "stale",
+					Pinned:     true,
+				})
+				Eventually(func(g Gomega) {
+					stat := retrieveStatus(ctx, g)
+					g.Expect(stat.Details.Cmd).To(Equal("cmd-stale"))
+					g.Expect(stat.Variant).To(Equal(status.VariantWarning))
+					g.Expect(stat.Details.Running).To(BeTrue())
+					g.Expect(stat.Details.ConfigHash).To(Equal("deployed"))
+				}).Should(Succeed())
+			})
+
+			It(
+				"should not claim a config hash for a refused start with no status",
+				func(
+					ctx SpecContext,
+				) {
+					Expect(
+						statusSvc.NewWriter(nil).Delete(ctx, t.OntologyID().String()),
+					).
+						To(Succeed())
+					writeCommand(ctx, task.Command{
+						Task:       t.Key,
+						Type:       "start",
+						Key:        "cmd-stale",
+						ConfigHash: "stale",
+						Pinned:     true,
+					})
+					Eventually(func(g Gomega) {
+						stat := retrieveStatus(ctx, g)
+						g.Expect(stat.Details.Cmd).To(Equal("cmd-stale"))
+						g.Expect(stat.Variant).To(Equal(status.VariantWarning))
+						g.Expect(stat.Details.Running).To(BeFalse())
+						g.Expect(stat.Details.ConfigHash).To(BeEmpty())
+					}).Should(Succeed())
+				},
+			)
+
+			It("should deploy the stored config for an unpinned stale hash", func(
+				ctx SpecContext,
+			) {
+				writeCommand(ctx, task.Command{
+					Task:       t.Key,
+					Type:       "start",
+					Key:        "cmd-unpinned",
+					ConfigHash: "stale",
+				})
+				Eventually(configured.Load).Should(Equal(int32(1)))
+			})
+		})
 
 		It("should ignore start commands for snapshot tasks", func(ctx SpecContext) {
 			var configuredCount atomic.Int32
@@ -1828,6 +2033,73 @@ var _ = Describe("Driver", func() {
 					func() bool { return execCalled.Load() },
 					time.Second*2,
 				).Should(BeTrue())
+			},
+		)
+
+		It(
+			"should start a task while a scanner command runs",
+			func(ctx SpecContext) {
+				var (
+					scanner = newMapScanner()
+					scanKey atomic.Value
+					started = make(chan task.Key, 1)
+				)
+				factory := &mockFactory{
+					name: "test",
+					configureFunc: func(
+						_ context.Context,
+						t task.Task,
+					) (driver.Task, error) {
+						if t.Key == scanKey.Load() {
+							return driver.NewScanTask(driver.ScanTaskConfig{
+								Scanner:            scanner,
+								DB:                 db,
+								Status:             statusSvc,
+								Device:             deviceSvc,
+								Make:               "make-" + uuid.New().String(),
+								ReachableMessage:   "Broker connected",
+								UnreachableMessage: "Failed to reach broker",
+								Task:               t,
+								Interval:           time.Hour,
+							})
+						}
+						return &mockTask{
+							key: t.Key,
+							execFunc: func(_ context.Context, cmd task.Command) error {
+								if cmd.Type == "start" {
+									started <- t.Key
+								}
+								return nil
+							},
+						}, nil
+					},
+				}
+				openDriver(ctx, factory)
+				scanTask := newTask(embeddedRackKey(ctx))
+				other := newTask(embeddedRackKey(ctx))
+				scanKey.Store(scanTask.Key)
+				Expect(taskWriter.Create(ctx, &scanTask)).To(Succeed())
+				Expect(taskWriter.Create(ctx, &other)).To(Succeed())
+				writeCommand(ctx, task.Command{Task: scanTask.Key, Type: "start"})
+				Eventually(func() bool {
+					return retrieveStatus[task.StatusDetails](
+						ctx, scanTask.OntologyID().String(),
+					).Details.Running
+				}).Should(BeTrue())
+				writeCommand(ctx, task.Command{
+					Task: scanTask.Key, Type: "wait", Key: "cmd-wait",
+				})
+				Eventually(scanner.waiting.Load).Should(BeEquivalentTo(1))
+
+				writeCommand(ctx, task.Command{Task: other.Key, Type: "start"})
+				Eventually(started).Should(Receive(Equal(other.Key)))
+
+				Eventually(scanner.release).Should(BeSent(struct{}{}))
+				Eventually(func() string {
+					return retrieveStatus[task.StatusDetails](
+						ctx, scanTask.OntologyID().String(),
+					).Details.Cmd
+				}).Should(Equal("cmd-wait"))
 			},
 		)
 	})

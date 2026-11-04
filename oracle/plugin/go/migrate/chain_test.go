@@ -1721,6 +1721,48 @@ Node struct extends Base {
 			},
 			nil,
 		),
+		Entry("leaves a parent's default override to the parent's copy",
+			"reader",
+			`Base struct {
+	rate int32 = 10
+
+	@go marshal
+}
+Reader struct extends Base {
+	key uuid @key
+	rate = 50
+
+	@go marshal
+	@go migrate
+}
+`,
+			`Base struct {
+	rate int32 = 10
+
+	@go marshal
+}
+Reader struct extends Base {
+	key uuid @key
+	rate = 50
+	enabled bool
+
+	@go marshal
+	@go migrate
+}
+`,
+			`Base struct {
+	rate int32 = 10
+}
+Reader struct extends Base {
+	key uuid @key
+	rate = 50
+	enabled bool
+}
+`,
+			true,
+			[]string{"\t\tBase: base,\n\t\tKey: old.Key,\n\t}, nil"},
+			nil,
+		),
 		Entry("migrates a changed extends parent through its wrapper",
 			"shape",
 			`Base struct {

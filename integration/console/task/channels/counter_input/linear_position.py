@@ -7,10 +7,10 @@
 #  License, use of this software will be governed by the Apache License, Version 2.0,
 #  included in the file licenses/APL.txt.
 
-from typing import Any, Literal
+from typing import Literal, Unpack
 
 from console.layout import LayoutClient
-from console.task.channels.counter import Counter
+from console.task.channels.counter import Counter, Options
 
 
 class LinearPosition(Counter):
@@ -34,10 +34,10 @@ class LinearPosition(Counter):
 
     def __init__(
         self,
-        *,
         layout: LayoutClient,
         name: str,
         device: str,
+        *,
         units: Literal["Meters", "Inches", "Ticks"] | None = None,
         decoding_type: Literal["X1", "X2", "X4", "Two pulse"] | None = None,
         dist_per_pulse: float | None = None,
@@ -51,7 +51,7 @@ class LinearPosition(Counter):
         terminal_a: str | None = None,
         terminal_b: str | None = None,
         terminal_z: str | None = None,
-        **kwargs: Any,
+        **kwargs: Unpack[Options],
     ) -> None:
         """Initialize linear position channel with configuration."""
         super().__init__(

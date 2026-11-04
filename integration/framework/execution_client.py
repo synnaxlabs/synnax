@@ -136,7 +136,7 @@ class ExecutionClient:
 
         self.is_running = False
 
-        if self._timeout_thread is not None and self._timeout_thread.is_alive():
+        if self._timeout_thread.is_alive():
             self._timeout_thread.join(timeout=2.0)
 
     def stop(self) -> None:
@@ -346,7 +346,7 @@ class ExecutionClient:
                 name=test_def.display_name,
                 options=self._options,
                 results_dir=bundle_dir,
-                **test_def.parameters,
+                params=test_def.parameters,
             )
 
             current_thread = threading.current_thread()

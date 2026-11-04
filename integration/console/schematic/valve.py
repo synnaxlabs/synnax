@@ -7,15 +7,14 @@
 #  License, use of this software will be governed by the Apache License, Version 2.0,
 #  included in the file licenses/APL.txt.
 
-from typing import Any
 
-from console.schematic.symbol import Symbol
+from console.schematic.symbol import PropertyDict, Symbol
 
 
 class Valve(Symbol):
     """Schematic valve symbol"""
 
-    _symbol_group = "Valves"
+    _symbol_group: str | None = "Valves"
 
     def __init__(
         self,
@@ -63,12 +62,9 @@ class Valve(Symbol):
         command_channel: str | None = None,
         show_control_chip: bool | None = None,
         activation_delay: float | None = None,
-        **kwargs: Any,
-    ) -> dict[str, Any]:
+    ) -> None:
         """Set Valve properties including channel settings."""
         self.click()
-
-        applied_properties: dict[str, Any] = {}
 
         # Navigate to Properties > Control tab
         self.open_properties_tab()
@@ -76,16 +72,13 @@ class Valve(Symbol):
 
         if state_channel is not None:
             self.set_channel(section="State", channel_name=state_channel)
-            applied_properties["state_channel"] = state_channel
 
         if command_channel is not None:
             self.set_channel(section="Command", channel_name=command_channel)
-            applied_properties["command_channel"] = command_channel
 
         if activation_delay is not None:
             self.layout.fill_input_field("Delay", str(activation_delay))
             self.page.keyboard.press("Enter")
-            applied_properties["activation_delay"] = activation_delay
 
         if show_control_chip is not None:
             chip_toggle = (
@@ -97,15 +90,12 @@ class Valve(Symbol):
                 current_state = chip_toggle.is_checked()
                 if current_state != show_control_chip:
                     chip_toggle.click()
-            applied_properties["show_control_chip"] = show_control_chip
 
-        return applied_properties
-
-    def get_properties(self, *, tab: str = "Control") -> dict[str, Any]:
+    def get_properties(self, *, tab: str = "Control") -> PropertyDict:
         """Get the current properties of the symbol"""
         super().get_properties(tab=tab)
 
-        props: dict[str, Any] = {
+        props: PropertyDict = {
             "channel": "",
             "activation_delay": -1.0,
             "show_control_chip": False,

@@ -8721,4 +8721,97 @@ var _ = Describe("Sequence", func() {
 			},
 		)
 	})
+
+	// A stage sees only samples taken after it was entered. A batch sampled before
+	// entry but delivered after it must not reach the stage.
+	Describe("Stage entry samples", func() {
+		const (
+			startCmd = 420
+			goCmd    = 421
+			ptIdx    = 422
+			pt       = 423
+			ptSeen   = 424
+		)
+		newH := func(ctx SpecContext) *runtimeHarness {
+			resolver := channelSymbols(map[string]channelDef{
+				"start_cmd": {types.U8(), startCmd},
+				"go_cmd":    {types.U8(), goCmd},
+				"pt":        {types.F32(), pt},
+				"pt_seen":   {types.F32(), ptSeen},
+			})
+			return newRuntimeHarness(ctx, `
+    sequence main {
+        stage a {
+            go_cmd == 1 => next
+        }
+        stage b {
+            pt -> pt_seen
+        }
+    }
+    start_cmd == 1 => main`, resolver,
+				channels.Digest{Key: startCmd, DataType: telem.Uint8T},
+				channels.Digest{Key: goCmd, DataType: telem.Uint8T},
+				channels.Digest{Key: ptIdx, DataType: telem.TimestampT},
+				channels.Digest{Key: pt, DataType: telem.Float32T, Index: ptIdx},
+				channels.Digest{Key: ptSeen, DataType: telem.Float32T},
+			)
+		}
+		seen := func(h *runtimeHarness) []float32 {
+			out, _ := h.Flush()
+			var got []float32
+			for _, s := range out.Get(ptSeen).Series {
+				got = append(got, s.Unmarshal[float32]()...)
+			}
+			return got
+		}
+
+		It("Should drop a batch taken entirely before entry", func(ctx SpecContext) {
+			h := newH(ctx)
+			defer h.Close(ctx)
+			trigger(h, ctx, startCmd)
+			pre := h.cycleNow
+			trigger(h, ctx, goCmd)
+			h.IngestIndexed(
+				ptIdx,
+				telem.NewSeriesV(
+					pre-36*telem.MillisecondTS,
+					pre-25*telem.MillisecondTS,
+					pre-14*telem.MillisecondTS,
+				),
+				pt,
+				telem.NewSeriesV[float32](289.6, 289.6, 289.6),
+			)
+			for range 5 {
+				advance(h, ctx, telem.Millisecond)
+			}
+			Expect(seen(h)).To(BeEmpty())
+		})
+
+		It(
+			"Should emit only the samples taken at or after entry from a straddling batch",
+			func(ctx SpecContext) {
+				h := newH(ctx)
+				defer h.Close(ctx)
+				trigger(h, ctx, startCmd)
+				pre := h.cycleNow
+				trigger(h, ctx, goCmd)
+				post := h.cycleNow
+				h.IngestIndexed(
+					ptIdx,
+					telem.NewSeriesV(
+						pre-10*telem.MillisecondTS,
+						pre,
+						post,
+						post+telem.MillisecondTS,
+					),
+					pt,
+					telem.NewSeriesV[float32](1, 2, 3, 4),
+				)
+				for range 5 {
+					advance(h, ctx, telem.Millisecond)
+				}
+				Expect(seen(h)).To(Equal([]float32{3, 4}))
+			},
+		)
+	})
 })

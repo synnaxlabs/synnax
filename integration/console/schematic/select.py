@@ -7,22 +7,21 @@
 #  License, use of this software will be governed by the Apache License, Version 2.0,
 #  included in the file licenses/APL.txt.
 
-from typing import Any
 
-from console.schematic.symbol import Symbol
+from console.schematic.symbol import Option, Symbol
 
 
 class Select(Symbol):
     """Schematic select symbol (dropdown, Set button, and optional read-back)"""
 
-    _symbol_group = "General"
+    _symbol_group: str | None = "General"
 
     def __init__(
         self,
         *,
         label: str,
         channel_name: str,
-        options: list[dict[str, Any]] | None = None,
+        options: list[Option] | None = None,
     ):
         """Initialize a select symbol with configuration.
 
@@ -42,19 +41,16 @@ class Select(Symbol):
         self,
         *,
         channel_name: str | None = None,
-        options: list[dict[str, Any]] | None = None,
-        **kwargs: Any,
-    ) -> dict[str, Any]:
+        options: list[Option] | None = None,
+    ) -> None:
         self.click()
         self.notifications.close_all()
-        applied_properties: dict[str, Any] = {}
 
         if channel_name is not None:
             self.set_label(channel_name)
             self.page.get_by_text("Properties").dispatch_event("click")
             self.page.get_by_text("Control").last.dispatch_event("click")
             self.set_channel(section="Command", channel_name=channel_name)
-            applied_properties["channel"] = channel_name
 
         if options is not None and len(options) > 0:
             self.click()
@@ -73,9 +69,6 @@ class Select(Symbol):
                 name_input.fill(option["name"])
                 value_input = last_item.locator("input").nth(1)
                 value_input.fill(str(option["value"]))
-            applied_properties["options"] = options
-
-        return applied_properties
 
     def send(self, option_name: str) -> None:
         """Select an option from the dropdown and click Set.

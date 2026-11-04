@@ -16,6 +16,7 @@ import os
 import tempfile
 import threading
 import time
+from typing import override
 
 from flask import Flask, Response, jsonify, request
 
@@ -446,9 +447,11 @@ class HTTPSim(DeviceSim):
     port = 8081
     device_name = "HTTP Test Server"
 
+    @override
     async def _run_server(self) -> None:
         await asyncio.to_thread(run_server, self.host, self.port)
 
+    @override
     @staticmethod
     def create_device(rack_key: int) -> http.Device:
         return http.Device(
@@ -472,11 +475,13 @@ class HTTPSlowSim(HTTPSim):
     delay_ms = 20
     max_concurrent_requests = 3
 
+    @override
     async def _run_server(self) -> None:
         await asyncio.to_thread(
             run_server, self.host, self.port, delay_ms=self.delay_ms
         )
 
+    @override
     @staticmethod
     def create_device(rack_key: int) -> http.Device:
         return http.Device(
