@@ -221,7 +221,7 @@ jobs:
         run: |
           if [ -n "$INPUT_VERSION" ]; then
             # Extract pure version by removing any suffix (-rc, -branch, etc.)
-            PURE_VERSION=$(echo "$INPUT_VERSION" | sed 's/-.*$//')
+            PURE_VERSION=${INPUT_VERSION%%-*}
             echo "VERSION=$INPUT_VERSION" >> "$GITHUB_OUTPUT"
             echo "PURE_VERSION=${PURE_VERSION}" >> "$GITHUB_OUTPUT"
           else
