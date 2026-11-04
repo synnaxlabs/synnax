@@ -17,14 +17,23 @@ import "github.com/synnaxlabs/synnax/pkg/service/http/versions/v3"
 type Method = v3.Method
 
 const (
-	MethodGet     Method = v3.MethodGet
-	MethodHead    Method = v3.MethodHead
-	MethodPost    Method = v3.MethodPost
-	MethodPut     Method = v3.MethodPut
-	MethodDelete  Method = v3.MethodDelete
-	MethodPatch   Method = v3.MethodPatch
+	// MethodGet reads a resource.
+	MethodGet Method = v3.MethodGet
+	// MethodHead reads the headers of a resource, with no body.
+	MethodHead Method = v3.MethodHead
+	// MethodPost submits data to a resource.
+	MethodPost Method = v3.MethodPost
+	// MethodPut replaces a resource.
+	MethodPut Method = v3.MethodPut
+	// MethodDelete removes a resource.
+	MethodDelete Method = v3.MethodDelete
+	// MethodPatch changes part of a resource.
+	MethodPatch Method = v3.MethodPatch
+	// MethodOptions asks which communication options a resource supports.
 	MethodOptions Method = v3.MethodOptions
-	MethodTrace   Method = v3.MethodTrace
+	// MethodTrace asks the server to echo the request it receives.
+	MethodTrace Method = v3.MethodTrace
+	// MethodConnect opens a tunnel to the server.
 	MethodConnect Method = v3.MethodConnect
 )
 
@@ -32,11 +41,16 @@ const (
 type TimeFormat = v3.TimeFormat
 
 const (
+	// TimeFormatISO8601 is an ISO 8601 string.
 	TimeFormatISO8601 TimeFormat = v3.TimeFormatISO8601
+	// TimeFormatUnixSec is a count of seconds since the Unix epoch.
 	TimeFormatUnixSec TimeFormat = v3.TimeFormatUnixSec
-	TimeFormatUnixMs  TimeFormat = v3.TimeFormatUnixMs
-	TimeFormatUnixUs  TimeFormat = v3.TimeFormatUnixUs
-	TimeFormatUnixNs  TimeFormat = v3.TimeFormatUnixNs
+	// TimeFormatUnixMs is a count of milliseconds since the Unix epoch.
+	TimeFormatUnixMs TimeFormat = v3.TimeFormatUnixMs
+	// TimeFormatUnixUs is a count of microseconds since the Unix epoch.
+	TimeFormatUnixUs TimeFormat = v3.TimeFormatUnixUs
+	// TimeFormatUnixNs is a count of nanoseconds since the Unix epoch.
+	TimeFormatUnixNs TimeFormat = v3.TimeFormatUnixNs
 )
 
 // Header is a single HTTP header sent with a request.
@@ -63,8 +77,11 @@ type ReadConfig = v3.ReadConfig
 type JSONType = v3.JSONType
 
 const (
-	JSONTypeNumber  JSONType = v3.JSONTypeNumber
-	JSONTypeString  JSONType = v3.JSONTypeString
+	// JSONTypeNumber writes the value as a JSON number.
+	JSONTypeNumber JSONType = v3.JSONTypeNumber
+	// JSONTypeString writes the value as a JSON string.
+	JSONTypeString JSONType = v3.JSONTypeString
+	// JSONTypeBoolean writes the value as a JSON boolean.
 	JSONTypeBoolean JSONType = v3.JSONTypeBoolean
 )
 
@@ -72,7 +89,9 @@ const (
 type GeneratorType = v3.GeneratorType
 
 const (
-	GeneratorTypeUUID      GeneratorType = v3.GeneratorTypeUUID
+	// GeneratorTypeUUID produces a new UUID for each request.
+	GeneratorTypeUUID GeneratorType = v3.GeneratorTypeUUID
+	// GeneratorTypeTimestamp produces the time of the request.
 	GeneratorTypeTimestamp GeneratorType = v3.GeneratorTypeTimestamp
 )
 

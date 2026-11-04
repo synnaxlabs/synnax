@@ -17,9 +17,12 @@ import "github.com/synnaxlabs/synnax/pkg/service/labjack/versions"
 type TemperatureUnits = versions.TemperatureUnits
 
 const (
-	TemperatureUnitsCelsius    TemperatureUnits = versions.TemperatureUnitsCelsius
+	// TemperatureUnitsCelsius is degrees Celsius.
+	TemperatureUnitsCelsius TemperatureUnits = versions.TemperatureUnitsCelsius
+	// TemperatureUnitsFahrenheit is degrees Fahrenheit.
 	TemperatureUnitsFahrenheit TemperatureUnits = versions.TemperatureUnitsFahrenheit
-	TemperatureUnitsKelvin     TemperatureUnits = versions.TemperatureUnitsKelvin
+	// TemperatureUnitsKelvin is kelvins.
+	TemperatureUnitsKelvin TemperatureUnits = versions.TemperatureUnitsKelvin
 )
 
 // ThermocoupleType selects the thermocouple alloy type.

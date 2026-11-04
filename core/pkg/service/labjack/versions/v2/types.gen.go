@@ -28,9 +28,12 @@ import (
 type TemperatureUnits string
 
 const (
-	TemperatureUnitsCelsius    TemperatureUnits = "C"
+	// TemperatureUnitsCelsius is degrees Celsius.
+	TemperatureUnitsCelsius TemperatureUnits = "C"
+	// TemperatureUnitsFahrenheit is degrees Fahrenheit.
 	TemperatureUnitsFahrenheit TemperatureUnits = "F"
-	TemperatureUnitsKelvin     TemperatureUnits = "K"
+	// TemperatureUnitsKelvin is kelvins.
+	TemperatureUnitsKelvin TemperatureUnits = "K"
 )
 
 // IsValid reports whether t is one of the defined TemperatureUnits

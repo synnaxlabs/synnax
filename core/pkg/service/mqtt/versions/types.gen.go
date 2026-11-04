@@ -17,8 +17,11 @@ import "github.com/synnaxlabs/synnax/pkg/service/mqtt/versions/v1"
 type QoS = v1.QoS
 
 const (
-	QoSAtMostOnce  QoS = v1.QoSAtMostOnce
+	// QoSAtMostOnce is level 0, which delivers a message at most once.
+	QoSAtMostOnce QoS = v1.QoSAtMostOnce
+	// QoSAtLeastOnce is level 1, which delivers a message at least once.
 	QoSAtLeastOnce QoS = v1.QoSAtLeastOnce
+	// QoSExactlyOnce is level 2, which delivers a message exactly once.
 	QoSExactlyOnce QoS = v1.QoSExactlyOnce
 )
 
@@ -26,11 +29,16 @@ const (
 type TimeFormat = v1.TimeFormat
 
 const (
+	// TimeFormatISO8601 is an ISO 8601 string.
 	TimeFormatISO8601 TimeFormat = v1.TimeFormatISO8601
+	// TimeFormatUnixSec is a count of seconds since the Unix epoch.
 	TimeFormatUnixSec TimeFormat = v1.TimeFormatUnixSec
-	TimeFormatUnixMs  TimeFormat = v1.TimeFormatUnixMs
-	TimeFormatUnixUs  TimeFormat = v1.TimeFormatUnixUs
-	TimeFormatUnixNs  TimeFormat = v1.TimeFormatUnixNs
+	// TimeFormatUnixMs is a count of milliseconds since the Unix epoch.
+	TimeFormatUnixMs TimeFormat = v1.TimeFormatUnixMs
+	// TimeFormatUnixUs is a count of microseconds since the Unix epoch.
+	TimeFormatUnixUs TimeFormat = v1.TimeFormatUnixUs
+	// TimeFormatUnixNs is a count of nanoseconds since the Unix epoch.
+	TimeFormatUnixNs TimeFormat = v1.TimeFormatUnixNs
 )
 
 // EnumEntry maps a string label in a JSON payload to a numeric channel value for
@@ -41,18 +49,32 @@ type EnumEntry = v1.EnumEntry
 type SparkplugDataType = v1.SparkplugDataType
 
 const (
-	SparkplugDataTypeInt8     SparkplugDataType = v1.SparkplugDataTypeInt8
-	SparkplugDataTypeInt16    SparkplugDataType = v1.SparkplugDataTypeInt16
-	SparkplugDataTypeInt32    SparkplugDataType = v1.SparkplugDataTypeInt32
-	SparkplugDataTypeInt64    SparkplugDataType = v1.SparkplugDataTypeInt64
-	SparkplugDataTypeUint8    SparkplugDataType = v1.SparkplugDataTypeUint8
-	SparkplugDataTypeUint16   SparkplugDataType = v1.SparkplugDataTypeUint16
-	SparkplugDataTypeUint32   SparkplugDataType = v1.SparkplugDataTypeUint32
-	SparkplugDataTypeUint64   SparkplugDataType = v1.SparkplugDataTypeUint64
-	SparkplugDataTypeFloat    SparkplugDataType = v1.SparkplugDataTypeFloat
-	SparkplugDataTypeDouble   SparkplugDataType = v1.SparkplugDataTypeDouble
-	SparkplugDataTypeBoolean  SparkplugDataType = v1.SparkplugDataTypeBoolean
-	SparkplugDataTypeString   SparkplugDataType = v1.SparkplugDataTypeString
+	// SparkplugDataTypeInt8 is a signed 8-bit integer.
+	SparkplugDataTypeInt8 SparkplugDataType = v1.SparkplugDataTypeInt8
+	// SparkplugDataTypeInt16 is a signed 16-bit integer.
+	SparkplugDataTypeInt16 SparkplugDataType = v1.SparkplugDataTypeInt16
+	// SparkplugDataTypeInt32 is a signed 32-bit integer.
+	SparkplugDataTypeInt32 SparkplugDataType = v1.SparkplugDataTypeInt32
+	// SparkplugDataTypeInt64 is a signed 64-bit integer.
+	SparkplugDataTypeInt64 SparkplugDataType = v1.SparkplugDataTypeInt64
+	// SparkplugDataTypeUint8 is an unsigned 8-bit integer.
+	SparkplugDataTypeUint8 SparkplugDataType = v1.SparkplugDataTypeUint8
+	// SparkplugDataTypeUint16 is an unsigned 16-bit integer.
+	SparkplugDataTypeUint16 SparkplugDataType = v1.SparkplugDataTypeUint16
+	// SparkplugDataTypeUint32 is an unsigned 32-bit integer.
+	SparkplugDataTypeUint32 SparkplugDataType = v1.SparkplugDataTypeUint32
+	// SparkplugDataTypeUint64 is an unsigned 64-bit integer.
+	SparkplugDataTypeUint64 SparkplugDataType = v1.SparkplugDataTypeUint64
+	// SparkplugDataTypeFloat is a 32-bit floating point number.
+	SparkplugDataTypeFloat SparkplugDataType = v1.SparkplugDataTypeFloat
+	// SparkplugDataTypeDouble is a 64-bit floating point number.
+	SparkplugDataTypeDouble SparkplugDataType = v1.SparkplugDataTypeDouble
+	// SparkplugDataTypeBoolean is a true or false value.
+	SparkplugDataTypeBoolean SparkplugDataType = v1.SparkplugDataTypeBoolean
+	// SparkplugDataTypeString is a string.
+	SparkplugDataTypeString SparkplugDataType = v1.SparkplugDataTypeString
+	// SparkplugDataTypeDateTime is a point in time, as milliseconds since the Unix
+	// epoch.
 	SparkplugDataTypeDateTime SparkplugDataType = v1.SparkplugDataTypeDateTime
 )
 
@@ -89,8 +111,11 @@ type ReadConfig = v1.ReadConfig
 type JSONType = v1.JSONType
 
 const (
-	JSONTypeNumber  JSONType = v1.JSONTypeNumber
-	JSONTypeString  JSONType = v1.JSONTypeString
+	// JSONTypeNumber writes the value as a JSON number.
+	JSONTypeNumber JSONType = v1.JSONTypeNumber
+	// JSONTypeString writes the value as a JSON string.
+	JSONTypeString JSONType = v1.JSONTypeString
+	// JSONTypeBoolean writes the value as a JSON boolean.
 	JSONTypeBoolean JSONType = v1.JSONTypeBoolean
 )
 
@@ -98,7 +123,9 @@ const (
 type GeneratorType = v1.GeneratorType
 
 const (
-	GeneratorTypeUUID      GeneratorType = v1.GeneratorTypeUUID
+	// GeneratorTypeUUID produces a new UUID for each message.
+	GeneratorTypeUUID GeneratorType = v1.GeneratorTypeUUID
+	// GeneratorTypeTimestamp produces the time of the message.
 	GeneratorTypeTimestamp GeneratorType = v1.GeneratorTypeTimestamp
 )
 
