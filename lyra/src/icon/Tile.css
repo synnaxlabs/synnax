@@ -9,6 +9,12 @@
  * included in the file licenses/APL.txt.
  */
 
+/* Inputs: a tile on a raised surface sets a stronger fill and border. */
+:where(.lyra-icon-tile) {
+    --pluto-icon-tile-bg: var(--pluto-gray-l2);
+    --pluto-icon-tile-border-color: var(--pluto-gray-l4);
+}
+
 .lyra-icon-tile {
     display: inline-grid;
     flex-shrink: 0;
@@ -16,8 +22,8 @@
     width: var(--pluto-icon-tile-size);
     height: var(--pluto-icon-tile-size);
     color: var(--pluto-gray-l10);
-    background: var(--pluto-gray-l2);
-    border: var(--pluto-border-width) solid var(--pluto-gray-l4);
+    background: var(--pluto-icon-tile-bg);
+    border: var(--pluto-border-width) solid var(--pluto-icon-tile-border-color);
     border-radius: var(--pluto-border-radius-small);
 
     & > .lyra-icon {
