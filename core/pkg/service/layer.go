@@ -789,6 +789,7 @@ func OpenLayer(ctx context.Context, cfgs ...LayerConfig) (l *Layer, err error) {
 		Ontology:        l.Ontology,
 		Group:           l.Group,
 		Signals:         l.Signals,
+		Channel:         l.Channel,
 		Uses:            noSecretUses,
 		Grant:           l.Grant,
 		EncryptionKey:   cfg.SecretsKey,

@@ -110,6 +110,10 @@ export class Client extends query.Retriever<typeof retrieveMultiParamsZ, Key, Se
   /**
    * Creates secrets, or replaces the secrets whose keys exist.
    * @returns the saved secrets, without their values.
+   * @throws {PathError} if a secret is not valid, such as a stored secret without a
+   * value.
+   * @throws {AccessDeniedError} if the caller cannot create secrets, or cannot update a
+   * secret that the call replaces.
    */
   async create(secret: New): Promise<Secret>;
   async create(secrets: New[]): Promise<Secret[]>;
@@ -125,6 +129,12 @@ export class Client extends query.Retriever<typeof retrieveMultiParamsZ, Key, Se
     return isMany ? res.secrets : res.secrets[0];
   }
 
+  /**
+   * Renames a secret.
+   * @throws {PathError} if the name is empty.
+   * @throws {NotFoundError} if no secret has the key.
+   * @throws {AccessDeniedError} if the caller cannot update the secret.
+   */
   async rename(key: Key, name: string, opts: query.WriteOptions = {}): Promise<void> {
     const rename = () => [
       query.partialUpdate(this.store, key, { name }),
@@ -145,8 +155,9 @@ export class Client extends query.Retriever<typeof retrieveMultiParamsZ, Key, Se
   }
 
   /**
-   * Deletes secrets.
+   * Deletes secrets. Unknown keys are ignored.
    * @throws {ValidationError} if a resource uses one of the secrets.
+   * @throws {AccessDeniedError} if the caller cannot delete one of the secrets.
    */
   async delete(keys: Key | Key[], opts: query.WriteOptions = {}): Promise<void> {
     const keysArr = array.toArray(keys);

@@ -11,6 +11,7 @@ package secret
 
 import (
 	"context"
+	"uuid"
 
 	"github.com/synnaxlabs/gorp"
 	"github.com/synnaxlabs/synnax/pkg/api/auth"
@@ -23,6 +24,7 @@ import (
 	"github.com/synnaxlabs/x/config"
 	"github.com/synnaxlabs/x/errors"
 	"github.com/synnaxlabs/x/override"
+	"github.com/synnaxlabs/x/query"
 	"github.com/synnaxlabs/x/validate"
 )
 
@@ -112,8 +114,10 @@ func (in Input) secret() (Secret, error) {
 	v := validate.New("secret")
 	switch in.Source {
 	case secret.SourceStored:
-		v.Ternary("path", in.Path != "", "must be empty for a stored secret")
-		return Secret{Variant: secret.StoredSecret{Base: base}}, v.Error()
+		if v.Ternary("path", in.Path != "", "must be empty for a stored secret") {
+			return Secret{}, v.Error()
+		}
+		return Secret{Variant: secret.StoredSecret{Base: base}}, nil
 	case secret.SourceFile:
 		return Secret{Variant: secret.FileSecret{Base: base, Path: in.Path}}, nil
 	}
@@ -132,16 +136,29 @@ type CreateResponse struct {
 }
 
 // Create creates the secrets, or replaces those whose key exists. It requires create
-// access on secrets.
+// access on secrets, and update access on each secret it replaces.
 func (s *Service) Create(
 	ctx context.Context,
 	tx gorp.Tx,
 	req CreateRequest,
 ) (CreateResponse, error) {
-	if err := s.access.NewEnforcer(tx).Enforce(ctx, access.Request{
-		Subject: auth.GetSubject(ctx),
+	enforcer := s.access.NewEnforcer(tx)
+	subject := auth.GetSubject(ctx)
+	if err := enforcer.Enforce(ctx, access.Request{
+		Subject: subject,
 		Action:  access.ActionCreate,
 		Objects: []ontology.ID{{Type: ontology.ResourceTypeSecret}},
+	}); err != nil {
+		return CreateResponse{}, err
+	}
+	replaced, err := s.retrieveReplaced(ctx, tx, req.Secrets)
+	if err != nil {
+		return CreateResponse{}, err
+	}
+	if err = enforcer.Enforce(ctx, access.Request{
+		Subject: subject,
+		Action:  access.ActionUpdate,
+		Objects: secret.OntologyIDsFromSecrets(replaced),
 	}); err != nil {
 		return CreateResponse{}, err
 	}
@@ -158,6 +175,32 @@ func (s *Service) Create(
 		res.Secrets[i] = sec
 	}
 	return res, nil
+}
+
+// retrieveReplaced returns the existing secrets whose keys the inputs give. A key that
+// no secret has creates a new secret.
+func (s *Service) retrieveReplaced(
+	ctx context.Context,
+	tx gorp.Tx,
+	inputs []Input,
+) ([]Secret, error) {
+	var keys []Key
+	for _, in := range inputs {
+		if in.Key != uuid.Nil() {
+			keys = append(keys, in.Key)
+		}
+	}
+	if len(keys) == 0 {
+		return nil, nil
+	}
+	var replaced []Secret
+	if err := s.internal.NewRetrieve().
+		Where(secret.MatchKeys(keys...)).
+		Entries(&replaced).
+		Exec(ctx, tx); errors.Skip(err, query.ErrNotFound) != nil {
+		return nil, err
+	}
+	return replaced, nil
 }
 
 // RetrieveRequest selects the secrets to retrieve.
@@ -284,7 +327,10 @@ func (s *Service) CreateGrant(
 		auth.GetSessionKey(ctx),
 		req.Secrets...,
 	)
-	return GrantCreateResponse{Grant: key}, err
+	if err != nil {
+		return GrantCreateResponse{}, err
+	}
+	return GrantCreateResponse{Grant: key}, nil
 }
 
 // GrantDeleteRequest selects the grants to delete.
