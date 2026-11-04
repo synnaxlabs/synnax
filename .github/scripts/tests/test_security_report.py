@@ -157,6 +157,38 @@ class TestPublish:
             },
         )
 
+    def test_should_print_the_count_and_tell_slack_when_linear_fails(
+        self,
+        tmp_path: Path,
+        posts: list[tuple[str, Any]],
+        monkeypatch: pytest.MonkeyPatch,
+        capsys: pytest.CaptureFixture[str],
+    ) -> None:
+        """Should keep the count, leave findings out of the log, and still fail."""
+        monkeypatch.setenv("RUN_URL", "https://run")
+
+        def send(url: str, payload: dict[str, Any], _: dict[str, str]) -> bytes:
+            if url != "https://slack":
+                raise OSError("HTTP Error 401: Unauthorized")
+            posts.append((url, payload))
+            return b""
+
+        write_scan(tmp_path, "zizmor", 0, result("unpinned-uses", "error", "a.yaml", 1))
+        with pytest.raises(OSError, match="401"):
+            main([str(tmp_path), "--publish"], send, self.open_token)
+        assert posts == [
+            (
+                "https://slack",
+                {
+                    "text": "Weekly security audit: 1 findings, 0 failed scans. "
+                    "Failed to file the report in Linear: https://run"
+                },
+            )
+        ]
+        captured = capsys.readouterr()
+        assert captured.out == "zizmor: 1 findings, exit 0\n"
+        assert "unpinned-uses" not in captured.err
+
     def test_should_file_nothing_without_findings(
         self, tmp_path: Path, posts: list[tuple[str, Any]]
     ) -> None:

@@ -13,7 +13,9 @@ Usage: security_report.py <out> [--publish]
 
 Writes the report to <out>/report.md. --publish also files it as a Linear issue in the
 SY team, when it holds a finding or a failed scan, and posts the count and the issue
-link to Slack. Prints no finding, because logs on a public repository are public.
+link to Slack. If Linear fails, posts the count and the run link to Slack and raises.
+Prints each scan's count and no finding, because logs on a public repository are
+public, so a failed filing keeps only the count: run the workflow again for the report.
 Exits non-zero when a scan failed.
 
 Environment for --publish: LINEAR_CLIENT_ID, LINEAR_CLIENT_SECRET, SLACK_WEBHOOK_URL,
@@ -206,8 +208,13 @@ def publish(
     if total or failed:
         date = datetime.now(UTC).date().isoformat()
         title = f"Security audit {date}: {total} findings"
-        with open_token() as token:
-            text += " " + file_issue(send, token, title, report)
+        try:
+            with open_token() as token:
+                text += " " + file_issue(send, token, title, report)
+        except (OSError, RuntimeError):
+            text += f" Failed to file the report in Linear: {env.get('RUN_URL', '')}"
+            send(env["SLACK_WEBHOOK_URL"], {"text": text}, {})
+            raise
     send(env["SLACK_WEBHOOK_URL"], {"text": text}, {})
 
 
@@ -223,6 +230,8 @@ def main(
         sys.exit(f"{args.out} holds no scan")
     report = render(scans, os.environ.get("RUN_URL", ""))
     (args.out / "report.md").write_text(report)
+    for scan in scans:
+        print(f"{scan.name}: {len(scan.findings)} findings, exit {scan.exit_code}")
     if args.publish:
         publish(send, open_token, scans, report, dict(os.environ))
     failed = [s.name for s in scans if s.exit_code != 0]
