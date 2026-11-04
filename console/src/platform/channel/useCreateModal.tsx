@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { type channel, DataType } from "@synnaxlabs/client";
+import { DataType } from "@synnaxlabs/client";
 import { Button } from "@synnaxlabs/lyra/button";
 import { Flex } from "@synnaxlabs/lyra/flex";
 import { Form } from "@synnaxlabs/lyra/form";
@@ -15,6 +15,7 @@ import { Icon } from "@synnaxlabs/lyra/icon";
 import { Input } from "@synnaxlabs/lyra/input";
 import { Modal } from "@synnaxlabs/lyra/modal";
 import { Nav } from "@synnaxlabs/lyra/nav";
+import { Select } from "@synnaxlabs/lyra/select";
 import { Text } from "@synnaxlabs/lyra/text";
 import { Channel, Telem } from "@synnaxlabs/pluto";
 import { useState } from "react";
@@ -23,7 +24,11 @@ import { Analytics } from "@/platform/analytics";
 import { Modals } from "@/platform/modals";
 import { Triggers } from "@/platform/triggers";
 
+const path = Channel.formPath;
+
 const INDEX_QUERY: Partial<Channel.RetrieveMultipleQuery> = { isIndex: true };
+
+type Kind = "data" | "index" | "virtual";
 
 const Create = ({ close }: Modals.ContentProps<Record<never, never>, void>) => {
   const [createMore, setCreateMore] = useState(false);
@@ -36,20 +41,22 @@ const Create = ({ close }: Modals.ContentProps<Record<never, never>, void>) => {
       else close();
     },
   });
-  const isIndex = Form.useFieldValue<boolean, boolean, typeof Channel.formSchema>(
-    "isIndex",
-    { ctx: form },
-  );
-  const isVirtual = Form.useFieldValue<boolean, boolean, typeof Channel.formSchema>(
-    "virtual",
-    { ctx: form },
-  );
+  const isIndex = Form.useFieldValue(path.isIndex, { ctx: form });
+  const isVirtual = Form.useFieldValue(path.virtual, { ctx: form });
+  const kind: Kind = isIndex ? "index" : isVirtual ? "virtual" : "data";
+  const handleKindChange = (next: Kind) => {
+    form.set(path.isIndex, next === "index");
+    form.set(path.virtual, next === "virtual");
+    if (next !== "data") form.set(path.index, 0);
+    if (next === "index") form.set(path.dataType, DataType.TIMESTAMP.toString());
+    else if (isIndex) form.set(path.dataType, Channel.ZERO_FORM_VALUES.dataType);
+  };
   return (
     <Modal.Frame>
       <Modal.Header icon={<Icon.Channel />}>Channel.Create</Modal.Header>
       <Modal.Body>
         <Form.Form<typeof Channel.formSchema> {...form}>
-          <Form.Field<string> path="name" showLabel={false}>
+          <Form.Field path={path.name} showLabel={false} padHelpText={false}>
             {(p) => (
               <Input.Text
                 autoFocus
@@ -62,39 +69,34 @@ const Create = ({ close }: Modals.ContentProps<Record<never, never>, void>) => {
             )}
           </Form.Field>
           <Flex.Box x gap="large">
-            <Form.SwitchField
-              path="virtual"
-              label="Virtual"
-              inputProps={{ disabled: isIndex }}
-              onChange={(v, ctx) => {
-                if (!v) return;
-                ctx.set("isIndex", false);
-                ctx.set("index", 0);
-              }}
-            />
-            <Form.SwitchField
-              path="isIndex"
-              label="Is index"
-              inputProps={{ disabled: isVirtual }}
-              onChange={(v, ctx) => {
-                if (!v) return;
-                ctx.set("dataType", DataType.TIMESTAMP.toString());
-                if (ctx.get("index").value !== 0) ctx.set("index", 0);
-              }}
-            />
-            <Form.Field<string> path="dataType" label="Data type" grow>
+            <Input.Item label="Kind">
+              <Select.Buttons<Kind> value={kind} onChange={handleKindChange}>
+                <Select.Item itemKey="data">
+                  <Icon.Channel />
+                  Data
+                </Select.Item>
+                <Select.Item itemKey="index">
+                  <Icon.Time />
+                  Index
+                </Select.Item>
+                <Select.Item itemKey="virtual">
+                  <Icon.Virtual />
+                  Virtual
+                </Select.Item>
+              </Select.Buttons>
+            </Input.Item>
+            <Form.Field path={path.dataType} label="Data type" grow>
               {(p) => (
                 <Telem.SelectDataType {...p} disabled={isIndex} zIndex={100} full="x" />
               )}
             </Form.Field>
           </Flex.Box>
-          <Form.Field<channel.Key> path="index" label="Index">
+          <Form.Field path={path.index} label="Index" visible={kind === "data"}>
             {({ value, onChange }) => (
               <Channel.SelectSingle
                 value={value}
                 onChange={onChange}
                 initialQuery={INDEX_QUERY}
-                disabled={isIndex || isVirtual}
                 allowNone={false}
                 zIndex={100}
               />

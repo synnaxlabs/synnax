@@ -11,7 +11,7 @@ import { DataType } from "@synnaxlabs/client";
 import { createTestClient } from "@synnaxlabs/client/testutil";
 import { Form } from "@synnaxlabs/lyra/form";
 import { Text } from "@synnaxlabs/lyra/text";
-import { TimeStamp } from "@synnaxlabs/x";
+import { deep, TimeStamp } from "@synnaxlabs/x";
 import { act, screen, waitFor } from "@testing-library/react";
 import { describe, expect, it } from "vitest";
 
@@ -19,10 +19,16 @@ import { Task } from "@/platform/task";
 import { renderInTaskForm, renderInTaskFormWithClient } from "@/platform/task/testutil";
 import { awaitTextEditing, commitTextEdit, uniqueName } from "@/testutil";
 
+const path = deep.path<{ config: { name: string }; name: string; channel: number }>();
+
 describe("ChannelName", () => {
   it("should render the default name when no channel is selected", async () => {
     await renderInTaskForm(
-      <Task.ChannelName channel={0} namePath="config.name" defaultName="No channel" />,
+      <Task.ChannelName
+        channel={0}
+        namePath={path.config.name}
+        defaultName="No channel"
+      />,
       { values: { config: { name: "" } } },
     );
     await waitFor(() => expect(screen.getByText("No channel")).toBeTruthy());
@@ -30,7 +36,11 @@ describe("ChannelName", () => {
 
   it("should not warn when a default name previews the created channel", async () => {
     await renderInTaskForm(
-      <Task.ChannelName channel={0} namePath="config.name" defaultName="No channel" />,
+      <Task.ChannelName
+        channel={0}
+        namePath={path.config.name}
+        defaultName="No channel"
+      />,
       { values: { config: { name: "" } } },
     );
     await waitFor(() => expect(screen.getByText("No channel")).toBeTruthy());
@@ -38,9 +48,12 @@ describe("ChannelName", () => {
   });
 
   it("should warn when no channel is selected and there is no default name", async () => {
-    await renderInTaskForm(<Task.ChannelName channel={0} namePath="config.name" />, {
-      values: { config: { name: "unbound_name" } },
-    });
+    await renderInTaskForm(
+      <Task.ChannelName channel={0} namePath={path.config.name} />,
+      {
+        values: { config: { name: "unbound_name" } },
+      },
+    );
     await waitFor(() =>
       expect(
         screen.getByText("unbound_name").closest(".lyra--status-warning"),
@@ -50,7 +63,11 @@ describe("ChannelName", () => {
 
   it("should prefer the form name over the default when set", async () => {
     await renderInTaskForm(
-      <Task.ChannelName channel={0} namePath="config.name" defaultName="No channel" />,
+      <Task.ChannelName
+        channel={0}
+        namePath={path.config.name}
+        defaultName="No channel"
+      />,
       { values: { config: { name: "Manually Named" } } },
     );
     await waitFor(() => expect(screen.getByText("Manually Named")).toBeTruthy());
@@ -59,14 +76,14 @@ describe("ChannelName", () => {
   it("should write a committed rename to the form when no channel is bound", async () => {
     const editID = Task.getChannelNameID("unbound");
     const { form } = await renderInTaskForm(
-      <Task.ChannelName channel={0} namePath="config.name" id={editID} />,
+      <Task.ChannelName channel={0} namePath={path.config.name} id={editID} />,
       { values: { config: { name: "name_before" } } },
     );
     act(() => Text.edit(editID));
     const el = await awaitTextEditing(editID);
     act(() => commitTextEdit(el, "name_after"));
     await waitFor(() =>
-      expect(form.current?.get("config.name").value).toBe("name_after"),
+      expect(form.current?.get(path.config.name).value).toBe("name_after"),
     );
   });
 
@@ -83,7 +100,7 @@ describe("ChannelName", () => {
     it("should resolve and display the name of a real channel", async () => {
       const ch = await createChannel();
       await renderInTaskFormWithClient(
-        <Task.ChannelName channel={ch.key} namePath="name" />,
+        <Task.ChannelName channel={ch.key} namePath={path.name} />,
         { client, values: { name: "" } },
       );
       await waitFor(() => expect(screen.getByText(ch.name)).toBeTruthy());
@@ -93,7 +110,7 @@ describe("ChannelName", () => {
     // grace period, so the name has to hold through both the wait and the failure.
     it("should keep showing the form name for a channel that never resolves", async () => {
       await renderInTaskFormWithClient(
-        <Task.ChannelName channel={123456789} namePath="name" />,
+        <Task.ChannelName channel={123456789} namePath={path.name} />,
         { client, values: { name: "form_name" } },
       );
       expect(screen.getByText("form_name")).toBeTruthy();
@@ -110,7 +127,7 @@ describe("ChannelName", () => {
       const ch = await createChannel();
       const editID = Task.getChannelNameID("live_ch");
       await renderInTaskFormWithClient(
-        <Task.ChannelName channel={ch.key} namePath="name" id={editID} />,
+        <Task.ChannelName channel={ch.key} namePath={path.name} id={editID} />,
         { client, values: { name: "" } },
       );
       await waitFor(() => expect(screen.getByText(ch.name)).toBeTruthy());
@@ -127,8 +144,8 @@ describe("ChannelName", () => {
     describe("recovering from a failed lookup", () => {
       // Reads its key from the form so a spec can change it under a mounted name.
       const FormBound = () => {
-        const channel = Form.useFieldValue<number>("channel");
-        return <Task.ChannelName channel={channel} namePath="name" />;
+        const channel = Form.useFieldValue(path.channel);
+        return <Task.ChannelName channel={channel} namePath={path.name} />;
       };
 
       const isError = (text: string) =>
@@ -143,7 +160,7 @@ describe("ChannelName", () => {
           values: { name: "form_name", channel: deleted.key },
         });
         await waitFor(() => expect(isError("form_name")).toBe(true));
-        act(() => form.current?.set("channel", live.key));
+        act(() => form.current?.set(path.channel, live.key));
         await screen.findByText(live.name);
         expect(isError(live.name)).toBe(false);
       });
@@ -160,7 +177,7 @@ describe("ChannelName", () => {
         });
         try {
           await renderInTaskFormWithClient(
-            <Task.ChannelName channel={index.key} namePath="name" />,
+            <Task.ChannelName channel={index.key} namePath={path.name} />,
             { client, values: { name: "" } },
           );
           await screen.findByText(index.name);

@@ -163,7 +163,7 @@ export class Client extends query.Retriever<
         query.createDeleteListener(DELETE_CHANNEL_NAME, keyZ),
       ],
     });
-    // Composed rows always carry status; includeStatus only gates fetch flags.
+    // Composed rows carry any cached status; includeStatus only gates fetch flags.
     const composed = cache.derive<Key, Omit<Payload, "status">, Rack>({
       name: "rack.composed",
       source: store,
@@ -177,6 +177,8 @@ export class Client extends query.Retriever<
       fetch: async (q) => [(await this.fetchSingle(q)).key],
       compose: (records) => records[0],
       keyOf: (q) => ("key" in q ? q.key : null),
+      // The stream and status-free fetches cache racks with no status.
+      covers: (r, q) => q.includeStatus !== true || r.status != null,
       matches: (r, q) => ("key" in q ? r.key === q.key : r.name === q.name),
       single: true,
     });
@@ -241,12 +243,17 @@ export class Client extends query.Retriever<
   async create(racks: New[]): Promise<Rack[]>;
   async create(rack: New | New[]): Promise<Rack | Rack[]> {
     const isSingle = !Array.isArray(rack);
+    // A status streamed during the request is newer than the reply.
+    const since = this.cfg.statusStore.stamp();
     const res = await this.cfg.unary.send(
       "/rack/create",
       { racks: array.toArray(rack) },
       createReqZ,
       createResZ,
     );
+    res.racks.forEach(({ status: st }) => {
+      if (st != null) this.cfg.statusStore.ingest(st, { since });
+    });
     this.store.set(res.racks.map(stripStatus));
     const sugared = this.sugar(res.racks);
     return isSingle ? sugared[0] : sugared;
@@ -279,8 +286,9 @@ export class Client extends query.Retriever<
     return parsed.success ? parsed.data : undefined;
   }
 
-  private writeThrough(racks: Payload[]): void {
-    this.store.ingest(racks.map(stripStatus));
+  // A rack written after since keeps that write, since the fetch predates it.
+  private writeThrough(racks: Payload[], since: query.Stamp): void {
+    this.store.ingest(racks.map(stripStatus), { since });
     racks.forEach(({ status: st }) => {
       if (st != null) this.cfg.statusStore.ingest(st);
     });
@@ -297,8 +305,9 @@ export class Client extends query.Retriever<
   }
 
   private async fetchThrough(req: RetrieveRequest): Promise<Payload[]> {
+    const since = this.store.stamp();
     const racks = await this.execRetrieve(req);
-    this.writeThrough(racks);
+    this.writeThrough(racks, since);
     return racks;
   }
 
@@ -310,9 +319,10 @@ export class Client extends query.Retriever<
       checkForMultipleOrNoResults("Rack", q, racks, true);
       return this.sugar(racks[0]);
     }
+    const since = this.store.stamp();
     const racks = await this.execRetrieve(q);
     checkForMultipleOrNoResults("Rack", q, racks, true);
-    this.writeThrough(racks);
+    this.writeThrough(racks, since);
     return this.sugar(racks[0]);
   }
 }

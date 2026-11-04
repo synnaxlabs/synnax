@@ -1,0 +1,73 @@
+# Copyright 2026 Synnax Labs, Inc.
+#
+# Use of this software is governed by the Business Source License included in the file
+# licenses/BSL.txt.
+#
+# As of the Change Date specified in that file, in accordance with the Business Source
+# License, use of this software will be governed by the Apache License, Version 2.0,
+# included in the file licenses/APL.txt.
+
+# Audits the repository for security faults each week and files one private report as a
+# Linear issue. The repository is public, so its logs and artifacts are too: no step
+# prints a finding, and the report leaves the job only through Linear. Slack gets the
+# count and the link.
+
+name: Security
+
+on:
+  schedule:
+    - cron: "0 6 * * 3" # Wednesdays, 6am UTC
+  workflow_dispatch:
+
+permissions: {}
+
+concurrency:
+  group: security
+  cancel-in-progress: false
+
+jobs:
+  scan:
+    name: Scan
+    runs-on: ubuntu-latest
+    timeout-minutes: 90
+    permissions:
+      contents: read
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v7
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+
+      - name: Set up Go
+        uses: actions/setup-go@v7
+        with:
+          go-version-file: core/go.mod
+          cache: false
+
+      - name: Set up uv
+        uses: astral-sh/setup-uv@v10.3.0
+        with:
+          version: latest-known
+
+      - name: Install the scanners
+        run: |
+          go install golang.org/x/vuln/cmd/govulncheck@v1.9.0
+          go install github.com/zricethezav/gitleaks/v8@v8.30.1
+          uv tool install zizmor@1.30.1
+          uv tool install checkov@3.3.27
+
+      - name: Scan
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: .github/scripts/security_scan.sh "$RUNNER_TEMP/security"
+
+      - name: File the report
+        env:
+          LINEAR_API_KEY: ${{ secrets.LINEAR_API_KEY }}
+          SLACK_WEBHOOK_URL: ${{ secrets.SLACK_SECURITY_WEBHOOK_URL }}
+          RUN_URL:
+            ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{
+            github.run_id }}
+        run:
+          python3 .github/scripts/security_report.py "$RUNNER_TEMP/security" --publish

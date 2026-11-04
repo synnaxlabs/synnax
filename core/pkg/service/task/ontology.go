@@ -11,11 +11,14 @@ package task
 
 import (
 	"context"
+	"encoding/json/jsontext"
+	"encoding/json/v2"
 	"iter"
 	"uuid"
 
 	"github.com/samber/lo"
 	"github.com/synnaxlabs/gorp"
+	"github.com/synnaxlabs/synnax/pkg/service/actions"
 	"github.com/synnaxlabs/synnax/pkg/service/ontology"
 	xchange "github.com/synnaxlabs/x/change"
 	xiter "github.com/synnaxlabs/x/iter"
@@ -28,6 +31,16 @@ import (
 // ontology.
 func OntologyID(key Key) ontology.ID {
 	return ontology.ID{Type: ontology.ResourceTypeTask, Key: key.String()}
+}
+
+// ActionRecord returns the ontology ID of the task that a sample of the action channel
+// edits.
+func ActionRecord(sample []byte) (ontology.ID, error) {
+	var scoped actions.Scoped[Key, jsontext.Value]
+	if err := json.Unmarshal(sample, &scoped); err != nil {
+		return ontology.ID{}, err
+	}
+	return OntologyID(scoped.Key), nil
 }
 
 // OntologyIDs returns the ontology IDs for the given keys.
@@ -109,8 +122,7 @@ func newSearchIndex() *gorp.SearchIndex[Key, Task] {
 func (s *Service) Search(
 	ctx context.Context,
 	tx gorp.Tx,
-	term string,
-	limit int,
+	q search.Query[ontology.ID],
 ) (search.Result[ontology.ID], error) {
-	return ontology.SearchIndex(ctx, tx, s.search, term, limit, OntologyID)
+	return ontology.SearchIndex(ctx, tx, s.search, OntologyID, q)
 }

@@ -7,13 +7,15 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { type crdt, type record } from "@synnaxlabs/x";
+import { type crdt, patch, type record } from "@synnaxlabs/x";
+import { type Draft } from "immer";
 
 import { actions } from "@/actions";
 import {
   type Action,
   addEdge,
   createReduceAll,
+  type HandlerResult,
   type Handlers,
   reconnectEdge,
   removeEdge,
@@ -24,6 +26,7 @@ import {
   setNodePosition,
 } from "@/arc/actions.gen";
 import { type ir } from "@/arc/ir";
+import { type Arc, arcZ } from "@/arc/types.gen";
 
 const idToString = (id: crdt.ID): string => `${id.replica}:${id.counter}`;
 
@@ -32,6 +35,10 @@ const sameEndpoints = (a: ir.Edge, source: ir.Handle, target: ir.Handle): boolea
   a.source.param === source.param &&
   a.target.node === target.node &&
   a.target.param === target.param;
+
+// Path actions edit only the graph's node inputs.
+const applyPath = (state: Draft<Arc>, action: patch.Action): HandlerResult =>
+  actions.applyEntryPath(state, action, ["graph", "inputs"], arcZ);
 
 const handlers: Handlers = {
   create: (state, payload) => {
@@ -161,9 +168,26 @@ const handlers: Handlers = {
     );
     return { inverse: [], targets: [] };
   },
+  ...actions.createPathHandlers(applyPath),
 };
 
 export const reduceAll = createReduceAll(handlers);
+
+/**
+ * Converts a path action from the camelCase form of the cached Arc into the snake_case
+ * form that the Core stores. Other actions keep their form.
+ */
+export const encode = (state: Arc, action: Action): Action => {
+  switch (action.type) {
+    case "set":
+    case "remove":
+    case "insert":
+    case "move":
+      return patch.camelToSnake(action, { schema: arcZ, data: state });
+    default:
+      return action;
+  }
+};
 
 // createOf hands the dispatch controller the document carried by a create
 // action so frames for never-cached documents ingest instead of drop.

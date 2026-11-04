@@ -7,10 +7,10 @@
 #  License, use of this software will be governed by the Apache License, Version 2.0,
 #  included in the file licenses/APL.txt.
 
-from typing import Any, Literal
+from typing import Literal, Unpack
 
 from console.layout import LayoutClient
-from console.task.channels.analog import Analog
+from console.task.channels.analog import Analog, Options
 
 
 class TorqueBridgeTable(Analog):
@@ -36,10 +36,10 @@ class TorqueBridgeTable(Analog):
 
     def __init__(
         self,
-        *,
         layout: LayoutClient,
         name: str,
         device: str,
+        *,
         torque_units: (
             Literal["Newton meters", "Inch ounces", "Foot pounds"] | None
         ) = None,
@@ -55,7 +55,7 @@ class TorqueBridgeTable(Analog):
             Literal["Newton meters", "Inch ounces", "Foot pounds"] | None
         ) = None,
         electrical_units: Literal["mV/V", "V/V"] | None = None,
-        **kwargs: Any,
+        **kwargs: Unpack[Options],
     ) -> None:
         super().__init__(
             layout=layout,

@@ -120,3 +120,22 @@ export const retrieveLogTail = async (): Promise<string> =>
 /** Writes a zip archive of the logs and a summary to the given path. */
 export const exportDiagnostics = async (path: string): Promise<void> =>
   await invoke("supervisor_export_diagnostics", { path });
+
+/** @returns The API key that scripts on this computer use, or null when none is saved. */
+export const retrieveAPIKey = async (): Promise<string | null> =>
+  z
+    .string()
+    .nullable()
+    .parse(await invoke("supervisor_api_key"));
+
+/**
+ * Saves the API key, with the address of the running Core, where the client libraries
+ * on this computer find it. The save happens only while the saved key is `replaces`.
+ * @param replaces The key the caller read, or null when none was saved.
+ * @returns False, with no save, when another window changed the key first.
+ */
+export const saveAPIKey = async (
+  apiKey: string,
+  replaces: string | null,
+): Promise<boolean> =>
+  z.boolean().parse(await invoke("supervisor_save_api_key", { apiKey, replaces }));

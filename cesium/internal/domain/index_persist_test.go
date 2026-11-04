@@ -10,16 +10,49 @@
 package domain_test
 
 import (
+	"context"
+	"slices"
+	"time"
+
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	. "github.com/synnaxlabs/alamos/testutil"
 	"github.com/synnaxlabs/cesium/internal/domain"
 	"github.com/synnaxlabs/cesium/internal/testutil"
+	"github.com/synnaxlabs/x/errors"
 	xfs "github.com/synnaxlabs/x/io/fs"
 	. "github.com/synnaxlabs/x/io/fs/testutil"
 	"github.com/synnaxlabs/x/telem"
 	. "github.com/synnaxlabs/x/testutil"
 )
+
+// hookedFS runs writeAt on each write to the index file.
+type hookedFS struct {
+	xfs.FS
+	writeAt func(p []byte) error
+}
+
+func (fs *hookedFS) Open(name string, flag int) (xfs.File, error) {
+	f, err := fs.FS.Open(name, flag)
+	if err != nil || name != "index.domain" {
+		return f, err
+	}
+	return &hookedFile{File: f, fs: fs}, nil
+}
+
+type hookedFile struct {
+	xfs.File
+	fs *hookedFS
+}
+
+func (f *hookedFile) WriteAt(p []byte, off int64) (int, error) {
+	if f.fs.writeAt != nil {
+		if err := f.fs.writeAt(p); err != nil {
+			return 0, err
+		}
+	}
+	return f.File.WriteAt(p, off)
+}
 
 var _ = Describe("Index Persist", Ordered, func() {
 	for fsName, openFS := range FileSystems {
@@ -160,6 +193,152 @@ var _ = Describe("Index Persist", Ordered, func() {
 					Expect(i.SeekFirst(ctx)).To(BeFalse())
 					Expect(i.Close()).To(Succeed())
 				})
+			})
+
+			Describe("Buffer reuse", func() {
+				var hooked *hookedFS
+				reopen := func(fs xfs.FS) {
+					GinkgoHelper()
+					Expect(db.Close()).To(Succeed())
+					db = MustSucceed(domain.Open(domain.Config{
+						FS:              fs,
+						FileSize:        telem.Megabyte,
+						GCThreshold:     0,
+						Instrumentation: PanicLogger(),
+					}))
+				}
+				openWriter := func(
+					ctx SpecContext,
+					start telem.TimeStamp,
+					data []byte,
+				) *domain.Writer {
+					GinkgoHelper()
+					w := MustSucceed(db.OpenWriter(ctx, domain.WriterConfig{
+						End:              start + 3*telem.SecondTS,
+						EnableAutoCommit: new(false),
+					}))
+					Expect(w.SetStart(start)).To(Succeed())
+					MustSucceed(w.Write(data))
+					return w
+				}
+				expectDomains := func(
+					ctx SpecContext,
+					data []byte,
+					ranges ...telem.TimeRange,
+				) {
+					GinkgoHelper()
+					reopen(fs)
+					Expect(
+						testutil.ReadDomain(ctx, db, telem.TimeRangeMax),
+					).To(Equal(data))
+					i := db.OpenIterator(domain.IterRange(telem.TimeRangeMax))
+					persisted := make([]telem.TimeRange, 0, len(ranges))
+					for ok := i.SeekFirst(ctx); ok; ok = i.Next() {
+						persisted = append(persisted, i.TimeRange())
+					}
+					Expect(i.Close()).To(Succeed())
+					Expect(persisted).To(Equal(ranges))
+				}
+				BeforeEach(func() {
+					hooked = &hookedFS{FS: fs}
+					reopen(hooked)
+				})
+
+				It(
+					"Should keep a blocked write intact while another write prepares",
+					func(ctx SpecContext) {
+						w1 := openWriter(ctx, 10*telem.SecondTS, []byte{1, 2})
+						Expect(w1.Commit(ctx, 12*telem.SecondTS)).To(Succeed())
+						w2 := openWriter(ctx, 20*telem.SecondTS, []byte{3, 4})
+						Expect(w2.Commit(ctx, 22*telem.SecondTS)).To(Succeed())
+						MustSucceed(w1.Write([]byte{5}))
+						MustSucceed(w2.Write([]byte{6}))
+
+						entered := make(chan struct{}, 2)
+						released, release := context.WithTimeout(ctx, 10*time.Second)
+						DeferCleanup(release)
+						hooked.writeAt = func(p []byte) error {
+							encoded := slices.Clone(p)
+							entered <- struct{}{}
+							<-released.Done()
+							if !slices.Equal(p, encoded) {
+								return errors.New("buffer changed before its write")
+							}
+							return nil
+						}
+						done := make(chan error, 2)
+						go func() { done <- w1.Commit(ctx, 13*telem.SecondTS) }()
+						Eventually(entered).Should(Receive())
+						go func() { done <- w2.Commit(ctx, 23*telem.SecondTS) }()
+						Consistently(done, 50*time.Millisecond).ShouldNot(Receive())
+						release()
+						Eventually(done).Should(Receive(BeNil()))
+						Eventually(done).Should(Receive(BeNil()))
+						hooked.writeAt = nil
+
+						Expect(w1.Close()).To(Succeed())
+						Expect(w2.Close()).To(Succeed())
+						expectDomains(
+							ctx,
+							[]byte{1, 2, 5, 3, 4, 6},
+							(10 * telem.SecondTS).Range(13*telem.SecondTS),
+							(20 * telem.SecondTS).Range(23*telem.SecondTS),
+						)
+					},
+				)
+
+				It(
+					"Should persist every pointer after a failed write",
+					func(ctx SpecContext) {
+						w := openWriter(ctx, 10*telem.SecondTS, []byte{1, 2})
+						Expect(w.Commit(ctx, 12*telem.SecondTS)).To(Succeed())
+						MustSucceed(w.Write([]byte{3}))
+
+						hooked.writeAt = func([]byte) error { return ErrFault }
+						Expect(
+							w.Commit(ctx, 13*telem.SecondTS),
+						).To(MatchError(ErrFault))
+						hooked.writeAt = nil
+
+						Expect(w.Commit(ctx, 13*telem.SecondTS)).To(Succeed())
+						Expect(w.Close()).To(Succeed())
+						expectDomains(
+							ctx,
+							[]byte{1, 2, 3},
+							(10 * telem.SecondTS).Range(13*telem.SecondTS),
+						)
+					},
+				)
+
+				It(
+					"Should persist a shorter index than the last write",
+					func(ctx SpecContext) {
+						for _, start := range []telem.TimeStamp{10, 20, 30, 40} {
+							Expect(testutil.WriteDomain(
+								ctx,
+								db,
+								(start * telem.SecondTS).Range(
+									(start+2)*telem.SecondTS,
+								),
+								[]byte{byte(start), byte(start + 1)},
+							)).To(Succeed())
+						}
+
+						Expect(db.Delete(
+							ctx,
+							(20 * telem.SecondTS).Range(32*telem.SecondTS),
+							fixedOffset(0),
+							fixedOffset(2),
+						)).To(Succeed())
+
+						expectDomains(
+							ctx,
+							[]byte{10, 11, 40, 41},
+							(10 * telem.SecondTS).Range(12*telem.SecondTS),
+							(40 * telem.SecondTS).Range(42*telem.SecondTS),
+						)
+					},
+				)
 			})
 		})
 	}
