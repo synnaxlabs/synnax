@@ -24,9 +24,9 @@ export interface Parent {
 
 export interface PageProps extends PropsWithChildren {
   title: string;
-  /** titleID lets a caller start editing the title with `Text.edit`. */
+  /** titleID lets a caller start editing the title with `Text.asyncEdit`. */
   titleID?: string;
-  /** onTitleChange makes the title editable in place. */
+  /** onTitleChange makes the title editable in place while it is set. */
   onTitleChange?: (title: string) => void;
   /** parent links the page that lists this one, above the title. */
   parent?: Parent;

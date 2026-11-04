@@ -69,12 +69,18 @@ export const License = ({
   now,
 }: LicenseProps): ReactElement => {
   const [label, setLabel] = useState(lic.label);
+  const [renaming, setRenaming] = useState(false);
   const rename = useAction(async (next: string) => {
     setLabel(next);
     await post(`/api/licenses/${lic.key}/label`, { label: next });
     reload();
   });
-  const renamable = admin && lic.edition === "enterprise";
+  const startRenaming = (): void => {
+    setRenaming(true);
+    Text.asyncEdit(LABEL_ID)
+      .catch(console.error)
+      .finally(() => setRenaming(false));
+  };
   const status = statusOf(lic, now);
   const held = activations.filter((a) => a.releasedAt == null);
   const released = activations.filter((a) => a.releasedAt != null);
@@ -87,7 +93,7 @@ export const License = ({
     <Page
       title={rename.error == null ? label : lic.label}
       titleID={LABEL_ID}
-      onTitleChange={renamable ? rename.run : undefined}
+      onTitleChange={renaming ? rename.run : undefined}
       parent={parent}
       subtitle={
         <Flex.Box x align="center" gap="small">
@@ -101,8 +107,8 @@ export const License = ({
       }
       actions={
         <>
-          {renamable && (
-            <Button.Button variant="outlined" onClick={() => Text.edit(LABEL_ID)}>
+          {admin && lic.edition === "enterprise" && (
+            <Button.Button variant="outlined" onClick={startRenaming}>
               <Icon.Rename />
               Rename
             </Button.Button>

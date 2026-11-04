@@ -66,8 +66,11 @@ const renderLicense = (props: Partial<Licenses.LicenseProps> = {}): void => {
 
 const commit = async (label: string): Promise<void> => {
   fireEvent.click(screen.getByText("Rename"));
-  const title = screen.getByRole("heading", { name: LICENSE.label });
-  await waitFor(() => expect(title.getAttribute("contenteditable")).toBe("true"));
+  const title = await waitFor(() => {
+    const heading = screen.getByRole("heading", { name: LICENSE.label });
+    expect(heading.getAttribute("contenteditable")).toBe("true");
+    return heading;
+  });
   title.innerText = label;
   await act(async () => {
     fireEvent.keyDown(title, { key: "Enter" });
@@ -111,6 +114,28 @@ describe("Licenses.License", () => {
         method: "POST",
         body: JSON.stringify({ label: "Renamed rig" }),
       }),
+    );
+  });
+
+  it("should keep the title plain until an admin starts a rename", () => {
+    renderLicense();
+    const title = screen.getByRole("heading", { name: LICENSE.label });
+    fireEvent.doubleClick(title);
+    expect(title.getAttribute("contenteditable")).toBeNull();
+  });
+
+  it("should return the title to plain text after a rename", async () => {
+    vi.spyOn(globalThis, "fetch").mockImplementation(
+      async () => new Response(null, { status: 204 }),
+    );
+    renderLicense();
+    await commit("Renamed rig");
+    await waitFor(() =>
+      expect(
+        screen
+          .getByRole("heading", { name: "Renamed rig" })
+          .getAttribute("contenteditable"),
+      ).toBeNull(),
     );
   });
 
