@@ -53,21 +53,41 @@ type EdgeConfigVariant = v9.EdgeConfigVariant
 type EdgeConfigType = v9.EdgeConfigType
 
 const (
-	PipeEdgeConfigType      EdgeConfigType = v9.PipeEdgeConfigType
-	ElectricEdgeConfigType  EdgeConfigType = v9.ElectricEdgeConfigType
+	// PipeEdgeConfigType is the configuration for pipe edges.
+	PipeEdgeConfigType EdgeConfigType = v9.PipeEdgeConfigType
+	// ElectricEdgeConfigType is the configuration for electrical edges.
+	ElectricEdgeConfigType EdgeConfigType = v9.ElectricEdgeConfigType
+	// SecondaryEdgeConfigType is the configuration for secondary edges.
 	SecondaryEdgeConfigType EdgeConfigType = v9.SecondaryEdgeConfigType
-	JacketedEdgeConfigType  EdgeConfigType = v9.JacketedEdgeConfigType
+	// JacketedEdgeConfigType is the configuration for jacketed edges.
+	JacketedEdgeConfigType EdgeConfigType = v9.JacketedEdgeConfigType
+	// HydraulicEdgeConfigType is the configuration for hydraulic edges.
 	HydraulicEdgeConfigType EdgeConfigType = v9.HydraulicEdgeConfigType
+	// PneumaticEdgeConfigType is the configuration for pneumatic edges.
 	PneumaticEdgeConfigType EdgeConfigType = v9.PneumaticEdgeConfigType
-	DataEdgeConfigType      EdgeConfigType = v9.DataEdgeConfigType
+	// DataEdgeConfigType is the configuration for data edges.
+	DataEdgeConfigType EdgeConfigType = v9.DataEdgeConfigType
 )
 
+// PipeEdgeConfig is the configuration for pipe edges.
 type PipeEdgeConfig = v9.PipeEdgeConfig
+
+// ElectricEdgeConfig is the configuration for electrical edges.
 type ElectricEdgeConfig = v9.ElectricEdgeConfig
+
+// SecondaryEdgeConfig is the configuration for secondary edges.
 type SecondaryEdgeConfig = v9.SecondaryEdgeConfig
+
+// JacketedEdgeConfig is the configuration for jacketed edges.
 type JacketedEdgeConfig = v9.JacketedEdgeConfig
+
+// HydraulicEdgeConfig is the configuration for hydraulic edges.
 type HydraulicEdgeConfig = v9.HydraulicEdgeConfig
+
+// PneumaticEdgeConfig is the configuration for pneumatic edges.
 type PneumaticEdgeConfig = v9.PneumaticEdgeConfig
+
+// DataEdgeConfig is the configuration for data edges.
 type DataEdgeConfig = v9.DataEdgeConfig
 
 // FlexAlignment is a cross-axis flex alignment for laid-out content.
@@ -241,6 +261,7 @@ type NodeConfigVariant interface {
 	isNodeConfigVariant()
 }
 
+// CapNodeConfig is the configuration for cap symbols.
 type CapNodeConfig struct {
 	StaticSymbolConfig
 }
@@ -260,6 +281,7 @@ func (c CapNodeConfig) Validate() error {
 	return v.Error()
 }
 
+// FilterNodeConfig is the configuration for filter symbols.
 type FilterNodeConfig struct {
 	StaticSymbolConfig
 }
@@ -279,6 +301,7 @@ func (f FilterNodeConfig) Validate() error {
 	return v.Error()
 }
 
+// FlowStraightenerNodeConfig is the configuration for flow straightener symbols.
 type FlowStraightenerNodeConfig struct {
 	StaticSymbolConfig
 }
@@ -298,6 +321,7 @@ func (f FlowStraightenerNodeConfig) Validate() error {
 	return v.Error()
 }
 
+// HeaterElementNodeConfig is the configuration for heater element symbols.
 type HeaterElementNodeConfig struct {
 	StaticSymbolConfig
 }
@@ -317,6 +341,7 @@ func (h HeaterElementNodeConfig) Validate() error {
 	return v.Error()
 }
 
+// IsoCapNodeConfig is the configuration for ISO cap symbols.
 type IsoCapNodeConfig struct {
 	StaticSymbolConfig
 }
@@ -336,6 +361,7 @@ func (i IsoCapNodeConfig) Validate() error {
 	return v.Error()
 }
 
+// IsoFilterNodeConfig is the configuration for ISO filter symbols.
 type IsoFilterNodeConfig struct {
 	StaticSymbolConfig
 }
@@ -355,6 +381,7 @@ func (i IsoFilterNodeConfig) Validate() error {
 	return v.Error()
 }
 
+// NozzleNodeConfig is the configuration for nozzle symbols.
 type NozzleNodeConfig struct {
 	StaticSymbolConfig
 }
@@ -374,6 +401,7 @@ func (n NozzleNodeConfig) Validate() error {
 	return v.Error()
 }
 
+// OrificeNodeConfig is the configuration for orifice symbols.
 type OrificeNodeConfig struct {
 	StaticSymbolConfig
 }
@@ -393,6 +421,7 @@ func (o OrificeNodeConfig) Validate() error {
 	return v.Error()
 }
 
+// OrificePlateNodeConfig is the configuration for orifice plate symbols.
 type OrificePlateNodeConfig struct {
 	StaticSymbolConfig
 }
@@ -412,6 +441,7 @@ func (o OrificePlateNodeConfig) Validate() error {
 	return v.Error()
 }
 
+// StrainerNodeConfig is the configuration for strainer symbols.
 type StrainerNodeConfig struct {
 	StaticSymbolConfig
 }
@@ -431,6 +461,7 @@ func (s StrainerNodeConfig) Validate() error {
 	return v.Error()
 }
 
+// StrainerConeNodeConfig is the configuration for strainer cone symbols.
 type StrainerConeNodeConfig struct {
 	StaticSymbolConfig
 }
@@ -450,6 +481,7 @@ func (s StrainerConeNodeConfig) Validate() error {
 	return v.Error()
 }
 
+// ThrusterNodeConfig is the configuration for thruster symbols.
 type ThrusterNodeConfig struct {
 	ToggleSymbolConfig
 }
@@ -469,6 +501,7 @@ func (t ThrusterNodeConfig) Validate() error {
 	return v.Error()
 }
 
+// VentNodeConfig is the configuration for vent symbols.
 type VentNodeConfig struct {
 	StaticSymbolConfig
 }
@@ -488,6 +521,7 @@ func (ve VentNodeConfig) Validate() error {
 	return v.Error()
 }
 
+// FlowmeterGeneralNodeConfig is the configuration for general flowmeter symbols.
 type FlowmeterGeneralNodeConfig struct {
 	StaticSymbolConfig
 }
@@ -507,6 +541,8 @@ func (f FlowmeterGeneralNodeConfig) Validate() error {
 	return v.Error()
 }
 
+// FlowmeterElectromagneticNodeConfig is the configuration for electromagnetic flowmeter
+// symbols.
 type FlowmeterElectromagneticNodeConfig struct {
 	StaticSymbolConfig
 }
@@ -526,6 +562,8 @@ func (f FlowmeterElectromagneticNodeConfig) Validate() error {
 	return v.Error()
 }
 
+// FlowmeterVariableAreaNodeConfig is the configuration for variable area flowmeter
+// symbols.
 type FlowmeterVariableAreaNodeConfig struct {
 	StaticSymbolConfig
 }
@@ -545,6 +583,7 @@ func (f FlowmeterVariableAreaNodeConfig) Validate() error {
 	return v.Error()
 }
 
+// FlowmeterCoriolisNodeConfig is the configuration for Coriolis flowmeter symbols.
 type FlowmeterCoriolisNodeConfig struct {
 	StaticSymbolConfig
 }
@@ -564,6 +603,7 @@ func (f FlowmeterCoriolisNodeConfig) Validate() error {
 	return v.Error()
 }
 
+// FlowmeterNozzleNodeConfig is the configuration for nozzle flowmeter symbols.
 type FlowmeterNozzleNodeConfig struct {
 	StaticSymbolConfig
 }
@@ -583,6 +623,7 @@ func (f FlowmeterNozzleNodeConfig) Validate() error {
 	return v.Error()
 }
 
+// FlowmeterVenturiNodeConfig is the configuration for venturi flowmeter symbols.
 type FlowmeterVenturiNodeConfig struct {
 	StaticSymbolConfig
 }
@@ -602,6 +643,7 @@ func (f FlowmeterVenturiNodeConfig) Validate() error {
 	return v.Error()
 }
 
+// FlowmeterRingPistonNodeConfig is the configuration for ring piston flowmeter symbols.
 type FlowmeterRingPistonNodeConfig struct {
 	StaticSymbolConfig
 }
@@ -621,6 +663,8 @@ func (f FlowmeterRingPistonNodeConfig) Validate() error {
 	return v.Error()
 }
 
+// FlowmeterPositiveDisplacementNodeConfig is the configuration for positive
+// displacement flowmeter symbols.
 type FlowmeterPositiveDisplacementNodeConfig struct {
 	StaticSymbolConfig
 }
@@ -640,6 +684,7 @@ func (f FlowmeterPositiveDisplacementNodeConfig) Validate() error {
 	return v.Error()
 }
 
+// FlowmeterTurbineNodeConfig is the configuration for turbine flowmeter symbols.
 type FlowmeterTurbineNodeConfig struct {
 	StaticSymbolConfig
 }
@@ -659,6 +704,7 @@ func (f FlowmeterTurbineNodeConfig) Validate() error {
 	return v.Error()
 }
 
+// FlowmeterPulseNodeConfig is the configuration for pulse flowmeter symbols.
 type FlowmeterPulseNodeConfig struct {
 	StaticSymbolConfig
 }
@@ -678,6 +724,8 @@ func (f FlowmeterPulseNodeConfig) Validate() error {
 	return v.Error()
 }
 
+// FlowmeterFloatSensorNodeConfig is the configuration for float sensor flowmeter
+// symbols.
 type FlowmeterFloatSensorNodeConfig struct {
 	StaticSymbolConfig
 }
@@ -697,6 +745,7 @@ func (f FlowmeterFloatSensorNodeConfig) Validate() error {
 	return v.Error()
 }
 
+// FlowmeterOrificeNodeConfig is the configuration for orifice flowmeter symbols.
 type FlowmeterOrificeNodeConfig struct {
 	StaticSymbolConfig
 }
@@ -4885,6 +4934,7 @@ type ElementConfigVariant interface {
 	isElementConfigVariant()
 }
 
+// CapElementConfig is the configuration for cap symbols.
 type CapElementConfig struct {
 	StaticSymbolConfig
 }
@@ -4904,6 +4954,7 @@ func (c CapElementConfig) Validate() error {
 	return v.Error()
 }
 
+// FilterElementConfig is the configuration for filter symbols.
 type FilterElementConfig struct {
 	StaticSymbolConfig
 }
@@ -4923,6 +4974,7 @@ func (f FilterElementConfig) Validate() error {
 	return v.Error()
 }
 
+// FlowStraightenerElementConfig is the configuration for flow straightener symbols.
 type FlowStraightenerElementConfig struct {
 	StaticSymbolConfig
 }
@@ -4942,6 +4994,7 @@ func (f FlowStraightenerElementConfig) Validate() error {
 	return v.Error()
 }
 
+// HeaterElementElementConfig is the configuration for heater element symbols.
 type HeaterElementElementConfig struct {
 	StaticSymbolConfig
 }
@@ -4961,6 +5014,7 @@ func (h HeaterElementElementConfig) Validate() error {
 	return v.Error()
 }
 
+// IsoCapElementConfig is the configuration for ISO cap symbols.
 type IsoCapElementConfig struct {
 	StaticSymbolConfig
 }
@@ -4980,6 +5034,7 @@ func (i IsoCapElementConfig) Validate() error {
 	return v.Error()
 }
 
+// IsoFilterElementConfig is the configuration for ISO filter symbols.
 type IsoFilterElementConfig struct {
 	StaticSymbolConfig
 }
@@ -4999,6 +5054,7 @@ func (i IsoFilterElementConfig) Validate() error {
 	return v.Error()
 }
 
+// NozzleElementConfig is the configuration for nozzle symbols.
 type NozzleElementConfig struct {
 	StaticSymbolConfig
 }
@@ -5018,6 +5074,7 @@ func (n NozzleElementConfig) Validate() error {
 	return v.Error()
 }
 
+// OrificeElementConfig is the configuration for orifice symbols.
 type OrificeElementConfig struct {
 	StaticSymbolConfig
 }
@@ -5037,6 +5094,7 @@ func (o OrificeElementConfig) Validate() error {
 	return v.Error()
 }
 
+// OrificePlateElementConfig is the configuration for orifice plate symbols.
 type OrificePlateElementConfig struct {
 	StaticSymbolConfig
 }
@@ -5056,6 +5114,7 @@ func (o OrificePlateElementConfig) Validate() error {
 	return v.Error()
 }
 
+// StrainerElementConfig is the configuration for strainer symbols.
 type StrainerElementConfig struct {
 	StaticSymbolConfig
 }
@@ -5075,6 +5134,7 @@ func (s StrainerElementConfig) Validate() error {
 	return v.Error()
 }
 
+// StrainerConeElementConfig is the configuration for strainer cone symbols.
 type StrainerConeElementConfig struct {
 	StaticSymbolConfig
 }
@@ -5094,6 +5154,7 @@ func (s StrainerConeElementConfig) Validate() error {
 	return v.Error()
 }
 
+// ThrusterElementConfig is the configuration for thruster symbols.
 type ThrusterElementConfig struct {
 	ToggleSymbolConfig
 }
@@ -5113,6 +5174,7 @@ func (t ThrusterElementConfig) Validate() error {
 	return v.Error()
 }
 
+// VentElementConfig is the configuration for vent symbols.
 type VentElementConfig struct {
 	StaticSymbolConfig
 }
@@ -5132,6 +5194,7 @@ func (ve VentElementConfig) Validate() error {
 	return v.Error()
 }
 
+// FlowmeterGeneralElementConfig is the configuration for general flowmeter symbols.
 type FlowmeterGeneralElementConfig struct {
 	StaticSymbolConfig
 }
@@ -5151,6 +5214,8 @@ func (f FlowmeterGeneralElementConfig) Validate() error {
 	return v.Error()
 }
 
+// FlowmeterElectromagneticElementConfig is the configuration for electromagnetic
+// flowmeter symbols.
 type FlowmeterElectromagneticElementConfig struct {
 	StaticSymbolConfig
 }
@@ -5170,6 +5235,8 @@ func (f FlowmeterElectromagneticElementConfig) Validate() error {
 	return v.Error()
 }
 
+// FlowmeterVariableAreaElementConfig is the configuration for variable area flowmeter
+// symbols.
 type FlowmeterVariableAreaElementConfig struct {
 	StaticSymbolConfig
 }
@@ -5189,6 +5256,7 @@ func (f FlowmeterVariableAreaElementConfig) Validate() error {
 	return v.Error()
 }
 
+// FlowmeterCoriolisElementConfig is the configuration for Coriolis flowmeter symbols.
 type FlowmeterCoriolisElementConfig struct {
 	StaticSymbolConfig
 }
@@ -5208,6 +5276,7 @@ func (f FlowmeterCoriolisElementConfig) Validate() error {
 	return v.Error()
 }
 
+// FlowmeterNozzleElementConfig is the configuration for nozzle flowmeter symbols.
 type FlowmeterNozzleElementConfig struct {
 	StaticSymbolConfig
 }
@@ -5227,6 +5296,7 @@ func (f FlowmeterNozzleElementConfig) Validate() error {
 	return v.Error()
 }
 
+// FlowmeterVenturiElementConfig is the configuration for venturi flowmeter symbols.
 type FlowmeterVenturiElementConfig struct {
 	StaticSymbolConfig
 }
@@ -5246,6 +5316,8 @@ func (f FlowmeterVenturiElementConfig) Validate() error {
 	return v.Error()
 }
 
+// FlowmeterRingPistonElementConfig is the configuration for ring piston flowmeter
+// symbols.
 type FlowmeterRingPistonElementConfig struct {
 	StaticSymbolConfig
 }
@@ -5265,6 +5337,8 @@ func (f FlowmeterRingPistonElementConfig) Validate() error {
 	return v.Error()
 }
 
+// FlowmeterPositiveDisplacementElementConfig is the configuration for positive
+// displacement flowmeter symbols.
 type FlowmeterPositiveDisplacementElementConfig struct {
 	StaticSymbolConfig
 }
@@ -5284,6 +5358,7 @@ func (f FlowmeterPositiveDisplacementElementConfig) Validate() error {
 	return v.Error()
 }
 
+// FlowmeterTurbineElementConfig is the configuration for turbine flowmeter symbols.
 type FlowmeterTurbineElementConfig struct {
 	StaticSymbolConfig
 }
@@ -5303,6 +5378,7 @@ func (f FlowmeterTurbineElementConfig) Validate() error {
 	return v.Error()
 }
 
+// FlowmeterPulseElementConfig is the configuration for pulse flowmeter symbols.
 type FlowmeterPulseElementConfig struct {
 	StaticSymbolConfig
 }
@@ -5322,6 +5398,8 @@ func (f FlowmeterPulseElementConfig) Validate() error {
 	return v.Error()
 }
 
+// FlowmeterFloatSensorElementConfig is the configuration for float sensor flowmeter
+// symbols.
 type FlowmeterFloatSensorElementConfig struct {
 	StaticSymbolConfig
 }
@@ -5341,6 +5419,7 @@ func (f FlowmeterFloatSensorElementConfig) Validate() error {
 	return v.Error()
 }
 
+// FlowmeterOrificeElementConfig is the configuration for orifice flowmeter symbols.
 type FlowmeterOrificeElementConfig struct {
 	StaticSymbolConfig
 }
@@ -7383,6 +7462,7 @@ type GroupBoxElementConfig struct {
 
 func (GroupBoxElementConfig) isElementConfigVariant() {}
 
+// PipeElementConfig is the configuration for pipe edges.
 type PipeElementConfig struct {
 	SegmentedEdgeConfig
 }
@@ -7397,6 +7477,7 @@ func (p PipeElementConfig) Validate() error {
 	return v.Error()
 }
 
+// ElectricElementConfig is the configuration for electrical edges.
 type ElectricElementConfig struct {
 	SegmentedEdgeConfig
 }
@@ -7411,6 +7492,7 @@ func (e ElectricElementConfig) Validate() error {
 	return v.Error()
 }
 
+// SecondaryElementConfig is the configuration for secondary edges.
 type SecondaryElementConfig struct {
 	SegmentedEdgeConfig
 }
@@ -7425,6 +7507,7 @@ func (s SecondaryElementConfig) Validate() error {
 	return v.Error()
 }
 
+// JacketedElementConfig is the configuration for jacketed edges.
 type JacketedElementConfig struct {
 	SegmentedEdgeConfig
 }
@@ -7439,6 +7522,7 @@ func (j JacketedElementConfig) Validate() error {
 	return v.Error()
 }
 
+// HydraulicElementConfig is the configuration for hydraulic edges.
 type HydraulicElementConfig struct {
 	SegmentedEdgeConfig
 }
@@ -7453,6 +7537,7 @@ func (h HydraulicElementConfig) Validate() error {
 	return v.Error()
 }
 
+// PneumaticElementConfig is the configuration for pneumatic edges.
 type PneumaticElementConfig struct {
 	SegmentedEdgeConfig
 }
@@ -7467,6 +7552,7 @@ func (p PneumaticElementConfig) Validate() error {
 	return v.Error()
 }
 
+// DataElementConfig is the configuration for data edges.
 type DataElementConfig struct {
 	SegmentedEdgeConfig
 }
