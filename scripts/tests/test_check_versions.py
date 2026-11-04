@@ -130,6 +130,16 @@ class TestTags:
         repo.manifests("0.60.0")
         assert repo.check().returncode != 0
 
+    def test_should_ignore_tags_not_reachable_from_head(self, repo: Repo) -> None:
+        repo.git("checkout", "-q", "-b", "release/core-0.58")
+        repo.git("checkout", "-q", "main")
+        repo.git("commit", "-q", "--allow-empty", "-m", "0.60")
+        repo.tag("core/v0.60.1")
+        repo.git("checkout", "-q", "release/core-0.58")
+        result = repo.check()
+        assert result.returncode == 0, result.stderr
+        assert "from core/v0.58.2" in result.stdout
+
     def test_should_fail_without_a_stable_core_tag(self, tmp_path: Path) -> None:
         repo = Repo(tmp_path)
         repo.tag("core/v0.59.0-rc.1")
