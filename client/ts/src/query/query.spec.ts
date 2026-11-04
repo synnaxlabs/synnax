@@ -751,16 +751,20 @@ describe("Answers", () => {
     const coveringSpace = (
       table: query.Table<string, Rec>,
       fetch: (query: Q) => Promise<string[]>,
+      hooks?: SpaceHooks,
     ) =>
-      new Space<Q, number, string, Rec>({
-        name: "thing",
-        table,
-        fetch,
-        compose: (records) => records[0]?.value ?? 0,
-        keyOf: (query) => query.k,
-        covers: (record) => record.value > 0,
-        single: true,
-      });
+      new Space<Q, number, string, Rec>(
+        {
+          name: "thing",
+          table,
+          fetch,
+          compose: (records) => records[0]?.value ?? 0,
+          keyOf: (query) => query.k,
+          covers: (record) => record.value > 0,
+          single: true,
+        },
+        hooks,
+      );
 
     it("does not answer from an entry that does not cover the query", () => {
       const table = newTable();
@@ -882,6 +886,23 @@ describe("Answers", () => {
       await vi.waitFor(() => expect(onError).toHaveBeenCalledTimes(1));
       await expect(space.retrieve(qA)).resolves.toEqual(0);
       expect(fetch).toHaveBeenCalledTimes(2);
+      stop();
+    });
+
+    it("does not report a subscriber fetch that finds the record deleted", async () => {
+      const table = newTable();
+      table.set(rec("a", 0));
+      const onError = vi.fn();
+      const space = coveringSpace(
+        table,
+        async () => {
+          throw new NotFoundError("thing not found");
+        },
+        { onError },
+      );
+      const stop = space.onChange(qA, () => {});
+      await expect(space.retrieve(qA)).rejects.toThrow(NotFoundError);
+      expect(onError).not.toHaveBeenCalled();
       stop();
     });
 
