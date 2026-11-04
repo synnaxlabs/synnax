@@ -354,6 +354,97 @@ var _ = Describe("C++ JSON Plugin", func() {
 			)
 		})
 
+		Context("empty composite defaults", func() {
+			It("Should fall back to an empty map", func(ctx SpecContext) {
+				source := `
+					@cpp output "client/cpp/task"
+
+					Task struct {
+						metadata map<string, string> = {}
+					}
+				`
+				resp := MustGenerate(ctx, source, "task", loader, jsonPlugin)
+
+				ExpectContent(resp, "json.gen.h").
+					ToContain(`parser.field<std::unordered_map<std::string, std::string>>("metadata", std::unordered_map<std::string, std::string>{})`)
+			})
+			It("Should fall back to an empty struct", func(ctx SpecContext) {
+				source := `
+					@cpp output "client/cpp/task"
+
+					Ports struct {
+						index uint32
+					}
+
+					Task struct {
+						ports Ports = {}
+					}
+				`
+				resp := MustGenerate(ctx, source, "task", loader, jsonPlugin)
+
+				ExpectContent(resp, "json.gen.h").
+					ToContain(`parser.field<Ports>("ports", Ports{})`)
+			})
+			It("Should fall back to an empty struct alias", func(ctx SpecContext) {
+				source := `
+					@cpp output "client/cpp/task"
+
+					Ports struct {
+						index uint32
+					}
+
+					Inputs = Ports
+
+					Task struct {
+						inputs Inputs = {}
+					}
+				`
+				resp := MustGenerate(ctx, source, "task", loader, jsonPlugin)
+
+				ExpectContent(resp, "json.gen.h").
+					ToContain(`parser.field<Inputs>("inputs", Inputs{})`)
+			})
+			It("Should fall back to an empty array wrapper", func(ctx SpecContext) {
+				source := `
+					@cpp output "client/cpp/task"
+
+					Param struct {
+						name string
+					}
+
+					Params Param[]
+
+					Task struct {
+						params Params = []
+					}
+				`
+				resp := MustGenerate(ctx, source, "task", loader, jsonPlugin)
+
+				ExpectContent(resp, "json.gen.h").
+					ToContain(`parser.field<Params>("params", Params{})`)
+			})
+			It(
+				"Should leave a non-empty struct default required",
+				func(ctx SpecContext) {
+					source := `
+					@cpp output "client/cpp/task"
+
+					Ports struct {
+						index uint32
+					}
+
+					Task struct {
+						ports Ports = { index = 1 }
+					}
+				`
+					resp := MustGenerate(ctx, source, "task", loader, jsonPlugin)
+
+					ExpectContent(resp, "json.gen.h").
+						ToContain(`parser.field<Ports>("ports")`)
+				},
+			)
+		})
+
 		Context("map type handling", func() {
 			It(
 				"Should use std::unordered_map for Map types in json serialization",
