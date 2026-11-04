@@ -14,6 +14,7 @@ import { z } from "zod";
 import { device } from "@/device";
 import { NotFoundError } from "@/index";
 import { query } from "@/query";
+import { status } from "@/status";
 import { createTestClient, expectLive, spyOnSend, waitForStreamLive } from "@/testutil";
 
 const client = createTestClient();
@@ -67,6 +68,54 @@ describe("Device", async () => {
       expect(retrieved.status?.message).toBe("Custom device status");
       expect(retrieved.status?.description).toBe("Device is connected");
       expect(retrieved.status?.details?.device).toBe(d.key);
+    });
+    it("should answer a cached status query for new devices", async () => {
+      const local = createTestClient();
+      await local.connect();
+      const created = await local.devices.create(
+        ["cached-status-1", "cached-status-2"].map((name) => ({
+          key: id.create(),
+          rack: testRack.key,
+          location: "Dev1",
+          name,
+          make: "ni",
+          model: "dog",
+          properties: {},
+        })),
+      );
+      created.forEach(({ key }) => {
+        const cached = local.devices.getCached({ key, includeStatus: true });
+        expect(expectLive(cached).status?.key).toBe(device.statusKey(key));
+      });
+    });
+    it("should keep the live status of an existing device", async () => {
+      const local = createTestClient();
+      await local.connect();
+      const {
+        status: _,
+        parent: __,
+        ...d
+      } = await client.devices.create({
+        key: id.create(),
+        rack: testRack.key,
+        location: "Dev1",
+        name: "live-status",
+        make: "ni",
+        model: "dog",
+        properties: {},
+      });
+      await client.statuses.set(
+        status.create<typeof device.statusDetailsZ>({
+          key: device.statusKey(d.key),
+          variant: "success",
+          message: "Device is running",
+          details: { rack: d.rack, device: d.key },
+        }),
+      );
+      const created = await local.devices.create(d);
+      expect(created.status?.message).toBe("Device is running");
+      const cached = local.devices.getCached({ key: d.key, includeStatus: true });
+      expect(expectLive(cached).status?.message).toBe("Device is running");
     });
   });
 
