@@ -14,30 +14,80 @@
 @ts output  "client/ts/src/arc/types"
 
 Kind enum {
-    invalid                      = 0
-    u8                           = 1
-    u16                          = 2
-    u32                          = 3
-    u64                          = 4
-    i8                           = 5
-    i16                          = 6
-    i32                          = 7
-    i64                          = 8
-    f32                          = 9
-    f64                          = 10
-    string                       = 11
-    chan                         = 12
-    series                       = 13
-    variable                     = 14
-    numeric_constant             = 15
-    integer_constant             = 16
-    float_constant               = 17
-    exact_integer_float_constant = 18
-    function                     = 19
-    sequence                     = 20
-    stage                        = 21
-    var_ref                      = 22
-    bool                         = 23
+    invalid                      = 0 {
+        @doc value "marks a type that Arc cannot represent."
+    }
+    u8                           = 1 {
+        @doc value "is an unsigned 8-bit integer."
+    }
+    u16                          = 2 {
+        @doc value "is an unsigned 16-bit integer."
+    }
+    u32                          = 3 {
+        @doc value "is an unsigned 32-bit integer."
+    }
+    u64                          = 4 {
+        @doc value "is an unsigned 64-bit integer."
+    }
+    i8                           = 5 {
+        @doc value "is a signed 8-bit integer."
+    }
+    i16                          = 6 {
+        @doc value "is a signed 16-bit integer."
+    }
+    i32                          = 7 {
+        @doc value "is a signed 32-bit integer."
+    }
+    i64                          = 8 {
+        @doc value "is a signed 64-bit integer."
+    }
+    f32                          = 9 {
+        @doc value "is a 32-bit float."
+    }
+    f64                          = 10 {
+        @doc value "is a 64-bit float."
+    }
+    string                       = 11 {
+        @doc value "is a text string."
+    }
+    chan                         = 12 {
+        @doc value "is a channel of the element type."
+    }
+    series                       = 13 {
+        @doc value "is an array of the element type."
+    }
+    variable                     = 14 {
+        @doc value "is a generic type parameter."
+    }
+    numeric_constant             = 15 {
+        @doc value "constrains a type parameter to any numeric type."
+    }
+    integer_constant             = 16 {
+        @doc value "constrains a type parameter to any integer type."
+    }
+    float_constant               = 17 {
+        @doc value "constrains a type parameter to any floating-point type."
+    }
+    exact_integer_float_constant = 18 {
+        @doc value """
+            constrains a type parameter to float literals that hold exact integers.
+        """
+    }
+    function                     = 19 {
+        @doc value "is a function type."
+    }
+    sequence                     = 20 {
+        @doc value "is a state machine."
+    }
+    stage                        = 21 {
+        @doc value "is a stage within a sequence."
+    }
+    var_ref                      = 22 {
+        @doc value "is a reference to the variable of a node."
+    }
+    bool                         = 23 {
+        @doc value "is a boolean."
+    }
 
     @doc value """
         is the type category for Arc's type system, including primitives, compound
@@ -46,10 +96,18 @@ Kind enum {
 }
 
 ChanDirection enum {
-    none       = 0
-    read       = 1
-    write      = 2
-    read_write = 3
+    none       = 0 {
+        @doc value "has no direction set."
+    }
+    read       = 1 {
+        @doc value "reads from the channel."
+    }
+    write      = 2 {
+        @doc value "writes to the channel."
+    }
+    read_write = 3 {
+        @doc value "reads from and writes to the channel."
+    }
 
     @doc value "indicates read/write direction for channel-typed parameters."
 }
