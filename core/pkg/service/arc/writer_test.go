@@ -132,6 +132,28 @@ var _ = Describe("Writer", func() {
 		})
 	})
 
+	Describe("TaskKeys", func() {
+		It("Should return the child tasks of every Arc", func(ctx SpecContext) {
+			a := arc.Arc{Name: "arc-task-keys", Mode: arc.ModeText}
+			childless := arc.Arc{Name: "arc-no-task-keys", Mode: arc.ModeText}
+			w := svc.NewWriter(tx)
+			Expect(w.Create(ctx, &a)).To(Succeed())
+			Expect(w.Create(ctx, &childless)).To(Succeed())
+			linked := &task.Task{Rack: testRack.Key, Name: "linked", Type: arc.TaskType}
+			free := &task.Task{Rack: testRack.Key, Name: "free", Type: arc.TaskType}
+			Expect(taskSvc.NewWriter(tx).Create(ctx, linked)).To(Succeed())
+			Expect(taskSvc.NewWriter(tx).Create(ctx, free)).To(Succeed())
+			Expect(otg.NewWriter(tx).DefineRelationships(
+				ctx,
+				a.OntologyID(),
+				ontology.RelationshipTypeParentOf,
+				linked.OntologyID(),
+			)).To(Succeed())
+			Expect(w.TaskKeys(ctx, a.Key, childless.Key, uuid.New())).
+				To(Equal([]task.Key{linked.Key}))
+		})
+	})
+
 	Describe("Delete", func() {
 		It("Should delete an Arc", func(ctx SpecContext) {
 			a := arc.Arc{

@@ -18,26 +18,16 @@ import (
 	"github.com/synnaxlabs/gorp"
 	apiarc "github.com/synnaxlabs/synnax/pkg/api/arc"
 	"github.com/synnaxlabs/synnax/pkg/distribution/testutil"
+	"github.com/synnaxlabs/synnax/pkg/service"
 	"github.com/synnaxlabs/synnax/pkg/service/access"
 	"github.com/synnaxlabs/synnax/pkg/service/access/rbac"
 	"github.com/synnaxlabs/synnax/pkg/service/access/rbac/policy"
 	"github.com/synnaxlabs/synnax/pkg/service/access/rbac/role"
 	"github.com/synnaxlabs/synnax/pkg/service/arc"
-	arctask "github.com/synnaxlabs/synnax/pkg/service/arc/task"
-	"github.com/synnaxlabs/synnax/pkg/service/auth"
-	"github.com/synnaxlabs/synnax/pkg/service/auth/password"
-	"github.com/synnaxlabs/synnax/pkg/service/channel"
-	"github.com/synnaxlabs/synnax/pkg/service/group"
-	"github.com/synnaxlabs/synnax/pkg/service/imex"
-	"github.com/synnaxlabs/synnax/pkg/service/label"
 	"github.com/synnaxlabs/synnax/pkg/service/ontology"
 	"github.com/synnaxlabs/synnax/pkg/service/rack"
-	racktestutil "github.com/synnaxlabs/synnax/pkg/service/rack/testutil"
-	"github.com/synnaxlabs/synnax/pkg/service/status"
-	"github.com/synnaxlabs/synnax/pkg/service/task"
-	taskconfig "github.com/synnaxlabs/synnax/pkg/service/task/config"
+	svctestutil "github.com/synnaxlabs/synnax/pkg/service/testutil"
 	"github.com/synnaxlabs/synnax/pkg/service/user"
-	"github.com/synnaxlabs/x/telem"
 	. "github.com/synnaxlabs/x/testutil"
 )
 
@@ -49,6 +39,7 @@ func TestAPIArc(t *testing.T) {
 var _ = ShouldNotLeakGoroutinesPerSpec()
 
 var (
+	svc      *service.Layer
 	db       *gorp.DB
 	otg      *ontology.Ontology
 	rbacSvc  *rbac.Service
@@ -63,87 +54,19 @@ var _ = BeforeSuite(func(ctx SpecContext) {
 	ShouldNotLeakGoroutines()
 	node := testutil.NewNode(ctx)
 	db = node.DB
-	otg = MustOpen(ontology.Open(ctx, ontology.Config{DB: db}))
-	groupSvc := MustOpen(group.OpenService(ctx, group.ServiceConfig{
-		DB:       db,
-		Ontology: otg,
-	}))
-	labelSvc := MustOpen(label.OpenService(ctx, label.ServiceConfig{
-		DB:       db,
-		Ontology: otg,
-		Group:    groupSvc,
-	}))
-	statusSvc := MustOpen(status.OpenService(ctx, status.ServiceConfig{
-		DB:       db,
-		Ontology: otg,
-		Group:    groupSvc,
-		Label:    labelSvc,
-	}))
-	rackSvc = MustOpen(rack.OpenService(ctx, rack.ServiceConfig{
-		DB:                  db,
-		Ontology:            otg,
-		Group:               groupSvc,
-		HostProvider:        testutil.NewStaticHostProvider(1),
-		Status:              statusSvc,
-		HealthCheckInterval: 10 * telem.Millisecond,
-		DriverRole:          MustSucceed(racktestutil.CreateDriverRole(ctx, otg)),
-	}))
-	imexSvc := imex.NewService()
-	arcTaskSvc := MustOpen(arctask.OpenService(ctx, arctask.ServiceConfig{DB: db}))
-	configs := MustSucceed(taskconfig.NewRegistry(arcTaskSvc.Stores()...))
-	taskSvc := MustOpen(task.OpenService(ctx, task.ServiceConfig{
-		DB:           db,
-		Ontology:     otg,
-		Group:        groupSvc,
-		Rack:         rackSvc,
-		Status:       statusSvc,
-		ImEx:         imexSvc,
-		Configs:      configs,
-		ImExExcluded: []string{arctask.Type},
-	}))
-	channelSvc := MustOpen(channel.OpenService(ctx, channel.ServiceConfig{
-		Channel:      node.Channel,
-		DB:           db,
-		HostProvider: node.Cluster,
-		Ontology:     otg,
-		Group:        groupSvc,
-		Status:       statusSvc,
-	}))
-	arcSvc = MustOpen(arc.OpenService(ctx, arc.ServiceConfig{
-		DB:       db,
-		Ontology: otg,
-		Channel:  channelSvc,
-		Task:     taskSvc,
-		Status:   statusSvc,
-		ImEx:     imexSvc,
-	}))
-	passwordSvc := MustOpen(password.OpenService(ctx, password.ServiceConfig{DB: db}))
-	userSvc := MustOpen(user.OpenService(ctx, user.ServiceConfig{
-		DB:       db,
-		Ontology: otg,
-		Group:    groupSvc,
-	}))
-	MustSucceed2(
-		user.ProvisionRoot(
-			ctx,
-			userSvc,
-			passwordSvc,
-			auth.Credentials{Username: "suite-root", Password: "p"},
-		),
-	)
-	rbacSvc = MustOpen(rbac.OpenService(ctx, rbac.ServiceConfig{
-		DB:       db,
-		Ontology: otg,
-		Group:    groupSvc,
-		User:     userSvc,
-	}))
+	svc = MustOpen(svctestutil.OpenLayer(ctx, node))
+	otg = svc.Ontology
+	rbacSvc = svc.RBAC
+	arcSvc = svc.Arc
+	rackSvc = svc.Rack
 	apiSvc = MustSucceed(apiarc.NewService(apiarc.ServiceConfig{
-		RBAC:   rbacSvc,
-		Arc:    arcSvc,
-		Status: statusSvc,
+		RBAC:    rbacSvc,
+		Arc:     arcSvc,
+		Status:  svc.Status,
+		Stopper: svc.TaskStopper,
 	}))
 	author = MustSucceed(
-		userSvc.NewWriter(nil).Create(ctx, user.User{Name: "test"}),
+		svc.User.NewWriter(nil).Create(ctx, user.User{Name: "test"}),
 	)
 	testRack = &rack.Rack{Name: "API Test Rack"}
 	Expect(rackSvc.NewWriter(nil).Create(ctx, testRack)).To(Succeed())
