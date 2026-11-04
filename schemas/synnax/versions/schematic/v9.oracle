@@ -68,16 +68,16 @@ EdgeConfig union on variant {
 
 FlexAlignment enum {
     start   = "start" {
-        @doc value "places content at the start of the cross axis."
+        @doc value "aligns content to the start."
     }
     center  = "center" {
-        @doc value "places content at the center of the cross axis."
+        @doc value "aligns content to the center."
     }
     end     = "end" {
-        @doc value "places content at the end of the cross axis."
+        @doc value "aligns content to the end."
     }
     stretch = "stretch" {
-        @doc value "stretches content across the cross axis."
+        @doc value "stretches content to fill the available space."
     }
 
     @doc value "is a cross-axis flex alignment for laid-out content."
