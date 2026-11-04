@@ -362,6 +362,28 @@ jobs:
           SYNNAX_LICENSE_KEY: ${{ secrets.SYNNAX_LICENSE_TOKEN }}
         run: integration/scripts/check_driver_service.sh
 
+      # An embedded Driver once wrote no output for its whole start timeout. These show
+      # whether antivirus or the loader acted on the freshly extracted executable.
+      - name: Print launch diagnostics (Windows)
+        if: failure() && runner.os == 'Windows'
+        shell: powershell
+        run: |
+          $since = (Get-Date).AddMinutes(-30)
+          Get-MpComputerStatus |
+            Format-List RealTimeProtectionEnabled, OnAccessProtectionEnabled,
+              BehaviorMonitorEnabled, IoavProtectionEnabled
+          Get-MpPreference | Format-List ExclusionPath, ExclusionProcess
+          $defender = 'Microsoft-Windows-Windows Defender/Operational'
+          foreach ($filter in @(
+              @{ LogName = $defender; StartTime = $since },
+              @{ LogName = 'Application'; Level = 1, 2, 3; StartTime = $since }
+            )) {
+            Write-Host "--- $($filter.LogName) ---"
+            # Get-WinEvent errors when no event matches, which is a valid answer here.
+            Get-WinEvent -FilterHashtable $filter -ErrorAction SilentlyContinue |
+              Format-List TimeCreated, ProviderName, Id, Message
+          }
+
       - name: Upload check logs
         uses: actions/upload-artifact@v7
         if: always()

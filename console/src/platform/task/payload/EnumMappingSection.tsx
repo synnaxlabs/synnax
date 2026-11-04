@@ -8,13 +8,14 @@
 // included in the file licenses/APL.txt.
 
 import { Form } from "@synnaxlabs/lyra/form";
+import { type deep } from "@synnaxlabs/x";
 import { type ReactElement } from "react";
 
 import { Form as PlatformForm } from "@/platform/form";
 
 export interface EnumMappingSectionProps {
   /** The path of the enum values. */
-  path: string;
+  path: deep.Target<PlatformForm.Entry<"label", number>[]>;
   /** Puts the channel value before its label, for a write that sends the label. */
   valueFirst?: boolean;
 }

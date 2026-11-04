@@ -52,9 +52,6 @@ import {
   getBySelector,
 } from "@/testutil";
 
-// the local auth server answers outside any act
-disableActEnvironment();
-
 // Dead ports: the list checks each Core, and no assertion here reads the result.
 const ALPHA = createCore("alpha", { name: "Alpha", port: 9098, username: "ada" });
 const BETA = createCore("beta", { name: "Beta", port: 9099, username: "grace" });
@@ -69,6 +66,8 @@ const serveAuth = async (
   onServed?: () => void,
   token?: string,
 ): Promise<Session.Core.Core> => {
+  // the local auth server answers outside any act
+  disableActEnvironment();
   let methodsRequests = 0;
   const server = createServer((req, res) => {
     req.resume();

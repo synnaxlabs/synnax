@@ -10,6 +10,7 @@
 import { Component } from "@synnaxlabs/lyra/component";
 import { Form as PForm } from "@synnaxlabs/lyra/form";
 import { Select } from "@synnaxlabs/lyra/select";
+import { type deep } from "@synnaxlabs/x";
 import { type FC } from "react";
 
 import { type QoS } from "@/feature/mqtt/task/types";
@@ -25,11 +26,11 @@ const renderSelect = Component.renderProp(
 );
 
 export interface QoSFieldProps {
-  path: string;
+  path: deep.Target<QoS>;
 }
 
 export const QoSField: FC<QoSFieldProps> = ({ path }) => (
-  <PForm.Field<QoS> path={path} label="Quality of service" padHelpText={false}>
+  <PForm.Field path={path} label="Quality of service" padHelpText={false}>
     {renderSelect}
   </PForm.Field>
 );

@@ -7,8 +7,16 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { type channel, device } from "@synnaxlabs/client";
+import { type channel, device, type task } from "@synnaxlabs/client";
+import { type Task } from "@synnaxlabs/pluto";
+import { deep } from "@synnaxlabs/x";
 import { type z } from "zod";
+
+/** The values of a form over a task with the schemas S. */
+export type Values<S extends task.Schemas = task.Schemas> = z.infer<Task.FormSchema<S>>;
+
+/** The path to the values of any task form. */
+export const formPath = deep.path<Values>();
 
 export type Command = "start" | "stop";
 

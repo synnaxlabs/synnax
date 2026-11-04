@@ -13,6 +13,7 @@ import { Access } from "@synnaxlabs/pluto";
 
 import { EtherCAT } from "@/feature/ethercat";
 import { HTTP } from "@/feature/http";
+import { Kafka } from "@/feature/kafka";
 import { LabJack } from "@/feature/labjack";
 import { Modbus } from "@/feature/modbus";
 import { MQTT } from "@/feature/mqtt";
@@ -35,6 +36,7 @@ const withTaskVisibility = (Selectable: Base.Selectable): Base.Selectable => {
 export const SELECTABLES: Base.Selectable[] = [
   ...EtherCAT.Task.SELECTABLES,
   ...HTTP.Task.SELECTABLES,
+  ...Kafka.Task.SELECTABLES,
   ...LabJack.Task.SELECTABLES,
   ...Modbus.Task.SELECTABLES,
   ...MQTT.Task.SELECTABLES,
