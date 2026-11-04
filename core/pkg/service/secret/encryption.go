@@ -28,7 +28,7 @@ import (
 	"github.com/synnaxlabs/x/validate"
 )
 
-// EncryptionKey is the AES-256 key that encrypts the value of every stored secret.
+// EncryptionKey is a 32-byte AES-256 key.
 type EncryptionKey [32]byte
 
 // NewEncryptionKey returns a random encryption key.
@@ -83,47 +83,65 @@ func LoadEncryptionKey(path string) (EncryptionKey, error) {
 
 const grantKeyInfo = "synnax secret grant"
 
-var (
-	checkKey       = []byte("sy_secret_encryption_check")
-	checkPlaintext = []byte("synnax")
-)
+var dataKeyKey = []byte("sy_secret_data_key")
 
-// openCipher returns the AEAD that encrypts secret values under k and the key that
-// signs grants. It returns an error when k cannot decrypt the check value that an
-// earlier start stored in db, and stores the check value when there is none.
+// openCipher returns the AEAD for secret values and the key that signs grants, both
+// from a data key that db stores encrypted under k. The first call creates the data
+// key. It returns an error when k cannot decrypt the stored data key.
 func openCipher(
 	ctx context.Context,
 	db *gorp.DB,
 	k EncryptionKey,
 ) (cipher.AEAD, []byte, error) {
+	outer, err := newAEAD(k)
+	if err != nil {
+		return nil, nil, err
+	}
+	dataKey, err := loadDataKey(ctx, db, outer)
+	if err != nil {
+		return nil, nil, err
+	}
+	aead, err := newAEAD(dataKey)
+	if err != nil {
+		return nil, nil, err
+	}
+	grantKey, err := hkdf.Key(sha256.New, dataKey[:], nil, grantKeyInfo, sha256.Size)
+	if err != nil {
+		return nil, nil, err
+	}
+	return aead, grantKey, nil
+}
+
+func newAEAD(k EncryptionKey) (cipher.AEAD, error) {
 	block, err := aes.NewCipher(k[:])
 	if err != nil {
-		return nil, nil, err
+		return nil, err
 	}
-	aead, err := cipher.NewGCMWithRandomNonce(block)
-	if err != nil {
-		return nil, nil, err
-	}
-	grantKey, err := hkdf.Key(sha256.New, k[:], nil, grantKeyInfo, sha256.Size)
-	if err != nil {
-		return nil, nil, err
-	}
-	stored, closer, err := db.Get(ctx, checkKey)
+	return cipher.NewGCMWithRandomNonce(block)
+}
+
+func loadDataKey(
+	ctx context.Context,
+	db *gorp.DB,
+	outer cipher.AEAD,
+) (EncryptionKey, error) {
+	sealed, closer, err := db.Get(ctx, dataKeyKey)
 	if errors.Is(err, query.ErrNotFound) {
-		check := aead.Seal(nil, nil, checkPlaintext, checkKey)
-		return aead, grantKey, db.Set(ctx, checkKey, check)
+		dataKey := NewEncryptionKey()
+		sealed = outer.Seal(nil, nil, dataKey[:], dataKeyKey)
+		return dataKey, db.Set(ctx, dataKeyKey, sealed)
 	}
 	if err != nil {
-		return nil, nil, err
+		return EncryptionKey{}, err
 	}
-	_, openErr := aead.Open(nil, nil, stored, checkKey)
+	plain, openErr := outer.Open(nil, nil, sealed, dataKeyKey)
 	if err = closer.Close(); err != nil {
-		return nil, nil, err
+		return EncryptionKey{}, err
 	}
 	if openErr != nil {
-		return nil, nil, errors.New(
+		return EncryptionKey{}, errors.New(
 			"the secrets key does not match the key that encrypted this Core's secrets",
 		)
 	}
-	return aead, grantKey, nil
+	return EncryptionKey(plain), nil
 }

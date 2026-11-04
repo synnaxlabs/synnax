@@ -59,7 +59,8 @@ type ServiceConfig struct {
 	//
 	// [OPTIONAL] - Defaults to 60 seconds.
 	GrantTTL telem.TimeSpan
-	// EncryptionKey encrypts the value of every stored secret.
+	// EncryptionKey protects the value of every stored secret. It encrypts the random
+	// data key that encrypts each value.
 	//
 	// [REQUIRED]
 	EncryptionKey EncryptionKey

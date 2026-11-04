@@ -18,6 +18,7 @@ import (
 	"github.com/synnaxlabs/gorp"
 	"github.com/synnaxlabs/synnax/pkg/service/group"
 	"github.com/synnaxlabs/synnax/pkg/service/ontology"
+	"github.com/synnaxlabs/synnax/pkg/service/rack"
 	"github.com/synnaxlabs/synnax/pkg/service/secret"
 	"github.com/synnaxlabs/x/set"
 	"github.com/synnaxlabs/x/telem"
@@ -104,6 +105,23 @@ var _ = Describe("Service", func() {
 			Expect(MustSucceed(openService(ctx, e, key)).Close()).To(Succeed())
 			Expect(MustSucceed(openService(ctx, e, key)).Close()).To(Succeed())
 		})
+		It("Should read values saved before opening again with the same key",
+			func(ctx SpecContext) {
+				e := &env{}
+				e.db = DeferClose(gorp.Wrap(memkv.New()))
+				e.otg = MustOpen(ontology.Open(ctx, ontology.Config{DB: e.db}))
+				key := secret.NewEncryptionKey()
+				e.svc = MustSucceed(openService(ctx, e, key))
+				s := e.createStored(ctx, "Password", "hunter2")
+				Expect(e.svc.Close()).To(Succeed())
+				e.svc = MustOpen(openService(ctx, e, key))
+				rk := rack.Key(1).OntologyID()
+				e.uses = []secret.Use{{Secret: s.Base().Key, Racks: []ontology.ID{rk}}}
+				Expect(e.svc.Resolve(ctx, nil, rk, "", s.Base().Key)).To(Equal(
+					map[secret.Key][]byte{s.Base().Key: []byte("hunter2")},
+				))
+			},
+		)
 		It("Should refuse an encryption key that cannot decrypt the stored secrets",
 			func(ctx SpecContext) {
 				e := &env{}

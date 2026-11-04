@@ -114,7 +114,8 @@ type LayerConfig struct {
 	//
 	// [OPTIONAL] - Defaults to license.DefaultServiceConfig.
 	License license.ServiceConfig
-	// SecretsKey encrypts the value of every stored secret.
+	// SecretsKey protects the value of every stored secret. It encrypts the random data
+	// key that encrypts each value.
 	//
 	// [REQUIRED]
 	SecretsKey secret.EncryptionKey
