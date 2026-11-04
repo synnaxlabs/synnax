@@ -31,6 +31,98 @@ import (
 // cover any input via the ontology.ID IsType matching rule.
 var statusTypeOnly = ontology.ID{Type: ontology.ResourceTypeStatus}
 
+var _ = Describe("Service.Set", func() {
+	set := func(ctx SpecContext, statuses ...status.Status[any]) error {
+		GinkgoHelper()
+		_, err := apiSvc.Set(
+			AuthedCtx(ctx, author), db, apistatus.SetRequest{Statuses: statuses},
+		)
+		return err
+	}
+	newStatus := func(key status.Key, details any) status.Status[any] {
+		return status.Status[any]{
+			Key:     key,
+			Time:    telem.Now(),
+			Variant: status.VariantInfo,
+			Details: details,
+		}
+	}
+	BeforeEach(func(ctx SpecContext) {
+		grantOn(ctx, author.OntologyID(),
+			[]access.Action{access.ActionCreate},
+			statusTypeOnly)
+	})
+
+	DescribeTable(
+		"Should reject details the resource cannot decode",
+		func(ctx SpecContext, resource string, details any) {
+			key := resource + ":" + uuid.New().String()
+			Expect(set(ctx, newStatus(key, details))).To(MatchError(
+				And(
+					ContainSubstring("statuses.0.details"),
+					HaveSuffix("validation error"),
+				),
+			))
+			Expect(statusSvc.NewRetrieve[any]().
+				Where(status.MatchKeys[any](key)).
+				Entry(&status.Status[any]{}).
+				Exec(ctx, db)).To(MatchError(query.ErrNotFound))
+		},
+		Entry("rack string", "rack", "not an object"),
+		Entry("rack array", "rack", []any{"not", "an", "object"}),
+		Entry("rack field type", "rack", map[string]any{"rack": "not a key"}),
+		Entry("device string", "device", "not an object"),
+		Entry("device field type", "device", map[string]any{"rack": "not a key"}),
+		Entry("task number", "task", 12),
+		Entry("task field type", "task", map[string]any{"running": "yes"}),
+		Entry("task data array", "task", map[string]any{"data": []any{1, 2}}),
+		Entry("channel string", "channel", "not an object"),
+	)
+
+	DescribeTable(
+		"Should accept details the resource can decode",
+		func(ctx SpecContext, resource string, details any) {
+			key := resource + ":" + uuid.New().String()
+			Expect(set(ctx, newStatus(key, details))).To(Succeed())
+		},
+		Entry("rack", "rack", map[string]any{"rack": 65537}),
+		Entry("rack with no details", "rack", nil),
+		Entry("device", "device", map[string]any{
+			"rack": 65537, "device": "dev", "data": map[string]any{"any": "thing"},
+		}),
+		Entry("task", "task", map[string]any{
+			"task": uuid.New().
+				String(),
+			"running": true,
+			"data":    map[string]any{"a": 1},
+		}),
+		Entry("channel with extra fields", "channel", map[string]any{"channel": 12}),
+		Entry("a resource with no status details", "schematic", "free form"),
+	)
+
+	It(
+		"Should accept free-form details under a non-resource key",
+		func(ctx SpecContext) {
+			Expect(set(ctx, newStatus(uuid.New().String(), "free form"))).To(Succeed())
+		},
+	)
+
+	It(
+		"Should write nothing when one status in a batch is invalid",
+		func(ctx SpecContext) {
+			valid := newStatus(uuid.New().String(), nil)
+			invalid := newStatus("rack:"+uuid.New().String(), "not an object")
+			Expect(set(ctx, valid, invalid)).To(MatchError(
+				ContainSubstring("statuses.1.details"),
+			))
+			Expect(statusSvc.NewRetrieve[any]().
+				Where(status.MatchKeys[any](valid.Key)).
+				Entry(&status.Status[any]{}).
+				Exec(ctx, db)).To(MatchError(query.ErrNotFound))
+		},
+	)
+})
+
 var _ = Describe("Service.SetByKeyOrName", func() {
 	Describe("authorized requests", func() {
 		It(
