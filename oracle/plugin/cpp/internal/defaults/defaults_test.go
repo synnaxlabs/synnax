@@ -17,6 +17,7 @@ import (
 	"github.com/synnaxlabs/oracle/plugin/cpp/internal/defaults"
 	"github.com/synnaxlabs/oracle/resolution"
 	"github.com/synnaxlabs/oracle/testutil"
+	. "github.com/synnaxlabs/x/testutil"
 )
 
 const source = `
@@ -61,19 +62,19 @@ var _ = Describe("Renderer", func() {
 	)
 
 	literal := func(name string) string {
+		GinkgoHelper()
 		form := task.Form.(resolution.StructForm)
-		field, ok := lo.Find(
+		field := MustBeOk(lo.Find(
 			form.Fields,
 			func(f resolution.Field) bool { return f.Name == name },
-		)
-		Expect(ok).To(BeTrue())
+		))
 		return renderer.Literal(field.Type, *field.Default)
 	}
 
 	BeforeEach(func(ctx SpecContext) {
 		loader := testutil.NewMockFileLoader()
 		table := testutil.MustGenerateRequest(ctx, source, "task", loader).Resolutions
-		task = lo.Must(table.Lookup("task", "Task"))
+		task = MustBeOk(table.Lookup("task", "Task"))
 		renderer = defaults.Renderer{
 			Table:     table,
 			Namespace: "task",
@@ -107,13 +108,13 @@ var _ = Describe("Renderer", func() {
 
 	Describe("EnumVariant", func() {
 		variant := func(enumName, member string) validation.EnumVariant {
-			typ := lo.Must(renderer.Table.Lookup("task", enumName))
+			GinkgoHelper()
+			typ := MustBeOk(renderer.Table.Lookup("task", enumName))
 			values := typ.Form.(resolution.EnumForm).Values
-			value, ok := lo.Find(
+			value := MustBeOk(lo.Find(
 				values,
 				func(v resolution.EnumValue) bool { return v.Name == member },
-			)
-			Expect(ok).To(BeTrue())
+			))
 			return validation.EnumVariant{Type: typ, Variant: value}
 		}
 
