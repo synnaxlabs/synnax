@@ -518,9 +518,10 @@ var _ = Describe("C++ JSON Plugin", func() {
 						pairs map<`+key+`, Pair>
 					}
 				`, "task", loader)
-					_, err := jsonPlugin.Generate(req)
-					Expect(err).To(MatchError(ContainSubstring("Task.pairs")))
-					Expect(err).To(MatchError(validate.ErrValidation))
+					Expect(jsonPlugin.Generate(req)).Error().To(SatisfyAll(
+						MatchError(ContainSubstring("Task.pairs")),
+						MatchError(validate.ErrValidation),
+					))
 				},
 				Entry("string enum", "Units"),
 				Entry("float", "float64"),
