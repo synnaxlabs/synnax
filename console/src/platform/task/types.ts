@@ -7,8 +7,16 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { type channel, device } from "@synnaxlabs/client";
+import { type channel, device, type task } from "@synnaxlabs/client";
+import { type Task } from "@synnaxlabs/pluto";
+import { deep } from "@synnaxlabs/x";
 import { type z } from "zod";
+
+/** The values of a form over a task with the schemas S. */
+export type Values<S extends task.Schemas = task.Schemas> = z.infer<Task.FormSchema<S>>;
+
+/** The path to the values of any task form. */
+export const formPath = deep.path<Values>();
 
 export type Command = "start" | "stop";
 
@@ -20,6 +28,10 @@ export interface Channel {
   disabled: boolean;
   key: string;
 }
+
+/** The channels, enabled ones first, each group in its order. */
+export const enabledFirst = <C extends Channel>(channels: C[]): C[] =>
+  channels.toSorted((a, b) => Number(a.disabled) - Number(b.disabled));
 
 export const validateChannels = ({
   value: channels,
@@ -76,13 +88,15 @@ export const validateEnabledChannel = ({
 };
 
 export const validateReadChannels = (
-  ctx: z.core.ParsePayload<{ key: string; channel: channel.Key; name: string }[]>,
+  ctx: z.core.ParsePayload<
+    { key: string; channel: channel.Key; name: string; disabled: boolean }[]
+  >,
 ) => {
   validateChannels(ctx);
   const { value: channels, issues } = ctx;
   const channelToIndexMap = new Map<channel.Key, number>();
   const nameToIndexMap = new Map<string, number>();
-  channels.forEach(({ channel, name }, i) => {
+  channels.forEach(({ channel, name, disabled }, i) => {
     if (name !== "") {
       if (!nameToIndexMap.has(name)) {
         nameToIndexMap.set(name, i);
@@ -94,7 +108,8 @@ export const validateReadChannels = (
       issues.push({ code, message, path: [index, "name"], input: channels });
       issues.push({ code, message, path: [i, "name"], input: channels });
     }
-    if (channel === 0) return;
+    // The Driver skips a disabled channel, so it can share a Synnax channel.
+    if (channel === 0 || disabled) return;
     if (!channelToIndexMap.has(channel)) {
       channelToIndexMap.set(channel, i);
       return;
@@ -122,6 +137,7 @@ export const validateWriteChannels = (
       stateChannel: channel.Key;
       cmdChannelName: string;
       stateChannelName: string;
+      disabled: boolean;
     }[]
   >,
 ) => {
@@ -130,7 +146,7 @@ export const validateWriteChannels = (
   const channelsToIndexMap = new Map<channel.Key, IndexAndType>();
   const nameToIndexMap = new Map<string, IndexAndType>();
   channels.forEach(
-    ({ cmdChannel, stateChannel, cmdChannelName, stateChannelName }, i) => {
+    ({ cmdChannel, stateChannel, cmdChannelName, stateChannelName, disabled }, i) => {
       if (cmdChannelName !== "") {
         if (!nameToIndexMap.has(cmdChannelName)) {
           nameToIndexMap.set(cmdChannelName, { index: i, type: "cmd" });
@@ -147,7 +163,8 @@ export const validateWriteChannels = (
         });
         issues.push({ code, message, path: [i, "cmdChannelName"], input: channels });
       }
-      if (cmdChannel !== 0)
+      // The Driver skips a disabled channel, so it can share a Synnax channel.
+      if (cmdChannel !== 0 && !disabled)
         if (channelsToIndexMap.has(cmdChannel)) {
           const { index, type } = channelsToIndexMap.get(cmdChannel) as IndexAndType;
           const code = "custom";
@@ -176,7 +193,7 @@ export const validateWriteChannels = (
         });
         issues.push({ code, message, path: [i, "stateChannelName"], input: channels });
       }
-      if (stateChannel === 0) return;
+      if (stateChannel === 0 || disabled) return;
       if (channelsToIndexMap.has(stateChannel)) {
         const { index, type } = channelsToIndexMap.get(stateChannel) as IndexAndType;
         const code = "custom";

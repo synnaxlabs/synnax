@@ -43,6 +43,11 @@ import { CSS } from "@/platform/css";
 import { MultiEdit } from "@/platform/multiedit";
 import { Session } from "@/session";
 
+const path = deep.path<{
+  variant: Schematic.ElementConfig["variant"];
+  specKey?: schematic.symbol.Key;
+}>();
+
 export const Properties = memo((): ReactElement => {
   const selected = Session.Schematic.useSelectSelected();
   const configByKey = Schematic.useConfigs({ keys: selected });
@@ -68,27 +73,15 @@ interface IndividualConfigProps {
   elKey: string;
 }
 
-const IndividualConfig = ({ elKey }: IndividualConfigProps): ReactElement | null => {
-  const config = Schematic.useElementConfig({ elKey });
-  if (config == null) throw new Error(`Element with key ${elKey} not found`);
+const IndividualConfig = ({ elKey }: IndividualConfigProps): ReactElement => {
   const schematicKey = Schematic.useKey();
-  const dispatch = Schematic.useSingleDispatch();
   const sessionDispatch = Session.useDispatch();
   const tab = Session.Schematic.useSelectPropertiesTab({ key: schematicKey });
   const handleTabChange = (tab: PProperties.TabKey) =>
     sessionDispatch(Session.Schematic.setPropertiesTab({ key: schematicKey, tab }));
-  const initialValues = deep.copy(config);
-  const formMethods = Form.use<typeof Schematic.elementConfigZ>({
-    schema: Schematic.elementConfigZ,
-    values: initialValues,
-    sync: true,
-    onChange: ({ values }: Form.OnChangeParams<typeof Schematic.elementConfigZ>) =>
-      dispatch(schematic.setConfig({ key: elKey, config: deep.copy(values) })),
-  });
-  const specKey = Form.useFieldValue<string, string, typeof Schematic.elementConfigZ>(
-    "specKey",
-    { ctx: formMethods, optional: true },
-  );
+  const { form } = Schematic.useConfigForm({ elKey });
+  const variant = Form.useFieldValue(path.variant, { ctx: form });
+  const specKey = Form.useFieldValue(path.specKey, { ctx: form, optional: true });
   const isCustom = z.validate(schematic.symbol.keyZ, specKey) && specKey != null;
   const openEditModal = Symbol.Edit.useModal();
   let actions: ReactNode = null;
@@ -104,8 +97,7 @@ const IndividualConfig = ({ elKey }: IndividualConfigProps): ReactElement | null
       </Button.Button>
     );
 
-  if (config == null) return null;
-  const C = Schematic.ELEMENT_REGISTRY[config.variant];
+  const C = Schematic.ELEMENT_REGISTRY[variant];
   const formProps: Schematic.Node.FormProps = {
     actions,
     schematicKey,
@@ -114,7 +106,7 @@ const IndividualConfig = ({ elKey }: IndividualConfigProps): ReactElement | null
   };
   return (
     <Flex.Box className={CSS.BE("schematic", "properties")} y>
-      <Form.Form<typeof Schematic.elementConfigZ> {...formMethods}>
+      <Form.Form<typeof Schematic.elementConfigZ> {...form}>
         {isCustom ? (
           <CustomVariantForm
             specKey={specKey}
@@ -210,11 +202,6 @@ const MultiConfig = ({ configByKey }: MultiElementPropertiesProps): ReactElement
   const editableByKey = removeShielded(configByKey, parentOf);
   const nodesByKey = new Map(selectedNodes.map((n) => [n.key, n]));
 
-  const configActions = (
-    updates: Iterable<[string, Schematic.ElementConfig]>,
-  ): schematic.Action[] =>
-    Array.from(updates, ([key, config]) => schematic.setConfig({ key, config }));
-
   let firstNodeLabel: Schematic.Node.Label.Config | undefined;
   for (const cfg of configByKey.values()) {
     if (!("label" in cfg)) continue;
@@ -225,7 +212,7 @@ const MultiConfig = ({ configByKey }: MultiElementPropertiesProps): ReactElement
   const selection = MultiEdit.selection({
     configs: editableByKey,
     fields: FIELDS,
-    onChange: (updates) => dispatch(configActions(updates)),
+    onChange: (updates) => dispatch(updates.flatMap(schematic.setChanged)),
   });
 
   const selectionRefs = Array.from(editableByKey).flatMap(([key, cfg]) =>
@@ -367,15 +354,13 @@ const MultiConfig = ({ configByKey }: MultiElementPropertiesProps): ReactElement
   };
 
   const rotateOrientationActions = (dir: direction.Angular): schematic.Action[] => {
-    const updates: [string, Schematic.ElementConfig][] = [];
-    editableByKey.forEach((cfg, key) => {
-      if (!("orientation" in cfg) || cfg.orientation == null) return;
-      updates.push([
-        key,
-        { ...cfg, orientation: location.rotate(cfg.orientation, dir) },
-      ]);
+    const updates: schematic.SetChangedArgs[] = [];
+    editableByKey.forEach((base, key) => {
+      if (!("orientation" in base) || base.orientation == null) return;
+      const orientation = location.rotate(base.orientation, dir);
+      updates.push({ key, base, next: { ...base, orientation } });
     });
-    return configActions(updates);
+    return updates.flatMap(schematic.setChanged);
   };
 
   const handleRotateIndividual = (dir: direction.Angular): void => {
@@ -397,12 +382,13 @@ const MultiConfig = ({ configByKey }: MultiElementPropertiesProps): ReactElement
     key: K,
     value: Schematic.Node.Label.Config[K],
   ): void => {
-    const updates: [string, Schematic.ElementConfig][] = [];
-    editableByKey.forEach((cfg, elKey) => {
-      if (!("label" in cfg) || cfg.label == null) return;
-      updates.push([elKey, { ...cfg, label: { ...cfg.label, [key]: value } }]);
+    const updates: schematic.SetChangedArgs[] = [];
+    editableByKey.forEach((base, elKey) => {
+      if (!("label" in base) || base.label == null) return;
+      const label = { ...base.label, [key]: value };
+      updates.push({ key: elKey, base, next: { ...base, label } });
     });
-    const actions = configActions(updates);
+    const actions = updates.flatMap(schematic.setChanged);
     if (actions.length > 0) dispatch(actions);
   };
 

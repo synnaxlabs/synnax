@@ -9,7 +9,7 @@
 
 import "@/platform/device/Configure.css";
 
-import { type device, status } from "@synnaxlabs/client";
+import { device as clientDevice, type device, status } from "@synnaxlabs/client";
 import { Button } from "@synnaxlabs/lyra/button";
 import { Flex } from "@synnaxlabs/lyra/flex";
 import { Form } from "@synnaxlabs/lyra/form";
@@ -27,6 +27,8 @@ import { type Hardware } from "@/platform/device/integration";
 import { type ConfigureParams, identifierZ, nameZ } from "@/platform/device/types";
 import { Modals } from "@/platform/modals";
 import { Triggers } from "@/platform/triggers";
+
+const path = deep.path<z.infer<ConfigurablePropertiesZ>>();
 
 interface InternalProps<
   Properties extends z.ZodType<record.Unknown>,
@@ -63,23 +65,20 @@ const Internal = <
     values: { name, identifier: "" },
     schema: configurablePropertiesZ,
   });
-  const currentName = Form.useFieldValue<string, string, ConfigurablePropertiesZ>(
-    "name",
-    { ctx: methods },
-  );
+  const currentName = Form.useFieldValue(path.name, { ctx: methods });
   const { capture } = Analytics.use();
   const { updateAsync, variant } = Device.useCreate();
   const suggestions = strings.createShortIdentifiers(currentName);
   const save = async (createTask: boolean) => {
     if (!methods.validate()) return;
     const saved = await updateAsync({
-      ...device,
+      ...clientDevice.toUpdate(device),
       configured: true,
-      name: methods.get<string>("name").value,
+      name: methods.get(path.name).value,
       properties: {
         ...(deep.copy(initialProperties) as record.Unknown),
         ...(device.properties as record.Unknown),
-        identifier: methods.get<string>("identifier").value,
+        identifier: methods.get(path.identifier).value,
       },
     });
     if (!saved) return;
@@ -96,13 +95,13 @@ const Internal = <
           <Form.TextField
             inputProps={{ autoFocus: true, level: "h2", variant: "text" }}
             label="Name"
-            path="name"
+            path={path.name}
           />
           <Flex.Box gap="small">
             <Form.TextField
               label="Identifier"
               inputProps={{ level: "h3", variant: "text", placeholder: "dev1" }}
-              path="identifier"
+              path={path.identifier}
             />
             <Text.Text level="small" color={9}>
               A short prefix for every channel on this device.
@@ -112,7 +111,7 @@ const Internal = <
               {suggestions.map((id) => (
                 <Button.Button
                   key={id}
-                  onClick={() => methods.set("identifier", id)}
+                  onClick={() => methods.set(path.identifier, id)}
                   size="small"
                   variant="text"
                 >

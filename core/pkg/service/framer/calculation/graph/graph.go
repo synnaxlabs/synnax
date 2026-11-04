@@ -12,6 +12,7 @@ package graph
 import (
 	"context"
 	"fmt"
+	"maps"
 	"slices"
 	"strings"
 
@@ -764,7 +765,7 @@ func (g *Graph) CalculateGrouped() map[int][]compiler.Module {
 
 	for groupID, group := range g.groups {
 		modules := make([]compiler.Module, 0, len(group.members))
-		for key := range group.members {
+		for _, key := range slices.Sorted(maps.Keys(group.members)) {
 			modules = append(modules, g.channels[key].module)
 		}
 		sorted, err := g.topologicalSortGroup(groupID, modules)
@@ -850,6 +851,12 @@ func (g *Graph) CalculatedKeys() set.Set[channel.Key] {
 	return keys
 }
 
+// Contains returns whether the graph holds the calculated channel with the given key.
+func (g *Graph) Contains(key channel.Key) bool {
+	_, ok := g.channels[key]
+	return ok
+}
+
 // ConcreteBaseKeys returns the set of all concrete (non-calculated) base channel keys
 // that the calculated channels depend on.
 func (g *Graph) ConcreteBaseKeys() set.Set[channel.Key] {
@@ -885,7 +892,7 @@ func (g *Graph) topologicalSortGroup(
 	graph := make(map[channel.Key][]channel.Key)
 	for _, mod := range modules {
 		var deps []channel.Key
-		for depKey := range mod.Dependencies.Reads {
+		for _, depKey := range slices.Sorted(maps.Keys(mod.Dependencies.Reads)) {
 			if channelsInGroup.Contains(depKey) {
 				deps = append(deps, depKey)
 			}

@@ -9,8 +9,7 @@
 
 import synnax as sy
 from console.case import ConsoleCase
-from console.schematic import Button, Symbol, Value
-from console.schematic.schematic import PropertyDict, Schematic
+from console.schematic import Button, PropertyDict, Schematic, Symbol, Value
 
 CHANNEL_NAME = "button_cmd"
 INDEX_NAME = "button_idx"

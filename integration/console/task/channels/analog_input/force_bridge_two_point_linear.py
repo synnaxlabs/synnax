@@ -7,10 +7,10 @@
 #  License, use of this software will be governed by the Apache License, Version 2.0,
 #  included in the file licenses/APL.txt.
 
-from typing import Any, Literal
+from typing import Literal, Unpack
 
 from console.layout import LayoutClient
-from console.task.channels.analog import Analog
+from console.task.channels.analog import Analog, Options
 
 
 class ForceBridgeTwoPointLinear(Analog):
@@ -39,10 +39,10 @@ class ForceBridgeTwoPointLinear(Analog):
 
     def __init__(
         self,
-        *,
         layout: LayoutClient,
         name: str,
         device: str,
+        *,
         force_units: Literal["Newtons", "Pounds", "Kilograms"] | None = None,
         bridge_configuration: (
             Literal["Full bridge", "Half bridge", "Quarter bridge"] | None
@@ -56,7 +56,7 @@ class ForceBridgeTwoPointLinear(Analog):
         physical_value_two: float | None = None,
         electrical_value_one: float | None = None,
         electrical_value_two: float | None = None,
-        **kwargs: Any,
+        **kwargs: Unpack[Options],
     ) -> None:
         super().__init__(
             layout=layout,

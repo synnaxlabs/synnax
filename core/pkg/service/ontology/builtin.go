@@ -37,8 +37,7 @@ func (*builtinService) Type() ResourceType { return ResourceTypeBuiltin }
 func (*builtinService) Search(
 	context.Context,
 	gorp.Tx,
-	string,
-	int,
+	search.Query[ID],
 ) (search.Result[ID], error) {
 	return search.Result[ID]{}, nil
 }

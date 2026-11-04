@@ -88,11 +88,7 @@ std::pair<common::ConfigureResult, x::errors::Error> Factory::configure_read(
     result.task = std::make_unique<common::ReadTask>(
         task,
         ctx,
-        x::breaker::Config{
-            .name = task.name,
-            .max_retries = x::breaker::RETRY_INFINITELY,
-            .max_interval = 5 * x::telem::SECOND,
-        },
+        common::unlimited_retry_config(task.name),
         std::make_unique<ReadTaskSource>(eng, std::move(cfg))
     );
     return {std::move(result), x::errors::NIL};

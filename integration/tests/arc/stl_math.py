@@ -120,16 +120,15 @@ class PowCase:
 
 
 @dataclass
-class ChanChanCase:
+class BinaryOpCase:
     label: str
-    base_ch: str
-    base_dtype: sy.DataType
-    exp_ch: str
-    exp_dtype: sy.DataType
+    a_ch: str
+    b_ch: str
     out_ch: str
-    base_val: int | float
-    exp_val: int | float
+    a_val: int | float
+    b_val: int | float
     expected: float
+    dtype: sy.DataType = sy.DataType.FLOAT64
 
 
 # pow(const, const) — triggered by pow_cc_trigger, value unused
@@ -152,42 +151,22 @@ CX_CASES = [
 
 # pow(chan, chan) — base from dataflow, exp from body channel ref
 XX_CASES = [
-    ChanChanCase(
-        "xx_f64",
-        "pow_xx_f64_in",
-        sy.DataType.FLOAT64,
-        "pow_xx_f64_exp",
-        sy.DataType.FLOAT64,
-        "pow_xx_f64_out",
-        base_val=2.0,
-        exp_val=3.0,
-        expected=8.0,
+    BinaryOpCase(
+        "xx_f64", "pow_xx_f64_in", "pow_xx_f64_exp", "pow_xx_f64_out", 2.0, 3.0, 8.0
     ),
-    ChanChanCase(
+    BinaryOpCase(
         "xx_i64",
         "pow_xx_i64_in",
-        sy.DataType.INT64,
         "pow_xx_i64_exp",
-        sy.DataType.INT64,
         "pow_xx_i64_out",
-        base_val=2,
-        exp_val=10,
-        expected=1024.0,
+        2,
+        10,
+        1024.0,
+        sy.DataType.INT64,
     ),
 ]
 
 FLOW_CASES: list[PowCase] = list(XC_CASES) + list(CX_CASES)
-
-
-@dataclass
-class BinaryOpCase:
-    label: str
-    a_ch: str
-    b_ch: str
-    out_ch: str
-    a_val: float
-    b_val: float
-    expected: float
 
 
 OP_BINARY_CASES = [
@@ -195,7 +174,9 @@ OP_BINARY_CASES = [
     BinaryOpCase("sub", "op_sub_a", "op_sub_b", "op_sub_out", 10.0, 3.0, 7.0),
     BinaryOpCase("mul", "op_mul_a", "op_mul_b", "op_mul_out", 4.0, 5.0, 20.0),
     BinaryOpCase("div", "op_div_a", "op_div_b", "op_div_out", 20.0, 4.0, 5.0),
-    BinaryOpCase("mod", "op_mod_a", "op_mod_b", "op_mod_out", 10, 3, 1),
+    BinaryOpCase(
+        "mod", "op_mod_a", "op_mod_b", "op_mod_out", 10, 3, 1, sy.DataType.INT64
+    ),
 ]
 
 STAT_VIRTUAL_INPUTS = [
@@ -264,27 +245,21 @@ class StlMath(ArcCase):
             create_indexed_pair(self.client, fc.out_ch, data_type=out_dtype)
 
         for xxc in XX_CASES:
-            create_virtual_channel(self.client, xxc.base_ch, data_type=xxc.base_dtype)
-            create_virtual_channel(self.client, xxc.exp_ch, data_type=xxc.exp_dtype)
-            out_dtype = (
-                sy.DataType.INT64 if xxc.label == "xx_i64" else sy.DataType.FLOAT64
-            )
-            create_virtual_channel(self.client, xxc.out_ch, data_type=out_dtype)
+            for name in (xxc.a_ch, xxc.b_ch, xxc.out_ch):
+                create_virtual_channel(self.client, name, data_type=xxc.dtype)
 
         all_ch: list[str] = ["pow_cc_trigger", *(cc.out_ch for cc in CC_CASES)]
         for fc in FLOW_CASES:
             assert fc.in_ch is not None
             all_ch.extend([fc.in_ch, fc.out_ch])
         for xxc in XX_CASES:
-            all_ch.extend([xxc.base_ch, xxc.exp_ch, xxc.out_ch])
+            all_ch.extend([xxc.a_ch, xxc.b_ch, xxc.out_ch])
         self.subscribe_channels = all_ch
 
     def _setup_op_channels(self) -> None:
         for c in OP_BINARY_CASES:
-            dtype = sy.DataType.INT64 if c.label == "mod" else sy.DataType.FLOAT64
-            create_virtual_channel(self.client, c.a_ch, data_type=dtype)
-            create_virtual_channel(self.client, c.b_ch, data_type=dtype)
-            create_virtual_channel(self.client, c.out_ch, data_type=dtype)
+            for name in (c.a_ch, c.b_ch, c.out_ch):
+                create_virtual_channel(self.client, name, data_type=c.dtype)
         create_virtual_channel(self.client, "op_neg_a", data_type=sy.DataType.FLOAT64)
         create_virtual_channel(self.client, "op_neg_out", data_type=sy.DataType.FLOAT64)
         for c in OP_BINARY_CASES:
@@ -359,10 +334,10 @@ class StlMath(ArcCase):
     def _verify_pow_chan_chan(self) -> None:
         self.log("=== pow(chan, chan) ===")
         for c in XX_CASES:
-            self.log(f"[{c.label}] Writing exp={c.exp_val} to {c.exp_ch}")
-            self.writer.write(c.exp_ch, c.exp_val)
-            self.log(f"[{c.label}] Writing base={c.base_val} to {c.base_ch}")
-            self.writer.write(c.base_ch, c.base_val)
+            self.log(f"[{c.label}] Writing exp={c.b_val} to {c.b_ch}")
+            self.writer.write(c.b_ch, c.b_val)
+            self.log(f"[{c.label}] Writing base={c.a_val} to {c.a_ch}")
+            self.writer.write(c.a_ch, c.a_val)
             self.log(f"[{c.label}] Expecting {c.out_ch} == {c.expected}")
             self.wait_for_eq(c.out_ch, c.expected)
 
