@@ -174,7 +174,9 @@ export const SearchField = ({ search }: SearchFieldProps): ReactElement => {
     if (e.shiftKey || e.altKey || e.ctrlKey || e.metaKey) return;
     e.preventDefault();
     results.focus();
-    // The results answer the key that moved the focus, so it selects a match.
+    // The focus comes back to a selected match. With none, the results answer the key
+    // that moved the focus, so it selects the first match.
+    if (results.querySelector('[aria-selected="true"]') != null) return;
     results.dispatchEvent(
       new window.KeyboardEvent("keydown", {
         key: e.key,

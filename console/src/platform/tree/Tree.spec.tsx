@@ -1198,6 +1198,29 @@ describe("Tree.Tree search", () => {
       expect(hiddenTrees()).toBe(1);
     });
 
+    it("should come back to the selected match on ArrowDown", async () => {
+      const { root, tok, names } = await createSearchTree();
+      await renderSearchable(root);
+      searchTree(tok);
+      await findTreeRow(itemName(names.charlie));
+      const field = screen.getByPlaceholderText("Search groups");
+      fireEvent.keyDown(field, arrowDown);
+      fireEvent.keyUp(results(), arrowDown);
+      fireEvent.keyDown(results(), arrowDown);
+      fireEvent.keyUp(results(), arrowDown);
+      const selected = (): Array<string | null> =>
+        Array.from(results().querySelectorAll('[aria-selected="true"]')).map(
+          (e) => e.textContent,
+        );
+      const second = selected();
+      expect(second).toHaveLength(1);
+      fireEvent.keyDown(results(), { key: "Escape", code: "Escape" });
+      fireEvent.keyDown(field, arrowDown);
+      fireEvent.keyUp(results(), arrowDown);
+      expect(document.activeElement).toBe(results());
+      expect(selected()).toEqual(second);
+    });
+
     it("should keep the focus in the field when nothing matches", async () => {
       const { root } = await createSearchTree();
       await renderSearchable(root);
