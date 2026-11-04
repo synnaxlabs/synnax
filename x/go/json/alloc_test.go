@@ -33,7 +33,7 @@ var _ = Describe("Allocation", func() {
 	It("Should read a document into samples without allocating", func() {
 		doc := []byte(`{"ts":"2026-01-02T03:04:05Z","v":{"a":1.5,"b":"x\ny"},` +
 			`"s":"ON","n":[1,{"m":-2}]}`)
-		e := xjson.NewExtractor(pointers("/ts", "/v/a", "/v/b", "/s", "/n/1/m", "/v"))
+		e := xjson.NewExtractor(pointers("/ts", "/v/a", "/v/b", "/s", "/n/1/m"))
 		decoders := []*xjson.Decoder{
 			MustSucceed(xjson.NewDecoder(xjson.Field{
 				DataType: telem.TimestampT, TimeFormat: xjson.ISO8601,
@@ -44,7 +44,6 @@ var _ = Describe("Allocation", func() {
 				DataType: telem.Uint8T, Enums: onOff,
 			})),
 			MustSucceed(xjson.NewDecoder(xjson.Field{DataType: telem.Int64T})),
-			MustSucceed(xjson.NewDecoder(xjson.Field{DataType: telem.JSONT})),
 		}
 		values := make([]jsontext.Value, len(decoders))
 		dst := make([]byte, 0, 1024)
@@ -63,6 +62,21 @@ var _ = Describe("Allocation", func() {
 		read()
 		Expect(err).ToNot(HaveOccurred())
 		Expect(testing.AllocsPerRun(100, read)).To(BeZero())
+		Expect(err).ToNot(HaveOccurred())
+	})
+
+	It("Should compact a JSON value without allocating", func() {
+		if raceEnabled {
+			Skip("jsontext reuses its encoder through a sync.Pool")
+		}
+		d := MustSucceed(xjson.NewDecoder(xjson.Field{DataType: telem.JSONT}))
+		value := jsontext.Value(`{ "a": 1.5, "b": "x\ny" }`)
+		dst := make([]byte, 0, 1024)
+		var err error
+		compact := func() { dst, err = d.Append(dst[:0], value) }
+		compact()
+		Expect(err).ToNot(HaveOccurred())
+		Expect(testing.AllocsPerRun(100, compact)).To(BeZero())
 		Expect(err).ToNot(HaveOccurred())
 	})
 
