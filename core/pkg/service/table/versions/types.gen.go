@@ -20,13 +20,13 @@ type Key = v3.Key
 type FlexAlignment = v3.FlexAlignment
 
 const (
-	// FlexAlignmentStart places content at the start of the cross axis.
+	// FlexAlignmentStart aligns content to the start.
 	FlexAlignmentStart FlexAlignment = v3.FlexAlignmentStart
-	// FlexAlignmentCenter places content at the center of the cross axis.
+	// FlexAlignmentCenter aligns content to the center.
 	FlexAlignmentCenter FlexAlignment = v3.FlexAlignmentCenter
-	// FlexAlignmentEnd places content at the end of the cross axis.
+	// FlexAlignmentEnd aligns content to the end.
 	FlexAlignmentEnd FlexAlignment = v3.FlexAlignmentEnd
-	// FlexAlignmentStretch stretches content across the cross axis.
+	// FlexAlignmentStretch stretches content to fill the available space.
 	FlexAlignmentStretch FlexAlignment = v3.FlexAlignmentStretch
 )
 

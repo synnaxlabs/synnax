@@ -356,13 +356,13 @@ func (u EdgeConfig) Validate() error {
 type FlexAlignment string
 
 const (
-	// FlexAlignmentStart places content at the start of the cross axis.
+	// FlexAlignmentStart aligns content to the start.
 	FlexAlignmentStart FlexAlignment = "start"
-	// FlexAlignmentCenter places content at the center of the cross axis.
+	// FlexAlignmentCenter aligns content to the center.
 	FlexAlignmentCenter FlexAlignment = "center"
-	// FlexAlignmentEnd places content at the end of the cross axis.
+	// FlexAlignmentEnd aligns content to the end.
 	FlexAlignmentEnd FlexAlignment = "end"
-	// FlexAlignmentStretch stretches content across the cross axis.
+	// FlexAlignmentStretch stretches content to fill the available space.
 	FlexAlignmentStretch FlexAlignment = "stretch"
 )
 
