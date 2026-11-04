@@ -137,10 +137,38 @@ func (s *Service) Create(
 	if err := s.rack.NewWriter(tx).CreateMany(ctx, &req.Racks); err != nil {
 		return CreateResponse{}, err
 	}
-	if err := s.attachStatuses(ctx, tx, req.Racks); err != nil {
+	if err := s.attachReadableStatuses(ctx, tx, req.Racks); err != nil {
 		return CreateResponse{}, err
 	}
 	return CreateResponse(req), nil
+}
+
+func (s *Service) attachReadableStatuses(
+	ctx context.Context,
+	tx gorp.Tx,
+	racks []rack.Rack,
+) error {
+	enforcer := s.access.NewEnforcer(tx)
+	subject := auth.GetSubject(ctx)
+	for i := range racks {
+		err := enforcer.Enforce(ctx, access.Request{
+			Subject: subject,
+			Action:  access.ActionRetrieve,
+			Objects: []ontology.ID{racks[i].OntologyID()},
+		})
+		// Create accepts update access, which does not grant read access.
+		if errors.Is(err, access.ErrDenied) {
+			racks[i].Status = nil
+			continue
+		}
+		if err != nil {
+			return err
+		}
+		if err := s.attachStatuses(ctx, tx, racks[i:i+1]); err != nil {
+			return err
+		}
+	}
+	return nil
 }
 
 func (s *Service) attachStatuses(
