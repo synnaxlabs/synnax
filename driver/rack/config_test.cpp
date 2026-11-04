@@ -19,6 +19,7 @@
 #include "x/cpp/testutil/testutil.h"
 
 #include "driver/rack/rack.h"
+#include "driver/version/version.h"
 
 namespace driver::rack {
 const std::string STATE_PATH = "/tmp/rack-config-test/state.json";
@@ -80,6 +81,15 @@ TEST_F(RackConfigTest, Default) {
     ASSERT_TRUE(cfg.connection.password.empty());
     ASSERT_NE(cfg.rack.key, 0);
     ASSERT_NE(cfg.rack.name, "");
+}
+
+/// @brief it should write the version of this Driver to its rack and find a Core of the
+/// same train compatible.
+TEST_F(RackConfigTest, WritesDriverVersionToRack) {
+    const auto cfg = ASSERT_NIL_P(Config::load(args, brk));
+    EXPECT_FALSE(cfg.incompatible_core_version.has_value());
+    const auto rack = ASSERT_NIL_P(new_test_client().racks.retrieve(cfg.rack.key));
+    EXPECT_EQ(rack.version, SYNNAX_DRIVER_VERSION);
 }
 
 /// @brief it should load rack key from persisted state file.

@@ -8,6 +8,7 @@
 // included in the file licenses/APL.txt.
 
 #include <atomic>
+#include <mutex>
 #include <thread>
 
 #include "gtest/gtest.h"
@@ -67,6 +68,40 @@ public:
         grpc::status::SetResponse res;
         *res.mutable_statuses() = req.statuses();
         return {res, x::errors::NIL};
+    }
+};
+
+/// @brief a status set transport that keeps the last rack heartbeat and echoes every
+/// write.
+class BeatRecorder final : public synnax::status::SetClient {
+    const std::string rack_key;
+    mutable std::mutex mu;
+    synnax::rack::Status last;
+
+public:
+    std::atomic<int> beats = 0;
+
+    explicit BeatRecorder(std::string rack_key): rack_key(std::move(rack_key)) {}
+
+    void use(std::shared_ptr<freighter::Middleware>) override {}
+
+    std::pair<grpc::status::SetResponse, x::errors::Error>
+    send(const std::string &, grpc::status::SetRequest &req) override {
+        if (req.statuses(0).key() == this->rack_key) {
+            auto [stat, err] = synnax::rack::Status::from_proto(req.statuses(0));
+            if (err) return {{}, err};
+            std::lock_guard lock(this->mu);
+            this->last = std::move(stat);
+            this->beats++;
+        }
+        grpc::status::SetResponse res;
+        *res.mutable_statuses() = req.statuses();
+        return {res, x::errors::NIL};
+    }
+
+    [[nodiscard]] synnax::rack::Status last_beat() const {
+        std::lock_guard lock(this->mu);
+        return this->last;
     }
 };
 
@@ -278,5 +313,42 @@ TEST(stateTests, ResendsTaskStatusesAfterALateHeartbeat) {
         std::chrono::milliseconds(10)
     );
     EXPECT_EQ(transport->task_writes.load(), 2);
+}
+
+/// @brief it should report the variant, message, and description of its health in
+/// each heartbeat.
+TEST(stateTests, ReportsHealth) {
+    auto client = std::make_shared<synnax::Synnax>(new_test_client());
+    const synnax::rack::Rack rack{.key = 1, .name = "test_rack"};
+    const auto transport = std::make_shared<BeatRecorder>(
+        synnax::rack::ontology_id(rack.key).string()
+    );
+    client->statuses = synnax::status::Client(nullptr, transport, nullptr, nullptr);
+    const auto ctx = std::make_shared<driver::task::SynnaxContext>(
+        client,
+        std::make_shared<driver::task::StatusCache>(client->statuses)
+    );
+    Task hb(
+        rack,
+        synnax::task::Task{.name = "state", .type = TASK_TYPE, .internal = true},
+        ctx,
+        Health{
+            .variant = synnax::status::VARIANT_ERROR,
+            .message = "Driver 0.59.3 cannot work with Core 0.60.1",
+            .description = "Install the Driver release that matches the Core.",
+        }
+    );
+    x::defer::defer stop([&hb]() { hb.stop(false); });
+    ASSERT_EVENTUALLY_GE_WITH_TIMEOUT(
+        transport->beats.load(),
+        1,
+        std::chrono::seconds(5),
+        std::chrono::milliseconds(10)
+    );
+    const auto beat = transport->last_beat();
+    EXPECT_EQ(beat.variant, synnax::status::VARIANT_ERROR);
+    EXPECT_EQ(beat.message, "Driver 0.59.3 cannot work with Core 0.60.1");
+    EXPECT_EQ(beat.description, "Install the Driver release that matches the Core.");
+    EXPECT_EQ(beat.details.rack, rack.key);
 }
 }

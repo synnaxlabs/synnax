@@ -21,6 +21,7 @@
 #include "driver/rack/factories.h"
 #include "driver/rack/rack.h"
 #include "driver/rack/status/status.h"
+#include "driver/version/version.h"
 
 namespace driver::rack {
 bool Config::integration_enabled(const std::string &i) const {
@@ -41,6 +42,30 @@ void configure_opcua(const Config &config, FactoryList &factories) {
 
 void configure_state(FactoryList &factories) {
     factories.push_back(std::make_unique<status::Factory>());
+}
+
+/// @brief adds the rack status, which reports the mismatch, and refuses the tasks of
+/// every integration. A Driver on another minor can misread what its Core sends.
+void configure_mismatch(const std::string &core_version, FactoryList &factories) {
+    const std::string message = "Driver " + std::string(SYNNAX_DRIVER_VERSION) +
+                                " cannot work with Core " + core_version;
+    const std::string description = "Install the Driver release that matches the "
+                                    "Core, then restart the Driver.";
+    LOG(ERROR) << message << ". " << description;
+    factories.push_back(
+        std::make_unique<status::Factory>(status::Health{
+            .variant = synnax::status::VARIANT_ERROR,
+            .message = message,
+            .description = description,
+        })
+    );
+    for (const auto &integration: built_integrations())
+        factories.push_back(
+            std::make_unique<UnavailableFactory>(
+                integration,
+                message + ". " + description
+            )
+        );
 }
 
 #ifdef SYNNAX_NILINUXRT
@@ -93,6 +118,10 @@ void configure_http(const Config &config, FactoryList &factories) {
 std::unique_ptr<task::Factory>
 Config::new_factory(const std::shared_ptr<x::thread::rt::Manager> &rt_manager) const {
     FactoryList factories;
+    if (this->incompatible_core_version) {
+        configure_mismatch(*this->incompatible_core_version, factories);
+        return std::make_unique<task::MultiFactory>(std::move(factories));
+    }
     configure_state(factories);
     configure_opcua(*this, factories);
     configure_ni(*this, factories);

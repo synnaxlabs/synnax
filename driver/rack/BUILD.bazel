@@ -29,6 +29,7 @@ cc_library(
         "rack.cpp",
         "remote.cpp",
         "unavailable.h",
+        "//driver/version",
     ] + select({
         "@platforms//os:macos": ["factories_darwin.cpp"],
         "@platforms//os:linux": ["factories_linux.cpp"],
@@ -79,7 +80,10 @@ cc_library(
 
 cc_test(
     name = "factories_test",
-    srcs = ["factories_test.cpp"],
+    srcs = [
+        "factories_test.cpp",
+        "//driver/version",
+    ],
     deps = [
         "//driver/labjack:names",
         "//driver/ni:names",
@@ -121,6 +125,7 @@ cc_test(
     name = "rack_test",
     srcs = [
         "config_test.cpp",
+        "//driver/version",
     ],
     tags = ["requires-core"],
     deps = [

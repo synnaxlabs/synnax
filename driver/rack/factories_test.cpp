@@ -17,6 +17,7 @@
 #include "driver/labjack/names.h"
 #include "driver/ni/names.h"
 #include "driver/rack/rack.h"
+#include "driver/version/version.h"
 
 namespace driver::rack {
 /// @brief it should build a factory for each integration in the build whether or not
@@ -94,5 +95,38 @@ TEST(RackFactoriesTest, UnknownTypeIsNotHandled) {
     EXPECT_FALSE(handled);
     EXPECT_EQ(tsk, nullptr);
     EXPECT_TRUE(ctx->snapshot().empty());
+}
+
+/// @brief it should refuse a task of every integration and name both versions when the
+/// Core runs another minor.
+TEST(RackFactoriesTest, IncompatibleCoreRefusesEveryIntegration) {
+    Config cfg{.integrations = built_integrations()};
+    cfg.incompatible_core_version = "99.1.0";
+    const auto factory = cfg.new_factory(std::make_shared<x::thread::rt::Manager>());
+    const auto ctx = std::make_shared<task::MockContext>(nullptr);
+    const auto built = built_integrations();
+    for (const auto &integration: built) {
+        const auto type = integration + "_read";
+        const auto [tsk, handled] = factory->configure_task(
+            ctx,
+            synnax::task::Task{.name = type, .type = type},
+            "start-cmd"
+        );
+        EXPECT_TRUE(handled) << type;
+        EXPECT_EQ(tsk, nullptr) << type;
+    }
+    const auto statuses = ctx->snapshot();
+    ASSERT_EQ(statuses.size(), built.size());
+    for (const auto &stat: statuses) {
+        EXPECT_EQ(stat.variant, synnax::status::VARIANT_ERROR);
+        EXPECT_EQ(stat.message, "Failed to configure task");
+        EXPECT_EQ(
+            stat.description,
+            "Driver " + std::string(SYNNAX_DRIVER_VERSION) +
+                " cannot work with Core 99.1.0. Install the Driver release that "
+                "matches the Core, then restart the Driver."
+        );
+        EXPECT_EQ(stat.details.cmd, "start-cmd");
+    }
 }
 }

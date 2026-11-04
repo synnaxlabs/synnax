@@ -16,6 +16,7 @@
 #include "x/cpp/os/os.h"
 
 #include "driver/rack/rack.h"
+#include "driver/version/version.h"
 
 namespace driver::rack {
 namespace {
@@ -106,7 +107,10 @@ x::errors::Error Config::load_remote() {
     auto [rack, err] = client.racks.retrieve(rack_key);
     if (err) return err;
     this->rack = rack;
+    this->rack.version = SYNNAX_DRIVER_VERSION;
     this->remote_info.cluster_key = cluster_key;
+    if (const auto core = client.connectivity->state(); !core.client_server_compatible)
+        this->incompatible_core_version = core.node_version;
     // A config can name an integration that this build leaves out.
     const auto built = built_integrations();
     this->rack.integrations.clear();
