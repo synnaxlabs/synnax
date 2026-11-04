@@ -21,7 +21,9 @@ import (
 type Edition string
 
 const (
-	EditionDesktop    Edition = "d"
+	// EditionDesktop applies only to a Core that listens on loopback addresses.
+	EditionDesktop Edition = "d"
+	// EditionEnterprise applies to a Core on any address.
 	EditionEnterprise Edition = "e"
 )
 
@@ -80,8 +82,11 @@ func (l License) Validate() error {
 type State string
 
 const (
-	StateOk      State = "ok"
+	// StateOk means a license covers the Core.
+	StateOk State = "ok"
+	// StateMissing means the Core has no license.
 	StateMissing State = "missing"
+	// StateExpired means the license no longer covers the Core.
 	StateExpired State = "expired"
 )
 
