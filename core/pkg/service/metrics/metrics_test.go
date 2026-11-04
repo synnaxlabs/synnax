@@ -239,15 +239,15 @@ var _ = Describe("Metrics", func() {
 		It("Should keep a channel in the group it was moved to", func(ctx SpecContext) {
 			names := getNames(dist.Cluster.HostKey())
 			svc := open(ctx)
-			cpu := retrieve(ctx, names[1])
+			mem := retrieve(ctx, names[2])
 			custom := MustSucceed(groupSvc.CreateOrRetrieve(
 				ctx, "Custom Metrics Group", resource.TypeChannel,
 			))
-			Expect(channelSvc.NewWriter(nil).SetGroup(ctx, &custom.Key, cpu.Key())).
+			Expect(channelSvc.NewWriter(nil).SetGroup(ctx, &custom.Key, mem.Key())).
 				To(Succeed())
 			Expect(svc.Close()).To(Succeed())
 			svc = open(ctx)
-			Expect(retrieve(ctx, names[1]).Group).To(Equal(&custom.Key))
+			Expect(retrieve(ctx, names[2]).Group).To(Equal(&custom.Key))
 			Expect(svc.Close()).To(Succeed())
 		})
 	})
