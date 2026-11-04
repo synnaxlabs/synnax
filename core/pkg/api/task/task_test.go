@@ -339,14 +339,16 @@ func stallFreeWrites(ctx SpecContext) {
 		parked  sync.WaitGroup
 	)
 	for range 128 {
-		w := MustSucceed(svc.Framer.OpenWriter(ctx, framer.WriterConfig{
+		// Ginkgo cancels ctx when the spec ends, which is before the cleanup stops the
+		// writers.
+		w := MustSucceed(svc.Framer.OpenWriter(sCtx, framer.WriterConfig{
 			Keys:  channel.Keys{ch.Key()},
 			Start: telem.Now(),
 		}))
 		parked.Go(func() {
 			defer GinkgoRecover()
-			fr := frame.NewUnary(ch.Key(), telem.NewSeriesV(1.0))
 			for !stopped.Load() {
+				fr := frame.NewUnary(ch.Key(), telem.NewSeriesV(1.0))
 				Expect(w.Write(fr)).To(BeTrue())
 				written.Add(1)
 			}
@@ -454,7 +456,6 @@ var _ = Describe("Delete", func() {
 			expectGone(ctx, key)
 		}
 	})
-||||||| d40ebcf491
 	It(
 		"Should return within the timeout when a stop cannot be written",
 		func(ctx SpecContext) {
