@@ -42,6 +42,7 @@ var _ = ShouldNotLeakGoroutinesPerSpec()
 
 var (
 	channelSvc *channel.Service
+	groupSvc   *group.Service
 	statusSvc  *status.Service
 	rbacSvc    *rbac.Service
 	rangerSvc  *ranger.Service
@@ -54,7 +55,7 @@ var _ = BeforeSuite(func(ctx SpecContext) {
 	ShouldNotLeakGoroutines()
 	node := testutil.NewNode(ctx)
 	otg := MustOpen(ontology.Open(ctx, ontology.Config{DB: node.DB}))
-	groupSvc := MustOpen(group.OpenService(ctx, group.ServiceConfig{
+	groupSvc = MustOpen(group.OpenService(ctx, group.ServiceConfig{
 		DB:       node.DB,
 		Ontology: otg,
 	}))

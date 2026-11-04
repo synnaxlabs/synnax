@@ -409,6 +409,7 @@ func translateChannelsForward(channels []channel.Channel) []Channel {
 			Internal:    ch.Internal,
 			Expression:  ch.Expression,
 			Operations:  ch.Operations,
+			Group:       ch.Group,
 		}
 	}
 	return translated
@@ -432,6 +433,7 @@ func translateChannelsBackward(
 			Internal:    ch.Internal,
 			Expression:  ch.Expression,
 			Operations:  ch.Operations,
+			Group:       ch.Group,
 		}
 		if ch.IsIndex {
 			tCh.LocalIndex = tCh.LocalKey

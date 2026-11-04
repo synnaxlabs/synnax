@@ -18,6 +18,7 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/service/access"
 	"github.com/synnaxlabs/synnax/pkg/service/channel"
 	. "github.com/synnaxlabs/synnax/pkg/service/channel/testutil"
+	"github.com/synnaxlabs/synnax/pkg/service/group"
 	"github.com/synnaxlabs/synnax/pkg/service/ranger"
 	"github.com/synnaxlabs/synnax/pkg/service/resource"
 	"github.com/synnaxlabs/synnax/pkg/service/status"
@@ -38,6 +39,37 @@ func createChannel(ctx SpecContext, dt telem.DataType) channel.Channel {
 }
 
 var _ = Describe("Service", func() {
+	Describe("Group", func() {
+		It(
+			"Should create a channel in a group and return the group on retrieve",
+			func(ctx SpecContext) {
+				grantOn(
+					ctx,
+					author.ResourceID(),
+					[]access.Action{access.ActionCreate, access.ActionRetrieve},
+					resource.ID{Type: resource.TypeChannel},
+				)
+				g := group.Group{Name: "API Channels", Scope: resource.TypeChannel}
+				Expect(groupSvc.NewWriter(nil).Create(ctx, &g)).To(Succeed())
+				created := MustSucceed(apiSvc.Create(
+					AuthedCtx(ctx, author),
+					nil,
+					apichannel.CreateRequest{Channels: []apichannel.Channel{{
+						Name:     UniqueChannelName(),
+						DataType: telem.TimestampT,
+						IsIndex:  true,
+						Group:    &g.Key,
+					}}},
+				)).Channels
+				Expect(created[0].Group).To(Equal(&g.Key))
+				retrieved := MustSucceed(apiSvc.Retrieve(
+					AuthedCtx(ctx, author),
+					apichannel.RetrieveRequest{Keys: channel.Keys{created[0].Key}},
+				)).Channels
+				Expect(retrieved[0].Group).To(Equal(&g.Key))
+			},
+		)
+	})
 	Describe("RetrieveDataTypes", func() {
 		It(
 			"Should resolve the data types of the channels in key order",
