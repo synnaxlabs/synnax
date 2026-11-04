@@ -12,6 +12,7 @@ package domain
 import (
 	"encoding/binary"
 	"os"
+	"slices"
 	"sync"
 
 	"github.com/synnaxlabs/x/io/fs"
@@ -37,21 +38,39 @@ func (ip *indexPersist) load() ([]pointer, error) {
 	return ip.p.load()
 }
 
-func (ip *indexPersist) prepare(start int) func() error {
-	pointerEncoded := ip.p.encode(start, ip.idx.mu.pointers)
-	lenOfPointers := len(ip.idx.mu.pointers)
+// prepare encodes the pointers from start on, so the returned write can run after the
+// pointers change.
+func (ip *indexPersist) prepare(start int) preparedWrite {
+	buf, ok := ip.p.buffers.Get().(*[]byte)
+	if !ok {
+		buf = new([]byte)
+	}
+	*buf = ip.p.encode(*buf, start, ip.idx.mu.pointers)
+	return preparedWrite{
+		p:     ip.p,
+		buf:   buf,
+		start: start,
+		count: len(ip.idx.mu.pointers),
+	}
+}
 
-	return func() error {
-		ip.p.Lock()
-		defer ip.p.Unlock()
+// preparedWrite is one encoded write of the index. It owns its buffer until run.
+type preparedWrite struct {
+	p     *pointerPersist
+	buf   *[]byte
+	start int
+	count int
+}
 
-		err := ip.p.Truncate(int64(lenOfPointers) * pointerByteSize)
-		if err != nil {
-			return err
-		}
-		_, err = ip.p.WriteAt(pointerEncoded, int64(start*pointerByteSize))
+func (w preparedWrite) run() error {
+	defer w.p.buffers.Put(w.buf)
+	w.p.Lock()
+	defer w.p.Unlock()
+	if err := w.p.Truncate(int64(w.count) * pointerByteSize); err != nil {
 		return err
 	}
+	_, err := w.p.WriteAt(*w.buf, int64(w.start*pointerByteSize))
+	return err
 }
 
 func (ip *indexPersist) Close() error {
@@ -62,6 +81,8 @@ type pointerPersist struct {
 	pointerCodec
 	fs.File
 	sync.Mutex
+	// buffers holds *[]byte. Overlapping prepares each need their own buffer.
+	buffers sync.Pool
 }
 
 func openPointerPersist(fs fs.FS) (*pointerPersist, error) {
@@ -89,8 +110,10 @@ var byteOrder = binary.LittleEndian
 
 type pointerCodec struct{}
 
-func (f *pointerCodec) encode(start int, ptrs []pointer) []byte {
-	b := make([]byte, (len(ptrs)-start)*pointerByteSize)
+// encode returns the encoded pointers from start on, in buf's memory when it fits.
+func (f *pointerCodec) encode(buf []byte, start int, ptrs []pointer) []byte {
+	size := (len(ptrs) - start) * pointerByteSize
+	b := slices.Grow(buf[:0], size)[:size]
 	for i := start; i < len(ptrs); i++ {
 		ptr := ptrs[i]
 		base := (i - start) * pointerByteSize
