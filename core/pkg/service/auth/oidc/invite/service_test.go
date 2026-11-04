@@ -64,12 +64,12 @@ var _ = Describe("Service", func() {
 		})
 	})
 
-	Describe("Writer", func() {
+	Describe("Create", func() {
 		It(
 			"Should store only a hash of a token of 256 random bits",
 			func(ctx SpecContext) {
 				s := subject()
-				i, token := MustSucceed2(svc.NewWriter(nil).Create(ctx, s))
+				i, token := MustSucceed2(svc.Create(ctx, s))
 				Expect(i.Subject).To(Equal(s))
 				Expect(i.Hash).To(HaveLen(32))
 				raw := MustSucceed(base64.RawURLEncoding.DecodeString(
@@ -80,7 +80,7 @@ var _ = Describe("Service", func() {
 			},
 		)
 		It("Should expire a day after creation", func(ctx SpecContext) {
-			i, _ := MustSucceed2(svc.NewWriter(nil).Create(ctx, subject()))
+			i, _ := MustSucceed2(svc.Create(ctx, subject()))
 			Expect(i.Expiry.Time()).To(BeTemporally(
 				"==",
 				clock.Now().Add(invite.Lifetime),
@@ -89,8 +89,8 @@ var _ = Describe("Service", func() {
 		})
 		It("Should replace a subject's invite", func(ctx SpecContext) {
 			s := subject()
-			first, old := MustSucceed2(svc.NewWriter(nil).Create(ctx, s))
-			second, current := MustSucceed2(svc.NewWriter(nil).Create(ctx, s))
+			first, old := MustSucceed2(svc.Create(ctx, s))
+			second, current := MustSucceed2(svc.Create(ctx, s))
 			Expect(second.Key).To(Equal(first.Key))
 			Expect(MustSucceed(
 				svc.NewRetrieve().Where(invite.MatchSubjects(s)).Count(ctx, nil),
@@ -101,24 +101,27 @@ var _ = Describe("Service", func() {
 			Expect(svc.Redeem(ctx, current, noop)).To(Succeed())
 		})
 		It("Should give each subject its own invite", func(ctx SpecContext) {
-			a, _ := MustSucceed2(svc.NewWriter(nil).Create(ctx, subject()))
-			b, _ := MustSucceed2(svc.NewWriter(nil).Create(ctx, subject()))
+			a, _ := MustSucceed2(svc.Create(ctx, subject()))
+			b, _ := MustSucceed2(svc.Create(ctx, subject()))
 			Expect(a.Key).ToNot(Equal(b.Key))
 		})
 		It("Should reject an invalid subject", func(ctx SpecContext) {
-			Expect(svc.NewWriter(nil).Create(ctx, ontology.ID{})).Error().
+			Expect(svc.Create(ctx, ontology.ID{})).Error().
 				To(MatchError(ContainSubstring("subject")))
 		})
+	})
+
+	Describe("Writer", func() {
 		It("Should delete invites by key", func(ctx SpecContext) {
 			s := subject()
-			i, _ := MustSucceed2(svc.NewWriter(nil).Create(ctx, s))
+			i, _ := MustSucceed2(svc.Create(ctx, s))
 			Expect(svc.NewWriter(nil).Delete(ctx, i.Key, uuid.New())).To(Succeed())
 			Expect(exists(ctx, s)).To(BeFalse())
 		})
 		It("Should delete every invite of the given subjects", func(ctx SpecContext) {
 			s, kept := subject(), subject()
-			MustSucceed2(svc.NewWriter(nil).Create(ctx, s))
-			MustSucceed2(svc.NewWriter(nil).Create(ctx, kept))
+			MustSucceed2(svc.Create(ctx, s))
+			MustSucceed2(svc.Create(ctx, kept))
 			Expect(svc.NewWriter(nil).DeleteFor(ctx, s)).To(Succeed())
 			Expect(exists(ctx, s)).To(BeFalse())
 			Expect(exists(ctx, kept)).To(BeTrue())
@@ -128,8 +131,9 @@ var _ = Describe("Service", func() {
 	Describe("MatchLive", func() {
 		It("Should leave out an invite at its expiry", func(ctx SpecContext) {
 			s := subject()
-			MustSucceed2(svc.NewWriter(nil).Create(ctx, s))
+			MustSucceed2(svc.Create(ctx, s))
 			live := func() bool {
+				GinkgoHelper()
 				return MustSucceed(svc.NewRetrieve().
 					Where(invite.MatchSubjects(s)).
 					Where(svc.MatchLive()).
@@ -145,7 +149,7 @@ var _ = Describe("Service", func() {
 	Describe("Redeem", func() {
 		It("Should run f with the invite and delete it", func(ctx SpecContext) {
 			s := subject()
-			i, token := MustSucceed2(svc.NewWriter(nil).Create(ctx, s))
+			i, token := MustSucceed2(svc.Create(ctx, s))
 			var seen invite.Invite
 			Expect(svc.Redeem(ctx, token, func(_ gorp.Tx, got invite.Invite) error {
 				seen = got
@@ -155,13 +159,13 @@ var _ = Describe("Service", func() {
 			Expect(exists(ctx, s)).To(BeFalse())
 		})
 		It("Should work once", func(ctx SpecContext) {
-			_, token := MustSucceed2(svc.NewWriter(nil).Create(ctx, subject()))
+			_, token := MustSucceed2(svc.Create(ctx, subject()))
 			Expect(svc.Redeem(ctx, token, noop)).To(Succeed())
 			Expect(svc.Redeem(ctx, token, noop)).
 				To(MatchError(auth.ErrInvalidCredentials))
 		})
 		It("Should work once when redeemed at the same time", func(ctx SpecContext) {
-			_, token := MustSucceed2(svc.NewWriter(nil).Create(ctx, subject()))
+			_, token := MustSucceed2(svc.Create(ctx, subject()))
 			var (
 				wg       sync.WaitGroup
 				redeemed atomic.Int32
@@ -181,42 +185,61 @@ var _ = Describe("Service", func() {
 		})
 		It("Should keep the invite when f fails", func(ctx SpecContext) {
 			s := subject()
-			_, token := MustSucceed2(svc.NewWriter(nil).Create(ctx, s))
+			_, token := MustSucceed2(svc.Create(ctx, s))
 			failed := errors.New("failed")
 			Expect(svc.Redeem(ctx, token, func(gorp.Tx, invite.Invite) error {
 				return failed
 			})).To(MatchError(failed))
 			Expect(exists(ctx, s)).To(BeTrue())
 		})
-		It(
+		It("Should keep an invite created during a redeem", func(ctx SpecContext) {
+			s := subject()
+			_, old := MustSucceed2(svc.Create(ctx, s))
+			created := make(chan string, 1)
+			Expect(svc.Redeem(ctx, old, func(gorp.Tx, invite.Invite) error {
+				go func() {
+					defer GinkgoRecover()
+					_, token := MustSucceed2(svc.Create(ctx, s))
+					created <- token
+				}()
+				Consistently(created, "50ms").ShouldNot(Receive())
+				return nil
+			})).To(Succeed())
+			var current string
+			Eventually(created).Should(Receive(&current))
+			Expect(svc.Redeem(ctx, current, noop)).To(Succeed())
+		})
+		DescribeTable(
 			"Should give the same error for each token it refuses",
-			func(ctx SpecContext) {
-				_, expired := MustSucceed2(svc.NewWriter(nil).Create(ctx, subject()))
+			func(ctx SpecContext, token func(SpecContext) string) {
+				err := svc.Redeem(ctx, token(ctx), noop)
+				Expect(err).To(BeIdenticalTo(auth.ErrInvalidCredentials))
+			},
+			Entry("expired", func(ctx SpecContext) string {
+				GinkgoHelper()
+				_, token := MustSucceed2(svc.Create(ctx, subject()))
 				clock.Advance(invite.Lifetime)
-				_, wrongSecret := MustSucceed2(
-					svc.NewWriter(nil).Create(ctx, subject()),
-				)
+				return token
+			}),
+			Entry("wrong secret", func(ctx SpecContext) string {
+				GinkgoHelper()
+				_, token := MustSucceed2(svc.Create(ctx, subject()))
 				secret := make([]byte, 32)
 				MustSucceed(rand.Read(secret))
 				key := MustSucceed(base64.RawURLEncoding.DecodeString(
-					strings.TrimPrefix(wrongSecret, "syi_"),
+					strings.TrimPrefix(token, "syi_"),
 				))[:16]
-				wrongSecret = "syi_" + base64.RawURLEncoding.EncodeToString(
+				return "syi_" + base64.RawURLEncoding.EncodeToString(
 					append(key, secret...),
 				)
-				unknown, _ := MustSucceed2(auth.NewToken("syi_", uuid.New()))
-				for _, token := range []string{
-					expired,
-					wrongSecret,
-					unknown,
-					"syi_malformed",
-					"",
-				} {
-					err := svc.Redeem(ctx, token, noop)
-					Expect(err).To(MatchError(auth.ErrInvalidCredentials))
-					Expect(err).To(BeIdenticalTo(auth.ErrInvalidCredentials))
-				}
-			},
+			}),
+			Entry("unknown", func(SpecContext) string {
+				GinkgoHelper()
+				token, _ := MustSucceed2(auth.NewToken("syi_", uuid.New()))
+				return token
+			}),
+			Entry("malformed", func(SpecContext) string { return "syi_malformed" }),
+			Entry("empty", func(SpecContext) string { return "" }),
 		)
 	})
 })

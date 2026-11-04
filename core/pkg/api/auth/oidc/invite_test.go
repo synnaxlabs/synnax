@@ -60,7 +60,6 @@ var _ = Describe("Disabled OIDC method for invites", func() {
 	It("Should refuse to create an invite", func(ctx SpecContext) {
 		Expect(disabled.CreateInvite(
 			requestCtx(ctx),
-			nil,
 			apioidc.CreateInviteRequest{},
 		)).Error().To(MatchError(validate.ErrValidation))
 	})
@@ -96,7 +95,6 @@ var _ = Describe("OIDC invites", func() {
 		GinkgoHelper()
 		return MustSucceed(apiSvc.CreateInvite(
 			authed(ctx, rootToken),
-			nil,
 			apioidc.CreateInviteRequest{Subject: subject},
 		))
 	}
@@ -138,7 +136,6 @@ var _ = Describe("OIDC invites", func() {
 		It("Should deny a caller that may not update the user", func(ctx SpecContext) {
 			Expect(apiSvc.CreateInvite(
 				authed(ctx, bobToken),
-				nil,
 				apioidc.CreateInviteRequest{Subject: subject},
 			)).Error().To(MatchError(access.ErrDenied))
 		})
@@ -146,14 +143,13 @@ var _ = Describe("OIDC invites", func() {
 			ctx SpecContext,
 		) {
 			caller := authed(ctx, bobToken)
-			Expect(apiSvc.CreateInvite(caller, nil, apioidc.CreateInviteRequest{
+			Expect(apiSvc.CreateInvite(caller, apioidc.CreateInviteRequest{
 				Subject: apiauth.GetSubject(caller),
 			})).Error().To(MatchError(access.ErrDenied))
 		})
 		It("Should refuse a rack", func(ctx SpecContext) {
 			Expect(apiSvc.CreateInvite(
 				authed(ctx, rootToken),
-				nil,
 				apioidc.CreateInviteRequest{Subject: ontology.ID{
 					Type: ontology.ResourceTypeRack,
 					Key:  uuid.New().String(),
@@ -163,7 +159,6 @@ var _ = Describe("OIDC invites", func() {
 		It("Should not find an unknown user", func(ctx SpecContext) {
 			Expect(apiSvc.CreateInvite(
 				authed(ctx, rootToken),
-				nil,
 				apioidc.CreateInviteRequest{Subject: user.OntologyID(uuid.New())},
 			)).Error().To(MatchError(query.ErrNotFound))
 		})
@@ -317,10 +312,10 @@ var _ = Describe("OIDC invites", func() {
 		It("Should give one error for wrong and expired tokens", func(ctx SpecContext) {
 			expired := create(ctx).Token
 			clock.Advance(invite.Lifetime)
-			_, expiredErr := redeem(ctx, expired, grantAccount(uuid.New().String()))
-			Expect(expiredErr).To(MatchError(auth.ErrInvalidCredentials))
-			_, wrongErr := redeem(ctx, "syi_wrong", grantAccount(uuid.New().String()))
-			Expect(wrongErr).To(BeIdenticalTo(expiredErr))
+			Expect(redeem(ctx, expired, grantAccount(uuid.New().String()))).Error().
+				To(MatchError(auth.ErrInvalidCredentials))
+			Expect(redeem(ctx, "syi_wrong", grantAccount(uuid.New().String()))).Error().
+				To(MatchError(auth.ErrInvalidCredentials))
 		})
 		It("Should refuse an account the provider rejects", func(ctx SpecContext) {
 			res := create(ctx)

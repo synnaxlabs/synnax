@@ -544,9 +544,7 @@ func (l *Layer) BindTo(t Transport) {
 	t.AuthOIDCLink.BindHandler(fgorp.CreateWriteUnaryHandler(db, l.OIDC.Link))
 	t.AuthOIDCRetrieve.BindHandler(l.OIDC.Retrieve)
 	t.AuthOIDCUnlink.BindHandler(fgorp.CreateWriteUnaryHandler(db, l.OIDC.Unlink))
-	t.AuthOIDCInviteCreate.BindHandler(
-		fgorp.CreateWriteUnaryHandler(db, l.OIDC.CreateInvite),
-	)
+	t.AuthOIDCInviteCreate.BindHandler(l.OIDC.CreateInvite)
 	t.AuthOIDCInviteRetrieve.BindHandler(l.OIDC.RetrieveInvites)
 	t.AuthOIDCInviteDelete.BindHandler(
 		fgorp.CreateWriteUnaryHandler(db, l.OIDC.DeleteInvites),

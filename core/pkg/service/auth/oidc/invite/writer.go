@@ -11,57 +11,16 @@ package invite
 
 import (
 	"context"
-	"crypto/sha256"
 
 	"github.com/synnaxlabs/gorp"
-	"github.com/synnaxlabs/synnax/pkg/service/auth"
 	"github.com/synnaxlabs/synnax/pkg/service/ontology"
-	"github.com/synnaxlabs/x/telem"
 )
 
-// Writer creates and deletes invites in one transaction. It makes no identity check:
+// Writer deletes invites in one transaction. It makes no identity check:
 // the caller authorizes the change.
 type Writer struct {
 	svc *Service
 	tx  gorp.Tx
-}
-
-// Create stores a new invite for subject in place of any earlier one, and returns it
-// with its token, the only copy of its secret. It returns a validation error when
-// subject is invalid.
-func (w Writer) Create(
-	ctx context.Context,
-	subject ontology.ID,
-) (Invite, string, error) {
-	now := w.svc.cfg.Clock.Now()
-	i := Invite{
-		Key:     keyOf(subject),
-		Subject: subject,
-		Expiry:  telem.NewTimeStamp(now.Add(Lifetime)),
-	}
-	if err := i.Validate(); err != nil {
-		return Invite{}, "", err
-	}
-	token, hash, err := auth.NewToken(prefix, i.Key)
-	if err != nil {
-		return Invite{}, "", err
-	}
-	i.Hash = hash
-	if err = w.svc.table.NewCreate().Entry(&i).Exec(ctx, w.tx); err != nil {
-		return Invite{}, "", err
-	}
-	return i, token, nil
-}
-
-// keyOf is the same for every invite to subject, so a new invite overwrites the last
-// one, even when two are created at once.
-func keyOf(subject ontology.ID) Key {
-	sum := sha256.Sum256([]byte(subject.String()))
-	var k Key
-	copy(k[:], sum[:16])
-	k[6] = k[6]&0x0f | 0x80
-	k[8] = k[8]&0x3f | 0x80
-	return k
 }
 
 // Delete removes the invites with the given keys. Unknown keys are ignored.
