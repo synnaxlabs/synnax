@@ -32,6 +32,7 @@ from tests.driver.task import create_channel, create_index
 
 DEADLOCK_DURATION = 1 * sy.TimeSpan.SECOND
 HEALTH_TIMEOUT = 30 * sy.TimeSpan.SECOND
+STOP_TIMEOUT = 10 * sy.TimeSpan.SECOND
 
 
 def _create_read_channels(client: sy.Synnax, prefix: str) -> list[sy.opcua.ReadChannel]:
@@ -214,6 +215,12 @@ class OPCUADriverResponsiveness(OPCUAReadTaskCase):
                 self.client.tasks.delete(self.modbus_task.key)
             except sy.NotFoundError:
                 pass
+        # The OPC UA tasks run even while the server is frozen, and a running task
+        # holds writers that block the deletion of its channels.
+        for task in [self.tsk, *self.extra_tasks]:
+            if task is not None:
+                with self._try_to(f"stop {task.name}"):
+                    task.stop(timeout=STOP_TIMEOUT.seconds)
         for task in self.extra_tasks:
             try:
                 self.client.tasks.delete(task.key)
