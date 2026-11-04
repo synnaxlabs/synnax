@@ -7,13 +7,14 @@
 #  License, use of this software will be governed by the Apache License, Version 2.0,
 #  included in the file licenses/APL.txt.
 
-from typing import Any, TypeVar
+from typing import TypeVar, Unpack
 
 from pydantic import JsonValue
 
 import synnax as sy
 from console.case import ConsoleCase
 from console.task_page import TaskPage
+from framework.test_case import Config
 from tests.driver.simulator_case import SimulatorCase
 from tests.driver.task import (
     assert_sample_rate,
@@ -50,8 +51,8 @@ class ConsoleTaskCase(SimulatorCase, ConsoleCase):
     TASK_DURATION: sy.TimeSpan = 1 * sy.TimeSpan.SECOND
     task_names: list[str]
 
-    def __init__(self, **params: Any) -> None:
-        super().__init__(**params)
+    def __init__(self, **kwargs: Unpack[Config]) -> None:
+        super().__init__(**kwargs)
         self.task_names = []
 
     def teardown(self) -> None:

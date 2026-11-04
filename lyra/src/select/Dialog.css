@@ -34,3 +34,8 @@
         /* stylelint-enable declaration-no-important */
     }
 }
+
+/* At the dialog's height cap, the list gives up space, never the footer. */
+.lyra-select__body > :not(.lyra-list__scroll) {
+    flex-shrink: 0;
+}

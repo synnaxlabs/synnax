@@ -7,11 +7,12 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { configureStore, type Middleware, type Store } from "@reduxjs/toolkit";
+import { type Middleware, type Store } from "@reduxjs/toolkit";
 import { describe, expect, it, vi } from "vitest";
 
 import { Core } from "@/session/core";
 import { Persist } from "@/session/persist";
+import { createMinimalStore } from "@/testutil";
 
 const CLUSTER_A = "cluster-a";
 const CLUSTER_B = "cluster-b";
@@ -42,7 +43,7 @@ const createStore = (
     record(action);
     return next(action);
   };
-  const store = configureStore({
+  const store = createMinimalStore({
     reducer: { [Core.SLICE_NAME]: Core.reducer },
     preloadedState: {
       [Core.SLICE_NAME]: {

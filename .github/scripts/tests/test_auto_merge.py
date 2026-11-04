@@ -7,7 +7,6 @@
 #  License, use of this software will be governed by the Apache License, Version 2.0,
 #  included in the file licenses/APL.txt.
 
-import json
 import os
 import subprocess
 from collections.abc import Callable
@@ -15,32 +14,12 @@ from pathlib import Path
 from typing import Any
 
 import pytest
+from scripts_common import FakeGH
 
 SCRIPT = Path(__file__).resolve().parents[1] / "auto_merge.sh"
 BOT = "synnax-claude-code[bot]"
 
 Run = Callable[[dict[str, Any]], tuple[str, list[str]]]
-
-# Stands in for gh: serves the pull request from FAKE_GH_DIR with the requested jq
-# expression, and records every `gh pr merge` call.
-FAKE_GH = """#!/usr/bin/env bash
-set -euo pipefail
-if [ "$1" = pr ]; then
-    echo "$*" >> "$FAKE_GH_DIR/merge-calls"
-    exit 0
-fi
-EXPR="."
-while [ $# -gt 0 ]; do
-    case "$1" in
-        --jq)
-            EXPR=$2
-            shift 2
-            ;;
-        *) shift ;;
-    esac
-done
-jq -r "$EXPR" "$FAKE_GH_DIR/pull.json"
-"""
 
 
 def pull(
@@ -50,8 +29,10 @@ def pull(
     draft: bool = False,
     base: str = "main",
     stacked: bool = False,
+    state: str = "open",
 ) -> dict[str, Any]:
     return {
+        "state": state,
         "stack": {"number": 3980, "position": 1, "size": 2} if stacked else None,
         "labels": [{"name": n} for n in labels],
         "draft": draft,
@@ -63,29 +44,29 @@ def pull(
 
 
 @pytest.fixture
-def run(tmp_path: Path) -> Run:
-    data = tmp_path / "gh"
-    data.mkdir()
-    bin_dir = tmp_path / "bin"
-    bin_dir.mkdir()
-    gh = bin_dir / "gh"
-    gh.write_text(FAKE_GH)
-    gh.chmod(0o755)
-    env = {
+def gh(tmp_path: Path) -> FakeGH:
+    return FakeGH(tmp_path)
+
+
+@pytest.fixture
+def env(gh: FakeGH) -> dict[str, str]:
+    return {
         **os.environ,
-        "PATH": f"{bin_dir}:{os.environ['PATH']}",
-        "FAKE_GH_DIR": str(data),
+        "PATH": f"{gh.bin_dir}:{os.environ['PATH']}",
         "GITHUB_REPOSITORY": "synnaxlabs/synnax",
     }
 
+
+@pytest.fixture
+def run(gh: FakeGH, env: dict[str, str]) -> Run:
+    gh.serve("pr merge")
+
     def run(pr: dict[str, Any]) -> tuple[str, list[str]]:
-        (data / "pull.json").write_text(json.dumps(pr))
-        calls = data / "merge-calls"
-        calls.unlink(missing_ok=True)
+        gh.serve("api */pulls/7", pr)
         out = subprocess.run(
             [str(SCRIPT), "7"], env=env, capture_output=True, text=True, check=True
         )
-        made = calls.read_text().splitlines() if calls.exists() else []
+        made = [" ".join(c) for c in gh.calls() if c[:2] == ["pr", "merge"]]
         return out.stdout.strip(), made
 
     return run
@@ -145,3 +126,29 @@ class TestAutoMerge:
         decision, calls = run(pull(["review/human"], enabled_by="emilbon99"))
         assert decision == "unchanged"
         assert calls == []
+
+    @pytest.mark.parametrize(
+        "pr",
+        [
+            pull(["review/bot"], enabled_by=BOT, base="feature", state="closed"),
+            pull(["review/bot", "review/human"], enabled_by=BOT, state="closed"),
+            pull(["review/bot"], state="closed"),
+        ],
+    )
+    def test_leaves_a_closed_pull_request(self, run: Run, pr: dict[str, Any]) -> None:
+        """Should not call gh for a merged or closed pull request, whose stale
+        auto_merge field GitHub keeps."""
+        decision, calls = run(pr)
+        assert decision == "unchanged: the pull request is closed"
+        assert calls == []
+
+    def test_fails_when_an_open_pull_request_rejects_the_change(
+        self, gh: FakeGH, env: dict[str, str]
+    ) -> None:
+        """Should fail when gh rejects the change on an open pull request."""
+        gh.serve("api */pulls/7", pull(["review/human"], enabled_by=BOT))
+        out = subprocess.run(
+            [str(SCRIPT), "7"], env=env, capture_output=True, text=True, check=False
+        )
+        assert out.returncode != 0
+        assert out.stdout == ""

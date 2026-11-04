@@ -24,9 +24,7 @@ const Actions = (): ReactElement | null => {
   if (!hasCreatePermission) return null;
   return (
     <Toolbar.Actions>
-      <Toolbar.Action onClick={() => openCreate()} tooltip="Create project">
-        <Icon.Add />
-      </Toolbar.Action>
+      <Toolbar.CreateAction onClick={() => openCreate()} tooltip="Create project" />
     </Toolbar.Actions>
   );
 };

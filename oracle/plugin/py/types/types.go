@@ -11,6 +11,7 @@ package types
 
 import (
 	"bytes"
+	"cmp"
 	"fmt"
 	"slices"
 	"strings"
@@ -982,6 +983,7 @@ func processField(
 			fieldConstraints = append(fieldConstraints, "le="+bounds.max)
 		}
 	}
+	orderBounds(fieldConstraints)
 
 	// Check if this field should be excluded from serialization (Pydantic v2)
 	isExcluded := lo.Contains(excludedFields, field.Name)
@@ -1024,6 +1026,24 @@ func processField(
 	)
 
 	return fd
+}
+
+// orderBounds moves ge and le to the end of constraints, so the output does not depend
+// on which bounds a schema states and which its type implies.
+func orderBounds(constraints []string) {
+	rank := func(c string) int {
+		switch {
+		case strings.HasPrefix(c, "ge="):
+			return 1
+		case strings.HasPrefix(c, "le="):
+			return 2
+		default:
+			return 0
+		}
+	}
+	slices.SortStableFunc(constraints, func(a, b string) int {
+		return cmp.Compare(rank(a), rank(b))
+	})
 }
 
 // ensureDefaultFactory appends a default_factory constraint unless one is already
