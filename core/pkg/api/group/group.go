@@ -74,9 +74,10 @@ func NewService(cfgs ...ServiceConfig) (*Service, error) {
 
 type (
 	CreateRequest struct {
-		Parent resource.ID `json:"parent" msgpack:"parent"`
-		Name   string      `json:"name"   msgpack:"name"`
-		Key    group.Key   `json:"key"    msgpack:"key"`
+		Parent *resource.ID  `json:"parent" msgpack:"parent"`
+		Name   string        `json:"name"   msgpack:"name"`
+		Scope  resource.Type `json:"scope"  msgpack:"scope"`
+		Key    group.Key     `json:"key"    msgpack:"key"`
 	}
 	CreateResponse struct {
 		Group group.Group `json:"group" msgpack:"group"`
@@ -95,8 +96,8 @@ func (s *Service) Create(
 	}); err != nil {
 		return CreateResponse{}, err
 	}
-	g, err := s.internal.NewWriter(tx).CreateWithKey(ctx, req.Key, req.Name, req.Parent)
-	if err != nil {
+	g := group.Group{Key: req.Key, Name: req.Name, Scope: req.Scope, Parent: req.Parent}
+	if err := s.internal.NewWriter(tx).Create(ctx, &g); err != nil {
 		return CreateResponse{}, err
 	}
 	return CreateResponse{Group: g}, nil
@@ -104,10 +105,21 @@ func (s *Service) Create(
 
 type (
 	RetrieveRequest struct {
-		Keys []group.Key `json:"keys" msgpack:"keys"`
+		// Nested keeps only groups with a parent when true, and only groups with no
+		// parent when false. Nil applies no filter.
+		Nested     *bool           `json:"nested"      msgpack:"nested"`
+		SearchTerm string          `json:"search_term" msgpack:"search_term"`
+		Keys       []group.Key     `json:"keys"        msgpack:"keys"`
+		Parents    []resource.ID   `json:"parents"     msgpack:"parents"`
+		Scopes     []resource.Type `json:"scopes"      msgpack:"scopes"`
+		Limit      int             `json:"limit"       msgpack:"limit"`
+		Offset     int             `json:"offset"      msgpack:"offset"`
+		// Ancestors adds every group above the returned groups to the response.
+		Ancestors bool `json:"ancestors" msgpack:"ancestors"`
 	}
 	RetrieveResponse struct {
-		Groups []group.Group `json:"groups" msgpack:"groups"`
+		Groups    []group.Group `json:"groups"              msgpack:"groups"`
+		Ancestors []group.Group `json:"ancestors,omitempty" msgpack:"ancestors,omitempty"`
 	}
 )
 
@@ -115,17 +127,45 @@ func (s *Service) Retrieve(
 	ctx context.Context,
 	req RetrieveRequest,
 ) (RetrieveResponse, error) {
-	var res RetrieveResponse
-	if err := s.internal.NewRetrieve().
-		Where(group.MatchKeys(req.Keys...)).
-		Entries(&res.Groups).
-		Exec(ctx, nil); err != nil {
+	var (
+		res RetrieveResponse
+		q   = s.internal.NewRetrieve().Search(req.SearchTerm)
+	)
+	if len(req.Keys) > 0 {
+		q = q.Where(group.MatchKeys(req.Keys...))
+	}
+	if len(req.Parents) > 0 {
+		q = q.Where(group.MatchParents(req.Parents...))
+	}
+	if len(req.Scopes) > 0 {
+		q = q.Where(group.MatchScopes(req.Scopes...))
+	}
+	if req.Nested != nil {
+		q = q.Where(group.MatchNested(*req.Nested))
+	}
+	if req.Limit > 0 {
+		q = q.Limit(req.Limit)
+	}
+	if req.Offset > 0 {
+		q = q.Offset(req.Offset)
+	}
+	if err := q.Entries(&res.Groups).Exec(ctx, nil); err != nil {
 		return RetrieveResponse{}, err
+	}
+	if req.Ancestors && len(res.Groups) > 0 {
+		var err error
+		if res.Ancestors, err = s.internal.Ancestors(
+			ctx,
+			nil,
+			group.KeysFromGroups(res.Groups)...,
+		); err != nil {
+			return RetrieveResponse{}, err
+		}
 	}
 	if err := s.access.NewEnforcer(nil).Enforce(ctx, access.Request{
 		Subject: auth.GetSubject(ctx),
 		Action:  access.ActionRetrieve,
-		Objects: group.ResourceIDsFromGroups(res.Groups),
+		Objects: group.ResourceIDsFromGroups(append(res.Groups, res.Ancestors...)),
 	}); err != nil {
 		return RetrieveResponse{}, err
 	}
@@ -169,4 +209,25 @@ func (s *Service) Rename(
 		return struct{}{}, err
 	}
 	return struct{}{}, s.internal.NewWriter(tx).Rename(ctx, req.Key, req.Name)
+}
+
+// SetParentRequest moves groups under Parent, or to the top level when Parent is nil.
+type SetParentRequest struct {
+	Parent *resource.ID `json:"parent" msgpack:"parent"`
+	Keys   []group.Key  `json:"keys"   msgpack:"keys"`
+}
+
+func (s *Service) SetParent(
+	ctx context.Context,
+	tx gorp.Tx,
+	req SetParentRequest,
+) (struct{}, error) {
+	if err := s.access.NewEnforcer(tx).Enforce(ctx, access.Request{
+		Subject: auth.GetSubject(ctx),
+		Action:  access.ActionUpdate,
+		Objects: group.ResourceIDs(req.Keys),
+	}); err != nil {
+		return struct{}{}, err
+	}
+	return struct{}{}, s.internal.NewWriter(tx).SetParent(ctx, req.Parent, req.Keys...)
 }

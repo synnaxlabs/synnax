@@ -82,9 +82,6 @@ type (
 	// CreateRequest carries the symbols to create and the resource to create them
 	// under. A zero Parent leaves the symbols unattached.
 	CreateRequest struct {
-		// Parent is the resource to attach the symbols to. A zero value leaves them
-		// unattached.
-		Parent resource.ID `json:"parent" msgpack:"parent"`
 		// Symbols are the symbols to create. The Core mints a key for each.
 		Symbols []symbol.Symbol `json:"symbols" msgpack:"symbols"`
 	}
@@ -96,7 +93,7 @@ type (
 )
 
 // Create persists the symbols in req. It requires create access on the symbol type,
-// and update access on req.Parent when one is given.
+// and update access on each group a symbol sits in.
 func (s *Service) Create(
 	ctx context.Context,
 	tx gorp.Tx,
@@ -110,20 +107,26 @@ func (s *Service) Create(
 	}); err != nil {
 		return CreateResponse{}, err
 	}
-	if !req.Parent.IsZero() {
+	var groups []resource.ID
+	for _, sym := range req.Symbols {
+		if sym.Group != nil {
+			groups = append(groups, group.ResourceID(*sym.Group))
+		}
+	}
+	if len(groups) > 0 {
 		if err := enforcer.Enforce(ctx, access.Request{
 			Subject: auth.GetSubject(ctx),
 			Action:  access.ActionUpdate,
-			Objects: []resource.ID{req.Parent},
+			Objects: groups,
 		}); err != nil {
 			return CreateResponse{}, err
 		}
 	}
 	writer := s.internal.NewWriter(tx)
-	if err := writer.CreateMany(ctx, &req.Symbols, req.Parent); err != nil {
+	if err := writer.CreateMany(ctx, &req.Symbols); err != nil {
 		return CreateResponse{}, err
 	}
-	return CreateResponse{Symbols: req.Symbols}, nil
+	return CreateResponse(req), nil
 }
 
 type (
@@ -134,6 +137,11 @@ type (
 		SearchTerm string `json:"search_term" msgpack:"search_term"`
 		// Keys narrows the query to these symbols. Empty applies no key filter.
 		Keys []symbol.Key `json:"keys" msgpack:"keys"`
+		// Groups keeps only the symbols in any of these groups.
+		Groups []group.Key `json:"groups" msgpack:"groups"`
+		// Grouped keeps only the symbols in a group when true, and only the symbols in
+		// no group when false. Nil applies no filter.
+		Grouped *bool `json:"grouped" msgpack:"grouped"`
 	}
 	// RetrieveResponse carries the matched symbols.
 	RetrieveResponse struct {
@@ -156,6 +164,12 @@ func (s *Service) Retrieve(
 		q = q.Search(req.SearchTerm)
 	}
 	var res RetrieveResponse
+	if len(req.Groups) > 0 {
+		q = q.Where(symbol.MatchGroups(req.Groups...))
+	}
+	if req.Grouped != nil {
+		q = q.Where(symbol.MatchGrouped(*req.Grouped))
+	}
 	if err := q.Entries(&res.Symbols).Exec(ctx, nil); err != nil {
 		return RetrieveResponse{}, err
 	}
@@ -213,31 +227,6 @@ func (s *Service) Delete(
 		return struct{}{}, err
 	}
 	return struct{}{}, s.internal.NewWriter(tx).Delete(ctx, req.Keys...)
-}
-
-// RetrieveGroupRequest is empty. The permanent symbol group is a singleton.
-type RetrieveGroupRequest struct{}
-
-// RetrieveGroupResponse carries the permanent group that holds every symbol group.
-type RetrieveGroupResponse struct {
-	// Group is the permanent group that holds every symbol group.
-	Group group.Group `json:"group" msgpack:"group"`
-}
-
-// RetrieveGroup returns the permanent symbol group. It requires retrieve access on it.
-func (s *Service) RetrieveGroup(
-	ctx context.Context,
-	_ RetrieveGroupRequest,
-) (RetrieveGroupResponse, error) {
-	g := s.internal.Group()
-	if err := s.access.NewEnforcer(nil).Enforce(ctx, access.Request{
-		Subject: auth.GetSubject(ctx),
-		Action:  access.ActionRetrieve,
-		Objects: []resource.ID{g.ResourceID()},
-	}); err != nil {
-		return RetrieveGroupResponse{}, err
-	}
-	return RetrieveGroupResponse{Group: g}, nil
 }
 
 type (
@@ -302,8 +291,7 @@ type (
 )
 
 // ImportGroup imports a symbol group bundle in a single transaction. It requires
-// create access on the group and symbol types, and update access on the permanent
-// symbol group, all enforced before any file decodes.
+// create access on the group and symbol types, enforced before any file decodes.
 func (s *Service) ImportGroup(
 	ctx context.Context,
 	tx gorp.Tx,
@@ -320,13 +308,6 @@ func (s *Service) ImportGroup(
 			{Type: resource.TypeGroup},
 			{Type: resource.TypeSchematicSymbol},
 		},
-	}); err != nil {
-		return ImportGroupResponse{}, err
-	}
-	if err := enforcer.Enforce(ctx, access.Request{
-		Subject: subject,
-		Action:  access.ActionUpdate,
-		Objects: []resource.ID{s.internal.Group().ResourceID()},
 	}); err != nil {
 		return ImportGroupResponse{}, err
 	}
@@ -376,4 +357,26 @@ func (s *Service) DeleteGroup(
 		return struct{}{}, err
 	}
 	return struct{}{}, s.internal.DeleteGroup(ctx, tx, req.Key, symbols)
+}
+
+// SetGroupRequest moves symbols into Group, or out of their group when Group is nil.
+type SetGroupRequest struct {
+	Group *group.Key   `json:"group" msgpack:"group"`
+	Keys  []symbol.Key `json:"keys"  msgpack:"keys"`
+}
+
+// SetGroup moves the symbols with the given keys into a group.
+func (s *Service) SetGroup(
+	ctx context.Context,
+	tx gorp.Tx,
+	req SetGroupRequest,
+) (struct{}, error) {
+	if err := s.access.NewEnforcer(tx).Enforce(ctx, access.Request{
+		Subject: auth.GetSubject(ctx),
+		Action:  access.ActionUpdate,
+		Objects: symbol.ResourceIDs(req.Keys),
+	}); err != nil {
+		return struct{}{}, err
+	}
+	return struct{}{}, s.internal.NewWriter(tx).SetGroup(ctx, req.Group, req.Keys...)
 }

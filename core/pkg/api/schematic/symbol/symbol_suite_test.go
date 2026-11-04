@@ -74,7 +74,6 @@ var _ = BeforeSuite(func(ctx SpecContext) {
 	rbacSvc = MustOpen(rbac.OpenService(ctx, rbac.ServiceConfig{
 		DB:       db,
 		Ontology: otg,
-		Group:    groupSvc,
 		User:     userSvc,
 	}))
 	symbolSvc = MustOpen(symbol.OpenService(ctx, symbol.ServiceConfig{
@@ -92,11 +91,13 @@ var _ = BeforeSuite(func(ctx SpecContext) {
 	}))
 })
 
-// createGroup creates a group under the ontology root. It writes outside a transaction
-// so the api enforcers, which read committed state, observe the new resource.
+// createGroup creates a top-level symbol group. It writes outside a transaction so the
+// api enforcers, which read committed state, observe the new resource.
 func createGroup(ctx SpecContext, name string) group.Group {
 	GinkgoHelper()
-	return MustSucceed(groupSvc.NewWriter(nil).Create(ctx, name, ontology.RootID))
+	g := group.Group{Name: name, Scope: resource.TypeSchematicSymbol}
+	Expect(groupSvc.NewWriter(nil).Create(ctx, &g)).To(Succeed())
+	return g
 }
 
 // newSymbol returns an unsaved symbol a create request can carry.
@@ -104,18 +105,19 @@ func newSymbol(name string) symbol.Symbol {
 	return symbol.Symbol{Name: name, Data: symbol.Spec{SVG: "<svg/>", Variant: "valve"}}
 }
 
-// createSymbol creates a symbol under g, committing it for the same reason createGroup
+// createSymbol creates a symbol in g, committing it for the same reason createGroup
 // does.
 func createSymbol(ctx SpecContext, g group.Group, name string) symbol.Symbol {
 	GinkgoHelper()
 	sym := newSymbol(name)
-	Expect(symbolSvc.NewWriter(nil).Create(ctx, &sym, g.ResourceID())).To(Succeed())
+	sym.Group = &g.Key
+	Expect(symbolSvc.NewWriter(nil).Create(ctx, &sym)).To(Succeed())
 	return sym
 }
 
 // createUser creates a user to author a request. Specs granting on an object the whole
-// suite shares — the symbol type or the permanent group — take a user of their own, so
-// the grant cannot reach another spec.
+// suite shares, such as the symbol type, take a user of their own, so the grant cannot
+// reach another spec.
 func createUser(ctx SpecContext) user.User {
 	GinkgoHelper()
 	return MustSucceed(userSvc.NewWriter(nil).Create(ctx, user.User{

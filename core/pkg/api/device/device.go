@@ -16,6 +16,7 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/api/auth"
 	"github.com/synnaxlabs/synnax/pkg/service/access"
 	"github.com/synnaxlabs/synnax/pkg/service/access/rbac"
+	"github.com/synnaxlabs/synnax/pkg/service/group"
 	"github.com/synnaxlabs/synnax/pkg/service/legacy/device"
 	"github.com/synnaxlabs/synnax/pkg/service/ontology"
 	"github.com/synnaxlabs/synnax/pkg/service/rack"
@@ -188,6 +189,11 @@ type RetrieveRequest struct {
 	IgnoreNotFound bool         `json:"ignore_not_found" msgpack:"ignore_not_found"`
 	IncludeStatus  bool         `json:"include_status"   msgpack:"include_status"`
 	IncludeParent  bool         `json:"include_parent"   msgpack:"include_parent"`
+	// Groups keeps only the devices in any of these groups.
+	Groups []group.Key `json:"groups" msgpack:"groups"`
+	// Grouped keeps only the devices in a group when true, and only the devices in
+	// no group when false. Nil applies no filter.
+	Grouped *bool `json:"grouped" msgpack:"grouped"`
 }
 
 type RetrieveResponse struct {
@@ -238,6 +244,12 @@ func (s *Service) Retrieve(
 		q = q.Where(device.MatchRacks(req.Racks...))
 	}
 	var res RetrieveResponse
+	if len(req.Groups) > 0 {
+		q = q.Where(device.MatchGroups(req.Groups...))
+	}
+	if req.Grouped != nil {
+		q = q.Where(device.MatchGrouped(*req.Grouped))
+	}
 	retErr := q.Entries(&res.Devices).Exec(ctx, nil)
 
 	if req.IncludeStatus {
@@ -329,4 +341,26 @@ func (s *Service) Delete(
 		}
 	}
 	return struct{}{}, nil
+}
+
+// SetGroupRequest moves devices into Group, or out of their group when Group is nil.
+type SetGroupRequest struct {
+	Group *group.Key   `json:"group" msgpack:"group"`
+	Keys  []device.Key `json:"keys"  msgpack:"keys"`
+}
+
+// SetGroup moves the devices with the given keys into a group.
+func (s *Service) SetGroup(
+	ctx context.Context,
+	tx gorp.Tx,
+	req SetGroupRequest,
+) (struct{}, error) {
+	if err := s.access.NewEnforcer(tx).Enforce(ctx, access.Request{
+		Subject: auth.GetSubject(ctx),
+		Action:  access.ActionUpdate,
+		Objects: device.ResourceIDs(req.Keys),
+	}); err != nil {
+		return struct{}{}, err
+	}
+	return struct{}{}, s.device.NewWriter(tx).SetGroup(ctx, req.Group, req.Keys...)
 }

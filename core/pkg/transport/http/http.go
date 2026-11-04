@@ -15,6 +15,7 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/api/access"
 	"github.com/synnaxlabs/synnax/pkg/api/arc"
 	"github.com/synnaxlabs/synnax/pkg/api/auth"
+	"github.com/synnaxlabs/synnax/pkg/api/batch"
 	"github.com/synnaxlabs/synnax/pkg/api/channel"
 	"github.com/synnaxlabs/synnax/pkg/api/connectivity"
 	"github.com/synnaxlabs/synnax/pkg/api/control"
@@ -130,10 +131,6 @@ func Bind(layer *api.Layer, router *http.Router) {
 			router,
 			"/api/v1/channel/rename",
 		),
-		ChannelRetrieveGroup: unary[channel.RetrieveGroupRequest, channel.RetrieveGroupResponse](
-			router,
-			"/api/v1/channel/retrieve-group",
-		),
 
 		// CONNECTIVITY
 		ConnectivityCheck: unary[struct{}, connectivity.CheckResponse](
@@ -216,19 +213,67 @@ func Bind(layer *api.Layer, router *http.Router) {
 		// GROUP
 		GroupCreate: unary[group.CreateRequest, group.CreateResponse](
 			router,
-			"/api/v1/ontology/create-group",
+			"/api/v1/group/create",
 		),
 		GroupDelete: unary[group.DeleteRequest, struct{}](
 			router,
-			"/api/v1/ontology/delete-group",
+			"/api/v1/group/delete",
 		),
 		GroupRename: unary[group.RenameRequest, struct{}](
 			router,
-			"/api/v1/ontology/rename-group",
+			"/api/v1/group/rename",
 		),
 		GroupRetrieve: unary[group.RetrieveRequest, group.RetrieveResponse](
 			router,
-			"/api/v1/ontology/retrieve-group",
+			"/api/v1/group/retrieve",
+		),
+		GroupSetParent: unary[group.SetParentRequest, struct{}](
+			router,
+			"/api/v1/group/set-parent",
+		),
+		ChannelSetGroup: unary[channel.SetGroupRequest, struct{}](
+			router,
+			"/api/v1/channel/set-group",
+		),
+		DeviceSetGroup: unary[device.SetGroupRequest, struct{}](
+			router,
+			"/api/v1/device/set-group",
+		),
+		RackSetGroup: unary[rack.SetGroupRequest, struct{}](
+			router,
+			"/api/v1/rack/set-group",
+		),
+		ProjectSetGroup: unary[project.SetGroupRequest, struct{}](
+			router,
+			"/api/v1/project/set-group",
+		),
+		SchematicSetGroup: unary[schematic.SetGroupRequest, struct{}](
+			router,
+			"/api/v1/schematic/set-group",
+		),
+		SchematicSymbolSetGroup: unary[symbol.SetGroupRequest, struct{}](
+			router,
+			"/api/v1/schematic/symbol/set-group",
+		),
+		LinePlotSetGroup: unary[lineplot.SetGroupRequest, struct{}](
+			router,
+			"/api/v1/lineplot/set-group",
+		),
+		LogSetGroup: unary[log.SetGroupRequest, struct{}](
+			router,
+			"/api/v1/log/set-group",
+		),
+		TableSetGroup: unary[table.SetGroupRequest, struct{}](
+			router,
+			"/api/v1/table/set-group",
+		),
+		PanelSetGroup: unary[panel.SetGroupRequest, struct{}](
+			router,
+			"/api/v1/panel/set-group",
+		),
+		Batch: unary[batch.ExecRequest, batch.ExecResponse](
+			router,
+			"/api/v1/batch",
 		),
 
 		// RANGE
@@ -350,10 +395,6 @@ func Bind(layer *api.Layer, router *http.Router) {
 		SchematicSymbolRename: unary[symbol.RenameRequest, struct{}](
 			router,
 			"/api/v1/schematic/symbol/rename",
-		),
-		SchematicSymbolRetrieveGroup: unary[symbol.RetrieveGroupRequest, symbol.RetrieveGroupResponse](
-			router,
-			"/api/v1/schematic/symbol/retrieve-group",
 		),
 		SchematicSymbolExportGroup: unary[symbol.ExportGroupRequest, symbol.ExportGroupResponse](
 			router,

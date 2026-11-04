@@ -62,7 +62,6 @@ var _ = BeforeSuite(func(ctx SpecContext) {
 	rbacSvc = MustOpen(rbac.OpenService(ctx, rbac.ServiceConfig{
 		DB:       dist.DB,
 		Ontology: otg,
-		Group:    groupSvc,
 		User:     userSvc,
 	}))
 	MustOpen(label.OpenService(ctx, label.ServiceConfig{
@@ -77,7 +76,6 @@ var _ = BeforeSuite(func(ctx SpecContext) {
 		DB:           dist.DB,
 		HostProvider: dist.Cluster,
 		Ontology:     otg,
-		Group:        groupSvc,
 		Status:       statusSvc,
 	}))
 	channelGraph := MustOpen(calcgraph.Open(ctx, calcgraph.Config{

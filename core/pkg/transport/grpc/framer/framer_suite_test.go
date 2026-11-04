@@ -68,7 +68,6 @@ var _ = BeforeSuite(func(ctx SpecContext) {
 		DB:           node.DB,
 		HostProvider: node.Cluster,
 		Ontology:     otg,
-		Group:        groupSvc,
 		Status:       statusSvc,
 	}))
 	userSvc := MustOpen(user.OpenService(ctx, user.ServiceConfig{
@@ -79,7 +78,6 @@ var _ = BeforeSuite(func(ctx SpecContext) {
 	rbacSvc := MustOpen(rbac.OpenService(ctx, rbac.ServiceConfig{
 		DB:       node.DB,
 		Ontology: otg,
-		Group:    groupSvc,
 		User:     userSvc,
 	}))
 	rangerSvc := MustOpen(ranger.OpenService(ctx, ranger.ServiceConfig{

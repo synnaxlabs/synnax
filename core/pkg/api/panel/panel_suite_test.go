@@ -73,7 +73,6 @@ var _ = BeforeSuite(func(ctx SpecContext) {
 	rbacSvc = MustOpen(rbac.OpenService(ctx, rbac.ServiceConfig{
 		DB:       db,
 		Ontology: otg,
-		Group:    groupSvc,
 		User:     userSvc,
 	}))
 	panelSvc = MustOpen(panel.OpenService(ctx, panel.ServiceConfig{
@@ -88,7 +87,7 @@ var _ = BeforeSuite(func(ctx SpecContext) {
 		userSvc.NewWriter(nil).Create(ctx, user.User{Name: "test"}),
 	)
 	parentID = MustSucceed(
-		groupSvc.CreateOrRetrieve(ctx, "panel-parent", ontology.RootID),
+		groupSvc.CreateOrRetrieve(ctx, "panel-parent", resource.TypeProject),
 	).
 		ResourceID()
 })

@@ -227,6 +227,11 @@ type RetrieveRequest struct {
 	// returned channels when true. Channels with no status row are returned with a nil
 	// status.
 	IncludeStatus bool `json:"include_status" msgpack:"include_status"`
+	// Groups keeps only the channels in any of these groups.
+	Groups []group.Key `json:"groups" msgpack:"groups"`
+	// Grouped keeps only the channels in a group when true, and only the channels in
+	// no group when false. Nil applies no filter.
+	Grouped *bool `json:"grouped" msgpack:"grouped"`
 }
 
 // RetrieveResponse is the response for a RetrieveRequest.
@@ -381,6 +386,12 @@ func (s *Service) filter(req RetrieveRequest, q channel.Retrieve) channel.Retrie
 	if req.Internal != nil {
 		q = q.Where(channel.MatchInternal(*req.Internal))
 	}
+	if len(req.Groups) > 0 {
+		q = q.Where(channel.MatchGroups(req.Groups...))
+	}
+	if req.Grouped != nil {
+		q = q.Where(channel.MatchGrouped(*req.Grouped))
+	}
 	return q
 }
 
@@ -496,23 +507,24 @@ func (s *Service) Rename(
 	)
 }
 
-type RetrieveGroupRequest struct{}
-
-type RetrieveGroupResponse struct {
-	Group group.Group `json:"group" msgpack:"group"`
+// SetGroupRequest moves channels into Group, or out of their group when Group is nil.
+type SetGroupRequest struct {
+	Group *group.Key    `json:"group" msgpack:"group"`
+	Keys  []channel.Key `json:"keys"  msgpack:"keys"`
 }
 
-func (s *Service) RetrieveGroup(
+// SetGroup moves the channels with the given keys into a group.
+func (s *Service) SetGroup(
 	ctx context.Context,
-	_ RetrieveGroupRequest,
-) (RetrieveGroupResponse, error) {
-	g := s.internal.Group()
-	if err := s.access.NewEnforcer(nil).Enforce(ctx, access.Request{
+	tx gorp.Tx,
+	req SetGroupRequest,
+) (struct{}, error) {
+	if err := s.access.NewEnforcer(tx).Enforce(ctx, access.Request{
 		Subject: auth.GetSubject(ctx),
-		Action:  access.ActionRetrieve,
-		Objects: []resource.ID{g.ResourceID()},
+		Action:  access.ActionUpdate,
+		Objects: channel.ResourceIDsFromKeys(req.Keys),
 	}); err != nil {
-		return RetrieveGroupResponse{}, err
+		return struct{}{}, err
 	}
-	return RetrieveGroupResponse{Group: g}, nil
+	return struct{}{}, s.internal.NewWriter(tx).SetGroup(ctx, req.Group, req.Keys...)
 }

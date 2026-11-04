@@ -18,6 +18,7 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/service/access"
 	"github.com/synnaxlabs/synnax/pkg/service/access/rbac"
 	svcauth "github.com/synnaxlabs/synnax/pkg/service/auth"
+	"github.com/synnaxlabs/synnax/pkg/service/group"
 	"github.com/synnaxlabs/synnax/pkg/service/legacy/device"
 	"github.com/synnaxlabs/synnax/pkg/service/rack"
 	"github.com/synnaxlabs/synnax/pkg/service/resource"
@@ -257,6 +258,11 @@ type (
 		Limit         int        `json:"limit"          msgpack:"limit"`
 		Offset        int        `json:"offset"         msgpack:"offset"`
 		IncludeStatus bool       `json:"include_status" msgpack:"include_status"`
+		// Groups keeps only the racks in any of these groups.
+		Groups []group.Key `json:"groups" msgpack:"groups"`
+		// Grouped keeps only the racks in a group when true, and only the racks in
+		// no group when false. Nil applies no filter.
+		Grouped *bool `json:"grouped" msgpack:"grouped"`
 	}
 	RetrieveResponse struct {
 		Racks []rack.Rack `json:"racks" msgpack:"racks"`
@@ -300,6 +306,12 @@ func (s *Service) Retrieve(
 	}
 	if hasIntegration {
 		q = q.Where(rack.MatchIntegration(req.Integration))
+	}
+	if len(req.Groups) > 0 {
+		q = q.Where(rack.MatchGroups(req.Groups...))
+	}
+	if req.Grouped != nil {
+		q = q.Where(rack.MatchGrouped(*req.Grouped))
 	}
 	if err := q.Entries(&resRacks).Exec(ctx, nil); err != nil {
 		return RetrieveResponse{}, err
@@ -405,4 +417,26 @@ func (s *Service) Delete(
 	}
 	return struct{}{}, s.auth.NewWriter(tx).
 		DeleteFor(ctx, rack.ResourceIDs(req.Keys)...)
+}
+
+// SetGroupRequest moves racks into Group, or out of their group when Group is nil.
+type SetGroupRequest struct {
+	Group *group.Key `json:"group" msgpack:"group"`
+	Keys  []rack.Key `json:"keys"  msgpack:"keys"`
+}
+
+// SetGroup moves the racks with the given keys into a group.
+func (s *Service) SetGroup(
+	ctx context.Context,
+	tx gorp.Tx,
+	req SetGroupRequest,
+) (struct{}, error) {
+	if err := s.access.NewEnforcer(tx).Enforce(ctx, access.Request{
+		Subject: auth.GetSubject(ctx),
+		Action:  access.ActionUpdate,
+		Objects: rack.ResourceIDs(req.Keys),
+	}); err != nil {
+		return struct{}{}, err
+	}
+	return struct{}{}, s.rack.NewWriter(tx).SetGroup(ctx, req.Group, req.Keys...)
 }

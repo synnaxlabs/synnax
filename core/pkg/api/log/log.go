@@ -17,6 +17,7 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/service/access"
 	"github.com/synnaxlabs/synnax/pkg/service/access/rbac"
 	"github.com/synnaxlabs/synnax/pkg/service/actions"
+	"github.com/synnaxlabs/synnax/pkg/service/group"
 	"github.com/synnaxlabs/synnax/pkg/service/log"
 	"github.com/synnaxlabs/synnax/pkg/service/project"
 	"github.com/synnaxlabs/synnax/pkg/service/resource"
@@ -135,6 +136,11 @@ type (
 	RetrieveRequest struct {
 		Keys                []log.Key `json:"keys"                   msgpack:"keys"`
 		IgnoreNotFoundError bool      `json:"ignore_not_found_error" msgpack:"ignore_not_found_error"`
+		// Groups keeps only the logs in any of these groups.
+		Groups []group.Key `json:"groups" msgpack:"groups"`
+		// Grouped keeps only the logs in a group when true, and only the logs in
+		// no group when false. Nil applies no filter.
+		Grouped *bool `json:"grouped" msgpack:"grouped"`
 	}
 	RetrieveResponse struct {
 		Logs []log.Log `json:"logs" msgpack:"logs"`
@@ -146,8 +152,17 @@ func (s *Service) Retrieve(
 	req RetrieveRequest,
 ) (RetrieveResponse, error) {
 	var res RetrieveResponse
-	err := s.internal.NewRetrieve().
-		Where(log.MatchKeys(req.Keys...)).Entries(&res.Logs).Exec(ctx, nil)
+	q := s.internal.NewRetrieve()
+	if len(req.Keys) > 0 {
+		q = q.Where(log.MatchKeys(req.Keys...))
+	}
+	if len(req.Groups) > 0 {
+		q = q.Where(log.MatchGroups(req.Groups...))
+	}
+	if req.Grouped != nil {
+		q = q.Where(log.MatchGrouped(*req.Grouped))
+	}
+	err := q.Entries(&res.Logs).Exec(ctx, nil)
 	if req.IgnoreNotFoundError && err != nil {
 		err = errors.Skip(err, query.ErrNotFound)
 	}
@@ -181,4 +196,26 @@ func (s *Service) Delete(
 		return struct{}{}, err
 	}
 	return struct{}{}, s.internal.NewWriter(tx).Delete(ctx, req.Keys...)
+}
+
+// SetGroupRequest moves logs into Group, or out of their group when Group is nil.
+type SetGroupRequest struct {
+	Group *group.Key `json:"group" msgpack:"group"`
+	Keys  []log.Key  `json:"keys"  msgpack:"keys"`
+}
+
+// SetGroup moves the logs with the given keys into a group.
+func (s *Service) SetGroup(
+	ctx context.Context,
+	tx gorp.Tx,
+	req SetGroupRequest,
+) (struct{}, error) {
+	if err := s.access.NewEnforcer(tx).Enforce(ctx, access.Request{
+		Subject: auth.GetSubject(ctx),
+		Action:  access.ActionUpdate,
+		Objects: log.ResourceIDs(req.Keys),
+	}); err != nil {
+		return struct{}{}, err
+	}
+	return struct{}{}, s.internal.NewWriter(tx).SetGroup(ctx, req.Group, req.Keys...)
 }

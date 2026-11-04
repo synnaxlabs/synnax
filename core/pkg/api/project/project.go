@@ -19,6 +19,7 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/api/imex"
 	"github.com/synnaxlabs/synnax/pkg/service/access"
 	"github.com/synnaxlabs/synnax/pkg/service/access/rbac"
+	"github.com/synnaxlabs/synnax/pkg/service/group"
 	"github.com/synnaxlabs/synnax/pkg/service/project"
 	"github.com/synnaxlabs/synnax/pkg/service/resource"
 	"github.com/synnaxlabs/x/config"
@@ -130,6 +131,12 @@ type (
 		Limit               int           `json:"limit"                  msgpack:"limit"`
 		Offset              int           `json:"offset"                 msgpack:"offset"`
 		IgnoreNotFoundError bool          `json:"ignore_not_found_error" msgpack:"ignore_not_found_error"`
+		// Groups keeps only the projects in any of these groups.
+		Groups []group.Key `json:"groups" msgpack:"groups"`
+		// Grouped keeps only the projects in a group when true, and only the projects
+		// in
+		// no group when false. Nil applies no filter.
+		Grouped *bool `json:"grouped" msgpack:"grouped"`
 	}
 	RetrieveResponse struct {
 		Projects []project.Project `json:"projects" msgpack:"projects"`
@@ -149,6 +156,12 @@ func (s *Service) Retrieve(
 	}
 	if req.Offset > 0 {
 		q = q.Offset(req.Offset)
+	}
+	if len(req.Groups) > 0 {
+		q = q.Where(project.MatchGroups(req.Groups...))
+	}
+	if req.Grouped != nil {
+		q = q.Where(project.MatchGrouped(*req.Grouped))
 	}
 	err = q.Entries(&res.Projects).Exec(ctx, nil)
 	if req.IgnoreNotFoundError && err != nil {
@@ -301,4 +314,26 @@ func (s *Service) Delete(
 		return struct{}{}, err
 	}
 	return struct{}{}, s.internal.NewWriter(tx).Delete(ctx, req.Keys...)
+}
+
+// SetGroupRequest moves projects into Group, or out of their group when Group is nil.
+type SetGroupRequest struct {
+	Group *group.Key    `json:"group" msgpack:"group"`
+	Keys  []project.Key `json:"keys"  msgpack:"keys"`
+}
+
+// SetGroup moves the projects with the given keys into a group.
+func (s *Service) SetGroup(
+	ctx context.Context,
+	tx gorp.Tx,
+	req SetGroupRequest,
+) (struct{}, error) {
+	if err := s.access.NewEnforcer(tx).Enforce(ctx, access.Request{
+		Subject: auth.GetSubject(ctx),
+		Action:  access.ActionUpdate,
+		Objects: project.ResourceIDs(req.Keys),
+	}); err != nil {
+		return struct{}{}, err
+	}
+	return struct{}{}, s.internal.NewWriter(tx).SetGroup(ctx, req.Group, req.Keys...)
 }
