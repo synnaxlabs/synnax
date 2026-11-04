@@ -1355,6 +1355,86 @@ describe("queries", () => {
           expect(result.current.form.value().status?.variant).toBe("warning");
         });
       });
+
+      const renderLoadedForm = async (
+        beforeSave?: Flux.UseFormParams<
+          Device.FormQuery,
+          typeof Device.formSchema
+        >["beforeSave"],
+      ) => {
+        const rack = await client.racks.create({ name: "test form status rack" });
+        const testDevice = await client.devices.create({
+          key: id.create(),
+          rack: rack.key,
+          name: "Form Status Device",
+          make: "make",
+          model: "model",
+          location: "Lab6",
+          properties: {},
+        });
+        await client.statuses.set(
+          status.create<typeof device.statusDetailsZ>({
+            key: device.statusKey(testDevice.key),
+            name: testDevice.name,
+            message: "Device online",
+            variant: "success",
+            details: { rack: rack.key, device: testDevice.key },
+          }),
+        );
+        const { result } = renderHook(
+          () => Device.useForm({ query: { key: testDevice.key }, beforeSave }),
+          { wrapper },
+        );
+        await waitFor(() =>
+          expect(result.current.form.value().status?.message).toBe("Device online"),
+        );
+        return { result, testDevice };
+      };
+
+      it("should not send back a status read from the Core", async () => {
+        const { result } = await renderLoadedForm();
+        const create = vi.spyOn(client.devices, "create");
+        act(() => result.current.form.set(path.name, "Renamed Status Device"));
+        await act(async () => {
+          await result.current.saveAsync();
+        });
+        expect(result.current.variant).toBe("success");
+        const sent = create.mock.lastCall?.[0];
+        create.mockRestore();
+        expect(sent).toMatchObject({ name: "Renamed Status Device" });
+        expect(sent).not.toHaveProperty("status");
+        expect(sent).not.toHaveProperty("parent");
+      });
+
+      it("should write a status that a beforeSave hook reports", async () => {
+        const { result, testDevice } = await renderLoadedForm(async ({ get, set }) => {
+          set(
+            path.status,
+            status.create<typeof device.statusDetailsZ>({
+              name: get(path.name).value,
+              message: "Device connected",
+              variant: "success",
+              details: {
+                rack: get(path.rack).value,
+                device: get(path.key).value,
+              },
+            }),
+          );
+          return true;
+        });
+        act(() => result.current.form.set(path.name, "Connected Device"));
+        await act(async () => {
+          await result.current.saveAsync();
+        });
+        expect(result.current.variant).toBe("success");
+        await waitFor(async () => {
+          const { status: stored } = await client.devices.retrieve({
+            key: testDevice.key,
+            includeStatus: true,
+          });
+          expect(stored?.message).toBe("Device connected");
+        });
+      });
     });
 
     describe("validation", () => {

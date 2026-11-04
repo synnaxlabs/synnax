@@ -228,7 +228,13 @@ const LiveRow = ({ span, onChange }: LiveRowProps): ReactElement => (
   </Flex.Box>
 );
 
+const parseSpan = (term: string): TimeSpan | undefined => {
+  const span = TimeSpan.parse(term);
+  return span == null || span.isZero ? undefined : span;
+};
+
 interface DurationSearchProps {
+  typed?: TimeSpan;
   onSearch: (term: string) => void;
   onDuration: (span: TimeSpan) => void;
 }
@@ -236,19 +242,17 @@ interface DurationSearchProps {
 // Enter on a typed duration sets the rolling window and closes the dialog. The wrapper
 // packs, so the field takes the dialog's top corners.
 const DurationSearch = ({
+  typed,
   onSearch,
   onDuration,
 }: DurationSearchProps): ReactElement => {
   const { close } = Dialog.useContext();
-  const [term, setTerm] = useState("");
   return (
     <Flex.Box
       y
       pack
       onKeyDown={(e) => {
-        if (e.key !== "Enter") return;
-        const typed = TimeSpan.parse(term);
-        if (typed == null || typed.isZero) return;
+        if (e.key !== "Enter" || typed == null) return;
         // Keeps the list's window-level Enter trigger from clicking a favorite.
         e.stopPropagation();
         onDuration(typed);
@@ -257,10 +261,7 @@ const DurationSearch = ({
     >
       <Select.Search
         placeholder="Search favorites or type a duration"
-        onSearch={(next) => {
-          setTerm(next);
-          onSearch(next);
-        }}
+        onSearch={onSearch}
       />
     </Flex.Box>
   );
@@ -289,7 +290,7 @@ export interface RangeSelectProps extends Omit<
 
 /**
  * Selects what the plot shows: at most one rolling window, favorite ranges, and static
- * windows. A duration typed into the search sets the rolling window on Enter, and a
+ * windows. A duration typed into the search lists a live option, and Enter sets it. A
  * static window's tag edits the window in place.
  */
 export const RangeSelect = (props: RangeSelectProps): ReactElement => {
@@ -299,13 +300,20 @@ export const RangeSelect = (props: RangeSelectProps): ReactElement => {
   const favorites = Range.useResolveMultiple().filter((r) => r.variant !== "dynamic");
   const { data, retrieve } = List.useStaticData<string>({ data: favorites });
   const { fetchMore, search } = List.usePager({ retrieve });
-  const entries = refs.map((ref): Entry => ({
+  const [term, setTerm] = useState("");
+  const entryOf = (ref: ranger.Ref): Entry => ({
     ref,
     key:
       ref.variant === "key"
         ? ref.key
         : (Session.Range.findKey(ref, states) ?? windowKey(ref)),
-  }));
+  });
+  const entries = refs.map(entryOf);
+  const typedSpan = parseSpan(term);
+  const typed =
+    typedSpan == null
+      ? undefined
+      : { span: typedSpan, key: entryOf(rollingRef(typedSpan)).key };
   const rolling = refs.find(isRolling);
   const span = rolling == null ? undefined : new TimeSpan(rolling.window.timeSpan);
   const setRanges = (ranges: ranger.Ref[]) =>
@@ -321,6 +329,12 @@ export const RangeSelect = (props: RangeSelectProps): ReactElement => {
     );
   };
   const handleChange = (keys: string[]) => {
+    if (
+      typed != null &&
+      keys.includes(typed.key) &&
+      !entries.some(({ key }) => key === typed.key)
+    )
+      return setRolling(typed.span);
     const held = new Map(entries.map(({ key, ref }) => [key, ref]));
     setRanges(
       keys.map((key): ranger.Ref => {
@@ -368,10 +382,29 @@ export const RangeSelect = (props: RangeSelectProps): ReactElement => {
             {renderTag}
           </Select.MultipleTrigger>
           <Select.Dialog>
-            <DurationSearch onSearch={search} onDuration={setRolling} />
+            <DurationSearch
+              typed={typed?.span}
+              onSearch={(next) => {
+                setTerm(next);
+                search(next);
+              }}
+              onDuration={setRolling}
+            />
             <LiveRow span={span} onChange={setRolling} />
             <Select.List bordered borderColor={6} grow rounded full="x">
-              <Select.Items<string> emptyContent={emptyContent}>
+              {typed != null && (
+                // Its text is the term, so the search that typed it never hides it.
+                <Select.Item itemKey={typed.key} textValue={term} justify="between">
+                  <Text.Text>
+                    {liveIcon}
+                    {typed.span.toString()}
+                  </Text.Text>
+                  <Text.Text level="small" color={9}>
+                    Live window
+                  </Text.Text>
+                </Select.Item>
+              )}
+              <Select.Items<string> emptyContent={typed == null ? emptyContent : null}>
                 {favoriteItem}
               </Select.Items>
             </Select.List>

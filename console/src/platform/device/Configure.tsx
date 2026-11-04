@@ -9,7 +9,7 @@
 
 import "@/platform/device/Configure.css";
 
-import { type device, status } from "@synnaxlabs/client";
+import { device as clientDevice, type device, status } from "@synnaxlabs/client";
 import { Button } from "@synnaxlabs/lyra/button";
 import { Flex } from "@synnaxlabs/lyra/flex";
 import { Form } from "@synnaxlabs/lyra/form";
@@ -72,7 +72,7 @@ const Internal = <
   const save = async (createTask: boolean) => {
     if (!methods.validate()) return;
     const saved = await updateAsync({
-      ...device,
+      ...clientDevice.toUpdate(device),
       configured: true,
       name: methods.get(path.name).value,
       properties: {
