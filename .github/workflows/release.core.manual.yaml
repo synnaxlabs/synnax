@@ -44,7 +44,7 @@ on:
         default: ""
 
 concurrency:
-  group: release
+  group: release-core-manual-${{ inputs.version }}
   cancel-in-progress: false
 
 permissions:
