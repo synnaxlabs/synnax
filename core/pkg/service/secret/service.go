@@ -16,6 +16,7 @@ import (
 
 	"github.com/synnaxlabs/alamos"
 	"github.com/synnaxlabs/gorp"
+	"github.com/synnaxlabs/synnax/pkg/service/channel"
 	"github.com/synnaxlabs/synnax/pkg/service/group"
 	"github.com/synnaxlabs/synnax/pkg/service/ontology"
 	"github.com/synnaxlabs/synnax/pkg/service/secret/grant"
@@ -46,6 +47,10 @@ type ServiceConfig struct {
 	//
 	// [OPTIONAL]
 	Signals *signals.Provider
+	// Channel finds the channels that Signals publishes changes on.
+	//
+	// [REQUIRED] when Signals is set.
+	Channel *channel.Service
 	// Uses finds the resources that use a secret, for delete and for the rack rule of
 	// Resolve.
 	//
@@ -80,6 +85,7 @@ func (c ServiceConfig) Override(other ServiceConfig) ServiceConfig {
 	c.Ontology = override.Nil(c.Ontology, other.Ontology)
 	c.Group = override.Nil(c.Group, other.Group)
 	c.Signals = override.Nil(c.Signals, other.Signals)
+	c.Channel = override.Nil(c.Channel, other.Channel)
 	c.Uses = override.Nil(c.Uses, other.Uses)
 	c.Grant = override.Nil(c.Grant, other.Grant)
 	c.Now = override.Nil(c.Now, other.Now)
@@ -100,6 +106,11 @@ func (c ServiceConfig) Validate() error {
 	v.NotNil("uses", c.Uses)
 	v.NotNil("grant", c.Grant)
 	v.NotNil("now", c.Now)
+	v.Ternary(
+		"channel",
+		c.Signals != nil && c.Channel == nil,
+		"required when signals is set",
+	)
 	v.Ternary("encryption_key", c.EncryptionKey == EncryptionKey{}, "required")
 	return v.Error()
 }
@@ -107,12 +118,14 @@ func (c ServiceConfig) Validate() error {
 // Service stores secrets, encrypts their values, and gives each value only to a rack
 // that may read it.
 type Service struct {
-	aead   cipher.AEAD
-	group  group.Group
-	table  *gorp.Table[Key, Secret]
-	search *gorp.SearchIndex[Key, Secret]
-	closer xio.MultiCloser
-	cfg    ServiceConfig
+	aead             cipher.AEAD
+	group            group.Group
+	table            *gorp.Table[Key, Secret]
+	search           *gorp.SearchIndex[Key, Secret]
+	closer           xio.MultiCloser
+	cfg              ServiceConfig
+	setChannelKey    channel.Key
+	deleteChannelKey channel.Key
 }
 
 // OpenService opens a Service with the given configuration. It returns an error when
@@ -153,8 +166,45 @@ func OpenService(ctx context.Context, cfgs ...ServiceConfig) (s *Service, err er
 	); !ok(err, sig) {
 		return nil, err
 	}
+	if s.setChannelKey, err = s.retrieveChannelKey(
+		ctx,
+		"sy_secret_set",
+	); !ok(err, nil) {
+		return nil, err
+	}
+	if s.deleteChannelKey, err = s.retrieveChannelKey(
+		ctx,
+		"sy_secret_delete",
+	); !ok(err, nil) {
+		return nil, err
+	}
 	return s, nil
 }
+
+func (s *Service) retrieveChannelKey(
+	ctx context.Context,
+	name string,
+) (channel.Key, error) {
+	var ch channel.Channel
+	if err := s.cfg.Channel.NewRetrieve().
+		Where(channel.MatchNames(name)).
+		Entry(&ch).
+		Exec(ctx, nil); err != nil {
+		return 0, err
+	}
+	return ch.Key(), nil
+}
+
+// SetChannelKey returns the key of the channel that publishes each secret that is
+// created or changed. Its samples carry the names and paths of secrets, so only
+// subjects that can retrieve a secret may receive them. The key is zero when the
+// Service has no Signals.
+func (s *Service) SetChannelKey() channel.Key { return s.setChannelKey }
+
+// DeleteChannelKey returns the key of the channel that publishes the key of each
+// deleted secret. Only subjects that can retrieve a secret may receive its samples. The
+// key is zero when the Service has no Signals.
+func (s *Service) DeleteChannelKey() channel.Key { return s.deleteChannelKey }
 
 // Close releases the resources of the Service. Close is not safe to call concurrently
 // with any other method of the Service.

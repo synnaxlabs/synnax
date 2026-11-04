@@ -11,6 +11,7 @@ package secret
 
 import (
 	"context"
+	"encoding/json/v2"
 	"iter"
 	"uuid"
 
@@ -18,9 +19,11 @@ import (
 	"github.com/synnaxlabs/gorp"
 	"github.com/synnaxlabs/synnax/pkg/service/ontology"
 	xchange "github.com/synnaxlabs/x/change"
+	"github.com/synnaxlabs/x/errors"
 	xiter "github.com/synnaxlabs/x/iter"
 	"github.com/synnaxlabs/x/observe"
 	"github.com/synnaxlabs/x/search"
+	"github.com/synnaxlabs/x/validate"
 	"github.com/synnaxlabs/x/zyn"
 )
 
@@ -37,6 +40,30 @@ func OntologyIDs(keys []Key) []ontology.ID {
 // OntologyIDsFromSecrets returns the ontology IDs of the given secrets.
 func OntologyIDsFromSecrets(secrets []Secret) []ontology.ID {
 	return lo.Map(secrets, func(s Secret, _ int) ontology.ID { return s.OntologyID() })
+}
+
+// SetRecord returns the ontology ID of the secret that a sample of the set channel
+// carries.
+func SetRecord(sample []byte) (ontology.ID, error) {
+	var s Secret
+	if err := json.Unmarshal(sample, &s); err != nil {
+		return ontology.ID{}, err
+	}
+	return s.OntologyID(), nil
+}
+
+// DeleteRecord returns the ontology ID of the secret that a sample of the delete
+// channel names. It returns a validation error when the sample is not a key.
+func DeleteRecord(sample []byte) (ontology.ID, error) {
+	if len(sample) != len(Key{}) {
+		return ontology.ID{}, errors.Wrapf(
+			validate.ErrValidation,
+			"secret delete sample is %d bytes, not %d",
+			len(sample),
+			len(Key{}),
+		)
+	}
+	return OntologyID(Key(sample)), nil
 }
 
 var schema = zyn.Object(map[string]zyn.Schema{

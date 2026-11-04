@@ -13,10 +13,12 @@ import (
 	"encoding/base64"
 	"os"
 	"path/filepath"
+	"sync"
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	"github.com/synnaxlabs/synnax/pkg/service/secret"
+	"github.com/synnaxlabs/x/errors"
 	xfs "github.com/synnaxlabs/x/io/fs"
 	. "github.com/synnaxlabs/x/testutil"
 	"github.com/synnaxlabs/x/validate"
@@ -72,6 +74,21 @@ var _ = Describe("Encryption key", func() {
 		It("Should return the saved key on later calls", func() {
 			k := MustSucceed(secret.LoadEncryptionKey(path))
 			Expect(secret.LoadEncryptionKey(path)).To(Equal(k))
+		})
+		It("Should return the key of the caller that creates the file first", func() {
+			var (
+				wg   sync.WaitGroup
+				keys = make([]secret.EncryptionKey, 16)
+				errs = make([]error, len(keys))
+			)
+			for i := range keys {
+				wg.Go(func() { keys[i], errs[i] = secret.LoadEncryptionKey(path) })
+			}
+			wg.Wait()
+			Expect(errors.Join(errs...)).To(Succeed())
+			saved := MustSucceed(secret.LoadEncryptionKey(path))
+			Expect(keys).To(HaveEach(Equal(saved)))
+			Expect(os.ReadDir(filepath.Dir(path))).To(HaveLen(1))
 		})
 		It("Should reject a file that holds an invalid key", func() {
 			Expect(os.WriteFile(path, []byte("short"), xfs.UserRW)).To(Succeed())

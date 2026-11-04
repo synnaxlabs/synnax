@@ -84,6 +84,10 @@ class Client:
             never returned.
         :raises ValidationError: If ``secrets`` is omitted and the keyword arguments do
             not give a name and exactly one of a value or a path.
+        :raises PathError: If a secret is not valid, such as a stored secret without a
+            value.
+        :raises AccessDenied: If the caller cannot create secrets, or cannot update a
+            secret that the call replaces.
         """
         is_single = not isinstance(secrets, list)
         if secrets is None:
@@ -100,10 +104,11 @@ class Client:
         return res.secrets[0] if is_single else res.secrets
 
     def delete(self, keys: Key | list[Key]) -> None:
-        """Deletes secrets.
+        """Deletes secrets. Unknown keys are ignored.
 
         :param keys: The keys of the secrets to delete.
         :raises ValidationError: If a resource uses one of the secrets.
+        :raises AccessDenied: If the caller cannot delete one of the secrets.
         """
         self._client.send("/secret/delete", _DeleteRequest(keys=normalize(keys)), Empty)
 
@@ -112,7 +117,9 @@ class Client:
 
         :param key: The key of the secret to rename.
         :param name: The new name for the secret.
+        :raises PathError: If the name is empty.
         :raises NotFoundError: If no secret has the given key.
+        :raises AccessDenied: If the caller cannot update the secret.
         """
         self._client.send("/secret/rename", _RenameRequest(key=key, name=name), Empty)
 
@@ -140,7 +147,8 @@ class Client:
     ) -> Secret | list[Secret]:
         """Retrieves secrets, without their values.
 
-        :raises NotFoundError: If key is given and no secret has it.
+        :raises NotFoundError: If a key is given and no secret has it.
+        :raises AccessDenied: If the caller cannot retrieve one of the secrets.
         """
         is_single = key is not None
         if key is not None:

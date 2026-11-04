@@ -195,6 +195,116 @@ var _ = Describe("Service", func() {
 				}},
 			)).Error().To(MatchError(access.ErrDenied))
 		})
+		Describe("Replace", func() {
+			var (
+				u        user.User
+				existing secret.Secret
+			)
+			BeforeEach(func(ctx SpecContext) {
+				u = createUser(ctx)
+				allow(
+					ctx,
+					u.OntologyID(),
+					[]access.Action{access.ActionCreate},
+					secretType,
+				)
+				existing = createSecret(ctx, "Before", "a")
+			})
+			replace := func(
+				ctx SpecContext,
+				subject user.User,
+			) (apisecret.CreateResponse, error) {
+				return apiSvc.Create(
+					AuthedCtx(ctx, subject),
+					nil,
+					apisecret.CreateRequest{
+						Secrets: []apisecret.Input{{
+							Key:    existing.Base().Key,
+							Source: secret.SourceStored,
+							Name:   "After",
+							Value:  "b",
+						}},
+					},
+				)
+			}
+			It(
+				"Should let a user without update access create new secrets",
+				func(ctx SpecContext) {
+					key := uuid.New()
+					res := MustSucceed(apiSvc.Create(AuthedCtx(ctx, u), nil,
+						apisecret.CreateRequest{Secrets: []apisecret.Input{
+							{Source: secret.SourceStored, Name: "New", Value: "v"},
+							{
+								Key:    key,
+								Source: secret.SourceFile,
+								Name:   "Keyed",
+								Path:   "/k",
+							},
+						}},
+					))
+					Expect(res.Secrets[1].Base().Key).To(Equal(key))
+					Expect(retrieveSecret(ctx, key).Base().Name).To(Equal("Keyed"))
+				},
+			)
+			It(
+				"Should deny a user without update access a replace",
+				func(ctx SpecContext) {
+					Expect(replace(ctx, u)).Error().To(SatisfyAll(
+						MatchError(access.ErrDenied),
+						MatchError(ContainSubstring(
+							u.OntologyID().String()+" cannot update "+
+								existing.OntologyID().String(),
+						)),
+					))
+					Expect(retrieveSecret(ctx, existing.Base().Key).Base().Name).
+						To(Equal("Before"))
+				},
+			)
+			It(
+				"Should deny a replace that comes with a new key in the same request",
+				func(ctx SpecContext) {
+					key := uuid.New()
+					Expect(apiSvc.Create(AuthedCtx(ctx, u), nil,
+						apisecret.CreateRequest{Secrets: []apisecret.Input{
+							{
+								Key:    key,
+								Source: secret.SourceStored,
+								Name:   "New",
+								Value:  "v",
+							},
+							{
+								Key:    existing.Base().Key,
+								Source: secret.SourceStored,
+								Name:   "After",
+								Value:  "b",
+							},
+						}},
+					)).Error().To(SatisfyAll(
+						MatchError(access.ErrDenied),
+						MatchError(ContainSubstring(
+							u.OntologyID().String()+" cannot update "+
+								existing.OntologyID().String(),
+						)),
+					))
+					Expect(retrieveSecret(ctx, existing.Base().Key).Base().Name).
+						To(Equal("Before"))
+					Expect(svc.Secret.NewRetrieve().
+						Where(secret.MatchKeys(key)).
+						Exec(ctx, nil)).To(MatchError(query.ErrNotFound))
+				},
+			)
+			It("Should let an Owner replace a secret", func(ctx SpecContext) {
+				owner := createUser(ctx)
+				Expect(svc.RBAC.Role.NewWriter(nil, true).AssignRole(
+					ctx,
+					owner.OntologyID(),
+					svc.RBAC.Builtin.OwnerKey,
+				)).To(Succeed())
+				MustSucceed(replace(ctx, owner))
+				Expect(retrieveSecret(ctx, existing.Base().Key).Base().Name).
+					To(Equal("After"))
+			})
+		})
 	})
 
 	Describe("Retrieve", func() {

@@ -94,7 +94,10 @@ func (s recordSender) keepReadable(
 		if err != nil {
 			return telem.Series{}, err
 		}
-		kept = append(kept, telem.MarshalVariableSample(sample)...)
+		if series.DataType.IsVariable() {
+			sample = telem.MarshalVariableSample(sample)
+		}
+		kept = append(kept, sample...)
 	}
 	series.Data = kept
 	return series, nil
