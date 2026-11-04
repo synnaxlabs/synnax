@@ -9,6 +9,7 @@
 
 import { CONNECT_COMMANDS, CREATE_RACK_COMMAND } from "@/feature/device/commands";
 import { HTTP } from "@/feature/http";
+import { Kafka } from "@/feature/kafka";
 import { Modbus } from "@/feature/modbus";
 import { MQTT } from "@/feature/mqtt";
 import { OPCUA } from "@/feature/opcua";
@@ -27,6 +28,7 @@ export const COMMANDS: Command.Command[] = [
   ...CONNECT_COMMANDS,
   CREATE_RACK_COMMAND,
   ...HTTP.Device.COMMANDS,
+  ...Kafka.Device.COMMANDS,
   ...Modbus.Device.COMMANDS,
   ...MQTT.Device.COMMANDS,
   ...OPCUA.Device.COMMANDS,

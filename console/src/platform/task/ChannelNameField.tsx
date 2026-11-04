@@ -11,6 +11,7 @@ import { channel } from "@synnaxlabs/client";
 import { Form } from "@synnaxlabs/lyra/form";
 import { Input } from "@synnaxlabs/lyra/input";
 import { Access, Channel } from "@synnaxlabs/pluto";
+import { type deep } from "@synnaxlabs/x";
 import { type ReactElement } from "react";
 
 import { useIsPreview } from "@/platform/task/useIsPreview";
@@ -19,7 +20,7 @@ export interface ChannelNameFieldProps {
   /** The channel the name belongs to, or 0 before configure creates it. */
   channel: channel.Key;
   /** Holds the name configure gives the channel it creates. */
-  namePath: string;
+  namePath: deep.Target<string | undefined>;
   /** The name configure falls back to; shown as the placeholder. */
   defaultName?: string;
 }

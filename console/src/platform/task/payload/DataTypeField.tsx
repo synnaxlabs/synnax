@@ -11,7 +11,7 @@ import { type channel } from "@synnaxlabs/client";
 import { Form } from "@synnaxlabs/lyra/form";
 import { Input } from "@synnaxlabs/lyra/input";
 import { Channel, Telem } from "@synnaxlabs/pluto";
-import { DataType } from "@synnaxlabs/x";
+import { DataType, type deep } from "@synnaxlabs/x";
 import { type ReactElement } from "react";
 
 /** Data types that no JSON field can carry. */
@@ -26,7 +26,7 @@ export interface DataTypeFieldProps extends Pick<
   Telem.SelectDataTypeProps,
   "hideDataTypes" | "hideVariableDensity"
 > {
-  path: string;
+  path: deep.Target<string>;
   /** The channel that sets the data type, or 0 before configure creates one. */
   channel: channel.Key;
 }
@@ -43,7 +43,7 @@ export const DataTypeField = ({
 }: DataTypeFieldProps): ReactElement => {
   if (channel !== 0) return <Bound channel={channel} />;
   return (
-    <Form.Field<string> path={path} label="Data type" padHelpText={false}>
+    <Form.Field path={path} label="Data type" padHelpText={false}>
       {(p) => (
         <Telem.SelectDataType
           {...p}

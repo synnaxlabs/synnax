@@ -9,6 +9,10 @@
 
 #pragma once
 
+#include <map>
+#include <string>
+#include <vector>
+
 #include "x/cpp/lib/lazy.h"
 
 #include "driver/common/sample_clock.h"
@@ -25,20 +29,12 @@ const std::string T7 = "LJM_dtT7";
 /// @brief T8 model name.
 const std::string T8 = "LJM_dtT8";
 
-/// @brief LJM errors that indicate the device is currently unreachable but may be
-/// reachable again in the near future.
-const std::vector UNREACHABLE_ERRORS = {
-    ljm::NO_RESPONSE_BYTES_RECEIVED,
-    ljm::STREAM_NOT_INITIALIZED,
-    ljm::RECONNECT_FAILED,
-    ljm::SYNCHRONIZATION_TIMEOUT
+/// @brief the model names of the LJM device types that Synnax supports.
+const std::map<int, std::string> MODELS = {
+    {LJM_dtT4, T4},
+    {LJM_dtT7, T7},
+    {LJM_dtT8, T8},
 };
-
-/// @brief translates LJM errors into useful errors for managing the task lifecycle.
-inline x::errors::Error translate_error(const x::errors::Error &err) {
-    if (err.matches(UNREACHABLE_ERRORS)) return ljm::TEMPORARILY_UNREACHABLE;
-    return err;
-}
 
 /// @brief factory for creating and operating LabJack tasks.
 class Factory final : public task::Factory {
