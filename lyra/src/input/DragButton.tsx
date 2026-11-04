@@ -126,7 +126,9 @@ export const DragButton = ({
     },
   });
 
-  const handleDoubleClick = () => onChange(resetValue ?? value);
+  const handleDoubleClick = () => {
+    if (!disabled) onChange(resetValue ?? value);
+  };
 
   return (
     <Button.Button

@@ -8,9 +8,9 @@
 #  included in the file licenses/APL.txt.
 
 import re
-from typing import Any
 
-from console.schematic.symbol import Symbol
+from console.schematic.symbol import PropertyDict, Symbol
+from x.notation import Notation
 
 
 class Value(Symbol):
@@ -23,7 +23,7 @@ class Value(Symbol):
         *,
         label: str,
         channel_name: str,
-        notation: str | None = None,
+        notation: Notation | None = None,
         precision: int | None = None,
         averaging_window: int | None = None,
         stale_color: str | None = None,
@@ -65,17 +65,14 @@ class Value(Symbol):
         self,
         *,
         channel_name: str | None = None,
-        notation: str | None = None,
+        notation: Notation | None = None,
         precision: int | None = None,
         averaging_window: int | None = None,
         stale_color: str | None = None,
         stale_timeout: int | None = None,
-        **kwargs: Any,
-    ) -> dict[str, Any]:
+    ) -> None:
         """Set Value symbol properties including channel and telemetry settings."""
         self.click()
-
-        applied_properties: dict[str, Any] = {}
 
         # Always enforce label = channel_name for easy identification
         if channel_name is not None:
@@ -87,23 +84,19 @@ class Value(Symbol):
 
         if channel_name is not None:
             self.set_channel(section="Source", channel_name=channel_name)
-            applied_properties["channel"] = channel_name
 
         if notation is not None:
             self.layout.click_btn("Notation")
             # Note to self, check if the next line is redundant
             self.page.get_by_text(notation).click()
-            applied_properties["notation"] = notation
 
         if precision is not None:
             self.layout.fill_input_field("Precision", str(precision))
             self.page.keyboard.press("Enter")
-            applied_properties["precision"] = precision
 
         if averaging_window is not None:
             self.layout.fill_input_field("Averaging window", str(averaging_window))
             self.page.keyboard.press("Enter")
-            applied_properties["averaging_window"] = averaging_window
 
         if stale_color is not None:
             if not re.match(r"^#[0-9A-Fa-f]{6}$", stale_color):
@@ -112,21 +105,16 @@ class Value(Symbol):
                 )
             self.layout.fill_input_field("Color", stale_color.replace("#", ""))
             self.page.keyboard.press("Enter")
-            applied_properties["stale_color"] = stale_color
 
         if stale_timeout is not None:
             self.layout.fill_input_field("Timeout", str(stale_timeout))
             self.page.keyboard.press("Enter")
 
-            applied_properties["stale_timeout"] = stale_timeout
-
-        return applied_properties
-
-    def get_properties(self, *, tab: str = "Telemetry") -> dict[str, Any]:
+    def get_properties(self, *, tab: str = "Telemetry") -> PropertyDict:
         """Get the current properties of the symbol"""
         super().get_properties(tab=tab)
 
-        props: dict[str, Any] = {
+        props: PropertyDict = {
             "channel": "",
             "notation": "",
             "precision": -1,
@@ -149,7 +137,7 @@ class Value(Symbol):
         props["averaging_window"] = int(self.layout.get_input_field("Averaging window"))
 
         # Staleness Timeout
-        props["stale_timeout"] = int(self.layout.get_input_field("Timeout"))
+        props["stale_timeout"] = int(self.layout.get_time_span_field("Timeout").seconds)
 
         # Notation
         notation_options = ["Scientific", "Engineering", "Standard"]

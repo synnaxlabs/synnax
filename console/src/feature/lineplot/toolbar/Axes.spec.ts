@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { fireEvent, screen, waitFor } from "@testing-library/react";
+import { fireEvent, screen, waitFor, within } from "@testing-library/react";
 import { describe, expect, it } from "vitest";
 
 import {
@@ -16,7 +16,13 @@ import {
   renderLinePlot,
 } from "@/feature/lineplot/testutil";
 import { Toolbar } from "@/feature/lineplot/toolbar";
-import { getIconButton, getInputItem, getLabeledInput, uniqueName } from "@/testutil";
+import {
+  findIconButton,
+  getInputItem,
+  getLabeledInput,
+  queryIconButton,
+  uniqueName,
+} from "@/testutil";
 
 const renderAxesTab = async () => {
   const name = uniqueName("plot");
@@ -36,6 +42,14 @@ describe("lineplot/toolbar/Axes", () => {
     expect(screen.getByText("Y1")).toBeDefined();
     expect(screen.queryByText("X2")).toBeNull();
     expect(screen.queryByText("Y2")).toBeNull();
+  });
+
+  it("shows the side of the plot each axis sits on", async () => {
+    await renderAxesTab();
+    const x1 = screen.getByRole("tab", { name: "X1" });
+    const y1 = screen.getByRole("tab", { name: "Y1" });
+    expect(x1.querySelector(".lyra-icon--axis-bottom")).not.toBeNull();
+    expect(y1.querySelector(".lyra-icon--axis-left")).not.toBeNull();
   });
 
   it("persists an axis label edit to the server", async () => {
@@ -60,18 +74,37 @@ describe("lineplot/toolbar/Axes", () => {
     });
   });
 
-  it("re-enables auto bounding when the auto button is clicked", async () => {
+  it("shows an auto bound as an empty field with an auto chip", async () => {
+    await renderAxesTab();
+    const input = getLabeledInput("Lower bound");
+    expect(input.value).toBe("");
+    expect(input.placeholder).toBe("Enter a value to override");
+    const item = getInputItem("Lower bound");
+    expect(within(item).getByText("Auto")).toBeDefined();
+    expect(queryIconButton(item, "auto")).toBeNull();
+  });
+
+  it("returns the lower bound to auto with the auto button", async () => {
     const { key } = await renderAxesTab();
     const input = getLabeledInput("Lower bound");
     fireEvent.change(input, { target: { value: "-5" } });
     fireEvent.blur(input);
+    fireEvent.click(await findIconButton(getInputItem("Lower bound"), "auto"));
     await waitFor(async () => {
       const plot = await client.lineplots.retrieve(key);
-      expect(plot.axes.x1.manualBounds.lower).toBe(true);
+      expect(plot.axes.x1.manualBounds.lower).toBe(false);
     });
-    const autoButton = getIconButton(getInputItem("Lower bound"), "auto");
-    await waitFor(() => expect(autoButton.disabled).toBe(false));
-    fireEvent.click(autoButton);
+    expect(getLabeledInput("Lower bound").value).toBe("");
+  });
+
+  it("returns the lower bound to auto when its field is cleared", async () => {
+    const { key } = await renderAxesTab();
+    const input = getLabeledInput("Lower bound");
+    fireEvent.change(input, { target: { value: "-5" } });
+    fireEvent.blur(input);
+    await findIconButton(getInputItem("Lower bound"), "auto");
+    fireEvent.change(input, { target: { value: "" } });
+    fireEvent.blur(input);
     await waitFor(async () => {
       const plot = await client.lineplots.retrieve(key);
       expect(plot.axes.x1.manualBounds.lower).toBe(false);

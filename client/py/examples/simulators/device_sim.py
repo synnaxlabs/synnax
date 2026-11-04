@@ -15,6 +15,7 @@ import socket
 import sys
 from abc import abstractmethod
 from multiprocessing.process import BaseProcess
+from typing import override
 
 import synnax as sy
 from examples.simulators.simulator import Simulator
@@ -57,6 +58,7 @@ class DeviceSim(Simulator):
             return
         raise RuntimeError(f"Port {self.port} is already in use")
 
+    @override
     def start(self) -> None:
         """Start the device server in a subprocess.
 
@@ -95,6 +97,7 @@ class DeviceSim(Simulator):
             f"Server not ready on {self.host}:{self.port} after {self.startup_timeout}"
         )
 
+    @override
     def stop(self, timeout: sy.TimeSpan = 5 * sy.TimeSpan.SECOND) -> None:
         """Terminate the server subprocess and wait until its port stops accepting
         connections.
