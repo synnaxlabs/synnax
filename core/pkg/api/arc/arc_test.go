@@ -11,23 +11,34 @@ package arc_test
 
 import (
 	"context"
+	"fmt"
+	"strings"
+	"time"
 	"uuid"
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	"github.com/synnaxlabs/arc/graph"
 	"github.com/synnaxlabs/arc/text"
+	"github.com/synnaxlabs/gorp"
 	apiarc "github.com/synnaxlabs/synnax/pkg/api/arc"
 	. "github.com/synnaxlabs/synnax/pkg/api/testutil"
+	"github.com/synnaxlabs/synnax/pkg/distribution/framer/frame"
 	"github.com/synnaxlabs/synnax/pkg/service/access"
 	"github.com/synnaxlabs/synnax/pkg/service/actions"
 	. "github.com/synnaxlabs/synnax/pkg/service/actions/testutil"
 	"github.com/synnaxlabs/synnax/pkg/service/arc"
 	arctask "github.com/synnaxlabs/synnax/pkg/service/arc/task"
+	"github.com/synnaxlabs/synnax/pkg/service/channel"
+	"github.com/synnaxlabs/synnax/pkg/service/framer"
 	"github.com/synnaxlabs/synnax/pkg/service/ontology"
 	"github.com/synnaxlabs/synnax/pkg/service/rack"
+	"github.com/synnaxlabs/synnax/pkg/service/status"
+	"github.com/synnaxlabs/synnax/pkg/service/task"
+	"github.com/synnaxlabs/x/encoding/msgpack"
 	"github.com/synnaxlabs/x/query"
 	"github.com/synnaxlabs/x/spatial"
+	"github.com/synnaxlabs/x/telem"
 	. "github.com/synnaxlabs/x/testutil"
 )
 
@@ -281,6 +292,217 @@ var _ = Describe("Service", func() {
 					Expect(got.Actions).To(HaveLen(1))
 				},
 			)
+		})
+	})
+
+	Describe("Delete", func() {
+		withTimeout := func(timeout time.Duration) *apiarc.Service {
+			GinkgoHelper()
+			return MustSucceed(apiarc.NewService(apiarc.ServiceConfig{
+				RBAC:   rbacSvc,
+				Arc:    arcSvc,
+				Status: svc.Status,
+				Stopper: MustSucceed(task.NewStopper(task.StopperConfig{
+					Task:    svc.Task,
+					Status:  svc.Status,
+					Framer:  svc.Framer,
+					Timeout: timeout,
+				})),
+			}))
+		}
+		deleteArcs := func(
+			ctx context.Context,
+			api *apiarc.Service,
+			keys ...arc.Key,
+		) error {
+			return db.WithTx(ctx, func(tx gorp.Tx) error {
+				_, err := api.Delete(
+					AuthedCtx(ctx, author), tx, apiarc.DeleteRequest{Keys: keys},
+				)
+				return err
+			})
+		}
+		createChannel := func(ctx SpecContext, ch channel.Channel) channel.Channel {
+			GinkgoHelper()
+			ch.Name = "arc_" + strings.ReplaceAll(uuid.New().String(), "-", "_")
+			ch.Leaseholder = 1
+			Expect(svc.Channel.NewWriter(nil).Create(ctx, &ch)).To(Succeed())
+			return ch
+		}
+		// createTask stores a child task of a on rackKey.
+		createTask := func(
+			ctx SpecContext,
+			a arc.Arc,
+			rackKey rack.Key,
+			stat *task.Status,
+		) task.Task {
+			GinkgoHelper()
+			t := task.Task{
+				Rack:   rackKey,
+				Name:   a.Name,
+				Type:   arc.TaskType,
+				Config: msgpack.EncodedJSON{"arc_key": a.Key.String()},
+				Status: stat,
+			}
+			Expect(svc.Task.NewWriter(nil).Create(ctx, &t)).To(Succeed())
+			Expect(otg.NewWriter(nil).DefineRelationships(
+				ctx, a.OntologyID(), ontology.RelationshipTypeParentOf, t.OntologyID(),
+			)).To(Succeed())
+			return t
+		}
+		retrieveRunning := func(g Gomega, ctx SpecContext, t task.Task) bool {
+			var stat task.Status
+			g.Expect(svc.Status.NewRetrieve[task.StatusDetails]().
+				Where(status.MatchKeys[task.StatusDetails](t.OntologyID().String())).
+				Entry(&stat).
+				Exec(ctx, nil)).To(Succeed())
+			return stat.Details.Running
+		}
+		// startArc runs an Arc on the runtime in the Core until it writes to data.
+		startArc := func(
+			ctx SpecContext,
+			data channel.Channel,
+		) (arc.Arc, task.Task) {
+			GinkgoHelper()
+			a := arc.Arc{
+				Name: "running-" + uuid.New().String(),
+				Mode: arc.ModeText,
+				Text: text.Text{
+					Raw: fmt.Sprintf("interval(period=10ms) -> %s", data.Name),
+				},
+			}
+			Expect(arcSvc.NewWriter(nil).Create(ctx, &a)).To(Succeed())
+			var coreRack rack.Rack
+			Expect(rackSvc.NewRetrieve().
+				Where(rack.MatchNames("Node 1")).
+				Entry(&coreRack).
+				Exec(ctx, nil)).To(Succeed())
+			t := createTask(ctx, a, coreRack.Key, nil)
+			w := MustSucceed(svc.Framer.OpenWriter(ctx, framer.WriterConfig{
+				Keys:  channel.Keys{svc.Task.CommandChannelKey()},
+				Start: telem.Now(),
+			}))
+			Expect(w.Write(frame.NewUnary(
+				svc.Task.CommandChannelKey(),
+				MustSucceed(telem.NewJSONSeriesV(task.Command{
+					Task: t.Key,
+					Type: "start",
+					Key:  uuid.New().String(),
+					Args: msgpack.EncodedJSON{},
+				})),
+			))).To(BeTrue())
+			Expect(w.Close()).To(Succeed())
+			Eventually(func(g Gomega) {
+				g.Expect(retrieveRunning(g, ctx, t)).To(BeTrue())
+			}).Should(Succeed())
+			return a, t
+		}
+		// A status with no runtime behind it. A stop of this task is never answered.
+		fakeStatus := func(running bool) *task.Status {
+			return &task.Status{
+				Variant: status.VariantSuccess,
+				Message: "Task status",
+				Time:    telem.Now(),
+				Details: task.StatusDetails{Running: running},
+			}
+		}
+		createIdleArc := func(ctx SpecContext, running bool) (arc.Arc, task.Task) {
+			GinkgoHelper()
+			a := createArc(ctx, "idle-"+uuid.New().String())
+			grantOn(ctx, author.OntologyID(), access.ActionDelete, a.OntologyID())
+			return a, createTask(ctx, a, testRack.Key, fakeStatus(running))
+		}
+		expectGone := func(ctx SpecContext, a arc.Arc, t task.Task) {
+			GinkgoHelper()
+			Expect(arcSvc.NewRetrieve().Where(arc.MatchKeys(a.Key)).Exec(ctx, nil)).
+				To(MatchError(query.ErrNotFound))
+			Expect(svc.Task.NewRetrieve().Where(task.MatchKeys(t.Key)).Exec(ctx, nil)).
+				To(MatchError(query.ErrNotFound))
+		}
+		createRuntimeChannels := func(ctx SpecContext) (channel.Channel, channel.Channel) {
+			GinkgoHelper()
+			index := createChannel(
+				ctx, channel.Channel{DataType: telem.TimestampT, IsIndex: true},
+			)
+			data := createChannel(ctx, channel.Channel{
+				DataType:   telem.Uint8T,
+				LocalIndex: index.LocalKey,
+			})
+			return index, data
+		}
+
+		It(
+			"Should release the channels of a running Arc with only Arc delete access",
+			func(ctx SpecContext) {
+				index, data := createRuntimeChannels(ctx)
+				a, t := startArc(ctx, data)
+				grantOn(ctx, author.OntologyID(), access.ActionDelete, a.OntologyID())
+				Expect(
+					deleteArcs(ctx, withTimeout(10*time.Second), a.Key),
+				).To(Succeed())
+				Expect(svc.Channel.NewWriter(nil).Delete(ctx, data.Key(), false)).
+					To(Succeed())
+				Expect(svc.Channel.NewWriter(nil).Delete(ctx, index.Key(), false)).
+					To(Succeed())
+				expectGone(ctx, a, t)
+			},
+		)
+		It("Should not stop the task without Arc delete access", func(ctx SpecContext) {
+			_, data := createRuntimeChannels(ctx)
+			a, t := startArc(ctx, data)
+			Expect(deleteArcs(ctx, apiSvc, a.Key)).To(MatchError(access.ErrDenied))
+			Consistently(func(g Gomega) {
+				g.Expect(retrieveRunning(g, ctx, t)).To(BeTrue())
+			}, 200*time.Millisecond).Should(Succeed())
+			grantOn(ctx, author.OntologyID(), access.ActionDelete, a.OntologyID())
+			Expect(deleteArcs(ctx, apiSvc, a.Key)).To(Succeed())
+		})
+		It("Should stop only the tasks of the requested Arc", func(ctx SpecContext) {
+			_, firstData := createRuntimeChannels(ctx)
+			_, otherData := createRuntimeChannels(ctx)
+			first, firstTask := startArc(ctx, firstData)
+			other, otherTask := startArc(ctx, otherData)
+			grantOn(ctx, author.OntologyID(), access.ActionDelete, first.OntologyID())
+			Expect(deleteArcs(ctx, apiSvc, first.Key)).To(Succeed())
+			expectGone(ctx, first, firstTask)
+			Consistently(func(g Gomega) {
+				g.Expect(retrieveRunning(g, ctx, otherTask)).To(BeTrue())
+			}, 200*time.Millisecond).Should(Succeed())
+			grantOn(ctx, author.OntologyID(), access.ActionDelete, other.OntologyID())
+			Expect(deleteArcs(ctx, apiSvc, other.Key)).To(Succeed())
+		})
+		It("Should not wait for a stopped Arc", func(ctx SpecContext) {
+			a, t := createIdleArc(ctx, false)
+			start := time.Now()
+			Expect(deleteArcs(ctx, withTimeout(10*time.Second), a.Key)).To(Succeed())
+			Expect(time.Since(start)).To(BeNumerically("<", time.Second))
+			expectGone(ctx, a, t)
+		})
+		It(
+			"Should hold the timeout across every task and delete",
+			func(ctx SpecContext) {
+				const timeout = 200 * time.Millisecond
+				first, firstTask := createIdleArc(ctx, true)
+				other, otherTask := createIdleArc(ctx, true)
+				start := time.Now()
+				Expect(
+					deleteArcs(ctx, withTimeout(timeout), first.Key, other.Key),
+				).To(Succeed())
+				Expect(time.Since(start)).To(BeNumerically("<", 2*timeout))
+				expectGone(ctx, first, firstTask)
+				expectGone(ctx, other, otherTask)
+			},
+		)
+		It("Should keep the Arc when the caller cancels", func(ctx SpecContext) {
+			a, t := createIdleArc(ctx, true)
+			reqCtx, cancel := context.WithCancel(ctx)
+			defer time.AfterFunc(50*time.Millisecond, cancel).Stop()
+			Expect(deleteArcs(reqCtx, withTimeout(10*time.Second), a.Key)).
+				To(MatchError(context.Canceled))
+			Expect(arcSvc.NewRetrieve().Where(arc.MatchKeys(a.Key)).Exec(ctx, nil)).
+				To(Succeed())
+			Expect(svc.Task.NewRetrieve().Where(task.MatchKeys(t.Key)).Exec(ctx, nil)).
+				To(Succeed())
 		})
 	})
 

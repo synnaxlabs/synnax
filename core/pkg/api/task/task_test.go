@@ -375,11 +375,15 @@ var _ = Describe("Delete", func() {
 	withTimeout := func(timeout time.Duration) *apitask.Service {
 		GinkgoHelper()
 		return MustSucceed(apitask.NewService(apitask.ServiceConfig{
-			Task:        svc.Task,
-			Status:      svc.Status,
-			RBAC:        svc.RBAC,
-			Framer:      svc.Framer,
-			StopTimeout: timeout,
+			Task:   svc.Task,
+			Status: svc.Status,
+			RBAC:   svc.RBAC,
+			Stopper: MustSucceed(task.NewStopper(task.StopperConfig{
+				Task:    svc.Task,
+				Status:  svc.Status,
+				Framer:  svc.Framer,
+				Timeout: timeout,
+			})),
 		}))
 	}
 	expectGone := func(ctx SpecContext, key task.Key) {

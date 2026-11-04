@@ -108,31 +108,10 @@ func (w Writer) CreateMany(ctx context.Context, arcs *[]Arc) error {
 	return nil
 }
 
-// Delete deletes the Arcs with the given keys. If the Arc has child tasks, those tasks
-// will also be deleted.
+// Delete deletes the Arcs with the given keys and the tasks that TaskKeys returns for
+// them.
 func (w Writer) Delete(ctx context.Context, keys ...Key) error {
-	for _, key := range keys {
-		if err := w.deleteChildTasks(ctx, key); err != nil {
-			return err
-		}
-	}
-	if err := w.table.NewDelete().
-		Where(gorp.MatchKeys[Key, Arc](keys...)).
-		Exec(ctx, w.tx); err != nil {
-		return err
-	}
-	for _, key := range keys {
-		if err := w.otgWriter.DeleteResources(ctx, OntologyID(key)); err != nil {
-			return err
-		}
-		w.sweeper.forget(key)
-		w.taskSync.Forget(key)
-	}
-	return nil
-}
-
-func (w Writer) deleteChildTasks(ctx context.Context, key Key) error {
-	taskKeys, err := w.childTaskKeys(ctx, key)
+	taskKeys, err := w.TaskKeys(ctx, keys...)
 	if err != nil {
 		return err
 	}
@@ -142,7 +121,33 @@ func (w Writer) deleteChildTasks(ctx context.Context, key Key) error {
 			return err
 		}
 	}
+	if err = w.table.NewDelete().
+		Where(gorp.MatchKeys[Key, Arc](keys...)).
+		Exec(ctx, w.tx); err != nil {
+		return err
+	}
+	for _, key := range keys {
+		if err = w.otgWriter.DeleteResources(ctx, OntologyID(key)); err != nil {
+			return err
+		}
+		w.sweeper.forget(key)
+		w.taskSync.Forget(key)
+	}
 	return nil
+}
+
+// TaskKeys returns the keys of the child tasks of the Arcs with the given keys. A
+// missing Arc has no tasks. A task with no ontology link to an Arc is not included.
+func (w Writer) TaskKeys(ctx context.Context, keys ...Key) ([]task.Key, error) {
+	var taskKeys []task.Key
+	for _, key := range keys {
+		children, err := w.childTaskKeys(ctx, key)
+		if err != nil {
+			return nil, err
+		}
+		taskKeys = append(taskKeys, children...)
+	}
+	return taskKeys, nil
 }
 
 func (w Writer) childTaskKeys(ctx context.Context, key Key) ([]task.Key, error) {
