@@ -176,34 +176,69 @@ const (
 	StateIndicatorNodeConfigType NodeConfigType = versions.StateIndicatorNodeConfigType
 	// StringDisplayNodeConfigType is the configuration for live string display symbols.
 	StringDisplayNodeConfigType NodeConfigType = versions.StringDisplayNodeConfigType
-	SwitchNodeConfigType        NodeConfigType = versions.SwitchNodeConfigType
+	// SwitchNodeConfigType is the configuration for switch symbols.
+	SwitchNodeConfigType NodeConfigType = versions.SwitchNodeConfigType
 	// TextBoxNodeConfigType is the configuration for text box annotation symbols.
 	TextBoxNodeConfigType NodeConfigType = versions.TextBoxNodeConfigType
 	// ValueNodeConfigType is the configuration for live telemetry value symbols.
-	ValueNodeConfigType                          NodeConfigType = versions.ValueNodeConfigType
-	AgitatorNodeConfigType                       NodeConfigType = versions.AgitatorNodeConfigType
-	CrossBeamAgitatorNodeConfigType              NodeConfigType = versions.CrossBeamAgitatorNodeConfigType
-	FlatBladeAgitatorNodeConfigType              NodeConfigType = versions.FlatBladeAgitatorNodeConfigType
-	HeatExchangerGeneralNodeConfigType           NodeConfigType = versions.HeatExchangerGeneralNodeConfigType
-	HeatExchangerMNodeConfigType                 NodeConfigType = versions.HeatExchangerMNodeConfigType
-	HeatExchangerStraightTubeNodeConfigType      NodeConfigType = versions.HeatExchangerStraightTubeNodeConfigType
-	HelicalAgitatorNodeConfigType                NodeConfigType = versions.HelicalAgitatorNodeConfigType
-	PaddleAgitatorNodeConfigType                 NodeConfigType = versions.PaddleAgitatorNodeConfigType
-	PropellerAgitatorNodeConfigType              NodeConfigType = versions.PropellerAgitatorNodeConfigType
-	RotaryMixerNodeConfigType                    NodeConfigType = versions.RotaryMixerNodeConfigType
-	StaticMixerNodeConfigType                    NodeConfigType = versions.StaticMixerNodeConfigType
-	CavityPumpNodeConfigType                     NodeConfigType = versions.CavityPumpNodeConfigType
-	CentrifugalCompressorNodeConfigType          NodeConfigType = versions.CentrifugalCompressorNodeConfigType
-	CompressorNodeConfigType                     NodeConfigType = versions.CompressorNodeConfigType
-	DiaphragmPumpNodeConfigType                  NodeConfigType = versions.DiaphragmPumpNodeConfigType
-	EjectionPumpNodeConfigType                   NodeConfigType = versions.EjectionPumpNodeConfigType
-	EjectorCompressorNodeConfigType              NodeConfigType = versions.EjectorCompressorNodeConfigType
-	LiquidRingCompressorNodeConfigType           NodeConfigType = versions.LiquidRingCompressorNodeConfigType
-	PistonPumpNodeConfigType                     NodeConfigType = versions.PistonPumpNodeConfigType
-	PumpNodeConfigType                           NodeConfigType = versions.PumpNodeConfigType
-	RollerVaneCompressorNodeConfigType           NodeConfigType = versions.RollerVaneCompressorNodeConfigType
-	ScrewPumpNodeConfigType                      NodeConfigType = versions.ScrewPumpNodeConfigType
-	TurboCompressorNodeConfigType                NodeConfigType = versions.TurboCompressorNodeConfigType
+	ValueNodeConfigType NodeConfigType = versions.ValueNodeConfigType
+	// AgitatorNodeConfigType is the configuration for agitator symbols.
+	AgitatorNodeConfigType NodeConfigType = versions.AgitatorNodeConfigType
+	// CrossBeamAgitatorNodeConfigType is the configuration for cross beam agitator
+	// symbols.
+	CrossBeamAgitatorNodeConfigType NodeConfigType = versions.CrossBeamAgitatorNodeConfigType
+	// FlatBladeAgitatorNodeConfigType is the configuration for flat blade agitator
+	// symbols.
+	FlatBladeAgitatorNodeConfigType NodeConfigType = versions.FlatBladeAgitatorNodeConfigType
+	// HeatExchangerGeneralNodeConfigType is the configuration for general heat
+	// exchanger symbols.
+	HeatExchangerGeneralNodeConfigType NodeConfigType = versions.HeatExchangerGeneralNodeConfigType
+	// HeatExchangerMNodeConfigType is the configuration for M-type heat exchanger
+	// symbols.
+	HeatExchangerMNodeConfigType NodeConfigType = versions.HeatExchangerMNodeConfigType
+	// HeatExchangerStraightTubeNodeConfigType is the configuration for straight tube
+	// heat exchanger symbols.
+	HeatExchangerStraightTubeNodeConfigType NodeConfigType = versions.HeatExchangerStraightTubeNodeConfigType
+	// HelicalAgitatorNodeConfigType is the configuration for helical agitator symbols.
+	HelicalAgitatorNodeConfigType NodeConfigType = versions.HelicalAgitatorNodeConfigType
+	// PaddleAgitatorNodeConfigType is the configuration for paddle agitator symbols.
+	PaddleAgitatorNodeConfigType NodeConfigType = versions.PaddleAgitatorNodeConfigType
+	// PropellerAgitatorNodeConfigType is the configuration for propeller agitator
+	// symbols.
+	PropellerAgitatorNodeConfigType NodeConfigType = versions.PropellerAgitatorNodeConfigType
+	// RotaryMixerNodeConfigType is the configuration for rotary mixer symbols.
+	RotaryMixerNodeConfigType NodeConfigType = versions.RotaryMixerNodeConfigType
+	// StaticMixerNodeConfigType is the configuration for static mixer symbols.
+	StaticMixerNodeConfigType NodeConfigType = versions.StaticMixerNodeConfigType
+	// CavityPumpNodeConfigType is the configuration for cavity pump symbols.
+	CavityPumpNodeConfigType NodeConfigType = versions.CavityPumpNodeConfigType
+	// CentrifugalCompressorNodeConfigType is the configuration for centrifugal
+	// compressor symbols.
+	CentrifugalCompressorNodeConfigType NodeConfigType = versions.CentrifugalCompressorNodeConfigType
+	// CompressorNodeConfigType is the configuration for compressor symbols.
+	CompressorNodeConfigType NodeConfigType = versions.CompressorNodeConfigType
+	// DiaphragmPumpNodeConfigType is the configuration for diaphragm pump symbols.
+	DiaphragmPumpNodeConfigType NodeConfigType = versions.DiaphragmPumpNodeConfigType
+	// EjectionPumpNodeConfigType is the configuration for ejection pump symbols.
+	EjectionPumpNodeConfigType NodeConfigType = versions.EjectionPumpNodeConfigType
+	// EjectorCompressorNodeConfigType is the configuration for ejector compressor
+	// symbols.
+	EjectorCompressorNodeConfigType NodeConfigType = versions.EjectorCompressorNodeConfigType
+	// LiquidRingCompressorNodeConfigType is the configuration for liquid ring
+	// compressor symbols.
+	LiquidRingCompressorNodeConfigType NodeConfigType = versions.LiquidRingCompressorNodeConfigType
+	// PistonPumpNodeConfigType is the configuration for piston pump symbols.
+	PistonPumpNodeConfigType NodeConfigType = versions.PistonPumpNodeConfigType
+	// PumpNodeConfigType is the configuration for pump symbols.
+	PumpNodeConfigType NodeConfigType = versions.PumpNodeConfigType
+	// RollerVaneCompressorNodeConfigType is the configuration for roller vane
+	// compressor symbols.
+	RollerVaneCompressorNodeConfigType NodeConfigType = versions.RollerVaneCompressorNodeConfigType
+	// ScrewPumpNodeConfigType is the configuration for screw pump symbols.
+	ScrewPumpNodeConfigType NodeConfigType = versions.ScrewPumpNodeConfigType
+	// TurboCompressorNodeConfigType is the configuration for turbo compressor symbols.
+	TurboCompressorNodeConfigType NodeConfigType = versions.TurboCompressorNodeConfigType
+	// VacuumPumpNodeConfigType is the configuration for vacuum pump symbols.
 	VacuumPumpNodeConfigType                     NodeConfigType = versions.VacuumPumpNodeConfigType
 	BurstDiscNodeConfigType                      NodeConfigType = versions.BurstDiscNodeConfigType
 	FlameArrestorNodeConfigType                  NodeConfigType = versions.FlameArrestorNodeConfigType
@@ -320,6 +355,8 @@ type StateIndicatorNodeConfig = versions.StateIndicatorNodeConfig
 
 // StringDisplayNodeConfig is the configuration for live string display symbols.
 type StringDisplayNodeConfig = versions.StringDisplayNodeConfig
+
+// SwitchNodeConfig is the configuration for switch symbols.
 type SwitchNodeConfig = versions.SwitchNodeConfig
 
 // TextBoxNodeConfig is the configuration for text box annotation symbols.
@@ -327,29 +364,82 @@ type TextBoxNodeConfig = versions.TextBoxNodeConfig
 
 // ValueNodeConfig is the configuration for live telemetry value symbols.
 type ValueNodeConfig = versions.ValueNodeConfig
+
+// AgitatorNodeConfig is the configuration for agitator symbols.
 type AgitatorNodeConfig = versions.AgitatorNodeConfig
+
+// CrossBeamAgitatorNodeConfig is the configuration for cross beam agitator symbols.
 type CrossBeamAgitatorNodeConfig = versions.CrossBeamAgitatorNodeConfig
+
+// FlatBladeAgitatorNodeConfig is the configuration for flat blade agitator symbols.
 type FlatBladeAgitatorNodeConfig = versions.FlatBladeAgitatorNodeConfig
+
+// HeatExchangerGeneralNodeConfig is the configuration for general heat exchanger
+// symbols.
 type HeatExchangerGeneralNodeConfig = versions.HeatExchangerGeneralNodeConfig
+
+// HeatExchangerMNodeConfig is the configuration for M-type heat exchanger symbols.
 type HeatExchangerMNodeConfig = versions.HeatExchangerMNodeConfig
+
+// HeatExchangerStraightTubeNodeConfig is the configuration for straight tube heat
+// exchanger symbols.
 type HeatExchangerStraightTubeNodeConfig = versions.HeatExchangerStraightTubeNodeConfig
+
+// HelicalAgitatorNodeConfig is the configuration for helical agitator symbols.
 type HelicalAgitatorNodeConfig = versions.HelicalAgitatorNodeConfig
+
+// PaddleAgitatorNodeConfig is the configuration for paddle agitator symbols.
 type PaddleAgitatorNodeConfig = versions.PaddleAgitatorNodeConfig
+
+// PropellerAgitatorNodeConfig is the configuration for propeller agitator symbols.
 type PropellerAgitatorNodeConfig = versions.PropellerAgitatorNodeConfig
+
+// RotaryMixerNodeConfig is the configuration for rotary mixer symbols.
 type RotaryMixerNodeConfig = versions.RotaryMixerNodeConfig
+
+// StaticMixerNodeConfig is the configuration for static mixer symbols.
 type StaticMixerNodeConfig = versions.StaticMixerNodeConfig
+
+// CavityPumpNodeConfig is the configuration for cavity pump symbols.
 type CavityPumpNodeConfig = versions.CavityPumpNodeConfig
+
+// CentrifugalCompressorNodeConfig is the configuration for centrifugal compressor
+// symbols.
 type CentrifugalCompressorNodeConfig = versions.CentrifugalCompressorNodeConfig
+
+// CompressorNodeConfig is the configuration for compressor symbols.
 type CompressorNodeConfig = versions.CompressorNodeConfig
+
+// DiaphragmPumpNodeConfig is the configuration for diaphragm pump symbols.
 type DiaphragmPumpNodeConfig = versions.DiaphragmPumpNodeConfig
+
+// EjectionPumpNodeConfig is the configuration for ejection pump symbols.
 type EjectionPumpNodeConfig = versions.EjectionPumpNodeConfig
+
+// EjectorCompressorNodeConfig is the configuration for ejector compressor symbols.
 type EjectorCompressorNodeConfig = versions.EjectorCompressorNodeConfig
+
+// LiquidRingCompressorNodeConfig is the configuration for liquid ring compressor
+// symbols.
 type LiquidRingCompressorNodeConfig = versions.LiquidRingCompressorNodeConfig
+
+// PistonPumpNodeConfig is the configuration for piston pump symbols.
 type PistonPumpNodeConfig = versions.PistonPumpNodeConfig
+
+// PumpNodeConfig is the configuration for pump symbols.
 type PumpNodeConfig = versions.PumpNodeConfig
+
+// RollerVaneCompressorNodeConfig is the configuration for roller vane compressor
+// symbols.
 type RollerVaneCompressorNodeConfig = versions.RollerVaneCompressorNodeConfig
+
+// ScrewPumpNodeConfig is the configuration for screw pump symbols.
 type ScrewPumpNodeConfig = versions.ScrewPumpNodeConfig
+
+// TurboCompressorNodeConfig is the configuration for turbo compressor symbols.
 type TurboCompressorNodeConfig = versions.TurboCompressorNodeConfig
+
+// VacuumPumpNodeConfig is the configuration for vacuum pump symbols.
 type VacuumPumpNodeConfig = versions.VacuumPumpNodeConfig
 type BurstDiscNodeConfig = versions.BurstDiscNodeConfig
 type FlameArrestorNodeConfig = versions.FlameArrestorNodeConfig
@@ -466,34 +556,71 @@ const (
 	// StringDisplayElementConfigType is the configuration for live string display
 	// symbols.
 	StringDisplayElementConfigType ElementConfigType = versions.StringDisplayElementConfigType
-	SwitchElementConfigType        ElementConfigType = versions.SwitchElementConfigType
+	// SwitchElementConfigType is the configuration for switch symbols.
+	SwitchElementConfigType ElementConfigType = versions.SwitchElementConfigType
 	// TextBoxElementConfigType is the configuration for text box annotation symbols.
 	TextBoxElementConfigType ElementConfigType = versions.TextBoxElementConfigType
 	// ValueElementConfigType is the configuration for live telemetry value symbols.
-	ValueElementConfigType                          ElementConfigType = versions.ValueElementConfigType
-	AgitatorElementConfigType                       ElementConfigType = versions.AgitatorElementConfigType
-	CrossBeamAgitatorElementConfigType              ElementConfigType = versions.CrossBeamAgitatorElementConfigType
-	FlatBladeAgitatorElementConfigType              ElementConfigType = versions.FlatBladeAgitatorElementConfigType
-	HeatExchangerGeneralElementConfigType           ElementConfigType = versions.HeatExchangerGeneralElementConfigType
-	HeatExchangerMElementConfigType                 ElementConfigType = versions.HeatExchangerMElementConfigType
-	HeatExchangerStraightTubeElementConfigType      ElementConfigType = versions.HeatExchangerStraightTubeElementConfigType
-	HelicalAgitatorElementConfigType                ElementConfigType = versions.HelicalAgitatorElementConfigType
-	PaddleAgitatorElementConfigType                 ElementConfigType = versions.PaddleAgitatorElementConfigType
-	PropellerAgitatorElementConfigType              ElementConfigType = versions.PropellerAgitatorElementConfigType
-	RotaryMixerElementConfigType                    ElementConfigType = versions.RotaryMixerElementConfigType
-	StaticMixerElementConfigType                    ElementConfigType = versions.StaticMixerElementConfigType
-	CavityPumpElementConfigType                     ElementConfigType = versions.CavityPumpElementConfigType
-	CentrifugalCompressorElementConfigType          ElementConfigType = versions.CentrifugalCompressorElementConfigType
-	CompressorElementConfigType                     ElementConfigType = versions.CompressorElementConfigType
-	DiaphragmPumpElementConfigType                  ElementConfigType = versions.DiaphragmPumpElementConfigType
-	EjectionPumpElementConfigType                   ElementConfigType = versions.EjectionPumpElementConfigType
-	EjectorCompressorElementConfigType              ElementConfigType = versions.EjectorCompressorElementConfigType
-	LiquidRingCompressorElementConfigType           ElementConfigType = versions.LiquidRingCompressorElementConfigType
-	PistonPumpElementConfigType                     ElementConfigType = versions.PistonPumpElementConfigType
-	PumpElementConfigType                           ElementConfigType = versions.PumpElementConfigType
-	RollerVaneCompressorElementConfigType           ElementConfigType = versions.RollerVaneCompressorElementConfigType
-	ScrewPumpElementConfigType                      ElementConfigType = versions.ScrewPumpElementConfigType
-	TurboCompressorElementConfigType                ElementConfigType = versions.TurboCompressorElementConfigType
+	ValueElementConfigType ElementConfigType = versions.ValueElementConfigType
+	// AgitatorElementConfigType is the configuration for agitator symbols.
+	AgitatorElementConfigType ElementConfigType = versions.AgitatorElementConfigType
+	// CrossBeamAgitatorElementConfigType is the configuration for cross beam agitator
+	// symbols.
+	CrossBeamAgitatorElementConfigType ElementConfigType = versions.CrossBeamAgitatorElementConfigType
+	// FlatBladeAgitatorElementConfigType is the configuration for flat blade agitator
+	// symbols.
+	FlatBladeAgitatorElementConfigType ElementConfigType = versions.FlatBladeAgitatorElementConfigType
+	// HeatExchangerGeneralElementConfigType is the configuration for general heat
+	// exchanger symbols.
+	HeatExchangerGeneralElementConfigType ElementConfigType = versions.HeatExchangerGeneralElementConfigType
+	// HeatExchangerMElementConfigType is the configuration for M-type heat exchanger
+	// symbols.
+	HeatExchangerMElementConfigType ElementConfigType = versions.HeatExchangerMElementConfigType
+	// HeatExchangerStraightTubeElementConfigType is the configuration for straight tube
+	// heat exchanger symbols.
+	HeatExchangerStraightTubeElementConfigType ElementConfigType = versions.HeatExchangerStraightTubeElementConfigType
+	// HelicalAgitatorElementConfigType is the configuration for helical agitator
+	// symbols.
+	HelicalAgitatorElementConfigType ElementConfigType = versions.HelicalAgitatorElementConfigType
+	// PaddleAgitatorElementConfigType is the configuration for paddle agitator symbols.
+	PaddleAgitatorElementConfigType ElementConfigType = versions.PaddleAgitatorElementConfigType
+	// PropellerAgitatorElementConfigType is the configuration for propeller agitator
+	// symbols.
+	PropellerAgitatorElementConfigType ElementConfigType = versions.PropellerAgitatorElementConfigType
+	// RotaryMixerElementConfigType is the configuration for rotary mixer symbols.
+	RotaryMixerElementConfigType ElementConfigType = versions.RotaryMixerElementConfigType
+	// StaticMixerElementConfigType is the configuration for static mixer symbols.
+	StaticMixerElementConfigType ElementConfigType = versions.StaticMixerElementConfigType
+	// CavityPumpElementConfigType is the configuration for cavity pump symbols.
+	CavityPumpElementConfigType ElementConfigType = versions.CavityPumpElementConfigType
+	// CentrifugalCompressorElementConfigType is the configuration for centrifugal
+	// compressor symbols.
+	CentrifugalCompressorElementConfigType ElementConfigType = versions.CentrifugalCompressorElementConfigType
+	// CompressorElementConfigType is the configuration for compressor symbols.
+	CompressorElementConfigType ElementConfigType = versions.CompressorElementConfigType
+	// DiaphragmPumpElementConfigType is the configuration for diaphragm pump symbols.
+	DiaphragmPumpElementConfigType ElementConfigType = versions.DiaphragmPumpElementConfigType
+	// EjectionPumpElementConfigType is the configuration for ejection pump symbols.
+	EjectionPumpElementConfigType ElementConfigType = versions.EjectionPumpElementConfigType
+	// EjectorCompressorElementConfigType is the configuration for ejector compressor
+	// symbols.
+	EjectorCompressorElementConfigType ElementConfigType = versions.EjectorCompressorElementConfigType
+	// LiquidRingCompressorElementConfigType is the configuration for liquid ring
+	// compressor symbols.
+	LiquidRingCompressorElementConfigType ElementConfigType = versions.LiquidRingCompressorElementConfigType
+	// PistonPumpElementConfigType is the configuration for piston pump symbols.
+	PistonPumpElementConfigType ElementConfigType = versions.PistonPumpElementConfigType
+	// PumpElementConfigType is the configuration for pump symbols.
+	PumpElementConfigType ElementConfigType = versions.PumpElementConfigType
+	// RollerVaneCompressorElementConfigType is the configuration for roller vane
+	// compressor symbols.
+	RollerVaneCompressorElementConfigType ElementConfigType = versions.RollerVaneCompressorElementConfigType
+	// ScrewPumpElementConfigType is the configuration for screw pump symbols.
+	ScrewPumpElementConfigType ElementConfigType = versions.ScrewPumpElementConfigType
+	// TurboCompressorElementConfigType is the configuration for turbo compressor
+	// symbols.
+	TurboCompressorElementConfigType ElementConfigType = versions.TurboCompressorElementConfigType
+	// VacuumPumpElementConfigType is the configuration for vacuum pump symbols.
 	VacuumPumpElementConfigType                     ElementConfigType = versions.VacuumPumpElementConfigType
 	BurstDiscElementConfigType                      ElementConfigType = versions.BurstDiscElementConfigType
 	FlameArrestorElementConfigType                  ElementConfigType = versions.FlameArrestorElementConfigType
@@ -618,6 +745,8 @@ type StateIndicatorElementConfig = versions.StateIndicatorElementConfig
 
 // StringDisplayElementConfig is the configuration for live string display symbols.
 type StringDisplayElementConfig = versions.StringDisplayElementConfig
+
+// SwitchElementConfig is the configuration for switch symbols.
 type SwitchElementConfig = versions.SwitchElementConfig
 
 // TextBoxElementConfig is the configuration for text box annotation symbols.
@@ -625,29 +754,82 @@ type TextBoxElementConfig = versions.TextBoxElementConfig
 
 // ValueElementConfig is the configuration for live telemetry value symbols.
 type ValueElementConfig = versions.ValueElementConfig
+
+// AgitatorElementConfig is the configuration for agitator symbols.
 type AgitatorElementConfig = versions.AgitatorElementConfig
+
+// CrossBeamAgitatorElementConfig is the configuration for cross beam agitator symbols.
 type CrossBeamAgitatorElementConfig = versions.CrossBeamAgitatorElementConfig
+
+// FlatBladeAgitatorElementConfig is the configuration for flat blade agitator symbols.
 type FlatBladeAgitatorElementConfig = versions.FlatBladeAgitatorElementConfig
+
+// HeatExchangerGeneralElementConfig is the configuration for general heat exchanger
+// symbols.
 type HeatExchangerGeneralElementConfig = versions.HeatExchangerGeneralElementConfig
+
+// HeatExchangerMElementConfig is the configuration for M-type heat exchanger symbols.
 type HeatExchangerMElementConfig = versions.HeatExchangerMElementConfig
+
+// HeatExchangerStraightTubeElementConfig is the configuration for straight tube heat
+// exchanger symbols.
 type HeatExchangerStraightTubeElementConfig = versions.HeatExchangerStraightTubeElementConfig
+
+// HelicalAgitatorElementConfig is the configuration for helical agitator symbols.
 type HelicalAgitatorElementConfig = versions.HelicalAgitatorElementConfig
+
+// PaddleAgitatorElementConfig is the configuration for paddle agitator symbols.
 type PaddleAgitatorElementConfig = versions.PaddleAgitatorElementConfig
+
+// PropellerAgitatorElementConfig is the configuration for propeller agitator symbols.
 type PropellerAgitatorElementConfig = versions.PropellerAgitatorElementConfig
+
+// RotaryMixerElementConfig is the configuration for rotary mixer symbols.
 type RotaryMixerElementConfig = versions.RotaryMixerElementConfig
+
+// StaticMixerElementConfig is the configuration for static mixer symbols.
 type StaticMixerElementConfig = versions.StaticMixerElementConfig
+
+// CavityPumpElementConfig is the configuration for cavity pump symbols.
 type CavityPumpElementConfig = versions.CavityPumpElementConfig
+
+// CentrifugalCompressorElementConfig is the configuration for centrifugal compressor
+// symbols.
 type CentrifugalCompressorElementConfig = versions.CentrifugalCompressorElementConfig
+
+// CompressorElementConfig is the configuration for compressor symbols.
 type CompressorElementConfig = versions.CompressorElementConfig
+
+// DiaphragmPumpElementConfig is the configuration for diaphragm pump symbols.
 type DiaphragmPumpElementConfig = versions.DiaphragmPumpElementConfig
+
+// EjectionPumpElementConfig is the configuration for ejection pump symbols.
 type EjectionPumpElementConfig = versions.EjectionPumpElementConfig
+
+// EjectorCompressorElementConfig is the configuration for ejector compressor symbols.
 type EjectorCompressorElementConfig = versions.EjectorCompressorElementConfig
+
+// LiquidRingCompressorElementConfig is the configuration for liquid ring compressor
+// symbols.
 type LiquidRingCompressorElementConfig = versions.LiquidRingCompressorElementConfig
+
+// PistonPumpElementConfig is the configuration for piston pump symbols.
 type PistonPumpElementConfig = versions.PistonPumpElementConfig
+
+// PumpElementConfig is the configuration for pump symbols.
 type PumpElementConfig = versions.PumpElementConfig
+
+// RollerVaneCompressorElementConfig is the configuration for roller vane compressor
+// symbols.
 type RollerVaneCompressorElementConfig = versions.RollerVaneCompressorElementConfig
+
+// ScrewPumpElementConfig is the configuration for screw pump symbols.
 type ScrewPumpElementConfig = versions.ScrewPumpElementConfig
+
+// TurboCompressorElementConfig is the configuration for turbo compressor symbols.
 type TurboCompressorElementConfig = versions.TurboCompressorElementConfig
+
+// VacuumPumpElementConfig is the configuration for vacuum pump symbols.
 type VacuumPumpElementConfig = versions.VacuumPumpElementConfig
 type BurstDiscElementConfig = versions.BurstDiscElementConfig
 type FlameArrestorElementConfig = versions.FlameArrestorElementConfig

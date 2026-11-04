@@ -1308,6 +1308,7 @@ func (s StringDisplayNodeConfig) Validate() error {
 	return v.Error()
 }
 
+// SwitchNodeConfig is the configuration for switch symbols.
 type SwitchNodeConfig struct {
 	ToggleSymbolConfig
 }
@@ -1433,6 +1434,7 @@ func (va ValueNodeConfig) Validate() error {
 	return v.Error()
 }
 
+// AgitatorNodeConfig is the configuration for agitator symbols.
 type AgitatorNodeConfig struct {
 	ToggleSymbolConfig
 }
@@ -1452,6 +1454,7 @@ func (a AgitatorNodeConfig) Validate() error {
 	return v.Error()
 }
 
+// CrossBeamAgitatorNodeConfig is the configuration for cross beam agitator symbols.
 type CrossBeamAgitatorNodeConfig struct {
 	ToggleSymbolConfig
 }
@@ -1471,6 +1474,7 @@ func (c CrossBeamAgitatorNodeConfig) Validate() error {
 	return v.Error()
 }
 
+// FlatBladeAgitatorNodeConfig is the configuration for flat blade agitator symbols.
 type FlatBladeAgitatorNodeConfig struct {
 	ToggleSymbolConfig
 }
@@ -1490,6 +1494,8 @@ func (f FlatBladeAgitatorNodeConfig) Validate() error {
 	return v.Error()
 }
 
+// HeatExchangerGeneralNodeConfig is the configuration for general heat exchanger
+// symbols.
 type HeatExchangerGeneralNodeConfig struct {
 	StaticSymbolConfig
 }
@@ -1509,6 +1515,7 @@ func (h HeatExchangerGeneralNodeConfig) Validate() error {
 	return v.Error()
 }
 
+// HeatExchangerMNodeConfig is the configuration for M-type heat exchanger symbols.
 type HeatExchangerMNodeConfig struct {
 	StaticSymbolConfig
 }
@@ -1528,6 +1535,8 @@ func (h HeatExchangerMNodeConfig) Validate() error {
 	return v.Error()
 }
 
+// HeatExchangerStraightTubeNodeConfig is the configuration for straight tube heat
+// exchanger symbols.
 type HeatExchangerStraightTubeNodeConfig struct {
 	StaticSymbolConfig
 }
@@ -1547,6 +1556,7 @@ func (h HeatExchangerStraightTubeNodeConfig) Validate() error {
 	return v.Error()
 }
 
+// HelicalAgitatorNodeConfig is the configuration for helical agitator symbols.
 type HelicalAgitatorNodeConfig struct {
 	ToggleSymbolConfig
 }
@@ -1566,6 +1576,7 @@ func (h HelicalAgitatorNodeConfig) Validate() error {
 	return v.Error()
 }
 
+// PaddleAgitatorNodeConfig is the configuration for paddle agitator symbols.
 type PaddleAgitatorNodeConfig struct {
 	ToggleSymbolConfig
 }
@@ -1585,6 +1596,7 @@ func (p PaddleAgitatorNodeConfig) Validate() error {
 	return v.Error()
 }
 
+// PropellerAgitatorNodeConfig is the configuration for propeller agitator symbols.
 type PropellerAgitatorNodeConfig struct {
 	ToggleSymbolConfig
 }
@@ -1604,6 +1616,7 @@ func (p PropellerAgitatorNodeConfig) Validate() error {
 	return v.Error()
 }
 
+// RotaryMixerNodeConfig is the configuration for rotary mixer symbols.
 type RotaryMixerNodeConfig struct {
 	ToggleSymbolConfig
 }
@@ -1623,6 +1636,7 @@ func (r RotaryMixerNodeConfig) Validate() error {
 	return v.Error()
 }
 
+// StaticMixerNodeConfig is the configuration for static mixer symbols.
 type StaticMixerNodeConfig struct {
 	StaticSymbolConfig
 }
@@ -1642,6 +1656,7 @@ func (s StaticMixerNodeConfig) Validate() error {
 	return v.Error()
 }
 
+// CavityPumpNodeConfig is the configuration for cavity pump symbols.
 type CavityPumpNodeConfig struct {
 	ToggleSymbolConfig
 }
@@ -1661,6 +1676,8 @@ func (c CavityPumpNodeConfig) Validate() error {
 	return v.Error()
 }
 
+// CentrifugalCompressorNodeConfig is the configuration for centrifugal compressor
+// symbols.
 type CentrifugalCompressorNodeConfig struct {
 	ToggleSymbolConfig
 }
@@ -1680,6 +1697,7 @@ func (c CentrifugalCompressorNodeConfig) Validate() error {
 	return v.Error()
 }
 
+// CompressorNodeConfig is the configuration for compressor symbols.
 type CompressorNodeConfig struct {
 	ToggleSymbolConfig
 }
@@ -1699,6 +1717,7 @@ func (c CompressorNodeConfig) Validate() error {
 	return v.Error()
 }
 
+// DiaphragmPumpNodeConfig is the configuration for diaphragm pump symbols.
 type DiaphragmPumpNodeConfig struct {
 	ToggleSymbolConfig
 }
@@ -1718,6 +1737,7 @@ func (d DiaphragmPumpNodeConfig) Validate() error {
 	return v.Error()
 }
 
+// EjectionPumpNodeConfig is the configuration for ejection pump symbols.
 type EjectionPumpNodeConfig struct {
 	ToggleSymbolConfig
 }
@@ -1737,6 +1757,7 @@ func (e EjectionPumpNodeConfig) Validate() error {
 	return v.Error()
 }
 
+// EjectorCompressorNodeConfig is the configuration for ejector compressor symbols.
 type EjectorCompressorNodeConfig struct {
 	ToggleSymbolConfig
 }
@@ -1756,6 +1777,8 @@ func (e EjectorCompressorNodeConfig) Validate() error {
 	return v.Error()
 }
 
+// LiquidRingCompressorNodeConfig is the configuration for liquid ring compressor
+// symbols.
 type LiquidRingCompressorNodeConfig struct {
 	ToggleSymbolConfig
 }
@@ -1775,6 +1798,7 @@ func (l LiquidRingCompressorNodeConfig) Validate() error {
 	return v.Error()
 }
 
+// PistonPumpNodeConfig is the configuration for piston pump symbols.
 type PistonPumpNodeConfig struct {
 	ToggleSymbolConfig
 }
@@ -1794,6 +1818,7 @@ func (p PistonPumpNodeConfig) Validate() error {
 	return v.Error()
 }
 
+// PumpNodeConfig is the configuration for pump symbols.
 type PumpNodeConfig struct {
 	ToggleSymbolConfig
 }
@@ -1813,6 +1838,8 @@ func (p PumpNodeConfig) Validate() error {
 	return v.Error()
 }
 
+// RollerVaneCompressorNodeConfig is the configuration for roller vane compressor
+// symbols.
 type RollerVaneCompressorNodeConfig struct {
 	ToggleSymbolConfig
 }
@@ -1832,6 +1859,7 @@ func (r RollerVaneCompressorNodeConfig) Validate() error {
 	return v.Error()
 }
 
+// ScrewPumpNodeConfig is the configuration for screw pump symbols.
 type ScrewPumpNodeConfig struct {
 	ToggleSymbolConfig
 }
@@ -1851,6 +1879,7 @@ func (s ScrewPumpNodeConfig) Validate() error {
 	return v.Error()
 }
 
+// TurboCompressorNodeConfig is the configuration for turbo compressor symbols.
 type TurboCompressorNodeConfig struct {
 	ToggleSymbolConfig
 }
@@ -1870,6 +1899,7 @@ func (t TurboCompressorNodeConfig) Validate() error {
 	return v.Error()
 }
 
+// VacuumPumpNodeConfig is the configuration for vacuum pump symbols.
 type VacuumPumpNodeConfig struct {
 	ToggleSymbolConfig
 }
@@ -5952,6 +5982,7 @@ func (s StringDisplayElementConfig) Validate() error {
 	return v.Error()
 }
 
+// SwitchElementConfig is the configuration for switch symbols.
 type SwitchElementConfig struct {
 	ToggleSymbolConfig
 }
@@ -6077,6 +6108,7 @@ func (va ValueElementConfig) Validate() error {
 	return v.Error()
 }
 
+// AgitatorElementConfig is the configuration for agitator symbols.
 type AgitatorElementConfig struct {
 	ToggleSymbolConfig
 }
@@ -6096,6 +6128,7 @@ func (a AgitatorElementConfig) Validate() error {
 	return v.Error()
 }
 
+// CrossBeamAgitatorElementConfig is the configuration for cross beam agitator symbols.
 type CrossBeamAgitatorElementConfig struct {
 	ToggleSymbolConfig
 }
@@ -6115,6 +6148,7 @@ func (c CrossBeamAgitatorElementConfig) Validate() error {
 	return v.Error()
 }
 
+// FlatBladeAgitatorElementConfig is the configuration for flat blade agitator symbols.
 type FlatBladeAgitatorElementConfig struct {
 	ToggleSymbolConfig
 }
@@ -6134,6 +6168,8 @@ func (f FlatBladeAgitatorElementConfig) Validate() error {
 	return v.Error()
 }
 
+// HeatExchangerGeneralElementConfig is the configuration for general heat exchanger
+// symbols.
 type HeatExchangerGeneralElementConfig struct {
 	StaticSymbolConfig
 }
@@ -6153,6 +6189,7 @@ func (h HeatExchangerGeneralElementConfig) Validate() error {
 	return v.Error()
 }
 
+// HeatExchangerMElementConfig is the configuration for M-type heat exchanger symbols.
 type HeatExchangerMElementConfig struct {
 	StaticSymbolConfig
 }
@@ -6172,6 +6209,8 @@ func (h HeatExchangerMElementConfig) Validate() error {
 	return v.Error()
 }
 
+// HeatExchangerStraightTubeElementConfig is the configuration for straight tube heat
+// exchanger symbols.
 type HeatExchangerStraightTubeElementConfig struct {
 	StaticSymbolConfig
 }
@@ -6191,6 +6230,7 @@ func (h HeatExchangerStraightTubeElementConfig) Validate() error {
 	return v.Error()
 }
 
+// HelicalAgitatorElementConfig is the configuration for helical agitator symbols.
 type HelicalAgitatorElementConfig struct {
 	ToggleSymbolConfig
 }
@@ -6210,6 +6250,7 @@ func (h HelicalAgitatorElementConfig) Validate() error {
 	return v.Error()
 }
 
+// PaddleAgitatorElementConfig is the configuration for paddle agitator symbols.
 type PaddleAgitatorElementConfig struct {
 	ToggleSymbolConfig
 }
@@ -6229,6 +6270,7 @@ func (p PaddleAgitatorElementConfig) Validate() error {
 	return v.Error()
 }
 
+// PropellerAgitatorElementConfig is the configuration for propeller agitator symbols.
 type PropellerAgitatorElementConfig struct {
 	ToggleSymbolConfig
 }
@@ -6248,6 +6290,7 @@ func (p PropellerAgitatorElementConfig) Validate() error {
 	return v.Error()
 }
 
+// RotaryMixerElementConfig is the configuration for rotary mixer symbols.
 type RotaryMixerElementConfig struct {
 	ToggleSymbolConfig
 }
@@ -6267,6 +6310,7 @@ func (r RotaryMixerElementConfig) Validate() error {
 	return v.Error()
 }
 
+// StaticMixerElementConfig is the configuration for static mixer symbols.
 type StaticMixerElementConfig struct {
 	StaticSymbolConfig
 }
@@ -6286,6 +6330,7 @@ func (s StaticMixerElementConfig) Validate() error {
 	return v.Error()
 }
 
+// CavityPumpElementConfig is the configuration for cavity pump symbols.
 type CavityPumpElementConfig struct {
 	ToggleSymbolConfig
 }
@@ -6305,6 +6350,8 @@ func (c CavityPumpElementConfig) Validate() error {
 	return v.Error()
 }
 
+// CentrifugalCompressorElementConfig is the configuration for centrifugal compressor
+// symbols.
 type CentrifugalCompressorElementConfig struct {
 	ToggleSymbolConfig
 }
@@ -6324,6 +6371,7 @@ func (c CentrifugalCompressorElementConfig) Validate() error {
 	return v.Error()
 }
 
+// CompressorElementConfig is the configuration for compressor symbols.
 type CompressorElementConfig struct {
 	ToggleSymbolConfig
 }
@@ -6343,6 +6391,7 @@ func (c CompressorElementConfig) Validate() error {
 	return v.Error()
 }
 
+// DiaphragmPumpElementConfig is the configuration for diaphragm pump symbols.
 type DiaphragmPumpElementConfig struct {
 	ToggleSymbolConfig
 }
@@ -6362,6 +6411,7 @@ func (d DiaphragmPumpElementConfig) Validate() error {
 	return v.Error()
 }
 
+// EjectionPumpElementConfig is the configuration for ejection pump symbols.
 type EjectionPumpElementConfig struct {
 	ToggleSymbolConfig
 }
@@ -6381,6 +6431,7 @@ func (e EjectionPumpElementConfig) Validate() error {
 	return v.Error()
 }
 
+// EjectorCompressorElementConfig is the configuration for ejector compressor symbols.
 type EjectorCompressorElementConfig struct {
 	ToggleSymbolConfig
 }
@@ -6400,6 +6451,8 @@ func (e EjectorCompressorElementConfig) Validate() error {
 	return v.Error()
 }
 
+// LiquidRingCompressorElementConfig is the configuration for liquid ring compressor
+// symbols.
 type LiquidRingCompressorElementConfig struct {
 	ToggleSymbolConfig
 }
@@ -6419,6 +6472,7 @@ func (l LiquidRingCompressorElementConfig) Validate() error {
 	return v.Error()
 }
 
+// PistonPumpElementConfig is the configuration for piston pump symbols.
 type PistonPumpElementConfig struct {
 	ToggleSymbolConfig
 }
@@ -6438,6 +6492,7 @@ func (p PistonPumpElementConfig) Validate() error {
 	return v.Error()
 }
 
+// PumpElementConfig is the configuration for pump symbols.
 type PumpElementConfig struct {
 	ToggleSymbolConfig
 }
@@ -6457,6 +6512,8 @@ func (p PumpElementConfig) Validate() error {
 	return v.Error()
 }
 
+// RollerVaneCompressorElementConfig is the configuration for roller vane compressor
+// symbols.
 type RollerVaneCompressorElementConfig struct {
 	ToggleSymbolConfig
 }
@@ -6476,6 +6533,7 @@ func (r RollerVaneCompressorElementConfig) Validate() error {
 	return v.Error()
 }
 
+// ScrewPumpElementConfig is the configuration for screw pump symbols.
 type ScrewPumpElementConfig struct {
 	ToggleSymbolConfig
 }
@@ -6495,6 +6553,7 @@ func (s ScrewPumpElementConfig) Validate() error {
 	return v.Error()
 }
 
+// TurboCompressorElementConfig is the configuration for turbo compressor symbols.
 type TurboCompressorElementConfig struct {
 	ToggleSymbolConfig
 }
@@ -6514,6 +6573,7 @@ func (t TurboCompressorElementConfig) Validate() error {
 	return v.Error()
 }
 
+// VacuumPumpElementConfig is the configuration for vacuum pump symbols.
 type VacuumPumpElementConfig struct {
 	ToggleSymbolConfig
 }
