@@ -19,6 +19,7 @@ type ResourceType = versions.ResourceType
 const (
 	ResourceTypeArc             ResourceType = versions.ResourceTypeArc
 	ResourceTypeBuiltin         ResourceType = versions.ResourceTypeBuiltin
+	ResourceTypeCertificate     ResourceType = versions.ResourceTypeCertificate
 	ResourceTypeChannel         ResourceType = versions.ResourceTypeChannel
 	ResourceTypeDevice          ResourceType = versions.ResourceTypeDevice
 	ResourceTypeFramer          ResourceType = versions.ResourceTypeFramer
@@ -36,6 +37,7 @@ const (
 	ResourceTypeRole            ResourceType = versions.ResourceTypeRole
 	ResourceTypeSchematic       ResourceType = versions.ResourceTypeSchematic
 	ResourceTypeSchematicSymbol ResourceType = versions.ResourceTypeSchematicSymbol
+	ResourceTypeSecret          ResourceType = versions.ResourceTypeSecret
 	ResourceTypeStatus          ResourceType = versions.ResourceTypeStatus
 	ResourceTypeTable           ResourceType = versions.ResourceTypeTable
 	ResourceTypeTask            ResourceType = versions.ResourceTypeTask

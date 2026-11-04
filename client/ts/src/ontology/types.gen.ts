@@ -14,6 +14,7 @@ import { z } from "zod";
 export const RESOURCE_TYPES = [
   "arc",
   "builtin",
+  "certificate",
   "channel",
   "device",
   "framer",
@@ -31,6 +32,7 @@ export const RESOURCE_TYPES = [
   "role",
   "schematic",
   "schematic_symbol",
+  "secret",
   "status",
   "table",
   "task",

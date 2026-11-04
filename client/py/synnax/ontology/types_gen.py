@@ -17,6 +17,8 @@ RESOURCE_TYPE_ARC: Literal["arc"] = "arc"
 
 RESOURCE_TYPE_BUILTIN: Literal["builtin"] = "builtin"
 
+RESOURCE_TYPE_CERTIFICATE: Literal["certificate"] = "certificate"
+
 RESOURCE_TYPE_CHANNEL: Literal["channel"] = "channel"
 
 RESOURCE_TYPE_DEVICE: Literal["device"] = "device"
@@ -51,6 +53,8 @@ RESOURCE_TYPE_SCHEMATIC: Literal["schematic"] = "schematic"
 
 RESOURCE_TYPE_SCHEMATIC_SYMBOL: Literal["schematic_symbol"] = "schematic_symbol"
 
+RESOURCE_TYPE_SECRET: Literal["secret"] = "secret"
+
 RESOURCE_TYPE_STATUS: Literal["status"] = "status"
 
 RESOURCE_TYPE_TABLE: Literal["table"] = "table"
@@ -65,6 +69,7 @@ RESOURCE_TYPE_VIEW: Literal["view"] = "view"
 ResourceType = Literal[
     "arc",
     "builtin",
+    "certificate",
     "channel",
     "device",
     "framer",
@@ -82,6 +87,7 @@ ResourceType = Literal[
     "role",
     "schematic",
     "schematic_symbol",
+    "secret",
     "status",
     "table",
     "task",

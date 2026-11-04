@@ -15,6 +15,7 @@
 ResourceType enum {
     arc              = "arc"
     builtin          = "builtin"
+    certificate      = "certificate"
     channel          = "channel"
     device           = "device"
     framer           = "framer"
@@ -32,6 +33,7 @@ ResourceType enum {
     role             = "role"
     schematic        = "schematic"
     schematic_symbol = "schematic_symbol"
+    secret           = "secret"
     status           = "status"
     table            = "table"
     task             = "task"

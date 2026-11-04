@@ -19,6 +19,7 @@ type ResourceType = v0.ResourceType
 const (
 	ResourceTypeArc             ResourceType = v0.ResourceTypeArc
 	ResourceTypeBuiltin         ResourceType = v0.ResourceTypeBuiltin
+	ResourceTypeCertificate     ResourceType = v0.ResourceTypeCertificate
 	ResourceTypeChannel         ResourceType = v0.ResourceTypeChannel
 	ResourceTypeDevice          ResourceType = v0.ResourceTypeDevice
 	ResourceTypeFramer          ResourceType = v0.ResourceTypeFramer
@@ -36,6 +37,7 @@ const (
 	ResourceTypeRole            ResourceType = v0.ResourceTypeRole
 	ResourceTypeSchematic       ResourceType = v0.ResourceTypeSchematic
 	ResourceTypeSchematicSymbol ResourceType = v0.ResourceTypeSchematicSymbol
+	ResourceTypeSecret          ResourceType = v0.ResourceTypeSecret
 	ResourceTypeStatus          ResourceType = v0.ResourceTypeStatus
 	ResourceTypeTable           ResourceType = v0.ResourceTypeTable
 	ResourceTypeTask            ResourceType = v0.ResourceTypeTask
