@@ -209,7 +209,7 @@ export class Client extends query.Retriever<
         query.createDeleteListener(DELETE_CHANNEL_NAME, keyZ),
       ],
     });
-    // Composed rows always carry status; includeStatus only gates fetch flags.
+    // Composed rows carry any cached status; includeStatus only gates fetch flags.
     const composed = cache.derive<Key, Omit<Device, "status">, Device>({
       name: "device.composed",
       source: store,
@@ -220,11 +220,13 @@ export class Client extends query.Retriever<
       name: "device",
       table: composed,
       fetch: async (q) => [(await this.fetchSingle(q)).key],
-      // The composed row always carries status; the query gates whether the
-      // answer keeps it, mirroring the request space.
+      // The query gates whether the answer keeps the row's status, mirroring the
+      // request space.
       compose: (records, q) =>
         q.includeStatus === true ? records[0] : stripStatus(records[0]),
       keyOf: (q) => q.key,
+      // The stream and status-free fetches cache devices with no status.
+      covers: (d, q) => q.includeStatus !== true || d.status != null,
       single: true,
     });
     super(cache, {
