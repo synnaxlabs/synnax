@@ -146,7 +146,7 @@ export class Client extends query.Retriever<typeof retrieveMultiParamsZ, Key, Se
 
   /**
    * Deletes secrets.
-   * @throws {ValidationError} if a certificate uses one of the secrets.
+   * @throws {ValidationError} if a resource uses one of the secrets.
    */
   async delete(keys: Key | Key[], opts: query.WriteOptions = {}): Promise<void> {
     const keysArr = array.toArray(keys);
