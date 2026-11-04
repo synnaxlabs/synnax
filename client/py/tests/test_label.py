@@ -31,6 +31,14 @@ class TestLabelClient:
         assert lbl.name == name
         assert lbl.color == sy.Color("#FF0000")
 
+    @pytest.mark.parametrize("kwargs", [{"name": "Nominal"}, {"color": "#FF0000"}, {}])
+    def test_create_requires_name_and_color(
+        self, client: sy.Synnax, kwargs: dict[str, str]
+    ) -> None:
+        """Should reject a keyword create that leaves out the name or the color."""
+        with pytest.raises(sy.ValidationError, match="name and a color"):
+            client.labels.create(**kwargs)
+
     def test_create_one(self, client: sy.Synnax) -> None:
         """Should create a single label and return it."""
         lbl = sy.Label(name=str(uuid4()), color=sy.Color("#00FF00"))

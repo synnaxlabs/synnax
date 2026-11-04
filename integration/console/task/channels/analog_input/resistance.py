@@ -32,10 +32,10 @@ class Resistance(Analog):
 
     def __init__(
         self,
-        *,
         layout: LayoutClient,
         name: str,
         device: str,
+        *,
         resistance_configuration: Literal["2-Wire", "3-Wire", "4-Wire"] | None = None,
         current_excitation_source: (
             Literal["Internal", "External", "None"] | None
