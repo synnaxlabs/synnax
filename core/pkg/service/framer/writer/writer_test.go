@@ -20,6 +20,7 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/service/channel"
 	. "github.com/synnaxlabs/synnax/pkg/service/channel/testutil"
 	"github.com/synnaxlabs/synnax/pkg/service/framer/writer"
+	"github.com/synnaxlabs/synnax/pkg/storage/ts"
 	"github.com/synnaxlabs/x/confluence"
 	"github.com/synnaxlabs/x/query"
 	"github.com/synnaxlabs/x/signal"
@@ -160,10 +161,119 @@ var _ = Describe("Writer", func() {
 				confluence.CloseOutputInletsOnExit(),
 				confluence.CancelOnFail(),
 			)
-			inlet.Inlet() <- writer.Request{Command: writer.Command(50)}
+			inlet.Inlet() <- writer.Request{Command: writer.CommandEndDomain + 1}
 			Eventually(outlet.Outlet()).Should(BeClosed())
 			Expect(sCtx.Wait()).To(MatchError(validate.ErrValidation))
 		})
+	})
+
+	Describe("End Domain", func() {
+		frameAt := func(keys channel.Keys, seconds ...telem.TimeStamp) frame.Frame {
+			stamps := make([]telem.TimeStamp, len(seconds))
+			values := make([]int64, len(seconds))
+			for i, s := range seconds {
+				stamps[i] = s * telem.SecondTS
+				values[i] = int64(s)
+			}
+			return frame.NewMulti(keys, []telem.Series{
+				telem.NewSeries(stamps),
+				telem.NewSeries(values),
+			})
+		}
+		openWriter := func(ctx SpecContext, keys channel.Keys) *writer.Writer {
+			GinkgoHelper()
+			return MustSucceed(writerSvc.Open(ctx, writer.Config{
+				Keys:  keys,
+				Start: 10 * telem.SecondTS,
+				Sync:  new(true),
+			}))
+		}
+		It("Should free the time between two domains", func(ctx SpecContext) {
+			idx, data := createIndexed(ctx, telem.Int64T)
+			keys := channel.Keys{idx.Key(), data.Key()}
+			w := openWriter(ctx, keys)
+			Expect(w.Write(frameAt(keys, 10, 11))).To(BeTrue())
+			MustSucceed(w.Commit())
+			Expect(w.EndDomain(channel.Keys{idx.Key()})).To(BeTrue())
+			Expect(w.Write(frameAt(keys, 20, 21))).To(BeTrue())
+			MustSucceed(w.Commit())
+			fill := MustSucceed(writerSvc.Open(ctx, writer.Config{
+				Keys:  keys,
+				Start: 12 * telem.SecondTS,
+				Mode:  ts.WriterModePersistOnly,
+				Sync:  new(true),
+			}))
+			Expect(fill.Write(frameAt(keys, 12, 13))).To(BeTrue())
+			MustSucceed(fill.Commit())
+			Expect(fill.Close()).To(Succeed())
+			Expect(w.Close()).To(Succeed())
+		})
+		It("Should report an index it does not control", func(ctx SpecContext) {
+			idx, data := createIndexed(ctx, telem.Int64T)
+			keys := channel.Keys{idx.Key(), data.Key()}
+			holder := openWriter(ctx, keys)
+			other := openWriter(ctx, keys)
+			Expect(holder.Write(frameAt(keys, 10, 11))).To(BeTrue())
+			MustSucceed(holder.Commit())
+			Expect(other.EndDomain(channel.Keys{idx.Key()})).To(BeFalse())
+			Expect(other.Close()).To(Succeed())
+			Expect(holder.Close()).To(Succeed())
+		})
+		It("Should report a commit that fails", func(ctx SpecContext) {
+			idx, data := createIndexed(ctx, telem.Int64T)
+			keys := channel.Keys{idx.Key(), data.Key()}
+			live := openWriter(ctx, keys)
+			fill := MustSucceed(writerSvc.Open(ctx, writer.Config{
+				Keys:             keys,
+				Start:            1 * telem.SecondTS,
+				Mode:             ts.WriterModePersistOnly,
+				EnableAutoCommit: new(false),
+				Sync:             new(true),
+			}))
+			Expect(fill.Write(frameAt(keys, 1, 30))).To(BeTrue())
+			Expect(fill.EndDomain(channel.Keys{idx.Key()})).Error().To(And(
+				MatchError(validate.ErrValidation),
+				MatchError(ContainSubstring("cannot write to time range")),
+			))
+			Expect(fill.Close()).To(MatchError(validate.ErrValidation))
+			Expect(live.Close()).To(Succeed())
+		})
+		DescribeTable(
+			"Should fail for keys that are not indexes of the writer",
+			func(
+				ctx SpecContext,
+				indexes func(data, other channel.Channel) channel.Keys,
+				message string,
+			) {
+				idx, data := createIndexed(ctx, telem.Int64T)
+				other, _ := createIndexed(ctx, telem.Int64T)
+				w := openWriter(ctx, channel.Keys{idx.Key(), data.Key()})
+				Expect(w.EndDomain(indexes(data, other))).Error().To(And(
+					MatchError(validate.ErrValidation),
+					MatchError(ContainSubstring(message)),
+				))
+				Expect(w.Close()).To(MatchError(validate.ErrValidation))
+			},
+			Entry(
+				"a data channel",
+				func(data, _ channel.Channel) channel.Keys {
+					return channel.Keys{data.Key()}
+				},
+				"is not an index",
+			),
+			Entry(
+				"a key the writer was not opened with",
+				func(_, other channel.Channel) channel.Keys {
+					return channel.Keys{other.Key()}
+				},
+				"invalid key",
+			),
+			Entry(
+				"no keys",
+				func(_, _ channel.Channel) channel.Keys { return nil },
+				"no indexes",
+			),
+		)
 	})
 
 	Describe("Series Validation", func() {

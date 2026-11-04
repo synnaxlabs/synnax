@@ -30,11 +30,18 @@ A read task has three types of channels:
 - **Analog input** -> a voltage on an `AIN` port.
 - **Digital input** -> the state of a `DIO` port, as 0 or 1.
 - **Thermocouple** -> a temperature from a thermocouple on an `AIN` port. Thermocouples
-  work on the T7 only.
+  work on the T7 and the T8.
 
-With no thermocouple channels, the device samples the inputs on its own clock. With one
-or more thermocouple channels, the Driver reads one sample of each channel at a time,
-and the **Stream rate** has no effect. See [timing](/reference/hardware/tasks#timing).
+A task streams: the device samples the inputs on its own clock. A T7 task with
+thermocouple channels polls instead: the Driver reads one sample of each channel at a
+time, on its own clock. See [timing](/reference/hardware/tasks#timing).
+
+A T8 task with thermocouple channels samples at 250 Hz or less. It needs T8 firmware
+1.0038 or later and LJM 1.2304 or later.
+
+A LabJack runs one stream at a time and cannot read `AIN` ports during a stream, so a
+streaming task must be the only read task on its device. Add more channels to that task
+instead of starting a second one.
 
 <Divider.Divider x />
 
@@ -91,7 +98,7 @@ task.start()
 Python creates the task on the embedded Driver of the Core. For a device on another
 Driver, use the Console or TypeScript.
 
-For a thermocouple on a T7, use
+For a thermocouple on a T7 or a T8, use
 `labjack.ThermocoupleReadChannel(port="AIN2", thermocouple_type="K", units="C", channel=...)`.
 
   </Fragment>
@@ -170,12 +177,12 @@ shows the Console label of a setting, with its Python field under it.
 
 Reads a voltage.
 
-| Setting                            | Default | Notes                                                                                          |
-| ---------------------------------- | ------- | ---------------------------------------------------------------------------------------------- |
-| Port <small>`port`</small>         | `AIN0`  | An `AIN` port.                                                                                 |
-| Max voltage <small>`range`</small> | `10`    | The Driver does not apply this field. Each input uses the default range of the device.         |
-| <small>`neg_chan`</small>          | `199`   | The negative input for a differential reading, on the T7 only. 199 means a single-ended input. |
-| Scale <small>`scale`</small>       | None    | None, linear (slope and offset), or map (from a raw range to a scaled range).                  |
+| Setting                                    | Default | Notes                                                                                    |
+| ------------------------------------------ | ------- | ---------------------------------------------------------------------------------------- |
+| Port <small>`port`</small>                 | `AIN0`  | An `AIN` port.                                                                           |
+| Max voltage <small>`range`</small>         | `10`    | The input uses the smallest range of the device that covers this voltage. Not on the T4. |
+| Negative channel <small>`neg_chan`</small> | `199`   | Ground (199), or the pair of the port for a differential reading. On the T7 only.        |
+| Scale <small>`scale`</small>               | None    | None, linear (slope and offset), or map (from a raw range to a scaled range).            |
 
 </Channel.Type>
 
@@ -199,18 +206,20 @@ Reads the state of a digital line as 0 or 1, as `uint8`.
   python="ThermocoupleReadChannel"
 >
 
-Reads a temperature from a thermocouple.
+Reads a temperature from a thermocouple. The Driver reads the voltage of the
+thermocouple and the temperature of its cold junction, then converts the two to a
+temperature.
 
-| Setting                                              | Default                | Notes                                                    |
-| ---------------------------------------------------- | ---------------------- | -------------------------------------------------------- |
-| Port <small>`port`</small>                           | `AIN0`                 | An `AIN` port.                                           |
-| Thermocouple type <small>`thermocouple_type`</small> | `K`                    | `B`, `E`, `J`, `K`, `N`, `R`, `S`, `T`, `C`.             |
-| Temperature units <small>`units`</small>             | `K`                    | `C`, `F`, `K`.                                           |
-| Negative channel <small>`neg_chan`</small>           | `199`                  | The negative input. 199 means a single-ended input.      |
-| CJC source <small>`cjc_source`</small>               | `TEMPERATURE_DEVICE_K` | **Device**, **Air**, or an `AIN` port with a CJC sensor. |
-| CJC slope <small>`cjc_slope`</small>                 | `1`                    | The CJC sensor scale, in kelvin per volt.                |
-| CJC offset <small>`cjc_offset`</small>               | `0`                    | The CJC sensor offset, in kelvin.                        |
-| Scale <small>`scale`</small>                         | None                   | Applied after the conversion to temperature.             |
+| Setting                                              | Default                | Notes                                                                                         |
+| ---------------------------------------------------- | ---------------------- | --------------------------------------------------------------------------------------------- |
+| Port <small>`port`</small>                           | `AIN0`                 | An `AIN` port.                                                                                |
+| Thermocouple type <small>`thermocouple_type`</small> | `K`                    | `B`, `E`, `J`, `K`, `N`, `R`, `S`, `T`, `C`.                                                  |
+| Temperature units <small>`units`</small>             | `K`                    | `C`, `F`, `K`.                                                                                |
+| Negative channel <small>`neg_chan`</small>           | `199`                  | Ground (199), or the pair of the port. On the T7 only.                                        |
+| CJC source <small>`cjc_source`</small>               | `TEMPERATURE_DEVICE_K` | **Device** (**Terminal** on a T8), **Air** (not on a T8), or an `AIN` port with a CJC sensor. |
+| CJC slope <small>`cjc_slope`</small>                 | `1`                    | The CJC sensor scale, in kelvin per volt.                                                     |
+| CJC offset <small>`cjc_offset`</small>               | `0`                    | The CJC sensor offset, in kelvin.                                                             |
+| Scale <small>`scale`</small>                         | None                   | Applied after the conversion to temperature.                                                  |
 
 </Channel.Type>
 
@@ -235,15 +244,144 @@ Lower the **Stream rate**, or lower the **Sample rate**.
 </Problem.Fix>
 </Problem.Item>
 
-<Problem.Item symptom={"Thermocouple values are wrong."}>
+<Problem.Item message={"Skipped samples"}>
 <Problem.Cause>
 
-The device is not a T7. The Driver sets up thermocouples on the T7 only.
+The buffer of the device filled, so the device skipped samples. The Driver writes no
+value for a skipped sample.
 
 </Problem.Cause>
 <Problem.Fix>
 
-Use a T7 for thermocouple channels.
+Lower the **Sample rate**, or check the USB cable or the network.
+
+</Problem.Fix>
+</Problem.Item>
+
+<Problem.Item message={"Thermocouple out of range"}>
+<Problem.Cause>
+
+The voltage of the thermocouple is outside the range of its **Thermocouple type**. The
+thermocouple is open, a wire is loose, or the type is wrong. The Driver writes NaN until
+the voltage is in range.
+
+</Problem.Cause>
+<Problem.Fix>
+
+Check the wires of the thermocouple and its **Thermocouple type**.
+
+</Problem.Fix>
+</Problem.Item>
+
+<Problem.Item message={"A T8 task with thermocouples samples at 250 Hz or less"}>
+<Problem.Cause>
+
+Above 250 Hz, the T8 cannot read the temperature at its terminals, which the Driver
+needs to convert thermocouples.
+
+</Problem.Cause>
+<Problem.Fix>
+
+Set the **Sample rate** to 250 Hz or less.
+
+</Problem.Fix>
+</Problem.Item>
+
+<Problem.Item message={"Thermocouples on a T8 need firmware ... or later"}>
+<Problem.Cause>
+
+The firmware of the T8 cannot stream the temperature at its terminals.
+
+</Problem.Cause>
+<Problem.Fix>
+
+Update the firmware of the T8 with [Kipling](https://support.labjack.com/docs/kipling).
+
+</Problem.Fix>
+</Problem.Item>
+
+<Problem.Item message={"Thermocouples on a T8 need LJM ... or later"}>
+<Problem.Cause>
+
+The LJM library on the computer that runs the Driver cannot stream the temperature at
+the terminals of a T8.
+
+</Problem.Cause>
+<Problem.Fix>
+
+Install the latest
+[LJM](https://support.labjack.com/docs/ljm-software-installer-downloads-t4-t7-t8-digit),
+then restart the Driver.
+
+</Problem.Fix>
+</Problem.Item>
+
+<Problem.Item message={"Using default calibration"}>
+<Problem.Cause>
+
+The calibration constants of the device are not valid. LJM uses default constants, so
+readings may be inaccurate. The task continues to record data.
+
+</Problem.Cause>
+<Problem.Fix>
+
+Contact [LabJack support](https://labjack.com/pages/support).
+
+</Problem.Fix>
+</Problem.Item>
+
+<Problem.Item message={"... is a thermocouple channel, but the T4 does not support thermocouples."}>
+<Problem.Cause>
+
+The T4 has no thermocouple inputs.
+
+</Problem.Cause>
+<Problem.Fix>
+
+Use a T7 or a T8 for thermocouple channels.
+
+</Problem.Fix>
+</Problem.Item>
+
+<Problem.Item message={"... is a thermocouple channel, so it cannot be the CJC source of ..."}>
+<Problem.Cause>
+
+The **CJC source** of a thermocouple is the port of another thermocouple channel. A
+thermocouple port has no CJC sensor.
+
+</Problem.Cause>
+<Problem.Fix>
+
+Set **CJC source** to **Device**, or to the `AIN` port of a CJC sensor.
+
+</Problem.Fix>
+</Problem.Item>
+
+<Problem.Item message={"... has a max voltage of ..., but the largest range of the device is ..."}>
+<Problem.Cause>
+
+The **Max voltage** of the channel is larger than the largest input range of the device:
+±10 V on a T7, and ±11 V on a T8.
+
+</Problem.Cause>
+<Problem.Fix>
+
+Lower the **Max voltage** of the channel.
+
+</Problem.Fix>
+</Problem.Item>
+
+<Problem.Item symptom={"A T7 task fails to start after a change to Max voltage."}>
+<Problem.Cause>
+
+On a T7, a small range takes longer to settle. A task with more than one channel and a
+**Max voltage** of 1 V or less can then not stream at its **Sample rate**.
+
+</Problem.Cause>
+<Problem.Fix>
+
+Lower the **Sample rate**, or set **Max voltage** back to 10. See LabJack's
+[stream rates](https://support.labjack.com/docs/a-1-1-stream-data-rates-t-series-datasheet).
 
 </Problem.Fix>
 </Problem.Item>

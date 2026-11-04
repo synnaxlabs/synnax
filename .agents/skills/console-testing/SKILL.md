@@ -139,10 +139,8 @@ vi.mock("@/session/log/slice"); // ❌ use the real reducer with a preloaded sto
 ```
 
 **Authoring vs. running.** Writing live-core tests against `createTestClient` is correct
-and encouraged. But do **not** _execute_ those specs against the user's dev cluster
-without approval — hand the actual run to the user (see
-`feedback_no_tests_against_running_server`). Verify your work with `check-types` /
-`lint` / `prettier`.
+and encouraged. Run those specs against a Core that you started, never against one you
+did not. See "Live-Core tests" in `docs/claude/testing.md`.
 
 ## Rule 3: Keep the environment honest — the add/change/replace triage
 
@@ -336,7 +334,7 @@ Reach for these, in order of how close they are to production:
 | Component/hook that hits data, against a live cluster | `createConsoleWrapper({ client })` + `renderHook`/`render`                  | `@/testutil` + `createTestClient()`                          |
 | Component/hook needing the provider stack, no network | `renderWithConsole` / `renderHookWithConsole`                               | `@/testutil`                                                 |
 | A deep-link resource hook                             | `renderLinkHook`                                                            | `@/testutil`                                                 |
-| Pure reducer/selector                                 | minimal single-slice `configureStore` inline                                | `@reduxjs/toolkit`                                           |
+| Pure reducer/selector                                 | minimal single-slice `createMinimalStore` inline                            | `@/testutil`                                                 |
 | Flux queries without console slices                   | `createSynnaxWrapper` / `createAsyncSynnaxWrapper`                          | `@/testutil`                                                 |
 | Modal opener/prompt hooks                             | `renderModalOpener` / `renderModalHook` / `closeOf` / `findButton`          | `@/platform/modals/testutil`                                 |
 | Virtualized list rendering (needs fake sizes)         | automatic, no pixel asserts anywhere                                        | `@/testutil/setuptests`                                      |

@@ -13,7 +13,7 @@ import {
   type Next,
   type UnaryClient,
 } from "@synnaxlabs/freighter";
-import { errors, TimeStamp } from "@synnaxlabs/x";
+import { errors, TimeStamp, uuid } from "@synnaxlabs/x";
 import { z } from "zod";
 
 import {
@@ -62,6 +62,30 @@ const apiKeyZ = z.object({
 /** APIKey is an API key as the API returns it: the stored record without its hash. */
 export interface APIKey extends z.infer<typeof apiKeyZ> {}
 
+const API_KEY_PREFIX = "syk_";
+/** An API key token holds the 16 bytes of the record key and a 32 byte secret. */
+const API_KEY_LENGTH = 48;
+
+/**
+ * Returns the key of the API key record that a token belongs to.
+ * @throws {InvalidTokenError} when the token is not an API key.
+ */
+export const apiKeyID = (token: string): APIKeyKey => {
+  if (!token.startsWith(API_KEY_PREFIX)) throw new InvalidTokenError("not an API key");
+  const body = token
+    .slice(API_KEY_PREFIX.length)
+    .replaceAll("-", "+")
+    .replaceAll("_", "/");
+  let raw: Uint8Array;
+  try {
+    raw = Uint8Array.from(atob(body), (c) => c.charCodeAt(0));
+  } catch {
+    throw new InvalidTokenError("malformed API key");
+  }
+  if (raw.length !== API_KEY_LENGTH) throw new InvalidTokenError("malformed API key");
+  return uuid.parse(raw);
+};
+
 export interface NewAPIKey {
   /** The user or rack the key logs in as. Defaults to the caller. */
   subject?: ontology.ID;
@@ -74,6 +98,23 @@ const keyCreateResZ = z.object({ token: z.string(), key: apiKeyZ });
 const keyRetrieveReqZ = z.object({ subjects: ontology.idZ.array().optional() });
 const keyRetrieveResZ = z.object({ keys: apiKeyZ.array() });
 const keyDeleteReqZ = z.object({ keys: apiKeyKeyZ.array() });
+
+export interface SetPasswordParams {
+  /** The user whose password to set. Defaults to the caller. */
+  subject?: ontology.ID;
+  /** The new password. */
+  password: string;
+  /** The caller's current password. Required when the caller sets its own. */
+  currentPassword?: string;
+}
+
+const passwordSetReqZ = z.object({
+  subject: ontology.idZ.optional(),
+  password: z.string(),
+  currentPassword: z.string().optional(),
+  cookie: z.boolean().optional(),
+});
+const passwordSetResZ = z.object({ token: z.string(), session: sessionZ.optional() });
 
 // the login route a Core without sessions serves; kept for one release
 const LEGACY_LOGIN_ENDPOINT = "/auth/login";
@@ -93,6 +134,7 @@ export const SESSION_ENDPOINTS = [
 const KEY_CREATE_ENDPOINT = "/auth/key/create";
 const KEY_RETRIEVE_ENDPOINT = "/auth/key/retrieve";
 const KEY_DELETE_ENDPOINT = "/auth/key/delete";
+const PASSWORD_SET_ENDPOINT = "/auth/password/set";
 
 // routes the Core serves without a token, so a request to one never logs in
 const TOKENLESS_ENDPOINTS = [SESSION_CREATE_ENDPOINT, LEGACY_LOGIN_ENDPOINT];
@@ -136,8 +178,11 @@ export interface Observer {
    * undefined when setCredentials drops the user.
    */
   onUser?: (user: user.User | undefined) => void;
-  /** Fires after every successful login. */
-  onSuccess?: () => void;
+  /**
+   * Fires with the session's key after every successful login, and after setPassword
+   * opens a new session.
+   */
+  onSuccess?: (session: SessionKey) => void;
   /** Fires on a definitive credential rejection, never on token self-heal. */
   onFailure?: (error: Error) => void;
 }
@@ -311,6 +356,32 @@ export class Client {
   }
 
   /**
+   * Sets the caller's password, or another user's when the caller may update that
+   * user, and ends every session the old password opened. When that ends the client's
+   * own session, the client switches to the session the Core opens in its place.
+   * @throws {AuthError} when the caller sets its own password with a wrong current one.
+   * @throws {AccessDeniedError} when the caller may not update the user.
+   * @throws {ValidationError} when the password is empty, or the caller sets its own
+   * without the current one.
+   */
+  async setPassword(params: SetPasswordParams): Promise<void> {
+    const generation = this.generation;
+    const res = await this.client.send(
+      PASSWORD_SET_ENDPOINT,
+      { ...params, cookie: this.cookie || undefined },
+      passwordSetReqZ,
+      passwordSetResZ,
+    );
+    if (generation !== this.generation) return;
+    const own = params.subject == null || params.subject.key === this.subject?.key;
+    if (own && this.credentials != null) this.credentials.password = params.password;
+    if (res.session == null) return;
+    this.authState = { authenticated: true, token: res.token, session: res.session };
+    if (this.resumeToken != null) this.resumeToken = res.token;
+    this.observer.onSuccess?.(res.session.key);
+  }
+
+  /**
    * Ends the client's own session and forgets it and the credentials, so later requests
    * fail until new credentials are set. Waits for a login in flight, then ends its
    * session too. A session the Core already ended counts as logged out.
@@ -424,7 +495,7 @@ export class Client {
       this.authState = state;
       this.ownsSession = owned;
       this.observer.onUser?.(u);
-      this.observer.onSuccess?.();
+      this.observer.onSuccess?.(state.session.key);
       return null;
     } catch (err) {
       const parsed = errors.fromUnknown(err);

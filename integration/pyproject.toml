@@ -19,6 +19,7 @@ dependencies = [
     "matplotlib>=3.11.2,<4",
     "numpy>=2.5.4,<3",
     "playwright>=1.64.0,<2",
+    "protobuf>=7.36.2,<8",
     "psutil>=7.2.2,<8",
     "pymodbus[serial]>=3.16.1,<4",
     "asyncua>=2.1.0,<3",

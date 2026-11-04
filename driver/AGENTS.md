@@ -30,8 +30,8 @@ Shared task bases in `/driver/task/common/`: `sample_clock.h` (hardware/software
 ## Integrations
 
 - **LabJack** (`/driver/labjack/`) — LJM wrapper + device manager. ReadTask has two
-  modes: `StreamSource` (high-performance LJM streaming) and `UnarySource`
-  (thermocouples, with CJC config). Transform chain for scaling.
+  modes: `StreamSource` (high-performance LJM streaming) and `UnarySource` (polled T7
+  thermocouples). The Driver converts thermocouples with `LJM_TCVoltsToTemp`.
 - **NI** (`/driver/ni/`) — DAQmx + NISysCfg wrappers. Analog/digital read/write +
   scanner. Scanner discovers CompactDAQ chassis/modules via link properties
   (`ConnectsToLinkName`/`ProvidesLinkName`) in a two-pass algorithm (collect devices +
@@ -65,9 +65,8 @@ NI (cDAQ chassis + modules).
 
 ## Tests
 
-Many driver tests (rack, http, task suites) connect to a core at `localhost:9090`. Check
-for a running core and start one if missing per "Live-Core Tests" in
-`docs/claude/testing.md`. The user runs bazel test invocations.
+Many driver tests (rack, http, task suites) connect to a live Core. See "Live-Core
+tests" in `docs/claude/testing.md`. The user runs bazel test invocations.
 
 ## Gotchas
 

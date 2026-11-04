@@ -12,35 +12,39 @@ import { Component } from "@synnaxlabs/lyra/component";
 import { Flex } from "@synnaxlabs/lyra/flex";
 import { Form as PForm } from "@synnaxlabs/lyra/form";
 import { Icon } from "@synnaxlabs/lyra/icon";
-import { errors, primitive, unique } from "@synnaxlabs/x";
+import { deep, errors, primitive, unique } from "@synnaxlabs/x";
 import { type FC } from "react";
 
 import { useByKeys } from "@/feature/ni/device/queries";
-import { SCHEMAS } from "@/feature/ni/device/types";
+import { type Device, MAKE, SCHEMAS } from "@/feature/ni/device/types";
+import { counterReadHardwareZ } from "@/feature/ni/task/checks";
 import { CIChannelForm } from "@/feature/ni/task/CIChannelForm";
 import { createNextCIChannel } from "@/feature/ni/task/createChannel";
+import { DetailsTitle as Title } from "@/feature/ni/task/DetailsTitle";
+import { COUNTER_INPUT, holdState } from "@/feature/ni/task/ports";
+import { PortsView } from "@/feature/ni/task/PortsView";
 import {
   CI_CHANNEL_TYPE_ICONS,
   CI_CHANNEL_TYPE_NAMES,
   type CIChannel,
-  type CIChannelType,
   COUNTER_READ_SCHEMAS,
   COUNTER_READ_TYPE,
   counterReadConfigZ,
   type CounterReadSchemas,
   deployCounterReadConfigZ,
 } from "@/feature/ni/task/types";
+import { useChannelDevice } from "@/feature/ni/task/usePort";
 import { Device as PlatformDevice } from "@/platform/device";
 import { Selector } from "@/platform/selector";
 import { Task } from "@/platform/task";
+
+const root = deep.path<Task.Values<CounterReadSchemas>>();
 
 const Properties = () => (
   <>
     <Task.Fields.SampleRate />
     <Flex.Box x grow>
       <Task.Fields.StreamRate />
-      <Task.Fields.DataSaving />
-      <Task.Fields.AutoStart />
     </Flex.Box>
   </>
 );
@@ -50,8 +54,10 @@ interface ChannelListItemProps extends Task.ChannelListItemProps {
 }
 
 const ChannelListItem = ({ onTare, ...rest }: ChannelListItemProps) => {
-  const path = `config.channels.${rest.itemKey}`;
-  const { port, type, channel, disabled } = PForm.useFieldValue<CIChannel>(path);
+  const entry = root.config.channels[rest.itemKey];
+  const value = PForm.useFieldValue(entry);
+  const device = useChannelDevice(entry);
+  const { port, type, channel, disabled } = value;
   const isSnapshot = Task.useIsSnapshot();
   const isRunning = Task.useIsRunning();
   const hasTareButton = channel !== 0 && !isSnapshot;
@@ -63,37 +69,56 @@ const ChannelListItem = ({ onTare, ...rest }: ChannelListItemProps) => {
       port={port}
       canTare={canTare}
       onTare={onTare}
-      path={path}
+      path={entry}
       hasTareButton={hasTareButton}
       channel={channel}
+      defaultName={device == null ? undefined : COUNTER_INPUT.name(value, device)}
       icon={{ icon: <Icon />, name: CI_CHANNEL_TYPE_NAMES[type] }}
       portMaxChars={2}
     />
   );
 };
 
-const ChannelDetails = ({ path }: Task.Views.DetailsProps) => {
-  const type = PForm.useFieldValue<CIChannelType>(`${path}.type`);
-  return <CIChannelForm type={type} prefix={path} />;
+const ChannelDetails = ({ path }: Task.Views.DetailsProps<CIChannel>) => {
+  const type = PForm.useFieldValue(path.type);
+  return <CIChannelForm type={type} path={path} channelsPath={root.config.channels} />;
 };
 
 const channelDetails = Component.renderProp(ChannelDetails);
 
-const DetailsTitle = ({ path }: Task.Views.DetailsProps) => {
-  const { port, type } = PForm.useFieldValue<CIChannel>(path);
-  const Icon = CI_CHANNEL_TYPE_ICONS[type];
+const DetailsTitle = ({ path }: Task.Views.DetailsProps<CIChannel>) => {
+  const value = PForm.useFieldValue(path);
+  const channels = PForm.useFieldValue(root.config.channels);
+  const device = useChannelDevice(path);
+  const Icon = CI_CHANNEL_TYPE_ICONS[value.type];
+  const own = channels.filter((c) => c.device === value.device);
   return (
-    <Task.Views.ItemLabel kind={CI_CHANNEL_TYPE_NAMES[type]} icon={<Icon />}>
-      Port {port}
-    </Task.Views.ItemLabel>
+    <Title
+      port={{
+        label: String(value.port),
+        state: holdState(COUNTER_INPUT, own, value),
+        disabled: value.disabled,
+      }}
+      type={{ icon: <Icon />, name: CI_CHANNEL_TYPE_NAMES[value.type] }}
+      channel={value.channel}
+      namePath={path.name}
+      defaultName={device == null ? undefined : COUNTER_INPUT.name(value, device)}
+      model={device?.model}
+    />
   );
 };
 
 const detailsTitle = Component.renderProp(DetailsTitle);
 
+const deviceOf = (c: CIChannel) => c.device;
+
+const hasPortList = (devices: Device[]): boolean =>
+  devices.some(({ properties }) => properties.hardware != null);
+
 const Form: FC = () => {
   const [tare, allowTare, handleTare] = Task.useTare<CIChannel>();
-  const devices = useByKeys(Task.useChannelDeviceKeys());
+  const devices = useByKeys(Task.useChannelDeviceKeys(root.config.channels));
+  PForm.useCheck(root.config, counterReadHardwareZ(devices ?? []));
   const resolve = (ch: CIChannel) => {
     const dev = devices?.find(({ key }) => key === ch.device);
     if (dev == null) return null;
@@ -102,16 +127,35 @@ const Form: FC = () => {
   const listItem = ({ key, itemKey, ...rest }: Task.ChannelListItemProps) => (
     <ChannelListItem key={key} itemKey={itemKey} {...rest} onTare={tare} />
   );
+  const ports =
+    devices != null && hasPortList(devices)
+      ? (props: Task.Views.PortsProps<CIChannel>) => (
+          <PortsView<CIChannel>
+            {...props}
+            kind={COUNTER_INPUT}
+            devices={devices}
+            deviceOf={deviceOf}
+            create={(channels, device, port) =>
+              createNextCIChannel(channels, { device, port }, devices)
+            }
+            rack={devices[0].rack}
+          />
+        )
+      : undefined;
   return (
     <Task.Views.ListAndDetails<CIChannel>
+      path={root.config.channels}
       listItem={listItem}
       details={channelDetails}
       detailsTitle={detailsTitle}
-      createChannel={createNextCIChannel}
+      createChannel={(channels, copy) =>
+        createNextCIChannel(channels, { copy }, devices)
+      }
       onTare={handleTare}
       allowTare={allowTare}
       contextMenuItems={Task.readChannelContextMenuItem}
       resolve={resolve}
+      ports={ports}
     />
   );
 };
@@ -170,8 +214,13 @@ const onConfigure: Task.OnConfigure<typeof counterReadConfigZ> = async (
 
       const deviceChannels = config.channels.filter((c) => c.device === dev.key);
       const toCreate: CIChannel[] = [];
-      for (const channel of deviceChannels) {
-        const exKey = dev.properties.counterInput.channels[channel.port.toString()];
+      // Channels on one port share its data channel, named by an enabled one if any.
+      const seen = new Set<string>();
+      for (const channel of Task.enabledFirst(deviceChannels)) {
+        const key = channel.port.toString();
+        if (seen.has(key)) continue;
+        seen.add(key);
+        const exKey = dev.properties.counterInput.channels[key];
         if (primitive.isZero(exKey)) toCreate.push(channel);
         else
           try {
@@ -186,7 +235,7 @@ const onConfigure: Task.OnConfigure<typeof counterReadConfigZ> = async (
         devModified = true;
         const channels = await client.channels.create(
           toCreate.map((c) => ({
-            name: primitive.isNonZero(c.name) ? c.name : `${identifier}_ctr_${c.port}`,
+            name: COUNTER_INPUT.name(c, dev),
             dataType: "float64",
             index: dev.properties.counterInput.index,
           })),
@@ -214,12 +263,12 @@ export const CounterRead = Task.wrapForm({
   schemas: COUNTER_READ_SCHEMAS,
   deployConfigZ: deployCounterReadConfigZ,
   type: "ni_counter_read",
-  getInitialValues,
   onConfigure,
 });
 
 export const useCreateCounterRead = Task.createUseCreate({
   getInitialValues,
+  deviceMake: MAKE,
 });
 
 export const CounterReadSelectable = Selector.createSelectable({

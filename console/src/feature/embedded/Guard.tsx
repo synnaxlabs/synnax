@@ -21,6 +21,7 @@ import {
   useEffect,
 } from "react";
 
+import { ensure } from "@/feature/embedded/apiKey";
 import { useStatus } from "@/feature/embedded/Provider";
 import { NAME } from "@/feature/embedded/useConnParams";
 import { useDiagnosticsModal } from "@/feature/embedded/useDiagnosticsModal";
@@ -48,6 +49,7 @@ export const Guard = ({ children }: PropsWithChildren): ReactNode => {
   else
     content = (
       <Access.PermissionsBoundary loading={<Starting connected />}>
+        <APIKeySideEffect />
         {children}
       </Access.PermissionsBoundary>
     );
@@ -88,6 +90,19 @@ const SideEffect = (): null => {
     );
     dispatch(Session.Core.select(key));
   }, [dispatch, host, port, username]);
+  return null;
+};
+
+/** Keeps an API key for the scripts on this computer saved with the Core address. */
+const APIKeySideEffect = (): null => {
+  const client = Synnax.use();
+  const handleError = Status.useErrorHandler();
+  useEffect(() => {
+    if (client == null || !Session.Runtime.isMainWindow()) return;
+    handleError(async () => {
+      await ensure(client);
+    }, "Failed to save API key for scripts");
+  }, [client, handleError]);
   return null;
 };
 

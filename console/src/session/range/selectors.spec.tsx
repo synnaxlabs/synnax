@@ -7,13 +7,13 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { configureStore } from "@reduxjs/toolkit";
 import { act, renderHook } from "@testing-library/react";
 import { type FC, type PropsWithChildren, type ReactElement } from "react";
 import { Provider } from "react-redux";
 import { describe, expect, it } from "vitest";
 
 import { Range } from "@/session/range";
+import { createMinimalStore } from "@/testutil";
 
 const STATIC: Range.StaticState = {
   variant: "static",
@@ -42,7 +42,7 @@ const storeWith = (ranges: Range.State[], selected?: string): Range.StoreState =
 });
 
 const createStore = (initial: Range.SliceState = EMPTY_STATE) =>
-  configureStore({
+  createMinimalStore({
     reducer: { [Range.SLICE_NAME]: Range.reducer },
     preloadedState: { [Range.SLICE_NAME]: initial },
   });

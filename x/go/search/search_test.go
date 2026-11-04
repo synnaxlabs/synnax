@@ -149,7 +149,7 @@ var _ = Describe("Index", func() {
 	DescribeTable("Matching",
 		func(text, term string) {
 			idx.Set(1, text)
-			Expect(idx.Search(term, 0).Keys).To(Equal([]int{1}))
+			Expect(idx.Search(search.Query[int]{Term: term}).Keys).To(Equal([]int{1}))
 		},
 		Entry("an exact word", "test", "test"),
 		Entry("a word in a multi-word entry", "October 28 Gooster", "Gooster"),
@@ -171,7 +171,7 @@ var _ = Describe("Index", func() {
 	DescribeTable("Matching long words by their first 255 runes",
 		func(text, term string, expected []int) {
 			idx.Set(1, text)
-			Expect(idx.Search(term, 0).Keys).To(Equal(expected))
+			Expect(idx.Search(search.Query[int]{Term: term}).Keys).To(Equal(expected))
 		},
 		Entry(
 			"a word that agrees in its first 255 runes",
@@ -191,7 +191,7 @@ var _ = Describe("Index", func() {
 		"Reading the first 64 words of a term",
 		func(term string, expected []int) {
 			idx.Set(1, "alpha")
-			Expect(idx.Search(term, 0).Keys).To(Equal(expected))
+			Expect(idx.Search(search.Query[int]{Term: term}).Keys).To(Equal(expected))
 		},
 		Entry(
 			"a word within the first 64",
@@ -208,7 +208,7 @@ var _ = Describe("Index", func() {
 	DescribeTable("Not matching",
 		func(text, term string) {
 			idx.Set(1, text)
-			Expect(idx.Search(term, 0).Keys).To(BeEmpty())
+			Expect(idx.Search(search.Query[int]{Term: term}).Keys).To(BeEmpty())
 		},
 		Entry("a different word", "test", "nope"),
 		Entry("a short term two edits away", "Channel", "nn"),
@@ -222,7 +222,7 @@ var _ = Describe("Index", func() {
 			for i, text := range texts {
 				idx.Set(i, text)
 			}
-			Expect(idx.Search(term, 0).Keys).To(HaveExactElements(
+			Expect(idx.Search(search.Query[int]{Term: term}).Keys).To(HaveExactElements(
 				append([]any{first}, Not(Equal(first)))...,
 			))
 		},
@@ -246,7 +246,9 @@ var _ = Describe("Index", func() {
 		idx.Set(1, "tost")
 		idx.Set(2, "testing")
 		idx.Set(3, "test")
-		Expect(idx.Search("test", 0).Keys).To(Equal([]int{3, 2, 1}))
+		Expect(
+			idx.Search(search.Query[int]{Term: "test"}).Keys,
+		).To(Equal([]int{3, 2, 1}))
 	})
 
 	DescribeTable("Should keep the closest matches up to the limit",
@@ -254,7 +256,9 @@ var _ = Describe("Index", func() {
 			idx.Set(1, "pressure")
 			idx.Set(2, "pressure feed")
 			idx.Set(3, "pressures")
-			Expect(idx.Search("pressure", limit).Keys).To(Equal(expected))
+			Expect(
+				idx.Search(search.Query[int]{Term: "pressure", Limit: limit}).Keys,
+			).To(Equal(expected))
 		},
 		Entry("fewer than every match", 2, []int{1, 2}),
 		Entry("more than every match", 10, []int{1, 2, 3}),
@@ -267,10 +271,11 @@ var _ = Describe("Index", func() {
 			idx.Set(1, "alpha")
 			idx.Set(2, "alpha")
 			idx.Set(3, "alpha")
-			Expect(
-				idx.SearchExcept("alpha", func(k int) bool { return k == 1 }, 1).Keys,
-			).
-				To(Equal([]int{2}))
+			Expect(idx.Search(search.Query[int]{
+				Term:   "alpha",
+				Except: func(k int) bool { return k == 1 },
+				Limit:  1,
+			}).Keys).To(Equal([]int{2}))
 		},
 	)
 
@@ -278,11 +283,15 @@ var _ = Describe("Index", func() {
 		BeforeEach(func() { idx.Set(1, "My Device", "LabJack", "T7") })
 
 		It("Should match a word of any text", func() {
-			Expect(idx.Search("LabJack", 0).Keys).To(Equal([]int{1}))
+			Expect(
+				idx.Search(search.Query[int]{Term: "LabJack"}).Keys,
+			).To(Equal([]int{1}))
 		})
 
 		It("Should match words across texts", func() {
-			Expect(idx.Search("device t7", 0).Keys).To(Equal([]int{1}))
+			Expect(
+				idx.Search(search.Query[int]{Term: "device t7"}).Keys,
+			).To(Equal([]int{1}))
 		})
 	})
 
@@ -292,14 +301,20 @@ var _ = Describe("Index", func() {
 			idx.Set(2, "Pressure")
 			idx.Set(3, "gse_doa_1")
 			idx.Set(4, "gse_ai_12")
-			Expect(idx.Search("Pressure Sensor", 0).Keys).To(Equal([]int{1}))
-			Expect(idx.Search("gse_ai_12", 0).Keys).To(Equal([]int{4}))
+			Expect(
+				idx.Search(search.Query[int]{Term: "Pressure Sensor"}).Keys,
+			).To(Equal([]int{1}))
+			Expect(
+				idx.Search(search.Query[int]{Term: "gse_ai_12"}).Keys,
+			).To(Equal([]int{4}))
 		})
 
 		It("Should return the entries that match any word when none match all", func() {
 			idx.Set(1, "My Blob")
 			idx.Set(2, "Your Tree")
-			Expect(idx.Search("blob tree", 0).Keys).To(ConsistOf(1, 2))
+			Expect(
+				idx.Search(search.Query[int]{Term: "blob tree"}).Keys,
+			).To(ConsistOf(1, 2))
 		})
 	})
 
@@ -307,26 +322,32 @@ var _ = Describe("Index", func() {
 		It("Should replace the tokens of an indexed key", func() {
 			idx.Set(1, "alpha")
 			idx.Set(1, "beta")
-			Expect(idx.Search("alpha", 0).Keys).To(BeEmpty())
-			Expect(idx.Search("beta", 0).Keys).To(Equal([]int{1}))
+			Expect(idx.Search(search.Query[int]{Term: "alpha"}).Keys).To(BeEmpty())
+			Expect(idx.Search(search.Query[int]{Term: "beta"}).Keys).To(Equal([]int{1}))
 		})
 
 		It("Should keep one entry when set twice with the same text", func() {
 			idx.Set(1, "alpha beta")
 			idx.Set(1, "beta alpha")
-			Expect(idx.Search("alpha", 0).Keys).To(Equal([]int{1}))
+			Expect(
+				idx.Search(search.Query[int]{Term: "alpha"}).Keys,
+			).To(Equal([]int{1}))
 		})
 
 		It("Should count each repeated word of an entry once", func() {
 			idx.Set(1, "valve inlet outlet")
 			idx.Set(2, "valve inlet valve valve")
-			Expect(idx.Search("valve", 0).Keys).To(Equal([]int{2, 1}))
+			Expect(
+				idx.Search(search.Query[int]{Term: "valve"}).Keys,
+			).To(Equal([]int{2, 1}))
 		})
 
 		It("Should index an entry with no tokens as matching nothing", func() {
 			idx.Set(1, "")
 			idx.Set(2, "alpha")
-			Expect(idx.Search("alpha", 0).Keys).To(Equal([]int{2}))
+			Expect(
+				idx.Search(search.Query[int]{Term: "alpha"}).Keys,
+			).To(Equal([]int{2}))
 		})
 	})
 
@@ -335,21 +356,25 @@ var _ = Describe("Index", func() {
 			idx.Set(1, "alpha")
 			idx.Set(2, "alpha")
 			idx.Delete(1)
-			Expect(idx.Search("alpha", 0).Keys).To(Equal([]int{2}))
+			Expect(
+				idx.Search(search.Query[int]{Term: "alpha"}).Keys,
+			).To(Equal([]int{2}))
 		})
 
 		It("Should do nothing for a key that is not indexed", func() {
 			idx.Set(1, "alpha")
 			idx.Delete(2)
-			Expect(idx.Search("alpha", 0).Keys).To(Equal([]int{1}))
+			Expect(
+				idx.Search(search.Query[int]{Term: "alpha"}).Keys,
+			).To(Equal([]int{1}))
 		})
 
 		It("Should not match a deleted key after its slot is reused", func() {
 			idx.Set(1, "alpha")
 			idx.Delete(1)
 			idx.Set(2, "beta")
-			Expect(idx.Search("alpha", 0).Keys).To(BeEmpty())
-			Expect(idx.Search("beta", 0).Keys).To(Equal([]int{2}))
+			Expect(idx.Search(search.Query[int]{Term: "alpha"}).Keys).To(BeEmpty())
+			Expect(idx.Search(search.Query[int]{Term: "beta"}).Keys).To(Equal([]int{2}))
 		})
 	})
 
@@ -377,32 +402,33 @@ var _ = Describe("Index", func() {
 					delete(o, key)
 				}
 				term := randomText(rng)
-				full := idx.Search(term, 0).Keys
+				full := idx.Search(search.Query[int]{Term: term}).Keys
 				o.expectRanked(full, term)
 				n := 1 + rng.IntN(4)
-				Expect(idx.Search(term, n).Keys).To(Equal(full[:min(n, len(full))]))
+				Expect(
+					idx.Search(search.Query[int]{Term: term, Limit: n}).Keys,
+				).To(Equal(full[:min(n, len(full))]))
 				merged := search.Merge(
 					0,
-					split[0].Search(term, 0),
-					split[1].Search(term, 0),
+					split[0].Search(search.Query[int]{Term: term}),
+					split[1].Search(search.Query[int]{Term: term}),
 				)
 				o.expectRanked(merged.Keys, term)
 				Expect(
 					search.Merge(
 						n,
-						split[0].Search(term, n),
-						split[1].Search(term, n),
+						split[0].Search(search.Query[int]{Term: term, Limit: n}),
+						split[1].Search(search.Query[int]{Term: term, Limit: n}),
 					).Keys,
 				).To(Equal(merged.Keys[:min(n, len(merged.Keys))]))
 				except := rng.IntN(40)
 				without := maps.Clone(o)
 				delete(without, except)
 				without.expectRanked(
-					idx.SearchExcept(
-						term,
-						func(k int) bool { return k == except },
-						0,
-					).Keys,
+					idx.Search(search.Query[int]{
+						Term:   term,
+						Except: func(k int) bool { return k == except },
+					}).Keys,
 					term,
 				)
 			}
@@ -431,33 +457,31 @@ var _ = Describe("Index", func() {
 				set(1000+i, fmt.Sprintf("x%04d", i))
 			}
 			for _, term := range []string{"w0599", "w0001", "x0150", "w05", "x"} {
-				o.expectRanked(idx.Search(term, 0).Keys, term)
+				o.expectRanked(idx.Search(search.Query[int]{Term: term}).Keys, term)
 			}
 		},
 	)
 
-	Describe("SearchExcept", func() {
+	Describe("Except", func() {
 		It("Should leave out the keys that except returns true for", func() {
 			idx.Set(1, "alpha")
 			idx.Set(2, "alpha")
-			Expect(
-				idx.SearchExcept("alpha", func(k int) bool { return k == 1 }, 0).Keys,
-			).
-				To(Equal([]int{2}))
+			Expect(idx.Search(search.Query[int]{
+				Term:   "alpha",
+				Except: func(k int) bool { return k == 1 },
+			}).Keys).To(Equal([]int{2}))
 		})
 
 		It("Should match any word when only left-out keys match every word", func() {
 			idx.Set(1, "alpha beta")
 			idx.Set(2, "alpha")
-			Expect(idx.Search("alpha beta", 0).Keys).To(Equal([]int{1}))
 			Expect(
-				idx.SearchExcept(
-					"alpha beta",
-					func(k int) bool { return k == 1 },
-					0,
-				).Keys,
-			).
-				To(Equal([]int{2}))
+				idx.Search(search.Query[int]{Term: "alpha beta"}).Keys,
+			).To(Equal([]int{1}))
+			Expect(idx.Search(search.Query[int]{
+				Term:   "alpha beta",
+				Except: func(k int) bool { return k == 1 },
+			}).Keys).To(Equal([]int{2}))
 		})
 	})
 
@@ -475,12 +499,12 @@ var _ = Describe("Index", func() {
 			})
 			wg.Go(func() {
 				for range 500 {
-					idx.Search("sensor 1", 0)
+					idx.Search(search.Query[int]{Term: "sensor 1"})
 				}
 			})
 		}
 		wg.Wait()
 		idx.Set(1, "sensor_final")
-		Expect(idx.Search("final", 0).Keys).To(Equal([]int{1}))
+		Expect(idx.Search(search.Query[int]{Term: "final"}).Keys).To(Equal([]int{1}))
 	})
 })
