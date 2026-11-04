@@ -11,6 +11,7 @@ import { certificate, secret } from "@synnaxlabs/client";
 import { Button } from "@synnaxlabs/lyra/button";
 import { Dialog } from "@synnaxlabs/lyra/dialog";
 import { Flex } from "@synnaxlabs/lyra/flex";
+import { useNow } from "@synnaxlabs/lyra/hooks";
 import { Icon } from "@synnaxlabs/lyra/icon";
 import { List } from "@synnaxlabs/lyra/list";
 import { Menu } from "@synnaxlabs/lyra/menu";
@@ -18,7 +19,7 @@ import { Select } from "@synnaxlabs/lyra/select";
 import { Text } from "@synnaxlabs/lyra/text";
 import { stopPropagation } from "@synnaxlabs/lyra/util";
 import { Access, Certificate, Secret } from "@synnaxlabs/pluto";
-import { location, state, TimeStamp } from "@synnaxlabs/x";
+import { location, state, TimeSpan, type TimeStamp } from "@synnaxlabs/x";
 import { type ReactElement, type ReactNode, useEffect, useRef, useState } from "react";
 
 import {
@@ -33,7 +34,7 @@ import {
   useUses,
 } from "@/feature/secret/UsedBy";
 import { type Lists as ListsData, useLists } from "@/feature/secret/useLists";
-import { describeCertificate, describeSecret } from "@/feature/secret/validity";
+import { Validity } from "@/feature/secret/validity";
 import { CSS } from "@/platform/css";
 
 const POPOVER_LOCATION = {
@@ -153,7 +154,7 @@ const SecretItem = ({ onSelectCertificate, ...rest }: SecretItemProps) => {
           weight={450}
         />
         <Text.Text level="tiny" color={9} overflow="fade">
-          {describeSecret(s)}
+          {Validity.describeSecret(s)}
         </Text.Text>
       </Flex.Box>
       <UsesBoundary>
@@ -177,7 +178,7 @@ const CertificateItem = ({ now, ...rest }: CertificateItemProps) => {
   const canUpdate = Access.useUpdateGranted(certificate.ontologyID(itemKey));
   const { update: rename } = Certificate.useRename();
   if (c == null) return null;
-  const { text, status } = describeCertificate(c, now);
+  const { text, status } = Validity.describeCertificate(c, now);
   return (
     <Select.Item
       {...rest}
@@ -231,6 +232,98 @@ const EMPTY_CERTIFICATES = (
   </Text.Text>
 );
 
+const nextMinute = (now: TimeStamp): TimeStamp => now.add(TimeSpan.MINUTE);
+
+interface ListSectionProps<L> {
+  list: NonNullable<L>;
+  selected: string | undefined;
+  onSelect: (key: string | null) => void;
+}
+
+const SecretSection = ({
+  list,
+  selected,
+  onSelect,
+}: ListSectionProps<ListsData["secrets"]>): ReactElement => {
+  const menu = Menu.useContextMenu();
+  const openUsedBy = (key: secret.Key) => {
+    onSelect(key);
+    Dialog.open(usedByDialogID(key));
+  };
+  const renderMenu = ({ keys }: Menu.ContextMenuMenuProps) => {
+    const s = keys.length === 1 ? list.getItem(keys[0]) : undefined;
+    if (s == null) return <FallbackMenu />;
+    return <SecretMenu secret={s} onUsedBy={openUsedBy} onRename={renameByKey} />;
+  };
+  return (
+    <Section title="Secrets">
+      <Menu.ContextMenu menu={renderMenu} {...menu} />
+      <Select.Frame<secret.Key, secret.Secret>
+        data={list.data}
+        getItem={list.getItem}
+        subscribe={list.subscribe}
+        value={selected}
+        onChange={onSelect}
+        allowNone
+      >
+        <List.Scroll
+          onContextMenu={menu.open}
+          className={CSS.BE("credentials", "scroll")}
+        >
+          <List.Items<secret.Key, secret.Secret>
+            emptyContent={list.answered && EMPTY_SECRETS}
+          >
+            {({ key, ...p }) => (
+              <SecretItem key={key} {...p} onSelectCertificate={onSelect} />
+            )}
+          </List.Items>
+        </List.Scroll>
+      </Select.Frame>
+    </Section>
+  );
+};
+
+const CertificateSection = ({
+  list,
+  selected,
+  onSelect,
+}: ListSectionProps<ListsData["certificates"]>): ReactElement => {
+  const now = useNow(nextMinute);
+  const menu = Menu.useContextMenu();
+  const renderMenu = ({ keys }: Menu.ContextMenuMenuProps) => {
+    const c = keys.length === 1 ? list.getItem(keys[0]) : undefined;
+    if (c == null) return <FallbackMenu />;
+    return <CertificateMenu certificate={c} onRename={renameByKey} />;
+  };
+  return (
+    <Section title="Certificates">
+      <Menu.ContextMenu menu={renderMenu} {...menu} />
+      <Select.Frame<certificate.Key, certificate.Certificate>
+        data={list.data}
+        getItem={list.getItem}
+        subscribe={list.subscribe}
+        value={selected}
+        onChange={onSelect}
+        allowNone
+      >
+        <List.Scroll
+          onContextMenu={menu.open}
+          className={CSS.BE("credentials", "scroll")}
+        >
+          <List.Items<certificate.Key, certificate.Certificate>
+            emptyContent={list.answered && EMPTY_CERTIFICATES}
+          >
+            {({ key, ...p }) => <CertificateItem key={key} {...p} now={now} />}
+          </List.Items>
+        </List.Scroll>
+      </Select.Frame>
+    </Section>
+  );
+};
+
+const isEmpty = (list: { answered: boolean; data: unknown[] } | null): boolean =>
+  list == null || (list.answered && list.data.length === 0);
+
 export interface ListsProps {
   emptyContent: ReactNode;
 }
@@ -239,85 +332,25 @@ interface BodyProps extends ListsProps, ListsData {}
 
 const Body = ({ secrets, certificates, emptyContent }: BodyProps): ReactElement => {
   const [selected, setSelected] = useState<string | undefined>(undefined);
-  const [now] = useState(() => TimeStamp.now());
-  const secretMenu = Menu.useContextMenu();
-  const certificateMenu = Menu.useContextMenu();
-  const handleChange = (key: string | null) => setSelected(key ?? undefined);
-  const selectCertificate = (key: certificate.Key) => setSelected(key);
-  const openUsedBy = (key: secret.Key) => {
-    setSelected(key);
-    Dialog.open(usedByDialogID(key));
-  };
-  const renderSecretMenu = ({ keys }: Menu.ContextMenuMenuProps) => {
-    const s = keys.length === 1 ? secrets.getItem(keys[0]) : undefined;
-    if (s == null) return <FallbackMenu />;
-    return <SecretMenu secret={s} onUsedBy={openUsedBy} onRename={renameByKey} />;
-  };
-  const renderCertificateMenu = ({ keys }: Menu.ContextMenuMenuProps) => {
-    const c = keys.length === 1 ? certificates.getItem(keys[0]) : undefined;
-    if (c == null) return <FallbackMenu />;
-    return <CertificateMenu certificate={c} onRename={renameByKey} />;
-  };
-  if (
-    secrets.answered &&
-    certificates.answered &&
-    secrets.data.length === 0 &&
-    certificates.data.length === 0
-  )
-    return <>{emptyContent}</>;
+  const handleSelect = (key: string | null) => setSelected(key ?? undefined);
+  if (isEmpty(secrets) && isEmpty(certificates)) return <>{emptyContent}</>;
   return (
     <Flex.Box y empty full className={CSS.BE("credentials", "lists")}>
-      <Section title="Secrets">
-        <Menu.ContextMenu menu={renderSecretMenu} {...secretMenu} />
-        <Select.Frame<secret.Key, secret.Secret>
-          data={secrets.data}
-          getItem={secrets.getItem}
-          subscribe={secrets.subscribe}
-          value={selected}
-          onChange={handleChange}
-          allowNone
-        >
-          <List.Scroll
-            onContextMenu={secretMenu.open}
-            className={CSS.BE("credentials", "scroll")}
-          >
-            <List.Items<secret.Key, secret.Secret>
-              emptyContent={secrets.answered && EMPTY_SECRETS}
-            >
-              {({ key, ...p }) => (
-                <SecretItem key={key} {...p} onSelectCertificate={selectCertificate} />
-              )}
-            </List.Items>
-          </List.Scroll>
-        </Select.Frame>
-      </Section>
-      <Section title="Certificates">
-        <Menu.ContextMenu menu={renderCertificateMenu} {...certificateMenu} />
-        <Select.Frame<certificate.Key, certificate.Certificate>
-          data={certificates.data}
-          getItem={certificates.getItem}
-          subscribe={certificates.subscribe}
-          value={selected}
-          onChange={handleChange}
-          allowNone
-        >
-          <List.Scroll
-            onContextMenu={certificateMenu.open}
-            className={CSS.BE("credentials", "scroll")}
-          >
-            <List.Items<certificate.Key, certificate.Certificate>
-              emptyContent={certificates.answered && EMPTY_CERTIFICATES}
-            >
-              {({ key, ...p }) => <CertificateItem key={key} {...p} now={now} />}
-            </List.Items>
-          </List.Scroll>
-        </Select.Frame>
-      </Section>
+      {secrets != null && (
+        <SecretSection list={secrets} selected={selected} onSelect={handleSelect} />
+      )}
+      {certificates != null && (
+        <CertificateSection
+          list={certificates}
+          selected={selected}
+          onSelect={handleSelect}
+        />
+      )}
     </Flex.Box>
   );
 };
 
-/** Lists secrets and certificates in two headed sections. */
+/** Lists the secrets and certificates the user can retrieve, in headed sections. */
 export const Lists = ({ emptyContent }: ListsProps): ReactElement => {
   const lists = useLists();
   return <Body {...lists} emptyContent={emptyContent} />;

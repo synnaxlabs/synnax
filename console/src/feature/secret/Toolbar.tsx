@@ -16,6 +16,7 @@ import { type ReactElement } from "react";
 
 import { Lists } from "@/feature/secret/Lists";
 import { useCreateModal } from "@/feature/secret/useCreateModal";
+import { useRetrievable } from "@/feature/secret/useLists";
 import { CSS } from "@/platform/css";
 import { Empty } from "@/platform/empty";
 import { type Nav } from "@/platform/nav";
@@ -61,6 +62,11 @@ const Content = (): ReactElement => {
   );
 };
 
+const useVisible = (): boolean => {
+  const { secrets, certificates } = useRetrievable();
+  return secrets || certificates;
+};
+
 export const TOOLBAR: Nav.Toolbar = {
   key: "credentials",
   icon: <Icon.Secret />,
@@ -69,5 +75,5 @@ export const TOOLBAR: Nav.Toolbar = {
   tooltip: "Credentials",
   initialSize: 300,
   sizeBounds: { lower: 225, upper: 400 },
-  useVisible: () => Access.useRetrieveGranted(secret.TYPE_ONTOLOGY_ID),
+  useVisible,
 };
