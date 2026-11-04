@@ -191,6 +191,21 @@ var _ = Describe("Service", func() {
 		})
 	})
 
+	Describe("Uses", func() {
+		It("Should return the uses of the secrets with the given keys",
+			func(ctx SpecContext) {
+				e := newEnv(ctx)
+				key := uuid.New()
+				use := secret.Use{
+					Secret:   key,
+					Resource: ontology.ID{Type: ontology.ResourceTypeCertificate},
+				}
+				e.uses = []secret.Use{use, {Secret: uuid.New()}}
+				Expect(e.svc.Uses(ctx, nil, key)).To(Equal([]secret.Use{use}))
+			},
+		)
+	})
+
 	Describe("Ontology", func() {
 		It("Should define a resource for each secret", func(ctx SpecContext) {
 			e := newEnv(ctx)

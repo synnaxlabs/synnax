@@ -11,7 +11,15 @@ package secret_test
 
 import (
 	"context"
+	"crypto/ecdsa"
+	"crypto/elliptic"
+	"crypto/rand"
+	"crypto/x509"
+	"crypto/x509/pkix"
 	"encoding/json/v2"
+	"encoding/pem"
+	"math/big"
+	"time"
 	"uuid"
 
 	"github.com/gofiber/fiber/v3"
@@ -24,6 +32,7 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/service/access"
 	"github.com/synnaxlabs/synnax/pkg/service/access/rbac"
 	"github.com/synnaxlabs/synnax/pkg/service/auth"
+	"github.com/synnaxlabs/synnax/pkg/service/certificate"
 	"github.com/synnaxlabs/synnax/pkg/service/ontology"
 	"github.com/synnaxlabs/synnax/pkg/service/rack"
 	"github.com/synnaxlabs/synnax/pkg/service/secret"
@@ -54,6 +63,32 @@ func retrieveSecret(ctx SpecContext, key secret.Key) secret.Secret {
 		Entry(&s).
 		Exec(ctx, nil)).To(Succeed())
 	return s
+}
+
+// createCertificate creates a stored certificate with a private key, whose secret the
+// certificate uses.
+func createCertificate(ctx SpecContext) certificate.Certificate {
+	GinkgoHelper()
+	key := MustSucceed(ecdsa.GenerateKey(elliptic.P256(), rand.Reader))
+	tmpl := &x509.Certificate{
+		SerialNumber: big.NewInt(1),
+		Subject:      pkix.Name{CommonName: "plant"},
+		NotAfter:     time.Now().Add(365 * 24 * time.Hour),
+	}
+	der := MustSucceed(
+		x509.CreateCertificate(rand.Reader, tmpl, tmpl, &key.PublicKey, key),
+	)
+	keyDER := MustSucceed(x509.MarshalPKCS8PrivateKey(key))
+	c := certificate.Certificate{Variant: certificate.StoredCertificate{
+		Base: certificate.Base{Name: "Plant"},
+		Pem:  string(pem.EncodeToMemory(&pem.Block{Type: "CERTIFICATE", Bytes: der})),
+	}}
+	Expect(svc.Certificate.NewWriter(nil).Create(
+		ctx,
+		&c,
+		pem.EncodeToMemory(&pem.Block{Type: "PRIVATE KEY", Bytes: keyDER}),
+	)).To(Succeed())
+	return c
 }
 
 // sessionCtx returns a request context for u that passed the auth middleware, and the
@@ -322,6 +357,59 @@ var _ = Describe("Service", func() {
 			))
 			Expect(res.Secrets).To(HaveLen(1))
 			Expect(res.Secrets[0].Base().Name).To(Equal("Password"))
+		})
+		Describe("IncludeUses", func() {
+			var (
+				u    user.User
+				cert certificate.Certificate
+				key  secret.Key
+			)
+			BeforeEach(func(ctx SpecContext) {
+				u = createUser(ctx)
+				allow(
+					ctx,
+					u.OntologyID(),
+					[]access.Action{access.ActionRetrieve},
+					secretType,
+				)
+				cert = createCertificate(ctx)
+				key = *cert.Variant.(certificate.StoredCertificate).PrivateKey
+			})
+			It("Should return the resources that use each secret",
+				func(ctx SpecContext) {
+					res := MustSucceed(apiSvc.Retrieve(AuthedCtx(ctx, u),
+						apisecret.RetrieveRequest{
+							Keys:        []secret.Key{key},
+							IncludeUses: true,
+						},
+					))
+					Expect(res.Secrets).To(HaveLen(1))
+					Expect(res.Secrets[0].Base().Uses).
+						To(Equal([]ontology.ID{cert.OntologyID()}))
+				},
+			)
+			It("Should return empty uses for a secret that nothing uses",
+				func(ctx SpecContext) {
+					s := createSecret(ctx, "Password", "hunter2")
+					res := MustSucceed(apiSvc.Retrieve(AuthedCtx(ctx, u),
+						apisecret.RetrieveRequest{
+							Keys:        []secret.Key{s.Base().Key},
+							IncludeUses: true,
+						},
+					))
+					Expect(res.Secrets).To(HaveLen(1))
+					Expect(res.Secrets[0].Base().Uses).To(Equal([]ontology.ID{}))
+				},
+			)
+			It("Should leave uses nil when the request does not ask for them",
+				func(ctx SpecContext) {
+					res := MustSucceed(apiSvc.Retrieve(AuthedCtx(ctx, u),
+						apisecret.RetrieveRequest{Keys: []secret.Key{key}},
+					))
+					Expect(res.Secrets).To(HaveLen(1))
+					Expect(res.Secrets[0].Base().Uses).To(BeNil())
+				},
+			)
 		})
 		It("Should deny a user without retrieve access", func(ctx SpecContext) {
 			u := createUser(ctx)

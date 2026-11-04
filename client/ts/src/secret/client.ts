@@ -15,6 +15,7 @@ import { ontology } from "@/ontology";
 import { query } from "@/query";
 import { rack } from "@/rack";
 import {
+  type Base,
   fileSecretZ,
   type Key,
   keyZ,
@@ -27,11 +28,11 @@ import {
 export const SET_CHANNEL_NAME = "sy_secret_set";
 export const DELETE_CHANNEL_NAME = "sy_secret_delete";
 
-const newStoredZ = storedSecretZ.omit({ updated: true }).extend({
+const newStoredZ = storedSecretZ.omit({ updated: true, uses: true }).extend({
   /** value is the hidden value. No client can read it back. */
   value: z.string(),
 });
-const newFileZ = fileSecretZ.omit({ updated: true });
+const newFileZ = fileSecretZ.omit({ updated: true, uses: true });
 
 /**
  * A secret to create, or to replace when its key exists. A stored secret carries its
@@ -59,6 +60,7 @@ const retrieveRequestZ = z.object({
   searchTerm: z.string().optional(),
   offset: z.number().optional(),
   limit: z.number().optional(),
+  includeUses: z.boolean().optional(),
 });
 const retrieveMultiParamsZ = retrieveRequestZ.or(query.keyListZ(keyZ));
 
@@ -68,6 +70,14 @@ export interface RetrieveMultipleParams extends z.input<typeof retrieveRequestZ>
 interface RetrieveRequest extends z.infer<typeof retrieveRequestZ> {}
 
 const retrieveResponseZ = z.object({ secrets: secretZ.array().default(() => []) });
+
+/** Query fields only the server can evaluate. */
+const SERVER_FIELDS = ["searchTerm", "limit", "offset", "includeUses"] as const;
+
+/** The resources that use a secret, keyed by the secret. */
+type Uses = Pick<Base, "key" | "uses">;
+
+const stripUses = ({ uses: _, ...secret }: Secret): Secret => secret;
 
 const requestFilter = (req: RetrieveRequest): ((s: Secret) => boolean) => {
   const keySet = primitive.isNonZero(req.keys) ? new Set(req.keys) : undefined;
@@ -83,6 +93,7 @@ export interface ClientConfig {
 export class Client extends query.Retriever<typeof retrieveMultiParamsZ, Key, Secret> {
   private readonly cfg: ClientConfig;
   private readonly store: query.Table<Key, Secret>;
+  private readonly usesStore: query.Table<Key, Uses>;
 
   constructor(cfg: ClientConfig) {
     const { cache } = cfg;
@@ -94,17 +105,29 @@ export class Client extends query.Retriever<typeof retrieveMultiParamsZ, Key, Se
         query.createDeleteListener(DELETE_CHANNEL_NAME, keyZ),
       ],
     });
+    // The secret table never holds uses. No change stream keeps uses current, so only a
+    // retrieve that asks for them writes or reads this table.
+    const usesStore = cache.createTable<Key, Uses>({ name: "secret.uses" });
     super(cache, {
       name: "secret",
       table: store,
       request: {
         schema: retrieveMultiParamsZ,
-        fetch: async (req) => await this.execRetrieve(req),
+        fetch: async (req) => await this.fetchThrough(req),
         matches: (secret, req) => requestFilter(req)(secret),
+        serverFields: SERVER_FIELDS,
+        watch: [
+          query.watch(usesStore, (event, q: RetrieveRequest) =>
+            q.includeUses === true ? [event.key] : null,
+          ),
+        ],
       },
+      compose: (record, q) =>
+        this.compose(record, (q as { includeUses?: boolean }).includeUses === true),
     });
     this.cfg = cfg;
     this.store = store;
+    this.usesStore = usesStore;
   }
 
   /**
@@ -210,6 +233,18 @@ export class Client extends query.Retriever<typeof retrieveMultiParamsZ, Key, Se
       grantDeleteReqZ,
       emptyResZ,
     );
+  }
+
+  private compose(secret: Secret, includeUses: boolean): Secret {
+    if (!includeUses) return secret;
+    return { ...secret, uses: this.usesStore.get(secret.key)?.uses };
+  }
+
+  private async fetchThrough(req: RetrieveRequest): Promise<Secret[]> {
+    const secrets = await this.execRetrieve(req);
+    if (req.includeUses !== true) return secrets;
+    this.usesStore.set(secrets.map(({ key, uses }) => ({ key, uses })));
+    return secrets.map(stripUses);
   }
 
   private async execRetrieve(params: RetrieveMultipleParams): Promise<Secret[]> {

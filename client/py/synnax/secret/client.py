@@ -40,6 +40,7 @@ class _RetrieveRequest(BaseModel):
     search_term: str | None = None
     limit: int | None = None
     offset: int | None = None
+    include_uses: bool = False
 
 
 class _RetrieveResponse(BaseModel):
@@ -124,7 +125,7 @@ class Client:
         self._client.send("/secret/rename", _RenameRequest(key=key, name=name), Empty)
 
     @overload
-    def retrieve(self, *, key: Key) -> Secret: ...
+    def retrieve(self, *, key: Key, include_uses: bool = False) -> Secret: ...
 
     @overload
     def retrieve(
@@ -134,6 +135,7 @@ class Client:
         search_term: str | None = None,
         limit: int | None = None,
         offset: int | None = None,
+        include_uses: bool = False,
     ) -> list[Secret]: ...
 
     def retrieve(
@@ -144,9 +146,12 @@ class Client:
         search_term: str | None = None,
         limit: int | None = None,
         offset: int | None = None,
+        include_uses: bool = False,
     ) -> Secret | list[Secret]:
         """Retrieves secrets, without their values.
 
+        :param include_uses: Whether to fill each secret's uses with the ontology IDs of
+            the resources that use it. Secrets come back with no uses when false.
         :raises NotFoundError: If a key is given and no secret has it.
         :raises AccessDenied: If the caller cannot retrieve one of the secrets.
         """
@@ -156,7 +161,11 @@ class Client:
         res = self._client.send(
             "/secret/retrieve",
             _RetrieveRequest(
-                keys=keys, search_term=search_term, limit=limit, offset=offset
+                keys=keys,
+                search_term=search_term,
+                limit=limit,
+                offset=offset,
+                include_uses=include_uses,
             ),
             _RetrieveResponse,
         )

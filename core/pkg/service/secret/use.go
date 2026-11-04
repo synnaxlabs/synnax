@@ -30,3 +30,9 @@ type Use struct {
 
 // Finder returns the uses of the secrets with the given keys, read through tx.
 type Finder func(ctx context.Context, tx gorp.Tx, keys []Key) ([]Use, error)
+
+// Uses returns the uses of the secrets with the given keys. If tx is nil, Uses reads
+// directly from the DB.
+func (s *Service) Uses(ctx context.Context, tx gorp.Tx, keys ...Key) ([]Use, error) {
+	return s.cfg.Uses(ctx, gorp.OverrideTx(s.cfg.DB, tx), keys)
+}

@@ -17,6 +17,7 @@ from uuid import UUID, uuid4
 
 from pydantic import BaseModel, Field
 
+from synnax import ontology
 from synnax.ontology.payload import ID
 from x import telem
 
@@ -37,11 +38,14 @@ class Base(BaseModel):
         key: Is the unique identifier for this secret.
         name: Is a human-readable name for the secret.
         updated: Is when the value or path of the secret last changed.
+        uses: Are the resources that use the secret, filled only when a retrieve request
+            asks for them.
     """
 
     key: Key = Field(default_factory=uuid4)
     name: str
     updated: telem.TimeStamp = Field(ge=-9223372036854775808, le=9223372036854775807)
+    uses: list[ontology.ID] | None = None
 
     @_override
     def __hash__(self) -> int:

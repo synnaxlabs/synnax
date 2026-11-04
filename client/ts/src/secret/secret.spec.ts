@@ -94,6 +94,21 @@ describe("Secret", () => {
       expect(retrieved.map((s) => s.name).sort()).toEqual(["Multi 1", "Multi 2"]);
     });
 
+    it("should retrieve empty uses for a secret that nothing uses", async () => {
+      const client = createTestClient();
+      const s = await client.secrets.create({
+        name: "Unused",
+        source: "stored",
+        value: "abc",
+      });
+      const [retrieved] = await client.secrets.retrieve({
+        keys: [s.key],
+        includeUses: true,
+      });
+      expect(retrieved.uses).toEqual([]);
+      expect((await client.secrets.retrieve(s.key)).uses).toBeUndefined();
+    });
+
     it("should search for secrets by name", async () => {
       const client = createTestClient();
       const name = `${id.create()} password`;

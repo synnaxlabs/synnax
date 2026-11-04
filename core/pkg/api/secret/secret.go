@@ -213,6 +213,8 @@ type RetrieveRequest struct {
 	Limit int `json:"limit" msgpack:"limit"`
 	// Offset is the number of secrets to skip.
 	Offset int `json:"offset" msgpack:"offset"`
+	// IncludeUses fills each secret with the ontology IDs of the resources that use it.
+	IncludeUses bool `json:"include_uses" msgpack:"include_uses"`
 }
 
 // RetrieveResponse holds the retrieved secrets, without their values.
@@ -220,8 +222,8 @@ type RetrieveResponse struct {
 	Secrets []Secret `json:"secrets" msgpack:"secrets"`
 }
 
-// Retrieve returns the secrets the request selects. It requires retrieve access on each
-// of them.
+// Retrieve returns the secrets the request selects, with their uses when the request
+// asks for them. It requires retrieve access on each of them.
 func (s *Service) Retrieve(
 	ctx context.Context,
 	req RetrieveRequest,
@@ -247,7 +249,36 @@ func (s *Service) Retrieve(
 	}); err != nil {
 		return RetrieveResponse{}, err
 	}
+	if req.IncludeUses {
+		if err := s.fillUses(ctx, secrets); err != nil {
+			return RetrieveResponse{}, err
+		}
+	}
 	return RetrieveResponse{Secrets: secrets}, nil
+}
+
+// fillUses sets the uses of each secret. A secret that nothing uses gets empty uses, so
+// the response tells it apart from a secret whose uses were not asked for.
+func (s *Service) fillUses(ctx context.Context, secrets []Secret) error {
+	keys := make([]Key, len(secrets))
+	resources := make(map[Key][]ontology.ID, len(secrets))
+	for i, sec := range secrets {
+		keys[i] = sec.Base().Key
+		resources[keys[i]] = []ontology.ID{}
+	}
+	uses, err := s.internal.Uses(ctx, nil, keys...)
+	if err != nil {
+		return err
+	}
+	for _, use := range uses {
+		resources[use.Secret] = append(resources[use.Secret], use.Resource)
+	}
+	for i, sec := range secrets {
+		base := sec.Base()
+		base.Uses = resources[base.Key]
+		secrets[i] = sec.WithBase(base)
+	}
+	return nil
 }
 
 // RenameRequest names the secret to rename and its new name.
