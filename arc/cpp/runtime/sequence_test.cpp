@@ -3884,6 +3884,55 @@ TEST(ComputedCallInputsTest, PassesAComputedInputToARoutedCall) {
     EXPECT_GT(got[0], started_at);
 }
 
+TEST(LateReactiveLocalsTest, FollowsAChannelReadThroughALaterDeclaredFunction) {
+    Sequence h(
+        R"(
+    x := rd() + 1
+    x -> %out%
+    func rd() i64 {
+        return %raw% * 2
+    })",
+        {{"raw", x::telem::INT64_T}, {"out", x::telem::INT64_T}}
+    );
+
+    h.ingest("raw", x::telem::Series(std::int64_t(1)));
+    h.settle();
+    EXPECT_EQ(
+        collect<std::int64_t>(h.flush(), h.key("out")),
+        (std::vector<std::int64_t>{3})
+    );
+    for (int i = 0; i < 5; i++)
+        h.advance(x::telem::MILLISECOND);
+    EXPECT_TRUE(collect<std::int64_t>(h.flush(), h.key("out")).empty())
+        << "no new data, no new write";
+    h.ingest("raw", x::telem::Series(std::int64_t(2)));
+    h.settle();
+    EXPECT_EQ(
+        collect<std::int64_t>(h.flush(), h.key("out")),
+        (std::vector<std::int64_t>{5})
+    );
+}
+
+TEST(LateReactiveLocalsTest, DerivesAReactiveLocalFromAnotherWithoutAnEntryValue) {
+    Sequence h(
+        R"(
+    s := %raw% * 2
+    z := s + 1
+    z -> %out%)",
+        {{"raw", x::telem::INT64_T}, {"out", x::telem::INT64_T}}
+    );
+
+    h.advance(x::telem::MILLISECOND);
+    EXPECT_TRUE(collect<std::int64_t>(h.flush(), h.key("out")).empty())
+        << "no sample yet, no write";
+    h.ingest("raw", x::telem::Series(std::int64_t(1)));
+    h.settle();
+    EXPECT_EQ(
+        collect<std::int64_t>(h.flush(), h.key("out")),
+        (std::vector<std::int64_t>{3})
+    );
+}
+
 TEST(ComputedInitializersTest, ComputesATopLevelVariableAtProgramStart) {
     Sequence h(
         R"(

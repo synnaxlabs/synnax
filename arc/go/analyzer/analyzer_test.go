@@ -1557,3 +1557,42 @@ sequence main {
 		},
 	)
 })
+
+var _ = Describe("Channel reads through later declarations", func() {
+	rawResolver := []symbol.Symbol{
+		{Name: "raw", Kind: symbol.KindChannel, Type: types.Chan(types.F64()), ID: 10},
+	}
+
+	It(
+		"Should classify a local reactive through a later callee",
+		func(bCtx SpecContext) {
+			ctx := analyzeAndExpectWithResolver(bCtx, `
+			x := rd() + 1.0
+			func rd() f64 {
+			    return raw * 2.0
+			}`, rawResolver)
+			Expect(MustSucceed(ctx.Scope.Resolve(ctx, "x")).IsReactive()).To(BeTrue())
+		},
+	)
+
+	It("Should classify a copy of a promoted local reactive", func(bCtx SpecContext) {
+		ctx := analyzeAndExpectWithResolver(bCtx, `
+			x := rd() + 1.0
+			y := x
+			func rd() f64 {
+			    return raw * 2.0
+			}`, rawResolver)
+		Expect(MustSucceed(ctx.Scope.Resolve(ctx, "y")).IsReactive()).To(BeTrue())
+	})
+
+	It("Should reject a stateful that reads a reactive local", func(bCtx SpecContext) {
+		ctx := analyzeAndExpectErrorWithResolver(bCtx, `
+			s := raw * 2.0
+			sequence main {
+			    y $= s + 1.0
+			}`, rawResolver)
+		Expect(ctx.Diagnostics.String()).To(
+			ContainSubstring("cannot be assigned to stateful"),
+		)
+	})
+})

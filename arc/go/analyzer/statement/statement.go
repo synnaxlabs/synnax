@@ -195,13 +195,56 @@ const statefulChannelInitMsg = "channels and channel-read expressions cannot be 
 func CheckStatefulInitializers[T antlr.ParserRuleContext](ctx context.Context[T]) {
 	for _, c := range ctx.Scope.Root().Children() {
 		expr, ok := c.AST.(parser.IExpressionContext)
-		if !ok || c.Kind != symbol.KindFunction || len(c.Channels.Read) == 0 {
+		if !ok || c.Kind != symbol.KindFunction || !synthReadsChannel(ctx, c, expr) {
 			continue
 		}
 		if decl, ok := expr.GetParent().(parser.IStatefulVariableContext); ok {
 			ctx.Diagnostics.Add(diagnostics.Errorf(decl, statefulChannelInitMsg))
 		}
 	}
+}
+
+// PromoteChannelReadLocals retypes a computed `:=` local as reactive when its
+// initializer reads a channel through a later callee or a reactive local. Run it
+// after call channels propagate and before variable reads are lifted.
+func PromoteChannelReadLocals[T antlr.ParserRuleContext](ctx context.Context[T]) {
+	for changed := true; changed; {
+		changed = false
+		for _, c := range ctx.Scope.Root().Children() {
+			expr, ok := c.AST.(parser.IExpressionContext)
+			if !ok || c.Kind != symbol.KindFunction {
+				continue
+			}
+			decl, ok := expr.GetParent().(parser.ILocalVariableContext)
+			if !ok {
+				continue
+			}
+			sym, err := c.Resolve(ctx, decl.IDENTIFIER().GetText())
+			if err != nil || !sym.IsComputed() || !synthReadsChannel(ctx, c, expr) {
+				continue
+			}
+			sym.Type = types.ReadChan(sym.Type)
+			changed = true
+		}
+	}
+}
+
+// synthReadsChannel reports whether synth's expression reads a channel directly,
+// through a callee, or through a reactive local.
+func synthReadsChannel[T antlr.ParserRuleContext](
+	ctx context.Context[T],
+	synth *symbol.Symbol,
+	expr parser.IExpressionContext,
+) bool {
+	if len(synth.Channels.Read) > 0 {
+		return true
+	}
+	for _, name := range parser.CollectIdentifiers(expr) {
+		if ref, err := synth.Resolve(ctx, name); err == nil && ref.IsReactive() {
+			return true
+		}
+	}
+	return false
 }
 
 // rhsReadsVariable reports whether expr references a variable or input symbol.

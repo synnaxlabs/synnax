@@ -5531,6 +5531,71 @@ var _ = Describe("Sequence", func() {
 		)
 	})
 
+	Describe("Reactive locals through late declarations", func() {
+		// drainI64 collects every i64 value flushed to a channel in order.
+		drainI64 := func(fr telem.Frame[uint32], key uint32) []int64 {
+			var out []int64
+			for _, ser := range fr.Get(key).Series {
+				out = append(out, ser.Unmarshal[int64]()...)
+			}
+			return out
+		}
+		resolver := channelSymbols(map[string]channelDef{
+			"raw": {types.I64(), 100},
+			"out": {types.I64(), 102},
+		})
+		digests := []channels.Digest{
+			{Key: 100, DataType: telem.Int64T},
+			{Key: 102, DataType: telem.Int64T},
+		}
+
+		It(
+			"Follows a channel read through a later-declared function",
+			func(ctx SpecContext) {
+				h := newRuntimeHarness(ctx, `
+				x := rd() + 1
+				x -> out
+				func rd() i64 {
+				    return raw * 2
+				}`, resolver, digests...)
+				defer h.Close(ctx)
+
+				h.Ingest(100, telem.NewSeriesV[int64](1))
+				advance(h, ctx, telem.Millisecond)
+				out, _ := h.Flush()
+				Expect(drainI64(out, 102)).To(Equal([]int64{3}))
+				for range 5 {
+					advance(h, ctx, telem.Millisecond)
+				}
+				out, _ = h.Flush()
+				Expect(drainI64(out, 102)).To(BeEmpty(), "no new data, no new write")
+				h.Ingest(100, telem.NewSeriesV[int64](2))
+				advance(h, ctx, telem.Millisecond)
+				out, _ = h.Flush()
+				Expect(drainI64(out, 102)).To(Equal([]int64{5}))
+			},
+		)
+
+		It(
+			"Derives a reactive local from another without an entry value",
+			func(ctx SpecContext) {
+				h := newRuntimeHarness(ctx, `
+				s := raw * 2
+				z := s + 1
+				z -> out`, resolver, digests...)
+				defer h.Close(ctx)
+
+				advance(h, ctx, telem.Millisecond)
+				out, _ := h.Flush()
+				Expect(drainI64(out, 102)).To(BeEmpty(), "no sample yet, no write")
+				h.Ingest(100, telem.NewSeriesV[int64](1))
+				advance(h, ctx, telem.Millisecond)
+				out, _ = h.Flush()
+				Expect(drainI64(out, 102)).To(Equal([]int64{3}))
+			},
+		)
+	})
+
 	Describe("Computed initializers", func() {
 		// drainI64 collects every i64 value flushed to a channel in order.
 		drainI64 := func(fr telem.Frame[uint32], key uint32) []int64 {
