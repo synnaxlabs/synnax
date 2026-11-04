@@ -33,16 +33,17 @@ change of the trigger value.
 
 - Trigger -> a numeric or `bool` value. A `str` value gives the error
   `stable.for input must be a numeric or bool type, got str`.
-- Output -> the steady value, of the same type as the trigger. It has the time of the
-  cycle that sends it.
+- Output -> the steady value, of the same type as the trigger. It has the timestamp of
+  the sample that confirmed the hold.
 - Runs -> on each new trigger value. A change of value starts the hold time again, from
-  the timestamp of that value. When a trigger arrives after the value has held for
-  `duration`, `stable.for` sends the value once. It sends again only when a different
-  value holds for `duration`.
+  the timestamp of that value. When a sample with the same value is stamped `duration`
+  or more after the change, `stable.for` sends the value once. It sends again only when
+  a different value holds for `duration`.
 
-Because `stable.for` checks the hold time only when a trigger arrives, a slow channel
-can send the value later than `duration`. When its stage starts, `stable.for` forgets
-the last value.
+`stable.for` compares sample timestamps only, so a batch that arrives late does not
+close the window early. A hold needs a second sample with the same value, so a channel
+that writes only new values never triggers `stable.for`. `stable.for` resets on stage
+entry.
 
 ```arc channels="tank_pt, high_pt"
 import stable

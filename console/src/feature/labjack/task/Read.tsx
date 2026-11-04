@@ -36,7 +36,7 @@ import {
 } from "@/feature/labjack/task/convertChannelTypeToPortType";
 import { getOpenPort } from "@/feature/labjack/task/getOpenPort";
 import { PortField } from "@/feature/labjack/task/PortField";
-import { terminalOf } from "@/feature/labjack/task/ports";
+import { maxTerminalChars, terminalOf } from "@/feature/labjack/task/ports";
 import { PortsView } from "@/feature/labjack/task/PortsView";
 import { CustomScaleForm, FORMS } from "@/feature/labjack/task/ReadChannelForms";
 import {
@@ -109,7 +109,7 @@ const ChannelListItem = ({
       hasTareButton={hasTareButton}
       channel={channel}
       defaultName={channelName({ name, port }, identifier)}
-      portMaxChars={5}
+      portMaxChars={maxTerminalChars(model)}
     />
   );
 };

@@ -8,9 +8,35 @@
 // included in the file licenses/APL.txt.
 
 import { describe, expect, it } from "vitest";
+import { userEvent } from "vitest/browser";
 
 import { Select } from "@/select";
 import { computed, renderThemed, resolve } from "@/styletest";
+import { Text } from "@/text";
+
+const TWO_LINE_KEYS = ["1", "2", "3", "4", "5", "6"];
+
+const renderTwoLineOptions = async (): Promise<Element[]> => {
+  const { getByRole } = await renderThemed(
+    <Select.Simple<string>
+      resourceName="endpoint"
+      value="1"
+      onChange={() => {}}
+      initialVisible
+    >
+      {TWO_LINE_KEYS.map((key) => (
+        <Select.Item key={key} itemKey={key} textValue={`Endpoint ${key}`} y>
+          <Text.Text>Endpoint {key}</Text.Text>
+          <Text.Text level="small">Basic256Sha256, sign and encrypt</Text.Text>
+        </Select.Item>
+      ))}
+    </Select.Simple>,
+  );
+  // The dialog caps its height once it is placed, and it shows only then.
+  const dialog = getByRole("dialog").element();
+  await expect.poll(() => computed(dialog, "opacity")).toBe("1");
+  return getByRole("option").elements();
+};
 
 const renderButtons = async (
   variant: Select.ButtonsProps["variant"],
@@ -61,6 +87,26 @@ describe("Select", () => {
       const card = button("A much longer second option");
       expect(computed(card, "background-color")).toBe(resolve("var(--pluto-gray-l0)"));
       expect(computed(card, "border-top-color")).toBe(resolve("var(--pluto-gray-l6)"));
+    });
+  });
+
+  describe("fixed options", () => {
+    it("should keep each option as tall as its content", async () => {
+      const options = await renderTwoLineOptions();
+      expect(options).toHaveLength(TWO_LINE_KEYS.length);
+      options.forEach((option) =>
+        expect(option.clientHeight).toBe(option.scrollHeight),
+      );
+    });
+
+    it("should scroll the options that do not fit the dialog", async () => {
+      const options = await renderTwoLineOptions();
+      const last = options[options.length - 1];
+      const scroll = last.closest(".lyra-list__scroll")!;
+      const bottom = (el: Element): number => el.getBoundingClientRect().bottom;
+      expect(bottom(last)).toBeGreaterThan(bottom(scroll));
+      await userEvent.wheel(scroll, { delta: { y: 1000 } });
+      await expect.poll(() => bottom(last)).toBeLessThanOrEqual(bottom(scroll));
     });
   });
 });
