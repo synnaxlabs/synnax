@@ -7,19 +7,26 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-package v0_test
+package v1_test
 
 import (
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
-	v0 "github.com/synnaxlabs/synnax/pkg/service/group/versions/v0"
+	v1 "github.com/synnaxlabs/synnax/pkg/service/group/versions/v1"
+	resource "github.com/synnaxlabs/synnax/pkg/service/resource/versions/v0"
 )
 
 var _ = Describe("Validate", func() {
-	It("Should accept a named group", func() {
-		Expect(v0.Group{Name: "Named"}.Validate()).To(Succeed())
+	It("Should accept a named, scoped group", func() {
+		Expect(v1.Group{Name: "Named", Scope: resource.TypeChannel}.Validate()).
+			To(Succeed())
 	})
 	It("Should reject an empty name", func() {
-		Expect(v0.Group{}.Validate()).To(MatchError(ContainSubstring("name: required")))
+		Expect(v1.Group{Scope: resource.TypeChannel}.Validate()).
+			To(MatchError(ContainSubstring("name: required")))
+	})
+	It("Should reject an invalid scope", func() {
+		Expect(v1.Group{Name: "Named"}.Validate()).
+			To(MatchError(ContainSubstring("scope: invalid scope")))
 	})
 })
