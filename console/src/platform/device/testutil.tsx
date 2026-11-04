@@ -10,8 +10,9 @@
 import { device, type ontology, rack, status, type Synnax } from "@synnaxlabs/client";
 import { Form } from "@synnaxlabs/lyra/form";
 import { Menu as PMenu } from "@synnaxlabs/lyra/menu";
+import { Errors } from "@synnaxlabs/pluto";
 import { deep, id } from "@synnaxlabs/x";
-import { render, type RenderResult } from "@testing-library/react";
+import { act, render, type RenderResult } from "@testing-library/react";
 import { type FC, type PropsWithChildren, type ReactElement } from "react";
 import { describe, expect, it } from "vitest";
 import { z } from "zod";
@@ -142,14 +143,20 @@ export const renderMenuItem = async (
     return null;
   };
   ModalStoreProbe.displayName = "ModalStoreProbe";
-  const rendered = render(
-    <>
-      <PMenu.Menu>{node}</PMenu.Menu>
-      <Modals.Stack />
-      <ModalStoreProbe />
-    </>,
-    { wrapper },
-  );
+  let rendered!: RenderResult;
+  // An item can suspend on a device fetch, and a tree bounds its menus the same way.
+  await act(async () => {
+    rendered = render(
+      <>
+        <Errors.SuspenseBoundary loading={null}>
+          <PMenu.Menu>{node}</PMenu.Menu>
+        </Errors.SuspenseBoundary>
+        <Modals.Stack />
+        <ModalStoreProbe />
+      </>,
+      { wrapper },
+    );
+  });
   if (captured.modals == null) throw new Error("modal store was not captured");
   return { ...rendered, store, wrapper, modals: captured.modals };
 };

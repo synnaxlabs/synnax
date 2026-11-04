@@ -14,9 +14,7 @@ import (
 	"encoding/json/jsontext"
 	"encoding/json/v2"
 	"math"
-	"net"
 	"slices"
-	"strconv"
 	"time"
 	"uuid"
 
@@ -427,18 +425,13 @@ var _ = Describe("Read task", func() {
 
 	It("Should resume consuming without duplicates when the cluster comes back",
 		func(ctx SpecContext) {
-			// The broker persists to dir, so its restart keeps the topic and its ID.
-			dir := GinkgoT().TempDir()
-			first := MustSucceed(kfake.NewCluster(
-				kfake.NumBrokers(1),
-				kfake.DataDir(dir),
-			))
-			DeferCleanup(first.Close)
-			addr := first.ListenAddrs()[0]
+			broker := MustSucceed(kfake.NewCluster(kfake.NumBrokers(1)))
+			DeferCleanup(broker.Close)
+			addr := broker.ListenAddrs()[0]
 			index, data := createIndexed(ctx, telem.Float64T)
 			dev := createDevice(ctx, kafka.Properties{Brokers: []string{addr}})
 			topic := uniqueTopic()
-			Expect(first.CreateTopic(topic, 1, nil)).To(Succeed())
+			Expect(broker.CreateTopic(topic, 1, nil)).To(Succeed())
 			dt, t := configure(ctx, kafka.ReadConfig{
 				Device:  dev.Key,
 				Topic:   topic,
@@ -455,23 +448,25 @@ var _ = Describe("Read task", func() {
 					Timestamp: time.UnixMilli(ms),
 				}).FirstErr()).To(Succeed())
 			}
-			// The cluster closes before the offset commits, so the rejoined group
+			// The outage starts before the offset commits, so the rejoined group
 			// replays this record.
 			produce(10_000, 1)
 			expectStored(ctx, data.Key(), 1)
-			first.Close()
+			rejoined := broker.Fault(kfake.Fault{
+				Keys:    []kmsg.Key{kmsg.SyncGroup},
+				Observe: true,
+				Count:   -1,
+			})
+			restore := cutConnections(broker)
 			Eventually(func() string { return taskStatus(ctx, t).Message }).
 				WithTimeout(15 * time.Second).
 				Should(Equal("Lost connection to cluster"))
 			stat := taskStatus(ctx, t)
 			Expect(stat.Variant).To(Equal(status.VariantWarning))
 			Expect(stat.Details.Running).To(BeTrue())
-			_, port := MustSucceed2(net.SplitHostPort(addr))
-			second := MustSucceed(kfake.NewCluster(
-				kfake.Ports(MustSucceed(strconv.Atoi(port))),
-				kfake.DataDir(dir),
-			))
-			DeferCleanup(second.Close)
+			restore()
+			Eventually(rejoined.Hits).
+				WithTimeout(15 * time.Second).Should(BeNumerically(">", 0))
 			produce(11_000, 2)
 			Expect(floats(expectStored(ctx, data.Key(), 2))).To(Equal([]float64{1, 2}))
 			Expect(timestamps(stored(ctx, index.Key()))).To(Equal(
@@ -489,17 +484,13 @@ var _ = Describe("Read task", func() {
 
 	It("Should report a record skipped in the first poll after reconnecting",
 		func(ctx SpecContext) {
-			dir := GinkgoT().TempDir()
-			first := MustSucceed(kfake.NewCluster(
-				kfake.NumBrokers(1),
-				kfake.DataDir(dir),
-			))
-			DeferCleanup(first.Close)
-			addr := first.ListenAddrs()[0]
+			broker := MustSucceed(kfake.NewCluster(kfake.NumBrokers(1)))
+			DeferCleanup(broker.Close)
+			addr := broker.ListenAddrs()[0]
 			index, data := createIndexed(ctx, telem.Float64T)
 			dev := createDevice(ctx, kafka.Properties{Brokers: []string{addr}})
 			topic := uniqueTopic()
-			Expect(first.CreateTopic(topic, 1, nil)).To(Succeed())
+			Expect(broker.CreateTopic(topic, 1, nil)).To(Succeed())
 			dt, t := configure(ctx, kafka.ReadConfig{
 				Device:  dev.Key,
 				Topic:   topic,
@@ -516,16 +507,11 @@ var _ = Describe("Read task", func() {
 			produce(map[string]any{"ts": 5e9})
 			Eventually(func() string { return taskStatus(ctx, t).Message }).
 				WithTimeout(15 * time.Second).Should(Equal("Skipped record"))
-			first.Close()
+			restore := cutConnections(broker)
 			Eventually(func() string { return taskStatus(ctx, t).Message }).
 				WithTimeout(15 * time.Second).
 				Should(Equal("Lost connection to cluster"))
-			_, port := MustSucceed2(net.SplitHostPort(addr))
-			second := MustSucceed(kfake.NewCluster(
-				kfake.Ports(MustSucceed(strconv.Atoi(port))),
-				kfake.DataDir(dir),
-			))
-			DeferCleanup(second.Close)
+			restore()
 			produce(map[string]any{"ts": 11e9})
 			produce(map[string]any{"ts": 12e9, "v": 1.0})
 			Expect(floats(expectStored(ctx, data.Key(), 1))).To(Equal([]float64{1}))
@@ -676,6 +662,44 @@ var _ = Describe("Read task", func() {
 			Should(ContainSubstring("duplicate value at /v"))
 		produceJSON(ctx, producer, topic, "", map[string]any{"ts": 11e9, "v": 3.0})
 		Expect(floats(expectStored(ctx, data.Key(), 1))).To(Equal([]float64{3}))
+	})
+
+	It("Should write one poll's partitions in timestamp order", func(ctx SpecContext) {
+		index, data := createIndexed(ctx, telem.Float64T)
+		dev := createDevice(ctx, clusterProperties())
+		topic := uniqueTopic()
+		Expect(cluster.CreateTopic(topic, 2, nil)).To(Succeed())
+		partitioned := newKafkaClient(kgo.RecordPartitioner(kgo.ManualPartitioner()))
+		record := func(partition int32, stamp, value float64) *kgo.Record {
+			GinkgoHelper()
+			doc := map[string]any{"ts": stamp, "v": value}
+			return &kgo.Record{
+				Topic:     topic,
+				Partition: partition,
+				Value:     MustSucceed(json.Marshal(doc)),
+			}
+		}
+		// Producing before the start puts both partitions in the task's first poll.
+		Expect(partitioned.ProduceSync(ctx,
+			record(0, 10e9, 1),
+			record(0, 12e9, 3),
+			record(1, 11e9, 2),
+			record(1, 13e9, 4),
+		).FirstErr()).To(Succeed())
+		dt, t := configure(ctx, kafka.ReadConfig{
+			Device:  dev.Key,
+			Topic:   topic,
+			Records: single(stampedFields(index, data)),
+		})
+		start(ctx, dt, t)
+		Expect(floats(expectStored(ctx, data.Key(), 4))).
+			To(Equal([]float64{1, 2, 3, 4}))
+		Expect(timestamps(stored(ctx, index.Key()))).To(Equal([]telem.TimeStamp{
+			10 * telem.SecondTS,
+			11 * telem.SecondTS,
+			12 * telem.SecondTS,
+			13 * telem.SecondTS,
+		}))
 	})
 
 	It("Should read a record that repeats a name no field addresses",

@@ -7,8 +7,11 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
+#include <algorithm>
 #include <string>
 #include <string_view>
+#include <utility>
+#include <vector>
 
 #include "absl/log/log.h"
 #include "open62541/client_config_default.h"
@@ -73,6 +76,41 @@ const std::string SECURITY_URI_BASE = "http://opcfoundation.org/UA/SecurityPolic
 /// @brief the ApplicationUri of a client certificate that has no URI. Servers that
 /// check the URI reject it.
 const std::string FALLBACK_APPLICATION_URI = "urn:synnax.opcua.client";
+
+/// @returns the timeout of each request and connection attempt of cfg.
+uint32_t client_timeout(const Config &cfg) {
+    return cfg.client_timeout_ms > 0 ? cfg.client_timeout_ms : 5000;
+}
+
+std::string security_mode(const UA_MessageSecurityMode mode) {
+    switch (mode) {
+        case UA_MESSAGESECURITYMODE_NONE:
+            return "None";
+        case UA_MESSAGESECURITYMODE_SIGN:
+            return "Sign";
+        case UA_MESSAGESECURITYMODE_SIGNANDENCRYPT:
+            return "SignAndEncrypt";
+        default:
+            return "Invalid";
+    }
+}
+
+std::string user_token_type(const UA_UserTokenType type) {
+    switch (type) {
+        case UA_USERTOKENTYPE_ANONYMOUS:
+            return "anonymous";
+        case UA_USERTOKENTYPE_USERNAME:
+            return "username";
+        case UA_USERTOKENTYPE_CERTIFICATE:
+            return "certificate";
+        default:
+            return "issued_token";
+    }
+}
+
+std::string to_string(const UA_String &str) {
+    return {reinterpret_cast<const char *>(str.data), str.length};
+}
 
 UA_StatusCode priv_key_pass_callback(UA_ClientConfig *, UA_ByteString *) {
     return UA_STATUSCODE_BADSECURITYCHECKSFAILED;
@@ -301,8 +339,7 @@ connect(const Config &cfg, const Security &sec, std::string log_prefix) {
     config->requestedSessionTimeout = cfg.session_timeout_ms > 0
                                         ? cfg.session_timeout_ms
                                         : 1200000; // Default: 20 minutes
-    config->timeout = cfg.client_timeout_ms > 0 ? cfg.client_timeout_ms
-                                                : 5000; // Default: 5 seconds
+    config->timeout = client_timeout(cfg);
 
     if (const auto enc_err = configure_encryption(cfg, sec, config))
         return {nullptr, enc_err};
@@ -317,6 +354,55 @@ connect(const Config &cfg, const Security &sec, std::string log_prefix) {
 
     const auto err = connect_client(client.get(), cfg.endpoint);
     return {std::move(client), err};
+}
+
+x::json::json Endpoint::to_json() const {
+    return {
+        {"url", this->url},
+        {"security_mode", this->security_mode},
+        {"security_policy", this->security_policy},
+        {"user_token_types", this->user_token_types},
+        {"security_level", this->security_level},
+    };
+}
+
+std::pair<std::vector<Endpoint>, x::errors::Error> endpoints(const Config &cfg) {
+    const auto client = std::shared_ptr<UA_Client>(UA_Client_new(), client_deleter());
+    auto *config = UA_Client_getConfig(client.get());
+    config->logging->log = custom_logger;
+    config->timeout = client_timeout(cfg);
+    size_t count = 0;
+    UA_EndpointDescription *descriptions = nullptr;
+    const auto status = UA_Client_getEndpoints(
+        client.get(),
+        cfg.endpoint.c_str(),
+        &count,
+        &descriptions
+    );
+    if (status != UA_STATUSCODE_GOOD) return {{}, errors::parse_connect(status)};
+    std::vector<Endpoint> result;
+    result.reserve(count);
+    for (size_t i = 0; i < count; ++i) {
+        const auto &desc = descriptions[i];
+        auto policy = to_string(desc.securityPolicyUri);
+        if (const auto hash = policy.find('#'); hash != std::string::npos)
+            policy = policy.substr(hash + 1);
+        Endpoint endpoint{
+            .url = to_string(desc.endpointUrl),
+            .security_mode = security_mode(desc.securityMode),
+            .security_policy = std::move(policy),
+            .security_level = desc.securityLevel,
+        };
+        for (size_t j = 0; j < desc.userIdentityTokensSize; ++j) {
+            auto type = user_token_type(desc.userIdentityTokens[j].tokenType);
+            if (std::ranges::find(endpoint.user_token_types, type) ==
+                endpoint.user_token_types.end())
+                endpoint.user_token_types.push_back(std::move(type));
+        }
+        result.push_back(std::move(endpoint));
+    }
+    UA_Array_delete(descriptions, count, &UA_TYPES[UA_TYPES_ENDPOINTDESCRIPTION]);
+    return {std::move(result), x::errors::NIL};
 }
 
 x::errors::Error

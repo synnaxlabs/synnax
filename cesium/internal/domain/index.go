@@ -86,8 +86,7 @@ func (idx *index) insert(ctx context.Context, p pointer, persist bool) error {
 		return nil
 	}
 
-	persistPointers := idx.indexPersist.prepare(idx.persistHead)
-	return persistPointers()
+	return idx.indexPersist.prepare(idx.persistHead).run()
 }
 
 func (idx *index) overlap(tr telem.TimeRange) bool {
@@ -156,19 +155,19 @@ func (idx *index) update(ctx context.Context, p pointer, persist bool) error {
 	}
 
 	idx.persistHead = min(idx.persistHead, updateAt)
-	var persistPointers func() error
+	var write preparedWrite
 	if persist {
-		persistPointers = idx.indexPersist.prepare(idx.persistHead)
+		write = idx.indexPersist.prepare(idx.persistHead)
 	}
 	idx.mu.Unlock()
 	// The live stream carries commits to the last domain.
 	if updateAt != lastI {
 		idx.notifyHistoryChange(ctx, oldP.End.Range(p.End))
 	}
-	if persistPointers == nil {
+	if !persist {
 		return nil
 	}
-	return persistPointers()
+	return write.run()
 }
 
 func (idx *index) notifyHistoryChange(ctx context.Context, tr telem.TimeRange) {
