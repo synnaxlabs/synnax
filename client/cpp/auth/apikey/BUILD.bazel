@@ -1,0 +1,38 @@
+# Copyright 2026 Synnax Labs, Inc.
+#
+# Use of this software is governed by the Business Source License included in the file
+# licenses/BSL.txt.
+#
+# As of the Change Date specified in that file, in accordance with the Business Source
+# License, use of this software will be governed by the Apache License, Version 2.0,
+# included in the file licenses/APL.txt.
+
+load("@rules_cc//cc:cc_library.bzl", "cc_library")
+load("@rules_cc//cc:cc_test.bzl", "cc_test")
+
+cc_library(
+    name = "apikey",
+    srcs = [],
+    hdrs = ["apikey.h"],
+    visibility = ["//visibility:public"],
+    deps = [
+        "//client/cpp/auth",
+        "//core/pkg/transport/grpc:api_grpc",
+        "//freighter/cpp/grpc",
+        "//x/cpp/telem",
+        "@grpc//:grpc++",
+    ],
+)
+
+cc_test(
+    name = "apikey_test",
+    srcs = ["apikey_test.cpp"],
+    tags = ["requires-core"],
+    deps = [
+        ":apikey",
+        "//client/cpp:synnax",
+        "//client/cpp/testutil",
+        "//x/cpp/testutil",
+        "@googletest//:gtest_main",
+    ],
+)

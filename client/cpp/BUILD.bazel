@@ -24,6 +24,7 @@ cc_library(
     deps = [
         "//client/cpp/arc",
         "//client/cpp/auth",
+        "//client/cpp/auth/apikey",
         "//client/cpp/channel",
         "//client/cpp/connection",
         "//client/cpp/control",
