@@ -16,12 +16,11 @@ import { Dialog as SelectDialog } from "@/select/Dialog";
 import { Frame, type MultipleFrameProps, type SingleFrameProps } from "@/select/Frame";
 import { List } from "@/select/List";
 import { MultipleTrigger, type MultipleTriggerProps } from "@/select/MultipleTrigger";
-import { searchPlaceholder, usePlaceholder } from "@/select/placeholder";
+import { plural, searchPlaceholder, usePlaceholder } from "@/select/placeholder";
 import { useVisibleCount } from "@/select/registry";
 import { useClosed } from "@/select/scope";
 import { Search } from "@/select/Search";
 import { SingleTrigger, type SingleTriggerProps } from "@/select/SingleTrigger";
-import { Text } from "@/text";
 
 type FrameOmitted =
   | "multiple"
@@ -118,7 +117,7 @@ export const Simple = <K extends record.Key>({
   ...rest
 }: SimpleProps<K>): ReactElement => {
   const placeholder = usePlaceholder(
-    multiple === true ? Text.plural(resourceName) : resourceName,
+    multiple === true ? plural(resourceName) : resourceName,
   );
   const triggerBase = {
     haulType,
@@ -127,7 +126,7 @@ export const Simple = <K extends record.Key>({
     disabled,
     preview,
     "aria-label": caseconv.capitalize(
-      multiple === true ? Text.plural(resourceName) : resourceName,
+      multiple === true ? plural(resourceName) : resourceName,
     ),
   };
   const selection = {
