@@ -143,6 +143,9 @@ resource "aws_s3_bucket_lifecycle_configuration" "this" {
     expiration {
       days = 90
     }
+    noncurrent_version_expiration {
+      noncurrent_days = 1
+    }
   }
 }
 
@@ -182,8 +185,10 @@ output "id" {
   value = aws_s3_bucket.this.id
 }
 
+# Replication into a bucket needs its versioning on first.
 output "arn" {
-  value = aws_s3_bucket.this.arn
+  value      = aws_s3_bucket.this.arn
+  depends_on = [aws_s3_bucket_versioning.this]
 }
 
 output "key_arn" {
