@@ -16,7 +16,7 @@ import { List } from "@synnaxlabs/lyra/list";
 import { Menu } from "@synnaxlabs/lyra/menu";
 import { Select } from "@synnaxlabs/lyra/select";
 import { Text } from "@synnaxlabs/lyra/text";
-import { id, json } from "@synnaxlabs/x";
+import { deep, id, json } from "@synnaxlabs/x";
 import { type ReactElement, useState } from "react";
 
 import { CSS } from "@/platform/css";
@@ -50,7 +50,7 @@ type Field = StaticField | GeneratedField;
 
 interface ItemProps extends List.ItemProps<string> {
   /** The path of the field. */
-  path: string;
+  path: deep.Path<Field>;
 }
 
 // The section layout dissolves the box of each field, so sizing lives on the inputs.
@@ -65,7 +65,7 @@ const NUMBER_INPUT_PROPS = { className: CSS.B("static-field-value") } as const;
 
 const PointerField = ({ path }: Pick<ItemProps, "path">) => (
   <Form.TextField
-    path={`${path}.pointer`}
+    path={path.pointer}
     showLabel={false}
     showHelpText={false}
     inputProps={POINTER_INPUT_PROPS}
@@ -73,11 +73,12 @@ const PointerField = ({ path }: Pick<ItemProps, "path">) => (
 );
 
 const StaticItem = ({ path, ...props }: ItemProps) => {
-  const jsonType = Form.useFieldValue<JSONType>(`${path}.jsonType`);
+  const field = deep.variant(path, "type", "static");
+  const jsonType = Form.useFieldValue(field.jsonType);
   const { set } = Form.useContext();
   const handleJSONTypeChange = (value: JSONType) => {
-    set(`${path}.jsonType`, value);
-    set(`${path}.value`, json.ZERO_PRIMITIVES[value]);
+    set(field.jsonType, value);
+    set(field.value, json.ZERO_PRIMITIVES[value]);
   };
   return (
     <Select.Item {...props} justify="between" align="center" x>
@@ -91,7 +92,7 @@ const StaticItem = ({ path, ...props }: ItemProps) => {
       </Select.Simple>
       {jsonType === "string" && (
         <Form.TextField
-          path={`${path}.value`}
+          path={field.value as deep.Target<string>}
           showLabel={false}
           showHelpText={false}
           inputProps={STRING_INPUT_PROPS}
@@ -99,7 +100,7 @@ const StaticItem = ({ path, ...props }: ItemProps) => {
       )}
       {jsonType === "number" && (
         <Form.NumericField
-          path={`${path}.value`}
+          path={field.value as deep.Target<number>}
           showLabel={false}
           showHelpText={false}
           inputProps={NUMBER_INPUT_PROPS}
@@ -107,7 +108,7 @@ const StaticItem = ({ path, ...props }: ItemProps) => {
       )}
       {jsonType === "boolean" && (
         <Form.CheckboxField
-          path={`${path}.value`}
+          path={field.value as deep.Target<boolean>}
           showLabel={false}
           showHelpText={false}
         />
@@ -128,16 +129,17 @@ const generatorKey = (
 ): GeneratorKey => (generator === "timestamp" ? (timeFormat ?? "iso8601") : "uuid");
 
 const GeneratedItem = ({ path, ...props }: ItemProps) => {
-  const generator = Form.useFieldValue<GeneratorType>(`${path}.generator`);
-  const timeFormat = Form.useFieldValue<TimeFormat | undefined>(`${path}.timeFormat`);
+  const field = deep.variant(path, "type", "generated");
+  const generator = Form.useFieldValue(field.generator);
+  const timeFormat = Form.useFieldValue(field.timeFormat);
   const { set } = Form.useContext();
   const handleChange = (key: GeneratorKey) => {
     if (key === "uuid") {
-      set(`${path}.generator`, "uuid");
-      set(`${path}.timeFormat`, undefined);
+      set(field.generator, "uuid");
+      set(field.timeFormat, undefined);
     } else {
-      set(`${path}.generator`, "timestamp");
-      set(`${path}.timeFormat`, key);
+      set(field.generator, "timestamp");
+      set(field.timeFormat, key);
     }
   };
   return (
@@ -164,7 +166,7 @@ const GeneratedItem = ({ path, ...props }: ItemProps) => {
 };
 
 const Item = (props: ItemProps) => {
-  const type = Form.useFieldValue<Field["type"]>(`${props.path}.type`);
+  const type = Form.useFieldValue(props.path.type);
   return type === "static" ? <StaticItem {...props} /> : <GeneratedItem {...props} />;
 };
 
@@ -172,12 +174,12 @@ const EMPTY_CONTENT = <Empty.Action message="No additional fields" />;
 
 export interface AdditionalFieldsProps {
   /** The path of the additional fields of a write target. */
-  path: string;
+  path: deep.Path<Field[]>;
 }
 
 /** Lists the static and generated fields that a write adds to its payload. */
 export const AdditionalFields = ({ path }: AdditionalFieldsProps): ReactElement => {
-  const { data, push, remove } = Form.useFieldList<string, Field>(path);
+  const { data, push, remove } = Form.useFieldList(path);
   const [selected, setSelected] = useState<string[]>([]);
   const isPreview = useIsPreview();
   const add = (field: Field) => {
@@ -199,7 +201,7 @@ export const AdditionalFields = ({ path }: AdditionalFieldsProps): ReactElement 
     setSelected([]);
   };
   const listItem = ({ key, ...p }: List.ItemProps<string>) => (
-    <Item key={key} {...p} path={`${path}.${p.itemKey}`} />
+    <Item key={key} {...p} path={path[p.itemKey]} />
   );
   const menuProps = Menu.useContextMenu();
   const menu = ({ keys }: Menu.ContextMenuMenuProps) => (

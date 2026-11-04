@@ -7,9 +7,10 @@
 #  License, use of this software will be governed by the Apache License, Version 2.0,
 #  included in the file licenses/APL.txt.
 
-from x.timing.timing import Loop, Timer, poll, sleep
+from x.timing.timing import Clock, Loop, Timer, poll, sleep
 
 __all__ = [
+    "Clock",
     "Loop",
     "Timer",
     "poll",
