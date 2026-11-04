@@ -75,16 +75,6 @@ jobs:
       Review' && github.event.check_run.pull_requests[0])
     runs-on: ubuntu-latest
     steps:
-      # The check_run and workflow_run triggers run this file from main for a pull
-      # request into a release branch, which may lack gh_api.sh. A merge group takes the
-      # script from its own commit, since it can hold the first change that adds one.
-      - name: Checkout the main scripts
-        uses: actions/checkout@v7
-        with:
-          ref: ${{ github.event.merge_group.head_sha || 'main' }}
-          persist-credentials: false
-          sparse-checkout: .github/scripts
-
       - name: Resolve the pull request
         id: pull
         env:
@@ -103,7 +93,7 @@ jobs:
             echo "not a pull request number: $NUMBER" >&2
             exit 1
           fi
-          .github/scripts/gh_api.sh "repos/${GITHUB_REPOSITORY}/pulls/${NUMBER}" \
+          gh api "repos/${GITHUB_REPOSITORY}/pulls/${NUMBER}" \
             --jq '"number=\(.number)", "base=\(.base.ref)", "sha=\(.head.sha)"' \
             >> "$GITHUB_OUTPUT"
 
@@ -111,7 +101,6 @@ jobs:
         uses: actions/checkout@v7
         with:
           ref: ${{ steps.pull.outputs.base }}
-          path: base
 
       - name: Report the review gate status
         env:
@@ -120,13 +109,13 @@ jobs:
           SHA: ${{ github.event.merge_group.head_sha || steps.pull.outputs.sha }}
         run: |
           IFS=$'\t' read -r state description \
-            < <(base/.github/scripts/check_review.sh "$PR")
+            < <(.github/scripts/check_review.sh "$PR")
           if [ "$GITHUB_EVENT_NAME" = merge_group ] && [ "$state" != success ]; then
             state=failure
           fi
           echo "$state: $description"
           RUN_URL="$GITHUB_SERVER_URL/$GITHUB_REPOSITORY/actions/runs/$GITHUB_RUN_ID"
-          .github/scripts/gh_api.sh "repos/${GITHUB_REPOSITORY}/statuses/${SHA}" \
+          gh api "repos/${GITHUB_REPOSITORY}/statuses/${SHA}" \
             -f state="$state" \
             -f context="Review gate" \
             -f description="$description" \
