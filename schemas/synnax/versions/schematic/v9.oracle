@@ -775,32 +775,89 @@ NodeConfig union on variant {
     screw_pump                         ToggleSymbolConfig
     turbo_compressor                   ToggleSymbolConfig
     vacuum_pump                        ToggleSymbolConfig
-    burst_disc                         StaticSymbolConfig
-    flame_arrestor                     StaticSymbolConfig
-    flame_arrestor_detonation          StaticSymbolConfig
-    flame_arrestor_explosion           StaticSymbolConfig
-    flame_arrestor_fire_res            StaticSymbolConfig
-    flame_arrestor_fire_res_detonation StaticSymbolConfig
-    iso_burst_disc                     StaticSymbolConfig
-    angled_valve                       ToggleSymbolConfig
-    angled_relief_valve                DummyToggleSymbolConfig
-    angled_spring_loaded_relief_valve  DummyToggleSymbolConfig
-    ball_valve                         ToggleSymbolConfig
-    breather_valve                     DummyToggleSymbolConfig
-    butterfly_valve_one                ToggleSymbolConfig
-    butterfly_valve_two                ToggleSymbolConfig
-    check_valve                        StaticSymbolConfig
-    check_valve_with_arrow             StaticSymbolConfig
-    electric_regulator                 StaticSymbolConfig
-    electric_regulator_motorized       StaticSymbolConfig
-    four_way_valve                     ToggleSymbolConfig
-    gate_valve                         ToggleSymbolConfig
-    iso_check_valve                    StaticSymbolConfig
-    manual_valve                       DummyToggleSymbolConfig
-    needle_valve                       DummyToggleSymbolConfig
-    regulator                          StaticSymbolConfig
-    regulator_manual                   StaticSymbolConfig
-    relief_valve                       DummyToggleSymbolConfig
+    burst_disc                         StaticSymbolConfig {
+        @doc value "is the configuration for burst disc symbols."
+    }
+    flame_arrestor                     StaticSymbolConfig {
+        @doc value "is the configuration for flame arrestor symbols."
+    }
+    flame_arrestor_detonation          StaticSymbolConfig {
+        @doc value "is the configuration for detonation-proof flame arrestor symbols."
+    }
+    flame_arrestor_explosion           StaticSymbolConfig {
+        @doc value "is the configuration for explosion-proof flame arrestor symbols."
+    }
+    flame_arrestor_fire_res            StaticSymbolConfig {
+        @doc value "is the configuration for fire resistant flame arrestor symbols."
+    }
+    flame_arrestor_fire_res_detonation StaticSymbolConfig {
+        @doc value """
+            is the configuration for fire resistant and detonation-proof flame arrestor
+            symbols.
+        """
+    }
+    iso_burst_disc                     StaticSymbolConfig {
+        @doc value "is the configuration for ISO burst disc symbols."
+    }
+    angled_valve                       ToggleSymbolConfig {
+        @doc value "is the configuration for angled valve symbols."
+    }
+    angled_relief_valve                DummyToggleSymbolConfig {
+        @doc value "is the configuration for angled relief valve symbols."
+    }
+    angled_spring_loaded_relief_valve  DummyToggleSymbolConfig {
+        @doc value """
+            is the configuration for angled spring loaded relief valve symbols.
+        """
+    }
+    ball_valve                         ToggleSymbolConfig {
+        @doc value "is the configuration for ball valve symbols."
+    }
+    breather_valve                     DummyToggleSymbolConfig {
+        @doc value "is the configuration for breather valve symbols."
+    }
+    butterfly_valve_one                ToggleSymbolConfig {
+        @doc value "is the configuration for remote butterfly valve symbols."
+    }
+    butterfly_valve_two                ToggleSymbolConfig {
+        @doc value "is the configuration for manual butterfly valve symbols."
+    }
+    check_valve                        StaticSymbolConfig {
+        @doc value "is the configuration for check valve symbols."
+    }
+    check_valve_with_arrow             StaticSymbolConfig {
+        @doc value "is the configuration for check valve symbols drawn with an arrow."
+    }
+    electric_regulator                 StaticSymbolConfig {
+        @doc value "is the configuration for electric regulator symbols."
+    }
+    electric_regulator_motorized       StaticSymbolConfig {
+        @doc value "is the configuration for motorized electric regulator symbols."
+    }
+    four_way_valve                     ToggleSymbolConfig {
+        @doc value "is the configuration for four way valve symbols."
+    }
+    gate_valve                         ToggleSymbolConfig {
+        @doc value "is the configuration for gate valve symbols."
+    }
+    iso_check_valve                    StaticSymbolConfig {
+        @doc value "is the configuration for ISO check valve symbols."
+    }
+    manual_valve                       DummyToggleSymbolConfig {
+        @doc value "is the configuration for manual valve symbols."
+    }
+    needle_valve                       DummyToggleSymbolConfig {
+        @doc value "is the configuration for needle valve symbols."
+    }
+    regulator                          StaticSymbolConfig {
+        @doc value "is the configuration for regulator symbols."
+    }
+    regulator_manual                   StaticSymbolConfig {
+        @doc value "is the configuration for manual regulator symbols."
+    }
+    relief_valve                       DummyToggleSymbolConfig {
+        @doc value "is the configuration for relief valve symbols."
+    }
     solenoid_valve extends ToggleSymbolConfig {
         normally_open bool = false {
             @doc value "indicates whether the valve is open when unpowered."
@@ -808,11 +865,21 @@ NodeConfig union on variant {
 
         @doc value "is the configuration for solenoid valve symbols."
     }
-    spring_loaded_relief_valve         DummyToggleSymbolConfig
-    three_way_valve                    ToggleSymbolConfig
-    three_way_ball_valve               ToggleSymbolConfig
-    valve                              ToggleSymbolConfig
-    cross_junction                     StaticSymbolConfig
+    spring_loaded_relief_valve         DummyToggleSymbolConfig {
+        @doc value "is the configuration for spring loaded relief valve symbols."
+    }
+    three_way_valve                    ToggleSymbolConfig {
+        @doc value "is the configuration for three way valve symbols."
+    }
+    three_way_ball_valve               ToggleSymbolConfig {
+        @doc value "is the configuration for three-way ball valve symbols."
+    }
+    valve                              ToggleSymbolConfig {
+        @doc value "is the configuration for generic valve symbols."
+    }
+    cross_junction                     StaticSymbolConfig {
+        @doc value "is the configuration for cross junction symbols."
+    }
     cylinder extends LabeledConfig, ScaledConfig {
         dimensions    spatial.Dimensions = { width = 66, height = 181 } {
             @doc value "is the rendered size of the cylinder in pixels."
@@ -864,7 +931,9 @@ NodeConfig union on variant {
 
         @doc value "is the configuration for tank vessel symbols."
     }
-    t_junction                         StaticSymbolConfig
+    t_junction                         StaticSymbolConfig {
+        @doc value "is the configuration for T junction symbols."
+    }
     custom_actuator extends ToggleConfig {
         spec_key        string         {
             @doc value "is the key of the custom symbol spec this instance renders."
