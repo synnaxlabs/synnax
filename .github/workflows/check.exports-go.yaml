@@ -1,0 +1,67 @@
+# Copyright 2026 Synnax Labs, Inc.
+#
+# Use of this software is governed by the Business Source License included in the file
+# licenses/BSL.txt.
+#
+# As of the Change Date specified in that file, in accordance with the Business Source
+# License, use of this software will be governed by the Apache License, Version 2.0,
+# included in the file licenses/APL.txt.
+
+# Reports every exported Go identifier that no other package uses, in every Go module
+# for three GOOS values. CI fails a change only on the findings it adds, for Linux.
+
+name: Check - Go exports
+
+on:
+  schedule:
+    - cron: "0 6 * * *"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  check:
+    name: Check Go exports
+    runs-on: ubuntu-latest
+    env:
+      # The proxy drops streams at times, so a failed fetch falls back to the source.
+      GOPROXY: https://proxy.golang.org|direct
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v7
+
+      - name: Set up Go
+        uses: actions/setup-go@v7
+        with:
+          go-version-file: x/go/go.mod
+          cache: false
+
+      - name: Download the Go modules
+        run: |
+          .github/scripts/go_mod_download.sh alamos/go arc/go aspen cesium core \
+            freighter/go freighter/integration gorp oracle x/go
+
+      - name: Build the check
+        working-directory: x/go
+        run: go build -o "$RUNNER_TEMP/exports" ./cmd/exports
+
+      - name: Check exported identifiers no other package uses
+        run: |
+          set +e
+          "$RUNNER_TEMP/exports" alamos/go arc/go aspen cesium core freighter/go \
+            freighter/integration gorp oracle x/go >"$RUNNER_TEMP/findings.txt"
+          status=$?
+          set -e
+          {
+            echo "## Exported Go identifiers no other package uses"
+            echo
+            echo "$(wc -l <"$RUNNER_TEMP/findings.txt") findings"
+            echo
+            echo '```'
+            cat "$RUNNER_TEMP/findings.txt"
+            echo '```'
+          } >>"$GITHUB_STEP_SUMMARY"
+          # Status 1 means findings, which are report-only until they are fixed. Any
+          # other failure, such as a package that fails to load, fails the job.
+          [ "$status" -le 1 ]
