@@ -16,6 +16,12 @@ vendor/soem/SOEM/**
 driver/ethercat/igh/ecrt.h
 core/pkg/service/mqtt/sparkplug/pb/**
 
+# DBC parser derived from go.einride.tech/can (MIT)
+core/pkg/service/icd/internal/dbc/def.go
+core/pkg/service/icd/internal/dbc/error.go
+core/pkg/service/icd/internal/dbc/parser.go
+core/pkg/service/icd/internal/dbc/types.go
+
 # Generated lockfiles
 pnpm-lock.yaml
 

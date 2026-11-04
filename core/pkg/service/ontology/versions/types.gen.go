@@ -41,6 +41,7 @@ const (
 	ResourceTypeTask            ResourceType = v0.ResourceTypeTask
 	ResourceTypeUser            ResourceType = v0.ResourceTypeUser
 	ResourceTypeView            ResourceType = v0.ResourceTypeView
+	ResourceTypeICD             ResourceType = v0.ResourceTypeICD
 )
 
 type RelationshipType = v0.RelationshipType

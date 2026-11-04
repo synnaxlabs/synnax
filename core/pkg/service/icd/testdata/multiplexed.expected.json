@@ -1,0 +1,88 @@
+{
+  "messages": [
+    {
+      "name": "Diagnostics",
+      "id": 768,
+      "extended": false,
+      "fd": false,
+      "length": 8,
+      "fields": [
+        {
+          "name": "Mode",
+          "start_bit": 0,
+          "bit_length": 8,
+          "byte_order": "little_endian",
+          "signed": false,
+          "float": false,
+          "scale": 1.0,
+          "offset": 0.0,
+          "units": "",
+          "multiplexor": null,
+          "multiplex_values": [],
+          "min": 0,
+          "max": 255
+        },
+        {
+          "name": "Temperature",
+          "start_bit": 8,
+          "bit_length": 16,
+          "byte_order": "little_endian",
+          "signed": true,
+          "float": false,
+          "scale": 0.1,
+          "offset": 0.0,
+          "units": "degC",
+          "multiplexor": "Mode",
+          "multiplex_values": [0],
+          "min": -3276.8,
+          "max": 3276.7
+        },
+        {
+          "name": "Pressure",
+          "start_bit": 8,
+          "bit_length": 16,
+          "byte_order": "little_endian",
+          "signed": false,
+          "float": false,
+          "scale": 0.5,
+          "offset": 0.0,
+          "units": "kPa",
+          "multiplexor": "Mode",
+          "multiplex_values": [1],
+          "min": 0,
+          "max": 32767.5
+        },
+        {
+          "name": "Humidity",
+          "start_bit": 24,
+          "bit_length": 8,
+          "byte_order": "little_endian",
+          "signed": false,
+          "float": false,
+          "scale": 1.0,
+          "offset": 0.0,
+          "units": "%",
+          "multiplexor": "Mode",
+          "multiplex_values": [1],
+          "min": 0,
+          "max": 100
+        },
+        {
+          "name": "Uptime",
+          "start_bit": 32,
+          "bit_length": 32,
+          "byte_order": "little_endian",
+          "signed": false,
+          "float": false,
+          "scale": 1.0,
+          "offset": 0.0,
+          "units": "s",
+          "multiplexor": null,
+          "multiplex_values": [],
+          "min": 0,
+          "max": 4294967295
+        }
+      ]
+    }
+  ]
+}

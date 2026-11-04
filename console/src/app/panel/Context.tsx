@@ -11,6 +11,7 @@ import { type PropsWithChildren } from "react";
 
 import { Selector } from "@/app/selector";
 import { Arc } from "@/feature/arc";
+import { ICD } from "@/feature/icd";
 import { LinePlot } from "@/feature/lineplot";
 import { Log } from "@/feature/log";
 import { Range } from "@/feature/range";
@@ -23,6 +24,7 @@ import { Panel } from "@/platform/panel";
 const TABS: Panel.Tabs = {
   ...Status.TABS,
   ...Arc.TABS,
+  ...ICD.TABS,
   ...Range.TABS,
   ...Selector.TABS,
   ...LinePlot.TABS,

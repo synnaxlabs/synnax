@@ -12,6 +12,7 @@ import { type ReactElement } from "react";
 
 import { Arc } from "@/feature/arc";
 import { Channel } from "@/feature/channel";
+import { ICD } from "@/feature/icd";
 import { LinePlot } from "@/feature/lineplot";
 import { Log } from "@/feature/log";
 import { Project } from "@/feature/project";
@@ -25,6 +26,7 @@ import { type Palette } from "@/platform/palette";
 const SEARCH_LIST_ITEMS: Search.ListItems = {
   ...Arc.SEARCH_LIST_ITEMS,
   ...Channel.SEARCH_LIST_ITEMS,
+  ...ICD.SEARCH_LIST_ITEMS,
   ...LinePlot.SEARCH_LIST_ITEMS,
   ...Log.SEARCH_LIST_ITEMS,
   ...Project.SEARCH_LIST_ITEMS,

@@ -23,6 +23,8 @@ export const FLAGS = {
   // Owner: Patrick Dotson. Umbrella: SY-5105. Removed in the release that ships the
   // Kafka integration.
   kafka: ENABLED,
+  // Owner: Emiliano Bonilla. Umbrella: SY-4970. Removed in the release that ships ICDs.
+  icd: ENABLED,
 } as const satisfies Record<string, boolean>;
 
 export type Flag = keyof typeof FLAGS;
