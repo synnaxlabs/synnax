@@ -36,6 +36,30 @@ var _ = Describe("Stopper", func() {
 				Timeout: time.Second,
 			}
 		}
+		It("Should validate a full config", func() {
+			Expect(full().Validate()).To(Succeed())
+		})
+		It("Should take the fields that the other config sets", func() {
+			other := full()
+			merged := task.StopperConfig{
+				Task:    &task.Service{},
+				Status:  &status.Service{},
+				Framer:  &framer.Service{},
+				Timeout: time.Minute,
+			}.Override(other)
+			Expect(merged.Task).To(BeIdenticalTo(other.Task))
+			Expect(merged.Status).To(BeIdenticalTo(other.Status))
+			Expect(merged.Framer).To(BeIdenticalTo(other.Framer))
+			Expect(merged.Timeout).To(Equal(other.Timeout))
+		})
+		It("Should keep its fields when the other config is empty", func() {
+			cfg := full()
+			merged := cfg.Override(task.StopperConfig{})
+			Expect(merged.Task).To(BeIdenticalTo(cfg.Task))
+			Expect(merged.Status).To(BeIdenticalTo(cfg.Status))
+			Expect(merged.Framer).To(BeIdenticalTo(cfg.Framer))
+			Expect(merged.Timeout).To(Equal(cfg.Timeout))
+		})
 		It("Should default the timeout", func() {
 			cfg := full()
 			cfg.Timeout = 0
