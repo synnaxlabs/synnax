@@ -54,7 +54,7 @@ export const Page = ({
   <Root>
     <Flex.Box y gap="huge" full="x">
       <Flex.Box x justify="between" align="end" gap="large" wrap>
-        <Flex.Box y gap="tiny">
+        <Flex.Box y gap="tiny" className="portal-page__heading">
           {parent != null && (
             <Text.Text
               level="small"
@@ -68,6 +68,7 @@ export const Page = ({
           )}
           <Text.MaybeEditable
             id={titleID}
+            className="portal-page__title"
             level="h2"
             color={11}
             value={title}
