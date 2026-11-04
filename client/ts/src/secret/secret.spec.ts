@@ -11,7 +11,9 @@ import { id, uuid } from "@synnaxlabs/x";
 import { describe, expect, it } from "vitest";
 
 import { NotFoundError, PathError } from "@/index";
-import { createTestClient, waitForStreamLive } from "@/testutil";
+import { type query } from "@/query";
+import { type secret } from "@/secret";
+import { createTestClient, expectDeleted, waitForStreamLive } from "@/testutil";
 
 describe("Secret", () => {
   describe("create", () => {
@@ -201,6 +203,32 @@ describe("Secret", () => {
       const res = createTestClient().secrets.retrieve(keys[0]);
       await expect(res).rejects.toThrow(NotFoundError);
       await expect(res).rejects.toThrow(`Secrets with keys [${keys[0]}] not found`);
+    });
+
+    it("should deliver the deletion of a secret read with its uses", async () => {
+      const internal: Error[] = [];
+      const client = createTestClient({ onInternalError: (e) => internal.push(e) });
+      const s = await client.secrets.create({
+        name: "Deleted with uses",
+        source: "stored",
+        value: "abc",
+      });
+      const q = { key: s.key, includeUses: true };
+      const results: Array<query.Cached<secret.Secret> | undefined> = [];
+      const off = client.secrets.onChange(q, (res) => results.push(res));
+      try {
+        // The read joins the fetch of the subscription, so that fetch has settled once
+        // the read rejects.
+        const reading = expect(client.secrets.retrieve(q)).rejects.toThrow(
+          NotFoundError,
+        );
+        await client.secrets.delete(s.key);
+        await reading;
+        expect(expectDeleted(results.at(-1)).corpse.key).toEqual(s.key);
+        expect(internal).toEqual([]);
+      } finally {
+        off();
+      }
     });
   });
 
