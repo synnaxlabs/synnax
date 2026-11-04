@@ -9,6 +9,7 @@
 
 import "schemas/synnax/label"
 import "schemas/x/color"
+import "schemas/x/patch"
 import "schemas/x/telem"
 
 @cpp output "client/cpp/ranger"
@@ -61,6 +62,33 @@ Range struct {
         @validate skip
     }
 
+    action Create {
+        range Range
+
+        @doc value """
+            replaces the range with the given created state. Emitted by the Core when a
+            range is created or overwritten whole; clients never dispatch it.
+        """
+    }
+
+    action Set extends patch.Set {
+        @doc value "replaces the value at a path in the range."
+    }
+
+    action Remove extends patch.Remove {
+        @doc value """
+            removes an entry from a list or a field from an object in the range.
+        """
+    }
+
+    action Insert extends patch.Insert {
+        @doc value "adds an entry to a list in the range."
+    }
+
+    action Move extends patch.Move {
+        @doc value "moves an entry in a list in the range."
+    }
+
     @cpp includes    "client/cpp/ranger/kv/kv.h"
     @cpp methods     "ranger::kv::Client kv"
     @cpp name        "Range"
@@ -100,7 +128,6 @@ Ref union on variant {
     """
     @go marshal
     @pb omit
-    @py omit
 }
 
 New struct extends Range {

@@ -226,8 +226,9 @@ In TypeScript, the fields are in `properties.connection` in camel case, such as
 <Problem.Item message={"Failed to reach server"}>
 <Problem.Cause>
 
-The Driver checks each server every 5 seconds. The status shows "Failed to reach server"
-when the Driver cannot connect. The description shows the reason.
+The Driver checks each server every 5 seconds, unless a task on the server got a reply
+since the last check. The status shows "Failed to reach server" when the Driver cannot
+connect. The description shows the reason.
 
 </Problem.Cause>
 <Problem.Fix>
@@ -242,7 +243,8 @@ when the Driver cannot connect. The description shows the reason.
 <Problem.Cause>
 
 The Driver failed to connect three times in a row, so it waits 5 seconds before it tries
-again.
+again. Each further failure doubles the wait, up to 30 seconds. A successful connection
+resets it.
 
 </Problem.Cause>
 <Problem.Fix>

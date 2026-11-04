@@ -248,3 +248,26 @@ describe("DigitalWrite", () => {
     expect(tsk.config.channels).toHaveLength(1);
   });
 });
+
+describe("DigitalWrite disabled channels", () => {
+  it("should deploy and redeploy a disabled channel on a line another channel uses", async () => {
+    const dev = await createNIDevice(client);
+    const first = await renderDigitalWrite(
+      createConfig(
+        [createChannel(0, 2, { disabled: true }), createChannel(0, 2)],
+        dev.key,
+      ),
+    );
+    const { config } = await deployAndAwaitTask(
+      client,
+      first.container,
+      first.draft.key,
+      NI.Task.DIGITAL_WRITE_SCHEMAS,
+    );
+    expect(config.channels[1].cmdChannel).toBe(config.channels[0].cmdChannel);
+    expect(config.channels[1].stateChannel).toBe(config.channels[0].stateChannel);
+    first.unmount();
+    const second = await renderDigitalWrite(config);
+    await deployAndAwaitTask(client, second.container, second.draft.key);
+  });
+});

@@ -10,9 +10,8 @@
 import { control, DataType, id, TimeRange, TimeSpan, TimeStamp } from "@synnaxlabs/x";
 import { beforeAll, describe, expect, it, test, vi } from "vitest";
 
-import { Channel } from "@/channel/client";
-import { statusKey } from "@/channel/payload";
-import { NotFoundError } from "@/errors";
+import { channel } from "@/channel";
+import { NotFoundError } from "@/index";
 import { query } from "@/query";
 import {
   createProxiedTestClient,
@@ -45,13 +44,13 @@ describe("Channel", () => {
 
     test("create calculated", async () => {
       const chOneName = id.create();
-      let chOne = new Channel({
+      let chOne = new channel.Channel({
         name: chOneName,
         virtual: true,
         dataType: DataType.FLOAT32,
       });
       chOne = await client.channels.create(chOne);
-      let calculatedCH = new Channel({
+      let calculatedCH = new channel.Channel({
         name: id.create(),
         virtual: true,
         dataType: DataType.FLOAT32,
@@ -125,19 +124,19 @@ describe("Channel", () => {
         isIndex: true,
       });
 
-      const sensorOne = new Channel({
+      const sensorOne = new channel.Channel({
         name: id.create(),
         dataType: DataType.FLOAT32,
         index: timeIndexChannel.key,
       });
 
-      const sensorTwo = new Channel({
+      const sensorTwo = new channel.Channel({
         name: id.create(),
         dataType: DataType.FLOAT32,
         index: timeIndexChannel.key,
       });
 
-      const sensorThree = new Channel({
+      const sensorThree = new channel.Channel({
         name: id.create(),
         dataType: DataType.FLOAT32,
         index: timeIndexChannel.key,
@@ -380,20 +379,22 @@ describe("Channel", () => {
 
   describe("payload", () => {
     it("keeps shared concurrency through a round trip", () => {
-      const ch = new Channel({
+      const ch = new channel.Channel({
         name: "shared",
         dataType: DataType.FLOAT32,
         virtual: true,
         concurrency: control.Concurrency.shared,
       });
       expect(ch.payload.concurrency).toEqual(control.Concurrency.shared);
-      expect(new Channel(ch.payload).concurrency).toEqual(control.Concurrency.shared);
+      expect(new channel.Channel(ch.payload).concurrency).toEqual(
+        control.Concurrency.shared,
+      );
     });
   });
 
   describe("constructor normalization", () => {
     it("fills the defaults omitted from a crude operation", () => {
-      const [op] = new Channel({
+      const [op] = new channel.Channel({
         name: "op",
         dataType: DataType.FLOAT32,
         operations: [{ type: "avg" }],
@@ -404,7 +405,7 @@ describe("Channel", () => {
 
     it("parses a crude status time into a TimeStamp", () => {
       const date = new Date("2026-08-10T00:00:00.000Z");
-      const ch = new Channel({
+      const ch = new channel.Channel({
         name: "stat",
         dataType: DataType.FLOAT32,
         status: { variant: "error", message: "boom", time: date },
@@ -416,7 +417,7 @@ describe("Channel", () => {
     it("throws when the status is malformed", () => {
       expect(
         () =>
-          new Channel({
+          new channel.Channel({
             name: "bad",
             dataType: DataType.FLOAT32,
             status: { variant: "not_a_variant" } as never,
@@ -507,7 +508,7 @@ describe("cached reads", () => {
         created.map(
           async ({ key }) =>
             await client.statuses.set({
-              key: statusKey(key),
+              key: channel.statusKey(key),
               name: "Calculation Status",
               variant: "info",
               message: "calculating",
@@ -618,7 +619,9 @@ describe("cached reads", () => {
       const other = await createVirtual(local);
       // A cluster running without name validation can hold duplicates. Forge
       // the collision: an ambiguous name must never resolve from the store.
-      local.channels.store.set([new Channel({ ...other.payload, name: ch.name })]);
+      local.channels.store.set([
+        new channel.Channel({ ...other.payload, name: ch.name }),
+      ]);
       await proxy.sever();
       await expect(local.channels.retrieve([ch.name])).rejects.toThrow();
       // The guard falls through to the cluster rather than failing outright,
@@ -696,7 +699,7 @@ describe("cached reads", () => {
 
     it("delivers a remote delete as a deleted result carrying the corpse", async () => {
       const ch = await createVirtual();
-      const results: Array<query.Cached<Channel> | undefined> = [];
+      const results: Array<query.Cached<channel.Channel> | undefined> = [];
       const off = client.channels.onChange(ch.key, (c) => results.push(c));
       try {
         await client.channels.retrieve(ch.key);

@@ -7,9 +7,18 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { deep, errors, map, observe, type record, shallow, zod } from "@synnaxlabs/x";
+import {
+  deep,
+  type destructor,
+  errors,
+  map,
+  observe,
+  type record,
+  zod,
+} from "@synnaxlabs/x";
 import { z } from "zod";
 
+import { type Entry, type Store } from "@/form/store";
 import { type Status } from "@/status";
 
 export interface FieldState<V = unknown> {
@@ -19,6 +28,29 @@ export interface FieldState<V = unknown> {
   /** Whether the schema refuses the field emptied: "" for text, [] for a list. */
   required: boolean;
 }
+
+// A keyed entry's key can hold the separator, so the parts come from the values. A part
+// the values lack counts as one part.
+const parentPath = (values: unknown, path: string): string => {
+  const parts = path.split(deep.SEPARATOR);
+  let node = values;
+  let last = 0;
+  for (let i = 0; i < parts.length;) {
+    last = i;
+    const best =
+      node != null && typeof node === "object"
+        ? deep.findBestKey(node as record.Unknown, parts.slice(i))
+        : null;
+    if (best == null) {
+      node = undefined;
+      i++;
+      continue;
+    }
+    node = deep.defaultGetter(node as record.Unknown, best[0]);
+    i += best[1];
+  }
+  return parts.slice(0, last).join(deep.SEPARATOR);
+};
 
 // The value a cleared input leaves for a field of this value's type, or undefined when
 // no input can clear it.
@@ -57,79 +89,170 @@ interface SetValueOptions {
   markTouched?: boolean;
 }
 
-/**
- * Copies the root and every container on the way to the path's leaf, walking the path
- * the way `deep.set` and `deep.remove` do. A write at the path then gives each ancestor
- * a new identity and leaves every untouched subtree shared.
- */
-const copyPath = <V>(root: V, path: string): V => {
-  const next = shallow.copy(root);
-  const parts = path.split(deep.SEPARATOR);
-  let parent = next as record.Unknown;
-  let i = 0;
-  while (i < parts.length - 1) {
-    const best = deep.findBestKey(parent, parts.slice(i, parts.length - 1));
-    if (best == null) break;
-    const [key, consumed] = best;
-    i += consumed;
-    const child = deep.defaultGetter(parent, key);
-    const copy = shallow.copy(child) as record.Unknown;
-    // An array entry found by its key field sits at an index, not at the key.
-    if (parent[key] === child) parent[key] = copy;
-    else parent[(parent as unknown as unknown[]).indexOf(child)] = copy;
-    parent = copy;
-  }
-  return next;
-};
+interface Check {
+  path: string;
+  schema: z.ZodType;
+}
 
 export class State<Z extends z.ZodType> extends observe.Observer<void> {
   private readonly schema?: Z;
-  /** The current values. A write copies each object on its path, never changing one. */
-  values: z.infer<Z>;
+  private store: Store<z.infer<Z>>;
   initialValues: z.infer<Z>;
 
   private readonly statuses: Map<string, Status.Crude>;
   /** Paths whose status came from `setStatus`, which validation never removes. */
   private readonly external: Set<string>;
   private readonly touched: Set<string>;
+  private readonly checks: Set<Check>;
   private readonly cachedRefs: Map<string, { state: FieldState; stale: boolean }>;
+  /** The values that the cached field states were read from. */
+  private observed: z.infer<Z>;
+  /** How many writes are open, so the state skips the changes it makes itself. */
+  private depth = 0;
 
-  constructor(values: z.infer<Z>, schema?: Z) {
+  constructor(store: Store<z.infer<Z>>, schema?: Z) {
     super();
     this.schema = schema;
-    this.values = deep.copy(values);
+    this.store = store;
+    this.observed = store.get();
     this.statuses = new Map();
     this.external = new Set();
     this.touched = new Set();
+    this.checks = new Set();
     this.cachedRefs = new Map();
-    this.initialValues = deep.copy(this.values);
+    this.initialValues = deep.copy(this.observed);
+  }
+
+  /**
+   * Reads and writes another store from now on, taking its values as the initial ones
+   * and clearing statuses, touched paths, and cached field states.
+   *
+   * @returns whether the store changed.
+   */
+  setStore(store: Store<z.infer<Z>>): boolean {
+    if (store === this.store) return false;
+    this.store = store;
+    this.observed = store.get();
+    this.initialValues = deep.copy(this.observed);
+    this.statuses.clear();
+    this.external.clear();
+    this.touched.clear();
+    this.cachedRefs.clear();
+    // No field is touched, so only the checks have issues to show.
+    this.processValidation(false, undefined);
+    return true;
+  }
+
+  /** The current values. A write gives each object on its path a new identity. */
+  get values(): z.infer<Z> {
+    return this.store.get();
   }
 
   setValue(path: string, value: unknown, options?: SetValueOptions) {
-    const prev = this.values;
-    if (path == "") this.values = deep.copy(value) as z.infer<Z>;
-    else {
-      this.materialize(path);
-      this.write(path, value);
-    }
-    this.clearChangedExternal(prev);
+    this.write(() => {
+      if (path === "") this.store.set("", deep.copy(value));
+      else {
+        this.materialize(path);
+        this.store.set(path, value);
+      }
+    });
     this.checkTouched(path, value, options);
-    this.updateCachedRefs(path);
   }
 
-  /** Clears each external status whose value differs from its value in prev. */
-  private clearChangedExternal(prev: z.infer<Z>) {
+  /**
+   * Inserts an entry into the keyed list at the path, after the entry with the key
+   * `after`, or first when `after` is absent.
+   */
+  insert<E extends Entry>(path: string, value: E, after?: string) {
+    const entryPath = `${path}.${value.key}`;
+    this.write(() => {
+      this.materialize(entryPath);
+      this.store.insert(path, value, after);
+    });
+    this.checkTouched(path, deep.get(this.values, path, { optional: true }));
+  }
+
+  /** Moves the entry with the key after the entry with the key `after`, as insert. */
+  move(path: string, key: string, after?: string) {
+    this.write(() => this.store.move(path, key, after));
+    this.checkTouched(path, deep.get(this.values, path, { optional: true }));
+  }
+
+  /** Runs the writes that the function makes as one change to the store. */
+  batch(fn: () => void) {
+    this.write(() => this.store.batch(fn));
+  }
+
+  /**
+   * Follows changes that others make to the store. Each one marks stale the fields it
+   * reaches and calls the callback.
+   *
+   * @returns a destructor that stops following.
+   */
+  listen(onChange: () => void): destructor.Destructor {
+    const handleChange = () => {
+      if (this.depth === 0 && this.refresh()) onChange();
+    };
+    handleChange();
+    return this.store.onChange(handleChange);
+  }
+
+  // A batch refreshes once at its end, so a read or a status inside one catches up
+  // first.
+  private catchUp() {
+    if (this.depth > 0) this.refresh();
+  }
+
+  private write(change: () => void) {
+    this.depth++;
+    try {
+      change();
+    } finally {
+      this.depth--;
+      if (this.depth === 0) this.refresh();
+    }
+  }
+
+  /**
+   * Marks stale each field whose parent changed identity since the last refresh. A
+   * changed parent holds a changed field or sibling, and a sibling can be the
+   * discriminator that decides the field's schema. Clears each status from `setStatus`
+   * whose value changed, whoever changed it.
+   *
+   * @returns whether the values changed.
+   */
+  private refresh(): boolean {
+    const prev = this.observed;
+    const next = this.store.get();
+    if (prev === next) return false;
+    this.observed = next;
+    this.clearChangedExternal(prev, next);
+    const changed = new Map<string, boolean>();
+    const parentChanged = (parent: string): boolean => {
+      let c = changed.get(parent);
+      if (c == null) {
+        c =
+          parent === "" ||
+          deep.get(prev, parent, { optional: true }) !==
+            deep.get(next, parent, { optional: true });
+        changed.set(parent, c);
+      }
+      return c;
+    };
+    this.cachedRefs.forEach((cached, path) => {
+      if (parentChanged(parentPath(next, path))) cached.stale = true;
+    });
+    return true;
+  }
+
+  /** Clears each external status whose value differs between prev and next. */
+  private clearChangedExternal(prev: z.infer<Z>, next: z.infer<Z>) {
     this.external.forEach((path) => {
       const before = deep.get(prev, path, { optional: true });
-      const after = deep.get(this.values, path, { optional: true });
+      const after = deep.get(next, path, { optional: true });
       if (before === after || deep.equal(before, after)) return;
       this.deleteStatus(path);
     });
-  }
-
-  private write(path: string, value: unknown) {
-    this.values = copyPath(this.values, path);
-    deep.set(this.values, path, value);
   }
 
   /** @returns the value the schema supplies for an absent path, or undefined. */
@@ -167,7 +290,7 @@ export class State<Z extends z.ZodType> extends observe.Observer<void> {
    */
   private materialize(path: string) {
     const ancestor = this.absentAncestor(path);
-    if (ancestor != null) this.write(...ancestor);
+    if (ancestor != null) this.store.set(...ancestor);
   }
 
   /** Reads an absent path out of the default a write would materialize. */
@@ -213,9 +336,10 @@ export class State<Z extends z.ZodType> extends observe.Observer<void> {
    * through `clearStatus`.
    */
   setStatus(path: string, status: Status.Crude) {
+    this.catchUp();
     this.statuses.set(path, { ...status, key: path });
     this.external.add(path);
-    this.updateCachedRefs(path);
+    this.markStale(path);
   }
 
   /** Clears the status of the path, or of every path when it is empty. */
@@ -223,14 +347,14 @@ export class State<Z extends z.ZodType> extends observe.Observer<void> {
     if (path !== "") return this.deleteStatus(path);
     this.statuses.clear();
     this.external.clear();
-    this.updateCachedRefs(path);
+    this.markStale(path);
   }
 
   /** Deletes the status of the path alone, even when the path is the root. */
   private deleteStatus(path: string) {
     this.statuses.delete(path);
     this.external.delete(path);
-    this.updateCachedRefs(path);
+    this.markStale(path);
   }
 
   reset(initialValues?: z.infer<Z>) {
@@ -241,7 +365,18 @@ export class State<Z extends z.ZodType> extends observe.Observer<void> {
     this.external.clear();
     this.touched.clear();
     this.cachedRefs.clear();
-    this.values = nextValues;
+    this.write(() => this.store.set("", nextValues));
+    // No field is touched, so only the checks have issues to show.
+    this.processValidation(false, undefined);
+  }
+
+  /** @returns a function that removes the check. */
+  addCheck(path: string, schema: z.ZodType): destructor.Destructor {
+    const check: Check = { path, schema };
+    this.checks.add(check);
+    return () => {
+      this.checks.delete(check);
+    };
   }
 
   setCurrentStateAsInitialValues() {
@@ -252,35 +387,32 @@ export class State<Z extends z.ZodType> extends observe.Observer<void> {
 
   setTouched(path: string) {
     this.touched.add(path);
-    this.updateCachedRefs(path);
+    this.markStale(path);
   }
 
   clearTouched(path: string = "") {
     if (path === "") this.touched.clear();
     else this.touched.delete(path);
-    this.updateCachedRefs(path);
-    this.notify();
+    this.markStale(path);
   }
 
   remove(path: string) {
-    const prev = this.values;
-    this.values = copyPath(this.values, path);
-    deep.remove(this.values, path);
-    this.clearChangedExternal(prev);
+    const parent = parentPath(this.values, path);
+    this.write(() => this.store.remove(path));
     this.statuses.delete(path);
     this.clearTouched(path);
     this.cachedRefs.delete(path);
+    const list = deep.get(this.values, parent, { optional: true });
+    if (Array.isArray(list)) this.checkTouched(parent, list);
   }
 
   validate(validateUntouched?: boolean, path?: string): boolean {
-    if (this.schema == null) return true;
-    const result = this.schema.safeParse(this.values);
+    const result = this.schema?.safeParse(this.values);
     return this.processValidation(validateUntouched, result, path);
   }
 
   async validateAsync(validateUntouched?: boolean, path?: string): Promise<boolean> {
-    if (this.schema == null) return true;
-    const result = await this.schema.safeParseAsync(this.values);
+    const result = await this.schema?.safeParseAsync(this.values);
     return this.processValidation(validateUntouched, result, path);
   }
 
@@ -321,15 +453,19 @@ export class State<Z extends z.ZodType> extends observe.Observer<void> {
 
   private processValidation(
     validateUntouched: boolean = false,
-    result: z.ZodSafeParseResult<z.infer<Z>>,
+    result: z.ZodSafeParseResult<z.infer<Z>> | undefined,
     validationPath?: string,
   ): boolean {
-    if (this.schema == null) return true;
     const next = new Map<string, Status.Crude>();
+    // A later issue on a path replaces an earlier one, but never an error with less.
+    const add = (path: string, { variant, message }: Status.Crude) => {
+      if (next.get(path)?.variant === "error" && variant !== "error") return;
+      next.set(path, { key: path, variant, message });
+    };
     let success = true;
-    if (!result.success)
+    if (result?.success === false)
       this.errorsToStatuses(result.error.issues, [], []).forEach((status) => {
-        const { key: issuePath, message, variant } = status;
+        const { key: issuePath, variant } = status;
         if (issuePath == null) return;
         const matchesPath =
           validationPath == null ||
@@ -338,8 +474,20 @@ export class State<Z extends z.ZodType> extends observe.Observer<void> {
         const isTouched = validateUntouched || this.touched.has(issuePath);
         if (!matchesPath || !isTouched) return;
         if (variant !== "warning") success = false;
-        next.set(issuePath, { key: issuePath, variant, message });
+        add(issuePath, status);
       });
+    this.checks.forEach(({ path, schema }) => {
+      const root = path === "";
+      const value = root
+        ? this.values
+        : deep.get(this.values, path, { optional: true });
+      const checked = schema.safeParse(value);
+      if (checked.success) return;
+      const prefix = root ? [] : path.split(deep.SEPARATOR);
+      this.errorsToStatuses(checked.error.issues, prefix, []).forEach((status) => {
+        if (status.key != null) add(status.key, status);
+      });
+    });
     this.statuses.forEach((status, path) => {
       if (status.variant === "success" || this.external.has(path) || next.has(path))
         return;
@@ -351,7 +499,7 @@ export class State<Z extends z.ZodType> extends observe.Observer<void> {
       const prev = this.statuses.get(path);
       if (prev?.variant === status.variant && prev.message === status.message) return;
       this.statuses.set(path, status);
-      this.updateCachedRefs(path);
+      this.markStale(path);
     });
     return success;
   }
@@ -361,6 +509,7 @@ export class State<Z extends z.ZodType> extends observe.Observer<void> {
   }
 
   getStatuses(): Status.Crude[] {
+    this.catchUp();
     return Array.from(this.statuses.values()).filter(
       (status) => status.variant !== "success",
     );
@@ -379,6 +528,7 @@ export class State<Z extends z.ZodType> extends observe.Observer<void> {
    */
   getState<V>(path: string, opts: GetOptions = {}): FieldState<V> | null {
     const { optional = false } = opts;
+    this.catchUp();
     const cached = this.cachedRefs.get(path);
     if (cached != null && !cached.stale) return cached.state as FieldState<V>;
     let value = deep.get<V, z.infer<Z>>(this.values, path, { optional: true });
@@ -428,14 +578,14 @@ export class State<Z extends z.ZodType> extends observe.Observer<void> {
   }
 
   /**
-   * Marks stale the cached state of the path, its ancestors, and everything under its
-   * parent. A sibling can be the discriminator that decides the path's schema.
+   * Marks stale the cached state of the path, whose status or touched flag changed, or
+   * of every path when it is empty. Value changes go through refresh.
    */
-  private updateCachedRefs(fieldPath: string) {
-    const parent = fieldPath.slice(0, Math.max(fieldPath.lastIndexOf("."), 0));
-    this.cachedRefs.forEach((cached, refPath) => {
-      if (deep.pathsMatch(refPath, parent) || deep.pathsMatch(fieldPath, refPath))
-        cached.stale = true;
-    });
+  private markStale(path: string) {
+    if (path === "") this.cachedRefs.forEach((cached) => (cached.stale = true));
+    else {
+      const cached = this.cachedRefs.get(path);
+      if (cached != null) cached.stale = true;
+    }
   }
 }

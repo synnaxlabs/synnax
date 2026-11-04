@@ -20,6 +20,7 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/service/schematic"
 	"github.com/synnaxlabs/x/query"
 	"github.com/synnaxlabs/x/spatial"
+	"github.com/synnaxlabs/x/union"
 	"github.com/synnaxlabs/x/validate"
 )
 
@@ -36,6 +37,41 @@ var _ = Describe("Writer", func() {
 				s := schematic.Schematic{}
 				Expect(svc.NewWriter(tx).Create(ctx, proj.Key, &s)).
 					To(MatchError(ContainSubstring("name: required")))
+			},
+		)
+
+		It(
+			"Should broadcast the create with the writer's dispatch key after commit",
+			func(ctx SpecContext) {
+				rec := &Recorder[schematic.Key, schematic.Action]{}
+				DeferCleanup(svc.OnAction(rec.Record))
+				v := schematic.Schematic{Name: "broadcast"}
+				Expect(
+					svc.NewWriter(tx).WithDispatchKey("dk-1").Create(ctx, proj.Key, &v),
+				).To(Succeed())
+				Expect(rec.Snapshot()).To(BeEmpty())
+				Expect(tx.Commit(ctx)).To(Succeed())
+				seen := rec.Snapshot()
+				Expect(seen).To(HaveLen(1))
+				Expect(seen[0].Key).To(Equal(v.Key))
+				Expect(seen[0].DispatchKey).To(Equal("dk-1"))
+				Expect(seen[0].Actions).To(HaveLen(1))
+				Expect(seen[0].Actions[0].Type).To(Equal(schematic.ActionTypeCreate))
+			},
+		)
+
+		It(
+			"Should not broadcast a create whose transaction closes uncommitted",
+			func(ctx SpecContext) {
+				rec := &Recorder[schematic.Key, schematic.Action]{}
+				DeferCleanup(svc.OnAction(rec.Record))
+				uncommitted := db.OpenTx()
+				v := schematic.Schematic{Name: "discarded"}
+				Expect(
+					svc.NewWriter(uncommitted).Create(ctx, proj.Key, &v),
+				).To(Succeed())
+				Expect(uncommitted.Close()).To(Succeed())
+				Expect(rec.Snapshot()).To(BeEmpty())
 			},
 		)
 	})
@@ -58,6 +94,65 @@ var _ = Describe("Writer", func() {
 		})
 	})
 	Describe("Dispatch", func() {
+		It(
+			"Should reject an action that leaves the schematic invalid",
+			func(ctx SpecContext) {
+				s := schematic.Schematic{Name: "test"}
+				Expect(svc.NewWriter(nil).Create(ctx, proj.Key, &s)).To(Succeed())
+				Expect(
+					svc.Dispatch(ctx, s.Key, "session-1", []schematic.Action{
+						schematic.NewRenameAction(schematic.RenamePayload{}),
+					}),
+				).To(MatchError(ContainSubstring("name: required")))
+				var res schematic.Schematic
+				Expect(
+					svc.NewRetrieve().
+						Where(schematic.MatchKeys(s.Key)).
+						Entry(&res).
+						Exec(ctx, tx),
+				).To(Succeed())
+				Expect(res.Name).To(Equal("test"))
+			},
+		)
+		It("Should reject an action with no payload", func(ctx SpecContext) {
+			s := schematic.Schematic{Name: "test"}
+			Expect(svc.NewWriter(nil).Create(ctx, proj.Key, &s)).To(Succeed())
+			Expect(
+				svc.Dispatch(ctx, s.Key, "session-1", []schematic.Action{
+					{Type: schematic.ActionTypeRename},
+				}),
+			).To(MatchError(union.ErrMissingPayload))
+		})
+
+		It(
+			"Should reject a create without changing the schematic it names",
+			func(ctx SpecContext) {
+				target := schematic.Schematic{Name: "target"}
+				Expect(svc.NewWriter(nil).Create(ctx, proj.Key, &target)).To(Succeed())
+				other := schematic.Schematic{Name: "other"}
+				Expect(svc.NewWriter(nil).Create(ctx, proj.Key, &other)).To(Succeed())
+				Expect(svc.Dispatch(ctx, target.Key, "d1", []schematic.Action{
+					schematic.NewCreateAction(schematic.CreatePayload{
+						Schematic: schematic.Schematic{
+							Key:  other.Key,
+							Name: "overwritten",
+						},
+					}),
+				})).To(SatisfyAll(
+					MatchError(validate.ErrValidation),
+					MatchError(
+						ContainSubstring("only the Core dispatches a schematic create"),
+					),
+				))
+				var res schematic.Schematic
+				Expect(svc.NewRetrieve().
+					Where(schematic.MatchKeys(other.Key)).
+					Entry(&res).
+					Exec(ctx, tx)).To(Succeed())
+				Expect(res.Name).To(Equal("other"))
+			},
+		)
+
 		It("Should apply a single SetNodePosition action", func(ctx SpecContext) {
 			s := schematic.Schematic{
 				Name: "test",

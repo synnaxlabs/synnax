@@ -18,5 +18,5 @@ linted, and a hook-named worker function in a PascalCase one crashes the worker.
 ## Live-Core tests
 
 Query/flux specs (e.g. `node/queries.spec.ts`, `task/queries.spec.ts`,
-`synnax/aether/provider.spec.ts`) connect to a real Core at `localhost:9090`. Check for
-one and start it if missing per "Live-Core Tests" in `docs/claude/testing.md`.
+`synnax/aether/provider.spec.ts`) connect to a real Core. See "Live-Core tests" in
+`docs/claude/testing.md`.

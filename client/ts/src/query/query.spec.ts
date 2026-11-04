@@ -15,17 +15,16 @@ import {
   ExpiredLicenseError,
   MissingLicenseError,
   NotFoundError,
-} from "@/errors";
+} from "@/index";
 import { query } from "@/query";
-import { Deleted } from "@/query/deleted";
 import { Space, type SpaceHooks } from "@/query/query";
 
 const wait = (ms: number) => new Promise<void>((resolve) => setTimeout(resolve, ms));
 
 const expectDeleted = <D extends query.Data>(
   value: query.Cached<D> | undefined,
-): Deleted<D> => {
-  if (!Deleted.matches<D>(value)) throw new Error("expected a deleted answer");
+): query.Deleted<D> => {
+  if (!query.Deleted.matches<D>(value)) throw new Error("expected a deleted answer");
   return value;
 };
 
@@ -143,7 +142,7 @@ describe("isLive", () => {
   });
 
   it("rejects a deletion", () => {
-    expect(query.isLive(new Deleted(rec("a", 7), TimeStamp.now()))).toBe(false);
+    expect(query.isLive(new query.Deleted(rec("a", 7), TimeStamp.now()))).toBe(false);
   });
 
   it("accepts falsy answers", () => {
@@ -157,7 +156,9 @@ describe("isLive", () => {
 describe("requireCorpse", () => {
   it("returns the corpse of a deletion", () => {
     const corpse = rec("a", 7);
-    expect(query.requireCorpse(new Deleted(corpse, TimeStamp.now()))).toEqual(corpse);
+    expect(query.requireCorpse(new query.Deleted(corpse, TimeStamp.now()))).toEqual(
+      corpse,
+    );
   });
 
   it("throws when the answer is live", () => {
@@ -743,6 +744,173 @@ describe("Answers", () => {
       await wait(120);
       answers.onChange({ min: 3 }, vi.fn());
       await expect.poll(() => fetch.mock.calls.length).toBe(2);
+    });
+  });
+
+  describe("entry coverage (covers)", () => {
+    const coveringSpace = (
+      table: query.Table<string, Rec>,
+      fetch: (query: Q) => Promise<string[]>,
+    ) =>
+      new Space<Q, number, string, Rec>({
+        name: "thing",
+        table,
+        fetch,
+        compose: (records) => records[0]?.value ?? 0,
+        keyOf: (query) => query.k,
+        covers: (record) => record.value > 0,
+        single: true,
+      });
+
+    it("does not answer from an entry that does not cover the query", () => {
+      const table = newTable();
+      table.set(rec("a", 0));
+      const space = coveringSpace(table, async () => ["a"]);
+      expect(space.getCached(qA)).toBeUndefined();
+    });
+
+    it("answers from an entry that covers the query", () => {
+      const table = newTable();
+      table.set(rec("a", 1));
+      const space = coveringSpace(table, async () => ["a"]);
+      expect(space.getCached(qA)).toEqual(1);
+    });
+
+    it("holds a fetched answer its entry does not cover", async () => {
+      const table = newTable();
+      table.set(rec("a", 0));
+      const space = coveringSpace(table, async () => ["a"]);
+      await space.retrieve(qA);
+      expect(space.getCached(qA)).toEqual(0);
+    });
+
+    it("delivers a deletion regardless of coverage", async () => {
+      const table = newTable();
+      table.set(rec("a", 0));
+      const space = coveringSpace(table, async () => ["a"]);
+      table.delete("a");
+      expect(expectDeleted(space.getCached(qA)).corpse).toEqual(0);
+    });
+
+    it("fetches for a subscriber instead of seeding from the entry", async () => {
+      const table = newTable();
+      table.set(rec("a", 0));
+      const fetch = vi.fn(async () => {
+        table.set(rec("a", 1));
+        return ["a"];
+      });
+      const space = coveringSpace(table, fetch);
+      const seen: query.Cached<number>[] = [];
+      const stop = space.onChange(qA, (result) => {
+        if (result !== undefined) seen.push(result);
+      });
+      await vi.waitFor(() => expect(seen).toContain(1));
+      expect(seen).not.toContain(0);
+      expect(fetch).toHaveBeenCalledTimes(1);
+      stop();
+    });
+
+    it("fetches when a subscriber gets an entry that does not cover it", async () => {
+      const table = newTable();
+      const fetch = vi.fn(async () => {
+        table.set(rec("a", 1));
+        return ["a"];
+      });
+      const space = coveringSpace(table, fetch);
+      const seen: query.Cached<number>[] = [];
+      const stop = space.onChange(qA, (result) => {
+        if (result !== undefined) seen.push(result);
+      });
+      table.set(rec("a", 0));
+      await vi.waitFor(() => expect(seen).toContain(1));
+      expect(seen).not.toContain(0);
+      stop();
+    });
+
+    it("shares one fetch between a subscriber and a read", async () => {
+      const table = newTable();
+      table.set(rec("a", 0));
+      const fetch = vi.fn(async () => ["a"]);
+      const space = coveringSpace(table, fetch);
+      const stop = space.onChange(qA, () => {});
+      await space.retrieve(qA);
+      await wait(150);
+      expect(fetch).toHaveBeenCalledTimes(1);
+      stop();
+    });
+
+    it("joins a subscriber's fetch from a read", async () => {
+      const table = newTable();
+      table.set(rec("a", 0));
+      let release = (): void => {};
+      const held = new Promise<void>((resolve) => (release = resolve));
+      const fetch = vi.fn(async () => {
+        await held;
+        return ["a"];
+      });
+      const space = coveringSpace(table, fetch);
+      const stop = space.onChange(qA, () => {});
+      await wait(150);
+      const reading = space.retrieve(qA);
+      release();
+      await reading;
+      expect(fetch).toHaveBeenCalledTimes(1);
+      stop();
+    });
+
+    it("reports a failed subscriber fetch and retries on the next read", async () => {
+      const table = newTable();
+      table.set(rec("a", 0));
+      const fetch = vi
+        .fn<() => Promise<string[]>>()
+        .mockRejectedValueOnce(new Error("boom"))
+        .mockResolvedValue(["a"]);
+      const onError = vi.fn();
+      const space = new Space<Q, number, string, Rec>(
+        {
+          name: "thing",
+          table,
+          fetch,
+          compose: (records) => records[0]?.value ?? 0,
+          keyOf: (query) => query.k,
+          covers: (record) => record.value > 0,
+          single: true,
+        },
+        { onError },
+      );
+      const stop = space.onChange(qA, () => {});
+      await vi.waitFor(() => expect(onError).toHaveBeenCalledTimes(1));
+      await expect(space.retrieve(qA)).resolves.toEqual(0);
+      expect(fetch).toHaveBeenCalledTimes(2);
+      stop();
+    });
+
+    it("leaves an entry written during a fetch to that fetch", async () => {
+      const table = newTable();
+      const fetch = vi.fn(async () => {
+        await wait(0);
+        table.set(rec("a", 0));
+        return ["a"];
+      });
+      const space = coveringSpace(table, fetch);
+      const stop = space.onChange(qA, () => {});
+      await space.retrieve(qA);
+      await wait(150);
+      expect(fetch).toHaveBeenCalledTimes(1);
+      stop();
+    });
+
+    it("keeps notifying a ready query that its entry no longer covers", async () => {
+      const table = newTable();
+      table.set(rec("a", 1));
+      const space = coveringSpace(table, async () => ["a"]);
+      const seen: query.Cached<number>[] = [];
+      const stop = space.onChange(qA, (result) => {
+        if (result !== undefined) seen.push(result);
+      });
+      table.set(rec("a", 0));
+      expect(seen.at(-1)).toEqual(0);
+      stop();
     });
   });
 
@@ -1590,14 +1758,14 @@ describe("Answers", () => {
       await expect
         .poll(() => {
           const cached = answers.getCached({ tag: "t" });
-          return cached != null && !Deleted.matches(cached) ? cached : [];
+          return cached != null && !query.Deleted.matches(cached) ? cached : [];
         })
         .toEqual([rec("a", 1), rec("b", 10)]);
       foreign.delete("a");
       await expect
         .poll(() => {
           const cached = answers.getCached({ tag: "t" });
-          return cached != null && !Deleted.matches(cached) ? cached : [];
+          return cached != null && !query.Deleted.matches(cached) ? cached : [];
         })
         .toEqual([rec("b", 10)]);
     });
@@ -1648,7 +1816,7 @@ describe("Answers", () => {
       await expect
         .poll(() => {
           const cached = answers.getCached({ tag: "t" });
-          return cached != null && !Deleted.matches(cached) ? cached : [];
+          return cached != null && !query.Deleted.matches(cached) ? cached : [];
         })
         .toEqual(records);
       await expect.poll(() => onError.mock.calls.length).toBe(reports);
@@ -1930,8 +2098,8 @@ describe("referential stability", () => {
     const entry = doc("a", "one");
     table.set("a", entry);
     const answers = identitySpace(table, async () => ["a"]);
-    expect(Deleted.matches(answers.getCached(qA))).toBe(false);
+    expect(query.Deleted.matches(answers.getCached(qA))).toBe(false);
     table.delete("a");
-    expect(Deleted.matches(answers.getCached(qA))).toBe(true);
+    expect(query.Deleted.matches(answers.getCached(qA))).toBe(true);
   });
 });
