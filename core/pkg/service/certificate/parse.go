@@ -18,6 +18,7 @@ import (
 	"encoding/hex"
 	"encoding/pem"
 	"strings"
+	"time"
 
 	"github.com/synnaxlabs/x/errors"
 	"github.com/synnaxlabs/x/telem"
@@ -127,14 +128,26 @@ func samePublicKey(a, b crypto.PublicKey) bool {
 	return ok && pub.Equal(b)
 }
 
+// timeStamp converts t to a TimeStamp, saturating at its bounds: a certificate may use
+// a date such as 9999-12-31 that a TimeStamp cannot hold.
+func timeStamp(t time.Time) telem.TimeStamp {
+	if t.After(telem.TimeStampMax.Time()) {
+		return telem.TimeStampMax
+	}
+	if t.Before(telem.TimeStampMin.Time()) {
+		return telem.TimeStampMin
+	}
+	return telem.NewTimeStamp(t)
+}
+
 func newDetails(leaf *x509.Certificate) Details {
 	sum1 := sha1.Sum(leaf.Raw)
 	sum256 := sha256.Sum256(leaf.Raw)
 	return Details{
 		Subject:   leaf.Subject.String(),
 		Issuer:    leaf.Issuer.String(),
-		NotBefore: telem.NewTimeStamp(leaf.NotBefore),
-		NotAfter:  telem.NewTimeStamp(leaf.NotAfter),
+		NotBefore: timeStamp(leaf.NotBefore),
+		NotAfter:  timeStamp(leaf.NotAfter),
 		Sha1:      hex.EncodeToString(sum1[:]),
 		Sha256:    hex.EncodeToString(sum256[:]),
 	}
