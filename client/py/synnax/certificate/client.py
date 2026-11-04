@@ -63,8 +63,10 @@ class Client:
 
         :param certificates: The certificates to create.
         :returns: The saved certificates.
-        :raises PathError: If a PEM does not parse, or a private key does not match its
-            certificate.
+        :raises PathError: If a certificate has no name, a PEM does not parse, or a
+            private key does not match its certificate.
+        :raises AccessDenied: If the caller may not create certificates, create secrets
+            for private keys, or update a certificate it replaces.
         """
         is_single = not isinstance(certificates, list)
         req = _CreateRequest(certificates=normalize(certificates))
@@ -75,6 +77,7 @@ class Client:
         """Deletes certificates and the secrets that hold their private keys.
 
         :param keys: The keys of the certificates to delete.
+        :raises AccessDenied: If the caller may not delete a certificate.
         """
         self._client.send(
             "/certificate/delete", _DeleteRequest(keys=normalize(keys)), Empty
@@ -85,7 +88,9 @@ class Client:
 
         :param key: The key of the certificate to rename.
         :param name: The new name for the certificate.
+        :raises PathError: If the name is empty.
         :raises NotFoundError: If no certificate has the given key.
+        :raises AccessDenied: If the caller may not update the certificate.
         """
         self._client.send(
             "/certificate/rename", _RenameRequest(key=key, name=name), Empty
@@ -116,6 +121,7 @@ class Client:
         """Retrieves certificates.
 
         :raises NotFoundError: If key is given and no certificate has it.
+        :raises AccessDenied: If the caller may not retrieve a matching certificate.
         """
         is_single = key is not None
         if key is not None:

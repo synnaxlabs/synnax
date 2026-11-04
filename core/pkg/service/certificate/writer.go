@@ -129,21 +129,21 @@ func (w Writer) prepareStored(
 ) (StoredCertificate, error) {
 	chain, leaf, err := parseChain(c.Pem)
 	if err != nil {
-		return c, err
+		return StoredCertificate{}, err
 	}
 	c.Pem = chain
 	c.Details = newDetails(leaf)
 	c.PrivateKey = prev.PrivateKey
 	if len(privateKey) != 0 {
 		if err = checkPrivateKey(leaf, privateKey); err != nil {
-			return c, err
+			return StoredCertificate{}, err
 		}
 		key := secret.Secret{Variant: secret.StoredSecret{Base: secret.Base{
 			Key:  lo.FromPtr(c.PrivateKey),
 			Name: c.Name + " private key",
 		}}}
 		if err = w.secrets.Create(ctx, &key, privateKey); err != nil {
-			return c, err
+			return StoredCertificate{}, err
 		}
 		c.PrivateKey = new(key.Base().Key)
 		return c, nil
@@ -153,7 +153,7 @@ func (w Writer) prepareStored(
 	}
 	_, prevLeaf, err := parseChain(prev.Pem)
 	if err != nil {
-		return c, err
+		return StoredCertificate{}, err
 	}
 	if !samePublicKey(prevLeaf.PublicKey, leaf.PublicKey) {
 		v := validate.New("certificate")
@@ -162,7 +162,7 @@ func (w Writer) prepareStored(
 			true,
 			"required, because the new certificate does not match the saved key",
 		)
-		return c, v.Error()
+		return StoredCertificate{}, v.Error()
 	}
 	return c, nil
 }
@@ -178,7 +178,10 @@ func (w Writer) Rename(ctx context.Context, key Key, name string) error {
 			base := c.Base()
 			base.Name = name
 			renamed = c.WithBase(base)
-			return renamed, renamed.Validate()
+			if err := renamed.Validate(); err != nil {
+				return Certificate{}, err
+			}
+			return renamed, nil
 		}).
 		Exec(ctx, w.tx); err != nil {
 		return err

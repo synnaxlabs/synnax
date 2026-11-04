@@ -92,6 +92,7 @@ var _ = Describe("Writer", func() {
 			},
 			Entry("PKCS #8", encodeKey),
 			Entry("SEC 1", func(key *ecdsa.PrivateKey) []byte {
+				GinkgoHelper()
 				der := MustSucceed(x509.MarshalECPrivateKey(key))
 				return pem.EncodeToMemory(
 					&pem.Block{Type: "EC PRIVATE KEY", Bytes: der},

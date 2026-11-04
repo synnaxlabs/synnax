@@ -61,35 +61,35 @@ func expiryStatus(c Certificate, now telem.TimeStamp) (status.Status[any], bool)
 
 // writeExpiry writes the expiry status of each certificate whose status changed.
 func (s *Service) writeExpiry(ctx context.Context) error {
-	var certs []Certificate
-	if err := s.NewRetrieve().Entries(&certs).Exec(ctx, nil); err != nil {
-		return err
-	}
-	now := s.cfg.Now()
-	next := make(map[status.Key]status.Status[any], len(certs))
-	for _, c := range certs {
-		if st, ok := expiryStatus(c, now); ok {
-			next[st.Key] = st
-		}
-	}
-	if len(next) == 0 {
-		return nil
-	}
-	var prev []status.Status[any]
-	if err := s.cfg.Status.NewRetrieve[any]().
-		Where(status.MatchKeys[any](lo.Keys(next)...)).
-		Entries(&prev).
-		Exec(ctx, nil); errors.Skip(err, query.ErrNotFound) != nil {
-		return err
-	}
-	for _, p := range prev {
-		n := next[p.Key]
-		if n.Variant == p.Variant && n.Message == p.Message &&
-			n.Description == p.Description && n.Name == p.Name {
-			delete(next, p.Key)
-		}
-	}
 	return s.cfg.DB.WithTx(ctx, func(tx gorp.Tx) error {
+		var certs []Certificate
+		if err := s.NewRetrieve().Entries(&certs).Exec(ctx, tx); err != nil {
+			return err
+		}
+		now := s.cfg.Now()
+		next := make(map[status.Key]status.Status[any], len(certs))
+		for _, c := range certs {
+			if st, ok := expiryStatus(c, now); ok {
+				next[st.Key] = st
+			}
+		}
+		if len(next) == 0 {
+			return nil
+		}
+		var prev []status.Status[any]
+		if err := s.cfg.Status.NewRetrieve[any]().
+			Where(status.MatchKeys[any](lo.Keys(next)...)).
+			Entries(&prev).
+			Exec(ctx, tx); errors.Skip(err, query.ErrNotFound) != nil {
+			return err
+		}
+		for _, p := range prev {
+			n := next[p.Key]
+			if n.Variant == p.Variant && n.Message == p.Message &&
+				n.Description == p.Description && n.Name == p.Name {
+				delete(next, p.Key)
+			}
+		}
 		w := s.cfg.Status.NewWriter(tx)
 		for _, c := range certs {
 			if st, ok := next[statusKey(c.Base().Key)]; ok {

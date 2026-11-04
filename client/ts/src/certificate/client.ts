@@ -108,8 +108,10 @@ export class Client extends query.Retriever<
 
   /**
    * Creates certificates, or replaces the certificates whose keys exist.
-   * @throws {PathError} if a PEM does not parse, or a private key does not match its
-   * certificate.
+   * @throws {PathError} if a certificate has no name, a PEM does not parse, or a
+   * private key does not match its certificate.
+   * @throws {AccessDeniedError} if the caller may not create certificates, create
+   * secrets for private keys, or update a certificate it replaces.
    */
   async create(certificate: New): Promise<Certificate>;
   async create(certificates: New[]): Promise<Certificate[]>;
@@ -125,6 +127,12 @@ export class Client extends query.Retriever<
     return isMany ? res.certificates : res.certificates[0];
   }
 
+  /**
+   * Renames a certificate.
+   * @throws {PathError} if the name is empty.
+   * @throws {NotFoundError} if no certificate has the key.
+   * @throws {AccessDeniedError} if the caller may not update the certificate.
+   */
   async rename(key: Key, name: string, opts: query.WriteOptions = {}): Promise<void> {
     const rename = () => [
       query.partialUpdate(this.store, key, { name }),
@@ -144,7 +152,10 @@ export class Client extends query.Retriever<
     rename();
   }
 
-  /** Deletes certificates and the secrets that hold their private keys. */
+  /**
+   * Deletes certificates and the secrets that hold their private keys.
+   * @throws {AccessDeniedError} if the caller may not delete a certificate.
+   */
   async delete(keys: Key | Key[], opts: query.WriteOptions = {}): Promise<void> {
     const keysArr = array.toArray(keys);
     const ids = ontologyID(keysArr);

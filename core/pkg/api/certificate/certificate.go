@@ -11,6 +11,7 @@ package certificate
 
 import (
 	"context"
+	"uuid"
 
 	"github.com/samber/lo"
 	"github.com/synnaxlabs/gorp"
@@ -21,7 +22,9 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/service/ontology"
 	"github.com/synnaxlabs/synnax/pkg/service/secret"
 	"github.com/synnaxlabs/x/config"
+	"github.com/synnaxlabs/x/errors"
 	"github.com/synnaxlabs/x/override"
+	"github.com/synnaxlabs/x/query"
 	"github.com/synnaxlabs/x/validate"
 )
 
@@ -105,26 +108,28 @@ type Input struct {
 func (in Input) certificate() (Certificate, error) {
 	base := certificate.Base{Key: in.Key, Name: in.Name}
 	v := validate.New("certificate")
+	var c Certificate
 	switch in.Source {
 	case secret.SourceStored:
 		const msg = "must be empty for a stored certificate"
 		v.Ternary("certificate_path", in.CertificatePath != "", msg)
 		v.Ternary("private_key_path", in.PrivateKeyPath != nil, msg)
-		return Certificate{Variant: certificate.StoredCertificate{
-			Base: base,
-			Pem:  in.Pem,
-		}}, v.Error()
+		c.Variant = certificate.StoredCertificate{Base: base, Pem: in.Pem}
 	case secret.SourceFile:
 		v.Ternary("pem", in.Pem != "", "must be empty for a file certificate")
-		return Certificate{Variant: certificate.FileCertificate{
+		c.Variant = certificate.FileCertificate{
 			Base:            base,
 			CertificatePath: in.CertificatePath,
 			PrivateKeyPath:  in.PrivateKeyPath,
 			Details:         in.Details,
-		}}, v.Error()
+		}
+	default:
+		v.Ternaryf("source", true, "must be stored or file, not %q", in.Source)
 	}
-	v.Ternaryf("source", true, "must be stored or file, not %q", in.Source)
-	return Certificate{}, v.Error()
+	if err := v.Error(); err != nil {
+		return Certificate{}, err
+	}
+	return c, nil
 }
 
 // CreateRequest holds the certificates to create or replace.
@@ -138,13 +143,15 @@ type CreateResponse struct {
 }
 
 // Create creates the certificates, or replaces those whose key exists. It requires
-// create access on certificates, and on secrets when a certificate carries a private
-// key.
+// create access on certificates, create access on secrets when a certificate carries a
+// private key, and update access on each certificate it replaces.
 func (s *Service) Create(
 	ctx context.Context,
 	tx gorp.Tx,
 	req CreateRequest,
 ) (CreateResponse, error) {
+	enforcer := s.access.NewEnforcer(tx)
+	subject := auth.GetSubject(ctx)
 	objects := []ontology.ID{{Type: ontology.ResourceTypeCertificate}}
 	if lo.ContainsBy(
 		req.Certificates,
@@ -152,12 +159,31 @@ func (s *Service) Create(
 	) {
 		objects = append(objects, ontology.ID{Type: ontology.ResourceTypeSecret})
 	}
-	if err := s.access.NewEnforcer(tx).Enforce(ctx, access.Request{
-		Subject: auth.GetSubject(ctx),
+	if err := enforcer.Enforce(ctx, access.Request{
+		Subject: subject,
 		Action:  access.ActionCreate,
 		Objects: objects,
 	}); err != nil {
 		return CreateResponse{}, err
+	}
+	keys := lo.FilterMap(req.Certificates, func(in Input, _ int) (Key, bool) {
+		return in.Key, in.Key != uuid.Nil()
+	})
+	if len(keys) != 0 {
+		var replaced []Certificate
+		if err := s.internal.NewRetrieve().
+			Where(certificate.MatchKeys(keys...)).
+			Entries(&replaced).
+			Exec(ctx, tx); errors.Skip(err, query.ErrNotFound) != nil {
+			return CreateResponse{}, err
+		}
+		if err := enforcer.Enforce(ctx, access.Request{
+			Subject: subject,
+			Action:  access.ActionUpdate,
+			Objects: certificate.OntologyIDsFromCertificates(replaced),
+		}); err != nil {
+			return CreateResponse{}, err
+		}
 	}
 	w := s.internal.NewWriter(tx)
 	res := CreateResponse{Certificates: make([]Certificate, len(req.Certificates))}
