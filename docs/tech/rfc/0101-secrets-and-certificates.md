@@ -75,14 +75,15 @@ the ontology type `secret`. `value` carries `@go wire omit`, `@ts omit`, and `@p
 as the session hash does (`schemas/synnax/auth.oracle:33-38`), so no endpoint or signal
 can carry it. Secrets have no exporter. The Console shows `updated` as "Set on <date>".
 
-| Endpoint          | Caller               | Does                                       |
-| ----------------- | -------------------- | ------------------------------------------ |
-| `secret/create`   | Can create secrets   | Saves a value or path, or replaces it      |
-| `secret/retrieve` | Can retrieve secrets | Returns records without values             |
-| `secret/rename`   | Can update secrets   | Renames a secret                           |
-| `secret/delete`   | Can delete secrets   | Refuses while anything uses the secret     |
-| `secret/grant`    | Can create devices   | Returns a grant for a rack (§3.3)          |
-| `secret/resolve`  | A rack only          | Returns stored values; refuses file values |
+| Endpoint              | Caller               | Does                                       |
+| --------------------- | -------------------- | ------------------------------------------ |
+| `secret/create`       | Can create secrets   | Saves a value or path, or replaces it      |
+| `secret/retrieve`     | Can retrieve secrets | Returns records without values             |
+| `secret/rename`       | Can update secrets   | Renames a secret                           |
+| `secret/delete`       | Can delete secrets   | Refuses while anything uses the secret     |
+| `secret/grant/create` | Can create devices   | Stores a grant for a rack (§3.3)           |
+| `secret/grant/delete` | Can create devices   | Deletes grants                             |
+| `secret/resolve`      | A rack only          | Returns stored values; refuses file values |
 
 Owner and Engineer get every action on `secret` and `certificate`. Operator and Viewer
 retrieve them. The Driver role also retrieves secrets, and retrieves and creates
@@ -115,7 +116,7 @@ leaf and saves it as a secret in the same transaction, so the caller must also b
 to create secrets. A `pem` that holds a private key is refused, so a key never lands in
 the public record. For a file certificate, the details come from the file browser
 (§3.5). Certificates are public: anyone who can retrieve one can download it as PEM or
-DER. The endpoints match the secret endpoints, without grant and resolve.
+DER. The endpoints match the secret endpoints, without grants and resolve.
 
 ### 3.2 Encryption key
 
@@ -141,13 +142,16 @@ process, as the Core's rack. A rack reads a secret when:
 2. The request carries a grant for that rack that names it.
 
 A grant covers commands that run before a device is saved: a connect dialog's test and
-browse. The Console calls `secret/grant` with a rack and items, and the Core checks that
-the caller can create devices. The grant names the rack and the secrets, where a
-certificate stands for its key. It expires in 60 s and is signed with HMAC-SHA-256 under
-a key derived from the store key. The Console sends it with the command. Only that rack
-can use it, so it can travel on `sy_task_cmd`. Without grants, an Operator, who can
-write any command (`core/pkg/service/access/rbac/builtin/builtin.go:171-179`), could
-send a saved password to a server of their choice.
+browse. The Console calls `secret/grant/create` with a rack and secrets, and the Core
+checks that the caller can create devices. For a certificate, the Console sends the
+secret in its `private_key`. The Core stores the grant with the rack, the secrets, and
+the caller's session, and returns its key. The Console sends the key with the command
+and deletes the grant when the command ends. A grant also ends with its session. Like
+the sessions of RFC 0073 §4.4, a grant is stored and revocable, with no clock and no
+signing key. Only that rack can use it, so its key can travel on `sy_task_cmd`. Without
+grants, an Operator, who can write any command
+(`core/pkg/service/access/rbac/builtin/builtin.go:171-179`), could send a saved password
+to a server of their choice.
 
 A user who can edit a device can still point it at their own server, as in Grafana and
 Ignition. Write-only keeps secrets from people who can only view, and out of statuses,
@@ -284,7 +288,9 @@ change, so they are separate phases.
    device access (`core/pkg/service/access/rbac/builtin/builtin.go:117-135`), so a
    stolen test-stand computer reads only its own secrets.
 8. **Grants, not save then test**: Grafana saves before it tests. Synnax keeps the test
-   before save (RFC 0079 §4.2). The trade is real: a signed grant type.
+   before save (RFC 0079 §4.2). A grant is stored, not signed, so a person can revoke it
+   and no clock ends it, as RFC 0073 decided for sessions. The trade is real: a stored
+   write for each test, and grants to clean up when a session ends.
 9. **Uploaded private keys**: This replaces RFC 0089 principle 1 and decision 2, whose
    reason, commands that leak to every Viewer, is gone. Grafana, HighByte, and
    Ignition's MQTT modules take uploads. The trade is real: a key lives in the Core too,
