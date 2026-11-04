@@ -57,14 +57,7 @@ class Client:
         self.client = transport
 
     @overload
-    def create(
-        self,
-        *,
-        username: str,
-        password: str,
-        name: str = "",
-        key: UUID | None = None,
-    ) -> User: ...
+    def create(self, *, name: str, key: UUID | None = None) -> User: ...
 
     @overload
     def create(self, *, user: New) -> User: ...
@@ -72,31 +65,25 @@ class Client:
     @overload
     def create(self, *, users: list[New]) -> list[User]: ...
 
-    @require_named_params(example_params=("user", "New(username='synnax')"))
+    @require_named_params(example_params=("user", "New(name='Hari Seldon')"))
     def create(
         self,
         *,
-        username: str | None = None,
-        password: str | None = None,
-        name: str = "",
+        name: str | None = None,
         key: UUID | None = None,
         user: New | None = None,
         users: list[New] | None = None,
     ) -> User | list[User]:
-        if username is not None:
-            if password is None:
-                raise ValueError("password is required when username is provided")
-            user = New(
-                username=username,
-                password=password,
-                name=name,
-                key=key,
-            )
+        """Creates users with no password. Give a user its first password with
+        client.auth.create_password.
+        """
+        if name is not None:
+            user = New(name=name, key=key)
         single = user is not None
         if user is not None:
             users = [user]
         if users is None:
-            raise ValueError("Either username, user, or users must be provided")
+            raise ValueError("Either name, user, or users must be provided")
         res = self.client.send(
             "/user/create", _CreateRequest(users=users), _CreateResponse
         ).users

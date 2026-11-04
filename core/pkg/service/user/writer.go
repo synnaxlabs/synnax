@@ -31,11 +31,12 @@ type Writer struct {
 }
 
 // Create persists a new user record from u. If u.Key is the zero UUID, a new key is
-// assigned. The returned User has Key populated. Returns an error if u.RootUser is
-// true, and a validation error if u.Name is empty or a user with u.Key already exists.
+// assigned. The returned User has Key populated. Returns a validation error if
+// u.RootUser is true, u.Name is empty, or a user with u.Key already exists.
 func (w Writer) Create(ctx context.Context, u User) (User, error) {
 	if u.RootUser {
-		return User{}, errors.New(
+		return User{}, errors.Wrap(
+			validate.ErrValidation,
 			"cannot create a root user; root users are provisioned at startup",
 		)
 	}

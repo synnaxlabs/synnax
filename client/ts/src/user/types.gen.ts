@@ -33,13 +33,7 @@ export const userZ = z.object({
 });
 export interface User extends z.infer<typeof userZ> {}
 
-export const newZ = userZ
-  .omit({ rootUser: true })
-  .partial({ key: true, name: true })
-  .extend({
-    username: z.string().min(1, "username is required"),
-    password: z.string().min(1),
-  });
+export const newZ = userZ.omit({ rootUser: true }).partial({ key: true });
 export interface New extends z.input<typeof newZ> {}
 
 export const ontologyID = ontology.createIDFactory<Key>("user");

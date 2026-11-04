@@ -70,7 +70,7 @@ var _ = Describe("Writer", func() {
 				Expect(w.Create(ctx, user.User{
 					Name:     "root",
 					RootUser: true,
-				})).Error().To(MatchError(ContainSubstring("cannot create a root user; root users are provisioned at startup")))
+				})).Error().To(MatchError(validate.ErrValidation))
 			},
 		)
 	})

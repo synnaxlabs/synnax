@@ -14,39 +14,24 @@ from uuid import uuid4 as uuid
 import pytest
 
 import synnax as sy
+from tests.user import create_user
 
 
 @pytest.fixture
 def new_user() -> sy.user.New:
-    return sy.user.New(
-        username=uuid().__str__(),
-        password="password",
-        name="First Last",
-        key=uuid(),
-    )
+    return sy.user.New(name="First Last", key=uuid())
 
 
 @pytest.fixture
 def new_user_list() -> list[sy.user.New]:
     return [
-        sy.user.New(
-            username=uuid().__str__(),
-            password="password1",
-            name="First1 Last1",
-        ),
-        sy.user.New(
-            username=uuid().__str__(),
-            password="password2",
-            name="First2",
-            key=uuid(),
-        ),
-        sy.user.New(username=uuid().__str__(), password="password3", key=uuid()),
-        sy.user.New(username=uuid().__str__(), password="password4"),
+        sy.user.New(name="First1 Last1"),
+        sy.user.New(name="First2", key=uuid()),
     ]
 
 
 def compare_users(user: sy.user.User, new_user: sy.user.New) -> None:
-    assert user.name == (new_user.name or new_user.username)
+    assert user.name == new_user.name
     if new_user.key is not None:
         assert user.key == new_user.key
     else:
@@ -56,33 +41,23 @@ def compare_users(user: sy.user.User, new_user: sy.user.New) -> None:
 @pytest.mark.user
 class TestUserClient:
     def test_create_params(self, client: sy.Synnax) -> None:
-        user = client.users.create(username="test", password="test")
-        compare_users(user, sy.user.New(username="test", password="test"))
+        user = client.users.create(name="test")
+        compare_users(user, sy.user.New(name="test"))
         client.users.delete(user.key)
         key = uuid()
-        username = uuid().__str__()
-        user = client.users.create(
-            username=username, password="test", name="silly", key=key
-        )
-        compare_users(
-            user,
-            sy.user.New(username=username, password="test", name="silly", key=key),
-        )
+        user = client.users.create(name="silly", key=key)
+        compare_users(user, sy.user.New(name="silly", key=key))
         client.users.delete(user.key)
 
-    def test_create_params_without_password(self, client: sy.Synnax) -> None:
-        """Should reject a username with no password."""
+    def test_create_params_without_name(self, client: sy.Synnax) -> None:
+        """Should reject a call with no name, user, or users."""
         create = cast(Callable[..., object], client.users.create)
-        with pytest.raises(ValueError, match="password is required"):
-            create(username=str(uuid()))
+        with pytest.raises(ValueError, match="name, user, or users"):
+            create(key=uuid())
 
     def test_create_user(self, client: sy.Synnax, new_user: sy.user.New) -> None:
         repeated_user = client.users.create(user=new_user)
         compare_users(repeated_user, new_user)
-
-    def test_create_repeated(self, client: sy.Synnax) -> None:
-        with pytest.raises(sy.AuthError):
-            client.users.create(username="synnax", password="test")
 
     def test_create_many(
         self, client: sy.Synnax, new_user_list: list[sy.user.New]
@@ -92,8 +67,8 @@ class TestUserClient:
         for i in range(len(repeated_user_list)):
             compare_users(repeated_user_list[i], new_user_list[i])
 
-    def test_change_username(self, client: sy.Synnax, new_user: sy.user.New) -> None:
-        user = client.users.create(user=new_user)
+    def test_change_username(self, client: sy.Synnax) -> None:
+        user = create_user(client, str(uuid()), "password")
         username = str(uuid())
         client.users.change_username(user.key, username)
         assert client.users.retrieve(username=username).key == user.key

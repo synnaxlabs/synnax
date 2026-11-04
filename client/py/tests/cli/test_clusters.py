@@ -23,6 +23,7 @@ from synnax.cli.login import run as login
 from synnax.config import DESKTOP_NOT_RUNNING_MSG, Cluster, Clusters, File
 from synnax.options import Options
 from tests.memory_keyring import MemoryKeyring
+from tests.user import create_user
 
 
 class UndeletableKeyring(MemoryKeyring):
@@ -217,7 +218,7 @@ class TestLogin:
         first = clusters.get()
         assert first is not None
         other_username = f"cli-{uuid4()}"
-        other = client.users.create(username=other_username, password="password123")
+        other = create_user(client, other_username, "password123")
         login(
             Context(
                 console=console.Mock(

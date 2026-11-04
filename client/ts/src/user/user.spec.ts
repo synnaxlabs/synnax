@@ -18,56 +18,63 @@ import {
   holdResponses,
   waitForStreamLive,
 } from "@/testutil";
-import { type user } from "@/user";
+import { user } from "@/user";
 
 const client = createTestClient();
 
-const userOne: user.New = {
-  username: id.create(),
-  password: "test",
-  name: "George Washington",
-};
+interface Fixture extends user.New {
+  username: string;
+}
 
-const userTwo: user.New = { username: id.create(), password: "test" };
+const userOne: Fixture = { username: id.create(), name: "George Washington" };
 
-const userThree: user.New = {
-  username: id.create(),
-  password: "test",
-  name: "John Adams",
-};
+const userTwo: Fixture = { username: id.create(), name: "John Hancock" };
 
-const userArray: user.New[] = [
-  { username: id.create(), password: "secondTest", name: "Steve" },
-  { username: id.create(), password: "testArray" },
+const userThree: Fixture = { username: id.create(), name: "John Adams" };
+
+const userArray: Fixture[] = [
+  { username: id.create(), name: "Steve" },
+  { username: id.create(), name: "Martha" },
 ];
+
+/** Creates the users, then gives each its username and a password. */
+const createUsers = async (fixtures: Fixture[]): Promise<user.User[]> => {
+  const users = await client.users.create(
+    fixtures.map(({ key, name }) => ({ key, name })),
+  );
+  await Promise.all(
+    users.map(
+      async (u, i) =>
+        await client.auth.createPassword({
+          subject: user.ontologyID(u.key),
+          username: fixtures[i].username,
+          password: "test",
+        }),
+    ),
+  );
+  return users;
+};
 
 /** Expects users to hold exactly the keys and names of the created users. */
 const expectUsers = (users: user.User[], created: user.New[]) =>
   expect(users.map(({ key, name }) => ({ key, name }))).toEqual(
-    expect.arrayContaining(
-      created.map((u) => ({ key: u.key, name: u.name ?? u.username })),
-    ),
+    expect.arrayContaining(created.map(({ key, name }) => ({ key, name }))),
   );
 
 describe("User", () => {
   describe("Create", () => {
     describe("One", () => {
       test("with a name", async () => {
-        const res = await client.users.create(userOne);
+        const [res] = await createUsers([userOne]);
         expect(res.key).not.toEqual("");
         expect(res.name).toEqual(userOne.name);
         userOne.key = res.key;
       });
-      test("with no name", async () => {
-        const res = await client.users.create(userTwo);
-        expect(res.key).not.toEqual("");
+      test("with a different name", async () => {
+        const [res] = await createUsers([userTwo]);
+        expect(res.name).toEqual(userTwo.name);
         userTwo.key = res.key;
-        expect(res.name).toEqual(userTwo.username);
       });
-      test("Repeated username", async () =>
-        await expect(
-          client.users.create({ username: userOne.username, password: "test" }),
-        ).rejects.toThrow(AuthError));
     });
     describe("Many", () => {
       test("array empty", async () => {
@@ -75,35 +82,24 @@ describe("User", () => {
         expect(res).toHaveLength(0);
       });
       test("array is one", async () => {
-        const res = await client.users.create([userThree]);
+        const res = await createUsers([userThree]);
         expect(res).toHaveLength(1);
         expect(res[0].key).not.toEqual("");
         userThree.key = res[0].key;
         expect(res[0].name).toEqual(userThree.name);
       });
       test("array not empty", async () => {
-        const res = await client.users.create(userArray);
+        const res = await createUsers(userArray);
         expect(res).toHaveLength(2);
         userArray.forEach((u, i) => {
           expect(res[i].key).not.toEqual("");
           userArray[i].key = res[i].key;
-          expect(res[i].name).toEqual(u.name ?? u.username);
+          expect(res[i].name).toEqual(u.name);
         });
       });
-      test("Repeated username", async () =>
-        await expect(
-          client.users.create([
-            { username: userOne.username, password: "test" },
-            { username: userTwo.username, password: "test" },
-          ]),
-        ).rejects.toThrow(AuthError));
       test("Repeated key", async () =>
         await expect(
-          client.users.create({
-            key: userOne.key,
-            username: id.create(),
-            password: "test",
-          }),
+          client.users.create({ key: userOne.key, name: "test" }),
         ).rejects.toThrow(ValidationError));
     });
   });
@@ -159,7 +155,7 @@ describe("User", () => {
           await expect(client.users.retrieve(userOne.key as string)).rejects.toThrow(
             NotFoundError,
           );
-          const u = await client.users.create(userOne);
+          const [u] = await createUsers([userOne]);
           userOne.key = u.key;
         });
       });
@@ -177,7 +173,7 @@ describe("User", () => {
           await expect(
             client.users.retrieve({ keys: userArray.map((u) => u.key as string) }),
           ).rejects.toThrow(NotFoundError);
-          const users = await client.users.create(userArray);
+          const users = await createUsers(userArray);
           users.forEach((u, i) => (userArray[i].key = u.key));
         });
         test("all", async () => {
@@ -203,15 +199,16 @@ describe("User", () => {
         client.users.changeUsername(userTwo.key as string, userOne.username),
       ).rejects.toThrow(AuthError));
     test("Repeated usernames fail", async () => {
-      const oldUsername = id.create();
-      const user = await client.users.create({
-        username: oldUsername,
-        password: "test",
-      });
+      const [u] = await createUsers([{ username: id.create(), name: "test" }]);
       const newUsername = id.create();
-      await client.users.changeUsername(user.key, newUsername);
+      await client.users.changeUsername(u.key, newUsername);
+      const other = await client.users.create({ name: "test" });
       await expect(
-        client.users.create({ username: newUsername, password: "test" }),
+        client.auth.createPassword({
+          subject: user.ontologyID(other.key),
+          username: newUsername,
+          password: "test",
+        }),
       ).rejects.toThrow(AuthError);
     });
   });
@@ -226,7 +223,7 @@ describe("User", () => {
       userOne.name = "Thomas Jefferson";
     });
     test("should keep a rename that streams in during a retrieve", async () => {
-      const u = await client.users.create({ username: id.create(), password: "test" });
+      const u = await client.users.create({ name: "test" });
       const local = createTestClient();
       await local.connect();
       await waitForStreamLive(local.connection);
@@ -280,7 +277,7 @@ describe("User", () => {
 const remote = createTestClient();
 
 const createUser = async (): Promise<user.User> =>
-  await client.users.create({ username: id.create(), password: "test" });
+  await client.users.create({ name: "test" });
 
 describe("cached reads", () => {
   // Changes made while the stream is still opening are lost, so open it up front.

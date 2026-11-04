@@ -36,11 +36,7 @@ const RETRIEVE_RANGES: GrantedQuery = {
 };
 
 const createSubjectWithPolicy = async (pol: policy.New) => {
-  const u = await client.users.create({
-    username: id.create(),
-    password: "test",
-    name: "test",
-  });
+  const u = await client.users.create({ name: "test" });
   const p = await client.access.policies.create(pol);
   const r = await client.access.roles.create({
     name: id.create(),

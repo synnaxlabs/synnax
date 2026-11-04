@@ -206,19 +206,14 @@ describe("queries", () => {
   });
 
   describe("useResultForUser", () => {
-    const createUser = async (prefix: string) =>
-      await client.users.create({
-        username: `${prefix}-${id.create()}`,
-        name: "Test User",
-        password: "password123",
-      });
+    const createUser = async () => await client.users.create({ name: "Test User" });
 
     it("should return the roles assigned to the user", async () => {
       const role = await client.access.roles.create({
         name: `assigned-${id.create()}`,
         description: "Assigned role",
       });
-      const u = await createUser("for-user");
+      const u = await createUser();
       await client.access.roles.assign({ user: u.key, role: role.key });
 
       const { result } = renderHook(() => Role.useResultForUser({ user: u.key }), {
@@ -229,7 +224,7 @@ describe("queries", () => {
     });
 
     it("should return an empty list for a user holding no role", async () => {
-      const u = await createUser("roleless");
+      const u = await createUser();
 
       const { result } = renderHook(() => Role.useResultForUser({ user: u.key }), {
         wrapper,
@@ -240,7 +235,7 @@ describe("queries", () => {
 
     it("should pick up a role assigned by another client", async () => {
       const remote = createTestClient();
-      const u = await createUser("late-assign");
+      const u = await createUser();
 
       const { result } = renderHook(() => Role.useResultForUser({ user: u.key }), {
         wrapper,
@@ -261,7 +256,7 @@ describe("queries", () => {
         name: `edited-${id.create()}`,
         description: "Before",
       });
-      const u = await createUser("role-edit");
+      const u = await createUser();
       await client.access.roles.assign({ user: u.key, role: role.key });
 
       const { result } = renderHook(() => Role.useResultForUser({ user: u.key }), {
@@ -367,11 +362,7 @@ describe("queries", () => {
         name: `retrieveForRole-${Date.now()}`,
         description: "Role for retrieve test",
       });
-      const testUser = await client.users.create({
-        username: `retrieve-for-${Date.now()}`,
-        name: "Test User",
-        password: "password123",
-      });
+      const testUser = await client.users.create({ name: "Test User" });
       await client.access.roles.assign({
         user: testUser.key,
         role: role.key,
@@ -387,11 +378,7 @@ describe("queries", () => {
     });
 
     it("should have empty role when user has no role assigned", async () => {
-      const testUser = await client.users.create({
-        username: `no-role-${Date.now()}`,
-        name: "No Role",
-        password: "password123",
-      });
+      const testUser = await client.users.create({ name: "No Role" });
 
       const { result } = await renderHookSuspended(
         () => Role.useChangeRoleForm({ query: { key: testUser.key } }),
@@ -411,11 +398,7 @@ describe("queries", () => {
         name: `changeTo-${Date.now()}`,
         description: "New role",
       });
-      const testUser = await client.users.create({
-        username: `change-role-${Date.now()}`,
-        name: "Change Role",
-        password: "password123",
-      });
+      const testUser = await client.users.create({ name: "Change Role" });
       await client.access.roles.assign({
         user: testUser.key,
         role: role1.key,
@@ -453,11 +436,7 @@ describe("queries", () => {
         name: `assignNew-${Date.now()}`,
         description: "New role assignment",
       });
-      const testUser = await client.users.create({
-        username: `no-prev-role-${Date.now()}`,
-        name: "No Previous",
-        password: "password123",
-      });
+      const testUser = await client.users.create({ name: "No Previous" });
 
       const { result } = await renderHookSuspended(
         () => Role.useChangeRoleForm({ query: { key: testUser.key } }),

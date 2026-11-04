@@ -7,13 +7,14 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { array, errors, id } from "@synnaxlabs/x";
+import { array, errors } from "@synnaxlabs/x";
 
 import { policy } from "@/access/policy";
 import { role } from "@/access/role";
 import type Synnax from "@/client";
 import { AccessDeniedError, NotFoundError } from "@/errors";
 import { createTestClient } from "@/testutil/client";
+import { createTestUser, type TestUser } from "@/testutil/user";
 import { user } from "@/user";
 
 /** Reports whether the error, or any error in its cause chain, is an access denial. */
@@ -27,29 +28,18 @@ const isDenial = (err: unknown): boolean =>
  * refusal logs after teardown, which vitest counts as an unhandled error.
  */
 const connectAs = async (
-  username: string,
-  key: user.Key,
+  { user: { key }, username, password }: TestUser,
   onInternalError: (err: Error) => void = (err) => {
     if (!isDenial(err)) console.error(err);
   },
 ) => {
-  const client = createTestClient({ username, password: "test", onInternalError });
+  const client = createTestClient({ username, password, onInternalError });
   try {
     await client.access.policies.retrieveForSubject(user.ontologyID(key));
   } catch (err) {
     if (!isDenial(err)) throw errors.fromUnknown(err);
   }
   return client;
-};
-
-const createUser = async (client: Synnax) => {
-  const username = id.create();
-  const u = await client.users.create({
-    username,
-    password: "test",
-    name: "test",
-  });
-  return { username, key: u.key };
 };
 
 /**
@@ -64,7 +54,7 @@ export const createTestClientWithPolicy = async (
   pol: policy.New | policy.New[],
   onInternalError?: (err: Error) => void,
 ) => {
-  const u = await createUser(client);
+  const u = await createTestUser(client);
   const policies = await Promise.all(
     array.toArray(pol).map(async (p) => await client.access.policies.create(p)),
   );
@@ -76,8 +66,8 @@ export const createTestClientWithPolicy = async (
     role.ontologyID(r.key),
     ...policies.map(({ key }) => policy.ontologyID(key)),
   );
-  await client.access.roles.assign({ user: u.key, role: r.key });
-  return await connectAs(u.username, u.key, onInternalError);
+  await client.access.roles.assign({ user: u.user.key, role: r.key });
+  return await connectAs(u, onInternalError);
 };
 
 /** The roles the Core provisions on startup. */
@@ -104,9 +94,9 @@ export const createTestClientWithRole = async (
   const roles = await client.access.roles.retrieve({});
   const r = roles.find((r) => r.name === name);
   if (r == null) throw new NotFoundError(`no built-in role named ${name}`);
-  const u = await createUser(client);
-  await client.access.roles.assign({ user: u.key, role: r.key });
-  return await connectAs(u.username, u.key);
+  const u = await createTestUser(client);
+  await client.access.roles.assign({ user: u.user.key, role: r.key });
+  return await connectAs(u);
 };
 
 /**
