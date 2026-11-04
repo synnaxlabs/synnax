@@ -21,7 +21,7 @@ import {
   type Organization,
 } from "@/server/db/schema";
 import { deny } from "@/server/license/deny";
-import { channels, term } from "@/server/license/limits";
+import { channels, MAX_LABEL_LENGTH, term } from "@/server/license/limits";
 import { activatePath } from "@/shell";
 import { post } from "@/ui/api";
 import { Fact, Facts } from "@/ui/Facts";
@@ -112,6 +112,7 @@ export const License = ({
       title={label}
       titleID={LABEL_ID}
       onTitleChange={renaming ? rename.run : undefined}
+      titleMaxLength={MAX_LABEL_LENGTH}
       parent={parent}
       subtitle={
         <Flex.Box x align="center" gap="small">

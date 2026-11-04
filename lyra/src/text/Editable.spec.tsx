@@ -54,6 +54,48 @@ describe("Editable", () => {
     });
   });
 
+  describe("maxLength", () => {
+    const renderField = (maxLength?: number): HTMLElement => {
+      const c = render(
+        <Editable value="abc" onChange={vi.fn()} maxLength={maxLength} />,
+      );
+      const text = c.getByText("abc");
+      fireEvent.dblClick(text);
+      return text;
+    };
+
+    it("should drop characters typed past the limit", () => {
+      const text = renderField(3);
+      text.textContent = "abcd";
+      window.getSelection()?.collapse(text.firstChild, 4);
+      fireEvent.input(text);
+      expect(text.textContent).toBe("abc");
+    });
+
+    it("should drop only the characters inserted before the caret", () => {
+      const text = renderField(3);
+      text.textContent = "aXYbc";
+      window.getSelection()?.collapse(text.firstChild, 3);
+      fireEvent.input(text);
+      expect(text.textContent).toBe("abc");
+      expect(window.getSelection()?.focusOffset).toBe(1);
+    });
+
+    it("should keep the start of text pasted over the limit", () => {
+      const text = renderField(3);
+      text.textContent = "abcdefgh";
+      fireEvent.input(text);
+      expect(text.textContent).toBe("abc");
+    });
+
+    it("should leave text alone without a limit", () => {
+      const text = renderField();
+      text.textContent = "abcdefgh";
+      fireEvent.input(text);
+      expect(text.textContent).toBe("abcdefgh");
+    });
+  });
+
   describe("entering edit mode", () => {
     it("should enter edit mode on double-click", () => {
       const c = render(<Editable value="Hello" onChange={vi.fn()} />);

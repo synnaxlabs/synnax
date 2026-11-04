@@ -28,6 +28,8 @@ export interface PageProps extends PropsWithChildren {
   titleID?: string;
   /** onTitleChange makes the title editable in place while it is set. */
   onTitleChange?: (title: string) => void;
+  /** titleMaxLength is the most characters an edit of the title takes. */
+  titleMaxLength?: number;
   /** parent links the page that lists this one, above the title. */
   parent?: Parent;
   /** subtitle reads under the title: an organization name, a status line. */
@@ -42,6 +44,7 @@ export const Page = ({
   title,
   titleID,
   onTitleChange,
+  titleMaxLength,
   parent,
   subtitle,
   actions,
@@ -69,6 +72,7 @@ export const Page = ({
             color={11}
             value={title}
             onChange={onTitleChange}
+            maxLength={titleMaxLength}
           />
           {subtitle != null && (
             <Text.Text level="p" color={9}>

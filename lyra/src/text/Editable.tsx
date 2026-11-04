@@ -36,6 +36,8 @@ export type EditableProps = Omit<TextProps<"p">, "children" | "onChange"> &
     allowEmpty?: boolean;
     /** Whether to outline the field while editing. Defaults to true. */
     outline?: boolean;
+    /** The most characters the field takes. Typed or pasted text past it is dropped. */
+    maxLength?: number;
   };
 
 const NOMINAL_EXIT_KEYS = ["Escape", "Enter"];
@@ -110,6 +112,20 @@ export const edit = (id: string, options?: AsyncEditOptions): void => {
 
 const getInnerText = (el: HTMLElement): string => el.innerText.trim();
 
+// Input lands before the caret, so the characters past the limit are the ones just
+// before it.
+const dropOverflow = (el: HTMLElement, maxLength: number): void => {
+  const text = el.textContent;
+  const overflow = text.length - maxLength;
+  if (overflow <= 0) return;
+  const selection = window.getSelection();
+  const caret =
+    selection?.focusNode === el.firstChild ? selection.focusOffset : text.length;
+  const kept = Math.max(caret - overflow, 0);
+  el.textContent = text.slice(0, kept) + text.slice(kept + overflow);
+  if (el.firstChild != null) selection?.collapse(el.firstChild, kept);
+};
+
 /**
  * Text that turns into a field in place. Commits on Enter or blur, reverts on Escape.
  * Give it an id to drive it from elsewhere with {@link edit}.
@@ -124,6 +140,8 @@ export const Editable = ({
   allowEmpty = false,
   style,
   outline = true,
+  maxLength,
+  onInput,
   highlight,
   ...rest
 }: EditableProps): ReactElement => {
@@ -264,6 +282,11 @@ export const Editable = ({
       }}
       onKeyDown={handleKeyDown}
       onKeyUp={handleKeyUp}
+      onInput={(e) => {
+        if (maxLength != null && !e.nativeEvent.isComposing)
+          dropOverflow(e.currentTarget, maxLength);
+        onInput?.(e);
+      }}
       onDoubleClick={handleDoubleClick}
       contentEditable={editable}
       suppressContentEditableWarning
@@ -293,6 +316,7 @@ export const MaybeEditable = ({
   disabled = false,
   value,
   allowDoubleClick,
+  maxLength,
   ...rest
 }: MaybeEditableProps): ReactElement => {
   if (disabled || onChange == null || onChange === false)
@@ -302,6 +326,7 @@ export const MaybeEditable = ({
   return (
     <Editable
       allowDoubleClick={allowDoubleClick}
+      maxLength={maxLength}
       onChange={onChange}
       value={value}
       {...rest}

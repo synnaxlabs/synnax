@@ -9,7 +9,13 @@
 
 import { describe, expect, it } from "vitest";
 
-import { channels, filename, MAX_LABEL_LENGTH, term } from "@/server/license/limits";
+import {
+  channels,
+  filename,
+  MAX_LABEL_LENGTH,
+  MAX_NAME_LENGTH,
+  term,
+} from "@/server/license/limits";
 import { LICENSE } from "@/server/license/testutil";
 
 describe("limits", () => {
@@ -35,8 +41,10 @@ describe("limits", () => {
       expect(filename("Test rig", null)).toBe("Test-rig.lic");
     });
 
-    it("should keep the name of a long label under the file system limit", () => {
-      expect(filename("x".repeat(MAX_LABEL_LENGTH), "Stand").length).toBeLessThan(255);
+    it("should keep a long label and its machine under the file system limit", () => {
+      const name = filename("x".repeat(MAX_LABEL_LENGTH), "y".repeat(MAX_NAME_LENGTH));
+      expect(name.length).toBeLessThan(255);
+      expect(name).toContain("y".repeat(MAX_NAME_LENGTH));
     });
   });
 
